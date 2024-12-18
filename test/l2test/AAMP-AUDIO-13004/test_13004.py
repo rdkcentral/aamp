@@ -23,9 +23,11 @@
 
 import os
 import pytest
+import re
 
 from inspect import getsourcefile
 
+archive_url = "https://cpetestutility.stb.r53.xcal.tv/AAMP/simlinear/aamptest/streams/simlinear/SkyWitness/30t-after-fix/skywitness-30t-after-fix.zip"
 
 TESTDATA1 = {
      "title": f"Test multi audio profile",
@@ -102,7 +104,33 @@ TESTDATA2 = {
      ]
 }
 
-TESTDATA = [TESTDATA1,TESTDATA2]
+TESTDATA3 = {
+    "title": "Test case to validate availableAudioTracks",
+    "max_test_time_seconds": 30,
+    "archive_url": archive_url,
+    "url":"v1/frag/bmff/enc/cenc/t/SKWITHD_HD_SU_SKYUK_4066_0_6112559918033517163.mpd",
+    "simlinear_type": "DASH",
+    "aamp_cfg": f"info=true\nprogress=true\n",
+    "expect_list": [
+        {"expect": re.escape("Successfully parsed Manifest ...IsLive[1]")},
+        {"cmd":"get 20"},
+	{"expect": r"AVAILABLE AUDIO TRACKS"},
+        {"expect": "\"name\":\t\"root_audio111\","},
+        {"expect": "\"language\":\t\"en\","},
+        {"expect": "\"codec\":\t\"ec-3\","},
+        {"expect": "\"rendition\":\t\"alternate\","},
+        {"expect": "\"accessibilityType\":\t\"description\","},
+        {"expect": "\"bandwidth\":\t117600,"},
+        {"expect": "\"Type\":\t\"audio_description\","},
+        {"expect": "\"default\":\tfalse,"},
+	{"expect": "\"availability\":\ttrue,"},
+	{"expect": "\"accessibility\":\t{"},
+	{"expect": "\"scheme\":\t\"urn:mpeg:dash:role:2011\","},
+	{"expect": "\"string_value\":\t\"description\""},
+    ]
+}
+
+TESTDATA = [TESTDATA1,TESTDATA2,TESTDATA3]
 @pytest.fixture(params=TESTDATA)
 def test_data(request):
     return request.param

@@ -10097,9 +10097,21 @@ void PrivateInstanceAAMP::SetPreCacheDownloadList(PreCacheUrlList &dnldListInput
 	}
 }
 
-static void AddAccessibilityNodeToObject(cJSON *obj, const Accessibility &node )
+/**
+ * @brief Add an Accessibility node to a cJSON object.
+ *
+ * This function adds an Accessibility node to a given cJSON object. The scheme key name is specified
+ * by the `schemeKey` parameter to address different naming conventions used in different contexts.
+ * For example, "schemeId" is used for GetPreferredAudioProperties and GetPreferredTextProperties,
+ * while "scheme" is used for GetAvailableAudioTracks,GetAudioTrackInfo,GetTextTrackInfo ,GetAvailableTextTracks.
+ *
+ * @param obj The cJSON object to which the Accessibility node will be added.
+ * @param node The Accessibility node to be added.
+ * @param schemeKey The key name for the scheme (e.g., "schemeId" or "scheme").
+ */
+static void AddAccessibilityNodeToObject(cJSON *obj, const Accessibility &node,const std::string &schemeKey)
 {
-	cJSON_AddStringToObject( obj, "schemeId", node.getSchemeId().c_str());
+	cJSON_AddStringToObject( obj, schemeKey.c_str(), node.getSchemeId().c_str());
 	int ival = node.getIntValue();
 	if( ival>=0 )
 	{ // property has non-negative integer value
@@ -10141,7 +10153,7 @@ std::string PrivateInstanceAAMP::GetPreferredTextProperties()
 	if(!preferredTextAccessibilityNode.getSchemeId().empty())
 	{
 		cJSON *accessibility = cJSON_AddObjectToObject(item, "preferred-text-accessibility");
-		AddAccessibilityNodeToObject( accessibility, preferredTextAccessibilityNode );
+		AddAccessibilityNodeToObject( accessibility, preferredTextAccessibilityNode,"schemeId");
 	}
 	char *jsonStr = cJSON_Print(item);
 	if (jsonStr)
@@ -10185,7 +10197,7 @@ std::string PrivateInstanceAAMP::GetPreferredAudioProperties()
 	if(!preferredAudioAccessibilityNode.getSchemeId().empty())
 	{
 		cJSON * accessibility = cJSON_AddObjectToObject(item, "preferred-audio-accessibility");
-		AddAccessibilityNodeToObject( accessibility, preferredAudioAccessibilityNode );
+		AddAccessibilityNodeToObject( accessibility, preferredAudioAccessibilityNode,"schemeId");
 	}
 	char *jsonStr = cJSON_Print(item);
 	if (jsonStr)
@@ -10364,7 +10376,7 @@ std::string PrivateInstanceAAMP::GetAvailableAudioTracks(bool allTrack)
 					if (!iter->accessibilityItem.getSchemeId().empty())
 					{
 						cJSON *accessibility = cJSON_AddObjectToObject(item, "accessibility");
-						AddAccessibilityNodeToObject( accessibility, iter->accessibilityItem );
+						AddAccessibilityNodeToObject( accessibility, iter->accessibilityItem,"scheme");
 					}
 				}
 				char *jsonStr = cJSON_Print(root);
@@ -10459,7 +10471,7 @@ std::string PrivateInstanceAAMP::GetAvailableTextTracks(bool allTrack)
 					if (!iter->accessibilityItem.getSchemeId().empty())
 					{
 						cJSON *accessibility = cJSON_AddObjectToObject(item, "accessibility");
-						AddAccessibilityNodeToObject( accessibility, iter->accessibilityItem );
+						AddAccessibilityNodeToObject( accessibility, iter->accessibilityItem,"scheme");
 					}
 				}
 				char *jsonStr = cJSON_Print(root);
@@ -10770,7 +10782,7 @@ std::string PrivateInstanceAAMP::GetAudioTrackInfo()
 				if (!trackInfo.accessibilityItem.getSchemeId().empty())
 				{
 					cJSON *accessibility = cJSON_AddObjectToObject(item, "accessibility");
-					AddAccessibilityNodeToObject( accessibility, trackInfo.accessibilityItem );
+					AddAccessibilityNodeToObject( accessibility, trackInfo.accessibilityItem,"scheme");
 				}
 				char *jsonStr = cJSON_Print(root);
 				if (jsonStr)
@@ -10874,7 +10886,7 @@ std::string PrivateInstanceAAMP::GetTextTrackInfo()
 				if (!trackInfo.accessibilityItem.getSchemeId().empty())
 				{
 					cJSON *accessibility = cJSON_AddObjectToObject(item, "accessibility");
-					AddAccessibilityNodeToObject( accessibility, trackInfo.accessibilityItem );
+					AddAccessibilityNodeToObject( accessibility, trackInfo.accessibilityItem,"scheme");
 				}
 				char *jsonStr = cJSON_Print(root);
 				if (jsonStr)
@@ -10941,7 +10953,7 @@ static char* createJsonData(TextTrackInfo& track)
 	if (!track.accessibilityItem.getSchemeId().empty())
 	{
 		cJSON *accessibility = cJSON_AddObjectToObject(item, "accessibility");
-		AddAccessibilityNodeToObject( accessibility, track.accessibilityItem );
+		AddAccessibilityNodeToObject( accessibility, track.accessibilityItem ,"scheme");
 	}
 
 	jsonStr = cJSON_Print(item);
