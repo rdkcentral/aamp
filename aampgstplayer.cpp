@@ -1250,7 +1250,10 @@ static gboolean ProgressCallbackOnTimeout(gpointer user_data)
 	{
 		UsingPlayerId playerId( _this->aamp->mPlayerId );
 		
-		MonitorAV(_this);
+		if( _this->aamp->mConfig->IsConfigSet(eAAMPConfig_MonitorAV) )
+		{
+			MonitorAV(_this);
+		}
 		
 		for (int i = 0; i < AAMP_TRACK_COUNT; i++)
 		{
@@ -2878,7 +2881,7 @@ static int AAMPGstPlayer_SetupStream(AAMPGstPlayer *_this, AampMediaType streamI
 #else
 	flags = GST_PLAY_FLAG_VIDEO | GST_PLAY_FLAG_AUDIO | GST_PLAY_FLAG_NATIVE_AUDIO | GST_PLAY_FLAG_NATIVE_VIDEO;
 #endif
-	if(_this->aamp->mConfig->IsConfigSet(eAAMPConfig_NoNativeAV))
+	if((eAAMPConfig_NoNativeAV))
 	{
 		flags = GST_PLAY_FLAG_VIDEO | GST_PLAY_FLAG_AUDIO | GST_PLAY_FLAG_SOFT_VOLUME;
 	}

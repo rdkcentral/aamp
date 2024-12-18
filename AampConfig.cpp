@@ -377,6 +377,7 @@ static const ConfigLookupEntryBool mConfigLookupTableBool[AAMPCONFIG_BOOL_COUNT]
 	{false, "forceMultiPeriodDiscontinuity", eAAMPConfig_ForceMultiPeriodDiscontinuity, false},
 	{false, "forceLLDFlow", eAAMPConfig_ForceLLDFlow, false},
 	{false, "noNativeAV", eAAMPConfig_NoNativeAV, true},
+	{false, "monitorAV", eAAMPConfig_MonitorAV, true},
 };
 
 #define CONFIG_INT_ALIAS_COUNT 2
