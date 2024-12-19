@@ -7528,7 +7528,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, 
 						if (blAdaptationIdxs.find(idx) == blAdaptationIdxs.end() && mMPDParseHelper->IsContentType(adaptationSets[idx], eMEDIATYPE_VIDEO))
 						{
 							// count iframe/video representations based on trickplay for allocating streamInfo.
-							bool selected = trickplayMode ? IsIframeTrack(adaptationSets[idx]) : !IsIframeTrack(adaptationSets[idx]);
+							bool selected = UseIframeTrack() ? IsIframeTrack(adaptationSets[idx]) : !IsIframeTrack(adaptationSets[idx]);
 							if (selected)
 							{
 								representationCount += adaptationSets[idx]->GetRepresentation().size();
@@ -7826,7 +7826,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, 
 				{
 					if(i == eMEDIATYPE_VIDEO)
 					{
-						if(trickplayMode)
+						if(UseIframeTrack())
 						{
 							if (iframeBitrate > 0)
 							{
@@ -13919,4 +13919,22 @@ void StreamAbstractionAAMP_MPD::InitializeWorkers()
 			mTrackWorkers.push_back(aamp_utils::make_unique<aamp::AampTrackWorker>(aamp, static_cast<AampMediaType>(i)));
 		}
 	}
+}
+
+/**
+ * @fn UseIframeTrack
+ * @brief Check if AAMP is using an iframe track
+ *
+ * @return true if AAMP is using an iframe track, false otherwise
+ */
+bool StreamAbstractionAAMP_MPD::UseIframeTrack(void)
+{
+	bool useIframe = trickplayMode;
+	/* If using AAMP Local TSB and IFrame track extraction is enabled, iframe are extracted from the video track stored
+	in TSB instead of the iframe track. */
+	if (aamp->IsLocalAAMPTsb() && aamp->IsIframeExtractionEnabled())
+	{
+		useIframe = false;
+	}
+	return useIframe;
 }

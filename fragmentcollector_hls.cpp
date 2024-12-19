@@ -1245,7 +1245,7 @@ bool TrackState::FetchFragmentHelper(int &http_error, bool &decryption_error, bo
 		http_error = 0;
 		bool bSegmentRepeated = false;
 		AcquirePlaylistLock();
-		if (context->trickplayMode && ABRManager::INVALID_PROFILE != context->GetIframeTrack())
+		if (context->UseIframeTrack() && ABRManager::INVALID_PROFILE != context->GetIframeTrack())
 		{
 			// Note :: only for IFrames , there is a possibility of same segment getting downloaded again
 			// Target of next download is not based on segment duration but fixed interval .

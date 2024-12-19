@@ -1365,6 +1365,15 @@ public:
 	 *   @return true if limit reached, false otherwise
 	 */
 	bool CheckForRampDownLimitReached();
+
+	/**
+	 * @fn UseIframeTrack
+	 * @brief Check if AAMP is using an iframe track
+	 *
+	 * @return true if AAMP is using an iframe track, false otherwise
+	 */
+	virtual bool UseIframeTrack(void) { return trickplayMode; }
+
 	bool trickplayMode;                     /**< trick play flag to be updated by subclasses*/
 	int currentProfileIndex;                /**< current Video profile index of the track*/
 	int currentAudioProfileIndex;           /**< current Audio profile index of the track*/

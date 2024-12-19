@@ -525,6 +525,14 @@ public:
 	 ***************************************************************************/
 	void UpdateSeekPeriodOffset( double &offsetFromStart );
 
+	/**
+	 * @fn UseIframeTrack
+	 * @brief Check if AAMP is using an iframe track
+	 *
+	 * @return true if AAMP is using an iframe track, false otherwise
+	 */
+	bool UseIframeTrack(void) override;
+
 protected:
 	/**
 	 * @fn GetStartAndDurationForPtsRestamping

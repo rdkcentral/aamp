@@ -236,3 +236,8 @@ void StreamAbstractionAAMP_MPD::RefreshTrack(AampMediaType type)
 void StreamAbstractionAAMP_MPD::CheckAdResolvedStatus(AdNodeVectorPtr &ads, int adIdx, const std::string &periodId)
 {
 }
+
+bool StreamAbstractionAAMP_MPD::UseIframeTrack(void)
+{
+	return true;
+}
