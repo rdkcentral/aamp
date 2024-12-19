@@ -998,6 +998,8 @@ bool StreamAbstractionAAMP_MPD::FetchFragment(MediaStreamContext *pMediaStreamCo
 				pMediaStreamContext->fragmentTime = 0;
 			}
 		}
+		// We are moving to next fragment, so mark retval as true even though the fragment download fail
+		retval = true;
 	}
 	return retval;
 }
