@@ -20,8 +20,10 @@ function tools_arch_fn ()
     if [[ "${OSTYPE}" == "darwin"* ]]; then    
         ARCH=$(uname -m)
         if [[ ${ARCH} == "x86_64" ]]; then
+            export DYLD_LIBRARY_PATH=/usr/local/lib:$DYLD_LIBRARY_PATH
             echo "${ARCH}"
         elif [[ ${ARCH} == "arm64" ]]; then
+            export DYLD_LIBRARY_PATH=/opt/homebrew/lib:$DYLD_LIBRARY_PATH
             echo "${ARCH}"
         else
             echo "Achitecture $ARCH is unsupported"

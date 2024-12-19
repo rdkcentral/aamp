@@ -73,14 +73,6 @@ def junit_to_json(xml_file, json_file):
 def install_python_packages():
     print("install_python_packages")
     # Installing additional python test packages
-    if os.path.isfile("requirements.txt"):
-        print("Have requirements.txt")
-    else:
-        print("Generating requirements.txt")
-        ret = subprocess.run('pipreqs --mode gt --force --ignore l2venv .', shell=True)
-        if ret.returncode:
-            print("ERROR pipreqs failed")
-            exit(1)
 
     if os.path.isfile("requirements.txt"):
         print("Installing packages from requirements.txt")
