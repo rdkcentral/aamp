@@ -66,6 +66,11 @@ public:
 	{
 		SwitchSubtitleTrack(newTune);
 	}
+	AAMPStatusType PublicIndexNewMPDDocument(bool updateTrackInfo = false)
+	{
+		return IndexNewMPDDocument(updateTrackInfo);
+	}
+
 };
 class SubtitleTrackTests : public ::testing::Test
 {
@@ -81,6 +86,10 @@ public:
 	void CallSwitchSubtitleTrack(bool newTune)
 	{
 		mStreamAbstractionAAMP_MPD->PublicSwitchSubtitleTrack(newTune);
+	}
+	AAMPStatusType CallIndexNewMPDDocument(bool updateTrackInfo = false)
+	{
+		return mStreamAbstractionAAMP_MPD->PublicIndexNewMPDDocument(updateTrackInfo);
 	}
 
 	PrivateInstanceAAMP *mPrivateInstanceAAMP;
@@ -451,4 +460,78 @@ TEST_F(SubtitleTrackTests, RefreshTrack)
 	EXPECT_EQ(pMediaStreamContext->refreshSubtitles,false);
 	CallRefreshTrack(eMEDIATYPE_SUBTITLE);
 	EXPECT_EQ(pMediaStreamContext->refreshSubtitles,true);
+}
+
+TEST_F(SubtitleTrackTests, SkipSubtitleFetchTests)
+{
+	std::string fragmentUrl;
+	AAMPStatusType status;
+	static const char *manifest =
+	R"(<?xml version="1.0" encoding="utf-8"?>
+<MPD xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xmlns="urn:mpeg:dash:schema:mpd:2011"
+	xmlns:xlink="http://www.w3.org/1999/xlink"
+	xsi:schemaLocation="urn:mpeg:DASH:schema:MPD:2011 http://standards.iso.org/ittf/PubliclyAvailableStandards/MPEG-DASH_schema_files/DASH-MPD.xsd"
+	profiles="urn:mpeg:dash:profile:isoff-live:2011"
+	type="static"
+	mediaPresentationDuration="PT15M0.0S"
+	minBufferTime="PT4.0S">
+	<ProgramInformation>
+	</ProgramInformation>
+	<Period id="0" start="PT0.0S">
+		<AdaptationSet id="0" contentType="video" segmentAlignment="true" bitstreamSwitching="true" lang="und">
+			<Representation id="0" mimeType="video/mp4" codecs="avc1.4d4028" bandwidth="5000000" width="1920" height="1080" frameRate="25/1">
+				<SegmentTemplate timescale="12800" initialization="dash/1080p_init.m4s" media="dash/1080p_$Number%03d$.m4s" startNumber="1">
+					<SegmentTimeline>
+						<S t="0" d="25600" r="449" />
+					</SegmentTimeline>
+				</SegmentTemplate>
+			</Representation>
+	</AdaptationSet>
+		<AdaptationSet id="3" contentType="audio" segmentAlignment="true" bitstreamSwitching="true" lang="ger">
+            <Role schemeIdUri="urn:mpeg:dash:role:2011" value="german" />
+			<Representation id="5" mimeType="audio/mp4" codecs="mp4a.40.2" bandwidth="288000" audioSamplingRate="48000">
+				<AudioChannelConfiguration schemeIdUri="urn:mpeg:dash:23003:3:audio_channel_configuration:2011" value="1" />
+				<SegmentTemplate timescale="48000" initialization="dash/de_init.m4s" media="dash/de_$Number%03d$.mp3" startNumber="1">
+					<SegmentTimeline>
+						<S t="0" d="95232" />
+						<S d="96256" r="447" />
+						<S d="30080" />
+					</SegmentTimeline>
+				</SegmentTemplate>
+			</Representation>
+		</AdaptationSet>
+		<AdaptationSet id="12" contentType="text" segmentAlignment="true" bitstreamSwitching="true" lang="ger">
+            <Role schemeIdUri="urn:mpeg:dash:role:2011" value="caption"/>
+			<Representation id="Germany TTML captions" mimeType="application/mp4" codecs="stpp" bandwidth="400">
+				<SegmentTemplate timescale="48000" media="dash/ttml_de_$Number%03d$.mp4" startNumber="1">
+					<SegmentTimeline>
+						<S t="0" d="95232" />
+						<S d="96256" r="447" />
+						<S d="30080" />
+					</SegmentTimeline>
+				</SegmentTemplate>
+			</Representation>
+		</AdaptationSet>
+	</Period>
+</MPD>
+)";
+	EXPECT_CALL(*g_mockMediaStreamContext,CacheFragment(_, _, _, _, _, true, _, _, _, _, _))
+        .Times(2);//init segment is  available for audio and video so set to true
+	EXPECT_CALL(*g_mockMediaStreamContext,CacheFragment(_, _, _, _, _, false, _, _, _, _, _))
+        .Times(1);//init segment is not available for subtitle so set to false
+
+	status = InitializeMPD(manifest);
+	EXPECT_EQ(status, eAAMPSTATUS_OK);
+	MediaTrack *track = mStreamAbstractionAAMP_MPD->GetMediaTrack(eTRACK_SUBTITLE);
+	EXPECT_NE(track, nullptr);
+	MediaStreamContext *pMediaStreamContext = static_cast<MediaStreamContext *>(track);
+	CallIndexNewMPDDocument(true);
+	mStreamAbstractionAAMP_MPD->PushNextFragment(pMediaStreamContext,eCURLINSTANCE_SUBTITLE);
+	pMediaStreamContext->freshManifest=true;
+	//when skipfetch sets to true, fetchfragment will be avoided
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, eCURLINSTANCE_SUBTITLE, _,_, _, _, _, _, _, _, _))
+				.Times(0);
+	CallSwitchSubtitleTrack(true);
+
 }

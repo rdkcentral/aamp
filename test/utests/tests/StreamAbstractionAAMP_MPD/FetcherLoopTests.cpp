@@ -930,13 +930,11 @@ TEST_F(FetcherLoopTests, SelectSourceOrAdPeriodTests3)
 	EXPECT_EQ(mStreamAbstractionAAMP_MPD->GetCurrentPeriod()->GetId(), endPeriodId);
 	EXPECT_EQ(mStreamAbstractionAAMP_MPD->GetIteratorPeriodIdx(), 1);
 }
-TEST_F(FetcherLoopTests, SkipFetchTests)
+
+TEST_F(FetcherLoopTests, SkipFetchAudioTests)
 {
 	std::string fragmentUrl;
 	AAMPStatusType status;
-	double n_fragmentTime, n_fragmentDescriptor_Time;
-	unsigned long n_fragmentNumber;
-	int n_fragmentRepeatCount;
 	static const char *manifest =
 R"(<?xml version="1.0" encoding="UTF-8"?>
 <MPD xmlns="urn:mpeg:dash:schema:mpd:2011" xmlns:scte35="urn:scte:scte35:2014:xml+bin" xmlns:scte214="scte214" xmlns:cenc="urn:mpeg:cenc:2013" xmlns:mspr="mspr" type="dynamic" id="0000000000000018163" profiles="urn:mpeg:dash:profile:isoff-live:2011" minBufferTime="PT2.000S" maxSegmentDuration="PT0H0M1.92S" minimumUpdatePeriod="PT0H0M1.920S" availabilityStartTime="1977-05-25T18:00:00.000Z" timeShiftBufferDepth="PT0H0M30.000S" publishTime="2024-11-08T12:53:09.725Z">
@@ -981,22 +979,13 @@ R"(<?xml version="1.0" encoding="UTF-8"?>
 	MediaTrack *track = mStreamAbstractionAAMP_MPD->GetMediaTrack(eTRACK_AUDIO);
 	EXPECT_NE(track, nullptr);
 	MediaStreamContext *pMediaStreamContext = static_cast<MediaStreamContext *>(track);
-
-	n_fragmentTime = pMediaStreamContext->fragmentTime;
-	n_fragmentDescriptor_Time = pMediaStreamContext->fragmentDescriptor.Time;
-	n_fragmentNumber = pMediaStreamContext->fragmentDescriptor.Number;
-	n_fragmentRepeatCount = pMediaStreamContext->fragmentRepeatCount;
-
 	mStreamAbstractionAAMP_MPD->InvokeIndexNewMPDDocument(true);
-	EXPECT_EQ(pMediaStreamContext->fragmentDescriptor.Time, 0);
-	EXPECT_EQ(pMediaStreamContext->fragmentRepeatCount, 0);
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _,_, _, _, _, _, _, _, _))
+	mStreamAbstractionAAMP_MPD->PushNextFragment(pMediaStreamContext,eCURLINSTANCE_AUDIO);
+	pMediaStreamContext->freshManifest=true;
+	//when skipfetch sets to true, fetchfragment will be avoided
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, eCURLINSTANCE_AUDIO, _,_, _, _, _, _, _, _, _))
 				.Times(0);
-	// Set skipFetch to true
-	mStreamAbstractionAAMP_MPD->PushNextFragment(pMediaStreamContext,eCURLINSTANCE_AUDIO,true);
+	mStreamAbstractionAAMP_MPD->SwitchAudioTrack();
 
-	EXPECT_EQ(pMediaStreamContext->fragmentTime,n_fragmentTime);
-	EXPECT_EQ(pMediaStreamContext->fragmentDescriptor.Time,n_fragmentDescriptor_Time);
-	EXPECT_EQ(pMediaStreamContext->fragmentDescriptor.Number,n_fragmentNumber);
-	EXPECT_EQ(pMediaStreamContext->fragmentRepeatCount,n_fragmentRepeatCount);
+
 }

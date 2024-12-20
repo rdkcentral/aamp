@@ -6907,7 +6907,7 @@ void StreamAbstractionAAMP_MPD::SwitchAudioTrack()
 		* pMediaStreamContext->fragmentTime, pMediaStreamContext->fragmentDescriptor.Number and pMediaStreamContext->fragmentDescriptor.Time
 		*/
 		AAMPLOG_INFO("Manifest got updated[%u]",pMediaStreamContext->freshManifest);
-		PushNextFragment(pMediaStreamContext, getCurlInstanceByMediaType(static_cast<AampMediaType>(eMEDIATYPE_AUDIO)));
+		PushNextFragment(pMediaStreamContext, getCurlInstanceByMediaType(static_cast<AampMediaType>(eMEDIATYPE_AUDIO)),true);
 	}
 	/* Switching to selected Audio Track */
 	SelectAudioTrack(aTracks,aTrackIdx,audioAdaptationSetIndex,audioRepresentationIndex);
