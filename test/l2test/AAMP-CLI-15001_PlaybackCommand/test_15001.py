@@ -284,7 +284,7 @@ TESTDATA5 = {
         {"cmd": 'stop'},
 
         # auto command to run all 3 streams for 10 seconds each
-        {"cmd": 'auto 1 3 5 10 5'},
+        {"cmd": 'auto 1 4 5 10 5'},
         {"expect": r"\[AAMPCLI\]\ channel number: 1"},
         {"expect": r"\[StopInternal\]\[\d+]aamp_stop PlayerState=8"},
         {"expect": r"\[AAMPCLI\]\ channel number: 2"},

@@ -2039,9 +2039,14 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 							{
 								setNextobjectrequestUrl(nextsegmentURL->GetMediaURI(),&pMediaStreamContext->fragmentDescriptor,AampMediaType(pMediaStreamContext->type));
 							}
-							if(!pMediaStreamContext->CacheFragment(fragmentUrl, curlInstance, pMediaStreamContext->fragmentTime, 0.0, segmentURL->GetMediaRange().c_str() ))
+							double fragmentDurationS = ComputeFragmentDuration(segmentList->GetDuration(), segmentList->GetTimescale());
+							if( pMediaStreamContext->CacheFragment(fragmentUrl, curlInstance, pMediaStreamContext->fragmentTime, fragmentDurationS, segmentURL->GetMediaRange().c_str() ) )
 							{
-								AAMPLOG_TRACE("StreamAbstractionAAMP_MPD: did not cache fragmentUrl %s fragmentTime %f", fragmentUrl.c_str(), pMediaStreamContext->fragmentTime);
+								pMediaStreamContext->fragmentTime += fragmentDurationS;
+							}
+							else
+							{
+								AAMPLOG_WARN("StreamAbstractionAAMP_MPD: did not cache fragmentUrl %s fragmentTime %f", fragmentUrl.c_str(), pMediaStreamContext->fragmentTime);
 							}
 						}
 						else //We are procesing the custom segment list provided by Fog for DASH TSB
