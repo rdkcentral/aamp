@@ -3053,8 +3053,8 @@ void AAMPGstPlayer::SendNewSegmentEvent(AampMediaType mediaType, GstClockTime st
 		segment.applied_rate = (mediaType == eMEDIATYPE_VIDEO) ? privateContext->rate : AAMP_NORMAL_PLAY_RATE;
 		if(stopPts)
 		{
- 			segment.stop = stopPts;
- 		}
+			segment.stop = stopPts;
+		}
 
 		AAMPLOG_INFO("Sending segment event for mediaType[%d]. start %" G_GUINT64_FORMAT " stop %" G_GUINT64_FORMAT" rate %f applied_rate %f", mediaType, segment.start, segment.stop, segment.rate, segment.applied_rate);
 		GstEvent* event = gst_event_new_segment (&segment);
@@ -3147,11 +3147,11 @@ bool AAMPGstPlayer::SendHelper(AampMediaType mediaType, const void *ptr, size_t 
 			SendGstEvents(eMEDIATYPE_AUX_AUDIO, pts);
 		}
 
- 		if (!aamp->mbNewSegmentEvtSent[mediaType] || (mediaType == eMEDIATYPE_VIDEO && aamp->rate != AAMP_NORMAL_PLAY_RATE))
+		if (!aamp->mbNewSegmentEvtSent[mediaType] || (mediaType == eMEDIATYPE_VIDEO && aamp->rate != AAMP_NORMAL_PLAY_RATE))
 		{
 			SendNewSegmentEvent(mediaType, pts, 0);
 			aamp->mbNewSegmentEvtSent[mediaType] = true;
- 		}
+		}
 		AAMPLOG_DEBUG("mediaType[%d] SendGstEvents - first buffer received !!! initFragment: %d, pts: %" G_GUINT64_FORMAT, mediaType, initFragment, pts);
 
 	}
@@ -5393,10 +5393,10 @@ bool AAMPGstPlayer::SetPlayBackRate ( double rate )
 	{
 		if (platform == ePLATFORM_REALTEK || platform == ePLATFORM_AMLOGIC)
 		{
- 			AAMPLOG_MIL("AAMPGstPlayer: =send custom-instant-rate-change : %f ...", rate);
+			AAMPLOG_MIL("AAMPGstPlayer: =send custom-instant-rate-change : %f ...", rate);
 			GstStructure *structure = gst_structure_new("custom-instant-rate-change", "rate", G_TYPE_DOUBLE, rate, NULL);
 			if (!structure)
- 			{
+			{
 				AAMPLOG_ERR("AAMPGstPlayer: Failed to create custom-instant-rate-change structure");
 				return false;
 			}

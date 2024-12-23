@@ -79,8 +79,8 @@ typedef enum
 	eCONFIG_RANGE_ABSOLUTE_REPORTING, // eABSOLUTE_PROGRESS_EPOCH..eABSOLUTE_PROGRESS_MAX
 	eCONFIG_RANGE_LLDBUFFER, // 1 to 100 LLD buffer
 	eCONFIG_RANGE_PLATFORM_TYPES, // 0..3
- 	eCONFIG_RANGE_SHOW_DIAGNOSTICS_OVERLAY,//0 to 2
- 	eCONFIG_RANGE_MAX_VALUE,
+	eCONFIG_RANGE_SHOW_DIAGNOSTICS_OVERLAY,//0 to 2
+	eCONFIG_RANGE_MAX_VALUE,
 } ConfigValidRange;
 #define CONFIG_RANGE_ENUM_COUNT (eCONFIG_RANGE_MAX_VALUE)
 
@@ -120,8 +120,8 @@ static const struct
 	{eABSOLUTE_PROGRESS_EPOCH, eABSOLUTE_PROGRESS_MAX, eCONFIG_RANGE_ABSOLUTE_REPORTING},
 	{ 1, 100, eCONFIG_RANGE_LLDBUFFER }, /** Minimum buffer should be a avarage chunk size(only int is possible), upper limit does not have much impact*/
 	{0, 3, eCONFIG_RANGE_PLATFORM_TYPES},
- 	{ eDIAG_OVERLAY_NONE, eDIAG_OVERLAY_EXTENDED, eCONFIG_RANGE_SHOW_DIAGNOSTICS_OVERLAY},
- };
+	{ eDIAG_OVERLAY_NONE, eDIAG_OVERLAY_EXTENDED, eCONFIG_RANGE_SHOW_DIAGNOSTICS_OVERLAY},
+};
 
 static ConfigPriority customOwner;
 /**
@@ -473,9 +473,9 @@ static const ConfigLookupEntryInt mConfigLookupTableInt[AAMPCONFIG_INT_COUNT+CON
 	{DEFAULT_AD_FULFILLMENT_TIMEOUT,"adFulfillmentTimeout",eAAMPConfig_AdFulfillmentTimeout,true},
 	{MAX_AD_FULFILLMENT_TIMEOUT,"adFulfillmentTimeoutMax",eAAMPConfig_AdFulfillmentTimeoutMax,true},
 	{DEFAULT_BUFFERING_QUEUED_FRAMES_MIN,"queuedFrames",eAAMPConfig_RequiredQueuedFrames,false},
- 	{ePLATFORM_DEFAULT, "platformType", eAAMPConfig_PlatformType, true, eCONFIG_RANGE_PLATFORM_TYPES},	
- 	{eDIAG_OVERLAY_NONE,"showDiagnosticsOverlay",eAAMPConfig_ShowDiagnosticsOverlay,true, eCONFIG_RANGE_SHOW_DIAGNOSTICS_OVERLAY },
- 	// aliases, kept for backwards compatibility
+	{ePLATFORM_DEFAULT, "platformType", eAAMPConfig_PlatformType, true, eCONFIG_RANGE_PLATFORM_TYPES},
+	{eDIAG_OVERLAY_NONE,"showDiagnosticsOverlay",eAAMPConfig_ShowDiagnosticsOverlay,true, eCONFIG_RANGE_SHOW_DIAGNOSTICS_OVERLAY },
+	// aliases, kept for backwards compatibility
 	{DEFAULT_INIT_BITRATE,"defaultBitrate",eAAMPConfig_DefaultBitrate,true },
 	{DEFAULT_INIT_BITRATE_4K,"defaultBitrate4K",eAAMPConfig_DefaultBitrate4K,true },
 };

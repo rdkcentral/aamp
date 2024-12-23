@@ -9924,7 +9924,6 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 		}
 	} // Loop 1
 	while (!exitFetchLoop);
-
 	AAMPLOG_MIL("FetcherLoop done");
 }
 
@@ -11599,12 +11598,12 @@ void StreamAbstractionAAMP_MPD::CheckAdResolvedStatus(AdNodeVectorPtr &ads, int 
 		if (!ads->at(adIdx).resolved)
 		{
 			AAMPLOG_INFO("[CDAI]: AdIdx[%d] in the AdBreak[%s] is not resolved yet. Waiting for %d ms.", adIdx, ads->at(adIdx).basePeriodId.c_str(), waitTimeMs);
- 			if (!waitForAdResolution(waitTimeMs))
- 			{
+			if (!waitForAdResolution(waitTimeMs))
+			{
 				AAMPLOG_INFO("[CDAI]: AdIdx[%d] in the AdBreak[%s] wait timed out", adIdx, ads->at(adIdx).basePeriodId.c_str());
 				ads->at(adIdx).invalid = true;
 			}
- 		}
+		}
 	}
 	else if (!periodId.empty() && mCdaiObject->isAdBreakObjectExist(periodId))
 	{

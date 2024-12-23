@@ -298,7 +298,7 @@ void  PrivateCDAIObjectMPD::PlaceAds(dash::mpd::IMPD *mpd)
 						if(nextperioddur > 0)
 						{
 							IPeriod* nextPeriod = periods.at(iter+1);
- 							if (nextPeriod)
+							if (nextPeriod)
 							{
 								// Next period was not available earlier when the adIdx was incremented, now the next period is present
 								// Move onto next period to be placed
@@ -360,7 +360,7 @@ void  PrivateCDAIObjectMPD::PlaceAds(dash::mpd::IMPD *mpd)
 										abObj.mSplitPeriod = true;
 									}
 								}
- 							}
+							}
 						}
 					}
 					while(periodDelta > 0 || isSrcdurnotequalstoaddur)
@@ -371,10 +371,10 @@ void  PrivateCDAIObjectMPD::PlaceAds(dash::mpd::IMPD *mpd)
 						{
 							mPlacementObj.adNextOffset += periodDelta;
 							if(isSrcdurnotequalstoaddur)
- 							{ // check if the current source period duration < current period ad duration and it is lest than offset factor
+							{ // check if the current source period duration < current period ad duration and it is lest than offset factor
 								AAMPLOG_INFO("nextperiod : %s with valid duration  available",periods.at(iter+1)->GetId().c_str());
 								AAMPLOG_INFO("currperioddur : [%f] curAd.duration : %" PRIu64 " periodDelta : %f mPlacementObj.adNextOffset:%u diff : %" PRIu64 ,
- 									currperioddur, curAd.duration, periodDelta, mPlacementObj.adNextOffset, (curAd.duration - mPlacementObj.adNextOffset));
+									currperioddur, curAd.duration, periodDelta, mPlacementObj.adNextOffset, (curAd.duration - mPlacementObj.adNextOffset));
 
 								currentAdPeriodClosed = true;//Player ready to  process next period
 								// This is a split period case, so we need to update nextperiod as the open period, so that we can continue placement
@@ -1529,4 +1529,3 @@ uint64_t PrivateCDAIObjectMPD::GetRemainingAdDurationInBreak(const std::string &
 	}
 	return duration;
 }
-

@@ -1000,4 +1000,3 @@ R"(<?xml version="1.0" encoding="UTF-8"?>
 	EXPECT_EQ(pMediaStreamContext->fragmentDescriptor.Number,n_fragmentNumber);
 	EXPECT_EQ(pMediaStreamContext->fragmentRepeatCount,n_fragmentRepeatCount);
 }
-
