@@ -4080,7 +4080,9 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 			}
 			progressCtx.stallTimeout = GETCONFIGVALUE_PRIV(eAAMPConfig_CurlStallTimeout);
 
-			// note: win32 curl lib doesn't support multi-part range
+			// caller must pass either NULL or a string encoding range
+			// here we add sanity check to use null instead of empty string; this avoids undefined behavior
+			if( range && *range=='\0' ) range = NULL;
 			CURL_EASY_SETOPT_STRING(curl, CURLOPT_RANGE, range);
 
 			if ((httpRespHeaders[curlInstance].type == eHTTPHEADERTYPE_COOKIE) && (httpRespHeaders[curlInstance].data.length() > 0))
