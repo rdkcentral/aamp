@@ -105,7 +105,6 @@ enum class AdEvent
 };
 
 #define OFFSET_ALIGN_FACTOR 2000 /**< Observed minor slacks in the ad durations. Align factor used to place the ads correctly. */
-#define OFFSET_SPLIT_FACTOR 5000 /**< Observed instances where single CDAI Ad is split into two source Periods. Split factor used to identify those cases. */
 
 /**
  * @struct AdNode
@@ -183,13 +182,15 @@ struct AdBreakObject{
 	uint32_t                             adsDuration;     /**< Ads' duration in the Adbreak in milliseconds*/
 	bool                                 adjustEndPeriodOffset;     /**< endPeriodOffset needs be re-adjusted or not */
 	bool                                 mAdBreakPlaced;  /**< flag marks if the adbreak is completely placed */
-	bool                                 mAdFailed; /** Current Ad playback failed flag */
+	bool                                 mAdFailed;       /** Current Ad playback failed flag */
 	bool                                 mSrcPeriodOffsetGTthreshold;/*The flag will be set if the difference between the source period and the total ad duration exceeds the 2-second threshold.*/
+	bool                                 mSplitPeriod;    /**< To identify whether the ad is split period ad or not */
+	bool                                 invalid; /**< flag marks if the adbreak is invalid or not */
 	
 	/**
 	* @brief AdBreakObject default constructor
 	*/
-	AdBreakObject() : brkDuration(0), ads(), endPeriodId(), endPeriodOffset(0), adsDuration(0), adjustEndPeriodOffset(false), mAdBreakPlaced(false), mAdFailed(false),mSrcPeriodOffsetGTthreshold(false)
+	AdBreakObject() : brkDuration(0), ads(), endPeriodId(), endPeriodOffset(0), adsDuration(0), adjustEndPeriodOffset(false), mAdBreakPlaced(false), mAdFailed(false),mSrcPeriodOffsetGTthreshold(false), mSplitPeriod(false), invalid(false)
 	{
 	}
 
@@ -204,7 +205,7 @@ struct AdBreakObject{
 	*/
 	AdBreakObject(uint32_t _duration, AdNodeVectorPtr _ads, std::string _endPeriodId,
 	uint64_t _endPeriodOffset, uint32_t _adsDuration)
-	: brkDuration(_duration), ads(_ads), endPeriodId(_endPeriodId), endPeriodOffset(_endPeriodOffset), adsDuration(_adsDuration), adjustEndPeriodOffset(false), mAdBreakPlaced(false), mAdFailed(false),mSrcPeriodOffsetGTthreshold(false)
+	: brkDuration(_duration), ads(_ads), endPeriodId(_endPeriodId), endPeriodOffset(_endPeriodOffset), adsDuration(_adsDuration), adjustEndPeriodOffset(false), mAdBreakPlaced(false), mAdFailed(false),mSrcPeriodOffsetGTthreshold(false),mSplitPeriod(false)
 	{
 	}
 };
@@ -298,11 +299,13 @@ struct PlacementObj {
 	uint64_t    curEndNumber;           /**< Current periods last fragment number */
 	int         curAdIdx;               /**< Currently placing ad, during MPD progression */
 	uint32_t    adNextOffset;           /**< Current Ad's offset to be placed in the next iteration of PlaceAds in milliseconds*/
+	uint32_t    adStartOffset;          /**< Current Ad's start offset in milliseconds, this is the position from where ad is getting placed in current period*/
+	bool        waitForNextPeriod;      /**< Flag denotes if we are waiting for the next period to be available in the current placement*/
 
 	/**
 	* @brief PlacementObj constructor
 	*/
-	PlacementObj(): pendingAdbrkId(), openPeriodId(), curEndNumber(0), curAdIdx(-1), adNextOffset(0)
+	PlacementObj(): pendingAdbrkId(), openPeriodId(), curEndNumber(0), curAdIdx(-1), adNextOffset(0), adStartOffset(0), waitForNextPeriod(false)
 	{
 
 	}
@@ -314,9 +317,11 @@ struct PlacementObj {
 	* @param curEndNumber The current period's last fragment number
 	* @param curAdIdx The index of the currently placing ad during MPD progression
 	* @param adNextOffset The current ad's offset to be placed in the next iteration of PlaceAds in milliseconds
+	* @param adStartOffset The current ad's start offset in milliseconds
 	*/
-	PlacementObj(const std::string& pendingAdbrkId, const std::string& openPeriodId, uint64_t curEndNumber, int curAdIdx, uint32_t adNextOffset)
-		: pendingAdbrkId(pendingAdbrkId), openPeriodId(openPeriodId), curEndNumber(curEndNumber), curAdIdx(curAdIdx), adNextOffset(adNextOffset)
+	PlacementObj(const std::string& pendingAdbrkId, const std::string& openPeriodId, uint64_t curEndNumber, int curAdIdx, uint32_t adNextOffset, uint32_t adStartOffset, bool waitForNextPeriod)
+			: pendingAdbrkId(pendingAdbrkId), openPeriodId(openPeriodId), curEndNumber(curEndNumber),
+			curAdIdx(curAdIdx), adNextOffset(adNextOffset), adStartOffset(adStartOffset), waitForNextPeriod(waitForNextPeriod)
 	{
 
 	}
@@ -454,6 +459,13 @@ public:
 	void PlaceAds(dash::mpd::IMPD *mpd);
 
 	/**
+	 * @brief Updates ad placement details for the next period in the MPD.
+	 * @param[in] nextPeriod next period pointer
+	 * @param[in] adStartOffset Starting offset for the ad in the next period.
+	 */
+	void UpdateNextPeriodAdPlacement(IPeriod* nextPeriod, uint32_t adStartOffset);
+
+	/**
 	 * @fn CheckForAdStart
 	 *
 	 * @param[in]  rate - Playback rate
@@ -563,6 +575,14 @@ public:
 	 * @fn AbortWaitForNextAdResolved
 	 */
 	void AbortWaitForNextAdResolved();
+
+	/**
+	 * @brief Get the ad duration of remaining ads to be placed in an adbreak
+	 * @param[in] breakId - adbreak id
+	 * @param[in] adIdx - current ad index
+	 * @param[in] startOffset - start offset of current ad
+	 */
+	uint64_t GetRemainingAdDurationInBreak(const std::string &breakId, int adIdx, uint32_t startOffset);
 };
 
 #endif /* ADMANAGER_MPD_H_ */

@@ -474,14 +474,18 @@ class SegmentList:
         """
 
         if segment_url in self.segment_url_list:
-            log.debug(f"Ignore duplicate {segment_duration} {segment_url}")
-            # Allow duplication of header segment. Since for some streams, header segments have same name for multiple periods
-            if  segment_duration > 0 :
+            log.debug(f"Potential duplicate {segment_duration} {segment_url}")
+            if segment_duration > 0:
                 return
-            # Do not add multiple header segments in the same segment group
-            for detail in self.segment_detail_list:
-                if detail["segment_url"] == segment_url and detail["profile"] == segment_group:
-                    return
+            else:
+                """
+                Header segment
+                Allow same header segment url to be added to different segment groups since
+                for some streams, header segments have same url for multiple periods
+                """
+                for detail in self.segment_detail_list:
+                    if detail["segment_url"] == segment_url and detail["profile"] == segment_group:
+                        return
 
         self.segment_url_list.append(segment_url)
 
@@ -535,11 +539,11 @@ class SegmentList:
 
         for segment_group in groups:
             attrs = self.get_attributes(segment_group)
-            log.debug("attrs %s",attrs.__str__())
+            log.info("attrs %s",attrs.__str__())
             seg_list = self.get_segments(segment_group)
-            log.debug("%s total_segments=%d listing first 5",segment_group, len(seg_list))
+            log.info("%s total_segments=%d listing first 5",segment_group, len(seg_list))
             for ent in seg_list[:5]:
-                log.debug("%s",ent)
+                log.info("%s",ent)
 
     def __iter__(self):
         """

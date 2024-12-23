@@ -372,13 +372,25 @@ gboolean gst_element_sync_state_with_parent(GstElement *element)
 GstPad *gst_element_get_static_pad(GstElement *element, const gchar *name)
 {
 	TRACE_FUNC();
-	return NULL;
+	GstPad *rtn = nullptr;
+
+	if (g_mockGStreamer != nullptr)
+	{
+		rtn = g_mockGStreamer->gst_element_get_static_pad(element, name);
+	}
+	return rtn;
 }
 
 GstEvent *gst_event_new_segment(const GstSegment *segment)
 {
 	TRACE_FUNC();
-	return NULL;
+	GstEvent *rtn = nullptr;
+
+	if (g_mockGStreamer != nullptr)
+	{
+		rtn = g_mockGStreamer->gst_event_new_segment(segment);
+	}
+	return rtn;
 }
 
 GstEvent *gst_event_new_flush_start(void)
@@ -411,18 +423,38 @@ GstEvent *gst_event_new_step (GstFormat format,
 gboolean gst_pad_push_event(GstPad *pad, GstEvent *event)
 {
 	TRACE_FUNC();
-	return FALSE;
+	bool rtn = false;
+	if (g_mockGStreamer != nullptr)
+	{
+		rtn = g_mockGStreamer->gst_pad_push_event(pad, event);
+	}
+	return rtn;
 }
 
 void gst_segment_init(GstSegment *segment, GstFormat format)
 {
 	TRACE_FUNC();
+	if (g_mockGStreamer != nullptr)
+	{
+		g_mockGStreamer->gst_segment_init(segment, format);
+	}
 }
 
 const gchar *gst_flow_get_name(GstFlowReturn ret)
 {
 	TRACE_FUNC();
 	return NULL;
+}
+
+gboolean gst_element_query_position(GstElement *element, GstFormat format, gint64 *cur)
+{
+	TRACE_FUNC();
+	bool rtn = FALSE;
+	if (g_mockGStreamer != nullptr)
+	{
+		rtn = g_mockGStreamer->gst_element_query_position(element, format, cur );
+	}
+	return rtn;
 }
 
 GstStateChangeReturn gst_element_get_state(GstElement *element, GstState *state, GstState *pending,
@@ -573,7 +605,13 @@ GstStructure *gst_structure_new(const gchar *name, const gchar *firstfield, ...)
 GstEvent *gst_event_new_custom(GstEventType type, GstStructure *structure)
 {
 	TRACE_FUNC();
-	return NULL;
+	GstEvent *rtn = nullptr;
+
+	if (g_mockGStreamer != nullptr)
+	{
+		rtn = g_mockGStreamer->gst_event_new_custom(type, structure);
+	}
+	return rtn;
 }
 
 gboolean gst_buffer_copy_into(GstBuffer *dest, GstBuffer *src, GstBufferCopyFlags flags,
@@ -649,7 +687,7 @@ void gst_structure_free(GstStructure *structure)
 gboolean gst_init_check(int *argc, char **argv[], GError **error)
 {
 	TRACE_FUNC();
-	return FALSE;
+	return TRUE;
 }
 
 GstCaps *gst_caps_new_simple(const char *media_type, const char *fieldname, ...)

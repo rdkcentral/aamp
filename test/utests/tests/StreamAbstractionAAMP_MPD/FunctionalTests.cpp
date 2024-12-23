@@ -59,8 +59,10 @@ protected:
         StreamAbstractionAAMP_MPD *mStreamAbstractionAAMP_MPD;
         CDAIObject *mCdaiObj;
         const char *mManifest;
+        static constexpr const char *TEST_HOST_URL = "http://host/";
         static constexpr const char *TEST_BASE_URL = "http://host/asset/";
         static constexpr const char *TEST_MANIFEST_URL = "http://host/asset/manifest.mpd";
+        std::string mManifestUrl {TEST_MANIFEST_URL};
         std::shared_ptr<ManifestDownloadResponse> mResponse =  std::make_shared<ManifestDownloadResponse> ();
         using BoolConfigSettings = std::map<AAMPConfigSettingBool, bool>;
         using IntConfigSettings = std::map<AAMPConfigSettingInt, int>;
@@ -70,7 +72,8 @@ protected:
         {
                 {eAAMPConfig_EnableMediaProcessor, true},
                 {eAAMPConfig_EnableCMCD, false},
-                {eAAMPConfig_BulkTimedMetaReport, false},
+			{eAAMPConfig_BulkTimedMetaReport, false},
+			{eAAMPConfig_BulkTimedMetaReportLive, false},
                 {eAAMPConfig_EnableSCTE35PresentationTime, false},
                 {eAAMPConfig_EnableClientDai, false},
                 {eAAMPConfig_MatchBaseUrl, false},
@@ -143,6 +146,7 @@ protected:
                 mResponse = nullptr;
                 mBoolConfigSettings = mDefaultBoolConfigSettings;
                 mIntConfigSettings = mDefaultIntConfigSettings;
+                AampLogManager::setLogLevel(eLOGLEVEL_TRACE);   // Enable all levels of AAMP logging
         }
 
         void TearDown()
@@ -199,13 +203,13 @@ public:
         */
         bool GetManifest(std::string remoteUrl, AampGrowableBuffer *buffer)
         {
-                EXPECT_STREQ(remoteUrl.c_str(), TEST_MANIFEST_URL);
+            EXPECT_STREQ(remoteUrl.c_str(), mManifestUrl.c_str());
 
-                /* Setup fake AampGrowableBuffer contents. */
-        buffer->Clear();
-        buffer->AppendBytes((char *)mManifest, strlen(mManifest));
+            /* Setup fake AampGrowableBuffer contents. */
+            buffer->Clear();
+            buffer->AppendBytes((char *)mManifest, strlen(mManifest));
 
-                return true;
+            return true;
         }
 
 
@@ -219,7 +223,7 @@ public:
                 {
                         if (xmlTextReaderRead(reader))
                         {
-                                response->mRootNode = MPDProcessNode(&reader, TEST_MANIFEST_URL);
+                                response->mRootNode = MPDProcessNode(&reader, mManifestUrl);
                                 if(response->mRootNode != NULL)
                                 {
                                         mpd = response->mRootNode->ToMPD();
@@ -247,7 +251,7 @@ public:
                 std::shared_ptr<ManifestDownloadResponse> response = std::make_shared<ManifestDownloadResponse> ();
                 response->mMPDStatus = AAMPStatusType::eAAMPSTATUS_OK;
                 response->mMPDDownloadResponse->iHttpRetValue = 200;
-                response->mMPDDownloadResponse->sEffectiveUrl = std::string(TEST_MANIFEST_URL);
+                response->mMPDDownloadResponse->sEffectiveUrl = mManifestUrl;
                 response->mMPDDownloadResponse->mDownloadData.assign((uint8_t*)mManifest, (uint8_t*)(mManifest + strlen(mManifest)));
                 GetMPDFromManifest(response);
                 mResponse = response;
@@ -295,7 +299,7 @@ public:
                 mCdaiObj = new CDAIObjectMPD(mPrivateInstanceAAMP);
                 mStreamAbstractionAAMP_MPD->SetCDAIObject(mCdaiObj);
 
-                mPrivateInstanceAAMP->SetManifestUrl(TEST_MANIFEST_URL);
+                mPrivateInstanceAAMP->SetManifestUrl(mManifestUrl.c_str());
 
                 /* Initialize MPD. */
                 EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetState(eSTATE_PREPARING));
@@ -2134,10 +2138,10 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 	EXPECT_EQ(status, eAAMPSTATUS_OK);
 }
 
-/* 
+/*
  * @brief Test to make sure ChunkMode is turned off for non-LLD streams.
- * This test checks that ChunkMode (used for lld) is not 
- * activated when playing a regular non lld stream.Testing under below three situation 
+ * This test checks that ChunkMode (used for lld) is not
+ * activated when playing a regular non lld stream.Testing under below three situation
  * - Normal playback
  * - Retune
  * - Seeking near the end of the stream
@@ -2180,9 +2184,9 @@ TEST_F(FunctionalTests, ChunkMode_NonLLD)
 	EXPECT_EQ(mPrivateInstanceAAMP->GetLLDashChunkMode(), false);
 }
 
-/* 
- * @brief Test to ensure ChunkMode is enabled for LLD streams. 
- * This test checks that ChunkMode (used for lld) is activated 
+/*
+ * @brief Test to ensure ChunkMode is enabled for LLD streams.
+ * This test checks that ChunkMode (used for lld) is activated
  * Tested under below scenarios:
  * - Normal playback (ChunkMode should be on)
  * - Seeking at the beginning of the stream (ChunkMode should be off)
@@ -2214,9 +2218,13 @@ TEST_F(FunctionalTests, ChunkMode_LLD)
 )";
 	double seekPosition = 0;
 	int rate = 1 ; //Normal playrate test
+
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetLLDashAdjustSpeed())
+		.WillRepeatedly(Return(true));
+
 	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, _, _, _, _, _, _))
 		.WillRepeatedly(Return(true));
-	//For this test case we need EnableLowLatencyDash as true 
+	//For this test case we need EnableLowLatencyDash as true
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(_))
 		.WillRepeatedly(Invoke([](AAMPConfigSettingBool config) {
 					return config == eAAMPConfig_EnableLowLatencyDash;
@@ -2224,34 +2232,33 @@ TEST_F(FunctionalTests, ChunkMode_LLD)
 	EXPECT_CALL(*g_mockAampMPDDownloader, IsMPDLowLatency (_))
 		.WillRepeatedly(Return(true));
 
-	status = InitializeMPD(manifest,TuneType::eTUNETYPE_NEW_NORMAL, seekPosition, rate,false); 
+	status = InitializeMPD(manifest,TuneType::eTUNETYPE_NEW_NORMAL, seekPosition, rate,false);
 	EXPECT_EQ(status, eAAMPSTATUS_OK);
 	EXPECT_EQ(mPrivateInstanceAAMP->GetLLDashChunkMode(), true);
 
 	//seek to the beginning
-	status = InitializeMPD(manifest,TuneType::eTUNETYPE_SEEK, seekPosition, rate,false); 
+	status = InitializeMPD(manifest,TuneType::eTUNETYPE_SEEK, seekPosition, rate,false);
 	EXPECT_EQ(status, eAAMPSTATUS_OK);
 	EXPECT_EQ(mPrivateInstanceAAMP->GetLLDashChunkMode(), false);
 
 	seekPosition = 1550 ; //Total duration -1560
-	status = InitializeMPD(manifest,TuneType::eTUNETYPE_SEEK,seekPosition, rate,false); 
+	status = InitializeMPD(manifest,TuneType::eTUNETYPE_SEEK,seekPosition, rate,false);
 	EXPECT_EQ(status, eAAMPSTATUS_OK);
 	EXPECT_EQ(mPrivateInstanceAAMP->GetLLDashChunkMode(), true);
 
 	seekPosition = 1000; //behind live point
-	status = InitializeMPD(manifest,TuneType::eTUNETYPE_SEEK,seekPosition, rate,false); 
+	status = InitializeMPD(manifest,TuneType::eTUNETYPE_SEEK,seekPosition, rate,false);
 	EXPECT_EQ(status, eAAMPSTATUS_OK);
 	EXPECT_EQ(mPrivateInstanceAAMP->GetLLDashChunkMode(), false);
-
 }
 
 /**
  * @brief Test LLD ChunkMode behavior with a seek position within the latency range.
- * 
- * This test verifies that ChunkMode is enabled when seeking to 1552 seconds 
- * in a 1560-second stream. The live offset is 6 seconds, and maximum latency 
- * is 9 seconds. The seek position is behind the live edge but within the 
- * allowable latency (1560 - 9 = 1551 seconds). The test checks if ChunkMode 
+ *
+ * This test verifies that ChunkMode is enabled when seeking to 1552 seconds
+ * in a 1560-second stream. The live offset is 6 seconds, and maximum latency
+ * is 9 seconds. The seek position is behind the live edge but within the
+ * allowable latency (1560 - 9 = 1551 seconds). The test checks if ChunkMode
  * is correctly enabled in this scenario.
  */
 
@@ -2280,6 +2287,10 @@ TEST_F(FunctionalTests, ChunkMode_LLD_ForMaxLatency_Case)
 )";
 	double seekPosition = 1552; ///Total duration : 1560
 	int rate = 1 ; //Normal playrate test
+
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetLLDashAdjustSpeed())
+		.WillRepeatedly(Return(true));
+
 	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, _, _, _, _, _, _))
 		.WillRepeatedly(Return(true));
 
@@ -2425,6 +2436,42 @@ TEST_F(FunctionalTests, GetThumbnailRangeDataTest1)
     EXPECT_EQ(width,320); //width of 1 thumbnail = width/w(value = 5x5,w= 5)
     EXPECT_EQ(thumbnailData[0].d,10); // (duration/timscale)/value
     EXPECT_EQ(baseUrl,"https://dluxvod.stvacdn.spectrum.com/DASH_VOD/mass0000000020751006/out.ism/dash/thumbnail_v1/2bfd42-b08302hx/");
+}
+
+TEST_F(FunctionalTests, FindServerUTCTimeTest)
+{
+    // Manifest with UTCTiming element
+    static const char *manifest =
+    R"(<?xml version="1.0" encoding="utf-8"?>
+    <MPD xmlns="urn:mpeg:dash:schema:mpd:2011" availabilityStartTime="1970-01-01T00:00:00Z" maxSegmentDuration="PT2S" minBufferTime="PT4.000S" minimumUpdatePeriod="P100Y" profiles="urn:dvb:dash:profile:dvb-dash:2014,urn:dvb:dash:profile:dvb-dash:isoff-ext-live:2014" publishTime="2023-01-01T00:00:00Z" timeShiftBufferDepth="PT5M" type="dynamic">
+        <Period id="p0" start="PT0S">
+            <AdaptationSet contentType="video" lang="eng" maxFrameRate="25" maxHeight="1080" maxWidth="1920" par="16:9" segmentAlignment="true" startWithSAP="1">
+                <Accessibility schemeIdUri="urn:scte:dash:cc:cea-708:2015" value="1=lang:en;2=lang:en"/>
+                <SegmentTemplate duration="5000" initialization="video_init.mp4" media="video_$Number$.m4s" startNumber="0" timescale="2500" />
+                <Representation id="1" mimeType="video/mp4" codecs="avc1.640028" width="640" height="360" frameRate="25" sar="1:1" bandwidth="1000000" />
+            </AdaptationSet>
+        </Period>
+        <UTCTiming schemeIdUri="urn:mpeg:dash:utc:http-iso:2014" value="/timing"/>
+    </MPD>
+    )";
+
+    // The manifest URL contains parameters
+    mManifestUrl = "http://host/asset/manifest.mpd?chunked";
+
+    g_mockAampUtils = new NiceMock<MockAampUtils>();
+    const char *currentTimeISO = "2023-01-01T00:00:00Z";
+    double currentTime = ISO8601DateTimeToUTCSeconds(currentTimeISO);
+    long long timeMS = 1000LL*((long long)currentTime);
+    EXPECT_CALL(*g_mockAampUtils, aamp_GetCurrentTimeMS())
+        .Times(AnyNumber())
+        .WillRepeatedly(Return(timeMS));
+    EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, _, _, _, _, _, _))
+        .WillRepeatedly(Return(true));
+    // Verify that the parameters from the manifest URL are not added to the time request URL
+    EXPECT_CALL(*g_mockAampUtils, GetNetworkTime("http://host/timing", _, _)).WillOnce(Return(currentTime));
+
+    AAMPStatusType status = InitializeMPD(manifest);
+    EXPECT_EQ(status, eAAMPSTATUS_OK);
 }
 
 TEST_F(StreamAbstractionAAMP_MPDTest, CheckAdResolvedStatus_FirstTryAdBreakNotResolved)

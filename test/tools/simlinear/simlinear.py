@@ -80,6 +80,7 @@ LLpreDelay = 10
 
 harvest_details = {}
 #threadingEvent = threading.Event()
+playback_start_time = None
 
 def normalize_query_param(value):
     """
@@ -165,20 +166,66 @@ def display_all_manifests(host, port, abr_type):
         else:
             print(hostInfo + file_path + "/" + manifest + ext + "." + str(manifest_dict[manifest]))
 
+#################################################################
+
+def handle_delay(param, path):
+    delay = int(param.get('delay', 0))
+    pattern = param.get('pattern', "")
+
+    if delay > 0 and (not pattern or re.search(pattern, path)):
+        if delay <= 10000:
+            time.sleep(delay / 1000)
+        else:
+            log.info(f"Delay limit exceeded: {delay}ms. Limit is 10000ms for URI {path}")
+
+#################################################################
+
+def handle_status(param, path):
+    status = int(param.get('status', 200))
+    pattern = param.get('pattern', "")
+
+    if status != 200 and (not pattern or re.search(pattern, path)):
+        if status == 404:
+            raise FileNotFoundError
+        else:
+            raise CustomError(f"simlinear generated error with HTTP status {status}.", status)
+#################################################################
+
 def modify_response(path): #RDKAAMP-3019
+    global playback_start_time
+    if playback_start_time is None:
+        # Log the playback start time when the first request is processed
+        playback_start_time = int(time.time())
+
     qParams = dict(parse_qsl(urlsplit(path).query))
-    if qParams.get("respData","") != "":
-        params = json.loads(base64.b64decode(qParams.get("respData","")))
+    respData_encoded = qParams.get("respData", "")
+    if respData_encoded:
+        try:
+            # Decode and parse the respData parameter
+            params = json.loads(base64.b64decode(respData_encoded).decode("utf-8"))
+        except Exception as e:
+            log.error(f"Failed to decode respData: {e}")
+            return
         for param in params[::-1]:
-            if int(param.get('delay', 0)) > 0 and re.findall(param.get('pattern', ""), path):
-                if int(param.get('delay', 0)) <= 10000:
-                    time.sleep(float(param.get('delay'))/1000)
-                else:
-                    log.info(f"Delay limit exceeded {param.get('delay', 0)}, Limit is 10000 for URI {path}")
-            if int(param.get('status', 200)) == 404 and re.findall(param.get('pattern', ""), path):
-                raise FileNotFoundError
-            if int(param.get('status', 200)) == 500 and re.findall(param.get('pattern', ""), path):
-                return 'An error occurred, please check logs for details.', 500
+            current_time = int(time.time())
+            if "start" in param and "end" in param:
+                start_time = playback_start_time + param.get("start", 0)
+                end_time = playback_start_time + param.get("end", 0)
+                if current_time >= start_time and current_time <= end_time:
+                    print("current_time",current_time)
+                    handle_delay(param, path)
+                    handle_status(param, path)
+            else:
+                handle_delay(param, path)
+                handle_status(param, path)
+
+#################################################################
+
+class CustomError(Exception):
+    """Custom exception for handling specific errors."""
+    def __init__(self, message, status_code):
+        super().__init__(message)
+        self.status_code = status_code
 
 #################################################################
 class DASHServer(ManifestServerCommon):
@@ -303,7 +350,9 @@ class DASHServerHandler(BaseHTTPRequestHandler):
 
         isTiming = False
 
-        path = self.path[1:].split("?")[0]
+        # Remove any query parameters and make path relative by removing leading slash (/)
+        parsed_url = urlparse(self.path)
+        path = parsed_url.path[1:]
 
         if self.path.endswith(".m3u8"):
             log.error("ERROR This looks like a HLS request but I am a DASH server")
@@ -328,11 +377,12 @@ class DASHServerHandler(BaseHTTPRequestHandler):
 
                         return;
                 rtn = dash_server.dash_get_manifest(path)
+                modify_response(self.path)
                 if not rtn:
                     raise FileNotFoundError
                 log.info("%s %s",time.time(), rtn["path"])
 
-            elif self.path == "/timing":
+            elif path == "timing":
                 """
                 DASH manifest contains the following
                 <UTCTiming schemeIdUri="urn:mpeg:dash:utc:http-iso:2014" value="/timing" />
@@ -367,10 +417,8 @@ class DASHServerHandler(BaseHTTPRequestHandler):
                     contents = rtn["contents"].encode("utf-8")
                 else:
                     modify_response(self.path) #RDKAAMP-3019
-                        
                     with open(rtn["path"], "rb") as f:
                         contents = f.read()
-
             self.send_response(200)
             self.send_header("Access-Control-Allow-Origin", "*")
 
@@ -401,6 +449,11 @@ class DASHServerHandler(BaseHTTPRequestHandler):
             self.send_response(404)
             self.end_headers()
 
+        except CustomError as e:
+            # Handle CustomError instances
+            self.send_response(e.status_code)
+            self.end_headers()
+            self.wfile.write(f"Custom error {e.status_code}: {str(e)}".encode("utf-8"))
 
 ###############################################################################
 class HLSServer(ManifestServerCommon):

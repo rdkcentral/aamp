@@ -165,7 +165,7 @@ const char* aampPlayer_getNameFromEventType(AAMPEventType type);
 JSObjectRef aamp_CreateTimedMetadataJSObject(JSContextRef context, long long timeMS, const char* szName, const char* szContent, const char* id, double durationMS);
 
 
-void jsBindingLogprintf(int playerId,const char* functionName, int line, int logLevel, const char *format, ...);
+void jsBindingLogprintf(int playerId, const char* functionName, int line, int logLevel, const char *format, ...)  __attribute__ ((format (printf, 5, 6)));
 
 VideoZoomMode MapZoomMode( const char *zoomStr );
 

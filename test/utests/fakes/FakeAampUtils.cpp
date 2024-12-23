@@ -322,8 +322,13 @@ const char * GetAudioFormatStringForCodec ( StreamOutputFormat input)
     return "UNKNOWN";
 }
 
-std::string Getiso639map_NormalizeLanguageCode(std::string  lang,LangCodePreference preferLangFormat )
+std::string Getiso639map_NormalizeLanguageCode(std::string lang, LangCodePreference preferLangFormat)
 {
+	if (g_mockAampUtils)
+	{
+		return g_mockAampUtils->Getiso639map_NormalizeLanguageCode(lang, preferLangFormat);
+	}
+
     return lang;
 }
 
@@ -339,7 +344,14 @@ bool aamp_IsAbsoluteURL( const std::string &url )
 
 double GetNetworkTime(const std::string& remoteUrl, int *http_error , std::string NetworkProxy)
 {
-	return 0.0;
+	double networkTime = 0.0;
+
+	if (g_mockAampUtils)
+	{
+		networkTime = g_mockAampUtils->GetNetworkTime(remoteUrl, http_error, NetworkProxy);
+	}
+
+	return networkTime;
 }
 
 char *aamp_Base64_URL_Encode(const unsigned char *src, size_t len)
@@ -570,4 +582,11 @@ bool parseAndValidateSCTE35(const std::string &scte35Data)
 		return g_mockAampUtils->parseAndValidateSCTE35(scte35Data);
 	}
 	return false;
+}
+
+extern "C"
+{
+void aamp_ApplyPageHttpHeaders(PlayerInstanceAAMP *aamp)
+{
+}
 }

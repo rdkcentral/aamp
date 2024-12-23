@@ -19,14 +19,13 @@
 
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
-
 #include "aampgstplayer.h"
 #include "MockGStreamer.h"
 #include "MockGLib.h"
 #include "MockAampConfig.h"
 #include "MockAampHandlerControl.h"
 #include "MockPrivateInstanceAAMP.h"
-
+#include "MockAampUtils.h"
 
 using ::testing::NiceMock;
 using ::testing::Return;
@@ -41,6 +40,7 @@ using ::testing::SaveArgPointee;
 using ::testing::SaveArg;
 using ::testing::Pointer;
 using ::testing::Matcher;
+using ::testing::AnyNumber;
 
 AampConfig *gpGlobalConfig{nullptr};
 
@@ -57,6 +57,7 @@ protected:
 
 	void SetUp() override
 	{
+		g_mockAampUtils = new NiceMock<MockAampUtils>();
 		g_mockGStreamer = new NiceMock<MockGStreamer>();
 		g_mockGLib = new MockGLib();
 		g_mockAampConfig = new NiceMock<MockAampConfig>();
@@ -81,6 +82,9 @@ protected:
 
 		delete g_mockGStreamer;
 		g_mockGStreamer = nullptr;
+		
+		delete g_mockAampUtils;
+		g_mockAampUtils = nullptr;
 
 		delete mPrivateInstanceAAMP;
 		mPrivateInstanceAAMP = nullptr;
@@ -113,7 +117,8 @@ public:
 					.WillOnce(Return(debug_level));
 		EXPECT_CALL(*g_mockGStreamer, gst_debug_set_threshold_from_string(StrEq(debug_level.c_str()), reset));
 
-		mAAMPGstPlayer = new AAMPGstPlayer{mPrivateInstanceAAMP, nullptr};
+		id3_callback_t id3HandlerCallback = std::bind(&PrivateInstanceAAMP::ID3MetadataHandler, mPrivateInstanceAAMP, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4, std::placeholders::_5);
+		mAAMPGstPlayer = new AAMPGstPlayer{mPrivateInstanceAAMP, id3HandlerCallback};
 	}
 
 	void DestroyAMPGstPlayer()
@@ -147,6 +152,8 @@ public:
 
 		GstBusFunc bus_message_func = nullptr;
 		GstBusSyncHandler bus_sync_func = nullptr;
+		GCallback deep_notify_callback1 = nullptr;
+		gpointer deep_notify_playbin1 = nullptr;
 
 		isPipelineSetup = true;
 
@@ -164,6 +171,8 @@ public:
 		}
 		
 		// Expectations
+
+		EXPECT_CALL(*g_mockAampHandlerControl, isEnabled()).WillRepeatedly(Return(true));
 
 		EXPECT_CALL(*g_mockAampConfig, IsConfigSet(_)).WillRepeatedly(Return(false));
 		EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_UseWesterosSink)).WillRepeatedly(Return(setup->usingWesteros));
@@ -247,7 +256,15 @@ public:
 		EXPECT_CALL(*g_mockGStreamer, gst_element_set_state(&gst_element_pipeline, GST_STATE_PLAYING))
 			.WillOnce(Return(GST_STATE_CHANGE_SUCCESS));
 
-		mAAMPGstPlayer->Configure(FORMAT_VIDEO_ES_H264,
+		EXPECT_CALL(*g_mockGLib, g_signal_connect_data(NotNull(),StrEq("deep-notify::source"),NotNull(),mAAMPGstPlayer,_,_))
+			.WillOnce(DoAll(
+							SaveArg<0>(&deep_notify_playbin1),
+							SaveArgPointee<2>(&deep_notify_callback1),
+							Return(1))
+							)
+			.WillRepeatedly(Return(1));
+
+		mAAMPGstPlayer->Configure(FORMAT_ISO_BMFF,
 								  FORMAT_AUDIO_ES_AAC,
 								  setup->auxFormat,
 								  FORMAT_SUBTITLE_WEBVTT,
@@ -257,11 +274,20 @@ public:
 
 		ASSERT_TRUE(bus_sync_func != nullptr);
 		ASSERT_TRUE(bus_message_func != nullptr);
+		ASSERT_TRUE(deep_notify_callback1 != nullptr);
+
+		GObject orig;
+		GParamSpec pspec;
+
+		EXPECT_CALL(*g_mockGLib, g_signal_connect_data(_,_,NotNull(),mAAMPGstPlayer,_,_))
+			.WillRepeatedly(Return(1));
+
+		// Initialise the video stream by calling the "deep-notify::source" callback
+		void (*deep_notify_func)(GObject*, GObject*, GParamSpec*, gpointer) = 
+						(void (*)(GObject*, GObject*, GParamSpec*, gpointer))deep_notify_callback1;
+		deep_notify_func(G_OBJECT(deep_notify_playbin1), &orig, &pspec, mAAMPGstPlayer);
 
 		GstMessage sync_message = {.type = GST_MESSAGE_STATE_CHANGED, .src = GST_OBJECT(p_video_sink) };
-
-		EXPECT_CALL(*g_mockAampHandlerControl, isEnabled())
-			.WillRepeatedly(Return(true));
 
 		EXPECT_CALL(*g_mockGStreamer, gst_message_parse_state_changed(Pointer(&sync_message),NotNull(),NotNull(),_))
 			.WillOnce(DoAll(
@@ -427,7 +453,6 @@ TEST_F(AAMPGstPlayerTests, TimerAdd)
 {
 	// Setup
 	gpointer user_data = nullptr;
-	gboolean reset{TRUE};
 	int repeatTimeout = 100;
 	guint taskId = 0;
 	GstElement dummyelement; 
@@ -527,3 +552,155 @@ TEST_F(AAMPGstPlayerTests, SetVideoMute_NoSink)
 	//Tidy Up
 	DestroyAMPGstPlayer();
 }
+
+TEST_F(AAMPGstPlayerTests, SendTransfer_CheckNewSegmentWithAppliedRate)
+{
+	AampMediaType mediaType = eMEDIATYPE_VIDEO;
+	void *ptr =nullptr;
+	size_t len = 0;
+	double fpts = 10.0;
+	double fdts = 0.0;
+	double fDuration = 0.0;
+	bool initFragment = false;
+	bool discontinuity = false;
+	GstEvent event;
+	GstPad pad;
+	GstSegment segment;
+
+	// Setup
+	mPrivateInstanceAAMP->rate = 2;
+	ConstructAMPGstPlayer();
+
+	SetupPipeline(&tbl[0]);
+
+	EXPECT_CALL(*g_mockGStreamer, gst_element_get_state(&gst_element_pipeline, _, _, _))
+		.WillOnce(DoAll(
+		SetArgPointee<1>(GST_STATE_PAUSED),
+		SetArgPointee<2>(GST_STATE_NULL),
+		Return(GST_STATE_CHANGE_SUCCESS)));
+
+	// Flush to setup the rate in the private context
+	mAAMPGstPlayer->Flush(0, mPrivateInstanceAAMP->rate, false);
+
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_SuppressDecode)).WillRepeatedly(Return(false));
+
+	EXPECT_CALL(*g_mockGStreamer, gst_element_get_static_pad(_, StrEq("src"))).WillRepeatedly(Return(&pad));
+	EXPECT_CALL(*g_mockGStreamer, gst_event_new_custom(_,_)).WillOnce(Return(&event));
+
+	EXPECT_CALL(*g_mockGStreamer, gst_segment_init(NotNull(), GST_FORMAT_TIME)).Times(1);
+	EXPECT_CALL(*g_mockGStreamer, gst_event_new_segment(NotNull()))
+		.WillOnce(DoAll(SaveArgPointee<0>(&segment),
+						Return(&event)));
+	EXPECT_CALL(*g_mockGStreamer, gst_pad_push_event(&pad, NotNull())).WillRepeatedly(Return(true));
+
+	mAAMPGstPlayer->SendTransfer(mediaType, ptr, len, fpts, fdts, fDuration, initFragment, discontinuity);
+
+	EXPECT_EQ(segment.start, GstClockTime(fpts * GST_SECOND));
+	EXPECT_EQ(segment.position, 0);
+	EXPECT_EQ(segment.rate, AAMP_NORMAL_PLAY_RATE);
+	EXPECT_EQ(segment.applied_rate, mPrivateInstanceAAMP->rate);
+
+	//Tidy Up
+	DestroyAMPGstPlayer();
+}
+
+extern void MonitorAV( AAMPGstPlayer *_this );
+
+TEST_F(AAMPGstPlayerTests, MonitorAV )
+{
+	const int avpos[][2] =
+	{
+		{  280,  243},
+		{  540,  503},
+		{  780,  743},// ok
+		{ 1040, 1003},// ok
+		{ 1280, 1243},// ok
+		{ 1540, 1503},// ok
+		{ 1780, 1743},// ok
+		{ 2040, 2003},// ok
+		{ 2280, 2263},// ok
+		{ 2540, 2503},// ok
+		{ 2800, 2763},// ok
+		{ 3040, 3003},// ok
+		{ 3300, 3263},// ok
+		{ 3540, 3503},// ok
+		{ 3940, 5653},// video-only
+		{ 5140, 5893},// video-only
+		{ 6180, 6153},// ok
+		{ 6420, 6393},// ok
+		{ 6680, 6653},// ok
+		{ 6920, 6893},// ok
+		{ 7180, 7153},// ok
+		{ 7420, 7413},// ok
+		{ 7680, 7653},// ok
+		{ 7940, 7913},// ok
+		{ 8180, 8153},// ok
+		{ 8440, 8413},// ok
+		{ 8680, 8653},// ok
+		{ 8940, 8913},// ok
+		{ 9180, 9153},// ok
+		{ 9440, 9413},// ok
+		// av gap
+		{11560,11520},// ok
+		{11820,11780},// ok
+		{12060,12020},// ok
+		{12320,12280},// ok
+		{12560,12520},// ok
+		{12820,12780},// ok
+		{13080,13040},// ok
+		{13320,13280},// ok
+		{13580,13540},// ok
+		{13820,13780},// ok
+		{14080,14040},// ok
+		{14320,14280},// ok
+		{14580,14540},// ok
+		{14820,14780},// ok
+		{15080,15040},// ok
+		{15320,15280},// ok
+		{15380,15540},// audio only
+		{15380,15780},// audio only
+		{15380,16040},// audio only
+		{15380,16280},// audio only
+		{15380,16540},// audio only
+		{15380,16780},// audio only
+		{15380,17040},// audio only
+		{17320,17300},// ok
+		{17580,17540},// ok
+		{17840,17800},// ok
+		{18080,18040},// ok
+		{18340,18300},// ok
+		{18580,18540},// ok
+		{18840,18800},// ok
+		{19080,19040},// ok
+		{19220,19321},// bad avsync
+		{19220,19321},// stalled av
+		{19220,19321},// stalled av
+		{19220,19321},// stalled av
+		{19220,19321},// stalled av
+		{19220,19321},// stalled av
+	};
+	ConstructAMPGstPlayer();
+	SetupPipeline(&tbl[0]);
+	
+	EXPECT_CALL(*g_mockGStreamer, gst_element_get_state(&gst_element_pipeline, _, _, _))
+		.WillRepeatedly(DoAll(
+			SetArgPointee<1>(GST_STATE_PLAYING),
+			SetArgPointee<2>(GST_STATE_PLAYING),
+			Return(GST_STATE_CHANGE_SUCCESS)));
+	for( int idx=0; idx<sizeof(avpos)/sizeof(avpos[0]); idx++ )
+	{
+		EXPECT_CALL( *g_mockAampUtils, aamp_GetCurrentTimeMS()).WillOnce(DoAll(Return(idx*250)));
+		
+		EXPECT_CALL(*g_mockGStreamer, gst_element_query_position( _, _, _))
+			.WillOnce(DoAll(
+							SetArgPointee<2>(G_GINT64_CONSTANT(1000000)*avpos[idx][eMEDIATYPE_VIDEO]),
+							Return(TRUE)))
+			.WillOnce(DoAll(
+							SetArgPointee<2>(G_GINT64_CONSTANT(1000000)*avpos[idx][eMEDIATYPE_AUDIO]),
+							Return(TRUE)));
+		MonitorAV(mAAMPGstPlayer );
+	}
+	DestroyAMPGstPlayer();
+}
+
+

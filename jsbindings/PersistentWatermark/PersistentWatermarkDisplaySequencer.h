@@ -16,14 +16,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
 */
-
 #ifndef __PERSISTENT_WATERMARK_DISPLAY_SEQUENCER__H__
 #define __PERSISTENT_WATERMARK_DISPLAY_SEQUENCER__H__
 
 #include "PersistentWatermarkEventHandler.h"
 #include "PersistentWatermarkStorage.h"
-#include "ThunderAccess.h"
-#include "jsutils.h"
 
 namespace PersistentWatermark
 {
@@ -36,9 +33,11 @@ namespace PersistentWatermark
 	public:
 
 		/**
-		 @brief Show the Watermark contained in storage
-		* */
-		void Show(PersistentWatermark::Storage& storage);
+		*   @brief Show the Watermark contained in storage
+		*   @param[in]  storage - storage object containing the watermark to display
+		*   @param[in]  opacity - opacity of the watermark (0-100) this is basically defines % of alpha w.r.t to original alpha in pixel
+		*/
+		void Show(PersistentWatermark::Storage& storage, int opacity=100);
 
 		/**
 		 @brief Hide any watermark currently displayed

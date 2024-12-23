@@ -54,17 +54,7 @@ typedef int dsHdcpProtocolVersion_t;
 #include <stdio.h>
 #include <gst/gst.h>
 
-#ifndef USE_OPENCDM
-#ifdef USE_PLAYREADY
 
-#include <drmbuild_oem.h>
-#include <drmcommon.h>
-#include <drmmanager.h>
-#include <drmmathsafe.h>
-#include <drmtypes.h>
-#include <drmerr.h>
-#endif
-#endif
 
 #undef __in
 #undef __out
@@ -122,27 +112,10 @@ class AampOutputProtection : public ReferenceCount
 {
 
 private:
-#ifndef USE_OPENCDM
-#ifdef USE_PLAYREADY
-    // Protection levels from CDM
-    struct MinOPLevelsplayReady
-    {
-        DRM_WORD compressedDigitalVideo;
-        DRM_WORD uncompressedDigitalVideo;
-        DRM_WORD analogVideo;
-        DRM_WORD compressedDigitalAudio;
-        DRM_WORD uncompressedDigitalAudio;
-    };
-#endif
-#endif
+
 
     pthread_mutex_t         m_opProtectMutex;
 
-#ifndef USE_OPENCDM
-#ifdef USE_PLAYREADY
-    MinOPLevelsplayReady    m_minOPLevels;
-#endif
-#endif
     int                     m_sourceWidth;
     int                     m_sourceHeight;
     int                     m_displayWidth;
@@ -182,26 +155,7 @@ public:
      */
     AampOutputProtection& operator=(const AampOutputProtection&) = delete;
 
-#ifndef USE_OPENCDM
 
-    /**
-     * @brief Get PlayRedy OP levels
-     * @retval m_minOPLevels
-     */
-#ifdef USE_PLAYREADY
-
-    MinOPLevelsplayReady* getPlayReadyLevels() { return & m_minOPLevels; }
-   /**
-    * @fn PR_OP_Callback
-    * @param f_pvOutputLevelsData : Pointer to licenses output restrictions information
-    * @param f_dwCallbackType : Type of callback
-    * @param data : Pointer passed from Drm_Reader_Bind, m_minOPLevels
-    */
-    static DRM_RESULT DRM_CALL PR_OP_Callback(const DRM_VOID *f_pvOutputLevelsData,
-                                              DRM_POLICY_CALLBACK_TYPE f_dwCallbackType,
-                                              const DRM_VOID *data);
-#endif
-#endif
     
 #ifdef IARM_MGR
     // IARM Callbacks

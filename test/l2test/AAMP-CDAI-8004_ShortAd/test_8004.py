@@ -23,38 +23,16 @@
 # Also see README.md
 
 import os
-import sys
 from inspect import getsourcefile
 import pytest
-import subprocess
-import atexit
 import re
 from l2test_pts_restamp import PtsRestampUtils
+from l2test_window_server import WindowServer
 
 ###############################################################################
+archive_url = "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/streams/L2/AAMP-CDAI-8004_ShortAd/content.tar.xz"
 
-server_process = None
-server_path = os.path.join(os.getcwd(), "AAMP-CDAI-8004_ShortAd/testdata/content/server.py")
 pts_restamp_utils = PtsRestampUtils()
-
-def start_server():
-    global server_process
-    if os.path.isfile(server_path):
-        try:
-            server_process = subprocess.Popen(["python3", server_path], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-            print("started server.py")
-            atexit.register(server_process.terminate)
-        except Exception as e:
-            print("Failed to start server.py"+server_path)
-    else:
-        print("Error: server.py file not found "+ server_path)
-
-def stop_server():
-    global server_process
-    if server_process:
-        print("stop server")
-        server_process.terminate()
-        server_process = None
 
 #Test Case 2.1: Single Source Period with Multiple CDAI Ad Replacements : Refer TC :https://etwiki.sys.comcast.net/pages/viewpage.action?spaceKey=RDKV&title=AAMP+Client-side+Dynamic+Ad+Use+cases
 #Period 2: Contains a 120-second ad, replaced by multiple ads of 30, 40, 30, and 20 seconds.
@@ -62,16 +40,18 @@ TESTDATA1 = {
     "title": "Test1 Current ad duration same as source ad duration",
     "max_test_time_seconds": 300,
     "aamp_cfg": "client-dai=true\nenablePTSReStamp=true\ninfo=true\ntrace=true\nprogress=true\n",
-    "url": "http://localhost:8080/AAMP-CDAI-8004_ShortAd/testdata/content/main.mpd?live=true",
+    "archive_url": archive_url,
+    "archive_server": { 'server_class': WindowServer},
+    "url": "http://localhost:8080/content/main.mpd?live=true",
     "cmdlist": [
-        "advert add http://localhost:8080/AAMP-CDAI-8004_ShortAd/testdata/content/ad_30s.mpd 30",
-        "advert add http://localhost:8080/AAMP-CDAI-8004_ShortAd/testdata/content/ad_40s.mpd 40",
-        "advert add http://localhost:8080/AAMP-CDAI-8004_ShortAd/testdata/content/ad-30s.mpd 30",
-        "advert add http://localhost:8080/AAMP-CDAI-8004_ShortAd/testdata/content/ad_20s.mpd 20",
+        "advert add http://localhost:8080/content/ad_30s.mpd 30",
+        "advert add http://localhost:8080/content/ad_40s.mpd 40",
+        "advert add http://localhost:8080/content/ad-30s.mpd 30",
+        "advert add http://localhost:8080/content/ad_20s.mpd 20",
     ],
     #Source ad is 120 secs, all ads will sum up to 120 secs
     "expect_list": [
-        {"expect": r"\[Tune\]\[\d+\]FOREGROUND PLAYER\[0\] aamp_tune: attempt: 1 format: DASH URL: http://localhost:8080/AAMP-CDAI-8004_ShortAd/testdata/content/main.mpd", "min": 0, "max": 3},
+        {"expect": r"\[Tune\]\[\d+\]FOREGROUND PLAYER\[0\] aamp_tune: attempt: 1 format: DASH URL: http://localhost:8080/content/main.mpd", "min": 0, "max": 3},
         {"expect": r'RestampPts.*?\[(\w+)\] timeScale (\d+) before (\d+) after (\d+) duration (\d+) ([\w:/\.\-\?=]+)\r\n',"min":0, "max":300, "callback" : pts_restamp_utils.check_restamp},
         {"expect": r"\[FoundEventBreak\]\[\d+\]\[CDAI\] Found Adbreak on period\[2\] Duration\[120000\]", "min": 0, "max": 150},
         {"expect": r"\[Event\]\[\d+\]\[CDAI\] Dynamic ad start signalled", "min": 0, "max": 150},
@@ -88,8 +68,8 @@ TESTDATA1 = {
         {"expect": r"\[PlaceAds\]\[\d+\]\[CDAI\] Placement Done: \{AdbreakId: 2, duration: 120000, endPeriodId: 3, endPeriodOffset: 0, \#Ads: 4", "min": 240, "max": 260},
         {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: State changed from \[IN_ADBREAK_WAIT2CATCHUP\] \=\> \[OUTSIDE_ADBREAK\].", "min": 240, "max": 260},
         {"expect": re.escape("Period ID changed from '3-114' to '3' [BasePeriodId='3']"), "min": 240, "max": 270},
-        {"expect": r"\[GetFile\]\[\d+\]aamp url:0,0,0,2.000000,http://localhost:8080/AAMP-CDAI-8004_ShortAd/testdata/content/dash/(1080|720|480|360)p_132.m4s\?live=true", "min": 250, "max": 270},
-        {"expect": r"\[GetFile\]\[\d+\]aamp url:0,0,0,2.000000,http://localhost:8080/AAMP-CDAI-8004_ShortAd/testdata/content/dash/(1080|720|480|360)p_133.m4s\?live=true", "min": 250, "max": 270, "end_of_test":True},
+        {"expect": r"\[GetFile\]\[\d+\]aamp url:0,0,0,2.000000,http://localhost:8080/content/dash/(1080|720|480|360)p_132.m4s\?live=true", "min": 250, "max": 270},
+        {"expect": r"\[GetFile\]\[\d+\]aamp url:0,0,0,2.000000,http://localhost:8080/content/dash/(1080|720|480|360)p_133.m4s\?live=true", "min": 250, "max": 270, "end_of_test":True},
     ]
 }
 
@@ -97,15 +77,17 @@ TESTDATA2 = {
     "title": "Test2 Present ad duration less than source ad duration",
     "max_test_time_seconds": 400,
     "aamp_cfg": "client-dai=true\nenablePTSReStamp=true\ninfo=true\ntrace=true\nprogress=true\n",
-    "url": "http://localhost:8080/AAMP-CDAI-8004_ShortAd/testdata/content/main.mpd?live=true",
+    "archive_url": archive_url,
+    "archive_server": { 'server_class': WindowServer},
+    "url": "http://localhost:8080/content/main.mpd?live=true",
     "cmdlist": [
-        "advert add http://localhost:8080/AAMP-CDAI-8004_ShortAd/testdata/content/ad_30s.mpd 30",
-        "advert add http://localhost:8080/AAMP-CDAI-8004_ShortAd/testdata/content/ad_40s.mpd 40",
-        "advert add http://localhost:8080/AAMP-CDAI-8004_ShortAd/testdata/content/ad-30s.mpd 30",
+        "advert add http://localhost:8080/content/ad_30s.mpd 30",
+        "advert add http://localhost:8080/content/ad_40s.mpd 40",
+        "advert add http://localhost:8080/content/ad-30s.mpd 30",
     ],
     #Source ad is 120 secs but all ads will sum up to 100 secs
     "expect_list": [
-        {"expect": r"\[Tune\]\[\d+\]FOREGROUND PLAYER\[0\] aamp_tune: attempt: 1 format: DASH URL: http://localhost:8080/AAMP-CDAI-8004_ShortAd/testdata/content/main.mpd", "min": 0, "max": 3},
+        {"expect": r"\[Tune\]\[\d+\]FOREGROUND PLAYER\[0\] aamp_tune: attempt: 1 format: DASH URL: http://localhost:8080/content/main.mpd", "min": 0, "max": 3},
         {"expect": r'RestampPts.*?\[(\w+)\] timeScale (\d+) before (\d+) after (\d+) duration (\d+) ([\w:/\.\-\?=]+)\r\n',"min":0, "max":400, "callback" : pts_restamp_utils.check_restamp},
         {"expect": r"\[FoundEventBreak\]\[\d+\]\[CDAI\] Found Adbreak on period\[2\] Duration\[120000\]", "min": 0, "max": 150},
         {"expect": r"\[Event\]\[\d+\]\[CDAI\] Dynamic ad start signalled", "min": 0, "max": 150},
@@ -154,9 +136,8 @@ def test_8004(aamp_setup_teardown, test_data):
     
     aamp = aamp_setup_teardown
     aamp.set_paths(os.path.abspath(getsourcefile(lambda: 0)))
-    start_server()
+
     aamp.run_expect_b(test_data)
-    stop_server()
 
     pts_restamp_utils.check_num_segments()
 

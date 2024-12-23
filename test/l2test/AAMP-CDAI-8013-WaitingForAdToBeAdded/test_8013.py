@@ -26,26 +26,9 @@ import os
 import sys
 from inspect import getsourcefile
 import pytest
-import subprocess
 
-httpserver_process = None
-TEST_PATH = os.path.abspath(os.path.join('.'))
-HTTP_PORT = os.environ["L2_HTTP_PORT"] if "L2_HTTP_PORT" in os.environ else '8080'
-HTTPSERVER_DATA_PATH = os.path.join(TEST_PATH, 'httpdata')
-HTTPSERVER_CMD = ['python3', '-m', 'http.server', HTTP_PORT, '-d', HTTPSERVER_DATA_PATH]
-use_local_httpserver = True
-
-if "TEST_8013_LOCAL_ADS" in os.environ and os.environ["TEST_8013_LOCAL_ADS"] == 'true':
-    AD_HOST = "http://localhost:" + HTTP_PORT
-    print("Local Ads")
-else:
-    if "AAMP-CDAI-8013-WaitingForAdToBeAdded" in os.environ:
-        AD_HOST = os.environ["AAMP-CDAI-8013-WaitingForAdToBeAdded"]
-    else:
-        AD_HOST = "https://cpetestutility.stb.r53.xcal.tv"
-
-    use_local_httpserver = False
-    print("Remote Ads")
+archive_url = "https://cpetestutility.stb.r53.xcal.tv/AAMP/simlinear/SkyAtlantic/30t-2/skyatlantic-30t-2.tgz"
+AD_HOST = "https://cpetestutility.stb.r53.xcal.tv"
 
 
 AD_URLS = [
@@ -57,46 +40,18 @@ AD_URLS = [
     ]
 
 
-def start_httpserver():
-    if use_local_httpserver:
-        global httpserver_process
-        if not os.path.exists(HTTPSERVER_DATA_PATH):
-            print("ERROR File does not exist {} Check setup.".format(HTTPSERVER_DATA_PATH))
-            sys.exit(os.EX_SOFTWARE)
-        try:
-                httpserver_process = subprocess.Popen(HTTPSERVER_CMD, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        except Exception as e:
-            print("Failed to start http server {}, Check for instance already running".format(HTTPSERVER_CMD, e))
-            sys.exit(os.EX_SOFTWARE)   # Return non-zero
-
-
-def stop_httpserver():
-    global httpserver_process
-
-    if httpserver_process:
-        print("Terminating httpserver")
-        httpserver_process.terminate()
-        httpserver_process = None
-
-
 ###############################################################################
 
 
-@pytest.fixture
-def http_setup_teardown():
-    start_httpserver()
-    yield
-    print("Cleanup")
-    stop_httpserver()
-
 @pytest.mark.ci_test_set
-def test_8013(http_setup_teardown, aamp_setup_teardown):
+def test_8013(aamp_setup_teardown):
     '''Tests the OUTSIDE_ADBREAK_WAIT4ADS state'''
     # This test runs a stream with period 881036616 with 20sec duration
     # It then adds an ad placement to period 881036617 with 30sec duration
     # But the ad is only added when download head reaches baseperiod 881036617 with a delay
     BASIC_TEST_DATA = {
         "title": "Linear CDAI TESTDATA OUTSIDE_ADBREAK_WAIT4ADS",
+        "archive_url": archive_url,
         "url": "v1/frag/bmff/enc/cenc/t/SKYATHD_HD_SU_SKYUK_4053_0_6139857640084951163.mpd",
         'simlinear_type': 'DASH',
         "max_test_time_seconds": 60,

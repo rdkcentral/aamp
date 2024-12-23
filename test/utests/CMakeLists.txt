@@ -34,6 +34,11 @@ pkg_check_modules(LIBDASH REQUIRED libdash)
 pkg_check_modules(LibXml2 REQUIRED libxml-2.0)
 pkg_check_modules(LIBCJSON REQUIRED libcjson)
 
+if (NOT CMAKE_SYSTEM_NAME STREQUAL Darwin)
+  pkg_search_module(JSCORE REQUIRED javascriptcoregtk-4.1 javascriptcoregtk-4.0)
+  find_path (JSC_INCDIR JavaScriptCore/JavaScript.h HINTS ${JSCORE_INCLUDE_DIRS} REQUIRED)
+endif()
+
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DUSE_GST1 -ggdb")

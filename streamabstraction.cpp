@@ -2817,7 +2817,7 @@ bool StreamAbstractionAAMP::CheckForRampDownProfile(int http_error)
 	{
 		http_error = getOriginalCurlError(http_error);
 
-		if (http_error == 404 || http_error == 502 || http_error == 500 || http_error == 503 || http_error == CURLE_PARTIAL_FILE)
+		if (http_error == 404 || http_error == 500 || http_error == 503 || http_error == CURLE_PARTIAL_FILE)
 		{
 			if (RampDownProfile(http_error))
 			{
@@ -3160,46 +3160,9 @@ bool StreamAbstractionAAMP::IsMuxedStream()
  */
 void StreamAbstractionAAMP::SetAudioTrackInfoFromMuxedStream(std::vector<AudioTrackInfo>& vector)
 {
-	for(auto iter = mAudioTracks.begin(); iter != mAudioTracks.end();)
-	{
-		if(iter->characteristics == "muxed-audio")
-		{
-			/*
-			 *  Remove old entries. Fresh elementery streams found in new PAT/PMT for TS stream
-			 */
-			iter = mAudioTracks.erase(iter);
-		}
-		else
-		{
-			iter++;
-		}
-	}
-	for(auto iter : vector)
-	{
-		char* currentId = const_cast<char*>(iter.rendition.c_str());
-		char* currentLanguage = const_cast<char*>(iter.language.c_str());
-		auto language = std::find_if(mAudioTracks.begin(), mAudioTracks.end(),
-                                                                [currentId, currentLanguage](AudioTrackInfo& temp)
-                                                                { return ((temp.language == currentLanguage) && (temp.rendition == currentId)); });
-		if(language != mAudioTracks.end())
-		{
-			/*
-			 * Store proper codec, characteristics and index
-			 */
-			language->characteristics = iter.characteristics;
-			language->codec = iter.codec;
-			language->index = iter.index;
-		}
-		else
-		{
-			mAudioTracks.push_back(iter);
-		}
-	}
-	if(vector.size() > 0)
-	{
-		/*
-		 *  Notify the audio track change
-		 */
+	if( vector.size()>0 )
+	{ // copy track info from mpegts PMT
+		mAudioTracks = vector;
 		aamp->NotifyAudioTracksChanged();
 	}
 }

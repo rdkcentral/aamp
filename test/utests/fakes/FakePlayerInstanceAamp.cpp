@@ -74,6 +74,7 @@ MockPlayerInstanceAAMP *g_mockPlayerInstanceAAMP = nullptr;
 	void PlayerInstanceAAMP::SetPreferredDRM(DRMSystems drmType) {  }
 	void PlayerInstanceAAMP::SetStereoOnlyPlayback(bool bValue) {  }
 	void PlayerInstanceAAMP::SetBulkTimedMetaReport(bool bValue) {  }
+	void PlayerInstanceAAMP::SetBulkTimedMetaReportLive(bool bValue) {  }
 	void PlayerInstanceAAMP::SetRetuneForUnpairedDiscontinuity(bool bValue) {  }
 	void PlayerInstanceAAMP::SetRetuneForGSTInternalError(bool bValue) {  }
 	void PlayerInstanceAAMP::SetAnonymousRequest(bool isAnonymous) {  }
@@ -205,3 +206,12 @@ MockPlayerInstanceAAMP *g_mockPlayerInstanceAAMP = nullptr;
 	std::string PlayerInstanceAAMP::GetAAMPConfig() { return nullptr; }
 	std::string PlayerInstanceAAMP::GetPlaybackStats() { return nullptr; }
 	std::string PlayerInstanceAAMP::GetVideoPlaybackQuality(void) { return nullptr; }
+	bool PlayerInstanceAAMP::SetUserAgent(std::string &userAgent){ return false; }
+	void PlayerInstanceAAMP::updateManifest(const char *manifestData){}
+	bool PlayerInstanceAAMP::IsJsInfoLoggingEnabled(void){ return false; }
+	bool PlayerInstanceAAMP::IsOOBCCRenderingSupported(void){ return false; }
+	int PlayerInstanceAAMP::GetId(void){ return 0; }
+	PrivAAMPState PlayerInstanceAAMP::GetState(void){ return eSTATE_IDLE; }
+	std::string PlayerInstanceAAMP::GetSessionId() const { return ""; }
+
+

@@ -35,7 +35,9 @@ include_directories(${LibXml2_INCLUDE_DIRS})
 include_directories(${LIBDASH_INCLUDE_DIRS})
 include_directories(${UTESTS_ROOT}/ocdm)
 include_directories(${UTESTS_ROOT}/mocks)
-
+if (JSC_INCDIR)
+    include_directories(${JSC_INCDIR})
+endif()
 # Mac OS X
 if(CMAKE_SYSTEM_NAME STREQUAL Darwin)
     include_directories(${AAMP_ROOT}/.libs/systemd/src)

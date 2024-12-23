@@ -77,11 +77,6 @@ public:
   };
 
   /**
-   * @brief Logger type
-   */
-  typedef int (*LoggerFuncType)(const char* fmt, ...);
-
-  /**
    * @brief Persist Network Bandwidth 
    */
   static long mPersistBandwidth;
@@ -241,18 +236,6 @@ public:
   int removeProfiles(std::vector<long> profileBPS, int currentProfileIndex, const std::string& periodId = std::string());
 
   /**
-   * @fn setLogger
-   * 
-   * @param logger The logger function
-   */
-  static void setLogger(LoggerFuncType logger);
-
-  /**
-   * @fn disableLogger
-   */
-  static void disableLogger();
-
-  /**
    * @fn setLogDirectory
    */
   void setLogDirectory(char driveName);
@@ -287,7 +270,12 @@ public:
     * @brief Get the available profiles
     */
    std::vector<ProfileInfo> getProfileInfo() { return mProfiles;}
-   static LoggerFuncType logprintf;
+
+protected:
+	/**
+	 * @brief Logger
+	 */
+	static void logprintf( const char *fmt, ... ) __attribute__ ((format (printf, 1, 2)));
 
 private:
   /**
@@ -352,11 +340,6 @@ private:
   int mAbrProfileChangeDownCount;
 
   /**
-   * @brief Logger function pointer
-   */
-  static LoggerFuncType sLogger;
-
-  /**
    * @brief Default iframe bitrate
    */
   long mDefaultIframeBitrate;
@@ -395,5 +378,5 @@ private:
    */
   std::mutex mProfileLock;
 };
-extern void ABRLogger(const char* levelstr,const char* file, int line,const char* fmt, ...);
+extern void ABRLogger(const char* levelstr,const char* file, int line,const char* fmt, ...)  __attribute__ ((format (printf, 4, 5)));;
 #endif

@@ -79,7 +79,15 @@ gulong g_signal_connect_data(gpointer instance, const gchar *detailed_signal, GC
 							 GConnectFlags connect_flags)
 {
 	TRACE_FUNC();
-	return 0;
+	gulong retval = 0;
+
+	if (g_mockGLib != nullptr)
+	{
+		retval = g_mockGLib->g_signal_connect_data(instance, detailed_signal, c_handler,
+							 						data, destroy_data, connect_flags);
+	}
+
+	return retval;
 }
 
 gboolean g_type_check_instance_is_a(GTypeInstance *instance, GType iface_type)
@@ -229,7 +237,7 @@ void g_usleep(gulong microseconds)
 
 gpointer g_malloc(gsize	 n_bytes)
 {
-	gpointer ptr;
+	gpointer ptr = NULL;
 
 	if (g_mockGLib != nullptr)
 	{
@@ -240,7 +248,7 @@ gpointer g_malloc(gsize	 n_bytes)
 
 gpointer g_realloc (gpointer mem, gsize n_bytes)
 {
-	gpointer ptr;
+	gpointer ptr = NULL;
 
 	if (g_mockGLib != nullptr)
 	{

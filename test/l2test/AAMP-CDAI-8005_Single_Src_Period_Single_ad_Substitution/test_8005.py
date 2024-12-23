@@ -35,36 +35,16 @@ import os
 import sys
 from inspect import getsourcefile
 import pytest
-import subprocess
-import atexit
 import re
 from l2test_pts_restamp import PtsRestampUtils
+from l2test_window_server import WindowServer
 
 ###############################################################################
 
-server_process = None
-server_path = os.path.join(os.getcwd(), "AAMP-CDAI-8005_Single_Src_Period_Single_ad_Substitution/testdata/content/server.py")
+archive_url = "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/streams/L2/AAMP-CDAI-8004_ShortAd/content.tar.xz"
+
 pts_restamp_utils = PtsRestampUtils()
 
-def start_server():
-    global server_process
-    if os.path.isfile(server_path):
-        try:
-            server_process = subprocess.Popen(["python3", server_path], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-            print("started server.py")
-            atexit.register(server_process.terminate)
-        except Exception as e:
-            print("Failed to start server.py"+server_path)
-    else:
-        print("Error: server.py file not found "+ server_path)
-
-def stop_server():
-    global server_process
-    if server_process:
-        print("stop server")
-        server_process.terminate()
-        server_process = None
-        
 
 # TestCase1.1: Single source period CDAI substitution - Refer TC https://etwiki.sys.comcast.net/pages/viewpage.action?spaceKey=RDKV&title=AAMP+Client-side+Dynamic+Ad+Use+cases
 # Description:
@@ -80,10 +60,12 @@ TESTDATA1 = {
     "title": "Single source period CDAI substitution",
     "max_test_time_seconds": 180,
     "aamp_cfg": "client-dai=true\nenablePTSReStamp=true\ninfo=true\nprogress=true\n",
-    "url": "http://localhost:8080/AAMP-CDAI-8005_Single_Src_Period_Single_ad_Substitution/testdata/content/TC1.mpd?live=true",
+    "archive_url": archive_url,
+    'archive_server': {'server_class': WindowServer},
+    "url": "http://localhost:8080/content/TC1.mpd?live=true",
     "cmdlist": [
     	# Add a 30-second ad to the stream at the beginning of Period 1
-        "advert add http://localhost:8080/AAMP-CDAI-8005_Single_Src_Period_Single_ad_Substitution/testdata/content/ad_30s.mpd 30",
+        "advert add http://localhost:8080/content/ad_30s.mpd 30",
     ],
 
     "expect_list": [
@@ -103,11 +85,11 @@ TESTDATA1 = {
         #After completing the ad, confirm the transition back to Period 2 (base content)
 	{"expect": re.escape("Period ID changed from '0-111' to '2' [BasePeriodId='2']"), "min": 20, "max": 180},
         #Ensure that the first segment of ad is correctly fetched
-        {"expect": r"aamp url:0,0,0,2.000000,http://localhost:8080/AAMP-CDAI-8005_Single_Src_Period_Single_ad_Substitution/testdata/content/ad_30/*?(1080|720|480|360)p_1.m4s", "min": 20, "max": 180},
+        {"expect": r"aamp url:0,0,0,2.000000,http://localhost:8080/content/ad_30/*?(1080|720|480|360)p_1.m4s", "min": 20, "max": 180},
         #Ensure that the last  segment of ad is correctly fetched 
-	{"expect": r"aamp url:0,0,0,2.000000,http://localhost:8080/AAMP-CDAI-8005_Single_Src_Period_Single_ad_Substitution/testdata/content/ad_30/*?(1080|720|480|360)p_015.m4s", "min": 20, "max": 180},
+	{"expect": r"aamp url:0,0,0,2.000000,http://localhost:8080/content/ad_30/*?(1080|720|480|360)p_015.m4s", "min": 20, "max": 180},
 	#Ensure fragments fetched from period 2
-	{"expect":r"aamp url:0,0,0,2.000000,http://localhost:8080/AAMP-CDAI-8005_Single_Src_Period_Single_ad_Substitution/testdata/content/dash/*?(1080|720|480|360)p_031.m4s","min":20,"max":180}, 
+	{"expect":r"aamp url:0,0,0,2.000000,http://localhost:8080/content/dash/*?(1080|720|480|360)p_031.m4s","min":20,"max":180}, 
 	
         #End of the test - confirm the last segment fetched from Period 2
         {"expect": r"HttpRequestEnd.*?(1080|720|480|360)p_045.m4s\?live=true", "min": 0, "max": 180, "end_of_test":True},
@@ -132,8 +114,6 @@ def test_8005(aamp_setup_teardown, test_data):
 
     aamp = aamp_setup_teardown
     aamp.set_paths(os.path.abspath(getsourcefile(lambda: 0)))
-    start_server()
     aamp.run_expect_b(test_data)
-    stop_server()
 
     pts_restamp_utils.check_num_segments()

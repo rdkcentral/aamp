@@ -564,6 +564,7 @@ class PrivateInstanceAAMP : public AampDrmCallbacks, public std::enable_shared_f
 	long long mLastTelemetryTimeMS;
 	std::chrono::system_clock::time_point m_lastSubClockSyncTime;
 	std::shared_ptr<TSB::Store> mTSBStore; /**< Local TSB Store object */
+	void SanitizeLanguageList(std::vector<std::string>& languages) const;
 public:
 	/**
 	 * @brief Get profiler bucket type
@@ -648,11 +649,12 @@ public:
 	 * @return void
 	 */
 	void SendMessageOverPipe(const char *str,int nToWrite);
+
 	/**
 	 *   @fn GetLangCodePreference
 	 *   @return enum type
 	 */
-	LangCodePreference GetLangCodePreference();
+	LangCodePreference GetLangCodePreference() const;
 
 	/**
 	 * @fn SetupPipeSession
@@ -1054,6 +1056,7 @@ public:
 	bool mIsVSS;       					/**< Indicates if stream is VSS, updated during Tune */
 	long curlDLTimeout[eCURLINSTANCE_MAX]; 			/**< To store donwload timeout of each curl instance*/
 	std::string mSubLanguage;
+	std::vector<std::string> preferredSubtitleLanguageVctr;	/**< list of preferred text languages from most-preferred to the least*/
 	bool mPlayerPreBuffered;	     			/**< Player changed from BG to FG */
 	int mPlayerId;
 	int mDrmDecryptFailCount;				/**< Sets retry count for DRM decryption failure */
@@ -2416,11 +2419,21 @@ public:
 	void SetBulkTimedMetaReport(bool bValue);
 
 	/**
+	 *   @brief Set Bulk TimedMetadata Reporting flag for live
+	 *   @param[in] bValue - if true Bulk event reporting enabled for live
+	 *
+	 *   @return void
+	 */
+
+	void SetBulkTimedMetaReportLive(bool bValue);
+
+	/**
 	 *	 @brief Set unpaired discontinuity retune flag
 	 *	 @param[in] bValue - true if unpaired discontinuity retune set
 	 *
 	 *	 @return void
 	 */
+
 	void SetRetuneForUnpairedDiscontinuity(bool bValue);
 
 	/**
@@ -3830,10 +3843,7 @@ public:
 	 *
 	 *   @return double
 	 */
-	double GetLLDashCurrentPlayBackRate(void)
-	{
-		return mLLDashCurrentPlayRate;
-	}
+	double GetLLDashCurrentPlayBackRate(void);
 
 	/**
 	 *   @brief Turn off/on the player speed correction for Low latency Dash
@@ -3851,10 +3861,7 @@ public:
 	 *
 	 *   @return double
 	 */
-	bool GetLLDashAdjustSpeed(void)
-	{
-		return bLLDashAdjustPlayerSpeed;
-	}
+	bool GetLLDashAdjustSpeed(void);
 
 	/**
 	 *   @brief Set iframe extraction enabled or not
@@ -4241,6 +4248,15 @@ public:
 	 * @return Flag to indicate if should decrypt
 	 */
 	bool isDecryptClearSamplesRequired();
+
+	/**
+	 * @fn getStringForErrorType
+	 * @brief Retrieves a human-readable error string for a given playback error type.
+	 *
+	 * @param[in] errorType - Errortype of PlaybackErrorType enum.
+	 * @return A constant character pointer to the error string corresponding to the provided error type.
+	 */
+	const char* getStringForPlaybackError(PlaybackErrorType errorType);
 
 protected:
 

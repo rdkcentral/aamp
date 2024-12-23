@@ -226,6 +226,9 @@ def run_aamp(test_dir, url):
     AAMP_ENV = {}
     aamp_cli_cmd_prefix = os.environ["AAMP_CLI_CMD_PREFIX"] + ' ' if "AAMP_CLI_CMD_PREFIX" in os.environ else ''
 
+    # Set to read aamp.cfg from test_dir which will 
+    # not contain aamp.cfg to ensure we do not pickup any aamp.cfg
+    AAMP_ENV.update({"AAMP_CFG_DIR": test_dir})
     if platform.system() == "Darwin":
         # MAC
         aamp_cmd = AAMP_HOME + "/build/Debug/aamp-cli"
@@ -251,7 +254,8 @@ def run_aamp(test_dir, url):
         aamp.sendline("set 37 2000000")
         aamp.expect_exact("cmd: ")
 
-    aamp.sendline('setconfig {"info":true, }')
+    # Need trace enabled to get "Returning Position as" in log
+    aamp.sendline('setconfig {"info":true, "trace":true}')
     aamp.expect_exact("cmd: ")
 
     # Send URL to start playing
@@ -303,7 +307,7 @@ def run_aamp(test_dir, url):
     p1_secs = first_position/1000
     p2_secs = last_position/1000
     pos_change_sec = p2_secs - p1_secs
-    expected_move = args.maxtime/2
+    expected_move = args.maxtime*0.8
     if pos_change_sec < expected_move and fail_msg is None:
         fail_msg = f"Position has not moved enough p1_secs={p1_secs} p2_secs={p2_secs} expect_move={expected_move}"
     else:
@@ -528,6 +532,9 @@ TEST_URLS = [
     },
     {
         "URL": "https://storage.googleapis.com/shaka-demo-assets/angel-one-hls/hls.m3u8"
+    },
+    {
+        "URL": "https://d2it737nair3v7.cloudfront.net/11802/88889523/hls/playlist.m3u8?ads.xumo_channelId=88889523&ads.xumo_streamId=88889523&ads.caid=SkyGenreDocs&ads.csid=xumo_[PLATFORM]_ObsessionMediaOutdoorAmerica_ssai&ads._fw_did=[IFA_TYPE]:[IFA]&ads._fw_is_lat=[IS_LAT]&ads._fw_app_bundle=[APP_BUNDLE]&ads._fw_content_category=[IAB_content_category]&ads._fw_content_genre=[content_genre]&ads._fw_content_language=en&ads._fw_content_rating=[content_rating]&ads._fw_device_model=[device_model]&ads._fw_devicetype=[DEVICETYPE]&ads.appVersion=[APP_VERSION]&ads.xumo_contentId=1096&ads.xumo_contentName=ObsessionMediaOutdoorAmerica&ads.xumo_providerId=1096&ads.xumo_providerName=ObsessionMediaOutdoorAmerica&ads.xumo_channelName=&ads.xumo_platform=[PLATFORM]"
     }
 ]
 

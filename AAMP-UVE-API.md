@@ -148,6 +148,7 @@ Configuration options are passed to AAMP using the UVE initConfig method. This a
 | initialBuffer | Number | 0 | Optional setting. Pre-tune buffering (in seconds) before playback start. With default of 0,player starts playback with 1st segment downloaded|
 | downloadBuffer | Number | 4 | Max number of segments which can be cached ahead of play head(including initialization header segment).This applies to every track type(Video/Audio/Text). This is player buffer in addition to streamer playback buffer which varies with platform |
 | bulkTimedMetadata | Boolean | False | Send timed metadata using single JSON array string instead of individual events  available starting with version 0.8 |
+| bulkTimedMetadataLive | Boolean | False | equivalent of bulkTimedMetadata delivered also for live streams  available starting with version 6.12 |
 | parallelPlaylistDownload | Boolean | True | Optional optimization – download audio and video playlists in parallel for HLS; available starting with version 0.8 |
 | parallelPlaylistRefresh | Boolean | True | Optionally disable audio video playlist parallel download for linear (only for HLS) |
 | preCachePlaylistTime | Number | - | Optionally enable PreCaching of Playlist and TimeWindow for Cache(minutes) ( version 1.0) |
@@ -201,6 +202,7 @@ Configuration options are passed to AAMP using the UVE initConfig method. This a
 | mpdStichingSupport | Boolean | True | Optional field to enable/disable DASH MPD stitching functionality with dual manifest ( one manifest used during tune and another manifest during refresh ) |
 | enablePTSReStamp | Boolean | False | Optional field to enable/disable PTS Re-stamping functionality across discontinuity while moving from Content to Ads or vice-versa |
 | subtitleClockSyncInterval | Number | 30 | Time interval for synchronizing the clock with subtitle module . Default of 30 seconds |
+| showDiagnosticsOverlay | Configures the diagnostics overlay: 0 (none), 1 (minimal), 2 (extended). Controls the visibility and level of detail for diagnostics displayed during playback.
 
 
 Example:
@@ -333,7 +335,7 @@ Example:
 	    var url = "https://example.com/VideoTestStream/aamptest/streams/ads/stitched/sample_manifest.mpd"
 	    const xml = "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<MPD xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"" ...; // for working case need valid DASH manifest XML
 	    player.load(url,true,{ manifest: xml});
-     }
+      }
 ```
 
 ---
@@ -3350,3 +3352,8 @@ Aug 2024
     - getAvailableAudioTracks ( updated example and added missing property )
     - setPreferredTextLanguage ( missing information added )
     - getTextTrackInfo ( missing information added )
+
+**Version:** 6.12
+**Release Notes:**
+- Configuration:
+    - bulkTimedMetadataLive

@@ -52,6 +52,12 @@ public:
 	MOCK_METHOD(gboolean, gst_object_replace, (GstObject ** oldobj, GstObject * newobj));
 	MOCK_METHOD(gboolean, gst_element_send_event, (GstElement *element, GstEvent *event));
 	MOCK_METHOD(GstEvent *, gst_event_new_step, (GstFormat format, guint64 amount, gdouble rate, gboolean flush, gboolean intermediate));
+	MOCK_METHOD(GstEvent *, gst_event_new_segment, (const GstSegment * segment));
+	MOCK_METHOD(GstEvent *, gst_event_new_custom, (GstEventType type, GstStructure *structure));
+	MOCK_METHOD(gboolean, gst_pad_push_event, (GstPad *pad, GstEvent *event));
+	MOCK_METHOD(void, gst_segment_init, (GstSegment *segment, GstFormat format));
+	MOCK_METHOD(GstPad *, gst_element_get_static_pad, (GstElement *element, const gchar *name));
+	MOCK_METHOD(gboolean, gst_element_query_position, (GstElement *element, GstFormat format, gint64 *cur));
 
 	/*
 gst_app_sink_get_type

@@ -64,6 +64,7 @@
 #include "AampCurlStore.h"
 
 #include <iomanip>
+#include <unordered_set>
 
 #ifdef IARM_MGR
 #include "host.hpp"
@@ -1183,10 +1184,20 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 	, preferredInstreamIdString("")
 	, preferredTextNameString("")
 	, preferredNameString("")
-	, mProgressReportOffset(-1), mFirstFragmentTimeOffset(-1), mProgressReportAvailabilityOffset(-1)
-	, mAutoResumeTaskId(AAMP_TASK_ID_INVALID), mAutoResumeTaskPending(false), mScheduler(NULL), mEventLock(), mEventPriority(G_PRIORITY_DEFAULT_IDLE)
+	, mProgressReportOffset(-1)
+	, mFirstFragmentTimeOffset(-1)
+	, mProgressReportAvailabilityOffset(-1)
+	, mAutoResumeTaskId(AAMP_TASK_ID_INVALID)
+	, mAutoResumeTaskPending(false)
+	, mScheduler(NULL)
+	, mEventLock()
+	, mEventPriority(G_PRIORITY_DEFAULT_IDLE)
 	, mStreamLock()
-	, mConfig (config),mSubLanguage(), mHarvestCountLimit(0), mHarvestConfig(0)
+	, mConfig (config)
+	, mSubLanguage()
+	, preferredSubtitleLanguageVctr()
+	, mHarvestCountLimit(0)
+	, mHarvestConfig(0)
 	, mIsWVKIDWorkaround(false)
 	, mAuxFormat(FORMAT_INVALID), mAuxAudioLanguage()
 	, mAbsoluteEndPosition(0), mIsLiveStream(false)
@@ -4224,8 +4235,8 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 						AampLogManager::LogNetworkError (effectiveUrl.empty() ? remoteUrl.c_str() : effectiveUrl.c_str(), // Effective URL could be different than remoteURL
 						AAMPNetworkErrorHttp, http_code, mediaType);
 						print_headerResponse(context.allResponseHeaders, mediaType);
-
-						if((http_code >= 500 && http_code != 502) && downloadAttempt < maxDownloadAttempt)
+						//Http error 502 to be reattempted once per fragment download and remaining http error to be reattempted as per config
+						if(((http_code >= 500 && http_code !=502) && downloadAttempt < maxDownloadAttempt) || (http_code == 502 && downloadAttempt <= DEFAULT_FRAGMENT_DOWNLOAD_502_RETRY_COUNT))
 						{
 							int waitTimeBeforeRetryHttp5xxMSValue = GETCONFIGVALUE_PRIV(eAAMPConfig_Http5XXRetryWaitInterval);
 							InterruptableMsSleep(waitTimeBeforeRetryHttp5xxMSValue);
@@ -4402,7 +4413,7 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 
 					AAMPLOG(reqEndLogLevel, "HttpRequestEnd: %s%d,%d,%d%s,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%2.4f,%g,%ld,%ld,%ld,%.500s%s%s",
 							appName.c_str(), mediaTypeTelemetry, mediaType, http_code, timeoutClass.c_str(), totalPerformRequest, total, connect, startTransfer, resolve, appConnect, preTransfer, redirect, dlSize, reqSize,downloadbps,
-					((mediaType == eMEDIATYPE_VIDEO || mediaType == eMEDIATYPE_INIT_VIDEO || mediaType == eMEDIATYPE_PLAYLIST_VIDEO) ? (context.bitrate > 0 ? context.bitrate : mpStreamAbstractionAAMP->GetVideoBitrate()): 0),((res == CURLE_OK) ? effectiveUrl.c_str() : remoteUrl.c_str()), // Effective URL could be different than remoteURL and it is updated only for CURLE_OK case 
+					((mediaType == eMEDIATYPE_VIDEO || mediaType == eMEDIATYPE_INIT_VIDEO || mediaType == eMEDIATYPE_PLAYLIST_VIDEO) ? (context.bitrate > 0 ? context.bitrate : mpStreamAbstractionAAMP->GetVideoBitrate()): 0),((res == CURLE_OK) ? effectiveUrl.c_str() : remoteUrl.c_str()), // Effective URL could be different than remoteURL and it is updated only for CURLE_OK case
 									range?";":"", range?range:"");
 					AAMPLOG_INFO("External Processing Delay : %lld", context.processDelay);
 					if(ui32CurlTrace < 10 )
@@ -4826,13 +4837,6 @@ void PrivateInstanceAAMP::TeardownStream(bool newTune)
 	{
 #ifdef AAMP_STOP_SINK_ON_SEEK
 		const bool forceStop = true;
-		// Don't send event if nativeCCRendering is ON
-		if (!ISCONFIGSET_PRIV(eAAMPConfig_NativeCCRendering))
-		{
-			CCHandleEventPtr event = std::make_shared<CCHandleEvent>(0, GetSessionId());
-			mEventManager->SendEvent(event);
-			AAMPLOG_WARN("Sent AAMP_EVENT_CC_HANDLE_RECEIVED with NULL handle");
-		}
 #else
 		const bool forceStop = false;
 #endif
@@ -5167,13 +5171,17 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 	}
 
 	TeardownStream(newTune|| (eTUNETYPE_RETUNE == tuneType));
-	if(GETCONFIGVALUE_PRIV(eAAMPConfig_PlatformType) == ePLATFORM_AMLOGIC)
+
+	// Send new SEGMENT event only on all trickplay and trickplay -> play, not on pause -> play / seek while paused
+	// this shouldn't impact seekplay or ADs
+	if (tuneType == eTUNETYPE_SEEK && !(mbSeeked == true || rate == 0 || (rate == 1 && pipeline_paused == true)))
 	{
-		// Send new SEGMENT event only on all trickplay and trickplay -> play, not on pause -> play / seek while paused
-		// this shouldn't impact seekplay or ADs
-		if (tuneType == eTUNETYPE_SEEK && !(mbSeeked == true || rate == 0 || (rate == 1 && pipeline_paused == true)))
-			for (int i = 0; i < AAMP_TRACK_COUNT; i++) mbNewSegmentEvtSent[i] = false;
-	}
+ 		for (int i = 0; i < AAMP_TRACK_COUNT; i++)
+		{
+			mbNewSegmentEvtSent[i] = false;
+		}
+ 	}
+
 	ui32CurlTrace=0;
 
 	if((mTelemetryInterval == 0) && mbPlayEnabled)
@@ -5455,7 +5463,14 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 		culledOffset = culledSeconds;
 		UpdateProfileCappedStatus();
 #ifndef AAMP_STOP_SINK_ON_SEEK
-		AAMPLOG_WARN("Updated culledOffset: %f seek_pos_seconds: %f culledSeconds/start: %f ", culledOffset,seek_pos_seconds, culledSeconds);
+		/*
+		Do not modify below log line since it is used in checking L2 test case results.
+		If need to be modified then make sure below test cases are modified to
+		reflect the same.
+		AAMP-CONFIG-2033_live
+		AAMP-CONFIG-2029_seekMidFragment
+		*/
+		AAMPLOG_WARN("Updated seek_pos_seconds %f culledSeconds/start %f culledOffset %f", seek_pos_seconds, culledSeconds, culledOffset);
 #endif
 		mpStreamAbstractionAAMP->GetStreamFormat(mVideoFormat, mAudioFormat, mAuxFormat, mSubtitleFormat);
 		AAMPLOG_INFO("TuneHelper : mVideoFormat %d, mAudioFormat %d mAuxFormat %d", mVideoFormat, mAudioFormat, mAuxFormat);
@@ -5549,7 +5564,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 				*	Not PTS restamp
 				*	OR normal play
 				* This means we skip this flush when
-				*	trickplay and PTS restamp 
+				*	trickplay and PTS restamp
 				*	and we are using the flush(0) that occurs else where
 				*/
 				if (!ISCONFIGSET_PRIV(eAAMPConfig_EnablePTSReStamp) || rate == AAMP_NORMAL_PLAY_RATE )
@@ -5783,6 +5798,15 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 	mHarvestConfig = GETCONFIGVALUE_PRIV(eAAMPConfig_HarvestConfig);
 	mSessionToken = GETCONFIGVALUE_PRIV(eAAMPConfig_AuthToken);
 	mSubLanguage = GETCONFIGVALUE_PRIV(eAAMPConfig_SubTitleLanguage);
+	preferredSubtitleLanguageVctr.clear();
+	std::istringstream ss(mSubLanguage);
+	std::string lng;
+	while(std::getline(ss, lng, ','))
+	{
+		preferredSubtitleLanguageVctr.push_back(lng);
+		AAMPLOG_INFO("Parsed preferred subtitle lang: %s", lng.c_str());
+	}
+
 	mSupportedTLSVersion = GETCONFIGVALUE_PRIV(eAAMPConfig_TLSVersion);
 	mLiveOffsetDrift = GETCONFIGVALUE_PRIV(eAAMPConfig_LiveOffsetDriftCorrectionInterval);
 	mAsyncTuneEnabled = ISCONFIGSET_PRIV(eAAMPConfig_AsyncTune);
@@ -6254,7 +6278,7 @@ void PrivateInstanceAAMP::SetSessionId(std::string sid)
 /**
  *  @brief Get Language preference from aamp.cfg.
  */
-LangCodePreference PrivateInstanceAAMP::GetLangCodePreference()
+LangCodePreference PrivateInstanceAAMP::GetLangCodePreference() const
 {
 	int langCodePreference = GETCONFIGVALUE_PRIV(eAAMPConfig_LanguageCodePreference);
 	return (LangCodePreference)langCodePreference;
@@ -7849,7 +7873,7 @@ void PrivateInstanceAAMP::SaveNewTimedMetadata(long long timeMilliseconds, const
  */
 void PrivateInstanceAAMP::ReportTimedMetadata(bool init)
 {
-	bool bMetadata = ISCONFIGSET_PRIV(eAAMPConfig_BulkTimedMetaReport);
+	bool bMetadata = ISCONFIGSET_PRIV(eAAMPConfig_BulkTimedMetaReport) || ISCONFIGSET_PRIV(eAAMPConfig_BulkTimedMetaReportLive);
 	if(bMetadata && init && IsNewTune())
 	{
 		ReportBulkTimedMetadata();
@@ -7907,7 +7931,9 @@ void PrivateInstanceAAMP::ReportBulkTimedMetadata()
 				mEventManager->SendEvent(eventData);
 				cJSON_free(bulkData);
 			}
+			timedMetadata.clear();
 			cJSON_Delete(root);
+
 		}
 		mTimedMetadataDuration = (NOW_STEADY_TS_MS - mTimedMetadataStartTime);
 	}
@@ -8083,9 +8109,10 @@ void PrivateInstanceAAMP::InitializeCC(unsigned long decoderHandle)
 	}
 #endif
 
+        AampCCManager::GetInstance()->Init((void *)decoderHandle);
+
 	if (ISCONFIGSET_PRIV(eAAMPConfig_NativeCCRendering))
 	{
-		AampCCManager::GetInstance()->Init((void *)decoderHandle);
 
 		int overrideCfg = GETCONFIGVALUE_PRIV(eAAMPConfig_CEAPreferred);
 		if (overrideCfg == 0)
@@ -8095,15 +8122,7 @@ void PrivateInstanceAAMP::InitializeCC(unsigned long decoderHandle)
 		}
 
 	}
-	else
-	{
-#if defined FLEX2_RDK
-		AampCCManager::GetInstance()->Init((void *)decoderHandle);
-#else
-		CCHandleEventPtr event = std::make_shared<CCHandleEvent>(decoderHandle, GetSessionId());
-		mEventManager->SendEvent(event);
-#endif
-	}
+
 }
 
 
@@ -8262,15 +8281,8 @@ void PrivateInstanceAAMP::ScheduleRetune(PlaybackErrorType errorType, AampMediaT
 			}
 		}
 
-		const char* errorString  =  (errorType == eGST_ERROR_PTS) ? "PTS ERROR" :
-									(errorType == eGST_ERROR_UNDERFLOW) ? "Underflow" :
-									(errorType == eSTALL_AFTER_DISCONTINUITY) ? "Stall After Discontinuity" :
-									(errorType == eDASH_LOW_LATENCY_MAX_CORRECTION_REACHED)?"LL DASH Max Correction Reached":
-									(errorType == eDASH_LOW_LATENCY_INPUT_PROTECTION_ERROR)?"LL DASH Input Protection Error":
-									(errorType == eDASH_RECONFIGURE_FOR_ENC_PERIOD)?"Enrypted period found":
-									(errorType == eGST_ERROR_GST_PIPELINE_INTERNAL) ? "GstPipeline Internal Error" : "STARTTIME RESET";
 
-		SendAnomalyEvent(ANOMALY_WARNING, "%s %s", GetMediaTypeName(trackType), errorString);
+		SendAnomalyEvent(ANOMALY_WARNING, "%s %s", GetMediaTypeName(trackType), getStringForPlaybackError(errorType));
 		bool activeAAMPFound = false;
 		pthread_mutex_lock(&gMutex);
 		for (std::list<gActivePrivAAMP_t>::iterator iter = gActivePrivAAMPs.begin(); iter != gActivePrivAAMPs.end(); iter++)
@@ -8335,13 +8347,13 @@ void PrivateInstanceAAMP::ScheduleRetune(PlaybackErrorType errorType, AampMediaT
 						else
 						{
 							gAAMPInstance->numPtsErrors = 0;
-							AAMPLOG_WARN("PrivateInstanceAAMP: Not scheduling reTune since first %s.", errorString);
+							AAMPLOG_WARN("PrivateInstanceAAMP: Not scheduling reTune since first %s.", getStringForPlaybackError(errorType));
 						}
 						lastUnderFlowTimeMs[trackType] = now;
 					}
 					else
 					{
-						AAMPLOG_ERR("PrivateInstanceAAMP: Schedule Retune errorType %d error %s", errorType, errorString);
+						AAMPLOG_ERR("PrivateInstanceAAMP: Schedule Retune errorType %d error %s", errorType, getStringForPlaybackError(errorType));
 						gAAMPInstance->reTune = true;
 						AdditionalTuneFailLogEntries();
 						ScheduleAsyncTask(PrivateInstanceAAMP_Retune, (void *)this, "PrivateInstanceAAMP_Retune");
@@ -8355,6 +8367,32 @@ void PrivateInstanceAAMP::ScheduleRetune(PlaybackErrorType errorType, AampMediaT
 		if (!activeAAMPFound)
 		{
 			AAMPLOG_WARN("PrivateInstanceAAMP: %p not in Active AAMP list", this);
+		}
+	}
+	else if (AAMP_RATE_PAUSE != rate && ContentType_EAS != mContentType)
+	{
+		//pipeline error during trickplay
+		if(errorType == eGST_ERROR_GST_PIPELINE_INTERNAL)
+		{
+			AAMPLOG_WARN("Processing retune for GstPipeline Internal Error and rate %f", rate);
+			SendAnomalyEvent(ANOMALY_WARNING, "%s GstPipeline Internal Error", GetMediaTypeName(trackType));
+
+			pthread_mutex_lock(&gMutex);
+			for (std::list<gActivePrivAAMP_t>::iterator iter = gActivePrivAAMPs.begin(); iter != gActivePrivAAMPs.end(); iter++)
+			{
+				if (this == iter->pAAMP)
+				{
+					gActivePrivAAMP_t *gAAMPInstance = &(*iter);
+					gAAMPInstance->reTune = true;
+					AdditionalTuneFailLogEntries();
+					ScheduleAsyncTask(PrivateInstanceAAMP_Retune, (void *)this, "PrivateInstanceAAMP_Retune");
+				}
+			}
+			pthread_mutex_unlock(&gMutex);
+		}
+		else
+		{
+			AAMPLOG_INFO("Not processing reTune for rate = %f, errorType %d , error %s", rate, errorType, getStringForPlaybackError(errorType));
 		}
 	}
 }
@@ -11559,7 +11597,7 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 
 		AAMPLOG_INFO("Number of preferred languages received: %zu", inputLanguagesList.size());
 		AAMPLOG_INFO("Preferred language string received: %s", inputLanguagesString.c_str());
-		
+
 		std::vector<std::string> inputLabelList;
 		std::string inputLabelsString;
 		/** Get Label Properties*/
@@ -11701,8 +11739,6 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 					preferredLanguagesList.push_back(lng);
 					AAMPLOG_INFO("Parsed preferred lang: %s", lng.c_str());
 				}
-
-				preferredLanguagesString = std::string(languageList);
 				SETCONFIGVALUE_PRIV(AAMP_APPLICATION_SETTING,eAAMPConfig_PreferredAudioLanguage,preferredLanguagesString);
 			}
 
@@ -12065,14 +12101,44 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 }
 
 /**
+ *  @brief Sanitize the given language list by normalizing the codes and removing duplicates.
+ *         Order is preserved.
+ */
+void PrivateInstanceAAMP::SanitizeLanguageList(std::vector<std::string>& languages) const
+{
+	std::transform( languages.begin(), languages.end(),
+					languages.begin(),
+					[this](std::string& lang)
+					{ return Getiso639map_NormalizeLanguageCode(lang, this->GetLangCodePreference()); } );
+
+	// To keep track of the languages that have already been encountered.
+	std::unordered_set<std::string> seen;
+
+	auto new_end = std::remove_if(languages.begin(), languages.end(),
+								  [&seen](const std::string &value)
+								  {
+									  if (seen.find(value) != seen.end())
+									  {
+										  return true;
+									  }
+									  else
+									  {
+										  seen.insert(value);
+										  return false;
+									  }
+								  });
+	languages.erase(new_end, languages.end());
+}
+
+/**
  *  @brief Set Preferred Text Language
  */
 void PrivateInstanceAAMP::SetPreferredTextLanguages(const char *param )
 {
 	/**< First argment is Json data then parse it and and assign the variables properly*/
-	AampJsonObject* jsObject = NULL;
-	bool isJson = false;
+	AampJsonObject* jsObject = nullptr;
 	bool accessibilityPresent = false;
+	std::vector<std::string> inputTextLanguagesList;
 
 	// IsLocalAAMPTsb will be set once the playback of HiFi LLD stream starts and local TSB config is enabled
 	if (IsLocalAAMPTsb())
@@ -12084,36 +12150,22 @@ void PrivateInstanceAAMP::SetPreferredTextLanguages(const char *param )
 	try
 	{
 		jsObject = new AampJsonObject(param);
-		if (jsObject)
-		{
-			AAMPLOG_INFO("Preferred Text Language Properties received as json : %s", param);
-			isJson = true;
-		}
 	}
 	catch(const std::exception& e)
 	{
 		/**<Nothing to do exclude it*/
 	}
 
-	if (isJson)
+	if (jsObject)
 	{
-		std::vector<std::string> inputTextLanguagesList;
+		AAMPLOG_INFO("Preferred Text Language Properties received as json : %s", param);
+
 		std::string inputTextLanguagesString;
 
 		/** Get language Properties*/
 		if(jsObject->isArray("languages"))
-		{ // if starting with array, join to string
-			if (jsObject->get("languages", inputTextLanguagesList))
-			{
-				for (auto preferredLanguage : inputTextLanguagesList)
-				{
-					if (!inputTextLanguagesString.empty())
-					{
-						inputTextLanguagesString += "," ;
-					}
-					inputTextLanguagesString += preferredLanguage;
-				}
-			}
+		{
+			jsObject->get("languages", inputTextLanguagesList);
 		}
 		else if (jsObject->isString("languages"))
 		{ // if starting with string, create simple array
@@ -12133,9 +12185,6 @@ void PrivateInstanceAAMP::SetPreferredTextLanguages(const char *param )
 		{
 			AAMPLOG_ERR("Preferred Text Language Field Only support String or String Array");
 		}
-
-		AAMPLOG_INFO("Number of preferred Text languages: %zu", inputTextLanguagesList.size());
-		AAMPLOG_INFO("Preferred Text languages string: %s", inputTextLanguagesString.c_str());
 
 		std::string inputTextRenditionString;
 		/** Get rendition or role Properties*/
@@ -12207,16 +12256,7 @@ void PrivateInstanceAAMP::SetPreferredTextLanguages(const char *param )
 
 		/**< Release json object **/
 		SAFE_DELETE(jsObject);
-		preferredTextLanguagesList.clear();
-		preferredTextLanguagesString.clear();
-		preferredTextRenditionString.clear();
-		preferredTextAccessibilityNode.clear();
-		preferredTextLabelString.clear();
-		preferredInstreamIdString.clear();
-		preferredTextNameString.clear();
 
-		preferredTextLanguagesList = inputTextLanguagesList;
-		preferredTextLanguagesString = inputTextLanguagesString;
 		preferredTextRenditionString = inputTextRenditionString;
 		preferredTextAccessibilityNode = inputTextAccessibilityNode;
 		preferredTextLabelString = inputTextLabelString;
@@ -12224,27 +12264,45 @@ void PrivateInstanceAAMP::SetPreferredTextLanguages(const char *param )
 		preferredInstreamIdString = inputInstreamIdString;
 		preferredTextNameString = inputTextNameString;
 
-		SETCONFIGVALUE_PRIV(AAMP_APPLICATION_SETTING,eAAMPConfig_PreferredTextLanguage,preferredTextLanguagesString);
 		SETCONFIGVALUE_PRIV(AAMP_APPLICATION_SETTING,eAAMPConfig_PreferredTextRendition,preferredTextRenditionString);
 		SETCONFIGVALUE_PRIV(AAMP_APPLICATION_SETTING,eAAMPConfig_PreferredTextLabel,preferredTextLabelString);
 		SETCONFIGVALUE_PRIV(AAMP_APPLICATION_SETTING,eAAMPConfig_PreferredTextType,preferredTextTypeString);
 	}
-	else if( param )
+	else if (param)
 	{
-		AAMPLOG_INFO("Setting Text Languages  %s", param);
-		std::string inputTextLanguagesString;
-		inputTextLanguagesString = std::string(param);
+		AAMPLOG_INFO("Preferred Text Languages received as comma-delimited string : %s", param);
 
-		preferredTextLanguagesList.clear();
-		preferredTextLanguagesList.push_back(inputTextLanguagesString);
-		preferredTextLanguagesString = inputTextLanguagesString;
-		SETCONFIGVALUE_PRIV(AAMP_APPLICATION_SETTING, eAAMPConfig_PreferredTextLanguage, preferredTextLanguagesString);
+		std::istringstream ss(param);
+		std::string lng;
+		while(std::getline(ss, lng, ','))
+		{
+			inputTextLanguagesList.push_back(lng);
+		}
 	}
 	else
 	{
 		AAMPLOG_INFO("No valid Parameter Recieved");
 		return;
 	}
+
+	SanitizeLanguageList(inputTextLanguagesList);
+	preferredTextLanguagesList = inputTextLanguagesList;
+
+	// Write the preferred languages back to the string
+	preferredTextLanguagesString.clear();
+	for (const auto& lang : preferredTextLanguagesList)
+	{
+		if (!preferredTextLanguagesString.empty())
+		{
+			preferredTextLanguagesString += ",";
+		}
+		preferredTextLanguagesString += lang;
+	}
+
+	AAMPLOG_INFO("Number of preferred Text languages: %zu", preferredTextLanguagesList.size());
+	AAMPLOG_INFO("Preferred Text languages string: %s", preferredTextLanguagesString.c_str());
+
+	SETCONFIGVALUE_PRIV(AAMP_APPLICATION_SETTING,eAAMPConfig_PreferredTextLanguage,preferredTextLanguagesString);
 
 	PrivAAMPState state;
 	GetState(state);
@@ -12371,7 +12429,9 @@ void PrivateInstanceAAMP::SetPreferredTextLanguages(const char *param )
 				mOffsetFromTunetimeForSAPWorkaround = (double)(aamp_GetCurrentTimeMS() / 1000) - mLiveOffset;
 				mLanguageChangeInProgress = true;
 				AcquireStreamLock();
-				if(ISCONFIGSET_PRIV(eAAMPConfig_SeamlessAudioSwitch) && !mFirstTune && ( mMediaFormat == eMEDIAFORMAT_HLS_MP4 || eMEDIAFORMAT_DASH ))
+
+				if (ISCONFIGSET_PRIV(eAAMPConfig_SeamlessAudioSwitch) && !mFirstTune
+					&& ((mMediaFormat == eMEDIAFORMAT_HLS_MP4) || (mMediaFormat == eMEDIAFORMAT_DASH)))
 				{
 					AAMPLOG_WARN("Seamless Text switch has been enabled");
 					mpStreamAbstractionAAMP->RefreshTrack(eMEDIATYPE_SUBTITLE);
@@ -13278,6 +13338,7 @@ void PrivateInstanceAAMP::LoadAampAbrConfig()
 	mhAampAbrConfig.abrMaxBuffer = GETCONFIGVALUE_PRIV(eAAMPConfig_MaxABRNWBufferRampUp);
 	mhAampAbrConfig.abrMinBuffer = GETCONFIGVALUE_PRIV(eAAMPConfig_MinABRNWBufferRampDown);
 	mhAampAbrConfig.abrCacheOutlier = GETCONFIGVALUE_PRIV(eAAMPConfig_ABRCacheOutlier);
+	mhAampAbrConfig.abrBufferCounter = GETCONFIGVALUE_PRIV(eAAMPConfig_ABRBufferCounter);
 
 	// Logging level support on aampabr
 
@@ -13751,5 +13812,46 @@ void PrivateInstanceAAMP::SetLLDashChunkMode(bool enable)
 		mpStreamAbstractionAAMP->SetABRMinBuffer(GETCONFIGVALUE_PRIV(eAAMPConfig_MinABRNWBufferRampDown));
 		mpStreamAbstractionAAMP->SetABRMaxBuffer(GETCONFIGVALUE_PRIV(eAAMPConfig_MaxABRNWBufferRampUp));
 		LoadAampAbrConfig();
+	}
+}
+
+bool PrivateInstanceAAMP::GetLLDashAdjustSpeed(void)
+{
+	return bLLDashAdjustPlayerSpeed;
+}
+
+double PrivateInstanceAAMP::GetLLDashCurrentPlayBackRate(void)
+{
+	return mLLDashCurrentPlayRate;
+}
+
+
+/**
+ * @fn getStringForPlaybackError
+ * @brief Retrieves a human-readable error string for a given playback error type.
+ *
+ * @param[in] errorType - Errortype of PlaybackErrorType enum.
+ * @return A constant character pointer to the error string corresponding to the provided error type.
+ */
+const char* PrivateInstanceAAMP::getStringForPlaybackError(PlaybackErrorType errorType)
+{
+	switch (errorType)
+	{
+		case eGST_ERROR_PTS:
+			return "PTS ERROR";
+		case eGST_ERROR_UNDERFLOW:
+			return "Underflow";
+		case eSTALL_AFTER_DISCONTINUITY:
+			return "Stall After Discontinuity";
+		case eDASH_LOW_LATENCY_MAX_CORRECTION_REACHED:
+			return "LL DASH Max Correction Reached";
+		case eDASH_LOW_LATENCY_INPUT_PROTECTION_ERROR:
+			return "LL DASH Input Protection Error";
+		case eDASH_RECONFIGURE_FOR_ENC_PERIOD:
+			return "Encrypted period found";
+		case eGST_ERROR_GST_PIPELINE_INTERNAL:
+			return "GstPipeline Internal Error";
+		default:
+			return "STARTTIME RESET";
 	}
 }

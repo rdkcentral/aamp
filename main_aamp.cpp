@@ -2302,7 +2302,7 @@ void PlayerInstanceAAMP::SetStereoOnlyPlayback(bool bValue)
 	}
 	else
 	{
-		SETCONFIGVALUE(AAMP_APPLICATION_SETTING,eAAMPConfig_DisableEC3,true);
+		SETCONFIGVALUE(AAMP_APPLICATION_SETTING,eAAMPConfig_DisableEC3,false);
 		SETCONFIGVALUE(AAMP_APPLICATION_SETTING,eAAMPConfig_DisableAC3,false);
 		SETCONFIGVALUE(AAMP_APPLICATION_SETTING,eAAMPConfig_DisableAC4,false);
 		SETCONFIGVALUE(AAMP_APPLICATION_SETTING,eAAMPConfig_DisableATMOS,false);
@@ -2327,6 +2327,15 @@ void PlayerInstanceAAMP::SetBulkTimedMetaReport(bool bValue)
 {
 	ERROR_STATE_CHECK_VOID();
 	SETCONFIGVALUE(AAMP_APPLICATION_SETTING,eAAMPConfig_BulkTimedMetaReport,bValue);
+}
+
+/**
+ *  @brief Set the flag if live playback needs bulktime metadata.
+ */
+void PlayerInstanceAAMP::SetBulkTimedMetaReportLive(bool bValue)
+{
+	ERROR_STATE_CHECK_VOID();
+	SETCONFIGVALUE(AAMP_APPLICATION_SETTING,eAAMPConfig_BulkTimedMetaReportLive,bValue);
 }
 
 /**
@@ -2419,9 +2428,11 @@ void PlayerInstanceAAMP::SetPreferredSubtitleLanguage(const char* language)
 	ERROR_STATE_CHECK_VOID();
         AAMPLOG_WARN("PlayerInstanceAAMP::(%s)->(%s)",  aamp->mSubLanguage.c_str(), language);
 
-	if (aamp->mSubLanguage.compare(language) == 0)
+	//Compare it with the first element and update it to the new preferred language if they don't match.
+	if(1 == aamp->preferredSubtitleLanguageVctr.size() && aamp->preferredSubtitleLanguageVctr.front() == language )
+	{
 		return;
-
+	}
 
 	if (state == eSTATE_IDLE || state == eSTATE_RELEASED)
 	{

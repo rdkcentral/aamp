@@ -58,7 +58,6 @@
 #define AAMPABRLOG_INFO(FORMAT, ...)  AAMPABRLOG(eAAMPAbrConfig.infologging,"INFO",FORMAT, ##__VA_ARGS__)
 #define AAMPABRLOG_WARN(FORMAT, ...)  AAMPABRLOG(eAAMPAbrConfig.warnlogging,"WARN",FORMAT, ##__VA_ARGS__)
 #define AAMPABRLOG_ERR(FORMAT, ...)   AAMPABRLOG(eAAMPAbrConfig.debuglogging,"ERROR",FORMAT, ##__VA_ARGS__)
-HybridABRManager::AampAbrConfig eAAMPAbrConfig = {0,0,0,0,0,0,0,0,0,0,0};
 
 /**
  * @struct SpeedCache
@@ -105,8 +104,7 @@ void HybridABRManager::ReadPlayerConfig(AampAbrConfig *mAampAbrConfig)
 	eAAMPAbrConfig.debuglogging    = mAampAbrConfig->debuglogging;
 	eAAMPAbrConfig.tracelogging    = mAampAbrConfig->tracelogging;
 	eAAMPAbrConfig.warnlogging     = mAampAbrConfig->warnlogging;
-	logprintf("[%s][%d]PlayerConfig : ABRCacheLife %d ,ABRCacheLength %d ,ABRSkipDuration %d , ABRNwConsistency %d ,ABRThresholdSize %d ,ABRMaxBuffer %d ,ABRMinBuffer %d ABRCacheOutlier %ld ABRBufferCounter %d ",__FUNCTION__,__LINE__,eAAMPAbrConfig.abrCacheLife,eAAMPAbrConfig.abrCacheLength,eAAMPAbrConfig.abrSkipDuration,eAAMPAbrConfig.abrNwConsistency,eAAMPAbrConfig.abrThresholdSize,eAAMPAbrConfig.abrMaxBuffer,eAAMPAbrConfig.abrMinBuffer,eAAMPAbrConfig.abrCacheOutlier,eAAMPAbrConfig.abrBufferCounter);
-
+	logprintf("[%s][%d]PlayerConfig : ABRCacheLife %d ,ABRCacheLength %d ,ABRSkipDuration %d , ABRNwConsistency %d ,ABRThresholdSize %d ,ABRMaxBuffer %d ,ABRMinBuffer %d ABRCacheOutlier %d ABRBufferCounter %d ",__FUNCTION__,__LINE__,eAAMPAbrConfig.abrCacheLife,eAAMPAbrConfig.abrCacheLength,eAAMPAbrConfig.abrSkipDuration,eAAMPAbrConfig.abrNwConsistency,eAAMPAbrConfig.abrThresholdSize,eAAMPAbrConfig.abrMaxBuffer,eAAMPAbrConfig.abrMinBuffer,eAAMPAbrConfig.abrCacheOutlier,eAAMPAbrConfig.abrBufferCounter);
 }
 
 
@@ -117,7 +115,6 @@ void HybridABRManager::ReadPlayerConfig(AampAbrConfig *mAampAbrConfig)
 
 long HybridABRManager::CheckAbrThresholdSize(int bufferlen, int downloadTimeMs ,long currentProfilebps ,int fragmentDurationMs , CurlAbortReason abortReason)
 {
-	char buf[6] = {0,};
 	long downloadbps = ((long)(bufferlen / downloadTimeMs)*8000);
 	// extra coding to avoid picking lower profile
 	// Avoid this reset for Low bandwidth timeout cases
@@ -184,7 +181,6 @@ long HybridABRManager::UpdateABRBitrateDataBasedOnCacheOutlier(std::vector< long
 	long ret = -1;
 	std::vector< long>::iterator tmpDataIter;
 	long medianbps=0;
-	long long presentTime = ABRGetCurrentTimeMS();
 	int abrOutlierDiffBytes;
 
 	std::sort(tmpData.begin(),tmpData.end());
@@ -451,14 +447,14 @@ long HybridABRManager::FragmentfailureRampdown(int currentBuffer,int currentProf
 	long desiredProfilebw = 0;
 	long currentbw = getBandwidthOfProfile(currentProfileIndex);
 	std::vector<ProfileInfo> availableProfiles = getProfileInfo();
-	int len = availableProfiles.size() - 1;
+	int len = (int)availableProfiles.size() - 1;
 	std::sort(availableProfiles.begin(), availableProfiles.end(), [](const ProfileInfo& a, const ProfileInfo& b) {
         return a.bandwidthBitsPerSecond < b.bandwidthBitsPerSecond;
     });
 	// Iterate over profiles in descending order of bandwidth
-	for (int i = availableProfiles.size() -1  ;i >= 0 ; i--) {
+	for (int i = (int)availableProfiles.size() -1  ;i >= 0 ; i--) {
 		double profilePercentage = ((double)(availableProfiles[i].bandwidthBitsPerSecond) / availableProfiles[len].bandwidthBitsPerSecond) * 100.0;
-		AAMPABRLOG_WARN("Index: %d, bandwidth %d , profile percentage %lf, buffer percentage %lf",i,availableProfiles[i].bandwidthBitsPerSecond,profilePercentage,bufferPercentage);
+		AAMPABRLOG_WARN("Index: %d, bandwidth %d , profile percentage %lf, buffer percentage %lf",i,(int)availableProfiles[i].bandwidthBitsPerSecond,profilePercentage,bufferPercentage);
 		// Check if profile bandwidth percentage is less than buffer percentage ,and it should be a rampdown
 		if (profilePercentage < bufferPercentage && (availableProfiles[i].bandwidthBitsPerSecond < currentbw))  {
 			desiredProfilebw  = availableProfiles[i].bandwidthBitsPerSecond;

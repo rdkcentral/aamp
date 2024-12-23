@@ -17,6 +17,7 @@
 
 include(GoogleTest)
 
+add_subdirectory(JsBindingTests)
 add_subdirectory(AampEventTests)
 add_subdirectory(AampCliSet)
 add_subdirectory(AampGrowableBuffer)
@@ -87,3 +88,6 @@ add_subdirectory(MediaTrackTests)
 add_subdirectory(tsb)
 add_subdirectory(CacheFragmentTests)
 add_subdirectory(AampOCDMSessionAdapter)
+add_subdirectory(FragmentCollectorAdTests)
+add_subdirectory(AampTsbReader)
+add_subdirectory(AampAbrTests)

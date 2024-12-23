@@ -154,6 +154,15 @@ struct media_stream
 
 };
 
+struct MonitorAVState
+{
+	long long tLastReported;
+	long long tLastSampled;
+	gint64 av_position[2];
+	long reportingDelayMs;
+	long noChangeCount;
+	bool happy;
+};
 /**
  * @struct AAMPGstPlayerPriv
  * @brief Holds private variables of AAMPGstPlayer
@@ -162,6 +171,8 @@ struct AAMPGstPlayerPriv
 {
 	AAMPGstPlayerPriv(const AAMPGstPlayerPriv&) = delete;
 	AAMPGstPlayerPriv& operator=(const AAMPGstPlayerPriv&) = delete;
+
+	MonitorAVState monitorAVstate;
 
 	media_stream stream[AAMP_TRACK_COUNT];
 	GstElement *pipeline; 				/**< GstPipeline used for playback. */
@@ -253,7 +264,7 @@ struct AAMPGstPlayerPriv
 	bool filterAudioDemuxBuffers;			/**< flag to filter audio demux buffers */
 	double seekPosition;					/**< the position to seek the pipeline to in seconds */
 
-	AAMPGstPlayerPriv() : pipeline(NULL), bus(NULL),
+	AAMPGstPlayerPriv() : monitorAVstate(), pipeline(NULL), bus(NULL),
 			total_bytes(0), n_audio(0), current_audio(0),
 			periodicProgressCallbackIdleTaskId(AAMP_TASK_ID_INVALID),
 			bufferingTimeoutTimerId(AAMP_TASK_ID_INVALID), video_dec(NULL), audio_dec(NULL),TaskControlMutex(),firstProgressCallbackIdleTask("FirstProgressCallback"),
@@ -753,6 +764,7 @@ static gboolean appsrc_seek(GstAppSrc *src, guint64 offset, AAMPGstPlayer * _thi
 }
 
 #if GST_CHECK_VERSION(1,18,0)
+// avoid compilation failure if building with Ubuntu 20.04 having gst<1.18
 /**
  * @brief AAMPGstPlayer_HandleInstantRateChangeSeekProbe
  * @param[in] pad pad element
@@ -1113,7 +1125,118 @@ static gboolean IdleCallbackOnEOS(gpointer user_data)
 	return G_SOURCE_REMOVE;
 }
 
-
+void MonitorAV( AAMPGstPlayer *_this )
+{
+	const int AVSYNC_THRESHOLD_MS = 100;
+	const int JUMP_THRESHOLD_MS = 100;
+	GstState state = GST_STATE_VOID_PENDING;
+	GstState pending = GST_STATE_VOID_PENDING;
+	GstClockTime timeout = 0;
+	gint rc = gst_element_get_state(_this->privateContext->pipeline, &state, &pending, timeout );
+	if( rc == GST_STATE_CHANGE_SUCCESS )
+	{
+		if( state == GST_STATE_PLAYING )
+		{
+			struct MonitorAVState *monitorAVState = &_this->privateContext->monitorAVstate;
+			const char *description = NULL;
+			bool happyNow = true;
+			int numTracks = 0;
+			bool bigJump = false;
+			long long tNow = aamp_GetCurrentTimeMS();
+			for( int i=0; i<2; i++ )
+			{ // eMEDIATYPE_VIDEO=0, eMEDIATYPE_AUDIO=1
+				auto sinkbin = _this->privateContext->stream[i].sinkbin;
+				if( sinkbin )//&& !_this->privateContext->stream[i].eosReached )
+				{
+					gint64 position = GST_CLOCK_TIME_NONE;
+					if( gst_element_query_position(sinkbin, GST_FORMAT_TIME, &position) )
+					{
+						long long ms = GST_TIME_AS_MSECONDS(position);
+						if( ms == monitorAVState->av_position[i] )
+						{
+							happyNow = false;
+							if( description )
+							{
+								description = "stall";
+							}
+							else
+							{
+								description = (i==eMEDIATYPE_VIDEO)?"video freeze":"audio drop";
+							}
+						}
+						else if( i == eMEDIATYPE_VIDEO && monitorAVState->happy )
+						{
+							auto actualDelta = ms - monitorAVState->av_position[i];
+							auto expectedDelta = tNow - monitorAVState->tLastSampled;
+							if( actualDelta  > expectedDelta+JUMP_THRESHOLD_MS )
+							{
+								bigJump = true;
+							}
+						}
+						monitorAVState->av_position[i] = ms;
+						numTracks++;
+					}
+				}
+			}
+			monitorAVState->tLastSampled = tNow;
+			switch( numTracks )
+			{
+				case 0:
+					description = "eos";
+					break;
+				case 1:
+					description = "trickplay";
+					break;
+				case 2:
+					if( abs(monitorAVState->av_position[0] - monitorAVState->av_position[1]) > AVSYNC_THRESHOLD_MS )
+					{
+						happyNow = false;
+						if( !description )
+						{
+							description = "avsync";
+						}
+					}
+					else if( bigJump )
+					{ // workaround to detect decoders that jump over AV gaps without delay
+						happyNow = false;
+						description = "jump";
+					}
+					break;
+				default:
+					break;
+			}
+			if( monitorAVState->happy!=happyNow )
+			{
+				monitorAVState->noChangeCount = 0;
+				monitorAVState->reportingDelayMs = 0;
+				monitorAVState->happy = happyNow;
+			}
+			if( _this->aamp->mConfig->IsConfigSet(eAAMPConfig_ProgressLogging) ||
+			   tNow >= monitorAVState->tLastReported + monitorAVState->reportingDelayMs )
+			{
+				if( !description )
+				{
+					description = "ok";
+				}
+				AAMPLOG_MIL( "vid=%" G_GINT64_FORMAT " aud=%" G_GINT64_FORMAT " %s (%ld)",
+							monitorAVState->av_position[eMEDIATYPE_VIDEO],
+							monitorAVState->av_position[eMEDIATYPE_AUDIO],
+							description,
+							monitorAVState->noChangeCount );
+				monitorAVState->tLastReported = tNow;
+				if( monitorAVState->reportingDelayMs < 60*1000 )
+				{
+					monitorAVState->reportingDelayMs += 1000; // in steady state, slow down frequency of reporting
+				}
+			}
+			monitorAVState->noChangeCount++;
+		}
+	}
+	else
+	{
+		AAMPLOG_WARN( "gst_element_get_state %d", state );
+	}
+}
 
 /**
  * @brief Timer's callback to notify playback progress event
@@ -1126,6 +1249,12 @@ static gboolean ProgressCallbackOnTimeout(gpointer user_data)
 	if (_this)
 	{
 		UsingPlayerId playerId( _this->aamp->mPlayerId );
+		
+		if( _this->aamp->mConfig->IsConfigSet(eAAMPConfig_MonitorAV) )
+		{
+			MonitorAV(_this);
+		}
+		
 		for (int i = 0; i < AAMP_TRACK_COUNT; i++)
 		{
 			_this->privateContext->stream[i].mBufferControl.update(_this, static_cast<AampMediaType>(i));
@@ -1929,7 +2058,9 @@ static gboolean bus_message(GstBus * bus, GstMessage * msg, AAMPGstPlayer * _thi
 			}
 #endif
 		}
-		else if ((platformType == ePLATFORM_AMLOGIC && GST_CHECK_VERSION(1,18,0)) && NULL != msg->src)
+#if GST_CHECK_VERSION(1,18,0)
+// avoid compilation failure if building with Ubuntu 20.04 having gst<1.18
+		else if ((platformType == ePLATFORM_AMLOGIC) && NULL != msg->src)
 		{
 			if (old_state == GST_STATE_NULL && new_state == GST_STATE_READY)
 			{
@@ -1949,6 +2080,7 @@ static gboolean bus_message(GstBus * bus, GstMessage * msg, AAMPGstPlayer * _thi
 				}
 			}
 		}
+#endif
 		if ((NULL != msg->src) && ((platformType == ePLATFORM_REALTEK && AAMPGstPlayer_isVideoSink(GST_OBJECT_NAME(msg->src), _this)) || (platformType != ePLATFORM_REALTEK && AAMPGstPlayer_isVideoOrAudioDecoder(GST_OBJECT_NAME(msg->src), _this))) && (!_this->privateContext->usingRialtoSink))
 		{
 			if (old_state == GST_STATE_NULL && new_state == GST_STATE_READY)
@@ -2907,33 +3039,32 @@ void AAMPGstPlayer::SendGstEvents(AampMediaType mediaType, GstClockTime pts)
  */
 void AAMPGstPlayer::SendNewSegmentEvent(AampMediaType mediaType, GstClockTime startPts ,GstClockTime stopPts)
 {
-        media_stream* stream = &privateContext->stream[mediaType];
-        GstPad* sourceEleSrcPad = gst_element_get_static_pad(GST_ELEMENT(stream->source), "src");
-        if (stream->format == FORMAT_ISO_BMFF)
-        {
-                GstSegment segment;
-                gst_segment_init(&segment, GST_FORMAT_TIME);
+	media_stream* stream = &privateContext->stream[mediaType];
+	if (stream->format == FORMAT_ISO_BMFF)
+	{
+		GstPad* sourceEleSrcPad = gst_element_get_static_pad(GST_ELEMENT(stream->source), "src");
+		GstSegment segment;
+		gst_segment_init(&segment, GST_FORMAT_TIME);
 
-                segment.start = startPts;
-                segment.position = 0;
-                segment.rate = AAMP_NORMAL_PLAY_RATE;
-                segment.applied_rate = AAMP_NORMAL_PLAY_RATE;
-		if(stopPts) segment.stop = stopPts;
-		if (aamp->mConfig->GetConfigValue(eAAMPConfig_PlatformType) == ePLATFORM_AMLOGIC)
+		segment.start = startPts;
+		segment.position = 0;
+		segment.rate = AAMP_NORMAL_PLAY_RATE;
+		// Set applied rate and notify westerossink to get vmaster mode to work - needed on some devices
+		segment.applied_rate = (mediaType == eMEDIATYPE_VIDEO) ? privateContext->rate : AAMP_NORMAL_PLAY_RATE;
+		if(stopPts)
 		{
-			//  notify westerossink of rate to run in Vmaster mode
-			if (mediaType == eMEDIATYPE_VIDEO)
-				segment.applied_rate = privateContext->rate;
-		}
+ 			segment.stop = stopPts;
+ 		}
 
 		AAMPLOG_INFO("Sending segment event for mediaType[%d]. start %" G_GUINT64_FORMAT " stop %" G_GUINT64_FORMAT" rate %f applied_rate %f", mediaType, segment.start, segment.stop, segment.rate, segment.applied_rate);
-                GstEvent* event = gst_event_new_segment (&segment);
-                if (!gst_pad_push_event(sourceEleSrcPad, event))
-                {
-                        AAMPLOG_ERR("gst_pad_push_event segment error");
-                }
-        }
-        gst_object_unref(sourceEleSrcPad);
+		GstEvent* event = gst_event_new_segment (&segment);
+		if (!gst_pad_push_event(sourceEleSrcPad, event))
+		{
+			AAMPLOG_ERR("gst_pad_push_event segment error");
+		}
+
+		gst_object_unref(sourceEleSrcPad);
+	}
 }
 
 /**
@@ -3016,15 +3147,11 @@ bool AAMPGstPlayer::SendHelper(AampMediaType mediaType, const void *ptr, size_t 
 			SendGstEvents(eMEDIATYPE_AUX_AUDIO, pts);
 		}
 
-		if (aamp->mConfig->GetConfigValue(eAAMPConfig_PlatformType) == ePLATFORM_AMLOGIC)
-		{ // included to fix av sync / trickmode speed issues 
-		  // Also add check for trick-play on 1st frame.
-			if (!aamp->mbNewSegmentEvtSent[mediaType] || (mediaType == eMEDIATYPE_VIDEO && aamp->rate != AAMP_NORMAL_PLAY_RATE))
-			{
-				SendNewSegmentEvent(mediaType, pts, 0);
-				aamp->mbNewSegmentEvtSent[mediaType] = true;
-			}
-		}
+ 		if (!aamp->mbNewSegmentEvtSent[mediaType] || (mediaType == eMEDIATYPE_VIDEO && aamp->rate != AAMP_NORMAL_PLAY_RATE))
+		{
+			SendNewSegmentEvent(mediaType, pts, 0);
+			aamp->mbNewSegmentEvtSent[mediaType] = true;
+ 		}
 		AAMPLOG_DEBUG("mediaType[%d] SendGstEvents - first buffer received !!! initFragment: %d, pts: %" G_GUINT64_FORMAT, mediaType, initFragment, pts);
 
 	}
@@ -4827,8 +4954,8 @@ bool AAMPGstPlayer::IsMS2V12Supported()
 void AAMPGstPlayer::InitializeAAMPGstreamerPlugins()
 {
 	// Ensure GST is initialized
-	if (gst_init_check(nullptr, nullptr, nullptr)) {
-		AAMPLOG_WARN("gst_init_check() failed");
+	if (!gst_init_check(nullptr, nullptr, nullptr)) {
+		AAMPLOG_ERR("gst_init_check() failed");
 	}
 
 #ifdef AAMP_MPD_DRM
@@ -4925,8 +5052,8 @@ void AAMPGstPlayer::InitializeAAMPGstreamerPlugins()
 PlatformType AAMPGstPlayer::InferPlatformFromPluginScan()
 {
 	// Ensure GST is initialized
-	if (gst_init_check(nullptr, nullptr, nullptr)) {
-		AAMPLOG_WARN("gst_init_check() failed");
+	if (!gst_init_check(nullptr, nullptr, nullptr)) {
+		AAMPLOG_ERR("gst_init_check() failed");
 	}
 	static const std::pair<const char*, PlatformType> plugins[] = {
 		{"amlhalasink", ePLATFORM_AMLOGIC},
@@ -5242,7 +5369,9 @@ bool AAMPGstPlayer::SetPlayBackRate ( double rate )
 {
 	/** For gst version 1.18 and Amlogic*/
 	const auto platform = aamp->mConfig->GetConfigValue(eAAMPConfig_PlatformType);
-	if (GST_CHECK_VERSION(1,18,0) && platform == ePLATFORM_AMLOGIC)
+#if GST_CHECK_VERSION(1,18,0)
+// avoid compilation failure if building with Ubuntu 20.04 having gst<1.18
+	if (platform == ePLATFORM_AMLOGIC)
 	{
 		AAMPLOG_TRACE("AAMPGstPlayer: gst_event_new_instant_rate_change: %f ...V6", rate);
 		for (int iTrack = 0; iTrack < AAMP_TRACK_COUNT; iTrack++)
@@ -5259,80 +5388,83 @@ bool AAMPGstPlayer::SetPlayBackRate ( double rate )
 		}
 		AAMPLOG_MIL ("Current rate: %g", rate);
 	}
-	else if (platform == ePLATFORM_REALTEK || platform == ePLATFORM_AMLOGIC)
+	else
+#endif
 	{
-		AAMPLOG_MIL("AAMPGstPlayer: =send custom-instant-rate-change : %f ...", rate);
-		GstStructure *structure = gst_structure_new("custom-instant-rate-change", "rate", G_TYPE_DOUBLE, rate, NULL);
-		if (!structure)
+		if (platform == ePLATFORM_REALTEK || platform == ePLATFORM_AMLOGIC)
 		{
-			AAMPLOG_ERR("AAMPGstPlayer: Failed to create custom-instant-rate-change structure");
-			return false;
-		}
-
-		/* The above statement creates a new GstStructure with the name
-		   'custom-instant-rate-change' that has a member variable
-		   'rate' of G_TYPE_DOUBLE and a value of rate i.e. second last parameter */
-		GstEvent * rate_event = gst_event_new_custom(GST_EVENT_CUSTOM_DOWNSTREAM_OOB, structure);
-		if (!rate_event)
-		{
-			AAMPLOG_ERR("AAMPGstPlayer: Failed to create rate_event");
-			/* cleanup */
-			gst_structure_free (structure);
-			return false;
-		}
-		int ret = gst_element_send_event( privateContext->pipeline, rate_event );
-		if(!ret)
-		{
-			AAMPLOG_ERR("AAMPGstPlayer: Rate change failed : %g [gst_element_send_event]", rate);
-			return false;
-		}
-		AAMPLOG_MIL ("Current rate: %g", rate);
-	}
-	else if(platform == ePLATFORM_BROADCOM)
-	{
-		AAMPLOG_MIL("send custom-instant-rate-change : %f ...", rate);
-
-		GstStructure *structure = gst_structure_new("custom-instant-rate-change", "rate", G_TYPE_DOUBLE, rate, NULL);
-		if (!structure)
-		{
-			AAMPLOG_ERR("failed to create custom-instant-rate-change structure");
-			return false;
-		}
-
-		GstEvent * rate_event = gst_event_new_custom(GST_EVENT_CUSTOM_DOWNSTREAM_OOB, structure);
-		if (!rate_event)
-		{
-			AAMPLOG_ERR("failed to create rate_event");
-			/* cleanup */
-			gst_structure_free (structure);
-			return false;
-		}
-
-		AAMPLOG_MIL("rate_event %p video_decoder %p audio_decoder %p", (void*)rate_event, (void*)privateContext->video_dec, (void *)privateContext->audio_dec);
-		if (privateContext->video_dec)
-		{
-			if (!gst_element_send_event(privateContext->video_dec,  gst_event_ref(rate_event)))
-			{
-				AAMPLOG_ERR("failed to push rate_event %p to video sink %p", (void*)rate_event, (void*)privateContext->video_dec);
+ 			AAMPLOG_MIL("AAMPGstPlayer: =send custom-instant-rate-change : %f ...", rate);
+			GstStructure *structure = gst_structure_new("custom-instant-rate-change", "rate", G_TYPE_DOUBLE, rate, NULL);
+			if (!structure)
+ 			{
+				AAMPLOG_ERR("AAMPGstPlayer: Failed to create custom-instant-rate-change structure");
+				return false;
 			}
-		}
 
-		if (privateContext->audio_dec)
-		{
-			if (!gst_element_send_event(privateContext->audio_dec,  gst_event_ref(rate_event)))
+			/* The above statement creates a new GstStructure with the name
+			'custom-instant-rate-change' that has a member variable
+			'rate' of G_TYPE_DOUBLE and a value of rate i.e. second last parameter */
+			GstEvent * rate_event = gst_event_new_custom(GST_EVENT_CUSTOM_DOWNSTREAM_OOB, structure);
+			if (!rate_event)
 			{
-				AAMPLOG_ERR("failed to push rate_event %p to audio decoder %p", (void*)rate_event, (void*)privateContext->audio_dec);
+				AAMPLOG_ERR("AAMPGstPlayer: Failed to create rate_event");
+				/* cleanup */
+				gst_structure_free (structure);
+				return false;
 			}
+			int ret = gst_element_send_event( privateContext->pipeline, rate_event );
+			if(!ret)
+			{
+				AAMPLOG_ERR("AAMPGstPlayer: Rate change failed : %g [gst_element_send_event]", rate);
+				return false;
+			}
+			AAMPLOG_MIL ("Current rate: %g", rate);
 		}
-		// Unref since we have explicitly increased ref count
-		gst_event_unref(rate_event);
-		AAMPLOG_MIL ("Current rate: %g", rate);
-	}
-	else //Non BRCM/AMLOGIC/REALTEK case
-	{
-		return false;
-	}
+		else if(platform == ePLATFORM_BROADCOM)
+		{
+			AAMPLOG_MIL("send custom-instant-rate-change : %f ...", rate);
 
+			GstStructure *structure = gst_structure_new("custom-instant-rate-change", "rate", G_TYPE_DOUBLE, rate, NULL);
+			if (!structure)
+			{
+				AAMPLOG_ERR("failed to create custom-instant-rate-change structure");
+				return false;
+			}
+
+			GstEvent * rate_event = gst_event_new_custom(GST_EVENT_CUSTOM_DOWNSTREAM_OOB, structure);
+			if (!rate_event)
+			{
+				AAMPLOG_ERR("failed to create rate_event");
+				/* cleanup */
+				gst_structure_free (structure);
+				return false;
+			}
+
+			AAMPLOG_MIL("rate_event %p video_decoder %p audio_decoder %p", (void*)rate_event, (void*)privateContext->video_dec, (void *)privateContext->audio_dec);
+			if (privateContext->video_dec)
+			{
+				if (!gst_element_send_event(privateContext->video_dec,  gst_event_ref(rate_event)))
+				{
+					AAMPLOG_ERR("failed to push rate_event %p to video sink %p", (void*)rate_event, (void*)privateContext->video_dec);
+				}
+			}
+
+			if (privateContext->audio_dec)
+			{
+				if (!gst_element_send_event(privateContext->audio_dec,  gst_event_ref(rate_event)))
+				{
+					AAMPLOG_ERR("failed to push rate_event %p to audio decoder %p", (void*)rate_event, (void*)privateContext->audio_dec);
+				}
+			}
+			// Unref since we have explicitly increased ref count
+			gst_event_unref(rate_event);
+			AAMPLOG_MIL ("Current rate: %g", rate);
+		}
+		else //Non BRCM/AMLOGIC/REALTEK case
+		{
+			return false;
+		}
+	}
 	return true;
 }
 

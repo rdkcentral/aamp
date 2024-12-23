@@ -24,33 +24,40 @@ import pexpect
 import time
 import subprocess
 from inspect import getsourcefile
-
+import hashlib
+import requests
+import shutil
+import dateutil.parser
+import datetime
 
 class Simlinear:
     """
     Methods related to starting or stopping simlinear
     """
-    def __init__(self, test_dir_path, pytestconfig):
-        self.pytestconfig = pytestconfig
-        self.test_dir_path = test_dir_path
+    def __init__(self, logfile_path, testdata_path,  extra_args):
+        """
+        logfile_path    -  path where output can be written exists E.G .../l2test/TST_2001/output
+        testdata_path   -  path where data to be served by simlinear is located .../testdata 
+        extra_args       - DASH or HLS
+        """
+        self.extra_args = extra_args
         self.aamp_home = get_aamp_home()
-        self.output_path = os.path.join(self.test_dir_path, "output")
         self.SL_PORT = os.environ["L2_SL_PORT"] if "L2_SL_PORT" in os.environ else '8085'
         self.simlinear_path = os.path.join(self.aamp_home, 'test', 'tools', 'simlinear', 'simlinear.py')
 
         self.SL_URL = "http://localhost:" + self.SL_PORT + "/"
-        self.SL_DATA_PATH = os.path.join(self.test_dir_path, 'testdata')
-
+        self.SL_DATA_PATH = testdata_path
+        self.logfile_path = logfile_path
         self.simlogfile = None  # file object for logging
         self.sl_process = None
         self.paths = None
 
-    def start(self, abr_type, logfile_name):
+    def start(self):
         """
         Start simlinear web server as a separate process
         """
-        if abr_type != 'DASH' and abr_type != 'HLS':
-            assert 0, "ERROR unknown abr_type {}".format(abr_type)
+        if self.extra_args != 'DASH' and self.extra_args != 'HLS':
+            assert 0, "ERROR unknown abr_type {}".format(self.extra_args)
 
         assert os.path.exists(self.simlinear_path), (
             "ERROR File does not exist {} Check setup.".format(self.simlinear_path))
@@ -66,15 +73,12 @@ class Simlinear:
             time.sleep(1)  # Takes time for cleanup and free of port??
 
         print("Starting simlinear")
-        abr_opt = '--dash' if abr_type == 'DASH' else '--hls'
+        abr_opt = '--dash' if self.extra_args == 'DASH' else '--hls'
         simlinear_cmd = [self.simlinear_path, abr_opt, self.SL_PORT]
 
         try:
-            if self.pytestconfig.config.getoption('sim_log'):
-                self.sl_process = subprocess.Popen(simlinear_cmd, cwd=self.SL_DATA_PATH)
-            else:
-                self.simlogfile = open(os.path.join(self.output_path, logfile_name), "wb")
-                self.sl_process = subprocess.Popen(simlinear_cmd, stdout=self.simlogfile, stderr=self.simlogfile,
+            self.simlogfile = open(self.logfile_path, "wb")
+            self.sl_process = subprocess.Popen(simlinear_cmd, stdout=self.simlogfile, stderr=self.simlogfile,
                                                    cwd=self.SL_DATA_PATH)
         except Exception as e:
             assert 0, "{} gives {}".format(simlinear_cmd, e)
@@ -92,7 +96,105 @@ class Simlinear:
             self.simlogfile.close()
 
 ###################################################################################################################
+class ArchiveFetch:
+    """
+    Methods related to fetching stream archives off remote server and unpacking locally so they
+    can be used by some server
+    """
+    def __init__(self, archive_path):
+        """
+        archive_path - directory where archives can be written
+        """
+        self.archive_path = archive_path
 
+    def download_unpack_file(self, url, local_archive_path, testdata_path):
+        """
+        url                 - url of archive to fetch
+        local_archive_path  - file where packed archive can be written
+        testdata_path       - directory where to unpack the archive
+        """
+
+        print(f"Downloading {url}")
+        try:
+            response = requests.get(url, stream=True)
+            assert response.ok, f"Cannot fetch {url} {response.reason}"
+            with open(local_archive_path, 'wb') as f:
+                shutil.copyfileobj(response.raw, f)
+            print("File downloaded successfully!")
+        except requests.exceptions.RequestException as e:
+            print("Error downloading the file:", e)
+
+        # Delete any existing and unpack new archive
+        if os.path.exists(testdata_path):
+            shutil.rmtree(testdata_path)
+        os.makedirs(testdata_path, exist_ok=True)
+        ext = os.path.splitext(local_archive_path)[1]
+        cmd = None
+        if ext == '.zip':
+            cmd = ['unzip', '-q', local_archive_path, '-d' , testdata_path]
+        else:
+            cmd = ['tar','-xf', local_archive_path, '-C' , testdata_path]
+        print(cmd)
+        result = subprocess.run(cmd)
+        assert result.returncode == 0, f"Unpack failed {cmd}"
+
+    def url_to_hash(self, url):
+        """
+        Convert url into unique directory name
+        """
+        return hashlib.md5(url.encode('utf-8')).hexdigest()
+
+    def fetch_archive(self, archive_url):
+        print(f'fetch_archive {archive_url}')
+
+        """ 
+        With users running l2 test locally then the downloaded 
+        archive may be stored in their local repo for some time and 
+        become out of date if a new version of the archive is uploaded to the server.
+        
+        check_for_newer_archive_on_server causes server to be checked for newer archive. 
+        """
+        check_for_newer_archive_on_server = True
+        path = None
+        need_download = False
+
+        url_hash = self.url_to_hash(archive_url)
+        path = os.path.join(self.archive_path, url_hash)
+        testdata_path = os.path.join(path,'testdata')
+        local_filename = archive_url.split('/')[-1]
+        local_archive_path = os.path.join(path,local_filename)
+
+        if check_for_newer_archive_on_server:
+            r = requests.head(archive_url)
+            assert r.ok, f"Cannot fetch {archive_url} {r.reason}"
+            url_time = r.headers['last-modified']
+            url_date = dateutil.parser.parse(url_time)
+
+        if not os.path.exists(testdata_path):
+            os.makedirs(path, exist_ok=True)
+            need_download = True
+        else:
+            # Have local copy of archive, check if newer version on server
+            if check_for_newer_archive_on_server:
+                archive_date = datetime.datetime.fromtimestamp(os.path.getmtime(local_archive_path),datetime.timezone.utc)
+                print(f"archive_date={archive_date} vs url_date={url_date}")
+                time_diff = url_date - archive_date
+                if abs(time_diff.total_seconds()) >60 :
+                    need_download = True
+
+        if need_download:
+            self.download_unpack_file(archive_url, local_archive_path, testdata_path)
+            if check_for_newer_archive_on_server:
+                # Set downloaded file to have same date time as on server so we can tell when server version changes
+                since_epoch = url_date.timestamp()
+                os.utime(local_archive_path, (since_epoch, since_epoch))
+
+            # Write url to local file so we know where the archive came from
+            info_path = os.path.join(path,'info.txt')
+            with open(info_path, 'w') as f:
+                f.write(f"{archive_url}\n")
+
+        return testdata_path
 
 class Aamp:
     """
@@ -117,12 +219,18 @@ class Aamp:
 
         # Generate a unique logfile name based on current test name
         self.logfile_name = os.environ.get('PYTEST_CURRENT_TEST').split(':')[-1].split(' ')[0] + ".log"
+
+        # self.simlinear could be merged into self.archive_server at some later date
         self.simlinear = None
-        self.output_path = None
+        self.archive_server = None     # Class to start and stop testdata server
+        self.output_path = None        # Where to write logs for specific test .../l2test/TEST_nnn/output
+        self.testdata_path = None      # Where unpacked archive has been put  
+                                       # .../l2test/TEST_nnn/testdata or download_archive/xxxx/testdata
         self.aamp_cfg_file = None
-        self.test_dir_path = None
+        self.test_dir_path = None      # Directory of currently running test .../l2test/TEST_nnn
         self.aamp_pexpect = None
         self.logfile = None
+        self.l2test_path = None        # .../aamp/test/l2test
         self.EXPECT_TIMEOUT = 30
         self.max_test_time_seconds = 0
 
@@ -140,10 +248,13 @@ class Aamp:
             ret = subprocess.run('./{}'.format(script), shell=True, cwd=self.test_dir_path)
             assert ret.returncode == 0, "{} failed".format(path)
 
+
     def set_paths(self, path_of_test_nnn_py):
         head, tail = os.path.split(path_of_test_nnn_py)
         print("head", head)
         self.test_dir_path = head
+        self.l2test_path = os.path.dirname(head)
+
         aamp_cfg_dir = self.test_dir_path
         # Set aamp to read aamp.cfg from under l2test so that it does not conflict
         # with $HOME/aamp.cfg that a user may have
@@ -152,6 +263,15 @@ class Aamp:
 
         self.output_path = os.path.join(self.test_dir_path, "output")
         os.makedirs(self.output_path, exist_ok=True)
+
+        # Set default path to be when archive is downloaded by prerequisite.sh
+        self.testdata_path = os.path.join(self.test_dir_path, 'testdata')
+
+        """
+        default archive path is .../aamp/test/l2test/download_archive
+        but can be set with env var
+        """
+        self.archive_path = os.environ.get('L2_ARCHIVE_PATH',os.path.join(self.l2test_path,'download_archive'))
 
         self.run_prerequisite()
 
@@ -196,6 +316,10 @@ class Aamp:
             self.simlinear.stop()
             self.simlinear = None
 
+        if self.archive_server:
+            self.archive_server.stop()
+            self.archive_server = None
+
     def sendline(self, cmd_line):
         """
         Send a command to aamp-cli
@@ -227,6 +351,57 @@ class Aamp:
         except Exception as e:
             assert 0, "ERROR Exception was thrown".format(e)
 
+    def common_startup(self,testdata):
+        """
+        startup that is common to both expect_a() expect_b()
+        """
+
+        if 'logfile' in testdata:
+            self.logfile_name = testdata["logfile"]
+        print("{} {}".format(testdata["title"],self.logfile_name))
+
+        self.max_test_time_seconds = testdata.get("max_test_time_seconds", 15)
+
+        assert not ('archive_server' in testdata and 'simlinear_type' in testdata), \
+            "Cannot have both archive_server' and  'simlinear_type' in TESTDATA"
+
+        if 'archive_url' in testdata:
+            o = ArchiveFetch(self.archive_path)
+            self.testdata_path = o.fetch_archive(testdata.get('archive_url'))
+
+        server_logfile_path = os.path.join(self.output_path,'server_' + self.logfile_name)
+        if 'archive_server' in testdata:
+            svr=testdata['archive_server']
+            """
+            The server class is expected to take these arguments
+            output_path - path to dir where logs can be written
+            data_root """
+            self.archive_server = svr['server_class'](server_logfile_path,self.testdata_path,svr.get('extra_args'))
+            assert self.archive_server.start(), f"Could not start server {svr}"
+
+        if testdata.get('simlinear_type'):
+            self.simlinear = Simlinear(server_logfile_path, self.testdata_path,testdata['simlinear_type'])
+            self.simlinear.start()
+
+        self.create_aamp_cfg(testdata.get('aamp_cfg'))
+
+        # start aamp-cli
+        self.start_aamp()
+
+        # Optional list of commands to give to aamp before starting test proper
+        aamp_cmdlist = testdata.get('cmdlist', [])
+        for cmd in aamp_cmdlist:
+            self.sendline(cmd)
+            self.aamp_pexpect.expect('cmd: ')
+
+        url = testdata.get('url')
+        if self.simlinear and url is not None:
+            assert "http" not in url, f'url parameter cannot start with http for simlinear {url}'
+            self.sendline(self.simlinear.SL_URL+url)
+        elif url is not None:
+            assert "http" in url, f'url parameter should start with http {url}'
+            self.sendline(url)
+
     def run_expect_a(self, testdata):
         """
         Provides a simple sequential cmd and expected response structure for test data.
@@ -235,14 +410,19 @@ class Aamp:
         "logfile": "log1.txt"              # Optional, default let framework set logfile name
         "max_test_time_seconds": 30        # Optional, The max time the test is allowed to run before fail, default 15
         "aamp_cfg": "info=true\ntrace=true\n", # Values to set in aamp.cfg
-        "url": "m3u8s_audio_discontinuity_180s/manifest.1.m3u8",
-                                            # Optional parameter either:
-                                            # 1) A 'partial' url. The test framework will expand this to a full url
-                                            # that gets the stream data from simlinear
-                                            # 2) A 'full' url starting "http"
-                                            # The url will be sent to aamp at the start of the test
 
-        "simlinear_type": "HLS",            # Optional, Start simlinear to serve url, Specify abr type "HLS" or  "DASH"
+        One of the following to provide a stream for aamp to play
+        1) Fetch archive and play with simlinear
+        "archive_url" : "https://cpetestutility.stb.r53.xcal.tv/skyatlantic-30t-2.tgz",
+        "url": "v1/frag/bmff/enc/cenc/t/SKYATHD_HD_SU_SKYUK_4053_0_6139857640084951163.mpd", #path from unpacked contents of .tgz
+        'simlinear_type': 'DASH',            # Specify abr type "HLS" or  "DASH"
+        2) Fetch archive and serve from some other custom server 
+        "archive_url": "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/content.tar.xz",
+        "archive_server": {'server_class': WindowServer},
+        "url": "http://localhost:8080/content/main.mpd?live=true",
+        3) Play from external server, no archive involved
+        "url": "https://dash.akamaized.net/dashif/ad-insertion-testcase1/batch5/real/a/ad-insertion-testcase1.mpd",
+
         "cmdlist": [                        # Optional, list of commands to give to aamp-cli before starting test proper
             'setconfig {"logMetadata":true,"client-dai":true}',
         ]
@@ -262,33 +442,10 @@ class Aamp:
         ]
         """
 
-        if testdata.get('simlinear_type') is not None:
-            self.simlinear = Simlinear(self.test_dir_path, self.pytestconfig)
-            self.simlinear.start(testdata['simlinear_type'], logfile_name='simlinear_' + self.logfile_name)
+        self.common_startup(testdata)
 
-        if 'logfile' in testdata:
-            self.logfile_name = testdata["logfile"]
-        print("{} {}".format(testdata["title"],self.logfile_name))
-
-        self.max_test_time_seconds = testdata.get("max_test_time_seconds", 15)
-        self.create_aamp_cfg(testdata.get('aamp_cfg'))
-
-        # start aamp-cli
-        self.start_aamp()
 
         start_time = time.time()
-
-        # Optional list of commands to give to aamp before starting test proper
-        aamp_cmdlist = testdata.get('cmdlist', [])
-        for cmd in aamp_cmdlist:
-            self.sendline(cmd)
-            self.aamp_pexpect.expect('cmd: ')
-
-        if self.simlinear:
-            self.sendline(self.simlinear.SL_URL+testdata["url"])
-        elif testdata.get('url') is not None:
-            self.sendline(testdata["url"])
-
         for idx, e in enumerate(testdata["expect_list"]):
             if e.get('expect') is not None:
                 try:
@@ -371,15 +528,8 @@ class Aamp:
 
         log_start_timestamp = 0
         log_timestamp = 0
-        if 'logfile' in testdata:
-            self.logfile_name = testdata["logfile"]
-        print("{} {}".format(testdata["title"],self.logfile_name))
 
-        self.max_test_time_seconds = testdata.get("max_test_time_seconds", 15)
-
-        if testdata.get('simlinear_type'):
-            self.simlinear = Simlinear(self.test_dir_path, self.pytestconfig)
-            self.simlinear.start(testdata['simlinear_type'], logfile_name='simlinear_' + self.logfile_name)
+        self.common_startup(testdata)
 
         expect_list = []
         expect_did_happen = []
@@ -391,28 +541,9 @@ class Aamp:
         # Add a pattern which matches on the timestamp at the beginning of each log line
         expect_list.append(r"\n(\d{10})")
 
-        # start aamp-cli
-        self.create_aamp_cfg(testdata.get('aamp_cfg'))
-
-        # A test can start aamp early to giv it some commands, in which case no need to start here
-        if self.aamp_pexpect is None:
-            self.start_aamp()
-
-        # Optional list of commands to give to aamp before starting test proper
-        aamp_cmdlist = testdata.get('cmdlist', [])
-        for cmd in aamp_cmdlist:
-            self.sendline(cmd)
-            self.aamp_pexpect.expect('cmd: ')
-
         expect_re = self.aamp_pexpect.compile_pattern_list(expect_list)
-
         # Send URL to start playing
         assert 'url' in testdata, "No url specified in test data"
-
-        if self.simlinear:
-            self.sendline(self.simlinear.SL_URL+testdata["url"])
-        else:
-            self.sendline(testdata["url"])
 
         start_time = time.time()
         end_of_test = False

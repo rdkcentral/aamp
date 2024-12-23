@@ -38,10 +38,10 @@ TESTDATA1 = {
     {"cmd": "set subtecSimulator 1"},
     {"expect": r"SubtecSimulatorThread - listening for packets",},
     {"cmd": "https://storage.googleapis.com/shaka-demo-assets/angel-one-hls/hls.m3u8"},
-    {"expect": r"AAMP_EVENT_TUNED"},
-    {"cmd": "set 43 0"},
     {"expect": r"AAMPGstPlayer_SetupStream - subs using subtecbin"},
     {"expect": r"Type:WEBVTT_SELECTION"},  # Subtec simulator has been configured for subtitles, now change size
+    {"expect": r"AAMP_EVENT_TUNED"},
+    {"cmd": "set 43 0"},
     {"cmd": "set ccStyle data/small.json"},
     {"expect": r"Calling StreamAbstractionAAMP::SetTextStyle"},
     {"expect": r"Calling StreamSink::SetTextStyle"},

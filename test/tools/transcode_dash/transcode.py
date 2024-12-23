@@ -55,7 +55,13 @@ def get_dash_segments_from_multiple_manifests(manifest_path):
         # single manifest not incremental
         file_timestamps = [(0, manifest_path)]
     else:
-        file_timestamps = manifest_server.get_list_of_manifest_timestamps(manifest_path)
+        """
+        For dash manifest it has been seen that the duration of the segment changes
+        in later versions of the manifest. I.E the first entry gives a provisional
+        duration and then it is updated to the final duration when the segment is generated
+        process manifests oldest first so we take the later duration allocated to the segment
+        """
+        file_timestamps = reversed(manifest_server.get_list_of_manifest_timestamps(manifest_path))
 
     # iterate through all manifests
     for man_time, man_path in file_timestamps:
@@ -102,7 +108,7 @@ def check_ffmpeg_version():
     result = subprocess.run("ffmpeg -version | grep version", shell=True,check=True,capture_output=True)
     line = result.stdout.decode('utf-8')
     log.debug(line)
-    m = re.search(r' version ([\d\.]+)',line )
+    m = re.search(r' version (\d+\.\d+)',line )
     if m:
         ver = float(m.group(1))
         log.info(f"ffmpeg Version {ver}")
@@ -155,12 +161,13 @@ def do_transcode(base_dir, segment_detail_list, attrs=None):
         """
         For a segment filename like
         ...ckId-104-tc-0-time-719214900493.mp4
-        then take the last 9 digits and use that as the sequence number to
-        display on the video frame
+        then take the last digits and use that as the sequence number to
+        display on the video frame. We can take a max of 9 digits because 
+        it needs to fit into a 32bit number in the segment
         """
-        m = re.search(r'(\d{1,6})\.m',segment_detail['segment_filename'])
+        m = re.search(r'(\d{1,9})\.m',segment_detail['segment_filename'])
         if m:
-           segment_number=int(m.group(1))
+           segment_number=m.group(1)
 
         # Generate iframes track to have a segment with single iframe
         iframe_rate = int(attrs.timescale)/int(segment_detail['segment_d']) # I.E 1/duration
@@ -177,7 +184,8 @@ def do_transcode(base_dir, segment_detail_list, attrs=None):
                    str(segment_number),
                    segment_path,
                    init_segment_path,
-                   "testpat.jpg"
+                   "testpat.jpg",
+                   "generate_chunked_segments" if args.chunked_segments else "standard_segments"
                    ]
         elif attrs.contentType == "audio":
             cmd = [ "./generate-audio-segment.sh",
@@ -189,7 +197,8 @@ def do_transcode(base_dir, segment_detail_list, attrs=None):
                    str(segment_number),
                    segment_path,
                    init_segment_path,
-                   "silence.wav"
+                   "silence.wav",
+                   "generate_chunked_segments" if args.chunked_segments else "standard_segments"
                    ]
         elif attrs.contentType == "text":
             cmd = [ "./generate-text-segment.sh",
@@ -204,7 +213,7 @@ def do_transcode(base_dir, segment_detail_list, attrs=None):
             log.error(f"Unsupported {attrs.contentType}")
             break
 
-        log.debug(cmd)
+        log.info(cmd)
         rtn = subprocess.run(cmd, shell=False, cwd=generate_segment)
         if rtn.returncode != 0:
             log.error("Failed")
@@ -244,6 +253,11 @@ Typically invoked in a directory where harvest_details.json resides"""
         "-m",
         "--manifest",
         help="Specify manifest instead of using harvest details file",
+    )
+    parser.add_argument(
+        "--chunked_segments",
+        action="store_true",
+        help="Generate chunked segments",
     )
     parser.add_argument(
         "--start_at",

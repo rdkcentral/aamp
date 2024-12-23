@@ -18,7 +18,7 @@
 # limitations under the License.
 #
 
-declare DEFAULT_OPENSSL_VERSION="openssl@1.1"
+declare DEFAULT_OPENSSL_VERSION="openssl@3.4"
 
 function install_pkgs_pkgconfig_darwin_fn() 
 {
@@ -144,7 +144,6 @@ function install_pkgs_linux_fn()
     install_package_fn snapd
     install_package_fn libcppunit-dev
     install_package_fn wayland-protocols
-    install_package_fn libcppunit-dev
     install_package_fn libjsoncpp-dev
     install_package_fn libasio-dev
     install_package_fn libsystemd-dev
@@ -154,6 +153,7 @@ function install_pkgs_linux_fn()
     VER=$(grep -oP 'VERSION_ID="\K[\d.]+' /etc/os-release)
 
     if [ ${VER:0:2} -ge 22 ]; then
+        install_package_fn libjavascriptcoregtk-4.1-dev
         # Install and verify the version of meson
         install_package_fn python3-pip
         pip_install_package_fn meson
@@ -170,9 +170,11 @@ function install_pkgs_linux_fn()
             return 1
         fi
     elif [ ${VER:0:2} -eq 20 ]; then
+        install_package_fn libjavascriptcoregtk-4.0-dev
         install_package_fn python3-pip
         pip_install_package_fn meson
     elif [ ${VER:0:2} -eq 18 ]; then
+        install_package_fn libjavascriptcoregtk-4.0-dev
         install_package_fn python3-pip
         pip_install_package_fn meson
     else
@@ -196,7 +198,7 @@ function install_pkgs_fn()
           brew update
       fi
 
-      install_pkgs_darwin_fn git json-glib cmake "openssl@1.1" libxml2 ossp-uuid cjson gnu-sed jpeg-turbo taglib speex mpg123 meson ninja pkg-config flac asio jsoncpp lcov gcovr jq curl
+      install_pkgs_darwin_fn git json-glib cmake "openssl@3.4" libxml2 ossp-uuid cjson gnu-sed jpeg-turbo taglib speex mpg123 meson ninja pkg-config flac asio jsoncpp lcov gcovr jq curl
       install_pkgs_darwin_fn coreutils websocketpp boost jansson libxkbcommon cppunit gnu-sed fontconfig doxygen graphviz tinyxml2 openldap krb5
 
       # ORC causes compile errors on x86_64 Mac, but not on ARM64

@@ -16,7 +16,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
 */
-
+#ifdef USE_WATERMARK_JSBINDINGS
 #include "PersistentWatermarkPluginAccess.h"
 
 PersistentWatermark::PluginAccess::PluginAccess(): mThunderAccess("org.rdk.Watermark.1")
@@ -52,3 +52,5 @@ PersistentWatermark::PluginAccess& PersistentWatermark::PluginAccess::get()
 	static PluginAccess instance;
 	return instance;
 }
+#endif // USE_WATERMARK_JSBINDINGS
+

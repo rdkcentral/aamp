@@ -23,9 +23,6 @@
 #include <JavaScriptCore/JavaScript.h>
 #include <string>
 
-#include "jsutils.h"
-#include "ThunderAccess.h"
-
 namespace PersistentWatermark
 {
 	class StorageInterface

@@ -27,7 +27,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <cmath>
-
+#include <stdarg.h>
 #include <iomanip>
 #include <algorithm>
 #ifdef USE_SYSLOG_HELPER_PRINT
@@ -321,7 +321,7 @@ std::vector<std::string> aamp_StringArrayToCStringArray(JSContextRef context, JS
  */
 JSValueRef aamp_GetException(JSContextRef context, ErrorCode error, const char *additionalInfo)
 {
-	const char *str = "Generic Error";
+	const char *str;
 	JSValueRef retVal;
 
 	switch(error)
@@ -568,7 +568,7 @@ JSObjectRef aamp_CreateTimedMetadataJSObject(JSContextRef context, long long tim
 			}
 
 			char buf[32];
-			sprintf(buf, "%d", hash);
+			snprintf(buf, sizeof(buf), "%d", hash);
 			name = JSStringCreateWithUTF8CString("id");
 			JSObjectSetProperty(context, timedMetadata, name, aamp_CStringToJSValue(context, buf), kJSPropertyAttributeReadOnly, NULL);
 			JSStringRelease(name);
@@ -603,11 +603,11 @@ void jsBindingLogprintf(int playerId ,const char* functionName, int line, int lo
 	const char* levelstr = mLogLevelStr[logLevel];
 	if(playerId != PLAYER_ID_NA )
 	{
-		len = sprintf(gDebugPrintBuffer,"[AAMP-JS] %d :%s : %s : %d :",playerId,levelstr,functionName,line);
+		len = snprintf(gDebugPrintBuffer,sizeof(gDebugPrintBuffer),"[AAMP-JS] %d :%s : %s : %d :",playerId,levelstr,functionName,line);
 	}
 	else
 	{
-		len = sprintf(gDebugPrintBuffer,"[AAMP-JS] %s : %s: %d :",levelstr,functionName,line);
+		len = snprintf(gDebugPrintBuffer,sizeof(gDebugPrintBuffer),"[AAMP-JS] %s : %s: %d :",levelstr,functionName,line);
 	}
 	vsnprintf(gDebugPrintBuffer+len, MAX_DEBUG_LOG_BUFF_SIZE-len, format, args);
 	gDebugPrintBuffer[(MAX_DEBUG_LOG_BUFF_SIZE-1)] = 0;

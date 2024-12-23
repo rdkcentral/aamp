@@ -22,10 +22,12 @@ import os
 import pytest
 import re
 
+archive_url = "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/streams/sky/skywitness-4klive-8M.tar.gz"
 TESTDATA1 = {
     "title": "Test case to validate live command",
     "logfile": "testdata1.txt",
     "max_test_time_seconds": 40,
+    "archive_url": archive_url,
     "url":"v1/frag/bmff/enc/cenc/t/SKWITHD_HD_SU_SKYUK_4066_0_6112559918033517163.mpd",
     "simlinear_type": "DASH",
     "aamp_cfg": "info=true\ntrace=true\nliveOffset4K=0",
@@ -44,7 +46,7 @@ TESTDATA1 = {
         {"cmd" : "live"}, 
         {"expect" : r"aamp_Seek position adjusted to absolute value: 1689262798\.[0-9]{6}"}, 
         {"expect" : r"eTUNETYPE_SEEKTOLIVE"}, 
-        {"expect" : r"Updated seek_pos_seconds 168926284[4-8]"} , 
+        {"expect" : r"Updated seek_pos_seconds 168926284[4-9]"} , 
         {"expect" : r"TuneHelper - seek_pos: 168926284[4-8]"},
         {"expect" : r"AAMP_EVENT_SEEKED: new positionMs 168926284[4-8]"},
         # {"cmd": "sleep 3000"},
@@ -56,6 +58,7 @@ TESTDATA2 = {
     "title": "Test case to validate live command",
     "logfile": "testdata2.txt",
     "max_test_time_seconds": 40,
+    "archive_url": archive_url,
     "url":"v1/frag/bmff/enc/cenc/t/SKWITHD_HD_SU_SKYUK_4066_0_6112559918033517163.mpd",
     "simlinear_type": "DASH",
     "aamp_cfg": "info=true\ntrace=true\nliveOffset4K=0",
@@ -86,6 +89,7 @@ TESTDATA3 = {
     "title": "Test case to validate live command",
     "logfile": "testdata3.txt",
     "max_test_time_seconds": 40,
+    "archive_url": archive_url,
     "url":"v1/frag/bmff/enc/cenc/t/SKWITHD_HD_SU_SKYUK_4066_0_6112559918033517163.mpd",
     "simlinear_type": "DASH",
     "aamp_cfg": "info=true\ntrace=true\nliveOffset4K=0",

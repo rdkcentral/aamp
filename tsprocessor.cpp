@@ -106,9 +106,6 @@ enum StreamType
 	eSTREAM_TYPE_SDDS_AUDIO1 = 0x94    /**< SDDS Audio */
 };
 
-
-#define rmf_osal_memcpy(d, s, n, dc, sc)  memcpy(d, s, n)
-
 /**
  * @brief Get the format for a stream type
  * @param[in] streamType stream type
@@ -327,17 +324,17 @@ int TSProcessor::insertPatPmt(unsigned char *buffer, bool trick, int bufferSize)
 	if (trick && m_trickExcludeAudio)
 	{
 		len = m_PatPmtTrickLen;
-		rmf_osal_memcpy(buffer, m_PatPmtTrick, len, bufferSize, m_PatPmtTrickLen);
+		memcpy(buffer, m_PatPmtTrick, len);
 	}
 	else if (trick && m_isMCChannel)
 	{
 		len = m_PatPmtPcrLen;
-		rmf_osal_memcpy(buffer, m_PatPmtPcr, len, bufferSize, m_PatPmtPcrLen);
+		memcpy(buffer, m_PatPmtPcr, len);
 	}
 	else
 	{
 		len = m_PatPmtLen;
-		rmf_osal_memcpy(buffer, m_PatPmt, len, bufferSize, m_PatPmtLen);
+		memcpy(buffer, m_PatPmt, len);
 	}
 
 	int index = 3 + m_ttsSize;
@@ -401,8 +398,6 @@ void TSProcessor::processPMTSection(unsigned char* section, int sectionLength)
 	int version = ((section[2] >> 1) & 0x1F);
 	int pcrPid = (((section[5] & 0x1F) << 8) + section[6]);
 	int infoLength = (((section[7] & 0x0F) << 8) + section[8]);
-
-
 
 	for (int i = 0; i < audioComponentCount; ++i)
 	{
@@ -537,7 +532,7 @@ void TSProcessor::processPMTSection(unsigned char* section, int sectionLength)
 						{
 							// ISO_639_language_descriptor
 						case 0x0A:
-							rmf_osal_memcpy(work, &programInfo[descIdx + 2], descrLen, 32, programInfoEnd - &programInfo[descIdx + 2]);
+							memcpy(work, &programInfo[descIdx + 2], descrLen);
 							work[descrLen] = '\0';
 							audioComponents[audioComponentCount].associatedLanguage = strdup(work);
 							break;
@@ -580,6 +575,7 @@ void TSProcessor::processPMTSection(unsigned char* section, int sectionLength)
 	if (audioComponentCount > 0)
 	{
 		std::vector<AudioTrackInfo> audioTracks;
+		std::map<std::string, int> languageCount;
 		for(int i=0; i< audioComponentCount; i++)
 		{
 			std::string index = "mux-" + std::to_string(i);
@@ -589,7 +585,14 @@ void TSProcessor::processPMTSection(unsigned char* section, int sectionLength)
 				language = Getiso639map_NormalizeLanguageCode(audioComponents[i].associatedLanguage,aamp->GetLangCodePreference());
 			}
 			std::string group_id = m_audioGroupId;
-			std::string name = "pid-" + std::to_string(audioComponents[i].pid);
+			std::string name = language; // use 3 character language code as default track name
+			// Note that we COULD map the full human-readable language name (i.e. eng -> English) here,
+			// but better to let the UI layer localize, if required.
+			// Video engine doesn't know if "German" or "Deutsch" is better as track name.
+			int count = ++languageCount[language];
+			if (count > 1) { // append suffix to make unique if needed
+				name += std::to_string(count);
+			}
 			std::string characteristics = "muxed-audio";
 			StreamOutputFormat streamtype = getStreamFormatForCodecType(audioComponents[i].elemStreamType);
 			std::string codec = GetAudioFormatStringForCodec(streamtype);
@@ -1215,7 +1218,7 @@ bool TSProcessor::processBuffer(unsigned char *buffer, int size, bool &insPatPmt
 										int sectionOffset = payloadOffset + 4;
 										int sectionAvail = m_packetSize - m_ttsSize - sectionOffset;
 										unsigned char *sectionData = packet + sectionOffset;
-										rmf_osal_memcpy(m_pmtCollector, sectionData, sectionAvail, MAX_PMT_SECTION_SIZE, (bufferEnd - sectionData));
+										memcpy(m_pmtCollector, sectionData, sectionAvail);
 										m_pmtCollectorSectionLength = sectionLength;
 										m_pmtCollectorOffset = sectionAvail;
 										m_pmtCollectorNextContinuity = ((packet[3] + 1) & 0xF);
@@ -1259,7 +1262,7 @@ bool TSProcessor::processBuffer(unsigned char *buffer, int size, bool &insPatPmt
 							int copylen = ((avail > sectionAvail) ? sectionAvail : avail);
 							if(m_pmtCollector)
 							{    //CID:87880 - forward null
-								rmf_osal_memcpy(&m_pmtCollector[m_pmtCollectorOffset], &packet[payloadOffset], copylen, (MAX_PMT_SECTION_SIZE - m_pmtCollectorOffset), (bufferEnd - &packet[payloadOffset]));
+								memcpy(&m_pmtCollector[m_pmtCollectorOffset], &packet[payloadOffset], copylen);
 							}
 							m_pmtCollectorOffset += copylen;
 							if (m_pmtCollectorOffset == m_pmtCollectorSectionLength)
@@ -2029,7 +2032,7 @@ bool TSProcessor::processStartCode(unsigned char *buffer, bool& keepScanning, in
 				{
 					if (m_emulationPreventionOffset > 0)
 					{
-						rmf_osal_memcpy(newBuff, m_emulationPrevention, m_emulationPreventionOffset, newSize, m_emulationPreventionCapacity);
+						memcpy(newBuff, m_emulationPrevention, m_emulationPreventionOffset);
 					}
 					free(m_emulationPrevention);
 				}
@@ -2113,7 +2116,7 @@ bool TSProcessor::processStartCode(unsigned char *buffer, bool& keepScanning, in
 					{
 						if (m_emulationPreventionOffset > 0)
 						{
-							rmf_osal_memcpy(newBuff, m_emulationPrevention, m_emulationPreventionOffset, newSize, m_emulationPreventionCapacity);
+							memcpy(newBuff, m_emulationPrevention, m_emulationPreventionOffset);
 						}
 						free(m_emulationPrevention);
 					}
@@ -2263,7 +2266,7 @@ void TSProcessor::checkIfInterlaced(unsigned char *packet, int length)
 								AAMPLOG_INFO("scan copyLen adjusted from %d to %d", copyLen, (int)(packetEnd - (packet + payload)));
 								copyLen = (int)(packetEnd - (packet + payload));
 							}
-							rmf_osal_memcpy(remainder + m_scanRemainderSize, packet + payload, copyLen, m_scanRemainderLimit * 3 - m_scanRemainderSize, packetEnd - (packet + payload));
+							memcpy(remainder + m_scanRemainderSize, packet + payload, copyLen);
 							m_scanRemainderSize += copyLen;
 							if (m_scanRemainderSize >= m_scanRemainderLimit * 2)
 							{
@@ -2319,7 +2322,7 @@ void TSProcessor::checkIfInterlaced(unsigned char *packet, int length)
 						{
 							unsigned char* packetScanPosition = packet + m_packetSize - m_scanRemainderLimit - m_ttsSize;
 							m_scanRemainderSize = m_scanRemainderLimit < packetEnd - packetScanPosition ? m_scanRemainderLimit : (int)(packetEnd - packetScanPosition);
-							rmf_osal_memcpy(m_scanRemainder, packetScanPosition, m_scanRemainderSize, m_scanRemainderLimit * 3, packetEnd - packetScanPosition);
+							memcpy(m_scanRemainder, packetScanPosition, m_scanRemainderSize);
 						}
 					}
 				}
@@ -2607,7 +2610,7 @@ void TSProcessor::reTimestamp(unsigned char *&packet, int length)
 							  AAMPLOG_INFO("scan copyLen adjusted from %d to %d", copyLen, (int)(packetEnd - (packet + payload)));
 							  copyLen = (int)(packetEnd - (packet + payload));
 						  }
-						  rmf_osal_memcpy(remainder + m_scanRemainderSize, packet + payload, copyLen, m_scanRemainderLimit * 3 - m_scanRemainderSize, packetEnd - (packet + payload));
+						  memcpy(remainder + m_scanRemainderSize, packet + payload, copyLen);
 						  m_scanRemainderSize += copyLen;
 
 						  if (m_scanRemainderSize >= m_scanRemainderLimit * 3)
@@ -2617,7 +2620,7 @@ void TSProcessor::reTimestamp(unsigned char *&packet, int length)
 								  if ((remainder[j] == 0x00) && (remainder[j + 1] == 0x00) && (remainder[j + 2] == 0x01))
 								  {
 									  processStartCode(&remainder[j], m_scanForFrameSize, 3 * m_scanRemainderLimit - j, j);
-									  rmf_osal_memcpy(packet + payload, remainder + m_scanRemainderLimit, 2 * m_scanRemainderLimit, packetEnd - (packet + payload), m_scanRemainderLimit * 3 - m_scanRemainderLimit);
+									  memcpy(packet + payload, remainder + m_scanRemainderLimit, 2 * m_scanRemainderLimit);
 								  }
 							  }
 
@@ -2674,7 +2677,7 @@ void TSProcessor::reTimestamp(unsigned char *&packet, int length)
 							  m_scanRemainderSize = 0;
 							  packetScanPosition = packetEnd;
 						  }
-						  rmf_osal_memcpy(m_scanRemainder, packetScanPosition, m_scanRemainderSize, m_scanRemainderLimit * 3, packetEnd - packetScanPosition);
+						  memcpy(m_scanRemainder, packetScanPosition, m_scanRemainderSize);
 					  }
 				  }
 			  }
@@ -3477,14 +3480,14 @@ unsigned char* TSProcessor::createNullPFrame(int width, int height, int *nullPFr
 			memset(&nullPFrame[i], 0, m_ttsSize);
 			i += m_ttsSize;
 		}
-		rmf_osal_memcpy(&nullPFrame[i], nullPFrameHeader, sizeof(nullPFrameHeader), numTSPackets*m_packetSize - i, sizeof(nullPFrameHeader));
+		memcpy(&nullPFrame[i], nullPFrameHeader, sizeof(nullPFrameHeader));
 		nullPFrame[i + 1] = ((nullPFrame[i + 1] & 0xE0) | ((m_videoPid >> 8) & 0x1F));
 		nullPFrame[i + 2] = (m_videoPid & 0xFF);
 		i += sizeof(nullPFrameHeader);
 		for (j = 1; j <= sliceCount; ++j)
 		{
 			slice[3] = (j & 0xFF);
-			rmf_osal_memcpy(&nullPFrame[i], slice, sliceLen, numTSPackets*m_packetSize - i, 16);
+			memcpy(&nullPFrame[i], slice, sliceLen);
 			i += sliceLen;
 			if ((i%m_packetSize) < sliceLen)
 			{
@@ -3950,8 +3953,8 @@ bool TSProcessor::FilterAudioCodecBasedOnConfig(StreamOutputFormat audioFormat)
 {
 	bool ignoreProfile = false;
 	bool bDisableEC3 = ISCONFIGSET(eAAMPConfig_DisableEC3);
-	bool bDisableAC3 = bDisableEC3;
-	// bringing in parity with DASH , if EC3 is disabled ,then ATMOS also will be disabled
+	bool bDisableAC3 = ISCONFIGSET(eAAMPConfig_DisableAC3);
+	// if EC3 disabled, implicitly disable ATMOS
 	bool bDisableATMOS = (bDisableEC3) ? true : ISCONFIGSET(eAAMPConfig_DisableATMOS);
 
 	switch (audioFormat)

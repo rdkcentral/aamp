@@ -115,7 +115,7 @@ class SegmentDownloader:
                 (url,filename) = self.inqueue.get_nowait()
                 log.debug(f"Fetching {url}")
 
-                resp = self.requests_session.get(url)
+                resp = self.requests_session.get(url, verify=False)
 
                 if resp.ok:
                     write_file(filename, resp.content)
@@ -207,52 +207,30 @@ class ManifestDownloader:
         signal.signal(signal.SIGHUP, self.interrupt)
         signal.signal(signal.SIGTERM, self.interrupt)
 
-        max_idle = 20 // poll_intv
-        last_change = max_idle
-        last_loop_time = time.time()
-
         while not self.shutdown:
+            last_loop_time = time.time()
             for url, last_read in self.last_read.items():
-                if last_read is None:
-                    if (
-                        last_change < 0
-                        and not self.shutdown
-                        or len(self.last_read) <= 1
-                    ):
-                        log.info("Manifests all for VOD content - shutting down")
-                        self.shutdown = True
 
-                    last_change -= 1
-                    continue
-
-                resp = self.requests_session.get(url)
+                resp = self.requests_session.get(url, verify=False)
 
                 if resp.status_code != 200:
                     log.error("status_code=%d %s", resp.status_code, url)
-                    continue
 
                 cur_read = resp.content
 
-                if cur_read == last_read:
-                    if last_change < 0 and not self.shutdown:
-                        log.info("Manifests seem to be idle - shutting down")
-                        self.shutdown = True
+                if cur_read != last_read and resp.status_code == 200:
 
-                    last_change -= 1
-                    continue
+                    self.last_read[url] = cur_read
+                    vod, segment_detail_list = self.check[url].changed(cur_read, self)
 
-                last_change = max_idle
-                self.last_read[url] = cur_read
-                vod, segment_detail_list = self.check[url].changed(cur_read, self)
+                    if self.do_download_segments:
+                        self.segment_list_process(segment_detail_list,vod)
 
-                if self.do_download_segments:
-                    self.segment_list_process(segment_detail_list,vod)
-
-                if vod:
-                    self.last_read[url] = None
-
-            if time.time() - start_time > self.max_time:
-                log.info("SHUTDOWN Polling for longer than %d", self.max_time)
+                    if vod:
+                        self.last_read[url] = None
+            poll_elapse = time.time() - start_time
+            if poll_elapse > self.max_time:
+                log.info(f"SHUTDOWN Polling for poll_elapse {poll_elapse} self.max_time {self.max_time}", )
                 self.shutdown = True
 
             loop_elapsed = time.time() - last_loop_time
@@ -260,7 +238,6 @@ class ManifestDownloader:
             log.debug(f"Sleep for {loop_delay} loop_elapsed {loop_elapsed}")
             if loop_delay > 0:
                 time.sleep(loop_delay)
-            last_loop_time = time.time()
 
         for man in self.check.values():
             man.terminate()
@@ -517,7 +494,7 @@ if __name__ == "__main__":
     ftype = get_manifest_type(filename_part)
     requests_session = requests.Session()
 
-    response = requests_session.get(url)
+    response = requests_session.get(url, verify=False)
     if response is None:
         log.error("ERROR no response from %s", url)
         sys.exit(1)

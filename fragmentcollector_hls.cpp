@@ -2464,8 +2464,8 @@ bool StreamAbstractionAAMP_HLS::FilterAudioCodecBasedOnConfig(StreamOutputFormat
 {
 	bool ignoreProfile = false;
 	bool bDisableEC3 = ISCONFIGSET(eAAMPConfig_DisableEC3);
-	bool bDisableAC3 = bDisableEC3;
-	// bringing in parity with DASH , if EC3 is disabled ,then ATMOS also will be disabled
+	bool bDisableAC3 = ISCONFIGSET(eAAMPConfig_DisableAC3);
+	// if EC3 disabled, implicitly disable ATMOS
 	bool bDisableATMOS = (bDisableEC3) ? true : ISCONFIGSET(eAAMPConfig_DisableATMOS);
 
 	switch (audioFormat)
@@ -6718,9 +6718,9 @@ void StreamAbstractionAAMP_HLS::ConfigureVideoProfiles()
 		// 3. Make sure filters for disableATMOS/disableEC3/disableAAC is applied
 
 		// Get the initial configuration to filter the profiles
-		bool bDisableEC3 = false;//ISCONFIGSET(eAAMPConfig_DisableEC3);
-		bool bDisableAC3 = bDisableEC3;
-		// bringing in parity with DASH , if EC3 is disabled ,then ATMOS also will be disabled
+		bool bDisableEC3 = ISCONFIGSET(eAAMPConfig_DisableEC3);
+		bool bDisableAC3 = ISCONFIGSET(eAAMPConfig_DisableAC3);
+		// if EC3 disabled, implicitly disable ATMOS
 		bool bDisableATMOS = (bDisableEC3) ? true : ISCONFIGSET(eAAMPConfig_DisableATMOS);
 		bool bDisableAAC = false;
 
@@ -7057,9 +7057,13 @@ void StreamAbstractionAAMP_HLS::ConfigureTextTrack()
 	}
 	else
 	{
-		if (!aamp->mSubLanguage.empty())
+		for (const auto& LangStr : aamp->preferredSubtitleLanguageVctr)
 		{
-			currentTextTrackProfileIndex = GetMediaIndexForLanguage(aamp->mSubLanguage, eTRACK_SUBTITLE);
+			currentTextTrackProfileIndex = GetMediaIndexForLanguage(LangStr, eTRACK_SUBTITLE);
+			if(currentTextTrackProfileIndex > -1 )
+			{
+				break;
+			}
 		}
 	}
 	AAMPLOG_WARN("TextTrack Selected :%d", currentTextTrackProfileIndex);

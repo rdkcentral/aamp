@@ -162,6 +162,7 @@ typedef enum
 	eAAMPConfig_PlaylistParallelFetch,					/**< Enabled parallel fetching of audio & video playlists*/
 	eAAMPConfig_PlaylistParallelRefresh,					/**< Enabled parallel fetching for refresh of audio & video playlists*/
 	eAAMPConfig_BulkTimedMetaReport, 					/**< Enabled Bulk event reporting for TimedMetadata*/
+	eAAMPConfig_BulkTimedMetaReportLive,					/**< Enabled Bulk TimedMetadata event reporting for live stream */
 	eAAMPConfig_AvgBWForABR,						/**< Enables usage of AverageBandwidth if available for ABR */
 	eAAMPConfig_NativeCCRendering,						/**< If native CC rendering to be supported */
 	eAAMPConfig_Subtec_subtitle,						/**< Enable subtec-based subtitles */
@@ -219,6 +220,7 @@ typedef enum
 	eAAMPConfig_ForceMultiPeriodDiscontinuity,		/**< Config to forcefully process multiperiod discontinuity even if they are continuous in PTS */
 	eAAMPConfig_ForceLLDFlow,						/**< Config to forcefully process LLD workflow even if they are live SLD */
 	eAAMPConfig_NoNativeAV,                                                 /**< Config to allow gstreamer be responsible for handling AV, bypassing use of native platform-specific audio-video handling */
+	eAAMPConfig_MonitorAV,						/**< enable background monitoring of audio/video positions to infer video freeze, audio drop, or av sync issues */
 	eAAMPConfig_BoolMaxValue						/**< Max value of bool config always last element */
 } AAMPConfigSettingBool;
 #define AAMPCONFIG_BOOL_COUNT (eAAMPConfig_BoolMaxValue)
@@ -312,7 +314,8 @@ typedef enum
 	eAAMPConfig_AdFulfillmentTimeoutMax,					/**< Ad fulfillment maximum timeout in milliseconds */
 	eAAMPConfig_RequiredQueuedFrames,				/**< required queued frames while tuning */
 	eAAMPConfig_PlatformType,                       /**< To determine the current device platform/soc type */
-	eAAMPConfig_IntMaxValue							/**< Max value of int config always last element*/
+ 	eAAMPConfig_ShowDiagnosticsOverlay,		       /** configures the diagnostics overlay,accessed by UVE API getConfiguration()*/
+ 	eAAMPConfig_IntMaxValue							/**< Max value of int config always last element*/
 } AAMPConfigSettingInt;
 #define AAMPCONFIG_INT_COUNT (eAAMPConfig_IntMaxValue)
 

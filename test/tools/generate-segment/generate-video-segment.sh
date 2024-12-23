@@ -14,6 +14,7 @@ SEGMENT_NUMBER=$8
 MEDIA_FNAME=$9
 INIT_FNAME=${10}
 SOURCE_MEDIA=${11}
+GENERATE_LL_SEGMENTS=${12}
 
 # floating point math
 DURATION_S=$(echo "$DURATION $TIMESCALE" | awk '{printf "%f", $1 / $2}')
@@ -42,6 +43,19 @@ RESOLUTION_OVERLAY="fontfile=/path/to/font.ttf: \
     fontsize=$FONTSIZE: \
     box=1: boxcolor=black: boxborderw=5: x=(w-text_w)/2: y=(h/2-text_h)/2"
 
+# low-latency options
+LL_OPTIONS=""
+if [ "$GENERATE_LL_SEGMENTS" = "generate_chunked_segments" ]; then
+LL_OPTIONS="\
+-frag_type duration \
+-frag_duration 0.48 \
+-ldash 1 \
+-utc_timing_url 'https://time.akamai.com?iso&amp;ms' \
+-write_prft 1 \
+"
+fi
+
+
 ffmpeg -y \
     -loop 1 \
     -i $SOURCE_MEDIA \
@@ -54,7 +68,7 @@ ffmpeg -y \
     video.mp4
 
 # split into init header and media segment
-ffmpeg -i video.mp4 -c:v copy -copytb 1 -f dash -init_seg_name $INIT_FNAME -media_seg_name $MEDIA_FNAME video.mpd
+ffmpeg -i video.mp4 -c:v copy -copytb 1 $LL_OPTIONS -f dash -init_seg_name $INIT_FNAME -media_seg_name $MEDIA_FNAME video.mpd
 
 if [ $? -ne 0 ]; then
     echo "ffmpeg failed while splitting video into init header and media segment"
@@ -66,3 +80,4 @@ python3 modifyContentMetaData.py $INIT_FNAME --timescale $TIMESCALE
 
 # populate base media decode time and segment number
 python3 modifyContentMetaData.py $MEDIA_FNAME --baseMediaDecodeTime $BASE_MEDIA_DECODE_TIME --segmentNumber $SEGMENT_NUMBER
+

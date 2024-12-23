@@ -39,7 +39,6 @@ def pytest_addoption(parser):
     """
     parser.addoption("--aamp_video", action="store_true", help="run AAMP with video window")
     parser.addoption("--aamp_log", action="store_true", help="AAMP logging to stdout rather than file")
-    parser.addoption("--sim_log", action="store_true", help="AAMP logging to stdout rather than file")
     parser.addoption("--coverage", action="store_true", help="Record AAMP line coverage when running tests")
 
 @pytest.fixture(scope="session")

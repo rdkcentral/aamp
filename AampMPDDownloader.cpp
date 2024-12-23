@@ -360,6 +360,7 @@ void AampMPDDownloader::downloadMPDThread1()
 	bool refreshNeeded = false;
 	std::string tuneUrl = mMPDDnldCfg->mTuneUrl;
 	bool firstDownload	=	true;
+	int retryCount = 0;
 	ManifestDownloadResponsePtr cachedBackupData = nullptr;
 	do
 	{
@@ -410,6 +411,22 @@ void AampMPDDownloader::downloadMPDThread1()
 			else
 			{
 				mDownloader1.Download(tuneUrl, mMPDData->mMPDDownloadResponse);
+				if(mMPDData->mMPDDownloadResponse->iHttpRetValue == 502 && retryCount < DEFAULT_MANIFEST_DOWNLOAD_502_RETRY_COUNT)
+				{
+					mRefreshInterval = MIN_DELAY_BETWEEN_MANIFEST_UPDATE_FOR_502_MS;
+					waitForRefreshInterval();
+					refreshNeeded = true;
+					retryCount++;
+					continue;
+				}
+				else
+				{
+					retryCount = 0;
+					if(mMPDData->mMPDDownloadResponse->iHttpRetValue == 502)
+					{
+						AAMPLOG_ERR("Manifest retries exhausted for HTTP error 502,exiting mpd downloader!!");
+					}
+				}
 			}
 		}
 
@@ -523,6 +540,7 @@ void AampMPDDownloader::downloadMPDThread1()
 			mRefreshInterval = MIN_DELAY_BETWEEN_PLAYLIST_UPDATE_MS;
 			refreshNeeded = waitForRefreshInterval();
 		}
+
 	}while(refreshNeeded && !mReleaseCalled);
 	AAMPLOG_INFO("Out of Manifest Download loop ...");
 }

@@ -58,8 +58,9 @@ class PtsRestampUtils:
         if mediaTrack in self.restamp_values:
             expected_restamp = self.restamp_values.get(mediaTrack)
             diff_sec = abs(after_sec - expected_restamp)
-            print(f"PTS (secs): actual {after_sec:.3f}, expected {expected_restamp:.3f}, diff {diff_sec:.3f}, tol {tolerance_sec:.3f}")
-            assert diff_sec <= tolerance_sec
+            str = f"PTS (secs): actual {after_sec:.3f}, expected {expected_restamp:.3f}, diff {diff_sec:.3f}, tol {tolerance_sec:.3f}"
+            print(str)
+            assert diff_sec <= tolerance_sec, str
 
         # Save what we are expecting for the next value
         self.restamp_values[mediaTrack] = after_sec + duration_sec
@@ -70,5 +71,6 @@ class PtsRestampUtils:
             self.segment_cnt_reached = None     # Clear the function provided so it is not called a second time
 
     def check_num_segments(self):
-        print(f"Number of segments: restamped {self.segment_cnt}, minimum expected {self.max_segment_cnt}")
-        assert self.segment_cnt >= self.max_segment_cnt
+        str = f"Number of segments: restamped {self.segment_cnt}, minimum expected {self.max_segment_cnt}" 
+        print(str)
+        assert self.segment_cnt >= self.max_segment_cnt, str

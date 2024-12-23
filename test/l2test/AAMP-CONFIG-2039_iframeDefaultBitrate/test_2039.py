@@ -18,11 +18,15 @@
 from inspect import getsourcefile
 import os
 import pytest
+
+archive_url = "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/streams/L2/multiIframeTracks.tar.xz"
+
 TESTDATA1 = {
 	"title": "Set iframeDefaultBitrate as default",
 	"logfile": "testdata_default.txt",
 	"max_test_time_seconds": 15,
 	"aamp_cfg": f"info=true\ntrace=true\nprogress=true",
+    "archive_url": archive_url,
 	"url":f"manifest.mpd",
 	"simlinear_type": "DASH",
 	"expect_list": [
@@ -48,6 +52,7 @@ TESTDATA2 = {
 	"max_test_time_seconds": 15,
 	# Bitrate specified in the manifest for AdaptationSet id 3 (640x320p)
 	"aamp_cfg": f"info=true\ntrace=true\nprogress=true\niframeDefaultBitrate=148511\n",
+    "archive_url": archive_url,
 	"url":f"manifest.mpd",
 	"simlinear_type": "DASH",
 	"expect_list": [
@@ -73,6 +78,7 @@ TESTDATA3 = {
 	"max_test_time_seconds": 15,
 	# Bitrate specified in the manifest for AdaptationSet id 4 (1280x720p)
 	"aamp_cfg": f"info=true\ntrace=true\nprogress=true\niframeDefaultBitrate=315800\n",
+    "archive_url": archive_url,
 	"url":f"manifest.mpd",
 	"simlinear_type": "DASH",
 	"expect_list": [
@@ -98,6 +104,7 @@ TESTDATA4 = {
 	"max_test_time_seconds": 15,
 	# Bitrate specified in the manifest for AdaptationSet id 5 (3840x2160p)
 	"aamp_cfg": f"info=true\ntrace=true\nprogress=true\niframeDefaultBitrate=1073500\n",
+    "archive_url": archive_url,
 	"url":f"manifest.mpd",
 	"simlinear_type": "DASH",
 	"expect_list": [

@@ -28,6 +28,7 @@
 #include "MockAampGstPlayer.h"
 #include "MockStreamAbstractionAAMP.h"
 #include "MockAampStreamSinkManager.h"
+#include "MockAampUtils.h"
 
 using ::testing::_;
 using ::testing::Return;
@@ -37,6 +38,9 @@ using ::testing::NiceMock;
 using ::testing::Throw;
 using ::testing::An;
 using ::testing::AnyNumber;
+using ::testing::AtLeast;
+using ::testing::AnyOf;
+using ::testing::StrEq;
 
 class SetPreferredTextLanguagesTests : public ::testing::Test
 {
@@ -103,19 +107,40 @@ public:
 	PrivateInstanceAAMP *mPrivateInstanceAAMP{};
 };
 
+class SetPreferredTextLanguagesIso639Tests : public SetPreferredTextLanguagesTests,
+								   public testing::WithParamInterface<const char*>
+{
+protected:
+	void SetUp() override
+	{
+		SetPreferredTextLanguagesTests::SetUp();
+
+		g_mockAampUtils = new NiceMock<MockAampUtils>();
+	}
+
+	void TearDown() override
+	{
+		SetPreferredTextLanguagesTests::TearDown();
+
+		delete g_mockAampUtils;
+		g_mockAampUtils = nullptr;
+	}
+};
+
 /**
  * @brief Set the preferred text languages list which matches the current
- *        setting.
+ *        setting, using various ISO-639 codes.
  */
-TEST_F(SetPreferredTextLanguagesTests, LanguageListTest1)
+TEST_P(SetPreferredTextLanguagesIso639Tests, LanguageListTestIso639)
 {
-	std::vector<TextTrackInfo> tracks;
-	tracks.push_back(TextTrackInfo("idx0", "lang0", false, "rend0", "trackName0", "codecStr0", "cha0", "typ0", "lab0", "type0", Accessibility(), true));
-	tracks.push_back(TextTrackInfo("idx1", "lang1", false, "rend1", "trackName1", "codecStr1", "cha1", "typ1", "lab1", "type1", Accessibility(), true));
+	const char* testLanguageList = GetParam();
 
-	mPrivateInstanceAAMP->preferredTextLanguagesString = "lang0";
+	std::vector<TextTrackInfo> tracks;
+	tracks.push_back(TextTrackInfo("idx0", "eng", false, "rend0", "trackName0", "codecStr0", "cha0", "typ0", "lab0", "type0", Accessibility(), true));
+	tracks.push_back(TextTrackInfo("idx1", "spa", false, "rend1", "trackName1", "codecStr1", "cha1", "typ1", "lab1", "type1", Accessibility(), true));
+
+	mPrivateInstanceAAMP->preferredTextLanguagesString.clear();
 	mPrivateInstanceAAMP->preferredTextLanguagesList.clear();
-	mPrivateInstanceAAMP->preferredTextLanguagesList.push_back("lang0");
 	mPrivateInstanceAAMP->subtitles_muted = false;
 
 	/* Call SetPreferredTextLanguages() without changing the preferred languages
@@ -123,16 +148,40 @@ TEST_F(SetPreferredTextLanguagesTests, LanguageListTest1)
 	 */
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetAvailableTextTracks(_))
 		.WillOnce(ReturnRef(tracks));
+
+	// AAMP is expected to normalise the language code according to the current preference
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_LanguageCodePreference))
+		.WillRepeatedly(Return(ISO639_PREFER_3_CHAR_BIBLIOGRAPHIC_LANGCODE));
+	EXPECT_CALL(*g_mockAampUtils,
+				Getiso639map_NormalizeLanguageCode(AnyOf(StrEq("eng"), StrEq("en")),
+												   ISO639_PREFER_3_CHAR_BIBLIOGRAPHIC_LANGCODE))
+		.WillRepeatedly(Return("eng"));
+
+	// No retune
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_))
 		.Times(0);
+	EXPECT_CALL(*g_mockAampGstPlayer, Flush(_,_,_))
+		.Times(0);
 
-	mPrivateInstanceAAMP->SetPreferredTextLanguages("lang0");
+	mPrivateInstanceAAMP->SetPreferredTextLanguages(testLanguageList);
 
 	/* Verify the preferred languages list. */
-	EXPECT_STREQ(mPrivateInstanceAAMP->preferredTextLanguagesString.c_str(), "lang0");
+	EXPECT_STREQ(mPrivateInstanceAAMP->preferredTextLanguagesString.c_str(), "eng");
 	EXPECT_EQ(mPrivateInstanceAAMP->preferredTextLanguagesList.size(), 1);
-	EXPECT_STREQ(mPrivateInstanceAAMP->preferredTextLanguagesList.at(0).c_str(), "lang0");
+	EXPECT_STREQ(mPrivateInstanceAAMP->preferredTextLanguagesList.at(0).c_str(), "eng");
 }
+
+INSTANTIATE_TEST_SUITE_P(SetPreferredTextLanguagesTests, SetPreferredTextLanguagesIso639Tests,
+						 ::testing::Values("eng",	  /* ISO 639-3 (3 character code) */
+										   "en",	  /* ISO 639-1 (2 character code) */
+										   "eng,eng", /* Duplicate language, same code */
+										   "en,eng",  /* Duplicate language, different code */
+										   "{\"languages\":[\"eng\"]}", "{\"languages\":[\"en\"]}",
+										   "{\"languages\":[\"eng\",\"eng\"]}",
+										   "{\"languages\":[\"en\",\"eng\"]}",
+										   /* Alternative ways of specifying a single language code
+										   supported by the SetPreferredTextLanguages JSON API */
+										   "{\"languages\":\"eng\"}", "{\"language\":\"en\"}"));
 
 /**
  * @brief Set the preferred text languages list which does not match the current
@@ -231,60 +280,16 @@ TEST_F(SetPreferredTextLanguagesTests, LanguageListTest4)
 
 /**
  * @brief Set the preferred text languages list as a JSON string array which
- *        matches the current setting.
+ *        contains multiple languages
  */
 TEST_F(SetPreferredTextLanguagesTests, LanguageListTest5)
 {
-	GTEST_SKIP();
-	
 	std::vector<TextTrackInfo> tracks;
 	tracks.push_back(TextTrackInfo("idx0", "lang0", false, "rend0", "trackName0", "codecStr0", "cha0", "typ0", "lab0", "type0", Accessibility(), true));
 	tracks.push_back(TextTrackInfo("idx1", "lang1", false, "rend1", "trackName1", "codecStr1", "cha1", "typ1", "lab1", "type1", Accessibility(), true));
 
-	mPrivateInstanceAAMP->preferredTextLanguagesString = "lang0,lang1";
+	mPrivateInstanceAAMP->preferredTextLanguagesString.clear();
 	mPrivateInstanceAAMP->preferredTextLanguagesList.clear();
-	mPrivateInstanceAAMP->preferredTextLanguagesList.push_back("lang0");
-	mPrivateInstanceAAMP->preferredTextLanguagesList.push_back("lang1");
-	mPrivateInstanceAAMP->subtitles_muted = false;
-
-	/* Call SetPreferredTextLanguages() without changing the preferred languages
-	 * list. There should be a no retune.
-	 */
-//	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetAvailableTextTracks(_))
-	//	.Times(0);
-	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetAvailableTextTracks(_))
-		.WillOnce(ReturnRef(tracks));
-	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_))
-		.Times(1);
-	EXPECT_CALL(*g_mockAampGstPlayer, Flush(_,_,_))
-		.Times(1);
-	
-	mPrivateInstanceAAMP->SetPreferredTextLanguages("{\"languages\":[\"lang0\",\"lang1\"]}");
-
-	/* Verify the preferred languages list. */
-	EXPECT_STREQ(mPrivateInstanceAAMP->preferredTextLanguagesString.c_str(), "lang0,lang1");
-	EXPECT_EQ(mPrivateInstanceAAMP->preferredTextLanguagesList.size(), 2);
-	EXPECT_STREQ(mPrivateInstanceAAMP->preferredTextLanguagesList.at(0).c_str(), "lang0");
-	EXPECT_STREQ(mPrivateInstanceAAMP->preferredTextLanguagesList.at(1).c_str(), "lang1");
-	
-	g_mockStreamAbstractionAAMP = nullptr;
-}
-
-/**
- * @brief Set the preferred text languages list as a JSON string array which
- *        doesn't match the current setting.
- */
-TEST_F(SetPreferredTextLanguagesTests, LanguageListTest6)
-{
-	std::vector<TextTrackInfo> tracks;
-
-	tracks.push_back(TextTrackInfo("idx0", "lang0", false, "rend0", "trackName0", "codecStr0", "cha0", "typ0", "lab0", "type0", Accessibility(), true));
-	tracks.push_back(TextTrackInfo("idx1", "lang1", false, "rend1", "trackName1", "codecStr1", "cha1", "typ1", "lab1", "type1", Accessibility(), true));
-
-	mPrivateInstanceAAMP->preferredTextLanguagesString = "lang0,lang1";
-	mPrivateInstanceAAMP->preferredTextLanguagesList.clear();
-	mPrivateInstanceAAMP->preferredTextLanguagesList.push_back("lang0");
-	mPrivateInstanceAAMP->preferredTextLanguagesList.push_back("lang1");
 	mPrivateInstanceAAMP->subtitles_muted = false;
 
 	/* Call SetPreferredTextLanguages() changing the preferred languages list.
@@ -294,20 +299,24 @@ TEST_F(SetPreferredTextLanguagesTests, LanguageListTest6)
 		.WillOnce(ReturnRef(tracks));
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_))
 		.WillOnce(Invoke(this, &SetPreferredTextLanguagesTests::Stop));
+	EXPECT_CALL(*g_mockAampGstPlayer, Flush(_,_,_))
+		.Times(AtLeast(1));
 
-	mPrivateInstanceAAMP->SetPreferredTextLanguages("{\"languages\":[\"lang0\",\"lang2\"]}");
+	mPrivateInstanceAAMP->SetPreferredTextLanguages("{\"languages\":[\"lang0\",\"lang1\"]}");
 
 	/* Verify the preferred languages list. */
-	EXPECT_STREQ(mPrivateInstanceAAMP->preferredTextLanguagesString.c_str(), "lang0,lang2");
+	EXPECT_STREQ(mPrivateInstanceAAMP->preferredTextLanguagesString.c_str(), "lang0,lang1");
 	EXPECT_EQ(mPrivateInstanceAAMP->preferredTextLanguagesList.size(), 2);
 	EXPECT_STREQ(mPrivateInstanceAAMP->preferredTextLanguagesList.at(0).c_str(), "lang0");
-	EXPECT_STREQ(mPrivateInstanceAAMP->preferredTextLanguagesList.at(1).c_str(), "lang2");
+	EXPECT_STREQ(mPrivateInstanceAAMP->preferredTextLanguagesList.at(1).c_str(), "lang1");
+
+	g_mockStreamAbstractionAAMP = nullptr;
 }
 
 /**
  * @brief TSB related test to change the preferred text languages list.
  */
-TEST_F(SetPreferredTextLanguagesTests, LanguageListTest7)
+TEST_F(SetPreferredTextLanguagesTests, LanguageListTest6)
 {
 	std::vector<TextTrackInfo> tracks;
 	tracks.push_back(TextTrackInfo("idx0", "lang0", false, "rend0", "trackName0", "codecStr0", "cha0", "typ0", "lab0", "type0", Accessibility(), true));
@@ -344,7 +353,7 @@ TEST_F(SetPreferredTextLanguagesTests, LanguageListTest7)
  * @brief TSB related test to change the preferred text languages list to a track
  *        which is not enabled.
  */
-TEST_F(SetPreferredTextLanguagesTests, LanguageListTest8)
+TEST_F(SetPreferredTextLanguagesTests, LanguageListTest7)
 {
 	std::vector<TextTrackInfo> tracks;
 	tracks.push_back(TextTrackInfo("idx0", "lang0", false, "rend0", "trackName0", "codecStr0", "cha0", "typ0", "lab0", "type0", Accessibility(), true));
@@ -518,7 +527,7 @@ TEST_F(SetPreferredTextLanguagesTests, TextTrackNameTest2)
 		.Times(0);
 
 	mPrivateInstanceAAMP->SetPreferredTextLanguages("{\"name\":\"English\"}");
-	// Verify the preferred Name list. 
+	// Verify the preferred Name list.
 	EXPECT_STREQ(mPrivateInstanceAAMP->preferredTextNameString.c_str(), "English");
 }
 
@@ -544,7 +553,7 @@ TEST_F(SetPreferredTextLanguagesTests, TextTrackNameTest3)
 
 	/* Verify the preferred name list. */
 	EXPECT_STREQ(mPrivateInstanceAAMP->preferredTextNameString.c_str(), "Spanish");
-	
+
 	/* Verify the preferred language is not set to an incorrect value */
 	EXPECT_STRNE(mPrivateInstanceAAMP->preferredTextNameString.c_str(), "English");
 }
@@ -609,4 +618,3 @@ TEST_F(SetPreferredTextLanguagesTests, TextTrackNameTest5)
 	/* Verify the preferred name list. */
 	EXPECT_STREQ(mPrivateInstanceAAMP->preferredTextNameString.c_str(), "Spanish");
 }
-
