@@ -280,7 +280,7 @@ TEST_F(FunctionalTests, TSBReadTests)
 
     EXPECT_CALL(*g_mockMediaStreamContext, CacheTsbFragment(_)).Times(2).WillRepeatedly(Return(true));
 
-    bool result = mAampTSBSessionManager->PushNextFragment(&videoCtx);
+    bool result = mAampTSBSessionManager->PushNextTsbFragment(&videoCtx);
     EXPECT_TRUE(result); 
 }
 

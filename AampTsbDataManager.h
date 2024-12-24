@@ -37,6 +37,14 @@
 
 #define TSB_DATA_DEBUG_ENABLED 0 /** Enable debug log on development/debug */
 
+struct TSBWriteData
+{
+	std::string url;
+	std::shared_ptr<CachedFragment> cachedFragment;
+	double pts;
+	std::string periodId;
+};
+
 /**
  * @class Parent class
  * @brief Abstracted parent class
@@ -142,7 +150,7 @@ public:
 
 /**
  * @class TsbFragmentData
- * @brief Prototype to Store the fragment and initFragment infromation
+ * @brief Linked list with data related to the fragment and initFragment stored in AAMP TSB
  */
 class TsbFragmentData : public TsbSegment
 {
@@ -159,22 +167,26 @@ public:
 	std::shared_ptr<TsbFragmentData> next; /**< Link list next node for easy access*/
 	std::shared_ptr<TsbFragmentData> prev; /**< Link list previous node for easy access*/
 	/**
-	 *   @fn controctor
+	 *   @fn constructor
 	 *   @param[in] url - Segment URL as string
 	 *   @param[in] media - Segment type as AampMediaType
-	 *   @param[in] position - position as double
-	 *   @param[in] duration - duration as double
+	 *   @param[in] position - position of the current fragment
+	 *   @param[in] duration - duration of the current fragment
+	 *   @param[in] pts - PTS of the current fragment
+	 *   @param[in] disc - discontinuity flag
 	 *   @param[in] relativePos - Relative position
 	 *   @param[in] prId - Period Id of the fragment
 	 *   @param[in] initData - Pointer to initData
-	 *   @return void
 	 */
-	TsbFragmentData(std::string url, AampMediaType media, double position, double duration, double pts, bool disc, double relativePos, std::string prId, std::shared_ptr<TsbInitData> initData) : TsbSegment(url, media, prId), position(position), duration(duration), mPTS(pts), isDiscontinuous(disc), initFragData(initData), relativePosition(relativePos)
+	TsbFragmentData(std::string url, AampMediaType media, double position, double duration, double pts, bool disc, double relativePos,
+		std::string prId, std::shared_ptr<TsbInitData> initData)
+		: TsbSegment(url, media, prId), position(position), duration(duration), mPTS(pts), isDiscontinuous(disc), initFragData(initData),
+		relativePosition(relativePos)
 	{
 	}
 
 	/**
-	 *  @brief Internal API to insert data
+	 *  @fn Destructor
 	 */
 	~TsbFragmentData()
 	{
@@ -187,35 +199,35 @@ public:
 	std::shared_ptr<TsbInitData> GetInitFragData() { return initFragData; }
 
 	/**
-	 * @brief GetPosition
+	 * @fn GetPosition
 	 *
 	 * @return position of the fragment as double
 	 */
 	double GetPosition() { return position; }
 
 	/**
-	 * @brief GetPTS
+	 * @fn GetPTS
 	 *
 	 * @return Querry the PST of fragment
 	 */
 	double GetPTS() { return mPTS; }
 
 	/**
-	 * @brief GetRelativePosition
+	 * @fn GetRelativePosition
 	 *
 	 * @return Querry the relative position of fragment
 	 */
 	double GetRelativePosition() { return relativePosition; }
 
 	/**
-	 * @brief GetDuration
+	 * @fn GetDuration
 	 *
 	 * @return duration of the fragment as double
 	 */
 	double GetDuration() { return duration; }
 
 	/**
-	 * @brief IsDiscontinuous
+	 * @fn IsDiscontinuous
 	 *
 	 * @return whether is it is discontinuous fragment
 	 */
@@ -327,15 +339,13 @@ public:
 
 	/**
 	 *   @fn AddFragment
-	 *   @param[in] url - Segment URL as string
+	 *   @brief  AddFragment - add Fragment to TSB data
+	 *   @param[in] writeData - Segment data
 	 *   @param[in] media - Segment type as AampMediaType
-	 *   @param[in] position - position as double
-	 *   @param[in] duration - duration as double
-	 *   @param[in] pts - PTS value of the fragment
-	 *   @param[in] periodId - Period Id of this fragment
+	 *   @param[in] discont - discontinuity flag
 	 *   @return true if no exception
 	 */
-	bool AddFragment(std::string &url, AampMediaType media, double position, double duration, double pts, bool discont, std::string &periodId);
+	bool AddFragment(TSBWriteData &writeData, AampMediaType media, bool discont);
 
 	/**
 	 *   @fn IsFragmentPresent

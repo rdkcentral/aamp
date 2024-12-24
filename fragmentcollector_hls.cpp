@@ -5034,7 +5034,7 @@ TrackState::~TrackState()
 	int maxCachedFragmentsPerTrack = GETCONFIGVALUE(eAAMPConfig_MaxFragmentCached);
 	for (int j=0; j< maxCachedFragmentsPerTrack; j++)
 	{
-		cachedFragment[j].fragment.Free();
+		mCachedFragment[j].fragment.Free();
 	}
 	FlushIndex();
 

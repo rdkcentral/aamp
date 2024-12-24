@@ -4213,6 +4213,7 @@ public:
 	void SetLocalAAMPTsb(bool value)
 	{
 		mLocalAAMPTsb = value;
+		AAMPLOG_INFO("Local AAMP TSB %d", mLocalAAMPTsb);
 	}
 
 	/**

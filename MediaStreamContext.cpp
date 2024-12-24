@@ -455,7 +455,7 @@ bool MediaStreamContext::CacheFragmentChunk(AampMediaType actualType, char *ptr,
 			return false;
 		}
 		double posInAbsTimeline = ((double)fragmentTime);
-    		cachedFragment->absPosition =  posInAbsTimeline;
+		cachedFragment->absPosition =  posInAbsTimeline;
 		cachedFragment->type = actualType;
 		cachedFragment->downloadStartTime = dnldStartTime;
 		cachedFragment->fragment.AppendBytes(ptr, size);

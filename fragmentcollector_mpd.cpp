@@ -939,15 +939,15 @@ bool StreamAbstractionAAMP_MPD::FetchFragment(MediaStreamContext *pMediaStreamCo
 				}
 				if(cachedFragment)
 				{
-				// The pointer is loaded to bypass null check in InjectFragment thread
-				cachedFragment->fragment.AppendBytes("0x0a", 2);
-				cachedFragment->position=0;
-				cachedFragment->duration=0;
-				cachedFragment->initFragment=true;
-				cachedFragment->discontinuity=true;
-				cachedFragment->profileIndex=0;
-				cachedFragment->isDummy=true;
-				cachedFragment->type=pMediaStreamContext->mediaType;
+					// The pointer is loaded to bypass null check in InjectFragment thread
+					cachedFragment->fragment.AppendBytes("0x0a", 2);
+					cachedFragment->position=0;
+					cachedFragment->duration=0;
+					cachedFragment->initFragment=true;
+					cachedFragment->discontinuity=true;
+					cachedFragment->profileIndex=0;
+					cachedFragment->isDummy=true;
+					cachedFragment->type=pMediaStreamContext->mediaType;
 					if(aamp->GetLLDashChunkMode())
 					{
 						pMediaStreamContext->UpdateTSAfterChunkFetch();
@@ -9982,13 +9982,13 @@ void StreamAbstractionAAMP_MPD::AdvanceTsbFetch(int trackIdx, bool trickPlay, do
 				bool isIEos = tsbReader->IsEos();
 				if (!isIEos)
 				{
-					if (tsbSessionManager->PushNextFragment(pMediaStreamContext))
+					if (tsbSessionManager->PushNextTsbFragment(pMediaStreamContext))
 					{
-						AAMPLOG_TRACE("[%s] PushNextFragment Succcess for track", GetMediaTypeName((AampMediaType)trackIdx));
+						AAMPLOG_TRACE("[%s] PushNextTsbFragment Succcess for track", GetMediaTypeName((AampMediaType)trackIdx));
 					}
 					else
 					{
-						AAMPLOG_INFO("PushNextFragment failed for track:%d", trackIdx);
+						AAMPLOG_INFO("PushNextTsbFragment failed for track:%d", trackIdx);
 					}
 				}
 			}

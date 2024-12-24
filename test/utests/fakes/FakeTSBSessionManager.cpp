@@ -62,15 +62,6 @@ void AampTSBSessionManager::Init()
     }
 }
 /**
- * @fn Read  - function to read file from TSB 
- *
- * @return None
- */
-std::shared_ptr<CachedFragment> AampTSBSessionManager::Read(double position, AampMediaType mediatype, bool &eos, double &pts)
-{
-    return nullptr;
-}
-/**
  * @fn Write - function to Enqueues data for writing
  *
  * @return None
@@ -107,7 +98,7 @@ double AampTSBSessionManager::CullSegments()
     return 0.0;
 }
 
-bool AampTSBSessionManager::PushNextFragment(MediaStreamContext *pMediaStreamContext)
+bool AampTSBSessionManager::PushNextTsbFragment(MediaStreamContext *pMediaStreamContext)
 {
     return false;
 }
