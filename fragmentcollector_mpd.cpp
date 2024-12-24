@@ -10761,7 +10761,15 @@ void StreamAbstractionAAMP_MPD::GetStreamFormat(StreamOutputFormat &primaryOutpu
 		AAMPLOG_WARN("Entering GetCurrentMimeType");
 		auto mimeType = GetCurrentMimeType(eMEDIATYPE_SUBTITLE);
 		if (!mimeType.empty())
+		{
 			subtitleOutputFormat = GetSubtitleFormat(mimeType);
+		}
+		// Ensure thatsubtitleOutputFormat is set to FORMAT_INVALID rather than FORMAT_SUBTITLE_MP4 when
+		// presenting inband CC with PTS restamping enabled
+		else if(isInBandCcAvailable())
+		{
+			subtitleOutputFormat = FORMAT_INVALID;
+		}
 		else
 		{
 			AAMPLOG_INFO("mimeType empty");

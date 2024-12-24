@@ -95,6 +95,11 @@ bool StreamAbstractionAAMP::GetCurrentTextTrack(TextTrackInfo &textTrack)
     return 0;
 }
 
+bool StreamAbstractionAAMP::isInBandCcAvailable()
+{
+	return 0;
+}
+
 bool StreamAbstractionAAMP::IsInitialCachingSupported()
 {
 	return false;

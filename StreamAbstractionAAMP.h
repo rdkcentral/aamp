@@ -1648,6 +1648,12 @@ public:
 	virtual bool GetCurrentTextTrack(TextTrackInfo &textTrack);
 
 	/**
+	 *   @fn API to verify in-band CC availability for a stream.
+	 *
+	 *   @return bool  - ture-if the stream has inband cc
+	 */
+	bool isInBandCcAvailable();
+	/**
 	 *   @fn GetTextTrack
 	 *
 	 *   @return int - index of current text track

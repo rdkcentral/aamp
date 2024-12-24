@@ -3712,7 +3712,26 @@ bool StreamAbstractionAAMP::GetCurrentTextTrack(TextTrackInfo &textTrack)
 	}
 	return bFound;
 }
-
+/**
+*   @brief verify in-band CC availability for a stream.
+*/
+bool StreamAbstractionAAMP::isInBandCcAvailable()
+{
+	bool inBandCC = false;
+	for (auto it = mTextTracks.begin(); it != mTextTracks.end(); it++)
+	{
+			// Use the rendition to identify whether the stream has inband CC or not.
+			// Note that this field is not mandatory but most streams have this field.
+			// Note that adaptation set for text track may not be present for inband CC(608/708) streams.
+			if(!it->rendition.empty())
+			{
+				AAMPLOG_INFO("Accessibility:%s",it->rendition.c_str());
+				inBandCC = true;
+				break;
+			}
+	}
+	return inBandCC;
+}
 /**
  *   @brief Get current audio track
  */

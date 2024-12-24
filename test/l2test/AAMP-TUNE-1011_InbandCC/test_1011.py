@@ -31,58 +31,55 @@ from inspect import getsourcefile
 
 
 DASH_TEST_STREAM = "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/streams/L2/InbandCCHarvest/vod2-s8-prd.top.xs.xumo.com/v2/bmff/cenc/t/ipvod20/UPTV0000000008373881/movie/1698194067914/manifest.mpd"
-TESTS=[    {"cmd":'setconfig {"info":true,"progress":true,"jsinfo":true}'}
-]
-
-# Create instances
-playback = {}
 
 
+#Dictionary to store basic test stream and sequence of commands that we need to verify
+TEST1 = {
+    "title": "Inband CC ",
+    "aamp_cfg": f"info=true\ntrace=true\nprogress=true\njsinfo=true\n",
+    "expect_list": [
+        {"cmd": DASH_TEST_STREAM},
+        {"cmd": "get 22"},
+        {"expect": r" AVAILABLE TEXT TRACKS: \[\{"},
+        {"expect": r"\"sub-type\":	\"CLOSED-CAPTIONS\""},
+        {"expect": r"\"language\":	\"en\""},
+        {"expect": r"\"rendition\":	\"urn:scte:dash:cc:cea-608:2015\""},
+        {"expect": r"\"instreamId\":	\"CC1\""},
+        {"expect": r"\"type\":	\"captions\""},
+        {"expect": r"\"availability\":	true"},
+        {"expect": r"}, {"},
+        {"expect": r"\"sub-type\":	\"CLOSED-CAPTIONS\""},
+        {"expect": r"\"language\":	\"en\""},
+        {"expect": r"\"rendition\":	\"urn:scte:dash:cc:cea-608:2015\""},
+        {"expect": r"\"instreamId\":	\"CC1\""},
+        {"expect": r"\"type\":	\"captions\""},
+        {"expect": r"\"availability\":	true"},
+        {"cmd": "sleep 2000"},
+    ]
+}
+
+TEST2 = {
+    "title": "Inband CC TEST2 ",
+    "aamp_cfg": f"info=true\ntrace=true\nprogress=true\njsinfo=true\nenablePTSReStamp=true\n",
+    "max_test_time_seconds": 10,
+    "expect_list": [
+        {"cmd": DASH_TEST_STREAM},
+        {"cmd": "sleep 2000"},
+         {"expect": r"videoFormat 2 audioFormat 2 auxFormat 0 subFormat 0"},
+    ]
+}
 
 
+TESTLIST = [TEST1,TEST2]
 
-
-@pytest.fixture(params=TESTS)
+############################################################
+@pytest.fixture(params=TESTLIST)
 def test_data(request):
-    '''
-    This returns a test data of different configurations
-    '''
     return request.param
 
-@pytest.mark.ci_test_set
 def test_1011(aamp_setup_teardown,test_data):
-
-    #Dictionary to store basic test stream and sequence of commands that we need to verify
-    BASIC_TEST_DATA= {
-        "title": "Inband CC ",
-        "expect_list": [
-           {"cmd": DASH_TEST_STREAM},
-           {"cmd":"get 22"},
-           {"expect": r" AVAILABLE TEXT TRACKS: \[\{" },
-           {"expect":r"\"sub-type\":	\"CLOSED-CAPTIONS\""},
-           {"expect":r"\"language\":	\"en\""},
-           {"expect":r"\"rendition\":	\"urn:scte:dash:cc:cea-608:2015\""},
-           {"expect":r"\"instreamId\":	\"CC1\""},
-           {"expect":r"\"type\":	\"captions\""},
-           {"expect":r"\"availability\":	true"},
-           {"expect":r"}, {"},
-           {"expect":r"\"sub-type\":	\"CLOSED-CAPTIONS\""},
-           {"expect":r"\"language\":	\"en\""},
-           {"expect":r"\"rendition\":	\"urn:scte:dash:cc:cea-608:2015\""},
-           {"expect":r"\"instreamId\":	\"CC1\""},
-           {"expect":r"\"type\":	\"captions\""},
-           {"expect":r"\"availability\":	true"},
-            {"cmd":"sleep 2000"},
-    ]
-
-    }
-
-    # Update playback for each test
-    global playback
-    playback = copy.deepcopy(BASIC_TEST_DATA)
     aamp = aamp_setup_teardown
     aamp.set_paths(os.path.abspath(getsourcefile(lambda: 0)))
-    #Passing each test sequence to aampcli through run_expect_a API
-    aamp.run_expect_a(playback)
+    aamp.run_expect_a(test_data)
 
 
