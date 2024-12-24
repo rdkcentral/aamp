@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # default values
-OPTION_AAMP_BRANCH="dev_sprint_24_2"
+OPTION_AAMP_BRANCH="dev_sprint_25_1"
 OPTION_BUILD_DIR=""
 OPTION_BUILD_ARGS=""
 OPTION_CLEAN=false
