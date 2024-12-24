@@ -839,6 +839,17 @@ private:
 	void TrickModePtsRestamp(AampGrowableBuffer &fragment, double &position, double &duration,
 							bool initFragment, bool  discontinuity);
 
+	/**
+	 * Handles the fragment position jump for the media track.
+	 *
+	 * This function is responsible for handling the fragment position jump for the media track.
+	 * It calculates the delta between the last injected fragment end position and the current fragment position,
+	 * and updates the total injected duration accordingly.
+	 *
+	 * @param cachedFragment pointer to the cached fragment.
+	 */
+	void HandleFragmentPositionJump(CachedFragment* cachedFragment);
+
 public:
 	bool eosReached;                    /**< set to true when a vod asset has been played to completion */
 	bool enabled;                       /**< set to true if track is enabled */
@@ -933,6 +944,7 @@ private:
 	AampTime mRestampedPts;					/**< Restamped Pts of the segment, used in trick modes */
 	AampTime mRestampedDuration;			/**< Restamped segment duration, used in trick modes */
 	TrickmodeState mTrickmodeState;			/**< Current trick mode state */
+	std::mutex mTrackParamsMutex;			/**< Mutex for track parameters */
 };
 
 /**

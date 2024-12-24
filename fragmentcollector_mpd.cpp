@@ -974,17 +974,25 @@ bool StreamAbstractionAAMP_MPD::FetchFragment(MediaStreamContext *pMediaStreamCo
 	 *In other cases if it's success or failure, AAMP will be going
 	 *For next fragment so update fragmentTime with fragment duration
 	 */
-	if(!mCheckForRampdown && !fragmentSaved)
+	// For other track types, rampdown and fragmentSaved are not applicable.
+	// This fixes a race condition if a video is undergoing rampdown and audio completes a download and reaches here
+	if ((pMediaStreamContext->type != eTRACK_VIDEO) || (!mCheckForRampdown && !fragmentSaved))
 	{
 		if(rate > 0)
 		{
-            pMediaStreamContext->fragmentTime += fragmentDuration;
-            if(pMediaStreamContext->mediaType == eMEDIATYPE_VIDEO) mBasePeriodOffset += fragmentDuration;
+			pMediaStreamContext->fragmentTime += fragmentDuration;
+			if(pMediaStreamContext->mediaType == eMEDIATYPE_VIDEO)
+			{
+				mBasePeriodOffset += fragmentDuration;
+			}
 		}
 		else
 		{
 			pMediaStreamContext->fragmentTime -= fragmentDuration;
-			if(pMediaStreamContext->mediaType == eMEDIATYPE_VIDEO) mBasePeriodOffset -= fragmentDuration;
+			if(pMediaStreamContext->mediaType == eMEDIATYPE_VIDEO)
+			{
+				mBasePeriodOffset -= fragmentDuration;
+			}
 			if(pMediaStreamContext->fragmentTime < 0)
 			{
 				pMediaStreamContext->fragmentTime = 0;
