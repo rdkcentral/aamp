@@ -119,36 +119,36 @@ const char* MediaTrack::GetBufferHealthStatusString(BufferHealthStatus status)
  */
 BufferHealthStatus MediaTrack::GetBufferStatus()
 {
-    BufferHealthStatus bStatus = BUFFER_STATUS_GREEN;
-    double bufferedTime = 0.0;
-    int CachedFragmentsOrChunks = 0;
+	BufferHealthStatus bStatus = BUFFER_STATUS_GREEN;
+	double bufferedTime = 0.0;
+	int CachedFragmentsOrChunks = 0;
 	double thresholdBuffer = AAMP_BUFFER_MONITOR_GREEN_THRESHOLD;
 	class StreamAbstractionAAMP* pContext = GetContext();
-    if(aamp->GetLLDashServiceData()->lowLatencyMode && pContext)
-    {
+	double injectedDuration = GetTotalInjectedDuration();
+	if(aamp->GetLLDashServiceData()->lowLatencyMode && pContext)
+	{
 		bufferedTime 	    = pContext->GetBufferedDuration(); /** To align with monitorLatency use same API*/
-	    thresholdBuffer = AAMP_BUFFER_MONITOR_GREEN_THRESHOLD_LLD;
-    }
-    else if (pContext)
-    {
-	    bufferedTime 	    = totalInjectedDuration - pContext->GetElapsedTime();
-	    CachedFragmentsOrChunks = numberOfFragmentsCached ;
-    }
+		thresholdBuffer = AAMP_BUFFER_MONITOR_GREEN_THRESHOLD_LLD;
+	}
+	else if (pContext)
+	{
+		bufferedTime 	    = injectedDuration - pContext->GetElapsedTime();
+		CachedFragmentsOrChunks = numberOfFragmentsCached ;
+	}
 
-    if ( CachedFragmentsOrChunks <= 0  && (bufferedTime <= thresholdBuffer) && pContext)
-    {
-        AAMPLOG_WARN("[%s] bufferedTime %f totalInjectedDuration %f elapsed time %f",
-                name, bufferedTime, aamp->GetLLDashServiceData()->lowLatencyMode ? totalInjectedChunksDuration : totalInjectedDuration, pContext->GetElapsedTime());
-        if (bufferedTime <= 0)
-        {
-            bStatus = BUFFER_STATUS_RED;
-        }
-        else
-        {
-            bStatus = BUFFER_STATUS_YELLOW;
-        }
-    }
-    return bStatus;
+	if ( CachedFragmentsOrChunks <= 0  && (bufferedTime <= thresholdBuffer) && pContext)
+	{
+		AAMPLOG_WARN("[%s] bufferedTime %f totalInjectedDuration %f elapsed time %f", name, bufferedTime, injectedDuration, pContext->GetElapsedTime());
+		if (bufferedTime <= 0)
+		{
+			bStatus = BUFFER_STATUS_RED;
+		}
+		else
+		{
+			bStatus = BUFFER_STATUS_YELLOW;
+		}
+	}
+	return bStatus;
 }
 
 
@@ -932,11 +932,7 @@ bool MediaTrack::CheckForDiscontinuity(CachedFragment* cachedFragment, bool& fra
 		}
 	}
 #endif
-	double injectedDuration = totalInjectedDuration;
-	if(lowLatency)
-	{
-		injectedDuration = totalInjectedChunksDuration;
-	}
+	double injectedDuration = GetTotalInjectedDuration();
 
 	if(cachedFragment->fragment.GetPtr())
 	{
@@ -1447,23 +1443,8 @@ void MediaTrack::ProcessAndInjectFragment(CachedFragment *cachedFragment, bool f
 		AAMPLOG_DEBUG("%s - injected cached fragment at pos %f dur %f", name, cachedFragment->position, cachedFragment->duration);
 		if (!fragmentDiscarded)
 		{
+			std::lock_guard<std::mutex> lock(mTrackParamsMutex);
 			totalInjectedDuration += cachedFragment->duration;
-			// Not tested for HLS_MP4 and HLS, hence limiting to DASH for now.
-			if ((lastInjectedDuration > 0) && (aamp->mMediaFormat == eMEDIAFORMAT_DASH))
-			{
-				// Find the delta between the last injected fragment end position and the current position
-				double positionDelta = (cachedFragment->absPosition - lastInjectedDuration);
-				/// There is a delta which implies a fragment might have been skipped
-				if (positionDelta > 0)
-				{
-					totalInjectedDuration += positionDelta;
-					if (type != eTRACK_SUBTITLE)
-					{
-						AAMPLOG_WARN("[%s] Found a positionDelta (%lf) between lastInjectedDuration (%lf) and fragment absPosition (%lf)",
-								name, positionDelta, lastInjectedDuration, cachedFragment->absPosition);
-					}
-				}
-			}
 			lastInjectedPosition = cachedFragment->absPosition;
 			lastInjectedDuration = cachedFragment->absPosition + cachedFragment->duration;
 			mSegInjectFailCount = 0;
@@ -1526,6 +1507,11 @@ bool MediaTrack::InjectFragment()
 #endif
 		if (cachedFragment->fragment.GetPtr())
 		{
+			// This is currently supported for non-LL DASH streams only at normal play rate
+			if (!isChunkMode && aamp->rate == AAMP_NORMAL_PLAY_RATE)
+			{
+				HandleFragmentPositionJump(cachedFragment);
+			}
 #ifdef AAMP_DEBUG_INJECT
 			if ((1 << type) & AAMP_DEBUG_INJECT)
 			{
@@ -1742,9 +1728,12 @@ void MediaTrack::RunInjectLoop()
 			}
 		}
 	}
-	totalInjectedDuration = 0;
-	totalInjectedChunksDuration = 0;
-	lastInjectedPosition = 0;
+	{
+		std::lock_guard<std::mutex> lock(mTrackParamsMutex);
+		totalInjectedDuration = 0;
+		totalInjectedChunksDuration = 0;
+		lastInjectedPosition = 0;
+	}
 	while (aamp->DownloadsAreEnabled() && keepInjecting)
 	{
 		if(type == eTRACK_AUDIO && (loadNewAudio || refreshAudio) && !lowLatency) //TBD
@@ -1932,6 +1921,7 @@ void MediaTrack::FlushFragments()
 		pthread_mutex_lock(&mutex);
 		numberOfFragmentChunksCached = 0;
 		totalFragmentChunksDownloaded = 0;
+		// We need to revisit if these variables should be also sync using mTrackParamsMutex
 		totalInjectedChunksDuration = 0;
 		pthread_mutex_unlock(&mutex);
 	}
@@ -1948,6 +1938,7 @@ void MediaTrack::FlushFragments()
 		lastInjectedDuration = 0;
 		if( ( type == eTRACK_AUDIO && !loadNewAudio ) || ( type == eTRACK_SUBTITLE && !loadNewSubtitle ) )
 		{
+			std::lock_guard<std::mutex> lock(mTrackParamsMutex);
 			totalFetchedDuration = 0;
 			totalFragmentsDownloaded = 0;
 			totalInjectedDuration = 0;
@@ -1961,7 +1952,8 @@ void MediaTrack::FlushFragments()
  */
 void MediaTrack::OffsetTrackParams(double deltaFetchedDuration, double deltaInjectedDuration, int deltaFragmentsDownloaded)
 {
-	AAMPLOG_MIL("Before Track Change totalFetchedDuration %lf totalInjectedDuration %lf totalFragmentsDownloaded:%d", totalFetchedDuration,totalInjectedDuration, totalFragmentsDownloaded);
+	std::lock_guard<std::mutex> lock(mTrackParamsMutex);
+	AAMPLOG_MIL("Before Track Change totalFetchedDuration %lf totalInjectedDuration %lf totalFragmentsDownloaded:%d", totalFetchedDuration, totalInjectedDuration, totalFragmentsDownloaded);
 
 	totalFetchedDuration -= deltaFetchedDuration;
 	// injected and fetched duration should be same
@@ -1993,6 +1985,7 @@ MediaTrack::MediaTrack(TrackType type, PrivateInstanceAAMP* aamp, const char* na
 		,mIsLocalTSBInjection(false), mCachedFragmentChunksSize(0)
 		,mIsoBmffHelper(std::make_shared<IsoBmffHelper>())
 		,mLastFragmentPts(0), mRestampedPts(0), mRestampedDuration(0), mTrickmodeState(TrickmodeState::UNDEF)
+		,mTrackParamsMutex(), mCheckForRampdown(false)
 {
 	maxCachedFragmentsPerTrack = GETCONFIGVALUE(eAAMPConfig_MaxFragmentCached);
 			if( !maxCachedFragmentsPerTrack )
@@ -2166,6 +2159,9 @@ void StreamAbstractionAAMP::WaitForVideoTrackCatchup()
 			{
 				AAMPLOG_WARN("error while calling pthread_cond_timedwait - %s", strerror(ret));
 			}
+			// Update video and audio duration after wait
+			audioDuration = audio->GetTotalInjectedDuration();
+			videoDuration = video->GetTotalInjectedDuration();
 		}
 	}
 	else
@@ -2185,7 +2181,7 @@ StreamAbstractionAAMP::StreamAbstractionAAMP(PrivateInstanceAAMP* aamp, id3_call
 		hasDrm(false), mIsAtLivePoint(false), mESChangeStatus(false),mAudiostateChangeCount(0),
 		mNetworkDownDetected(false), mTotalPausedDurationMS(0), mIsPaused(false), mProgramStartTime(-1),
 		mStartTimeStamp(-1),mLastPausedTimeStamp(-1), aamp(aamp),
-		mIsPlaybackStalled(false), mCheckForRampdown(false), mTuneType(), mLock(),
+		mIsPlaybackStalled(false), mTuneType(), mLock(),
 		mCond(), mLastVideoFragCheckedforABR(0), mLastVideoFragParsedTimeMS(0),
 		mSubCond(), mAudioTracks(), mTextTracks(),mABRHighBufferCounter(0),mABRLowBufferCounter(0),mMaxBufferCountCheck(0),
 		mStateLock(), mStateCond(), mTrackState(eDISCONTIUITY_FREE),
@@ -2711,9 +2707,18 @@ bool StreamAbstractionAAMP::RampDownProfile(int http_error)
 		}
 		else
 		{
-
-			desiredProfileIndex = GetProfileIndexForBandwidth(aamp->mhAbrManager.FragmentfailureRampdown(buffervalue,currentProfileIndex));
-
+			long desiredBw = aamp->mhAbrManager.FragmentfailureRampdown(buffervalue,currentProfileIndex);
+			// If desiredBw == 0, that means we are already on the lowest profile or buffervalue is zero.
+			// Hence attempt singular rampdown if desiredBw == 0
+			// TODO: Need proper unit testing and refactoring in future
+			if (desiredBw > 0)
+			{
+				desiredProfileIndex = GetProfileIndexForBandwidth(desiredBw);
+			}
+			else
+			{
+				desiredProfileIndex = aamp->mhAbrManager.getRampedDownProfileIndex(currentProfileIndex);
+			}
 		}
 	}
 	if (desiredProfileIndex != currentProfileIndex)
@@ -3237,6 +3242,7 @@ void StreamAbstractionAAMP::WaitForAudioTrackCatchup()
 			AAMPLOG_WARN("error while calling pthread_cond_timedwait - %s", strerror(ret));
 		}
 		audioDuration = audio->GetTotalInjectedDuration();
+		subtitleDuration = subtitle->GetTotalInjectedDuration();
 	}
 	pthread_mutex_unlock(&mLock);
 }
@@ -3816,6 +3822,8 @@ void StreamAbstractionAAMP::WaitForVideoTrackCatchupForAux()
 				AAMPLOG_WARN("error while calling pthread_cond_timedwait - %s", strerror(ret));
 			}
 	#endif
+			auxDuration = aux->GetTotalInjectedDuration();
+			videoDuration = video->GetTotalInjectedDuration();
 		}
 	}
 	else
@@ -4499,6 +4507,7 @@ int MediaTrack::WaitTimeBasedOnBufferAvailable()
  */
 double MediaTrack::GetTotalInjectedDuration()
 {
+	std::lock_guard<std::mutex> lock(mTrackParamsMutex);
 	double ret = totalInjectedDuration;
 	if(aamp->GetLLDashServiceData()->lowLatencyMode)
 	{
@@ -4522,5 +4531,39 @@ void MediaTrack::SetCachedFragmentChunksSize(size_t size)
 	else
 	{
 		AAMPLOG_ERR("Failed to set size:%zu", size);
+	}
+}
+
+/**
+ * Handles the fragment position jump for the media track.
+ *
+ * This function is responsible for handling the fragment position jump for the media track.
+ * It calculates the delta between the last injected fragment end position and the current fragment position,
+ * and updates the total injected duration accordingly.
+ *
+ * @param cachedFragment pointer to the cached fragment.
+ */
+void MediaTrack::HandleFragmentPositionJump(CachedFragment* cachedFragment)
+{
+	// Not tested for HLS_MP4 and HLS, hence limiting to DASH for now.
+	if ((lastInjectedDuration > 0) && (aamp->mMediaFormat == eMEDIAFORMAT_DASH))
+	{
+		// Find the delta between the last injected fragment end position and the current fragment position
+		double positionDelta = (cachedFragment->absPosition - lastInjectedDuration);
+		// There is a delta which implies a fragment might have been skipped
+		// Here we are comparing against absolute position, so discontinuous periods have no effect
+		if (positionDelta > 0)
+		{
+			// Update the total injected duration
+			{
+				std::lock_guard<std::mutex> lock(mTrackParamsMutex);
+				totalInjectedDuration += positionDelta;
+			}
+			if (type != eTRACK_SUBTITLE)
+			{
+				AAMPLOG_WARN("[%s] Found a positionDelta (%lf) between lastInjectedDuration (%lf) and new fragment absPosition (%lf)",
+						name, positionDelta, lastInjectedDuration, cachedFragment->absPosition);
+			}
+		}
 	}
 }

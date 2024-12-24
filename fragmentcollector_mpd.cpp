@@ -974,17 +974,23 @@ bool StreamAbstractionAAMP_MPD::FetchFragment(MediaStreamContext *pMediaStreamCo
 	 *In other cases if it's success or failure, AAMP will be going
 	 *For next fragment so update fragmentTime with fragment duration
 	 */
-	if(!mCheckForRampdown && !fragmentSaved)
+	if (!pMediaStreamContext->mCheckForRampdown && !fragmentSaved)
 	{
 		if(rate > 0)
 		{
-            pMediaStreamContext->fragmentTime += fragmentDuration;
-            if(pMediaStreamContext->mediaType == eMEDIATYPE_VIDEO) mBasePeriodOffset += fragmentDuration;
+			pMediaStreamContext->fragmentTime += fragmentDuration;
+			if(pMediaStreamContext->mediaType == eMEDIATYPE_VIDEO)
+			{
+				mBasePeriodOffset += fragmentDuration;
+			}
 		}
 		else
 		{
 			pMediaStreamContext->fragmentTime -= fragmentDuration;
-			if(pMediaStreamContext->mediaType == eMEDIATYPE_VIDEO) mBasePeriodOffset -= fragmentDuration;
+			if(pMediaStreamContext->mediaType == eMEDIATYPE_VIDEO)
+			{
+				mBasePeriodOffset -= fragmentDuration;
+			}
 			if(pMediaStreamContext->fragmentTime < 0)
 			{
 				pMediaStreamContext->fragmentTime = 0;
@@ -1444,7 +1450,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 								if (CheckForRampDownProfile(http_code))
 								{
 									AAMPLOG_WARN("RampDownProfile Due to failover Content %" PRIu64 " Number %lf FDT",pMediaStreamContext->fragmentDescriptor.Number,pMediaStreamContext->fragmentDescriptor.Time);
-									mCheckForRampdown = true;
+									pMediaStreamContext->mCheckForRampdown = true;
 									// Rampdown attempt success, download same segment from lower profile.
 									pMediaStreamContext->mSkipSegmentOnError = false;
 									return retval;
@@ -1486,7 +1492,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 							pMediaStreamContext->SetCurrentBandWidth(pMediaStreamContext->fragmentDescriptor.Bandwidth);
 							return false;
 						}
-						else if( mCheckForRampdown && pMediaStreamContext->mediaType == eMEDIATYPE_VIDEO)
+						else if( pMediaStreamContext->mCheckForRampdown && pMediaStreamContext->mediaType == eMEDIATYPE_VIDEO)
 						{
 							//  On audio fragment download failure (http500), rampdown was attempted .
 							// rampdown is only needed for video fragments not for audio.
@@ -1497,7 +1503,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 							return retval; /* Incase of fragment download fail, no need to increase the fragment number to download next fragment,
 									 * instead check the same fragment in lower profile. */
 						}
-						else if(mIsFogTSB && (ISCONFIGSET(eAAMPConfig_InterruptHandling) || (!mCheckForRampdown && pMediaStreamContext->mDownloadedFragment.GetPtr() == NULL)))
+						else if(mIsFogTSB && (ISCONFIGSET(eAAMPConfig_InterruptHandling) || (!pMediaStreamContext->mCheckForRampdown && pMediaStreamContext->mDownloadedFragment.GetPtr() == NULL)))
 						{
 							// Mark fragment fetched and save last segment time to avoid reattempt.
 							if(pMediaStreamContext->freshManifest)
@@ -1813,7 +1819,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 				retval = FetchFragment(pMediaStreamContext, media, fragmentDuration, false, curlInstance, false, pto, scale);
 				string startTimeStringValue = mpd->GetPeriods().at(mCurrentPeriodIdx)->GetStart();
 				pMediaStreamContext->downloadedDuration = pMediaStreamContext->fragmentTime;
-				if( mCheckForRampdown )
+				if( pMediaStreamContext->mCheckForRampdown )
 				{
 					/* NOTE : This case needs to be validated with the segmentTimeline not available stream */
 					return retval;
@@ -2079,7 +2085,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 									setNextobjectrequestUrl(nextsegmentURL->GetMediaURI(),&pMediaStreamContext->fragmentDescriptor,AampMediaType(pMediaStreamContext->type));
 								}
 								retval = FetchFragment(pMediaStreamContext, segmentURL->GetMediaURI(), fragmentDuration, false, curlInstance);
-								if( mCheckForRampdown )
+								if( pMediaStreamContext->mCheckForRampdown )
 								{
 									/* This case needs to be validated with the segmentList available stream */
 									return retval;

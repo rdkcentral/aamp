@@ -839,6 +839,17 @@ private:
 	void TrickModePtsRestamp(AampGrowableBuffer &fragment, double &position, double &duration,
 							bool initFragment, bool  discontinuity);
 
+	/**
+	 * Handles the fragment position jump for the media track.
+	 *
+	 * This function is responsible for handling the fragment position jump for the media track.
+	 * It calculates the delta between the last injected fragment end position and the current fragment position,
+	 * and updates the total injected duration accordingly.
+	 *
+	 * @param cachedFragment pointer to the cached fragment.
+	 */
+	void HandleFragmentPositionJump(CachedFragment* cachedFragment);
+
 public:
 	bool eosReached;                    /**< set to true when a vod asset has been played to completion */
 	bool enabled;                       /**< set to true if track is enabled */
@@ -860,6 +871,7 @@ public:
 	std::shared_ptr<MediaProcessor> playContext;		/**< state for s/w demuxer / pts/pcr restamper module */
     bool seamlessAudioSwitchInProgress; /**< Flag to indicate seamless audio track switch in progress */
 	bool seamlessSubtitleSwitchInProgress;
+	bool mCheckForRampdown;		        /**< flag to indicate if the track is undergoing rampdown or not */
 
 protected:
 	PrivateInstanceAAMP* aamp;          /**< Pointer to the PrivateInstanceAAMP*/
@@ -935,6 +947,7 @@ private:
 	AampTime mRestampedPts;					/**< Restamped Pts of the segment, used in trick modes */
 	AampTime mRestampedDuration;			/**< Restamped segment duration, used in trick modes */
 	TrickmodeState mTrickmodeState;			/**< Current trick mode state */
+	std::mutex mTrackParamsMutex;			/**< Mutex for track parameters */
 };
 
 /**
@@ -1365,7 +1378,6 @@ public:
 
 	bool mIsPlaybackStalled;                /**< flag that denotes if playback was stalled or not*/
 	bool mNetworkDownDetected;              /**< Network down status indicator */
-	bool mCheckForRampdown;		        /**< flag to indicate if rampdown is attempted or not */
 	TuneType mTuneType;                     /**< Tune type of current playback, initialize by derived classes on Init()*/
 	int mRampDownCount;		        /**< Total number of rampdowns */
 	double mProgramStartTime;	        /**< Indicate program start time or availability start time */

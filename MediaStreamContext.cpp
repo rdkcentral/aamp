@@ -248,7 +248,8 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
         }
     }
 
-    context->mCheckForRampdown = false;
+    mCheckForRampdown = false;
+    // Check for overWriteTrackId to avoid this logic for PushEncrypted init fragment use-case
     if(ret && (bitrate > 0 && bitrate != fragmentDescriptor.Bandwidth && !overWriteTrackId))
     {
         AAMPLOG_INFO("Bitrate changed from %u to %ld",fragmentDescriptor.Bandwidth, bitrate);
@@ -312,7 +313,7 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
                 // Attempt rampdown
                 if (context->CheckForRampDownProfile(httpErrorCode))
                 {
-                    context->mCheckForRampdown = true;
+                    mCheckForRampdown = true;
                     if (!initSegment)
                     {
                         // Rampdown attempt success, download same segment from lower profile.

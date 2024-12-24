@@ -1860,7 +1860,7 @@ static gboolean bus_message(GstBus * bus, GstMessage * msg, AAMPGstPlayer * _thi
 		}
 		else if (strstr(error->message, "Error parsing H.264 stream"))
 		{
-			//forwarding this error causes a freeze on Foxtel xione.
+			//forwarding this error causes a freeze
 			AAMPLOG_WARN("%s", errorDesc);
 		}
 		else
@@ -4840,7 +4840,7 @@ bool AAMPGstPlayer::IsCacheEmpty(AampMediaType mediaType)
 		}
 		else
 		{
-			// Changed to AAMPLOG_TRACE, to avoid log flooding (seen on xi3 and xid).
+			// Changed to AAMPLOG_TRACE, to avoid log flooding
 			// We're seeing this logged frequently during live linear playback, despite no user-facing problem.
 			AAMPLOG_TRACE("AAMPGstPlayer::Cache level empty");
 			if (privateContext->stream[eMEDIATYPE_VIDEO].bufferUnderrun == true ||
@@ -5469,7 +5469,7 @@ bool AAMPGstPlayer::SetPlayBackRate ( double rate )
 			gst_event_unref(rate_event);
 			AAMPLOG_MIL ("Current rate: %g", rate);
 		}
-		else //Non BRCM/AMLOGIC/REALTEK case
+		else
 		{
 			return false;
 		}
