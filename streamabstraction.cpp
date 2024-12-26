@@ -139,7 +139,7 @@ BufferHealthStatus MediaTrack::GetBufferStatus()
 
 	if ( CachedFragmentsOrChunks <= 0  && (bufferedTime <= thresholdBuffer) && pContext)
 	{
-		AAMPLOG_WARN("[%s] bufferedTime %f injectedDuration %f elapsed time %f", name, bufferedTime, injectedDuration, pContext->GetElapsedTime());
+		AAMPLOG_WARN("[%s] bufferedTime %f totalInjectedDuration %f elapsed time %f", name, bufferedTime, injectedDuration, pContext->GetElapsedTime());
 		if (bufferedTime <= 0)
 		{
 			bStatus = BUFFER_STATUS_RED;
