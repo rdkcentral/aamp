@@ -871,6 +871,7 @@ public:
 	std::shared_ptr<MediaProcessor> playContext;		/**< state for s/w demuxer / pts/pcr restamper module */
     bool seamlessAudioSwitchInProgress; /**< Flag to indicate seamless audio track switch in progress */
 	bool seamlessSubtitleSwitchInProgress;
+	bool mCheckForRampdown;		        /**< flag to indicate if the track is undergoing rampdown or not */
 
 protected:
 	PrivateInstanceAAMP* aamp;          /**< Pointer to the PrivateInstanceAAMP*/
@@ -1375,7 +1376,6 @@ public:
 
 	bool mIsPlaybackStalled;                /**< flag that denotes if playback was stalled or not*/
 	bool mNetworkDownDetected;              /**< Network down status indicator */
-	bool mCheckForRampdown;		        /**< flag to indicate if rampdown is attempted or not */
 	TuneType mTuneType;                     /**< Tune type of current playback, initialize by derived classes on Init()*/
 	int mRampDownCount;		        /**< Total number of rampdowns */
 	double mProgramStartTime;	        /**< Indicate program start time or availability start time */

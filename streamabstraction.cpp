@@ -1982,7 +1982,7 @@ MediaTrack::MediaTrack(TrackType type, PrivateInstanceAAMP* aamp, const char* na
 		,mIsLocalTSBInjection(false), mCachedFragmentChunksSize(0)
 		,mIsoBmffHelper(std::make_shared<IsoBmffHelper>())
 		,mLastFragmentPts(0), mRestampedPts(0), mRestampedDuration(0), mTrickmodeState(TrickmodeState::UNDEF)
-		,mTrackParamsMutex()
+		,mTrackParamsMutex(), mCheckForRampdown(false)
 {
 	maxCachedFragmentsPerTrack = GETCONFIGVALUE(eAAMPConfig_MaxFragmentCached);
 	if( !maxCachedFragmentsPerTrack )
@@ -2174,7 +2174,7 @@ StreamAbstractionAAMP::StreamAbstractionAAMP(PrivateInstanceAAMP* aamp, id3_call
 		hasDrm(false), mIsAtLivePoint(false), mESChangeStatus(false),mAudiostateChangeCount(0),
 		mNetworkDownDetected(false), mTotalPausedDurationMS(0), mIsPaused(false), mProgramStartTime(-1),
 		mStartTimeStamp(-1),mLastPausedTimeStamp(-1), aamp(aamp),
-		mIsPlaybackStalled(false), mCheckForRampdown(false), mTuneType(), mLock(),
+		mIsPlaybackStalled(false), mTuneType(), mLock(),
 		mCond(), mLastVideoFragCheckedforABR(0), mLastVideoFragParsedTimeMS(0),
 		mSubCond(), mAudioTracks(), mTextTracks(),mABRHighBufferCounter(0),mABRLowBufferCounter(0),mMaxBufferCountCheck(0),
 		mStateLock(), mStateCond(), mTrackState(eDISCONTIUITY_FREE),
@@ -2700,9 +2700,18 @@ bool StreamAbstractionAAMP::RampDownProfile(int http_error)
 		}
 		else
 		{
-
-			desiredProfileIndex = GetProfileIndexForBandwidth(aamp->mhAbrManager.FragmentfailureRampdown(buffervalue,currentProfileIndex));
-
+			long desiredBw = aamp->mhAbrManager.FragmentfailureRampdown(buffervalue,currentProfileIndex);
+			// If desiredBw == 0, that means we are already on the lowest profile or buffervalue is zero.
+			// Hence attempt singular rampdown if desiredBw == 0
+			// TODO: Need proper unit testing and refactoring in future
+			if (desiredBw > 0)
+			{
+				desiredProfileIndex = GetProfileIndexForBandwidth(desiredBw);
+			}
+			else
+			{
+				desiredProfileIndex = aamp->mhAbrManager.getRampedDownProfileIndex(currentProfileIndex);
+			}
 		}
 	}
 	if (desiredProfileIndex != currentProfileIndex)

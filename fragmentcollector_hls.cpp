@@ -1581,7 +1581,7 @@ void TrackState::FetchFragment()
 		return;
 	}
 	//set the rampdown flag to false .
-	context->mCheckForRampdown = false;
+	mCheckForRampdown = false;
 	bool bKeyChanged = false;
 	int iFogErrorCode = -1;
 	int iCurrentRate = aamp->rate; //  Store it as back up, As sometimes by the time File is downloaded, rate might have changed due to user initiated Trick-Play
@@ -1610,7 +1610,7 @@ void TrackState::FetchFragment()
 								playTarget -= context->rate / context->mTrickPlayFPS;
 							}
 							//-- if rampdown attempted , then set the flag so that abr is not attempted.
-							context->mCheckForRampdown = true;
+							mCheckForRampdown = true;
 							// Rampdown attempt success, download same segment from lower profile.
 							mSkipSegmentOnError = false;
 
@@ -4820,7 +4820,7 @@ void TrackState::RunFetchLoop()
 				context->lastSelectedProfileIndex = context->currentProfileIndex;
 				// if rampdown is attempted to any failure , no abr change to be attempted .
 				// else profile be resetted to top one leading to looping of bad fragment
-				if(!context->mCheckForRampdown)
+				if(!mCheckForRampdown)
 				{
 					if (aamp->CheckABREnabled())
 					{
@@ -6199,7 +6199,7 @@ void TrackState::FetchInitFragment()
 			if (context->CheckForRampDownProfile(http_code))
 			{
 				AAMPLOG_INFO("Init fragment fetch failed, Successfully ramped down to lower profile");
-				context->mCheckForRampdown = true;
+				mCheckForRampdown = true;
 			}
 			else
 			{
