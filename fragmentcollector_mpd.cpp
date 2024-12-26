@@ -996,8 +996,6 @@ bool StreamAbstractionAAMP_MPD::FetchFragment(MediaStreamContext *pMediaStreamCo
 				pMediaStreamContext->fragmentTime = 0;
 			}
 		}
-		// We are moving to next fragment, so mark retval as true even though the fragment download fail
-		retval = true;
 	}
 	return retval;
 }
@@ -1464,7 +1462,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 							}
 						}
 
-						if(retval)
+						if (retval)
 						{
 							if(pMediaStreamContext->freshManifest)
 							{
@@ -1504,7 +1502,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 							return retval; /* Incase of fragment download fail, no need to increase the fragment number to download next fragment,
 									 * instead check the same fragment in lower profile. */
 						}
-						else if(mIsFogTSB && (ISCONFIGSET(eAAMPConfig_InterruptHandling) || (!pMediaStreamContext->mCheckForRampdown && pMediaStreamContext->mediaType == eMEDIATYPE_VIDEO)))
+						else if(mIsFogTSB && (ISCONFIGSET(eAAMPConfig_InterruptHandling) || (!pMediaStreamContext->mCheckForRampdown && pMediaStreamContext->mDownloadedFragment.GetPtr() == NULL)))
 						{
 							// Mark fragment fetched and save last segment time to avoid reattempt.
 							if(pMediaStreamContext->freshManifest)

@@ -1426,22 +1426,6 @@ void MediaTrack::ProcessAndInjectFragment(CachedFragment *cachedFragment, bool f
 		{
 			std::lock_guard<std::mutex> lock(mTrackParamsMutex);
 			totalInjectedDuration += cachedFragment->duration;
-			// Not tested for HLS_MP4 and HLS, hence limiting to DASH for now.
-			if ((lastInjectedDuration > 0) && (aamp->mMediaFormat == eMEDIAFORMAT_DASH))
-			{
-				// Find the delta between the last injected fragment end position and the current position
-				double positionDelta = (cachedFragment->absPosition - lastInjectedDuration);
-				/// There is a delta which implies a fragment might have been skipped
-				if (positionDelta > 0)
-				{
-					totalInjectedDuration += positionDelta;
-					if (type != eTRACK_SUBTITLE)
-					{
-						AAMPLOG_WARN("[%s] Found a positionDelta (%lf) between lastInjectedDuration (%lf) and fragment absPosition (%lf)",
-								name, positionDelta, lastInjectedDuration, cachedFragment->absPosition);
-					}
-				}
-			}
 			lastInjectedPosition = cachedFragment->absPosition;
 			lastInjectedDuration = cachedFragment->absPosition + cachedFragment->duration;
 			mSegInjectFailCount = 0;
