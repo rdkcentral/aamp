@@ -653,16 +653,16 @@ void PrivateInstanceAAMP::CurlInit(AampCurlInstance startIdx, unsigned int insta
 bool PrivateInstanceAAMP::GetFile(std::string remoteUrl, AampMediaType mediaType, AampGrowableBuffer *buffer, std::string& effectiveUrl,
                 int * http_error, double *downloadTime, const char *range, unsigned int curlInstance,
                 bool resetBuffer, BitsPerSecond *bitrate, int * fogError,
-                double fragmentDurationSeconds)
+                double fragmentDurationSeconds, ProfilerBucketType bucketType )
 {
-	bool rv = false;
+	bool rv = true;
 
 	if (g_mockPrivateInstanceAAMP != nullptr)
 	{
 		rv = g_mockPrivateInstanceAAMP->GetFile(remoteUrl, mediaType, buffer, effectiveUrl,
 				 								http_error, downloadTime, range, curlInstance,
 												resetBuffer, bitrate, fogError,
-												fragmentDurationSeconds);
+												fragmentDurationSeconds, bucketType);
 	}
 
 	return rv;
@@ -1169,11 +1169,6 @@ void PrivateInstanceAAMP::ReportContentGap(long long timeMS, std::string id, dou
 
 void PrivateInstanceAAMP::SendHTTPHeaderResponse()
 {
-}
-
-bool PrivateInstanceAAMP::LoadFragment(ProfilerBucketType bucketType, std::string fragmentUrl, std::string& effectiveUrl, AampGrowableBuffer *buffer, unsigned int curlInstance, const char *range, AampMediaType mediaType, int * http_code, double * downloadTime, BitsPerSecond *bitrate, int * fogError, double fragmentDurationSec)
-{
-	return true;
 }
 
 void PrivateInstanceAAMP::LoadIDX(ProfilerBucketType bucketType, std::string fragmentUrl, std::string& effectiveUrl, AampGrowableBuffer *fragment, unsigned int curlInstance, const char *range, int * http_code, double *downloadTime, AampMediaType mediaType,int * fogError)

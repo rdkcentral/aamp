@@ -1656,16 +1656,6 @@ TEST_F(PrivAampTests,GetMaximumBitrateTest)
 	EXPECT_NE(val,110987);
 }
 
-TEST_F(PrivAampTests,PushFragmentTest)
-{
-	AampMediaType mediaType = eMEDIATYPE_SUBTITLE;
-	char *ptr;
-	size_t len;
-	double fragmentTime;
-	double fragmentDuration;
-	p_aamp->PushFragment(mediaType,NULL,10,10.98,99.99);
-}
-
 TEST_F(PrivAampTests,EndOfStreamReachedTest)
 {
 	p_aamp->EndOfStreamReached(eMEDIATYPE_SUBTITLE);

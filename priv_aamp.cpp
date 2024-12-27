@@ -3934,37 +3934,54 @@ BitsPerSecond PrivateInstanceAAMP::GetCurrentlyAvailableBandwidth(void)
 /**
  * @brief Download a file from the CDN
  */
-bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaType, AampGrowableBuffer *buffer, std::string& effectiveUrl, int * http_error, double *downloadTime, const char *range, unsigned int curlInstance, bool resetBuffer, BitsPerSecond *bitrate, int * fogError, double fragmentDurationSeconds)
+bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaType, AampGrowableBuffer *buffer, std::string& effectiveUrl, int * http_error, double *downloadTimeS, const char *range, unsigned int curlInstance, bool resetBuffer, BitsPerSecond *bitrate, int * fogError, double fragmentDurationS, ProfilerBucketType bucketType )
 {
+	if( bucketType!=PROFILE_BUCKET_TYPE_COUNT)
+	{
+		profiler.ProfileBegin(bucketType);
+	}
 	MediaTypeTelemetry mediaTypeTelemetry = aamp_GetMediaTypeForTelemetry(mediaType);
 	replace( remoteUrl, " ", "%20" ); // CURL gives error if passed URL containing whitespace
+	
 	int http_code = -1;
-	double fileDownloadTime = 0;
+	double total = 0;
 	bool ret = false;
 	int downloadAttempt = 0;
-	int maxDownloadAttempt = 1;
 	struct curl_slist* httpHeaders = NULL;
 	CURLcode res = CURLE_OK;
-	int fragmentDurationMs = (int)(fragmentDurationSeconds*1000);/*convert to MS */
+	int fragmentDurationMs = (int)(fragmentDurationS*1000);
 
-	if (mediaType == eMEDIATYPE_INIT_VIDEO || mediaType == eMEDIATYPE_INIT_AUDIO || mediaType == eMEDIATYPE_INIT_AUX_AUDIO)
+	int maxDownloadAttempt = 1;
+	switch( mediaType )
 	{
-		int InitFragmentRetryCount = GETCONFIGVALUE_PRIV(eAAMPConfig_InitFragmentRetryCount);
-		maxDownloadAttempt += InitFragmentRetryCount;
+		case eMEDIATYPE_INIT_VIDEO:
+		case eMEDIATYPE_INIT_AUDIO:
+		case eMEDIATYPE_INIT_AUX_AUDIO:
+			maxDownloadAttempt += GETCONFIGVALUE_PRIV(eAAMPConfig_InitFragmentRetryCount);
+			break;
+		default:
+			maxDownloadAttempt += DEFAULT_DOWNLOAD_RETRY_COUNT;
+			break;
 	}
-	else
-	{
-		maxDownloadAttempt += DEFAULT_DOWNLOAD_RETRY_COUNT;
+	
+	if( mediaType == eMEDIATYPE_MANIFEST && ISCONFIGSET_PRIV(eAAMPConfig_CurlHeader) )
+	{ // append custom uri parameter with remoteUrl at the end before curl request if curlHeader logging enabled.
+		std::string uriParameter = GETCONFIGVALUE_PRIV(eAAMPConfig_URIParameter);
+		if( !uriParameter.empty() )
+		{
+			if( remoteUrl.find("?") == std::string::npos )
+			{
+				uriParameter[0] = '?';
+			}
+			remoteUrl.append(uriParameter.c_str());
+		}
 	}
 
 	if (resetBuffer)
 	{
-		if(buffer->GetAvail() )
-		{
-			AAMPLOG_TRACE("reset buffer %p avail %d", buffer, (int)buffer->GetAvail() );
-		}
 		buffer->Clear();
 	}
+	
 	if (mDownloadsEnabled)
 	{
 		int downloadTimeMS = 0;
@@ -3972,22 +3989,9 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 		CurlAbortReason abortReason = eCURL_ABORT_REASON_NONE;
 		double connectTime = 0;
 
-		std::string uriParameter = GETCONFIGVALUE_PRIV(eAAMPConfig_URIParameter);
-		// append custom uri parameter with remoteUrl at the end before curl request if curlHeader logging enabled.
-		if (ISCONFIGSET_PRIV(eAAMPConfig_CurlHeader) && (!uriParameter.empty()) && mediaType == eMEDIATYPE_MANIFEST)
-		{
-			if (remoteUrl.find("?") == std::string::npos)
-			{
-				uriParameter[0] = '?';
-			}
-
-			remoteUrl.append(uriParameter.c_str());
-			//printf ("URL after appending uriParameter :: %s\n", remoteUrl.c_str());
-		}
-
 		CURL* curl = GetCurlInstanceForURL(remoteUrl,curlInstance);
 
-		AAMPLOG_INFO("aamp url:%d,%d,%d,%f,%s", mediaTypeTelemetry, mediaType, curlInstance,fragmentDurationSeconds, remoteUrl.c_str());
+		AAMPLOG_INFO("aamp url:%d,%d,%d,%f,%s", mediaTypeTelemetry, mediaType, curlInstance, fragmentDurationS, remoteUrl.c_str());
 		CurlCallbackContext context;
 		if (curl)
 		{
@@ -4133,7 +4137,6 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 				CURL_EASY_SETOPT_POINTER(curl, CURLOPT_PROGRESSDATA, &progressCtx);
 				if(buffer->GetPtr() != NULL)
 				{
-					AAMPLOG_TRACE("reset length. buffer %p avail %d",  buffer, (int)buffer->GetAvail() );
 					buffer->Clear();
 				}
 
@@ -4261,7 +4264,7 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 					 * Latency should be printed in the case of successful download which exceeds the download threshold value,
 					 * other than this case is assumed as network error and those will be logged with AampLogManager::LogNetworkError.
 					 */
-					if (fragmentDurationSeconds != 0.0)
+					if (fragmentDurationS != 0.0)
 					{
 						/*in case of fetch fragment this will be non zero value */
 						if (downloadTimeMS > fragmentDurationMs )
@@ -4362,7 +4365,7 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 						http_code = res;
 					}
 				}
-				double total, connect, startTransfer, resolve, appConnect, preTransfer, redirect, dlSize;
+				double connect, startTransfer, resolve, appConnect, preTransfer, redirect, dlSize;
 				long reqSize, downloadbps = 0;
 				AAMP_LogLevel reqEndLogLevel = eLOGLEVEL_INFO;
                 if(downloadTimeMS != 0 && buffer->GetLen() != 0)
@@ -4374,7 +4377,6 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 				resolve = aamp_CurlEasyGetinfoDouble(curl, CURLINFO_NAMELOOKUP_TIME);
 				startTransfer = aamp_CurlEasyGetinfoDouble(curl, CURLINFO_STARTTRANSFER_TIME);
 				connectTime = connect;
-				fileDownloadTime = total;
 				if(res != CURLE_OK || http_code == 0 || http_code >= 400 || total > 2.0 /*seconds*/)
 				{
 					reqEndLogLevel = eLOGLEVEL_WARN;
@@ -4431,11 +4433,11 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 					double downloadTime = (double)(downloadTimeMS)/1000;
 					//DownloadTime greater than 60% of fragmentDuration are categorized as Delay in download
 					//DownloadTime greater than 105% means there is a huge chance of buffer underflow
-					if(downloadTime > (fragmentDurationSeconds/100) * 105) /** If download time is greater */
+					if(downloadTime > (fragmentDurationS/100) * 105) /** If download time is greater */
 					{
 						mDownloadDelay += 3; /** Increment faster way to avoid buffer drain*/
 					}
-					else if(downloadTime > (fragmentDurationSeconds/100) * 60)
+					else if(downloadTime > (fragmentDurationS/100) * 60)
 					{
 						mDownloadDelay++;
 					}
@@ -4486,7 +4488,7 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 #endif
 				long reqSize  = aamp_CurlEasyGetinfoLong(curl, CURLINFO_REQUEST_SIZE);
 				AAMPLOG_WARN("Invalid buffer - BufferPtr: %p, BufferLen: %zu, Dlsize : %lf ,Reqsize : %ld, Url: %s",
-						buffer->GetPtr(), buffer->GetLen(),
+							 buffer->GetPtr(), buffer->GetLen(),
 						dlSize,reqSize,(res == CURLE_OK) ? effectiveUrl.c_str() : remoteUrl.c_str());
 			}
 			if((mHarvestCountLimit > 0) && (mHarvestConfig & getHarvestConfigForMedia(mediaType)))
@@ -4529,7 +4531,6 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 					http_code       =       416; // Range Not Satisfiable
 					ret             =       false; // redundant, but harmless
 					buffer->Free();
-					//(buffer, 0x00, sizeof(*buffer));
 				}
 			}
 		}
@@ -4540,8 +4541,6 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 				AAMPLOG_WARN("BAD URL:%s", remoteUrl.c_str());
 			}
 			buffer->Free();
-			//memset(buffer, 0x00, sizeof(*buffer));
-
 			if (rate != 1.0)
 			{
 				mediaType = eMEDIATYPE_IFRAME;
@@ -4639,9 +4638,9 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 	if (http_error)
 	{
 		*http_error = http_code;
-		if(downloadTime)
+		if(downloadTimeS)
 		{
-			*downloadTime = fileDownloadTime;
+			*downloadTimeS = total;
 		}
 	}
 	if (httpHeaders != NULL)
@@ -4666,8 +4665,8 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 				size_t len = (end - start) + 1;
 				if( buffer->GetLen() >= len)
 				{
-                    buffer->Clear();
-                    buffer->AppendBytes(buffer->GetPtr() + start, len);
+					buffer->Clear();
+					buffer->AppendBytes(buffer->GetPtr() + start, len);
 				}
 
 				// hack - repair wrong size in box
@@ -4687,6 +4686,14 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 		}
 	}
 
+	if( bucketType!=PROFILE_BUCKET_TYPE_COUNT)
+	{
+		if( !ret )
+		{
+			profiler.ProfileError(bucketType, *http_error);
+		}
+		profiler.ProfileEnd(bucketType);
+	}
 	return ret;
 }
 
@@ -6849,69 +6856,6 @@ void PrivateInstanceAAMP::LoadIDX(ProfilerBucketType bucketType, std::string fra
 	{
 		profiler.ProfileEnd(bucketType);
 	}
-}
-
-/**
- * @brief Fetch a file from CDN and update profiler
- */
-bool PrivateInstanceAAMP::LoadFragment(ProfilerBucketType bucketType, std::string fragmentUrl,std::string& effectiveUrl, AampGrowableBuffer *fragment,
-					unsigned int curlInstance, const char *range, AampMediaType mediaType,int * http_code, double *downloadTime, BitsPerSecond *bitrate,int * fogError, double fragmentDurationSeconds)
-{
-	bool ret = true;
-	profiler.ProfileBegin(bucketType);
-	if (!GetFile(fragmentUrl, mediaType, fragment, effectiveUrl, http_code, downloadTime, range, curlInstance, false, bitrate, NULL, fragmentDurationSeconds))
-	{
-		ret = false;
-		profiler.ProfileError(bucketType, *http_code);
-		profiler.ProfileEnd(bucketType);
-	}
-	else
-	{
-		profiler.ProfileEnd(bucketType);
-	}
-	return ret;
-}
-
-/**
- * @brief Push fragment to the gstreamer
- */
-void PrivateInstanceAAMP::PushFragment(AampMediaType mediaType, char *ptr, size_t len, double fragmentTime, double fragmentDuration)
-{
-	BlockUntilGstreamerWantsData(NULL, 0, 0);
-	SyncBegin();
-	StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
-	if (sink)
-	{
-		sink->SendCopy(mediaType, ptr, len, fragmentTime, fragmentTime, fragmentDuration);
-	}
-	SyncEnd();
-}
-
-/**
- * @brief Push fragment to the gstreamer
- */
-void PrivateInstanceAAMP::PushFragment(AampMediaType mediaType, AampGrowableBuffer* buffer, double fragmentTime, double fragmentDuration)
-{
-	BlockUntilGstreamerWantsData(NULL, 0, 0);
-	SyncBegin();
-	StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
-	if (sink)
-	{
-		if( sink->SendTransfer(mediaType, buffer->GetPtr(), buffer->GetLen(), fragmentTime, fragmentTime, fragmentDuration) )
-		{
-			buffer->Transfer();
-		}
-		else
-		{ // unable to transfer - free up the buffer we were passed.
-			buffer->Free();
-		}
-	}
-	else
-	{
-		buffer->Free();
-	}
-	//memset(buffer, 0x00, sizeof(AampGrowableBuffer));
-	SyncEnd();
 }
 
 /**

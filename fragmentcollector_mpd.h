@@ -339,10 +339,10 @@ public:
 	 * @param isInitializationSegment true if fragment is init fragment
 	 * @param curlInstance curl instance to be used to fetch
 	 * @param discontinuity true if fragment is discontinuous
-	 * @param pto unscaled pto value from mpd
-	 * @param scale timeScale value from mpd
+	 * @param pto presentation time offset in seconds
+	 * @param timeScale  denominator for fixed point math
 	 */
-	bool FetchFragment( class MediaStreamContext *pMediaStreamContext, std::string media, double fragmentDuration, bool isInitializationSegment, unsigned int curlInstance, bool discontinuity = false, double pto = 0 , uint32_t scale = 0);
+	bool FetchFragment( class MediaStreamContext *pMediaStreamContext, std::string media, double fragmentDuration, bool isInitializationSegment, unsigned int curlInstance, bool discontinuity = false, double pto = 0 , uint32_t timeScale = 0);
 	/**
 	 * @fn PushNextFragment 
 	 * @param pMediaStreamContext Track object
@@ -917,12 +917,12 @@ protected:
 	 */
 	bool IsMatchingLanguageAndMimeType(AampMediaType type, std::string lang, IAdaptationSet *adaptationSet, int &representationIndex);
 	/**
-	 * @fn GetFragmentUrl
+	 * @fn ConstructFragmentURL
 	 * @param[out] fragmentUrl fragment url
 	 * @param fragmentDescriptor descriptor
 	 * @param media media information string
 	 */
-	void GetFragmentUrl( std::string& fragmentUrl, const FragmentDescriptor *fragmentDescriptor, std::string media);
+	void ConstructFragmentURL( std::string& fragmentUrl, const FragmentDescriptor *fragmentDescriptor, std::string media);
 	double GetEncoderDisplayLatency();
 	/**
 	 * @fn StartLatencyMonitorThread

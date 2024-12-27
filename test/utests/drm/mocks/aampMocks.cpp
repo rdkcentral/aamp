@@ -1088,16 +1088,6 @@ void PrivateInstanceAAMP::SendHTTPHeaderResponse()
 {
 }
 
-bool PrivateInstanceAAMP::LoadFragment(ProfilerBucketType bucketType, std::string fragmentUrl,
-									   std::string &effectiveUrl, AampGrowableBuffer *buffer,
-									   unsigned int curlInstance, const char *range,
-									   AampMediaType fileType, int *http_code, double *downloadTime,
-									   BitsPerSecond *bitrate, int *fogError,
-									   double fragmentDurationSec)
-{
-	return true;
-}
-
 void PrivateInstanceAAMP::LoadIDX(ProfilerBucketType bucketType, std::string fragmentUrl,
 								  std::string &effectiveUrl, AampGrowableBuffer *fragment,
 								  unsigned int curlInstance, const char *range, int *http_code,

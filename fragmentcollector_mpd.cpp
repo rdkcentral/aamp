@@ -790,7 +790,7 @@ static int replace(std::string& str, const std::string& from, const std::string&
 /**
  * @brief Generates fragment url from media information
  */
-void StreamAbstractionAAMP_MPD::GetFragmentUrl( std::string& fragmentUrl, const FragmentDescriptor *fragmentDescriptor, std::string media)
+void StreamAbstractionAAMP_MPD::ConstructFragmentURL( std::string& fragmentUrl, const FragmentDescriptor *fragmentDescriptor, std::string media)
 {
 	std::string constructedUri = fragmentDescriptor->GetMatchingBaseUrl();
 	if( media.empty() )
@@ -874,12 +874,11 @@ static void deIndexTileInfo(std::vector<TileInfo> &indexedTileInfo)
  *
  * @retval true on fetch success
  */
-bool StreamAbstractionAAMP_MPD::FetchFragment(MediaStreamContext *pMediaStreamContext, std::string media, double fragmentDuration, bool isInitializationSegment, unsigned int curlInstance, bool discontinuity, double pto , uint32_t scale)
+bool StreamAbstractionAAMP_MPD::FetchFragment(MediaStreamContext *pMediaStreamContext, std::string media, double fragmentDuration, bool isInitializationSegment, unsigned int curlInstance, bool discontinuity, double pto , uint32_t timeScale )
 { // given url, synchronously download and transmit associated fragment
 	bool retval = true;
 	std::string fragmentUrl;
-	GetFragmentUrl(fragmentUrl, &pMediaStreamContext->fragmentDescriptor, media);
-	//CID:96900 - Removex the len variable which is initialized but not used
+	ConstructFragmentURL(fragmentUrl, &pMediaStreamContext->fragmentDescriptor, media);
 	double position = ((double) pMediaStreamContext->fragmentDescriptor.Time) / ((double) pMediaStreamContext->fragmentDescriptor.TimeScale);
 	if(isInitializationSegment)
 	{
@@ -894,7 +893,7 @@ bool StreamAbstractionAAMP_MPD::FetchFragment(MediaStreamContext *pMediaStreamCo
 		}
 	}
 	bool fragmentCached = pMediaStreamContext->CacheFragment(fragmentUrl, curlInstance, position, fragmentDuration, NULL, isInitializationSegment, discontinuity
-		,(mCdaiObject->mAdState == AdState::IN_ADBREAK_AD_PLAYING), pto, scale);
+		,(mCdaiObject->mAdState == AdState::IN_ADBREAK_AD_PLAYING), pto, timeScale);
 	// Check if we have downloaded the fragment and waiting for init fragment download on
 	// bitrate switching before caching it.
 	bool fragmentSaved = (NULL != pMediaStreamContext->mDownloadedFragment.GetPtr() );
@@ -1880,7 +1879,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 		if (segmentBase)
 		{ // single-segment
 			std::string fragmentUrl;
-			GetFragmentUrl(fragmentUrl, &pMediaStreamContext->fragmentDescriptor, "");
+			ConstructFragmentURL(fragmentUrl, &pMediaStreamContext->fragmentDescriptor, "");
 			if (!pMediaStreamContext->IDX.GetPtr() )
 			{ // lazily load index
 				std::string range = segmentBase->GetIndexRange();
@@ -2031,7 +2030,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 						if(rawAttributes.find("customlist") == rawAttributes.end()) //"CheckForFogSegmentList")
 						{
 							std::string fragmentUrl;
-							GetFragmentUrl(fragmentUrl, &pMediaStreamContext->fragmentDescriptor,  segmentURL->GetMediaURI());
+							ConstructFragmentURL(fragmentUrl, &pMediaStreamContext->fragmentDescriptor,  segmentURL->GetMediaURI());
 							AAMPLOG_INFO("%s [%s]", GetMediaTypeName(pMediaStreamContext->mediaType), segmentURL->GetMediaRange().c_str());
 							if(nextsegmentURL != NULL && (mIsFogTSB != true))
 							{
@@ -2685,7 +2684,7 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 			if (!pMediaStreamContext->IDX.GetPtr() )
 			{   // lazily load index
 				std::string fragmentUrl;
-				GetFragmentUrl(fragmentUrl, &pMediaStreamContext->fragmentDescriptor, "");
+				ConstructFragmentURL(fragmentUrl, &pMediaStreamContext->fragmentDescriptor, "");
 
 				//update the next segment for download
 
@@ -8511,7 +8510,7 @@ void StreamAbstractionAAMP_MPD::FetchAndInjectInitialization(int trackIdx, bool 
 							}
 						}
 						std::string fragmentUrl;
-						GetFragmentUrl(fragmentUrl, &pMediaStreamContext->fragmentDescriptor, "");
+						ConstructFragmentURL(fragmentUrl, &pMediaStreamContext->fragmentDescriptor, "");
 
 						if(pMediaStreamContext->WaitForFreeFragmentAvailable(0))
 						{
@@ -8619,7 +8618,7 @@ void StreamAbstractionAAMP_MPD::FetchAndInjectInitialization(int trackIdx, bool 
 								if (!range.empty())
 								{
 									std::string fragmentUrl;
-									GetFragmentUrl(fragmentUrl, &pMediaStreamContext->fragmentDescriptor, "");
+									ConstructFragmentURL(fragmentUrl, &pMediaStreamContext->fragmentDescriptor, "");
 
 									AAMPLOG_INFO("%s [%s]", GetMediaTypeName(pMediaStreamContext->mediaType),
 											range.c_str());
@@ -8845,7 +8844,7 @@ bool StreamAbstractionAAMP_MPD::GetEncryptedHeaders(std::map<int, std::string>& 
 
 										fragmentDescriptor->RepresentationID.assign(representation->GetId());
 										 FragmentDescriptor *fragmentDescriptorCMCD(fragmentDescriptor);
-										GetFragmentUrl(fragmentUrl,fragmentDescriptorCMCD , initialization);
+										ConstructFragmentURL(fragmentUrl,fragmentDescriptorCMCD , initialization);
 
 										mappedHeaders[i] = fragmentUrl;
 

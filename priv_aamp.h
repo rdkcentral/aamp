@@ -1302,18 +1302,22 @@ public:
 	/**
 	 * @fn GetFile
 	 *
-	 * @param[in] remoteUrl - File URL
-	 * @param[out] buffer - Pointer to the output buffer
+	 * @param [in] bucketType profiling bucket
+	 * @param[in] remoteUrl media file to download
+	 * @param[in] mediaType
+	 * @param[out] buffer receives downloaded bytes on success
 	 * @param[out] effectiveUrl - Final URL after HTTP redirection
 	 * @param[out] http_error - HTTP error code
+	 * @param[out] downloadTime
 	 * @param[in] range - Byte range
 	 * @param[in] curlInstance - Curl instance to be used
 	 * @param[in] resetBuffer - Flag to reset the out buffer
-	 * @param[in] mediaType - File type
-	 * @param[in] CMCDMetrics - pointer to CMCDNetwork metrics
-	 * @return void
+	 * @param[in] bitrate
+	 * @param[out] fogError
+	 * @param[in] fragmentDurationS
+	 * @return true iff succesful
 	 */
-	bool GetFile(std::string remoteUrl, AampMediaType mediaType, AampGrowableBuffer *buffer, std::string& effectiveUrl, int *http_error = NULL, double *downloadTime = NULL, const char *range = NULL,unsigned int curlInstance = 0, bool resetBuffer = true, BitsPerSecond *bitrate = NULL,  int * fogError = NULL, double fragmentDurationSec = 0);
+	bool GetFile( std::string remoteUrl, AampMediaType mediaType, AampGrowableBuffer *buffer, std::string& effectiveUrl, int *http_error = NULL, double *downloadTime = NULL, const char *range = NULL, unsigned int curlInstance = 0, bool resetBuffer = true, BitsPerSecond *bitrate = NULL,  int * fogError = NULL, double fragmentDurationS = 0, ProfilerBucketType bucketType=PROFILE_BUCKET_TYPE_COUNT );
 
 	/**
 	 * @fn getUUID
@@ -1364,42 +1368,6 @@ public:
 	 * @return void
 	 */
 	void LoadIDX( ProfilerBucketType bucketType, std::string fragmentUrl, std::string& effectiveUrl,  AampGrowableBuffer *idx, unsigned int curlInstance = 0, const char *range = NULL,int * http_code = NULL, double *downloadTime = NULL, AampMediaType mediaType = eMEDIATYPE_MANIFEST,int * fogError = NULL);
-
-	/**
-	 * @fn LoadFragment
-	 *
-	 * @param[in] bucketType - Bucket type of the profiler
-	 * @param[in] fragmentUrl - Fragment URL
-	 * @param[out] buffer - Pointer to the output buffer
-	 * @param[in] curlInstance - Curl instance to be used
-	 * @param[in] range - Byte range
-	 * @param[in] mediaType - File type
-	 * @param[out] http_code - HTTP error code
-	 * @param[out] fogError - Error from FOG
-	 * @return void
-	 */
-	bool LoadFragment(ProfilerBucketType bucketType, std::string fragmentUrl, std::string& effectiveUrl, AampGrowableBuffer *buffer, unsigned int curlInstance = 0, const char *range = NULL, AampMediaType mediaType = eMEDIATYPE_MANIFEST, int * http_code = NULL, double * downloadTime = NULL, BitsPerSecond *bitrate = NULL, int * fogError = NULL, double fragmentDurationSec = 0);
-	/**
-	 * @fn PushFragment
-	 *
-	 * @param[in] mediaType - Media type
-	 * @param[in] ptr - Pointer to the buffer
-	 * @param[in] fragmentTime - Fragment start time
-	 * @param[in] fragmentDuration - Fragment duration
-	 * @return void
-	 */
-	void PushFragment(AampMediaType mediaType, char *ptr, size_t len, double fragmentTime, double fragmentDuration);
-
-	/**
-	 * @fn PushFragment
-	 *
-	 * @param[in] mediaType - Media type
-	 * @param[in] buffer - Pointer to the growable buffer
-	 * @param[in] fragmentTime - Fragment start time
-	 * @param[in] fragmentDuration - Fragment duration
-	 * @return void
-	 */
-	void PushFragment(AampMediaType mediaType, AampGrowableBuffer* buffer, double fragmentTime, double fragmentDuration);
 
 	/**
 	 * @fn EndOfStreamReached
