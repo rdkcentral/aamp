@@ -54,7 +54,7 @@ void AampSecManager::DestroyInstance()
 	std::lock_guard<std::mutex> lock{InstanceMutex};
 	if (Instance)
 	{
-		/* hide watermarking before secman shutdown */
+		/* hide watermarking before secmanager shutdown */
 		Instance->ShowWatermark(false);
 		delete Instance;
 		Instance = nullptr;
@@ -219,7 +219,7 @@ bool AampSecManager::AcquireLicenseOpenOrUpdate(PrivateInstanceAAMP* aamp, const
 	*reasonCode = SECMANGER_DRM_GEN_FAILURE;
 	
 	//Shared memory pointer, key declared here,
-	//Access token, content metadata and licnese request will be passed to
+	//Access token, content metadata and licence request will be passed to
 	//secmanager via shared memory
 	void * shmPt_accToken = NULL;
 	key_t shmKey_accToken = 0;
@@ -499,7 +499,7 @@ void AampSecManager::ReleaseSession(int64_t sessionId)
 	{
 		AAMPLOG_ERR("%s:%d SecManager closePlaybackSession failed for ID: %" PRId64 "", __FUNCTION__, __LINE__, sessionId);
 	}
-	/*Clear aampInstanse pointer*/
+	/*Clear aampInstance pointer*/
 	mAamp = NULL;
 }
 
@@ -918,7 +918,7 @@ void AampSecManager::DeleteWatermark(int graphicId)
 }
 
 /**
- *  @brief Update Wateramrk
+ *  @brief Update Watermark
  */
 void AampSecManager::UpdateWatermark(int graphicId, int smKey, int smSize )
 {

@@ -97,13 +97,13 @@ typedef enum {
 #define VIDEO_COORDINATES_SIZE 32
 
 /**
- * @name gmapDecoderLoookUptable
+ * @name gmapDecoderLookUptable
  *
  * @brief Decoder map list lookup table
  * convert from codec to string map list of gstreamer
  * component.
  */
-static std::map <std::string, std::vector<std::string>> gmapDecoderLoookUptable =
+static std::map <std::string, std::vector<std::string>> gmapDecoderLookUptable =
 {
 	{"ac-3", {"omxac3dec", "avdec_ac3", "avdec_ac3_fixed"}},
 	{"ac-4", {"omxac4dec"}}
@@ -122,10 +122,10 @@ struct media_stream
 	bool resetPosition;							/**< To indicate that the position of the stream is reset */
 	bool bufferUnderrun;
 	bool eosReached;							/**< To indicate the status of End of Stream reached */
-	bool sourceConfigured;						/**< To indicate that the current source is initialised and configured */
+	bool sourceConfigured;						/**< To indicate that the current source is Initialized and configured */
 	pthread_mutex_t sourceLock;
 	uint32_t timeScale;
-	int32_t trackId;							/**< Current Audio Track Id,so far it is implimented for AC4 track selection only */
+	int32_t trackId;							/**< Current Audio Track Id,so far it is implemented for AC4 track selection only */
 	bool firstBufferProcessed;					/**< Indicates if the first buffer is processed in this stream */
 	GstPad *demuxPad;							/**< Demux src pad >*/
 	gulong demuxProbeId;						/**< Demux pad probe ID >*/
@@ -207,7 +207,7 @@ struct AAMPGstPlayerPriv
 	guint firstFrameCallbackIdleTaskId; 		/**< ID of idle handler created for notifying first frame event. */
 	GstEvent *protectionEvent[AAMP_TRACK_COUNT]; 	/**< GstEvent holding the pssi data to be sent downstream. */
 	std::atomic<bool> firstFrameCallbackIdleTaskPending; /**< Set if any first frame callback is pending. */
-	bool using_westerossink; 			/**< true if westros sink is used as video sink */
+	bool using_westerossink; 			/**< true if westeros sink is used as video sink */
 	bool usingRialtoSink;                           /**< true if rialto sink is used for video and audio sinks */
 	bool pauseOnStartPlayback;			/**< true if should start playback paused */
 	std::atomic<bool> eosSignalled; 		/**< Indicates if EOS has signaled */
@@ -227,7 +227,7 @@ struct AAMPGstPlayerPriv
 	TaskControlData firstVideoFrameDisplayedCallbackTask; /**< Task control data of the handler created for notifying state changed to Playing */
 	bool firstTuneWithWesterosSinkOff; 		/**<  track if first tune was done for certain build */
 	long long decodeErrorMsgTimeMS; 		/**< Timestamp when decode error message last posted */
-	int decodeErrorCBCount; 			/**< Total decode error cb received within thresold time */
+	int decodeErrorCBCount; 			/**< Total decode error cb received within threshold time */
 	bool progressiveBufferingEnabled;
 	bool progressiveBufferingStatus;
 	bool forwardAudioBuffers; 			/**< flag denotes if audio buffers to be forwarded to aux pipeline */
@@ -355,7 +355,7 @@ static GstBusSyncReply bus_sync_handler(GstBus * bus, GstMessage * msg, AAMPGstP
 static gboolean buffering_timeout (gpointer data);
 
 /**
- * @brief check if elemement is instance (BCOM-3563)
+ * @brief check if element is instance (BCOM-3563)
  */
 static void type_check_instance( const char * str, GstElement * elem);
 
@@ -853,7 +853,7 @@ static void InitializeSource(AAMPGstPlayer *_this, GObject *source, AampMediaTyp
 	}
 	else
 	{
-		/* If capabilites can not be established, set typefind TRUE. typefind determines the media-type of a stream and once type has been
+		/* If capabilities can not be established, set typefind TRUE. typefind determines the media-type of a stream and once type has been
 		 * detected it sets its src pad caps to the found media type
 		 */
 		g_object_set(source, "typefind", TRUE, NULL);
@@ -1841,7 +1841,7 @@ static gboolean bus_message(GstBus * bus, GstMessage * msg, AAMPGstPlayer * _thi
 		char errorDesc[MAX_ERROR_DESCRIPTION_LENGTH];
 		memset(errorDesc, '\0', MAX_ERROR_DESCRIPTION_LENGTH);
 		strncpy(errorDesc, "GstPipeline Error:", 18);
-		strncat(errorDesc, error->message, MAX_ERROR_DESCRIPTION_LENGTH - 18 - 1);	/* Constructs erroDesc string, describing error for further action */
+		strncat(errorDesc, error->message, MAX_ERROR_DESCRIPTION_LENGTH - 18 - 1);	/* Constructs errorDesc string, describing error for further action */
 		if (strstr(error->message, "video decode error") != NULL)
 		{
 			_this->aamp->SendErrorEvent(AAMP_TUNE_GST_PIPELINE_ERROR, errorDesc, false);	/* Forward the information to handle error */
@@ -1975,7 +1975,7 @@ static gboolean bus_message(GstBus * bus, GstMessage * msg, AAMPGstPlayer * _thi
 				}
 				if(platformType == ePLATFORM_REALTEK)
 				{// For Realtekce build and westeros-sink disabled
-				 // prevent calling NotifyFirstFrame after first tune, ie when upausing
+				 // prevent calling NotifyFirstFrame after first tune, ie when unpausing
 				 // pipeline during flush
 					if(_this->privateContext->firstTuneWithWesterosSinkOff)
 					{
@@ -2049,9 +2049,9 @@ static gboolean bus_message(GstBus * bus, GstMessage * msg, AAMPGstPlayer * _thi
 			// so it can get the source width/height
 			if (AAMPGstPlayer_isVideoDecoder(GST_OBJECT_NAME(msg->src), _this))
 			{
-				if(AampOutputProtection::IsAampOutputProcectionInstanceActive())
+				if(AampOutputProtection::IsAampOutputProtectionInstanceActive())
 				{
-					AampOutputProtection *pInstance = AampOutputProtection::GetAampOutputProcectionInstance();
+					AampOutputProtection *pInstance = AampOutputProtection::GetAampOutputProtectionInstance();
 					pInstance->setGstElement((GstElement *)(msg->src));
 					pInstance->Release();
 				}
@@ -2465,7 +2465,7 @@ bool AAMPGstPlayer::CreatePipeline()
 				privateContext->positionQuery = gst_query_new_position(GST_FORMAT_TIME);
 			}
 
-			/* Use to enable the timing synchronisation with gstreamer */
+			/* Use to enable the timing synchronization with gstreamer */
 			privateContext->enableSEITimeCode = ISCONFIGSET(eAAMPConfig_SEITimeCode);
 			ret = true;
 		}
@@ -3213,7 +3213,7 @@ bool AAMPGstPlayer::SendHelper(AampMediaType mediaType, const void *ptr, size_t 
 			{
 				AAMPLOG_ERR("gst_app_src_push_buffer error: %d[%s] mediaType %d", ret, gst_flow_get_name (ret), (int)mediaType);
 				if (ret != GST_FLOW_EOS && ret !=  GST_FLOW_FLUSHING)
-				{ // an unexpected error has occured
+				{ // an unexpected error has occurred
 					if (mediaType == eMEDIATYPE_SUBTITLE)
 					{ // occurs sometimes when injecting subtitle fragments
 						if (!stream->source)
@@ -3236,7 +3236,7 @@ bool AAMPGstPlayer::SendHelper(AampMediaType mediaType, const void *ptr, size_t 
 				stream->bufferUnderrun = false;
 			}
 
-			// PROFILE_BUCKET_FIRST_BUFFER after successfull push of first gst buffer
+			// PROFILE_BUCKET_FIRST_BUFFER after successful push of first gst buffer
 			if (isFirstBuffer == true && ret == GST_FLOW_OK)
 				this->aamp->profiler.ProfilePerformed(PROFILE_BUCKET_FIRST_BUFFER);
 
@@ -3745,9 +3745,9 @@ void AAMPGstPlayer::Stop(bool keepLastFrame)
 		AAMPLOG_MIL("AAMPGstPlayer: Pipeline state set to null");
 	}
 #ifdef AAMP_MPD_DRM
-	if(AampOutputProtection::IsAampOutputProcectionInstanceActive())
+	if(AampOutputProtection::IsAampOutputProtectionInstanceActive())
 	{
-		AampOutputProtection *pInstance = AampOutputProtection::GetAampOutputProcectionInstance();
+		AampOutputProtection *pInstance = AampOutputProtection::GetAampOutputProtectionInstance();
 		pInstance->setGstElement((GstElement *)(NULL));
 		pInstance->Release();
 	}
@@ -3852,7 +3852,7 @@ static std::string GetStatus(gpointer pElementOrBin, int& recursionCount, gpoint
 				break;
 
 				case  GST_STATE_CHANGE_SUCCESS:
-					//no annnotation
+					//no annotation
 				break;
 
 				case  GST_STATE_CHANGE_ASYNC:
@@ -4241,7 +4241,7 @@ bool AAMPGstPlayer::Pause( bool pause, bool forceStopGstreamerPreBuffering )
 		GstStateChangeReturn rc = SetStateWithWarnings(this->privateContext->pipeline, nextState);
 		if (GST_STATE_CHANGE_ASYNC == rc)
 		{
-			/* CID:330433 Waiting while holding lock. Sleep introduced in validateStateWithMsTimeout to prevent continuous polling when synchronising pipeline state.
+			/* CID:330433 Waiting while holding lock. Sleep introduced in validateStateWithMsTimeout to prevent continuous polling when synchronizing pipeline state.
 			 * Too risky to remove mutex lock. It may be replaced if approach is redesigned in future */
 			/* wait a bit longer for the state change to conclude */
 			if (nextState != validateStateWithMsTimeout(this,nextState, 100))
@@ -4345,7 +4345,7 @@ void AAMPGstPlayer::SetSubtitlePtsOffset(std::uint64_t pts_offset)
 	if (privateContext->subtitle_sink)
 	{
 		AAMPLOG_INFO("pts_offset %" PRIu64 ", seek_pos_seconds %2f, subtitle_sink =%p", pts_offset, aamp->seek_pos_seconds, privateContext->subtitle_sink);
-		//We use seek_pos_seconds as an offset durinig seek, so we subtract that here to get an offset from zero position
+		//We use seek_pos_seconds as an offset during seek, so we subtract that here to get an offset from zero position
 		g_object_set(privateContext->subtitle_sink, "pts-offset", static_cast<std::uint64_t>(pts_offset), NULL);
 	}
 	else
@@ -4538,7 +4538,7 @@ void AAMPGstPlayer::Flush(double position, int rate, bool shouldTearDown)
 			{
 				if (privateContext->rate > 1 || privateContext->rate < 0 || state == eSTATE_SEEKING)
 				{
-					//aamp won't feed audio bitstreame to gstreamer at trickplay.
+					//aamp won't feed audio bitstream to gstreamer at trickplay.
 					//It needs to disable async of audio base sink to prevent audio sink never sends ASYNC_DONE to pipeline.
 					if(aamp_StartsWith(GST_OBJECT_NAME(privateContext->audio_sink), "rialtomseaudiosink") == false)
 					{
@@ -4663,7 +4663,7 @@ bool AAMPGstPlayer::Discontinuity(AampMediaType type)
 	media_stream *stream = &privateContext->stream[type];
 	AAMPLOG_MIL("Entering AAMPGstPlayer: type(%d) format(%d) firstBufferProcessed(%d)", (int)type, stream->format, stream->firstBufferProcessed);
 
-	/*Handle discontinuity only if atleast one buffer is pushed*/
+	/*Handle discontinuity only if at least one buffer is pushed*/
 	if (stream->format != FORMAT_INVALID && stream->firstBufferProcessed == false)
 	{
 		AAMPLOG_WARN("Discontinuity received before first buffer - ignoring");
@@ -4674,7 +4674,7 @@ bool AAMPGstPlayer::Discontinuity(AampMediaType type)
 		if(ISCONFIGSET(eAAMPConfig_EnablePTSReStamp) && (aamp->mVideoFormat == FORMAT_ISO_BMFF) && ( !aamp->ReconfigureForCodecChange() ))
 		{
 			AAMPLOG_WARN("NO EOS: PTS-RESTAMP ENABLED and codec has not changed");
-			aamp->CompleteDiscontinutyDataDeliverForPTSRestamp(type);
+			aamp->CompleteDiscontinuityDataDeliverForPTSRestamp(type);
 			ret = true;
 		}
 		else
@@ -4921,7 +4921,7 @@ bool AAMPGstPlayer::IsCodecSupported(const std::string &codecName)
 {
 	bool retValue = false;
 	GstRegistry* registry = gst_registry_get();
-	for (std::string &componentName: gmapDecoderLoookUptable[codecName])
+	for (std::string &componentName: gmapDecoderLookUptable[codecName])
 	{
 		GstPluginFeature* pluginFeature = gst_registry_lookup_feature(registry, componentName.c_str());	/* searches for codec in the registry */
 		if (pluginFeature != NULL)
@@ -4941,7 +4941,7 @@ bool AAMPGstPlayer::IsMS2V12Supported()
 {
 	bool IsMS12V2 = false;
 #ifdef AAMP_MPD_DRM
-		AampOutputProtection *pInstance = AampOutputProtection::GetAampOutputProcectionInstance();
+		AampOutputProtection *pInstance = AampOutputProtection::GetAampOutputProtectionInstance();
 		IsMS12V2  = pInstance->IsMS2V12Supported();
 		pInstance->Release();
 #endif
@@ -5290,7 +5290,7 @@ bool AAMPGstPlayer::WaitForSourceSetup(AampMediaType mediaType)
 	AAMPLOG_WARN("Source element[%p] for track[%d] not configured, wait for setup to complete!", stream->source, mediaType);
 	while(timeRemaining >= 0)
 	{
-		aamp->InterruptableMsSleep(waitInterval);	/*Sleep until timeout is reached or interrupted*/
+		aamp->interruptibleMsSleep(waitInterval);	/*Sleep until timeout is reached or interrupted*/
 		if (aamp->DownloadsAreEnabled())
 		{
 			if (stream->sourceConfigured)

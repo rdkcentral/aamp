@@ -209,12 +209,12 @@ public:
      * @fn GetAampOutputProcectionInstance
      * @retval AampOutputProtection object
      */	
-    static AampOutputProtection * GetAampOutputProcectionInstance();
+    static AampOutputProtection * GetAampOutputProtectionInstance();
     /**
      * @fn IsAampOutputProcectionInstanceActive
      * @retval true or false
      */
-    static bool IsAampOutputProcectionInstanceActive();
+    static bool IsAampOutputProtectionInstanceActive();
 	
     /** 
     * @fn IsMS2V12Supported

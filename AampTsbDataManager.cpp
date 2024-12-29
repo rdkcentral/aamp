@@ -424,8 +424,8 @@ void AampTsbDataManager::Flush()
 }
 
 /**
- * @brief GetNextDiscFragment - API to get next Discountious fragment in the list
- * 		If Dsic fragment noot found ; this will return nullptr 
+ * @brief GetNextDiscFragment - API to get next discontinuous fragment in the list
+ * 		If not found, will return nullptr
  *
  */
 TsbFragmentDataPtr AampTsbDataManager::GetNextDiscFragment(double position, bool backwardSearch)

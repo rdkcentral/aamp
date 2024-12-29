@@ -43,7 +43,7 @@
 // checks if current state is going to use IFRAME ( Fragment/Playlist )
 #define IS_FOR_IFRAME(rate, type) ((type == eTRACK_VIDEO) && (rate != AAMP_NORMAL_PLAY_RATE))
 
-/* Arbitary value to enable restamping the media segments PTS and duration with adequate precision */
+/* Arbitrary value to enable restamping the media segments PTS and duration with adequate precision */
 static constexpr uint32_t TRICKMODE_TIMESCALE{100000};
 
 using namespace std;
@@ -164,13 +164,13 @@ void MediaTrack::MonitorBufferHealth()
 	bool keepRunning = false;
 	if(aamp->DownloadsAreEnabled() && !abort)
 	{
-		aamp->InterruptableMsSleep(bufferMontiorScheduleTime *1000);
+		aamp->interruptibleMsSleep(bufferMontiorScheduleTime *1000);
 		keepRunning = true;
 	}
 	int monitorInterval = bufferHealthMonitorInterval  * 1000;
 	while(keepRunning && !abort)
 	{
-		aamp->InterruptableMsSleep(monitorInterval);
+		aamp->interruptibleMsSleep(monitorInterval);
 		pthread_mutex_lock(&mutex);
 		if (aamp->DownloadsAreEnabled() && !abort)
 		{
@@ -236,7 +236,7 @@ void MediaTrack::UpdateSubtitleClockTask()
 	{
 		fastMonitorIntervalMs=subtitleClockSyncIntervalMs;
 	}
-	// make faster retries to sync the clock until it has failed for atleast this time (e.g. 20s)
+	// make faster retries to sync the clock until it has failed for at least this time (e.g. 20s)
 	int warningTimeoutMs=SUBTITLE_CLOCK_ASSUMED_PLAYSTATE_TIME_MS;
 	if (warningTimeoutMs<=fastMonitorIntervalMs*5)
 	{
@@ -323,7 +323,7 @@ void MediaTrack::UpdateSubtitleClockTask()
 			keepRunning = false;
 		}
 		pthread_mutex_unlock(&mutex);
-		aamp->InterruptableMsSleep(monitorIntervalMs);
+		aamp->interruptibleMsSleep(monitorIntervalMs);
 		timeSinceValidUpdateMs+=monitorIntervalMs;
 	}
 	AAMPLOG_WARN("Exiting UpdateSubtitleClockTask. DownloadsAreEnabled=%d, abort=%d, keepRunning=%d", aamp->DownloadsAreEnabled(), abort, keepRunning);
@@ -902,7 +902,6 @@ bool MediaTrack::CheckForDiscontinuity(CachedFragment* cachedFragment, bool& fra
 {
 	//Get Cache buffer
 	bool stopInjection = false;
-	bool lowLatency = aamp->GetLLDashServiceData()->lowLatencyMode;
 	StreamAbstractionAAMP* context = GetContext();
 #ifdef AAMP_DEBUG_INJECT
 	if ((1 << type) & AAMP_DEBUG_INJECT)
@@ -932,7 +931,7 @@ bool MediaTrack::CheckForDiscontinuity(CachedFragment* cachedFragment, bool& fra
 				* In that case, if there is an audio codec change is detected for this period, it could cause audio loss since ignoring the discontinuity to be processed since totalInjectedDuration is 0.
 				*/
 			/* PipelineValid is used here to avoid skipping the discontinuity if the pipeline has not been configured for the media type.
-				 * This was seen with subtites where switching to a period with subtitles enabled from one without could result in fragments being pushed
+				 * This was seen with subtitles where switching to a period with subtitles enabled from one without could result in fragments being pushed
 				 * to an appsrc that wasn't configured (very timing dependent). In this case we want to process the discontinuity and configure the pipeline.
 				 */
 			if (injectedDuration == 0 && !aamp->mpStreamAbstractionAAMP->GetESChangeStatus()&& aamp->PipelineValid((AampMediaType)type))
@@ -1205,7 +1204,7 @@ bool MediaTrack::ProcessFragmentChunk()
 
 #ifdef AAMP_DEBUG_INJECT_CHUNK
 		IsoBmffBuffer isobufTest();
-		//TEST CODE for PARSED DATA COMPELTENESS
+		//TEST CODE for PARSED DATA COMPLETENESS
 		isobufTest.setBuffer(reinterpret_cast<uint8_t *>(parsedBufferChunk.GetPtr()), parsedBufferChunk.GetLen());
 		isobufTest.parseBuffer();
 		if(isobufTest.getChunkedfBox())
@@ -1291,7 +1290,7 @@ void MediaTrack::TrickModePtsRestamp(AampGrowableBuffer &fragment, double &posit
 		}
 		else
 		{
-			// Initialise the restamped pts timeline when handling the first media fragment
+			// Initialize the restamped pts timeline when handling the first media fragment
 			mTrickmodeState = TrickmodeState::FIRST_FRAGMENT;
 			mRestampedPts = 0.0;
 		}
@@ -1519,7 +1518,7 @@ bool MediaTrack::InjectFragment()
 		}
 		else
 		{
-			//EOS should not be triggerd when subtitle sets its "eosReached" in any circumstances
+			//EOS should not be triggered when subtitle sets its "eosReached" in any circumstances
 			if (SignalIfEOSReached())
 			{
 				//Save the playback rate prior to sending EOS
@@ -1551,7 +1550,7 @@ bool MediaTrack::InjectFragment()
 	else
 	{
 		AAMPLOG_WARN("WaitForCachedFragmentAvailable %s aborted LowLatency: %d ChunkMode %d", name, lowLatency,isChunkMode);
-		//EOS should not be triggerd when subtitle sets its "eosReached" in any circumstances
+		//EOS should not be triggered when subtitle sets its "eosReached" in any circumstances
 		SignalIfEOSReached();
 		ret = false;
 	}
@@ -1566,7 +1565,7 @@ bool MediaTrack::InjectFragment()
 bool MediaTrack::SignalIfEOSReached()
 {
 	bool ret = false;
-	//EOS should not be triggerd when subtitle sets its "eosReached" in any circumstances
+	//EOS should not be triggered when subtitle sets its "eosReached" in any circumstances
 	if (eosReached && (eTRACK_SUBTITLE != type))
 	{
 		//Save the playback rate prior to sending EOS
@@ -2034,7 +2033,7 @@ MediaTrack::~MediaTrack()
 	}
 	if (fragmentInjectorThreadStarted)
 	{
-		AAMPLOG_WARN("In MediaTrack destructor - fragmentInjectorThreads are still running, signalling cond variable");
+		AAMPLOG_WARN("In MediaTrack destructor - fragmentInjectorThreads are still running, signaling cond variable");
 	}
 
 	if(aamp->GetLLDashServiceData()->lowLatencyMode)
@@ -2079,7 +2078,7 @@ void StreamAbstractionAAMP::ReassessAndResumeAudioTrack(bool abort)
 		{
 			pthread_cond_signal(&mCond);
 #ifdef AAMP_DEBUG_FETCH_INJECT
-			AAMPLOG_DEBUG("signalling cond - audioDuration %f videoDuration %f",
+			AAMPLOG_DEBUG("signaling cond - audioDuration %f videoDuration %f",
 				audioDuration, videoDuration);
 #endif
 		}
@@ -2090,7 +2089,7 @@ void StreamAbstractionAAMP::ReassessAndResumeAudioTrack(bool abort)
 			{
 				pthread_cond_signal(&mAuxCond);
 #ifdef AAMP_DEBUG_FETCH_INJECT
-				AAMPLOG_DEBUG("signalling cond - auxDuration %f videoDuration %f",
+				AAMPLOG_DEBUG("signaling cond - auxDuration %f videoDuration %f",
 					auxDuration, videoDuration);
 #endif
 			}
@@ -2161,7 +2160,7 @@ StreamAbstractionAAMP::StreamAbstractionAAMP(PrivateInstanceAAMP* aamp, id3_call
 		mIsPlaybackStalled(false), mTuneType(), mLock(),
 		mCond(), mLastVideoFragCheckedforABR(0), mLastVideoFragParsedTimeMS(0),
 		mSubCond(), mAudioTracks(), mTextTracks(),mABRHighBufferCounter(0),mABRLowBufferCounter(0),mMaxBufferCountCheck(0),
-		mStateLock(), mStateCond(), mTrackState(eDISCONTIUITY_FREE),
+		mStateLock(), mStateCond(), mTrackState(eDISCONTINUITY_FREE),
 		mRampDownLimit(-1), mRampDownCount(0),mABRMaxBuffer(0), mABRCacheLength(0), mABRMinBuffer(0), mABRNwConsistency(0),
 		mBitrateReason(eAAMP_BITRATE_CHANGE_BY_TUNE),
 		mAudioTrackIndex(), mTextTrackIndex(),
@@ -2571,11 +2570,11 @@ int StreamAbstractionAAMP::GetDesiredProfileBasedOnCache(void)
 	MediaTrack *video = GetMediaTrack(eTRACK_VIDEO);
 	if(video != NULL)
 	{
-		double buffervalue = GetBufferValue(video);
-		if(aamp->GetLLDashServiceData()->lowLatencyMode && buffervalue < AAMP_LLDABR_MIN_BUFFER_VALUE && !video->IsLocalTSBInjection())
+		double bufferValue = GetBufferValue(video);
+		if(aamp->GetLLDashServiceData()->lowLatencyMode && bufferValue < AAMP_LLDABR_MIN_BUFFER_VALUE && !video->IsLocalTSBInjection())
 		{
 			//InsufficientBufferRule: Buffer is empty
-			AAMPLOG_WARN("Switch to index 0; buffer is about to drain :Buffer %lf !!",buffervalue);
+			AAMPLOG_WARN("Switch to index 0; buffer is about to drain :Buffer %lf !!",bufferValue);
 			desiredProfileIndex = 0;
 			if(currentProfileIndex != desiredProfileIndex)
 			{
@@ -2617,7 +2616,7 @@ int StreamAbstractionAAMP::GetDesiredProfileBasedOnCache(void)
 				logLevel = eLOGLEVEL_MIL;
 			}
 
-			AAMPLOG(logLevel,"currBW:%ld NwBW=%ld currProf:%d desiredProf:%d ,Buffer  %lf",currentBandwidth,networkBandwidth,currentProfileIndex,desiredProfileIndex,buffervalue/1000);
+			AAMPLOG(logLevel,"currBW:%ld NwBW=%ld currProf:%d desiredProf:%d ,Buffer  %lf",currentBandwidth,networkBandwidth,currentProfileIndex,desiredProfileIndex,bufferValue/1000);
 
 			if (currentProfileIndex != desiredProfileIndex)
 			{
@@ -2677,15 +2676,15 @@ bool StreamAbstractionAAMP::RampDownProfile(int http_error)
 	}
 	else if (video)
 	{
-		double buffervalue = GetBufferValue(video);
-		if(buffervalue > mABRMaxBuffer)
+		double bufferValue = GetBufferValue(video);
+		if(bufferValue > mABRMaxBuffer)
 		{
 			desiredProfileIndex = aamp->mhAbrManager.getRampedDownProfileIndex(currentProfileIndex);
 		}
 		else
 		{
-			long desiredBw = aamp->mhAbrManager.FragmentfailureRampdown(buffervalue,currentProfileIndex);
-			// If desiredBw == 0, that means we are already on the lowest profile or buffervalue is zero.
+			long desiredBw = aamp->mhAbrManager.FragmentfailureRampdown(bufferValue,currentProfileIndex);
+			// If desiredBw == 0, that means we are already on the lowest profile or bufferValue is zero.
 			// Hence attempt singular rampdown if desiredBw == 0
 			// TODO: Need proper unit testing and refactoring in future
 			if (desiredBw > 0)
@@ -2802,7 +2801,7 @@ int StreamAbstractionAAMP::getOriginalCurlError(int http_error)
 
 
 /**
- *  @brief Check for ramdown profile.
+ *  @brief Check for rampdown profile.
  */
 bool StreamAbstractionAAMP::CheckForRampDownProfile(int http_error)
 {
@@ -2945,7 +2944,7 @@ bool StreamAbstractionAAMP::CheckIfPlayerRunningDry()
 	}
 	bool videoBufferIsEmpty = videoTrack->numberOfFragmentsCached == 0 && aamp->IsSinkCacheEmpty(eMEDIATYPE_VIDEO);
 	bool audioBufferIsEmpty = (audioTrack->Enabled() ? (audioTrack->numberOfFragmentsCached == 0) : true) && aamp->IsSinkCacheEmpty(eMEDIATYPE_AUDIO);
-	if (videoBufferIsEmpty || audioBufferIsEmpty) /* Changed the condition from '&&' to '||', becasue if video getting stalled it doesn't need to wait until audio become dry */
+	if (videoBufferIsEmpty || audioBufferIsEmpty) /* Changed the condition from '&&' to '||', because if video getting stalled it doesn't need to wait until audio become dry */
 	{
 		AAMPLOG_WARN("StreamAbstractionAAMP: Stall detected. Buffer status is RED!");
 		return true;
@@ -3237,7 +3236,7 @@ void StreamAbstractionAAMP::AbortWaitForAudioTrackCatchup(bool force)
 		{
 			pthread_cond_signal(&mSubCond);
 #ifdef AAMP_DEBUG_FETCH_INJECT
-			AAMPLOG_DEBUG("signalling mSubCond");
+			AAMPLOG_DEBUG("signaling mSubCond");
 #endif
 		}
 		pthread_mutex_unlock(&mLock);
@@ -3391,7 +3390,7 @@ void MediaTrack::OnSinkBufferFull()
  */
 void StreamAbstractionAAMP::resetDiscontinuityTrackState()
 {
-	mTrackState = eDISCONTIUITY_FREE;
+	mTrackState = eDISCONTINUITY_FREE;
 }
 
 /**
@@ -3400,19 +3399,19 @@ void StreamAbstractionAAMP::resetDiscontinuityTrackState()
 bool StreamAbstractionAAMP::ProcessDiscontinuity(TrackType type)
 {
 	bool ret = true;
-	MediaTrackDiscontinuityState state = eDISCONTIUITY_FREE;
+	MediaTrackDiscontinuityState state = eDISCONTINUITY_FREE;
 	bool isMuxedAndAudioDiscoIgnored = false;
 
 	pthread_mutex_lock(&mStateLock);
 	if (type == eTRACK_VIDEO)
 	{
-		state = eDISCONTINUIY_IN_VIDEO;
+		state = eDISCONTINUITY_IN_VIDEO;
 
 		/*For muxed streams, give discontinuity for audio track as well*/
 		MediaTrack* audio = GetMediaTrack(eTRACK_AUDIO);
 		if (audio && !audio->enabled)
 		{
-			mTrackState = (MediaTrackDiscontinuityState) (mTrackState | eDISCONTINUIY_IN_BOTH);
+			mTrackState = (MediaTrackDiscontinuityState) (mTrackState | eDISCONTINUITY_IN_BOTH);
 			ret = aamp->Discontinuity(eMEDIATYPE_AUDIO, false);
 
 			/* In muxed stream, if discontinuity-EOS processing for audio track failed, then set the "mProcessingDiscontinuity" flag of audio to true if video track discontinuity succeeded.
@@ -3427,7 +3426,7 @@ bool StreamAbstractionAAMP::ProcessDiscontinuity(TrackType type)
 	}
 	else if (type == eTRACK_AUDIO)
 	{
-		state = eDISCONTINUIY_IN_AUDIO;
+		state = eDISCONTINUITY_IN_AUDIO;
 	}
 	// bypass discontinuity check for auxiliary audio for now
 	else if (type == eTRACK_AUX_AUDIO)
@@ -3439,7 +3438,7 @@ bool StreamAbstractionAAMP::ProcessDiscontinuity(TrackType type)
 		ret=true;
 	}
 
-	if (state != eDISCONTIUITY_FREE)
+	if (state != eDISCONTINUITY_FREE)
 	{
 		bool aborted = false;
 		bool wait = false;
@@ -3478,9 +3477,9 @@ bool StreamAbstractionAAMP::ProcessDiscontinuity(TrackType type)
 			}
 		}
 		AAMPLOG_MIL("track[%d] mTrackState:%d wait:%d aborted:%d", type, mTrackState, wait, aborted);
-		// We can't ensure that mTrackState == eDISCONTINUIY_IN_BOTH after wait, because
+		// We can't ensure that mTrackState == eDISCONTINUITY_IN_BOTH after wait, because
 		// if Discontinuity() returns false, we need to reset the track bit from mTrackState
-		if (mTrackState == eDISCONTINUIY_IN_BOTH || (wait && !aborted))
+		if (mTrackState == eDISCONTINUITY_IN_BOTH || (wait && !aborted))
 		{
 			pthread_mutex_unlock(&mStateLock);
 
@@ -3509,7 +3508,7 @@ bool StreamAbstractionAAMP::ProcessDiscontinuity(TrackType type)
 }
 
 /**
- *  @brief Function to abort any wait for discontinuity by injector theads.
+ *  @brief Function to abort any wait for discontinuity by injector threads.
  */
 void StreamAbstractionAAMP::AbortWaitForDiscontinuity()
 {
@@ -3524,7 +3523,7 @@ void StreamAbstractionAAMP::AbortWaitForDiscontinuity()
  */
 void StreamAbstractionAAMP::CheckForMediaTrackInjectionStall(TrackType type)
 {
-	MediaTrackDiscontinuityState state = eDISCONTIUITY_FREE;
+	MediaTrackDiscontinuityState state = eDISCONTINUITY_FREE;
 	MediaTrack *track = GetMediaTrack(type);
 	MediaTrack *otherTrack = NULL;
 	bool bProcessFlag = false;
@@ -3532,19 +3531,19 @@ void StreamAbstractionAAMP::CheckForMediaTrackInjectionStall(TrackType type)
 	if (type == eTRACK_AUDIO)
 	{
 		otherTrack = GetMediaTrack(eTRACK_VIDEO);
-		state = eDISCONTINUIY_IN_AUDIO;
+		state = eDISCONTINUITY_IN_AUDIO;
 	}
 	else if (type == eTRACK_VIDEO)
 	{
 		otherTrack = GetMediaTrack(eTRACK_AUDIO);
-		state = eDISCONTINUIY_IN_VIDEO;
+		state = eDISCONTINUITY_IN_VIDEO;
 	}
 
 	// If both tracks are available and enabled, then only check required
 	if (track && track->enabled && otherTrack && otherTrack->enabled)
 	{
 		pthread_mutex_lock(&mStateLock);
-		if (mTrackState == eDISCONTINUIY_IN_VIDEO || mTrackState == eDISCONTINUIY_IN_AUDIO)
+		if (mTrackState == eDISCONTINUITY_IN_VIDEO || mTrackState == eDISCONTINUITY_IN_AUDIO)
 		{
 			bool isDiscontinuitySeen = mTrackState & state;
 			if (isDiscontinuitySeen)
@@ -3588,7 +3587,7 @@ void StreamAbstractionAAMP::CheckForMediaTrackInjectionStall(TrackType type)
 				// 1. When the EOS for earlier discontinuity missed to processing due to singular discontinuity or some edge case missing
 				// 2. When there is no EOS processed message for the previous discontinuity seen from the pipeline.
 				// In that case the diff value will go to negative and this CheckForMediaTrackInjectionStall() continuously called
-				// until stall happens from outside or explicitely aamp_stop() to be called from XRE or Apps,
+				// until stall happens from outside or explicitly aamp_stop() to be called from XRE or Apps,
 				// so need to control the stalling as soon as possible for the negative diff case from here.
 				else if ((diff < 0) && (otherTrack->fragmentDurationSeconds > 0) && (abs(diff) > (2 * otherTrack->fragmentDurationSeconds)))
 				{
@@ -4291,7 +4290,7 @@ void MediaTrack::PlaylistDownloader()
 				{
 					//new Playlist updated in mid.
 					quickPlaylistDownload = true;
-					//To avoid below signalling to fragment collector
+					//To avoid below signaling to fragment collector
 					continue;
 				}
 
@@ -4347,13 +4346,13 @@ void MediaTrack::PlaylistDownloader()
 			}
 			else // if downloads disabled
 			{
-				AAMPLOG_ERR("[%s] : Downloads are disabled, exitting", trackName.c_str());
+				AAMPLOG_ERR("[%s] : Downloads are disabled, exiting", trackName.c_str());
 				abortPlaylistDownloader = true;
 			}
 		}
 		else
 		{
-			AAMPLOG_ERR("[%s] : Downloads are disabled, exitting", trackName.c_str());
+			AAMPLOG_ERR("[%s] : Downloads are disabled, exiting", trackName.c_str());
 			abortPlaylistDownloader = true;
 		}
 	} while (!abortPlaylistDownloader && aamp->IsLive());
@@ -4474,7 +4473,7 @@ int MediaTrack::WaitTimeBasedOnBufferAvailable()
 			bufferAvailable,minDelayBetweenPlaylistUpdates,timeSinceLastPlaylistDownload,endPositionAvailable,currentPlayPosition);
 
 		// sleep before next manifest update
-		// aamp->InterruptableMsSleep();
+		// aamp->interruptibleMsSleep();
 	}
 	return minDelayBetweenPlaylistUpdates;
 }

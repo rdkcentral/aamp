@@ -24,7 +24,7 @@ AampGrowableBuffer::~AampGrowableBuffer( void )
 }
 
 /**
- * @brief release any resource associated with AampGrowableBuffer, resetting back to contructed state
+ * @brief release any resource associated with AampGrowableBuffer, resetting back to constructed state
  */
 void AampGrowableBuffer::Free( void )
 {

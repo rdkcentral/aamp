@@ -347,7 +347,7 @@ protected:
 			{eAAMPConfig_PersistHighNetworkBandwidth, false},
 			{eAAMPConfig_PersistLowNetworkBandwidth, false},
 			{eAAMPConfig_MidFragmentSeek, false},
-			{eAAMPConfig_PropogateURIParam, true},
+			{eAAMPConfig_PropagateURIParam, true},
 			{eAAMPConfig_DashParallelFragDownload, false},
 			{eAAMPConfig_DisableATMOS, false},
 			{eAAMPConfig_DisableEC3, false},
@@ -478,7 +478,7 @@ public:
 	/**
 	 * @brief Get manifest helper method for MPDDownloader
 	 *
-	 * @param[in] remoteUrl Manfiest url
+	 * @param[in] remoteUrl Manifest url
 	 * @param[out] buffer Buffer containing manifest data
 	 * @retval true on success
 	 */
@@ -596,7 +596,7 @@ TEST_P(StreamSelectionTests, TestCorrectTrackSelection)
 	auto cdaiObj = mStreamAbstractionAAMP_MPD->GetCDAIObject();
 	cdaiObj->mAdState = params.currAdState; // Set AD state
 	class MediaStreamContext *pMediaStreamContext = mStreamAbstractionAAMP_MPD->GetMediaStreamContext(eMEDIATYPE_VIDEO);
-	pMediaStreamContext->representationIndex = 4; // Previouse representation
+	pMediaStreamContext->representationIndex = 4; // Previous representation
 	mStreamAbstractionAAMP_MPD->InvokeStreamSelection();
 	EXPECT_EQ(pMediaStreamContext->representationIndex, params.expectedTrack); //what is new representation
 }
@@ -604,23 +604,23 @@ TEST_P(StreamSelectionTests, TestCorrectTrackSelection)
 INSTANTIATE_TEST_SUITE_P( TestCorrectTrackSelection, StreamSelectionTests,
 	::testing::ValuesIn(std::vector<StreamSelectionTestParams>{
 		/** Case 1 & 2: current nuumber of profiles 5, start in second period (30+ pos),
-		 * number of tracks only video now, live manifest used with represetations are same
+		 * number of tracks only video now, live manifest used with representations are same
 		 * AD state IN and OUT  
-		 * Expected to same track from previouse if outside and reset to -1 if inside AD
+		 * Expected to same track from previous if outside and reset to -1 if inside AD
 		 */
 		{5, 32, 1, mLiveManifestSame, AdState::OUTSIDE_ADBREAK, 4},
 		{5, 32, 1, mLiveManifestSame, AdState::IN_ADBREAK_AD_PLAYING, -1},
 
 		/** Case 3 & 4: current nuumber of profiles 5, start in second period (30+ pos),
-		 * number of tracks only video now, VOD manifest used with represetations are same
+		 * number of tracks only video now, VOD manifest used with representations are same
 		 * AD state IN and OUT  
-		 * Expected to same track from previouse if outside and reset to -1 if inside AD
+		 * Expected to same track from previous if outside and reset to -1 if inside AD
 		 */
 		{5, 32, 1, mVodManifestSame , AdState::OUTSIDE_ADBREAK, 4},
 		{5, 32, 1, mVodManifestSame, AdState::IN_ADBREAK_AD_PLAYING, -1},
 
 		/** Case 1 & 2: current nuumber of profiles 5, start in second period (30+ pos),
-		 * number of tracks only video now, live manifest used with represetations are not same
+		 * number of tracks only video now, live manifest used with representations are not same
 		 * AD state IN and OUT  
 		 * Expected to to reset to -1 in both cases
 		 */
@@ -628,7 +628,7 @@ INSTANTIATE_TEST_SUITE_P( TestCorrectTrackSelection, StreamSelectionTests,
 		{5, 32, 1, mLiveManifestNotSame, AdState::IN_ADBREAK_AD_PLAYING, -1},
 
 		/** Case 3 & 4: current nuumber of profiles 5, start in second period (30+ pos),
-		 * number of tracks only video now, VOD manifest used with represetations are not sssame
+		 * number of tracks only video now, VOD manifest used with representations are not sssame
 		 * AD state IN and OUT  
 		 * Expected to to reset to -1 in both cases
 		 */

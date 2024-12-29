@@ -116,11 +116,11 @@ void  CMCDHeaders::SetBufferLength(const int &bufferlength)
 
 /**
  * @brief   SetBufferStarvation
- * @param   bufferstarvation
+ * @param   bufferStarvation
  */
-void  CMCDHeaders::SetBufferStarvation(const bool &bufferstarvation)
+void  CMCDHeaders::SetBufferStarvation(const bool &bufferStarvation)
 {
-	bufferStarvation = bufferstarvation;
+	this->bufferStarvation = bufferStarvation;
 }
 
 /**

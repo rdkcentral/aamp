@@ -402,8 +402,7 @@ TEST_F(AampDrmHelperTests, TestWidevineHelperParsePsshDrmMetaData)
 		uint32_t protectionScheme;
 	} testData[] =
 	{
-		{
-			"AAAANXBzc2gAAAAA7e+LqXnWSs6jyCfc1R0h7QAAABUyBnBvbGljeTjAxAdQlZrvOioCU0Q=",
+		{ "AAAANXBzc2gAAAAA7e+LqXnWSs6jyCfc1R0h7QAAABUyBnBvbGljeTjAxAdQlZrvOioCU0Q=", // psshData
 			{},
 			0
 			// various deprecated fields:
@@ -412,15 +411,15 @@ TEST_F(AampDrmHelperTests, TestWidevineHelperParsePsshDrmMetaData)
 			//Crypto Period Index: 123456
 			//Crypto Period: 204 weeks, 27 days, 21 hours, 33 minutes, 9 seconds
 		},
-		{ "AAAAJnBzc2gAAAAA7e+LqXnWSs6jyCfc1R0h7QAAAAZI89yVmwY=",
+		{ "AAAAJnBzc2gAAAAA7e+LqXnWSs6jyCfc1R0h7QAAAAZI89yVmwY=", // psshData
 			{},
 			'cens'
 		},
-		{ "AAAAJnBzc2gAAAAA7e+LqXnWSs6jyCfc1R0h7QAAAAZIscaJmwY=",
+		{ "AAAAJnBzc2gAAAAA7e+LqXnWSs6jyCfc1R0h7QAAAAZIscaJmwY=", // psshData
 			{},
 			'cbc1'
 		},
-		{ "AAAAPnBzc2gAAAAA7e+LqXnWSs6jyCfc1R0h7QAAAB4iFnNoYWthX2NlYzJmNjRhYTc4OTBhMTFI49yVmwY=",
+		{ "AAAAPnBzc2gAAAAA7e+LqXnWSs6jyCfc1R0h7QAAAB4iFnNoYWthX2NlYzJmNjRhYTc4OTBhMTFI49yVmwY=", // psshData
 			{
 				"0x73,0x68,0x61,0x6B,0x61,0x5F,0x63,0x65,0x63,0x32,0x66,0x36,0x34,0x61,0x61,0x37,0x38,0x39,0x30,0x61,0x31,0x31"
 			}, 'cenc'
@@ -428,39 +427,39 @@ TEST_F(AampDrmHelperTests, TestWidevineHelperParsePsshDrmMetaData)
 			// no key ids!
 			// Content ID = shaka_cec2f64aa7890a11
 		},
-		{ "AAAANHBzc2gBAAAA7e+LqXnWSs6jyCfc1R0h7QAAAAEttsSNMB9I6rt3G6eorJBCAAAAAA==",
+		{ "AAAANHBzc2gBAAAA7e+LqXnWSs6jyCfc1R0h7QAAAAEttsSNMB9I6rt3G6eorJBCAAAAAA==", // psshData
 			{
 				"0x2D,0xB6,0xC4,0x8D,0x30,0x1F,0x48,0xEA,0xBB,0x77,0x1B,0xA7,0xA8,0xAC,0x90,0x42"
 			}, 0
 			// Version 1, single KeyID
 		},
-		{ "AAAAOHBzc2gAAAAA7e+LqXnWSs6jyCfc1R0h7QAAABgSEC22xI0wH0jqu3cbp6iskEJI49yVmwY=",
+		{ "AAAAOHBzc2gAAAAA7e+LqXnWSs6jyCfc1R0h7QAAABgSEC22xI0wH0jqu3cbp6iskEJI49yVmwY=", // psshData
 			{
 				"0x2D,0xB6,0xC4,0x8D,0x30,0x1F,0x48,0xEA,0xBB,0x77,0x1B,0xA7,0xA8,0xAC,0x90,0x42"
 			},'cenc'
 			// Version 0, 'cenc'
 		},
-		{ "AAAAOHBzc2gAAAAA7e+LqXnWSs6jyCfc1R0h7QAAABgSEC22xI0wH0jqu3cbp6iskEJI88aJmwY=",
+		{ "AAAAOHBzc2gAAAAA7e+LqXnWSs6jyCfc1R0h7QAAABgSEC22xI0wH0jqu3cbp6iskEJI88aJmwY=", // psshData
 			{
 				"0x2D,0xB6,0xC4,0x8D,0x30,0x1F,0x48,0xEA,0xBB,0x77,0x1B,0xA7,0xA8,0xAC,0x90,0x42"
 			},'cbcs'
 			// Version 0, 'cbcs'
 		},
-		{ "AAAARHBzc2gBAAAA7e+LqXnWSs6jyCfc1R0h7QAAAAIAAAAAAAAAAAAAAAAAAAAAEREREREREREREREREREREQAAAAA=",
+		{ "AAAARHBzc2gBAAAA7e+LqXnWSs6jyCfc1R0h7QAAAAIAAAAAAAAAAAAAAAAAAAAAEREREREREREREREREREREQAAAAA=", // psshData
 			{
 				"0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00",
 				"0x11,0x11,0x11,0x11,0x11,0x11,0x11,0x11,0x11,0x11,0x11,0x11,0x11,0x11,0x11,0x11"
 			},0
 			// Version 1, two KeyIDs
 		},
-		{"AAAAP3Bzc2gAAAAA7e+LqXnWSs6jyCfc1R0h7QAAAB8SEFYWbwTmlTrikzbYc0PLv+IaBWV6ZHJtSPPGiZsG",
+		{"AAAAP3Bzc2gAAAAA7e+LqXnWSs6jyCfc1R0h7QAAAB8SEFYWbwTmlTrikzbYc0PLv+IaBWV6ZHJtSPPGiZsG", // psshData
 			{
 				"0x56,0x16,0x6f,0x04,0xe6,0x95,0x3a,0xe2,0x93,0x36,0xd8,0x73,0x43,0xcb,0xbf,0xe2"
 			},'cbcs'
 			// Protection Scheme: 63 62 63 73 (cbcs)
 			// Provider: ezdrm
 		},
-		{"AAAASnBzc2gAAAAA7e+LqXnWSs6jyCfc1R0h7QAAACoIARIQL38/m5MtSFqBGT0XY2KM4yIUTkJDVTA0Mzg3NjU0MDA1NjMwMDc=",
+		{"AAAASnBzc2gAAAAA7e+LqXnWSs6jyCfc1R0h7QAAACoIARIQL38/m5MtSFqBGT0XY2KM4yIUTkJDVTA0Mzg3NjU0MDA1NjMwMDc=", // psshData
 			{
 				"0x2f,0x7f,0x3f,0x9b,0x93,0x2d,0x48,0x5a,0x81,0x19,0x3d,0x17,0x63,0x62,0x8c,0xe3"
 			},0
@@ -468,26 +467,26 @@ TEST_F(AampDrmHelperTests, TestWidevineHelperParsePsshDrmMetaData)
 			// algorithm: AES-CTR full sample encryption
 			// Content ID: NBCU0438765400563007
 		},
-		{"AAAASnBzc2gAAAAA7e+LqXnWSs6jyCfc1R0h7QAAACoIARIQ7zHnTYhMQv+k86p90K3+rCIUTkJDVTkwMDAxOTI5MTUxMzAwMDM=",
+		{"AAAASnBzc2gAAAAA7e+LqXnWSs6jyCfc1R0h7QAAACoIARIQ7zHnTYhMQv+k86p90K3+rCIUTkJDVTkwMDAxOTI5MTUxMzAwMDM=", // psshData
 			{
 				"0xef,0x31,0xe7,0x4d,0x88,0x4c,0x42,0xff,0xa4,0xf3,0xaa,0x7d,0xd0,0xad,0xfe,0xac"
 			},0
 			// algorithm: AES-CTR full sample encryption
 			// Content ID: NBCU9000192915130003
 		},
-		{"AAAAfXBzc2gAAAAA7e+LqXnWSs6jyCfc1R0h7QAAAF0SJDhlY2ZiOWZkLTNhODktNTNlMy05YjgwLTg4OTBmM2IyMzNmYiI1aW5kZW1hbmQuY29tSU5UTDAyMTgyMjIwMDA0MTQ5OTMtSU5NVjAyMTgyMjIwMDA0MTQ5OTM=",
+		{"AAAAfXBzc2gAAAAA7e+LqXnWSs6jyCfc1R0h7QAAAF0SJDhlY2ZiOWZkLTNhODktNTNlMy05YjgwLTg4OTBmM2IyMzNmYiI1aW5kZW1hbmQuY29tSU5UTDAyMTgyMjIwMDA0MTQ5OTMtSU5NVjAyMTgyMjIwMDA0MTQ5OTM=", // psshData
 			{
 				"0x38,0x65,0x63,0x66,0x62,0x39,0x66,0x64,0x2D,0x33,0x61,0x38,0x39,0x2D,0x35,0x33,0x65,0x33,0x2D,0x39,0x62,0x38,0x30,0x2D,0x38,0x38,0x39,0x30,0x66,0x33,0x62,0x32,0x33,0x33,0x66,0x62"
 			},0
 			// Content ID: indemand.comINTL0218222000414993-INMV0218222000414993
 			// Key ID is 36 bytes long instead of required 16
 		},
-		{"AAAAMnBzc2gAAAAA7e+LqXnWSs6jyCfc1R0h7QAAABISEG3fTdGQ1VJtmPL1WTLb1a8=",
+		{"AAAAMnBzc2gAAAAA7e+LqXnWSs6jyCfc1R0h7QAAABISEG3fTdGQ1VJtmPL1WTLb1a8=", // psshData
 			{
 				"0x6d,0xdf,0x4d,0xd1,0x90,0xd5,0x52,0x6d,0x98,0xf2,0xf5,0x59,0x32,0xdb,0xd5,0xaf"
 			},0
 		},
-		{"AAAA93Bzc2gAAAAA7e+LqXnWSs6jyCfc1R0h7QAAANcSJDQ3OTZiNjY3LWZkZjYtYjI0My04MTM4LTNmM2VmZmQzN2E0NRIkNjdlZGIwZjQtMzIyYS1hNDgyLWZlNmQtZThiNjZiYWFhOGU4EiRhZWYyZjE3YS0xOWUwLWQ2MTctMGI4Ny02MTdmNjQ5OWNlZjQSJGM2NzE5YWJjLTY4YzctMWYxZC0xOWRiLTUxMjU5YWY2MDJmZSI9dXBmYWl0aGFuZGZhbWlseS5jb21VUFRMMDAwMDAwMDAwODM3Mzg2MS1VUE1WMDAwMDAwMDAwODM3Mzg2MQ==",
+		{"AAAA93Bzc2gAAAAA7e+LqXnWSs6jyCfc1R0h7QAAANcSJDQ3OTZiNjY3LWZkZjYtYjI0My04MTM4LTNmM2VmZmQzN2E0NRIkNjdlZGIwZjQtMzIyYS1hNDgyLWZlNmQtZThiNjZiYWFhOGU4EiRhZWYyZjE3YS0xOWUwLWQ2MTctMGI4Ny02MTdmNjQ5OWNlZjQSJGM2NzE5YWJjLTY4YzctMWYxZC0xOWRiLTUxMjU5YWY2MDJmZSI9dXBmYWl0aGFuZGZhbWlseS5jb21VUFRMMDAwMDAwMDAwODM3Mzg2MS1VUE1WMDAwMDAwMDAwODM3Mzg2MQ==", // psshData
 			{
 				"0x34,0x37,0x39,0x36,0x62,0x36,0x36,0x37,0x2D,0x66,0x64,0x66,0x36,0x2D,0x62,0x32,0x34,0x33,0x2D,0x38,0x31,0x33,0x38,0x2D,0x33,0x66,0x33,0x65,0x66,0x66,0x64,0x33,0x37,0x61,0x34,0x35",
 				"0x36,0x37,0x65,0x64,0x62,0x30,0x66,0x34,0x2D,0x33,0x32,0x32,0x61,0x2D,0x61,0x34,0x38,0x32,0x2D,0x66,0x65,0x36,0x64,0x2D,0x65,0x38,0x62,0x36,0x36,0x62,0x61,0x61,0x61,0x38,0x65,0x38",
@@ -497,7 +496,7 @@ TEST_F(AampDrmHelperTests, TestWidevineHelperParsePsshDrmMetaData)
 			// Content ID: upfaithandfamily.comUPTL0000000008373861-UPMV0000000008373861
 			// Key ID is 36 bytes long instead of required 16
 		},
-		{"AAAAOHBzc2gAAAAA7e+LqXnWSs6jyCfc1R0h7QAAABgSEABFDiYaE6QUtKoKcLv0s6hI49yVmwY=",
+		{"AAAAOHBzc2gAAAAA7e+LqXnWSs6jyCfc1R0h7QAAABgSEABFDiYaE6QUtKoKcLv0s6hI49yVmwY=", // psshData
 			{
 				"0x00,0x45,0x0e,0x26,0x1a,0x13,0xa4,0x14,0xb4,0xaa,0x0a,0x70,0xbb,0xf4,0xb3,0xa8"
 			},'cenc'

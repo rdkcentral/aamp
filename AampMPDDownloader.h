@@ -218,7 +218,7 @@ public:
 
 	/**
 	*	@fn Release
-	*	@brief Function to clear/release all the allocation for MPD Downlaoder
+	*	@brief Function to clear/release all the allocation for MPD Downlowder
 	*/
 	void Release();
 
@@ -275,7 +275,7 @@ public:
 	void RegisterCallback(ManifestUpdateCallbackFunc fnPtr, void *);
 	/**
 	 * @fn UnRegisterCallback
-	 * @brief Unregisters the callback function for manifest update notifications.
+	 * @brief Unregister the callback function for manifest update notifications.
 	 */
 	void UnRegisterCallback();
 	/**

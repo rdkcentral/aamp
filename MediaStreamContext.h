@@ -146,7 +146,7 @@ public:
 
     /**
 	 * @fn setDiscontinuityState
-	 * @param isDiscontinuity - true if dicontinuity false otherwise
+	 * @param isDiscontinuity - true if discontinuity false otherwise
 	 * @return void
 	 */
     void setDiscontinuityState(bool isDiscontinuity) override;

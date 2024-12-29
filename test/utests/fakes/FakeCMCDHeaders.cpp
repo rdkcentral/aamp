@@ -52,7 +52,7 @@ void CMCDHeaders::SetBufferLength(const int &bufferlength)
 {
 }
 
-void CMCDHeaders::SetBufferStarvation(const bool &bufferstarvation)
+void CMCDHeaders::SetBufferStarvation(const bool &bufferStarvation)
 {
 }
 

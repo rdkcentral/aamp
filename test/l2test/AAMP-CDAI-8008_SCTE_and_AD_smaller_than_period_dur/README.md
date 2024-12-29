@@ -1,5 +1,5 @@
 # AAMP L2 Tune time test
-Test used to check/verify the linear CDAI behaviour with Single source period with SCTE duration smaller than period duration
+Test used to check/verify the linear CDAI behavior with Single source period with SCTE duration smaller than period duration
 
 
 ## Test Files

@@ -994,7 +994,7 @@ uint32_t  PrivateInstanceAAMP::GetVidTimeScale(void)
 	}
 }
 
-void PrivateInstanceAAMP::InterruptableMsSleep(int timeInMs)
+void PrivateInstanceAAMP::interruptibleMsSleep(int timeInMs)
 {
 }
 
@@ -1071,7 +1071,7 @@ void PrivateInstanceAAMP::UnblockWaitForDiscontinuityProcessToComplete(void)
 {
 }
 
-void PrivateInstanceAAMP::CompleteDiscontinutyDataDeliverForPTSRestamp(AampMediaType type)
+void PrivateInstanceAAMP::CompleteDiscontinuityDataDeliverForPTSRestamp(AampMediaType type)
 {
 }
 

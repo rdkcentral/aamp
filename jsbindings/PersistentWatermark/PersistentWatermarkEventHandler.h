@@ -84,7 +84,7 @@ namespace PersistentWatermark
 		std::mutex mMutex;
 
 		/**
-		 @brief Return the name of the specefied event
+		 @brief Return the name of the specified event
 		**/
 		static std::string getEventName(eventType type);
 

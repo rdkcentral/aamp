@@ -43,7 +43,7 @@ python3 run_l3_aamp.py --port <SSH Port of the connected RDK> --ip <IP address o
 
 ### Run all tests in a testsuit despite one failure:
 By default if one test fails inside a testsuit, the testsuit is not be further executed and ends.
-To attempt to run subsequent tests despite one failue:
+To attempt to run subsequent tests despite one failure:
 
 Add a -d flag:
 

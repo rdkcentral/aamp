@@ -550,10 +550,10 @@ TEST_F(PrivAampTests,WaitForDiscontinuityProcessToCompleteTest)
 	p_aamp->UnblockWaitForDiscontinuityProcessToComplete();
 }
 
-TEST_F(PrivAampTests,CompleteDiscontinutyDataDeliverForPTSRestamp)
+TEST_F(PrivAampTests,CompleteDiscontinuityDataDeliverForPTSRestamp)
 {
-	p_aamp->CompleteDiscontinutyDataDeliverForPTSRestamp(eMEDIATYPE_VIDEO);
-	p_aamp->CompleteDiscontinutyDataDeliverForPTSRestamp(eMEDIATYPE_AUDIO);
+	p_aamp->CompleteDiscontinuityDataDeliverForPTSRestamp(eMEDIATYPE_VIDEO);
+	p_aamp->CompleteDiscontinuityDataDeliverForPTSRestamp(eMEDIATYPE_AUDIO);
 }
 
 TEST_F(PrivAampTests,SetIsPeriodChangeMarkedTest)
@@ -595,18 +595,18 @@ TEST_F(PrivAampTests,TimedWaitForLatencyCheckTest)
 	EXPECT_FALSE(p_aamp->mAbortRateCorrection);
 }
 
-TEST_F(PrivAampTests,StopRateCorrectionWokerthreadTest)
+TEST_F(PrivAampTests,StopRateCorrectionWorkerThreadTest)
 {
-	p_aamp->StartRateCorrectionWokerthread();
+	p_aamp->StartRateCorrectionWorkerThread();
 	EXPECT_FALSE(p_aamp->mAbortRateCorrection);
 
-	p_aamp->StopRateCorrectionWokerthread();
+	p_aamp->StopRateCorrectionWorkerThread();
 	EXPECT_FALSE(p_aamp->mAbortRateCorrection);
 }
 
-TEST_F(PrivAampTests,RateCorrectionWokerthreadTest1)
+TEST_F(PrivAampTests,RateCorrectionWorkerThreadTest1)
 {
-	p_aamp->RateCorrectionWokerthread();
+	p_aamp->RateCorrectionWorkerThread();
 
 	EXPECT_NE(p_aamp->mCorrectionRate,0);
 	EXPECT_FALSE(p_aamp->mDisableRateCorrection);
@@ -1855,9 +1855,9 @@ TEST_F(PrivAampTests,EnableDownloadsTest)
 	EXPECT_TRUE(p_aamp->mDownloadsEnabled);
 }
 
-TEST_F(PrivAampTests,InterruptableMsSleepTest)
+TEST_F(PrivAampTests,interruptibleMsSleepTest)
 {
-	p_aamp->InterruptableMsSleep(0);
+	p_aamp->interruptibleMsSleep(0);
 	EXPECT_TRUE(p_aamp->mDownloadsEnabled);
 }
 
@@ -2841,7 +2841,7 @@ TEST_F(PrivAampTests,ResetDiscontinuityInTracksTest)
 TEST_F(PrivAampTests,SetPreferredLanguagesTest)
 {
 	Accessibility *accessibilityItem;
-	p_aamp->SetPreferredLanguages("LangList","PrefferedRedention","prefferedType","codeList","LableList",accessibilityItem);
+	p_aamp->SetPreferredLanguages("LangList","PreferredRedention","preferredType","codeList","LableList",accessibilityItem);
 }
 
 TEST_F(PrivAampTests,EnableMediaDownloadsTest)
@@ -3511,15 +3511,15 @@ TEST_F(PrivAampTests,NotifyFirstVideoFrameDisplayedTest3)
 	p_aamp->NotifyFirstVideoFrameDisplayed();
 }
 
-TEST_F(PrivAampTests, ForceHttpCoversionforFogTest)
+TEST_F(PrivAampTests, ForceHttpConversionForFogTest)
 {
 	std::string url = "http://example.com";
-    std::string from = "http://ForceHttpCoversionforFog/from.com";
-    std::string to = "http://ForceHttpCoversionforFog/to.com";
+    std::string from = "http://ForceHttpConversionForFog/from.com";
+    std::string to = "http://ForceHttpConversionForFog/to.com";
 
-	void ForceHttpCoversionforFog(std::string& url,const std::string& from, const std::string& to);
+	void ForceHttpConversionForFog(std::string& url,const std::string& from, const std::string& to);
 
-	ForceHttpCoversionforFog(url,from,to);
+	ForceHttpConversionForFog(url,from,to);
 }
 TEST_F(PrivAampTests, getCurrentContentDownloadSpeedTest)
 {

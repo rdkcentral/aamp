@@ -66,14 +66,14 @@ async function TST_2003_UVE_API_Subtitles() {
     TST_STEP("Subtitles Available: " + subtitles_received_str);
 
     // Set the preferred Text Language, and then read back the properties to verify
-    preferedSubtitlelanguage = "en";
-    preferredTextLanguageJson = JSON.stringify({"languages": [preferedSubtitlelanguage]});
+    preferredSubtitlelanguage = "en";
+    preferredTextLanguageJson = JSON.stringify({"languages": [preferredSubtitlelanguage]});
     aamp_player.player.setPreferredTextLanguage(preferredTextLanguageJson);
 
     preferredTextPropertiesStr = aamp_player.player.getPreferredTextProperties();
     preferredTextPropertiesJson = JSON.parse(preferredTextPropertiesStr);
     TST_STEP("preferredTextPropertiesStr: " + preferredTextPropertiesJson['preferred-text-languages']);
-    TST_ASSERT ((preferedSubtitlelanguage == preferredTextPropertiesJson['preferred-text-languages']), ("Unexpected Preferred Text Property - Got: " + preferredTextPropertiesJson['preferred-text-languages'] + ", Expected: " + preferedSubtitlelanguage));
+    TST_ASSERT ((preferredSubtitlelanguage == preferredTextPropertiesJson['preferred-text-languages']), ("Unexpected Preferred Text Property - Got: " + preferredTextPropertiesJson['preferred-text-languages'] + ", Expected: " + preferredSubtitlelanguage));
 
     // Start playback of the video
     await aamp_player.Play();

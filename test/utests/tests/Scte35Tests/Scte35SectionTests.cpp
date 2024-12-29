@@ -48,7 +48,7 @@ public:
 	 * @brief Create an SCTE-35 signal decoder
 	 *
 	 * @param[in] data SCTE-35 signal section data
-	 * @return An SCTE-35 signal decoder instace
+	 * @return An SCTE-35 signal decoder instance
 	 */
 	SCTE35Section *CreateDecoder(std::vector<uint8_t> &data)
 	{

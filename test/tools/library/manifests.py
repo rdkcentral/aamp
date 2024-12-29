@@ -268,7 +268,7 @@ class ManifestServerCommon:
 
         first_ts, file_to_serve = file_timestamps[0]
         if self.time_started_serving == 0:
-            # First manifest to be served, initialise timestamps
+            # First manifest to be served, Initialize timestamps
             self.time_of_first_manifest = first_ts
             self.time_started_serving = time.time()
 
@@ -457,7 +457,7 @@ class SegmentList:
 
     def add_init(self, url, segment_group,segment_filename=None):
         """
-        Call for when a stream initialisation file is to be added to the list.
+        Call for when a stream initialization file is to be added to the list.
         """
         self.add_file(url, 0, segment_group,segment_filename=segment_filename)
 

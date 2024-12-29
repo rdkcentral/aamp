@@ -70,7 +70,7 @@ DomNode DomNodeIter::operator*() {
 }
 
 /**
- * @brief   DomNodeIter to begining
+ * @brief   DomNodeIter to beginning
  * @retval  DomNodeIter
  */
 DomNodeIter DomNodeIter::begin() {

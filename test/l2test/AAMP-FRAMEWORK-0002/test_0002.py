@@ -78,7 +78,7 @@ TESTDATA2 = {
 Test playback of stream without respData parameter
 """
 TESTDATA3 = {
-    "title": "Testcase to test simlinear original behaviour",
+    "title": "Testcase to test simlinear original behavior",
     "logfile": "testdata3.txt",
     "max_test_time_seconds": 30,
     "aamp_cfg": "info=true\ntrace=true\ninitialBitrate=5000000\n",

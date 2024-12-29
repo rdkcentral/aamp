@@ -230,7 +230,7 @@ std::tuple<std::string, std::size_t, std::size_t> findTag(const std::string &ins
 
 
 /**
- * @brief Search the TTML for the first begin="" tag. We will use this to caculate a timestamp offset
+ * @brief Search the TTML for the first begin="" tag. We will use this to calculate a timestamp offset
  * eg if the first begin tag is begin="458:34:12:123" then we take this and subtract the
  * buffer PTS ms to get an offset for the start of the stream
  * PTS 0          2          4 

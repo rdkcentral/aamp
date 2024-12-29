@@ -216,7 +216,7 @@ public:
 		sendInternal(processor);
 	}
 
-	/** @brief Provides the @a AampMediaType of the demixer
+	/** @brief Provides the @a AampMediaType of the demuxer
 	 * @return The AampMediaType of the demuxer
 	 */
 	AampMediaType GetType()

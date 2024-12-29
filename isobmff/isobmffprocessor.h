@@ -39,7 +39,7 @@ enum IsoBmffProcessorType
 {
 	eBMFFPROCESSOR_TYPE_VIDEO = 0,
 	eBMFFPROCESSOR_TYPE_AUDIO = 1,
-	eBMFFPROCESSOR_TYPE_SUBTITILE = 2,
+	eBMFFPROCESSOR_TYPE_SUBTITLE = 2,
 	eBMFFPROCESSOR_TYPE_METADATA = 17
 
 };
@@ -63,11 +63,11 @@ typedef struct
  */
 enum timeScaleChangeStateType
 {
-	eBMFFPROCESSOR_INIT_TIMESCALE,	 					/* Indicates no upscale or downscale requried keep injecting in current timescale */
+	eBMFFPROCESSOR_INIT_TIMESCALE,	 					/* Indicates no upscale or downscale required keep injecting in current timescale */
 	eBMFFPROCESSOR_CONTINUE_TIMESCALE, 					/* Indicates to push Init buffer on same time scale */
 	eBMFFPROCESSOR_CONTINUE_WITH_ABR_CHANGED_TIMESCALE,	/* Indicates abr changed with new timescale	*/
 	eBMFFPROCESSOR_SCALE_TO_NEW_TIMESCALE,				/* Upscale or downscale based on new timescale(changes when discontinuity detected) */
-	eBMFFPROCESSOR_AFTER_ABR_SCALE_TO_NEW_TIMESCALE, 	/* Handling curl 28 error for fragment when trasiting from ad->to->content/vice versa */
+	eBMFFPROCESSOR_AFTER_ABR_SCALE_TO_NEW_TIMESCALE, 	/* Handling curl 28 error for fragment when transitioning from ad->to->content/vice versa */
 	eBMFFPROCESSOR_TIMESCALE_COMPLETE					/* push regular fragments on current timescale */
 };
 
@@ -91,12 +91,12 @@ typedef struct
 {
 	double sumOfSkipDuration;
 	double skipPointPosition;
-	double skipPosBeforeDiscontiuity;
+	double skipPosBeforeDiscontinuity;
 	skipPosToDurationTypeMap skipPosToDurMap;
 }stSkipType;
 
 /**
- * @brief maping to type and skip position
+ * @brief mapping to type and skip position
  */
 typedef std::map<skipTimeType,stSkipType> skipTypeMap;
 
@@ -184,7 +184,7 @@ public:
 	/**
 	 * @fn setDiscontinuityState
 	 *
-	 * @param[in] isDiscontinuity - true if dicontinuity false otherwise
+	 * @param[in] isDiscontinuity - true if discontinuity false otherwise
 	 * @return void
 	 */
 	void setDiscontinuityState(bool isDiscontinuity) override;
@@ -417,7 +417,7 @@ private:
 	 * @param[in] segment - fragment buffer pointer
 	 * @param[in] size - fragment buffer size
 	 * @param[in] pos - fragment position
-	 * @param[in] duartion - duartion of the position
+	 * @param[in] duration - duration of the position
 	 * @return void
 	 */
 	void cacheRestampInitSegment(AampMediaType type,char *segment,size_t size,double pos,double duration,bool isDiscontinuity);

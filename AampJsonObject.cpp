@@ -465,9 +465,7 @@ bool AampJsonObject::get(const std::string& name, int& value)
 	bool retValue = false;
 	if (strObj)
 	{
-		/**< time being commented due to unsupport in cJSON current version; and assuming value is 1
-		 * Required version  1.7.13 **/
-		//retValue = cJSON_GetNumberValue(strObj);
+		// TODO: replace with cJSON_GetNumberValue(strObj);
 		value =  (int)strObj->valuedouble;
 		retValue = true;
 	}

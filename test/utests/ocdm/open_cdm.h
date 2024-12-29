@@ -141,7 +141,7 @@ typedef struct {
 typedef struct {
     EncryptionScheme   scheme;          // Encryption scheme used in this sample
     EncryptionPattern pattern;   // Encryption Pattern used in this sample
-    uint8_t*           iv;              // Initialization vector(IV) to decrypt this sample. Can be NULL, in that case and IV of all zeroes is assumed.
+    uint8_t*           iv;              // Initialization vector(IV) to decrypt this sample. Can be NULL, in that case and IV of all zeros is assumed.
     uint8_t            ivLength;        // Length of IV
     uint8_t*           keyId;           // ID of Key required to decrypt this sample
     uint8_t            keyIdLength;     // Length of KeyId
@@ -336,7 +336,7 @@ EXTERNAL OpenCDMError opencdm_system_get_drm_time(struct OpenCDMSystem* system,
  * \param system Instance of \ref OpenCDMAccessor.
  * \param keyId Array containing key ID.
  * \param length Length of keyId array.
- * \param maxWaitTime Maximum allowed time to block (in miliseconds).
+ * \param maxWaitTime Maximum allowed time to block (in milliseconds).
  * \return \ref OpenCDMSession belonging to key ID, or NULL when not found or
  * timed out. This instance
  *         also needs to be destructed using \ref opencdm_session_destruct.
@@ -354,7 +354,7 @@ EXTERNAL struct OpenCDMSession* opencdm_get_session(const uint8_t keyId[],
  * \param system Instance of \ref OpenCDMSystem.
  * \param keyId Array containing key ID.
  * \param length Length of keyId array.
- * \param maxWaitTime Maximum allowed time to block (in miliseconds).
+ * \param maxWaitTime Maximum allowed time to block (in milliseconds).
  * \return \ref OpenCDMSession belonging to key ID, or NULL when not found or
  * timed out. This instance
  *         also needs to be destructed using \ref opencdm_session_destruct.
@@ -557,7 +557,7 @@ EXTERNAL OpenCDMError opencdm_session_close(struct OpenCDMSession* session);
  * \param encScheme CENC Schemes as defined in EncryptionScheme enum
  * \param pattern Encryption pattern containing number of Encrypted and Clear blocks.
  * \param IV Initial vector (IV) used during decryption. Can be NULL, in that
- * case and IV of all zeroes is assumed.
+ * case and IV of all zeros is assumed.
  * \param IVLength Length of IV buffer (in bytes).
  * \param keyID keyID to use for decryption
  * \param keyIDLength Length of keyID buffer (in bytes).

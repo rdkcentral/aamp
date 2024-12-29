@@ -63,7 +63,7 @@ python /home/mutsl02618/comcast/aamp/test/tools/simlinear/simlinear.py --dash 80
 - Rule Details :
 | # | Key | Value | Description |
 | 1 | status | 404 | HTTP Error code 404 & 500 is allowed |
-| 2 | delay | 5000 | Add delay in response by 5 seconds. Positive Values are expected, max value allowed is 10000. This is time in miliseconds. |
+| 2 | delay | 5000 | Add delay in response by 5 seconds. Positive Values are expected, max value allowed is 10000. This is time in milliseconds. |
 | 3 | pattern | <regular_expression> | This is optional. Matches regex pattern on requested URL. If pattern is provided then delay / status rule will be applicable for matching URLs |
 - Rule example : 
     1. Example 1:

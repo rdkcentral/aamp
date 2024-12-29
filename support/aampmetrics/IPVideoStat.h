@@ -200,11 +200,11 @@ public:
 	 *   @fn Record_License_EncryptionStat
 	 *
 	 *   @param[in] VideoStatTrackType - Indicates track
-	 *   @param[in] isEncypted - Indicates clear(false) or encrypted ( true)
+	 *   @param[in] isEncrypted - Indicates clear(false) or encrypted ( true)
 	 *   @param[in] isKeyChanged - indicates if key is changed for encrypted fragment
 	 *   @return None
 	 */
-	void Record_License_EncryptionStat(VideoStatTrackType eType, bool isEncypted, bool isKeyChanged, int audioIndex = 1);
+	void Record_License_EncryptionStat(VideoStatTrackType eType, bool isEncrypted, bool isKeyChanged, int audioIndex = 1);
 
 	/**
 	 *   @fn Increment_Data

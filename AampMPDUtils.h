@@ -49,7 +49,7 @@ Node* MPDProcessNode(xmlTextReaderPtr *reader, std::string url, bool isAd=false)
 
 
 /**
- * @brief Add attriblutes to xml node
+ * @brief Add attributes to xml node
  * @param reader xmlTextReaderPtr
  * @param node xml Node
  */

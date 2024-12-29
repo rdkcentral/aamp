@@ -120,7 +120,7 @@ def collect_coverage_after_test(test_dir_path):
 def do_coverage_init():
     """
     Run before any tests when code coverage is enabled to
-    initialise coverage parameters
+    Initialize coverage parameters
     """
     print("do_coverage_init")
     global location_of_gcno_files

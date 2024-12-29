@@ -73,14 +73,14 @@ public:
 
     TestableAampEventManager *handler;
 
-    class AbstractEventListner : public EventListener
+    class AbstractEventListener : public EventListener
     {
         public:
         void SendEvent(const AAMPEventPtr &event){
             
         }
     };
-    AbstractEventListner abstractlistener; 
+    AbstractEventListener abstractlistener; 
 };
 TEST_F(AampEventManagerTest, SetCallbackAsDispatchedTest)
 {

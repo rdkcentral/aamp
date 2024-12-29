@@ -98,7 +98,7 @@ public:
 		if( mimeType.empty() && pRepresentation ) mimeType = pRepresentation->GetMimeType();
 		return mimeType;
 	}
-};//PerioidElement
+};//PeriodElementElement
 
 /**
  * @class SegmentTemplates
@@ -305,12 +305,12 @@ public :
 	bool IsEmptyPeriod(int iPeriodIndex, bool checkIframe);
 	/**
 	 * @fn IsEmptyAdaptation
-	 * @param Adaptation Adaptationto check whether it is empty	 
+	 * @param Adaptation Adaptation to check whether it is empty	 
 	 */
 	bool IsEmptyAdaptation(IAdaptationSet *adaptationSet);
 	/**
 	* @brief Check if adaptation set is iframe track
-	* @param adaptationSet Pointer to adaptainSet
+	* @param adaptationSet Pointer to adaptationSet
 	* @retval true if iframe track
 	*/
 	bool IsIframeTrack(IAdaptationSet *adaptationSet);
@@ -387,7 +387,7 @@ public :
 	/**
 	 * @brief Extract bitrate info from custom mpd
 	 * @note Caller function should delete the vector elements after use.
-	 * @param adaptationSet : AdaptaionSet from which bitrate info is to be extracted
+	 * @param adaptationSet : Adaptation from which bitrate info is to be extracted
 	 * @param[out] representations : Representation vector gets updated with Available bit rates.
 	 */
 	vector<Representation *> GetBitrateInfoFromCustomMpd( const IAdaptationSet *adaptationSet);
@@ -497,7 +497,7 @@ private:
 	int mNumberOfPeriods;
 	/* Container to store Period Encryption details for MPD*/
 	PeriodEncryptedMap	mPeriodEncryptionMap;
-	/* Containter to store Period Empty map for MPD */
+	/* Container to store Period Empty map for MPD */
 	PeriodEmptyMap		mPeriodEmptyMap;
 	
 	bool mLiveTimeFragmentSync;

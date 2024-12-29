@@ -93,7 +93,7 @@ public:
 /*
     @brief: - Checks that the single pipeline mode of operation is active
     Test Procedure
-    Initialise AampStreamSinkManager into single pipeline mode.
+    Initialize AampStreamSinkManager into single pipeline mode.
     Create 2 Sinks ( i.e. call CreateSinkStream twice).
     The first player is active, get the stream sink for it.
     Make Second Player active, get the stream sink for it.
@@ -311,7 +311,7 @@ TEST_F(AampStreamSinkManagerTests, MultiPipelineMode_CheckGetStreamSink2)
 /*
     @brief: - verifies that ChangeAamp receives expected parameters
     Test Procedure
-    Initialise AampStreamSinkManager into single pipeline mode.
+    Initialize AampStreamSinkManager into single pipeline mode.
     Create 1 sink, it will be the active sink. Verify test requirments
 */
 TEST_F(AampStreamSinkManagerTests, ChangeAampTests)
@@ -437,7 +437,7 @@ TEST_F(AampStreamSinkManagerTests, CheckSetStreamSink)
     EXPECT_EQ(sink2, nullptr);
 }
 
-/*  @brief : - Extra test to check consistent behaviour with obtaining StreamSink
+/*  @brief : - Extra test to check consistent behavior with obtaining StreamSink
 */
 TEST_F(AampStreamSinkManagerTests, CheckMultipipeline1)
 {
@@ -465,7 +465,7 @@ TEST_F(AampStreamSinkManagerTests, CheckMultipipeline1)
     EXPECT_EQ(sink, sink2);
 }
 
-/*  @brief : - Extra test to check consistent behaviour with obtaining StreamSink after deletion
+/*  @brief : - Extra test to check consistent behavior with obtaining StreamSink after deletion
 */
 TEST_F(AampStreamSinkManagerTests,  CheckMultipipeline2)
 {

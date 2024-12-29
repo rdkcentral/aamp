@@ -85,7 +85,7 @@ protected:
                 {eAAMPConfig_PersistHighNetworkBandwidth, false},
                 {eAAMPConfig_PersistLowNetworkBandwidth, false},
                 {eAAMPConfig_MidFragmentSeek, false},
-                {eAAMPConfig_PropogateURIParam, true},
+                {eAAMPConfig_PropagateURIParam, true},
                 {eAAMPConfig_DashParallelFragDownload, false},
                 {eAAMPConfig_DisableATMOS, false},
                 {eAAMPConfig_DisableEC3, false},
@@ -197,7 +197,7 @@ public:
         /**
          * @brief Get manifest helper method
          *
-         * @param[in] remoteUrl Manfiest url
+         * @param[in] remoteUrl Manifest url
          * @param[out] buffer Buffer containing manifest data
          * @retval true on success
         */
@@ -242,7 +242,7 @@ public:
         /**
          * @brief Get manifest helper method for MPDDownloader
          *
-         * @param[in] remoteUrl Manfiest url
+         * @param[in] remoteUrl Manifest url
          * @param[out] buffer Buffer containing manifest data
          * @retval true on success
         */
@@ -544,9 +544,9 @@ protected:
                         QueueContentProtection(period, adaptationSetIdx, mediaType, qGstProtectEvent, isVssPeriod);
                 }
 
-                void CallProcessAllContenProtForMediaType(AampMediaType type, uint32_t priorityAdaptationIdx, std::set<uint32_t> &chosenAdaptationIdxs)
+                void CallProcessAllContentProtectionForMediaType(AampMediaType type, uint32_t priorityAdaptationIdx, std::set<uint32_t> &chosenAdaptationIdxs)
                 {
-                        ProcessAllContenProtForMediaType(type, priorityAdaptationIdx, chosenAdaptationIdxs);
+                        ProcessAllContentProtectionForMediaType(type, priorityAdaptationIdx, chosenAdaptationIdxs);
                 }
 
                 bool CallOnAdEvent(AdEvent evt)
@@ -1022,7 +1022,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
         mTsbBandwidthResult = mStreamAbstractionAAMP_MPD->GetProfileIndexForBandwidth(mTsbBandwidth);
         EXPECT_EQ(mTsbBandwidthResult,0);
         /*
-        * Gets Max Bitrate avialable for current playback.
+        * Gets Max Bitrate available for current playback.
         * long MAX video bitrates
         */
         BitsPerSecond maxBitrate  = mStreamAbstractionAAMP_MPD->GetMaxBitrate();
@@ -1414,7 +1414,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 /**
  * @brief SeekPosUpdate test.
  *
- * Verify SeekPosUpdate() behaviour.
+ * Verify SeekPosUpdate() behavior.
  */
 TEST_F(FunctionalTests, SeekPosUpdateTest)
 {
@@ -2094,12 +2094,12 @@ TEST_F(StreamAbstractionAAMP_MPDTest, QueueContentProtectionTest)
         mStreamAbstractionAAMP_MPD->CallQueueContentProtection(period, adaptationSetIdx, mediaType, qGstProtectEvent, isVssPeriod);
 }
 
-TEST_F(StreamAbstractionAAMP_MPDTest, ProcessAllContenProtForMediaTypeTest)
+TEST_F(StreamAbstractionAAMP_MPDTest, ProcessAllContentProtectionForMediaTypeTest)
 {
         AampMediaType type = eMEDIATYPE_DEFAULT;
         uint32_t priorityAdaptationIdx = 12;
         std::set<uint32_t> chosenAdaptationIdxs;
-        mStreamAbstractionAAMP_MPD->CallProcessAllContenProtForMediaType(type, priorityAdaptationIdx, chosenAdaptationIdxs);
+        mStreamAbstractionAAMP_MPD->CallProcessAllContentProtectionForMediaType(type, priorityAdaptationIdx, chosenAdaptationIdxs);
 }
 
 TEST_F(StreamAbstractionAAMP_MPDTest, OnAdEventTest)

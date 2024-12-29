@@ -119,14 +119,14 @@ TEST_F(MetadataCacheTest, UpdateAndCheckMetadata) {
     std::vector<uint8_t> audioData = {20, 21, 22};
     
     // Update and check video metadata
-    Cache.UpdateMedatadaCache(videoMediaType, videoData);
+    Cache.UpdateMetadataCache(videoMediaType, videoData);
     EXPECT_FALSE(Cache.CheckNewMetadata(videoMediaType, videoData)); // Existing data
     
     std::vector<uint8_t> newVideoData = {10, 11, 12, 13, 14, 15}; // Different length
     EXPECT_TRUE(Cache.CheckNewMetadata(videoMediaType, newVideoData)); // New data
     
     // Update and check audio metadata
-    Cache.UpdateMedatadaCache(audioMediaType, audioData);
+    Cache.UpdateMetadataCache(audioMediaType, audioData);
     EXPECT_FALSE(Cache.CheckNewMetadata(audioMediaType, audioData)); // Existing data
     
     std::vector<uint8_t> newAudioData = {20, 21, 22, 23}; // Different data
@@ -146,12 +146,12 @@ TEST_F(MetadataCacheTest, CheckEmptyCache) {
     EXPECT_TRUE(Cache.CheckNewMetadata(videoMediaType, videoData)); // Cache is initially empty
     
     // Update cache with video data
-    Cache.UpdateMedatadaCache(videoMediaType, videoData);
+    Cache.UpdateMetadataCache(videoMediaType, videoData);
     
     // Check empty cache for audio media type
     EXPECT_TRUE(Cache.CheckNewMetadata(audioMediaType, audioData)); // Cache is empty for audio media type
 
-    Cache.UpdateMedatadaCache(audioMediaType, audioData);
+    Cache.UpdateMetadataCache(audioMediaType, audioData);
 
 }
 

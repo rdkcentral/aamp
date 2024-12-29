@@ -119,7 +119,7 @@ public:
 	virtual void setFrameRateForTM (int frameRate) = 0;
 
         /**
-          * @brief Reset PTS on subtitlSwitch
+          * @brief Reset PTS on subtitleSwitch
           *
           * @param[in] pBuffer - Pointer to the AampGrowableBuffer
           * @param[in] position - position of fragment
@@ -186,7 +186,7 @@ public:
 	virtual void setTrackOffset(double offset) = 0;
 
 	/**
-	* @brief Function to set skipped fragment duartion and skip point position
+	* @brief Function to set skipped fragment duration and skip point position
 	* @param[in] skipPoint - skip point position in seconds
 	* @param[in] skipDuration- duration in seconds to be skipped
 	*/

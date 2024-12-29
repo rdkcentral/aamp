@@ -85,7 +85,7 @@ public:
 	}
 	
 	size_t find( char c ) const
-	{ // returns offset to first occurance of character, or length if not found
+	{ // returns offset to first occurrence of character, or length if not found
 		size_t rc;
 		for( rc=0; rc<len; rc++ )
 		{
@@ -98,7 +98,7 @@ public:
 	}
 	
 	lstring mystrpbrk( void )
-	{ // extract next LF-deliminated substring
+	{ // extract next LF-delimited substring
 		lstring token;
 		size_t delim = find(CHAR_LF);
 		token = lstring(ptr,delim);

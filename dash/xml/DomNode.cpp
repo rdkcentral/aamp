@@ -32,7 +32,7 @@
 
 
 /**
- * @brief   verfies XML Node is of type XML_TEXT_NODE
+ * @brief verify XML Node is of type XML_TEXT_NODE
  * @retval  true if XML Node is of type XML_TEXT_NODE
  */
 bool DomNode::isText() {

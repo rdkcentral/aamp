@@ -1,5 +1,5 @@
 # AAMP L2 Tune time test
-Test used to check/verify the linear CDAI behaviour when ad init fragment fails to download
+Test used to check/verify the linear CDAI behavior when ad init fragment fails to download
 
 
 ## Test Files

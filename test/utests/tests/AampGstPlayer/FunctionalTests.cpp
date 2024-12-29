@@ -282,7 +282,7 @@ public:
 		EXPECT_CALL(*g_mockGLib, g_signal_connect_data(_,_,NotNull(),mAAMPGstPlayer,_,_))
 			.WillRepeatedly(Return(1));
 
-		// Initialise the video stream by calling the "deep-notify::source" callback
+		// Initialize the video stream by calling the "deep-notify::source" callback
 		void (*deep_notify_func)(GObject*, GObject*, GParamSpec*, gpointer) = 
 						(void (*)(GObject*, GObject*, GParamSpec*, gpointer))deep_notify_callback1;
 		deep_notify_func(G_OBJECT(deep_notify_playbin1), &orig, &pspec, mAAMPGstPlayer);

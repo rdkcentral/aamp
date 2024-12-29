@@ -154,7 +154,7 @@ class SegmentDownloader:
 class ManifestDownloader:
     """
     Manage polling for changes in a list of manifests and initiating a per
-    type processing when a change has occured..
+    type processing when a change has occurred..
     """
 
     def __init__(self, requests_session, manifest_checker, url_list, args):
@@ -273,7 +273,7 @@ class HLSChecker:
             wr_fn = url_to_filename(self.url)
         else:
             wr_fn = url_to_filename(self.url) + f".{self.file_no}"
-        # Write exactly as recieved
+        # Write exactly as received
         write_file(add_timestamp(wr_fn), cur_read)
 
         man = HLSManifest(self.url, content=cur_read)
@@ -341,7 +341,7 @@ class DASHChecker:
             else:
                 wr_fn = url_to_filename(self.url) + f".{self.file_no}"
 
-            # Writing exactly as recieved
+            # Writing exactly as received
             write_file(add_timestamp(wr_fn), cur_read)
             # Writing as recreated
             write_file(wr_fn, str(man))
@@ -520,7 +520,7 @@ if __name__ == "__main__":
         man = HLSManifest(filename_part, content=content)
 
         if man.is_master_manifest:
-            # Write exactly as recieved
+            # Write exactly as received
             write_file(add_timestamp(url_to_filename(url)), content)
 
             man = HLSMainManifest(url, content=content)
@@ -552,7 +552,7 @@ if __name__ == "__main__":
 
     elif ftype == "dash":
         content = response.content
-        # Write exactly as recieved
+        # Write exactly as received
         write_file(add_timestamp(url_to_filename(url)), content)
 
         man = DASHManifest(filename_part, content=content)

@@ -626,7 +626,7 @@ void  PrivateCDAIObjectMPD::PlaceAds(dash::mpd::IMPD *mpd)
 			}
 			else
 			{
-				//Current ad break finshed and the next ad break is avaialable.
+				//Current ad break finished and the next ad break is available.
 				//So need to call onAdEvent again from fetcher loop
 				if(!mAdtoInsertInNextBreakVec.empty())
 				{
@@ -991,7 +991,7 @@ MPD* PrivateCDAIObjectMPD::GetAdMPD(std::string &manifestUrl, bool &finalManifes
 }
 
 /**
- * @brief Method for fullfilling the Ad
+ * @brief Method for fulfilling the Ad
  *
  * @return bool - true if the Ad is fulfilled successfully
  */
@@ -1099,7 +1099,7 @@ bool PrivateCDAIObjectMPD::FulFillAdObject()
 		}
 		else
 		{
-			AAMPLOG_WARN("AdBreadkId[%s] not existing. Dropping the Ad.", periodId.c_str());
+			AAMPLOG_WARN("AdBreakId[%s] not existing. Dropping the Ad.", periodId.c_str());
 			SAFE_DELETE(ad);
 		}
 	}

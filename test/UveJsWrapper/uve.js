@@ -199,13 +199,13 @@ class AAMPDashJSPlayer {
         } else if (eventName === "playbackProgressUpdate") {
             this.player.on(dashjs.MediaPlayer.events["PLAYBACK_TIME_UPDATED"], function(evt) {
                 var eventObj = {};
-                eventObj.durationMiliseconds = this.player.duration() * 1000;
-                eventObj.positionMiliseconds = evt.time * 1000; 
+                eventObj.durationMilliseconds = this.player.duration() * 1000;
+                eventObj.positionMilliseconds = evt.time * 1000; 
                 eventObj.playbackSpeed = this.player.getPlaybackRate();
-                eventObj.startMiliseconds = 0; 
-                eventObj.endMiliseconds = 0;
+                eventObj.startMilliseconds = 0; 
+                eventObj.endMilliseconds = 0;
                 eventObj.currentPTS = 0;
-                eventObj.videoBufferedMiliseconds = 0; 
+                eventObj.videoBufferedMilliseconds = 0; 
                 eventObj.profileBandwidth = 0;
                 eventObj.networkBandwidth = 0;
                 eventObj.currentPlayRate = 0;
@@ -623,13 +623,13 @@ function mapVideotagEvents(player, playerName, eventName, eventCallback) {
     } else if (eventName === "playbackProgressUpdate") {
         this.video.addEventListener("timeupdate", function() {
             var eventObj = {};
-            eventObj.durationMiliseconds = this.video.duration * 1000;
-            eventObj.positionMiliseconds = this.video.currentTime * 1000; 
+            eventObj.durationMilliseconds = this.video.duration * 1000;
+            eventObj.positionMilliseconds = this.video.currentTime * 1000; 
             eventObj.playbackSpeed = this.video.playbackRate;
-            eventObj.startMiliseconds = 0; 
-            eventObj.endMiliseconds = 0;
+            eventObj.startMilliseconds = 0; 
+            eventObj.endMilliseconds = 0;
             eventObj.currentPTS = 0;
-            eventObj.videoBufferedMiliseconds = 0; 
+            eventObj.videoBufferedMilliseconds = 0; 
             eventObj.profileBandwidth = 0;
             eventObj.networkBandwidth = 0;
             eventObj.currentPlayRate = 0;

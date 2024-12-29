@@ -224,7 +224,7 @@ void AampMPDParseHelper::UpdateBoundaryPeriod(bool IsTrickMode)
 	}	
 }
 /**
-* @brief Get content protection from represetation/adaptation field
+* @brief Get content protection from representation/adaptation field
 * @retval content protections if present. Else NULL.
 */
 vector<IDescriptor*> AampMPDParseHelper::GetContentProtection(const IAdaptationSet *adaptationSet)
@@ -366,7 +366,7 @@ bool AampMPDParseHelper::IsEmptyAdaptation(IAdaptationSet *adaptationSet)
 	{
 		if(adaptationSet->GetRepresentation().size() > 0)
 		{
-			//Get first representation in the adapatation set
+			//Get first representation in the adaptation set
 			representation = adaptationSet->GetRepresentation().at(0);
 		}
 		if(representation)
@@ -402,7 +402,7 @@ bool AampMPDParseHelper::IsEmptyAdaptation(IAdaptationSet *adaptationSet)
 
 /**
  * @brief Check if adaptation set is iframe track
- * @param adaptationSet Pointer to adaptainSet
+ * @param adaptationSet Pointer to adaptationSet
  * @retval true if iframe track
  */
 bool AampMPDParseHelper::IsIframeTrack(IAdaptationSet *adaptationSet)

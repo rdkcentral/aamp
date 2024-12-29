@@ -155,7 +155,7 @@ void TestUtilDrm::setupChallengeCallbacksForExternalLicense()
 			(OpenCDMSession*)mockSessionInfo->session, mockSessionInfo->userData, url, challenge,
 			1);
 
-		// For DRM's which perform license acquistion outside the AampDRMSessionManager
+		// For DRM's which perform license acquisition outside the AampDRMSessionManager
 		// context(AampLicenseRequest::DRM_RETRIEVE) there wont be an opencdm_session_update
 		// call,hence trigger the keys_updated_callback as well within this callback
 		mockSessionInfo->callbacks.key_update_callback((OpenCDMSession*)mockSessionInfo->session,

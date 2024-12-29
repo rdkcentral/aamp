@@ -118,7 +118,7 @@ static const struct
 	{AAMP_DEFAULT_PLAYBACK_OFFSET, INT_MAX, eCONFIG_RANGE_PLAYBACK_OFFSET },
 	{-1, 60*60*10, eCONFIG_RANGE_HARVEST_DURATION },
 	{eABSOLUTE_PROGRESS_EPOCH, eABSOLUTE_PROGRESS_MAX, eCONFIG_RANGE_ABSOLUTE_REPORTING},
-	{ 1, 100, eCONFIG_RANGE_LLDBUFFER }, /** Minimum buffer should be a avarage chunk size(only int is possible), upper limit does not have much impact*/
+	{ 1, 100, eCONFIG_RANGE_LLDBUFFER }, /** Minimum buffer should be a average chunk size(only int is possible), upper limit does not have much impact*/
 	{0, 3, eCONFIG_RANGE_PLATFORM_TYPES},
 	{ eDIAG_OVERLAY_NONE, eDIAG_OVERLAY_EXTENDED, eCONFIG_RANGE_SHOW_DIAGNOSTICS_OVERLAY},
 };
@@ -300,7 +300,7 @@ static const ConfigLookupEntryBool mConfigLookupTableBool[AAMPCONFIG_BOOL_COUNT]
 	{false,"id3",eAAMPConfig_ID3Logging,false},
 	{true,"gstPositionQueryEnable",eAAMPConfig_EnableGstPositionQuery,false},
 	{false,"seekMidFragment",eAAMPConfig_MidFragmentSeek,false},
-	{true,"propagateUriParameters",eAAMPConfig_PropogateURIParam,false},
+	{true,"propagateUriParameters",eAAMPConfig_PropagateURIParam,false},
 	{true, "useWesterosSink",eAAMPConfig_UseWesterosSink,true},					// Toggle it via config based on platforms
 	{true,"useRetuneForUnpairedDiscontinuity",eAAMPConfig_RetuneForUnpairDiscontinuity,false},
 	{true,"useRetuneForGstInternalError",eAAMPConfig_RetuneForGSTError,false},
@@ -368,7 +368,7 @@ static const ConfigLookupEntryBool mConfigLookupTableBool[AAMPCONFIG_BOOL_COUNT]
 	{false, "trackMemory", eAAMPConfig_TrackMemory, false},
 	{DEFAULT_VALUE_USE_SINGLE_PIPELINE,"useSinglePipeline", eAAMPConfig_UseSinglePipeline, false},
 	// ideally would be named enableEarlyId3Processing for clarity, but to avoid partner confusion leaving original spelling for now
-	// this will eventually be default enbled and deprecated as a configuration
+	// this will eventually be default enabled and deprecated as a configuration
 	{false, "earlyProcessing", eAAMPConfig_EarlyID3Processing, false},
 	{false, "seamlessAudioSwitch", eAAMPConfig_SeamlessAudioSwitch, true},
 	{false, "useRialtoSink", eAAMPConfig_useRialtoSink, false},
@@ -1665,18 +1665,18 @@ void AampConfig::ReadBase64TR181Param()
 
 /**
 * @fn ReadAampCfgFromEnv parse and process AampCfg from environment variable
-* Ex usage : "AAMP_CFG_TEXT=info=true,progress=true" (pass as comma seperated text)
+* Ex usage : "AAMP_CFG_TEXT=info=true,progress=true" (pass as comma separated text)
 *       ( or ) "AAMP_CFG_BASE64=aW5mbz10cnVlCnByb2dyZXNzPXRydWU=" (Base64 for info=true and progress=true)
 * @return Void
 */
 void AampConfig::ReadAampCfgFromEnv()
 {
 	const char *envConf = getenv("AAMP_CFG_TEXT");
-	// First check for Comma seperated config text, this is done to make config  human readable
+	// First check for Comma separated config text, this is done to make config  human readable
 	// e.g info=true,progress=true
 	if(NULL != envConf)
 	{
-		std::string strEnvConfig = envConf; // make sure we copy this as recommonded by getEnv doc
+		std::string strEnvConfig = envConf; // make sure we copy this as recommended by getEnv doc
 		AAMPLOG_MIL("ReadAampCfgFromEnv:Text ENV:%s len:%zu ",strEnvConfig.c_str(),strEnvConfig.length());
 		std::stringstream ss (strEnvConfig);
 		std::string item;
@@ -1796,7 +1796,7 @@ void AampConfig::ReadOperatorConfiguration()
 	// Not all parameters are supported as  individual  tr181 parameter hence keeping base64 version.
 	ReadBase64TR181Param();
 
-	// new way of reading RFC for each seperate parameter it will override any parameter set before ReadBase64TR181Param
+	// new way of reading RFC for each separate parameter it will override any parameter set before ReadBase64TR181Param
 	// read all individual  config parameters,
 	ReadAllTR181Params();
 
@@ -1831,12 +1831,12 @@ void AampConfig::ReadOperatorConfiguration()
 		SetConfigValue(AAMP_OPERATOR_SETTING,eAAMPConfig_EnableClientDai,true);
 	}
 
-	const char *env_enable_westoros_sink = getenv("AAMP_ENABLE_WESTEROS_SINK");
-	if(env_enable_westoros_sink)
+	const char *env_enable_westeros_sink = getenv("AAMP_ENABLE_WESTEROS_SINK");
+	if(env_enable_westeros_sink)
 	{
 
-		int iValue = atoi(env_enable_westoros_sink);
-		bool bValue = (strcasecmp(env_enable_westoros_sink,"true") == 0);
+		int iValue = atoi(env_enable_westeros_sink);
+		bool bValue = (strcasecmp(env_enable_westeros_sink,"true") == 0);
 
 		AAMPLOG_INFO("AAMP_ENABLE_WESTEROS_SINK present, Value = %d", (bValue ? bValue : (iValue ? iValue : 0)));
 
@@ -2127,7 +2127,7 @@ void AampConfig::RestoreConfiguration(ConfigPriority owner, AAMPConfigSettingStr
 }
 
 /**
- * @brief ShowConfiguration - Function to list configration values based on the owner
+ * @brief ShowConfiguration - Function to list configuration values based on the owner
  */
 void AampConfig::ShowConfiguration(ConfigPriority owner)
 {
@@ -2253,9 +2253,9 @@ int main()
 	var2.SetConfigValue(AAMP_OPERATOR_SETTING,eAAMPConfig_LicenseServerUrl,"Testing URL");
 	var2.SetConfigValue(AAMP_APPLICATION_SETTING,eAAMPConfig_DisableATMOS,true);
 	var2.ShowAAMPConfiguration();
-	const char *ovrride = var2.GetChannelOverride("HBOCM"))
+	const char *override = var2.GetChannelOverride("HBOCM"))
 	{
-		printf("Ch override for HBO: %s\n", ovrride );
+		printf("Ch override for HBO: %s\n", override );
 	}
 	return 0;
 }

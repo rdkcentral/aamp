@@ -22,7 +22,7 @@
 
 /**
  * @file AampDrmHelper.h
- * @brief Implented DRM helper functionalities
+ * @brief Implemented DRM helper functionalities
  */
 
 #include <string>
@@ -265,7 +265,7 @@ public:
 	/**
          * @brief Default weighting of a helper factory.
 	 * Nominal scale of 0 to DEFAULT_WEIGHTING * 2
-	 * Larger weightings have lower priority
+	 * Larger weights have lower priority
 	 */
 	static const int DEFAULT_WEIGHTING = 50;
 

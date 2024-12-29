@@ -32,7 +32,7 @@
 /**
  * @brief convert binary data to hascii-encoded equivalent
  * @retval pointer to malloc'd cstring containing base16-encoded copy
- * @retval NULL if unsufficient memory to allocate base16-encoded copt
+ * @retval NULL if unsufficient memory to allocate base16-encoded copy
  * @note caller responsible for freeing returned cstring
  * @note returned string will always contain an even number of characters
  */

@@ -424,13 +424,13 @@ TEST_F(AampLogManagerTest, LogDRMError_Test4)
     //Arrange: Creating the variables for passing to arguments
     int major = 3321;
     int minor = 102;
-    std::string description = "Invalid signiture request on the Adobe individualization request. Expired certs can cause this, so the first course of action is to verify if the certs, temp baked in or production fkps, have not expired.";
+    std::string description = "Invalid signature request on the Adobe individualization request. Expired certs can cause this, so the first course of action is to verify if the certs, temp baked in or production fkps, have not expired.";
 
     //Act: Calling the function for test
 	AampLogManager::LogDRMError(major, minor);
 
     //Assert: checking values are equal or not
-    EXPECT_STREQ(description.c_str(),"Invalid signiture request on the Adobe individualization request. Expired certs can cause this, so the first course of action is to verify if the certs, temp baked in or production fkps, have not expired.");
+    EXPECT_STREQ(description.c_str(),"Invalid signature request on the Adobe individualization request. Expired certs can cause this, so the first course of action is to verify if the certs, temp baked in or production fkps, have not expired.");
 }
 
 /**
@@ -492,13 +492,13 @@ TEST_F(AampLogManagerTest, LogDRMError_Test8)
     //Arrange: Creating the variables for passing to arguments
     int major = 3322;
     int minor = 1000595;
-    std::string description = "Device binding failure. DRM data cached by the player at /opt/persistent/adobe, may be corrupt, missing, or innaccesible due to file permision. Please check this folder. A factory reset may be required to fix this and force a re-individualization of the box to reset that data.";
+    std::string description = "Device binding failure. DRM data cached by the player at /opt/persistent/adobe, may be corrupt, missing, or inaccessible due to file permission. Please check this folder. A factory reset may be required to fix this and force a re-individualization of the box to reset that data.";
 
     //Act: Calling the function for test
 	AampLogManager::LogDRMError(major, minor);
     
     //Assert: checking values are equal or not
-    EXPECT_STREQ(description.c_str(),"Device binding failure. DRM data cached by the player at /opt/persistent/adobe, may be corrupt, missing, or innaccesible due to file permision. Please check this folder. A factory reset may be required to fix this and force a re-individualization of the box to reset that data.");
+    EXPECT_STREQ(description.c_str(),"Device binding failure. DRM data cached by the player at /opt/persistent/adobe, may be corrupt, missing, or inaccessible due to file permission. Please check this folder. A factory reset may be required to fix this and force a re-individualization of the box to reset that data.");
 }
 
 /**

@@ -108,7 +108,7 @@ public:
 	 */
 	void CMCDSetNetworkMetrics(AampMediaType mediaType, int startTransferTime, int totalTime, int dnsLookUpTime);
 	/**
-	 * @brief CMCDGetHeaders Get the CMCD headers to add in downlaod request
+	 * @brief CMCDGetHeaders Get the CMCD headers to add in download request
 	 *
 	 * @return None
 	 */

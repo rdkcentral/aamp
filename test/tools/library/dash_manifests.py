@@ -544,7 +544,7 @@ class DASHManifest(Manifest):
 
                 tlines = self.tlines[templ] # RDKAAMP-1834
 
-                # Handle first time for this template within a Represetation
+                # Handle first time for this template within a Representation
                 if seg_no < 0:
                     attrs = AttribList(adpset.attrib)
                     setattr(attrs,"period_id",period_id)
@@ -563,7 +563,7 @@ class DASHManifest(Manifest):
                     seg_list.new_file(key, encrypted, attrs)
                     fn = templ.get("initialization")
 
-                    # Handle template with an initialisation file
+                    # Handle template with an initialization file
                     if fn is not None:
                         log.debug(fn)
                         if abs_paths:
@@ -599,7 +599,7 @@ class DASHManifest(Manifest):
 
                     if end_num <= seg_no: log.debug("Continue - Pass.")
 
-                    # Generate the names of the files from increasing segement value using $Number$
+                    # Generate the names of the files from increasing segment value using $Number$
                     for n in range(
                         start_num if seg_no < start_num else seg_no, end_num
                     ):
@@ -624,7 +624,7 @@ class DASHManifest(Manifest):
                         segment_d = int(seg.get("d"))
                         intv = segment_d / ts
 
-                        # Generate the names of the files from increasing segement value using $Number$
+                        # Generate the names of the files from increasing segment value using $Number$
                         for num in range(
                             start_num if seg_no < start_num else seg_no, end_num
                         ):
@@ -687,11 +687,11 @@ class DASHManifest(Manifest):
                         else self.urls.get(adpset, prefix)
                     )
 
-                    # Handle first time for SegmentList within a Represetation
+                    # Handle first time for SegmentList within a Representation
                     if seg_no < 0:
                         fn = None
 
-                        # Search for initialisation
+                        # Search for initialization
                         for segurl in segml:
                             if segurl.tag.endswith("Initialization"):
                                 fn = segurl.get("sourceURL")
@@ -705,7 +705,7 @@ class DASHManifest(Manifest):
                             attrs,
                         )
 
-                        # Handle segmentlist with an initialisation file
+                        # Handle segmentlist with an initialization file
                         if fn is not None:
                             if abs_paths:
                                 fn = self.abs_path(fn, segml_prefix)

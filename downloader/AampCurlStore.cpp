@@ -32,7 +32,7 @@ static pthread_mutex_t gCurlShMutex = PTHREAD_MUTEX_INITIALIZER;
  * @brief
  * @param curl ptr to CURL instance
  * @param data curl data lock
- * @param acess curl access lock
+ * @param access curl access lock
  * @param user_ptr CurlCallbackContext pointer
  * @retval void
  */
@@ -72,7 +72,6 @@ static void curl_lock_callback(CURL *curl, curl_lock_data data, curl_lock_access
  * @brief
  * @param curl ptr to CURL instance
  * @param data curl data lock
- * @param acess curl access lock
  * @param user_ptr CurlCallbackContext pointer
  * @retval void
  */
@@ -943,14 +942,14 @@ void CurlStore::FlushCurlSockForHost(const std::string &hostname)
 			}
 			else
 			{
-				AAMPLOG_WARN("no curl shared context avilable for %s",(removeIter->first).c_str());
+				AAMPLOG_WARN("no curl shared context available for %s",(removeIter->first).c_str());
 			}
 			SAFE_DELETE(RmCurlSock);
 			umCurlSockDataStore.erase(removeIter);
 		}
 		else
 		{
-			AAMPLOG_WARN("mCurlStoreUserCountis still %d.someone is using wait for them to complete the task",RmCurlSock->mCurlStoreUserCount);
+			AAMPLOG_WARN("mCurlStoreUserCount is still %d.someone is using wait for them to complete the task",RmCurlSock->mCurlStoreUserCount);
 		}
 	}
 	else

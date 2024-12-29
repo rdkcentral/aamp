@@ -75,7 +75,7 @@ namespace aamp
 			return false;
 		}
 
-		void MetadataCache::UpdateMedatadaCache(AampMediaType mediaType, std::vector<uint8_t> data)
+		void MetadataCache::UpdateMetadataCache(AampMediaType mediaType, std::vector<uint8_t> data)
 		{
 		}
 

@@ -67,7 +67,7 @@ typedef struct playlistcacheddata{
  * @brief InitFragCacheStruct to store Init Fragment data
  * Init fragment cache mechanism
  * All types (VID/AUD/SUB/AUX) of Init Fragment maintained in a single Cache Table,
- * and these fragment's url are stored in a Track Queue corrsponding to file type.
+ * and these fragment's url are stored in a Track Queue corresponding to file type.
  * This queue will be used to count fragments inserted, to remove entry in FIFO order
  * upon exceeding limit with respect to file type.
  * Eg:
@@ -95,16 +95,16 @@ typedef struct playlistcacheddata InitFragCacheStruct;
  */
 typedef struct initfragtrackstruct
 {
-	std::queue<std::string> Trackqueue;
+	std::queue<std::string> trackQueue;
 
-	initfragtrackstruct() : Trackqueue()
+	initfragtrackstruct() : trackQueue()
 	{
 	}
 }InitFragTrackStruct;
 
 /**
  * @class AampCacheHandler
- * @brief Handles Aamp Cahe operations
+ * @brief Handles Aamp cache operations
  */
 
 class AampCacheHandler

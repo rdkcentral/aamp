@@ -43,7 +43,7 @@ struct LicensePreFetchObject
 {
 	std::shared_ptr<AampDrmHelper> mHelper; /** drm helper for the content protection*/
 	std::string mPeriodId;                  /** Period ID*/
-	uint32_t mAdaptationIdx;                /** Adapatation Index*/
+	uint32_t mAdaptationIdx;                /** adaptation Index*/
 	AampMediaType mType;                        /** Stream type*/
 	int mId;                                /** Object ID*/
 	static int staticId;
@@ -229,8 +229,8 @@ private:
 	std::condition_variable mQCond;                     /** Conditional variable to notify addition of an obj to mFetchQueue*/
 	bool mPreFetchThreadStarted;                        /** Flag denotes if thread started*/
 	bool mExitLoop;                                     /** Flag denotes if pre-fetch thread has to be exited*/
-	int mCommonKeyDuration;                             /** Common key duration for deferred license acquistion*/
-	std::array<bool, AAMP_TRACK_COUNT> mTrackStatus;    /** To mark the status of license acquistion for tracks*/
+	int mCommonKeyDuration;                             /** Common key duration for deferred license acquisition*/
+	std::array<bool, AAMP_TRACK_COUNT> mTrackStatus;    /** To mark the status of license acquisition for tracks*/
 	bool mSendErrorOnFailure;                           /** To send error event when session creation fails without additional checks*/
 
 	PrivateInstanceAAMP *mPrivAAMP;                     /** PrivateInstanceAAMP instance*/

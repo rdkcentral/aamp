@@ -495,7 +495,7 @@ void aamp_SetPageHttpHeaders(const char* headerJson)
 				}
 				child = child->next;
 			}
-			if(!key.empty() && key == "X-PRIVACY-SETTINGS")/* Condition is added to filter out header "X-PRIVACY-SETTINGS" since other headres like X-Forwarded-For/User-Agent/Accept-Language/ are appearing in case of x1 **/
+			if(!key.empty() && key == "X-PRIVACY-SETTINGS")/* Condition is added to filter out header "X-PRIVACY-SETTINGS" since other headers like X-Forwarded-For/User-Agent/Accept-Language/ are appearing in case of x1 **/
 			{
 				//insert key value pairs one by one
 				g_PageHttpHeaders.insert(std::make_pair(key, val));

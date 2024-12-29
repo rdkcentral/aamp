@@ -19,7 +19,7 @@
 
 /**
  * @file CLicenseStatistics.cpp
- * @brief File contails the stat about the License for encrypted fragment
+ * @brief File contains the stat about the License for encrypted fragment
  */
 
 #include "IPLicnsStatistics.h"
@@ -41,7 +41,7 @@ cJSON * CLicenseStatistics::ToJson() const
 		if(monitor)
 		{
 			cJSON * jsonObj = NULL;// cJSON_CreateNumber(mTotalRotations);
-			//  Commenting TAG_TOTAL_ROTATIONS License rotation is not reliable as it represent metadata change which may happen even if there is no chnage in key
+			//  Commenting TAG_TOTAL_ROTATIONS License rotation is not reliable as it represent metadata change which may happen even if there is no change in key
 			//cJSON_AddItemToObject(monitor, TAG_TOTAL_ROTATIONS, jsonObj);
 			if(mTotalEncryptedToClear > 0)
 			{
@@ -93,18 +93,18 @@ void CLicenseStatistics::IncrementCount(VideoStatCountType type)
 /**
  *   @brief  Records license stat
  */
-void CLicenseStatistics::Record_License_EncryptionStat(bool  isEncypted, bool isKeyChanged)
+void CLicenseStatistics::Record_License_EncryptionStat(bool  isEncrypted, bool isKeyChanged)
 {
     if(isInitialized)
     {
         // Encrypted to clear
-        if(mbEncypted   && !isEncypted)
+        if(mbEncrypted   && !isEncrypted)
         {
             IncrementCount(VideoStatCountType::COUNT_LIC_ENC_TO_CLR);
         }
 
         // Clear  to Encrypted
-        if(!mbEncypted   && isEncypted)
+        if(!mbEncrypted   && isEncrypted)
         {
             IncrementCount(VideoStatCountType::COUNT_LIC_CLR_TO_ENC);
         }
@@ -119,5 +119,5 @@ void CLicenseStatistics::Record_License_EncryptionStat(bool  isEncypted, bool is
     {
         isInitialized = true;
     }
-    mbEncypted = isEncypted;
+    mbEncrypted = isEncrypted;
 }

@@ -16,29 +16,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
 */
-//
-//  Path.cpp
-
 /**
  * @file Path.cpp
  * @brief
  */
-
 #include "Path.h"
-//#include "../DownloadHelper.h"
 #include <stdlib.h>
-
-// system includes
-#ifdef _WIN32
-#include <windows.h>
-#define SEP '\\'
-#else
-
 #include <unistd.h>
 #include <stdexcept>
 
 #define SEP '/'
-#endif
 
 using std::string;
 
@@ -47,7 +34,6 @@ using std::string;
  * @param   Path
  */
 Path::Path(const string &path) : path(path) {
-
 }
 
 /**
@@ -57,15 +43,6 @@ Path::Path(const string &path) : path(path) {
 string Path::toString() {
     return path;
 }
-
-#if 0
-/**
- * @brief   creates directory
- */
-void Path::mkdirs() {
-    mkdir_recursive(this->toString());
-}
-#endif
 
 /**
  * @brief   Removes last component
@@ -107,28 +84,6 @@ Path Path::operator/(const Path &other) {
     return self;
 }
 
-// system implementation
-#ifdef _WIN32
-/**
- * @brief   Gets File Attributes
- * @retval  True or False
- */
-bool Path::exists() {
-    return GetFileAttributesA(path.c_str()) != 0xffffffff;
-}
-
-/**
- * @brief   Absolute Path
- * @retval  Path
- */
-Path Path::absolutePath() {
-    char resolved_path[_MAX_PATH];
-    _fullpath(resolved_path, path.c_str(), _MAX_PATH);
-    return Path(String(resolved_path));
-}
-
-#else
-
 /**
  * @brief   Gets File Attributes
  * @retval  Returns True or False
@@ -146,7 +101,6 @@ Path Path::absolutePath() {
     realpath(path.c_str(), resolved_path);
     return Path(String(resolved_path));
 }
-#endif
 
 /**
  * @brief   Relative Path
@@ -178,7 +132,7 @@ Path Path::relativeTo(const Path &parent) {
 
 /**
  * @brief   validates paths
- * @param   To be comapared other Path
+ * @param   To be compared other Path
  * @retval  true if both paths are not same
  */
 bool Path::operator!=(const Path &other) {
@@ -205,7 +159,6 @@ Path Path::removeTrailingSeparator() const {
  * @retval  true if path starts with '/'
  */
 bool Path::isRoot() const {
-    // TODO implement Windows code
     return path == "/";
 }
 
@@ -214,7 +167,6 @@ bool Path::isRoot() const {
  * @retval  true if path doesnt start with '/'
  */
 bool Path::isRelative() const {
-    // TODO implement Windows code
     return path[0] != '/';
 }
 
@@ -225,19 +177,4 @@ bool Path::isRelative() const {
  */
 bool Path::operator==(const Path &other) {
     return this->path == other.path;
-}
-
-/**
- * @brief   canonical path
- * @retval  returns Path
- */
-Path Path::canonical() const {
-#ifndef WIN32
-    char buf[8192] = {0};
-    realpath(this->path.c_str(), buf);
-    string c(buf);
-    return Path(c);
-# else
-    throw std::runtime_error("Not yet implemented on WIN32");
-#endif
 }

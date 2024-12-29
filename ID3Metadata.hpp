@@ -94,7 +94,7 @@ public:
 	 * @param[in] mediaType The packet's media type
 	 * @param[in] data The data to insert into the cache
 	 */
-	void UpdateMedatadaCache(AampMediaType mediaType, std::vector<uint8_t> data);
+	void UpdateMetadataCache(AampMediaType mediaType, std::vector<uint8_t> data);
 	
 private:
 

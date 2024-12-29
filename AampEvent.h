@@ -39,7 +39,7 @@
 #define MAX_BITRATE_COUNT 10
 #define MAX_SUPPORTED_SPEED_COUNT 12 /* [-64, -32, -16, -4, -1, 0, 0.5, 1, 4, 16, 32, 64] */
 
-//forward declarartion to avoid header file dependency
+//forward declaration to avoid header file dependency
 struct VTTCue;
 
 /**
@@ -123,7 +123,7 @@ typedef enum
 	AAMP_TUNE_INIT_FAILED_PLAYLIST_AUDIO_DNLD_ERROR,   /**< Tune failure due to audio playlist download error*/
 	AAMP_TUNE_INIT_FAILED_TRACK_SYNC_ERROR,	           /**< Tune failure due to A/V track sync error*/
 	AAMP_TUNE_MANIFEST_REQ_FAILED,			   /**< Tune failure caused by manifest fetch failure*/
-	AAMP_TUNE_AUTHORISATION_FAILURE,		   /**< Not authorised to view the content*/
+	AAMP_TUNE_AUTHORIZATION_FAILURE,		   /**< Not authorized to view the content*/
 	AAMP_TUNE_FRAGMENT_DOWNLOAD_FAILURE,		   /**< When fragment download fails for 5 consecutive fragments*/
 	AAMP_TUNE_INIT_FRAGMENT_DOWNLOAD_FAILURE,	   /**< Unable to download init fragment*/
 	AAMP_TUNE_UNTRACKED_DRM_ERROR,			   /**< DRM error*/
@@ -207,7 +207,7 @@ typedef enum
  * @brief Structure of the AAMP events.
  * Recommend new AAMP integration layers to use AAMPEventObject based listener
  * For new event definition, should use AAMPEventObject class
- * TODO: Deperecate in future, kept for backward compatibility only
+ * TODO: Deprecate in future, kept for backward compatibility only
  */
 struct AAMPEvent
 {
@@ -238,18 +238,24 @@ struct AAMPEvent
 		 */
 		struct
 		{
-			double durationMiliseconds; 		/**< current size of time shift buffer */
-			double positionMiliseconds; 		/**< current play/pause position relative to tune time - starts at zero) */
+			double durationMilliseconds; 		/**< current size of time shift buffer */
+			double positionMilliseconds; 		/**< current play/pause position relative to tune time - starts at zero) */
 			float playbackSpeed;        		/**< current trick speed (1.0 for normal play rate) */
-			double startMiliseconds;    		/**< time shift buffer start position (relative to tune time - starts at zero) */
-			double endMiliseconds;      		/**< time shift buffer end position (relative to tune time - starts at zero) */
+			double startMilliseconds;    		/**< time shift buffer start position (relative to tune time - starts at zero) */
+			double endMilliseconds;      		/**< time shift buffer end position (relative to tune time - starts at zero) */
 			long long videoPTS; 			/**< Video Presentation 90 Khz time-stamp  */
-			double videoBufferedMiliseconds;	/**< current duration of buffered video ready to playback */
+			double videoBufferedMilliseconds;	/**< current duration of buffered video ready to playback */
 			const char* timecode;			/**< SEI Timecode information */
 			double liveLatency;			/**< Live latency */
 			long profileBandwidth;      /**< Profile Bandwidth */
 			long networkBandwidth;      /**< Network Bandwidth*/
 			double currentPlayRate; /**< CurrentPlayRate */
+			
+			// TBR! for backwards compatibility with rdk/components/generic/rdkmediaplayer/aamp/aampplayer.cpp
+			double durationMiliseconds;
+			double positionMiliseconds;
+			double startMiliseconds;
+			double endMiliseconds;
 		} progress;
 
 		/**
@@ -257,7 +263,7 @@ struct AAMPEvent
 		 */
 		struct
 		{
-			double positionMiliseconds;	/**< new seeked position in milliseconds */
+			double positionMilliseconds;	/**< new seeked position in milliseconds */
 		} seeked;
 
 		/**
@@ -293,7 +299,7 @@ struct AAMPEvent
 		 */
 		struct
 		{
-			long durationMiliseconds;                                       /**< Asset duration */
+			long durationMilliseconds;                                       /**< Asset duration */
 			int languageCount;                                              /**< Available language count */
 			char languages[MAX_LANGUAGE_COUNT][MAX_LANGUAGE_TAG_LENGTH];    /**< Available languages */
 			int bitrateCount;                                               /**< Available bitrate count */
@@ -305,6 +311,9 @@ struct AAMPEvent
 			float supportedSpeeds[MAX_SUPPORTED_SPEED_COUNT];                 /**< Supported playback speeds */
 			double programStartTime;                                        /**< Program/Availability start time */
 			int tsbDepthMs;                                                 /**< TsbDepth in MilliSeconds*/
+			
+			// TBR! for backwards compatibility with rdk/components/generic/rdkmediaplayer/aamp/aampplayer.cpp
+			long durationMiliseconds;
 		} metadata;
 
 		/**
@@ -333,7 +342,7 @@ struct AAMPEvent
 		struct
 		{
 			const char* szMetaContent;      /**< Metadata content */
-		} bulktimedMetadata;
+		} bulkTimedMetadata;
 
 		/**
 		 * @brief Structure of the Java Script event
@@ -1131,7 +1140,7 @@ public:
 	 * @param[in] position   - Position
 	 * @param[in] cappedProfile - Profile capping status
 	 * @param[in] displayWidth - Output tv display width
-	 * @param[in] displayHeight - Output tv dispay height
+	 * @param[in] displayHeight - Output tv display height
 	 * @param[in] videoScanType   - Video Scan Type
 	 * @param[in] position   - Aspect Ratio Width
 	 * @param[in] position   - Aspect Ratio Height
@@ -1661,7 +1670,7 @@ public:
 	/**
 	 * @brief Set Header response from license request
 	 *
-	 * @param[in] vector of header reponse
+	 * @param[in] vector of header response
 	 * @return void
 	 */
 	void setHeaderResponses(const std::vector<std::string> &responses);

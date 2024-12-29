@@ -1,5 +1,5 @@
 # AAMP L2 Linear CDAI test
-<p> Test used to check/verify the linear CDAI behaviour and APIs</p>
+<p> Test used to check/verify the linear CDAI behavior and APIs</p>
 
 ## Test Scenarios
 

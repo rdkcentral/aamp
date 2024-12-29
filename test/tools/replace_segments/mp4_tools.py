@@ -647,7 +647,7 @@ class mp4_trun(mp4_box):
     def ensure_flags(self):
         """
         Ensure that the table entries contain the 'flags' field. This is needed because
-        concatinating and spliting 'trun' box means that I frames may be moved from the
+        concatenating and spliting 'trun' box means that I frames may be moved from the
         beginning to the middle of the table and this needs the presence of the 'flags'
         to indicate as such.
         """
@@ -1013,13 +1013,13 @@ class transcode_flist(object):
 
     def get_init_fn(self):
         """
-        Return the initialisation output file name.
+        Return the initialization output file name.
         """
         return self.init_file
 
     def __iter__(self):
         """
-        Return a generator that returns the segement output file names.
+        Return a generator that returns the segment output file names.
         """
         for fn in self.flist:
             yield fn

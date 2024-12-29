@@ -80,7 +80,7 @@ struct DrmInfo
 	DrmMethod method;			/**< Encryption method */
 	MediaFormat mediaFormat;		/**< Format of the media being played e.g. DASH, HLS*/
 	bool useFirst16BytesAsIV;
-	bool bPropagateUriParams;		/**< Propagagate Manifest uri params in DRM */
+	bool bPropagateUriParams;		/**< Propagate Manifest uri params in DRM */
 	bool bUseMediaSequenceIV;		/**< To create IV using media sequence number */
 	bool bDecryptClearSamplesRequired;		/**< Process call to decrypt clear samples */
 	unsigned char *iv;			/**< [16] Initialisation vector */

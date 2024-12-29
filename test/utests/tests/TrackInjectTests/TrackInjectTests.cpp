@@ -168,7 +168,7 @@ public:
 			{eAAMPConfig_PersistHighNetworkBandwidth, false},
 			{eAAMPConfig_PersistLowNetworkBandwidth, false},
 			{eAAMPConfig_MidFragmentSeek, false},
-			{eAAMPConfig_PropogateURIParam, true},
+			{eAAMPConfig_PropagateURIParam, true},
 			{eAAMPConfig_DashParallelFragDownload, false},
 			{eAAMPConfig_DisableATMOS, false},
 			{eAAMPConfig_DisableEC3, false},

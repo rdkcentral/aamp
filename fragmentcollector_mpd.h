@@ -278,7 +278,7 @@ public:
 	 * @fn Is4KStream
 	 * @brief check if current stream have 4K content
 	 * @param height - resolution of 4K stream if found
-	 * @param bandwidth - bandwidth of 4K stream if foudd
+	 * @param bandwidth - bandwidth of 4K stream if found
 	 * @return true on success 
 	 */
 	virtual bool Is4KStream(int &height, BitsPerSecond &bandwidth) override;
@@ -326,10 +326,10 @@ public:
 	 */
 	const IAdaptationSet* GetAdaptationSetAtIndex(int idx);
 	/**
-	 * @fn GetAdaptationSetAndRepresetationIndicesForProfile
+	 * @fn GetAdaptationSetAndRepresentationIndicesForProfile
 	 * @param[in] idx - Profile Index
 	 */
-	struct ProfileInfo GetAdaptationSetAndRepresetationIndicesForProfile(int profileIndex);
+	struct ProfileInfo GetAdaptationSetAndRepresentationIndicesForProfile(int profileIndex);
 	int64_t GetMinUpdateDuration() { return mMinUpdateDurationMs;}
 	/**
 	 * @fn FetchFragment
@@ -832,12 +832,12 @@ protected:
 
 	/**
 	 * @fn SeekInPeriod
-	 * @param seekPositionSeconds seek positon in seconds
+	 * @param seekPositionSeconds seek position in seconds
 	 */
 	void SeekInPeriod( double seekPositionSeconds, bool skipToEnd = false);	
 	/**
 	 * @fn ApplyLiveOffsetWorkaroundForSAP
-	 * @param seekPositionSeconds seek positon in seconds.
+	 * @param seekPositionSeconds seek position in seconds.
  	 */
 	void ApplyLiveOffsetWorkaroundForSAP(double seekPositionSeconds);
 	/**
@@ -873,10 +873,10 @@ protected:
 	 */
 	bool CheckProducerReferenceTimeUTCTimeMatch(IProducerReferenceTime *pRT);
 	/**
-	 * @fn PrintProducerReferenceTimeAtrributes
+	 * @fn PrintProducerReferenceTimeAttributes
 	 * @param pRT Pointer to ProducerReferenceTime
 	 */
-	void PrintProducerReferenceTimeAtrributes(IProducerReferenceTime *pRT);
+	void PrintProducerReferenceTimeAttributes(IProducerReferenceTime *pRT);
 	/**
 	 * @fn GetProducerReferenceTimeForAdaptationSet
 	 * @param adaptationSet Pointer to AdaptationSet
@@ -913,7 +913,7 @@ protected:
 	 * @param[in] type - media type
 	 * @param[in] lang - language to be matched
 	 * @param[in] adaptationSet - adaptation to be checked for
-	 * @param[out] representionIndex - represention within adaptation with matching params
+	 * @param[out] representationIndex - representation within adaptation with matching params
 	 */
 	bool IsMatchingLanguageAndMimeType(AampMediaType type, std::string lang, IAdaptationSet *adaptationSet, int &representationIndex);
 	/**
@@ -936,8 +936,8 @@ protected:
 	 * @param[out] selectedRepIdx - Selected representation index
 	 * @param[out] selectedCodecType type of desired representation
 	 * @param[out] selectedRepBandwidth - selected audio track bandwidth
-	 * @param disableEC3 whether EC3 deabled by config
-	 * @param disableATMOS whether ATMOS audio deabled by config
+	 * @param disableEC3 whether EC3 disabled by config
+	 * @param disableATMOS whether ATMOS audio disabled by config
  	 */
 	bool GetPreferredCodecIndex(IAdaptationSet *adaptationSet, int &selectedRepIdx, AudioType &selectedCodecType, 
 	uint32_t &selectedRepBandwidth, long &bestScore, bool disableEC3, bool disableATMOS, bool disableAC4, bool disableAC3, bool &disabled);
@@ -960,7 +960,7 @@ protected:
 	 * @fn PopulateTrackInfo
 	 * @param media - Media type 
 	 * @param - Do need to reset vector?
-	 * @retun none
+	 * @return none
 	 */
 	void PopulateTrackInfo(AampMediaType media, bool reset=false);
 
@@ -977,14 +977,14 @@ protected:
 	void QueueContentProtection(IPeriod* period, uint32_t adaptationSetIdx, AampMediaType mediaType, bool qGstProtectEvent = true, bool isVssPeriod = false);
 
 	/**
-	 * @fn ProcessAllContenProtForMediaType
+	 * @fn ProcessAllContentProtectionForMediaType
 	 * @param[in] type - media type
 	 * @param[in] priorityAdaptationIdx - selected adaption index, to be processed with priority
 	 * @param[in] chosenAdaptationIdxs - selected adaption indexes, might be empty for certain playback cases
 	 * @brief process content protection of all the adaptation for the given media type
 	 * @retval none
 	 */
-	void ProcessAllContenProtForMediaType(AampMediaType type, uint32_t priorityAdaptationIdx, std::set<uint32_t> &chosenAdaptationIdxs);
+	void ProcessAllContentProtectionForMediaType(AampMediaType type, uint32_t priorityAdaptationIdx, std::set<uint32_t> &chosenAdaptationIdxs);
 
 	bool PlacenextAdBrkifAvail(dash::mpd::IMPD *mpd);
 
@@ -1065,7 +1065,7 @@ protected:
 	int mCommonKeyDuration;
 
 	// DASH does not use abr manager to store the supported bandwidth values,
-	// hence storing max TSB bandwith in this variable which will be used for VideoEnd Metric data via
+	// hence storing max TSB bandwidth in this variable which will be used for VideoEnd Metric data via
 	// StreamAbstractionAAMP::GetMaxBitrate function,
 	long mMaxTSBBandwidth;
 
@@ -1129,9 +1129,9 @@ protected:
 	*/
 	bool CheckForVssTags();
 	/**
-	* @fn ProcessVssLicenseRequset
+	* @fn ProcessVssLicenseRequest
 	*/
-	void ProcessVssLicenseRequset();
+	void ProcessVssLicenseRequest();
 	/**
 	* @fn GetAvailableVSSPeriods
 	* @param PeriodIds VSS Periods

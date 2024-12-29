@@ -233,8 +233,8 @@ bool Get::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 					}
 				case 18:
 					{
-						std::string prefferedLanguages = playerInstanceAamp->GetPreferredLanguages();
-						printf("[AAMPCLI] PREFERRED LANGUAGES = \"%s\"\n", prefferedLanguages.c_str() );
+						std::string preferredLanguages = playerInstanceAamp->GetPreferredLanguages();
+						printf("[AAMPCLI] PREFERRED LANGUAGES = \"%s\"\n", preferredLanguages.c_str() );
 						break;
 					}
 

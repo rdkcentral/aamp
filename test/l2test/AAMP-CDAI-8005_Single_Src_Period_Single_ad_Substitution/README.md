@@ -1,5 +1,5 @@
 # AAMP L2 Tune time test
-Test used to check/verify the linear CDAI behaviour with Single Source Period with Single CDAI Ad
+Test used to check/verify the linear CDAI behavior with Single Source Period with Single CDAI Ad
 
 
 ## Test Files

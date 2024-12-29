@@ -353,7 +353,7 @@ static void ConvertLanguage2to3( char lang[], bool useTerminologyVariant )
                 {
                     const char *normalized = MapISO639_BibliographicToTerminology(lang);
 					if( normalized!=lang )
-					{ // avoid overlaping strcpy
+					{ // avoid overlapping strcpy
 						strcpy( lang, normalized );
 					}
                 }

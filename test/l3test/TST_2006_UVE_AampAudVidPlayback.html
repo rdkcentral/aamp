@@ -27,7 +27,7 @@ async function TST_2006_UVE_AampAudVidPlayback() {
     TST_START("TST_2006_UVE_AampAudVidPlayback");
     var aamp_player = new AAMPPlayer2("MAIN-PLAYER");
 
-    // Initialise the config
+    // Initialize the config
     TST_STEP("initConfig");
     var playerInitConfig = {info: true,gst: true,initialBitrate: 2500000,offset: 0,networkTimeout: 10,preferredAudioLanguage: "spa"};
     await aamp_player.player.initConfig(playerInitConfig);

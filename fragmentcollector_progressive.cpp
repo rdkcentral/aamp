@@ -169,7 +169,7 @@ void StreamAbstractionAAMP_PROGRESSIVE::FetcherLoop()
 
     while( aamp->DownloadsAreEnabled() )
     {
-        aamp->InterruptableMsSleep( 1000 );
+        aamp->interruptibleMsSleep( 1000 );
     }
 }
 
@@ -303,7 +303,7 @@ bool StreamAbstractionAAMP_PROGRESSIVE::IsInitialCachingSupported()
 }
 
 /**
- *  @brief Gets Max Bitrate avialable for current playback.
+ *  @brief Gets Max Bitrate available for current playback.
  */
 BitsPerSecond StreamAbstractionAAMP_PROGRESSIVE::GetMaxBitrate()
 { // STUB

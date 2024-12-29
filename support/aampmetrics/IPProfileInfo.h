@@ -87,7 +87,7 @@ public:
 
 		if(newObj.mpFragmentStat)
 		{
-			mpFragmentStat = GetFragementStat(); // Allocate if required
+			mpFragmentStat = GetFragmentStat(); // Allocate if required
 
 			*mpFragmentStat = *newObj.mpFragmentStat;
 		}
@@ -133,10 +133,10 @@ public:
 	}
 
 	/**
-	 *   @fn GetFragementStat
+	 *   @fn GetFragmentStat
 	 *   @return CFragmentStatistics pointer
 	 */
-	CFragmentStatistics * GetFragementStat()
+	CFragmentStatistics * GetFragmentStat()
 	{
 		if(!mpFragmentStat)
 		{

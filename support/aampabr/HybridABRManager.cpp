@@ -61,7 +61,7 @@
 
 /**
  * @struct SpeedCache
- * @brief Stroes the information for cache speed
+ * @brief Stores the information for cache speed
  */
 
 struct SpeedCache
@@ -159,7 +159,6 @@ void HybridABRManager::UpdateABRBitrateDataBasedOnCacheLife(std::vector < std::p
 		//AAMPLOG_WARN("Sz[%d] TimeCheck Pre[%lld] Sto[%lld] diff[%lld] bw[%ld] ",mAbrBitrateData.size(),presentTime,(*bitrateIter).first,(presentTime - (*bitrateIter).first),(long)(*bitrateIter).second);
 		if ((bitrateIter->first <= 0) || (presentTime - bitrateIter->first > eAAMPAbrConfig.abrCacheLife))
 		{
-			//AAMPLOG_WARN("Threadshold time reached , removing bitrate data ");
 			bitrateIter = mAbrBitrateData.erase(bitrateIter);
 		}
 		else

@@ -125,7 +125,7 @@ void AampMPDDownloader::Release()
 
 /**
  *   @fn Start
- *   @brief Start the Manifest downlaoder
+ *   @brief Start the Manifest downloader
  */
 void AampMPDDownloader::Start()
 {
@@ -181,7 +181,7 @@ void AampMPDDownloader::RegisterCallback(ManifestUpdateCallbackFunc fnPtr, void 
 
 /**
  * @fn UnRegisterCallback
- * @brief Unregisters the callback function for manifest update notifications.
+ * @brief Unregister the callback function for manifest update notifications.
  */
 void AampMPDDownloader::UnRegisterCallback()
 {

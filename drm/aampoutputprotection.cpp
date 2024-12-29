@@ -294,7 +294,7 @@ void AampOutputProtection::HDMIEventHandler(const char *owner, IARM_EventId_t ev
 {
     DEBUG_FUNC;
 
-    AampOutputProtection *pInstance = AampOutputProtection::GetAampOutputProcectionInstance();
+    AampOutputProtection *pInstance = AampOutputProtection::GetAampOutputProtectionInstance();
 
     switch (eventId) {
         case IARM_BUS_DSMGR_EVENT_HDMI_HOTPLUG :
@@ -336,7 +336,7 @@ void AampOutputProtection::ResolutionHandler(const char *owner, IARM_EventId_t e
 {
     DEBUG_FUNC;
 
-    AampOutputProtection *pInstance = AampOutputProtection::GetAampOutputProcectionInstance();
+    AampOutputProtection *pInstance = AampOutputProtection::GetAampOutputProtectionInstance();
 
     switch (eventId) {
         case IARM_BUS_DSMGR_EVENT_RES_PRECHANGE:
@@ -366,9 +366,9 @@ void AampOutputProtection::ResolutionHandler(const char *owner, IARM_EventId_t e
 #endif //IARM_MGR
 
 /**
- * @brief Check if  AampOutputProcectionInstance active
+ * @brief Check if  AampOutputProtectionInstance active
  */
-bool AampOutputProtection::IsAampOutputProcectionInstanceActive()
+bool AampOutputProtection::IsAampOutputProtectionInstanceActive()
 {
     bool retval = false;
 
@@ -381,7 +381,7 @@ bool AampOutputProtection::IsAampOutputProcectionInstanceActive()
 /**
  * @brief Singleton for object creation
  */
-AampOutputProtection * AampOutputProtection::GetAampOutputProcectionInstance()
+AampOutputProtection * AampOutputProtection::GetAampOutputProtectionInstance()
 {
     DEBUG_FUNC;
     if(s_pAampOP == NULL) {

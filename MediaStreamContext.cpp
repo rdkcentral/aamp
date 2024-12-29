@@ -89,7 +89,7 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 	cachedFragment->PTSOffsetSec = GetContext()->mPTSOffset.inSeconds();
 	if(ISCONFIGSET(eAAMPConfig_EnablePTSReStamp))
 	{
-		// apply pts offset to position which ends up getting put into gst_bufffer in sendHelper
+		// apply pts offset to position which ends up getting put into gst_buffer in sendHelper
 		position += GetContext()->mPTSOffset.inSeconds();
 	}
 	AampTSBSessionManager *tsbSessionManager = aamp->GetTSBSessionManager();
@@ -151,7 +151,7 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 		}
 		else
 		{
-			if ((actualType == eMEDIATYPE_INIT_VIDEO || actualType == eMEDIATYPE_INIT_AUDIO || actualType == eMEDIATYPE_INIT_SUBTITLE) && ret) // Only if init fragment successfull or avilable from cache
+			if ((actualType == eMEDIATYPE_INIT_VIDEO || actualType == eMEDIATYPE_INIT_AUDIO || actualType == eMEDIATYPE_INIT_SUBTITLE) && ret) // Only if init fragment successful or available from cache
 			{
 				//To read track_id from the init fragments to check if there any mismatch.
 				//A mismatch in track_id is not handled in the gstreamer version 1.10.4
@@ -261,7 +261,7 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 			AAMPLOG_WARN("%sfragment fetch failed -- fragmentUrl %s", (initSegment)?"Init ":" ", fragmentUrl.c_str());
 			if (mSkipSegmentOnError)
 			{
-				// Skip segment on error, and increse fail count
+				// Skip segment on error, and increase fail count
 				if(httpErrorCode != 502)
 				{
 					segDLFailCount += 1;
@@ -290,7 +290,7 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 					}
 					else
 					{
-						// When rampdown limit is not specified, init segment will be ramped down, this wil
+						// When rampdown limit is not specified, init segment will be ramped down, this will
 						AAMPLOG_ERR("%s Not able to download init fragments; reached failure threshold sending tune failed event",name);
 						abortWaitForVideoPTS();
 						aamp->SetFlushFdsNeededInCurlStore(true);
@@ -525,7 +525,7 @@ void MediaStreamContext::updateSkipPoint(double position, double duration )
  */
 void MediaStreamContext::ABRProfileChanged(void)
 {
-    struct ProfileInfo profileMap = context->GetAdaptationSetAndRepresetationIndicesForProfile(context->currentProfileIndex);
+    struct ProfileInfo profileMap = context->GetAdaptationSetAndRepresentationIndicesForProfile(context->currentProfileIndex);
     // Get AdaptationSet Index and Representation Index from the corresponding profile
     int adaptIdxFromProfile = profileMap.adaptationSetIndex;
     int reprIdxFromProfile = profileMap.representationIndex;

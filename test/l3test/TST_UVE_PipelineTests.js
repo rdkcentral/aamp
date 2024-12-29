@@ -76,7 +76,7 @@ async function TST_UVE_PipelineTests(testName, singlePipeline) {
     var aamp_ad_2_player = new AAMPPlayer("AD-2-PLAYER-" + (singlePipeline ? "ON" : "OFF"));
     var aamp_ad_3_player = new AAMPPlayer("AD-3-PLAYER-" + (singlePipeline ? "ON" : "OFF"));
 
-    // Initialise config
+    // Initialize config
     TST_STEP("Init config flags");
     initConfig.useSinglePipeline = singlePipeline;
     aamp_main_player.player.initConfig(initConfig);

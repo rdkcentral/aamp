@@ -252,7 +252,7 @@ void AampTsbReader::DetectDiscontinuity(TsbFragmentDataPtr currFragment)
 	}
 	if (mIsPeriodBoundary)
 	{
-		// Countinious PTS check
+		// Continuous PTS check
 		TsbFragmentDataPtr adjFragment = (mCurrentRate >= 0) ? currFragment->prev : currFragment->next;
 		if (adjFragment)
 		{

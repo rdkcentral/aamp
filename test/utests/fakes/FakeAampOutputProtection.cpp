@@ -25,7 +25,7 @@ bool AampOutputProtection::IsSourceUHD()
     return false;
 }
 
-AampOutputProtection * AampOutputProtection::GetAampOutputProcectionInstance()
+AampOutputProtection * AampOutputProtection::GetAampOutputProtectionInstance()
 {
     return nullptr;
 }

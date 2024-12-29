@@ -69,7 +69,7 @@ void AampMPDParseHelper::Clear()
 
 
 /**
- * @brief Get content protection from represetation/adaptation field
+ * @brief Get content protection from representation/adaptation field
  * @retval content protections if present. Else NULL.
  */
 vector<IDescriptor*> AampMPDParseHelper::GetContentProtection(const IAdaptationSet *adaptationSet)
@@ -104,7 +104,7 @@ bool AampMPDParseHelper::IsEmptyAdaptation(IAdaptationSet *adaptationSet)
 
 /**
  * @brief Check if adaptation set is iframe track
- * @param adaptationSet Pointer to adaptainSet
+ * @param adaptationSet Pointer to adaptationSet
  * @retval true if iframe track
  */
 bool AampMPDParseHelper::IsIframeTrack(IAdaptationSet *adaptationSet)

@@ -47,9 +47,9 @@ protected:
         {
         }
  
-        void CallsendQueuedSegment(long long basepts, double updatedStartPositon)
+        void CallsendQueuedSegment(long long basepts, double updatedStartPosition)
         {
-            sendQueuedSegment(basepts,updatedStartPositon);
+            sendQueuedSegment(basepts,updatedStartPosition);
         }
  
         void CallsetBasePTS(double position, long long pts)
@@ -238,29 +238,29 @@ protected:
 TEST_F(sendSegmentTests, CallsendQueuedSegmentTest)
 {
     long long basepts = 0;
-    double updatedStartPositon = 1.1;
-    mTSProcessor->CallsendQueuedSegment(basepts, updatedStartPositon);
+    double updatedStartPosition = 1.1;
+    mTSProcessor->CallsendQueuedSegment(basepts, updatedStartPosition);
 }
  
 TEST_F(sendSegmentTests, CallsendQueuedSegmentTest1)
 {
     long long basepts = LLONG_MAX;
-    double updatedStartPositon = DBL_MAX;
-    mTSProcessor->CallsendQueuedSegment(basepts, updatedStartPositon);
+    double updatedStartPosition = DBL_MAX;
+    mTSProcessor->CallsendQueuedSegment(basepts, updatedStartPosition);
 }
  
 TEST_F(sendSegmentTests, CallsendQueuedSegmentTest2)
 {
     long long basepts = LLONG_MIN;
-    double updatedStartPositon = DBL_MIN;
-    mTSProcessor->CallsendQueuedSegment(basepts, updatedStartPositon);
+    double updatedStartPosition = DBL_MIN;
+    mTSProcessor->CallsendQueuedSegment(basepts, updatedStartPosition);
 }
  
 TEST_F(sendSegmentTests, CallsendQueuedSegmentTest4)
 {
     long long basepts = 0;
-    double updatedStartPositon = 0;
-    mTSProcessor->CallsendQueuedSegment(basepts, updatedStartPositon);
+    double updatedStartPosition = 0;
+    mTSProcessor->CallsendQueuedSegment(basepts, updatedStartPosition);
 }
  
 TEST_F(sendSegmentTests, CallsetBasePTSTest)

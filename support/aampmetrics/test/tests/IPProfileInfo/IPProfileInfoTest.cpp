@@ -67,7 +67,7 @@ protected:
         {
             CFragmentStatistics* mpFragmentStat; 
             mpFragmentStat = new CFragmentStatistics();
-            GetFragementStat();
+            GetFragmentStat();
 
             
 

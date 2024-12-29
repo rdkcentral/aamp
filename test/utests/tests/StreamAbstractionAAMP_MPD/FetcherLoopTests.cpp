@@ -234,7 +234,7 @@ protected:
 			{eAAMPConfig_PersistHighNetworkBandwidth, false},
 			{eAAMPConfig_PersistLowNetworkBandwidth, false},
 			{eAAMPConfig_MidFragmentSeek, false},
-			{eAAMPConfig_PropogateURIParam, true},
+			{eAAMPConfig_PropagateURIParam, true},
 			{eAAMPConfig_DashParallelFragDownload, false},
 			{eAAMPConfig_DisableATMOS, false},
 			{eAAMPConfig_DisableEC3, false},
@@ -388,7 +388,7 @@ public:
 	/**
 	 * @brief Get manifest helper method for MPDDownloader
 	 *
-	 * @param[in] remoteUrl Manfiest url
+	 * @param[in] remoteUrl Manifest url
 	 * @param[out] buffer Buffer containing manifest data
 	 * @retval true on success
 	 */
@@ -570,7 +570,7 @@ TEST_F(FetcherLoopTests, SelectSourceOrAdPeriodTests2)
 /**
  * @brief IndexSelectedPeriod tests.
  *
- * The tests verify the live behaviour of IndexSelectedPeriod method of StreamAbstractionAAMP_MPD
+ * The tests verify the live behavior of IndexSelectedPeriod method of StreamAbstractionAAMP_MPD
  * when nothing selected.
  */
 TEST_F(FetcherLoopTests, IndexSelectedPeriodTests1)
@@ -588,7 +588,7 @@ TEST_F(FetcherLoopTests, IndexSelectedPeriodTests1)
 	status = InitializeMPD(mLiveManifest);
 	EXPECT_EQ(status, eAAMPSTATUS_OK);
 
-	// Testing Indexing behaviour of the period
+	// Testing Indexing behavior of the period
 	MediaStreamContext *pMediaStreamContext = static_cast<MediaStreamContext *>(mStreamAbstractionAAMP_MPD->GetMediaTrack(eTRACK_VIDEO));
 	bool periodChanged = true;
 	bool adStateChanged = false;

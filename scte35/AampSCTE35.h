@@ -45,7 +45,7 @@ class SCTE35DataException : public std::exception
 public:
 	/**
 	 * @brief SCTE-35 section data exception constructor
-	 * @param[in] message Exception mesage
+	 * @param[in] message Exception message
 	 */
 	SCTE35DataException(const std::string &message) : mMessage(message) {}
 
@@ -210,12 +210,12 @@ class SCTE35DescriptorLoop
 {
 public:
 	/**
-	 * @brief Virtual desructor
+	 * @brief Virtual destructor
 	 */
 	virtual ~SCTE35DescriptorLoop() {}
 
 	/**
-	 * @brief See if there is another desciptor in the SCTE-35 section data
+	 * @brief See if there is another descriptor in the SCTE-35 section data
 	 *        descriptor loop
 	 *
 	 * @retval true if there is another descriptor
@@ -260,7 +260,7 @@ public:
 	 * Constructor used to implement descriptor loops
 	 *
 	 * @param[in] parent Parent decoder instance
-	 * @param[in] descriptorLoop Descriptor loop instnace
+	 * @param[in] descriptorLoop Descriptor loop instance
 	 * @param[in] loopMaxOffset End of section data measured in bits
 	 */
 	SCTE35Decoder(SCTE35Decoder *parent, SCTE35DecoderDescriptorLoop *descriptorLoop, size_t loopMaxOffset);
@@ -333,7 +333,7 @@ private:
 	size_t mMaxOffset;					/**< @brief Section data maximum bit offset */
 	uint8_t *mData;						/**< @brief Section data */
 	SCTE35Decoder *mParent;				/**< @brief Parent decoder or NULL*/
-	cJSON *mJsonObj;					/**< @brief JSON representaiton of the section data*/
+	cJSON *mJsonObj;					/**< @brief JSON representation of the section data*/
 	SCTE35DecoderDescriptorLoop *mLoop;	/**< @brief Current descriptor loop instance */
 	std::string mKey;					/**< @brief Subsection object name */
 };
@@ -363,7 +363,7 @@ public:
 	void End() override;
 
 	/**
-	 * @brief Add a JSON represntation of a descriptor
+	 * @brief Add a JSON representation of a descriptor
 	 *
 	 * Note that the ownership of object is passed to the callee.
 	 *
@@ -379,7 +379,7 @@ public:
 private:
 	std::string mKey;					/**< @brief Data element name */
 	SCTE35Decoder *mDecoder;			/**< @brief Decoder instance */
-	size_t mMaxOffset;					/**< @brief Maxumum section data offset measured in bits */
+	size_t mMaxOffset;					/**< @brief Maximum section data offset measured in bits */
 	cJSON *mObjects;					/**< @brief JSON representation of the descriptors */
 };
 

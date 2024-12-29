@@ -37,7 +37,7 @@ class VideoCapture {
     }
 
 
-    // Initialises the Video Capture Device
+    // Initializes the Video Capture Device
     async Init()
     {
         console.log("VideoCapture Init ENTER");

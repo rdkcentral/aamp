@@ -343,7 +343,7 @@ void AampLicensePreFetcher::VssPreFetchThread()
                                         {
                                                 int deferTime = aamp_GetDeferTimeMs(static_cast<long>(mCommonKeyDuration));
                                                 // Going to sleep for deferred key process
-                                                mPrivAAMP->InterruptableMsSleep(deferTime);
+                                                mPrivAAMP->interruptibleMsSleep(deferTime);
                                                 AAMPLOG_TRACE("Sleep over for deferred time:%d", deferTime);
                                         }
 					if(!mExitLoop)
@@ -442,7 +442,7 @@ void AampLicensePreFetcher::NotifyDrmFailure(LicensePreFetchObjectPtr fetchObj, 
 	{
 		if (!selfAbort)
 		{
-			isRetryEnabled =   (failure != AAMP_TUNE_AUTHORISATION_FAILURE)
+			isRetryEnabled =   (failure != AAMP_TUNE_AUTHORIZATION_FAILURE)
 						&& (failure != AAMP_TUNE_LICENCE_REQUEST_FAILED)
 						&& (failure != AAMP_TUNE_LICENCE_TIMEOUT)
 						&& (failure != AAMP_TUNE_DEVICE_NOT_PROVISIONED)

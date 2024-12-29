@@ -1,6 +1,6 @@
 # TSB mocked filesystem unit tests
 
-A test infrastructure using GoogleTest C++ testing and mocking framework, to verify the behaviour of individual TSB objects.
+A test infrastructure using GoogleTest C++ testing and mocking framework, to verify the behavior of individual TSB objects.
 
 CTest is a testing tool that is part of CMake, and is used to automatically execute all the tests, and provides a report of the tests run, whether they passed/failed and time taken. It can be configured to run tests in parallel, output logging on failure, run specific tests etc.
 

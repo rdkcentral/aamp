@@ -407,20 +407,20 @@ class AAMPPlayer {
             });
             console.log("VerifyPositionProgress ("+ JSON.stringify(progress) +")");
             TST_ASSERT((speed == progress.currentPlayRate), "Unexpected Playback Rate")
-            console.log("VerifyPositionProgress: previousPosition " + previousPosition + " progress.positionMiliseconds " + progress.positionMiliseconds);
+            console.log("VerifyPositionProgress: previousPosition " + previousPosition + " progress.positionMilliseconds " + progress.positionMilliseconds);
             if(firstSampleTaken && (direction == "fw"))
             {
-                TST_ASSERT((previousPosition < progress.positionMiliseconds),"Position found backwards while going in forward direction" );
+                TST_ASSERT((previousPosition < progress.positionMilliseconds),"Position found backwards while going in forward direction" );
             }
             else if(firstSampleTaken && (direction == "rw"))
             {
-                TST_ASSERT((previousPosition > progress.positionMiliseconds),"Position found forward while going in backward direction" );
+                TST_ASSERT((previousPosition > progress.positionMilliseconds),"Position found forward while going in backward direction" );
             }
             else
             {
                 firstSampleTaken = true;
             }
-            previousPosition = progress.positionMiliseconds;
+            previousPosition = progress.positionMilliseconds;
             notifications += 1;
 
             let end_ms = Date.now();

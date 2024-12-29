@@ -183,7 +183,7 @@ void StreamAbstractionAAMP_MPD::QueueContentProtection(IPeriod* period, uint32_t
 {
 }
 
-void StreamAbstractionAAMP_MPD::ProcessAllContenProtForMediaType(AampMediaType type, uint32_t priorityAdaptationIdx, std::set<uint32_t> &chosenAdaptationIdxs)
+void StreamAbstractionAAMP_MPD::ProcessAllContentProtectionForMediaType(AampMediaType type, uint32_t priorityAdaptationIdx, std::set<uint32_t> &chosenAdaptationIdxs)
 {
 }
 
@@ -202,7 +202,7 @@ IPeriod *StreamAbstractionAAMP_MPD::GetPeriod( void )
 	return NULL;
 }
 
-ProfileInfo StreamAbstractionAAMP_MPD::GetAdaptationSetAndRepresetationIndicesForProfile(int profileIndex)
+ProfileInfo StreamAbstractionAAMP_MPD::GetAdaptationSetAndRepresentationIndicesForProfile(int profileIndex)
 {
     return mProfileMaps.at(0);
 }

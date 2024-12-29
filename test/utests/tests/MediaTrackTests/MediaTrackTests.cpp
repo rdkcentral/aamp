@@ -52,7 +52,7 @@ AampConfig* gpGlobalConfig{nullptr};
 
 // The matcher is passed a std::cref() to avoid copy-constructing the fake AampGrowableBuffer, which
 // crashes and is not really desirable anyway. (Copy-construction of the argument is default matcher
-// behaviour, done in case it's modified or destructed later.)
+// behavior, done in case it's modified or destructed later.)
 MATCHER_P(AampGrowableBufferRefEq, bufferStdConstRef, "")
 {
 	const AampGrowableBuffer& buffer = bufferStdConstRef.get();

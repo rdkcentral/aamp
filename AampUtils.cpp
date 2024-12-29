@@ -111,7 +111,7 @@ void getDefaultHarvestPath(std::string &value)
 }
 
 /**
- * @brief parse leading protcocol from uri if present
+ * @brief parse leading protocol from uri if present
  * @param[in] uri manifest/ fragment uri
  * @retval return pointer just past protocol (i.e. http://) if present (or) return NULL uri doesn't start with protcol
  */
@@ -392,7 +392,7 @@ double ISO8601DateTimeToUTCSeconds(const char *ptr)
 	if(ptr)
 	{
 		std::tm timeObj = { 0 };
-		//Find out offset from utc by convering epoch
+		//Find out offset from utc by converting epoch
 		std::tm baseTimeObj = { 0 };
 		strptime("1970-01-01T00:00:00.", "%Y-%m-%dT%H:%M:%S.", &baseTimeObj);
 		time_t offsetFromUTC = timegm(&baseTimeObj);
@@ -525,8 +525,8 @@ int aamp_GetDeferTimeMs(long maxTimeSeconds)
 	int ret = 0;
 #ifdef USE_MAC_FOR_RANDOM_GEN
 	static char randString[RAND_STRING_LEN+1];
-	static bool estbMacAvalable = getEstbMac(randString);
-	if (estbMacAvalable)
+	static bool estbMacAvailable = getEstbMac(randString);
+	if (estbMacAvailable)
 	{
 		AAMPLOG_TRACE ("estbMac %s", randString);
 		int randFD = open("/dev/urandom", O_RDONLY);
@@ -737,7 +737,7 @@ struct timespec aamp_GetTimespec(int timeInMs)
  */
 enum HarvestConfigType
 {
-	eHARVEST_DISABLE_DEFAULT = 0x00000000,            /**< Desable harversting for unknown type */
+	eHARVEST_DISABLE_DEFAULT = 0x00000000,            /**< Disable harvesting for unknown type */
 	eHARVEST_ENABLE_VIDEO = 0x00000001,              /**< Enable Harvest Video fragments - set 1st bit*/
 	eHARVEST_ENABLE_AUDIO = 0x00000002,              /**< Enable Harvest audio - set 2nd bit*/
 	eHARVEST_ENABLE_SUBTITLE = 0x00000004,           /**< Enable Harvest subtitle - set 3rd bit */
@@ -930,7 +930,7 @@ bool aamp_WriteFile(std::string fileName, const char* data, size_t len, AampMedi
 }
 
 /**
- * @brief Get compatible trickplay for 6s cadense of iframe track from the given rates
+ * @brief Get compatible trickplay for 6s cadence of iframe track from the given rates
  */
 float getWorkingTrickplayRate(float rate)
 {

@@ -81,7 +81,7 @@ public:
 
 /**
  * @class TsbInitData
- * @brief Prototype to Store the fragment and initFragment infromation  aka meta data
+ * @brief Prototype to Store the fragment and initFragment information  aka meta data
  */
 class TsbInitData : public TsbSegment
 {
@@ -99,11 +99,11 @@ public:
 	void incrementUser() { users++; };
 	/**
 	 *   @fn decrementUser
-	 *   @return decriment count of fragments used
+	 *   @return decrement count of fragments used
 	 */
 	void decrementUser() { users--; };
 	/**
-	 *   @fn controctor
+	 *   @fn constructor
 	 *   @param[in] url - Segment URL as string
 	 *   @param[in] media - Segment type as AampMediaType
 	 *   @param[in] streamInfo - fragment stream info
@@ -116,7 +116,7 @@ public:
 	}
 
 	/**
-	 *  @brief Destroctor of init data
+	 *  @brief destructor of init data
 	 */
 	~TsbInitData()
 	{
@@ -194,7 +194,7 @@ public:
 
 	/**
 	 *   @fn GetInitFragData
-	 *   @return retunr initFragment shared pointer associated with it
+	 *   @return return initFragment shared pointer associated with it
 	 */
 	std::shared_ptr<TsbInitData> GetInitFragData() { return initFragData; }
 
@@ -208,14 +208,14 @@ public:
 	/**
 	 * @fn GetPTS
 	 *
-	 * @return Querry the PST of fragment
+	 * @return Query the PST of fragment
 	 */
 	double GetPTS() { return mPTS; }
 
 	/**
 	 * @fn GetRelativePosition
 	 *
-	 * @return Querry the relative position of fragment
+	 * @return Query the relative position of fragment
 	 */
 	double GetRelativePosition() { return relativePosition; }
 
@@ -361,8 +361,8 @@ public:
 	void Flush();
 
 	/**
-	 *   @fn controctor
-	 *   @param[in] position - Position for qurrying the discontionious fragment
+	 *   @fn constructor
+	 *   @param[in] position - Position for qurrying the discontinuous fragment
 	 *   @param[in] backwordSerach - Search direction from the position to discontinuous fragment, default forward
 	 *   @return TsbFragmentData shared object to fragment data
 	 */

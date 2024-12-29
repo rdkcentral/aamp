@@ -82,7 +82,7 @@ class AampTSBSessionManager;
 #define AAMP_SEEK_TO_LIVE_POSITION (-1)
 
 #define MANIFEST_TEMP_DATA_LENGTH 100			/**< Manifest temp data length */
-#define  AAMP_LOW_BUFFER_BEFORE_RAMPDOWN_FOR_LLD 3	/**< 3sec buffer befoe rampdown for lld */
+#define  AAMP_LOW_BUFFER_BEFORE_RAMPDOWN_FOR_LLD 3	/**< 3sec buffer before rampdown for lld */
 #define AAMP_HIGH_BUFFER_BEFORE_RAMPUP_FOR_LLD	 4	/**< 4sec buffer before rampup for lld */
 #define TIMEOUT_FOR_LLD	3				/**< 3sec network timeout for lld */
 #define MANIFEST_TIMEOUT_FOR_LLD 3      /**< 3 sec timeout for manifest refresh in case of LLD*/
@@ -164,7 +164,7 @@ enum PlaybackErrorType
 
 
 /**
- * @brief Tune Typea
+ * @brief Tune Type
  */
 enum TuneType
 {
@@ -384,7 +384,7 @@ struct ThumbnailData {
 
 /**
  * @struct SpeedCache
- * @brief Stroes the information for cache speed
+ * @brief Stores the information for cache speed
  */
 struct SpeedCache
 {
@@ -454,7 +454,7 @@ class AudioTrackTuple
 #ifdef AAMP_HLS_DRM
 /**
  *	\Class attrNameData
- * 	\brief	local calss to hold DRM information
+ * 	\brief	local class to hold DRM information
  */
 class attrNameData
 {
@@ -683,7 +683,7 @@ public:
 	 * @fn PausePipeline
 	 *
 	 * @param[in] pause - true for pause and false for play
-	 * @param[in] forceStopGstreamerPreBuffering - true for disabling bufferinprogress
+	 * @param[in] forceStopGstreamerPreBuffering - true for disabling buffer-in-progress
 	 * @return true on success
 	 */
 	bool PausePipeline(bool pause, bool forceStopGstreamerPreBuffering);
@@ -830,7 +830,7 @@ public:
 	pthread_mutex_t mLock;				/**< = PTHREAD_MUTEX_INITIALIZER; */
 	pthread_mutexattr_t mMutexAttr;
 	pthread_mutex_t mParallelPlaylistFetchLock; 	/**< mutex lock for parallel fetch */
-	std::thread  mRateCorrectionThread;     /**< Rate coorection thread Id **/
+	std::thread  mRateCorrectionThread;     /**< Rate correction thread Id **/
 
 	class StreamAbstractionAAMP *mpStreamAbstractionAAMP; /**< HLS or MPD collector */
 	class CDAIObject *mCdaiObject;      		/**< Client Side DAI Object */
@@ -904,7 +904,7 @@ public:
 		TPOSITION getPosition() const {return mPosition;}
 
 		/**
-		 * @brief The timestamp at which the position in this object was updated (0 by deault)
+		 * @brief The timestamp at which the position in this object was updated (0 by default)
 		 */
 		long long getUpdateTime() const {return mUpdateTime;};
 
@@ -1014,7 +1014,7 @@ public:
 	std::vector<struct DynamicDrmInfo> vDynamicDrmData;
 	Accessibility  preferredTextAccessibilityNode; 		/**< Preferred Accessibility Node for Text */
 	Accessibility  preferredAudioAccessibilityNode; 	/**< Preferred Accessibility Node for Audio  */
-	AudioTrackTuple mAudioTuple;				/**< Depricated **/
+	AudioTrackTuple mAudioTuple;				/**< Deprecated **/
 	VideoZoomMode zoom_mode;
 	bool video_muted; /**< true iff video plane is logically muted */
 	bool subtitles_muted; /**< true iff subtitle plane is logically muted */
@@ -1054,7 +1054,7 @@ public:
 	pthread_cond_t mCondDiscontinuity;
 	guint mDiscontinuityTuneOperationId;
 	bool mIsVSS;       					/**< Indicates if stream is VSS, updated during Tune */
-	long curlDLTimeout[eCURLINSTANCE_MAX]; 			/**< To store donwload timeout of each curl instance*/
+	long curlDLTimeout[eCURLINSTANCE_MAX]; 			/**< To store download timeout of each curl instance*/
 	std::string mSubLanguage;
 	std::vector<std::string> preferredSubtitleLanguageVctr;	/**< list of preferred text languages from most-preferred to the least*/
 	bool mPlayerPreBuffered;	     			/**< Player changed from BG to FG */
@@ -1065,7 +1065,7 @@ public:
 	int mCurrentVideoTrackId;				/**< Current video track id read from trak box of init fragment */
 	bool mIsTrackIdMismatch;				/**< Indicate track_id mismatch in the trak box between periods */
 
-	bool mIsDefaultOffset; 					/**< Playback offset is not specified and we are using the default value/behaviour */
+	bool mIsDefaultOffset; 					/**< Playback offset is not specified and we are using the default value/behavior */
 	bool mEncryptedPeriodFound;				/**< Will be set if an encrypted pipeline is found while pipeline is clear*/
 	bool mPipelineIsClear;					/**< To keep the status of pipeline (whether configured for clear or not)*/
 
@@ -1110,15 +1110,15 @@ public:
 	bool mbUsingExternalPlayer; 				/**<Playback using external players eg:OTA, HDMIIN,Composite*/
 
     bool mbDetached;					/**< Flag to denote setRate call if that called after detach */
-	bool mbSeeked; 						/**< Flag to inidicate play after seek */
+	bool mbSeeked; 						/**< Flag to indicate play after seek */
 
 	double mNextPeriodDuration; 				/**< Keep Next Period duration  */
 	double mNextPeriodStartTime; 				/**< Keep Next Period Start Time  */
 	double mNextPeriodScaledPtoStartTime; 			/**< Keep Next Period Start Time as per PTO  */
 
-	std::condition_variable mRateCorrectionWait;	/**< Conditional variable for signalling timed wait for rate correction*/
+	std::condition_variable mRateCorrectionWait;	/**< Conditional variable for signaling timed wait for rate correction*/
 	std::mutex mRateCorrectionTimeoutLock;				/**< Rate correction thread mutex for conditional timed wait*/
-	double mCorrectionRate;                          /**< Variable to store corection rate **/
+	double mCorrectionRate;                          /**< Variable to store correction rate **/
 	bool mIsEventStreamFound;				/**< Flag to indicate event stream entry in any of period */
 
 	bool mIsFakeTune;
@@ -1131,7 +1131,7 @@ public:
 	long long mTimedMetadataDuration;
 	bool playerStartedWithTrickPlay; 			/**< To indicate player switch happened in trickplay rate */
 	bool userProfileStatus; 				/**< Select profile based on user list*/
-	bool mApplyCachedVideoMute;				/**< To apply vidoeMute() operations if it has been cached due to tune in progress */
+	bool mApplyCachedVideoMute;				/**< To apply video mute() operations if it has been cached due to tune in progress */
 	std::vector<uint8_t> mcurrent_keyIdArray;		/**< Current KeyID for DRM license */
 	DynamicDrmInfo mDynamicDrmDefaultconfig;		/**< Init drmConfig stored as default config */
 	std::vector<std::string> mDynamicDrmCache;
@@ -1315,7 +1315,7 @@ public:
 	 * @param[in] bitrate
 	 * @param[out] fogError
 	 * @param[in] fragmentDurationS
-	 * @return true iff succesful
+	 * @return true iff successful
 	 */
 	bool GetFile( std::string remoteUrl, AampMediaType mediaType, AampGrowableBuffer *buffer, std::string& effectiveUrl, int *http_error = NULL, double *downloadTime = NULL, const char *range = NULL, unsigned int curlInstance = 0, bool resetBuffer = true, BitsPerSecond *bitrate = NULL,  int * fogError = NULL, double fragmentDurationS = 0, ProfilerBucketType bucketType=PROFILE_BUCKET_TYPE_COUNT );
 
@@ -1561,7 +1561,7 @@ public:
 	/**
 	 * @brief Get persisted bandwidth
 	 *
-	 * @return Bandwitdh
+	 * @return Bandwidth
 	 */
 	long GetPersistedBandwidth(){return mAvailableBandwidth;}
 
@@ -1625,22 +1625,22 @@ public:
 	 */
 	void TimedWaitForLatencyCheck(int timeInMs);
 	/**
-	 *   @fn StartRateCorrectionWokerthread
+	 *   @fn StartRateCorrectionWorkerThread
 	 *   @return void
 	 */
-	void StartRateCorrectionWokerthread(void);
+	void StartRateCorrectionWorkerThread(void);
 
 	/**
-	 *   @fn StopRateCorrectionWokerthread
+	 *   @fn StopRateCorrectionWorkerThread
 	 *   @return void
 	 */
-	void StopRateCorrectionWokerthread(void);
+	void StopRateCorrectionWorkerThread(void);
 
 	/**
-	 *   @fn RateCorrectionWokerthread
+	 *   @fn RateCorrectionWorkerThread
 	 *   @return void
 	 */
-	void RateCorrectionWokerthread(void);
+	void RateCorrectionWorkerThread(void);
 
 	/**
 	 *   @fn ReportAdProgress
@@ -1672,7 +1672,7 @@ public:
 	long long GetPositionMs(void);
 
 	/**
-	 *   @brief Lock GetPositionMilliseconds() returns true if successfull
+	 *   @brief Lock GetPositionMilliseconds() returns true if successful
 	 */
 	bool LockGetPositionMilliseconds();
 
@@ -1857,12 +1857,12 @@ public:
 	void ReportContentGap(long long timeMS, std::string id, double durationMS = -1);
 
 	/**
-	 * @fn InterruptableMsSleep
+	 * @fn interruptibleMsSleep
 	 *
 	 * @param[in] timeInMs timeout in milliseconds
 	 * @return void
 	 */
-	void InterruptableMsSleep(int timeInMs);
+	void interruptibleMsSleep(int timeInMs);
 
 	/**
 	 * @brief Check if downloads are enabled
@@ -2461,7 +2461,7 @@ public:
 	 *   @param[in] adOffset - Offset point of the current ad
 	 *   @param[in] adDuration - Duration of the current ad
 	 *   @param[in] immediate - Send it immediate or not
-	 *   @param[in] error_code - Error code (in case of placment error)
+	 *   @param[in] error_code - Error code (in case of placement error)
 	 */
 	void SendAdPlacementEvent(AAMPEventType type, const std::string &adId, uint32_t position, uint64_t absolutePositionMs, uint32_t adOffset, uint32_t adDuration, bool immediate=false, long error_code=0);
 
@@ -2860,7 +2860,7 @@ public:
 	bool IsNewTune()  { return ((eTUNETYPE_NEW_NORMAL == mTuneType) || (eTUNETYPE_NEW_SEEK == mTuneType) || (eTUNETYPE_NEW_END == mTuneType)); }
 
         /**
-     	 *   @brief IsFirstRequestToFog Function to check first reqruest to fog
+     	 *   @brief IsFirstRequestToFog Function to check first request to fog
      	 *
      	 *   @return true if first request to fog
      	 */
@@ -3248,7 +3248,7 @@ public:
 	 *
 	 *	 @return true / false
 	 */
-	bool GetEnableAccessAtrributesFlag() const { return ISCONFIGSET_PRIV(eAAMPConfig_EnableAccessAttributes); }
+	bool GetEnableAccessAttributesFlag() const { return ISCONFIGSET_PRIV(eAAMPConfig_EnableAccessAttributes); }
 
 	/**
 	 * @fn getAampCacheHandler
@@ -3264,7 +3264,7 @@ public:
 	void SetRampDownLimit(int limit);
 
 	/**
-	 * @brief Set Initila profile ramp down limit.
+	 * @brief Set Initil profile ramp down limit.
 	 *
 	 */
 	void SetInitRampdownLimit(int limit);
@@ -3625,7 +3625,7 @@ public:
 	void PersistBitRateOverSeek(bool value);
 
 	/**
-	 *   @brief Get config for ABR profile persitenace over Seek/Audio Chg
+	 *   @brief Get config for ABR profile persistence over Seek/Audio Chg
 	 *
 	 *   @return bool - true if enabled
 	 */
@@ -3679,7 +3679,7 @@ public:
 	/**
 	 *   @fn TryStreamLock
 	 *
-	 *   @return True if it could I acquire it seccessfully else false
+	 *   @return True if it could I acquire it successfully else false
 	 */
 	bool TryStreamLock();
 
@@ -3945,9 +3945,9 @@ public:
 	void UnblockWaitForDiscontinuityProcessToComplete(void);
 
 	/**
-	 * @fn CompleteDiscontinutyDataDeliverForPTSRestamp
+	 * @fn CompleteDiscontinuityDataDeliverForPTSRestamp
 	 */
-	void CompleteDiscontinutyDataDeliverForPTSRestamp(AampMediaType type);
+	void CompleteDiscontinuityDataDeliverForPTSRestamp(AampMediaType type);
 
 	/**
 	 * @brief Set Discontinuity handling period change marked flag
@@ -4016,7 +4016,7 @@ public:
 
 	/**
  	 *     @fn GetPlaybackStats
- 	 *     @return the json string represenign the playback stats
+ 	 *     @return the json string representing the playback stats
  	 */
 	std::string GetPlaybackStats();
 
@@ -4202,7 +4202,7 @@ public:
 	 */
 	bool IsLocalAAMPTsbInjection();
 	/**
-	 * @brief Increase Buffer value dynamically according to Max Profile Bandwidth to accomodate Larger Buffers
+	 * @brief Increase Buffer value dynamically according to Max Profile Bandwidth to accommodate Larger Buffers
 	 */
 	void IncreaseGSTBufferSize();
 
@@ -4396,7 +4396,7 @@ protected:
 	std::unordered_map<std::string, std::vector<std::string>> mCustomLicenseHeaders;
 	std::string mAppName;
 	PreCacheUrlList mPreCacheDnldList;
-	bool mProgressReportFromProcessDiscontinuity; /** flag dentoes if progress reporting is in execution from ProcessPendingDiscontinuity*/
+	bool mProgressReportFromProcessDiscontinuity; /** flag denotes if progress reporting is in execution from ProcessPendingDiscontinuity*/
 	AampEventManager *mEventManager;
 	AampCacheHandler *mAampCacheHandler;
 
@@ -4430,7 +4430,7 @@ protected:
 	bool bLowLatencyStartABR;
 	bool mLiveOffsetAppRequest;
 	long mCurrentLatency;
-	bool mApplyVideoRect; 			/**< Status to apply stored video rectagle */
+	bool mApplyVideoRect; 			/**< Status to apply stored video rectangle */
 	bool mApplyContentRestriction;		/**< Status to apply content restriction */
 	videoRect mVideoRect;
 	std::unique_ptr<char[]> mData;

@@ -138,7 +138,7 @@ public:
 
     // Wait for either:
     //    - ScheduleTask to be called
-    //    - mPausePositionMilliseconds to be set to -1 (i.e. cancelled)
+    //    - mPausePositionMilliseconds to be set to -1 (i.e. canceled)
     //    - timeout to avoid lockup of test
     // Returns true if ScheduleTask was called, otherwise false
     bool WaitForScheduleTask(int timeoutMs)

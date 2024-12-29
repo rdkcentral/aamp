@@ -33,7 +33,7 @@ TESTDATA1 = {
     {"cmd": "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/main.mpd"},
     {"expect": r"AAMP_EVENT_TUNED"},
     {"cmd": "set propagateUriParam 0"},
-    {"expect": r"Matched Command PropogateUriParam - set propagateUriParam 0"},
+    {"expect": r"Matched Command PropagateUriParam - set propagateUriParam 0"},
     {"expect": r"propagateUriParameters New Owner"},
     {"expect": r"Returning Position as 1(\d{3}) "},
     {"expect": r"https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/dash/(360|480|720|1080)p_\d{3}.m4s(?!(\?hello=123))"},
@@ -43,7 +43,7 @@ TESTDATA1 = {
     {"expect": r"https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/dash/(360|480|720|1080)p_\d{3}.m4s(?!(\?hello=123))"},
 
     {"cmd": "set propagateUriParam 1"},
-    {"expect": r"Matched Command PropogateUriParam - set propagateUriParam 1"},
+    {"expect": r"Matched Command PropagateUriParam - set propagateUriParam 1"},
     {"expect": r"propagateUriParameters New Owner"},
     {"expect": r"Returning Position as 7(\d{3}) "},
     {"expect": r"https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/dash/(360|480|720|1080)p_\d{3}.m4s(?=(\?hello=123))"},

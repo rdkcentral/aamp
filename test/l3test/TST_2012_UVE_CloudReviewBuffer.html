@@ -54,8 +54,8 @@ async function TST_2012_UVE_CloudReviewBufferTests() {
     TST_STEP("Tune to URL");
     await aamp_player.Load(mainContentUrl, false);
 
-    // Initialise requirements check before 'pausing'
-    await InitialiseRequirementsCheck();
+    // Initialize requirements check before 'pausing'
+    await InitializeRequirementsCheck();
 
     // Pause playback without waiting for ratechange
     TST_STEP("Pause playback");
@@ -119,7 +119,7 @@ async function TST_2012_UVE_CloudReviewBufferTests() {
         progressUpdateCount++;
     }
 
-    function InitialiseRequirementsCheck() {
+    function InitializeRequirementsCheck() {
         stateChangedCount       = 0;
         speedChangedCount       = 0;
         progressUpdateCount     = 0;

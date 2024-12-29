@@ -37,8 +37,8 @@ TESTDATA1 = {
     "title": "Test1 Split period ad",
     # Test content is as follows : described as -> <N>th period <duration of period> seconds -> <scte35 marker duration> seconds ad
     #  0th period 30s no ads, 1st period 20 seconds -> 20 second ad, 2nd period 10 seconds -> 20 second ad, 3rd period 10 seconds -> no ad, 4th period 20 seconds -> 20 second ad, 5th period no ads till end of content
-    #  current behaviour : after playing 20 second ad in 2nd period we see 3rd period (base content 01.00 to 01.10 timestamp) playback for 10 seconds .
-    #  expected behaviour : after playing 20 second ad in 2nd period we should see 4th period ad playback for 20 seconds
+    #  current behavior : after playing 20 second ad in 2nd period we see 3rd period (base content 01.00 to 01.10 timestamp) playback for 10 seconds .
+    #  expected behavior : after playing 20 second ad in 2nd period we should see 4th period ad playback for 20 seconds
     "max_test_time_seconds": 300,
     "aamp_cfg": "client-dai=true\ninfo=true\nprogress=true\ndebug=true\nenablePTSReStamp=true\n",
     "archive_url": archive_url,
@@ -68,8 +68,8 @@ TESTDATA2 = {
     "title": "Test2 Split period ad with short ad",
     # Test content is as follows : described as -> <N>th period <duration of period> seconds -> <scte35 marker duration> seconds ad
     #  0th period 30s no ads, 1st period 20 seconds -> 20 second ad, 2nd period 10 seconds -> 15 second ad, 3rd period 10 seconds -> no ad, 4th period 20 seconds -> 20 second ad, 5th period no ads till end of content
-    #  current behaviour : after playing 15 second ad in 2nd period we see 3rd period (base content 01.00 to 01.10 timestamp) playback for 10 seconds .
-    #  expected behaviour : after playing 15 second ad in 2nd period we should see 5 seconds of base content of 3rd period then 4th period ad playback for 20 seconds
+    #  current behavior : after playing 15 second ad in 2nd period we see 3rd period (base content 01.00 to 01.10 timestamp) playback for 10 seconds .
+    #  expected behavior : after playing 15 second ad in 2nd period we should see 5 seconds of base content of 3rd period then 4th period ad playback for 20 seconds
     "max_test_time_seconds": 300,
     "aamp_cfg": "client-dai=true\ninfo=true\nprogress=true\ndebug=true\nenablePTSReStamp=true\n",
     "archive_url": archive_url,
@@ -100,7 +100,7 @@ TESTDATA3 = {
     "title": "Test3 Split period ad across multiple periods ",
     # Test content is as follows : described as -> <N>th period <duration of period> seconds -> <scte35 marker duration> seconds ad
     #  0th period 30s no ads, 1st period 10 seconds -> 30 second ad, 2nd period 10 seconds ->no ad, 3rd period 10 seconds -> no ad, 4th period 20 seconds ->  no ad, 5th period no ads till end of content
-    #  Expected behaviour : after playing 30 second ad in 1ST period ,It should skip period 2,3 and should starts from period 4
+    #  Expected behavior : after playing 30 second ad in 1ST period ,It should skip period 2,3 and should starts from period 4
     "max_test_time_seconds": 300,
     "aamp_cfg": "client-dai=true\ninfo=true\nprogress=true\ndebug=true\nenablePTSReStamp=true\n",
     "archive_url": archive_url,
@@ -130,7 +130,7 @@ TESTDATA4 = {
     "title": "Test3 Split period ad across multiple periods ",
     # Test content is as follows : described as -> <N>th period <duration of period> seconds -> <scte35 marker duration> seconds ad
     #  0th period 30s no ads, 1st period 10 seconds -> 30 second ad, 2nd period 10 seconds ->no ad, 3rd period 10 seconds -> no ad, 4th period 20 seconds ->  no ad, 5th period no ads till end of content
-    #  Expected behaviour : after playing 30 second ad in 1ST period ,It should skip period 2,3 and should starts from period 4
+    #  Expected behavior : after playing 30 second ad in 1ST period ,It should skip period 2,3 and should starts from period 4
     "max_test_time_seconds": 300,
     "aamp_cfg": "client-dai=true\ninfo=true\nprogress=true\ndebug=true\nenablePTSReStamp=true\n",
     "archive_url": archive_url,

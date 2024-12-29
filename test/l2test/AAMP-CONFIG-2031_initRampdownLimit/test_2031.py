@@ -54,14 +54,14 @@ TESTDATA1 = {
         # Http 404 received for 1080p playlist
         {"expect": r"Playlist download failed : http://localhost:8085/VideoTestStream_HLS/hls/1080p.m3u8\?respData=" + data + r"  http response : 404"},
         # Attemped 1st rampdown to 720p playlist
-        {"expect": r"Video playlist download failed, rettrying with rampdown logic : 1 \( 2 \)"},
+        {"expect": r"Video playlist download failed, retrying with rampdown logic : 1 \( 2 \)"},
         # Http 404 received for 720p playlist
         {"expect": r"Playlist download failed : http://localhost:8085/VideoTestStream_HLS/hls/720p.m3u8\?respData=" + data + r"  http response : 404"},
         # Attemped 2nd rampdown to 480p playlist
-        {"expect": r"Video playlist download failed, rettrying with rampdown logic : 2 \( 2 \)"},
+        {"expect": r"Video playlist download failed, retrying with rampdown logic : 2 \( 2 \)"},
         # Http 404 received for 480p playlist
         {"expect": r"Playlist download failed : http://localhost:8085/VideoTestStream_HLS/hls/480p.m3u8\?respData=" + data + r"  http response : 404"},
-        # Attemped 3rd rampdown to 360p playlist, since exceeded the ramdownlimit, tune failed event raised.
+        # Attemped 3rd rampdown to 360p playlist, since exceeded the rampdownlimit, tune failed event raised.
         {"expect": "Video playlist download failed still after 3 rampdown attempts"},
         {"expect": r"init failed \(unable to download video playlist\) : Http Error Code 404"},
         {"expect": r"AAMP_EVENT_TUNE_FAILED reason=AAMP: init failed \(unable to download video playlist\) : Http Error Code 404"},
@@ -84,10 +84,10 @@ TESTDATA2 = {
         # Http 404 received for 1080p playlist
         {"expect": r"Playlist download failed : http://localhost:8085/VideoTestStream_HLS/hls/1080p.m3u8\?respData=" + data + r"  http response : 404"},
         # Attemped 1st rampdown to 720p playlist
-        {"expect": r"Video playlist download failed, rettrying with rampdown logic : 1 \( 1 \)"},
+        {"expect": r"Video playlist download failed, retrying with rampdown logic : 1 \( 1 \)"},
         # Http 404 received for 720p playlist
         {"expect": r"Playlist download failed : http://localhost:8085/VideoTestStream_HLS/hls/720p.m3u8\?respData=" + data + r"  http response : 404"},
-        # Attemped 2nd rampdown to 480p playlist, since exceeded the ramdownlimit, tune failed event raised.
+        # Attemped 2nd rampdown to 480p playlist, since exceeded the rampdownlimit, tune failed event raised.
         {"expect": "Video playlist download failed still after 2 rampdown attempts"},
         {"expect": r"init failed \(unable to download video playlist\) : Http Error Code 404"},
         {"expect": r"AAMP_EVENT_TUNE_FAILED reason=AAMP: init failed \(unable to download video playlist\) : Http Error Code 404"},

@@ -206,11 +206,11 @@ namespace {
 
 
     /**
-     * @brief   find first occurance
+     * @brief   find first occurrence
      * @param   s pointer to char starting
      * @param   e pointer to char ending
      * @param   q pointer to char to be found
-     * @retval  occurance string
+     * @retval  occurrence string
      */
     inline const char* find_first_of(const char *s, const char *e, const char *q) {
         for(; s!=e; ++s)
@@ -226,7 +226,7 @@ namespace {
      * @param   s pointer to char starting
      * @param   e pointer to char ending
      * @param   c to be found character
-     * @retval  occurance string
+     * @retval  occurrence string
      */
     inline const char* find_char(const char *s, const char *e, const char c) {
         while (s!=e && *s!=c)
@@ -1236,7 +1236,7 @@ bool Url::operator==(const Url &other) const {
 
 /**
  * @brief   Resolve a relative path to this URL or replace if the argument is an absolute URL
- * @param   relativeOrAbs Relative or Abolute path
+ * @param   relativeOrAbs Relative or Absolute path
  * @retval  updated Url
  */
 Url Url::resolveOrReplace(Url relativeOrAbs) {

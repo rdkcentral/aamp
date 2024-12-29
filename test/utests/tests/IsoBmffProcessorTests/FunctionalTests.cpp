@@ -70,7 +70,7 @@ class IsoBmffProcessorTests : public ::testing::Test
 			id3_callback_t id3Handler = nullptr;
 
 			mAudIsoBmffProcessor = new IsoBmffProcessor(mPrivateInstanceAAMP, id3Handler, eBMFFPROCESSOR_TYPE_AUDIO);
-			mSubIsoBmffProcessor = new IsoBmffProcessor(mPrivateInstanceAAMP, id3Handler, eBMFFPROCESSOR_TYPE_SUBTITILE);
+			mSubIsoBmffProcessor = new IsoBmffProcessor(mPrivateInstanceAAMP, id3Handler, eBMFFPROCESSOR_TYPE_SUBTITLE);
 			mIsoBmffProcessor = new IsoBmffProcessor(mPrivateInstanceAAMP, id3Handler, eBMFFPROCESSOR_TYPE_VIDEO, mAudIsoBmffProcessor, mSubIsoBmffProcessor);
 		}
 

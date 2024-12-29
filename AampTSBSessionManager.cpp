@@ -91,7 +91,7 @@ void AampTSBSessionManager::Init()
 		mTSBStore = mAamp->GetTSBStore(config, AampLogManager::aampLogger, level);
 		if (mTSBStore)
 		{
-			// Initilize datamanager for respective mediatype
+			// Initialize datamanager for respective mediatype
 			InitializeDataManagers();
 			InitializeTsbReaders();
 			// Start monitoring the write queue in a separate thread
@@ -478,17 +478,17 @@ double AampTSBSessionManager::CullSegments()
 		bool eos;
 		TsbFragmentDataPtr firstFragment = GetTsbDataManager((AampMediaType)iter)->GetFragment(trackFirstPosition, eos);
 		// Calculate the next fragment position from the eldest part of TSB
-		double adjascentFragmentPosition = trackFirstPosition;
+		double adjacentFragmentPosition = trackFirstPosition;
 		if (firstFragment)
 		{
 			// Take the next eldest position incase this particular fragment gets removed
-			adjascentFragmentPosition = firstFragment->GetDuration() + trackFirstPosition;
+			adjacentFragmentPosition = firstFragment->GetDuration() + trackFirstPosition;
 		}
 
 		// Check if we need to cull any segments
-		if (GetTotalStoreDuration(eMEDIATYPE_VIDEO) <= mTsbLength && (videoFirstPosition < adjascentFragmentPosition))
+		if (GetTotalStoreDuration(eMEDIATYPE_VIDEO) <= mTsbLength && (videoFirstPosition < adjacentFragmentPosition))
 		{
-			AAMPLOG_TRACE("[%s]Total Store duration (%lf / %d), firstFragment:%lf last:%lf, next:%lf, videoFirstFrag:%lf", GetMediaTypeName((AampMediaType) iter), GetTotalStoreDuration((AampMediaType) iter), mTsbLength, trackFirstPosition, trackLastPosition, adjascentFragmentPosition, videoFirstPosition);
+			AAMPLOG_TRACE("[%s]Total Store duration (%lf / %d), firstFragment:%lf last:%lf, next:%lf, videoFirstFrag:%lf", GetMediaTypeName((AampMediaType) iter), GetTotalStoreDuration((AampMediaType) iter), mTsbLength, trackFirstPosition, trackLastPosition, adjacentFragmentPosition, videoFirstPosition);
 			iter++;
 			continue; // No need to cull segments for this mediaType
 		}
@@ -608,7 +608,7 @@ double AampTSBSessionManager::GetTotalStoreDuration(AampMediaType mediaType)
 	}
 	else
 	{
-		AAMPLOG_ERR("%s:%d No dataManager availalbe for mediaType:%d", __FUNCTION__, __LINE__, mediaType);
+		AAMPLOG_ERR("%s:%d No dataManager available for mediaType:%d", __FUNCTION__, __LINE__, mediaType);
 	}
 	return totalDuration;
 }
@@ -628,7 +628,7 @@ std::shared_ptr<AampTsbDataManager> AampTSBSessionManager::GetTsbDataManager(Aam
 	}
 	else
 	{
-		AAMPLOG_ERR("%s:%d No dataManager availalbe for mediaType:%d", __FUNCTION__, __LINE__, mediaType);
+		AAMPLOG_ERR("%s:%d No dataManager available for mediaType:%d", __FUNCTION__, __LINE__, mediaType);
 	}
 
 	return dataMgr;
@@ -649,7 +649,7 @@ std::shared_ptr<AampTsbReader> AampTSBSessionManager::GetTsbReader(AampMediaType
 	}
 	else
 	{
-		AAMPLOG_ERR("%s:%d No TsbReader availalbe for mediaType:%d", __FUNCTION__, __LINE__, mediaType);
+		AAMPLOG_ERR("%s:%d No TsbReader available for mediaType:%d", __FUNCTION__, __LINE__, mediaType);
 	}
 
 	return reader;
@@ -677,7 +677,7 @@ AAMPStatusType AampTSBSessionManager::InvokeTsbReaders(double &position, float r
 	}
 	if (!mTsbReaders.empty())
 	{
-		// Re-Invoke TSB readers to new posittion
+		// Re-Invoke TSB readers to new position
 		mActiveTuneType = tuneType;
 		GetTsbReader(eMEDIATYPE_VIDEO)->DeInit();
 		ret = GetTsbReader(eMEDIATYPE_VIDEO)->Init(relativePos, rate, tuneType);
@@ -690,7 +690,7 @@ AAMPStatusType AampTSBSessionManager::InvokeTsbReaders(double &position, float r
 		// Sync tracks with relative seek position
 		for (int i = (AAMP_TRACK_COUNT - 1); i > eMEDIATYPE_VIDEO; i--)
 		{
-			// Re-initialze reader with synchronized values
+			// Re-initialize reader with synchronized values
 			double startPos = relativePos;
 			GetTsbReader((AampMediaType)i)->DeInit();
 			if(AAMP_NORMAL_PLAY_RATE == rate)

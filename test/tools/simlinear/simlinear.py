@@ -429,7 +429,7 @@ class DASHServerHandler(BaseHTTPRequestHandler):
                 LLsizeAdjusted = LLsize
                 LLmidDelayAdjusted = LLmidDelay / 1000
                 LLpreDelayAdjusted = LLpreDelay / 1000
-                log.info(str(LLpreDelay) + " miliseconds (PreDELAY), " + str(LLmidDelay) + " miliseconds (MidDELAY), " + str(LLsizeAdjusted) + " bytes")
+                log.info(str(LLpreDelay) + " milliseconds (PreDELAY), " + str(LLmidDelay) + " milliseconds (MidDELAY), " + str(LLsizeAdjusted) + " bytes")
 
                 if LLpreDelayAdjusted > 0:
                     time.sleep(LLpreDelayAdjusted)
@@ -905,7 +905,7 @@ if __name__ == "__main__":
         "--offset", help="offset time for dash to skip, offset should be in hours:minutes:seconds or minutes:seconds or seconds.", default="0", type=str
     )
     parser.add_argument(
-        "--throttle", help="Set fragment size and delay between them. Can control the delay of first chunk separately from the rest  Format: FirstDELAY:DELAY:SIZE   SIZE in bytes integer (default 100000), DELAY and FirstDELAY in miliseconds integer (default 10)   Can leave numbers blank e.g. '::150000' would only change the size and use defaults for both delays", nargs='?', const="-1", type=str 
+        "--throttle", help="Set fragment size and delay between them. Can control the delay of first chunk separately from the rest  Format: FirstDELAY:DELAY:SIZE   SIZE in bytes integer (default 100000), DELAY and FirstDELAY in milliseconds integer (default 10)   Can leave numbers blank e.g. '::150000' would only change the size and use defaults for both delays", nargs='?', const="-1", type=str 
     )
 
     args = parser.parse_args()

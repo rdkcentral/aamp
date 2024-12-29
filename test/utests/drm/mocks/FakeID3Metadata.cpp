@@ -73,7 +73,7 @@ bool MetadataCache::CheckNewMetadata(AampMediaType mediaType, const std::vector<
 	return false;
 }
 
-void MetadataCache::UpdateMedatadaCache(AampMediaType mediaType, std::vector<uint8_t> data)
+void MetadataCache::UpdateMetadataCache(AampMediaType mediaType, std::vector<uint8_t> data)
 {
 }
 

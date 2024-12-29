@@ -482,7 +482,7 @@ uint32_t ManifestRefreshEvent::getNoOfPeriods() const
 }
 
 /**
- * @brief Get ManifestPuablishedTime for Linear DASH
+ * @brief Get ManifestPublishedTime for Linear DASH
  *
  * @return ManifestFile PublishedTime
  */

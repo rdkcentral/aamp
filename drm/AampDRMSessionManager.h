@@ -125,7 +125,7 @@ private:
 	pthread_mutex_t cachedKeyMutex;
 	pthread_mutex_t mDrmSessionLock;
 	bool licenseRequestAbort;
-	bool mEnableAccessAtrributes;
+	bool mEnableAccessAttributes;
 	int mMaxDRMSessions;
 	std::vector<std::thread> mLicenseRenewalThreads;
 	AampCurlDownloader mAccessTokenConnector;

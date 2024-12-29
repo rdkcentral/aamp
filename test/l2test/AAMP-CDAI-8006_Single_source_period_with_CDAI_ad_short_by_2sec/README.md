@@ -1,5 +1,5 @@
 # AAMP L2 Tune time test
-Test used to check/verify the linear CDAI behaviour with same duration ad and shorter duration ad
+Test used to check/verify the linear CDAI behavior with same duration ad and shorter duration ad
 
 
 ## Test Files

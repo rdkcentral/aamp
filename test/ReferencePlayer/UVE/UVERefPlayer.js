@@ -583,9 +583,9 @@ function httpResponseHeaderReceived(event) {
 
 function mediaProgressUpdate(event) {
     //console.log("Media progress update event: " + JSON.stringify(event));
-    //TSB length for live assets = (event.endMiliseconds - event.startMiliseconds)
-    var duration = event.endMiliseconds;
-    var position = event.positionMiliseconds;
+    //TSB length for live assets = (event.endMilliseconds - event.startMilliseconds)
+    var duration = event.endMilliseconds;
+    var position = event.positionMilliseconds;
     var value = ( position / duration ) * 100;
     var seekBar = document.getElementById("seekBar");
 
@@ -593,7 +593,7 @@ function mediaProgressUpdate(event) {
         vttCueBuffer = vttCueBuffer.filter((cue) => {
             return cue.start > position;
         });
-        //console.log("Media progress: positionMiliseconds=" + position + " cueBufferLength: " + vttCueBuffer.length);
+        //console.log("Media progress: positionMilliseconds=" + position + " cueBufferLength: " + vttCueBuffer.length);
         if (vttCueBuffer.length !== 0) {
             displaySubtitle(vttCueBuffer[0], position);
         }
@@ -652,7 +652,7 @@ function mediaProgressUpdate(event) {
         ", numOfGaps: " + stst.numOfGaps;
     document.getElementById("widthHeight").innerHTML = stst.displayWidth + "x" + stst.displayHeight;
     document.getElementById("currentPTS").innerHTML = event.currentPTS;
-    document.getElementById("videoBuffered").innerHTML = event.videoBufferedMiliseconds;
+    document.getElementById("videoBuffered").innerHTML = event.videoBufferedMilliseconds;
     document.getElementById("liveLatency").innerHTML = event.liveLatency;
 
     document.getElementById("streamType").innerHTML =  stst.mediaType + " " + stst.playbackMode;

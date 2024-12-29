@@ -168,7 +168,7 @@ private:
 	bool m_dsmccComponentFound; 		//!< True if DSMCC found
 	RecordingComponent m_dsmccComponent; //!< Digital storage media command and control (DSM-CC) Component
 
-	bool m_demuxInitialized {false};	//!< True if the demuxers have been initialised
+	bool m_demuxInitialized {false};	//!< True if the demuxers have been Initialized
 	std::unique_ptr<Demuxer> mVideoDemuxer {nullptr};	//!< Video demuxer object
 	std::unique_ptr<Demuxer> mAudioDemuxer {nullptr};	//!< Audio demuxer object
 	std::unique_ptr<Demuxer> mDsmccDemuxer {nullptr};	//!< DSMCC demuxer object

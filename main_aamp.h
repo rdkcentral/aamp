@@ -186,13 +186,13 @@ struct AudioTrackInfo
 	std::string rendition;			/**< role for DASH, group-id for HLS */
 	std::string name;			/**< Name of track info */
 	std::string codec;			/**< Codec of Audio track */
-	std::string characteristics;		/**< Charesterics field of audio track */
+	std::string characteristics;		/**< Characteristics field of audio track */
 	std::string label;			/**< label of audio track info */
 	int channels;				/**< number channels of track */
 	long bandwidth;				/**< Bandwidth value of track **/
 	int primaryKey; 			/**< used for ATSC to store key , this should not be exposed to app */
-	std::string contentType; 		/**< used for ATSC to propogate content type */
-	std::string mixType; 			/**< used for ATSC to propogate mix type */
+	std::string contentType; 		/**< used for ATSC to propagate content type */
+	std::string mixType; 			/**< used for ATSC to propagate mix type */
 	std::string accessibilityType; 	 	/**< value of Accessibility */
 	bool isMuxed; 				/**< Flag to indicated muxed audio track ; this is used by AC4 tracks */
 	Accessibility accessibilityItem; 	/**< Field to store Accessibility Node */
@@ -255,9 +255,9 @@ struct AudioTrackInfo
 	{
 	}
 
-	AudioTrackInfo(std::string idx, std::string lang, std::string rend, std::string trackName, std::string codecStr, long bw, std::string typ, bool muxed, std::string lab, std::string type, Accessibility accessbility, bool available):
+	AudioTrackInfo(std::string idx, std::string lang, std::string rend, std::string trackName, std::string codecStr, long bw, std::string typ, bool muxed, std::string lab, std::string type, Accessibility accessibility, bool available):
 		index(idx), language(lang), rendition(rend), name(trackName),
-		codec(codecStr), characteristics(), channels(0), bandwidth(bw),primaryKey(0), contentType(), mixType(), accessibilityType(typ), isMuxed(muxed), label(lab), mType(type), accessibilityItem(accessbility),
+		codec(codecStr), characteristics(), channels(0), bandwidth(bw),primaryKey(0), contentType(), mixType(), accessibilityType(typ), isMuxed(muxed), label(lab), mType(type), accessibilityItem(accessibility),
 		isAvailable(available),isDefault(false)
 	{
 	}
@@ -350,7 +350,7 @@ struct TextTrackInfo
 	}
 
 	void set (std::string idx, std::string lang, bool cc, std::string rend, std::string trackName, std::string codecStr, std::string cha,
-			std::string acctyp, std::string lab, std::string type, Accessibility acc)
+			std::string accType, std::string lab, std::string type, Accessibility acc)
 	{
 		index = idx;
 		language = lang;
@@ -359,7 +359,7 @@ struct TextTrackInfo
 		name = trackName;
 		characteristics = cha;
 		codec = codecStr;
-		accessibilityType = acctyp;
+		accessibilityType = accType;
 		label = lab;
 		accessibilityItem = acc;
 		mType = type;
@@ -506,7 +506,7 @@ public:
 	 *   @brief Enabled or disable playback pause
 	 *
 	 *   @param[in] pause  Enable/Disable
-	 *   @param[in] forceStopGstreamerPreBuffering - true for disabling bufferinprogress
+	 *   @param[in] forceStopGstreamerPreBuffering - true for disabling buffer-in-progress
 	 *   @return true if content successfully paused
 	 */
 	virtual bool Pause(bool pause, bool forceStopGstreamerPreBuffering){ return true; }
@@ -613,7 +613,7 @@ public:
 	virtual bool CheckForPTSChangeWithTimeout(long timeout) { return true; }
 
 	/**
-	 *   @brief Check whether cach is empty
+	 *   @brief Check whether cache is empty
 	 *
 	 *   @param[in]  mediaType - Media Type
 	 *   @return true: empty, false: not empty
@@ -1106,7 +1106,7 @@ public:
 	 *   @fn AddCustomHTTPHeader
 	 *
 	 *   @param[in]  headerName - Name of custom HTTP header
-	 *   @param[in]  headerValue - Value to be pased along with HTTP header.
+	 *   @param[in]  headerValue - Value to be passed along with HTTP header.
 	 *   @param[in]  isLicenseHeader - true if header is to be used for license HTTP requests
 	 *   @return void
 	 */
@@ -1539,7 +1539,7 @@ public:
 
 	/**
          *      @fn SetOutputResolutionCheck
-         *      @param[in] bValue - true/false to enable/disable profile filtering by display resoluton
+         *      @param[in] bValue - true/false to enable/disable profile filtering by display resolution
          *
          *      @return void
          */
@@ -2091,7 +2091,7 @@ public:
 	/**
 	 *   @fn GetPlaybackStats
          *
-   	 *   @return json string reperesenting the stats
+   	 *   @return json string representing the stats
   	 */
 	std::string GetPlaybackStats();
 

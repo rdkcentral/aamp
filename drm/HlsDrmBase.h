@@ -36,7 +36,7 @@ enum DrmReturn
 {
 	eDRM_SUCCESS,			/**< DRM is success */
 	eDRM_ERROR,			/**< DRM Failed */
-	eDRM_KEY_ACQUSITION_TIMEOUT	/**< DRM key Acqusition timed out */
+	eDRM_KEY_ACQUISITION_TIMEOUT	/**< DRM key acquisition timed out */
 };
 
 /**
@@ -82,7 +82,7 @@ public:
 	/**
 	 * @brief Decrypts an encrypted buffer
 	 * @param bucketType Type of bucket for profiling
-	 * @param encryptedDataPtr pointer to encyrpted payload
+	 * @param encryptedDataPtr pointer to encrypted payload
 	 * @param encryptedDataLen length in bytes of data pointed to by encryptedDataPtr
 	 * @param timeInMs wait time
 	 * @retval eDRM_SUCCESS on success

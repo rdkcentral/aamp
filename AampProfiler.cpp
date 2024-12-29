@@ -152,18 +152,18 @@ void ProfileEventAAMP::getTuneEventsJSON(std::string &outStr, const std::string 
 	unsigned int td = (unsigned int)(tEndTime - tuneStartMonotonicBase);
 	size_t end = 0;
 
-	std::string temlUrl = url;
-	end = temlUrl.find("?");
+	std::string tempUrl = url;
+	end = tempUrl.find("?");
 
 	if (end != std::string::npos)
 	{
-		temlUrl = temlUrl.substr(0, end);
+		tempUrl = tempUrl.substr(0, end);
 	}
 
 	char outPtr[512];
 	memset(outPtr, '\0', 512);
 
-	snprintf(outPtr, 512, "{\"s\":%lld,\"td\":%d,\"st\":\"%s\",\"u\":\"%s\",\"tf\":{\"i\":%d,\"er\":%d},\"r\":%d,\"v\":[",tuneStartBaseUTCMS, td, streamType.c_str(), temlUrl.c_str(), mTuneFailBucketType, mTuneFailErrorCode, (success ? 1 : 0));
+	snprintf(outPtr, 512, "{\"s\":%lld,\"td\":%d,\"st\":\"%s\",\"u\":\"%s\",\"tf\":{\"i\":%d,\"er\":%d},\"r\":%d,\"v\":[",tuneStartBaseUTCMS, td, streamType.c_str(), tempUrl.c_str(), mTuneFailBucketType, mTuneFailErrorCode, (success ? 1 : 0));
 
 	outStr.append(outPtr);
 
@@ -309,7 +309,7 @@ void ProfileEventAAMP::TuneEnd(TuneEndMetrics &mTuneEndMetrics,std::string appNa
 		"%d,%d,"		// VideoDecryptDuration, AudioDecryptDuration
 		"%d,%d,"		// gstPlayStartTime, gstFirstFrameTime
 		"%d,%d,%d,"		// contentType, streamType, firstTune
-		"%d,%d,"		// If Player was in prebufferd mode, time spent in prebufferd(BG) mode
+		"%d,%d,"		// If Player was in prebuffered mode, time spent in prebuffered(BG) mode
 		"%d,%d,"		// Asset duration in seconds, Connection is wifi or not - wifi(1) ethernet(0)
 		"%d,%d,%s,%s,"		// TuneAttempts ,Tunestatus -success(1) failure (0) ,Failure Reason, AppName
 		"%d,%d,%d,%d,%d",       // TimedMetadata (count,start,total) ,TSBEnabled or not - enabled(1) not enabled(0)

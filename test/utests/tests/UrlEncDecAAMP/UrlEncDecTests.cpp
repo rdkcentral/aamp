@@ -27,7 +27,7 @@
 
 // unit under test
 /*
- !! Note we are including the source file to acess static functions !!
+ !! Note we are including the source file to access static functions !!
  */
 #include <AampUtils.cpp>
 

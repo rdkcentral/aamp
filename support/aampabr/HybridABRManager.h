@@ -190,7 +190,7 @@ class HybridABRManager:public ABRManager
 		long UpdateABRBitrateDataBasedOnCacheOutlier(std::vector< long> &tmpData);
 
 		/**
-		 * @brief fcurrent network bandwidth using most recently recorded 3 samplesunction to check profilechange is needed or not
+		 * @brief fcurrent network bandwidth using most recently recorded 3 sample function to check profilechange is needed or not
 		 * @params totalFetchedDuration - Total fragment fetched duration
 		 * @params currProfileIndex -current profileIndex
 		 * @params availBW -current network bandwidth using most recently recorded 3 samples
@@ -212,8 +212,8 @@ class HybridABRManager:public ABRManager
 		 * @params currentProfileIndex , newProfileIndex -current and new profile
 		 * @params currentBandwidth current profileIdx bitrate
 		 * @params newBandwidth - bitrate of new profileIdx
-		 * @params  bufferValue -Biffer availability
-		 * @params minBufferNeeded - Minimum Buffer Needed 
+		 * @params  bufferValue -Buffer availability
+		 * @params minBufferNeeded - Minimum Buffer Needed
 		 * @return none
 		 */
 
@@ -223,7 +223,7 @@ class HybridABRManager:public ABRManager
 		 * @brief function to update newprofileindex ,if rampup happen from steady state
 		 * @params currentProfileIndex , newProfileIndex -current and new profile Idx
 		 * @params nwBandwidth - current network bandwidth using most recently recorded 3 samples
-		 * @params bufferValue -Biffer availability
+		 * @params bufferValue -Buffer availability
 		 * @params newBandwidth - bitrate of new profileIdx
 		 * @params BitrateChangeReason is getting updated only if rampup occur
 		 * @return none

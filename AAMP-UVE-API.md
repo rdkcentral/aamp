@@ -79,7 +79,7 @@ Configuration options are passed to AAMP using the UVE initConfig method. This a
 | abrCacheLength | Number | 3 | Length of abr cache for network bandwidth calculation. |
 | abrCacheLife | Number | 5000 | Lifetime value for abr cache for network bandwidth calculation (in milli secs). |
 | abrCacheOutlier | Number | 5000000 | Outlier difference which will be ignored from network bandwidth calculation (default: 5 MB in bytes). |
-| abrNwConsistency | Number | 2 | Number of checks before profile incr/decr by 1. This is to avoid frequenct profile switching with network change. |
+| abrNwConsistency | Number | 2 | Number of checks before profile incr/decr by 1. This is to avoid frequent profile switching with network change. |
 | abrSkipDuration | Number | 6 | Minimum duration of fragment to be downloaded before triggering abr (in secs). |
 | audioOnlyPlayback | Boolean | False | Configuration to enable/disable Audio only Playback. |
 | cdvrLiveOffset | Number | 30 | Live offset time in seconds for cdvr, aamp starts live playback this much time before the live point for inprogress cdvr. |
@@ -432,7 +432,7 @@ Usage example:
 ---
 
 ### resetConfiguration()
-- API that can be used to reset the player instance configuration to default values that can be called by the application any time necesssary.
+- API that can be used to reset the player instance configuration to default values that can be called by the application any time necessary.
 ---
 
 ### getConfiguration()
@@ -517,7 +517,7 @@ Example:
 - Sets the current volume (value between 0 and 100). Updated value reflected in subsequent calls to getVolume()
 - Returns true if setVolume has been performed.
 
-| Name | Type | Decription |
+| Name | Type | Description |
 | ---- | ---- | ---------- |
 | Volume | Number | Pass zero to mute audio. Pass 100 for normal (max) audio volume. |
 
@@ -528,7 +528,7 @@ Example:
 - Black out video for parental control purposes or enable the video playback .
 - Returns true if setVideoMute has been performed.
 
-| Name | Type | Decription |
+| Name | Type | Description |
 | ---- | ---- | ---------- |
 | state | Boolean | True to Mute video. <br/>False to disable video mute and enable video playback |
 
@@ -988,7 +988,7 @@ playerInstance.setAudioTrack( trackDescriptorObject );
 - Set the audio track  preference by languages, rendition, accessibility, codecList and label
 - This is functionally equivalent to passing a trackDescriptorObject to setAudioTrack above.
 - May be called pre-tune or post tune.
-- Behaviour is similar to setPreferredAudioLanguage ( JSON String)
+- Behavior is similar to setPreferredAudioLanguage ( JSON String)
 - Returns true if setPreferredAudioLanguage has been performed.
 
 |Name|Type|Description|
@@ -1408,7 +1408,7 @@ playerInstance.setPreferredTextLanguage( trackPreferenceObject );
 
 ### getThumbnail(startPosition, endPosition)
 - Get the thumbnail data for the time range “startPosition” till “endPosition”.
-- For linear streams(e.g Live,Hot CDVR,..) start and endPosition has to be specified w.r.t Avaialability start time
+- For linear streams(e.g Live,Hot CDVR,..) start and endPosition has to be specified w.r.t Availability start time
 
 |Name|Type|Description|
 |----|----|-----------|
@@ -2392,7 +2392,7 @@ adPlayer2.stop();
 | AAMP_TUNE_INVALID_MANIFEST_FAILURE | 10 | AAMP: Invalid Manifest, parse failed |
 | AAMP_TUNE_MP4_INIT_FRAGMENT_MISSING | 10 | AAMP: init fragments missing in playlist |
 | AAMP_TUNE_CONTENT_NOT_FOUND | 20 | AAMP: Resource was not found at the URL(HTTP 404) |
-| AAMP_TUNE_AUTHORISATION_FAILURE | 40 | AAMP: Authorization failure |
+| AAMP_TUNE_AUTHORIZATION_FAILURE | 40 | AAMP: Authorization failure |
 | AAMP_TUNE_UNTRACKED_DRM_ERROR | 50 | AAMP: DRM error untracked error |
 | AAMP_TUNE_DRM_INIT_FAILED | 50 | AAMP: DRM Initialization Failed |
 | AAMP_TUNE_DRM_DATA_BIND_FAILED | 50 | AAMP: InitData-DRM Binding Failed |

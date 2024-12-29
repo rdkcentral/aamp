@@ -33,7 +33,7 @@ def Canonicalize(element):
     Use this to generate a string representation of an XML element which can be
     used in tests to compare two XML elements.
 
-    return A standardised string representation of an XML element
+    return A standardized string representation of an XML element
     """
     return ET.canonicalize(ET.tostring(element), strip_text=True)
 

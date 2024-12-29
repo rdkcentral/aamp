@@ -307,7 +307,7 @@ TEST_F(fragmentcollector_mpd, UpdatePtsOffsetTest1)
 	 */
 	for (int p = 0; p < (sizeof(tbl) / sizeof(tbl[0])); p++)
 	{
-		// Begining of period call to calc PTSoffset
+		// Beginning of period call to calc PTSoffset
 		mStreamAbstractionAAMP_MPD->UpdatePtsOffset(true);
 
 		EXPECT_DOUBLE_EQ(mStreamAbstractionAAMP_MPD->mPTSOffset.inSeconds(), tbl[p].expectedOffset);
