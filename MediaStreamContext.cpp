@@ -330,16 +330,19 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 			{
 				AAMPLOG_ERR("StreamAbstractionAAMP_MPD::Error on fetching %s fragment. failedCount:%d",name, segDLFailCount);
 
-				if(!initSegment)
+				if (initSegment)
 				{
-					updateSkipPoint(position+fragmentDurationS,fragmentDurationS);
+					// For init fragment, rampdown limit is reached. Send error event.
+					if (!playingAd && httpErrorCode != 502)
+					{
+						abortWaitForVideoPTS();
+						aamp->SetFlushFdsNeededInCurlStore(true);
+						aamp->SendDownloadErrorEvent(AAMP_TUNE_INIT_FRAGMENT_DOWNLOAD_FAILURE, httpErrorCode);
+					}
 				}
-				// For init fragment, rampdown limit is reached. Send error event.
-				if(!playingAd && initSegment)
+				else
 				{
-					abortWaitForVideoPTS();
-					aamp->SetFlushFdsNeededInCurlStore(true);
-					aamp->SendDownloadErrorEvent(AAMP_TUNE_INIT_FRAGMENT_DOWNLOAD_FAILURE, httpErrorCode);
+					updateSkipPoint(position + fragmentDurationS, fragmentDurationS);
 				}
 			}
 		}

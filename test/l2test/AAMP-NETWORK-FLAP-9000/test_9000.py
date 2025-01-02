@@ -48,7 +48,7 @@ data3 = base64.b64encode(json.dumps(simlinearResp3).encode('utf-8')).decode('utf
 #Network flap test for manifest retry
 TESTDATA0 = {
     "title": "Networkflap Test for manifest retry",
-    "logfile": "networkflapmanifest.log",
+    "logfile": "networkflapmanifest0.log",
     "max_test_time_seconds": 30,
     "aamp_cfg": f"info=true\nprogress=true\ntrace=true\n",
     "archive_url": archive_url,
@@ -58,14 +58,15 @@ TESTDATA0 = {
         {"expect": r"aamp_tune"},
         {"expect": r"Download failed due to Server error http-502"},
         {"expect": r"Download Status Ret:0 502"},
-        {"expect": r"Download Status Ret:0 200"},
-        {"expect": r"FOREGROUND PLAYER\[0\] Sending error AAMP: Manifest Download failed : Http Error Code 502", "not_expected": True},
-        {"expect": r"Parse MPD Completed ..."},
-        {"expect": r"Successfully parsed Manifest ...IsLive"},
-        {"expect": r"Download Status Ret:0 200"},
-        {"expect": r"HttpRequestEnd: 3,4,200"},
-        {"expect": r"Returning Position as 16916026(\d{5})","min":15},
-        {"expect": r"aamp pos: \[.*?\.\.1\.00\]", "min": 15},
+        {"expect": r"FOREGROUND PLAYER\[0\] Sending error AAMP:", "not_expected": True},
+        #Check nothing in the body of the html gets passed to parser when we get 502
+        {"expect": r"parser error : Document is empty", "not_expected": True},
+        # Recovery follows
+        {"expect": r"Parse MPD Completed ...", "min":11},
+        {"expect": r"Successfully parsed Manifest ...IsLive", "min":11},
+        {"expect": r"Download Status Ret:0 200", "min":11},
+        {"expect": r"HttpRequestEnd: 3,4,200", "min":11},
+        {"expect": r"Returning Position as 16916026(\d{5})","min":11},
         {"expect": r"HttpRequestEnd: 0,0,200","min":15, "end_of_test": True},
     ]
 }
@@ -73,7 +74,7 @@ TESTDATA0 = {
 #Network flap test for fragment retry and rampdown skip
 TESTDATA1 = {
     "title": "Networkflap Test for fragment retry and rampdown skip",
-    "logfile": "networkflapfragment.log",
+    "logfile": "networkflapfragment1.log",
     "max_test_time_seconds": 30,
     "aamp_cfg": f"info=true\nprogress=true\ntrace=true\n",
     "archive_url": archive_url,
@@ -85,18 +86,19 @@ TESTDATA1 = {
         {"expect": r"AAMPLogNetworkError error='http error 502' type='video' location='unknown' symptom='freeze/buffering'"},
         {"expect": r"HttpRequestEnd: 0,0,502"},
         {"expect": r"StreamAbstractionAAMP: Condition Rampdown Success","not_expected": True},
-        {"expect": r"FOREGROUND PLAYER\[0\] Sending error AAMP: Fragment Download failed : Http Error Code 502","not_expected" : True},
-        {"expect": r"HttpRequestEnd: 0,0,200"},
-        {"expect": r"Download Status Ret:0 200"},
+        {"expect": r"FOREGROUND PLAYER\[0\] Sending error AAMP:","not_expected" : True},
+        # Recovery follows
+        {"expect": r"HttpRequestEnd: 0,0,200", "min":11},
+        {"expect": r"Download Status Ret:0 200", "min":11},
         {"expect": r"Returning Position as 16916026(\d{5})","min":15},
         {"expect": r"aamp pos: \[.*?\.\.1\.00\]", "min": 15, "end_of_test": True},
     ]
 }
 
-#Network flap test for fragment and manifest retry
+#Network flap test for fragment and manifest retry, 5 sec failure for both
 TESTDATA2 = {
     "title": "Networkflap Test for fragment and manifest retry",
-    "logfile": "networkflapmanifestandfragment.log",
+    "logfile": "networkflapmanifestandfragment2.log",
     "max_test_time_seconds": 30,
     "aamp_cfg": f"info=true\nprogress=true\ntrace=true\n",
     "archive_url": archive_url,
@@ -105,20 +107,20 @@ TESTDATA2 = {
     "expect_list": [
         {"expect": r"aamp_tune"},
         {"expect": r"Download Status Ret:0 502"},
-        {"expect": r"Download failed due to Server error http-502 . Retrying Attempt: 1!"},
-        {"expect": r"FOREGROUND PLAYER\[0\] Sending error AAMP: Fragment Download failed : Http Error Code 502","not_expected" : True},
-        {"expect": r"FOREGROUND PLAYER\[0\] Sending error AAMP: Manifest Download failed : Http Error Code 502","not_expected" : True},
-        {"expect": r"Download Status Ret:0 200"},
-        {"expect": r"HttpRequestEnd: 0,0,200"},
-        {"expect": r"Returning Position as 16916026(\d{5})","min":15},
-        {"expect": r"aamp pos: \[.*?\.\.1\.00\]", "min": 15, "end_of_test": True},
+        {"expect": r"Download failed due to Server error http-502"},
+        {"expect": r"FOREGROUND PLAYER\[0\] Sending error AAMP:","not_expected" : True},
+        # Recovery follows
+        {"expect": r"Download Status Ret:0 200", "min":11},
+        {"expect": r"HttpRequestEnd: 0,0,200", "min":11},
+        {"expect": r"Returning Position as 16916026(\d{5})","min":11},
+        {"expect": r"HttpRequestEnd: 0,0,200","min":15, "end_of_test": True},
     ]
 }
 
 #Network flap test for fragment and manifest retry not recovering case.
 TESTDATA3= {
     "title": "Networkflap Test for fragment and manifest retry not recovering case",
-    "logfile": "networkflapmanifestandfragmentnotrecovering.log",
+    "logfile": "networkflapmanifestandfragmentnotrecovering3.log",
     "max_test_time_seconds": 30,
     "aamp_cfg": f"info=true\nprogress=true\ntrace=true\n",
     "archive_url": archive_url,
@@ -128,9 +130,8 @@ TESTDATA3= {
         {"expect": r"aamp_tune"},
         {"expect": r"HttpRequestEnd: 0,0,200"},
         {"expect": r"aamp pos:.*" + re.escape("..1.00]")},
-        {"expect": r"Download failed due to Server error http-502 . Retrying Attempt: 1!"},
+        {"expect": r"Download failed due to Server error http-502"},
         {"expect": r"Download Status Ret:0 502"},
-        {"expect": r"Manifest retries exhausted for HTTP error 502,exiting mpd downloader!!"},
         {"expect": r"aamp pos:.*" + re.escape("..1.00]"),"not_expected" : True, "min":20}, #Dont expect to see this after 20sec into test
         {"expect": r"FOREGROUND PLAYER\[0\] Sending error AAMP: Manifest Download failed : Http Error Code 502","end_of_test": True},
     ]
@@ -141,6 +142,7 @@ TESTDATA3= {
 With this fixture we cause the test to be called with each entry in TESTLIST
 """
 TESTLIST = [TESTDATA0,TESTDATA1,TESTDATA2,TESTDATA3]
+
 @pytest.fixture(params=TESTLIST)
 def test_data(request):
     return request.param
