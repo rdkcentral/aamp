@@ -7314,14 +7314,33 @@ int StreamAbstractionAAMP_MPD::GetProfileIdxForBandwidthNotification(uint32_t ba
  */
 std::string StreamAbstractionAAMP_MPD::GetCurrentMimeType(AampMediaType mediaType)
 {
-	if (mediaType >= mNumberOfTracks) return std::string{};
-
-	class MediaStreamContext *pMediaStreamContext = mMediaStreamContext[mediaType];
-	auto adaptationSet = pMediaStreamContext->adaptationSet;
-
-	std::string mimeType = adaptationSet->GetMimeType();
-	AAMPLOG_DEBUG("mimeType is %s", mimeType.c_str());
-
+	std::string mimeType;
+	if( mediaType < mNumberOfTracks )
+	{
+		auto pMediaStreamContext = mMediaStreamContext[mediaType];
+		if( pMediaStreamContext )
+		{
+			if( pMediaStreamContext->representation )
+			{
+				mimeType = pMediaStreamContext->representation->GetMimeType();
+			}
+			if( mimeType.empty() )
+			{
+				if( pMediaStreamContext->adaptationSet )
+				{
+					mimeType = pMediaStreamContext->adaptationSet->GetMimeType();
+				}
+			}
+		}
+	}
+	if( mimeType.empty() )
+	{
+		AAMPLOG_WARN( "unknown" );
+	}
+	else
+	{
+		AAMPLOG_DEBUG( "%s", mimeType.c_str() );
+	}
 	return mimeType;
 }
 
