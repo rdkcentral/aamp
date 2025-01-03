@@ -256,29 +256,6 @@ bool HybridABRManager::CheckProfileChange(double totalFetchedDuration ,int currP
 }
 
 /**
- *  @brief Check whether the current profile is lowest.
- *  
- */
-bool HybridABRManager::IsLowestProfile(int currentProfileIndex,bool IstrickplayMode)
-{
-	bool ret = false;
-
-	if (IstrickplayMode)
-	{
-		if (currentProfileIndex == getLowestIframeProfile())
-		{
-			ret = true;
-		}
-	}
-	else
-	{
-		ret = isProfileIndexBitrateLowest(currentProfileIndex);
-	}
-
-	return ret;
-}
-
-/**
  *  @brief Get Desired Profile based on Buffer availability
  *
  */
@@ -441,7 +418,8 @@ void HybridABRManager::CheckLLDashABRSpeedStoreSize(struct SpeedCache *speedcach
  * @param - current available buffer
  * @return - desired profile based on buffer
  */
-long HybridABRManager::FragmentfailureRampdown(int currentBuffer,int currentProfileIndex) {
+long HybridABRManager::FragmentfailureRampdown(int currentBuffer, int currentProfileIndex)
+{
 	double bufferPercentage = ((double)currentBuffer / eAAMPAbrConfig.abrMaxBuffer) * 100;
 	long desiredProfilebw = 0;
 	long currentbw = getBandwidthOfProfile(currentProfileIndex);
@@ -451,14 +429,22 @@ long HybridABRManager::FragmentfailureRampdown(int currentBuffer,int currentProf
         return a.bandwidthBitsPerSecond < b.bandwidthBitsPerSecond;
     });
 	// Iterate over profiles in descending order of bandwidth
-	for (int i = (int)availableProfiles.size() -1  ;i >= 0 ; i--) {
+	for (int i = (int)availableProfiles.size() -1  ;i >= 0 ; i--)
+	{
 		double profilePercentage = ((double)(availableProfiles[i].bandwidthBitsPerSecond) / availableProfiles[len].bandwidthBitsPerSecond) * 100.0;
 		AAMPABRLOG_WARN("Index: %d, bandwidth %d , profile percentage %lf, buffer percentage %lf",i,(int)availableProfiles[i].bandwidthBitsPerSecond,profilePercentage,bufferPercentage);
 		// Check if profile bandwidth percentage is less than buffer percentage ,and it should be a rampdown
-		if (profilePercentage < bufferPercentage && (availableProfiles[i].bandwidthBitsPerSecond < currentbw))  {
+		if (profilePercentage < bufferPercentage && (availableProfiles[i].bandwidthBitsPerSecond < currentbw))
+		{
 			desiredProfilebw  = availableProfiles[i].bandwidthBitsPerSecond;
 			break;
 		}
+	}
+
+	if (desiredProfilebw == 0)
+	{
+		// If no profile found, then return the lowest profile. Usually happens when bufferPercentage is very low or already at lowest profile
+		desiredProfilebw = availableProfiles[0].bandwidthBitsPerSecond;
 	}
 	return desiredProfilebw;
 }

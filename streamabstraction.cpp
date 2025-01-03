@@ -2662,38 +2662,41 @@ bool StreamAbstractionAAMP::RampDownProfile(int http_error)
 	{
 		//We use only second last and lowest profiles for iframes
 		int lowestIframeProfile = aamp->mhAbrManager.getLowestIframeProfile();
-		if (desiredProfileIndex != lowestIframeProfile)
+		if (ABRManager::INVALID_PROFILE != lowestIframeProfile)
 		{
-			if (ABRManager::INVALID_PROFILE != lowestIframeProfile)
-			{
-				desiredProfileIndex = lowestIframeProfile;
-			}
-			else
-			{
-				AAMPLOG_WARN("lowestIframeProfile Invalid - Stream does not has an iframe track!! ");
-			}
+			desiredProfileIndex = lowestIframeProfile;
+		}
+		else
+		{
+			AAMPLOG_WARN("lowestIframeProfile Invalid - Stream does not has an iframe track!! ");
 		}
 	}
 	else if (video)
 	{
 		double bufferValue = GetBufferValue(video);
-		if(bufferValue > mABRMaxBuffer)
+		// Let's keep things simple! This function is invoked when we want to rampdown, which we could either do in single or multiple steps
+		// If buffer is high, rampdown in single steps
+		// If buffer is less, rampdown in multiple steps based on buffer available
+		// If buffer is zero, we can't rampdown in multiple steps and the only way is either:
+		// 1. Rampdown to the lowest profile directly (if this also fails, will lead to playback failure or skipped content)
+		// 2. Rampdown in single steps (here we're already rebuffering or not yet streaming)
+		// Recommend option 2, unless good reason is found to rampdown to lowest profile directly.
+		if (bufferValue == 0 || bufferValue > mABRMaxBuffer)
 		{
+			// Rampdown in single steps
 			desiredProfileIndex = aamp->mhAbrManager.getRampedDownProfileIndex(currentProfileIndex);
 		}
-		else
+		else if (bufferValue > 0)
 		{
-			long desiredBw = aamp->mhAbrManager.FragmentfailureRampdown(bufferValue,currentProfileIndex);
-			// If desiredBw == 0, that means we are already on the lowest profile or bufferValue is zero.
-			// Hence attempt singular rampdown if desiredBw == 0
-			// TODO: Need proper unit testing and refactoring in future
+			// If buffer is available, rampdown based on buffer
+			long desiredBw = aamp->mhAbrManager.FragmentfailureRampdown(bufferValue, currentProfileIndex);
 			if (desiredBw > 0)
 			{
 				desiredProfileIndex = GetProfileIndexForBandwidth(desiredBw);
 			}
 			else
 			{
-				desiredProfileIndex = aamp->mhAbrManager.getRampedDownProfileIndex(currentProfileIndex);
+				AAMPLOG_ERR("desiredBw received is 0, which is not expected.. Rampdown failed!!");
 			}
 		}
 	}
@@ -2812,7 +2815,8 @@ bool StreamAbstractionAAMP::CheckForRampDownProfile(int http_error)
 		return retValue;
 	}
 
-	if (GetABRMode() == ABRMode::ABR_MANAGER)
+	// If lowest profile reached, then no need to check for ramp up/down for timeout cases, instead skip the failed fragment and jump to next fragment to download.
+	if (GetABRMode() == ABRMode::ABR_MANAGER && !IsLowestProfile(currentProfileIndex))
 	{
 		http_error = getOriginalCurlError(http_error);
 
@@ -2824,20 +2828,16 @@ bool StreamAbstractionAAMP::CheckForRampDownProfile(int http_error)
 				retValue = true;
 			}
 		}
-		//For timeout, rampdown in single steps might not be enough
+		// For timeout, rampdown in single steps might not be enough
 		else if (http_error == CURLE_OPERATION_TIMEDOUT)
 		{
-			// If lowest profile reached, then no need to check for ramp up/down for timeout cases, instead skip the failed fragment and jump to next fragment to download.
-			if (!IsLowestProfile(currentProfileIndex))
+			if (UpdateProfileBasedOnFragmentCache())
 			{
-				if(UpdateProfileBasedOnFragmentCache())
-				{
-					retValue = true;
-				}
-				else if (RampDownProfile(http_error))
-				{
-					retValue = true;
-				}
+				retValue = true;
+			}
+			else if (RampDownProfile(http_error))
+			{
+				retValue = true;
 			}
 		}
 	}
