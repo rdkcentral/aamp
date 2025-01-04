@@ -256,6 +256,7 @@ struct AAMPEvent
 			double positionMiliseconds;
 			double startMiliseconds;
 			double endMiliseconds;
+			double videoBufferedMiliseconds; // and AS
 		} progress;
 
 		/**
