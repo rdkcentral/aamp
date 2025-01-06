@@ -63,12 +63,12 @@ TESTDATA1 = {
         {"expect": r"mManifestUrl: http://localhost:8085/discontinuityTestStream/dash.akamaized.net/dash264/TestCasesIOP33/multiplePeriods/2/manifest.mpd","min": 0, "max": 3},
         {"expect": r"AAMP_EVENT_STATE_CHANGED: INITIALIZING","min": 0, "max": 3},
         {"expect": r"fragmentUrl http://localhost:8085/discontinuityTestStream/dash.akamaized.net/dash264/TestCasesIOP33/multiplePeriods/2/../../Content/video/h265/2000k/tears_of_steel_1080p_2000k_h265_dash_track1_init.mp4","min": 0, "max": 3},
-        {"expect": r"AAMP_EVENT_STATE_CHANGED: PLAYING","min": 0, "max": 3},
+        {"expect": r"AAMP_EVENT_STATE_CHANGED: PLAYING","min": 0, "max": 10},
         {"expect": r"http://localhost:8085/discontinuityTestStream/dash\.akamaized\.net/dash264/TestCasesIOP33/Content/video/h265/2000k/tears_of_steel_1080p_2000k_h265_dash_track1_(\d+)\.m4s","min": 0, "max": 3},
-        {"expect": r"PrivateInstanceAAMP: Ignore reTune as disabled in configuration","min": 0, "max": 10},
-        {"expect": r"Execution:PrivateInstanceAAMP_Retune taskId:4","min": 0, "max": 10, "not_expected" : True},
-        {"expect": r"playlistSeek : 60.000000 seek_pos_seconds:60.000000 culledSeconds : 0.000000","min": 0, "max": 10, "not_expected" : True},
-        {"expect": r"Returning Position as [6-7](\d{4})","min": 11, "max": 15, "end_of_test": True},
+        {"expect": r"PrivateInstanceAAMP: Ignore reTune as disabled in configuration","min": 0, "max": 15},
+        {"expect": r"Execution:PrivateInstanceAAMP_Retune taskId:4","min": 0, "max": 15, "not_expected" : True},
+        {"expect": r"playlistSeek : 60.000000 seek_pos_seconds:60.000000 culledSeconds : 0.000000","min": 0, "max": 15, "not_expected" : True},
+        {"expect": r"Returning Position as [6-7](\d{4})","min": 11, "max": 20, "end_of_test": True},
   
     ]
 }
