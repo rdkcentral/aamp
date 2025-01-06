@@ -79,6 +79,7 @@ static void GenerateLegacyAAMPEvent(const AAMPEventPtr &e, AAMPEvent &event)
 			event.data.progress.positionMiliseconds = event.data.progress.positionMilliseconds;
 			event.data.progress.startMiliseconds = event.data.progress.startMilliseconds;
 			event.data.progress.endMiliseconds = event.data.progress.endMilliseconds;
+			event.data.progress.videoBufferedMiliseconds = event.data.progress.videoBufferedMilliseconds; // and AS
             break;
 		}
 		case AAMP_EVENT_CC_HANDLE_RECEIVED:
