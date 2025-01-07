@@ -3319,43 +3319,30 @@ void StreamAbstractionAAMP_MPD::QueueContentProtection(IPeriod* period, uint32_t
 {
 	if (period)
 	{
-		IAdaptationSet *adaptationSet = nullptr;
-		try
+		if( adaptationSetIdx < period->GetAdaptationSets().size() )
 		{
-			adaptationSet = period->GetAdaptationSets().at(adaptationSetIdx);
-		}
-		catch (const std::out_of_range& oor)
-		{
-			AAMPLOG_ERR("Failed to find the adaptationSetIdx:%u in the period ID:%s ! Out of Range error: %s", adaptationSetIdx, period->GetId().c_str(), oor.what());
-		}
-		if (adaptationSet)
-		{
-			std::shared_ptr<AampDrmHelper> drmHelper = CreateDrmHelper(adaptationSet, mediaType);
-			if (drmHelper)
+			IAdaptationSet *adaptationSet = period->GetAdaptationSets().at(adaptationSetIdx);
+			if (adaptationSet)
 			{
-				if (aamp->mDRMSessionManager)
+				std::shared_ptr<AampDrmHelper> drmHelper = CreateDrmHelper(adaptationSet, mediaType);
+				if (drmHelper)
 				{
-					AampDRMSessionManager *sessionMgr = aamp->mDRMSessionManager;
-					if (qGstProtectEvent)
+					if (aamp->mDRMSessionManager)
 					{
-						/** Queue protection event to the pipeline **/
-						sessionMgr->QueueProtectionEvent(drmHelper, period->GetId(), adaptationSetIdx, mediaType);
+						AampDRMSessionManager *sessionMgr = aamp->mDRMSessionManager;
+						if (qGstProtectEvent)
+						{
+							/** Queue protection event to the pipeline **/
+							sessionMgr->QueueProtectionEvent(drmHelper, period->GetId(), adaptationSetIdx, mediaType);
+						}
+						/** Queue content protection in DRM license fetcher **/
+						sessionMgr->QueueContentProtection(drmHelper, period->GetId(), adaptationSetIdx, mediaType, isVssPeriod);
 					}
-					/** Queue content protection in DRM license fetcher **/
-					sessionMgr->QueueContentProtection(drmHelper, period->GetId(), adaptationSetIdx, mediaType, isVssPeriod);
+					hasDrm = true;
+					aamp->licenceFromManifest = true;
 				}
-				hasDrm = true;
-				aamp->licenceFromManifest = true;
-			}
-			else
-			{
-				AAMPLOG_ERR("Failed to create DRM helper for period id:%s and adaptation index:%u", period->GetId().c_str(), adaptationSetIdx);
 			}
 		}
-	}
-	else
-	{
-		AAMPLOG_ERR("Got invalid pointer to period:%p", period);
 	}
 }
 
@@ -3542,7 +3529,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 		
 		durationMs = mMPDParseHelper->GetMediaPresentationDuration();
 		mpdDurationAvailable = true;
-		AAMPLOG_WARN("StreamAbstractionAAMP_MPD: MPD duration val %" PRIu64 " seconds", durationMs/1000);
+		AAMPLOG_MIL("StreamAbstractionAAMP_MPD: MPD duration val %" PRIu64 " seconds", durationMs/1000);
 
 		mIsLiveStream = mMPDParseHelper->IsLiveManifest();
 		aamp->SetIsLive(mIsLiveStream);
@@ -6571,7 +6558,7 @@ void StreamAbstractionAAMP_MPD::SelectAudioTrack(std::vector<AudioTrackInfo> &aT
 			audioRepresentationIndex = desiredRepIdx;
 			mAudioType = selectedCodecType;
 		}
-		AAMPLOG_WARN("StreamAbstractionAAMP_MPD: lang[%s] AudioType[%d]", lang.c_str(), selectedCodecType);
+		AAMPLOG_MIL("StreamAbstractionAAMP_MPD: lang[%s] AudioType[%d]", lang.c_str(), selectedCodecType);
 	}
 	else
 	{
@@ -6585,7 +6572,7 @@ void StreamAbstractionAAMP_MPD::SelectAudioTrack(std::vector<AudioTrackInfo> &aT
 	*/
 	if (aamp->previousAudioType != selectedCodecType)
 	{
-		AAMPLOG_WARN("StreamAbstractionAAMP_MPD: AudioType Changed %d -> %d", aamp->previousAudioType, selectedCodecType);
+		AAMPLOG_MIL("StreamAbstractionAAMP_MPD: AudioType Changed %d -> %d", aamp->previousAudioType, selectedCodecType);
 		aamp->previousAudioType = selectedCodecType;
 		SetESChangeStatus();
 	}

@@ -5074,7 +5074,7 @@ PlatformType AAMPGstPlayer::InferPlatformFromPluginScan()
 		}
 	}
 
-	AAMPLOG_WARN("AAMPGstPlayer: None of the plugins found in registry");
+	AAMPLOG_WARN("AAMPGstPlayer: no SOC-specific plugins found in registry");
 	return ePLATFORM_DEFAULT;
 }
 

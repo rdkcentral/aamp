@@ -143,7 +143,7 @@ PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink
 		}
 		gpGlobalConfig->ApplyDeviceCapabilities(platform);
 		
-		AAMPLOG_WARN("[AAMP_JS][%p]Creating GlobalConfig Instance[%p]",this,gpGlobalConfig);
+		AAMPLOG_MIL("[AAMP_JS][%p]Creating GlobalConfig Instance[%p]",this,gpGlobalConfig);
 		if(!gpGlobalConfig->ReadAampCfgTxtFile())
 		{
 			if(!gpGlobalConfig->ReadAampCfgJsonFile())
@@ -168,7 +168,7 @@ PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink
 
 #ifdef AAMP_BUILD_INFO
 		std::string tmpstr = MACRO_TO_STRING(AAMP_BUILD_INFO);
-		AAMPLOG_WARN(" AAMP_BUILD_INFO: %s",tmpstr.c_str());
+		AAMPLOG_MIL("AAMP_BUILD_INFO: %s",tmpstr.c_str());
 #endif
 	// Copy the default configuration to session configuration .
 	// App can modify the configuration set

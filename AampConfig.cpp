@@ -907,7 +907,7 @@ PlatformType AampConfig::InferPlatformFromDeviceProperties( void )
     }
     else
     {
-        AAMPLOG_ERR("failed to open /etc/device.properties.");
+        AAMPLOG_WARN("failed to open /etc/device.properties.");
     }
     return platform;
 }
