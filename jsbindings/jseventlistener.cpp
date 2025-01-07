@@ -95,11 +95,11 @@ public:
 
 		JSStringRef prop;
 
-		prop = JSStringCreateWithUTF8CString("durationMilliseconds");
+		prop = JSStringCreateWithUTF8CString("durationMiliseconds"); // FIXME
 		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, JSValueMakeNumber(p_obj->_ctx, evt->getDuration()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
 
-		prop = JSStringCreateWithUTF8CString("positionMilliseconds");
+		prop = JSStringCreateWithUTF8CString("positionMiliseconds"); // FIXME
 		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, JSValueMakeNumber(p_obj->_ctx, evt->getPosition()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
 
@@ -107,11 +107,11 @@ public:
 		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, JSValueMakeNumber(p_obj->_ctx, evt->getSpeed()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
 
-		prop = JSStringCreateWithUTF8CString("startMilliseconds");
+		prop = JSStringCreateWithUTF8CString("startMiliseconds"); // FIXME
 		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, JSValueMakeNumber(p_obj->_ctx, evt->getStart()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
 
-		prop = JSStringCreateWithUTF8CString("endMilliseconds");
+		prop = JSStringCreateWithUTF8CString("endMiliseconds"); // FIXME
 		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, JSValueMakeNumber(p_obj->_ctx, evt->getEnd()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
 
@@ -119,7 +119,7 @@ public:
 		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, JSValueMakeNumber(p_obj->_ctx, evt->getPTS()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
 
-		prop = JSStringCreateWithUTF8CString("videoBufferedMilliseconds");
+		prop = JSStringCreateWithUTF8CString("videoBufferedMiliseconds");
 		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, JSValueMakeNumber(p_obj->_ctx, evt->getBufferedDuration()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
 
@@ -318,7 +318,7 @@ public:
 		MediaMetadataEventPtr evt = std::dynamic_pointer_cast<MediaMetadataEvent>(ev);
 
 		JSStringRef prop;
-		prop = JSStringCreateWithUTF8CString("durationMilliseconds");
+		prop = JSStringCreateWithUTF8CString("durationMiliseconds"); // FIXME
 		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, JSValueMakeNumber(p_obj->_ctx, evt->getDuration()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
 
