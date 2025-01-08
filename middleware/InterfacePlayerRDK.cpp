@@ -948,13 +948,24 @@ void InterfacePlayerRDK::RemoveProbes()
 {
 	for (int i = 0; i < GST_TRACK_COUNT; i++)
 	{
-		gst_media_stream *stream = &gstPrivateContext->stream[(GstMediaType)i];
-		if (stream->demuxProbeId && stream->demuxPad)
-		{
-			gst_pad_remove_probe(stream->demuxPad, stream->demuxProbeId);
-			stream->demuxProbeId = 0;
-			stream->demuxPad = NULL;
-		}
+		RemoveProbe((GstMediaType)i);
+	}
+}
+
+/**
+ * @fn RemoveProbe
+ * @brief Remove probe for a particular media type
+ * @param[in] mediaType The media type for which the probe should be removed
+ */
+void InterfacePlayerRDK::RemoveProbe(GstMediaType mediaType)
+{
+	gst_media_stream *stream = &gstPrivateContext->stream[mediaType];
+	if (stream->demuxProbeId && stream->demuxPad)
+	{
+		MW_LOG_WARN("InterfacePlayerRDK: Removing probe for media type %d, probe id %lu", mediaType, stream->demuxProbeId);
+		gst_pad_remove_probe(stream->demuxPad, stream->demuxProbeId);
+		stream->demuxProbeId = 0;
+		stream->demuxPad = NULL;
 	}
 }
 
@@ -1221,6 +1232,7 @@ static GstStateChangeReturn SetStateWithWarnings(GstElement *element, GstState t
 void InterfacePlayerRDK::TearDownStream(GstMediaType mediaType)
 {
 	tearDownCb(true, mediaType);
+	RemoveProbe(mediaType);
 	gst_media_stream* stream = &gstPrivateContext->stream[mediaType];
 	stream->bufferUnderrun = false;
 	stream->eosReached = false;

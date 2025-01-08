@@ -1006,6 +1006,13 @@ public:
 	void RemoveProbes();
 
 	/**
+	 * @fn RemoveProbe
+	 * @brief Remove probe for a particular media type
+	 * @param[in] mediaType The media type for which the probe should be removed
+	 */
+	void RemoveProbe(GstMediaType mediaType);
+
+	/**
 	 * @brief Destroys the GStreamer pipeline.
 	 */
 	void DestroyPipeline();
