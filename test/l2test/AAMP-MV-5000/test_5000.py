@@ -26,7 +26,7 @@ from inspect import getsourcefile
 # Required test streams
 
 URL = "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/main.mpd"
-URL2 = "https://lin001-gb-s8-tst-ll.cdn01.skycdp.com/SKYNEHD_HD_SUD_SKYUKD_4050_18_0000000000000018163.mpd"
+archive_url = "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/streams/L2/AAMP-MV-5000/SKYNEHD_HD_SUD_SKYUKD_4050_18_0000000000000018163.tar.gz"
 URL3 = "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/streams/generated/manifest.mpd"
 
 ## @brief Test case for seamless audio switching during playback.
@@ -74,9 +74,11 @@ TESTDATA2 = {
 	"logfile": "CodecSwitch.log",
 	"max_test_time_seconds":30,
 	"aamp_cfg": "debug=true\nprogress=true\ninfo=true\ntrace=true\nseamlessAudioSwitch=true\nenableMediaProcessor=true\nenablePTSReStamp=true\n",
+	"archive_url": archive_url,
+	"url": f"f2decf88-72cb-4e81-8e7b-ae230ea5c83b/SKYNEHD_HD_SUD_SKYUKD_4050_18_0000000000000018163.mpd",
+	"simlinear_type": "DASH",
 	"expect_list":
 	[
-		{"cmd": URL2},
 		{"cmd": "set 32 en alternate audio mp4a.40.5"},
 		{"expect": r"AudioType Changed 1 -> 3"},
 		{"expect": r"Parsed preferred lang: en"},
