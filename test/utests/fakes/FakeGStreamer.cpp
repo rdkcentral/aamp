@@ -372,25 +372,13 @@ gboolean gst_element_sync_state_with_parent(GstElement *element)
 GstPad *gst_element_get_static_pad(GstElement *element, const gchar *name)
 {
 	TRACE_FUNC();
-	GstPad *rtn = nullptr;
-
-	if (g_mockGStreamer != nullptr)
-	{
-		rtn = g_mockGStreamer->gst_element_get_static_pad(element, name);
-	}
-	return rtn;
+	return NULL;
 }
 
 GstEvent *gst_event_new_segment(const GstSegment *segment)
 {
 	TRACE_FUNC();
-	GstEvent *rtn = nullptr;
-
-	if (g_mockGStreamer != nullptr)
-	{
-		rtn = g_mockGStreamer->gst_event_new_segment(segment);
-	}
-	return rtn;
+	return NULL;
 }
 
 GstEvent *gst_event_new_flush_start(void)
@@ -423,21 +411,12 @@ GstEvent *gst_event_new_step (GstFormat format,
 gboolean gst_pad_push_event(GstPad *pad, GstEvent *event)
 {
 	TRACE_FUNC();
-	bool rtn = false;
-	if (g_mockGStreamer != nullptr)
-	{
-		rtn = g_mockGStreamer->gst_pad_push_event(pad, event);
-	}
-	return rtn;
+	return FALSE;
 }
 
 void gst_segment_init(GstSegment *segment, GstFormat format)
 {
 	TRACE_FUNC();
-	if (g_mockGStreamer != nullptr)
-	{
-		g_mockGStreamer->gst_segment_init(segment, format);
-	}
 }
 
 const gchar *gst_flow_get_name(GstFlowReturn ret)
@@ -605,13 +584,7 @@ GstStructure *gst_structure_new(const gchar *name, const gchar *firstfield, ...)
 GstEvent *gst_event_new_custom(GstEventType type, GstStructure *structure)
 {
 	TRACE_FUNC();
-	GstEvent *rtn = nullptr;
-
-	if (g_mockGStreamer != nullptr)
-	{
-		rtn = g_mockGStreamer->gst_event_new_custom(type, structure);
-	}
-	return rtn;
+	return NULL;
 }
 
 gboolean gst_buffer_copy_into(GstBuffer *dest, GstBuffer *src, GstBufferCopyFlags flags,

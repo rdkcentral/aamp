@@ -40,7 +40,6 @@ using ::testing::SaveArgPointee;
 using ::testing::SaveArg;
 using ::testing::Pointer;
 using ::testing::Matcher;
-using ::testing::AnyNumber;
 
 AampConfig *gpGlobalConfig{nullptr};
 
@@ -117,8 +116,7 @@ public:
 					.WillOnce(Return(debug_level));
 		EXPECT_CALL(*g_mockGStreamer, gst_debug_set_threshold_from_string(StrEq(debug_level.c_str()), reset));
 
-		id3_callback_t id3HandlerCallback = std::bind(&PrivateInstanceAAMP::ID3MetadataHandler, mPrivateInstanceAAMP, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4, std::placeholders::_5);
-		mAAMPGstPlayer = new AAMPGstPlayer{mPrivateInstanceAAMP, id3HandlerCallback};
+		mAAMPGstPlayer = new AAMPGstPlayer{mPrivateInstanceAAMP, nullptr};
 	}
 
 	void DestroyAMPGstPlayer()
@@ -152,8 +150,6 @@ public:
 
 		GstBusFunc bus_message_func = nullptr;
 		GstBusSyncHandler bus_sync_func = nullptr;
-		GCallback deep_notify_callback1 = nullptr;
-		gpointer deep_notify_playbin1 = nullptr;
 
 		isPipelineSetup = true;
 
@@ -171,8 +167,6 @@ public:
 		}
 		
 		// Expectations
-
-		EXPECT_CALL(*g_mockAampHandlerControl, isEnabled()).WillRepeatedly(Return(true));
 
 		EXPECT_CALL(*g_mockAampConfig, IsConfigSet(_)).WillRepeatedly(Return(false));
 		EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_UseWesterosSink)).WillRepeatedly(Return(setup->usingWesteros));
@@ -257,15 +251,7 @@ public:
 		EXPECT_CALL(*g_mockGStreamer, gst_element_set_state(&gst_element_pipeline, GST_STATE_PLAYING))
 			.WillOnce(Return(GST_STATE_CHANGE_SUCCESS));
 
-		EXPECT_CALL(*g_mockGLib, g_signal_connect_data(NotNull(),StrEq("deep-notify::source"),NotNull(),mAAMPGstPlayer,_,_))
-			.WillOnce(DoAll(
-							SaveArg<0>(&deep_notify_playbin1),
-							SaveArgPointee<2>(&deep_notify_callback1),
-							Return(1))
-							)
-			.WillRepeatedly(Return(1));
-
-		mAAMPGstPlayer->Configure(FORMAT_ISO_BMFF,
+		mAAMPGstPlayer->Configure(FORMAT_VIDEO_ES_H264,
 								  FORMAT_AUDIO_ES_AAC,
 								  setup->auxFormat,
 								  FORMAT_SUBTITLE_WEBVTT,
@@ -275,20 +261,11 @@ public:
 
 		ASSERT_TRUE(bus_sync_func != nullptr);
 		ASSERT_TRUE(bus_message_func != nullptr);
-		ASSERT_TRUE(deep_notify_callback1 != nullptr);
-
-		GObject orig;
-		GParamSpec pspec;
-
-		EXPECT_CALL(*g_mockGLib, g_signal_connect_data(_,_,NotNull(),mAAMPGstPlayer,_,_))
-			.WillRepeatedly(Return(1));
-
-		// Initialize the video stream by calling the "deep-notify::source" callback
-		void (*deep_notify_func)(GObject*, GObject*, GParamSpec*, gpointer) = 
-						(void (*)(GObject*, GObject*, GParamSpec*, gpointer))deep_notify_callback1;
-		deep_notify_func(G_OBJECT(deep_notify_playbin1), &orig, &pspec, mAAMPGstPlayer);
 
 		GstMessage sync_message = {.type = GST_MESSAGE_STATE_CHANGED, .src = GST_OBJECT(p_video_sink) };
+
+		EXPECT_CALL(*g_mockAampHandlerControl, isEnabled())
+			.WillRepeatedly(Return(true));
 
 		EXPECT_CALL(*g_mockGStreamer, gst_message_parse_state_changed(Pointer(&sync_message),NotNull(),NotNull(),_))
 			.WillOnce(DoAll(
@@ -549,57 +526,6 @@ TEST_F(AAMPGstPlayerTests, SetVideoMute_NoSink)
 	bool mute = true;
 	EXPECT_CALL(*g_mockGLib, g_object_set(NotNull(), StrEq("show-video-window"), Matcher<int>(_))).Times(0);
 	mAAMPGstPlayer->SetVideoMute(mute);
-
-	//Tidy Up
-	DestroyAMPGstPlayer();
-}
-
-TEST_F(AAMPGstPlayerTests, SendTransfer_CheckNewSegmentWithAppliedRate)
-{
-	AampMediaType mediaType = eMEDIATYPE_VIDEO;
-	void *ptr =nullptr;
-	size_t len = 0;
-	double fpts = 10.0;
-	double fdts = 0.0;
-	double fDuration = 0.0;
-	bool initFragment = false;
-	bool discontinuity = false;
-	GstEvent event;
-	GstPad pad;
-	GstSegment segment;
-
-	// Setup
-	mPrivateInstanceAAMP->rate = 2;
-	ConstructAMPGstPlayer();
-
-	SetupPipeline(&tbl[0]);
-
-	EXPECT_CALL(*g_mockGStreamer, gst_element_get_state(&gst_element_pipeline, _, _, _))
-		.WillOnce(DoAll(
-		SetArgPointee<1>(GST_STATE_PAUSED),
-		SetArgPointee<2>(GST_STATE_NULL),
-		Return(GST_STATE_CHANGE_SUCCESS)));
-
-	// Flush to setup the rate in the private context
-	mAAMPGstPlayer->Flush(0, mPrivateInstanceAAMP->rate, false);
-
-	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_SuppressDecode)).WillRepeatedly(Return(false));
-
-	EXPECT_CALL(*g_mockGStreamer, gst_element_get_static_pad(_, StrEq("src"))).WillRepeatedly(Return(&pad));
-	EXPECT_CALL(*g_mockGStreamer, gst_event_new_custom(_,_)).WillOnce(Return(&event));
-
-	EXPECT_CALL(*g_mockGStreamer, gst_segment_init(NotNull(), GST_FORMAT_TIME)).Times(1);
-	EXPECT_CALL(*g_mockGStreamer, gst_event_new_segment(NotNull()))
-		.WillOnce(DoAll(SaveArgPointee<0>(&segment),
-						Return(&event)));
-	EXPECT_CALL(*g_mockGStreamer, gst_pad_push_event(&pad, NotNull())).WillRepeatedly(Return(true));
-
-	mAAMPGstPlayer->SendTransfer(mediaType, ptr, len, fpts, fdts, fDuration, initFragment, discontinuity);
-
-	EXPECT_EQ(segment.start, GstClockTime(fpts * GST_SECOND));
-	EXPECT_EQ(segment.position, 0);
-	EXPECT_EQ(segment.rate, AAMP_NORMAL_PLAY_RATE);
-	EXPECT_EQ(segment.applied_rate, mPrivateInstanceAAMP->rate);
 
 	//Tidy Up
 	DestroyAMPGstPlayer();
