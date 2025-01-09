@@ -898,17 +898,16 @@ bool AampMPDDownloader::isMPDLowLatency(std::shared_ptr<ManifestDownloadResponse
 					const std::vector<IAdaptationSet *> adaptationSets = period->GetAdaptationSets();
 					if (adaptationSets.size() > 0)
 					{
-						IAdaptationSet * pFirstAdaptation = adaptationSets.at(0);
+						const IAdaptationSet * pFirstAdaptation = adaptationSets.at(0);
 						if ( NULL != pFirstAdaptation )
 						{
-							ISegmentTemplate *pSegmentTemplate = NULL;
-							pSegmentTemplate = pFirstAdaptation->GetSegmentTemplate();
+							const ISegmentTemplate *pSegmentTemplate = pFirstAdaptation->GetSegmentTemplate();
 							if(pSegmentTemplate == NULL)
 							{
-								IRepresentation *representation = NULL;
-								representation = pFirstAdaptation->GetRepresentation().at(0);
-								if( NULL != representation)
+								const std::vector<IRepresentation *> representations = pFirstAdaptation->GetRepresentation();
+								if( representations.size()>0 )
 								{
+									const IRepresentation *representation = representations.at(0);
 									pSegmentTemplate = representation->GetSegmentTemplate();
 								}
 							}
