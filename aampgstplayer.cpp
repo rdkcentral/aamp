@@ -3078,32 +3078,33 @@ void AAMPGstPlayer::SendGstEvents(AampMediaType mediaType, GstClockTime pts)
  */
 void AAMPGstPlayer::SendNewSegmentEvent(AampMediaType mediaType, GstClockTime startPts ,GstClockTime stopPts)
 {
-	media_stream* stream = &privateContext->stream[mediaType];
-	if (stream->format == FORMAT_ISO_BMFF)
-	{
-		GstPad* sourceEleSrcPad = gst_element_get_static_pad(GST_ELEMENT(stream->source), "src");
-		GstSegment segment;
-		gst_segment_init(&segment, GST_FORMAT_TIME);
+        media_stream* stream = &privateContext->stream[mediaType];
+        GstPad* sourceEleSrcPad = gst_element_get_static_pad(GST_ELEMENT(stream->source), "src");
+        if (stream->format == FORMAT_ISO_BMFF)
+        {
+                GstSegment segment;
+                gst_segment_init(&segment, GST_FORMAT_TIME);
 
-		segment.start = startPts;
-		segment.position = 0;
-		segment.rate = AAMP_NORMAL_PLAY_RATE;
-		// Set applied rate and notify westerossink to get vmaster mode to work - needed on some devices
-		segment.applied_rate = (mediaType == eMEDIATYPE_VIDEO) ? privateContext->rate : AAMP_NORMAL_PLAY_RATE;
-		if(stopPts)
+                segment.start = startPts;
+                segment.position = 0;
+                segment.rate = AAMP_NORMAL_PLAY_RATE;
+                segment.applied_rate = AAMP_NORMAL_PLAY_RATE;
+		if(stopPts) segment.stop = stopPts;
+		if (aamp->mConfig->GetConfigValue(eAAMPConfig_PlatformType) == ePLATFORM_AMLOGIC)
 		{
-			segment.stop = stopPts;
+			//  notify westerossink of rate to run in Vmaster mode
+			if (mediaType == eMEDIATYPE_VIDEO)
+				segment.applied_rate = privateContext->rate;
 		}
 
 		AAMPLOG_INFO("Sending segment event for mediaType[%d]. start %" G_GUINT64_FORMAT " stop %" G_GUINT64_FORMAT" rate %f applied_rate %f", mediaType, segment.start, segment.stop, segment.rate, segment.applied_rate);
-		GstEvent* event = gst_event_new_segment (&segment);
-		if (!gst_pad_push_event(sourceEleSrcPad, event))
-		{
-			AAMPLOG_ERR("gst_pad_push_event segment error");
-		}
-
-		gst_object_unref(sourceEleSrcPad);
-	}
+                GstEvent* event = gst_event_new_segment (&segment);
+                if (!gst_pad_push_event(sourceEleSrcPad, event))
+                {
+                        AAMPLOG_ERR("gst_pad_push_event segment error");
+                }
+        }
+        gst_object_unref(sourceEleSrcPad);
 }
 
 /**
@@ -3186,10 +3187,14 @@ bool AAMPGstPlayer::SendHelper(AampMediaType mediaType, const void *ptr, size_t 
 			SendGstEvents(eMEDIATYPE_AUX_AUDIO, pts);
 		}
 
-		if (!aamp->mbNewSegmentEvtSent[mediaType] || (mediaType == eMEDIATYPE_VIDEO && aamp->rate != AAMP_NORMAL_PLAY_RATE))
-		{
-			SendNewSegmentEvent(mediaType, pts, 0);
-			aamp->mbNewSegmentEvtSent[mediaType] = true;
+		if (aamp->mConfig->GetConfigValue(eAAMPConfig_PlatformType) == ePLATFORM_AMLOGIC)
+		{ // included to fix av sync / trickmode speed issues 
+		  // Also add check for trick-play on 1st frame.
+			if (!aamp->mbNewSegmentEvtSent[mediaType] || (mediaType == eMEDIATYPE_VIDEO && aamp->rate != AAMP_NORMAL_PLAY_RATE))
+			{
+				SendNewSegmentEvent(mediaType, pts, 0);
+				aamp->mbNewSegmentEvtSent[mediaType] = true;
+			}
 		}
 		AAMPLOG_DEBUG("mediaType[%d] SendGstEvents - first buffer received !!! initFragment: %d, pts: %" G_GUINT64_FORMAT, mediaType, initFragment, pts);
 

@@ -5172,17 +5172,13 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 	}
 
 	TeardownStream(newTune|| (eTUNETYPE_RETUNE == tuneType));
-
-	// Send new SEGMENT event only on all trickplay and trickplay -> play, not on pause -> play / seek while paused
-	// this shouldn't impact seekplay or ADs
-	if (tuneType == eTUNETYPE_SEEK && !(mbSeeked == true || rate == 0 || (rate == 1 && pipeline_paused == true)))
+	if(GETCONFIGVALUE_PRIV(eAAMPConfig_PlatformType) == ePLATFORM_AMLOGIC)
 	{
-		for (int i = 0; i < AAMP_TRACK_COUNT; i++)
-		{
-			mbNewSegmentEvtSent[i] = false;
-		}
+		// Send new SEGMENT event only on all trickplay and trickplay -> play, not on pause -> play / seek while paused
+		// this shouldn't impact seekplay or ADs
+		if (tuneType == eTUNETYPE_SEEK && !(mbSeeked == true || rate == 0 || (rate == 1 && pipeline_paused == true)))
+			for (int i = 0; i < AAMP_TRACK_COUNT; i++) mbNewSegmentEvtSent[i] = false;
 	}
-
 	ui32CurlTrace=0;
 
 	if((mTelemetryInterval == 0) && mbPlayEnabled)
