@@ -6346,7 +6346,7 @@ bool TrackState::FetchInitFragmentHelper(int &http_code, bool forcePushEncrypted
 			long long ts_start, ts_end;
 			ts_start = aamp_GetCurrentTimeMS();
 #endif /* CHECK_PERFORMANCE */
-			bool fetched = aamp->getAampCacheHandler()->RetrieveFromInitFragCache(fragmentUrl, &cachedFragment->fragment, tempEffectiveUrl);
+			bool fetched = aamp->getAampCacheHandler()->RetrieveFromInitFragmentCache(fragmentUrl, &cachedFragment->fragment, tempEffectiveUrl);
 
 #ifdef CHECK_PERFORMANCE
 			ts_end = aamp_GetCurrentTimeMS();

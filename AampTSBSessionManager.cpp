@@ -154,7 +154,7 @@ std::shared_ptr<CachedFragment> AampTSBSessionManager::Read(TsbInitDataPtr initf
 	CachedFragmentPtr cachedFragment = std::make_shared<CachedFragment>();
 	std::string url = initfragdata->GetUrl();
 	std::string effectiveUrl;
-	bool readFromAampCache = mAamp->getAampCacheHandler()->RetrieveFromInitFragCache(url, &cachedFragment->fragment, effectiveUrl);
+	bool readFromAampCache = mAamp->getAampCacheHandler()->RetrieveFromInitFragmentCache(url, &cachedFragment->fragment, effectiveUrl);
 	cachedFragment->type = initfragdata->GetMediaType();
 	cachedFragment->cacheFragStreamInfo = initfragdata->GetCacheFragStreamInfo();
 	cachedFragment->profileIndex = initfragdata->GetProfileIndex();

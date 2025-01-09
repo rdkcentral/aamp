@@ -122,7 +122,7 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 		bool bReadfromcache = false;
 		if(initSegment)
 		{
-			ret = bReadfromcache = aamp->getAampCacheHandler()->RetrieveFromInitFragCache(fragmentUrl,&cachedFragment->fragment,effectiveUrl);
+			ret = bReadfromcache = aamp->getAampCacheHandler()->RetrieveFromInitFragmentCache(fragmentUrl,&cachedFragment->fragment,effectiveUrl);
 		}
 		if(!bReadfromcache)
 		{

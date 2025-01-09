@@ -38,7 +38,6 @@ include_directories(${AAMP_ROOT}/tsb/api)
 set(TEST_SOURCES AampCacheHandlerTests.cpp
 	         AampCacheHandlerAampTests.cpp)
 
-
 set(AAMP_SOURCES ${AAMP_ROOT}/AampCacheHandler.cpp)
 
 add_executable(${EXEC_NAME}
