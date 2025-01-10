@@ -9795,7 +9795,10 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 
 				for (int trackIdx = (mNumberOfTracks - 1); (parallelDnld && trackIdx >= 0); trackIdx--)
 				{
-					mTrackWorkers[trackIdx]->WaitForCompletion();
+					if(trackIdx < mTrackWorkers.size() && mTrackWorkers[trackIdx])
+					{
+						mTrackWorkers[trackIdx]->WaitForCompletion();
+					}
 				}
 
 				// If download status is disabled then need to exit from fetcher loop
@@ -10452,6 +10455,8 @@ void StreamAbstractionAAMP_MPD::Start(void)
 #ifdef AAMP_MPD_DRM
 		aamp->mDRMSessionManager->setSessionMgrState(SessionMgrState::eSESSIONMGR_ACTIVE);
 #endif
+		// Start the worker threads for each track
+		InitializeWorkers();
 		try{
 				fragmentCollectorThreadID = std::thread(&StreamAbstractionAAMP_MPD::FetcherLoop, this);
 			fragmentCollectorThreadStarted = true;
@@ -10461,8 +10466,6 @@ void StreamAbstractionAAMP_MPD::Start(void)
 		{
 			AAMPLOG_ERR("Thread allocation failed for FetcherLoop : %s ", e.what());
 		}
-		// Start the worker threads for each track
-		InitializeWorkers();
 		for (int i = 0; i < mNumberOfTracks; i++)
 		{
 			if(aamp->IsPlayEnabled())
