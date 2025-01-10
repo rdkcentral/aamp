@@ -8892,7 +8892,7 @@ bool StreamAbstractionAAMP_MPD::GetEncryptedHeaders(std::map<int, std::string>& 
 /**
  * @brief Fetches and caches audio fragment parallelly for video fragment.
  */
-void StreamAbstractionAAMP_MPD::AdvanceTrack(int trackIdx, bool trickPlay, double *delta, bool *waitForFreeFrag, bool *bCacheFullState,bool throttleAudioDownload,bool isDiscontinuity)
+void StreamAbstractionAAMP_MPD::AdvanceTrack(int trackIdx, bool trickPlay, double *delta, bool &waitForFreeFrag, bool &bCacheFullState,bool throttleAudioDownload,bool isDiscontinuity)
 {
 	UsingPlayerId playerId(aamp->mPlayerId);
 	class MediaStreamContext *pMediaStreamContext = mMediaStreamContext[trackIdx];
@@ -8901,7 +8901,7 @@ void StreamAbstractionAAMP_MPD::AdvanceTrack(int trackIdx, bool trickPlay, doubl
 	int  maxCachedFragmentsPerTrack = GETCONFIGVALUE(eAAMPConfig_MaxFragmentCached); 
 	int  vodTrickplayFPS = GETCONFIGVALUE(eAAMPConfig_VODTrickPlayFPS); 
 
-	if (waitForFreeFrag && *waitForFreeFrag && !trickPlay)
+	if (waitForFreeFrag && !trickPlay)
 	{
 		PrivAAMPState state;
 		aamp->GetState(state);
@@ -8911,13 +8911,12 @@ void StreamAbstractionAAMP_MPD::AdvanceTrack(int trackIdx, bool trickPlay, doubl
 		}
 		if(state == eSTATE_PLAYING)
 		{
-			*waitForFreeFrag = false;
+			waitForFreeFrag = false;
 		}
 		else
 		{
 			int timeoutMs = -1;
-			if(bCacheFullState && *bCacheFullState &&
-				(pMediaStreamContext->numberOfFragmentsCached == maxCachedFragmentsPerTrack))
+			if(bCacheFullState && (pMediaStreamContext->numberOfFragmentsCached == maxCachedFragmentsPerTrack))
 			{
 				timeoutMs = MAX_WAIT_TIMEOUT_MS;
 			}
@@ -9009,7 +9008,7 @@ void StreamAbstractionAAMP_MPD::AdvanceTrack(int trackIdx, bool trickPlay, doubl
 			if((pMediaStreamContext->numberOfFragmentsCached != maxCachedFragmentsPerTrack) && bCacheFullState &&
 				(!lowLatency || aamp->TrackDownloadsAreEnabled(static_cast<AampMediaType>(trackIdx))))
 			{
-				*bCacheFullState = false;
+				bCacheFullState = false;
 			}
 
 		}
@@ -9020,7 +9019,7 @@ void StreamAbstractionAAMP_MPD::AdvanceTrack(int trackIdx, bool trickPlay, doubl
 		AAMPLOG_ERR("%s Live downloader is not advancing at the moment cache (%d / %d)", GetMediaTypeName((AampMediaType) trackIdx), pMediaStreamContext->numberOfFragmentsCached, maxCachedFragmentsPerTrack);
 	}
 	// If throttle audio download is set and prev fragment download happened and cache is not full, attempt to download an additional fragment
-	if (throttleAudioDownload && (trackIdx == eMEDIATYPE_AUDIO) && isAllowNextFrag && !(*bCacheFullState))
+	if (throttleAudioDownload && (trackIdx == eMEDIATYPE_AUDIO) && isAllowNextFrag && !bCacheFullState)
 	{
 		AAMPLOG_INFO("throttleAudioDownload enabled, invoking AdvanceTrack again");
 		// Disable throttleAudioDownload this time to prevent continuous looping here
@@ -9780,12 +9779,12 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 							// Download the video, audio & subtitle fragments in a separate parallel thread.
 							AAMPLOG_DEBUG("Submitting job for track %d", trackIdx);
 							mTrackWorkers[trackIdx]->SubmitJob([this, trackIdx, &delta, &waitForFreeFrag, &cacheFullStatus, trickPlay, throttleAudio]()
-															   { AdvanceTrack(trackIdx, trickPlay, &delta, &waitForFreeFrag, &cacheFullStatus[trackIdx],
+															   { AdvanceTrack(trackIdx, trickPlay, &delta, waitForFreeFrag, cacheFullStatus[trackIdx],
 																			  (trackIdx == eMEDIATYPE_AUDIO) ? throttleAudio : false, false); });
 						}
 						else
 						{
-							AdvanceTrack(trackIdx, trickPlay, &delta, &waitForFreeFrag, &cacheFullStatus[trackIdx], false, isVidDiscInitFragFail);
+							AdvanceTrack(trackIdx, trickPlay, &delta, waitForFreeFrag, cacheFullStatus[trackIdx], false, isVidDiscInitFragFail);
 						}
 					}
 				}

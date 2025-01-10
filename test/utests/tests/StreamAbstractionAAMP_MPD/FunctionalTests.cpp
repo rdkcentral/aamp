@@ -395,7 +395,7 @@ protected:
                         printSelectedTrack(trackIndex, media);
                 }
 
-                void CallAdvanceTrack(int trackIdx, bool trickPlay, double *delta, bool *waitForFreeFrag, bool *bCacheFullState)
+                void CallAdvanceTrack(int trackIdx, bool trickPlay, double *delta, bool &waitForFreeFrag, bool &bCacheFullState)
                 {
 					bool throttleAudioDownload = false;
 					bool isDiscontinuity = false;

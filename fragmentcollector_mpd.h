@@ -579,7 +579,7 @@ protected:
 	 * @param[in] isDiscontinuity - flag indicates if its a discontinuity
 	 * @return void
 	 */
-	void AdvanceTrack(int trackIdx, bool trickPlay, double *delta, bool *waitForFreeFrag, bool *bCacheFullState,bool throttleAudio,bool isDiscontinuity = false);
+	void AdvanceTrack(int trackIdx, bool trickPlay, double *delta, bool &waitForFreeFrag, bool &bCacheFullState,bool throttleAudio,bool isDiscontinuity = false);
 	/**
 	 * @fn AdvanceTsbFetch
 	 * @param[in] trackIdx - trackIndex
