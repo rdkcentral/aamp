@@ -77,6 +77,7 @@ namespace aamp
 		{
 			mWorkerThread.join();
 		}
+		mCompletionVar.notify_one();
 	}
 
 	/**
