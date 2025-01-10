@@ -173,7 +173,7 @@ bool AampJsonObject::add(const std::string& name, const std::vector<uint8_t>& va
 
 		case ENCODING_BASE64:
 		{
-			const char *encodedResponse = base64_Encode((const unsigned char*)&values[0], values.size());
+			const char *encodedResponse = base64_Encode( reinterpret_cast<const unsigned char*>(values.data()), values.size());
 			if (encodedResponse != NULL)
 			{
 				res = add(name, cJSON_CreateString(encodedResponse));
@@ -184,7 +184,7 @@ bool AampJsonObject::add(const std::string& name, const std::vector<uint8_t>& va
 
 		case ENCODING_BASE64_URL:
 		{
-			const char *encodedResponse = aamp_Base64_URL_Encode((const unsigned char*)&values[0], values.size());
+			const char *encodedResponse = aamp_Base64_URL_Encode( reinterpret_cast<const unsigned char*>(values.data()), values.size());
 			if (encodedResponse != NULL)
 			{
 				res = add(name, cJSON_CreateString(encodedResponse));

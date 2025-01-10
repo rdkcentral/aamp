@@ -269,8 +269,7 @@ TEST_F(AampDrmHelperTests, TestClearKeyHelperTransformHlsLicenseResponse)
 
 	for (auto& testCase : testData)
 	{
-		std::shared_ptr<DrmData> drmData = std::make_shared<DrmData>(
-			(const char*)&testCase.keyResponse[0], testCase.keyResponse.size());
+		std::shared_ptr<DrmData> drmData = std::make_shared<DrmData>( reinterpret_cast<const char*>(testCase.keyResponse.data()), testCase.keyResponse.size());
 		clearKeyHelper->transformLicenseResponse(drmData);
 
 		TestUtilJsonWrapper jsonWrapper( drmData->getData().c_str(),drmData->getDataLength() );
