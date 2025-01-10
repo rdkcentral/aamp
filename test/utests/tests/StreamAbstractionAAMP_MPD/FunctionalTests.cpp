@@ -2015,12 +2015,13 @@ TEST_F(FunctionalTests_1, UseIframeTrack_aamptsb_iframeextract)
 /**
  * @brief Verify UseIframeTrack() behavior during trick play with AAMP TSB enabled.
  * Set iframe track extract and trickplayMode to true and expect the method to return true.
- * During trick play, iframe track is not used only if AAMP Local TSB and iframe track extract are enabled.
- * AAMP Local TSB is disabled by default.
+ * During trick play, iframe track is not used only if AAMP Local TSB and iframe track extract are enabled but
+ * AAMP Local TSB is disabled.
  */
 TEST_F(FunctionalTests_1, UseIframeTrack_iframeextract)
 {
         EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnableIFrameTrackExtract)).WillRepeatedly(Return(true));
+        _instanceStreamAbstractionAAMP_MPD->aamp->SetLocalAAMPTsb(false);
         _instanceStreamAbstractionAAMP_MPD->trickplayMode = true;
         bool result = _instanceStreamAbstractionAAMP_MPD->UseIframeTrack();
         EXPECT_EQ(result, true);

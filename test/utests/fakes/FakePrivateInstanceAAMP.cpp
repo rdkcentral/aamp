@@ -137,14 +137,14 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) :
 	mIsPeriodChangeMarked(false),
 	mProgressReportAvailabilityOffset(-1),
 	mpStreamAbstractionAAMP(),
-	zoom_mode(VIDEO_ZOOM_NONE)
+	zoom_mode(VIDEO_ZOOM_NONE),
+	mLocalAAMPTsb(false)
 {
 	pthread_cond_init(&waitforplaystart, NULL);
 	pthread_mutex_init(&mMutexPlaystart, NULL);
 #ifdef AAMP_HLS_DRM
 	pthread_mutex_init(&drmParserMutex, NULL);
 #endif
-
 }
 
 PrivateInstanceAAMP::~PrivateInstanceAAMP()
