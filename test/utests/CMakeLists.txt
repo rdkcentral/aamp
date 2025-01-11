@@ -23,6 +23,10 @@ project(UnitTests)
 set_property(GLOBAL PROPERTY CTEST_TARGETS_ADDED 1)
 include(CTest)
 
+set(AAMP_ROOT "../../")
+include_directories(${AAMP_ROOT}/support/aampabr)
+include_directories(${AAMP_ROOT}/support/aampmetrics)
+
 find_package(PkgConfig REQUIRED)
 
 pkg_check_modules(GTEST REQUIRED gtest)
