@@ -7057,12 +7057,22 @@ void StreamAbstractionAAMP_HLS::ConfigureTextTrack()
 	}
 	else
 	{
-		for (const auto& LangStr : aamp->preferredSubtitleLanguageVctr)
+		// The if loop has been re-introduced as a workaround ONLY  for Rialto, due to failure in playback of audio and video content.
+		// This will be removed after subtitle support in aamp added for rialto.
+		// this avoids setting subtitle to rialto which is reson for AV failure.
+		if ((ISCONFIGSET(eAAMPConfig_useRialtoSink)) && (!aamp->mSubLanguage.empty()))
 		{
-			currentTextTrackProfileIndex = GetMediaIndexForLanguage(LangStr, eTRACK_SUBTITLE);
-			if(currentTextTrackProfileIndex > -1 )
+			currentTextTrackProfileIndex = GetMediaIndexForLanguage(aamp->mSubLanguage,eTRACK_SUBTITLE);
+		}
+		else
+		{
+			for (const auto& LangStr : aamp->preferredSubtitleLanguageVctr)
 			{
-				break;
+				currentTextTrackProfileIndex = GetMediaIndexForLanguage(LangStr, eTRACK_SUBTITLE);
+				if(currentTextTrackProfileIndex > -1 )
+				{
+					break;
+				}
 			}
 		}
 	}
