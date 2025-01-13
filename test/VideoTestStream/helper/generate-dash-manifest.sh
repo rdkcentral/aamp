@@ -1,9 +1,9 @@
 #!/bin/bash
 
 if [[ $((VIDEO_LENGTH_SEC%60)) != 0 ]]; then
-	duration="PT$((VIDEO_LENGTH_SEC/60))M0.$((VIDEO_LENGTH_SEC%60))S"
+	duration="PT$((VIDEO_LENGTH_SEC/60))M$((VIDEO_LENGTH_SEC%60))S"
 else
-	duration="PT$((VIDEO_LENGTH_SEC/60))M0.0S"
+	duration="PT$((VIDEO_LENGTH_SEC/60))M0S"
 fi
 
 if [ "$AUDIO_CODEC" == "aac" ]; then
