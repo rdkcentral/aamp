@@ -517,8 +517,6 @@ class Aamp:
                                             # optional min max values in seconds give time window when log line
                                             # is expected to occur.
                                             # min defaults to 0, max defaults to max_test_time_seconds
-                                            # The first expect in the list is used to zero the time reference used
-                                            # for min and max
 
         {"expect": ...                      "not_expected" : True},
                                             # not_expected used to indicate pattern not expected in this time window
@@ -552,11 +550,11 @@ class Aamp:
         last_missed_event_check = 0
         line_compiled = re.compile(".*?\r\n")
         while end_of_test is False:
+            elapsed = time.time() - start_time
             try:
                 i = self.aamp_pexpect.expect(line_compiled)
-                elapsed = time.time() - start_time
             except pexpect.TIMEOUT:
-                # Get here if no log lines received for the default pexpect time of 30secs
+                # Get here if no log lines received for the default pexpect time
                 # do nothing as the test will time out depending on it own setting
                 pass
 
