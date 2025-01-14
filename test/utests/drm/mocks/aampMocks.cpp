@@ -1325,13 +1325,3 @@ void PrivateInstanceAAMP::updateManifest(const char *manifestData)
 	if(NULL != manifestData)
 		mProvidedManifestFile = manifestData;
 }
-
-PlatformType AAMPGstPlayer::InferPlatformFromPluginScan()
-{
-	return ePLATFORM_DEFAULT;
-}
-
-int PrivateInstanceAAMP::GetPlatformType()
-{
-	return 0;
-}

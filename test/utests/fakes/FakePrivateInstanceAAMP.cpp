@@ -1562,10 +1562,7 @@ bool PrivateInstanceAAMP::isDecryptClearSamplesRequired()
 	}
 	return bIsDecryptClearSamplesRequired;
 }
-int PrivateInstanceAAMP::GetPlatformType()
-{
-	return 0;
-}
+
 void PrivateInstanceAAMP::ResetTrickStartUTCTime()
 {
 }

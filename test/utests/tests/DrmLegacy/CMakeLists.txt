@@ -55,7 +55,8 @@ set(MOCK_SOURCES ${DRM_ROOT}/mocks/aampMocks.cpp
 				 ${DRM_ROOT}/mocks/openSslMocks.c)
 
 set(FAKE_SOURCES ${UTESTS_ROOT}/fakes/FakeAampRfc.cpp
-				 ${UTESTS_ROOT}/fakes/FakePlayerIarmRfcInterface.cpp)
+				 ${UTESTS_ROOT}/fakes/FakePlayerIarmRfcInterface.cpp
+			 	 ${AAMP_ROOT}/middleware/test/utests/fakes/FakeSocUtils.cpp)
 
 set(AAMP_SOURCES ${AAMP_ROOT}/_base64.cpp
 				 ${AAMP_ROOT}/AampConfig.cpp

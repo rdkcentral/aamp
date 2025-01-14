@@ -2,7 +2,7 @@
  * If not stated otherwise in this file or this component's license file the
  * following copyright and licenses apply:
  *
- * Copyright 2021 RDK Management
+ * Copyright 2025 RDK Management
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,24 +15,56 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
-*/
-
-/**
- * @file AampGstUtils.h
- * @brief Header for utility functions for AAMP's GST impl
  */
 
-#ifndef __AAMP_GST_UTILS_H__
-#define __AAMP_GST_UTILS_H__
+#include "middleware/SocUtils.h"
 
-#include <gst/gst.h>
-#include "main_aamp.h"
+namespace SocUtils
+{
+	void InitializePlatformConfigs()
+	{
+	}
+	bool UseAppSrcForProgressivePlayback( void )
+	{
+		return false;
+	}
+	bool IsSupportedAC4( void )
+	{
+		return false;
+	}
+	bool UseWesterosSink( void )
+	{
+		return false;
+	}
+	bool IsAudioFragmentSyncSupported( void )
+	{
+		return false;
+	}
+	bool EnableLiveLatencyCorrection( void )
+	{
+		return false;
+	}
+	bool DisableAC3( void )
+	{
+		return false;
+	}
 
-/**
- * @fn GetGstCaps
- * @param[in] format stream format to generate caps
- * @retval GstCaps for the input format
- */
-GstCaps* GetGstCaps(StreamOutputFormat format, PlatformType platform = ePLATFORM_DEFAULT);
+	bool IsSupportedAC3()
+	{
+		return false;
+	}
 
-#endif /* __AAMP_GST_UTILS_H__ */
+	int RequiredQueuedFrames( void )
+	{
+		return 0;
+	}
+	bool EnablePTSRestamp(void)
+	{
+		return false;
+	}
+
+	bool ResetNewSegmentEvent()
+	{
+		return false;
+	}
+}

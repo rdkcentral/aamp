@@ -28,6 +28,7 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/test/gstTestHarness)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/externals)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/externals/rdk)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/vendor)
 
 if(APPLE)
     set(CMAKE_C_COMPILER "/usr/bin/cc")
@@ -204,6 +205,11 @@ set(LIBAAMP_HEADERS AampCacheHandler.h
 					StreamAbstractionAAMP.h
 					ThunderAccess.h
 					_base64.h
+					middleware/vendor/SocInterface.h
+					middleware/vendor/amlogic/AmlogicSocInterface.h
+					middleware/vendor/realtek/RealtekSocInterface.h
+					middleware/vendor/brcm/BrcmSocInterface.h
+					middleware/vendor/default/DefaultSocInterface.h
 					middleware/PlayerLogManager.h
 					middleware/PlayerScheduler.h
 					middleware/gstplayertaskpool.h
@@ -211,6 +217,8 @@ set(LIBAAMP_HEADERS AampCacheHandler.h
 					middleware/GstUtils.h
 					middleware/InterfacePlayerRDK.h
 					externals/playerIarmRfcInterface.h
+                                        middleware/InterfacePlayerRDK.h
+					middleware/SocUtils.h
 					aampgstplayer.h
 					AampBufferControl.h
 					admanager_mpd.h
@@ -293,12 +301,18 @@ set(LIBAAMP_SOURCES iso639map.cpp
 					streamabstraction.cpp
 					priv_aamp.cpp
 					main_aamp.cpp
+					middleware/vendor/SocInterface.cpp
+					middleware/vendor/amlogic/AmlogicSocInterface.cpp
+					middleware/vendor/realtek/RealtekSocInterface.cpp
+					middleware/vendor/brcm/BrcmSocInterface.cpp
+					middleware/vendor/default/DefaultSocInterface.cpp
 					middleware/PlayerLogManager.cpp
 					middleware/PlayerScheduler.cpp
 					middleware/gstplayertaskpool.cpp
 					middleware/GstHandlerControl.cpp
 					middleware/GstUtils.cpp
-					middleware/InterfacePlayerRDK.cpp
+                                        middleware/InterfacePlayerRDK.cpp
+                                        middleware/SocUtils.cpp
 					aampgstplayer.cpp
 					AampBufferControl.cpp
 					tsprocessor.cpp
@@ -801,6 +815,7 @@ install(FILES
   middleware/GstHandlerControl.h
   middleware/GstUtils.h
   middleware/InterfacePlayerRDK.h
+  middleware/SocUtils.h
   DESTINATION include)
 
 

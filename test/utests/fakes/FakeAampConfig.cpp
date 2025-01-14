@@ -101,7 +101,7 @@ std::string AampConfig::GetConfigValue(AAMPConfigSettingString cfg)
     }
 }
 
-void AampConfig::ApplyDeviceCapabilities( PlatformType platform )
+void AampConfig::ApplyDeviceCapabilities()
 {
 }
 
@@ -217,16 +217,6 @@ const char * AampConfig::GetChannelLicenseOverride(const std::string manifestUrl
 bool AampConfig::CustomSearch( std::string url, int playerId , std::string appname)
 {
     return false;
-}
-
-PlatformType AampConfig::InferPlatformFromDeviceProperties()
-{
-	return ePLATFORM_DEFAULT;
-}
-
-PlatformType AampConfig::InferPlatformFromPluginScan()
-{
-	return ePLATFORM_DEFAULT;
 }
 
 void AampConfig::RestoreConfiguration(ConfigPriority owner, AAMPConfigSettingBool cfg)

@@ -315,26 +315,6 @@ TEST_F(AampConfigTests, OperatorEqual)
 	}
 }
 
-TEST_F(AampConfigTests, ApplyDeviceCapabilities)
-{
-	AampConfig aampConfig;
-	aampConfig.Initialize();
-
-	// IsCodecSupported returns true, so disabled config should be false
-	EXPECT_CALL(*g_mockAampGstPlayer, IsCodecSupported("ac-4")).WillOnce(Return(true));
-	EXPECT_CALL(*g_mockAampGstPlayer, IsCodecSupported("ac-3")).WillOnce(Return(true));
-	aampConfig.ApplyDeviceCapabilities(ePLATFORM_DEFAULT);
-	EXPECT_EQ(aampConfig.IsConfigSet(eAAMPConfig_DisableAC4),false);
-	EXPECT_EQ(aampConfig.IsConfigSet(eAAMPConfig_DisableAC3),false);
-
-	// IsCodecSupported returns false, so disabled config should be true
-	EXPECT_CALL(*g_mockAampGstPlayer, IsCodecSupported("ac-4")).WillOnce(Return(false));
-	EXPECT_CALL(*g_mockAampGstPlayer, IsCodecSupported("ac-3")).WillOnce(Return(false));
-	aampConfig.ApplyDeviceCapabilities(ePLATFORM_DEFAULT);
-	EXPECT_EQ(aampConfig.IsConfigSet(eAAMPConfig_DisableAC4),true);
-	EXPECT_EQ(aampConfig.IsConfigSet(eAAMPConfig_DisableAC3),true);
-}
-
 TEST_F(AampConfigTests, GetUserAgentString)
 {
 	AampConfig aampConfig;

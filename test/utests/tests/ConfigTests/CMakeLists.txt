@@ -26,6 +26,7 @@ include_directories(${AAMP_ROOT} ${AAMP_ROOT}/downloader ${AAMP_ROOT}/drm ${AAMP
 include_directories(${AAMP_ROOT}/tsb/api)
 include_directories(${AAMP_ROOT}/middleware)
 include_directories(${AAMP_ROOT}/externals)
+include_directories(${AAMP_ROOT}/tsb/api ${AAMP_ROOT}/middleware)
 
 include_directories(${LIBCJSON_INCLUDE_DIRS})
 include_directories(${GTEST_INCLUDE_DIRS})
@@ -34,6 +35,7 @@ include_directories(${GLIB_INCLUDE_DIRS})
 include_directories(${GSTREAMER_INCLUDE_DIRS})
 include_directories(${UTESTS_ROOT}/mocks)
 include_directories(${UTESTS_ROOT}/drm/mocks)
+include_directories(${AAMP_ROOT}/middleware/vendor)
 
 set(TEST_SOURCES ConfigTests.cpp
                  ConfigRun.cpp)
