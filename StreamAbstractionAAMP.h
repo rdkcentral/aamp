@@ -1588,7 +1588,7 @@ public:
 	/**
 	*   @brief Update seek position when player is initialized
 	*
-	*   @param[in] secondsRelativeToTuneTime seekposition time.
+	*   @param[in] secondsRelativeToTuneTime can be the offset (seconds from tune time) or absolute position (seconds from 1970)
 	*/
 	virtual void SeekPosUpdate(double secondsRelativeToTuneTime) { (void) secondsRelativeToTuneTime ;}
 

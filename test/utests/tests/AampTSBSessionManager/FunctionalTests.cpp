@@ -23,6 +23,7 @@
 #include "MockTSBStore.h"
 #include "MockMediaStreamContext.h"
 #include "MockPrivateInstanceAAMP.h"
+#include "MockAampConfig.h"
 #include "AampTSBSessionManager.h"
 #include "AampConfig.h"
 #include "AampLogManager.h"
@@ -37,6 +38,7 @@ using ::testing::NotNull;
 using ::testing::Return;
 using ::testing::SaveArgPointee;
 using ::testing::SetArgPointee;
+using ::testing::NiceMock;
 
 AampConfig *gpGlobalConfig{nullptr};
 
@@ -52,10 +54,15 @@ protected:
 
     void SetUp() override
     {
+        AampLogManager::setLogLevel(eLOGLEVEL_TRACE);   // Enable all levels of AAMP logging
         if (gpGlobalConfig == nullptr)
         {
             gpGlobalConfig = new AampConfig();
         }
+        g_mockAampConfig = new NiceMock<MockAampConfig>();
+        // Set TSB log level to TRACE
+        EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_TsbLogLevel))
+            .WillOnce(Return(static_cast<int>(TSB::LogLevel::TRACE)));
 
         aamp = new PrivateInstanceAAMP(gpGlobalConfig);
         mAampTSBSessionManager = new AampTSBSessionManager(aamp);
@@ -93,6 +100,9 @@ protected:
 
         delete g_mockMediaStreamContext;
         g_mockMediaStreamContext = nullptr;
+
+        delete g_mockAampConfig;
+        g_mockAampConfig = nullptr;
     }
 
 };
@@ -214,6 +224,7 @@ TEST_F(FunctionalTests, Cullsegments)
 
     // Add another set of video and audio fragments to exceed TSB length
     cachedFragment->position += FRAG_DURATION;
+    cachedFragment->absPosition += FRAG_DURATION;
     cachedFragment->type = eMEDIATYPE_VIDEO;
     mAampTSBSessionManager->EnqueueWrite(videoUrl, cachedFragment, TEST_PERIOD_ID);
     std::this_thread::sleep_for(std::chrono::milliseconds(25));
@@ -238,10 +249,11 @@ TEST_F(FunctionalTests, Cullsegments)
 
 TEST_F(FunctionalTests, TSBReadTests)
 {
-    double FRAG_DURATION = 2.0;
+    constexpr double FRAG_FIRST_POS = 99.0;
+    constexpr double FRAG_FIRST_ABS_POS = 999.0;
+    constexpr double FRAG_DURATION = 2.0;
     size_t TEST_DATA_LEN = strlen(TEST_DATA);
-    AampMediaType type = eMEDIATYPE_VIDEO;
-    class MediaStreamContext videoCtx((TrackType) type, NULL, aamp, "video");
+    class MediaStreamContext videoCtx(eTRACK_VIDEO, NULL, aamp, "video");
 
     std::shared_ptr<CachedFragment> cachedFragment = std::make_shared<CachedFragment>();
     cachedFragment->initFragment = true;
@@ -256,6 +268,8 @@ TEST_F(FunctionalTests, TSBReadTests)
     std::this_thread::sleep_for(std::chrono::milliseconds(25));
 
     std::string videoUrl = std::string(TEST_BASE_URL) + std::string("video.mp4");
+    cachedFragment->position = FRAG_FIRST_POS;
+    cachedFragment->absPosition = FRAG_FIRST_ABS_POS;
     cachedFragment->duration = FRAG_DURATION;
     cachedFragment->initFragment = false;
     cachedFragment->type = eMEDIATYPE_VIDEO;
@@ -263,13 +277,15 @@ TEST_F(FunctionalTests, TSBReadTests)
     std::this_thread::sleep_for(std::chrono::milliseconds(25));
 
     cachedFragment->position += FRAG_DURATION;
+    cachedFragment->absPosition += FRAG_DURATION;
     cachedFragment->type = eMEDIATYPE_VIDEO;
     mAampTSBSessionManager->EnqueueWrite(videoUrl, cachedFragment, TEST_PERIOD_ID);
     std::this_thread::sleep_for(std::chrono::milliseconds(25));
 
-    double pos = 0;
+    double pos = FRAG_FIRST_ABS_POS;
     AAMPStatusType status = mAampTSBSessionManager->InvokeTsbReaders(pos, 1.0, eTUNETYPE_NEW_NORMAL);
     EXPECT_EQ(eAAMPSTATUS_OK, status);
+    EXPECT_DOUBLE_EQ(FRAG_FIRST_ABS_POS, pos);
 
     EXPECT_TRUE(mAampTSBSessionManager->GetTsbReader(eMEDIATYPE_VIDEO)->TrackEnabled());
     EXPECT_FALSE(mAampTSBSessionManager->GetTsbReader(eMEDIATYPE_AUDIO)->TrackEnabled());
@@ -281,9 +297,5 @@ TEST_F(FunctionalTests, TSBReadTests)
     EXPECT_CALL(*g_mockMediaStreamContext, CacheTsbFragment(_)).Times(2).WillRepeatedly(Return(true));
 
     bool result = mAampTSBSessionManager->PushNextTsbFragment(&videoCtx);
-    EXPECT_TRUE(result); 
+    EXPECT_TRUE(result);
 }
-
-
-
-

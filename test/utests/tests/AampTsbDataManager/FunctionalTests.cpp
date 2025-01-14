@@ -60,7 +60,8 @@ protected:
         mDataManager = new AampTsbDataManager();
         cachedFragment = std::make_shared<CachedFragment>();
         cachedFragment->type = eMEDIATYPE_VIDEO;
-        cachedFragment->position = 5.0;
+        cachedFragment->position = 105.0;
+        cachedFragment->absPosition = 1005.0;
         cachedFragment->duration = 1.0;
         cachedFragment->timeScale = 240000;
         cachedFragment->PTSOffsetSec = 0.0;
@@ -82,9 +83,9 @@ TEST_F(FunctionalTests, GetNearestFragment_SingleFragment)
 {
     mDataManager->AddInitFragment(url, eMEDIATYPE_VIDEO, streamInfo, period);
     mDataManager->AddFragment(writeData, eMEDIATYPE_VIDEO, false);
-    auto fragmentAt = mDataManager->GetNearestFragment(5.0);
-    auto fragmentBefore = mDataManager->GetNearestFragment(4.0);
-    auto fragmentAfter = mDataManager->GetNearestFragment(6.0);
+    auto fragmentAt = mDataManager->GetNearestFragment(1005.0);
+    auto fragmentBefore = mDataManager->GetNearestFragment(1004.0);
+    auto fragmentAfter = mDataManager->GetNearestFragment(1006.0);
     EXPECT_NE(fragmentAt, nullptr);
     EXPECT_EQ(fragmentAt, fragmentBefore);
     EXPECT_EQ(fragmentAt, fragmentAfter);
@@ -99,19 +100,21 @@ TEST_F(FunctionalTests, GetNearestFragment_MultipleFragments)
 
     writeData.url = url2;
     writeData.periodId = period2;
-    writeData.cachedFragment->position = 10.0;
+    writeData.cachedFragment->position = 110.0;
+    writeData.cachedFragment->absPosition = 1010.0;
     mDataManager->AddFragment(writeData, eMEDIATYPE_VIDEO, false);
 
     writeData.url = url3;
     writeData.periodId = period3;
-    writeData.cachedFragment->position = 15.0;
+    writeData.cachedFragment->position = 115.0;
+    writeData.cachedFragment->absPosition = 1015.0;
     mDataManager->AddFragment(writeData, eMEDIATYPE_VIDEO, false);
 
-    auto fragmentBefore = mDataManager->GetNearestFragment(4.0);
-    auto fragmentAt5 = mDataManager->GetNearestFragment(5.0);
-    auto fragmentBetween = mDataManager->GetNearestFragment(7.5);
-    auto fragmentAt15 = mDataManager->GetNearestFragment(15.0);
-    auto fragmentAfter = mDataManager->GetNearestFragment(20.0);
+    auto fragmentBefore = mDataManager->GetNearestFragment(1004.0);
+    auto fragmentAt5 = mDataManager->GetNearestFragment(1005.0);
+    auto fragmentBetween = mDataManager->GetNearestFragment(1007.5);
+    auto fragmentAt15 = mDataManager->GetNearestFragment(1015.0);
+    auto fragmentAfter = mDataManager->GetNearestFragment(1020.0);
 
     // Assertions to verify that the correct fragment is returned for each position
     EXPECT_NE(fragmentBefore, nullptr);
@@ -125,9 +128,10 @@ TEST_F(FunctionalTests, TestAddFragment_MissingInitHeader)
 {
     std::string url = "http://example.com/fragment2";
     AampMediaType media = eMEDIATYPE_AUDIO;
-    double position = 20.0;
+    double position = 120.0;
+    double absPosition = 1020.0;
     double duration = 5.0;
-    double pts = 20.0;
+    double pts = 120.0;
     bool discont = false;
     std::string periodId = "period2";
 
@@ -135,6 +139,7 @@ TEST_F(FunctionalTests, TestAddFragment_MissingInitHeader)
     writeData.pts = pts;
     writeData.periodId = periodId;
     writeData.cachedFragment->position = position;
+    writeData.cachedFragment->absPosition = absPosition;
     writeData.cachedFragment->duration = duration;
 
     EXPECT_FALSE(mDataManager->AddFragment(writeData, media, discont));
@@ -144,7 +149,8 @@ TEST_F(FunctionalTests, TestAddFragment_WithDiscontinuity)
 {
     std::string url = "http://example.com/fragment3";
     AampMediaType media = eMEDIATYPE_VIDEO;
-    double position = 30.0;
+    double position = 130.0;
+    double absPosition = 1030.0;
     double duration = 5.0;
     double pts = 30.0;
     bool discont = true; // Discontinuity set to true
@@ -156,6 +162,7 @@ TEST_F(FunctionalTests, TestAddFragment_WithDiscontinuity)
     writeData.pts = pts;
     writeData.periodId = periodId;
     writeData.cachedFragment->position = position;
+    writeData.cachedFragment->absPosition = absPosition;
     writeData.cachedFragment->duration = duration;
     writeData.cachedFragment->timeScale = timeScale;
     writeData.cachedFragment->PTSOffsetSec = PTSOffsetSec;
@@ -164,7 +171,7 @@ TEST_F(FunctionalTests, TestAddFragment_WithDiscontinuity)
     EXPECT_TRUE(mDataManager->AddFragment(writeData, media, discont));
     EXPECT_STREQ(mDataManager->GetLastFragment()->GetUrl().c_str(), url.c_str());
     EXPECT_EQ(mDataManager->GetLastFragment()->GetMediaType(), media);
-    EXPECT_DOUBLE_EQ(mDataManager->GetLastFragment()->GetPosition(), position);
+    EXPECT_DOUBLE_EQ(mDataManager->GetLastFragment()->GetPosition(), absPosition);
     EXPECT_DOUBLE_EQ(mDataManager->GetLastFragment()->GetDuration(), duration);
     EXPECT_DOUBLE_EQ(mDataManager->GetLastFragment()->GetPTS(), pts);
     EXPECT_TRUE(mDataManager->GetLastFragment()->IsDiscontinuous());
@@ -189,16 +196,18 @@ TEST_F(FunctionalTests, GetLastFragmentPosition_MultipleFragments)
 
     writeData.url = url2;
     writeData.periodId = period2;
-    writeData.cachedFragment->position = 10.0;
+    writeData.cachedFragment->position = 110.0;
+    writeData.cachedFragment->absPosition = 1010.0;
     mDataManager->AddFragment(writeData, eMEDIATYPE_VIDEO, false);
 
     writeData.url = url3;
     writeData.periodId = period3;
-    writeData.cachedFragment->position = 15.0;
+    writeData.cachedFragment->position = 115.0;
+    writeData.cachedFragment->absPosition = 1015.0;
     mDataManager->AddFragment(writeData, eMEDIATYPE_VIDEO, false);
 
     double position = mDataManager->GetLastFragmentPosition();
-    EXPECT_DOUBLE_EQ(position, 15.0);
+    EXPECT_DOUBLE_EQ(position, 1015.0);
 }
 
 TEST_F(FunctionalTests, GetLastFragment_EmptyList)
@@ -217,17 +226,19 @@ TEST_F(FunctionalTests, GetLastFragment_MultipleFragments)
 
     writeData.url = url2;
     writeData.periodId = period2;
-    writeData.cachedFragment->position = 10.0;
+    writeData.cachedFragment->position = 110.0;
+    writeData.cachedFragment->absPosition = 1010.0;
     mDataManager->AddFragment(writeData, eMEDIATYPE_VIDEO, false);
 
     writeData.url = url3;
     writeData.periodId = period3;
-    writeData.cachedFragment->position = 15.0;
+    writeData.cachedFragment->position = 115.0;
+    writeData.cachedFragment->absPosition = 1015.0;
     mDataManager->AddFragment(writeData, eMEDIATYPE_VIDEO, false);
 
     auto lastFragment = mDataManager->GetLastFragment();
-    auto fragmentAt15 = mDataManager->GetNearestFragment(17.0);
-    EXPECT_EQ(lastFragment, fragmentAt15);
+    auto fragmentRequested = mDataManager->GetNearestFragment(1017.0);
+    EXPECT_EQ(lastFragment, fragmentRequested);
 }
 
 TEST_F(FunctionalTests, GetFirstFragment_EmptyList)
@@ -246,17 +257,19 @@ TEST_F(FunctionalTests, GetFirstFragment_MultipleFragments)
 
     writeData.url = url2;
     writeData.periodId = period2;
-    writeData.cachedFragment->position = 10.0;
+    writeData.cachedFragment->position = 110.0;
+    writeData.cachedFragment->absPosition = 1010.0;
     mDataManager->AddFragment(writeData, eMEDIATYPE_VIDEO, false);
 
     writeData.url = url3;
     writeData.periodId = period3;
-    writeData.cachedFragment->position = 15.0;
+    writeData.cachedFragment->position = 115.0;
+    writeData.cachedFragment->absPosition = 1015.0;
     mDataManager->AddFragment(writeData, eMEDIATYPE_VIDEO, false);
 
     auto firstFragment = mDataManager->GetFirstFragment();
-    auto fragmentAt5 = mDataManager->GetNearestFragment(7.0);
-    EXPECT_EQ(firstFragment, fragmentAt5);
+    auto fragmentRequested = mDataManager->GetNearestFragment(1007.0);
+    EXPECT_EQ(firstFragment, fragmentRequested);
 }
 
 TEST_F(FunctionalTests, GetFirstFragmentPosition)
@@ -269,16 +282,18 @@ TEST_F(FunctionalTests, GetFirstFragmentPosition)
 
     writeData.url = url2;
     writeData.periodId = period2;
-    writeData.cachedFragment->position = 10.0;
+    writeData.cachedFragment->position = 110.0;
+    writeData.cachedFragment->absPosition = 1010.0;
     mDataManager->AddFragment(writeData, eMEDIATYPE_VIDEO, false);
 
     writeData.url = url3;
     writeData.periodId = period3;
-    writeData.cachedFragment->position = 15.0;
+    writeData.cachedFragment->position = 115.0;
+    writeData.cachedFragment->absPosition = 1015.0;
     mDataManager->AddFragment(writeData, eMEDIATYPE_VIDEO, false);
 
     double position = mDataManager->GetFirstFragmentPosition();
-    EXPECT_DOUBLE_EQ(position, 5.0);
+    EXPECT_DOUBLE_EQ(position, 1005.0);
 }
 
 TEST_F(FunctionalTests, GetFragmentTests)
@@ -291,19 +306,21 @@ TEST_F(FunctionalTests, GetFragmentTests)
 
     writeData.url = url2;
     writeData.periodId = period2;
-    writeData.cachedFragment->position = 10.0;
+    writeData.cachedFragment->position = 110.0;
+    writeData.cachedFragment->absPosition = 1010.0;
     mDataManager->AddFragment(writeData, eMEDIATYPE_VIDEO, false);
 
     writeData.url = url3;
     writeData.periodId = period3;
-    writeData.cachedFragment->position = 15.0;
+    writeData.cachedFragment->position = 115.0;
+    writeData.cachedFragment->absPosition = 1015.0;
     mDataManager->AddFragment(writeData, eMEDIATYPE_VIDEO, false);
 
     bool eos=false;
-    auto fragment = mDataManager->GetFragment(5,eos);
-    auto fragmentAt5 = mDataManager->GetNearestFragment(7.0);
-    auto fragment3 = mDataManager->GetFragment(5.0001,eos);
-    auto fragment2 = mDataManager->GetFragment(6,eos);
+    auto fragment = mDataManager->GetFragment(1005.0, eos);
+    auto fragmentAt5 = mDataManager->GetNearestFragment(1007.0);
+    auto fragment3 = mDataManager->GetFragment(1005.0001, eos);
+    auto fragment2 = mDataManager->GetFragment(1006, eos);
 
     EXPECT_EQ(fragment, fragmentAt5);
     EXPECT_EQ(fragment2, nullptr);
@@ -320,18 +337,20 @@ TEST_F(FunctionalTests, RemoveFragmentsBeforePosition)
 
     writeData.url = url2;
     writeData.periodId = period2;
-    writeData.cachedFragment->position = 10.0;
+    writeData.cachedFragment->position = 110.0;
+    writeData.cachedFragment->absPosition = 1010.0;
     mDataManager->AddFragment(writeData, eMEDIATYPE_VIDEO, false);
 
     writeData.url = url3;
     writeData.periodId = period3;
-    writeData.cachedFragment->position = 15.0;
+    writeData.cachedFragment->position = 115.0;
+    writeData.cachedFragment->absPosition = 1015.0;
     mDataManager->AddFragment(writeData, eMEDIATYPE_VIDEO, false);
 
-    auto removedFragments = mDataManager->RemoveFragments(10.0);
+    auto removedFragments = mDataManager->RemoveFragments(1010.0);
     EXPECT_EQ(removedFragments.size(), 1);
     double firstFragmentPositionAfterRemoval = mDataManager->GetFirstFragmentPosition();
-    EXPECT_DOUBLE_EQ(firstFragmentPositionAfterRemoval, 10.0);
+    EXPECT_DOUBLE_EQ(firstFragmentPositionAfterRemoval, 1010.0);
 }
 
 TEST_F(FunctionalTests, RemoveFragmentsAll)
@@ -344,17 +363,19 @@ TEST_F(FunctionalTests, RemoveFragmentsAll)
 
     writeData.url = url2;
     writeData.periodId = period2;
-    writeData.cachedFragment->position = 10.0;
+    writeData.cachedFragment->position = 110.0;
+    writeData.cachedFragment->absPosition = 1010.0;
     mDataManager->AddFragment(writeData, eMEDIATYPE_VIDEO, false);
 
     writeData.url = url3;
     writeData.periodId = period3;
-    writeData.cachedFragment->position = 15.0;
+    writeData.cachedFragment->position = 115.0;
+    writeData.cachedFragment->absPosition = 1015.0;
     mDataManager->AddFragment(writeData, eMEDIATYPE_VIDEO, false);
 
-    auto removedFragments = mDataManager->RemoveFragments(20.0);
+    auto removedFragments = mDataManager->RemoveFragments(1020.0);
     EXPECT_EQ(removedFragments.size(), 3);
-    bool isFragmentPresent = mDataManager->IsFragmentPresent(5.0);
+    bool isFragmentPresent = mDataManager->IsFragmentPresent(1005.0);
     EXPECT_FALSE(isFragmentPresent);
 }
 
@@ -368,18 +389,20 @@ TEST_F(FunctionalTests, RemoveFragmentsNone)
 
     writeData.url = url2;
     writeData.periodId = period2;
-    writeData.cachedFragment->position = 10.0;
+    writeData.cachedFragment->position = 110.0;
+    writeData.cachedFragment->absPosition = 1010.0;
     mDataManager->AddFragment(writeData, eMEDIATYPE_VIDEO, false);
 
     writeData.url = url3;
     writeData.periodId = period3;
-    writeData.cachedFragment->position = 15.0;
+    writeData.cachedFragment->position = 115.0;
+    writeData.cachedFragment->absPosition = 1015.0;
     mDataManager->AddFragment(writeData, eMEDIATYPE_VIDEO, false);
 
-    auto removedFragments = mDataManager->RemoveFragments(5.0);
+    auto removedFragments = mDataManager->RemoveFragments(1005.0);
     EXPECT_TRUE(removedFragments.empty());
     double firstFragmentPosition = mDataManager->GetFirstFragmentPosition();
-    EXPECT_DOUBLE_EQ(firstFragmentPosition, 5.0);
+    EXPECT_DOUBLE_EQ(firstFragmentPosition, 1005.0);
 }
 
 TEST_F(FunctionalTests, RemoveFragment_EmptyList)
@@ -398,9 +421,9 @@ TEST_F(FunctionalTests, RemoveFragment_SingleElement)
 
     TsbFragmentDataPtr removedFragment = mDataManager->RemoveFragment();
     EXPECT_NE(removedFragment, nullptr);
-    EXPECT_DOUBLE_EQ(removedFragment->GetPosition(), 5.0);
-    double position = mDataManager->GetFirstFragmentPosition();
-    EXPECT_DOUBLE_EQ(position, 0.0); // Expecting list to be empty after removal
+    EXPECT_DOUBLE_EQ(removedFragment->GetPosition(), 1005.0);
+    double absPosition = mDataManager->GetFirstFragmentPosition();
+    EXPECT_DOUBLE_EQ(absPosition, 0.0); // Expecting list to be empty after removal
 }
 
 TEST_F(FunctionalTests, RemoveFragment_MultipleElements)
@@ -413,27 +436,29 @@ TEST_F(FunctionalTests, RemoveFragment_MultipleElements)
 
     writeData.url = url2;
     writeData.periodId = period2;
-    writeData.cachedFragment->position = 10.0;
+    writeData.cachedFragment->position = 110.0;
+    writeData.cachedFragment->absPosition = 1010.0;
     mDataManager->AddFragment(writeData, eMEDIATYPE_VIDEO, false);
 
     writeData.url = url3;
     writeData.periodId = period3;
-    writeData.cachedFragment->position = 15.0;
+    writeData.cachedFragment->position = 115.0;
+    writeData.cachedFragment->absPosition = 1015.0;
     mDataManager->AddFragment(writeData, eMEDIATYPE_VIDEO, false);
 
     TsbFragmentDataPtr removedFragment = mDataManager->RemoveFragment();
     EXPECT_NE(removedFragment, nullptr);
-    EXPECT_DOUBLE_EQ(removedFragment->GetPosition(), 5.0);
+    EXPECT_DOUBLE_EQ(removedFragment->GetPosition(), 1005.0);
 
     double firstPositionAfterRemoval = mDataManager->GetFirstFragmentPosition();
-    EXPECT_DOUBLE_EQ(firstPositionAfterRemoval, 10.0);
+    EXPECT_DOUBLE_EQ(firstPositionAfterRemoval, 1010.0);
 
     removedFragment = mDataManager->RemoveFragment();
     EXPECT_NE(removedFragment, nullptr);
-    EXPECT_DOUBLE_EQ(removedFragment->GetPosition(), 10.0);
+    EXPECT_DOUBLE_EQ(removedFragment->GetPosition(), 1010.0);
 
     firstPositionAfterRemoval = mDataManager->GetFirstFragmentPosition();
-    EXPECT_DOUBLE_EQ(firstPositionAfterRemoval, 15.0);
+    EXPECT_DOUBLE_EQ(firstPositionAfterRemoval, 1015.0);
 }
 
 TEST_F(FunctionalTests, GetNextDiscFragmentForwardSearch)
@@ -446,22 +471,24 @@ TEST_F(FunctionalTests, GetNextDiscFragmentForwardSearch)
 
     writeData.url = url2;
     writeData.periodId = period2;
-    writeData.cachedFragment->position = 10.0;
+    writeData.cachedFragment->position = 110.0;
+    writeData.cachedFragment->absPosition = 1010.0;
     mDataManager->AddFragment(writeData, eMEDIATYPE_VIDEO, true);   // Discontinuous fragment
 
     writeData.url = url3;
     writeData.periodId = period3;
-    writeData.cachedFragment->position = 15.0;
+    writeData.cachedFragment->position = 115.0;
+    writeData.cachedFragment->absPosition = 1015.0;
     writeData.cachedFragment->discontinuity = false;
     mDataManager->AddFragment(writeData, eMEDIATYPE_VIDEO, false);
 
-    TsbFragmentDataPtr fragment1 = mDataManager->GetNextDiscFragment(5.0, false);
+    TsbFragmentDataPtr fragment1 = mDataManager->GetNextDiscFragment(1005.0, false);
     ASSERT_NE(fragment1, nullptr);
-    EXPECT_DOUBLE_EQ(fragment1->GetPosition(), 10.0);
+    EXPECT_DOUBLE_EQ(fragment1->GetPosition(), 1010.0);
 
-    TsbFragmentDataPtr fragment2 = mDataManager->GetNextDiscFragment(10.0, false); // Exact match
+    TsbFragmentDataPtr fragment2 = mDataManager->GetNextDiscFragment(1010.0, false); // Exact match
     ASSERT_NE(fragment2, nullptr);
-    EXPECT_DOUBLE_EQ(fragment2->GetPosition(), 10.0);
+    EXPECT_DOUBLE_EQ(fragment2->GetPosition(), 1010.0);
 }
 
 TEST_F(FunctionalTests, GetNextDiscFragmentBackwardSearch)
@@ -470,26 +497,29 @@ TEST_F(FunctionalTests, GetNextDiscFragmentBackwardSearch)
 
     writeData.url = url1;
     writeData.periodId = period1;
-    writeData.cachedFragment->position = 5.0;
+    writeData.cachedFragment->position = 105.0;
+    writeData.cachedFragment->absPosition = 1005.0;
     mDataManager->AddFragment(writeData, eMEDIATYPE_VIDEO, true);   // Discontinuous fragment
 
     writeData.url = url2;
     writeData.periodId = period2;
-    writeData.cachedFragment->position = 10.0;
+    writeData.cachedFragment->position = 110.0;
+    writeData.cachedFragment->absPosition = 1010.0;
     mDataManager->AddFragment(writeData, eMEDIATYPE_VIDEO, true);   // Discontinuous fragment
 
     writeData.url = url3;
     writeData.periodId = period3;
-    writeData.cachedFragment->position = 16.0;
+    writeData.cachedFragment->position = 116.0;
+    writeData.cachedFragment->absPosition = 1016.0;
     mDataManager->AddFragment(writeData, eMEDIATYPE_VIDEO, false);
 
-    TsbFragmentDataPtr fragment1 = mDataManager->GetNextDiscFragment(16.0, true);
+    TsbFragmentDataPtr fragment1 = mDataManager->GetNextDiscFragment(1016.0, true);
     ASSERT_NE(fragment1, nullptr);
-    EXPECT_DOUBLE_EQ(fragment1->GetPosition(), 10.0);
+    EXPECT_DOUBLE_EQ(fragment1->GetPosition(), 1010.0);
 
-    TsbFragmentDataPtr fragment2 = mDataManager->GetNextDiscFragment(10.0, true);
+    TsbFragmentDataPtr fragment2 = mDataManager->GetNextDiscFragment(1010.0, true);
     ASSERT_NE(fragment2, nullptr);
-    EXPECT_DOUBLE_EQ(fragment2->GetPosition(), 10.0);
+    EXPECT_DOUBLE_EQ(fragment2->GetPosition(), 1010.0);
 }
 
 TEST_F(FunctionalTests, GetNextDiscFragmentNoDiscontinuity)
@@ -498,20 +528,23 @@ TEST_F(FunctionalTests, GetNextDiscFragmentNoDiscontinuity)
 
     writeData.url = url1;
     writeData.periodId = period1;
-    writeData.cachedFragment->position = 5.0;
+    writeData.cachedFragment->position = 105.0;
+    writeData.cachedFragment->absPosition = 1005.0;
     mDataManager->AddFragment(writeData, eMEDIATYPE_VIDEO, false);
 
     writeData.url = url2;
     writeData.periodId = period2;
-    writeData.cachedFragment->position = 10.0;
+    writeData.cachedFragment->position = 110.0;
+    writeData.cachedFragment->absPosition = 1010.0;
     mDataManager->AddFragment(writeData, eMEDIATYPE_VIDEO, false);
 
     writeData.url = url3;
     writeData.periodId = period3;
-    writeData.cachedFragment->position = 16.0;
+    writeData.cachedFragment->position = 116.0;
+    writeData.cachedFragment->absPosition = 1016.0;
     mDataManager->AddFragment(writeData, eMEDIATYPE_VIDEO, false);
 
-    TsbFragmentDataPtr fragment = mDataManager->GetNextDiscFragment(5.0, false);
+    TsbFragmentDataPtr fragment = mDataManager->GetNextDiscFragment(1005.0, false);
     ASSERT_EQ(fragment, nullptr);
 }
 
@@ -525,19 +558,21 @@ TEST_F(FunctionalTests, IsFragmentPresentTests)
 
     writeData.url = url2;
     writeData.periodId = period2;
-    writeData.cachedFragment->position = 10.0;
+    writeData.cachedFragment->position = 110.0;
+    writeData.cachedFragment->absPosition = 1010.0;
     mDataManager->AddFragment(writeData, eMEDIATYPE_VIDEO, false);
 
     writeData.url = url3;
     writeData.periodId = period3;
-    writeData.cachedFragment->position = 15.0;
+    writeData.cachedFragment->position = 115.0;
+    writeData.cachedFragment->absPosition = 1015.0;
     mDataManager->AddFragment(writeData, eMEDIATYPE_VIDEO, false);
 
-    EXPECT_TRUE(mDataManager->IsFragmentPresent(5.0));
-    EXPECT_TRUE(mDataManager->IsFragmentPresent(10.0));
-    EXPECT_TRUE(mDataManager->IsFragmentPresent(15.0));
+    EXPECT_TRUE(mDataManager->IsFragmentPresent(1005.0));
+    EXPECT_TRUE(mDataManager->IsFragmentPresent(1010.0));
+    EXPECT_TRUE(mDataManager->IsFragmentPresent(1015.0));
     EXPECT_FALSE(mDataManager->IsFragmentPresent(0.0));
-    EXPECT_FALSE(mDataManager->IsFragmentPresent(20.0));
+    EXPECT_FALSE(mDataManager->IsFragmentPresent(1020.0));
 }
 
 TEST_F(FunctionalTests, GetNearestFragment_EmptyData)
@@ -557,16 +592,18 @@ TEST_F(FunctionalTests, TestFlush)
 
     writeData.url = url2;
     writeData.periodId = period2;
-    writeData.cachedFragment->position = 10.0;
+    writeData.cachedFragment->position = 110.0;
+    writeData.cachedFragment->absPosition = 1010.0;
     mDataManager->AddFragment(writeData, eMEDIATYPE_VIDEO, false);
 
     writeData.url = url3;
     writeData.periodId = period3;
-    writeData.cachedFragment->position = 15.0;
+    writeData.cachedFragment->position = 115.0;
+    writeData.cachedFragment->absPosition = 1015.0;
     mDataManager->AddFragment(writeData, eMEDIATYPE_VIDEO, false);
 
     mDataManager->Flush();
 
     EXPECT_EQ(mDataManager->GetFirstFragment(), nullptr);
-    EXPECT_FALSE(mDataManager->IsFragmentPresent(5.0)); // Confirm Init Fragments have been removed
+    EXPECT_FALSE(mDataManager->IsFragmentPresent(1005.0)); // Confirm Init Fragments have been removed
 }

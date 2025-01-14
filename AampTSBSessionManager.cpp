@@ -659,30 +659,24 @@ std::shared_ptr<AampTsbReader> AampTSBSessionManager::GetTsbReader(AampMediaType
 
 /**
  * @brief Invoke TSB Readers
- * @param[out] offsetFromStart
+ * @param[in,out] startPosSec - Start absolute position, seconds since 1970; in: requested, out: selected
  * @param[in] rate
  * @param[in] tuneType
  *
  * @return AAMPSTatusType - OK if success
  */
-AAMPStatusType AampTSBSessionManager::InvokeTsbReaders(double &position, float rate, TuneType tuneType)
+AAMPStatusType AampTSBSessionManager::InvokeTsbReaders(double &startPosSec, float rate, TuneType tuneType)
 {
 	INIT_CHECK_RETURN_VAL(eAAMPSTATUS_GENERIC_ERROR);
 
 	LockReadMutex();
 	AAMPStatusType ret = eAAMPSTATUS_OK;
-	double relativePos = position;
-	if (relativePos < 0)
-	{
-		AAMPLOG_INFO("relativePos reset to 0!!");
-		relativePos = 0;
-	}
 	if (!mTsbReaders.empty())
 	{
 		// Re-Invoke TSB readers to new position
 		mActiveTuneType = tuneType;
 		GetTsbReader(eMEDIATYPE_VIDEO)->Term();
-		ret = GetTsbReader(eMEDIATYPE_VIDEO)->Init(relativePos, rate, tuneType);
+		ret = GetTsbReader(eMEDIATYPE_VIDEO)->Init(startPosSec, rate, tuneType);
 		if (eAAMPSTATUS_OK != ret)
 		{
 			UnlockReadMutex();
@@ -693,15 +687,14 @@ AAMPStatusType AampTSBSessionManager::InvokeTsbReaders(double &position, float r
 		for (int i = (AAMP_TRACK_COUNT - 1); i > eMEDIATYPE_VIDEO; i--)
 		{
 			// Re-initialize reader with synchronized values
-			double startPos = relativePos;
+			double startPosOtherTracks = startPosSec;
 			GetTsbReader((AampMediaType)i)->Term();
 			if(AAMP_NORMAL_PLAY_RATE == rate)
 			{
-				ret = GetTsbReader((AampMediaType)i)->Init(startPos, rate, tuneType, GetTsbReader(eMEDIATYPE_VIDEO));
+				ret = GetTsbReader((AampMediaType)i)->Init(startPosOtherTracks, rate, tuneType, GetTsbReader(eMEDIATYPE_VIDEO));
 			}
 		}
 	}
-	position = relativePos;
 	UnlockReadMutex();
 	return ret;
 }

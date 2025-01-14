@@ -209,6 +209,10 @@ ProfileInfo StreamAbstractionAAMP_MPD::GetAdaptationSetAndRepresentationIndicesF
 
 void StreamAbstractionAAMP_MPD::SeekPosUpdate(double secondsRelativeToTuneTime)
 {
+    if (g_mockStreamAbstractionAAMP_MPD)
+    {
+        g_mockStreamAbstractionAAMP_MPD->SeekPosUpdate(secondsRelativeToTuneTime);
+    }
 }
 
 void StreamAbstractionAAMP_MPD::NotifyFirstVideoPTS(unsigned long long, unsigned long)

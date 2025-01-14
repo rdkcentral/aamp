@@ -261,6 +261,11 @@ public:
 	 */
 	void StartInjection(void) override;
 	double GetBufferedDuration() override;
+	/**
+	 * @fn SeekPosUpdate
+	 * @brief Function to update seek position
+	 * @param[in] secondsRelativeToTuneTime - can be the offset (seconds from tune time) or absolute position (seconds from 1970)
+	 */
 	void SeekPosUpdate(double secondsRelativeToTuneTime) override;
 	virtual void SetCDAIObject(CDAIObject *cdaiObj) override;
 	/**
@@ -1036,7 +1041,8 @@ protected:
 	bool tsbReaderThreadStarted;
 	bool abortTsbReader;
 	std::set<std::string> mLangList;
-	double seekPosition;
+	double seekPosition;    // Seek offset from or position at time of tuning, in seconds.
+							// The same variable is used for offset (e.g. for HLS) and position (e.g. most of the time for DASH).
 	float rate;
 	std::thread fragmentCollectorThreadID;
 	std::thread tsbReaderThreadID;
@@ -1093,8 +1099,8 @@ protected:
 	// StreamAbstractionAAMP::GetMaxBitrate function,
 	long mMaxTSBBandwidth;
 
-	double mLiveEndPosition;
-	double mCulledSeconds;
+	double mLiveEndPosition;    // Live end absolute position
+	double mCulledSeconds;      // Culled absolute position
 	double mPrevFirstPeriodStart;
 	bool mAdPlayingFromCDN;   /*Note: TRUE: Ad playing currently & from CDN. FALSE: Ad "maybe playing", but not from CDN.*/
 	double mAvailabilityStartTime;

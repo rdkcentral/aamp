@@ -179,7 +179,7 @@ TEST_F(FunctionalTests, Init_InvalidStartPos)
  */
 TEST_F(FunctionalTests, Init_ValidStartPos)
 {
-	double startPos = 5.0;
+	double startPos = 1000.0;
 	float rate = 1.0f;
 	TuneType tuneType = eTUNETYPE_NEW_NORMAL;
 	EXPECT_CALL(*g_mockTSBDataManager, GetFirstFragment()).WillOnce(Return(nullptr));
@@ -241,7 +241,7 @@ TEST_F(FunctionalTests, Init_InvalidFirstLastFragment)
  */
 TEST_F(FunctionalTests, Init_SeekToStart)
 {
-	double seekPos = 0.0;
+	double seekPos = 1000.0;
 	float rate = 1.0f;
 	TuneType tuneType = eTUNETYPE_NEW_NORMAL;
 
@@ -277,6 +277,7 @@ TEST_F(FunctionalTests, Init_SeekToStart)
 	EXPECT_CALL(*g_mockTSBDataManager, GetNearestFragment(firstFragment->GetPosition()))
 		.WillOnce(Return(firstFragment));
 	EXPECT_EQ(mTestableTsbReader->Init(seekPos, rate, tuneType, nullptr), eAAMPSTATUS_OK);
+	EXPECT_DOUBLE_EQ(seekPos, firstFragment->GetPosition());
 }
 
 /**
@@ -323,6 +324,7 @@ TEST_F(FunctionalTests, Init_SeekToEnd)
 	EXPECT_CALL(*g_mockTSBDataManager, GetNearestFragment(lastFragment->GetPosition()))
 		.WillOnce(Return(lastFragment));
 	EXPECT_EQ(mTestableTsbReader->Init(seekPos, rate, tuneType, nullptr), eAAMPSTATUS_OK);
+	EXPECT_DOUBLE_EQ(seekPos, lastFragment->GetPosition());
 }
 
 /**
@@ -369,6 +371,7 @@ TEST_F(FunctionalTests, Init_SeekOutOfRange)
 	EXPECT_CALL(*g_mockTSBDataManager, GetNearestFragment(lastFragment->GetPosition()))
 		.WillOnce(Return(lastFragment));
 	EXPECT_EQ(mTestableTsbReader->Init(seekPos, rate, tuneType, nullptr), eAAMPSTATUS_OK);
+	EXPECT_DOUBLE_EQ(seekPos, lastFragment->GetPosition());
 }
 
 /**
@@ -415,6 +418,7 @@ TEST_F(FunctionalTests, Init_SeekWithAudioTrack)
 	EXPECT_CALL(*g_mockTSBDataManager, GetNearestFragment(lastVideoFragment->GetPosition()))
 		.WillOnce(Return(lastVideoFragment));
 	EXPECT_EQ(mTestableTsbReader->Init(seekPos, rate, tuneType, nullptr), eAAMPSTATUS_OK);
+	EXPECT_DOUBLE_EQ(seekPos, lastVideoFragment->GetPosition());
 	EXPECT_EQ(mTestableTsbReader->GetFirstPTS(), lastVideoFragment->GetPTS());
 
 	// Initialize secondary reader
@@ -433,6 +437,7 @@ TEST_F(FunctionalTests, Init_SeekWithAudioTrack)
 		.WillOnce(Return(lastAudioFragment));
 	std::shared_ptr<AampTsbReader> primaryReaderPtr(mTestableTsbReader, [](AampTsbReader *) {});
 	EXPECT_EQ(mTestableSecondaryTsbReader->Init(seekPos, rate, tuneType, primaryReaderPtr), eAAMPSTATUS_OK);
+	EXPECT_DOUBLE_EQ(seekPos, lastVideoFragment->GetPosition());
 	EXPECT_EQ(mTestableSecondaryTsbReader->GetFirstPTS(), lastAudioFragment->GetPTS());
 }
 
@@ -480,6 +485,7 @@ TEST_F(FunctionalTests, Init_SeekWithAudioTrackDiffInPTS)
 	EXPECT_CALL(*g_mockTSBDataManager, GetNearestFragment(lastVideoFragment->GetPosition()))
 		.WillOnce(Return(lastVideoFragment));
 	EXPECT_EQ(mTestableTsbReader->Init(seekPos, rate, tuneType, nullptr), eAAMPSTATUS_OK);
+	EXPECT_EQ(seekPos, lastVideoFragment->GetPosition());
 	EXPECT_EQ(mTestableTsbReader->GetFirstPTS(), lastVideoFragment->GetPTS());
 
 	// Initialize secondary reader
@@ -498,12 +504,12 @@ TEST_F(FunctionalTests, Init_SeekWithAudioTrackDiffInPTS)
 		.WillOnce(Return(lastAudioFragment));
 
 	// Return last fragment as nearest one, but PTS is above video
-	EXPECT_CALL(*g_mockTSBDataManager, GetNearestFragment(position + 6.0))
+	EXPECT_CALL(*g_mockTSBDataManager, GetNearestFragment(seekPos))
 		.WillOnce(Return(lastAudioFragment));
 	std::shared_ptr<AampTsbReader> primaryReaderPtr(mTestableTsbReader, [](AampTsbReader *) {});
 	EXPECT_EQ(mTestableSecondaryTsbReader->Init(seekPos, rate, tuneType, primaryReaderPtr), eAAMPSTATUS_OK);
 
-	// Eventhoug last fragment is nearest, the second fragment should be returned as it has lower PTS compared to video
+	// Even though last fragment is nearest, the second fragment should be returned as it has lower PTS compared to video
 	EXPECT_EQ(mTestableSecondaryTsbReader->GetFirstPTS(), secondAudioFragment->GetPTS());
 }
 
@@ -569,7 +575,7 @@ TEST_F(FunctionalTests, ReadNext_ValidFragment)
  * @test FunctionalTests::ReadNext_NullFragment
  * @brief Tests the ReadNext method with a null fragment.
  *
- * This test case verifies that the ReadNext to return eAAMPSTATUS_OK, but not initialized.
+ * This test case verifies that the ReadNext returns nullptr.
  *
  * @expect The ReadNext method should return nullptr.
  */

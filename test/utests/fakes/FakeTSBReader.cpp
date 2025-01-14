@@ -58,7 +58,7 @@ void AampTsbReader::Term()
 
 }
 
-AAMPStatusType AampTsbReader::Init(double &startPos, float rate, TuneType tuneType, std::shared_ptr<AampTsbReader> other)
+AAMPStatusType AampTsbReader::Init(double &startPosSec, float rate, TuneType tuneType, std::shared_ptr<AampTsbReader> other)
 {
 	return eAAMPSTATUS_OK;
 }

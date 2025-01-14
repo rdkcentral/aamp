@@ -5368,7 +5368,8 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 		}
 		else
 		{
-			mpStreamAbstractionAAMP->SeekPosUpdate(playlistSeekPos);
+			// Update StreamAbstraction object seek position to the absolute position (seconds since 1970)
+			mpStreamAbstractionAAMP->SeekPosUpdate(seek_pos_seconds);
 			retVal = mpStreamAbstractionAAMP->InitTsbReader(tuneType);
 		}
 	}
@@ -5469,6 +5470,8 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 		double updatedSeekPosition = mpStreamAbstractionAAMP->GetStreamPosition();
 		if(mMediaFormat != eMEDIAFORMAT_DASH)
 		{
+			/* For non-DASH formats, the stream position returned by the StreamAbstraction object is relative to the
+			time of tuning. Add culledSeconds to get the absolute position. */
 			seek_pos_seconds = updatedSeekPosition + culledSeconds;
 		}
 		else

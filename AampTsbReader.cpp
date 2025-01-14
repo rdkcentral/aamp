@@ -52,24 +52,26 @@ AampTsbReader::~AampTsbReader()
 
 /**
  * @fn AampTsbReader Init function
- * @param[out] - start position
- * @param[in] - current rate
- * @param[in] - tuneType
- * @param[in] - video track reader
- * @return AampStatusType
+ *
+ * @param[in,out] startPosSec - Start absolute position, seconds since 1970; in: requested, out: selected
+ * @param[in] rate - Playback rate
+ * @param[in] tuneType - Type of tune
+ * @param[in] other - Optional other TSB reader
+ *
+ * @return AAMPStatusType
  */
-AAMPStatusType AampTsbReader::Init(double &startPos, float rate, TuneType tuneType, std::shared_ptr<AampTsbReader> other)
+AAMPStatusType AampTsbReader::Init(double &startPosSec, float rate, TuneType tuneType, std::shared_ptr<AampTsbReader> other)
 {
 	AAMPStatusType ret = eAAMPSTATUS_OK;
 	if (!mInitialized_)
 	{
-		if (startPos >= 0)
+		if (startPosSec >= 0)
 		{
 			if (mDataMgr)
 			{
 				TsbFragmentDataPtr firstFragment = mDataMgr->GetFirstFragment();
 				TsbFragmentDataPtr lastFragment = mDataMgr->GetLastFragment();
-				double currentFragmentPosition = 0.0;
+				double requestedPosition = 0.0;
 				mActiveTuneType = tuneType;
 				if (!(firstFragment && lastFragment))
 				{
@@ -79,18 +81,18 @@ AAMPStatusType AampTsbReader::Init(double &startPos, float rate, TuneType tuneTy
 				}
 				else
 				{
-					if ((lastFragment->GetRelativePosition() - firstFragment->GetRelativePosition()) < startPos)
+					if (lastFragment->GetPosition() < startPosSec)
 					{
 						// Handle seek out of range
-						AAMPLOG_WARN("[%s] Seeking to the TSB End : %lf (Requested:%lf), Position:%lf, Range:(%lf-%lf) tunetype:%d", GetMediaTypeName(mMediaType), lastFragment->GetRelativePosition(), startPos, lastFragment->GetPosition(), firstFragment->GetRelativePosition(), lastFragment->GetRelativePosition(), mActiveTuneType);
-						currentFragmentPosition = lastFragment->GetPosition();
+						AAMPLOG_WARN("[%s] Seeking to the TSB End: %lfs (Requested:%lfs), Range:(%lfs-%lfs) tunetype:%d", GetMediaTypeName(mMediaType), lastFragment->GetPosition(), startPosSec, firstFragment->GetPosition(), lastFragment->GetPosition(), mActiveTuneType);
+						requestedPosition = lastFragment->GetPosition();
 					}
 					else
 					{
 						// Adjust the position according to the stored values.
-						currentFragmentPosition = firstFragment->GetPosition() + startPos;
+						requestedPosition = startPosSec;
 					}
-					TsbFragmentDataPtr firstFragmentToFetch = mDataMgr->GetNearestFragment(currentFragmentPosition);
+					TsbFragmentDataPtr firstFragmentToFetch = mDataMgr->GetNearestFragment(requestedPosition);
 					if (eMEDIATYPE_VIDEO != mMediaType)
 					{
 						if (other)
@@ -128,9 +130,9 @@ AAMPStatusType AampTsbReader::Init(double &startPos, float rate, TuneType tuneTy
 						}
 						// Save First PTS
 						mFirstPTS = firstFragmentToFetch->GetPTS();
-						AAMPLOG_INFO("[%s] startPosition:%lf relative:%lf rate:%f pts:%lf Window:(%lf..%lf)", GetMediaTypeName(mMediaType), mStartPosition, firstFragmentToFetch->GetRelativePosition(), mCurrentRate, mFirstPTS, firstFragment->GetRelativePosition(), lastFragment->GetRelativePosition());
+						AAMPLOG_INFO("[%s] startPosition:%lfs rate:%f pts:%lfs Range:(%lfs-%lfs)", GetMediaTypeName(mMediaType), mStartPosition, mCurrentRate, mFirstPTS, firstFragment->GetPosition(), lastFragment->GetPosition());
 						mInitialized_ = true;
-						startPos = firstFragmentToFetch->GetPosition();
+						startPosSec = firstFragmentToFetch->GetPosition();
 					}
 					else
 					{

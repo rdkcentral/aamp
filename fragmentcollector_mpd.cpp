@@ -3415,21 +3415,15 @@ AAMPStatusType StreamAbstractionAAMP_MPD::InitTsbReader(TuneType tuneType)
 {
 	AAMPStatusType retVal = eAAMPSTATUS_OK;
 	mTuneType = tuneType;
-	double offsetFromStart = seekPosition;
-	AAMPLOG_INFO("TuneType:%d offsetFromStart: %lf, culledSeconds from actual manifest: %lf", tuneType, offsetFromStart, mCulledSeconds);
+	AAMPLOG_INFO("TuneType:%d seek position: %lfs, culledSeconds from actual manifest: %lf", tuneType, seekPosition, mCulledSeconds);
 	AampTSBSessionManager* tsbSessionManager = aamp->GetTSBSessionManager();
 	if(NULL != tsbSessionManager)
 	{
-		double position = 0;
-		if(tuneType == eTUNETYPE_SEEK || tuneType == eTUNETYPE_RETUNE)
+		double position = seekPosition;
+		if((eTUNETYPE_SEEKTOLIVE == tuneType) || (seekPosition > mLiveEndPosition))
 		{
-			position = seekPosition;
-		}
-		double relativePositionFromTune = position + aamp->culledSeconds;
-		if(tuneType == eTUNETYPE_SEEKTOLIVE || ((relativePositionFromTune + aamp->mLiveOffset) > mLiveEndPosition))
-		{
-			position = aamp->durationSeconds - aamp->mLiveOffset;
-			AAMPLOG_INFO("Adjusting position to live edge with offset : %lf, totalDuration: %lf liveEdge: %lf, Offset:%lf", position, aamp->durationSeconds, mLiveEndPosition, aamp->mLiveOffset);
+			position = mLiveEndPosition;
+			AAMPLOG_INFO("Adjusting position to live edge with position: %lfs, totalDuration: %lfs liveEdge: %lfs, Offset:%lfs", position, aamp->durationSeconds, mLiveEndPosition, aamp->mLiveOffset);
 			if(AAMP_NORMAL_PLAY_RATE == aamp->rate && !aamp->GetPauseOnFirstVideoFrameDisp())
 			{
 				AAMPLOG_INFO("Re-enabling LLD DASH speed correction");
@@ -3439,14 +3433,13 @@ AAMPStatusType StreamAbstractionAAMP_MPD::InitTsbReader(TuneType tuneType)
 			mIsAtLivePoint = true;
 		}
 
-		// Initialize readers with calculated offset position
 		retVal = tsbSessionManager->InvokeTsbReaders(position, aamp->rate, mTuneType);
 
 		if(eAAMPSTATUS_OK == retVal)
 		{
 			seekPosition = position;
 			mFirstPTS = tsbSessionManager->GetTsbReader(eMEDIATYPE_VIDEO)->GetFirstPTS();
-			AAMPLOG_WARN( "Updated position: %lf, pts:%lf", seekPosition, mFirstPTS);
+			AAMPLOG_WARN("Updated position: %lfs, pts:%lfs", seekPosition, mFirstPTS);
 		}
 		else
 		{
@@ -10782,6 +10775,9 @@ double StreamAbstractionAAMP_MPD::GetBufferedDuration()
 /**
  * @brief Get current stream position.
  *
+ * Note: The stream position is sometimes an absolute position (seconds from 1970)
+ * and sometimes a relative position (seconds from tuning).
+ *
  * @retval current position of stream.
  */
 double StreamAbstractionAAMP_MPD::GetStreamPosition()
@@ -13779,9 +13775,10 @@ int StreamAbstractionAAMP_MPD::getValidperiodIdx(int periodIdx)
 /**
  * @brief Function to update seek position
  *         Kept public as its called from outside StreamAbstraction class
- * @param[in] secondsRelativeToTuneTime
+ * @param[in] secondsRelativeToTuneTime - can be the offset (seconds from tune time) or absolute position (seconds from 1970)
  */
-void StreamAbstractionAAMP_MPD::SeekPosUpdate(double secondsRelativeToTuneTime){
+void StreamAbstractionAAMP_MPD::SeekPosUpdate(double secondsRelativeToTuneTime)
+{
 	if(secondsRelativeToTuneTime>=0.0)
 	{
 		seekPosition = secondsRelativeToTuneTime;

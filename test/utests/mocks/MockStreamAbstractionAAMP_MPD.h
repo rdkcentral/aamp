@@ -17,8 +17,8 @@
 * limitations under the License.
 */
 
-#ifndef AAMP_MOCK_STREAM_ABSTRACTION_AAMP_H
-#define AAMP_MOCK_STREAM_ABSTRACTION_AAMP_H
+#ifndef AAMP_MOCK_STREAM_ABSTRACTION_AAMP_MPD_H
+#define AAMP_MOCK_STREAM_ABSTRACTION_AAMP_MPD_H
 
 #include <gmock/gmock.h>
 #include "fragmentcollector_mpd.h"
@@ -31,9 +31,9 @@ public:
 
     MOCK_METHOD(AAMPStatusType, Init, (TuneType tuneType), (override));
     MOCK_METHOD(BitsPerSecond, GetMaxBitrate, (), (override));
-
+    MOCK_METHOD(void, SeekPosUpdate, (double secondsRelativeToTuneTime));
 };
 
 extern MockStreamAbstractionAAMP_MPD *g_mockStreamAbstractionAAMP_MPD;
 
-#endif /* AAMP_MOCK_STREAM_ABSTRACTION_AAMP_H */
+#endif /* AAMP_MOCK_STREAM_ABSTRACTION_AAMP_MPD_H */

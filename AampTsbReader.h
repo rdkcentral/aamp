@@ -53,10 +53,16 @@ public:
 
 	/**
 	 * @fn AampTsbReader Init function
+	 * @brief Initialize TSB reader
 	 *
-	 * @return AampStatusType
+	 * @param[in,out] startPosSec - Start absolute position, seconds since 1970; in: requested, out: selected
+	 * @param[in] rate - Playback rate
+	 * @param[in] tuneType - Type of tune
+	 * @param[in] other - Optional other TSB reader
+	 *
+	 * @return AAMPStatusType
 	 */
-	AAMPStatusType Init(double &startPos, float rate, TuneType tuneType, std::shared_ptr<AampTsbReader> other=nullptr);
+	AAMPStatusType Init(double &startPosSec, float rate, TuneType tuneType, std::shared_ptr<AampTsbReader> other=nullptr);
 
 	/**
 	 * @fn ReadNext - function to read file from TSB

@@ -78,7 +78,7 @@ void AampTSBSessionManager::Flush()
 {
 }
 
-AAMPStatusType AampTSBSessionManager::InvokeTsbReaders(double &position, float rate, TuneType tuneType)
+AAMPStatusType AampTSBSessionManager::InvokeTsbReaders(double &startPosSec, float rate, TuneType tuneType)
 {
     return eAAMPSTATUS_OK;
 }

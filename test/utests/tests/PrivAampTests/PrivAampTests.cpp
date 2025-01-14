@@ -34,6 +34,7 @@
 #include "MockAampConfig.h"
 #include "MockAampGstPlayer.h"
 #include "MockStreamAbstractionAAMP.h"
+#include "MockStreamAbstractionAAMP_MPD.h"
 #include "MockAampStreamSinkManager.h"
 #include "MockAampEventManager.h"
 #include "MockAampDRMSessionManager.h"
@@ -56,6 +57,7 @@ class PrivAampTests : public ::testing::Test
 	protected:
 	void SetUp() override
 	{
+		AampLogManager::setLogLevel(eLOGLEVEL_TRACE);   // Enable all levels of AAMP logging
         config=new AampConfig();
         p_aamp = new PrivateInstanceAAMP(config);
 		g_mockAampGstPlayer = new NiceMock<MockAAMPGstPlayer>(p_aamp);
@@ -63,10 +65,14 @@ class PrivAampTests : public ::testing::Test
 		g_mockAampEventManager = new NiceMock<MockAampEventManager>();
 		g_mockAampDRMSessionManager = new NiceMock<MockAampDRMSessionManager>();
 		g_mockAampConfig = new NiceMock<MockAampConfig>();
+		g_mockStreamAbstractionAAMP_MPD = new NiceMock<MockStreamAbstractionAAMP_MPD>(p_aamp, 0, 0);
 	}
 
 	void TearDown() override
 	{
+		delete g_mockStreamAbstractionAAMP_MPD;
+		g_mockStreamAbstractionAAMP_MPD = nullptr;
+
 		delete g_mockAampConfig;
 		g_mockAampConfig = nullptr;
 
@@ -3799,12 +3805,16 @@ TEST_F(PrivAampTests, GetStringForPlaybackErrorTest)
  */
 TEST_F(PrivAampTests, TuneHelperWithAampTsb)
 {
-	float rate {-2.0};
-	p_aamp->mpStreamAbstractionAAMP = new StreamAbstractionAAMP_MPD(p_aamp, 0.0, rate);
+	constexpr double SEEK_POS = 123.0;
+	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP_MPD;
 	StreamAbstractionAAMP *savedStreamAbstractionAAMP = p_aamp->mpStreamAbstractionAAMP;
 	p_aamp->mMediaFormat = eMEDIAFORMAT_DASH;
+	p_aamp->seek_pos_seconds = SEEK_POS;
 	p_aamp->SetLocalAAMPTsb(true);
+	p_aamp->SetLocalAAMPTsbInjection(true);
 	EXPECT_FALSE(p_aamp->mpStreamAbstractionAAMP->trickplayMode);
+	// Verify that the StreamAbstraction seek position is updated to the expected value
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP_MPD, SeekPosUpdate(SEEK_POS));
 	p_aamp->TuneHelper(eTUNETYPE_SEEK);
 	EXPECT_TRUE(p_aamp->mpStreamAbstractionAAMP->trickplayMode);
 	// Verify that the StreamAbstraction object is not recreated
