@@ -314,10 +314,6 @@ public:
 	 */
 	static void InitializeAAMPGstreamerPlugins();
 	/**
-	 * @fn InferPlatformFromPluginScan
-	 */
-	static PlatformType InferPlatformFromPluginScan();
-	/**
 	 * @fn NotifyFirstFrame
 	 * @param[in] type media type of the frame which is decoded, either audio or video.
 	 */

@@ -88,6 +88,7 @@
 
 #include <sched.h>
 #include "AampTSBSessionManager.h"
+#include "SocUtils.h"
 
 #define LOCAL_HOST_IP       "127.0.0.1"
 #define AAMP_MAX_TIME_BW_UNDERFLOWS_TO_TRIGGER_RETUNE_MS (20*1000LL)
@@ -5150,7 +5151,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 	}
 
 	TeardownStream(newTune|| (eTUNETYPE_RETUNE == tuneType));
-	if(GETCONFIGVALUE_PRIV(eAAMPConfig_PlatformType) == ePLATFORM_AMLOGIC)
+	if(SocUtils::ResetNewSegmentEvent())
 	{
 		// Send new SEGMENT event only on all trickplay and trickplay -> play, not on pause -> play / seek while paused
 		// this shouldn't impact seekplay or ADs
@@ -5935,22 +5936,12 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 	//temporary hack 
 	if (strcasestr(mAppName.c_str(), "peacock"))
 	{
-		// Enable PTS Restamping only for specific apps/platforms
-		switch( GetPlatformType() )
+		// Enable PTS Restamping only for Peacock App on BCOM
+		if(SocUtils::EnableLiveLatencyCorrection())
 		{
-		case ePLATFORM_BROADCOM:
-			SETCONFIGVALUE_PRIV(AAMP_DEFAULT_SETTING, eAAMPConfig_EnablePTSReStamp, true);
-			break;
-		case ePLATFORM_REALTEK:
-			SETCONFIGVALUE_PRIV(AAMP_DEFAULT_SETTING, eAAMPConfig_EnablePTSReStamp, false); // override app enablement
 			SETCONFIGVALUE_PRIV(AAMP_DEFAULT_SETTING, eAAMPConfig_EnableLiveLatencyCorrection, true);
-			break;
-		case ePLATFORM_AMLOGIC:
-			SETCONFIGVALUE_PRIV(AAMP_DEFAULT_SETTING, eAAMPConfig_EnablePTSReStamp, false); // override app enablement
-			break;
-		default:
-			break;
 		}
+		SETCONFIGVALUE_PRIV(AAMP_DEFAULT_SETTING, eAAMPConfig_EnablePTSReStamp, SocUtils::EnablePTSRestamp());
 	}
 
 	/* Reset counter in new tune */
@@ -13620,15 +13611,6 @@ bool PrivateInstanceAAMP::isDecryptClearSamplesRequired()
 	// copy it to a secure buffer. However if Rialto is enabled there should be no copy in the aamp pipeline, as
 	// it will be done in the server pipeline
 	return !ISCONFIGSET_PRIV(eAAMPConfig_useRialtoSink);
-}
-
-/**
- * @brief To get platform type
- * @param[in] int
- */
-int PrivateInstanceAAMP::GetPlatformType()
-{
-	return GETCONFIGVALUE_PRIV(eAAMPConfig_PlatformType);
 }
 
 void PrivateInstanceAAMP::SetLLDashChunkMode(bool enable)

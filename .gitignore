@@ -21,3 +21,4 @@ Linux/googletest/
 .libs/
 test/l2test/result/
 test/l2test/data/aamp/*
+**/*.swp

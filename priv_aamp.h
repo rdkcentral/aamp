@@ -814,12 +814,6 @@ public:
 	 */
 	void updateManifest(const char *manifestData);
 
-	/**
-	 * @fn GetPlatformType - to get platform type
-	 * return int
-	 */
-	int GetPlatformType() override;
-
 	bool mDiscontinuityFound;
 	int mTelemetryInterval;
 	std::vector< std::pair<long long,long> > mAbrBitrateData;

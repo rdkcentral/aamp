@@ -142,12 +142,6 @@
 #endif
 #define SUBTITLE_CLOCK_ASSUMED_PLAYSTATE_TIME_MS (20000) /**< period after channel change/seek where we try to sync the subtitle clock quickly, before giving up and falling to slower rate */
 
-// the +1 is used to compensate for internal use originally being a > check, now >=
-#if defined(REALTEKCE)
-#define DEFAULT_BUFFERING_QUEUED_FRAMES_MIN (3+1) // TODO: deprecate specific config (risk: tune time impact)
-#else
-#define DEFAULT_BUFFERING_QUEUED_FRAMES_MIN (5+1) // more conservative config; used on specific platform
-#endif
 
 // Player supported play/trick-play rates.
 #define AAMP_RATE_TRICKPLAY_MAX		64
@@ -420,14 +414,6 @@ enum EOSInjectionModeCode
 	/* In addition to the EOS_INJECTION_MODE_NO_EXTRA cases
 	 * EOS is injected in AAMPGstPlayer::Stop() prior to setting the state to null.*/
 	EOS_INJECTION_MODE_STOP_ONLY,
-};
-
-enum PlatformType
-{
-	ePLATFORM_DEFAULT,
-	ePLATFORM_AMLOGIC,
-	ePLATFORM_REALTEK,
-	ePLATFORM_BROADCOM
 };
 
 #endif

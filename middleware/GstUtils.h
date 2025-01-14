@@ -20,6 +20,7 @@
 #define GST_UTILS_H
 
 #include <gst/gst.h>
+#include "middleware/vendor/SocInterface.h"
 
 /**
  * @enum GstMediaType
@@ -79,19 +80,6 @@ enum GstStreamOutputFormat
 };
 
 /**
- * @enum GstPlatformType
- * @brief Platform types
- */
-enum GstPlatformType
-{
-        eGST_PLATFORM_DEFAULT,      /**< Ubuntu */
-        eGST_PLATFORM_AMLOGIC,      /**< Amlogic */
-        eGST_PLATFORM_REALTEK,      /**< Realtek */
-        eGST_PLATFORM_BROADCOM,     /**< Broadcom */
-};
-
-
-/**
  * @fn gstGetMediaTypeName
  * @brief Get the name of the media type
  * 
@@ -120,10 +108,9 @@ void PlayerCliGstTerm();
  * @brief Get the GStreamer capabilities for the given format and platform
  * 
  * @param[in] format The stream output format
- * @param[in] platform The platform type (default is eGST_PLATFORM_DEFAULT)
  * @return The GStreamer capabilities
  */
-GstCaps* GetCaps(GstStreamOutputFormat format, GstPlatformType platform = eGST_PLATFORM_DEFAULT);
+GstCaps* GetCaps(GstStreamOutputFormat format);
 
 /**
  * @fn GetCurrentTimeMS

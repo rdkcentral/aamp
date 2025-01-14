@@ -89,8 +89,6 @@ static void InitializePlayerConfigs(AAMPGstPlayer *_this, void *playerInstance)
 	interfacePlayer->m_gstConfigParam->enablePTSReStamp = config->IsConfigSet(eAAMPConfig_EnablePTSReStamp);
 	interfacePlayer->m_gstConfigParam->seamlessAudioSwitch = config->IsConfigSet(eAAMPConfig_SeamlessAudioSwitch);
 	interfacePlayer->m_gstConfigParam->videoBufBytes = config->GetConfigValue(eAAMPConfig_GstVideoBufBytes);
-	interfacePlayer->m_gstConfigParam->platformType = config->GetConfigValue(eAAMPConfig_PlatformType);
-	interfacePlayer->m_gstConfigParam->noNativeAV = config->IsConfigSet(eAAMPConfig_NoNativeAV);
 	interfacePlayer->m_gstConfigParam->enableDisconnectSignals = config->IsConfigSet(eAAMPConfig_enableDisconnectSignals);
 	interfacePlayer->m_gstConfigParam->eosInjectionMode = config->GetConfigValue(eAAMPConfig_EOSInjectionMode);
 	interfacePlayer->m_gstConfigParam->vodTrickModeFPS =  config->GetConfigValue(eAAMPConfig_VODTrickPlayFPS);
@@ -104,7 +102,6 @@ static void InitializePlayerConfigs(AAMPGstPlayer *_this, void *playerInstance)
 	interfacePlayer->m_gstConfigParam->useWesterosSink = config->IsConfigSet(eAAMPConfig_UseWesterosSink);
 	interfacePlayer->m_gstConfigParam->enableRectPropertyCfg = config->IsConfigSet(eAAMPConfig_EnableRectPropertyCfg);
 	interfacePlayer->m_gstConfigParam->useRialtoSink = config->IsConfigSet(eAAMPConfig_useRialtoSink);
-	interfacePlayer->m_gstConfigParam->framesToQueue =  config->GetConfigValue(eAAMPConfig_RequiredQueuedFrames);
 	interfacePlayer->m_gstConfigParam->monitorAV = config->IsConfigSet(eAAMPConfig_MonitorAV);
 	interfacePlayer->m_gstConfigParam->disableUnderflow = config->IsConfigSet(eAAMPConfig_DisableUnderflow);
 	interfacePlayer->m_gstConfigParam->audioDecoderStreamSync = _this->aamp->mAudioDecoderStreamSync;
@@ -1130,11 +1127,9 @@ void AAMPGstPlayer::GetVideoSize(int &width, int &height)
 
 bool AAMPGstPlayer::IsCodecSupported(const std::string &codecName)
 {
-	bool retValue = false;
-	InterfacePlayerRDK Instance;
-	retValue = Instance.IsCodecSupported(codecName);
-	return retValue;
+	return InterfacePlayerRDK::IsCodecSupported(codecName);
 }
+
 
 /**
  * @brief function to check whether the device is having MS12V2 audio support or not
@@ -1156,14 +1151,6 @@ bool AAMPGstPlayer::IsMS2V12Supported()
 void AAMPGstPlayer::InitializeAAMPGstreamerPlugins()
 {
 	InterfacePlayerRDK::InitializePlayerGstreamerPlugins();
-}
-
-/**
- *  @brief To enable certain aamp configs based upon platform check
- */
-PlatformType AAMPGstPlayer::InferPlatformFromPluginScan()
-{
-	return (PlatformType)InterfacePlayerRDK::InferPlatformFromPluginScan();
 }
 
 /**

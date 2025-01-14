@@ -96,12 +96,7 @@ PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink
 
 		gpGlobalConfig =  new AampConfig();
 		gpGlobalConfig->Initialize();
-		PlatformType platform = gpGlobalConfig->InferPlatformFromDeviceProperties();
-		if( platform == ePLATFORM_DEFAULT )
-		{
-			platform = gpGlobalConfig->InferPlatformFromPluginScan();
-		}
-		gpGlobalConfig->ApplyDeviceCapabilities(platform);
+		gpGlobalConfig->ApplyDeviceCapabilities();
 		
 		AAMPLOG_MIL("[AAMP_JS][%p]Creating GlobalConfig Instance[%p]",this,gpGlobalConfig);
 		if(!gpGlobalConfig->ReadAampCfgTxtFile())

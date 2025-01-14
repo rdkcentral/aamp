@@ -219,7 +219,6 @@ typedef enum
 	eAAMPConfig_EnableIFrameTrackExtract,			/**< Config to enable and disable iFrame extraction from video track*/
 	eAAMPConfig_ForceMultiPeriodDiscontinuity,		/**< Config to forcefully process multiperiod discontinuity even if they are continuous in PTS */
 	eAAMPConfig_ForceLLDFlow,						/**< Config to forcefully process LLD workflow even if they are live SLD */
-	eAAMPConfig_NoNativeAV,                                                 /**< Config to allow gstreamer be responsible for handling AV, bypassing use of native platform-specific audio-video handling */
 	eAAMPConfig_MonitorAV,						/**< enable background monitoring of audio/video positions to infer video freeze, audio drop, or av sync issues */
 	eAAMPConfig_HlsTsEnablePTSReStamp,
 	eAAMPConfig_BoolMaxValue						/**< Max value of bool config always last element */
@@ -312,8 +311,6 @@ typedef enum
 	eAAMPConfig_TsbLogLevel,					/** Override the TSB log level */
 	eAAMPConfig_AdFulfillmentTimeout,					/**< Ad fulfillment timeout in milliseconds */
 	eAAMPConfig_AdFulfillmentTimeoutMax,					/**< Ad fulfillment maximum timeout in milliseconds */
-	eAAMPConfig_RequiredQueuedFrames,				/**< required queued frames while tuning */
-	eAAMPConfig_PlatformType,                       /**< To determine the current device platform/soc type */
 	eAAMPConfig_ShowDiagnosticsOverlay,		       /** configures the diagnostics overlay,accessed by UVE API getConfiguration()*/
 	eAAMPConfig_IntMaxValue							/**< Max value of int config always last element*/
 } AAMPConfigSettingInt;
@@ -497,20 +494,10 @@ public:
 	AampConfig& operator=(const AampConfig&);
 	void Initialize();
 	/**
-	 * @fn InferPlatformFromDeviceProperties - Read device.Properties from /etc/ (e.g., soc,region,tv/stb fields) and set platform type bypassing use of compile time flags on non-containerized apps.
-	 * @return bool
-	 */
-	PlatformType InferPlatformFromDeviceProperties( void );
-	/**
-	 * @fn InferPlatformFromPluginScan - Read platform specific unique decoder/sink elements and set platform type on containerized apps.
-	 * @return void
-	 */
-	PlatformType InferPlatformFromPluginScan( void );
-	/**
 	 * @fn ApplyDeviceCapabilities
 	 * @return Void
 	 */
-	void ApplyDeviceCapabilities( PlatformType platform );
+	void ApplyDeviceCapabilities();
 	/**
      	 * @fn ShowOperatorSetConfiguration
      	 * @return Void

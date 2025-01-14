@@ -20,6 +20,7 @@
 #include "GstUtils.h"
 #include <sys/time.h>
 #include <inttypes.h>
+#include "SocUtils.h"
 
 /**
  * @brief Get the GStreamer Caps based on the provided format and platform.
@@ -28,9 +29,11 @@
  * @param platform The platform type for which the caps are being generated.
  * @return GstCaps* A pointer to the GstCaps object describing the capabilities of the media stream.
  */
-GstCaps* GetCaps(GstStreamOutputFormat format, GstPlatformType platform)
+GstCaps* GetCaps(GstStreamOutputFormat format)
 {
 	GstCaps * caps = NULL;
+	std::shared_ptr<SocInterface> socInterface = SocInterface::CreateSocInterface();
+
 	switch (format)
 	{
 		case GST_FORMAT_MPEGTS:
@@ -78,32 +81,11 @@ GstCaps* GetCaps(GstStreamOutputFormat format, GstPlatformType platform)
 			break;
 		case GST_FORMAT_VIDEO_ES_H264:
 			caps = gst_caps_new_simple ("video/x-h264", NULL, NULL);
-			if(platform == eGST_PLATFORM_REALTEK)
-			{
-				gst_caps_set_simple (caps, "enable-fastplayback", G_TYPE_STRING, "true", NULL);
-			}
-#ifdef UBUNTU
-			// below required on Ubuntu - harmless on OSX, but breaks RPI
-			gst_caps_set_simple (caps,
-								"alignment", G_TYPE_STRING, "au",
-								"stream-format", G_TYPE_STRING, "avc",
-								NULL);
-#endif
+			socInterface->SetH264Caps(caps);
 			break;
 		case GST_FORMAT_VIDEO_ES_HEVC:
 			caps = gst_caps_new_simple("video/x-h265", NULL, NULL);
-
-			if (platform == eGST_PLATFORM_REALTEK)
-			{
-				gst_caps_set_simple (caps, "enable-fastplayback", G_TYPE_STRING, "true", NULL);
-			}
-#ifdef UBUNTU
-			// below required on Ubuntu - harmless on OSX, but breaks RPI
-			gst_caps_set_simple(caps,
-								"alignment", G_TYPE_STRING, "au",
-								"stream-format", G_TYPE_STRING, "hev1",
-								NULL);
-#endif
+			socInterface->SetHevcCaps(caps);
 			break;
 		case GST_FORMAT_VIDEO_ES_MPEG2:
 			caps = gst_caps_new_simple ("video/mpeg",

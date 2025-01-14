@@ -21,7 +21,7 @@
 #include "middleware/GstUtils.h"
 
 MockGstUtils *g_mockGstUtils = nullptr;
-GstCaps *GetCaps(GstStreamOutputFormat format, GstPlatformType platform)
+GstCaps *GetCaps(GstStreamOutputFormat format)
 {
 	return nullptr;
 }
