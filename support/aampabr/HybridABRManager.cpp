@@ -59,6 +59,8 @@
 #define AAMPABRLOG_WARN(FORMAT, ...)  AAMPABRLOG(eAAMPAbrConfig.warnlogging,"WARN",FORMAT, ##__VA_ARGS__)
 #define AAMPABRLOG_ERR(FORMAT, ...)   AAMPABRLOG(eAAMPAbrConfig.debuglogging,"ERROR",FORMAT, ##__VA_ARGS__)
 
+HybridABRManager::AampAbrConfig eAAMPAbrConfig;
+
 /**
  * @struct SpeedCache
  * @brief Stroes the information for cache speed
