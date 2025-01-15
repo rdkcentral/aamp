@@ -95,7 +95,7 @@ AAMPStatusType StreamAbstractionAAMP_RMF::Init(TuneType tuneType)
 	JsonObject param;
 	JsonObject result;
 	param["source_type"] = "qam";
-	if(false == thunderAccessObj.InvokeJSONRPC("initialize", param, result)) //Note: do not deinitialize unless we're desperate for resources. deinit is sluggish.
+	if(false == thunderAccessObj.InvokeJSONRPC("initialize", param, result)) //Note: do not terminate unless we're desperate for resources. deinit is sluggish.
 	{
 		AAMPLOG_ERR("Failed to initialize %s plugin.\n", RMF_PLUGIN_CALLSIGN);
 		retval = eAAMPSTATUS_GENERIC_ERROR;

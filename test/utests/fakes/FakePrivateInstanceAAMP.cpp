@@ -242,7 +242,7 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 								const char *pTraceID,
 								bool audioDecoderStreamSync,
 								const char *refreshManifestUrl,
-								int mpdStichingMode,
+								int mpdStitchingMode,
 								std::string sid,
 								const char *preprocessedManifest
 								)

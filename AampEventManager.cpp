@@ -301,7 +301,7 @@ void AampEventManager::SendEvent(const AAMPEventPtr &eventData, AAMPEventMode ev
 		}
 		else
 		{
-			//For other events if asyncTune enabled or calle from non-UI thread , then send the event as Async
+			//For other events if asyncTune enabled or callee from non-UI thread , then send the event as Async
 			if (mAsyncTuneEnabled || sId == 0)
 			{
 				SendEventAsync(eventData);

@@ -127,7 +127,7 @@ public:
 /**
  * @brief ManifestStitchingBasic test.
  *
- * To verify two manifest file stiching with SegmentTimeline range and updated MPD contains sum of 
+ * To verify two manifest file stitching with SegmentTimeline range and updated MPD contains sum of 
  * both MPD files with additionally added segments
  */
 TEST_F(FunctionalTests, ManifestStitchingBasic_Test)
@@ -533,7 +533,7 @@ TEST_F(FunctionalTests, ManifestStitching_Comcast_Linear)
 /**
  * @brief ManifestStitching_Peacock_2Hour_MPD test.
  *
- * To verify segment stiching with peacocok unlimited content of two hour duration and verify total periods and
+ * To verify segment stitching with peacocok unlimited content of two hour duration and verify total periods and
  * MPD duration is properly updated.
  */
 TEST_F(FunctionalTests, ManifestStitching_Peacock_2Hour_MPD)
@@ -5046,7 +5046,7 @@ R"(<?xml version="1.0" encoding="UTF-8"?>
 /**
  * @brief ManifestStitching_Period_Append test.
  *
- * To verify two manifest file stiching with SegmentTimeline range and updated MPD contains sum of 
+ * To verify two manifest file stitching with SegmentTimeline range and updated MPD contains sum of 
  * both MPD files with additionally added segments with new period
  */
 TEST_F(FunctionalTests, ManifestStitching_Period_Append)

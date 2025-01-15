@@ -170,7 +170,7 @@ std::size_t AampSecManagerSession::getInputSummaryHash()
 
 /* Regex to detect if a string starts with a protocol definition e.g. http:// */
 static const std::string PROTOCOL_REGEX = "^[a-zA-Z0-9\\+\\.-]+://";
-#define KEY_ID_SZE_INDICATOR 0x12
+//#define KEY_ID_SIZE_INDICATOR 0x12
 
 /**
  *  @brief  Default constructor for DrmData.

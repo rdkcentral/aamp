@@ -46,7 +46,7 @@ extern bool g_ForPartnerApps;
 #define TAG_UNKNOWN				(g_ForPartnerApps ?"unknown":"u" ) 			/**< unknown track */
 #define TAG_SUPPORTED_LANG 			(g_ForPartnerApps ?"languageSupported":"l" ) 		/**< Supported language */
 #define TAG_PROFILES 				(g_ForPartnerApps ?"profiles":"p" )	 		/**< Encapsulates Different Profile available in stream */
-#define TAG_LICENSE_STAT			(g_ForPartnerApps ?"licenseStat":"ls" ) 		/**< License statis */
+#define TAG_LICENSE_STAT			(g_ForPartnerApps ?"licenseStat":"ls" ) 		/**< License statistics */
 #define TAG_SESSION_SUMMARY 		        (g_ForPartnerApps ?"sessionSummary":"S" ) 		/**< Session summary */
 #define TAG_MANIFEST_INFO	 		(g_ForPartnerApps ?"info":"mi" ) 			/**< Manifest details */
 #define TAG_URL 		       		(g_ForPartnerApps ?"lastFailedUrl":"u" ) 		/**< URL of last failed download */
@@ -102,7 +102,7 @@ typedef enum E_VideoStatDataType{
 /**
  *  @struct Track
  *  @brief  Structure to keep the track type and number
- *  	    Main Manifest download is also considared as seperate track as Stats are same.
+ *  	    Main Manifest download is also considered as seperate track as Stats are same.
  *  	    Max of 5 Audio tracks data collection supported and seperate IFRAME stats are collected in single track type STAT_IFRAME
  */
 struct Track

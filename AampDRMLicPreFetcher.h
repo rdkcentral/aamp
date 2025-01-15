@@ -166,7 +166,7 @@ public:
 	 * @return true if success
 	 * @return false if failed
 	 */
-	bool DeInit();
+	bool Term();
 
 	/**
 	 * @brief set license prefetcher
@@ -184,8 +184,8 @@ public:
 
 	/**
 	 * @brief Thread for processing content protection queued using QueueContentProtection
-	 * Thread will be joined when DeInit is called
-	 * 
+	 * Thread will be joined when Term is called
+	 *
 	 */
 	void PreFetchThread();
 
@@ -199,7 +199,7 @@ public:
 
 	/**
          * @brief Thread for processing VSS content protection queued using QueueContentProtection
-         * Thread will be joined when DeInit is called
+         * Thread will be joined when Term is called
          * 
          */
 

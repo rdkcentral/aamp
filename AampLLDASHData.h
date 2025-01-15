@@ -40,7 +40,7 @@ struct AampLLDashServiceData {
 	double minPlaybackRate;     	/**< Minimum playback rate for playback */
 	double maxPlaybackRate;     	/**< Maximum playback rate for playback */
 	bool isSegTimeLineBased;		/**< Indicates is stream is segmenttimeline based */
-	double fragmentDuration;		/**< Maximum Fragment Durartion */
+	double fragmentDuration;		/**< Maximum Fragment Duration */
 	UtcTiming utcTiming;		/**< Server UTC timings */
 
 	AampLLDashServiceData() : lowLatencyMode(false),

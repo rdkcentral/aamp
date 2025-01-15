@@ -20,7 +20,7 @@ OPTION_GOOGLETEST_REFERENCE="tags/release-1.11.0"
 
 function install_options_fn()
 {
-  # Parse optiona command line parameters
+  # Parse optional command line parameters
   while getopts ":d:b:cf:np:r:g:qs" OPT; do
     case ${OPT} in
       d ) # process option d install base directory name

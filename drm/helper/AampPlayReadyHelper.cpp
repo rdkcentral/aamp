@@ -87,7 +87,7 @@ std::string AampPlayReadyHelper::findSubstr(std::string &data, std::string start
 #define PLAYREADY_VERSION_4_1           "4.1.0.0"   /**< Playready version 4.1 **/
 #define PLAYREADY_VERSION_4_2           "4.2.0.0"   /**< Playready version 4.2 **/
 #define PLAYREADY_VERSION_4_3           "4.3.0.0"   /**< Playready version 4.3 **/
-std::string AampPlayReadyHelper::extrackKeyID()
+std::string AampPlayReadyHelper::extractKeyID()
 {
 	std::string propValueEnd = "\"";
 	std::string version = findSubstr(mStrInitDataFormated, "version=\"", propValueEnd);
@@ -196,7 +196,7 @@ bool AampPlayReadyHelper::parsePssh(const uint8_t* initData, uint32_t initDataLe
 			//Clear unwanted spaces from pssh data - time being not neeed
 			//std::remove(mStrInitDataFormated.begin(), mStrInitDataFormated.end(), ' ');
 			
-			keyData = extrackKeyID();
+			keyData = extractKeyID();
 		}
 		//AAMPLOG_INFO("pr keyid: %s keyIdlen: %d", keydata, keyIdLen);
 		if (!keyData.empty())

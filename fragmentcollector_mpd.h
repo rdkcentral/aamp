@@ -209,7 +209,7 @@ public:
 	 * @param[out]  primaryOutputFormat - format of primary track
 	 * @param[out]  audioOutputFormat - format of audio track
 	 * @param[out]  auxOutputFormat - format of aux audio track
-	 * @param[out]  subtitleOutputFormat - format of sutbtile track
+	 * @param[out]  subtitleOutputFormat - format of subtitle track
 	 */
 	void GetStreamFormat(StreamOutputFormat &primaryOutputFormat, StreamOutputFormat &audioOutputFormat, StreamOutputFormat &auxOutputFormat, StreamOutputFormat &subtitleOutputFormat) override;
 	/**
@@ -1109,7 +1109,7 @@ protected:
 	/**
 	 * @fn isAdbreakStart
 	 * @param[in] period instance.
-	 * @param[in] startMS start time in milli seconds.
+	 * @param[in] startMS start time in milliseconds.
 	 * @param[in] eventBreakVec vector of EventBreakInfo structure.
 	 */
 	bool isAdbreakStart(IPeriod *period, uint64_t &startMS, std::vector<EventBreakInfo> &eventBreakVec);

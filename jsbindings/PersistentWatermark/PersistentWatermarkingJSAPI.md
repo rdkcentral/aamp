@@ -95,7 +95,7 @@ Generates a ShowSuccess or ShowFailed event on completion.
 
 | Name | Type | Description |
 | ---- | ---- | ---------- |
-| opacity | Number | Percentage multipler for alpha (0..100). Use 100 to honor original image's alpha values.  Smaller values will make watermark more translucent down to 0 (invisible). |
+| opacity | Number | Percentage multiplier for alpha (0..100). Use 100 to honor original image's alpha values.  Smaller values will make watermark more translucent down to 0 (invisible). |
 
 Example:
 ```js

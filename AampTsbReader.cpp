@@ -47,7 +47,7 @@ AampTsbReader::AampTsbReader(PrivateInstanceAAMP *aamp, std::shared_ptr<AampTsbD
  */
 AampTsbReader::~AampTsbReader()
 {
-	DeInit();
+	Term();
 }
 
 /**
@@ -293,9 +293,9 @@ double AampTsbReader::GetStartPosition()
 }
 
 /**
- * @fn DeInit  - function to clear TsbReader states
+ * @fn Term  - function to clear TsbReader states
  */
-void AampTsbReader::DeInit()
+void AampTsbReader::Term()
 {
 	mStartPosition = 0.0;
 	mUpcomingFragmentPosition = 0.0;

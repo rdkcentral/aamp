@@ -197,7 +197,7 @@ AAMPStatusType StreamAbstractionAAMP_PROGRESSIVE::Init(TuneType tuneType)
     AAMPStatusType retval = eAAMPSTATUS_OK;
     aamp->CurlInit(eCURLINSTANCE_VIDEO, AAMP_TRACK_COUNT,aamp->GetNetworkProxy());  //CID:110904 - newTune bool variable  initialized not used
     aamp->IsTuneTypeNew = false;
-    std::set<std::string> mLangList; /**< emptry language list */
+    std::set<std::string> mLangList; /**< empty language list */
     std::vector<BitsPerSecond> bitrates; /**< empty bitrates */
     for (int i = 0; i < AAMP_TRACK_COUNT; i++)
     {

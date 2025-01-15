@@ -336,7 +336,7 @@ void SCTE35Decoder::End()
 		{
 			if (mOffset != mMaxOffset)
 			{
-				AAMPLOG_WARN("SCTE-35 %s data underlow", mKey.c_str());
+				AAMPLOG_WARN("SCTE-35 %s data underflow", mKey.c_str());
 				throw SCTE35DataException("Underflow");
 			}
 
@@ -354,7 +354,7 @@ void SCTE35Decoder::End()
 	{
 		if (mOffset != mMaxOffset)
 		{
-			AAMPLOG_WARN("SCTE-35 section data underlow");
+			AAMPLOG_WARN("SCTE-35 section data underflow");
 			throw SCTE35DataException("Underflow");
 		}
 	}

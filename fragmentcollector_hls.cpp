@@ -2647,7 +2647,7 @@ std::string StreamAbstractionAAMP_HLS::GetPlaylistURI(TrackType trackType, Strea
 * @fn GetFormatFromFragmentExtension
 * @brief Function to get media format based on fragment extension
 *
-* @param trackState[in] TrackStatr structure pointer
+* @param trackState[in] TrackState structure pointer
 * @return StreamOutputFormat stream format
 ***************************************************************************/
 static StreamOutputFormat GetFormatFromFragmentExtension(TrackState *trackState)
@@ -3204,7 +3204,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::SyncTracks(void)
 				}
 				else
 				{
-					AAMPLOG_WARN("syncTracks : Skip playTarget updation diff %f, vid track start %f fragmentDurationSeconds %f",
+					AAMPLOG_WARN("syncTracks : Skip playTarget update diff %f, vid track start %f fragmentDurationSeconds %f",
 							diffBetweenStartTimes.inSeconds(), ts->playTarget.inSeconds(), ts->fragmentDurationSeconds);
 				}
 			}
@@ -3228,7 +3228,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::SyncTracks(void)
 				}
 				else
 				{
-					AAMPLOG_WARN("syncTracks : Skip playTarget updation diff %f, aud track start %f fragmentDurationSeconds %f",
+					AAMPLOG_WARN("syncTracks : Skip playTarget update diff %f, aud track start %f fragmentDurationSeconds %f",
 							fabs(diffBetweenStartTimes), ts->playTarget.inSeconds(), ts->fragmentDurationSeconds);
 				}
 			}
@@ -3267,7 +3267,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::SyncTracks(void)
 						}
 						else
 						{
-							AAMPLOG_WARN("syncTracks : Skip %s playTarget updation diff %f, track start %f fragmentDurationSeconds %f",
+							AAMPLOG_WARN("syncTracks : Skip %s playTarget update diff %f, track start %f fragmentDurationSeconds %f",
 									track->name, diff.inSeconds(), track->playTarget.inSeconds(), track->fragmentDurationSeconds);
 						}
 					}
@@ -6029,7 +6029,7 @@ bool TrackState::HasDiscontinuityAroundPosition(AampTime position, bool useDisco
 			{
 				// No PDT , now compare the position based on culled delta
 				// Additional fragmentDuration is considered as rounding with decimal is missing the position when culled delta is same
-				// Ignore milli second accuracy
+				// Ignore millisecond accuracy
 				AampTime tempLimit1 = (discontinuityIndex[i].position - abs(deltaCulledSec) - targetDurationSeconds - 1.0);
 				AampTime tempLimit2 = (discontinuityIndex[i].position + abs(deltaCulledSec) + targetDurationSeconds + 1.0);
 				int64_t limit1 = tempLimit1.seconds();
@@ -6185,7 +6185,7 @@ void TrackState::FetchInitFragment()
 			discontinuity = false; //reset discontinuity which has been set for init fragment now
 			mSkipAbr = true; //Skip ABR, since last fragment cached is init fragment.
 			mCheckForInitialFragEnc = false; //Push encrypted header is a one-time operation
-			mFirstEncInitFragmentInfo = NULL; //reset init fragemnt, since encrypted header already pushed
+			mFirstEncInitFragmentInfo = NULL; //reset init fragment, since encrypted header already pushed
 			UpdateTSAfterFetch(true);
 		}
 		else if (type == eTRACK_VIDEO && aamp->CheckABREnabled() && !context->CheckForRampDownLimitReached())
@@ -7059,7 +7059,7 @@ void StreamAbstractionAAMP_HLS::ConfigureTextTrack()
 	{
 		// The if loop has been re-introduced as a workaround ONLY  for Rialto, due to failure in playback of audio and video content.
 		// This will be removed after subtitle support in aamp added for rialto.
-		// this avoids setting subtitle to rialto which is reson for AV failure.
+		// this avoids setting subtitle to rialto which is reason for AV failure.
 		if ((ISCONFIGSET(eAAMPConfig_useRialtoSink)) && (!aamp->mSubLanguage.empty()))
 		{
 			currentTextTrackProfileIndex = GetMediaIndexForLanguage(aamp->mSubLanguage,eTRACK_SUBTITLE);

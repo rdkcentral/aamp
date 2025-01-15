@@ -380,7 +380,7 @@ public:
 
 	/**
 	 *   @fn constructor
-	 *   @param[in] position - Position for qurrying the discontinuous fragment
+	 *   @param[in] position - Position for querying the discontinuous fragment
 	 *   @param[in] backwordSerach - Search direction from the position to discontinuous fragment, default forward
 	 *   @return TsbFragmentData shared object to fragment data
 	 */

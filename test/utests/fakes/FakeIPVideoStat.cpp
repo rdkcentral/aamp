@@ -40,7 +40,7 @@ void CVideoStat::Increment_Manifest_Count(Track track, BitsPerSecond bitrate, lo
 {
 }
 
-void CVideoStat::Record_License_EncryptionStat(VideoStatTrackType eType, bool isEncypted, bool isKeyChanged, int audioIndex)
+void CVideoStat::Record_License_EncryptionStat(VideoStatTrackType eType, bool isEncrypted, bool isKeyChanged, int audioIndex)
 {
 }
 

@@ -321,9 +321,9 @@ void CVideoStat::Increment_Manifest_Count(Track track, long bitrate, long downlo
 /**
  *   @brief   Records License stat based on isEncrypted
  */
-void CVideoStat::Record_License_EncryptionStat(VideoStatTrackType eType, bool isEnctypted, bool isKeyChanged, int audioIndex)
+void CVideoStat::Record_License_EncryptionStat(VideoStatTrackType eType, bool isEncrypted, bool isKeyChanged, int audioIndex)
 {
-	mMapLicenseInfo[std::move(Track(eType, audioIndex))].Record_License_EncryptionStat(isEnctypted,isKeyChanged);
+	mMapLicenseInfo[std::move(Track(eType, audioIndex))].Record_License_EncryptionStat(isEncrypted,isKeyChanged);
 }
 
 /**

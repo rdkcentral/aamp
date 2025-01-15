@@ -45,7 +45,7 @@ double isoDurationToSeconds(const std::string &duration, double defaultValue = 0
 /**
  * Converts a ISO-8601 date to seconds since Unix epoch.
  *
- * Note: it currently does not handle time zones and milli-seconds.
+ * Note: it currently does not handle time zones and milliseconds.
  * if this is ever required, I strongly recommend using a dedicated
  * library.
  *
@@ -55,7 +55,7 @@ double isoDateTimeToEpochSeconds(std::string isotime, double defaultValue = 0);
 /**
  * Epoch seconds to iso date time.
  *
- * Note: it currently does not handle time zones and milli-seconds.
+ * Note: it currently does not handle time zones and milliseconds.
  * if this is ever required, I strongly recommend using a dedicated
  * library.
  *

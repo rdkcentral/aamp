@@ -44,7 +44,7 @@
 ///			store and read value using enum config
 /// 	g) IF any conversion required only (from config to usage, ex: sec to millisec ),
 ///			add specific Get function for each config
-///			Not recommened . Better to have the conversion ( enum to string , sec to millisec etc ) where its consumed .
+///			Not recommended . Better to have the conversion ( enum to string , sec to millisec etc ) where its consumed .
 ///////////////////////////////// Happy Configuration ////////////////////////////////////
 
 #define ARRAY_SIZE(A) (sizeof(A)/sizeof(A[0]))
@@ -362,7 +362,7 @@ static const ConfigLookupEntryBool mConfigLookupTableBool[AAMPCONFIG_BOOL_COUNT]
 	{false,"suppressDecode", eAAMPConfig_SuppressDecode, false},
 	{false,"reconfigPipelineOnDiscontinuity", eAAMPConfig_ReconfigPipelineOnDiscontinuity, false},
 	{DEFAULT_VALUE_ENABLE_MEDIA_PROCESSOR,"enableMediaProcessor", eAAMPConfig_EnableMediaProcessor, true},
-	{true,"mpdStichingSupport", eAAMPConfig_MPDStichingSupport, true},
+	{true,"mpdStichingSupport", eAAMPConfig_MPDStitchingSupport, true}, // FIXME - spelling
 	{false,"sendUserAgentInLicense", eAAMPConfig_SendUserAgent, false},
 	{false,"enablePTSReStamp", eAAMPConfig_EnablePTSReStamp, true},
 	{false, "trackMemory", eAAMPConfig_TrackMemory, false},
@@ -1697,7 +1697,7 @@ void AampConfig::ReadAampCfgFromEnv()
 		envConf = getenv("AAMP_CFG_BASE64");
 		if(NULL != envConf)
 		{
-			std::string strEnvConfig = envConf; // make sure we copy this as recommonded by getEnv doc
+			std::string strEnvConfig = envConf; // make sure we copy this as recommended by getEnv doc
 			size_t iConfigLen = strEnvConfig.length();
 			AAMPLOG_MIL("ReadAampCfgFromEnv:BASE64 ENV:%s len:%zu ",strEnvConfig.c_str(),iConfigLen);
 			char * strConfig = (char * ) base64_Decode(strEnvConfig.c_str(),&iConfigLen);

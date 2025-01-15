@@ -185,7 +185,7 @@ typedef enum _NetworkManager_EventId_t {
 
 /**
  * @struct _IARM_BUS_NetSrvMgr_Iface_EventData_t
- * @brief IARM Bus struct contains active streaming interface, origional definition present in homenetworkingservice.h
+ * @brief IARM Bus struct contains active streaming interface, original definition present in homenetworkingservice.h
  */
 typedef struct _IARM_BUS_NetSrvMgr_Iface_EventData_t {
 	union{
@@ -3704,7 +3704,7 @@ void PrivateInstanceAAMP::ResumeTrackDownloads(AampMediaType type)
 }
 
 /**
- *  @brief Block the injector thread until the gstreanmer needs buffer/more data.
+ *  @brief Block the injector thread until gstreamer needs buffer/more data.
  */
 void PrivateInstanceAAMP::BlockUntilGstreamerWantsData(void(*cb)(void), int periodMs, int track)
 { // called from FragmentCollector thread; blocks until gstreamer wants data
@@ -4381,7 +4381,7 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 				{
 					reqEndLogLevel = eLOGLEVEL_WARN;
 				}
-				// Store the CMCD data irrespetive of logging level
+				// Store the CMCD data irrespective of logging level
 				mCMCDCollector->CMCDSetNetworkMetrics(mediaType , (int)(startTransfer*1000),(int)(total*1000),(int)(resolve*1000));
 				// IsTuneTypeNew set to false in streamabstraction.cpp once top profile has been reached
 				if(IsTuneTypeNew)
@@ -5699,7 +5699,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 	if(!mIsFakeTune)
 	{
 		AAMPLOG_INFO("mCCId: %d",mCCId);
-		// if mCCId has non zero value means it is same instance and cc release was not calle then dont get id. if zero then call getid.
+		// if mCCId has non zero value means it is same instance and cc release was not callee then dont get id. if zero then call getid.
 		if(mCCId == 0 )
 		{
 			mCCId = AampCCManager::GetInstance()->GetId();
@@ -5766,7 +5766,7 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 								const char *pTraceID,
 								bool audioDecoderStreamSync,
 								const char *refreshManifestUrl,
-								int mpdStichingMode,
+								int mpdStitchingMode,
 								std::string sid,
 								const char *manifestData )
 {
@@ -5873,9 +5873,9 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 
 	mManifestUrl = mainManifestUrl; // TBR
 
-	// store the url 2 from the application for mpd stiching
+	// store the url 2 from the application for mpd stitching
 	mMPDStichRefreshUrl		=	refreshManifestUrl ? refreshManifestUrl : "";
-	mMPDStichOption			=	(MPDStichOptions) (mpdStichingMode % 2);
+	mMPDStichOption			=	(MPDStichOptions) (mpdStitchingMode % 2);
 
 
 	if( (mManifestUrl.find(AAMP_FOG_TSB_URL_KEYWORD) != std::string::npos) &&
@@ -7437,7 +7437,7 @@ long long PrivateInstanceAAMP::GetPositionMilliseconds()
 {
 	 /* Ideally between LockGetPositionMilliseconds() & UnlockGetPositionMilliseconds() this function would be blocked
 	 * (i.e. all mGetPositionMillisecondsMutexSoft.try_lock() replaced with lock()) this would
-	 * ensure mState & seek_pos_seconds are syncronised during this function.
+	 * ensure mState & seek_pos_seconds are synchronized during this function.
 	 * however it is difficult to be certain that this would not result in a deadlock.
 	 * Instead raise an error and potentially return a spurious position in cases that could have deadlocked.
 	*/
@@ -7666,7 +7666,7 @@ void PrivateInstanceAAMP::Stop()
 		// Using StreamLock to make sure this is not interfering with GetFile() from PreCachePlaylistDownloadTask
 		AcquireStreamLock();
 		//Deleting mpStreamAbstractionAAMP here will prevent the extra stop call in TeardownStream()
-		//and will avoid enableDownlaod() call being made unnecessarily
+		//and will avoid enableDownload() call being made unnecessarily
 		if(mContentType == ContentType_HDMIIN)
 		{
 			StreamAbstractionAAMP_HDMIIN::ResetInstance();
@@ -7789,7 +7789,7 @@ void PrivateInstanceAAMP::Stop()
 	if(mMPDDownloaderInstance != nullptr)
 	{
 		// delete the MPD Downloader Instance
-		AAMPLOG_INFO("Calling delete of Downlaoder instance ");
+		AAMPLOG_INFO("Calling delete of Downloader instance ");
 		SAFE_DELETE(mMPDDownloaderInstance);
 	}
 
@@ -9964,7 +9964,7 @@ void PrivateInstanceAAMP::PreCachePlaylistDownloadTask()
 {
 	// This is the thread function to download all the HLS Playlist in a
 	// differed manner
-	int maxWindowforDownload = mPreCacheDnldTimeWindow * 60; // convert to seconds
+	int maxWindowForDownload = mPreCacheDnldTimeWindow * 60; // convert to seconds
 	int szPlaylistCount = (int)mPreCacheDnldList.size();
 	if(szPlaylistCount)
 	{
@@ -9981,7 +9981,7 @@ void PrivateInstanceAAMP::PreCachePlaylistDownloadTask()
 		{
 			CurlInit(eCURLINSTANCE_PLAYLISTPRECACHE, 1, GetNetworkProxy());
 			SetCurlTimeout(mPlaylistTimeoutMs, eCURLINSTANCE_PLAYLISTPRECACHE);
-			int sleepTimeBetweenDnld = (maxWindowforDownload / szPlaylistCount) * 1000; // time in milliSec
+			int sleepTimeBetweenDnld = (maxWindowForDownload / szPlaylistCount) * 1000; // time in milliSec
 			int idx = 0;
 			do
 			{
@@ -10226,7 +10226,7 @@ std::string PrivateInstanceAAMP::GetAvailableVideoTracks()
 }
 
 /**
- * @brief  set birate for video tracks selection
+ * @brief  set bitrate for video tracks selection
  */
 void PrivateInstanceAAMP::SetVideoTracks(std::vector<BitsPerSecond> bitrateList)
 {
@@ -12537,7 +12537,7 @@ bool PrivateInstanceAAMP::IsWideVineKIDWorkaround(std::string url)
  */
 unsigned char* PrivateInstanceAAMP::ReplaceKeyIDPsshData(const unsigned char *InputData, const size_t InputDataLength,  size_t & OutputDataLength)
 {
-	unsigned char *OutpuData = NULL;
+	unsigned char *outputData = NULL;
 	unsigned int WIDEVINE_PSSH_KEYID_OFFSET = 36u;
 	//unsigned int WIDEVINE_PSSH_DATA_SIZE = 60u;
 	unsigned int CK_PSSH_KEYID_OFFSET = 32u;
@@ -12571,15 +12571,15 @@ unsigned char* PrivateInstanceAAMP::ReplaceKeyIDPsshData(const unsigned char *In
 			}
 
 			/** Allocate WV PSSH Data memory and transfer local data **/
-			OutpuData = (unsigned char *)malloc(sizeof(WVSamplePSSH));
-			if (OutpuData){
-				memcpy(OutpuData, WVSamplePSSH, sizeof(WVSamplePSSH));
+			outputData = (unsigned char *)malloc(sizeof(WVSamplePSSH));
+			if (outputData){
+				memcpy(outputData, WVSamplePSSH, sizeof(WVSamplePSSH));
 				OutputDataLength = sizeof(WVSamplePSSH);
 #ifdef ENABLE_DUMP
 				AAMPLOG_INFO("PSSH Data (%d) after Modification : ", OutputDataLength);
-				DumpBlob(OutpuData, OutputDataLength);
+				DumpBlob(outputData, OutputDataLength);
 #endif
-				return OutpuData;
+				return outputData;
 
 			}else{
 				AAMPLOG_ERR("PSSH Data Memory allocation failed ");
@@ -13413,7 +13413,7 @@ std::shared_ptr<ManifestDownloadConfig> PrivateInstanceAAMP::prepareManifestDown
 	// initialize the MPD Downloader instance
 	std::shared_ptr<ManifestDownloadConfig> inpData = std::make_shared<ManifestDownloadConfig> ();
 	inpData->mTuneUrl 	= GetManifestUrl();
-	if(!mMPDStichRefreshUrl.empty() && ISCONFIGSET_PRIV(eAAMPConfig_MPDStichingSupport))
+	if(!mMPDStichRefreshUrl.empty() && ISCONFIGSET_PRIV(eAAMPConfig_MPDStitchingSupport))
 	{
 		inpData->mStichUrl	= mMPDStichRefreshUrl;
 		inpData->mMPDStichOption	=	mMPDStichOption;

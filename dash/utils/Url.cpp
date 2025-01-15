@@ -264,7 +264,7 @@ namespace {
 
 
     /**
-     * @brief   noramlizes scheme
+     * @brief   normalizes scheme
      * @param   b pointer to char starting
      * @param   e pointer to char ending
      * @retval  lower converted string
@@ -295,7 +295,7 @@ namespace {
 
     /**
      * @brief   checks for IPV4
-     * @param   s intput string
+     * @param   s input string
      * @retval  True or False
      */
     inline bool is_ipv4(const std::string &s) {
@@ -632,7 +632,7 @@ namespace {
 
 
 
-} // end of anonymous namnespace
+} // end of anonymous namespace
 // ---------------------------------------------------------------------
 
 

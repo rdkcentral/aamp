@@ -988,9 +988,9 @@ void DashMPDPeriod::dumpPeriodBoundaries()
         vector<TimelineItem> timelineItems;
         extractTimeline(*timeLine, timelineItems);
         auto timeLineSize = timelineItems.size() - 1;
-        auto endNume = startNum + timeLineSize;
-        AAMPLOG_ERR("FragmentsInfo : period ID  %s; adaptation %s; startNumer %lld, endNumber %lld  startTime %lld endTime %lld",
-            getId().c_str(), adaptationSet->getAdaptationSetKey().c_str(), startNum, endNume, timelineItems.at(0).startTime, timelineItems.at(timeLineSize).startTime);
+        auto endNumber = startNum + timeLineSize;
+        AAMPLOG_ERR("FragmentsInfo : period ID  %s; adaptation %s; startNumber %lld, endNumber %lld  startTime %lld endTime %lld",
+            getId().c_str(), adaptationSet->getAdaptationSetKey().c_str(), startNum, endNumber, timelineItems.at(0).startTime, timelineItems.at(timeLineSize).startTime);
     }
     else
     {

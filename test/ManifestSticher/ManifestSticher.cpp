@@ -19,7 +19,7 @@
 
 /**************************************
 * @file ManifestSticher.cpp
-* @brief Manifest Stiching Tool
+* @brief Manifest Stitching Tool
 **************************************/
 
 #include <iostream>
@@ -123,7 +123,7 @@ int main(int argc, char* argv[])
                 }
                 if(mainDocument && mainDocument->isValid())
                 {
-                    // Save stiched output to a file
+                    // Save stitched output to a file
                     std::string outputPath = path + MANIFEST_STICHER_OUTPUT_FILENAME;
                     std::ofstream out(outputPath);
                     out << mainDocument->toString();

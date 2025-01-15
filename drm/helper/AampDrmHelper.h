@@ -138,7 +138,7 @@ public:
 	virtual void setDrmMetaData(const std::string& metaData) { }
 
 	/**
-	 * @brief Sets the defualt keyID
+	 * @brief Sets the default keyID
 	 * @param the DRM cencData data
 	 */
 	virtual void setDefaultKeyID(const std::string& cencData) { }

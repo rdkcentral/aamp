@@ -94,7 +94,7 @@ public:
 	 */
 	void SetTsbLength(int tsbLength) { mTsbLength = tsbLength; }
 	/**
-	 * @brief Set TSB localtion
+	 * @brief Set TSB location
 	 *
 	 * @param[in] string - location
 	 */

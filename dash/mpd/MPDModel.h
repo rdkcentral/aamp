@@ -812,13 +812,13 @@ public:
 
     /**
      * @brief Checking whether current period is VSS period or not
-     * @retval bool true if vss perod, else false
+     * @retval bool true if vss period, else false
      */
     bool isVssEarlyAvailablePeriod();
 
     /**
      * @brief Check whether period is added by Fog as a duplicate period
-     * @retval bool true if fog duplicate perod, else false
+     * @retval bool true if fog duplicate period, else false
      */
     bool isDuplicatePeriod();
 };

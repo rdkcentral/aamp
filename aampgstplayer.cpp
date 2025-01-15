@@ -1859,7 +1859,7 @@ static gboolean bus_message(GstBus * bus, GstMessage * msg, AAMPGstPlayer * _thi
 		}
 		else if (strstr(error->message, "Error parsing H.264 stream"))
 		{
-			//forwarding this error causes a freeze on Foxtel xione.
+			// surfacing this intermittent error can cause freeze on partner apps.
 			AAMPLOG_WARN("%s", errorDesc);
 		}
 		else
@@ -3006,7 +3006,7 @@ void AAMPGstPlayer::SendGstEvents(AampMediaType mediaType, GstClockTime pts)
 	if (stream->format == FORMAT_ISO_BMFF)
 	{
 		// There is a possibility that only single protection event is queued for multiple type
-		// since they are encrypted using same id. Hence check if proection event is queued for
+		// since they are encrypted using same id. Hence check if protection event is queued for
 		// other types
 		GstEvent* event = privateContext->protectionEvent[mediaType];
 		if (event == NULL)
@@ -4984,7 +4984,7 @@ void AAMPGstPlayer::InitializeAAMPGstreamerPlugins()
 	{
 		// CID:313773 gst_registry_remove_feature() will unref pluginFeature internally and
 		// gst_registry_add_feature() will ref it again. So to maintain the refcount we do a ref and unref here
-		// gst_registry_lookup_feature() will return pluginFeature after incrementing refcount which is unreffed at the end
+		// gst_registry_lookup_feature() will return pluginFeature after incrementing refcount which is unref at the end
 		gst_object_ref(pluginFeature);
 		gst_registry_remove_feature (registry, pluginFeature);
 		gst_registry_add_feature (registry, pluginFeature);

@@ -63,7 +63,7 @@ class AampMockDeviceHost
 class AampMockDeviceManager
 {
 	public:
-		MOCK_METHOD(void, DeInitialize, ());
+		MOCK_METHOD(void, Termialize, ());
 		MOCK_METHOD(void, Initialize, ());
 };
 

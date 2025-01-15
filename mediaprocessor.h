@@ -163,7 +163,7 @@ public:
 	virtual void SetAudioGroupId(std::string& id){};
 
 	/**
-	* @brief Function to set a offsetflag. if the value is fasle, no need to apply offset while doing pts restamping
+	* @brief Function to set a offsetflag. if the value is false, no need to apply offset while doing pts restamping
 	* @param[in] bool - true/false
 	*/
 	virtual void setApplyOffsetFlag(bool enable){};

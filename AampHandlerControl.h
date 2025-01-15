@@ -64,7 +64,7 @@ class AampHandlerControl{
 		/**
 		 * @brief move constructor
 		 * The new object takes on the responsibility for signaling any corresponding AampHandlerControl from 'other'.
-		 * After this function 'other' will not reference or signal any AampHandlerControl.  It's scope is irrelevent.
+		 * After this function 'other' will not reference or signal any AampHandlerControl.  It's scope is irrelevant.
 		 */
 		ScopeHelper(ScopeHelper&& other): mpController(nullptr)
 		{
@@ -76,7 +76,7 @@ class AampHandlerControl{
 		 * @brief move assignment
 		 * The assigned to object will signal any currently referenced AampHandlerControl first.  Then
 		 * the assigned to object will take on the responsibility any AampHandlerControl referenced by other.
-		 * After this function 'other' will not reference or signal any AampHandlerControl.  It's scope is irrelevent.
+		 * After this function 'other' will not reference or signal any AampHandlerControl.  It's scope is irrelevant.
 		 */
 		ScopeHelper& operator=(AampHandlerControl::ScopeHelper&& other);
 

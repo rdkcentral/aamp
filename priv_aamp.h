@@ -599,7 +599,7 @@ public:
 	 *                set to 'false' if audio fragments come with additional padding at the end (BCOM-4203)
 	 *
 	 * @param[in] refreshManifestUrl -
-	 * @param[in] mpdStichingMode -
+	 * @param[in] mpdStitchingMode -
 	 * @param[in] sid - Session ID defined by the player
 	 * @param[in] manifestData - preprocessed manifest provided by application
 	 * @return void
@@ -612,7 +612,7 @@ public:
 				const char *sessionUUID = NULL,
 				bool audioDecoderStreamSync = true,
 				const char *refreshManifestUrl = NULL,
-				int mpdStichingMode = 0,
+				int mpdStitchingMode = 0,
 				std::string sid = {},
 				const char *manifestData = NULL
 				);
@@ -1620,7 +1620,7 @@ public:
 	void WakeupLatencyCheck();
 	/**
 	 *   @fn TimedWaitForLatencyCheck
-	 *   @param [in] timeInMs - Time in milli sec
+	 *   @param [in] timeInMs - Time in milliseconds
 	 *   @return void
 	 */
 	void TimedWaitForLatencyCheck(int timeInMs);
@@ -2416,7 +2416,7 @@ public:
 	 *   @fn FoundEventBreak
 	 *
 	 *   @param[in] adBreakId Adbreak's unique identifier.
-	 *   @param[in] startMS Break start time in milli seconds.
+	 *   @param[in] startMS Break start time in milliseconds.
 	 *   @param[in] brInfo EventBreakInfo object.
 	 */
 	void FoundEventBreak(const std::string &adBreakId, uint64_t startMS, EventBreakInfo brInfo);
@@ -2937,7 +2937,7 @@ public:
 	 *   @param[in]  mediaType - AampMediaType ( Manifest/Audio/Video etc )
 	 *   @param[in]  bitrate - bitrate ( bits per sec )
 	 *   @param[in]  curlOrHTTPCode - download curl or http error
-	 *   @param[in]  strUrl :  URL in case of faulures
+	 *   @param[in]  strUrl :  URL in case of failures
 	 *   @param[in] manifestData : Manifest info to be updated to partner apps
 	 *   @return void
 	 */
@@ -2974,7 +2974,7 @@ public:
 	 *   @param[in]  mediaType - AampMediaType ( Manifest/Audio/Video etc )
  	 *   @param[in]  bitrate - bitrate ( bits per sec )
 	 *   @param[in]  curlOrHTTPCode - download curl or http error
-	 *   @param[in]  strUrl :  URL in case of faulures
+	 *   @param[in]  strUrl :  URL in case of failures
 	 *   @param[in] keyChanged : if DRM key changed then it is set to true
 	 *   @param[in] isEncrypted : if fragment is encrypted then it is set to true
 	 *   @param[in] manifestData : Manifest info to be updated to partner apps
@@ -2988,7 +2988,7 @@ public:
 	 *   @param[in]  mediaType - AampMediaType ( Manifest/Audio/Video etc )
 	 *   @param[in]  bitrate - bitrate ( bits per sec )
 	 *   @param[in]  curlOrHTTPCode - download curl or http error
-	 *   @param[in]  strUrl - URL in case of faulures
+	 *   @param[in]  strUrl - URL in case of failures
 	 *   @return void
 	 */
 	void UpdateVideoEndMetrics(AampMediaType mediaType, BitsPerSecond bitrate, int curlOrHTTPCode, std::string& strUrl, double duration, double curlDownloadTime);

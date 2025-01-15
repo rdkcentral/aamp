@@ -588,7 +588,7 @@ void AampMPDDownloader::stichToCachedManifest(ManifestDownloadResponsePtr mpdToA
 {
 	// check if any big manifest already downloaded ,
 	// If downloaded only , stich the current one to that , if not ignore
-	AAMPLOG_INFO("Stiching [%s] to [%s]",mMPDDnldCfg->mTuneUrl.c_str(), mMPDDnldCfg->mStichUrl.c_str());
+	AAMPLOG_INFO("Stitching [%s] to [%s]",mMPDDnldCfg->mTuneUrl.c_str(), mMPDDnldCfg->mStichUrl.c_str());
 	if(mCachedMPDData != nullptr)
 	{
 		// call API to Merge
@@ -703,7 +703,7 @@ void AampMPDDownloader::pushDownloadDataToQueue()
 		mMPDBufferQ.pop();
 	}
 	// Add the new item to the end of the queue - 1st iteration
-	// If Cached MPD ( Stiched MPD is present, then push that to Q) , else push single downloaded MPD
+	// If Cached MPD ( Stitched MPD is present, then push that to Q) , else push single downloaded MPD
 	if(mCachedMPDData != nullptr)
 		mMPDBufferQ.push(mCachedMPDData);
 	else

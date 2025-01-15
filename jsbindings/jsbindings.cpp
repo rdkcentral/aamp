@@ -564,10 +564,10 @@ static JSClassRef Event_class_ref();
  * @param[in] constructor JSObject that is the constructor being called
  * @param[in] argumentCount number of args
  * @param[in] arguments[] JSValue array of args
- * @param[out] execption pointer to a JSValueRef in which to return an exception, if any
+ * @param[out] exception pointer to a JSValueRef in which to return an exception, if any
  * @retval JSObject that is the constructor's return value
  */
-static JSObjectRef Event_constructor(JSContextRef ctx, JSObjectRef constructor, size_t argumentCount, const JSValueRef arguments[], JSValueRef* execption)
+static JSObjectRef Event_constructor(JSContextRef ctx, JSObjectRef constructor, size_t argumentCount, const JSValueRef arguments[], JSValueRef* exception)
 {
 	//LOG_TRACE("Enter");
 	return JSObjectMake(ctx, Event_class_ref(), NULL);
@@ -3808,7 +3808,7 @@ static JSValueRef AAMP_setDownloadStartTimeout(JSContextRef context, JSObjectRef
 	if (!pAAMP)
 	{
 		LOG_ERROR_EX("JSObjectGetPrivate returned NULL!");
-		*exception = aamp_GetException(context, AAMPJS_MISSING_OBJECT, "Can only call AAMP.setDownlodStartTimeout on instances of AAMP");
+		*exception = aamp_GetException(context, AAMPJS_MISSING_OBJECT, "Can only call AAMP.setDownloadStartTimeout on instances of AAMP");
 		return JSValueMakeUndefined(context);
 	}
 
@@ -4104,7 +4104,7 @@ static JSValueRef AAMP_getPlaybackStats(JSContextRef context, JSObjectRef functi
 	if(!pAAMP || !pAAMP->_aamp)
 	{
 		LOG_ERROR_EX("JSObjectGetPrivate returned NULL!");
-		*exception = aamp_GetException(context, AAMPJS_MISSING_OBJECT, "Can only call AAMP.getPlayeBackStats on instances of AAMP");
+		*exception = aamp_GetException(context, AAMPJS_MISSING_OBJECT, "Can only call AAMP.getPlayBackStats on instances of AAMP");
 		return JSValueMakeUndefined(context);
 	}
 	return aamp_CStringToJSValue(context, pAAMP->_aamp->GetPlaybackStats().c_str());

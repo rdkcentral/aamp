@@ -151,7 +151,7 @@ void AampGrowableBuffer::Replace( AampGrowableBuffer *src )
 }
 
 /**
- * @brief called when internal memory is transfered (i.e. as part of GStreamer injection)
+ * @brief called when internal memory is transferred (i.e. as part of GStreamer injection)
  */
 void AampGrowableBuffer::Transfer( void )
 {
