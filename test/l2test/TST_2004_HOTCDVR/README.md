@@ -1,0 +1,67 @@
+# AAMP Simlinear L2 test
+<p> Test used to check /verify the HOT CDVR to COLD CDVR progression</p>
+
++ simlinear.py  Webserver for serving manifest data.
+
++ run_test.py  Causes aamp-cli to play manifest  test sets .Checks log messages output from aamp are as expected. For each test gives PASS/FAIL result
+
+## Pre-requisites to run this test. See prerequisites.sh
+
+1. Before start running test stream artifactory path needs to be specified in TEST_2000_STREAM_PATH
+
+    a. When running inside docker
+
+         echo "TEST_2004_STREAM_PATH=https://artifactory.host.com/artifactory/stream_data.gz" >> .env
+
+    b. When running on ubuntu (outside a docker container)
+
+         export TEST_2004_STREAM_PATH=https://artifactory.host.com/artifactory/stream_data.gz
+
+2. Archive file containing manifest data has been downloaded ( URL: from location where the file is stored ) and extracted into directory 'testdata'
+
+# aamp repository downloaded and aamp-cli built
+This will result in the following directory structure:
+```
+$ ls -l
+drwxrwxr-x aamp            <-- aamp repository containing a built aamp-cli
+drwxrwxr-x testdata        <-- manifest test data obtained from artifactory or other location where it is kept
+
+$ ls testdata
+
+ ```
+## Run l2test using script:
+
+From the *test/l2test/ folder run:
+
+./run_l2_test.py -t 2004
+...
+
+Creating  /home/user/aamp.cfg
+
+ ...
+```
+## Details
+* By default aamp-cli runs without a video window to output A/V so it can be run via Jenkins
+
+* When running manually from a terminal then A/V output might be useful at the expense of A/V gap detection. This can be achieved by "run_test.py -v"
+
+Automated test setup when run_test.py is invoked:
+
+                                   testdata
+                                      |
+                                      V
+                                 -----------------
+                    |--launch->  | simlinear.py  |
+    ------------    |            -----------------
+    run_test .py|-> |                | http fetch
+    ------------    |                V
+        ^           |           -----------           
+        |           |-launch-> | aamp-cli  |
+        |                       -----------            
+        |                            |                    
+        |                            |
+        |                            |         
+        |                            |
+        |                            |
+        |                            |
+        | -------log messages --<----|
