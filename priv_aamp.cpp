@@ -8088,7 +8088,7 @@ void PrivateInstanceAAMP::NotifyFirstFrameReceived(unsigned long ccDecoderHandle
 {
 	AAMPLOG_TRACE("NotifyFirstFrameReceived()");
 
-	// In the middle of stop processing we can receive state changing callback (xione-7331)
+	// In the middle of stop processing we can receive state changing callback
 	PrivAAMPState state;
 	GetState(state);
 	if (state == eSTATE_IDLE)
@@ -9019,7 +9019,7 @@ void PrivateInstanceAAMP::NotifyFirstBufferProcessed(const std::string& videoRec
 	PrivAAMPState state;
 	GetState(state);
 
-	// In the middle of stop processing we can receive state changing callback (xione-7331)
+	// In the middle of stop processing we can receive state changing callback
 	if (state == eSTATE_IDLE)
 	{
 		AAMPLOG_WARN( "skipped as in IDLE state" );
@@ -10513,7 +10513,7 @@ void PrivateInstanceAAMP::NotifyFirstVideoFrameDisplayed()
 
 	mFirstVideoFrameDisplayedEnabled = false;
 
-	// In the middle of stop processing we can receive state changing callback (xione-7331)
+	// In the middle of stop processing we can receive state changing callback
 	PrivAAMPState state;
 	GetState(state);
 	if (state == eSTATE_IDLE)

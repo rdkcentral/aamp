@@ -118,7 +118,7 @@ Verify that Watermark JS interface is not available on devices that do not suppo
 
 ## Expected result
 * The only message logged from 'PersistentWatermark_LoadJS' is: 'JS bindings not registered.'
-* The positive tests detailed above fail (although the wmonly.sh script which does not use the js interface will work on some devices e.g. xione-uk).
+* The positive tests detailed above fail (although the wmonly.sh script which does not use the js interface will work on some devices)
 
 
 ## Additional Persistence Tests
