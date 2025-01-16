@@ -3497,6 +3497,11 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 				ConfigureTextTrack();
 				// Generate audio and text track structures
 				PopulateAudioAndTextTracks();
+				if(ISCONFIGSET(eAAMPConfig_useRialtoSink) && (currentTextTrackProfileIndex == -1))
+				{
+					AAMPLOG_INFO("usingRialtoSink - No default text track is selected,configure default text track for rialto");
+					SelectSubtitleTrack();
+				}
 			}
 
 
@@ -5479,7 +5484,9 @@ void StreamAbstractionAAMP_HLS::NotifyFirstVideoPTS(unsigned long long pts, unsi
 	StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(aamp);
 	if (sink)
 	{
-		sink->SetSubtitlePtsOffset(mFirstPTS.milliseconds());
+		// The pts_offset is expected to be in seconds for RialtoSink, so we convert it to GstClockTime (nanoseconds).
+                // For non-Rialto sinks, we need to convert the pts_offset to milliseconds to maintain consistency.
+		sink->SetSubtitlePtsOffset(mFirstPTS.inSeconds());
 	}
 }
 
@@ -7060,6 +7067,7 @@ void StreamAbstractionAAMP_HLS::ConfigureTextTrack()
 		for (const auto& LangStr : aamp->preferredSubtitleLanguageVctr)
 		{
 			currentTextTrackProfileIndex = GetMediaIndexForLanguage(LangStr, eTRACK_SUBTITLE);
+
 			if(currentTextTrackProfileIndex > -1 )
 			{
 				break;
@@ -7465,4 +7473,28 @@ bool TrackState::IsExtXByteRange( lstring fragmentInfo, size_t *byteRangeLength,
 	std::string temp = fragmentInfo.tostring();
 	int n = sscanf( temp.c_str(), "#EXT-X-BYTERANGE:%zu@%zu", byteRangeLength, byteRangeOffset );
 	return n==2;
+}
+//Enable default text track for Rialto
+void StreamAbstractionAAMP_HLS::SelectSubtitleTrack()
+{
+    if( currentTextTrackProfileIndex  == -1)
+    {
+        TextTrackInfo *firstAvailTextTrack = nullptr;
+        for (int j = 0; j < mTextTracks.size(); j++)
+        {
+            if (!mTextTracks[j].isCC)
+            {
+		firstAvailTextTrack = &mTextTracks[j];
+                break;
+            }
+        }
+        if(firstAvailTextTrack != nullptr)
+        {
+            currentTextTrackProfileIndex = std::stoi(firstAvailTextTrack->index);
+            aamp->mIsInbandCC = false;
+            aamp->SetCCStatus(false); //mute the subtitle track
+            aamp->SetPreferredTextTrack(*firstAvailTextTrack);
+        }
+    }
+    AAMPLOG_INFO("using RialtoSink TextTrack Selected :%d", currentTextTrackProfileIndex);
 }

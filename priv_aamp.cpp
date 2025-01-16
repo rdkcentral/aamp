@@ -11042,13 +11042,26 @@ void PrivateInstanceAAMP::SetTextTrack(int trackId, char *data)
 						else
 						{
 							SetPreferredTextTrack(track);
-							discardEnteringLiveEvt = true;
-							seek_pos_seconds = GetPositionSeconds();
-							AcquireStreamLock();
-							TeardownStream(false);
-							TuneHelper(eTUNETYPE_SEEK);
-							ReleaseStreamLock();
-							discardEnteringLiveEvt = false;
+							if(ISCONFIGSET_PRIV(eAAMPConfig_useRialtoSink))
+							{ // by default text track is enabled and muted for Rialto; notify only if there is change in the subtitles
+								AAMPLOG_INFO("useRialtoSink mCurrentTextTrackIndex = %d trackId = %d",mCurrentTextTrackIndex,trackId);
+								if (-1 != mCurrentTextTrackIndex && mCurrentTextTrackIndex != trackId)
+								{
+									AAMPLOG_INFO("useRialtoSink TextTrackChanges");
+									NotifyTextTracksChanged();
+								}
+								mpStreamAbstractionAAMP->currentTextTrackProfileIndex = mCurrentTextTrackIndex = trackId;
+							}
+							else
+							{
+								discardEnteringLiveEvt = true;
+								seek_pos_seconds = GetPositionSeconds();
+								AcquireStreamLock();
+								TeardownStream(false);
+								TuneHelper(eTUNETYPE_SEEK);
+								ReleaseStreamLock();
+								discardEnteringLiveEvt = false;
+							}
 						}
 					}
 				}

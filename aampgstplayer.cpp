@@ -2744,9 +2744,35 @@ static int AAMPGstPlayer_SetupStream(AAMPGstPlayer *_this, AampMediaType streamI
 	{
 		if(_this->aamp->IsGstreamerSubsEnabled())
 		{
-#ifdef NO_PLAYBIN
 			_this->aamp->StopTrackDownloads(eMEDIATYPE_SUBTITLE);					/* Stop any ongoing downloads before setting up a new subtitle stream */
-			AAMPLOG_INFO("AAMPGstPlayer_SetupStream - subs using subtecbin");
+			if (_this->privateContext->usingRialtoSink )
+			{
+				stream->sinkbin = GST_ELEMENT(gst_object_ref_sink(gst_element_factory_make("playbin", NULL)));
+				AAMPLOG_INFO("subs using rialto subtitle sink");
+				GstElement* textsink = gst_element_factory_make("rialtomsesubtitlesink", NULL);
+				if (textsink)
+				{
+					AAMPLOG_INFO("Created rialtomsesubtitlesink: %s", GST_ELEMENT_NAME(textsink));
+				}
+				else
+				{
+					AAMPLOG_WARN("Failed to create rialtomsesubtitlesink");
+				}
+				auto subtitlebin = gst_bin_new("subtitlebin");
+				auto vipertransform = gst_element_factory_make("vipertransform", NULL);
+				gst_bin_add_many(GST_BIN(subtitlebin),vipertransform,textsink,NULL);
+				gst_element_link(vipertransform, textsink);
+				gst_element_add_pad(subtitlebin, gst_ghost_pad_new("sink", gst_element_get_static_pad(vipertransform, "sink")));
+
+				g_object_set(stream->sinkbin, "text-sink", subtitlebin, NULL);
+                                _this->privateContext->subtitle_sink = textsink;
+				AAMPLOG_MIL("using rialtomsesubtitlesink muted=%d sink=%p", _this->privateContext->subtitleMuted, _this->privateContext->subtitle_sink);
+				g_object_set(textsink, "mute", _this->privateContext->subtitleMuted ? TRUE : FALSE, NULL);
+			}
+			else
+			{
+#ifdef NO_PLAYBIN
+			AAMPLOG_INFO("subs using subtecbin");
 			stream->sinkbin = gst_element_factory_make("subtecbin", NULL);			/* Creates a new element of "subtecbin" type and returns a new GstElement */
 			if (!stream->sinkbin)													/* When a new element can not be created a NULL is returned */
 			{
@@ -2772,7 +2798,7 @@ static int AAMPGstPlayer_SetupStream(AAMPGstPlayer *_this, AampMediaType streamI
 
 			return 0;
 #else
-			AAMPLOG_INFO("AAMPGstPlayer_SetupStream - subs using playbin");
+			AAMPLOG_INFO("subs using playbin");
 			stream->sinkbin = GST_ELEMENT(gst_object_ref_sink(gst_element_factory_make("playbin", NULL)));
 			auto vipertransform = gst_element_factory_make("vipertransform", NULL);
 			auto textsink = gst_element_factory_make("subtecsink", NULL);
@@ -2783,11 +2809,12 @@ static int AAMPGstPlayer_SetupStream(AAMPGstPlayer *_this, AampMediaType streamI
 
 			g_object_set(stream->sinkbin, "text-sink", subtitlebin, NULL);
 #endif
+			}
 		}
 	}
 	else
 	{
-		AAMPLOG_INFO("AAMPGstPlayer_SetupStream - using playbin");						/* Media is not subtitle, use the generic playbin */
+		AAMPLOG_INFO("using playbin");						/* Media is not subtitle, use the generic playbin */
 		stream->sinkbin = GST_ELEMENT(gst_object_ref_sink(gst_element_factory_make("playbin", NULL)));	/* Creates a new element of "playbin" type and returns a new GstElement */
 
 		if (_this->aamp->mConfig->IsConfigSet(eAAMPConfig_useTCPServerSink) )
@@ -2809,7 +2836,7 @@ static int AAMPGstPlayer_SetupStream(AAMPGstPlayer *_this, AampMediaType streamI
 		}
 		else if (_this->privateContext->usingRialtoSink && eMEDIATYPE_VIDEO == streamId)
 		{
-			AAMPLOG_INFO("AAMPGstPlayer_SetupStream - using rialtomsevideosink");
+			AAMPLOG_INFO("using rialtomsevideosink");
 			GstElement* vidsink = gst_element_factory_make("rialtomsevideosink", NULL);
 			if (vidsink)
 			{
@@ -2829,7 +2856,7 @@ static int AAMPGstPlayer_SetupStream(AAMPGstPlayer *_this, AampMediaType streamI
 		}
 		else if (_this->privateContext->using_westerossink && eMEDIATYPE_VIDEO == streamId)
 		{
-			AAMPLOG_INFO("AAMPGstPlayer_SetupStream - using westerossink");
+			AAMPLOG_INFO("using westerossink");
 			GstElement* vidsink = gst_element_factory_make("westerossink", NULL);
 			if(_this->aamp->mConfig->GetConfigValue(eAAMPConfig_PlatformType) == ePLATFORM_BROADCOM)
 			{
@@ -2849,7 +2876,7 @@ static int AAMPGstPlayer_SetupStream(AAMPGstPlayer *_this, AampMediaType streamI
 		{
 			if (eMEDIATYPE_VIDEO == streamId)
 			{
-				AAMPLOG_MIL("AAMPGstPlayer_SetupStream - using appsink\n");
+				AAMPLOG_MIL("using appsink\n");
 				GstElement* appsink = gst_element_factory_make("appsink", NULL);
 				assert(appsink);
 				GstCaps *caps = gst_caps_new_simple("video/x-raw", "format", G_TYPE_STRING, "I420", NULL);
@@ -2878,7 +2905,7 @@ static int AAMPGstPlayer_SetupStream(AAMPGstPlayer *_this, AampMediaType streamI
 				_this->SignalConnect(stream->sinkbin, "element-setup",G_CALLBACK (callback_element_added), _this);
 			}
 
-			AAMPLOG_MIL("AAMPGstPlayer_SetupStream - using audsrvsink");
+			AAMPLOG_MIL("using audsrvsink");
 		}
 	}
 	gst_bin_add(GST_BIN(_this->privateContext->pipeline), stream->sinkbin);					/* Add the stream sink to the pipeline */
@@ -3556,6 +3583,21 @@ void AAMPGstPlayer::Configure(StreamOutputFormat format, StreamOutputFormat audi
 	privateContext->numberOfVideoBuffersSent = 0;
 	privateContext->decodeErrorMsgTimeMS = 0;
 	privateContext->decodeErrorCBCount = 0;
+	if (privateContext->usingRialtoSink)
+	{
+		AAMPLOG_INFO("RialtoSink subtitle_sink = %p ",privateContext->subtitle_sink);
+		GstContext *context = gst_context_new("streams-info", false);
+		GstStructure *contextStructure = gst_context_writable_structure(context);
+		if( !privateContext->subtitle_sink ) AAMPLOG_WARN( "subtitle_sink==NULL" );
+		gst_structure_set(
+						  contextStructure,
+						  "video-streams", G_TYPE_UINT, 0x1u,
+						  "audio-streams", G_TYPE_UINT, 0x1u,
+						  "text-streams", G_TYPE_UINT, (privateContext->subtitle_sink)?0x1u:0x0u,
+						  nullptr );
+		gst_element_set_context(GST_ELEMENT(privateContext->pipeline), context);
+		gst_context_unref(context);
+	}
 #ifdef TRACE
 	AAMPLOG_MIL("exiting AAMPGstPlayer");
 #endif
@@ -4351,11 +4393,24 @@ void AAMPGstPlayer::SetVideoZoom(VideoZoomMode zoom)
 
 void AAMPGstPlayer::SetSubtitlePtsOffset(std::uint64_t pts_offset)
 {
-	if (privateContext->subtitle_sink)
+	if (privateContext->usingRialtoSink)
+	{
+		if(privateContext->stream[eMEDIATYPE_SUBTITLE].source)
+		{
+			AAMPLOG_INFO("usingRialtoSink pts_offset gst_seek_simple %" PRIu64 ", seek_pos_seconds %2f", pts_offset, aamp->seek_pos_seconds);
+			GstClockTime pts = ((double)pts_offset) * GST_SECOND;
+			GstStructure *structure{gst_structure_new("set-pts-offset", "pts-offset", G_TYPE_UINT64, pts, nullptr)};
+			if (!gst_element_send_event(privateContext->stream[eMEDIATYPE_SUBTITLE].source, gst_event_new_custom(GST_EVENT_CUSTOM_DOWNSTREAM, structure)))
+			{
+				AAMPLOG_WARN("usingRialtoSink Failed to seek text-sink element");
+			}
+		}
+	}
+	else if (privateContext->subtitle_sink)
 	{
 		AAMPLOG_INFO("pts_offset %" PRIu64 ", seek_pos_seconds %2f, subtitle_sink =%p", pts_offset, aamp->seek_pos_seconds, privateContext->subtitle_sink);
-		//We use seek_pos_seconds as an offset durinig seek, so we subtract that here to get an offset from zero position
-		g_object_set(privateContext->subtitle_sink, "pts-offset", static_cast<std::uint64_t>(pts_offset), NULL);
+		//We use seek_pos_seconds as an offset during seek, so we subtract that here to get an offset from zero position
+		g_object_set(privateContext->subtitle_sink, "pts-offset", static_cast<std::uint64_t>(pts_offset*1000), NULL);
 	}
 	else
 		AAMPLOG_INFO("subtitle_sink is NULL");

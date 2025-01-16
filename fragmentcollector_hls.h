@@ -1064,6 +1064,7 @@ class StreamAbstractionAAMP_HLS : public StreamAbstractionAAMP
 		 * @return void
 		 ***************************************************************************/
 		void ConfigureTextTrack();
+		void SelectSubtitleTrack();
 
 		/***************************************************************************
 		 * @fn CachePlaylistThreadFunction
