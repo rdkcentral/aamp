@@ -143,7 +143,7 @@ bool AampOutputProtection::IsMS2V12Supported()
 		{
 			AAMPLOG_INFO("MS12V2 Audio not supported in this device");
 		}
-		device::Manager::Termialize();
+		device::Manager::DeInitialize();
 	}
 	catch (...) {
 		AAMPLOG_WARN("DeviceSettings exception caught");
@@ -229,7 +229,7 @@ void AampOutputProtection::SetHDMIStatus()
             SetResolution(DISPLAY_RESOLUTION_NA,DISPLAY_RESOLUTION_NA);
         }
 
-	device::Manager::Termialize();
+	device::Manager::DeInitialize();
     }
     catch (...) {
         AAMPLOG_WARN("DeviceSettings exception caught");
