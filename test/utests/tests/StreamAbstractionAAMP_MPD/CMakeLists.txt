@@ -51,10 +51,10 @@ set(TEST_SOURCES FunctionalTests.cpp
                  AudioOnlyTests.cpp
                  FetcherLoopTests.cpp
                  StreamAbstractionAAMP_MPD.cpp
-		             AudioTrackSelectionTests.cpp
+                 AudioTrackSelectionTests.cpp
                  AudioTrackSwitchTests.cpp
                  subtitleTests.cpp
-		 StreamSelectionTest.cpp
+                 StreamSelectionTest.cpp
                  MonitorLatencyTests.cpp)
 
 set(AAMP_SOURCES ${AAMP_ROOT}/streamabstraction.cpp ${AAMP_ROOT}/fragmentcollector_mpd.cpp ${AAMP_ROOT}/AampMPDParseHelper.cpp ${AAMP_ROOT}/AampMPDUtils.cpp ${AAMP_ROOT}/AampTrackWorker.cpp ${DASH_PARSER_SOURCES})

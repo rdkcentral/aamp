@@ -21,6 +21,7 @@
 #include <gmock/gmock.h>
 #include <chrono>
 #include "priv_aamp.h"
+#include "admanager_mpd.h"
 #include "AampConfig.h"
 #include "AampScheduler.h"
 #include "AampLogManager.h"
@@ -166,7 +167,6 @@ protected:
 	const char *mAdManifest;
 	static constexpr const char *TEST_BASE_URL = "http://host/asset/";
 	static constexpr const char *TEST_MANIFEST_URL = "http://host/asset/manifest.mpd";
-	static constexpr const char *TEST_AD_BASE_URL = "http://host/ad/";
 	static constexpr const char *TEST_AD_MANIFEST_URL = "http://host/ad/manifest.mpd";
 	MPD* mAdMPD;
 	static constexpr const char *mVodManifest = R"(<?xml version="1.0" encoding="utf-8"?>
@@ -651,4 +651,219 @@ TEST_F(AdSelectionTests, AdTransitionTest)
 	ret = mStreamAbstractionAAMP_MPD->InvokeSelectSourceOrAdPeriod(periodChanged, mpdChanged, adStateChanged, waitForAdBreakCatchup, requireStreamSelection, currentPeriodId);
 	EXPECT_TRUE(ret);
 	EXPECT_EQ(cdaiObj->mAdState, AdState::IN_ADBREAK_AD_PLAYING);
+}
+
+
+/**
+ * @brief AdTransitionTest tests.
+ *
+ * The tests verify the SelectSourceOrAdPeriod method of StreamAbstractionAAMP_MPD when transitioning
+ * from a ad period to a tiny period
+ */
+TEST_F(AdSelectionTests, PeriodChangeTestFromAdToTinyPeriod)
+{
+	static const char *adManifest =
+R"(<?xml version="1.0" encoding="UTF-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" type="static" profiles="urn:mpeg:dash:profile:isoff-on-demand:2011" minBufferTime="PT1.5S" mediaPresentationDuration="PT0M30S">
+	<Period id="ad1" start="PT0H0M0.000S">
+		<AdaptationSet id="0" contentType="video" mimeType="video/mp4" segmentAlignment="true" startWithSAP="1">
+			<SegmentTemplate timescale="48000" initialization="video_init.mp4" media="video_$Number$.mp4" startNumber="1">
+				<SegmentTimeline>
+					<S t="0" d="96000" r="14"/>
+				</SegmentTimeline>
+			</SegmentTemplate>
+			<Representation id="0" bandwidth="3000000" codecs="avc1.4d401f" width="1280" height="720" frameRate="30"/>
+		</AdaptationSet>
+		<AdaptationSet id="1" contentType="audio" lang="eng">
+			<Representation id="1" mimeType="audio/mp4" codecs="ec-3" bandwidth="800000" width="640" height="360" frameRate="25"/>
+			<SegmentTemplate timescale="48000" initialization="audio_init.mp4" media="audio_$Number$.m4s" startNumber="1">
+				<SegmentTimeline>
+					<S t="0" d="96000" r="14"/>
+				</SegmentTimeline>
+			</SegmentTemplate>
+		</AdaptationSet>
+	</Period>
+</MPD>
+)";
+	// No need of scte35, ad manager data structures are populated manually
+	static const char *mManifest =
+R"(<?xml version="1.0" encoding="utf-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" availabilityStartTime="2023-01-01T00:00:00Z" maxSegmentDuration="PT2S" minBufferTime="PT4.000S" minimumUpdatePeriod="P100Y" profiles="urn:dvb:dash:profile:dvb-dash:2014,urn:dvb:dash:profile:dvb-dash:isoff-ext-live:2014" publishTime="2023-01-01T00:01:00Z" timeShiftBufferDepth="PT5M" type="dynamic">
+	<Period id="p0" start="PT2S">
+		<AdaptationSet id="0" contentType="video">
+			<Representation id="0" mimeType="video/mp4" codecs="avc1.640028" bandwidth="800000" width="640" height="360" frameRate="25">
+				<SegmentTemplate timescale="2500" initialization="video_p0_init.mp4" media="video_p0_$Number$.m4s" startNumber="1" presentationTimeOffset="0">
+					<SegmentTimeline>
+						<S t="0" d="5000" r="14" />
+					</SegmentTimeline>
+				</SegmentTemplate>
+			</Representation>
+		</AdaptationSet>
+		<AdaptationSet id="1" contentType="audio" lang="eng">
+			<Representation id="0" mimeType="audio/mp4" codecs="ec-3" bandwidth="800000" width="640" height="360" frameRate="25">
+				<SegmentTemplate timescale="2500" initialization="audio_p0_init.mp4" media="audio_p0_$Number$.m4s" startNumber="1" presentationTimeOffset="0">
+					<SegmentTimeline>
+						<S t="0" d="5000" r="14" />
+					</SegmentTimeline>
+				</SegmentTemplate>
+			</Representation>
+		</AdaptationSet>
+	</Period>
+	<Period id="p1" start="PT32S">
+		<AdaptationSet id="0" contentType="video">
+			<Representation id="0" mimeType="video/mp4" codecs="avc1.640028" bandwidth="800000" width="640" height="360" frameRate="25">
+				<SegmentTemplate timescale="2500" initialization="video_p0_init.mp4" media="video_p0_$Number$.m4s" startNumber="1" presentationTimeOffset="75000">
+					<SegmentTimeline>
+						<S t="75000" d="5000" r="14" />
+					</SegmentTimeline>
+				</SegmentTemplate>
+			</Representation>
+		</AdaptationSet>
+		<AdaptationSet id="1" contentType="audio" lang="eng">
+			<Representation id="0" mimeType="audio/mp4" codecs="ec-3" bandwidth="800000" width="640" height="360" frameRate="25">
+				<SegmentTemplate timescale="2500" initialization="audio_p0_init.mp4" media="audio_p0_$Number$.m4s" startNumber="1" presentationTimeOffset="75000">
+					<SegmentTimeline>
+						<S t="75000" d="5000" r="14" />
+					</SegmentTimeline>
+				</SegmentTemplate>
+			</Representation>
+		</AdaptationSet>
+	</Period>
+	<Period id="p2" start="PT62S">
+		<AdaptationSet id="0" contentType="video">
+			<Representation id="0" mimeType="video/mp4" codecs="avc1.640028" bandwidth="800000" width="640" height="360" frameRate="25">
+				<SegmentTemplate timescale="2500" initialization="video_p1_init.mp4" media="video_p1_$Number$.m4s" startNumber="16" presentationTimeOffset="150000">
+					<SegmentTimeline>
+						<S t="150000" d="625"/>
+					</SegmentTimeline>
+				</SegmentTemplate>
+			</Representation>
+		</AdaptationSet>
+		<AdaptationSet id="1" contentType="audio" lang="eng">
+			<Representation id="0" mimeType="audio/mp4" codecs="ec-3" bandwidth="800000" width="640" height="360" frameRate="25">
+				<SegmentTemplate timescale="2500" initialization="audio_p1_init.mp4" media="audio_p1_$Number$.m4s" startNumber="16" presentationTimeOffset="150000">
+					<SegmentTimeline>
+						<S t="150000" d="625"/>
+					</SegmentTimeline>
+				</SegmentTemplate>
+			</Representation>
+		</AdaptationSet>
+	</Period>
+	<Period id="p3" start="PT62.250S">
+		<AdaptationSet id="0" contentType="video">
+			<Representation id="0" mimeType="video/mp4" codecs="avc1.640028" bandwidth="800000" width="640" height="360" frameRate="25">
+				<SegmentTemplate timescale="2500" initialization="video_p1_init.mp4" media="video_p1_$Number$.m4s" startNumber="16" presentationTimeOffset="150625">
+					<SegmentTimeline>
+						<S t="150625" d="625"/>
+					</SegmentTimeline>
+				</SegmentTemplate>
+			</Representation>
+		</AdaptationSet>
+		<AdaptationSet id="1" contentType="audio" lang="eng">
+			<Representation id="0" mimeType="audio/mp4" codecs="ec-3" bandwidth="800000" width="640" height="360" frameRate="25">
+				<SegmentTemplate timescale="2500" initialization="audio_p1_init.mp4" media="audio_p1_$Number$.m4s" startNumber="16" presentationTimeOffset="150625">
+					<SegmentTimeline>
+						<S t="150625" d="625"/>
+					</SegmentTimeline>
+				</SegmentTemplate>
+			</Representation>
+		</AdaptationSet>
+	</Period>
+	<Period id="p4" start="PT62.500S">
+		<AdaptationSet id="0" contentType="video">
+			<Representation id="0" mimeType="video/mp4" codecs="avc1.640028" bandwidth="800000" width="640" height="360" frameRate="25">
+				<SegmentTemplate timescale="2500" initialization="video_p1_init.mp4" media="video_p1_$Number$.m4s" startNumber="16" presentationTimeOffset="151250">
+					<SegmentTimeline>
+						<S t="151250" d="5000" r="14" />
+					</SegmentTimeline>
+				</SegmentTemplate>
+			</Representation>
+		</AdaptationSet>
+		<AdaptationSet id="1" contentType="audio" lang="eng">
+			<Representation id="0" mimeType="audio/mp4" codecs="ec-3" bandwidth="800000" width="640" height="360" frameRate="25">
+				<SegmentTemplate timescale="2500" initialization="audio_p1_init.mp4" media="audio_p1_$Number$.m4s" startNumber="16" presentationTimeOffset="151250">
+					<SegmentTimeline>
+						<S t="151250" d="5000" r="14" />
+					</SegmentTimeline>
+				</SegmentTemplate>
+			</Representation>
+		</AdaptationSet>
+	</Period>
+</MPD>
+)";
+	InitializeAdMPDObject(adManifest);
+	std::string videoInitFragmentUrl;
+	std::string audioInitFragmentUrl;
+	AAMPStatusType status;
+	mPrivateInstanceAAMP->rate = 1.0;
+	bool ret = false;
+
+	/* Initialize MPD. The video initialization segment is cached. */
+	videoInitFragmentUrl = std::string(TEST_BASE_URL) + std::string("video_p0_init.mp4");
+	audioInitFragmentUrl = std::string(TEST_BASE_URL) + std::string("audio_p0_init.mp4");
+
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(videoInitFragmentUrl, _, _, _, _, true, _, _, _, _, _))
+		.Times(1)
+		.WillOnce(Return(true));
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(audioInitFragmentUrl, _, _, _, _, true, _, _, _, _, _))
+		.Times(1)
+		.WillOnce(Return(true));
+
+	// Start the playback at P0
+	status = InitializeMPD(mManifest, eTUNETYPE_SEEK, 10);
+	EXPECT_EQ(status, eAAMPSTATUS_OK);
+
+	// Set the ad variables
+	auto mPrivateCDAIObject = mStreamAbstractionAAMP_MPD->GetCDAIObject();
+	std::string periodId = "p1";
+	std::string endPeriodId = "p2"; // landing in p1
+	std::string adUrl = TEST_AD_MANIFEST_URL;
+	// Add ads to the adBreak
+	mPrivateCDAIObject->mAdBreaks =
+	{
+		{periodId, AdBreakObject(30000, std::make_shared<std::vector<AdNode>>(), endPeriodId, 0, 30000)}
+	};
+	// Ad is marked as placed since we are not calling any explicit PlaceAds()
+	mPrivateCDAIObject->mAdBreaks[periodId].ads->emplace_back(false, true, true, "adId1", adUrl, 30000, periodId, 0, mAdMPD);
+	// Marking adbreak as placed as well
+	mPrivateCDAIObject->mAdBreaks[periodId].mAdBreakPlaced = true;
+	mPrivateCDAIObject->mPeriodMap[periodId] = Period2AdData(false, periodId, 30000 /*in ms*/,
+    {
+      std::make_pair (0, AdOnPeriod(0, 0)), // for adId1 idx=0, offset=0s
+    });
+
+	// Index the initial values
+	status = mStreamAbstractionAAMP_MPD->InvokeIndexNewMPDDocument(false);
+	EXPECT_EQ(mStreamAbstractionAAMP_MPD->GetCurrentPeriodIdx(), 0);
+
+	bool periodChanged = false;
+	bool adStateChanged = false;
+	bool waitForAdBreakCatchup = false;
+	bool requireStreamSelection = false;
+	bool mpdChanged = false;
+	std::string currentPeriodId = "p0";
+	mStreamAbstractionAAMP_MPD->IncrementIteratorPeriodIdx();
+
+	// Move to P1
+	ret = mStreamAbstractionAAMP_MPD->InvokeSelectSourceOrAdPeriod(periodChanged, mpdChanged, adStateChanged, waitForAdBreakCatchup, requireStreamSelection, currentPeriodId);
+	EXPECT_TRUE(ret);
+	// Moved into CDAI ad in P1
+	EXPECT_EQ(currentPeriodId, "ad1");
+	EXPECT_EQ(periodChanged, true);
+	EXPECT_EQ(mPrivateCDAIObject->mAdState, AdState::IN_ADBREAK_AD_PLAYING);
+
+	// Reset function arguments
+	periodChanged = false;
+	// Finished ad playback in P1
+	adStateChanged = true;
+	mPrivateCDAIObject->mAdState = AdState::IN_ADBREAK_WAIT2CATCHUP;
+	waitForAdBreakCatchup = false;
+	requireStreamSelection = false;
+	mpdChanged = false;
+
+	ret = mStreamAbstractionAAMP_MPD->InvokeSelectSourceOrAdPeriod(periodChanged, mpdChanged, adStateChanged, waitForAdBreakCatchup, requireStreamSelection, currentPeriodId);
+	EXPECT_EQ(mStreamAbstractionAAMP_MPD->GetCurrentPeriodIdx(), mStreamAbstractionAAMP_MPD->GetIteratorPeriodIdx());
+	EXPECT_EQ(mPrivateCDAIObject->mAdState, AdState::OUTSIDE_ADBREAK);
+	EXPECT_EQ(currentPeriodId, "p4");
+	EXPECT_EQ(periodChanged, true);
 }

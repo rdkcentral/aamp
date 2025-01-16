@@ -9333,21 +9333,21 @@ bool StreamAbstractionAAMP_MPD::SelectSourceOrAdPeriod(bool &periodChanged, bool
 					{
 						mMediaStreamContext[i]->enabled = false;
 					}
-						AAMPLOG_WARN("Period ID not changed from \'%s\' to \'%s\',since period is empty [BasePeriodId=\'%s\'] mIterPeriodIndex[%d] mUpperBoundaryPeriod[%d]", currentPeriodId.c_str(), mCurrentPeriod->GetId().c_str(), mBasePeriodId.c_str(), mIterPeriodIndex, mMPDParseHelper->mUpperBoundaryPeriod);
-						if (mIsLiveManifest && (mIterPeriodIndex > mMPDParseHelper->mUpperBoundaryPeriod) && aamp->DownloadsAreEnabled())
+					AAMPLOG_WARN("Period ID not changed from \'%s\' to \'%s\',since period is empty [BasePeriodId=\'%s\'] mIterPeriodIndex[%d] mUpperBoundaryPeriod[%d]", currentPeriodId.c_str(), mCurrentPeriod->GetId().c_str(), mBasePeriodId.c_str(), mIterPeriodIndex, mMPDParseHelper->mUpperBoundaryPeriod);
+					if (mIsLiveManifest && (mIterPeriodIndex > mMPDParseHelper->mUpperBoundaryPeriod) && aamp->DownloadsAreEnabled())
+					{
+						// Update manifest and check for period validity in the next iteration
+						// For CDAI empty period at the end, we should re-iterate the loop
+						AAMPLOG_WARN("Period ID not changed WaitForManifestUpdate");
+						if (AAMPStatusType::eAAMPSTATUS_OK != UpdateMPD())
 						{
-							// Update manifest and check for period validity in the next iteration
-							// For CDAI empty period at the end, we should re-iterate the loop
-							AAMPLOG_WARN("Period ID not changed WaitForManifestUpdate");
-							if (AAMPStatusType::eAAMPSTATUS_OK != UpdateMPD())
-							{
-								aamp->interruptibleMsSleep(500); // Sleep for 500ms to avoid tight looping
-							}
-							mpdChanged = true;
-							ret = false;
-							break;
+							aamp->interruptibleMsSleep(500); // Sleep for 500ms to avoid tight looping
 						}
+						mpdChanged = true;
+						ret = false;
+						break;
 					}
+				}
 
 				// We are moving to new period so reset the lastsegment time
 				for (int i = 0; i < mNumberOfTracks; i++)
@@ -13740,7 +13740,8 @@ bool StreamAbstractionAAMP_MPD::PlacenextAdBrkifAvail(IMPD *mpd)
 int StreamAbstractionAAMP_MPD::getValidperiodIdx(int periodIdx)
 {
 	int periodIter = periodIdx;
-	if(!mMPDParseHelper->IsEmptyPeriod(periodIter, (rate != AAMP_NORMAL_PLAY_RATE)) && (mMPDParseHelper->GetPeriodDuration(periodIter,mLastPlaylistDownloadTimeMs,(rate != AAMP_NORMAL_PLAY_RATE),aamp->IsUninterruptedTSB()) >= THRESHOLD_TOIGNORE_TINYPERIOD))
+	if ((!mMPDParseHelper->IsEmptyPeriod(periodIter, (rate != AAMP_NORMAL_PLAY_RATE))) &&
+		(mMPDParseHelper->GetPeriodDuration(periodIter,mLastPlaylistDownloadTimeMs,(rate != AAMP_NORMAL_PLAY_RATE),aamp->IsUninterruptedTSB()) >= THRESHOLD_TOIGNORE_TINYPERIOD))
 	{
 		AAMPLOG_WARN("[CDAI] Landed at period (%s) periodIdx: %d duration(ms):%f",mpd->GetPeriods().at(periodIter)->GetId().c_str(),periodIter,mMPDParseHelper->GetPeriodDuration(periodIter,mLastPlaylistDownloadTimeMs,(rate != AAMP_NORMAL_PLAY_RATE),aamp->IsUninterruptedTSB()));
 		return periodIter;
@@ -13756,7 +13757,9 @@ int StreamAbstractionAAMP_MPD::getValidperiodIdx(int periodIdx)
 		periodIter += direction; //point periodIter to next period
 		while((periodIter < mNumberOfPeriods) && (periodIter >= 0))
 		{
-			if (!mMPDParseHelper->IsEmptyPeriod(periodIter, (rate != AAMP_NORMAL_PLAY_RATE))) //Is non-empty period followed by empty period
+			//Is empty/tiny period followed by another empty or tiny period
+			if ((!mMPDParseHelper->IsEmptyPeriod(periodIter, (rate != AAMP_NORMAL_PLAY_RATE))) &&
+				(mMPDParseHelper->GetPeriodDuration(periodIter,mLastPlaylistDownloadTimeMs,(rate != AAMP_NORMAL_PLAY_RATE),aamp->IsUninterruptedTSB()) >= THRESHOLD_TOIGNORE_TINYPERIOD))
 			{
 				AAMPLOG_WARN("[CDAI] valid period(%s) after non-empty period(%s) found at index (%d)", mpd->GetPeriods().at(periodIter)->GetId().c_str(),mpd->GetPeriods().at(periodIdx)->GetId().c_str(),periodIter);
 				bvalidperiodfound = true;
