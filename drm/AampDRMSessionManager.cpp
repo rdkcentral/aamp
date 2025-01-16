@@ -163,14 +163,14 @@ void AampDRMSessionManager::SetCommonKeyDuration(int keyDuration)
 }
 
 /**
- * @brief Stop DRM session manager and deInitialize license fetcher
- * 
+ * @brief Stop DRM session manager and terminate license fetcher
+ *
  * @param none
  * @return none
  */
 void AampDRMSessionManager::Stop()
 {
-	mLicensePrefetcher->DeInit();
+	mLicensePrefetcher->Term();
 }
 
 /**
@@ -345,7 +345,7 @@ void AampDRMSessionManager::setVideoWindowSize(int width, int height)
 {
 #ifdef USE_SECMANAGER
 	auto localSession = mAampSecManagerSession; //Remove potential isSessionValid(), getSessionID() race by using a local copy
-	AAMPLOG_WARN("In AampDRMSessionManager:: setting video windor size w:%d x h:%d mMaxDRMSessions=%d sessionID=[%" PRId64 "]",width,height,mMaxDRMSessions,localSession.getSessionID());
+	AAMPLOG_WARN("In AampDRMSessionManager:: setting video window size w:%d x h:%d mMaxDRMSessions=%d sessionID=[%" PRId64 "]",width,height,mMaxDRMSessions,localSession.getSessionID());
 	if(localSession.isSessionValid())
 	{
 		AAMPLOG_WARN("In AampDRMSessionManager:: valid session ID. Calling setVideoWindowSize().");

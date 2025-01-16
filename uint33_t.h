@@ -136,7 +136,7 @@ namespace test_variables
 #ifndef NDEBUG
 namespace
 {
-	//C++11 does not support complex contexpr expressions, hence moving to runtime test
+	//C++11 does not support complex constexpr expressions, hence moving to runtime test
 	int test()
 	{
 		uint33_t x{3};

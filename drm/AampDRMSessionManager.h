@@ -233,7 +233,7 @@ public:
 	void QueueProtectionEvent(std::shared_ptr<AampDrmHelper> drmHelper, std::string periodId, uint32_t adapIdx, AampMediaType type);
 
 	/**
-	 * @brief Stop DRM session manager and deinitialise license fetcher
+	 * @brief Stop DRM session manager and terminate license fetcher
 	 * 
 	 * @param none
 	 * @return none

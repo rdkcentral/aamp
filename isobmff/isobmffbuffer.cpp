@@ -627,7 +627,7 @@ void IsoBmffBuffer::printMdatBoxes()
 }
 
 /**
- * @brief Get list of box handle in parsed bufferr using name
+ * @brief Get list of box handle in parsed buffer using name
  */
 bool IsoBmffBuffer::getTypeOfBoxes(const char *name, std::vector<Box*> &stBoxes)
 {
@@ -760,7 +760,7 @@ Box*  IsoBmffBuffer::getBox(const char *name, size_t &index)
 }
 
 /**
- *  @brief Get box handle in parsed bufferr using index
+ *  @brief Get box handle in parsed buffer using index
  */
 Box* IsoBmffBuffer::getBoxAtIndex(size_t index)
 {

@@ -474,7 +474,7 @@ JSValueRef AAMPMediaPlayerJS_load (JSContextRef ctx, JSObjectRef function, JSObj
 	bool audioDecoderStreamSync = true;
 	char* contentType = NULL;
 	char* strTraceId = NULL;
-	int mpdStichingMode = 0;
+	int mpdStitchingMode = 0;
 	std::string sid{};
 	char* manifestbuffer = NULL;
 
@@ -523,11 +523,11 @@ JSValueRef AAMPMediaPlayerJS_load (JSContextRef ctx, JSObjectRef function, JSObj
 			}
 			JSStringRelease(paramName);
 
-			paramName = JSStringCreateWithUTF8CString("mpdStichingMode");
+			paramName = JSStringCreateWithUTF8CString("mpdStitchingMode");
 			paramValue = JSObjectGetProperty(ctx, argument, paramName, NULL);
 			if (JSValueIsNumber(ctx, paramValue))
 			{
-				mpdStichingMode = (int) JSValueToNumber(ctx, paramValue, NULL);
+				mpdStitchingMode = (int) JSValueToNumber(ctx, paramValue, NULL);
 			}
 			JSStringRelease(paramName);
 
@@ -563,7 +563,7 @@ JSValueRef AAMPMediaPlayerJS_load (JSContextRef ctx, JSObjectRef function, JSObj
 			{
 				char* url = aamp_JSValueToCString(ctx, arguments[0], exception);
 				LOG_WARN(privObj,"_aamp->Tune(%d, %s, %d, %d, %s) - sid: %s preprocessedManifestData : %s", autoPlay, contentType, bFirstAttempt, bFinalAttempt, strTraceId, sid.c_str(),manifestbuffer);
-				privObj->_aamp->Tune(url, autoPlay, contentType, bFirstAttempt, bFinalAttempt, strTraceId, audioDecoderStreamSync, url2, mpdStichingMode, std::move(sid),manifestbuffer);
+				privObj->_aamp->Tune(url, autoPlay, contentType, bFirstAttempt, bFinalAttempt, strTraceId, audioDecoderStreamSync, url2, mpdStitchingMode, std::move(sid),manifestbuffer);
 
 			}
 
@@ -3322,7 +3322,7 @@ static JSValueRef AAMPMediaPlayerJS_setAuxiliaryLanguage(JSContextRef ctx, JSObj
 	return JSValueMakeBoolean(ctx, bRet);
 }
 /**
- * @brief API invoked from JS when executing AAMPMediaPlayer.getPlayeBackStats()
+ * @brief API invoked from JS when executing AAMPMediaPlayer.getPlaybackStats()
  * @param[in] ctx JS execution context
  * @param[in] function JSObject that is the function being called
  * @param[in] thisObject JSObject that is the 'this' variable in the function's scope
@@ -3331,7 +3331,7 @@ static JSValueRef AAMPMediaPlayerJS_setAuxiliaryLanguage(JSContextRef ctx, JSObj
  * @param[out] exception pointer to a JSValueRef in which to return an exception, if any
  * @retval JSValue that is the function's return value
  */
-static JSValueRef AAMPMediaPlayerJS_getPlayeBackStats(JSContextRef ctx, JSObjectRef function, JSObjectRef thisObject, size_t argumentCount, const JSValueRef arguments[], JSValueRef *exception)
+static JSValueRef AAMPMediaPlayerJS_getPlaybackStats(JSContextRef ctx, JSObjectRef function, JSObjectRef thisObject, size_t argumentCount, const JSValueRef arguments[], JSValueRef *exception)
 {
 	LOG_TRACE("Enter");
 	AAMPMediaPlayer_JS* privObj = (AAMPMediaPlayer_JS*)JSObjectGetPrivate(thisObject);
@@ -3690,7 +3690,7 @@ static const JSStaticFunction AAMPMediaPlayer_JS_static_functions[] = {
 	{ "setPreferredAudioCodec", AAMPMediaPlayerJS_setPreferredAudioCodec, kJSPropertyAttributeDontDelete | kJSPropertyAttributeReadOnly},
 	{ "setAuxiliaryLanguage", AAMPMediaPlayerJS_setAuxiliaryLanguage, kJSPropertyAttributeDontDelete | kJSPropertyAttributeReadOnly },
 	{ "xreSupportedTune", AAMPMediaPlayerJS_xreSupportedTune, kJSPropertyAttributeDontDelete | kJSPropertyAttributeReadOnly},
-	{ "getPlaybackStatistics", AAMPMediaPlayerJS_getPlayeBackStats, kJSPropertyAttributeDontDelete | kJSPropertyAttributeReadOnly },
+	{ "getPlaybackStatistics", AAMPMediaPlayerJS_getPlaybackStats, kJSPropertyAttributeDontDelete | kJSPropertyAttributeReadOnly },
 	{ "setContentProtectionDataConfig", AAMPMediaPlayerJS_setContentProtectionDataConfig, kJSPropertyAttributeDontDelete | kJSPropertyAttributeReadOnly },
 	{ "setContentProtectionDataUpdateTimeout", AAMPMediaPlayerJS_setContentProtectionDataUpdateTimeout, kJSPropertyAttributeDontDelete | kJSPropertyAttributeReadOnly },
 	{ "configRuntimeDRM", AAMPMediaPlayerJS_setRuntimeDRMConfig, kJSPropertyAttributeDontDelete | kJSPropertyAttributeReadOnly },

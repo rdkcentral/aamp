@@ -337,7 +337,7 @@ void  PrivateCDAIObjectMPD::PlaceAds(dash::mpd::IMPD *mpd)
 								}
 								continue;
 							}
-							AAMPLOG_INFO("nextPeriod:%s nextperiodur:%lf currperioddur:%lf adDuration:%" PRIu64 "", nextPeriod->GetId().c_str(), nextperioddur, currperioddur, abObj.ads->at(mPlacementObj.curAdIdx).duration);
+							AAMPLOG_INFO("nextPeriod:%s nextperioddur:%lf currperioddur:%lf adDuration:%" PRIu64 "", nextPeriod->GetId().c_str(), nextperioddur, currperioddur, abObj.ads->at(mPlacementObj.curAdIdx).duration);
 							// Ad duration remaining to be placed in this break
 							// adStartOffset signifies some portion of the current ad is already placed in a previous period
 							double adDurationToPlaceInBreak = GetRemainingAdDurationInBreak(mPlacementObj.pendingAdbrkId, mPlacementObj.curAdIdx, mPlacementObj.adStartOffset);
@@ -441,7 +441,7 @@ void  PrivateCDAIObjectMPD::PlaceAds(dash::mpd::IMPD *mpd)
 									// Current Ad completely placed. But more space available in the current period for next Ad
 									// Once marked as placed, we need to update the basePeriodOffset of next ad, otherwise fragmentTime calculation will go wrong
 									curAd.placed = true;
-									// Getting the next valid ad to get placed by interating through the max ad size
+									// Getting the next valid ad to get placed by iterating through the max ad size
 									if (true == GetNextAdInBreakToPlace())
 									{
 										AdNode &nextAd = abObj.ads->at(mPlacementObj.curAdIdx);

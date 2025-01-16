@@ -306,7 +306,7 @@ std::size_t GetPrintableThreadID();
 double ParseISO8601Duration(const char *ptr);
 
 /**
- * @brief Computes the fragment duratioN.
+ * @brief Computes the fragment duration.
  * @param duration of the fragment.
  * @param timeScale value.
  * @return - computed fragment duration in double.

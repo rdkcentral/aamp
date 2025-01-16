@@ -2962,7 +2962,7 @@ bool TSProcessor::generatePATandPMT(bool trick, unsigned char **buff, int *bufle
 				i += m_ttsSize;
 			}
 			patPacket[i + 0] = 0x47; // Sync Byte
-			patPacket[i + 1] = 0x60; // TEI=no ; Payload Start=yes; Prio=0; 5 bits PId=0
+			patPacket[i + 1] = 0x60; // Payload Start=yes; Prio=0; 5 bits PId=0
 			patPacket[i + 2] = 0x00; // 8 bits LSB PID = 0
 			patPacket[i + 3] = 0x10; // 2 bits Scrambling = no; 2 bits adaptation field = no adaptation; 4 bits continuity counter
 
@@ -3286,7 +3286,7 @@ void TSProcessor::writePCR(unsigned char *p, long long PCR, bool clearExtension)
 }
 
 /**
- * @brief Function to set offsetflag. if the value is fasle, no need to apply offset while doing pts restamping
+ * @brief Function to set offsetflag. if the value is false, no need to apply offset while doing pts restamping
  */
 void TSProcessor::setApplyOffsetFlag(bool enable)
 {

@@ -31,7 +31,7 @@
 // Map of profile bitrate(Bits per sec) and CProfileInfo
 // 0 is reserved for Main HLS manifest or DASH manifest
 typedef std::map<long, CProfileInfo> MapProfileInfo;
-typedef std::map<Track, MapProfileInfo>  MapStreamInfo; // collection of all Audip/Video/Profile info
+typedef std::map<Track, MapProfileInfo>  MapStreamInfo; // collection of all Audio/Video/Profile info
 typedef std::map<Track, CLicenseStatistics>  MapLicenceInfo; // Licence stats for each track
 typedef std::map<Track, CFragmentStatistics> MapAdStreamInfo; //collection of ad audio/video fragments statistics
 

@@ -935,7 +935,7 @@ double AampMPDParseHelper::GetPeriodDuration(int periodIndex,uint64_t mLastPlayl
 
 /**
  *   @brief  Get Period Duration
- *   @retval period duration in milli seconds
+ *   @retval period duration in milliseconds
  */
 double AampMPDParseHelper::aamp_GetPeriodDuration(int periodIndex, uint64_t mpdDownloadTime)
 {

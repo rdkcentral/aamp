@@ -741,7 +741,7 @@ public:
 
 /**
  * @class PlayerInstanceAAMP
- * @brief Player interface class for the JS pluggin.
+ * @brief Player interface class for the JS plugin.
  */
 class PlayerInstanceAAMP
 {
@@ -835,7 +835,7 @@ public:
 				const char *traceUUID = NULL,
 				bool audioDecoderStreamSync = true,
 				const char *refreshManifestUrl = NULL,
-				int mpdStichingMode = 0,
+				int mpdStitchingMode = 0,
 				std::string sid = std::string{},
 				const char *manifestData = NULL);
 
@@ -1594,12 +1594,12 @@ public:
 	void SetNewAdBreakerConfig(bool bValue);
 
 	/**
-	 *   @fn Setb64LicenseWrapping
+	 *   @fn SetBase64LicenseWrapping
 	 *   @param[in] bValue - true if json formatted base64 license data payload is expected
 	 *
 	 *   @return void
 	 */
-	void Setb64LicenseWrapping(bool bValue);
+	void SetBase64LicenseWrapping(bool bValue);
 
 	/**
 	 *   @fn GetAvailableVideoTracks
@@ -2137,7 +2137,7 @@ protected:
 						const char *traceUUID,
 						bool audioDecoderStreamSync,
 						const char *refreshManifestUrl = NULL,
-						int mpdStichingMode = 0,
+						int mpdStitchingMode = 0,
 						std::string sid = {},
 						const char *manifestData = NULL );
 	/**

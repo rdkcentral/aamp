@@ -60,7 +60,7 @@ public:
 	int Init(void *handle);
 
 	/**
-	 * @brief Gets Handle or ID, Every client using subtec must call GetId  in the beginning , save id, which is required for Release funciton.
+	 * @brief Gets Handle or ID, Every client using subtec must call GetId  in the beginning , save id, which is required for Release function.
 	 * @return int -  unique ID
 	 */
 	virtual int GetId() { return 0; };

@@ -66,7 +66,7 @@ class HybridABRManager:public ABRManager
 			int abrMaxBuffer;
 
 			/**
-			 * @brief Mininum ABR Buffer for Rampdown
+			 * @brief Minimum ABR Buffer for Rampdown
 			 */
 			int abrMinBuffer;
 
@@ -163,7 +163,7 @@ class HybridABRManager:public ABRManager
 		 * @params HTTP Header Type
 		 * @return downloadbps
 		 */
-		long CheckAbrThresholdSize(int bufferlen, int downloadTimeMs ,long curentProfilebps ,int fragmentDurationMs ,CurlAbortReason abortReason);
+		long CheckAbrThresholdSize(int bufferlen, int downloadTimeMs ,long currentProfilebps, int fragmentDurationMs, CurlAbortReason abortReason);
 
 		/**
 		 * @brief to update Bitrate Data
@@ -234,7 +234,7 @@ class HybridABRManager:public ABRManager
 		/*
 		 * @brief function to update newprofileindex ,if rampdown happen from steady state
 		 * @params currentProfileIndex , newProfileIndex -current and new profile Idx
-		 * @params BitrateChangeReason is getting updated only if rampdown occured
+		 * @params BitrateChangeReason is getting updated only if rampdown occurred
 		 * @params ABR Low Buffer counter
 		 * @return none
 		 */

@@ -80,9 +80,9 @@ VideoOutputPort &Host::getVideoOutputPort(const std::string &name)
 	return g_mockDeviceHost->getVideoOutputPort(name);
 }
 
-void Manager::DeInitialize()
+void Manager::Termialize()
 {
-	g_mockDeviceManager->DeInitialize();
+	g_mockDeviceManager->Termialize();
 }
 
 void Manager::Initialize()

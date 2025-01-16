@@ -77,7 +77,7 @@ public:
 	 *
 	 * @return None
 	 */
-	void DeInit();
+	void Term();
 
 	/**
 	 * @fn IsEos  - function to get EOS status

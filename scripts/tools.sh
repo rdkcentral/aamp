@@ -26,7 +26,7 @@ function tools_arch_fn ()
             export DYLD_LIBRARY_PATH=/opt/homebrew/lib:$DYLD_LIBRARY_PATH
             echo "${ARCH}"
         else
-            echo "Achitecture $ARCH is unsupported"
+            echo "Architecture $ARCH is unsupported"
             return 1
         fi
 

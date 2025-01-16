@@ -117,7 +117,7 @@ bool AampOutputProtection::IsSourceUHD()
         m_sourceHeight  = sourceHeight;
     }
     if(sourceWidth != 0 && sourceHeight != 0 &&
-       (sourceWidth >= UHD_WITDH || sourceHeight >= UHD_HEIGHT) ) {
+       (sourceWidth >= UHD_WIDTH || sourceHeight >= UHD_HEIGHT) ) {
         // Source Material is UHD
         retVal = true;
     }
@@ -143,7 +143,7 @@ bool AampOutputProtection::IsMS2V12Supported()
 		{
 			AAMPLOG_INFO("MS12V2 Audio not supported in this device");
 		}
-		device::Manager::DeInitialize();
+		device::Manager::Termialize();
 	}
 	catch (...) {
 		AAMPLOG_WARN("DeviceSettings exception caught");
@@ -229,7 +229,7 @@ void AampOutputProtection::SetHDMIStatus()
             SetResolution(DISPLAY_RESOLUTION_NA,DISPLAY_RESOLUTION_NA);
         }
 
-	device::Manager::DeInitialize();
+	device::Manager::Termialize();
     }
     catch (...) {
         AAMPLOG_WARN("DeviceSettings exception caught");

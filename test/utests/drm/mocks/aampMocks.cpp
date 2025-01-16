@@ -249,7 +249,7 @@ AampCacheHandler *PrivateInstanceAAMP::getAampCacheHandler()
 void PrivateInstanceAAMP::Tune(const char *mainManifestUrl, bool autoPlay, const char *contentType,
 							   bool bFirstAttempt, bool bFinalAttempt, const char *pTraceID,
 							   bool audioDecoderStreamSync, const char *refreshManifestUrl,
-							   int mpdStichingMode, std::string sid,const char *preprocessedManifest)
+							   int mpdStitchingMode, std::string sid,const char *preprocessedManifest)
 
 {
 	// Set the Fog TSB flag based on the URL.

@@ -60,7 +60,7 @@ typedef int dsHdcpProtocolVersion_t;
 #undef __out
 #undef __reserved
 
-#define UHD_WITDH   3840
+#define UHD_WIDTH   3840
 #define UHD_HEIGHT  2160
 
 /**

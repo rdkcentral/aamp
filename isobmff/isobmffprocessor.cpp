@@ -545,8 +545,8 @@ void IsoBmffProcessor::restampPTSAndSendSegment(AampGrowableBuffer *pBuffer,doub
 			AAMPLOG_ERR("IsoBmffProcessor %s Failed to process pts from buffer at pos = %f and dur = %f", IsoBmffProcessorTypeName[type], position, duration);
 		}
 
-		AAMPLOG_INFO("IsoBmffProcessor %s Before restamp: dur = %f prevPos = %f currenPos = %f currTS = %u currentPTS = %" PRIu64 " basePTS=%" PRIu64 ""
-						"sumPTS = %" PRIu64 " PrevPTS = %" PRIu64 " TSChangeState = %d",	IsoBmffProcessorTypeName[type], duration, prevPosition, 
+		AAMPLOG_INFO("IsoBmffProcessor %s Before restamp: dur = %f prevPos = %f currentPos = %f currTS = %u currentPTS = %" PRIu64 " basePTS=%" PRIu64 ""
+						"sumPTS = %" PRIu64 " PrevPTS = %" PRIu64 " TSChangeState = %d",	IsoBmffProcessorTypeName[type], duration, prevPosition,
 						position, currTimeScale, currentPTS, basePTS, sumPTS, prevPTS, timeScaleChangeState);
 
 		/* Step 3.Handle Skipped Fragments if Any BEFORE TIMESCALE*/
@@ -784,7 +784,7 @@ bool IsoBmffProcessor::pushInitAndSetRestampPTSAsBasePTS(uint64_t pts)
 		break;
 
 		/*Special case to avoid duplicate fragment followed by old init
-		This need to be fixed in processplaylist changes which came as part of parllel playlist */
+		This need to be fixed in processplaylist changes which came as part of parallel playlist */
 		case eBMFFPROCESSOR_CONTINUE_TIMESCALE:
 		case eBMFFPROCESSOR_CONTINUE_WITH_ABR_CHANGED_TIMESCALE:
 		{

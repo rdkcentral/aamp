@@ -126,7 +126,7 @@ int AampRDKCCManager::SetAnalogChannel(unsigned int id)
  }
 
 /**
- *  @brief Gets Handle or ID, Every client using rdkccmgr must call GetId  in the beginning , save id, which is required for Release funciton.
+ *  @brief Gets Handle or ID, Every client using rdkccmgr must call GetId  in the beginning , save id, which is required for Release function.
  */
 int AampRDKCCManager::GetId()
  {

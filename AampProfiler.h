@@ -365,11 +365,11 @@ public:
 	 * @param[in] playerLoadTime - Time at which the first tune request reached the AAMP player
 	 * @param[in] streamType - Type of stream. eg: HLS, DASH, etc
 	 * @param[in] isLive  - Live channel or not
-	 * @param[in] durationinSec - Asset duration in seconds
+	 * @param[in] durationS - Asset duration in seconds
 	 * @param[out] TuneTimeInfoStr - Formatted output string
 	 * @return void
 	 */
-	void GetClassicTuneTimeInfo(bool success, int tuneRetries, int firstTuneType, long long playerLoadTime, int streamType, bool isLive,unsigned int durationinSec, char *TuneTimeInfoStr);
+	void GetClassicTuneTimeInfo(bool success, int tuneRetries, int firstTuneType, long long playerLoadTime, int streamType, bool isLive, unsigned int durationS, char *TuneTimeInfoStr);
 
 	/**
 	 * @fn ProfileBegin

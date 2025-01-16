@@ -53,7 +53,7 @@ double AampTsbReader::GetStartPosition()
 	return 0;
 }
 
-void AampTsbReader::DeInit()
+void AampTsbReader::Term()
 {
 
 }

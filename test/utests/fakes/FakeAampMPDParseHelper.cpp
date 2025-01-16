@@ -113,7 +113,7 @@ bool AampMPDParseHelper::IsIframeTrack(IAdaptationSet *adaptationSet)
 }
 /**
  *   @brief  Get Period Duration
- *   @retval period duration in milli seconds
+ *   @retval period duration in milliseconds
  */
 double AampMPDParseHelper::aamp_GetPeriodDuration(int periodIndex, uint64_t mpdDownloadTime)
 {

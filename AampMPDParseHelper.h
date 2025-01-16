@@ -267,7 +267,7 @@ public :
 	*/
 	double GetPresentationOffsetDelay() { return mPresentationOffsetDelay;}
 	/**
-	*   @fn GetMinUpdaGetMediaPresentationDurationteDurationMs
+	*   @fn GetMediaPresentationDuration
 	*   @brief  Returns mediaPresentationDuration from the manifest  
  	* 	@retval uint64_t . duration
 	*/
@@ -317,7 +317,7 @@ public :
 
 	/**
 	 *   @brief  Get Period Duration
-	 *   @retval period duration in milli seconds
+	 *   @retval period duration in milliseconds
 	 */
 	double aamp_GetPeriodDuration(int periodIndex, uint64_t mpdDownloadTime);
 	

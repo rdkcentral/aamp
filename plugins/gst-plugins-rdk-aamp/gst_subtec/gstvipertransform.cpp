@@ -526,7 +526,7 @@ gst_vipertransform_transform (GstBaseTransform * trans, GstBuffer * inbuf,
       GST_BUFFER_DURATION(buf) = segment_duration;
 
       //Incoming Harmonic content might be either
-      // a. TTML timetamped relative to the start of the fragment or
+      // a. TTML timestamped relative to the start of the fragment or
       // b. MediaKind-style with TTML timestamp being absolute from some fairly arbitrary zero point
       if (vipertransform->m_linear_begin_offset != 0)
         GST_BUFFER_OFFSET(buf) = vipertransform->m_linear_begin_offset;

@@ -134,7 +134,7 @@ void AampTSBSessionManager::InitializeTsbReaders()
 			}
 			else
 			{
-				AAMPLOG_ERR("Faled to find a dataManager for mediatype: %d", i);
+				AAMPLOG_ERR("Failed to find a dataManager for mediatype: %d", i);
 			}
 		}
 	}
@@ -681,7 +681,7 @@ AAMPStatusType AampTSBSessionManager::InvokeTsbReaders(double &position, float r
 	{
 		// Re-Invoke TSB readers to new position
 		mActiveTuneType = tuneType;
-		GetTsbReader(eMEDIATYPE_VIDEO)->DeInit();
+		GetTsbReader(eMEDIATYPE_VIDEO)->Term();
 		ret = GetTsbReader(eMEDIATYPE_VIDEO)->Init(relativePos, rate, tuneType);
 		if (eAAMPSTATUS_OK != ret)
 		{
@@ -694,7 +694,7 @@ AAMPStatusType AampTSBSessionManager::InvokeTsbReaders(double &position, float r
 		{
 			// Re-initialize reader with synchronized values
 			double startPos = relativePos;
-			GetTsbReader((AampMediaType)i)->DeInit();
+			GetTsbReader((AampMediaType)i)->Term();
 			if(AAMP_NORMAL_PLAY_RATE == rate)
 			{
 				ret = GetTsbReader((AampMediaType)i)->Init(startPos, rate, tuneType, GetTsbReader(eMEDIATYPE_VIDEO));

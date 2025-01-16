@@ -123,7 +123,7 @@ typedef enum
 	eAAMPConfig_SslVerifyPeer,						/**< Enable curl ssl certificate verification. */
 	eAAMPConfig_EnableClientDai,						/**< Enabling the client side DAI*/
 	eAAMPConfig_PlayAdFromCDN,						/**< Play Ad from CDN. Not from FOG.*/
-	eAAMPConfig_EnableVideoEndEvent,					/**< Enable or disable videovend events */
+	eAAMPConfig_EnableVideoEndEvent,					/**< Enable or disable videoend events */
 	eAAMPConfig_EnableRectPropertyCfg,					/**< To allow or deny rectangle property set for sink element*/
 	eAAMPConfig_ReportVideoPTS, 						/**< Enables Video PTS reporting */
 	eAAMPConfig_DecoderUnavailableStrict,					/**< Reports decoder unavailable GST Warning as aamp error*/
@@ -207,7 +207,7 @@ typedef enum
 	eAAMPConfig_SuppressDecode,					/**< To Suppress Decode of segments for playback . Test only Downloader */
 	eAAMPConfig_ReconfigPipelineOnDiscontinuity,				/*** Enable/Disable reconfigure pipeline on discontinuity */
 	eAAMPConfig_EnableMediaProcessor,					/** <Config to enable injection through MediaProcessor */
-	eAAMPConfig_MPDStichingSupport,					/**< To enable/disable MPD Stich functionality in the player. Default enabled */
+	eAAMPConfig_MPDStitchingSupport,					/**< To enable/disable MPD Stich functionality in the player. Default enabled */
 	eAAMPConfig_SendUserAgent,						/**< To enable/disable sending user agent in the DRM license request header. Default enabled */
 	eAAMPConfig_EnablePTSReStamp,					/** <Config to enable PTS restamping */
 	eAAMPConfig_TrackMemory,					/**< To enable/disable AampGrowableBuffer track memory */

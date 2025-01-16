@@ -34,7 +34,7 @@
 // Macros required for backward compatible AAMPEventListener implementation
 #define MAX_LANGUAGE_COUNT 16
 #define MAX_LANGUAGE_TAG_LENGTH 42 // <lang>-<role>
-//(3+1+1) /* iso639-2 + optional 2..9 digit to disambiguate multiple same-language tracms, + nul terminator */
+//(3+1+1) /* iso639-2 + optional 2..9 digit to disambiguate multiple same-language tracks, + nul terminator */
 
 #define MAX_BITRATE_COUNT 10
 #define MAX_SUPPORTED_SPEED_COUNT 12 /* [-64, -32, -16, -4, -1, 0, 0.5, 1, 4, 16, 32, 64] */
@@ -351,7 +351,7 @@ struct AAMPEvent
 		struct
 		{
 			const char* szEventType;    /**< Event Type */
-			void*  jsObject;            /**< Pointer to the Java Scipt Object */
+			void*  jsObject;            /**< Pointer to the JavaScript Object */
 		} jsEvent;
 
 		/**
@@ -1420,7 +1420,7 @@ public:
 
 /**
  * @class TuneProfilingEvent
- * @brief Class for the Tune Profilng Event
+ * @brief Class for the Tune Profiling Event
  */
 class TuneProfilingEvent: public AAMPEventObject
 {

@@ -74,7 +74,7 @@ static void GenerateLegacyAAMPEvent(const AAMPEventPtr &e, AAMPEvent &event)
 			event.data.progress.networkBandwidth = ev->getNetworkBandwidth();
 			event.data.progress.currentPlayRate = ev->getCurrentPlayRate();
 			
-			// TBR! for backwards compatiblity with rdk/components/generic/rdkmediaplayer/aamp/aampplayer.cpp
+			// TBR! for backwards compatibility with rdk/components/generic/rdkmediaplayer/aamp/aampplayer.cpp
 			event.data.progress.durationMiliseconds = event.data.progress.durationMilliseconds;
 			event.data.progress.positionMiliseconds = event.data.progress.positionMilliseconds;
 			event.data.progress.startMiliseconds = event.data.progress.startMilliseconds;
@@ -118,7 +118,7 @@ static void GenerateLegacyAAMPEvent(const AAMPEventPtr &e, AAMPEvent &event)
 				event.data.metadata.supportedSpeeds[i] = speeds[i];
 			}
 			
-			// TBR! for backwards compatiblity with rdk/components/generic/rdkmediaplayer/aamp/aampplayer.cpp
+			// TBR! for backwards compatibility with rdk/components/generic/rdkmediaplayer/aamp/aampplayer.cpp
 			event.data.metadata.durationMiliseconds = event.data.metadata.durationMilliseconds;
 			break;
 		}

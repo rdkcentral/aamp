@@ -45,7 +45,7 @@ bool AampLicensePreFetcher::QueueContentProtection(std::shared_ptr<AampDrmHelper
 	return false;
 }
 
-bool AampLicensePreFetcher::DeInit()
+bool AampLicensePreFetcher::Term()
 {
 	return false;
 }

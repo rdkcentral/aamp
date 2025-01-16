@@ -454,7 +454,7 @@ st = subtitle track
 # AAMP Simulator Installation
 
 ## Setting up AAMP Simulator (Mac/OSX)
-Prerequisities: xcode, git
+Prerequisites: xcode, git
 
 Open terminal app
 ```

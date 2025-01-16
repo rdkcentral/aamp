@@ -343,7 +343,7 @@ void PlayerInstanceAAMP::Tune(const char *mainManifestUrl,
 								const char *traceUUID,
 								bool audioDecoderStreamSync,
 								const char *refreshManifestUrl,
-								int mpdStichingMode,
+								int mpdStitchingMode,
 								std::string sid,
 								const char *manifestData
 								)
@@ -356,20 +356,20 @@ void PlayerInstanceAAMP::Tune(const char *mainManifestUrl,
 		const std::string sTraceUUID = (traceUUID != NULL)? std::string(traceUUID) : std::string();
 
 		mScheduler.ScheduleTask(AsyncTaskObj(
-			[manifest, autoPlay , cType, bFirstAttempt, bFinalAttempt, sTraceUUID, audioDecoderStreamSync, refreshManifestUrl, mpdStichingMode, sid,manifestData](void *data)
+			[manifest, autoPlay , cType, bFirstAttempt, bFinalAttempt, sTraceUUID, audioDecoderStreamSync, refreshManifestUrl, mpdStitchingMode, sid,manifestData](void *data)
 			{
 				PlayerInstanceAAMP *instance = static_cast<PlayerInstanceAAMP *>(data);
 				const char * trace_uuid = sTraceUUID.empty() ? nullptr : sTraceUUID.c_str();
 
 				instance->TuneInternal(manifest.c_str(), autoPlay, cType.c_str(), bFirstAttempt,
-										bFinalAttempt, trace_uuid, audioDecoderStreamSync, refreshManifestUrl, mpdStichingMode, std::move(sid),manifestData);
+										bFinalAttempt, trace_uuid, audioDecoderStreamSync, refreshManifestUrl, mpdStitchingMode, std::move(sid),manifestData);
 			},
 			(void *) this,
 			__FUNCTION__));
 	}
 	else
 	{
-		TuneInternal(mainManifestUrl, autoPlay , contentType, bFirstAttempt, bFinalAttempt,traceUUID,audioDecoderStreamSync, refreshManifestUrl, mpdStichingMode, std::move(sid),manifestData);
+		TuneInternal(mainManifestUrl, autoPlay , contentType, bFirstAttempt, bFinalAttempt,traceUUID,audioDecoderStreamSync, refreshManifestUrl, mpdStitchingMode, std::move(sid),manifestData);
 	}
 }
 
@@ -384,7 +384,7 @@ void PlayerInstanceAAMP::TuneInternal(const char *mainManifestUrl,
 										const char *traceUUID,
 										bool audioDecoderStreamSync,
 										const char *refreshManifestUrl,
-										int mpdStichingMode,
+										int mpdStitchingMode,
 										std::string sid,
 										const char* manifestData
 										)
@@ -417,7 +417,7 @@ void PlayerInstanceAAMP::TuneInternal(const char *mainManifestUrl,
 			StopInternal(false);
 		}
 		aamp->getAampCacheHandler()->StartPlaylistCache();
-		aamp->Tune(mainManifestUrl, autoPlay, contentType, bFirstAttempt, bFinalAttempt, traceUUID, audioDecoderStreamSync, refreshManifestUrl, mpdStichingMode, std::move(sid),manifestData);
+		aamp->Tune(mainManifestUrl, autoPlay, contentType, bFirstAttempt, bFinalAttempt, traceUUID, audioDecoderStreamSync, refreshManifestUrl, mpdStitchingMode, std::move(sid),manifestData);
 	}
 }
 
@@ -2671,7 +2671,7 @@ void PlayerInstanceAAMP::SetNewAdBreakerConfig(bool bValue)
 /**
  *   @brief Set json formatted base64 license data payload
  */
-void PlayerInstanceAAMP::Setb64LicenseWrapping(bool bValue)
+void PlayerInstanceAAMP::SetBase64LicenseWrapping(bool bValue)
 {
 	SETCONFIGVALUE(AAMP_APPLICATION_SETTING, eAAMPConfig_Base64LicenseWrapping, bValue);
 }
