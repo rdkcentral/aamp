@@ -1,7 +1,7 @@
 # If not stated otherwise in this file or this component's license file the
 # following copyright and licenses apply:
 #
-# Copyright 2024 RDK Management
+# Copyright 2025 RDK Management
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -23,9 +23,12 @@ pkg_check_modules(GOBJECT REQUIRED gobject-2.0)
 set(AAMP_ROOT "../../../..")
 set(UTESTS_ROOT "../..")
 set(DRM_ROOT ${UTESTS_ROOT}/drm)
-set(EXEC_NAME JsBindingTests)
+set(EXEC_NAME PluginsTests)
+set(SEC_CLIENT_ROOT ${AAMP_ROOT}/../secclient)
 
-include_directories(${AAMP_ROOT} ${AAMP_ROOT}/jsbindings ${AAMP_ROOT}/jsbindings/PersistentWatermark)
+file(GLOB SEC_CLIENT_HEADERS "${SEC_CLIENT_ROOT}/*")
+
+include_directories(${AAMP_ROOT} ${AAMP_ROOT}/plugins/gst-plugins-rdk-aamp/drm/gst)
 include_directories(${AAMP_ROOT}/drm)
 include_directories(${AAMP_ROOT}/drm/helper)
 include_directories(${AAMP_ROOT}/subtitle)
@@ -35,7 +38,11 @@ include_directories(${AAMP_ROOT}/tsb/api)
 include_directories(${GTEST_INCLUDE_DIRS})
 include_directories(${GMOCK_INCLUDE_DIRS})
 include_directories(${GLIB_INCLUDE_DIRS})
+include_directories(${DRM_ROOT}/ocdm)
+include_directories(${UTESTS_ROOT}/mocks)
+include_directories(${UTESTS_ROOT}/drm/mocks)
 include_directories(${GSTREAMER_INCLUDE_DIRS})
+include_directories(${GSTREAMERBASE_INCLUDE_DIRS})
 include_directories(${LIBCJSON_INCLUDE_DIRS})
 include_directories(${UUID_INCLUDE_DIRS})
 
@@ -44,21 +51,16 @@ if (JSC_INCDIR)
 endif()
 message(GSTREAMER_INCLUDE_DIRS=${GSTREAMER_INCLUDE_DIRS})
 
-set(TEST_SOURCES JsBindingRun.cpp
-				 JsBindingTests.cpp)
+set(TEST_SOURCES AampClearKeyDecryptorTests.cpp
+				AampPlayReadyDecryptorTests.cpp
+				AampVeriMatrixDecryptorTests.cpp
+				AampWidevineDecryptorTests.cpp
+				PluginsRun.cpp)
 
-set(MOCK_SOURCES ${DRM_ROOT}/mocks/aampMocks.cpp)
+add_definitions(-DAAMP_MPD_DRM)
 
-set(AAMP_SOURCES ${AAMP_ROOT}/jsbindings/jsbindings.cpp
-				 ${AAMP_ROOT}/jsbindings/jsevent.cpp
-				 ${AAMP_ROOT}/jsbindings/jseventlistener.cpp
-				 ${AAMP_ROOT}/jsbindings/jsmediaplayer.cpp
-				 ${AAMP_ROOT}/jsbindings/jsutils.cpp
-				 ${AAMP_ROOT}/jsbindings/PersistentWatermark/PersistentWatermark.cpp
-				 ${AAMP_ROOT}/jsbindings/PersistentWatermark/PersistentWatermarkDisplaySequencer.cpp
-				 ${AAMP_ROOT}/jsbindings/PersistentWatermark/PersistentWatermarkEventHandler.cpp
-				 ${AAMP_ROOT}/jsbindings/PersistentWatermark/PersistentWatermarkPluginAccess.cpp
-				 ${AAMP_ROOT}/jsbindings/PersistentWatermark/PersistentWatermarkStorage.cpp)
+
+set(AAMP_SOURCES ${AAMP_ROOT}/plugins/gst-plugins-rdk-aamp/drm/gst/gstaampcdmidecryptor.cpp)
 
 add_executable(${EXEC_NAME}
 			   ${TEST_SOURCES}
@@ -77,6 +79,6 @@ if (COVERAGE_ENABLED)
 	APPEND_COVERAGE_COMPILER_FLAGS()
 endif()
 
-target_link_libraries(${EXEC_NAME} fakes ${UUID_LINK_LIBRARIES} ${OS_LD_FLAGS} pthread ${GLIB_LINK_LIBRARIES} ${LIBCJSON_LINK_LIBRARIES} ${GMOCK_LINK_LIBRARIES} ${GTEST_LINK_LIBRARIES} ${GOBJECT_LINK_LIBRARIES})
+target_link_libraries(${EXEC_NAME} fakes ${UUID_LINK_LIBRARIES} ${OS_LD_FLAGS} -lpthread ${GLIB_LINK_LIBRARIES} ${LIBCJSON_LINK_LIBRARIES} ${GMOCK_LINK_LIBRARIES} ${GTEST_LINK_LIBRARIES} ${GOBJECT_LINK_LIBRARIES} ${GSTREAMERBASE_LINK_LIBRARIES} ${GSTREAMER_LINK_LIBRARIES})
 
 aamp_utest_run_add(${EXEC_NAME})
