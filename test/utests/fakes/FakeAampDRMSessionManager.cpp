@@ -65,17 +65,3 @@ void AampDRMSessionManager::UpdateMaxDRMSessions(int)
 void AampDRMSessionManager::setLicenseRequestAbort(bool)
 {
 }
-
-AampDrmSession * AampDRMSessionManager::createDrmSession(
-		const char* systemId, MediaFormat mediaFormat, const unsigned char * initDataPtr,
-		uint16_t initDataLen, AampMediaType streamType,
-		PrivateInstanceAAMP* aamp, DrmMetaDataEventPtr e, const unsigned char* contentMetadataPtr,
-		bool isPrimarySession)
-		{
-			return nullptr;
-		}
-		
-SessionMgrState AampDRMSessionManager::getSessionMgrState()
-{
-	return SessionMgrState::eSESSIONMGR_INACTIVE;
-}

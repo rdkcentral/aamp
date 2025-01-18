@@ -903,7 +903,7 @@ static GstFlowReturn gst_aampcdmidecryptor_transform_ip(
 	        goto free_resources;
 	    }
 
-	    GST_TRACE_OBJECT(aampcdmidecryptor, "position: %d, size: %lu", position,
+	    GST_TRACE_OBJECT(aampcdmidecryptor, "position: %d, size: %d", position,
 	            map.size);
 
 	    // collect all the encrypted bytes into one contiguous buffer
@@ -1163,7 +1163,7 @@ static gboolean gst_aampcdmidecryptor_sink_event(GstBaseTransform * trans,
         const gchar* systemId;
         const gchar* origin;
         unsigned char *outData = NULL;
-        size_t outDataLen = 0;
+        unsigned int outDataLen = 0;
         GstBuffer* initdatabuffer;
 
 	if(NULL == aampcdmidecryptor)

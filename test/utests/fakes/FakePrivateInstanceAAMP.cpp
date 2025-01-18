@@ -1563,8 +1563,3 @@ const char* PrivateInstanceAAMP::getStringForPlaybackError(PlaybackErrorType err
 {
 	return "";
 }
-
-unsigned char* PrivateInstanceAAMP::ReplaceKeyIDPsshData(const unsigned char *InputData, const size_t InputDataLength,  size_t & OutputDataLength) {
-	
-	return NULL;
-}
