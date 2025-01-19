@@ -206,8 +206,8 @@ public:
 			AAMPLOG_ERR( "empty buffer" );
 		}
 		else if( Find(url) )
-		{
-			AAMPLOG_INFO("%s %s already cached", GetMediaTypeName(mediaType), url.c_str());
+		{ // should never happen - caller has no business downloading if already cached
+			AAMPLOG_ERR("%s %s already cached", GetMediaTypeName(mediaType), url.c_str());
 		}
 		else
 		{
@@ -231,7 +231,7 @@ public:
 				cache[url] = cachedData;
 				cachedData->seqNo = ++seqNo;
 				totalCachedBytes += len;
-				AAMPLOG_MIL( "inserted %s %s", GetMediaTypeName(mediaType), url.c_str() );
+				AAMPLOG_MIL( "inserted %s %s", GetMediaTypeName(mediaType), url.c_str() ); // used by l2tests
 				// There are cases where main url and effective url will be different (often for main manifest)
 				// Need to store both the entries with same content data
 				// When retune happens within aamp due to failure, effective url wll be asked to read from cached manifest
@@ -427,7 +427,7 @@ public:
 	 *   @param[out] effectiveUrl - Final URL
 	 *   @return true: found, false: not found
 	 */
-	bool RetrieveFromPlaylistCache( const std::string &url, AampGrowableBuffer* buffer, std::string& effectiveUrl );
+	bool RetrieveFromPlaylistCache( const std::string &url, AampGrowableBuffer* buffer, std::string& effectiveUrl, AampMediaType mediaType );
 	
 	/**
 	 * @brief Remove playlist from cache
@@ -450,7 +450,7 @@ public:
 	/**
 	 *  @brief check if playlist in cache
 	 */
-	bool IsUrlCached( const std::string &playlistUrl );
+	bool IsPlaylistUrlCached( const std::string &playlistUrl );
 
 	/**
 	 *   @brief add initialization fragment to cache

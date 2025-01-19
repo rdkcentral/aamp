@@ -9996,7 +9996,7 @@ void PrivateInstanceAAMP::PreCachePlaylistDownloadTask()
 					PreCacheUrlStruct newelem = mPreCacheDnldList.at(idx);
 
 					// check if url cached ,if not download
-					if(getAampCacheHandler()->IsUrlCached(newelem.url)==false)
+					if( !getAampCacheHandler()->IsPlaylistUrlCached(newelem.url))
 					{
 						AAMPLOG_WARN("Downloading Playlist Type:%d for PreCaching:%s",
 							newelem.type, newelem.url.c_str());

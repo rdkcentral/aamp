@@ -48,6 +48,26 @@ static constexpr uint32_t TRICKMODE_TIMESCALE{100000};
 
 using namespace std;
 
+
+AampMediaType TrackTypeToMediaType( TrackType trackType )
+{
+	switch( trackType )
+	{
+		case eTRACK_VIDEO:
+			return eMEDIATYPE_PLAYLIST_VIDEO;
+		case eTRACK_AUDIO:
+			return eMEDIATYPE_PLAYLIST_AUDIO;
+		case eTRACK_SUBTITLE:
+			return eMEDIATYPE_PLAYLIST_SUBTITLE;
+		case eTRACK_AUX_AUDIO:
+			return eMEDIATYPE_PLAYLIST_AUX_AUDIO;
+			//case eTRACK_IFRAME:
+			//	return eMEDIATYPE_PLAYLIST_IFRAME;
+		default:
+			return eMEDIATYPE_DEFAULT;
+	}
+}
+
 /**
  * @brief Start playlist downloader loop
  */
@@ -4288,7 +4308,7 @@ void MediaTrack::PlaylistDownloader()
 				SetLastPlaylistDownloadTime(lastPlaylistDownloadTime);
 			}
 
-			if (aamp->getAampCacheHandler()->RetrieveFromPlaylistCache(manifestUrl, &manifest, effectiveUrl))
+			if (aamp->getAampCacheHandler()->RetrieveFromPlaylistCache(manifestUrl, &manifest, effectiveUrl,eMEDIATYPE_MANIFEST))
 			{
 				gotManifest = true;
 				AAMPLOG_INFO("manifest[%s] retrieved from cache", trackName.c_str());
@@ -4564,3 +4584,5 @@ void MediaTrack::HandleFragmentPositionJump(CachedFragment* cachedFragment)
 		}
 	}
 }
+
+					  

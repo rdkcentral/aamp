@@ -59,7 +59,7 @@ void AampCacheHandler::StopPlaylistCache( void )
 	mCondVar.notify_one();
 }
 
-bool AampCacheHandler::RetrieveFromPlaylistCache( const std::string &url, AampGrowableBuffer* buffer, std::string& effectiveUrl )
+bool AampCacheHandler::RetrieveFromPlaylistCache( const std::string &url, AampGrowableBuffer* buffer, std::string& effectiveUrl, AampMediaType mediaType  )
 {
 	bool ret = false;
 	std::lock_guard<std::mutex> lock(mCacheAccessMutex);
@@ -73,12 +73,13 @@ bool AampCacheHandler::RetrieveFromPlaylistCache( const std::string &url, AampGr
 		}
 		buffer->Clear();
 		buffer->AppendBytes( cachedData->buffer->GetPtr(), cachedData->buffer->GetLen() );
+		assert( mediaType == cachedData->mediaType );
 		AAMPLOG_TRACE( "%s %s found", GetMediaTypeName(cachedData->mediaType), url.c_str() );
 		ret = true;
 	}
 	else
 	{
-		AAMPLOG_TRACE("%s not found", url.c_str());
+		AAMPLOG_TRACE("%s %s not found", GetMediaTypeName(mediaType), url.c_str());
 	}
 	return ret;
 }
@@ -97,7 +98,7 @@ void AampCacheHandler::SetMaxInitFragCacheSize( int maxFragmentsPerTrack )
 	AAMPLOG_MIL("Setting maxCachedInitFragmentsPerTrack to :%d",maxFragmentsPerTrack);
 }
 
-bool AampCacheHandler::IsUrlCached( const std::string &playlistUrl )
+bool AampCacheHandler::IsPlaylistUrlCached( const std::string &playlistUrl )
 {
 	std::lock_guard<std::mutex> lock(mCacheAccessMutex);
 	return mPlaylistCache.Find(playlistUrl) != NULL;

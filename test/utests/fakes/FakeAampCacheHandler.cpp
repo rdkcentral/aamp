@@ -39,7 +39,7 @@ void AampCacheHandler::StopPlaylistCache()
 {
 }
 
-bool AampCacheHandler::RetrieveFromPlaylistCache(const std::string &url, AampGrowableBuffer* buffer, std::string& effectiveUrl)
+bool AampCacheHandler::RetrieveFromPlaylistCache(const std::string &url, AampGrowableBuffer* buffer, std::string& effectiveUrl, AampMediaType mediaType)
 {
     return false;
 }
@@ -52,7 +52,7 @@ void AampCacheHandler::SetMaxInitFragCacheSize(int maxInitFragCacheSz)
 {
 }
 
-bool AampCacheHandler::IsUrlCached(const std::string &url)
+bool AampCacheHandler::IsPlaylistUrlCached(const std::string &url)
 {
     return false;
 }

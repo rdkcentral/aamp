@@ -124,18 +124,18 @@ TEST_F(AampCacheHandlerTest, PlaylistCache)
 	
 	// expected failure inserting empty buffer
 	buffer->Clear();
-	EXPECT_FALSE(handler->IsUrlCached(url1));
+	EXPECT_FALSE(handler->IsPlaylistUrlCached(url1));
 	handler->InsertToPlaylistCache(url1, buffer, url1, false, eMEDIATYPE_PLAYLIST_VIDEO);
-	EXPECT_FALSE(handler->IsUrlCached(url1));
+	EXPECT_FALSE(handler->IsPlaylistUrlCached(url1));
 
 	// expected failure caching non-empty playlist for live playback
 	buffer->AppendBytes("apple",5);
     handler->InsertToPlaylistCache(url1, buffer, url1, true, eMEDIATYPE_PLAYLIST_VIDEO);
-	EXPECT_FALSE(handler->IsUrlCached(url1));
+	EXPECT_FALSE(handler->IsPlaylistUrlCached(url1));
 
 	// expected success caching non-empty playlist for non-live (vod)
     handler->InsertToPlaylistCache(url2, buffer, url2, false, eMEDIATYPE_PLAYLIST_VIDEO);
-	EXPECT_TRUE(handler->IsUrlCached(url2));
+	EXPECT_TRUE(handler->IsPlaylistUrlCached(url2));
 
 	buffer->Clear();
 	
@@ -145,20 +145,20 @@ TEST_F(AampCacheHandlerTest, PlaylistCache)
     buffer->AppendBytes(srcData3, arraySize3);
     // Inserting the playlist and trying to retrieve with non-empty buffer
     handler->InsertToPlaylistCache(url2, buffer, url2, false, eMEDIATYPE_PLAYLIST_VIDEO);
-    EXPECT_TRUE(handler->IsUrlCached(url2));
+    EXPECT_TRUE(handler->IsPlaylistUrlCached(url2));
 
 	// If new Manifest is inserted which is not present in the cache , flush out other playlist files related with old manifest,
     handler->InsertToPlaylistCache(mpdurl, buffer, mpdurl, false, eMEDIATYPE_MANIFEST);
-	EXPECT_FALSE(handler->IsUrlCached(url2));
-	EXPECT_TRUE(handler->IsUrlCached(mpdurl));
+	EXPECT_FALSE(handler->IsPlaylistUrlCached(url2));
+	EXPECT_TRUE(handler->IsPlaylistUrlCached(mpdurl));
 
 	// Removing the Url and trying to check whether the Url is present or not
     handler->RemoveFromPlaylistCache(mpdurl);
-    EXPECT_FALSE(handler->IsUrlCached(mpdurl));
+    EXPECT_FALSE(handler->IsPlaylistUrlCached(mpdurl));
 
     // Inserting the manifest and trying to retrieve it
     handler->InsertToPlaylistCache(url3, buffer, url3, false, eMEDIATYPE_MANIFEST);
-    EXPECT_TRUE(handler->RetrieveFromPlaylistCache(url3, buffer, url3));
+    EXPECT_TRUE(handler->RetrieveFromPlaylistCache(url3, buffer, url3, eMEDIATYPE_MANIFEST));
 
     // Trying to Insert Url when the buffer size is greater than MaxPlaylistCacheSize
     const char *srcData1[30] = {"HelloWorld"};
@@ -166,7 +166,7 @@ TEST_F(AampCacheHandlerTest, PlaylistCache)
     buffer->AppendBytes(srcData1, arraySize1);
     handler->SetMaxPlaylistCacheSize(20);
     handler->InsertToPlaylistCache(url4, buffer, url4, false, eMEDIATYPE_PLAYLIST_VIDEO);
-    EXPECT_FALSE(handler->IsUrlCached(url4));
+    EXPECT_FALSE(handler->IsPlaylistUrlCached(url4));
 
     buffer->Clear();
 
@@ -176,17 +176,17 @@ TEST_F(AampCacheHandlerTest, PlaylistCache)
     buffer->AppendBytes(srcData2, arraySize2);
     handler->SetMaxPlaylistCacheSize(30);
     handler->InsertToPlaylistCache(url5, buffer, url5, false, eMEDIATYPE_MANIFEST);
-    EXPECT_TRUE(handler->IsUrlCached(url5));
+    EXPECT_TRUE(handler->IsPlaylistUrlCached(url5));
 
     // when effectiveUrl and Url is same
     handler->InsertToPlaylistCache(url6, buffer, url6, false, eMEDIATYPE_MANIFEST);
-    EXPECT_TRUE(handler->IsUrlCached(url6));
+    EXPECT_TRUE(handler->IsPlaylistUrlCached(url6));
 
     // when effectiveUrl and Url is not same
     std::string effectiveUrl = "http://notsameurl.com";
     handler->InsertToPlaylistCache(url7, buffer, effectiveUrl, false, eMEDIATYPE_MANIFEST);
-	EXPECT_TRUE(handler->IsUrlCached(url7));
-	EXPECT_TRUE(handler->IsUrlCached(effectiveUrl));
+	EXPECT_TRUE(handler->IsPlaylistUrlCached(url7));
+	EXPECT_TRUE(handler->IsPlaylistUrlCached(effectiveUrl));
 }
 
 TEST_F(AampCacheHandlerTest, StartPlaylistCachetest)
