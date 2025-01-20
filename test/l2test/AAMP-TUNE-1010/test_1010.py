@@ -24,67 +24,63 @@ from inspect import getsourcefile
 import os
 import pytest
 import re
+
 # Note:
 # This test requires a DASH stream with no subtitles (if it has subtitles, the
 # SubtecSimulatorThread starts before the tuned event is received and the test fails).
+archive_url = "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/streams/L2/AAMP-MV-5000/SKYNEHD_HD_SUD_SKYUKD_4050_18_0000000000000018163.tar.gz"
 
-logentry = "HttpRequestEnd: 0,0,200,0.9940,0.9939,0.0003,0.5111,0.0003,0.0003,0.0006,0.0000,441385,580,3552000,1996000,https://lin001-gb-s8-tst-ll.cdn01.skycdp.com/SKYNEHD_HD_SUD_SKYUKD_4050_18_0000000000000018163/track-video-repid-root_video2-tc--enc--frag-898784452.mp4 "
-pattern = r'[^,]+$'
-values = logentry.split(',')
-match=re.search(pattern, logentry)
-TESTDATA1= {
-"title": "CDAI Single Pipeline - Multiple Assets",
-"max_test_time_seconds": 60,
+TESTDATA0 = {
+    "title": "CDAI Single Pipeline - Multiple Assets",
+    "max_test_time_seconds": 60,
 
-"expect_list": [
-   {"cmd": 'setconfig {"info":true,"trace":true,"useSinglePipeline":true}'},  # must use " not ' in json
-   # Create main content player - Player 1
-   {"cmd":"new"},
-   {"expect":r"Undefined Pipeline mode, creating GstPlayer for PLAYER\[1\]"},
+    "expect_list":
+    [
+        {"cmd": 'setconfig {"info":true,"trace":true,"useSinglePipeline":true}'},  # must use " not ' in json
+        # Create main content player - Player 1
+        {"cmd":"new"},
+        {"expect":r"Undefined Pipeline mode, creating GstPlayer for PLAYER\[1\]"},
 
-   # Toggle autoplay off
-   {"cmd":"autoplay"},
+        # Toggle autoplay off
+        {"cmd":"autoplay"},
 
-   {"cmd":"https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/main.mpd"},
-   {"cmd":"set videoTrack 5000000 5000000 5000000"},
-   {"expect": "SetBitrates"},
-   {"expect": "bitrate = 5000000" },
-   {"expect": "HttpRequestEnd: 0,0,200"},
-   {"expect": "500000"},
-]
+        {"cmd":"https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/main.mpd"},
+        {"cmd":"set videoTrack 5000000 5000000 5000000"},
+        {"expect": "bitrate = 5000000" },
+        {"expect": "HttpRequestEnd: 0,0,200.*1080p"}
+    ]
 }
-TESTDATA0= {
-"title": "CDAI Single Pipeline - Multiple Assets",
-"max_test_time_seconds": 60,
 
-"expect_list": [
-   {"cmd": 'setconfig {"info":true,"trace":true,"useSinglePipeline":true}'},  # must use " not ' in json
-   # Create main content player - Player 1
-   {"cmd":"new"},
-   {"expect":r"Undefined Pipeline mode, creating GstPlayer for PLAYER\[1\]"},
+TESTDATA1 = {
+    "title": "CDAI Single Pipeline - Multiple Assets",
+    "max_test_time_seconds": 60,
+    "archive_url": archive_url,
+    "simlinear_type": "DASH",
+    "expect_list":
+    [
+        {"cmd": 'setconfig {"info":true,"trace":true,"useSinglePipeline":true}'},  # must use " not ' in json
+        # Create main content player - Player 1
+        {"cmd":"new"},
+        {"expect":r"Undefined Pipeline mode, creating GstPlayer for PLAYER\[1\]"},
 
-   # Toggle autoplay off
-   {"cmd":"autoplay"},
+        # Toggle autoplay off
+        {"cmd":"autoplay"},
 
-
-    {"cmd":"https://lin001-gb-s8-tst-ll.cdn01.skycdp.com/SKYNEHD_HD_SUD_SKYUKD_4050_18_0000000000000018163.mpd?live=true"},
-   {"cmd":"set videoTrack 4461200 4461200 4461200"},
-   {"cmd":"SetBitrates"},
-    {"expect": "HttpRequestEnd: 0,0,200,.*4461200*"},
-    {"expect": ",4461200,"},
-]
+        {"cmd":"http://localhost:8085/f2decf88-72cb-4e81-8e7b-ae230ea5c83b/SKYNEHD_HD_SUD_SKYUKD_4050_18_0000000000000018163.mpd"},
+        {"cmd":"set videoTrack 4461200 4461200 4461200"},
+        {"expect": "HttpRequestEnd: 0,0,200,.*4461200*"}
+    ]
 }
 
 ############################################################
+TESTLIST = [TESTDATA0, TESTDATA1]
+
+@pytest.fixture(params=TESTLIST)
+def test_data(request):
+    return request.param
 
 @pytest.mark.ci_test_set
-def test_1010(aamp_setup_teardown):
+def test_1010(aamp_setup_teardown, test_data):
     aamp = aamp_setup_teardown
     aamp.set_paths(os.path.abspath(getsourcefile(lambda: 0)))
-    aamp.run_expect_a(TESTDATA1)
-
-def test_1010_1(aamp_setup_teardown):
-    aamp = aamp_setup_teardown
-    aamp.set_paths(os.path.abspath(getsourcefile(lambda: 0)))
-    aamp.run_expect_a(TESTDATA0)
-
+    aamp.run_expect_a(test_data)
