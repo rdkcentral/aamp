@@ -38,7 +38,7 @@ TESTDATA1 = {
 		{"expect":r"fragmentUrl http://localhost:8085/matchingUrlDump/video_init.mp4"},
 		{"expect":r"inserted init_video http://localhost:8085/matchingUrlDump/video_init.mp4"},
 		{"expect":r"fragmentUrl http://localhost:8085/matchingUrlDump/audio_init.mp4"},
-		{"expect":r"inserted init_audio url http://localhost:8085/matchingUrlDump/audio_init.mp4"},
+		{"expect":r"inserted init_audio http://localhost:8085/matchingUrlDump/audio_init.mp4"},
 		{"expect":r"Returning Position as [0-4](\d{3})"},
 		{"expect":r"Returning Position as [5-9](\d{3})"}, 
 	]

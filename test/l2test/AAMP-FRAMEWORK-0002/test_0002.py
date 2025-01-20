@@ -86,7 +86,7 @@ TESTDATA3 = {
     "url":f"VideoTestStream/main.mpd",
     "simlinear_type": "DASH",
     "expect_list": [ 
-        {"expect": r"Inserted init url http://localhost:8085/VideoTestStream/dash/1080p_init\.m4s"},
+        {"expect": r"inserted init_video http://localhost:8085/VideoTestStream/dash/1080p_init\.m4s"},
         {"expect": r"HttpRequestEnd: ([0-9,.]+)http://localhost:8085/VideoTestStream/dash/1080p_001\.m4s"},
         {"expect": r"HttpRequestEnd: ([0-9,.]+)http://localhost:8085/VideoTestStream/dash/1080p_002\.m4s"},
         {"expect": r"Returning Position as [0-3][0-9]{3}"},
