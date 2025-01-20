@@ -4308,7 +4308,7 @@ void MediaTrack::PlaylistDownloader()
 				SetLastPlaylistDownloadTime(lastPlaylistDownloadTime);
 			}
 
-			if (aamp->getAampCacheHandler()->RetrieveFromPlaylistCache(manifestUrl, &manifest, effectiveUrl,eMEDIATYPE_MANIFEST))
+			if (aamp->getAampCacheHandler()->RetrieveFromPlaylistCache(manifestUrl, &manifest, effectiveUrl,mediaType))
 			{
 				gotManifest = true;
 				AAMPLOG_INFO("manifest[%s] retrieved from cache", trackName.c_str());
