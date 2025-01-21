@@ -246,6 +246,7 @@ TESTDATA9 = {
 	"aamp_cfg": "info=true\ntrace=true\nlocalTSBEnabled=true\ntsbLocation=/tmp/data\ntsbLength=500\ntsbLog=0\nsupressDecode=true\nenablePTSReStamp=true\n",
 	"expect_list":
 	[
+		# The test data transitions over periods 881036616 and 881036617 with frag-881045317 being the first in period 881036617 
 		# Wait until one specific fragment is added to TSB (~10s)
 		{"expect": r'\[AddFragment\]\[\d+\]\[audio\] Adding fragment data\:.*track-audio-periodid-881036617-([\w:\-\. /\']+)frag-881045320', "callback": send_command, "callback_arg": "rew 2"},
 
@@ -255,7 +256,7 @@ TESTDATA9 = {
 		{"expect": r"GST_MESSAGE_EOS"},
 
 		# Check the PTS restamp is done correctly
-		{"expect": r'\[RestampPts\].*?\[(\w+)\] timeScale (\d+) before (\d+) after (\d+) duration (\d+) ([\w:/?\.\-]+)\r\n', "min":10, "callback" : pts_restamp_utils.check_restamp},
+		{"expect": r'\[RestampPts\].*?\[(\w+)\] timeScale (\d+) before (\d+) after (\d+) duration (\d+) ([\w:/?\.\-]+)\r\n', "min":15, "callback" : pts_restamp_utils.check_restamp},
 		# Check the PTS restamp is done correctly during trick modes (rewind and fast forward)
 		{"expect": trick_modes_pts_restamp_utils.LOG_LINE, "callback" : trick_modes_pts_restamp_utils.check_restamp},
 
@@ -283,7 +284,7 @@ TESTDATA = [
 	{'testdata': TESTDATA6, 'expected_restamps': 20, 'expected_trickmodes_restamps': 0},
 	{'testdata': TESTDATA7, 'expected_restamps': 20, 'expected_trickmodes_restamps': 0},
 	{'testdata': TESTDATA8, 'expected_restamps': 10, 'expected_trickmodes_restamps': 0},
-	#{'testdata': TESTDATA9, 'expected_restamps': 10, 'expected_trickmodes_restamps': 10} Enable this test when CDAI is added for SLD
+	{'testdata': TESTDATA9, 'expected_restamps': 10, 'expected_trickmodes_restamps': 10} 
 ]
 
 

@@ -778,7 +778,7 @@ bool AampTSBSessionManager::PushNextTsbFragment(MediaStreamContext *pMediaStream
 			TsbInitDataPtr initFragmentData = nextFragmentData->GetInitFragData();
 			double bandwidth = initFragmentData->GetBandWidth();
 			AAMPLOG_INFO("Profile Changed : %d : CurrentBandwidth: %.02lf Previous Bandwidth: %.02lf",(bandwidth != reader->mCurrentBandwidth),bandwidth,reader->mCurrentBandwidth);
-			if((reader->IsDiscontinuous()) || isFirstDownload || bandwidth != reader->mCurrentBandwidth)
+			if((reader->IsDiscontinuous()) || (reader->IsPeriodBoundary()) || isFirstDownload || bandwidth != reader->mCurrentBandwidth)
 			{
 				CachedFragmentPtr initFragment = Read(initFragmentData);
 				if (initFragment)

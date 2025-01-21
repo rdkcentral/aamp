@@ -226,9 +226,10 @@ std::shared_ptr<TsbFragmentData> AampTsbReader::ReadNext()
 	// For reverse iteration, inspect the discontinuity marker in the current fragment,
 	//		indicating that the upcoming iteration will transition to a different period.
 	mIsNextFragmentDisc = (mCurrentRate >= 0) ? (ret ? ret->IsDiscontinuous() : false) : (ret->next ? ret->next->IsDiscontinuous() : false);
-	if (AAMP_NORMAL_PLAY_RATE == mCurrentRate)
+
+	if (!IsFirstDownload())
 	{
-		DetectDiscontinuity(ret);
+		CheckPeriodBoundary(ret);
 	}
 	mUpcomingFragmentPosition += (mCurrentRate >= 0) ? ret->GetDuration() : -ret->GetDuration();
 	AAMPLOG_INFO("[%s] Returning fragment: pos %lfs pts %lfs relativePos %lfs next %lfs eos %d initWaiting %d discontinuity %d mIsPeriodBoundary %d period %s timeScale %u ptsOffset %fs url %s",
@@ -238,37 +239,27 @@ std::shared_ptr<TsbFragmentData> AampTsbReader::ReadNext()
 }
 
 /**
- * @fn GetStartPosition
- *
- * @return startPosition
+ * @fn CheckPeriodBoundary
+ * 
+ * @param[in] currFragment - Current fragment
  */
-void AampTsbReader::DetectDiscontinuity(TsbFragmentDataPtr currFragment)
+void AampTsbReader::CheckPeriodBoundary(TsbFragmentDataPtr currFragment)
 {
-	/**
-	 * Current rate > 0 check the current Period Id is equal to next fragment period Id else current period Iid is equal to previous fragment
-	 * period Id
-	 */
-	if (!IsFirstDownload())
+	mIsPeriodBoundary = false;
+
+	TsbFragmentDataPtr adjFragment = (mCurrentRate >= 0) ? currFragment->prev : currFragment->next;
+	if (adjFragment)
 	{
-		mIsPeriodBoundary = (mCurrentRate >= 0) ? (currFragment->prev ? (currFragment->GetPeriodId() != currFragment->prev->GetPeriodId()) : false) : (currFragment->next ? (currFragment->GetPeriodId() != currFragment->next->GetPeriodId()) : false);
+		mIsPeriodBoundary = (currFragment->GetPeriodId() != adjFragment->GetPeriodId());
 	}
-	if (mIsPeriodBoundary)
+
+	if (mIsPeriodBoundary && (AAMP_NORMAL_PLAY_RATE == mCurrentRate))
 	{
-		// Continuous PTS check
-		TsbFragmentDataPtr adjFragment = (mCurrentRate >= 0) ? currFragment->prev : currFragment->next;
-		if (adjFragment)
+		double nextPTSCal = (adjFragment->GetPTS()) + ((mCurrentRate >= 0) ? adjFragment->GetDuration() : -adjFragment->GetDuration());
+		if (nextPTSCal != currFragment->GetPTS())
 		{
-			double nextPTSCal = (adjFragment->GetPTS()) + ((mCurrentRate >= 0) ? adjFragment->GetDuration() : -adjFragment->GetDuration());
-			if (nextPTSCal != currFragment->GetPTS())
-			{
-				mIsPeriodBoundary = true;
-				mFirstPTS = currFragment->GetPTS();
-				AAMPLOG_INFO("Discontinuity detected at PTS position %lf", mFirstPTS);
-			}
-			else
-			{
-				mIsPeriodBoundary = false;
-			}
+			mFirstPTS = currFragment->GetPTS();
+			AAMPLOG_INFO("Discontinuity detected at PTS position %lf", mFirstPTS);
 		}
 	}
 }

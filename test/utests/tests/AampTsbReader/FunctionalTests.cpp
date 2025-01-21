@@ -46,9 +46,9 @@ protected:
 		{
 		}
 
-		void CallDetectDiscontinuity(TsbFragmentDataPtr currFragment)
+		void CallCheckPeriodBoundary(TsbFragmentDataPtr currFragment)
 		{
-			DetectDiscontinuity(currFragment);
+			CheckPeriodBoundary(currFragment);
 		}
 	};
 
@@ -988,8 +988,8 @@ TEST_F(FunctionalTests, ReadNext_PeriodBoundaryTrickPlay)
 	EXPECT_EQ(mTestableTsbReader->ReadNext(), fragment2);
 	EXPECT_EQ(mTestableTsbReader->ReadNext(), fragment1);
 
-	// Trickplay in progress, no period boundary, eventhough discontinuity is detected from data manager
-	EXPECT_FALSE(mTestableTsbReader->IsPeriodBoundary());
+	// Trickplay in progress, period boundary, discontinuity is detected from data manager
+	EXPECT_TRUE(mTestableTsbReader->IsPeriodBoundary());
 	EXPECT_TRUE(mTestableTsbReader->IsDiscontinuous());
 }
 

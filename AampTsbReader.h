@@ -194,11 +194,11 @@ private:
 
 protected:
 	/**
-	 * @fn DetectDiscontinuity
-	 *
-	 * @return None
+	 * @fn CheckPeriodBoundary
+	 * 
+	 * @param[in] currFragment - Current fragment
 	 */
-	void DetectDiscontinuity(TsbFragmentDataPtr  currFragment);
+	void CheckPeriodBoundary(TsbFragmentDataPtr currFragment);
 
 public:
 	PrivateInstanceAAMP *mAamp;

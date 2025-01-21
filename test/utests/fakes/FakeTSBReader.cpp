@@ -68,7 +68,7 @@ std::shared_ptr<TsbFragmentData> AampTsbReader::ReadNext()
 	return nullptr;
 }
 
-void AampTsbReader::DetectDiscontinuity(TsbFragmentDataPtr  currFragment)
+void AampTsbReader::CheckPeriodBoundary(TsbFragmentDataPtr  currFragment)
 {
 }
 
