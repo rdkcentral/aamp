@@ -24,7 +24,7 @@ jobs:
             path: aamp
 
       - name: Run unit tests
-        run: /bin/bash aamp/test/run_ut.sh
+        run: sh -c test/run_ut.sh
 
       - name: Upload test results to automatic test result management system
         if: github.repository_owner == 'rdkcentral'
