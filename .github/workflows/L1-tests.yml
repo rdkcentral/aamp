@@ -24,10 +24,10 @@ jobs:
             path: aamp
 
       - name: Run unit tests
-        if: env.CI_CONTAINER != ''
         run: /bin/bash aamp/test/run_ut.sh
 
       - name: Upload test results to automatic test result management system
-        if: env.CI_CONTAINER != ''
-        run: >
+        if: github.repository_owner == 'rdkcentral'
+        run: |
+          git config --global --add safe.directory `pwd`
           gtest-json-result-push.py /tmp/Gtest_Report ${{ env.TEST_RESULTS_SERVER }} `pwd`
