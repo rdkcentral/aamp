@@ -8,7 +8,6 @@ env:
   AUTOMATICS_UNAME: ${{ secrets.AUTOMATICS_UNAME }}
   AUTOMATICS_PASSCODE: ${{ secrets.AUTOMATICS_PASSCODE }}
   WORKSPACE: ${{ github.workspace }}
-  CI_CONTAINER: ${{ secrets.CI_CONTAINER }}
   TEST_RESULTS_SERVER: ${{ secrets.TEST_RESULTS_SERVER }}
 
 jobs:
@@ -16,7 +15,7 @@ jobs:
     name: Execute unit tests in gtest test suite
     runs-on: ubuntu-latest
     container:
-      image: ${{ env.CI_CONTAINER }}
+      image: ghcr.io/rdkcentral/docker-rdk-ci:latest
 
     steps:
       - name: Checkout aamp code
