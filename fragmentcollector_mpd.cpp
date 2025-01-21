@@ -11128,7 +11128,7 @@ static void indexThumbnails(dash::mpd::IMPD *mpd, int thumbIndexValue, std::vect
 												{
 													std::string tmedia = media;
 													TileInfo tileInfo;
-													memset( &tileInfo,0,sizeof(tileInfo) );
+													memset( &tileInfo,0,10*sizeof(tileInfo) );
 													tileInfo.startTime = startTime + ( adDuration / timeScale) ;
 													AAMPLOG_TRACE("timeLineIndex[%d] size [%zu] updated durationMs[%" PRIu64 "] startTime:%f adDuration:%f repeatCount:%d",  timeLineIndex, timelines.size(), durationMs, startTime, adDuration, repeatCount);
 
