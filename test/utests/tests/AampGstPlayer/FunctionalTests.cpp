@@ -146,7 +146,7 @@ public:
 		GstElement rialto_video_sink = {.object = {.name = (gchar *)"rialtomsevideosink0"}};
 		GstElement brcm_video_sink = {.object = {.name = (gchar *)"brcmvideosink0"}};
 		GstElement audio_sink = {.object = {.name = (gchar *)"amlhalasink0"}};
-		GstElement *p_video_sink = nullptr; 
+		GstElement *p_video_sink = nullptr;
 		GstElement *p_audio_sink = &audio_sink;
 		GstPipeline *pipeline = GST_PIPELINE(&gst_element_pipeline);
 
@@ -238,6 +238,7 @@ public:
 		{
 			EXPECT_CALL(*g_mockGStreamer, gst_element_factory_make(StrEq("rialtomsevideosink"), NULL))
 				.WillRepeatedly(Return(p_video_sink));
+			// IsGstreamerSubsEnabled fake impl returns false and hence EXPECT_CALL for subtitle pipeline is not required
 		}
 		else if (setup->usingWesteros)
 		{

@@ -2763,7 +2763,7 @@ static int AAMPGstPlayer_SetupStream(AAMPGstPlayer *_this, AampMediaType streamI
 				gst_element_add_pad(subtitlebin, gst_ghost_pad_new("sink", gst_element_get_static_pad(vipertransform, "sink")));
 
 				g_object_set(stream->sinkbin, "text-sink", subtitlebin, NULL);
-                                _this->privateContext->subtitle_sink = textsink;
+				_this->privateContext->subtitle_sink = textsink;
 				AAMPLOG_MIL("using rialtomsesubtitlesink muted=%d sink=%p", _this->privateContext->subtitleMuted, _this->privateContext->subtitle_sink);
 				g_object_set(textsink, "mute", _this->privateContext->subtitleMuted ? TRUE : FALSE, NULL);
 			}

@@ -839,3 +839,20 @@ GType gst_base_sink_get_type (void)
         return 0;
 }
 
+gboolean gst_element_add_pad (GstElement * element, GstPad * pad)
+{
+	TRACE_FUNC();
+	return FALSE;
+}
+
+GstPad * gst_ghost_pad_new (const gchar * name, GstPad * target)
+{
+	TRACE_FUNC();
+	return NULL;
+}
+
+GstElement * gst_bin_new (const gchar * name)
+{
+	TRACE_FUNC();
+	return NULL;
+}
