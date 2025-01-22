@@ -7865,7 +7865,9 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, 
 				return eAAMPSTATUS_MANIFEST_CONTENT_ERROR;
 			}
 
-			if (eMEDIATYPE_VIDEO == i && mMultiVideoAdaptationPresent)
+			// Only process content protection when there is a period change.
+			// On manifest refresh, the content protection is already processed during period change
+			if (eMEDIATYPE_VIDEO == i && mMultiVideoAdaptationPresent && periodChanged)
 			{
 				// Process content protection for the selected video and queue remaining CPs
 				ProcessAllContentProtectionForMediaType(eMEDIATYPE_VIDEO, pMediaStreamContext->adaptationSetIdx, chosenAdaptationIdxs);
