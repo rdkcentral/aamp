@@ -19,13 +19,15 @@
 
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
+#include "middleware/InterfacePlayerRDK.h"
 #include "aampgstplayer.h"
 #include "MockGStreamer.h"
 #include "MockGLib.h"
 #include "MockAampConfig.h"
-#include "MockAampHandlerControl.h"
+#include "MockGstHandlerControl.h"
 #include "MockPrivateInstanceAAMP.h"
 #include "MockAampUtils.h"
+#include "MockGstUtils.h"
 
 using ::testing::NiceMock;
 using ::testing::Return;
@@ -48,19 +50,22 @@ class AAMPGstPlayerTests : public ::testing::Test
 
 protected:
 	AAMPGstPlayer *mAAMPGstPlayer;
+	InterfacePlayerRDK *mplayer;
 	PrivateInstanceAAMP *mPrivateInstanceAAMP;
 	bool isPipelineSetup = false;
 	GstElement gst_element_pipeline = {.object = {.name = (gchar *)"Pipeline"}};
 	GstBus bus = {};
 	GstQuery query = {};
+	InterfacePlayerRDK *mInterfaceGstPlayer;
 
 	void SetUp() override
 	{
+		g_mockGstUtils = new MockGstUtils();
 		g_mockAampUtils = new NiceMock<MockAampUtils>();
 		g_mockGStreamer = new NiceMock<MockGStreamer>();
 		g_mockGLib = new MockGLib();
 		g_mockAampConfig = new NiceMock<MockAampConfig>();
-		g_mockAampHandlerControl = new MockAampHandlerControl();
+		g_mockGstHandlerControl= new MockGstHandlerControl();
 		g_mockPrivateInstanceAAMP = new MockPrivateInstanceAAMP();
 		mPrivateInstanceAAMP = new PrivateInstanceAAMP{};
 	}
@@ -70,8 +75,8 @@ protected:
 		delete g_mockPrivateInstanceAAMP;
 		g_mockPrivateInstanceAAMP = nullptr;
 
-		delete g_mockAampHandlerControl;
-		g_mockAampHandlerControl = nullptr;
+		delete g_mockGstHandlerControl;
+		 g_mockGstHandlerControl= nullptr;
 
 		delete g_mockAampConfig;
 		g_mockAampConfig = nullptr;
@@ -87,6 +92,10 @@ protected:
 
 		delete mPrivateInstanceAAMP;
 		mPrivateInstanceAAMP = nullptr;
+
+		delete g_mockGstUtils;
+		g_mockGstUtils = nullptr;
+
 	}
 
 public:
@@ -117,6 +126,8 @@ public:
 		EXPECT_CALL(*g_mockGStreamer, gst_debug_set_threshold_from_string(StrEq(debug_level.c_str()), reset));
 
 		mAAMPGstPlayer = new AAMPGstPlayer{mPrivateInstanceAAMP, nullptr};
+		mInterfaceGstPlayer = new InterfacePlayerRDK();
+		mplayer = mAAMPGstPlayer->playerInstance;
 	}
 
 	void DestroyAMPGstPlayer()
@@ -133,6 +144,8 @@ public:
 		}
 
 		delete mAAMPGstPlayer;
+		delete mInterfaceGstPlayer;
+		mInterfaceGstPlayer = nullptr;
 		mAAMPGstPlayer = nullptr;
 	}
 
@@ -152,7 +165,6 @@ public:
 		GstBusSyncHandler bus_sync_func = nullptr;
 
 		isPipelineSetup = true;
-
 		if (setup->usingRialto)
 		{
 			p_video_sink = &rialto_video_sink;
@@ -168,12 +180,14 @@ public:
 		
 		// Expectations
 
+
 		EXPECT_CALL(*g_mockAampConfig, IsConfigSet(_)).WillRepeatedly(Return(false));
 		EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_UseWesterosSink)).WillRepeatedly(Return(setup->usingWesteros));
 		EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_useRialtoSink)).WillRepeatedly(Return(setup->usingRialto));
 		EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnableRectPropertyCfg)).WillRepeatedly(Return(setup->enableRectangleProperty));
 
 		// CreatePipeline()
+		
 		EXPECT_CALL(*g_mockGStreamer, gst_pipeline_new(StrEq("AAMPGstPlayerPipeline")))
 			.WillOnce(Return(&gst_element_pipeline));
 
@@ -181,19 +195,19 @@ public:
 			.WillOnce(Return(&bus));
 
 		// Save the bus_message function for later use
-		EXPECT_CALL(*g_mockGStreamer, gst_bus_add_watch(&bus, NotNull(), mAAMPGstPlayer))
+		EXPECT_CALL(*g_mockGStreamer, gst_bus_add_watch(&bus, NotNull(), mplayer))
 			.WillOnce(DoAll(
 				SaveArgPointee<1>(&bus_message_func),
 				Return(0)));
 
 		// Save the bus_sync_handler function for later use
-		EXPECT_CALL(*g_mockGStreamer, gst_bus_set_sync_handler(&bus, NotNull(), mAAMPGstPlayer, NULL))
+		EXPECT_CALL(*g_mockGStreamer, gst_bus_set_sync_handler(&bus, NotNull(), mplayer, NULL))
 			.WillOnce(SaveArgPointee<1>(&bus_sync_func));
 
 		EXPECT_CALL(*g_mockGStreamer, gst_query_new_position(GST_FORMAT_TIME))
 			.WillOnce(Return(&query));
 		// End CreatePipeline()
-
+		
 		if (setup->setReadyAfterPipelineCreation)
 		{
 			EXPECT_CALL(*g_mockGStreamer, gst_element_get_state(&gst_element_pipeline, _, _, _))
@@ -211,7 +225,6 @@ public:
 		}
 		else
 		{
-
 			EXPECT_CALL(*g_mockGStreamer, gst_element_get_state(&gst_element_pipeline, _, _, _))
 				.WillOnce(DoAll(
 					SetArgPointee<1>(GST_STATE_VOID_PENDING),
@@ -264,7 +277,7 @@ public:
 
 		GstMessage sync_message = {.type = GST_MESSAGE_STATE_CHANGED, .src = GST_OBJECT(p_video_sink) };
 
-		EXPECT_CALL(*g_mockAampHandlerControl, isEnabled())
+		EXPECT_CALL(*g_mockGstHandlerControl, isEnabled())
 			.WillRepeatedly(Return(true));
 
 		EXPECT_CALL(*g_mockGStreamer, gst_message_parse_state_changed(Pointer(&sync_message),NotNull(),NotNull(),_))
@@ -296,7 +309,7 @@ public:
 				Return(1)));
 
 		// Call the bus_sync_handler function with video sink READY -> PAUSED
-		bus_sync_func(&bus, &sync_message, mAAMPGstPlayer);
+		bus_sync_func(&bus, &sync_message, mplayer);
 
 		sync_message = {.type = GST_MESSAGE_STATE_CHANGED, .src = GST_OBJECT(p_audio_sink) };
 
@@ -313,7 +326,7 @@ public:
 				Return(1)));
 
 		// Call the bus_sync_handler function with audio sink READY -> PAUSED
-		bus_sync_func(&bus, &sync_message, mAAMPGstPlayer);
+		bus_sync_func(&bus, &sync_message, mplayer);
 
 		GstMessage bus_message = {.type = GST_MESSAGE_STATE_CHANGED, .src = GST_OBJECT(&gst_element_pipeline) };
 
@@ -324,7 +337,7 @@ public:
 				SetArgPointee<3>(GST_STATE_NULL)));
 
 		// Call the bus_message function
-		bus_message_func(&bus, &bus_message, mAAMPGstPlayer);
+		bus_message_func(&bus, &bus_message, mplayer);
 	}
 
 };
@@ -372,6 +385,7 @@ TEST_P(AAMPGstPlayerTestsP, Configure)
 
 	DestroyAMPGstPlayer();
 }
+
 
 TEST_P(AAMPGstPlayerTestsP, SetAudioVolume)
 {
@@ -434,19 +448,19 @@ TEST_F(AAMPGstPlayerTests, TimerAdd)
 	int repeatTimeout = 100;
 	guint taskId = 0;
 	GstElement dummyelement; 
-
+	mInterfaceGstPlayer = new InterfacePlayerRDK();
 	ConstructAMPGstPlayer();
 
 	// Expectations
 
 	// Code under test - Callback Pointer = Null, user_data = Null
 	EXPECT_CALL(*g_mockGLib, g_timeout_add(_, _, _)) .Times(0);
-	mAAMPGstPlayer->TimerAdd(nullptr, repeatTimeout, taskId, user_data, "TimerAdd");
+	mInterfaceGstPlayer->TimerAdd(nullptr, repeatTimeout, taskId, user_data, "TimerAdd");
 	EXPECT_EQ(0,taskId);
 
 	// Code under test - user_data = Null
 	EXPECT_CALL(*g_mockGLib, g_timeout_add(_, _, _)) .Times(0);
-	mAAMPGstPlayer->TimerAdd(ProgressCallbackOnTimeout, repeatTimeout, taskId, user_data, "TimerAdd");
+	mInterfaceGstPlayer->TimerAdd(ProgressCallbackOnTimeout, repeatTimeout, taskId, user_data, "TimerAdd");
 	EXPECT_EQ(0,taskId);
 
 	user_data = &dummyelement;
@@ -454,19 +468,20 @@ TEST_F(AAMPGstPlayerTests, TimerAdd)
 
 	// Code under test - taskId = 1 timer already added
 	EXPECT_CALL(*g_mockGLib, g_timeout_add(_, _, _)) .Times(0);
-	mAAMPGstPlayer->TimerAdd(ProgressCallbackOnTimeout, repeatTimeout, taskId, user_data, "TimerAdd");
+	mInterfaceGstPlayer->TimerAdd(ProgressCallbackOnTimeout, repeatTimeout, taskId, user_data, "TimerAdd");
 	EXPECT_EQ(1,taskId);
 
 	taskId = 0;
 
 	// Code under test - Success Path
 	EXPECT_CALL(*g_mockGLib, g_timeout_add(_, _, _)) .WillOnce(Return(1));
-	mAAMPGstPlayer->TimerAdd(ProgressCallbackOnTimeout, repeatTimeout, taskId, user_data, "TimerAdd");
+	mInterfaceGstPlayer->TimerAdd(ProgressCallbackOnTimeout, repeatTimeout, taskId, user_data, "TimerAdd");
 	EXPECT_EQ(1,taskId);
 
 	//Tidy Up
 	DestroyAMPGstPlayer();
 }
+
 
 TEST_F(AAMPGstPlayerTests, TimerRemove)
 {
@@ -477,23 +492,21 @@ TEST_F(AAMPGstPlayerTests, TimerRemove)
 
 	// Expectations
 
+	mInterfaceGstPlayer = new InterfacePlayerRDK(); 
 	EXPECT_CALL(*g_mockGLib, g_source_remove(_)) .Times(0);
 
 	// Code under test - taskId = 0 timer not added to be removed
-
-	mAAMPGstPlayer->TimerRemove(taskId, "TimerRemove");
+	mInterfaceGstPlayer->TimerRemove(taskId, "TimerRemove");
 	EXPECT_EQ(0,taskId);
 
 	taskId = 1;
 
 	// Code under test - Success Path
 	EXPECT_CALL(*g_mockGLib, g_source_remove(_)) .WillOnce(Return(TRUE));
-	mAAMPGstPlayer->TimerRemove(taskId, "TimerRemove");
+	mInterfaceGstPlayer->TimerRemove(taskId, "TimerRemove");
 	EXPECT_EQ(0,taskId);
-
-	//Tidy Up
-	DestroyAMPGstPlayer();
 }
+
 
 TEST_F(AAMPGstPlayerTests, SetAudioVolume_NoSink)
 {
@@ -531,7 +544,7 @@ TEST_F(AAMPGstPlayerTests, SetVideoMute_NoSink)
 	DestroyAMPGstPlayer();
 }
 
-extern void MonitorAV( AAMPGstPlayer *_this );
+extern void MonitorAV( InterfacePlayerRDK *_this );
 
 TEST_F(AAMPGstPlayerTests, MonitorAV )
 {
@@ -616,7 +629,7 @@ TEST_F(AAMPGstPlayerTests, MonitorAV )
 			Return(GST_STATE_CHANGE_SUCCESS)));
 	for( int idx=0; idx<sizeof(avpos)/sizeof(avpos[0]); idx++ )
 	{
-		EXPECT_CALL( *g_mockAampUtils, aamp_GetCurrentTimeMS()).WillOnce(DoAll(Return(idx*250)));
+		EXPECT_CALL( *g_mockGstUtils, GetCurrentTimeMS()).WillOnce(DoAll(Return(idx*250)));
 		
 		EXPECT_CALL(*g_mockGStreamer, gst_element_query_position( _, _, _))
 			.WillOnce(DoAll(
@@ -625,7 +638,7 @@ TEST_F(AAMPGstPlayerTests, MonitorAV )
 			.WillOnce(DoAll(
 							SetArgPointee<2>(G_GINT64_CONSTANT(1000000)*avpos[idx][eMEDIATYPE_AUDIO]),
 							Return(TRUE)));
-		MonitorAV(mAAMPGstPlayer );
+		MonitorAV(mplayer);
 	}
 	DestroyAMPGstPlayer();
 }

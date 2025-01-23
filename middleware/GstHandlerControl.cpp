@@ -16,9 +16,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "AampHandlerControl.h"
 
-AampHandlerControl::ScopeHelper&  AampHandlerControl::ScopeHelper::operator=(AampHandlerControl::ScopeHelper&& other)
+#include "GstHandlerControl.h"
+#include <middleware/PlayerLogManager.h>
+#include <cstdio>
+#include <string>
+
+GstHandlerControl::ScopeHelper&  GstHandlerControl::ScopeHelper::operator=(GstHandlerControl::ScopeHelper&& other)
 {
 	if(mpController)
 	{
@@ -29,35 +33,34 @@ AampHandlerControl::ScopeHelper&  AampHandlerControl::ScopeHelper::operator=(Aam
 	return *this;
 }
 
-void AampHandlerControl::handlerEnd()
+void GstHandlerControl::handlerEnd()
 {
 	std::lock_guard<std::mutex> guard(mSync);
 	mInstanceCount--;
 	if(mInstanceCount<0)
 	{
 		mInstanceCount=0;
-		AAMPLOG_ERR("instanceCount<0");
+		MW_LOG_ERR("instanceCount<0");
 	}
 	mDoneCond.notify_one();
 }
 
-bool AampHandlerControl::isEnabled() const
+bool GstHandlerControl::isEnabled() const
 {
 	std::lock_guard<std::mutex> guard(mSync);
 	return mEnabled;
 }
 
-AampHandlerControl::ScopeHelper AampHandlerControl::getScopeHelper()
+GstHandlerControl::ScopeHelper GstHandlerControl::getScopeHelper()
 {
 	std::lock_guard<std::mutex> guard(mSync);
 	mInstanceCount++;
-	return AampHandlerControl::ScopeHelper(this);
+	return GstHandlerControl::ScopeHelper(this);
 }
 
-bool AampHandlerControl::waitForDone(int MaximumDelayMilliseconds, std::string name)
+bool GstHandlerControl::waitForDone(int MaximumDelayMilliseconds, std::string name)
 {
 	const std::chrono::steady_clock::time_point end =
-//	const std::chrono::_V2::steady_clock::time_point end =
 	std::chrono::milliseconds{MaximumDelayMilliseconds} + std::chrono::steady_clock::now();
 
 	disable();
@@ -70,13 +73,13 @@ bool AampHandlerControl::waitForDone(int MaximumDelayMilliseconds, std::string n
 
 	if(mInstanceCount)
 	{
-		AAMPLOG_ERR("AAMPGstPlayer: %d instance%s of %s running", 
+		MW_LOG_ERR("AAMPGstPlayer: %d instance%s of %s running", 
 		mInstanceCount, mInstanceCount?"s":"", name.c_str());
 		return false;
 	}
 	else
 	{
-		AAMPLOG_MIL("AAMPGstPlayer: all instances of %s completed.", name.c_str());
+		MW_LOG_MIL("AAMPGstPlayer: all instances of %s completed.", name.c_str());
 		return true;
 	}
 }

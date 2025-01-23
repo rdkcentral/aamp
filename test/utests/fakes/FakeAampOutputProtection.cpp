@@ -29,3 +29,8 @@ AampOutputProtection * AampOutputProtection::GetAampOutputProtectionInstance()
 {
     return nullptr;
 }
+
+bool AampOutputProtection::IsAampOutputProtectionInstanceActive()
+{
+	return false;
+}

@@ -30,7 +30,6 @@
 #include "AampRfc.h"
 #include <time.h>
 #include <map>
-
 //////////////// CAUTION !!!! STOP !!! Read this before you proceed !!!!!!! /////////////
 /// 1. This Class handles Configuration Parameters of AAMP Player , only Config related functionality to be added
 /// 2. Simple Steps to add a new configuration
@@ -914,7 +913,7 @@ PlatformType AampConfig::InferPlatformFromDeviceProperties( void )
 
 PlatformType AampConfig::InferPlatformFromPluginScan()
 {
-	return AAMPGstPlayer::InferPlatformFromPluginScan();
+	return (PlatformType)AAMPGstPlayer::InferPlatformFromPluginScan();
 }
 
 void AampConfig::ApplyDeviceCapabilities( PlatformType platform )

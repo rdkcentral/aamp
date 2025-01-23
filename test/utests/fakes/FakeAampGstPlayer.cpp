@@ -102,11 +102,6 @@ long long AAMPGstPlayer::GetVideoPTS(void)
 	return 0;
 }
 
-unsigned long AAMPGstPlayer::getCCDecoderHandle(void)
-{
-	return 0;
-}
-
 void AAMPGstPlayer::SetVideoRectangle(int x, int y, int w, int h)
 {
 }
@@ -234,7 +229,7 @@ void AAMPGstPlayer::FlushTrack(AampMediaType mediaType,double pos)
 {
 }
 
-bool AAMPGstPlayer::SignalSubtitleClock(bool verboseDebug)
+bool AAMPGstPlayer::SignalSubtitleClock( void )
 {
 	return false;
 }
@@ -260,17 +255,24 @@ void AAMPGstPlayer::SetPauseOnStartPlayback(bool enable)
 	}
 }
 
-void AAMPGstPlayer::RemoveProbes()
-{
-}
-
-PlatformType AAMPGstPlayer::InferPlatformFromPluginScan()
+/*PlatformType AAMPGstPlayer::InitializeAAMPPlatformConfigs()
 {
 	return ePLATFORM_DEFAULT;
 }
-
+*/
 bool AAMPGstPlayer::IsMS2V12Supported()
 {
 	return false;
 }
 
+PlatformType AAMPGstPlayer::InferPlatformFromPluginScan()
+{
+        return ePLATFORM_DEFAULT;
+}
+
+void AAMPGstPlayer::NotifyInjectorToPause()
+{
+}
+void AAMPGstPlayer::NotifyInjectorToResume()
+{
+}

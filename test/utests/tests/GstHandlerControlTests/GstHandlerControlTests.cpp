@@ -18,17 +18,14 @@
 * limitations under the License.
 */
 #include <gtest/gtest.h>
-#include "AampConfig.h"
-#include "AampHandlerControl.h"
-
-AampConfig *gpGlobalConfig=nullptr;
+#include "middleware/GstHandlerControl.h"
 
 class FunctionalTests : public ::testing::Test {
 public:
-	AampHandlerControl* mControl;
+	GstHandlerControl* mControl;
 	void SetUp() override
 	{
-		mControl = new AampHandlerControl;
+		mControl = new GstHandlerControl;
 	}
 
 	void TearDown() override
@@ -41,7 +38,7 @@ TEST_F(FunctionalTests, instancesRunning)
 {
 	ASSERT_EQ(0, mControl->instancesRunning());
 
-	std::vector<AampHandlerControl::ScopeHelper> helpers;
+	std::vector<GstHandlerControl::ScopeHelper> helpers;
 	constexpr size_t MAX_INSTANCES = 10;
 	for(int i=1; i<=MAX_INSTANCES; i++)
 	{
@@ -85,7 +82,7 @@ TEST_F(FunctionalTests, waitForDoneMultiple)
 	ASSERT_EQ(0, mControl->instancesRunning());
 	ASSERT_TRUE(mControl->waitForDone(0, "test"));
 
-	std::vector<AampHandlerControl::ScopeHelper> helpers;
+	std::vector<GstHandlerControl::ScopeHelper> helpers;
 	constexpr size_t MAX_INSTANCES = 10;
 	for(int i=1; i<=MAX_INSTANCES; i++)
 	{
@@ -106,10 +103,10 @@ TEST_F(FunctionalTests, moveAssignToDefault)
 {
 	ASSERT_EQ(0, mControl->instancesRunning());
 	{	
-		AampHandlerControl::ScopeHelper helperA = mControl->getScopeHelper();
+		GstHandlerControl::ScopeHelper helperA = mControl->getScopeHelper();
 		ASSERT_EQ(1, mControl->instancesRunning());
 		{
-			AampHandlerControl::ScopeHelper helperB;
+			GstHandlerControl::ScopeHelper helperB;
 			ASSERT_EQ(1, mControl->instancesRunning());
 			ASSERT_TRUE(helperB.returnStraightAway());
 			ASSERT_FALSE(helperA.returnStraightAway());
@@ -128,10 +125,10 @@ TEST_F(FunctionalTests, moveAssignOverwriteWithDefault)
 {
 	ASSERT_EQ(0, mControl->instancesRunning());
 
-	AampHandlerControl::ScopeHelper helperC = mControl->getScopeHelper();
+	GstHandlerControl::ScopeHelper helperC = mControl->getScopeHelper();
 	ASSERT_EQ(1, mControl->instancesRunning());
 
-	AampHandlerControl::ScopeHelper helperD;
+	GstHandlerControl::ScopeHelper helperD;
 	ASSERT_EQ(1, mControl->instancesRunning());
 	ASSERT_TRUE(helperD.returnStraightAway());
 	ASSERT_FALSE(helperC.returnStraightAway());
@@ -146,12 +143,12 @@ TEST_F(FunctionalTests, moveAssignOverwriteValidWithValid)
 {
 	ASSERT_EQ(0, mControl->instancesRunning());
 	{
-		AampHandlerControl::ScopeHelper helperE = mControl->getScopeHelper();
+		GstHandlerControl::ScopeHelper helperE = mControl->getScopeHelper();
 		ASSERT_EQ(1, mControl->instancesRunning());
 		ASSERT_FALSE(helperE.returnStraightAway());
 
 
-		AampHandlerControl::ScopeHelper helperF = mControl->getScopeHelper();
+		GstHandlerControl::ScopeHelper helperF = mControl->getScopeHelper();
 		ASSERT_EQ(2, mControl->instancesRunning());
 		ASSERT_FALSE(helperE.returnStraightAway());
 		ASSERT_FALSE(helperF.returnStraightAway());
@@ -170,12 +167,12 @@ TEST_F(FunctionalTests, moveConstruct)
 {
 	ASSERT_EQ(0, mControl->instancesRunning());
 	
-	AampHandlerControl::ScopeHelper helperA = mControl->getScopeHelper();
+	GstHandlerControl::ScopeHelper helperA = mControl->getScopeHelper();
 	ASSERT_EQ(1, mControl->instancesRunning());
 	ASSERT_FALSE(helperA.returnStraightAway());
 
 	{
-		AampHandlerControl::ScopeHelper helperB{std::move(helperA)};
+		GstHandlerControl::ScopeHelper helperB{std::move(helperA)};
 		ASSERT_EQ(1, mControl->instancesRunning());
 		ASSERT_TRUE(helperA.returnStraightAway());
 		ASSERT_FALSE(helperB.returnStraightAway());
@@ -190,7 +187,7 @@ TEST_F(FunctionalTests, defaultConstruct)
 	ASSERT_EQ(0, mControl->instancesRunning());
 
 	{
-		AampHandlerControl::ScopeHelper helper;
+		GstHandlerControl::ScopeHelper helper;
 		ASSERT_EQ(0, mControl->instancesRunning());
 	}
 

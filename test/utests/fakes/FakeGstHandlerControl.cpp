@@ -16,36 +16,36 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "MockAampHandlerControl.h"
-#include "AampHandlerControl.h"
+#include "MockGstHandlerControl.h"
+#include "middleware/GstHandlerControl.h"
 
-MockAampHandlerControl *g_mockAampHandlerControl = nullptr;
+MockGstHandlerControl *g_mockGstHandlerControl = nullptr;
 
-AampHandlerControl::ScopeHelper&  AampHandlerControl::ScopeHelper::operator=(AampHandlerControl::ScopeHelper&& other)
+GstHandlerControl::ScopeHelper&  GstHandlerControl::ScopeHelper::operator=(GstHandlerControl::ScopeHelper&& other)
 {
 	return *this;
 }
 
-void AampHandlerControl::handlerEnd()
+void GstHandlerControl::handlerEnd()
 {
 }
 
-bool AampHandlerControl::isEnabled() const
+bool GstHandlerControl::isEnabled() const
 {
     bool retvalue = false;
-    if (g_mockAampHandlerControl != nullptr)
+    if (g_mockGstHandlerControl != nullptr)
     {
-        retvalue = g_mockAampHandlerControl->isEnabled();
+        retvalue = g_mockGstHandlerControl->isEnabled();
     }
     return retvalue;
 }
 
-AampHandlerControl::ScopeHelper AampHandlerControl::getScopeHelper()
+GstHandlerControl::ScopeHelper GstHandlerControl::getScopeHelper()
 {
-	return AampHandlerControl::ScopeHelper(this);
+	return GstHandlerControl::ScopeHelper(this);
 }
 
-bool AampHandlerControl::waitForDone(int MaximumDelayMilliseconds, std::string name)
+bool GstHandlerControl::waitForDone(int MaximumDelayMilliseconds, std::string name)
 {
 	return true;
 }

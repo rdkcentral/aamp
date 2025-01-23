@@ -16,6 +16,7 @@
 # limitations under the License.
 
 file(GLOB fakes_SRC "*.cpp")
+file(GLOB middleware_fakes_SRC "../../../middleware/test/utests/fakes/*.cpp")
 
 set(AAMP_ROOT "../../../")
 set(UTESTS_ROOT "..")
@@ -35,9 +36,12 @@ include_directories(${LibXml2_INCLUDE_DIRS})
 include_directories(${LIBDASH_INCLUDE_DIRS})
 include_directories(${UTESTS_ROOT}/ocdm)
 include_directories(${UTESTS_ROOT}/mocks)
+include_directories(${AAMP_ROOT}/middleware)
+include_directories(${AAMP_ROOT}/middleware/test/utests/mocks)
 if (JSC_INCDIR)
     include_directories(${JSC_INCDIR})
 endif()
+
 # Mac OS X
 if(CMAKE_SYSTEM_NAME STREQUAL Darwin)
     include_directories(${AAMP_ROOT}/.libs/systemd/src)
@@ -46,6 +50,6 @@ endif(CMAKE_SYSTEM_NAME STREQUAL Darwin)
 include_directories(${AAMP_ROOT}/.libs/include)
 include_directories(${UTESTS_ROOT}/mocks)
 
-add_library(fakes ${fakes_SRC})
+add_library(fakes ${fakes_SRC} ${middleware_fakes_SRC})
 set_target_properties(fakes PROPERTIES FOLDER "utests")
 set_target_properties(fakes PROPERTIES COMPILE_FLAGS "-Wno-effc++ -Wno-varargs")

@@ -257,14 +257,13 @@ void MediaTrack::UpdateSubtitleClockTask()
 	int timeSinceValidUpdateMs = 0;
 	bool playbackStarted = false;
 	bool previouslyEnabled = enabled;
-	int debugOutputCounter=0;
 #ifdef SUBTEC_VARIABLE_CLOCK_UPDATE_RATE
 	int fastMonitorIntervalMs = INITIAL_SUBTITLE_CLOCK_SYNC_INTERVAL_MS;					// rate until we get first successful sync or give up
 	if (fastMonitorIntervalMs>subtitleClockSyncIntervalMs)
 	{
 		fastMonitorIntervalMs=subtitleClockSyncIntervalMs;
 	}
-	// make faster retries to sync the clock until it has failed for atleast this time (e.g. 20s)
+	// make faster retries to sync the clock until it has failed for at least this time (e.g. 20s)
 	if (warningTimeoutMs<=fastMonitorIntervalMs*5)
 	{
 		warningTimeoutMs=fastMonitorIntervalMs*5;
@@ -289,20 +288,13 @@ void MediaTrack::UpdateSubtitleClockTask()
 			// so we need mediaprocessor to set the base video pts so that correct pts can be signalled to subtec
 			if (enabled && aamp->IsGstreamerSubsEnabled() && ISCONFIGSET(eAAMPConfig_EnableMediaProcessor))
 			{
-				bool outputDebug=true;
-#if !defined(SUBTEC_VARIABLE_CLOCK_UPDATE_RATE)
-				// output pts written then first time we succeed, then every 10 updates
-				outputDebug = (!playbackStarted) || ( !(debugOutputCounter%10) );				
-				debugOutputCounter++;
-#endif
 				// Note: This will fail if pipeline is not in play state, we have underflow, or if video pts is still returning 0 just after we entered play state
-				if (aamp->SignalSubtitleClock(outputDebug))
+				if (aamp->SignalSubtitleClock())
 				{
 					if (!playbackStarted)
 					{
 						// Slow down the update rate now it's first sync'd after we enter play state
 						AAMPLOG_WARN("First subtitle clock update successful. Switching to slow update rate (%d) after %d ms (if enabled)", subtitleClockSyncIntervalMs, timeSinceValidUpdateMs);
-						debugOutputCounter=1;
 					}
 					monitorIntervalMs=subtitleClockSyncIntervalMs;
 					playbackStarted=true;

@@ -39,6 +39,7 @@ include_directories(SYSTEM ${UTESTS_ROOT}/mocks)
 include_directories(${AAMP_ROOT}/subtec/libsubtec)
 include_directories(${AAMP_ROOT}/subtec/subtecparser)
 include_directories(${AAMP_ROOT}/tsb/api)
+include_directories(${AAMP_ROOT}/middleware)
 
 set(TEST_SOURCES    MediaStreamContextTests.cpp
                     MediaStreamContextAampTests.cpp)

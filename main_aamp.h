@@ -726,10 +726,9 @@ public:
 
 	/**
 	 * @brief Signal the new clock to subtitle module
-	 * @param[in] verboseDebug - enable more debug
 	 * @return - true indicating successful operation in sending the clock update
 	 */
-	virtual bool SignalSubtitleClock(bool verboseDebug) { return false; };
+	virtual bool SignalSubtitleClock( void ) { return false; };
 
 	/**
 	 * @fn SetPauseOnPlayback
@@ -737,6 +736,17 @@ public:
 	 * @param[in] enable - Flag to set whether enabled
 	 */
 	virtual void SetPauseOnStartPlayback(bool enable) {};
+	
+	/**
+ 	* @brief Notifies the injector to resume buffer pushing.
+ 	*/
+	virtual void NotifyInjectorToResume() {};
+
+	/**
+ 	* @brief Notifies the injector to pause buffer pushing.
+ 	*/
+	virtual void NotifyInjectorToPause() {};
+
 };
 
 

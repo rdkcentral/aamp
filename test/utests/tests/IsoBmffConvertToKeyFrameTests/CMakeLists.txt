@@ -27,6 +27,7 @@ include_directories(${AAMP_ROOT}/drm ${AAMP_ROOT}/drm/helper)
 include_directories(${AAMP_ROOT}/subtitle)
 include_directories(${AAMP_ROOT}/downloader)
 include_directories(${AAMP_ROOT}/tsb/api)
+include_directories(${AAMP_ROOT}/middleware)
 
 include_directories(${GTEST_INCLUDE_DIRS})
 include_directories(${GMOCK_INCLUDE_DIRS})

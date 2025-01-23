@@ -17,9 +17,24 @@
  * limitations under the License.
  */
 
-#include "AampGstUtils.h"
+#include "MockGstUtils.h"
+#include "middleware/GstUtils.h"
 
-GstCaps *GetGstCaps(StreamOutputFormat format, PlatformType platform)
+MockGstUtils *g_mockGstUtils = nullptr;
+GstCaps *GetCaps(GstStreamOutputFormat format, GstPlatformType platform)
 {
 	return nullptr;
 }
+
+long long GetCurrentTimeMS(void)
+{
+        long long timeMS = 0;
+
+        if (g_mockGstUtils)
+        {
+                timeMS = g_mockGstUtils->GetCurrentTimeMS();
+        }
+
+        return timeMS;
+}
+

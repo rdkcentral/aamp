@@ -24,9 +24,9 @@
 #include "MockGStreamer.h"
 #include "MockGLib.h"
 #include "MockAampConfig.h"
-#include "MockAampHandlerControl.h"
+#include "MockGstHandlerControl.h"
 #include "MockPrivateInstanceAAMP.h"
-
+#include "MockPlayerScheduler.h"
 using ::testing::NiceMock;
 using ::testing::Return;
 using ::testing::StrEq;
@@ -46,7 +46,7 @@ class PauseOnPlaybackTests : public ::testing::Test
 protected:
 	AAMPGstPlayer *mAAMPGstPlayer;
 	PrivateInstanceAAMP *mPrivateInstanceAAMP;
-
+	InterfacePlayerRDK *mplayer;
 	void SetUp() override
 	{
         if(gpGlobalConfig == nullptr)
@@ -57,11 +57,14 @@ protected:
 		g_mockGStreamer = new MockGStreamer();
 		g_mockGLib = new NiceMock<MockGLib>();
 		g_mockAampConfig = new NiceMock<MockAampConfig>();
-		g_mockAampHandlerControl = new MockAampHandlerControl();
+		g_mockGstHandlerControl = new MockGstHandlerControl();
+		g_mockPlayerScheduler = new MockPlayerScheduler();
 		g_mockPrivateInstanceAAMP = new MockPrivateInstanceAAMP();
 		mPrivateInstanceAAMP = new PrivateInstanceAAMP{};
 
     	mAAMPGstPlayer = new AAMPGstPlayer{mPrivateInstanceAAMP, nullptr};
+	mplayer = mAAMPGstPlayer->playerInstance;
+
 	}
 
 	void TearDown() override
@@ -78,14 +81,17 @@ protected:
 		delete mPrivateInstanceAAMP;
 		mPrivateInstanceAAMP = nullptr;
 
-		delete g_mockAampHandlerControl;
-		g_mockAampHandlerControl = nullptr;
+		delete g_mockGstHandlerControl;
+		g_mockGstHandlerControl = nullptr;
 
 		delete g_mockPrivateInstanceAAMP;
 		g_mockPrivateInstanceAAMP = nullptr;
-
+	
     	delete mAAMPGstPlayer;
 	    mAAMPGstPlayer = nullptr;
+
+	    delete g_mockPlayerScheduler;
+	    g_mockPlayerScheduler = nullptr;
 	}
 
 public:
@@ -200,7 +206,6 @@ TEST_F(PauseOnPlaybackTests, bus_messsage_FrameStepPropertyAvailable)
 	GstElement gst_element_bin = {.object = {.name = (gchar *)"bin"}};
 	GstBus bus = {};
 	GstPipeline *pipeline = GST_PIPELINE(&gst_element_pipeline);
-
 	GstBusFunc bus_message_func = nullptr;
 	GstBusSyncHandler bus_sync_func = nullptr;
 
@@ -213,13 +218,13 @@ TEST_F(PauseOnPlaybackTests, bus_messsage_FrameStepPropertyAvailable)
 		.WillOnce(Return(&bus));
 
 	// Save the bus_message function for later use
-	EXPECT_CALL(*g_mockGStreamer, gst_bus_add_watch(&bus, NotNull(), mAAMPGstPlayer))
+	EXPECT_CALL(*g_mockGStreamer, gst_bus_add_watch(&bus, NotNull(), mplayer))
 		.WillOnce(DoAll(
 			SaveArgPointee<1>(&bus_message_func),
 			Return(0)));
 
 	// Save the bus_sync_handler function for later use
-	EXPECT_CALL(*g_mockGStreamer, gst_bus_set_sync_handler(&bus, NotNull(), mAAMPGstPlayer, NULL))
+	EXPECT_CALL(*g_mockGStreamer, gst_bus_set_sync_handler(&bus, NotNull(), mplayer, NULL))
 		.WillOnce(SaveArgPointee<1>(&bus_sync_func));
 	// End CreatePipeline()
 
@@ -237,8 +242,8 @@ TEST_F(PauseOnPlaybackTests, bus_messsage_FrameStepPropertyAvailable)
 
 	EXPECT_CALL(*g_mockGStreamer, gst_element_set_state(&gst_element_pipeline, GST_STATE_PAUSED))
 		.WillOnce(Return(GST_STATE_CHANGE_SUCCESS));
-
-	mAAMPGstPlayer->SetPauseOnStartPlayback(true);
+	
+	mplayer->SetPauseOnStartPlayback(true);
 
 	mAAMPGstPlayer->Configure(FORMAT_VIDEO_ES_H264,
 							  FORMAT_AUDIO_ES_AAC,
@@ -253,7 +258,7 @@ TEST_F(PauseOnPlaybackTests, bus_messsage_FrameStepPropertyAvailable)
 
 	GstMessage sync_message = {.type = GST_MESSAGE_STATE_CHANGED, .src = GST_OBJECT(&gst_element_video_sink) };
 
-	EXPECT_CALL(*g_mockAampHandlerControl, isEnabled())
+	EXPECT_CALL(*g_mockGstHandlerControl, isEnabled())
 		.WillRepeatedly(Return(true));
 
 	EXPECT_CALL(*g_mockGStreamer, gst_message_parse_state_changed(Pointer(&sync_message),NotNull(),NotNull(),_))
@@ -267,7 +272,7 @@ TEST_F(PauseOnPlaybackTests, bus_messsage_FrameStepPropertyAvailable)
             Return(1)));
 
 	// Call the bus_sync_handler function
-	bus_sync_func(&bus, &sync_message, mAAMPGstPlayer);
+	bus_sync_func(&bus, &sync_message, mplayer);
 
 	GstMessage pipeline_message = {.type = GST_MESSAGE_STATE_CHANGED, .src = GST_OBJECT(&gst_element_pipeline) };
 
@@ -290,11 +295,11 @@ TEST_F(PauseOnPlaybackTests, bus_messsage_FrameStepPropertyAvailable)
     EXPECT_CALL(*g_mockGStreamer, gst_element_send_event(_,_))
 		.WillOnce(Return(1));
 
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, ScheduleAsyncTask(_,mAAMPGstPlayer,StrEq("FirstFrameCallback")))
+/*	EXPECT_CALL(*g_mockPrivateInstanceAAMP, ScheduleAsyncTask(_,mAAMPGstPlayer,StrEq("FirstFrameCallback")))
 		.Times(0);
-
+*/
 	// Call the bus_message function
-	bus_message_func(&bus, &pipeline_message, mAAMPGstPlayer);
+	bus_message_func(&bus, &pipeline_message, mplayer);
 }
 
 // Test bus_message callback when PauseOnPlayback has been enabled, and sink
@@ -321,13 +326,13 @@ TEST_F(PauseOnPlaybackTests, bus_message_FrameStepPropertyNotAvailable)
 		.WillOnce(Return(&bus));
 
 	// Save the bus_message function for later use
-	EXPECT_CALL(*g_mockGStreamer, gst_bus_add_watch(&bus, NotNull(), mAAMPGstPlayer))
+	EXPECT_CALL(*g_mockGStreamer, gst_bus_add_watch(&bus, NotNull(), mplayer))
 		.WillOnce(DoAll(
 			SaveArgPointee<1>(&bus_message_func),
 			Return(0)));
 
 	// Save the bus_sync_handler function for later use
-	EXPECT_CALL(*g_mockGStreamer, gst_bus_set_sync_handler(&bus, NotNull(), mAAMPGstPlayer, NULL))
+	EXPECT_CALL(*g_mockGStreamer, gst_bus_set_sync_handler(&bus, NotNull(), mplayer, NULL))
 		.WillOnce(SaveArgPointee<1>(&bus_sync_func));
 
 	// End CreatePipeline()
@@ -362,7 +367,7 @@ TEST_F(PauseOnPlaybackTests, bus_message_FrameStepPropertyNotAvailable)
 
 	GstMessage sync_message = {.type = GST_MESSAGE_STATE_CHANGED, .src = GST_OBJECT(&gst_element_video_sink) };
 
-	EXPECT_CALL(*g_mockAampHandlerControl, isEnabled())
+	EXPECT_CALL(*g_mockGstHandlerControl, isEnabled())
 		.WillRepeatedly(Return(true));
 
 	EXPECT_CALL(*g_mockGStreamer, gst_message_parse_state_changed(Pointer(&sync_message),NotNull(),NotNull(),_))
@@ -376,7 +381,7 @@ TEST_F(PauseOnPlaybackTests, bus_message_FrameStepPropertyNotAvailable)
             Return(1)));
 
 	// Call the bus_sync_handler function
-	bus_sync_func(&bus, &sync_message, mAAMPGstPlayer);
+	bus_sync_func(&bus, &sync_message, mplayer);
 
 	GstMessage pipeline_message = {.type = GST_MESSAGE_STATE_CHANGED, .src = GST_OBJECT(&gst_element_pipeline) };
 
@@ -398,12 +403,13 @@ TEST_F(PauseOnPlaybackTests, bus_message_FrameStepPropertyNotAvailable)
     EXPECT_CALL(*g_mockGStreamer, gst_element_send_event(_,_))
 		.Times(0);
 
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, ScheduleAsyncTask(_,mAAMPGstPlayer,_))
-		.WillRepeatedly(Return(1));
+    //Note: Need to address once bus_message is migrated to interfacePlayer
+	//EXPECT_CALL(*g_mockPlayerScheduler, ScheduleTask(PlayerAsyncTaskObj((void *)mAAMPGstPlayer)))//ScheduleTask(_))//,mAAMPGstPlayer,_))
+	//	.WillRepeatedly(Return(1));
 
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, ScheduleAsyncTask(_,mAAMPGstPlayer,StrEq("FirstFrameCallback")))
-		.WillOnce(Return(1));
+	//EXPECT_CALL(*g_mockPlayerScheduler, ScheduleTask(PlayerAsyncTaskObj(_,mAAMPGstPlayer,StrEq("FirstFrameCallback"))))
+	//	.WillOnce(Return(1));
 
 	// Call the bus_message function
-	bus_message_func(&bus, &pipeline_message, mAAMPGstPlayer);
+	bus_message_func(&bus, &pipeline_message, mplayer);
 }

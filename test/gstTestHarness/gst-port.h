@@ -26,7 +26,7 @@
 #include <gst/gst.h>
 #include "initializationheaderinfo.hpp"
 
-// refer  gstreamer pipeline unexpected behaviors when attempting to render single iframe
+// refer gstreamer pipeline unexpected behaviors when attempting to render single iframe
 // #define REALTEK_HACK
 
 typedef enum

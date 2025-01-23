@@ -71,7 +71,7 @@ TESTDATA1 = {
 		{"cmd":"seek 58"},
 		{"expect":r"track video - encountered aamp discontinuity @position - 0.000000, isDiscoIgnoredForOtherTrack - 0"},
 		{"expect":r"Going into wait for processing discontinuity in other track!"},
-		{"expect":r"Entering AAMPGstPlayer: type\(0\) format\(2\) firstBufferProcessed\(1\)"},
+		{"expect":r"Entering InterfacePlayerRDK: type\(0\) format\(2\) firstBufferProcessed\(1\)"},
 		{"expect":r"Returning Position as 6[0-4](\d{3})"},
 		{"expect":r"Returning Position as 6[5-9](\d{3})"},
 		{"expect":r"Returning Position as 7[0-4](\d{3})"},

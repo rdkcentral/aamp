@@ -17,9 +17,9 @@
  * limitations under the License.
  */
 
-#include "gstaamptaskpool.h"
+#include "middleware/gstplayertaskpool.h"
 
-GType gst_aamp_taskpool_get_type(void)
+GType gst_player_taskpool_get_type(void)
 {
 	return 0;
 }

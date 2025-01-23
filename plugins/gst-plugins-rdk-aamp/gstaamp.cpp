@@ -33,7 +33,7 @@
 #include "gstaamp.h"
 #include "main_aamp.h"
 #include "priv_aamp.h"
-#include "AampGstUtils.h"
+#include "middleware/GstUtils.h"
 
 GST_DEBUG_CATEGORY_STATIC (gst_aamp_debug_category);
 #define GST_CAT_DEFAULT gst_aamp_debug_category
@@ -885,7 +885,7 @@ static void gst_aamp_configure(GstAamp * aamp, StreamOutputFormat format, Stream
 		}
 	}
 
-	caps = GetGstCaps(format, (PlatformType)aamp->player_aamp->aamp->GetPlatformType());
+	caps = GetCaps((GstStreamOutputFormat)format, (GstPlatformType)aamp->player_aamp->aamp->GetPlatformType());
 
 	if (caps)
 	{
@@ -913,7 +913,7 @@ static void gst_aamp_configure(GstAamp * aamp, StreamOutputFormat format, Stream
 		return;
 	}
 
-	caps = GetGstCaps(audioFormat, (PlatformType)aamp->player_aamp->aamp->GetPlatformType());
+	caps = GetCaps((GstStreamOutputFormat)audioFormat, (GstPlatformType)aamp->player_aamp->aamp->GetPlatformType());
 	if (caps)
 	{
 		media_stream* audio = &aamp->stream[eMEDIATYPE_AUDIO];

@@ -26,6 +26,7 @@
 #include "scte35/AampSCTE35.h"
 #include "AampcliShader.h"
 
+
 Aampcli mAampcli;
 const char *gApplicationPath = NULL;
 extern VirtualChannelMap mVirtualChannelMap;
@@ -62,6 +63,7 @@ Aampcli::Aampcli(const Aampcli& aampcli):
 {
 	mSingleton = aampcli.mSingleton;
 	mEventListener = aampcli.mEventListener;
+	
 };
 
 Aampcli& Aampcli::operator=(const Aampcli& aampcli)
@@ -236,7 +238,8 @@ void Aampcli::initPlayerLoop(int argc, char **argv)
 	if (!mInitialized)
 	{
 		mInitialized = true;
-		gst_init(&argc, &argv);
+		PlayerCliGstInit(&argc, &argv);
+		
 		mAampGstPlayerMainLoop = g_main_loop_new(NULL, FALSE);
 		mAampMainLoopThread = g_thread_new("AAMPGstPlayerLoop", &aampGstPlayerStreamThread, NULL );
 	}

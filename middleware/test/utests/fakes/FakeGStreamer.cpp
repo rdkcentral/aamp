@@ -818,7 +818,18 @@ gboolean gst_element_add_pad (GstElement * element, GstPad * pad)
 	return FALSE;
 }
 
-GstPad * gst_ghost_pad_new (const gchar * name, GstPad * target)
+GstEvent* gst_event_new_protection(const gchar * system_id, GstBuffer * data, const gchar * origin)
+{
+        TRACE_FUNC();
+        return NULL;
+}
+
+void gst_message_parse_reset_time(GstMessage *message, GstClockTime *running_time)
+{
+	TRACE_FUNC();
+}
+
+gchar * gst_structure_to_string(const GstStructure *structure)
 {
 	TRACE_FUNC();
 	return NULL;
@@ -829,3 +840,40 @@ GstElement * gst_bin_new (const gchar * name)
 	TRACE_FUNC();
 	return NULL;
 }
+void gst_deinit (void)
+{
+       TRACE_FUNC();
+}
+
+void gst_init(int *argc, char **argv[])
+{
+       TRACE_FUNC();
+}
+
+GstPlugin *gst_plugin_load_by_name (const gchar * name)
+{
+	TRACE_FUNC();
+	return NULL;
+}
+
+void gst_registry_remove_feature (GstRegistry * registry,
+                             GstPluginFeature * feature)
+{
+	TRACE_FUNC();
+}
+
+gboolean
+gst_registry_add_feature (GstRegistry * registry,
+                          GstPluginFeature * feature)
+
+{
+	TRACE_FUNC();
+	return false;
+}
+
+GstPad * gst_ghost_pad_new (const gchar * name, GstPad * target)
+{
+	TRACE_FUNC();
+	return NULL;
+}
+

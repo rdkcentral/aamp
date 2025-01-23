@@ -17,19 +17,19 @@
 * limitations under the License.
 */
 
-#ifndef AAMP_MOCK_AAMP_HANDLER_CONTROL_H
-#define AAMP_MOCK_AAMP_HANDLER_CONTROL_H
+#ifndef GST_MOCK_GST_HANDLER_CONTROL_H
+#define GST_MOCK_GST_HANDLER_CONTROL_H
 
 #include <gmock/gmock.h>
-#include "AampHandlerControl.h"
+#include "middleware/GstHandlerControl.h"
 
-class MockAampHandlerControl
+class MockGstHandlerControl
 {
 public:
 
     MOCK_METHOD(bool, isEnabled, ());
 };
 
-extern MockAampHandlerControl *g_mockAampHandlerControl;
+extern MockGstHandlerControl *g_mockGstHandlerControl;
 
-#endif /* AAMP_MOCK_AAMP_HANDLER_CONTROL_H */
+#endif /* GST_MOCK_GST_HANDLER_CONTROL_H */

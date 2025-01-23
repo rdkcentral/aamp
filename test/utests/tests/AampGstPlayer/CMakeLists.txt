@@ -31,6 +31,8 @@ include_directories(${GSTREAMER_INCLUDE_DIRS})
 include_directories(${LIBCJSON_INCLUDE_DIRS})
 include_directories(SYSTEM ${UTESTS_ROOT}/mocks)
 include_directories(${AAMP_ROOT}/tsb/api)
+include_directories(${AAMP_ROOT}/middleware/test/utests/mocks)
+include_directories(${AAMP_ROOT}/middleware)
 
 message(GSTREAMER_INCLUDE_DIRS=${GSTREAMER_INCLUDE_DIRS})
 
@@ -39,7 +41,10 @@ set(TEST_SOURCES FunctionalTests.cpp
                  AampGstPlayerTests.cpp
                  )
 
-set(AAMP_SOURCES ${AAMP_ROOT}/aampgstplayer.cpp)
+set(AAMP_SOURCES ${AAMP_ROOT}/aampgstplayer.cpp
+	         ${AAMP_ROOT}/middleware/InterfacePlayerRDK.cpp
+		 ${AAMP_ROOT}/middleware/PlayerLogManager.cpp
+	)
 
 add_executable(${EXEC_NAME}
                ${TEST_SOURCES}

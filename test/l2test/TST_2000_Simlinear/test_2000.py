@@ -122,7 +122,7 @@ TESTDATA5= {
     {"expect": r"#EXT-X-DISCONTINUITY", "min": 20, "max": 30},
     {"expect": r"AAMPGstPlayerPipeline PAUSED -> PAUSED", "min": 35, "max": 70},
     {"expect": r"AAMPGstPlayerPipeline PAUSED -> PLAYING", "min": 35, "max": 70},
-    {"expect": r"AAMPGstPlayer: Pipeline flush seek", "min": 35, "max": 70},
+    {"expect": r"InterfacePlayerRDK: Pipeline flush seek", "min": 35, "max": 70},
     {"expect": r"fragment injector done. track video", "min": 68, "max": 90,"end_of_test":True},
     {"expect": r"GST_MESSAGE_EOS","min": 80, "max": 150,"end_of_test":True }
     ]
@@ -149,7 +149,7 @@ TESTDATA6= {
     {"expect": r"#EXT-X-DISCONTINUITY", "min": 20, "max": 30},
     {"expect": r"AAMPGstPlayerPipeline PAUSED -> PAUSED", "min": 35, "max": 70},
     {"expect": r"AAMPGstPlayerPipeline PAUSED -> PLAYING", "min": 35, "max": 70},
-    {"expect": r"AAMPGstPlayer: Pipeline flush seek", "min": 35, "max": 70},
+    {"expect": r"InterfacePlayerRDK: Pipeline flush seek", "min": 35, "max": 70},
     {"expect": r"fragment injector done. track video", "min": 68, "max": 90,"end_of_test":True},
     {"expect": r"GST_MESSAGE_EOS","min": 80, "max": 150,"end_of_test":True }
     ]
@@ -177,7 +177,7 @@ TESTDATA7= {
     {"expect": r"#EXT-X-DISCONTINUITY", "min": 20, "max": 30},
     {"expect": r"AAMPGstPlayerPipeline PAUSED -> PAUSED", "min": 35, "max": 70},
     {"expect": r"AAMPGstPlayerPipeline PAUSED -> PLAYING", "min": 35, "max": 70},
-    {"expect": r"AAMPGstPlayer: Pipeline flush seek", "min": 35, "max": 70},
+    {"expect": r"InterfacePlayerRDK: Pipeline flush seek", "min": 35, "max": 70},
     {"expect": r"fragment injector done. track video", "min": 68, "max": 90,"end_of_test":True},
     {"expect": r"GST_MESSAGE_EOS","min": 80, "max": 150,"end_of_test":True }
     ]

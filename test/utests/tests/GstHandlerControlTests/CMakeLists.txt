@@ -19,7 +19,7 @@ include(GoogleTest)
 
 set(AAMP_ROOT "../../../../")
 set(UTESTS_ROOT "../../")
-set(EXEC_NAME AampHandlerControlTests)
+set(EXEC_NAME GstHandlerControlTests)
 
 include_directories(${AAMP_ROOT} ${AAMP_ROOT}/isobmff ${AAMP_ROOT}/drm ${AAMP_ROOT}/downloader ${AAMP_ROOT}/drm/helper ${AAMP_ROOT}/drm/ave ${AAMP_ROOT}/subtitle)
 include_directories(${AAMP_ROOT}/subtec/libsubtec)
@@ -34,10 +34,10 @@ include_directories(SYSTEM ${UTESTS_ROOT}/mocks)
 include_directories(${LIBCJSON_INCLUDE_DIRS})
 
 
-set(TEST_SOURCES AampHandlerControlTests.cpp
-  AampHandlerControlAampTests.cpp)
+set(TEST_SOURCES GstHandlerControlTests.cpp
+  GstHandlerControlAampTests.cpp)
 
-set(AAMP_SOURCES ${AAMP_ROOT}/AampHandlerControl.cpp)
+set(AAMP_SOURCES ${AAMP_ROOT}/middleware/GstHandlerControl.cpp ${AAMP_ROOT}/middleware/PlayerLogManager.cpp)
 
 add_executable(${EXEC_NAME}
                ${TEST_SOURCES}

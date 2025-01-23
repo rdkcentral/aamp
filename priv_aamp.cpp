@@ -7250,6 +7250,12 @@ void PrivateInstanceAAMP::DisableDownloads(void)
 	{
 		mpStreamAbstractionAAMP->DisablePlaylistDownloads();
 	}
+	StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
+	if (sink)
+	{
+		sink->NotifyInjectorToPause();
+	}
+
 }
 
 /**
@@ -7269,6 +7275,12 @@ void PrivateInstanceAAMP::EnableDownloads()
 	pthread_mutex_lock(&mLock);
 	mDownloadsEnabled = true;
 	pthread_mutex_unlock(&mLock);
+	StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
+	if (sink)
+	{
+		sink->NotifyInjectorToResume();
+	}
+
 }
 
 /**
@@ -8078,7 +8090,6 @@ void PrivateInstanceAAMP::InitializeCC(unsigned long decoderHandle)
 	}
 
 }
-
 
 /**
  *  @brief Notify first frame is displayed. Sends CC handle event to listeners.
@@ -9008,6 +9019,7 @@ void PrivateInstanceAAMP::PauseSubtitleParser(bool pause)
 		mpStreamAbstractionAAMP->PauseSubtitleParser(pause);
 	}
 }
+
 
 /**
  * @brief Notify if first buffer processed by gstreamer
@@ -13560,9 +13572,8 @@ bool PrivateInstanceAAMP::IsGstreamerSubsEnabled(void)
 
 /**
  * @brief Signal the clock to subtitle module
- * @param[in] verboseDebug - enable more debug
  */
-bool PrivateInstanceAAMP::SignalSubtitleClock(bool verboseDebug)
+bool PrivateInstanceAAMP::SignalSubtitleClock( void )
 {
 	bool success = false;
 	// Sent clock only if subtitle track injection is unblocked. otherwise this instance might be detached/flushed
@@ -13573,7 +13584,7 @@ bool PrivateInstanceAAMP::SignalSubtitleClock(bool verboseDebug)
 			StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
 			if(sink)
 			{
-				if (sink->SignalSubtitleClock(verboseDebug))
+				if (sink->SignalSubtitleClock())
 				{
 					success=true;
 				}

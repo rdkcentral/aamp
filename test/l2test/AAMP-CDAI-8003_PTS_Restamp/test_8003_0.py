@@ -57,7 +57,7 @@ TESTDATA0 = {
 "expect_list": [
     {"expect": r"aamp_tune","min":0, "max":2},
     {"expect": r'RestampPts.*?\[(\w+)\] timeScale (\d+) before (\d+) after (\d+) duration (\d+) ([\w:/\.\-]+)\r\n',"min":0, "max":timeout, "callback" : pts_restamp_utils.check_restamp},
-    {"expect": r'AAMPGstPlayer_EndOfStreamReached',"min":0, "max":timeout, "end_of_test": True},
+    {"expect": r'InterfacePlayer_EndOfStreamReached',"min":0, "max":timeout, "end_of_test": True},
     {"expect": r'AAMPGstPlayer_Stop', "min": 0, "max": timeout, "end_of_test": True},
     {"expect": r'StopInternal', "min": 0, "max": timeout, "end_of_test": True},
     ]

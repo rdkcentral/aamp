@@ -23,6 +23,7 @@ set(EXEC_NAME AampOCDMSessionAdapterTests)
 
 include_directories(${AAMP_ROOT} ${AAMP_ROOT}/drm ${AAMP_ROOT}/drm/helper ${AAMP_ROOT}/subtitle ${AAMP_ROOT}/downloader ${AAMP_ROOT}/isobmff ${AAMP_ROOT}/subtec/subtecparser ${AAMP_ROOT}/subtec/libsubtec)
 include_directories(${AAMP_ROOT}/tsb/api)
+include_directories(${AAMP_ROOT}/middleware)
 include_directories("fakes/.")
 
 if(CMAKE_SYSTEM_NAME STREQUAL Linux)

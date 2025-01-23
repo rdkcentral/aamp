@@ -20,6 +20,7 @@ set(UTESTS_ROOT "../../")
 set(EXEC_NAME AampTimeTests)
 
 include_directories(${AAMP_ROOT})
+include_directories(${AAMP_ROOT}/middleware)
 include_directories(${GTEST_INCLUDE_DIRS})
 include_directories(${GMOCK_INCLUDE_DIRS})
 

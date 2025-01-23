@@ -22,6 +22,7 @@ pkg_check_modules(LibXml2 REQUIRED libxml-2.0)
 find_package(Boost 1.40 COMPONENTS system filesystem REQUIRED)
 
 include_directories(${AAMP_ROOT} ${AAMP_ROOT}/dash/xml ${AAMP_ROOT}/dash/utils ${AAMP_ROOT}/dash/mpd)
+include_directories(${AAMP_ROOT}/middleware)
 include_directories(${LibXml2_INCLUDE_DIRS})
 include_directories(${Boost_INCLUDE_DIRS})
 message("Boost include" ${Boost_INCLUDE_DIRS} "lib" ${Boost_LIBRARIES})

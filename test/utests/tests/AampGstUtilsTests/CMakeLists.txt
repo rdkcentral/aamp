@@ -30,11 +30,13 @@ include_directories(${LibXml2_INCLUDE_DIRS})
 include_directories(SYSTEM ${UTESTS_ROOT}/mocks)
 include_directories(${LIBCJSON_INCLUDE_DIRS})
 include_directories(${AAMP_ROOT}/tsb/api)
+include_directories(${AAMP_ROOT}/middleware)
+include_directories(${AAMP_ROOT}/middleware/test/utests/mocks)
 
-set(TEST_SOURCES    AampGstUtilsTests.cpp
-                    AampGstUtilsAAMPTests.cpp)
+set(TEST_SOURCES    GstUtilsAAMPTests.cpp
+                    ${AAMP_ROOT}/middleware/test/utests/tests/GstUtilsTests/GstUtilsTests.cpp)
 
-set(AAMP_SOURCES ${AAMP_ROOT}/AampGstUtils.cpp )
+set(AAMP_SOURCES ${AAMP_ROOT}/middleware/GstUtils.cpp )
 
 add_executable(${EXEC_NAME}
                ${TEST_SOURCES}

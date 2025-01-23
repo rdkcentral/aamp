@@ -27,6 +27,7 @@ set(EXEC_NAME DrmLegacy)
 
 include_directories(${AAMP_ROOT} ${AAMP_ROOT}/drm ${AAMP_ROOT}/drm/helper ${AAMP_ROOT}/subtitle ${AAMP_ROOT}/downloader ${AAMP_ROOT}/isobmff ${AAMP_ROOT}/subtec/subtecparser ${AAMP_ROOT}/subtec/libsubtec)
 include_directories(${AAMP_ROOT}/tsb/api)
+include_directories(${AAMP_ROOT}/middleware)
 include_directories(${GTEST_INCLUDE_DIRS})
 include_directories(${GMOCK_INCLUDE_DIRS})
 include_directories(${GLIB_INCLUDE_DIRS})
@@ -46,7 +47,7 @@ set(MOCK_SOURCES ${DRM_ROOT}/mocks/aampMocks.cpp
 				 ${DRM_ROOT}/mocks/FakeABRManager.cpp
 				 ${DRM_ROOT}/mocks/FakeAampStreamSinkManager.cpp
 				 ${DRM_ROOT}/mocks/curlMocks.c
-				 ${DRM_ROOT}/mocks/gstMocks.c
+				 ${AAMP_ROOT}/middleware/test/utests/drm/mocks/gstMocks.c
 				 ${DRM_ROOT}/mocks/pthreadMocks.c
 				 ${DRM_ROOT}/mocks/openSslMocks.c)
 

@@ -22,12 +22,13 @@
 
 #include <gmock/gmock.h>
 #include "main_aamp.h"
-
+#include "middleware/InterfacePlayerRDK.h"
 class MockAampUtils
 {
 public:
 
 	MOCK_METHOD(long long, aamp_GetCurrentTimeMS, ());
+	MOCK_METHOD(long long, GetCurrentTimeMS, ());
 
 	MOCK_METHOD(std::string, aamp_GetConfigPath, (std::string));
 
