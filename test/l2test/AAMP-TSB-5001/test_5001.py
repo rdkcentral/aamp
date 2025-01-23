@@ -57,9 +57,9 @@ TESTDATA0 = {
     'simlinear_type': 'DASH',
     "expect_list":
     [
-        {"expect" : r"\[TSB Store\] Initiating with config values","min":0, "max":1},
-        {"expect": r"aamp_tune","min":0, "max":1},
-        {"expect" : r"msg=\"File written\"", "end_of_test":True},
+        {"expect" : r"\[TSB Store\] Initiating with config values", "max":1},
+        {"expect": r"aamp_tune", "max":1},
+        {"expect" : r"msg=\"File written\"", "end_of_test":True}
     ]
 }
 
@@ -74,9 +74,9 @@ TESTDATA1 = {
     'simlinear_type': 'DASH',
     "expect_list":
     [
-        {"expect": r"aamp_tune","min":0, "max":1},
-        {"expect" : r"\[TSB Store\] Initiating TSBStore with config values","min":0, "max":3,"not_expected" : True},
-        {"expect": r"first buffer received","min":0, "max":10, "end_of_test":True},
+        {"expect": r"aamp_tune", "max":1},
+        {"expect" : r"\[TSB Store\] Initiating TSBStore with config values", "max":3, "not_expected" : True},
+        {"expect": r"first buffer received", "end_of_test":True}
     ]
 }
 
@@ -91,12 +91,12 @@ TESTDATA2 = {
     'simlinear_type': 'DASH',
     "expect_list":
     [
-        {"expect" : r"\[TSB Store\] Initiating with config values","min":0, "max":1},
-        {"expect": r"aamp_tune","min":0, "max":1},
-        {"expect" : r"TSBWrite Metrics...OK","min":1, "max":40},
-        {"expect" : r"TSB Write Operation FAILED","min":0, "max":8,"not_expected" : True},
-        {"expect" : r"CullSegments","min":1, "max":40},
-        {"expect" : r"Removed \d.\d+ fragment duration seconds","min":8, "max":40 ,"end_of_test":True},
+        {"expect" : r"\[TSB Store\] Initiating with config values", "max":1},
+        {"expect" : r"aamp_tune", "max":1},
+        {"expect" : r"TSBWrite Metrics...OK", "min":1, "max":40},
+        {"expect" : r"TSB Write Operation FAILED", "max":8,"not_expected" : True},
+        {"expect" : r"CullSegments", "min":1},
+        {"expect" : r"Removed \d.\d+ fragment duration seconds", "min":8, "end_of_test":True}
     ]
 }
 
@@ -111,13 +111,13 @@ TESTDATA3 = {
     'simlinear_type': 'DASH',
     "expect_list":
     [
-        {"expect" : r"\[TSB Store\] Initiating with config values","min":0, "max":1},
-        {"expect": r"aamp_tune","min":0, "max":1},
-        {"expect" : r"Adding Init Data:","min":0, "max":10},
-        {"expect" : r"Adding Fragment Data: ","min":0, "max":10},
-        {"expect" : r"TSBWrite Metrics...OK","min":3, "max":10},
-        {"expect" : r"TSB Write Operation FAILED","min":3, "max":20,"not_expected" : True},
-        {"expect" : r"Removed \d.\d+ fragment duration seconds","min":8, "max":20 ,"end_of_test":True},
+        {"expect" : r"\[TSB Store\] Initiating with config values", "max":1},
+        {"expect" : r"aamp_tune", "max":1},
+        {"expect" : r"Adding Init Data:", "max":10},
+        {"expect" : r"Adding fragment data:", "max":10},
+        {"expect" : r"TSBWrite Metrics...OK", "min":3, "max":10},
+        {"expect" : r"TSB Write Operation FAILED", "min":3, "not_expected" : True},
+        {"expect" : r"Removed \d.\d+ fragment duration seconds", "min":8, "end_of_test":True},
     ]
 }
 
@@ -125,23 +125,23 @@ TESTDATA3 = {
 TESTDATA4 = {
     "title": "TSB Library",
     "logfile": "tsblib4.log",
-    "max_test_time_seconds": 35,
+    "max_test_time_seconds": 25,
     "aamp_cfg": "info=true\ntrace=true\nlocalTSBEnabled=true\ntsbLocation=/tmp/data\ntsbLength=4\ntsbLog=0\nsupressDecode=true\n",
     "archive_url": archive_url,
     "url": LLD_URL,
     'simlinear_type': 'DASH',
     "expect_list":
     [
-        {"expect" : r"\[TSB Store\] Initiating with config values","min":0, "max":1},
-        {"expect" : r"minFreePercentage : \d+","min":0, "max":1},
-        {"expect" : r"msg=\"Flusher thread running\"","min":0, "max":1},
-        {"expect" : r"msg=\"Flush storage content\"","min":0, "max":1},
-        {"expect" : r"msg=\"Store Constructed\"","min":0, "max":1},
-        {"expect" : r"msg=\"File written\" ","min":0, "max":10},
-        {"expect" : r"msg=\"Deleted file\" ","min":0, "max":10},
-        {"expect" : r"TSBWrite Metrics...OK","min":0, "max":10},
-        {"expect" : r"TSB Write Operation FAILED","min":0, "max":10,"not_expected" : True},
-        {"expect" : r"Removed \d.\d+ fragment duration seconds","min":8, "max":20 ,"end_of_test":True},
+        {"expect" : r"\[TSB Store\] Initiating with config values", "max":1},
+        {"expect" : r"minFreePercentage : \d+", "max":1},
+        {"expect" : r"msg=\"Flusher thread running\"", "max":1},
+        {"expect" : r"msg=\"Flush storage content\"", "max":1},
+        {"expect" : r"msg=\"Store Constructed\"", "max":1},
+        {"expect" : r"msg=\"File written\" ", "max":10},
+        {"expect" : r"msg=\"Deleted file\" ", "max":10},
+        {"expect" : r"TSBWrite Metrics...OK", "max":10},
+        {"expect" : r"TSB Write Operation FAILED", "max":10,"not_expected" : True},
+        {"expect" : r"Removed \d.\d+ fragment duration seconds","min":8, "end_of_test":True},
     ]
 }
 
@@ -154,9 +154,9 @@ TESTDATA5 = {
     "url": SLD_URL+"?chunked=/low/",
     "expect_list":
     [
-        {"expect" : r"aamp_tune","min":0, "max":1},
-        {"expect" : r"crashed|failure","min":0, "max":2,"not_expected" : True},
-        {"expect" : r"aamp pos","min":6, "max":20 ,"end_of_test":True},
+        {"expect" : r"aamp_tune", "max":1},
+        {"expect" : r"crashed|failure", "max":2, "not_expected" : True},
+        {"expect" : r"aamp pos", "min":6, "end_of_test":True}
     ]
 }
 
@@ -179,7 +179,7 @@ TESTDATA6 = {
         {"expect": r"File Read"},
 
         # Play from TSB until one specific fragment is added to TSB (~10s)
-        {"expect": r'\[AddFragment\]\[\d+\]\[video\] Adding fragment data\: ([\w:\-\. /\']+)track-video-periodid-1729780927911-1-repid-trackId-102-tc-0-time-927984487213.mp4', "end_of_test": True},
+        {"expect": r'\[AddFragment\]\[\d+\]\[video\] Adding fragment data\: ([\w:\-\. /\']+)track-video-periodid-1729780927911-1-repid-trackId-102-tc-0-time-927984487213.mp4', "end_of_test": True}
     ]
 }
 
@@ -196,9 +196,8 @@ TESTDATA7 = {
         # Check the PTS restamp is done correctly
         {"expect": r'\[RestampPts\].*?\[(\w+)\] timeScale (\d+) before (\d+) after (\d+) duration (\d+) ([\w:/?\.\-]+)\r\n', "callback" : pts_restamp_utils.check_restamp},
 
-        # Play until a specific fragment is added to AAMP TSB, then stop command will be sent.
-        {"expect": r'\[AddFragment\]\[\d+\]\[video\] Adding fragment data\: ([\w:\-\. /\']+)track-video-periodid-1729780927911-1-repid-trackId-102-tc-0-time-927981722413\.mp4', "callback": send_command, "callback_arg": "stop"},
-        {"expect": r'\[StopInternal\]', "end_of_test": True}
+        # Play until a specific fragment is added to AAMP TSB.
+        {"expect": r'\[AddFragment\]\[\d+\]\[video\] Adding fragment data\: ([\w:\-\. /\']+)track-video-periodid-1729780927911-1-repid-trackId-102-tc-0-time-927981722413\.mp4', "end_of_test": True}
     ]
 }
 
@@ -224,9 +223,8 @@ TESTDATA8 = {
         # Check the PTS restamp is done correctly
         {"expect": r'\[RestampPts\].*?\[(\w+)\] timeScale (\d+) before (\d+) after (\d+) duration (\d+) ([\w:/?\.\-]+)\r\n', "callback" : pts_restamp_utils.check_restamp},
 
-        # Play from TSB until a specific fragment is read from AAMP TSB, then stop command will be sent.
-        {"expect": r'\[ReadNext\].*?track-video-periodid-1729780927911-1-repid-trackId-102-tc-0-time-927984026413\.mp4', "callback": send_command, "callback_arg": "stop"},
-        {"expect": r'\[StopInternal\]', "end_of_test": True}
+        # Play from TSB until a specific fragment is read from AAMP TSB.
+        {"expect": r'\[ReadNext\].*?track-video-periodid-1729780927911-1-repid-trackId-102-tc-0-time-927984026413\.mp4', "end_of_test": True}
     ]
 }
 
@@ -249,9 +247,8 @@ TESTDATA9 = {
         # Check the PTS restamp is done correctly after the pause and play
         {"expect": r'\[RestampPts\].*?\[(\w+)\] timeScale (\d+) before (\d+) after (\d+) duration (\d+) ([\w:/?\.\-]+)\r\n', "min":15, "callback" : pts_restamp_utils.check_restamp},
 
-        # Play from TSB until 25s since the start of the test and then stop when a fragment is read from AAMP TSB
-        {"expect": r'\[ReadNext\]', "min": 25, "callback_once": send_command, "callback_arg": "stop"},
-        {"expect": r'\[StopInternal\]', "end_of_test": True}
+        # Play from TSB until 25s since the start of the test when a fragment is read from AAMP TSB
+        {"expect": r'\[ReadNext\]', "min": 25, "end_of_test": True}
     ]
 }
 
@@ -284,7 +281,7 @@ TESTDATA10 = {
         {"expect": r"AAMP_EVENT_SPEED_CHANGED current rate=2.000000"},
 
         # Fast forward to live
-        {"expect": r"Adjusting position to live edge","min":10, "end_of_test": True}
+        {"expect": r"Adjusting position to live edge", "min":10, "end_of_test": True}
     ]
 }
 
