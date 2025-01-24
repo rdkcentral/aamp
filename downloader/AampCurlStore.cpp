@@ -427,9 +427,9 @@ void CurlStore::CurlInit(PrivateInstanceAAMP *aamp, AampCurlInstance startIdx, u
 	{
 		if (ISCONFIGSET(eAAMPConfig_EnableCurlStore))
 		{
-			AAMPLOG_INFO("Check curl store for host:%s inst:%d-%d Fds[%p:%p]\n", HostName.c_str(), startIdx, instanceEnd, aamp->curl[startIdx], aamp->curlhost[startIdx]->curl );
+			AAMPLOG_INFO("Check curl store for host:%s inst:%d-%d Fds[%p:%p]", HostName.c_str(), startIdx, instanceEnd, aamp->curl[startIdx], aamp->curlhost[startIdx]->curl );
 			CurlStoreErrCode = GetFromCurlStoreBulk(HostName, startIdx, instanceEnd, aamp, CurlFdHost );
-			AAMPLOG_TRACE("From curl store for inst:%d-%d Fds[%p:%p] ShHdl:%p\n", startIdx, instanceEnd, aamp->curl[startIdx], aamp->curlhost[startIdx]->curl, aamp->mCurlShared );
+			AAMPLOG_TRACE("From curl store for inst:%d-%d Fds[%p:%p] ShHdl:%p", startIdx, instanceEnd, aamp->curl[startIdx], aamp->curlhost[startIdx]->curl, aamp->mCurlShared );
 		}
 		else
 		{

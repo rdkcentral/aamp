@@ -142,12 +142,12 @@ void PacketSender::sendPacket(PacketPtr && pkt)
 	int newSize = (int)buffer.size();
 	if (::setsockopt(mSubtecSocketHandle, SOL_SOCKET, SO_SNDBUF, &newSize, sizeof(newSize)) == -1)
 	{
-            AAMPLOG_WARN("::setsockopt() SO_SNDBUF failed\n");
+            AAMPLOG_WARN("::setsockopt() SO_SNDBUF failed");
 	}
 	else
 	{
 	    mSockBufSize = newSize;
-	    AAMPLOG_INFO("new socket buffer size %d\n", mSockBufSize);
+	    AAMPLOG_INFO("new socket buffer size %d", mSockBufSize);
 	}
     }
     auto written = ::write(mSubtecSocketHandle, &buffer[0], size);
@@ -156,14 +156,14 @@ void PacketSender::sendPacket(PacketPtr && pkt)
     //Socket reconnect in case packet write fails
     if (written == -1) {
         mPktWriteFailCtr++;
-        AAMPLOG_TRACE("PacketSender: Write returned -1 with error: %s\n", strerror(errno));
+        AAMPLOG_TRACE("PacketSender: Write returned -1 with error: %s", strerror(errno));
     } else {
         mPktWriteFailCtr = 0;
     }
 
     //Try reconnect after every 5 failed packet writes
     if (mPktWriteFailCtr > 5) {
-        AAMPLOG_INFO("PacketSender: Written is -1 for over 5 consecutive packets. Try to reconnect socket\n");
+        AAMPLOG_INFO("PacketSender: Written is -1 for over 5 consecutive packets. Try to reconnect socket");
 
         struct sockaddr_un addr;
 
@@ -231,7 +231,7 @@ bool PacketSender::initSocket(const char *socket_path)
 	    AAMPLOG_WARN("PacketSender: getsockopt Fails");
     }
     mSockBufSize = mSockBufSize / 2;  //kernel returns twice the value of actual buffer
-    AAMPLOG_INFO("SockBuffer size : %d\n", mSockBufSize);
+    AAMPLOG_INFO("SockBuffer size : %d", mSockBufSize);
 
     if (::connect(mSubtecSocketHandle, reinterpret_cast<struct sockaddr*>(&addr), sizeof(addr)) != 0)
     {

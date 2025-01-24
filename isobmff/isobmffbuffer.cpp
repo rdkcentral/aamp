@@ -82,7 +82,7 @@ bool IsoBmffBuffer::ParseChunkData(const char* name, char* &unParsedBuffer, uint
 	{
 		parsedBoxCount--;
 		AAMPLOG_TRACE("[%s] MDAT Chunk Found - Actual Parsed Box Count: %zu", name,parsedBoxCount);
-		AAMPLOG_TRACE("[%s] Chunk Offset[%u] Chunk Type[%s] Chunk Size[%u]\n", name, boxOffset, boxTypeStr.c_str(), boxSize);
+		AAMPLOG_TRACE("[%s] Chunk Offset[%u] Chunk Type[%s] Chunk Size[%u]", name, boxOffset, boxTypeStr.c_str(), boxSize);
 	}
 	if(mdatCount)
 	{

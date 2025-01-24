@@ -6322,7 +6322,7 @@ void StreamAbstractionAAMP_MPD::SwitchSubtitleTrack(bool newTune)
 	FetchAndInjectInitialization(eMEDIATYPE_SUBTITLE, false);
 	if(!aamp->IsGstreamerSubsEnabled())
 	{
-		AAMPLOG_INFO("gstreamer not enabled\n");
+		AAMPLOG_INFO("gstreamer not enabled");
 		pMediaStreamContext->mSubtitleParser->init(aamp->GetPositionSeconds(), aamp->GetBasePTS());
 	}
 }

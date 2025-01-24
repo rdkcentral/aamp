@@ -5741,7 +5741,7 @@ void TrackState::UpdateDrmCMSha1Hash(const char *ptr)
 			{
 				if (drmMetadataNode[j].sha1Hash)
 				{
-					AAMPLOG_WARN("drmMetadataNode[%d].sha1Hash -- \n", j);
+					AAMPLOG_WARN("drmMetadataNode[%d].sha1Hash", j);
 					for (int i = 0; i < DRM_SHA1_HASH_LEN; i++)
 					{
 						printf("%c", drmMetadataNode[j].sha1Hash[i]);

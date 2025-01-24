@@ -1083,7 +1083,7 @@ static void element_setup_cb(GstElement * playbin, GstElement * element, AAMPGst
 	gchar* elemName = gst_element_get_name(element);
 	if (elemName && aamp_StartsWith(elemName, "qtdemux"))
 	{
-		AAMPLOG_WARN( "Add pad-added callback to demux:%s\n", elemName);
+		AAMPLOG_WARN( "Add pad-added callback to demux:%s", elemName);
 		g_signal_connect(element, "pad-added", G_CALLBACK(AAMPGstPlayer_OnDemuxPadAddedCb), _this);
 	}
 	g_free(elemName);
@@ -1594,18 +1594,18 @@ GstFlowReturn AAMPGstPlayer::AAMPGstPlayer_OnVideoSample(GstElement* object, AAM
 				}
 				else
 				{
-					AAMPLOG_ERR("buffer map failed\n");
+					AAMPLOG_ERR("buffer map failed");
 				}
 			}
 			else
 			{
-				AAMPLOG_ERR("buffer NULL\n");
+				AAMPLOG_ERR("buffer NULL");
 			}
 			gst_sample_unref(sample);
 		}
 		else
 		{
-			AAMPLOG_WARN("sample NULL\n");
+			AAMPLOG_WARN("sample NULL");
 		}
 	}
 #endif
@@ -2867,7 +2867,7 @@ static int AAMPGstPlayer_SetupStream(AAMPGstPlayer *_this, AampMediaType streamI
 		{
 			if (eMEDIATYPE_VIDEO == streamId)
 			{
-				AAMPLOG_MIL("using appsink\n");
+				AAMPLOG_MIL("using appsink");
 				GstElement* appsink = gst_element_factory_make("appsink", NULL);
 				assert(appsink);
 				GstCaps *caps = gst_caps_new_simple("video/x-raw", "format", G_TYPE_STRING, "I420", NULL);
@@ -4766,7 +4766,7 @@ bool AAMPGstPlayer::CheckForPTSChangeWithTimeout(long timeout)
 	{
 		if (currentPTS != privateContext->lastKnownPTS)
 		{
-			AAMPLOG_MIL("AAMPGstPlayer: There is an update in PTS prevPTS:%" G_GINT64_FORMAT " newPTS: %" G_GINT64_FORMAT "\n",
+			AAMPLOG_MIL("AAMPGstPlayer: There is an update in PTS prevPTS:%" G_GINT64_FORMAT " newPTS: %" G_GINT64_FORMAT,
 							privateContext->lastKnownPTS, currentPTS);
 			privateContext->ptsUpdatedTimeMS = NOW_STEADY_TS_MS;			/* save a copy of the current steady clock in milliseconds */
 			privateContext->lastKnownPTS = currentPTS;
@@ -4783,7 +4783,7 @@ bool AAMPGstPlayer::CheckForPTSChangeWithTimeout(long timeout)
 	}
 	else
 	{
-		AAMPLOG_MIL("AAMPGstPlayer: video-pts parsed is: %" G_GINT64_FORMAT "\n",
+		AAMPLOG_MIL("AAMPGstPlayer: video-pts parsed is: %" G_GINT64_FORMAT,
 			currentPTS);
 	}
 	return ret;
@@ -4849,7 +4849,7 @@ PlaybackQualityStruct* AAMPGstPlayer::GetVideoPlaybackQuality(void)
 			{
 				privateContext->playbackQuality.dropped= g_value_get_uint64( value );
 			}
-			AAMPLOG_MIL("rendered %lld dropped %lld\n", privateContext->playbackQuality.rendered, privateContext->playbackQuality.dropped);
+			AAMPLOG_MIL("rendered %lld dropped %lld", privateContext->playbackQuality.rendered, privateContext->playbackQuality.dropped);
 			gst_structure_free( stats );
 
 			return &privateContext->playbackQuality;
@@ -5095,7 +5095,7 @@ void AAMPGstPlayer::InitializeAAMPGstreamerPlugins()
 		{
 			gst_plugin_feature_set_rank(pluginFeature, GST_RANK_PRIMARY - 1);
 			gst_object_unref(pluginFeature);
-			AAMPLOG_MIL("AAMPGstPlayer: %s plugin priority set to GST_RANK_PRIMARY  - 1\n", plugins_to_lower_rank[i]);
+			AAMPLOG_MIL("AAMPGstPlayer: %s plugin priority set to GST_RANK_PRIMARY - 1", plugins_to_lower_rank[i]);
 		}
 	}
 #endif

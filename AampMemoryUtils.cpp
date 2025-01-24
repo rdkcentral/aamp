@@ -53,12 +53,12 @@ void * aamp_CreateSharedMem( size_t shmLen, key_t & shmKey)
 				shmPointer = shmat(shmId, NULL, 0 );
 				if( shmPointer != (void *)-1 )
 				{ // success!
-					AAMPLOG_WARN("Shared memory shmId=%d ptr=%p created for the key, %u\n",
+					AAMPLOG_WARN("Shared memory shmId=%d ptr=%p created for the key, %u",
 								 shmId, shmPointer, shmKey);
 				}
 				else
 				{
-					AAMPLOG_ERR("shmat err=%d shmId=%d\n", errno, shmId );
+					AAMPLOG_ERR("shmat err=%d shmId=%d", errno, shmId );
 					aamp_CleanUpSharedMem( shmPointer, shmKey, shmLen);
 					shmPointer = NULL;
 				}
@@ -86,24 +86,24 @@ void aamp_CleanUpSharedMem(void* shmPointer, key_t shmKey, size_t shmLen)
 	{ // detach shared memory
 		if( -1 == shmdt(shmPointer) )
 		{
-			AAMPLOG_ERR("shmdt failure %d for key %u \n", errno, shmKey);
+			AAMPLOG_ERR("shmdt failure %d for key %u", errno, shmKey);
 		}
 		int shmId = shmget(shmKey, shmLen, SHM_ACCESS_PERMISSION);
 		if( shmId != -1 )
 		{ // mark segment to be destroyed
 			if( -1 == shmctl(shmId, IPC_RMID, NULL) )
 			{
-				AAMPLOG_ERR("shmctl err=%d shmId=%d\n", errno, shmId );
+				AAMPLOG_ERR("shmctl err=%d shmId=%d", errno, shmId );
 			}
 		}
 		else
 		{
-			AAMPLOG_ERR("bad shmKey=%u\n", shmKey);
+			AAMPLOG_ERR("bad shmKey=%u", shmKey);
 		}
 	}
 	else
 	{
-		AAMPLOG_ERR("bad shmPointer=%p\n", shmPointer );
+		AAMPLOG_ERR("bad shmPointer=%p", shmPointer );
 	}
 }
 

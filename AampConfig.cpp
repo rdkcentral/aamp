@@ -1635,7 +1635,7 @@ bool AampConfig::ProcessBase64AampCfg(const char * base64Config, size_t configLe
 				{
 					if (line.length() > 0)
 					{
-						AAMPLOG_INFO("aamp-cmd:[%s]\n", line.c_str());
+						AAMPLOG_INFO("aamp-cmd:[%s]", line.c_str());
 						ProcessConfigText(line,cfgPriority);
 					}
 				}

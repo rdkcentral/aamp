@@ -91,7 +91,7 @@ std::string convertCueToTtmlString(int id, VTTCue *cue, double startTime)
 		ss << "</p>\n";
 	}
 	
-	AAMPLOG_TRACE(" %s\n", ss.str().c_str());
+	AAMPLOG_TRACE(" %s", ss.str().c_str());
 	
 	return ss.str();
 }
