@@ -1433,7 +1433,7 @@ TEST_F(PrivAampTests,TeardownStreamTest_1)
 TEST_F(PrivAampTests,TeardownStreamTest_2)
 {
 	EXPECT_EQ(0,p_aamp->rate);
-	p_aamp->Stop();
+	p_aamp->Stop(false);
 	EXPECT_EQ(1,p_aamp->rate);
 	bool flag = p_aamp->IsDiscontinuityProcessPending();
 	EXPECT_FALSE(flag);
@@ -1972,13 +1972,22 @@ TEST_F(PrivAampTests,IsAudioPlayContextCreationSkippedTest)
 
 TEST_F(PrivAampTests,stopTest)
 {
-	p_aamp->Stop();
+	constexpr long long POS = 1234;
+	p_aamp->StartPausePositionMonitoring(POS);
+	EXPECT_EQ(POS, p_aamp->mPausePositionMilliseconds);
+	EXPECT_TRUE(p_aamp->mPausePositionMonitoringThreadStarted);
+
+	p_aamp->Stop(false);
 	EXPECT_FALSE(p_aamp->mAutoResumeTaskPending);
+
+	// StopPausePositionMonitoring() should have been called
+	EXPECT_EQ(-1, p_aamp->mPausePositionMilliseconds);
+	EXPECT_FALSE(p_aamp->mPausePositionMonitoringThreadStarted);
 }
 
 TEST_F(PrivAampTests,stopTest_1)
 {
-	p_aamp->Stop();
+	p_aamp->Stop(false);
 	EXPECT_FALSE(p_aamp->mAutoResumeTaskPending);
 	EXPECT_FALSE(p_aamp->IsFogTSBSupported());
 }
@@ -3662,8 +3671,9 @@ TEST_F(PrivAampTests,stopTest_11)
 {
 	p_aamp->mFogTSBEnabled = true;
 	p_aamp->IsFogTSBSupported();
-	p_aamp->Stop();
+	p_aamp->Stop(false);
 }
+
 TEST_F(PrivAampTests,GetLastDownloadedManifestTest1)
 {
 	std::string manifest;

@@ -26,8 +26,9 @@
 class MockPrivateInstanceAAMP
 {
 public:
-
-    MOCK_METHOD(void, StartPausePositionMonitoring, (long long pausePositionMilliseconds));
+	MOCK_METHOD(void, Stop, (bool sendStateChangeEvent));
+	
+	MOCK_METHOD(void, StartPausePositionMonitoring, (long long pausePositionMilliseconds));
 
     MOCK_METHOD(void, StopPausePositionMonitoring, (std::string reason));
 
