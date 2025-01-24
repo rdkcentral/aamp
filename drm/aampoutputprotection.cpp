@@ -126,7 +126,7 @@ bool AampOutputProtection::IsSourceUHD()
 
 bool AampOutputProtection::IsMS2V12Supported()
 {
-	bool IsMS12V2 = false;
+	bool IsMS12V2 = true; // all newer devices have MS12V2 support - below runtime check can eventually be removed
 #ifdef IARM_MGR
 	try {
 		//Get the HDMI port
@@ -135,12 +135,9 @@ bool AampOutputProtection::IsMS2V12Supported()
 		::device::VideoOutputPort &vPort = ::device::Host::getInstance().getVideoOutputPort(strVideoPort);
 		int caps;
 		vPort.getAudioOutputPort().getAudioCapabilities(&caps);
-		if(((caps & dsAUDIOSUPPORT_MS12V2) == dsAUDIOSUPPORT_MS12V2))
+		if(((caps & dsAUDIOSUPPORT_MS12V2) != dsAUDIOSUPPORT_MS12V2))
 		{
-			IsMS12V2 = true;
-		}
-		else
-		{
+			IsMS12V2 = false;
 			AAMPLOG_INFO("MS12V2 Audio not supported in this device");
 		}
 		device::Manager::DeInitialize();
