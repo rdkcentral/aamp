@@ -311,9 +311,8 @@ static void releaseNativeResources(AAMPMediaPlayer_JS *privObj)
 		// clean all members of AAMPMediaPlayer_JS(privObj)
 		if (privObj->_aamp != NULL)
 		{
-			//when finalizing JS object, don't generate state change events
-			LOG_WARN(privObj," aamp->Stop(false)");
-			privObj->_aamp->Stop(false);
+			LOG_WARN(privObj,"aamp->Stop()");
+			privObj->_aamp->Stop();
 			privObj->clearCallbackForAllAdIds();
 			if (privObj->_listeners.size() > 0)
 			{
@@ -3874,7 +3873,7 @@ JSObjectRef AAMPMediaPlayer_JS_class_constructor(JSContextRef ctx, JSObjectRef c
 	// or individually as part of setAlternateContent call. NULL checks added in eventlistener to avoid undesired behavior
 	AAMP_JSEventListener::AddEventListener(privObj, AAMP_EVENT_AD_RESOLVED, NULL);
 
-	// Required for viper-player
+	
 	JSStringRef fName = JSStringCreateWithUTF8CString("toString");
 	JSStringRef fString = JSStringCreateWithUTF8CString("return \"[object __AAMPMediaPlayer]\";");
 	JSObjectRef toStringFunc = JSObjectMakeFunction(ctx, NULL, 0, NULL, fString, NULL, 0, NULL);

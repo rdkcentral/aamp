@@ -5936,7 +5936,7 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 	//temporary hack 
 	if (strcasestr(mAppName.c_str(), "peacock"))
 	{
-		// Enable PTS Restamping only for Peacock App on BCOM
+		// Enable PTS Restamping
 		if(SocUtils::EnableLiveLatencyCorrection())
 		{
 			SETCONFIGVALUE_PRIV(AAMP_DEFAULT_SETTING, eAAMPConfig_EnableLiveLatencyCorrection, true);
@@ -7540,12 +7540,17 @@ bool PrivateInstanceAAMP::IsLiveStream()
 
 /**
  * @brief Stop playback and release resources.
- *
  */
-void PrivateInstanceAAMP::Stop()
+void PrivateInstanceAAMP::Stop( bool sendStateChangeEvent )
 {
-	// Clear all the player events in the queue and sets its state to RELEASED as everything is done
-	mEventManager->SetPlayerState(eSTATE_RELEASED);
+	StopPausePositionMonitoring("Stop() called");
+	AAMPPlayerState state = GetState();
+	if(!IsTuneCompleted())
+	{ // interrupted tune - handle as tune failure
+		TuneFail(true);
+	}
+	AAMPLOG_MIL("aamp_stop PlayerState=%d; position=%lld %s",state, GetPositionMilliseconds(), (mbPlayEnabled?STRFGPLAYER:STRBGPLAYER) );
+	SetState( eSTATE_STOPPING, sendStateChangeEvent );
 	mEventManager->FlushPendingEvents();
 	{
 		std::unique_lock<std::mutex> lock(gMutex);
@@ -7692,9 +7697,6 @@ void PrivateInstanceAAMP::Stop()
 	mFirstFragmentTimeOffset = -1;
 	mProgressReportAvailabilityOffset = -1;
 	rate = 1;
-	// Set the state to eSTATE_IDLE
-	// directly setting state variable . Calling SetState will trigger event :(
-	mState = eSTATE_IDLE;
 
 	SetPauseOnStartPlayback(false);
 	mSeekOperationInProgress = false;
@@ -7735,16 +7737,10 @@ void PrivateInstanceAAMP::Stop()
 
 	SAFE_DELETE(mCdaiObject);
 
-#if 0
-	/* Clear the session data*/
-	if(!mSessionToken.empty()){
-		mSessionToken.clear();
-	}
-#endif
 	if(mMPDDownloaderInstance != nullptr)
 	{
 		// delete the MPD Downloader Instance
-		AAMPLOG_INFO("Calling delete of Downloader instance ");
+		AAMPLOG_INFO("Calling delete of Downloader instance "); // used in l2test 1015
 		SAFE_DELETE(mMPDDownloaderInstance);
 	}
 
@@ -7758,6 +7754,13 @@ void PrivateInstanceAAMP::Stop()
 	EnableDownloads();
 
 	AampStreamSinkManager::GetInstance().DeactivatePlayer(this, true);
+	SetState( eSTATE_RELEASED, sendStateChangeEvent );
+	
+	// Revert all custom specific setting, tune specific setting and stream specific setting , back to App/default setting
+	mConfig->RestoreConfiguration(AAMP_CUSTOM_DEV_CFG_SETTING);
+	mConfig->RestoreConfiguration(AAMP_TUNE_SETTING);
+	mConfig->RestoreConfiguration(AAMP_STREAM_SETTING);
+	mIsStream4K = false;
 }
 
 /**
@@ -8303,37 +8306,38 @@ void PrivateInstanceAAMP::ScheduleRetune(PlaybackErrorType errorType, AampMediaT
 /**
  * @brief Set player state
  */
-void PrivateInstanceAAMP::SetState(AAMPPlayerState state)
+void PrivateInstanceAAMP::SetState(AAMPPlayerState state, bool generateEvent )
 {
-	//bool sentSync = true;
-
-	if (mState == state)
-	{ // noop
-		return;
-	}
-
-	if ( (state == eSTATE_PLAYING || state == eSTATE_BUFFERING || state == eSTATE_PAUSED)
-		&& mState == eSTATE_SEEKING && (mEventManager->IsEventListenerAvailable(AAMP_EVENT_SEEKED)))
+	if( mState != state )
 	{
-		SeekedEventPtr event = std::make_shared<SeekedEvent>(GetPositionMilliseconds(), GetSessionId());
-		mEventManager->SendEvent(event,AAMP_EVENT_SYNC_MODE);
-	}
-	{
-		std::lock_guard<std::recursive_mutex> guard(mLock);
-		mState = state;
-	}
-
-	mScheduler->SetState(mState);
-	if (mEventManager->IsEventListenerAvailable(AAMP_EVENT_STATE_CHANGED))
-	{
-		if (mState == eSTATE_PREPARING)
+		if( generateEvent )
 		{
-			StateChangedEventPtr eventData = std::make_shared<StateChangedEvent>(eSTATE_INITIALIZED, GetSessionId());
-			mEventManager->SendEvent(eventData,AAMP_EVENT_SYNC_MODE);
+			bool presentingVideo = (state == eSTATE_PLAYING || state == eSTATE_BUFFERING || state == eSTATE_PAUSED);
+			if( presentingVideo && mState == eSTATE_SEEKING && mEventManager->IsEventListenerAvailable(AAMP_EVENT_SEEKED) )
+			{
+				SeekedEventPtr event = std::make_shared<SeekedEvent>(GetPositionMilliseconds(), GetSessionId());
+				mEventManager->SendEvent(event,AAMP_EVENT_SYNC_MODE);
+			}
 		}
-
-		StateChangedEventPtr eventData = std::make_shared<StateChangedEvent>(mState, GetSessionId());
-		mEventManager->SendEvent(eventData,AAMP_EVENT_SYNC_MODE);
+		{
+			std::lock_guard<std::recursive_mutex> guard(mLock);
+			mState = state;
+		}
+		mScheduler->SetState(state);
+		if( generateEvent )
+		{
+			if( mEventManager->IsEventListenerAvailable(AAMP_EVENT_STATE_CHANGED) )
+			{
+				if( mState == eSTATE_PREPARING )
+				{ // belatedly generate eSTATE_INITIALIZED state changed event
+					// TODO: move outside this method?
+					StateChangedEventPtr eventData = std::make_shared<StateChangedEvent>(eSTATE_INITIALIZED, GetSessionId());
+					mEventManager->SendEvent(eventData,AAMP_EVENT_SYNC_MODE);
+				}
+				StateChangedEventPtr eventData = std::make_shared<StateChangedEvent>(mState, GetSessionId());
+				mEventManager->SendEvent(eventData,AAMP_EVENT_SYNC_MODE);
+			}
+		}
 	}
 }
 
