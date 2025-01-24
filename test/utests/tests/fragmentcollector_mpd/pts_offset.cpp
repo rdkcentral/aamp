@@ -259,14 +259,14 @@ TEST_F(fragmentcollector_mpd, UpdatePtsOffsetTest1)
 		double aDuration;
 		double vDuration;
 		double expectedOffset;
-	} tbl[] = {
+	} tbl[] = {                         // mPTSOffset(n) = mPTSOffset(n-1) + duration(n-1) + timelineStart(n-1) - timelineStart(n);
 		{0, 0, 9.6, 9.6, 0},
 		{0, 0, 9.6, 9.6, 9.6},
 		{0, 0, 9.6, 9.6, 19.2},
-		{10, 0, 9.6, 9.6, 18.8},		// different start times 18.8 = 19.2 + 9.6 + 10
-		{100, 100, 9.6, 9.0, -61.6},	// different durations -61.6 = 18.8 + 9.6 + 10 (Max of 2 start times) - 100
-		{0, 0, 5.0, 5.0, 47.4},			// 47.4 = -61.6 + 9 (min of 2 durations) + 100
-		{123, 123, 0, 0, -70.6},		// 0 duration I.E no segment timeline
+		{10, 0, 9.6, 9.6, 28.8},		// 28.8 = 19.2 + max(9.6,9.6) + min(0,0) - min(10,0)
+		{100, 100, 9.6, 9.0, -61.6},	// -61.6 = 28.8 + max(9.6,9.6) + min(10,0) - min(100,100)
+		{0, 0, 5.0, 5.0, 48.0},			//  48 = -61.6 + max(9.6,9.0) + min(100,100) - min(0,0)
+		{123, 123, 0, 0, -70},		    //  -70 = 48.0 + max(5.0,5.0) + min(0,0) - min(123,123)
 	};
 
 	/* Configure the mocks to return values in the order that they appear in the table */

@@ -6893,7 +6893,7 @@ void StreamAbstractionAAMP_MPD::SwitchAudioTrack()
 	{
 		/*In Live scenario, the manifest refresh got happened frequently,so in the UpdateTrackinfo(), all the params
 		* get reset lets say.., pMediaStreamContext->fragmentDescriptor.Number, fragmentTime.., so during that case, we are getting
-		* totalfetchDuration, totalInjectedDuration as negative values once we subtract the OldPlaylistpositions with the Newplaylistpositions, for avoiding 
+		* totalfetchDuration, totalInjectedDuration as negative values once we subtract the OldPlaylistpositions with the Newplaylistpositions, for avoiding
 		* this in the case if the manifest got updated, we have called the PushNextFragment(), for the proper update of the params like
 		* pMediaStreamContext->fragmentTime, pMediaStreamContext->fragmentDescriptor.Number and pMediaStreamContext->fragmentDescriptor.Time
 		*/
@@ -9050,7 +9050,7 @@ void StreamAbstractionAAMP_MPD::GetStartAndDurationForPtsRestamping(AampTime &st
 		AAMPLOG_WARN("Cannot get details for VIDEO");
 	}
 
-	start = std::max(audioStart, videoStart);
+	start = std::min(audioStart, videoStart);
 
 	AAMPLOG_INFO("Idx %d Id %s aDur %f vDur %f aStart %f vStart %f",
 				 mCurrentPeriodIdx, period->GetId().c_str(), audioDuration.inSeconds(), videoDuration.inSeconds(), audioStart.inSeconds(), videoStart.inSeconds());
@@ -9061,12 +9061,12 @@ void StreamAbstractionAAMP_MPD::GetStartAndDurationForPtsRestamping(AampTime &st
 	 */
 	if ((audioDuration != 0.0) && (videoDuration != 0.0))
 	{
-		// For cases where 2 timelines give different durations, take the minimum
-		duration = std::min(audioDuration, videoDuration);
+		// for cases where 2 tracks have slightly different durations, take the maximum to avoid injecting overlapping media
+		duration = std::max(audioDuration, videoDuration);
 	}
 	else
 	{
-		// cannot get duration from timeline use another algorithm
+		// cannot get duration from timeline so use another algorithm
 		duration = CONVERT_MS_TO_SEC(mMPDParseHelper->GetPeriodDuration(mCurrentPeriodIdx, mLastPlaylistDownloadTimeMs, false, aamp->IsUninterruptedTSB()));
 		AAMPLOG_INFO("Idx %d Id %s duration %f", mCurrentPeriodIdx, period->GetId().c_str(), duration.inSeconds());
 	}
