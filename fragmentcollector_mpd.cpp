@@ -1313,7 +1313,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 						}
 						pMediaStreamContext->fragmentDescriptor.Time = startTime;
 	
-						//Some foxtel streams have timeline start variation(~1) under diff representation but on same adaptation with same startNumber. Reset lastSegmentTime, as FDT>lastSegmentTime, it leads to Fetch duplicate fragment, as fragment number remains same.
+						//Some  streams have timeline start variation(~1) under diff representation but on same adaptation with same startNumber. Reset lastSegmentTime, as FDT>lastSegmentTime, it leads to Fetch duplicate fragment, as fragment number remains same.
                                                 if(pMediaStreamContext->mediaType == eMEDIATYPE_VIDEO &&
 						(prevTimeScale != 0 && prevTimeScale != timeScale) && (pMediaStreamContext->lastSegmentTime != 0 && pMediaStreamContext->lastSegmentTime < pMediaStreamContext->fragmentDescriptor.Time) &&
 						(pMediaStreamContext->lastSegmentNumber != 0 && pMediaStreamContext->lastSegmentNumber == pMediaStreamContext->fragmentDescriptor.Number))
@@ -6871,8 +6871,8 @@ void StreamAbstractionAAMP_MPD::SwitchAudioTrack()
 	{
 		/*In Live scenario, the manifest refresh got happened frequently,so in the UpdateTrackinfo(), all the params
 		* get reset lets say.., pMediaStreamContext->fragmentDescriptor.Number, fragmentTime.., so during that case, we are getting
-		* totalfetchDuration, totalInjectedDuration as negative values once we subract the OldPlaylistpositions with the Newplaylistpositions, for avoiding 
-		* this in the case if the manifest got updated, we have called the PushNextFragment(), for the proper updations of the params like
+		* totalfetchDuration, totalInjectedDuration as negative values once we subtract the OldPlaylistpositions with the Newplaylistpositions, for avoiding
+		* this in the case if the manifest got updated, we have called the PushNextFragment(), for the proper update of the params like
 		* pMediaStreamContext->fragmentTime, pMediaStreamContext->fragmentDescriptor.Number and pMediaStreamContext->fragmentDescriptor.Time
 		*/
 		AAMPLOG_INFO("Manifest got updated[%u]",pMediaStreamContext->freshManifest);
@@ -7812,7 +7812,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, 
 					pMediaStreamContext->representationIndex = 0; //Fog custom mpd has single representation
 				}
 			}
-                  	//The logic is added to avoid a crash in AAMP due to stream issue in charter HEVC stream.
+                  	//The logic is added to avoid a crash in AAMP due to stream issue in  HEVC stream.
                   	//Player will be able to end the playback gracefully with the fix.
 			if(pMediaStreamContext->representationIndex < pMediaStreamContext->adaptationSet->GetRepresentation().size())
 			{
@@ -8999,7 +8999,7 @@ void StreamAbstractionAAMP_MPD::GetStartAndDurationForPtsRestamping(AampTime &st
 		AAMPLOG_WARN("Cannot get details for VIDEO");
 	}
 
-	start = std::max(audioStart, videoStart);
+	start = std::min(audioStart, videoStart);
 
 	AAMPLOG_INFO("Idx %d Id %s aDur %f vDur %f aStart %f vStart %f",
 				 mCurrentPeriodIdx, period->GetId().c_str(), audioDuration.inSeconds(), videoDuration.inSeconds(), audioStart.inSeconds(), videoStart.inSeconds());
@@ -9010,12 +9010,12 @@ void StreamAbstractionAAMP_MPD::GetStartAndDurationForPtsRestamping(AampTime &st
 	 */
 	if ((audioDuration != 0.0) && (videoDuration != 0.0))
 	{
-		// For cases where 2 timelines give different durations, take the minimum
-		duration = std::min(audioDuration, videoDuration);
+		// for cases where 2 tracks have slightly different durations, take the maximum to avoid injecting overlapping media
+		duration = std::max(audioDuration, videoDuration);
 	}
 	else
 	{
-		// cannot get duration from timeline use another algorithm
+		// cannot get duration from timeline so use another algorithm
 		duration = CONVERT_MS_TO_SEC(mMPDParseHelper->GetPeriodDuration(mCurrentPeriodIdx, mLastPlaylistDownloadTimeMs, false, aamp->IsUninterruptedTSB()));
 		AAMPLOG_INFO("Idx %d Id %s duration %f", mCurrentPeriodIdx, period->GetId().c_str(), duration.inSeconds());
 	}
