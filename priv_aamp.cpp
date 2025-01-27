@@ -5900,7 +5900,7 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 
 	}
 	//temporary hack for peacock
-	if (STARTS_WITH_IGNORE_CASE(mAppName.c_str(), "peacock"))
+	if (strcasestr(mAppName.c_str(), "peacock"))
 	{
 		// Enable PTS Restamping only for Peacock App on BCOM
 		switch( GetPlatformType() )
