@@ -261,7 +261,7 @@ void AampEventManager::SetAsyncTuneState(bool isAsyncTuneSetting)
 /**
  * @brief SetPlayerState - Flag to update player state
  */
-void AampEventManager::SetPlayerState(PrivAAMPState state)
+void AampEventManager::SetPlayerState(PlayerState state)
 {
 	pthread_mutex_lock(&mMutexVar);
 	mPlayerState = state;

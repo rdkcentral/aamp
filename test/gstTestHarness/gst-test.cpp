@@ -470,7 +470,7 @@ private:
 	PipelineState prevState;
 	PipelineState desiredState;
 public:
-	TrackWaitState( PipelineState desiredState ) : prevState(ePIPELINESTATE_NULL),desiredState(desiredState)
+	TrackWaitState( PipelineState desiredState ) : prevState(ePIPELINeSTATE_NULL),desiredState(desiredState)
 	{
 	}
 	
@@ -485,17 +485,17 @@ public:
 		{
 			switch( state )
 			{
-				case ePIPELINESTATE_NULL:
-					printf( "TrackWaitState(PIPELINESTATE_NULL)\n" );
+				case ePIPELINeSTATE_NULL:
+					printf( "TrackWaitState(PIPELINeSTATE_NULL)\n" );
 					break;
-				case ePIPELINESTATE_READY:
-					printf( "TrackWaitState(PIPELINESTATE_READY)\n" );
+				case ePIPELINeSTATE_READY:
+					printf( "TrackWaitState(PIPELINeSTATE_READY)\n" );
 					break;
-				case ePIPELINESTATE_PAUSED:
-					printf( "TrackWaitState(PIPELINESTATE_PAUSED)\n" );
+				case ePIPELINeSTATE_PAUSED:
+					printf( "TrackWaitState(PIPELINeSTATE_PAUSED)\n" );
 					break;
-				case ePIPELINESTATE_PLAYING:
-					printf( "TrackWaitState(PIPELINESTATE_PLAYING)\n" );
+				case ePIPELINeSTATE_PLAYING:
+					printf( "TrackWaitState(PIPELINeSTATE_PLAYING)\n" );
 					break;
 				default:
 					printf( "TrackWaitState(%d)\n", state );
@@ -601,7 +601,7 @@ public:
 	
 	bool Inject( MyPipelineContext *context, MediaType mediaType)
 	{
-		context->pipeline->SetPipelineState(ePIPELINESTATE_PLAYING);
+		context->pipeline->SetPipelineState(ePIPELINeSTATE_PLAYING);
 		return true;
 	}
 };
@@ -802,7 +802,7 @@ public:
 		
 		pipelineContext.pipeline->Configure( eMEDIATYPE_VIDEO );
 		pipelineContext.pipeline->Configure( eMEDIATYPE_AUDIO );
-		pipelineContext.pipeline->SetPipelineState(ePIPELINESTATE_PLAYING);
+		pipelineContext.pipeline->SetPipelineState(ePIPELINeSTATE_PLAYING);
 	}
 	
 	void TestDAI( void )
@@ -849,7 +849,7 @@ public:
 		// configure pipelines and begin streaming
 		pipelineContext.pipeline->Configure( eMEDIATYPE_VIDEO );
 		pipelineContext.pipeline->Configure( eMEDIATYPE_AUDIO );
-		pipelineContext.pipeline->SetPipelineState(ePIPELINESTATE_PLAYING);
+		pipelineContext.pipeline->SetPipelineState(ePIPELINeSTATE_PLAYING);
 	}
 	
 	void TestDAI2( void )
@@ -890,7 +890,7 @@ public:
 		// configure pipelines and begin streaming
 		pipelineContext.pipeline->Configure( eMEDIATYPE_VIDEO );
 		pipelineContext.pipeline->Configure( eMEDIATYPE_AUDIO );
-		pipelineContext.pipeline->SetPipelineState(ePIPELINESTATE_PLAYING);
+		pipelineContext.pipeline->SetPipelineState(ePIPELINeSTATE_PLAYING);
 	}
 	
 	void TestStream( double start, double stop, const char *language )
@@ -914,7 +914,7 @@ public:
 		
 		pipelineContext.pipeline->Configure( eMEDIATYPE_VIDEO );
 		pipelineContext.pipeline->Configure( eMEDIATYPE_AUDIO );
-		pipelineContext.pipeline->SetPipelineState(ePIPELINESTATE_PLAYING);
+		pipelineContext.pipeline->SetPipelineState(ePIPELINeSTATE_PLAYING);
 	}
 	
 	void Test_Seek( double seek_pos )
@@ -945,12 +945,12 @@ public:
 		Flush();
 		video.QueueVideoHeader( eVIDEORESOLUTION_IFRAME );
 		pipelineContext.pipeline->Configure( eMEDIATYPE_VIDEO );
-		pipelineContext.pipeline->SetPipelineState(ePIPELINESTATE_PAUSED);
+		pipelineContext.pipeline->SetPipelineState(ePIPELINeSTATE_PAUSED);
 		for( int frame=0; frame<SEGMENT_COUNT; frame ++ )
 		{
 			video.QueueVideoSegment( eVIDEORESOLUTION_IFRAME, frame, 1 );
 			video.EnqueueControl(new TrackEOS() ); // needed for small segment to render
-			video.EnqueueControl( new TrackWaitState(ePIPELINESTATE_PAUSED) ); // block until visible
+			video.EnqueueControl( new TrackWaitState(ePIPELINeSTATE_PAUSED) ); // block until visible
 			video.EnqueueControl( new TrackSleep(IFRAME_TRACK_CADENCE_MS) );
 			double pts = frame*SEGMENT_DURATION_SECONDS;
 			video.EnqueueControl( new TrackFlush( 1, pts, -1, pts ) );
@@ -968,7 +968,7 @@ public:
 		video.QueueVideoSegment( eVIDEORESOLUTION_IFRAME, 0, SEGMENT_COUNT );
 		video.EnqueueControl( new TrackEOS() );
 		pipelineContext.pipeline->Configure( eMEDIATYPE_VIDEO );
-		pipelineContext.pipeline->SetPipelineState( ePIPELINESTATE_PLAYING );
+		pipelineContext.pipeline->SetPipelineState( ePIPELINeSTATE_PLAYING );
 	}
 	
 	/**
@@ -988,7 +988,7 @@ public:
 				Flush( rate, pts, -1, pts );
 				video.QueueVideoHeader(eVIDEORESOLUTION_IFRAME );
 				pipelineContext.pipeline->Configure( eMEDIATYPE_VIDEO );
-				pipelineContext.pipeline->SetPipelineState(ePIPELINESTATE_PAUSED);
+				pipelineContext.pipeline->SetPipelineState(ePIPELINeSTATE_PAUSED);
 				first = false;
 			}
 			else
@@ -997,7 +997,7 @@ public:
 			}
 			video.QueueVideoSegment(eVIDEORESOLUTION_IFRAME, frame, 1 );
 			video.EnqueueControl( new TrackEOS() ); // needed for small segment to render
-			video.EnqueueControl( new TrackWaitState(ePIPELINESTATE_PAUSED) );
+			video.EnqueueControl( new TrackWaitState(ePIPELINeSTATE_PAUSED) );
 			video.EnqueueControl( new TrackSleep(IFRAME_TRACK_CADENCE_MS) );
 		}
 	}
@@ -1018,7 +1018,7 @@ public:
 		video.QueueVideoSegment(eVIDEORESOLUTION_IFRAME, frame, -SEGMENT_COUNT );
 		video.EnqueueControl( new TrackEOS() );
 		pipelineContext.pipeline->Configure( eMEDIATYPE_VIDEO );
-		pipelineContext.pipeline->SetPipelineState(ePIPELINESTATE_PLAYING);
+		pipelineContext.pipeline->SetPipelineState(ePIPELINeSTATE_PLAYING);
 	} // TestREW
 	
 	/**
@@ -1036,7 +1036,7 @@ public:
 		video.QueueVideoSegment( eVIDEORESOLUTION_IFRAME, frame, -SEGMENT_COUNT );
 		video.EnqueueControl( new TrackEOS() );
 		pipelineContext.pipeline->Configure( eMEDIATYPE_VIDEO );
-		pipelineContext.pipeline->SetPipelineState( ePIPELINESTATE_PAUSED );
+		pipelineContext.pipeline->SetPipelineState( ePIPELINeSTATE_PAUSED );
 		
 		// periodically step through playback, with autoStepDelayMs (250ms) delay
 		autoStepCount = SEGMENT_COUNT+1;
@@ -1044,12 +1044,12 @@ public:
 	
 	void TestSAP( void )
 	{
-		pipelineContext.pipeline->SetPipelineState(ePIPELINESTATE_PAUSED);
+		pipelineContext.pipeline->SetPipelineState(ePIPELINeSTATE_PAUSED);
 		auto position = pipelineContext.pipeline->GetPositionMilliseconds(eMEDIATYPE_VIDEO)/1000.0;
 		Flush( 1, position, -1, position );
 		LoadVideo( eVIDEORESOLUTION_360P );
 		LoadAudio("fr");
-		pipelineContext.pipeline->SetPipelineState(ePIPELINESTATE_PLAYING);
+		pipelineContext.pipeline->SetPipelineState(ePIPELINeSTATE_PLAYING);
 	}
 	
 	void TestGap( const char *videoGap, const char *audioGap )
@@ -1112,7 +1112,7 @@ public:
 		videoTrack.EnqueueControl( new TrackEOS() );
 		audioTrack.EnqueueControl( new TrackEOS() );
 		
-		pipelineContext.pipeline->SetPipelineState(ePIPELINESTATE_PLAYING);
+		pipelineContext.pipeline->SetPipelineState(ePIPELINeSTATE_PLAYING);
 	}
 	
 	void TestSeamlessAudioSwitch()
@@ -1233,7 +1233,7 @@ public:
 			FeedPipelineIfNeeded( eMEDIATYPE_AUDIO );
 			
 			if(( autoStepCount>0 ) &&
-			   ( ePIPELINESTATE_PAUSED == pipelineContext.pipeline->GetPipelineState() ))
+			   ( ePIPELINeSTATE_PAUSED == pipelineContext.pipeline->GetPipelineState() ))
 			{ // delay between iframe presentation
 				g_usleep(autoStepDelayMs*1000);
 				pipelineContext.pipeline->Step();
@@ -1554,10 +1554,10 @@ public:
 			pipelineContext.pipeline->Configure( eMEDIATYPE_AUDIO );
 			
 			// begin playing immediately
-			//pipelineContext.pipeline->SetPipelineState(ePIPELINESTATE_PLAYING);
+			//pipelineContext.pipeline->SetPipelineState(ePIPELINeSTATE_PLAYING);
 			
 			// useful for seek-while-paused
-			pipelineContext.pipeline->SetPipelineState(ePIPELINESTATE_PAUSED);
+			pipelineContext.pipeline->SetPipelineState(ePIPELINeSTATE_PAUSED);
 		}
 	}
 	
@@ -1662,9 +1662,9 @@ public:
 			{ // configure pipeline
 				pipelineContext.pipeline->Configure( eMEDIATYPE_VIDEO );
 #ifdef REALTEK_HACK
-				pipelineContext.pipeline->SetPipelineState(ePIPELINESTATE_PLAYING);
+				pipelineContext.pipeline->SetPipelineState(ePIPELINeSTATE_PLAYING);
 #else
-				pipelineContext.pipeline->SetPipelineState(ePIPELINESTATE_PAUSED);
+				pipelineContext.pipeline->SetPipelineState(ePIPELINeSTATE_PAUSED);
 #endif
 				first = false;
 			}
@@ -1683,9 +1683,9 @@ public:
 #endif
 				video.EnqueueControl( new TrackEOS() ); // inject EOS; needed for small segment to render
 #ifdef REALTEK_HACK
-				video.EnqueueControl( new TrackWaitState(ePIPELINESTATE_PLAYING) ); // wait for segment to be visible
+				video.EnqueueControl( new TrackWaitState(ePIPELINeSTATE_PLAYING) ); // wait for segment to be visible
 #else
-				video.EnqueueControl( new TrackWaitState(ePIPELINESTATE_PAUSED) ); // wait for segment to be visible
+				video.EnqueueControl( new TrackWaitState(ePIPELINeSTATE_PAUSED) ); // wait for segment to be visible
 #endif
 				video.EnqueueControl( new TrackSleep( m_ff_delay ) );
 				video.EnqueueControl( new TrackFlush( 1, pts, -1, pts ) );
@@ -1847,23 +1847,23 @@ public:
 		}
 		else if( strcmp(str,"ready")==0 )
 		{
-			pipelineContext.pipeline->SetPipelineState(ePIPELINESTATE_READY);
+			pipelineContext.pipeline->SetPipelineState(ePIPELINeSTATE_READY);
 		}
 		else if( strcmp(str,"pause")==0 )
 		{
-			pipelineContext.pipeline->SetPipelineState(ePIPELINESTATE_PAUSED);
+			pipelineContext.pipeline->SetPipelineState(ePIPELINeSTATE_PAUSED);
 		}
 		else if( strcmp(str,"play")==0 )
 		{
-			pipelineContext.pipeline->SetPipelineState(ePIPELINESTATE_PLAYING);
+			pipelineContext.pipeline->SetPipelineState(ePIPELINeSTATE_PLAYING);
 		}
 		else if( strcmp(str,"null")==0 )
 		{
-			pipelineContext.pipeline->SetPipelineState(ePIPELINESTATE_NULL);
+			pipelineContext.pipeline->SetPipelineState(ePIPELINeSTATE_NULL);
 		}
 		else if( strcmp(str,"stop")==0 )
 		{
-			pipelineContext.pipeline->SetPipelineState(ePIPELINESTATE_NULL);
+			pipelineContext.pipeline->SetPipelineState(ePIPELINeSTATE_NULL);
 			delete pipelineContext.pipeline;
 			pipelineContext.pipeline = new Pipeline( (class PipelineContext *)&pipelineContext );
 		}

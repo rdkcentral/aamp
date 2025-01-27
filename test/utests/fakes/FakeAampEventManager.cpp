@@ -78,7 +78,7 @@ void AampEventManager::SetAsyncTuneState(bool isAsyncTuneSetting)
 {
 }
 
-void AampEventManager::SetPlayerState(PrivAAMPState state)
+void AampEventManager::SetPlayerState(PlayerState state)
 {
 }
 

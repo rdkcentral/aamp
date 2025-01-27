@@ -1438,7 +1438,7 @@ TEST_F(PrivAampTests,TeardownStreamTest_2)
 	AampMediaType trackType = eMEDIATYPE_VIDEO;
 
 	EXPECT_EQ(0,p_aamp->mDiscontinuityTuneOperationId);
-	PrivAAMPState state = eSTATE_IDLE;
+	PlayerState state = eSTATE_IDLE;
 	p_aamp->SetState(state);
 	p_aamp->ScheduleRetune(errorType,trackType);
 
@@ -2073,7 +2073,7 @@ TEST_F(PrivAampTests,NotifyFirstFrameReceivedTest_2)
 	p_aamp->TuneHelper(tuneType, false);
 	p_aamp->NotifyFirstFrameReceived(0);
 
-	PrivAAMPState state;
+	PlayerState state;
 	p_aamp->GetState(state);
 	EXPECT_EQ(state,8);
 }
@@ -2086,7 +2086,7 @@ TEST_F(PrivAampTests,NotifyFirstFrameReceivedTest_3)
 	p_aamp->TuneHelper(tuneType, true);
 	p_aamp->NotifyFirstFrameReceived(0);
 
-	PrivAAMPState state;
+	PlayerState state;
 	p_aamp->GetState(state);
 	EXPECT_NE(state,8);
 }
@@ -2127,7 +2127,7 @@ TEST_F(PrivAampTests,GetStateTest)
 {
 	p_aamp->SetState(eSTATE_IDLE);
 
-	PrivAAMPState state = eSTATE_IDLE;
+	PlayerState state = eSTATE_IDLE;
 	p_aamp->GetState(state);
 
 	state = eSTATE_SEEKING;
@@ -2158,7 +2158,7 @@ TEST_F(PrivAampTests,NotifyFragmentCachingCompleteTest_1)
 {
 	p_aamp->SetState(eSTATE_BUFFERING);
 
-	PrivAAMPState state;
+	PlayerState state;
 	p_aamp->GetState(state);
 	EXPECT_EQ(state,5);
 
@@ -2334,7 +2334,7 @@ TEST_F(PrivAampTests,NotifyFirstBufferProcessedTest_1)
 {
 	p_aamp->SetState(eSTATE_IDLE);
 
-	PrivAAMPState state;
+	PlayerState state;
 	p_aamp->GetState(state);
 	EXPECT_EQ(state,0);
 }
@@ -2346,7 +2346,7 @@ TEST_F(PrivAampTests,NotifyFirstBufferProcessedTest_2)
 	TuneType tuneType = eTUNETYPE_NEW_NORMAL;
 	p_aamp->TuneHelper(tuneType, false);//true
 
-	PrivAAMPState state;
+	PlayerState state;
 	p_aamp->GetState(state);
 	EXPECT_EQ(state,4);//8 nov8
 }
@@ -2358,7 +2358,7 @@ TEST_F(PrivAampTests,NotifyFirstBufferProcessedTest_3)
 	TuneType tuneType = eTUNETYPE_NEW_NORMAL;
 	p_aamp->TuneHelper(tuneType, true);
 
-	PrivAAMPState state;
+	PlayerState state;
 	p_aamp->GetState(state);
 	EXPECT_EQ(state,4);//8 nov8
 }

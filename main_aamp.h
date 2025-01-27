@@ -1078,8 +1078,7 @@ public:
 	 *
 	 *   @return bool - True if jsinfo is enabled, false otherwise
 	 */
-
-	 bool IsJsInfoLoggingEnabled();
+	bool IsJsInfoLoggingEnabled();
 
 
 	/**
@@ -1301,7 +1300,7 @@ public:
 	 *
 	 *   @return current AAMP state
 	 */
-	PrivAAMPState GetState(void);
+	PlayerState GetState(void);
 
 	/**
 	 *   @fn GetVideoBitrate

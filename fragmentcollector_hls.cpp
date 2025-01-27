@@ -4414,7 +4414,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 				{
 					if(aamp->GetInitialBufferDuration() == 0)
 					{
-						PrivAAMPState state;
+						PlayerState state;
 						aamp->GetState(state);
 						if(state == eSTATE_SEEKING)
 						{

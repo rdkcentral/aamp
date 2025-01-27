@@ -211,7 +211,7 @@ MockPlayerInstanceAAMP *g_mockPlayerInstanceAAMP = nullptr;
 	bool PlayerInstanceAAMP::IsJsInfoLoggingEnabled(void){ return false; }
 	bool PlayerInstanceAAMP::IsOOBCCRenderingSupported(void){ return false; }
 	int PlayerInstanceAAMP::GetId(void){ return 0; }
-	PrivAAMPState PlayerInstanceAAMP::GetState(void){ return eSTATE_IDLE; }
+	PlayerState PlayerInstanceAAMP::GetState(void){ return eSTATE_IDLE; }
 	std::string PlayerInstanceAAMP::GetSessionId() const { return ""; }
 
 

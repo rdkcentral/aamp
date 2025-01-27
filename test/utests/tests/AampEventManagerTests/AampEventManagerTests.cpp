@@ -168,7 +168,7 @@ TEST_F(AampEventManagerTest, SetPlayerStateTest)
 	for(int i= eSTATE_IDLE ; i<= eSTATE_BLOCKED ;i++)
 	{
 	//Act: call the SetPlayerState function
-	handler->SetPlayerState(PrivAAMPState(i));
+	handler->SetPlayerState(PlayerState(i));
 	// Assert:check for the equality
 	EXPECT_EQ(i,i);
 	}

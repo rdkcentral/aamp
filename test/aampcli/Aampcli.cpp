@@ -109,7 +109,7 @@ void Aampcli::doAutomation( int startChannel, int stopChannel, int maxTuneTimeS,
 			snprintf( cmd, sizeof(cmd), "%d", chan );
 			mTuneFailureDescription.clear();
 			lCommandHandler.dispatchAampcliCommands(cmd,mSingleton);
-			PrivAAMPState state = eSTATE_IDLE;
+			PlayerState state = eSTATE_IDLE;
 			for(int i=0; i<maxTuneTimeS; i++ )
 			{
 				sleep(1);
@@ -497,7 +497,7 @@ void Aampcli::getAdvertUrlIndexed( std::vector<AdvertInfo>& adList, int idx)
 	}
 }
 
-const char *MyAAMPEventListener::stringifyPrivAAMPState(PrivAAMPState state)
+const char *MyAAMPEventListener::stringifyPlayerState(PlayerState state)
 {
 	static const char *stateName[] =
 	{
@@ -537,7 +537,7 @@ void MyAAMPEventListener::Event(const AAMPEventPtr& e)
 		case AAMP_EVENT_STATE_CHANGED:
 			{
 				StateChangedEventPtr ev = std::dynamic_pointer_cast<StateChangedEvent>(e);
-				printf("[AAMPCLI] AAMP_EVENT_STATE_CHANGED: %s (%d)\n", mAampcli.mEventListener->stringifyPrivAAMPState(ev->getState()), ev->getState());
+				printf("[AAMPCLI] AAMP_EVENT_STATE_CHANGED: %s (%d)\n", mAampcli.mEventListener->stringifyPlayerState(ev->getState()), ev->getState());
 				break;
 			}
 		case AAMP_EVENT_SEEKED:

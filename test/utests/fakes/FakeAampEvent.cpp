@@ -341,13 +341,13 @@ BulkTimedMetadataEvent::BulkTimedMetadataEvent(const std::string &content, std::
 }
 const std::string &BulkTimedMetadataEvent::getContent() const { return mContent; }
 
-StateChangedEvent::StateChangedEvent(PrivAAMPState state, std::string sid):
+StateChangedEvent::StateChangedEvent(PlayerState state, std::string sid):
 		AAMPEventObject(AAMP_EVENT_STATE_CHANGED, std::move(sid))
 {
 	mState = state;
 }
 
-PrivAAMPState StateChangedEvent::getState() const
+PlayerState StateChangedEvent::getState() const
 {
 	return mState;
 }

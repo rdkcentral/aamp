@@ -51,7 +51,7 @@
 class MyAAMPEventListener : public AAMPEventObjectListener
 {
 	public:
-		const char *stringifyPrivAAMPState(PrivAAMPState state);
+		const char *stringifyPlayerState(PlayerState state);
 		void Event(const AAMPEventPtr& e) override;
 };
 

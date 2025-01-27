@@ -492,7 +492,7 @@ class StateChangedEventTest : public testing::Test {
 protected:
     void SetUp() override {
         
-        stateChangedEvent = new StateChangedEvent(PrivAAMPState::eSTATE_PLAYING, session_id);
+        stateChangedEvent = new StateChangedEvent(PlayerState::eSTATE_PLAYING, session_id);
     }
 
     void TearDown() override {
@@ -503,7 +503,7 @@ protected:
 };
 
 TEST_F(StateChangedEventTest, StateChangedEventMethodsTest) {
-    EXPECT_EQ(stateChangedEvent->getState(), PrivAAMPState::eSTATE_PLAYING);
+    EXPECT_EQ(stateChangedEvent->getState(), PlayerState::eSTATE_PLAYING);
 }
 
 // Test functions of SupportedSpeedsChangedEventTest

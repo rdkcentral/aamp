@@ -2532,7 +2532,7 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 									{
 										if(aamp->GetInitialBufferDuration() == 0)
 										{
-											PrivAAMPState state;
+											PlayerState state;
 											aamp->GetState(state);
 											if(state == eSTATE_SEEKING)
 											{
@@ -8898,7 +8898,7 @@ void StreamAbstractionAAMP_MPD::AdvanceTrack(int trackIdx, bool trickPlay, doubl
 
 	if (waitForFreeFrag && !trickPlay)
 	{
-		PrivAAMPState state;
+		PlayerState state;
 		aamp->GetState(state);
 		if(ISCONFIGSET(eAAMPConfig_SuppressDecode))
 		{
@@ -9961,7 +9961,7 @@ void StreamAbstractionAAMP_MPD::AdvanceTsbFetch(int trackIdx, bool trickPlay, do
 
 	if (waitForFreeFrag && *waitForFreeFrag && !trickPlay)
 	{
-		PrivAAMPState state;
+		PlayerState state;
 		aamp->GetState(state);
 		if(ISCONFIGSET(eAAMPConfig_SuppressDecode))
 		{
@@ -12771,7 +12771,7 @@ void StreamAbstractionAAMP_MPD::MonitorLatency()
 		{
 
 			double playRate = aamp->GetLLDashCurrentPlayBackRate();
-			PrivAAMPState state = eSTATE_IDLE;
+			PlayerState state = eSTATE_IDLE;
 			aamp->GetState(state);
 			if( state != eSTATE_PLAYING || aamp->GetPositionMs() > aamp->DurationFromStartOfPlaybackMs() )
 			{

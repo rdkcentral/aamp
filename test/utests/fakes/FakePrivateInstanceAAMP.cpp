@@ -185,7 +185,7 @@ void PrivateInstanceAAMP::ActivatePlayer()
 void PrivateInstanceAAMP::SendMediaMetadataEvent()
 {
 }
-void PrivateInstanceAAMP::GetState(PrivAAMPState& state)
+void PrivateInstanceAAMP::GetState(PlayerState& state)
 {
 	if (g_mockPrivateInstanceAAMP != nullptr)
 	{
@@ -193,7 +193,7 @@ void PrivateInstanceAAMP::GetState(PrivAAMPState& state)
 	}
 }
 
-void PrivateInstanceAAMP::SetState(PrivAAMPState state)
+void PrivateInstanceAAMP::SetState(PlayerState state)
 {
 	if (g_mockPrivateInstanceAAMP != nullptr)
 	{

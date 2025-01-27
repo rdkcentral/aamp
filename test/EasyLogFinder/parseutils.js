@@ -329,7 +329,7 @@ function ParseFogDownload( line )
 
 var trackNames = [ "video", "audio", "subtitle" ];
 
-var playerStates = [ // PrivAAMPState
+var playerStates = [ // PlayerState
  "eSTATE_IDLE",
  "eSTATE_INITIALIZING",
  "eSTATE_INITIALIZED",

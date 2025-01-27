@@ -620,7 +620,7 @@ bool MediaTrack::WaitForFreeFragmentAvailable( int timeoutMs)
 {
 	bool ret = true;
 	int pthreadReturnValue = 0;
-	PrivAAMPState state;
+	PlayerState state;
 	int preplaybuffercount = GETCONFIGVALUE(eAAMPConfig_PrePlayBufferCount);
 
 	if(abort)
