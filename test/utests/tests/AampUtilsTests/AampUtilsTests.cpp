@@ -680,3 +680,34 @@ TEST(_AampUtils, GetConfigPath1)
 	rtn = aamp_GetConfigPath("/opt/abc.cfg");
 	EXPECT_EQ("/opt/abc.cfg", rtn );
 }
+
+
+// Tests the parseAndValidateSCTE35 utility function with different scte35 signals
+// The function is expected to return true for valid signals and false for invalid signals
+// This test covers DISTRIBUTOR_PLACEMENT_OPPORTUNITY_START
+TEST(_AampUtils, parseAndValidateSCTE35_1)
+{
+	std::string scte35 = "/DBLAABmGpRcAAAABQb+AAAAAAA1AjNDVUVJABs/hn//AABSZcAJH1NJR05BTDpWUmctLWdCRWRkbzQ3UThZOHF1QVlRQUE2AAD/6DMz";
+	bool result = parseAndValidateSCTE35(scte35);
+	EXPECT_TRUE(result);
+}
+
+// Tests the parseAndValidateSCTE35 utility function with different scte35 signals
+// The function is expected to return true for valid signals and false for invalid signals
+// This test covers PROVIDER_ADVERTISEMENT_START
+TEST(_AampUtils, parseAndValidateSCTE35_2)
+{
+	std::string scte35 = "/DB3AACRDm31AP/wBQb++u5TsABhAl9DVUVJAABhSH/AAAANu6ANSw4pYXZhaWxpZD04OTc1NTc3OTkmYml0bWFwPSZpbmFjdGl2aXR5PTM0ODAPHnVybjpjb21jYXN0OmFsdGNvbjphZGRyZXNzYWJsZTAAAC2N6xw=";
+	bool result = parseAndValidateSCTE35(scte35);
+	EXPECT_TRUE(result);
+}
+
+// Tests the parseAndValidateSCTE35 utility function with different scte35 signals
+// The function is expected to return true for valid signals and false for invalid signals
+// This test covers DISTRIBUTOR_PLACEMENT_OPPORTUNITY_START with sub_segment_num and sub_segment_expected
+TEST(_AampUtils, parseAndValidateSCTE35_3)
+{
+	std::string scte35 = "/ABNAAAAAAAAAAAABQb+AAAAAAA3AjVDVUVJGB0TN3//AABSZcAJH1NJR05BTDpKczhnN0FETXJXZy1FeDBZYkxHY21BQUE2AAAAAGy2Xpc=";
+	bool result = parseAndValidateSCTE35(scte35);
+	EXPECT_TRUE(result);
+}

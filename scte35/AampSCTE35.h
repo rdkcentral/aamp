@@ -201,6 +201,14 @@ public:
 	 *        aligned or if it extends beyond the parent section data
 	 */
 	virtual SCTE35DescriptorLoop *DescriptorLoop(const char *key, int bytes) = 0;
+
+	/**
+	 * @brief Check if the current bit offset is at the end of the section data
+	 *
+	 * @retval true if the current bit offset is at the end of the section data
+	 * @retval false if the current bit offset is not at the end of the section data
+	 */
+	virtual bool isEnd() = 0;
 };
 
 /**
@@ -290,6 +298,7 @@ public:
 	void End() override;
 	SCTE35Section *Subsection(const char *key, int bytes) override;
 	SCTE35DescriptorLoop *DescriptorLoop(const char *key, int bytes) override;
+	bool isEnd() override;
 
 	/**
 	 * @brief Get a JSON representation of the section data
@@ -402,7 +411,11 @@ public:
 		PROVIDER_ADVERTISEMENT_START = 0x30,
 		PROVIDER_ADVERTISEMENT_END = 0x31,
 		PROVIDER_PLACEMENT_OPPORTUNITY_START = 0x34,
-		PROVIDER_PLACEMENT_OPPORTUNITY_END = 0x35
+		PROVIDER_PLACEMENT_OPPORTUNITY_END = 0x35,
+		DISTRIBUTOR_PLACEMENT_OPPORTUNITY_START = 0x36,
+		DISTRIBUTOR_PLACEMENT_OPPORTUNITY_END = 0x37,
+		PROVIDER_AD_BLOCK_START = 0x44,
+		PROVIDER_AD_BLOCK_END = 0x45
 	};
 
 	/**

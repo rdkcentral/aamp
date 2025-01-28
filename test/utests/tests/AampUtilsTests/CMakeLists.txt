@@ -36,7 +36,8 @@ set(TEST_SOURCES AampUtilsTests.cpp
                  AampUtilsAAMPTests.cpp)
 
 set(AAMP_SOURCES ${AAMP_ROOT}/_base64.cpp
-		${AAMP_ROOT}/iso639map.cpp)
+                 ${AAMP_ROOT}/iso639map.cpp
+                 ${AAMP_ROOT}/scte35/AampSCTE35.cpp)
 
 add_executable(${EXEC_NAME}
                ${TEST_SOURCES}
@@ -52,7 +53,7 @@ if (COVERAGE_ENABLED)
     APPEND_COVERAGE_COMPILER_FLAGS()
 endif()
 
-target_link_libraries(${EXEC_NAME} fakes ${GLIB_LINK_LIBRARIES} ${OS_LD_FLAGS} ${GMOCK_LINK_LIBRARIES} ${GTEST_LINK_LIBRARIES} -lpthread)
+target_link_libraries(${EXEC_NAME} ${LIBCJSON_LINK_LIBRARIES} fakes ${GLIB_LINK_LIBRARIES} ${OS_LD_FLAGS} ${GMOCK_LINK_LIBRARIES} ${GTEST_LINK_LIBRARIES} -lpthread)
 
 set_target_properties(${EXEC_NAME} PROPERTIES FOLDER "utests")
 

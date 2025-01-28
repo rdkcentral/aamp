@@ -109,6 +109,11 @@ bool SCTE35Decoder::checkOffset(size_t mMaxOffset)
 	return false;
 }
 
+bool SCTE35Decoder::isEnd()
+{
+	return false;
+}
+
 SCTE35DecoderDescriptorLoop::SCTE35DecoderDescriptorLoop(const std::string &key, SCTE35Decoder *decoder, size_t maxOffset) :
 														 mKey(key),
 														 mDecoder(decoder),

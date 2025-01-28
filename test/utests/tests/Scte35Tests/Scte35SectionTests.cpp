@@ -404,6 +404,7 @@ TEST_F(Scte3SectionTests, End)
 	ASSERT_TRUE(decoder != NULL);
 
 	ASSERT_EQ(fullValue, decoder->Bits("bits", 64));
+	ASSERT_TRUE(decoder->isEnd());
 	EXPECT_NO_THROW(decoder->End());
 
 	delete decoder;
@@ -411,7 +412,7 @@ TEST_F(Scte3SectionTests, End)
 	/* Underflow test. */
 	decoder = CreateDecoder(data);
 	ASSERT_TRUE(decoder != NULL);
-
+	ASSERT_FALSE(decoder->isEnd());
 	EXPECT_THROW(decoder->End(), SCTE35DataException);
 
 	delete decoder;
