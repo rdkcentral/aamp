@@ -30,6 +30,7 @@ include_directories(${AAMP_ROOT}/subtec/subtecparser)
 include_directories(${AAMP_ROOT}/closedcaptions)
 include_directories(${AAMP_ROOT}/tsb/api)
 include_directories(${AAMP_ROOT}/middleware)
+include_directories(${AAMP_ROOT}/externals)
 include_directories(${GTEST_INCLUDE_DIRS})
 include_directories(${GMOCK_INCLUDE_DIRS})
 include_directories(${GLIB_INCLUDE_DIRS})
@@ -41,7 +42,7 @@ include_directories(${LIBCJSON_INCLUDE_DIRS})
 
 set(TEST_SOURCES    AbrTests.cpp
 	AAMPAbrTests.cpp)
-set(AAMP_SOURCES ${AAMP_ROOT}/priv_aamp.cpp ${AAMP_ROOT}/support/aampabr/ABRManager.cpp ${AAMP_ROOT}/support/aampabr/HybridABRManager.cpp )
+set(AAMP_SOURCES ${AAMP_ROOT}/priv_aamp.cpp ${AAMP_ROOT}/support/aampabr/ABRManager.cpp ${AAMP_ROOT}/support/aampabr/HybridABRManager.cpp)
 add_executable(${EXEC_NAME}
 	${TEST_SOURCES}
 	${AAMP_SOURCES})

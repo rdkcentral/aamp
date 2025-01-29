@@ -25,6 +25,7 @@ set(CMAKE_CXX_FLAGS "-DUTEST")
 include_directories(${AAMP_ROOT} ${AAMP_ROOT}/downloader ${AAMP_ROOT}/drm ${AAMP_ROOT}/drm/helper ${AAMP_ROOT}/subtitle) # ${AAMP_ROOT}/isobmff ${AAMP_ROOT}/subtec/subtecparser)
 include_directories(${AAMP_ROOT}/tsb/api)
 include_directories(${AAMP_ROOT}/middleware)
+include_directories(${AAMP_ROOT}/externals)
 
 include_directories(${LIBCJSON_INCLUDE_DIRS})
 include_directories(${GTEST_INCLUDE_DIRS})
@@ -32,12 +33,15 @@ include_directories(${GMOCK_INCLUDE_DIRS})
 include_directories(${GLIB_INCLUDE_DIRS})
 include_directories(${GSTREAMER_INCLUDE_DIRS})
 include_directories(${UTESTS_ROOT}/mocks)
+include_directories(${UTESTS_ROOT}/drm/mocks)
 
 set(TEST_SOURCES ConfigTests.cpp
                  ConfigRun.cpp)
-
+set(FAKE_SOURCE ${UTESTS_ROOT}/fakes/FakeAampRfc.cpp)
+					 
 add_executable(${EXEC_NAME}
-               ${TEST_SOURCES})
+               ${TEST_SOURCES}
+               ${FAKE_SOURCE})
 target_link_directories(${EXEC_NAME} PUBLIC ${LIBCJSON_LIBRARY_DIRS})
 
 if (CMAKE_XCODE_BUILD_SYSTEM)

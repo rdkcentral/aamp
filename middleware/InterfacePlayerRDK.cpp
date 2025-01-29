@@ -25,7 +25,7 @@
 #include "PlayerLogManager.h"
 #include <sys/time.h>
 #include "GstUtils.h"
-#include "aampoutputprotection.h"						//ToDo: Replace once outputprotection moved to middleware
+#include "playerIarmRfcInterface.h"						//ToDo: Replace once outputprotection moved to middleware
 #include <inttypes.h>
 #include "TextStyleAttributes.h"
 
@@ -1368,11 +1368,10 @@ void InterfacePlayerRDK::Stop(bool keepLastFrame)
 		SetStateWithWarnings(gstPrivateContext->pipeline, GST_STATE_NULL);
 		MW_LOG_MIL(" InterfacePlayerRDK: Pipeline state set to null");
 	}
-	if(AampOutputProtection::IsAampOutputProtectionInstanceActive())
+	if(PlayerIarmRfcInterface::IsPlayerIarmRfcInterfaceInstanceActive())
 	{
-		AampOutputProtection *pInstance = AampOutputProtection::GetAampOutputProtectionInstance();
+		std::shared_ptr<PlayerIarmRfcInterface> pInstance = PlayerIarmRfcInterface::GetPlayerIarmRfcInterfaceInstance();
 		pInstance->setGstElement((GstElement *)(NULL));
-		pInstance->Release();
 	}
 	for(int i = 0; i<GST_TRACK_COUNT;i++)
 	{
@@ -4252,11 +4251,10 @@ static gboolean bus_message(GstBus * bus, GstMessage * msg, InterfacePlayerRDK *
 				// so it can get the source width/height
 				if (GstPlayer_isVideoDecoder(GST_OBJECT_NAME(msg->src), pInterfacePlayerRDK))
 				{
-					if(AampOutputProtection::IsAampOutputProtectionInstanceActive())
+					if(PlayerIarmRfcInterface::IsPlayerIarmRfcInterfaceInstanceActive())
 					{
-						AampOutputProtection *pInstance = AampOutputProtection::GetAampOutputProtectionInstance();
+						std::shared_ptr<PlayerIarmRfcInterface> pInstance = PlayerIarmRfcInterface::GetPlayerIarmRfcInterfaceInstance();
 						pInstance->setGstElement((GstElement *)(msg->src));
-						pInstance->Release();
 					}
 				}
 			}

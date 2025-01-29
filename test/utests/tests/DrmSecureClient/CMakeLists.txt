@@ -33,7 +33,7 @@ include_directories(${GTEST_INCLUDE_DIRS})
 include_directories(${GMOCK_INCLUDE_DIRS})
 include_directories(${UUID_INCLUDE_DIRS})
 
-
+include_directories(${AAMP_ROOT}/externals)
 include_directories(${AAMP_ROOT} ${AAMP_ROOT}/drm ${AAMP_ROOT}/drm/helper ${AAMP_ROOT}/subtitle ${AAMP_ROOT}/downloader ${AAMP_ROOT}/isobmff ${AAMP_ROOT}/subtec/subtecparser ${AAMP_ROOT}/subtec/libsubtec)
 include_directories(${AAMP_ROOT}/tsb/api)
 include_directories(${AAMP_ROOT}/middleware)
@@ -52,6 +52,9 @@ set(TEST_SOURCES DrmTestsRun.cpp
 
 if(SEC_CLIENT_HEADERS)
 	message("Found Secure Client headers - building ${EXEC_NAME}")
+
+	set(FAKE_SOURCES ${UTESTS_ROOT}/fakes/FakeAampRfc.cpp
+					 ${UTESTS_ROOT}/fakes/FakePlayerIarmRfcInterface.cpp)
 
 	set(MOCK_SOURCES ${DRM_ROOT}/mocks/aampMocks.cpp
 					 ${DRM_ROOT}/mocks/FakeID3Metadata.cpp
@@ -76,7 +79,6 @@ if(SEC_CLIENT_HEADERS)
 					 ${AAMP_ROOT}/AampUtils.cpp
 					 ${AAMP_ROOT}/iso639map.cpp
 					 ${AAMP_ROOT}/drm/AampDRMutils.cpp
-					 ${AAMP_ROOT}/drm/aampoutputprotection.cpp
 					 ${AAMP_ROOT}/drm/aampdrmsessionfactory.cpp
 					 ${AAMP_ROOT}/drm/helper/AampDrmHelper.cpp
 					 ${AAMP_ROOT}/drm/helper/AampDrmHelperFactory.cpp
@@ -102,7 +104,8 @@ if(SEC_CLIENT_HEADERS)
 				${DRM_ROOT}/AampDrmTestUtils.cpp
 				${TEST_SOURCES}
 				${MOCK_SOURCES}
-				${AAMP_SOURCES})
+				${AAMP_SOURCES}
+				${FAKE_SOURCES})
 else()
 	get_filename_component(SEC_CLIENT_ROOT_ABS ${SEC_CLIENT_ROOT} ABSOLUTE)
     message(WARNING "Secure Client headers not present in ${SEC_CLIENT_ROOT_ABS}, so skipping ${EXEC_NAME}.")

@@ -264,10 +264,6 @@ void AAMPGstPlayer::SetPauseOnStartPlayback(bool enable)
 	return ePLATFORM_DEFAULT;
 }
 */
-bool AAMPGstPlayer::IsMS2V12Supported()
-{
-	return false;
-}
 
 PlatformType AAMPGstPlayer::InferPlatformFromPluginScan()
 {

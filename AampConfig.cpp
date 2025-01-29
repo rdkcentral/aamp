@@ -27,7 +27,8 @@
 #include "AampJsonObject.h" // For JSON parsing
 #include "AampUtils.h"
 #include "aampgstplayer.h"
-#include "AampRfc.h"
+#include "PlayerRfc.h"
+#include "playerIarmRfcInterface.h"
 #include <time.h>
 #include <map>
 //////////////// CAUTION !!!! STOP !!! Read this before you proceed !!!!!!! /////////////
@@ -172,11 +173,7 @@ struct ConfigLookupEntryString
 	bool bConfigurableByOperatorRFC; // better to have a separate list?
 };
 
-#ifdef IARM_MGR
-#define DEFAULT_VALUE_WIFI_CURL_HEADER true
-#else
-#define DEFAULT_VALUE_WIFI_CURL_HEADER false
-#endif
+
 
 #ifdef GST_SUBTEC_ENABLED
 #define DEFAULT_VALUE_GST_SUBTEC_ENABLED true
@@ -303,7 +300,7 @@ static const ConfigLookupEntryBool mConfigLookupTableBool[AAMPCONFIG_BOOL_COUNT]
 	{true,"useRetuneForUnpairedDiscontinuity",eAAMPConfig_RetuneForUnpairDiscontinuity,false},
 	{true,"useRetuneForGstInternalError",eAAMPConfig_RetuneForGSTError,false},
 	{false,"useMatchingBaseUrl",eAAMPConfig_MatchBaseUrl,false},
-	{DEFAULT_VALUE_WIFI_CURL_HEADER,"wifiCurlHeader",eAAMPConfig_WifiCurlHeader,false},
+	{false,"wifiCurlHeader",eAAMPConfig_WifiCurlHeader,false},
 	{false,"enableSeekableRange",eAAMPConfig_EnableSeekRange,false},
 	{false,"enableLiveLatencyCorrection",eAAMPConfig_EnableLiveLatencyCorrection,true},
 	{true,"dashParallelFragDownload",eAAMPConfig_DashParallelFragDownload,false},
@@ -915,6 +912,9 @@ PlatformType AampConfig::InferPlatformFromPluginScan()
 
 void AampConfig::ApplyDeviceCapabilities( PlatformType platform )
 {
+	std::shared_ptr<PlayerIarmRfcInterface> pInstance = PlayerIarmRfcInterface::GetPlayerIarmRfcInterfaceInstance();
+	bool IsWifiCurlHeader = pInstance->IsConfigWifiCurlHeader();	
+	SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_WifiCurlHeader, IsWifiCurlHeader);
 	SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_PlatformType, platform);
 	switch( platform )
 	{
@@ -930,11 +930,12 @@ void AampConfig::ApplyDeviceCapabilities( PlatformType platform )
 
 		case ePLATFORM_BROADCOM:
 			SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_DisableAC4, true);
-			if (!AAMPGstPlayer::IsMS2V12Supported())
+			if (!pInstance->IsLiveLatencyCorrectionSupported())
 			{
 				configValueBool[eAAMPConfig_EnableLowLatencyCorrection].value = false;
 				SetConfigValue(AAMP_TUNE_SETTING, eAAMPConfig_EnableLiveLatencyCorrection, false);
 			}
+			
 			break;
 
 		case ePLATFORM_DEFAULT:
@@ -1648,16 +1649,18 @@ bool AampConfig::ProcessBase64AampCfg(const char * base64Config, size_t configLe
  */
 void AampConfig::ReadBase64TR181Param()
 {
-#ifdef IARM_MGR
 	size_t iConfigLen = 0;
-	char *	cloudConf = GetTR181AAMPConfig("Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.AAMP_CFG.b64Config", iConfigLen);
-	if(NULL != cloudConf)
+	if(PlayerIarmRfcInterface::IsPlayerIarmRfcInterfaceInstanceActive())
 	{
-		ProcessBase64AampCfg(cloudConf, iConfigLen,AAMP_OPERATOR_SETTING);
-		free(cloudConf); // allocated by base64_Decode in GetTR181AAMPConfig
-		ConfigureLogSettings();
+		std::shared_ptr<PlayerIarmRfcInterface> pInstance = PlayerIarmRfcInterface::GetPlayerIarmRfcInterfaceInstance();
+		char * cloudConf = pInstance->GetTR181PlayerConfig("Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.AAMP_CFG.b64Config", iConfigLen);
+		if(NULL != cloudConf)
+		{	
+			ProcessBase64AampCfg(cloudConf, iConfigLen,AAMP_OPERATOR_SETTING);
+			free(cloudConf); // allocated by base64_Decode in GetTR181PlayerConfig
+			ConfigureLogSettings();
+		}
 	}
-#endif
 }
 
 /**
@@ -1714,11 +1717,7 @@ void AampConfig::ReadAampCfgFromEnv()
 static std::string getRFCValue( const char *strParamName )
 {
 	const std::string  strAAMPTr181BasePath = "Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.aamp.";
-#ifdef AAMP_RFC_ENABLED
-	std::string value = RFCSettings::getRFCValue(strAAMPTr181BasePath+strParamName);
-#else
-	std::string value;
-#endif
+	std::string value = RFCSettings::readRFCValue(strAAMPTr181BasePath+strParamName,PLAYERNAME);
 	return value;
 }
 
@@ -1791,15 +1790,13 @@ void AampConfig::ReadOperatorConfiguration()
 {
 	// Tr181 doesn't work in container environment hence ignore it if it is container
 	// this will improve load time of aamp in container environment
-	if(!IsContainerEnvironment() )
-	{
-		// Not all parameters are supported as  individual  tr181 parameter hence keeping base64 version.
-		ReadBase64TR181Param();
+	
+	// Not all parameters are supported as  individual  tr181 parameter hence keeping base64 version.
+	ReadBase64TR181Param();
 
-		// new way of reading RFC for each separate parameter it will override any parameter set before ReadBase64TR181Param
-		// read all individual  config parameters,
-		ReadAllTR181Params();
-	}
+	// new way of reading RFC for each separate parameter it will override any parameter set before ReadBase64TR181Param
+	// read all individual  config parameters,
+	ReadAllTR181Params();
 
 	// this required to set log settings based on configs either default or read from Tr181
 	ConfigureLogSettings();   
@@ -2177,47 +2174,4 @@ void AampConfig::ShowConfiguration(ConfigPriority owner)
 
 }
 
-#ifdef IARM_MGR
-/**
- * @brief GetTR181AAMPConfig
- *
- * @return config value
- */
-char * AampConfig::GetTR181AAMPConfig(const char * paramName, size_t & iConfigLen)
-{
-	char *  strConfig = NULL;
-	IARM_Result_t result;
-	HOSTIF_MsgData_t param;
-	memset(&param,0,sizeof(param));
-	snprintf(param.paramName,TR69HOSTIFMGR_MAX_PARAM_LEN,"%s",paramName);
-	param.reqType = HOSTIF_GET;
 
-	result = IARM_Bus_Call(IARM_BUS_TR69HOSTIFMGR_NAME,IARM_BUS_TR69HOSTIFMGR_API_GetParams,
-                    (void *)&param,	sizeof(param));
-	if(result  == IARM_RESULT_SUCCESS)
-	{
-		if(fcNoFault == param.faultCode)
-		{
-			if(param.paramtype == hostIf_StringType && param.paramLen > 0 )
-			{
-				std::string strforLog(param.paramValue,param.paramLen);
-
-				iConfigLen = param.paramLen;
-				const char *src = (const char*)(param.paramValue);
-				strConfig = (char * ) base64_Decode(src,&iConfigLen);
-
-				AAMPLOG_INFO("GetTR181AAMPConfig: Got:%s En-Len:%d Dec-len:%d",strforLog.c_str(),param.paramLen,iConfigLen);
-			}
-			else
-			{
-				AAMPLOG_ERR("GetTR181AAMPConfig: Not a string param type=%d or Invalid len:%d ",param.paramtype, param.paramLen);
-			}
-		}
-	}
-	else
-	{
-		AAMPLOG_ERR("GetTR181AAMPConfig: Failed to retrieve value result=%d",result);
-	}
-	return strConfig;
-}
-#endif // IARM_MGR
