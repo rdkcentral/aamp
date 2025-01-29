@@ -26,7 +26,7 @@
  */
 
 #include "AampDrmSession.h"
-#include "aampoutputprotection.h"
+#include "playerIarmRfcInterface.h"
 #include "AampDrmHelper.h"
 
 #include "open_cdm.h"
@@ -96,7 +96,7 @@ protected:
 	struct OpenCDMAccessor* m_pOpenCDMSystem;
 #endif
 	OpenCDMSessionCallbacks m_OCDMSessionCallbacks;
-	AampOutputProtection* m_pOutputProtection;
+	std::shared_ptr<PlayerIarmRfcInterface> m_pOutputProtection;
 
 	std::string m_challenge;
 	uint16_t m_challengeSize;

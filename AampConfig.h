@@ -51,15 +51,6 @@
 #include "AampLogManager.h"
 #include <cjson/cJSON.h>
 #include "AampDrmSystems.h"
-#ifdef IARM_MGR
-#include "host.hpp"
-#include "manager.hpp"
-#include "libIBus.h"
-#include "libIBusDaemon.h"
-
-#include <hostIf_tr69ReqHandler.h>
-#include <sstream>
-#endif
 
 
 //////////////// CAUTION !!!! STOP !!! Read this before you proceed !!!!!!! /////////////
@@ -720,13 +711,6 @@ private:
 	template<class J,class K>
 	void SetValue(J &setting, ConfigPriority newowner, const K &value,std::string cfgName);
 	void trim(std::string& src);
-	
-	/**
-    	 * @fn GetTR181AAMPConfig
-     	 * @param[in] paramName - Parameter Name to parse
-     	 * @param[in] iConfigLen - Length of the configuration
-     	 */
-	char * GetTR181AAMPConfig(const char * paramName, size_t & iConfigLen);
 	
 	void ShowConfiguration(ConfigPriority owner);	
 	/**
