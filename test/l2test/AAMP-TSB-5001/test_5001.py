@@ -216,7 +216,7 @@ TESTDATA8 = {
 
         # Seek to the beginning of the buffer. Restart the PTS restamp check after the Flush, to avoid a jump in the PTS values.
         {"expect": r"aamp_Seek\(0.000000\)"},
-        {"expect": r"\[Flush\]\[\d+\]AAMPGstPlayer: Pipeline is in PLAYING state position 0.000000 ret 1", "callback": pts_restamp_restart},
+        {"expect": r"\[Flush\]\[\d+\]InterfacePlayerRDK: Pipeline is in PLAYING state position 0.000000 ret 1", "callback": pts_restamp_restart},
         {"expect": r"msg=\"Got size\""},
         {"expect": r"File Read"},
 
@@ -301,7 +301,7 @@ TESTDATA = [
     {'testdata': TESTDATA9, 'expected_restamps': 10, 'expected_trickmodes_restamps': 0},
 
     # Verify AAMP TSB with PTS restamping and trick modes
-    {'testdata': TESTDATA10, 'expected_restamps': 10, 'expected_trickmodes_restamps': 10},
+    {'testdata': TESTDATA10, 'expected_restamps': 10, 'expected_trickmodes_restamps': 10}
 ]
 
 @pytest.fixture(params=TESTDATA)
