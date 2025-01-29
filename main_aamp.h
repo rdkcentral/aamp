@@ -62,6 +62,8 @@
  *
  */
 
+#define PrivAAMPState PlayerState // backwards compatibility for apps using native interface
+
 /**
  * @enum AAMPAnomalyMessageType
  * @brief AAMP anomaly message types
@@ -1294,7 +1296,7 @@ public:
 	int GetId(void);
 	void SetId( int iPlayerId );
 
-
+	
 	/**
 	 *   @fn GetState
 	 *
