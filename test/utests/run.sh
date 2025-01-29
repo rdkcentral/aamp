@@ -127,6 +127,52 @@ if [ "$rdke_build" -eq "1" ]; then
 	export GTEST_OUTPUT="json"
   ctest -j 4 --output-on-failure --no-compress-output -T Test $CT_TESTDIR || true  # Don't exit script if a test fails
 
+  cd tests
+
+  for test_dir in */; do
+      if [ -d "$test_dir" ] && [ "$test_dir" != "CMakeFiles/" ] && [ "$test_dir" != "tsb/" ]; then
+          if [ ! -f "$test_dir/test_detail.json" ]; then
+              echo "Missing: $test_dir/test_detail.json"
+
+              # Create a fallback test_detail.json
+            cat <<EOF > "$test_dir/test_detail.json"
+{
+  "tests": 1,
+  "failures": 1,
+  "disabled": 0,
+  "errors": 0,
+  "time": "0.0s",
+  "name": "${test_dir%/}",
+  "testsuites": [
+    {
+      "name": "${test_dir%/}",
+      "tests": 1,
+      "failures": 1,
+      "disabled": 0,
+      "errors": 0,
+      "time": "0.0s",
+      "testsuite": [
+        {
+          "name": "${test_dir%/}",
+          "status": "failed",
+          "time": "0.0s",
+          "classname": "${test_dir%/}",
+          "failure": {
+            "message": "Testing ended abruptly",
+            "type": "SEGFAULT (probably)"
+          }
+        }
+      ]
+    }
+  ]
+}
+EOF
+          fi
+      fi
+  done
+
+  cd ..
+
 	find . -name test_detail\*.json | xargs cat |  jq -s '{test_cases_results: {tests: map(.tests) | add,failures: map(.failures) | add,disabled: map(.disabled) | add,errors: map(.errors) | add,time: ((map(.time | rtrimstr("s") | tonumber) | add) | tostring + "s"),name: .[0].name,testsuites: map(.testsuites[])}}' > L1Report.json
 
 else
