@@ -488,7 +488,7 @@ class Aamp:
         """
         for j in range(len(expect_did_happen)):
             ee = testdata["expect_list"][j]
-            if expect_did_happen[j] is False and elapsed > ee.get("max",self.max_test_time_seconds) and "not_expected" not in ee:
+            if expect_did_happen[j] is False and elapsed > ee.get("max",self.max_test_time_seconds) and ("not_expected" not in ee) and ("end_of_test" not in ee):
                 assert 0, "ERROR {} never occurred in expected time window".format(ee)
 
     def run_expect_b(self, testdata):
@@ -563,7 +563,7 @@ class Aamp:
 
             else:
                 log_line = self.aamp_pexpect.match.group(0).decode('utf-8')
-                #print("log_line ",log_line)
+                #print("log_line ",log_line.strip())
                 for i, compiled_re in enumerate(expect_list_compiled):
                     match = compiled_re.search(log_line)
                     if match:
@@ -588,7 +588,9 @@ class Aamp:
                                 expect_did_happen[i] = True
 
                                 if "end_of_test" in e:
-                                    self.check_for_missed_events(testdata, elapsed, expect_did_happen)
+                                    # Assume no test longer than 9999, check all events have occurred
+                                    # in this time
+                                    self.check_for_missed_events(testdata, 9999, expect_did_happen)
                                     end_of_test = True
 
                 if int(elapsed) != last_missed_event_check:

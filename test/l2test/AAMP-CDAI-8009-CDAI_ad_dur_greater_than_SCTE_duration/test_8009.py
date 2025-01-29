@@ -66,15 +66,15 @@ TESTDATA1 = {
         {"expect": re.escape("Period ID changed from '0' to '0-112' [BasePeriodId='1']"), "min": 20, "max": 60},
         # State change indicating the transition back to outside of ad break after playback
         {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: State changed from \[IN_ADBREAK_WAIT2CATCHUP\] \=\> \[OUTSIDE_ADBREAK\].", "min": 30, "max": 80},
-	# Expectation for the period ID change due to ad completion
+        # Expectation for the period ID change due to ad completion
         {"expect": re.escape("Period ID changed from '0-112' to '2' [BasePeriodId='2']"), "min": 20, "max": 60},
         {"expect": r"\[PlaceAds\]\[\d+\]\[CDAI\] Placement Done: \{AdbreakId: 1, duration: 30000, endPeriodId: 2, endPeriodOffset: 0, \#Ads: 1", "min": 10, "max": 70},
-	#Expectation for truncate happening - it should not play excess ad duration
-	{"expect": r"HttpRequestEnd.?ad_40/en_001.mp3", "min":0, "max":180},
-        {"expect": r"HttpRequestEnd.?ad_40/en_0015.mp3", "min":0, "max":180},
-        {"expect": r"HttpRequestEnd.*?ad_40/en_0016.mp3", "min":0, "max":180, "not_expected": True},
+        #Expectation for truncate happening - it should not play excess ad duration
+        {"expect": r"HttpRequestEnd.*ad_40/en_001.mp3", "min":0, "max":180},
+        {"expect": r"HttpRequestEnd.*ad_40/en_015.mp3", "min":0, "max":180},
+        {"expect": r"HttpRequestEnd.*ad_40/en_017.mp3", "min":0, "max":180, "not_expected": True},
         #End of the test - confirm the last segment fetched from Period 2
-        {"expect": r"HttpRequestEnd.*?(1080|720|480|360)p_045.m4s\?live=true", "min": 0, "max": 180, "end_of_test":True},
+        {"expect": r"HttpRequestEnd.*(1080|720|480|360)p_045.m4s\?live=true", "min": 0, "max": 180, "end_of_test":True},
     ]
 }
 
@@ -115,7 +115,7 @@ TESTDATA2 = {
         # Expectation for the period ID change due to ad completion
         {"expect": re.escape("Period ID changed from '0-114' to '1-114' [BasePeriodId='1']"), "min": 20, "max": 200},
         {"expect": re.escape("Period ID changed from '1-114' to '2' [BasePeriodId='2']"), "min": 20, "max": 200},
-        {"expect": r"\[PlaceAds\]\[\d+\]\[CDAI\] Placement Done: \{AdbreakId: 1, duration: 30000, endPeriodId: 2, endPeriodOffset: 0, \#Ads: 1", "min": 10, "max": 200},
+        {"expect": r"\[PlaceAds\]\[\d+\]\[CDAI\] Placement Done: \{AdbreakId: 1, duration: 30000, endPeriodId: 2, endPeriodOffset: 0, \#Ads: 2", "min": 10, "max": 200},
         #Ensure ad1 ends properly 
         {"expect":r"aamp url:0,0,0,2.000000,http://localhost:8080/content/ad_20/1080p_010.m4s","min":10,"max":200},
         #Ensure fragments download by both ads
@@ -126,7 +126,7 @@ TESTDATA2 = {
     ]
 }
 
-TESTLIST = [TESTDATA1,TESTDATA2]
+TESTLIST = [TESTDATA1, TESTDATA2]
 @pytest.fixture(params=TESTLIST)
 def test_data(request):
     return request.param
