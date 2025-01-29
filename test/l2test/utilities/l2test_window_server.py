@@ -711,8 +711,13 @@ class TestServer(BaseHTTPRequestHandler):
 
 class WindowServer():
 
-    def __init__(self,output_path,archive_path,extra_args):
-        self.output_path = output_path
+    def __init__(self,logfile_path,archive_path,extra_args):
+        """
+        logfile_path    -  path where output can be written exists E.G .../l2test/TST_2001/output
+        archive_path    -  path where data to be served is located
+        extra_args      -
+        """
+        self.logfile_path = logfile_path
         self.testdata_path = archive_path
 
         self.extra_args = []
@@ -723,13 +728,14 @@ class WindowServer():
 
     def start(self):
         server_path = os.path.abspath(getsourcefile(lambda: 0))
+        self.logfile = open(self.logfile_path, "wb")
         print("start_window_server")
-    
+
         if os.path.isfile(server_path):
             try:
                 cmd = [server_path] + self.extra_args
                 print(cmd)
-                self.server_process = subprocess.Popen(cmd, cwd=self.testdata_path, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                self.server_process = subprocess.Popen(cmd, cwd=self.testdata_path, stdout=self.logfile, stderr=self.logfile)
                 atexit.register(self.server_process.terminate)
                 return True
             except Exception as e:
