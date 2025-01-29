@@ -57,7 +57,7 @@ TESTDATA0 = {
 	[
 		{"expect" : r"\[TSB Store\] Initiating with config values", "max":1},
 		{"expect": r"aamp_tune", "max":1},
-		{"expect" : r"msg=\"File written\"", "end_of_test":True},
+		{"expect" : r"msg=\"File written\"", "end_of_test":True}
 	]
 }
 
@@ -73,8 +73,8 @@ TESTDATA1 = {
 	"expect_list":
 	[
 		{"expect": r"aamp_tune", "max":1},
-		{"expect" : r"\[TSB Store\] Initiating TSBStore with config values", "max":3,"not_expected" : True},
-		{"expect": r"first buffer received", "end_of_test":True},
+		{"expect" : r"\[TSB Store\] Initiating TSBStore with config values", "max":3, "not_expected" : True},
+		{"expect": r"first buffer received", "end_of_test":True}
 	]
 }
 
@@ -92,9 +92,9 @@ TESTDATA2 = {
 		{"expect" : r"\[TSB Store\] Initiating with config values", "max":1},
 		{"expect": r"aamp_tune", "max":1},
 		{"expect" : r"TSBWrite Metrics...OK", "min":1},
-		{"expect" : r"TSB Write Operation FAILED", "max":8,"not_expected" : True},
+		{"expect" : r"TSB Write Operation FAILED", "max":8, "not_expected" : True},
 		{"expect" : r"CullSegments","min":1},
-		{"expect" : r"Removed \d.\d+ fragment duration seconds", "min":8, "end_of_test":True},
+		{"expect" : r"Removed \d.\d+ fragment duration seconds", "min":8, "end_of_test":True}
 	]
 }
 
@@ -112,10 +112,10 @@ TESTDATA3 = {
 		{"expect" : r"\[TSB Store\] Initiating with config values", "max":1},
 		{"expect": r"aamp_tune"," max":1},
 		{"expect" : r"Adding Init Data:", "max":10},
-		{"expect" : r"Adding Fragment Data: ", "max":10},
+		{"expect" : r"Adding fragment data: ", "max":10},
 		{"expect" : r"TSBWrite Metrics...OK","min":3, "max":10},
 		{"expect" : r"TSB Write Operation FAILED", "min":3, "not_expected" : True},
-		{"expect" : r"Removed \d.\d+ fragment duration seconds", "min":8, "end_of_test":True},
+		{"expect" : r"Removed \d.\d+ fragment duration seconds", "min":8, "end_of_test":True}
 	]
 }
 
@@ -138,8 +138,8 @@ TESTDATA4 = {
 		{"expect" : r"msg=\"File written\" ", "max":10},
 		{"expect" : r"msg=\"Deleted file\" ", "max":10},
 		{"expect" : r"TSBWrite Metrics...OK", "max":10},
-		{"expect" : r"TSB Write Operation FAILED", "max":10,"not_expected" : True},
-		{"expect" : r"Removed \d.\d+ fragment duration seconds", "min":8, "end_of_test":True},
+		{"expect" : r"TSB Write Operation FAILED", "max":10, "not_expected" : True},
+		{"expect" : r"Removed \d.\d+ fragment duration seconds", "min":8, "end_of_test":True}
 	]
 }
 
