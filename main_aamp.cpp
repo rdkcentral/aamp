@@ -3300,6 +3300,8 @@ void PlayerInstanceAAMP::SetAuxiliaryLanguageInternal(const std::string &languag
 		
 		if(language != currentLanguage)
 		{
+			PlayerState state;
+			aamp->GetState(state);
 			// There is no active playback session, save the language for later
 			if (state == eSTATE_IDLE || state == eSTATE_RELEASED)
 			{
