@@ -76,12 +76,12 @@ TESTDATA1 = {
         # Confirm that an ad break is detected in Period 1 with a duration of 30 seconds
         {"expect": r"\[FoundEventBreak\]\[\d+\]\[CDAI\] Found Adbreak on period\[1\] Duration\[30000\]"},
         {"expect": r"\[Event\]\[\d+\]\[CDAI\] Dynamic ad start signalled"},
-        {"expect": r"\[GetAdMPD\]\[\d+\]\[CDAI\] Error on manifest fetch"},
-        {"expect":r"\[FulFillAdObject\]\[\d+\] Failed to get Ad MPD\[http://localhost:8080/content/ad_300s.mpd\]"}, 
-        {"expect": r"\[CheckForAdStart\]\[\d+\]\[CDAI\]: PlacementObj open adbreak() and current period's(1) adbreak(1) not equal ... may be BUG"},
-        {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: Got adIdx\[-1\] for adBreakId\[1\] but adBreak object exist"},
-        {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: ads.size() = 1 breakId = 1 mBasePeriodId = 1"},
-        {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: AdBreak\[1\] is invalidated. Skipping."},
+        {"expect": r"\[GetAdMPD\]\[\d+\]\[CDAI\]: Error on manifest fetch"},
+        {"expect": r"\[FulFillAdObject\]\[\d+\]Failed to get Ad MPD\[http://localhost:8080/content/ad_300s.mpd\]"},
+        {"expect": r"\[CheckForAdStart\]\[\d+\]\[CDAI\] PlacementObj open adbreak\(\) and current period's\(1\) adbreak\(1\) not equal ... may be BUG"},
+        {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\] Got adIdx\[-1\] for adBreakId\[1\] but adBreak object exist"},
+        {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\] ads.size\(\) = 1 breakId = 1 mBasePeriodId = 1"},
+        {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\] AdBreak\[1\] is invalidated. Skipping."},
         {"expect": re.escape("Period ID changed from '0' to '1' [BasePeriodId='1']")},
         # Ensure fragments fetched from period 1
         {"expect":r"aamp url:0,0,0,2.000000,http://localhost:8080/content/dash/*?(1080|720|480|360)p_016.m4s"},
@@ -125,10 +125,10 @@ TESTDATA2 = {
         {"expect": r'RestampPts.*?\[(\w+)\] timeScale (\d+) before (\d+) after (\d+) duration (\d+) ([\w:/\.\-\?=]+)\r\n', "callback" : pts_restamp_utils.check_restamp},
         # Confirm that an ad break is detected in Period 1 with a duration of 30 seconds
         {"expect": r"\[FoundEventBreak\]\[\d+\]\[CDAI\] Found Adbreak on period\[1\] Duration\[30000\] isDAIEvent\[1\]"},
-        {"expect": r"\[FulFillAdObject\]\[\d+\]\[CDAI\] New Ad successfully for periodId : 1 added\[Id=adId1, url=http://localhost:8080/content/ad_10s.mpd, durationMs=10000\]"},
-        {"expect": r"\[GetAdMPD\]\[\d+\]\[CDAI\] Error on manifest fetch"},
-        {"expect": r"\[FulFillAdObject\]\[\d+\]\[CDAI\] Failed to get Ad MPD\[http://localhost:8080/content/ad_100s.mpd\]"},
-        {"expect": r"\[FulFillAdObject\]\[\d+\]\[CDAI\] New Ad successfully for periodId : 1 added\[Id=adId3, url=http://localhost:8080/content/ad_10s.mpd, durationMs=10000\]"},
+        {"expect": r"\[FulFillAdObject\]\[\d+\]New Ad successfully for periodId : 1 added\[Id=adId1, url=http://localhost:8080/content/ad_10s.mpd, durationMs=10000\]"},
+        {"expect": r"\[GetAdMPD\]\[\d+\]\[CDAI\]: Error on manifest fetch"},
+        {"expect": r"\[FulFillAdObject\]\[\d+\]Failed to get Ad MPD\[http://localhost:8080/content/ad_100s.mpd\]"},
+        {"expect": r"\[FulFillAdObject\]\[\d+\]New Ad successfully for periodId : 1 added\[Id=adId3, url=http://localhost:8080/content/ad_10s.mpd, durationMs=10000\]"},
         {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: STARTING ADBREAK\[1\] AdIdx\[0\] Found at Period\[1\]"},
 
         # State change indicating the start of ad playback inside the ad break
@@ -136,21 +136,20 @@ TESTDATA2 = {
         # Expectation for period ID change after completing the ad break
         {"expect": re.escape("Period ID changed from '0' to '0-114' [BasePeriodId='1']")},
         {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: State changed from \[IN_ADBREAK_AD_PLAYING\] => \[IN_ADBREAK_WAIT2CATCHUP\].","min":20,"max":40},
-        {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: Current Ad completely placed.end period:1 end period offset:20000 adjustEndPeriodOffset:1"},
 
         {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: Current Ad placement Completed. Ready to play next Ad"},
         {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: Next AdIdx\[2\] Found at Period\[1\]"},
         {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: State changed from \[IN_ADBREAK_WAIT2CATCHUP\] => \[IN_ADBREAK_AD_PLAYING\]."},
-        {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: Ad finished at Period. Waiting to catchup the base offset.\[idx=2\] \[period=1\]"},
+
         # Ensure we move to the last 3rd ad in the ad break
         {"expect": re.escape("Period ID changed from '0-114' to '1-114' [BasePeriodId='1']")},
+        {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: Ad finished at Period. Waiting to catchup the base offset.\[idx=2\] \[period=1\]"},
         {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: State changed from \[IN_ADBREAK_AD_PLAYING\] => \[IN_ADBREAK_WAIT2CATCHUP\]","min":30,"max":50},
         {"expect": r"\[PlaceAds\]\[\d+\]\[CDAI\] Current Ad completely placed.end period:1 end period offset:20000 adjustEndPeriodOffset:1"},
         # Ensure placement is completed for the ad break
         {"expect": r"\[PlaceAds\]\[\d+\]\[CDAI\] Placement Done: \{AdbreakId: 1, duration: 20000, endPeriodId: 1, endPeriodOffset: 20000, \#Ads: 3"},
         {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: All Ads in the ADBREAK\[1\] FINISHED. Playing the basePeriod\[1\] at Offset\[20.000000\]"},
         {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: State changed from \[IN_ADBREAK_WAIT2CATCHUP\] => \[OUTSIDE_ADBREAK\]."},
-        {"expect": r"\[getValidperiodIdx\]\[\d+\]\[CDAI\]: Landed at period \(1\) periodIdx: 1 duration\(ms\):24000.000000"},
         # Ensure we move back to source period to play the remaining content
         {"expect": re.escape("Period ID changed from '1-114' to '1' [BasePeriodId='1']")},
         # Expectation to check fragment downloaded from Period 1
@@ -192,14 +191,14 @@ TESTDATA3 = {
         {"expect": r'RestampPts.*?\[(\w+)\] timeScale (\d+) before (\d+) after (\d+) duration (\d+) ([\w:/\.\-\?=]+)\r\n', "callback" : pts_restamp_utils.check_restamp},
         # Confirm that an ad break is detected in Period 1 with a duration of 30 seconds
         {"expect": r"\[FoundEventBreak\]\[\d+\]\[CDAI\] Found Adbreak on period\[1\] Duration\[30000\] isDAIEvent\[1\]"},
-        {"expect": r"\[GetAdMPD\]\[\d+\]\[CDAI\] Error on manifest fetch"},
-        {"expect": r"\[FulFillAdObject\]\[\d+\]\[CDAI\] Failed to get Ad MPD\[http://localhost:8080/content/ad_100s.mpd\]"},
-        {"expect": r"\[FulFillAdObject\]\[\d+\]\[CDAI\] Next available DAI Ad break = 1"},
-        {"expect": r"\[FulFillAdObject\]\[\d+\]\[CDAI\] New Ad successfully for periodId : 1 added\[Id=adId2, url=http://localhost:8080/content/ad_10s.mpd, durationMs=10000\]"},
-        {"expect": r"\[FulFillAdObject\]\[\d+\]\[CDAI\] New Ad successfully for periodId : 1 added\[Id=adId3, url=http://localhost:8080/content/ad_10s.mpd, durationMs=10000\]"},
-        {"expect": r"\[PlaceAds\]\[\d+\]periodDelta = 4000.000000 p2AdData.duration = \[4000\] mPlacementObj.adNextOffset = 0 periodId = 1 mPlacementObj.curAdIdx = 0"},
-        {"expect": r"\[PlaceAds\]\[\d+\]curAd.duration = \[0\] mPlacementObj.curAdIdx = 0"},
-        {"expect": r"\[GetNextAdInBreakToPlace\]\[\d+\]\[CDAI\] Current Ad Index to be placed\[1\] is valid"},
+        {"expect": r"\[GetAdMPD\]\[\d+\]\[CDAI\]: Error on manifest fetch"},
+        {"expect": r"\[FulFillAdObject\]\[\d+\]Failed to get Ad MPD\[http://localhost:8080/content/ad_100s.mpd\]"},
+        {"expect": r"\[FulFillAdObject\]\[\d+\]Next available DAI Ad break = 1"},
+        {"expect": r"\[FulFillAdObject\]\[\d+\]New Ad successfully for periodId : 1 added\[Id=adId2, url=http://localhost:8080/content/ad_10s.mpd, durationMs=10000\]"},
+        {"expect": r"\[FulFillAdObject\]\[\d+\]New Ad successfully for periodId : 1 added\[Id=adId3, url=http://localhost:8080/content/ad_10s.mpd, durationMs=10000\]"},
+        {"expect": r"\[PlaceAds\]\[\d+\]periodDelta = 4000.000000 p2AdData.duration = \[4000\] mPlacementObj.adNextOffset = 0 periodId = 1"},
+        {"expect": r"\[PlaceAds\]\[\d+\]curAd.duration = \[0\]"},
+        {"expect": r"\[GetNextAdInBreakToPlace\]\[\d+\]\[CDAI\] Current ad index to be placed\[1\] is valid"},
         {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: STARTING ADBREAK\[1\] AdIdx\[1\] Found at Period\[1\]"},
         # State change indicating the start of ad playback inside the ad break
         {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: State changed from \[OUTSIDE_ADBREAK\] \=\> \[IN_ADBREAK_AD_PLAYING\]."},

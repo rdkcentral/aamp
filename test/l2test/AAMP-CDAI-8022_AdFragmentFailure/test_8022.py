@@ -178,7 +178,7 @@ TESTDATA2 = {
         # Verify the state changes back to WAIT2CATCHUP afterwards
         {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: State changed from \[IN_ADBREAK_AD_PLAYING\] => \[IN_ADBREAK_WAIT2CATCHUP\].", "min": 40, "max": 180},
         # Verify the state changes back to OUTSIDE_ADBREAK after completing the ad
-        {"expect": r"\[PlaceAds\]\[\d+\]\[CDAI\] Placement Done: \{AdbreakId: , duration: 10000, endPeriodId: 3, endPeriodOffset: 0, \#Ads: 1", "min": 40, "max": 180},
+        {"expect": r"\[PlaceAds\]\[\d+\]\[CDAI\] Placement Done: \{AdbreakId: 2, duration: 10000, endPeriodId: 4, endPeriodOffset: 0, \#Ads: 1", "min": 40, "max": 180},
         {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: State changed from \[IN_ADBREAK_WAIT2CATCHUP\] \=\> \[OUTSIDE_ADBREAK\].", "min": 40, "max": 180},
         # After completing the ad, confirm the transition back to Period 3 (base content)
         {"expect": re.escape("Period ID changed from '1-114' to '4' [BasePeriodId='4']"), "min": 40, "max": 180},
