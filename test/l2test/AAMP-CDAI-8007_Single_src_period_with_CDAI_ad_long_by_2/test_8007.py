@@ -119,7 +119,7 @@ TESTDATA2= {
         {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: State changed from \[OUTSIDE_ADBREAK\] \=\> \[IN_ADBREAK_AD_PLAYING\].", "min": 0, "max": 200},
         {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: STARTING ADBREAK\[1\] AdIdx\[0\] Found at Period\[1\]", "min": 0, "max": 200},
         {"expect": re.escape("Period ID changed from '0' to '0-111' [BasePeriodId='1']"), "min": 20, "max": 200},
-        {"expect": r"\[PlaceAds\]\[\d+\]\[CDAI\] All Ads in the ADBREAK\[1\] FINISHED. Playing the basePeriod\[2\] at Offset\[0.000000\]", "min": 0, "max": 200},
+        {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: All Ads in the ADBREAK\[1\] FINISHED. Playing the basePeriod\[2\] at Offset\[0.000000\]", "min": 0, "max": 200},
         # Transition back to outside ad break state after playback completion
         {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: State changed from \[IN_ADBREAK_WAIT2CATCHUP\] \=\> \[OUTSIDE_ADBREAK\].", "min": 30, "max": 200},
         {"expect": r"\[PlaceAds\]\[\d+\]\[CDAI\] Current Ad completely placed.end period:1 end period offset:30000 adjustEndPeriodOffset:1", "min": 0, "max": 200},
@@ -128,7 +128,7 @@ TESTDATA2= {
         {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: STARTING ADBREAK\[2\] AdIdx\[0\] Found at Period\[2\]", "min": 0, "max": 200},
         {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: State changed from \[IN_ADBREAK_AD_PLAYING\] \=\> \[IN_ADBREAK_WAIT2CATCHUP\].", "min": 30, "max": 200},
         {"expect": r"\[PlaceAds\]\[\d+\]\[CDAI\] Current Ad completely placed.end period:2 end period offset:10000 adjustEndPeriodOffset:1", "min": 0, "max": 200},        # Expectation for period ID change after completing the ad break
-        {"expect": re.escape("Period ID changed from '0-111' to '2' [BasePeriodId='2']"), "min": 20, "max": 200},
+        {"expect": re.escape("Period ID changed from '0-111' to '1-111' [BasePeriodId='2']"), "min": 20, "max": 200},
         {"expect": r"\[PlaceAds\]\[\d+\]\[CDAI\] Placement Done: \{AdbreakId: 2, duration: 10000, endPeriodId: 4, endPeriodOffset: 0, \#Ads: 1", "min": 0, "max": 200},
         {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: All Ads in the ADBREAK\[2\] FINISHED. Playing the basePeriod\[4\] at Offset\[0.000000\]", "min": 30, "max": 200},
         # Transition back to outside ad break state after playback completion

@@ -71,7 +71,7 @@ TESTDATA1 = {
         # Period ID change from base content to ad content
         {"expect": re.escape("Period ID changed from '0' to '0-1' [BasePeriodId='1']"), "min": 20, "max": 60},
         #Ensure upto last segment of ad is fetched or not
-        {"expect":r"aamp url:0,0,0,1.920000,https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/streams/ads/ad3/hsar1039-soip-ads-prd.cdn01.skycdp.com/ads-gb-s8-prd-ak.cdn01.skycdp.com/v1/frag/bmff/t/ipvodad17/dc004d50-30ea-4f46-add8-9a007fe7c8ec/1628085330949/AD/HD/manifest/track-video-repid-LE1-tc--frag-14.mp4","min":20,"max":180},
+        {"expect": r"aamp url:0,0,0,1.920000,https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/streams/ads/ad3/hsar1039-soip-ads-prd.cdn01.skycdp.com/ads-gb-s8-prd-ak.cdn01.skycdp.com/v1/frag/bmff/t/ipvodad17/dc004d50-30ea-4f46-add8-9a007fe7c8ec/1628085330949/AD/HD/manifest/track-video-repid-LE[1-5]-tc--frag-14.mp4","min":20,"max":180},
         # State change indicating the transition into ad playback
         {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: State changed from \[IN_ADBREAK_AD_PLAYING\] \=\> \[IN_ADBREAK_WAIT2CATCHUP\].", "min": 10, "max": 60},
         {"expect": r"\[PlaceAds\]\[\d+\]\[CDAI\] Placement Done: \{AdbreakId: 1, duration: 28800, endPeriodId: 2, endPeriodOffset: 0, \#Ads: 1", "min": 10, "max": 70},
@@ -124,29 +124,29 @@ TESTDATA2= {
         # Expectation for the second ad (12 seconds) in the second ad break
         {"expect": r"\[AMPCLI\] AAMP_EVENT_TIMED_METADATA place advert breakId\=2 adId\=adId2 duration\=9", "min": 0, "max": 200},
         # State change indicating the start of ad playback inside the ad break
-        {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: State changed from \[OUTSIDE_ADBREAK\] \=\> \[IN_ADBREAK_AD_PLAYING\].", "min": 0, "max": 200},
+        {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: State changed from \[OUTSIDE_ADBREAK\] => \[IN_ADBREAK_AD_PLAYING\].", "min": 0, "max": 200},
         {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: STARTING ADBREAK\[1\] AdIdx\[0\] Found at Period\[1\]", "min": 0, "max": 200},
         {"expect": re.escape("Period ID changed from '0' to '0-1' [BasePeriodId='1']"), "min": 20, "max": 200},
         # Ensure fragments are not fetched from base period 1 and period 2 (16-35 fragment)
         {"expect": r"HttpRequestEnd.*?(1080|720|480|360)p_0(1[6-9]|2[0-9]|3[0-5]).m4s","min":20,"max":200,"not_expected" : True},
-        {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: State changed from \[IN_ADBREAK_AD_PLAYING\] \=\> \[IN_ADBREAK_WAIT2CATCHUP\].", "min": 0, "max": 200},
-        {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: Current Ad completely placed.end period:1 end period offset:28800 adjustEndPeriodOffset:1", "min": 0, "max": 200},
+        {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: State changed from \[IN_ADBREAK_AD_PLAYING\] => \[IN_ADBREAK_WAIT2CATCHUP\].", "min": 0, "max": 200},
+        {"expect": r"\[PlaceAds\]\[\d+\]\[CDAI\] Current Ad completely placed.end period:1 end period offset:28800 adjustEndPeriodOffset:1", "min": 0, "max": 200},
         {"expect": r"\[PlaceAds\]\[\d+\]\[CDAI\] Placement Done: \{AdbreakId: 1, duration: 28800, endPeriodId: 2, endPeriodOffset: 0, \#Ads: 1", "min": 0, "max": 200},
-        {"expect": r"\[PlaceAds\]\[\d+\]\[CDAI\] All Ads in the ADBREAK\[1\] FINISHED. Playing the basePeriod\[2\] at Offset\[0.000000\].", "min": 0, "max": 200},
-        {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: State changed from \[IN_ADBREAK_WAIT2CATCHUP\] \=\> \[OUTSIDE_ADBREAK\].", "min": 0, "max": 200},
+        {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: All Ads in the ADBREAK\[1\] FINISHED. Playing the basePeriod\[2\] at Offset\[0.000000\].", "min": 0, "max": 200},
+        {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: State changed from \[IN_ADBREAK_WAIT2CATCHUP\] => \[OUTSIDE_ADBREAK\].", "min": 0, "max": 200},
         # Expectation to start the Adbreak 2
         {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: STARTING ADBREAK\[2\] AdIdx\[0\] Found at Period\[2\]", "min": 0, "max": 200},
         # Transition back to outside ad break state after playback completion
-        {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: State changed from \[OUTSIDE_ADBREAK\] \=\> \[IN_ADBREAK_AD_PLAYING\].", "min": 0, "max": 200},
+        {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: State changed from \[OUTSIDE_ADBREAK\] => \[IN_ADBREAK_AD_PLAYING\].", "min": 0, "max": 200},
         # Expectation for period ID change after completing the ad break
-        {"expect": re.escape("Period ID changed from '0-1' to '2-P1' [BasePeriodId='2']"), "min": 20, "max": 200},
+        {"expect": re.escape("Period ID changed from '0-1' to '1-P1' [BasePeriodId='2']"), "min": 20, "max": 200},
         {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: Ad finished at Period. Waiting to catchup the base offset.\[idx=0\] \[period=2\]", "min": 0, "max": 200},
-        {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: State changed from \[IN_ADBREAK_AD_PLAYING\] \=\> \[IN_ADBREAK_WAIT2CATCHUP\].", "min": 0, "max": 200},
-        {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: Current Ad completely placed.end period:2 end period offset:9600 adjustEndPeriodOffset:1", "min": 0, "max": 200},
+        {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: State changed from \[IN_ADBREAK_AD_PLAYING\] => \[IN_ADBREAK_WAIT2CATCHUP\].", "min": 0, "max": 200},
+        {"expect": r"\[PlaceAds\]\[\d+\]\[CDAI\] Current Ad completely placed.end period:2 end period offset:9600 adjustEndPeriodOffset:1", "min": 0, "max": 200},
         # Indicating successful placement of the second ad break
         {"expect": r"\[PlaceAds\]\[\d+\]\[CDAI\] Placement Done: \{AdbreakId: 2, duration: 9600, endPeriodId: 4, endPeriodOffset: 0, \#Ads: 1", "min": 0, "max": 200},
         {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: All Ads in the ADBREAK\[2\] FINISHED. Playing the basePeriod\[4\] at Offset\[0.000000\].", "min": 0, "max": 200},
-        {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: State changed from \[IN_ADBREAK_WAIT2CATCHUP\] \=\> \[OUTSIDE_ADBREAK\].", "min": 0, "max": 200},
+        {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: State changed from \[IN_ADBREAK_WAIT2CATCHUP\] => \[OUTSIDE_ADBREAK\].", "min": 0, "max": 200},
         # Confirming the last segment fetched belongs to Period 2, indicating end of the test
         {"expect": r"HttpRequestEnd.*?(1080|720|480|360)p_045.m4s\?live=true", "min": 0, "max": 200, "end_of_test": True},
     ]

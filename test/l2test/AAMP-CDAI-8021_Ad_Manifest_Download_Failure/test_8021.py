@@ -132,15 +132,15 @@ TESTDATA2 = {
         {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: STARTING ADBREAK\[1\] AdIdx\[0\] Found at Period\[1\]"},
 
         # State change indicating the start of ad playback inside the ad break
-        {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: State changed from \[OUTSIDE_ADBREAK\] \=\> \[IN_ADBREAK_AD_PLAYING\]."},
+        {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: State changed from \[OUTSIDE_ADBREAK\] => \[IN_ADBREAK_AD_PLAYING\]."},
         # Expectation for period ID change after completing the ad break
         {"expect": re.escape("Period ID changed from '0' to '0-114' [BasePeriodId='1']")},
-        {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: State changed from \[IN_ADBREAK_AD_PLAYING\] \=\> \[IN_ADBREAK_WAIT2CATCHUP\].","min":20,"max":40},
+        {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: State changed from \[IN_ADBREAK_AD_PLAYING\] => \[IN_ADBREAK_WAIT2CATCHUP\].","min":20,"max":40},
         {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: Current Ad completely placed.end period:1 end period offset:20000 adjustEndPeriodOffset:1"},
 
         {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: Current Ad placement Completed. Ready to play next Ad"},
         {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: Next AdIdx\[2\] Found at Period\[1\]"},
-        {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: State changed from \[IN_ADBREAK_WAIT2CATCHUP\] \=\> \[IN_ADBREAK_AD_PLAYING\]."},
+        {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: State changed from \[IN_ADBREAK_WAIT2CATCHUP\] => \[IN_ADBREAK_AD_PLAYING\]."},
         {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: Ad finished at Period. Waiting to catchup the base offset.\[idx=2\] \[period=1\]"},
         # Ensure we move to the last 3rd ad in the ad break
         {"expect": re.escape("Period ID changed from '0-114' to '1-114' [BasePeriodId='1']")},
