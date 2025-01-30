@@ -1014,8 +1014,7 @@ void AAMPGstPlayer::Flush(double position, int rate, bool shouldTearDown)
 	{
 		return;
 	}
-	PlayerState state = eSTATE_IDLE;
-	aamp->GetState(state);
+	PlayerState state = aamp->GetState();
 	bool isAppSeek = false;
 	if(state == eSTATE_SEEKING)
 	{

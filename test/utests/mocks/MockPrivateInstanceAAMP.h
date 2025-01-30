@@ -31,7 +31,7 @@ public:
 
     MOCK_METHOD(void, StopPausePositionMonitoring, (std::string reason));
 
-    MOCK_METHOD(void, GetState, (PlayerState& state));
+    MOCK_METHOD(PlayerState, GetState, ());
 
     MOCK_METHOD(void, SetState, (PlayerState state));
 

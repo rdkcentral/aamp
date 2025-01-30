@@ -2254,10 +2254,9 @@ public:
 	/**
 	 *   @fn GetState
 	 *
-	 *   @param[out] state - Get current state of aamp
-	 *   @return void
+	 *  @return current logical player state, i.e. eSTATE_PLAYING, eSTATE_IDLE
 	 */
-	void GetState(PlayerState &state);
+	PlayerState GetState();
 
 	/**
      	 *   @fn AddHighIdleTask

@@ -2073,8 +2073,7 @@ TEST_F(PrivAampTests,NotifyFirstFrameReceivedTest_2)
 	p_aamp->TuneHelper(tuneType, false);
 	p_aamp->NotifyFirstFrameReceived(0);
 
-	PlayerState state;
-	p_aamp->GetState(state);
+	PlayerState state = p_aamp->GetState();
 	EXPECT_EQ(state,8);
 }
 
@@ -2086,8 +2085,7 @@ TEST_F(PrivAampTests,NotifyFirstFrameReceivedTest_3)
 	p_aamp->TuneHelper(tuneType, true);
 	p_aamp->NotifyFirstFrameReceived(0);
 
-	PlayerState state;
-	p_aamp->GetState(state);
+	PlayerState state = p_aamp->GetState();
 	EXPECT_NE(state,8);
 }
 
@@ -2127,15 +2125,12 @@ TEST_F(PrivAampTests,GetStateTest)
 {
 	p_aamp->SetState(eSTATE_IDLE);
 
-	PlayerState state = eSTATE_IDLE;
-	p_aamp->GetState(state);
+	PlayerState state = p_aamp->GetState();
 
-	state = eSTATE_SEEKING;
-	p_aamp->GetState(state);
+	state = p_aamp->GetState();
 	p_aamp->SetState(eSTATE_PLAYING);
 
-	state = eSTATE_PREPARING;
-	p_aamp->GetState(state);
+	state = p_aamp->GetState();
 }
 
 TEST_F(PrivAampTests,IsSinkCacheEmptyTest)
@@ -2158,8 +2153,7 @@ TEST_F(PrivAampTests,NotifyFragmentCachingCompleteTest_1)
 {
 	p_aamp->SetState(eSTATE_BUFFERING);
 
-	PlayerState state;
-	p_aamp->GetState(state);
+	PlayerState state = p_aamp->GetState();
 	EXPECT_EQ(state,5);
 
 	p_aamp->NotifyFragmentCachingComplete();
@@ -2334,8 +2328,7 @@ TEST_F(PrivAampTests,NotifyFirstBufferProcessedTest_1)
 {
 	p_aamp->SetState(eSTATE_IDLE);
 
-	PlayerState state;
-	p_aamp->GetState(state);
+	PlayerState state = p_aamp->GetState();
 	EXPECT_EQ(state,0);
 }
 
@@ -2346,8 +2339,7 @@ TEST_F(PrivAampTests,NotifyFirstBufferProcessedTest_2)
 	TuneType tuneType = eTUNETYPE_NEW_NORMAL;
 	p_aamp->TuneHelper(tuneType, false);//true
 
-	PlayerState state;
-	p_aamp->GetState(state);
+	PlayerState state = p_aamp->GetState();
 	EXPECT_EQ(state,4);//8 nov8
 }
 
@@ -2358,8 +2350,7 @@ TEST_F(PrivAampTests,NotifyFirstBufferProcessedTest_3)
 	TuneType tuneType = eTUNETYPE_NEW_NORMAL;
 	p_aamp->TuneHelper(tuneType, true);
 
-	PlayerState state;
-	p_aamp->GetState(state);
+	PlayerState state = p_aamp->GetState();
 	EXPECT_EQ(state,4);//8 nov8
 }
 

@@ -185,12 +185,14 @@ void PrivateInstanceAAMP::ActivatePlayer()
 void PrivateInstanceAAMP::SendMediaMetadataEvent()
 {
 }
-void PrivateInstanceAAMP::GetState(PlayerState& state)
+PlayerState PrivateInstanceAAMP::GetState()
 {
+	PlayerState state = eSTATE_IDLE;
 	if (g_mockPrivateInstanceAAMP != nullptr)
 	{
-		g_mockPrivateInstanceAAMP->GetState(state);
+		state = g_mockPrivateInstanceAAMP->GetState();
 	}
+	return state;
 }
 
 void PrivateInstanceAAMP::SetState(PlayerState state)
@@ -1174,6 +1176,11 @@ void PrivateInstanceAAMP::SendHTTPHeaderResponse()
 void PrivateInstanceAAMP::LoadIDX(ProfilerBucketType bucketType, std::string fragmentUrl, std::string& effectiveUrl, AampGrowableBuffer *fragment, unsigned int curlInstance, const char *range, int * http_code, double *downloadTime, AampMediaType mediaType,int * fogError)
 {
         return;
+}
+
+bool PrivateInstanceAAMP::IsAudioLanguageSupported (const char *checkLanguage)
+{
+	return false;
 }
 
 void PrivateInstanceAAMP::LicenseRenewal(std::shared_ptr<AampDrmHelper> drmHelper,void* userData)

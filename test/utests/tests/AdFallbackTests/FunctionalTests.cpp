@@ -243,9 +243,9 @@ class AdFallbackTests : public ::testing::Test
 
 			mPrivateInstanceAAMP->SetManifestUrl(TEST_MANIFEST_URL);
 
-			EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState(_))
+			EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState())
 				.Times(AnyNumber())
-				.WillRepeatedly(SetArgReferee<0>(eSTATE_PREPARING));
+				.WillRepeatedly(Return(eSTATE_PREPARING));
 			// For the time being return the same manifest again
 			EXPECT_CALL(*g_mockAampMPDDownloader, GetManifest(_, _, _))
 				.WillRepeatedly(WithoutArgs(Invoke(this, &AdFallbackTests::GetManifestForMPDDownloader)));

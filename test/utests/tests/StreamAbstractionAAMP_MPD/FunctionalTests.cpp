@@ -305,9 +305,9 @@ public:
 		/* Initialize MPD. */
 		EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetState(eSTATE_PREPARING));
 
-		EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState(_))
+		EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState())
 			.Times(AnyNumber())
-			.WillRepeatedly(SetArgReferee<0>(eSTATE_PREPARING));
+			.WillRepeatedly(Return(eSTATE_PREPARING));
 
 		EXPECT_CALL(*g_mockAampMPDDownloader, GetManifest (_, _, _))
 			.WillOnce(WithoutArgs(Invoke(this, &FunctionalTestsBase::GetManifestForMPDDownloader)));

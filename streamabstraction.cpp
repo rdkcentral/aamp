@@ -632,7 +632,7 @@ bool MediaTrack::WaitForFreeFragmentAvailable( int timeoutMs)
 		// Still in preparation mode , not to inject any more fragments beyond capacity
 		// Wait for 100ms
 		pthread_mutex_lock(&aamp->mMutexPlaystart);
-		aamp->GetState(state);
+		state = aamp->GetState();
 		if(state == eSTATE_PREPARED && totalFragmentsDownloaded > preplaybuffercount
 				&& !aamp->IsFragmentCachingRequired() )
 		{

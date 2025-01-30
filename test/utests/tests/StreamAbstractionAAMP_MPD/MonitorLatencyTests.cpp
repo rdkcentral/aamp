@@ -387,9 +387,9 @@ TEST_P(MonitorLatencyTests, LatencyChangeExpectedScenarios)
 	status = InitializeMPD();
 	EXPECT_EQ(status, eAAMPSTATUS_OK);
 
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState(_))
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState())
 		.Times(AnyNumber())
-		.WillRepeatedly(SetArgReferee<0>(eSTATE_PLAYING));
+		.WillRepeatedly(Return(eSTATE_PLAYING));
 
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled())
 		.Times(AnyNumber())

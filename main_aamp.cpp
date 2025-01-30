@@ -190,8 +190,7 @@ PlayerInstanceAAMP::~PlayerInstanceAAMP()
 	if (aamp)
 	{
 		UsingPlayerId playerId(aamp->mPlayerId);
-		PlayerState state;
-		aamp->GetState(state);
+		PlayerState state = aamp->GetState();
 		// Acquire the lock , to prevent new entries into scheduler
 		mScheduler.SuspendScheduler();
 		// Remove all the tasks
@@ -259,8 +258,7 @@ void PlayerInstanceAAMP::Stop(bool sendStateChangeEvent)
 	if (aamp)
 	{
 		UsingPlayerId playerId(aamp->mPlayerId);
-		PlayerState state;
-		aamp->GetState(state);
+		PlayerState state = aamp->GetState();
 
 		// 1. Ensure scheduler is suspended and all tasks if any to be cleaned
 		// 2. Check for state ,if already in Idle / Released , ignore stopInternal
@@ -345,7 +343,6 @@ void PlayerInstanceAAMP::TuneInternal(const char *mainManifestUrl,
 										const char* manifestData
 										)
 {
-	PlayerState state;
 	if(aamp){
 		UsingPlayerId playerId(aamp->mPlayerId);
 
@@ -354,7 +351,7 @@ void PlayerInstanceAAMP::TuneInternal(const char *mainManifestUrl,
 
 		aamp->StopPausePositionMonitoring("Tune() called");
 
-		aamp->GetState(state);
+		PlayerState state = aamp->GetState();
 		bool IsOTAtoOTA =  false;
 
 		if((aamp->IsOTAContent()) && (NULL != mainManifestUrl))
@@ -1003,8 +1000,7 @@ static gboolean SeekAfterPrepared(gpointer ptr)
 	bool sentSpeedChangedEv = false;
 	bool isSeekToLiveOrEnd = false;
 	TuneType tuneType = eTUNETYPE_SEEK;
-	PlayerState state;
-	aamp->GetState(state);
+	PlayerState state = aamp->GetState();
 	if( state == eSTATE_ERROR)
 	{
 		AAMPLOG_WARN("operation is not allowed when player in eSTATE_ERROR state !");\
@@ -1092,8 +1088,7 @@ void PlayerInstanceAAMP::Seek(double secondsRelativeToTuneTime, bool keepPaused)
 	if(aamp)
 	{
 		UsingPlayerId playerId(aamp->mPlayerId);
-		PlayerState state;
-		aamp->GetState(state);
+		PlayerState state = aamp->GetState();
 		if(mAsyncTuneEnabled && state != eSTATE_IDLE && state != eSTATE_RELEASED)
 		{
 			mScheduler.ScheduleTask(AsyncTaskObj([secondsRelativeToTuneTime,keepPaused](void *data)
@@ -1578,8 +1573,7 @@ void PlayerInstanceAAMP::SetLanguage(const char* language)
 	if( aamp )
 	{
 		UsingPlayerId playerId(aamp->mPlayerId);
-		PlayerState state;
-		aamp->GetState(state);
+		PlayerState state = aamp->GetState();
 		if (mAsyncTuneEnabled && state != eSTATE_IDLE && state != eSTATE_RELEASED)
 		{
 			std::string sLanguage = std::string(language);
@@ -1993,7 +1987,7 @@ PlayerState PlayerInstanceAAMP::GetState(void)
 		{
 			throw std::invalid_argument("NULL reference");
 		}
-		aamp->GetState(currentState);
+		currentState = aamp->GetState();
 	}
 	catch (std::exception &e)
 	{
@@ -3129,11 +3123,9 @@ void PlayerInstanceAAMP::PersistBitRateOverSeek(bool bValue)
  */
 void PlayerInstanceAAMP::StopInternal(bool sendStateChangeEvent)
 {
-	PlayerState state;
-
 	aamp->StopPausePositionMonitoring("Stop() called");
 
-	aamp->GetState(state);
+	PlayerState state = aamp->GetState();
 	if(!aamp->IsTuneCompleted())
 	{
 		aamp->TuneFail(true);
@@ -3288,20 +3280,15 @@ void PlayerInstanceAAMP::SetAuxiliaryLanguage(const std::string &language)
  *  @brief Set auxiliary track language.
  */
 void PlayerInstanceAAMP::SetAuxiliaryLanguageInternal(const std::string &language)
-{
+{ // note: this feature available only on bluetooth enabled devices
 	if( aamp )
 	{
 		UsingPlayerId playerId(aamp->mPlayerId);
-#ifdef AAMP_AUXILIARY_AUDIO_ENABLED
-		//Can set the property only for BT enabled device
-		
 		std::string currentLanguage = aamp->GetAuxiliaryAudioLanguage();
 		AAMPLOG_WARN("aamp_SetAuxiliaryLanguage(%s)->(%s)", currentLanguage.c_str(), language.c_str());
-		
 		if(language != currentLanguage)
 		{
-			PlayerState state;
-			aamp->GetState(state);
+			PlayerState state = aamp->GetState();
 			// There is no active playback session, save the language for later
 			if (state == eSTATE_IDLE || state == eSTATE_RELEASED)
 			{
@@ -3325,9 +3312,6 @@ void PlayerInstanceAAMP::SetAuxiliaryLanguageInternal(const std::string &languag
 				}
 			}
 		}
-#else
-		AAMPLOG_ERR("Auxiliary audio language is not supported in this platform, ignoring the input!");
-#endif
 	}
 }
 
