@@ -130,9 +130,10 @@ static void HandleOnGstBufferUnderflowCb(int mediaType, AAMPGstPlayer * _this);
  
  * @param isBufferingTimeoutConditionMet Indicates if the buffering timeout condition is met.
  * @param isRateCorrectionDefaultOnPlaying Indicates if rate correction is enabled.
+ * @param isPlayerReady used to notify subtitle parser for direct subtec integration
  * @param _this Pointer to the AAMPGstPlayer instance.
  */
-static void HandleBufferingTimeoutCb(bool isBufferingTimeoutConditionMet, bool isRateCorrectionDefaultOnPlaying, AAMPGstPlayer * _this);
+static void HandleBufferingTimeoutCb(bool isBufferingTimeoutConditionMet, bool isRateCorrectionDefaultOnPlaying, bool isPlayerReady, AAMPGstPlayer * _this);
 
 /**
  * @brief Registers GStreamer bus callbacks.
@@ -221,8 +222,8 @@ static void RegisterBusCb(AAMPGstPlayer *_this, void *playerInstance)
 		HandleOnGstPtsErrorCb(isVideo, isAudioSink, _this);
 	});
 	
-	Instance->RegisterBufferingTimeoutCb([_this](bool isBufferingTimeoutConditionMet, bool isRateCorrectionDefaultOnPlaying){
-		HandleBufferingTimeoutCb(isBufferingTimeoutConditionMet, isRateCorrectionDefaultOnPlaying, _this);
+	Instance->RegisterBufferingTimeoutCb([_this](bool isBufferingTimeoutConditionMet, bool isRateCorrectionDefaultOnPlaying, bool isPlayerReady){
+		HandleBufferingTimeoutCb(isBufferingTimeoutConditionMet, isRateCorrectionDefaultOnPlaying, isPlayerReady, _this);
 	});
 	
 	Instance->RegisterHandleRedButtonCallback([_this](const char *data){
@@ -444,9 +445,10 @@ AAMPGstPlayer::~AAMPGstPlayer()
  
  * @param isBufferingTimeoutConditionMet Indicates if the buffering timeout condition is met.
  * @param isRateCorrectionDefaultOnPlaying Indicates if rate correction is enabled.
+ * @param isPlayerReady used to notify subtitle parser for direct subtec integration
  * @param _this Pointer to the AAMPGstPlayer instance.
  */
-static void HandleBufferingTimeoutCb(bool isBufferingTimeoutConditionMet, bool isRateCorrectionDefaultOnPlaying, AAMPGstPlayer * _this)
+static void HandleBufferingTimeoutCb(bool isBufferingTimeoutConditionMet, bool isRateCorrectionDefaultOnPlaying, bool isPlayerReady, AAMPGstPlayer * _this)
 {
 	auto aamp = _this->aamp;
 	if( aamp )
@@ -457,13 +459,16 @@ static void HandleBufferingTimeoutCb(bool isBufferingTimeoutConditionMet, bool i
 			AAMPLOG_WARN("Schedule retune.");
 			aamp->ScheduleRetune(eGST_ERROR_VIDEO_BUFFERING, eMEDIATYPE_VIDEO);
 		}
-		else if(isRateCorrectionDefaultOnPlaying)
+		else if(isPlayerReady)
 		{
-			// Setting first fractional rate as DEFAULT_INITIAL_RATE_CORRECTION_SPEED right away on PLAYING to avoid audio drop
-			if (aamp->mConfig->IsConfigSet(eAAMPConfig_EnableLiveLatencyCorrection) && aamp->IsLive())
+			if(isRateCorrectionDefaultOnPlaying)
 			{
-				AAMPLOG_WARN("Setting first fractional rate %.6f right after moving to PLAYING", DEFAULT_INITIAL_RATE_CORRECTION_SPEED);
-				_this->SetPlayBackRate(DEFAULT_INITIAL_RATE_CORRECTION_SPEED);
+				// Setting first fractional rate as DEFAULT_INITIAL_RATE_CORRECTION_SPEED right away on PLAYING to avoid audio drop
+				if (aamp->mConfig->IsConfigSet(eAAMPConfig_EnableLiveLatencyCorrection) && aamp->IsLive())
+				{
+					AAMPLOG_WARN("Setting first fractional rate %.6f right after moving to PLAYING", DEFAULT_INITIAL_RATE_CORRECTION_SPEED);
+					_this->SetPlayBackRate(DEFAULT_INITIAL_RATE_CORRECTION_SPEED);
+				}
 			}
 			if(!aamp->IsGstreamerSubsEnabled())
 			{

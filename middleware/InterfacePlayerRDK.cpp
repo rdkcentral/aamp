@@ -4552,6 +4552,7 @@ static gboolean buffering_timeout (gpointer data)
 	InterfacePlayerRDK * pInterfacePlayerRDK = (InterfacePlayerRDK *) data;
 	bool isBufferingTimeoutConditionMet = false;
 	bool isRateCorrectionDefaultOnPlaying = false;
+	bool isPlayerReady = false;
 	const auto platformType = pInterfacePlayerRDK->m_gstConfigParam->platformType;
 	
 	if(pInterfacePlayerRDK && pInterfacePlayerRDK->gstPrivateContext)
@@ -4588,11 +4589,10 @@ static gboolean buffering_timeout (gpointer data)
 				if(platformType == eGST_PLATFORM_BROADCOM)
 				{
 					isRateCorrectionDefaultOnPlaying = true;
-					
 				}
 				pInterfacePlayerRDK->gstPrivateContext->buffering_in_progress = false;
+				isPlayerReady = true;
 			}
-			
 		}
 		if (!pInterfacePlayerRDK->gstPrivateContext->buffering_in_progress)
 		{
@@ -4602,7 +4602,7 @@ static gboolean buffering_timeout (gpointer data)
 		
 		if(pInterfacePlayerRDK->OnBuffering_timeoutCb)
 		{
-			pInterfacePlayerRDK->OnBuffering_timeoutCb(isBufferingTimeoutConditionMet,isRateCorrectionDefaultOnPlaying);
+			pInterfacePlayerRDK->OnBuffering_timeoutCb(isBufferingTimeoutConditionMet, isRateCorrectionDefaultOnPlaying, isPlayerReady);
 		}
 		return pInterfacePlayerRDK->gstPrivateContext->buffering_in_progress;
 	}

@@ -441,7 +441,7 @@ public:
 	using HandleOnGstBufferUnderflowCb = std::function<void(int mediaType)>;
 	using HandleOnGstDecodeErrorCb = std::function<void(int CbCount)>;
 	using HandleOnGstPtsErrorCb = std::function<void(bool isVideo, bool isAudioSink)>;
-	using HandleBuffering_timeoutCb = std::function<void(bool isBufferingTimeoutConditionMet, bool isRateCorrectionDefaultOnPlaying)>;
+	using HandleBuffering_timeoutCb = std::function<void(bool isBufferingTimeoutConditionMet, bool isRateCorrectionDefaultOnPlaying, bool isPlayerReady)>;
 	using HandleRedButtonCallback = std::function<void(const char *data)>;
 	using HandleNeedDataCb = std::function<void(int mediaType)>;
 	using HandleEnoughDataCb = std::function<void(int mediaType)>;
