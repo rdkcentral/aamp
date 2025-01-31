@@ -157,7 +157,7 @@ class TsbFragmentData : public TsbSegment
 private:
 	double position; /**< absolute position of the current fragment, in seconds since 1970 */
 	double duration; /**< duration of the current fragment*/
-	double mPTS; /**< PTS of the current fragment*/
+	double mPTS; /**< PTS of the current fragment in seconds before applying PTS offset, i.e. ISO BMFF baseMediaDecodeTime / timescale */
 	bool isDiscontinuous;  /**< the current fragment is discontinuous*/
 	double relativePosition; /**< Relative position from start*/
 	std::shared_ptr<TsbInitData> initFragData; /**< init Fragment of the current fragment*/
@@ -174,7 +174,7 @@ public:
 	 *   @param[in] media - Segment type as AampMediaType
 	 *   @param[in] position - absolute position of the current fragment, in seconds since 1970
 	 *   @param[in] duration - duration of the current fragment
-	 *   @param[in] pts - PTS of the current fragment
+	 *   @param[in] pts - PTS of the current fragment in seconds before applying PTS offset, i.e. ISO BMFF baseMediaDecodeTime / timescale
 	 *   @param[in] disc - discontinuity flag
 	 *   @param[in] relativePos - Relative position
 	 *   @param[in] prId - Period Id of the fragment

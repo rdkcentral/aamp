@@ -204,8 +204,11 @@ std::shared_ptr<CachedFragment> AampTSBSessionManager::Read(TsbFragmentDataPtr f
 	std::size_t len = mTSBStore->GetSize(url);
 	if (len > 0)
 	{
-		cachedFragment->position = fragment->GetPosition();
-		cachedFragment->absPosition = fragment->GetPosition(); // AbsPosition is same as position for content from TSB
+		// PTS restamping must be enabled to use AAMP Local TSB.
+		// 'position' has the restamped PTS value, however, the PTS value in the ISO BMFF boxes
+		// (baseMediaDecodeTime) will be restamped later, in the injector thread.
+		cachedFragment->position = fragment->GetPTS() + fragment->GetPTSOffsetSec();
+		cachedFragment->absPosition = fragment->GetPosition();
 		cachedFragment->duration = fragment->GetDuration();
 		cachedFragment->discontinuity = fragment->IsDiscontinuous();
 		cachedFragment->type = fragment->GetInitFragData()->GetMediaType();
@@ -213,7 +216,7 @@ std::shared_ptr<CachedFragment> AampTSBSessionManager::Read(TsbFragmentDataPtr f
 		cachedFragment->timeScale = fragment->GetTimeScale();
 		cachedFragment->uri = url;
 		pts = fragment->GetPTS();
-		AAMPLOG_INFO("[%s] Read fragment from AAMP TSB: position %fs absPosition %fs pts %fs duration %fs discontinuity %d ptsOffset %fs timeScale %u url %s",
+		AAMPLOG_INFO("[%s] Read fragment from AAMP TSB: position (restamped PTS) %fs absPosition %fs pts %fs duration %fs discontinuity %d ptsOffset %fs timeScale %u url %s",
 			GetMediaTypeName(cachedFragment->type), cachedFragment->position, cachedFragment->absPosition, pts, cachedFragment->duration,
 			cachedFragment->discontinuity, cachedFragment->PTSOffsetSec, cachedFragment->timeScale, url.c_str());
 
@@ -265,6 +268,10 @@ void AampTSBSessionManager::EnqueueWrite(std::string url, std::shared_ptr<Cached
 		std::lock_guard<std::mutex> guard(mWriteQueueMutex);
 
 		AampMediaType mediaType = ConvertMediaType(cachedFragment->type);
+		// Read the PTS from the ISOBMFF boxes (baseMediaDecodeTime / timescale) before applying the PTS offset.
+		// The PTS value will be restamped by the injector thread.
+		// This function is called in the context of the fetcher thread before the fragment is added to the list to be injected, to avoid
+		// any race conditions; so it cannot be moved to ProcessWriteQueue() or any other functions called from a different context.
 		double pts = RecalculatePTS(static_cast<AampMediaType>(cachedFragment->type), cachedFragment->fragment.GetPtr(), cachedFragment->fragment.GetLen(), mAamp);
 		// Get or create the datamanager for the mediatype
 		std::shared_ptr<AampTsbDataManager> dataManager = GetTsbDataManager(mediaType);
@@ -816,8 +823,6 @@ bool AampTSBSessionManager::PushNextTsbFragment(MediaStreamContext *pMediaStream
 					}
 				}
 				UnlockReadMutex();
-				nextFragment->position = pts;/*Update the fragment absolute position as PTS for injection,as the PTS value is required for overriding events in qtdemux.*/
-
 				ret = pMediaStreamContext->CacheTsbFragment(nextFragment);
 				LockReadMutex();
 			}

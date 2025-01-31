@@ -1314,17 +1314,22 @@ double RecalculatePTS(AampMediaType mediaType, const void *ptr, size_t len, Priv
 {
 	double ret = 0;
 	uint32_t timeScale = 0;
-
-	if(mediaType == eMEDIATYPE_VIDEO)
+	switch( mediaType )
 	{
+	case eMEDIATYPE_VIDEO:
 		timeScale = aamp->GetVidTimeScale();
-	}
-	else if(mediaType == eMEDIATYPE_AUDIO || mediaType == eMEDIATYPE_AUX_AUDIO)
-	{
+		break;
+	case eMEDIATYPE_AUDIO:
+	case eMEDIATYPE_AUX_AUDIO:
 		timeScale = aamp->GetAudTimeScale();
+		break;
+	case eMEDIATYPE_SUBTITLE:
+		timeScale = aamp->GetSubTimeScale();
+		break;
+	default:
+		AAMPLOG_WARN("Invalid media type %d", mediaType);
+		break;
 	}
-
-
 	IsoBmffBuffer isobuf;
 	isobuf.setBuffer((uint8_t *)ptr, len);
 	bool bParse = false;
@@ -1351,7 +1356,6 @@ double RecalculatePTS(AampMediaType mediaType, const void *ptr, size_t len, Priv
 		if (bParse)
 		{
 			ret = fPts/(timeScale*1.0);
-			AAMPLOG_TRACE("restamped PTS : %lf", ret);
 		}
 	}
 	return ret;
