@@ -1211,6 +1211,6 @@ TEST_F(AampConfigTests, ResetSingleConfigurationTest)
 
 	// String test
 	TestSetAndRestoreSingleConfig<std::string, AAMPConfigSettingString>(mAampConfig.get(), AAMP_APPLICATION_SETTING, AAMP_TUNE_SETTING,
-																		eAAMPConfig_LLDUrlKeyword, "initial", "new_value",
-																		mConfigLookupTableString[eAAMPConfig_LLDUrlKeyword].defaultValue);
+																		eAAMPConfig_LicenseServerUrl, "initial", "new_value",
+																		mConfigLookupTableString[eAAMPConfig_LicenseServerUrl].defaultValue);
 }

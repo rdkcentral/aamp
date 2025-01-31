@@ -239,7 +239,6 @@ static const ConfigLookupEntryString mConfigLookupTableString[AAMPCONFIG_STRING_
 	{"","gstlevel", eAAMPConfig_GstDebugLevel,false},
 	{"","tsbType", eAAMPConfig_TsbType, false},
 	{DEFAULT_TSB_LOCATION,"tsbLocation",eAAMPConfig_TsbLocation, true},
-	{AAMP_LOW_LATENCY_URL_KEYWORD,"lldUrlKeyword", eAAMPConfig_LLDUrlKeyword, true},
 };
 
 /**
