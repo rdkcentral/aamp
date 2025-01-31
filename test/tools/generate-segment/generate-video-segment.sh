@@ -20,28 +20,25 @@ GENERATE_LL_SEGMENTS=${12}
 DURATION_S=$(echo "$DURATION $TIMESCALE" | awk '{printf "%f", $1 / $2}')
 START_TIME_S=$(echo "scale=3; $BASE_MEDIA_DECODE_TIME/$TIMESCALE" | bc)
 
+#For iframes we get fractional values, truncate for display
+FPS_DISPLAY=$(echo "scale=2; $FPS" | bc)
 # scale text proportional to resolution
 FONTSIZE="48*$HEIGHT/1080"
 SCALE=scale=w=$((WIDTH)):h=$((HEIGHT)):force_original_aspect_ratio=decrease
 
-FRAMENUM_OVERLAY="fontfile=/path/to/font.ttf: \
-    text='$SEGMENT_NUMBER-%{frame_num}': \
-    fontcolor=white: \
-    fontsize=$FONTSIZE: \
-    box=1: boxcolor=black: boxborderw=5: x=w/2: y=h/2-2*$FONTSIZE"
 
 MEDIATIME_OVERLAY="fontfile=/path/to/font.ttf: \
-    text='%{eif\:t+$START_TIME_S\:d\:2}.%{eif\:(mod((t+$START_TIME_S)*1000\,1000))\:d\:3}': \
+    text='PTS%{eif\:t+$START_TIME_S\:d\:2}.%{eif\:(mod((t+$START_TIME_S)*1000\,1000))\:d\:3} SEG$SEGMENT_NUMBER-%{frame_num}': \
     fontcolor=white: fontsize=$FONTSIZE: \
-    box=1: boxcolor=black: boxborderw=5: x=(w*6/10-text_w): y=(h-text_h)/2"
+    box=1: boxcolor=black: boxborderw=10: x=(w-text_w)/2: y=(h-text_h)/2"
 
-TEXT="$WIDTH"x"$HEIGHT"-"$FPS"fps-"$VIDEO_CODEC"
+TEXT="$WIDTH"x"$HEIGHT"-"$FPS_DISPLAY"fps-"$VIDEO_CODEC"
 
 RESOLUTION_OVERLAY="fontfile=/path/to/font.ttf: \
     text='$TEXT': \
     fontcolor=white: \
     fontsize=$FONTSIZE: \
-    box=1: boxcolor=black: boxborderw=5: x=(w-text_w)/2: y=(h/2-text_h)/2"
+    box=1: boxcolor=black: boxborderw=10: x=(w-text_w)/2: y=(h/2-text_h)/2"
 
 # low-latency options
 LL_OPTIONS=""
@@ -59,7 +56,7 @@ fi
 ffmpeg -y \
     -loop 1 \
     -i $SOURCE_MEDIA \
-    -vf "$SCALE,fps=$FPS,drawtext=$FRAMENUM_OVERLAY,drawtext=$MEDIATIME_OVERLAY,drawtext=$RESOLUTION_OVERLAY" \
+    -vf "$SCALE,fps=$FPS,drawtext=$MEDIATIME_OVERLAY,drawtext=$RESOLUTION_OVERLAY" \
     -t $DURATION_S \
     -c:v $VIDEO_CODEC \
     -movie_timescale $TIMESCALE \
