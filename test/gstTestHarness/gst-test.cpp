@@ -1431,7 +1431,10 @@ public:
 					if( segmentCount==1 )
 					{
 						auto d = representation.data.duration[0]/representation.data.timescale;
-						segmentCount = period.duration/d;
+						if( d>0 )
+						{ // avoids division by zero and ambiguity with SegmentTimeline having 1 segment
+							segmentCount = period.duration/d;
+						}
 					}
 				}
 				
