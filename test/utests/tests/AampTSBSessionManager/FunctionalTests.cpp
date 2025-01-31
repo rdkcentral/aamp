@@ -24,6 +24,7 @@
 #include "MockMediaStreamContext.h"
 #include "MockPrivateInstanceAAMP.h"
 #include "MockAampConfig.h"
+#include "MockAampUtils.h"
 #include "AampTSBSessionManager.h"
 #include "AampConfig.h"
 #include "AampLogManager.h"
@@ -39,6 +40,7 @@ using ::testing::Return;
 using ::testing::SaveArgPointee;
 using ::testing::SetArgPointee;
 using ::testing::NiceMock;
+using ::testing::Invoke;
 
 AampConfig *gpGlobalConfig{nullptr};
 
@@ -71,6 +73,7 @@ protected:
         g_mockTSBStore = new MockTSBStore();
         g_mockMediaStreamContext = new StrictMock<MockMediaStreamContext>();
         g_mockPrivateInstanceAAMP = new StrictMock<MockPrivateInstanceAAMP>();
+		g_mockAampUtils = new NiceMock<MockAampUtils>();
 
         EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetTSBStore(_,_,_)).WillRepeatedly(Return(mTSBStore));
         mAampTSBSessionManager->SetTsbLength(5);
@@ -86,6 +89,9 @@ protected:
     void TearDown() override
     {
         mAampTSBSessionManager->Flush();
+
+        delete g_mockAampUtils;
+        g_mockAampUtils = nullptr;
 
         delete g_mockPrivateInstanceAAMP;
         g_mockPrivateInstanceAAMP = nullptr;
@@ -252,6 +258,8 @@ TEST_F(FunctionalTests, TSBReadTests)
     constexpr double FRAG_FIRST_POS = 99.0;
     constexpr double FRAG_FIRST_ABS_POS = 999.0;
     constexpr double FRAG_DURATION = 2.0;
+    constexpr double FRAG_FIRST_PTS = 69.0;
+    constexpr double FRAG_PTS_OFFSET = -50.0;
     size_t TEST_DATA_LEN = strlen(TEST_DATA);
     class MediaStreamContext videoCtx(eTRACK_VIDEO, NULL, aamp, "video");
 
@@ -261,6 +269,8 @@ TEST_F(FunctionalTests, TSBReadTests)
 
     EXPECT_CALL(*g_mockTSBStore, Write(_,_,_)).WillRepeatedly(Return(TSB::Status::OK));
     EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetVidTimeScale()).WillRepeatedly(Return(1));
+    EXPECT_CALL(*g_mockAampUtils, RecalculatePTS(eMEDIATYPE_INIT_VIDEO,_,_,_)).Times(1).WillOnce(Return(0.0));
+    EXPECT_CALL(*g_mockAampUtils, RecalculatePTS(eMEDIATYPE_VIDEO,_,_,_)).Times(2).WillRepeatedly(Return(FRAG_FIRST_PTS));
 
     std::string initUrl = std::string(TEST_BASE_URL) + std::string("init.mp4");
     cachedFragment->type = eMEDIATYPE_INIT_VIDEO;
@@ -271,6 +281,7 @@ TEST_F(FunctionalTests, TSBReadTests)
     cachedFragment->position = FRAG_FIRST_POS;
     cachedFragment->absPosition = FRAG_FIRST_ABS_POS;
     cachedFragment->duration = FRAG_DURATION;
+    cachedFragment->PTSOffsetSec = FRAG_PTS_OFFSET;
     cachedFragment->initFragment = false;
     cachedFragment->type = eMEDIATYPE_VIDEO;
     mAampTSBSessionManager->EnqueueWrite(videoUrl, cachedFragment, TEST_PERIOD_ID);
@@ -278,6 +289,7 @@ TEST_F(FunctionalTests, TSBReadTests)
 
     cachedFragment->position += FRAG_DURATION;
     cachedFragment->absPosition += FRAG_DURATION;
+    cachedFragment->PTSOffsetSec = FRAG_PTS_OFFSET;
     cachedFragment->type = eMEDIATYPE_VIDEO;
     mAampTSBSessionManager->EnqueueWrite(videoUrl, cachedFragment, TEST_PERIOD_ID);
     std::this_thread::sleep_for(std::chrono::milliseconds(25));
@@ -294,7 +306,14 @@ TEST_F(FunctionalTests, TSBReadTests)
     EXPECT_CALL(*g_mockTSBStore, Read(initUrl, _, _)).WillOnce(Return(TSB::Status::OK));
     EXPECT_CALL(*g_mockTSBStore, Read(videoUrl, _, _)).WillOnce(Return(TSB::Status::OK));
 
-    EXPECT_CALL(*g_mockMediaStreamContext, CacheTsbFragment(_)).Times(2).WillRepeatedly(Return(true));
+    EXPECT_CALL(*g_mockMediaStreamContext, CacheTsbFragment(_))
+        .Times(2)
+        .WillOnce(Return(true))
+        .WillOnce(Invoke([](std::shared_ptr<CachedFragment> fragment)
+        {
+            EXPECT_DOUBLE_EQ(fragment->position, FRAG_FIRST_PTS + FRAG_PTS_OFFSET);
+            return true;
+        }));
 
     bool result = mAampTSBSessionManager->PushNextTsbFragment(&videoCtx);
     EXPECT_TRUE(result);

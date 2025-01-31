@@ -83,6 +83,7 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 	{
 		// apply pts offset to position which ends up getting put into gst_buffer in sendHelper
 		position += GetContext()->mPTSOffset.inSeconds();
+		AAMPLOG_INFO("Type[%d] position after restamp = %fs", type, position);
 	}
 	AampTSBSessionManager *tsbSessionManager = aamp->GetTSBSessionManager();
 
@@ -386,8 +387,6 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 					CacheTsbFragment(fragmentToTsbSessionMgr);
 				}
 			}
-			fragmentToTsbSessionMgr->position = posInAbsTimeline; // Need to store the fragment with absolute position
-
 			tsbSessionManager->EnqueueWrite(fragmentUrl, fragmentToTsbSessionMgr, context->GetPeriod()->GetId());
 		}
 		// Added the duplicate conditional statements, to log only for localAAMPTSB cases.

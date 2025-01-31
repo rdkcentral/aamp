@@ -38,7 +38,7 @@ set(TEST_SOURCES FunctionalTests.cpp
                  AampTSBSessionManagerTest.cpp)
 
 
-set(AAMP_SOURCES ${AAMP_ROOT}/AampTSBSessionManager.cpp ${AAMP_ROOT}/AampTsbDataManager.cpp ${AAMP_ROOT}/AampTsbReader.cpp ${AAMP_ROOT}/AampUtils.cpp)
+set(AAMP_SOURCES ${AAMP_ROOT}/AampTSBSessionManager.cpp ${AAMP_ROOT}/AampTsbDataManager.cpp ${AAMP_ROOT}/AampTsbReader.cpp)
 
 add_executable(${EXEC_NAME}
                ${TEST_SOURCES}
