@@ -552,8 +552,7 @@ static void HandleBusMessage(const BusEventData busEvent, AAMPGstPlayer * _this)
 	{
 		case MESSAGE_ERROR:
 		{
-			std::string errorDesc = "GstPipeline Error:";
-			errorDesc += busEvent.msg;
+			std::string errorDesc = "GstPipeline Error:" + busEvent.msg;
 			if (busEvent.msg.find("video decode error") != std::string::npos)
 			{
 				_this->aamp->SendErrorEvent(AAMP_TUNE_GST_PIPELINE_ERROR, errorDesc.c_str(), false);
@@ -568,15 +567,18 @@ static void HandleBusMessage(const BusEventData busEvent, AAMPGstPlayer * _this)
 				_this->aamp->ScheduleRetune(eGST_ERROR_GST_PIPELINE_INTERNAL, eMEDIATYPE_VIDEO);
 			}
 			else if (busEvent.msg.find("Error parsing H.264 stream") != std::string::npos)
-			{
-				// surfacing this intermittent error can cause freeze on partner apps.
+			{ // note: surfacing this intermittent error can cause freeze on partner apps.
 				AAMPLOG_WARN("%s", errorDesc.c_str());
+			}
+			else if (busEvent.msg.find("This file is corrupt and cannot be played") != std::string::npos)
+			{ // fatal error; disable retry flag to avoid failure loop
+				AAMPLOG_ERR("%s", errorDesc.c_str());
+				_this->aamp->SendErrorEvent(AAMP_TUNE_GST_PIPELINE_ERROR,errorDesc.c_str(), false);
 			}
 			else
 			{
 				_this->aamp->SendErrorEvent(AAMP_TUNE_GST_PIPELINE_ERROR, errorDesc.c_str());
 			}
-			
 		}
 			break;
 			
