@@ -28,35 +28,36 @@ import pytest
 from inspect import getsourcefile
 
 #Test stream
-MULTI_TEST_STREAM = "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/streams/multi-period/multi-audio-codec/codec.mpd"
+MULTI_TEST_STREAM = "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/streams/AUDIO-13006-codec-change/AUDIO-13006-codec-change.mpd"
 #common aamp.cfg
-CFG_STR="info=true\ntrace=true\nprogress=true\n"
+CFG_STR="info=true\n\n"
 
 TESTDATA1 = {
     "title": "codec_change_eos",
     "logfile": "codec_change_eos.log",
-    "max_test_time_seconds": 100,
+    "max_test_time_seconds": 30,
     "aamp_cfg":  CFG_STR+"enablePTSReStamp=true\n",
     "url": MULTI_TEST_STREAM,
     "expect_list":
     [
-        {"expect": r"aamp_tune","min":0, "max":1},
-        {"expect" : r"Schedule retune for GstPipeline Error","min":1, "max":99,"not_expected" : True},
-        {"expect" : r"PTS-RESTAMP ENABLED, but we have codec change, so Signal EOS","min":10, "max":100,"end_of_test":True},
+        {"expect": r"aamp_tune","min":0, "max":2},
+        {"expect" : r"PTS-RESTAMP ENABLED, but we have codec change, so Signal EOS","min":0, "max":25},
+        {"expect" : r"Pipeline flush seek"},
+        {"expect" : r"FetcherLoop done", "end_of_test":True},
     ]
 }
 
 TESTDATA2 = {
     "title": "codec_change_eos_pts_off",
     "logfile": "codec_change_eos_pts_off.log",
-    "max_test_time_seconds": 100,
+    "max_test_time_seconds": 30,
     "aamp_cfg": CFG_STR+"enablePTSReStamp=false\n",
     "url": MULTI_TEST_STREAM,
     "expect_list":
     [
-        {"expect": r"aamp_tune","min":0, "max":1},
-        {"expect" : r"Schedule retune for GstPipeline Error","min":1, "max":99,"not_expected" : True},
-        {"expect" : r"playing period \d+/13","min":30, "max":100,"end_of_test":True},
+        {"expect": r"aamp_tune","min":0, "max":2},
+        {"expect" : r"Pipeline flush seek"},
+        {"expect" : r"FetcherLoop done","end_of_test":True},
     ]
 }
 
