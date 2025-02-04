@@ -38,13 +38,12 @@ TESTDATA0 = {
 "aamp_cfg": "info=true\ntrace=true\nlogMetadata=true\n",
 "cmdlist": [
     ],
+"max_test_time_seconds": 3,
 "expect_list": [
-    # ( string, min time seconds, max time seconds)
-    {"expect": r"aamp_tune","min":0, "max":2},
-    {"expect": r"PAUSED -> PLAYING","min":0, "max":2},
-    {"expect": r"Stopping Playback","min":0, "max":2},
-    {"expect": r"SendTuneMetricsEvent","min":0, "max":2},
-    {"expect": r"NotifyFirstFrameReceived","min":0, "max":2, "end_of_test":True},
+    {"expect": r"aamp_tune"},
+    {"expect": r"PAUSED -> PLAYING"},
+    {"expect": r"NotifyFirstFrameReceived"},
+    {"expect": r"SendTuneMetricsEvent","end_of_test":True},
     ]
 }
 

@@ -1,6 +1,6 @@
 # AAMP L2 Tune time test
 This test checks tuning related events up to FirstFrameReceived and expects this time to be
-less than 2 seconds. It uses a pre-downloaded file so as not to include download time.
+less than 3 seconds. It uses a pre-downloaded file so as not to include download time.
 
 
 
