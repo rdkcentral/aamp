@@ -353,6 +353,14 @@ void StreamAbstractionAAMP::UpdateStreamInfoBitrateData(int profileIndex, Stream
 {
 }
 
+void StreamAbstractionAAMP::SetVideoPlaybackRate(float rate)
+{
+	if (g_mockStreamAbstractionAAMP != nullptr)
+	{
+		g_mockStreamAbstractionAAMP->SetVideoPlaybackRate(rate);
+	}
+}
+
 void StreamAbstractionAAMP::InitializeMediaProcessor()
 {
 }

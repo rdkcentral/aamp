@@ -3645,6 +3645,24 @@ bool StreamAbstractionAAMP::IsSeekedToLive(double seekPosition)
 }
 
 /**
+ * @fn SetVideoPlaybackRate
+ * @brief Set the Video playback rate
+ *
+ * @param[in] rate - play rate
+ *
+ * Note: A common abstraction object is used for recording the live edge to TSB, and playing back from TSB. 
+ * For this reason we only want to adjust the MediaProcessors speed when playing back from TSB.
+ */
+void StreamAbstractionAAMP::SetVideoPlaybackRate(float rate)
+{
+	MediaTrack *track = GetMediaTrack(eTRACK_VIDEO);
+	if (track && track->enabled)
+	{
+		track->playContext->setRate(rate, PlayMode_normal);
+	}
+}
+
+/**
  * @brief Initialize ISOBMFF Media Processor
  *
  * @return void

@@ -18,6 +18,9 @@
 */
 
 #include "isobmffprocessor.h"
+#include "MockIsoBmffProcessor.h"
+
+MockIsoBmffProcessor* g_mockIsoBmffProcessor = nullptr;
 
 IsoBmffProcessor::IsoBmffProcessor(class PrivateInstanceAAMP *aamp, id3_callback_t id3_hdl, IsoBmffProcessorType trackType, IsoBmffProcessor* peerBmffProcessor, IsoBmffProcessor* peerSubProcessor)
 {
@@ -39,6 +42,10 @@ void IsoBmffProcessor::reset()
 
 void IsoBmffProcessor::setRate(double rate, PlayMode mode)
 {
+    if (g_mockIsoBmffProcessor)
+    {
+        g_mockIsoBmffProcessor->setRate(rate, mode);
+    }
 }
 
 void IsoBmffProcessor::abortInjectionWait()

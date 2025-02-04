@@ -408,6 +408,7 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 			CacheTsbFragment(fragmentToTsbSessionMgr);
 		}
 		UpdateTSAfterFetch(initSegment);
+
 		// When injection is from the CachedFragmentChunks buffer, need to update cachedFragments here to remove
 		// the fragment from the buffer.
 		if(IsInjectionFromCachedFragmentChunks())

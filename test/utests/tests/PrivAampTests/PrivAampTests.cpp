@@ -51,25 +51,29 @@ const std::string session_id {"0259343c-cffc-4659-bcd8-97f9dd36f6b1"};
 
 class PrivAampTests : public ::testing::Test
 {
-    public:
-    PrivateInstanceAAMP *p_aamp{nullptr};
+	public:
+	PrivateInstanceAAMP *p_aamp{nullptr};
 	AampConfig *config{nullptr};
 	protected:
 	void SetUp() override
 	{
 		AampLogManager::setLogLevel(eLOGLEVEL_TRACE);   // Enable all levels of AAMP logging
-        config=new AampConfig();
-        p_aamp = new PrivateInstanceAAMP(config);
+		config=new AampConfig();
+		p_aamp = new PrivateInstanceAAMP(config);
 		g_mockAampGstPlayer = new NiceMock<MockAAMPGstPlayer>(p_aamp);
 		g_mockAampStreamSinkManager = new NiceMock<MockAampStreamSinkManager>();
 		g_mockAampEventManager = new NiceMock<MockAampEventManager>();
 		g_mockAampDRMSessionManager = new NiceMock<MockAampDRMSessionManager>();
 		g_mockAampConfig = new NiceMock<MockAampConfig>();
 		g_mockStreamAbstractionAAMP_MPD = new NiceMock<MockStreamAbstractionAAMP_MPD>(p_aamp, 0, 0);
+		g_mockStreamAbstractionAAMP = new NiceMock<MockStreamAbstractionAAMP>(p_aamp);
 	}
 
 	void TearDown() override
 	{
+		delete g_mockStreamAbstractionAAMP;
+		g_mockStreamAbstractionAAMP = nullptr;
+
 		delete g_mockStreamAbstractionAAMP_MPD;
 		g_mockStreamAbstractionAAMP_MPD = nullptr;
 
@@ -82,14 +86,14 @@ class PrivAampTests : public ::testing::Test
 		delete g_mockAampEventManager;
 		g_mockAampEventManager = nullptr;
 
-        delete g_mockAampStreamSinkManager;
-        g_mockAampStreamSinkManager = nullptr;
+		delete g_mockAampStreamSinkManager;
+		g_mockAampStreamSinkManager = nullptr;
 
-        delete g_mockAampGstPlayer;
-        g_mockAampGstPlayer = nullptr;
+		delete g_mockAampGstPlayer;
+		g_mockAampGstPlayer = nullptr;
 
-        delete p_aamp;
-        p_aamp = nullptr;
+		delete p_aamp;
+		p_aamp = nullptr;
 
 		delete config;
 		config = nullptr;
@@ -100,20 +104,20 @@ class PrivAampTests : public ::testing::Test
 class PrivAampPrivTests : public ::testing::Test
 {
 	public:
-    PrivateInstanceAAMP *aamp{nullptr};
+	PrivateInstanceAAMP *aamp{nullptr};
 	AampConfig *config{nullptr};
 	protected:
-    void SetUp() override
-    {
+	void SetUp() override
+	{
 		config=new AampConfig();
 		aamp = new PrivateInstanceAAMP(config);
 		testp_aamp = new TestablePrivAamp(config);
 		g_mockAampConfig = new NiceMock<MockAampConfig>();
 		aamp->SetSessionId(session_id);
-    }
+	}
 
-    void TearDown() override
-    {
+	void TearDown() override
+	{
 
 		delete g_mockAampConfig;
 		g_mockAampConfig = nullptr;
@@ -124,46 +128,46 @@ class PrivAampPrivTests : public ::testing::Test
 		delete aamp;
 		aamp = nullptr;
 
-        delete testp_aamp;
+		delete testp_aamp;
 		testp_aamp = nullptr;
 
-    }
-       class TestablePrivAamp : public PrivateInstanceAAMP
-    {
+	}
+	   class TestablePrivAamp : public PrivateInstanceAAMP
+	{
 public:
-    TestablePrivAamp(AampConfig *config):PrivateInstanceAAMP(config)
-    {
-    }
-    bool callIsWideVineKIDWorkaround(const std::string url)
-    {
-        return IsWideVineKIDWorkaround(url);
-    }
-    void callExtractServiceZone(std::string url)
-    {
-        ExtractServiceZone(url);
-    }
-    void callDeliverAdEvents(bool immediate)
-    {
-         DeliverAdEvents(true);
-    }
+	TestablePrivAamp(AampConfig *config):PrivateInstanceAAMP(config)
+	{
+	}
+	bool callIsWideVineKIDWorkaround(const std::string url)
+	{
+		return IsWideVineKIDWorkaround(url);
+	}
+	void callExtractServiceZone(std::string url)
+	{
+		ExtractServiceZone(url);
+	}
+	void callDeliverAdEvents(bool immediate)
+	{
+		 DeliverAdEvents(true);
+	}
 
-    bool callDiscontinuitySeenInAllTracks()
-    {
-     return DiscontinuitySeenInAllTracks();
-    }
+	bool callDiscontinuitySeenInAllTracks()
+	{
+	 return DiscontinuitySeenInAllTracks();
+	}
 
-    bool callDiscontinuitySeenInAnyTracks()
-    {
-        return DiscontinuitySeenInAnyTracks();
-    }
-    bool callHasSidecarData()
-    {
-        return HasSidecarData();
-    }
-    void callUpdatePTSOffsetFromTune(double value, bool is_set)
-    {
-    	UpdatePTSOffsetFromTune(value,is_set = false);
-    }
+	bool callDiscontinuitySeenInAnyTracks()
+	{
+		return DiscontinuitySeenInAnyTracks();
+	}
+	bool callHasSidecarData()
+	{
+		return HasSidecarData();
+	}
+	void callUpdatePTSOffsetFromTune(double value, bool is_set)
+	{
+		UpdatePTSOffsetFromTune(value,is_set = false);
+	}
 	bool CallSetStateBufferingIfRequired()
 	{
 		 TestablePrivAamp::mPauseOnFirstVideoFrameDisp = false;
@@ -195,7 +199,7 @@ public:
 	{
 		for (int i = ContentType_UNKNOWN; i < ContentType_MAX; i++)
 		{
-    		TestablePrivAamp::mContentType = static_cast<ContentType>(i);
+			TestablePrivAamp::mContentType = static_cast<ContentType>(i);
 			GetContentTypString();
 		}
 	}
@@ -233,22 +237,22 @@ public:
 		EnableContentRestrictions();
 	}
 	void GetCurrentAudioTrackId_2()
-    {
-        double playlistSeekPos = seek_pos_seconds - culledSeconds;
-        mpStreamAbstractionAAMP = new StreamAbstractionAAMP_MPD(this, playlistSeekPos, TestablePrivAamp::rate);
-        GetCurrentAudioTrackId();
-    }
+	{
+		double playlistSeekPos = seek_pos_seconds - culledSeconds;
+		mpStreamAbstractionAAMP = new StreamAbstractionAAMP_MPD(this, playlistSeekPos, TestablePrivAamp::rate);
+		GetCurrentAudioTrackId();
+	}
 	void SetTextTrack_obj(int trackId, char *data)
 	{
 		double playlistSeekPos = seek_pos_seconds - culledSeconds;
-        mpStreamAbstractionAAMP = new StreamAbstractionAAMP_MPD(this, playlistSeekPos, TestablePrivAamp::rate);
+		mpStreamAbstractionAAMP = new StreamAbstractionAAMP_MPD(this, playlistSeekPos, TestablePrivAamp::rate);
 
 		SetTextTrack(trackId,data);
 	}
 	void CallNotifyEOSReached()
 	{
 		double playlistSeekPos = seek_pos_seconds - culledSeconds;
-        mpStreamAbstractionAAMP = new StreamAbstractionAAMP_MPD(this, playlistSeekPos, TestablePrivAamp::rate);
+		mpStreamAbstractionAAMP = new StreamAbstractionAAMP_MPD(this, playlistSeekPos, TestablePrivAamp::rate);
 
 		IsDiscontinuityProcessPending();
 		NotifyEOSReached();
@@ -256,7 +260,7 @@ public:
 	void GetAvailableTracks_obj()
 	{
 		double playlistSeekPos = seek_pos_seconds - culledSeconds;
-        mpStreamAbstractionAAMP = new StreamAbstractionAAMP_MPD(this, playlistSeekPos, TestablePrivAamp::rate);
+		mpStreamAbstractionAAMP = new StreamAbstractionAAMP_MPD(this, playlistSeekPos, TestablePrivAamp::rate);
 
 		mpStreamAbstractionAAMP->GetAvailableTextTracks(true);
 		GetAvailableAudioTracks(true);
@@ -266,17 +270,17 @@ public:
 		double playlistSeekPos = seek_pos_seconds - culledSeconds;
 		mpStreamAbstractionAAMP = new StreamAbstractionAAMP_MPD(this, playlistSeekPos, TestablePrivAamp::rate);
 	}
-    std::unordered_map<std::string, std::vector<std::string>> GetCustomHeaders()
-    {
-        return mCustomHeaders;
-    }
-    std::unordered_map<std::string, std::vector<std::string>> GetCustomLicenseHeaders()
-    {
-        return mCustomLicenseHeaders;
-    }
+	std::unordered_map<std::string, std::vector<std::string>> GetCustomHeaders()
+	{
+		return mCustomHeaders;
+	}
+	std::unordered_map<std::string, std::vector<std::string>> GetCustomLicenseHeaders()
+	{
+		return mCustomLicenseHeaders;
+	}
 
 };
-    TestablePrivAamp *testp_aamp{nullptr};
+	TestablePrivAamp *testp_aamp{nullptr};
 };
 TEST_F(PrivAampPrivTests,GetAvailableTracksTest_1)
 {
@@ -292,9 +296,9 @@ TEST_F(PrivAampTests,IsAudioLanguageSupportedTest_12)
 {
 	int cnt = 0;
 	strcpy(p_aamp->mLanguageList[0], "en");
-    strcpy(p_aamp->mLanguageList[1], "sp");
-    strcpy(p_aamp->mLanguageList[2], "fr");
-    p_aamp->mMaxLanguageCount = 3;
+	strcpy(p_aamp->mLanguageList[1], "sp");
+	strcpy(p_aamp->mLanguageList[2], "fr");
+	p_aamp->mMaxLanguageCount = 3;
 	bool flag = p_aamp->IsAudioLanguageSupported("en");
 	EXPECT_TRUE(flag);
 
@@ -307,7 +311,7 @@ TEST_F(PrivAampTests,IsAudioLanguageSupportedTest_12)
 TEST_F(PrivAampTests,IsAudioLanguageSupportedTest_13)
 {
 	int cnt = 0;
-    p_aamp->mMaxLanguageCount = 3;
+	p_aamp->mMaxLanguageCount = 3;
 	bool flag = p_aamp->IsAudioLanguageSupported("english");
 	EXPECT_FALSE(flag);
 }
@@ -339,7 +343,7 @@ TEST_F(PrivAampPrivTests,SetTextTrackTest_5)
 
 TEST_F(PrivAampPrivTests, GetCurrentAudioTrackId_2)
 {
-    testp_aamp->GetCurrentAudioTrackId_2();
+	testp_aamp->GetCurrentAudioTrackId_2();
 }
 TEST_F(PrivAampPrivTests,GetMediaStreamContextTest_1)
 {
@@ -369,7 +373,7 @@ TEST_F(PrivAampPrivTests,IsWideVineKIDWorkaroundTest)
 {
 	bool enable;
 	std::string url = "sampleString";
-        enable = testp_aamp->callIsWideVineKIDWorkaround(url);
+		enable = testp_aamp->callIsWideVineKIDWorkaround(url);
 	EXPECT_FALSE(enable);
 }
 
@@ -410,7 +414,7 @@ TEST_F(PrivAampPrivTests,DeliverAdEventsTest_1)
 TEST_F(PrivAampPrivTests,DeliverAdEventsTest_2)
 {
 	AAMPEventObject event(AAMP_EVENT_AD_PLACEMENT_START, session_id);
-    testp_aamp->callDeliverAdEvents(true);
+	testp_aamp->callDeliverAdEvents(true);
 }
 
 TEST_F(PrivAampPrivTests,DeliverAdEventsTest_3)
@@ -442,70 +446,70 @@ TEST_F(PrivAampPrivTests,DiscontinuitySeenInAnyTracksTest)
 
 TEST_F(PrivAampPrivTests,HasSidecarDataTest)
 {
-    bool flag = testp_aamp->callHasSidecarData();
-    EXPECT_FALSE(flag);
+	bool flag = testp_aamp->callHasSidecarData();
+	EXPECT_FALSE(flag);
 }
 
 TEST_F(PrivAampPrivTests,UpdatePTSOffsetFromTuneTest)
 {
-    double value = 19.0988;
-    bool is_set = true;
-    testp_aamp->callUpdatePTSOffsetFromTune(value,is_set);
+	double value = 19.0988;
+	bool is_set = true;
+	testp_aamp->callUpdatePTSOffsetFromTune(value,is_set);
 }
 
 TEST_F(PrivAampPrivTests,UpdatePTSOffsetFromTuneTest_1)
 {
-    double value = 19.0988;
-    bool is_set = false;
-    testp_aamp->callUpdatePTSOffsetFromTune(value,is_set);
+	double value = 19.0988;
+	bool is_set = false;
+	testp_aamp->callUpdatePTSOffsetFromTune(value,is_set);
 }
 
 TEST_F(PrivAampPrivTests,RemoveCustomHTTPHeaderTest)
 {
-    std::vector<std::string> headerValue;
-    headerValue.push_back("sample");
-    headerValue.push_back("sample:text");
-    headerValue.push_back("");
-    headerValue.push_back("sampletext&&&&S&&&&&&&&&&&&&&&&&&*&&&&&&&&&&&&&&&&&&&&&&&@$#^^^^^^^^^^^^^^^^^^^^^^^");
+	std::vector<std::string> headerValue;
+	headerValue.push_back("sample");
+	headerValue.push_back("sample:text");
+	headerValue.push_back("");
+	headerValue.push_back("sampletext&&&&S&&&&&&&&&&&&&&&&&&*&&&&&&&&&&&&&&&&&&&&&&&@$#^^^^^^^^^^^^^^^^^^^^^^^");
 
-    std::unordered_map<std::string, std::vector<std::string>> result;
+	std::unordered_map<std::string, std::vector<std::string>> result;
 
-    // Check is in License, but not Custom header
-    testp_aamp->AddCustomHTTPHeader("string:",headerValue,true);
+	// Check is in License, but not Custom header
+	testp_aamp->AddCustomHTTPHeader("string:",headerValue,true);
 
-    result = testp_aamp->GetCustomHeaders();
-    EXPECT_TRUE (result.find("string:") == result.end());
+	result = testp_aamp->GetCustomHeaders();
+	EXPECT_TRUE (result.find("string:") == result.end());
 
-    result = testp_aamp->GetCustomLicenseHeaders();
-    EXPECT_FALSE (result.find("string:") == result.end());
+	result = testp_aamp->GetCustomLicenseHeaders();
+	EXPECT_FALSE (result.find("string:") == result.end());
 
-    testp_aamp->AddCustomHTTPHeader("string:",headerValue,false);
+	testp_aamp->AddCustomHTTPHeader("string:",headerValue,false);
 
-    // See if present in both now
-    result = testp_aamp->GetCustomHeaders();
-    EXPECT_FALSE (result.find("string:") == result.end());
+	// See if present in both now
+	result = testp_aamp->GetCustomHeaders();
+	EXPECT_FALSE (result.find("string:") == result.end());
 
-    result = testp_aamp->GetCustomLicenseHeaders();
-    EXPECT_FALSE (result.find("string:") == result.end());
+	result = testp_aamp->GetCustomLicenseHeaders();
+	EXPECT_FALSE (result.find("string:") == result.end());
 
-    // Now remove it from License
-    headerValue.clear();
-    testp_aamp->AddCustomHTTPHeader("string:",headerValue,true);
+	// Now remove it from License
+	headerValue.clear();
+	testp_aamp->AddCustomHTTPHeader("string:",headerValue,true);
 
-    result = testp_aamp->GetCustomHeaders();
-    EXPECT_FALSE (result.find("string:") == result.end());
+	result = testp_aamp->GetCustomHeaders();
+	EXPECT_FALSE (result.find("string:") == result.end());
 
-    result = testp_aamp->GetCustomLicenseHeaders();
-    EXPECT_TRUE (result.find("string:") == result.end());
+	result = testp_aamp->GetCustomLicenseHeaders();
+	EXPECT_TRUE (result.find("string:") == result.end());
 
-    // Remove from Custom
-    testp_aamp->AddCustomHTTPHeader("string:",headerValue,false);
+	// Remove from Custom
+	testp_aamp->AddCustomHTTPHeader("string:",headerValue,false);
 
-    result = testp_aamp->GetCustomHeaders();
-    EXPECT_TRUE (result.find("string:") == result.end());
+	result = testp_aamp->GetCustomHeaders();
+	EXPECT_TRUE (result.find("string:") == result.end());
 
-    result = testp_aamp->GetCustomLicenseHeaders();
-    EXPECT_TRUE (result.find("string:") == result.end());
+	result = testp_aamp->GetCustomLicenseHeaders();
+	EXPECT_TRUE (result.find("string:") == result.end());
 }
 
 
@@ -851,8 +855,8 @@ TEST_F(PrivAampTests,SendErrorEventTest_1)
 
 TEST_F(PrivAampTests,LicenseRenewalTest)
 {
-    std::shared_ptr<AampDrmHelper> drmHelper;
-    p_aamp->LicenseRenewal(drmHelper,NULL);
+	std::shared_ptr<AampDrmHelper> drmHelper;
+	p_aamp->LicenseRenewal(drmHelper,NULL);
 }
 
 TEST_F(PrivAampTests,SendEventTest)
@@ -1543,7 +1547,7 @@ TEST_F(PrivAampTests, TuneTest_2)
 TEST_F(PrivAampTests, GetLangCodePreferenceTest)
 {
 	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_LanguageCodePreference))
-        .WillOnce(Return(ISO639_PREFER_3_CHAR_BIBLIOGRAPHIC_LANGCODE));
+		.WillOnce(Return(ISO639_PREFER_3_CHAR_BIBLIOGRAPHIC_LANGCODE));
 	ASSERT_EQ(p_aamp->GetLangCodePreference(), ISO639_PREFER_3_CHAR_BIBLIOGRAPHIC_LANGCODE);
 }
 
@@ -1984,11 +1988,11 @@ TEST_F(PrivAampTests,SaveTimedMetadateTest)
 	const char *szContent = "savemetadatacontent";
 	int nb = (int)strlen(szContent);
 
-    p_aamp->SaveTimedMetadata(0, "somesampleString#@$##@",szContent, nb );
-    p_aamp->SaveTimedMetadata(0, "somesampleString#@$##@",szContent, nb,NULL,10);
-    p_aamp->SaveTimedMetadata(0, "somesampleString#@$##@",szContent, nb,NULL,0);
+	p_aamp->SaveTimedMetadata(0, "somesampleString#@$##@",szContent, nb );
+	p_aamp->SaveTimedMetadata(0, "somesampleString#@$##@",szContent, nb,NULL,10);
+	p_aamp->SaveTimedMetadata(0, "somesampleString#@$##@",szContent, nb,NULL,0);
 
-    EXPECT_NE(p_aamp->timedMetadata.size(),0);
+	EXPECT_NE(p_aamp->timedMetadata.size(),0);
 }
 
 TEST_F(PrivAampTests,SaveNewTimedMetadataTest)
@@ -1996,9 +2000,9 @@ TEST_F(PrivAampTests,SaveNewTimedMetadataTest)
 	const char *szContent = "savemetadatacontent";
 	int nb = (int)strlen(szContent);
 
-    p_aamp->SaveNewTimedMetadata(0, "somesampleString#@$##@", szContent, nb);
-    p_aamp->SaveNewTimedMetadata(0, "somesampleString#@$##@", szContent, nb, NULL,10);
-    p_aamp->SaveNewTimedMetadata(0, "somesampleString#@$##@", szContent, nb, NULL,0);
+	p_aamp->SaveNewTimedMetadata(0, "somesampleString#@$##@", szContent, nb);
+	p_aamp->SaveNewTimedMetadata(0, "somesampleString#@$##@", szContent, nb, NULL,10);
+	p_aamp->SaveNewTimedMetadata(0, "somesampleString#@$##@", szContent, nb, NULL,0);
 
 	EXPECT_NE(p_aamp->timedMetadataNew.size(),0);
 }
@@ -2177,13 +2181,13 @@ TEST_F(PrivAampTests,SendTunedEventTest_1)
 
 TEST_F(PrivAampTests,SendVideoEndEventTest)
 {
-    EXPECT_FALSE(p_aamp->SendVideoEndEvent());
-    CVideoStat * mVideoEnd;
-    if( mVideoEnd == NULL)
-    {
-    mVideoEnd = new CVideoStat("DASH");
-    }
-    EXPECT_FALSE(p_aamp->SendVideoEndEvent());
+	EXPECT_FALSE(p_aamp->SendVideoEndEvent());
+	CVideoStat * mVideoEnd;
+	if( mVideoEnd == NULL)
+	{
+	mVideoEnd = new CVideoStat("DASH");
+	}
+	EXPECT_FALSE(p_aamp->SendVideoEndEvent());
 }
 
 TEST_F(PrivAampTests,UpdateVideoEndProfileResolutionTest)
@@ -2432,7 +2436,7 @@ TEST_F(PrivAampTests,IsTuneCompletedTest)
 TEST_F(PrivAampTests,GetPreferredDRMTest)
 {
 	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_PreferredDRM))
-        .WillOnce(Return(eDRM_WideVine));
+		.WillOnce(Return(eDRM_WideVine));
 	ASSERT_EQ(p_aamp->GetPreferredDRM(), eDRM_WideVine);
 }
 
@@ -2569,8 +2573,8 @@ TEST_F(PrivAampTests,SendId3MetadataEventTest)
 {
   uint mData[4] = {1,2,3,4};
   aamp::id3_metadata::CallbackData id3Metadata((const uint8_t*) &mData, (uint32_t) 4,
-                         (const char*) "schemeIdURI", (const char*) "id3Value", (uint64_t) 12334566,
-                         (uint32_t) 5555, (uint32_t) 1234, (uint32_t) 2, (uint64_t) 98765);
+						 (const char*) "schemeIdURI", (const char*) "id3Value", (uint64_t) 12334566,
+						 (uint32_t) 5555, (uint32_t) 1234, (uint32_t) 2, (uint64_t) 98765);
   p_aamp->SendId3MetadataEvent(&id3Metadata);
 }
 
@@ -2610,7 +2614,7 @@ TEST_F(PrivAampTests,SetPreferredTextLanguages)
 
 TEST_F(PrivAampTests,SetPreferredTextLanguages1)
 {
-    p_aamp->SetPreferredTextLanguages( "{\"sub-type\":\"CLOSED-CAPTIONS\",\"language\":\"en\",\"rendition\":\"urn:scte:dash:cc:cea-708:2015\",\"instreamId\":\"1\",\"type\":\"captions\",\"availability\":true}" );
+	p_aamp->SetPreferredTextLanguages( "{\"sub-type\":\"CLOSED-CAPTIONS\",\"language\":\"en\",\"rendition\":\"urn:scte:dash:cc:cea-708:2015\",\"instreamId\":\"1\",\"type\":\"captions\",\"availability\":true}" );
 }
 
 TEST_F(PrivAampTests,GetVideoRectangleTest)
@@ -2653,20 +2657,20 @@ TEST_F(PrivAampTests,SetStateBufferingIfRequiredTest)
 
 TEST_F(PrivAampTests,TrackDownloadsAreEnabledTest)
 {
-    EXPECT_FALSE(p_aamp->TrackDownloadsAreEnabled(eMEDIATYPE_INIT_VIDEO));
-    EXPECT_FALSE(p_aamp->TrackDownloadsAreEnabled(eMEDIATYPE_LICENCE));
-    EXPECT_FALSE(p_aamp->TrackDownloadsAreEnabled(eMEDIATYPE_PLAYLIST_AUX_AUDIO));
-    EXPECT_FALSE(p_aamp->TrackDownloadsAreEnabled(eMEDIATYPE_DEFAULT));
+	EXPECT_FALSE(p_aamp->TrackDownloadsAreEnabled(eMEDIATYPE_INIT_VIDEO));
+	EXPECT_FALSE(p_aamp->TrackDownloadsAreEnabled(eMEDIATYPE_LICENCE));
+	EXPECT_FALSE(p_aamp->TrackDownloadsAreEnabled(eMEDIATYPE_PLAYLIST_AUX_AUDIO));
+	EXPECT_FALSE(p_aamp->TrackDownloadsAreEnabled(eMEDIATYPE_DEFAULT));
 
-    EXPECT_TRUE(p_aamp->TrackDownloadsAreEnabled(eMEDIATYPE_AUX_AUDIO));
-    EXPECT_TRUE(p_aamp->TrackDownloadsAreEnabled(eMEDIATYPE_VIDEO));
+	EXPECT_TRUE(p_aamp->TrackDownloadsAreEnabled(eMEDIATYPE_AUX_AUDIO));
+	EXPECT_TRUE(p_aamp->TrackDownloadsAreEnabled(eMEDIATYPE_VIDEO));
 }
 
 
 TEST_F(PrivAampTests,StopBufferingTest)
 {
-    p_aamp->StopBuffering(true);
-    p_aamp->StopBuffering(false);
+	p_aamp->StopBuffering(true);
+	p_aamp->StopBuffering(false);
 }
 
 
@@ -2701,13 +2705,13 @@ TEST_F(PrivAampTests,RefreshSubtitlesTest)
 
 TEST_F(PrivAampTests,SetTextTrackTest)
 {
-    p_aamp->SetTextTrack(-1,NULL);
-    int val = p_aamp->GetTextTrack();
-    EXPECT_EQ(-1,val);
+	p_aamp->SetTextTrack(-1,NULL);
+	int val = p_aamp->GetTextTrack();
+	EXPECT_EQ(-1,val);
 
-    p_aamp->SetTextTrack(1,NULL);
-    val = p_aamp->GetTextTrack();
-    EXPECT_EQ(-1,val);
+	p_aamp->SetTextTrack(1,NULL);
+	val = p_aamp->GetTextTrack();
+	EXPECT_EQ(-1,val);
 }
 
 TEST_F(PrivAampTests,SetTextTrackTest_1)
@@ -3005,18 +3009,18 @@ TEST_F(PrivAampTests,ID3MetadataHandlerTest)
 TEST_F(PrivAampTests,ReportID3MetadataTest)
 {
 	AampMediaType mediaType = eMEDIATYPE_AUDIO;
-    const uint8_t* ptr = reinterpret_cast<const uint8_t*>("ID3 Metadata");
-    size_t len = strlen(reinterpret_cast<const char*>(ptr));
-    const char* schemeIdURI = "testSchemeIdURI";
-    const char* id3Value = "testID3Value";
-    uint64_t presTime = 123456789;
-    uint32_t id3ID = 123;
-    uint32_t eventDur = 456;
-    uint32_t tScale = 1000;
-    uint64_t tStampOffset = 789012345;
+	const uint8_t* ptr = reinterpret_cast<const uint8_t*>("ID3 Metadata");
+	size_t len = strlen(reinterpret_cast<const char*>(ptr));
+	const char* schemeIdURI = "testSchemeIdURI";
+	const char* id3Value = "testID3Value";
+	uint64_t presTime = 123456789;
+	uint32_t id3ID = 123;
+	uint32_t eventDur = 456;
+	uint32_t tScale = 1000;
+	uint64_t tStampOffset = 789012345;
 
 
-    p_aamp->ReportID3Metadata(mediaType, ptr, len, schemeIdURI, id3Value, presTime, id3ID, eventDur, tScale, tStampOffset);
+	p_aamp->ReportID3Metadata(mediaType, ptr, len, schemeIdURI, id3Value, presTime, id3ID, eventDur, tScale, tStampOffset);
 }
 TEST_F(PrivAampTests,SetLLDashServiceDataTest1)
 {
@@ -3033,23 +3037,23 @@ TEST_F(PrivAampTests,DisableMediaDownloadsTest)
 TEST_F(PrivAampTests,ReplaceKeyIDPsshValidDataTest)
 {
 	unsigned char inputPsshData[] = {
-    0x00, 0x00, 0x00, 0x3c, 0x70, 0x73, 0x73, 0x68, 0x00, 0x00, 0x00, 0x00,
-    0xed, 0xef, 0x8b, 0xa9, 0x79, 0xd6, 0x4a, 0xce, 0xa3, 0xc8, 0x27, 0xdc,
-    0xd5, 0x1d, 0x21, 0xed, 0x00, 0x00, 0x00, 0x1c, 0x08, 0x01, 0x12, 0x10,
-    0x00, 0x00, 0x00, 0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88,
-    0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff, 0xff, 0x22, 0x06, 0x74, 0x65,
-    0x73, 0x74, 0x5f, 0x37
+	0x00, 0x00, 0x00, 0x3c, 0x70, 0x73, 0x73, 0x68, 0x00, 0x00, 0x00, 0x00,
+	0xed, 0xef, 0x8b, 0xa9, 0x79, 0xd6, 0x4a, 0xce, 0xa3, 0xc8, 0x27, 0xdc,
+	0xd5, 0x1d, 0x21, 0xed, 0x00, 0x00, 0x00, 0x1c, 0x08, 0x01, 0x12, 0x10,
+	0x00, 0x00, 0x00, 0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88,
+	0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff, 0xff, 0x22, 0x06, 0x74, 0x65,
+	0x73, 0x74, 0x5f, 0x37
 	};
 	size_t inputLength = sizeof(inputPsshData);
 	size_t outputLength = 0;
-    unsigned char* outputPsshData = p_aamp->ReplaceKeyIDPsshData(inputPsshData, inputLength, outputLength);
+	unsigned char* outputPsshData = p_aamp->ReplaceKeyIDPsshData(inputPsshData, inputLength, outputLength);
 
 	EXPECT_GT(outputLength,0);
 }
 TEST_F(PrivAampTests,ReplaceKeyIDPsshInValidDataTest)
 {
 	size_t outputLength = 0;
-    unsigned char* outputPsshData = p_aamp->ReplaceKeyIDPsshData(nullptr,0, outputLength);
+	unsigned char* outputPsshData = p_aamp->ReplaceKeyIDPsshData(nullptr,0, outputLength);
 
 	EXPECT_EQ(outputPsshData,nullptr);
 	EXPECT_EQ(outputLength,0);
@@ -3120,35 +3124,35 @@ TEST_F(PrivAampTests,SendTuneMetricsEventTest)
 
 TEST_F(PrivAampTests,mediaType2BucketTest_122)
 {
-    EXPECT_EQ(11,p_aamp->mediaType2Bucket(eMEDIATYPE_SUBTITLE));
-    EXPECT_EQ(12,p_aamp->mediaType2Bucket(eMEDIATYPE_AUX_AUDIO));
-    EXPECT_EQ(0,p_aamp->mediaType2Bucket(eMEDIATYPE_MANIFEST));
-    EXPECT_EQ(5,p_aamp->mediaType2Bucket(eMEDIATYPE_INIT_VIDEO));
-    EXPECT_EQ(6,p_aamp->mediaType2Bucket(eMEDIATYPE_INIT_AUDIO));
-    EXPECT_EQ(7,p_aamp->mediaType2Bucket(eMEDIATYPE_INIT_SUBTITLE));
-    EXPECT_EQ(8,p_aamp->mediaType2Bucket(eMEDIATYPE_INIT_AUX_AUDIO));
-    EXPECT_EQ(1,p_aamp->mediaType2Bucket(eMEDIATYPE_PLAYLIST_VIDEO));
-    EXPECT_EQ(2,p_aamp->mediaType2Bucket(eMEDIATYPE_PLAYLIST_AUDIO));
-    EXPECT_EQ(3,p_aamp->mediaType2Bucket(eMEDIATYPE_PLAYLIST_SUBTITLE));
-    EXPECT_EQ(4,p_aamp->mediaType2Bucket(eMEDIATYPE_PLAYLIST_AUX_AUDIO));
-    EXPECT_EQ(20,p_aamp->mediaType2Bucket((AampMediaType)20));
+	EXPECT_EQ(11,p_aamp->mediaType2Bucket(eMEDIATYPE_SUBTITLE));
+	EXPECT_EQ(12,p_aamp->mediaType2Bucket(eMEDIATYPE_AUX_AUDIO));
+	EXPECT_EQ(0,p_aamp->mediaType2Bucket(eMEDIATYPE_MANIFEST));
+	EXPECT_EQ(5,p_aamp->mediaType2Bucket(eMEDIATYPE_INIT_VIDEO));
+	EXPECT_EQ(6,p_aamp->mediaType2Bucket(eMEDIATYPE_INIT_AUDIO));
+	EXPECT_EQ(7,p_aamp->mediaType2Bucket(eMEDIATYPE_INIT_SUBTITLE));
+	EXPECT_EQ(8,p_aamp->mediaType2Bucket(eMEDIATYPE_INIT_AUX_AUDIO));
+	EXPECT_EQ(1,p_aamp->mediaType2Bucket(eMEDIATYPE_PLAYLIST_VIDEO));
+	EXPECT_EQ(2,p_aamp->mediaType2Bucket(eMEDIATYPE_PLAYLIST_AUDIO));
+	EXPECT_EQ(3,p_aamp->mediaType2Bucket(eMEDIATYPE_PLAYLIST_SUBTITLE));
+	EXPECT_EQ(4,p_aamp->mediaType2Bucket(eMEDIATYPE_PLAYLIST_AUX_AUDIO));
+	EXPECT_EQ(20,p_aamp->mediaType2Bucket((AampMediaType)20));
 }
 
 TEST_F(PrivAampTests, GetCustomLicenseHeaders_EmptyMap)
 {
-    auto config=new AampConfig();
-    PrivateInstanceAAMP aamp(config);
-    std::unordered_map<std::string, std::vector<std::string>> customHeaders;
-    aamp.GetCustomLicenseHeaders(customHeaders);
-    EXPECT_TRUE(customHeaders.empty());
+	auto config=new AampConfig();
+	PrivateInstanceAAMP aamp(config);
+	std::unordered_map<std::string, std::vector<std::string>> customHeaders;
+	aamp.GetCustomLicenseHeaders(customHeaders);
+	EXPECT_TRUE(customHeaders.empty());
 }
 TEST_F(PrivAampTests,SetDiscontinuityParamTest1)
 {
-     p_aamp->SetDiscontinuityParam();
+	 p_aamp->SetDiscontinuityParam();
 }
 TEST_F(PrivAampTests,SetLatencyParamTest1)
 {
-    p_aamp->SetLatencyParam(2.223, 1.6, 1.0, 16300);
+	p_aamp->SetLatencyParam(2.223, 1.6, 1.0, 16300);
 }
 TEST_F(PrivAampTests, SetLatencyParamTest2)
 {
@@ -3511,8 +3515,8 @@ TEST_F(PrivAampTests,NotifyFirstVideoFrameDisplayedTest3)
 TEST_F(PrivAampTests, ForceHttpConversionForFogTest)
 {
 	std::string url = "http://example.com";
-    std::string from = "http://ForceHttpConversionForFog/from.com";
-    std::string to = "http://ForceHttpConversionForFog/to.com";
+	std::string from = "http://ForceHttpConversionForFog/from.com";
+	std::string to = "http://ForceHttpConversionForFog/to.com";
 
 	void ForceHttpConversionForFog(std::string& url,const std::string& from, const std::string& to);
 
@@ -3533,11 +3537,11 @@ TEST_F(PrivAampTests, getCurrentContentDownloadSpeedTest)
 }
 TEST_F(PrivAampTests, HandleSSLHeaderCallback_ValidHeader_1)
 {
-    const char *ptr = "Header: Value\r\n";
-    size_t size = 1;
-    size_t nmemb = 1;
-    void* user_data = NULL;
-    size_t result = p_aamp->HandleSSLHeaderCallback(ptr, size, nmemb, user_data);
+	const char *ptr = "Header: Value\r\n";
+	size_t size = 1;
+	size_t nmemb = 1;
+	void* user_data = NULL;
+	size_t result = p_aamp->HandleSSLHeaderCallback(ptr, size, nmemb, user_data);
 }
 TEST_F(PrivAampTests, AddHighIdleTaskTest)
 {
@@ -3574,37 +3578,37 @@ TEST_F(PrivAampTests, TuneHelperTest_11)
 
 }
 TEST_F(PrivAampTests, UpdateVideoEndMetricsDelegatesCorrectly) {
-    // Setup test data
-    AampMediaType mediaType = eMEDIATYPE_VIDEO;
-    BitsPerSecond bitrate = 12;
-    int curlOrHTTPCode = 34;
-    std::string strUrl = "strUrl";
-    double curlDownloadTime = 2.22;
-    ManifestData* manifestData;
-    // Call UpdateVideoEndMetrics
-    p_aamp->UpdateVideoEndMetrics(mediaType, bitrate, curlOrHTTPCode, strUrl, curlDownloadTime, manifestData);
+	// Setup test data
+	AampMediaType mediaType = eMEDIATYPE_VIDEO;
+	BitsPerSecond bitrate = 12;
+	int curlOrHTTPCode = 34;
+	std::string strUrl = "strUrl";
+	double curlDownloadTime = 2.22;
+	ManifestData* manifestData;
+	// Call UpdateVideoEndMetrics
+	p_aamp->UpdateVideoEndMetrics(mediaType, bitrate, curlOrHTTPCode, strUrl, curlDownloadTime, manifestData);
 }
 TEST_F(PrivAampTests, UpdateVideoEndMetricsDelegatesCorrectly2) {
-    // Setup test data
-    AampMediaType mediaType = eMEDIATYPE_VIDEO;
-    BitsPerSecond bitrate = 12;
-    int curlOrHTTPCode = INT_MAX;
-    std::string strUrl = "strUrl";
-    double curlDownloadTime = DBL_MAX;
-    ManifestData* manifestData;
-    // Call UpdateVideoEndMetrics
-    p_aamp->UpdateVideoEndMetrics(mediaType, bitrate, curlOrHTTPCode, strUrl, curlDownloadTime, manifestData);
+	// Setup test data
+	AampMediaType mediaType = eMEDIATYPE_VIDEO;
+	BitsPerSecond bitrate = 12;
+	int curlOrHTTPCode = INT_MAX;
+	std::string strUrl = "strUrl";
+	double curlDownloadTime = DBL_MAX;
+	ManifestData* manifestData;
+	// Call UpdateVideoEndMetrics
+	p_aamp->UpdateVideoEndMetrics(mediaType, bitrate, curlOrHTTPCode, strUrl, curlDownloadTime, manifestData);
 }
 TEST_F(PrivAampTests, UpdateVideoEndMetricsDelegatesCorrectly3) {
-    // Setup test data
-    AampMediaType mediaType = eMEDIATYPE_VIDEO;
-    BitsPerSecond bitrate = 12;
-    int curlOrHTTPCode = INT_MIN;
-    std::string strUrl = "strUrl";
-    double curlDownloadTime = DBL_MIN;
-    ManifestData* manifestData;
-    // Call UpdateVideoEndMetrics
-    p_aamp->UpdateVideoEndMetrics(mediaType, bitrate, curlOrHTTPCode, strUrl, curlDownloadTime, manifestData);
+	// Setup test data
+	AampMediaType mediaType = eMEDIATYPE_VIDEO;
+	BitsPerSecond bitrate = 12;
+	int curlOrHTTPCode = INT_MIN;
+	std::string strUrl = "strUrl";
+	double curlDownloadTime = DBL_MIN;
+	ManifestData* manifestData;
+	// Call UpdateVideoEndMetrics
+	p_aamp->UpdateVideoEndMetrics(mediaType, bitrate, curlOrHTTPCode, strUrl, curlDownloadTime, manifestData);
 }
 TEST_F(PrivAampTests,SendDownloadErrorEventTest2)
 {
@@ -3776,14 +3780,14 @@ TEST_F(PrivAampPrivTests,SetLLDashChunkModeFalseTest)
 
 TEST_F(PrivAampTests, GetStringForPlaybackErrorTest)
 {
-    EXPECT_STREQ(p_aamp->getStringForPlaybackError(eGST_ERROR_PTS), "PTS ERROR");
-    EXPECT_STREQ(p_aamp->getStringForPlaybackError(eGST_ERROR_UNDERFLOW), "Underflow");
-    EXPECT_STREQ(p_aamp->getStringForPlaybackError(eSTALL_AFTER_DISCONTINUITY), "Stall After Discontinuity");
-    EXPECT_STREQ(p_aamp->getStringForPlaybackError(eDASH_LOW_LATENCY_MAX_CORRECTION_REACHED), "LL DASH Max Correction Reached");
-    EXPECT_STREQ(p_aamp->getStringForPlaybackError(eDASH_LOW_LATENCY_INPUT_PROTECTION_ERROR), "LL DASH Input Protection Error");
-    EXPECT_STREQ(p_aamp->getStringForPlaybackError(eDASH_RECONFIGURE_FOR_ENC_PERIOD), "Encrypted period found");
-    EXPECT_STREQ(p_aamp->getStringForPlaybackError(eGST_ERROR_GST_PIPELINE_INTERNAL), "GstPipeline Internal Error");
-    EXPECT_STREQ(p_aamp->getStringForPlaybackError(static_cast<PlaybackErrorType>(-1)), "STARTTIME RESET");
+	EXPECT_STREQ(p_aamp->getStringForPlaybackError(eGST_ERROR_PTS), "PTS ERROR");
+	EXPECT_STREQ(p_aamp->getStringForPlaybackError(eGST_ERROR_UNDERFLOW), "Underflow");
+	EXPECT_STREQ(p_aamp->getStringForPlaybackError(eSTALL_AFTER_DISCONTINUITY), "Stall After Discontinuity");
+	EXPECT_STREQ(p_aamp->getStringForPlaybackError(eDASH_LOW_LATENCY_MAX_CORRECTION_REACHED), "LL DASH Max Correction Reached");
+	EXPECT_STREQ(p_aamp->getStringForPlaybackError(eDASH_LOW_LATENCY_INPUT_PROTECTION_ERROR), "LL DASH Input Protection Error");
+	EXPECT_STREQ(p_aamp->getStringForPlaybackError(eDASH_RECONFIGURE_FOR_ENC_PERIOD), "Encrypted period found");
+	EXPECT_STREQ(p_aamp->getStringForPlaybackError(eGST_ERROR_GST_PIPELINE_INTERNAL), "GstPipeline Internal Error");
+	EXPECT_STREQ(p_aamp->getStringForPlaybackError(static_cast<PlaybackErrorType>(-1)), "STARTTIME RESET");
 }
 
 /**
@@ -3800,14 +3804,23 @@ TEST_F(PrivAampTests, TuneHelperWithAampTsb)
 	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP_MPD;
 	StreamAbstractionAAMP *savedStreamAbstractionAAMP = p_aamp->mpStreamAbstractionAAMP;
 	p_aamp->mMediaFormat = eMEDIAFORMAT_DASH;
+	p_aamp->rate = AAMP_RATE_PAUSE;
 	p_aamp->seek_pos_seconds = SEEK_POS;
+	p_aamp->SetLLDashChunkMode(false);
 	p_aamp->SetLocalAAMPTsb(true);
 	p_aamp->SetLocalAAMPTsbInjection(true);
 	EXPECT_FALSE(p_aamp->mpStreamAbstractionAAMP->trickplayMode);
 	// Verify that the StreamAbstraction seek position is updated to the expected value
-	EXPECT_CALL(*g_mockStreamAbstractionAAMP_MPD, SeekPosUpdate(SEEK_POS));
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP_MPD, SeekPosUpdate(SEEK_POS)).Times(2);
+	/* We only expect SetVideoPlaybackRate() to be called when not in LLD mode, so only one of the TuneHelper() calls 
+	   will trigger the call*/
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, SetVideoPlaybackRate(AAMP_RATE_PAUSE)).Times(1);
 	p_aamp->TuneHelper(eTUNETYPE_SEEK);
 	EXPECT_TRUE(p_aamp->mpStreamAbstractionAAMP->trickplayMode);
 	// Verify that the StreamAbstraction object is not recreated
 	EXPECT_EQ(savedStreamAbstractionAAMP, p_aamp->mpStreamAbstractionAAMP);
+
+	p_aamp->seek_pos_seconds = SEEK_POS;
+	p_aamp->SetLLDashChunkMode(true);
+	p_aamp->TuneHelper(eTUNETYPE_SEEK);
 }

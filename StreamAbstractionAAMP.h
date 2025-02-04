@@ -1394,6 +1394,14 @@ public:
 	 */
 	void SetTrickplayMode(float rate) { trickplayMode = (rate != AAMP_NORMAL_PLAY_RATE); }
 
+	/**
+	 * @fn SetVideoPlaybackRate
+	 * @brief Set the Video playback rate
+	 *
+	 * @param[in] rate - play rate
+	 */
+	void SetVideoPlaybackRate(float rate);
+
 	bool trickplayMode;                     /**< trick play flag to be updated by subclasses*/
 	int currentProfileIndex;                /**< current Video profile index of the track*/
 	int currentAudioProfileIndex;           /**< current Audio profile index of the track*/

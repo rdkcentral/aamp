@@ -3424,8 +3424,11 @@ AAMPStatusType StreamAbstractionAAMP_MPD::InitTsbReader(TuneType tuneType)
 			AAMPLOG_INFO("Adjusting position to live edge with position: %lfs, totalDuration: %lfs liveEdge: %lfs, Offset:%lfs", position, aamp->durationSeconds, mLiveEndPosition, aamp->mLiveOffset);
 			if(AAMP_NORMAL_PLAY_RATE == aamp->rate && !aamp->GetPauseOnFirstVideoFrameDisp())
 			{
-				AAMPLOG_INFO("Re-enabling LLD DASH speed correction");
-				aamp->SetLLDashAdjustSpeed(true);
+				if (aamp->GetLLDashChunkMode())
+				{
+					AAMPLOG_INFO("Re-enabling LLD DASH speed correction");
+					aamp->SetLLDashAdjustSpeed(true);
+				}
 				mTuneType = eTUNETYPE_SEEKTOLIVE;
 			}
 			mIsAtLivePoint = true;

@@ -34,6 +34,7 @@
 #include "MockAampMPDDownloader.h"
 #include "MockAampStreamSinkManager.h"
 #include "MockAdManager.h"
+#include "MockIsoBmffProcessor.h"
 
 using ::testing::_;
 using ::testing::An;
@@ -141,6 +142,8 @@ protected:
 
 		g_mockAampStreamSinkManager = new NiceMock<MockAampStreamSinkManager>();
 
+		g_mockIsoBmffProcessor = new NiceMock<MockIsoBmffProcessor>();
+
 		mStreamAbstractionAAMP_MPD = nullptr;
 
 		mManifest = nullptr;
@@ -152,6 +155,9 @@ protected:
 
 	void TearDown()
 	{
+		delete g_mockIsoBmffProcessor;
+		g_mockIsoBmffProcessor = nullptr;
+
 		if (mStreamAbstractionAAMP_MPD)
 		{
 			delete mStreamAbstractionAAMP_MPD;
@@ -1054,6 +1060,55 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 		.WillOnce(Return(true));
 
 	PushNextFragment(eTRACK_VIDEO);
+}
+
+/**
+ * @brief SetVideoPlaybackRate test
+ */
+TEST_F(FunctionalTests, SetVideoPlaybackRate)
+{
+	AAMPStatusType status;
+	double initialSeekPosition = 5.0;
+	std::string fragmentUrl;
+	/* The value of these variables must match the content of the manifest below: */
+	static const char *manifest =
+R"(<?xml version="1.0" encoding="utf-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" availabilityStartTime="2023-01-01T00:00:00Z" maxSegmentDuration="PT2S" minBufferTime="PT4.000S" minimumUpdatePeriod="P100Y" profiles="urn:dvb:dash:profile:dvb-dash:2014,urn:dvb:dash:profile:dvb-dash:isoff-ext-live:2014" publishTime="2023-01-01T00:01:00Z" timeShiftBufferDepth="PT5M" type="dynamic">
+	<Period id="p0" start="PT0S">
+		<AdaptationSet id="0" contentType="video">
+			<Representation id="0" mimeType="video/mp4" codecs="avc1.640028" bandwidth="800000" width="640" height="360" frameRate="25">
+				<SegmentTemplate timescale="2500" initialization="video_p0_init.mp4" media="video_p0_$Number$.m4s" startNumber="1">
+					<SegmentTimeline>
+						<S t="0" d="5000" r="14" />
+					</SegmentTimeline>
+				</SegmentTemplate>
+			</Representation>
+		</AdaptationSet>
+	</Period>
+</MPD>
+)";
+
+	/* Initialize MPD. The video initialization segment is cached. */
+	fragmentUrl = std::string(TEST_BASE_URL) + std::string("video_p0_init.mp4");
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _, _, _))
+		.WillOnce(Return(true));
+
+	status = InitializeMPD(manifest, eTUNETYPE_SEEKTOLIVE, initialSeekPosition);
+	EXPECT_EQ(status, eAAMPSTATUS_OK);
+
+	/*
+	SetVideoPlaybackRate function call
+	*/
+	float rate = 2;
+	MediaTrack *video = mStreamAbstractionAAMP_MPD->GetMediaTrack(eTRACK_VIDEO);
+	video->enabled = false;
+	EXPECT_CALL(*g_mockIsoBmffProcessor, setRate(rate, _)).Times(0);
+	mStreamAbstractionAAMP_MPD->SetVideoPlaybackRate(rate);
+
+	rate = 1;
+	video->enabled = true;
+	EXPECT_CALL(*g_mockIsoBmffProcessor, setRate(rate, PlayMode_normal)).Times(1);
+	mStreamAbstractionAAMP_MPD->SetVideoPlaybackRate(rate);
 }
 
 /**

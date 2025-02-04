@@ -3327,7 +3327,16 @@ void PrivateInstanceAAMP::NotifyEOSReached()
 		{
 			rate = AAMP_NORMAL_PLAY_RATE;
 			AcquireStreamLock();
-			TuneHelper(eTUNETYPE_SEEKTOLIVE);
+			if (IsLocalAAMPTsb() && !GetLLDashChunkMode()) 
+			{
+				seek_pos_seconds = (aamp_GetCurrentTimeMS()/1000) - mLiveOffset; 
+				AAMPLOG_INFO("Reached EOS during FFWD (aamp_GetCurrentTimeMS: %lld), so seeking to %fs",aamp_GetCurrentTimeMS(), seek_pos_seconds );
+				TuneHelper(eTUNETYPE_SEEK);
+			}
+			else
+			{
+				TuneHelper(eTUNETYPE_SEEKTOLIVE);
+			}
 			ReleaseStreamLock();
 		}
 
@@ -5232,6 +5241,10 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 		else
 		{
 			mpStreamAbstractionAAMP->SetTrickplayMode(rate);
+			if (!GetLLDashChunkMode())
+			{
+				mpStreamAbstractionAAMP->SetVideoPlaybackRate(rate);
+			}
 		}
 	}
 	else if (mMediaFormat == eMEDIAFORMAT_HLS || mMediaFormat == eMEDIAFORMAT_HLS_MP4)
