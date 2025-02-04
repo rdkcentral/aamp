@@ -12089,8 +12089,7 @@ bool StreamAbstractionAAMP_MPD::onAdEvent(AdEvent evt, double &adOffset)
 
 			if(AAMP_EVENT_AD_RESERVATION_START == reservationEvt2Send)
 			{
-				AAMPLOG_INFO("[CDAI]: Sending Ad Reservation Start Event. AdBreakId %s AdPos %" PRIu32 " ResPos %" PRIu64 " AbsPos %" PRIu64 " SendImmediate %d", adbreakId2Send.c_str(), adPos2Send, resPosMS, absReservationEventPositionMs, sendImmediate);
-				aamp->SendAdReservationEvent(reservationEvt2Send,adbreakId2Send, resPosMS, absReservationEventPositionMs, sendImmediate);
+				SendAdReservationEvent(reservationEvt2Send, adbreakId2Send, resPosMS, absReservationEventPositionMs, sendImmediate);
 				aamp->SendAnomalyEvent(ANOMALY_TRACE, "[CDAI] Adbreak of duration=%u sec starts.", (mCdaiObject->mAdBreaks[mCdaiObject->mCurPlayingBreakId].brkDuration)/1000);
 			}
 
@@ -12102,33 +12101,125 @@ bool StreamAbstractionAAMP_MPD::onAdEvent(AdEvent evt, double &adOffset)
 					adDuration = (uint32_t)mCdaiObject->mCurAds->at(mCdaiObject->mCurAdIdx).duration;
 					adPos2Send += adOffset;
 					aamp->SendAnomalyEvent(ANOMALY_TRACE, "[CDAI] AdId=%s starts. Duration=%u sec URL=%s",
-							adId2Send.c_str(),(adDuration/1000), mCdaiObject->mCurAds->at(mCdaiObject->mCurAdIdx).url.c_str());
+						adId2Send.c_str(),(adDuration/1000), mCdaiObject->mCurAds->at(mCdaiObject->mCurAdIdx).url.c_str());
 				}
 
 				uint64_t absPlacementEventPositionMs = static_cast<uint64_t>(mMPDParseHelper->GetPeriodStartTime(basePeriodIdx, mLastPlaylistDownloadTimeMs) * 1000) + adPos2Send;
-				AAMPLOG_INFO("[CDAI]: AdId[%s] AdPos[ %" PRIu32 "] absPlacementEventPositionMs[%" PRIu64 "] adOffset[%lf] adDuration[%u] sendImmediate[%d]", adId2Send.c_str(), adPos2Send, absPlacementEventPositionMs, adOffset, adDuration, sendImmediate);
-				aamp->SendAdPlacementEvent(placementEvt2Send,adId2Send, adPos2Send, absPlacementEventPositionMs, adOffset, adDuration, sendImmediate);
+
+				SendAdPlacementEvent(placementEvt2Send, adId2Send, adPos2Send, absPlacementEventPositionMs, adOffset, adDuration, sendImmediate);
+
 				if(fogManifestFailed)
 				{
-					aamp->SendAdPlacementEvent(AAMP_EVENT_AD_PLACEMENT_ERROR,adId2Send, adPos2Send, absPlacementEventPositionMs, adOffset, adDuration, true);
+					SendAdPlacementEvent(AAMP_EVENT_AD_PLACEMENT_ERROR, adId2Send, adPos2Send, absPlacementEventPositionMs, adOffset, adDuration, true);
 				}
 				if(AAMP_EVENT_AD_PLACEMENT_ERROR == placementEvt2Send || fogManifestFailed)
 				{
-					aamp->SendAdPlacementEvent(AAMP_EVENT_AD_PLACEMENT_END,adId2Send, adPos2Send, absPlacementEventPositionMs, adOffset, adDuration, true);	//Ad ended with error
+					SendAdPlacementEvent(AAMP_EVENT_AD_PLACEMENT_END, adId2Send, adPos2Send, absPlacementEventPositionMs, adOffset, adDuration, true);	//Ad ended with error
 					aamp->SendAnomalyEvent(ANOMALY_ERROR, "[CDAI] AdId=%s encountered error.", adId2Send.c_str());
 				}
 			}
 
 			if(AAMP_EVENT_AD_RESERVATION_END == reservationEvt2Send)
 			{
-				AAMPLOG_INFO("[CDAI]: AdBreak[%s] ended. resPosMS[%" PRIu64 "] absReservationEventPositionMs[%" PRIu64 "]", adbreakId2Send.c_str(), resPosMS, absReservationEventPositionMs);
-				aamp->SendAdReservationEvent(reservationEvt2Send,adbreakId2Send, resPosMS, absReservationEventPositionMs, sendImmediate);
+				SendAdReservationEvent(reservationEvt2Send, adbreakId2Send, resPosMS, absReservationEventPositionMs, sendImmediate);
 				aamp->SendAnomalyEvent(ANOMALY_TRACE, "%s", "[CDAI] Adbreak ends.");
 			}
+
 		}
 	}
 	return stateChanged;
 }
+
+/**
+ * @brief Send Ad reservation event
+ */
+void StreamAbstractionAAMP_MPD::SendAdReservationEvent(AAMPEventType type, const std::string &adBreakId, uint64_t position, uint64_t absolutePositionMs, bool sendImmediate)
+{
+	AampTSBSessionManager* tsbSessionManager = aamp->GetTSBSessionManager();
+	bool isLocalAAMPTsbInjection = false;
+
+	if (tsbSessionManager)
+	{
+		isLocalAAMPTsbInjection = aamp->IsLocalAAMPTsbInjection();
+
+		if(AAMP_EVENT_AD_RESERVATION_START == type)
+		{
+			AAMPLOG_INFO("[CDAI]: Add to TSB, Ad Reservation Start Id %s AbsPos %" PRIu64 " Pos %" PRIu64 " SendImmediate %d", adBreakId.c_str(), absolutePositionMs, position, sendImmediate);
+			tsbSessionManager->StartAdReservation(adBreakId, position, absolutePositionMs / 1000.0);
+		}
+		if(AAMP_EVENT_AD_RESERVATION_END == type)
+		{
+			AAMPLOG_INFO("[CDAI]: Add to TSB, Ad Reservation End Id %s AbsPos %" PRIu64 " Pos %" PRIu64 " SendImmediate %d", adBreakId.c_str(), absolutePositionMs, position, sendImmediate);
+			tsbSessionManager->EndAdReservation(adBreakId, position, absolutePositionMs / 1000.0);
+		}
+		if (sendImmediate)
+		{
+			tsbSessionManager->ShiftFutureAdEvents();
+		}
+	}
+
+	AAMPLOG_INFO("tsbSessionManager %p isLocalAAMPTsbInjection %d", tsbSessionManager, isLocalAAMPTsbInjection);
+
+	if(!isLocalAAMPTsbInjection)
+	{
+		if(AAMP_EVENT_AD_RESERVATION_START == type)
+		{
+			AAMPLOG_INFO("[CDAI]: Sending Ad Reservation Start Event. AdBreakId %s ResPos %" PRIu64 " AbsPos %" PRIu64 " SendImmediate %d", adBreakId.c_str(), position, absolutePositionMs, sendImmediate);
+		}
+		if(AAMP_EVENT_AD_RESERVATION_END == type)
+		{
+			AAMPLOG_INFO("[CDAI]: AdBreak[%s] ended. resPosMS[%" PRIu64 "] absReservationEventPositionMs[%" PRIu64 "]", adBreakId.c_str(), position, absolutePositionMs);
+		}
+		aamp->SendAdReservationEvent(type, adBreakId, position, absolutePositionMs, sendImmediate);
+	}
+}
+
+/**
+ * @brief Send Ad placement event
+ */
+void StreamAbstractionAAMP_MPD::SendAdPlacementEvent(AAMPEventType type, const std::string &adId, uint32_t position, uint64_t absolutePositionMs, uint32_t adOffset, uint32_t adDuration, bool sendImmediate)
+{
+	AampTSBSessionManager* tsbSessionManager = aamp->GetTSBSessionManager();
+	bool isLocalAAMPTsbInjection = false;
+
+	if (tsbSessionManager)
+	{
+		isLocalAAMPTsbInjection = aamp->IsLocalAAMPTsbInjection();
+
+		if(AAMP_EVENT_AD_PLACEMENT_START == type)
+		{
+			AAMPLOG_INFO("[CDAI]: Add to TSB, Ad Placement Start Id %s AbsPos %" PRIu64 " Duration %u AdPos %" PRIu32 " adOffset %u sendImmediate %d", adId.c_str(), absolutePositionMs, adDuration, position, adOffset, sendImmediate);
+			tsbSessionManager->StartAdPlacement(adId, position, absolutePositionMs / 1000.0, adDuration, adOffset);
+		}
+		else if(AAMP_EVENT_AD_PLACEMENT_END == type)
+		{
+			AAMPLOG_INFO("[CDAI]: Add to TSB, Ad Placement End Id %s AbsPos %" PRIu64 " Duration %u AdPos %" PRIu32 " adOffset %u sendImmediate %d", adId.c_str(), absolutePositionMs, adDuration, position, adOffset, sendImmediate);
+			tsbSessionManager->EndAdPlacement(adId, position, absolutePositionMs / 1000.0, adDuration, adOffset);
+		}
+		else if(AAMP_EVENT_AD_PLACEMENT_ERROR == type)
+		{
+			AAMPLOG_INFO("[CDAI]: Add to TSB, Error during Ad Placement Id %s AbsPos %" PRIu64 " Duration %u AdPos %" PRIu32 " adOffset %u sendImmediate %d", adId.c_str(), absolutePositionMs, adDuration, position, adOffset, sendImmediate);
+			tsbSessionManager->EndAdPlacementWithError(adId, position, absolutePositionMs / 1000.0, adDuration, adOffset);
+		}
+		else
+		{
+			AAMPLOG_ERR("[CDAI]: Unrecognised type %d", type);
+		}
+		if (sendImmediate)
+		{
+			tsbSessionManager->ShiftFutureAdEvents();
+		}
+	}
+
+	AAMPLOG_INFO("tsbSessionManager %p isLocalAAMPTsbInjection %d", tsbSessionManager, isLocalAAMPTsbInjection);
+
+	if(!isLocalAAMPTsbInjection)
+	{
+		AAMPLOG_INFO("[CDAI]: AdId[%s] AdPos[ %" PRIu32 "] absPlacementEventPositionMs[%" PRIu64 "] adOffset[%u] adDuration[%u] sendImmediate[%d]", adId.c_str(), position, absolutePositionMs, adOffset, adDuration, sendImmediate);
+		aamp->SendAdPlacementEvent(type, adId, position, absolutePositionMs, adOffset, adDuration, sendImmediate);
+	}
+}
+
 
 /**
  * @brief Print the current the track information

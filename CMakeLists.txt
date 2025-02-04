@@ -281,6 +281,11 @@ set(LIBAAMP_HEADERS middleware/drm/DrmSystems.h
 					AampTime.h
 					AampTSBSessionManager.h
 					AampTsbDataManager.h
+					AampTsbMetaData.h
+					AampTsbAdMetaData.h
+					AampTsbAdPlacementMetaData.h
+					AampTsbAdReservationMetaData.h
+					AampTsbMetaDataManager.h
 					AampTsbReader.h
 					lstring.hpp
 					scte35/AampSCTE35.h
@@ -370,6 +375,11 @@ set(LIBAAMP_SOURCES iso639map.cpp
 					tsFragmentProcessor.cpp
 					AampTSBSessionManager.cpp
 					AampTsbDataManager.cpp
+					AampTsbMetaData.cpp
+					AampTsbAdMetaData.cpp
+					AampTsbAdPlacementMetaData.cpp
+					AampTsbAdReservationMetaData.cpp
+					AampTsbMetaDataManager.cpp
 					AampTsbReader.cpp
 					scte35/AampSCTE35.cpp
 					AampTrackWorker.cpp

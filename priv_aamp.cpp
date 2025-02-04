@@ -9464,6 +9464,7 @@ void PrivateInstanceAAMP::DeliverAdEvents(bool immediate, double position)
 		//If immediate is true, it is a failed case and deliver all events immediately
 		if(immediate)
 		{
+			AAMPLOG_MIL("PrivateInstanceAAMP:, [CDAI] Delivered AdEvent[%s] to JSPP. pos=%lfms", ADEVENT2STRING(evtType), position);
 			mEventManager->SendEvent(e,AAMP_EVENT_SYNC_MODE);
 		}
 		else
@@ -9488,13 +9489,13 @@ void PrivateInstanceAAMP::DeliverAdEvents(bool immediate, double position)
 			// Check if the event is ready to be delivered
 			if((position != -1) && (position < target))
 			{
-				AAMPLOG_TRACE( "Deferring transmission evtType=%d (immediate=%d) pos=%lf target=%lf", evtType, immediate, position, target);
+				AAMPLOG_TRACE( "Deferring transmission AdEvent[%s] pos=%lfms target=%lfms", ADEVENT2STRING(evtType), position, target);
 				break;
 			}
 
+			AAMPLOG_MIL("PrivateInstanceAAMP:, [CDAI] Delivered AdEvent[%s] to JSPP. pos=%lfms target=%lfms", ADEVENT2STRING(evtType), position, target);
 			mEventManager->SendEvent(e,AAMP_EVENT_ASYNC_MODE);
 		}
-		AAMPLOG_WARN("PrivateInstanceAAMP:, [CDAI] Delivered AdEvent[%s] to JSPP.", ADEVENT2STRING(evtType));
 		if(placementEvt && AAMP_EVENT_AD_PLACEMENT_START == evtType)
 		{
 			mAdProgressId       = placementEvt->getAdId();

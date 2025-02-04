@@ -662,21 +662,21 @@ void MyAAMPEventListener::Event(const AAMPEventPtr& e)
 		case AAMP_EVENT_AD_RESOLVED:
 		{
 			AdResolvedEventPtr ev = std::dynamic_pointer_cast<AdResolvedEvent>(e);
-			printf("[AAMPCLI] AAMP_EVENT_AD_RESOLVED\n\tresolveStatus=%d\n\tadId=%s\n\tstart=%" PRIu64 "\n\tduration=%" PRIu64 "\n", ev->getResolveStatus(), ev->getAdId().c_str(), ev->getStart(), ev->getDuration());
+			printf("[AAMPCLI] AAMP_EVENT_AD_RESOLVED\tresolveStatus=%d\tadId=%s\tstart=%" PRIu64 "\tduration=%" PRIu64 "\n", ev->getResolveStatus(), ev->getAdId().c_str(), ev->getStart(), ev->getDuration());
 			break;
 		}
 
 		case AAMP_EVENT_AD_RESERVATION_START:
 		{
 			AdReservationEventPtr ev = std::dynamic_pointer_cast<AdReservationEvent>(e);
-			printf("[AAMPCLI] AAMP_EVENT_AD_RESERVATION_START\n\tadBreakId=%s\n\tposition=%" PRIu64 "\n", ev->getAdBreakId().c_str(), ev->getPosition());
+			printf("[AAMPCLI] AAMP_EVENT_AD_RESERVATION_START\tadBreakId=%s\tposition=%" PRIu64 "\n", ev->getAdBreakId().c_str(), ev->getPosition());
 			break;
 		}
 
 		case AAMP_EVENT_AD_RESERVATION_END:
 		{
 			AdReservationEventPtr ev = std::dynamic_pointer_cast<AdReservationEvent>(e);
-			printf("[AAMPCLI] AAMP_EVENT_AD_RESERVATION_END\n\tadBreakId=%s\n\tposition=%" PRIu64 "\n", ev->getAdBreakId().c_str(), ev->getPosition());
+			printf("[AAMPCLI] AAMP_EVENT_AD_RESERVATION_END\tadBreakId=%s\tposition=%" PRIu64 "\n", ev->getAdBreakId().c_str(), ev->getPosition());
 			break;
 		}
 
