@@ -360,11 +360,10 @@ void AampMPDDownloader::downloadMPDThread1()
 	bool refreshNeeded = false;
 	std::string tuneUrl = mMPDDnldCfg->mTuneUrl;
 	bool firstDownload	=	true;
-	int retryCount = 0;
 	ManifestDownloadResponsePtr cachedBackupData = nullptr;
 	do
 	{
-		
+
 		std::unordered_map<std::string, std::vector<std::string>> Headers = mMPDDnldCfg->mDnldConfig->sCustomHeaders;
 		bool doPush = true;
 		long long tStartTime = NOW_STEADY_TS_MS;
@@ -378,6 +377,7 @@ void AampMPDDownloader::downloadMPDThread1()
 				Headers.insert(CMCDHeaders.begin(), CMCDHeaders.end());
 			}
 			mMPDDnldCfg->mDnldConfig->sCustomHeaders = Headers;
+			mMPDDnldCfg->mDnldConfig->iDownload502RetryCount = MANIFEST_DOWNLOAD_502_RETRY_COUNT;
 			mDownloader1.Initialize(mMPDDnldCfg->mDnldConfig);
 			refreshNeeded = false;
 			//mDownloader1.Clear();
@@ -411,22 +411,6 @@ void AampMPDDownloader::downloadMPDThread1()
 			else
 			{
 				mDownloader1.Download(tuneUrl, mMPDData->mMPDDownloadResponse);
-				if(mMPDData->mMPDDownloadResponse->iHttpRetValue == 502 && retryCount < DEFAULT_MANIFEST_DOWNLOAD_502_RETRY_COUNT)
-				{
-					mRefreshInterval = MIN_DELAY_BETWEEN_MANIFEST_UPDATE_FOR_502_MS;
-					waitForRefreshInterval();
-					refreshNeeded = true;
-					retryCount++;
-					continue;
-				}
-				else
-				{
-					retryCount = 0;
-					if(mMPDData->mMPDDownloadResponse->iHttpRetValue == 502)
-					{
-						AAMPLOG_ERR("Manifest retries exhausted for HTTP error 502,exiting mpd downloader!!");
-					}
-				}
 			}
 		}
 

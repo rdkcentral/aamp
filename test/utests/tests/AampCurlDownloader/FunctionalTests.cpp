@@ -396,3 +396,80 @@ TEST_F(FunctionalTests, AampCurlDownloader_DownloadTest_Stall)
 
 	EXPECT_FALSE(mAampCurlDownloader->IsDownloadActive());
 }
+
+TEST_F(FunctionalTests, AampCurlDownloader_Retry_502)
+{
+	/* test
+	 * for a http 502 error then we will retry MANIFEST_DOWNLOAD_502_RETRY_COUNT times
+	 * for other http erros then we retry DEFAULT_DOWNLOAD_RETRY_COUNT
+	 * */
+	DownloadResponsePtr respData = std::make_shared<DownloadResponse>();
+	DownloadConfigPtr inpData = std::make_shared<DownloadConfig>();
+	inpData->bNeedDownloadMetrics = true;
+	inpData->bIgnoreResponseHeader = true;
+	inpData->iDownload502RetryCount = MANIFEST_DOWNLOAD_502_RETRY_COUNT;
+
+	// The first attempt is not a retry hence +1
+	int triesExpected = MANIFEST_DOWNLOAD_502_RETRY_COUNT + 1;
+
+	EXPECT_CALL(*g_mockCurl, curl_easy_init()).WillOnce(Return(mCurlEasyHandle));
+	/* The curl easy handle will be cleaned when AampCurlDownloader is destroyed. */
+	EXPECT_CALL(*g_mockCurl, curl_easy_cleanup(mCurlEasyHandle));
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_ptr(mCurlEasyHandle, CURLOPT_PROGRESSDATA, mAampCurlDownloader))
+		.WillOnce(Return(CURLE_OK));
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_func_xferinfo(mCurlEasyHandle, CURLOPT_XFERINFOFUNCTION, NotNull()))
+		.WillOnce(DoAll(SaveArgPointee<2>(&mCurlProgressCallback), Return(CURLE_OK)));
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_ptr(mCurlEasyHandle, CURLOPT_WRITEDATA, mAampCurlDownloader))
+		.WillOnce(Return(CURLE_OK));
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_func_write(mCurlEasyHandle, CURLOPT_WRITEFUNCTION, NotNull()))
+		.WillOnce(DoAll(SaveArgPointee<2>(&mCurlWriteFunc), Return(CURLE_OK)));
+	mAampCurlDownloader->Initialize(inpData);
+	/* Assert if the callbacks are null to avoid a crash if they are called by the test. */
+	ASSERT_NE(mCurlProgressCallback, nullptr);
+	ASSERT_NE(mCurlWriteFunc, nullptr);
+
+	// Test 502 until retries exhausted
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_str(mCurlEasyHandle, CURLOPT_URL, mUrl.c_str()))
+		.WillOnce(Return(CURLE_OK));
+	EXPECT_CALL(*g_mockCurl, curl_easy_perform(mCurlEasyHandle))
+		.Times(triesExpected)
+		.WillRepeatedly(Return(CURLE_OK));
+	EXPECT_CALL(*g_mockCurl, curl_easy_getinfo_int(mCurlEasyHandle, CURLINFO_RESPONSE_CODE, NotNull()))
+		.Times(triesExpected)
+		.WillRepeatedly(DoAll(SetArgPointee<2>(502), Return(CURLE_OK)));
+	mAampCurlDownloader->Download(mUrl, respData);
+	EXPECT_EQ(CURLE_OK, respData->curlRetValue);
+	EXPECT_EQ(502, respData->iHttpRetValue);
+	respData->show();
+	respData->clear();
+
+	// Test return sequence 502,200 hence 1 retry then returns 200
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_str(mCurlEasyHandle, CURLOPT_URL, mUrl.c_str()))
+		.WillOnce(Return(CURLE_OK));
+	EXPECT_CALL(*g_mockCurl, curl_easy_perform(mCurlEasyHandle))
+		.Times(2)
+		.WillRepeatedly(Return(CURLE_OK));
+	EXPECT_CALL(*g_mockCurl, curl_easy_getinfo_int(mCurlEasyHandle, CURLINFO_RESPONSE_CODE, NotNull()))
+		.WillOnce(DoAll(SetArgPointee<2>(502), Return(CURLE_OK)))
+		.WillOnce(DoAll(SetArgPointee<2>(200), Return(CURLE_OK)));
+	mAampCurlDownloader->Download(mUrl, respData);
+	EXPECT_EQ(CURLE_OK, respData->curlRetValue);
+	EXPECT_EQ(200, respData->iHttpRetValue);
+	respData->show();
+	respData->clear();
+
+	// For some unknown reason we allow 1 retry on 408 when the number of retries set in config = 0
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_str(mCurlEasyHandle, CURLOPT_URL, mUrl.c_str()))
+		.WillOnce(Return(CURLE_OK));
+	EXPECT_CALL(*g_mockCurl, curl_easy_perform(mCurlEasyHandle))
+		.Times(2)
+		.WillRepeatedly(Return(CURLE_OK));
+	EXPECT_CALL(*g_mockCurl, curl_easy_getinfo_int(mCurlEasyHandle, CURLINFO_RESPONSE_CODE, NotNull()))
+		.WillOnce(DoAll(SetArgPointee<2>(408), Return(CURLE_OK)))
+		.WillOnce(DoAll(SetArgPointee<2>(408), Return(CURLE_OK)));
+	mAampCurlDownloader->Download(mUrl, respData);
+	EXPECT_EQ(CURLE_OK, respData->curlRetValue);
+	EXPECT_EQ(408, respData->iHttpRetValue);
+	respData->show();
+	respData->clear();
+}

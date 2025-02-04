@@ -159,7 +159,8 @@ int AampCurlDownloader::Download(const std::string &urlStr, std::shared_ptr<Down
 {
 	int httpRetVal=0;
 	int curlRetVal=0;
-	int retryCount = mDnldCfg?mDnldCfg->iDownloadRetryCount:0;
+	int numDownloadAttempts=0;
+	int numRetriesAllowed = mDnldCfg?mDnldCfg->iDownloadRetryCount:0;
 	if(urlStr.size() == 0 || dnldData == nullptr)
 	{
 		AAMPLOG_ERR("Invalid inputs provided for download . Check the arguments. Url[%s] dnldData is Null[%d]", urlStr.c_str(), (dnldData == nullptr));
@@ -180,6 +181,7 @@ int AampCurlDownloader::Download(const std::string &urlStr, std::shared_ptr<Down
 				mDownloadStartTime = mDownloadUpdatedTime = NOW_STEADY_TS_MS;
 				curlRetVal = curl_easy_perform(mCurl);
 				loopAgain = false;
+				numDownloadAttempts++;
 				if(curlRetVal == CURLE_OK)
 				{
 					if( memcmp(urlStr.c_str(), "file:", 5) == 0 )
@@ -190,14 +192,20 @@ int AampCurlDownloader::Download(const std::string &urlStr, std::shared_ptr<Down
 					}
 					else
 					{
-						httpRetVal = mDownloadResponse->iHttpRetValue =  (int)aamp_CurlEasyGetinfoLong( mCurl, CURLINFO_RESPONSE_CODE );
+						httpRetVal = mDownloadResponse->iHttpRetValue = (int)aamp_CurlEasyGetinfoLong( mCurl, CURLINFO_RESPONSE_CODE );
 					}
-					if(mDownloadResponse->iHttpRetValue == 408 && retryCount == 0)
+
+					numRetriesAllowed = mDnldCfg?mDnldCfg->iDownloadRetryCount:0;
+					if(mDownloadResponse->iHttpRetValue == 408 && numRetriesAllowed == 0)
 					{
-						retryCount++;
+						numRetriesAllowed++;
+					}
+					else if (mDownloadResponse->iHttpRetValue == 502 &&  mDnldCfg && mDnldCfg->iDownload502RetryCount)
+					{
+						numRetriesAllowed = mDnldCfg->iDownload502RetryCount;
 					}
 					AAMPLOG_INFO("Download Status Ret:%d %d %s",mDownloadResponse->curlRetValue,mDownloadResponse->iHttpRetValue, urlStr.c_str());
-					if (retryCount)
+					if ( numDownloadAttempts <= numRetriesAllowed )
 					{
 						//make http 408 retry-worthy as well
 						if(mDownloadResponse->iHttpRetValue == 408 ||
@@ -206,30 +214,28 @@ int AampCurlDownloader::Download(const std::string &urlStr, std::shared_ptr<Down
 								mDownloadResponse->iHttpRetValue != 206 &&
 								mDownloadResponse->iHttpRetValue >= 500 ))
 						{
-                                                        AAMPLOG_WARN("Download failed due to Server error http-%d . Retrying Attempt: %d!",mDownloadResponse->iHttpRetValue,retryCount);
-							retryCount--;
+							AAMPLOG_WARN("Download failed due to Server error http-%d numDownloadAttempts %d numRetriesAllowed %d",mDownloadResponse->iHttpRetValue,numDownloadAttempts,numRetriesAllowed);
 							int retryDelayMs = (mDownloadResponse->iHttpRetValue == 502) ? MIN_DELAY_BETWEEN_MANIFEST_UPDATE_FOR_502_MS : mDnldCfg->iDownloadRetryWaitMs;
-							// TODO: Add the download delay between retries : Need to handle similar to interruptibleMsSleep
 							std::this_thread::sleep_for(std::chrono::milliseconds(retryDelayMs));
 							loopAgain = true; //retry on manifest download failure
-							continue;
+							// In the unlikely event that we get http failure status and also a http body then the
+							// body will have got downloaded. We are not interested in it so clear the data.
+							this->mDownloadResponse->mDownloadData.clear();
+							mWriteCallbackBufferSize = 0;
 						}
 					}
 				}
-				//NETWORK_ERROR 
+				//NETWORK_ERROR
 				else
-				{	
-					if(retryCount)
+				{
+					if(numDownloadAttempts <= numRetriesAllowed)
 					{
 						//Attempt retry for partial downloads, which have a higher chance to succeed
 						if (curlRetVal == CURLE_COULDNT_CONNECT || curlRetVal == CURLE_OPERATION_TIMEDOUT || curlRetVal  == CURLE_PARTIAL_FILE)
 						{
-							retryCount--;
 							loopAgain = true;
-							continue;
-
 						}
-					}	
+					}
 				}
 			}while(loopAgain);
 

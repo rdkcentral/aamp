@@ -433,7 +433,7 @@ class DASHServerHandler(BaseHTTPRequestHandler):
 
                 if LLpreDelayAdjusted > 0:
                     time.sleep(LLpreDelayAdjusted)
-                         
+
                 while len(remaining) > LLsizeAdjusted:
                     if LLsizeAdjusted >= 100000:
                         log.info(str(len(remaining)) + " bytes left in this fragment")
@@ -444,16 +444,17 @@ class DASHServerHandler(BaseHTTPRequestHandler):
                 self.wfile.write(remaining)
             else:
                 self.wfile.write(contents)
-                
+
         except FileNotFoundError:
             self.send_response(404)
             self.end_headers()
 
         except CustomError as e:
             # Handle CustomError instances
-            self.send_response(e.status_code)
+            self.send_response(e.status_code, message=f"Custom error {e.status_code}: {str(e)}")
             self.end_headers()
-            self.wfile.write(f"Custom error {e.status_code}: {str(e)}".encode("utf-8"))
+            self.wfile.write("Dummy response body, should not get processed by aamp".encode("utf-8"))
+
 
 ###############################################################################
 class HLSServer(ManifestServerCommon):
