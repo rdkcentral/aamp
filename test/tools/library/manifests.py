@@ -30,6 +30,7 @@ import getpass
 from enum import Enum
 from pathlib import Path
 import urllib
+import library.config
 
 def delHTTP(line):
     result = re.sub(r"^https?://", "", line)
@@ -452,7 +453,6 @@ class SegmentList:
                 delattr(attrs, "pts")
                 attrs.pts = self.attributes[segment_group].pts
 
-
         self.attributes[segment_group] = copy.copy(attrs)
 
     def add_init(self, url, segment_group,segment_filename=None):
@@ -472,6 +472,11 @@ class SegmentList:
         segment_d:        The d value read from the manifest
         segment_filename  Local path to file
         """
+
+        if library.config.harvestSpecificContent["text"]:
+            if (not ("ttml" in segment_filename and segment_filename.endswith("mp4"))) and not segment_filename.endswith("vtt") and not "subtitles" in segment_filename:
+                
+                return
 
         if segment_url in self.segment_url_list:
             log.debug(f"Potential duplicate {segment_duration} {segment_url}")
