@@ -21,6 +21,7 @@
 ###############################################################################
 
 class PtsRestampUtils:
+	LOG_LINE = r'\[RestampPts\].*?\[(\w+)\] timeScale (\d+) before (\d+) after (\d+) duration (\d+) ([\w:/\.\-\?=]+)'
 	restamp_values:dict[str, float] = {}
 	segment_cnt = 0
 	max_segment_cnt = 0

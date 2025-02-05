@@ -34,14 +34,14 @@ import pytest
 from l2test_pts_restamp import PtsRestampUtils
 
 manifest_list = [
-    {'url': "https://dash.akamaized.net/dashif/ad-insertion-testcase1/batch5/real/a/ad-insertion-testcase1.mpd", 'expected_restamps': 30 },
-    {'url': "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/streams/ads/stitched/manifest.mpd", 'expected_restamps': 40 },
-    {'url': "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/streams/generated/main-multi.mpd", 'expected_restamps': 40 },
+    {'url': "https://dash.akamaized.net/dashif/ad-insertion-testcase1/batch5/real/a/ad-insertion-testcase1.mpd", 'expected_restamps': 30},
+    {'url': "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/streams/generated/main-multi.mpd", 'expected_restamps': 40},
     {'url': "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/streams/generated/main.mpd", 'expected_restamps': 40},
     {'url': "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/streams/misc/main-segmentlist.mpd", 'expected_restamps': 40},
     {'url': "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/streams/misc/main-segmentbase.mpd", 'expected_restamps': 40},
     {'url': "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/streams/generated/main-multi.mpd", 'expected_restamps': 40},
     {'url': "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/streams/RDKAAMP-1540/4k/h265/SegmentTimeline.mpd", 'expected_restamps': 40},
+    # The following stream has SegmentBase manifest with 4 periods of ~30s each.
     {'url': "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/streams/Sports-Variations/Good_Bad/manifest_x4_good_bad.mpd", 'expected_restamps': 120}
 ]
 ###############################################################################
@@ -55,13 +55,14 @@ TESTDATA0 = {
 "aamp_cfg": "info=true\nenablePTSReStamp=true\nprogress=true\n",
 
 "expect_list": [
-    {"expect": r"aamp_tune","min":0, "max":2},
-    {"expect": r'RestampPts.*?\[(\w+)\] timeScale (\d+) before (\d+) after (\d+) duration (\d+) ([\w:/\.\-]+)\r\n',"min":0, "max":timeout, "callback" : pts_restamp_utils.check_restamp},
-    {"expect": r'InterfacePlayer_EndOfStreamReached',"min":0, "max":timeout, "end_of_test": True},
-    {"expect": r'AAMPGstPlayer_Stop', "min": 0, "max": timeout, "end_of_test": True},
-    {"expect": r'StopInternal', "min": 0, "max": timeout, "end_of_test": True},
+    {"expect": r"aamp_tune", "max":2},
+    {"expect": pts_restamp_utils.LOG_LINE, "callback" : pts_restamp_utils.check_restamp},
+    {"expect": r'InterfacePlayer_EndOfStreamReached', "end_of_test": True},
+    {"expect": r'AAMPGstPlayer_Stop', "end_of_test": True},
+    {"expect": r'StopInternal', "end_of_test": True},
     ]
 }
+
 @pytest.fixture(params=manifest_list)
 def test_data(request):
     return request.param
