@@ -67,34 +67,38 @@ template_boxs = bytearray( \
     b"\x00\x00\x00\x00\x35\x78\xa1\xfe\x00\x00\x00\x54\x74\x72\x61\x66" \
     b"\x00\x00\x00\x14\x74\x66\x68\x64\x00\x02\x00\x02\x00\x00\x00\x01" \
     b"\x00\x00\x00\x02\x00\x00\x00\x14\x74\x66\x64\x74\x01\x00\x00\x00" \
-    b"\x00\x00\x00\x00\xce\x35\x5e\xa0\x00\x00\x00\x24\x74\x72\x75\x6e" \
+    b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x24\x74\x72\x75\x6e" \
     b"\x01\x00\x0f\x01\x00\x00\x00\x01\x00\x00\x00\x74\x00\x00\x00\x00" \
     b"\x00\x00\x05\x22\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x05\x2a" \
     b"\x6d\x64\x61\x74" \
 )
 
-template_ttml = \
-    '<?xml version="1.0" encoding="utf-8"?>\n' \
-    '<tt xmlns="http://www.w3.org/ns/ttml" xmlns:ttm="http://www.w3.org/ns/ttml#metadata" xmlns:tts="http://www.w3.org/ns/ttml#styling" xmlns:ttp="http://www.w3.org/ns/ttml#parameter" ttp:cellResolution="384 288" xml:lang="">\n' \
-    '  <head>\n' \
-    '    <layout>\n' \
-    '      <region xml:id="Default" tts:backgroundColor="#000000FF" tts:origin="3% 0%" tts:extent="97% 97%" tts:displayAlign="after" tts:textAlign="center" tts:fontSize="16c" tts:fontFamily="Arial" tts:overflow="visible" />\n' \
-    '    </layout>\n' \
-    '  </head>\n' \
-    '  <body>\n' \
-    '    <div>\n' \
-    '      <p begin="%BEGIN%" end="%END%"><span region="Default">%SUBTITLE%</span></p>\n' \
-    '    </div>\n' \
-    '  </body>\n' \
-    '</tt>\n'
+template_ttml = """<?xml version="1.0" encoding="utf-8"?>
+<tt xmlns="http://www.w3.org/ns/ttml" xmlns:ttm="http://www.w3.org/ns/ttml#metadata" xmlns:tts="http://www.w3.org/ns/ttml#styling" xmlns:ttp="http://www.w3.org/ns/ttml#parameter" ttp:cellResolution="384 288" xml:lang="">
+  <head>
+    <layout>
+      <region xml:id="r0" tts:origin="10% 80%" tts:extent="80% 20%">
+        <style tts:backgroundColor="black" tts:color="white" tts:textAlign="center" tts:fontSize="18c" tts:overflow="visible" />
+      </region>
+    </layout>
+  </head>
+  <body>
+    <div>
+      <p begin="%BEGIN%" end="%END%"><span region="r0">ABCDEFGHIJ %SUBTITLE% ABCDEFGHIJ</span></p>
+    </div>
+  </body>
+</tt>
+"""
 
 
+def create_TTML_file(media_filename, init_filename, seg_start, seg_end):
 
-def create_TTML_file(media_filename, init_filename, begin, end):
+    begin = hhmmss(seg_start)
+    end = hhmmss(seg_end)
     print(f"Creating subtitle from {begin} to {end}")
     ttml_string = template_ttml.replace("%BEGIN%", begin)
     ttml_string = ttml_string.replace("%END%", end)
-    ttml_string = ttml_string.replace("%SUBTITLE%", f"Subtitle from {begin} to {end}")
+    ttml_string = ttml_string.replace("%SUBTITLE%", f"SUBTITLE {seg_start:.0f} TO {seg_end:.0f}")
 
     ttml = bytearray( ttml_string, 'utf-8')
     struct.pack_into('>I', template_boxs, len(template_boxs) - 20, len(ttml))       # Set len in trun
@@ -121,5 +125,5 @@ parser.add_argument("duration_sec", type=float, help="The duration of the subtit
 args = parser.parse_args()
 print ('argument list', sys.argv)
 
-create_TTML_file(args.media_filename, args.init_filename, hhmmss(args.start_time_sec), hhmmss(args.start_time_sec + args.duration_sec))
+create_TTML_file(args.media_filename, args.init_filename, args.start_time_sec, (args.start_time_sec + args.duration_sec))
 
