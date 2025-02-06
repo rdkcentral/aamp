@@ -179,6 +179,10 @@ void AAMPGstPlayer::SignalTrickModeDiscontinuity()
 
 void AAMPGstPlayer::SeekStreamSink(double position, double rate)
 {
+	if (g_mockAampGstPlayer != nullptr)
+	{
+		g_mockAampGstPlayer->SeekStreamSink(position, rate);
+	}
 }
 
 std::string AAMPGstPlayer::GetVideoRectangle()

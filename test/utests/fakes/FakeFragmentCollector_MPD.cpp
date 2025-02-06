@@ -58,7 +58,15 @@ double StreamAbstractionAAMP_MPD::GetStreamPosition() { return 0; }
 
 double StreamAbstractionAAMP_MPD::GetFirstPTS() { return 0; }
 
-double StreamAbstractionAAMP_MPD::GetMidSeekPosOffset() { return 0; }
+double StreamAbstractionAAMP_MPD::GetMidSeekPosOffset() { 
+
+    if (g_mockStreamAbstractionAAMP_MPD)
+    {
+        return g_mockStreamAbstractionAAMP_MPD->GetMidSeekPosOffset();
+    }
+
+    return 0;
+}
 
 double StreamAbstractionAAMP_MPD::GetStartTimeOfFirstPTS() { return 0; }
 

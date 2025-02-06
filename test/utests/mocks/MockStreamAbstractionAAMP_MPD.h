@@ -32,6 +32,7 @@ public:
 	MOCK_METHOD(AAMPStatusType, Init, (TuneType tuneType), (override));
 	MOCK_METHOD(BitsPerSecond, GetMaxBitrate, (), (override));
 	MOCK_METHOD(void, SeekPosUpdate, (double secondsRelativeToTuneTime), (override) );
+	MOCK_METHOD(double, GetMidSeekPosOffset, (), (override));
   };
 
 extern MockStreamAbstractionAAMP_MPD *g_mockStreamAbstractionAAMP_MPD;

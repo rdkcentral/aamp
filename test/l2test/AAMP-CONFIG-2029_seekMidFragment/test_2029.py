@@ -21,15 +21,13 @@
 from inspect import getsourcefile
 import os
 import pytest
-import re 
 
-archive_url = "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/testApps/L2/seekMidFragment.tar.xz"
+archive_url = "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/testApps/L2/seekMidFragment.tgz"
 
-TESTDATA1 = {
+TESTDATA0 = {
     "title": "Testcase to validate seekMidFragment config",
-    "logfile": f"seekMidFragment_true.txt",
     "max_test_time_seconds": 20,
-    "aamp_cfg": "info=true\ntrace=true\nseekMidFragment=true",
+    "aamp_cfg": "info=true\ntrace=true\nseekMidFragment=true\nprogress=true\n",
     "archive_url": archive_url,
     "url":"seekMidFragment/test_manifest.mpd",
     "simlinear_type": "DASH",
@@ -43,19 +41,52 @@ TESTDATA1 = {
         {"expect": r"Updated seek_pos_seconds 55\.000000"},
         {"expect": r"TuneHelper - seek_pos: 55\.000000"},
         {"expect": r"Setting PTS offset: 55\.000000 \| 55\.000000"},
+
+        # Check that the seek sent to gst is a mid segment seek
+        # From manifest t="1920000" timescale="12800" hence period start in seconds = 150
+        # 150+55 = 205
+        {"expect": "InterfacePlayerRDK: Segment start: 205000"},
         {"expect":r"Returning Position as 56(\d{3})"},
         {"expect":r"Returning Position as 59(\d{3})"},
     ]
 }
+
+
+TESTDATA1 = {
+    "title": "Testcase to validate seekMidFragment config",
+    "max_test_time_seconds": 20,
+    "aamp_cfg": "info=true\ntrace=true\nseekMidFragment=true\nprogress=true\nenablePTSReStamp=true\n",
+    "archive_url": archive_url,
+    "url":"seekMidFragment/test_manifest.mpd",
+    "simlinear_type": "DASH",
+    "expect_list": [
+        {"expect":"AAMP_EVENT_STATE_CHANGED: PLAYING"},
+        {"expect":r"Returning Position as 2(\d{3})"},
+        {"expect":r"Returning Position as 5(\d{3})"},
+        {"cmd": "seek 55"},
+        {"expect": r"aamp_Seek\(55\.000000\)"},
+        {"expect": r"offsetFromStart\(55\.000000\) seekPosition\(55\.000000\)"},
+        {"expect": r"Updated seek_pos_seconds 55\.000000"},
+        {"expect": r"TuneHelper - seek_pos: 55\.000000"},
+        {"expect": r"Setting PTS offset: 55\.000000 \| 55\.000000"},
+
+        # Check that the seek sent to gst is a mid segment seek
+        # In this case we have PTSRestamp enabled so the period starts from 0
+        {"expect": "InterfacePlayerRDK: Segment start: 55000" },
+        {"expect":r"Returning Position as 56(\d{3})"},
+        {"expect":r"Returning Position as 59(\d{3})"},
+    ]
+}
+
+
 TESTDATA2 = {
     "title": "Testcase to validate seekMidFragment config",
-    "logfile": f"seekMidFragment_false.txt",
     "max_test_time_seconds": 30,
     "aamp_cfg": "info=true\ntrace=true\nseekMidFragment=false",
     "archive_url": archive_url,
     "url":"seekMidFragment/test_manifest.mpd",
     "simlinear_type": "DASH",
-    "expect_list": [ 
+    "expect_list": [
         {"expect":"AAMP_EVENT_STATE_CHANGED: PLAYING"},
         {"expect":r"Returning Position as 2(\d{3})"},
         {"expect":r"Returning Position as 5(\d{3})"},
@@ -69,7 +100,7 @@ TESTDATA2 = {
         {"expect":r"Returning Position as 36(\d{3})"},
     ]
 }
-TESTLIST = [TESTDATA1,TESTDATA2]
+TESTLIST = [TESTDATA0, TESTDATA1, TESTDATA2]
 
 
 ############################################################

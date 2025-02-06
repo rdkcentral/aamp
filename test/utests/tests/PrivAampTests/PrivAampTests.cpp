@@ -2580,10 +2580,25 @@ TEST_F(PrivAampTests,SendId3MetadataEventTest)
 
 TEST_F(PrivAampTests,FlushStreamSinkTest)
 {
-	p_aamp->FlushStreamSink(10.9876,45.54329);
+	const double POSITION = 10.0;
+	const double MID_SEEK = 5.0;
 
-	p_aamp->FlushStreamSink(0,0);
-	p_aamp->FlushStreamSink(10.9876098765432198764323,45.543298765432198764323);
+	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP_MPD;
+
+	//Test with MidFragmentSeek enabled
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillOnce(Return(g_mockAampGstPlayer));
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_MidFragmentSeek)).WillOnce(Return(true));
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP_MPD, GetMidSeekPosOffset()).WillOnce(Return(MID_SEEK));
+	EXPECT_CALL(*g_mockAampGstPlayer, SeekStreamSink(POSITION+MID_SEEK,2.0)).Times(1);
+	p_aamp->FlushStreamSink(POSITION,2.0);
+
+	//Test with MidFragmentSeek disabled
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillOnce(Return(g_mockAampGstPlayer));
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_MidFragmentSeek)).WillOnce(Return(false));
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP_MPD, GetMidSeekPosOffset()).Times(0);
+	EXPECT_CALL(*g_mockAampGstPlayer, SeekStreamSink(POSITION,2.0)).Times(1); //Here is different from above
+	p_aamp->FlushStreamSink(POSITION,2.0);
+
 }
 
 TEST_F(PrivAampTests,PreCachePlaylistDownloadTaskTest)
