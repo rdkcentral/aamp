@@ -629,7 +629,7 @@ TEST_F(AAMPGstPlayerTests, MonitorAV )
 			Return(GST_STATE_CHANGE_SUCCESS)));
 	for( int idx=0; idx<sizeof(avpos)/sizeof(avpos[0]); idx++ )
 	{
-		EXPECT_CALL( *g_mockGstUtils, GetCurrentTimeMS()).WillOnce(DoAll(Return(idx*250)));
+		EXPECT_CALL( *g_mockGstUtils, GetCurrentTimeMS()).WillOnce(DoAll(Return(1000+idx*250)));
 		
 		EXPECT_CALL(*g_mockGStreamer, gst_element_query_position( _, _, _))
 			.WillOnce(DoAll(

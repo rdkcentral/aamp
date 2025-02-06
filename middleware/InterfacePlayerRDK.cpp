@@ -558,17 +558,22 @@ void MonitorAV( InterfacePlayerRDK *pInterfacePlayerRDK )
 	GstState state = GST_STATE_VOID_PENDING;
 	GstState pending = GST_STATE_VOID_PENDING;
 	GstClockTime timeout = 0;
+	gint64 av_position[2] = {0,0};
 	gint rc = gst_element_get_state(pInterfacePlayerRDK->gstPrivateContext->pipeline, &state, &pending, timeout );
 	if( rc == GST_STATE_CHANGE_SUCCESS )
 	{
 		if( state == GST_STATE_PLAYING )
 		{
 			struct MonitorAVState *monitorAVState = &pInterfacePlayerRDK->gstPrivateContext->monitorAVstate;
-			const char *description = NULL;
+			const char *description = "ok";
 			bool happyNow = true;
 			int numTracks = 0;
 			bool bigJump = false;
 			long long tNow = GetCurrentTimeMS();
+			if( !monitorAVState->tLastReported )
+			{
+				monitorAVState->tLastReported = tNow;
+			}
 			for( int i=0; i<2; i++ )
 			{ // eMEDIATYPE_VIDEO=0, eMEDIATYPE_AUDIO=1
 				auto sinkbin = pInterfacePlayerRDK->gstPrivateContext->stream[i].sinkbin;
@@ -599,7 +604,7 @@ void MonitorAV( InterfacePlayerRDK *pInterfacePlayerRDK )
 								bigJump = true;
 							}
 						}
-						monitorAVState->av_position[i] = ms;
+						av_position[i] = ms;
 						numTracks++;
 					}
 				}
@@ -614,7 +619,7 @@ void MonitorAV( InterfacePlayerRDK *pInterfacePlayerRDK )
 					description = "trickplay";
 					break;
 				case 2:
-					if( abs(monitorAVState->av_position[0] - monitorAVState->av_position[1]) > AVSYNC_THRESHOLD_MS )
+					if( abs(av_position[0] - av_position[1]) > AVSYNC_THRESHOLD_MS )
 					{
 						happyNow = false;
 						if( !description )
@@ -624,38 +629,32 @@ void MonitorAV( InterfacePlayerRDK *pInterfacePlayerRDK )
 					}
 					else if( bigJump )
 					{ // workaround to detect decoders that jump over AV gaps without delay
-						happyNow = false;
 						description = "jump";
 					}
 					break;
 				default:
 					break;
 			}
-			if( monitorAVState->happy!=happyNow )
-			{
-				monitorAVState->noChangeCount = 0;
-				monitorAVState->reportingDelayMs = 0;
-				monitorAVState->happy = happyNow;
-			}
-			if( pInterfacePlayerRDK->m_gstConfigParam->progressLogging ||
-			   tNow >= monitorAVState->tLastReported + monitorAVState->reportingDelayMs )
-			{
-				if( !description )
-				{
-					description = "ok";
+			if( monitorAVState->description!=description )
+			{ // log only when interpretation of AV state has changed
+				if( monitorAVState->description )
+				{ // avoid logging for initial NULL description
+					MW_LOG_MIL( "%s: %" G_GINT64_FORMAT ", %" G_GINT64_FORMAT ", %lld",
+							   monitorAVState->description,
+							   monitorAVState->av_position[eGST_MEDIATYPE_VIDEO],
+							   monitorAVState->av_position[eGST_MEDIATYPE_AUDIO],
+							   monitorAVState->tLastSampled - monitorAVState->tLastReported );
 				}
-				MW_LOG_MIL( "vid=%" G_GINT64_FORMAT " aud=%" G_GINT64_FORMAT " %s (%ld)",
-						   monitorAVState->av_position[eGST_MEDIATYPE_VIDEO],
-						   monitorAVState->av_position[eGST_MEDIATYPE_AUDIO],
-						   description,
-						   monitorAVState->noChangeCount );
-				monitorAVState->tLastReported = tNow;
-				if( monitorAVState->reportingDelayMs < 60*1000 )
-				{
-					monitorAVState->reportingDelayMs += 1000; // in steady state, slow down frequency of reporting
-				}
+				MW_LOG_MIL( "%s: %" G_GINT64_FORMAT ", %" G_GINT64_FORMAT ", 0",
+							   description,
+								av_position[eGST_MEDIATYPE_VIDEO],
+								av_position[eGST_MEDIATYPE_AUDIO] );
+				monitorAVState->tLastReported = monitorAVState->tLastSampled;
+				monitorAVState->description = description;
 			}
-			monitorAVState->noChangeCount++;
+			// remember most recently sniffed pair of video and audio positions
+			monitorAVState->av_position[eGST_MEDIATYPE_VIDEO] = av_position[eGST_MEDIATYPE_VIDEO];
+			monitorAVState->av_position[eGST_MEDIATYPE_AUDIO] = av_position[eGST_MEDIATYPE_AUDIO];
 		}
 	}
 	else

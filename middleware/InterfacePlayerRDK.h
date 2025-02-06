@@ -269,9 +269,8 @@ struct MonitorAVState
 {
 	long long tLastReported;
 	long long tLastSampled;
+	const char *description;
 	gint64 av_position[2];
-	long reportingDelayMs;
-	long noChangeCount;
 	bool happy;
 };
 /**
