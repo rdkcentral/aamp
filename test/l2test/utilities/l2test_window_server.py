@@ -730,6 +730,8 @@ class WindowServer():
         server_path = os.path.abspath(getsourcefile(lambda: 0))
         self.logfile = open(self.logfile_path, "wb")
         print("start_window_server")
+        self.logfile.write("start_window_server\n".encode('utf-8'))
+        self.logfile.flush()
 
         if os.path.isfile(server_path):
             try:
@@ -737,18 +739,25 @@ class WindowServer():
                 print(cmd)
                 self.server_process = subprocess.Popen(cmd, cwd=self.testdata_path, stdout=self.logfile, stderr=self.logfile)
                 atexit.register(self.server_process.terminate)
+                time.sleep(3)  # Takes time to startup
                 return True
             except Exception as e:
                 print(f"Failed to start {server_path} {e}")
+                self.logfile.write(f"Failed to start {server_path} {e}\n".encode('utf-8'))
+                self.logfile.flush()
                 return False
         else:
             print("Error: server.py file not found "+ server_path)
+            self.logfile.write(f"Error: server.py file not found {server_path}\n".encode('utf-8'))
+            self.logfile.flush()
             return False
 
     def stop(self):
        
         if self.server_process:
             print("stop server")
+            self.logfile.write("stop server\n".encode('utf-8'))
+            self.logfile.flush()
             self.server_process.terminate()
             self.server_process = None
 
