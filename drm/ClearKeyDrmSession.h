@@ -30,7 +30,7 @@
 #include "_base64.h"
 
 #include <memory>
-#include <mutex>
+#include <pthread.h>
 #include <cjson/cJSON.h>
 
 using namespace std;
@@ -43,7 +43,7 @@ class ClearKeySession : public AampDrmSession
 {
 
 private:
-	std::mutex decryptMutex;
+	pthread_mutex_t decryptMutex;
 
 	KeyState m_eKeyState;
 	string m_sessionID;

@@ -25,11 +25,9 @@
 #include "AampCurlStore.h"
 #include "AampDefine.h"
 #include "AampUtils.h"
-#include <mutex>
 
 // Curl callback functions
-static std::mutex gCurlShMutex;
-
+static pthread_mutex_t gCurlShMutex = PTHREAD_MUTEX_INITIALIZER;
 /**
  * @brief
  * @param curl ptr to CURL instance
@@ -40,7 +38,7 @@ static std::mutex gCurlShMutex;
  */
 static void curl_lock_callback(CURL *curl, curl_lock_data data, curl_lock_access access, void *user_ptr)
 {
-	std::mutex *pCurlShareLock = NULL;
+	pthread_mutex_t *pCurlShareLock = NULL;
 	CurlDataShareLock *locks =(CurlDataShareLock *)user_ptr;
 
 	(void)access; /* unused */
@@ -51,23 +49,22 @@ static void curl_lock_callback(CURL *curl, curl_lock_data data, curl_lock_access
 		switch ( data )
 		{
 			case CURL_LOCK_DATA_DNS:
-				pCurlShareLock = &locks->mDnsCurlShareMutex;
-				break;
+			pCurlShareLock = &(locks->mDnsCurlShareMutex);
+			break;
 			case CURL_LOCK_DATA_SSL_SESSION:
-				pCurlShareLock = &locks->mSslCurlShareMutex;
-				break;
+			pCurlShareLock = &(locks->mSslCurlShareMutex);
+			break;
+
 			default:
-				pCurlShareLock = &locks->mCurlSharedlock;
-				break;
+			pCurlShareLock = &(locks->mCurlSharedlock);
+			break;
 		}
-		if( pCurlShareLock )
-		{
-			pCurlShareLock->lock();
-		}
+
+		pthread_mutex_lock(pCurlShareLock);
 	}
 	else
 	{
-		gCurlShMutex.lock();
+		pthread_mutex_lock(&gCurlShMutex);
 	}
 }
 
@@ -80,7 +77,7 @@ static void curl_lock_callback(CURL *curl, curl_lock_data data, curl_lock_access
  */
 static void curl_unlock_callback(CURL *curl, curl_lock_data data, void *user_ptr)
 {
-	std::mutex *pCurlShareLock = NULL;
+	pthread_mutex_t *pCurlShareLock = NULL;
 	CurlDataShareLock *locks =(CurlDataShareLock *)user_ptr;
 
 	(void)curl; /* unused */
@@ -90,23 +87,22 @@ static void curl_unlock_callback(CURL *curl, curl_lock_data data, void *user_ptr
 		switch ( data )
 		{
 			case CURL_LOCK_DATA_DNS:
-				pCurlShareLock = &locks->mDnsCurlShareMutex;
-				break;
+			pCurlShareLock = &(locks->mDnsCurlShareMutex);
+			break;
 			case CURL_LOCK_DATA_SSL_SESSION:
-				pCurlShareLock = &locks->mSslCurlShareMutex;
-				break;
+			pCurlShareLock = &(locks->mSslCurlShareMutex);
+			break;
+
 			default:
-				pCurlShareLock = &locks->mCurlSharedlock;
-				break;
+			pCurlShareLock = &(locks->mCurlSharedlock);
+			break;
 		}
-		if( pCurlShareLock )
-		{
-			pCurlShareLock->unlock();
-		}
+
+		pthread_mutex_unlock(pCurlShareLock);
 	}
 	else
 	{
-		gCurlShMutex.unlock();
+		pthread_mutex_unlock(&gCurlShMutex);
 	}
 }
 
@@ -204,11 +200,12 @@ CURLcode ssl_callback(CURL *curl, void *ssl_ctx, void *user_ptr)
 	PrivateInstanceAAMP *context = (PrivateInstanceAAMP *)user_ptr;
 	AAMPLOG_TRACE("priv aamp :%p", context);
 	CURLcode rc = CURLE_OK;
-	std::lock_guard<std::recursive_mutex> guard(context->mLock);
+	pthread_mutex_lock(&context->mLock);
 	if (!context->mDownloadsEnabled)
 	{
 		rc = CURLE_ABORTED_BY_CALLBACK ; // CURLE_ABORTED_BY_CALLBACK
 	}
+	pthread_mutex_unlock(&context->mLock);
 	return rc;
 }
 
@@ -562,7 +559,11 @@ CurlStore::~CurlStore()
 
 		if(CurlSock->mCurlShared)
 		{
+			CurlDataShareLock *locks = CurlSock->pstShareLocks;
 			(void)curl_share_cleanup(CurlSock->mCurlShared);
+			pthread_mutex_destroy(&locks->mCurlSharedlock);
+			pthread_mutex_destroy(&locks->mDnsCurlShareMutex);
+			pthread_mutex_destroy(&locks->mSslCurlShareMutex);
 			SAFE_DELETE(CurlSock->pstShareLocks);
 		}
 
@@ -878,7 +879,12 @@ void CurlStore::RemoveCurlSock ( void )
 
 		if(RmCurlSock->mCurlShared)
 		{
+			CurlDataShareLock *locks = RmCurlSock->pstShareLocks;
 			curl_share_cleanup(RmCurlSock->mCurlShared);
+
+			pthread_mutex_destroy(&locks->mCurlSharedlock);
+			pthread_mutex_destroy(&locks->mDnsCurlShareMutex);
+			pthread_mutex_destroy(&locks->mSslCurlShareMutex);
 			SAFE_DELETE(RmCurlSock->pstShareLocks);
 		}
 
@@ -926,7 +932,12 @@ void CurlStore::FlushCurlSockForHost(const std::string &hostname)
 			if(RmCurlSock->mCurlShared)
 			{
 				AAMPLOG_INFO("cleaning up curl shared context %p",RmCurlSock->mCurlShared);
+				CurlDataShareLock *locks = RmCurlSock->pstShareLocks;
 				curl_share_cleanup(RmCurlSock->mCurlShared);
+
+				pthread_mutex_destroy(&locks->mCurlSharedlock);
+				pthread_mutex_destroy(&locks->mDnsCurlShareMutex);
+				pthread_mutex_destroy(&locks->mSslCurlShareMutex);
 				SAFE_DELETE(RmCurlSock->pstShareLocks);
 			}
 			else

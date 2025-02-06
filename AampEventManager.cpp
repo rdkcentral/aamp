@@ -47,7 +47,7 @@ guint AampEventManager::GetSourceID()
  * @brief Default Constructor
  */
 AampEventManager::AampEventManager(int playerId): mIsFakeTune(false),
-					mAsyncTuneEnabled(false),mEventPriority(G_PRIORITY_DEFAULT_IDLE),mMutexVar(),
+					mAsyncTuneEnabled(false),mEventPriority(G_PRIORITY_DEFAULT_IDLE),mMutexVar(PTHREAD_MUTEX_INITIALIZER),
 					mPlayerState(eSTATE_IDLE),mEventWorkerDataQue(),mPendingAsyncEvents(),mPlayerId(playerId)
 {
 	for (int i = 0; i < AAMP_MAX_NUM_EVENTS; i++)
@@ -65,7 +65,7 @@ AampEventManager::~AampEventManager()
 
 	// Clear all event listeners and pending events
 	FlushPendingEvents();
-	std::lock_guard<std::mutex> guard(mMutexVar);
+	pthread_mutex_lock(&mMutexVar);
 	for (int i = 0; i < AAMP_MAX_NUM_EVENTS; i++)
 	{
 		while (mEventListeners[i] != NULL)
@@ -75,6 +75,8 @@ AampEventManager::~AampEventManager()
 			SAFE_DELETE(pListener);
 		}
 	}
+	pthread_mutex_unlock(&mMutexVar);
+	pthread_mutex_destroy(&mMutexVar);
 }
 
 /**
@@ -82,7 +84,7 @@ AampEventManager::~AampEventManager()
  */
 void AampEventManager::FlushPendingEvents()
 {
-	std::lock_guard<std::mutex> guard(mMutexVar);
+	pthread_mutex_lock(&mMutexVar);
 	while(!mEventWorkerDataQue.empty())
 	{
 		// Remove each AampEventPtr from the queue , not deleting the Shard_ptr
@@ -106,12 +108,15 @@ void AampEventManager::FlushPendingEvents()
 
 	for (int i = 0; i < AAMP_MAX_NUM_EVENTS; i++)
 		mEventStats[i] = 0;
+	pthread_mutex_unlock(&mMutexVar);
+
 #ifdef EVENT_DEBUGGING
 	for (int i = 0; i < AAMP_MAX_NUM_EVENTS; i++)
 	{
 		AAMPLOG_WARN("EventType[%d]->[%d]",i,mEventStats[i]);
 	}
 #endif
+
 }
 
 /**
@@ -155,10 +160,11 @@ void AampEventManager::AddEventListener(AAMPEventType eventType, EventListener* 
 		if (pListener)
 		{
 			AAMPLOG_INFO("EventType:%d, Listener %p new %p", eventType, eventListener, pListener);
-			std::lock_guard<std::mutex> guard(mMutexVar);
+			pthread_mutex_lock(&mMutexVar);
 			pListener->eventListener = eventListener;
 			pListener->pNext = mEventListeners[eventType];
 			mEventListeners[eventType] = pListener;
+			pthread_mutex_unlock(&mMutexVar);
 		}
 	}
 	else
@@ -175,7 +181,7 @@ void AampEventManager::RemoveEventListener(AAMPEventType eventType, EventListene
 	// listener instance is cleared here , but created outside
 	if ((eventListener != NULL) && (eventType >= AAMP_EVENT_ALL_EVENTS) && (eventType < AAMP_MAX_NUM_EVENTS))
 	{
-		std::lock_guard<std::mutex> guard(mMutexVar);
+		pthread_mutex_lock(&mMutexVar);
 		ListenerData** ppLast = &mEventListeners[eventType];
 		while (*ppLast != NULL)
 		{
@@ -183,12 +189,14 @@ void AampEventManager::RemoveEventListener(AAMPEventType eventType, EventListene
 			if (pListener->eventListener == eventListener)
 			{
 				*ppLast = pListener->pNext;
+				pthread_mutex_unlock(&mMutexVar);
 				AAMPLOG_INFO("Eventtype:%d %p delete %p", eventType, eventListener, pListener);
 				SAFE_DELETE(pListener);
 				return;
 			}
 			ppLast = &(pListener->pNext);
 		}
+		pthread_mutex_unlock(&mMutexVar);
 	}
 }
 
@@ -198,11 +206,12 @@ void AampEventManager::RemoveEventListener(AAMPEventType eventType, EventListene
 bool AampEventManager::IsSpecificEventListenerAvailable(AAMPEventType eventType)
 {	
 	bool retVal=false;
-	std::lock_guard<std::mutex> guard(mMutexVar);
+	pthread_mutex_lock(&mMutexVar);
 	if(eventType > AAMP_EVENT_ALL_EVENTS &&  eventType < AAMP_MAX_NUM_EVENTS && mEventListeners[eventType])
 	{
 		retVal = true;
 	}
+	pthread_mutex_unlock(&mMutexVar);
 	return retVal;
 }
 
@@ -212,11 +221,12 @@ bool AampEventManager::IsSpecificEventListenerAvailable(AAMPEventType eventType)
 bool AampEventManager::IsEventListenerAvailable(AAMPEventType eventType)
 {
 	bool retVal=false;
-	std::lock_guard<std::mutex> guard(mMutexVar);
+	pthread_mutex_lock(&mMutexVar);
 	if(eventType >= AAMP_EVENT_TUNED &&  eventType < AAMP_MAX_NUM_EVENTS && (mEventListeners[AAMP_EVENT_ALL_EVENTS] || mEventListeners[eventType]))
 	{
 		retVal = true;
 	}
+	pthread_mutex_unlock(&mMutexVar);
 	return retVal;
 }
 
@@ -225,8 +235,9 @@ bool AampEventManager::IsEventListenerAvailable(AAMPEventType eventType)
  */ 
 void AampEventManager::SetFakeTuneFlag(bool isFakeTuneSetting)
 {
-	std::lock_guard<std::mutex> guard(mMutexVar);
+	pthread_mutex_lock(&mMutexVar);
 	mIsFakeTune = isFakeTuneSetting;
+	pthread_mutex_unlock(&mMutexVar);
 }
 
 /**
@@ -234,7 +245,7 @@ void AampEventManager::SetFakeTuneFlag(bool isFakeTuneSetting)
  */ 
 void AampEventManager::SetAsyncTuneState(bool isAsyncTuneSetting)
 {
-	std::lock_guard<std::mutex> guard(mMutexVar);
+	pthread_mutex_lock(&mMutexVar);
 	mAsyncTuneEnabled = isAsyncTuneSetting;
 	if(mAsyncTuneEnabled)
 	{
@@ -244,6 +255,7 @@ void AampEventManager::SetAsyncTuneState(bool isAsyncTuneSetting)
 	{
 		mEventPriority = G_PRIORITY_DEFAULT_IDLE;
 	}
+	pthread_mutex_unlock(&mMutexVar);
 }
 
 /**
@@ -251,8 +263,9 @@ void AampEventManager::SetAsyncTuneState(bool isAsyncTuneSetting)
  */
 void AampEventManager::SetPlayerState(PlayerState state)
 {
-	std::lock_guard<std::mutex> guard(mMutexVar);
+	pthread_mutex_lock(&mMutexVar);
 	mPlayerState = state;
+	pthread_mutex_unlock(&mMutexVar);
 }
 
 /**
@@ -308,19 +321,17 @@ void AampEventManager::SendEvent(const AAMPEventPtr &eventData, AAMPEventMode ev
  */ 
 void AampEventManager::AsyncEvent()
 {
+	pthread_mutex_lock(&mMutexVar);
 	AAMPEventPtr eventData=NULL;
+	// pop out the event to sent in async mode
+	if(mEventWorkerDataQue.size())
 	{
-		std::lock_guard<std::mutex> guard(mMutexVar);
-		// pop out the event to sent in async mode
-		if(mEventWorkerDataQue.size())
-		{
-			eventData = (AAMPEventPtr)mEventWorkerDataQue.front();
-			mEventWorkerDataQue.pop();
-		}
+		eventData = (AAMPEventPtr)mEventWorkerDataQue.front();
+		mEventWorkerDataQue.pop();
 	}
+	pthread_mutex_unlock(&mMutexVar);
 	// Push the new event in sync mode from the idle task
-	if(eventData && (IsEventListenerAvailable(eventData->getType())) && (mPlayerState != eSTATE_RELEASED))
-	{
+	if(eventData && (IsEventListenerAvailable(eventData->getType())) && (mPlayerState != eSTATE_RELEASED)) {
 		SendEventSync(eventData);
 	}
 }
@@ -331,20 +342,23 @@ void AampEventManager::AsyncEvent()
 void AampEventManager::SendEventAsync(const AAMPEventPtr &eventData)
 {
 	AAMPEventType eventType = eventData->getType();
-	std::unique_lock<std::mutex> lock(mMutexVar);
+	pthread_mutex_lock(&mMutexVar);
 	// Check if already player in release state , then no need to send any events
 	if(mPlayerState != eSTATE_RELEASED)
 	{
 		AAMPLOG_INFO("Sending event %d to AsyncQ", eventType);
 		mEventWorkerDataQue.push(eventData);
-		lock.unlock();
+		pthread_mutex_unlock(&mMutexVar);
 		// Every event need a idle task to execute it
 		guint callbackID = g_idle_add_full(mEventPriority, EventManagerThreadFunction, this, NULL);
 		if(callbackID != 0)
 		{
 			SetCallbackAsPending(callbackID);
 		}
+		return;
 	}
+	pthread_mutex_unlock(&mMutexVar);
+	return;
 }
 
 
@@ -354,7 +368,7 @@ void AampEventManager::SendEventAsync(const AAMPEventPtr &eventData)
 void AampEventManager::SendEventSync(const AAMPEventPtr &eventData)
 {
 	AAMPEventType eventType = eventData->getType();
-	std::unique_lock<std::mutex> lock(mMutexVar);
+	pthread_mutex_lock(&mMutexVar);
 #ifdef EVENT_DEBUGGING
 	long long startTime = NOW_STEADY_TS_MS;
 #endif
@@ -362,6 +376,7 @@ void AampEventManager::SendEventSync(const AAMPEventPtr &eventData)
 	// Its checked again here ,as async events can come to sync mode after playback is stopped 
 	if(mPlayerState == eSTATE_RELEASED)
 	{
+		pthread_mutex_unlock(&mMutexVar);
 		return;
 	}
 	
@@ -399,7 +414,7 @@ void AampEventManager::SendEventSync(const AAMPEventPtr &eventData)
 		pList = pNew;
 		pListener = pListener->pNext;
 	}
-	lock.unlock();
+	pthread_mutex_unlock(&mMutexVar);
 
 	// After releasing the lock, dispatch each of the registered listeners.
 	// This allows event handlers to add/remove listeners for future events.
@@ -424,7 +439,7 @@ void AampEventManager::SendEventSync(const AAMPEventPtr &eventData)
  */
 void AampEventManager::SetCallbackAsDispatched(guint id)
 {
-	std::lock_guard<std::mutex> guard(mMutexVar);
+	pthread_mutex_lock(&mMutexVar);
 	AsyncEventListIter  itr = mPendingAsyncEvents.find(id);
 	if(itr != mPendingAsyncEvents.end())
 	{
@@ -437,6 +452,7 @@ void AampEventManager::SetCallbackAsDispatched(guint id)
 		AAMPLOG_TRACE("id:%d not in mPendingAsyncEvents, insert and mark as not pending", id);
 		mPendingAsyncEvents[id] = false;
 	}
+	pthread_mutex_unlock(&mMutexVar);
 }
 
 /**
@@ -444,7 +460,7 @@ void AampEventManager::SetCallbackAsDispatched(guint id)
  */ 
 void AampEventManager::SetCallbackAsPending(guint id)
 {
-	std::lock_guard<std::mutex> guard(mMutexVar);
+	pthread_mutex_lock(&mMutexVar);
 	AsyncEventListIter  itr = mPendingAsyncEvents.find(id);
 	if(itr != mPendingAsyncEvents.end())
 	{
@@ -457,4 +473,5 @@ void AampEventManager::SetCallbackAsPending(guint id)
 		mPendingAsyncEvents[id] = true;
 		AAMPLOG_TRACE("id:%d in mPendingAsyncEvents, added to list", id);
 	}
+	pthread_mutex_unlock(&mMutexVar);
 }

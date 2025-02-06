@@ -114,6 +114,8 @@ class AampOutputProtection : public ReferenceCount
 private:
 
 
+    pthread_mutex_t         m_opProtectMutex;
+
     int                     m_sourceWidth;
     int                     m_sourceHeight;
     int                     m_displayWidth;

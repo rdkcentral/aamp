@@ -39,6 +39,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include "priv_aamp.h"
+#include <pthread.h>
 #include <signal.h>
 #include <semaphore.h>
 #include <math.h>
@@ -477,7 +478,7 @@ void StreamAbstractionAAMP_HLS::InitiateDrmProcess()
 	/** If fragments are CDM encrypted KC **/
 	if (aamp->fragmentCdmEncrypted && ISCONFIGSET(eAAMPConfig_Fragmp4PrefetchLicense))
 	{
-		std::lock_guard<std::mutex> guard(aamp->drmParserMutex);
+		pthread_mutex_lock(&aamp->drmParserMutex);
 		std::shared_ptr<AampDrmHelper> drmHelperToUse = nullptr;
 		for (int i = 0; i < aamp->aesCtrAttrDataList.size(); i++ )
 		{
@@ -500,6 +501,7 @@ void StreamAbstractionAAMP_HLS::InitiateDrmProcess()
 			/** Queue content protection in DRM license fetcher **/
 			sessionMgr->QueueContentProtection(drmHelperToUse, "1", 0, eMEDIATYPE_VIDEO);
 		}
+		pthread_mutex_unlock(&aamp->drmParserMutex);
 	}
 #endif
 }
@@ -662,16 +664,15 @@ AAMPStatusType StreamAbstractionAAMP_HLS::ParseMainManifest()
 					if (ISCONFIGSET(eAAMPConfig_Fragmp4PrefetchLicense))
 					{
 						std::string KeyTagStr = ptr.tostring();
-						{
-							std::lock_guard<std::mutex> guard(aamp->drmParserMutex);
-							attrNameData* aesCtrAttrData = new attrNameData(KeyTagStr);
-							if (std::find(aamp->aesCtrAttrDataList.begin(), aamp->aesCtrAttrDataList.end(),
-										  *aesCtrAttrData) == aamp->aesCtrAttrDataList.end()) {
-								AAMPLOG_INFO("Adding License data from Main Manifest %s",KeyTagStr.c_str());
-								aamp->aesCtrAttrDataList.push_back(*aesCtrAttrData);
-							}
-							SAFE_DELETE(aesCtrAttrData);
+						pthread_mutex_lock(&aamp->drmParserMutex);
+						attrNameData* aesCtrAttrData = new attrNameData(KeyTagStr);
+						if (std::find(aamp->aesCtrAttrDataList.begin(), aamp->aesCtrAttrDataList.end(),
+									*aesCtrAttrData) == aamp->aesCtrAttrDataList.end()) {
+							AAMPLOG_INFO("Adding License data from Main Manifest %s",KeyTagStr.c_str());
+							aamp->aesCtrAttrDataList.push_back(*aesCtrAttrData);
 						}
+						SAFE_DELETE(aesCtrAttrData);
+						pthread_mutex_unlock(&aamp->drmParserMutex);
 						aamp->fragmentCdmEncrypted = true;
 						InitiateDrmProcess();
 					}
@@ -1085,18 +1086,17 @@ lstring TrackState::GetNextFragmentUriFromPlaylist(bool& reloadUri, bool ignoreD
 								ReleasePlaylistLock();
 								AAMPLOG_WARN("%s Acquiring Discontinuity mutex playlist Indexed:%lld", name, playlistIndexedTimeMS);
 								// Acquire discontinuity ongoing lock
+								pthread_mutex_lock(&context->mDiscoCheckMutex);
+								AAMPLOG_WARN("%s Checking HasDiscontinuity for position :%f, playposition :%f playtarget:%f", name, position.inSeconds(), playPosition.inSeconds(), playTarget.inSeconds());
 								bool isDiffChkReq=true;
-								{
-									std::lock_guard<std::mutex> guard(context->mDiscoCheckMutex);
-									AAMPLOG_WARN("%s Checking HasDiscontinuity for position :%f, playposition :%f playtarget:%f", name, position.inSeconds(), playPosition.inSeconds(), playTarget.inSeconds());
-									bool result = other->HasDiscontinuityAroundPosition(position.inSeconds(), (NULL != programDateTime), diff, playPosition.inSeconds(), iCulledSeconds.inSeconds(), iProgramDateTime.inSeconds(), isDiffChkReq);
+								bool result = other->HasDiscontinuityAroundPosition(position.inSeconds(), (NULL != programDateTime), diff, playPosition.inSeconds(), iCulledSeconds.inSeconds(), iProgramDateTime.inSeconds(), isDiffChkReq);
 
-									if (false == result)
-									{
-										AAMPLOG_WARN("[%s] Ignoring discontinuity as %s track does not have discontinuity", name, other->name);
-										discontinuity = false;
-									}
+								if (false == result)
+								{
+									AAMPLOG_WARN("[%s] Ignoring discontinuity as %s track does not have discontinuity", name, other->name);
+									discontinuity = false;
 								}
+								pthread_mutex_unlock(&context->mDiscoCheckMutex);
 								AAMPLOG_WARN("%s Released Discontinuity mutex last playlist Indexed:%lld", name, lastPlaylistIndexedTimeMS);
 								AcquirePlaylistLock();
 								if (playlistIndexedTimeMS != lastPlaylistIndexedTimeMS)
@@ -1729,6 +1729,13 @@ void TrackState::FetchFragment()
 		{
 			AAMPLOG_WARN("%s cachedFragment->fragment.ptr is NULL", name);
 		}
+
+#ifdef AAMP_DEBUG_INJECT
+		if ((1 << type) & AAMP_DEBUG_INJECT)
+		{
+			cachedFragment->uri = fragmentURI;
+		}
+#endif
 		mSkipAbr = false; //To enable ABR since we have cached fragment after init fragment
 		UpdateTSAfterFetch(false);
 	}
@@ -1772,13 +1779,24 @@ void TrackState::InjectFragmentInternal(CachedFragment* cachedFragment, bool &fr
 				aamp->SendStreamCopy(type, buf.data(), buf.size(), info.pts_s, info.dts_s, info.duration);
 			}
 		};
+
+#ifdef AAMP_DEBUG_INJECT
+		AAMPLOG_INFO(" %p [%u] - Starting fragment injection - uri: %s",
+			this, static_cast<uint16_t>(type), cachedFragment->uri.c_str());
+#endif
 		fragmentDiscarded = !playContext->sendSegment( &cachedFragment->fragment,
 			position.inSeconds(),
 			cachedFragment->duration,
 			isDiscontinuity,
 			cachedFragment->initFragment,
 			processor,
-			ptsError );
+			ptsError
+			);
+
+#ifdef AAMP_DEBUG_INJECT
+		AAMPLOG_INFO(" %p [%u] - Completed fragment injection - uri: %s",
+			this, static_cast<uint16_t>(type), cachedFragment->uri.c_str());
+#endif
 	}
 	else
 	{
@@ -2111,17 +2129,16 @@ void TrackState::IndexPlaylist(bool IsRefresh, AampTime &culledSec)
 					if(mDrmMethod == eDRM_KEY_METHOD_SAMPLE_AES_CTR){
 #ifdef AAMP_HLS_DRM
 						if (ISCONFIGSET(eAAMPConfig_Fragmp4PrefetchLicense)){
-							{
-								std::lock_guard<std::mutex> guard(aamp->drmParserMutex);
-								attrNameData* aesCtrAttrData = new attrNameData(keyinfo.mKeyTagStr);
-								if (std::find(aamp->aesCtrAttrDataList.begin(), aamp->aesCtrAttrDataList.end(),
-											  *aesCtrAttrData) == aamp->aesCtrAttrDataList.end()) {
-									// attrName not in aesCtrAttrDataList, add it
-									aamp->aesCtrAttrDataList.push_back(*aesCtrAttrData);
-								}
-								/** No more use **/
-								SAFE_DELETE(aesCtrAttrData);
+							pthread_mutex_lock(&aamp->drmParserMutex);
+							attrNameData* aesCtrAttrData = new attrNameData(keyinfo.mKeyTagStr);
+							if (std::find(aamp->aesCtrAttrDataList.begin(), aamp->aesCtrAttrDataList.end(),
+									*aesCtrAttrData) == aamp->aesCtrAttrDataList.end()) {
+								// attrName not in aesCtrAttrDataList, add it
+								aamp->aesCtrAttrDataList.push_back(*aesCtrAttrData);
 							}
+							/** No more use **/
+							SAFE_DELETE(aesCtrAttrData);
+							pthread_mutex_unlock(&aamp->drmParserMutex);
 							/** Mark as CDM encryption is found in HLS **/
 							aamp->fragmentCdmEncrypted = true;
 							context->InitiateDrmProcess();
@@ -2297,7 +2314,7 @@ void TrackState::ABRProfileChanged()
 	{
 		AAMPLOG_TRACE("playlistPosition %f", playlistPosition.inSeconds());
 		aamp_ResolveURL(mPlaylistUrl, aamp->GetManifestUrl(), pcontext.c_str(), ISCONFIGSET(eAAMPConfig_PropagateURIParam));
-		std::lock_guard<std::mutex> guard(mutex);
+		pthread_mutex_lock(&mutex);
 		//playlistPosition reset will be done by RefreshPlaylist once playlist downloaded successfully
 		//refreshPlaylist is used to reset the profile index if playlist download fails! Be careful with it.
 		//Video profile change will definitely require new init headers
@@ -2305,6 +2322,7 @@ void TrackState::ABRProfileChanged()
 		refreshPlaylist = true;
 		/*For some VOD assets, different video profiles have different DRM meta-data.*/
 		mForceProcessDrmMetadata = true;
+		pthread_mutex_unlock(&mutex);
 	}
 	else
 	{
@@ -2384,7 +2402,7 @@ void TrackState::ProcessPlaylist(AampGrowableBuffer& newPlaylist, int http_error
 			manifestDLFailCount = 0;
 		}
 		lastPlaylistIndexedTimeMS = aamp_GetCurrentTimeMS();
-		mPlaylistIndexed.notify_one();
+		pthread_cond_signal(&mPlaylistIndexed);
 		ReleasePlaylistLock();
 	}
 	else
@@ -2427,18 +2445,16 @@ void TrackState::ProcessPlaylist(AampGrowableBuffer& newPlaylist, int http_error
  * @brief Acquire playlist lock.
  */
 void TrackState::AcquirePlaylistLock()
-{ // TBR - use (scoped) lock directly
-	// We need to implement HLSDownloader module which would deprecate this mutex altogether
-	mPlaylistMutex.lock();
+{
+	(void)pthread_mutex_lock(&mPlaylistMutex);
 }
 
 /**
  * @brief Release playlist lock.
  */
 void TrackState::ReleasePlaylistLock()
-{ // TBR - use (scoped) lock directly
-	// We need to implement HLSDownloader module which would deprecate this mutex altogether
-	mPlaylistMutex.unlock();
+{
+	(void)pthread_mutex_unlock(&mPlaylistMutex);
 }
 
 /**
@@ -4706,7 +4722,7 @@ void TrackState::SwitchSubtitleTrack()
 {
 	if (eTRACK_SUBTITLE == type && mSubtitleParser)
 	{
-		std::lock_guard<std::mutex> guard(mutex);
+		pthread_mutex_lock(&mutex);
 
 		AAMPLOG_INFO("Preparing to flush fragments and switch playlist");
 		// Flush all counters, reset the playlist URL and refresh the playlist
@@ -4736,6 +4752,8 @@ void TrackState::SwitchSubtitleTrack()
 		context->AbortWaitForAudioTrackCatchup(true);
 
 		mSubtitleParser->init(aamp->GetPositionSeconds(), aamp->GetBasePTS());
+
+		pthread_mutex_unlock(&mutex);
 	}
 }
 
@@ -4826,31 +4844,31 @@ void TrackState::RunFetchLoop()
 				SwitchSubtitleTrack();
 			}
 
+			pthread_mutex_lock(&mutex);
+			if(refreshPlaylist)
 			{
-				std::lock_guard<std::mutex> guard(mutex);
-				if(refreshPlaylist)
+				// Refresh playlist for ABR
+				AAMPLOG_INFO("Refreshing '%s' playlist for ABR", name);
+				if(aamp->IsLive())
 				{
-					// Refresh playlist for ABR
-					AAMPLOG_INFO("Refreshing '%s' playlist for ABR", name);
-					if(aamp->IsLive())
-					{
-						// Abort ongoing playlist download if any.
-						aamp->DisableMediaDownloads(playlistMediaType);
-						// Abort playlist timed wait for immediate download.
-						AbortWaitForPlaylistDownload();
-						// Notify that fragment collector is waiting
-						NotifyFragmentCollectorWait();
-						WaitForManifestUpdate();
-					}
-					else
-					{
-						// Download VOD playlist for new profile
-						PlaylistDownloader();
-					}
-					refreshPlaylist = false;
-					isFirstFragmentAfterABR = true;
+					// Abort ongoing playlist download if any.
+					aamp->DisableMediaDownloads(playlistMediaType);
+					// Abort playlist timed wait for immediate download.
+					AbortWaitForPlaylistDownload();
+					// Notify that fragment collector is waiting
+					NotifyFragmentCollectorWait();
+					WaitForManifestUpdate();
 				}
+				else
+				{
+					// Download VOD playlist for new profile
+					PlaylistDownloader();
+				}
+				refreshPlaylist = false;
+
+				isFirstFragmentAfterABR = true;
 			}
+			pthread_mutex_unlock(&mutex);
 		}
 		// reached end of vod stream
 		//teststreamer_EndOfStreamReached();
@@ -4957,6 +4975,7 @@ StreamAbstractionAAMP_HLS::StreamAbstractionAAMP_HLS(class PrivateInstanceAAMP *
 	aamp->CurlInit(eCURLINSTANCE_VIDEO, DEFAULT_CURL_INSTANCE_COUNT,aamp->GetNetworkProxy());
 	// Initializing curl instances for playlists.
 	aamp->CurlInit(eCURLINSTANCE_MANIFEST_PLAYLIST_VIDEO, AAMP_TRACK_COUNT, aamp->GetNetworkProxy());
+	pthread_mutex_init(&mDiscoCheckMutex, NULL);
 }
 
 
@@ -5000,6 +5019,9 @@ TrackState::TrackState(TrackType type, StreamAbstractionAAMP_HLS* parent, Privat
 	//memset(&startTimeForPlaylistSync, 0, sizeof(struct timeval));
 	mDrmMetaDataIndex.Clear();
 	mDiscontinuityIndex.Clear();
+	pthread_cond_init(&mPlaylistIndexed, NULL);
+	pthread_mutex_init(&mPlaylistMutex, NULL);
+	pthread_mutex_init(&mTrackDrmMutex, NULL);
 	mCulledSecondsAtStart = aamp->culledSeconds;
 	mProgramDateTime = aamp->mProgramDateTime;
 	AAMPLOG_INFO("Restore PDT (%f) ",mProgramDateTime.inSeconds());
@@ -5031,6 +5053,9 @@ TrackState::~TrackState()
 		free(mDrmInfo.iv);
 		mDrmInfo.iv = NULL;
 	}
+	pthread_cond_destroy(&mPlaylistIndexed);
+	pthread_mutex_destroy(&mPlaylistMutex);
+	pthread_mutex_destroy(&mTrackDrmMutex);
 }
 
 
@@ -5094,6 +5119,7 @@ StreamAbstractionAAMP_HLS::~StreamAbstractionAAMP_HLS()
 	aamp->CurlTerm(eCURLINSTANCE_VIDEO, DEFAULT_CURL_INSTANCE_COUNT);
 	aamp->CurlTerm(eCURLINSTANCE_MANIFEST_PLAYLIST_VIDEO, AAMP_TRACK_COUNT);
 	aamp->SyncEnd();
+	pthread_mutex_destroy(&mDiscoCheckMutex);
 }
 
 /**
@@ -5538,9 +5564,9 @@ const std::unique_ptr<aamp::MetadataProcessorIntf> & StreamAbstractionAAMP_HLS::
  */
 DrmReturn TrackState::DrmDecrypt( CachedFragment * cachedFragment, ProfilerBucketType bucketTypeFragmentDecrypt)
 {
-	DrmReturn drmReturn = eDRM_ERROR;
-	{
-		std::lock_guard<std::mutex> guard(mTrackDrmMutex);
+		DrmReturn drmReturn = eDRM_ERROR;
+
+		pthread_mutex_lock(&mTrackDrmMutex);
 		if (aamp->DownloadsAreEnabled())
 		{
 			// Update the DRM Context , if current active Drm Session is not received (mDrm)
@@ -5557,16 +5583,17 @@ DrmReturn TrackState::DrmDecrypt( CachedFragment * cachedFragment, ProfilerBucke
 			if(mDrm)
 			{
 				drmReturn = mDrm->Decrypt(bucketTypeFragmentDecrypt, cachedFragment->fragment.GetPtr(),
-										  cachedFragment->fragment.GetLen(), MAX_LICENSE_ACQ_WAIT_TIME);
-				
+						cachedFragment->fragment.GetLen(), MAX_LICENSE_ACQ_WAIT_TIME);
+
 			}
 		}
-	}
-	if (drmReturn != eDRM_SUCCESS)
-	{
-		aamp->profiler.ProfileError(bucketTypeFragmentDecrypt, drmReturn);
-	}
-	return drmReturn;
+		pthread_mutex_unlock(&mTrackDrmMutex);
+
+		if (drmReturn != eDRM_SUCCESS)
+		{
+			aamp->profiler.ProfileError(bucketTypeFragmentDecrypt, drmReturn);
+		}
+		return drmReturn;
 }
 
 /**
@@ -5970,8 +5997,7 @@ bool TrackState::HasDiscontinuityAroundPosition(AampTime position, bool useDisco
 	AampTime discDiscardToleranceInSec{3 * targetDurationSeconds}; /* Used by discontinuity handling logic to ensure both tracks have discontinuity tag around same area */
 	int playlistRefreshCount = 0;
 	diffBetweenDiscontinuities = DBL_MAX;
-
-	std::unique_lock<std::mutex> lock(mPlaylistMutex);
+	AcquirePlaylistLock();
 
 	while (aamp->DownloadsAreEnabled())
 	{
@@ -6087,7 +6113,7 @@ bool TrackState::HasDiscontinuityAroundPosition(AampTime position, bool useDisco
 					}
 				}
 				AAMPLOG_WARN("Wait for [%s] playlist update over for playlistRefreshCount %d", name, playlistRefreshCount);
-				mPlaylistIndexed.wait(lock);
+				pthread_cond_wait(&mPlaylistIndexed, &mPlaylistMutex);
 				playlistRefreshCount++;
 			}
 			else
@@ -6101,6 +6127,7 @@ bool TrackState::HasDiscontinuityAroundPosition(AampTime position, bool useDisco
 			break;
 		}
 	}
+	ReleasePlaylistLock();
 	return discontinuityFound;
 }
 
@@ -6446,8 +6473,9 @@ void StreamAbstractionAAMP_HLS::StartInjection(void)
 void TrackState::StopWaitForPlaylistRefresh()
 {
 	AAMPLOG_WARN("track [%s]", name);
-	std::lock_guard<std::mutex> guard(mPlaylistMutex);
-	mPlaylistIndexed.notify_one();
+	AcquirePlaylistLock();
+	pthread_cond_signal(&mPlaylistIndexed);
+	ReleasePlaylistLock();
 }
 
 /**
@@ -6464,8 +6492,9 @@ void TrackState::CancelDrmOperation(bool clearDRM)
 		{
 			if ((aamp->GetCurrentDRM() == nullptr) || (!aamp->GetCurrentDRM()->canCancelDrmSession()))
 			{
-				std::lock_guard<std::mutex> guard(mTrackDrmMutex);
+				pthread_mutex_lock(&mTrackDrmMutex);
 				mDrm->Release();
+				pthread_mutex_unlock(&mTrackDrmMutex);
 			}
 		}
 	}
@@ -7073,7 +7102,7 @@ void TrackState::SwitchAudioTrack()
 {
 	if (eTRACK_AUDIO == type)
 	{
-		std::lock_guard<std::mutex> guard(mutex);
+		pthread_mutex_lock(&mutex);
 		// We have an age-old issue to tackle here. playTarget and playlistPosition are hypothetical values as soon as the live window advances
 		// mediaSequence number is the source of truth for the playlist position thereafter. Hence we need to find the diff between
 		// relative positions in the playlist to find the jump
@@ -7115,6 +7144,7 @@ void TrackState::SwitchAudioTrack()
 		{
 			NotifyCachedAudioFragmentAvailable();
 			seamlessAudioSwitchInProgress = false;
+			pthread_mutex_unlock(&mutex);
 			return;
 		}
 		// Get the current playback position, we need to seek to this in the new playlist
@@ -7181,6 +7211,7 @@ void TrackState::SwitchAudioTrack()
 			AAMPLOG_INFO("video Injected Duration %f ",video->GetTotalInjectedDuration());
 		}
 		OffsetTrackParams(diffInFetchedDuration, diffInInjectedDuration, diffFragmentsDownloaded);
+		pthread_mutex_unlock(&mutex);
 	}
 }
 

@@ -28,8 +28,8 @@
 #include "isobmffbuffer.h"
 #include "mediaprocessor.h"
 #include "priv_aamp.h"
-#include <condition_variable>
-#include <mutex>
+
+#include <pthread.h>
 
 /**
  * @enum IsoBmffProcessorType
@@ -505,8 +505,8 @@ private:
 	std::mutex skipMutex;
 	skipTypeMap skipPointMap;
 	
-	std::mutex m_mutex;
-	std::condition_variable m_cond;
+	pthread_mutex_t m_mutex;
+	pthread_cond_t m_cond;
 };
 
 #endif /* __ISOBMFFPROCESSOR_H__ */

@@ -183,7 +183,7 @@ void WebVTTSubtecDevParser::pause(bool pause)
  */
 std::string WebVTTSubtecDevParser::getVttAsTtml()
 {	
-	std::lock_guard<std::mutex> guard(mVttQueueMutex);
+	pthread_mutex_lock(&mVttQueueMutex);
 	std::string ss;
 	int counter = 0;
 	
@@ -221,6 +221,9 @@ std::string WebVTTSubtecDevParser::getVttAsTtml()
 	ss += "</div>\n";
 	ss += "</body>\n";
 	ss += "</tt>\n";
+
+
+	pthread_mutex_unlock(&mVttQueueMutex);
 
 	return ss;
 }

@@ -22,8 +22,10 @@
  * @file gstaamptaskpool.cpp
  * @brief AAMP Gstreamer Task pool code
  */
+
 #include "gstaamptaskpool.h"
 #include <pthread.h>
+
 
 /**
  * @brief AampGstTaskId to store the threadId

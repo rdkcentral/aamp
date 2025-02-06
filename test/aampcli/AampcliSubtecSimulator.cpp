@@ -21,6 +21,7 @@
 
 #include <sys/socket.h>
 #include <sys/un.h>
+#include <pthread.h>
 #include <unistd.h>
 
 #include "SubtecPacket.hpp"		// needed for Packet class

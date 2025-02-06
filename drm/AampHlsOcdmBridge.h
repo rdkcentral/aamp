@@ -43,7 +43,7 @@ class AampHlsOcdmBridge : public HlsDrmBase
 	const DrmInfo* m_drmInfo;
 	AampDrmSession* m_drmSession;
 	PrivateInstanceAAMP* m_aampInstance;
-	std::mutex m_Mutex;
+	pthread_mutex_t m_Mutex;
 public:
 	AampHlsOcdmBridge(AampDrmSession * aampDrmSession);
 

@@ -34,6 +34,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "_base64.h"
+#include <pthread.h>
 #include <signal.h>
 #include <assert.h>
 #include <unistd.h>

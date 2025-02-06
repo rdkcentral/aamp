@@ -24,7 +24,10 @@
 
 #include "isobmffprocessor.h"
 #include "StreamAbstractionAAMP.h"
+
+#include <pthread.h>
 #include <assert.h>
+
 
 #define FLOATING_POINT_EPSILON 0.1 // workaround for floating point math precision issues
 #define DEFAULT_DURATION 0.0f
@@ -56,6 +59,8 @@ IsoBmffProcessor::IsoBmffProcessor(class PrivateInstanceAAMP *aamp, id3_callback
 	{
 		peerSubtitleProcessor->setPeerProcessor(this);
 	}
+	pthread_mutex_init(&m_mutex, NULL);
+	pthread_cond_init(&m_cond, NULL);
 	mediaFormat = p_aamp->GetMediaFormatTypeEnum();
 
 	// Sometimes AAMP pushes an encrypted init segment first to force decryptor plugin selection
@@ -77,6 +82,8 @@ IsoBmffProcessor::~IsoBmffProcessor()
 	AAMPLOG_DEBUG("IsoBmffProcessor %s instance (%p) getting destroyed", IsoBmffProcessorTypeName[type], this);
 	clearInitSegment();
 	clearRestampInitSegment();
+	pthread_mutex_destroy(&m_mutex);
+	pthread_cond_destroy(&m_cond);
 }
 
 /**
@@ -208,7 +215,7 @@ bool IsoBmffProcessor::setTuneTimePTS(AampGrowableBuffer *fragBuffer, double pos
 
 	AAMPLOG_INFO("IsoBmffProcessor:: %s sending segment at pos:%f dur:%f, aborted:%d", IsoBmffProcessorTypeName[type], position, duration, aborted);
 
-	std::unique_lock<std::mutex> lock(m_mutex);
+	pthread_mutex_lock(&m_mutex);
 	ret = !aborted;  // check the module is active
 
 	// Logic for Audio & Subtitle Track
@@ -239,7 +246,7 @@ bool IsoBmffProcessor::setTuneTimePTS(AampGrowableBuffer *fragBuffer, double pos
 				if (!processPTSComplete)
 				{
 					AAMPLOG_INFO("IsoBmffProcessor %s Going into wait for PTS processing to complete",  IsoBmffProcessorTypeName[type]);
-					m_cond.wait(lock);
+					pthread_cond_wait(&m_cond, &m_mutex);
 				}
 				if (aborted) // check there wasn't an abort during the wait
 				{
@@ -336,7 +343,9 @@ bool IsoBmffProcessor::setTuneTimePTS(AampGrowableBuffer *fragBuffer, double pos
 					// For post processing, release mutex
 					// If AAMP override hack is enabled for this platform, then we need to pass the basePTS value to
 					// PrivateInstanceAAMP since PTS will be restamped in qtdemux. This ensures proper pts value is sent in progress event.
-					lock.unlock();
+
+					pthread_mutex_unlock(&m_mutex);
+
 					p_aamp->NotifyFirstVideoPTS(basePTS, timeScale);
 					if (type == eBMFFPROCESSOR_TYPE_VIDEO)
 					{
@@ -362,7 +371,9 @@ bool IsoBmffProcessor::setTuneTimePTS(AampGrowableBuffer *fragBuffer, double pos
 					}
 					// This is one-time operation
 					peerListeners.clear();
-					lock.lock();
+
+					pthread_mutex_lock(&m_mutex);
+
 					if (!aborted)
 					{
 						pushInitSegment(pos);
@@ -385,6 +396,9 @@ bool IsoBmffProcessor::setTuneTimePTS(AampGrowableBuffer *fragBuffer, double pos
 	}
 
 	ret = ret && !aborted;
+
+	pthread_mutex_unlock(&m_mutex);
+
 	return (ret);
 }
 
@@ -1015,12 +1029,13 @@ void IsoBmffProcessor::updateSkipPoint(double skipPoint, double skipDuration )
  */
 void IsoBmffProcessor::waitForVideoPTS()
 {
-	std::unique_lock<std::mutex> lock(m_mutex);
+	pthread_mutex_lock(&m_mutex);
 	if( !scalingOfPTSComplete)
 	{
 		AAMPLOG_WARN("IsoBmffProcessor %s going in wait untill video PTS is ready", IsoBmffProcessorTypeName[type]);
-		m_cond.wait(lock);
+		pthread_cond_wait(&m_cond, &m_mutex);
 	}
+	pthread_mutex_unlock(&m_mutex);
 	AAMPLOG_WARN("IsoBmffProcessor %s Wait complete", IsoBmffProcessorTypeName[type]);
 }
 
@@ -1029,9 +1044,10 @@ void IsoBmffProcessor::waitForVideoPTS()
  */
 void IsoBmffProcessor::abortWaitForVideoPTS()
 {
-	std::unique_lock<std::mutex> lock(m_mutex);
+	pthread_mutex_lock(&m_mutex);
 	AAMPLOG_WARN("IsoBmffProcessor %s unblocking PTS restamp", IsoBmffProcessorTypeName[type]);
-	m_cond.notify_one();
+	pthread_cond_signal(&m_cond);
+	pthread_mutex_unlock(&m_mutex);
 	AAMPLOG_WARN("IsoBmffProcessor %s unblock complete", IsoBmffProcessorTypeName[type]);
 }
 
@@ -1043,10 +1059,9 @@ void IsoBmffProcessor::abortWaitForVideoPTS()
 void IsoBmffProcessor::reset()
 {
 	AAMPLOG_MIL(" %s IsoBmffProcessor::reset() called ", IsoBmffProcessorTypeName[type]);
-	{
-		std::lock_guard<std::mutex> guard(m_mutex);
-		aborted = false;
-	}
+	pthread_mutex_lock(&m_mutex);
+	aborted = false;
+	pthread_mutex_unlock(&m_mutex);
 	// reset variables that might have been set due to race conditions
 	resetInternal();
 }
@@ -1057,11 +1072,10 @@ void IsoBmffProcessor::reset()
 void IsoBmffProcessor::abort()
 {
 	AAMPLOG_WARN(" %s IsoBmffProcessor::abort() called ", IsoBmffProcessorTypeName[type]);
-	{
-		std::unique_lock<std::mutex> lock(m_mutex);
-		aborted = true;
-		m_cond.notify_one();
-	}
+	pthread_mutex_lock(&m_mutex);
+	aborted = true;
+	pthread_cond_signal(&m_cond);
+	pthread_mutex_unlock(&m_mutex);
 	resetInternal();
 }
 
@@ -1082,8 +1096,9 @@ void IsoBmffProcessor::internalResetRestampVariables()
  */
 void IsoBmffProcessor::resetRestampVariables()
 {
-	std::lock_guard<std::mutex> guard(m_mutex);
+	pthread_mutex_lock(&m_mutex);
 	internalResetRestampVariables();
+	pthread_mutex_unlock(&m_mutex);
 }
 
 /**
@@ -1091,12 +1106,13 @@ void IsoBmffProcessor::resetRestampVariables()
  */
 void IsoBmffProcessor::resetInternal()
 {
-	std::lock_guard<std::mutex> guard(m_mutex);
+	pthread_mutex_lock(&m_mutex);
 	internalResetRestampVariables();
 	basePTS = 0;
 	timeScale = 0;
 	processPTSComplete = false;
 	initSegmentProcessComplete = false;
+	pthread_mutex_unlock(&m_mutex);
 }
 
 /**
@@ -1113,22 +1129,24 @@ void IsoBmffProcessor::setRate(double rate, PlayMode mode)
 void IsoBmffProcessor::setBasePTS(uint64_t pts, uint32_t tScale)
 {
 	AAMPLOG_WARN("[%s] Base PTS (%" PRIu64 ") and TimeScale (%u) set",  IsoBmffProcessorTypeName[type], pts, tScale);
-	std::lock_guard<std::mutex> guard(m_mutex);
+	pthread_mutex_lock(&m_mutex);
 	basePTS = pts;
 	timeScale = tScale;
 	processPTSComplete = true;
-	m_cond.notify_one();
+	pthread_cond_signal(&m_cond);
+	pthread_mutex_unlock(&m_mutex);
 }
 
 std::pair<uint64_t, bool> IsoBmffProcessor::GetBasePTS()
 {
 	std::pair<uint64_t, bool> ret{0, false};
-	std::lock_guard<std::mutex> guard(m_mutex);
+	pthread_mutex_lock(&m_mutex);
 	if (processPTSComplete)
 	{
 		ret.first = basePTS;
 		ret.second = true;
 	}
+	pthread_mutex_unlock(&m_mutex);
 	return ret;
 }
 
@@ -1138,9 +1156,10 @@ std::pair<uint64_t, bool> IsoBmffProcessor::GetBasePTS()
 void IsoBmffProcessor::abortInjectionWait()
 {
 	AAMPLOG_WARN("[%s] Aborting wait for injection", IsoBmffProcessorTypeName[type]);
-	std::lock_guard<std::mutex> guard(m_mutex);
+	pthread_mutex_lock(&m_mutex);
 	processPTSComplete = true;
-	m_cond.notify_one();
+	pthread_cond_signal(&m_cond);
+	pthread_mutex_unlock(&m_mutex);
 }
 
 /**
@@ -1149,10 +1168,11 @@ void IsoBmffProcessor::abortInjectionWait()
 void IsoBmffProcessor::setRestampBasePTS(uint64_t pts)
 {
 	AAMPLOG_WARN("[%s] Base PTS (%" PRIu64 ") ",  IsoBmffProcessorTypeName[type], pts);
-	std::lock_guard<std::mutex> guard(m_mutex);
+	pthread_mutex_lock(&m_mutex);
 	basePTS = pts;
 	scalingOfPTSComplete = true;
-	m_cond.notify_one();
+	pthread_cond_signal(&m_cond);
+	pthread_mutex_unlock(&m_mutex);
 }
 
 /**

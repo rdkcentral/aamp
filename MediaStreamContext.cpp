@@ -352,7 +352,18 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 		cachedFragment->position = position;
 		cachedFragment->duration = fragmentDurationS;
 		cachedFragment->discontinuity = discontinuity;
-		segDLFailCount = 0;
+
+#ifdef AAMP_DEBUG_INJECT
+		if (discontinuity)
+		{
+			AAMPLOG_WARN("Discontinuous fragment");
+		}
+		if ((1 << type) & AAMP_DEBUG_INJECT)
+		{
+			cachedFragment->uri.assign(fragmentUrl);
+		}
+#endif
+ 		segDLFailCount = 0;
 		if ((eTRACK_VIDEO == type) && (!initSegment))
 		{
 			// reset count on video fragment success

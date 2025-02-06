@@ -32,7 +32,6 @@
 #include "open_cdm.h"
 #include "open_cdm_adapter.h"
 #include "AampDrmCallbacks.h"
-#include <condition_variable>
 
 using namespace std;
 
@@ -44,38 +43,57 @@ using namespace std;
 class Event {
 private:
 	bool signalled; //TODO: added to handle the events fired before calling wait, need to recheck
-	std::mutex lock;
-	std::condition_variable condition;
+	pthread_mutex_t lock;
+	pthread_cond_t condition;
+       pthread_condattr_t condAttr;
 public:
-	Event() : signalled(false), lock(), condition() {
+	Event() : signalled(false), lock(PTHREAD_MUTEX_INITIALIZER), condition(PTHREAD_COND_INITIALIZER), condAttr() {
+               pthread_mutex_init(&lock, NULL);
+               pthread_condattr_init(&condAttr);
+#ifndef __APPLE__ // pthread_condattr_setclock API not available on OSX
+               pthread_condattr_setclock(&condAttr, CLOCK_MONOTONIC );
+#endif
+               pthread_cond_init(&condition, &condAttr);
 	}
 	virtual ~Event() {
+		pthread_cond_destroy(&condition);
+		pthread_mutex_destroy(&lock);
+               pthread_condattr_destroy(&condAttr);
 	}
 
 	inline bool wait(const uint32_t waitTime)
 	{
-		bool ret = true;
-		std::unique_lock<std::mutex> _lock(lock);
+		int ret = 0;
+		pthread_mutex_lock(&lock);
 		if (!signalled) {
 			if (waitTime == 0) {
-				condition.wait(_lock);
+				ret = pthread_cond_wait(&condition, &lock);
 			} else {
-				if( std::cv_status::timeout == condition.wait_for(_lock,std::chrono::milliseconds(waitTime)) )
-				{
-					ret = false;
-				}
+				struct timespec time;
+				clock_gettime(CLOCK_MONOTONIC, &time);
+
+				time.tv_nsec += ((waitTime % 1000) * 1000 * 1000);
+				time.tv_sec += (waitTime / 1000) + (time.tv_nsec / 1000000000);
+				time.tv_nsec = time.tv_nsec % 1000000000;
+
+				ret = pthread_cond_timedwait(&condition, &lock, &time);
+
 			}
 		}
+
 		signalled = false;
-		return ret;
+		pthread_mutex_unlock(&lock);
+
+		return ((ret == 0)? true: false);
 	}
 
 	inline void signal()
-	{
-		std::unique_lock<std::mutex> _lock(lock);
+        {
+		pthread_mutex_lock(&lock);
 		signalled = true;
-		condition.notify_all();
-	}
+		pthread_cond_broadcast(&condition);
+	        pthread_mutex_unlock(&lock);
+        }
 };
 
 /**
@@ -85,7 +103,7 @@ public:
 class AAMPOCDMSessionAdapter : public AampDrmSession
 {
 protected:
-	std::mutex decryptMutex;
+	pthread_mutex_t decryptMutex;
 
 	KeyState m_eKeyState;
 

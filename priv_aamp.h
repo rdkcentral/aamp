@@ -34,6 +34,7 @@
 #include <IPVideoStat.h>
 #include "AampGrowableBuffer.h"
 
+#include <pthread.h>
 #include <signal.h>
 #include <semaphore.h>
 #include <curl/curl.h>
@@ -108,6 +109,8 @@ class AampTSBSessionManager;
 #define MAX_LOW_LATENCY_DASH_RETUNE_ALLOWED 2
 
 #define MAX_LOW_LATENCY_DASH_ABR_SPEEDSTORE_SIZE 10
+
+/* Define AAMP_DEBUG_FETCH_INJECT: 1 for debugging video track, 2 for audio track, 4 for subtitle track and 7 for all */
 
 /**
  * @brief Max URL log size
@@ -824,9 +827,10 @@ public:
 	int mTelemetryInterval;
 	std::vector< std::pair<long long,long> > mAbrBitrateData;
 
-	std::recursive_mutex mLock;
-	std::recursive_mutex mParallelPlaylistFetchLock; 	/**< mutex lock for parallel fetch */
-	std::thread  mRateCorrectionThread;     /**< Rate coorection thread Id **/
+	pthread_mutex_t mLock;				/**< = PTHREAD_MUTEX_INITIALIZER; */
+	pthread_mutexattr_t mMutexAttr;
+	pthread_mutex_t mParallelPlaylistFetchLock; 	/**< mutex lock for parallel fetch */
+	std::thread  mRateCorrectionThread;     /**< Rate correction thread Id **/
 
 	class StreamAbstractionAAMP *mpStreamAbstractionAAMP; /**< HLS or MPD collector */
 	class CDAIObject *mCdaiObject;      		/**< Client Side DAI Object */
@@ -838,7 +842,7 @@ public:
 	StreamOutputFormat mPreviousAudioType; 		/**< Used to maintain previous audio type of HLS playback */
 	StreamOutputFormat mAuxFormat;
 	StreamOutputFormat mSubtitleFormat{FORMAT_UNKNOWN};
-	std::condition_variable_any mDownloadsDisabled;
+	pthread_cond_t mDownloadsDisabled;
 	bool mDownloadsEnabled;
 	std::map<AampMediaType, bool> mMediaDownloadsEnabled; /* Used to enable/Disable individual mediaType downloads */
 	HybridABRManager mhAbrManager;                 /**< Pointer to Hybrid abr manager*/
@@ -1025,8 +1029,8 @@ public:
 	bool mIsIframeTrackPresent;				/**< flag to check iframe track availability*/
 
 	bool IsTuneTypeNew; 					/**< Flag for the eTUNETYPE_NEW_NORMAL */
-	std::condition_variable waitforplaystart;    			/**< Signaled after playback starts */
-	std::mutex mMutexPlaystart;			/**< Mutex associated with playstart */
+	pthread_cond_t waitforplaystart;    			/**< Signaled after playback starts */
+	pthread_mutex_t mMutexPlaystart;			/**< Mutex associated with playstart */
 	long long trickStartUTCMS;
 	double durationSeconds;
 	double culledSeconds;
@@ -1047,7 +1051,7 @@ public:
 	std::string mAdProgressId;
 	bool discardEnteringLiveEvt;
 	bool mIsRetuneInProgress;
-	std::condition_variable_any mCondDiscontinuity;
+	pthread_cond_t mCondDiscontinuity;
 	guint mDiscontinuityTuneOperationId;
 	bool mIsVSS;       					/**< Indicates if stream is VSS, updated during Tune */
 	long curlDLTimeout[eCURLINSTANCE_MAX]; 			/**< To store download timeout of each curl instance*/
@@ -1067,7 +1071,7 @@ public:
 
 #ifdef AAMP_HLS_DRM
 	std::vector <attrNameData> aesCtrAttrDataList; 		/**< Queue to hold the values of DRM data parsed from manifest */
-	std::mutex drmParserMutex; 			/**< Mutex to lock DRM parsing logic */
+	pthread_mutex_t drmParserMutex; 			/**< Mutex to lock DRM parsing logic */
 	bool fragmentCdmEncrypted; 				/**< Indicates CDM protection added in fragments **/
 #endif
 	std::thread mPreCachePlaylistThreadId;
@@ -1131,8 +1135,8 @@ public:
 	std::vector<uint8_t> mcurrent_keyIdArray;		/**< Current KeyID for DRM license */
 	DynamicDrmInfo mDynamicDrmDefaultconfig;		/**< Init drmConfig stored as default config */
 	std::vector<std::string> mDynamicDrmCache;
-	std::recursive_mutex mDynamicDrmUpdateLock;
-	std::condition_variable_any mWaitForDynamicDRMToUpdate;
+	pthread_mutex_t mDynamicDrmUpdateLock;
+	pthread_cond_t mWaitForDynamicDRMToUpdate;
 	bool mAudioComponentCount;
 	bool mVideoComponentCount;
 	bool mAudioOnlyPb;
@@ -4398,7 +4402,7 @@ protected:
 	int mMinInitialCacheSeconds; 		/**< Minimum cached duration before playing in seconds*/
 	std::string mDrmInitData; 		/**< DRM init data from main manifest URL (if present) */
 	bool mFragmentCachingRequired; 		/**< True if fragment caching is required or ongoing */
-	std::recursive_mutex mFragmentCachingLock; 	/**< To sync fragment initial caching operations */
+	pthread_mutex_t mFragmentCachingLock; 	/**< To sync fragment initial caching operations */
 	bool mPauseOnFirstVideoFrameDisp; 	/**< True if pause AAMP after displaying first video frame */
 //	AudioTrackInfo mPreferredAudioTrack; 	/**< Preferred audio track from available tracks in asset */
 	TextTrackInfo mPreferredTextTrack; 	/**< Preferred text track from available tracks in asset */
@@ -4407,9 +4411,9 @@ protected:
 
 	guint mAutoResumeTaskId;		/**< handler id for auto resume idle callback */
 	AampScheduler *mScheduler; 		/**< instance to schedule async tasks */
-	std::recursive_mutex mEventLock; 		/**< lock for operation on mPendingAsyncEvents */
+	pthread_mutex_t mEventLock; 		/**< lock for operation on mPendingAsyncEvents */
 	int mEventPriority; 			/**< priority for async events */
-	std::recursive_mutex mStreamLock; 		/**< Mutex for accessing mpStreamAbstractionAAMP */
+	pthread_mutex_t mStreamLock; 		/**< Mutex for accessing mpStreamAbstractionAAMP */
 	int mHarvestCountLimit;			/**< Harvest count */
 	int mHarvestConfig;			/**< Harvest config */
 	std::string mAuxAudioLanguage; 		/**< auxiliary audio language */
@@ -4446,7 +4450,7 @@ protected:
 	bool mLocalAAMPTsb;
 	bool mbPauseOnStartPlayback;						/**< Start playback in paused state */
 
-	std::mutex mPreProcessLock;
+	pthread_mutex_t mPreProcessLock;
 	bool mIsChunkMode;		/** LLD ChunkMode */
 
 };

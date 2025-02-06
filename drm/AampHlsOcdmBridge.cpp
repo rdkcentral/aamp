@@ -36,11 +36,13 @@ AampHlsOcdmBridge::AampHlsOcdmBridge(AampDrmSession * aampDrmSession) :
 	m_drmState(eDRM_INITIALIZED),
 	m_Mutex()
 {
+	pthread_mutex_init(&m_Mutex, NULL);
 }
 
 
 AampHlsOcdmBridge::~AampHlsOcdmBridge()
 {
+	pthread_mutex_destroy(&m_Mutex);
 }
 
 
@@ -48,7 +50,7 @@ DrmReturn AampHlsOcdmBridge::SetDecryptInfo( PrivateInstanceAAMP *aamp, const st
 {
 	DrmReturn result  = eDRM_ERROR;
 
-	std::lock_guard<std::mutex> guard(m_Mutex);
+	pthread_mutex_lock(&m_Mutex);
 	m_aampInstance = aamp;
 	m_drmInfo = drmInfo;
 	KeyState eKeyState = m_drmSession->getState();
@@ -57,7 +59,8 @@ DrmReturn AampHlsOcdmBridge::SetDecryptInfo( PrivateInstanceAAMP *aamp, const st
 		m_drmState = eDRM_KEY_ACQUIRED;
 		result = eDRM_SUCCESS; //frag_collector ignores the return
 	}
-	AAMPLOG_TRACE("DecryptInfo Set");
+	pthread_mutex_unlock(&m_Mutex);
+	AAMPLOG_TRACE("DecryptInfo Set\n");
 
 	return result;
 }
@@ -67,32 +70,34 @@ DrmReturn AampHlsOcdmBridge::Decrypt( ProfilerBucketType bucketType, void *encry
 {
 	DrmReturn result = eDRM_ERROR;
 
-	std::lock_guard<std::mutex> guard(m_Mutex);
+	pthread_mutex_lock(&m_Mutex);
 	if (m_drmState == eDRM_KEY_ACQUIRED)
 	{
-		 AAMPLOG_TRACE("Starting decrypt");
+		 AAMPLOG_TRACE("Starting decrypt\n");
 		 int retVal = m_drmSession->decrypt(m_drmInfo->iv, DRM_IV_LEN, (const uint8_t *)encryptedDataPtr , (uint32_t)encryptedDataLen, NULL);
 		 if (retVal)
 		 {
-			AAMPLOG_WARN("Decrypt failed err = %d", retVal);
+			AAMPLOG_WARN("Decrypt failed err = %d\n", retVal);
 		 }
 		 else
 		 {
-			AAMPLOG_TRACE("Decrypt success");
+			AAMPLOG_TRACE("Decrypt success\n");
 			result = eDRM_SUCCESS;
 		 }
 	}
 	else
 	{
-		AAMPLOG_WARN("Decrypt Called in Incorrect State! DrmState = %d", (int)m_drmState);
+		AAMPLOG_WARN("Decrypt Called in Incorrect State! DrmState = %d\n", (int)m_drmState);
 	}
+	pthread_mutex_unlock(&m_Mutex);
+
 	return result;
 }
 
 
 void AampHlsOcdmBridge::Release(void)
 {
-	AAMPLOG_WARN("Releasing the Opencdm Session");
+	AAMPLOG_WARN("Releasing the Opencdm Session\n");
 	m_drmSession->clearDecryptContext();
 }
 

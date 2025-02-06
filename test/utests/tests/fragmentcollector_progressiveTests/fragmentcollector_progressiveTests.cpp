@@ -20,6 +20,7 @@
 #include <gtest/gtest.h>
 #include "fragmentcollector_progressive.h"
 #include "AampConfig.h"
+#include <pthread.h>
 using namespace testing;
 AampConfig *gpGlobalConfig{ nullptr };
 

@@ -54,8 +54,11 @@ AampOutputProtection::AampOutputProtection()
 , m_isHDCPEnabled(false)
 , m_gstElement(NULL)
 , m_hdcpCurrentProtocol(dsHDCP_VERSION_MAX)
+, m_opProtectMutex()
 {
     DEBUG_FUNC;
+    pthread_mutex_init(&m_opProtectMutex,NULL);
+
     // Get initial HDCP status
     SetHDMIStatus();
 
@@ -82,6 +85,8 @@ AampOutputProtection::~AampOutputProtection()
 #endif //IARM_MGR
 
     s_pAampOP = NULL;
+
+    pthread_mutex_destroy(&m_opProtectMutex);
 }
 
 

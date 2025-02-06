@@ -62,6 +62,7 @@ ClearKeySession::ClearKeySession() :
 		m_keyLen(0),
 		m_keyIdLen(0)
 {
+	pthread_mutex_init(&decryptMutex,NULL);
 	initAampDRMSession();
 }
 
@@ -175,6 +176,7 @@ void ClearKeySession::generateAampDRMSession(const uint8_t *f_pbInitData,
  */
 ClearKeySession::~ClearKeySession()
 {
+	pthread_mutex_destroy(&decryptMutex);
 #if OPENSSL_VERSION_NUMBER >= 0x10100000L
 	if( OPEN_SSL_CONTEXT )
 	{
@@ -505,7 +507,8 @@ int ClearKeySession::decrypt(const uint8_t *f_pbIV, uint32_t f_cbIV,
 		const uint8_t *payloadData, uint32_t payloadDataSize, uint8_t **ppOpaqueData=NULL)
 {
 	int status = 1;
-	std::lock_guard<std::mutex> guard(decryptMutex);
+	pthread_mutex_lock(&decryptMutex);
+
 	if (m_eKeyState == KEY_READY)
 	{
 		uint8_t *decryptedDataBuf = (uint8_t *)malloc(payloadDataSize);
@@ -584,6 +587,7 @@ int ClearKeySession::decrypt(const uint8_t *f_pbIV, uint32_t f_cbIV,
 	{
 		AAMPLOG_ERR( "ClearKeySession: key not ready! mDrmState = %d", m_eKeyState);
 	}
+	pthread_mutex_unlock(&decryptMutex);
 	return status;
 }
 

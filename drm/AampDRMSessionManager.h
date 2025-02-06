@@ -51,25 +51,27 @@ class PrivateInstanceAAMP;
 struct DrmSessionContext
 {
 	std::vector<uint8_t> data;
-	std::mutex sessionMutex;
+	pthread_mutex_t sessionMutex;
 	AampDrmSession * drmSession;
 	AampCurlDownloader mLicenseDownloader;
-
-	DrmSessionContext() : sessionMutex(), drmSession(NULL),data(),mLicenseDownloader()
+	
+	DrmSessionContext() : sessionMutex(PTHREAD_MUTEX_INITIALIZER), drmSession(NULL),data(),mLicenseDownloader()
 	{
 	}
-	DrmSessionContext(const DrmSessionContext& other) : data(other.data), drmSession(other.drmSession),mLicenseDownloader()
+	DrmSessionContext(const DrmSessionContext& other) : sessionMutex(other.sessionMutex), data(other.data), drmSession(other.drmSession),mLicenseDownloader()
 	{
-		// Releases memory allocated after destructing any of these objects
+		// Releases memory allocated after destructing any of these objects		
 	}
 	DrmSessionContext& operator=(const DrmSessionContext& other)
 	{
+		sessionMutex = other.sessionMutex;
 		data = other.data;
 		drmSession = other.drmSession;
 		return *this;
 	}
 	~DrmSessionContext()
 	{
+		pthread_mutex_destroy(&sessionMutex);
 	}
 };
 
@@ -119,9 +121,9 @@ private:
 	char* accessToken;
 	int accessTokenLen;
 	SessionMgrState sessionMgrState;
-	std::mutex accessTokenMutex;
-	std::mutex cachedKeyMutex;
-	std::mutex mDrmSessionLock;
+	pthread_mutex_t accessTokenMutex;
+	pthread_mutex_t cachedKeyMutex;
+	pthread_mutex_t mDrmSessionLock;
 	bool licenseRequestAbort;
 	bool mEnableAccessAttributes;
 	int mMaxDRMSessions;
