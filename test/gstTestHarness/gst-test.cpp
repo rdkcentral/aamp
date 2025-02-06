@@ -1335,8 +1335,7 @@ public:
 		if( codec == "ac-3" ) return "ac3";
 		
         // video
-        if( codec == "avc1.640029" ) return "h264";
-		if( codec == "avc1.4d4028" ) return "h264";
+		if( codec.rfind("avc1.")==0 ) return "h264";
 		if( codec.rfind("hvc1.")==0 ) return "hevc";
 		if( codec=="hev1" ) return "hevc";
 		
@@ -1568,7 +1567,8 @@ public:
 		if( ptr )
 		{
 			XmlNode *xml = new XmlNode( "document", (char *)ptr, size );
-			auto MPD = xml->children[1];
+			auto numChildren = xml->children.size();
+			auto MPD = xml->children[numChildren-1];
 			DumpXml(MPD,0);
 			timeline = parseManifest( *MPD, url );
 			timeline.Debug();

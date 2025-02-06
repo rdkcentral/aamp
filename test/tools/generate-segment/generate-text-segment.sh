@@ -23,6 +23,10 @@ SEGMENT_NUMBER=$4
 MEDIA_FNAME=$5
 INIT_FNAME=$6
 
+# create directory if it does not exist
+dirpath=$(dirname "$MEDIA_FNAME")
+mkdir -p "$dirpath"
+
 DURATION_S=$(echo "scale=6; $DURATION / $TIMESCALE" | bc)
 BASE_MEDIA_DECODE_TIME_S=$(echo "scale=6; $BASE_MEDIA_DECODE_TIME / $TIMESCALE" | bc)
 

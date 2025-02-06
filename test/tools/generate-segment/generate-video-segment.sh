@@ -16,6 +16,10 @@ INIT_FNAME=${10}
 SOURCE_MEDIA=${11}
 GENERATE_LL_SEGMENTS=${12}
 
+# create directory if it does not exist
+dirpath=$(dirname "$MEDIA_FNAME")
+mkdir -p "$dirpath"
+
 # floating point math
 DURATION_S=$(echo "$DURATION $TIMESCALE" | awk '{printf "%f", $1 / $2}')
 START_TIME_S=$(echo "scale=3; $BASE_MEDIA_DECODE_TIME/$TIMESCALE" | bc)

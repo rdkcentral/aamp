@@ -15,6 +15,10 @@ INIT_FNAME=$8
 SOURCE_MEDIA=$9
 GENERATE_LL_SEGMENTS=${10}
 
+# create directory if it does not exist
+dirpath=$(dirname "$MEDIA_FNAME")
+mkdir -p "$dirpath"
+
 # low-latency options
 LL_OPTIONS=""
 if [ "$GENERATE_LL_SEGMENTS" = "generate_chunked_segments" ]; then
