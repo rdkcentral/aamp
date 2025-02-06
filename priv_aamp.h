@@ -826,7 +826,7 @@ public:
 
 	std::recursive_mutex mLock;
 	std::recursive_mutex mParallelPlaylistFetchLock; 	/**< mutex lock for parallel fetch */
-	std::thread  mRateCorrectionThread;     /**< Rate coorection thread Id **/
+	std::thread  mRateCorrectionThread;     /**< Rate correction thread Id **/
 
 	class StreamAbstractionAAMP *mpStreamAbstractionAAMP; /**< HLS or MPD collector */
 	class CDAIObject *mCdaiObject;      		/**< Client Side DAI Object */

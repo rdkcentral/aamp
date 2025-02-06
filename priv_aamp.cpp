@@ -4713,7 +4713,7 @@ void PrivateInstanceAAMP::GetOnVideoEndSessionStatData(std::string &data)
 void PrivateInstanceAAMP::TeardownStream(bool newTune)
 {
 	std::unique_lock<std::recursive_mutex> lock(mLock);
-	//Have to perfom this for trick and stop operations but avoid ad insertion related ones
+	//Have to perform this for trick and stop operations but avoid ad insertion related ones
 	AAMPLOG_WARN(" mProgressReportFromProcessDiscontinuity:%d mDiscontinuityTuneOperationId:%d newTune:%d", mProgressReportFromProcessDiscontinuity, mDiscontinuityTuneOperationId, newTune);
 	if ((mDiscontinuityTuneOperationId != 0) && (!newTune || mState == eSTATE_IDLE))
 	{

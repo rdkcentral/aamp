@@ -2428,7 +2428,7 @@ void TrackState::ProcessPlaylist(AampGrowableBuffer& newPlaylist, int http_error
  */
 void TrackState::AcquirePlaylistLock()
 { // TBR - use (scoped) lock directly
-	// We need to implement HLSDownloader module which would deprecate this mutex altogether
+	// TODO implement HLS Downloader module and deprecate this mutex altogether
 	mPlaylistMutex.lock();
 }
 
@@ -2437,7 +2437,7 @@ void TrackState::AcquirePlaylistLock()
  */
 void TrackState::ReleasePlaylistLock()
 { // TBR - use (scoped) lock directly
-	// We need to implement HLSDownloader module which would deprecate this mutex altogether
+	// TODO implement HLS Downloader module and deprecate this mutex altogether
 	mPlaylistMutex.unlock();
 }
 

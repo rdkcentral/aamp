@@ -801,7 +801,7 @@ bool MediaTrack::CheckForDiscontinuity(CachedFragment* cachedFragment, bool& fra
 			 * In that case, if there is an audio codec change is detected for this period, it could cause audio loss since ignoring the discontinuity to be processed since totalInjectedDuration is 0.
 			 */
 			/* PipelineValid is used here to avoid skipping the discontinuity if the pipeline has not been configured for the media type.
-			 * This was seen with subtites where switching to a period with subtitles enabled from one without could result in fragments being pushed
+			 * This was seen with subtitles where switching to a period with subtitles enabled from one without could result in fragments being pushed
 			 * to an appsrc that wasn't configured (very timing dependent). In this case we want to process the discontinuity and configure the pipeline.
 			 */
 			if (injectedDuration == 0 && !aamp->mpStreamAbstractionAAMP->GetESChangeStatus()&& aamp->PipelineValid((AampMediaType)type))
