@@ -2150,15 +2150,26 @@ std::string PlayerInstanceAAMP::GetManifest(void)
 	if( aamp )
 	{
 		UsingPlayerId playerId(aamp->mPlayerId);
-		//ERROR_OR_IDLE_STATE_CHECK_VAL(std::string());
-		if( aamp->mMediaFormat == eMEDIAFORMAT_DASH)
+		AAMPPlayerState state = aamp->GetState();
+		switch( state )
 		{
-			std::string Manifest;
-			Manifest.clear();
-			//Get last downloaded manifest
-			aamp->GetLastDownloadedManifest(Manifest);
-			AAMPLOG_INFO("PlayerInstanceAAMP: Retrieved manifest [len:%zu]",Manifest.length());
-			ret = Manifest;
+			case eSTATE_ERROR:
+			case eSTATE_IDLE:
+			case eSTATE_RELEASED:
+			case eSTATE_STOPPED:
+				AAMPLOG_WARN( "PlayerState=%d",state );
+				break;
+			default:
+				if( aamp->mMediaFormat == eMEDIAFORMAT_DASH)
+				{
+					aamp->GetLastDownloadedManifest(ret);
+					AAMPLOG_INFO("PlayerInstanceAAMP: Retrieved manifest [len:%zu]",ret.length());
+				}
+				else
+				{
+					AAMPLOG_WARN( "mediaFormat=%d", aamp->mMediaFormat );
+				}
+				break;
 		}
 	}
 	return ret;
