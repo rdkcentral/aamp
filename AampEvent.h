@@ -156,7 +156,7 @@ typedef enum
 } AAMPTuneFailure;
 
 /**
- * @enum PlayerState
+ * @enum AAMPPlayerState
  * @brief  Mapping all required status codes based on JS player requirement. These requirements may be
  * forced by psdk player.AAMP may not use all the statuses mentioned below:
  * Mainly required states - idle, initializing, initialized, preparing, prepared, playing, paused, seek, complete and error
@@ -178,7 +178,7 @@ typedef enum
 	eSTATE_ERROR        = 12, /**< fatal playback error encountered; playback is stopped */
 	eSTATE_RELEASED     = 13, /**< all resources released (equivalent to eSTATE_IDLE)  */
 	eSTATE_BLOCKED      = 14  /**< AV muted due to parental control */
-} PlayerState;
+} AAMPPlayerState;
 
 /**
  * @enum MetricsDataType
@@ -383,7 +383,7 @@ struct AAMPEvent
 		 */
 		struct
 		{
-			PlayerState state;        /**< Player state */
+			AAMPPlayerState state;        /**< Player state */
 		} stateChanged;
 
 		/**
@@ -1313,7 +1313,7 @@ public:
  */
 class StateChangedEvent: public AAMPEventObject
 {
-	PlayerState mState;	/**< Player state */
+	AAMPPlayerState mState;	/**< Player state */
 
 public:
 	StateChangedEvent() = delete;
@@ -1325,7 +1325,7 @@ public:
 	 *
 	 * @param[in] state - New player state
 	 */
-	StateChangedEvent(PlayerState state, std::string sid);
+	StateChangedEvent(AAMPPlayerState state, std::string sid);
 
 	/**
 	 * @brief StateChangedEvent Destructor
@@ -1337,7 +1337,7 @@ public:
 	 *
 	 * @return Player state
 	 */
-	PlayerState getState() const;
+	AAMPPlayerState getState() const;
 };
 
 /**

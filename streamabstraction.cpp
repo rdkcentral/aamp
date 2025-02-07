@@ -583,7 +583,7 @@ void MediaTrack::UpdateTSAfterChunkFetch()
 bool MediaTrack::WaitForFreeFragmentAvailable( int timeoutMs)
 {
 	bool ret = true;
-	PlayerState state;
+	AAMPPlayerState state;
 	int preplaybuffercount = GETCONFIGVALUE(eAAMPConfig_PrePlayBufferCount);
 
 	if(abort)

@@ -1438,7 +1438,7 @@ TEST_F(PrivAampTests,TeardownStreamTest_2)
 	AampMediaType trackType = eMEDIATYPE_VIDEO;
 
 	EXPECT_EQ(0,p_aamp->mDiscontinuityTuneOperationId);
-	PlayerState state = eSTATE_IDLE;
+	AAMPPlayerState state = eSTATE_IDLE;
 	p_aamp->SetState(state);
 	p_aamp->ScheduleRetune(errorType,trackType);
 
@@ -2073,7 +2073,7 @@ TEST_F(PrivAampTests,NotifyFirstFrameReceivedTest_2)
 	p_aamp->TuneHelper(tuneType, false);
 	p_aamp->NotifyFirstFrameReceived(0);
 
-	PlayerState state = p_aamp->GetState();
+	AAMPPlayerState state = p_aamp->GetState();
 	EXPECT_EQ(state,8);
 }
 
@@ -2085,7 +2085,7 @@ TEST_F(PrivAampTests,NotifyFirstFrameReceivedTest_3)
 	p_aamp->TuneHelper(tuneType, true);
 	p_aamp->NotifyFirstFrameReceived(0);
 
-	PlayerState state = p_aamp->GetState();
+	AAMPPlayerState state = p_aamp->GetState();
 	EXPECT_NE(state,8);
 }
 
@@ -2125,7 +2125,7 @@ TEST_F(PrivAampTests,GetStateTest)
 {
 	p_aamp->SetState(eSTATE_IDLE);
 
-	PlayerState state = p_aamp->GetState();
+	AAMPPlayerState state = p_aamp->GetState();
 
 	state = p_aamp->GetState();
 	p_aamp->SetState(eSTATE_PLAYING);
@@ -2153,7 +2153,7 @@ TEST_F(PrivAampTests,NotifyFragmentCachingCompleteTest_1)
 {
 	p_aamp->SetState(eSTATE_BUFFERING);
 
-	PlayerState state = p_aamp->GetState();
+	AAMPPlayerState state = p_aamp->GetState();
 	EXPECT_EQ(state,5);
 
 	p_aamp->NotifyFragmentCachingComplete();
@@ -2328,7 +2328,7 @@ TEST_F(PrivAampTests,NotifyFirstBufferProcessedTest_1)
 {
 	p_aamp->SetState(eSTATE_IDLE);
 
-	PlayerState state = p_aamp->GetState();
+	AAMPPlayerState state = p_aamp->GetState();
 	EXPECT_EQ(state,0);
 }
 
@@ -2339,7 +2339,7 @@ TEST_F(PrivAampTests,NotifyFirstBufferProcessedTest_2)
 	TuneType tuneType = eTUNETYPE_NEW_NORMAL;
 	p_aamp->TuneHelper(tuneType, false);//true
 
-	PlayerState state = p_aamp->GetState();
+	AAMPPlayerState state = p_aamp->GetState();
 	EXPECT_EQ(state,4);//8 nov8
 }
 
@@ -2350,7 +2350,7 @@ TEST_F(PrivAampTests,NotifyFirstBufferProcessedTest_3)
 	TuneType tuneType = eTUNETYPE_NEW_NORMAL;
 	p_aamp->TuneHelper(tuneType, true);
 
-	PlayerState state = p_aamp->GetState();
+	AAMPPlayerState state = p_aamp->GetState();
 	EXPECT_EQ(state,4);//8 nov8
 }
 

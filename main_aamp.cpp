@@ -190,7 +190,7 @@ PlayerInstanceAAMP::~PlayerInstanceAAMP()
 	if (aamp)
 	{
 		UsingPlayerId playerId(aamp->mPlayerId);
-		PlayerState state = aamp->GetState();
+		AAMPPlayerState state = aamp->GetState();
 		// Acquire the lock , to prevent new entries into scheduler
 		mScheduler.SuspendScheduler();
 		// Remove all the tasks
@@ -258,7 +258,7 @@ void PlayerInstanceAAMP::Stop(bool sendStateChangeEvent)
 	if (aamp)
 	{
 		UsingPlayerId playerId(aamp->mPlayerId);
-		PlayerState state = aamp->GetState();
+		AAMPPlayerState state = aamp->GetState();
 
 		// 1. Ensure scheduler is suspended and all tasks if any to be cleaned
 		// 2. Check for state ,if already in Idle / Released , ignore stopInternal
@@ -351,7 +351,7 @@ void PlayerInstanceAAMP::TuneInternal(const char *mainManifestUrl,
 
 		aamp->StopPausePositionMonitoring("Tune() called");
 
-		PlayerState state = aamp->GetState();
+		AAMPPlayerState state = aamp->GetState();
 		bool IsOTAtoOTA =  false;
 
 		if((aamp->IsOTAContent()) && (NULL != mainManifestUrl))
@@ -635,7 +635,7 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 	if( aamp )
 	{
 		AAMPLOG_INFO("PLAYER[%d] rate=%f.", aamp->mPlayerId, rate);
-		PlayerState state = GetState();
+		AAMPPlayerState state = GetState();
 		if (!IsValidRate(rate))
 		{
 			AAMPLOG_WARN("SetRate ignored!! Invalid rate (%f)", rate);
@@ -1000,7 +1000,7 @@ static gboolean SeekAfterPrepared(gpointer ptr)
 	bool sentSpeedChangedEv = false;
 	bool isSeekToLiveOrEnd = false;
 	TuneType tuneType = eTUNETYPE_SEEK;
-	PlayerState state = aamp->GetState();
+	AAMPPlayerState state = aamp->GetState();
 	if( state == eSTATE_ERROR)
 	{
 		AAMPLOG_WARN("operation is not allowed when player in eSTATE_ERROR state !");\
@@ -1088,7 +1088,7 @@ void PlayerInstanceAAMP::Seek(double secondsRelativeToTuneTime, bool keepPaused)
 	if(aamp)
 	{
 		UsingPlayerId playerId(aamp->mPlayerId);
-		PlayerState state = aamp->GetState();
+		AAMPPlayerState state = aamp->GetState();
 		if(mAsyncTuneEnabled && state != eSTATE_IDLE && state != eSTATE_RELEASED)
 		{
 			mScheduler.ScheduleTask(AsyncTaskObj([secondsRelativeToTuneTime,keepPaused](void *data)
@@ -1115,7 +1115,7 @@ void PlayerInstanceAAMP::SeekInternal(double secondsRelativeToTuneTime, bool kee
 	TuneType tuneType = eTUNETYPE_SEEK;
 	if( aamp )
 	{
-		PlayerState state = GetState();
+		AAMPPlayerState state = GetState();
 		aamp->StopPausePositionMonitoring("Seek() called");
 		
 		if ((aamp->mMediaFormat == eMEDIAFORMAT_HLS || aamp->mMediaFormat == eMEDIAFORMAT_HLS_MP4) && (eSTATE_INITIALIZING == state)  && aamp->mpStreamAbstractionAAMP)
@@ -1335,7 +1335,7 @@ void PlayerInstanceAAMP::SetSlowMotionPlayRate( float rate )
 	if( aamp )
 	{
 		UsingPlayerId playerId(aamp->mPlayerId);
-		PlayerState state = GetState();
+		AAMPPlayerState state = GetState();
 		AAMPLOG_WARN("SetSlowMotionPlay(%f)", rate );
 		
 		if (aamp->mpStreamAbstractionAAMP)
@@ -1374,7 +1374,7 @@ void PlayerInstanceAAMP::SetRateAndSeek(int rate, double secondsRelativeToTuneTi
 	if( aamp )
 	{
 		UsingPlayerId playerId(aamp->mPlayerId);
-		PlayerState state = GetState();
+		AAMPPlayerState state = GetState();
 		TuneType tuneType = eTUNETYPE_SEEK;
 		AAMPLOG_WARN("aamp_SetRateAndSeek(%d)(%f)", rate, secondsRelativeToTuneTime);
 		if (!IsValidRate(rate))
@@ -1573,7 +1573,7 @@ void PlayerInstanceAAMP::SetLanguage(const char* language)
 	if( aamp )
 	{
 		UsingPlayerId playerId(aamp->mPlayerId);
-		PlayerState state = aamp->GetState();
+		AAMPPlayerState state = aamp->GetState();
 		if (mAsyncTuneEnabled && state != eSTATE_IDLE && state != eSTATE_RELEASED)
 		{
 			std::string sLanguage = std::string(language);
@@ -1977,9 +1977,9 @@ void PlayerInstanceAAMP::SetId(int iPlayerId)
 /**
  *  @brief To get the current AAMP state.
  */
-PlayerState PlayerInstanceAAMP::GetState(void)
+AAMPPlayerState PlayerInstanceAAMP::GetState(void)
 {
-	PlayerState currentState = eSTATE_RELEASED;
+	AAMPPlayerState currentState = eSTATE_RELEASED;
 	try
 	{
 		std::lock_guard<std::mutex> lock (mPrvAampMtx);
@@ -2097,7 +2097,7 @@ int PlayerInstanceAAMP::GetAudioVolume(void)
 	if( aamp )
 	{
 		UsingPlayerId playerId(aamp->mPlayerId);
-		PlayerState state = GetState();
+		AAMPPlayerState state = GetState();
 		if (eSTATE_IDLE == state)
 		{
 			AAMPLOG_WARN(" GetAudioVolume is returning cached value since player is at %s",
@@ -2396,7 +2396,7 @@ void PlayerInstanceAAMP::SetPreferredSubtitleLanguage(const char* language)
 	if( aamp )
 	{
 		UsingPlayerId playerId(aamp->mPlayerId);
-		PlayerState state = GetState();
+		AAMPPlayerState state = GetState();
 		AAMPLOG_WARN("PlayerInstanceAAMP::(%s)->(%s)",  aamp->mSubLanguage.c_str(), language);
 		
 		//Compare it with the first element and update it to the new preferred language if they don't match.
@@ -3125,7 +3125,7 @@ void PlayerInstanceAAMP::StopInternal(bool sendStateChangeEvent)
 {
 	aamp->StopPausePositionMonitoring("Stop() called");
 
-	PlayerState state = aamp->GetState();
+	AAMPPlayerState state = aamp->GetState();
 	if(!aamp->IsTuneCompleted())
 	{
 		aamp->TuneFail(true);
@@ -3288,7 +3288,7 @@ void PlayerInstanceAAMP::SetAuxiliaryLanguageInternal(const std::string &languag
 		AAMPLOG_WARN("aamp_SetAuxiliaryLanguage(%s)->(%s)", currentLanguage.c_str(), language.c_str());
 		if(language != currentLanguage)
 		{
-			PlayerState state = aamp->GetState();
+			AAMPPlayerState state = aamp->GetState();
 			// There is no active playback session, save the language for later
 			if (state == eSTATE_IDLE || state == eSTATE_RELEASED)
 			{
@@ -3345,7 +3345,7 @@ void PlayerInstanceAAMP::ProcessContentProtectionDataConfig(const char *jsonbuff
 		//wait before exiting the API.
 		//Otherwise it may result in crash by the player attempting to access the cleared DRMSession after the timeout.
 		//The timeout may happen in next tune.
-		PlayerState state = GetState();
+		AAMPPlayerState state = GetState();
 		if (eSTATE_ERROR == state)
 		{
 			aamp->ReleaseDynamicDRMToUpdateWait();

@@ -1942,7 +1942,7 @@ void PrivateInstanceAAMP::RateCorrectionWorkerThread(void)
 			while(DownloadsAreEnabled())
 			{
 				interruptibleMsSleep(latencyMonitorInterval * 1000);
-				PlayerState state = GetState();
+				AAMPPlayerState state = GetState();
 				if (!mAbortRateCorrection &&!mDisableRateCorrection && DownloadsAreEnabled() && state == eSTATE_PLAYING)
 				{
 					if(mFirstFragmentTimeOffset < 0)
@@ -2078,7 +2078,7 @@ bool PrivateInstanceAAMP::IsAtLivePoint()
  */
 void PrivateInstanceAAMP::ReportProgress(bool sync, bool beginningOfStream)
 {
-	PlayerState state = GetState();
+	AAMPPlayerState state = GetState();
 	if (state == eSTATE_SEEKING)
 	{
 		AAMPLOG_WARN("Progress reporting skipped whilst seeking.");
@@ -3443,7 +3443,7 @@ void PrivateInstanceAAMP::AdditionalTuneFailLogEntries()
  */
 void PrivateInstanceAAMP::TuneFail(bool fail)
 {
-	PlayerState state = GetState();
+	AAMPPlayerState state = GetState();
 	TuneEndMetrics mTuneMetrics = {0, 0, 0,0,0,0,0,0,0,(ContentType)0};
 	mTuneMetrics.mTotalTime                 = (int)NOW_STEADY_TS_MS ;
 	mTuneMetrics.success         	 	= ((state != eSTATE_ERROR) ? -1 : !fail);
@@ -5660,7 +5660,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 
 	if (newTune && !mIsFakeTune)
 	{
-		PlayerState state = GetState();
+		AAMPPlayerState state = GetState();
 		if((state != eSTATE_ERROR) && (mMediaFormat != eMEDIAFORMAT_OTA) && (mMediaFormat != eMEDIAFORMAT_RMF))
 		{
 			/*For OTA/RMF this event will be generated from StreamAbstractionAAMP_OTA*/
@@ -6832,7 +6832,7 @@ void PrivateInstanceAAMP::EndOfStreamReached(AampMediaType mediaType)
 		// Sink is already unpaused by EndOfStreamReached()
 		std::lock_guard<std::recursive_mutex> guard(mFragmentCachingLock);
 		mFragmentCachingRequired = false;
-		PlayerState state = GetState();
+		AAMPPlayerState state = GetState();
 		if(state == eSTATE_BUFFERING)
 		{
 			if(mpStreamAbstractionAAMP)
@@ -7083,7 +7083,7 @@ void PrivateInstanceAAMP::UpdateVideoRectangle (int x, int y, int w, int h)
  */
 void PrivateInstanceAAMP::SetVideoRectangle(int x, int y, int w, int h)
 {
-	PlayerState state = GetState();
+	AAMPPlayerState state = GetState();
 	if( TryStreamLock() )
 	{
 		switch( mMediaFormat )
@@ -8040,7 +8040,7 @@ void PrivateInstanceAAMP::NotifyFirstFrameReceived(unsigned long ccDecoderHandle
 	AAMPLOG_TRACE("NotifyFirstFrameReceived()");
 
 	// In the middle of stop processing we can receive state changing callback
-	PlayerState state = GetState();
+	AAMPPlayerState state = GetState();
 	if (state == eSTATE_IDLE)
 	{
 		AAMPLOG_WARN( "skipped as in IDLE state" );
@@ -8109,7 +8109,7 @@ void PrivateInstanceAAMP::ScheduleRetune(PlaybackErrorType errorType, AampMediaT
 	std::unique_lock<std::mutex> gLock(gMutex, std::defer_lock);
 	if (AAMP_NORMAL_PLAY_RATE == rate && ContentType_EAS != mContentType)
 	{
-		PlayerState state = GetState();
+		AAMPPlayerState state = GetState();
 		if (((state != eSTATE_PLAYING) && (eGST_ERROR_VIDEO_BUFFERING != errorType)) || mSeekOperationInProgress)
 		{
 			AAMPLOG_WARN("PrivateInstanceAAMP: Not processing reTune since state = %d, mSeekOperationInProgress = %d",
@@ -8303,7 +8303,7 @@ void PrivateInstanceAAMP::ScheduleRetune(PlaybackErrorType errorType, AampMediaT
 /**
  * @brief Set player state
  */
-void PrivateInstanceAAMP::SetState(PlayerState state)
+void PrivateInstanceAAMP::SetState(AAMPPlayerState state)
 {
 	//bool sentSync = true;
 
@@ -8342,7 +8342,7 @@ void PrivateInstanceAAMP::SetState(PlayerState state)
 /**
  * @brief Get player state
  */
-PlayerState PrivateInstanceAAMP::GetState(void)
+AAMPPlayerState PrivateInstanceAAMP::GetState(void)
 {
 	std::lock_guard<std::recursive_mutex> guard(mLock);
 	return mState;
@@ -8396,7 +8396,7 @@ void PrivateInstanceAAMP::NotifyFragmentCachingComplete()
 	{
 		sink->NotifyFragmentCachingComplete();
 	}
-	PlayerState state = GetState();
+	AAMPPlayerState state = GetState();
 	if (state == eSTATE_BUFFERING)
 	{
 		if(mpStreamAbstractionAAMP)
@@ -8949,7 +8949,7 @@ void PrivateInstanceAAMP::PauseSubtitleParser(bool pause)
 void PrivateInstanceAAMP::NotifyFirstBufferProcessed(const std::string& videoRectangle)
 {
 	// If mFirstVideoFrameDisplayedEnabled, state will be changed in NotifyFirstVideoDisplayed()
-	PlayerState state = GetState();
+	AAMPPlayerState state = GetState();
 
 	// In the middle of stop processing we can receive state changing callback
 	if (state == eSTATE_IDLE)
@@ -9893,7 +9893,7 @@ void PrivateInstanceAAMP::PreCachePlaylistDownloadTask()
 		}
 		// May be Stop is called to release all resources .
 		// Before download , check the state
-		PlayerState state = GetState();
+		AAMPPlayerState state = GetState();
 		// Check for state not IDLE
 		if(state != eSTATE_RELEASED && state != eSTATE_IDLE && state != eSTATE_ERROR)
 		{
@@ -10158,7 +10158,7 @@ void PrivateInstanceAAMP::SetVideoTracks(std::vector<BitsPerSecond> bitrateList)
 		this->bitrateList.push_back(bitrateList.at(i));
 		AAMPLOG_WARN("User Profile Index : %d(%d) Bw : %ld", i, bitrateSize, bitrateList.at(i));
 	}
-	PlayerState state = GetState();
+	AAMPPlayerState state = GetState();
 	if (state > eSTATE_PREPARING)
 	{
 		AcquireStreamLock();
@@ -10428,7 +10428,7 @@ void PrivateInstanceAAMP::NotifyFirstVideoFrameDisplayed()
 	mFirstVideoFrameDisplayedEnabled = false;
 
 	// In the middle of stop processing we can receive state changing callback
-	PlayerState state = GetState();
+	AAMPPlayerState state = GetState();
 	if (state == eSTATE_IDLE)
 	{
 		AAMPLOG_WARN( "skipped as in IDLE state" );
@@ -10439,7 +10439,7 @@ void PrivateInstanceAAMP::NotifyFirstVideoFrameDisplayed()
 	if(mPauseOnFirstVideoFrameDisp)
 	{
 		mPauseOnFirstVideoFrameDisp = false;
-		PlayerState state = GetState();
+		AAMPPlayerState state = GetState();
 		if(state != eSTATE_SEEKING)
 		{
 			return;
@@ -10479,7 +10479,7 @@ bool PrivateInstanceAAMP::SetStateBufferingIfRequired()
 	if(IsFragmentCachingRequired())
 	{
 		bufferingSet = true;
-		PlayerState state = GetState();
+		AAMPPlayerState state = GetState();
 		if(state != eSTATE_BUFFERING)
 		{
 			if(mpStreamAbstractionAAMP)
@@ -11284,7 +11284,7 @@ void PrivateInstanceAAMP::DisableContentRestrictions(long grace, long time, bool
 void PrivateInstanceAAMP::EnableContentRestrictions()
 {
 	AcquireStreamLock();
-	PlayerState state = GetState();
+	AAMPPlayerState state = GetState();
 	if (mpStreamAbstractionAAMP)
 	{
 		mpStreamAbstractionAAMP->EnableContentRestrictions();
@@ -11729,7 +11729,7 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 		}
 	}
 
-	PlayerState state = GetState();
+	AAMPPlayerState state = GetState();
 	if (state != eSTATE_IDLE && state != eSTATE_RELEASED && state != eSTATE_ERROR && isRetuneNeeded)
 	{ // active playback session; apply immediately
 		if (mpStreamAbstractionAAMP)
@@ -12190,7 +12190,7 @@ void PrivateInstanceAAMP::SetPreferredTextLanguages(const char *param )
 
 	SETCONFIGVALUE_PRIV(AAMP_APPLICATION_SETTING,eAAMPConfig_PreferredTextLanguage,preferredTextLanguagesString);
 
-	PlayerState state = GetState();
+	AAMPPlayerState state = GetState();
 	if (state != eSTATE_IDLE && state != eSTATE_RELEASED && state != eSTATE_ERROR )
 	{ // active playback session; apply immediately
 		if (mpStreamAbstractionAAMP)

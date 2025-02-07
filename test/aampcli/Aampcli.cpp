@@ -109,7 +109,7 @@ void Aampcli::doAutomation( int startChannel, int stopChannel, int maxTuneTimeS,
 			snprintf( cmd, sizeof(cmd), "%d", chan );
 			mTuneFailureDescription.clear();
 			lCommandHandler.dispatchAampcliCommands(cmd,mSingleton);
-			PlayerState state = eSTATE_IDLE;
+			AAMPPlayerState state = eSTATE_IDLE;
 			for(int i=0; i<maxTuneTimeS; i++ )
 			{
 				sleep(1);
@@ -497,7 +497,7 @@ void Aampcli::getAdvertUrlIndexed( std::vector<AdvertInfo>& adList, int idx)
 	}
 }
 
-const char *MyAAMPEventListener::stringifyPlayerState(PlayerState state)
+const char *MyAAMPEventListener::stringifyPlayerState(AAMPPlayerState state)
 {
 	static const char *stateName[] =
 	{

@@ -57,7 +57,7 @@ class AampEventManager
 private:
 	bool mIsFakeTune;			 		  /**< Flag indicating if fake tune enabled or not  */
 	bool mAsyncTuneEnabled;			   		  /**< Flag indicating if Async tune enabled or not  */
-	PlayerState mPlayerState;	    		  	  /**< Player state flag , updated only at start and Release */
+	AAMPPlayerState mPlayerState;	    		  	  /**< Player state flag , updated only at start and Release */
 	std::mutex mMutexVar ;        			  /**< Mutex variable to handle pending and dispatch operation */
 	int mEventPriority;		    			  /**< Async Event task Priority  */
 	// Separate registration for each event
@@ -146,7 +146,7 @@ public:
 	 * @param state - Aamp Player state
 	 * @return void
 	 */
-	void SetPlayerState(PlayerState state);
+	void SetPlayerState(AAMPPlayerState state);
 	/**
 	 * @fn SendEvent
 	 * @param eventData - Event data

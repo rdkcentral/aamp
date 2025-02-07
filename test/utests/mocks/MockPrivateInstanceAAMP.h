@@ -31,9 +31,9 @@ public:
 
     MOCK_METHOD(void, StopPausePositionMonitoring, (std::string reason));
 
-    MOCK_METHOD(PlayerState, GetState, ());
+    MOCK_METHOD(AAMPPlayerState, GetState, ());
 
-    MOCK_METHOD(void, SetState, (PlayerState state));
+    MOCK_METHOD(void, SetState, (AAMPPlayerState state));
 
     MOCK_METHOD(bool, GetFile, (std::string remoteUrl, AampMediaType mediaType, AampGrowableBuffer *buffer, std::string& effectiveUrl,
                 int * http_error, double *downloadTime, const char *range, unsigned int curlInstance,

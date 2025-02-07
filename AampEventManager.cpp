@@ -249,7 +249,7 @@ void AampEventManager::SetAsyncTuneState(bool isAsyncTuneSetting)
 /**
  * @brief SetPlayerState - Flag to update player state
  */
-void AampEventManager::SetPlayerState(PlayerState state)
+void AampEventManager::SetPlayerState(AAMPPlayerState state)
 {
 	std::lock_guard<std::mutex> guard(mMutexVar);
 	mPlayerState = state;

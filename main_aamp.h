@@ -62,7 +62,7 @@
  *
  */
 
-#define PrivAAMPState PlayerState // backwards compatibility for apps using native interface
+#define PrivAAMPState AAMPPlayerState // backwards compatibility for apps using native interface
 
 /**
  * @enum AAMPAnomalyMessageType
@@ -1302,7 +1302,7 @@ public:
 	 *
 	 *   @return current AAMP state
 	 */
-	PlayerState GetState(void);
+	AAMPPlayerState GetState(void);
 
 	/**
 	 *   @fn GetVideoBitrate

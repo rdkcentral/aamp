@@ -1015,7 +1015,7 @@ TEST_F(PauseAtTests, GetIdNotNullTest4) {
 }
 TEST_F(PauseAtTests, GetStateTest) {
   
-    PlayerState state = mPlayerInstance->GetState();
+    AAMPPlayerState state = mPlayerInstance->GetState();
 }
 
 TEST_F(PauseAtTests, SetVideoBitrateTest1) {

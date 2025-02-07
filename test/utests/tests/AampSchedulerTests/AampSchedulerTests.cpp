@@ -204,7 +204,7 @@ TEST_F(AampSchedulerTests, EnableScheduleTaskTest)
 TEST_F(AampSchedulerTests, SetStateTest)
 {
     //Arrange:declare local variable
-    PlayerState sstate = eSTATE_INITIALIZING;
+    AAMPPlayerState sstate = eSTATE_INITIALIZING;
 
     //Act:call the setstate function with the local variable
     m_as->SetState(sstate);

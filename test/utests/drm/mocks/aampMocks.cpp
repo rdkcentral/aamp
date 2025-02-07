@@ -82,7 +82,7 @@ void PrivateInstanceAAMP::SendEvent(AAMPEventPtr eventData, AAMPEventMode eventM
 {
 }
 
-void PrivateInstanceAAMP::SetState(PlayerState state)
+void PrivateInstanceAAMP::SetState(AAMPPlayerState state)
 {
 }
 

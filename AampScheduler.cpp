@@ -253,7 +253,7 @@ void AampScheduler::EnableScheduleTask()
 /**
  * @brief To player state to Scheduler
  */
-void AampScheduler::SetState(PlayerState sstate)
+void AampScheduler::SetState(AAMPPlayerState sstate)
 {
 	mState = sstate;
 }

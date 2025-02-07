@@ -2531,7 +2531,7 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 									{
 										if(aamp->GetInitialBufferDuration() == 0)
 										{
-											PlayerState state = aamp->GetState();
+											AAMPPlayerState state = aamp->GetState();
 											if(state == eSTATE_SEEKING)
 											{
 												// To prevent underflow when seeked to end of fragment.
@@ -8896,7 +8896,7 @@ void StreamAbstractionAAMP_MPD::AdvanceTrack(int trackIdx, bool trickPlay, doubl
 
 	if (waitForFreeFrag && !trickPlay)
 	{
-		PlayerState state = aamp->GetState();
+		AAMPPlayerState state = aamp->GetState();
 		if(ISCONFIGSET(eAAMPConfig_SuppressDecode))
 		{
 			state = eSTATE_PLAYING;
@@ -9958,7 +9958,7 @@ void StreamAbstractionAAMP_MPD::AdvanceTsbFetch(int trackIdx, bool trickPlay, do
 
 	if (waitForFreeFrag && *waitForFreeFrag && !trickPlay)
 	{
-		PlayerState state = aamp->GetState();
+		AAMPPlayerState state = aamp->GetState();
 		if(ISCONFIGSET(eAAMPConfig_SuppressDecode))
 		{
 			state = eSTATE_PLAYING;
@@ -12767,7 +12767,7 @@ void StreamAbstractionAAMP_MPD::MonitorLatency()
 		{
 
 			double playRate = aamp->GetLLDashCurrentPlayBackRate();
-			PlayerState state = aamp->GetState();
+			AAMPPlayerState state = aamp->GetState();
 			if( state != eSTATE_PLAYING || aamp->GetPositionMs() > aamp->DurationFromStartOfPlaybackMs() )
 			{
 				AAMPLOG_WARN("Player state:%d must be in playing and current position[%lld] must be less than Duration From Start Of Playback[%lld]!!!!:", state,

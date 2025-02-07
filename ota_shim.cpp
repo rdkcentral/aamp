@@ -92,7 +92,7 @@ void StreamAbstractionAAMP_OTA::onPlayerStatusHandler(const JsonObject& paramete
 
 	if(0 != prevState.compare(currState) || blockedReasonChanged)
 	{
-		PlayerState state = eSTATE_IDLE;
+		AAMPPlayerState state = eSTATE_IDLE;
 		prevBlockedReason.clear();
 		AAMPLOG_WARN( "[OTA_SHIM] State changed from %s to %s ",  prevState.c_str(), currState.c_str());
 		prevState = currState;

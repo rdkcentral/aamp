@@ -4398,7 +4398,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 				{
 					if(aamp->GetInitialBufferDuration() == 0)
 					{
-						PlayerState state = aamp->GetState();
+						AAMPPlayerState state = aamp->GetState();
 						if(state == eSTATE_SEEKING)
 						{
 							// To prevent underflow when seeked to end of fragment.

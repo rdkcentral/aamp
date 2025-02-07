@@ -2245,14 +2245,14 @@ public:
 	 *   @param[in] state - New state
 	 *   @return void
 	 */
-	void SetState(PlayerState state);
+	void SetState(AAMPPlayerState state);
 
 	/**
 	 *   @fn GetState
 	 *
 	 *  @return current logical player state, i.e. eSTATE_PLAYING, eSTATE_IDLE
 	 */
-	PlayerState GetState();
+	AAMPPlayerState GetState();
 
 	/**
      	 *   @fn AddHighIdleTask
@@ -4361,7 +4361,7 @@ protected:
 	int mfirstTuneFmt;			//First Tune Format HLS(0) or DASH(1)
 	int  mTuneAttempts;			//To distinguish between new tune & retries with redundant over urls.
 	long long mPlayerLoadTime;
-	std::atomic<PlayerState> mState;  //Changed to atomic as there are cross thread accesses.
+	std::atomic<AAMPPlayerState> mState;  //Changed to atomic as there are cross thread accesses.
 	long long lastUnderFlowTimeMs[AAMP_TRACK_COUNT];
 	bool mbTrackDownloadsBlocked[AAMP_TRACK_COUNT];
 	std::shared_ptr<AampDrmHelper> mCurrentDrm;

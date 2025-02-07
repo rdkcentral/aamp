@@ -29,7 +29,7 @@ public:
 
     MOCK_METHOD(int, ScheduleTask, (AsyncTaskObj obj));
 
-    MOCK_METHOD(void, SetState, (PlayerState sstate));
+    MOCK_METHOD(void, SetState, (AAMPPlayerState sstate));
 
 };
 
