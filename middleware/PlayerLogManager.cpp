@@ -30,7 +30,9 @@
 #include <ctime>
 #include <stdio.h>
 #include <cstdarg>
+#include <cstring>
 #include <middleware/PlayerLogManager.h>
+
 
 #ifdef USE_ETHAN_LOG
 #include <ethanlog.h>
