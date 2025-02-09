@@ -35,6 +35,7 @@ from library.attriblist import AttribList
 import urllib
 import uuid
 from library.filesys_utils import url_to_filename
+import library.config as config
 
 # Keep a list of the segments we have already requested for download so when 
 # a changed manifest is parsed we do not request segments requested previously
@@ -481,6 +482,14 @@ class HLSMainManifest(Manifest):
         """
         Return the list of audio and video URLs
         """
+
+        for content, value in config.harvestContent.items():
+            if content == "text":
+                content = "subtitles" #Adjust for HLS manifest
+
+            if not value:
+                del self.sub_list[content.lower()]
+
         flist = []
         if mime_list is not None and type(mime_list) is str:
             mime_list = [mime_list]
