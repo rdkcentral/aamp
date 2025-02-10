@@ -10663,7 +10663,13 @@ void StreamAbstractionAAMP_MPD::Stop(bool clearChannelData)
 						track->mSubtitleParser->reset();
 					}
 				}
-				track->SetLocalTSBInjection(false);
+				/* Once playing back from TSB we only stop on new tune / retune, or for
+				   LLD when returning to normal rate at the live edge (done in cacheFragment).
+				   So avoid clearing the flag unless we are stopping for a new tune / retune. */
+				if(clearChannelData)
+				{
+					track->SetLocalTSBInjection(false);
+				}
 				track->IDX.Free();
 			}
 		}
