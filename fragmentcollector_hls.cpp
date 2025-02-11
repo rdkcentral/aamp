@@ -1375,7 +1375,7 @@ bool TrackState::FetchFragmentHelper(int &http_error, bool &decryption_error, bo
 				playTargetBufferCalc += fragmentDurationSeconds;
 			}
 
-			if((eTRACK_VIDEO == type)  && (aamp->IsTSBSupported()))
+			if((eTRACK_VIDEO == type)  && (aamp->IsFogTSBSupported()))
 			{
 				std::size_t pos = fragmentUrl.find(FOG_FRAG_BW_IDENTIFIER);
 				if (pos != std::string::npos)
@@ -1617,7 +1617,7 @@ void TrackState::FetchFragment()
 
 			// in case of tsb, GetCurrentBandWidth does not return correct bandwidth as it is updated after this point
 			// hence getting from context which is updated in FetchFragmentHelper
-			long lbwd = aamp->IsTSBSupported() ? context->GetTsbBandwidth() : this->GetCurrentBandWidth();
+			long lbwd = aamp->IsFogTSBSupported() ? context->GetTsbBandwidth() : this->GetCurrentBandWidth();
 			//update videoend info
 			aamp->UpdateVideoEndMetrics((IS_FOR_IFRAME(iCurrentRate, type) ? eMEDIATYPE_IFRAME : (AampMediaType)(type)),
 										lbwd,
@@ -1666,7 +1666,7 @@ void TrackState::FetchFragment()
 			cachedFragment->absPosition = playlistPosition.inSeconds();
 			// in case of tsb, GetCurrentBandWidth does not return correct bandwidth as it is updated after this point
 			// hence getting from context which is updated in FetchFragmentHelper
-			long lbwd = aamp->IsTSBSupported() ? context->GetTsbBandwidth() : this->GetCurrentBandWidth();
+			long lbwd = aamp->IsFogTSBSupported() ? context->GetTsbBandwidth() : this->GetCurrentBandWidth();
 
 			// update videoend info
 			aamp->UpdateVideoEndMetrics( (IS_FOR_IFRAME(iCurrentRate,type)? eMEDIATYPE_IFRAME:(AampMediaType)(type) ),
@@ -3389,7 +3389,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 			else
 			{
 				// Set Default init bitrate according to last PersistBandwidth
-				if((ISCONFIGSET(eAAMPConfig_PersistLowNetworkBandwidth)|| ISCONFIGSET(eAAMPConfig_PersistHighNetworkBandwidth)) && !aamp->IsTSBSupported())
+				if((ISCONFIGSET(eAAMPConfig_PersistLowNetworkBandwidth)|| ISCONFIGSET(eAAMPConfig_PersistHighNetworkBandwidth)) && !aamp->IsFogTSBSupported())
 				{
 					long persistbandwidth = aamp->mhAbrManager.getPersistBandwidth();
 					long TimeGap   =  aamp_GetCurrentTimeMS() - ABRManager::mPersistBandwidthUpdatedTime;
@@ -3598,7 +3598,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 		if (rate != AAMP_NORMAL_PLAY_RATE)
 		{
 			trickplayMode = true;
-			if(aamp->IsTSBSupported())
+			if(aamp->IsFogTSBSupported())
 			{
 				mTrickPlayFPS = GETCONFIGVALUE(eAAMPConfig_LinearTrickPlayFPS);
 			}
@@ -3988,7 +3988,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 					else
 					{
 						this->trickplayMode = true;
-						if(aamp->IsTSBSupported())
+						if(aamp->IsFogTSBSupported())
 						{
 							mTrickPlayFPS = GETCONFIGVALUE(eAAMPConfig_LinearTrickPlayFPS);
 						}
@@ -4803,14 +4803,14 @@ void TrackState::RunFetchLoop()
 		}
 		// reached end of vod stream
 		//teststreamer_EndOfStreamReached();
-		if(!abortedDownload && context->aamp->IsTSBSupported() && eosReached)
+		if(!abortedDownload && context->aamp->IsFogTSBSupported() && eosReached)
 		{
 			AbortWaitForCachedAndFreeFragment(false);
 			/* Make the aborted variable to true to avoid
 			* further fragment fetch loop running and abort sending multiple time */
 			abortedDownload = true;
 		}
-		else if ((eosReached && !context->aamp->IsTSBSupported()) || mReachedEndListTag || !context->aamp->DownloadsAreEnabled())
+		else if ((eosReached && !context->aamp->IsFogTSBSupported()) || mReachedEndListTag || !context->aamp->DownloadsAreEnabled())
 		{
 			/* Check whether already aborted or not */
 			if(!abortedDownload)
@@ -5905,7 +5905,7 @@ bool TrackState::HasDiscontinuityAroundPosition(AampTime position, bool useDisco
 			{
 				int maxPlaylistRefreshCount;
 				bool liveNoTSB;
-				if (aamp->IsTSBSupported() || aamp->IsInProgressCDVR())
+				if (aamp->IsFogTSBSupported() || aamp->IsInProgressCDVR())
 				{
 					maxPlaylistRefreshCount = MAX_PLAYLIST_REFRESH_FOR_DISCONTINUITY_CHECK_EVENT;
 					liveNoTSB = false;
@@ -6524,7 +6524,7 @@ void StreamAbstractionAAMP_HLS::ConfigureVideoProfiles()
 				break;
 			}
 		}
-		if (!aamp->IsTSBSupported() && iProfileCapped)
+		if (!aamp->IsFogTSBSupported() && iProfileCapped)
 		{
 			aamp->mProfileCappedStatus = true;
 		}
@@ -6802,7 +6802,7 @@ void StreamAbstractionAAMP_HLS::ConfigureVideoProfiles()
 						AAMPLOG_INFO("Adding image track, userData=%d BW = %ld ", j, streamInfo.bandwidthBitsPerSecond);
 					}
 				}
-				if (!aamp->IsTSBSupported() && iProfileCapped)
+				if (!aamp->IsFogTSBSupported() && iProfileCapped)
 				{
 					aamp->mProfileCappedStatus = true;
 				}
@@ -7274,7 +7274,7 @@ StreamAbstractionAAMP::ABRMode StreamAbstractionAAMP_HLS::GetABRMode()
 {
 	ABRMode mode;
 
-	if (aamp->IsTSBSupported())
+	if (aamp->IsFogTSBSupported())
 	{
 		// Fog manages ABR.
 		mode = ABRMode::FOG_TSB;

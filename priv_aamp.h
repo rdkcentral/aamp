@@ -867,7 +867,7 @@ public:
 	int mPreCacheDnldTimeWindow;				/**< Stores PreCaching timewindow */
 	bool mbDownloadsBlocked;
 	bool streamerIsActive;
-	bool mTSBEnabled;
+	bool mFogTSBEnabled;
 	bool mIscDVR;
 	double mLiveOffset;
 	double mLiveOffsetDrift;               /**< allowed drift value from live offset configured **/
@@ -1758,7 +1758,7 @@ public:
 	 *
 	 * @return True or False
 	 */
-	bool IsTSBSupported() { return mTSBEnabled;}
+	bool IsFogTSBSupported() { return mFogTSBEnabled;}
 
 	/**
 	 * @brief Checking whether CDVR in progress
@@ -1772,7 +1772,7 @@ public:
 	 *
 	 * @return True or False
 	 */
-	bool IsUninterruptedTSB() {return (IsTSBSupported() && !IsLive());}
+	bool IsUninterruptedTSB() {return (IsFogTSBSupported() && !IsLive());}
 
 	/**
 	 * @brief Checking whether CDVR Stream or not

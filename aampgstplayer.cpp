@@ -109,7 +109,7 @@ static void InitializePlayerConfigs(AAMPGstPlayer *_this, void *playerInstance)
 	interfacePlayer->m_gstConfigParam->framesToQueue =  config->GetConfigValue(eAAMPConfig_RequiredQueuedFrames);
 	interfacePlayer->m_gstConfigParam->monitorAV = config->IsConfigSet(eAAMPConfig_MonitorAV);
 	interfacePlayer->m_gstConfigParam->disableUnderflow = config->IsConfigSet(eAAMPConfig_DisableUnderflow);
-	interfacePlayer->m_gstConfigParam->tsbEnabled = _this->aamp->mTSBEnabled;
+	interfacePlayer->m_gstConfigParam->tsbEnabled = _this->aamp->mFogTSBEnabled;
 	interfacePlayer->m_gstConfigParam->audioDecoderStreamSync = _this->aamp->mAudioDecoderStreamSync;
 	interfacePlayer->m_gstConfigParam->audioOnlyMode = _this->aamp->mAudioOnlyPb;
 	interfacePlayer->m_gstConfigParam->gstreamerSubsEnabled = _this->aamp->IsGstreamerSubsEnabled();

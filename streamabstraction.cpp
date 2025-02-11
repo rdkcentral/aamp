@@ -1998,7 +1998,7 @@ int StreamAbstractionAAMP::GetDesiredProfile(bool getMidProfile)
 int StreamAbstractionAAMP::GetMaxBWProfile()
 {
 	int ret = 0;
-	if(aamp->IsTSBSupported() && mTsbMaxBitrateProfileIndex >= 0)
+	if(aamp->IsFogTSBSupported() && mTsbMaxBitrateProfileIndex >= 0)
 	{
 		ret = mTsbMaxBitrateProfileIndex;
 	}
@@ -2110,7 +2110,7 @@ void StreamAbstractionAAMP::UpdateProfileBasedOnFragmentDownloaded(void)
 void StreamAbstractionAAMP::UpdateRampUpOrDownProfileReason(void)
 {
 	mBitrateReason = eAAMP_BITRATE_CHANGE_BY_RAMPDOWN;
-	if(mUpdateReason && aamp->IsTSBSupported())
+	if(mUpdateReason && aamp->IsFogTSBSupported())
 	{
 		mBitrateReason = eAAMP_BITRATE_CHANGE_BY_FOG_ABR;
 		mUpdateReason = false;
