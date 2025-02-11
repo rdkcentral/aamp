@@ -38,7 +38,7 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) :
 	licenceFromManifest(false),
 	previousAudioType(eAUDIO_UNKNOWN),
 	isPreferredDRMConfigured(false),
-	mTSBEnabled(false),
+	mFogTSBEnabled(false),
 	mLiveOffset(AAMP_LIVE_OFFSET),
 	seek_pos_seconds(-1),
 	rate(0),
@@ -241,7 +241,7 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 
 {
 	// Set the Fog TSB flag based on the URL.
-	mTSBEnabled = strcasestr(mainManifestUrl, "tsb?");
+	mFogTSBEnabled = strcasestr(mainManifestUrl, "tsb?");
 }
 
 void PrivateInstanceAAMP::detach()

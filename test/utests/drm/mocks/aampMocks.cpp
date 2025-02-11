@@ -253,7 +253,7 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl, bool autoPlay, const
 
 {
 	// Set the Fog TSB flag based on the URL.
-	mTSBEnabled = strcasestr(mainManifestUrl, "tsb?");
+	mFogTSBEnabled = strcasestr(mainManifestUrl, "tsb?");
 }
 
 void PrivateInstanceAAMP::detach()

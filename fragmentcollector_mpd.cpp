@@ -4459,7 +4459,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::FetchDashManifest()
 			else if (http_error == 512 )
 			{
 				// check if any response available to search
-				if(mManifestDnldRespPtr->mMPDDownloadResponse->mResponseHeader.size() && aamp->mTSBEnabled)
+				if(mManifestDnldRespPtr->mMPDDownloadResponse->mResponseHeader.size() && aamp->mFogTSBEnabled)
 				{
 					for ( std::string header : mManifestDnldRespPtr->mMPDDownloadResponse->mResponseHeader )
 					{
@@ -4482,9 +4482,9 @@ AAMPStatusType StreamAbstractionAAMP_MPD::FetchDashManifest()
 				}
 			}
 			//When Fog is having tsb write error , then it will respond back with 302 with direct CDN url,In this case alone TSB should be disabled
-			else if (aamp->mTSBEnabled && http_error == 302)
+			else if (aamp->mFogTSBEnabled && http_error == 302)
 			{
-					aamp->mTSBEnabled = false;
+					aamp->mFogTSBEnabled = false;
 			}
 
 			else
@@ -4627,7 +4627,7 @@ void StreamAbstractionAAMP_MPD::MPDUpdateCallbackExec()
 			{
 				if (http_error == 512 )
 				{
-					if(tmpManifestDnldRespPtr->mMPDDownloadResponse->mResponseHeader.size() && aamp->mTSBEnabled)
+					if(tmpManifestDnldRespPtr->mMPDDownloadResponse->mResponseHeader.size() && aamp->mFogTSBEnabled)
 					{
 						for ( std::string header : tmpManifestDnldRespPtr->mMPDDownloadResponse->mResponseHeader )
 						{
@@ -6640,7 +6640,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateMediaTrackInfo(AampMediaType typ
 	pMediaStreamContext->fragmentRepeatCount = 0;
 	pMediaStreamContext->fragmentOffset = 0;
 	pMediaStreamContext->periodStartOffset = pMediaStreamContext->fragmentTime;
-	if (0 == pMediaStreamContext->fragmentDescriptor.Bandwidth || !aamp->IsTSBSupported())
+	if (0 == pMediaStreamContext->fragmentDescriptor.Bandwidth || !aamp->IsFogTSBSupported())
 	{
 		pMediaStreamContext->fragmentDescriptor.Bandwidth = pMediaStreamContext->representation->GetBandwidth();
 	}
@@ -7778,7 +7778,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, 
 					{
 						// For NewTune
 						// Set Default init bitrate according to last PersistBandwidth
-						if((ISCONFIGSET(eAAMPConfig_PersistLowNetworkBandwidth)|| ISCONFIGSET(eAAMPConfig_PersistHighNetworkBandwidth)) && !aamp->IsTSBSupported())
+						if((ISCONFIGSET(eAAMPConfig_PersistLowNetworkBandwidth)|| ISCONFIGSET(eAAMPConfig_PersistHighNetworkBandwidth)) && !aamp->IsFogTSBSupported())
 						{
 							long persistbandwidth = aamp->mhAbrManager.getPersistBandwidth();
 							long TimeGap   =  aamp_GetCurrentTimeMS() - ABRManager::mPersistBandwidthUpdatedTime;
@@ -7888,7 +7888,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, 
 			pMediaStreamContext->fragmentRepeatCount = 0;
 			pMediaStreamContext->fragmentOffset = 0;
 			pMediaStreamContext->periodStartOffset = pMediaStreamContext->fragmentTime;
-			if(0 == pMediaStreamContext->fragmentDescriptor.Bandwidth || !aamp->IsTSBSupported())
+			if(0 == pMediaStreamContext->fragmentDescriptor.Bandwidth || !aamp->IsFogTSBSupported())
 			{
 				pMediaStreamContext->fragmentDescriptor.Bandwidth = pMediaStreamContext->representation->GetBandwidth();
 			}
@@ -10873,7 +10873,7 @@ StreamInfo* StreamAbstractionAAMP_MPD::GetStreamInfo(int idx)
 	{
 		int userData = 0;
 
-		if (GetProfileCount() && !aamp->IsTSBSupported()) // avoid calling getUserDataOfProfile() for playlist only URL playback.
+		if (GetProfileCount() && !aamp->IsFogTSBSupported()) // avoid calling getUserDataOfProfile() for playlist only URL playback.
 		{
 			userData = GetABRManager().getUserDataOfProfile(idx);
 		}

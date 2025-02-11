@@ -305,7 +305,7 @@ TEST_F(SetPreferredLanguagesTests, LanguageListTest7)
 	mPrivateInstanceAAMP->preferredLanguagesString = "lang0";
 	mPrivateInstanceAAMP->preferredLanguagesList.clear();
 	mPrivateInstanceAAMP->preferredLanguagesList.push_back("lang0");
-	mPrivateInstanceAAMP->mTSBEnabled = true;
+	mPrivateInstanceAAMP->mFogTSBEnabled = true;
 	mPrivateInstanceAAMP->mManifestUrl = "http://host/Manifest.mpd";
 	mPrivateInstanceAAMP->mTsbSessionRequestUrl = "http://host/TsbSessionRequest.mpd";
 
@@ -344,7 +344,7 @@ TEST_F(SetPreferredLanguagesTests, LanguageListTest8)
 	mPrivateInstanceAAMP->preferredLanguagesString = "lang0";
 	mPrivateInstanceAAMP->preferredLanguagesList.clear();
 	mPrivateInstanceAAMP->preferredLanguagesList.push_back("lang0");
-	mPrivateInstanceAAMP->mTSBEnabled = true;
+	mPrivateInstanceAAMP->mFogTSBEnabled = true;
 	mPrivateInstanceAAMP->mManifestUrl = "http://host/Manifest.mpd";
 	mPrivateInstanceAAMP->mTsbSessionRequestUrl = "http://host/TsbSessionRequest.mpd";
 
@@ -482,7 +482,7 @@ TEST_F(SetPreferredLanguagesTests, RenditionTest5)
 	tracks.push_back(AudioTrackInfo("idx1", "lang1", "rend1", "trackName1", "codec1", 0, "type1", false, "label1", "type1", true));
 
 	mPrivateInstanceAAMP->preferredRenditionString = "rend0";
-	mPrivateInstanceAAMP->mTSBEnabled = true;
+	mPrivateInstanceAAMP->mFogTSBEnabled = true;
 	mPrivateInstanceAAMP->mManifestUrl = "http://host/Manifest.mpd";
 	mPrivateInstanceAAMP->mTsbSessionRequestUrl = "http://host/TsbSessionRequest.mpd";
 
@@ -515,7 +515,7 @@ TEST_F(SetPreferredLanguagesTests, RenditionTest6)
 	tracks.push_back(AudioTrackInfo("idx1", "lang1", "rend1", "trackName1", "codec1", 0, "type1", false, "label1", "type1", false));
 
 	mPrivateInstanceAAMP->preferredRenditionString = "rend0";
-	mPrivateInstanceAAMP->mTSBEnabled = true;
+	mPrivateInstanceAAMP->mFogTSBEnabled = true;
 	mPrivateInstanceAAMP->mManifestUrl = "http://host/Manifest.mpd";
 	mPrivateInstanceAAMP->mTsbSessionRequestUrl = "http://host/TsbSessionRequest.mpd";
 
@@ -697,7 +697,7 @@ TEST_F(SetPreferredLanguagesTests, LabelListTest6)
 	mPrivateInstanceAAMP->preferredLabelsString = "label0";
 	mPrivateInstanceAAMP->preferredLabelList.clear();
 	mPrivateInstanceAAMP->preferredLabelList.push_back("label0");
-	mPrivateInstanceAAMP->mTSBEnabled = true;
+	mPrivateInstanceAAMP->mFogTSBEnabled = true;
 	mPrivateInstanceAAMP->mManifestUrl = "http://host/Manifest.mpd";
 	mPrivateInstanceAAMP->mTsbSessionRequestUrl = "http://host/TsbSessionRequest.mpd";
 
@@ -734,7 +734,7 @@ TEST_F(SetPreferredLanguagesTests, LabelListTest7)
 	mPrivateInstanceAAMP->preferredLabelsString = "label0";
 	mPrivateInstanceAAMP->preferredLabelList.clear();
 	mPrivateInstanceAAMP->preferredLabelList.push_back("label0");
-	mPrivateInstanceAAMP->mTSBEnabled = true;
+	mPrivateInstanceAAMP->mFogTSBEnabled = true;
 	mPrivateInstanceAAMP->mManifestUrl = "http://host/Manifest.mpd";
 	mPrivateInstanceAAMP->mTsbSessionRequestUrl = "http://host/TsbSessionRequest.mpd";
 
@@ -875,7 +875,7 @@ TEST_F(SetPreferredLanguagesTests, TypeTest5)
 	tracks.push_back(AudioTrackInfo("idx1", "lang1", "rend1", "trackName1", "codec1", 0, "type1", false, "label1", "type1", true));
 
 	mPrivateInstanceAAMP->preferredTypeString = "type0";
-	mPrivateInstanceAAMP->mTSBEnabled = true;
+	mPrivateInstanceAAMP->mFogTSBEnabled = true;
 	mPrivateInstanceAAMP->mManifestUrl = "http://host/Manifest.mpd";
 	mPrivateInstanceAAMP->mTsbSessionRequestUrl = "http://host/TsbSessionRequest.mpd";
 
@@ -908,7 +908,7 @@ TEST_F(SetPreferredLanguagesTests, TypeTest6)
 	tracks.push_back(AudioTrackInfo("idx1", "lang1", "rend1", "trackName1", "codec1", 0, "type1", false, "label1", "type1", false));
 
 	mPrivateInstanceAAMP->preferredTypeString = "type0";
-	mPrivateInstanceAAMP->mTSBEnabled = true;
+	mPrivateInstanceAAMP->mFogTSBEnabled = true;
 	mPrivateInstanceAAMP->mManifestUrl = "http://host/Manifest.mpd";
 	mPrivateInstanceAAMP->mTsbSessionRequestUrl = "http://host/TsbSessionRequest.mpd";
 

@@ -334,7 +334,7 @@ TEST_F(SetPreferredTextLanguagesTests, LanguageListTest6)
 	mPrivateInstanceAAMP->preferredTextLanguagesList.clear();
 	mPrivateInstanceAAMP->preferredTextLanguagesList.push_back("lang0");
 	mPrivateInstanceAAMP->subtitles_muted = false;
-	mPrivateInstanceAAMP->mTSBEnabled = true;
+	mPrivateInstanceAAMP->mFogTSBEnabled = true;
 	mPrivateInstanceAAMP->mManifestUrl = "http://host/Manifest.mpd";
 	mPrivateInstanceAAMP->mTsbSessionRequestUrl = "http://host/TsbSessionRequest.mpd";
 
@@ -371,7 +371,7 @@ TEST_F(SetPreferredTextLanguagesTests, LanguageListTest7)
 	mPrivateInstanceAAMP->preferredTextLanguagesList.clear();
 	mPrivateInstanceAAMP->preferredTextLanguagesList.push_back("lang0");
 	mPrivateInstanceAAMP->subtitles_muted = false;
-	mPrivateInstanceAAMP->mTSBEnabled = true;
+	mPrivateInstanceAAMP->mFogTSBEnabled = true;
 	mPrivateInstanceAAMP->mManifestUrl = "http://host/Manifest.mpd";
 	mPrivateInstanceAAMP->mTsbSessionRequestUrl = "http://host/TsbSessionRequest.mpd";
 
@@ -452,7 +452,7 @@ TEST_F(SetPreferredTextLanguagesTests, RenditionTest3)
 
 	mPrivateInstanceAAMP->preferredTextRenditionString = "rend0";
 	mPrivateInstanceAAMP->subtitles_muted = false;
-	mPrivateInstanceAAMP->mTSBEnabled = true;
+	mPrivateInstanceAAMP->mFogTSBEnabled = true;
 	mPrivateInstanceAAMP->mManifestUrl = "http://host/Manifest.mpd";
 	mPrivateInstanceAAMP->mTsbSessionRequestUrl = "http://host/TsbSessionRequest.mpd";
 
@@ -486,7 +486,7 @@ TEST_F(SetPreferredTextLanguagesTests, RenditionTest4)
 
 	mPrivateInstanceAAMP->preferredTextRenditionString = "rend0";
 	mPrivateInstanceAAMP->subtitles_muted = false;
-	mPrivateInstanceAAMP->mTSBEnabled = true;
+	mPrivateInstanceAAMP->mFogTSBEnabled = true;
 	mPrivateInstanceAAMP->mManifestUrl = "http://host/Manifest.mpd";
 	mPrivateInstanceAAMP->mTsbSessionRequestUrl = "http://host/TsbSessionRequest.mpd";
 
@@ -575,7 +575,7 @@ TEST_F(SetPreferredTextLanguagesTests, TextTrackNameTest4)
 
 	mPrivateInstanceAAMP->preferredTextNameString = "English";
 	mPrivateInstanceAAMP->subtitles_muted = false;
-	mPrivateInstanceAAMP->mTSBEnabled = true;
+	mPrivateInstanceAAMP->mFogTSBEnabled = true;
 	mPrivateInstanceAAMP->mManifestUrl = "http://host/Manifest.mpd";
 	mPrivateInstanceAAMP->mTsbSessionRequestUrl = "http://host/TsbSessionRequest.mpd";
 
@@ -605,7 +605,7 @@ TEST_F(SetPreferredTextLanguagesTests, TextTrackNameTest5)
 
 	mPrivateInstanceAAMP->preferredTextNameString = "English";
 	mPrivateInstanceAAMP->subtitles_muted = false;
-	mPrivateInstanceAAMP->mTSBEnabled = true;
+	mPrivateInstanceAAMP->mFogTSBEnabled = true;
 	mPrivateInstanceAAMP->mManifestUrl = "http://host/Manifest.mpd";
 	mPrivateInstanceAAMP->mTsbSessionRequestUrl = "http://host/TsbSessionRequest.mpd";
 

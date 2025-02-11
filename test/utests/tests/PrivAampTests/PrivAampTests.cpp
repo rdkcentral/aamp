@@ -381,24 +381,24 @@ TEST_F(PrivAampPrivTests,ExtractServiceZoneTest)
 {
 	std::string url = "sampleString";
 	testp_aamp->callExtractServiceZone(url);
-	EXPECT_FALSE(testp_aamp->mTSBEnabled);
+	EXPECT_FALSE(testp_aamp->mFogTSBEnabled);
 }
 
 TEST_F(PrivAampPrivTests,ExtractServiceZoneTest_1)
 {
-	testp_aamp->mTSBEnabled = true;
+	testp_aamp->mFogTSBEnabled = true;
 	std::string url = "sampleString";
 	testp_aamp->callExtractServiceZone(url);
-	EXPECT_TRUE(testp_aamp->mTSBEnabled);
+	EXPECT_TRUE(testp_aamp->mFogTSBEnabled);
 }
 
 TEST_F(PrivAampPrivTests,ExtractServiceZoneTest_2)
 {
 	testp_aamp->mIsVSS = true;
-	testp_aamp->mTSBEnabled = true;
+	testp_aamp->mFogTSBEnabled = true;
 	std::string url = "sampleString";
 	testp_aamp->callExtractServiceZone(url);
-	EXPECT_TRUE(testp_aamp->mTSBEnabled);
+	EXPECT_TRUE(testp_aamp->mFogTSBEnabled);
 }
 
 TEST_F(PrivAampPrivTests,DeliverAdEventsTest)
@@ -1515,7 +1515,7 @@ TEST_F(PrivAampTests, TuneHelperTest_3)
 
 TEST_F(PrivAampTests, ReloadTSBTest)
 {
-	p_aamp->mTSBEnabled=true;
+	p_aamp->mFogTSBEnabled=true;
 	p_aamp->mMediaFormat=eMEDIAFORMAT_HLS;
 	p_aamp->ReloadTSB();
 
@@ -1980,7 +1980,7 @@ TEST_F(PrivAampTests,stopTest_1)
 {
 	p_aamp->Stop();
 	EXPECT_FALSE(p_aamp->mAutoResumeTaskPending);
-	EXPECT_FALSE(p_aamp->IsTSBSupported());
+	EXPECT_FALSE(p_aamp->IsFogTSBSupported());
 }
 
 TEST_F(PrivAampTests,SaveTimedMetadateTest)
@@ -2448,7 +2448,7 @@ TEST_F(PrivAampTests,FoundEventBreakTest)
 	info.duration=250;
 	info.presentationTime=12345;
 	p_aamp->FoundEventBreak("adBraeakId",25,info);
-	EXPECT_FALSE(p_aamp->mTSBEnabled);
+	EXPECT_FALSE(p_aamp->mFogTSBEnabled);
 }
 
 TEST_F(PrivAampTests,SetAlternateContentsTest)
@@ -3627,8 +3627,8 @@ TEST_F(PrivAampTests, UpdateVideoEndMetricsDelegatesCorrectly3) {
 }
 TEST_F(PrivAampTests,SendDownloadErrorEventTest2)
 {
-	p_aamp->mTSBEnabled = true;
-	p_aamp->IsTSBSupported();
+	p_aamp->mFogTSBEnabled = true;
+	p_aamp->IsFogTSBSupported();
 	p_aamp->SendDownloadErrorEvent(AAMP_TUNE_FAILED_PTS_ERROR,131);
 }
 TEST_F(PrivAampTests,SendDownloadErrorEventTest4)
@@ -3645,8 +3645,8 @@ TEST_F(PrivAampTests,SendDownloadErrorEventTest6)
 }
 TEST_F(PrivAampTests,SendErrorEventTest11)
 {
-	p_aamp->mTSBEnabled = true;
-	p_aamp->IsTSBSupported();
+	p_aamp->mFogTSBEnabled = true;
+	p_aamp->IsFogTSBSupported();
 	p_aamp->SetState(eSTATE_INITIALIZED);
 	p_aamp->SendErrorEvent(AAMP_TUNE_FAILURE_UNKNOWN,"DESCRIPTION",true,11,12,13,"responseString");
 }
@@ -3660,8 +3660,8 @@ TEST_F(PrivAampTests,BlockUntilGstreamerWantsDataTest11)
 
 TEST_F(PrivAampTests,stopTest_11)
 {
-	p_aamp->mTSBEnabled = true;
-	p_aamp->IsTSBSupported();
+	p_aamp->mFogTSBEnabled = true;
+	p_aamp->IsFogTSBSupported();
 	p_aamp->Stop();
 }
 TEST_F(PrivAampTests,GetLastDownloadedManifestTest1)

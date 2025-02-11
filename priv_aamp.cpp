@@ -1094,7 +1094,7 @@ int PrivateInstanceAAMP::HandleSSLProgressCallback ( void *clientp, double dltot
 PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPosn(0.0), mLastTelemetryTimeMS(0), mDiscontinuityFound(false), mTelemetryInterval(0), mAbrBitrateData(), mLock(),
 	mpStreamAbstractionAAMP(NULL), mInitSuccess(false), mVideoFormat(FORMAT_INVALID), mAudioFormat(FORMAT_INVALID), mDownloadsDisabled(),
 	mDownloadsEnabled(true), profiler(), licenceFromManifest(false), previousAudioType(eAUDIO_UNKNOWN),isPreferredDRMConfigured(false),
-	mbDownloadsBlocked(false), streamerIsActive(false), mTSBEnabled(false), mIscDVR(false), mLiveOffset(AAMP_LIVE_OFFSET),
+	mbDownloadsBlocked(false), streamerIsActive(false), mFogTSBEnabled(false), mIscDVR(false), mLiveOffset(AAMP_LIVE_OFFSET),
 	seek_pos_seconds(-1), rate(0), pipeline_paused(false), mMaxLanguageCount(0), zoom_mode(VIDEO_ZOOM_NONE),
 	video_muted(false), subtitles_muted(true), audio_volume(100), subscribedTags(), manifestHeadersNeeded(), httpHeaderResponses(), timedMetadata(), timedMetadataNew(), IsTuneTypeNew(false), trickStartUTCMS(-1), durationSeconds(0.0), culledSeconds(0.0), culledOffset(0.0), maxRefreshPlaylistIntervalSecs(DEFAULT_INTERVAL_BETWEEN_PLAYLIST_UPDATES_MS/1000),
 	mEventListener(NULL), mNewSeekInfo(), discardEnteringLiveEvt(false),
@@ -2172,7 +2172,7 @@ void PrivateInstanceAAMP::ReportProgress(bool sync, bool beginningOfStream)
 		// If tsb is not available for linear send -1  for start and end
                 // so that xre detect this as tsbless playback
                 // Override above logic if mEnableSeekableRange is set, used by third-party apps
-                if (!ISCONFIGSET_PRIV(eAAMPConfig_EnableSeekRange) && (mContentType == ContentType_LINEAR && !mTSBEnabled && !IsLocalAAMPTsb()))
+                if (!ISCONFIGSET_PRIV(eAAMPConfig_EnableSeekRange) && (mContentType == ContentType_LINEAR && !mFogTSBEnabled && !IsLocalAAMPTsb()))
                 {
                         start = -1;
                         end = -1;
@@ -2643,7 +2643,7 @@ void PrivateInstanceAAMP::SendDownloadErrorEvent(AAMPTuneFailure tuneFailure, in
 				 retryStatus = false;
 			}
 		}
-		if( IsTSBSupported() )
+		if( IsFogTSBSupported() )
 		{
 			strcat(description, "(FOG)");
 		}
@@ -2755,7 +2755,7 @@ void PrivateInstanceAAMP::SendErrorEvent(AAMPTuneFailure tuneFailure, const char
 	std::unique_lock<std::recursive_mutex> lock(mLock);
 	if(mState != eSTATE_ERROR)
 	{
-		if(IsTSBSupported() && mState <= eSTATE_PREPARED)
+		if(IsFogTSBSupported() && mState <= eSTATE_PREPARED)
 		{
 			// Send a TSB delete request when player is not tuned successfully.
 			// If player is once tuned, retune happens with same content and player can reuse same TSB.
@@ -2918,12 +2918,12 @@ void PrivateInstanceAAMP::NotifyBitRateChangeEvent(BitsPerSecond bitrate, Bitrat
 		if(GetBWIndex)
 		{
 			AAMPLOG_WARN("NotifyBitRateChangeEvent :: bitrate:%" BITSPERSECOND_FORMAT " desc:%s width:%d height:%d fps:%f position:%f IndexFromTopProfile: %d%s profileCap:%d tvWidth:%d tvHeight:%d, scantype:%d, aspectRatioW:%d, aspectRatioH:%d",
-				bitrate, BITRATEREASON2STRING(reason), width, height, frameRate, position, mpStreamAbstractionAAMP->GetBWIndex(bitrate), (IsTSBSupported()? ", fog": " "), mProfileCappedStatus, mDisplayWidth, mDisplayHeight, scantype, aspectRatioWidth, aspectRatioHeight);
+				bitrate, BITRATEREASON2STRING(reason), width, height, frameRate, position, mpStreamAbstractionAAMP->GetBWIndex(bitrate), (IsFogTSBSupported()? ", fog": " "), mProfileCappedStatus, mDisplayWidth, mDisplayHeight, scantype, aspectRatioWidth, aspectRatioHeight);
 		}
 		else
 		{
 			AAMPLOG_WARN("NotifyBitRateChangeEvent :: bitrate:%" BITSPERSECOND_FORMAT " desc:%s width:%d height:%d fps:%f position:%f %s profileCap:%d tvWidth:%d tvHeight:%d, scantype:%d, aspectRatioW:%d, aspectRatioH:%d",
-				bitrate, BITRATEREASON2STRING(reason), width, height, frameRate, position, (IsTSBSupported()? ", fog": " "), mProfileCappedStatus, mDisplayWidth, mDisplayHeight, scantype, aspectRatioWidth, aspectRatioHeight);
+				bitrate, BITRATEREASON2STRING(reason), width, height, frameRate, position, (IsFogTSBSupported()? ", fog": " "), mProfileCappedStatus, mDisplayWidth, mDisplayHeight, scantype, aspectRatioWidth, aspectRatioHeight);
 		}
 
 		SendEvent(event,AAMP_EVENT_ASYNC_MODE);
@@ -2933,12 +2933,12 @@ void PrivateInstanceAAMP::NotifyBitRateChangeEvent(BitsPerSecond bitrate, Bitrat
 		if(GetBWIndex)
 		{
 			AAMPLOG_WARN("NotifyBitRateChangeEvent ::NO LISTENERS bitrate:%" BITSPERSECOND_FORMAT " desc:%s width:%d height:%d, fps:%f position:%f IndexFromTopProfile: %d%s profileCap:%d tvWidth:%d tvHeight:%d, scantype:%d, aspectRatioW:%d, aspectRatioH:%d",
-				bitrate, BITRATEREASON2STRING(reason), width, height, frameRate, position, mpStreamAbstractionAAMP->GetBWIndex(bitrate), (IsTSBSupported()? ", fog": " "), mProfileCappedStatus, mDisplayWidth, mDisplayHeight, scantype, aspectRatioWidth, aspectRatioHeight);
+				bitrate, BITRATEREASON2STRING(reason), width, height, frameRate, position, mpStreamAbstractionAAMP->GetBWIndex(bitrate), (IsFogTSBSupported()? ", fog": " "), mProfileCappedStatus, mDisplayWidth, mDisplayHeight, scantype, aspectRatioWidth, aspectRatioHeight);
 		}
 		else
 		{
 			AAMPLOG_WARN("NotifyBitRateChangeEvent ::NO LISTENERS bitrate:%" BITSPERSECOND_FORMAT " desc:%s width:%d height:%d fps:%f position:%f %s profileCap:%d tvWidth:%d tvHeight:%d, scantype:%d, aspectRatioW:%d, aspectRatioH:%d",
-				bitrate, BITRATEREASON2STRING(reason), width, height, frameRate, position, (IsTSBSupported()? ", fog": " "), mProfileCappedStatus, mDisplayWidth, mDisplayHeight, scantype, aspectRatioWidth, aspectRatioHeight);
+				bitrate, BITRATEREASON2STRING(reason), width, height, frameRate, position, (IsFogTSBSupported()? ", fog": " "), mProfileCappedStatus, mDisplayWidth, mDisplayHeight, scantype, aspectRatioWidth, aspectRatioHeight);
 		}
 	}
 
@@ -3457,7 +3457,7 @@ void PrivateInstanceAAMP::TuneFail(bool fail)
 	mTuneMetrics.mTuneAttempts 		= mTuneAttempts;
 	mTuneMetrics.contentType 		= mContentType;
 	mTuneMetrics.streamType 		= streamType;
-	mTuneMetrics.mTSBEnabled             	= mTSBEnabled;
+	mTuneMetrics.mFogTSBEnabled             	= mFogTSBEnabled;
 	if(mTuneMetrics.success  == -1 && mPlayerPreBuffered)
 	{
 		LogPlayerPreBuffered();        //Need to calculate prebufferedtime when tune interruption happens with playerprebuffer
@@ -3487,7 +3487,7 @@ void PrivateInstanceAAMP::LogTuneComplete(void)
 	mTuneMetrics.mTimedMetadataDuration      = (int)mTimedMetadataDuration;
 	mTuneMetrics.mTuneAttempts 		 = mTuneAttempts;
 	mTuneMetrics.streamType 		 = streamType;
-	mTuneMetrics.mTSBEnabled                 = mTSBEnabled;
+	mTuneMetrics.mFogTSBEnabled                 = mFogTSBEnabled;
 	bool eventAvailStatus = IsEventListenerAvailable(AAMP_EVENT_TUNE_TIME_METRICS);
 	std::string tuneData("");
 	profiler.TuneEnd(mTuneMetrics,mAppName,(mbPlayEnabled?STRFGPLAYER:STRBGPLAYER), mPlayerId, mPlayerPreBuffered, durationSeconds, activeInterfaceWifi, mFailureReason, eventAvailStatus ? &tuneData : NULL);
@@ -3496,7 +3496,7 @@ void PrivateInstanceAAMP::LogTuneComplete(void)
 		SendTuneMetricsEvent(tuneData);
 	}
 	//update tunedManifestUrl if FOG was NOT used as manifestUrl might be updated with redirected url.
-	if(!IsTSBSupported())
+	if(!IsFogTSBSupported())
 	{
 		SetTunedManifestUrl(); /* Redirect URL in case on VOD */
 	}
@@ -3522,7 +3522,7 @@ void PrivateInstanceAAMP::LogTuneComplete(void)
 
 		if(mContentType == ContentType_LINEAR)
 		{
-			if(mTSBEnabled)
+			if(mFogTSBEnabled)
 			{
 				playbackType.append(":TSB=true");
 			}
@@ -4031,7 +4031,15 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 					lowBWTimeout = GETCONFIGVALUE_PRIV(eAAMPConfig_NetworkTimeout) * LOW_BW_TIMEOUT_FACTOR;
 					lowBWTimeout = std::max(DEFAULT_LOW_BW_TIMEOUT, lowBWTimeout);
 				}
-				progressCtx.lowBWTimeout = lowBWTimeout;
+				if (mFogTSBEnabled)
+				{
+					AAMPLOG_DEBUG("Disable low bandwidth timeout in aamp, it will be done in fog");
+					progressCtx.lowBWTimeout = 0;
+				}
+				else
+				{
+					progressCtx.lowBWTimeout = lowBWTimeout;
+				}
 			}
 			progressCtx.stallTimeout = GETCONFIGVALUE_PRIV(eAAMPConfig_CurlStallTimeout);
 
@@ -4135,9 +4143,9 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 					else
 					{
 						//When Fog is having tsb write error , then it will respond back with 302 with direct CDN url,In this case alone TSB should be disabled
-						if(mTSBEnabled && http_code == 302)
+						if(mFogTSBEnabled && http_code == 302)
 						{
-							mTSBEnabled = false;
+							mFogTSBEnabled = false;
 						}
 						effectiveUrlPtr = aamp_CurlEasyGetinfoString(curl, CURLINFO_EFFECTIVE_URL);
 						if((mediaType == eMEDIATYPE_INIT_VIDEO || mediaType ==  eMEDIATYPE_INIT_AUDIO))
@@ -4208,7 +4216,7 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 						{
 							AAMPLOG_INFO("TSB not available from fog, playing from:%s ", effectiveUrl.c_str());
 						}
-						this->UpdateVideoEndTsbStatus(mTSBEnabled);
+						this->UpdateVideoEndTsbStatus(mFogTSBEnabled);
 					}
 
 					/*
@@ -4501,14 +4509,14 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 			// these are generated after trick play options,
 			if( !(http_code == CURLE_ABORTED_BY_CALLBACK || http_code == CURLE_WRITE_ERROR || http_code == 204))
 			{
-				SendAnomalyEvent(ANOMALY_WARNING, "%s:%s,%s-%d url:%s", (mTSBEnabled ? "FOG" : "CDN"),
+				SendAnomalyEvent(ANOMALY_WARNING, "%s:%s,%s-%d url:%s", (mFogTSBEnabled ? "FOG" : "CDN"),
 								 GetMediaTypeName(mediaType), (http_code < 100) ? "Curl" : "HTTP", http_code, remoteUrl.c_str());
 			}
 
 			if ( (httpRespHeaders[curlInstance].type == eHTTPHEADERTYPE_XREASON) && (httpRespHeaders[curlInstance].data.length() > 0) )
 			{
-				AAMPLOG_WARN("Received X-Reason header from %s: '%s'", mTSBEnabled?"Fog":"CDN Server", httpRespHeaders[curlInstance].data.c_str());
-				SendAnomalyEvent(ANOMALY_WARNING, "%s X-Reason:%s", mTSBEnabled ? "Fog" : "CDN", httpRespHeaders[curlInstance].data.c_str());
+				AAMPLOG_WARN("Received X-Reason header from %s: '%s'", mFogTSBEnabled?"Fog":"CDN Server", httpRespHeaders[curlInstance].data.c_str());
+				SendAnomalyEvent(ANOMALY_WARNING, "%s X-Reason:%s", mFogTSBEnabled ? "Fog" : "CDN", httpRespHeaders[curlInstance].data.c_str());
 			}
 			else if ( (httpRespHeaders[curlInstance].type == eHTTPHEADERTYPE_FOG_REASON) && (httpRespHeaders[curlInstance].data.length() > 0) )
 			{
@@ -5508,7 +5516,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 			   Trick play freeze issues observed for partner cDVR content
 			   @TODO Need to investigate and identify proper way to send Flush and segment
 			   events to avoid the freeze
-			if (!(newTune || (eTUNETYPE_RETUNE == tuneType)) && !IsTSBSupported())
+			if (!(newTune || (eTUNETYPE_RETUNE == tuneType)) && !IsFogTSBSupported())
 			{
 				StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
 				if (sink)
@@ -5681,7 +5689,7 @@ void PrivateInstanceAAMP::ReloadTSB()
 	mManifestUrl = mTsbSessionRequestUrl + "&reloadTSB=true";
 	// To post player configurations to fog on 1st time tune
 	long configPassCode = -1;
-	if(mTSBEnabled && ISCONFIGSET_PRIV(eAAMPConfig_EnableAampConfigToFog))
+	if(mFogTSBEnabled && ISCONFIGSET_PRIV(eAAMPConfig_EnableAampConfigToFog))
 	{
 		configPassCode = LoadFogConfig();
 	}
@@ -5697,7 +5705,7 @@ void PrivateInstanceAAMP::ReloadTSB()
 		mMediaFormat = GetMediaFormatType(mManifestUrl.c_str());
 		ResumeDownloads();
 
-		mIsFirstRequestToFOG = (mTSBEnabled == true);
+		mIsFirstRequestToFOG = (mFogTSBEnabled == true);
 
 		{
 			AAMPLOG_WARN("Reloading TSB, URL: %s", mManifestUrl.c_str());
@@ -5865,14 +5873,14 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 		}
 	}
 
-	mTSBEnabled = strcasestr(mainManifestUrl, AAMP_FOG_TSB_URL_KEYWORD) && ISCONFIGSET_PRIV(eAAMPConfig_Fog);
+	mFogTSBEnabled = strcasestr(mainManifestUrl, AAMP_FOG_TSB_URL_KEYWORD) && ISCONFIGSET_PRIV(eAAMPConfig_Fog);
 
 	std::string sTraceId = (pTraceID?pTraceID:"unknown");
 	//CMCD to be enabled for player direct downloads, not for Fog . All downloads in Fog , CMCD response to be done in Fog.
-	mCMCDCollector->Initialize((ISCONFIGSET_PRIV(eAAMPConfig_EnableCMCD) && !mTSBEnabled),sTraceId);
+	mCMCDCollector->Initialize((ISCONFIGSET_PRIV(eAAMPConfig_EnableCMCD) && !mFogTSBEnabled),sTraceId);
 // This feature is causing trickplay issues for client dai
 // hence removing code which reads this config from tune url , Ideally it should be fixed by app and not to enable this feature
-//	SETCONFIGVALUE_PRIV(AAMP_STREAM_SETTING, eAAMPConfig_InterruptHandling, (mTSBEnabled && strcasestr(mainManifestUrl, "networkInterruption=true")));
+//	SETCONFIGVALUE_PRIV(AAMP_STREAM_SETTING, eAAMPConfig_InterruptHandling, (mFogTSBEnabled && strcasestr(mainManifestUrl, "networkInterruption=true")));
 	if(!ISCONFIGSET_PRIV(eAAMPConfig_UseAbsoluteTimeline) && ISCONFIGSET_PRIV(eAAMPConfig_InterruptHandling))
 	{
 		AAMPLOG_INFO("Absolute timeline reporting enabled for interrupt enabled TSB stream");
@@ -5881,7 +5889,7 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 	if (bFirstAttempt)
 	{
 		// To post player configurations to fog on 1st time tune
-		if(mTSBEnabled && ISCONFIGSET_PRIV(eAAMPConfig_EnableAampConfigToFog))
+		if(mFogTSBEnabled && ISCONFIGSET_PRIV(eAAMPConfig_EnableAampConfigToFog))
 		{
 			LoadFogConfig();
 		}
@@ -6120,7 +6128,7 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 		if(ISCONFIGSET_PRIV(eAAMPConfig_ForceHttp))
 		{
 			replace(mManifestUrl, "https://", "http://");
-			if(mTSBEnabled)
+			if(mFogTSBEnabled)
 			{
 				ForceHttpConversionForFog(mManifestUrl,"https","http");
 			}
@@ -6132,7 +6140,7 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 		} // mpd
 	} // !remap_url
 
-	mIsFirstRequestToFOG = (mTSBEnabled == true);
+	mIsFirstRequestToFOG = (mFogTSBEnabled == true);
 
 	{
 		char tuneStrPrefix[64];
@@ -6151,15 +6159,15 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 		{
 			AAMPLOG_WARN("%s aamp_stich: Option[%d] URL: %s", tuneStrPrefix, mMPDStichOption, mMPDStichRefreshUrl.c_str());
 		}
-		if(IsTSBSupported())
+		if(IsFogTSBSupported())
 		{
 			mTsbSessionRequestUrl = mManifestUrl;
 		}
 	}
 
-	// this function uses mIsVSS and mTSBEnabled, hence it should be called after these variables are updated.
+	// this function uses mIsVSS and mFogTSBEnabled, hence it should be called after these variables are updated.
 	ExtractServiceZone(mManifestUrl);
-	SetTunedManifestUrl(mTSBEnabled);
+	SetTunedManifestUrl(mFogTSBEnabled);
 
 	if(bFirstAttempt)
 	{ // TODO: make mFirstTuneFormat of type MediaFormat
@@ -6428,7 +6436,7 @@ void PrivateInstanceAAMP::ExtractServiceZone(std::string url)
 {
 	if(mIsVSS && !url.empty())
 	{
-		if(mTSBEnabled)
+		if(mFogTSBEnabled)
 		{ // extract original locator from FOG recordedUrl URI parameter
 			DeFog(url);
 		}
@@ -7547,7 +7555,7 @@ void PrivateInstanceAAMP::Stop()
 
 	DisableDownloads();
 	//Moved the tsb delete request from XRE to AAMP to avoid the HTTP-404 erros
-	if(IsTSBSupported())
+	if(IsFogTSBSupported())
 	{
 		std::string remoteUrl = "127.0.0.1:9080/tsb";
 		AampCurlDownloader T1;
@@ -8429,7 +8437,7 @@ bool PrivateInstanceAAMP::SendVideoEndEvent()
 		//Memory of this string will be deleted after sending event by destructor of AsyncMetricsEventDescriptor
 		if(ISCONFIGSET_PRIV(eAAMPConfig_EnableVideoEndEvent) && mEventManager->IsEventListenerAvailable(AAMP_EVENT_REPORT_METRICS_DATA))
 		{
-			if(mTSBEnabled)
+			if(mFogTSBEnabled)
 			{
 				std::string videoEndData;
 				GetOnVideoEndSessionStatData(videoEndData);
@@ -9314,9 +9322,9 @@ void PrivateInstanceAAMP::FoundEventBreak(const std::string &adBreakId, uint64_t
 			mCdaiObject->SetAlternateContents(adBreakId, adId, url, startMS, brInfo.duration);	//A placeholder to avoid multiple scte35 event firing for the same adbreak
 		}
 		//Ignoring past SCTE events.
-		//mTSBEnabled check is added to ensure the change won't effect IPVOD
-		AAMPLOG_INFO("[CDAI] mTuneCompleted:%d mTSBEnabled:%d", mTuneCompleted, mTSBEnabled);
-		if (mTuneCompleted || !mTSBEnabled)
+		//mFogTSBEnabled check is added to ensure the change won't effect IPVOD
+		AAMPLOG_INFO("[CDAI] mTuneCompleted:%d mFogTSBEnabled:%d", mTuneCompleted, mFogTSBEnabled);
+		if (mTuneCompleted || !mFogTSBEnabled)
 		{
 			SaveNewTimedMetadata((long long) startMS, brInfo.name.c_str(), brInfo.payload.c_str(), (int)brInfo.payload.size(), adBreakId.c_str(), brInfo.duration);
 		}
@@ -11917,7 +11925,7 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 					{
 						seek_pos_seconds = GetPositionSeconds();
 						TeardownStream(false);
-						if(IsTSBSupported() &&
+						if(IsFogTSBSupported() &&
 								((languagePresent && !languageAvailabilityInManifest) ||
 								 (renditionPresent && !renditionAvailabilityInManifest) ||
 								 (accessibilityTypePresent && !accessibilityAvailabilityInManifest) ||
@@ -12294,7 +12302,7 @@ void PrivateInstanceAAMP::SetPreferredTextLanguages(const char *param )
 				{
 					seek_pos_seconds = GetPositionSeconds();
 					TeardownStream(false);
-					if(IsTSBSupported() &&
+					if(IsFogTSBSupported() &&
 				 	((languagePresent && !languageAvailabilityInManifest) ||
 				 	(renditionPresent && !renditionAvailabilityInManifest) ||
 				 	(accessibilityTypePresent && !accessibilityAvailabilityInManifest) ||
@@ -12542,7 +12550,7 @@ struct curl_slist* PrivateInstanceAAMP::GetCustomHeaders(AampMediaType mediaType
 			headerValue = it->second.at(0);
 			if (it->first.compare("X-MoneyTrace:") == 0)
 			{
-				if (mTSBEnabled && !mIsFirstRequestToFOG)
+				if (mFogTSBEnabled && !mIsFirstRequestToFOG)
 				{
 					continue;
 				}
@@ -12578,7 +12586,7 @@ struct curl_slist* PrivateInstanceAAMP::GetCustomHeaders(AampMediaType mediaType
 			customHeader.append(headerValue);
 			httpHeaders = curl_slist_append(httpHeaders, customHeader.c_str());
 		}
-		if (ISCONFIGSET_PRIV(eAAMPConfig_LimitResolution) && mIsFirstRequestToFOG && mTSBEnabled && eMEDIATYPE_MANIFEST == mediaType)
+		if (ISCONFIGSET_PRIV(eAAMPConfig_LimitResolution) && mIsFirstRequestToFOG && mFogTSBEnabled && eMEDIATYPE_MANIFEST == mediaType)
 		{
 			std::string customHeader;
 			customHeader.clear();
@@ -12589,7 +12597,7 @@ struct curl_slist* PrivateInstanceAAMP::GetCustomHeaders(AampMediaType mediaType
 			httpHeaders = curl_slist_append(httpHeaders, customHeader.c_str());
 		}
 
-		if(mTSBEnabled  && eMEDIATYPE_VIDEO == mediaType)
+		if(mFogTSBEnabled  && eMEDIATYPE_VIDEO == mediaType)
 		{
 			double bufferedDuration = mpStreamAbstractionAAMP->GetBufferedVideoDurationSec() * 1000.0;
 			std::string customHeader;
@@ -12597,7 +12605,7 @@ struct curl_slist* PrivateInstanceAAMP::GetCustomHeaders(AampMediaType mediaType
 			customHeader = "Buffer: " +std::to_string(bufferedDuration);
 			httpHeaders = curl_slist_append(httpHeaders, customHeader.c_str());
 		}
-		if(mTSBEnabled  && eMEDIATYPE_AUDIO == mediaType)
+		if(mFogTSBEnabled  && eMEDIATYPE_AUDIO == mediaType)
 		{
 			double bufferedAudioDuration = mpStreamAbstractionAAMP->GetBufferedDuration() * 1000.0;
 			std::string customHeader;
@@ -12605,7 +12613,7 @@ struct curl_slist* PrivateInstanceAAMP::GetCustomHeaders(AampMediaType mediaType
 			customHeader = "AudioBuffer: " +std::to_string(bufferedAudioDuration);
 			httpHeaders = curl_slist_append(httpHeaders, customHeader.c_str());
 		}
-		if(mTSBEnabled && (eMEDIATYPE_VIDEO == mediaType || eMEDIATYPE_AUDIO == mediaType))
+		if(mFogTSBEnabled && (eMEDIATYPE_VIDEO == mediaType || eMEDIATYPE_AUDIO == mediaType))
 		{
 			MediaTrack* mediaTrack = (eMEDIATYPE_VIDEO == mediaType)?(mpStreamAbstractionAAMP->GetMediaTrack(eTRACK_VIDEO)):(mpStreamAbstractionAAMP->GetMediaTrack(eTRACK_AUDIO));
 			if((mediaTrack) && (mediaTrack->GetBufferStatus() == BUFFER_STATUS_RED))
@@ -12627,7 +12635,7 @@ struct curl_slist* PrivateInstanceAAMP::GetCustomHeaders(AampMediaType mediaType
 			}
 		}
 
-		if (mIsFirstRequestToFOG && mTSBEnabled && eMEDIATYPE_MANIFEST == mediaType)
+		if (mIsFirstRequestToFOG && mFogTSBEnabled && eMEDIATYPE_MANIFEST == mediaType)
 		{
 			std::string customHeader = "4k: 1";
 			if (ISCONFIGSET_PRIV(eAAMPConfig_Disable4K))
