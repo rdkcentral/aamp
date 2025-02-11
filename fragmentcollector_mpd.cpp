@@ -1412,6 +1412,10 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 						if(firstStartTime < presentationTimeOffset)
                                                 {
                                                         firstSegStartTime = (double)(firstStartTime/tScale);
+							// Period end time also needs to be updated based on the PTO.
+							// Otherwise, there is a chance to skip the last few fragments from the period if there is a large delta between the  start time available in the manifest and the PTO.
+							endTime  = (firstSegStartTime+(mPeriodDuration/1000));
+
                                                         AAMPLOG_INFO(" PTO ::(startTime < PTO) firstStartTime %" PRIu64 " tScale : %d presentationTimeOffset[%" PRIu64 "] positionInPeriod = %f  startTime = %f  endTime : %f mPeriodStartTime = %f mPeriodDuration = %f ",
     firstStartTime, tScale, presentationTimeOffset, positionInPeriod, firstSegStartTime, endTime, mPeriodStartTime, mPeriodDuration);
                                                 }
@@ -1435,8 +1439,8 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 						}
 						else
 						{
-							AAMPLOG_WARN("Type[%d] Skipping Fetchfragment, Number(%" PRIu64 ") fragment beyond duration. fragmentPosition: %lf periodEndTime : %lf", pMediaStreamContext->type
-								, pMediaStreamContext->fragmentDescriptor.Number, positionInPeriod , endTime);
+							AAMPLOG_WARN("Type[%d] Skipping Fetchfragment, Number(%" PRIu64 ") fragment beyond duration. fragmentPosition: %lf  starttime:%lf periodEndTime : %lf ", pMediaStreamContext->type
+								, pMediaStreamContext->fragmentDescriptor.Number, positionInPeriod ,  firstSegStartTime, endTime);
 						}
 						if(fcsContent)
 						{
