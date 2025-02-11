@@ -551,6 +551,8 @@ R"(<?xml version="1.0" encoding="utf-8"?>
     pMediaStreamContext->enabled = true;
 	mPrivateInstanceAAMP->preferredLanguagesList.push_back("ger");
 
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetPositionMilliseconds()).WillRepeatedly(Return(0.0));
+
 	mStreamAbstractionAAMP_MPD->SwitchAudioTrack();
     EXPECT_EQ(pMediaStreamContext->adaptationSetIdx,2);
     EXPECT_EQ(pMediaStreamContext->adaptationSetId,3);

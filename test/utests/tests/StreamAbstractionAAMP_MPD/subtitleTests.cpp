@@ -85,6 +85,7 @@ public:
 	}
 	void CallSwitchSubtitleTrack(bool newTune)
 	{
+		EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetPositionMilliseconds()).WillRepeatedly(Return(0.0));
 		mStreamAbstractionAAMP_MPD->PublicSwitchSubtitleTrack(newTune);
 	}
 	AAMPStatusType CallIndexNewMPDDocument(bool updateTrackInfo = false)

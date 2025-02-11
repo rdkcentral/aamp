@@ -36,8 +36,8 @@ include_directories(SYSTEM ${UTESTS_ROOT}/mocks)
 include_directories(${CURL_INCLUDE_DIRS})
 include_directories(${LIBCJSON_INCLUDE_DIRS})
 
-set(TEST_SOURCES PauseAtTests.cpp
-                 PauseOnPlaybackTests.cpp
+set(TEST_SOURCES PauseOnPlaybackTests.cpp
+                 PlayerInstanceAAMPTestsMain.cpp
                  PlayerInstanceAAMPTests.cpp)
 
 set(AAMP_SOURCES ${AAMP_ROOT}/main_aamp.cpp)

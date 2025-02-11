@@ -662,6 +662,12 @@ public:
 	void OnSinkBufferFull();
 
 	/**
+	 * @fn FlushFetchedFragments
+	 * @return void
+ 	 */
+	void FlushFetchedFragments();
+
+	/**
 	 * @fn FlushFragments
 	 * @return void
 	 */

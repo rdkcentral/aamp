@@ -90,6 +90,7 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 	auto CheckEos = [this, &tsbSessionManager, &actualType]() {
 		return IsLocalTSBInjection() &&
 			AAMP_NORMAL_PLAY_RATE == aamp->rate &&
+			!aamp->pipeline_paused &&
 			eTUNETYPE_SEEKTOLIVE == context->mTuneType &&
 			tsbSessionManager &&
 			tsbSessionManager->GetTsbReader((AampMediaType)type) &&
@@ -380,7 +381,7 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 					CacheTsbFragment(fragmentToTsbSessionMgr);
 					SetLocalTSBInjection(false);
 				}
-				else if(fragmentToTsbSessionMgr->initFragment && !IsLocalTSBInjection())
+				else if(fragmentToTsbSessionMgr->initFragment && !IsLocalTSBInjection() && !aamp->pipeline_paused)
 				{
 					// Insert init fragment through chunk injector
 					CacheTsbFragment(fragmentToTsbSessionMgr);
@@ -405,14 +406,19 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 			fragmentToTsbSessionMgr->cacheFragStreamInfo.bandwidthBitsPerSecond = fragmentDescriptor.Bandwidth;
 			CacheTsbFragment(fragmentToTsbSessionMgr);
 		}
-		UpdateTSAfterFetch(initSegment);
 
-		// When injection is from the CachedFragmentChunks buffer, need to update cachedFragments here to remove
-		// the fragment from the buffer.
-		if(IsInjectionFromCachedFragmentChunks())
+		// Notify fragment fetched if no local TSB, or not playing from TSB and not paused
+		// As injected fragments are coming from the Fetcher 
+		bool isInjectionFromCachedFragmentChunks = IsInjectionFromCachedFragmentChunks();
+		if (tsbSessionManager && (isInjectionFromCachedFragmentChunks || aamp->pipeline_paused))
 		{
-			UpdateTSAfterInject();
+			AAMPLOG_TRACE("Injecting from TSB(%d) or paused(%d)", isInjectionFromCachedFragmentChunks, aamp->pipeline_paused);
 		}
+		else
+		{
+			UpdateTSAfterFetch(initSegment);
+		}
+
 		ret = true;
 	}
 	return ret;

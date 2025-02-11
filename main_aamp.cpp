@@ -837,19 +837,36 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 			{ // no change in desired play rate
 				// no deferring for playback resume
 				if (aamp->pipeline_paused && rate != 0)
-				{ // but need to unpause pipeline
+				{ 
 					AAMPLOG_INFO("Resuming Playback at Position '%lld'.", aamp->GetPositionMilliseconds());
-					// check if unpausing in the middle of fragments caching
-					if(!aamp->SetStateBufferingIfRequired())
+					// Resuming payback from pause
+					// If have local TSB, but playing from Live then seek into the TSB
+					// Otherwise unpause the pipeline
+					if(aamp->IsLocalAAMPTsb() && !aamp->IsLocalAAMPTsbInjection())
 					{
-						aamp->mpStreamAbstractionAAMP->NotifyPlaybackPaused(false);
-						StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(aamp);
-						if (sink)
+						retValue = false;
+						aamp->SetState(eSTATE_SEEKING);
+						aamp->seek_pos_seconds = aamp->GetPositionSeconds();
+						aamp->rate = AAMP_NORMAL_PLAY_RATE;
+						aamp->pipeline_paused = false;
+						aamp->AcquireStreamLock();
+						aamp->TuneHelper(eTUNETYPE_SEEK, false);
+						aamp->ReleaseStreamLock();
+					}
+					else
+					{
+						// check if unpausing in the middle of fragments caching
+						if(!aamp->SetStateBufferingIfRequired())
 						{
-							retValue = sink->Pause(false, false);
+							aamp->mpStreamAbstractionAAMP->NotifyPlaybackPaused(false);
+							StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(aamp);
+							if (sink)
+							{
+								retValue = sink->Pause(false, false);
+							}
+							// required since buffers are already cached in paused state
+							aamp->NotifyFirstBufferProcessed(sink ? sink->GetVideoRectangle() : std::string());
 						}
-						// required since buffers are already cached in paused state
-						aamp->NotifyFirstBufferProcessed(sink ? sink->GetVideoRectangle() : std::string());
 					}
 					aamp->pipeline_paused = false;
 					aamp->ResumeDownloads();
@@ -860,27 +877,18 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 				if (!aamp->pipeline_paused)
 				{
 					aamp->mpStreamAbstractionAAMP->NotifyPlaybackPaused(true);
-					aamp->StopDownloads();
-					if(aamp->IsLocalAAMPTsb() && aamp->rate == AAMP_NORMAL_PLAY_RATE)	//avoid new pause logic for pause as part of lightning seek
+					if (!aamp->IsLocalAAMPTsb())
 					{
-						retValue = false;
-						aamp->SetState(eSTATE_SEEKING);
-						aamp->seek_pos_seconds = aamp->GetPositionSeconds();
-						aamp->rate = AAMP_NORMAL_PLAY_RATE;
-						aamp->AcquireStreamLock();
-						aamp->TuneHelper(eTUNETYPE_SEEK, true);
-						aamp->ReleaseStreamLock();
-						aamp->ResumeDownloads();
+						aamp->StopDownloads();
 					}
-					else
+
+					StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(aamp);
+					if (sink)
 					{
-						StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(aamp);
-						if (sink)
-						{
-							retValue = sink->Pause(true, false);
-						}
-						aamp->pipeline_paused = true;
+						retValue = sink->Pause(true, false);
 					}
+					aamp->pipeline_paused = true;
+
 					if(aamp->GetLLDashServiceData()->lowLatencyMode)
 					{
 						// PAUSED to PLAY without tune, LLD rate correction is disabled to keep position
