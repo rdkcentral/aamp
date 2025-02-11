@@ -1173,9 +1173,9 @@ void MediaTrack::TrickModePtsRestamp(AampGrowableBuffer &fragment, double &posit
 	// Update cached values for GStreamer
 	position = mRestampedPts.inSeconds();
 
-	AAMPLOG_INFO("rate %f, initFragment %d, discontinuity %d, "
+	AAMPLOG_INFO("rate %f, trickPlayFPS %d, initFragment %d, discontinuity %d, "
 				 "position %lfs, duration %lfs, restamped position %lfs, duration %lfs",
-				 aamp->rate, initFragment, discontinuity,
+				 aamp->rate, trickPlayFPS, initFragment, discontinuity,
 				 inFragmentPosition.inSeconds(), inFragmentDuration.inSeconds(),
 				 position, duration);
 }
@@ -1674,6 +1674,29 @@ int MediaTrack::GetProfileIndexForBW( BitsPerSecond mTsbBandwidth)
 int MediaTrack::GetCurrentBandWidth()
 {
 	return this->bandwidthBitsPerSecond;
+}
+
+/**
+ * @brief Flushes all fetched cached fragments
+ * Flushes all fetched media fragments
+ */
+void MediaTrack::FlushFetchedFragments()
+{
+	std::lock_guard<std::mutex> guard(mutex);
+	while(numberOfFragmentsCached)
+	{
+		AAMPLOG_DEBUG("[%s] Free cachedFragment[%d] numberOfFragmentsCached %d", name, fragmentIdxToInject, numberOfFragmentsCached);
+		mCachedFragment[fragmentIdxToInject].fragment.Free();
+		memset(&mCachedFragment[fragmentIdxToInject], 0, sizeof(CachedFragment));
+		
+		fragmentIdxToInject++;
+		if (fragmentIdxToInject == maxCachedFragmentsPerTrack)
+		{
+  			fragmentIdxToInject = 0;
+		}
+		numberOfFragmentsCached--;
+	}
+	fragmentInjected.notify_one();
 }
 
 /**
@@ -4173,7 +4196,7 @@ double MediaTrack::GetTotalInjectedDuration()
 {
 	std::lock_guard<std::mutex> lock(mTrackParamsMutex);
 	double ret = totalInjectedDuration;
-	if(aamp->GetLLDashServiceData()->lowLatencyMode)
+	if (IsInjectionFromCachedFragmentChunks())
 	{
 		ret = totalInjectedChunksDuration;
 	}
