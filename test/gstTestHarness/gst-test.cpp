@@ -2036,7 +2036,7 @@ static void NetworkCommandServer( struct AppContext *appContext )
 	}
 }
 
-int main(int argc, char **argv)
+int my_main(int argc, char **argv)
 {
 	// setenv( "GST_DEBUG", "*:4", 1 ); // programatically override gstreamer log level:
 	// refer https://gstreamer.freedesktop.org/documentation/tutorials/basic/debugging-tools.html?gi-language=c
@@ -2054,4 +2054,14 @@ int main(int argc, char **argv)
 	g_main_loop_unref(appContext.main_loop);
 	
 	return 0;
+}
+
+int main(int argc, char **argv)
+{
+#ifdef __APPLE__
+	// https://gstreamer.freedesktop.org/documentation/tutorials/basic/concepts.html?gi-language=c
+	return gst_macos_main((GstMainFunc)my_main, argc, argv, NULL);
+#else
+	return my_main(argc,argv);
+#endif
 }
