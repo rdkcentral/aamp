@@ -48,7 +48,7 @@ TESTDATA1 = {
 		# The client must therefore pass a language code that matches the code in the manifest
 		# to the preferredTextLanguages API.
 		{"cmd":"set preferredTextLanguages fr"},
-		{"expect":r"inserted init_text http://localhost:8085/multilingual_subtitles/init-stream-subtitle-fr.m4s"},
+		{"expect":r"init url http://localhost:8085/multilingual_subtitles/init-stream-subtitle-fr.m4s"},
 		{"expect":r"fragmentUrl http://localhost:8085/multilingual_subtitles/chunk-stream-subtitle-fr-0000[1-3].m4s"},
 		{"expect":r"fragmentUrl http://localhost:8085/multilingual_subtitles/chunk-stream-subtitle-fr-0000[2-8].m4s"},
 		{"expect": r"Returning Position as [1-3](\d{3})"},
@@ -73,7 +73,7 @@ TESTDATA2 = {
 		# codes will be normalised to 3-digit terminology variants.
 		# To verify this, pass in a 3-digit terminology code via the API.
 		{"cmd":"set preferredTextLanguages rus"},
-		{"expect":r"inserted init_text http://localhost:8085/multilingual_subtitles/init-stream-subtitle-ru.m4s"},
+		{"expect":r"init url http://localhost:8085/multilingual_subtitles/init-stream-subtitle-ru.m4s"},
 		{"expect":r"fragmentUrl http://localhost:8085/multilingual_subtitles/chunk-stream-subtitle-ru-0000[1-3].m4s"},
 		{"expect":r"fragmentUrl http://localhost:8085/multilingual_subtitles/chunk-stream-subtitle-ru-0000[2-8].m4s"},
 		{"expect": r"Returning Position as [1-3](\d{3})"},
@@ -94,7 +94,7 @@ TESTDATA3 = {
 	"expect_list": [
 		{"cmd":"set subtecSimulator 1"},
 		{"cmd":"set preferredTextLanguages ru"},
-		{"expect":r"inserted init_text http://localhost:8085/multilingual_subtitles/init-stream-subtitle-ru.m4s"},
+		{"expect":r"init url http://localhost:8085/multilingual_subtitles/init-stream-subtitle-ru.m4s"},
 		{"expect":r"fragmentUrl http://localhost:8085/multilingual_subtitles/chunk-stream-subtitle-ru-0000[1-3].m4s"},
 		{"expect":r"fragmentUrl http://localhost:8085/multilingual_subtitles/chunk-stream-subtitle-ru-0000[2-8].m4s"},
 		{"expect": r"Returning Position as [2-4](\d{3})"},
@@ -104,7 +104,7 @@ TESTDATA3 = {
 		# codes will be normalised to 2-digit variants.
 		# To verify this, pass in a 3-digit code via the API.
 		{"cmd":"set preferredTextLanguages eng"},
-		{"expect":r"inserted init_text http://localhost:8085/multilingual_subtitles/init-stream-subtitle-en.m4s"},
+		{"expect":r"init url http://localhost:8085/multilingual_subtitles/init-stream-subtitle-en.m4s"},
 		{"expect":r"fragmentUrl http://localhost:8085/multilingual_subtitles/chunk-stream-subtitle-en-0000[1-3].m4s"},
 		{"expect":r"fragmentUrl http://localhost:8085/multilingual_subtitles/chunk-stream-subtitle-en-0000[2-8].m4s"},
 		{"expect": r"Returning Position as (\d{0,1})[0-4](\d{3})"},
@@ -128,14 +128,14 @@ TESTDATA4 = {
 		# codes will be normalised to 3-digit bibliographic variants.
 		# To verify this, pass in a 3-digit bibliographic code via the API.
 		{"cmd":"set preferredTextLanguages ger"},
-		{"expect":r"inserted init_text http://localhost:8085/multilingual_subtitles/init-stream-subtitle-de.m4s"},
+		{"expect":r"init url http://localhost:8085/multilingual_subtitles/init-stream-subtitle-de.m4s"},
 		{"expect":r"fragmentUrl http://localhost:8085/multilingual_subtitles/chunk-stream-subtitle-de-0000[1-3].m4s"},
 		{"expect":r"fragmentUrl http://localhost:8085/multilingual_subtitles/chunk-stream-subtitle-de-0000[2-8].m4s"},
 		{"expect": r"Returning Position as [1-4](\d{3})"},
 		{"cmd": "sleep 3000"},
 		{"expect": "sleep complete"},
 		{"cmd":"set textTrack 3"}, #spanish language
-		{"expect":r"inserted init_text http://localhost:8085/multilingual_subtitles/init-stream-subtitle-es.m4s"},
+		{"expect":r"init url http://localhost:8085/multilingual_subtitles/init-stream-subtitle-es.m4s"},
 		{"expect":r"fragmentUrl http://localhost:8085/multilingual_subtitles/chunk-stream-subtitle-es-0000[1-3].m4s"},
 		{"expect":r"fragmentUrl http://localhost:8085/multilingual_subtitles/chunk-stream-subtitle-es-0000[2-8].m4s"},
 		{"expect": r"Returning Position as [6-9](\d{3})"},
@@ -156,7 +156,7 @@ TESTDATA5 = {
 	"expect_list": [
 		{"cmd":"set subtecSimulator 1"},
 		{"cmd":"set preferredTextLanguages pt"}, #portuguese
-		{"expect":r"inserted init_text http://localhost:8085/multilingual_subtitles/init-stream-subtitle-de.m4s"},
+		{"expect":r"init url http://localhost:8085/multilingual_subtitles/init-stream-subtitle-de.m4s"},
 		{"expect":r"fragmentUrl http://localhost:8085/multilingual_subtitles/chunk-stream-subtitle-de-0000[1-3].m4s"},
 		{"expect":r"fragmentUrl http://localhost:8085/multilingual_subtitles/chunk-stream-subtitle-de-0000[2-8].m4s"},
 		{"expect": r"Returning Position as [1-4](\d{3})"},
@@ -184,7 +184,7 @@ TESTDATA6 = {
 		# retune if streaming has already started.  If the client is using ISO639_NO_LANGCODE_PREFERENCE,
         # then it is responsible for ensuring that the codes passed to the API match the codes in the manifest.
 		{"cmd":"set preferredTextLanguages fra,fr,fre"},
-		{"expect":r"inserted init_text http://localhost:8085/multilingual_subtitles/init-stream-subtitle-fr.m4s"},
+		{"expect":r"init url http://localhost:8085/multilingual_subtitles/init-stream-subtitle-fr.m4s"},
 		{"expect":r"fragmentUrl http://localhost:8085/multilingual_subtitles/chunk-stream-subtitle-fr-0000[1-3].m4s"},
 		{"expect":r"fragmentUrl http://localhost:8085/multilingual_subtitles/chunk-stream-subtitle-fr-0000[2-8].m4s"},
 		{"expect": r"Returning Position as [1-3](\d{3})"},
