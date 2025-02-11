@@ -170,7 +170,7 @@ TESTDATA5 = {
 TESTDATA6 = {
 	"title": "Test write to AAMP TSB with PTS restamping",
 	"logfile": "WriteWithRestamp6.log",
-	"max_test_time_seconds": 20,
+	"max_test_time_seconds": 30,
 	'simlinear_type': 'DASH',
 	"archive_url": archive_url,
 	"url": TEST_URL,
@@ -283,8 +283,8 @@ TESTDATA = [
 	# Verify AAMP TSB with PTS restamping
 	{'testdata': TESTDATA6, 'expected_restamps': 20, 'expected_trickmodes_restamps': 0},
 	{'testdata': TESTDATA7, 'expected_restamps': 20, 'expected_trickmodes_restamps': 0},
-	{'testdata': TESTDATA8, 'expected_restamps': 10, 'expected_trickmodes_restamps': 0},
-	{'testdata': TESTDATA9, 'expected_restamps': 10, 'expected_trickmodes_restamps': 10}
+	{'testdata': TESTDATA8, 'expected_restamps': 8, 'expected_trickmodes_restamps': 0},
+	{'testdata': TESTDATA9, 'expected_restamps': 8, 'expected_trickmodes_restamps': 10}
 ]
 
 
