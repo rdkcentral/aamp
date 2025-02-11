@@ -465,7 +465,7 @@ drmcallbacks
 drmdata
 drminfo
 drmmediaformat
-drmsessionfactory
+DrmSessionFactory
 drmsystems
 drpi
 dsaccess

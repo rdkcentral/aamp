@@ -146,6 +146,7 @@ static void gst_aampcdmidecryptor_init(
 	g_mutex_unlock(&aampcdmidecryptor->mutex);
 	aampcdmidecryptor->protectionEvent = NULL;
 	aampcdmidecryptor->sessionManager = NULL;
+	aampcdmidecryptor->licenseManager = NULL;
 	aampcdmidecryptor->drmSession = NULL;
 	aampcdmidecryptor->aamp = NULL;
 	aampcdmidecryptor->streamtype = eMEDIATYPE_MANIFEST;
@@ -812,16 +813,16 @@ static gboolean gst_aampcdmidecryptor_sink_event(GstBaseTransform * trans,
 		}
 		g_mutex_lock(&aampcdmidecryptor->mutex);
 		GST_DEBUG_OBJECT(aampcdmidecryptor, "\n acquired lock for mutex\n");
-		aampcdmidecryptor->sessionManager = aampcdmidecryptor->aamp->mDRMSessionManager;
+		aampcdmidecryptor->licenseManager  = aampcdmidecryptor->aamp->mDRMLicenseManager;
 		DrmMetaDataEventPtr e = std::make_shared<DrmMetaDataEvent>(AAMP_TUNE_FAILURE_UNKNOWN, "", 0, 0, false, std::string{});
 		if (aampcdmidecryptor->aamp->mIsWVKIDWorkaround){
 			aampcdmidecryptor->drmSession =
-				aampcdmidecryptor->sessionManager->createDrmSession(
+				aampcdmidecryptor->licenseManager->createDrmSession(
 						reinterpret_cast<const char *>(systemId), eMEDIAFORMAT_DASH,
 						outData, outDataLen, aampcdmidecryptor->streamtype, aampcdmidecryptor->aamp, e, nullptr, false);
 		}else{
 			aampcdmidecryptor->drmSession =
-				aampcdmidecryptor->sessionManager->createDrmSession(
+				aampcdmidecryptor->licenseManager->createDrmSession(
 						reinterpret_cast<const char *>(systemId), eMEDIAFORMAT_DASH,
 						reinterpret_cast<const unsigned char *>(mapInfo.data),
 						mapInfo.size, aampcdmidecryptor->streamtype, aampcdmidecryptor->aamp, e, nullptr, false);
@@ -842,7 +843,7 @@ static gboolean gst_aampcdmidecryptor_sink_event(GstBaseTransform * trans,
 		/* session manager fails to create session when state is inactive. Skip sending error event
 		 * in this scenario. Later player will change it to active after processing SetLanguage(), or for the next Tune.
 		 */
-		if(SessionMgrState::eSESSIONMGR_ACTIVE == aampcdmidecryptor->sessionManager->getSessionMgrState())
+		if(SessionMgrState::eSESSIONMGR_ACTIVE == aampcdmidecryptor->licenseManager->getSessionMgrState())
 		{
 			if(!aampcdmidecryptor->aamp->licenceFromManifest)
 			{

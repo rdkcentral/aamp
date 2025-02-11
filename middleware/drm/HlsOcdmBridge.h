@@ -2,7 +2,7 @@
  * If not stated otherwise in this file or this component's license file the
  * following copyright and licenses apply:
  *
- * Copyright 2020 RDK Management
+ * Copyright 2025 RDK Management
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,49 +17,44 @@
  * limitations under the License.
 */
 
-#ifndef _AAMP_HLS_OCDM_BRIDGE_H_
-#define _AAMP_HLS_OCDM_BRIDGE_H_
+#ifndef _HLS_OCDM_BRIDGE_H_
+#define _HLS_OCDM_BRIDGE_H_
 
 /**
- * @file AampHlsOcdmBridge.h
+ * @file HlsOcdmBridge.h
  * @brief Handles OCDM bridge to validate DRM License
  */
 
 #include "HlsDrmBase.h"
-#include "DrmUtils.h"
-#include "DrmSession.h"
-
-#define DECRYPT_WAIT_TIME_MS 3000
 
 /**
- * @class AampHlsOcdmBridge
+ * @class HlsOcdmBridge
  * @brief OCDM bridge to handle DRM key
  */
 
-class AampHlsOcdmBridge : public HlsDrmBase
+class HlsOcdmBridge : public HlsDrmBase
 {
 	DRMState m_drmState;
 
 	const DrmInfo* m_drmInfo;
 	DrmSession* m_drmSession;
-	PrivateInstanceAAMP* m_aampInstance;
 	std::mutex m_Mutex;
 public:
-	AampHlsOcdmBridge(DrmSession * aampDrmSession);
+	HlsOcdmBridge(DrmSession * DrmSession);
 
-	~AampHlsOcdmBridge();
+	~HlsOcdmBridge();
 
-	AampHlsOcdmBridge(const AampHlsOcdmBridge&) = delete;
+	HlsOcdmBridge(const HlsOcdmBridge&) = delete;
 
-	AampHlsOcdmBridge& operator=(const AampHlsOcdmBridge&) = delete;
+	HlsOcdmBridge& operator=(const HlsOcdmBridge&) = delete;
 
 	/*HlsDrmBase Methods*/
 
-	virtual DrmReturn SetMetaData( class PrivateInstanceAAMP *aamp, void* metadata,int trackType) override {return eDRM_SUCCESS;};
+	virtual DrmReturn SetMetaData(void* metadata,int trackType) override {return eDRM_SUCCESS;};
 
-	virtual DrmReturn SetDecryptInfo( PrivateInstanceAAMP *aamp, const struct DrmInfo *drmInfo) override;
+	virtual DrmReturn SetDecryptInfo(const struct DrmInfo *drmInfo, int acquireKeyWaitTime) override;
 
-	virtual DrmReturn Decrypt(ProfilerBucketType bucketType, void *encryptedDataPtr, size_t encryptedDataLen, int timeInMs = DECRYPT_WAIT_TIME_MS) override;
+	virtual DrmReturn Decrypt(int bucketType, void *encryptedDataPtr, size_t encryptedDataLen, int timeInMs = DECRYPT_WAIT_TIME_MS) override;
 
 	virtual void Release() override;
 
@@ -67,9 +62,10 @@ public:
 
 	virtual void RestoreKeyState() override {};
 
-	virtual void AcquireKey( class PrivateInstanceAAMP *aamp, void *metadata,int trackType) override {};
+	virtual void AcquireKey(void *metadata,int trackType) override {};
 
 	virtual DRMState GetState() override {return m_drmState;}
+
 };
 
-#endif // _AAMP_HLS_OCDM_BRIDGE_H_
+#endif // _HLS_OCDM_BRIDGE_H_

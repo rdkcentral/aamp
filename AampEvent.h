@@ -115,6 +115,19 @@ typedef enum
  */
 typedef enum
 {
+	AAMP_TUNE_DRM_INIT_FAILED,			   /**< DRM initialization failure */
+	AAMP_TUNE_DRM_DATA_BIND_FAILED,			   /**< InitData binding with DRM failed */
+	AAMP_TUNE_DRM_SESSIONID_EMPTY,			   /**< DRM session ID empty */
+	AAMP_TUNE_DRM_CHALLENGE_FAILED,			   /**< DRM key request challenge generation failed */
+	AAMP_TUNE_INVALID_DRM_KEY,			   /**< DRM reporting invalid license key */
+	AAMP_TUNE_CORRUPT_DRM_DATA,			   /**< DRM failure due to corrupt drm data, self heal might clear further errors*/
+	AAMP_TUNE_CORRUPT_DRM_METADATA,			   /**< DRM failure due to corrupt drm metadata in the stream*/
+	AAMP_TUNE_DRM_DECRYPT_FAILED,			   /**< DRM Decryption Failed for Fragments */
+	AAMP_TUNE_DRM_UNSUPPORTED,			   /**< DRM Format Unsupported */
+	AAMP_TUNE_DRM_SELF_ABORT,			   /**< Download activity is aborted by player */
+	AAMP_TUNE_DRM_KEY_UPDATE_FAILED,		   /**< Failed to process DRM key, see the error code returned from Update() for more info */
+	AAMP_TUNE_UNTRACKED_DRM_ERROR,			   /**< DRM error*/
+	AAMP_TUNE_FAILED_TO_GET_KEYID,			   /**< Failed to parse key id from init data*/
 	AAMP_TUNE_INIT_FAILED,				   /**< Tune failure due to initialization error*/
 	AAMP_TUNE_INIT_FAILED_MANIFEST_DNLD_ERROR,         /**< Tune failure due to manifest download error*/
 	AAMP_TUNE_INIT_FAILED_MANIFEST_CONTENT_ERROR,	   /**< Tune failure due to manifest content error*/
@@ -126,27 +139,14 @@ typedef enum
 	AAMP_TUNE_AUTHORIZATION_FAILURE,		   /**< Not authorized to view the content*/
 	AAMP_TUNE_FRAGMENT_DOWNLOAD_FAILURE,		   /**< When fragment download fails for 5 consecutive fragments*/
 	AAMP_TUNE_INIT_FRAGMENT_DOWNLOAD_FAILURE,	   /**< Unable to download init fragment*/
-	AAMP_TUNE_UNTRACKED_DRM_ERROR,			   /**< DRM error*/
-	AAMP_TUNE_DRM_INIT_FAILED,			   /**< DRM initialization failure */
-	AAMP_TUNE_DRM_DATA_BIND_FAILED,			   /**< InitData binding with DRM failed */
-	AAMP_TUNE_DRM_SESSIONID_EMPTY,			   /**< DRM session ID empty */
-	AAMP_TUNE_DRM_CHALLENGE_FAILED,			   /**< DRM key request challenge generation failed */
 	AAMP_TUNE_LICENCE_TIMEOUT,			   /**< DRM license request timeout */
 	AAMP_TUNE_LICENCE_REQUEST_FAILED,		   /**< DRM license got invalid response */
-	AAMP_TUNE_INVALID_DRM_KEY,			   /**< DRM reporting invalid license key */
 	AAMP_TUNE_UNSUPPORTED_STREAM_TYPE,		   /**< Unsupported stream type */
 	AAMP_TUNE_UNSUPPORTED_AUDIO_TYPE,		   /**< Unsupported audio type in manifest */
-	AAMP_TUNE_FAILED_TO_GET_KEYID,			   /**< Failed to parse key id from init data*/
 	AAMP_TUNE_FAILED_TO_GET_ACCESS_TOKEN,		   /**< Failed to get session token from AuthService*/
-	AAMP_TUNE_CORRUPT_DRM_DATA,			   /**< DRM failure due to corrupt drm data, self heal might clear further errors*/
-	AAMP_TUNE_CORRUPT_DRM_METADATA,			   /**< DRM failure due to corrupt drm metadata in the stream*/
-	AAMP_TUNE_DRM_DECRYPT_FAILED,			   /**< DRM Decryption Failed for Fragments */
-	AAMP_TUNE_DRM_UNSUPPORTED,			   /**< DRM Format Unsupported */
-	AAMP_TUNE_DRM_SELF_ABORT,			   /**< Download activity is aborted by player */
 	AAMP_TUNE_GST_PIPELINE_ERROR,			   /**< Playback failure due to error from GStreamer pipeline or associated plugins */
 	AAMP_TUNE_PLAYBACK_STALLED,			   /**< Playback was stalled due to valid fragments not available in playlist */
 	AAMP_TUNE_CONTENT_NOT_FOUND,			   /**< The resource was not found at the URL provided (HTTP 404) */
-	AAMP_TUNE_DRM_KEY_UPDATE_FAILED,		   /**< Failed to process DRM key, see the error code returned from Update() for more info */
 	AAMP_TUNE_DEVICE_NOT_PROVISIONED,		   /**< STB not provisioned/corrupted; need to re-provision. */
 	AAMP_TUNE_HDCP_COMPLIANCE_ERROR,		   /**< HDCP Compliance Check failure.Not compatible hdcp version for playback */
 	AAMP_TUNE_INVALID_MANIFEST_FAILURE,		   /**< Manifest is invalid */

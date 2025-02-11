@@ -52,11 +52,9 @@
 #include <string>
 #include "HlsDrmBase.h"
 #include "AampCacheHandler.h"
-#ifdef USE_OPENCDM_ADAPTER
-#include "AampHlsDrmSessionManager.h"
-#endif
+#include "PlayerHlsDrmSessionInterface.h"
 #ifdef AAMP_VANILLA_AES_SUPPORT
-#include "aamp_aes.h"
+#include "Aes.h"
 #endif
 #include "webvttParser.h"
 #include "SubtecFactory.hpp"
@@ -65,10 +63,11 @@
 #include "MetadataProcessor.hpp"
 #include "AampUtils.h"
 #include "AampStreamSinkManager.h"
-#include "AampDRMSessionManager.h"
 #include "PlayerCCManager.h"
-#include "VanillaDrmHelper.h"
 
+#include "VanillaDrmHelper.h"
+#include "AampLicManager.h"
+#include "DrmInterface.h"
 static const int DEFAULT_STREAM_WIDTH = 720;
 static const int DEFAULT_STREAM_HEIGHT = 576;
 static const double  DEFAULT_STREAM_FRAMERATE = 25.0;
@@ -76,7 +75,7 @@ static const double  DEFAULT_STREAM_FRAMERATE = 25.0;
 // checks if current state is going to use IFRAME ( Fragment/Playlist )
 #define IS_FOR_IFRAME(rate, type) ((type == eTRACK_VIDEO) && (rate != AAMP_NORMAL_PLAY_RATE))
 
-extern DrmHelperPtr ProcessContentProtection(PrivateInstanceAAMP *aamp, std::string attrName);
+extern DrmHelperPtr ProcessContentProtection(std::string attrName, bool propagateURIParam , bool isSamplesRequired);
 
 #define UseProgramDateTimeIfAvailable() (ISCONFIGSET(eAAMPConfig_HLSAVTrackSyncUsingStartTime) || aamp->mIsVSS)
 
@@ -459,7 +458,7 @@ void StreamAbstractionAAMP_HLS::InitiateDrmProcess()
 			if (!aamp->aesCtrAttrDataList.at(i).isProcessed)
 			{
 				aamp->aesCtrAttrDataList.at(i).isProcessed = true;
-				DrmHelperPtr drmHelper = ProcessContentProtection(aamp, aamp->aesCtrAttrDataList.at(i).attrName);
+				DrmHelperPtr drmHelper = ProcessContentProtection( aamp->aesCtrAttrDataList.at(i).attrName, ISCONFIGSET(eAAMPConfig_PropagateURIParam),  aamp->isDecryptClearSamplesRequired());
 				if (nullptr != drmHelper)
 				{
 					/* This needs effort from MSO as to what they want to do viz-a-viz preferred DRM, */
@@ -467,13 +466,13 @@ void StreamAbstractionAAMP_HLS::InitiateDrmProcess()
 				}
 			}
 		}
-		if ((drmHelperToUse != nullptr) && (aamp->mDRMSessionManager))
+		if ((drmHelperToUse != nullptr) && (aamp->mDRMLicenseManager))
 		{
-			AampDRMSessionManager *sessionMgr = aamp->mDRMSessionManager;
+			AampLicenseManager *licenseManager = aamp->mDRMLicenseManager;
 			/** Queue protection event to the pipeline **/
-			sessionMgr->QueueProtectionEvent(drmHelperToUse, "1", 0, eMEDIATYPE_VIDEO);
+			licenseManager->QueueProtectionEvent(drmHelperToUse, "1", 0, eMEDIATYPE_VIDEO);
 			/** Queue content protection in DRM license fetcher **/
-			sessionMgr->QueueContentProtection(drmHelperToUse, "1", 0, eMEDIATYPE_VIDEO);
+			licenseManager->QueueContentProtection(drmHelperToUse, "1", 0, eMEDIATYPE_VIDEO);
 		}
 	}
 }
@@ -1877,24 +1876,27 @@ void TrackState::SetDrmContext()
 
 	//CID:93939 - Removed the drmContextUpdated variable which is initialized but not used
 	mDrmInfo.bPropagateUriParams = ISCONFIGSET(eAAMPConfig_PropagateURIParam);
-#ifdef USE_OPENCDM_ADAPTER
-	if (AampHlsDrmSessionManager::getInstance().isDrmSupported(mDrmInfo))
+	if (PlayerHlsDrmSessionInterface::getInstance()->isDrmSupported(mDrmInfo))
 	{
+		mDrmInterface  = DrmInterface::GetInstance(aamp);
 		// OCDM-based DRM decryption is available via the HLS OCDM bridge
 		AAMPLOG_INFO("Drm support available");
-		mDrm = AampHlsDrmSessionManager::getInstance().createSession(aamp, mDrmInfo,(AampMediaType)(type));
+		mDrmInterface->RegisterHlsInterfaceCb(mDrmInterface, PlayerHlsDrmSessionInterface::getInstance());
+		mDrm = PlayerHlsDrmSessionInterface::getInstance()->createSession( mDrmInfo,(int)(type));
 		if (!mDrm)
 		{
 			AAMPLOG_WARN("Failed to create Drm Session");
 		}
 	}
 	else
-#endif
 	{
 		// No DRM helper located, assuming standard AES encryption
 #ifdef AAMP_VANILLA_AES_SUPPORT
 		AAMPLOG_INFO("StreamAbstractionAAMP_HLS::Get AesDec");
 		mDrm = AesDec::GetInstance();
+		mDrmInterface  = DrmInterface::GetInstance(aamp);
+		mDrmInterface->RegisterAesInterfaceCb(mDrmInterface,(std::shared_ptr <HlsDrmBase>) mDrm);
+
 		aamp->setCurrentDrm(std::make_shared<VanillaDrmHelper>());
 
 #else
@@ -1904,7 +1906,7 @@ void TrackState::SetDrmContext()
 
 	if(mDrm)
 	{
-		mDrm->SetDecryptInfo(aamp, &mDrmInfo);
+		mDrm->SetDecryptInfo( &mDrmInfo,  aamp->mConfig->GetConfigValue(eAAMPConfig_LicenseKeyAcquireWaitTime) );
 	}
 }
 
@@ -2216,9 +2218,7 @@ void TrackState::IndexPlaylist(bool IsRefresh, AampTime &culledSec)
 	// IF already stored , AveDrmManager will ignore it
 	// ProcessDrmMetadata -> to be called only from one place , after playlist indexing. Not to call from other places
 	if(mDrmMethod != eDRM_KEY_METHOD_SAMPLE_AES_CTR
-#ifdef USE_OPENCDM_ADAPTER
-		&& !AampHlsDrmSessionManager::getInstance().isDrmSupported(mDrmInfo)
-#endif
+		&& !PlayerHlsDrmSessionInterface::getInstance()->isDrmSupported(mDrmInfo)
 	  )
 	{
 		aamp->profiler.ProfileBegin(PROFILE_BUCKET_LA_TOTAL);
@@ -3368,12 +3368,12 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 			printf("***Main Manifest***:\n\n%s\n************\n", this->mainManifest.GetPtr());
 		}
 
-		AampDRMSessionManager *sessionMgr = aamp->mDRMSessionManager;
+		AampLicenseManager *licenseManager = aamp->mDRMLicenseManager;
 		bool forceClearSession = (!ISCONFIGSET(eAAMPConfig_SetLicenseCaching) && (tuneType == eTUNETYPE_NEW_NORMAL));
-		sessionMgr->clearDrmSession(forceClearSession);
-		sessionMgr->clearFailedKeyIds();
-		sessionMgr->setSessionMgrState(SessionMgrState::eSESSIONMGR_ACTIVE);
-		sessionMgr->setLicenseRequestAbort(false);
+		licenseManager->clearDrmSession(forceClearSession);
+		licenseManager->clearFailedKeyIds();
+		licenseManager->setSessionMgrState(SessionMgrState::eSESSIONMGR_ACTIVE);
+		licenseManager->setLicenseRequestAbort(false);
 		// Parse the Main manifest ( As Parse function modifies the original data,InsertCache had to be called before it .
 		long long tStartTime = NOW_STEADY_TS_MS;
 		AAMPStatusType mainManifestResult = ParseMainManifest();
@@ -4924,12 +4924,13 @@ StreamAbstractionAAMP_HLS::StreamAbstractionAAMP_HLS(class PrivateInstanceAAMP *
 	mLangList(),mIframeAvailable(false), thumbnailManifest("thumbnailManifest"), indexedTileInfo(),
 	mFirstPTS(0),mDiscoCheckMutex(),
 	mPtsOffsetUpdate{ptsUpdate},
+	mDrmInterface(aamp),
 	mMetadataProcessor{nullptr}
 {
-	if (aamp->mDRMSessionManager)
+	if (aamp->mDRMLicenseManager)
 	{
-		AampDRMSessionManager *sessionMgr = aamp->mDRMSessionManager;
-		sessionMgr->SetLicenseFetcher(this);
+		AampLicenseManager *licenseManager = aamp->mDRMLicenseManager;
+		licenseManager->SetLicenseFetcher(this);
 	}
 	trickplayMode = false;
 	enableThrottle = ISCONFIGSET(eAAMPConfig_Throttle);
@@ -5116,7 +5117,7 @@ void TrackState::Start(void)
  */
 void StreamAbstractionAAMP_HLS::Start(void)
 {
-	aamp->mDRMSessionManager->setSessionMgrState(SessionMgrState::eSESSIONMGR_ACTIVE);
+	aamp->mDRMLicenseManager->setSessionMgrState(SessionMgrState::eSESSIONMGR_ACTIVE);
 	for (int iTrack = 0; iTrack < AAMP_TRACK_COUNT; iTrack++)
 	{
 		TrackState *track = trackState[iTrack];
@@ -5188,9 +5189,9 @@ void StreamAbstractionAAMP_HLS::Stop(bool clearChannelData)
 		}
 		if(ISCONFIGSET(eAAMPConfig_UseSecManager))
 		{
-			aamp->mDRMSessionManager->notifyCleanup();
+			aamp->mDRMLicenseManager->notifyCleanup();
 		}
-		aamp->mDRMSessionManager->setSessionMgrState(SessionMgrState::eSESSIONMGR_INACTIVE);
+		aamp->mDRMLicenseManager->setSessionMgrState(SessionMgrState::eSESSIONMGR_INACTIVE);
 	}
 	if(!clearChannelData)
 	{

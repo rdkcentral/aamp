@@ -150,3 +150,103 @@ long long GetCurrentTimeMS(void)
         return (long long)(t.tv_sec*1e3 + t.tv_usec*1e-3);
 }
 
+/**
+ * @brief parse leading protocol from uri if present
+ * @param[in] uri manifest/ fragment uri
+ * @retval return pointer just past protocol (i.e. http://) if present (or) return NULL uri doesn't start with protcol
+ */
+static const char * ParseUriProtocol(const char *uri)
+{
+	if(NULL == uri)
+	{
+		//MW_LOG_ERR("Empty URI");
+		return NULL;
+	}
+	for(;;)
+	{
+		char ch = *uri++;
+		if( ch ==':' )
+		{
+			if (uri[0] == '/' && uri[1] == '/')
+			{
+				return uri + 2;
+			}
+			break;
+		}
+		else if (isalnum (ch) || ch == '.' || ch == '-' || ch == '+') // other valid (if unlikely) characters for protocol
+		{ // legal characters for uri protocol - continue
+			continue;
+		}
+		else
+		{
+			break;
+		}
+	}
+	return NULL;
+}
+/**
+ * @brief Resolve file URL from the base and file path
+ */
+void ResolveURL(std::string& dst, std::string base, const char *uri , bool bPropagateUriParams)
+{
+	if( ParseUriProtocol(uri) )
+	{
+		dst = uri;
+	}
+	else
+	{
+		if(base.empty())
+		{
+			//MW_LOG_WARN("Empty base");
+			return;
+		}
+		const char *baseStart = base.c_str();
+		const char *basePtr = ParseUriProtocol(baseStart);
+		const char *baseEnd;
+		for(;;)
+		{
+			char c = *basePtr;
+			if( c==0 || c=='/' || c=='?' )
+			{
+				baseEnd = basePtr;
+				break;
+			}
+			basePtr++;
+		}
+
+		if( uri[0]!='/' && uri[0]!='\0' )
+		{
+			for(;;)
+			{
+				char c = *basePtr;
+				if( c=='/' )
+				{
+					baseEnd = basePtr;
+				}
+				else if( c=='?' || c==0 )
+				{
+					break;
+				}
+				basePtr++;
+			}
+		}
+		dst = base.substr(0,baseEnd-baseStart);
+		if( uri[0]!='/' )
+		{
+			dst += "/";
+		}
+		dst += uri;
+		if( bPropagateUriParams )
+		{
+			if (strchr(uri,'?') == 0)
+			{ // uri doesn't have url parameters; copy from parents if present
+				const char *baseParams = strchr(basePtr,'?');
+				if( baseParams )
+				{
+					std::string params = base.substr(baseParams-baseStart);
+					dst.append(params);
+				}
+			}
+		}
+	}
+}

@@ -162,8 +162,8 @@ endif(CMAKE_SYSTEM_NAME STREQUAL Darwin)
 
 find_package (Threads REQUIRED)
 
-include_directories(${CMAKE_CURRENT_SOURCE_DIR} drm downloader drm/aes drm/helper subtitle subtec middleware/playerisobmff middleware/subtitle isobmff dash/xml dash/mpd dash/utils middleware middleware/closedcaptions middleware/closedcaptions/subtec middleware/drm/ocdm middleware/drm/helper middleware/drm)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR} drm downloader drm/aes subtitle isobmff dash/xml dash/mpd dash/utils middleware middleware/drm/ocdm middleware/drm/helper middleware/drm)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR} drm downloader middleware/drm/aes drm/helper subtitle subtec middleware/playerisobmff middleware/subtitle isobmff dash/xml dash/mpd dash/utils middleware middleware/closedcaptions middleware/closedcaptions/subtec middleware/drm/ocdm middleware/drm/helper middleware/drm)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR} drm downloader middleware/drm/aes subtitle isobmff dash/xml dash/mpd dash/utils middleware middleware/drm/ocdm middleware/drm/helper middleware/drm)
 include_directories(${GSTREAMER_INCLUDE_DIRS})
 include_directories(${CURL_INCLUDE_DIRS})
 include_directories(${GSTREAMERBASE_INCLUDE_DIRS})
@@ -221,8 +221,8 @@ set(LIBAAMP_HEADERS middleware/drm/DrmSystems.h
 					middleware/GstUtils.h
 					middleware/InterfacePlayerRDK.h
 					externals/PlayerIarmRfcInterface.h
-                                        middleware/InterfacePlayerRDK.h
 					middleware/SocUtils.h
+					drm/AampLicManager.h
 					aampgstplayer.h
 					AampBufferControl.h
 					admanager_mpd.h
@@ -320,10 +320,12 @@ set(LIBAAMP_SOURCES iso639map.cpp
 					middleware/GstUtils.cpp
                                         middleware/InterfacePlayerRDK.cpp
                                         middleware/SocUtils.cpp
+					drm/AampLicManager.cpp
 					aampgstplayer.cpp
 					AampBufferControl.cpp
 					tsprocessor.cpp
-					drm/aes/aamp_aes.cpp
+					middleware/drm/aes/Aes.cpp
+					drm/DrmInterface.cpp
 					aamplogging.cpp
 					AampConfig.cpp
 					AampEventManager.cpp
@@ -488,15 +490,17 @@ if (NOT CMAKE_INBUILT_AAMP_DEPENDENCIES)
 endif()
 
 # Sources common to all forms of OpenCDM and CDM
-set(LIBAAMP_DRM_SOURCES drm/AampDRMSessionManager.cpp
-						drm/processProtectionHls.cpp
+set(LIBAAMP_DRM_SOURCES middleware/drm/DRMSessionManager.cpp
+                	middleware/drm/PlayerHlsDrmSessionInterface.cpp
+						middleware/drm/processProtectionHls.cpp
 						externals/PlayerIarmRfcInterface.cpp
 						externals/PlayerExternalUtils.cpp
 						middleware/drm/DrmSession.cpp
-						middleware/drm/drmsessionfactory.cpp
+						middleware/drm/DrmSessionFactory.cpp
 						middleware/drm/helper/DrmHelperFactory.cpp
 						middleware/drm/DrmUtils.cpp
 						middleware/drm/DrmSystems.h
+						middleware/drm/HlsOcdmBridgeInterface.cpp
 )
 
 if(CMAKE_IARM_MGR)
@@ -509,8 +513,9 @@ endif()
 if(CMAKE_USE_OPENCDM_ADAPTER)
     message("OpenCDM support enabled")
     set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DUSE_OPENCDM_ADAPTER")
-    set(LIBAAMP_DRM_SOURCES "${LIBAAMP_DRM_SOURCES}" drm/AampHlsDrmSessionManager.cpp
-                                                     drm/AampHlsOcdmBridge.cpp)
+    set(LIBAAMP_DRM_SOURCES "${LIBAAMP_DRM_SOURCES}" middleware/drm/HlsDrmSessionManager.cpp
+                                                     middleware/drm/HlsOcdmBridge.cpp
+						     middleware/drm/processProtectionHls.cpp)
     set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DTARGET_LITTLE_ENDIAN=1 -DTARGET_SUPPORTS_UNALIGNED_DWORD_POINTERS=0")
 
     if(CMAKE_IARM_MGR AND NOT CMAKE_IARM_MGR_MOCKS)
@@ -787,9 +792,9 @@ endif()
 install(TARGETS aamp-cli DESTINATION bin)
 
 install(TARGETS aamp DESTINATION lib PUBLIC_HEADER DESTINATION include PRIVATE_HEADER DESTINATION include)
-install(FILES Accessibility.hpp AampEvent.h AampConfig.h AampCMCDCollector.h AampEventManager.h AampDefine.h AampEventListener.h middleware/drm/DrmMemorySystem.h drm/AampDRMSessionManager.h middleware/drm/DrmSystems.h AampMediaType.h
+install(FILES Accessibility.hpp AampEvent.h AampConfig.h AampCMCDCollector.h AampEventManager.h AampDefine.h AampEventListener.h middleware/drm/DrmMemorySystem.h middleware/drm/DRMSessionManager.h middleware/drm/DrmSystems.h AampMediaType.h
 	middleware/drm/DrmData.h middleware/drm/DrmInfo.h middleware/drm/DrmMediaFormat.h middleware/drm/DrmCallbacks.h AampLogManager.h
-	middleware/drm/DrmSession.h middleware/drm/ClearKeyDrmSession.h middleware/drm/DrmUtils.h middleware/drm/drmsessionfactory.h middleware/drm/ocdm/opencdmsessionadapter.h middleware/PlayerUtils.h
+	middleware/drm/DrmSession.h middleware/drm/ClearKeyDrmSession.h middleware/drm/DrmUtils.h middleware/drm/DrmSessionFactory.h middleware/drm/ocdm/opencdmsessionadapter.h middleware/PlayerUtils.h 
   middleware/drm/helper/DrmHelper.h subtitle/vttCue.h AampUtils.h
   AampMemoryUtils.h AampProfiler.h AampConstants.h middleware/drm/DrmConstants.h iso639map.h externals/PlayerRfc.h externals/PlayerBase64.h middleware/GstUtils.h AampGrowableBuffer.h
   AampScheduler.h

@@ -18,16 +18,24 @@
 */
 
 /**
- * @file FakeRMF.cpp
- * @brief Fake RMF shim
+ * @file HlsOcdmBridgeInterface.cpp
+ * @brief Handles OCDM bridge interface to validate DRM License
  */
 
-#include "fragmentcollector_hls.h"
-#include <memory>
+#include "HlsOcdmBridgeInterface.h"
 
-std::shared_ptr<DrmHelper> ProcessContentProtection(std::string attrName, bool propagateURIParam , bool isSamplesRequired); 
+#ifdef USE_OPENCDM
+#include "HlsOcdmBridge.h"
+#endif
 
-std::shared_ptr<DrmHelper> ProcessContentProtection(std::string attrName, bool propagateURIParam , bool isSamplesRequired)
+
+HlsDrmBase* HlsOcdmBridgeInterface::GetBridge(DrmSession * playerDrmSession)
 {
-    return nullptr;
+   
+#ifdef USE_OPENCDM
+    return new HlsOcdmBridge(playerDrmSession);
+#else
+   return new FakeHlsOcdmBridge(playerDrmSession);
+#endif
+
 }

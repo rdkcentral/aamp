@@ -30,6 +30,7 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DREALTEKCE=1")
 include_directories(${AAMP_ROOT} ${AAMP_ROOT}/drm ${AAMP_ROOT}/externals ${AAMP_ROOT}/middleware/drm/helper ${AAMP_ROOT}/middleware ${AAMP_ROOT}/middleware/drm/ocdm ${AAMP_ROOT}/middleware/drm/ ${AAMP_ROOT}/drm/helper ${AAMP_ROOT}/subtitle ${AAMP_ROOT}/middleware/subtitle ${AAMP_ROOT}/downloader ${AAMP_ROOT}/isobmff ${AAMP_ROOT}/middleware/subtec/subtecparser ${AAMP_ROOT}/middleware/playerjsonobject ${AAMP_ROOT}/middleware/subtec/libsubtec)
 include_directories(${AAMP_ROOT}/tsb/api)
 include_directories(${AAMP_ROOT}/middleware)
+include_directories(${AAMP_ROOT}/middleware/play)
 include_directories(${GTEST_INCLUDE_DIRS})
 include_directories(${GMOCK_INCLUDE_DIRS})
 include_directories(${GLIB_INCLUDE_DIRS})
@@ -60,11 +61,11 @@ set(MOCK_SOURCES ${DRM_ROOT}/mocks/aampMocks.cpp
 
 set(FAKE_SOURCES ${UTESTS_ROOT}/fakes/FakeAampRfc.cpp
 				 ${UTESTS_ROOT}/fakes/FakePlayerIarmRfcInterface.cpp
-				 ${UTESTS_ROOT}/fakes/FakeProcessProtectionHls.cpp
 			    	${AAMP_ROOT}/middleware/test/utests/fakes/FakeSocUtils.cpp)
 
-set(AAMP_SOURCES ${AAMP_ROOT}/_base64.cpp
-				${AAMP_ROOT}/AampConfig.cpp
+set(AAMP_SOURCES ${AAMP_ROOT}/AampConfig.cpp
+	                         ${AAMP_ROOT}/_base64.cpp
+	                         ${AAMP_ROOT}/drm/AampLicManager.cpp
 				 ${AAMP_ROOT}/middleware/PlayerLogManager.cpp
 				 ${AAMP_ROOT}/middleware/drm/DrmUtils.cpp
 				 ${AAMP_ROOT}/downloader/AampCurlStore.cpp
@@ -80,17 +81,19 @@ set(AAMP_SOURCES ${AAMP_ROOT}/_base64.cpp
 				 ${AAMP_ROOT}/middleware/drm/DrmUtils.cpp
 				 ${AAMP_ROOT}/middleware/drm/base64.cpp
 				 ${AAMP_ROOT}/middleware/PlayerUtils.cpp
-				 ${AAMP_ROOT}/middleware/drm/drmsessionfactory.cpp
+				 ${AAMP_ROOT}/middleware/drm/DrmSessionFactory.cpp
 				 ${AAMP_ROOT}/middleware/drm/helper/DrmHelper.cpp
 				 ${AAMP_ROOT}/middleware/drm/helper/DrmHelperFactory.cpp
-				 ${AAMP_ROOT}/drm/AampDRMSessionManager.cpp
+				 ${AAMP_ROOT}/middleware/drm/DRMSessionManager.cpp
 				 ${AAMP_ROOT}/middleware/drm/DrmSession.cpp
 				 ${AAMP_ROOT}/middleware/drm/ocdm/opencdmsessionadapter.cpp
 				 ${AAMP_ROOT}/middleware/drm/ocdm/opencdmsessionadapter.cpp
 				 ${AAMP_ROOT}/middleware/drm/ocdm/OcdmBasicSessionAdapter.cpp
 				 ${AAMP_ROOT}/middleware/drm/ocdm/OcdmGstSessionAdapter.cpp
-				 ${AAMP_ROOT}/drm/AampHlsOcdmBridge.cpp
-				 ${AAMP_ROOT}/drm/AampHlsDrmSessionManager.cpp
+
+				 ${AAMP_ROOT}/middleware/drm/HlsOcdmBridge.cpp
+				 ${AAMP_ROOT}/middleware/drm/HlsDrmSessionManager.cpp
+				 ${AAMP_ROOT}/middleware/drm/processProtectionHls.cpp
 				 ${AAMP_ROOT}/middleware/drm/helper/ClearKeyHelper.cpp
 				 ${AAMP_ROOT}/middleware/drm/helper/WidevineDrmHelper.cpp
 				 ${AAMP_ROOT}/middleware/drm/helper/PlayReadyHelper.cpp
@@ -100,7 +103,7 @@ set(AAMP_SOURCES ${AAMP_ROOT}/_base64.cpp
 				 ${AAMP_ROOT}/isobmff/isobmffbuffer.cpp)
 
 add_definitions(-DUSE_SHARED_MEMORY)
-add_definitions(-DUSE_OPENCDM_ADAPTER)
+add_definitions(-DUSE_OPENCDM -DUSE_OPENCDM_ADAPTER)
 add_definitions(-DUSE_THUNDER_OCDM_API_0_2)
 
 add_executable(${EXEC_NAME}

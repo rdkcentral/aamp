@@ -34,6 +34,12 @@
 #include <iostream>
 #include <cstring>
 
+//Delete non-array object
+#define SAFE_DELETE(ptr) { delete(ptr); ptr = NULL; }
+//Delete Array object
+#define SAFE_DELETE_ARRAY(ptr) { delete [] ptr; ptr = NULL; }
+
+
 #define WRITE_HASCII( DST, BYTE ) \
 { \
 	*DST++ = "0123456789abcdef"[BYTE>>4]; \
@@ -70,6 +76,16 @@ std::size_t GetThreadID( const pthread_t &t );
 std::size_t GetPrintableThreadID( const pthread_t &t );
 std::size_t GetPrintableThreadID();
 /**
+ * @fn ResolveURL
+ *
+ * @param[out] dst - Created URL
+ * @param[in] base - Base URL
+ * @param[in] uri - File path
+ * @param[in] bPropagateUriParams - flag to use base uri params
+ * @retval void
+ */
+void ResolveURL(std::string& dst, std::string base, const char *uri , bool bPropagateUriParams);
+/**
  * @fn GetCurrentTimeMS
  * @brief Get the current time in milliseconds
  *
@@ -77,5 +93,21 @@ std::size_t GetPrintableThreadID();
  */
 long long GetCurrentTimeMS(void);
 
+typedef enum
+{
+	MIDDLEWARE_DRM_INIT_FAILED,			   /**< DRM initialization failure */
+	MIDDLEWARE_DRM_DATA_BIND_FAILED,			   /**< InitData binding with DRM failed */
+	MIDDLEWARE_DRM_SESSIONID_EMPTY,			   /**< DRM session ID empty */
+	MIDDLEWARE_DRM_CHALLENGE_FAILED,			   /**< DRM key request challenge generation failed */
+	MIDDLEWARE_INVALID_DRM_KEY,			   /**< DRM reporting invalid license key */
+	MIDDLEWARE_CORRUPT_DRM_DATA,			   /**< DRM failure due to corrupt drm data, self heal might clear further errors*/
+	MIDDLEWARE_CORRUPT_DRM_METADATA,			   /**< DRM failure due to corrupt drm metadata in the stream*/
+	MIDDLEWARE_DRM_DECRYPT_FAILED,			   /**< DRM Decryption Failed for Fragments */
+	MIDDLEWARE_DRM_UNSUPPORTED,			   /**< DRM Format Unsupported */
+	MIDDLEWARE_DRM_SELF_ABORT,			   /**< Download activity is aborted by player */
+	MIDDLEWARE_DRM_KEY_UPDATE_FAILED,		   /**< Failed to process DRM key, see the error code returned from Update() for more info */
+	MIDDLEWARE_UNTRACKED_DRM_ERROR,
+	MIDDLEWARE_FAILED_TO_GET_KEYID			   /**< Failed to parse key id from init data*/
+} DrmTuneFailure;
 #endif  /* __PLAYER_UTILS_H__ */
 

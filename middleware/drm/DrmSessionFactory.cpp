@@ -18,11 +18,11 @@
 */
 
 /**
- * @file drmsessionfactory.cpp
+ * @file DrmSessionFactory.cpp
  * @brief Source file for DrmSessionFactory
  */
 
-#include "drmsessionfactory.h"
+#include "DrmSessionFactory.h"
 #if defined(USE_OPENCDM_ADAPTER)
 #include "OcdmBasicSessionAdapter.h"
 #include "OcdmGstSessionAdapter.h"

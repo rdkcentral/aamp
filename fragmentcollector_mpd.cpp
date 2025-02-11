@@ -27,7 +27,7 @@
 #include "AampStreamSinkManager.h"
 #include "MediaStreamContext.h"
 #include "priv_aamp.h"
-#include "AampDRMSessionManager.h"
+#include "AampLicManager.h"
 #include "AampConstants.h"
 #include "SubtecFactory.hpp"
 #include "isobmffprocessor.h"
@@ -161,10 +161,10 @@ StreamAbstractionAAMP_MPD::StreamAbstractionAAMP_MPD(class PrivateInstanceAAMP *
 	,mLivePeriodCulledSeconds(0)
 {
 	this->aamp = aamp;
-	if (aamp->mDRMSessionManager)
+	if (aamp->mDRMLicenseManager)
 	{
-		AampDRMSessionManager *sessionMgr = aamp->mDRMSessionManager;
-		sessionMgr->SetLicenseFetcher(this);
+		AampLicenseManager *licenseManager = aamp->mDRMLicenseManager;
+		licenseManager->SetLicenseFetcher(this);
 	}
 	memset(&mMediaStreamContext, 0, sizeof(mMediaStreamContext));
 	GetABRManager().clearProfiles();
@@ -3384,16 +3384,16 @@ void StreamAbstractionAAMP_MPD::QueueContentProtection(IPeriod* period, uint32_t
 				DrmHelperPtr drmHelper = CreateDrmHelper(adaptationSet, mediaType);
 				if (drmHelper)
 				{
-					if (aamp->mDRMSessionManager)
+					if (aamp->mDRMLicenseManager)
 					{
-						AampDRMSessionManager *sessionMgr = aamp->mDRMSessionManager;
+						AampLicenseManager *licenseMgr = aamp->mDRMLicenseManager;
 						if (qGstProtectEvent)
 						{
 							/** Queue protection event to the pipeline **/
-							sessionMgr->QueueProtectionEvent(drmHelper, period->GetId(), adaptationSetIdx, mediaType);
+							licenseMgr->QueueProtectionEvent(drmHelper, period->GetId(), adaptationSetIdx, mediaType);
 						}
 						/** Queue content protection in DRM license fetcher **/
-						sessionMgr->QueueContentProtection(drmHelper, period->GetId(), adaptationSetIdx, mediaType, isVssPeriod);
+						licenseMgr->QueueContentProtection(drmHelper, period->GetId(), adaptationSetIdx, mediaType, isVssPeriod);
 					}
 					hasDrm = true;
 					aamp->licenceFromManifest = true;
@@ -3511,12 +3511,12 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 	{
 		sink->ClearProtectionEvent();
 	}
-	AampDRMSessionManager *sessionMgr = aamp->mDRMSessionManager;
+	AampLicenseManager *licenseManager = aamp->mDRMLicenseManager;
 	bool forceClearSession = (!ISCONFIGSET(eAAMPConfig_SetLicenseCaching) && (tuneType == eTUNETYPE_NEW_NORMAL));
-	sessionMgr->clearDrmSession(forceClearSession);
-	sessionMgr->clearFailedKeyIds();
-	sessionMgr->setSessionMgrState(SessionMgrState::eSESSIONMGR_ACTIVE);
-	sessionMgr->setLicenseRequestAbort(false);
+	licenseManager->clearDrmSession(forceClearSession);
+	licenseManager->clearFailedKeyIds();
+	licenseManager->setSessionMgrState(SessionMgrState::eSESSIONMGR_ACTIVE);
+	licenseManager->setLicenseRequestAbort(false);
 	aamp->licenceFromManifest = false;
 	bool newTune = aamp->IsNewTune();
 
@@ -7260,18 +7260,18 @@ void StreamAbstractionAAMP_MPD::StreamSelection( bool newTune, bool forceSpeedsC
 		}
 
 	} // next track
-	if (aamp->mDRMSessionManager)
+	if (aamp->mDRMLicenseManager)
 	{
-		AampDRMSessionManager *sessionMgr = aamp->mDRMSessionManager;
+		AampLicenseManager *licenseManager = aamp->mDRMLicenseManager;
 		if (mMultiVideoAdaptationPresent)
 		{
 			// We have multiple video adaptations in the same period and
             // if one of them fails in license acquisition, we can skip error event
-			sessionMgr->SetSendErrorOnFailure(false);
+			licenseManager->SetSendErrorOnFailure(false);
 		}
 		else
 		{
-			sessionMgr->SetSendErrorOnFailure(true);
+			licenseManager->SetSendErrorOnFailure(true);
 		}
 	}
 
@@ -10250,10 +10250,10 @@ bool StreamAbstractionAAMP_MPD::CheckForVssTags()
 							std::string value = childNode->GetAttributeValue("value");
 							mCommonKeyDuration = std::stoi(value);
 							AAMPLOG_INFO("Received Common Key Duration : %d of VSS stream", mCommonKeyDuration);
-							if (aamp->mDRMSessionManager)
+							if (aamp->mDRMLicenseManager)
 							{
-								AampDRMSessionManager *sessionMgr = aamp->mDRMSessionManager;
-								sessionMgr->SetCommonKeyDuration(mCommonKeyDuration);
+								AampLicenseManager *licenseManager = aamp->mDRMLicenseManager;
+								licenseManager->SetCommonKeyDuration(mCommonKeyDuration);
 							}
 							isVss = true;
 						}
@@ -10437,7 +10437,9 @@ StreamAbstractionAAMP_MPD::~StreamAbstractionAAMP_MPD()
 
 void StreamAbstractionAAMP_MPD::StartFromOtherThanAampLocalTsb(void)
 {
-	aamp->mDRMSessionManager->setSessionMgrState(SessionMgrState::eSESSIONMGR_ACTIVE);
+		aamp->mDRMLicenseManager->setSessionMgrState(SessionMgrState::eSESSIONMGR_ACTIVE);
+	// Start the worker threads for each track
+	InitializeWorkers();
 	try{
 		fragmentCollectorThreadID = std::thread(&StreamAbstractionAAMP_MPD::FetcherLoop, this);
 		fragmentCollectorThreadStarted = true;
@@ -10643,10 +10645,10 @@ void StreamAbstractionAAMP_MPD::Stop(bool clearChannelData)
 		{
 			if(ISCONFIGSET(eAAMPConfig_UseSecManager))
 			{
-				aamp->mDRMSessionManager->notifyCleanup();
+				aamp->mDRMLicenseManager->notifyCleanup();
 			}
 		}
-		aamp->mDRMSessionManager->setSessionMgrState(SessionMgrState::eSESSIONMGR_INACTIVE);
+		aamp->mDRMLicenseManager->setSessionMgrState(SessionMgrState::eSESSIONMGR_INACTIVE);
 	}
 	if (!aamp->DownloadsAreEnabled())
 	{

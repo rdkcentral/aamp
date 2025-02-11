@@ -17,10 +17,18 @@
 * limitations under the License.
 */
 
-#include "DrmSessionFactory.h"
+#ifndef AAMP_MOCK_AAMP_LICENSE_MANAGER_H
+#define AAMP_MOCK_AAMP_LICENSE_MANAGER_H
 
-DrmSession* DrmSessionFactory::GetDrmSession(DrmHelperPtr drmHelper, DrmCallbacks *drmCallbacks)
+#include <gmock/gmock.h>
+#include "AampLicManager.h"
+
+class MockAampLicenseManager
 {
-	DrmSession *safe_value = nullptr;
-	return safe_value;
-}
+public:
+    MOCK_METHOD(void, setVideoWindowSize, (int width, int height));
+};
+
+extern MockAampLicenseManager *g_mockAampLicenseManager;
+
+#endif /* AAMP_MOCK_AAMP_LICENSE_MANAGER_H */

@@ -44,11 +44,12 @@
 #include "base16.h"
 #include "aampgstplayer.h"
 #include "AampStreamSinkManager.h"
-#include "AampDRMSessionManager.h"
 #include "SubtecFactory.hpp"
 #include "AampGrowableBuffer.h"
 
 #include "PlayerCCManager.h"
+#include "AampDRMLicPreFetcher.h"
+#include "AampLicManager.h"
 
 #ifdef AAMP_TELEMETRY_SUPPORT
 #include <AampTelemetry2.hpp>
@@ -1073,7 +1074,7 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 	,mTimeToTopProfile(0)
 	, fragmentCdmEncrypted(false) ,drmParserMutex(), aesCtrAttrDataList()
 	, drmSessionThreadStarted(false), createDRMSessionThreadID()
-	, mDRMSessionManager(NULL)
+	, mDRMLicenseManager(NULL)
 	,  mPreCachePlaylistThreadId(), mPreCacheDnldList()
 	, mPreCacheDnldTimeWindow(0), mParallelPlaylistFetchLock(), mAppName()
 	, mProgressReportFromProcessDiscontinuity(false)
@@ -1251,7 +1252,7 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 	preferredTextLabelString = GETCONFIGVALUE_PRIV(eAAMPConfig_PreferredTextLabel);
 	preferredTextTypeString = GETCONFIGVALUE_PRIV(eAAMPConfig_PreferredTextType);
 	int maxDrmSession = GETCONFIGVALUE_PRIV(eAAMPConfig_MaxDASHDRMSessions);
-	mDRMSessionManager = new AampDRMSessionManager(maxDrmSession, this);
+	mDRMLicenseManager = new AampLicenseManager(maxDrmSession, this);
 	mSubLanguage = GETCONFIGVALUE_PRIV(eAAMPConfig_SubTitleLanguage);
 	for (int i = 0; i < eCURLINSTANCE_MAX; i++)
 	{
@@ -1340,7 +1341,7 @@ PrivateInstanceAAMP::~PrivateInstanceAAMP()
 	aesCtrAttrDataList.clear();
 	SAFE_DELETE(mAampCacheHandler);
 
-	SAFE_DELETE(mDRMSessionManager);
+	SAFE_DELETE(mDRMLicenseManager);
 	if( ISCONFIGSET_PRIV(eAAMPConfig_EnableCurlStore) )
 	{
 		for (int i = 0; i < eCURLINSTANCE_MAX; i++)
@@ -2805,13 +2806,14 @@ void PrivateInstanceAAMP::SendErrorEvent(AAMPTuneFailure tuneFailure, const char
 
 void PrivateInstanceAAMP::LicenseRenewal(DrmHelperPtr drmHelper, void* userData)
 {
-	if (mDRMSessionManager == nullptr)
+	if (mDRMLicenseManager == nullptr)
 	{
 		SendAnomalyEvent(ANOMALY_WARNING, "Failed to renew license as mDrmSessionManager not available");
 		AAMPLOG_ERR("Failed to renew License as no mDrmSessionManager available");
+	        AAMPLOG_ERR("DRM is not supported");
 		return;
 	}
-	mDRMSessionManager->renewLicense(drmHelper, userData, this);
+	mDRMLicenseManager->renewLicense(drmHelper, userData, this);
 }
 
 /**
@@ -2950,7 +2952,7 @@ void PrivateInstanceAAMP::NotifySpeedChanged(float rate, bool changeState)
 #ifdef USE_SECMANAGER
 	if(ISCONFIGSET_PRIV(eAAMPConfig_UseSecManager))
 	{
-		mDRMSessionManager->setPlaybackSpeedState(rate, GetStreamPositionMs());
+		mDRMLicenseManager->setPlaybackSpeedState(IsLive(), GetCurrentLatency(), IsAtLivePoint(), GetLiveOffsetMs(),rate, GetStreamPositionMs());
 	}
 #endif
 }
@@ -3531,8 +3533,9 @@ void PrivateInstanceAAMP::LogDrmDecryptBegin(ProfilerBucketType bucketType)
 /**
  *   @brief Notifies profiler that decryption has ended
  */
-void PrivateInstanceAAMP::LogDrmDecryptEnd(ProfilerBucketType bucketType)
+void PrivateInstanceAAMP::LogDrmDecryptEnd(int bucketTypeIn)
 {
+	ProfilerBucketType bucketType = (ProfilerBucketType)bucketTypeIn;
 	profiler.ProfileEnd(bucketType);
 }
 
@@ -6678,7 +6681,7 @@ void PrivateInstanceAAMP::detach()
 			mCCId = 0;
 		}
 #ifdef USE_SECMANAGER
-		mDRMSessionManager->hideWatermarkOnDetach();
+		mDRMLicenseManager->hideWatermarkOnDetach();
 #endif
 		AampStreamSinkManager::GetInstance().DeactivatePlayer(this, false);
 
@@ -7105,7 +7108,7 @@ void PrivateInstanceAAMP::SetVideoMute(bool muted)
 #ifdef USE_SECMANAGER
 	if(ISCONFIGSET_PRIV(eAAMPConfig_UseSecManager))
 	{
-		mDRMSessionManager->setVideoMute(muted, GetStreamPositionMs());
+		mDRMLicenseManager->setVideoMute(IsLive(), GetCurrentLatency(), IsAtLivePoint(), GetLiveOffsetMs(),muted, GetStreamPositionMs());
 	}
 #endif
 }
@@ -7564,10 +7567,10 @@ void PrivateInstanceAAMP::Stop( bool sendStateChangeEvent )
 	// Stopping the playback, release all DRM context
 	if (mpStreamAbstractionAAMP)
 	{
-		if (mDRMSessionManager)
+		if (mDRMLicenseManager)
 		{
 			ReleaseDynamicDRMToUpdateWait();
-			mDRMSessionManager->setLicenseRequestAbort(true);
+			mDRMLicenseManager->setLicenseRequestAbort(true);
 		}
 		mpStreamAbstractionAAMP->Stop(true);
 		if (HasSidecarData())
@@ -7678,11 +7681,10 @@ void PrivateInstanceAAMP::Stop( bool sendStateChangeEvent )
 	{
 		pipeline_paused = false;
 	}
-
-	if (mDRMSessionManager)
+	if (mDRMLicenseManager)
 	{
 		/** Reset the license fetcher only DRM handle is deleting **/
-		mDRMSessionManager->Stop();
+		mDRMLicenseManager->Stop();
 	}
 
 	SAFE_DELETE(mCdaiObject);
@@ -8921,15 +8923,15 @@ void PrivateInstanceAAMP::NotifyFirstBufferProcessed(const std::string& videoRec
 	if(ISCONFIGSET_PRIV(eAAMPConfig_UseSecManager))
 	{
 		double streamPositionMs = GetStreamPositionMs();
-		mDRMSessionManager->setVideoMute(video_muted, streamPositionMs);
-		mDRMSessionManager->setPlaybackSpeedState(rate, streamPositionMs, true);
+		mDRMLicenseManager->setVideoMute(IsLive(), GetCurrentLatency(), IsAtLivePoint(), GetLiveOffsetMs(), video_muted, streamPositionMs);
+		mDRMLicenseManager->setPlaybackSpeedState(IsLive(), GetCurrentLatency(), IsAtLivePoint(), GetLiveOffsetMs(),rate, streamPositionMs, true);
 		int x = 0,y = 0,w = 0,h = 0;
 		if (!videoRectangle.empty())
 		{
 			sscanf(videoRectangle.c_str(),"%d,%d,%d,%d",&x,&y,&w,&h);
 		}
 		AAMPLOG_WARN("calling setVideoWindowSize  w:%d x h:%d ",w,h);
-		mDRMSessionManager->setVideoWindowSize(w,h);
+		mDRMLicenseManager->setVideoWindowSize(w,h);
 	}
 #endif
 
@@ -13253,7 +13255,14 @@ void PrivateInstanceAAMP::UpdateMaxDRMSessions()
 	if (mState == eSTATE_IDLE || mState == eSTATE_RELEASED)
 	{
 		int maxSessions = GETCONFIGVALUE_PRIV(eAAMPConfig_MaxDASHDRMSessions);
-		mDRMSessionManager->UpdateMaxDRMSessions(maxSessions);
+	    if(mDRMLicenseManager)
+	    {
+	    	mDRMLicenseManager->UpdateMaxDRMSessions(maxSessions);
+	    }
+	    else
+	    {
+	    	AAMPLOG_ERR("DRM is not supported");
+	    }
 	}
 	else
 	{
