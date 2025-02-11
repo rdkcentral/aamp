@@ -196,9 +196,8 @@ TESTDATA3 = {
         {"expect": r"\[FulFillAdObject\]\[\d+\]Next available DAI Ad break = 1"},
         {"expect": r"\[FulFillAdObject\]\[\d+\]New Ad successfully for periodId : 1 added\[Id=adId2, url=http://localhost:8080/content/ad_10s.mpd, durationMs=10000\]"},
         {"expect": r"\[FulFillAdObject\]\[\d+\]New Ad successfully for periodId : 1 added\[Id=adId3, url=http://localhost:8080/content/ad_10s.mpd, durationMs=10000\]"},
-        {"expect": r"\[PlaceAds\]\[\d+\]periodDelta = 4000.000000 p2AdData.duration = \[4000\] mPlacementObj.adNextOffset = 0 periodId = 1"},
-        {"expect": r"\[PlaceAds\]\[\d+\]curAd.duration = \[0\]"},
         {"expect": r"\[GetNextAdInBreakToPlace\]\[\d+\]\[CDAI\] Current ad index to be placed\[1\] is valid"},
+        {"expect": r"\[PlaceAds\]\[\d+\]\[CDAI\]nextAd.basePeriodId:1, nextAd.basePeriodOffset:0"},
         {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: STARTING ADBREAK\[1\] AdIdx\[1\] Found at Period\[1\]"},
         # State change indicating the start of ad playback inside the ad break
         {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: State changed from \[OUTSIDE_ADBREAK\] \=\> \[IN_ADBREAK_AD_PLAYING\]."},
@@ -207,6 +206,8 @@ TESTDATA3 = {
          
         {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: Ad finished at Period. Waiting to catchup the base offset.\[idx=1\] \[period=1\]"},
         {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: State changed from \[IN_ADBREAK_AD_PLAYING\] \=\> \[IN_ADBREAK_WAIT2CATCHUP\].","min":20,"max":40},
+        {"expect": r"\[GetNextAdInBreakToPlace\]\[\d+\]\[CDAI\] Current ad index to be placed\[2\] is valid"},
+        {"expect": r"\[PlaceAds\]\[\d+\]\[CDAI\]nextAd.basePeriodId:1, nextAd.basePeriodOffset:10000"},
         {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: Current Ad placement Completed. Ready to play next Ad."},
         {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: Next AdIdx\[2\] Found at Period\[1\]"},
         {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: State changed from \[IN_ADBREAK_WAIT2CATCHUP\] \=\> \[IN_ADBREAK_AD_PLAYING\]."},
