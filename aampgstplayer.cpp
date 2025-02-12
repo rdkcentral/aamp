@@ -358,7 +358,7 @@ void AAMPGstPlayer::NotifyFirstFrame(int mediatype, bool notifyFirstBuffer, bool
 	AampMediaType type = static_cast<AampMediaType>(mediatype);
 	// LogTuneComplete will be noticed after getting video first frame.
 	// incase of audio or video only playback NumberofTracks =1, so in that case also LogTuneCompleted needs to captured when either audio/video frame received.
-	if(notifyFirstBuffer)
+	if(notifyFirstBuffer && !aamp->mIsFlushOperationInProgress)
 	{
 		aamp->LogFirstFrame();
 		aamp->LogTuneComplete();
@@ -372,21 +372,21 @@ void AAMPGstPlayer::NotifyFirstFrame(int mediatype, bool notifyFirstBuffer, bool
 		{
 			aamp->SetDiscontinuityParam();
 		}
-		
+
 		// No additional checks added here, since the NotifyFirstFrame will be invoked only once
 		// in westerossink disabled case until specific platform fixes it. Also aware of NotifyFirstBufferProcessed called
 		// twice in this function, since it updates timestamp for calculating time elapsed, its trivial
-		if (!firstBufferNotified)
+		if (!firstBufferNotified && !aamp->mIsFlushOperationInProgress)
 		{
 			aamp->NotifyFirstBufferProcessed(GetVideoRectangle());
 		}
-		
+
 		if (initCC)
 		{
 			//If pipeline is set to ready forcefully due to change in track_id, then re-initialize CC
 			aamp->InitializeCC(playerInstance->GetCCDecoderHandle());
 		}
-		
+
 		requireFirstVideoFrameDisplay = aamp->IsFirstVideoFrameDisplayedRequired();
 	}
 };
