@@ -2058,7 +2058,7 @@ int my_main(int argc, char **argv)
 
 int main(int argc, char **argv)
 {
-#ifdef __APPLE__
+#if defined(__APPLE__) && defined (__GST_MACOS_H__)
 	// https://gstreamer.freedesktop.org/documentation/tutorials/basic/concepts.html?gi-language=c
 	return gst_macos_main((GstMainFunc)my_main, argc, argv, NULL);
 #else
