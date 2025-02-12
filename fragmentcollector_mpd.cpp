@@ -10621,10 +10621,14 @@ void StreamAbstractionAAMP_MPD::Stop(bool clearChannelData)
 			MediaStreamContext *track = mMediaStreamContext[iTrack];
 			if(track)
 			{
+				if(track->playContext)
+				{
+					track->playContext->abort();
+				}
 				track->AbortWaitForCachedFragment();
-				// TSBReader could be waiting indefinitely WaitForCachedFragmentChunkInjected, this will unblock the same
 				if (track->IsLocalTSBInjection())
 				{
+					// TSBReader could be waiting indefinitely WaitForCachedFragmentChunkInjected, this will unblock the same
 					track->AbortWaitForCachedFragmentChunk();
 				}
 			}
