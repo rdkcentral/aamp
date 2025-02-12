@@ -1322,8 +1322,9 @@ void AAMPGstPlayer::NotifyFirstFrame(AampMediaType type)
 
 	// LogTuneComplete will be noticed after getting video first frame.
 	// incase of audio or video only playback NumberofTracks =1, so in that case also LogTuneCompleted needs to captured when either audio/video frame received.
-	if (!privateContext->firstFrameReceived && (privateContext->firstVideoFrameReceived
-			|| (1 == privateContext->NumberOfTracks && (privateContext->firstAudioFrameReceived || privateContext->firstVideoFrameReceived))))
+	if ((!privateContext->firstFrameReceived && (privateContext->firstVideoFrameReceived
+			|| (1 == privateContext->NumberOfTracks && (privateContext->firstAudioFrameReceived || privateContext->firstVideoFrameReceived)))) 
+			&& !aamp->mIsFlushOpeartionInProgress )
 	{
 		privateContext->firstFrameReceived = true;
 		aamp->LogFirstFrame();
@@ -1344,7 +1345,7 @@ void AAMPGstPlayer::NotifyFirstFrame(AampMediaType type)
 		// No additional checks added here, since the NotifyFirstFrame will be invoked only once
 		// in westerossink disabled case until fixes it. Also aware of NotifyFirstBufferProcessed called
 		// twice in this function, since it updates timestamp for calculating time elapsed, its trivial
-		if (!firstBufferNotified)
+		if (!firstBufferNotified && !aamp->mIsFlushOpeartionInProgress)
 		{
 			aamp->NotifyFirstBufferProcessed(GetVideoRectangle());
 		}

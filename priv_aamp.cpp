@@ -1293,6 +1293,7 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 	, mProvidedManifestFile("")
 	, mIsChunkMode(false)
 	, prevFirstPeriodStartTime(0)
+	, mIsFlushOpeartionInProgress(false)
 {
 	mAampCacheHandler = new AampCacheHandler(mPlayerId);
 	// Create the event manager for player instance

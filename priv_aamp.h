@@ -1120,7 +1120,7 @@ public:
 	std::mutex mRateCorrectionTimeoutLock;				/**< Rate correction thread mutex for conditional timed wait*/
 	double mCorrectionRate;                          /**< Variable to store corection rate **/
 	bool mIsEventStreamFound;				/**< Flag to indicate event stream entry in any of period */
-
+	
 	bool mIsFakeTune;
 
 	double mOffsetFromTunetimeForSAPWorkaround; 		/**< current playback position in epoch */
@@ -1163,6 +1163,7 @@ public:
 	aamp::id3_metadata::MetadataCache mId3MetadataCache; /**< Metadata cache object for the JS event */
 
 	bool mIsFlushFdsInCurlStore;	/**< Mark to clear curl store instance in case of playback stopped due to download Error */
+	bool mIsFlushOpeartionInProgress;		/**< Flag to indicate pipeline flush Opeartion is going on */
 
 	/**
 	 * @fn ProcessID3Metadata
