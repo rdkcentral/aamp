@@ -41,7 +41,7 @@ TESTDATA1 = {
         {"expect":"AAMP_EVENT_STATE_CHANGED: PREPARING"},
         {"expect":r"ignoring baseurl /"},
         {"expect":r"fragmentUrl http://localhost:8085/TestDashIgnore/video_init.mp4"},
-        {"expect":r"inserted init_video http://localhost:8085/TestDashIgnore/video_init.mp4"},
+        {"expect":r"init url http://localhost:8085/TestDashIgnore/video_init.mp4"},
         {"expect":r"Returning Position as 2(\d{3})"},
         {"expect":r"Returning Position as 5(\d{3})"},
     ]
