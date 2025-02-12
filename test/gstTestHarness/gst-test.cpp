@@ -1415,8 +1415,8 @@ public:
 					continue;
 				}
 				else
-				{ // unknown/unsupported track type
-					assert(0);
+				{ // likely an empty early availability period - nothing to transcode
+					continue;
 				}
 				
 				std::map<std::string,std::string> segment_template_param;
@@ -2061,7 +2061,7 @@ int main(int argc, char **argv)
 #if defined(__APPLE__) && defined (__GST_MACOS_H__)
 	// https://gstreamer.freedesktop.org/documentation/tutorials/basic/concepts.html?gi-language=c
 	return gst_macos_main((GstMainFunc)my_main, argc, argv, NULL);
-#else
+#else[
 	return my_main(argc,argv);
 #endif
 }
