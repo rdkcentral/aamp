@@ -2812,7 +2812,14 @@ static int AAMPGstPlayer_SetupStream(AAMPGstPlayer *_this, AampMediaType streamI
 			GstElement* vidsink = gst_element_factory_make("rialtomsevideosink", NULL);
 			if (vidsink)
 			{
-				g_object_set(stream->sinkbin, "video-sink", vidsink, NULL);				/* In the stream->sinkbin, set the video-sink property to vidsink */
+				/* In the stream->sinkbin, set the video-sink property to vidsink */
+				g_object_set(stream->sinkbin, "video-sink", vidsink, NULL);
+				MediaFormat mediaFormat = _this->aamp->GetMediaFormatTypeEnum();
+				if(eMEDIAFORMAT_HLS == mediaFormat)
+				{
+					AAMPLOG_INFO("HLS/TS , set the has-drm property to false");
+					g_object_set(vidsink, "has-drm", FALSE, NULL);
+				}
 			}
 			else
 			{
