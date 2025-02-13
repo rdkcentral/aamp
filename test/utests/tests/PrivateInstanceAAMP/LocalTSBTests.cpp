@@ -105,7 +105,7 @@ TEST_F(LocalTSBTests, TimeOut_Config_Based_On_Network)
 
 
 	const char *lldUrl = "http://localhost:80/test/manifest.mpd";
-	mPrivateInstanceAAMP->Tune(lldUrl, false);
+	mPrivateInstanceAAMP->Tune(lldUrl, false, "LINEAR_TV");
 
 	EXPECT_EQ(mPrivateInstanceAAMP->mNetworkTimeoutMs, networkTimeout * 1000);
 	EXPECT_EQ(mPrivateInstanceAAMP->mManifestTimeoutMs, networkTimeout * 1000);
@@ -134,7 +134,7 @@ TEST_F(LocalTSBTests, Chunked_With_LLD_And_Config_On)
 					this->mPrivateInstanceAAMP->SetLLDashServiceData(llData);
 					return eAAMPSTATUS_OK;
 				});
-	mPrivateInstanceAAMP->Tune(chunkedUrl, true);
+	mPrivateInstanceAAMP->Tune(chunkedUrl, true, "LINEAR_TV");
 	EXPECT_TRUE(mPrivateInstanceAAMP->IsLocalAAMPTsb());
 	EXPECT_TRUE(mPrivateInstanceAAMP->IsLocalAAMPTsbInjection());
 }
@@ -162,7 +162,7 @@ TEST_F(LocalTSBTests, Chunked_With_LLD_And_Config_Off)
 					this->mPrivateInstanceAAMP->SetLLDashServiceData(llData);
 					return eAAMPSTATUS_OK;
 				});
-	mPrivateInstanceAAMP->Tune(chunkedUrl, true);
+	mPrivateInstanceAAMP->Tune(chunkedUrl, true, "LINEAR_TV");
 	EXPECT_FALSE(mPrivateInstanceAAMP->IsLocalAAMPTsb());
 	EXPECT_FALSE(mPrivateInstanceAAMP->IsLocalAAMPTsbInjection());
 }
@@ -183,7 +183,27 @@ TEST_F(LocalTSBTests, Chunked_Without_LLD_And_Config_On)
 					this->mPrivateInstanceAAMP->SetLLDashServiceData(llData);
 					return eAAMPSTATUS_OK;
 				});
-	mPrivateInstanceAAMP->Tune(chunkedUrl, true);
+	mPrivateInstanceAAMP->Tune(chunkedUrl, true, "LINEAR_TV");
+	EXPECT_FALSE(mPrivateInstanceAAMP->IsLocalAAMPTsb());
+	EXPECT_FALSE(mPrivateInstanceAAMP->IsLocalAAMPTsbInjection());
+}
+
+TEST_F(LocalTSBTests, VOD_With_Config_On)
+{
+	// We expect TSB session to be created and used if Live, DASH, and TSB is enabled.
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(_)).WillRepeatedly(Return(false));
+	EXPECT_CALL(*g_mockTSBSessionManager, Init()).Times(0);
+	// For non low latency stream case, by default mLowLatencyMode is false
+	AampLLDashServiceData llData;
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP_MPD, Init(_))
+		.WillOnce([this, &llData] {
+					this->mPrivateInstanceAAMP->SetLLDashServiceData(llData);
+					return eAAMPSTATUS_OK;
+				});
+
+	const char *Url = "http://localhost:80/low/manifest.mpd";
+	mPrivateInstanceAAMP->Tune(Url, true, "VOD");
+
 	EXPECT_FALSE(mPrivateInstanceAAMP->IsLocalAAMPTsb());
 	EXPECT_FALSE(mPrivateInstanceAAMP->IsLocalAAMPTsbInjection());
 }
@@ -198,7 +218,7 @@ TEST_F(LocalTSBTests, IncreaseGSTBufferTest_1)
 					this->mPrivateInstanceAAMP->SetLLDashServiceData(llData);
 					return eAAMPSTATUS_OK;
 				});
-	mPrivateInstanceAAMP->Tune(testUrl, true);
+	mPrivateInstanceAAMP->Tune(testUrl, true, "LINEAR_TV");
     #define GETCFG(x) mPrivateInstanceAAMP->mConfig->GetConfigValue(x)
 	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_BWToGstBufferFactor)).WillRepeatedly(Return(0.8));
 	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_GstVideoBufBytes)).WillRepeatedly(Return(GST_VIDEOBUFFER_SIZE_BYTES));
@@ -239,7 +259,7 @@ TEST_F(LocalTSBTests, IncreaseGSTBufferTest_2)
 					this->mPrivateInstanceAAMP->SetLLDashServiceData(llData);
 					return eAAMPSTATUS_OK;
 				});
-	mPrivateInstanceAAMP->Tune(testUrl, true);
+	mPrivateInstanceAAMP->Tune(testUrl, true, "LINEAR_TV");
     #define GETCFG(x) mPrivateInstanceAAMP->mConfig->GetConfigValue(x)
 	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_BWToGstBufferFactor)).WillRepeatedly(Return(0.8));
 	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_GstVideoBufBytes)).WillRepeatedly(Return(GST_VIDEOBUFFER_SIZE_BYTES));
@@ -266,7 +286,7 @@ TEST_F(LocalTSBTests, ScheduleRetuneTest)
 					return eAAMPSTATUS_OK;
 				});
 
-	mPrivateInstanceAAMP->Tune(testUrl, true);
+	mPrivateInstanceAAMP->Tune(testUrl, true, "LINEAR_TV");
 	mPrivateInstanceAAMP->SetState(eSTATE_PLAYING);
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnableCurlStore)).WillRepeatedly(Return(true));// uninteresting expect call
 

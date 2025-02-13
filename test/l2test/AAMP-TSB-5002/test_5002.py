@@ -52,6 +52,7 @@ TESTDATA0 = {
 	"aamp_cfg": "info=true\ntrace=true\nlocalTSBEnabled=true\nprogress=true\ntsbLocation=/tmp/data\ntsbLog=0\nsupressDecode=true\nlldUrlKeyword=chunked\n",
 	"archive_url": archive_url,
 	"url": TEST_URL,
+	"cmdlist": ["contentType LINEAR_TV"],
 	'simlinear_type': 'DASH',
 	"expect_list":
 	[
@@ -69,6 +70,7 @@ TESTDATA1 = {
 	"aamp_cfg": "info=true\ntrace=true\nlocalTSBEnabled=false\nprogress=true\ntsbLocation=/tmp/data\nsupressDecode=true\nlldUrlKeyword=chunked\n",
 	"archive_url": archive_url,
 	"url": TEST_URL,
+	"cmdlist": ["contentType LINEAR_TV"],
 	'simlinear_type': 'DASH',
 	"expect_list":
 	[
@@ -86,6 +88,7 @@ TESTDATA2 = {
 	"aamp_cfg": "info=true\ntrace=true\nlocalTSBEnabled=true\nprogress=true\ntsbLocation=/tmp/data\ntsbLength=6\ntsbLog=0\nsupressDecode=true\nlldUrlKeyword=chunked\n",
 	"archive_url": archive_url,
 	"url": TEST_URL,
+	"cmdlist": ["contentType LINEAR_TV"],
 	'simlinear_type': 'DASH',
 	"expect_list":
 	[
@@ -106,6 +109,7 @@ TESTDATA3 = {
 	"aamp_cfg": "info=true\ntrace=true\nlocalTSBEnabled=true\nprogress=true\ntsbLocation=/tmp/data\ntsbLog=0\ntsbLength=4\nlldUrlKeyword=chunked\n",
 	"archive_url": archive_url,
 	"url": TEST_URL,
+	"cmdlist": ["contentType LINEAR_TV"],
 	'simlinear_type': 'DASH',
 	"expect_list":
 	[
@@ -127,6 +131,7 @@ TESTDATA4 = {
 	"aamp_cfg": "info=true\ntrace=true\nlocalTSBEnabled=true\nprogress=true\ntsbLocation=/tmp/data\ntsbLength=4\ntsbLog=0\nsupressDecode=true\nlldUrlKeyword=chunked\n",
 	"archive_url": archive_url,
 	"url": TEST_URL,
+	"cmdlist": ["contentType LINEAR_TV"],
 	'simlinear_type': 'DASH',
 	"expect_list":
 	[
@@ -151,6 +156,7 @@ TESTDATA5 = {
 	'simlinear_type': 'DASH',
 	"archive_url": archive_url,
 	"url": TEST_URL,
+	"cmdlist": ["contentType LINEAR_TV"],
 	"aamp_cfg": "progress=true\ninfo=true\ntrace=true\nlocalTSBEnabled=true\ntsbLocation=/tmp/data\ntsbLength=500\ntsbLog=0\nsupressDecode=true\nlldUrlKeyword=chunked\n",
 	"expect_list":
 	[
@@ -174,6 +180,7 @@ TESTDATA6 = {
 	'simlinear_type': 'DASH',
 	"archive_url": archive_url,
 	"url": TEST_URL,
+	"cmdlist": ["contentType LINEAR_TV"],
 	"aamp_cfg": "info=true\ntrace=true\nlocalTSBEnabled=true\ntsbLocation=/tmp/data\ntsbLength=500\ntsbLog=0\nsupressDecode=true\nenablePTSReStamp=true\n",
 	"expect_list":
 	[
@@ -192,6 +199,7 @@ TESTDATA7 = {
 	'simlinear_type': 'DASH',
 	"archive_url": archive_url,
 	"url": TEST_URL,
+	"cmdlist": ["contentType LINEAR_TV"],
 	"aamp_cfg": "info=true\ntrace=true\nlocalTSBEnabled=true\ntsbLocation=/tmp/data\ntsbLength=500\ntsbLog=0\nsupressDecode=true\nenablePTSReStamp=true\n",
 	"expect_list":
 	[
@@ -219,6 +227,7 @@ TESTDATA8 = {
 	'simlinear_type': 'DASH',
 	"archive_url": archive_url,
 	"url": TEST_URL,
+	"cmdlist": ["contentType LINEAR_TV"],
 	"aamp_cfg": "info=true\ntrace=true\nlocalTSBEnabled=true\ntsbLocation=/tmp/data\ntsbLength=500\ntsbLog=0\nsupressDecode=true\nenablePTSReStamp=true\n",
 	"expect_list":
 	[
@@ -243,6 +252,7 @@ TESTDATA9 = {
 	'simlinear_type': 'DASH',
 	"archive_url": archive_url,
 	"url": TEST_URL,
+	"cmdlist": ["contentType LINEAR_TV"],
 	"aamp_cfg": "info=true\ntrace=true\nlocalTSBEnabled=true\ntsbLocation=/tmp/data\ntsbLength=500\ntsbLog=0\nsupressDecode=true\nenablePTSReStamp=true\n",
 	"expect_list":
 	[
@@ -270,6 +280,22 @@ TESTDATA9 = {
 	]
 }
 
+TESTDATA10 = {
+	"title": "VOD ",
+	"logfile": "vod10.log",
+	"max_test_time_seconds": 20,
+	"aamp_cfg": "info=true\ntrace=true\nlocalTSBEnabled=true\nprogress=true\ntsbLocation=/tmp/data\ntsbLength=4\ntsbLog=0\nsupressDecode=true\nlldUrlKeyword=chunked\n",
+	"archive_url": archive_url,
+	"url": TEST_URL,
+	"cmdlist": ["contentType VOD"],
+	'simlinear_type': 'DASH',
+	"expect_list":
+	[
+		{"expect" : r"\[TSB Store\] Initiating with config values", "not_expected" : True},
+		{"expect" : r"msg=\"File written\" ", "not_expected" : True},
+		{"expect" : r"HttpRequestEnd.*track-video-periodid-.*-0-frag-881045324\.mp4", "end_of_test":True}
+	]
+}
 
 TESTDATA = [
 	# Verify AAMP TSB without PTS restamping
@@ -284,7 +310,10 @@ TESTDATA = [
 	{'testdata': TESTDATA6, 'expected_restamps': 20, 'expected_trickmodes_restamps': 0},
 	{'testdata': TESTDATA7, 'expected_restamps': 20, 'expected_trickmodes_restamps': 0},
 	{'testdata': TESTDATA8, 'expected_restamps': 8, 'expected_trickmodes_restamps': 0},
-	{'testdata': TESTDATA9, 'expected_restamps': 8, 'expected_trickmodes_restamps': 10}
+	{'testdata': TESTDATA9, 'expected_restamps': 8, 'expected_trickmodes_restamps': 10},
+
+	# Verify VOD does not use TSB
+	{'testdata': TESTDATA10, 'expected_restamps': 0, 'expected_trickmodes_restamps': 0}
 ]
 
 
