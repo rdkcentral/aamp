@@ -28,8 +28,8 @@ from inspect import getsourcefile
 base_url = "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/streams/generated/"
 
 url_info = [
-    {"url": base_url + "main.m3u8", "fct": lambda fmt : f'Inserted. url ' + base_url + f'hls/{fmt}.m3u8'},
-    {"url": base_url + "main.mpd", "fct": lambda fmt : f'Inserted init url ' + base_url + f'dash/{fmt}_init.m4s'},
+    {"url": base_url + "main.m3u8", "fct": lambda fmt : f'inserted playlist_video ' + base_url + f'hls/{fmt}.m3u8'},
+    {"url": base_url + "main.mpd", "fct": lambda fmt : f'inserted init_video ' + base_url + f'dash/{fmt}_init.m4s'},
 ]
 
 bitrate_info = [

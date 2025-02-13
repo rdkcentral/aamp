@@ -2209,11 +2209,11 @@ void TrackState::IndexPlaylist(bool IsRefresh, AampTime &culledSec)
 			AAMPLOG_INFO("warning: no EXT-X-MEDIA-SEQUENCE tag");
 			indexFirstMediaSequenceNumber = 0;
 		}
-		// When setting live status to stream , check the playlist type of both video/audio(demuxed)
+		// When setting live status to stream, check the playlist type of both video/audio(demuxed)
 		aamp->SetIsLive(context->IsLive());
 		if(!IsLive())
 		{
-			aamp->getAampCacheHandler()->InsertToPlaylistCache(mPlaylistUrl, &playlist, mEffectiveUrl,IsLive(),(AampMediaType)type);
+			aamp->getAampCacheHandler()->InsertToPlaylistCache(mPlaylistUrl, &playlist, mEffectiveUrl,IsLive(),TrackTypeToMediaType(type));
 		}
 		if(eTRACK_VIDEO == type)
 		{
@@ -3315,7 +3315,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 		aamp->SetCurlTimeout(aamp->mNetworkTimeoutMs, (AampCurlInstance)i);
 	}
 
-	if (aamp->getAampCacheHandler()->RetrieveFromPlaylistCache(aamp->GetManifestUrl(), &mainManifest, aamp->GetManifestUrl()))
+	if (aamp->getAampCacheHandler()->RetrieveFromPlaylistCache(aamp->GetManifestUrl(), &mainManifest, aamp->GetManifestUrl(), eMEDIATYPE_MANIFEST))
 	{
 		AAMPLOG_WARN("StreamAbstractionAAMP_HLS: Main manifest retrieved from cache");
 	}
@@ -3534,7 +3534,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 		aamp->profiler.SetBandwidthBitsPerSecondAudio(audio->GetCurrentBandWidth());
 		if (audio->enabled)
 		{
-			if (aamp->getAampCacheHandler()->RetrieveFromPlaylistCache(audio->mPlaylistUrl, &audio->playlist, audio->mEffectiveUrl))
+			if (aamp->getAampCacheHandler()->RetrieveFromPlaylistCache(audio->mPlaylistUrl, &audio->playlist, audio->mEffectiveUrl, eMEDIATYPE_PLAYLIST_AUDIO))
 			{
 				AAMPLOG_INFO("StreamAbstractionAAMP_HLS::audio playlist retrieved from cache");
 			}
@@ -3545,7 +3545,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 		}
 		if (video && video->enabled)
 		{
-			if (aamp->getAampCacheHandler()->RetrieveFromPlaylistCache(video->mPlaylistUrl, &video->playlist, video->mEffectiveUrl))
+			if (aamp->getAampCacheHandler()->RetrieveFromPlaylistCache(video->mPlaylistUrl, &video->playlist, video->mEffectiveUrl, eMEDIATYPE_PLAYLIST_VIDEO))
 			{
 				AAMPLOG_INFO("StreamAbstractionAAMP_HLS::video playlist retrieved from cache");
 			}
@@ -3602,7 +3602,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 		}
 		if (subtitle->enabled)
 		{
-			if (aamp->getAampCacheHandler()->RetrieveFromPlaylistCache(subtitle->mPlaylistUrl, &subtitle->playlist, subtitle->mEffectiveUrl))
+			if (aamp->getAampCacheHandler()->RetrieveFromPlaylistCache(subtitle->mPlaylistUrl, &subtitle->playlist, subtitle->mEffectiveUrl, eMEDIATYPE_PLAYLIST_SUBTITLE))
 			{
 				AAMPLOG_INFO("StreamAbstractionAAMP_HLS::subtitle playlist retrieved from cache");
 			}
@@ -3619,7 +3619,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 		}
 		if (aux->enabled)
 		{
-			if (aamp->getAampCacheHandler()->RetrieveFromPlaylistCache(aux->mPlaylistUrl, &aux->playlist, aux->mEffectiveUrl))
+			if (aamp->getAampCacheHandler()->RetrieveFromPlaylistCache(aux->mPlaylistUrl, &aux->playlist, aux->mEffectiveUrl, eMEDIATYPE_PLAYLIST_AUX_AUDIO))
 			{
 				AAMPLOG_INFO("StreamAbstractionAAMP_HLS::auxiliary audio playlist retrieved from cache");
 			}
@@ -4461,7 +4461,8 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 				aamp_ResolveURL(defaultIframePlaylistUrl, aamp->GetManifestUrl(), streamInfo->uri.c_str(), ISCONFIGSET(eAAMPConfig_PropagateURIParam));
 				AAMPLOG_TRACE("StreamAbstractionAAMP_HLS:: Downloading iframe playlist");
 				bool bFiledownloaded = false;
-				if (aamp->getAampCacheHandler()->RetrieveFromPlaylistCache(defaultIframePlaylistUrl, &defaultIframePlaylist, defaultIframePlaylistEffectiveUrl) == false){
+				if( !aamp->getAampCacheHandler()->RetrieveFromPlaylistCache(defaultIframePlaylistUrl, &defaultIframePlaylist, defaultIframePlaylistEffectiveUrl, eMEDIATYPE_PLAYLIST_IFRAME) )
+				{
 					double tempDownloadTime{0.0};
 					bFiledownloaded = aamp->GetFile(defaultIframePlaylistUrl, eMEDIATYPE_PLAYLIST_IFRAME, &defaultIframePlaylist, defaultIframePlaylistEffectiveUrl, &http_error, &tempDownloadTime, NULL,eCURLINSTANCE_MANIFEST_MAIN);
 					AampTime downloadTime{tempDownloadTime};
@@ -4471,7 +4472,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 				}
 				if (defaultIframePlaylist.GetLen() && bFiledownloaded)
 				{
-					aamp->getAampCacheHandler()->InsertToPlaylistCache(defaultIframePlaylistUrl, &defaultIframePlaylist, defaultIframePlaylistEffectiveUrl,aamp->IsLive(),eMEDIATYPE_IFRAME);
+					aamp->getAampCacheHandler()->InsertToPlaylistCache(defaultIframePlaylistUrl, &defaultIframePlaylist, defaultIframePlaylistEffectiveUrl,aamp->IsLive(),eMEDIATYPE_PLAYLIST_IFRAME);
 					AAMPLOG_TRACE("StreamAbstractionAAMP_HLS:: Cached iframe playlist");
 				}
 				else
@@ -4627,7 +4628,7 @@ void StreamAbstractionAAMP_HLS::PreCachePlaylist()
 		{
 			PreCacheUrlStruct newelem;
 			aamp_ResolveURL( newelem.url, aamp->GetManifestUrl(), mediaInfo.uri.c_str(), ISCONFIGSET(eAAMPConfig_PropagateURIParam) );
-			newelem.type = mediaInfo.type;
+			newelem.type = ((mediaInfo.type==eMEDIATYPE_AUDIO)?eMEDIATYPE_PLAYLIST_AUDIO:eMEDIATYPE_PLAYLIST_SUBTITLE);
 			dnldList.push_back(newelem);
 		}
 	}
@@ -5387,7 +5388,7 @@ std::vector<ThumbnailData> StreamAbstractionAAMP_HLS::GetThumbnailRangeData(doub
 	if(!thumbnailManifest.GetPtr())
 	{
 		std::string tmpurl;
-		if(aamp->getAampCacheHandler()->RetrieveFromPlaylistCache(streamInfo.uri, &thumbnailManifest, tmpurl))
+		if(aamp->getAampCacheHandler()->RetrieveFromPlaylistCache(streamInfo.uri, &thumbnailManifest, tmpurl, eMEDIATYPE_PLAYLIST_IFRAME))
 		{
 			lstring iter = lstring(thumbnailManifest.GetPtr(),thumbnailManifest.GetLen());
 			indexedTileInfo = IndexThumbnails( iter );
@@ -6325,7 +6326,7 @@ bool TrackState::FetchInitFragmentHelper(int &http_code, bool forcePushEncrypted
 			long long ts_start, ts_end;
 			ts_start = aamp_GetCurrentTimeMS();
 #endif /* CHECK_PERFORMANCE */
-			bool fetched = aamp->getAampCacheHandler()->RetrieveFromInitFragCache(fragmentUrl, &cachedFragment->fragment, tempEffectiveUrl);
+			bool fetched = aamp->getAampCacheHandler()->RetrieveFromInitFragmentCache(fragmentUrl, &cachedFragment->fragment, tempEffectiveUrl);
 
 #ifdef CHECK_PERFORMANCE
 			ts_end = aamp_GetCurrentTimeMS();

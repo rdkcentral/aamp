@@ -57,6 +57,8 @@ typedef enum
 	eTRACK_AUX_AUDIO  /**< Auxiliary audio track */
 } TrackType;
 
+AampMediaType TrackTypeToMediaType( TrackType trackType );
+
 /**
  * @brief Structure holding the resolution of stream
  */
