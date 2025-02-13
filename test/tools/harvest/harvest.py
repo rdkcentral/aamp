@@ -313,7 +313,6 @@ class DASHChecker:
 
     def __init__(self, args):
         self.bands = args.bandwidths
-        self.seg_no = {}
         self.file_no = 0
         self.url = None
         self.vod = None
@@ -332,11 +331,13 @@ class DASHChecker:
         Called when a change has been seen of the manifest contents
         """
 
-        man = DASHManifest(self.url, content=cur_read)
+        man = DASHManifest(self.url, content=cur_read, args=self.args, manifest_idx=self.file_no)
         if self.bands:
-            man.reduce_bandwidth(self.bands)
+            if not man.reduce_bandwidth(self.bands):
+                log.error("Bandwidths invalid %s", man.rept_bands())
+                sys.exit(1)
 
-        segment_detail_list = man.get_seg_list(self.seg_no, abs_paths=True)
+        segment_detail_list = man.get_seg_list(abs_paths=True)
 
         if self.vod is None:
             self.vod = man.check_vod()
@@ -373,7 +374,7 @@ class DASHChecker:
                 time.sleep(man.poll_interval)
                 max_time -= intv
 
-                segment_detail_list = man.get_seg_list(self.seg_no, abs_paths=True)
+                segment_detail_list = man.get_seg_list(abs_paths=True)
 
         write_file(url_to_filename(self.url), str(man))
 
@@ -406,7 +407,7 @@ def get_manifest_type(filename):
 
 # Expecting at least this version. It might run with earlier versions
 assert sys.version_info >= (3, 9)
-
+requests.packages.urllib3.disable_warnings()
 logging.basicConfig(
     format="%(asctime)s %(funcName)-15s:%(lineno)04d %(message)s",
     stream=sys.stdout,
@@ -459,6 +460,7 @@ if __name__ == "__main__":
                         is an error. This maybe supplied multiple times. This can be used if 
                         having ABR ability for the content is not required.""",
     )
+
     parser.add_argument(
         "--reason",
         action="append",
@@ -482,6 +484,13 @@ if __name__ == "__main__":
         "--content_type",
         nargs="+",
         help="Adds a list of content types to download. E.g. --content_type text audio or --content_type video and so on. By default all content types are downloaded.",
+    )
+
+    parser.add_argument(
+        "--review_buffer",
+        action="store_true",
+        help="""For live streams with a cloud review buffer. Process the segments in the review buffer.
+This may result in 30mins of segments preceeding the live edge being processed""",
     )
 
     parser.add_argument(
@@ -513,15 +522,6 @@ if __name__ == "__main__":
     ftype = get_manifest_type(filename_part)
     requests_session = requests.Session()
 
-    response = requests_session.get(url, verify=False)
-    if response is None:
-        log.error("ERROR no response from %s", url)
-        sys.exit(1)
-
-    if not response.ok:
-        log.error("status_code=%d %s", response.status_code, url)
-        sys.exit(1)
-
     write_harvest_details({'url':args.url}, ftype)
 
     """
@@ -534,6 +534,14 @@ if __name__ == "__main__":
             SegmentDownloader()
 
     if ftype == "hls":
+        response = requests_session.get(url, verify=False)
+        if response is None:
+            log.error("ERROR no response from %s", url)
+            sys.exit(1)
+
+        if not response.ok:
+            log.error("status_code=%d %s", response.status_code, url)
+            sys.exit(1)
         content = response.content
 
         man = HLSManifest(filename_part, content=content)
@@ -570,16 +578,6 @@ if __name__ == "__main__":
         man_down = ManifestDownloader(requests_session, HLSChecker, url_list, args)
 
     elif ftype == "dash":
-        content = response.content
-        # Write exactly as received
-        write_file(add_timestamp(url_to_filename(url)), content)
-
-        man = DASHManifest(filename_part, content=content)
-        print(str(man))
-
-        if args.bandwidths and not man.reduce_bandwidth(args.bandwidths):
-            log.error("Bandwidths invalid %s", man.rept_bands())
-            sys.exit(1)
 
         check = DASHChecker(args)
 

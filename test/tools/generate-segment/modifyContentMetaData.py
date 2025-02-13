@@ -6,29 +6,43 @@ import os
 
 def modify_base_media_decode_time(filename, new_time, scale):
     current_time = None
+    box_cnt = 0
     for f, size in BoxFinder(filename,b'tfdt'):
         version_flags = f.read(4)
         version = version_flags[0]
         """
-        For a generated segment then the 'current_time' is 0 in the first moof
-        For a chunked segment then subsequent moof's will have the curent_time
-        increased depending on the size of the previous chunk
-        In either case new_base_media_time = current_time + new_time should give
-        the correct updated decode time
+        When generating a non-chunked segment then there is only one moof and
+        base media time. We want to ignore the value that ffmpeg has put in
+        and just write in a new value as given on the command line.
+
+        When generating chunked segments then there are multiple moof's and the
+        base media time of the first moof is assumed to be 0. Subsequent moof's
+        will have a base media time increased depending on the size of the previous
+        chunk. There may also be a change in time scale. In this case
+        new_base_media_time = current_time + new_time
+        should give the correct updated decode time
+
         """
         if version == 0:
             current_time = struct.unpack('>I', f.read(4))[0]
             f.seek(-4, 1)
-            updated_time = int(new_time+(current_time*scale))
+            if box_cnt==0:
+                updated_time = int(new_time)
+            else:
+                updated_time = int(new_time+(current_time*scale))
             f.write(struct.pack('>I', ))
             print(f"updated baseMediaDecodeTime scale {scale} {current_time} -> {updated_time} (32-bit)")
         elif version == 1:
             current_time = struct.unpack('>Q', f.read(8))[0]
             f.seek(-8, 1)
-            updated_time = int(new_time+(current_time*scale))
+            if box_cnt==0:
+                updated_time = int(new_time)
+            else:
+                updated_time = int(new_time+(current_time*scale))
             f.write(struct.pack('>Q', updated_time))
             print(f"updated baseMediaDecodeTime scale {scale} {current_time} -> {updated_time} (64-bit)")
             f.flush()
+        box_cnt+=1
 
     if current_time is None:
         print("Could not find the required boxes under moof/traf/tfdt to update baseMediaDecodeTime.", file=sys.stderr)

@@ -42,13 +42,20 @@ class DASHManifest(Manifest):
     provides manipulation.
     """
 
-    def __init__(self, path_or_url, content=None, rebase=None, default_start=None):
+    def __init__(self, path_or_url, content=None, args=None, manifest_idx=0):
         super().__init__(path_or_url)
 
+        """
+        path_or_url -   the path to the manifest file or the URL of the manifest
+        content -       the content of the manifest if it is not to be read from a file
+        args -          command line args from Argsargparse.ArgumentParser
+        manifest_idx -  0,1,2,3 etc when processing live manifests
+        """
         self.orig_tree = ET.ElementTree()
         self.root = None
         self.base_url = None
-
+        self.args = args
+        self.manifest_idx = manifest_idx
         self.clear_indexes()
         self.prd_duration = {}  # Overall duration of each period
         self.prd_start = {}  # Start point in timeline of each period
@@ -91,8 +98,6 @@ class DASHManifest(Manifest):
                 self.index_period(period)
             elif period.tag.endswith("BaseURL"):
                 self.base_url = period
-
-        self.orig_date = self.calc_range(default_start)
 
     def clear_indexes(self):
         """
@@ -226,157 +231,30 @@ class DASHManifest(Manifest):
 
         return mime_type.lower()
 
-    def is_significant_time_diff(self,t1,t2):
+    def do_skip_period(self,period):
         """
-        True if two times differ by more that 1s
+        Manifests with cloud TSB can have 30mins of 'past' periods. Generally
+        we do not want to harvest these because it takes too long to get to the
+        live edge. So we start harvest/transcode at the last periods in the manifest.
+
+        Starting with the last 3 periods is a hack to ensure:
+         we hopefully get the live edge
+         we don't get an empty last period because it has just been added
+         we don't end up processing too much of a large manifest
         """
-        t3 = t1-t2
-        return abs(t3.total_seconds())>1
+        skip = True
+        if self.check_vod():
+            skip = False
+        elif self.manifest_idx == 0 and self.args.review_buffer:
+            # If we are on the first manifest and user has specified review buffer 
+            # then we need to fetch all the review buffer and not skip 
+            skip = False
+        elif period in self.periods[-3:]:
+            skip = False
 
-    def calc_range(self, default_start):
-        """
-        Calculate the date/time range for the manifest together with the duration
-        of each period.
-        """
-        if default_start is not None:
-            start = default_start
-            # self.root.set("publishTime", self.fmt_date(start))
-        elif "publishTime" in self.root.attrib:
-            start = self.date_parse(self.root.get("publishTime"))
-        else:
-            start = datetime.now()
-            # self.root.set("publishTime", self.fmt_date(start))
-
-        # do_rules = len(self.rule_list) <= 0
-        self.first_date = end = start
-        self.cur_period = None
-        self.cur_offset = 0
-
-        # Process each of the AdaptationSets and calculate their duration.
-        for period, adpset in self.adpsets:
-            if period is not self.cur_period and "duration" in period.attrib:
-                dur = DASHManifest.PT_parse_secs(period.get("duration"))
-                start, end = self.switch_period(period, end, round(dur, 1))
-
-            adpset_ts = 1.0
-
-            # Process each SegmentTemplate and calculate the duration
-            for templ, rband, rid in self.templ[adpset]:
-
-                start_num = int(templ.get("startNumber", -1))
-                ts = float(templ.get("timescale", adpset_ts))
-                if rband < 0:
-                    adpset_ts = ts
-
-                first_t = None
-                next_t = 0
-
-                # Calculate duration across all segments allowing for discontinuaties
-                for seg in self.tlines[templ]:
-                    t = int(seg.get("t", next_t))
-                    r = int(seg.get("r", 0)) + 1
-                    if first_t is None:
-                        first_t = t
-
-                    next_t = t + int(seg.get("d")) * r
-                    start_num += r
-
-                if first_t is not None:
-                    dur = round((next_t - first_t) / ts, 1)
-                elif period is self.cur_period:
-                    continue
-
-                if period is not self.cur_period:
-                    if first_t is None:
-                        dur = round(self.overall_dur - self.cur_offset, 1)
-
-                        if dur <= 0:
-                            dur = round(float(templ.get("duration", ts * 2)) / ts, 1)
-
-                    start, end = self.switch_period(period, end, dur)
-
-                elif self.is_significant_time_diff(end - start, timedelta(0, dur)):
-                    mime_type = self.resolve_mime(adpset)
-                    log.warning(
-                        "Difference of duration between template AdaptationSets period=%s mime=%s band=%s %s %s",
-                        period.get("id"),
-                        mime_type,
-                        rband,
-                        end - start,
-                        timedelta(0, dur),
-                    )
-
-            # Process each SegmentList and calculate the duration
-            for rept, segml, rband, rid in self.segml.get(adpset, []):
-                tot_dur = 0.0
-
-                if segml is not None:
-                    dur = int(segml.get("duration")) / int(segml.get("timescale"))
-
-                    # Walk down SegmentURL within SegmentList
-                    for segurl in segml:
-                        if segurl.tag.endswith("SegmentURL"):
-                            tot_dur += dur
-
-                if period is not self.cur_period:
-                    start, end = self.switch_period(period, end, tot_dur)
-
-                elif self.is_significant_time_diff(end - start, timedelta(0, tot_dur)):
-                    mime_type = self.resolve_mime(adpset)
-
-                    log.warning(
-                        "Difference of duration between template AdaptationSets period=%s mime=%s band=%s %d %d",
-                        period.get("id"),
-                        mime_type,
-                        rband,
-                        end - start,
-                        timedelta(0, dur),
-                    )
-
-        if self.cur_period is not self.periods[-1]:
-            start, end = self.switch_period(self.periods[-1], end, 0.0)
-
-        self.last_date = end
-
-        return self.first_date + timedelta(0)
-
-    def switch_period(self, period, end, dur):
-        """
-        Handle setting of period duration and start index information when a period
-        changes. This is only called for the first AdaptationSet within the Period.
-        """
-        self.cur_period = period
-
-        if "start" in period.attrib:
-            self.cur_offset = DASHManifest.PT_parse_secs(period.get("start"))
-
-        self.prd_start[period] = timedelta(0, self.cur_offset)
-        self.cur_offset += dur
-
-        start = end
-        end = end + timedelta(0, dur)
-        self.prd_duration[period] = dur
-
-        return start, end
-
-    def switch_period(self, period, end, dur):
-        """
-        Handle setting of period duration and start index information when a period
-        changes. This is only called for the first AdaptationSet.
-        """
-        self.cur_period = period
-
-        if "start" in period.attrib:
-            self.cur_offset = DASHManifest.PT_parse_secs(period.get("start"))
-
-        self.prd_start[period] = timedelta(0, self.cur_offset)
-        self.cur_offset += dur
-
-        start = end
-        end = end + timedelta(0, dur)
-        self.prd_duration[period] = dur
-
-        return start, end
+        if skip:
+            log.debug("Skipping period %s", period.get("id"))
+        return skip
 
     def write(self, path=None):
         """
@@ -488,19 +366,20 @@ class DASHManifest(Manifest):
         b_string = ET.tostring(self.root, encoding="UTF-8", xml_declaration=True)
         return str(b_string.decode()) + "\n"
 
-    def get_seg_list(
-        self, from_seg=None, abs_paths=False, seg_list=None, rband_filt=None
-    ):
+    def get_seg_list(self, abs_paths=False, seg_list=None):
         """
         Returns the file names associated with segments defined in the manifest.
         """
-        if from_seg is None:
-            from_seg = {}
+
         if seg_list is None:
             seg_list = SegmentList()
 
         # Process each of the AdaptationSets
         for period, adpset in self.adpsets:
+
+            if self.do_skip_period(period):
+                continue
+
             prefix = self.urls[period].text if period in self.urls else ""
             if prefix == "":
 		# RDKAAMP-1833
@@ -534,44 +413,41 @@ class DASHManifest(Manifest):
             for fn_templ, templ, rband, rid, do_number in self.parse_template(
                 adpset, field="media"
             ):
-                if rband_filt is not None and rband not in rband_filt:
-                    continue
 
                 key = "P%s_A%s_R%s" % (period_id, adpset_id, rid)
-                seg_no = from_seg.get(key, -1)
+
                 if abs_paths:
                     fn_templ = self.abs_path(fn_templ, self.urls.get(adpset, prefix))
 
                 tlines = self.tlines[templ] # RDKAAMP-1834
 
                 # Handle first time for this template within a Representation
-                if seg_no < 0:
-                    attrs = AttribList(adpset.attrib)
-                    setattr(attrs,"period_id",period_id)
-                    setattr(attrs,"period_start",period.get("start",""))
-                    if pts == 0.0:
-                        if tlines:
-                            pts = float(tlines[0].get('t', 0))
-                        setattr(attrs,"pts", pts )
-                    for rept, chek_rband in self.repts[adpset]:
-                        if rband != chek_rband:
-                            continue
+                attrs = AttribList(adpset.attrib)
+                setattr(attrs,"period_id",period_id)
+                setattr(attrs,"period_start",period.get("start",""))
+                if pts == 0.0:
+                    if tlines:
+                        pts = float(tlines[0].get('t', 0))
+                    setattr(attrs,"pts", pts )
+                for rept, chek_rband in self.repts[adpset]:
+                    if rband != chek_rband:
+                        continue
 
-                        attrs.merge(rept.attrib)
-                        break
-                    setattr(attrs,"timescale",templ.get("timescale", adpset_ts))
-                    seg_list.new_file(key, encrypted, attrs)
-                    fn = templ.get("initialization")
+                    attrs.merge(rept.attrib)
+                    break
+                setattr(attrs,"timescale",templ.get("timescale", adpset_ts))
+                seg_list.new_file(key, encrypted, attrs)
+                fn = templ.get("initialization")
 
-                    # Handle template with an initialization file
-                    if fn is not None:
-                        log.debug(fn)
-                        if abs_paths:
-                            fn = self.abs_path(fn, self.urls.get(adpset, prefix))
-                        url = self.template_subs(fn, rband, rid)[0]
-                        log.debug(url)
-                        seg_filename = url_to_filename(url)
-                        seg_list.add_init(url, key, segment_filename=seg_filename)
+                # Handle template with an initialization file
+                if fn is not None:
+                    log.debug(fn)
+                    if abs_paths:
+                        fn = self.abs_path(fn, self.urls.get(adpset, prefix))
+                    url = self.template_subs(fn, rband, rid)[0]
+                    log.debug(url)
+                    seg_filename = url_to_filename(url)
+                    seg_list.add_init(url, key, segment_filename=seg_filename)
 
                 tlines = self.tlines[templ]
                 start_num = int(templ.get("startNumber", -1))
@@ -579,6 +455,8 @@ class DASHManifest(Manifest):
 
                 # No segment list and file generation based upon $Number$
                 if len(tlines) <= 0:
+                    log.error("Manifest format not supported. Keep code until it is needed")
+                    sys.exit(1)
                     dur = self.prd_duration[period]
                     intv = float(templ.get("duration", adpset_dur)) / ts
 
@@ -597,12 +475,8 @@ class DASHManifest(Manifest):
                     else:
                         end_num = start_num + int(dur / intv)
 
-                    if end_num <= seg_no: log.debug("Continue - Pass.")
-
                     # Generate the names of the files from increasing segment value using $Number$
-                    for n in range(
-                        start_num if seg_no < start_num else seg_no, end_num
-                    ):
+                    for n in range( start_num, end_num ):
                         url = fn_templ % n
                         seg_filename = url_to_filename(url)
                         seg_list.add_file(fn_templ % n, intv, key, segment_filename=seg_filename)
@@ -610,7 +484,6 @@ class DASHManifest(Manifest):
                     url = fn_templ % end_num
                     seg_filename = url_to_filename(url)
                     seg_list.add_file(url, dur % intv, key, segment_filename=seg_filename)
-                    seg_no = end_num
 
                 # Segment list and file generation based upon $Number$
                 elif do_number:
@@ -619,34 +492,17 @@ class DASHManifest(Manifest):
                     for seg in tlines:
                         segment_t = int(seg.get("t", segment_t))
                         end_num = start_num + int(seg.get("r", 0)) + 1
-                        if end_num <= seg_no: log.debug("Continue - Pass.")
 
                         segment_d = int(seg.get("d"))
                         intv = segment_d / ts
 
                         # Generate the names of the files from increasing segment value using $Number$
-                        for num in range(
-                            start_num if seg_no < start_num else seg_no, end_num
-                        ):
-
-                            if end_num <= seg_no:
-                                temp_file_name = fn_templ.split("/")[-1].replace("%d", str(num))
-
-                                if temp_file_name not in self.remove_duplicate_req.keys():
-                                    url = fn_templ % num
-                                    seg_filename = url_to_filename(url)
-                                    seg_list.add_file(url, intv, key, segment_t=segment_t, segment_d=segment_d, segment_filename=seg_filename)
-                                    self.remove_duplicate_req[temp_file_name] = str(1)
-
-                                else:
-                                    self.remove_duplicate_req[temp_file_name] = str(int(self.remove_duplicate_req[temp_file_name]) + 1)
-
-                            else:
-                                url = fn_templ % num
-                                seg_filename = url_to_filename(url)
-                                seg_list.add_file(url, intv, key,segment_t=segment_t, segment_d=segment_d,segment_filename=seg_filename)
+                        for num in range(start_num, end_num):
+                            url = fn_templ % num
+                            seg_filename = url_to_filename(url)
+                            seg_list.add_file(url, intv, key,segment_t=segment_t, segment_d=segment_d,segment_filename=seg_filename)
                             segment_t += segment_d
-                        seg_no = start_num = end_num
+                        start_num = end_num
 
                 # Segmentlist and filename generation based upon $Time$
                 else:
@@ -657,27 +513,29 @@ class DASHManifest(Manifest):
                         r = int(seg.get("r", 0))
                         d = int(seg.get("d"))
 
-                        next_t = t + d * (r + 1)
-                        #if next_t <= seg_no: log.debug("Continue - Pass.")
+                        if period == self.periods[-1] and seg == tlines[-1]:
+                            """
+                            For dash manifest it has been seen that the duration of the segment changes
+                            in later versions of the manifest. I.E the first appearance gives a provisional
+                            duration and then it is updated to the final duration when the segment is generated.
+                            To prevent reading the provisional value we do not read the last segment in the last period of
+                            the manifest.
+                            """
+                            r -= 1
 
+                        next_t = t + d * (r + 1)
                         intv = float(d) / ts
 
                         # Generate the names of the files from the increasing 't' value using $Time$
-                        for t in range(t if seg_no < t else seg_no, next_t, d):
+                        for t in range(t, next_t, d):
                             url = fn_templ % t
                             seg_filename = url_to_filename(url)
                             seg_list.add_file(url, intv, key, segment_t = t, segment_d = d, segment_filename=seg_filename)
-                        seg_no = next_t
-
-                from_seg[key] = seg_no
 
             # Run through each of the Representations for this AdaptationSet without templates
             for rept, segml, rband, rid in self.segml.get(adpset, []):
-                if rband_filt is not None and rband not in rband_filt:
-                    continue
 
                 key = "P%s_A%s_R%s" % (period_id, adpset_id, rid)
-                seg_no = from_seg.get(key, -1)
 
                 # Representation contains SegmentList
                 if segml is not None:
@@ -688,7 +546,7 @@ class DASHManifest(Manifest):
                     )
 
                     # Handle first time for SegmentList within a Representation
-                    if seg_no < 0:
+                    if True:
                         fn = None
 
                         # Search for initialization
@@ -699,11 +557,7 @@ class DASHManifest(Manifest):
                         attrs=AttribList(adpset.attrib).merge(rept.attrib)
                         setattr(attrs,"period_id",period_id)
                         setattr(attrs,"period_start",period.get("start",""))
-                        seg_list.new_file(
-                            key,
-                            encrypted,
-                            attrs,
-                        )
+                        seg_list.new_file(key, encrypted, attrs)
 
                         # Handle segmentlist with an initialization file
                         if fn is not None:
@@ -722,17 +576,15 @@ class DASHManifest(Manifest):
                             continue
 
                         idx += 1
-                        if idx <= seg_no: log.debug("Continue - Pass.")
                         fn = segurl.get("media")
                         if abs_paths:
                             fn = self.abs_path(fn, segml_prefix)
                         url = fn
                         seg_filename = url_to_filename(url)
                         seg_list.add_file(url, dur, key, segment_filename=seg_filename)
-                    from_seg[key] = idx
 
                 # Representation contains SegmentBase
-                elif rept in self.urls and seg_no < 0:
+                elif rept in self.urls:
                     path = self.urls[rept].text
                     attrs=AttribList(adpset.attrib).merge(rept.attrib)
                     setattr(attrs,"period_id",period_id)
@@ -747,7 +599,6 @@ class DASHManifest(Manifest):
                     # segment. Put 999 for now
                     seg_filename = url_to_filename(path)
                     seg_list.add_file(path, 999, key,segment_filename=seg_filename)
-                    from_seg[key] = 0
 
         return seg_list
 
@@ -760,19 +611,6 @@ class DASHManifest(Manifest):
 
         for url in self.urls.values():
             url.text = delHTTPhost(url.text)
-
-    def report_templates(self, dirn=""):
-        res = []
-
-        for period, adpset in self.adpsets:
-            res += [
-                (fn, rband)
-                for fn, templ, rband, rid, do_number in self.parse_template(
-                    adpset, dirn
-                )
-            ]
-
-        return res
 
     def parse_template(self, adpset, dirn="", field="media"):
         """

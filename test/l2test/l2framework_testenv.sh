@@ -33,6 +33,15 @@ else
     linux_install_packages $packages
 fi
 
+#Get latest ffmpeg on Ubuntu
+if [[ "$OSTYPE" != "darwin"* ]]; then
+    sudo apt-get --no-install-recommends install -y software-properties-common bc
+    sudo add-apt-repository ppa:ubuntuhandbook1/ffmpeg7
+    sudo apt-get update
+    sudo apt-get --no-install-recommends install -y ffmpeg
+    ffmpeg --version
+fi
+
 # log python3 info
 which python3
 python3 --version

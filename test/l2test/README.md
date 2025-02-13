@@ -35,7 +35,7 @@ For tests that use environment variables, export them before running the test. F
 
 **To run all test suites displaying video without building, use the following run command**
 
-    ./run_l2_aamp.py -v
+    ./run_l2_aamp.py --aamp_video
 
 **To build and then run all test suites, use the following command**
 
@@ -52,6 +52,10 @@ For tests that use environment variables, export them before running the test. F
 **To run all test suites but exclude those specified, use the following command**
 
     ./run_l2_aamp.py -e 1000 2000
+
+**To run tests that have been marked as slow long running tests**
+
+    ./run_l2_aamp.py --slow_tests
 
 **To run the subset of tests chosen to be used in ci**
 

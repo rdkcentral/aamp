@@ -69,7 +69,7 @@ def write_harvest_details(more_details, ftype):
             break
         if each == "--jira":
             foundjira = True
-        
+
     user = getpass.getuser()
     data = {"recording_start_time": time_str, "args": sys.argv, "playback_command": playback, "significance": significance, "jira_ticket": ticket, "user": user}
     data.update(more_details)
@@ -79,32 +79,43 @@ def write_harvest_details(more_details, ftype):
         f.write(json.dumps(data))
 
 
-def read_harvest_details():
+def read_harvest_details(do_search=False):
     d = {}
-    path = os.path.abspath(os.getcwd())
     targetFile = "harvest_details.json"
     fileLocation = "/"
-    while True:
-        currentCheck = os.path.join(path,targetFile)
-        if os.path.isfile(currentCheck):
-            #Found File
-            print(targetFile + " found at " + currentCheck)
-            fileLocation = currentCheck
-            break
-        else:
-            if currentCheck == targetFile:
-                print(targetFile + " not found")
+
+    if do_search:
+        """
+        Search upward from the CWD looking for the file
+        """
+        path = os.path.abspath(os.getcwd())
+
+        while True:
+            currentCheck = os.path.join(path,targetFile)
+            if os.path.isfile(currentCheck):
+                #Found File
+                print(targetFile + " found at " + currentCheck)
+                fileLocation = currentCheck
                 break
             else:
-                pathList = path.split("/")
-                s = "/"
-                path = s.join(pathList[:-1])
-            
+                if currentCheck == targetFile:
+                    print(targetFile + " not found")
+                    break
+                else:
+                    pathList = path.split("/")
+                    s = "/"
+                    path = s.join(pathList[:-1])
+    else:
+        fileLocation = targetFile
+
     if fileLocation != "/":
-        with open(fileLocation) as f:
-            d = json.load(f)
+        try:
+            with open(fileLocation) as f:
+                d = json.load(f)
+        except Exception as e:
+            log.error("Failed to read harvest details: %s", e)
     return d
-    
+
 
 def write_transcode_details():
     """
@@ -420,7 +431,7 @@ class SegmentList:
 
         # List of segments we have already added to segment_detail_list
         # to avoid duplicates
-        self.segment_url_list = segments_already_added
+        self.segments_already_added = segments_already_added
 
         # attributes for each segment_group
         self.attributes = {}
@@ -475,10 +486,9 @@ class SegmentList:
 
         if library.config.harvestSpecificContent["text"]:
             if (not ("ttml" in segment_filename and segment_filename.endswith("mp4"))) and not segment_filename.endswith("vtt") and not "subtitles" in segment_filename:
-                
                 return
 
-        if segment_url in self.segment_url_list:
+        if segment_url in self.segments_already_added:
             log.debug(f"Potential duplicate {segment_duration} {segment_url}")
             if segment_duration > 0:
                 return
@@ -492,7 +502,7 @@ class SegmentList:
                     if detail["segment_url"] == segment_url and detail["profile"] == segment_group:
                         return
 
-        self.segment_url_list.append(segment_url)
+        self.segments_already_added.append(segment_url)
 
         play_order = self.play_order.get(segment_group, 0)
         play_order += 1
