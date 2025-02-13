@@ -2157,6 +2157,12 @@ int InterfacePlayerRDK::SetupStream(int streamId,  void *playerInstance, std::st
 			if (vidsink)
 			{
 				g_object_set(stream->sinkbin, "video-sink", vidsink, NULL);				/* In the stream->sinkbin, set the video-sink property to vidsink */
+				MediaFormat mediaFormat = _this->aamp->GetMediaFormatTypeEnum();
+				if(eMEDIAFORMAT_HLS == mediaFormat)
+				{
+					AAMPLOG_INFO("HLS/TS , set the has-drm property to false");
+					g_object_set(vidsink, "has-drm", FALSE, NULL);
+				}
 			}
 			else
 			{
