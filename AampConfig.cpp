@@ -29,7 +29,7 @@
 #include "aampgstplayer.h"
 #include "SocUtils.h"
 #include "PlayerRfc.h"
-#include "playerIarmRfcInterface.h"
+#include "PlayerIarmRfcInterface.h"
 #include <time.h>
 #include <map>
 //////////////// CAUTION !!!! STOP !!! Read this before you proceed !!!!!!! /////////////

@@ -61,6 +61,6 @@ DrmSession* DrmSessionFactory::GetDrmSession(DrmHelperPtr drmHelper, DrmCallback
 		return new ClearKeySession();
 #endif // USE_CLEARKEY
 	}
-#endif // Not USE_OPENCDM
+#endif // Not USE_OPENCDM_ADAPTER
 	return NULL;
 }

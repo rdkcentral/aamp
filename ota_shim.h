@@ -28,10 +28,7 @@
 #include "StreamAbstractionAAMP.h"
 #include <string>
 #include <stdint.h>
-#ifdef USE_CPP_THUNDER_PLUGIN_ACCESS
-#include "Module.h"
-#include "ThunderAccess.h"
-#endif
+#include "PlayerThunderInterface.h"
 using namespace std;
 
 /**
@@ -75,10 +72,9 @@ public:
      */
     StreamAbstractionAAMP_OTA& operator=(const StreamAbstractionAAMP_OTA&) = delete;
 
-#ifdef USE_CPP_THUNDER_PLUGIN_ACCESS
     /*Event Handler*/
-    void onPlayerStatusHandler(const JsonObject& parameters);
-#endif
+    void onPlayerStatusHandler(PlayerStatusData data);
+
     void Start() override;
     /**
      *   @fn Stop
@@ -177,16 +173,10 @@ public:
     void EnableContentRestrictions() override;
 //private:
 protected:
-#ifdef USE_CPP_THUNDER_PLUGIN_ACCESS
-    ThunderAccessAAMP thunderAccessObj;
-    ThunderAccessAAMP mediaSettingsObj;
+    PlayerThunderInterface thunderAccessObj;
     std::string prevState;
     std::string prevBlockedReason;
     bool tuned;
-    bool mEventSubscribed;
-
-    ThunderAccessAAMP thunderRDKShellObj;
-    bool GetScreenResolution(int & screenWidth, int & screenHeight);
 
 	/* Additional data from ATSC playback  */
 	std::string mPCRating; 		/**< Parental control rating json string object  */
@@ -214,19 +204,15 @@ protected:
 	/**
 	 *   @fn PopulateMetaData
 	 */
-	bool PopulateMetaData(const JsonObject& parameters); /**< reads metadata properties from player status object and return true if any of data is changed  */
+	bool PopulateMetaData(PlayerStatusData data); /**< reads metadata properties from player status object and return true if any of data is changed  */
 	void SendMediaMetadataEvent();
-#endif
+
     /**
      * @fn GetAudioTracks
      * @return void
      */
     void GetAudioTracks();
-    /**
-     * @fn GetAudioTrackInternal
-     *
-     */
-    int GetAudioTrackInternal();
+
     /**
      * @fn NotifyAudioTrackChange
      *

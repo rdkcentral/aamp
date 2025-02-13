@@ -35,7 +35,6 @@
 #include <string>
 using namespace std;
 
-#ifdef AAMP_HLS_DRM
 
 /**
  * Global aamp config data 
@@ -255,15 +254,6 @@ shared_ptr<DrmHelper> ProcessContentProtection(PrivateInstanceAAMP *aamp, std::s
 	}
 	return finalDrmHelper;
 }
-
-#else
-
-void* ProcessContentProtection(PrivateInstanceAAMP *aamp, std::string attrName)
-{
-	AAMPLOG_INFO("AAMP_HLS_DRM not enabled");
-	return NULL;
-}
-#endif /** AAMP_HLS_DRM */
 
 /**
  * EOF

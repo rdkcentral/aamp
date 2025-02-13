@@ -18,14 +18,14 @@
 */
 
 /**
- * @file playerIarmRfcInterface.cpp
+ * @file PlayerIarmRfcInterface.cpp
  * @brief Output protection management for Player
  */
 
-#include "playerIarmRfcInterface.h"
-#include "playerExternalUtils.h"
+#include "PlayerIarmRfcInterface.h"
+#include "PlayerExternalUtils.h"
 #ifdef IARM_MGR
-#include "playerIarmRdkInterface.h"
+#include "PlayerIarmRdkInterface.h"
 #endif
 
 /**< Static variable for singleton */

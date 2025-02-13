@@ -214,9 +214,7 @@ set(LIBAAMP_HEADERS middleware/drm/DrmSystems.h
 					middleware/closedcaptions/PlayerCCManager.h
 					AdManagerBase.h
 					MediaStreamContext.h
-					Module.h
 					StreamAbstractionAAMP.h
-					ThunderAccess.h
 					_base64.h
 					middleware/vendor/SocInterface.h
 					middleware/vendor/amlogic/AmlogicSocInterface.h
@@ -232,7 +230,7 @@ set(LIBAAMP_HEADERS middleware/drm/DrmSystems.h
 					middleware/GstUtils.h
 					middleware/InterfacePlayerRDK.h
 					middleware/SocUtils.h
-					externals/playerIarmRfcInterface.h
+					externals/PlayerIarmRfcInterface.h
 					aampgstplayer.h
 					AampBufferControl.h
 					admanager_mpd.h
@@ -386,10 +384,11 @@ set(LIBAAMP_SOURCES iso639map.cpp
 					AampTsbReader.cpp
 					scte35/AampSCTE35.cpp
 					AampTrackWorker.cpp
+					externals/PlayerThunderInterface.cpp
 )
 
 if (CMAKE_WPEFRAMEWORK_REQUIRED)
-	set(LIBAAMP_SOURCES ${LIBAAMP_SOURCES} ThunderAccess.cpp Module.cpp)
+	set(LIBAAMP_SOURCES ${LIBAAMP_SOURCES} externals/rdk/PlayerThunderAccess.cpp ThunderAccess.cpp externals/Module.cpp)
 endif()
 
 if (CMAKE_PLATFORM_UBUNTU OR CMAKE_SYSTEM_NAME STREQUAL Darwin )
@@ -512,8 +511,8 @@ endif()
 set(LIBAAMP_DRM_SOURCES drm/AampDRMSessionManager.cpp
 						drm/AampDrmSession.cpp
 						drm/aampdrmsessionfactory.cpp
-						externals/playerIarmRfcInterface.cpp
-						externals/playerExternalUtils.cpp
+						externals/PlayerIarmRfcInterface.cpp
+						externals/PlayerExternalUtils.cpp
 						drm/helper/AampDrmHelperFactory.cpp
 						drm/AampDRMutils.cpp
 						middleware/drm/DrmSession.cpp
@@ -524,22 +523,18 @@ set(LIBAAMP_DRM_SOURCES drm/AampDRMSessionManager.cpp
 )
 
 if(CMAKE_IARM_MGR)
-	set(LIBAAMP_DRM_SOURCES "${LIBAAMP_DRM_SOURCES}" externals/rdk/playerIarmRdkInterface.cpp externals/playerBase64.cpp)
+	set(LIBAAMP_DRM_SOURCES "${LIBAAMP_DRM_SOURCES}" externals/rdk/PlayerIarmRdkInterface.cpp externals/PlayerBase64.cpp)
 endif()
 if(CMAKE_USE_THUNDER_OCDM_API_0_2)
 	set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DUSE_THUNDER_OCDM_API_0_2")
 endif()
 
-set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DAAMP_MPD_DRM=1")
-
 if(CMAKE_USE_OPENCDM_ADAPTER)
     message("OpenCDM support enabled")
-    set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DUSE_OPENCDM -DAAMP_HLS_DRM=1")
+    set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DUSE_OPENCDM_ADAPTER")
     set(LIBAAMP_DRM_SOURCES "${LIBAAMP_DRM_SOURCES}" drm/AampHlsDrmSessionManager.cpp
-                                                     drm/AampHlsOcdmBridge.cpp
-                                                     drm/processProtectionHls.cpp
-    )
-    set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DDRM_BUILD_PROFILE=DRM_BUILD_PROFILE_OEM -DTARGET_LITTLE_ENDIAN=1 -DTARGET_SUPPORTS_UNALIGNED_DWORD_POINTERS=0")
+                                                     drm/AampHlsOcdmBridge.cpp)
+    set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DTARGET_LITTLE_ENDIAN=1 -DTARGET_SUPPORTS_UNALIGNED_DWORD_POINTERS=0")
 
     if(CMAKE_IARM_MGR AND NOT CMAKE_IARM_MGR_MOCKS)
         set(LIBAAMP_DEPENDS "${LIBAAMP_DEPENDS} -lIARMBus -lds -ldshalcli")
@@ -586,7 +581,7 @@ endif()
 
 if(CMAKE_USE_OPENCDM_ADAPTER)
     message("Using OPEN CDM ADAPTER")
-    set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DUSE_OPENCDM_ADAPTER -DUSE_OPENCDM")
+    set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DUSE_OPENCDM_ADAPTER")
     set(LIBAAMP_DRM_SOURCES "${LIBAAMP_DRM_SOURCES}"	middleware/drm/ocdm/opencdmsessionadapter.cpp
     							middleware/drm/ocdm/OcdmBasicSessionAdapter.cpp
 							middleware/drm/ocdm/OcdmGstSessionAdapter.cpp
@@ -614,7 +609,8 @@ set(LIBAAMP_SOURCES ${LIBAAMP_SOURCES} middleware/closedcaptions/PlayerCCManager
 
 
 set(LIBAAMP_SOURCES ${LIBAAMP_SOURCES} externals/PlayerRfc.cpp 
-externals/playerExternalUtils.cpp)
+externals/PlayerExternalUtils.cpp)
+
 if (CMAKE_AAMP_RFC_REQUIRED)
         message("AAMP RFC set")
         set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DAAMP_RFC_ENABLED")

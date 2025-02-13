@@ -29,7 +29,7 @@
 #include "AampConstants.h"
 #include "AampCacheHandler.h"
 #include "AampUtils.h"
-#include "playerIarmRfcInterface.h"
+#include "PlayerIarmRfcInterface.h"
 #include "iso639map.h"
 #include "fragmentcollector_mpd.h"
 #include "admanager_mpd.h"
@@ -39,9 +39,7 @@
 #include "hdmiin_shim.h"
 #include "compositein_shim.h"
 #include "ota_shim.h"
-#ifdef USE_CPP_THUNDER_PLUGIN_ACCESS
 #include "rmf_shim.h"
-#endif
 #include "_base64.h"
 #include "base16.h"
 #include "aampgstplayer.h"
@@ -1073,13 +1071,9 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 	,mMutexPlaystart()
 	,mNetworkBandwidth(0)
 	,mTimeToTopProfile(0)
-#ifdef AAMP_HLS_DRM
 	, fragmentCdmEncrypted(false) ,drmParserMutex(), aesCtrAttrDataList()
 	, drmSessionThreadStarted(false), createDRMSessionThreadID()
-#endif
-#if defined(AAMP_MPD_DRM) || defined(AAMP_HLS_DRM)
 	, mDRMSessionManager(NULL)
-#endif
 	,  mPreCachePlaylistThreadId(), mPreCacheDnldList()
 	, mPreCacheDnldTimeWindow(0), mParallelPlaylistFetchLock(), mAppName()
 	, mProgressReportFromProcessDiscontinuity(false)
@@ -1256,10 +1250,8 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 	preferredTextLanguagesString = GETCONFIGVALUE_PRIV(eAAMPConfig_PreferredTextLanguage);
 	preferredTextLabelString = GETCONFIGVALUE_PRIV(eAAMPConfig_PreferredTextLabel);
 	preferredTextTypeString = GETCONFIGVALUE_PRIV(eAAMPConfig_PreferredTextType);
-#if defined(AAMP_MPD_DRM) || defined(AAMP_HLS_DRM)
 	int maxDrmSession = GETCONFIGVALUE_PRIV(eAAMPConfig_MaxDASHDRMSessions);
 	mDRMSessionManager = new AampDRMSessionManager(maxDrmSession, this);
-#endif
 	mSubLanguage = GETCONFIGVALUE_PRIV(eAAMPConfig_SubTitleLanguage);
 	for (int i = 0; i < eCURLINSTANCE_MAX; i++)
 	{
@@ -1311,9 +1303,7 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 	mCustomHeaders["Connection:"] = std::vector<std::string> { "Keep-Alive" };
 	preferredLanguagesList.push_back("en");
 
-#ifdef AAMP_HLS_DRM
 	memset(&aesCtrAttrDataList, 0, sizeof(aesCtrAttrDataList));
-#endif
 	mHarvestCountLimit = GETCONFIGVALUE_PRIV(eAAMPConfig_HarvestCountLimit);
 	mHarvestConfig = GETCONFIGVALUE_PRIV(eAAMPConfig_HarvestConfig);
 	mAsyncTuneEnabled = ISCONFIGSET_PRIV(eAAMPConfig_AsyncTune);
@@ -1347,14 +1337,10 @@ PrivateInstanceAAMP::~PrivateInstanceAAMP()
 		std::lock_guard<std::recursive_mutex> guard(mLock);
 		SAFE_DELETE(mVideoEnd);
 	}
-#ifdef AAMP_HLS_DRM
 	aesCtrAttrDataList.clear();
-#endif
 	SAFE_DELETE(mAampCacheHandler);
 
-#if defined(AAMP_MPD_DRM) || defined(AAMP_HLS_DRM)
 	SAFE_DELETE(mDRMSessionManager);
-#endif
 	if( ISCONFIGSET_PRIV(eAAMPConfig_EnableCurlStore) )
 	{
 		for (int i = 0; i < eCURLINSTANCE_MAX; i++)
@@ -2825,7 +2811,6 @@ void PrivateInstanceAAMP::SendErrorEvent(AAMPTuneFailure tuneFailure, const char
 
 void PrivateInstanceAAMP::LicenseRenewal(DrmHelperPtr drmHelper, void* userData)
 {
-#if defined(AAMP_MPD_DRM) || defined(AAMP_HLS_DRM)
 	if (mDRMSessionManager == nullptr)
 	{
 		SendAnomalyEvent(ANOMALY_WARNING, "Failed to renew license as mDrmSessionManager not available");
@@ -2833,9 +2818,6 @@ void PrivateInstanceAAMP::LicenseRenewal(DrmHelperPtr drmHelper, void* userData)
 		return;
 	}
 	mDRMSessionManager->renewLicense(drmHelper, userData, this);
-#else
-	AAMPLOG_ERR("DRM is not supported");
-#endif
 }
 
 /**
@@ -5176,9 +5158,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 		StoreLanguageList(std::set<std::string>());
 		mTunedEventPending = true;
 		mProfileCappedStatus = false;
-#ifdef USE_OPENCDM
 		pPlayerIarmRfcInterface->GetDisplayResolution(mDisplayWidth, mDisplayHeight);
-#endif
 		AAMPLOG_INFO ("Display Resolution width:%d height:%d", mDisplayWidth, mDisplayHeight);
 
 		mOrigManifestUrl.hostname = aamp_getHostFromURL(mManifestUrl);
@@ -5286,7 +5266,6 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 			mCdaiObject = new CDAIObject(this);    //Placeholder to reject the SetAlternateContents()
 		}
 	}
-#ifdef USE_CPP_THUNDER_PLUGIN_ACCESS
 	else if (mMediaFormat == eMEDIAFORMAT_RMF)
 	{
 		mpStreamAbstractionAAMP = new StreamAbstractionAAMP_RMF(this, playlistSeekPos, rate);
@@ -5295,7 +5274,6 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 			mCdaiObject = new CDAIObject(this);    //Placeholder to reject the SetAlternateContents()
 		}
 	}
-#endif //USE_CPP_THUNDER_PLUGIN_ACCESS
 	else if (mMediaFormat == eMEDIAFORMAT_COMPOSITE)
 	{
 		mpStreamAbstractionAAMP = StreamAbstractionAAMP_COMPOSITEIN::GetInstance(this, playlistSeekPos, rate);
@@ -7602,13 +7580,11 @@ void PrivateInstanceAAMP::Stop( bool sendStateChangeEvent )
 	// Stopping the playback, release all DRM context
 	if (mpStreamAbstractionAAMP)
 	{
-#if defined(AAMP_MPD_DRM) || defined(AAMP_HLS_DRM)
 		if (mDRMSessionManager)
 		{
 			ReleaseDynamicDRMToUpdateWait();
 			mDRMSessionManager->setLicenseRequestAbort(true);
 		}
-#endif
 		mpStreamAbstractionAAMP->Stop(true);
 		if (HasSidecarData())
 		{ // has sidecar data
@@ -7719,13 +7695,11 @@ void PrivateInstanceAAMP::Stop( bool sendStateChangeEvent )
 		pipeline_paused = false;
 	}
 
-#if defined(AAMP_MPD_DRM) || defined(AAMP_HLS_DRM)
 	if (mDRMSessionManager)
 	{
 		/** Reset the license fetcher only DRM handle is deleting **/
 		mDRMSessionManager->Stop();
 	}
-#endif
 
 	SAFE_DELETE(mCdaiObject);
 
@@ -13295,12 +13269,8 @@ void PrivateInstanceAAMP::UpdateMaxDRMSessions()
 	// drm sessions should be updated only when player is idle
 	if (mState == eSTATE_IDLE || mState == eSTATE_RELEASED)
 	{
-#if defined(AAMP_MPD_DRM) || defined(AAMP_HLS_DRM)
 		int maxSessions = GETCONFIGVALUE_PRIV(eAAMPConfig_MaxDASHDRMSessions);
 		mDRMSessionManager->UpdateMaxDRMSessions(maxSessions);
-#else
-		AAMPLOG_ERR("DRM is not supported");
-#endif
 	}
 	else
 	{

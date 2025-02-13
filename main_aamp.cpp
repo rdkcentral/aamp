@@ -31,8 +31,8 @@
 #include "DrmHelper.h"
 #include "StreamAbstractionAAMP.h"
 #include "AampStreamSinkManager.h"
+#include "PlayerIarmRfcInterface.h"
 #include "PlayerMetadata.hpp"
-#include "playerIarmRfcInterface.h"
 
 #include <dlfcn.h>
 #include <termios.h>

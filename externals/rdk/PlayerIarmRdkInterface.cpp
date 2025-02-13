@@ -18,14 +18,14 @@
 */
 
 /**
- * @file playerIARMRDKInterface.cpp
+ * @file PlayerIARMRDKInterface.cpp
  * @brief player interface with IARM specific to RDK
  */
-#include "playerIarmRdkInterface.h"
+#include "PlayerIarmRdkInterface.h"
 
 #include <hostIf_tr69ReqHandler.h>
 #include "tr181api.h"
-#include "playerBase64.h"
+#include "PlayerBase64.h"
 
 #define DISPLAY_WIDTH_UNKNOWN       -1  /**< Parsing failed for getResolution().getName(); */
 #define DISPLAY_HEIGHT_UNKNOWN      -1  /**< Parsing failed for getResolution().getName(); */

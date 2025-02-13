@@ -161,13 +161,11 @@ StreamAbstractionAAMP_MPD::StreamAbstractionAAMP_MPD(class PrivateInstanceAAMP *
 	,mLivePeriodCulledSeconds(0)
 {
 	this->aamp = aamp;
-#ifdef AAMP_MPD_DRM
 	if (aamp->mDRMSessionManager)
 	{
 		AampDRMSessionManager *sessionMgr = aamp->mDRMSessionManager;
 		sessionMgr->SetLicenseFetcher(this);
 	}
-#endif
 	memset(&mMediaStreamContext, 0, sizeof(mMediaStreamContext));
 	GetABRManager().clearProfiles();
 	mLastPlaylistDownloadTimeMs = aamp_GetCurrentTimeMS();
@@ -3103,7 +3101,6 @@ static void ParseXmlNS(const std::string& fullName, std::string& ns, std::string
 	}
 }
 
-#ifdef AAMP_MPD_DRM
 /**
  * @brief Get the DRM preference value.
  * @return The preference level for the DRM type.
@@ -3406,28 +3403,6 @@ void StreamAbstractionAAMP_MPD::QueueContentProtection(IPeriod* period, uint32_t
 	}
 }
 
-#else
-
-/**
-* @brief Function to Process deferred VSS license requests
-*/
-void StreamAbstractionAAMP_MPD::ProcessVssLicenseRequest()
-{
-	AAMPLOG_WARN("MPD DRM not enabled");
-}
-
-/**
- * @brief queue content protection for the given adaptation set
- */
-void StreamAbstractionAAMP_MPD::QueueContentProtection(IPeriod* period, uint32_t adaptationSetIdx, AampMediaType mediaType, bool qGstProtectEvent, bool isVssPeriod)
-{
-	AAMPLOG_WARN("MPD DRM not enabled");
-}
-#endif
-
-
-
-
 /**
  * @brief Parse CC streamID and language from value
  *
@@ -3536,14 +3511,12 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 	{
 		sink->ClearProtectionEvent();
 	}
-  #ifdef AAMP_MPD_DRM
 	AampDRMSessionManager *sessionMgr = aamp->mDRMSessionManager;
 	bool forceClearSession = (!ISCONFIGSET(eAAMPConfig_SetLicenseCaching) && (tuneType == eTUNETYPE_NEW_NORMAL));
 	sessionMgr->clearDrmSession(forceClearSession);
 	sessionMgr->clearFailedKeyIds();
 	sessionMgr->setSessionMgrState(SessionMgrState::eSESSIONMGR_ACTIVE);
 	sessionMgr->setLicenseRequestAbort(false);
-  #endif
 	aamp->licenceFromManifest = false;
 	bool newTune = aamp->IsNewTune();
 
@@ -3555,9 +3528,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 
 	aamp->IsTuneTypeNew = newTune;
 
-#ifdef AAMP_MPD_DRM
 	bool pushEncInitFragment = newTune || (eTUNETYPE_RETUNE == tuneType) || aamp->mbDetached;
-#endif
         if(aamp->mbDetached){
                 /* No more needed reset it **/
                 aamp->mbDetached = false;
@@ -4220,7 +4191,6 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 	}
 	if (ret == eAAMPSTATUS_OK)
 	{
-#ifdef AAMP_MPD_DRM
 		//CheckForInitalClearPeriod() check if the current period is clear or encrypted
 		if (pushEncInitFragment && CheckForInitalClearPeriod())
 		{
@@ -4265,7 +4235,6 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 				AampStreamSinkManager::GetInstance().SetEncryptedHeaders(aamp, headers);
 			}
 		}
-#endif
 
 		AAMPLOG_WARN("StreamAbstractionAAMP_MPD: fetch initialization fragments");
 		// We have decided on the first period, calculate the PTSoffset to be applied to
@@ -7291,7 +7260,6 @@ void StreamAbstractionAAMP_MPD::StreamSelection( bool newTune, bool forceSpeedsC
 		}
 
 	} // next track
-#ifdef AAMP_MPD_DRM
 	if (aamp->mDRMSessionManager)
 	{
 		AampDRMSessionManager *sessionMgr = aamp->mDRMSessionManager;
@@ -7306,7 +7274,6 @@ void StreamAbstractionAAMP_MPD::StreamSelection( bool newTune, bool forceSpeedsC
 			sessionMgr->SetSendErrorOnFailure(true);
 		}
 	}
-#endif
 
 	if(1 == mNumberOfTracks && !mMediaStreamContext[eMEDIATYPE_VIDEO]->enabled)
 	{ // what about audio+subtitles?
@@ -10283,13 +10250,11 @@ bool StreamAbstractionAAMP_MPD::CheckForVssTags()
 							std::string value = childNode->GetAttributeValue("value");
 							mCommonKeyDuration = std::stoi(value);
 							AAMPLOG_INFO("Received Common Key Duration : %d of VSS stream", mCommonKeyDuration);
-#ifdef AAMP_MPD_DRM
 							if (aamp->mDRMSessionManager)
 							{
 								AampDRMSessionManager *sessionMgr = aamp->mDRMSessionManager;
 								sessionMgr->SetCommonKeyDuration(mCommonKeyDuration);
 							}
-#endif
 							isVss = true;
 						}
 					}
@@ -10472,9 +10437,7 @@ StreamAbstractionAAMP_MPD::~StreamAbstractionAAMP_MPD()
 
 void StreamAbstractionAAMP_MPD::StartFromOtherThanAampLocalTsb(void)
 {
-#ifdef AAMP_MPD_DRM
 	aamp->mDRMSessionManager->setSessionMgrState(SessionMgrState::eSESSIONMGR_ACTIVE);
-#endif
 	try{
 		fragmentCollectorThreadID = std::thread(&StreamAbstractionAAMP_MPD::FetcherLoop, this);
 		fragmentCollectorThreadStarted = true;
@@ -10678,16 +10641,12 @@ void StreamAbstractionAAMP_MPD::Stop(bool clearChannelData)
 		}
 		if (clearChannelData)
 		{
-#ifdef AAMP_MPD_DRM
 			if(ISCONFIGSET(eAAMPConfig_UseSecManager))
 			{
 				aamp->mDRMSessionManager->notifyCleanup();
 			}
-#endif
 		}
-#ifdef AAMP_MPD_DRM
 		aamp->mDRMSessionManager->setSessionMgrState(SessionMgrState::eSESSIONMGR_INACTIVE);
-#endif
 
 	}
 

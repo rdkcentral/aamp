@@ -27,6 +27,10 @@
 #include "_base64.h"
 #include <inttypes.h> // For PRId64
 
+//call_signs
+#define SECMANAGER_CALLSIGN "org.rdk.SecManager.1"
+#define WATERMARK_CALLSIGN "org.rdk.Watermark.1"
+
 static AampSecManager *Instance = nullptr; /**< singleton instance*/
 
 /* mutex GetInstance() & DestroyInstance() to improve thread safety
@@ -64,8 +68,8 @@ void AampSecManager::DestroyInstance()
 /**
  * @brief AampScheduler Constructor
  */
-AampSecManager::AampSecManager() : mSecManagerObj(SECMANAGER_CALL_SIGN), mSecMutex(), mSchedulerStarted(false),
-				   mRegisteredEvents(), mWatermarkPluginObj(WATERMARK_PLUGIN_CALLSIGN), mWatMutex(), mSpeedStateMutex(),
+AampSecManager::AampSecManager() : mSecManagerObj(SECMANAGER_CALLSIGN), mSecMutex(), mSchedulerStarted(false),
+				   mRegisteredEvents(), mWatermarkPluginObj(WATERMARK_CALLSIGN), mWatMutex(), mSpeedStateMutex(),
 				   mAamp(NULL)
 {
 	

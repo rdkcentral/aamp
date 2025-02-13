@@ -22,7 +22,7 @@
  * @brief optimized pair of base64 encode/decode implementations
  */
 
-#include "playerBase64.h"
+#include "PlayerBase64.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>

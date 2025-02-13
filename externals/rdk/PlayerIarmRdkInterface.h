@@ -18,7 +18,7 @@
 */
 
 /**
- * @file playerIARMRDKInterface.h
+ * @file PlayerIARMRDKInterface.h
  * @brief player interface with IARM specific to RDK
  */
 
@@ -38,7 +38,7 @@
 #include "audioOutputPort.hpp"
 #include "dsAudio.h"
 
-#include "playerIARMInterfaceBase.h"
+#include "PlayerIARMInterfaceBase.h"
 
 //class representing IARM interface in rdk
 class PlayerIarmRdkInterface : public PlayerIarmInterfaceBase

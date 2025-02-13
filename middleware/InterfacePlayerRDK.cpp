@@ -25,10 +25,17 @@
 #include "PlayerLogManager.h"
 #include <sys/time.h>
 #include "GstUtils.h"
-#include "playerIarmRfcInterface.h"						//ToDo: Replace once outputprotection moved to middleware
+#include "PlayerIarmRfcInterface.h"						//ToDo: Replace once outputprotection moved to middleware
 #include <inttypes.h>
 #include "TextStyleAttributes.h"
 #include <memory>
+
+#ifdef USE_EXTERNAL_STATS
+// narrowly define MediaType for backwards compatibility
+#define MediaType GstMediaType
+#include "aamp-xternal-stats.h"
+#undef MediaType
+#endif
 #include "PlayerUtils.h"
 
 #define DEFAULT_BUFFERING_TO_MS 10                       /**< TimeOut interval to check buffer fullness */
@@ -3886,6 +3893,9 @@ static void GstPlayer_OnGstBufferUnderflowCb(GstElement* object, guint arg0, gpo
 		{
 			MW_LOG_ERR("underflow callback not registered");
 		}
+#ifdef USE_EXTERNAL_STATS
+		INC_RETUNE_COUNT(type); // Increment the retune count for low level AV metric
+#endif
 	}
 }
 
@@ -3936,6 +3946,10 @@ static void GstPlayer_OnGstDecodeErrorCb(GstElement* object, guint arg0, gpointe
 		pInterfacePlayerRDK->gstPrivateContext->decodeErrorMsgTimeMS = NOW_STEADY_TS_MS;
 		MW_LOG_ERR("Got Decode Error message from %s total_cb=%d timeMs=%d", GST_ELEMENT_NAME(object),  pInterfacePlayerRDK->gstPrivateContext->decodeErrorCBCount, GST_MIN_DECODE_ERROR_INTERVAL);
 		pInterfacePlayerRDK->gstPrivateContext->decodeErrorCBCount = 0;
+#ifdef USE_EXTERNAL_STATS
+		INC_DECODE_ERROR(); // Increment the decoder error for low level AV metric
+#endif
+
 	}
 }
 

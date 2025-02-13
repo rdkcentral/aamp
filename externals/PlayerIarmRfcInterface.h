@@ -18,7 +18,7 @@
 */
 
 /**
- * @file playerIarmRfcInterface.h
+ * @file PlayerIarmRfcInterface.h
  * @brief Output protection management for Player
  */
 
@@ -30,7 +30,7 @@
 #include <stdio.h>
 #include <memory>
 
-#include "playerIARMInterfaceBase.h"
+#include "PlayerIARMInterfaceBase.h"
 
 
 #undef __in

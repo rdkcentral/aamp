@@ -446,7 +446,6 @@ class AudioTrackTuple
 		}
 };
 
-#ifdef AAMP_HLS_DRM
 /**
  *	\Class attrNameData
  * 	\brief	local class to hold DRM information
@@ -466,8 +465,6 @@ public:
 
 	bool operator==(const attrNameData& rhs) const { return (this->attrName == rhs.attrName); }
 };
-
-#endif
 
 /**
  * @brief To have hostname mapped curl handles
@@ -1057,18 +1054,14 @@ public:
 	bool mEncryptedPeriodFound;				/**< Will be set if an encrypted pipeline is found while pipeline is clear*/
 	bool mPipelineIsClear;					/**< To keep the status of pipeline (whether configured for clear or not)*/
 
-#ifdef AAMP_HLS_DRM
 	std::vector <attrNameData> aesCtrAttrDataList; 		/**< Queue to hold the values of DRM data parsed from manifest */
 	std::mutex drmParserMutex; 			/**< Mutex to lock DRM parsing logic */
 	bool fragmentCdmEncrypted; 				/**< Indicates CDM protection added in fragments **/
-#endif
 	std::thread mPreCachePlaylistThreadId;
 	bool mbPlayEnabled;					/**< Send buffer to pipeline or just cache them */
-#if defined(AAMP_MPD_DRM) || defined(AAMP_HLS_DRM) || defined(USE_OPENCDM)
 	std::thread createDRMSessionThreadID; 			/**< thread ID for DRM session creation */
 	bool drmSessionThreadStarted; 				/**< flag to indicate the thread is running on not */
 	AampDRMSessionManager *mDRMSessionManager;
-#endif
 	int mPlaylistFetchFailError;				/**< To store HTTP error code when playlist download fails */
 	bool mAudioDecoderStreamSync; 				/**<  Flag to set or clear 'stream_sync_mode' property
 	                                				in gst brcmaudiodecoder, default: True */
