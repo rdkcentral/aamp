@@ -132,6 +132,20 @@ void PlaybackCommand::HandleCommandList( const char *cmd )
 	mVirtualChannelMap.showList(start, end, tail);
 }
 
+void PlaybackCommand::HandleCommandContentType( const char *cmd )
+{
+	if (strlen(cmd) > strlen("contentType "))
+	{
+		mAampcli.mContentType = std::string(&cmd[strlen("contentType ")]);
+		printf("[AAMPCLI] contentType set to %s\n", mAampcli.mContentType.c_str());
+	}
+	else
+	{
+		mAampcli.mContentType.clear();
+		printf("[AAMPCLI] contentType not set\n");
+	}
+}
+
 void PlaybackCommand::HandleCommandNew( const char *cmd )
 {
 	char playerName[50] = {'\0'};
@@ -159,7 +173,7 @@ void PlaybackCommand::HandleCommandSelect( const char *cmd, PlayerInstanceAAMP *
 					   found->GetId(),
 					   found,
 					   found->GetAppName().c_str() );
-				
+
 				mAampcli.mSingleton = found;
 			}
 			//else
@@ -232,14 +246,15 @@ void PlaybackCommand::HandleCommandSleep( const char *cmd )
 void PlaybackCommand::HandleCommandTuneLocator( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp )
 {
 	const auto sid = mAampcli.GetSessionId();
+	const char *contentType = (mAampcli.mContentType.empty()) ? nullptr : mAampcli.mContentType.c_str();
 	if (sid.empty())
 	{
-		playerInstanceAamp->Tune(cmd, mAampcli.mbAutoPlay);
+		playerInstanceAamp->Tune(cmd, mAampcli.mbAutoPlay, contentType);
 	}
 	else
 	{
 		playerInstanceAamp->Tune(cmd, mAampcli.mbAutoPlay,
-			nullptr, true, false, nullptr, true, nullptr, 0,
+			contentType, true, false, nullptr, true, nullptr, 0,
 			std::move(sid),nullptr);
 	}
 }
@@ -275,7 +290,7 @@ void PlaybackCommand::HandleCommandPrev( const char *cmd, PlayerInstanceAAMP *pl
 void PlaybackCommand::HandleCommandTuneIndex( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp )
 {
 	int channelNumber = atoi(cmd);  // invalid input results in 0 -- will not be found
-	
+
 	VirtualChannelInfo *pChannelInfo = mVirtualChannelMap.find(channelNumber);
 	if (pChannelInfo != NULL)
 	{
@@ -332,11 +347,11 @@ void PlaybackCommand::HandleCommandCustomHeader( const char *cmd, PlayerInstance
 	int parameter=0;
 	bool isLicenceHeader=false;
 	cmdptr = strtok (const_cast<char*>(cmd)," ,");
-	
+
 	printf("[AAMPCLI] customheader Command is %s\n" , cmd);
-	
+
 	std::string subString;
-	
+
 	// accepts just one headervalue for now, not an array.
 	// header value of '.' -> remove the header, else it adds it
 	while (cmdptr)
@@ -387,9 +402,9 @@ void PlaybackCommand::HandleCommandSubtec( void )
 #define MAX_SUBTEC_PATH_LEN 560
 	char scriptPath[MAX_SCRIPT_PATH_LEN] = "";
 	char subtecCommand[MAX_SUBTEC_PATH_LEN] = "";
-	
+
 	mAampcli.mSingleton->SetCCStatus(true);
-	
+
 	if (mAampcli.getApplicationDir(scriptPath, MAX_SCRIPT_PATH_LEN) > 0)
 	{
 #ifdef __APPLE__
@@ -496,7 +511,7 @@ void PlaybackCommand::HandleCommandAdvert( const char *cmd, PlayerInstanceAAMP *
 		if (token == "list")
 		{
 			printf("[AAMP-CLI] Ad Map -------->\n");
-			for (size_t i = 0; i < mAdvertList.size(); i++) 
+			for (size_t i = 0; i < mAdvertList.size(); i++)
 			{
 				if(mAdvertList[i].size()>0)
 				{
@@ -693,11 +708,11 @@ void PlaybackCommand::HandleCommandScte35( const char *cmd )
 {
 	std::istringstream input;
 	input.str(cmd);
-	
+
 	std::string token;
 	std::getline(input, token, ' ');
 	assert(token == "scte35");
-	
+
 	if (std::getline(input, token, ' '))
 	{
 		SCTE35SpliceInfo spliceInfo(token);
@@ -712,10 +727,10 @@ void PlaybackCommand::HandleCommandScte35( const char *cmd )
 void PlaybackCommand::HandleCommandSessionId( const char *cmd )
 {
 	char sid[128] = {'\0'};
-	
+
 	printf("[AAMPCLI] Matched Command SessionID - %s\n", cmd);
 	const auto res = sscanf(cmd, "sessionid %127s", sid);
-	
+
 	if (res == 1)
 	{
 		mAampcli.SetSessionId({sid});
@@ -867,6 +882,10 @@ bool PlaybackCommand::execute( const char *cmd, PlayerInstanceAAMP *playerInstan
 	{
 		mAampcli.mbAutoPlay = !mAampcli.mbAutoPlay;
 		printf( "autoplay = %s\n", mAampcli.mbAutoPlay?"true":"false" );
+	}
+	else if( isCommandMatch(cmd,"contentType") )
+	{
+		HandleCommandContentType(cmd);
 	}
 	else if( isCommandMatch(cmd,"new") )
 	{
@@ -1125,6 +1144,7 @@ void PlaybackCommand::registerPlaybackCommands()
 
 	// tuning
 	addCommand("autoplay","Toggle whether to autoplay (default=true)");
+	addCommand("contentType <contentType>","Specify contentType to use when tuning e.g contentType LINEAR_TV");
 	addCommand("list","Show virtual channel map; optionally pass a range e.g. 1-10, a start channel or -n to show the last n channels");
 	addCommand("<channelNumber>","Tune specified virtual channel");
 	addCommand("next","Tune next virtual channel");

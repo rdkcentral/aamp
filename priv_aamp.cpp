@@ -5828,7 +5828,17 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 	mMPDStichOption			=	(MPDStichOptions) (mpdStitchingMode % 2);
 	mMediaFormat = GetMediaFormatType(mainManifestUrl);
 
-	if (eMEDIAFORMAT_DASH == mMediaFormat)
+	// Calling SetContentType without checking contentType != NULL, so that
+	// mContentType will be reset to ContentType_UNKNOWN at the start of tune by default
+	SetContentType(contentType);
+	AAMPLOG_INFO("Content type (%d): %s", mContentType, contentType == nullptr ? "null" : contentType);
+
+	if (ContentType_CDVR == mContentType)
+	{
+		mIscDVR = true;
+	}
+
+	if ((ContentType_LINEAR == mContentType) && (eMEDIAFORMAT_DASH == mMediaFormat))
 	{
 		if(mTSBSessionManager)
 		{
@@ -6056,14 +6066,6 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 	mCurrentAudioTrackId = -1;
 	mCurrentVideoTrackId = -1;
 	mCurrentDrm = nullptr;
-
-	// Calling SetContentType without checking contentType != NULL, so that
-	// mContentType will be reset to ContentType_UNKNOWN at the start of tune by default
-	SetContentType(contentType);
-	if (ContentType_CDVR == mContentType)
-	{
-		mIscDVR = true;
-	}
 
 #ifdef ENABLE_PTS_RESTAMP
 	if (ContentType_LINEAR == mContentType)

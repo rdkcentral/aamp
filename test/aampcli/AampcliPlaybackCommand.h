@@ -57,6 +57,7 @@ private:
 	static std::map<std::string,std::string> playbackCommands;
 	
 	void HandleCommandList( const char *cmd );
+	void HandleCommandContentType( const char *cmd );
 	void HandleCommandNew( const char *cmd );
 	void HandleCommandSelect( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp );
 	void HandleCommandRelease( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp );

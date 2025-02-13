@@ -63,6 +63,7 @@ class Aampcli
 		bool mbAutoPlay;
 		bool mIndexedAds = false;
 		int mAdBrkIndex=0;
+		std::string mContentType;
 		std::string mTuneFailureDescription;
 		PlayerInstanceAAMP *mSingleton;
 		MyAAMPEventListener *mEventListener;
