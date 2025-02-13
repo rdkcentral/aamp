@@ -72,12 +72,8 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) :
 	mNetworkTimeoutMs(-1),
 	waitforplaystart(),
 	mMutexPlaystart(),
-#ifdef AAMP_HLS_DRM
 	drmParserMutex(),
-#endif
-#if defined(AAMP_MPD_DRM) || defined(AAMP_HLS_DRM)
 	mDRMSessionManager(NULL),
-#endif
 	mDrmInitData(),
 	mPreferredTextTrack(),
 	midFragmentSeekCache(false),
@@ -1602,6 +1598,10 @@ unsigned char* PrivateInstanceAAMP::ReplaceKeyIDPsshData(const unsigned char *In
 	return NULL;
 }
 
+void PrivateInstanceAAMP::SendBlockedEvent(const std::string & reason, const std::string currentLocator)
+{
+	
+}
 void PrivateInstanceAAMP::GetPlayerVideoSize(int &width, int &height)
 {
 }

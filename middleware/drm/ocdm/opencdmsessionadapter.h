@@ -25,7 +25,7 @@
  * @brief Handles operation with OCDM session to handle DRM License data
  */
 
-#include "playerIarmRfcInterface.h"
+#include "PlayerIarmRfcInterface.h"
 #include "DrmSession.h"
 #include "DrmHelper.h"
 

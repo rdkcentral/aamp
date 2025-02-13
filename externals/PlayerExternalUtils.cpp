@@ -22,7 +22,7 @@
  * @brief Utilities for external's functionalities
  */
 
-#include "playerExternalUtils.h"
+#include "PlayerExternalUtils.h"
 
 #include <sys/stat.h>
 //replace below and dependencies with dedicated logger once implemented

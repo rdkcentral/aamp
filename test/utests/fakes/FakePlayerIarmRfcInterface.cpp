@@ -22,7 +22,7 @@
  * @brief Fake Player Iarm Rfc Interface manager
  */
 
-#include "playerIarmRfcInterface.h"
+#include "PlayerIarmRfcInterface.h"
 
 /**< Static local variables */
 std::shared_ptr<PlayerIarmRfcInterface> PlayerIarmRfcInterface::s_pPlayerOP = NULL;

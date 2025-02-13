@@ -21,11 +21,8 @@
 #include "hdmiin_shim.h"
 #include "compositein_shim.h"
 
-#define HDMIINPUT_CALLSIGN "org.rdk.HdmiInput.1"
-#define COMPOSITEINPUT_CALLSIGN "org.rdk.CompositeInput.1"
-
-StreamAbstractionAAMP_VIDEOIN::StreamAbstractionAAMP_VIDEOIN( const std::string name, const std::string callSign, class PrivateInstanceAAMP *aamp,double seek_pos, float rate, const std::string type)
-                               : StreamAbstractionAAMP(aamp)
+StreamAbstractionAAMP_VIDEOIN::StreamAbstractionAAMP_VIDEOIN( const std::string name, PlayerThunderAccessPlugin callSign, class PrivateInstanceAAMP *aamp,double seek_pos, float rate, const std::string type)
+                               : StreamAbstractionAAMP(aamp), thunderAccessObj(callSign)
 {
 }
 
@@ -67,7 +64,7 @@ void StreamAbstractionAAMP_VIDEOIN::StopHelper()
 }
 
 StreamAbstractionAAMP_HDMIIN::StreamAbstractionAAMP_HDMIIN(class PrivateInstanceAAMP *aamp,double seek_pos, float rate)
-                             : StreamAbstractionAAMP_VIDEOIN("HDMIIN", HDMIINPUT_CALLSIGN,aamp,seek_pos,rate,"HDMI")
+                             : StreamAbstractionAAMP_VIDEOIN("HDMIIN", PlayerThunderAccessPlugin::HDMIINPUT,aamp,seek_pos,rate,"HDMI")
 {
 }
 
@@ -98,7 +95,7 @@ void StreamAbstractionAAMP_HDMIIN::ResetInstance()
 }
 
  StreamAbstractionAAMP_COMPOSITEIN::StreamAbstractionAAMP_COMPOSITEIN(class PrivateInstanceAAMP *aamp,double seek_pos, float rate)
-                              : StreamAbstractionAAMP_VIDEOIN("COMPOSITEIN", COMPOSITEINPUT_CALLSIGN, aamp,seek_pos,rate,"COMPOSITE")
+                              : StreamAbstractionAAMP_VIDEOIN("COMPOSITEIN", PlayerThunderAccessPlugin::COMPOSITEINPUT, aamp,seek_pos,rate,"COMPOSITE")
  {
  }
 

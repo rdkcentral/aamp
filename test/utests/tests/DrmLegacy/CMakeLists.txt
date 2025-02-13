@@ -85,7 +85,6 @@ set(AAMP_SOURCES ${AAMP_ROOT}/middleware/drm/base64.cpp
 				 ${AAMP_ROOT}/middleware/drm/helper/ClearKeyHelper.cpp
 				 ${AAMP_ROOT}/isobmff/isobmffbox.h ${AAMP_ROOT}/isobmff/isobmffbox.cpp ${AAMP_ROOT}/isobmff/isobmffbuffer.h ${AAMP_ROOT}/isobmff/isobmffbuffer.cpp)
 
-add_definitions(-DAAMP_MPD_DRM)
 add_definitions(-DUSE_CLEARKEY)
 
 add_executable(${EXEC_NAME}

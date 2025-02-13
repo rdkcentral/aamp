@@ -17,6 +17,7 @@
 * limitations under the License.
 */
 
+#include "DrmHelper.h"
 #include "AampDRMSessionManager.h"
 #include "MockAampDRMSessionManager.h"
 
@@ -78,4 +79,41 @@ DrmSession * AampDRMSessionManager::createDrmSession(
 SessionMgrState AampDRMSessionManager::getSessionMgrState()
 {
 	return SessionMgrState::eSESSIONMGR_INACTIVE;
+}
+
+void AampDRMSessionManager::SetLicenseFetcher(AampLicenseFetcher *fetcherInstance)
+{
+}
+
+bool AampDRMSessionManager::QueueContentProtection(DrmHelperPtr drmHelper, std::string periodId, uint32_t adapIdx, AampMediaType type, bool isVssPeriod)
+{
+	return false;
+}
+
+void AampDRMSessionManager::QueueProtectionEvent(DrmHelperPtr drmHelper, std::string periodId, uint32_t adapIdx, AampMediaType type)
+{
+}
+
+void AampDRMSessionManager::clearDrmSession(bool forceClearSession)
+{
+}
+
+void AampDRMSessionManager::clearFailedKeyIds()
+{
+}
+
+void AampDRMSessionManager::setSessionMgrState(SessionMgrState state)
+{
+}
+
+void AampDRMSessionManager::SetSendErrorOnFailure(bool sendErrorOnFailure)
+{
+}
+
+void AampDRMSessionManager::SetCommonKeyDuration(int keyDuration)
+{
+}
+
+void AampDRMSessionManager::notifyCleanup()
+{
 }

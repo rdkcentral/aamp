@@ -793,7 +793,6 @@ int AampDRMSessionManager::getSlotIdForSession(DrmSession* session)
 
 void AampDRMSessionManager::licenseRenewalThread(DrmHelperPtr drmHelper, int sessionSlot, PrivateInstanceAAMP* aampInstance)
 {
-#if defined(AAMP_MPD_DRM) || defined(AAMP_HLS_DRM)
 	bool isSecClientError = false;
 #if defined(USE_SECCLIENT) || defined(USE_SECMANAGER)
 	isSecClientError = true;
@@ -810,7 +809,6 @@ void AampDRMSessionManager::licenseRenewalThread(DrmHelperPtr drmHelper, int ses
 	{
 		AAMPLOG_INFO("License Renewal Done for sessionSlot : %d",sessionSlot);
 	}
-#endif
 }
 
 void AampDRMSessionManager::renewLicense(DrmHelperPtr drmHelper, void* userData, PrivateInstanceAAMP* aampInstance)

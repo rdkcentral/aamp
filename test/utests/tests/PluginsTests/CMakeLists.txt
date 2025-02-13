@@ -58,7 +58,7 @@ set(TEST_SOURCES AampClearKeyDecryptorTests.cpp
 				AampWidevineDecryptorTests.cpp
 				PluginsRun.cpp)
 				
-add_definitions(-DAAMP_MPD_DRM -DUSE_OPENCDM_ADAPTER -DUSE_OPENCDM)
+add_definitions(-DUSE_OPENCDM_ADAPTER)
 
 if (CMAKE_PLATFORM_UBUNTU)
 	add_definitions(-DUBUNTU)

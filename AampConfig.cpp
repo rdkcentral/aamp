@@ -28,7 +28,7 @@
 #include "AampUtils.h"
 #include "aampgstplayer.h"
 #include "PlayerRfc.h"
-#include "playerIarmRfcInterface.h"
+#include "PlayerIarmRfcInterface.h"
 #include "SocUtils.h"
 #include <time.h>
 #include <map>

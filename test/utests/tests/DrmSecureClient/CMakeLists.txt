@@ -96,7 +96,7 @@ if(SEC_CLIENT_HEADERS)
 					 ${AAMP_ROOT}/isobmff/isobmffbuffer.cpp)
 
 	add_definitions(-DUSE_SHARED_MEMORY)
-	add_definitions(-DUSE_OPENCDM -DUSE_OPENCDM_ADAPTER)
+	add_definitions(-DUSE_OPENCDM_ADAPTER)
 	add_definitions(-DUSE_THUNDER_OCDM_API_0_2)
 	add_definitions(-DUSE_SECCLIENT)
 

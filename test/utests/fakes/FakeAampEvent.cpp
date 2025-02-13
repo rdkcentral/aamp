@@ -504,6 +504,14 @@ const std::string &TuneTimeMetricsEvent::getTuneMetricsData() const
 		return mTuneMetricsData;
 }
 
+void MediaMetadataEvent::SetAudioMetaData(const std::string &audioCodec,const std::string &mixType,bool  isAtmos  )
+{
+}
+
+void MediaMetadataEvent::SetVideoMetaData(float frameRate,VideoScanType videoScanType,int aspectRatioWidth,int  aspectRatioHeight, const std::string &  videoCodec, const std::string  & strHdrType, const std::string & strPCRating, int ssi)
+{
+}
+
 /**
  * @brief MetricsDataEvent Constructor
  */

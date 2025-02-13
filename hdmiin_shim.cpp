@@ -33,14 +33,13 @@
 * AVInput thunder plugin reference: https://rdkcentral.github.io/rdkservices/#/api/AVInputPlugin
 */
 
-#define HDMIINPUT_CALLSIGN "org.rdk.AVInput.1"
 StreamAbstractionAAMP_HDMIIN* StreamAbstractionAAMP_HDMIIN::mHdmiinInstance = NULL;
 
 /**
  * @brief StreamAbstractionAAMP_HDMIIN Constructor
  */
 StreamAbstractionAAMP_HDMIIN::StreamAbstractionAAMP_HDMIIN(class PrivateInstanceAAMP *aamp,double seek_pos, float rate)
-                             : StreamAbstractionAAMP_VIDEOIN("HDMIIN", HDMIINPUT_CALLSIGN,aamp,seek_pos,rate,"HDMI")
+                             : StreamAbstractionAAMP_VIDEOIN("HDMIIN", PlayerThunderAccessPlugin::AVINPUT,aamp,seek_pos,rate,"HDMI")
 {
 	aamp->SetContentType("HDMI_IN");
 }
@@ -64,10 +63,8 @@ AAMPStatusType StreamAbstractionAAMP_HDMIIN::Init(TuneType tuneType)
 	{
 		retval = InitHelper(tuneType);
 
-#ifdef USE_CPP_THUNDER_PLUGIN_ACCESS
-		std::function<void(const WPEFramework::Core::JSON::VariantContainer&)> videoInfoUpdatedMethod = std::bind(&StreamAbstractionAAMP_HDMIIN::OnVideoStreamInfoUpdate, this, std::placeholders::_1);
-		RegisterEvent("videoStreamInfoUpdate", videoInfoUpdatedMethod);
-#endif
+		std::function<void(PlayerVideoStreamInfoData)> videoInfoUpdatedMethodCb = std::bind(&StreamAbstractionAAMP_HDMIIN::OnVideoStreamInfoUpdate, this, std::placeholders::_1);
+		thunderAccessObj.RegisterEventOnVideoStreamInfoUpdateHdmiin(videoInfoUpdatedMethodCb);
 	}
 	return retval;
 }
@@ -132,29 +129,20 @@ void StreamAbstractionAAMP_HDMIIN::ResetInstance()
 	}
 }
 
-#ifdef USE_CPP_THUNDER_PLUGIN_ACCESS
-
 /**
  * @brief  Gets videoStreamInfoUpdate event and translates into aamp events
  */
-void StreamAbstractionAAMP_HDMIIN::OnVideoStreamInfoUpdate(const JsonObject& parameters)
+void StreamAbstractionAAMP_HDMIIN::OnVideoStreamInfoUpdate(PlayerVideoStreamInfoData data)
 {
 	if(aamp)
 	{
-		std::string message;
-		parameters.ToString(message);
-		AAMPLOG_WARN("%s",message.c_str());
-
-	        JsonObject videoInfoObj = parameters;
-		VideoScanType videoScanType = (videoInfoObj["progressive"].Boolean() ? eVIDEOSCAN_PROGRESSIVE : eVIDEOSCAN_INTERLACED);
-
+		VideoScanType videoScanType = (data.progressive ? eVIDEOSCAN_PROGRESSIVE : eVIDEOSCAN_INTERLACED);
 		double frameRate = 0.0;
-		double frameRateN = static_cast<double> (videoInfoObj["frameRateN"].Number());
-		double frameRateD = static_cast<double> (videoInfoObj["frameRateD"].Number());
-		if((0 != frameRateN) && (0 != frameRateD))
-			frameRate = frameRateN / frameRateD;
+		if((0 != data.frameRateN) && (0 != data.frameRateD))
+		{
+			frameRate = data.frameRateN / data.frameRateD;
+		}
+		aamp->NotifyBitRateChangeEvent(0, eAAMP_BITRATE_CHANGE_BY_HDMIIN, data.width, data.height, frameRate, 0, false, videoScanType, 0, 0);
 
-		aamp->NotifyBitRateChangeEvent(0, eAAMP_BITRATE_CHANGE_BY_HDMIIN, videoInfoObj["width"].Number(), videoInfoObj["height"].Number(), frameRate, 0, false, videoScanType, 0, 0);
 	}
 }
-#endif

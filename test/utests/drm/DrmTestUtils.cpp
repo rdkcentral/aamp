@@ -28,7 +28,7 @@
 #include "DrmTestUtils.h"
 #include "AampUtils.h"
 
-#ifdef USE_OPENCDM
+#ifdef USE_OPENCDM_ADAPTER
 #include "Fakeopencdm.h"
 #endif
 
@@ -63,7 +63,7 @@ AampDRMSessionManager* TestUtilDrm::getSessionManager()
 	return mSessionManager.get();
 }
 
-#ifdef USE_OPENCDM
+#ifdef USE_OPENCDM_ADAPTER
 DrmSession* TestUtilDrm::createDrmSessionForHelper(DrmHelperPtr drmHelper,
 													   const char* keySystem)
 {
@@ -166,7 +166,7 @@ void TestUtilDrm::setupChallengeCallbacksForExternalLicense()
 
 	MockOpenCdmSetCallbacks(callbacks, nullptr);
 }
-#endif /* USE_OPENCDM */
+#endif /* USE_OPENCDM_ADAPTER */
 
 DrmMetaDataEventPtr TestUtilDrm::createDrmMetaDataEvent()
 {

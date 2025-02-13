@@ -18,7 +18,7 @@
 */
 
 /**
- * @file playerIARMInterfaceBase.h
+ * @file PlayerIARMInterfaceBase.h
  * @brief Base class for player interface with IARM
  */
 

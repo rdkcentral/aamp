@@ -30,13 +30,13 @@
 #include "curlMocks.h"
 #include "AampDRMSessionManager.h"
 
-#ifdef USE_OPENCDM
+#ifdef USE_OPENCDM_ADAPTER
 #include "AampHlsOcdmBridge.h"
 #include "MockOpenCdm.h"
 
 #define OCDM_SESSION ((OpenCDMSession*)0x0CD12345)
 #define OCDM_SYSTEM ((OpenCDMSystem*)0x0CDACC12345)
-#endif /* USE_OPENCDM */
+#endif /* USE_OPENCDM_ADAPTER */
 
 // Useful macros for checking JSON
 #define ASSERT_JSON_STR_VALUE(o, p, e)                                                             \
@@ -119,7 +119,7 @@ public:
 	~TestUtilDrm();
 
 	AampDRMSessionManager* getSessionManager();
-#ifdef USE_OPENCDM
+#ifdef USE_OPENCDM_ADAPTER
 	DrmSession* createDrmSessionForHelper(DrmHelperPtr drmHelper,
 											  const char* keySystem);
 	DrmSession* createDashDrmSession(const std::string testKeyData, const std::string psshStr,
@@ -129,7 +129,7 @@ public:
 	void setupChallengeCallbacks(const MockChallengeData& challengeData =
 									 MockChallengeData("challenge.example", "OCDM_CHALLENGE_DATA"));
 	void setupChallengeCallbacksForExternalLicense();
-#endif /* USE_OPENCDM */
+#endif /* USE_OPENCDM_ADAPTER */
 	DrmMetaDataEventPtr createDrmMetaDataEvent();
 	void setupCurlPerformResponse(std::string response);
 	void setupCurlPerformResponses(const std::map<std::string, std::string>& responses);

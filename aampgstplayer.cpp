@@ -42,13 +42,7 @@
 #include "AampBufferControl.h"
 #include <functional>
 
-#ifdef USE_EXTERNAL_STATS
-// narrowly define MediaType for backwards compatibility
-#define MediaType AampMediaType
-#include "aamp-xternal-stats.h"
-#undef MediaType
-#endif
-
+#define PLAYER_NAME "aamp"
 #define PIPELINE_NAME "AAMPGstPlayerPipeline"
 
 #define AAMP_MIN_DECODE_ERROR_INTERVAL 10000                     /**< Minimum time interval in milliseconds between two decoder error CB to send anomaly error */
@@ -475,9 +469,6 @@ static void HandleBufferingTimeoutCb(bool isBufferingTimeoutConditionMet, bool i
  */
 static void HandleOnGstDecodeErrorCb(int decodeErrorCBCount, AAMPGstPlayer * _this)
 {
-#ifdef USE_EXTERNAL_STATS
-	INC_DECODE_ERROR(); // Increment the decoder error for low level AV metric
-#endif
 	_this->aamp->SendAnomalyEvent(ANOMALY_WARNING, "Decode Error Message Callback=%d time=%d",decodeErrorCBCount, AAMP_MIN_DECODE_ERROR_INTERVAL);
 	AAMPLOG_ERR("## APP[%s] Got Decode Error message",_this->aamp->GetAppName().c_str());
 }
@@ -514,10 +505,6 @@ static void HandleOnGstBufferUnderflowCb(int mediaType, AAMPGstPlayer * _this)
 
 	bool isBufferFull = _this->privateContext->mBufferControl[type].isBufferFull(type);
 	_this->privateContext->mBufferControl[type].underflow(_this, type);
-
-#ifdef USE_EXTERNAL_STATS
-	INC_RETUNE_COUNT(type); // Increment the retune count for low level AV metric
-#endif
 	_this->aamp->ScheduleRetune(eGST_ERROR_UNDERFLOW, type, isBufferFull);		/* Schedule a retune */
 }
 

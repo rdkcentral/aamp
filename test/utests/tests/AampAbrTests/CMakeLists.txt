@@ -49,7 +49,6 @@ add_executable(${EXEC_NAME}
 	${TEST_SOURCES}
 	${AAMP_SOURCES})
 set_target_properties(${EXEC_NAME} PROPERTIES FOLDER "utests")
-target_compile_definitions(${EXEC_NAME} PRIVATE AAMP_MPD_DRM)
 target_compile_definitions(${EXEC_NAME} PRIVATE USE_SECMANAGER)
 
 if (CMAKE_XCODE_BUILD_SYSTEM)

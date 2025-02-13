@@ -43,7 +43,7 @@ include_directories(${LIBCJSON_INCLUDE_DIRS})
 set(TEST_SOURCES FunctionalTests.cpp
                  StreamAbstractionAAMP_HLS.cpp)
 
-	 set(AAMP_SOURCES ${AAMP_ROOT}/middleware/PlayerLogManager.cpp ${AAMP_ROOT}/streamabstraction.cpp ${AAMP_ROOT}/fragmentcollector_hls.cpp)
+set(AAMP_SOURCES ${AAMP_ROOT}/middleware/PlayerLogManager.cpp ${AAMP_ROOT}/streamabstraction.cpp ${AAMP_ROOT}/fragmentcollector_hls.cpp)
 
 add_executable(${EXEC_NAME}
                ${TEST_SOURCES}

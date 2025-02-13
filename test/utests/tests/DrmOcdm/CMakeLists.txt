@@ -61,7 +61,8 @@ set(MOCK_SOURCES ${DRM_ROOT}/mocks/aampMocks.cpp
 
 set(FAKE_SOURCES ${UTESTS_ROOT}/fakes/FakeAampRfc.cpp
 				 ${UTESTS_ROOT}/fakes/FakePlayerIarmRfcInterface.cpp
-			         ${AAMP_ROOT}/middleware/test/utests/fakes/FakeSocUtils.cpp)
+				 ${UTESTS_ROOT}/fakes/FakeProcessProtectionHls.cpp
+			    	${AAMP_ROOT}/middleware/test/utests/fakes/FakeSocUtils.cpp)
 
 set(AAMP_SOURCES ${AAMP_ROOT}/_base64.cpp
 				${AAMP_ROOT}/AampConfig.cpp
@@ -91,7 +92,6 @@ set(AAMP_SOURCES ${AAMP_ROOT}/_base64.cpp
 				 ${AAMP_ROOT}/middleware/drm/ocdm/OcdmGstSessionAdapter.cpp
 				 ${AAMP_ROOT}/drm/AampHlsOcdmBridge.cpp
 				 ${AAMP_ROOT}/drm/AampHlsDrmSessionManager.cpp
-				 ${AAMP_ROOT}/drm/processProtectionHls.cpp
 				 ${AAMP_ROOT}/middleware/drm/helper/ClearKeyHelper.cpp
 				 ${AAMP_ROOT}/middleware/drm/helper/WidevineDrmHelper.cpp
 				 ${AAMP_ROOT}/middleware/drm/helper/PlayReadyHelper.cpp
@@ -100,9 +100,8 @@ set(AAMP_SOURCES ${AAMP_ROOT}/_base64.cpp
 				 ${AAMP_ROOT}/isobmff/isobmffbuffer.h
 				 ${AAMP_ROOT}/isobmff/isobmffbuffer.cpp)
 
-add_definitions(-DAAMP_HLS_DRM)
 add_definitions(-DUSE_SHARED_MEMORY)
-add_definitions(-DUSE_OPENCDM -DUSE_OPENCDM_ADAPTER)
+add_definitions(-DUSE_OPENCDM_ADAPTER)
 add_definitions(-DUSE_THUNDER_OCDM_API_0_2)
 
 add_executable(${EXEC_NAME}

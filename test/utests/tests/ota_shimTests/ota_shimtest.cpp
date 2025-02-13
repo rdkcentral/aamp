@@ -62,11 +62,6 @@ protected:
             GetAudioTracks();
         }
 
-        int CallGetAudioTrackInternal()
-        {
-            return GetAudioTrackInternal();
-        }
-
         void CallNotifyAudioTrackChange(const std::vector<AudioTrackInfo> &tracks)
         {
             NotifyAudioTrackChange(tracks);
@@ -86,11 +81,6 @@ protected:
 TEST_F(StreamAbstractionAAMP_OTATest, TestGetAudioTracks)
 {
     aamp_ota->CallGetAudioTracks();
-}
-
-TEST_F(StreamAbstractionAAMP_OTATest, TestGetAudioTrackInternal)
-{
-    int result = aamp_ota->CallGetAudioTrackInternal();
 }
 
 TEST_F(StreamAbstractionAAMP_OTATest, TestNotifyAudioTrackChange)

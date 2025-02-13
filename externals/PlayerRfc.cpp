@@ -29,7 +29,7 @@
 #include "tr181api.h"
 #endif
 #include "PlayerRfc.h"
-#include "playerExternalUtils.h"
+#include "PlayerExternalUtils.h"
 
 //replace below and dependencies with dedicated logger once implemented
 #include "AampLogManager.h"

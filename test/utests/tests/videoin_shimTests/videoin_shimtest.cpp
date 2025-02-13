@@ -36,7 +36,7 @@ protected:
         auto aamp = new PrivateInstanceAAMP();
         std::string type = "HDMI";
         std::string name = "Name";       // Provide the appropriate name
-        std::string callSign = "CallSign"; // Provide the appropriate callSign
+        PlayerThunderAccessPlugin callSign = PlayerThunderAccessPlugin::COMPOSITEINPUT; // Provide the appropriate callSign
         videoinShim = new TestableStreamAbstraction(name, callSign, aamp, 0.0, 1.0, type);
     }
 
@@ -48,7 +48,7 @@ protected:
     class TestableStreamAbstraction : public StreamAbstractionAAMP_VIDEOIN
     {
     public:
-        TestableStreamAbstraction(const std::string &name, const std::string &callSign,
+        TestableStreamAbstraction(const std::string &name, const PlayerThunderAccessPlugin &callSign,
                                   PrivateInstanceAAMP *aamp,
                                   double startTime, double playRate, const std::string &type)
             : StreamAbstractionAAMP_VIDEOIN(name, callSign, aamp, startTime, playRate, type)
@@ -68,13 +68,6 @@ protected:
         void CallStopHelper()
         {
             StopHelper();
-        }
-        bool callGetScreenResolution(int & screenWidth, int & screenHeight){
-            return GetScreenResolution(screenWidth,screenHeight);
-        }
-
-        bool callGetResolutionFromDS(int & widthFromDS, int & heightFromDS){
-            return GetResolutionFromDS(widthFromDS,heightFromDS);
         }
     };
 
@@ -98,34 +91,6 @@ TEST_F(StreamAbstractionAAMP_VIDEOINTest,StartHelpertest)
 TEST_F(StreamAbstractionAAMP_VIDEOINTest,StopHelpertest)
 {
     videoinShim->CallStopHelper();
-}
-
-TEST_F(StreamAbstractionAAMP_VIDEOINTest,GetResolutionFromDStest){
-
-    int widthFromDS = 0;
-    int heightFromDS = 0;
-
-    // Call the function under test
-    bool result = videoinShim->callGetResolutionFromDS(widthFromDS, heightFromDS);
-
-    // Assert the result and any other expectations
-    ASSERT_FALSE(result);
-    EXPECT_EQ(widthFromDS, 0);
-    EXPECT_EQ(heightFromDS, 0);
-}
-
-TEST_F(StreamAbstractionAAMP_VIDEOINTest,GetScreenResolutiontest){
-
-    int widthFromDS = 0;
-    int heightFromDS = 0;
-
-    // Call the function under test
-    bool result = videoinShim->callGetScreenResolution(widthFromDS, heightFromDS);
-
-    // Assert the result and any other expectations
-    ASSERT_FALSE(result);
-    EXPECT_EQ(widthFromDS, 0);
-    EXPECT_EQ(heightFromDS, 0);
 }
 
 TEST_F(StreamAbstractionAAMP_VIDEOINTest, InitTest)
