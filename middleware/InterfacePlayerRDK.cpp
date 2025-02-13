@@ -574,10 +574,12 @@ void MonitorAV( InterfacePlayerRDK *pInterfacePlayerRDK )
 			{
 				monitorAVState->tLastReported = tNow;
 			}
-			for( int i=0; i<2; i++ )
+			// skip reading audio position when trickplay is active
+			int maxTracks = (pInterfacePlayerRDK->gstPrivateContext->rate == GST_NORMAL_PLAY_RATE) ? 2 : 1;
+			for( int i=0; i<maxTracks; i++ )
 			{ // eMEDIATYPE_VIDEO=0, eMEDIATYPE_AUDIO=1
 				auto sinkbin = pInterfacePlayerRDK->gstPrivateContext->stream[i].sinkbin;
-				if( sinkbin && (pInterfacePlayerRDK->gstPrivateContext->stream[i].format != GST_FORMAT_INVALID))
+				if (sinkbin && (pInterfacePlayerRDK->gstPrivateContext->stream[i].format != GST_FORMAT_INVALID))
 				{
 					gint64 position = GST_CLOCK_TIME_NONE;
 					if( gst_element_query_position(sinkbin, GST_FORMAT_TIME, &position) )
