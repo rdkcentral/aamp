@@ -2157,6 +2157,12 @@ int InterfacePlayerRDK::SetupStream(int streamId,  void *playerInstance, std::st
 			if (vidsink)
 			{
 				g_object_set(stream->sinkbin, "video-sink", vidsink, NULL);				/* In the stream->sinkbin, set the video-sink property to vidsink */
+				GstMediaFormat mediaFormat = (GstMediaFormat)m_gstConfigParam->media;
+				if(eGST_MEDIAFORMAT_HLS == mediaFormat)
+				{
+					MW_LOG_INFO("setting has-drm=false for clear HLS/TS playback");
+					g_object_set(vidsink, "has-drm", FALSE, NULL);
+				}
 			}
 			else
 			{
