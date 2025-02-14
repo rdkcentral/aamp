@@ -55,6 +55,8 @@ AampConfig *gpGlobalConfig=NULL;
 		return; \
 	}
 
+// Test Comment - Paul
+
 #define ERROR_STATE_CHECK_VAL(val) \
 	PrivAAMPState state = GetState(); \
 	if( state == eSTATE_ERROR){ \
