@@ -37,7 +37,7 @@ archive_url = "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aam
 # This test case validates the behavior of Client Dynamic Ad Insertion (CDAI) when substituting a single ad
 # into a linear stream. The content is represented by an MPD file (TC1.mpd) with three periods:
 # - Period 0: 60 seconds long, containing no ads
-# - Period 1: 30 seconds long, with a single 30-second ad.
+# - Period 1: 30 seconds long, containing a single 30-second ad.
 # - Period 2: 10 seconds long, containing a single 10-second ad.
 # - Period 3: 30 seconds long, containing a single 30-second ad.
 # - Period 4: 20 seconds long, containing a single 20-second ad.
@@ -54,38 +54,39 @@ TESTDATA1 = {
     "max_test_time_seconds": 220,
     "aamp_cfg": "info=true\nprogress=true\ntrace=true\nlogMetadata=true\nclient-dai=true\nenablePTSReStamp=true\nuseAbsoluteTimeline=true\nenableSeekableRange=true\npreferredAbsoluteReporting=0\nprogressReportingInterval=0.25\n",
     "cmdlist": [
-        # Add a 30-second ad to the stream at the beginning of Period 1
-        "advert add http://localhost:8080/content/ad_30s.mpd 30",
-        "advert add http://localhost:8080/content/ad_20s.mpd 20",
-        "advert add http://localhost:8080/content/ad_10s.mpd 10",
+        "advert map 1 http://localhost:8080/content/ad_30s.mpd",
+        "advert map 2 http://localhost:8080/content/ad_10s.mpd",
+        "advert map 3 http://localhost:8080/content/ad_30s.mpd",
+        "advert map 4 http://localhost:8080/content/ad_20s.mpd",
+        "advert map 5 http://localhost:8080/content/ad_30s.mpd",
         ],
     "expect_list": [
-        {"expect": r"\[Tune\]\[\d+\]FOREGROUND PLAYER\[\d+\] aamp_tune:", "min": 0, "max": 30},
-        {"expect": r"Found CDAI events for period", "min": 0, "max": 200},
-        {"expect": r"\[SelectSourceOrAdPeriod\]\[\d+\]Period ID changed from '0' to '0-111' \[BasePeriodId='1'\]", "min": 0, "max": 80},
-        {"expect": r"HttpRequestEnd: 2,7,.*?_init.m4s\?live=true", "min": 0, "max": 180},
-        {"expect": r"HttpRequestEnd: 0,0,.*?_001.m4s\?live=true", "min": 0, "max": 180},
-        {"expect": r"AAMP_EVENT_AD_PLACEMENT_START\tadId=adId1\tposition=\d+\toffset=0\tduration=30000\terror=0", "min": 0, "max": 100},
-        {"expect": r"\[ReportAdProgress\]\[\d+\]AdId:adId1\s+pos:\s+\d+..\d+.\d+..\d+..(9\d+.\d{2}|100)%\)", "min": 0, "max": 100},
-        {"expect": r"AAMP_EVENT_AD_PLACEMENT_END\tadId=adId1\tposition=\d+\toffset=\d+\tduration=\d+\terror=0", "min": 0, "max": 100},
-        {"expect": r"\[SelectSourceOrAdPeriod\]\[\d+\]Period ID changed from '0-111' to '1-114' \[BasePeriodId='2'\]", "min": 0, "max": 120},
-        {"expect": r"AAMP_EVENT_AD_PLACEMENT_START\tadId=adId2\tposition=\d+\toffset=0\tduration=10000\terror=0", "min": 0, "max": 130},
-        {"expect": r"\[ReportAdProgress\]\[\d+\]AdId:adId2\s+pos:\s+\d+..\d+.\d+..\d+..(9\d+.\d{2}|100)%\)", "min": 0, "max": 130},
-        {"expect": r"AAMP_EVENT_AD_PLACEMENT_END\tadId=adId2\tposition=\d+\toffset=\d+\tduration=\d+\terror=0", "min": 0, "max": 150},
-        {"expect": r"\[SelectSourceOrAdPeriod\]\[\d+\]Period ID changed from '1-114' to '2-111' \[BasePeriodId='3'\]", "min": 0, "max": 150},
-        {"expect": r"AAMP_EVENT_AD_PLACEMENT_START\tadId=adId3\tposition=\d+\toffset=0\tduration=30000\terror=0", "min": 0, "max": 180},
-        {"expect": r"\[ReportAdProgress\]\[\d+\]AdId:adId3\s+pos:\s+\d+..\d+.\d+..\d+..(9\d+.\d{2}|100)%\)", "min": 0, "max": 140},
-        {"expect": r"AAMP_EVENT_AD_PLACEMENT_END\tadId=adId3\tposition=\d+\toffset=\d+\tduration=\d+\terror=0", "min": 0, "max": 180},
-        {"expect": r"\[SelectSourceOrAdPeriod\]\[\d+\]Period ID changed from '2-111' to '3-114' \[BasePeriodId='4'\]", "min": 0, "max": 180},
-        {"expect": r"AAMP_EVENT_AD_PLACEMENT_START\tadId=adId4\tposition=\d+\toffset=0\tduration=20000\terror=0", "min": 0, "max": 180},
-        {"expect": r"\[ReportAdProgress\]\[\d+\]AdId:adId4\s+pos:\s+\d+..\d+.\d+..\d+..(9\d+.\d{2}|100)%\)", "min": 0, "max": 150},
-        {"expect": r"AAMP_EVENT_AD_PLACEMENT_END\tadId=adId4\tposition=\d+\toffset=\d+\tduration=\d+\terror=0", "min": 0, "max": 180},
-        {"expect": r"\[SelectSourceOrAdPeriod\]\[\d+\]Period ID changed from '3-114' to '4-111' \[BasePeriodId='5'\]", "min": 0, "max": 180},
-        {"expect": r"AAMP_EVENT_AD_PLACEMENT_START\tadId=adId5\tposition=\d+\toffset=0\tduration=30000\terror=0", "min": 0, "max": 180},
-        {"expect": r"\[ReportAdProgress\]\[\d+\]AdId:adId5\s+pos:\s+\d+..\d+.\d+..\d+..(9\d+.\d{2}|100)%\)", "min": 0, "max": 200},
-        {"expect": r"\[SelectSourceOrAdPeriod\]\[\d+\]Period ID changed from '4-111' to '6' \[BasePeriodId='6'\]", "min": 0, "max": 200},
-        {"expect": r"HttpRequestEnd: 0,0,.*_091.m4s\?live=true\r\n", "min": 0, "max": 200},
-        {"expect": r"AAMP_EVENT_AD_PLACEMENT_END\tadId=adId5\tposition=\d+\toffset=\d+\tduration=\d+\terror=0", "min": 0, "max": 220, "end_of_test":True},
+        {"expect": r"\[Tune\]\[\d+\]FOREGROUND PLAYER\[\d+\] aamp_tune:", "max": 30},
+        {"expect": r"Found CDAI events for period", "max": 200},
+        {"expect": r"\[SelectSourceOrAdPeriod\]\[\d+\]Period ID changed from '0' to '0-111' \[BasePeriodId='1'\]", "max": 80},
+        {"expect": r"HttpRequestEnd: 2,7,.*?_init.m4s\?live=true", "max": 180},
+        {"expect": r"HttpRequestEnd: 0,0,.*?_001.m4s\?live=true", "max": 180},
+        {"expect": r"AAMP_EVENT_AD_PLACEMENT_START\tadId=adId1\tposition=\d+\toffset=0\tduration=30000\terror=0", "max": 220},
+        {"expect": r"\[ReportAdProgress\]\[\d+\]AdId:adId1\s+pos:\s+\d+..\d+.\d+..\d+..(9\d+.\d{2}|100)%\)", "max": 220},
+        {"expect": r"AAMP_EVENT_AD_PLACEMENT_END\tadId=adId1\tposition=\d+\toffset=\d+\tduration=\d+\terror=0", "max": 220},
+        {"expect": r"\[SelectSourceOrAdPeriod\]\[\d+\]Period ID changed from '0-111' to '1-114' \[BasePeriodId='2'\]", "max": 220},
+        {"expect": r"AAMP_EVENT_AD_PLACEMENT_START\tadId=adId2\tposition=\d+\toffset=0\tduration=10000\terror=0", "max": 220},
+        {"expect": r"\[ReportAdProgress\]\[\d+\]AdId:adId2\s+pos:\s+\d+..\d+.\d+..\d+..(9\d+.\d{2}|100)%\)", "max": 220},
+        {"expect": r"AAMP_EVENT_AD_PLACEMENT_END\tadId=adId2\tposition=\d+\toffset=\d+\tduration=\d+\terror=0", "max": 220},
+        {"expect": r"\[SelectSourceOrAdPeriod\]\[\d+\]Period ID changed from '1-114' to '2-111' \[BasePeriodId='3'\]", "max": 220},
+        {"expect": r"AAMP_EVENT_AD_PLACEMENT_START\tadId=adId3\tposition=\d+\toffset=0\tduration=30000\terror=0", "max": 220},
+        {"expect": r"\[ReportAdProgress\]\[\d+\]AdId:adId3\s+pos:\s+\d+..\d+.\d+..\d+..(9\d+.\d{2}|100)%\)", "max": 220},
+        {"expect": r"AAMP_EVENT_AD_PLACEMENT_END\tadId=adId3\tposition=\d+\toffset=\d+\tduration=\d+\terror=0", "max": 220},
+        {"expect": r"\[SelectSourceOrAdPeriod\]\[\d+\]Period ID changed from '2-111' to '3-114' \[BasePeriodId='4'\]", "max": 220},
+        {"expect": r"AAMP_EVENT_AD_PLACEMENT_START\tadId=adId4\tposition=\d+\toffset=0\tduration=20000\terror=0", "max": 220},
+        {"expect": r"\[ReportAdProgress\]\[\d+\]AdId:adId4\s+pos:\s+\d+..\d+.\d+..\d+..(9\d+.\d{2}|100)%\)", "max": 220},
+        {"expect": r"AAMP_EVENT_AD_PLACEMENT_END\tadId=adId4\tposition=\d+\toffset=\d+\tduration=\d+\terror=0", "max": 220},
+        {"expect": r"\[SelectSourceOrAdPeriod\]\[\d+\]Period ID changed from '3-114' to '4-111' \[BasePeriodId='5'\]", "max": 220},
+        {"expect": r"AAMP_EVENT_AD_PLACEMENT_START\tadId=adId5\tposition=\d+\toffset=0\tduration=30000\terror=0", "max": 220},
+        {"expect": r"\[ReportAdProgress\]\[\d+\]AdId:adId5\s+pos:\s+\d+..\d+.\d+..\d+..(9\d+.\d{2}|100)%\)", "max": 220},
+        {"expect": r"\[SelectSourceOrAdPeriod\]\[\d+\]Period ID changed from '4-111' to '6' \[BasePeriodId='6'\]", "max": 220},
+        {"expect": r"HttpRequestEnd: 0,0,.*_091.m4s\?live=true\r\n", "max": 220},
+        {"expect": r"AAMP_EVENT_AD_PLACEMENT_END\tadId=adId5\tposition=\d+\toffset=\d+\tduration=\d+\terror=0", "max": 220, "end_of_test":True},
     ],
 }
 

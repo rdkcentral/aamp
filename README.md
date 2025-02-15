@@ -347,12 +347,11 @@ bps <val>   Set video bitrate in bps
 fog <url|host=ip:port> 'fog url' tune to arbitrary locator via fog. 'fog host=ip:port' set fog location (default: 127.0.0.1:9080)
 adtesting   Toggle indexed ad insertion that does NOT check for any duration match
 advert <params>
-	advert add <url> <duration> <index> (index and duration optional -> index of adbreak , possible to add multiple ads to same index to insert multiple into same adbreak)
-	advert add <channel number> <duration> <index> ( index and duration optional , add a url from the virtual channel map, if given channel number exists , at index)
-	advert rm <url> (remove a matching url)
-	advert rm <index> (remove the url at the given index)
-	advert clear (clear current ad map)
-	advert list (display the advert list)
+	advert map <adbreakid> <url>
+		specify ad locator to present instead of source content during specified ad break
+		note: multiple sequential ads can be mapped to fill a single ad break by calling advert map multiple times with same adbreakid
+	advert clear (clear current advert map)
+	advert list	(display the advert list)
 new <name>	create a new player instance with optional name
 select <val|name> move player val or name to foreground. With no option list all players
 detach		move current foreground player to background

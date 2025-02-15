@@ -28,17 +28,8 @@ from inspect import getsourcefile
 import pytest
 
 archive_url = "https://cpetestutility.stb.r53.xcal.tv/AAMP/simlinear/SkyAtlantic/30t-2/skyatlantic-30t-2.tgz"
-AD_HOST = "https://cpetestutility.stb.r53.xcal.tv"
 
-
-AD_URLS = [
-    # skip placement
-    "file://skip",
-
-    # 30sec - ad3 (bet)
-    AD_HOST + "/VideoTestStream/public/aamptest/streams/ads/ad3/hsar1039-soip-ads-prd.cdn01.skycdp.com/ads-gb-s8-prd-ak.cdn01.skycdp.com/v1/frag/bmff/t/ipvodad17/dc004d50-30ea-4f46-add8-9a007fe7c8ec/1628085330949/AD/HD/manifest.mpd",
-    ]
-
+AD_URL = "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/streams/ads/ad3/hsar1039-soip-ads-prd.cdn01.skycdp.com/ads-gb-s8-prd-ak.cdn01.skycdp.com/v1/frag/bmff/t/ipvodad17/dc004d50-30ea-4f46-add8-9a007fe7c8ec/1628085330949/AD/HD/manifest.mpd"
 
 ###############################################################################
 
@@ -56,16 +47,13 @@ def test_8013(aamp_setup_teardown):
         'simlinear_type': 'DASH',
         "max_test_time_seconds": 60,
         "aamp_cfg": "info=true\ntrace=true\nlogMetadata=true\nclient-dai=true\n",
-        "cmdlist": [
-                "advert add " + AD_URLS[0],
-                "advert list",
-            ],
+        "cmdlist": [ "advert list" ],
         "expect_list": [
                 {"expect": r"Found CDAI events for period 881036617"},
                 {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\] Got adIdx\[-1\] for adBreakId\[881036617\] but adBreak object exist"},
                 {"expect": r"\[WaitForNextAdResolved\]\[\d+\]Waiting for next ad placement in 881036617 to complete with timeout \d+ ms."},
                 {"cmd": "advert clear"},
-                {"cmd": "set alternateContents 881036617 ad1 " + AD_URLS[1]},
+                {"cmd": "set alternateContents 881036617 ad1 " + AD_URL},
                 {"expect": r"State changed from \[OUTSIDE_ADBREAK\] => \[OUTSIDE_ADBREAK_WAIT4ADS\]"},
                 {"expect": r"State changed from \[OUTSIDE_ADBREAK_WAIT4ADS\] => \[IN_ADBREAK_AD_PLAYING\]"},
                 {"expect": r"\[SelectSourceOrAdPeriod\]\[\d+\]Period ID changed from '881036616' to '0-1' \[BasePeriodId='881036617'\]"},

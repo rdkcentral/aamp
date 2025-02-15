@@ -67,21 +67,21 @@ TESTDATA1 = {
     "simlinear_type": "HLS",
     "expect_list": [
         # Check AAMP Status changed to "INITIALIZING"  
-        {"expect": "AAMP_EVENT_STATE_CHANGED: INITIALIZING", "min":0, "max":3},
+        {"expect": "AAMP_EVENT_STATE_CHANGED: INITIALIZING", "max":3},
         # Verify download attempt for 1st corrupted segment"  
-        {"expect": "Got next fragment url http://localhost:8085/VideoTestStream_HLS/hls/480p_001.ts", "min":0, "max":3},
+        {"expect": "Got next fragment url http://localhost:8085/VideoTestStream_HLS/hls/480p_001.ts", "max":3},
         # Confirmation - Downloaded segment is corrupt hence it is discarded"  
-        {"expect": "Segment doesn't starts with valid TS packet, discarding", "min":0, "max":3},
-        {"expect": "Not updating totalInjectedDuration since fragment is Discarded", "min":0, "max":3},
+        {"expect": "Segment doesn't starts with valid TS packet, discarding", "max":3},
+        {"expect": "Not updating totalInjectedDuration since fragment is Discarded", "max":3},
         # Verify download attempt for 2nd corrupted segment"  
-        {"expect": "Got next fragment url http://localhost:8085/VideoTestStream_HLS/hls/480p_002.ts", "min":0, "max":3},
+        {"expect": "Got next fragment url http://localhost:8085/VideoTestStream_HLS/hls/480p_002.ts", "max":3},
         # Confirmation - Downloaded segment is corrupt hence it is discarded"  
-        {"expect": "Segment doesn't starts with valid TS packet, discarding", "min":0, "max":3},
-        {"expect": "Not updating totalInjectedDuration since fragment is Discarded", "min":0, "max":3},
+        {"expect": "Segment doesn't starts with valid TS packet, discarding", "max":3},
+        {"expect": "Not updating totalInjectedDuration since fragment is Discarded", "max":3},
         # Verify segment injection failed count reached to threshold value"  
-        {"expect": "Reached max inject failure count: 2, stopping playback", "min":0, "max":3},
+        {"expect": "Reached max inject failure count: 2, stopping playback", "max":3},
         # AAMP playback failed"  
-        {"expect": "AAMP_EVENT_TUNE_FAILED reason=AAMP: Playback failed due to PTS error", "min":0, "max":3, "end_of_test":True},
+        {"expect": "AAMP_EVENT_TUNE_FAILED reason=AAMP: Playback failed due to PTS error", "max":3, "end_of_test":True},
     ],
     "corrupt_fragments_names": ['VideoTestStream_HLS/hls/480p_001.ts', 'VideoTestStream_HLS/hls/480p_002.ts']
 }
@@ -96,26 +96,26 @@ TESTDATA2 = {
     "simlinear_type": "HLS",
     "expect_list": [ 
         # Check AAMP Status changed to "INITIALIZING"  
-        {"expect": "AAMP_EVENT_STATE_CHANGED: INITIALIZING", "min":0, "max":3},
+        {"expect": "AAMP_EVENT_STATE_CHANGED: INITIALIZING", "max":3},
         # Verify download attempt for 1st corrupted segment"  
-        {"expect": "Got next fragment url http://localhost:8085/VideoTestStream_HLS/hls/1080p_003.ts", "min":0, "max":3},
+        {"expect": "Got next fragment url http://localhost:8085/VideoTestStream_HLS/hls/1080p_003.ts", "max":3},
         # Confirmation - Downloaded segment is corrupt hence it is discarded"  
-        {"expect": "Segment doesn't starts with valid TS packet, discarding", "min":0, "max":3},
-        {"expect": "Not updating totalInjectedDuration since fragment is Discarded", "min":0, "max":3},
+        {"expect": "Segment doesn't starts with valid TS packet, discarding", "max":3},
+        {"expect": "Not updating totalInjectedDuration since fragment is Discarded", "max":3},
         # Verify download attempt for 2nd corrupted segment"  
-        {"expect": "Got next fragment url http://localhost:8085/VideoTestStream_HLS/hls/1080p_004.ts", "min":0, "max":3},
+        {"expect": "Got next fragment url http://localhost:8085/VideoTestStream_HLS/hls/1080p_004.ts", "max":3},
         # Confirmation - Downloaded segment is corrupt hence it is discarded"  
-        {"expect": "Segment doesn't starts with valid TS packet, discarding", "min":0, "max":3},
-        {"expect": "Not updating totalInjectedDuration since fragment is Discarded", "min":0, "max":3},
+        {"expect": "Segment doesn't starts with valid TS packet, discarding", "max":3},
+        {"expect": "Not updating totalInjectedDuration since fragment is Discarded", "max":3},
         # Verify download attempt for 3rd corrupted segment"  
-        {"expect": "Got next fragment url http://localhost:8085/VideoTestStream_HLS/hls/1080p_005.ts", "min":0, "max":3},
+        {"expect": "Got next fragment url http://localhost:8085/VideoTestStream_HLS/hls/1080p_005.ts", "max":3},
         # Confirmation - Downloaded segment is corrupt hence it is discarded"  
-        {"expect": "Segment doesn't starts with valid TS packet, discarding", "min":0, "max":3},
-        {"expect": "Not updating totalInjectedDuration since fragment is Discarded", "min":0, "max":3},
+        {"expect": "Segment doesn't starts with valid TS packet, discarding", "max":3},
+        {"expect": "Not updating totalInjectedDuration since fragment is Discarded", "max":3},
         # Verify segment injection failed count reached to threshold value"  
-        {"expect": "Reached max inject failure count: 3, stopping playback", "min":0, "max":3},
+        {"expect": "Reached max inject failure count: 3, stopping playback", "max":3},
         # AAMP playback failed"  
-        {"expect": "AAMP_EVENT_TUNE_FAILED reason=AAMP: Playback failed due to PTS error", "min":0, "max":3, "end_of_test":True},
+        {"expect": "AAMP_EVENT_TUNE_FAILED reason=AAMP: Playback failed due to PTS error", "max":3, "end_of_test":True},
     ],
     "corrupt_fragments_names": ['VideoTestStream_HLS/hls/1080p_003.ts', 'VideoTestStream_HLS/hls/1080p_004.ts', 'VideoTestStream_HLS/hls/1080p_005.ts']
 }

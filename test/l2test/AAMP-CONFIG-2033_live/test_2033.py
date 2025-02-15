@@ -32,8 +32,8 @@ TESTDATA1 = {
     "simlinear_type": "DASH",
     "aamp_cfg": "info=true\ntrace=true\nliveOffset4K=0",
     "expect_list": [
-        {"expect": r"Updated live offset for 4K stream 0","min":0,"max":1,"end_of_test":True}, 
-        {"expect": re.escape("Successfully parsed Manifest ...IsLive[1]"),"min":0,"max":10,"end_of_test":True},
+        {"expect": r"Updated live offset for 4K stream 0","max":1,"end_of_test":True}, 
+        {"expect": re.escape("Successfully parsed Manifest ...IsLive[1]"),"max":10,"end_of_test":True},
         {"expect": r"Returning Position as 1689262831(\d{3})"}, 
         {"cmd" : "pause"},
         {"expect" : r"AAMP_EVENT_STATE_CHANGED: PAUSED"}, 
@@ -63,8 +63,8 @@ TESTDATA2 = {
     "simlinear_type": "DASH",
     "aamp_cfg": "info=true\ntrace=true\nliveOffset4K=0",
     "expect_list": [
-        {"expect": r"Updated live offset for 4K stream 0","min":0,"max":1,"end_of_test":True}, 
-        {"expect": re.escape("Successfully parsed Manifest ...IsLive[1]"),"min":0,"max":10,"end_of_test":True},
+        {"expect": r"Updated live offset for 4K stream 0","max":1,"end_of_test":True}, 
+        {"expect": re.escape("Successfully parsed Manifest ...IsLive[1]"),"max":10,"end_of_test":True},
         {"expect": r"Returning Position as 1689262831(\d{3})"}, 
         {"cmd" : "pause"},
         {"expect" : r"AAMP_EVENT_STATE_CHANGED: PAUSED"}, 
@@ -94,8 +94,8 @@ TESTDATA3 = {
     "simlinear_type": "DASH",
     "aamp_cfg": "info=true\ntrace=true\nliveOffset4K=0",
     "expect_list": [
-        {"expect": r"Updated live offset for 4K stream 0","min":0,"max":1,"end_of_test":True}, 
-        {"expect": re.escape("Successfully parsed Manifest ...IsLive[1]"),"min":0,"max":10,"end_of_test":True},
+        {"expect": r"Updated live offset for 4K stream 0","max":1,"end_of_test":True}, 
+        {"expect": re.escape("Successfully parsed Manifest ...IsLive[1]"),"max":10,"end_of_test":True},
         {"expect": r"Returning Position as 1689262831(\d{3})"}, 
         {"cmd" : "pause"},
         {"expect" : r"AAMP_EVENT_STATE_CHANGED: PAUSED"}, 

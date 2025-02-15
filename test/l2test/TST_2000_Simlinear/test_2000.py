@@ -40,8 +40,8 @@ TESTDATA1 = {
 "aamp_cfg": "info=true\ntrace=true\n",
 "expect_list": [
     # ( string, min time seconds, max time seconds)
-    {"expect":"Video Profile added to ABR","min":0, "max":1},
-    {"expect": r"Returning Position as (\d+) ","min":0, "max":300},
+    {"expect":"Video Profile added to ABR", "max":1},
+    {"expect": r"Returning Position as (\d+) ", "max":300},
     {"expect": r"fragment injector done. track video", "min": 150, "max": 250,"end_of_test":True }
     ]
 }
@@ -54,8 +54,8 @@ TESTDATA2 = {
 "max_test_time_seconds": 300,
 "aamp_cfg": "info=true\ntrace=true\n",
 "expect_list": [
-    {"expect": r"Video Profile added to ABR", "min": 0, "max": 1},
-    {"expect": r"Returning Position as (\d+) ","min":0, "max":300},
+    {"expect": r"Video Profile added to ABR", "max": 1},
+    {"expect": r"Returning Position as (\d+) ", "max":300},
     {"expect": r"Returning Position as 19[0-9]{4}", "min": 190, "max": 300,"end_of_test":True},
     {"expect": r"totalInjectedDuration 21[0-1]", "min": 190, "max": 300,"end_of_test":True},
 ]
@@ -72,7 +72,7 @@ TESTDATA3= {
 "max_test_time_seconds": 300,
 "aamp_cfg": "info=true\ntrace=true\n",
 "expect_list": [
-    {"expect": r"Video Profile added to ABR", "min": 0, "max": 1},
+    {"expect": r"Video Profile added to ABR", "max": 1},
     {"expect": r"#EXT-X-DISCONTINUITY", "min": 40, "max": 100},
     #A section of audio is missing, after this audio buffer state is
     #always red because MonitorBufferHealth has no way of recovering.
@@ -94,7 +94,7 @@ TESTDATA4= {
 "max_test_time_seconds": 300,
 "aamp_cfg": "info=true\ntrace=true\n",
 "expect_list": [
-    {"expect": r"Video Profile added to ABR", "min": 0, "max": 1},
+    {"expect": r"Video Profile added to ABR", "max": 1},
     {"expect": r"#EXT-X-DISCONTINUITY", "min": 40, "max": 80},
     {"expect": r"Ignoring discontinuity as audio track does not have discontinuity", "min": 50, "max": 150},
     {"expect": r"track\[audio\] buffering GREEN->YELLOW", "min": 10, "max": 75, "not_expected" : True},
@@ -115,8 +115,8 @@ TESTDATA5= {
 "aamp_cfg": "info=true\ntrace=true\n",
 "expect_list": [
     # ( string, min time seconds, max time seconds)
-    {"expect": r"Video Profile added to ABR","min":0, "max":1},
-    {"expect": r"Returning Position as (\d+) ", "min": 0, "max": 300},
+    {"expect": r"Video Profile added to ABR", "max":1},
+    {"expect": r"Returning Position as (\d+) ", "max": 300},
     {"expect": r"Buffer is running low", "min": 60, "max": 200, "not_expected" : True},
     {"expect": r"mTrackState:3!", "min": 20, "max": 35, }, #I.E discontinuity in audio and video
     {"expect": r"#EXT-X-DISCONTINUITY", "min": 20, "max": 30},
@@ -142,8 +142,8 @@ TESTDATA6= {
 "aamp_cfg": "info=true\ntrace=true\n",
 "expect_list": [
     # ( string, min time seconds, max time seconds)
-    {"expect": r"Video Profile added to ABR","min":0, "max":1},
-    {"expect": r"Returning Position as (\d+) ", "min": 0, "max": 300},
+    {"expect": r"Video Profile added to ABR", "max":1},
+    {"expect": r"Returning Position as (\d+) ", "max": 300},
     {"expect": r"Buffer is running low", "min": 60, "max": 200, "not_expected" : True},
     {"expect": r"mTrackState:3!", "min": 20, "max": 35, }, #I.E discontinuity in audio and video
     {"expect": r"#EXT-X-DISCONTINUITY", "min": 20, "max": 30},
@@ -170,8 +170,8 @@ TESTDATA7= {
 "aamp_cfg": "info=true\ntrace=true\n",
 "expect_list": [
     # ( string, min time seconds, max time seconds)
-    {"expect": r"Video Profile added to ABR","min":0, "max":1},
-    {"expect": r"Returning Position as (\d+) ", "min": 0, "max": 300},
+    {"expect": r"Video Profile added to ABR", "max":1},
+    {"expect": r"Returning Position as (\d+) ", "max": 300},
     {"expect": r"Buffer is running low", "min": 60, "max": 200, "not_expected" : True},
     {"expect": r"mTrackState:3!", "min": 20, "max": 35, }, #I.E discontinuity in audio and video
     {"expect": r"#EXT-X-DISCONTINUITY", "min": 20, "max": 30},
@@ -197,7 +197,7 @@ TESTDATA8= {
 "max_test_time_seconds": 300,
 "aamp_cfg": "info=true\ntrace=true\n",
 "expect_list": [
-    {"expect": r"Video Profile added to ABR", "min": 0, "max": 1},
+    {"expect": r"Video Profile added to ABR", "max": 1},
     {"expect": r"#EXT-X-DISCONTINUITY", "min": 45, "max": 55},
     #Gap of 4 secs for 1 missing video segment when we have corresponding audio
     #marker to end test
@@ -216,8 +216,8 @@ TESTDATA9= {
 "max_test_time_seconds": 300,
 "aamp_cfg": "info=true\ntrace=true\n",
 "expect_list": [
-    {"expect": r"Video Profile added to ABR", "min": 0, "max": 1},
-    {"expect": r"Returning Position as (\d+) ", "min": 0, "max": 300},
+    {"expect": r"Video Profile added to ABR", "max": 1},
+    {"expect": r"Returning Position as (\d+) ", "max": 300},
     {"expect": r"#EXT-X-DISCONTINUITY", "min": 45, "max": 75},
     # Gap of 4 secs for 1 missing audio segment when we have video
     # But commenting out the following line to keep the test passing.

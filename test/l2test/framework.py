@@ -512,7 +512,7 @@ class Aamp:
         {"expect": re.escape("track[audio] buffering GREEN->YELLOW") ..}
                                             # Log line match, See expect_a documentation comments
 
-        {"expect": "expected in first 10S" , "min": 0, "max": 10},
+        {"expect": "expected in first 10S" , "max": 10},
         {"expect": "expected in 2nd 10S" ,   "min": 10, "max": 20},
                                             # optional min max values in seconds give time window when log line
                                             # is expected to occur.

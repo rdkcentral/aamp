@@ -40,8 +40,8 @@ TESTDATA1 = {
     "url": MULTI_TEST_STREAM,
     "expect_list":
     [
-        {"expect": r"aamp_tune","min":0, "max":2},
-        {"expect" : r"PTS-RESTAMP ENABLED, but we have codec change, so Signal EOS","min":0, "max":25},
+        {"expect": r"aamp_tune", "max":2},
+        {"expect" : r"PTS-RESTAMP ENABLED, but we have codec change, so Signal EOS", "max":25},
         {"expect" : r"Pipeline flush seek"},
         {"expect" : r"FetcherLoop done", "end_of_test":True},
     ]
@@ -55,7 +55,7 @@ TESTDATA2 = {
     "url": MULTI_TEST_STREAM,
     "expect_list":
     [
-        {"expect": r"aamp_tune","min":0, "max":2},
+        {"expect": r"aamp_tune", "max":2},
         {"expect" : r"Pipeline flush seek"},
         {"expect" : r"FetcherLoop done","end_of_test":True},
     ]

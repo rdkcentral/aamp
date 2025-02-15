@@ -56,13 +56,13 @@ TESTDATA1= {
 "max_test_time_seconds": 300,
 "expect_list": [
     # ( string, min time seconds, max time seconds)
-    {"expect": "Video Profile added to ABR", "min": 0, "max": 1},
+    {"expect": "Video Profile added to ABR", "max": 1},
     {"expect": "http://simlinear:8085/testdata/m3u8s/discontinuity_test_video_1080_4800000.m3u8",
-     "min": 0, "max": 4}, # Ramp up to the highest bitrate within 3 segment duration (~6 seconds)
+     "max": 4}, # Ramp up to the highest bitrate within 3 segment duration (~6 seconds)
     {"expect": "Got next fragment url http://simlinear:8085/testdata/m3u8s/../video/1080_4800000/hls/segment_10.ts",
-     "min": 0, "max": 8, "callback": set_rate, "callback_arg": 700},      # First few segment requests should be settled faster than real time and the speed ramped up
+     "max": 8, "callback": set_rate, "callback_arg": 700},      # First few segment requests should be settled faster than real time and the speed ramped up
     {"expect": "Got next fragment url http://simlinear:8085/testdata/m3u8s/../video/180_250000/hls/segment_15.ts",
-     "min": 0, "max": 36,  "callback": set_rate, "callback_arg": 1000},
+     "max": 36,  "callback": set_rate, "callback_arg": 1000},
     {"expect": "Got next fragment url http://simlinear:8085/testdata/m3u8s/../video/270_400000/hls/segment_22.ts",
      "min": 50, "max": 60, "callback": set_rate, "callback_arg": 1900},
     {"expect": "Got next fragment url http://simlinear:8085/testdata/m3u8s/../video/360_800000/hls/segment_27.ts",
@@ -84,7 +84,7 @@ TESTDATA1= {
     {"expect": "HttpRequestEnd: 0,0,200,.*http://simlinear:8085/testdata/video/1080_4800000/hls/segment_41.ts",
      "min": 100, "max": 143},
     {"expect": "Buffer is running low",
-     "min": 0, "max": 200, "not_expected" : True},
+     "max": 200, "not_expected" : True},
     {"expect": "fragment injector done. track video",
      "min": 150, "max": 250, "end_of_test": True }
     ]

@@ -88,7 +88,7 @@ TESTDATA2 = {
      "expect_list": [
 
 	{"cmd": "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/streams/muxed/main_mux.m3u8"},
-	{"expect": r"aamp_tune","min":0, "max":1},
+	{"expect": r"aamp_tune", "max":1},
 	{"cmd": "sleep 4000"},
         {"expect": "sleeping for 4.000000 seconds"},
         {"cmd":"get 20"},

@@ -37,7 +37,7 @@ extern void tsdemuxer_InduceRollover( bool enable );
 std::map<std::string,std::string> PlaybackCommand::playbackCommands = std::map<std::string,std::string>();
 std::vector<std::string> PlaybackCommand::commands(0);
 static std::string mFogHostPrefix="127.0.0.1:9080"; //Default host string for "fog" command
-std::vector<std::vector<AdvertInfo>> mAdvertList = std::vector<std::vector<AdvertInfo>>();
+std::vector<AdvertInfo> mAdvertList;
 
 void PlaybackCommand::getRange(const char* cmd, unsigned long& start, unsigned long& end, unsigned long& tail)
 {
@@ -196,10 +196,6 @@ void PlaybackCommand::HandleCommandSelect( const char *cmd, PlayerInstanceAAMP *
 			{
 				printf( " (selected)");
 			}
-			//if( !player->aamp )
-			//{
-			//	printf( " (!)" );
-			//}
 			printf( "\n");
 		}
 	}
@@ -508,194 +504,26 @@ void PlaybackCommand::HandleCommandAdvert( const char *cmd, PlayerInstanceAAMP *
 
 	if (std::getline(input, token, ' '))
 	{
-		if (token == "list")
+		if( token == "list" )
 		{
-			printf("[AAMP-CLI] Ad Map -------->\n");
-			for (size_t i = 0; i < mAdvertList.size(); i++)
+			printf("[AAMP-CLI] Ad Map:\n");
+			for( const AdvertInfo &advertInfo : mAdvertList )
 			{
-				if(mAdvertList[i].size()>0)
-				{
-					for (size_t j = 0; j < mAdvertList[i].size(); j++)
-					{
-						const AdvertInfo& advert = mAdvertList[i][j];
-						printf("[AAMP-CLI] Index %zu --> advert %zu: url %s duration %d\n", i, j, advert.url.c_str(), advert.duration);
-					}
-				}
+				printf("[AAMP-CLI] advert %s -> %s\n", advertInfo.adBreakId.c_str(), advertInfo.url.c_str() );
 			}
 		}
-		else if(token == "clear")
+		else if( token == "clear" )
 		{
 			mAdvertList.clear();
 			printf("[AAMP-CLI] Cleared Ad List\n");
 		}
-		else
+		else if( token == "map" )
 		{
-			std::string url;
-			std::string identifier;
-
-			// The next para should be a url or an index to a url
-			if (!std::getline(input, identifier, ' '))
-			{
-				printf("[AAMP-CLI] ERROR - unable to parse url identifier\n");
-			}
-			else if (playerInstanceAamp->isTuneScheme(identifier.c_str()))
-			{
-				// If we have a URL, add or remove it from the list
-				if (token == "add")
-				{
-					std::string duration;
-					AdvertInfo lAdvertInfo;
-					lAdvertInfo.url = identifier;
-
-					if (std::getline(input, duration, ' '))
-						lAdvertInfo.duration = std::stoi(duration);
-					else
-						lAdvertInfo.duration = 0;
-
-					int idx = 0;
-					if(std::getline(input, token, ' '))
-					{
-						try
-						{
-							idx = std::stoi(token);
-						}
-						catch(...)
-						{
-							printf("[AAMP-CLI] ERROR - invalid index '%s'\n", token.c_str());
-							idx = 0;
-						}
-
-						if (idx >= mAdvertList.size())
-						{
-							mAdvertList.resize(idx + 1);
-						}
-						mAdvertList[idx].push_back(lAdvertInfo);
-						printf("[AAMP-CLI] Added to advert list url: %s duration: %d at index : %d mIndexedAds : %d\n", (lAdvertInfo.url).c_str(), lAdvertInfo.duration , idx , mAampcli.mIndexedAds);
-
-					}
-					else
-					{
-						std::vector<AdvertInfo> newAdvertList;
-						newAdvertList.push_back(lAdvertInfo);
-						mAdvertList.push_back(newAdvertList);
-						printf("[AAMP-CLI] Added to advert list url: %s duration: %d at new index : %zu mIndexedAds : %d\n", (lAdvertInfo.url).c_str(), lAdvertInfo.duration, mAdvertList.size() - 1, mAampcli.mIndexedAds);
-					}
-				}
-				else if (token == "rm")
-				{
-					bool urlFlag = false;
-					for (size_t i = 0; i < mAdvertList.size(); ++i)
-					{
-						for (auto itr = mAdvertList[i].begin(); itr != mAdvertList[i].end(); ++itr)
-						{
-							if (identifier == itr->url)
-							{
-								mAdvertList[i].erase(itr);
-								urlFlag = true;
-								printf("[AAMP-CLI] Removed from advert list url: %s \n", identifier.c_str());
-								break;
-							}
-						}
-
-						if (urlFlag)
-						{
-							break;
-						}
-					}
-
-					if(!urlFlag)
-					{
-						printf("[AAMP-CLI] ERROR - no url '%s' in list\n", identifier.c_str());
-					}
-
-				}
-				else
-				{
-					printf("[AAMP-CLI] ERROR - unrecognised command 'advert %s'\n", token.c_str());
-				}
-			}
-			else if (isNumber(identifier.c_str()))
-			{
-				uint32_t urlIndex = -1;
-				try
-				{
-					urlIndex = (uint32_t)std::stoi(identifier);
-
-					// If adding a url by index, get the url from the virtual channel map
-					if (token == "add")
-					{
-						// Add a url from the virtual channel map
-						VirtualChannelInfo *info = mVirtualChannelMap.find(urlIndex);
-						if (info)
-						{
-							std::string duration;
-							AdvertInfo lAdvertInfo;
-							lAdvertInfo.url = info->uri;
-
-							if (std::getline(input, duration, ' '))
-								lAdvertInfo.duration = stoi(duration);
-							else
-								lAdvertInfo.duration = 0;
-							if(std::getline(input, token, ' '))
-							{
-								int idx;
-								try
-								{
-									idx = std::stoi(token);
-								}
-								catch(...)
-								{
-									printf("[AAMP-CLI] ERROR - invalid index '%s'\n", token.c_str());
-									idx = 0;
-								}
-
-								if (idx >= mAdvertList.size())
-								{
-									mAdvertList.resize(idx + 1);
-								}
-								mAdvertList[idx].push_back(lAdvertInfo);
-								printf("[AAMP-CLI] Added to advert list url: %s duration: %d at index : %d mIndexedAds : %d\n", (lAdvertInfo.url).c_str(), lAdvertInfo.duration , idx , mAampcli.mIndexedAds);
-
-							}
-							else
-							{
-								std::vector<AdvertInfo> newAdvertList;
-								newAdvertList.push_back(lAdvertInfo);
-								mAdvertList.push_back(newAdvertList);
-								printf("[AAMP-CLI] Added to advert list url: %s duration: %d at new index : %zu mIndexedAds : %d\n", (lAdvertInfo.url).c_str(), lAdvertInfo.duration, mAdvertList.size() - 1, mAampcli.mIndexedAds);
-							}
-						}
-						else
-						{
-							printf("[AAMP-CLI] ERROR - invalid index into virtual channel map %d\n", urlIndex);
-						}
-					}
-
-					// If deleting a url by index, get the url at that index
-					else if (token == "rm")
-					{
-						// Remove a url by index
-
-						if (urlIndex < mAdvertList.size())
-						{
-							mAdvertList[urlIndex].clear();
-							printf("[AAMP-CLI] Cleared all elements at index %d\n", urlIndex);
-						}
-						else
-						{
-							printf("[AAMP-CLI] ERROR - invalid index %d\n", urlIndex);
-						}
-					}
-				}
-				catch (...)
-				{
-					printf("[AAMP-CLI] ERROR - invalid index '%s'\n", identifier.c_str());
-				}
-			}
-			else
-			{
-				printf("[AAMP-CLI] ERROR - param '%s'\n", identifier.c_str());
-			}
+			AdvertInfo advertInfo;
+			std::getline( input, advertInfo.adBreakId, ' ' );
+			std::getline( input, advertInfo.url, ' ' );
+			mAdvertList.push_back(advertInfo);
+			printf("[AAMP-CLI] mapped adBreakId %s\n", advertInfo.adBreakId.c_str() );
 		}
 	}
 	else

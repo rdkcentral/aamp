@@ -42,7 +42,7 @@ TESTDATA1 = {
     ],
 "expect_list": [
     #Check to ensure start(1st parameter) is zero and also the end position(third para.) increases with time
-    {"expect": r"aamp pos: \[(.*)" + re.escape("0..1253..1257..") + r"(.*)]", "min": 0, "max": 20},
+    {"expect": r"aamp pos: \[(.*)" + re.escape("0..1253..1257..") + r"(.*)]", "max": 20},
     {"expect": r"aamp pos: \[(.*)" + re.escape("0..1265..1269..") + r"(.*)]","min":20,"max":25},
     #Check to ensure start(1st parameter) is zero and also the end position(third parameter) is same for cold cdvr
     {"expect": r"\[AAMPCLI\] AAMP_EVENT_MANIFEST_REFRESH_NOTIFY.*manifestType\[static\]"},

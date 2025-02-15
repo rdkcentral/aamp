@@ -343,7 +343,11 @@ void  PrivateCDAIObjectMPD::PlaceAds(dash::mpd::IMPD *mpd)
 							double adDurationToPlaceInBreak = GetRemainingAdDurationInBreak(mPlacementObj.pendingAdbrkId, mPlacementObj.curAdIdx, mPlacementObj.adStartOffset);
 							// This is the duration that is available in the current period, after deducting already placed ads if any.
 							// If that duration not reaching the adDurationToPlaceInBreak, then its a split period case
-							double periodDurationAvailable = (currperioddur - abObj.ads->at(mPlacementObj.curAdIdx).basePeriodOffset);
+							double periodDurationAvailable = 0;
+							if( abObj.ads )
+							{
+								periodDurationAvailable = (currperioddur - abObj.ads->at(mPlacementObj.curAdIdx).basePeriodOffset);
+							}
 							if((nextperioddur > 0) && ((periodDurationAvailable >= 0) && (periodDurationAvailable <= adDurationToPlaceInBreak)))
 							{
 								AAMPLOG_INFO("nextperioddur = %f currperioddur = %f curAd.duration = [%" PRIu64 "] periodDurationAvailable:%lf adDurationToPlaceInBreak:%lf",
@@ -361,6 +365,11 @@ void  PrivateCDAIObjectMPD::PlaceAds(dash::mpd::IMPD *mpd)
 					}
 					while(periodDelta > 0 || isSrcdurnotequalstoaddur)
 					{
+						if( !abObj.ads )
+						{
+							AAMPLOG_WARN("abObj.ads=nullptr");
+							break;
+						}
 						AdNode &curAd = abObj.ads->at(mPlacementObj.curAdIdx);
 						AAMPLOG_INFO("curAd.duration = [%" PRIu64 "]",curAd.duration);
 						if(periodDelta < (curAd.duration - mPlacementObj.adNextOffset))
@@ -1514,16 +1523,19 @@ void PrivateCDAIObjectMPD::AbortWaitForNextAdResolved()
 uint64_t PrivateCDAIObjectMPD::GetRemainingAdDurationInBreak(const std::string &breakId, int adIdx, uint32_t startOffset)
 {
 	uint64_t duration = 0;
-	if (!breakId.empty())
+	if (!breakId.empty() )
 	{
 		AdBreakObject &abObj = mAdBreaks[breakId];
-		for (int idx = adIdx; idx < abObj.ads->size(); idx++)
+		if( abObj.ads!=nullptr )
 		{
-			duration += abObj.ads->at(idx).duration;
-		}
-		if (duration > startOffset)
-		{
-			duration -= startOffset;
+			for (int idx = adIdx; idx < abObj.ads->size(); idx++)
+			{
+				duration += abObj.ads->at(idx).duration;
+			}
+			if (duration > startOffset)
+			{
+				duration -= startOffset;
+			}
 		}
 	}
 	return duration;

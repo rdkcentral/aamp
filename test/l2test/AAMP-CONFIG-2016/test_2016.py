@@ -70,13 +70,13 @@ TESTDATA2 = {
     "url": f"{UHD_stream}",
     "expect_list": [
         # Indicates player switch from one video profile to another
-        {"expect": r"AAMPLogABRInfo : switching to '(high|low)er' profile", "min":0, "max": 60},
-        {"expect": r"ABRProfileChanged", "min":0, "max": 60},
-        {"expect": r"StreamAbstractionAAMP_MPD:\ ABR", "min":0, "max": 60},
+        {"expect": r"AAMPLogABRInfo : switching to '(high|low)er' profile", "max": 60},
+        {"expect": r"ABRProfileChanged", "max": 60},
+        {"expect": r"StreamAbstractionAAMP_MPD:\ ABR", "max": 60},
         
         # Checking the playback progress
-        {"expect": r"Returning Position as [1-4]\d{3}", "min":0, "max": 60},
-        {"expect": r"Returning Position as [5-9]\d{3}", "min":0, "max": 60, "end_of_test": True},
+        {"expect": r"Returning Position as [1-4]\d{3}", "max": 60},
+        {"expect": r"Returning Position as [5-9]\d{3}", "max": 60, "end_of_test": True},
     ]
 }
 

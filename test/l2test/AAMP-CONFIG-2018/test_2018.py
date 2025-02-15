@@ -33,8 +33,8 @@ TESTDATA1 = {
     "simlinear_type": "DASH",
     "aamp_cfg": "info=true\ntrace=true\nliveOffset4K=0",
     "expect_list": [
-        {"expect": re.escape("Successfully parsed Manifest ...IsLive[1]"),"min":0,"max":10,"end_of_test":True},
-        {"expect": r"Updated live offset for 4K stream 0","min":0,"max":1,"end_of_test":True}, 
+        {"expect": re.escape("Successfully parsed Manifest ...IsLive[1]"),"max":10,"end_of_test":True},
+        {"expect": r"Updated live offset for 4K stream 0","max":1,"end_of_test":True}, 
         {"expect": r"Returning Position as 16892628(\d{5})"},
         {"cmd": "sleep 1000"},
         {"expect": "sleeping for 1.000000 seconds"},
@@ -52,8 +52,8 @@ TESTDATA2 = {
     "simlinear_type": "DASH",
     "aamp_cfg": "info=true\ntrace=true\nliveOffset4K=15",
     "expect_list": [
-        {"expect": re.escape("Successfully parsed Manifest ...IsLive[1]"),"min":0,"max":10,"end_of_test":True},
-        {"expect": r"Updated live offset for 4K stream 15","min":0,"max":5,"end_of_test":True}, 
+        {"expect": re.escape("Successfully parsed Manifest ...IsLive[1]"),"max":10,"end_of_test":True},
+        {"expect": r"Updated live offset for 4K stream 15","max":5,"end_of_test":True}, 
         {"expect": r"Returning Position as 16892628(\d{5})"},
         {"cmd": "sleep 1000"},
         {"expect": "sleeping for 1.000000 seconds"},
@@ -74,8 +74,8 @@ TESTDATA3 = {
     "simlinear_type": "DASH",
     "aamp_cfg": "info=true\ntrace=true\nliveOffset4K=10",
     "expect_list": [
-        {"expect": re.escape("Successfully parsed Manifest ...IsLive[1]"),"min":0,"max":10,"end_of_test":True},
-        {"expect": r"Updated live offset for 4K stream 10","min":0,"max":5,"end_of_test":True}, 
+        {"expect": re.escape("Successfully parsed Manifest ...IsLive[1]"),"max":10,"end_of_test":True},
+        {"expect": r"Updated live offset for 4K stream 10","max":5,"end_of_test":True}, 
         {"expect": r"Returning Position as 16892628(\d{5})"},
         {"cmd": "sleep 1000"},
         {"expect": "sleeping for 1.000000 seconds"},

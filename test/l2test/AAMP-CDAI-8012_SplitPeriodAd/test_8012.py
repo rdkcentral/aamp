@@ -46,17 +46,17 @@ TESTDATA1 = {
     "url": "http://localhost:8080/content/split.mpd?live=true",
     "cmdlist": [
     "adtesting",
-    "advert add " + "http://localhost:8080/content/ad_20s.mpd" + " 20 0",
-    "advert add " + "http://localhost:8080/content/ad_20s.mpd" + " 20 1",
-    "advert add " + "http://localhost:8080/content/ad_20s.mpd" + " 20 2",
+    "advert map 1 http://localhost:8080/content/ad_20s.mpd",
+    "advert map 2 http://localhost:8080/content/ad_20s.mpd",
+    "advert map 3 http://localhost:8080/content/ad_20s.mpd",
     "advert list",
     ],
     # needs to be expanded.
     "expect_list": [
-        {"expect": r"\[Tune\]\[\d+\]FOREGROUND PLAYER\[0\] aamp_tune: attempt: 1 format: DASH URL: http://localhost:8080/content/split.mpd", "min": 0, "max": 3},
-        {"expect": r"\[FoundEventBreak\]\[\d+\]\[CDAI\] Found Adbreak on period\[\d\] Duration\[\d+\]", "min": 0, "max": 150},
-        {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: State changed from \[\w+\] \=\> \[\w+\].", "min": 0, "max": 150},
-        {"expect": r"\[PlaceAds\]\[\d+\]\[CDAI\] Detected split period. BasePeriod\[2 -  10000\] BasePeriod\[3 -  10000\] CDAIPeriod\[adId2 - 20000\]", "min": 0, "max": 150},
+        {"expect": r"\[Tune\]\[\d+\]FOREGROUND PLAYER\[0\] aamp_tune: attempt: 1 format: DASH URL: http://localhost:8080/content/split.mpd", "max": 3},
+        {"expect": r"\[FoundEventBreak\]\[\d+\]\[CDAI\] Found Adbreak on period\[\d\] Duration\[\d+\]", "max": 150},
+        {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: State changed from \[\w+\] \=\> \[\w+\].", "max": 150},
+        {"expect": r"\[PlaceAds\]\[\d+\]\[CDAI\] Detected split period. BasePeriod\[2 -  10000\] BasePeriod\[3 -  10000\] CDAIPeriod\[adId2 - 20000\]", "max": 150},
         #Expect not to download any fragments from 3rd period
         {"expect": r"\[GetFile\]\[\d+\]aamp url:0,0,0,2.000000,http://localhost:8080/content/dash/(1080|720|480|360)p_031.m4s\?live=true", "not_expected" : True},
         {"expect": r"\[GetFile\]\[\d+\]aamp url:0,0,0,2.000000,http://localhost:8080/content/dash/(1080|720|480|360)p_061.m4s\?live=true", "min": 50, "max": 150},
@@ -77,17 +77,17 @@ TESTDATA2 = {
     "url": "http://localhost:8080/content/split2.mpd?live=true",
     "cmdlist": [
     "adtesting",
-    "advert add " + "http://localhost:8080/content/ad_20s.mpd" + " 20 0",
-    "advert add " + "http://localhost:8080/content/ad_15s.mpd" + " 15 1",
-    "advert add " + "http://localhost:8080/content/ad_20s.mpd" + " 20 2",
+    "advert map 1 http://localhost:8080/content/ad_20s.mpd",
+    "advert map 2 http://localhost:8080/content/ad_15s.mpd",
+    "advert map 3 http://localhost:8080/content/ad_20s.mpd",
     "advert list",
     ],
     # needs to be expanded.
     "expect_list": [
-        {"expect": r"\[Tune\]\[\d+\]FOREGROUND PLAYER\[0\] aamp_tune: attempt: 1 format: DASH URL: http://localhost:8080/content/split2.mpd", "min": 0, "max": 3},
-        {"expect": r"\[FoundEventBreak\]\[\d+\]\[CDAI\] Found Adbreak on period\[\d\] Duration\[\d+\]", "min": 0, "max": 150},
-        {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: State changed from \[\w+\] \=\> \[\w+\].", "min": 0, "max": 150},
-        {"expect": r"\[PlaceAds\]\[\d+\]\[CDAI\] Detected split period. BasePeriod\[2 -  10000\] BasePeriod\[3 -  \d+\] CDAIPeriod\[adId2 - 15000\]", "min": 0, "max": 150},
+        {"expect": r"\[Tune\]\[\d+\]FOREGROUND PLAYER\[0\] aamp_tune: attempt: 1 format: DASH URL: http://localhost:8080/content/split2.mpd", "max": 3},
+        {"expect": r"\[FoundEventBreak\]\[\d+\]\[CDAI\] Found Adbreak on period\[\d\] Duration\[\d+\]", "max": 150},
+        {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: State changed from \[\w+\] \=\> \[\w+\].", "max": 150},
+        {"expect": r"\[PlaceAds\]\[\d+\]\[CDAI\] Detected split period. BasePeriod\[2 -  10000\] BasePeriod\[3 -  \d+\] CDAIPeriod\[adId2 - 15000\]", "max": 150},
         #Expect not to download any fragments from 3rd period
         {"expect": r"\[GetFile\]\[\d+\]aamp url:0,0,0,2.000000,http://localhost:8080/content/dash/(1080|720|480|360)p_031.m4s\?live=true", "not_expected" : True},
         {"expect": r"\[GetFile\]\[\d+\]aamp url:0,0,0,2.000000,http://localhost:8080/content/dash/(1080|720|480|360)p_061.m4s\?live=true", "min": 50, "max": 150},
@@ -108,15 +108,15 @@ TESTDATA3 = {
     "url": "http://localhost:8080/content/split3.mpd?live=true",
     "cmdlist": [
     "adtesting",
-    "advert add " + "http://localhost:8080/content/ad_30s.mpd" + " 30 0",
+    "advert map 1 http://localhost:8080/content/ad_30s.mpd",
     "advert list",
     ],
     # needs to be expanded.
     "expect_list": [
-        {"expect": r"\[Tune\]\[\d+\]FOREGROUND PLAYER\[0\] aamp_tune: attempt: 1 format: DASH URL: http://localhost:8080/content/split3.mpd", "min": 0, "max": 3},
-        {"expect": r"\[FoundEventBreak\]\[\d+\]\[CDAI\] Found Adbreak on period\[\d\] Duration\[\d+\]", "min": 0, "max": 150},
-        {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: State changed from \[\w+\] \=\> \[\w+\].", "min": 0, "max": 150},
-        {"expect": r"\[PlaceAds\]\[\d+\]\[CDAI\] Detected split period. BasePeriod\[2 -  10000\] BasePeriod\[3 -  10000\] BasePeriod\[1 -  10000\] CDAIPeriod\[adId1 - 30000\]", "min": 0, "max": 150},
+        {"expect": r"\[Tune\]\[\d+\]FOREGROUND PLAYER\[0\] aamp_tune: attempt: 1 format: DASH URL: http://localhost:8080/content/split3.mpd", "max": 3},
+        {"expect": r"\[FoundEventBreak\]\[\d+\]\[CDAI\] Found Adbreak on period\[\d\] Duration\[\d+\]", "max": 150},
+        {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: State changed from \[\w+\] \=\> \[\w+\].", "max": 150},
+        {"expect": r"\[PlaceAds\]\[\d+\]\[CDAI\] Detected split period. BasePeriod\[2 -  10000\] BasePeriod\[3 -  10000\] BasePeriod\[1 -  10000\] CDAIPeriod\[adId1 - 30000\]", "max": 150},
         #Expect not to download fragments from 3rd period beginning
         {"expect": r"\[GetFile\]\[\d+\]aamp url:0,0,0,2.000000,http://localhost:8080/content/dash/(1080|720|480|360)p_026.m4s\?live=true", "not_expected" : True},
         #Expect to play the remaining content from base period 4
@@ -138,16 +138,16 @@ TESTDATA4 = {
     "url": "http://localhost:8080/content/split3.mpd?live=true",
     "cmdlist": [
     "adtesting",
-    "advert add " + "http://localhost:8080/content/ad_20s.mpd" + " 20 0",
-    "advert add " + "http://localhost:8080/content/ad_10s.mpd" + " 10 0",
+    "advert map 1 http://localhost:8080/content/ad_20s.mpd",
+    "advert map 1 http://localhost:8080/content/ad_10s.mpd",
     "advert list",
     ],
     # needs to be expanded.
     "expect_list": [
-        {"expect": r"\[Tune\]\[\d+\]FOREGROUND PLAYER\[0\] aamp_tune: attempt: 1 format: DASH URL: http://localhost:8080/content/split3.mpd", "min": 0, "max": 3},
-        {"expect": r"\[FoundEventBreak\]\[\d+\]\[CDAI\] Found Adbreak on period\[\d\] Duration\[\d+\]", "min": 0, "max": 150},
-        {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: State changed from \[\w+\] \=\> \[\w+\].", "min": 0, "max": 150},
-        {"expect": r"\[PlaceAds\]\[\d+\]\[CDAI\] Detected split period. BasePeriod\[2 -  10000\] BasePeriod\[3 -  10000\] BasePeriod\[1 -  10000\] CDAIPeriod\[adId1 - 20000\] CDAIPeriod\[adId2 - 10000\]", "min": 0, "max": 150},
+        {"expect": r"\[Tune\]\[\d+\]FOREGROUND PLAYER\[0\] aamp_tune: attempt: 1 format: DASH URL: http://localhost:8080/content/split3.mpd", "max": 3},
+        {"expect": r"\[FoundEventBreak\]\[\d+\]\[CDAI\] Found Adbreak on period\[\d\] Duration\[\d+\]", "max": 150},
+        {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: State changed from \[\w+\] \=\> \[\w+\].", "max": 150},
+        {"expect": r"\[PlaceAds\]\[\d+\]\[CDAI\] Detected split period. BasePeriod\[2 -  10000\] BasePeriod\[3 -  10000\] BasePeriod\[1 -  10000\] CDAIPeriod\[adId1 - 20000\] CDAIPeriod\[adId2 - 10000\]", "max": 150},
         #Expect not to download fragments from 3rd period beginning
         {"expect": r"\[GetFile\]\[\d+\]aamp url:0,0,0,2.000000,http://localhost:8080/content/dash/(1080|720|480|360)p_026.m4s\?live=true","not_expected" : True},
         #Expect to play the remaining content from base period 4
@@ -170,17 +170,17 @@ TESTDATA5 = {
     "url": "http://localhost:8080/content/split.mpd?live=true",
     "cmdlist": [
     "adtesting",
-    "advert add " + "http://localhost:8080/content/ad_20s.mpd" + " 20 0",
-    "advert add " + "http://localhost:8080/content/ad_20s.mpd" + " 20 1",
-    "advert add " + "http://localhost:8080/content/ad_20s.mpd" + " 20 2",
+    "advert map 1 http://localhost:8080/content/ad_20s.mpd",
+    "advert map 2 http://localhost:8080/content/ad_20s.mpd",
+    "advert map 3 http://localhost:8080/content/ad_20s.mpd",
     "advert list",
     ],
     # needs to be expanded.
     "expect_list": [
-        {"expect": r"\[Tune\]\[\d+\]FOREGROUND PLAYER\[0\] aamp_tune: attempt: 1 format: DASH URL: http://localhost:8080/content/split.mpd", "min": 0, "max": 3},
-        {"expect": r"\[FoundEventBreak\]\[\d+\]\[CDAI\] Found Adbreak on period\[\d\] Duration\[\d+\]", "min": 0, "max": 150},
-        {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: State changed from \[\w+\] \=\> \[\w+\].", "min": 0, "max": 150},
-        {"expect": r"\[PlaceAds\]\[\d+\]\[CDAI\] Detected split period. BasePeriod\[2 -  10000\] BasePeriod\[3 -  10000\] CDAIPeriod\[adId2 - 20000\]", "min": 0, "max": 150},
+        {"expect": r"\[Tune\]\[\d+\]FOREGROUND PLAYER\[0\] aamp_tune: attempt: 1 format: DASH URL: http://localhost:8080/content/split.mpd", "max": 3},
+        {"expect": r"\[FoundEventBreak\]\[\d+\]\[CDAI\] Found Adbreak on period\[\d\] Duration\[\d+\]", "max": 150},
+        {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: State changed from \[\w+\] \=\> \[\w+\].", "max": 150},
+        {"expect": r"\[PlaceAds\]\[\d+\]\[CDAI\] Detected split period. BasePeriod\[2 -  10000\] BasePeriod\[3 -  10000\] CDAIPeriod\[adId2 - 20000\]", "max": 150},
         #Expect not to download any fragments from 3rd period
         {"expect": r"\[GetFile\]\[\d+\]aamp url:0,0,0,2.000000,http://localhost:8080/content/dash/(1080|720|480|360)p_031.m4s\?live=true", "not_expected" : True},
         {"expect": r"\[GetFile\]\[\d+\]aamp url:0,0,0,2.000000,http://localhost:8080/content/dash/(1080|720|480|360)p_061.m4s\?live=true", "min": 50, "max": 150},
@@ -201,17 +201,17 @@ TESTDATA6 = {
     "url": "http://localhost:8080/content/split2.mpd?live=true",
     "cmdlist": [
     "adtesting",
-    "advert add " + "http://localhost:8080/content/ad_20s.mpd" + " 20 0",
-    "advert add " + "http://localhost:8080/content/ad_15s.mpd" + " 15 1",
-    "advert add " + "http://localhost:8080/content/ad_20s.mpd" + " 20 2",
+    "advert map 1 http://localhost:8080/content/ad_20s.mpd",
+    "advert map 2 http://localhost:8080/content/ad_15s.mpd",
+    "advert map 3 http://localhost:8080/content/ad_20s.mpd",
     "advert list",
     ],
     # needs to be expanded.
     "expect_list": [
-        {"expect": r"\[Tune\]\[\d+\]FOREGROUND PLAYER\[0\] aamp_tune: attempt: 1 format: DASH URL: http://localhost:8080/content/split2.mpd", "min": 0, "max": 3},
-        {"expect": r"\[FoundEventBreak\]\[\d+\]\[CDAI\] Found Adbreak on period\[\d\] Duration\[\d+\]", "min": 0, "max": 150},
-        {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: State changed from \[\w+\] \=\> \[\w+\].", "min": 0, "max": 150},
-        {"expect": r"\[PlaceAds\]\[\d+\]\[CDAI\] Detected split period. BasePeriod\[2 -  10000\] BasePeriod\[3 -  \d+\] CDAIPeriod\[adId2 - 15000\]", "min": 0, "max": 150},
+        {"expect": r"\[Tune\]\[\d+\]FOREGROUND PLAYER\[0\] aamp_tune: attempt: 1 format: DASH URL: http://localhost:8080/content/split2.mpd", "max": 3},
+        {"expect": r"\[FoundEventBreak\]\[\d+\]\[CDAI\] Found Adbreak on period\[\d\] Duration\[\d+\]", "max": 150},
+        {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: State changed from \[\w+\] \=\> \[\w+\].", "max": 150},
+        {"expect": r"\[PlaceAds\]\[\d+\]\[CDAI\] Detected split period. BasePeriod\[2 -  10000\] BasePeriod\[3 -  \d+\] CDAIPeriod\[adId2 - 15000\]", "max": 150},
         #Expect not to download any fragments from 3rd period
         {"expect": r"\[GetFile\]\[\d+\]aamp url:0,0,0,2.000000,http://localhost:8080/content/dash/(1080|720|480|360)p_031.m4s\?live=true", "not_expected" : True},
         {"expect": r"\[GetFile\]\[\d+\]aamp url:0,0,0,2.000000,http://localhost:8080/content/dash/(1080|720|480|360)p_061.m4s\?live=true", "min": 50, "max": 150},
@@ -232,15 +232,15 @@ TESTDATA7 = {
     "url": "http://localhost:8080/content/split3.mpd?live=true",
     "cmdlist": [
     "adtesting",
-    "advert add " + "http://localhost:8080/content/ad_30s.mpd" + " 30 0",
+    "advert map 1 http://localhost:8080/content/ad_30s.mpd",
     "advert list",
     ],
     # needs to be expanded.
     "expect_list": [
-        {"expect": r"\[Tune\]\[\d+\]FOREGROUND PLAYER\[0\] aamp_tune: attempt: 1 format: DASH URL: http://localhost:8080/content/split3.mpd", "min": 0, "max": 3},
-        {"expect": r"\[FoundEventBreak\]\[\d+\]\[CDAI\] Found Adbreak on period\[\d\] Duration\[\d+\]", "min": 0, "max": 150},
-        {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: State changed from \[\w+\] \=\> \[\w+\].", "min": 0, "max": 150},
-        {"expect": r"\[PlaceAds\]\[\d+\]\[CDAI\] Detected split period. BasePeriod\[2 -  10000\] BasePeriod\[3 -  10000\] BasePeriod\[1 -  10000\] CDAIPeriod\[adId1 - 30000\]", "min": 0, "max": 150},
+        {"expect": r"\[Tune\]\[\d+\]FOREGROUND PLAYER\[0\] aamp_tune: attempt: 1 format: DASH URL: http://localhost:8080/content/split3.mpd", "max": 3},
+        {"expect": r"\[FoundEventBreak\]\[\d+\]\[CDAI\] Found Adbreak on period\[\d\] Duration\[\d+\]", "max": 150},
+        {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: State changed from \[\w+\] \=\> \[\w+\].", "max": 150},
+        {"expect": r"\[PlaceAds\]\[\d+\]\[CDAI\] Detected split period. BasePeriod\[2 -  10000\] BasePeriod\[3 -  10000\] BasePeriod\[1 -  10000\] CDAIPeriod\[adId1 - 30000\]", "max": 150},
         #Expect not to download fragments from 3rd period beginning
         {"expect": r"\[GetFile\]\[\d+\]aamp url:0,0,0,2.000000,http://localhost:8080/content/dash/(1080|720|480|360)p_026.m4s\?live=true", "not_expected" : True},
         #Expect to play the remaining content from base period 4
@@ -262,16 +262,16 @@ TESTDATA8 = {
     "url": "http://localhost:8080/content/split3.mpd?live=true",
     "cmdlist": [
     "adtesting",
-    "advert add " + "http://localhost:8080/content/ad_20s.mpd" + " 20 0",
-    "advert add " + "http://localhost:8080/content/ad_10s.mpd" + " 10 0",
+    "advert map 1 http://localhost:8080/content/ad_20s.mpd",
+    "advert map 1 http://localhost:8080/content/ad_10s.mpd",
     "advert list",
     ],
     # needs to be expanded.
     "expect_list": [
-        {"expect": r"\[Tune\]\[\d+\]FOREGROUND PLAYER\[0\] aamp_tune: attempt: 1 format: DASH URL: http://localhost:8080/content/split3.mpd", "min": 0, "max": 3},
-        {"expect": r"\[FoundEventBreak\]\[\d+\]\[CDAI\] Found Adbreak on period\[\d\] Duration\[\d+\]", "min": 0, "max": 150},
-        {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: State changed from \[\w+\] \=\> \[\w+\].", "min": 0, "max": 150},
-        {"expect": r"\[PlaceAds\]\[\d+\]\[CDAI\] Detected split period. BasePeriod\[2 -  10000\] BasePeriod\[3 -  10000\] BasePeriod\[1 -  10000\] CDAIPeriod\[adId1 - 20000\] CDAIPeriod\[adId2 - 10000\]", "min": 0, "max": 150},
+        {"expect": r"\[Tune\]\[\d+\]FOREGROUND PLAYER\[0\] aamp_tune: attempt: 1 format: DASH URL: http://localhost:8080/content/split3.mpd", "max": 3},
+        {"expect": r"\[FoundEventBreak\]\[\d+\]\[CDAI\] Found Adbreak on period\[\d\] Duration\[\d+\]", "max": 150},
+        {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: State changed from \[\w+\] \=\> \[\w+\].", "max": 150},
+        {"expect": r"\[PlaceAds\]\[\d+\]\[CDAI\] Detected split period. BasePeriod\[2 -  10000\] BasePeriod\[3 -  10000\] BasePeriod\[1 -  10000\] CDAIPeriod\[adId1 - 20000\] CDAIPeriod\[adId2 - 10000\]", "max": 150},
         #Expect not to download fragments from 3rd period beginning
         {"expect": r"\[GetFile\]\[\d+\]aamp url:0,0,0,2.000000,http://localhost:8080/content/dash/(1080|720|480|360)p_026.m4s\?live=true", "not_expected" : True},
         #Expect to play the remaining content from base period 4

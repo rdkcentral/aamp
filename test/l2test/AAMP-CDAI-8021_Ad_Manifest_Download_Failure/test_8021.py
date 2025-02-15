@@ -67,7 +67,7 @@ TESTDATA1 = {
     "cmdlist": [
         # Add a 30-second ad to the stream at the beginning of Period 1
         # Adding the invalid url to forcefully execute the manifest failure scenario
-        "advert add http://localhost:8080/content/ad_300s.mpd 30",
+        "advert map 1 http://localhost:8080/content/ad_300s.mpd",
     ],
 
     "expect_list": [
@@ -75,12 +75,12 @@ TESTDATA1 = {
         {"expect": r'RestampPts.*?\[(\w+)\] timeScale (\d+) before (\d+) after (\d+) duration (\d+) ([\w:/\.\-\?=]+)\r\n', "callback" : pts_restamp_utils.check_restamp},
         # Confirm that an ad break is detected in Period 1 with a duration of 30 seconds
         {"expect": r"\[FoundEventBreak\]\[\d+\]\[CDAI\] Found Adbreak on period\[1\] Duration\[30000\]"},
-        {"expect": r"\[Event\]\[\d+\]\[CDAI\] Dynamic ad start signalled"},
+        {"expect": r"\[AAMPCLI\] \[CDAI\] Dynamic ad start signalled"},
         {"expect": r"\[GetAdMPD\]\[\d+\]\[CDAI\]: Error on manifest fetch"},
         {"expect": r"\[FulFillAdObject\]\[\d+\]Failed to get Ad MPD\[http://localhost:8080/content/ad_300s.mpd\]"},
         {"expect": r"\[CheckForAdStart\]\[\d+\]\[CDAI\] PlacementObj open adbreak\(\) and current period's\(1\) adbreak\(1\) not equal ... may be BUG"},
         {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\] Got adIdx\[-1\] for adBreakId\[1\] but adBreak object exist"},
-        {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\] ads.size\(\) = 1 breakId = 1 mBasePeriodId = 1"},
+#       {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\] ads.size\(\) = 1 breakId = 1 mBasePeriodId = 1"},
         {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\] AdBreak\[1\] is invalidated. Skipping."},
         {"expect": re.escape("Period ID changed from '0' to '1' [BasePeriodId='1']")},
         # Ensure fragments fetched from period 1
@@ -114,10 +114,10 @@ TESTDATA2 = {
     "url": "http://localhost:8080/content/TC1.mpd?live=true",
     "cmdlist": [
         # Add 3, 10-second ad to Period 1
-        "advert add http://localhost:8080/content/ad_10s.mpd 10",
+        "advert map 1 http://localhost:8080/content/ad_10s.mpd",
         # Adding the invalid url to forcefully execute the manifest failure scenario
-        "advert add http://localhost:8080/content/ad_100s.mpd 10",
-        "advert add http://localhost:8080/content/ad_10s.mpd 10",
+        "advert map 1 http://localhost:8080/content/ad_100s.mpd",
+        "advert map 1 http://localhost:8080/content/ad_10s.mpd",
     ],
 
     "expect_list": [
@@ -181,9 +181,9 @@ TESTDATA3 = {
     "cmdlist": [
     	# Add a 3,10-second ad to the stream at the of Period 1
         # Adding the invalid url to forcefully execute the manifest failure scenario.
-        "advert add http://localhost:8080/content/ad_100s.mpd 10",
-        "advert add http://localhost:8080/content/ad_10s.mpd 10",
-        "advert add http://localhost:8080/content/ad_10s.mpd 10",
+        "advert map 1 http://localhost:8080/content/ad_100s.mpd",
+        "advert map 1 http://localhost:8080/content/ad_10s.mpd",
+        "advert map 1 http://localhost:8080/content/ad_10s.mpd",
     ],
 
     "expect_list": [

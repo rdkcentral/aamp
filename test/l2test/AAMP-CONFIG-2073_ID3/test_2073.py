@@ -40,7 +40,7 @@ TESTDATA1 = {
     "expect_list": [
         {"expect": r"mManifestUrl: http://localhost:8085/hls_test_audio/cdn.theoplayer.com/video/indexcom/manifest.m3u8.1","min": 0,"max": 5},
         {"expect": r"AAMP_EVENT_STATE_CHANGED: INITIALIZING","min": 0,"max": 5,"callback": send_command,"callback_arg": "sleep 1000"},
-        {"expect": r"AAMP_EVENT_STATE_CHANGED: PLAYING", "min": 0, "max": 5},
+        {"expect": r"AAMP_EVENT_STATE_CHANGED: PLAYING", "max": 5},
         { "expect": r"\[ID3MetadataHandler\]\[(\d+)\] ID3 tag # timestamp: (\d+) - PTS: (\d+\.\d+) (\d+) \[\d+\] \|\| data: ID3v40 hdr:"},
         {"expect": r"\[SendId3MetadataEvent\]\[(\d+)\]ID3 tag length: (\d+) payload: ID3"},
         {"expect": r"\[SendId3MetadataEvent\]\[(\d+)\]\{schemeIdUri:\"[^\"]*\",value:\"[^\"]*\",presentationTime:(\d+),timeScale:(\d+),eventDuration:(\d+),id:(\d+),timestampOffset:(\d+)\}"},
@@ -59,7 +59,7 @@ TESTDATA2 = {
     "expect_list": [
         {"expect": r"mManifestUrl: http://localhost:8085/hls_test_audio/cdn.theoplayer.com/video/indexcom/manifest.m3u8.1","min": 0,"max": 5},
         {"expect": r"AAMP_EVENT_STATE_CHANGED: INITIALIZING","min": 0,"max": 5,"callback": send_command,"callback_arg": "sleep 1000"},
-        {"expect": r"AAMP_EVENT_STATE_CHANGED: PLAYING", "min": 0, "max": 5},
+        {"expect": r"AAMP_EVENT_STATE_CHANGED: PLAYING", "max": 5},
         {"expect": r"\[ID3MetadataHandler\]\[(\d+)\] ID3 tag # timestamp: (\d+) - PTS: (\d+\.\d+) (\d+) \[\d+\] \|\| data: ID3v40 hdr:"},
         {"expect": r"\[SendId3MetadataEvent\]\[(\d+)\]ID3 tag length: (\d+) payload: ID3","not_expected": True},
         {"expect": r"\[SendId3MetadataEvent\]\[(\d+)\]\{schemeIdUri:\"[^\"]*\",value:\"[^\"]*\",presentationTime:(\d+),timeScale:(\d+),eventDuration:(\d+),id:(\d+),timestampOffset:(\d+)\}","not_expected": True},

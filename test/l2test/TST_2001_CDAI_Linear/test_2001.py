@@ -54,9 +54,6 @@ else:
 
 
 AD_URLS = [
-    # skip placement
-    "file://skip",
-
     # 40sec - ad1 (telecoms)
     AD_HOST + "/VideoTestStream/public/aamptest/streams/ads/ad1/hsar1039-soip-ads-prd.cdn01.skycdp.com/ads-gb-s8-prd-ak.cdn01.skycdp.com/v1/frag/bmff/t/ipvodad7/ed9e9eba-e818-413f-97ea-10cb3559ac31/1628085935274/AD/HD/manifest.mpd",
 
@@ -118,10 +115,9 @@ TESTDATA0 = {
 "aamp_cfg": "info=true\ntrace=true\nlogMetadata=true\nclient-dai=true\nenablePTSReStamp=true\n",
 "cmdlist": [
     "adtesting",
-    "advert add " + AD_URLS[3] + " 30 0",
-    "advert add " + AD_URLS[5] + " 20 2",
-    "advert add " + AD_URLS[3] + " 30 4",  # repeating ad
-    "advert add " + AD_URLS[0],
+    "advert map 881036617 " + AD_URLS[2], # 30s
+    "advert map 881036619 " + AD_URLS[4], # 20s
+    "advert map 881036621 " + AD_URLS[2], # 30s
     "advert list",
     ],
 "expect_list": [
@@ -212,12 +208,11 @@ TESTDATA1 = {
 "aamp_cfg": "info=true\ntrace=true\nlogMetadata=true\nclient-dai=true\nenablePTSReStamp=true\n",
 "cmdlist": [
     "adtesting",
-    "advert add " + AD_URLS[3] + " 30 0",
-    "advert add " + AD_URLS[5] + " 20 1",
-    "advert add " + AD_URLS[5] + " 20 2",
-    "advert add " + AD_URLS[4] + " 10 3",
-    "advert add " + AD_URLS[3] + " 30 4",
-    "advert add " + AD_URLS[0],
+    "advert map 881036617 " + AD_URLS[2], # 30s
+    "advert map 881036618 " + AD_URLS[4], # 20s
+    "advert map 881036619 " + AD_URLS[4], # 20s
+    "advert map 881036620 " + AD_URLS[3], # 10s
+    "advert map 881036621 " + AD_URLS[2], # 30s
     "advert list",
     ],
 "expect_list": [
@@ -319,12 +314,10 @@ TESTDATA2 = {
 "aamp_cfg": "info=true\ntrace=true\nlogMetadata=true\nclient-dai=true\nenablePTSReStamp=true\n",
 "cmdlist": [
     "adtesting",
-    "advert add " + AD_URLS[5] + " 20 0",
-    "advert add " + AD_URLS[4] + " 10 0",
-    "advert add " + AD_URLS[4] + " 10 1",
-    "advert add " + AD_URLS[4] + " 10 1",
-    "advert add " + AD_URLS[0],
-    "advert add " + AD_URLS[0],
+    "advert map 881036617 " + AD_URLS[4], # 20s
+    "advert map 881036617 " + AD_URLS[3], # 10s
+    "advert map 881036618 " + AD_URLS[3], # 10s
+    "advert map 881036618 " + AD_URLS[3], # 10s
     "advert list",
     ],
 "expect_list": [

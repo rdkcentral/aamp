@@ -36,18 +36,18 @@ TESTDATA0 = {
         "seek 58"
     ],
 	"expect_list": [
-		{"expect":r"AAMP_EVENT_STATE_CHANGED: INITIALIZING", "min": 0, "max": 3},
-		{"expect":r"Parse MPD Completed ...", "min": 0, "max": 3},
+		{"expect":r"AAMP_EVENT_STATE_CHANGED: INITIALIZING", "max": 3},
+		{"expect":r"Parse MPD Completed ...", "max": 3},
 		# Because of discountinuity, GST Errors are logged.
-		{"expect":r"GST_MESSAGE_ERROR source: Internal data stream error.", "min": 0, "max": 3},
-		{"expect":r"Schedule retune for GstPipeline Error", "min": 0, "max": 3},
-		{"expect":r"Anomaly evt:1 msg:video GstPipeline Internal Error", "min": 0, "max": 3},
-		{"expect":r"PrivateInstanceAAMP: Schedule Retune errorType 6 error GstPipeline Internal Error", "min": 0, "max": 3},
-		{"expect":r"streaming stopped, reason not-negotiated", "min": 0, "max": 3},
-		{"expect":r"Destroying gstreamer pipeline", "min": 0, "max": 3},
-		{"expect":r"exiting AAMPGstPlayer_Stop", "min": 0, "max": 3},
+		{"expect":r"GST_MESSAGE_ERROR source: Internal data stream error.", "max": 3},
+		{"expect":r"Schedule retune for GstPipeline Error", "max": 3},
+		{"expect":r"Anomaly evt:1 msg:video GstPipeline Internal Error", "max": 3},
+		{"expect":r"PrivateInstanceAAMP: Schedule Retune errorType 6 error GstPipeline Internal Error", "max": 3},
+		{"expect":r"streaming stopped, reason not-negotiated", "max": 3},
+		{"expect":r"Destroying gstreamer pipeline", "max": 3},
+		{"expect":r"exiting AAMPGstPlayer_Stop", "max": 3},
 		# Because of discountinuity handling is disabled, AAMP will not detect discontinuities "StreamAbstractionAAMP_MPD: discontinuity detected".
-		{"expect":r"StreamAbstractionAAMP_MPD: discontinuity detected", "min": 0, "max": 10, "not_expected" : True},
+		{"expect":r"StreamAbstractionAAMP_MPD: discontinuity detected", "max": 10, "not_expected" : True},
 		{"expect":r"Returning Position as 5[7-9](\d{3})", "min": 11, "max": 15, "end_of_test": True},
 	]
 }
