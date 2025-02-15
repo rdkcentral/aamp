@@ -187,7 +187,6 @@ set(LIBAAMP_HEADERS AampCacheHandler.h
 					AampEventManager.h
 					middleware/GstUtils.h
 					AampGrowableBuffer.h
-					AampSmartMutex.hpp
 					AampJsonObject.h
 					AampLogManager.h
 					AampMediaType.h

@@ -1033,7 +1033,7 @@ public:
 
 /**
  * @class AAMP_JSListener_AnomalyReport
- * @brief AAMP_JSListener_AnomalyReport to receive anomalyreport
+ * @brief AAMP_JSListener_AnomalyReport to receive anomaly report
  */
 class AAMP_JSListener_AnomalyReport : public AAMP_JSListener
 {

@@ -29,11 +29,11 @@
  */
 class DebugTimeData
 {
-	std::string APIName;
+	std::string apiName;
 	std::chrono::steady_clock::time_point creationTime;
 
 public:
-	DebugTimeData(std::string api) : APIName(api)
+	DebugTimeData(std::string api) : apiName(api)
 	{
 		creationTime = std::chrono::steady_clock::now();
 	}
@@ -42,7 +42,7 @@ public:
 	{
 		auto endTime = std::chrono::steady_clock::now();
 		std::chrono::duration<double> duration = endTime - creationTime;
-		AAMPLOG_WARN("API: %s Taken time: %.02lf ", APIName.c_str(), duration.count() * 1000);
+		AAMPLOG_WARN("API: %s Taken time: %.02lf ", apiName.c_str(), duration.count() * 1000);
 	}
 };
 

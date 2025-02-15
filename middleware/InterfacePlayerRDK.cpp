@@ -566,7 +566,6 @@ void MonitorAV( InterfacePlayerRDK *pInterfacePlayerRDK )
 		{
 			struct MonitorAVState *monitorAVState = &pInterfacePlayerRDK->gstPrivateContext->monitorAVstate;
 			const char *description = "ok";
-			bool happyNow = true;
 			int numTracks = 0;
 			bool bigJump = false;
 			long long tNow = GetCurrentTimeMS();
@@ -587,7 +586,6 @@ void MonitorAV( InterfacePlayerRDK *pInterfacePlayerRDK )
 						long long ms = GST_TIME_AS_MSECONDS(position);
 						if( ms == monitorAVState->av_position[i] )
 						{
-							happyNow = false;
 							if( description )
 							{
 								description = "stall";
@@ -623,7 +621,6 @@ void MonitorAV( InterfacePlayerRDK *pInterfacePlayerRDK )
 				case 2:
 					if( abs(av_position[0] - av_position[1]) > AVSYNC_THRESHOLD_MS )
 					{
-						happyNow = false;
 						if( !description )
 						{
 							description = "avsync";
@@ -3843,8 +3840,8 @@ long long InterfacePlayerRDK::GetVideoPTS(void)
 	if( element )
 	{
 		g_object_get(element, "video-pts", &currentPTS, NULL);                  /* Gets the 'video-pts' from the element into the currentPTS */
-		//Westeros sink sync returns PTS in 90Khz format where as specific platform returns in 45 KHz,
-		// hence converting to 90Khz for sppecific platform
+		// Westeros sink sync returns PTS in 90Khz format where as specific platform returns in 45 KHz,
+		// hence converting to 90Khz for specific platform
 		if(platformType != eGST_PLATFORM_REALTEK && !gstPrivateContext->using_westerossink)
 		{
 			currentPTS = currentPTS * 2; // convert from 45 KHz to 90 Khz PTS

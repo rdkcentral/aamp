@@ -4243,7 +4243,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 					if( audio->mDuration > (offsetFromLive + audio->playTargetOffset))
 						offsetToLiveAudio = audio->mDuration - offsetFromLive -  audio->playTargetOffset;
 					else
-						AAMPLOG_WARN("aamp: live adjust not possible ATotal[%f]< (AoffsetFromLive[%f] + AplayTargetOffset[%f]) A-target[%f]", audio->mDuration.inSeconds(), offsetFromLive.inSeconds(), audio->playTargetOffset.inSeconds(), audio->playTarget.inSeconds());
+						AAMPLOG_WARN("aamp: live adjust not possible A-total[%f]< (A-offsetFromLive[%f] + A-playTargetOffset[%f]) A-target[%f]", audio->mDuration.inSeconds(), offsetFromLive.inSeconds(), audio->playTargetOffset.inSeconds(), audio->playTarget.inSeconds());
 				}
 				// pick the min of video/audio offset
 				offsetToLive = (std::min)(offsetToLiveVideo,offsetToLiveAudio);
@@ -4272,7 +4272,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 			}
 			else
 			{
-				AAMPLOG_WARN("aamp: live adjust not possible VTotal[%f] < (VoffsetFromLive[%f] + VplayTargetOffset[%f]) V-target[%f]",
+				AAMPLOG_WARN("aamp: live adjust not possible V-total[%f] < (V-offsetFromLive[%f] + V-playTargetOffset[%f]) V-target[%f]",
 					video->mDuration.inSeconds(), offsetFromLive.inSeconds(), video->playTargetOffset.inSeconds(), video->playTarget.inSeconds());
 			}
 			//Set live adjusted position to seekPosition

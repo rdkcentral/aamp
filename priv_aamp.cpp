@@ -3330,7 +3330,7 @@ void PrivateInstanceAAMP::NotifyEOSReached()
 			if (IsLocalAAMPTsb() && !GetLLDashChunkMode()) 
 			{
 				seek_pos_seconds = (aamp_GetCurrentTimeMS()/1000) - mLiveOffset; 
-				AAMPLOG_INFO("Reached EOS during FFWD (aamp_GetCurrentTimeMS: %lld), so seeking to %fs",aamp_GetCurrentTimeMS(), seek_pos_seconds );
+				AAMPLOG_INFO("Reached EOS during FF (aamp_GetCurrentTimeMS: %lld), so seeking to %fs",aamp_GetCurrentTimeMS(), seek_pos_seconds );
 				TuneHelper(eTUNETYPE_SEEK);
 			}
 			else
