@@ -31,8 +31,8 @@ Aampcli mAampcli;
 const char *gApplicationPath = NULL;
 extern VirtualChannelMap mVirtualChannelMap;
 extern void tsdemuxer_InduceRollover( bool enable );
-extern std::vector<std::vector<AdvertInfo>> mAdvertList;
-static int mAdvertIndex = 0;
+
+extern std::vector<AdvertInfo> mAdvertList;
 static int mAdReservationIndex = 0;
 
 Aampcli :: Aampcli():
@@ -403,100 +403,6 @@ int main(int argc, char **argv)
 	printf( "[AAMPCLI] done\n" );
 }
 
-void Aampcli::getAdvertUrl( uint32_t reqDuration, uint32_t &adDuration, std::vector<AdvertInfo>& adList)
-{
-	bool loop = false;
-	std::string defUrl = "";
-	advertInfo ad;
-	mAdvertIndex = (mAdvertIndex < mAdvertList.size()) ? mAdvertIndex : 0;
-	while (mAdvertIndex < mAdvertList.size())
-	{
-		if(mAdvertList[mAdvertIndex].size() == 0)
-		{
-			++mAdvertIndex;
-			continue;
-		}
-		//If required duration Ad present in advert list will select it
-		if(reqDuration == mAdvertList[mAdvertIndex][0].duration)
-		{
-			ad.url = mAdvertList[mAdvertIndex][0].url;
-			ad.duration = mAdvertList[mAdvertIndex][0].duration;
-			adList.push_back(ad);
-			mAdvertIndex = mAdvertIndex + 1;
-			break;
-		}
-		if((defUrl.empty()) && (mAdvertList[mAdvertIndex][0].duration == 0))
-		{
-			defUrl = mAdvertList[mAdvertIndex][0].url;
-		}
-
-		if(( loop == false) && ( mAdvertIndex + 1 == mAdvertList.size()))
-		{
-			mAdvertIndex = 0;
-			loop = true;
-		}
-		else
-		{
-			mAdvertIndex++;
-		}
-	}
-
-	//Required duration is not found in advert list then will add the present ads in list
-	if(!adList.size())
-	{
-		mAdvertIndex = 0;
-		int curDuration = 0;
-		while((mAdvertIndex < mAdvertList.size()) && (curDuration < reqDuration))
-		{
-			if(mAdvertList[mAdvertIndex].size() == 0)
-			{
-				++mAdvertIndex;
-				continue;
-			}
-			if((reqDuration - curDuration) >= mAdvertList[mAdvertIndex][0].duration)
-			{
-				 ad.url = mAdvertList[mAdvertIndex][0].url;
-				 ad.duration = mAdvertList[mAdvertIndex][0].duration;
-				 adList.push_back(ad);
-				 mAdvertIndex = mAdvertIndex + 1;
-				 curDuration += ad.duration;
-			}
-			else
-			{
-				 mAdvertIndex = mAdvertIndex + 1;
-			}
-		}
-	}
-
-	if((!adList.size()) && (!defUrl.empty()))
-	{
-		ad.url = defUrl;
-		ad.duration = 0;
-		adList.push_back(ad);
-	}
-}
-
-void Aampcli::getAdvertUrlIndexed( std::vector<AdvertInfo>& adList, int idx)
-{
-	if(idx < 0)
-	{
-		printf("[AAMPCLI] Invalid index\n");
-		return;
-	}
-	if(mAdvertList.size()==0)
-	{
-		printf("[AAMPCLI] Advert list is empty\n");
-		return;
-	}
-	advertInfo ad;
-	for (AdvertInfo& advert : mAdvertList[idx])
-	{
-		ad.url = advert.url;
-		ad.duration =advert.duration;
-		adList.push_back(ad);
-	}
-}
-
 const char *MyAAMPEventListener::stringifyPlayerState(AAMPPlayerState state)
 {
 	static const char *stateName[] =
@@ -678,9 +584,9 @@ void MyAAMPEventListener::Event(const AAMPEventPtr& e)
 		case AAMP_EVENT_CONTENT_PROTECTION_DATA_UPDATE:
 			{
 				ContentProtectionDataEventPtr ev =  std::dynamic_pointer_cast<ContentProtectionDataEvent>(e);
-				printf("[AMPCLI] AAMP_EVENT_CONTENT_PROTECTION_UPDATE received stream type %s\n",ev->getStreamType().c_str());
+				printf("[AAMPCLI] AAMP_EVENT_CONTENT_PROTECTION_UPDATE received stream type %s\n",ev->getStreamType().c_str());
 				std::vector<uint8_t> key = ev->getKeyID();
-				printf("[AMPCLI] AAMP_EVENT_CONTENT_PROTECTION_UPDATE received key is ");
+				printf("[AAMPCLI] AAMP_EVENT_CONTENT_PROTECTION_UPDATE received key is ");
 				for(int i=0;i<key.size();i++)
 					printf("%x",key.at(i)&0xff);
 				printf("\n");
@@ -697,85 +603,46 @@ void MyAAMPEventListener::Event(const AAMPEventPtr& e)
 		case AAMP_EVENT_TIMED_METADATA:
 		{
 			TimedMetadataEventPtr ev =  std::dynamic_pointer_cast<TimedMetadataEvent>(e);
-			if ( ev->getName() == "SCTE35" )
+			if( ev->getName() == "SCTE35" )
 			{
-				printf("\n[AAMPCLI] AAMP_EVENT_TIMED_METADATA received\n");
+				printf("[AAMPCLI] AAMP_EVENT_TIMED_METADATA received\n");
 				/* Decode any SCTE35 splice info event. */
 				std::vector<SCTE35SpliceInfo::Summary> spliceInfoSummary;
 				SCTE35SpliceInfo spliceInfo(ev->getContent());
-
 				spliceInfo.getSummary(spliceInfoSummary);
-				for (auto &splice : spliceInfoSummary)
+				bool mapped = false;
+				for( auto &splice : spliceInfoSummary)
 				{
-					AAMPLOG_WARN("[CDAI] splice info type %d, time %f, duration %f, id 0x%" PRIx32,
-						(int)splice.type, splice.time, splice.duration, splice.event_id);
-
-					if ((splice.type == SCTE35SpliceInfo::SEGMENTATION_TYPE::PROVIDER_ADVERTISEMENT_START) ||
-						(splice.type == SCTE35SpliceInfo::SEGMENTATION_TYPE::PROVIDER_PLACEMENT_OPPORTUNITY_START))
+					printf("[AAMPCLI] SCTE35SpliceInfo type=%d time=%fs duration=%fs id=0x%" PRIx32 "\n",
+						   static_cast<int>(splice.type), splice.time, splice.duration, splice.event_id );
+					switch( splice.type )
 					{
-							/* A set of ads should be selected for insertion based
-							 * on the splice info event type, id and duration.
-							 */
-							AAMPLOG_WARN("[CDAI] Dynamic ad start signalled mAdBrkIndex(%d)", mAampcli.mAdBrkIndex);
-
-							uint32_t adDuration = 0;
-							std::vector<AdvertInfo> adList;
-							std::string adId = "adId";
-							if(!mAampcli.mIndexedAds)
+						case SCTE35SpliceInfo::SEGMENTATION_TYPE::PROVIDER_ADVERTISEMENT_START:
+						case SCTE35SpliceInfo::SEGMENTATION_TYPE::PROVIDER_PLACEMENT_OPPORTUNITY_START:
+							printf("[AAMPCLI] [CDAI] Dynamic ad start signalled for breakId='%s'\n)", ev->getId().c_str() );
+							for( const AdvertInfo &advertInfo : mAdvertList )
 							{
-								//If we have an advert list, use that
-								if (mAdvertList.size())
+								if( advertInfo.adBreakId == ev->getId() )
 								{
-									mAampcli.getAdvertUrl(splice.duration, adDuration, adList);
-								}
-								else
-								{
-									// set default url
-									advertInfo ad;
-									ad.url = "https://example.com/AD/HD/manifest.mpd";
-									ad.duration = 0;
-									adList.push_back(ad);
-
+									std::string adId = "adId" + std::to_string(++mAdReservationIndex);
+									printf("[AAMPCLI] AAMP_EVENT_TIMED_METADATA place advert breakId=%s adId=%s url=%s\n", ev->getId().c_str(), adId.c_str(), advertInfo.url.c_str());
+									mAampcli.mSingleton->SetAlternateContents(ev->getId(), adId, advertInfo.url);
+									mapped = true;
 								}
 							}
-							else
+							if( !mapped )
 							{
-								//If we have an advert list, use that
-								if (mAdvertList.size())
-								{
-									mAampcli.getAdvertUrlIndexed(adList,mAampcli.mAdBrkIndex);
-								}
+								printf( "[AAMPCLI] unmapped breakId=%s\n", ev->getId().c_str() );
 							}
-							for(int i=0; i<adList.size(); i++)
-							{
-								++mAdReservationIndex;
-								adId = "adId" + std::to_string(mAdReservationIndex);
-								if (adList[i].url == "file://skip")
-								{
-									printf("[AMPCLI] AAMP_EVENT_TIMED_METADATA skip advert placement breakId=%s adId=%s\n", ev->getId().c_str(), adId.c_str());
-								}
-								else
-								{
-									printf("[AMPCLI] AAMP_EVENT_TIMED_METADATA place advert breakId=%s adId=%s duration=%d url=%s\n", ev->getId().c_str(), adId.c_str(), adList[i].duration, adList[i].url.c_str());
-									mAampcli.mSingleton->SetAlternateContents(ev->getId(), adId, adList[i].url);
-								}
-							}
-
-							mAampcli.mAdBrkIndex++;
-							if(mAampcli.mAdBrkIndex >= mAdvertList.size()) // shouldn't go hear ideally , just safety measure
-							{
-								mAampcli.mAdBrkIndex = 0;
-							}
-					}
-					else
-					{
-						AAMPLOG_INFO("[CDAI] No dynamic ad start signalled");
-					}
-				}
-			}
+							break;
+						default:
+							break;
+					} // splice.type
+				} // spliceInfoSummary
+			} // SCTE35
 			break;
 		}
-
+			
 		case AAMP_EVENT_MANIFEST_REFRESH_NOTIFY:
 		{
 			std::string manifest;

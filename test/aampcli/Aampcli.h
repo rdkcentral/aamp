@@ -62,7 +62,6 @@ class Aampcli
 		bool mEnableProgressLog;
 		bool mbAutoPlay;
 		bool mIndexedAds = false;
-		int mAdBrkIndex=0;
 		std::string mContentType;
 		std::string mTuneFailureDescription;
 		PlayerInstanceAAMP *mSingleton;
@@ -80,8 +79,7 @@ class Aampcli
 		void newPlayerInstance( std::string appName = "");
 		int getApplicationDir( char *buffer, uint32_t size );
 		void getAdvertUrl( uint32_t reqDuration, uint32_t &adDuration, std::vector<AdvertInfo>& adList);
-		void getAdvertUrlIndexed( std::vector<AdvertInfo>& adList, int idx);
-
+		
 		bool SetSessionId(std::string sid);
 		std::string GetSessionId() const;
 		std::string GetSessionId(size_t index) const;
