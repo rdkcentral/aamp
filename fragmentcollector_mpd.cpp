@@ -168,7 +168,7 @@ StreamAbstractionAAMP_MPD::StreamAbstractionAAMP_MPD(class PrivateInstanceAAMP *
 		sessionMgr->SetLicenseFetcher(this);
 	}
 #endif
-	memset(&mMediaStreamContext, 0, sizeof(mMediaStreamContext));
+	memset(&mMediaStreamContext, 0, 10*sizeof(mMediaStreamContext));
 	GetABRManager().clearProfiles();
 	mLastPlaylistDownloadTimeMs = aamp_GetCurrentTimeMS();
 
