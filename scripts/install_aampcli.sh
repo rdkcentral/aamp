@@ -26,10 +26,6 @@ function aampcli_install_postbuild_fn()
         if [ $OPTION_DONT_RUN_AAMPCLI = false ];then
             # Launch Xcode
             (open AAMP.xcodeproj) &
-    
-            #Launching aamp-cli
-            otool -L ./Debug/aamp-cli
-            ./Debug/aamp-cli https://example.com/VideoTestStream/main.mpd
         else
             echo "To use Xcode, open aamp/build/AAMP.xcodeproj project file"
         fi      
