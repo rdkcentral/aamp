@@ -36,7 +36,7 @@ After that, you can run by typing in terminal from the build folder:
 ```
 If required install cmake tools extension to vs code
 
-Open cmake extansion and click "Configure All Projects" button
+Open cmake extension and click "Configure All Projects" button
 
 NOTE: This step could be omitted. You can just click Yes on the popup which appears when you open the workspace: 
 

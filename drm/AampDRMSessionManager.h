@@ -125,7 +125,7 @@ private:
 	pthread_mutex_t cachedKeyMutex;
 	pthread_mutex_t mDrmSessionLock;
 	bool licenseRequestAbort;
-	bool mEnableAccessAtrributes;
+	bool mEnableAccessAttributes;
 	int mMaxDRMSessions;
 	std::vector<std::thread> mLicenseRenewalThreads;
 	AampCurlDownloader mAccessTokenConnector;
@@ -233,7 +233,7 @@ public:
 	void QueueProtectionEvent(std::shared_ptr<AampDrmHelper> drmHelper, std::string periodId, uint32_t adapIdx, AampMediaType type);
 
 	/**
-	 * @brief Stop DRM session manager and deinitialise license fetcher
+	 * @brief Stop DRM session manager and terminate license fetcher
 	 * 
 	 * @param none
 	 * @return none

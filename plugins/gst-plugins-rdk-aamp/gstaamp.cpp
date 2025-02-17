@@ -38,10 +38,8 @@
 GST_DEBUG_CATEGORY_STATIC (gst_aamp_debug_category);
 #define GST_CAT_DEFAULT gst_aamp_debug_category
 
-/* Dms Redbull Linear channel and Redbull Events are not played
- *
- * This issue is due to Audio packets are lately muxed in the stream, and
- * Gstreamer is blocking the Video injection until the Audio packets are received.
+/* Workaround for Audio packets muxed late in the stream with
+ * Gstreamer blocking the Video injection until the Audio packets are received.
  *
  * Since the buffer size is very less, only video packets get filled initially and
  * waiting for Gstreamer to consume the data.

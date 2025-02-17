@@ -492,22 +492,22 @@ int ABRManager::getProfileIndexByBitrateRampUpOrDown(int currentProfileIndex, lo
 #endif
   } else {
     // if networkBandwidth < than current bandwidth
-    SortedBWProfileListRevIter reviter;
+    SortedBWProfileListRevIter revIter;
     SortedBWProfileListIter currIter = mSortedBWProfileList[periodId].find(currentBandwidth);
     SortedBWProfileListIter storedIter = mSortedBWProfileList[periodId].end();
-    for (reviter = mSortedBWProfileList[periodId].rbegin(); reviter != mSortedBWProfileList[periodId].rend(); ++reviter) {
+    for (revIter = mSortedBWProfileList[periodId].rbegin(); revIter != mSortedBWProfileList[periodId].rend(); ++revIter) {
       // This is sorted List
-      if (networkBandwidth >= reviter->first) {
-        desiredProfileIndex = reviter->second;
+      if (networkBandwidth >= revIter->first) {
+        desiredProfileIndex = revIter->second;
         // convert from reverse iter to forward iter
-        storedIter = reviter.base();
+        storedIter = revIter.base();
         storedIter--;
         break;
       }
     }
 
     // we didn't find a profile which can be supported in this bandwidth
-    if (reviter == mSortedBWProfileList[periodId].rend()) {
+    if (revIter == mSortedBWProfileList[periodId].rend()) {
 	desiredProfileIndex = mSortedBWProfileList[periodId].begin()->second;
         logprintf("%s:%d Didn't find a profile which supports bandwidth[%ld], min bandwidth available [%ld]. Set profile to lowest!\n", __FUNCTION__, __LINE__, networkBandwidth, mSortedBWProfileList[periodId].begin()->first);
     }

@@ -2,7 +2,7 @@
  * If not stated otherwise in this file or this component's license file the
  * following copyright and licenses apply:
  *
- * Copyright 2020 RDK Management
+ * Copyright 2024 RDK Management
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,12 +16,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
 */
-//
-//  AampSmartMutex.h
-//  aamp
-//
-//  Created by Stroffolino, Philip on 8/2/24.
-//
 
 #ifndef AampSmartMutex_h
 #define AampSmartMutex_h
@@ -36,7 +30,7 @@
   * usage:
   * 1. AampSmartMutex mMutex("myMutex"); // declare named mutex
   * 2. to lock, use LOCK_SMARTMUTEX(mMutex) macro
-  * 3. to unlock, call mMutex.unlock() methos
+  * 3. to unlock, call mMutex.unlock() method
   */
 const int DEFAULT_MUTEX_WARN_THRESHOLD_MS = 50;
 

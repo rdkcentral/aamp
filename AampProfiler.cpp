@@ -152,18 +152,18 @@ void ProfileEventAAMP::getTuneEventsJSON(std::string &outStr, const std::string 
 	unsigned int td = (unsigned int)(tEndTime - tuneStartMonotonicBase);
 	size_t end = 0;
 
-	std::string temlUrl = url;
-	end = temlUrl.find("?");
+	std::string tempUrl = url;
+	end = tempUrl.find("?");
 
 	if (end != std::string::npos)
 	{
-		temlUrl = temlUrl.substr(0, end);
+		tempUrl = tempUrl.substr(0, end);
 	}
 
 	char outPtr[512];
 	memset(outPtr, '\0', 512);
 
-	snprintf(outPtr, 512, "{\"s\":%lld,\"td\":%d,\"st\":\"%s\",\"u\":\"%s\",\"tf\":{\"i\":%d,\"er\":%d},\"r\":%d,\"v\":[",tuneStartBaseUTCMS, td, streamType.c_str(), temlUrl.c_str(), mTuneFailBucketType, mTuneFailErrorCode, (success ? 1 : 0));
+	snprintf(outPtr, 512, "{\"s\":%lld,\"td\":%d,\"st\":\"%s\",\"u\":\"%s\",\"tf\":{\"i\":%d,\"er\":%d},\"r\":%d,\"v\":[",tuneStartBaseUTCMS, td, streamType.c_str(), tempUrl.c_str(), mTuneFailBucketType, mTuneFailErrorCode, (success ? 1 : 0));
 
 	outStr.append(outPtr);
 
@@ -309,7 +309,7 @@ void ProfileEventAAMP::TuneEnd(TuneEndMetrics &mTuneEndMetrics,std::string appNa
 		"%d,%d,"		// VideoDecryptDuration, AudioDecryptDuration
 		"%d,%d,"		// gstPlayStartTime, gstFirstFrameTime
 		"%d,%d,%d,"		// contentType, streamType, firstTune
-		"%d,%d,"		// If Player was in prebufferd mode, time spent in prebufferd(BG) mode
+		"%d,%d,"		// If Player was in prebuffered mode, time spent in prebuffered(BG) mode
 		"%d,%d,"		// Asset duration in seconds, Connection is wifi or not - wifi(1) ethernet(0)
 		"%d,%d,%s,%s,"		// TuneAttempts ,Tunestatus -success(1) failure (0) ,Failure Reason, AppName
 		"%d,%d,%d,%d,%d",       // TimedMetadata (count,start,total) ,TSBEnabled or not - enabled(1) not enabled(0)
@@ -344,7 +344,7 @@ void ProfileEventAAMP::TuneEnd(TuneEndMetrics &mTuneEndMetrics,std::string appNa
 		mTuneEndMetrics.mTimedMetadata,mTimedMetadataStartTime < 0 ? 0 : mTimedMetadataStartTime , mTuneEndMetrics.mTimedMetadataDuration,mTuneEndMetrics.mTSBEnabled,mTotalTime
 		);
 
-		// Telemetery is generated in GetTuneTimeMetricAsJson hence calling always,
+		// Telemetry is generated in GetTuneTimeMetricAsJson hence calling always,
 		std::string metricsDataJson = GetTuneTimeMetricAsJson(mTuneEndMetrics, tuneTimeStrPrefix, licenseAcqNWTime, playerPreBuffered, durationSeconds, interfaceWifi, failureReason, appName);
 
 		// tuneMetricData could be NULL if application has not registered for tuneMetrics event,
@@ -358,7 +358,7 @@ void ProfileEventAAMP::TuneEnd(TuneEndMetrics &mTuneEndMetrics,std::string appNa
 /**
  *  @brief Method converting the AAMP style tune performance data to IP_EX_TUNETIME style data
  */
-void ProfileEventAAMP::GetClassicTuneTimeInfo(bool success, int tuneRetries, int firstTuneType, long long playerLoadTime, int streamType, bool isLive,unsigned int durationinSec, char *TuneTimeInfoStr)
+void ProfileEventAAMP::GetClassicTuneTimeInfo(bool success, int tuneRetries, int firstTuneType, long long playerLoadTime, int streamType, bool isLive,unsigned int durationS, char *TuneTimeInfoStr)
 {
 	// Prepare String for Classic TuneTime data
 	// Note: Certain buckets won't be available; will take the tFinish of the previous bucket as the start & finish those buckets.
@@ -396,12 +396,12 @@ void ProfileEventAAMP::GetClassicTuneTimeInfo(bool success, int tuneRetries, int
 	snprintf(TuneTimeInfoStr,AAMP_MAX_PIPE_DATA_SIZE,"%d,%lld,%d,%d," //totalNetworkTime, playerLoadTime , failRetryBucketTime, prepareToPlayBucketTime,
 			"%d,%d,%d,"                                             //playBucketTime ,licenseTotal , decoderStreamingBucketTime
 			"%d,%d,%d,%d,"                                          // manifestTotal,profilesTotal,fragmentTotal,effectiveFragmentDLTime
-			"%d,%d,%d,%d,"                                          // licenseNWTime,success,durationinMilliSec,isLive
+			"%d,%d,%d,%d,"                                          // licenseNWTime,success,durationMs,isLive
 			"%lld,%lld,%lld,"                                       // TuneTimeBeginLoad,TuneTimePrepareToPlay,TuneTimePlay,
 			"%lld,%lld,%lld,"                                       //TuneTimeDrmReady,TuneTimeStartStream,TuneTimeStreaming
 			"%d,%d,%d,%lld",                                             //streamType, tuneRetries, TuneType, TuneCompleteTime(UTC MSec)
 			networkTime,playerLoadTime, failRetryBucketTime, prepareToPlayBucketTime,playBucketTime,licenseTotal,decoderStreamingBucketTime,
-			manifestTotal,profilesTotal,(initFragmentTotal + fragmentTotal),fragmentBucketTime, licenseNWTime,success,durationinSec*1000,isLive,
+			manifestTotal,profilesTotal,(initFragmentTotal + fragmentTotal),fragmentBucketTime, licenseNWTime,success,durationS*1000,isLive,
 			xreTimeBuckets[TuneTimeBeginLoad],xreTimeBuckets[TuneTimePrepareToPlay],xreTimeBuckets[TuneTimePlay] ,xreTimeBuckets[TuneTimeDrmReady],
 			xreTimeBuckets[TuneTimeStartStream],xreTimeBuckets[TuneTimeStreaming],streamType,tuneRetries,firstTuneType,(long long)NOW_SYSTEM_TS_MS
 	);

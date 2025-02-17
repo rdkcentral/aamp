@@ -154,7 +154,7 @@ void StreamAbstractionAAMP_OTA::onPlayerStatusHandler(const JsonObject& paramete
 		{
 			SendMediaMetadataEvent();
 
-			// genereate Notify bitrate event if video w/h is changed
+			// generate notify bitrate event if video w/h is changed
 			// this is lagacy event used by factory test app to get video info
 			if( (miPrevmiVideoWidth != miVideoWidth) ||  (miPrevmiVideoHeight != miVideoHeight) )
 			{
@@ -164,7 +164,6 @@ void StreamAbstractionAAMP_OTA::onPlayerStatusHandler(const JsonObject& paramete
 			}
 		}
 	}
-
 }
 
 /**
@@ -329,7 +328,7 @@ AAMPStatusType StreamAbstractionAAMP_OTA::Init(TuneType tuneType)
     AAMPLOG_INFO("[OTA_SHIM]Inside" );
     prevState = "IDLE";
 	
-    //initialize few veriables, it will invalidate mediametadata/Notifybitrate events
+    //initialize few variables, it will invalidate mediametadata/Notifybitrate events
     miVideoWidth = 0;
     miVideoHeight = 0;
     miPrevmiVideoWidth  = 0;
@@ -375,7 +374,7 @@ StreamAbstractionAAMP_OTA::StreamAbstractionAAMP_OTA(class PrivateInstanceAAMP *
 }
 
 /**
- * @brief StreamAbstractionAAMP_OTA Distructor
+ * @brief StreamAbstractionAAMP_OTA Destructor
  */
 StreamAbstractionAAMP_OTA::~StreamAbstractionAAMP_OTA()
 {
@@ -972,7 +971,7 @@ void StreamAbstractionAAMP_OTA::GetTextTracks()
 	{
 		std::string empty;
 		// Push dummy track , when not published,
-		// it is obseved that even if track is not published
+		// it is observed that even if track is not published
 		// CC1 is present
 		txtTracks.push_back(TextTrackInfo("0", "und", true, empty, "Undetermined", "CC1", empty, 0 ));
 	}
@@ -1058,7 +1057,7 @@ bool StreamAbstractionAAMP_OTA::IsInitialCachingSupported()
 }
 
 /**
- *  @brief Gets Max Bitrate avialable for current playback.
+ *  @brief Gets Max Bitrate available for current playback.
  */
 BitsPerSecond StreamAbstractionAAMP_OTA::GetMaxBitrate()
 { // STUB

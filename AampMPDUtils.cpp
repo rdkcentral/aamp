@@ -128,7 +128,7 @@ Node* MPDProcessNode(xmlTextReaderPtr *reader, std::string url, bool isAd)
 
 
 /**
- * @brief Add attriblutes to xml node
+ * @brief Add attributes to xml node
  * @param reader xmlTextReaderPtr
  * @param node xml Node
  */
@@ -192,7 +192,7 @@ bool IsCompatibleMimeType(const std::string& mimeType, AampMediaType mediaType)
 }
 
 /**
- * @brief Computes the fragment duratioN.
+ * @brief Computes the fragment duration
  * @param duration of the fragment.
  * @param timeScale value.
  * @return - computed fragment duration in double.

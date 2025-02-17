@@ -54,6 +54,28 @@ function install_build_libcjson_fn()
             INSTALL_STATUS_ARR+=("cjson was successfully installed.")
         fi
 
+        if [ "$(uname -m)" = "arm64" ]; then
+
+            SOURCE="/opt/homebrew/lib/libcjson.dylib"
+            TARGET="/usr/local/lib/libcjson.dylib"
+
+            if [ ! -f "$SOURCE" ]; then
+                echo "cJSON not installed. Please install using "brew install cjson""
+                exit 1
+            fi
+
+            if [ -L "$TARGET" ]; then
+                echo "Required symlink $TARGET for arm64 already exists."
+
+            else
+                
+                echo "Creating required symlink for arm64: $TARGET -> $SOURCE"
+                sudo ln -s "$SOURCE" "$TARGET"
+            fi
+
+
+        fi
+
     elif [[ "$OSTYPE" == "linux"* ]]; then
         echo "libcjson is installed via apt on Linux targets."
     fi

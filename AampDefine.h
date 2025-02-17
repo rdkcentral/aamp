@@ -30,7 +30,7 @@
 #define AAMP_CFG_PATH "/opt/aamp.cfg"
 #define AAMP_JSON_PATH "/opt/aampcfg.json"
 
-#define AAMP_VERSION "6.12"
+#define AAMP_VERSION "7.01"
 #define AAMP_TUNETIME_VERSION 5
 
 //Stringification of Macro : use two levels of macros
@@ -43,7 +43,7 @@
 #define GST_VIDEOBUFFER_SIZE_BYTES (GST_VIDEOBUFFER_SIZE_BYTES_BASE*3)
 #define GST_AUDIOBUFFER_SIZE_BYTES (GST_AUDIOBUFFER_SIZE_BYTES_BASE*3)
 
-#define GST_BW_TO_BUFFER_FACTOR 0.80			/**< Bandwidth to buffer factor to calculate new GST Buffer Size to accomodate larger Video Buffers*/
+#define GST_BW_TO_BUFFER_FACTOR 0.80			/**< Bandwidth to buffer factor to calculate new GST Buffer Size to accommodate larger Video Buffers*/
 #define GST_VIDEOBUFFER_SIZE_MAX_BYTES 26214400			/**< 25*1024*1024 , Upper limit for HiFi Content */
 
 #define DEFAULT_ENCODED_CONTENT_BUFFER_SIZE (512*1024)		/**< 512KB buffer is allocated for a content encoded curl download to minimize buffer reallocation*/
@@ -52,7 +52,7 @@
 #define DEFAULT_WAIT_TIME_BEFORE_RETRY_HTTP_5XX_MS (1000)  	/**< Wait time in milliseconds before retry for 5xx errors */
 #define MAX_PLAYLIST_CACHE_SIZE    (3*1024) 			/**< Approx 3MB -> 2 video profiles + one audio profile + one iframe profile, 500-700K MainManifest */
 
-#define DEFAULT_ABR_CACHE_LIFE 5000                 		/**< Default ABR cache life  in milli secs*/
+#define DEFAULT_ABR_CACHE_LIFE 5000                 		/**< Default ABR cache life  in milliseconds*/
 #define DEFAULT_ABR_OUTLIER 5000000                 		/**< ABR outlier: 5 MB */
 #define DEFAULT_ABR_SKIP_DURATION 6          		        /**< Initial skip duration of ABR - 6 sec */
 #define DEFAULT_ABR_NW_CONSISTENCY_CNT 2            		/**< ABR network consistency count */
@@ -74,11 +74,7 @@
 #define AAMP_CDVR_LIVE_OFFSET 30        			/**< Live offset in seconds for CDVR hot recording */
 #define MIN_DASH_DRM_SESSIONS 3
 #define DEFAULT_DRM_NETWORK_TIMEOUT 5                           /** < default value for drmNetworkTimeout  - 5 sec */
-#ifdef XIONE_UK
-#define DEFAULT_CACHED_FRAGMENTS_PER_TRACK  3      	 	/**< Default cached fragements per track */
-#else
-#define DEFAULT_CACHED_FRAGMENTS_PER_TRACK  4       		/**< Default cached fragements per track */
-#endif
+#define DEFAULT_CACHED_FRAGMENTS_PER_TRACK  4       		/**< Default cached fragments per track */
 #define TRICKPLAY_VOD_PLAYBACK_FPS 4            		/**< Frames rate for trickplay from CDN server */
 #define TRICKPLAY_LINEAR_PLAYBACK_FPS 8                		/**< Frames rate for trickplay from TSB */
 #define DEFAULT_DOWNLOAD_RETRY_COUNT (1)			/**< max download failure retry attempt count */
@@ -93,7 +89,7 @@
 #define DEFAULT_TIMEOUT_FOR_SOURCE_SETUP (1000) 		/**< Default timeout value in milliseconds */
 #define MAX_SEG_DRM_DECRYPT_FAIL_COUNT 10           		/**< Max segment decryption failures to identify a playback failure. */
 #define MAX_SEG_INJECT_FAIL_COUNT 10                		/**< Max segment injection failure to identify a playback failure. */
-#define AAMP_USERAGENT_BASE_STRING	"Mozilla/5.0 (Linux; x86_64 GNU/Linux) AppleWebKit/601.1 (KHTML, like Gecko) Version/8.0 Safari/601.1 WPE"	/**< Base User agent string,it will be appneded with AAMP_USERAGENT_SUFFIX */
+#define AAMP_USERAGENT_BASE_STRING	"Mozilla/5.0 (Linux; x86_64 GNU/Linux) AppleWebKit/601.1 (KHTML, like Gecko) Version/8.0 Safari/601.1 WPE"	/**< Base User agent string,it will be appended with AAMP_USERAGENT_SUFFIX */
 #define AAMP_USERAGENT_SUFFIX		" AAMP/" AAMP_VERSION    /**< Version string of AAMP Player */
 #define AAMP_USERAGENT_STRING AAMP_USERAGENT_BASE_STRING AAMP_USERAGENT_SUFFIX
 #define DEFAULT_AAMP_ABR_THRESHOLD_SIZE (6000)			/**< aamp abr threshold size */
@@ -109,8 +105,8 @@
 #define MAX_DOWNLOAD_DELAY_LIMIT_MS 30000
 #define MAX_ERROR_DESCRIPTION_LENGTH 128
 #define MAX_ANOMALY_BUFF_SIZE   256
-#define MAX_WAIT_TIMEOUT_MS	200				/**< Max Timeout furation for wait until cache is available to inject next*/
-#define MAX_INIT_FRAGMENT_CACHE_PER_TRACK  5       		/**< Max No Of cached Init fragements per track */
+#define MAX_WAIT_TIMEOUT_MS	200				/**< Max Timeout duration for wait until cache is available to inject next*/
+#define MAX_INIT_FRAGMENT_CACHE_PER_TRACK  5       		/**< Max No Of cached Init fragments per track */
 #define MIN_SEG_DURATION_THRESHOLD	(0.25)			/**< Min Segment Duration threshold for pushing to pipeline at period End*/
 #define MAX_CURL_SOCK_STORE		10			/**< Maximum no of host to be maintained in curl store*/
 #define DEFAULT_AD_FULFILLMENT_TIMEOUT 2000	/**< Default Ad fulfillment timeout in milliseconds */
@@ -148,9 +144,9 @@
 
 // the +1 is used to compensate for internal use originally being a > check, now >=
 #if defined(REALTEKCE)
-#define DEFAULT_BUFFERING_QUEUED_FRAMES_MIN (3+1) // TODO: deprecate realtek-specific config (risk: tune time impact)
+#define DEFAULT_BUFFERING_QUEUED_FRAMES_MIN (3+1) // TODO: deprecate -specific config (risk: tune time impact)
 #else
-#define DEFAULT_BUFFERING_QUEUED_FRAMES_MIN (5+1) // more conservative config; used on AmLogic
+#define DEFAULT_BUFFERING_QUEUED_FRAMES_MIN (5+1) // more conservative config;
 #endif
 
 // Player supported play/trick-play rates.
@@ -196,7 +192,7 @@
 #define AAMP_FOG_TSB_URL_KEYWORD "tsb?" /**< AAMP expect this keyword in URL to identify it is FOG url */
 
 #define DEFAULT_INITIAL_RATE_CORRECTION_SPEED 1.000001f	/**< Initial rate correction speed to avoid audio drop */
-#define DEFAULT_CACHED_FRAGMENT_CHUNKS_PER_TRACK	20					/**< Default cached fragement chunks per track */
+#define DEFAULT_CACHED_FRAGMENT_CHUNKS_PER_TRACK	20					/**< Default cached fragment chunks per track */
 #define DEFAULT_ABR_CHUNK_CACHE_LENGTH			10					/**< Default ABR chunk cache length */
 #define DEFAULT_AAMP_ABR_CHUNK_THRESHOLD_SIZE		(DEFAULT_AAMP_ABR_THRESHOLD_SIZE)	/**< aamp abr Chunk threshold size */
 #define DEFAULT_ABR_CHUNK_SPEEDCNT			10					/**< Chunk Speed Count Store Size */
@@ -212,27 +208,27 @@
 #define AAMP_MAX_EVENT_PRIORITY (-70) 	/**< Maximum allowed priority value for events */
 #define AAMP_TASK_ID_INVALID 0
 
-//License acquistion related configuration
+//License acquisition related configuration
 #define MAX_LICENSE_REQUEST_ATTEMPTS 2
 //Secmanager error class codes
-#define SECMANGER_DRM_FAILURE 200
-#define SECMANGER_WM_FAILURE 300 	/**< If secmanager couldn't initialize watermark service */
+#define SECMANAGER_DRM_FAILURE 200
+#define SECMANAGER_WM_FAILURE 300 	/**< If secmanager couldn't initialize watermark service */
 
 //Secmanager error reason codes
-#define SECMANGER_DRM_GEN_FAILURE 1	/**< General or internal failure */
-#define SECMANGER_SERVICE_TIMEOUT 3
-#define SECMANGER_SERVICE_CON_FAILURE 4
-#define SECMANGER_SERVICE_BUSY 5
-#define SECMANGER_ACCTOKEN_EXPIRED 8
-#define SECMANGER_ENTITLEMENT_FAILURE 102
+#define SECMANAGER_DRM_GEN_FAILURE 1	/**< General or internal failure */
+#define SECMANAGER_SERVICE_TIMEOUT 3
+#define SECMANAGER_SERVICE_CON_FAILURE 4
+#define SECMANAGER_SERVICE_BUSY 5
+#define SECMANAGER_ACCTOKEN_EXPIRED 8
+#define SECMANAGER_ENTITLEMENT_FAILURE 102
 
-// weights used for autio/subtitle track-selection heuristic
+// weights used for audio/subtitle track-selection heuristic
 #define AAMP_LANGUAGE_SCORE 1000000000ULL  /**< Top priority:  matching language **/
 #define AAMP_SCHEME_ID_SCORE 100000000ULL  /**< 2nd priority to scheme id matching **/
 #define AAMP_LABEL_SCORE 10000000ULL       /**< 3rd priority to  label matching **/
 #define AAMP_ROLE_SCORE 1000000ULL         /**< 4th priority to role/rendition matching **/
 #define AAMP_TYPE_SCORE 100000ULL          /**< 5th priority to type matching **/
-#define AAMP_CODEC_SCORE 1000ULL           /**< Lowest priority: matchng codec **/
+#define AAMP_CODEC_SCORE 1000ULL           /**< Lowest priority: matching codec **/
 #define THRESHOLD_TOIGNORE_TINYPERIOD 500  /**<in milliseconds**/
 
 
@@ -295,7 +291,7 @@ typedef enum
 enum LatencyStatus
 {
 	LATENCY_STATUS_UNKNOWN=-1,     /**< The latency is Unknown */
-	LATENCY_STATUS_MIN,            /**< The latency is within range but less than mimium latency */
+	LATENCY_STATUS_MIN,            /**< The latency is within range but less than minimum latency */
 	LATENCY_STATUS_THRESHOLD_MIN,  /**< The latency is within range but less than target latency but greater than minimum latency */
 	LATENCY_STATUS_THRESHOLD,      /**< The latency is equal to given latency from mpd */
 	LATENCY_STATUS_THRESHOLD_MAX,  /**< The latency is more that target latency but less than maximum latency */
@@ -368,13 +364,13 @@ enum AAMPStatusType
 	eAAMPSTATUS_GENERIC_ERROR,			/**< Aamp General Error */
 	eAAMPSTATUS_MANIFEST_DOWNLOAD_ERROR,		/**< Manifest download failed */
 	eAAMPSTATUS_PLAYLIST_VIDEO_DOWNLOAD_ERROR,	/**< Video download failed */
-	eAAMPSTATUS_PLAYLIST_AUDIO_DOWNLOAD_ERROR,	/**< Audio dowload failed */
+	eAAMPSTATUS_PLAYLIST_AUDIO_DOWNLOAD_ERROR,	/**< Audio download failed */
 	eAAMPSTATUS_MANIFEST_PARSE_ERROR,		/**< Manifest parse failed */
 	eAAMPSTATUS_MANIFEST_CONTENT_ERROR,		/**< Manifest content is unknown or Error */
 	eAAMPSTATUS_MANIFEST_INVALID_TYPE,		/**< Invalid manifest type */
 	eAAMPSTATUS_PLAYLIST_PLAYBACK,			/**< Playlist play back happening */
 	eAAMPSTATUS_SEEK_RANGE_ERROR,			/**< Seek position range invalid */
-	eAAMPSTATUS_TRACKS_SYNCHRONISATION_ERROR,	/**< Audio video track synchronisation Error */
+	eAAMPSTATUS_TRACKS_SYNCHRONIZATION_ERROR,	/**< Audio video track synchronization Error */
 	eAAMPSTATUS_INVALID_PLAYLIST_ERROR,		/**< Playlist discontinuity mismatch*/
 	eAAMPSTATUS_UNSUPPORTED_DRM_ERROR		/**< Unsupported DRM */
 };

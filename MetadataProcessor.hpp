@@ -183,7 +183,7 @@ private:
 	 */
 	void ProcessID3Metadata(AampMediaType type, const char * data_ptr, size_t data_len);
 
-    /// Flag for tracking whether the current PTS is valid (initialised) or not
+    /// Flag for tracking whether the current PTS is valid (Initialized) or not
     bool processPTSComplete;
 	
 };

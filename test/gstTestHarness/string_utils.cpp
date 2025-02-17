@@ -71,7 +71,7 @@ static double ISO8601DateTimeToUTCSeconds(const char *ptr)
 	if(ptr)
 	{
 		std::tm timeObj = { 0 };
-		//Find out offset from utc by convering epoch
+		//Find out offset from utc by converting epoch
 		std::tm baseTimeObj = { 0 };
 		strptime("1970-01-01T00:00:00.", "%Y-%m-%dT%H:%M:%S.", &baseTimeObj);
 		time_t offsetFromUTC = timegm(&baseTimeObj);

@@ -19,7 +19,7 @@
 
 /**
 * @file ElementaryProcessor.cpp
-* @brief Source file for Elemetary Fragment Processor
+* @brief Source file for Elementary Fragment Processor
 */
 
 #include "ElementaryProcessor.h"

@@ -199,14 +199,14 @@ enum BufferHealthStatus
 };
 
 /**
- * @brief Media Disconutinuity state
+ * @brief Media Discontinuity state
  */
 typedef enum
 {
-	eDISCONTIUITY_FREE = 0,       /**< No Discontinuity */
-	eDISCONTINUIY_IN_VIDEO = 1,   /**< Discontinuity in Video */
-	eDISCONTINUIY_IN_AUDIO = 2,   /**< Discontinuity in audio */
-	eDISCONTINUIY_IN_BOTH = 3     /**< Discontinuity in Both Audio and Video */
+	eDISCONTINUITY_FREE = 0,       /**< No Discontinuity */
+	eDISCONTINUITY_IN_VIDEO = 1,   /**< Discontinuity in Video */
+	eDISCONTINUITY_IN_AUDIO = 2,   /**< Discontinuity in audio */
+	eDISCONTINUITY_IN_BOTH = 3     /**< Discontinuity in Both Audio and Video */
 } MediaTrackDiscontinuityState;
 
 class IsoBmffHelper;
@@ -375,7 +375,7 @@ public:
 	 * @fn GetPlaylistMediaTypeFromTrack
 	 *
 	 * @param[in] type - track type
-	 * @param[in] isIframe - Flag to indiacte whether the track is iframe or not
+	 * @param[in] isIframe - Flag to indicate whether the track is iframe or not
 	 *
 	 * @return Mediatype
 	 */
@@ -502,7 +502,7 @@ public:
 	 /**
 	 * @fn setDiscontinuityState
 	 *
-	 * @param isDiscontinuity - true if dicontinuity false otherwise
+	 * @param isDiscontinuity - true if discontinuity false otherwise
 	 * @return void
 	 */
 	virtual void setDiscontinuityState(bool isDiscontinuity) = 0;
@@ -527,7 +527,7 @@ public:
 	virtual double GetBufferedDuration (void) = 0;
 
 	/**
-	 * @brief Get number of fragments dpownloaded
+	 * @brief Get number of fragments downloaded
 	 *
 	 * @return Number of downloaded fragments
 	 */
@@ -839,6 +839,17 @@ private:
 	void TrickModePtsRestamp(AampGrowableBuffer &fragment, double &position, double &duration,
 							bool initFragment, bool  discontinuity);
 
+	/**
+	 * Handles the fragment position jump for the media track.
+	 *
+	 * This function is responsible for handling the fragment position jump for the media track.
+	 * It calculates the delta between the last injected fragment end position and the current fragment position,
+	 * and updates the total injected duration accordingly.
+	 *
+	 * @param cachedFragment pointer to the cached fragment.
+	 */
+	void HandleFragmentPositionJump(CachedFragment* cachedFragment);
+
 public:
 	bool eosReached;                    /**< set to true when a vod asset has been played to completion */
 	bool enabled;                       /**< set to true if track is enabled */
@@ -856,16 +867,17 @@ public:
 	int maxCachedFragmentsPerTrack;
 	int maxCachedFragmentChunksPerTrack;
 	pthread_cond_t fragmentChunkFetched;/**< Signaled after a fragment Chunk is fetched*/
-	int noMDATCount;                    /**< MDAT Chunk Not Found count continuously while chunk buffer processoing*/
+	int noMDATCount;                    /**< MDAT Chunk Not Found count continuously while chunk buffer processing */
 	std::shared_ptr<MediaProcessor> playContext;		/**< state for s/w demuxer / pts/pcr restamper module */
     bool seamlessAudioSwitchInProgress; /**< Flag to indicate seamless audio track switch in progress */
 	bool seamlessSubtitleSwitchInProgress;
+	bool mCheckForRampdown;		        /**< flag to indicate if the track is undergoing rampdown or not */
 
 protected:
 	PrivateInstanceAAMP* aamp;          /**< Pointer to the PrivateInstanceAAMP*/
 	std::shared_ptr<IsoBmffHelper> mIsoBmffHelper; /**< Helper class for ISO BMFF parsing */
-	CachedFragment *cachedFragment;     /**< storage for currently-downloaded fragment */
-	CachedFragment cachedFragmentChunks[DEFAULT_CACHED_FRAGMENT_CHUNKS_PER_TRACK];
+	CachedFragment *mCachedFragment;    /**< storage for currently-downloaded fragment */
+	CachedFragment mCachedFragmentChunks[DEFAULT_CACHED_FRAGMENT_CHUNKS_PER_TRACK];
 	AampGrowableBuffer unparsedBufferChunk; /**< Buffer to keep fragment content */
 	AampGrowableBuffer parsedBufferChunk;   /**< Buffer to keep fragment content */
 	bool abort;                         /**< Abort all operations if flag is set*/
@@ -873,7 +885,7 @@ protected:
 	bool ptsError;                      /**< flag to indicate if last injected fragment has ptsError */
 	bool abortInject;                   /**< Abort inject operations if flag is set*/
 	bool abortInjectChunk;              /**< Abort inject operations if flag is set*/
-	pthread_mutex_t audioMutex;             /**< protection of audio track reconfiguration */
+	pthread_mutex_t audioMutex;         /**< protection of audio track reconfiguration */
 	bool loadNewAudio;                  /**< Flag to indicate new audio loading started on seamless audio switch */
 	pthread_mutex_t subtitleMutex;
 	bool loadNewSubtitle;
@@ -892,15 +904,13 @@ private:
 	pthread_cond_t fragmentInjected;    	/**< Signaled after a fragment is injected*/
 	std::thread fragmentInjectorThreadID;  	/**< Fragment injector thread id*/
 	pthread_cond_t fragmentChunkInjected;	/**< Signaled after a fragment is injected*/
-	std::thread fragmentChunkInjectorThreadID;/**< Fragment injector thread id*/
-    	std::thread bufferMonitorThreadID;    	/**< Buffer Monitor thread id */
-	std::thread subtitleClockThreadID;    	/**< subtitle clock synchronisation thread id */
+	std::thread bufferMonitorThreadID;    	/**< Buffer Monitor thread id */
+	std::thread subtitleClockThreadID;    	/**< subtitle clock synchronization thread id */
 	int totalFragmentsDownloaded;       	/**< Total fragments downloaded since start by track*/
 	int totalFragmentChunksDownloaded;      /**< Total fragments downloaded since start by track*/
 	bool fragmentInjectorThreadStarted; 	/**< Fragment injector's thread started or not*/
-	bool fragmentChunkInjectorThreadStarted;/**< Fragment Chunk injector's thread started or not*/
 	bool bufferMonitorThreadStarted;    	/**< Buffer Monitor thread started or not */
-	bool UpdateSubtitleClockTaskStarted;    /**< Subtitle clock synchronisation thread started, or not */
+	bool UpdateSubtitleClockTaskStarted;    /**< Subtitle clock synchronization thread started, or not */
 	bool bufferMonitorThreadDisabled;    	/**< Buffer Monitor thread Disabled or not */
 	double totalInjectedDuration;       	/**< Total fragment injected duration*/
 	double totalInjectedChunksDuration;  	/**< Total fragment injected chunk duration*/
@@ -921,10 +931,10 @@ private:
 	std::thread *playlistDownloaderThread;	/**< PlaylistDownloadThread of track*/
 	bool playlistDownloaderThreadStarted;	/**< Playlist downloader thread started or not*/
 	bool abortPlaylistDownloader;			/**< Flag used to abort playlist downloader*/
-	std::condition_variable plDownloadWait;	/**< Conditional variable for signalling timed wait*/
+	std::condition_variable plDownloadWait;	/**< Conditional variable for signaling timed wait*/
 	std::mutex dwnldMutex;					/**< Download mutex for conditional timed wait, used for playlist and fragment downloads*/
-	bool fragmentCollectorWaitingForPlaylistUpdate;	/**< Flag to indicate that the fragment collecor is waiting for ongoing playlist download, used for profile changes*/
-	std::condition_variable frDownloadWait;	/**< Conditional variable for signalling timed wait*/
+	bool fragmentCollectorWaitingForPlaylistUpdate;	/**< Flag to indicate that the fragment collector is waiting for ongoing playlist download, used for profile changes*/
+	std::condition_variable frDownloadWait;	/**< Conditional variable for signaling timed wait*/
 	pthread_cond_t audioFragmentCached;  /**< Signal after a audio fragment cached after reconfigure */
 	double lastInjectedPosition;             /**< Last injected position */
 	double lastInjectedDuration;             /**< Last injected fragment end position */
@@ -935,6 +945,7 @@ private:
 	AampTime mRestampedPts;					/**< Restamped Pts of the segment, used in trick modes */
 	AampTime mRestampedDuration;			/**< Restamped segment duration, used in trick modes */
 	TrickmodeState mTrickmodeState;			/**< Current trick mode state */
+	std::mutex mTrackParamsMutex;			/**< Mutex for track parameters */
 };
 
 /**
@@ -1295,7 +1306,7 @@ public:
 	 * @fn Is4KStream
 	 * @brief check if current stream have 4K content
 	 * @param height - resolution of 4K stream if found
-	 * @param bandwidth - bandwidth of 4K stream if foudd
+	 * @param bandwidth - bandwidth of 4K stream if found
 	 * @return true on success
 	 */
 	virtual bool Is4KStream(int &height, BitsPerSecond &bandwidth)
@@ -1354,6 +1365,23 @@ public:
 	 *   @return true if limit reached, false otherwise
 	 */
 	bool CheckForRampDownLimitReached();
+
+	/**
+	 * @fn UseIframeTrack
+	 * @brief Check if AAMP is using an iframe track
+	 *
+	 * @return true if AAMP is using an iframe track, false otherwise
+	 */
+	virtual bool UseIframeTrack(void) { return trickplayMode; }
+
+	/**
+	 * @fn SetTrickplayMode
+	 * @brief Set trickplay mode depending on rate
+	 *
+	 * @param rate - play rate
+	 */
+	void SetTrickplayMode(float rate) { trickplayMode = (rate != AAMP_NORMAL_PLAY_RATE); }
+
 	bool trickplayMode;                     /**< trick play flag to be updated by subclasses*/
 	int currentProfileIndex;                /**< current Video profile index of the track*/
 	int currentAudioProfileIndex;           /**< current Audio profile index of the track*/
@@ -1365,7 +1393,6 @@ public:
 
 	bool mIsPlaybackStalled;                /**< flag that denotes if playback was stalled or not*/
 	bool mNetworkDownDetected;              /**< Network down status indicator */
-	bool mCheckForRampdown;		        /**< flag to indicate if rampdown is attempted or not */
 	TuneType mTuneType;                     /**< Tune type of current playback, initialize by derived classes on Init()*/
 	int mRampDownCount;		        /**< Total number of rampdowns */
 	double mProgramStartTime;	        /**< Indicate program start time or availability start time */
@@ -1638,6 +1665,12 @@ public:
 	virtual bool GetCurrentTextTrack(TextTrackInfo &textTrack);
 
 	/**
+	 *   @fn API to verify in-band CC availability for a stream.
+	 *
+	 *   @return bool  - ture-if the stream has inband cc
+	 */
+	bool isInBandCcAvailable();
+	/**
 	 *   @fn GetTextTrack
 	 *
 	 *   @return int - index of current text track
@@ -1815,7 +1848,7 @@ public:
 	//Apis for sidecar caption support
 
 	/**
-         *   @brief Initilaize subtitle parser for sidecar support
+         *   @brief Initialize subtitle parser for sidecar support
          *
          *   @param data - subtitle data received from application
          *   @return void

@@ -108,7 +108,7 @@ namespace PersistentWatermark
 		int msize;
 
 		/**
-		 @brief convienience function, mark any previously used shared memory for deletion
+		 @brief convenience function, mark any previously used shared memory for deletion
 		**/
 		void deleteSharedMemory();
 	};

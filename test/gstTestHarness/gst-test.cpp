@@ -1330,10 +1330,13 @@ public:
 	
 	static const char *MapCodec( const std::string & codec )
 	{
+        // audio
 		if( codec.rfind("mp4a.40.",0)==0 ) return "aac";
 		if( codec == "ec-3" ) return "eac3";
 		if( codec == "ac-3" ) return "ac3";
 		
+        // video
+        if( codec == "avc1.640029" ) return "h264";
 		if( codec == "avc1.4d4028" ) return "h264";
 		if( codec.rfind("hvc1.")==0 ) return "hevc";
 		if( codec=="hev1" ) return "hevc";
@@ -1401,10 +1404,14 @@ public:
 				{
 					mediaType = eMEDIATYPE_VIDEO;
 				}
-				else if( adaptationSet.contentType == "audio" )
-				{
-					mediaType = eMEDIATYPE_AUDIO;
-				}
+                else if( adaptationSet.contentType == "audio" )
+                {
+                    mediaType = eMEDIATYPE_AUDIO;
+                }
+                else if( adaptationSet.contentType == "image" )
+                { // not yet supported
+                    continue;
+                }
 				else if( adaptationSet.contentType == "text" )
 				{ // not yet supported
 					continue;
@@ -1476,7 +1483,8 @@ public:
 						if( fInventory )
 						{
 							gsize len = 0;
-							uint64_t baseMediaDecodeTime = representation.data.time[durationIndex];
+							uint64_t baseMediaDecodeTime =
+                            representation.data.time.size()>0? representation.data.time[durationIndex] : 0;
 							gpointer ptr = LoadUrl( mediaUrl, &len );
 							if( ptr )
 							{ // here we peek inside original segment (if available) to extract media decode time, expected to match time from manifest

@@ -278,7 +278,7 @@ std::vector<std::string> aamp_StringArrayToCStringArray(JSContextRef context, JS
     if(exception)
     {
 
-        LOG_ERROR_EX("Error: exception accesing array object.");
+        LOG_ERROR_EX("Error: exception accessing array object.");
         return retval;
     }
 
@@ -287,7 +287,7 @@ std::vector<std::string> aamp_StringArrayToCStringArray(JSContextRef context, JS
     if(exception)
     {
 
-        LOG_ERROR_EX("Error: exception accesing array length.");
+        LOG_ERROR_EX("Error: exception accessing array length.");
         return retval;
     }
     int length = JSValueToNumber(context, lengthRef, &exception);
@@ -497,7 +497,7 @@ JSObjectRef aamp_CreateTimedMetadataJSObject(JSContextRef context, long long tim
 			    (strcmp(szName, "#EXT-X-SCTE35") == 0)) {
 				const char* szStart = szContent;
 
-				// Parse comma seperated name=value list.
+				// Parse comma separated name=value list.
 				while (*szStart != '\0') {
 					char* szSep;
 					// Find the '=' seperator.

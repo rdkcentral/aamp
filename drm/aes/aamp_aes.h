@@ -75,7 +75,7 @@ public:
 	/**
 	 * @fn Decrypt
 	 * @param bucketType Type of bucket for profiling
-	 * @param encryptedDataPtr pointer to encyrpted payload
+	 * @param encryptedDataPtr pointer to encrypted payload
 	 * @param encryptedDataLen length in bytes of data pointed to by encryptedDataPtr
 	 * @param timeInMs wait time
 	 */
@@ -103,7 +103,7 @@ public:
 
 	/*Functions to support internal operations*/
 	/**
-	 * @brief key acquistion thread
+	 * @brief key acquisition thread
 	 * @retval NULL
 	 */
 	void acquire_key();

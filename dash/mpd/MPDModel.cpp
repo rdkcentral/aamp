@@ -346,18 +346,18 @@ std::string DashMPDAdaptationSet::getInitUrl()
 
 /**
  * @brief   Validates current Segment Template with Dash MPD Adaptation Set
- * @param   adaptaionSet Dash MPD Adaptation Set
+ * @param   adaptationSet Dash MPD Adaptation Set
  * @retval  True on Dash MPD Adaptation Sets else false
  */
-bool DashMPDAdaptationSet::isIdenticalAdaptionSet(const std::shared_ptr<DashMPDAdaptationSet>& adaptaionSet)
+bool DashMPDAdaptationSet::isIdenticalAdaptionSet(const std::shared_ptr<DashMPDAdaptationSet>& adaptationSet)
 {
     bool ret = false;
     auto segmentTemplate1 = this->getSegmentTemplate();
-    auto segmentTemplate2 = adaptaionSet->getSegmentTemplate();
+    auto segmentTemplate2 = adaptationSet->getSegmentTemplate();
     if (segmentTemplate1 && segmentTemplate2)
     {
         if (segmentTemplate1->getInitializationAttr() == segmentTemplate2->getInitializationAttr()
-             && this->getBaseUrl() == adaptaionSet->getBaseUrl()
+             && this->getBaseUrl() == adaptationSet->getBaseUrl()
              && segmentTemplate1->getMedia() == segmentTemplate2->getMedia())
         {
              AAMPLOG_TRACE("Found identical Adaption Sets");
@@ -723,10 +723,10 @@ std::vector<std::shared_ptr<DashMPDRole>> DashMPDAdaptationSet::getRoles() {
  * @brief   Get Dash MPD Accessibility
  * @retval  Dash MPD Accessibility
  */
-std::vector<std::shared_ptr<DashMPDAccessibility>> DashMPDAdaptationSet::getAccessibilities() {
-    if (accessibilities.size() > 0) return accessibilities;
-    getChildren(accessibilities, "Accessibility");
-    return accessibilities;
+std::vector<std::shared_ptr<DashMPDAccessibility>> DashMPDAdaptationSet::getAccessibility() {
+    if (accessibility.size() > 0) return accessibility;
+    getChildren(accessibility, "Accessibility");
+    return accessibility;
 }
 
 /**
@@ -988,9 +988,9 @@ void DashMPDPeriod::dumpPeriodBoundaries()
         vector<TimelineItem> timelineItems;
         extractTimeline(*timeLine, timelineItems);
         auto timeLineSize = timelineItems.size() - 1;
-        auto endNume = startNum + timeLineSize;
-        AAMPLOG_ERR("FragmentsInfo : period ID  %s; adaptation %s; startNumer %lld, endNumber %lld  startTime %lld endTime %lld",
-            getId().c_str(), adaptationSet->getAdaptationSetKey().c_str(), startNum, endNume, timelineItems.at(0).startTime, timelineItems.at(timeLineSize).startTime);
+        auto endNumber = startNum + timeLineSize;
+        AAMPLOG_ERR("FragmentsInfo : period ID  %s; adaptation %s; startNumber %lld, endNumber %lld  startTime %lld endTime %lld",
+            getId().c_str(), adaptationSet->getAdaptationSetKey().c_str(), startNum, endNumber, timelineItems.at(0).startTime, timelineItems.at(timeLineSize).startTime);
     }
     else
     {
@@ -2228,7 +2228,7 @@ string DashMPDSegmentURL::getSegmentPath() {
 }
 
 /**
- * @brief   Update media for segmen url
+ * @brief   Update media for segment url
  * @param   media 
  * @retval   media
  */

@@ -219,7 +219,7 @@ bool IsoBmffProcessor::setTuneTimePTS(AampGrowableBuffer *fragBuffer, double pos
 	ret = !aborted;  // check the module is active
 
 	// Logic for Audio & Subtitle Track
-	if (type == eBMFFPROCESSOR_TYPE_AUDIO || type == eBMFFPROCESSOR_TYPE_SUBTITILE)
+	if (type == eBMFFPROCESSOR_TYPE_AUDIO || type == eBMFFPROCESSOR_TYPE_SUBTITLE)
 	{
 		if (ret && !processPTSComplete)
 		{
@@ -493,7 +493,7 @@ void IsoBmffProcessor::restampPTSAndSendSegment(AampGrowableBuffer *pBuffer,doub
 
 				clearRestampInitSegment();
 				cacheRestampInitSegment((AampMediaType)type,pBuffer->GetPtr(), pBuffer->GetLen(),position,duration,isDiscontinuity);
-				timeScaleChangeState = eBMFFPROCESSOR_CONTINUE_WITH_ABR_CHANGED_TIMESCALE; //init fragment need to be pushed in diffrent timescale
+				timeScaleChangeState = eBMFFPROCESSOR_CONTINUE_WITH_ABR_CHANGED_TIMESCALE; //init fragment need to be pushed in different timescale
 				cacheInitBufferForRestampingPTS(pBuffer->GetPtr(), pBuffer->GetLen(),tScale,position,true); // timescale changed with abr scale the pts to continue push
 			}
 			else
@@ -545,8 +545,8 @@ void IsoBmffProcessor::restampPTSAndSendSegment(AampGrowableBuffer *pBuffer,doub
 			AAMPLOG_ERR("IsoBmffProcessor %s Failed to process pts from buffer at pos = %f and dur = %f", IsoBmffProcessorTypeName[type], position, duration);
 		}
 
-		AAMPLOG_INFO("IsoBmffProcessor %s Before restamp: dur = %f prevPos = %f currenPos = %f currTS = %u currentPTS = %" PRIu64 " basePTS=%" PRIu64 ""
-						"sumPTS = %" PRIu64 " PrevPTS = %" PRIu64 " TSChangeState = %d",	IsoBmffProcessorTypeName[type], duration, prevPosition, 
+		AAMPLOG_INFO("IsoBmffProcessor %s Before restamp: dur = %f prevPos = %f currentPos = %f currTS = %u currentPTS = %" PRIu64 " basePTS=%" PRIu64 ""
+						"sumPTS = %" PRIu64 " PrevPTS = %" PRIu64 " TSChangeState = %d",	IsoBmffProcessorTypeName[type], duration, prevPosition,
 						position, currTimeScale, currentPTS, basePTS, sumPTS, prevPTS, timeScaleChangeState);
 
 		/* Step 3.Handle Skipped Fragments if Any BEFORE TIMESCALE*/
@@ -634,7 +634,7 @@ uint64_t IsoBmffProcessor::handleSkipFragments( double skipPosition , skipTimeTy
 			tempPos =  posToDurMapIter->first;
 		}
 		AAMPLOG_WARN("IsoBmffProcessor %s skipDur: %lf skipPointPos: %lf spBeforeDisc: %lf nextPos: %lf tempPos %lf", IsoBmffProcessorTypeName[type],
-						st.sumOfSkipDuration, st.skipPointPosition, st.skipPosBeforeDiscontiuity, nextPos, tempPos);
+						st.sumOfSkipDuration, st.skipPointPosition, st.skipPosBeforeDiscontinuity, nextPos, tempPos);
 
 		if( ( ( abs(st.skipPointPosition - skipPosition) < FLOATING_POINT_EPSILON ) ||
 			( abs(st.skipPointPosition - nextPos) < FLOATING_POINT_EPSILON ) ) &&
@@ -643,7 +643,7 @@ uint64_t IsoBmffProcessor::handleSkipFragments( double skipPosition , skipTimeTy
 			isSkipPTS = true;
 			sumOfSkipDuration = st.sumOfSkipDuration;
 			st.sumOfSkipDuration = DEFAULT_DURATION;
-			AAMPLOG_WARN("IsoBmffProcessor %s :mark for skipPTS for skipPosistion: %lf durationToSkip: %lf remaining duration to skip: %lf %zu", IsoBmffProcessorTypeName[type],
+			AAMPLOG_WARN("IsoBmffProcessor %s :mark for skipPTS for skipPosition: %lf durationToSkip: %lf remaining duration to skip: %lf %zu", IsoBmffProcessorTypeName[type],
 									skipPosition,sumOfSkipDuration, st.sumOfSkipDuration, st.skipPosToDurMap.size() );
 		}
 		else if(tempPos == skipPosition)
@@ -655,13 +655,13 @@ uint64_t IsoBmffProcessor::handleSkipFragments( double skipPosition , skipTimeTy
 
 			if( st.sumOfSkipDuration < FLOATING_POINT_EPSILON )
 			{
-				AAMPLOG_WARN("IsoBmffProcessor %s :Ignore PTS Skip for skipPosistion: %lf skipDuration: %lf remainingDur to Skip: %lf %zu", IsoBmffProcessorTypeName[type],
+				AAMPLOG_WARN("IsoBmffProcessor %s :Ignore PTS Skip for skipPosition: %lf skipDuration: %lf remainingDur to Skip: %lf %zu", IsoBmffProcessorTypeName[type],
 								skipPosition,posToDurMapIter->second, st.sumOfSkipDuration, st.skipPosToDurMap.size() );
 			}
 			else
 			{
 				st.skipPosToDurMap.erase(posToDurMapIter);
-				AAMPLOG_WARN("IsoBmffProcessor %s :Ignore PTS Skip for skipPosistion: %lf skipDuration: %lf remaining duration to skip: %lf %zu", IsoBmffProcessorTypeName[type],
+				AAMPLOG_WARN("IsoBmffProcessor %s :Ignore PTS Skip for skipPosition: %lf skipDuration: %lf remaining duration to skip: %lf %zu", IsoBmffProcessorTypeName[type],
 								skipPosition,posToDurMapIter->second, st.sumOfSkipDuration, st.skipPosToDurMap.size() );
 				/*
 					Last fragment skipped, however it got recovered due to manifest update.
@@ -683,7 +683,7 @@ uint64_t IsoBmffProcessor::handleSkipFragments( double skipPosition , skipTimeTy
 					}
 				}
 				if(isSkipPTS )
-					AAMPLOG_WARN("IsoBmffProcessor %s :mark for skipPTS for skipPosistion: %lf durationToSkip: %lf remaining duration to skip: %lf %zu", IsoBmffProcessorTypeName[type], 
+					AAMPLOG_WARN("IsoBmffProcessor %s :mark for skipPTS for skipPosition: %lf durationToSkip: %lf remaining duration to skip: %lf %zu", IsoBmffProcessorTypeName[type], 
 									skipPosition,sumOfSkipDuration, st.sumOfSkipDuration, st.skipPosToDurMap.size() );
 			}
 		}
@@ -691,7 +691,7 @@ uint64_t IsoBmffProcessor::handleSkipFragments( double skipPosition , skipTimeTy
 		{
 			if(eBMFFPROCESSOR_SKIP_BEFORE_NEW_TIMESCALE == skipType  && -1 == tempPos &&  true == ptsDiscontinuity )
 			{
-				posToDurMapIter = st.skipPosToDurMap.find(st.skipPosBeforeDiscontiuity );
+				posToDurMapIter = st.skipPosToDurMap.find(st.skipPosBeforeDiscontinuity );
 				if( posToDurMapIter != st.skipPosToDurMap.end())
 				{
 					tempPos =  posToDurMapIter->first;
@@ -784,7 +784,7 @@ bool IsoBmffProcessor::pushInitAndSetRestampPTSAsBasePTS(uint64_t pts)
 		break;
 
 		/*Special case to avoid duplicate fragment followed by old init
-		This need to be fixed in processplaylist changes which came as part of parllel playlist */
+		This need to be fixed in processplaylist changes which came as part of parallel playlist */
 		case eBMFFPROCESSOR_CONTINUE_TIMESCALE:
 		case eBMFFPROCESSOR_CONTINUE_WITH_ABR_CHANGED_TIMESCALE:
 		{
@@ -826,7 +826,7 @@ bool IsoBmffProcessor::pushInitAndSetRestampPTSAsBasePTS(uint64_t pts)
 bool IsoBmffProcessor::continueInjectionInSameTimeScale(uint64_t pts)
 {
 	bool ret= true;
-	if( prevPTS != pts) /*PrevPTS is not equal to current pts indcates it is fresh fragment or ABR changed*/
+	if( prevPTS != pts) /*PrevPTS is not equal to current pts indicates it is fresh fragment or ABR changed*/
 	{
 		AAMPLOG_INFO("IsoBmffProcessor %s pushing Init Fragment prevPTS: %" PRIu64 " currentPTS: %" PRIu64 " sumPTS: %" PRIu64 " sumInitSegments: %zu", 
 						IsoBmffProcessorTypeName[type], prevPTS, pts, sumPTS, resetPTSInitSegment.size());
@@ -850,7 +850,7 @@ bool IsoBmffProcessor::scaleToNewTimeScale(uint64_t pts)
 {
 	bool ret=true;
 	AAMPLOG_INFO("IsoBmffProcessor %s  Before push init when startPos=%f pts = %" PRIu64 " sumPTS = %" PRIu64 " basePTS = %" PRIu64 " ", IsoBmffProcessorTypeName[type],startPos,pts,sumPTS,basePTS);
-	if( type == eBMFFPROCESSOR_TYPE_AUDIO || type == eBMFFPROCESSOR_TYPE_SUBTITILE)
+	if( type == eBMFFPROCESSOR_TYPE_AUDIO || type == eBMFFPROCESSOR_TYPE_SUBTITLE)
 	{
 		if(peerProcessor)
    	 	{
@@ -858,7 +858,7 @@ bool IsoBmffProcessor::scaleToNewTimeScale(uint64_t pts)
 		}
 		waitForVideoPTS();  //wait for video init to arrive
 		/*
-		BasePTS is derived from video timescale. There might be chances audio timescale is diffrent.
+		BasePTS is derived from video timescale. There might be chances audio timescale is different.
 		always good to sync the basePTS for audio timescale as well to avoid surprises 
 		*/
 		//Now video and audio pts is in sync. push it
@@ -953,15 +953,15 @@ void IsoBmffProcessor::updateSkipPoint(double skipPoint, double skipDuration )
 			AAMPLOG_INFO("IsoBmffProcessor %s found SKIP_BEFORE_NEW_TIMESCALE",IsoBmffProcessorTypeName[type]);
 			if( st.skipPosToDurMap.find(abs(skipPoint - skipDuration)) != st.skipPosToDurMap.end() )
 			{
-				AAMPLOG_WARN("IsoBmffProcessor %s frgament skipPos: %lf with duration: %lf is already marked for skip!!!",IsoBmffProcessorTypeName[type], abs(skipPoint - skipDuration),skipDuration);
+				AAMPLOG_WARN("IsoBmffProcessor %s fragment skipPos: %lf with duration: %lf is already marked for skip!!!",IsoBmffProcessorTypeName[type], abs(skipPoint - skipDuration),skipDuration);
 			}
 			else
 			{
-				AAMPLOG_WARN("IsoBmffProcessor %s frgament skipPos: %lf with duration: %lf is marked for skip",IsoBmffProcessorTypeName[type], abs(skipPoint - skipDuration),skipDuration);
+				AAMPLOG_WARN("IsoBmffProcessor %s fragment skipPos: %lf with duration: %lf is marked for skip",IsoBmffProcessorTypeName[type], abs(skipPoint - skipDuration),skipDuration);
 				st.sumOfSkipDuration += skipDuration;
 				st.skipPointPosition = skipPoint;
-				st.skipPosBeforeDiscontiuity = abs(skipPoint - skipDuration);
-				st.skipPosToDurMap[st.skipPosBeforeDiscontiuity] = skipDuration;
+				st.skipPosBeforeDiscontinuity = abs(skipPoint - skipDuration);
+				st.skipPosToDurMap[st.skipPosBeforeDiscontinuity] = skipDuration;
 				nextPos += skipDuration;
 			}
 		}
@@ -970,14 +970,14 @@ void IsoBmffProcessor::updateSkipPoint(double skipPoint, double skipDuration )
 			AAMPLOG_INFO("IsoBmffProcessor %s not found SKIP_BEFORE_NEW_TIMESCALE adding now",IsoBmffProcessorTypeName[type]);
 			st.sumOfSkipDuration = skipDuration;
 			st.skipPointPosition = skipPoint;
-			st.skipPosBeforeDiscontiuity = abs(skipPoint - skipDuration);
-			st.skipPosToDurMap[st.skipPosBeforeDiscontiuity] = skipDuration;
+			st.skipPosBeforeDiscontinuity = abs(skipPoint - skipDuration);
+			st.skipPosToDurMap[st.skipPosBeforeDiscontinuity] = skipDuration;
 			nextPos += skipDuration;
-			AAMPLOG_WARN("IsoBmffProcessor %s frgament skipPos: %lf with duration: %lf is marked for skip",IsoBmffProcessorTypeName[type], abs(skipPoint - skipDuration),skipDuration);
+			AAMPLOG_WARN("IsoBmffProcessor %s fragment skipPos: %lf with duration: %lf is marked for skip",IsoBmffProcessorTypeName[type], abs(skipPoint - skipDuration),skipDuration);
 		}
 			skipPointMap[eBMFFPROCESSOR_SKIP_BEFORE_NEW_TIMESCALE] = st;
 			AAMPLOG_WARN("IsoBmffProcessor %s SKIP_BEFORE_NEW_TIMESCALE skipPoint: %lf skippedPos: %lf sum duration to skip: %lf nextPos: %lf skipPointBeforeDisc: %lf isDiscontinuity: %d posDurMapSize: %zu",
-							IsoBmffProcessorTypeName[type], skipPoint, abs(skipPoint - skipDuration), st.sumOfSkipDuration,	nextPos, st.skipPosBeforeDiscontiuity, ptsDiscontinuity,st.skipPosToDurMap.size() );
+							IsoBmffProcessorTypeName[type], skipPoint, abs(skipPoint - skipDuration), st.sumOfSkipDuration,	nextPos, st.skipPosBeforeDiscontinuity, ptsDiscontinuity,st.skipPosToDurMap.size() );
 	}
 	else
 	{
@@ -990,12 +990,12 @@ void IsoBmffProcessor::updateSkipPoint(double skipPoint, double skipDuration )
 			AAMPLOG_INFO("IsoBmffProcessor %s found SKIP_AFTER_NEW_TIMESCALE",IsoBmffProcessorTypeName[type]);
 			if( st.skipPosToDurMap.find(abs(skipPoint - skipDuration)) != st.skipPosToDurMap.end() )
 			{
-				AAMPLOG_WARN("IsoBmffProcessor %s frgament skipPos: %lf with duration: %lf is already marked for skip!!!",IsoBmffProcessorTypeName[type], abs(skipPoint - skipDuration),skipDuration);
+				AAMPLOG_WARN("IsoBmffProcessor %s fragment skipPos: %lf with duration: %lf is already marked for skip!!!",IsoBmffProcessorTypeName[type], abs(skipPoint - skipDuration),skipDuration);
 				isUpdateReq = false;
 			}
 			else
 			{
-				AAMPLOG_WARN("IsoBmffProcessor %s frgament skipPos: %lf with duration: %lf is marked for skip",IsoBmffProcessorTypeName[type], abs(skipPoint - skipDuration),skipDuration);
+				AAMPLOG_WARN("IsoBmffProcessor %s fragment skipPos: %lf with duration: %lf is marked for skip",IsoBmffProcessorTypeName[type], abs(skipPoint - skipDuration),skipDuration);
 				st.sumOfSkipDuration += skipDuration;
 				st.skipPointPosition = skipPoint;
 				st.skipPosToDurMap[abs(skipPoint - skipDuration)] = skipDuration;
@@ -1009,12 +1009,12 @@ void IsoBmffProcessor::updateSkipPoint(double skipPoint, double skipDuration )
 			st.skipPointPosition = skipPoint;
 			st.skipPosToDurMap[abs(skipPoint - skipDuration)] = skipDuration;
 			nextPos += skipDuration;
-			AAMPLOG_WARN("IsoBmffProcessor %s frgament skipPos: %lf with duration: %lf is marked for skip",IsoBmffProcessorTypeName[type], abs(skipPoint - skipDuration),skipDuration);
+			AAMPLOG_WARN("IsoBmffProcessor %s fragment skipPos: %lf with duration: %lf is marked for skip",IsoBmffProcessorTypeName[type], abs(skipPoint - skipDuration),skipDuration);
 		}
 		skipPointMap[eBMFFPROCESSOR_SKIP_AFTER_NEW_TIMESCALE] = st;
 
 		AAMPLOG_WARN("IsoBmffProcessor %s SKIP_AFTER_NEW_TIMESCALE skipPoint: %lf skippedPos: %lf sum duration to skip : %lf nextPos: %lf skipPointBeforeDisc: %lf isDiscontinuity: %d posDurMapSize: %zu",
-						IsoBmffProcessorTypeName[type], skipPoint, abs(skipPoint - skipDuration), st.sumOfSkipDuration,	nextPos, st.skipPosBeforeDiscontiuity, ptsDiscontinuity,st.skipPosToDurMap.size() );
+						IsoBmffProcessorTypeName[type], skipPoint, abs(skipPoint - skipDuration), st.sumOfSkipDuration,	nextPos, st.skipPosBeforeDiscontinuity, ptsDiscontinuity,st.skipPosToDurMap.size() );
 		it = skipPointMap.find(eBMFFPROCESSOR_SKIP_BEFORE_NEW_TIMESCALE);
 		if( it != skipPointMap.end() && isUpdateReq )
 		{
@@ -1322,7 +1322,7 @@ void IsoBmffProcessor::addPeerListener(MediaProcessor *processor)
  */
 void IsoBmffProcessor::initProcessorForRestamp()
 {
-	// basePTS signalling will not happen anymore as video pts processing is complete
+	// basePTS signaling will not happen anymore as video pts processing is complete
 	initSegmentProcessComplete = true;
 	// We need to get the sumPTS from video to start restamping subtitles
 	// Hence setting timeScale changed state to complete

@@ -36,7 +36,7 @@
 #include "AampConfig.h"
 
 /**
- * This class is aimed at extracting MPDSegment's from a MPDDocument, regardless of the choosen
+ * This class is aimed at extracting MPDSegment's from a MPDDocument, regardless of the chosen
  * method to announce the segments (SegmentTemplate, SegmentList, etc...).
 //  *
  * This segmenter assumes the <MDP fog:fetchTime> attribute and <MDP><Location> element are set.
@@ -44,7 +44,7 @@
 
 /**
  * @class   MPDSegmenter
- * @brief   This class is aimed at extracting MPDSegment's from a MPDDocument, regardless of the choosen
+ * @brief   This class is aimed at extracting MPDSegment's from a MPDDocument, regardless of the chosen
  * method to announce the segments (SegmentTemplate, SegmentList, etc...)
  */
 class MPDSegmenter {

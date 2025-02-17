@@ -58,9 +58,9 @@ void IsoBmffBuffer::setBuffer(uint8_t *buf, size_t sz)
 *  	@param[in] timeScale - timescale of the track
 *	@param[out] parsedBufferSize - parsed buffer size
 *  	@param[in,out] unParsedBufferSize -uunparsed or remaining buffer size
-*	@param[out] fpts - fragmnet pts value
+*	@param[out] fpts - fragment pts value
 *  	@param[out] fduration - fragment duration
-*	@return true if parsedd or false
+*	@return true if parsed or false
 *  	@brief Parse ISOBMFF boxes from buffer
 */
 bool IsoBmffBuffer::ParseChunkData(const char* name, char* &unParsedBuffer, uint32_t timeScale,
@@ -627,7 +627,7 @@ void IsoBmffBuffer::printMdatBoxes()
 }
 
 /**
- * @brief Get list of box handle in parsed bufferr using name
+ * @brief Get list of box handle in parsed buffer using name
  */
 bool IsoBmffBuffer::getTypeOfBoxes(const char *name, std::vector<Box*> &stBoxes)
 {
@@ -699,7 +699,7 @@ int IsoBmffBuffer::UpdateBufferData(size_t parsedBoxCount, char* &unParsedBuffer
 
 				//Calculate unparsed buffer based on last MDAT
 				unParsedBuffer += (box->getOffset()+box->getSize()); //increment buffer pointer to chunk offset
-				unParsedBufferSize -= (box->getOffset()+box->getSize()); //decerese by parsed buffer size
+				unParsedBufferSize -= (box->getOffset()+box->getSize()); //decrease by parsed buffer size
 
 				parsedBufferSize -= unParsedBufferSize; //get parsed buf size
 				AAMPLOG_TRACE("parsedBufferSize : %zu updated unParsedBufferSize: %zu Total Buf Size processed: %zu",parsedBufferSize,unParsedBufferSize,parsedBufferSize+unParsedBufferSize);
@@ -760,7 +760,7 @@ Box*  IsoBmffBuffer::getBox(const char *name, size_t &index)
 }
 
 /**
- *  @brief Get box handle in parsed bufferr using index
+ *  @brief Get box handle in parsed buffer using index
  */
 Box* IsoBmffBuffer::getBoxAtIndex(size_t index)
 {

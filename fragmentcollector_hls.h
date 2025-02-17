@@ -65,7 +65,7 @@
 #define MAX_SEQ_NUMBER_DIFF_FOR_SEQ_NUM_BASED_SYNC 2		/*!< Maximum difference in sequence number to sync tracks using sequence number.*/
 #define MAX_PLAYLIST_REFRESH_FOR_DISCONTINUITY_CHECK_EVENT 5	/*!< Maximum playlist refresh count for discontinuity check for TSB/cDvr*/
 #define MAX_PLAYLIST_REFRESH_FOR_DISCONTINUITY_CHECK_LIVE 3		/*!< Maximum playlist refresh count for discontinuity check for live without TSB*/
-#define MAX_PDT_DISCONTINUITIY_DELTA_LIMIT 1.0f			/*!< maximum audio/video track PDT delta to determine discontiuity using PDT*/
+#define MAX_PDT_DISCONTINUITY_DELTA_LIMIT 1.0f			/*!< maximum audio/video track PDT delta to determine discontinuity using PDT*/
 
 /**
  * \struct	HlsStreamInfo
@@ -174,7 +174,7 @@ typedef enum
 	eDRM_KEY_METHOD_AES_128,	/**< DRM key is AES 128 Method */
 	eDRM_KEY_METHOD_SAMPLE_AES,	/**< DRM key is Sample AES method */
 	eDRM_KEY_METHOD_SAMPLE_AES_CTR,	/**< DRM key is Sample AES CTR method */
-	eDRM_KEY_METHOD_UNKNOWN		/**< DRM key is unkown method */
+	eDRM_KEY_METHOD_UNKNOWN		/**< DRM key is unknown method */
 } DrmKeyMethod;
 
 /**
@@ -282,7 +282,7 @@ class TrackState : public MediaTrack
 		void updateSkipPoint(double position, double duration ) override;
 		/***************************************************************************
 		 * @fn setDiscontinuityState
-		 * @param isDiscontinuity - true if dicontinuity false otherwise
+		 * @param isDiscontinuity - true if discontinuity false otherwise
 		 * @return void
 		 ***************************************************************************/
 		void setDiscontinuityState(bool isDiscontinuity) override;
@@ -308,7 +308,7 @@ class TrackState : public MediaTrack
 		/***************************************************************************
 		 * @fn DrmDecrypt
 		 *
-		 * @param[in] cachedFragment CachedFragment struction pointer
+		 * @param[in] cachedFragment CachedFragment struct pointer
 		 * @param[in] bucketTypeFragmentDecrypt ProfilerBucketType enum
 		 * @return bool true if successfully decrypted
 		 ***************************************************************************/
@@ -356,7 +356,7 @@ class TrackState : public MediaTrack
 		 * @param[out] diffBetweenDiscontinuities discontinuity position minus input position
 		 * @param[in] playPosition playback position
 		 * @param[in] inputCulledSec culled seconds
-		 * @param [in] inputProgramDateTime prorgram date and time in epoc format
+		 * @param [in] inputProgramDateTime program date and time in epoc format
 		 * @param [out] isDiffChkReq indicates is diffBetweenDiscontinuities check required
 		 * @return true if discontinuity present around given position
 		 ***************************************************************************/
@@ -645,7 +645,7 @@ class TrackState : public MediaTrack
 
 	private:
 		bool refreshPlaylist;					/**< bool flag to indicate if playlist refresh required or not */
-		bool isFirstFragmentAfterABR;			/**< bool flag to inddicate whether the fragment is first fragment after ABR */
+		bool isFirstFragmentAfterABR;			/**< bool flag to indicate whether the fragment is first fragment after ABR */
 		std::thread fragmentCollectorThreadID;	/**< Thread Id for Fragment  collector Thread */
 		bool fragmentCollectorThreadStarted;	/**< Flag indicating if fragment collector thread started or not*/
 		int manifestDLFailCount;		/**< Manifest Download fail count for retry*/
@@ -664,7 +664,7 @@ class TrackState : public MediaTrack
 		bool mSyncAfterDiscontinuityInProgress; /**< Indicates if a synchronization after discontinuity tag is in progress*/
 		PlaylistType mPlaylistType;		/**< Playlist Type */
 		bool mReachedEndListTag;		/**< Flag indicating if End list tag reached in parser */
-		bool mByteOffsetCalculation;			/**< Flag used to calculte byte offset from byte length for fragmented streams */
+		bool mByteOffsetCalculation;			/**< Flag used to calculate byte offset from byte length for fragmented streams */
 		bool mSkipAbr;							/**< Flag that denotes if previous cached fragment is init fragment or not */
 		const char* mFirstEncInitFragmentInfo;	/**< Holds first encrypted init fragment Information index*/
 		AampTime mXStartTimeOFfset;		/**< Holds value of time offset from X-Start tag */
@@ -873,7 +873,7 @@ class StreamAbstractionAAMP_HLS : public StreamAbstractionAAMP
 		 * @fn Is4KStream
 		 * @brief check if current stream have 4K content
 		 * @param height - resolution of 4K stream if found
-		 * @param bandwidth - bandwidth of 4K stream if foudd
+		 * @param bandwidth - bandwidth of 4K stream if found
 		 * @return true on success
 		 */
 		virtual bool Is4KStream(int &height, BitsPerSecond &bandwidth) override;
@@ -1064,6 +1064,7 @@ class StreamAbstractionAAMP_HLS : public StreamAbstractionAAMP
 		 * @return void
 		 ***************************************************************************/
 		void ConfigureTextTrack();
+		void SelectSubtitleTrack();
 
 		/***************************************************************************
 		 * @fn CachePlaylistThreadFunction

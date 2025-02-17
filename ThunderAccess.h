@@ -48,7 +48,7 @@ class ThunderAccessAAMP
 public:
     /**
      *   @fn ThunderAccessAAMP
-     *   @note   Security tocken accusition, controller object creation
+     *   @note   Security token acquisition, controller object creation
      */
     ThunderAccessAAMP(std::string callsign);
 	

@@ -78,7 +78,7 @@ function subtec_install_run_script_fn()
     elif [[ "$OSTYPE" == "linux"* ]]; then
         SUBTEC_RUNSCRIPT=${AAMP_DIR}/build/aampcli-run-subtec.sh
     else
-        echo "WARNING - unrecognised platform!"
+        echo "WARNING - unrecognized platform!"
         SUBTEC_RUNSCRIPT=${AAMP_DIR}/aampcli-run-subtec.sh
     fi    
 

@@ -751,7 +751,7 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 						else
 						{
 							printf("[AAMPCLI] ERROR: Mismatch in arguments- %s\n", cmd);
-							printf("[AAMPCLI] set preferred languages must be run with atleast 2 argument\n");
+							printf("[AAMPCLI] set preferred languages must be run with at least 2 argument\n");
 						}
 						break;
 					}
@@ -784,7 +784,7 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 									/**Nomal case */
 									data = std::string(preferredLanguages);
 								}
-								printf("[AAMPCLI] JSON Argument Recieved- %s\n", data.c_str());
+								printf("[AAMPCLI] JSON Argument Received- %s\n", data.c_str());
 								playerInstanceAamp->SetPreferredTextLanguages(data.c_str());
 							}
 							else
@@ -1170,7 +1170,7 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 				case 47:
 					{
 						int propagateUriParam;
-						printf("[AAMPCLI] Matched Command PropogateUriParam - %s\n", cmd);
+						printf("[AAMPCLI] Matched Command PropagateUriParam - %s\n", cmd);
 						if (sscanf(cmd, "set %s %d", command, &propagateUriParam) == 2){
 							playerInstanceAamp->SetPropagateUriParameters((bool) propagateUriParam);
 						}

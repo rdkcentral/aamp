@@ -246,7 +246,7 @@ int TextStyleAttributes::getEdgeType(std::string input, EdgeType *edgeTypeOut)
  * @brief Get opacity value from input string
  *
  * @param[in] input - input opacity value
- * @param[out] opactyOut - opacity option for the input value
+ * @param[out] opacityOut - opacity option for the input value
  * @return int - 0 for success, -1 for failure
  */
 int TextStyleAttributes::getOpacity(std::string input, Opacity *opacityOut)

@@ -683,7 +683,7 @@ public:
 
     void setMedia(const string &value);
 
-    // deletes segments creater after <para>time</para>
+    // deletes segments created after <para>time</para>
     void adjustCutoff(double time);
 
     string getInitializationAttr();
@@ -812,13 +812,13 @@ public:
 
     /**
      * @brief Checking whether current period is VSS period or not
-     * @retval bool true if vss perod, else false
+     * @retval bool true if vss period, else false
      */
     bool isVssEarlyAvailablePeriod();
 
     /**
      * @brief Check whether period is added by Fog as a duplicate period
-     * @retval bool true if fog duplicate perod, else false
+     * @retval bool true if fog duplicate period, else false
      */
     bool isDuplicatePeriod();
 };
@@ -889,7 +889,7 @@ class DashMPDAdaptationSet : public DashMPDElement<DashMPDPeriod> {
     std::shared_ptr<DashMPDSegmentTemplate> segmentTemplate;
     std::vector<std::shared_ptr<DashMPDSegmentList>> segmentLists;
     std::vector<std::shared_ptr<DashMPDRole>> roles;
-    std::vector<std::shared_ptr<DashMPDAccessibility>> accessibilities;
+    std::vector<std::shared_ptr<DashMPDAccessibility>> accessibility;
     std::vector<std::shared_ptr<DashMPDLabel>> labels;
     std::vector<std::shared_ptr<DashMPDSupplementalProperty>> supplementalProperties;
     bool _parsedSegmentLists = false;
@@ -898,7 +898,7 @@ class DashMPDAdaptationSet : public DashMPDElement<DashMPDPeriod> {
 public:
     DashMPDAdaptationSet(const std::shared_ptr<DashMPDPeriod> &parent, DomElement &elem, const int &index)
             : DashMPDElement(parent, elem, index),representations(),representationsKeyToIndexMap(),segmentTemplate(),segmentLists(),
-                                                    roles(),accessibilities(), labels(),supplementalProperties() {
+                                                    roles(),accessibility(), labels(),supplementalProperties() {
         if (elem.isNull()) return;
         if (elem.tagName() != "AdaptationSet") {
             AAMPLOG_ERR("%s", ("IncorrectTagException:" + elem.tagName()).c_str());
@@ -920,7 +920,7 @@ public:
 
     std::vector<std::shared_ptr<DashMPDRole>> getRoles();
 
-    std::vector<std::shared_ptr<DashMPDAccessibility>> getAccessibilities();
+    std::vector<std::shared_ptr<DashMPDAccessibility>> getAccessibility();
 
     std::vector<std::shared_ptr<DashMPDLabel>> getLabels();
 
@@ -938,18 +938,18 @@ public:
     bool isTextTrack();
 
     /**
-    *   @brief  Check if this adaptaionSet is identical to another.
+    *   @brief  Check if this adaptationSet is identical to another.
     *           Checks are made comparing initialization, base url and media urls
     *           The initialization headers should be different if there's any change
     *           in content protection, that's why we are not comparing content protection.
-    *   @param[in] adaptaionSet - shared pointer to the
+    *   @param[in] adaptationSet - shared pointer to the
     *              Adaptation Set to compare with.
-    *   @return bool - true if adaptaionSets are Identical, false otherwise
+    *   @return bool - true if adaptationSets are Identical, false otherwise
     */
-    bool isIdenticalAdaptionSet(const std::shared_ptr<DashMPDAdaptationSet>& adaptaionSet);
+    bool isIdenticalAdaptionSet(const std::shared_ptr<DashMPDAdaptationSet>& adaptationSet);
 
     /**
-    *   @brief   Get the initialization source url for this Adaptaion set
+    *   @brief   Get the initialization source url for this Adaptation set
     *   @return  string - returns the initialization url
     */
     std::string getInitUrl();

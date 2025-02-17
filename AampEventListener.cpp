@@ -61,18 +61,25 @@ static void GenerateLegacyAAMPEvent(const AAMPEventPtr &e, AAMPEvent &event)
 		case AAMP_EVENT_PROGRESS:
 		{
 			ProgressEventPtr ev = std::dynamic_pointer_cast<ProgressEvent>(e);
-			event.data.progress.durationMiliseconds = ev->getDuration();
-			event.data.progress.positionMiliseconds = ev->getPosition();
+			event.data.progress.durationMilliseconds = ev->getDuration();
+			event.data.progress.positionMilliseconds = ev->getPosition();
 			event.data.progress.playbackSpeed = ev->getSpeed();
-			event.data.progress.startMiliseconds = ev->getStart();
-			event.data.progress.endMiliseconds = ev->getEnd();
+			event.data.progress.startMilliseconds = ev->getStart();
+			event.data.progress.endMilliseconds = ev->getEnd();
 			event.data.progress.videoPTS = ev->getPTS();
-			event.data.progress.videoBufferedMiliseconds = ev->getBufferedDuration();
+			event.data.progress.videoBufferedMilliseconds = ev->getBufferedDuration();
 			event.data.progress.timecode = ev->getSEITimeCode();
 			event.data.progress.liveLatency = ev->getLiveLatency();
 			event.data.progress.profileBandwidth = ev->getProfileBandwidth();
 			event.data.progress.networkBandwidth = ev->getNetworkBandwidth();
 			event.data.progress.currentPlayRate = ev->getCurrentPlayRate();
+			
+			// TBR! for backwards compatibility with rdk/components/generic/rdkmediaplayer/aamp/aampplayer.cpp
+			event.data.progress.durationMiliseconds = event.data.progress.durationMilliseconds;
+			event.data.progress.positionMiliseconds = event.data.progress.positionMilliseconds;
+			event.data.progress.startMiliseconds = event.data.progress.startMilliseconds;
+			event.data.progress.endMiliseconds = event.data.progress.endMilliseconds;
+			event.data.progress.videoBufferedMiliseconds = event.data.progress.videoBufferedMilliseconds; // and AS
             break;
 		}
 		case AAMP_EVENT_CC_HANDLE_RECEIVED:
@@ -84,7 +91,7 @@ static void GenerateLegacyAAMPEvent(const AAMPEventPtr &e, AAMPEvent &event)
 		case AAMP_EVENT_MEDIA_METADATA:
 		{
 			MediaMetadataEventPtr ev = std::dynamic_pointer_cast<MediaMetadataEvent>(e);
-			event.data.metadata.durationMiliseconds = ev->getDuration();
+			event.data.metadata.durationMilliseconds = ev->getDuration();
 			event.data.metadata.languageCount = ev->getLanguagesCount();
 			event.data.metadata.bitrateCount = ev->getBitratesCount();
 			event.data.metadata.supportedSpeedCount = ev->getSupportedSpeedCount();
@@ -110,6 +117,9 @@ static void GenerateLegacyAAMPEvent(const AAMPEventPtr &e, AAMPEvent &event)
 			{
 				event.data.metadata.supportedSpeeds[i] = speeds[i];
 			}
+			
+			// TBR! for backwards compatibility with rdk/components/generic/rdkmediaplayer/aamp/aampplayer.cpp
+			event.data.metadata.durationMiliseconds = event.data.metadata.durationMilliseconds;
 			break;
 		}
 		case AAMP_EVENT_BITRATE_CHANGED:
@@ -143,7 +153,7 @@ static void GenerateLegacyAAMPEvent(const AAMPEventPtr &e, AAMPEvent &event)
 		case AAMP_EVENT_BULK_TIMED_METADATA:
 		{
 			BulkTimedMetadataEventPtr ev = std::dynamic_pointer_cast<BulkTimedMetadataEvent>(e);
-			event.data.bulktimedMetadata.szMetaContent = ev->getContent().c_str();
+			event.data.bulkTimedMetadata.szMetaContent = ev->getContent().c_str();
 			break;
 		}
 		case AAMP_EVENT_STATE_CHANGED:
@@ -166,7 +176,7 @@ static void GenerateLegacyAAMPEvent(const AAMPEventPtr &e, AAMPEvent &event)
 		case AAMP_EVENT_SEEKED:
 		{
 			SeekedEventPtr ev = std::dynamic_pointer_cast<SeekedEvent>(e);
-			event.data.seeked.positionMiliseconds = ev->getPosition();
+			event.data.seeked.positionMilliseconds = ev->getPosition();
 			break;
 		}
 		case AAMP_EVENT_TUNE_PROFILING:

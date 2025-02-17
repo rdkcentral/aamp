@@ -287,7 +287,7 @@ public:
 			case 3321: /* Individualization errors */
 				if(minor == 102)
 				{
-					description = "Invalid signiture request on the Adobe individualization request. Expired certs can cause this, so the first course of action is to verify if the certs, temp baked in or production fkps, have not expired.";
+					description = "Invalid signature request on the Adobe individualization request. Expired certs can cause this, so the first course of action is to verify if the certs, temp baked in or production fkps, have not expired.";
 				}
 				else if(minor == 10100)
 				{
@@ -308,7 +308,7 @@ public:
 				break; /* 3321 */
 				
 			case 3322: /* Device binding failure */
-				description = "Device binding failure. DRM data cached by the player at /opt/persistent/adobe, may be corrupt, missing, or innaccesible due to file permision. Please check this folder. A factory reset may be required to fix this and force a re-individualization of the box to reset that data.";
+				description = "Device binding failure. DRM data cached by the player at /opt/persistent/adobe, may be corrupt, missing, or inaccessible due to file permission. Please check this folder. A factory reset may be required to fix this and force a re-individualization of the box to reset that data.";
 				break; /* 3322 */
 				
 			case 3328:
@@ -430,7 +430,7 @@ public:
 	/**
 	 * @fn isLogworthyErrorCode
 	 * @param[in] errorCode - curl error
-	 * @return true if it is not a curl error 23 and 42, bcasue those are not a real network errors.
+	 * @return true if it is not a curl error 23 and 42, because those are not real network errors.
 	 */
 	static bool isLogworthyErrorCode(int errorCode)
 	{

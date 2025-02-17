@@ -209,7 +209,7 @@ std::string AampCMCDCollector::convertHexa(long long number)
 	return hexa;
 }
 /**
- * @brief CMCDGetHeaders Get the CMCD headers to add in downlaod request
+ * @brief CMCDGetHeaders Get the CMCD headers to add in download request
  *
  * @return None
  */
@@ -229,7 +229,7 @@ void AampCMCDCollector::CMCDGetHeaders(AampMediaType mediaType , std::vector<std
 		}
 		else
 		{
-			AAMPLOG_INFO("[CMCD][%d]Couldnt find the filetype to Get metrics",mediaType);
+			AAMPLOG_INFO("[CMCD][%d]Couldn't find the filetype to Get metrics",mediaType);
 			return;
 		}
 		std::string headerValue;
@@ -264,7 +264,7 @@ void AampCMCDCollector::CMCDSetNetworkMetrics(AampMediaType mediaType,  int star
 		}
 		else
 		{
-			AAMPLOG_INFO("[CMCD][%d]Couldnt find the filetype to store metrics",mediaType);
+			AAMPLOG_INFO("[CMCD][%d]couldn't find the filetype to store metrics",mediaType);
 		}
 	}
 }
@@ -290,7 +290,7 @@ void AampCMCDCollector::SetBitrates(AampMediaType mediaType,const std::vector<Bi
 		}
 		else
 		{
-			AAMPLOG_INFO("[CMCD][%d]Couldnt find the filetype to store metrics",mediaType);
+			AAMPLOG_INFO("[CMCD][%d]couldn't find the filetype to store metrics",mediaType);
 		}
 	}
 }

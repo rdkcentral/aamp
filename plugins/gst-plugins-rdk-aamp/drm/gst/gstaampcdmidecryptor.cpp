@@ -162,7 +162,7 @@ static void gst_aampcdmidecryptor_init(
     aampcdmidecryptor->decryptFailCount = 0;
     aampcdmidecryptor->hdcpOpProtectionFailCount = 0;
     aampcdmidecryptor->notifyDecryptError = true;
-    aampcdmidecryptor->streamEncryped = false;
+    aampcdmidecryptor->streamEncrypted = false;
     aampcdmidecryptor->ignoreSVP = false;
     aampcdmidecryptor->sinkCaps = NULL;
     aampcdmidecryptor->svpCtx = NULL;
@@ -560,7 +560,7 @@ static GstFlowReturn gst_aampcdmidecryptor_transform_ip(
 
     errorCode = aampcdmidecryptor->drmSession->decrypt(keyIDBuffer, ivBuffer, buffer, subSampleCount, subsamplesBuffer, aampcdmidecryptor->sinkCaps);
 
-    aampcdmidecryptor->streamEncryped = true;
+    aampcdmidecryptor->streamEncrypted = true;
     if (errorCode != 0 || aampcdmidecryptor->hdcpOpProtectionFailCount)
     {
 	if(errorCode == HDCP_OUTPUT_PROTECTION_FAILURE)
@@ -633,7 +633,7 @@ static GstFlowReturn gst_aampcdmidecryptor_transform_ip(
     if (!aampcdmidecryptor->firstsegprocessed
             && aampcdmidecryptor->aamp)
     {
-	if(!aampcdmidecryptor->streamEncryped)
+	if(!aampcdmidecryptor->streamEncrypted)
 	{
 		if (aampcdmidecryptor->streamtype == eMEDIATYPE_VIDEO)
 		{
@@ -1058,7 +1058,7 @@ static GstFlowReturn gst_aampcdmidecryptor_transform_ip(
 			cbData -= sizeof(Rpc_Secbuf_Info);
 	#endif
 	        // If there is opaque data then SVP is enabled and append
-	        // the sample buffer with the SVP data.  There is no encryped
+	        // the sample buffer with the SVP data.  There is no encrypted
 	        // data that can be copied back into host memory
 
 	        gst_add_svp_meta_data(buffer, pOpaqueData, cbData, subSampleCount, reader);
@@ -1314,7 +1314,7 @@ static gboolean gst_aampcdmidecryptor_sink_event(GstBaseTransform * trans,
             aampcdmidecryptor->streamReceived = FALSE;
 #endif /* 0 */
 
-            /* -Need to reset canWait to skip condional wait in "gst_aampcdmidecryptor_transform_ip to avoid deadlock
+            /* -Need to reset canWait to skip conditional wait in "gst_aampcdmidecryptor_transform_ip to avoid deadlock
              *		scenario on drm session failure
              */
             aampcdmidecryptor->canWait = false;

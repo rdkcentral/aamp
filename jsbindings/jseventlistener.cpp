@@ -19,7 +19,7 @@
 
 /**
  * @file jseventlistener.cpp
- * @brief Event Listner impl for PrivAAMPStruct_JS object
+ * @brief Event Listener impl for PrivAAMPStruct_JS object
  */
 
 
@@ -95,11 +95,11 @@ public:
 
 		JSStringRef prop;
 
-		prop = JSStringCreateWithUTF8CString("durationMiliseconds");
+		prop = JSStringCreateWithUTF8CString("durationMiliseconds"); // FIXME
 		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, JSValueMakeNumber(p_obj->_ctx, evt->getDuration()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
 
-		prop = JSStringCreateWithUTF8CString("positionMiliseconds");
+		prop = JSStringCreateWithUTF8CString("positionMiliseconds"); // FIXME
 		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, JSValueMakeNumber(p_obj->_ctx, evt->getPosition()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
 
@@ -107,11 +107,11 @@ public:
 		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, JSValueMakeNumber(p_obj->_ctx, evt->getSpeed()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
 
-		prop = JSStringCreateWithUTF8CString("startMiliseconds");
+		prop = JSStringCreateWithUTF8CString("startMiliseconds"); // FIXME
 		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, JSValueMakeNumber(p_obj->_ctx, evt->getStart()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
 
-		prop = JSStringCreateWithUTF8CString("endMiliseconds");
+		prop = JSStringCreateWithUTF8CString("endMiliseconds"); // FIXME
 		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, JSValueMakeNumber(p_obj->_ctx, evt->getEnd()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
 
@@ -318,7 +318,7 @@ public:
 		MediaMetadataEventPtr evt = std::dynamic_pointer_cast<MediaMetadataEvent>(ev);
 
 		JSStringRef prop;
-		prop = JSStringCreateWithUTF8CString("durationMiliseconds");
+		prop = JSStringCreateWithUTF8CString("durationMiliseconds"); // FIXME
 		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, JSValueMakeNumber(p_obj->_ctx, evt->getDuration()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
 

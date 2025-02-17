@@ -53,7 +53,7 @@ enum HttpHeaderType
 	eHTTPHEADERTYPE_XREASON,      /**< X-Reason Header */
 	eHTTPHEADERTYPE_FOG_REASON,   /**< X-Reason Header */
 	eHTTPHEADERTYPE_EFF_LOCATION, /**< Effective URL location returned */
-	eHTTPHEADERTYPE_UNKNOWN=-1    /**< Unkown Header */
+	eHTTPHEADERTYPE_UNKNOWN=-1    /**< Unknown Header */
 };
 
 enum CurlAbortReason

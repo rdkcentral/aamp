@@ -61,7 +61,7 @@ size_t DataSize(const uint8_t *data)
 	
 	std::memcpy(tagSize, data+6, 4);
 	
-	// bufferSize is encoded as a syncsafe integer - this means that bit 7 is always zeroed
+	// bufferSize is encoded as a syncsafe integer - this means that bit 7 is always zero
 	// Check for any 1s in bit 7
 	if (tagSize[0] > 0x7f || tagSize[1] > 0x7f || tagSize[2] > 0x7f || tagSize[3] > 0x7f)
 	{
@@ -181,7 +181,7 @@ bool MetadataCache::CheckNewMetadata(AampMediaType mediaType, const std::vector<
 	return (data != cache);
 }
 
-void MetadataCache::UpdateMedatadaCache(AampMediaType mediaType, std::vector<uint8_t> data)
+void MetadataCache::UpdateMetadataCache(AampMediaType mediaType, std::vector<uint8_t> data)
 {
 	auto & cache = mCache[mediaType];
 	cache.clear();

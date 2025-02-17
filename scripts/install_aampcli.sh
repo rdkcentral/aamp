@@ -111,8 +111,8 @@ function aampcli_install_build_darwin_fn()
 
 
     if [ -d "AAMP.xcodeproj" ]; then
-        echo "AAMP Environment Sucessfully Installed."
-        arr_install_status+=("AAMP Environment Sucessfully Installed.")
+        echo "AAMP Environment Successfully Installed."
+        arr_install_status+=("AAMP Environment Successfully Installed.")
     else
         echo "AAMP Environment FAILED to Install."
         arr_install_status+=("AAMP Environment FAILED to Install.")

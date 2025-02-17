@@ -230,7 +230,7 @@ std::tuple<std::string, std::size_t, std::size_t> findTag(const std::string &ins
 
 
 /**
- * @brief Search the TTML for the first begin="" tag. We will use this to caculate a timestamp offset
+ * @brief Search the TTML for the first begin="" tag. We will use this to calculate a timestamp offset
  * eg if the first begin tag is begin="458:34:12:123" then we take this and subtract the
  * buffer PTS ms to get an offset for the start of the stream
  * PTS 0          2          4 
@@ -526,7 +526,7 @@ gst_vipertransform_transform (GstBaseTransform * trans, GstBuffer * inbuf,
       GST_BUFFER_DURATION(buf) = segment_duration;
 
       //Incoming Harmonic content might be either
-      // a. TTML timetamped relative to the start of the fragment or
+      // a. TTML timestamped relative to the start of the fragment or
       // b. MediaKind-style with TTML timestamp being absolute from some fairly arbitrary zero point
       if (vipertransform->m_linear_begin_offset != 0)
         GST_BUFFER_OFFSET(buf) = vipertransform->m_linear_begin_offset;

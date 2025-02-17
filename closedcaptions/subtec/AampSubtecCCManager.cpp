@@ -93,7 +93,7 @@ int AampSubtecCCManager::Initialize(void * handle)
 
 
 /**
- *  @brief Gets Handle or ID, Every client using subtec must call GetId  in the begining , save id, which is required for Release funciton.
+ *  @brief Gets Handle or ID, Every client using subtec must call GetId  in the beginning , save id, which is required for Release function.
  */
 int AampSubtecCCManager::GetId()
 {

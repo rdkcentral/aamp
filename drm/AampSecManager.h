@@ -155,7 +155,7 @@ private:
 	/**
 	 *   @fn RegisterEvent
 	 *   @param[in] eventName : Event name
-	 *   @param[in] functionHandler : Event funciton pointer
+	 *   @param[in] functionHandler : Event function pointer
 	 */
 	void RegisterEvent (string eventName, std::function<void(const WPEFramework::Core::JSON::VariantContainer&)> functionHandler);
 	/**

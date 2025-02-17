@@ -42,14 +42,6 @@
 class CachedFragment;
 class AampCacheHandler;
 class AampTsbReader;
-// TODO : This writedate needs to modfied as cacahefragment,url once TSBReader gets available
-struct TSBWriteData
-{
-	std::string url;
-	std::shared_ptr<CachedFragment> cachedFragment;
-	double pts;
-	std::string periodId;
-};
 
 typedef std::shared_ptr<CachedFragment> CachedFragmentPtr;
 
@@ -79,21 +71,10 @@ public:
 	 */
 	void Init();
 	/**
-	 * @brief Read  - function to read file from TSB
-	 * @param[in] - position
-	 * @param[in] - mediaType
-	 * @param[out] - eos
-	 * @param[out] - pts
+	 * @brief Write - function to enqueue data for writing to AAMP TSB
 	 *
-	 * @return CachedFragment
-	 */
-	std::shared_ptr<CachedFragment> Read(double position, AampMediaType mediatype, bool &eos, double &pts);
-	/**
-	 * @brief Write - function to Enqueues data for writing
 	 * @param[in] - URL
 	 * @param[in] - cachedFragment
-	 *
-	 * @return None
 	 */
 	void EnqueueWrite(std::string url, std::shared_ptr<CachedFragment> cachedFragment, std::string periodId);
 	/**
@@ -103,7 +84,7 @@ public:
 	 */
 	void Flush();
 	/**
-	 * @brief Monitors the write queue for pending data.
+	 * @brief Monitors the write queue and writes any pending data to AAMP TSB
 	 */
 	void ProcessWriteQueue();
 	/**
@@ -113,7 +94,7 @@ public:
 	 */
 	void SetTsbLength(int tsbLength) { mTsbLength = tsbLength; }
 	/**
-	 * @brief Set TSB localtion
+	 * @brief Set TSB location
 	 *
 	 * @param[in] string - location
 	 */
@@ -191,7 +172,7 @@ public:
 	 * @param[in] MediaStreamContext of appropriate track
 	 * @return bool - true if success
 	 */
-	bool PushNextFragment(MediaStreamContext *pMediaStreamContext);
+	bool PushNextTsbFragment(MediaStreamContext *pMediaStreamContext);
 	/**
 	 * @brief UpdateProgress - Progress updates
 	 *

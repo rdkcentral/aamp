@@ -59,9 +59,11 @@
 #define AAMPABRLOG_WARN(FORMAT, ...)  AAMPABRLOG(eAAMPAbrConfig.warnlogging,"WARN",FORMAT, ##__VA_ARGS__)
 #define AAMPABRLOG_ERR(FORMAT, ...)   AAMPABRLOG(eAAMPAbrConfig.debuglogging,"ERROR",FORMAT, ##__VA_ARGS__)
 
+HybridABRManager::AampAbrConfig eAAMPAbrConfig;
+
 /**
  * @struct SpeedCache
- * @brief Stroes the information for cache speed
+ * @brief Stores the information for cache speed
  */
 
 struct SpeedCache
@@ -159,7 +161,6 @@ void HybridABRManager::UpdateABRBitrateDataBasedOnCacheLife(std::vector < std::p
 		//AAMPLOG_WARN("Sz[%d] TimeCheck Pre[%lld] Sto[%lld] diff[%lld] bw[%ld] ",mAbrBitrateData.size(),presentTime,(*bitrateIter).first,(presentTime - (*bitrateIter).first),(long)(*bitrateIter).second);
 		if ((bitrateIter->first <= 0) || (presentTime - bitrateIter->first > eAAMPAbrConfig.abrCacheLife))
 		{
-			//AAMPLOG_WARN("Threadshold time reached , removing bitrate data ");
 			bitrateIter = mAbrBitrateData.erase(bitrateIter);
 		}
 		else
@@ -254,29 +255,6 @@ bool HybridABRManager::CheckProfileChange(double totalFetchedDuration ,int currP
 	}
 	return checkProfileChange;
 
-}
-
-/**
- *  @brief Check whether the current profile is lowest.
- *  
- */
-bool HybridABRManager::IsLowestProfile(int currentProfileIndex,bool IstrickplayMode)
-{
-	bool ret = false;
-
-	if (IstrickplayMode)
-	{
-		if (currentProfileIndex == getLowestIframeProfile())
-		{
-			ret = true;
-		}
-	}
-	else
-	{
-		ret = isProfileIndexBitrateLowest(currentProfileIndex);
-	}
-
-	return ret;
 }
 
 /**
@@ -442,7 +420,8 @@ void HybridABRManager::CheckLLDashABRSpeedStoreSize(struct SpeedCache *speedcach
  * @param - current available buffer
  * @return - desired profile based on buffer
  */
-long HybridABRManager::FragmentfailureRampdown(int currentBuffer,int currentProfileIndex) {
+long HybridABRManager::FragmentfailureRampdown(int currentBuffer, int currentProfileIndex)
+{
 	double bufferPercentage = ((double)currentBuffer / eAAMPAbrConfig.abrMaxBuffer) * 100;
 	long desiredProfilebw = 0;
 	long currentbw = getBandwidthOfProfile(currentProfileIndex);
@@ -452,14 +431,22 @@ long HybridABRManager::FragmentfailureRampdown(int currentBuffer,int currentProf
         return a.bandwidthBitsPerSecond < b.bandwidthBitsPerSecond;
     });
 	// Iterate over profiles in descending order of bandwidth
-	for (int i = (int)availableProfiles.size() -1  ;i >= 0 ; i--) {
+	for (int i = (int)availableProfiles.size() -1  ;i >= 0 ; i--)
+	{
 		double profilePercentage = ((double)(availableProfiles[i].bandwidthBitsPerSecond) / availableProfiles[len].bandwidthBitsPerSecond) * 100.0;
 		AAMPABRLOG_WARN("Index: %d, bandwidth %d , profile percentage %lf, buffer percentage %lf",i,(int)availableProfiles[i].bandwidthBitsPerSecond,profilePercentage,bufferPercentage);
 		// Check if profile bandwidth percentage is less than buffer percentage ,and it should be a rampdown
-		if (profilePercentage < bufferPercentage && (availableProfiles[i].bandwidthBitsPerSecond < currentbw))  {
+		if (profilePercentage < bufferPercentage && (availableProfiles[i].bandwidthBitsPerSecond < currentbw))
+		{
 			desiredProfilebw  = availableProfiles[i].bandwidthBitsPerSecond;
 			break;
 		}
+	}
+
+	if (desiredProfilebw == 0)
+	{
+		// If no profile found, then return the lowest profile. Usually happens when bufferPercentage is very low or already at lowest profile
+		desiredProfilebw = availableProfiles[0].bandwidthBitsPerSecond;
 	}
 	return desiredProfilebw;
 }

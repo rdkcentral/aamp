@@ -75,7 +75,7 @@ typedef struct _manifestDownloadConfig
 {
 	DownloadConfigPtr mDnldConfig;
 	std::string mTuneUrl; 		// url used for tuning the stream
-	std::string mStichUrl; 		// url mpd to be stiched before the tuneUrl
+	std::string mStichUrl; 		// url mpd to be stitched before the tuneUrl
 	MPDStichOptions	mMPDStichOption;
 	bool mIsLLDConfigEnabled;
 	bool mCullManifestAtTuneStart;	// Remove the Start of the Manifest to the liveOffset
@@ -218,7 +218,7 @@ public:
 
 	/**
 	*	@fn Release
-	*	@brief Function to clear/release all the allocation for MPD Downlaoder
+	*	@brief Function to clear/release all the allocation for MPD Downloader
 	*/
 	void Release();
 
@@ -275,7 +275,7 @@ public:
 	void RegisterCallback(ManifestUpdateCallbackFunc fnPtr, void *);
 	/**
 	 * @fn UnRegisterCallback
-	 * @brief Unregisters the callback function for manifest update notifications.
+	 * @brief Unregister the callback function for manifest update notifications.
 	 */
 	void UnRegisterCallback();
 	/**
@@ -335,7 +335,7 @@ private:
 	void downloadMPDThread1();
 	/**
 	*	@fn downloadMPDThread2
-	*	@brief Thread Function to download second manifest file for post stiching ( not supported now)
+	*	@brief Thread Function to download second manifest file for post stitching ( not supported now)
 	*/	
 	void downloadMPDThread2();
 	/**

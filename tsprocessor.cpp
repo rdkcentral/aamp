@@ -1083,7 +1083,7 @@ bool TSProcessor::processBuffer(unsigned char *buffer, int size, bool &insPatPmt
 								int patTableIndex = payloadOffset + 9; 				// PAT table start
 								int patTableEndIndex = payloadOffset + length -1; 	// end of PAT table
 								uint32_t computed_crc = aamp_ComputeCRC32( &packet[payloadOffset+1], length-1 );
-								if( // comare to expected crc as packed after payload
+								if( // compare to expected crc as packed after payload
 								   ((computed_crc>>0x18)&0xff) != packet[payloadOffset+length+0] ||
 								   ((computed_crc>>0x10)&0xff) != packet[payloadOffset+length+1] ||
 								   ((computed_crc>>0x08)&0xff) != packet[payloadOffset+length+2] ||
@@ -1566,7 +1566,7 @@ bool TSProcessor::demuxAndSend(const void *ptr, size_t len, double position, dou
 			 * We always choose the first audio pid to play the audio data, even if we
 			 * have multiple audio tracks in the PMT Table.
 			 * But in one particular hls file, we dont have PES data in the first audio pid.
-			 * So, we have now modifeied to choose the next available audio pid index,
+			 * So, we have now modified to choose the next available audio pid index,
 			 * when there is no PES data available in the current audio pid.
 			 */
 			if( ( demuxer == m_audDemuxer ) && isPacketIgnored )
@@ -1714,16 +1714,16 @@ void TSProcessor::flush()
 /**
  * @brief Send queued segment
  */
-void TSProcessor::sendQueuedSegment(long long basepts, double updatedStartPositon)
+void TSProcessor::sendQueuedSegment(long long basepts, double updatedStartPosition)
 {
 	AAMPLOG_WARN("PC %p basepts %lld", this, basepts);
 	pthread_mutex_lock(&m_mutex);
 	if (m_queuedSegment)
 	{
-		if (-1 != updatedStartPositon)
+		if (-1 != updatedStartPosition)
 		{
-			AAMPLOG_DEBUG("Update position from %f to %f", m_queuedSegmentPos, updatedStartPositon);
-			m_queuedSegmentPos = updatedStartPositon;
+			AAMPLOG_DEBUG("Update position from %f to %f", m_queuedSegmentPos, updatedStartPosition);
+			m_queuedSegmentPos = updatedStartPosition;
 		}
 		else if (eStreamOp_DEMUX_AUDIO == m_streamOperation)
 		{
@@ -2013,7 +2013,7 @@ bool TSProcessor::processStartCode(unsigned char *buffer, bool& keepScanning, in
 			break;
 		case 6:  // SEI
 			break;
-		case 7:  // Sequence paramter set
+		case 7:  // Sequence parameter set
 		{
 			bool scanForAspect = false;
 			bool splitSPS = false;
@@ -2097,7 +2097,7 @@ bool TSProcessor::processStartCode(unsigned char *buffer, bool& keepScanning, in
 			}
 		}
 		break;
-		case 8:  // Picture paramter set
+		case 8:  // Picture parameter set
 			if (m_isInterlacedKnown && (m_playMode == PlayMode_retimestamp_Ionly))
 			{
 				bool processPPS = false;
@@ -2962,7 +2962,7 @@ bool TSProcessor::generatePATandPMT(bool trick, unsigned char **buff, int *bufle
 				i += m_ttsSize;
 			}
 			patPacket[i + 0] = 0x47; // Sync Byte
-			patPacket[i + 1] = 0x60; // TEI=no ; Payload Start=yes; Prio=0; 5 bits PId=0
+			patPacket[i + 1] = 0x60; // Payload Start=yes; Prio=0; 5 bits PId=0
 			patPacket[i + 2] = 0x00; // 8 bits LSB PID = 0
 			patPacket[i + 3] = 0x10; // 2 bits Scrambling = no; 2 bits adaptation field = no adaptation; 4 bits continuity counter
 
@@ -3189,7 +3189,7 @@ void TSProcessor::putPmtByte(unsigned char* &pmt, int& index, unsigned char byte
 // PTS/DTS format:
 // YYYY vvvM vvvv vvvv vvvv vvvM vvvv vvvv vvvv vvvM
 //
-// value formed by concatinating all 'v''s.
+// value formed by concatenating all 'v''s.
 // M bits are 1, YYYY are 0010 for PTS only
 // and for PTS+DTS 0011 and 0001 respectively
 //
@@ -3286,7 +3286,7 @@ void TSProcessor::writePCR(unsigned char *p, long long PCR, bool clearExtension)
 }
 
 /**
- * @brief Function to set offsetflag. if the value is fasle, no need to apply offset while doing pts restamping
+ * @brief Function to set offsetflag. if the value is false, no need to apply offset while doing pts restamping
  */
 void TSProcessor::setApplyOffsetFlag(bool enable)
 {
@@ -3420,7 +3420,7 @@ unsigned char* TSProcessor::createNullPFrame(int width, int height, int *nullPFr
 	// Calculate total required payload size
 	requiredLen += sliceCount*sliceLen;
 
-	// Calculate number of requried TS packets
+	// Calculate number of required TS packets
 	numTSPackets = 0;
 	while (requiredLen > 0)
 	{

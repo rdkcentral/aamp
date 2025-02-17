@@ -168,9 +168,9 @@ char * CVideoStat::ToJsonString(const char* additionalData, bool forPA) const
 					jsonObj = profileInfo.second.ToJson();
 					if(jsonObj)
 					{
-						std::string profileIndiex = std::to_string(profileInfo.first);
+						std::string profileIndex = std::to_string(profileInfo.first);
 
-						cJSON_AddItemToObject(profiles, profileIndiex.c_str(), jsonObj);
+						cJSON_AddItemToObject(profiles, profileIndex.c_str(), jsonObj);
 						isDataAdded = true;
 					}
 
@@ -258,7 +258,7 @@ char * CVideoStat::ToJsonString(const char* additionalData, bool forPA) const
 			if(mbTsb)
 			{
 				jsonObj =  cJSON_CreateNumber(1);
-				cJSON_AddItemToObject(monitor, TAG_TSB_AVAILIBLITY, jsonObj);
+				cJSON_AddItemToObject(monitor, TAG_TSB_AVAILABILITY, jsonObj);
 			}
 
 			strRet = cJSON_PrintUnformatted(monitor);
@@ -284,7 +284,7 @@ void CVideoStat::Increment_Fragment_Count(Track track, long bitrate, long downlo
 	{
 		//MapProfileInfo mapProfileInfo = mMapStreamInfo[eType];
 		CProfileInfo * pinfo = &(mMapStreamInfo[track][bitrate]);
-		pinfo->GetFragementStat()->GetNormalFragmentStat()->IncrementCount(downloadTimeMs, response, connectivity);
+		pinfo->GetFragmentStat()->GetNormalFragmentStat()->IncrementCount(downloadTimeMs, response, connectivity);
 	}
 }
 
@@ -303,7 +303,7 @@ void CVideoStat::Increment_Init_Fragment_Count(Track track, long bitrate, long d
 	if(track.type != STAT_MAIN) // fragment stats are not applicable for main hls or dash manifest
 	{
 		CProfileInfo * pinfo = &(mMapStreamInfo[track][bitrate]);
-		pinfo->GetFragementStat()->GetInitFragmentStat()->IncrementCount(downloadTimeMs, response, connectivity);
+		pinfo->GetFragmentStat()->GetInitFragmentStat()->IncrementCount(downloadTimeMs, response, connectivity);
 	}
 }
 
@@ -319,11 +319,11 @@ void CVideoStat::Increment_Manifest_Count(Track track, long bitrate, long downlo
 
 
 /**
- *   @brief   Records License stat based on isEncypted
+ *   @brief   Records License stat based on isEncrypted
  */
-void CVideoStat::Record_License_EncryptionStat(VideoStatTrackType eType, bool isEncypted, bool isKeyChanged, int audioIndex)
+void CVideoStat::Record_License_EncryptionStat(VideoStatTrackType eType, bool isEncrypted, bool isKeyChanged, int audioIndex)
 {
-	mMapLicenseInfo[std::move(Track(eType, audioIndex))].Record_License_EncryptionStat(isEncypted,isKeyChanged);
+	mMapLicenseInfo[std::move(Track(eType, audioIndex))].Record_License_EncryptionStat(isEncrypted,isKeyChanged);
 }
 
 /**
@@ -334,7 +334,7 @@ void CVideoStat::SetFailedFragmentUrl(VideoStatTrackType eType, long bitrate, st
 	if(eType != STAT_MAIN) // fragment stats are not applicable for main hls or dash manifest
 	{
 		CProfileInfo * pinfo = &(mMapStreamInfo[std::move(Track(eType,audioIndex))][bitrate]);
-		pinfo->GetFragementStat()->SetUrl(url);
+		pinfo->GetFragmentStat()->SetUrl(url);
 	}
 }
 

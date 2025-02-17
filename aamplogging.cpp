@@ -19,7 +19,7 @@
 
 /**
  * @file aamplogging.cpp
- * @brief AAMP logging mechanisum source file
+ * @brief AAMP logging mechanism source file
  */
 
 #include <iomanip>

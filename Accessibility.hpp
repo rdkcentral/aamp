@@ -69,23 +69,23 @@ private:
 	}
 	
   public:
-	Accessibility(std::string schemId, std::string val): strSchemeId(schemId), intValue(-1), strValue(val)
+	Accessibility(std::string schemeId, std::string val): strSchemeId(schemeId), intValue(-1), strValue(val)
 	{
 		intValue = parseNonNegativeDecimalInt(val);
 	};
 
 	Accessibility():strSchemeId(""), intValue(-1), strValue("") {};
 
-	void setAccessibilityData(std::string schemId, const std::string &val)
+	void setAccessibilityData(std::string schemeId, const std::string &val)
 	{
-		strSchemeId = schemId;
+		strSchemeId = schemeId;
 		intValue = parseNonNegativeDecimalInt(val);
 		strValue = (intValue>=0)?"":val;
 	};
 
-	void setAccessibilityData(std::string schemId, int val)
+	void setAccessibilityData(std::string schemeId, int val)
 	{
-		strSchemeId = schemId;
+		strSchemeId = schemeId;
 		intValue = (val>=0)?val:-1;
 		strValue = "";
 	};

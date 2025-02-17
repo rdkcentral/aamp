@@ -34,7 +34,7 @@ enum DRMSystems
 {
 	eDRM_NONE,              /**< No DRM */
 	eDRM_WideVine,          /**< Widevine, used to set legacy API */
-	eDRM_PlayReady,         /**< Playread, used to set legacy APIy */
+	eDRM_PlayReady,         /**< Playready, used to set legacy API */
 	eDRM_CONSEC_agnostic,   /**< CONSEC Agnostic DRM, deprecated */
 	eDRM_Adobe_Access,      /**< Adobe Access, fully deprecated */
 	eDRM_Vanilla_AES,       /**< Vanilla AES, fully deprecated */

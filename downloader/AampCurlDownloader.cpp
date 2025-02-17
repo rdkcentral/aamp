@@ -162,7 +162,7 @@ int AampCurlDownloader::Download(const std::string &urlStr, std::shared_ptr<Down
 	int retryCount = mDnldCfg?mDnldCfg->iDownloadRetryCount:0;
 	if(urlStr.size() == 0 || dnldData == nullptr)
 	{
-		AAMPLOG_ERR("Invalid inputs provided for download . Check the arguements. Url[%s] dnldData is Null[%d]", urlStr.c_str(), (dnldData == nullptr));
+		AAMPLOG_ERR("Invalid inputs provided for download . Check the arguments. Url[%s] dnldData is Null[%d]", urlStr.c_str(), (dnldData == nullptr));
 	}
 	else if(mCurl)
 	{
@@ -209,7 +209,7 @@ int AampCurlDownloader::Download(const std::string &urlStr, std::shared_ptr<Down
                                                         AAMPLOG_WARN("Download failed due to Server error http-%d . Retrying Attempt: %d!",mDownloadResponse->iHttpRetValue,retryCount);
 							retryCount--;
 							int retryDelayMs = (mDownloadResponse->iHttpRetValue == 502) ? MIN_DELAY_BETWEEN_MANIFEST_UPDATE_FOR_502_MS : mDnldCfg->iDownloadRetryWaitMs;
-							// TODO: Add the download delay between retries : Need to handle similar to InterruptableMsSleep
+							// TODO: Add the download delay between retries : Need to handle similar to interruptibleMsSleep
 							std::this_thread::sleep_for(std::chrono::milliseconds(retryDelayMs));
 							loopAgain = true; //retry on manifest download failure
 							continue;
@@ -254,7 +254,7 @@ int AampCurlDownloader::Download(const std::string &urlStr, std::shared_ptr<Down
 					mDownloadResponse->iHttpRetValue = httpRetVal = curlRetVal;
 				}
 			}
-			// update the downlaod response metrics for success and failure case 
+			// update the download response metrics for success and failure case 
 			// and for last attempt only (if retries enabled)
 			updateResponseParams();
 			mDownloadActive = false;		
@@ -262,7 +262,7 @@ int AampCurlDownloader::Download(const std::string &urlStr, std::shared_ptr<Down
 		}
 		else
 		{
-			AAMPLOG_ERR("Already download inprogress.Ignore new request for download %s",urlStr.c_str());
+			AAMPLOG_ERR("Already download in progress.Ignore new request for download %s",urlStr.c_str());
 		}
 	}
 	else
@@ -349,7 +349,7 @@ void AampCurlDownloader::Initialize(std::shared_ptr<DownloadConfig> dnldCfg)
 		if(mCreatedNewFd && mCurl)
 		{
 			// Whatever created by this module should be freed by this module
-			// AampcurlDownloader is not responsible for the curl handles provdided for download
+			// AampCurlDownloader is not responsible for the curl handles provided for download
 			curl_easy_cleanup(mCurl);
 			mCreatedNewFd = false;
 		}

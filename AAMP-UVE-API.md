@@ -1,7 +1,7 @@
 
 # ![](images/logo.png) <br/> AAMP / Universal Video Engine (UVE)
 # V6.9
- 
+
 ## Overview
 
 ### Unified Video Engine (UVE)
@@ -23,17 +23,17 @@ This document is targeted to application developers  who are interested in evalu
 - DD+, Dolby ATMOS, AC4 Support
 - Low Latency DASH
 
-## Acronyms 
+## Acronyms
     - AAMP      Advanced Adaptive Media Player
     - UVE       Universal Video Engine
     - JS        Javascript
     - HLS       HTTP Live Streaming
-    - DASH      Dynamic Adaptive Streaming over HTTP 
+    - DASH      Dynamic Adaptive Streaming over HTTP
     - DAI       Dynamic Ad Insertion
     - VTT       Video Text Track
     - ATSC      Advanced Television Systems Committee
-    
-    
+
+
 
 ## Minimal Sample Player
 
@@ -59,7 +59,7 @@ Click [here](#setup-reference-player) for Reference player setup for RDK
 
 <div style="page-break-after: always;"></div>
 
-# Universal Video Engine 
+# Universal Video Engine
 
 * [Configuration](#configuration)
 * [API / Methods](#methods)
@@ -79,7 +79,7 @@ Configuration options are passed to AAMP using the UVE initConfig method. This a
 | abrCacheLength | Number | 3 | Length of abr cache for network bandwidth calculation. |
 | abrCacheLife | Number | 5000 | Lifetime value for abr cache for network bandwidth calculation (in milli secs). |
 | abrCacheOutlier | Number | 5000000 | Outlier difference which will be ignored from network bandwidth calculation (default: 5 MB in bytes). |
-| abrNwConsistency | Number | 2 | Number of checks before profile incr/decr by 1. This is to avoid frequenct profile switching with network change. |
+| abrNwConsistency | Number | 2 | Number of checks before profile incr/decr by 1. This is to avoid frequent profile switching with network change. |
 | abrSkipDuration | Number | 6 | Minimum duration of fragment to be downloaded before triggering abr (in secs). |
 | audioOnlyPlayback | Boolean | False | Configuration to enable/disable Audio only Playback. |
 | cdvrLiveOffset | Number | 30 | Live offset time in seconds for cdvr, aamp starts live playback this much time before the live point for inprogress cdvr. |
@@ -219,9 +219,9 @@ Example:
 	    var url = "https://example.com/multilang/sample.m3u8";
 	    var player = new AAMPMediaPlayer();
 	    player.initConfig(playerInitConfig);
-	    player.load(url); 
+	    player.load(url);
     }
-   
+
 ```
 ---
 
@@ -240,7 +240,7 @@ Example:
 ```js
     {
             // configuration for DRM -Sample for Widevine
-            var DrmConfig = { 
+            var DrmConfig = {
 	    'https://example.com/AcquireLicense', // Use valid URL instead of example
             'preferredKeysystem':'com.widevine.alpha'
             };
@@ -248,9 +248,9 @@ Example:
 	    var url = "https://example.com/multilang/sample.m3u8";
 	    var player = new AAMPMediaPlayer();
 	    player.setDRMConfig(DrmConfig);
-	    player.load(url); 
+	    player.load(url);
     }
-   
+
 ```
 ---
 
@@ -302,17 +302,17 @@ Example:
     {
 	    var player = new AAMPMediaPlayer();
 	    var url = "https://example.com/multilang/sample.m3u8"; // Use valid URL instead of example
-	    player.load(url); // for autoplayback 
+	    player.load(url); // for autoplayback
     }
-    // support for multiple player instances 
+    // support for multiple player instances
     {
 	    var player1 = new AAMPMediaPlayer();
 	    var player2 = new AAMPMediaPlayer();
             // Use valid URLs instead of example
 	    var url1 = "https://example.com/multilang/sample.m3u8";
 	    var url2 = "https://example.com/multilang/sample1.m3u8";
-	    player1.load(url1); // for immediate playback 
-	    player2.load(url2,false); // for background buffering,no playback. 
+	    player1.load(url1); // for immediate playback
+	    player2.load(url2,false); // for background buffering,no playback.
     }
     // support for multiple player instances with session ID
     {
@@ -325,8 +325,8 @@ Example:
 	    var params_1 = { sessionId: "12192978-da71-4da7-8335-76fbd9ae2ae9" };
 	    var params_2 = { sessionId: "6e3c49cb-6254-4324-9f5e-bddef465bdff" };
 
-	    player1.load(url1, true, params_1); // for immediate playback 
-	    player2.load(url2, false, params_2); // for background buffering,no playback. 
+	    player1.load(url1, true, params_1); // for immediate playback
+	    player2.load(url2, false, params_2); // for background buffering,no playback.
     }
     // support for preprocessed DASH manifest
     {
@@ -350,10 +350,10 @@ Example:
     {
 	    var player = new AAMPMediaPlayer();
 	    var url = "https://example.com/multilang/main.m3u8"; // Use valid URL instead of example
-	    player.load(url,false); // for background buffering,no playback. 
+	    player.load(url,false); // for background buffering,no playback.
 	    // application can start the playback background session using play API
 	    player.play();  // Or player.setPlaybackRate(1);
-	    
+
     }
 ```
 ---
@@ -377,7 +377,7 @@ Example:
 	    player.pause(60);  // schedules a pause at 60 sec of play
 	    // to cancel a scheduled pause
 	    player.pause(-1);
-	    
+
     }
 ```
 
@@ -403,7 +403,7 @@ Usage example:
     {
 	    .....
 	    // for immediate stop of playback
-	    player.stop();  
+	    player.stop();
     }
 ```
 ---
@@ -417,12 +417,12 @@ Usage example:
       {
           var player = new AAMPMediaPlayer();
           // begin streaming main content
-          player.load( "http://test.com/content.m3u8" ); 
+          player.load( "http://test.com/content.m3u8" );
           ..
           // create background player
-          var adPlayer = new AAMPMediaPlayer();  
+          var adPlayer = new AAMPMediaPlayer();
           // preroll with autoplay = false
-          adPlayer.load( "http://test.com/ad.m3u8", false ); 
+          adPlayer.load( "http://test.com/ad.m3u8", false );
           ..
           player.detach(); // stop playback of active player
           adPlayer.play(); // activate background player (fast transition)
@@ -432,7 +432,7 @@ Usage example:
 ---
 
 ### resetConfiguration()
-- API that can be used to reset the player instance configuration to default values that can be called by the application any time necesssary.
+- API that can be used to reset the player instance configuration to default values that can be called by the application any time necessary.
 ---
 
 ### getConfiguration()
@@ -461,10 +461,10 @@ Example:
     {
 	    .....
 	    // seek to new position and start auto playback
-	    player.seek(60);  
+	    player.seek(60);
 	    ...
 	    // Pause the playback
-	    player.pause();  
+	    player.pause();
 	    // Seek to new position and remain in last player state
 	    player.seek(60,true);
     }
@@ -517,7 +517,7 @@ Example:
 - Sets the current volume (value between 0 and 100). Updated value reflected in subsequent calls to getVolume()
 - Returns true if setVolume has been performed.
 
-| Name | Type | Decription |
+| Name | Type | Description |
 | ---- | ---- | ---------- |
 | Volume | Number | Pass zero to mute audio. Pass 100 for normal (max) audio volume. |
 
@@ -528,7 +528,7 @@ Example:
 - Black out video for parental control purposes or enable the video playback .
 - Returns true if setVideoMute has been performed.
 
-| Name | Type | Decription |
+| Name | Type | Description |
 | ---- | ---- | ---------- |
 | state | Boolean | True to Mute video. <br/>False to disable video mute and enable video playback |
 
@@ -602,8 +602,8 @@ Example:
 - Set display video rectangle coordinates. Note that by default video will be full screen.
 - Rectangle specified in “graphics resolution” coordinates (coordinate space used by graphics overlay).
 - Window size is typically 1280x720, but can be queried at runtime as follows:
-    - using getVideoRectangle API 
-    - Alternate method 
+    - using getVideoRectangle API
+    - Alternate method
         - var w  = window.innerWidth || document.documentElement.clientWidth ||document.body.clientWidth;
         - var h = window.innerHeight|| document.documentElement.clientHeight|| document.body.clientHeight;
 
@@ -624,7 +624,7 @@ Example:
 	<head>
 		<title>MINIMAL UVE PLAYER - SCALED VIDEO</title>
 	</head>
-	
+
 	<script>
 		var player;
 		window.onload = function() {
@@ -666,7 +666,7 @@ Example:
 		}
 	</style>
 	<body>
-		<div id="backDrop"></div>  
+		<div id="backDrop"></div>
 		<video id="video">
 			<source src="dummy.mp4" type="video/ave"> <!-- hole punching -->
 		</video>
@@ -714,12 +714,12 @@ Example:
 ```js
     {
             // configuration for DRM -Sample for Widevine
-            var DrmConfig = { 
+            var DrmConfig = {
             'com.widevine.alpha':'https://example.com/AcquireLicense', // Use valid URL instead of example
             'preferredKeysystem':'com.widevine.alpha'
             };
-            
-            
+
+
 	    var url = "https://example.com/multilang/sample.m3u8"; // Use valid URL instead of example
 	    var player = new AAMPMediaPlayer();
 	    player.setDRMConfig(DrmConfig);
@@ -727,9 +727,9 @@ Example:
 	    player.addCustomHTTPHeader(
 	    "X-AxDRM-Message", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9",
 	    true);
-	    player.load(url); 
+	    player.load(url);
     }
-   
+
 ```
 ---
 
@@ -746,21 +746,21 @@ Examples:
 ```
 	// remove all custom headers (from CDN and license requests)
 	player.removeCustomHTTPHeader();
-	
+
 	// remove custom header "foo" from  CDN requests (not license requests)
-	player.removeCustomHTTPHeader( "foo" ); 
-	
+	player.removeCustomHTTPHeader( "foo" );
+
 	// remove custom header "foo" from  CDN requests only
 	player.removeCustomHTTPHeader( "foo", false );
-	
+
 	// remove custom header "foo" from  license requests only
-	player.removeCustomHTTPHeader( "foo", true ); 
-	
+	player.removeCustomHTTPHeader( "foo", true );
+
 	// remove all custom headers from CDN requests only
-	player.removeCustomHTTPHeader( false ); 
-	
+	player.removeCustomHTTPHeader( false );
+
 	// remove all custom headers from license requests only
-	player.removeCustomHTTPHeader( true ); 
+	player.removeCustomHTTPHeader( true );
 ```
 
 ---
@@ -825,8 +825,8 @@ Examples:
 | rendition  | String | Role for DASH, If not present, the role is assumed to be main e.g: caption,subtitle,main. |
 | accessibilityType  | String | Accessibility value for descriptive, visually impaired signaling e.g: description, captions |
 | bandwidth  | String | Represents variants of the bitrates available for the media type; e.g: 288000 |
-| Type  | String | audio — Primary dialogue and soundtrack; 
-|||audio_native — Primary dialogue and soundtrack with dialogue that was recorded along with the video; 
+| Type  | String | audio — Primary dialogue and soundtrack;
+|||audio_native — Primary dialogue and soundtrack with dialogue that was recorded along with the video;
 |||audio_descriptions — Audio track meant to assist the vision impaired in the enjoyment of the video asset |
 | Channels | String | Indicates the maximum number of audio channels; 1 = mono, 2=stereo, up to 8 for DD+ |
 | availability  | Boolean | Availability of the audio track in current TSB buffer (FOG) |
@@ -875,7 +875,7 @@ Examples:
 | Name  | Type | Description |
 | ---- | ---- | ---- |
 | name  | String | The value is a quoted-string containing a human-readable description of the Rendition; e.g:english, commentary, german |
-| language  | String | Identifies the primary language used in the Rendition. 
+| language  | String | Identifies the primary language used in the Rendition.
 |||In practice, this should be present in vast majority of production manifests, but per HLS specification,his attribute is OPTIONAL e.g: eng,ger,spa. |
 | codec  | String | codec associated with Audio. e.g: mp4a.40.2 |
 | rendition  | String | Specifies the group to which the Rendition belongs. GROUP-ID for HLS.|
@@ -924,7 +924,7 @@ hls/360p.m3u8
 
 ### getAudioTrackInfo()
 - Supported UVE version 4.2 and above.
-- Returns the current playing audio track information in JSON format.  
+- Returns the current playing audio track information in JSON format.
 - ###### Example:
 ```sh
 [{
@@ -968,7 +968,7 @@ hls/360p.m3u8
 |codec|	String|	Preferred codec of the audio track.|
 |||Default Priority : (AC4 > ATMOS > D D+ > AC3 > AAC > Others)|
 
-- ###### Example: 
+- ###### Example:
 ```js
 var trackDescriptorObject =
 {
@@ -988,7 +988,7 @@ playerInstance.setAudioTrack( trackDescriptorObject );
 - Set the audio track  preference by languages, rendition, accessibility, codecList and label
 - This is functionally equivalent to passing a trackDescriptorObject to setAudioTrack above.
 - May be called pre-tune or post tune.
-- Behaviour is similar to setPreferredAudioLanguage ( JSON String)
+- Behavior is similar to setPreferredAudioLanguage ( JSON String)
 - Returns true if setPreferredAudioLanguage has been performed.
 
 |Name|Type|Description|
@@ -1011,19 +1011,19 @@ playerInstance.setPreferredAudioLanguage( "en,de,mul","alternate","description",
 - Supported UVE version 4.4 and above.
 - Set the audio track  preference by languages, label, rendition and accessibility
 - May be called pretune or post tune.
-- Behavior similar for setAudioTrack or setAudioLanguage 
-    - If PreferredAudioLanguage is not configured: 
-        - Player will take default preferred language as English, and 
+- Behavior similar for setAudioTrack or setAudioLanguage
+    - If PreferredAudioLanguage is not configured:
+        - Player will take default preferred language as English, and
         choose better quality track from the language matching list.
-        - For Live (with TSB support), time shift buffer includes all available language tracks in the manifest . 
+        - For Live (with TSB support), time shift buffer includes all available language tracks in the manifest .
     - If PreferredAudioLanguage is set pretune:
         - Player will pick best quality track from the language matching list.
-        - For Live (with TSB support), time shift buffer downloads only preferred language tracks but publishes all available languages to application with availability field as false. 
+        - For Live (with TSB support), time shift buffer downloads only preferred language tracks but publishes all available languages to application with availability field as false.
         - If preferred audio language is not available in the manifest, first available track will be selected. For Live (with TSB support), buffer downloads first available track and  publishes the other audio tracks with availability field as false.
     - If setPreferredAudioLanguage (or setAudioTrack) is called  post tune:
         - Player will pick best quality track from the language matching list.
         - For Live (with TSB support), If the new preferred language track is already available in time shift buffer, then player changes to new track without losing TSB buffer.
-        - For Live (with TSB support), If the new preferred language track is not available in TSB but available in manifest, then time shift buffer will be restarted with new language audio track. 
+        - For Live (with TSB support), If the new preferred language track is not available in TSB but available in manifest, then time shift buffer will be restarted with new language audio track.
 
 
 |Name|Type|Description|
@@ -1042,10 +1042,10 @@ var trackPreferenceObject =
     "languages": ["en", "de", "mul"],
     "label": "native",
     "rendition": "alternate",
-    "accessibility": 
-    { 
+    "accessibility":
+    {
         "scheme": "urn:mpeg:dash:role:2011",
-        "string_value": "description", 
+        "string_value": "description",
     }
 }
 playerInstance.setPreferredAudioLanguage( trackPreferenceObject );
@@ -1081,8 +1081,8 @@ playerInstance.setPreferredAudioLanguage( trackPreferenceObject );
 | codec  | String | codec associated with text track. e.g: stpp |
 | rendition  | String | Role for DASH. e.g: caption,subtitle,main. |
 | accessibilityType |	String | Accessibility value for descriptive, visually impaired signaling e.g: description, captions |
-| type |	String | the supported values are	
-||| captions — A text track (608/708/TTML) meant for the hearing impaired. 
+| type |	String | the supported values are
+||| captions — A text track (608/708/TTML) meant for the hearing impaired.
 |||            which describes all the dialogue and non-dialogue audio portions of the asset (including music, sound effects, etc) |
 ||| subtitles — A text track (TTML) meant for translating the spoken dialogue into additional languages |
 ||| subtitles_native — Subtitle in Native language |
@@ -1156,7 +1156,7 @@ playerInstance.setPreferredAudioLanguage( trackPreferenceObject );
 | codec  | String | Comma-delimited list of formats, where each format specifies a media sample type that is present in one or more Renditions specified by the Variant Stream. |
 | rendition  | String | Specifies the group to which the Rendition belongs. GROUP-ID for HLS. |
 | characteristics |	String | Pne or more comma-delimited Uniform Type Identifiers [UTI].  This attribute is OPTIONAL. |
-| instreamId	| String	| Specifies a Rendition within the segments in the Media Playlist. 
+| instreamId	| String	| Specifies a Rendition within the segments in the Media Playlist.
 ||| This attribute is REQUIRED if the TYPE attribute is CLOSED-CAPTIONS |
 ||| e.g: "CC1", "CC2", "CC3", "CC4", or "SERVICEn" where n MUST be an integer between 1 and 63 |
 | type	| String |	Specifies the media type. |
@@ -1187,23 +1187,25 @@ playerInstance.setPreferredAudioLanguage( trackPreferenceObject );
 - Supported UVE version 4.4 and above.
 - Set the text  track  preference by languages, rendition and accessibility
 - Supported pre-tune and post tune.
-- If PreferredTextLanguage is not configured: 
-    - Player will take default preferred language as English, 
-    - For Live (with TSB support), time shift buffer includes all available language tracks in the manifest . 
+- If PreferredTextLanguage is not configured:
+    - Player will take default preferred language as English,
+    - For Live (with TSB support), time shift buffer includes all available language tracks in the manifest .
 - If PreferredTextLanguage is set pretune:
     - Player will text track from the language matching list.
-    - For Live (with TSB support), time shift buffer downloads only preferred language tracks but publishes all available languages to application with availability field as false. 
-    - If preferred text language is not available in the manifest, first available track will be selected. For Live (with TSB support), buffer downloads first available track and  publishes the other audio tracks with availability field as false.
-- If setPreferredTextLanguage (or setTextTrack) is called  post tune:
+    - For Live (with TSB support), time shift buffer downloads only preferred language tracks but publishes all available languages to application with availability field as false.
+    - If preferred text language is not available in the manifest, first available track will be selected. For Live (with TSB support), buffer downloads first available track and publishes the other text tracks with availability field as false.
+- If setPreferredTextLanguage (or setTextTrack) is called post tune:
     - Player will pick the language matching list.
     - For Live (with TSB support), If the new preferred language track is already available in time shift buffer, then player changes to new track without losing TSB buffer.
-    - For Live (with TSB support), If the new preferred language track is not available in TSB but available in manifest, then time shift buffer will be restarted with new language text track. 
- 
+    - For Live (with TSB support), If the new preferred language track is not available in TSB but available in manifest, then time shift buffer will be restarted with new language text track.
+- The langCodePreference AAMP config impacts how requested ISO-639 language codes are matched to the language codes for tracks in the manifest.  This works as below:
+  - NO_LANGCODE_PREFERENCE = 0 (default): the requested language code(s) must match those in the manifest.
+  - Other values: language code(s) will be normalized to ISO-639 2-character or 3-character versions before matching, so the client can for example specify "eng" to match a manifest with "en", or vice versa.
 
 |Name|Type|Description|
 |----|----|-----------|
-| language | String | ISO-639 audio language preference |
-| languages | String | comma-delimited ISO-639 audio language preference list from highest to lowest priority:  ‘<HIGHEST>,<...>,<LOWEST>’ |
+| language | String | ISO-639 text language preference. 2-character and 3-character codes are supported. |
+| languages | String | comma-delimited ISO-639 text language preference list from highest to lowest priority:  ‘<HIGHEST>,<...>,<LOWEST>’ |
 | rendition | String | Optional preferred rendition for automatic text selection |
 | instreamId | String | Optional preferred instreamId (i.e. CC1, CC2) for automatic text selection |
 | label	| String | Preferred Label for automatic text selection |
@@ -1218,10 +1220,10 @@ var trackPreferenceObject =
 {
     "languages": ["en", "de", "mul"],
     "rendition": "subtitle",
-    "accessibility": 
-    { 
+    "accessibility":
+    {
         "scheme": "urn:tva:metadata:cs:AudioPurposeCS:2007",
-        "int_value": 2 
+        "int_value": 2
     }
 }
 playerInstance.setPreferredTextLanguage( trackPreferenceObject );
@@ -1241,7 +1243,7 @@ playerInstance.setPreferredTextLanguage( trackPreferenceObject );
 - Returns playing Text track information in JSON format.
 - Currently support is limited to only out-of-band captions.
 
-- ###### Example : 
+- ###### Example :
 ```js
 {
     "name": "English"
@@ -1249,10 +1251,10 @@ playerInstance.setPreferredTextLanguage( trackPreferenceObject );
     "codec": "stpp"
     "type": "CLOSED-CAPTIONS"
     "rendition": "alternate",
-    "accessibility": 
-    { 
+    "accessibility":
+    {
         "scheme": "urn:tva:metadata:cs:AudioPurposeCS:2007",
-        "int_value": 2 
+        "int_value": 2
     }
 }
 ```
@@ -1260,9 +1262,9 @@ playerInstance.setPreferredTextLanguage( trackPreferenceObject );
 
 ### getPreferredTextProperties
 - Supported UVE version 4.4 and above.
-- Returns Text track information set by application for preferred Text track selection, in JSON format 
+- Returns Text track information set by application for preferred Text track selection, in JSON format
 
-- ###### Example : 
+- ###### Example :
 ```js
 {
     "preferred-text-languages" : ["eng", "ger", "mul"],
@@ -1270,9 +1272,9 @@ playerInstance.setPreferredTextLanguage( trackPreferenceObject );
     "preferred-text-rendition": "",
     "preferred-text-type": ""
     "preferred-text-accessibility":
-    { 
+    {
         "scheme": "urn:tva:metadata:cs:AudioPurposeCS:2007",
-        "int_value": 2 
+        "int_value": 2
     }
 }
 ```
@@ -1340,7 +1342,7 @@ playerInstance.setPreferredTextLanguage( trackPreferenceObject );
         "penUnderline": false
     }
 
-##### Example: options 
+##### Example: options
 
     {
         "penItalicized": false,
@@ -1406,7 +1408,7 @@ playerInstance.setPreferredTextLanguage( trackPreferenceObject );
 
 ### getThumbnail(startPosition, endPosition)
 - Get the thumbnail data for the time range “startPosition” till “endPosition”.
-- For linear streams(e.g Live,Hot CDVR,..) start and endPosition has to be specified w.r.t Avaialability start time
+- For linear streams(e.g Live,Hot CDVR,..) start and endPosition has to be specified w.r.t Availability start time
 
 |Name|Type|Description|
 |----|----|-----------|
@@ -1463,7 +1465,7 @@ VOD Streams:
           "width": 416,
           "height": 234,
           "tile":
-          [{ 
+          [{
             "url": "pckimage-1.jpg",
             "t": 328.0,
             "d": 2,
@@ -1494,7 +1496,7 @@ VOD Streams:
 | enableConfiguration | Boolean | If True, enable runtime DRM notification for getting Application configuration.   |
 
 
---- 
+---
 
 ### setContentProtectionDataConfig(json string)
 - Supported UVE version 5.1 and above.
@@ -1507,7 +1509,7 @@ VOD Streams:
 | keyID | vector<uint8_t> | KeyID reference for DRM license config |
 | com.microsoft.playready | String | License server endpoint to use with PlayReady DRM |
 | com.widevine.alpha | String | License server endpoint to use with Widevine DRM |
-| customData | String | CustomData for license 
+| customData | String | CustomData for license
 acquisition |
 | authToken | String | Token to be applied for license acquisition |
 
@@ -1523,8 +1525,8 @@ acquisition |
 
 ### setContentProtectionDataUpdateTimeout(timeout)
 - Supported UVE version 5.1 and above.
-- Configure the ProtectionData Update timeout, in seconds. Default of 5 sec 
-- Player waits for setContentProtectionDataConfig API update within the timeout interval .On timeout use last configured values . 
+- Configure the ProtectionData Update timeout, in seconds. Default of 5 sec
+- Player waits for setContentProtectionDataConfig API update within the timeout interval .On timeout use last configured values .
 
 |Name|Type|Description|
 |----|----|-----------|
@@ -1608,7 +1610,7 @@ Example:
     aampPlayer.addEventListener("playbackStarted", playbackStartedFn);;
     aampPlayer.addEventListener("blocked", blockedEventHandlerFn);;
     aampPlayer.addEventListener("bitrateChanged", bitrateChangedEventHandlerFn);;
-	
+
 ```
 
 ---
@@ -1620,24 +1622,24 @@ Example:
 | handler | Function | Callback for processing event |
 
 ---
-### UVE Supported Events 
+### UVE Supported Events
 
 ### playbackStarted
 
-**Description:** 
+**Description:**
 - Supported UVE version 0.7 and above.
 - Fired when playback starts.
 
 ### playbackFailed
 
-**Event Payload:** 
+**Event Payload:**
 - shouldRetry: boolean
 - code: number
 - description: string
 - sessionId: string Refer to [load](#load-uri_autoplay_tuneparams) API for details
 
 
-**Description:** 
+**Description:**
 - Supported UVE version 0.7 and above.
 - Fired when an error occurs.
 
@@ -1645,19 +1647,19 @@ Example:
 
 ### playbackSpeedChanged
 
-**Event Payload:** 
+**Event Payload:**
 - speed: number
 - reason: string
 - sessionId: string Refer to [load](#load-uri_autoplay_tuneparams) API for details
 
-**Description:** 
+**Description:**
 - Supported UVE version 0.7 and above.
 
 ---
 
 ### playbackCompleted
 
-**Description:** 
+**Description:**
 - Supported UVE version 0.7 and above.
 - Fired when there is nothing left to play
 
@@ -1665,17 +1667,17 @@ Example:
 
 ### playlistIndexed
 
-**Event Payload:** 
+**Event Payload:**
 - sessionId: string Refer to [load](#load-uri_autoplay_tuneparams) API for details
 
-**Description:** 
+**Description:**
 - Fired after manifest / playlist parsing completed
 
 ---
 
 ### playbackProgressUpdate
 
-**Event Payload:** 
+**Event Payload:**
 - sessionId: string Refer to [load](#load-uri_autoplay_tuneparams) API for details
 - durationMiliseconds: number
 - positionMiliseconds: number
@@ -1683,13 +1685,13 @@ Example:
 - startMiliseconds: number
 - endMiliseconds: number
 - currentPTS: number
-- videoBufferedMiliseconds : number 
+- videoBufferedMiliseconds : number
 - liveLatency : number
 - profileBandwidth : number
 - networkBandwidth : number
 - currentPlayRate : number
 
-**Description:** 
+**Description:**
 - Supported UVE version 0.7 and above.
 - Fired based on the interval set
 - Added video PTS reporting if enabled with reportVideoPTS config
@@ -1699,11 +1701,11 @@ Example:
 
 ### decoderAvailable
 
-**Event Payload:** 
+**Event Payload:**
 - sessionId: string Refer to [load](#load-uri_autoplay_tuneparams) API for details
 - decoderHandle: number
 
-**Description:** 
+**Description:**
 - Supported UVE version 0.7 and above.
 - Fired when video decoder handle becomes available, required for closedcaption parsing + rendering by RDK ClosedCaptions module
 
@@ -1711,14 +1713,14 @@ Example:
 
 ### jsEvent
 
-**Description:** 
+**Description:**
 - Generic event for jsbinding . To be deprecated
 
 ---
 
 ### mediaMetadata
 
-**Event Payload:** 
+**Event Payload:**
 - sessionId: string Refer to [load](#load-uri_autoplay_tuneparams) API for details
 - durationMiliseconds: number
 - languages: string[]
@@ -1732,7 +1734,7 @@ Example:
 - tsbDepth: number
 
 
-**Description:** 
+**Description:**
 - Supported UVE version 0.7 and above.
 - Fired with metadata of the asset currently played, includes duration(in ms), audio language list, available bitrate list, hasDrm, supported playback speeds , tsbDepth
 
@@ -1740,7 +1742,7 @@ Example:
 
 ### enteringLive
 
-**Description:** 
+**Description:**
 - Supported UVE version 0.7 and above.
 - Fired when entering live point of a live playlist during/after a seek/trickplay operation
 
@@ -1748,7 +1750,7 @@ Example:
 
 ### bitrateChanged
 
-**Event Payload:** 
+**Event Payload:**
 - sessionId: string Refer to [load](#load-uri_autoplay_tuneparams) API for details
 - time: number
 - bitRate: number
@@ -1761,7 +1763,7 @@ Example:
 - displayWidth:number
 - displayHeight:number
 
-**Description:** 
+**Description:**
 - Supported UVE version 0.7 and above.
 - Fired when video profile is switched by ABR with the metadata associated with newly selected profile.
 
@@ -1769,7 +1771,7 @@ Example:
 
 ### timedMetadata
 
-**Event Payload:** 
+**Event Payload:**
 - sessionId: string Refer to [load](#load-uri_autoplay_tuneparams) API for details
 - time: number
 - duration: number
@@ -1779,7 +1781,7 @@ Example:
 - metadata: object
 - id: string
 
-**Description:** 
+**Description:**
 - Supported UVE version 0.8 and above.
 - Fired when a subscribed tag is found in the playlist
 
@@ -1787,22 +1789,22 @@ Example:
 
 ### bulkTimedMetadata
 
-**Event Payload:** 
+**Event Payload:**
 - sessionId: string Refer to [load](#load-uri_autoplay_tuneparams) API for details
 - content: string
 
-**Description:** 
+**Description:**
 - Combine all timedMetadata and fire single event if bulkTimedMetadata is enabled
 
 ---
 
 ### playbackStateChanged
 
-**Event Payload:** 
+**Event Payload:**
 - sessionId: string Refer to [load](#load-uri_autoplay_tuneparams) API for details
 - state: [number](#getcurrentstate)
 
-**Description:** 
+**Description:**
 - Supported UVE version 0.7 and above.
 - Fired as player state changes while tuning, during steady state playback, or as trickplay commands (play, pause, seek) are processed.
 - Example sequences - refer getCurrentState() for details:
@@ -1820,11 +1822,11 @@ Example:
 
 ### speedsChanged
 
-**Event Payload:** 
+**Event Payload:**
 - sessionId: string Refer to [load](#load-uri_autoplay_tuneparams) API for details
 - playbackSpeeds: number[]
 
-**Description:** 
+**Description:**
 - Supported UVE version 0.7 and above.
 - Fired when supported playback speeds changes (based on iframe availability)
 
@@ -1832,33 +1834,33 @@ Example:
 
 ### seeked
 
-**Event Payload:** 
+**Event Payload:**
 - sessionId: string Refer to [load](#load-uri_autoplay_tuneparams) API for details
 - Position: number
 
-**Description:** 
+**Description:**
 - Fired when Seek is triggered with a position
 
 ---
 
 ### tuneProfiling
 
-**Event Payload:** 
+**Event Payload:**
 - sessionId: string Refer to [load](#load-uri_autoplay_tuneparams) API for details
 - microdata:string
 
-**Description:** 
+**Description:**
 - Tune profiling data
 
 ---
 
 ### bufferingChanged
 
-**Event Payload:** 
+**Event Payload:**
 - sessionId: string Refer to [load](#load-uri_autoplay_tuneparams) API for details
 - buffering: bool
 
-**Description:** 
+**Description:**
 - Supported UVE version 0.8 and above.
 - bufferingChanged events are generated only after streaming has started.
 - bufferingChanged is not generated at tune time, while video is paused, or while seeking.
@@ -1872,7 +1874,7 @@ Example:
 
 ### ManifestRefresh
 
-**Event Payload:** 
+**Event Payload:**
 - sessionId: string Refer to [load](#load-uri_autoplay_tuneparams) API for details
 - manifestDuration: number (duration in seconds)
 - manifestPublishedTime: number (UTC seconds)
@@ -1885,7 +1887,7 @@ Example:
 
 ### tuneMetricsData
 
-**Event Payload:** 
+**Event Payload:**
 - sessionId: string Refer to [load](#load-uri_autoplay_tuneparams) API for details
 - tuneMetricsData: string
 
@@ -1959,55 +1961,55 @@ Example:
 ---
 ### durationChanged
 
-**Description:** 
+**Description:**
 - To be deprecated
 
 ---
 
 ### audioTracksChanged
 
-**Event Payload:** 
+**Event Payload:**
 - sessionId: string Refer to [load](#load-uri_autoplay_tuneparams) API for details
 
-**Description:** 
+**Description:**
 - Fired when Audio track is changed during playback
 
 ---
 
 ### textTracksChanged
 
-**Event Payload:** 
+**Event Payload:**
 - sessionId: string Refer to [load](#load-uri_autoplay_tuneparams) API for details
 
-**Description:** 
+**Description:**
 - Fired when Text track is changed during playback
 
 ---
 
 ### contentBreaksChanged
 
-**Description:** 
+**Description:**
 - To be deprecated
 
 ---
 
 ### contentStarted
 
-**Description:** 
+**Description:**
 - To be deprecated
 
 ---
 
 ### contentCompleted
 
-**Description:** 
+**Description:**
 - To be deprecated
 
 ---
 
 ### drmMetadata
 
-**Event Payload:** 
+**Event Payload:**
 - sessionId: string Refer to [load](#load-uri_autoplay_tuneparams) API for details
 - code: number
 - description: string
@@ -2015,7 +2017,7 @@ Example:
 - responseData: string
 - networkMetrics: string
 
-**Description:** 
+**Description:**
 - Supported UVE version 0.7 and above.
 - Fired when there is a change in DRM metadata (especially expiration of DRM auth data)
 - Refer sendLicenseResponseHeaders configuration for headers
@@ -2037,41 +2039,41 @@ Example:
 
 ### anomalyReport
 
-**Event Payload:** 
+**Event Payload:**
 - sessionId: string Refer to [load](#load-uri_autoplay_tuneparams) API for details
 - severity: string
 - description:string
 
-**Description:** 
+**Description:**
 - Fired for any anomaly during playback.
 
 ---
 
 ### vttCueDataListener
 
-**Event Payload:** 
+**Event Payload:**
 - sessionId: string Refer to [load](#load-uri_autoplay_tuneparams) API for details
 - start : number
 - duration: number
 - text:string
 
-**Description:** 
+**Description:**
 - This event is fired for VTT cue parsed from the WebVTT playlist
-- Some platforms doesnt support rendering of WebVTT, in that case Application should render the WebVTT. 
-- Refer "isOOBCCRenderingSupported" API. 
+- Some platforms doesnt support rendering of WebVTT, in that case Application should render the WebVTT.
+- Refer "isOOBCCRenderingSupported" API.
 
 ---
 
 ### adResolved
 
-**Event Payload:** 
+**Event Payload:**
 - sessionId: string Refer to [load](#load-uri_autoplay_tuneparams) API for details
 - resolvedStatus: bool
 - placementId: string
 - placementStartTime: number
 - placementDuration: number
 
-**Description:** 
+**Description:**
 - Supported UVE version 0.8 and above.
 - Confirmation that an upcoming ad's main manifest has been successfully downloaded and parsed.
 
@@ -2079,12 +2081,12 @@ Example:
 
 ### reservationStart
 
-**Event Payload:** 
+**Event Payload:**
 - sessionId: string Refer to [load](#load-uri_autoplay_tuneparams) API for details
 - adbreakId: string
 - time: number
 
-**Description:** 
+**Description:**
 - Supported UVE version 0.8 and above.
 - Sent upon playback into an ad break (one or more ads).
 
@@ -2092,12 +2094,12 @@ Example:
 
 ### reservationEnd
 
-**Event Payload:** 
+**Event Payload:**
 - sessionId: string Refer to [load](#load-uri_autoplay_tuneparams) API for details
 - adbreakId: string
 - time: number
 
-**Description:** 
+**Description:**
 - Supported UVE version 0.8 and above.
 - Sent upon completion of an ad break (back to main content) - it is NOT sent (per previously agreed contract) if user does trickplay or seek to abort ad playback
 
@@ -2105,12 +2107,12 @@ Example:
 
 ### placementStart
 
-**Event Payload:** 
+**Event Payload:**
 - sessionId: string Refer to [load](#load-uri_autoplay_tuneparams) API for details
 - adId: string
 - time: number
 
-**Description:** 
+**Description:**
 - Supported UVE version 0.8 and above.
 - This is sent in real time when injecting first frame of a new ad on content->ad or ad->ad transition. Should be accurate compared to onscreen frames.
 
@@ -2118,12 +2120,12 @@ Example:
 
 ### placementEnd
 
-**Event Payload:** 
+**Event Payload:**
 - sessionId: string Refer to [load](#load-uri_autoplay_tuneparams) API for details
 - adId: string
 - time: number
 
-**Description:** 
+**Description:**
 - Supported UVE version 0.8 and above.
 - This is sent in real time after passively playing to end of an ad - it is NOT sent (per previously agreed contract) if user does trickplay or seek to abort ad playback.
 
@@ -2131,13 +2133,13 @@ Example:
 
 ### placementError
 
-**Event Payload:** 
+**Event Payload:**
 - sessionId: string Refer to [load](#load-uri_autoplay_tuneparams) API for details
 - adId: string
 - time: number
 - error: number
 
-**Description:** 
+**Description:**
 - Supported UVE version 0.8 and above.
 - Generated only for exception while attempting to play out ad content.
 
@@ -2145,12 +2147,12 @@ Example:
 
 ### placementProgress
 
-**Event Payload:** 
+**Event Payload:**
 - sessionId: string Refer to [load](#load-uri_autoplay_tuneparams) API for details
 - adId: string
 - time: number
 
-**Description:** 
+**Description:**
 - Supported UVE version 0.8 and above.
 - Sent periodically while ad is being played out, giving an estimate percentage-watched metric. It's interpolated based on elapsed time, and should repeat same value if paused.
 
@@ -2158,20 +2160,20 @@ Example:
 
 ### metricsData
 
-**Event Payload:** 
+**Event Payload:**
 - sessionId: string Refer to [load](#load-uri_autoplay_tuneparams) API for details
 - metricType:string
 - traceID:string
 - metricData:string
 
-**Description:** 
+**Description:**
 - Playback data after video end.
 
 ---
 
 ### id3Metadata
 
-**Event Payload:** 
+**Event Payload:**
 - sessionId: string Refer to [load](#load-uri_autoplay_tuneparams) API for details
 - schemeIdUri : string
 - value : string
@@ -2183,80 +2185,80 @@ Example:
 - data : array
 - length: number
 
-**Description:** 
+**Description:**
 - This event is fired when ID3Metadata is parsed from the stream playlist.
 
 ---
 
 ### drmMessage
 
-**Event Payload:** 
+**Event Payload:**
 - sessionId: string Refer to [load](#load-uri_autoplay_tuneparams) API for details
 - data:string
 
-**Description:** 
+**Description:**
 - Drm challenge data after individualization
 
 ---
 
 ### blocked
 
-**Event Payload:** 
+**Event Payload:**
 - sessionId: string Refer to [load](#load-uri_autoplay_tuneparams) API for details
 - reason:string
 
-**Description:** 
+**Description:**
 - Event with reason for video blocked. *used only in ATSC playback.
 
 ---
 
 ### contentGap
 
-**Event Payload:** 
+**Event Payload:**
 - sessionId: string Refer to [load](#load-uri_autoplay_tuneparams) API for details
 - time:number
 - duration:number
 
 
-**Description:** 
+**Description:**
 - Event with Content gap information in TSB due to network interruption
 
 ---
 
 ### httpResponseHeader
 
-**Event Payload:** 
+**Event Payload:**
 - sessionId: string Refer to [load](#load-uri_autoplay_tuneparams) API for details
 - header:string
 - response:string
 
 
-**Description:** 
+**Description:**
 - http header fields received in manifest download
 
 ---
 
 ### watermarkSessionUpdate
 
-**Event Payload:** 
+**Event Payload:**
 - sessionId: string Refer to [load](#load-uri_autoplay_tuneparams) API for details
 - sessionHandle:string
 - status:string
 - system:string
 
-**Description:** 
+**Description:**
 - Watermarking session information
 
 ---
 
 ### contentProtectionDataUpdate
 
-**Event Payload:** 
+**Event Payload:**
 - sessionId: string Refer to [load](#load-uri_autoplay_tuneparams) API for details
 - keyID : vector<uint8_t>
-- streamType : string 
+- streamType : string
 
-**Description:** 
+**Description:**
 - Player notifies the application for new KeyId in the manifest, to get new config(if needed) for license fetch.
 - Refer setContentProtectionDataConfig for setting license fetch parameters.
 ```
@@ -2270,9 +2272,9 @@ Example:
 <div style="page-break-after: always;"></div>
 
 ## Client DAI Feature Support
-This feature can be enabled in two methods 
+This feature can be enabled in two methods
 * Video Engine Managed
-* Application managing Multi Player instance 
+* Application managing Multi Player instance
 
 ### CDAI Mechanism#1 – Engine Managed CDAI
 
@@ -2324,15 +2326,15 @@ Can be leveraged for quick stream transitions.  Suitable for preroll, and midrol
 | Main content (0 – 180 Sec) | AD1 (0 -40 Sec) | AD2 (0 – 30 Sec) | Main Content (180 – 600 Sec) |
 | ---- | ---- | --- | ---- |
 
-##### Main Content (0 – 180 sec): 
+##### Main Content (0 – 180 sec):
 **create foreground player and start streaming of main content**
 ```
-var player = new AAMPMediaPlayer(); 
-player.load( “http://test.com/content.mpd” ); 
+var player = new AAMPMediaPlayer();
+player.load( “http://test.com/content.mpd” );
 ```
 **create background player and preload AD1**
 ```
-var adPlayer1 = new AAMPMediaPlayer(); 
+var adPlayer1 = new AAMPMediaPlayer();
 adPlayer1.load( “http://test.com/ad1.mpd”, false );
 ```
 
@@ -2340,34 +2342,34 @@ adPlayer1.load( “http://test.com/ad1.mpd”, false );
 **time of AD1 start, stop active player and activate background player for AD1**
 ```
 var position = Player. getCurrentPosition() // get current playback position
-player.detach(); 
-adPlayer1.play(); 
-player.stop(); 
+player.detach();
+adPlayer1.play();
+player.stop();
 ```
 **preload AD2 in background player**
 ```
-var adPlayer2 = new AAMPMediaPlayer(); 
+var adPlayer2 = new AAMPMediaPlayer();
 adPlayer2.load( “http://test.com/ad2.mpd”, false )
 ```
 ##### AD2 (0 – 30 Sec)
 **EOS of AD1, stop active player and activate background player for AD2**
 ```
 adPlayer1.detach();
-adPlayer2.play(); 
+adPlayer2.play();
 adPlayer1.stop();
 ```
 **preload Main content in background and set last playback position**
 ```
-var player = new AAMPMediaPlayer(); 
-player. Seek (position) 
+var player = new AAMPMediaPlayer();
+player. Seek (position)
 player.load( “http://test.com/content.mpd”, false );
 ```
 ##### Main Content (180 – 600 Sec)
 **EOS of AD2, stop active player and activate background player for main content**
 ```
-adPlayer2.detach(); 
-player.play(); 
-adPlayer2.stop(); 
+adPlayer2.detach();
+player.play();
+adPlayer2.stop();
 ```
 ---
 
@@ -2390,7 +2392,7 @@ adPlayer2.stop();
 | AAMP_TUNE_INVALID_MANIFEST_FAILURE | 10 | AAMP: Invalid Manifest, parse failed |
 | AAMP_TUNE_MP4_INIT_FRAGMENT_MISSING | 10 | AAMP: init fragments missing in playlist |
 | AAMP_TUNE_CONTENT_NOT_FOUND | 20 | AAMP: Resource was not found at the URL(HTTP 404) |
-| AAMP_TUNE_AUTHORISATION_FAILURE | 40 | AAMP: Authorization failure |
+| AAMP_TUNE_AUTHORIZATION_FAILURE | 40 | AAMP: Authorization failure |
 | AAMP_TUNE_UNTRACKED_DRM_ERROR | 50 | AAMP: DRM error untracked error |
 | AAMP_TUNE_DRM_INIT_FAILED | 50 | AAMP: DRM Initialization Failed |
 | AAMP_TUNE_DRM_DATA_BIND_FAILED | 50 | AAMP: InitData-DRM Binding Failed |
@@ -2476,7 +2478,7 @@ options in a JSON formatted string of style options and its values.
 <div style="page-break-after: always;"></div>
 
 ## ATSC - Unified Video Engine Features
-Support for ATSC-UVE is included from 3.0 version. 
+Support for ATSC-UVE is included from 3.0 version.
 A subset of UVE APIs and Events are available when using UVE JS APIs for ATSC playback
 
 ### API Methods
@@ -2503,13 +2505,13 @@ A subset of UVE APIs and Events are available when using UVE JS APIs for ATSC pl
 
 ##### setAudioTrack
 - Set the Audio track to be selected by Language and Rendition.
-- JSON formatted argument. 
+- JSON formatted argument.
     - language
     - rendition
-- Example: 
+- Example:
 ```
 {
-        "language":"ger", 
+        "language":"ger",
         "rendition":"commentary"
 }
 ```
@@ -2523,15 +2525,15 @@ A subset of UVE APIs and Events are available when using UVE JS APIs for ATSC pl
 - Returns true if setVideoRect has been performed.
 
 ##### getAvailableAudioTracks
-- Returns the available audio tracks information in JSON formatted list. Subset of parameters returned 
+- Returns the available audio tracks information in JSON formatted list. Subset of parameters returned
     - name
     - language
     - codec
-- Example: 
+- Example:
 ```
 {
-        "name": "English (AC3)", 
-        "language":"eng", 
+        "name": "English (AC3)",
+        "language":"eng",
         "codec":"AC3"
 }
 ```
@@ -2543,7 +2545,7 @@ A subset of UVE APIs and Events are available when using UVE JS APIs for ATSC pl
 - Returns the available text track (CC) information in JSON formatted list.
 - Subset of parameters returned
     - name
-    - type 
+    - type
     - language
     - instreamId
 - Example:
@@ -2598,7 +2600,7 @@ A subset of UVE APIs and Events are available when using UVE JS APIs for ATSC pl
 - Temporarily disable content restriction based on the control input provided by the ‘until’ parameter.
 - Can be used for unlocking a locked channel (Channel locked due to Restrictions set)
 
-**until {"time": < seconds>} Or {"programChange":true};** 
+**until {"time": < seconds>} Or {"programChange":true};**
 - It is a Json Object.
 - Provides control for automatic re-locking conditions.
     - If ‘time’ is set, the seconds will be considered as relative to current time until which the program will be unlocked.
@@ -2619,7 +2621,7 @@ A subset of UVE APIs and Events are available when using UVE JS APIs for ATSC pl
 ##### playbackStateChanged
 
 **Value:** 14
-**Description:** 
+**Description:**
 - Event when player state changes.
 - Valid AAMP States  for ATSC OTA Playback: "idle":0, "initializing":1, "initialized":2, "preparing":3, "prepared":4,  "playing":8, "blocked":14
 - Valid AAMP States for HDMIIN : "playing":8,“stopped”:10
@@ -2627,9 +2629,9 @@ A subset of UVE APIs and Events are available when using UVE JS APIs for ATSC pl
 ##### blocked
 
 **Value:** 38
-**Description:** 
+**Description:**
 - Blocked event is generated when player status switches to eSTATE BLOCKED.
-    - Event Payload: 
+    - Event Payload:
     - Type : reason – string to describe the reason for the blocked state
     - Type : locator - string to hold aamp url
     - Reason for restriction
@@ -2650,7 +2652,7 @@ A subset of UVE APIs and Events are available when using UVE JS APIs for ATSC pl
 ##### bitrateChanged
 
 **Value:** 11
-**Description:** 
+**Description:**
 - Event notified when bitrate change happens. The event payload provides video stream info Will be notified after  first tuned event for OTA and and after display settings change.
 - Event Payload:
     time: number,
@@ -2678,22 +2680,22 @@ A subset of UVE APIs and Events are available when using UVE JS APIs for ATSC pl
 
 ## Appendix
 
-### Live Pause Configuration 
+### Live Pause Configuration
 Player supports multiple pause exit behavior on live content based on the configuration set in "livePauseBehavior". Default value is 0 - Autoplay Immediately
 
     0 – Autoplay immediate (default) - Playback resumes when start of TSB/live reaches the paused position
-    1 – Live immediate - Playback resumes immediately from the live point when start of TSB/live 
+    1 – Live immediate - Playback resumes immediately from the live point when start of TSB/live
     reaches the paused position
-    2 – Autoplay defer - Player remains in Paused state when start of TSB/live reaches the paused position. 
+    2 – Autoplay defer - Player remains in Paused state when start of TSB/live reaches the paused position.
     When resumed, playback starts from start of the TSB.
-    3 – Live defer - Player remains in Paused state when start of TSB/live reaches the paused position. 
-    When resumed, playback starts from live point 
+    3 – Live defer - Player remains in Paused state when start of TSB/live reaches the paused position.
+    When resumed, playback starts from live point
 
 
-### Setup Reference Player 
+### Setup Reference Player
 Procedure to setup the AAMP Reference Player in RDK devices(Comcast):
 ```markdown
-1.  Host the ReferencePlayer folder in a web server. 
+1.  Host the ReferencePlayer folder in a web server.
 2.  Use Comcast's IBIS tool to launch the reference player in the device:
         a. Under Launch HTML App, select Select a device to get started.
         b. From the list, find your device (it should be registered previously).
@@ -2724,7 +2726,7 @@ Procedure to setup the AAMP Reference Player in RDK devices(Comcast):
 **JSON Description:**
 
 ```json
-{   
+{
         "mediaType": {
             type: string,
             description: Stream type like HLS, DASH etc
@@ -2735,19 +2737,19 @@ Procedure to setup the AAMP Reference Player in RDK devices(Comcast):
         },
         "liveLatency": {
             type: integer,
-            description:  The time from current position to end of seek range, 
+            description:  The time from current position to end of seek range,
                         this field would only be available for Linear playback
             unit: milliseconds
         },
         "totalError": {
             type: integer,
-            description: Total number of download errors so far (as of now, but will include other errors too in future) 
-                across profiles/manifests etc 
-        }, 
+            description: Total number of download errors so far (as of now, but will include other errors too in future)
+                across profiles/manifests etc
+        },
         "numOfGaps": {
             type: integer,
-            description: total number of gaps between periods, 
-                        for Live this would be the number of gaps so far, 
+            description: total number of gaps between periods,
+                        for Live this would be the number of gaps so far,
                         but for vod this would be the number of gaps across all periods,
                         this field would only be available for DASH
         },
@@ -2789,7 +2791,7 @@ Procedure to setup the AAMP Reference Player in RDK devices(Comcast):
         "tsbAvailable": {
             type: integer,
             description: will be 1 if tsb is employed for the playback,
-        },        
+        },
         "languagesSupported": {
             type: object,
             description: lists the supported audio tracks. with name audio1, audio2 etc
@@ -2903,7 +2905,7 @@ Procedure to setup the AAMP Reference Player in RDK devices(Comcast):
                                         "height": {
                                             type: integer,
                                             description: video height specified for the particular bitrate (ony for the track type video),
-                                        } 
+                                        }
                                     }
                                 },
                                 "licenseStat": {
@@ -3043,11 +3045,11 @@ HLS Linear:
 ## Release Versions
 
 **Version:** 0.7
-**Release Notes:** 
+**Release Notes:**
 Initial draft of UVE APIs implemented
 
 **Version:** 0.8
-**Release Notes:** 
+**Release Notes:**
 CDAI support, configuration options for tune optimization
 - API:
     - setAlternateContent
@@ -3072,13 +3074,13 @@ CDAI support, configuration options for tune optimization
     - tuneMetricsData
 
 **Version:** 0.9
-**Release Notes:** 
+**Release Notes:**
 "Player Switching" Feature
 - load (autoplay=false support)
 - detach() method
 
 **Version:** 1.0
-**Release Notes:** 
+**Release Notes:**
 Added support to get available audio track and closed captioning info
 - API:
     - getAvailableAudioTracks
@@ -3093,7 +3095,7 @@ Added support to get available audio track and closed captioning info
     - drmDecryptFailThreshold
 
 **Version:** 2.4
-**Release Notes:** 
+**Release Notes:**
 April 2020
 - Configuration
     - initialBuffer
@@ -3102,7 +3104,7 @@ April 2020
 - Event Notification
 
 **Version:** 2.6
-**Release Notes:** 
+**Release Notes:**
 June 2020
 Seek while paused, get/set audio and text track supported
 - API:
@@ -3119,22 +3121,22 @@ Seek while paused, get/set audio and text track supported
     - descriptiveTrackName
 
 **Version:** 2.7
-**Release Notes:** 
+**Release Notes:**
 Aug 2020
 - Configuration
     - Deprecated useWesterosSink
 
 **Version:** 2.9
-**Release Notes:** 
+**Release Notes:**
 Sept 2020
 - Configuration
     - authToken
     - useRetuneForGstInternalError
 
 **Version:** 3
-**Release Notes:** 
+**Release Notes:**
 Oct 2020
-- Updated getAvailableAudioTracks / getAvailableTextTracks 
+- Updated getAvailableAudioTracks / getAvailableTextTracks
 - API:
     - setAudioLanguage
 - Configuration:
@@ -3143,7 +3145,7 @@ Oct 2020
 ATSC – UVE Features Added .
 
 **Version:** 3.1
-**Release Notes:** 
+**Release Notes:**
 Jan 2021
 ATSC New APIs / Events
 - API:
@@ -3158,7 +3160,7 @@ ATSC New APIs / Events
     - enableSeekableRange
 
 **Version:** 3.2
-**Release Notes:** 
+**Release Notes:**
 Mar 2021
 - API
     - setPreferredAudioLanguage
@@ -3168,10 +3170,10 @@ Mar 2021
     - limitResolution
 
 **Version:** 3.3
-**Release Notes:** 
+**Release Notes:**
 May 2021
 - Configuration:
-    - useAbsoluteTimeline 
+    - useAbsoluteTimeline
     - asyncTune
 - Events :
     - Updated bitrateChanged for ATSC
@@ -3186,7 +3188,7 @@ May 2021
     - id3Metadata
 
 **Version:** 3.5
-**Release Notes:** 
+**Release Notes:**
 Aug 2021
 - API
     - load (updated)
@@ -3198,7 +3200,7 @@ Aug 2021
     - id3Metadata
 
 **Version:** 3.6
-**Release Notes:** 
+**Release Notes:**
 Sep 2021
 - Configuration
     - disable4K
@@ -3209,7 +3211,7 @@ Sep 2021
     - mediaMetadata (updated)
 
 **Version:** 4.1
-**Release Notes:** 
+**Release Notes:**
 Jan 2022
 - API
     - subscribeResponseHeaders
@@ -3226,7 +3228,7 @@ Jan 2022
      - AAMP_EVENT_HTTP_RESPONSE_HEADER
 
 **Version:** 4.2
-**Release Notes:** 
+**Release Notes:**
 Feb 2022
 - API
     - getAudioTrackInfo
@@ -3238,7 +3240,7 @@ Feb 2022
     - AAMP_EVENT_WATERMARK_SESSION_UPDATE
 
 **Version:** 4.3
-**Release Notes:** 
+**Release Notes:**
 Mar 2022
 - API
     - getPlaybackStatistics
@@ -3247,18 +3249,18 @@ Mar 2022
     - Updated asyncTune default state to False
 
 **Version:** 4.4
-**Release Notes:** 
+**Release Notes:**
 Apr 2022
-Support for AC4 Audio 
+Support for AC4 Audio
 - API
     - getAvailableVideoTracks
     - setVideoTracks
 - Configuration
     - disableAC4
-    - asyncTune default state to True•	
+    - asyncTune default state to True•
 
 **Version:** 4.5
-**Release Notes:** 
+**Release Notes:**
 May 2022
 - API
     - setPreferredTextLanguage
@@ -3269,7 +3271,7 @@ May 2022
     - persistProfileAcrossTune
 
 **Version:** 4.6
-**Release Notes:** 
+**Release Notes:**
 Jun 2022
 - API
 - Configuration
@@ -3279,7 +3281,7 @@ Jun 2022
     - preferredAudioType
 
 **Version:** 4.12
-**Release Notes:** 
+**Release Notes:**
 Dec 2022
 - API
 - Configuration
@@ -3288,7 +3290,7 @@ Dec 2022
     - customHeaderLicense
 
 **Version:** 5.1
-**Release Notes:** 
+**Release Notes:**
 Jan 2023
 - API
     - setContentProtectionDataConfig
@@ -3297,13 +3299,13 @@ Jan 2023
     - configRuntimeDRM
 
 **Version:** 5.3
-**Release Notes:** 
+**Release Notes:**
 Mar 2023
 - Configuration
     - enableCMCD
 - Event
     - playbackProgressUpdate ( updated for new field )
-    
+
 **Version:** 5.6
 **Release Notes:**
 Jun 2023

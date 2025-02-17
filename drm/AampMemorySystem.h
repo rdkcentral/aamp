@@ -32,7 +32,7 @@
 
 /**
  * @class AAMPMemorySystem
- * @brief Handles the operations for AAMP memory managemnts
+ * @brief Handles the operations for AAMP memory management
  */
 class AAMPMemorySystem {
 public:

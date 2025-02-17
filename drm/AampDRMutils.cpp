@@ -70,7 +70,7 @@ std::shared_ptr<AampSecManagerSession::SessionManager> AampSecManagerSession::Se
 
 	/* Only create or retrieve instances for valid sessionIDs.
 	 * <0 is used as an invalid value e.g. AAMP_SECMGR_INVALID_SESSION_ID
-	 * 0 removes all sessions which is not the intended behaviour here*/
+	 * 0 removes all sessions which is not the intended behavior here*/
 	if(sessionID>0)
 	{
 		if(instances.count(sessionID)>0)
@@ -170,7 +170,7 @@ std::size_t AampSecManagerSession::getInputSummaryHash()
 
 /* Regex to detect if a string starts with a protocol definition e.g. http:// */
 static const std::string PROTOCOL_REGEX = "^[a-zA-Z0-9\\+\\.-]+://";
-#define KEY_ID_SZE_INDICATOR 0x12
+//#define KEY_ID_SIZE_INDICATOR 0x12
 
 /**
  *  @brief  Default constructor for DrmData.

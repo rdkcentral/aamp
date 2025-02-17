@@ -204,9 +204,9 @@ public:
 	*  	@param[in] timeScale - timescale of the track
 	*	@param[out] parsedBufferSize - parsed buffer size
 	*  	@param[in/out] unParsedBufferSize -uunparsed or remaining buffer size
-	*	@param[out] fpts - fragmnet pts value
+	*	@param[out] fpts - fragment pts value
 	*  	@param[out] fduration - fragment duration
-	*	@return true if parsedd or false
+	*	@return true if parsed or false
 	*  	@brief Parse ISOBMFF boxes from buffer
 	*/
 	bool ParseChunkData(const char* name, char* &unParsedBuffer, uint32_t timeScale,

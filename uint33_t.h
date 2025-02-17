@@ -74,7 +74,7 @@ namespace test_variables
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Woverflow"
 #endif
-    //overflow on purpose to check the behaviour of the uint33_t in such scenario
+    //overflow on purpose to check the behavior of the uint33_t in such scenario
 //	constexpr uint33_t from_max_u64{std::numeric_limits<uint64_t>::max()};
 #if defined(__clang__)
 #pragma clang diagnostic pop
@@ -136,7 +136,7 @@ namespace test_variables
 #ifndef NDEBUG
 namespace
 {
-	//C++11 does not support complex contexpr expressions, hence moving to runtime test
+	//C++11 does not support complex constexpr expressions, hence moving to runtime test
 	int test()
 	{
 		uint33_t x{3};

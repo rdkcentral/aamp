@@ -46,7 +46,7 @@ class AampHandlerControl{
 	/**
 	 * @class AampHandlerControl::ScopeHelper
 	 * @brief An object that Indicates if the handler is permitted to perform any action (i.e. via AampHandlerControl::ScopeHelper::returnStraightAway()) and
-	 * signals to its corresponging AampHandlerControl object when the handler is complete (so that AampHandlerControl can maintain an accurate count of the number of handlers running)
+	 * signals to its corresponding AampHandlerControl object when the handler is complete (so that AampHandlerControl can maintain an accurate count of the number of handlers running)
 	 * ScopeHelper instances should only be accessed from one thread i.e. the corresponding handler.
 	 * AampHandlerControl's methods are threadsafe.
 	 * The lifetime of referenced AampHandlerControl objects must exceed the lifetime of referencing ScopeHelpers.
@@ -64,7 +64,7 @@ class AampHandlerControl{
 		/**
 		 * @brief move constructor
 		 * The new object takes on the responsibility for signaling any corresponding AampHandlerControl from 'other'.
-		 * After this function 'other' will not reference or signal any AampHandlerControl.  It's scope is irrelevent.
+		 * After this function 'other' will not reference or signal any AampHandlerControl.  It's scope is irrelevant.
 		 */
 		ScopeHelper(ScopeHelper&& other): mpController(nullptr)
 		{
@@ -74,9 +74,9 @@ class AampHandlerControl{
 
 		/**
 		 * @brief move assignment
-		 * The assigned to object will signal any currently referened AampHandlerControl first.  Then
+		 * The assigned to object will signal any currently referenced AampHandlerControl first.  Then
 		 * the assigned to object will take on the responsibility any AampHandlerControl referenced by other.
-		 * After this function 'other' will not reference or signal any AampHandlerControl.  It's scope is irrelevent.
+		 * After this function 'other' will not reference or signal any AampHandlerControl.  It's scope is irrelevant.
 		 */
 		ScopeHelper& operator=(AampHandlerControl::ScopeHelper&& other);
 

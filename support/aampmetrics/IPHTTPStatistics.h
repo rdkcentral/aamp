@@ -19,7 +19,7 @@
 
 /**
  * @file IPHTTPStatistics.cpp
- * @brief This file handles the opertions to manage the HTTP statistics for all video types
+ * @brief This file handles the operations to manage the HTTP statistics for all video types
  */
 
 #ifndef __HTTP_STATISTICS_H__

@@ -195,7 +195,7 @@ void AampScheduler::StopScheduler()
 }
 
 /**
- * @brief To acquire execution lock for synchronisation purposes
+ * @brief To acquire execution lock for synchronization purposes
  */
 void AampScheduler::SuspendScheduler()
 {

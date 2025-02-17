@@ -218,7 +218,7 @@ void trim(std::string& src);
 /**
  * @fn Getiso639map_NormalizeLanguageCode 
  * @param[in] lang - Language in string format
- * @param[in] preferFormat - Preferred language foramt
+ * @param[in] preferFormat - Preferred language format
  */
 std::string Getiso639map_NormalizeLanguageCode(std::string  lang, LangCodePreference preferFormat );
 
@@ -241,7 +241,7 @@ bool aamp_WriteFile(std::string fileName, const char* data, size_t len, AampMedi
 
 /**
  * @fn getHarvestConfigForMedia
- * @param mediaType - meida file type
+ * @param mediaType - media file type
  */
 int getHarvestConfigForMedia(AampMediaType mediaType);
 /**
@@ -306,7 +306,7 @@ std::size_t GetPrintableThreadID();
 double ParseISO8601Duration(const char *ptr);
 
 /**
- * @brief Computes the fragment duratioN.
+ * @brief Computes the fragment duration.
  * @param duration of the fragment.
  * @param timeScale value.
  * @return - computed fragment duration in double.

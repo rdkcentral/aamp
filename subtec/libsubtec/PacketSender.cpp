@@ -239,7 +239,7 @@ bool PacketSender::initSocket(const char *socket_path)
         AAMPLOG_WARN("PacketSender: cannot connect to address \'%s\'", socket_path);
         return false;
     }
-    AAMPLOG_INFO("PacketSender: Initialised with socket_path %s", socket_path);
+    AAMPLOG_INFO("PacketSender: Initialized with socket_path %s", socket_path);
 
     return true;
 }

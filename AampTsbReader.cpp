@@ -47,7 +47,7 @@ AampTsbReader::AampTsbReader(PrivateInstanceAAMP *aamp, std::shared_ptr<AampTsbD
  */
 AampTsbReader::~AampTsbReader()
 {
-	DeInit();
+	Term();
 }
 
 /**
@@ -229,8 +229,8 @@ std::shared_ptr<TsbFragmentData> AampTsbReader::ReadNext()
 		DetectDiscontinuity(ret);
 	}
 	mUpcomingFragmentPosition += (mCurrentRate >= 0) ? ret->GetDuration() : -ret->GetDuration();
-	AAMPLOG_INFO("[%s] Returning fragment Pos:%lf PTS %lf relativePos:%lf Next:%lf EOS(%d), initWaiting(%d) discontinuity(%d) mIsPeriodBoundary(%d) period(%s) Url: %s",
-				 GetMediaTypeName(mMediaType), ret->GetPosition(), ret->GetPTS(), ret->GetRelativePosition(), mUpcomingFragmentPosition, mEosReached, mNewInitWaiting, mIsNextFragmentDisc, mIsPeriodBoundary, ret->GetPeriodId().c_str(), ret->GetUrl().c_str());
+	AAMPLOG_INFO("[%s] Returning fragment: pos %lfs pts %lfs relativePos %lfs next %lfs eos %d initWaiting %d discontinuity %d mIsPeriodBoundary %d period %s timeScale %u ptsOffset %fs url %s",
+		GetMediaTypeName(mMediaType), ret->GetPosition(), ret->GetPTS(), ret->GetRelativePosition(), mUpcomingFragmentPosition, mEosReached, mNewInitWaiting, mIsNextFragmentDisc, mIsPeriodBoundary, ret->GetPeriodId().c_str(), ret->GetTimeScale(), ret->GetPTSOffsetSec(), ret->GetUrl().c_str());
 
 	return ret;
 }
@@ -252,7 +252,7 @@ void AampTsbReader::DetectDiscontinuity(TsbFragmentDataPtr currFragment)
 	}
 	if (mIsPeriodBoundary)
 	{
-		// Countinious PTS check
+		// Continuous PTS check
 		TsbFragmentDataPtr adjFragment = (mCurrentRate >= 0) ? currFragment->prev : currFragment->next;
 		if (adjFragment)
 		{
@@ -293,9 +293,9 @@ double AampTsbReader::GetStartPosition()
 }
 
 /**
- * @fn DeInit  - function to clear TsbReader states
+ * @fn Term  - function to clear TsbReader states
  */
-void AampTsbReader::DeInit()
+void AampTsbReader::Term()
 {
 	mStartPosition = 0.0;
 	mUpcomingFragmentPosition = 0.0;

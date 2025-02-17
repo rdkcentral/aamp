@@ -61,7 +61,7 @@ AampLicensePreFetcher::AampLicensePreFetcher(PrivateInstanceAAMP *aamp) : mPreFe
  */
 AampLicensePreFetcher::~AampLicensePreFetcher()
 {
-	DeInit();
+	Term();
 	{
 		std::lock_guard<std::mutex>lock(mQMutex);
 		mExitLoop = true;
@@ -201,7 +201,7 @@ bool AampLicensePreFetcher::QueueContentProtection(std::shared_ptr<AampDrmHelper
  * @return true if success
  * @return false if failed
  */
-bool AampLicensePreFetcher::DeInit()
+bool AampLicensePreFetcher::Term()
 {
 	bool ret = true;
 	/** Clear the queue **/
@@ -225,7 +225,7 @@ bool AampLicensePreFetcher::DeInit()
 
 /**
  * @brief Thread for processing content protection queued using QueueContentProtection
- * Thread will be joined when DeInit is called
+ * Thread will be joined when Term is called
  * 
  */
 void AampLicensePreFetcher::PreFetchThread()
@@ -301,7 +301,7 @@ void AampLicensePreFetcher::PreFetchThread()
 
 /**
  * @brief Thread for processing VSS content protection queued using QueueContentProtection
- * Thread will be joined when DeInit is called
+ * Thread will be joined when Term is called
  *
  */
 void AampLicensePreFetcher::VssPreFetchThread()
@@ -343,7 +343,7 @@ void AampLicensePreFetcher::VssPreFetchThread()
                                         {
                                                 int deferTime = aamp_GetDeferTimeMs(static_cast<long>(mCommonKeyDuration));
                                                 // Going to sleep for deferred key process
-                                                mPrivAAMP->InterruptableMsSleep(deferTime);
+                                                mPrivAAMP->interruptibleMsSleep(deferTime);
                                                 AAMPLOG_TRACE("Sleep over for deferred time:%d", deferTime);
                                         }
 					if(!mExitLoop)
@@ -442,7 +442,7 @@ void AampLicensePreFetcher::NotifyDrmFailure(LicensePreFetchObjectPtr fetchObj, 
 	{
 		if (!selfAbort)
 		{
-			isRetryEnabled =   (failure != AAMP_TUNE_AUTHORISATION_FAILURE)
+			isRetryEnabled =   (failure != AAMP_TUNE_AUTHORIZATION_FAILURE)
 						&& (failure != AAMP_TUNE_LICENCE_REQUEST_FAILED)
 						&& (failure != AAMP_TUNE_LICENCE_TIMEOUT)
 						&& (failure != AAMP_TUNE_DEVICE_NOT_PROVISIONED)

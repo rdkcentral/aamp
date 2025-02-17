@@ -78,7 +78,7 @@ AAMPOCDMSessionAdapter::AAMPOCDMSessionAdapter(std::shared_ptr<AampDrmHelper> dr
 	initAampDRMSystem();
 
 	// Get output protection pointer
-	m_pOutputProtection = AampOutputProtection::GetAampOutputProcectionInstance();
+	m_pOutputProtection = AampOutputProtection::GetAampOutputProtectionInstance();
 	AAMPLOG_WARN("AAMPOCDMSessionAdapter :: exit ");
 }
 

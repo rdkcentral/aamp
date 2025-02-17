@@ -104,7 +104,7 @@ gst_subtecbin_class_init (GstSubtecBinClass * klass)
 
   g_object_class_install_property(gobject_class,
                                   PROP_SYNC,
-                                  g_param_spec_boolean("sync", "Sync", "Sets sync on children (synchronise render on clock)",
+                                  g_param_spec_boolean("sync", "Sync", "Sets sync on children (synchronize render on clock)",
                                   TRUE,
                                   (GParamFlags)(G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS)));
 

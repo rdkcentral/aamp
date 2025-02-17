@@ -114,8 +114,9 @@ void AampClearKeyHelper::transformLicenseResponse(std::shared_ptr<DrmData> licen
 	if ((mDrmInfo.mediaFormat == eMEDIAFORMAT_HLS) ||
 		(mDrmInfo.mediaFormat == eMEDIAFORMAT_HLS_MP4))
 	{
-		std::vector<uint8_t> licenseResponseData(reinterpret_cast<const char*>(licenseResponse->getData().c_str()),
-		reinterpret_cast<const char*>(licenseResponse->getData().c_str()) + licenseResponse->getDataLength());
+		std::vector<uint8_t> licenseResponseData(
+                                                 reinterpret_cast<const char*>(licenseResponse->getData().c_str()),
+                                                 reinterpret_cast<const char*>(licenseResponse->getData().c_str()) + licenseResponse->getDataLength());
 
 		std::vector<uint8_t> keyId(CLEARKEY_KEY_ID.begin(), CLEARKEY_KEY_ID.end());
 

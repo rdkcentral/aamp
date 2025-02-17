@@ -55,7 +55,7 @@
 #define SESSION_TOKEN_URL "http://localhost:50050/authService/getSessionToken"
 
 #define INVALID_SESSION_SLOT -1
-#define DEFUALT_CDM_WAIT_TIMEOUT_MS 2000
+#define DEFAULT_CDM_WAIT_TIMEOUT_MS 2000
 
 KeyID::KeyID() : creationTime(0), isFailedKeyId(false), isPrimaryKeyId(false), data()
 {
@@ -65,7 +65,7 @@ KeyID::KeyID() : creationTime(0), isFailedKeyId(false), isPrimaryKeyId(false), d
  *  @brief Get formatted URL of license server
  *
  *  @param[in] url URL of license server
- *  @return		formatted url for secclient license acqusition.
+ *  @return		formatted url for secclient license acquisition.
  */
 std::string getFormattedLicenseServerURL( const std::string &url)
 {
@@ -97,7 +97,7 @@ AampDRMSessionManager::AampDRMSessionManager(int maxDrmSessions, PrivateInstance
 		cachedKeyIDs(NULL), accessToken(NULL),
 		accessTokenLen(0), sessionMgrState(SessionMgrState::eSESSIONMGR_ACTIVE), accessTokenMutex(PTHREAD_MUTEX_INITIALIZER),
 		cachedKeyMutex(PTHREAD_MUTEX_INITIALIZER)
-		,mEnableAccessAtrributes(true)
+		,mEnableAccessAttributes(true)
 		,mDrmSessionLock(), licenseRequestAbort(false)
 		,mMaxDRMSessions(maxDrmSessions)
 		,mLicenseRenewalThreads()
@@ -163,14 +163,14 @@ void AampDRMSessionManager::SetCommonKeyDuration(int keyDuration)
 }
 
 /**
- * @brief Stop DRM session manager and deinitialise license fetcher
- * 
+ * @brief Stop DRM session manager and terminate license fetcher
+ *
  * @param none
  * @return none
  */
 void AampDRMSessionManager::Stop()
 {
-	mLicensePrefetcher->DeInit();
+	mLicensePrefetcher->Term();
 }
 
 /**
@@ -199,7 +199,7 @@ void AampDRMSessionManager::QueueProtectionEvent(std::shared_ptr<AampDrmHelper> 
 }
 
 /**
- * @brief set licensefetcher object
+ * @brief set license fetcher object
  * 
  * @return none
  */
@@ -345,7 +345,7 @@ void AampDRMSessionManager::setVideoWindowSize(int width, int height)
 {
 #ifdef USE_SECMANAGER
 	auto localSession = mAampSecManagerSession; //Remove potential isSessionValid(), getSessionID() race by using a local copy
-	AAMPLOG_WARN("In AampDRMSessionManager:: setting video windor size w:%d x h:%d mMaxDRMSessions=%d sessionID=[%" PRId64 "]",width,height,mMaxDRMSessions,localSession.getSessionID());
+	AAMPLOG_WARN("In AampDRMSessionManager:: setting video window size w:%d x h:%d mMaxDRMSessions=%d sessionID=[%" PRId64 "]",width,height,mMaxDRMSessions,localSession.getSessionID());
 	if(localSession.isSessionValid())
 	{
 		AAMPLOG_WARN("In AampDRMSessionManager:: valid session ID. Calling setVideoWindowSize().");
@@ -565,7 +565,7 @@ bool AampDRMSessionManager::IsKeyIdProcessed(std::vector<uint8_t> keyIdArray, bo
 		if (!keyIDSlot.empty() && keyIDSlot.end() != std::find(keyIDSlot.begin(), keyIDSlot.end(), keyIdArray))
 		{
 			std::string debugStr = AampLogManager::getHexDebugStr(keyIdArray);
-			AAMPLOG_INFO("Session created/inprogress with same keyID %s at slot %d", debugStr.c_str(), sessionSlot);
+			AAMPLOG_INFO("Session created/in progress with same keyID %s at slot %d", debugStr.c_str(), sessionSlot);
 			status = !cachedKeyIDs[sessionSlot].isFailedKeyId;
 			ret = true;
 			break;
@@ -602,7 +602,7 @@ DrmData * AampDRMSessionManager::getLicenseSec(const AampLicenseRequest &license
 	std::string serviceZone, streamID;
 	if(aampInstance->mIsVSS)
 	{
-		if (aampInstance->GetEnableAccessAtrributesFlag())
+		if (aampInstance->GetEnableAccessAttributesFlag())
 		{
 			serviceZone = aampInstance->GetServiceZone();
 			streamID = aampInstance->GetVssVirtualStreamID();
@@ -1076,7 +1076,7 @@ AampDrmSession * AampDRMSessionManager::createDrmSession(
 	drmInfo.method = eMETHOD_AES_128;
 	drmInfo.mediaFormat = mediaFormat;
 	drmInfo.systemUUID = systemId;
-	drmInfo.bPropagateUriParams = ISCONFIGSET(eAAMPConfig_PropogateURIParam);
+	drmInfo.bPropagateUriParams = ISCONFIGSET(eAAMPConfig_PropagateURIParam);
 
 	if (!AampDrmHelperEngine::getInstance().hasDRM(drmInfo))
 	{
@@ -1250,7 +1250,7 @@ KeyState AampDRMSessionManager::getDrmSession(std::shared_ptr<AampDrmHelper> drm
 			auto keyIDSlot = cachedKeyIDs[sessionSlot].data;
 			if (!keyIDSlot.empty() && keyIDSlot.end() != std::find(keyIDSlot.begin(), keyIDSlot.end(), keyIdArray))
 			{
-				AAMPLOG_INFO("Session created/inprogress with same keyID %s at slot %d", keyIdDebugStr.c_str(), sessionSlot);
+				AAMPLOG_INFO("Session created/in progress with same keyID %s at slot %d", keyIdDebugStr.c_str(), sessionSlot);
 				keySlotFound = true;
 				isCachedKeyId = true;
 				break;
@@ -1452,7 +1452,7 @@ KeyState AampDRMSessionManager::initializeDrmSession(std::shared_ptr<AampDrmHelp
 }
 
 /**
- * @brief sent license challenge to the DRM server and provide the respone to CDM
+ * @brief sent license challenge to the DRM server and provide the response to CDM
  */
 KeyState AampDRMSessionManager::acquireLicense(std::shared_ptr<AampDrmHelper> drmHelper, int sessionSlot, int &cdmError,
 		DrmMetaDataEventPtr eventHandle, PrivateInstanceAAMP* aampInstance, AampMediaType streamType, bool isLicenseRenewal)
@@ -1499,14 +1499,14 @@ KeyState AampDRMSessionManager::acquireLicense(std::shared_ptr<AampDrmHelper> dr
 		{
 			/** flag for authToken set externally by app **/
 			bool usingAppDefinedAuthToken = !aampInstance->mSessionToken.empty();
-			bool anonymouslicReq 	=	 aampInstance->mConfig->IsConfigSet(eAAMPConfig_AnonymousLicenseRequest);
+			bool anonymousLicenceReq 	=	 aampInstance->mConfig->IsConfigSet(eAAMPConfig_AnonymousLicenseRequest);
 
 			if(!isLicenseRenewal)
 			{
 				aampInstance->profiler.ProfileEnd(PROFILE_BUCKET_LA_PREPROC);
 			}
 
-			if (!(drmHelper->getDrmMetaData().empty() || anonymouslicReq))
+			if (!(drmHelper->getDrmMetaData().empty() || anonymousLicenceReq))
 			{
 				AampMutexHold accessTokenMutexHold(accessTokenMutex);
 
@@ -1554,7 +1554,7 @@ KeyState AampDRMSessionManager::acquireLicense(std::shared_ptr<AampDrmHelper> dr
 			AampLicenseRequest licenseRequest;
 			DRMSystems drmType = GetDrmSystem(drmHelper->getUuid());
 			licenseRequest.url = aampInstance->GetLicenseServerUrlForDrm(drmType);
-			licenseRequest.licenseAnonymousRequest = anonymouslicReq;
+			licenseRequest.licenseAnonymousRequest = anonymousLicenceReq;
 			drmHelper->generateLicenseRequest(challengeInfo, licenseRequest);
 			if (code != KEY_PENDING || ((licenseRequest.method == AampLicenseRequest::POST) && (!challengeInfo.data.get())))
 			{
@@ -1568,7 +1568,7 @@ KeyState AampDRMSessionManager::acquireLicense(std::shared_ptr<AampDrmHelper> dr
 				 */
 				std::string licenseServerProxy;
 				/**
-				 * Perform License acquistion by invoking http license request to license server
+				 * Perform License acquisition by invoking http license request to license server
 				 */
 				AAMPLOG_WARN("Request License from the Drm Server %s", licenseRequest.url.c_str());
 				if(!isLicenseRenewal)
@@ -1582,7 +1582,7 @@ KeyState AampDRMSessionManager::acquireLicense(std::shared_ptr<AampDrmHelper> dr
 					eventHandle->setSecclientError(true);
 					licenseResponse.reset(getLicenseSec(licenseRequest, drmHelper, challengeInfo, aampInstance, &httpResponseCode, &httpExtendedStatusCode, eventHandle));
 
-					bool sec_accessTokenExpired = aampInstance->mConfig->IsConfigSet(eAAMPConfig_UseSecManager) && SECMANGER_DRM_FAILURE == httpResponseCode && SECMANGER_ACCTOKEN_EXPIRED == httpExtendedStatusCode;
+					bool sec_accessTokenExpired = aampInstance->mConfig->IsConfigSet(eAAMPConfig_UseSecManager) && SECMANAGER_DRM_FAILURE == httpResponseCode && SECMANAGER_ACCTOKEN_EXPIRED == httpExtendedStatusCode;
 					// Reload Expired access token only on http error code 412 with status code 401
 					if (((412 == httpResponseCode && 401 == httpExtendedStatusCode) || sec_accessTokenExpired) && !usingAppDefinedAuthToken)
 					{
@@ -1681,20 +1681,20 @@ KeyState AampDRMSessionManager::handleLicenseResponse(std::shared_ptr<AampDrmHel
 			}
 			AAMPLOG_ERR("Error!! Invalid License Response was provided by the Server");
 			
-			//Handle secmaanger specific error codes here
+			//Handle secmanager specific error codes here
 			if(ISCONFIGSET(eAAMPConfig_UseSecManager))
 			{
 				eventHandle->setResponseCode(httpResponseCode);
 				eventHandle->setSecManagerReasonCode(httpExtendedStatusCode);
-				if(SECMANGER_DRM_FAILURE == httpResponseCode && SECMANGER_ENTITLEMENT_FAILURE == httpExtendedStatusCode)
+				if(SECMANAGER_DRM_FAILURE == httpResponseCode && SECMANAGER_ENTITLEMENT_FAILURE == httpExtendedStatusCode)
 				{
 					if (eventHandle->getFailure() != AAMP_TUNE_FAILED_TO_GET_ACCESS_TOKEN)
 					{
-						eventHandle->setFailure(AAMP_TUNE_AUTHORISATION_FAILURE);
+						eventHandle->setFailure(AAMP_TUNE_AUTHORIZATION_FAILURE);
 					}
-					AAMPLOG_WARN("DRM session for %s, Authorisation failed", drmSessionContexts[sessionSlot].drmSession->getKeySystem().c_str());
+					AAMPLOG_WARN("DRM session for %s, Authorization failed", drmSessionContexts[sessionSlot].drmSession->getKeySystem().c_str());
 				}
-				else if(SECMANGER_DRM_FAILURE == httpResponseCode && SECMANGER_SERVICE_TIMEOUT == httpExtendedStatusCode)
+				else if(SECMANAGER_DRM_FAILURE == httpResponseCode && SECMANAGER_SERVICE_TIMEOUT == httpExtendedStatusCode)
 				{
 					eventHandle->setFailure(AAMP_TUNE_LICENCE_TIMEOUT);
 				}
@@ -1707,9 +1707,9 @@ KeyState AampDRMSessionManager::handleLicenseResponse(std::shared_ptr<AampDrmHel
 			{
 				if (eventHandle->getFailure() != AAMP_TUNE_FAILED_TO_GET_ACCESS_TOKEN)
 				{
-					eventHandle->setFailure(AAMP_TUNE_AUTHORISATION_FAILURE);
+					eventHandle->setFailure(AAMP_TUNE_AUTHORIZATION_FAILURE);
 				}
-				AAMPLOG_WARN("DRM session for %s, Authorisation failed", drmSessionContexts[sessionSlot].drmSession->getKeySystem().c_str());
+				AAMPLOG_WARN("DRM session for %s, Authorization failed", drmSessionContexts[sessionSlot].drmSession->getKeySystem().c_str());
 
 			}
 			else if (CURLE_OPERATION_TIMEDOUT == httpResponseCode)

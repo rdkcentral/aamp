@@ -70,8 +70,8 @@ public:
 
 private:
 	std::string extractMetaData();
-	std::string extrackKeyID();
-	std::string findSubstr(std::string &data, std::string start, std::string end); /**< move to utiles */
+	std::string extractKeyID();
+	std::string findSubstr(std::string &data, std::string start, std::string end); /**< move to utils */
 	
 	static const std::string PLAYREADY_OCDM_ID;
 	static const size_t PLAYREADY_DECODED_KEY_ID_LEN; // Expected size of base64 decoded key ID from the PSSH

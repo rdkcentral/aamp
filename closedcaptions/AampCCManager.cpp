@@ -38,7 +38,7 @@
 #define CHAR_CODE_1 49
 #define CHAR_CODE_6 54
 
-int IsCCOnFlag = 0;															//Extern variable introducted in meta-bcm
+int IsCCOnFlag = 0;															//Extern variable introduced in meta-bcm
 
 #if defined(AAMP_SUBTITLE_SUPPORTED)
 static mrcc_Error GetCapability(gsw_CcAttribType attribType, gsw_CcType ccType, void **values, unsigned int *size)
@@ -744,7 +744,7 @@ void AampCCManagerBase::RestoreCC()
 		{
 			if(trackId == track.instreamId)
 			{
-				AAMPLOG_WARN("AampCCManagerBase::matching id found in availabletracks");
+				AAMPLOG_WARN("AampCCManagerBase::matching id found in available tracks");
 				matchFound = true;
 				break;
 			}

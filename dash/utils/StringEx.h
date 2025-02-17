@@ -36,12 +36,12 @@
 using std::string;
 
 /**
- * Augumented string class
+ * Augmented string class
  */
 
 /**
  * @class   String
- * @brief   Augumented string class
+ * @brief   Augmented string class
  */
 class String : public string {
 

@@ -34,7 +34,7 @@ struct media_stream;
 
 namespace AampBufferControl
 {
-	/* A standardised way of accessing data from other modules */
+	/* A standardized way of accessing data from other modules */
 	class BufferControlExternalData
 	{
 	private:

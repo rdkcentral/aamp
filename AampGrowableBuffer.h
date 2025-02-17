@@ -78,7 +78,7 @@ public:
 		other.len = 0;
 		other.avail = 0;
 	}
-	// Move assignement
+	// Move assignment
 	AampGrowableBuffer& operator=(AampGrowableBuffer && other) noexcept
 	{ // never reached/used
 		Free();

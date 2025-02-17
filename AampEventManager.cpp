@@ -19,7 +19,7 @@
 
 /**
  * @file AampEventManager.cpp
- * @brief Event Manager operationss for Aamp
+ * @brief Event Manager operations for Aamp
  */
 
 #include "AampEventManager.h"
@@ -63,7 +63,7 @@ AampEventManager::AampEventManager(int playerId): mIsFakeTune(false),
 AampEventManager::~AampEventManager()
 {
 
-	// Clear all event listners and pending events
+	// Clear all event listeners and pending events
 	FlushPendingEvents();
 	pthread_mutex_lock(&mMutexVar);
 	for (int i = 0; i < AAMP_MAX_NUM_EVENTS; i++)
@@ -130,7 +130,7 @@ void AampEventManager::AddListenerForAllEvents(EventListener* eventListener)
 	}
 	else
 	{
-		AAMPLOG_ERR("Null eventlistner. Failed to register");
+		AAMPLOG_ERR("Null eventlistener. Failed to register");
 	}
 }
 
@@ -145,7 +145,7 @@ void AampEventManager::RemoveListenerForAllEvents(EventListener* eventListener)
 	}
 	else
 	{
-		AAMPLOG_ERR("Null eventlistner. Failed to deregister");
+		AAMPLOG_ERR("Null eventlistener. Failed to deregister");
 	}
 }
 
@@ -178,7 +178,7 @@ void AampEventManager::AddEventListener(AAMPEventType eventType, EventListener* 
  */
 void AampEventManager::RemoveEventListener(AAMPEventType eventType, EventListener* eventListener)
 {
-	// listner instance is cleared here , but created outside
+	// listener instance is cleared here , but created outside
 	if ((eventListener != NULL) && (eventType >= AAMP_EVENT_ALL_EVENTS) && (eventType < AAMP_MAX_NUM_EVENTS))
 	{
 		pthread_mutex_lock(&mMutexVar);
@@ -216,7 +216,7 @@ bool AampEventManager::IsSpecificEventListenerAvailable(AAMPEventType eventType)
 }
 
 /**
- * @brief IsEventListenerAvailable - Check if any listners present for this event
+ * @brief IsEventListenerAvailable - Check if any listeners present for this event
  */ 
 bool AampEventManager::IsEventListenerAvailable(AAMPEventType eventType)
 {
@@ -301,7 +301,7 @@ void AampEventManager::SendEvent(const AAMPEventPtr &eventData, AAMPEventMode ev
 		}
 		else
 		{
-			//For other events if asyncTune eneabled or calle from non-UI thread , then send the event as Async
+			//For other events if asyncTune enabled or callee from non-UI thread , then send the event as Async
 			if (mAsyncTuneEnabled || sId == 0)
 			{
 				SendEventAsync(eventData);

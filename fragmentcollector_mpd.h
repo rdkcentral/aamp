@@ -42,6 +42,7 @@
 #include "AampMPDDownloader.h"
 #include "AampDRMLicPreFetcher.h"
 #include "AampMPDParseHelper.h"
+#include "AampTrackWorker.h"
 
 using namespace dash;
 using namespace std;
@@ -208,7 +209,7 @@ public:
 	 * @param[out]  primaryOutputFormat - format of primary track
 	 * @param[out]  audioOutputFormat - format of audio track
 	 * @param[out]  auxOutputFormat - format of aux audio track
-	 * @param[out]  subtitleOutputFormat - format of sutbtile track
+	 * @param[out]  subtitleOutputFormat - format of subtitle track
 	 */
 	void GetStreamFormat(StreamOutputFormat &primaryOutputFormat, StreamOutputFormat &audioOutputFormat, StreamOutputFormat &auxOutputFormat, StreamOutputFormat &subtitleOutputFormat) override;
 	/**
@@ -278,7 +279,7 @@ public:
 	 * @fn Is4KStream
 	 * @brief check if current stream have 4K content
 	 * @param height - resolution of 4K stream if found
-	 * @param bandwidth - bandwidth of 4K stream if foudd
+	 * @param bandwidth - bandwidth of 4K stream if found
 	 * @return true on success 
 	 */
 	virtual bool Is4KStream(int &height, BitsPerSecond &bandwidth) override;
@@ -326,10 +327,10 @@ public:
 	 */
 	const IAdaptationSet* GetAdaptationSetAtIndex(int idx);
 	/**
-	 * @fn GetAdaptationSetAndRepresetationIndicesForProfile
+	 * @fn GetAdaptationSetAndRepresentationIndicesForProfile
 	 * @param[in] idx - Profile Index
 	 */
-	struct ProfileInfo GetAdaptationSetAndRepresetationIndicesForProfile(int profileIndex);
+	struct ProfileInfo GetAdaptationSetAndRepresentationIndicesForProfile(int profileIndex);
 	int64_t GetMinUpdateDuration() { return mMinUpdateDurationMs;}
 	/**
 	 * @fn FetchFragment
@@ -339,10 +340,10 @@ public:
 	 * @param isInitializationSegment true if fragment is init fragment
 	 * @param curlInstance curl instance to be used to fetch
 	 * @param discontinuity true if fragment is discontinuous
-	 * @param pto unscaled pto value from mpd
-	 * @param scale timeScale value from mpd
+	 * @param pto presentation time offset in seconds
+	 * @param timeScale  denominator for fixed point math
 	 */
-	bool FetchFragment( class MediaStreamContext *pMediaStreamContext, std::string media, double fragmentDuration, bool isInitializationSegment, unsigned int curlInstance, bool discontinuity = false, double pto = 0 , uint32_t scale = 0);
+	bool FetchFragment( class MediaStreamContext *pMediaStreamContext, std::string media, double fragmentDuration, bool isInitializationSegment, unsigned int curlInstance, bool discontinuity = false, double pto = 0 , uint32_t timeScale = 0);
 	/**
 	 * @fn PushNextFragment 
 	 * @param pMediaStreamContext Track object
@@ -524,6 +525,21 @@ public:
 	 ***************************************************************************/
 	void UpdateSeekPeriodOffset( double &offsetFromStart );
 
+	/**
+	 * @fn GetNextAdInBreak
+	 * @brief Get the next valid ad in the ad break
+	 * @param[in] direction will be 1 or -1 depending on the playback rate
+	 */
+	void GetNextAdInBreak(int direction);
+
+	/**
+	 * @fn UseIframeTrack
+	 * @brief Check if AAMP is using an iframe track
+	 *
+	 * @return true if AAMP is using an iframe track, false otherwise
+	 */
+	bool UseIframeTrack(void) override;
+
 protected:
 	/**
 	 * @fn GetStartAndDurationForPtsRestamping
@@ -570,7 +586,7 @@ protected:
 	 * @param[in] isDiscontinuity - flag indicates if its a discontinuity
 	 * @return void
 	 */
-	void AdvanceTrack(int trackIdx, bool trickPlay, double *delta, bool *waitForFreeFrag, bool *bCacheFullState,bool throttleAudio,bool isDiscontinuity = false);
+	void AdvanceTrack(int trackIdx, bool trickPlay, double *delta, bool &waitForFreeFrag, bool &bCacheFullState,bool throttleAudio,bool isDiscontinuity = false);
 	/**
 	 * @fn AdvanceTsbFetch
 	 * @param[in] trackIdx - trackIndex
@@ -832,12 +848,12 @@ protected:
 
 	/**
 	 * @fn SeekInPeriod
-	 * @param seekPositionSeconds seek positon in seconds
+	 * @param seekPositionSeconds seek position in seconds
 	 */
 	void SeekInPeriod( double seekPositionSeconds, bool skipToEnd = false);	
 	/**
 	 * @fn ApplyLiveOffsetWorkaroundForSAP
-	 * @param seekPositionSeconds seek positon in seconds.
+	 * @param seekPositionSeconds seek position in seconds.
  	 */
 	void ApplyLiveOffsetWorkaroundForSAP(double seekPositionSeconds);
 	/**
@@ -873,10 +889,10 @@ protected:
 	 */
 	bool CheckProducerReferenceTimeUTCTimeMatch(IProducerReferenceTime *pRT);
 	/**
-	 * @fn PrintProducerReferenceTimeAtrributes
+	 * @fn PrintProducerReferenceTimeAttributes
 	 * @param pRT Pointer to ProducerReferenceTime
 	 */
-	void PrintProducerReferenceTimeAtrributes(IProducerReferenceTime *pRT);
+	void PrintProducerReferenceTimeAttributes(IProducerReferenceTime *pRT);
 	/**
 	 * @fn GetProducerReferenceTimeForAdaptationSet
 	 * @param adaptationSet Pointer to AdaptationSet
@@ -913,16 +929,16 @@ protected:
 	 * @param[in] type - media type
 	 * @param[in] lang - language to be matched
 	 * @param[in] adaptationSet - adaptation to be checked for
-	 * @param[out] representionIndex - represention within adaptation with matching params
+	 * @param[out] representationIndex - representation within adaptation with matching params
 	 */
 	bool IsMatchingLanguageAndMimeType(AampMediaType type, std::string lang, IAdaptationSet *adaptationSet, int &representationIndex);
 	/**
-	 * @fn GetFragmentUrl
+	 * @fn ConstructFragmentURL
 	 * @param[out] fragmentUrl fragment url
 	 * @param fragmentDescriptor descriptor
 	 * @param media media information string
 	 */
-	void GetFragmentUrl( std::string& fragmentUrl, const FragmentDescriptor *fragmentDescriptor, std::string media);
+	void ConstructFragmentURL( std::string& fragmentUrl, const FragmentDescriptor *fragmentDescriptor, std::string media);
 	double GetEncoderDisplayLatency();
 	/**
 	 * @fn StartLatencyMonitorThread
@@ -936,8 +952,8 @@ protected:
 	 * @param[out] selectedRepIdx - Selected representation index
 	 * @param[out] selectedCodecType type of desired representation
 	 * @param[out] selectedRepBandwidth - selected audio track bandwidth
-	 * @param disableEC3 whether EC3 deabled by config
-	 * @param disableATMOS whether ATMOS audio deabled by config
+	 * @param disableEC3 whether EC3 disabled by config
+	 * @param disableATMOS whether ATMOS audio disabled by config
  	 */
 	bool GetPreferredCodecIndex(IAdaptationSet *adaptationSet, int &selectedRepIdx, AudioType &selectedCodecType, 
 	uint32_t &selectedRepBandwidth, long &bestScore, bool disableEC3, bool disableATMOS, bool disableAC4, bool disableAC3, bool &disabled);
@@ -960,7 +976,7 @@ protected:
 	 * @fn PopulateTrackInfo
 	 * @param media - Media type 
 	 * @param - Do need to reset vector?
-	 * @retun none
+	 * @return none
 	 */
 	void PopulateTrackInfo(AampMediaType media, bool reset=false);
 
@@ -977,14 +993,14 @@ protected:
 	void QueueContentProtection(IPeriod* period, uint32_t adaptationSetIdx, AampMediaType mediaType, bool qGstProtectEvent = true, bool isVssPeriod = false);
 
 	/**
-	 * @fn ProcessAllContenProtForMediaType
+	 * @fn ProcessAllContentProtectionForMediaType
 	 * @param[in] type - media type
 	 * @param[in] priorityAdaptationIdx - selected adaption index, to be processed with priority
 	 * @param[in] chosenAdaptationIdxs - selected adaption indexes, might be empty for certain playback cases
 	 * @brief process content protection of all the adaptation for the given media type
 	 * @retval none
 	 */
-	void ProcessAllContenProtForMediaType(AampMediaType type, uint32_t priorityAdaptationIdx, std::set<uint32_t> &chosenAdaptationIdxs);
+	void ProcessAllContentProtectionForMediaType(AampMediaType type, uint32_t priorityAdaptationIdx, std::set<uint32_t> &chosenAdaptationIdxs);
 
 	bool PlacenextAdBrkifAvail(dash::mpd::IMPD *mpd);
 
@@ -1006,6 +1022,14 @@ protected:
 	* @brief Function to calculate the start time offset between subtitle and video tracks
 	*/
 	void SetSubtitleTrackOffset();
+
+	/**
+	 * @fn InitializeWorkers
+	 * @brief Initialize worker threads
+	 *
+	 * @return void
+	 */
+	void InitializeWorkers();
 
 	std::mutex mStreamLock;
 	bool fragmentCollectorThreadStarted;
@@ -1065,7 +1089,7 @@ protected:
 	int mCommonKeyDuration;
 
 	// DASH does not use abr manager to store the supported bandwidth values,
-	// hence storing max TSB bandwith in this variable which will be used for VideoEnd Metric data via
+	// hence storing max TSB bandwidth in this variable which will be used for VideoEnd Metric data via
 	// StreamAbstractionAAMP::GetMaxBitrate function,
 	long mMaxTSBBandwidth;
 
@@ -1085,7 +1109,7 @@ protected:
 	/**
 	 * @fn isAdbreakStart
 	 * @param[in] period instance.
-	 * @param[in] startMS start time in milli seconds.
+	 * @param[in] startMS start time in milliseconds.
 	 * @param[in] eventBreakVec vector of EventBreakInfo structure.
 	 */
 	bool isAdbreakStart(IPeriod *period, uint64_t &startMS, std::vector<EventBreakInfo> &eventBreakVec);
@@ -1129,9 +1153,9 @@ protected:
 	*/
 	bool CheckForVssTags();
 	/**
-	* @fn ProcessVssLicenseRequset
+	* @fn ProcessVssLicenseRequest
 	*/
-	void ProcessVssLicenseRequset();
+	void ProcessVssLicenseRequest();
 	/**
 	* @fn GetAvailableVSSPeriods
 	* @param PeriodIds VSS Periods
@@ -1167,6 +1191,7 @@ protected:
 	double mFragmentTimeOffset;     /**< denotes the offset added to fragment time when absolute timeline is disabled, holds currentPeriodOffset*/
 	bool mShortAdOffsetCalc;
 	AampTime mNextPts;					/*For PTS restamping*/
+	std::vector<std::unique_ptr<aamp::AampTrackWorker>> mTrackWorkers;	/**< Track workers for fetching fragments*/
 };
 
 #endif //FRAGMENTCOLLECTOR_MPD_H_

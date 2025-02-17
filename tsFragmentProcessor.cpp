@@ -152,7 +152,7 @@ bool TSFragmentProcessor::ProcessFragment(const AampGrowableBuffer & fragment,
 			auto & demuxer = demuxers[idx].get();
 			if (demuxer)
 			{
-				AAMPLOG_INFO(" Initialising demuxer [%d | %p]", demuxer->GetType(), demuxer.get());
+				AAMPLOG_INFO("Initializing demuxer [%d | %p]", demuxer->GetType(), demuxer.get());
 
 				demuxer->flush();
 				demuxer->init(position, duration, false, true);
@@ -555,7 +555,7 @@ void TSFragmentProcessor::DemuxFragment(const uint8_t * base_packet_ptr, size_t 
 			 * We always choose the first audio pid to play the audio data, even if we
 			 * have multiple audio tracks in the PMT Table.
 			 * But in one particular hls file, we dont have PES data in the first audio pid.
-			 * So, we have now modifeied to choose the next available audio pid index,
+			 * So, we have now modified to choose the next available audio pid index,
 			 * when there is no PES data available in the current audio pid.
 			 */
 			if (isPacketIgnored)

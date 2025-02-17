@@ -55,7 +55,7 @@ void AampPlayReadyHelper::createInitData(std::vector<uint8_t>& initData) const
 
 /**< API Move to util class**/
 /**
- * @brief find sub string inbetween string
+ * @brief find sub string in between string
  * @return substring
  */
 std::string AampPlayReadyHelper::findSubstr(std::string &data, std::string start, std::string end)
@@ -83,11 +83,11 @@ std::string AampPlayReadyHelper::findSubstr(std::string &data, std::string start
 #define PLAYREADY_VERSION_4_X_KID_START "<KID"      /**< KeyId represent as attribute for 4.x version where x > 0 */ 
 #define PLAYREADY_KID_END       "</KID>"			/**< KeyId node end **/
 
-#define PLAYREADY_VERSION_4_0           "4.0.0.0"   /**< Playready versio 4.0 **/      
-#define PLAYREADY_VERSION_4_1           "4.1.0.0"   /**< Playready versio 4.1 **/
-#define PLAYREADY_VERSION_4_2           "4.2.0.0"   /**< Playready versio 4.2 **/
-#define PLAYREADY_VERSION_4_3           "4.3.0.0"   /**< Playready versio 4.3 **/
-std::string AampPlayReadyHelper::extrackKeyID()
+#define PLAYREADY_VERSION_4_0           "4.0.0.0"   /**< Playready version 4.0 **/
+#define PLAYREADY_VERSION_4_1           "4.1.0.0"   /**< Playready version 4.1 **/
+#define PLAYREADY_VERSION_4_2           "4.2.0.0"   /**< Playready version 4.2 **/
+#define PLAYREADY_VERSION_4_3           "4.3.0.0"   /**< Playready version 4.3 **/
+std::string AampPlayReadyHelper::extractKeyID()
 {
 	std::string propValueEnd = "\"";
 	std::string version = findSubstr(mStrInitDataFormated, "version=\"", propValueEnd);
@@ -196,7 +196,7 @@ bool AampPlayReadyHelper::parsePssh(const uint8_t* initData, uint32_t initDataLe
 			//Clear unwanted spaces from pssh data - time being not neeed
 			//std::remove(mStrInitDataFormated.begin(), mStrInitDataFormated.end(), ' ');
 			
-			keyData = extrackKeyID();
+			keyData = extractKeyID();
 		}
 		//AAMPLOG_INFO("pr keyid: %s keyIdlen: %d", keydata, keyIdLen);
 		if (!keyData.empty())
@@ -216,7 +216,7 @@ bool AampPlayReadyHelper::parsePssh(const uint8_t* initData, uint32_t initDataLe
 				uuid_t *keyiduuid = (uuid_t*)swappedKeydata;
 				uuid_unparse_lower(*keyiduuid, reinterpret_cast<char*>(keyId));
 				AAMPLOG_INFO("Extracted Key ID is %s", keyId);
-				mKeyID.assign(keyId, keyId + (PLAYREADY_KEY_ID_LEN-1)); /**< No need end null charector in vector **/
+				mKeyID.assign(keyId, keyId + (PLAYREADY_KEY_ID_LEN-1)); /**< No need end null character in vector **/
 				res = true;
 			}
 
@@ -233,7 +233,7 @@ bool AampPlayReadyHelper::parsePssh(const uint8_t* initData, uint32_t initDataLe
 	}
 	else
 	{
-		AAMPLOG_ERR("Invalid PSSH Data Recieved : NULL");
+		AAMPLOG_ERR("Invalid PSSH Data Received : NULL");
 	}
 
 	return res;

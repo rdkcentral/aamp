@@ -187,7 +187,7 @@ static pthread_mutex_t jsMediaPlayerCacheMutex = PTHREAD_MUTEX_INITIALIZER;
  * @param[in] jsObject JS object whose property has to be parsed
  * @param[in] prop property name
  * @param[out] value to store parsed number
- * return true if value was parsed sucessfully, false otherwise
+ * return true if value was parsed successfully, false otherwise
  */
 bool ParseJSPropAsNumber(JSContextRef ctx, JSObjectRef jsObject, const char *prop, double &value)
 {
@@ -217,7 +217,7 @@ bool ParseJSPropAsNumber(JSContextRef ctx, JSObjectRef jsObject, const char *pro
  * @param[in] jsObject JS object whose property has to be parsed
  * @param[in] prop property name
  * @param[out] value to store parsed string
- * return true if value was parsed sucessfully, false otherwise
+ * return true if value was parsed successfully, false otherwise
  */
 bool ParseJSPropAsString(JSContextRef ctx, JSObjectRef jsObject, const char *prop, char * &value)
 {
@@ -246,7 +246,7 @@ bool ParseJSPropAsString(JSContextRef ctx, JSObjectRef jsObject, const char *pro
  * @param[in] jsObject JS object whose property has to be parsed
  * @param[in] prop property name
  * @param[out] value to store parsed value
- * return true if value was parsed sucessfully, false otherwise
+ * return true if value was parsed successfully, false otherwise
  */
 bool ParseJSPropAsObject(JSContextRef ctx, JSObjectRef jsObject, const char *prop, JSValueRef &value)
 {
@@ -275,7 +275,7 @@ bool ParseJSPropAsObject(JSContextRef ctx, JSObjectRef jsObject, const char *pro
  * @param[in] jsObject JS object whose property has to be parsed
  * @param[in] prop property name
  * @param[out] value to store parsed value
- * return true if value was parsed sucessfully, false otherwise
+ * return true if value was parsed successfully, false otherwise
  */
 bool ParseJSPropAsBoolean(JSContextRef ctx, JSObjectRef jsObject, const char *prop, bool &value)
 {
@@ -474,7 +474,7 @@ JSValueRef AAMPMediaPlayerJS_load (JSContextRef ctx, JSObjectRef function, JSObj
 	bool audioDecoderStreamSync = true;
 	char* contentType = NULL;
 	char* strTraceId = NULL;
-	int mpdStichingMode = 0;
+	int mpdStitchingMode = 0;
 	std::string sid{};
 	char* manifestbuffer = NULL;
 
@@ -523,11 +523,11 @@ JSValueRef AAMPMediaPlayerJS_load (JSContextRef ctx, JSObjectRef function, JSObj
 			}
 			JSStringRelease(paramName);
 
-			paramName = JSStringCreateWithUTF8CString("mpdStichingMode");
+			paramName = JSStringCreateWithUTF8CString("mpdStitchingMode");
 			paramValue = JSObjectGetProperty(ctx, argument, paramName, NULL);
 			if (JSValueIsNumber(ctx, paramValue))
 			{
-				mpdStichingMode = (int) JSValueToNumber(ctx, paramValue, NULL);
+				mpdStitchingMode = (int) JSValueToNumber(ctx, paramValue, NULL);
 			}
 			JSStringRelease(paramName);
 
@@ -563,7 +563,7 @@ JSValueRef AAMPMediaPlayerJS_load (JSContextRef ctx, JSObjectRef function, JSObj
 			{
 				char* url = aamp_JSValueToCString(ctx, arguments[0], exception);
 				LOG_WARN(privObj,"_aamp->Tune(%d, %s, %d, %d, %s) - sid: %s preprocessedManifestData : %s", autoPlay, contentType, bFirstAttempt, bFinalAttempt, strTraceId, sid.c_str(),manifestbuffer);
-				privObj->_aamp->Tune(url, autoPlay, contentType, bFirstAttempt, bFinalAttempt, strTraceId, audioDecoderStreamSync, url2, mpdStichingMode, std::move(sid),manifestbuffer);
+				privObj->_aamp->Tune(url, autoPlay, contentType, bFirstAttempt, bFinalAttempt, strTraceId, audioDecoderStreamSync, url2, mpdStitchingMode, std::move(sid),manifestbuffer);
 
 			}
 
@@ -572,7 +572,7 @@ JSValueRef AAMPMediaPlayerJS_load (JSContextRef ctx, JSObjectRef function, JSObj
 		}
 
 		default:
-			LOG_ERROR(privObj,"InvalidArgument - argumentCount=%zu, expected atmost 3 arguments",argumentCount);
+			LOG_ERROR(privObj,"InvalidArgument - argumentCount=%zu, expected at most 3 arguments",argumentCount);
 
 			*exception = aamp_GetException(ctx, AAMPJS_INVALID_ARGUMENT, "Failed to execute load() <= 3 arguments required");
 	}
@@ -1089,12 +1089,12 @@ JSValueRef AAMPMediaPlayerJS_getPreferredAudioProperties (JSContextRef ctx, JSOb
 	std::string value = privObj->_aamp->GetPreferredAudioProperties();
 	if (!value.empty())
 	{
-        	LOG_INFO(privObj,"_aamp->GetPrefferedAudioProperties() value=%s",value.c_str());
+        	LOG_INFO(privObj,"_aamp->GetPreferredAudioProperties() value=%s",value.c_str());
 		return aamp_CStringToJSValue(ctx, value.c_str());
 	}
 	else
         {
-                LOG_WARN(privObj,"_aamp->GetPrefferedAudioProperties() value=NULL");
+                LOG_WARN(privObj,"_aamp->GetPreferredAudioProperties() value=NULL");
         }
 
         LOG_TRACE("Exit");
@@ -1597,7 +1597,7 @@ JSValueRef AAMPMediaPlayerJS_setAudioTrack (JSContextRef ctx, JSObjectRef functi
 		else  if (JSValueIsObject(ctx, arguments[0]))
 		{
 		/*
-			* Parmater format
+			* Parameter format
 			* "audioTuple": object {
 			*    "language": "en",
 			*    "rendition": "main"
@@ -1677,7 +1677,7 @@ JSValueRef AAMPMediaPlayerJS_setAudioTrack (JSContextRef ctx, JSObjectRef functi
 			SAFE_DELETE_ARRAY(type);
 			std::string strLabel = label?std::string(label):"";
 			SAFE_DELETE_ARRAY(label);
-			LOG_WARN(privObj," SetAudioTrack language=%s renditio=%s type=%s codec=%s channel=%d label=%s", strLanguage.c_str(), strRendition.c_str(), strType.c_str(), strCodec.c_str(), channel,strLabel.c_str());
+			LOG_WARN(privObj," SetAudioTrack language=%s rendition=%s type=%s codec=%s channel=%d label=%s", strLanguage.c_str(), strRendition.c_str(), strType.c_str(), strCodec.c_str(), channel,strLabel.c_str());
 
 			privObj->_aamp->SetAudioTrack(strLanguage, strRendition, strType, strCodec, channel, strLabel);
 			bRet = true;
@@ -1757,7 +1757,7 @@ JSValueRef AAMPMediaPlayerJS_setTextTrack (JSContextRef ctx, JSObjectRef functio
 		if (argumentCount != 1)
 		{
 			LOG_ERROR(privObj,"InvalidArgument - argumentCount=%zu, expected: 1", argumentCount);
-			*exception = aamp_GetException(ctx, AAMPJS_INVALID_ARGUMENT, "Failed to execute setTextTrack() - atleast 1 argument required");
+			*exception = aamp_GetException(ctx, AAMPJS_INVALID_ARGUMENT, "Failed to execute setTextTrack() - at least 1 argument required");
 		}
 		else if (!JSValueIsNumber(ctx, arguments[0]))
 		{
@@ -1977,7 +1977,7 @@ JSValueRef AAMPMediaPlayerJS_setPlaybackRate (JSContextRef ctx, JSObjectRef func
 		else
 		{
 			LOG_ERROR(privObj,"InvalidArgument - argumentCount=%zu, expected: 1", argumentCount);
-			*exception = aamp_GetException(ctx, AAMPJS_INVALID_ARGUMENT, "Failed to execute setPlaybackRate() - atleast 1 argument required");
+			*exception = aamp_GetException(ctx, AAMPJS_INVALID_ARGUMENT, "Failed to execute setPlaybackRate() - at least 1 argument required");
 		}
 	}
 	LOG_TRACE("Exit");
@@ -2404,7 +2404,7 @@ JSValueRef AAMPMediaPlayerJS_removeCustomHTTPHeader (JSContextRef ctx, JSObjectR
 				}
 				else {
 					LOG_ERROR(privObj,"_aamp->removeCustomHTTPHeader called with unsupported type." );
-					*exception = aamp_GetException(ctx, AAMPJS_INVALID_ARGUMENT, "removeCustomHTTPHeader() - usupported type");
+					*exception = aamp_GetException(ctx, AAMPJS_INVALID_ARGUMENT, "removeCustomHTTPHeader() - unsupported type");
 				}
 				break;
 				
@@ -2766,7 +2766,7 @@ static JSValueRef AAMPMediaPlayerJS_setAlternateContent(JSContextRef ctx, JSObje
 		if (argumentCount == 2)
 		{
 			/*
-			* Parmater format
+			* Parameter format
 			* "reservationObject": object {
 			*   "reservationId": "773701056",
 			*    "reservationBehavior": number
@@ -2895,7 +2895,7 @@ JSValueRef AAMPMediaPlayerJS_setPreferredAudioLanguage(JSContextRef ctx, JSObjec
 			if(argumentCount >= 5) {
 				labelList = aamp_JSValueToCString(ctx,arguments[4], NULL);
 			}
-			LOG_WARN(privObj,"_aamp->SetPrefferedLanguages(%s, %s, %s, %s)", lanList, rendition, type, codecList);
+			LOG_WARN(privObj,"_aamp->SetPreferredLanguages(%s, %s, %s, %s)", lanList, rendition, type, codecList);
 			privObj->_aamp->SetPreferredLanguages(lanList, rendition, type, codecList, labelList);
 			bRet = true;
 			SAFE_DELETE_ARRAY(type);
@@ -2984,7 +2984,7 @@ JSValueRef AAMPMediaPlayerJS_setPreferredAudioCodec(JSContextRef ctx, JSObjectRe
 		else
 		{
 			char *codecList = aamp_JSValueToCString(ctx,arguments[0], NULL);
-			LOG_WARN(privObj," _aamp->SetPrefferedLanguages(codecList=%s)", codecList);
+			LOG_WARN(privObj," _aamp->SetPreferredLanguages(codecList=%s)", codecList);
 			privObj->_aamp->SetPreferredLanguages(NULL, NULL, NULL, codecList);
 			bRet = true;
 			SAFE_DELETE_ARRAY(codecList);
@@ -3322,7 +3322,7 @@ static JSValueRef AAMPMediaPlayerJS_setAuxiliaryLanguage(JSContextRef ctx, JSObj
 	return JSValueMakeBoolean(ctx, bRet);
 }
 /**
- * @brief API invoked from JS when executing AAMPMediaPlayer.getPlayeBackStats()
+ * @brief API invoked from JS when executing AAMPMediaPlayer.getPlaybackStats()
  * @param[in] ctx JS execution context
  * @param[in] function JSObject that is the function being called
  * @param[in] thisObject JSObject that is the 'this' variable in the function's scope
@@ -3331,7 +3331,7 @@ static JSValueRef AAMPMediaPlayerJS_setAuxiliaryLanguage(JSContextRef ctx, JSObj
  * @param[out] exception pointer to a JSValueRef in which to return an exception, if any
  * @retval JSValue that is the function's return value
  */
-static JSValueRef AAMPMediaPlayerJS_getPlayeBackStats(JSContextRef ctx, JSObjectRef function, JSObjectRef thisObject, size_t argumentCount, const JSValueRef arguments[], JSValueRef *exception)
+static JSValueRef AAMPMediaPlayerJS_getPlaybackStats(JSContextRef ctx, JSObjectRef function, JSObjectRef thisObject, size_t argumentCount, const JSValueRef arguments[], JSValueRef *exception)
 {
 	LOG_TRACE("Enter");
 	AAMPMediaPlayer_JS* privObj = (AAMPMediaPlayer_JS*)JSObjectGetPrivate(thisObject);
@@ -3690,7 +3690,7 @@ static const JSStaticFunction AAMPMediaPlayer_JS_static_functions[] = {
 	{ "setPreferredAudioCodec", AAMPMediaPlayerJS_setPreferredAudioCodec, kJSPropertyAttributeDontDelete | kJSPropertyAttributeReadOnly},
 	{ "setAuxiliaryLanguage", AAMPMediaPlayerJS_setAuxiliaryLanguage, kJSPropertyAttributeDontDelete | kJSPropertyAttributeReadOnly },
 	{ "xreSupportedTune", AAMPMediaPlayerJS_xreSupportedTune, kJSPropertyAttributeDontDelete | kJSPropertyAttributeReadOnly},
-	{ "getPlaybackStatistics", AAMPMediaPlayerJS_getPlayeBackStats, kJSPropertyAttributeDontDelete | kJSPropertyAttributeReadOnly },
+	{ "getPlaybackStatistics", AAMPMediaPlayerJS_getPlaybackStats, kJSPropertyAttributeDontDelete | kJSPropertyAttributeReadOnly },
 	{ "setContentProtectionDataConfig", AAMPMediaPlayerJS_setContentProtectionDataConfig, kJSPropertyAttributeDontDelete | kJSPropertyAttributeReadOnly },
 	{ "setContentProtectionDataUpdateTimeout", AAMPMediaPlayerJS_setContentProtectionDataUpdateTimeout, kJSPropertyAttributeDontDelete | kJSPropertyAttributeReadOnly },
 	{ "configRuntimeDRM", AAMPMediaPlayerJS_setRuntimeDRMConfig, kJSPropertyAttributeDontDelete | kJSPropertyAttributeReadOnly },
@@ -3870,7 +3870,7 @@ JSObjectRef AAMPMediaPlayer_JS_class_constructor(JSContextRef ctx, JSObjectRef c
 
 	// Add a dummy event listener without any function callback.
 	// Upto JS application to register a common callback function for AAMP to notify ad resolve status
-	// or individually as part of setAlternateContent call. NULL checks added in eventlistener to avoid undesired behaviour
+	// or individually as part of setAlternateContent call. NULL checks added in eventlistener to avoid undesired behavior
 	AAMP_JSEventListener::AddEventListener(privObj, AAMP_EVENT_AD_RESOLVED, NULL);
 
 	// Required for viper-player

@@ -40,7 +40,6 @@ AampDrmHelperEngine& AampDrmHelperEngine::getInstance()
 	return instance;
 }
 
-// Consider a mutex for thesie
 /**
  * @brief Register a Helper Factory
  */

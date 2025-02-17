@@ -37,6 +37,14 @@
 
 #define TSB_DATA_DEBUG_ENABLED 0 /** Enable debug log on development/debug */
 
+struct TSBWriteData
+{
+	std::string url;
+	std::shared_ptr<CachedFragment> cachedFragment;
+	double pts;
+	std::string periodId;
+};
+
 /**
  * @class Parent class
  * @brief Abstracted parent class
@@ -73,7 +81,7 @@ public:
 
 /**
  * @class TsbInitData
- * @brief Prototype to Store the fragment and initFragment infromation  aka meta data
+ * @brief Prototype to Store the fragment and initFragment information  aka meta data
  */
 class TsbInitData : public TsbSegment
 {
@@ -91,11 +99,11 @@ public:
 	void incrementUser() { users++; };
 	/**
 	 *   @fn decrementUser
-	 *   @return decriment count of fragments used
+	 *   @return decrement count of fragments used
 	 */
 	void decrementUser() { users--; };
 	/**
-	 *   @fn controctor
+	 *   @fn constructor
 	 *   @param[in] url - Segment URL as string
 	 *   @param[in] media - Segment type as AampMediaType
 	 *   @param[in] streamInfo - fragment stream info
@@ -108,7 +116,7 @@ public:
 	}
 
 	/**
-	 *  @brief Destroctor of init data
+	 *  @brief destructor of init data
 	 */
 	~TsbInitData()
 	{
@@ -142,7 +150,7 @@ public:
 
 /**
  * @class TsbFragmentData
- * @brief Prototype to Store the fragment and initFragment infromation
+ * @brief Linked list with data related to the fragment and initFragment stored in AAMP TSB
  */
 class TsbFragmentData : public TsbSegment
 {
@@ -153,28 +161,36 @@ private:
 	bool isDiscontinuous;  /**< the current fragment is discontinuous*/
 	double relativePosition; /**< Relative position from start*/
 	std::shared_ptr<TsbInitData> initFragData; /**< init Fragment of the current fragment*/
+	uint32_t timeScale; /**< timescale of the current fragment */
+	double PTSOffsetSec; /**< PTS offset of the current fragment */
 
 	/* data */
 public:
 	std::shared_ptr<TsbFragmentData> next; /**< Link list next node for easy access*/
 	std::shared_ptr<TsbFragmentData> prev; /**< Link list previous node for easy access*/
 	/**
-	 *   @fn controctor
+	 *   @fn constructor
 	 *   @param[in] url - Segment URL as string
 	 *   @param[in] media - Segment type as AampMediaType
-	 *   @param[in] position - position as double
-	 *   @param[in] duration - duration as double
+	 *   @param[in] position - position of the current fragment
+	 *   @param[in] duration - duration of the current fragment
+	 *   @param[in] pts - PTS of the current fragment
+	 *   @param[in] disc - discontinuity flag
 	 *   @param[in] relativePos - Relative position
 	 *   @param[in] prId - Period Id of the fragment
 	 *   @param[in] initData - Pointer to initData
-	 *   @return void
+	 *   @param[in] timeScale - timescale of the current fragment
+	 *   @param[in] PTSOffsetSec - PTS offset of the current fragment
 	 */
-	TsbFragmentData(std::string url, AampMediaType media, double position, double duration, double pts, bool disc, double relativePos, std::string prId, std::shared_ptr<TsbInitData> initData) : TsbSegment(url, media, prId), position(position), duration(duration), mPTS(pts), isDiscontinuous(disc), initFragData(initData), relativePosition(relativePos)
+	TsbFragmentData(std::string url, AampMediaType media, double position, double duration, double pts, bool disc, double relativePos,
+		std::string prId, std::shared_ptr<TsbInitData> initData, uint32_t timeScale, double PTSOffsetSec)
+		: TsbSegment(url, media, prId), position(position), duration(duration), mPTS(pts), isDiscontinuous(disc), initFragData(initData),
+		relativePosition(relativePos), timeScale(timeScale), PTSOffsetSec(PTSOffsetSec)
 	{
 	}
 
 	/**
-	 *  @brief Internal API to insert data
+	 *  @fn Destructor
 	 */
 	~TsbFragmentData()
 	{
@@ -182,44 +198,58 @@ public:
 
 	/**
 	 *   @fn GetInitFragData
-	 *   @return retunr initFragment shared pointer associated with it
+	 *   @return return initFragment shared pointer associated with it
 	 */
-	std::shared_ptr<TsbInitData> GetInitFragData() { return initFragData; }
+	std::shared_ptr<TsbInitData> GetInitFragData() const { return initFragData; }
 
 	/**
-	 * @brief GetPosition
+	 * @fn GetPosition
 	 *
 	 * @return position of the fragment as double
 	 */
-	double GetPosition() { return position; }
+	double GetPosition() const { return position; }
 
 	/**
-	 * @brief GetPTS
+	 * @fn GetPTS
 	 *
-	 * @return Querry the PST of fragment
+	 * @return Query the PST of fragment
 	 */
-	double GetPTS() { return mPTS; }
+	double GetPTS() const { return mPTS; }
 
 	/**
-	 * @brief GetRelativePosition
+	 * @fn GetRelativePosition
 	 *
-	 * @return Querry the relative position of fragment
+	 * @return Query the relative position of fragment
 	 */
-	double GetRelativePosition() { return relativePosition; }
+	double GetRelativePosition() const { return relativePosition; }
 
 	/**
-	 * @brief GetDuration
+	 * @fn GetDuration
 	 *
 	 * @return duration of the fragment as double
 	 */
-	double GetDuration() { return duration; }
+	double GetDuration() const { return duration; }
 
 	/**
-	 * @brief IsDiscontinuous
+	 * @fn IsDiscontinuous
 	 *
 	 * @return whether is it is discontinuous fragment
 	 */
-	bool IsDiscontinuous() { return isDiscontinuous; }
+	bool IsDiscontinuous() const { return isDiscontinuous; }
+
+	/**
+	 * @fn GetTimeScale
+	 *
+	 * @return timescale of the fragment
+	 */
+	uint32_t GetTimeScale() const { return timeScale; }
+
+	/**
+	 * @fn GetPTSOffsetSec
+	 *
+	 * @return PTS offset of the fragment
+	 */
+	double GetPTSOffsetSec() const { return PTSOffsetSec; }
 };
 
 typedef std::shared_ptr<TsbFragmentData> TsbFragmentDataPtr;
@@ -327,15 +357,13 @@ public:
 
 	/**
 	 *   @fn AddFragment
-	 *   @param[in] url - Segment URL as string
+	 *   @brief  AddFragment - add Fragment to TSB data
+	 *   @param[in] writeData - Segment data
 	 *   @param[in] media - Segment type as AampMediaType
-	 *   @param[in] position - position as double
-	 *   @param[in] duration - duration as double
-	 *   @param[in] pts - PTS value of the fragment
-	 *   @param[in] periodId - Period Id of this fragment
+	 *   @param[in] discont - discontinuity flag
 	 *   @return true if no exception
 	 */
-	bool AddFragment(std::string &url, AampMediaType media, double position, double duration, double pts, bool discont, std::string &periodId);
+	bool AddFragment(TSBWriteData &writeData, AampMediaType media, bool discont);
 
 	/**
 	 *   @fn IsFragmentPresent
@@ -351,8 +379,8 @@ public:
 	void Flush();
 
 	/**
-	 *   @fn controctor
-	 *   @param[in] position - Position for qurrying the discontionious fragment
+	 *   @fn constructor
+	 *   @param[in] position - Position for querying the discontinuous fragment
 	 *   @param[in] backwordSerach - Search direction from the position to discontinuous fragment, default forward
 	 *   @return TsbFragmentData shared object to fragment data
 	 */

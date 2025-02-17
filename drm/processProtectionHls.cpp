@@ -101,7 +101,7 @@ static int GetFieldValue(string &attrName, string keyName, string &valuePtr){
 		}
 		else
 		{
-			AAMPLOG_TRACE("Checking next occurence of %s= in %s",
+			AAMPLOG_TRACE("Checking next occurrence of %s= in %s",
 			keyName.c_str(), attrName.c_str());
 			found = valueStartPos+1;
 		}
@@ -115,19 +115,6 @@ static int GetFieldValue(string &attrName, string keyName, string &valuePtr){
 
 	return status;
 }
-
-/* Widevine Example 
-#EXT-X-KEY:METHOD=SAMPLE-AES-CTR,
-KEYFORMAT="urn:uuid:edef8ba9-79d6-4ace-a3c8-27dcd51d21ed",
-KEYFORMATVERSIONS="1",URI="data:text/plain;base64,AAAAW3Bzc2gAAAAA7e+LqXnWSs6jyCfc1R0h7QAAADsIARIgZTI1ZmFkYjQ4YmZiNDkyMjljZTBhNGFmZGZlMDUxOTcaB3NsaW5ndHYiBUhHVFZEKgVTRF9IRA==",
-KEYID=0xe25fadb48bfb49229ce0a4afdfe05197
-*/
-/* PlayReady Example 
-#EXT-X-KEY:METHOD=SAMPLE-AES-CTR,
-URI="data:text/plain;charset=UTF-16;base64,BgIAAAEAAQD8ATwAVwBSAE0ASABFAEEARABFAFIAIAB4AG0AbABuAHMAPQAiAGgAdAB0AHAAOgAvAC8AcwBjAGgAZQBtAGEAcwAuAG0AaQBjAHIAbwBzAG8AZgB0AC4AYwBvAG0ALwBEAFIATQAvADIAMAAwADcALwAwADMALwBQAGwAYQB5AFIAZQBhAGQAeQBIAGUAYQBkAGUAcgAiACAAdgBlAHIAcwBpAG8AbgA9ACIANAAuADAALgAwAC4AMAAiAD4APABEAEEAVABBAD4APABQAFIATwBUAEUAQwBUAEkATgBGAE8APgA8AEsARQBZAEwARQBOAD4AMQA2ADwALwBLAEUAWQBMAEUATgA+ADwAQQBMAEcASQBEAD4AQQBFAFMAQwBUAFIAPAAvAEEATABHAEkARAA+ADwALwBQAFIATwBUAEUAQwBUAEkATgBGAE8APgA8AEsASQBEAD4AbgA0AEkARABBAEsATwAxAHMARwByAGcAegBpAHkAOAA4AFgAcgBqAGYAQQA9AD0APAAvAEsASQBEAD4APABDAEgARQBDAEsAUwBVAE0APgB1AGkAbwA4AFcAVQBwAFQANAA0ADAAPQA8AC8AQwBIAEUAQwBLAFMAVQBNAD4APAAvAEQAQQBUAEEAPgA8AC8AVwBSAE0ASABFAEEARABFAFIAPgA=",
-KEYFORMAT="com.microsoft.playready",
-KEYFORMATVERSIONS="1"
-*/
 
 /**
  * @brief API to get the PSSH Data from the manifest attribute list, getPsshData
@@ -153,7 +140,7 @@ static int getPsshData(string attrName, string &psshData){
  * @brief API to get the DRM helper from the manifest attribute list, getDrmType
  * @param [in] Attribute list
  * 
- * @return AampDrmHelper - DRM Helper (nullptr in case of unexpected behaviour)
+ * @return AampDrmHelper - DRM Helper (nullptr in case of unexpected behavior)
  */
 static std::shared_ptr<AampDrmHelper> getDrmHelper(string attrName , bool bPropagateUriParams, bool bDecryptClearSamplesRequired){
 
@@ -201,7 +188,7 @@ shared_ptr<AampDrmHelper> ProcessContentProtection(PrivateInstanceAAMP *aamp, st
 
 	do
 	{
-		shared_ptr<AampDrmHelper> drmHelper = getDrmHelper(attrName, ISCONFIGSET(eAAMPConfig_PropogateURIParam), aamp->isDecryptClearSamplesRequired());
+		shared_ptr<AampDrmHelper> drmHelper = getDrmHelper(attrName, ISCONFIGSET(eAAMPConfig_PropagateURIParam), aamp->isDecryptClearSamplesRequired());
 		if (nullptr == drmHelper)
 		{
 			AAMPLOG_ERR("Failed to get DRM type/helper from manifest!");

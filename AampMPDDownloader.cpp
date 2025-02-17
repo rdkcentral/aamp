@@ -201,7 +201,7 @@ void AampMPDDownloader::Initialize(ManifestDownloadConfigPtr mpdDnldCfg, std::st
 
 	// Release and reset and previously called values
 	// Initialize to be called only once . If repeatedly called , then stored vars will be
-	// resetted
+	// reset
 	Release();
 	mReleaseCalled = false;
 
@@ -397,10 +397,10 @@ void AampMPDDownloader::downloadMPDThread1()
 		{
 			if( NULL != mMpdPreProcessFuncptr)
 			{
-				std::string updatedManfiest = mMpdPreProcessFuncptr();
-				if(!updatedManfiest.empty())
+				std::string updatedManifest = mMpdPreProcessFuncptr();
+				if(!updatedManifest.empty())
 				{
-					mMPDData->mMPDDownloadResponse->replaceDownloadData(updatedManfiest);
+					mMPDData->mMPDDownloadResponse->replaceDownloadData(updatedManifest);
 					mMPDData->mMPDDownloadResponse->iHttpRetValue = 200;
 				}
 				else
@@ -526,7 +526,7 @@ void AampMPDDownloader::downloadMPDThread1()
 			AAMPLOG_TRACE("Created copy of cachedDwnResp:%p backupDwnldResp:%p", mCachedMPDData->mMPDDownloadResponse.get(), cachedBackupData->mMPDDownloadResponse.get());
 			AAMPLOG_TRACE("Created copy of cachedMPDInst:%p backupMPDInst:%p", mCachedMPDData->mMPDInstance.get(), cachedBackupData->mMPDInstance.get());
 		}
-		//Wait for duration before refrehs
+		//Wait for duration before refresh
 		if(mMPDData->mIsLiveManifest && !mReleaseCalled)
 		{
 			refreshNeeded = waitForRefreshInterval();
@@ -588,7 +588,7 @@ void AampMPDDownloader::stichToCachedManifest(ManifestDownloadResponsePtr mpdToA
 {
 	// check if any big manifest already downloaded ,
 	// If downloaded only , stich the current one to that , if not ignore
-	AAMPLOG_INFO("Stiching [%s] to [%s]",mMPDDnldCfg->mTuneUrl.c_str(), mMPDDnldCfg->mStichUrl.c_str());
+	AAMPLOG_INFO("Stitching [%s] to [%s]",mMPDDnldCfg->mTuneUrl.c_str(), mMPDDnldCfg->mStichUrl.c_str());
 	if(mCachedMPDData != nullptr)
 	{
 		// call API to Merge
@@ -703,7 +703,7 @@ void AampMPDDownloader::pushDownloadDataToQueue()
 		mMPDBufferQ.pop();
 	}
 	// Add the new item to the end of the queue - 1st iteration
-	// If Cached MPD ( Stiched MPD is present, then push that to Q) , else push single downloaded MPD
+	// If Cached MPD ( Stitched MPD is present, then push that to Q) , else push single downloaded MPD
 	if(mCachedMPDData != nullptr)
 		mMPDBufferQ.push(mCachedMPDData);
 	else
@@ -765,7 +765,7 @@ ManifestDownloadResponsePtr AampMPDDownloader::GetManifest(bool bWait, int iWait
 				// check if it exited the timer due to Release call
 				if(mReleaseCalled)
 				{
-					// Relese called , so send error
+					// Release called , so send error
 					respPtr->mMPDDownloadResponse->iHttpRetValue = CURLE_ABORTED_BY_CALLBACK;
 					AAMPLOG_INFO("GetManifest timer exited after Release call ...");
 					return respPtr;
@@ -898,17 +898,16 @@ bool AampMPDDownloader::isMPDLowLatency(std::shared_ptr<ManifestDownloadResponse
 					const std::vector<IAdaptationSet *> adaptationSets = period->GetAdaptationSets();
 					if (adaptationSets.size() > 0)
 					{
-						IAdaptationSet * pFirstAdaptation = adaptationSets.at(0);
+						const IAdaptationSet * pFirstAdaptation = adaptationSets.at(0);
 						if ( NULL != pFirstAdaptation )
 						{
-							ISegmentTemplate *pSegmentTemplate = NULL;
-							pSegmentTemplate = pFirstAdaptation->GetSegmentTemplate();
+							const ISegmentTemplate *pSegmentTemplate = pFirstAdaptation->GetSegmentTemplate();
 							if(pSegmentTemplate == NULL)
 							{
-								IRepresentation *representation = NULL;
-								representation = pFirstAdaptation->GetRepresentation().at(0);
-								if( NULL != representation)
+								const std::vector<IRepresentation *> representations = pFirstAdaptation->GetRepresentation();
+								if( representations.size()>0 )
 								{
+									const IRepresentation *representation = representations.at(0);
 									pSegmentTemplate = representation->GetSegmentTemplate();
 								}
 							}
@@ -1137,7 +1136,7 @@ void AampMPDDownloader::RegisterCallback(ManifestUpdateCallbackFunc fnPtr, void 
 
 /**
 * @fn UnRegisterCallback
-* @brief Unregisters the callback function for manifest update notifications.
+* @brief Unregister the callback function for manifest update notifications.
 */
 void AampMPDDownloader::UnRegisterCallback()
 {

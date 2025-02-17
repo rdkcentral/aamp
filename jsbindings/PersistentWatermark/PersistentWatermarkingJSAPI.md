@@ -31,7 +31,7 @@ Initial Release
 
 **Version:** 0.3
 **Release Notes:**
-Added persisent storage option to update.
+Added persistent storage option to update.
 
 ## Abbreviation Summary
     - AAMP      Advanced Adaptive Media Player
@@ -69,7 +69,7 @@ Calling this method will not have any effect on the display.
 | ---- | ---- | ---------- |
 | watermarkingOverlayPNG | ArrayBuffer | image data in .PNG format |
 | metadata | String | metadata associated with watermarkingOverlayPNG |
-| persistent | bool | (optional, default false) when true, in addition to being available immediatly avaliable to display using show() the watermark will be saved to the devices file system sot that it is also available following a reboot(s) (i.e. without a call to update() following the reboot).
+| persistent | bool | (optional, default false) when true, in addition to being available immediately available to display using show() the watermark will be saved to the devices file system sot that it is also available following a reboot(s) (i.e. without a call to update() following the reboot).
 
 ---
 
@@ -95,7 +95,7 @@ Generates a ShowSuccess or ShowFailed event on completion.
 
 | Name | Type | Description |
 | ---- | ---- | ---------- |
-| opacity | Number | Percentage multipler for alpha (0..100). Use 100 to honor original image's alpha values.  Smaller values will make watermark more translucent down to 0 (invisible). |
+| opacity | Number | Percentage multiplier for alpha (0..100). Use 100 to honor original image's alpha values.  Smaller values will make watermark more translucent down to 0 (invisible). |
 
 Example:
 ```js

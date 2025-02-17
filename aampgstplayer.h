@@ -184,7 +184,7 @@ public:
 	/**
          * @fn Pause
          * @param[in] pause flag to pause/play the pipeline
-         * @param[in] forceStopGstreamerPreBuffering - true for disabling bufferinprogress
+         * @param[in] forceStopGstreamerPreBuffering - true for disabling buffer-in-progress
          * @retval true if content successfully paused
          */
 	bool Pause(bool pause, bool forceStopGstreamerPreBuffering) override;

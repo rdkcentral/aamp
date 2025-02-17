@@ -18,7 +18,7 @@
 # limitations under the License.
 
 # default values
-OPTION_AAMP_BRANCH="dev_sprint_24_2"
+OPTION_AAMP_BRANCH="dev_sprint_25_1"
 OPTION_BUILD_DIR=""
 OPTION_BUILD_ARGS=""
 OPTION_CLEAN=false
@@ -37,7 +37,7 @@ OPTION_GOOGLETEST_REFERENCE="tags/release-1.11.0"
 
 function install_options_fn()
 {
-  # Parse optiona command line parameters
+  # Parse optional command line parameters
   while getopts ":d:b:cf:np:r:g:qs" OPT; do
     case ${OPT} in
       d ) # process option d install base directory name

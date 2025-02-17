@@ -110,7 +110,7 @@ private:
 	bool CheckCCHandle() const override{return mCCHandle!=NULL;}
 
 
-	void *mCCHandle{nullptr}; /**< Decoder handle for intializing CC resources */
+	void *mCCHandle{nullptr}; /**< Decoder handle for initializing CC resources */
 
 private:
 	std::mutex mIdLock{};

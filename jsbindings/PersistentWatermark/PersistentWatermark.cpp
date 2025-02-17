@@ -104,7 +104,7 @@ static JSValueRef PersistentWatermarkJS_getMetadata (JSContextRef ctx, JSObjectR
 	LOG_WARN_EX("PersistentWatermark.getMetadata()");
 	std::string metaDataStr = PersistentWatermark::Storage::getInstance().getMetadata();
 	const char* metaData = metaDataStr.c_str();
-	LOG_WARN_EX("successs metadata:%s",metaData);
+	LOG_WARN_EX("success metadata:%s",metaData);
 	return aamp_CStringToJSValue(ctx, metaData);
 }
 

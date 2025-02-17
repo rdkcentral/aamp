@@ -54,7 +54,7 @@ void AampSecManager::DestroyInstance()
 	std::lock_guard<std::mutex> lock{InstanceMutex};
 	if (Instance)
 	{
-		/* hide watermarking before secman shutdown */
+		/* hide watermarking before secmanager shutdown */
 		Instance->ShowWatermark(false);
 		delete Instance;
 		Instance = nullptr;
@@ -215,11 +215,11 @@ bool AampSecManager::AcquireLicenseOpenOrUpdate(PrivateInstanceAAMP* aamp, const
 	
 	//Initializing it with default error codes (which would be sent if there any jsonRPC
 	//call failures to thunder)
-	*statusCode = SECMANGER_DRM_FAILURE;
-	*reasonCode = SECMANGER_DRM_GEN_FAILURE;
+	*statusCode = SECMANAGER_DRM_FAILURE;
+	*reasonCode = SECMANAGER_DRM_GEN_FAILURE;
 	
 	//Shared memory pointer, key declared here,
-	//Access token, content metadata and licnese request will be passed to
+	//Access token, content metadata and licence request will be passed to
 	//secmanager via shared memory
 	void * shmPt_accToken = NULL;
 	key_t shmKey_accToken = 0;
@@ -386,10 +386,10 @@ bool AampSecManager::AcquireLicenseOpenOrUpdate(PrivateInstanceAAMP* aamp, const
 					//DRM license service network timeout / Request/network time out (3).
 					//DRM license network connection failure/Watermark vendor-access service connection failure (4)
 					//DRM license server busy/Watermark service busy (5)
-					if((*statusCode == SECMANGER_DRM_FAILURE || *statusCode == SECMANGER_WM_FAILURE) &&
-					   (*reasonCode == SECMANGER_SERVICE_TIMEOUT ||
-						*reasonCode == SECMANGER_SERVICE_CON_FAILURE ||
-						*reasonCode == SECMANGER_SERVICE_BUSY ) && retryCount < MAX_LICENSE_REQUEST_ATTEMPTS)
+					if((*statusCode == SECMANAGER_DRM_FAILURE || *statusCode == SECMANAGER_WM_FAILURE) &&
+					   (*reasonCode == SECMANAGER_SERVICE_TIMEOUT ||
+						*reasonCode == SECMANAGER_SERVICE_CON_FAILURE ||
+						*reasonCode == SECMANAGER_SERVICE_BUSY ) && retryCount < MAX_LICENSE_REQUEST_ATTEMPTS)
 					{
 						++retryCount;
 						AAMPLOG_WARN("SecManager license request failed, response for %s : statusCode: %d, reasonCode: %d, so retrying with delay %d, retry count : %u", apiName, *statusCode, *reasonCode, sleepTime, retryCount );
@@ -499,7 +499,7 @@ void AampSecManager::ReleaseSession(int64_t sessionId)
 	{
 		AAMPLOG_ERR("%s:%d SecManager closePlaybackSession failed for ID: %" PRId64 "", __FUNCTION__, __LINE__, sessionId);
 	}
-	/*Clear aampInstanse pointer*/
+	/*Clear aampInstance pointer*/
 	mAamp = NULL;
 }
 
@@ -918,7 +918,7 @@ void AampSecManager::DeleteWatermark(int graphicId)
 }
 
 /**
- *  @brief Update Wateramrk
+ *  @brief Update Watermark
  */
 void AampSecManager::UpdateWatermark(int graphicId, int smKey, int smSize )
 {

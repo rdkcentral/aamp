@@ -31,7 +31,7 @@
 // Map of profile bitrate(Bits per sec) and CProfileInfo
 // 0 is reserved for Main HLS manifest or DASH manifest
 typedef std::map<long, CProfileInfo> MapProfileInfo;
-typedef std::map<Track, MapProfileInfo>  MapStreamInfo; // collection of all Audip/Video/Profile info
+typedef std::map<Track, MapProfileInfo>  MapStreamInfo; // collection of all Audio/Video/Profile info
 typedef std::map<Track, CLicenseStatistics>  MapLicenceInfo; // Licence stats for each track
 typedef std::map<Track, CFragmentStatistics> MapAdStreamInfo; //collection of ad audio/video fragments statistics
 
@@ -200,11 +200,11 @@ public:
 	 *   @fn Record_License_EncryptionStat
 	 *
 	 *   @param[in] VideoStatTrackType - Indicates track
-	 *   @param[in] isEncypted - Indicates clear(false) or encrypted ( true)
+	 *   @param[in] isEncrypted - Indicates clear(false) or encrypted ( true)
 	 *   @param[in] isKeyChanged - indicates if key is changed for encrypted fragment
 	 *   @return None
 	 */
-	void Record_License_EncryptionStat(VideoStatTrackType eType, bool isEncypted, bool isKeyChanged, int audioIndex = 1);
+	void Record_License_EncryptionStat(VideoStatTrackType eType, bool isEncrypted, bool isKeyChanged, int audioIndex = 1);
 
 	/**
 	 *   @fn Increment_Data

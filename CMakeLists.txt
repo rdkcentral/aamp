@@ -258,6 +258,7 @@ set(LIBAAMP_HEADERS AampCacheHandler.h
 					lstring.hpp
 					scte35/AampSCTE35.h
 					Accessibility.hpp
+					AampTrackWorker.h
 )
 
 set(LIBAAMP_SOURCES iso639map.cpp
@@ -330,6 +331,7 @@ set(LIBAAMP_SOURCES iso639map.cpp
 					AampTsbDataManager.cpp
 					AampTsbReader.cpp
 					scte35/AampSCTE35.cpp
+					AampTrackWorker.cpp
 )
 
 if (CMAKE_WPEFRAMEWORK_REQUIRED)

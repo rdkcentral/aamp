@@ -65,13 +65,31 @@ bool Get::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 					break;
 
 				case 33:
-					if (is_digit)
-						sscanf(cmd, "get %d %d %d",&opt, &value1, &value2);
-					else
-						sscanf(cmd, "get thumbnailData %d %d", &value1, &value2);
+				{
+					int strip_formatting = 0;
 
-					printf("[AAMPCLI] GETTING THUMBNAIL TIME RANGE DATA for duration (%d,%d): %s\n complete.\n",
-						value1, value2, playerInstanceAamp->GetThumbnails(value1, value2).c_str());
+					if (is_digit)
+					{
+						sscanf(cmd, "get %d %d %d %d", &opt, &value1, &value2, &strip_formatting);
+					}
+					else
+					{
+						sscanf(cmd, "get thumbnailData %d %d %d", &value1, &value2, &strip_formatting);
+					}
+					std::string json = playerInstanceAamp->GetThumbnails(value1, value2);
+					if (strip_formatting)
+					{
+						//strip formatting so easy to read from l2test
+						json.erase(remove(json.begin(), json.end(), '\n'), json.end());
+						json.erase(remove(json.begin(), json.end(), '\t'), json.end());
+						printf("[AAMPCLI] GETTING THUMBNAIL TIME RANGE DATA %s\n", json.c_str());
+					}
+					else
+					{
+						printf("[AAMPCLI] GETTING THUMBNAIL TIME RANGE DATA for duration (%d,%d): %s\n complete.\n",
+							   value1, value2, json.c_str());
+					}
+				}
 					break;
 
 				case 24:
@@ -233,8 +251,8 @@ bool Get::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 					}
 				case 18:
 					{
-						std::string prefferedLanguages = playerInstanceAamp->GetPreferredLanguages();
-						printf("[AAMPCLI] PREFERRED LANGUAGES = \"%s\"\n", prefferedLanguages.c_str() );
+						std::string preferredLanguages = playerInstanceAamp->GetPreferredLanguages();
+						printf("[AAMPCLI] PREFERRED LANGUAGES = \"%s\"\n", preferredLanguages.c_str() );
 						break;
 					}
 
@@ -315,7 +333,7 @@ void Get::registerGetCommands()
 	addCommand(30,"ccStatus","Get CC Status");
 	addCommand(31,"textTrack","Get Text Track");
 	addCommand(32,"thumbnailConfig","Get Available ThumbnailTracks");
-	addCommand(33,"thumbnailData","Get Thumbnail timerange data(int startpos, int endpos)");
+	addCommand(33,"thumbnailData","Get Thumbnail timerange <int_startpos int_endpos [int_format]> ");
 	addCommand(34,"availableVideoTracks","Get All Available Video Tracks information from manifest");
 	addCommand(35,"live","Report if playback is logically from live edge");
 	addCommand(36,"playbackQuality","Get playback quality info");

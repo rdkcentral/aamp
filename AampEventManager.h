@@ -157,40 +157,40 @@ public:
 	void SendEvent(const AAMPEventPtr &eventData, AAMPEventMode eventMode=AAMP_EVENT_DEFAULT_MODE);
 	/**
 	 * @fn AddListenerForAllEvents
-	 * @param eventListener - listerner for events
+	 * @param eventListener - listener for events
 	 * @return void
 	 */
 	void AddListenerForAllEvents(EventListener* eventListener);
 	/**
 	 * @fn RemoveListenerForAllEvents
-	 * @param eventListener - listerner for events
+	 * @param eventListener - listener for events
 	 * @return void
 	 */	
 	void RemoveListenerForAllEvents(EventListener* eventListener);
 	/**
 	 * @fn AddEventListener
 	 * @param eventType - Aamp Event type
-	 * @param eventListener - listerner for events
+	 * @param eventListener - listener for events
 	 * @return void
 	 */
 	void AddEventListener(AAMPEventType eventType, EventListener* eventListener);
 	/**
 	 * @fn RemoveEventListener
 	 * @param eventType - Aamp Event type
-	 * @param eventListener - listerner for events
+	 * @param eventListener - listener for events
 	 * @return void
 	 */
 	void RemoveEventListener(AAMPEventType eventType, EventListener* eventListener);
 	/**
-	 * @fn IsEventListenerAvailable - Check if any listners present for this event
+	 * @fn IsEventListenerAvailable - Check if any listeners present for this event
 	 * @param eventType - Aamp Event Type
-	 * @return True if listner present
+	 * @return True if listener present
 	 */
 	bool IsEventListenerAvailable(AAMPEventType eventType);
 	/**
 	 * @fn IsSpecificEventListenerAvailable
 	 * @param eventType - Event Type
-	 * @return True if listner present
+	 * @return True if listener present
 	 */
 	bool IsSpecificEventListenerAvailable(AAMPEventType eventType);
 	/**

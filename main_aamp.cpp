@@ -143,7 +143,7 @@ PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink
 		}
 		gpGlobalConfig->ApplyDeviceCapabilities(platform);
 		
-		AAMPLOG_WARN("[AAMP_JS][%p]Creating GlobalConfig Instance[%p]",this,gpGlobalConfig);
+		AAMPLOG_MIL("[AAMP_JS][%p]Creating GlobalConfig Instance[%p]",this,gpGlobalConfig);
 		if(!gpGlobalConfig->ReadAampCfgTxtFile())
 		{
 			if(!gpGlobalConfig->ReadAampCfgJsonFile())
@@ -168,7 +168,7 @@ PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink
 
 #ifdef AAMP_BUILD_INFO
 		std::string tmpstr = MACRO_TO_STRING(AAMP_BUILD_INFO);
-		AAMPLOG_WARN(" AAMP_BUILD_INFO: %s",tmpstr.c_str());
+		AAMPLOG_MIL("AAMP_BUILD_INFO: %s",tmpstr.c_str());
 #endif
 	// Copy the default configuration to session configuration .
 	// App can modify the configuration set
@@ -211,7 +211,7 @@ PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink
 			std::shared_ptr<TSB::Store> tSBStore = std::make_shared<TSB::Store>(config, AampLogManager::aampLogger, level);
 			if(tSBStore)
 			{
-				/**< Creating new TSB store oobjecct will automatically flush the storage*/
+				/**< Creating new TSB store object will automatically flush the storage*/
 				AAMPLOG_WARN("[AAMP_PLAYER] TSB with path : %s !!", config.location.c_str());
 			}
 		}
@@ -325,7 +325,7 @@ void PlayerInstanceAAMP::Stop(bool sendStateChangeEvent)
 }
 
 /**
- * @brief older veriant for backwards compatibility - to be deprecated.
+ * @brief older variant for backwards compatibility - to be deprecated.
  */
 void PlayerInstanceAAMP::Tune(const char *mainManifestUrl, const char *contentType, bool bFirstAttempt, bool bFinalAttempt,const char *traceUUID,bool audioDecoderStreamSync)
 {
@@ -343,7 +343,7 @@ void PlayerInstanceAAMP::Tune(const char *mainManifestUrl,
 								const char *traceUUID,
 								bool audioDecoderStreamSync,
 								const char *refreshManifestUrl,
-								int mpdStichingMode,
+								int mpdStitchingMode,
 								std::string sid,
 								const char *manifestData
 								)
@@ -356,20 +356,20 @@ void PlayerInstanceAAMP::Tune(const char *mainManifestUrl,
 		const std::string sTraceUUID = (traceUUID != NULL)? std::string(traceUUID) : std::string();
 
 		mScheduler.ScheduleTask(AsyncTaskObj(
-			[manifest, autoPlay , cType, bFirstAttempt, bFinalAttempt, sTraceUUID, audioDecoderStreamSync, refreshManifestUrl, mpdStichingMode, sid,manifestData](void *data)
+			[manifest, autoPlay , cType, bFirstAttempt, bFinalAttempt, sTraceUUID, audioDecoderStreamSync, refreshManifestUrl, mpdStitchingMode, sid,manifestData](void *data)
 			{
 				PlayerInstanceAAMP *instance = static_cast<PlayerInstanceAAMP *>(data);
 				const char * trace_uuid = sTraceUUID.empty() ? nullptr : sTraceUUID.c_str();
 
 				instance->TuneInternal(manifest.c_str(), autoPlay, cType.c_str(), bFirstAttempt,
-										bFinalAttempt, trace_uuid, audioDecoderStreamSync, refreshManifestUrl, mpdStichingMode, std::move(sid),manifestData);
+										bFinalAttempt, trace_uuid, audioDecoderStreamSync, refreshManifestUrl, mpdStitchingMode, std::move(sid),manifestData);
 			},
 			(void *) this,
 			__FUNCTION__));
 	}
 	else
 	{
-		TuneInternal(mainManifestUrl, autoPlay , contentType, bFirstAttempt, bFinalAttempt,traceUUID,audioDecoderStreamSync, refreshManifestUrl, mpdStichingMode, std::move(sid),manifestData);
+		TuneInternal(mainManifestUrl, autoPlay , contentType, bFirstAttempt, bFinalAttempt,traceUUID,audioDecoderStreamSync, refreshManifestUrl, mpdStitchingMode, std::move(sid),manifestData);
 	}
 }
 
@@ -384,7 +384,7 @@ void PlayerInstanceAAMP::TuneInternal(const char *mainManifestUrl,
 										const char *traceUUID,
 										bool audioDecoderStreamSync,
 										const char *refreshManifestUrl,
-										int mpdStichingMode,
+										int mpdStitchingMode,
 										std::string sid,
 										const char* manifestData
 										)
@@ -417,7 +417,7 @@ void PlayerInstanceAAMP::TuneInternal(const char *mainManifestUrl,
 			StopInternal(false);
 		}
 		aamp->getAampCacheHandler()->StartPlaylistCache();
-		aamp->Tune(mainManifestUrl, autoPlay, contentType, bFirstAttempt, bFinalAttempt, traceUUID, audioDecoderStreamSync, refreshManifestUrl, mpdStichingMode, std::move(sid),manifestData);
+		aamp->Tune(mainManifestUrl, autoPlay, contentType, bFirstAttempt, bFinalAttempt, traceUUID, audioDecoderStreamSync, refreshManifestUrl, mpdStitchingMode, std::move(sid),manifestData);
 	}
 }
 
@@ -744,7 +744,7 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 			else if(AAMP_RATE_PAUSE != rate)
 			{
 				AAMPLOG_INFO("Player switched at trickplay %f", rate);
-				aamp->playerStartedWithTrickPlay = true; //to be used to show atleast one frame
+				aamp->playerStartedWithTrickPlay = true; //to be used to show at least one frame
 			}
 		}
 		bool retValue = true;
@@ -1104,15 +1104,15 @@ static gboolean SeekAfterPrepared(gpointer ptr)
 	if (aamp->mpStreamAbstractionAAMP)
 	{ // for seek while streaming
 
-		 /* PositionMilisecondLock is intended to ensure both state and seek_pos_seconds (in TuneHelper)
+		 /* PositionMillisecondLock is intended to ensure both state and seek_pos_seconds (in TuneHelper)
 		 * are updated before GetPositionMilliseconds() can be used*/
-		auto PositionMilisecondLocked = aamp->LockGetPositionMilliseconds();
+		auto PositionMillisecondLocked = aamp->LockGetPositionMilliseconds();
 		aamp->SetState(eSTATE_SEEKING);
 		/* Clear setting playerrate flag */
 		aamp->mSetPlayerRateAfterFirstframe=false;
 		aamp->AcquireStreamLock();
 		aamp->TuneHelper(tuneType);
-		if(PositionMilisecondLocked)
+		if(PositionMillisecondLocked)
 		{
 			aamp->UnlockGetPositionMilliseconds();
 		}
@@ -1205,7 +1205,7 @@ void PlayerInstanceAAMP::SeekInternal(double secondsRelativeToTuneTime, bool kee
 			}
 			else
 			{
-				// Rewind over AD using Seek(-1) is impemented only for DASH, so restoring old code for non DASH.
+				// Rewind over AD using Seek(-1) is implemented only for DASH, so restoring old code for non DASH.
 				if (aamp->mMediaFormat == eMEDIAFORMAT_DASH)
 				{
 					tuneType = eTUNETYPE_SEEKTOEND;
@@ -1296,9 +1296,9 @@ void PlayerInstanceAAMP::SeekInternal(double secondsRelativeToTuneTime, bool kee
 		}
 
 		/*
-		 * PositionMilisecondLock is intended to ensure both state and seek_pos_seconds
+		 * PositionMillisecondLock is intended to ensure both state and seek_pos_seconds
 		 * are updated before GetPositionMilliseconds() can be used*/
-		auto PositionMilisecondLocked = aamp->LockGetPositionMilliseconds();
+		auto PositionMillisecondLocked = aamp->LockGetPositionMilliseconds();
 
 		if (tuneType == eTUNETYPE_SEEK)
 		{
@@ -1323,7 +1323,7 @@ void PlayerInstanceAAMP::SeekInternal(double secondsRelativeToTuneTime, bool kee
 		if (aamp->mpStreamAbstractionAAMP)
 		{ // for seek while streaming
 			aamp->SetState(eSTATE_SEEKING);
-			if(PositionMilisecondLocked)
+			if(PositionMillisecondLocked)
 			{
 				aamp->UnlockGetPositionMilliseconds();
 			}
@@ -1337,7 +1337,7 @@ void PlayerInstanceAAMP::SeekInternal(double secondsRelativeToTuneTime, bool kee
 				aamp->NotifySpeedChanged(aamp->rate, false);
 			}
 		}
-		else if(PositionMilisecondLocked)
+		else if(PositionMillisecondLocked)
 		{
 			aamp->UnlockGetPositionMilliseconds();
 		}
@@ -1663,7 +1663,7 @@ void PlayerInstanceAAMP::SubscribeResponseHeaders(std::vector<std::string> respo
 	for (int header=0; header < responseHeaders.size(); header++) {
 	    AAMPLOG_INFO("    responseHeaders[%d] = '%s'", header, responseHeaders.at(header).data());
 	}
-	} // end of if aaamp
+	} // end of if aamp
 }
 
 #ifdef SUPPORT_JS_EVENTS
@@ -2330,7 +2330,7 @@ void PlayerInstanceAAMP::SetBulkTimedMetaReport(bool bValue)
 }
 
 /**
- *  @brief Set the flag if live playback needs bulktime metadata.
+ *  @brief Set the flag if live playback needs bulk timed metadata.
  */
 void PlayerInstanceAAMP::SetBulkTimedMetaReportLive(bool bValue)
 {
@@ -2502,7 +2502,7 @@ void PlayerInstanceAAMP::SetMatchingBaseUrlConfig(bool bValue)
 void PlayerInstanceAAMP::SetNewABRConfig(bool bValue)
 {
 	SETCONFIGVALUE(AAMP_APPLICATION_SETTING,eAAMPConfig_ABRBufferCheckEnabled,bValue);
-	// Piggybagged following setting along with NewABR for Peacock
+	// Piggybacked following setting along with NewABR for Peacock
 	SETCONFIGVALUE(AAMP_APPLICATION_SETTING,eAAMPConfig_NewDiscontinuity,bValue);
 	SETCONFIGVALUE(AAMP_APPLICATION_SETTING,eAAMPConfig_HLSAVTrackSyncUsingStartTime,bValue);
 }
@@ -2512,7 +2512,7 @@ void PlayerInstanceAAMP::SetNewABRConfig(bool bValue)
  */
 void PlayerInstanceAAMP::SetPropagateUriParameters(bool bValue)
 {
-	SETCONFIGVALUE(AAMP_APPLICATION_SETTING,eAAMPConfig_PropogateURIParam,bValue);
+	SETCONFIGVALUE(AAMP_APPLICATION_SETTING,eAAMPConfig_PropagateURIParam,bValue);
 }
 
 /**
@@ -2609,7 +2609,7 @@ void PlayerInstanceAAMP::SetPreferredRenditions(const char *renditionList)
 }
 
 /**
- *  @brief Get preferred audio prioperties
+ *  @brief Get preferred audio properties
  */
 std::string PlayerInstanceAAMP::GetPreferredAudioProperties()
 {
@@ -2617,9 +2617,9 @@ std::string PlayerInstanceAAMP::GetPreferredAudioProperties()
 }
 
 /**
- *   @brief Get preferred text prioperties
+ *   @brief Get preferred text properties
  *
- *   @return text preferred proprties in json format
+ *   @return text preferred properties in json format
  */
 std::string PlayerInstanceAAMP::GetPreferredTextProperties()
 {
@@ -2671,7 +2671,7 @@ void PlayerInstanceAAMP::SetNewAdBreakerConfig(bool bValue)
 /**
  *   @brief Set json formatted base64 license data payload
  */
-void PlayerInstanceAAMP::Setb64LicenseWrapping(bool bValue)
+void PlayerInstanceAAMP::SetBase64LicenseWrapping(bool bValue)
 {
 	SETCONFIGVALUE(AAMP_APPLICATION_SETTING, eAAMPConfig_Base64LicenseWrapping, bValue);
 }
@@ -3268,7 +3268,7 @@ void PlayerInstanceAAMP::SetAuxiliaryLanguage(const std::string &language)
 }
 
 /**
- *  @brief Set auxiluerry track language.
+ *  @brief Set auxiliary track language.
  */
 void PlayerInstanceAAMP::SetAuxiliaryLanguageInternal(const std::string &language)
 {
@@ -3358,10 +3358,10 @@ void PlayerInstanceAAMP::ProcessContentProtectionDataConfig(const char *jsonbuff
 		empty_config = cJSON_GetArraySize(cfgdata);
 		if(cfgdata)
 		{
-			cJSON *arryitem = cJSON_GetObjectItem(cfgdata, "keyID" );
-			if(arryitem) {
+			cJSON *arrayItem = cJSON_GetObjectItem(cfgdata, "keyID" );
+			if(arrayItem) {
 				cJSON *iterator = NULL;
-				cJSON_ArrayForEach(iterator, arryitem) {
+				cJSON_ArrayForEach(iterator, arrayItem) {
 					if (cJSON_IsNumber(iterator)) {
 						tempKeyId.push_back(iterator->valueint);
 					}

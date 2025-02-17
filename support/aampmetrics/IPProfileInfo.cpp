@@ -59,7 +59,7 @@ cJSON * CProfileInfo::ToJson() const
 			if(mWidth > 0)
 			{
 					jsonObj =  cJSON_CreateNumber(mWidth);
-					cJSON_AddItemToObject(monitor, TAG_PROFILE_WDITH, jsonObj);
+					cJSON_AddItemToObject(monitor, TAG_PROFILE_WIDTH, jsonObj);
 			}
 
 			if(mHeight > 0)

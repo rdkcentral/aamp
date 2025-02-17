@@ -78,7 +78,7 @@ namespace {
 			| (unsigned long long) ptr[1] << 24 | (unsigned long long) ptr[2] << 16
 			| (unsigned long long) ptr[3] << 8 | (unsigned long long) ptr[4];
 		unsigned long long timeStamp = 0;
-		timeStamp |= (v >> 3) & (0x0007ULL << 30); // top 3 bits, shifted left by 3, other bits zeroed out
+		timeStamp |= (v >> 3) & (0x0007ULL << 30); // top 3 bits, shifted left by 3, other bits zero
 		timeStamp |= (v >> 2) & (0x7fff << 15); // middle 15 bits
 		timeStamp |= (v >> 1) & (0x7fff << 0); // bottom 15 bits
 
@@ -398,7 +398,7 @@ void Demuxer::processPacket(const unsigned char * packetStart, bool &basePtsUpda
 					* But this audio TS packet got processed, and PES packet start code
 					* is not available in that packet.
 					* This is the first audio TS packet got in the middle of playback and
-					* current_pts is not updated, and the pts was deafult initalized value.
+					* current_pts is not updated, and the pts was default initialized value.
 					* So we returned the PTS error from this api, as current_pts is less than
 					* base_pts value.
 					* Now we have avoided the pts check if the current_pts is not updated for

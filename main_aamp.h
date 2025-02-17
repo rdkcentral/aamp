@@ -156,10 +156,12 @@ typedef std::vector < PreCacheUrlStruct> PreCacheUrlList;
  */
 typedef enum
 {
-    ISO639_NO_LANGCODE_PREFERENCE,
-    ISO639_PREFER_3_CHAR_BIBLIOGRAPHIC_LANGCODE,
-    ISO639_PREFER_3_CHAR_TERMINOLOGY_LANGCODE,
-    ISO639_PREFER_2_CHAR_LANGCODE
+	ISO639_NO_LANGCODE_PREFERENCE, /**< AAMP will not normalize language codes - the client must use
+									  language codes that match the manifest when specifying audio
+									  or subtitle tracks, for example. */
+	ISO639_PREFER_3_CHAR_BIBLIOGRAPHIC_LANGCODE,
+	ISO639_PREFER_3_CHAR_TERMINOLOGY_LANGCODE,
+	ISO639_PREFER_2_CHAR_LANGCODE
 } LangCodePreference;
 
 /**
@@ -184,13 +186,13 @@ struct AudioTrackInfo
 	std::string rendition;			/**< role for DASH, group-id for HLS */
 	std::string name;			/**< Name of track info */
 	std::string codec;			/**< Codec of Audio track */
-	std::string characteristics;		/**< Charesterics field of audio track */
+	std::string characteristics;		/**< Characteristics field of audio track */
 	std::string label;			/**< label of audio track info */
 	int channels;				/**< number channels of track */
 	long bandwidth;				/**< Bandwidth value of track **/
 	int primaryKey; 			/**< used for ATSC to store key , this should not be exposed to app */
-	std::string contentType; 		/**< used for ATSC to propogate content type */
-	std::string mixType; 			/**< used for ATSC to propogate mix type */
+	std::string contentType; 		/**< used for ATSC to propagate content type */
+	std::string mixType; 			/**< used for ATSC to propagate mix type */
 	std::string accessibilityType; 	 	/**< value of Accessibility */
 	bool isMuxed; 				/**< Flag to indicated muxed audio track ; this is used by AC4 tracks */
 	Accessibility accessibilityItem; 	/**< Field to store Accessibility Node */
@@ -198,9 +200,9 @@ struct AudioTrackInfo
 	bool isAvailable;
 	bool isDefault;
 
-	AudioTrackInfo() : index(), language(), rendition(), name(), codec(), characteristics(), channels(0), 
+	AudioTrackInfo() : index(), language(), rendition(), name(), codec(), characteristics(), channels(0),
 	bandwidth(0),primaryKey(0), contentType(), mixType(), accessibilityType(), isMuxed(false), label(), mType(), accessibilityItem(), isAvailable(true),
-	isDefault(false) 
+	isDefault(false)
 	{
 	}
 
@@ -253,18 +255,18 @@ struct AudioTrackInfo
 	{
 	}
 
-	AudioTrackInfo(std::string idx, std::string lang, std::string rend, std::string trackName, std::string codecStr, long bw, std::string typ, bool muxed, std::string lab, std::string type, Accessibility accessbility, bool available):
+	AudioTrackInfo(std::string idx, std::string lang, std::string rend, std::string trackName, std::string codecStr, long bw, std::string typ, bool muxed, std::string lab, std::string type, Accessibility accessibility, bool available):
 		index(idx), language(lang), rendition(rend), name(trackName),
-		codec(codecStr), characteristics(), channels(0), bandwidth(bw),primaryKey(0), contentType(), mixType(), accessibilityType(typ), isMuxed(muxed), label(lab), mType(type), accessibilityItem(accessbility),
+		codec(codecStr), characteristics(), channels(0), bandwidth(bw),primaryKey(0), contentType(), mixType(), accessibilityType(typ), isMuxed(muxed), label(lab), mType(type), accessibilityItem(accessibility),
 		isAvailable(available),isDefault(false)
 	{
 	}
 
 	bool operator == (const AudioTrackInfo& track) const
 	{
-		return ((language == track.language) &&	
-			(rendition == track.rendition) &&	
-			(contentType == track.contentType) &&	
+		return ((language == track.language) &&
+			(rendition == track.rendition) &&
+			(contentType == track.contentType) &&
 			(codec == track.codec) &&
 			(channels == track.channels) &&
 			(bandwidth == track.bandwidth) &&
@@ -300,25 +302,38 @@ struct TextTrackInfo
 	std::string instreamId;
 	std::string characteristics;
 	std::string codec;
-	std::string label; //Field for label	
+	std::string label; //Field for label
 	int primaryKey; // used for ATSC to store key , this should not be exposed to app.
 	std::string accessibilityType; //value of Accessibility
 	Accessibility accessibilityItem; /**< Field to store Accessibility Node */
 	std::string mType;
 	bool isAvailable;
 
+	//setter functions to reduce the number of parameters in constructor
+	void setLanguage(const std::string& lang) { language = lang; }
+	void setName(const std::string& trackName) { name = trackName; }
+	void setInstreamId(const std::string& id) { instreamId = id; }
+	void setCharacteristics(const std::string& cha) { characteristics = cha; }
+	void setCodec(const std::string& codecStr) { codec = codecStr; }
+	void setLabel(const std::string& lab) { label = lab; }
+	void setPrimaryKey(int pk) { primaryKey = pk; }
+	void setAccessibilityType(const std::string& accType) { accessibilityType = accType; }
+	void setAccessibilityItem(const Accessibility& acc) { accessibilityItem = acc; }
+	void setType(const std::string& type) { mType = type; }
+	void setAvailable(bool available) { isAvailable = available; }
+
 	TextTrackInfo() : index(), language(), isCC(false), rendition(), name(), instreamId(), characteristics(), codec(), primaryKey(0), accessibilityType(), label(), mType(), accessibilityItem(),
 			  isAvailable(true)
 	{
 	}
 
-	TextTrackInfo(std::string idx, std::string lang, bool cc, std::string rend, std::string trackName, std::string id, std::string cha):
-		index(idx), language(lang), isCC(cc), rendition(rend),
-		name(trackName), instreamId(id), characteristics(cha),
-		codec(), primaryKey(0), accessibilityType(), label(), mType(), accessibilityItem(), isAvailable(true)
+	//2 parameter constructor
+	TextTrackInfo(bool cc, std::string rend):
+		isCC(cc), rendition(rend), index(), language(), name(), instreamId(), characteristics(), codec(), primaryKey(0), accessibilityType(), label(), mType(), accessibilityItem(), isAvailable(true)
 	{
 	}
 
+	//8 parameter constructor
 	TextTrackInfo(std::string idx, std::string lang, bool cc, std::string rend, std::string trackName, std::string id, std::string cha, int pk):
 		index(idx), language(lang), isCC(cc), rendition(rend),
 		name(trackName), instreamId(id), characteristics(cha),
@@ -326,47 +341,34 @@ struct TextTrackInfo
 	{
 	}
 
-	TextTrackInfo(std::string idx, std::string lang, bool cc, std::string rend, std::string trackName, std::string codecStr, std::string cha, std::string typ):
+	//12 parameter full constructor
+	TextTrackInfo(std::string idx, std::string lang, bool cc, std::string rend, std::string trackName, std::string codecStr, std::string cha, std::string accType, std::string lab, std::string type, Accessibility acc, bool available):
 		index(idx), language(lang), isCC(cc), rendition(rend),
 		name(trackName), instreamId(), characteristics(cha),
-		codec(codecStr), primaryKey(0), accessibilityType(typ), label(), mType(), accessibilityItem(), isAvailable(true)
-	{
-	}
-	
-	TextTrackInfo(std::string idx, std::string lang, bool cc, std::string rend, std::string trackName, std::string id, std::string cha, std::string typ, std::string lab, std::string type):
-		index(idx), language(lang), isCC(cc), rendition(rend),
-		name(trackName), instreamId(id), characteristics(cha),
-		codec(), primaryKey(0), accessibilityType(typ), label(lab), mType(type), accessibilityItem(), isAvailable(true)
+		codec(codecStr), primaryKey(0), accessibilityType(accType), label(lab), mType(type), accessibilityItem(acc), isAvailable(available)
 	{
 	}
 
-	TextTrackInfo(std::string idx, std::string lang, bool cc, std::string rend, std::string trackName, std::string codecStr, std::string cha, std::string typ, std::string lab, std::string type, Accessibility acc, bool available):
-		index(idx), language(lang), isCC(cc), rendition(rend),
-		name(trackName), instreamId(), characteristics(cha),
-		codec(codecStr), primaryKey(0), accessibilityType(typ), label(lab), mType(type), accessibilityItem(acc), isAvailable(available)
+	void set (std::string idx, std::string lang, bool cc, std::string rend, std::string trackName, std::string codecStr, std::string cha,
+			std::string accType, std::string lab, std::string type, Accessibility acc)
 	{
-	}
-
-	void set (std::string idx, std::string lang, bool cc, std::string rend, std::string trackName, std::string codecStr, std::string cha, 
-			std::string acctyp, std::string lab, std::string type, Accessibility acc)
-	{
-		index = idx; 
+		index = idx;
 		language = lang;
 		isCC = cc;
 		rendition = rend;
-		name = trackName; 
+		name = trackName;
 		characteristics = cha;
-		codec = codecStr; 
-		accessibilityType = acctyp;
-		label = lab; 
+		codec = codecStr;
+		accessibilityType = accType;
+		label = lab;
 		accessibilityItem = acc;
 		mType = type;
 	}
 
 	bool operator == (const TextTrackInfo& track) const
 	{
-		return ((language == track.language) &&	
-			(isCC == track.isCC) &&	
+		return ((language == track.language) &&
+			(isCC == track.isCC) &&
 			(rendition == track.rendition) &&
 			(name == track.name) &&
 			(characteristics == track.characteristics) &&
@@ -504,7 +506,7 @@ public:
 	 *   @brief Enabled or disable playback pause
 	 *
 	 *   @param[in] pause  Enable/Disable
-	 *   @param[in] forceStopGstreamerPreBuffering - true for disabling bufferinprogress
+	 *   @param[in] forceStopGstreamerPreBuffering - true for disabling buffer-in-progress
 	 *   @return true if content successfully paused
 	 */
 	virtual bool Pause(bool pause, bool forceStopGstreamerPreBuffering){ return true; }
@@ -611,7 +613,7 @@ public:
 	virtual bool CheckForPTSChangeWithTimeout(long timeout) { return true; }
 
 	/**
-	 *   @brief Check whether cach is empty
+	 *   @brief Check whether cache is empty
 	 *
 	 *   @param[in]  mediaType - Media Type
 	 *   @return true: empty, false: not empty
@@ -710,7 +712,7 @@ public:
 
 	/**
 	 * @brief API to set track Id to audio sync property in case of AC4 audio
-	 * 
+	 *
 	 * @param[in] trackId - AC4 track Id parsed by aamp based of preference
 	 * @return bol sttaus of API
 	 */
@@ -740,19 +742,19 @@ public:
 
 /**
  * @class PlayerInstanceAAMP
- * @brief Player interface class for the JS pluggin.
+ * @brief Player interface class for the JS plugin.
  */
-class PlayerInstanceAAMP 
+class PlayerInstanceAAMP
 {
 public: // FIXME: this should be private, but some tests access it
 	class PrivateInstanceAAMP *aamp;  		  /**< AAMP player's private instance */
 
 private:
 	std::shared_ptr<PrivateInstanceAAMP> sp_aamp; 	  /**< shared pointer for aamp resource */
-	
+
 public:
 	AampConfig mConfig;
-	
+
 	/**
 	 *   @fn PlayerInstanceAAMP
 	 *
@@ -834,7 +836,7 @@ public:
 				const char *traceUUID = NULL,
 				bool audioDecoderStreamSync = true,
 				const char *refreshManifestUrl = NULL,
-				int mpdStichingMode = 0,
+				int mpdStitchingMode = 0,
 				std::string sid = std::string{},
 				const char *manifestData = NULL);
 
@@ -844,7 +846,7 @@ public:
 	 *   @return void
 	 */
 	void Stop(bool sendStateChangeEvent = true);
-	
+
 	/**
 	 *   @fn ResetConfiguration
 	 *   @return void
@@ -879,7 +881,7 @@ public:
 
 	/**
 	 *   @fn PauseAt
-	 * 
+	 *
 	 *       Any subsequent call to this method will override the previous call.
 	 *
 	 *   @param[in]  position - Absolute position within the asset for VOD or
@@ -902,7 +904,7 @@ public:
 	 *   @fn SeekToLive
 	 *
 	 *   @param[in]  keepPaused - set true if want to keep paused state after seek
-	 *   @return void	
+	 *   @return void
 	 */
 	void SeekToLive(bool keepPaused = false);
 
@@ -1060,15 +1062,15 @@ public:
 	 *   @return bool - True if live content, false otherwise
 	 */
 	bool IsLive();
-	
+
 	/**
 	 *   @fn  IsJsInfoLoggingEnabled
 	 *
 	 *   @return bool - True if jsinfo is enabled, false otherwise
 	 */
-	 
+
 	 bool IsJsInfoLoggingEnabled();
-	
+
 
 	/**
 	 *   @brief Schedule insertion of ad at given position.
@@ -1085,7 +1087,7 @@ public:
 	 *   @return const char* - current audio language
 	 */
 	std::string GetAudioLanguage();
- 
+
 	const char * GetCurrentAudioLanguage(); // stub for pxVideo.cpp backwards compatibility - TBR
 
 	/**
@@ -1105,7 +1107,7 @@ public:
 	 *   @fn AddCustomHTTPHeader
 	 *
 	 *   @param[in]  headerName - Name of custom HTTP header
-	 *   @param[in]  headerValue - Value to be pased along with HTTP header.
+	 *   @param[in]  headerValue - Value to be passed along with HTTP header.
 	 *   @param[in]  isLicenseHeader - true if header is to be used for license HTTP requests
 	 *   @return void
 	 */
@@ -1192,7 +1194,7 @@ public:
 	/**
 	 *   @fn SetPreCacheTimeWindow
 	 *
-	 *   @param nTimeWindow Time in minutes - Max PreCache Time 
+	 *   @param nTimeWindow Time in minutes - Max PreCache Time
 	 *   @return void
 	 */
 	void SetPreCacheTimeWindow(int nTimeWindow);
@@ -1401,7 +1403,7 @@ public:
 
 	/**
 	 *   @fn SetNetworkTimeout
-	 *   
+	 *
 	 *   @param[in] timeout preferred timeout value
 	 *   @return void
 	 */
@@ -1495,7 +1497,7 @@ public:
 	 *   @return void
 	 */
 	void SetParallelPlaylistDL(bool bValue);
-	
+
 	 /**
          *   @fn ManageAsyncTuneConfig
          *   @param[in] url - main manifest url
@@ -1506,7 +1508,7 @@ public:
 
 	/**
 	 *   @fn SetAsyncTuneConfig
-	 *   @param[in] bValue - true if async tune enabled 
+	 *   @param[in] bValue - true if async tune enabled
 	 *
 	 *   @return void
 	 */
@@ -1538,7 +1540,7 @@ public:
 
 	/**
          *      @fn SetOutputResolutionCheck
-         *      @param[in] bValue - true/false to enable/disable profile filtering by display resoluton
+         *      @param[in] bValue - true/false to enable/disable profile filtering by display resolution
          *
          *      @return void
          */
@@ -1591,15 +1593,15 @@ public:
 	 *   @return void
 	 */
 	void SetNewAdBreakerConfig(bool bValue);
-    
+
 	/**
-	 *   @fn Setb64LicenseWrapping
+	 *   @fn SetBase64LicenseWrapping
 	 *   @param[in] bValue - true if json formatted base64 license data payload is expected
 	 *
 	 *   @return void
 	 */
-	void Setb64LicenseWrapping(bool bValue);
-    
+	void SetBase64LicenseWrapping(bool bValue);
+
 	/**
 	 *   @fn GetAvailableVideoTracks
 	 *
@@ -1610,7 +1612,7 @@ public:
 	/**
 	 *   @fn SetVideoTracks
 	 *   @param[in] bitrate - video bitrate list
-	 *   
+	 *
 	 *   @return void
 	 */
 	void SetVideoTracks(std::vector<BitsPerSecond> bitrates);
@@ -1628,7 +1630,7 @@ public:
 	std::string GetAvailableTextTracks(bool allTrack = false);
 
 	/**
-	 *   @fn GetVideoRectangle 
+	 *   @fn GetVideoRectangle
 	 *
 	 *   @return current video co-ordinates in x,y,w,h format
 	 */
@@ -1660,15 +1662,15 @@ public:
 
 
 	/**
-	 *   @fn SetPreferredTextLanguages 
+	 *   @fn SetPreferredTextLanguages
 	 *   @param[in] languageList - string with comma-delimited language list in ISO-639
 	 *   @return void
 	 */
-	void SetPreferredTextLanguages(const char* param); 
+	void SetPreferredTextLanguages(const char* param);
 
 	/**
 	 *   @fn SetAudioTrack
-	 *   @param[in] language - Language to set 
+	 *   @param[in] language - Language to set
 	 *   @param[in] rendition - Role/rendition to set
 	 *   @param[in] codec - Codec to set
 	 *   @param[in] channel - Channel number to set
@@ -1762,13 +1764,13 @@ public:
 
 	/**
 	 * @fn GetMaximumBitrate
-	 * @return Max bit rate value 
+	 * @return Max bit rate value
 	 */
 	BitsPerSecond GetMaximumBitrate(void);
 
 	/**
 	 * @fn SetSegmentInjectFailCount
-	 * @return void        
+	 * @return void
 	 */
 	void SetSegmentInjectFailCount(int value);
 
@@ -1813,7 +1815,7 @@ public:
 	 *   @param[in] audioOnlyPlayback - true if audio only playback
 	 */
 	void SetAudioOnlyPlayback(bool audioOnlyPlayback);
- 
+
 	/**
 	 *   @fn GetAudioTrack
 	 *
@@ -1846,7 +1848,7 @@ public:
 	 *   @fn GetPreferredTextProperties
 	 */
 	std::string GetPreferredTextProperties();
-	
+
 	/**
 	 *   @fn SetTextTrack
 	 *
@@ -1934,7 +1936,7 @@ public:
 
 	/**
 	 *   @fn SetReportVideoPTS
-	 *  
+	 *
 	 *   @param[in] enabled - true if enabled
 	 */
 	void SetReportVideoPTS(bool enabled);
@@ -1964,7 +1966,7 @@ public:
 	void EnableContentRestrictions();
 
 	/**
-	 *   @fn AsyncStartStop 
+	 *   @fn AsyncStartStop
 	 *
 	 *   @return void
 	 */
@@ -2012,7 +2014,7 @@ public:
 	bool InitAAMPConfig(const char *jsonStr);
 
 	/**
-	 * @fn GetAAMPConfig 
+	 * @fn GetAAMPConfig
 	 */
 	std::string GetAAMPConfig();
 
@@ -2090,7 +2092,7 @@ public:
 	/**
 	 *   @fn GetPlaybackStats
          *
-   	 *   @return json string reperesenting the stats
+   	 *   @return json string representing the stats
   	 */
 	std::string GetPlaybackStats();
 
@@ -2136,7 +2138,7 @@ protected:
 						const char *traceUUID,
 						bool audioDecoderStreamSync,
 						const char *refreshManifestUrl = NULL,
-						int mpdStichingMode = 0,
+						int mpdStitchingMode = 0,
 						std::string sid = {},
 						const char *manifestData = NULL );
 	/**
@@ -2180,7 +2182,7 @@ protected:
 	 *   @return void
 	 */
 	void SetTextTrackInternal(int trackId, char *data);
-private:	
+private:
 
 	/**
 	 *   @fn StopInternal

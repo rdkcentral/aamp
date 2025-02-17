@@ -326,10 +326,17 @@ bool AampTsbDataManager::AddInitFragment(std::string &url, AampMediaType media, 
 /**
  *  @brief  AddFragment - add Fragment to TSB data
  */
-bool AampTsbDataManager::AddFragment(std::string &url, AampMediaType media, double position, double duration, double pts, bool discont, std::string& periodId)
+bool AampTsbDataManager::AddFragment(TSBWriteData &writeData, AampMediaType media, bool discont)
 {
 	TSB_DM_TIME_DATA();
 	bool ret = false;
+	std::string url {writeData.url};
+	double position {writeData.cachedFragment->position};
+	double duration {writeData.cachedFragment->duration};
+	double pts {writeData.pts};
+	std::string periodId {writeData.periodId};
+	uint32_t timeScale {writeData.cachedFragment->timeScale};
+	double PTSOffsetSec {writeData.cachedFragment->PTSOffsetSec};
 	try
 	{
 		std::lock_guard<std::mutex> lock(mTsbDataMutex);
@@ -338,11 +345,11 @@ bool AampTsbDataManager::AddFragment(std::string &url, AampMediaType media, doub
 			AAMPLOG_WARN("Inserting fragment at %.02lf but init header information is missing !!!", position);
 			return ret;
 		}
-		AAMPLOG_INFO("Adding Fragment Data: { Media [%d] position : %.02lf duration: %.02lf PTS : %.02lf bandwidth: %" BITSPERSECOND_FORMAT " discontinuous: %d periodId: %s fragmentUrl: '%s' initHeaderUrl: '%s' }",
-					 media, position, duration, pts, mCurrentInitData->GetBandWidth(), discont, periodId.c_str(),
+		AAMPLOG_INFO("[%s] Adding fragment data: position %.02lfs duration %.02lfs pts %.02lfs relativePos %.02lfs bandwidth %" BITSPERSECOND_FORMAT " discontinuous %d periodId %s timeScale %u ptsOffset %fs fragmentUrl '%s' initHeaderUrl '%s'",
+					 GetMediaTypeName(media), position, duration, pts, mRelativePos, mCurrentInitData->GetBandWidth(), discont, periodId.c_str(), timeScale, PTSOffsetSec,
 					 url.c_str(), mCurrentInitData->GetUrl().c_str());
 		mCurrentInitData->incrementUser();
-		TsbFragmentDataPtr fragmentData = std::make_shared<TsbFragmentData>(url, media, position, duration, pts, discont, mRelativePos, periodId, mCurrentInitData);
+		TsbFragmentDataPtr fragmentData = std::make_shared<TsbFragmentData>(url, media, position, duration, pts, discont, mRelativePos, periodId, mCurrentInitData, timeScale, PTSOffsetSec);
 		mRelativePos += duration;
 		if (mCurrHead != nullptr)
 		{
@@ -419,8 +426,8 @@ void AampTsbDataManager::Flush()
 }
 
 /**
- * @brief GetNextDiscFragment - API to get next Discountious fragment in the list
- * 		If Dsic fragment noot found ; this will return nullptr 
+ * @brief GetNextDiscFragment - API to get next discontinuous fragment in the list
+ * 		If not found, will return nullptr
  *
  */
 TsbFragmentDataPtr AampTsbDataManager::GetNextDiscFragment(double position, bool backwardSearch)

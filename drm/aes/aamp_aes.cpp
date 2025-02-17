@@ -43,7 +43,7 @@
 static pthread_mutex_t instanceLock = PTHREAD_MUTEX_INITIALIZER;
 
 /**
- * @brief key acquistion thread
+ * @brief key acquisition thread
  * @retval NULL
  */
 void AesDec::acquire_key()
@@ -270,7 +270,7 @@ void AesDec::WaitForKeyAcquireCompleteUnlocked(int timeInMs, DrmReturn &err )
 	if(0 != pthread_cond_timedwait(&mCond, &mMutex, &ts)) // block until drm ready
 	{
 		AAMPLOG_WARN("AesDec:: wait for key acquisition timed out");
-		err = eDRM_KEY_ACQUSITION_TIMEOUT;
+		err = eDRM_KEY_ACQUISITION_TIMEOUT;
 	}
 }
 

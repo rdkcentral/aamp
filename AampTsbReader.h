@@ -77,7 +77,7 @@ public:
 	 *
 	 * @return None
 	 */
-	void DeInit();
+	void Term();
 
 	/**
 	 * @fn IsEos  - function to get EOS status
@@ -184,7 +184,7 @@ private:
 	bool mIsPeriodBoundary;
 	std::atomic<bool> mIsEndFragmentInjected;
 	std::mutex mEosMutex;					/**< EOS mutex for conditional, used for syncing live downloader and reader*/
-	std::condition_variable mEosCVWait;	/**< Conditional variable for signalling wait*/
+	std::condition_variable mEosCVWait;	/**< Conditional variable for signaling wait*/
 
 protected:
 	/**

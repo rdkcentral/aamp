@@ -36,7 +36,7 @@
 /**
  * @brief Print logs to console / log file
  * @param[in] format - printf style string
- * @retuen void
+ * @return void
  */
 extern void logprintf(int playerId,const char* levelstr,const char* file, int line,const char *format, ...);
 

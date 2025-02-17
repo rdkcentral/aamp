@@ -46,7 +46,7 @@ ABR library provides the following function to add profile info into the manager
 
 ## Output
 
-ABR library provides several functions for chosing profiles in different ways, so it provides flexible way for user to use in different scenarios. 
+ABR library provides several functions for choosing profiles in different ways, so it provides flexible way for user to use in different scenarios. 
 
 - `int ABRManager::getInitialProfileIndex(bool chooseMediumProfile)`
 
@@ -70,7 +70,7 @@ ABR library provides several functions for chosing profiles in different ways, s
 
 - `int ABRManager::getProfileIndexByBitrateRampUpOrDown(int currentProfileIndex, long currentBandwidth, long networkBandwidth)`
 
-  According to the current bandwidth, current avaialbe network bandwidth and current chosen profile index, do ABR by ramping bitrate up/down. Returns the profile index with the bitrate matched with the current bitrate.
+  According to the current bandwidth, current available network bandwidth and current chosen profile index, do ABR by ramping bitrate up/down. Returns the profile index with the bitrate matched with the current bitrate.
 
 ## Update
 

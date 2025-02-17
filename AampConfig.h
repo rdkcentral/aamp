@@ -77,7 +77,7 @@
 ///			store and read value using enum config
 /// 	g) IF any conversion required only (from config to usage, ex: sec to millisec ),
 ///			add specific Get function for each config
-///			Not recommened . Better to have the conversion ( enum to string , sec to millisec etc ) where its consumed .
+///			Not recommended . Better to have the conversion ( enum to string , sec to millisec etc ) where its consumed .
 ///////////////////////////////// Happy Configuration ////////////////////////////////////
 
 
@@ -123,7 +123,7 @@ typedef enum
 	eAAMPConfig_SslVerifyPeer,						/**< Enable curl ssl certificate verification. */
 	eAAMPConfig_EnableClientDai,						/**< Enabling the client side DAI*/
 	eAAMPConfig_PlayAdFromCDN,						/**< Play Ad from CDN. Not from FOG.*/
-	eAAMPConfig_EnableVideoEndEvent,					/**< Enable or disable videovend events */
+	eAAMPConfig_EnableVideoEndEvent,					/**< Enable or disable videoend events */
 	eAAMPConfig_EnableRectPropertyCfg,					/**< To allow or deny rectangle property set for sink element*/
 	eAAMPConfig_ReportVideoPTS, 						/**< Enables Video PTS reporting */
 	eAAMPConfig_DecoderUnavailableStrict,					/**< Reports decoder unavailable GST Warning as aamp error*/
@@ -145,9 +145,9 @@ typedef enum
 	eAAMPConfig_ID3Logging,        						/**< Enables ID3 logging */
 	eAAMPConfig_EnableGstPositionQuery, 					/**< GStreamer position query will be used for progress report events */
 	eAAMPConfig_MidFragmentSeek,                                            /**< Enable/Disable the Mid-Fragment seek functionality in aamp.*/
-	eAAMPConfig_PropogateURIParam,						/**< Feature where top-level manifest URI parameters included when downloading fragments*/
+	eAAMPConfig_PropagateURIParam,						/**< Feature where top-level manifest URI parameters included when downloading fragments*/
 	eAAMPConfig_UseWesterosSink, 						/**< Enable/Disable player to use westeros sink based video decoding */
-	eAAMPConfig_RetuneForUnpairDiscontinuity,				/**< disable unpaired discontinuity retun functionality*/
+	eAAMPConfig_RetuneForUnpairDiscontinuity,				/**< disable unpaired discontinuity retune functionality*/
 	eAAMPConfig_RetuneForGSTError,						/**< disable retune mitigation for gst pipeline internal data stream error*/
 	eAAMPConfig_MatchBaseUrl,						/**< Enable host of main url will be matched with host of base url*/
 	eAAMPConfig_WifiCurlHeader,
@@ -175,7 +175,7 @@ typedef enum
 	eAAMPConfig_WideVineKIDWorkaround,                         		/**< partner-specific workaround to use WV DRM KeyId from alternate location */
 	eAAMPConfig_RepairIframes,						/**< Enable fragment repair (Stripping and box size correction) for iframe tracks */
 	eAAMPConfig_SEITimeCode,						/**< Enables SEI Time Code handling */
-	eAAMPConfig_Disable4K,							/**< Enalbe/Disable 4K stream support*/
+	eAAMPConfig_Disable4K,							/**< Enable/Disable 4K stream support*/
 	eAAMPConfig_EnableSharedSSLSession,                                     /**< Enable/Disable config for shared ssl session reuse */
 	eAAMPConfig_InterruptHandling,						/**< Enables Config for network interrupt handling*/
 	eAAMPConfig_EnableLowLatencyDash,                           		/**< Enables Low Latency Dash */
@@ -207,7 +207,7 @@ typedef enum
 	eAAMPConfig_SuppressDecode,					/**< To Suppress Decode of segments for playback . Test only Downloader */
 	eAAMPConfig_ReconfigPipelineOnDiscontinuity,				/*** Enable/Disable reconfigure pipeline on discontinuity */
 	eAAMPConfig_EnableMediaProcessor,					/** <Config to enable injection through MediaProcessor */
-	eAAMPConfig_MPDStichingSupport,					/**< To enable/disable MPD Stich functionality in the player. Default enabled */
+	eAAMPConfig_MPDStitchingSupport,					/**< To enable/disable MPD Stich functionality in the player. Default enabled */
 	eAAMPConfig_SendUserAgent,						/**< To enable/disable sending user agent in the DRM license request header. Default enabled */
 	eAAMPConfig_EnablePTSReStamp,					/** <Config to enable PTS restamping */
 	eAAMPConfig_TrackMemory,					/**< To enable/disable AampGrowableBuffer track memory */
@@ -249,13 +249,13 @@ typedef enum
 	eAAMPConfig_MaxPlaylistCacheSize,					/**< Max Playlist Cache Size  */
 	eAAMPConfig_MaxDASHDRMSessions,						/**< Max drm sessions that can be cached by AampDRMSessionManager*/
 	eAAMPConfig_Http5XXRetryWaitInterval,					/**< Wait time in milliseconds before retry for 5xx errors*/
-	eAAMPConfig_LanguageCodePreference,					/**< prefered format for normalizing language code */
+	eAAMPConfig_LanguageCodePreference,					/**< preferred format for normalizing language code */
 	eAAMPConfig_RampDownLimit, 						/**< Set fragment rampdown/retry limit for video fragment failure*/
 	eAAMPConfig_InitRampDownLimit,						/**< Maximum number of rampdown/retries for initial playlist retrieval at tune/seek time*/
 	eAAMPConfig_DRMDecryptThreshold,					/**< Retry count on drm decryption failure*/
-	eAAMPConfig_SegmentInjectThreshold, 					/**< Retry count for segment injection discard/failue*/
+	eAAMPConfig_SegmentInjectThreshold, 					/**< Retry count for segment injection discard/failure*/
 	eAAMPConfig_InitFragmentRetryCount, 					/**< Retry attempts for init frag curl timeout failures*/
-	eAAMPConfig_MinABRNWBufferRampDown, 					/**< Mininum ABR Buffer for Rampdown*/
+	eAAMPConfig_MinABRNWBufferRampDown, 					/**< Minimum ABR Buffer for Rampdown*/
 	eAAMPConfig_MaxABRNWBufferRampUp,					/**< Maximum ABR Buffer for Rampup*/
 	eAAMPConfig_PrePlayBufferCount, 					/**< Count of segments to be downloaded until play state */
 	eAAMPConfig_PreCachePlaylistTime,					/**< Max time to complete PreCaching .In Minutes  */
@@ -288,7 +288,7 @@ typedef enum
 	eAAMPConfig_IFrameDefaultBitrate4K,					/**< Default bitrate for iframe track selection for 4K assets*/
 	eAAMPConfig_CurlStallTimeout,						/**< Timeout value for detection curl download stall in seconds*/
 	eAAMPConfig_CurlDownloadStartTimeout,					/**< Timeout value for curl download to start after connect in seconds*/
-	eAAMPConfig_CurlDownloadLowBWTimeout,					/**< Timeout value for curl download expiry if player cann't catchup the selected bitrate buffer*/
+	eAAMPConfig_CurlDownloadLowBWTimeout,					/**< Timeout value for curl download expiry if player can't catchup the selected bitrate buffer*/
 	eAAMPConfig_DiscontinuityTimeout,					/**< Timeout value to auto process pending discontinuity after detecting cache is empty*/
 	eAAMPConfig_MinBitrate,                         			/**< minimum bitrate filter for playback profiles */
 	eAAMPConfig_MaxBitrate,                         			/**< maximum bitrate filter for playback profiles*/
@@ -327,7 +327,7 @@ typedef enum
 	eAAMPConfig_ReportProgressInterval,					/**< Interval of progress reporting*/
 	eAAMPConfig_PlaybackOffset,						/**< playback offset value in seconds*/
 	eAAMPConfig_LiveOffset, 						/**< Current LIVE offset*/
-	eAAMPConfig_LiveOffsetDriftCorrectionInterval,  			/**< Config to ovverride the allowed live offset drift **/
+	eAAMPConfig_LiveOffsetDriftCorrectionInterval,  			/**< Config to override the allowed live offset drift **/
 	eAAMPConfig_LiveOffset4K,						/**< Live offset for 4K content;*/
 	eAAMPConfig_CDVRLiveOffset, 						/**< CDVR LIVE offset*/
 	eAAMPConfig_Curl_ConnectTimeout,					/**< Curl timeout for the connect phase*/
@@ -337,7 +337,7 @@ typedef enum
 	eAAMPConfig_NormalLatencyCorrectionPlaybackRate,    /**< Nomral playback rate for LLD stream; backdoor for debug*/
 	eAAMPConfig_LowLatencyMinBuffer,                    /**< Low Latency minimum buffer value*/
 	eAAMPConfig_LowLatencyTargetBuffer,                 /**< Low Latency target buffer value; Buffer needed for rate correction to trigger*/
-	eAAMPConfig_BWToGstBufferFactor,				/**< Factor by multiply GST Base Buffer is mulitplied to accomodate HiFi Content*/
+	eAAMPConfig_BWToGstBufferFactor,				/**< Factor by multiply GST Base Buffer is multiplied to accommodate HiFi Content*/
 	eAAMPConfig_FloatMaxValue						/**< Max value for float config always last element*/
 } AAMPConfigSettingFloat;
 #define AAMPCONFIG_FLOAT_COUNT (eAAMPConfig_FloatMaxValue)

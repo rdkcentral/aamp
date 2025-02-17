@@ -89,7 +89,7 @@ public:
 	 * @param[out]  primaryOutputFormat - format of primary track
 	 * @param[out]  audioOutputFormat - format of audio track
 	 * @param[out]  auxOutputFormat - format of aux audio track
-	 * @param[out]  subtitleOutputFormat - format of sutbtile track
+	 * @param[out]  subtitleOutputFormat - format of subtitle track
 	 */
 	void GetStreamFormat(StreamOutputFormat &primaryOutputFormat, StreamOutputFormat &audioOutputFormat, StreamOutputFormat &auxOutputFormat, StreamOutputFormat &subtitleOutputFormat) override;
        
@@ -127,7 +127,7 @@ protected:
     /**
      *   @fn RegisterEvent
      *   @param[in] eventName : Event name
-     *   @param[in] functionHandler : Event funciton pointer
+     *   @param[in] functionHandler : Event function pointer
      */
     void RegisterEvent (string eventName, std::function<void(const WPEFramework::Core::JSON::VariantContainer&)> functionHandler);
     /**

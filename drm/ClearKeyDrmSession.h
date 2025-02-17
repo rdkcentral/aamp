@@ -125,7 +125,7 @@ public:
 	int decrypt(const uint8_t *f_pbIV, uint32_t f_cbIV,
 			const uint8_t *payloadData, uint32_t payloadDataSize, uint8_t **ppOpaqueData);
 
-	//If OCDM_ADAPTOR is in use below decrypt funtion wil be invoked from plugin
+	//If OCDM_ADAPTOR is in use below decrypt function will be invoked from plugin
 	/**
 	 * @fn decrypt
 	 * @param keyIDBuffer : keyID Buffer.

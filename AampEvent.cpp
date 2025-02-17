@@ -67,7 +67,7 @@ std::map<const int32_t, std::pair<const int32_t, const int32_t>> secClientSeMana
 	{SEC_CLIENT_RESULT_ERROR_GENERATING_KEY_PAIR,              {SECMANAGER_CLASS_RESULT_DRM_FAIL,       SECMANAGER_REASON_DRM_GENERAL_FAILURE}},
 	{SEC_CLIENT_RESULT_ERROR_GENERATING_DERIVED_KEYS,          {SECMANAGER_CLASS_RESULT_DRM_FAIL,       SECMANAGER_REASON_DRM_GENERAL_FAILURE}},
 	{SEC_CLIENT_RESULT_ERROR_GENERATING_MAC_VALUE,             {SECMANAGER_CLASS_RESULT_DRM_FAIL,       SECMANAGER_REASON_DRM_GENERAL_FAILURE}},
-	{SEC_CLIENT_RESULT_CLIENT_VERFICATION_ERROR,               {SECMANAGER_CLASS_RESULT_DRM_FAIL,       SECMANAGER_REASON_DRM_GENERAL_FAILURE}},
+	{SEC_CLIENT_RESULT_CLIENT_VERIFICATION_ERROR,               {SECMANAGER_CLASS_RESULT_DRM_FAIL,       SECMANAGER_REASON_DRM_GENERAL_FAILURE}},
 	{SEC_CLIENT_RESULT_MISSING_SESSION_CREDENTIALS,            {SECMANAGER_CLASS_RESULT_DRM_FAIL,       SECMANAGER_REASON_DRM_GENERAL_FAILURE}},
 	{SEC_CLIENT_RESULT_ENCRYPTION_KEY_MISMATCH,                {SECMANAGER_CLASS_RESULT_DRM_FAIL,       SECMANAGER_REASON_DRM_GENERAL_FAILURE}},
 	{SEC_CLIENT_RESULT_PKCS7_SIGNATURE_ERROR,                  {SECMANAGER_CLASS_RESULT_API_FAIL,       SECMANAGER_REASON_API_UNDEFINED_ERROR}},  // Undefined
@@ -671,7 +671,7 @@ double BitrateChangeEvent::getPosition() const
 /**
  * @brief Get Capped Profile status
  *
- * @return profile filterting restricted status
+ * @return profile filtering restricted status
  */
 bool BitrateChangeEvent::getCappedProfileStatus() const
 {
@@ -1143,7 +1143,7 @@ const std::vector<std::string> &DrmMetaDataEvent::getHeaderResponses() const
 /**
  * @brief Set Header response from license request
  *
- * @param[in] vector of header reponse
+ * @param[in] vector of header response
  * @return void
  */
 void DrmMetaDataEvent::setHeaderResponses(const std::vector<std::string> &responses)
@@ -1230,7 +1230,7 @@ const std::string &AdResolvedEvent::getAdId() const
 }
 
 /**
- * @brief Get Start Positon
+ * @brief Get Start Position
  *
  * @return Start position (in MS), relative to Adbreak
  */
@@ -1651,7 +1651,7 @@ uint32_t ManifestRefreshEvent::getNoOfPeriods() const
 }
 
 /**
- * @brief Get ManifestPuablishedTime for Linear DASH
+ * @brief Get ManifestPublishedTime for Linear DASH
  *
  * @return ManifestFile PublishedTime
  */

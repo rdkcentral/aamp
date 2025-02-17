@@ -261,7 +261,8 @@ void  PrivateCDAIObjectMPD::PlaceAds(dash::mpd::IMPD *mpd)
 					}
 					else
 					{
-						continue;		//Empty period may come early; excluding them
+						// Empty period may come early; excluding them
+						continue;
 					}
 				}
 
@@ -293,72 +294,67 @@ void  PrivateCDAIObjectMPD::PlaceAds(dash::mpd::IMPD *mpd)
 					}
 					AAMPLOG_INFO("periodDelta = %f p2AdData.duration = [%" PRIu64 "] mPlacementObj.adNextOffset = %u periodId = %s",periodDelta,p2AdData.duration,mPlacementObj.adNextOffset, periodId.c_str());
 					bool isSrcdurnotequalstoaddur = false;
-					if(periodDelta == 0)
+					if ((periodDelta == 0) && (nextperioddur > 0))
 					{
-						if(nextperioddur > 0)
+						IPeriod* nextPeriod = periods.at(iter+1);
+						if (nextPeriod)
 						{
-							IPeriod* nextPeriod = periods.at(iter+1);
-							if (nextPeriod)
+							// Next period was not available earlier when the adIdx was incremented, now the next period is present
+							// Move onto next period to be placed
+							if (mPlacementObj.waitForNextPeriod)
 							{
-								// Next period was not available earlier when the adIdx was incremented, now the next period is present
-								// Move onto next period to be placed
-								if (mPlacementObj.waitForNextPeriod)
+								// Confirm the current ad is completely placed otherwise log an error. AD should be completely placed at this point.
+								if ((abObj.ads->at(mPlacementObj.curAdIdx).duration - mPlacementObj.adNextOffset) != 0)
 								{
-									// Confirm the current ad is completely placed otherwise log an error. AD should be completely placed at this point.
-									if ((abObj.ads->at(mPlacementObj.curAdIdx).duration - mPlacementObj.adNextOffset) != 0)
-									{
-										AAMPLOG_ERR("[CDAI] Error while placing ad[id:%s dur:%" PRIu64 "], remaining:%d to place, but skipping to next ad",
-											abObj.ads->at(mPlacementObj.curAdIdx).adId.c_str(), abObj.ads->at(mPlacementObj.curAdIdx).duration,
-											static_cast<int>(abObj.ads->at(mPlacementObj.curAdIdx).duration - mPlacementObj.adNextOffset));
-									}
-									// Mark the current ad as placed.
-									abObj.ads->at(mPlacementObj.curAdIdx).placed = true;
-									currentAdPeriodClosed = true;//Player ready to  process next period
-									// Move to next ad and reset adNextOffset
-									mPlacementObj.curAdIdx++;
-									mPlacementObj.adNextOffset = 0;
-									AAMPLOG_INFO("[CDAI] New ad offset is setting to 0, for split period");
-									if (mPlacementObj.curAdIdx < abObj.ads->size())
-									{
-										AdNode &currAd = abObj.ads->at(mPlacementObj.curAdIdx);
-										const std::string &nextPeriodId = nextPeriod->GetId();
-										UpdateNextPeriodAdPlacement(nextPeriod, 0);
-										if("" == currAd.basePeriodId)
-										{
-											//Next ad started placing from the beginning
-											currAd.basePeriodId = nextPeriodId;
-											currAd.basePeriodOffset = 0;
-											AAMPLOG_INFO("[CDAI]currAd.basePeriodId:%s, currAd.basePeriodOffset:%d", currAd.basePeriodId.c_str(), currAd.basePeriodOffset);
-											// offset2Ad is already updated above
-										}
-										// We have already moved into new period. Logging split period marker now.
-										abObj.mSplitPeriod = true;
-									}
-									else
-									{
-										AAMPLOG_ERR("[CDAI] Reached the end of ads[size:%zu] in adbreak[%s], not expected", abObj.ads->size(), mPlacementObj.pendingAdbrkId.c_str());
-									}
-									continue;
+									AAMPLOG_ERR("[CDAI] Error while placing ad[id:%s dur:%" PRIu64 "], remaining:%d to place, but skipping to next ad",
+										abObj.ads->at(mPlacementObj.curAdIdx).adId.c_str(), abObj.ads->at(mPlacementObj.curAdIdx).duration,
+										static_cast<int>(abObj.ads->at(mPlacementObj.curAdIdx).duration - mPlacementObj.adNextOffset));
 								}
-								AAMPLOG_INFO("nextPeriod:%s nextperiodur:%lf currperioddur:%lf adDuration:%" PRIu64 "", nextPeriod->GetId().c_str(), nextperioddur, currperioddur, abObj.ads->at(mPlacementObj.curAdIdx).duration);
-								// Ad duration remaining to be placed in this break
-								// adStartOffset signifies some portion of the current ad is already placed in a previous period
-								double adDurationToPlaceInBreak = GetRemainingAdDurationInBreak(mPlacementObj.pendingAdbrkId, mPlacementObj.curAdIdx, mPlacementObj.adStartOffset);
-								// This is the duration that is available in the current period, after deducting already placed ads if any.
-								// If that duration not reaching the adDurationToPlaceInBreak, then its a split period case
-								double periodDurationAvailable = (currperioddur - abObj.ads->at(mPlacementObj.curAdIdx).basePeriodOffset);
-								if((nextperioddur > 0) && ((periodDurationAvailable >= 0) && (periodDurationAvailable <= adDurationToPlaceInBreak)))
+								// Mark the current ad as placed.
+								abObj.ads->at(mPlacementObj.curAdIdx).placed = true;
+								// Player ready to  process next period
+								currentAdPeriodClosed = true;
+								// Getting the next valid ad to get placed by iterating through the ad break
+								if (true == GetNextAdInBreakToPlace())
 								{
-									AAMPLOG_INFO("nextperioddur = %f currperioddur = %f curAd.duration = [%" PRIu64 "] periodDurationAvailable:%lf adDurationToPlaceInBreak:%lf",
-										nextperioddur,currperioddur,abObj.ads->at(mPlacementObj.curAdIdx).duration, periodDurationAvailable, adDurationToPlaceInBreak);
-									isSrcdurnotequalstoaddur = true;
-									// An ad exceeding the current period duration by more than 2 seconds is considered a split period
-									// Source period duration should be more than tiny period to be treated as split period
-									// If the tiny period just happens to be within a split period, then split period marker will be set which is expected as of now
-									if ((currperioddur > THRESHOLD_TOIGNORE_TINYPERIOD) && ((periodDurationAvailable + OFFSET_ALIGN_FACTOR) < adDurationToPlaceInBreak))
+									AdNode &currAd = abObj.ads->at(mPlacementObj.curAdIdx);
+									const std::string &nextPeriodId = nextPeriod->GetId();
+									UpdateNextPeriodAdPlacement(nextPeriod, 0);
+									if("" == currAd.basePeriodId)
 									{
-										abObj.mSplitPeriod = true;
+										//Next ad started placing from the beginning
+										currAd.basePeriodId = nextPeriodId;
+										currAd.basePeriodOffset = 0;
+										AAMPLOG_INFO("[CDAI]currAd.basePeriodId:%s, currAd.basePeriodOffset:%d", currAd.basePeriodId.c_str(), currAd.basePeriodOffset);
+										// offset2Ad is already updated above
 									}
+									// We have already moved into new period. Logging split period marker now.
+									abObj.mSplitPeriod = true;
+								}
+								else
+								{
+									AAMPLOG_ERR("[CDAI] Reached the end of ads[size:%zu] in adbreak[%s], not expected", abObj.ads->size(), mPlacementObj.pendingAdbrkId.c_str());
+								}
+								continue;
+							}
+							AAMPLOG_INFO("nextPeriod:%s nextperioddur:%lf currperioddur:%lf adDuration:%" PRIu64 "", nextPeriod->GetId().c_str(), nextperioddur, currperioddur, abObj.ads->at(mPlacementObj.curAdIdx).duration);
+							// Ad duration remaining to be placed in this break
+							// adStartOffset signifies some portion of the current ad is already placed in a previous period
+							double adDurationToPlaceInBreak = GetRemainingAdDurationInBreak(mPlacementObj.pendingAdbrkId, mPlacementObj.curAdIdx, mPlacementObj.adStartOffset);
+							// This is the duration that is available in the current period, after deducting already placed ads if any.
+							// If that duration not reaching the adDurationToPlaceInBreak, then its a split period case
+							double periodDurationAvailable = (currperioddur - abObj.ads->at(mPlacementObj.curAdIdx).basePeriodOffset);
+							if((nextperioddur > 0) && ((periodDurationAvailable >= 0) && (periodDurationAvailable <= adDurationToPlaceInBreak)))
+							{
+								AAMPLOG_INFO("nextperioddur = %f currperioddur = %f curAd.duration = [%" PRIu64 "] periodDurationAvailable:%lf adDurationToPlaceInBreak:%lf",
+									nextperioddur,currperioddur,abObj.ads->at(mPlacementObj.curAdIdx).duration, periodDurationAvailable, adDurationToPlaceInBreak);
+								isSrcdurnotequalstoaddur = true;
+								// An ad exceeding the current period duration by more than 2 seconds is considered a split period
+								// Source period duration should be more than tiny period to be treated as split period
+								// If the tiny period just happens to be within a split period, then split period marker will be set which is expected as of now
+								if ((currperioddur > THRESHOLD_TOIGNORE_TINYPERIOD) && ((periodDurationAvailable + OFFSET_ALIGN_FACTOR) < adDurationToPlaceInBreak))
+								{
+									abObj.mSplitPeriod = true;
 								}
 							}
 						}
@@ -442,23 +438,24 @@ void  PrivateCDAIObjectMPD::PlaceAds(dash::mpd::IMPD *mpd)
 								// If periodDelta is greater than zero, we can definitely start placing next ad.
 								if (periodDelta > 0)
 								{
-									//Current Ad completely placed. But more space available in the current period for next Ad
-									//Once marked as placed, we need to update the basePeriodOffset of next ad, otherwise fragmentTime calculation will go wrong
+									// Current Ad completely placed. But more space available in the current period for next Ad
+									// Once marked as placed, we need to update the basePeriodOffset of next ad, otherwise fragmentTime calculation will go wrong
 									curAd.placed = true;
-									mPlacementObj.curAdIdx++;
-									mPlacementObj.adNextOffset = 0; //New Ad's offset
-									AAMPLOG_INFO("[CDAI] New ad offset is setting to 0");
-
-									AdNode &nextAd = abObj.ads->at(mPlacementObj.curAdIdx);
-									if("" == nextAd.basePeriodId)
+									// Getting the next valid ad to get placed by iterating through the max ad size
+									if (true == GetNextAdInBreakToPlace())
 									{
-										//Next ad started placing
-										nextAd.basePeriodId = periodId;
-										nextAd.basePeriodOffset = p2AdData.duration - periodDelta;
-										AAMPLOG_INFO("[CDAI]nextAd.basePeriodId:%s, nextAd.basePeriodOffset:%d", nextAd.basePeriodId.c_str(), nextAd.basePeriodOffset);
-										int offsetKey = nextAd.basePeriodOffset;
-										offsetKey = offsetKey - (offsetKey%OFFSET_ALIGN_FACTOR);
-										p2AdData.offset2Ad[offsetKey] = AdOnPeriod{mPlacementObj.curAdIdx,0};	//At offsetKey of the period, new Ad starts
+										AdNode &nextAd = abObj.ads->at(mPlacementObj.curAdIdx);
+										if("" == nextAd.basePeriodId)
+										{
+											// Next ad started placing
+											nextAd.basePeriodId = periodId;
+											nextAd.basePeriodOffset = p2AdData.duration - periodDelta;
+											AAMPLOG_INFO("[CDAI]nextAd.basePeriodId:%s, nextAd.basePeriodOffset:%d", nextAd.basePeriodId.c_str(), nextAd.basePeriodOffset);
+											int offsetKey = nextAd.basePeriodOffset;
+											offsetKey = offsetKey - (offsetKey%OFFSET_ALIGN_FACTOR);
+											// At offsetKey of the period, new Ad starts placing
+											p2AdData.offset2Ad[offsetKey] = AdOnPeriod{mPlacementObj.curAdIdx,0};
+										}
 									}
 								}
 								else if (periodDelta == 0)
@@ -626,7 +623,7 @@ void  PrivateCDAIObjectMPD::PlaceAds(dash::mpd::IMPD *mpd)
 			}
 			else
 			{
-				//Current ad break finshed and the next ad break is avaialable.
+				//Current ad break finished and the next ad break is available.
 				//So need to call onAdEvent again from fetcher loop
 				if(!mAdtoInsertInNextBreakVec.empty())
 				{
@@ -742,7 +739,9 @@ int PrivateCDAIObjectMPD::CheckForAdStart(const float &rate, bool init, const st
 					// This adbreak was placed completely, so endPeriodOffset can be used which will be more accurate than curP2Ad.duration
 					end = abObj.endPeriodOffset;	//No need to look beyond the adbreakEnd
 				}
-				if(key >= start && key < end)
+				if( (key >= start) &&
+				    (key < end) || ( (rate < AAMP_RATE_PAUSE) && (key == end))
+				  )
 				{
 					//Yes, Key is in Adbreak. Find which Ad.
 					for(auto it = curP2Ad.offset2Ad.begin(); it != curP2Ad.offset2Ad.end(); it++)
@@ -991,7 +990,7 @@ MPD* PrivateCDAIObjectMPD::GetAdMPD(std::string &manifestUrl, bool &finalManifes
 }
 
 /**
- * @brief Method for fullfilling the Ad
+ * @brief Method for fulfilling the Ad
  *
  * @return bool - true if the Ad is fulfilled successfully
  */
@@ -1099,7 +1098,7 @@ bool PrivateCDAIObjectMPD::FulFillAdObject()
 		}
 		else
 		{
-			AAMPLOG_WARN("AdBreadkId[%s] not existing. Dropping the Ad.", periodId.c_str());
+			AAMPLOG_WARN("AdBreakId[%s] not existing. Dropping the Ad.", periodId.c_str());
 			SAFE_DELETE(ad);
 		}
 	}
@@ -1528,4 +1527,34 @@ uint64_t PrivateCDAIObjectMPD::GetRemainingAdDurationInBreak(const std::string &
 		}
 	}
 	return duration;
+}
+
+/**
+ * @brief Getting the next valid ad in the break to be placed
+ * @return true if the next ad is available, false otherwise
+ */
+bool PrivateCDAIObjectMPD::GetNextAdInBreakToPlace()
+{
+	AdBreakObject &abObj = mAdBreaks[mPlacementObj.pendingAdbrkId];
+	bool ret = false;
+	// Move to next ad and reset adNextOffset
+	mPlacementObj.curAdIdx++;
+	while (mPlacementObj.curAdIdx < abObj.ads->size())
+	{
+		if (abObj.ads->at(mPlacementObj.curAdIdx).invalid)
+		{
+			AAMPLOG_INFO("[CDAI] Current ad index to be placed[%d] is invalid", mPlacementObj.curAdIdx);
+			mPlacementObj.curAdIdx++;
+		}
+		else
+		{
+			AAMPLOG_INFO("[CDAI] Current ad index to be placed[%d] is valid", mPlacementObj.curAdIdx);
+			// Valid ad is found so return true
+			ret = true;
+			break;
+		}
+	}
+	// New Ad's offset
+	mPlacementObj.adNextOffset = 0;
+	return ret;
 }

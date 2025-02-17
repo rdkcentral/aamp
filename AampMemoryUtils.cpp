@@ -78,7 +78,7 @@ void * aamp_CreateSharedMem( size_t shmLen, key_t & shmKey)
 }
 
 /**
- * @brief Detatch and delete shared memory
+ * @brief detach and delete shared memory
  */
 void aamp_CleanUpSharedMem(void* shmPointer, key_t shmKey, size_t shmLen)
 {

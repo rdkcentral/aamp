@@ -117,7 +117,7 @@ bool AampOutputProtection::IsSourceUHD()
         m_sourceHeight  = sourceHeight;
     }
     if(sourceWidth != 0 && sourceHeight != 0 &&
-       (sourceWidth >= UHD_WITDH || sourceHeight >= UHD_HEIGHT) ) {
+       (sourceWidth >= UHD_WIDTH || sourceHeight >= UHD_HEIGHT) ) {
         // Source Material is UHD
         retVal = true;
     }
@@ -126,7 +126,7 @@ bool AampOutputProtection::IsSourceUHD()
 
 bool AampOutputProtection::IsMS2V12Supported()
 {
-	bool IsMS12V2 = false;
+	bool IsMS12V2 = true; // all newer devices have MS12V2 support - below runtime check can eventually be removed
 #ifdef IARM_MGR
 	try {
 		//Get the HDMI port
@@ -135,12 +135,9 @@ bool AampOutputProtection::IsMS2V12Supported()
 		::device::VideoOutputPort &vPort = ::device::Host::getInstance().getVideoOutputPort(strVideoPort);
 		int caps;
 		vPort.getAudioOutputPort().getAudioCapabilities(&caps);
-		if(((caps & dsAUDIOSUPPORT_MS12V2) == dsAUDIOSUPPORT_MS12V2))
+		if(((caps & dsAUDIOSUPPORT_MS12V2) != dsAUDIOSUPPORT_MS12V2))
 		{
-			IsMS12V2 = true;
-		}
-		else
-		{
+			IsMS12V2 = false;
 			AAMPLOG_INFO("MS12V2 Audio not supported in this device");
 		}
 		device::Manager::DeInitialize();
@@ -294,7 +291,7 @@ void AampOutputProtection::HDMIEventHandler(const char *owner, IARM_EventId_t ev
 {
     DEBUG_FUNC;
 
-    AampOutputProtection *pInstance = AampOutputProtection::GetAampOutputProcectionInstance();
+    AampOutputProtection *pInstance = AampOutputProtection::GetAampOutputProtectionInstance();
 
     switch (eventId) {
         case IARM_BUS_DSMGR_EVENT_HDMI_HOTPLUG :
@@ -336,7 +333,7 @@ void AampOutputProtection::ResolutionHandler(const char *owner, IARM_EventId_t e
 {
     DEBUG_FUNC;
 
-    AampOutputProtection *pInstance = AampOutputProtection::GetAampOutputProcectionInstance();
+    AampOutputProtection *pInstance = AampOutputProtection::GetAampOutputProtectionInstance();
 
     switch (eventId) {
         case IARM_BUS_DSMGR_EVENT_RES_PRECHANGE:
@@ -366,9 +363,9 @@ void AampOutputProtection::ResolutionHandler(const char *owner, IARM_EventId_t e
 #endif //IARM_MGR
 
 /**
- * @brief Check if  AampOutputProcectionInstance active
+ * @brief Check if  AampOutputProtectionInstance active
  */
-bool AampOutputProtection::IsAampOutputProcectionInstanceActive()
+bool AampOutputProtection::IsAampOutputProtectionInstanceActive()
 {
     bool retval = false;
 
@@ -381,7 +378,7 @@ bool AampOutputProtection::IsAampOutputProcectionInstanceActive()
 /**
  * @brief Singleton for object creation
  */
-AampOutputProtection * AampOutputProtection::GetAampOutputProcectionInstance()
+AampOutputProtection * AampOutputProtection::GetAampOutputProtectionInstance()
 {
     DEBUG_FUNC;
     if(s_pAampOP == NULL) {

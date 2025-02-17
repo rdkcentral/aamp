@@ -70,7 +70,7 @@ namespace PersistentWatermark
 		DisplaySequencer();
 
 		/**
-		 @brief convienience function for deleting a watermark layer
+		 @brief convenience function for deleting a watermark layer
 		**/
 		void deleteLayer();
 

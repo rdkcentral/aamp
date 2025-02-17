@@ -145,7 +145,7 @@ enableFogConfig			Enable/Disable setting player configurations to Fog. Default: 
 suppressDecode			Enable/Disable setting to suppress decode of content for playback, only Downloader test. Default: false
 gstSubtecEnabled		Enable/Disable subtec via gstreamer plugins (plugins in gst-plugins-rdk-aamp repo)
 sendLicenseResponseHeaders	Enable/Disable Sending License response header as a part of DRMMetadata event(Non SecClient/SecManager DRM license).
-useTCPServerSink		Enable "tcpserverSink" inconjunction with playbin. For use in automated testing when there is no window for video output
+useTCPServerSink		Enable "tcpserverSink" in conjunction with playbin. For use in automated testing when there is no window for video output
 sendUserAgentInLicense		Enable/disable sending user agent in the DRM license request header. Default: disabled.
 useSinglePipeline		Enable/Disable using single gstreamer pipeline for main and secondary assets
 earlyProcessing			Enable/Disable processing fragments on download to extract ID3 metadata
@@ -162,7 +162,7 @@ bufferHealthMonitorInterval	Override for buffer health monitor interval(in secs)
 abrCacheLife 			Lifetime value (ms) for abr cache  for network bandwidth calculation. Default: 5000ms
 abrCacheLength  		Length of abr cache for network bandwidth calculation (# of segments. Default 3
 abrCacheOutlier 		Outlier difference which will be ignored from network bandwidth calculation. Default: 5MB (in bytes)
-abrNwConsistency		Number of checks before profile incr/decr by 1.This is to avoid frequenct profile switching with network change: Default 2
+abrNwConsistency		Number of checks before profile incr/decr by 1.This is to avoid frequent profile switching with network change: Default 2
 abrSkipDuration			Minimum duration of fragment to be downloaded before triggering abr. Default: 6s
 progressReportingInterval	Interval (seconds) for progress reporting(in seconds. Default: 1
 licenseRetryWaitTime		License retry wait (ms) interval. Default: 500
@@ -224,8 +224,8 @@ telemetryInterval		Time interval for the telemetry reporting in seconds. Telemet
 subtitleClockSyncInterval   Time interval for synchronizing the clock with subtitle module. Default: 30s
 preferredAbsoluteReporting	User preferred absolute progress reporting format, Default: eABSOLUTE_PROGRESS_WITHOUT_AVAILABILITY_START
 EOSInjectionMode		replaces enableEOSInjectionDuringStop
-					0 - Old behaviour - EOS is injected at the end of asset and on discontinuity only.
-					1 - EOS is injected during stop in addition to the old behaviour.
+					0 - Old behavior - EOS is injected at the end of asset and on discontinuity only.
+					1 - EOS is injected during stop in addition to the old behavior.
 showDiagnosticsOverlay		Configures the diagnostics overlay: 0 (none), 1 (minimal), 2 (extended). Controls the visibility and level of detail for diagnostics displayed during playback
 
 // String inputs
@@ -454,7 +454,7 @@ st = subtitle track
 # AAMP Simulator Installation
 
 ## Setting up AAMP Simulator (Mac/OSX)
-Prerequisities: xcode, git
+Prerequisites: xcode, git
 
 Open terminal app
 ```

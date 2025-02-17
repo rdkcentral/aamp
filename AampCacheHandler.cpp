@@ -459,14 +459,14 @@ void AampCacheHandler::InsertToInitFragCache(const std::string url, const AampGr
 			if(IterCq == umCacheTrackQ.end())
 			{
 				NewTrackQueueCache = new initfragtrackstruct();
-				NewTrackQueueCache->Trackqueue.push(url);
+				NewTrackQueueCache->trackQueue.push(url);
 
 				umCacheTrackQ[mediaType]=NewTrackQueueCache;
 			}
 			else
 			{
 				NewTrackQueueCache = IterCq->second;
-				NewTrackQueueCache->Trackqueue.push(url);
+				NewTrackQueueCache->trackQueue.push(url);
 			}
 
 
@@ -474,7 +474,7 @@ void AampCacheHandler::InsertToInitFragCache(const std::string url, const AampGr
 			* If track queue of given filetype reached maximum limit, remove the very first
 			* inserted entry & its duplicate entry from cache table.
 			*/
-			if ( NewTrackQueueCache->Trackqueue.size() > MaxInitCacheSlot )
+			if ( NewTrackQueueCache->trackQueue.size() > MaxInitCacheSlot )
 			{
 				RemoveInitFragCacheEntry ( mediaType );
 			}
@@ -498,7 +498,7 @@ void AampCacheHandler::InsertToInitFragCache(const std::string url, const AampGr
 				AAMPLOG_INFO("Inserted effective init url %s", url.c_str());
 			}
 
-			AAMPLOG_INFO("Size [CacheTable:%d,TrackQ:%d,CurrentTrack:%d,MaxLimit:%d]\n", (int)umInitFragCache.size(), (int)umCacheTrackQ.size(), (int)NewTrackQueueCache->Trackqueue.size(), MaxInitCacheSlot );
+			AAMPLOG_INFO("Size [CacheTable:%d,TrackQ:%d,CurrentTrack:%d,MaxLimit:%d]\n", (int)umInitFragCache.size(), (int)umCacheTrackQ.size(), (int)NewTrackQueueCache->trackQueue.size(), MaxInitCacheSlot );
 		}
 
 	}
@@ -548,20 +548,20 @@ void AampCacheHandler::RemoveInitFragCacheEntry ( AampMediaType mediaType )
 		return;
 	}
 
-	InitFragTrackStruct *QueperTrack = IterCq->second;
+	InitFragTrackStruct *QueuePerTrack = IterCq->second;
 
 	/* Delete data in FIFO order
 	 * Get url from Track Queue, which is used to
 	 * remove fragment entry from cache table in FIFO order.
 	 */
-	InitFragCacheIter Iter = umInitFragCache.find(QueperTrack->Trackqueue.front());
+	InitFragCacheIter Iter = umInitFragCache.find(QueuePerTrack->trackQueue.front());
 	if (Iter != umInitFragCache.end())
 	{
 		InitFragCacheStruct *removeCacheData = Iter->second;
 
 		/* Remove duplicate entry
 		 * Check if the first inserted data has any duplicate entry, If so
-		 * then delete the duplicat entry as well.
+		 * then delete the duplicate entry as well.
 		 */
 		if ( removeCacheData->mDuplicateEntry )
 		{
@@ -578,10 +578,10 @@ void AampCacheHandler::RemoveInitFragCacheEntry ( AampMediaType mediaType )
 		SAFE_DELETE(removeCacheData->mCachedBuffer);
 		SAFE_DELETE(removeCacheData);
 		umInitFragCache.erase(Iter);
-		AAMPLOG_INFO("Removed main url:%s",QueperTrack->Trackqueue.front().c_str());
+		AAMPLOG_INFO("Removed main url:%s",QueuePerTrack->trackQueue.front().c_str());
 
 		// Remove the url entry from corresponding track queue.
-		QueperTrack->Trackqueue.pop();
+		QueuePerTrack->trackQueue.pop();
 	}
 }
 
@@ -609,7 +609,7 @@ void AampCacheHandler::ClearInitFragCache()
 	{
 		InitFragTrackStruct *delTrack = IterCq->second;
 
-		std::queue<std::string>().swap(delTrack->Trackqueue);
+		std::queue<std::string>().swap(delTrack->trackQueue);
 		SAFE_DELETE(delTrack);
 	}
 	umCacheTrackQ.clear();

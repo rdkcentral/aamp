@@ -564,10 +564,10 @@ static JSClassRef Event_class_ref();
  * @param[in] constructor JSObject that is the constructor being called
  * @param[in] argumentCount number of args
  * @param[in] arguments[] JSValue array of args
- * @param[out] execption pointer to a JSValueRef in which to return an exception, if any
+ * @param[out] exception pointer to a JSValueRef in which to return an exception, if any
  * @retval JSObject that is the constructor's return value
  */
-static JSObjectRef Event_constructor(JSContextRef ctx, JSObjectRef constructor, size_t argumentCount, const JSValueRef arguments[], JSValueRef* execption)
+static JSObjectRef Event_constructor(JSContextRef ctx, JSObjectRef constructor, size_t argumentCount, const JSValueRef arguments[], JSValueRef* exception)
 {
 	//LOG_TRACE("Enter");
 	return JSObjectMake(ctx, Event_class_ref(), NULL);
@@ -740,11 +740,11 @@ public:
 
 		JSStringRef name;
 
-		name = JSStringCreateWithUTF8CString("durationMiliseconds");
+		name = JSStringCreateWithUTF8CString("durationMiliseconds"); // FIXME
 		JSObjectSetProperty(context, eventObj, name, JSValueMakeNumber(context, evt->getDuration()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(name);
 
-		name = JSStringCreateWithUTF8CString("positionMiliseconds");
+		name = JSStringCreateWithUTF8CString("positionMiliseconds"); // FIXME
 		JSObjectSetProperty(context, eventObj, name, JSValueMakeNumber(context, evt->getPosition()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(name);
 
@@ -752,11 +752,11 @@ public:
 		JSObjectSetProperty(context, eventObj, name, JSValueMakeNumber(context, evt->getSpeed()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(name);
 
-		name = JSStringCreateWithUTF8CString("startMiliseconds");
+		name = JSStringCreateWithUTF8CString("startMiliseconds"); // FIXME
 		JSObjectSetProperty(context, eventObj, name, JSValueMakeNumber(context, evt->getStart()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(name);
 
-		name = JSStringCreateWithUTF8CString("endMiliseconds");
+		name = JSStringCreateWithUTF8CString("endMiliseconds"); // FIXME
 		JSObjectSetProperty(context, eventObj, name, JSValueMakeNumber(context, evt->getEnd()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(name);
 
@@ -764,7 +764,7 @@ public:
 		JSObjectSetProperty(context, eventObj, name, JSValueMakeNumber(context, evt->getPTS()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(name);
 
-		name = JSStringCreateWithUTF8CString("videoBufferedMiliseconds");
+		name = JSStringCreateWithUTF8CString("videoBufferedMiliseconds"); // FIXME
 		JSObjectSetProperty(context, eventObj, name, JSValueMakeNumber(context, evt->getBufferedDuration()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(name);
 
@@ -1182,7 +1182,7 @@ public:
 		MediaMetadataEventPtr evt = std::dynamic_pointer_cast<MediaMetadataEvent>(e);
 
 		JSStringRef name;
-		name = JSStringCreateWithUTF8CString("durationMiliseconds");
+		name = JSStringCreateWithUTF8CString("durationMiliseconds"); // FIXME
 		JSObjectSetProperty(context, eventObj, name, JSValueMakeNumber(context, evt->getDuration()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(name);
 
@@ -2480,7 +2480,7 @@ static JSValueRef AAMP_setRate(JSContextRef context, JSObjectRef function, JSObj
 	{
 		int overshoot = 0;
 		float rate = (float)JSValueToNumber(context, arguments[0], exception);
-		// present JS doesnt support overshoot , check for arguement count and store.
+		// present JS doesnt support overshoot , check for argument count and store.
 		if(argumentCount > 1)
 		{
 			overshoot = (int)JSValueToNumber(context, arguments[1], exception);
@@ -3251,7 +3251,7 @@ static JSValueRef AAMP_setTextTrack(JSContextRef context, JSObjectRef function, 
 	if (argumentCount != 1)
 	{
         	LOG_ERROR(pAAMP,"InvalidArgument: argumentCount=%zu, expected: 1 or 2", argumentCount);
-		*exception = aamp_GetException(context, AAMPJS_INVALID_ARGUMENT, "Failed to execute 'AAMP.setTextTrack' - atleast 1 argument required");
+		*exception = aamp_GetException(context, AAMPJS_INVALID_ARGUMENT, "Failed to execute 'AAMP.setTextTrack' - at least 1 argument required");
 	}
 	else
 	{
@@ -3517,7 +3517,7 @@ static JSValueRef AAMP_setAlternateContent(JSContextRef context, JSObjectRef fun
 	else
 	{
 		/*
-		 * Parmater format
+		 * Parameter format
 		 "reservationObject": object {
 		 	"reservationId": "773701056",
 			"reservationBehavior": number
@@ -3808,7 +3808,7 @@ static JSValueRef AAMP_setDownloadStartTimeout(JSContextRef context, JSObjectRef
 	if (!pAAMP)
 	{
 		LOG_ERROR_EX("JSObjectGetPrivate returned NULL!");
-		*exception = aamp_GetException(context, AAMPJS_MISSING_OBJECT, "Can only call AAMP.setDownlodStartTimeout on instances of AAMP");
+		*exception = aamp_GetException(context, AAMPJS_MISSING_OBJECT, "Can only call AAMP.setDownloadStartTimeout on instances of AAMP");
 		return JSValueMakeUndefined(context);
 	}
 
@@ -4097,14 +4097,14 @@ static JSValueRef AAMP_setAuxiliaryLanguage(JSContextRef context, JSObjectRef fu
  * @param[out] exception pointer to a JSValueRef in which to return an exception, if any
  * @retval JSValue that is the function's return value
  */
-static JSValueRef AAMP_getPlayeBackStats(JSContextRef context, JSObjectRef function, JSObjectRef thisObject, size_t argumentCount, const JSValueRef arguments[], JSValueRef *exception)
+static JSValueRef AAMP_getPlaybackStats(JSContextRef context, JSObjectRef function, JSObjectRef thisObject, size_t argumentCount, const JSValueRef arguments[], JSValueRef *exception)
 {
 	LOG_TRACE("Enter");
 	AAMP_JS* pAAMP = (AAMP_JS*)JSObjectGetPrivate(thisObject);
 	if(!pAAMP || !pAAMP->_aamp)
 	{
 		LOG_ERROR_EX("JSObjectGetPrivate returned NULL!");
-		*exception = aamp_GetException(context, AAMPJS_MISSING_OBJECT, "Can only call AAMP.getPlayeBackStats on instances of AAMP");
+		*exception = aamp_GetException(context, AAMPJS_MISSING_OBJECT, "Can only call AAMP.getPlayBackStats on instances of AAMP");
 		return JSValueMakeUndefined(context);
 	}
 	return aamp_CStringToJSValue(context, pAAMP->_aamp->GetPlaybackStats().c_str());
@@ -4127,13 +4127,13 @@ static JSValueRef AAMP_xreSupportedTune(JSContextRef context, JSObjectRef functi
 	if(!pAAMP)
 	{
 		LOG_ERROR_EX("JSObjectGetPrivate returned NULL!");
-		*exception = aamp_GetException(context, AAMPJS_MISSING_OBJECT, "Can only call AAMP.xreSupprotedTune on instances of AAMP");
+		*exception = aamp_GetException(context, AAMPJS_MISSING_OBJECT, "Can only call AAMP.xreSupportedTune on instances of AAMP");
 		return JSValueMakeUndefined(context);
 	}
 	if (argumentCount != 1)
 	{
 		LOG_ERROR(pAAMP,"InvalidArgument: argumentCount=%zu, expected: 1", argumentCount);
-		*exception = aamp_GetException(context, AAMPJS_INVALID_ARGUMENT, "Failed to execute 'AAMP.xreSupprotedTune' - 1 argument required");
+		*exception = aamp_GetException(context, AAMPJS_INVALID_ARGUMENT, "Failed to execute 'AAMP.xreSupportedTune' - 1 argument required");
 	}
 	else
 	{
@@ -4310,7 +4310,7 @@ static const JSStaticFunction AAMP_staticfunctions[] =
 	{ "setLicenseCaching", AAMP_setLicenseCaching, kJSPropertyAttributeDontDelete | kJSPropertyAttributeReadOnly },
 	{ "setAuxiliaryLanguage", AAMP_setAuxiliaryLanguage, kJSPropertyAttributeDontDelete | kJSPropertyAttributeReadOnly },
 	{ "xreSupportedTune", AAMP_xreSupportedTune, kJSPropertyAttributeDontDelete | kJSPropertyAttributeReadOnly},
-	{ "getPlaybackStatistics", AAMP_getPlayeBackStats, kJSPropertyAttributeDontDelete | kJSPropertyAttributeReadOnly },
+	{ "getPlaybackStatistics", AAMP_getPlaybackStats, kJSPropertyAttributeDontDelete | kJSPropertyAttributeReadOnly },
 	{ "setContentProtectionDataConfig", AAMP_setContentProtectionDataConfig, kJSPropertyAttributeDontDelete | kJSPropertyAttributeReadOnly },
 	{ "setContentProtectionDataUpdateTimeout", AAMP_setContentProtectionDataUpdateTimeout, kJSPropertyAttributeDontDelete | kJSPropertyAttributeReadOnly },
 	{ "configRuntimeDRM", AAMP_setRuntimeDRMConfig, kJSPropertyAttributeDontDelete | kJSPropertyAttributeReadOnly },

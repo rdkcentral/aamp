@@ -728,7 +728,7 @@ EmsgBox* EmsgBox::constructEmsgBox(uint32_t sz, uint8_t *ptr)
 {
 	uint8_t version = READ_VERSION(ptr);
 	uint32_t flags  = READ_FLAGS(ptr);
-	// Calculationg remaining size,
+	// Calculating remaining size,
 	// flags(3bytes)+ version(1byte)+ box_header(type and size)(8bytes)
 	uint32_t remainingSize = sz - ((sizeof(uint32_t))+(sizeof(uint64_t)));
 

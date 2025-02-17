@@ -166,7 +166,7 @@ Status StoreImpl::UrlToFileMapper(const std::string& url, FS::path& path) const
 }
 
 /*	@fn		SanitizePath
-	@brief	Sanatize the incoming path for correctness
+	@brief	Sanitize the incoming path for correctness
 
 	@param[in] path - The path to sanitize
 	@retval			  corrected path
@@ -384,7 +384,7 @@ Status StoreImpl::WriteBuffer(const FS::path& path, const void* buffer, std::siz
 			// platform-specific implementation, such as ENOSPC.  The ENOSPC checks below assume
 			// that the implementation sets errno when such writing errors occur, which is
 			// highly likely on Linux-based systems as they will be using the Linux C standard
-			// library write() function.  This behaviour may not be portable to other systems.
+			// library write() function.  This behavior may not be portable to other systems.
 			bool errnoSetFollowingWriteError = file.bad();
 			if (file.fail() == false)
 			{

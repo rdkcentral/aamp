@@ -4,7 +4,7 @@
 
 This document contains the instructions to setup and debug stand alone AAMP (aamp-cli) on Mac OS X.
 
-## Install dependancies
+## Install dependencies
 
 **1. Install XCode from the Apple Store**
 

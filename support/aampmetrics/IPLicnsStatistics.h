@@ -19,7 +19,7 @@
 
 /**
  * @file CLicenseStatistics.h
- * @brief File contails the stat about the License for encrypted fragment
+ * @brief File contains the stat about the License for encrypted fragment
  */
 
 // NOTE - protex_scan is failing hence changed file name from LicenseStatistics.h LicnStatistics.h
@@ -36,27 +36,27 @@
 class CLicenseStatistics
 {
 protected:
-	int mTotalRotations; 		/**< total liecense rotation/switch */
-	int mTotalEncryptedToClear; 	/**< Encrypted to clear liecense switch */
-	int mTotalClearToEncrypted; 	/**< Clear to encrypted liecense switch */
-	bool mbEncypted;
+	int mTotalRotations; 		/**< total licence rotation/switch */
+	int mTotalEncryptedToClear; 	/**< Encrypted to clear licence switch */
+	int mTotalClearToEncrypted; 	/**< Clear to encrypted licence switch */
+	bool mbEncrypted;
 	// First call to reporting data will set this variable to true,
 	// this is used to avoid recording license data of stream starts with encrypted content and never transition to clear.
 	bool isInitialized;
 public:
 	CLicenseStatistics() :mTotalRotations(COUNT_NONE), mTotalEncryptedToClear(COUNT_NONE) , mTotalClearToEncrypted(COUNT_NONE),
-	mbEncypted(false) , isInitialized (false)
+	mbEncrypted(false) , isInitialized (false)
 	{
 
 	}
 
 	/**
 	 *   @fn Record_License_EncryptionStat
-	 *   @param[in]  isEncypted indicates track or fragment is encrypted, based on this info clear to enc or enc to clear stats are incremented
+	 *   @param[in]  isEncrypted indicates track or fragment is encrypted, based on this info clear to enc or enc to clear stats are incremented
 	 *   @param[in]  isKeyChanged indicates if keychanged for encrypted fragment
 	 *   @return None
 	 */
-	void Record_License_EncryptionStat(bool isEncypted, bool isKeyChanged);
+	void Record_License_EncryptionStat(bool isEncrypted, bool isKeyChanged);
 
 	/**
 	 *   @fn IncrementCount

@@ -82,7 +82,7 @@ public:
 	void Reset();
 
 	/**
-	 * Checkes if the given metadata packet is already present in the cache
+	 * Checks if the given metadata packet is already present in the cache
 	 * @param[in] mediaType The packet's media type
 	 * @param[in] data The packet's data
 	 * @return True if the packet is not present in the cache
@@ -94,7 +94,7 @@ public:
 	 * @param[in] mediaType The packet's media type
 	 * @param[in] data The data to insert into the cache
 	 */
-	void UpdateMedatadaCache(AampMediaType mediaType, std::vector<uint8_t> data);
+	void UpdateMetadataCache(AampMediaType mediaType, std::vector<uint8_t> data);
 	
 private:
 

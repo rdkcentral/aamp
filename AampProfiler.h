@@ -144,7 +144,7 @@ typedef struct
 	int mTimedMetadata;				/**< Total no.of TimedMetaData(Ads) processed in the manifest*/
 	long long mTimedMetadataStartTime; 	    	/**< Time at which timedmetadata event starts sending */
 	int mTimedMetadataDuration;        		/**< Time Taken to send TiedMetaData event*/
-	int mTuneAttempts;				/**< No of tune attepts taken */
+	int mTuneAttempts;				/**< No of tune attempts taken */
 	bool mFirstTune;                                /**< To identify the first tune after load.*/
 	bool mTSBEnabled;                               /**< Flag to indicate TSB is enabled or not */
 	int  mTotalTime;
@@ -195,7 +195,7 @@ private:
 	{
 		unsigned int tStart;    /**< Relative start time of operation, based on tuneStartMonotonicBase */
 		unsigned int tFinish;   /**< Relative end time of operation, based on tuneStartMonotonicBase */
-		int errorCount;         /**< non-zero if errors/retries occured during this operation */
+		int errorCount;         /**< non-zero if errors/retries occurred during this operation */
 		bool complete;          /**< true if this step already accounted for, and further profiling should be ignored */
 		bool profileStarted;    /**< Flag that indicates,whether the profiler is started or not */
 	} buckets[PROFILE_BUCKET_TYPE_COUNT];
@@ -325,7 +325,7 @@ public:
 	 *
 	 * @param[in] tuneMetricsData - tuneend metric data
 	 * @param[in] licenseAcqNWTime - license Acq Network Time
-	 * @param[in] playerPreBuffered - prebufferd mode
+	 * @param[in] playerPreBuffered - prebuffered mode
 	 * @param[in] durationSeconds - Asset duration in seconds
 	 * @param[in] interfaceWifi - Connection is wifi or not - wifi(1) ethernet(0)
 	 * @param[in] failureReason - Failure Reason
@@ -349,7 +349,7 @@ public:
 	 * @param[in] appName - Application Name
 	 * @param[in] playerActiveMode - Aamp Player mode
 	 * @param[in] playerId - Aamp Player id
-	 * @param[in] playerPreBuffered - True/false Player has pre bufferred content
+	 * @param[in] playerPreBuffered - True/false Player has pre buffered content
 	 * @param[in] durationSeconds - Asset duration in seconds
 	 * @param[in] interfaceWifi - Active connection is Wifi or Ethernet
 	 * @param[in] failureReason - Aamp player failure reason
@@ -365,11 +365,11 @@ public:
 	 * @param[in] playerLoadTime - Time at which the first tune request reached the AAMP player
 	 * @param[in] streamType - Type of stream. eg: HLS, DASH, etc
 	 * @param[in] isLive  - Live channel or not
-	 * @param[in] durationinSec - Asset duration in seconds
+	 * @param[in] durationS - Asset duration in seconds
 	 * @param[out] TuneTimeInfoStr - Formatted output string
 	 * @return void
 	 */
-	void GetClassicTuneTimeInfo(bool success, int tuneRetries, int firstTuneType, long long playerLoadTime, int streamType, bool isLive,unsigned int durationinSec, char *TuneTimeInfoStr);
+	void GetClassicTuneTimeInfo(bool success, int tuneRetries, int firstTuneType, long long playerLoadTime, int streamType, bool isLive, unsigned int durationS, char *TuneTimeInfoStr);
 
 	/**
 	 * @fn ProfileBegin
@@ -458,7 +458,7 @@ public:
 	 * @param buffer - buffer value
 	 * @param rate - current playback rate
 	 * @param bw - current bandwidth
-	 * @param buffLowCount - Low buffer hit count; Incriment contiouse data only
+	 * @param buffLowCount - Low buffer hit count; Increment continuous data only
 	 * @return void
 	 */
 	void SetLLDLowBufferParam(double latency, double buff, double rate, double bw, double buffLowCount);

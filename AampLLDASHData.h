@@ -26,11 +26,11 @@
 #define __AAMP_LL_DASH_DATA_H__
 
 /**
- * @brief To store Low Latency Service configurtions
+ * @brief To store Low Latency Service configurations
  */
 struct AampLLDashServiceData {
 	bool lowLatencyMode;        	/**< LL Playback mode enabled */
-	bool strictSpecConformance; 	/**< Check for Strict LL Dash spec conformace*/
+	bool strictSpecConformance; 	/**< Check for Strict LL Dash spec conformance*/
 	double availabilityTimeOffset;  	/**< LL Availability Time Offset */
 	bool availabilityTimeComplete;  	/**< LL Availability Time Complete */
 	int targetLatency;          	/**< Target Latency of playback */
@@ -40,7 +40,7 @@ struct AampLLDashServiceData {
 	double minPlaybackRate;     	/**< Minimum playback rate for playback */
 	double maxPlaybackRate;     	/**< Maximum playback rate for playback */
 	bool isSegTimeLineBased;		/**< Indicates is stream is segmenttimeline based */
-	double fragmentDuration;		/**< Maximum Fragment Duartion */
+	double fragmentDuration;		/**< Maximum Fragment Duration */
 	UtcTiming utcTiming;		/**< Server UTC timings */
 
 	AampLLDashServiceData() : lowLatencyMode(false),

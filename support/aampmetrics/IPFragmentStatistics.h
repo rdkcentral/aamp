@@ -39,7 +39,7 @@ protected:
 	CHTTPStatistics * pInitFragmentStat;
 
 	// last failure url ( could be fragment/ init fragment
-	// URL is added to indicate CDN server info espacially in failure case.
+	// URL is added to indicate CDN server info especially in failure case.
 	std::string m_url;
 public:
 	CFragmentStatistics() : pInitFragmentStat(NULL), pNormalFragmentStat(NULL), m_url()

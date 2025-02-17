@@ -235,9 +235,9 @@ class TSProcessor : public MediaProcessor
       /**
        * @fn sendQueuedSegment
        * @param[in] basepts new base pts to be set. Valid only for eStreamOp_DEMUX_AUDIO.
-       * @param[in] updatedStartPositon New start position of queued segment.
+       * @param[in] updatedStartPosition New start position of queued segment.
        */
-      void sendQueuedSegment(long long basepts = 0, double updatedStartPositon = -1);
+      void sendQueuedSegment(long long basepts = 0, double updatedStartPosition = -1);
       /**
        * @fn setBasePTS
        * @param[in] position start position of fragment
@@ -287,7 +287,7 @@ class TSProcessor : public MediaProcessor
        * @param[out] buflen Length of buff
        * @param[in] bHandleMCTrick true if audio pid is same as PCR pid
        */
-      bool generatePATandPMT( bool trick, unsigned char **buff, int *bufflen, bool bHandleMCTrick = false);
+      bool generatePATandPMT( bool trick, unsigned char **buf, int *bufLen, bool bHandleMCTrick = false);
       /**
        * @fn putPmtByte
        * @param[in,out] pmt buffer in which PMT is being constructed
@@ -530,7 +530,7 @@ class TSProcessor : public MediaProcessor
        * @param[in] len lenght of buffer
        * @param[in] position position of segment in seconds
        * @param[in] duration duration of segment in seconds
-       * @param[in] discontinuous true if segment is discontinous
+       * @param[in] discontinuous true if segment is discontinuous
        * @param[in] trackToDemux media track to do the operation
        */
       bool demuxAndSend(const void *ptr, size_t len, double fTimestamp, double fDuration, bool discontinuous, MediaProcessor::process_fcn_t processor, TrackToDemux trackToDemux = ePC_Track_Both);
