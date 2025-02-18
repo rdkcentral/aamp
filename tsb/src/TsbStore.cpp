@@ -67,6 +67,7 @@ private:
 	static std::string SanitizePath(const std::string &);
 	Status UrlToFileMapper(const std::string& url, FS::path& path) const;
 	void Flusher(void);
+	bool CreateDirectoriesWithPermissions(const std::filesystem::path& path);
 	Status WriteBuffer(const FS::path& path, const void* buffer, std::size_t size, bool retry);
 	uintmax_t GetCapacityMinFree(uintmax_t capacity) const;
 	FS::space_info GetFilesystemSpace() const;
@@ -218,6 +219,37 @@ void StoreImpl::Flusher(void)
 	TSB_LOG_TRACE(mLogger, "Exit Flusher");
 }
 
+bool StoreImpl::CreateDirectoriesWithPermissions(const std::filesystem::path& path)
+{
+	std::error_code ec;
+	std::filesystem::path currentPath;
+	bool success = true;
+
+	for (auto it = path.begin(); it != path.end(); ++it)
+	{
+		currentPath /= *it;
+		if (!FS::exists(currentPath))
+		{
+			if (!FS::create_directory(currentPath, ec) && ec)
+			{
+				TSB_LOG_ERROR(mLogger, "Failed to create directory", "directory", currentPath, "errorCode", ec);
+				success = false;
+				break;
+			}
+			// Set all permissions on each directory created. This is necessary so other AAMP instances can
+			// access the directory, in case the first instance does not exit cleanly.
+			FS::permissions(currentPath, FS::perms::all, ec);
+			if (ec)
+			{
+				TSB_LOG_ERROR(mLogger, "Failed to set permissions", "directory", currentPath, "errorCode", ec);
+				success = false;
+				break;
+			}
+		}
+	}
+	return success;
+}
+
 StoreImpl::StoreImpl(const Store::Config& config, LogFunction logger, LogLevel level)
 					: mLogger{std::move(logger), level},
 					mLocation(SanitizePath(config.location)),
@@ -237,10 +269,12 @@ StoreImpl::StoreImpl(const Store::Config& config, LogFunction logger, LogLevel l
 		throw std::invalid_argument("Location is not a valid absolute path");
 	}
 
-	if (!FS::create_directories(mLocation, ec) && ec.default_error_condition())
+	// Create the base directory and the initial flush directory, if they don't exist
+	FS::path flushDir = mLocation / std::to_string(mFlushDirNum.load());
+	if (!CreateDirectoriesWithPermissions(flushDir))
 	{
-		TSB_LOG_ERROR(mLogger, "Failed to create directory", "location", mLocation, "errorCode", ec);
-		throw std::invalid_argument("Failed to create location directory");
+		TSB_LOG_ERROR(mLogger, "Failed to create", "flushDir", flushDir);
+		throw std::invalid_argument("Failed to create flushDir");
 	}
 
 	mLocationLock = std::make_unique<LocationLock>(mLocation);
@@ -257,26 +291,16 @@ StoreImpl::StoreImpl(const Store::Config& config, LogFunction logger, LogLevel l
 		throw std::invalid_argument("Invalid minimum free space percentage");
 	}
 
-	// Create the initial flush directory if it doesn't exist
-	FS::path flushDir = mLocation / std::to_string(mFlushDirNum.load());
-	if (!FS::create_directory(flushDir, ec) && ec.default_error_condition())
+	// Move any stale files / directories present in the storage due to a non clean shutdown.
+	for (const auto& dir_entry : FS::directory_iterator{mLocation})
 	{
-		TSB_LOG_ERROR(mLogger, "Failed to create", "flushDir", flushDir, "errorCode", ec);
-		throw std::invalid_argument("Failed to create flushDir");
-	}
-	else
-	{
-		// Move any stale files / directories present in the storage due to a non clean shutdown.
-		for (const auto& dir_entry : FS::directory_iterator{mLocation})
+		if (dir_entry.path() != flushDir)
 		{
-			if (dir_entry.path() != flushDir)
+			FS::rename(dir_entry.path(), flushDir / dir_entry.path().filename(), ec);
+			if (ec.default_error_condition())
 			{
-				FS::rename(dir_entry.path(), flushDir / dir_entry.path().filename(), ec);
-				if (ec.default_error_condition())
-				{
-					TSB_LOG_ERROR(mLogger, "Failed to move stale directory", "path",
-								  dir_entry.path(), "errorCode", ec);
-				}
+				TSB_LOG_ERROR(mLogger, "Failed to move stale directory", "path",
+								dir_entry.path(), "errorCode", ec);
 			}
 		}
 	}
@@ -367,6 +391,7 @@ Status StoreImpl::WriteBuffer(const FS::path& path, const void* buffer, std::siz
 	do
 	{
 		FS::ofstream file;
+		std::error_code ec;
 		/* Set the buffer size to 0, so the data is not buffered.
 		 * The client is writing one segment at a time. With that amount of data, using an
 		 * intermediate buffer will only degrade performance and slow things down. */
@@ -379,56 +404,69 @@ Status StoreImpl::WriteBuffer(const FS::path& path, const void* buffer, std::siz
 		}
 		else
 		{
-			file.write(static_cast<const char *>(buffer), size);
-			// The ofstream's bad bit is set on writing errors raised by the underlying
-			// platform-specific implementation, such as ENOSPC.  The ENOSPC checks below assume
-			// that the implementation sets errno when such writing errors occur, which is
-			// highly likely on Linux-based systems as they will be using the Linux C standard
-			// library write() function.  This behavior may not be portable to other systems.
-			bool errnoSetFollowingWriteError = file.bad();
-			if (file.fail() == false)
+			// Set read and write permissions for all. This is necessary so other AAMP instances can
+			// delete the file, in case the first instance does not exit cleanly.
+			FS::perms permissions = FS::perms::owner_read | FS::perms::owner_write |
+									FS::perms::group_read | FS::perms::group_write |
+									FS::perms::others_read | FS::perms::others_write;
+			FS::permissions(path, permissions, ec);
+			if (ec)
 			{
-				mAvailable -= size;
-				TSB_LOG_TRACE(mLogger, "File written", "file", path,
-								"fileSize", size, "availableSpace", mAvailable);
-				retry = false;
-				status = Status::OK;
+				TSB_LOG_ERROR(mLogger, "Failed to set permissions", "file", path, "errorCode", ec);
 			}
-			else if ((timeWaited >= timeout) && errnoSetFollowingWriteError && (errno == ENOSPC))
+			else
 			{
-				retry = false;
-				TSB_LOG_ERROR(mLogger, "Not enough space to write - timed out", "file", path, "timeout", timeout.count());
-				status = Status::NO_SPACE;
-			}
-			// Timeout, but the write failed for a reason other than ENOSPC
-			else if (timeWaited >= timeout)
-			{
-				retry = false;
-				TSB_LOG_ERROR(mLogger, "Failed to write - timed out", "file", path, "timeout", timeout.count(),
-								"errno", std::strerror(errno));
-			}
-			else if (retry && errnoSetFollowingWriteError && (errno == ENOSPC))
-			{
-				TSB_LOG_TRACE(mLogger, "Not enough space to write - retrying...",
-								"sleepTime", sleepTime.count(),
-								"fileSize", size,
-								"available", mAvailable,
-								"errno", std::strerror(errno));
-				FS::sleep_for(sleepTime);
-				timeWaited += sleepTime;
-			}
-			else if (errnoSetFollowingWriteError && (errno == ENOSPC))
-			{
-				// This is a TRACE only, as the client can cull (delete files) and retry the Write
-				TSB_LOG_TRACE(mLogger, "Not enough space to write", "file", path,
-								"size", size);
-				status = Status::NO_SPACE;
-			}
-			else // No timeout, but the write failed for a reason other than ENOSPC
-			{
-				retry = false;
-				TSB_LOG_ERROR(mLogger, "Failed to write to file", "file", path,
-								"size", size, "errno", std::strerror(errno));
+				file.write(static_cast<const char *>(buffer), size);
+				// The ofstream's bad bit is set on writing errors raised by the underlying
+				// platform-specific implementation, such as ENOSPC.  The ENOSPC checks below assume
+				// that the implementation sets errno when such writing errors occur, which is
+				// highly likely on Linux-based systems as they will be using the Linux C standard
+				// library write() function.  This behavior may not be portable to other systems.
+				bool errnoSetFollowingWriteError = file.bad();
+				if (file.fail() == false)
+				{
+					mAvailable -= size;
+					TSB_LOG_TRACE(mLogger, "File written", "file", path,
+									"fileSize", size, "availableSpace", mAvailable);
+					retry = false;
+					status = Status::OK;
+				}
+				else if ((timeWaited >= timeout) && errnoSetFollowingWriteError && (errno == ENOSPC))
+				{
+					retry = false;
+					TSB_LOG_ERROR(mLogger, "Not enough space to write - timed out", "file", path, "timeout", timeout.count());
+					status = Status::NO_SPACE;
+				}
+				// Timeout, but the write failed for a reason other than ENOSPC
+				else if (timeWaited >= timeout)
+				{
+					retry = false;
+					TSB_LOG_ERROR(mLogger, "Failed to write - timed out", "file", path, "timeout", timeout.count(),
+									"errno", std::strerror(errno));
+				}
+				else if (retry && errnoSetFollowingWriteError && (errno == ENOSPC))
+				{
+					TSB_LOG_TRACE(mLogger, "Not enough space to write - retrying...",
+									"sleepTime", sleepTime.count(),
+									"fileSize", size,
+									"available", mAvailable,
+									"errno", std::strerror(errno));
+					FS::sleep_for(sleepTime);
+					timeWaited += sleepTime;
+				}
+				else if (errnoSetFollowingWriteError && (errno == ENOSPC))
+				{
+					// This is a TRACE only, as the client can cull (delete files) and retry the Write
+					TSB_LOG_TRACE(mLogger, "Not enough space to write", "file", path,
+									"size", size);
+					status = Status::NO_SPACE;
+				}
+				else // No timeout, but the write failed for a reason other than ENOSPC
+				{
+					retry = false;
+					TSB_LOG_ERROR(mLogger, "Failed to write to file", "file", path,
+									"size", size, "errno", std::strerror(errno));
+				}
 			}
 
 			file.close();
@@ -479,11 +517,9 @@ Status StoreImpl::Write(const std::string& url, const void* buffer, std::size_t 
 						"availableSpace", mAvailable);
 		returnStatus = Status::NO_SPACE;
 	}
-	else if (!FS::create_directories(path.parent_path(), ec) &&
-				ec.default_error_condition())
+	else if (!CreateDirectoriesWithPermissions(path.parent_path()))
 	{
-		TSB_LOG_ERROR(mLogger, "Failed to create directory", "directory",
-						path.parent_path(), "errorCode", ec);
+		TSB_LOG_ERROR(mLogger, "Failed to create directory", "directory", path.parent_path());
 	}
 	else
 	{
