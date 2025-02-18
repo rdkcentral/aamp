@@ -42,7 +42,7 @@ This document is targeted to application developers  who are interested in evalu
 	<script>
 	    window.onload = function() {
 		    var player = new AAMPMediaPlayer();
-		    var url = "https://example.com/multilang/main.m3u8";
+		    var url = "https://example.com/multilang/main.m3u8"; // replace with valid URL!
 		    player.load(url);
 	    }
 	</script>
@@ -209,15 +209,14 @@ Configuration options are passed to AAMP using the UVE initConfig method. This a
 Example:
 ```js
     {
-            // configuration setting for player
-            var playerInitConfig = {
-                initialBitrate: 2500000,
-                offset: 0,
-                networkTimeout: 10,
-                preferredAudioLanguage: "en",
-            };
-            // Use valid URL instead of example
-	    var url = "https://example.com/multilang/sample.m3u8";
+        // configuration setting for player
+        var playerInitConfig = {
+            initialBitrate: 2500000,
+            offset: 0,
+            networkTimeout: 10,
+            preferredAudioLanguage: "en",
+        };
+	    var url = "https://example.com/multilang/sample.m3u8"; // replace with valid URL!
 	    var player = new AAMPMediaPlayer();
 	    player.initConfig(playerInitConfig);
 	    player.load(url);
@@ -240,14 +239,13 @@ DRM configuration options are passed to AAMP using the setDRMConfig method. Para
 Example:
 ```js
     {
-            // configuration for DRM -Sample for Widevine
-            var DrmConfig = {
-	    'https://example.com/AcquireLicense', // Use valid URL instead of example
-            'preferredKeysystem':'com.widevine.alpha'
-            };
-            // Use valid URL instead of example
-	    var url = "https://example.com/multilang/sample.m3u8";
-	    var player = new AAMPMediaPlayer();
+        // configuration for DRM -Sample for Widevine
+        var DrmConfig = {
+	    'https://example.com/AcquireLicense', // replace with valid URL!
+	        'preferredKeysystem':'com.widevine.alpha'
+        };
+        var url = "https://example.com/multilang/sample.m3u8"; // replace with valid URL!
+        var player = new AAMPMediaPlayer();
 	    player.setDRMConfig(DrmConfig);
 	    player.load(url);
     }
@@ -302,16 +300,15 @@ Example:
 ```js
     {
 	    var player = new AAMPMediaPlayer();
-	    var url = "https://example.com/multilang/sample.m3u8"; // Use valid URL instead of example
+	    var url = "https://example.com/multilang/sample.m3u8"; // replace with valid URL!
 	    player.load(url); // for autoplayback
     }
     // support for multiple player instances
     {
 	    var player1 = new AAMPMediaPlayer();
 	    var player2 = new AAMPMediaPlayer();
-            // Use valid URLs instead of example
-	    var url1 = "https://example.com/multilang/sample.m3u8";
-	    var url2 = "https://example.com/multilang/sample1.m3u8";
+	    var url1 = "https://example.com/multilang/sample.m3u8"; // replace with valid URL!
+	    var url2 = "https://example.com/multilang/sample1.m3u8"; // replace with valid URL!
 	    player1.load(url1); // for immediate playback
 	    player2.load(url2,false); // for background buffering,no playback.
     }
@@ -319,9 +316,8 @@ Example:
     {
 	    var player1 = new AAMPMediaPlayer();
 	    var player2 = new AAMPMediaPlayer();
-            // Use valid URLs instead of example
-	    var url1 = "https://example.com/multilang/sample.m3u8";
-	    var url2 = "https://example.com/multilang/sample1.m3u8";
+	    var url1 = "https://example.com/multilang/sample.m3u8"; // replace with valid URL!
+	    var url2 = "https://example.com/multilang/sample1.m3u8"; // replace with valid URL!
 
 	    var params_1 = { sessionId: "12192978-da71-4da7-8335-76fbd9ae2ae9" };
 	    var params_2 = { sessionId: "6e3c49cb-6254-4324-9f5e-bddef465bdff" };
@@ -332,9 +328,9 @@ Example:
     // support for preprocessed DASH manifest
     {
 	    var player = new AAMPMediaPlayer();
-            // Use valid URL instead of example
-	    var url = "https://example.com/VideoTestStream/aamptest/streams/ads/stitched/sample_manifest.mpd"
-	    const xml = "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<MPD xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"" ...; // for working case need valid DASH manifest XML
+	    var url = "https://example.com/VideoTestStream/aamptest/streams/ads/stitched/sample_manifest.mpd";  // replace with valid URL!
+        // replace below with valid full DASH manifest XML
+	    const xml = "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<MPD xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"" ...;
 	    player.load(url,true,{ manifest: xml});
       }
 ```
@@ -350,11 +346,10 @@ Example:
 ```js
     {
 	    var player = new AAMPMediaPlayer();
-	    var url = "https://example.com/multilang/main.m3u8"; // Use valid URL instead of example
+	    var url = "https://example.com/multilang/main.m3u8"; // replace with valid URL!
 	    player.load(url,false); // for background buffering,no playback.
 	    // application can start the playback background session using play API
 	    player.play();  // Or player.setPlaybackRate(1);
-
     }
 ```
 ---
@@ -388,7 +383,7 @@ Note: starting in RDK 6.9, we support ability to start video paused on first fra
 	    .....
 	    // start playback backgrounded with autoplay=false
             // Use valid URL instead of example
-	    player.load("https://example.com/public/aamptest/streams/main.mpd", false);
+	    player.load("https://example.com/public/aamptest/streams/main.mpd", false); // replace with valid URL!
 	    player.seek(30); // optionally jump to new position
 	    player.pause(); // bring video to foreground, and show first frame of video
     }
@@ -630,8 +625,7 @@ Example:
 		var player;
 		window.onload = function() {
 			player = new AAMPMediaPlayer(); // create player instance for AAMP
-                        // Use valid URL instead of example
-			let url = "http://example.com/12345678-1234-1234-1234-123456789012/SampleVideo.ism/manifest(format=mpd-time-csf)";
+			let url = "http://example.com/12345678-1234-1234-1234-123456789012/SampleVideo.ism/manifest(format=mpd-time-csf)"; // replace with valid URL!
 			console.log("loading " + url );
 			player.load( url ); // tune using AMP
 			console.log("screen size: " + screen.width + "x" + screen.height); // typically 1280x720
@@ -716,12 +710,12 @@ Example:
     {
             // configuration for DRM -Sample for Widevine
             var DrmConfig = {
-            'com.widevine.alpha':'https://example.com/AcquireLicense', // Use valid URL instead of example
+            'com.widevine.alpha':'https://example.com/AcquireLicense', // replace with valid URL!
             'preferredKeysystem':'com.widevine.alpha'
             };
 
 
-	    var url = "https://example.com/multilang/sample.m3u8"; // Use valid URL instead of example
+	    var url = "https://example.com/multilang/sample.m3u8"; // replace with valid URL!
 	    var player = new AAMPMediaPlayer();
 	    player.setDRMConfig(DrmConfig);
 	    // custom header message for license request
@@ -1016,7 +1010,7 @@ playerInstance.setPreferredAudioLanguage( "en,de,mul","alternate","description",
     - If PreferredAudioLanguage is not configured:
         - Player will take default preferred language as English, and
         choose better quality track from the language matching list.
-        - For Live (with TSB support), time shift buffer includes all available language tracks in the manifest .
+        - For Live (with TSB support), time shift buffer includes all available language tracks in the manifest.
     - If PreferredAudioLanguage is set pretune:
         - Player will pick best quality track from the language matching list.
         - For Live (with TSB support), time shift buffer downloads only preferred language tracks but publishes all available languages to application with availability field as false.
@@ -1190,7 +1184,7 @@ playerInstance.setPreferredAudioLanguage( trackPreferenceObject );
 - Supported pre-tune and post tune.
 - If PreferredTextLanguage is not configured:
     - Player will take default preferred language as English,
-    - For Live (with TSB support), time shift buffer includes all available language tracks in the manifest .
+    - For Live (with TSB support), time shift buffer includes all available language tracks in the manifest.
 - If PreferredTextLanguage is set pretune:
     - Player will text track from the language matching list.
     - For Live (with TSB support), time shift buffer downloads only preferred language tracks but publishes all available languages to application with availability field as false.
@@ -1442,7 +1436,7 @@ playerInstance.setPreferredTextLanguage( trackPreferenceObject );
 Linear Streams:
       {
 	  // Use valid URL instead of example
-	  "baseUrl" : "https://example.com/12345678-1234-1234-1234-123456789012/",
+	  "baseUrl" : "https://example.com/12345678-1234-1234-1234-123456789012/", // replace with valid URL!
 	  "raw_w":1600,
 	  "raw_h":900,
 	  "width":320,
@@ -1459,8 +1453,7 @@ Linear Streams:
 
 VOD Streams:
       {
-	  // Use valid URL instead of example
-	  "baseUrl" : "https://example.com/pub/global/abc/def/Example_1234567890123_01/cmaf_thumbtest_segtime_d/mpeg_2sec/images/416x234/",
+	  "baseUrl" : "https://example.com/pub/global/abc/def/Example_1234567890123_01/cmaf_thumbtest_segtime_d/mpeg_2sec/images/416x234/", // replace with valid URL!
           "raw_w": 3744,
           "raw_h": 3978,
           "width": 416,
@@ -1517,7 +1510,7 @@ acquisition |
 ```
  {
     "keyID" : [57, 49, 49, 100, 98, 54, 99, 99, 45],
-    "com.widevine.alpha" : "example.com", // Use valid URL instead of example.com
+    "com.widevine.alpha" : "example.com", // replace with valid URL!
     "customData" : “data”,
     "authToken"  : “token string”,
  }
@@ -2277,9 +2270,9 @@ This feature can be enabled in two methods
 * Video Engine Managed
 * Application managing Multi Player instance
 
-### CDAI Mechanism#1 – Engine Managed CDAI
+### CDAI Mechanism #1 – Engine Managed CDAI
 
-Supported for DASH Linear, working with period structure and SCTE35 markers, with optional replacement for like-amount of content.
+Supported for DASH Linear, working with period structure and SCTE35 markers.  Supports optional replacement for like-amount of content.  Source may be left as-is, replaced with a single similar sized alternate ad, or replaced with multiple alternate ads whose total duration is expected to fill the ad break.  If insufficient alternate content duration is provided, or ads manifests are unable to download, player falls back to original (non-DAI) content.
 
 #### setSubscribedTags( tagNames )
 - Supported UVE version 0.8 and above.
@@ -2318,7 +2311,7 @@ Supported UVE version 0.8 and above
 
 ---
 
-### CDAI Mechanism#2 – Multi player instance
+### CDAI Mechanism #2 – Multi player instance
 Can be leveraged for quick stream transitions.  Suitable for preroll, and midroll insertions.  No limitations with respect to content type – can transition between DASH and HLS.
 
 
@@ -2372,6 +2365,9 @@ adPlayer2.detach();
 player.play();
 adPlayer2.stop();
 ```
+
+When a player instance is no longer needed, recommend to call explicit release() method rather than rely only on eventual garbage collection.  However, player instances can be recycled and reused throughout an app's lifecycle.
+
 ---
 
 <div style="page-break-after: always;"></div>
