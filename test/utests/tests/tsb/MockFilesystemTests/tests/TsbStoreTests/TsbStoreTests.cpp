@@ -125,7 +125,7 @@ protected:
 										   std::make_pair(kFileContent, sizeof(kFileContent)))
 	{
 		EXPECT_CALL(*g_mockFilesystem, exists(_)).Times(0);
-		EXPECT_CALL(*g_mockFilesystem, create_directories(_, _)).Times(0);
+		EXPECT_CALL(*g_mockFilesystem, create_directory(_, _)).Times(0);
 		EXPECT_CALL(*mMockBasicFileBuf, pubsetbuf(_, _)).Times(0);
 		EXPECT_CALL(*g_mockOfstream, open(_, _)).Times(0);
 
@@ -143,6 +143,30 @@ protected:
 		// remove_all completed, reset the sem and flag for any subsequent flushes
 		g_mockFilesystem->mockRemoveAllSem = nullptr;
 		g_mockFilesystem->mockRemoveAllCompleted.store(false);
+	}
+
+	void createDirectoriesExpectations(fs::path path = fs::path{kFlushDir},
+									   fs::path existingPath = fs::path{kTsbLocation})
+	{
+		fs::path currentPath;
+
+		for (auto it = path.begin(); it != path.end(); ++it)
+		{
+			currentPath /= *it;
+			if ((currentPath.string().find(existingPath.string()) == 0) &&
+				(currentPath.string().length() <= existingPath.string().length()))
+			{
+				EXPECT_CALL(*g_mockFilesystem, exists(currentPath)).WillOnce(Return(true));
+			}
+			else
+			{
+				EXPECT_CALL(*g_mockFilesystem, exists(currentPath)).WillOnce(Return(false));
+				EXPECT_CALL(*g_mockFilesystem, create_directory(currentPath, _))
+					.WillOnce(Return(true));
+				EXPECT_CALL(*g_mockFilesystem, permissions(currentPath, std::filesystem::perms::all, _))
+					.Times(1);
+			}
+		}
 	}
 
 	// Having separate construct methods allows the tests to set extra expectations
@@ -169,20 +193,14 @@ protected:
 
 TEST_F(TsbStoreTests, Clean_Create_Destroy_TrailingSlash)
 {
-	EXPECT_CALL(*g_mockFilesystem, create_directories(fs::path(kTsbLocation), _))
-		.WillOnce(Return(true));
-	EXPECT_CALL(*g_mockFilesystem, create_directory(fs::path(kFlushDir), _))
-		.WillOnce(Return(true));
+	createDirectoriesExpectations();
 
 	createStore(kTsbLocation + "/", kMinFreePercent, kMaxCapacity);
 }
 
 TEST_F(TsbStoreTests, CreateDestroySuccess)
 {
-	EXPECT_CALL(*g_mockFilesystem, create_directories(fs::path(kTsbLocation), _))
-		.WillOnce(Return(true));
-	EXPECT_CALL(*g_mockFilesystem, create_directory(fs::path(kFlushDir), _))
-		.WillOnce(Return(true));
+	createDirectoriesExpectations();
 	EXPECT_CALL(*g_mockLibc, open(StrEq(kTsbLocation.c_str()), O_RDONLY | O_DIRECTORY))
 		.WillOnce(Return(kTsbLocationFd));
 	EXPECT_CALL(*g_mockLibc, flock(kTsbLocationFd, LOCK_EX | LOCK_NB))
@@ -216,10 +234,13 @@ TEST_F(TsbStoreTests, WriteSuccess)
 	std::unique_ptr<TSB::Store> store = createStoreDefault();
 
 	EXPECT_CALL(*g_mockFilesystem, exists(fs::path(kFileIncPath))).WillOnce(Return(false));
-	EXPECT_CALL(*g_mockFilesystem, create_directories(fs::path(kDirIncPath), _))
-		.WillOnce(Return(true));
+	createDirectoriesExpectations(fs::path{kDirIncPath}, fs::path{kTsbLocation});
 	EXPECT_CALL(*mMockBasicFileBuf, pubsetbuf(nullptr, 0));
 	EXPECT_CALL(*g_mockOfstream, open(kFileIncPath, static_cast<std::ios_base::openmode>(1)));
+	std::filesystem::perms permissions = std::filesystem::perms::owner_read | std::filesystem::perms::owner_write |
+										 std::filesystem::perms::group_read | std::filesystem::perms::group_write |
+										 std::filesystem::perms::others_read | std::filesystem::perms::others_write;
+	EXPECT_CALL(*g_mockFilesystem, permissions(fs::path(kFileIncPath), permissions, _)).Times(1);
 	EXPECT_CALL(*g_mockOfstream, write(kFileContent, sizeof(kFileContent)));
 	EXPECT_CALL(*g_mockOfstream, close());
 
@@ -239,12 +260,15 @@ TEST_F(TsbStoreTests, WriteFailNoSpace)
 	std::unique_ptr<TSB::Store> store = createStoreDefault();
 
 	EXPECT_CALL(*g_mockFilesystem, exists(fs::path(kFileIncPath))).WillOnce(Return(false));
-	EXPECT_CALL(*g_mockFilesystem, create_directories(fs::path(kDirIncPath), _))
-		.WillOnce(Return(true));
+	createDirectoriesExpectations(fs::path{kDirIncPath}, fs::path{kTsbLocation});
 	// Always need this on Write to avoid a null pointer segfault
 	EXPECT_CALL(*g_mockOfstream, rdbuf()).WillOnce(Return(mMockBasicFileBuf));
 	EXPECT_CALL(*mMockBasicFileBuf, pubsetbuf(nullptr, 0));
 	EXPECT_CALL(*g_mockOfstream, open(kFileIncPath, static_cast<std::ios_base::openmode>(1)));
+	std::filesystem::perms permissions = std::filesystem::perms::owner_read | std::filesystem::perms::owner_write |
+										 std::filesystem::perms::group_read | std::filesystem::perms::group_write |
+										 std::filesystem::perms::others_read | std::filesystem::perms::others_write;
+	EXPECT_CALL(*g_mockFilesystem, permissions(fs::path(kFileIncPath), permissions, _)).Times(1);
 	EXPECT_CALL(*g_mockOfstream, write(kFileContent, sizeof(kFileContent)));
 	EXPECT_CALL(*g_mockOfstream, fail())
 		.WillOnce(Return(false))                       // Called after open
@@ -262,12 +286,15 @@ TEST_F(TsbStoreTests, WriteFailFault)
 	std::unique_ptr<TSB::Store> store = createStoreDefault();
 
 	EXPECT_CALL(*g_mockFilesystem, exists(fs::path(kFileIncPath))).WillOnce(Return(false));
-	EXPECT_CALL(*g_mockFilesystem, create_directories(fs::path(kDirIncPath), _))
-		.WillOnce(Return(true));
+	createDirectoriesExpectations(fs::path{kDirIncPath}, fs::path{kTsbLocation});
 	// Always need this on Write to avoid a null pointer segfault
 	EXPECT_CALL(*g_mockOfstream, rdbuf()).WillOnce(Return(mMockBasicFileBuf));
 	EXPECT_CALL(*mMockBasicFileBuf, pubsetbuf(nullptr, 0));
 	EXPECT_CALL(*g_mockOfstream, open(kFileIncPath, static_cast<std::ios_base::openmode>(1)));
+	std::filesystem::perms permissions = std::filesystem::perms::owner_read | std::filesystem::perms::owner_write |
+										 std::filesystem::perms::group_read | std::filesystem::perms::group_write |
+										 std::filesystem::perms::others_read | std::filesystem::perms::others_write;
+	EXPECT_CALL(*g_mockFilesystem, permissions(fs::path(kFileIncPath), permissions, _)).Times(1);
 	EXPECT_CALL(*g_mockOfstream, write(kFileContent, sizeof(kFileContent)));
 	EXPECT_CALL(*g_mockOfstream, fail())
 		.WillOnce(Return(false))                       // Called after open
@@ -556,9 +583,24 @@ TEST_F(TsbStoreTests, CreateCannotGetCapacity)
 
 TEST_F(TsbStoreTests, CreateCannotCreateLocationDirectory)
 {
-	EXPECT_CALL(*g_mockFilesystem, create_directories(fs::path(kTsbLocation), _))
-		.WillOnce(DoAll(SetArgReferee<1>(std::make_error_code(std::errc::permission_denied)),
-						Return(false)));
+	fs::path path{kTsbLocation};
+	fs::path currentPath;
+
+	for (auto it = path.begin(); it != path.end(); ++it)
+	{
+		currentPath /= *it;
+		if (std::next(it) == path.end())
+		{
+			EXPECT_CALL(*g_mockFilesystem, exists(currentPath)).WillOnce(Return(false));
+			EXPECT_CALL(*g_mockFilesystem, create_directory(currentPath, _))
+				.WillOnce(DoAll(SetArgReferee<1>(std::make_error_code(std::errc::permission_denied)),
+								Return(false)));
+		}
+		else
+		{
+			EXPECT_CALL(*g_mockFilesystem, exists(currentPath)).WillOnce(Return(true));
+		}
+	}
 
 	ASSERT_THROW(std::unique_ptr<TSB::Store> store = createStore(kTsbLocation, 0, 0),
 				 std::invalid_argument);
@@ -584,14 +626,11 @@ TEST_F(TsbStoreTests, CreateCannotLockLocationDirectory)
 
 TEST_F(TsbStoreTests, CreateCannotCreateFlushDirectory)
 {
-	EXPECT_CALL(*g_mockLibc, open(StrEq(kTsbLocation.c_str()), _)).WillOnce(Return(kTsbLocationFd));
+	createDirectoriesExpectations(fs::path{kTsbLocation});
+	EXPECT_CALL(*g_mockFilesystem, exists(fs::path(kFlushDir))).WillOnce(Return(false));
 	EXPECT_CALL(*g_mockFilesystem, create_directory(fs::path(kFlushDir), _))
 		.WillOnce(DoAll(SetArgReferee<1>(std::make_error_code(std::errc::permission_denied)),
 						Return(false)));
-
-	// If an exception is thrown during construction, after the TSB Store location is locked,
-	// the associated file descriptor must be closed.
-	EXPECT_CALL(*g_mockLibc, close(kTsbLocationFd)).WillOnce(Return(0));
 
 	ASSERT_THROW(std::unique_ptr<TSB::Store> store = createStore(kTsbLocation, 0, 0),
 				 std::invalid_argument);
@@ -698,10 +737,13 @@ TEST_F(TsbStoreTests, UrlToFileMapperUftUrlSpecialChars)
 	const std::string url{"http://some/directories/mot%C3%B6rhead.mp4"};
 
 	EXPECT_CALL(*g_mockFilesystem, exists(fs::path(fileIncPath))).WillOnce(Return(false));
-	EXPECT_CALL(*g_mockFilesystem, create_directories(fs::path(dirIncPath), _))
-		.WillOnce(Return(true));
+	createDirectoriesExpectations(fs::path{dirIncPath});
 	EXPECT_CALL(*mMockBasicFileBuf, pubsetbuf(nullptr, 0));
 	EXPECT_CALL(*g_mockOfstream, open(fileIncPath, static_cast<std::ios_base::openmode>(1)));
+	std::filesystem::perms permissions = std::filesystem::perms::owner_read | std::filesystem::perms::owner_write |
+										 std::filesystem::perms::group_read | std::filesystem::perms::group_write |
+										 std::filesystem::perms::others_read | std::filesystem::perms::others_write;
+	EXPECT_CALL(*g_mockFilesystem, permissions(fs::path(fileIncPath), permissions, _)).Times(1);
 	EXPECT_CALL(*g_mockOfstream, write(kFileContent, sizeof(kFileContent)));
 	EXPECT_CALL(*g_mockOfstream, close());
 

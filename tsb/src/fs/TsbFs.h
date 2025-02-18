@@ -35,18 +35,19 @@ namespace FS
 using std::ofstream;
 using std::ifstream;
 
-using std::filesystem::exists;
-using std::filesystem::file_size;
-using std::filesystem::remove;
-using std::filesystem::space;
+using std::filesystem::create_directory;
 using std::filesystem::directory_entry;
 using std::filesystem::directory_iterator;
+using std::filesystem::exists;
+using std::filesystem::file_size;
 using std::filesystem::path;
-using std::filesystem::space_info;
-using std::filesystem::create_directories;
-using std::filesystem::create_directory;
+using std::filesystem::permissions;
+using std::filesystem::perms;
+using std::filesystem::remove;
 using std::filesystem::remove_all;
 using std::filesystem::rename;
+using std::filesystem::space;
+using std::filesystem::space_info;
 
 using std::this_thread::sleep_for;
 

@@ -43,12 +43,13 @@ namespace FS
  */
 using std::filesystem::directory_entry;
 using std::filesystem::path;
+using std::filesystem::perms;
 using std::filesystem::space_info;
 
-bool create_directories(const path &, std::error_code &);
 bool create_directory(const path &, std::error_code &);
 bool exists(const path &);
 uintmax_t file_size(const path &, std::error_code &);
+void permissions(const path &, perms, std::error_code &);
 bool remove(const path &, std::error_code &);
 uintmax_t remove_all(const path &, std::error_code &);
 void rename(const path &, const path &, std::error_code &);

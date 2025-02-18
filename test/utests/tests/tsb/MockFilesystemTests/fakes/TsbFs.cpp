@@ -194,18 +194,6 @@ void ifstream::close()
 	}
 }
 
-bool create_directories(const path& __p, std::error_code& __ec)
-{
-	bool rv = true;
-	LOG(__p);
-	if (g_mockFilesystem)
-	{
-		rv = g_mockFilesystem->create_directories(__p, __ec);
-	}
-	LOG(rv);
-	return rv;
-}
-
 bool create_directory(const path& __p, std::error_code& __ec)
 {
 	bool rv = true;
@@ -240,6 +228,15 @@ uintmax_t file_size(const path& __p, std::error_code& __ec)
 	}
 	LOG(rv);
 	return rv;
+}
+
+void permissions(const path &__p, perms __prms, std::error_code &__ec)
+{
+	LOG(__p);
+	if (g_mockFilesystem)
+	{
+		g_mockFilesystem->permissions(__p, __prms, __ec);
+	}
 }
 
 bool remove(const path& __p, std::error_code& __ec)

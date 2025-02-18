@@ -37,6 +37,7 @@ using namespace std::chrono_literals;
 const uint32_t kMinFreePercent{5};
 const uint32_t kMaxCapacity{UINT32_MAX};
 const std::string kUrl{"https://lin017-gb-s8-prd-ak.cdn01.skycdp.com/v1/frag/bmff/enc/cenc/t/file.mp4"};
+const std::string kFile{"lin017-gb-s8-prd-ak.cdn01.skycdp.com/v1/frag/bmff/enc/cenc/t/file.mp4"};
 const char kFileContent[] {"content of the file"};
 
 void Logger(std::string&& tsbMessage)
@@ -119,6 +120,39 @@ protected:
 		return mTsbStore->Write(pathToWrite, kFileContent, size);
 	}
 };
+
+TEST_F(TsbStoreTests, CheckPermissions)
+{
+	const std::filesystem::perms dirExpectedPermissions {std::filesystem::perms::all};
+	const std::filesystem::perms fileExpectedPermissions {std::filesystem::perms::owner_read |
+														  std::filesystem::perms::owner_write |
+														  std::filesystem::perms::group_read |
+														  std::filesystem::perms::group_write |
+														  std::filesystem::perms::others_read |
+														  std::filesystem::perms::others_write};
+	const std::string kFlushDir{mTsbLocation + "/0"};
+	const std::string kActiveDir{mTsbLocation + "/1"};
+
+	// Check that the permissions for the Flush directory are set correctly
+	std::filesystem::perms permissions {std::filesystem::status(kFlushDir).permissions()};
+	EXPECT_TRUE((permissions & std::filesystem::perms::all) == dirExpectedPermissions);
+
+	// Set the umask to S_IRWXU (700) to check that permissions are still set correctly
+	mode_t oldUmask = umask(S_IRWXU);
+
+	EXPECT_EQ(writeOperation(kUrl), TSB::Status::OK);
+
+	// Check that the permissions for the Active directory are set correctly
+	permissions = std::filesystem::status(kActiveDir).permissions();
+	EXPECT_TRUE((permissions & std::filesystem::perms::all) == dirExpectedPermissions);
+
+	// Check that the permissions for the file created are set correctly
+	permissions = std::filesystem::status(kActiveDir + "/" + kFile).permissions();
+	EXPECT_TRUE((permissions & std::filesystem::perms::all) == fileExpectedPermissions);
+
+	// Restore the umask
+	umask(oldUmask);
+}
 
 TEST_F(TsbStoreTests, WriteAnotherFileExistingDirectory)
 {
