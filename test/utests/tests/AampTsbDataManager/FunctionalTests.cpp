@@ -171,7 +171,7 @@ TEST_F(FunctionalTests, TestAddFragment_WithDiscontinuity)
     EXPECT_TRUE(mDataManager->AddFragment(writeData, media, discont));
     EXPECT_STREQ(mDataManager->GetLastFragment()->GetUrl().c_str(), url.c_str());
     EXPECT_EQ(mDataManager->GetLastFragment()->GetMediaType(), media);
-    EXPECT_DOUBLE_EQ(mDataManager->GetLastFragment()->GetPosition(), absPosition);
+    EXPECT_DOUBLE_EQ(mDataManager->GetLastFragment()->GetAbsPosition(), absPosition);
     EXPECT_DOUBLE_EQ(mDataManager->GetLastFragment()->GetDuration(), duration);
     EXPECT_DOUBLE_EQ(mDataManager->GetLastFragment()->GetPTS(), pts);
     EXPECT_TRUE(mDataManager->GetLastFragment()->IsDiscontinuous());
@@ -421,7 +421,7 @@ TEST_F(FunctionalTests, RemoveFragment_SingleElement)
 
     TsbFragmentDataPtr removedFragment = mDataManager->RemoveFragment();
     EXPECT_NE(removedFragment, nullptr);
-    EXPECT_DOUBLE_EQ(removedFragment->GetPosition(), 1005.0);
+    EXPECT_DOUBLE_EQ(removedFragment->GetAbsPosition(), 1005.0);
     double absPosition = mDataManager->GetFirstFragmentPosition();
     EXPECT_DOUBLE_EQ(absPosition, 0.0); // Expecting list to be empty after removal
 }
@@ -448,14 +448,14 @@ TEST_F(FunctionalTests, RemoveFragment_MultipleElements)
 
     TsbFragmentDataPtr removedFragment = mDataManager->RemoveFragment();
     EXPECT_NE(removedFragment, nullptr);
-    EXPECT_DOUBLE_EQ(removedFragment->GetPosition(), 1005.0);
+    EXPECT_DOUBLE_EQ(removedFragment->GetAbsPosition(), 1005.0);
 
     double firstPositionAfterRemoval = mDataManager->GetFirstFragmentPosition();
     EXPECT_DOUBLE_EQ(firstPositionAfterRemoval, 1010.0);
 
     removedFragment = mDataManager->RemoveFragment();
     EXPECT_NE(removedFragment, nullptr);
-    EXPECT_DOUBLE_EQ(removedFragment->GetPosition(), 1010.0);
+    EXPECT_DOUBLE_EQ(removedFragment->GetAbsPosition(), 1010.0);
 
     firstPositionAfterRemoval = mDataManager->GetFirstFragmentPosition();
     EXPECT_DOUBLE_EQ(firstPositionAfterRemoval, 1015.0);
@@ -484,11 +484,11 @@ TEST_F(FunctionalTests, GetNextDiscFragmentForwardSearch)
 
     TsbFragmentDataPtr fragment1 = mDataManager->GetNextDiscFragment(1005.0, false);
     ASSERT_NE(fragment1, nullptr);
-    EXPECT_DOUBLE_EQ(fragment1->GetPosition(), 1010.0);
+    EXPECT_DOUBLE_EQ(fragment1->GetAbsPosition(), 1010.0);
 
     TsbFragmentDataPtr fragment2 = mDataManager->GetNextDiscFragment(1010.0, false); // Exact match
     ASSERT_NE(fragment2, nullptr);
-    EXPECT_DOUBLE_EQ(fragment2->GetPosition(), 1010.0);
+    EXPECT_DOUBLE_EQ(fragment2->GetAbsPosition(), 1010.0);
 }
 
 TEST_F(FunctionalTests, GetNextDiscFragmentBackwardSearch)
@@ -515,11 +515,11 @@ TEST_F(FunctionalTests, GetNextDiscFragmentBackwardSearch)
 
     TsbFragmentDataPtr fragment1 = mDataManager->GetNextDiscFragment(1016.0, true);
     ASSERT_NE(fragment1, nullptr);
-    EXPECT_DOUBLE_EQ(fragment1->GetPosition(), 1010.0);
+    EXPECT_DOUBLE_EQ(fragment1->GetAbsPosition(), 1010.0);
 
     TsbFragmentDataPtr fragment2 = mDataManager->GetNextDiscFragment(1010.0, true);
     ASSERT_NE(fragment2, nullptr);
-    EXPECT_DOUBLE_EQ(fragment2->GetPosition(), 1010.0);
+    EXPECT_DOUBLE_EQ(fragment2->GetAbsPosition(), 1010.0);
 }
 
 TEST_F(FunctionalTests, GetNextDiscFragmentNoDiscontinuity)

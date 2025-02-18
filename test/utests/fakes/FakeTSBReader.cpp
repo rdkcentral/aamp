@@ -48,11 +48,6 @@ AampTsbReader::~AampTsbReader()
 {
 }
 
-double AampTsbReader::GetStartPosition()
-{
-	return 0;
-}
-
 void AampTsbReader::Term()
 {
 

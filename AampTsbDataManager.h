@@ -155,11 +155,10 @@ public:
 class TsbFragmentData : public TsbSegment
 {
 private:
-	double position; /**< absolute position of the current fragment, in seconds since 1970 */
+	double absolutePositionS; /**< absolute position of the current fragment, in seconds since 1970 */
 	double duration; /**< duration of the current fragment*/
 	double mPTS; /**< PTS of the current fragment in seconds before applying PTS offset, i.e. ISO BMFF baseMediaDecodeTime / timescale */
 	bool isDiscontinuous;  /**< the current fragment is discontinuous*/
-	double relativePosition; /**< Relative position from start*/
 	std::shared_ptr<TsbInitData> initFragData; /**< init Fragment of the current fragment*/
 	uint32_t timeScale; /**< timescale of the current fragment */
 	double PTSOffsetSec; /**< PTS offset of the current fragment */
@@ -172,20 +171,19 @@ public:
 	 *   @fn constructor
 	 *   @param[in] url - Segment URL as string
 	 *   @param[in] media - Segment type as AampMediaType
-	 *   @param[in] position - absolute position of the current fragment, in seconds since 1970
+	 *   @param[in] absolutePositionS - absolute position of the current fragment, in seconds since 1970
 	 *   @param[in] duration - duration of the current fragment
 	 *   @param[in] pts - PTS of the current fragment in seconds before applying PTS offset, i.e. ISO BMFF baseMediaDecodeTime / timescale
 	 *   @param[in] disc - discontinuity flag
-	 *   @param[in] relativePos - Relative position
 	 *   @param[in] prId - Period Id of the fragment
 	 *   @param[in] initData - Pointer to initData
 	 *   @param[in] timeScale - timescale of the current fragment
 	 *   @param[in] PTSOffsetSec - PTS offset of the current fragment
 	 */
-	TsbFragmentData(std::string url, AampMediaType media, double position, double duration, double pts, bool disc, double relativePos,
+	TsbFragmentData(std::string url, AampMediaType media, double absolutePositionS, double duration, double pts, bool disc,
 		std::string prId, std::shared_ptr<TsbInitData> initData, uint32_t timeScale, double PTSOffsetSec)
-		: TsbSegment(url, media, prId), position(position), duration(duration), mPTS(pts), isDiscontinuous(disc), initFragData(initData),
-		relativePosition(relativePos), timeScale(timeScale), PTSOffsetSec(PTSOffsetSec)
+		: TsbSegment(url, media, prId), absolutePositionS(absolutePositionS), duration(duration), mPTS(pts), isDiscontinuous(disc), initFragData(initData),
+		timeScale(timeScale), PTSOffsetSec(PTSOffsetSec)
 	{
 	}
 
@@ -203,11 +201,11 @@ public:
 	std::shared_ptr<TsbInitData> GetInitFragData() const { return initFragData; }
 
 	/**
-	 * @fn GetPosition
+	 * @fn GetAbsPosition
 	 *
 	 * @return absolute position of the current fragment, in seconds since 1970
 	 */
-	double GetPosition() const { return position; }
+	double GetAbsPosition() const { return absolutePositionS; }
 
 	/**
 	 * @fn GetPTS
@@ -215,13 +213,6 @@ public:
 	 * @return Query the PST of fragment
 	 */
 	double GetPTS() const { return mPTS; }
-
-	/**
-	 * @fn GetRelativePosition
-	 *
-	 * @return Query the relative position of fragment
-	 */
-	double GetRelativePosition() const { return relativePosition; }
 
 	/**
 	 * @fn GetDuration
