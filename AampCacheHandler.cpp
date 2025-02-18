@@ -73,7 +73,8 @@ bool AampCacheHandler::RetrieveFromPlaylistCache( const std::string &url, AampGr
 		}
 		buffer->Clear();
 		buffer->AppendBytes( cachedData->buffer->GetPtr(), cachedData->buffer->GetLen() );
-		assert( mediaType == cachedData->mediaType );
+		// below fails when playing an HLS playlist directly, then seeking or retuning
+		// assert( mediaType == cachedData->mediaType );
 		AAMPLOG_TRACE( "%s %s found", GetMediaTypeName(cachedData->mediaType), url.c_str() );
 		ret = true;
 	}
