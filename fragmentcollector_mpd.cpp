@@ -10928,7 +10928,6 @@ double StreamAbstractionAAMP_MPD::GetStartTimeOfFirstPTS()
 	if (tsbSessionManager && video && video->IsLocalTSBInjection())
 	{
 		startTime = 0;
-		//startTime = tsbSessionManager->GetTsbReader(eMEDIATYPE_VIDEO)->GetStartPosition();
 	}
 	return startTime;
 }

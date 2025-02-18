@@ -257,7 +257,7 @@ double AampTsbDataManager::GetFirstFragmentPosition()
 	std::lock_guard<std::mutex> lock(mTsbDataMutex);
 	if (!mTsbFragmentData.empty())
 	{
-		pos = mTsbFragmentData.begin()->second->GetPosition();
+		pos = mTsbFragmentData.begin()->second->GetAbsPosition();
 	}
 	return pos;
 }
@@ -305,7 +305,7 @@ double AampTsbDataManager::GetLastFragmentPosition()
 	std::lock_guard<std::mutex> lock(mTsbDataMutex);
 	if (!mTsbFragmentData.empty())
 	{
-		pos = (std::prev(mTsbFragmentData.end()))->second->GetPosition();
+		pos = (std::prev(mTsbFragmentData.end()))->second->GetAbsPosition();
 	}
 	return pos;
 }
@@ -358,12 +358,11 @@ bool AampTsbDataManager::AddFragment(TSBWriteData &writeData, AampMediaType medi
 			AAMPLOG_WARN("Inserting fragment at %.02lf but init header information is missing !!!", position);
 			return ret;
 		}
-		AAMPLOG_INFO("[%s] Adding fragment data: position %.02lfs duration %.02lfs pts %.02lfs relativePos %.02lfs bandwidth %" BITSPERSECOND_FORMAT " discontinuous %d periodId %s timeScale %u ptsOffset %fs fragmentUrl '%s' initHeaderUrl '%s'",
-					 GetMediaTypeName(media), position, duration, pts, mRelativePos, mCurrentInitData->GetBandWidth(), discont, periodId.c_str(), timeScale, PTSOffsetSec,
+		AAMPLOG_INFO("[%s] Adding fragment data: position %.02lfs duration %.02lfs pts %.02lfs bandwidth %" BITSPERSECOND_FORMAT " discontinuous %d periodId %s timeScale %u ptsOffset %fs fragmentUrl '%s' initHeaderUrl '%s'",
+					 GetMediaTypeName(media), position, duration, pts, mCurrentInitData->GetBandWidth(), discont, periodId.c_str(), timeScale, PTSOffsetSec,
 					 url.c_str(), mCurrentInitData->GetUrl().c_str());
 		mCurrentInitData->incrementUser();
-		TsbFragmentDataPtr fragmentData = std::make_shared<TsbFragmentData>(url, media, position, duration, pts, discont, mRelativePos, periodId, mCurrentInitData, timeScale, PTSOffsetSec);
-		mRelativePos += duration;
+		TsbFragmentDataPtr fragmentData = std::make_shared<TsbFragmentData>(url, media, position, duration, pts, discont, periodId, mCurrentInitData, timeScale, PTSOffsetSec);
 		if (mCurrHead != nullptr)
 		{
 			fragmentData->prev = mCurrHead;
@@ -398,8 +397,8 @@ bool AampTsbDataManager::DumpData()
 			{
 				TsbFragmentDataPtr fragmentData = it->second;
 				TsbInitDataPtr initdata = fragmentData->GetInitFragData();
-				AAMPLOG_INFO("Fragment Meta Data: { Media [%d] position : %.02lf duration: %.02lf PTS : %.02lf bandwidth: %" BITSPERSECOND_FORMAT " discontinuous: %d fragmentUrl: '%s' initHeaderUrl: '%s' }",
-							 fragmentData->GetMediaType(), fragmentData->GetPosition(), fragmentData->GetDuration(), fragmentData->GetPTS(),
+				AAMPLOG_INFO("Fragment Meta Data: { Media [%d] absPosition : %.02lf duration: %.02lf PTS : %.02lf bandwidth: %" BITSPERSECOND_FORMAT " discontinuous: %d fragmentUrl: '%s' initHeaderUrl: '%s' }",
+							 fragmentData->GetMediaType(), fragmentData->GetAbsPosition(), fragmentData->GetDuration(), fragmentData->GetPTS(),
 							 initdata->GetBandWidth(), fragmentData->IsDiscontinuous(), fragmentData->GetUrl().c_str(), initdata->GetUrl().c_str());
 			}
 		}
