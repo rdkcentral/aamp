@@ -10034,8 +10034,6 @@ void StreamAbstractionAAMP_MPD::TsbReader()
 		// playback
 		std::array<bool, AAMP_TRACK_COUNT>cacheFullStatus;
 		cacheFullStatus.fill(false);
-		std::array<bool, AAMP_TRACK_COUNT>trackEnabled;
-		trackEnabled.fill(true);
 		AampTSBSessionManager* tsbSessionManager = aamp->GetTSBSessionManager();
 		if(NULL != tsbSessionManager)
 		{
@@ -10044,7 +10042,7 @@ void StreamAbstractionAAMP_MPD::TsbReader()
 				for (int trackIdx = (mNumberOfTracks - 1); trackIdx >= 0; trackIdx--)
 				{
 					cacheFullStatus[trackIdx] = true;
-					if (!tsbSessionManager->GetTsbReader((AampMediaType) trackIdx)->IsEos() && trackEnabled[trackIdx])
+					if (!tsbSessionManager->GetTsbReader((AampMediaType) trackIdx)->IsEos())
 					{
 						AdvanceTsbFetch(trackIdx, trickPlay, delta, &waitForFreeFrag, &cacheFullStatus[trackIdx]);
 					}
@@ -10056,8 +10054,6 @@ void StreamAbstractionAAMP_MPD::TsbReader()
 				}
 				tsbSessionManager->LockReadMutex();
 				bool vEOS = tsbSessionManager->GetTsbReader(eMEDIATYPE_VIDEO)->IsEos();
-				bool vPeriodEnd  = tsbSessionManager->GetTsbReader(eMEDIATYPE_VIDEO)->IsPeriodBoundary();
-				bool aPeriodEnd  = tsbSessionManager->GetTsbReader(eMEDIATYPE_AUDIO)->IsPeriodBoundary();
 				bool aEOS = tsbSessionManager->GetTsbReader(eMEDIATYPE_AUDIO)->IsEos();
 				tsbSessionManager->UnlockReadMutex();
 				if(vEOS || aEOS)
@@ -10084,32 +10080,6 @@ void StreamAbstractionAAMP_MPD::TsbReader()
 					}
 					AAMPLOG_TRACE("EOS from both tracks - Wait for next fragment");
 					aamp->interruptibleMsSleep(500);
-				}
-				if (vPeriodEnd && aPeriodEnd && (aamp->rate  == AAMP_NORMAL_PLAY_RATE))
-				{
-					for (int trackIdx = (mNumberOfTracks - 1); trackIdx >= 0; trackIdx--)
-					{
-						trackEnabled[trackIdx] = true;
-						AAMPLOG_TRACE("Reset Track [%d] Enabled:%d", trackIdx, trackEnabled[trackIdx]);
-					}
-
-					if(aamp->GetIsPeriodChangeMarked())
-					{
-						AAMPLOG_TRACE("Waiting to complete previous discontinuity!!");
-						aamp->WaitForDiscontinuityProcessToComplete();
-					}
-					aamp->SetIsPeriodChangeMarked(true);
-					//double firstPTS = tsbSessionManager->GetTsbReader(eMEDIATYPE_VIDEO)->GetFirstPTS();
-				}
-				else if(aamp->GetIsPeriodChangeMarked())
-				{
-					tsbSessionManager->LockReadMutex();
-					for (int trackIdx = (mNumberOfTracks - 1); trackIdx >= 0; trackIdx--)
-					{
-						trackEnabled[trackIdx] = !tsbSessionManager->GetTsbReader((AampMediaType)trackIdx)->IsPeriodBoundary();
-						AAMPLOG_TRACE("Track [%d] Enabled:%d", trackIdx, trackEnabled[trackIdx]);
-					}
-					tsbSessionManager->UnlockReadMutex();
 				}
 				if(cacheFullStatus[eMEDIATYPE_VIDEO] || (vEOS && !aEOS))
 				{
