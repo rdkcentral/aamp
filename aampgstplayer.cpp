@@ -4400,7 +4400,7 @@ void AAMPGstPlayer::SetSubtitlePtsOffset(std::uint64_t pts_offset)
 			AAMPLOG_INFO("usingRialtoSink pts_offset gst_seek_simple %" PRIu64 ", seek_pos_seconds %2f", pts_offset, aamp->seek_pos_seconds);
 			GstClockTime pts = ((double)pts_offset) * GST_SECOND;
 			GstStructure *structure{gst_structure_new("set-pts-offset", "pts-offset", G_TYPE_UINT64, pts, nullptr)};
-			if (!gst_element_send_event(privateContext->stream[eMEDIATYPE_SUBTITLE].source, gst_event_new_custom(GST_EVENT_CUSTOM_DOWNSTREAM, structure)))
+			if (!gst_element_send_event(privateContext->stream[eMEDIATYPE_SUBTITLE].source, gst_event_new_custom(GST_EVENT_CUSTOM_DOWNSTREAM_OOB, structure)))
 			{
 				AAMPLOG_WARN("usingRialtoSink Failed to seek text-sink element");
 			}
