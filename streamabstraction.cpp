@@ -4228,6 +4228,16 @@ double MediaTrack::GetTotalInjectedDuration()
 }
 
 /**
+ * @brief update total fragment injected duration
+ *
+ * @return void
+ */
+void MediaTrack::UpdateInjectedDuration(double surplusDuration)
+{
+	totalInjectedDuration -= surplusDuration ;
+}
+
+/**
  * @brief SetCachedFragmentChunksSize - Setter for fragment chunks cache size
  *
  * @param[in] size Size for fragment chunks cache

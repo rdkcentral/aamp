@@ -158,6 +158,8 @@ StreamAbstractionAAMP_MPD::StreamAbstractionAAMP_MPD(class PrivateInstanceAAMP *
 	,mNextPts(0.0)
 	,mPrevFirstPeriodStart(0.0f)
 	,mTrackWorkers()
+	,mAudioSurplus(0)
+	,mVideoSurplus(0)
 {
 	this->aamp = aamp;
 #ifdef AAMP_MPD_DRM
@@ -9063,6 +9065,21 @@ void StreamAbstractionAAMP_MPD::GetStartAndDurationForPtsRestamping(AampTime &st
 	{
 		// for cases where 2 tracks have slightly different durations, take the maximum to avoid injecting overlapping media
 		duration = std::max(audioDuration, videoDuration);
+		mAudioSurplus = 0;
+		mVideoSurplus = 0;
+		if(audioStart == videoStart)
+		{
+			if(audioDuration > videoDuration)
+			{
+				mAudioSurplus = audioDuration - videoDuration;
+				mVideoSurplus = 0;
+			}
+			else if(videoDuration > audioDuration)
+			{
+				mVideoSurplus = videoDuration - audioDuration;
+				mAudioSurplus = 0;
+			}
+		}
 	}
 	else
 	{
@@ -9301,6 +9318,21 @@ bool StreamAbstractionAAMP_MPD::SelectSourceOrAdPeriod(bool &periodChanged, bool
 					}
 					requireStreamSelection = true;
 					AAMPLOG_MIL("playing period %d/%d", mIterPeriodIndex, (int)mNumberOfPeriods);
+					if (rate == AAMP_NORMAL_PLAY_RATE)
+					{
+						if(mAudioSurplus != 0 )
+						{
+							MediaTrack *audio = GetMediaTrack(eTRACK_AUDIO);
+							audio->UpdateInjectedDuration((double)mAudioSurplus);
+							mAudioSurplus = 0;
+						}else if ( mVideoSurplus != 0 )
+						{
+							MediaTrack *video = GetMediaTrack(eTRACK_VIDEO);
+							video->UpdateInjectedDuration((double)mVideoSurplus);
+							mVideoSurplus = 0;
+						}
+
+					}
 					// If DAI ad is available for the period and we are still not in AD playing state, log a warning
 					if ((mCdaiObject->HasDaiAd(mBasePeriodId)) && (AdState::IN_ADBREAK_AD_PLAYING != mCdaiObject->mAdState) && (mBasePeriodOffset == 0))
 					{

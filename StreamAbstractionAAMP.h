@@ -438,6 +438,13 @@ public:
 	double GetTotalInjectedDuration();
 
 	/**
+ 	* @brief update total fragment injected duration
+	*
+ 	* @return void
+	*/
+	void UpdateInjectedDuration(double surplusDuration);
+
+	/**
 	* @brief Get total fragment chunk injected duration
 	*
 	* @return Total duration in seconds

@@ -1141,6 +1141,8 @@ protected:
 	bool mIsFcsRepresentation;
 	int mFcsRepresentationId;
 	std::vector<IFCS *>mFcsSegments;
+	AampTime mAudioSurplus;
+	AampTime mVideoSurplus;
 	/**
 	 * @fn isAdbreakStart
 	 * @param[in] period instance.
