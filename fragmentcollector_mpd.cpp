@@ -13806,7 +13806,7 @@ void StreamAbstractionAAMP_MPD::SeekPosUpdate(double secondsRelativeToTuneTime)
 }
 
 /**
- * @brief Function to notify first video pts value from tsprocessor/demux
+ * @brief Function to notify first video pts value
  *
  * @param[in] pts
  * @param[in] timescale
