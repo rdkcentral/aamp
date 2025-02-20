@@ -636,6 +636,13 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 	{
 		AAMPLOG_INFO("PLAYER[%d] rate=%f.", aamp->mPlayerId, rate);
 		AAMPPlayerState state = GetState();
+
+		if (state == eSTATE_ERROR)
+		{
+			AAMPLOG_WARN("operation is not allowed when player in eSTATE_ERROR state !");
+			return;
+		}
+
 		if (!IsValidRate(rate))
 		{
 			AAMPLOG_WARN("SetRate ignored!! Invalid rate (%f)", rate);
