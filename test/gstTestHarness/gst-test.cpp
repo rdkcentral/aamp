@@ -14,6 +14,7 @@
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
+ * See the License for the specfaific language governing permissions and
  * limitations under the License.
  */
 #include "gst-test.h"
@@ -197,6 +198,7 @@ private:
 	gpointer ptr;
 	double duration;
 	double pts_offset;
+	MediaType mediaType;
 	
 	// for demuxed ts segment
 	TsDemux *tsDemux;
@@ -218,17 +220,15 @@ private:
 				break;
 				
 			case eCONTENTFORMAT_TS_ES:
-				tsDemux = new TsDemux( ptr, len );
+				tsDemux = new TsDemux( mediaType, ptr, len );
 				assert( tsDemux );
 				break;
 		}
 	}
 	
 public:
-	TrackFragment( uint32_t timeScale, const char *path, double duration, int64_t pts_offset=0 ):len(), ptr(), tsDemux(), mp4Demux(),  pts_offset(pts_offset), duration(duration)
-	{ // new variation - caller passes timeScale
-		this->timeScale = timeScale;
-		url = path;
+	TrackFragment( MediaType mediaType, uint32_t timeScale, const char *path, double duration, double pts_offset=0 ):len(), ptr(), tsDemux(), mp4Demux(),  pts_offset(pts_offset), duration(duration), timeScale(timeScale), url(path), mediaType(mediaType)
+	{
 	}
 	
 	~TrackFragment()
@@ -244,6 +244,8 @@ public:
 		if( tsDemux )
 		{
 			int count = tsDemux->count();
+			// assert( count>0 );
+			// printf( "***mediaType=%d pts=%f\n", mediaType, tsDemux->getPts(0) );
 			for( int i=0; i<count; i++ )
 			{
 				size_t len = tsDemux->getLen(i);
@@ -470,7 +472,7 @@ private:
 	PipelineState prevState;
 	PipelineState desiredState;
 public:
-	TrackWaitState( PipelineState desiredState ) : prevState(ePIPELINeSTATE_NULL),desiredState(desiredState)
+	TrackWaitState( PipelineState desiredState ) : prevState(ePIPELINE_STATE_NULL),desiredState(desiredState)
 	{
 	}
 	
@@ -485,16 +487,16 @@ public:
 		{
 			switch( state )
 			{
-				case ePIPELINeSTATE_NULL:
+				case ePIPELINE_STATE_NULL:
 					printf( "TrackWaitState(PIPELINeSTATE_NULL)\n" );
 					break;
-				case ePIPELINeSTATE_READY:
+				case ePIPELINE_STATE_READY:
 					printf( "TrackWaitState(PIPELINeSTATE_READY)\n" );
 					break;
-				case ePIPELINeSTATE_PAUSED:
+				case ePIPELINE_STATE_PAUSED:
 					printf( "TrackWaitState(PIPELINeSTATE_PAUSED)\n" );
 					break;
-				case ePIPELINeSTATE_PLAYING:
+				case ePIPELINE_STATE_PLAYING:
 					printf( "TrackWaitState(PIPELINeSTATE_PLAYING)\n" );
 					break;
 				default:
@@ -601,7 +603,7 @@ public:
 	
 	bool Inject( MyPipelineContext *context, MediaType mediaType)
 	{
-		context->pipeline->SetPipelineState(ePIPELINeSTATE_PLAYING);
+		context->pipeline->SetPipelineState(ePIPELINE_STATE_PLAYING);
 		return true;
 	}
 };
@@ -642,7 +644,7 @@ void Track::QueueVideoHeader( VideoResolution resolution )
 	{
 		char path[MAX_PATH_SIZE];
 		GetVideoIHeaderPath(path, resolution );
-		EnqueueSegment( new TrackFragment( 0, path, 0 ) );
+		EnqueueSegment( new TrackFragment( eMEDIATYPE_VIDEO, 0, path, 0 ) );
 	}
 }
 
@@ -655,7 +657,7 @@ void Track::QueueVideoSegment( VideoResolution resolution, int startIndex, int c
 		while( count>0 )
 		{
 			GetVideoSegmentPath(path, startIndex, resolution );
-			EnqueueSegment( new TrackFragment( timescale, path, SEGMENT_DURATION_SECONDS, pts_offset ) );
+			EnqueueSegment( new TrackFragment( eMEDIATYPE_VIDEO, timescale, path, SEGMENT_DURATION_SECONDS, pts_offset ) );
 			startIndex++;
 			count--;
 		}
@@ -665,7 +667,7 @@ void Track::QueueVideoSegment( VideoResolution resolution, int startIndex, int c
 		while( count<0 )
 		{
 			GetVideoSegmentPath(path, startIndex, resolution );
-			EnqueueSegment( new TrackFragment( timescale, path, SEGMENT_DURATION_SECONDS, pts_offset ) );
+			EnqueueSegment( new TrackFragment( eMEDIATYPE_VIDEO, timescale, path, SEGMENT_DURATION_SECONDS, pts_offset ) );
 			startIndex--;
 			count++;
 		}
@@ -681,7 +683,7 @@ void Track::QueueAudioHeader( const char *language )
 	{
 		char path[MAX_PATH_SIZE];
 		GetAudioHeaderPath( path, language );
-		EnqueueSegment( new TrackFragment( 0, path, 0 ) );
+		EnqueueSegment( new TrackFragment( eMEDIATYPE_AUDIO, 0, path, 0 ) );
 	}
 }
 
@@ -693,7 +695,7 @@ void Track::QueueAudioSegment( const char *language, int startIndex, int count, 
 	{
 		int segmentNumber = startIndex + i;
 		GetAudioSegmentPath( path, segmentNumber, language );
-		EnqueueSegment( new TrackFragment( timescale, path, SEGMENT_DURATION_SECONDS, pts_offset ) );
+		EnqueueSegment( new TrackFragment( eMEDIATYPE_AUDIO, timescale, path, SEGMENT_DURATION_SECONDS, pts_offset ) );
 	}
 }
 
@@ -802,7 +804,7 @@ public:
 		
 		pipelineContext.pipeline->Configure( eMEDIATYPE_VIDEO );
 		pipelineContext.pipeline->Configure( eMEDIATYPE_AUDIO );
-		pipelineContext.pipeline->SetPipelineState(ePIPELINeSTATE_PLAYING);
+		pipelineContext.pipeline->SetPipelineState(ePIPELINE_STATE_PLAYING);
 	}
 	
 	void TestDAI( void )
@@ -849,7 +851,7 @@ public:
 		// configure pipelines and begin streaming
 		pipelineContext.pipeline->Configure( eMEDIATYPE_VIDEO );
 		pipelineContext.pipeline->Configure( eMEDIATYPE_AUDIO );
-		pipelineContext.pipeline->SetPipelineState(ePIPELINeSTATE_PLAYING);
+		pipelineContext.pipeline->SetPipelineState(ePIPELINE_STATE_PLAYING);
 	}
 	
 	void TestDAI2( void )
@@ -890,7 +892,7 @@ public:
 		// configure pipelines and begin streaming
 		pipelineContext.pipeline->Configure( eMEDIATYPE_VIDEO );
 		pipelineContext.pipeline->Configure( eMEDIATYPE_AUDIO );
-		pipelineContext.pipeline->SetPipelineState(ePIPELINeSTATE_PLAYING);
+		pipelineContext.pipeline->SetPipelineState(ePIPELINE_STATE_PLAYING);
 	}
 	
 	void TestStream( double start, double stop, const char *language )
@@ -914,7 +916,7 @@ public:
 		
 		pipelineContext.pipeline->Configure( eMEDIATYPE_VIDEO );
 		pipelineContext.pipeline->Configure( eMEDIATYPE_AUDIO );
-		pipelineContext.pipeline->SetPipelineState(ePIPELINeSTATE_PLAYING);
+		pipelineContext.pipeline->SetPipelineState(ePIPELINE_STATE_PLAYING);
 	}
 	
 	void Test_Seek( double seek_pos )
@@ -945,12 +947,12 @@ public:
 		Flush();
 		video.QueueVideoHeader( eVIDEORESOLUTION_IFRAME );
 		pipelineContext.pipeline->Configure( eMEDIATYPE_VIDEO );
-		pipelineContext.pipeline->SetPipelineState(ePIPELINeSTATE_PAUSED);
+		pipelineContext.pipeline->SetPipelineState(ePIPELINE_STATE_PAUSED);
 		for( int frame=0; frame<SEGMENT_COUNT; frame ++ )
 		{
 			video.QueueVideoSegment( eVIDEORESOLUTION_IFRAME, frame, 1 );
 			video.EnqueueControl(new TrackEOS() ); // needed for small segment to render
-			video.EnqueueControl( new TrackWaitState(ePIPELINeSTATE_PAUSED) ); // block until visible
+			video.EnqueueControl( new TrackWaitState(ePIPELINE_STATE_PAUSED) ); // block until visible
 			video.EnqueueControl( new TrackSleep(IFRAME_TRACK_CADENCE_MS) );
 			double pts = frame*SEGMENT_DURATION_SECONDS;
 			video.EnqueueControl( new TrackFlush( 1, pts, -1, pts ) );
@@ -968,7 +970,7 @@ public:
 		video.QueueVideoSegment( eVIDEORESOLUTION_IFRAME, 0, SEGMENT_COUNT );
 		video.EnqueueControl( new TrackEOS() );
 		pipelineContext.pipeline->Configure( eMEDIATYPE_VIDEO );
-		pipelineContext.pipeline->SetPipelineState( ePIPELINeSTATE_PLAYING );
+		pipelineContext.pipeline->SetPipelineState( ePIPELINE_STATE_PLAYING );
 	}
 	
 	/**
@@ -988,7 +990,7 @@ public:
 				Flush( rate, pts, -1, pts );
 				video.QueueVideoHeader(eVIDEORESOLUTION_IFRAME );
 				pipelineContext.pipeline->Configure( eMEDIATYPE_VIDEO );
-				pipelineContext.pipeline->SetPipelineState(ePIPELINeSTATE_PAUSED);
+				pipelineContext.pipeline->SetPipelineState(ePIPELINE_STATE_PAUSED);
 				first = false;
 			}
 			else
@@ -997,7 +999,7 @@ public:
 			}
 			video.QueueVideoSegment(eVIDEORESOLUTION_IFRAME, frame, 1 );
 			video.EnqueueControl( new TrackEOS() ); // needed for small segment to render
-			video.EnqueueControl( new TrackWaitState(ePIPELINeSTATE_PAUSED) );
+			video.EnqueueControl( new TrackWaitState(ePIPELINE_STATE_PAUSED) );
 			video.EnqueueControl( new TrackSleep(IFRAME_TRACK_CADENCE_MS) );
 		}
 	}
@@ -1018,7 +1020,7 @@ public:
 		video.QueueVideoSegment(eVIDEORESOLUTION_IFRAME, frame, -SEGMENT_COUNT );
 		video.EnqueueControl( new TrackEOS() );
 		pipelineContext.pipeline->Configure( eMEDIATYPE_VIDEO );
-		pipelineContext.pipeline->SetPipelineState(ePIPELINeSTATE_PLAYING);
+		pipelineContext.pipeline->SetPipelineState(ePIPELINE_STATE_PLAYING);
 	} // TestREW
 	
 	/**
@@ -1036,7 +1038,7 @@ public:
 		video.QueueVideoSegment( eVIDEORESOLUTION_IFRAME, frame, -SEGMENT_COUNT );
 		video.EnqueueControl( new TrackEOS() );
 		pipelineContext.pipeline->Configure( eMEDIATYPE_VIDEO );
-		pipelineContext.pipeline->SetPipelineState( ePIPELINeSTATE_PAUSED );
+		pipelineContext.pipeline->SetPipelineState( ePIPELINE_STATE_PAUSED );
 		
 		// periodically step through playback, with autoStepDelayMs (250ms) delay
 		autoStepCount = SEGMENT_COUNT+1;
@@ -1044,12 +1046,12 @@ public:
 	
 	void TestSAP( void )
 	{
-		pipelineContext.pipeline->SetPipelineState(ePIPELINeSTATE_PAUSED);
+		pipelineContext.pipeline->SetPipelineState(ePIPELINE_STATE_PAUSED);
 		auto position = pipelineContext.pipeline->GetPositionMilliseconds(eMEDIATYPE_VIDEO)/1000.0;
 		Flush( 1, position, -1, position );
 		LoadVideo( eVIDEORESOLUTION_360P );
 		LoadAudio("fr");
-		pipelineContext.pipeline->SetPipelineState(ePIPELINeSTATE_PLAYING);
+		pipelineContext.pipeline->SetPipelineState(ePIPELINE_STATE_PLAYING);
 	}
 	
 	void TestGap( const char *videoGap, const char *audioGap )
@@ -1112,7 +1114,7 @@ public:
 		videoTrack.EnqueueControl( new TrackEOS() );
 		audioTrack.EnqueueControl( new TrackEOS() );
 		
-		pipelineContext.pipeline->SetPipelineState(ePIPELINeSTATE_PLAYING);
+		pipelineContext.pipeline->SetPipelineState(ePIPELINE_STATE_PLAYING);
 	}
 	
 	void TestSeamlessAudioSwitch()
@@ -1233,7 +1235,7 @@ public:
 			FeedPipelineIfNeeded( eMEDIATYPE_AUDIO );
 			
 			if(( autoStepCount>0 ) &&
-			   ( ePIPELINeSTATE_PAUSED == pipelineContext.pipeline->GetPipelineState() ))
+			   ( ePIPELINE_STATE_PAUSED == pipelineContext.pipeline->GetPipelineState() ))
 			{ // delay between iframe presentation
 				g_usleep(autoStepDelayMs*1000);
 				pipelineContext.pipeline->Step();
@@ -1439,7 +1441,7 @@ public:
 				std::cout << initHeaderUrl << "\n";
 				if( !inventory )
 				{
-					pipelineContext.track[mediaType].EnqueueSegment(new TrackFragment(representation.data.timescale, initHeaderUrl.c_str(), 0 ) );
+					pipelineContext.track[mediaType].EnqueueSegment(new TrackFragment( mediaType, representation.data.timescale, initHeaderUrl.c_str(), 0 ) );
 				}
 				
 				double skip = secondsToSkip;
@@ -1526,6 +1528,7 @@ public:
 						continue;
 					}
 					pipelineContext.track[mediaType].EnqueueSegment( new TrackFragment(
+																					   mediaType,
 																					   representation.data.timescale,
 																					   mediaUrl.c_str(), segmentDurationS, pts_offset ) );
 				}
@@ -1553,11 +1556,107 @@ public:
 			pipelineContext.pipeline->Configure( eMEDIATYPE_AUDIO );
 			
 			// begin playing immediately
-			//pipelineContext.pipeline->SetPipelineState(ePIPELINeSTATE_PLAYING);
+			//pipelineContext.pipeline->SetPipelineState(ePIPELINE_STATE_PLAYING);
 			
 			// useful for seek-while-paused
-			pipelineContext.pipeline->SetPipelineState(ePIPELINeSTATE_PAUSED);
+			pipelineContext.pipeline->SetPipelineState(ePIPELINE_STATE_PAUSED);
 		}
+	}
+	
+	/**
+	 * @brief basic support for playing a muxed hls/ts playlist, with pts restamping for seamless playback across discontinuities
+	 */
+	void LoadHLS( const char *ptr, size_t size, const std::string &url )
+	{
+		struct SegmentInfo
+		{
+			float duration;
+			std::string path;
+			bool discontinuity;
+			double firstPts;
+		};
+		std::vector<SegmentInfo> segmentList;
+		
+		std::string text = std::string(ptr,size);
+		std::istringstream iss(text);
+		std::string line;
+		SegmentInfo info;
+		memset( &info, 0, sizeof(info) );
+		while (std::getline(iss, line)) {
+			if( starts_with(line,"#EXT-X-DISCONTINUITY") )
+			{
+				info.discontinuity = true;
+			}
+			if( starts_with(line, "#EXTINF:") )
+			{
+				info.duration = std::stof(line.substr(8));
+				if( std::getline(iss, line) )
+				{
+					info.path = line;
+					info.firstPts = 0.0;
+					segmentList.push_back(info);
+					memset( &info, 0, sizeof(info) );
+				}
+			}
+		}
+		
+		Track &video = pipelineContext.track[eMEDIATYPE_VIDEO];
+		Track &audio = pipelineContext.track[eMEDIATYPE_AUDIO];
+		double pts_offset = 0.0;
+		double total_duration = 0.0;
+		uint32_t timescale = 0; // n/a
+		
+		mContentFormat = eCONTENTFORMAT_TS_ES; // use tsdemux.hpp
+	
+		Flush( 1.0/*rate*/, 0/*start*/, -1/*stop*/, 0/*baseTime*/ );
+
+		for( auto segmentInfo : segmentList )
+		{
+			std::string fullpath = url;
+			auto delim = fullpath.find_last_of("/");
+			assert( delim!=std::string::npos );
+			fullpath = fullpath.substr(0,delim+1);
+			fullpath += segmentInfo.path;
+			if( segmentInfo.discontinuity )
+			{ // below used to compute firstPts for future fragment
+				size_t segmentBytes = 0;
+				void *segmentPtr = LoadUrl(fullpath.c_str(),&segmentBytes);
+				assert( segmentPtr );
+				auto tsDemux = new TsDemux( eMEDIATYPE_VIDEO, segmentPtr, segmentBytes );
+				assert( tsDemux );
+				assert( tsDemux->count()>0 );
+				double firstPts = tsDemux->getPts(0);
+				pts_offset = total_duration - firstPts;
+				delete tsDemux;
+				g_free( segmentPtr);
+			}
+			total_duration += segmentInfo.duration;
+
+			video.EnqueueSegment( new TrackFragment( eMEDIATYPE_VIDEO, timescale, fullpath.c_str(), segmentInfo.duration, pts_offset ) );
+			audio.EnqueueSegment( new TrackFragment( eMEDIATYPE_AUDIO, timescale, fullpath.c_str(), segmentInfo.duration, pts_offset ) );
+		}
+		
+		video.EnqueueControl( new TrackEOS() );
+		audio.EnqueueControl( new TrackEOS() );
+		
+		// configure pipelines and begin streaming
+		pipelineContext.pipeline->Configure( eMEDIATYPE_VIDEO );
+		pipelineContext.pipeline->Configure( eMEDIATYPE_AUDIO );
+		//pipelineContext.pipeline->SetPipelineState(ePIPELINE_STATE_PLAYING);
+		pipelineContext.pipeline->SetPipelineState(ePIPELINE_STATE_PAUSED);
+	}
+
+	void LoadDASH( const char *ptr, size_t size, const std::string &url, bool inventory )
+	{
+		XmlNode *xml = new XmlNode( "document", ptr, size );
+		auto numChildren = xml->children.size();
+		auto MPD = xml->children[numChildren-1];
+		DumpXml(MPD,0);
+		timeline = parseManifest( *MPD, url );
+		timeline.Debug();
+		ComputeTimestampOffsets( timeline );
+		InjectSegments( timeline, inventory );
+		delete xml;
 	}
 	
 	void Load( const std::string &url, bool inventory )
@@ -1566,19 +1665,18 @@ public:
 		auto ptr = LoadUrl( url, &size );
 		if( ptr )
 		{
-			XmlNode *xml = new XmlNode( "document", (char *)ptr, size );
-			auto numChildren = xml->children.size();
-			auto MPD = xml->children[numChildren-1];
-			DumpXml(MPD,0);
-			timeline = parseManifest( *MPD, url );
-			timeline.Debug();
-			ComputeTimestampOffsets( timeline );
-			InjectSegments( timeline, inventory );
-			delete xml;
+			if( size>=7 && memcmp(ptr,"#EXTM3U",7)==0 )
+			{
+				LoadHLS( (const char *)ptr, size, url );
+			}
+			else
+			{
+				LoadDASH( (const char *)ptr, size, url, inventory );
+			}
 			free( ptr );
 		}
 	}
-	
+
 	void TestMultiPeriodFF( void )
 	{
 		Flush();
@@ -1657,14 +1755,14 @@ public:
 					 prefix,
 					 periodInfo->baseUrl,
 					 representationID );
-			video.EnqueueSegment( new TrackFragment( 0, path, SEGMENT_DURATION_SECONDS ) );
+			video.EnqueueSegment( new TrackFragment( eMEDIATYPE_VIDEO, 0, path, SEGMENT_DURATION_SECONDS ) );
 			if( first )
 			{ // configure pipeline
 				pipelineContext.pipeline->Configure( eMEDIATYPE_VIDEO );
 #ifdef REALTEK_HACK
-				pipelineContext.pipeline->SetPipelineState(ePIPELINeSTATE_PLAYING);
+				pipelineContext.pipeline->SetPipelineState(ePIPELINE_STATE_PLAYING);
 #else
-				pipelineContext.pipeline->SetPipelineState(ePIPELINeSTATE_PAUSED);
+				pipelineContext.pipeline->SetPipelineState(ePIPELINE_STATE_PAUSED);
 #endif
 				first = false;
 			}
@@ -1677,15 +1775,15 @@ public:
 						 representationID,
 						 fragmentNumber );
 				double pts = fragmentNumber*fragmentDuration;
-				video.EnqueueSegment( new TrackFragment( 0, path, SEGMENT_DURATION_SECONDS ) ); // inject next iframe
+				video.EnqueueSegment( new TrackFragment( eMEDIATYPE_VIDEO, 0, path, SEGMENT_DURATION_SECONDS ) ); // inject next iframe
 #ifdef REALTEK_HACK
-				video.EnqueueSegment( new TrackFragment( path, 0 ) ); // inject next iframe
+				video.EnqueueSegment( new TrackFragment( eMEDIATYPE_VIDEO, path, 0 ) ); // inject next iframe
 #endif
 				video.EnqueueControl( new TrackEOS() ); // inject EOS; needed for small segment to render
 #ifdef REALTEK_HACK
-				video.EnqueueControl( new TrackWaitState(ePIPELINeSTATE_PLAYING) ); // wait for segment to be visible
+				video.EnqueueControl( new TrackWaitState(ePIPELINE_STATE_PLAYING) ); // wait for segment to be visible
 #else
-				video.EnqueueControl( new TrackWaitState(ePIPELINeSTATE_PAUSED) ); // wait for segment to be visible
+				video.EnqueueControl( new TrackWaitState(ePIPELINE_STATE_PAUSED) ); // wait for segment to be visible
 #endif
 				video.EnqueueControl( new TrackSleep( m_ff_delay ) );
 				video.EnqueueControl( new TrackFlush( 1, pts, -1, pts ) );
@@ -1847,23 +1945,23 @@ public:
 		}
 		else if( strcmp(str,"ready")==0 )
 		{
-			pipelineContext.pipeline->SetPipelineState(ePIPELINeSTATE_READY);
+			pipelineContext.pipeline->SetPipelineState(ePIPELINE_STATE_READY);
 		}
 		else if( strcmp(str,"pause")==0 )
 		{
-			pipelineContext.pipeline->SetPipelineState(ePIPELINeSTATE_PAUSED);
+			pipelineContext.pipeline->SetPipelineState(ePIPELINE_STATE_PAUSED);
 		}
 		else if( strcmp(str,"play")==0 )
 		{
-			pipelineContext.pipeline->SetPipelineState(ePIPELINeSTATE_PLAYING);
+			pipelineContext.pipeline->SetPipelineState(ePIPELINE_STATE_PLAYING);
 		}
 		else if( strcmp(str,"null")==0 )
 		{
-			pipelineContext.pipeline->SetPipelineState(ePIPELINeSTATE_NULL);
+			pipelineContext.pipeline->SetPipelineState(ePIPELINE_STATE_NULL);
 		}
 		else if( strcmp(str,"stop")==0 )
 		{
-			pipelineContext.pipeline->SetPipelineState(ePIPELINeSTATE_NULL);
+			pipelineContext.pipeline->SetPipelineState(ePIPELINE_STATE_NULL);
 			delete pipelineContext.pipeline;
 			pipelineContext.pipeline = new Pipeline( (class PipelineContext *)&pipelineContext );
 		}
@@ -2061,7 +2159,7 @@ int main(int argc, char **argv)
 #if defined(__APPLE__) && defined (__GST_MACOS_H__)
 	// https://gstreamer.freedesktop.org/documentation/tutorials/basic/concepts.html?gi-language=c
 	return gst_macos_main((GstMainFunc)my_main, argc, argv, NULL);
-#else[
+#else
 	return my_main(argc,argv);
 #endif
 }
