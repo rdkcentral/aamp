@@ -80,13 +80,6 @@ public:
 	 * @param encryptedDataLen length in bytes of data pointed to by encryptedDataPtr
 	 * @param timeInMs wait time
 	 */
-	/**
-	 * @fn SetIV
-	 *
-	 * @param iv New address of initialization vector to use in Decrypt (because received new #EXT-X-KEY with IV)
-	 * @retval eDRM_SUCCESS on success
-	 */
-	DrmReturn SetIV(unsigned char* iv);
 	DrmReturn Decrypt(ProfilerBucketType bucketType, void *encryptedDataPtr, size_t encryptedDataLen, int timeInMs);
 	/**
 	 * @fn Release
@@ -101,7 +94,6 @@ public:
 	 * @fn RestoreKeyState
 	 */
 	void RestoreKeyState();
-
 	/*Functions to support internal operations*/
 	/**
 	 * @brief key acquisition thread
@@ -122,8 +114,8 @@ public:
 	 */
 	void NotifyDRMError(AAMPTuneFailure drmFailure);
 	/**
-     	 * @fn SignalDrmError 
-         */
+	 * @fn SignalDrmError 
+	 */
 	void SignalDrmError();
 	/**
 	 * @fn WaitForKeyAcquireCompleteUnlocked
