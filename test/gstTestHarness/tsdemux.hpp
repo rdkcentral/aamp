@@ -41,6 +41,7 @@ struct TsPart
 class TsDemux
 {
 private:
+	MediaType mediaType;
 	unsigned char *ptr; // raw data (mpegts)
 	size_t len;
 	
@@ -318,37 +319,68 @@ private:
 	void parsePMT()
 	{
 		parseSectionHeader( 0x02 );
-		int reserved = readBits(3);
-		assert( reserved == 0x07 );
+		int reserved = readBits(3); assert( reserved == 0x07 );
 		ts.pcr_pid = readBits( 13 );
-		reserved = readBits( 4 );
-		assert( reserved == 0xf );
-		reserved = readBits( 2 ); // program_info_length_unused_bits
-		assert( reserved == 0 );
+		reserved = readBits( 4 ); assert( reserved == 0xf );
+		reserved = readBits( 2 ); assert( reserved == 0 );
 		int program_info_length = readBits( 10 );
-		for( int i=0; i<program_info_length; i++ )
+		skipBits( program_info_length*8 );
+		for( int program_count=0; program_count<2; program_count++ )
 		{
-			int data = readByte(); (void)data;
-		}
-		for( int i=0; i<1; i++ )
-		{ // assume single program transport stream
-			ts.stream_type = readByte();
-			// 0x0f: eSTREAM_TYPE_AAC_ADTS
-			// 0x1b: eSTREAM_TYPE_H264
-			reserved = readBits(3);
-			assert( reserved == 0x7 );
-			ts.elementary_pid = readBits( 13 );
+			bool found = false;
+			int stream_type = readByte();
+			reserved = readBits(3); (void)reserved;
+			int elementary_pid = readBits(13);
 			reserved = readBits(4);
 			assert( reserved == 0xf );
 			reserved = readBits(2);
-			assert( reserved == 0 ); // ES info length unused bits
+			assert( reserved == 0 );
 			int es_info_length = readBits( 10 );
-			for( int j=0; j<es_info_length; j++ )
+			skipBits( es_info_length*8 );
+			printf( "elementary_pid=0x%x stream_type=0x%x\n", elementary_pid, stream_type );
+			switch( stream_type )
 			{
-				int data = readByte(); (void)data;
+				case 0x03: // eSTREAM_TYPE_MPEG1_AUDIO
+				case 0x04: // eSTREAM_TYPE_MPEG2_AUDIO
+				case 0x0f: // eSTREAM_TYPE_AAC_ADTS
+				case 0x11: // eSTREAM_TYPE_AAC_LATM
+				case 0x80: // eSTREAM_TYPE_ATSC_VIDEO
+				case 0x81: // eSTREAM_TYPE_ATSC_AC3
+				case 0x82: // eSTREAM_TYPE_HDMV_DTS
+				case 0x83: // eSTREAM_TYPE_LPCM_AUDIO
+				case 0x84: // eSTREAM_TYPE_ATSC_AC3PLUS
+				case 0x86: // eSTREAM_TYPE_DTSHD_AUDIO
+				case 0x87: // eSTREAM_TYPE_ATSC_EAC3
+				case 0x8A: // eSTREAM_TYPE_DTS_AUDIO
+				case 0x91: // eSTREAM_TYPE_AC3_AUDIO
+				case 0x94: // eSTREAM_TYPE_SDDS_AUDIO1
+					if( mediaType == eMEDIATYPE_AUDIO )
+					{
+						found = true;
+					}
+					break;
+					
+				case 0x02: //eSTREAM_TYPE_MPEG2_VIDEO
+				case 0x1b: // eSTREAM_TYPE_H264
+				case 0x24: // eSTREAM_TYPE_HEVC_VIDEO
+					if( mediaType == eMEDIATYPE_VIDEO )
+					{
+						found = true;
+					}
+					break;
+					
+				default:
+					assert(0);
+					break;
+			}
+			if( found )
+			{
+				ts.stream_type = stream_type;
+				ts.elementary_pid = elementary_pid;
+				return;
 			}
 		}
-		parseCRC();
+		assert(0);
 	}
 	
 	bool parseMpegTsHeader()
@@ -375,10 +407,10 @@ private:
 	{
 		long long rc = 0;
 		
-		rc |= readBits(3)<<30;
+		rc |= ((long long)readBits(3))<<30;
 		assert( readBit() );
 		
-		rc |= readBits(15)<<15;
+		rc |= ((long long)readBits(15))<<15;
 		assert( readBit() );
 		
 		rc |= readBits(15);
@@ -528,6 +560,18 @@ private:
 			{
 				pes.stream_id = readByte();
 				assert( pes.stream_id == eSTREAMTYPE_VIDEO || pes.stream_id == eSTREAMTYPE_AUDIO );
+				switch( mediaType )
+				{
+					case eMEDIATYPE_VIDEO:
+						assert( pes.stream_id == eSTREAMTYPE_VIDEO );
+						break;
+					case eMEDIATYPE_AUDIO:
+						assert( pes.stream_id == eSTREAMTYPE_AUDIO );
+						break;
+					default:
+						assert(0);
+						break;
+				}
 				pes.pes_packet_length = readBits(16);
 				parseOptionalPesHeader();
 			}
@@ -580,18 +624,18 @@ private:
 			}
 			else
 			{
-				assert(0);
+				//assert(0);
 			}
 			while( bits_read%(PACKET_SIZE*8) )
 			{
-				int data = readByte();
-				assert( data == 0xff );
+				(void)readByte();
+				//assert( data == 0xff );
 			}
 		}
 	}
 	
 public:
-	TsDemux( gpointer ptr, size_t len ): ptr((unsigned char *)ptr), len(len), bits_read(), bytes_written(), ts(), pes()
+	TsDemux( MediaType mediaType, gpointer ptr, size_t len ): mediaType(mediaType), ptr((unsigned char *)ptr), len(len), bits_read(), bytes_written(), ts(), pes()
 	{
 		parseTs();
 	}
