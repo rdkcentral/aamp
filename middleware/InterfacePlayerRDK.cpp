@@ -565,7 +565,7 @@ void MonitorAV( InterfacePlayerRDK *pInterfacePlayerRDK )
 		if( state == GST_STATE_PLAYING )
 		{
 			struct MonitorAVState *monitorAVState = &pInterfacePlayerRDK->gstPrivateContext->monitorAVstate;
-			const char *description = "ok";
+			const char *description = NULL;
 			int numTracks = 0;
 			bool bigJump = false;
 			long long tNow = GetCurrentTimeMS();
@@ -587,7 +587,7 @@ void MonitorAV( InterfacePlayerRDK *pInterfacePlayerRDK )
 						if( ms == monitorAVState->av_position[i] )
 						{
 							if( description )
-							{
+							{ // both tracks stalled
 								description = "stall";
 							}
 							else
@@ -622,7 +622,7 @@ void MonitorAV( InterfacePlayerRDK *pInterfacePlayerRDK )
 					if( abs(av_position[0] - av_position[1]) > AVSYNC_THRESHOLD_MS )
 					{
 						if( !description )
-						{
+						{ // both moving, but diverged
 							description = "avsync";
 						}
 					}
@@ -634,20 +634,26 @@ void MonitorAV( InterfacePlayerRDK *pInterfacePlayerRDK )
 				default:
 					break;
 			}
+			if( !description )
+			{ // fill in OK if nothing flagged
+				description = "ok";
+			}
 			if( monitorAVState->description!=description )
 			{ // log only when interpretation of AV state has changed
 				if( monitorAVState->description )
 				{ // avoid logging for initial NULL description
-					MW_LOG_MIL( "%s: %" G_GINT64_FORMAT ", %" G_GINT64_FORMAT ", %lld",
+					MW_LOG_MIL( "%s: %" G_GINT64_FORMAT ", %" G_GINT64_FORMAT ", %d, %lld",
 							   monitorAVState->description,
 							   monitorAVState->av_position[eGST_MEDIATYPE_VIDEO],
 							   monitorAVState->av_position[eGST_MEDIATYPE_AUDIO],
+							   (int)(monitorAVState->av_position[eGST_MEDIATYPE_VIDEO] - monitorAVState->av_position[eGST_MEDIATYPE_AUDIO]),
 							   monitorAVState->tLastSampled - monitorAVState->tLastReported );
 				}
-				MW_LOG_MIL( "%s: %" G_GINT64_FORMAT ", %" G_GINT64_FORMAT ", 0",
+				MW_LOG_MIL( "%s: %" G_GINT64_FORMAT ", %" G_GINT64_FORMAT ", %d, 0",
 							   description,
 								av_position[eGST_MEDIATYPE_VIDEO],
-								av_position[eGST_MEDIATYPE_AUDIO] );
+								av_position[eGST_MEDIATYPE_AUDIO],
+								(int)(av_position[eGST_MEDIATYPE_VIDEO] - av_position[eGST_MEDIATYPE_AUDIO]) );
 				monitorAVState->tLastReported = monitorAVState->tLastSampled;
 				monitorAVState->description = description;
 			}
