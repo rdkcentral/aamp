@@ -729,6 +729,28 @@ if(CMAKE_WPEWEBKIT_JSBINDINGS)
         set(LIBAAMPJSBINDINGS_DEFINES "${LIBAAMPJSBINDINGS_DEFINES} -DUSE_WATERMARK_JSBINDINGS -DUSE_CPP_THUNDER_PLUGIN_ACCESS")
         target_link_libraries(aampjsbindings ${WPEFRAMEWORK_LIBRARIES})
     endif()
+# Check if CMAKE_WPEWEBKIT_JSBINDINGS is enabled
+if(CMAKE_WPEWEBKIT_JSBINDINGS)
+    message("CMAKE_WPEWEBKIT_JSBINDINGS is set, searching for WPE WebKit libraries")
+
+    # Search for WPE WebKit libraries
+    pkg_check_modules(WPE_WEBKIT wpe-webkit-1.1)
+    if(NOT WPE_WEBKIT_FOUND)
+        pkg_check_modules(WPE_WEBKIT wpe-webkit-1.0)
+    endif()
+
+    # Check if any WPE WebKit library was found
+    if(NOT WPE_WEBKIT_FOUND)
+        message(FATAL_ERROR "WPE WebKit library not found. Please install wpe-webkit-1.1 or wpe-webkit-1.0.")
+    else()
+        message("The WPE WebKit library found is ${WPE_WEBKIT_LINK_LIBRARIES}")
+
+        # Link WPE WebKit package to aampjsbindings
+        target_link_libraries(aampjsbindings PUBLIC ${WPE_WEBKIT_LINK_LIBRARIES})
+    endif()
+else()
+    message("CMAKE_WPEWEBKIT_JSBINDINGS is not set, skipping WPE WebKit library linking")
+endif()
 
     set_target_properties(aampjsbindings PROPERTIES COMPILE_FLAGS "${LIBAAMPJSBINDINGS_DEFINES}")
 
