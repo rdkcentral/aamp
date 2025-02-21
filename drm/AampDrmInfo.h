@@ -27,7 +27,9 @@
 
 #include <string>
 #include "AampDrmMediaFormat.h"
+#include <cstring>
 
+#define DRM_IV_LEN 16
 
 /**
  * @enum DrmMethod
@@ -39,14 +41,13 @@ typedef enum
 	eMETHOD_AES_128, /**< encrypted using Advanced Encryption Standard 128-bit key and PKCS7 padding */
 } DrmMethod;
 
-
 /**
  * @struct DrmInfo
  * @brief DRM information required to decrypt
  */
 struct DrmInfo
 {
-	DrmInfo() : method(eMETHOD_NONE), mediaFormat(eMEDIAFORMAT_HLS), useFirst16BytesAsIV(false), iv(nullptr),
+	DrmInfo() : method(eMETHOD_NONE), mediaFormat(eMEDIAFORMAT_HLS), useFirst16BytesAsIV(false), iv(),
 				masterManifestURL(), manifestURL(), keyURI(), keyFormat(), systemUUID(), initData(), bPropagateUriParams(true),
 				bUseMediaSequenceIV(true), bDecryptClearSamplesRequired(true)
 	{};
@@ -55,11 +56,10 @@ struct DrmInfo
 	DrmInfo(const DrmInfo& other) : method(other.method), mediaFormat(other.mediaFormat),
 					useFirst16BytesAsIV(other.useFirst16BytesAsIV), masterManifestURL(other.masterManifestURL),
 					manifestURL(other.manifestURL), keyURI(other.keyURI), keyFormat(other.keyFormat),
-					systemUUID(other.systemUUID), initData(other.initData), iv(), bPropagateUriParams(other.bPropagateUriParams),
+					systemUUID(other.systemUUID), initData(other.initData), bPropagateUriParams(other.bPropagateUriParams),
 					bUseMediaSequenceIV(other.bUseMediaSequenceIV), bDecryptClearSamplesRequired(other.bDecryptClearSamplesRequired)
 	{
-		// copying same iv, releases memory allocated after deleting any of these objects.
-		iv = other.iv;
+		memcpy( iv, other.iv, DRM_IV_LEN );
 	}
 	DrmInfo& operator=(const DrmInfo& other)
 	{
@@ -74,7 +74,7 @@ struct DrmInfo
 		systemUUID = other.systemUUID;
 		initData = other.initData;
 		// copying same iv, releases memory allocated after deleting any of these objects.
-		iv = other.iv;
+		memcpy( iv, other.iv, DRM_IV_LEN );
 		return *this;
 	}
 	DrmMethod method;			/**< Encryption method */
@@ -83,7 +83,7 @@ struct DrmInfo
 	bool bPropagateUriParams;		/**< Propagate Manifest uri params in DRM */
 	bool bUseMediaSequenceIV;		/**< To create IV using media sequence number */
 	bool bDecryptClearSamplesRequired;		/**< Process call to decrypt clear samples */
-	unsigned char *iv;			/**< [16] Initialisation vector */
+	unsigned char iv[DRM_IV_LEN];			/**< [16] Initialisation vector */
 	std::string masterManifestURL;		/**< URL of the master manifest */
 	std::string manifestURL;		/**< URL of playlist the DRM info was taken from. May be the same as the masterManifestURL */
 	std::string keyURI;			/**< URI to fetch key. May be relative to the manifest URL */

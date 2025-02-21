@@ -1530,12 +1530,6 @@ TEST_F(TrackStateTests, GetNextFragmentUri_WithReloadUri_new14)
     mStreamAbstractionAAMP_HLS->Is4KStream(height, bandwidth);
 }
 
-TEST_F(TrackStateTests, UpdateDrmCMSha1Hash_WithNullPtr)
-{
-    TrackStateobj->UpdateDrmCMSha1Hash(nullptr);
-    ASSERT_EQ(TrackStateobj->mCMSha1Hash, nullptr); // Hash should be null
-}
-
 TEST_F(TrackStateTests, ABRProfileChangedTest)
 {
     AampGrowableBuffer newPlaylist("test");
@@ -1564,8 +1558,7 @@ TEST_F(TrackStateTests, DrmDecrypt_SuccessfulDecryption)
 TEST_F(TrackStateTests, CreateInitVector_Successful)
 {
     long long seqNo = 0x123456789abcdef; // Replace with a valid sequence number
-    bool result = TrackStateobj->CreateInitVectorByMediaSeqNo(seqNo);
-    ASSERT_TRUE(result); // Check that the function returns true indicating success
+    TrackStateobj->CreateInitVectorByMediaSeqNo(seqNo);
 }
 
 TEST_F(TrackStateTests, GetPeriodStartPosition_InvalidPeriod)
@@ -1577,7 +1570,6 @@ TEST_F(TrackStateTests, GetPeriodStartPosition_InvalidPeriod)
 TEST_F(TrackStateTests, GetPeriodStartPosition_NoDiscontinuityNodes)
 {
     int periodIdx = 1;
-    TrackStateobj->mDiscontinuityIndexCount = 0; // Set mDiscontinuityIndexCount to 0
     AampTime startPosition = TrackStateobj->GetPeriodStartPosition(periodIdx);
     ASSERT_DOUBLE_EQ(startPosition.inSeconds(), 0.0); // Check that the function returns a default or zero value when there are no discontinuity nodes
 }

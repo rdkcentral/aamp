@@ -243,19 +243,6 @@ DrmReturn AesDec::SetDecryptInfo( PrivateInstanceAAMP *aamp, const struct DrmInf
 }
 
 /**
- * @brief Set new address of initialization vector to use in Decrypt
- */
-DrmReturn AesDec::SetIV(unsigned char* iv)
-{
-	if (iv)
-	{
-		mDrmInfo.iv = iv;
-		return eDRM_SUCCESS;
-	}
-	return eDRM_ERROR;
-}
-
-/**
  * @brief Wait for key acquisition completion
  */
 void AesDec::WaitForKeyAcquireCompleteUnlocked(int timeInMs, DrmReturn &err, std::unique_lock<std::mutex>& lock )
