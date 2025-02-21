@@ -1138,8 +1138,7 @@ void MonitorAV( AAMPGstPlayer *_this )
 		if( state == GST_STATE_PLAYING )
 		{
 			struct MonitorAVState *monitorAVState = &_this->privateContext->monitorAVstate;
-			const char *description = "ok";
-			bool happyNow = true;
+			const char *description = NULL;
 			int numTracks = 0;
 			bool bigJump = false;
 			long long tNow = aamp_GetCurrentTimeMS();
@@ -1160,9 +1159,8 @@ void MonitorAV( AAMPGstPlayer *_this )
 						long long ms = GST_TIME_AS_MSECONDS(position);
 						if( ms == monitorAVState->av_position[i] )
 						{
-							happyNow = false;
 							if( description )
-							{
+							{ // both tracks stalled
 								description = "stall";
 							}
 							else
@@ -1196,9 +1194,8 @@ void MonitorAV( AAMPGstPlayer *_this )
 				case 2:
 					if( abs(av_position[0] - av_position[1]) > AVSYNC_THRESHOLD_MS )
 					{
-						happyNow = false;
 						if( !description )
-						{
+						{ // both moving, but diverged
 							description = "avsync";
 						}
 					}
@@ -1210,20 +1207,26 @@ void MonitorAV( AAMPGstPlayer *_this )
 				default:
 					break;
 			}
+			if( !description )
+			{ // fill in OK if nothing flagged
+				description = "ok";
+			}
 			if( monitorAVState->description!=description )
 			{ // log only when interpretation of AV state has changed
 				if( monitorAVState->description )
 				{ // avoid logging for initial NULL description
-					AAMPLOG_MIL( "%s: %" G_GINT64_FORMAT ", %" G_GINT64_FORMAT ", %lld",
+					AAMPLOG_MIL( "MonitorAV_%s: %" G_GINT64_FORMAT ",%" G_GINT64_FORMAT ",%d,%lld",
 							   monitorAVState->description,
 							   monitorAVState->av_position[eMEDIATYPE_VIDEO],
 							   monitorAVState->av_position[eMEDIATYPE_AUDIO],
+							   (int)(monitorAVState->av_position[eMEDIATYPE_VIDEO] - monitorAVState->av_position[eMEDIATYPE_AUDIO]),
 							   monitorAVState->tLastSampled - monitorAVState->tLastReported );
 				}
-				AAMPLOG_MIL( "%s: %" G_GINT64_FORMAT ", %" G_GINT64_FORMAT ", 0",
+				AAMPLOG_MIL( "MonitorAV_%s: %" G_GINT64_FORMAT ",%" G_GINT64_FORMAT ",%d,0",
 							   description,
 								av_position[eMEDIATYPE_VIDEO],
-								av_position[eMEDIATYPE_AUDIO] );
+								av_position[eMEDIATYPE_AUDIO],
+								(int)(av_position[eMEDIATYPE_VIDEO] - av_position[eMEDIATYPE_AUDIO]) );
 				monitorAVState->tLastReported = monitorAVState->tLastSampled;
 				monitorAVState->description = description;
 			}
