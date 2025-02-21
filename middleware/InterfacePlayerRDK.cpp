@@ -642,14 +642,14 @@ void MonitorAV( InterfacePlayerRDK *pInterfacePlayerRDK )
 			{ // log only when interpretation of AV state has changed
 				if( monitorAVState->description )
 				{ // avoid logging for initial NULL description
-					MW_LOG_MIL( "MonitorAV_%s: %" G_GINT64_FORMAT ",%" G_GINT64_FORMAT ",%d,%lld",
+					MW_LOG_MIL( "%s: %" G_GINT64_FORMAT ", %" G_GINT64_FORMAT ", %d, %lld",
 							   monitorAVState->description,
 							   monitorAVState->av_position[eGST_MEDIATYPE_VIDEO],
 							   monitorAVState->av_position[eGST_MEDIATYPE_AUDIO],
 							   (int)(monitorAVState->av_position[eGST_MEDIATYPE_VIDEO] - monitorAVState->av_position[eGST_MEDIATYPE_AUDIO]),
 							   monitorAVState->tLastSampled - monitorAVState->tLastReported );
 				}
-				MW_LOG_MIL( "MonitorAV_%s: %" G_GINT64_FORMAT ",%" G_GINT64_FORMAT ",%d,0",
+				MW_LOG_MIL( "%s: %" G_GINT64_FORMAT ", %" G_GINT64_FORMAT ", %d, 0",
 							   description,
 								av_position[eGST_MEDIATYPE_VIDEO],
 								av_position[eGST_MEDIATYPE_AUDIO],
