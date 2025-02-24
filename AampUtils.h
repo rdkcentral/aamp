@@ -377,5 +377,13 @@ std::string aamp_GetConfigPath( const std::string &filename );
  */
 bool parseAndValidateSCTE35(const std::string &scte35Data);
 
+/**
+ * Temp function to check if code is running in container environment. 
+ * This needs to be removed proper support for functions in container Environment available.
+ *
+ * @param None
+ * @return True if running in container environment, false otherwise.
+ */
+bool IsContainerEnvironment(void);
 
 #endif  /* __AAMP_UTILS_H__ */

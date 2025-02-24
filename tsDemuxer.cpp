@@ -291,8 +291,8 @@ void Demuxer::processPacket(const unsigned char * packetStart, bool &basePtsUpda
 							{
 								if (-1 == base_pts)
 								{
-									/*Few sling HLS streams are not muxed TS content , instead video is in TS and audio is in AAC format.
-									So  need to avoid  pts modification with offset value for video to avoid av sync issues.*/
+									/*Few sling HLS streams are not muxed TS content, instead video is in TS and audio is in AAC format.
+									So need to avoid  pts modification with offset value for video to avoid av sync issues.*/
 									if(applyOffset)
 									{
 										base_pts = current_pts - MAX_FIRST_PTS_OFFSET;
@@ -331,7 +331,6 @@ void Demuxer::processPacket(const unsigned char * packetStart, bool &basePtsUpda
 										auto delta = current_pts - base_pts;
 										if (MAX_FIRST_PTS_OFFSET < delta)
 										{
-											
 											auto orig_base_pts = base_pts;
 											if(applyOffset)
 											{
@@ -402,7 +401,7 @@ void Demuxer::processPacket(const unsigned char * packetStart, bool &basePtsUpda
 					* So we returned the PTS error from this api, as current_pts is less than
 					* base_pts value.
 					* Now we have avoided the pts check if the current_pts is not updated for
-					* first audio, video or dsmcc packet due to TS packet doesnt have proper PES data.
+					* first audio, video or dsmcc packet due to TS packet doesn't have proper PES data.
 					*/
 				if( current_pts == 0 )
 				{

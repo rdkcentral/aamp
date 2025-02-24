@@ -3655,7 +3655,7 @@ bool GstPlayer_isVideoOrAudioDecoder(const char* name, InterfacePlayerRDK * pInt
 {
 	// The idea is to identify video or audio decoder plugin created at runtime by playbin and register to its first-frame/pts-error callbacks
 	// This support is available in specific platform plugins in RDK builds and hence checking only for such plugin instances here
-	// For platforms that doesnt support callback, we use GST_STATE_PLAYING state change of playbin to notify first frame to app
+	// For platforms that don't support callback, we use GST_STATE_PLAYING state change of playbin to notify first frame to app
 	bool isAudioOrVideoDecoder = false;
 	const auto platformType = pInterfacePlayerRDK->m_gstConfigParam->platformType;
 	if (!pInterfacePlayerRDK->gstPrivateContext->using_westerossink && gst_StartsWith(name, "brcmvideodecoder"))

@@ -1768,7 +1768,6 @@ void AampConfig::ReadAllTR181Params()
 			}
 		}
 	}
-	ConfigureLogSettings();
 
 	for( int i =0; i < AAMPCONFIG_STRING_COUNT; i++ )
 	{
@@ -1792,13 +1791,20 @@ void AampConfig::ReadAllTR181Params()
  */
 void AampConfig::ReadOperatorConfiguration()
 {
-	// Not all parameters are supported as  individual  tr181 parameter hence keeping base64 version.
-	ReadBase64TR181Param();
+	// Tr181 doesn't work in container environment hence ignore it if it is container
+	// this will improve load time of aamp in container environment
+	if(!IsContainerEnvironment() )
+	{
+		// Not all parameters are supported as  individual  tr181 parameter hence keeping base64 version.
+		ReadBase64TR181Param();
 
-	// new way of reading RFC for each separate parameter it will override any parameter set before ReadBase64TR181Param
-	// read all individual  config parameters,
-	ReadAllTR181Params();
+		// new way of reading RFC for each separate parameter it will override any parameter set before ReadBase64TR181Param
+		// read all individual  config parameters,
+		ReadAllTR181Params();
+	}
 
+	// this required to set log settings based on configs either default or read from Tr181
+	ConfigureLogSettings();   
 	///////////// Read environment variables set specific to Operator ///////////////////
 	const char *env_aamp_force_aac = getenv("AAMP_FORCE_AAC");
 	if(env_aamp_force_aac)

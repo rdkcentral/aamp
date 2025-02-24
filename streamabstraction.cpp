@@ -1537,7 +1537,7 @@ void MediaTrack::RunInjectLoop()
 			}
 		}
 		// Disable audio video balancing for CDVR content ..
-		// CDVR Content includes eac3 audio, the duration of audio doesnt match with video
+		// CDVR Content includes eac3 audio, the duration of audio doesn't match with video
 		// and hence balancing fetch/inject not needed for CDVR //TBD Not needed for LLD
 		if(!ISCONFIGSET(eAAMPConfig_AudioOnlyPlayback) && !aamp->IsCDVRContent() && (!aamp->mAudioOnlyPb && !aamp->mVideoOnlyPb) && !lowLatency)
 		{

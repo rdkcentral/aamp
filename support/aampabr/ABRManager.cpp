@@ -313,7 +313,7 @@ int ABRManager::getBestMatchedProfileIndexByBandWidth(int bandwidth) {
             desiredProfileIndex = i;
             break;
         } else if (profile.bandwidthBitsPerSecond < bandwidth) {
-            // fragment file name bandwidth doesnt match the profile bandwidth, will be always less
+            // fragment file name bandwidth doesn't match the profile bandwidth, will be always less
             if((i+1) == profileCount) {
                 desiredProfileIndex = i;
                 break;

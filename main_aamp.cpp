@@ -60,26 +60,30 @@ PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink
 //Need to do iarm initialization process before reading the tr181 aamp parameters.
 //Using printf here since AAMP logs can only use after creating the global object
 #ifdef IARM_MGR
-	static bool iarmInitialized = false;
-	if(!iarmInitialized)
+	// IARM doesn't work in container environment hence dont init IARM in container
+	if(!IsContainerEnvironment() )
 	{
-	char processName[20] = {0};
-	IARM_Result_t result;
-	snprintf(processName, sizeof(processName), "AAMP-PLAYER-%u", getpid());
-	if (IARM_RESULT_SUCCESS == (result = IARM_Bus_Init((const char*) &processName))) {
-		printf("IARM Interface Inited in AAMP");
-	}
-	else {
-		printf("IARM Interface Inited Externally : %d", result);
-	}
+		static bool iarmInitialized = false;
+		if(!iarmInitialized)
+		{
+		char processName[20] = {0};
+		IARM_Result_t result;
+		snprintf(processName, sizeof(processName), "AAMP-PLAYER-%u", getpid());
+		if (IARM_RESULT_SUCCESS == (result = IARM_Bus_Init((const char*) &processName))) {
+			printf("IARM Interface Inited in AAMP");
+		}
+		else {
+			printf("IARM Interface Inited Externally : %d", result);
+		}
 
-	if (IARM_RESULT_SUCCESS == (result = IARM_Bus_Connect())) {
-		printf("IARM Interface Connected  in AAMP");
+		if (IARM_RESULT_SUCCESS == (result = IARM_Bus_Connect())) {
+			printf("IARM Interface Connected  in AAMP");
+		}
+		else {
+			printf("IARM Interface Connected Externally :%d", result);
+		}
+		iarmInitialized = true;
 	}
-	else {
-		printf("IARM Interface Connected Externally :%d", result);
-	}
-	iarmInitialized = true;
 }
 #endif // IARM_MGR
 	// Create very first instance of Aamp Config to read the cfg & Operator file .This is needed for very first
@@ -3099,7 +3103,7 @@ void PlayerInstanceAAMP::SetAsyncTuneConfig(bool bValue)
 {
 	SETCONFIGVALUE(AAMP_APPLICATION_SETTING,eAAMPConfig_AsyncTune,bValue);
 	// Start it for the playerinstance if default not started and App wants
-	// Stop Async operation for the playerinstance if default started and App doesnt want
+	// Stop Async operation for the playerinstance if default started and App doesn't want
 	AsyncStartStop();
 }
 
