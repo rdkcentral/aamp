@@ -347,9 +347,9 @@ bps <val>   Set video bitrate in bps
 fog <url|host=ip:port> 'fog url' tune to arbitrary locator via fog. 'fog host=ip:port' set fog location (default: 127.0.0.1:9080)
 adtesting   Toggle indexed ad insertion that does NOT check for any duration match
 advert <params>
-	advert map <adbreakid> <url>
+	advert map <adBreakId> <url>
 		specify ad locator to present instead of source content during specified ad break
-		note: multiple sequential ads can be mapped to fill a single ad break by calling advert map multiple times with same adbreakid
+		note: multiple sequential ads can be mapped to fill a single ad break by calling advert map multiple times with same adBreakId
 	advert clear (clear current advert map)
 	advert list	(display the advert list)
 new <name>	create a new player instance with optional name
