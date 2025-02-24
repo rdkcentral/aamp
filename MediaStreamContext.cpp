@@ -88,13 +88,12 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 	AampTSBSessionManager *tsbSessionManager = aamp->GetTSBSessionManager();
 
 	auto CheckEos = [this, &tsbSessionManager, &actualType]() {
-		return tsbSessionManager &&
-		aamp->IsLocalAAMPTsbInjection() &&
-		IsLocalTSBInjection() &&
-		AAMP_NORMAL_PLAY_RATE == aamp->rate &&
-		eTUNETYPE_SEEKTOLIVE == context->mTuneType &&
-		tsbSessionManager->GetTsbReader((AampMediaType)type) &&
-		tsbSessionManager->GetTsbReader((AampMediaType)type)->IsEos();
+		return IsLocalTSBInjection() &&
+			AAMP_NORMAL_PLAY_RATE == aamp->rate &&
+			eTUNETYPE_SEEKTOLIVE == context->mTuneType &&
+			tsbSessionManager &&
+			tsbSessionManager->GetTsbReader((AampMediaType)type) &&
+			tsbSessionManager->GetTsbReader((AampMediaType)type)->IsEos();
 	};
 
 	if(initSegment && discontinuity )
