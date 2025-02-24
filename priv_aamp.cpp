@@ -566,6 +566,8 @@ static bool IsActiveStreamingInterfaceWifi (void)
 {
 	bool wifiStatus = false;
 #ifdef IARM_MGR
+if(!IsContainerEnvironment()) // IARM doesn't work in container
+{
 	IARM_Result_t ret = IARM_RESULT_SUCCESS;
 	IARM_BUS_NetSrvMgr_Iface_EventData_t param;
 
@@ -581,6 +583,7 @@ static bool IsActiveStreamingInterfaceWifi (void)
 		}
 	}
 	IARM_Bus_RegisterEventHandler("NET_SRV_MGR", IARM_BUS_NETWORK_MANAGER_EVENT_INTERFACE_IPADDRESS, getActiveInterfaceEventHandler);
+}
 #endif
 	return wifiStatus;
 }
@@ -1419,7 +1422,10 @@ PrivateInstanceAAMP::~PrivateInstanceAAMP()
 		}
 	}
 #ifdef IARM_MGR
+if(!IsContainerEnvironment())
+{
 	IARM_Bus_RemoveEventHandler("NET_SRV_MGR", IARM_BUS_NETWORK_MANAGER_EVENT_INTERFACE_IPADDRESS, getActiveInterfaceEventHandler);
+}
 #endif //IARM_MGR
 	SAFE_DELETE(mEventManager);
 	SAFE_DELETE(mCMCDCollector);

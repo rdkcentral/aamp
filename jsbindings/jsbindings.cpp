@@ -2478,7 +2478,7 @@ static JSValueRef AAMP_setRate(JSContextRef context, JSObjectRef function, JSObj
 	{
 		int overshoot = 0;
 		float rate = (float)JSValueToNumber(context, arguments[0], exception);
-		// present JS doesnt support overshoot , check for argument count and store.
+		// present JS doesn't support overshoot , check for argument count and store.
 		if(argumentCount > 1)
 		{
 			overshoot = (int)JSValueToNumber(context, arguments[1], exception);

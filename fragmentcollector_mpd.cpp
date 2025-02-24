@@ -9787,7 +9787,7 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 				}
 
 				//   -- Exit from fetch loop for period to be done only after audio and video fetch
-				// While playing CDVR with EAC3 audio , durations doesnt match and only video downloads are seen leaving audio behind
+				// While playing CDVR with EAC3 audio, durations don't match and only video downloads are seen leaving audio behind
 				// Audio cache is always full and need for data is not received for more fetch.
 				// So after video downloads loop was exiting without audio fetch causing audio drop .
 				// Now wait for both video and audio to reach EOS before moving to next period or exit.

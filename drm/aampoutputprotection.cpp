@@ -60,10 +60,13 @@ AampOutputProtection::AampOutputProtection()
     SetHDMIStatus();
 
 #ifdef IARM_MGR
+if(!IsContainerEnvironment()) // IARM is not supported in container
+{
     // Register IARM callbacks
     IARM_Bus_RegisterEventHandler(IARM_BUS_DSMGR_NAME,IARM_BUS_DSMGR_EVENT_HDMI_HOTPLUG, HDMIEventHandler);
     IARM_Bus_RegisterEventHandler(IARM_BUS_DSMGR_NAME,IARM_BUS_DSMGR_EVENT_HDCP_STATUS, HDMIEventHandler);
     IARM_Bus_RegisterEventHandler(IARM_BUS_DSMGR_NAME,IARM_BUS_DSMGR_EVENT_RES_POSTCHANGE, ResolutionHandler);
+}
 #endif //IARM_MGR
 }
 
@@ -75,10 +78,13 @@ AampOutputProtection::~AampOutputProtection()
     DEBUG_FUNC;
 
 #ifdef IARM_MGR
+if(!IsContainerEnvironment()) // IARM is not supported in container
+{
     // Remove IARM callbacks
     IARM_Bus_RemoveEventHandler(IARM_BUS_DSMGR_NAME,IARM_BUS_DSMGR_EVENT_HDMI_HOTPLUG, HDMIEventHandler);
     IARM_Bus_RemoveEventHandler(IARM_BUS_DSMGR_NAME,IARM_BUS_DSMGR_EVENT_HDCP_STATUS, HDMIEventHandler);
     IARM_Bus_RemoveEventHandler(IARM_BUS_DSMGR_NAME,IARM_BUS_DSMGR_EVENT_RES_POSTCHANGE, ResolutionHandler);
+}
 #endif //IARM_MGR
 
     s_pAampOP = NULL;
@@ -122,7 +128,10 @@ bool AampOutputProtection::IsSourceUHD()
 bool AampOutputProtection::IsMS2V12Supported()
 {
 	bool IsMS12V2 = true; // all newer devices have MS12V2 support - below runtime check can eventually be removed
+
 #ifdef IARM_MGR
+if(!IsContainerEnvironment()) // IARM is not supported in container
+{
 	try {
 		//Get the HDMI port
 		device::Manager::Initialize();
@@ -140,6 +149,7 @@ bool AampOutputProtection::IsMS2V12Supported()
 	catch (...) {
 		AAMPLOG_WARN("DeviceSettings exception caught");
 	}
+}
 #endif // IARM_MGR
 	return IsMS12V2 ;
 }
@@ -150,6 +160,8 @@ bool AampOutputProtection::IsMS2V12Supported()
 void AampOutputProtection::SetHDMIStatus()
 {
 #ifdef IARM_MGR
+if(!IsContainerEnvironment()) // IARM is not supported in container
+{
     bool                    isConnected              = false;
     bool                    isHDCPCompliant          = false;
     bool                    isHDCPEnabled            = true;
@@ -246,6 +258,13 @@ void AampOutputProtection::SetHDMIStatus()
         m_hdcpCurrentProtocol = dsHDCP_VERSION_1X;
         AAMPLOG_WARN(" GetHDCPVersion: Did not detect HDCP version defaulting to 1.4 (%d)", m_hdcpCurrentProtocol);
     }
+}
+else
+{
+    // No video output on device mark HDCP protection as valid
+    m_hdcpCurrentProtocol = dsHDCP_VERSION_1X;
+    m_isHDCPEnabled = true; 
+}
 #else
     // No video output on device mark HDCP protection as valid
     m_hdcpCurrentProtocol = dsHDCP_VERSION_1X;
