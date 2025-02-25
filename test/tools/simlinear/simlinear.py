@@ -235,6 +235,8 @@ class DASHServer(ManifestServerCommon):
 
     harvest_to_playback_delta = None
     is_live_time_based_manifest = None  # Not decided to start with
+    when_recorded = datetime.utcnow()
+    playback_start = datetime.utcnow()
 
     def dash_update_mpd_for_live_time(self, path):
         """
@@ -421,6 +423,11 @@ class DASHServerHandler(BaseHTTPRequestHandler):
                         contents = f.read()
             self.send_response(200)
             self.send_header("Access-Control-Allow-Origin", "*")
+
+            if isTiming:
+                self.send_header("Content-Type", "text/plain; charset=ISO-8859-1")
+            elif path.endswith(".mpd"):
+                self.send_header("Content-Type", "application/dash+xml")
 
             self.end_headers()
 
