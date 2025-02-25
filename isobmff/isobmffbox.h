@@ -983,7 +983,7 @@ public:
 	/**
 	 * @fn setMediaTime
 	 *
-	 * @param[in] mediaTime - metia time value
+	 * @param[in] mediaTime - media time value
 	 * @return void
 	 */
 	void setMediaTime(uint64_t mediaTime);

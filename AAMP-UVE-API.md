@@ -79,7 +79,7 @@ Configuration options are passed to AAMP using the UVE initConfig method. This a
 | abrCacheLength | Number | 3 | Length of abr cache for network bandwidth calculation. |
 | abrCacheLife | Number | 5000 | Lifetime value for abr cache for network bandwidth calculation (in milliseconds). |
 | abrCacheOutlier | Number | 5000000 | Outlier difference which will be ignored from network bandwidth calculation (default: 5 MB in bytes). |
-| abrNwConsistency | Number | 2 | Number of checks before profile incr/decr by 1. This is to avoid frequent profile switching with network change. |
+| abrNwConsistency | Number | 2 | Number of checks before profile increment/decrement by 1. This is to avoid frequent profile switching with network change. |
 | abrSkipDuration | Number | 6 | Minimum duration of fragment to be downloaded before triggering abr (in secs). |
 | audioOnlyPlayback | Boolean | False | Configuration to enable/disable Audio only Playback. |
 | cdvrLiveOffset | Number | 30 | Live offset time in seconds for cdvr, aamp starts live playback this much time before the live point for inprogress cdvr. |

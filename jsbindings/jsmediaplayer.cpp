@@ -3418,7 +3418,7 @@ JSValueRef AAMPMediaPlayerJS_getVideoPlaybackQuality (JSContextRef ctx, JSObject
 }
 
 /**
- * @brief CFunction to set pre-proceed DASH manifest data.
+ * @brief C Function to set pre-proceed DASH manifest data.
  *
  * @param[in] ctx JS execution context
  * @param[in] function JSObject that is the function being called

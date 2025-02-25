@@ -365,249 +365,16 @@ TEST_F(AampLogManagerTest, ParseContentUrl_Test6)
 }
 
 /**
- * TEST_F GTest-Testcase for LogDRMError function for AampLogManagerTest file
-**/
-TEST_F(AampLogManagerTest, LogDRMError_Test1)
-{
-    //Arrange: Creating the variables for passing to arguments
-    int major = 3307;
-    int minor = 268435462;
-    std::string description = "Missing drm keys. Files are missing from /opt/drm. This could happen if socprovisioning fails to pull keys from fkps. This could also happen with a new box type that isn't registered with fkps. Check the /opt/logs/socprov.log for error. Contact ComSec for help.";
-
-
-    //Act: Calling the function for test
-	AampLogManager::LogDRMError(major, minor);
-
-    //Assert: checking values are equal or not
-    EXPECT_STREQ(description.c_str(),"Missing drm keys. Files are missing from /opt/drm. This could happen if socprovisioning fails to pull keys from fkps. This could also happen with a new box type that isn't registered with fkps. Check the /opt/logs/socprov.log for error. Contact ComSec for help.");
-}
-
-/**
- * TEST_F GTest-Testcase for LogDRMError function for AampLogManagerTest file
-**/
-TEST_F(AampLogManagerTest, LogDRMError_Test2)
-{
-    //Arrange: Creating the variables for passing to arguments
-    int major = 3307;
-    int minor = 570425352;
-    std::string description = "Stale cache data. There is bad data in adobe cache at /opt/persistent/adobe. This can happen if the cache isn't cleared by /lib/rdk/cleanAdobe.sh after either an FKPS key update or a firmware update. This should not be happening in the field. For engineers, they can try a factory reset to fix the problem.";
-
-    //Act: Calling the function for test
-	AampLogManager::LogDRMError(major, minor);
-
-    //Assert: checking values are equal or not
-    EXPECT_STREQ(description.c_str(),"Stale cache data. There is bad data in adobe cache at /opt/persistent/adobe. This can happen if the cache isn't cleared by /lib/rdk/cleanAdobe.sh after either an FKPS key update or a firmware update. This should not be happening in the field. For engineers, they can try a factory reset to fix the problem.");
-}
-
-/**
- * TEST_F GTest-Testcase for LogDRMError function for AampLogManagerTest file
-**/
-TEST_F(AampLogManagerTest, LogDRMError_Test3)
-{
-    //Arrange: Creating the variables for passing to arguments
-    int major = 3307;
-    int minor = 1000022;
-    std::string description = "Local cache directory not readable. The Receiver running as non-root cannot access and read the adobe cache at /opt/persistent/adobe. This can happen if /lib/rdk/prepareChrootEnv.sh fails to set that folders privileges. Run ls -l /opt/persistent and check the access rights. Contact the SI team for help. Also see jira XRE-6687";
-
-    //Act: Calling the function for test
-	AampLogManager::LogDRMError(major, minor);
-
-    //Assert: checking values are equal or not
-    EXPECT_STREQ(description.c_str(),"Local cache directory not readable. The Receiver running as non-root cannot access and read the adobe cache at /opt/persistent/adobe. This can happen if /lib/rdk/prepareChrootEnv.sh fails to set that folders privileges. Run ls -l /opt/persistent and check the access rights. Contact the SI team for help. Also see jira XRE-6687");
-}
-
-/**
- * TEST_F GTest-Testcase for LogDRMError function for AampLogManagerTest file
-**/
-TEST_F(AampLogManagerTest, LogDRMError_Test4)
-{
-    //Arrange: Creating the variables for passing to arguments
-    int major = 3321;
-    int minor = 102;
-    std::string description = "Invalid signature request on the Adobe individualization request. Expired certs can cause this, so the first course of action is to verify if the certs, temp baked in or production fkps, have not expired.";
-
-    //Act: Calling the function for test
-	AampLogManager::LogDRMError(major, minor);
-
-    //Assert: checking values are equal or not
-    EXPECT_STREQ(description.c_str(),"Invalid signature request on the Adobe individualization request. Expired certs can cause this, so the first course of action is to verify if the certs, temp baked in or production fkps, have not expired.");
-}
-
-/**
- * TEST_F GTest-Testcase for LogDRMError function for AampLogManagerTest file
-**/
-TEST_F(AampLogManagerTest, LogDRMError_Test5)
-{
-    //Arrange: Creating the variables for passing to arguments
-    int major = 3321;
-    int minor = 10100;
-    std::string description = "Unknown Device class error from the Adobe individualization server. The drm certs may be been distributed to MSO security team for inclusion in fkps, but Adobe has not yet added the device info to their indi server.";
-    
-    //Act: Calling the function for test
-	AampLogManager::LogDRMError(major, minor);
-
-    //Assert: checking values are equal or not
-    EXPECT_STREQ(description.c_str(),"Unknown Device class error from the Adobe individualization server. The drm certs may be been distributed to MSO security team for inclusion in fkps, but Adobe has not yet added the device info to their indi server.");
-}
-
-/**
- * TEST_F GTest-Testcase for LogDRMError function for AampLogManagerTest file
-**/
-TEST_F(AampLogManagerTest, LogDRMError_Test6)
-{
-    //Arrange: Creating the variables for passing to arguments
-    int major = 3321;
-    int minor = 1107296357;
-    std::string description = "Unknown Device class error from the Adobe individualization server. The drm certs may be been distributed to MSO security team for inclusion in fkps, but Adobe has not yet added the device info to their indi server.";
-
-    //Act: Calling the function for test
-	AampLogManager::LogDRMError(major, minor);
-
-    //Assert: checking values are equal or not
-    EXPECT_STREQ(description.c_str(),"Unknown Device class error from the Adobe individualization server. The drm certs may be been distributed to MSO security team for inclusion in fkps, but Adobe has not yet added the device info to their indi server.");
-}
-
-/**
- * TEST_F GTest-Testcase for LogDRMError function for AampLogManagerTest file
-**/
-TEST_F(AampLogManagerTest, LogDRMError_Test7)
-{
-    //Arrange: Creating the variables for passing to arguments
-    int major = 3321;
-    int minor = 1000595;
-    std::string description = "Failed to connect to individualization server. This can happen if the network goes down. This can also happen if bad proxy settings exist in /opt/xreproxy.conf. Check the receiver.log for the last HttpRequestBegin before the error occurs and check the host name in the url, then check your proxy conf";
-
-    //Act: Calling the function for test
-	AampLogManager::LogDRMError(major, minor);
-    
-    //Assert: checking values are equal or not
-    EXPECT_STREQ(description.c_str(),"Failed to connect to individualization server. This can happen if the network goes down. This can also happen if bad proxy settings exist in /opt/xreproxy.conf. Check the receiver.log for the last HttpRequestBegin before the error occurs and check the host name in the url, then check your proxy conf");
-}
-
-/**
- * TEST_F GTest-Testcase for LogDRMError function for AampLogManagerTest file
-**/
-TEST_F(AampLogManagerTest, LogDRMError_Test8)
-{
-    //Arrange: Creating the variables for passing to arguments
-    int major = 3322;
-    int minor = 1000595;
-    std::string description = "Device binding failure. DRM data cached by the player at /opt/persistent/adobe, may be corrupt, missing, or inaccessible due to file permission. Please check this folder. A factory reset may be required to fix this and force a re-individualization of the box to reset that data.";
-
-    //Act: Calling the function for test
-	AampLogManager::LogDRMError(major, minor);
-    
-    //Assert: checking values are equal or not
-    EXPECT_STREQ(description.c_str(),"Device binding failure. DRM data cached by the player at /opt/persistent/adobe, may be corrupt, missing, or inaccessible due to file permission. Please check this folder. A factory reset may be required to fix this and force a re-individualization of the box to reset that data.");
-}
-
-/**
- * TEST_F GTest-Testcase for LogDRMError function for AampLogManagerTest file
-**/
-TEST_F(AampLogManagerTest, LogDRMError_Test9)
-{
-    //Arrange: Creating the variables for passing to arguments
-    int major = 3328;
-    int minor = 1003532;
-    std::string description = "Potential server issue. This could happen if drm keys are missing or bad. To attempt a quick fix: Back up /opt/drm and /opt/persistent/adobe, perform a factory reset, and see if that fixes the issue. Reach out to ComSec team for help diagnosing the error.";
-
-    //Act: Calling the function for test
-	AampLogManager::LogDRMError(major, minor);
-    
-    //Assert: checking values are equal or not
-    EXPECT_STREQ(description.c_str(),"Potential server issue. This could happen if drm keys are missing or bad. To attempt a quick fix: Back up /opt/drm and /opt/persistent/adobe, perform a factory reset, and see if that fixes the issue. Reach out to ComSec team for help diagnosing the error.");
-}
-
-/**
- * TEST_F GTest-Testcase for LogDRMError function for AampLogManagerTest file
-**/
-TEST_F(AampLogManagerTest, LogDRMError_Test10)
-{
-    //Arrange: Creating the variables for passing to arguments
-    int major = 3329;
-    int minor = 1003532;
-    std::string description = "MSO license server error response. This could happen for various reasons: bad cache data, bad session token, any license related issue. To attempt a quick fix: Back up /opt/drm and /opt/persistent/adobe, perform a factory reset, and see if that fixes the issue. Reach out to ComSec team for help diagnosing the error.";
-
-    //Act: Calling the function for test
-	AampLogManager::LogDRMError(major, minor);
-    
-    //Assert: checking values are equal or not
-    EXPECT_STREQ(description.c_str(),"MSO license server error response. This could happen for various reasons: bad cache data, bad session token, any license related issue. To attempt a quick fix: Back up /opt/drm and /opt/persistent/adobe, perform a factory reset, and see if that fixes the issue. Reach out to ComSec team for help diagnosing the error.");
-}
-
-/**
- * TEST_F GTest-Testcase for LogDRMError function for AampLogManagerTest file
-**/
-TEST_F(AampLogManagerTest, LogDRMError_Test11)
-{
-    //Arrange: Creating the variables for passing to arguments
-    int major = 3338;
-    int minor = 1003532;
-    std::string description = "Unknown connection type. Rare issue related to output protection code not being implemented on certain branches or core or for new socs. See STBI-6542 for details. Reach out to Receiver IP-Video team for help.";
-
-    //Act: Calling the function for test
-	AampLogManager::LogDRMError(major, minor);
-    
-    //Assert: checking values are equal or not
-    EXPECT_STREQ(description.c_str(),"Unknown connection type. Rare issue related to output protection code not being implemented on certain branches or core or for new socs. See STBI-6542 for details. Reach out to Receiver IP-Video team for help.");
-}
-
-/**
- * TEST_F GTest-Testcase for LogDRMError function for AampLogManagerTest file
-**/
-TEST_F(AampLogManagerTest, LogDRMError_Test12)
-{
-    //Arrange: Creating the variables for passing to arguments
-    int major = 3338;
-    int minor = 1003532;
-
-    //Act: Calling the function for test
-	AampLogManager::LogDRMError(major, minor);
-}
-
-/**
- * TEST_F GTest-Testcase for LogDRMError function for AampLogManagerTest file
-**/
-TEST_F(AampLogManagerTest, LogDRMError_Test13)
-{
-    //Arrange: Creating the variables for passing to arguments
-    std::string description = " ";
-    int major = 3338;
-    int minor = 1003532;
-
-    //Act: Calling the function for test
-	AampLogManager::LogDRMError(major, minor);
-    EXPECT_STREQ(description.c_str()," ");
-}
-
-/**
- * TEST_F GTest-Testcase for LogDRMError function for AampLogManagerTest file
-**/
-TEST_F(AampLogManagerTest, LogDRMError_Test14)
-{
-    //Arrange: Creating the variables for passing to arguments
-    std::string description = " ";
-    int major = 0;
-    int minor = 0;
-
-    //Act: Calling the function for test
-	AampLogManager::LogDRMError(major, minor);
-    EXPECT_STREQ(description.c_str()," ");
-}
-
-/**
  * TEST_F GTest-Testcase for LogABRInfo function for AampLogManagerTest file
 **/
 TEST_F(AampLogManagerTest, LogABRInfo_Test1)
 {
     //Arrange: Creating the variables for passing to arguments
     AAMPAbrInfo *pstAbrInfo = new AAMPAbrInfo;
-    AAMPAbrType abrCalledFor;
     pstAbrInfo->desiredBandwidth = 10;
     pstAbrInfo->currentBandwidth = 5;
     pstAbrInfo->abrCalledFor = AAMPAbrBandwidthUpdate;
-    AAMPNetworkErrorType errorType = AAMPNetworkErrorHttp;
-	std::string reason = "bandwidth";
+    std::string reason = "bandwidth";
 	std::string profile = "higher";
 	std::string symptom = "video quality may increase";
     
@@ -629,11 +396,9 @@ TEST_F(AampLogManagerTest, LogABRInfo_Test2)
 {
     //Arrange: Creating the variables for passing to arguments
     AAMPAbrInfo *pstAbrInfo = new AAMPAbrInfo;
-    AAMPAbrType abrCalledFor;
     pstAbrInfo->desiredBandwidth = 5;
     pstAbrInfo->currentBandwidth = 5;
     pstAbrInfo->abrCalledFor = AAMPAbrManifestDownloadFailed;
-    AAMPNetworkErrorType errorType = AAMPNetworkErrorHttp;
 	std::string reason = "manifest download failed' error='http error ";
 	std::string profile = "lower";
 	std::string symptom = "video quality may decrease";
@@ -656,11 +421,9 @@ TEST_F(AampLogManagerTest, LogABRInfo_Test3)
 {
     //Arrange: Creating the variables for passing to arguments
     AAMPAbrInfo *pstAbrInfo = new AAMPAbrInfo;
-    AAMPAbrType abrCalledFor;
     pstAbrInfo->desiredBandwidth = 10;
     pstAbrInfo->currentBandwidth = 5;
     pstAbrInfo->abrCalledFor = AAMPAbrFragmentDownloadFailed;
-    AAMPNetworkErrorType errorType;
     pstAbrInfo->errorType = AAMPNetworkErrorHttp;
 	std::string reason = "fragment download failed'";
 	std::string profile = "higher";
@@ -684,11 +447,9 @@ TEST_F(AampLogManagerTest, LogABRInfo_Test4)
 {
     //Arrange: Creating the variables for passing to arguments
     AAMPAbrInfo *pstAbrInfo = new AAMPAbrInfo;
-    AAMPAbrType abrCalledFor;
     pstAbrInfo->desiredBandwidth = 10;
     pstAbrInfo->currentBandwidth = 5;
     pstAbrInfo->abrCalledFor = AAMPAbrUnifiedVideoEngine;
-    AAMPNetworkErrorType errorType;
     pstAbrInfo->errorType = AAMPNetworkErrorNone;
 	std::string reason = "changed based on unified video engine user preferred bitrate";
 	std::string profile = "higher";

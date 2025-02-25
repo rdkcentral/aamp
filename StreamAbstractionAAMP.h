@@ -1988,7 +1988,7 @@ protected:
 
 	// abr variables
 	long mCurrentBandwidth;             /**< stores current bandwidth*/
-	int mLastVideoFragCheckedforABR;    /**< Last video fragment for which ABR is checked*/
+	int mLastVideoFragCheckedForABR;    /**< Last video fragment for which ABR is checked*/
 	long mTsbBandwidth;                 /**< stores bandwidth when TSB is involved*/
 	bool mNwConsistencyBypass;          /**< Network consistency bypass**/
 	int mABRHighBufferCounter;	    /**< ABR High buffer counter */
