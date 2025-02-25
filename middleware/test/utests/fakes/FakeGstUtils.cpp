@@ -17,24 +17,11 @@
  * limitations under the License.
  */
 
-#include "MockGstUtils.h"
 #include "middleware/GstUtils.h"
 
-MockGstUtils *g_mockGstUtils = nullptr;
 GstCaps *GetCaps(GstStreamOutputFormat format)
 {
 	return nullptr;
 }
 
-long long GetCurrentTimeMS(void)
-{
-        long long timeMS = 0;
-
-        if (g_mockGstUtils)
-        {
-                timeMS = g_mockGstUtils->GetCurrentTimeMS();
-        }
-
-        return timeMS;
-}
 

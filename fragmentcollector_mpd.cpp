@@ -3128,17 +3128,17 @@ std::string StreamAbstractionAAMP_MPD::GetPreferredDrmUUID()
 
 /**
  * @brief Create DRM helper from ContentProtection
- * @retval shared_ptr of AampDrmHelper
+ * @retval shared_ptr of DrmHelper
  */
-std::shared_ptr<AampDrmHelper> StreamAbstractionAAMP_MPD::CreateDrmHelper(const IAdaptationSet * adaptationSet,AampMediaType mediaType)
+DrmHelperPtr StreamAbstractionAAMP_MPD::CreateDrmHelper(const IAdaptationSet * adaptationSet,AampMediaType mediaType)
 {
 	const vector<IDescriptor*> contentProt = mMPDParseHelper->GetContentProtection(adaptationSet);
 	unsigned char* data = NULL;
 	unsigned char *outData = NULL;
 	size_t outDataLen  = 0;
 	size_t dataLength = 0;
-	std::shared_ptr<AampDrmHelper> tmpDrmHelper;
-	std::shared_ptr<AampDrmHelper> drmHelper = nullptr;
+	DrmHelperPtr tmpDrmHelper;
+	DrmHelperPtr drmHelper = nullptr;
 	DrmInfo drmInfo;
 	std::string contentMetadata;
 	std::string cencDefaultData;
@@ -3223,7 +3223,7 @@ std::shared_ptr<AampDrmHelper> StreamAbstractionAAMP_MPD::CreateDrmHelper(const 
 		{
 			if (data)
 			{
-				contentMetadata = aamp_ExtractWVContentMetadataFromPssh((const char*)data, (int)dataLength);
+				contentMetadata = DrmUtils::extractWVContentMetadataFromPssh((const char*)data, (int)dataLength);
 				free(data);
                                 data = NULL;
 			}
@@ -3248,7 +3248,7 @@ std::shared_ptr<AampDrmHelper> StreamAbstractionAAMP_MPD::CreateDrmHelper(const 
 		}
 
 		// Try and create a DRM helper
-		if (!AampDrmHelperEngine::getInstance().hasDRM(drmInfo))
+		if (!DrmHelperEngine::getInstance().hasDRM(drmInfo))
 		{
 			AAMPLOG_WARN("(%s) Failed to locate DRM helper for UUID %s", GetMediaTypeName(mediaType), drmInfo.systemUUID.c_str());
 			/** Preferred DRM configured and it is failed hhen exit here */
@@ -3264,7 +3264,7 @@ std::shared_ptr<AampDrmHelper> StreamAbstractionAAMP_MPD::CreateDrmHelper(const 
 		}
 		else if (data && dataLength)
 		{
-			tmpDrmHelper = AampDrmHelperEngine::getInstance().createHelper(drmInfo);
+			tmpDrmHelper = DrmHelperEngine::getInstance().createHelper(drmInfo);
 
 			if (!tmpDrmHelper->parsePssh(data, (uint32_t)dataLength))
 			{
@@ -3335,7 +3335,7 @@ void StreamAbstractionAAMP_MPD::ProcessVssLicenseRequest()
 		{
 			// Save new period ID and create DRM helper for that
 			mEarlyAvailablePeriodIds.push_back(tempPeriod->GetId());
-			std::shared_ptr<AampDrmHelper> drmHelper = CreateDrmHelper(tempPeriod->GetAdaptationSets().at(0), eMEDIATYPE_VIDEO);
+			DrmHelperPtr drmHelper = CreateDrmHelper(tempPeriod->GetAdaptationSets().at(0), eMEDIATYPE_VIDEO);
 			// Identify key ID from parsed PSSH data
 			std::vector<uint8_t> keyIdArray;
 			drmHelper->getKey(keyIdArray);
@@ -3372,7 +3372,7 @@ void StreamAbstractionAAMP_MPD::QueueContentProtection(IPeriod* period, uint32_t
 			IAdaptationSet *adaptationSet = period->GetAdaptationSets().at(adaptationSetIdx);
 			if (adaptationSet)
 			{
-				std::shared_ptr<AampDrmHelper> drmHelper = CreateDrmHelper(adaptationSet, mediaType);
+				DrmHelperPtr drmHelper = CreateDrmHelper(adaptationSet, mediaType);
 				if (drmHelper)
 				{
 					if (aamp->mDRMSessionManager)

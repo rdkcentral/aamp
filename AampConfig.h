@@ -50,7 +50,7 @@
 #include "AampDefine.h"
 #include "AampLogManager.h"
 #include <cjson/cJSON.h>
-#include "AampDrmSystems.h"
+#include "DrmSystems.h"
 #ifdef IARM_MGR
 #include "host.hpp"
 #include "manager.hpp"

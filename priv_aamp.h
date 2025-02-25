@@ -27,9 +27,9 @@
 
 #include "AampMemoryUtils.h"
 #include "AampProfiler.h"
-#include "AampDrmHelper.h"
-#include "AampDrmMediaFormat.h"
-#include "AampDrmCallbacks.h"
+#include "DrmHelper.h"
+#include "DrmMediaFormat.h"
+#include "DrmCallbacks.h"
 #include "main_aamp.h"
 #include <IPVideoStat.h>
 #include "AampGrowableBuffer.h"
@@ -536,7 +536,7 @@ class SegmentInfo_t;
 /**
  * @brief Class representing the AAMP player's private instance, which is not exposed to outside world.
  */
-class PrivateInstanceAAMP : public AampDrmCallbacks, public std::enable_shared_from_this<PrivateInstanceAAMP>
+class PrivateInstanceAAMP : public DrmCallbacks, public std::enable_shared_from_this<PrivateInstanceAAMP>
 {
 
 	enum AAMP2ReceiverMsgType
@@ -1271,7 +1271,7 @@ public:
 	 * @param[in] userData - DrmSession data
 	 * @return void
 	 */
-	void LicenseRenewal(std::shared_ptr<AampDrmHelper> drmHelper,void* userData) override;
+	void LicenseRenewal(DrmHelperPtr drmHelper,void* userData) override;
 	/**
 	 * @fn CurlTerm
 	 *
@@ -2585,7 +2585,7 @@ public:
 	 *
 	 *   @return current drm helper
 	 */
-	std::shared_ptr<AampDrmHelper>  GetCurrentDRM();
+	DrmHelperPtr  GetCurrentDRM();
 
 	/**
 	 *   @fn GetPreferredAudioProperties
@@ -2605,7 +2605,7 @@ public:
 	 *   @param[in] drm - New DRM type
 	 *   @return void
 	 */
-	void setCurrentDrm(std::shared_ptr<AampDrmHelper> drm) { mCurrentDrm = drm; }
+	void setCurrentDrm(DrmHelperPtr drm) { mCurrentDrm = drm; }
 
 #if defined(USE_SECCLIENT) || defined(USE_SECMANAGER)
 	/**
@@ -3306,7 +3306,7 @@ public:
 	 */
 	BitsPerSecond GetIframeBitrate4K();
 
-	/* End AampDrmCallbacks implementation */
+	/* End DrmCallbacks implementation */
 
 	/**
 	 *   @brief Set initial buffer duration in seconds
@@ -3322,16 +3322,16 @@ public:
 	 */
 	int GetInitialBufferDuration();
 
-	/* AampDrmCallbacks implementation */
+	/* DrmCallbacks implementation */
 	/**
 	 *   @fn individualization
 	 *
 	 *   @param[in] payload - individualization payload
 	 *   @return void
 	 */
-	void individualization(const std::string& payload) override;
+	void Individualization(const std::string& payload) override;
 
-	/* End AampDrmCallbacks implementation */
+	/* End DrmCallbacks implementation */
 
 	/**
 	 *   @fn SetContentType
@@ -4366,7 +4366,7 @@ protected:
 	std::atomic<AAMPPlayerState> mState;  //Changed to atomic as there are cross thread accesses.
 	long long lastUnderFlowTimeMs[AAMP_TRACK_COUNT];
 	bool mbTrackDownloadsBlocked[AAMP_TRACK_COUNT];
-	std::shared_ptr<AampDrmHelper> mCurrentDrm;
+	DrmHelperPtr mCurrentDrm;
 	int  mPersistedProfileIndex;
 	long mAvailableBandwidth;
 	bool mProcessingDiscontinuity[AAMP_TRACK_COUNT];

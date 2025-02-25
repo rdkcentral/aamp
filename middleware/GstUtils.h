@@ -112,12 +112,4 @@ void PlayerCliGstTerm();
  */
 GstCaps* GetCaps(GstStreamOutputFormat format);
 
-/**
- * @fn GetCurrentTimeMS
- * @brief Get the current time in milliseconds
- * 
- * @return The current time in milliseconds
- */
-long long GetCurrentTimeMS(void);
-
 #endif /* GST_UTILS_H  */

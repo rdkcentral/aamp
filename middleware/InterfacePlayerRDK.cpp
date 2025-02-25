@@ -29,7 +29,7 @@
 #include <inttypes.h>
 #include "TextStyleAttributes.h"
 #include <memory>
-
+#include "PlayerUtils.h"
 
 #define DEFAULT_BUFFERING_TO_MS 10                       /**< TimeOut interval to check buffer fullness */
 #define DEFAULT_BUFFERING_MAX_MS (1000)                  /**< max buffering time */

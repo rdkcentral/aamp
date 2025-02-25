@@ -32,6 +32,7 @@
 #include <cstdarg>
 #include <cstring>
 #include "PlayerLogManager.h"
+#include "PlayerUtils.h"
 
 #ifdef USE_ETHAN_LOG
 #include <ethanlog.h>
@@ -160,5 +161,46 @@ void logprintf(MW_LogLevel logLevelIndex, const char* file, int line, const char
 		    }
 		    va_end(args);
 	    }
+	}
+}
+
+/**
+ * @brief Compactly log blobs of binary data
+ *
+ */
+void DumpBinaryBlob(const unsigned char *ptr, size_t len)
+{
+#define FIT_CHARS 64
+	char buf[FIT_CHARS + 1]; // pad for NUL
+	char *dst = buf;
+	const unsigned char *fin = ptr+len;
+	int fit = FIT_CHARS;
+	while (ptr < fin)
+	{
+		unsigned char c = *ptr++;
+		if (c >= ' ' && c < 128)
+		{ // printable ascii
+			*dst++ = c;
+			fit--;
+		}
+		else if( fit>=4 )
+		{
+			*dst++ = '[';
+			WRITE_HASCII( dst, c );
+			*dst++ = ']';
+			fit -= 4;
+		}
+		else
+		{
+			fit = 0;
+		}
+		if (fit==0 || ptr==fin )
+		{
+			*dst++ = 0x00;
+
+			MW_LOG_WARN("%s", buf);
+			dst = buf;
+			fit = FIT_CHARS;
+		}
 	}
 }

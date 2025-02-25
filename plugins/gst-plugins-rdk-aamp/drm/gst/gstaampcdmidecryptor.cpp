@@ -27,6 +27,7 @@
 #include "gstaampcdmidecryptor.h"
 #include <open_cdm.h>
 #include <open_cdm_adapter.h>
+#include "DrmConstants.h"
 #if defined(AMLOGIC)
 #include <gst_svp_meta.h>
 #endif
@@ -252,22 +253,22 @@ gst_aampcdmidecryptor_transform_caps(GstBaseTransform * trans,
 		const gchar* capsinfo = gst_structure_get_string(capstruct, "protection-system");
 		if(capsinfo != NULL)
 		{
-			if(!g_strcmp0(capsinfo, PLAYREADY_PROTECTION_SYSTEM_ID))
+			if(!g_strcmp0(capsinfo, PLAYREADY_UUID))
 			{
-				aampcdmidecryptor->selectedProtection = PLAYREADY_PROTECTION_SYSTEM_ID;
+				aampcdmidecryptor->selectedProtection = PLAYREADY_UUID;
 			}
-			else if(!g_strcmp0(capsinfo, WIDEVINE_PROTECTION_SYSTEM_ID))
+			else if(!g_strcmp0(capsinfo, WIDEVINE_UUID))
 			{
-				aampcdmidecryptor->selectedProtection = WIDEVINE_PROTECTION_SYSTEM_ID;
+				aampcdmidecryptor->selectedProtection = WIDEVINE_UUID;
 			}
-			else if(!g_strcmp0(capsinfo, CLEARKEY_PROTECTION_SYSTEM_ID))
+			else if(!g_strcmp0(capsinfo, CLEARKEY_UUID))
 			{
-				 aampcdmidecryptor->selectedProtection = CLEARKEY_PROTECTION_SYSTEM_ID;
+				 aampcdmidecryptor->selectedProtection = CLEARKEY_UUID;
 				 aampcdmidecryptor->ignoreSVP = true;
 			}
-			else if(!g_strcmp0(capsinfo, VERIMATRIX_PROTECTION_SYSTEM_ID))
+			else if(!g_strcmp0(capsinfo, VERIMATRIX_UUID))
 			{
-				aampcdmidecryptor->selectedProtection = VERIMATRIX_PROTECTION_SYSTEM_ID;
+				aampcdmidecryptor->selectedProtection = VERIMATRIX_UUID;
 			}
 		}
 		else
@@ -1221,13 +1222,13 @@ static gboolean gst_aampcdmidecryptor_sink_event(GstBaseTransform * trans,
 		GST_DEBUG_OBJECT(aampcdmidecryptor, "origin: %s", origin);
 		/** If WideVine KeyID workaround is present check the systemId is clearKey **/
 		if (aampcdmidecryptor->aamp->mIsWVKIDWorkaround){
-			if(!g_str_equal(systemId, CLEARKEY_PROTECTION_SYSTEM_ID) ){
+			if(!g_str_equal(systemId, CLEARKEY_UUID) ){
 				gst_event_unref(event);
 				result = TRUE;
 				break;
 			}
 			GST_DEBUG_OBJECT(aampcdmidecryptor, "\nWideVine KeyID workaround is present, Select KeyID from Clear Key\n");
-			systemId = WIDEVINE_PROTECTION_SYSTEM_ID ;
+			systemId = WIDEVINE_UUID ;
 
 		}else{ /* else check the selected protection system */
 			if (!g_str_equal(systemId, aampcdmidecryptor->selectedProtection))

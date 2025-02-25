@@ -29,7 +29,7 @@
 using namespace std;
 
 
-AampHlsOcdmBridge::AampHlsOcdmBridge(AampDrmSession * aampDrmSession) :
+AampHlsOcdmBridge::AampHlsOcdmBridge(DrmSession * aampDrmSession) :
 	m_drmInfo(nullptr),
 	m_aampInstance(nullptr),
 	m_drmSession(aampDrmSession),

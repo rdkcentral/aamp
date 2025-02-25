@@ -25,13 +25,13 @@
 #ifndef AampDRMSessionManager_h
 #define AampDRMSessionManager_h
 
-#include "aampdrmsessionfactory.h"
-#include "AampDrmSession.h"
-#include "AampDRMutils.h"
+#include "drmsessionfactory.h"
+#include "DrmSession.h"
+#include "DrmUtils.h"
 #include <string>
 #include <atomic>
 #include "AampCurlDownloader.h"
-#include "AampDrmHelper.h"
+#include "DrmHelper.h"
 
 #ifdef USE_SECCLIENT
 #include "sec_client.h"
@@ -52,7 +52,7 @@ struct DrmSessionContext
 {
 	std::vector<uint8_t> data;
 	std::mutex sessionMutex;
-	AampDrmSession * drmSession;
+	DrmSession * drmSession;
 	AampCurlDownloader mLicenseDownloader;
 
 	DrmSessionContext() : sessionMutex(), drmSession(NULL),data(),mLicenseDownloader()
@@ -209,7 +209,7 @@ public:
 	/**
 	 * @brief Queue a content protection info to be processed later
 	 * 
-	 * @param drmHelper AampDrmHelper shared_ptr
+	 * @param drmHelper DrmHelper shared_ptr
 	 * @param periodId ID of the period to which CP belongs to
 	 * @param adapId Index of the adaptation to which CP belongs to
 	 * @param type media type
@@ -217,18 +217,18 @@ public:
 	 * @return true if successfully queued
 	 * @return false if error occurred
 	 */
-	bool QueueContentProtection(std::shared_ptr<AampDrmHelper> drmHelper, std::string periodId, uint32_t adapIdx, AampMediaType type, bool isVssPeriod = false);
+	bool QueueContentProtection(DrmHelperPtr drmHelper, std::string periodId, uint32_t adapIdx, AampMediaType type, bool isVssPeriod = false);
 
 	/**
 	 * @brief Queue a content protection event to the pipeline
 	 * 
-	 * @param drmHelper AampDrmHelper shared_ptr
+	 * @param drmHelper DrmHelper shared_ptr
 	 * @param periodId ID of the period to which CP belongs to
 	 * @param adapId Index of the adaptation to which CP belongs to
 	 * @param type media type
 	 * @return none
 	 */
-	void QueueProtectionEvent(std::shared_ptr<AampDrmHelper> drmHelper, std::string periodId, uint32_t adapIdx, AampMediaType type);
+	void QueueProtectionEvent(DrmHelperPtr drmHelper, std::string periodId, uint32_t adapIdx, AampMediaType type);
 
 	/**
 	 * @brief Stop DRM session manager and terminate license fetcher
@@ -256,7 +256,7 @@ public:
 	 *  @retval  	error_code - Gets updated with proper error code, if session creation fails.
 	 *  			No NULL checks are done for error_code, caller should pass a valid pointer.
 	 */
-	AampDrmSession * createDrmSession(const char* systemId, MediaFormat mediaFormat,
+	DrmSession * createDrmSession(const char* systemId, MediaFormat mediaFormat,
 			const unsigned char * initDataPtr, uint16_t dataLength, AampMediaType streamType,
 			PrivateInstanceAAMP* aamp, DrmMetaDataEventPtr e, const unsigned char *contentMetadata = nullptr,
 			bool isPrimarySession = false);
@@ -264,11 +264,11 @@ public:
 	 * @fn createDrmSession
 	 * @return AampdrmSession
 	 */
-	AampDrmSession* createDrmSession(std::shared_ptr<AampDrmHelper> drmHelper, DrmMetaDataEventPtr eventHandle, PrivateInstanceAAMP* aampInstance, AampMediaType streamType);
+	DrmSession* createDrmSession(DrmHelperPtr drmHelper, DrmMetaDataEventPtr eventHandle, PrivateInstanceAAMP* aampInstance, AampMediaType streamType);
 
 #if defined(USE_SECCLIENT) || defined(USE_SECMANAGER)
-	DrmData * getLicenseSec(const AampLicenseRequest &licenseRequest, std::shared_ptr<AampDrmHelper> drmHelper,
-			const AampChallengeInfo& challengeInfo, PrivateInstanceAAMP* aampInstance, int32_t *httpCode, int32_t *httpExtStatusCode, DrmMetaDataEventPtr eventHandle);
+	DrmData * getLicenseSec(const LicenseRequest &licenseRequest, DrmHelperPtr drmHelper,
+			const ChallengeInfo& challengeInfo, PrivateInstanceAAMP* aampInstance, int32_t *httpCode, int32_t *httpExtStatusCode, DrmMetaDataEventPtr eventHandle);
 #endif
 	/**
 	 *  @fn 	getLicense
@@ -285,7 +285,7 @@ public:
 	 *			customHeader ownership should be taken up by getLicense function
 	 *
 	 */
-	DrmData * getLicense(AampLicenseRequest &licRequest, int32_t *httpError, AampMediaType streamType, PrivateInstanceAAMP* aamp, DrmMetaDataEventPtr eventHandle,AampCurlDownloader *pLicenseDownloader,std::string licenseProxy="");
+	DrmData * getLicense(LicenseRequest &licRequest, int32_t *httpError, AampMediaType streamType, PrivateInstanceAAMP* aamp, DrmMetaDataEventPtr eventHandle,AampCurlDownloader *pLicenseDownloader,std::string licenseProxy="");
 	/**
 	 *  @fn		IsKeyIdProcessed
 	 *  @param[in]	keyIdArray - key Id extracted from pssh data
@@ -375,12 +375,12 @@ public:
 	 * @fn getDrmSession
 	 * @return index to the selected drmSessionContext which has been selected
 	 */
-	KeyState getDrmSession(std::shared_ptr<AampDrmHelper> drmHelper, int &selectedSlot, DrmMetaDataEventPtr eventHandle, PrivateInstanceAAMP* aampInstance, bool isPrimarySession = false);
+	KeyState getDrmSession(DrmHelperPtr drmHelper, int &selectedSlot, DrmMetaDataEventPtr eventHandle, PrivateInstanceAAMP* aampInstance, bool isPrimarySession = false);
 	/**
 	 * @fn getSlotIdForSession
 	 * @return index to the session slot for selected drmSessionContext 
 	 */
-	int getSlotIdForSession(AampDrmSession* session);
+	int getSlotIdForSession(DrmSession* session);
 	/**
 	 * @fn renewLicense
 	 *
@@ -390,7 +390,7 @@ public:
 	 * @return void
 	 */
 
-	void renewLicense(std::shared_ptr<AampDrmHelper> drmHelper, void* userData, PrivateInstanceAAMP* aampInstance);
+	void renewLicense(DrmHelperPtr drmHelper, void* userData, PrivateInstanceAAMP* aampInstance);
 	/**
 	 * @fn licenseRenewalThread
 	 *
@@ -399,7 +399,7 @@ public:
 	 * @param[in] aampInstance - Aamp instance
 	 * @return void
  	 */
-	void licenseRenewalThread(std::shared_ptr<AampDrmHelper> drmHelper, int sessionSlot, PrivateInstanceAAMP* aampInstance);
+	void licenseRenewalThread(DrmHelperPtr drmHelper, int sessionSlot, PrivateInstanceAAMP* aampInstance);
 	/**
 	 * @fn releaseLicenseRenewalThreads
 	 */
@@ -407,23 +407,23 @@ public:
 	/**
 	 * @fn initializeDrmSession
 	 */
-	KeyState initializeDrmSession(std::shared_ptr<AampDrmHelper> drmHelper, int sessionSlot, DrmMetaDataEventPtr eventHandle, PrivateInstanceAAMP* aampInstance);
+	KeyState initializeDrmSession(DrmHelperPtr drmHelper, int sessionSlot, DrmMetaDataEventPtr eventHandle, PrivateInstanceAAMP* aampInstance);
 	/**
 	 * @fn acquireLicense
 	 */
-	KeyState acquireLicense(std::shared_ptr<AampDrmHelper> drmHelper, int sessionSlot, int &cdmError,
+	KeyState acquireLicense(DrmHelperPtr drmHelper, int sessionSlot, int &cdmError,
 			DrmMetaDataEventPtr eventHandle, PrivateInstanceAAMP* aampInstance, AampMediaType streamType, bool isLicenseRenewal = false);
 
-	KeyState handleLicenseResponse(std::shared_ptr<AampDrmHelper> drmHelper, int sessionSlot, int &cdmError,
+	KeyState handleLicenseResponse(DrmHelperPtr drmHelper, int sessionSlot, int &cdmError,
 			int32_t httpResponseCode, int32_t httpExtResponseCode, shared_ptr<DrmData> licenseResponse, DrmMetaDataEventPtr eventHandle, PrivateInstanceAAMP* aampInstance, bool isLicenseRenewal = false);
 
-	KeyState processLicenseResponse(std::shared_ptr<AampDrmHelper> drmHelper, int sessionSlot, int &cdmError,
+	KeyState processLicenseResponse(DrmHelperPtr drmHelper, int sessionSlot, int &cdmError,
 			shared_ptr<DrmData> licenseResponse, DrmMetaDataEventPtr eventHandle, PrivateInstanceAAMP* aampInstance, bool isLicenseRenewal = false);
 	/**
 	 * @fn configureLicenseServerParameters
 	 */
-	bool configureLicenseServerParameters(std::shared_ptr<AampDrmHelper> drmHelper, AampLicenseRequest& licRequest,
-			std::string &licenseServerProxy, const AampChallengeInfo& challengeInfo, PrivateInstanceAAMP* aampInstance);
+	bool configureLicenseServerParameters(DrmHelperPtr drmHelper, LicenseRequest& licRequest,
+			std::string &licenseServerProxy, const ChallengeInfo& challengeInfo, PrivateInstanceAAMP* aampInstance);
 	/**
 	 * @fn notifyCleanup
 	 */

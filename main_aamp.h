@@ -49,7 +49,7 @@
 #include "Accessibility.hpp"
 #include "AampEvent.h"
 #include "AampEventListener.h"
-#include "AampDrmSystems.h"
+#include "DrmSystems.h"
 #include "AampMediaType.h"
 #include "AampScheduler.h"
 #include "AampConfig.h"

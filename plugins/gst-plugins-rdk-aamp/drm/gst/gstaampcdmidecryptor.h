@@ -47,7 +47,7 @@ struct _GstAampCDMIDecryptor
 {
     GstBaseTransform                base_aampcdmidecryptor;
     class AampDRMSessionManager*    sessionManager;
-    class AampDrmSession*           drmSession;
+    class DrmSession*           drmSession;
     class PrivateInstanceAAMP *     aamp;
     gboolean                        streamReceived;
     gboolean                        canWait;

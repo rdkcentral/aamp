@@ -27,8 +27,6 @@
 #endif
 
 #include <gst/gst.h>
-#include "gstaamp.h"
-#include "gstaampsrc.h"
 #ifdef DRM_BUILD_PROFILE
 #include "gstaampplayreadydecryptor.h"
 #include "gstaampwidevinedecryptor.h"
@@ -44,54 +42,47 @@
  */
 static gboolean plugin_init(GstPlugin * plugin)
 {
-	gboolean ret = gst_element_register(plugin, "aamp", GST_RANK_PRIMARY + 1, GST_TYPE_AAMP);
-	if (ret)
-	{
-		ret = gst_element_register(plugin, "aampsrc", GST_RANK_PRIMARY, GST_TYPE_AAMPSRC);
-	}
+	gboolean ret =  false;
 #ifdef DRM_BUILD_PROFILE
-	if (ret)
+	ret = gst_element_register(plugin, GstPluginNamePR,
+			GST_RANK_PRIMARY, GST_TYPE_AAMPPLAYREADYDECRYPTOR );
+	if(ret)
 	{
-		ret = gst_element_register(plugin, GstPluginNamePR,
-				GST_RANK_PRIMARY, GST_TYPE_AAMPPLAYREADYDECRYPTOR );
-		if(ret)
-		{
-			printf("aamp plugin_init registered %s element\n", GstPluginNamePR);
-		}
-		else
-		{
-			printf("aamp plugin_init FAILED to register %s element\n", GstPluginNamePR);
-		}
-		ret = gst_element_register(plugin, GstPluginNameWV,
-				GST_RANK_PRIMARY, GST_TYPE_AAMPWIDEVINEDECRYPTOR );
-		if(ret)
-		{
-			printf("aamp plugin_init registered %s element\n", GstPluginNameWV);
-		}
-		else
-		{
-			printf("aamp plugin_init FAILED to register %s element\n", GstPluginNameWV);
-		}
-		ret = gst_element_register(plugin, GstPluginNameCK,
-				GST_RANK_PRIMARY, GST_TYPE_AAMPCLEARKEYDECRYPTOR );
-		if(ret)
-		{
-			printf("aamp plugin_init registered %s element\n", GstPluginNameCK);
-		}
-		else
-		{
-			printf("aamp plugin_init FAILED to register %s element\n", GstPluginNameCK);
-		}
-		ret = gst_element_register(plugin, GstPluginNameVMX,
-				GST_RANK_PRIMARY, GST_TYPE_AAMPVERIMATRIXDECRYPTOR );
-		if(ret)
-		{
-			printf("aamp plugin_init registered %s element\n", GstPluginNameVMX);
-		}
-		else
-		{
-			printf("aamp plugin_init FAILED to register %s element\n", GstPluginNameVMX);
-		}
+		printf("aamp plugin_init registered %s element\n", GstPluginNamePR);
+	}
+	else
+	{
+		printf("aamp plugin_init FAILED to register %s element\n", GstPluginNamePR);
+	}
+	ret = gst_element_register(plugin, GstPluginNameWV,
+			GST_RANK_PRIMARY, GST_TYPE_AAMPWIDEVINEDECRYPTOR );
+	if(ret)
+	{
+		printf("aamp plugin_init registered %s element\n", GstPluginNameWV);
+	}
+	else
+	{
+		printf("aamp plugin_init FAILED to register %s element\n", GstPluginNameWV);
+	}
+	ret = gst_element_register(plugin, GstPluginNameCK,
+			GST_RANK_PRIMARY, GST_TYPE_AAMPCLEARKEYDECRYPTOR );
+	if(ret)
+	{
+		printf("aamp plugin_init registered %s element\n", GstPluginNameCK);
+	}
+	else
+	{
+		printf("aamp plugin_init FAILED to register %s element\n", GstPluginNameCK);
+	}
+	ret = gst_element_register(plugin, GstPluginNameVMX,
+			GST_RANK_PRIMARY, GST_TYPE_AAMPVERIMATRIXDECRYPTOR );
+	if(ret)
+	{
+		printf("aamp plugin_init registered %s element\n", GstPluginNameVMX);
+	}
+	else
+	{
+		printf("aamp plugin_init FAILED to register %s element\n", GstPluginNameVMX);
 	}
 #endif
 	return ret;

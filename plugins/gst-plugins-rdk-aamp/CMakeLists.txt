@@ -73,7 +73,7 @@ if(CMAKE_IARM_MGR)
 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DIARM_MGR")
 endif()
 
-set(GSTAAMP_SOURCES gstaamp.cpp gstaampsrc.cpp gstaampinit.cpp)
+set(GSTAAMP_SOURCES gstaampinit.cpp)
 if(CMAKE_CDM_DRM)
         message("CMAKE_CDM_DRM set")
 	set(GSTAAMP_SOURCES "${GSTAAMP_SOURCES}" drm/gst/gstaampcdmidecryptor.cpp drm/gst/gstaampplayreadydecryptor.cpp drm/gst/gstaampwidevinedecryptor.cpp drm/gst/gstaampclearkeydecryptor.cpp drm/gst/gstaampverimatrixdecryptor.cpp)
@@ -176,7 +176,7 @@ else()
 endif()
 
 target_link_libraries (gstaamp aamp ${AAMP_COMMON_DEPENDENCIES} )
-target_include_directories (gstaamp PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../../ ${CMAKE_CURRENT_SOURCE_DIR}/../../drm ${CMAKE_CURRENT_SOURCE_DIR}/../../drm/helper ${CMAKE_CURRENT_SOURCE_DIR}/../../tsb/api ${CMAKE_CURRENT_SOURCE_DIR}/../../downloader)
+target_include_directories (gstaamp PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../../ ${CMAKE_CURRENT_SOURCE_DIR}/../../drm ${CMAKE_CURRENT_SOURCE_DIR}/../../drm/helper ${CMAKE_CURRENT_SOURCE_DIR}/../../tsb/api ${CMAKE_CURRENT_SOURCE_DIR}/../../downloader ${CMAKE_CURRENT_SOURCE_DIR}/../../middleware ${CMAKE_CURRENT_SOURCE_DIR}/../../middleware/drm ${CMAKE_CURRENT_SOURCE_DIR}/../../middleware/drm/ocdm ${CMAKE_CURRENT_SOURCE_DIR}/../../middleware/drm/helper)
 target_include_directories (gstaamp PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../../support/aampabr)
 target_include_directories (gstaamp PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../../support/aampmetrics)
 

@@ -68,8 +68,8 @@
 #ifdef AAMP_HLS_DRM
 #include "AampDRMSessionManager.h"
 #endif
-#include "AampVanillaDrmHelper.h"
 #include "PlayerCCManager.h"
+#include "VanillaDrmHelper.h"
 
 static const int DEFAULT_STREAM_WIDTH = 720;
 static const int DEFAULT_STREAM_HEIGHT = 576;
@@ -79,7 +79,7 @@ static const double  DEFAULT_STREAM_FRAMERATE = 25.0;
 #define IS_FOR_IFRAME(rate, type) ((type == eTRACK_VIDEO) && (rate != AAMP_NORMAL_PLAY_RATE))
 
 #ifdef AAMP_HLS_DRM
-extern std::shared_ptr<AampDrmHelper> ProcessContentProtection(PrivateInstanceAAMP *aamp, std::string attrName);
+extern DrmHelperPtr ProcessContentProtection(PrivateInstanceAAMP *aamp, std::string attrName);
 #endif
 
 #define UseProgramDateTimeIfAvailable() (ISCONFIGSET(eAAMPConfig_HLSAVTrackSyncUsingStartTime) || aamp->mIsVSS)
@@ -460,13 +460,13 @@ void StreamAbstractionAAMP_HLS::InitiateDrmProcess()
 	if (aamp->fragmentCdmEncrypted && ISCONFIGSET(eAAMPConfig_Fragmp4PrefetchLicense))
 	{
 		std::lock_guard<std::mutex> guard(aamp->drmParserMutex);
-		std::shared_ptr<AampDrmHelper> drmHelperToUse = nullptr;
+		DrmHelperPtr drmHelperToUse = nullptr;
 		for (int i = 0; i < aamp->aesCtrAttrDataList.size(); i++ )
 		{
 			if (!aamp->aesCtrAttrDataList.at(i).isProcessed)
 			{
 				aamp->aesCtrAttrDataList.at(i).isProcessed = true;
-				std::shared_ptr<AampDrmHelper> drmHelper = ProcessContentProtection(aamp, aamp->aesCtrAttrDataList.at(i).attrName);
+				DrmHelperPtr drmHelper = ProcessContentProtection(aamp, aamp->aesCtrAttrDataList.at(i).attrName);
 				if (nullptr != drmHelper)
 				{
 					/* This needs effort from MSO as to what they want to do viz-a-viz preferred DRM, */
@@ -1904,7 +1904,7 @@ void TrackState::SetDrmContext()
 #ifdef AAMP_VANILLA_AES_SUPPORT
 		AAMPLOG_INFO("StreamAbstractionAAMP_HLS::Get AesDec");
 		mDrm = AesDec::GetInstance();
-		aamp->setCurrentDrm(std::make_shared<AampVanillaDrmHelper>());
+		aamp->setCurrentDrm(std::make_shared<VanillaDrmHelper>());
 
 #else
 		AAMPLOG_WARN("StreamAbstractionAAMP_HLS: AAMP_VANILLA_AES_SUPPORT not defined");
