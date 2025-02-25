@@ -55,17 +55,12 @@ def get_dash_segments_from_multiple_manifests(manifest_path):
         # single manifest not incremental
         file_timestamps = [(0, manifest_path)]
     else:
-        """
-        For dash manifest it has been seen that the duration of the segment changes
-        in later versions of the manifest. I.E the first entry gives a provisional
-        duration and then it is updated to the final duration when the segment is generated
-        process manifests oldest first so we take the later duration allocated to the segment
-        """
-        file_timestamps = reversed(manifest_server.get_list_of_manifest_timestamps(manifest_path))
+        file_timestamps = manifest_server.get_list_of_manifest_timestamps(manifest_path)
 
     # iterate through all manifests
     for man_time, man_path in file_timestamps:
-        man = DASHManifest(man_path)
+        log.info(f"Processing {man_path}")
+        man = DASHManifest(man_path, args=args)
         man.get_seg_list(seg_list=segment_list, abs_paths=True)
 
         man.remove_encryption_tags() #Remove encrypted tags from xml
@@ -92,6 +87,9 @@ def get_manifest_path():
     a/b/c/manifest.mpd.2
     """
     harvest_details = read_harvest_details()
+    if harvest_details == {}:
+        log.error("Cannot read harvest_details.json in current directory. Try --help")
+        exit(1)
 
     if "url" in harvest_details:
         url = harvest_details["url"]
@@ -240,7 +238,7 @@ Typically invoked in a directory where harvest_details.json resides"""
         "-a",
         "--all",
         action="store_true",
-        help="Process unencrypted files.  By default, only encrypted content will be processed.",
+        help="Process unencrypted segments.  By default, only encrypted content will be processed.",
     )
 
     parser.add_argument(
@@ -252,7 +250,8 @@ Typically invoked in a directory where harvest_details.json resides"""
     parser.add_argument(
         "-m",
         "--manifest",
-        help="Specify manifest instead of using harvest details file",
+        help="""Specify manifest(s). Default is to read harvest_details.json in 
+current dir and locate harvested manifest(s) from that.""",
     )
     parser.add_argument(
         "--chunked_segments",
@@ -264,6 +263,13 @@ Typically invoked in a directory where harvest_details.json resides"""
         help="""Only transcode segments from periods with start="xx" or greater. To avoid transcode of
 past segments in cloud TSB.
 E.G --start_at PT480253H21M58.641S """,
+    )
+
+    parser.add_argument(
+        "--review_buffer",
+        action="store_true",
+        help="""For live streams with a cloud review buffer. Process the segments in the review buffer.
+This may result in 30mins of segments preceeding the live edge being processed""",
     )
     args = parser.parse_args()
 

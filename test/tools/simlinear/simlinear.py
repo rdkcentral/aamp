@@ -917,7 +917,7 @@ if __name__ == "__main__":
     app = Flask(__name__)
 
     # Just read harvest_details once at start of test
-    harvest_details = read_harvest_details()
+    harvest_details = read_harvest_details(do_search=True)
     if harvest_details != {}:
         print("Found Harvest Details")
     else:

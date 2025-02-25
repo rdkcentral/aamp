@@ -40,6 +40,20 @@ def pytest_addoption(parser):
     parser.addoption("--aamp_video", action="store_true", help="run AAMP with video window")
     parser.addoption("--aamp_log", action="store_true", help="AAMP logging to stdout rather than file")
     parser.addoption("--coverage", action="store_true", help="Record AAMP line coverage when running tests")
+    parser.addoption("--slow_tests", action="store_true", default=False, help="Include running of slow tests")
+
+#https://docs.pytest.org/en/latest/example/simple.html#control-skipping-of-tests-according-to-command-line-option
+def pytest_configure(config):
+    config.addinivalue_line("markers", "slow: mark test as slow to run")
+
+def pytest_collection_modifyitems(config, items):
+    if config.getoption("--slow_tests"):
+        # --slow_tests given in cli: do not skip slow tests
+        return
+    slow_tests = pytest.mark.skip(reason="--slow_tests option to run")
+    for item in items:
+        if "slow" in item.keywords:
+            item.add_marker(slow_tests)
 
 @pytest.fixture(scope="session")
 def http_port():

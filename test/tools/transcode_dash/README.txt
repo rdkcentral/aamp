@@ -26,10 +26,25 @@ We look at the first DASH manifest from the harvest I.E .../mpd.1 and find the l
 Use the start value so that only segments from that period and subsequent are transcoded
 .../transcode_dash/transcode.py --all --start_at PT480253H21M27.367S
 
-3. A dash manifest has been created and there is not harvest_details.json because it was
- not 'harvested'. We want to generate the segments for that
+3. A single dash manifest has been created and there is no harvest_details.json because it was
+ not created by harvest.py. We want to generate the segments for that.
 
-.../transcode_dash/transcode.py -all --manifest manifest.mpd
+.../transcode_dash/transcode.py --all --manifest path/manifest.mpd
+
+exists:
+path/manifest.mpd
+
+4. A sequence of live manifests exist but there is no harvest_details.json. Manifests ending in 
+a number will be read and transcoded.
+
+.../transcode_dash/transcode.py --all --manifest path/manifest.mpd
+
+exists:
+path/manifest.mpd.1
+path/manifest.mpd.2
+..
+but importantly no path/manifest.mpd
+
 
 Requirements
 -------------
