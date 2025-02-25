@@ -50,7 +50,7 @@
 #include "AampDefine.h"
 #include "AampLogManager.h"
 #include <cjson/cJSON.h>
-#include "AampDrmSystems.h"
+#include "DrmSystems.h"
 
 
 //////////////// CAUTION !!!! STOP !!! Read this before you proceed !!!!!!! /////////////

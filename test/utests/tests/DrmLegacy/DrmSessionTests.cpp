@@ -25,7 +25,7 @@
 #include <memory>
 #include <cjson/cJSON.h>
 
-#include "aampdrmsessionfactory.h"
+#include "drmsessionfactory.h"
 #include "AampDRMSessionManager.h"
 #include "priv_aamp.h"
 
@@ -34,7 +34,7 @@
 #include "aampMocks.h"
 #include "curlMocks.h"
 
-#include "AampDrmTestUtils.h"
+#include "DrmTestUtils.h"
 
 class AampLegacyDrmSessionTests : public ::testing::Test
 {
@@ -99,7 +99,7 @@ TEST_F(AampLegacyDrmSessionTests, TestCreateClearkeySession)
 	gpGlobalConfig->SetConfigValue(AAMP_APPLICATION_SETTING, eAAMPConfig_CKLicenseServerUrl,
 								   ckLicenseServerURL);
 
-	AampDrmSession *drmSession = sessionManager->createDrmSession(
+	DrmSession *drmSession = sessionManager->createDrmSession(
 		"1077efec-c0b2-4d02-ace3-3c1e52e2fb4b", eMEDIAFORMAT_DASH, initData, sizeof(initData),
 		eMEDIATYPE_VIDEO, mAamp, aampEvent, NULL, true);
 	ASSERT_TRUE(drmSession != NULL);

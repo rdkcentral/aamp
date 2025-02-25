@@ -27,7 +27,7 @@
 #include "MockGstHandlerControl.h"
 #include "MockPrivateInstanceAAMP.h"
 #include "MockAampUtils.h"
-#include "MockGstUtils.h"
+#include "MockPlayerUtils.h"
 
 using ::testing::NiceMock;
 using ::testing::Return;
@@ -60,7 +60,7 @@ protected:
 
 	void SetUp() override
 	{
-		g_mockGstUtils = new MockGstUtils();
+		g_mockPlayerUtils = new MockPlayerUtils();
 		g_mockAampUtils = new NiceMock<MockAampUtils>();
 		g_mockGStreamer = new NiceMock<MockGStreamer>();
 		g_mockGLib = new MockGLib();
@@ -93,8 +93,8 @@ protected:
 		delete mPrivateInstanceAAMP;
 		mPrivateInstanceAAMP = nullptr;
 
-		delete g_mockGstUtils;
-		g_mockGstUtils = nullptr;
+		delete g_mockPlayerUtils;
+		g_mockPlayerUtils = nullptr;
 
 	}
 
@@ -627,7 +627,7 @@ TEST_F(AAMPGstPlayerTests, MonitorAV )
 			Return(GST_STATE_CHANGE_SUCCESS)));
 	for( int idx=0; idx<sizeof(avpos)/sizeof(avpos[0]); idx++ )
 	{
-		EXPECT_CALL( *g_mockGstUtils, GetCurrentTimeMS()).WillOnce(DoAll(Return(1000+idx*250)));
+		EXPECT_CALL( *g_mockPlayerUtils, GetCurrentTimeMS()).WillOnce(DoAll(Return(1000+idx*250)));
 		
 		EXPECT_CALL(*g_mockGStreamer, gst_element_query_position( _, _, _))
 			.WillOnce(DoAll(

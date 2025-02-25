@@ -380,7 +380,7 @@ void PrivateInstanceAAMP::RemoveEventListener(AAMPEventType eventType, EventList
 {
 }
 
-std::shared_ptr<AampDrmHelper> PrivateInstanceAAMP::GetCurrentDRM(void)
+DrmHelperPtr PrivateInstanceAAMP::GetCurrentDRM(void)
 {
 	return nullptr;
 }
@@ -567,7 +567,7 @@ std::string PrivateInstanceAAMP::GetPlaybackStats()
 	return result;
 }
 
-void PrivateInstanceAAMP::individualization(const std::string& payload)
+void PrivateInstanceAAMP::Individualization(const std::string& payload)
 {
 }
 
@@ -1203,7 +1203,7 @@ bool PrivateInstanceAAMP::IsAudioLanguageSupported (const char *checkLanguage)
 	return false;
 }
 
-void PrivateInstanceAAMP::LicenseRenewal(std::shared_ptr<AampDrmHelper> drmHelper,void* userData)
+void PrivateInstanceAAMP::LicenseRenewal(DrmHelperPtr drmHelper,void* userData)
 {
 }
 

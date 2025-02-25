@@ -28,7 +28,7 @@
 #include <mutex>
 #include "priv_aamp.h"
 #include "ThunderAccess.h"
-#include "AampDRMutils.h"
+#include "DrmUtils.h"
 
 
 #define SECMANAGER_CALL_SIGN "org.rdk.SecManager.1"

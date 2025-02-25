@@ -26,7 +26,7 @@
 #ifndef __AAMP_UTILS_H__
 #define __AAMP_UTILS_H__
 
-#include "AampDrmSystems.h"
+#include "DrmSystems.h"
 #include "main_aamp.h"
 #include "iso639map.h"
 #include <string>

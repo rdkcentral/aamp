@@ -17,8 +17,8 @@
 * limitations under the License.
 */
 
-#ifndef AAMP_MOCK_OPEN_CDM_SESSION_ADAPTER_H
-#define AAMP_MOCK_OPEN_CDM_SESSION_ADAPTER_H
+#ifndef PLAYER_MOCK_OPEN_CDM_SESSION_ADAPTER_H
+#define PLAYER_MOCK_OPEN_CDM_SESSION_ADAPTER_H
 
 #include <gmock/gmock.h>
 
@@ -33,4 +33,4 @@ class MockOpenCdmSessionAdapter
 
 extern MockOpenCdmSessionAdapter *g_mockOpenCdmSessionAdapter;
 
-#endif /* AAMP_MOCK_OPEN_CDM_SESSION_ADAPTER_H */
+#endif /* PLAYER_MOCK_OPEN_CDM_SESSION_ADAPTER_H */

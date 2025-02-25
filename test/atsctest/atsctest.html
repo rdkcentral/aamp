@@ -481,16 +481,6 @@ function SetRectangle( pctx, pcty, pctw, pcth )
 			for (var iter = 0; iter < urls.length; iter++)
 			{
 				var option = document.createElement("option");
-				// Replace http/https with aamp at runtime
-				//if(urls[iter].url.startsWith("https"))
-				//{
-				//	option.value = urls[iter].url.replace(/^https:\/\//i, 'aamps://');
-				//}
-				//else if(urls[iter].url.startsWith("http"))
-				//{
-				//	option.value = urls[iter].url.replace(/^http:\/\//i, 'aamp://');
-				//}
-				//else
 				{
 					option.value = urls[iter].url;
 				}

@@ -20,7 +20,7 @@
 #include <vector>
 #include <gtest/gtest.h>
 
-#include "AampDRMutils.h"
+#include "DrmUtils.h"
 #include "AampUtils.h"
 
 class DrmUtilsTests : public ::testing::Test

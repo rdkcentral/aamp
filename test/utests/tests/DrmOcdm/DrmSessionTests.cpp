@@ -27,9 +27,9 @@
 #include <iterator>
 #include <memory>
 
-#include "aampdrmsessionfactory.h"
+#include "drmsessionfactory.h"
 #include "AampDRMSessionManager.h"
-#include "AampClearKeyHelper.h"
+#include "ClearKeyHelper.h"
 #include "AampHlsOcdmBridge.h"
 #include "open_cdm.h"
 
@@ -38,7 +38,7 @@
 #include "Fakeopencdm.h"
 #include "curlMocks.h"
 
-#include "AampDrmTestUtils.h"
+#include "DrmTestUtils.h"
 
 #include "MockOpenCdm.h"
 #include "MockPrivateInstanceAAMP.h"
@@ -50,7 +50,7 @@ using ::testing::Return;
 using ::testing::SetArgPointee;
 using ::testing::StrEq;
 
-class AampDrmSessionTests : public ::testing::Test
+class DrmSessionTests : public ::testing::Test
 {
 protected:
 	PrivateInstanceAAMP *mAamp = nullptr;
@@ -97,7 +97,7 @@ protected:
 public:
 };
 
-TEST_F(AampDrmSessionTests, TestClearKeyLicenseAcquisition)
+TEST_F(DrmSessionTests, TestClearKeyLicenseAcquisition)
 {
 	// Setup Curl and OpenCDM mocks. We expect that curl_easy_perform will be called to fetch
 	// the key and that OpenCDM will be called to construct the session and handle the fetched key.
@@ -110,8 +110,8 @@ TEST_F(AampDrmSessionTests, TestClearKeyLicenseAcquisition)
 	drmInfo.method = eMETHOD_AES_128;
 	drmInfo.manifestURL = "http://example.com/assets/test.m3u8";
 	drmInfo.keyURI = "file.key";
-	std::shared_ptr<AampClearKeyHelper> drmHelper =
-		std::make_shared<AampClearKeyHelper>(drmInfo);
+	std::shared_ptr<ClearKeyHelper> drmHelper =
+		std::make_shared<ClearKeyHelper>(drmInfo);
 
 	// We expect the key data to be transformed by the helper before being passed to
 	// opencdm_session_update. Thus we call the helper ourselves here (with the data our mock Curl
@@ -128,7 +128,7 @@ TEST_F(AampDrmSessionTests, TestClearKeyLicenseAcquisition)
 													   expectedDrmData->getDataLength()))
 		.WillOnce(Return(ERROR_NONE));
 
-	AampDrmSession *drmSession = mUtils->createDrmSessionForHelper(drmHelper, "org.w3.clearkey");
+	DrmSession *drmSession = mUtils->createDrmSessionForHelper(drmHelper, "org.w3.clearkey");
 	ASSERT_TRUE(drmSession != nullptr);
 	ASSERT_STREQ("org.w3.clearkey", drmSession->getKeySystem().c_str());
 
@@ -139,7 +139,7 @@ TEST_F(AampDrmSessionTests, TestClearKeyLicenseAcquisition)
 	ASSERT_EQ(0L, curlOpts->httpGet);
 }
 
-TEST_F(AampDrmSessionTests, TestMultipleSessionsSameKey)
+TEST_F(DrmSessionTests, TestMultipleSessionsSameKey)
 {
 	std::string testKeyData = "TESTKEYDATA";
 	mUtils->setupCurlPerformResponse(testKeyData);
@@ -149,8 +149,8 @@ TEST_F(AampDrmSessionTests, TestMultipleSessionsSameKey)
 	drmInfo.method = eMETHOD_AES_128;
 	drmInfo.manifestURL = "http://example.com/assets/test.m3u8";
 	drmInfo.keyURI = "file.key";
-	std::shared_ptr<AampClearKeyHelper> drmHelper =
-		std::make_shared<AampClearKeyHelper>(drmInfo);
+	std::shared_ptr<ClearKeyHelper> drmHelper =
+		std::make_shared<ClearKeyHelper>(drmInfo);
 
 	const shared_ptr<DrmData> expectedDrmData =
 		make_shared<DrmData>(testKeyData.c_str(), testKeyData.size());
@@ -164,7 +164,7 @@ TEST_F(AampDrmSessionTests, TestMultipleSessionsSameKey)
 		.WillOnce(Return(ERROR_NONE));
 
 	// 1st time around - expecting standard session creation
-	AampDrmSession *drmSession1 = mUtils->createDrmSessionForHelper(drmHelper, "org.w3.clearkey");
+	DrmSession *drmSession1 = mUtils->createDrmSessionForHelper(drmHelper, "org.w3.clearkey");
 	ASSERT_TRUE(drmSession1 != nullptr);
 	ASSERT_STREQ("org.w3.clearkey", drmSession1->getKeySystem().c_str());
 
@@ -175,7 +175,7 @@ TEST_F(AampDrmSessionTests, TestMultipleSessionsSameKey)
 	EXPECT_CALL(*g_mockopencdm, opencdm_create_system).Times(0);
 	EXPECT_CALL(*g_mockopencdm, opencdm_construct_session).Times(0);
 
-	AampDrmSession *drmSession2 =
+	DrmSession *drmSession2 =
 		sessionManager->createDrmSession(drmHelper, event, mAamp, eMEDIATYPE_VIDEO);
 	ASSERT_EQ(drmSession1, drmSession2);
 
@@ -188,12 +188,12 @@ TEST_F(AampDrmSessionTests, TestMultipleSessionsSameKey)
 													   expectedDrmData->getDataLength()))
 		.WillOnce(Return(ERROR_NONE));
 
-	AampDrmSession *drmSession3 = mUtils->createDrmSessionForHelper(drmHelper, "org.w3.clearkey");
+	DrmSession *drmSession3 = mUtils->createDrmSessionForHelper(drmHelper, "org.w3.clearkey");
 	ASSERT_TRUE(drmSession3 != nullptr);
 	ASSERT_STREQ("org.w3.clearkey", drmSession3->getKeySystem().c_str());
 }
 
-TEST_F(AampDrmSessionTests, TestDashPlayReadySession)
+TEST_F(DrmSessionTests, TestDashPlayReadySession)
 {
 	string prLicenseServerURL = "http://licenseserver.example/license";
 	const std::string testKeyData = "TESTKEYDATA";
@@ -219,7 +219,7 @@ TEST_F(AampDrmSessionTests, TestDashPlayReadySession)
 		"</WRMHEADER>";
 
 	DrmMetaDataEventPtr event = mUtils->createDrmMetaDataEvent();
-	AampDrmSession *drmSession = mUtils->createDashDrmSession(testKeyData, psshStr, event);
+	DrmSession *drmSession = mUtils->createDashDrmSession(testKeyData, psshStr, event);
 	ASSERT_TRUE(drmSession != nullptr);
 	ASSERT_STREQ("com.microsoft.playready", drmSession->getKeySystem().c_str());
 
@@ -231,7 +231,7 @@ TEST_F(AampDrmSessionTests, TestDashPlayReadySession)
 	ASSERT_EQ(testChallengeData, licenseResponse->opts.postFields);
 }
 
-TEST_F(AampDrmSessionTests, TestDashPlayReadySessionNoCkmPolicy)
+TEST_F(DrmSessionTests, TestDashPlayReadySessionNoCkmPolicy)
 {
 	string prLicenseServerURL = "http://licenseserver.example/license";
 	std::string testKeyData = "TESTKEYDATA";
@@ -256,7 +256,7 @@ TEST_F(AampDrmSessionTests, TestDashPlayReadySessionNoCkmPolicy)
 		"</WRMHEADER>";
 
 	DrmMetaDataEventPtr event = mUtils->createDrmMetaDataEvent();
-	AampDrmSession *drmSession = mUtils->createDashDrmSession(testKeyData, psshStr, event);
+	DrmSession *drmSession = mUtils->createDashDrmSession(testKeyData, psshStr, event);
 	ASSERT_TRUE(drmSession != nullptr);
 	ASSERT_STREQ("com.microsoft.playready", drmSession->getKeySystem().c_str());
 
@@ -272,14 +272,14 @@ TEST_F(AampDrmSessionTests, TestDashPlayReadySessionNoCkmPolicy)
 	ASSERT_STREQ("OCDM_CHALLENGE_DATA", curlOpts->postFields);
 }
 
-TEST_F(AampDrmSessionTests, TestSessionBadChallenge)
+TEST_F(DrmSessionTests, TestSessionBadChallenge)
 {
 	DrmInfo drmInfo;
 	drmInfo.method = eMETHOD_AES_128;
 	drmInfo.manifestURL = "http://example.com/assets/test.m3u8";
 	drmInfo.keyURI = "file.key";
-	std::shared_ptr<AampClearKeyHelper> drmHelper =
-		std::make_shared<AampClearKeyHelper>(drmInfo);
+	std::shared_ptr<ClearKeyHelper> drmHelper =
+		std::make_shared<ClearKeyHelper>(drmInfo);
 
 	// Cause OpenCDM to return an empty challenge. This should cause an error
 	mUtils->setupChallengeCallbacks(MockChallengeData("", ""));
@@ -290,20 +290,20 @@ TEST_F(AampDrmSessionTests, TestSessionBadChallenge)
 		.WillOnce(DoAll(SetArgPointee<9>(OCDM_SESSION), Return(ERROR_NONE)));
 
 	DrmMetaDataEventPtr event = mUtils->createDrmMetaDataEvent();
-	AampDrmSession *drmSession =
+	DrmSession *drmSession =
 		mUtils->getSessionManager()->createDrmSession(drmHelper, event, mAamp, eMEDIATYPE_VIDEO);
 	ASSERT_EQ(nullptr, drmSession);
 	ASSERT_EQ(AAMP_TUNE_DRM_CHALLENGE_FAILED, event->getFailure());
 }
 
-TEST_F(AampDrmSessionTests, TestSessionBadLicenseResponse)
+TEST_F(DrmSessionTests, TestSessionBadLicenseResponse)
 {
 	DrmInfo drmInfo;
 	drmInfo.method = eMETHOD_AES_128;
 	drmInfo.manifestURL = "http://example.com/assets/test.m3u8";
 	drmInfo.keyURI = "file.key";
-	std::shared_ptr<AampClearKeyHelper> drmHelper =
-		std::make_shared<AampClearKeyHelper>(drmInfo);
+	std::shared_ptr<ClearKeyHelper> drmHelper =
+		std::make_shared<ClearKeyHelper>(drmInfo);
 
 	// Make curl return empty data for the key. This should cause an error
 	mUtils->setupCurlPerformResponses({{"http://example.com/assets/file.key", ""}});
@@ -316,13 +316,13 @@ TEST_F(AampDrmSessionTests, TestSessionBadLicenseResponse)
 	mUtils->setupChallengeCallbacks();
 
 	DrmMetaDataEventPtr event = mUtils->createDrmMetaDataEvent();
-	AampDrmSession *drmSession =
+	DrmSession *drmSession =
 		mUtils->getSessionManager()->createDrmSession(drmHelper, event, mAamp, eMEDIATYPE_VIDEO);
 	ASSERT_EQ(nullptr, drmSession);
 	ASSERT_EQ(AAMP_TUNE_LICENCE_REQUEST_FAILED, event->getFailure());
 }
 
-TEST_F(AampDrmSessionTests, TestDashSessionBadPssh)
+TEST_F(DrmSessionTests, TestDashSessionBadPssh)
 {
 	std::string testKeyData = "TESTKEYDATA";
 
@@ -330,7 +330,7 @@ TEST_F(AampDrmSessionTests, TestDashSessionBadPssh)
 	const std::string psshStr = "bad data with no KID";
 
 	DrmMetaDataEventPtr event = mUtils->createDrmMetaDataEvent();
-	AampDrmSession *drmSession = mUtils->getSessionManager()->createDrmSession(
+	DrmSession *drmSession = mUtils->getSessionManager()->createDrmSession(
 		"9a04f079-9840-4286-ab92-e65be0885f95", eMEDIAFORMAT_DASH,
 		(const unsigned char *)psshStr.c_str(), psshStr.length(), eMEDIATYPE_VIDEO, mAamp, event);
 	ASSERT_EQ(nullptr, drmSession);

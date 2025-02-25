@@ -2812,7 +2812,7 @@ void PrivateInstanceAAMP::SendErrorEvent(AAMPTuneFailure tuneFailure, const char
 	}
 }
 
-void PrivateInstanceAAMP::LicenseRenewal(std::shared_ptr<AampDrmHelper> drmHelper, void* userData)
+void PrivateInstanceAAMP::LicenseRenewal(DrmHelperPtr drmHelper, void* userData)
 {
 #if defined(AAMP_MPD_DRM) || defined(AAMP_HLS_DRM)
 	if (mDRMSessionManager == nullptr)
@@ -6831,7 +6831,7 @@ double PrivateInstanceAAMP::GetSeekBase(void)
 /**
  * @brief Get current drm
  */
-std::shared_ptr<AampDrmHelper> PrivateInstanceAAMP::GetCurrentDRM(void)
+DrmHelperPtr PrivateInstanceAAMP::GetCurrentDRM(void)
 {
 	return mCurrentDrm;
 }
@@ -9155,7 +9155,7 @@ void PrivateInstanceAAMP::SendMediaMetadataEvent(void)
 	GetPlayerVideoSize(width, height);
 
 	std::string drmType = "NONE";
-	std::shared_ptr<AampDrmHelper> helper = GetCurrentDRM();
+	DrmHelperPtr helper = GetCurrentDRM();
 	if (helper)
 	{
 		drmType = helper->friendlyName();
@@ -10355,7 +10355,7 @@ std::string PrivateInstanceAAMP::GetAppName()
 /**
  * @brief DRM individualization callback
  */
-void PrivateInstanceAAMP::individualization(const std::string& payload)
+void PrivateInstanceAAMP::Individualization(const std::string& payload)
 {
 	DrmMessageEventPtr event = std::make_shared<DrmMessageEvent>(payload, GetSessionId());
 	SendEvent(event,AAMP_EVENT_ASYNC_MODE);

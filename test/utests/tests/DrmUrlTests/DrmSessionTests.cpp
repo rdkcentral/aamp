@@ -20,8 +20,9 @@
 #include <string>
 #include <gtest/gtest.h>
 #include "AampDRMSessionManager.cpp"
-
-class AampDrmSessionTests : public ::testing::Test {
+#include "DrmJsonObject.h"
+#include "AampJsonObject.h"
+class DrmSessionTests : public ::testing::Test {
 protected:
 
     void SetUp() override {
@@ -33,147 +34,147 @@ protected:
     }
 };
 
-TEST_F(AampDrmSessionTests, HandlesRandomString) {
+TEST_F(DrmSessionTests, HandlesRandomString) {
     std::string url = "6f4dssfg564";
     std::string expected = "6f4dssfg564";
     std::string result = getFormattedLicenseServerURL(url);
     EXPECT_EQ(result, expected);
 };
 
-TEST_F(AampDrmSessionTests, HandlesRandomString2) {
+TEST_F(DrmSessionTests, HandlesRandomString2) {
     std::string url = "super/bad";
     std::string expected = "super/bad";
     std::string result = getFormattedLicenseServerURL(url);
     EXPECT_EQ(result, expected);
 };
 
-TEST_F(AampDrmSessionTests, HandlesHttpUrl) {
+TEST_F(DrmSessionTests, HandlesHttpUrl) {
     std::string url = "http://example.com/path/to/resource";
     std::string expected = "example.com";
     std::string result = getFormattedLicenseServerURL(url);
     EXPECT_EQ(result, expected);
 };
 
-TEST_F(AampDrmSessionTests, HandlesHttpsUrl) {
+TEST_F(DrmSessionTests, HandlesHttpsUrl) {
     std::string url = "http://example.com/path/to/resource";
     std::string expected = "example.com";
     std::string result = getFormattedLicenseServerURL(url);
     EXPECT_EQ(result, expected);
 };
 
-TEST_F(AampDrmSessionTests, HandlesHttpsUrl2) {
+TEST_F(DrmSessionTests, HandlesHttpsUrl2) {
     std::string url = "https://example.com";
     std::string expected = "example.com";
     std::string result = getFormattedLicenseServerURL(url);
     EXPECT_EQ(result, expected);
 };
 
-TEST_F(AampDrmSessionTests, HandlesHttpsUrlWithWWW) {
+TEST_F(DrmSessionTests, HandlesHttpsUrlWithWWW) {
     std::string url = "www.drmexample.com/path/to/resource";
     std::string expected = "www.drmexample.com/path/to/resource";
     std::string result = getFormattedLicenseServerURL(url);
     EXPECT_EQ(result, expected);
 };
 
-TEST_F(AampDrmSessionTests, HandlesUrlWithNoScheme) {
+TEST_F(DrmSessionTests, HandlesUrlWithNoScheme) {
     std::string url = "drmexample.com/path/to/resource";
     std::string expected = "drmexample.com/path/to/resource";
     std::string result = getFormattedLicenseServerURL(url);
     EXPECT_EQ(result, expected);
 };
 
-TEST_F(AampDrmSessionTests, HandlesUrlWithTrailingSlash) {
+TEST_F(DrmSessionTests, HandlesUrlWithTrailingSlash) {
     std::string url = "https://example.com";
     std::string expected = "example.com";
     std::string result = getFormattedLicenseServerURL(url);
     EXPECT_EQ(result, expected);
 };
 
-TEST_F(AampDrmSessionTests, HandlesUrlWithMultipleSlashes) {
+TEST_F(DrmSessionTests, HandlesUrlWithMultipleSlashes) {
     std::string url = "https://drmexample.com//path/to/resource";
     std::string expected = "drmexample.com";
     std::string result = getFormattedLicenseServerURL(url);
     EXPECT_EQ(result, expected);
 };
 
-TEST_F(AampDrmSessionTests, HandlesUrlWithoutPath) {
+TEST_F(DrmSessionTests, HandlesUrlWithoutPath) {
     std::string url = "https://drmexample.com";
     std::string expected = "drmexample.com";
     std::string result = getFormattedLicenseServerURL(url);
     EXPECT_EQ(result, expected);
 };
 
-TEST_F(AampDrmSessionTests, HandlesUrlWithoutPathWithWWW) {
+TEST_F(DrmSessionTests, HandlesUrlWithoutPathWithWWW) {
     std::string url = "www.drmexample.com";
     std::string expected = "www.drmexample.com";
     std::string result = getFormattedLicenseServerURL(url);
     EXPECT_EQ(result, expected);
 };
 
-TEST_F(AampDrmSessionTests, HandlesUrlWithOnlyScheme) {
+TEST_F(DrmSessionTests, HandlesUrlWithOnlyScheme) {
     std::string url = "https://";
     std::string expected = "";
     std::string result = getFormattedLicenseServerURL(url);
     EXPECT_EQ(result, expected);
 };
 
-TEST_F(AampDrmSessionTests, HandlesEmptyUrl) {
+TEST_F(DrmSessionTests, HandlesEmptyUrl) {
     std::string url = "";
     std::string expected = "";
     std::string result = getFormattedLicenseServerURL(url);
     EXPECT_EQ(result, expected);
 };
 
-TEST_F(AampDrmSessionTests, HandlesUrlWithPort) {
+TEST_F(DrmSessionTests, HandlesUrlWithPort) {
     std::string url = "https://drmexample.com:8080";
     std::string expected = "drmexample.com:8080";
     std::string result = getFormattedLicenseServerURL(url);
     EXPECT_EQ(result, expected);
 };
 
-TEST_F(AampDrmSessionTests, HandlesUrlWithPortWithWWW) {
+TEST_F(DrmSessionTests, HandlesUrlWithPortWithWWW) {
     std::string url = "www.drmexample.com:8080";
     std::string expected = "www.drmexample.com:8080";
     std::string result = getFormattedLicenseServerURL(url);
     EXPECT_EQ(result, expected);
 };
 
-TEST_F(AampDrmSessionTests, HandlesUrlWithPortWithPath) {
+TEST_F(DrmSessionTests, HandlesUrlWithPortWithPath) {
     std::string url = "https://drmexample.com:8080/path";
     std::string expected = "drmexample.com:8080";
     std::string result = getFormattedLicenseServerURL(url);
     EXPECT_EQ(result, expected);
 };
 
-TEST_F(AampDrmSessionTests, HandlesUrlWithPortWithPathWithWWW) {
+TEST_F(DrmSessionTests, HandlesUrlWithPortWithPathWithWWW) {
     std::string url = "www.drmexample.com:8080/path";
     std::string expected = "www.drmexample.com:8080/path";
     std::string result = getFormattedLicenseServerURL(url);
     EXPECT_EQ(result, expected);
 };
 
-TEST_F(AampDrmSessionTests, HandlesUrlWithQueryParameters) {
+TEST_F(DrmSessionTests, HandlesUrlWithQueryParameters) {
     std::string url = "https://drmexample.com/path?query=param";
     std::string expected = "drmexample.com";
     std::string result = getFormattedLicenseServerURL(url);
     EXPECT_EQ(result, expected);
 };
 
-TEST_F(AampDrmSessionTests, HandlesUrlWithFragment) {
+TEST_F(DrmSessionTests, HandlesUrlWithFragment) {
     std::string url = "https://drmexample.com/path#fragment";
     std::string expected = "drmexample.com";
     std::string result = getFormattedLicenseServerURL(url);
     EXPECT_EQ(result, expected);
 };
 
-TEST_F(AampDrmSessionTests, UrlEncodingInDomain) {
+TEST_F(DrmSessionTests, UrlEncodingInDomain) {
     std::string url = "https://drmexample.com%20with%20space";
     std::string expected = "drmexample.com%20with%20space";
     std::string result = getFormattedLicenseServerURL(url);
     EXPECT_EQ(result, expected);
 };
 
-TEST_F(AampDrmSessionTests, UrlEncodingInPath) {
+TEST_F(DrmSessionTests, UrlEncodingInPath) {
     std::string url = "http://drmexample.com/path/to/%20resource";
     std::string expected = "drmexample.com";
     std::string result = getFormattedLicenseServerURL(url);

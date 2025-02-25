@@ -28,7 +28,7 @@
 #include "AampCacheHandler.h"
 #include "AampUtils.h"
 #include "PlayerCCManager.h"
-#include "helper/AampDrmHelper.h"
+#include "DrmHelper.h"
 #include "StreamAbstractionAAMP.h"
 #include "AampStreamSinkManager.h"
 #include "playerIarmRfcInterface.h"
@@ -1746,7 +1746,7 @@ std::string PlayerInstanceAAMP::GetDRM(void)
 	std::string ret;
 	if(aamp)
 	{
-		std::shared_ptr<AampDrmHelper> helper = aamp->GetCurrentDRM();
+		DrmHelperPtr helper = aamp->GetCurrentDRM();
 		if (helper)
 		{
 			ret = helper->friendlyName();

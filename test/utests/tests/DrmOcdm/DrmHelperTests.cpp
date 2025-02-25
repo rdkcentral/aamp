@@ -26,14 +26,13 @@
 #include <iomanip>
 #include <algorithm>
 #include <iterator>
-
+#include "base64.h"
 #include "AampConfig.h"
 
-#include "AampDrmHelper.h"
+#include "DrmHelper.h"
 
-#include "AampDrmTestUtils.h"
+#include "DrmTestUtils.h"
 #include "aampMocks.h"
-#include "_base64.h"
 
 struct CreateHelperTestData
 {
@@ -61,7 +60,7 @@ DrmInfo createDrmInfo(DrmMethod method, MediaFormat mediaFormat, const std::stri
 	return drmInfo;
 }
 
-class AampDrmHelperTests : public ::testing::Test
+class DrmHelperTests : public ::testing::Test
 {
 protected:
 	void SetUp() override
@@ -77,7 +76,7 @@ protected:
 public:
 };
 
-TEST_F(AampDrmHelperTests, TestDrmIds)
+TEST_F(DrmHelperTests, TestDrmIds)
 {
 	std::vector<std::string> expectedIds({
 		"1077efec-c0b2-4d02-ace3-3c1e52e2fb4b", // ClearKey
@@ -87,13 +86,13 @@ TEST_F(AampDrmHelperTests, TestDrmIds)
 	std::sort(expectedIds.begin(), expectedIds.end());
 
 	std::vector<std::string> actualIds;
-	AampDrmHelperEngine::getInstance().getSystemIds(actualIds);
+	DrmHelperEngine::getInstance().getSystemIds(actualIds);
 	std::sort(actualIds.begin(), actualIds.end());
 
 	ASSERT_EQ(expectedIds, actualIds);
 }
 
-TEST_F(AampDrmHelperTests, TestCreateClearKeyHelper)
+TEST_F(DrmHelperTests, TestCreateClearKeyHelper)
 {
 	const std::vector<CreateHelperTestData> testData = {
 		// Valid KEYFORMAT, HLS
@@ -128,10 +127,10 @@ TEST_F(AampDrmHelperTests, TestCreateClearKeyHelper)
 		drmInfo = createDrmInfo(eMETHOD_AES_128, test_data.mediaFormat, test_data.uri,
 								test_data.keyFormat, test_data.systemUUID);
 
-		ASSERT_TRUE(AampDrmHelperEngine::getInstance().hasDRM(drmInfo));
+		ASSERT_TRUE(DrmHelperEngine::getInstance().hasDRM(drmInfo));
 
-		std::shared_ptr<AampDrmHelper> clearKeyHelper =
-			AampDrmHelperEngine::getInstance().createHelper(drmInfo);
+		DrmHelperPtr clearKeyHelper =
+			DrmHelperEngine::getInstance().createHelper(drmInfo);
 		ASSERT_TRUE(clearKeyHelper != nullptr);
 		ASSERT_EQ("org.w3.clearkey", clearKeyHelper->ocdmSystemId());
 		ASSERT_EQ(true, clearKeyHelper->isClearDecrypt());
@@ -150,13 +149,13 @@ TEST_F(AampDrmHelperTests, TestCreateClearKeyHelper)
 	}
 }
 
-TEST_F(AampDrmHelperTests, TestClearKeyHelperHlsInitDataCreation)
+TEST_F(DrmHelperTests, TestClearKeyHelperHlsInitDataCreation)
 {
 	DrmInfo drmInfo = createDrmInfo(eMETHOD_AES_128, eMEDIAFORMAT_HLS_MP4, "file.key",
 									"urn:uuid:1077efec-c0b2-4d02-ace3-3c1e52e2fb4b");
-	ASSERT_TRUE(AampDrmHelperEngine::getInstance().hasDRM(drmInfo));
-	std::shared_ptr<AampDrmHelper> clearKeyHelper =
-		AampDrmHelperEngine::getInstance().createHelper(drmInfo);
+	ASSERT_TRUE(DrmHelperEngine::getInstance().hasDRM(drmInfo));
+	DrmHelperPtr clearKeyHelper =
+		DrmHelperEngine::getInstance().createHelper(drmInfo);
 
 	std::vector<uint8_t> initData;
 	clearKeyHelper->createInitData(initData);
@@ -173,13 +172,13 @@ TEST_F(AampDrmHelperTests, TestClearKeyHelperHlsInitDataCreation)
 	ASSERT_STREQ("1", cJSON_GetStringValue(kids0));
 }
 
-TEST_F(AampDrmHelperTests, TestClearKeyHelperParsePssh)
+TEST_F(DrmHelperTests, TestClearKeyHelperParsePssh)
 {
 	DrmInfo drmInfo = createDrmInfo(eMETHOD_AES_128, eMEDIAFORMAT_DASH, "file.key",
 									"urn:uuid:1077efec-c0b2-4d02-ace3-3c1e52e2fb4b");
-	ASSERT_TRUE(AampDrmHelperEngine::getInstance().hasDRM(drmInfo));
-	std::shared_ptr<AampDrmHelper> clearKeyHelper =
-		AampDrmHelperEngine::getInstance().createHelper(drmInfo);
+	ASSERT_TRUE(DrmHelperEngine::getInstance().hasDRM(drmInfo));
+	DrmHelperPtr clearKeyHelper =
+		DrmHelperEngine::getInstance().createHelper(drmInfo);
 
 	// For DASH the init data should have come from the PSSH, so when asked to create
 	// the init data, the helper should just return that
@@ -203,23 +202,23 @@ TEST_F(AampDrmHelperTests, TestClearKeyHelperParsePssh)
 	ASSERT_EQ(expectedKeyID, keyID);
 }
 
-TEST_F(AampDrmHelperTests, TestClearKeyHelperGenerateLicenseRequest)
+TEST_F(DrmHelperTests, TestClearKeyHelperGenerateLicenseRequest)
 {
 	DrmInfo drmInfo = createDrmInfo(eMETHOD_AES_128, eMEDIAFORMAT_HLS_MP4, "file.key",
 									"urn:uuid:1077efec-c0b2-4d02-ace3-3c1e52e2fb4b");
 	drmInfo.manifestURL = "http://stream.example/hls/playlist.m3u8";
-	ASSERT_TRUE(AampDrmHelperEngine::getInstance().hasDRM(drmInfo));
-	std::shared_ptr<AampDrmHelper> clearKeyHelper =
-		AampDrmHelperEngine::getInstance().createHelper(drmInfo);
+	ASSERT_TRUE(DrmHelperEngine::getInstance().hasDRM(drmInfo));
+	DrmHelperPtr clearKeyHelper =
+		DrmHelperEngine::getInstance().createHelper(drmInfo);
 
-	AampChallengeInfo challengeInfo;
+	ChallengeInfo challengeInfo;
 	challengeInfo.url = "http://challengeinfourl.example";
-	AampLicenseRequest licenseRequest;
+	LicenseRequest licenseRequest;
 
 	// No ClearKey license URL in the license request, expect the URL to be
 	// constructed from the information in the DrmInfo
 	clearKeyHelper->generateLicenseRequest(challengeInfo, licenseRequest);
-	ASSERT_EQ(AampLicenseRequest::POST, licenseRequest.method);
+	ASSERT_EQ(LicenseRequest::POST, licenseRequest.method);
 	ASSERT_EQ("http://stream.example/hls/file.key", licenseRequest.url);
 	ASSERT_EQ("", licenseRequest.payload);
 
@@ -235,13 +234,13 @@ TEST_F(AampDrmHelperTests, TestClearKeyHelperGenerateLicenseRequest)
 	licenseRequest.url.clear();
 	DrmInfo drmInfoNoKeyUri = createDrmInfo(eMETHOD_AES_128, eMEDIAFORMAT_HLS_MP4, "",
 											"urn:uuid:1077efec-c0b2-4d02-ace3-3c1e52e2fb4b");
-	std::shared_ptr<AampDrmHelper> clearKeyHelperNoKeyUri =
-		AampDrmHelperEngine::getInstance().createHelper(drmInfoNoKeyUri);
+	DrmHelperPtr clearKeyHelperNoKeyUri =
+		DrmHelperEngine::getInstance().createHelper(drmInfoNoKeyUri);
 	clearKeyHelperNoKeyUri->generateLicenseRequest(challengeInfo, licenseRequest);
 	ASSERT_EQ(challengeInfo.url, licenseRequest.url);
 }
 
-TEST_F(AampDrmHelperTests, TestClearKeyHelperTransformHlsLicenseResponse)
+TEST_F(DrmHelperTests, TestClearKeyHelperTransformHlsLicenseResponse)
 {
 	struct TransformLicenseResponseTestData
 	{
@@ -251,9 +250,9 @@ TEST_F(AampDrmHelperTests, TestClearKeyHelperTransformHlsLicenseResponse)
 
 	DrmInfo drmInfo = createDrmInfo(eMETHOD_AES_128, eMEDIAFORMAT_HLS_MP4, "file.key",
 									"urn:uuid:1077efec-c0b2-4d02-ace3-3c1e52e2fb4b");
-	ASSERT_TRUE(AampDrmHelperEngine::getInstance().hasDRM(drmInfo));
-	std::shared_ptr<AampDrmHelper> clearKeyHelper =
-		AampDrmHelperEngine::getInstance().createHelper(drmInfo);
+	ASSERT_TRUE(DrmHelperEngine::getInstance().hasDRM(drmInfo));
+	DrmHelperPtr clearKeyHelper =
+		DrmHelperEngine::getInstance().createHelper(drmInfo);
 
 	const std::vector<TransformLicenseResponseTestData> testData{
 		// Empty response - should lead to empty string
@@ -288,7 +287,7 @@ TEST_F(AampDrmHelperTests, TestClearKeyHelperTransformHlsLicenseResponse)
 	}
 }
 
-TEST_F(AampDrmHelperTests, TestTransformDashLicenseResponse)
+TEST_F(DrmHelperTests, TestTransformDashLicenseResponse)
 {
 	// Unlike HLS (where we do expect a ClearKey license to be transformed),
 	// for DASH we expect the response to be given back untouched
@@ -304,9 +303,9 @@ TEST_F(AampDrmHelperTests, TestTransformDashLicenseResponse)
 
 	for (auto& drmInfo : drmInfoList)
 	{
-		ASSERT_TRUE(AampDrmHelperEngine::getInstance().hasDRM(drmInfo));
-		std::shared_ptr<AampDrmHelper> clearKeyHelper =
-			AampDrmHelperEngine::getInstance().createHelper(drmInfo);
+		ASSERT_TRUE(DrmHelperEngine::getInstance().hasDRM(drmInfo));
+		DrmHelperPtr clearKeyHelper =
+			DrmHelperEngine::getInstance().createHelper(drmInfo);
 		char licenseResponse[] = {'D', 'A', 'S', 'H', 'L', 'I', 'C'};
 		std::shared_ptr<DrmData> drmData =
 			std::make_shared<DrmData>(licenseResponse, sizeof(licenseResponse));
@@ -317,7 +316,7 @@ TEST_F(AampDrmHelperTests, TestTransformDashLicenseResponse)
 	}
 }
 
-TEST_F(AampDrmHelperTests, TestCreatePlayReadyHelper)
+TEST_F(DrmHelperTests, TestCreatePlayReadyHelper)
 {
 	const std::vector<CreateHelperTestData> testData = {
 		// Valid UUID
@@ -351,10 +350,10 @@ TEST_F(AampDrmHelperTests, TestCreatePlayReadyHelper)
 		drmInfo = createDrmInfo(test_data.method, test_data.mediaFormat, test_data.uri,
 								test_data.keyFormat, test_data.systemUUID);
 
-		ASSERT_TRUE(AampDrmHelperEngine::getInstance().hasDRM(drmInfo));
+		ASSERT_TRUE(DrmHelperEngine::getInstance().hasDRM(drmInfo));
 
-		std::shared_ptr<AampDrmHelper> playReadyHelper =
-			AampDrmHelperEngine::getInstance().createHelper(drmInfo);
+		DrmHelperPtr playReadyHelper =
+			DrmHelperEngine::getInstance().createHelper(drmInfo);
 		ASSERT_TRUE(playReadyHelper != nullptr);
 		ASSERT_EQ("com.microsoft.playready", playReadyHelper->ocdmSystemId());
 		ASSERT_EQ(false, playReadyHelper->isClearDecrypt());
@@ -367,7 +366,7 @@ TEST_F(AampDrmHelperTests, TestCreatePlayReadyHelper)
 	}
 }
 
-TEST_F(AampDrmHelperTests, TestCreatePlayReadyHelperNegative)
+TEST_F(DrmHelperTests, TestCreatePlayReadyHelperNegative)
 {
 	const std::vector<CreateHelperTestData> testData = {
 		// Valid UUID but HLS media format, which isn't supported for the PlayReady helper
@@ -384,15 +383,15 @@ TEST_F(AampDrmHelperTests, TestCreatePlayReadyHelperNegative)
 		drmInfo = createDrmInfo(test_data.method, test_data.mediaFormat, test_data.uri,
 								test_data.keyFormat, test_data.systemUUID);
 
-		ASSERT_FALSE(AampDrmHelperEngine::getInstance().hasDRM(drmInfo));
+		ASSERT_FALSE(DrmHelperEngine::getInstance().hasDRM(drmInfo));
 
-		std::shared_ptr<AampDrmHelper> playReadyHelper =
-			AampDrmHelperEngine::getInstance().createHelper(drmInfo);
+		DrmHelperPtr playReadyHelper =
+			DrmHelperEngine::getInstance().createHelper(drmInfo);
 		ASSERT_TRUE(playReadyHelper == nullptr);
 	}
 }
 
-TEST_F(AampDrmHelperTests, TestWidevineHelperParsePsshDrmMetaData)
+TEST_F(DrmHelperTests, TestWidevineHelperParsePsshDrmMetaData)
 {
 	struct
 	{
@@ -509,14 +508,14 @@ TEST_F(AampDrmHelperTests, TestWidevineHelperParsePsshDrmMetaData)
 		const char *src = testData[i].psshData;
 		size_t srcLen = strlen(src);
 		size_t psshDataLen = 0;
-		unsigned char *psshDataPtr = ::base64_Decode(src,&psshDataLen,srcLen);
+		unsigned char *psshDataPtr = Base64Utils::base64Decode(src,&psshDataLen,srcLen);
 		ASSERT_TRUE(psshDataPtr != nullptr);
 		DrmInfo drmInfo = createDrmInfo(eMETHOD_AES_128, eMEDIAFORMAT_DASH, "file.key", "",
 								"edef8ba9-79d6-4ace-a3c8-27dcd51d21ed");
 
-		ASSERT_TRUE(AampDrmHelperEngine::getInstance().hasDRM(drmInfo));
-		std::shared_ptr<AampDrmHelper> widevineHelper =
-			AampDrmHelperEngine::getInstance().createHelper(drmInfo);
+		ASSERT_TRUE(DrmHelperEngine::getInstance().hasDRM(drmInfo));
+		DrmHelperPtr widevineHelper =
+			DrmHelperEngine::getInstance().createHelper(drmInfo);
 		ASSERT_TRUE(widevineHelper != nullptr);
 
 		bool rc = widevineHelper->parsePssh(psshDataPtr, (uint32_t)psshDataLen);
@@ -566,7 +565,7 @@ TEST_F(AampDrmHelperTests, TestWidevineHelperParsePsshDrmMetaData)
 	}
 }
 
-TEST_F(AampDrmHelperTests, TestCreateWidevineHelper)
+TEST_F(DrmHelperTests, TestCreateWidevineHelper)
 {
 	const std::vector<CreateHelperTestData> testData = {
 		{eMETHOD_NONE,
@@ -592,10 +591,10 @@ TEST_F(AampDrmHelperTests, TestCreateWidevineHelper)
 		drmInfo = createDrmInfo(test_data.method, test_data.mediaFormat, test_data.uri,
 								test_data.keyFormat, test_data.systemUUID);
 
-		ASSERT_TRUE(AampDrmHelperEngine::getInstance().hasDRM(drmInfo));
+		ASSERT_TRUE(DrmHelperEngine::getInstance().hasDRM(drmInfo));
 
-		std::shared_ptr<AampDrmHelper> widevineHelper =
-			AampDrmHelperEngine::getInstance().createHelper(drmInfo);
+		DrmHelperPtr widevineHelper =
+			DrmHelperEngine::getInstance().createHelper(drmInfo);
 		ASSERT_TRUE(widevineHelper != nullptr);
 		ASSERT_EQ("com.widevine.alpha", widevineHelper->ocdmSystemId());
 		ASSERT_EQ(false, widevineHelper->isClearDecrypt());
@@ -607,7 +606,7 @@ TEST_F(AampDrmHelperTests, TestCreateWidevineHelper)
 	}
 }
 
-TEST_F(AampDrmHelperTests, TestCreateWidevineHelperNegative)
+TEST_F(DrmHelperTests, TestCreateWidevineHelperNegative)
 {
 	const std::vector<CreateHelperTestData> testData = {
 		// Valid UUID but HLS media format, which isn't supported for the Widevine helper
@@ -624,21 +623,21 @@ TEST_F(AampDrmHelperTests, TestCreateWidevineHelperNegative)
 		drmInfo = createDrmInfo(test_data.method, test_data.mediaFormat, test_data.uri,
 								test_data.keyFormat, test_data.systemUUID);
 
-		ASSERT_FALSE(AampDrmHelperEngine::getInstance().hasDRM(drmInfo));
+		ASSERT_FALSE(DrmHelperEngine::getInstance().hasDRM(drmInfo));
 
-		std::shared_ptr<AampDrmHelper> widevineHelper =
-			AampDrmHelperEngine::getInstance().createHelper(drmInfo);
+		DrmHelperPtr widevineHelper =
+			DrmHelperEngine::getInstance().createHelper(drmInfo);
 		ASSERT_TRUE(widevineHelper == nullptr);
 	}
 }
 
-TEST_F(AampDrmHelperTests, TestPlayReadyHelperParsePssh)
+TEST_F(DrmHelperTests, TestPlayReadyHelperParsePssh)
 {
 	DrmInfo drmInfo = createDrmInfo(eMETHOD_NONE, eMEDIAFORMAT_DASH, "", "",
 									"9a04f079-9840-4286-ab92-e65be0885f95");
-	ASSERT_TRUE(AampDrmHelperEngine::getInstance().hasDRM(drmInfo));
-	std::shared_ptr<AampDrmHelper> playReadyHelper =
-		AampDrmHelperEngine::getInstance().createHelper(drmInfo);
+	ASSERT_TRUE(DrmHelperEngine::getInstance().hasDRM(drmInfo));
+	DrmHelperPtr playReadyHelper =
+		DrmHelperEngine::getInstance().createHelper(drmInfo);
 
 	const std::string expectedMetadata = "testpolicydata";
 
@@ -672,15 +671,15 @@ TEST_F(AampDrmHelperTests, TestPlayReadyHelperParsePssh)
 	ASSERT_FALSE(playReadyHelper->parsePssh((const unsigned char*)badPssh.data(), (uint32_t)badPssh.size()));
 }
 
-TEST_F(AampDrmHelperTests, TestPlayReadyHelperParsePsshNoPolicy)
+TEST_F(DrmHelperTests, TestPlayReadyHelperParsePsshNoPolicy)
 {
 	// As before but with no ckm:policy in the PSSH data.
 	// Should be OK but lead to empty metadata
 	DrmInfo drmInfo = createDrmInfo(eMETHOD_NONE, eMEDIAFORMAT_DASH, "", "",
 									"9a04f079-9840-4286-ab92-e65be0885f95");
-	ASSERT_TRUE(AampDrmHelperEngine::getInstance().hasDRM(drmInfo));
-	std::shared_ptr<AampDrmHelper> playReadyHelper =
-		AampDrmHelperEngine::getInstance().createHelper(drmInfo);
+	ASSERT_TRUE(DrmHelperEngine::getInstance().hasDRM(drmInfo));
+	DrmHelperPtr playReadyHelper =
+		DrmHelperEngine::getInstance().createHelper(drmInfo);
 
 	const std::string psshStr =
 		"<WRMHEADER xmlns=\"http://schemas.microsoft.com/DRM/2007/03/PlayReadyHeader\" version=\"4.0.0.0\">"
@@ -703,15 +702,15 @@ TEST_F(AampDrmHelperTests, TestPlayReadyHelperParsePsshNoPolicy)
 	ASSERT_EQ("", playReadyHelper->getDrmMetaData());
 }
 
-TEST_F(AampDrmHelperTests, TestPlayReadyHelperGenerateLicenseRequest)
+TEST_F(DrmHelperTests, TestPlayReadyHelperGenerateLicenseRequest)
 {
 	DrmInfo drmInfo = createDrmInfo(eMETHOD_NONE, eMEDIAFORMAT_DASH, "", "",
 									"9a04f079-9840-4286-ab92-e65be0885f95");
-	ASSERT_TRUE(AampDrmHelperEngine::getInstance().hasDRM(drmInfo));
-	std::shared_ptr<AampDrmHelper> playReadyHelper =
-		AampDrmHelperEngine::getInstance().createHelper(drmInfo);
+	ASSERT_TRUE(DrmHelperEngine::getInstance().hasDRM(drmInfo));
+	DrmHelperPtr playReadyHelper =
+		DrmHelperEngine::getInstance().createHelper(drmInfo);
 
-	AampChallengeInfo challengeInfo;
+	ChallengeInfo challengeInfo;
 	challengeInfo.url = "http://challengeinfourl.example";
 	std::string challengeData = "OCDM_CHALLENGE_DATA";
 
@@ -721,14 +720,14 @@ TEST_F(AampDrmHelperTests, TestPlayReadyHelperGenerateLicenseRequest)
 
 	// No PSSH parsed. Expecting data from the provided challenge to be given back in the request
 	// info
-	AampLicenseRequest licenseRequest1;
+	LicenseRequest licenseRequest1;
 	playReadyHelper->generateLicenseRequest(challengeInfo, licenseRequest1);
 	ASSERT_EQ(challengeInfo.url, licenseRequest1.url);
 	ASSERT_EQ(challengeInfo.data->getData(), licenseRequest1.payload);
 
 	// Parse a PSSH with a ckm:policy. This should cause generateLicenseRequest to return a JSON
 	// payload
-	AampLicenseRequest licenseRequest2;
+	LicenseRequest licenseRequest2;
 	const std::string psshStr =
 		"<WRMHEADER xmlns=\"http://schemas.microsoft.com/DRM/2007/03/PlayReadyHeader\" version=\"4.0.0.0\">"
 		"<DATA>"
@@ -753,7 +752,7 @@ TEST_F(AampDrmHelperTests, TestPlayReadyHelperGenerateLicenseRequest)
 	ASSERT_JSON_STR_VALUE(postFieldObj, "accessToken", challengeInfo.accessToken.c_str());
 
 	// Finally, checking the license uri override works
-	AampLicenseRequest licenseRequest3;
+	LicenseRequest licenseRequest3;
 	const std::string fixedPrLicenseUrl = "http://prlicenseserver.example";
 	licenseRequest3.url = fixedPrLicenseUrl;
 
@@ -761,27 +760,27 @@ TEST_F(AampDrmHelperTests, TestPlayReadyHelperGenerateLicenseRequest)
 	ASSERT_EQ(fixedPrLicenseUrl, licenseRequest3.url);
 }
 
-TEST_F(AampDrmHelperTests, TestCompareHelpers)
+TEST_F(DrmHelperTests, TestCompareHelpers)
 {
-	std::shared_ptr<AampDrmHelper> playreadyHelper =
-		AampDrmHelperEngine::getInstance().createHelper(
+	DrmHelperPtr playreadyHelper =
+		DrmHelperEngine::getInstance().createHelper(
 			createDrmInfo(eMETHOD_AES_128, eMEDIAFORMAT_DASH, "file.key", "",
 						  "9a04f079-9840-4286-ab92-e65be0885f95"));
 	ASSERT_TRUE(playreadyHelper != nullptr);
 
-	std::shared_ptr<AampDrmHelper> widevineHelper = AampDrmHelperEngine::getInstance().createHelper(
+	DrmHelperPtr widevineHelper = DrmHelperEngine::getInstance().createHelper(
 		createDrmInfo(eMETHOD_AES_128, eMEDIAFORMAT_DASH, "file.key", "",
 					  "edef8ba9-79d6-4ace-a3c8-27dcd51d21ed"));
 	ASSERT_TRUE(widevineHelper != nullptr);
 
-	std::shared_ptr<AampDrmHelper> clearKeyHelperHls =
-		AampDrmHelperEngine::getInstance().createHelper(
+	DrmHelperPtr clearKeyHelperHls =
+		DrmHelperEngine::getInstance().createHelper(
 			createDrmInfo(eMETHOD_AES_128, eMEDIAFORMAT_HLS_MP4, "file.key", "",
 						  "1077efec-c0b2-4d02-ace3-3c1e52e2fb4b"));
 	ASSERT_TRUE(clearKeyHelperHls != nullptr);
 
-	std::shared_ptr<AampDrmHelper> clearKeyHelperDash =
-		AampDrmHelperEngine::getInstance().createHelper(
+	DrmHelperPtr clearKeyHelperDash =
+		DrmHelperEngine::getInstance().createHelper(
 			createDrmInfo(eMETHOD_AES_128, eMEDIAFORMAT_DASH, "file.key", "",
 						  "1077efec-c0b2-4d02-ace3-3c1e52e2fb4b"));
 	ASSERT_TRUE(clearKeyHelperDash != nullptr);
@@ -801,11 +800,11 @@ TEST_F(AampDrmHelperTests, TestCompareHelpers)
 	ASSERT_FALSE(clearKeyHelperHls->compare(clearKeyHelperDash));
 
 	// Comparison against null helper, should not equal, should not cause a problem
-	std::shared_ptr<AampDrmHelper> nullHelper;
+	DrmHelperPtr nullHelper;
 	ASSERT_FALSE(clearKeyHelperHls->compare(nullHelper));
 
-	std::shared_ptr<AampDrmHelper> playreadyHelper2 =
-		AampDrmHelperEngine::getInstance().createHelper(
+	DrmHelperPtr playreadyHelper2 =
+		DrmHelperEngine::getInstance().createHelper(
 			createDrmInfo(eMETHOD_AES_128, eMEDIAFORMAT_DASH, "file.key", "",
 						  "9a04f079-9840-4286-ab92-e65be0885f95"));
 	ASSERT_TRUE(playreadyHelper2 != nullptr);
@@ -834,8 +833,8 @@ TEST_F(AampDrmHelperTests, TestCompareHelpers)
 	ASSERT_FALSE(playreadyHelper->compare(playreadyHelper2));
 
 	// Create another PR helper, same details as PR helper 1
-	std::shared_ptr<AampDrmHelper> playreadyHelper3 =
-		AampDrmHelperEngine::getInstance().createHelper(
+	DrmHelperPtr playreadyHelper3 =
+		DrmHelperEngine::getInstance().createHelper(
 			createDrmInfo(eMETHOD_AES_128, eMEDIAFORMAT_DASH, "file.key", "",
 						  "9a04f079-9840-4286-ab92-e65be0885f95"));
 	ASSERT_TRUE(playreadyHelper3 != nullptr);

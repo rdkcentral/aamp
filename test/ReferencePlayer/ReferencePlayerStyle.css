@@ -68,15 +68,11 @@ body {
 }
 
 #firstBox {
-    margin-left: 10%;
+    margin-left: 20%;
 }
 
 #secondBox {
-    margin-left: 40%;
-}
-
-#thirdBox {
-    margin-left: 70%;
+    margin-left: 60%;
 }
 
 h3 {
@@ -86,8 +82,8 @@ h3 {
 .icon-logo {
     height: 100px;
     width: 100px;
-    padding-left: 28%;
-    margin-bottom: -12%;
+    padding-left: 30%;
+    margin-bottom: -6%;
 }
 
 .icon-text {

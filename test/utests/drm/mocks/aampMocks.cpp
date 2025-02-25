@@ -23,7 +23,7 @@
 #include <unordered_map>
 #include <memory>
 
-#include "AampDRMutils.h"
+#include "DrmUtils.h"
 #include "AampConfig.h"
 #include "priv_aamp.h"
 #include "aampgstplayer.h"
@@ -70,11 +70,11 @@ void PrivateInstanceAAMP::SendDRMMetaData(DrmMetaDataEventPtr e)
 {
 }
 
-void PrivateInstanceAAMP::individualization(const std::string &payload)
+void PrivateInstanceAAMP::Individualization(const std::string &payload)
 {
 	if (g_mockPrivateInstanceAAMP != nullptr)
 	{
-		g_mockPrivateInstanceAAMP->individualization(payload);
+		g_mockPrivateInstanceAAMP->Individualization(payload);
 	}
 }
 
@@ -362,7 +362,7 @@ void PrivateInstanceAAMP::RemoveEventListener(AAMPEventType eventType, EventList
 {
 }
 
-std::shared_ptr<AampDrmHelper> PrivateInstanceAAMP::GetCurrentDRM(void)
+DrmHelperPtr PrivateInstanceAAMP::GetCurrentDRM(void)
 {
 	return nullptr;
 }
@@ -1101,7 +1101,7 @@ void PrivateInstanceAAMP::LoadIDX(ProfilerBucketType bucketType, std::string fra
 	return;
 }
 
-void PrivateInstanceAAMP::LicenseRenewal(std::shared_ptr<AampDrmHelper> drmHelper, void *userData)
+void PrivateInstanceAAMP::LicenseRenewal(DrmHelperPtr drmHelper, void *userData)
 {
 }
 

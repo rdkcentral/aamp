@@ -1,21 +1,16 @@
 
 A. Overview:
 
-    AAMP Reference Player is a bundle of reference players showcasing various AAMP interfaces. The different reference players are -
+    AAMP Reference Player showcase AAMP interfaces.
 
-    1. HTML Reference Player - As the name suggests, this reference player showcases AAMP interfaces that are leveraged using
-       standard HTML5 <video> tag. To select AAMP, the URI protocol must be changes to aamp:// or aamps:// instead of http:// or https:// respectively
-       This forces webkit's MediaPlayer to pick gstaampsrc and gstaamp gstreamer plugins. The gstaamp gstreamer plugin houses the
-       AAMP player.
-
-    2. UVE Reference Player - Unified Video Engine (UVE) is a set of JavaScript binding APIs which allows its user to interact with
+    1. UVE Reference Player - Unified Video Engine (UVE) is a set of JavaScript binding APIs which allows its user to interact with
        AAMP player. The bindings are made available in JavaScript with the help of injectedbundle once DOM elements are loaded by webkit.
        The specification document for UVE is available at
        current repo AAMP-UVE-API.pdf (./../../AAMP-UVE-API.pdf)
 
 B. Target audience:
 
-    This README is targeted to OTT app vendors and HTML5 developers who are interested in adopting AAMP for their media player
+    This README is targeted to OTT app vendors who are interested in adopting AAMP for their media player
     applications in STB.
 
 C. General setup:
@@ -56,10 +51,6 @@ E. Folder structure
      -UVEPlayerUI.js                 // JS code for the UI elements and their functionality
      -UVERefPlayer.js                // Main JS file
      -UVERefPlayerStyle.js           // CSS for reference player and its UI
-   -VIDEOTAG
-     -VideoTagReferencePlayer.js         // JS code for HTML reference player
-     -VideoTagReferencePlayerStyle.js    // CSS for reference player and its UI
-     -index.html                     // Homepage of HTML reference player
    -index.html                       // Homepage of reference player
    -ReferencePlayer.js               // JS  code for Homepage and redirection to respective reference players
    -URLs.js                          // JS code to give URLs

@@ -911,7 +911,7 @@ TEST_F(PrivAampTests,SendErrorEventTest_1)
 
 TEST_F(PrivAampTests,LicenseRenewalTest)
 {
-	std::shared_ptr<AampDrmHelper> drmHelper;
+	DrmHelperPtr drmHelper;
 	p_aamp->LicenseRenewal(drmHelper,NULL);
 }
 
@@ -1875,7 +1875,7 @@ TEST_F(PrivAampTests,GetSeekBaseTest)
 
 TEST_F(PrivAampTests,GetCurrentDRMTest)
 {
-	std::shared_ptr<AampDrmHelper> var = p_aamp->GetCurrentDRM();
+	DrmHelperPtr var = p_aamp->GetCurrentDRM();
 }
 
 TEST_F(PrivAampTests,GetThumbnailTracksTest)
@@ -2836,7 +2836,7 @@ TEST_F(PrivAampTests,SetAppNameTest)
 
 TEST_F(PrivAampTests,individualizationTest)
 {
-	p_aamp->individualization("sampleAppName");
+	p_aamp->Individualization("sampleAppName");
 }
 
 TEST_F(PrivAampTests,GetInitialBufferDurationTest)

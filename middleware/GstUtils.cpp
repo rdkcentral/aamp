@@ -18,9 +18,9 @@
 */
 
 #include "GstUtils.h"
-#include <sys/time.h>
 #include <inttypes.h>
 #include "SocUtils.h"
+#include "PlayerUtils.h"
 
 /**
  * @brief Get the GStreamer Caps based on the provided format and platform.
@@ -122,13 +122,3 @@ void PlayerCliGstTerm()
 	gst_deinit();
 }
 
-/**
- * @brief Get current time from epoch is milliseconds
- * @retval - current time in milliseconds
- */
-long long GetCurrentTimeMS(void)
-{
-        struct timeval t;
-        gettimeofday(&t, NULL);
-        return (long long)(t.tv_sec*1e3 + t.tv_usec*1e-3);
-}

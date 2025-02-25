@@ -17,8 +17,8 @@
 * limitations under the License.
 */
 
-#ifndef AAMP_MOCK_OPEN_CDM_H
-#define AAMP_MOCK_OPEN_CDM_H
+#ifndef PLAYER_MOCK_OPEN_CDM_H
+#define PLAYER_MOCK_OPEN_CDM_H
 
 #include "open_cdm.h"
 #include <gmock/gmock.h>

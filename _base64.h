@@ -17,8 +17,8 @@
  * limitations under the License.
 */
 
-#ifndef BASE64_H
-#define BASE64_H
+#ifndef _BASE64_H
+#define _BASE64_H
 
 /**
  * @file _base64.h
@@ -49,4 +49,4 @@ unsigned char *base64_Decode(const char *src, size_t *len);
  */
 unsigned char *base64_Decode(const char *src, size_t *len, size_t srcLen);
 
-#endif // BASE64_H
+#endif // _BASE64_H

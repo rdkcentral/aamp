@@ -18,21 +18,21 @@
 */
 
 #include "opencdmsessionadapter.h"
-#include "AampDrmData.h"
-#include "AampDrmSession.h"
+#include "DrmData.h"
+#include "DrmSession.h"
 #include "MockOpenCdmSessionAdapter.h"
 
 MockOpenCdmSessionAdapter *g_mockOpenCdmSessionAdapter = nullptr;
 std::vector<uint8_t> g_mockKeyId{1,2,3,4,5,6,7,8,9,0,1,2,3,4};
 
-AAMPOCDMSessionAdapter::AAMPOCDMSessionAdapter(std::shared_ptr<AampDrmHelper> drmHelper, AampDrmCallbacks *callbacks) :
-    AampDrmSession("ocdmkeysystem"), m_keyId{g_mockKeyId}, m_drmHelper{drmHelper}
+OCDMSessionAdapter::OCDMSessionAdapter(DrmHelperPtr drmHelper, DrmCallbacks *callbacks) :
+    DrmSession("ocdmkeysystem"), m_keyId{g_mockKeyId}, m_drmHelper{drmHelper}
 {
 }
 
-AAMPOCDMSessionAdapter::~AAMPOCDMSessionAdapter()
+OCDMSessionAdapter::~OCDMSessionAdapter()
 {}
-bool AAMPOCDMSessionAdapter::verifyOutputProtection()
+bool OCDMSessionAdapter::verifyOutputProtection()
 {
     bool ret_val = true;
     if (g_mockOpenCdmSessionAdapter != nullptr)
@@ -42,28 +42,28 @@ bool AAMPOCDMSessionAdapter::verifyOutputProtection()
     return ret_val;
 }
 
-void AAMPOCDMSessionAdapter::generateAampDRMSession(const uint8_t *f_pbInitData, uint32_t f_cbInitData, std::string &customData) 
+void OCDMSessionAdapter::generateDRMSession(const uint8_t *f_pbInitData, uint32_t f_cbInitData, std::string &customData) 
 {
 }
 
-DrmData * AAMPOCDMSessionAdapter::aampGenerateKeyRequest(string& destinationURL, uint32_t timeout) 
+DrmData * OCDMSessionAdapter::generateKeyRequest(string& destinationURL, uint32_t timeout) 
 {
     return nullptr;
 }
 
-int AAMPOCDMSessionAdapter::aampDRMProcessKey(DrmData* key, uint32_t timeout) 
+int OCDMSessionAdapter::processDRMKey(DrmData* key, uint32_t timeout) 
 {
     return 0;
 }
 
-KeyState AAMPOCDMSessionAdapter::getState() 
+KeyState OCDMSessionAdapter::getState() 
 {
     return KEY_INIT;
 }
-void AAMPOCDMSessionAdapter::clearDecryptContext() 
+void OCDMSessionAdapter::clearDecryptContext() 
 {
 }
-bool AAMPOCDMSessionAdapter::waitForState(KeyState state, const uint32_t timeout)
+bool OCDMSessionAdapter::waitForState(KeyState state, const uint32_t timeout)
 {
     return true;
 }

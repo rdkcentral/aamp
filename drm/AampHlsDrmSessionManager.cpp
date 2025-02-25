@@ -25,7 +25,7 @@
 
 #include "AampHlsDrmSessionManager.h"
 #include "AampDRMSessionManager.h"
-#include "AampDrmHelper.h"
+#include "DrmHelper.h"
 #include "AampHlsOcdmBridge.h"
 
 using namespace std;
@@ -45,7 +45,7 @@ AampHlsDrmSessionManager& AampHlsDrmSessionManager::getInstance()
  */
 bool AampHlsDrmSessionManager::isDrmSupported(const struct DrmInfo& drmInfo) const
 {
-	return AampDrmHelperEngine::getInstance().hasDRM(drmInfo);
+	return DrmHelperEngine::getInstance().hasDRM(drmInfo);
 }
 
 /**
@@ -54,7 +54,7 @@ bool AampHlsDrmSessionManager::isDrmSupported(const struct DrmInfo& drmInfo) con
 std::shared_ptr<HlsDrmBase> AampHlsDrmSessionManager::createSession(PrivateInstanceAAMP* aampInstance, const struct DrmInfo& drmInfo, AampMediaType streamType)
 {
 	std::shared_ptr<HlsDrmBase> bridge = nullptr;
-	std::shared_ptr<AampDrmHelper> drmHelper = AampDrmHelperEngine::getInstance().createHelper(drmInfo);
+	DrmHelperPtr drmHelper = DrmHelperEngine::getInstance().createHelper(drmInfo);
 	aampInstance->mDRMSessionManager->setSessionMgrState(SessionMgrState::eSESSIONMGR_ACTIVE);
 
 	aampInstance->profiler.ProfileBegin(PROFILE_BUCKET_LA_TOTAL);

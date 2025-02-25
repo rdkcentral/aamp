@@ -60,7 +60,7 @@ class DrmHLSTests : public ::testing::Test
 	}
 };
 
-extern std::shared_ptr<AampDrmHelper> ProcessContentProtection(PrivateInstanceAAMP *aamp, std::string attrName);
+extern DrmHelperPtr ProcessContentProtection(PrivateInstanceAAMP *aamp, std::string attrName);
 
 TEST_F(DrmHLSTests, ProcessContentProtection)
 {

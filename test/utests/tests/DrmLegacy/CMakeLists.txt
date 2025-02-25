@@ -26,9 +26,8 @@ set(DRM_ROOT ${UTESTS_ROOT}/drm)
 set(RFC_ROOT ${UTESTS_ROOT}/rfc)
 set(EXEC_NAME DrmLegacy)
 
-include_directories(${AAMP_ROOT} ${AAMP_ROOT}/drm ${AAMP_ROOT}/externals /drm ${AAMP_ROOT}/drm/helper ${AAMP_ROOT}/subtitle ${AAMP_ROOT}/middleware/subtitle ${AAMP_ROOT}/downloader ${AAMP_ROOT}/isobmff ${AAMP_ROOT}/middleware/subtec/subtecparser ${AAMP_ROOT}/middleware/subtec/playerjsonobject ${AAMP_ROOT}/middleware/subtec/libsubtec)
+include_directories(${AAMP_ROOT} ${AAMP_ROOT}/drm ${AAMP_ROOT}/externals ${AAMP_ROOT}/middleware/drm/helper ${AAMP_ROOT}/middleware  ${AAMP_ROOT}/middleware/drm ${AAMP_ROOT}/middleware/drm/ocdm ${AAMP_ROOT}/drm/helper ${AAMP_ROOT}/subtitle ${AAMP_ROOT}/middleware/subtitle ${AAMP_ROOT}/downloader ${AAMP_ROOT}/isobmff ${AAMP_ROOT}/middleware/subtec/subtecparser ${AAMP_ROOT}/middleware/subtec/playerjsonobject ${AAMP_ROOT}/middleware/subtec/libsubtec)
 include_directories(${AAMP_ROOT}/tsb/api)
-include_directories(${AAMP_ROOT}/middleware)
 include_directories(${GTEST_INCLUDE_DIRS})
 include_directories(${GMOCK_INCLUDE_DIRS})
 include_directories(${GLIB_INCLUDE_DIRS})
@@ -38,7 +37,7 @@ include_directories(${UUID_INCLUDE_DIRS})
 include_directories(${DRM_ROOT})
 include_directories(${DRM_ROOT}/mocks)
 include_directories(${RFC_ROOT}/mocks)
-
+include_directories(${AAMP_ROOT}/middleware/test/utests/mocks)
 
 message(GSTREAMER_INCLUDE_DIRS=${GSTREAMER_INCLUDE_DIRS})
 
@@ -49,6 +48,7 @@ set(MOCK_SOURCES ${DRM_ROOT}/mocks/aampMocks.cpp
   				 ${DRM_ROOT}/mocks/FakeID3Metadata.cpp
 				 ${DRM_ROOT}/mocks/FakeABRManager.cpp
 				 ${DRM_ROOT}/mocks/FakeAampStreamSinkManager.cpp
+				 ${AAMP_ROOT}/middleware/test/utests/mocks/MockPlayerUtils.h
 				 ${DRM_ROOT}/mocks/curlMocks.c
 				 ${AAMP_ROOT}/middleware/test/utests/drm/mocks/gstMocks.c
 				 ${DRM_ROOT}/mocks/pthreadMocks.c
@@ -58,32 +58,38 @@ set(FAKE_SOURCES ${UTESTS_ROOT}/fakes/FakeAampRfc.cpp
 				 ${UTESTS_ROOT}/fakes/FakePlayerIarmRfcInterface.cpp
 			 	 ${AAMP_ROOT}/middleware/test/utests/fakes/FakeSocUtils.cpp)
 
-set(AAMP_SOURCES ${AAMP_ROOT}/_base64.cpp
+set(AAMP_SOURCES ${AAMP_ROOT}/middleware/drm/base64.cpp
+				 ${AAMP_ROOT}/_base64.cpp			 
 				 ${AAMP_ROOT}/AampConfig.cpp
+				 ${AAMP_ROOT}/middleware/PlayerLogManager.cpp
+				 ${AAMP_ROOT}/middleware/drm/DrmUtils.cpp
+				 ${AAMP_ROOT}/middleware/PlayerUtils.cpp
 				 ${AAMP_ROOT}/downloader/AampCurlStore.cpp
 				 ${AAMP_ROOT}/downloader/AampCurlDownloader.cpp
 				 ${AAMP_ROOT}/AampDRMLicPreFetcher.cpp
 				 ${AAMP_ROOT}/AampEvent.cpp
 				 ${AAMP_ROOT}/AampJsonObject.cpp
+				 ${AAMP_ROOT}/middleware/drm/DrmJsonObject.cpp
 				 ${AAMP_ROOT}/AampProfiler.cpp
 				 ${AAMP_ROOT}/scte35/AampSCTE35.cpp
 				 ${AAMP_ROOT}/AampUtils.cpp
 				 ${AAMP_ROOT}/iso639map.cpp
-				 ${AAMP_ROOT}/drm/AampDRMutils.cpp
-				 ${AAMP_ROOT}/drm/aampdrmsessionfactory.cpp
-				 ${AAMP_ROOT}/drm/helper/AampDrmHelper.cpp
-				 ${AAMP_ROOT}/drm/helper/AampDrmHelperFactory.cpp
+				 ${AAMP_ROOT}/middleware/drm/DrmUtils.cpp
+				 ${AAMP_ROOT}/middleware/PlayerUtils.cpp
+				 ${AAMP_ROOT}/middleware/drm/drmsessionfactory.cpp
+				 ${AAMP_ROOT}/middleware/drm/helper/DrmHelper.cpp
+				 ${AAMP_ROOT}/middleware/drm/helper/DrmHelperFactory.cpp
 				 ${AAMP_ROOT}/drm/AampDRMSessionManager.cpp
-				 ${AAMP_ROOT}/drm/AampDrmSession.cpp
-				 ${AAMP_ROOT}/drm/ClearKeyDrmSession.cpp
-				 ${AAMP_ROOT}/drm/helper/AampClearKeyHelper.cpp
+				 ${AAMP_ROOT}/middleware/drm/DrmSession.cpp
+				 ${AAMP_ROOT}/middleware/drm/ClearKeyDrmSession.cpp
+				 ${AAMP_ROOT}/middleware/drm/helper/ClearKeyHelper.cpp
 				 ${AAMP_ROOT}/isobmff/isobmffbox.h ${AAMP_ROOT}/isobmff/isobmffbox.cpp ${AAMP_ROOT}/isobmff/isobmffbuffer.h ${AAMP_ROOT}/isobmff/isobmffbuffer.cpp)
 
 add_definitions(-DAAMP_MPD_DRM)
 add_definitions(-DUSE_CLEARKEY)
 
 add_executable(${EXEC_NAME}
-			   ${DRM_ROOT}/AampDrmTestUtils.cpp
+			   ${DRM_ROOT}/DrmTestUtils.cpp
 			   ${TEST_SOURCES}
 			   ${MOCK_SOURCES}
 			   ${AAMP_SOURCES}

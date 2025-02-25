@@ -28,6 +28,9 @@ include_directories(${AAMP_ROOT}/support/aampabr)
 include_directories(${AAMP_ROOT}/support/aampmetrics)
 include_directories(${AAMP_ROOT}/middleware)
 include_directories(${AAMP_ROOT}/middleware/closedcaptions)
+include_directories(${AAMP_ROOT}/middleware/drm)
+include_directories(${AAMP_ROOT}/middleware/drm/helper)
+include_directories(${AAMP_ROOT}/middleware/drm/ocdm)
 
 find_package(PkgConfig REQUIRED)
 

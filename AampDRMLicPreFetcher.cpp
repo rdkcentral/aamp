@@ -18,7 +18,7 @@
 */
 
 #include "AampDRMLicPreFetcher.h"
-#include "AampDrmSession.h"
+#include "DrmSession.h"
 #include "AampDRMSessionManager.h"
 #include "AampUtils.h"	// for aamp_GetDeferTimeMs
 #include "priv_aamp.h"
@@ -129,14 +129,14 @@ bool AampLicensePreFetcher::KeyIsQueued(LicensePreFetchObjectPtr &fetchObject)
 /**
  * @brief Queue a content protection info to be processed later
  * 
- * @param drmHelper AampDrmHelper shared_ptr
+ * @param drmHelper DrmHelper shared_ptr
  * @param periodId ID of the period to which CP belongs to
  * @param adapId Index of the adaptation to which CP belongs to
  * @param type media type
  * @return true if successfully queued
  * @return false if error occurred
  */
-bool AampLicensePreFetcher::QueueContentProtection(std::shared_ptr<AampDrmHelper> drmHelper, std::string periodId, uint32_t adapIdx, AampMediaType type, bool isVssPeriod)
+bool AampLicensePreFetcher::QueueContentProtection(DrmHelperPtr drmHelper, std::string periodId, uint32_t adapIdx, AampMediaType type, bool isVssPeriod)
 {
 	bool ret = true;
 	if(!mExitLoop)
@@ -500,7 +500,7 @@ bool AampLicensePreFetcher::CreateDRMSession(LicensePreFetchObjectPtr fetchObj)
 	mPrivAAMP->setCurrentDrm(fetchObj->mHelper);
 
 	mPrivAAMP->profiler.ProfileBegin(PROFILE_BUCKET_LA_TOTAL);
-	AampDrmSession *drmSession = sessionManger->createDrmSession(fetchObj->mHelper, e, mPrivAAMP, fetchObj->mType);
+	DrmSession *drmSession = sessionManger->createDrmSession(fetchObj->mHelper, e, mPrivAAMP, fetchObj->mType);
 
 	if(NULL == drmSession)
 	{

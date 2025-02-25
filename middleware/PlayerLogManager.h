@@ -91,7 +91,15 @@ public :
 	}
 
 };
-
+/**
+ * @fn DumpBinaryBlob
+ *
+ * @param[in] ptr to the buffer
+ * @param[in] len length of buffer
+ *
+ * @return void
+ */
+void DumpBinaryBlob(const unsigned char *ptr, size_t len);
 /**
  * @fn logprintf
  * @param[in] format - printf style string

@@ -27,7 +27,7 @@
 
 
 #include "HlsDrmBase.h"
-#include "AampDrmSession.h"
+#include "DrmSession.h"
 
 
 /**
@@ -37,7 +37,7 @@
 
 class AampHlsDrmSessionManager
 {
-	AampDrmSession* mDrmSession;
+	DrmSession* mDrmSession;
 public:
 	/**
 	 * @fn getInstance 

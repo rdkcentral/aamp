@@ -1180,7 +1180,7 @@ protected:
 	 * @param adaptationSet Adaptation set object
 	 * @param mediaType type of track
 	 */
-	std::shared_ptr<AampDrmHelper> CreateDrmHelper(const IAdaptationSet * adaptationSet,AampMediaType mediaType);
+	DrmHelperPtr CreateDrmHelper(const IAdaptationSet * adaptationSet,AampMediaType mediaType);
 
 	/**
 	* @fn CheckForVssTags

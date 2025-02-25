@@ -26,9 +26,6 @@ set(SEC_CLIENT_ROOT ${AAMP_ROOT}/../secclient)
 set(EXEC_NAME DrmSecureClient)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DREALTEKCE=1")
 
-# The Secure Client header files must exist in aamp/../secclient/ for these tests to build and run
-file(GLOB SEC_CLIENT_HEADERS "${SEC_CLIENT_ROOT}/*")
-
 include_directories(${GTEST_INCLUDE_DIRS})
 include_directories(${GMOCK_INCLUDE_DIRS})
 include_directories(${UUID_INCLUDE_DIRS})
@@ -69,31 +66,32 @@ if(SEC_CLIENT_HEADERS)
 					 ${DRM_ROOT}/mocks/Fakeopencdm.cpp
 					 ${DRM_ROOT}/mocks/Fakesecclient.cpp)
 
-	set(AAMP_SOURCES ${AAMP_ROOT}/_base64.cpp
+	set(AAMP_SOURCES ${AAMP_ROOT}/middleware/drm/base64.cpp
 					 ${AAMP_ROOT}/AampConfig.cpp
 					 ${AAMP_ROOT}/downloader/AampCurlStore.cpp
 					 ${AAMP_ROOT}/downloader/AampCurlDownloader.cpp
 					 ${AAMP_ROOT}/AampDRMLicPreFetcher.cpp
 					 ${AAMP_ROOT}/AampEvent.cpp
 					 ${AAMP_ROOT}/AampJsonObject.cpp
+					 ${AAMP_ROOT}/middleware/drm/DrmJsonObject.cpp
 					 ${AAMP_ROOT}/AampProfiler.cpp
 					 ${AAMP_ROOT}/scte35/AampSCTE35.cpp
 					 ${AAMP_ROOT}/AampUtils.cpp
 					 ${AAMP_ROOT}/iso639map.cpp
-					 ${AAMP_ROOT}/drm/AampDRMutils.cpp
-					 ${AAMP_ROOT}/drm/aampdrmsessionfactory.cpp
-					 ${AAMP_ROOT}/drm/helper/AampDrmHelper.cpp
-					 ${AAMP_ROOT}/drm/helper/AampDrmHelperFactory.cpp
+					 ${AAMP_ROOT}/middleware/drm/DrmUtils.cpp
+					 ${AAMP_ROOT}/middleware/drm/drmsessionfactory.cpp
+					 ${AAMP_ROOT}/middleware/drm/helper/DrmHelper.cpp
+					 ${AAMP_ROOT}/middleware/drm/helper/DrmHelperFactory.cpp
 					 ${AAMP_ROOT}/drm/AampDRMSessionManager.cpp
-					 ${AAMP_ROOT}/drm/AampDrmSession.cpp
-					 ${AAMP_ROOT}/drm/opencdmsessionadapter.cpp
-					 ${AAMP_ROOT}/drm/opencdmsessionadapter.cpp
-					 ${AAMP_ROOT}/drm/AampOcdmBasicSessionAdapter.cpp
-					 ${AAMP_ROOT}/drm/AampOcdmGstSessionAdapter.cpp
+					 ${AAMP_ROOT}/middleware/drm/DrmSession.cpp
+					 ${AAMP_ROOT}/middleware/drm/ocdm/opencdmsessionadapter.cpp
+					 ${AAMP_ROOT}/middleware/drm/ocdm/opencdmsessionadapter.cpp
+					 ${AAMP_ROOT}/middleware/drm/ocdm/OcdmBasicSessionAdapter.cpp
+					 ${AAMP_ROOT}/middleware/drm/ocdm/OcdmGstSessionAdapter.cpp
 					 ${AAMP_ROOT}/drm/AampHlsOcdmBridge.cpp
-					 ${AAMP_ROOT}/drm/helper/AampClearKeyHelper.cpp
-					 ${AAMP_ROOT}/drm/helper/AampWidevineDrmHelper.cpp
-					 ${AAMP_ROOT}/drm/helper/AampPlayReadyHelper.cpp
+					 ${AAMP_ROOT}/middleware/drm/helper/ClearKeyHelper.cpp
+					 ${AAMP_ROOT}/middleware/drm/helper/WidevineDrmHelper.cpp
+					 ${AAMP_ROOT}/middleware/drm/helper/PlayReadyHelper.cpp
 					 ${AAMP_ROOT}/isobmff/isobmffbox.cpp
 					 ${AAMP_ROOT}/isobmff/isobmffbuffer.cpp)
 
@@ -103,7 +101,7 @@ if(SEC_CLIENT_HEADERS)
 	add_definitions(-DUSE_SECCLIENT)
 
 	add_executable(${EXEC_NAME}
-				${DRM_ROOT}/AampDrmTestUtils.cpp
+				${DRM_ROOT}/DrmTestUtils.cpp
 				${TEST_SOURCES}
 				${MOCK_SOURCES}
 				${AAMP_SOURCES}

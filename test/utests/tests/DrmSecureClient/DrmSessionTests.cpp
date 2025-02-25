@@ -39,7 +39,7 @@
 #include "Fakeopencdm.h"
 #include "curlMocks.h"
 
-#include "AampDrmTestUtils.h"
+#include "DrmTestUtils.h"
 
 #include "MockOpenCdm.h"
 #include "MockSecureClient.h"

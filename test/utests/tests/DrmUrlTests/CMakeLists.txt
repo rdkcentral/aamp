@@ -37,7 +37,7 @@ include_directories(${DRM_ROOT}/mocks)
 
 message(GSTREAMER_INCLUDE_DIRS=${GSTREAMER_INCLUDE_DIRS})
 
-set(TEST_SOURCES DrmTestsRun.cpp
+set(TEST_SOURCES DrmTestsRun.cpp 
 				 DrmSessionTests.cpp)
 
 add_definitions(-DAAMP_SIMULATOR_BUILD)

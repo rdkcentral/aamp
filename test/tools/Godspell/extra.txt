@@ -1823,6 +1823,7 @@ sessionid
 sessionmgr
 sessionstat
 sesssion
+sessionfactory
 setaudiolanguage
 setaudiotrack
 setclock
@@ -2193,6 +2194,7 @@ url
 urltype
 usahd
 useavgbw
+usecs
 usec
 usecase
 useragent

@@ -20,13 +20,12 @@
 window.onload = function() {
     var aBox = document.getElementById("firstBox");
     var bBox = document.getElementById("secondBox");
-    var cBox = document.getElementById("thirdBox");
 
     var currentObj = aBox;
     var currentPos = 0;
     //make first box defaultly highlighted
     currentObj.classList.add("focus");
-    components = [aBox, bBox, cBox];
+    components = [aBox, bBox];
     window.onkeydown = function(elt) {
         var keyCode = elt.keyCode || elt.which;
 
@@ -52,12 +51,9 @@ window.onload = function() {
         } else if ((keyCode == 13) || (keyCode == 32)) {
             switch (currentPos) {
                 case 0:
-                    window.location.href = "VIDEOTAG/index.html";
-                    break;
-                case 1:
                     window.location.href = "UVE/index.html";
                     break;
-                case 2:
+                case 1:
                     window.location.href = "http://www.sparkui.org";
             }
         }

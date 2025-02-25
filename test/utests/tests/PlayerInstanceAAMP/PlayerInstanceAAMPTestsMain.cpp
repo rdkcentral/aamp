@@ -736,7 +736,7 @@ TEST_F(PlayerInstanceAAMPTests, IsJsInfoLoggingEnabledTest) {
 TEST_F(PlayerInstanceAAMPTests, GetCurrentDRMTest) {
     EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_PLAYING));
     const char* expectedDrmName = "DRM";
-    // std::shared_ptr<AampDrmHelper> helper = mPrivateInstanceAAMP->GetCurrentDRM();
+    // DrmHelperPtr helper = mPrivateInstanceAAMP->GetCurrentDRM();
     //helper->friendlyName();
     std::string drmName =  mPlayerInstance->GetDRM();
 }
