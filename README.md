@@ -162,7 +162,7 @@ bufferHealthMonitorInterval	Override for buffer health monitor interval(in secs)
 abrCacheLife 			Lifetime value (ms) for abr cache  for network bandwidth calculation. Default: 5000ms
 abrCacheLength  		Length of abr cache for network bandwidth calculation (# of segments. Default 3
 abrCacheOutlier 		Outlier difference which will be ignored from network bandwidth calculation. Default: 5MB (in bytes)
-abrNwConsistency		Number of checks before profile incr/decr by 1.This is to avoid frequent profile switching with network change: Default 2
+abrNwConsistency		Number of checks before profile increment/decrement by 1.This is to avoid frequent profile switching with network change: Default 2
 abrSkipDuration			Minimum duration of fragment to be downloaded before triggering abr. Default: 6s
 progressReportingInterval	Interval (seconds) for progress reporting(in seconds. Default: 1
 licenseRetryWaitTime		License retry wait (ms) interval. Default: 500

@@ -1408,7 +1408,7 @@ ID3MetadataEvent::ID3MetadataEvent(const std::vector<uint8_t> &metadata, const s
 }
 
 /**
- * @brief Get ID3 metdata
+ * @brief Get ID3 metadata
  *
  * @return ID3 metadata content
  */
@@ -1418,7 +1418,7 @@ const std::vector<uint8_t> &ID3MetadataEvent::getMetadata() const
 }
 
 /**
- * @brief Get ID3 metdata size
+ * @brief Get ID3 metadata size
  *
  * @return ID3 metadata size
  */

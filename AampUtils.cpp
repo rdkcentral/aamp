@@ -1510,7 +1510,7 @@ bool IsContainerEnvironment(void)
 		}
 		else
 		{ // if we cannot access file, infer that we ARE running in container
-			AAMPLOG_WARN("detected dontainer environment");
+			AAMPLOG_WARN("detected container environment");
 			isContainer = true;
 		}
 		isValid = true;

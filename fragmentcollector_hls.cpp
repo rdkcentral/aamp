@@ -1835,7 +1835,7 @@ void TrackState::SetDrmContext()
 	// Set the appropriate DrmContext for Decryption
 	// This function need to be called where KeyMethod != None is found after indexplaylist
 	// or when new KeyMethod is found , None to AES or between AES with different Method
-	// or between KeyMethond when IV or URL changes (for Vanilla AES)
+	// or between KeyMethod when IV or URL changes (for Vanilla AES)
 
 	//CID:93939 - Removed the drmContextUpdated variable which is initialized but not used
 	mDrmInfo.bPropagateUriParams = ISCONFIGSET(eAAMPConfig_PropagateURIParam);
