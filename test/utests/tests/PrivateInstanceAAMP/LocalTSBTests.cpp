@@ -117,6 +117,7 @@ TEST_F(LocalTSBTests, Chunked_With_LLD_And_Config_On)
 	// Chunked key word should trigger TSBSessionManager creation
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(_)).WillRepeatedly(Return(false));
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_LocalTSBEnabled)).WillOnce(Return(true));
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnablePTSReStamp)).WillRepeatedly(Return(true));
 
 	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(testing::Matcher<AAMPConfigSettingInt>(_))).WillRepeatedly(Return(0));
 	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(testing::Matcher<AAMPConfigSettingFloat>(_))).WillRepeatedly(Return(0.0));
@@ -140,10 +141,32 @@ TEST_F(LocalTSBTests, Chunked_With_LLD_And_Config_On)
 	EXPECT_FALSE(mPrivateInstanceAAMP->IsLocalAAMPTsbInjection());
 }
 
+TEST_F(LocalTSBTests, Config_On_And_PtsReStamp_Off)
+{
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(_)).WillRepeatedly(Return(false));
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_LocalTSBEnabled)).WillOnce(Return(true));
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnablePTSReStamp)).WillRepeatedly(Return(false));
+
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(testing::Matcher<AAMPConfigSettingInt>(_))).WillRepeatedly(Return(0));
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(testing::Matcher<AAMPConfigSettingFloat>(_))).WillRepeatedly(Return(0.0));
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(testing::Matcher<AAMPConfigSettingString>(_)))
+		.WillRepeatedly(Return(""));
+
+	EXPECT_CALL(*g_mockTSBSessionManager, Init()).Times(0);
+	const char *url = "http://localhost:80/manifest.mpd";
+
+	mPrivateInstanceAAMP->Tune(url, true, "LINEAR_TV");
+	// IsLocalAAMPTsb() is true if PTS Restamp is enabled and local TSB is enabled in configuration.
+	EXPECT_FALSE(mPrivateInstanceAAMP->IsLocalAAMPTsb());
+	// IsLocalAAMPTsbInjection() is true when Local AAMP TSB is enabled and playing from TSB (not live)
+	EXPECT_FALSE(mPrivateInstanceAAMP->IsLocalAAMPTsbInjection());
+}
+
 TEST_F(LocalTSBTests, SLD_And_Config_On)
 {
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(_)).WillRepeatedly(Return(false));
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_LocalTSBEnabled)).WillOnce(Return(true));
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnablePTSReStamp)).WillRepeatedly(Return(true));
 
 	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(testing::Matcher<AAMPConfigSettingInt>(_))).WillRepeatedly(Return(0));
 	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(testing::Matcher<AAMPConfigSettingFloat>(_))).WillRepeatedly(Return(0.0));

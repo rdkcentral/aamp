@@ -104,6 +104,7 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) :
 	mIsWVKIDWorkaround(false),
 	mAuxAudioLanguage(),
 	mAbsoluteEndPosition(0),
+	mIsLive(false),
 	mIsLiveStream(false),
 	mAampLLDashServiceData{},
 	bLLDashAdjustPlayerSpeed(false),
