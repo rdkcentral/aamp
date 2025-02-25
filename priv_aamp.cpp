@@ -5788,21 +5788,28 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 		}
 		if(ISCONFIGSET_PRIV(eAAMPConfig_LocalTSBEnabled))
 		{
-			mTSBSessionManager = new AampTSBSessionManager(this);
-			 //TODO unique session id for each
-			if(mTSBSessionManager)
+			if (ISCONFIGSET_PRIV(eAAMPConfig_EnablePTSReStamp))
 			{
-				LoadLocalTSBConfig();
-				if (mTSBSessionManager->IsActive())
+				mTSBSessionManager = new AampTSBSessionManager(this);
+				//TODO unique session id for each
+				if(mTSBSessionManager)
 				{
-					SetIsIframeExtractionEnabled(true);
-					AAMPLOG_INFO("TSB Session Manager created and Active!!");
+					LoadLocalTSBConfig();
+					if (mTSBSessionManager->IsActive())
+					{
+						SetIsIframeExtractionEnabled(true);
+						AAMPLOG_INFO("TSB Session Manager created and Active!!");
+					}
+					if(mTSBStore)
+					{
+						AAMPLOG_INFO("Refreshing the TSB Store session!!");
+						mTSBStore->Flush();
+					}
 				}
-				if(mTSBStore)
-				{
-					AAMPLOG_INFO("Refreshing the TSB Store session!!");
-					mTSBStore->Flush();
-				}
+			}
+			else
+			{
+				AAMPLOG_WARN("Local TSB is not enabled due to PTS Restamp is disabled");
 			}
 		}
 	}
