@@ -1159,7 +1159,7 @@ public:
 	aamp::id3_metadata::MetadataCache mId3MetadataCache; /**< Metadata cache object for the JS event */
 
 	bool mIsFlushFdsInCurlStore;	/**< Mark to clear curl store instance in case of playback stopped due to download Error */
-	bool mIsFlushOperationInProgress;		/**< Flag to indicate pipeline flush Opeartion is going on */
+	bool mIsFlushOperationInProgress;		/**< Flag to indicate pipeline flush operation is going on */
 
 	/**
 	 * @fn ProcessID3Metadata
@@ -4172,7 +4172,7 @@ public:
 	AampTSBSessionManager *GetTSBSessionManager();
 
 	/**
-	 * @brief Set local TSB flag
+	 * @brief Set AAMP local TSB flag
 	 */
 	void SetLocalAAMPTsb(bool value)
 	{
@@ -4181,7 +4181,7 @@ public:
 	}
 
 	/**
-	 * @brief Is mLocalAAMPTsb enabled/disabled
+	 * @brief Is AAMP local TSB enabled/disabled
 	 */
 	bool IsLocalAAMPTsb()
 	{
@@ -4189,12 +4189,12 @@ public:
 	}
 
 	/**
-	 * @brief Set local TSB injection flag
+	 * @brief Set AAMP local TSB injection flag
 	 */
 	void SetLocalAAMPTsbInjection(bool value);
 
 	/**
-	 * @brief Is mLocalAAMPTsb enabled/disabled
+	 * @brief Is AAMP local TSB injection enabled/disabled
 	 */
 	bool IsLocalAAMPTsbInjection();
 	/**
@@ -4443,8 +4443,9 @@ protected:
 
 	std::string mSessionId;		/**< ID of the current session as set by the player */
 	AampTSBSessionManager *mTSBSessionManager;
-	bool mLocalAAMPInjectionEnabled;
-	bool mLocalAAMPTsb;
+	bool mLocalAAMPInjectionEnabled;					/**< Injecting segments from AAMP Local TSB */
+	bool mLocalAAMPTsb;									/**< AAMP Local TSB enabled for the current channel
+															(localTSBEnabled and enablePTSReStamp enabled, and playing DASH content) */
 	bool mbPauseOnStartPlayback;						/**< Start playback in paused state */
 
 	std::mutex mPreProcessLock;
