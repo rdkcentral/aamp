@@ -255,6 +255,15 @@ private:
 	}
 
 	/**
+	 * @brief Remove fragment from list and delete init fragment from TSB store if no longer referenced
+	 * @brief Generate unique URL for TSB store
+	 * @param[in] url - url of segment
+	 * @param[in] absPosition - abs position of segment
+	 * @return string - unique url
+	 */
+	std::string ToUniqueUrl(std::string url, double absPosition);
+
+	/**
 	 * @brief Remove fragment from list and delete init fragment from TSB store if nolonger referenced
 	 * @param[in] mediaType - track type
 	 * @return shared ptr to fragment removed is any

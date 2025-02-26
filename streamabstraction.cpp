@@ -790,7 +790,7 @@ bool MediaTrack::CheckForDiscontinuity(CachedFragment* cachedFragment, bool& fra
 		if ((cachedFragment->discontinuity || ptsError) && (AAMP_NORMAL_PLAY_RATE == aamp->rate))
 		{
 			bool isDiscoIgnoredForOtherTrack = aamp->IsDiscontinuityIgnoredForOtherTrack((AampMediaType)!type);
-			AAMPLOG_TRACE("track %s - encountered aamp discontinuity @position - %f, isDiscoIgnoredForOtherTrack - %d", name, cachedFragment->position, isDiscoIgnoredForOtherTrack);
+			AAMPLOG_TRACE("track %s - encountered aamp discontinuity @position - %f, isDiscoIgnoredForOtherTrack - %d ptsError %d", name, cachedFragment->position, isDiscoIgnoredForOtherTrack,ptsError );
 			if (eTRACK_SUBTITLE != type)
 			{
 				cachedFragment->discontinuity = false;
@@ -1328,6 +1328,8 @@ bool MediaTrack::InjectFragment()
 		if(isChunkBuffer)
 		{
 			cachedFragment = &this->mCachedFragmentChunks[fragmentChunkIdxToInject];
+			AAMPLOG_TRACE("[%s] fragmentChunkIdxToInject : %d Discontinuity %d ", name, fragmentChunkIdxToInject, cachedFragment->discontinuity);
+
 		}
 		else
 		{
@@ -1558,8 +1560,10 @@ void MediaTrack::RunInjectLoop()
 		}
 		// Disable audio video balancing for CDVR content ..
 		// CDVR Content includes eac3 audio, the duration of audio doesn't match with video
-		// and hence balancing fetch/inject not needed for CDVR //TBD Not needed for LLD
-		if(!ISCONFIGSET(eAAMPConfig_AudioOnlyPlayback) && !aamp->IsCDVRContent() && (!aamp->mAudioOnlyPb && !aamp->mVideoOnlyPb) && !lowLatency)
+		// and hence balancing fetch/inject not needed for CDVR 
+		// TBD Not needed for LLD
+		// Not needed for local TSB gstreamer will balance A/V - thats what it does
+		if(!ISCONFIGSET(eAAMPConfig_AudioOnlyPlayback) && !aamp->IsCDVRContent() && (!aamp->mAudioOnlyPb && !aamp->mVideoOnlyPb) && !lowLatency && !aamp->IsLocalAAMPTsb())
 		{
 			if(pContext != NULL)
 			{
