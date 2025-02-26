@@ -156,37 +156,41 @@ TEST_F(FunctionalTests, TSBWriteTests)
     std::this_thread::sleep_for(std::chrono::milliseconds(25));
 
     // Add video fragment 1 to TSB successfully
-    std::string url = std::string(TEST_BASE_URL) + std::string("video1.mp4");
     cachedFragment->type = eMEDIATYPE_VIDEO;
     cachedFragment->initFragment = 0;
     cachedFragment->duration = FRAG_DURATION;  // 3
     cachedFragment->position += FRAG_DURATION; // pos = 0
+    cachedFragment->absPosition =  1234.0;
+    const std::string VIDEO1_URL = std::string(TEST_BASE_URL) + std::string("video1.mp4");
+    const std::string VIDEO1_UNIQUE = VIDEO1_URL + ".1234";
 
-    EXPECT_CALL(*g_mockTSBStore, Write(url,_,_)).WillOnce(Return(TSB::Status::OK));
-    mAampTSBSessionManager->EnqueueWrite(url, cachedFragment, TEST_PERIOD_ID); // initurlaudio
+    EXPECT_CALL(*g_mockTSBStore, Write(VIDEO1_UNIQUE,_,_)).WillOnce(Return(TSB::Status::OK));
+    mAampTSBSessionManager->EnqueueWrite(VIDEO1_URL, cachedFragment, TEST_PERIOD_ID);
     std::this_thread::sleep_for(std::chrono::milliseconds(25));
 
     // Add video fragment 2 to TSB successfully
-    url = std::string(TEST_BASE_URL) + std::string("video2.mp4");
+    const std::string VIDEO2_URL = std::string(TEST_BASE_URL) + std::string("video2.mp4");
+    const std::string VIDEO2_UNIQUE = VIDEO2_URL + ".1234";
     cachedFragment->position += FRAG_DURATION; // pos = 3
 
-    EXPECT_CALL(*g_mockTSBStore, Write(url,_,_)).WillOnce(Return(TSB::Status::ALREADY_EXISTS));
-    mAampTSBSessionManager->EnqueueWrite(url, cachedFragment, TEST_PERIOD_ID);
+    EXPECT_CALL(*g_mockTSBStore, Write(VIDEO2_UNIQUE,_,_)).WillOnce(Return(TSB::Status::ALREADY_EXISTS));
+    mAampTSBSessionManager->EnqueueWrite(VIDEO2_URL, cachedFragment, TEST_PERIOD_ID);
     std::this_thread::sleep_for(std::chrono::milliseconds(25));
     double TSBDuration = mAampTSBSessionManager->GetTotalStoreDuration(eMEDIATYPE_VIDEO);
     EXPECT_EQ(TSBDuration, FRAG_DURATION);
 
     // Add video fragment 3 to TSB which fails with no space and then writes on next iteration
-    url = std::string(TEST_BASE_URL) + std::string("video3.mp4");
-    std::string urlToRemove = std::string(TEST_BASE_URL) + std::string("video1.mp4");
+    const std::string VIDEO3_URL = std::string(TEST_BASE_URL) + std::string("video3.mp4");
+    const std::string VIDEO3_UNIQUE = VIDEO3_URL + ".1234";
     cachedFragment->position += FRAG_DURATION; // pos = 6
 
-    EXPECT_CALL(*g_mockTSBStore, Write(url,_,_))
+    EXPECT_CALL(*g_mockTSBStore, Write(VIDEO3_UNIQUE,_,_))
         .WillOnce(Return(TSB::Status::NO_SPACE))
         .WillOnce(Return(TSB::Status::OK));
+
     EXPECT_CALL(*g_mockTSBStore, Delete(INIT_URL)).Times(1);
-    EXPECT_CALL(*g_mockTSBStore, Delete(urlToRemove)).Times(1);
-    mAampTSBSessionManager->EnqueueWrite(url, cachedFragment, TEST_PERIOD_ID);
+    EXPECT_CALL(*g_mockTSBStore, Delete(VIDEO1_UNIQUE)).Times(1);
+    mAampTSBSessionManager->EnqueueWrite(VIDEO3_URL, cachedFragment, TEST_PERIOD_ID);
     std::this_thread::sleep_for(std::chrono::milliseconds(25));
 
     // Check the final TSB store duration is updated
@@ -207,7 +211,7 @@ TEST_F(FunctionalTests, Cullsegments)
     EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetVidTimeScale()).WillRepeatedly(Return(1));
     EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetAudTimeScale()).WillRepeatedly(Return(1));
 
-    std::string initUrl = std::string(TEST_BASE_URL) + std::string("init.mp4");
+    const std::string initUrl = std::string(TEST_BASE_URL) + std::string("init.mp4");
     cachedFragment->type = eMEDIATYPE_INIT_VIDEO;
     mAampTSBSessionManager->EnqueueWrite(initUrl, cachedFragment, TEST_PERIOD_ID);
     std::this_thread::sleep_for(std::chrono::milliseconds(25));
@@ -222,6 +226,10 @@ TEST_F(FunctionalTests, Cullsegments)
     cachedFragment->duration = FRAG_DURATION;
     cachedFragment->initFragment = false;
     cachedFragment->type = eMEDIATYPE_VIDEO;
+    cachedFragment->absPosition = 4567;
+    const std::string videoUrl_unique = std::string(TEST_BASE_URL) + std::string("video.mp4.4567"); // int(cachedFragment->absPosition) is appended
+    const std::string audioUrl_unique = std::string(TEST_BASE_URL) + std::string("audio.mp4.4567");
+
     mAampTSBSessionManager->EnqueueWrite(videoUrl, cachedFragment, TEST_PERIOD_ID);
     std::this_thread::sleep_for(std::chrono::milliseconds(25));
 
@@ -243,8 +251,8 @@ TEST_F(FunctionalTests, Cullsegments)
     double TSBDuration = mAampTSBSessionManager->GetTotalStoreDuration(eMEDIATYPE_VIDEO);
     EXPECT_EQ(TSBDuration, FRAG_DURATION * 2);
 
-    EXPECT_CALL(*g_mockTSBStore, Delete(videoUrl)).Times(1);
-    EXPECT_CALL(*g_mockTSBStore, Delete(audioUrl)).Times(1);
+    EXPECT_CALL(*g_mockTSBStore, Delete(videoUrl_unique)).Times(1);
+    EXPECT_CALL(*g_mockTSBStore, Delete(audioUrl_unique)).Times(1);
     mAampTSBSessionManager->UpdateProgress(MANIFEST_DURATION, 0);
 
     // Check TSB store duration after culling. Only one fragment each should be present.
@@ -278,7 +286,8 @@ TEST_F(FunctionalTests, TSBReadTests)
     mAampTSBSessionManager->EnqueueWrite(initUrl, cachedFragment, TEST_PERIOD_ID);
     std::this_thread::sleep_for(std::chrono::milliseconds(25));
 
-    std::string videoUrl = std::string(TEST_BASE_URL) + std::string("video.mp4");
+    const std::string videoUrl = std::string(TEST_BASE_URL) + std::string("video.mp4");
+    const std::string videoUrl_unique = std::string(TEST_BASE_URL) + std::string("video.mp4.999"); // int(cachedFragment->absPosition) is appended
     cachedFragment->position = FRAG_FIRST_POS;
     cachedFragment->absPosition = FRAG_FIRST_ABS_POS;
     cachedFragment->duration = FRAG_DURATION;
@@ -305,7 +314,7 @@ TEST_F(FunctionalTests, TSBReadTests)
 
     EXPECT_CALL(*g_mockTSBStore, GetSize(_)).WillRepeatedly(Return(TEST_DATA_LEN));
     EXPECT_CALL(*g_mockTSBStore, Read(initUrl, _, _)).WillOnce(Return(TSB::Status::OK));
-    EXPECT_CALL(*g_mockTSBStore, Read(videoUrl, _, _)).WillOnce(Return(TSB::Status::OK));
+    EXPECT_CALL(*g_mockTSBStore, Read(videoUrl_unique, _, _)).WillOnce(Return(TSB::Status::OK));
 
     EXPECT_CALL(*g_mockMediaStreamContext, CacheTsbFragment(_))
         .Times(2)
