@@ -142,7 +142,7 @@ public :
 			{
 				matchingBaseURL = aamp_getHostFromURL(matchingBaseURL);
 				matchingBaseURL += url;
-				AAMPLOG_WARN( "baseURL with leading /" );
+				AAMPLOG_WARN( "baseURL with leading /" );                     
 			}
 			else
 			{
@@ -176,28 +176,22 @@ public:
 	 */
 	~StreamAbstractionAAMP_MPD();
 	/**
-	 * @fn StreamAbstractionAAMP_MPD Copy constructor disabled
-	 *
-	 */
-	StreamAbstractionAAMP_MPD(const StreamAbstractionAAMP_MPD&) = delete;
+         * @fn StreamAbstractionAAMP_MPD Copy constructor disabled
+         *
+         */
+  	StreamAbstractionAAMP_MPD(const StreamAbstractionAAMP_MPD&) = delete;
 	/**
-	 * @fn StreamAbstractionAAMP_MPD assignment operator disabled
-	 *
-	 */
+         * @fn StreamAbstractionAAMP_MPD assignment operator disabled
+         *
+         */
 	StreamAbstractionAAMP_MPD& operator=(const StreamAbstractionAAMP_MPD&) = delete;
 
-	/**
-	 * @fn Start
-	 * @brief Start streaming
-	 */
 	void Start() override;
-
 	/**
 	 * @fn Stop
 	 * @param  clearChannelData - ignored.
 	 */
 	void Stop(bool clearChannelData) override;
-
 	/**
 	 * @fn Init
 	 * @param  tuneType to set type of object.
@@ -552,20 +546,6 @@ public:
 	bool UseIframeTrack(void) override;
 
 protected:
-	/**
-	 * @fn StartFromAampLocalTsb
-	 *
-	 * @brief Start streaming from AAMP Local TSB
-	 */
-	void StartFromAampLocalTsb();
-
-	/**
-	 * @fn StartFromOtherThanAampLocalTsb
-	 *
-	 * @brief Start streaming content from a source other than AAMP Local TSB (live, CloudTSB, FOG...)
-	 */
-	void StartFromOtherThanAampLocalTsb();
-
 	/**
 	 * @fn GetStartAndDurationForPtsRestamping
 	 *

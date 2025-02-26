@@ -5320,28 +5320,21 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 	if(newTune && !IsLocalAAMPTsb() && GetTSBSessionManager())
 	{
 		// Set Local TSB flag after starting the streamabstraction
-		AAMPLOG_MIL("Enabling local TSB handling for the new tune");
+		AAMPLOG_WARN("Enabling local TSB handling for the new tune");
 		SetLocalAAMPTsb(true);
 	}
-	// Local AAMP TSB injection is true if Local AAMP TSB is enabled and TuneHelper() is called for
-	// any reason other than a new tune (set rate, seek...)
-	if (!newTune && IsLocalAAMPTsb())
-	{
-		SetLocalAAMPTsbInjection(true);
-	}
-
 	if (mpStreamAbstractionAAMP)
 	{
-		if (IsLocalAAMPTsbInjection())
+		if(!IsLocalAAMPTsb() || !IsLocalAAMPTsbInjection())
+		{
+			mpStreamAbstractionAAMP->SetCDAIObject(mCdaiObject);
+			retVal = mpStreamAbstractionAAMP->Init(tuneType);
+		}
+		else
 		{
 			// Update StreamAbstraction object seek position to the absolute position (seconds since 1970)
 			mpStreamAbstractionAAMP->SeekPosUpdate(seek_pos_seconds);
 			retVal = mpStreamAbstractionAAMP->InitTsbReader(tuneType);
-		}
-		else
-		{
-			mpStreamAbstractionAAMP->SetCDAIObject(mCdaiObject);
-			retVal = mpStreamAbstractionAAMP->Init(tuneType);
 		}
 	}
 	else
@@ -5643,9 +5636,10 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 	}
 
 	// IsLocalAAMPTsb() being true already confirms TSBSessionManager and LLD cases are true.
-	if (!IsLocalAAMPTsbInjection())
+	if(IsLocalAAMPTsb() && !IsLocalAAMPTsbInjection())
 	{
 		// Update culled seconds and duration based on TSB
+		SetLocalAAMPTsbInjection(true);
 		culledSeconds = seek_pos_seconds;
 		durationSeconds -= culledSeconds;
 	}
@@ -13525,7 +13519,9 @@ void PrivateInstanceAAMP::ReleaseDynamicDRMToUpdateWait()
 	AAMPLOG_INFO("Signal sent for mWaitForDynamicDRMToUpdate");
 
 }
-
+/*
+ * @brief Set local TSB injection flag
+ */
 void PrivateInstanceAAMP::SetLocalAAMPTsbInjection(bool value)
 {
 	std::lock_guard<std::recursive_mutex> guard(mLock);
@@ -13533,6 +13529,9 @@ void PrivateInstanceAAMP::SetLocalAAMPTsbInjection(bool value)
 	AAMPLOG_INFO("Local AAMP TSB injection %d", mLocalAAMPInjectionEnabled);
 }
 
+/**
+ * @brief Is mLocalAAMPTsb enabled/disabled
+ */
 bool PrivateInstanceAAMP::IsLocalAAMPTsbInjection()
 {
 	return mLocalAAMPInjectionEnabled;
