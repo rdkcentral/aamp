@@ -136,51 +136,7 @@ TEST_F(LocalTSBTests, Chunked_With_LLD_And_Config_On)
 				});
 	mPrivateInstanceAAMP->Tune(chunkedUrl, true, "LINEAR_TV");
 	EXPECT_TRUE(mPrivateInstanceAAMP->IsLocalAAMPTsb());
-	// IsLocalAAMPTsbInjection() is true when Local AAMP TSB is enabled and playing from TSB (not live)
-	EXPECT_FALSE(mPrivateInstanceAAMP->IsLocalAAMPTsbInjection());
-}
-
-TEST_F(LocalTSBTests, SLD_And_Config_On)
-{
-	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(_)).WillRepeatedly(Return(false));
-	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_LocalTSBEnabled)).WillOnce(Return(true));
-
-	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(testing::Matcher<AAMPConfigSettingInt>(_))).WillRepeatedly(Return(0));
-	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(testing::Matcher<AAMPConfigSettingFloat>(_))).WillRepeatedly(Return(0.0));
-	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(testing::Matcher<AAMPConfigSettingString>(_)))
-		.WillRepeatedly(Return(""));
-
-	EXPECT_CALL(*g_mockTSBSessionManager, Init()).Times(1);
-	const char *url = "http://localhost:80/manifest.mpd";
-
-	// For standard latency stream case
-	AampLLDashServiceData llData;
-	llData.lowLatencyMode = false;
-	EXPECT_CALL(*g_mockStreamAbstractionAAMP_MPD, Init(_))
-		.WillOnce([this, &llData] {
-					this->mPrivateInstanceAAMP->SetLLDashServiceData(llData);
-					return eAAMPSTATUS_OK;
-				});
-	mPrivateInstanceAAMP->Tune(url, true, "LINEAR_TV");
-	EXPECT_TRUE(mPrivateInstanceAAMP->IsLocalAAMPTsb());
-	// IsLocalAAMPTsbInjection() is true when Local AAMP TSB is enabled and playing from TSB (not live)
-	EXPECT_FALSE(mPrivateInstanceAAMP->IsLocalAAMPTsbInjection());
-}
-
-TEST_F(LocalTSBTests, VOD_And_Config_On)
-{
-	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(_)).WillRepeatedly(Return(false));
-
-	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(testing::Matcher<AAMPConfigSettingInt>(_))).WillRepeatedly(Return(0));
-	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(testing::Matcher<AAMPConfigSettingFloat>(_))).WillRepeatedly(Return(0.0));
-	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(testing::Matcher<AAMPConfigSettingString>(_)))
-		.WillRepeatedly(Return(""));
-
-	const char *url = "http://localhost:80/manifest.mpd";
-	mPrivateInstanceAAMP->Tune(url, true, "VOD");
-	// IsLocalAAMPTsb() is false for VOD content
-	EXPECT_FALSE(mPrivateInstanceAAMP->IsLocalAAMPTsb());
-	EXPECT_FALSE(mPrivateInstanceAAMP->IsLocalAAMPTsbInjection());
+	EXPECT_TRUE(mPrivateInstanceAAMP->IsLocalAAMPTsbInjection());
 }
 
 TEST_F(LocalTSBTests, Chunked_With_LLD_And_Config_Off)

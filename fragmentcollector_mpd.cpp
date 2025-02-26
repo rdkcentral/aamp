@@ -10422,97 +10422,93 @@ StreamAbstractionAAMP_MPD::~StreamAbstractionAAMP_MPD()
 	mManifestDnldRespPtr = nullptr;
 }
 
-void StreamAbstractionAAMP_MPD::StartFromOtherThanAampLocalTsb(void)
-{
-#ifdef AAMP_MPD_DRM
-	aamp->mDRMSessionManager->setSessionMgrState(SessionMgrState::eSESSIONMGR_ACTIVE);
-#endif
-	// Start the worker threads for each track
-	InitializeWorkers();
-	try{
-		fragmentCollectorThreadID = std::thread(&StreamAbstractionAAMP_MPD::FetcherLoop, this);
-		fragmentCollectorThreadStarted = true;
-		AAMPLOG_INFO("Thread created for FetcherLoop [%zx]", GetPrintableThreadID(fragmentCollectorThreadID));
-	}
-	catch (std::exception &e)
-	{
-		AAMPLOG_ERR("Thread allocation failed for FetcherLoop : %s ", e.what());
-	}
-
-	if(aamp->IsPlayEnabled())
-	{
-		for (int i = 0; i < mNumberOfTracks; i++)
-		{
-			aamp->ResumeTrackInjection((AampMediaType) i);
-			// TODO: This could be moved to StartInjectLoop, but due to lack of testing will keep it here for now
-			if(mMediaStreamContext[i]->playContext)
-			{
-				mMediaStreamContext[i]->playContext->reset();
-			}
-			mMediaStreamContext[i]->StartInjectLoop();
-		}
-	}
-}
-
-void StreamAbstractionAAMP_MPD::StartFromAampLocalTsb(void)
-{
-	aamp->ResetTrackDiscontinuityIgnoredStatus();
-	aamp->UnblockWaitForDiscontinuityProcessToComplete();
-	mTrackState = eDISCONTINUITY_FREE;
-	for (int i = 0; i < mNumberOfTracks; i++)
-	{
-		mMediaStreamContext[i]->SetLocalTSBInjection(true);
-		mMediaStreamContext[i]->FlushFragments();
-		// For seek to live, we will employ chunk cache and hence size has to be increased to max
-		// For other tune types, we don't need chunks so revert to max cache fragment size
-		if (mTuneType == eTUNETYPE_SEEKTOLIVE)
-		{
-			mMediaStreamContext[i]->SetCachedFragmentChunksSize(size_t(GETCONFIGVALUE(eAAMPConfig_MaxFragmentChunkCached)));
-		}
-		else
-		{
-			mMediaStreamContext[i]->SetCachedFragmentChunksSize(size_t(GETCONFIGVALUE(eAAMPConfig_MaxFragmentCached)));
-		}
-		mMediaStreamContext[i]->eosReached = false;
-		if(aamp->IsPlayEnabled())
-		{
-			aamp->ResumeTrackInjection((AampMediaType) i);
-			// TODO: This could be moved to StartInjectLoop, but due to lack of testing will keep it here for now
-			if(mMediaStreamContext[i]->playContext)
-			{
-				mMediaStreamContext[i]->playContext->reset();
-			}
-			mMediaStreamContext[i]->StartInjectLoop(); ///TBD
-		}
-	}
-	try
-	{
-		abortTsbReader = false;
-		tsbReaderThreadID = std::thread(&StreamAbstractionAAMP_MPD::TsbReader, this);
-		tsbReaderThreadStarted = true;
-		AAMPLOG_INFO("Thread created for TsbReader [%zx]", GetPrintableThreadID(tsbReaderThreadID));
-	}
-	catch(const std::exception& e)
-	{
-		AAMPLOG_ERR("Thread allocation failed for TsbReader : %s ", e.what());
-	}
-}
-
+/**
+ *   @brief  Starts streaming.
+ */
 void StreamAbstractionAAMP_MPD::Start(void)
 {
-	if (aamp->IsLocalAAMPTsbInjection())
+	if(!aamp->IsLocalAAMPTsb() || !aamp->IsLocalAAMPTsbInjection())
 	{
-		StartFromAampLocalTsb();
+#ifdef AAMP_MPD_DRM
+		aamp->mDRMSessionManager->setSessionMgrState(SessionMgrState::eSESSIONMGR_ACTIVE);
+#endif
+		// Start the worker threads for each track
+		InitializeWorkers();
+		try{
+				fragmentCollectorThreadID = std::thread(&StreamAbstractionAAMP_MPD::FetcherLoop, this);
+			fragmentCollectorThreadStarted = true;
+			AAMPLOG_INFO("Thread created for FetcherLoop [%zx]", GetPrintableThreadID(fragmentCollectorThreadID));
+		}
+		catch (std::exception &e)
+		{
+			AAMPLOG_ERR("Thread allocation failed for FetcherLoop : %s ", e.what());
+		}
+		for (int i = 0; i < mNumberOfTracks; i++)
+		{
+			if(aamp->IsPlayEnabled())
+			{
+				aamp->ResumeTrackInjection((AampMediaType) i);
+				// TODO: This could be moved to StartInjectLoop, but due to lack of testing will keep it here for now
+				if(mMediaStreamContext[i]->playContext)
+				{
+					mMediaStreamContext[i]->playContext->reset();
+				}
+				mMediaStreamContext[i]->StartInjectLoop();
+			}
+		}
+		if( (mLowLatencyMode && ISCONFIGSET( eAAMPConfig_EnableLowLatencyCorrection ) ) && \
+			(true == aamp->GetLLDashAdjustSpeed() ) )
+		{
+			StartLatencyMonitorThread();
+		}
 	}
 	else
 	{
-		StartFromOtherThanAampLocalTsb();
-	}
-
-	if( (mLowLatencyMode && ISCONFIGSET( eAAMPConfig_EnableLowLatencyCorrection ) ) && \
-		(true == aamp->GetLLDashAdjustSpeed() ) )
-	{
-		StartLatencyMonitorThread();
+		aamp->ResetTrackDiscontinuityIgnoredStatus();
+		aamp->UnblockWaitForDiscontinuityProcessToComplete();
+		mTrackState = eDISCONTINUITY_FREE;
+		for (int i = 0; i < mNumberOfTracks; i++)
+		{
+			mMediaStreamContext[i]->SetLocalTSBInjection(true);
+			mMediaStreamContext[i]->FlushFragments();
+			// For seek to live, we will employ chunk cache and hence size has to be increased to max
+			// For other tune types, we don't need chunks so revert to max cache fragment size
+			if (mTuneType == eTUNETYPE_SEEKTOLIVE)
+			{
+				mMediaStreamContext[i]->SetCachedFragmentChunksSize(size_t(GETCONFIGVALUE(eAAMPConfig_MaxFragmentChunkCached)));
+			}
+			else
+			{
+				mMediaStreamContext[i]->SetCachedFragmentChunksSize(size_t(GETCONFIGVALUE(eAAMPConfig_MaxFragmentCached)));
+			}
+			mMediaStreamContext[i]->eosReached = false;
+			if(aamp->IsPlayEnabled())
+			{
+				aamp->ResumeTrackInjection((AampMediaType) i);
+				// TODO: This could be moved to StartInjectLoop, but due to lack of testing will keep it here for now
+				if(mMediaStreamContext[i]->playContext)
+				{
+					mMediaStreamContext[i]->playContext->reset();
+				}
+				mMediaStreamContext[i]->StartInjectLoop(); ///TBD
+			}
+		}
+		try
+		{
+			abortTsbReader = false;
+			tsbReaderThreadID = std::thread(&StreamAbstractionAAMP_MPD::TsbReader, this);
+			tsbReaderThreadStarted = true;
+			AAMPLOG_INFO("Thread created for TsbReader [%zx]", GetPrintableThreadID(tsbReaderThreadID));
+		}
+		catch(const std::exception& e)
+		{
+			AAMPLOG_ERR("Thread allocation failed for TsbReader : %s ", e.what());
+		}
+		if( (mLowLatencyMode && ISCONFIGSET( eAAMPConfig_EnableLowLatencyCorrection ) ) && \
+			(true == aamp->GetLLDashAdjustSpeed() ) )
+		{
+			StartLatencyMonitorThread();
+		}
 	}
 }
 

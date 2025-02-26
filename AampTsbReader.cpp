@@ -232,7 +232,7 @@ std::shared_ptr<TsbFragmentData> AampTsbReader::ReadNext()
 		CheckPeriodBoundary(ret);
 	}
 	mUpcomingFragmentPosition += (mCurrentRate >= 0) ? ret->GetDuration() : -ret->GetDuration();
-	AAMPLOG_INFO("[%s] Returning fragment: absPos %lfs pts %lfs next %lfs eos %d initWaiting %d discontinuity %d mIsPeriodBoundary %d period %s timeScale %u ptsOffset %fs url %s",
+	AAMPLOG_INFO("[%s] Returning fragment: abspos %lfs pts %lfs next %lfs eos %d initWaiting %d discontinuity %d mIsPeriodBoundary %d period %s timeScale %u ptsOffset %fs url %s",
 		GetMediaTypeName(mMediaType), ret->GetAbsPosition(), ret->GetPTS(), mUpcomingFragmentPosition, mEosReached, mNewInitWaiting, mIsNextFragmentDisc, mIsPeriodBoundary, ret->GetPeriodId().c_str(), ret->GetTimeScale(), ret->GetPTSOffsetSec(), ret->GetUrl().c_str());
 
 	return ret;
