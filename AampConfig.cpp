@@ -1691,21 +1691,19 @@ void AampConfig::ReadAampCfgFromEnv()
 			}
 		}
 	}
-	else
+
+	// Now check for base64 based env, this is back up in case above string becomes big and becomes error prone, also  base64 covers json format as well.
+	envConf = getenv("AAMP_CFG_BASE64");
+	if (NULL != envConf)
 	{
-		// Now check for base64 based env, this is back up in case above string becomes big and becomes error prone, also  base64 covers json format as well.
-		envConf = getenv("AAMP_CFG_BASE64");
-		if(NULL != envConf)
+		std::string strEnvConfig = envConf; // make sure we copy this as recommended by getEnv doc
+		size_t iConfigLen = strEnvConfig.length();
+		AAMPLOG_MIL("ReadAampCfgFromEnv:BASE64 ENV:%s len:%zu ", strEnvConfig.c_str(), iConfigLen);
+		char *strConfig = (char *)base64_Decode(strEnvConfig.c_str(), &iConfigLen);
+		if (NULL != strConfig)
 		{
-			std::string strEnvConfig = envConf; // make sure we copy this as recommended by getEnv doc
-			size_t iConfigLen = strEnvConfig.length();
-			AAMPLOG_MIL("ReadAampCfgFromEnv:BASE64 ENV:%s len:%zu ",strEnvConfig.c_str(),iConfigLen);
-			char * strConfig = (char * ) base64_Decode(strEnvConfig.c_str(),&iConfigLen);
-			if( NULL != strConfig )
-			{
-				ProcessBase64AampCfg(strConfig, iConfigLen,AAMP_DEV_CFG_SETTING);
-				free(strConfig); // free mem allocated by base64_Decode
-			}
+			ProcessBase64AampCfg(strConfig, iConfigLen, AAMP_DEV_CFG_SETTING);
+			free(strConfig); // free mem allocated by base64_Decode
 		}
 	}
 }
