@@ -223,7 +223,7 @@ class TSProcessor : public MediaProcessor
       * @param[in] offset offset value in seconds
       */
       void setTrackOffset(double offset) override { };
-
+	
    protected:
       /**
        * @fn getAudioComponents
@@ -245,6 +245,8 @@ class TSProcessor : public MediaProcessor
       void setBasePTS(double position, long long pts);
 
    protected:
+      double m_totalDuration; // used with muxed hlt/ts pts restamping
+	
       class PrivateInstanceAAMP *aamp;
       /**
        * @fn setPlayMode

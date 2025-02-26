@@ -669,6 +669,8 @@ class TrackState : public MediaTrack
 		AampTime mCulledSecondsAtStart;		/**< Total culled duration with this asset prior to streamer instantiation*/
 		bool mSkipSegmentOnError;		/**< Flag used to enable segment skip on fetch error */
 		AampMediaType playlistMediaType;		/**< Media type of playlist of this track */
+public:
+		StreamOperation demuxOp; /** denotes whether a given (hls/ts) track is muxed */
 };
 
 class PrivateInstanceAAMP;

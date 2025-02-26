@@ -23,12 +23,10 @@
  - single program transport stream only (video-only segment or audio-only segment)
  - assumes PAT/PMT delivered in single packet
  */
-
-#define PACKET_SIZE 188
-#define eSTREAMTYPE_VIDEO 0xe0
-#define eSTREAMTYPE_AUDIO 0xc0
-
-static bool mbMinimalParsing = false;
+#define TSDEMUX_PACKET_SIZE 188
+#define TSDEMUX_STREAMTYPE_VIDEO 0xe0
+#define TSDEMUX_STREAMTYPE_AUDIO 0xc0
+#define TSDEMUX_MINIMAL_PARSING false
 
 struct TsPart
 {
@@ -41,7 +39,9 @@ struct TsPart
 class TsDemux
 {
 private:
-	MediaType mediaType;
+	bool firstPtsOnly;
+	
+	int mediaType;
 	unsigned char *ptr; // raw data (mpegts)
 	size_t len;
 	
@@ -179,7 +179,7 @@ private:
 	void parseAdaptationExtension( void )
 	{
 		int adaptation_extension_length = readByte();
-		if( mbMinimalParsing )
+		if( TSDEMUX_MINIMAL_PARSING )
 		{
 			skipBits( adaptation_extension_length*8 );
 		}
@@ -210,7 +210,7 @@ private:
 	void parseAdaptationField( void )
 	{
 		int adaptation_field_length = readByte();
-		if( mbMinimalParsing )
+		if( TSDEMUX_MINIMAL_PARSING )
 		{
 			skipBits( adaptation_field_length*8 );
 		}
@@ -337,7 +337,7 @@ private:
 			assert( reserved == 0 );
 			int es_info_length = readBits( 10 );
 			skipBits( es_info_length*8 );
-			printf( "elementary_pid=0x%x stream_type=0x%x\n", elementary_pid, stream_type );
+			//printf( "elementary_pid=0x%x stream_type=0x%x\n", elementary_pid, stream_type );
 			switch( stream_type )
 			{
 				case 0x03: // eSTREAM_TYPE_MPEG1_AUDIO
@@ -443,7 +443,7 @@ private:
 		int pes_crc_flag = readBit();
 		int pes_extension_flag = readBit();
 		int pes_header_length = readByte();
-		if( mbMinimalParsing )
+		if( TSDEMUX_MINIMAL_PARSING )
 		{
 			skipBits( pes_header_length*8 );
 		}
@@ -559,14 +559,14 @@ private:
 			if( start_code_prefix == 0x000001 )
 			{
 				pes.stream_id = readByte();
-				assert( pes.stream_id == eSTREAMTYPE_VIDEO || pes.stream_id == eSTREAMTYPE_AUDIO );
+				assert( pes.stream_id == TSDEMUX_STREAMTYPE_VIDEO || pes.stream_id == TSDEMUX_STREAMTYPE_AUDIO );
 				switch( mediaType )
 				{
 					case eMEDIATYPE_VIDEO:
-						assert( pes.stream_id == eSTREAMTYPE_VIDEO );
+						assert( pes.stream_id == TSDEMUX_STREAMTYPE_VIDEO );
 						break;
 					case eMEDIATYPE_AUDIO:
-						assert( pes.stream_id == eSTREAMTYPE_AUDIO );
+						assert( pes.stream_id == TSDEMUX_STREAMTYPE_AUDIO );
 						break;
 					default:
 						assert(0);
@@ -577,11 +577,13 @@ private:
 			}
 		}
 		
-		while( bits_read%(PACKET_SIZE*8) )
+		if( !firstPtsOnly )
 		{
-			int data = readByte();
-			//printf( " %02x", data );
-			writeByte( data );
+			while( bits_read%(TSDEMUX_PACKET_SIZE*8) )
+			{
+				int data = readByte();
+				writeByte( data );
+			}
 		}
 	}
 	
@@ -622,20 +624,20 @@ private:
 			{
 				parsePES();
 			}
-			else
-			{
-				//assert(0);
+			if( firstPtsOnly && tsPart.size()>0 )
+			{ // short circuit
+				return;
 			}
-			while( bits_read%(PACKET_SIZE*8) )
+			int excessBits = bits_read%(TSDEMUX_PACKET_SIZE*8);
+			if( excessBits )
 			{
-				(void)readByte();
-				//assert( data == 0xff );
+				bits_read += TSDEMUX_PACKET_SIZE*8 - excessBits;
 			}
 		}
 	}
 	
 public:
-	TsDemux( MediaType mediaType, gpointer ptr, size_t len ): mediaType(mediaType), ptr((unsigned char *)ptr), len(len), bits_read(), bytes_written(), ts(), pes()
+	TsDemux( int mediaType, gpointer ptr, size_t len, bool firstPtsOnly=false ): mediaType(mediaType), ptr((unsigned char *)ptr), len(len), bits_read(), bytes_written(), ts(), pes(), firstPtsOnly(firstPtsOnly)
 	{
 		parseTs();
 	}

@@ -138,6 +138,11 @@ SegmentInfo_t Demuxer::UpdateSegmentInfo() const
 	{
 		ret.dts_s = position + static_cast<double>(current_dts.value - base_pts.value) / 90000.;
 	}
+	if(ISCONFIGSET(eAAMPConfig_HlsTsEnablePTSReStamp))
+	{
+		ret.pts_s += ptsOffset; // non-zero when pts restamping in use
+		ret.dts_s += ptsOffset; // non-zero when pts restamping in use
+	}
 	return ret;
 }
 
@@ -184,7 +189,7 @@ void Demuxer::sendInternal(MediaProcessor::process_fcn_t processor)
 	}
 }
 
-void Demuxer::init(double position, double duration, bool trickmode, bool resetBasePTS)
+void Demuxer::init(double position, double duration, bool trickmode, bool resetBasePTS, bool optimizeMuxed )
 {
 	std::lock_guard<std::mutex> lock{mMutex};
 	this->position = position;
@@ -201,6 +206,12 @@ void Demuxer::init(double position, double duration, bool trickmode, bool resetB
 	finalized_base_pts = false;
 	pes_state = PES_STATE_WAITING_FOR_HEADER;
 	AAMPLOG_DEBUG("init : position %f, duration %f resetBasePTS %d", position, duration, resetBasePTS);
+	
+	if( optimizeMuxed )
+	{ // when hls/ts in use, restamp starting from zero to avoid jitter at playback start
+		base_pts = 0;
+		finalized_base_pts = true;
+	}
 }
 
 void Demuxer::flush()
@@ -228,8 +239,11 @@ void Demuxer::setBasePTS(unsigned long long basePTS, bool isFinal)
 	{
 		AAMPLOG_INFO("Type[%d], basePTS %llu final %d", (int)type, basePTS, (int)isFinal);
 	}
-	base_pts = basePTS;
-	finalized_base_pts = isFinal;
+	if( !finalized_base_pts )
+	{
+		base_pts = basePTS;
+		finalized_base_pts = isFinal;
+	}
 }
 
 unsigned long long Demuxer::getBasePTS()
