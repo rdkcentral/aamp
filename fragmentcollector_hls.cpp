@@ -1002,7 +1002,10 @@ lstring TrackState::GetNextFragmentUriFromPlaylist(bool& reloadUri, bool ignoreD
 				}
 				else if ( ptr.removePrefix("-X-DISCONTINUITY"))
 				{
-					discontinuity = true;
+					if( demuxOp != eStreamOp_DEMUX_ALL || !ISCONFIGSET(eAAMPConfig_HlsTsEnablePTSReStamp) )
+					{ // ignore discontinuities when presenting muxed hls/ts
+						discontinuity = true;
+					}
 				}
 				else
 				{
@@ -1998,11 +2001,14 @@ void TrackState::IndexPlaylist(bool IsRefresh, AampTime &culledSec)
 				}
 				else if( ptr.removePrefix("-X-DISCONTINUITY"))
 				{
-					discontinuitySequenceIndex++;
-					discontinuity = true;
-					if(ISCONFIGSET(eAAMPConfig_StreamLogging))
-					{
-						AAMPLOG_MIL("%s [%zu] Discontinuity Posn : %f, discontinuitySequenceIndex=%" PRIu64, name, index.size(), totalDuration.inSeconds(), discontinuitySequenceIndex );
+					if( demuxOp != eStreamOp_DEMUX_ALL || !ISCONFIGSET(eAAMPConfig_HlsTsEnablePTSReStamp) )
+					{ // ignore discontinuities when presenting muxed hls/ts
+						discontinuitySequenceIndex++;
+						discontinuity = true;
+						if(ISCONFIGSET(eAAMPConfig_StreamLogging))
+						{
+							AAMPLOG_MIL("%s [%zu] Discontinuity Posn : %f, discontinuitySequenceIndex=%" PRIu64, name, index.size(), totalDuration.inSeconds(), discontinuitySequenceIndex );
+						}
 					}
 				}
 				else if (ptr.removePrefix("-X-PROGRAM-DATE-TIME:"))
@@ -3619,7 +3625,6 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 		for (int iTrack = AAMP_TRACK_COUNT - 1; iTrack >= 0; iTrack--)
 		{
 			TrackState *ts = trackState[iTrack];
-
 			if(ts->enabled)
 			{
 				AampTime culled{};
@@ -3894,16 +3899,15 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 
 					if (FORMAT_INVALID != format)
 					{
-						StreamOperation demuxOp;
 						ts->streamOutputFormat = format;
 						// Check if auxiliary audio is muxed here, by confirming streamOutputFormat != FORMAT_INVALID
 						if (!aux->enabled && (aux->streamOutputFormat != FORMAT_INVALID) && (AAMP_NORMAL_PLAY_RATE == rate))
 						{
-							demuxOp = eStreamOp_DEMUX_VIDEO_AND_AUX;
+							ts->demuxOp = eStreamOp_DEMUX_VIDEO_AND_AUX;
 						}
 						else if ((trackState[eTRACK_AUDIO]->enabled) || (AAMP_NORMAL_PLAY_RATE != rate))
 						{
-							demuxOp = eStreamOp_DEMUX_VIDEO;
+							ts->demuxOp = eStreamOp_DEMUX_VIDEO;
 						}
 						else
 						{
@@ -3920,17 +3924,17 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 							if(!ISCONFIGSET(eAAMPConfig_AudioOnlyPlayback))
 							{
 								// For muxed tracks, demux audio and video
-								demuxOp = eStreamOp_DEMUX_ALL;
+								ts->demuxOp = eStreamOp_DEMUX_ALL;
 							}
 							else
 							{
 								// Audio only playback, disable video
-								demuxOp = eStreamOp_DEMUX_AUDIO;
+								ts->demuxOp = eStreamOp_DEMUX_AUDIO;
 								video->streamOutputFormat = FORMAT_INVALID;
 							}
 						}
-						AAMPLOG_WARN("StreamAbstractionAAMP_HLS::Init : Configure video TS track demuxing demuxOp %d", demuxOp);
-						ts->playContext = std::make_shared<TSProcessor>(aamp, demuxOp, mID3Handler, eMEDIATYPE_VIDEO,
+						AAMPLOG_WARN("StreamAbstractionAAMP_HLS::Init : Configure video TS track demuxing demuxOp %d", ts->demuxOp);
+						ts->playContext = std::make_shared<TSProcessor>(aamp, ts->demuxOp, mID3Handler, eMEDIATYPE_VIDEO,
 							std::static_pointer_cast<TSProcessor> (trackState[eMEDIATYPE_AUDIO]->playContext).get(),
 							std::static_pointer_cast<TSProcessor>(trackState[eMEDIATYPE_AUX_AUDIO]->playContext).get());
 						ts->SourceFormat(FORMAT_MPEGTS);
@@ -4941,6 +4945,7 @@ TrackState::TrackState(TrackType type, StreamAbstractionAAMP_HLS* parent, Privat
 		,mSkipSegmentOnError(true)
 		,playlistMediaType()
 		,fragmentEncChange(false)
+		,demuxOp(eStreamOp_NONE)
 {
 	playlist.Clear();
 	index.clear();

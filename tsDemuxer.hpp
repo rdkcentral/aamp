@@ -63,6 +63,7 @@ class PrivateInstanceAAMP;
 class Demuxer
 {
 private:
+	double ptsOffset;
 	PrivateInstanceAAMP *aamp;
 	int pes_state;
 	int pes_header_ext_len;
@@ -119,20 +120,25 @@ private:
 	void sendInternal(MediaProcessor::process_fcn_t processor);
 
 public:
+	void setPtsOffset( double offs )
+	{ // used to optimize hls/ts discontinuity handling
+		ptsOffset = offs;
+	}
+	
 	/**
 	 * @brief Demuxer Constructor
 	 * @param[in] aamp pointer to PrivateInstanceAAMP object associated with demux
 	 * @param[in] type Media type to be demuxed
 	 */
-	Demuxer(class PrivateInstanceAAMP *aamp, AampMediaType type)
+	Demuxer(class PrivateInstanceAAMP *aamp, AampMediaType type, bool optimizeMuxed )
 	 : aamp(aamp), pes_state(0),
 		pes_header_ext_len(0), pes_header_ext_read(0), pes_header("pes_header"), mMutex(),
 		es("es"), position(0), duration(0), base_pts{0}, current_pts{0},
 		current_dts{0}, type(type), trickmode(false), finalized_base_pts(false),
-		allowPtsRewind(false), first_pts{0}, update_first_pts(false), reached_steady_state(false)
+		allowPtsRewind(false), first_pts{0}, update_first_pts(false), reached_steady_state(false), ptsOffset(0.0)
 	{
 		//mutex in init
-		init(0, 0, false, true);
+		init(0, 0, false, true, optimizeMuxed );
 	}
 
 	/**
@@ -172,7 +178,7 @@ public:
 	 * @param[in] trickmode true if trickmode
 	 * @param[in] resetBasePTS true to reset base pts used for restamping
 	 */
-	void init(double position, double duration, bool trickmode, bool resetBasePTS);
+	void init(double position, double duration, bool trickmode, bool resetBasePTS, bool optimizeMuxed );
 
 	/**
 	 * @brief flush es buffer and reset demux state

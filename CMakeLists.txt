@@ -270,6 +270,7 @@ set(LIBAAMP_HEADERS AampCacheHandler.h
 					scte35/AampSCTE35.h
 					Accessibility.hpp
 					AampTrackWorker.h
+					test/gstTestHarness/tsdemux.hpp
 )
 
 set(LIBAAMP_SOURCES iso639map.cpp

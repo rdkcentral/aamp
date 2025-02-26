@@ -221,7 +221,9 @@ typedef enum
 	eAAMPConfig_ForceLLDFlow,						/**< Config to forcefully process LLD workflow even if they are live SLD */
 	eAAMPConfig_NoNativeAV,                                                 /**< Config to allow gstreamer be responsible for handling AV, bypassing use of native platform-specific audio-video handling */
 	eAAMPConfig_MonitorAV,						/**< enable background monitoring of audio/video positions to infer video freeze, audio drop, or av sync issues */
+	eAAMPConfig_HlsTsEnablePTSReStamp,
 	eAAMPConfig_BoolMaxValue						/**< Max value of bool config always last element */
+
 } AAMPConfigSettingBool;
 #define AAMPCONFIG_BOOL_COUNT (eAAMPConfig_BoolMaxValue)
 
