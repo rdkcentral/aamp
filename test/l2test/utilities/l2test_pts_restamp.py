@@ -81,7 +81,7 @@ class PtsRestampUtils:
 		assert self.segment_cnt >= self.max_segment_cnt, str
 
 class TrickModesPtsRestampUtils:
-	LOG_LINE = r'\[TrickModePtsRestamp\]\[\d+\]rate (-?\d+\.\d+), trickPlayFPS (\d+), initFragment ([01]), discontinuity ([01]), position (\d+\.\d+)s, duration (\d+\.\d+)s, restamped position (\d+\.\d+)s, duration (\d+\.\d+)s'
+	LOG_LINE = r'\[TrickModePtsRestamp\]\[\d+\]state (\d+) rate (-?\d+\.\d+) trickPlayFPS (\d+) initFragment ([01]) discontinuity ([01]) position (\d+\.\d+)s duration (\d+\.\d+)s restamped position (\d+\.\d+)s duration (\d+\.\d+)s'
 	last_position = 0.0
 	restamped_position = 0.0
 	restamped_duration = 0.0
@@ -101,20 +101,22 @@ class TrickModesPtsRestampUtils:
 		self.segment_cnt = 0
 		self.max_segment_cnt = 0
 		self.segment_cnt_reached = None
+		self.first_segment = True	# Assume first segment is correct, and calculate from there
 
 	def check_restamp(self,match,arg):
 		# Get the fields from the log line
-		rate = float(match.group(1))
-		trickPlayFPS = int(match.group(2))
-		initFragment = match.group(3)
-		discontinuity = match.group(4)
-		originalPosition = float(match.group(5))
-		originalDuration = float(match.group(6))
-		restampedPosition = float(match.group(7))
-		restampedDuration = float(match.group(8))
+		restampState = match.group(1)
+		rate = float(match.group(2))
+		trickPlayFPS = int(match.group(3))
+		initFragment = match.group(4)
+		discontinuity = match.group(5)
+		originalPosition = float(match.group(6))
+		originalDuration = float(match.group(7))
+		restampedPosition = float(match.group(8))
+		restampedDuration = float(match.group(9))
 
 		self.segment_cnt += 1
-		print(f"Trick modes PTS check ({self.segment_cnt}) state {self.state} rate {rate} trickPlayFPS {trickPlayFPS} initFragment {initFragment} discontinuity {discontinuity} originalPosition {originalPosition}s originalDuration {originalDuration}s restampedPosition {restampedPosition}s restampedDuration {restampedDuration}s")
+		print(f"Trick modes PTS check ({self.segment_cnt}) state {self.state} restampState {restampState} rate {rate} trickPlayFPS {trickPlayFPS} initFragment {initFragment} discontinuity {discontinuity} originalPosition {originalPosition}s originalDuration {originalDuration}s restampedPosition {restampedPosition}s restampedDuration {restampedDuration}s")
 
 		# Set the expected restamped postion to 0 for each init fragment
 		if initFragment == '1':
@@ -122,8 +124,9 @@ class TrickModesPtsRestampUtils:
 				self.state = "DISCONTINUITY"
 				self.restamped_position += self.restamped_duration
 			else:
-				self.state = "FIRST_FRAGMENT"
-				self.restamped_position = 0.0
+				if restampState == '1':   # First fragment
+					self.state = "FIRST_FRAGMENT"
+					self.restamped_position = 0.0
 		else:
 			if (self.state == "FIRST_FRAGMENT"):
 				self.restamped_duration = max (originalDuration / abs(rate), 1 / trickPlayFPS)
@@ -152,6 +155,8 @@ class TrickModesPtsRestampUtils:
 		if self.segment_cnt_reached != None and self.max_segment_cnt != 0 and self.segment_cnt > self.max_segment_cnt:
 			self.segment_cnt_reached()
 			self.segment_cnt_reached = None     # Clear the function provided so it is not called a second time
+
+		print(f"Trick modes PTS: next expected {self.restamped_position:.3f}s");
 
 	def check_num_segments(self):
 		str = f"Trick modes number of segments: restamped {self.segment_cnt}, minimum expected {self.max_segment_cnt}"

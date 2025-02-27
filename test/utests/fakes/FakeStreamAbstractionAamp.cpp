@@ -57,6 +57,10 @@ void StreamAbstractionAAMP::MuteSubtitles(bool mute)
 	}
 }
 
+void StreamAbstractionAAMP::ResetTrickModePtsRestamping()
+{
+}
+
 void StreamAbstractionAAMP::RefreshSubtitles()
 {
 }

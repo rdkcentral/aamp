@@ -390,6 +390,25 @@ TEST_P(MediaTrackDashTrickModePtsRestampValidPlayRateTests, ValidPlayRateTest)
 	// Verify the next two steady-state media segments
 	for (int i = 1; i <= 2; i++)
 	{
+		// Inject an init segment as if there was an ABR change in the "recorded" content. This should not reset the restamp PTS.
+		testFragment = CachedFragment{};
+		testFragment.initFragment = true;
+		testFragment.fragment.AppendBytes(FRAGMENT_TEST_DATA, strlen(FRAGMENT_TEST_DATA));
+		bufferedFragment = AddFragmentToBuffer(iframeTrack, testFragment, testParam.lowLatencyMode);
+		EXPECT_CALL(*g_mockIsoBmffHelper,
+					SetTimescale(AampGrowableBufferRefEq(std::cref(testFragment.fragment)),
+								 TRICKMODE_TIMESCALE)
+					).WillOnce(Return(true));
+		if (testParam.lowLatencyMode)
+		{	// PTS / DTS is not relevant for init segment, so ignore the values
+			EXPECT_CALL(*g_mockPrivateInstanceAAMP,
+						SendStreamTransfer(eMEDIATYPE_VIDEO,
+										   AampGrowableBufferPtrEq(&(testFragment.fragment)),
+										   _,  _,
+										   _, _, _));
+		}
+		ASSERT_TRUE(iframeTrack.InjectFragment());
+
 		testFragment = CachedFragment{};
 		testFragment.initFragment = false;
 		testFragment.duration = FRAGMENT_DURATION.inSeconds();

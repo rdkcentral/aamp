@@ -3326,9 +3326,9 @@ void PrivateInstanceAAMP::NotifyEOSReached()
 		{
 			rate = AAMP_NORMAL_PLAY_RATE;
 			AcquireStreamLock();
-			if (IsLocalAAMPTsb() && !GetLLDashChunkMode()) 
+			if (IsLocalAAMPTsb() && !GetLLDashChunkMode())
 			{
-				seek_pos_seconds = (aamp_GetCurrentTimeMS()/1000) - mLiveOffset; 
+				seek_pos_seconds = (aamp_GetCurrentTimeMS()/1000) - mLiveOffset;
 				AAMPLOG_INFO("Reached EOS during FF (aamp_GetCurrentTimeMS: %lld), so seeking to %fs",aamp_GetCurrentTimeMS(), seek_pos_seconds );
 				TuneHelper(eTUNETYPE_SEEK);
 			}
@@ -3899,7 +3899,7 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 	}
 	MediaTypeTelemetry mediaTypeTelemetry = aamp_GetMediaTypeForTelemetry(mediaType);
 	replace( remoteUrl, " ", "%20" ); // CURL gives error if passed URL containing whitespace
-	
+
 	int http_code = -1;
 	double total = 0;
 	bool ret = false;
@@ -3920,7 +3920,7 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 			maxDownloadAttempt += DEFAULT_DOWNLOAD_RETRY_COUNT;
 			break;
 	}
-	
+
 	if( mediaType == eMEDIATYPE_MANIFEST && ISCONFIGSET_PRIV(eAAMPConfig_CurlHeader) )
 	{ // append custom uri parameter with remoteUrl at the end before curl request if curlHeader logging enabled.
 		std::string uriParameter = GETCONFIGVALUE_PRIV(eAAMPConfig_URIParameter);
@@ -3938,7 +3938,7 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 	{
 		buffer->Clear();
 	}
-	
+
 	if (mDownloadsEnabled)
 	{
 		int downloadTimeMS = 0;
@@ -5244,6 +5244,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 		else
 		{
 			mpStreamAbstractionAAMP->SetTrickplayMode(rate);
+			mpStreamAbstractionAAMP->ResetTrickModePtsRestamping();
 			if (!GetLLDashChunkMode())
 			{
 				mpStreamAbstractionAAMP->SetVideoPlaybackRate(rate);
