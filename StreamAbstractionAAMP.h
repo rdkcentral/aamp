@@ -220,7 +220,6 @@ class IsoBmffHelper;
 class MediaTrack
 {
 public:
-
 	/**
 	 * @fn MediaTrack
 	 *
@@ -339,11 +338,11 @@ public:
 	virtual std::string& GetEffectivePlaylistUrl() = 0;
 
 	/**
-         * @fn SetEffectivePlaylistUrl
-         *
-         * @param string - original playlist URL
-         */
-        virtual void SetEffectivePlaylistUrl(std::string url) = 0;
+	 * @fn SetEffectivePlaylistUrl
+	 *
+	 * @param string - original playlist URL
+	 */
+	virtual void SetEffectivePlaylistUrl(std::string url) = 0;
 
 	/**
 	 * @fn GetLastPlaylistDownloadTime
@@ -401,7 +400,7 @@ public:
 
 	/**
 	 * @fn Enabled
-         * @retval true if enabled, false if disabled
+	 * @retval true if enabled, false if disabled
 	 */
 	bool Enabled();
 
@@ -514,7 +513,7 @@ public:
 	 * @fn abortWaitForVideoPTS
 	 * @return void
 	 */
-    virtual void abortWaitForVideoPTS() = 0;
+	virtual void abortWaitForVideoPTS() = 0;
 
 	/**
 	 * @fn resetPTSOnAudioSwitch
@@ -559,12 +558,12 @@ public:
 	 */
 	void SetCurrentBandWidth(int bandwidthBps);
 
-        /**
-         * @fn GetProfileIndexForBW
-         * @param mTsbBandwidth - bandwidth to identify profile index from list
-         * @retval profile index of the current bandwidth
-         */
-        int GetProfileIndexForBW(BitsPerSecond mTsbBandwidth);
+	/**
+	 * @fn GetProfileIndexForBW
+	 * @param mTsbBandwidth - bandwidth to identify profile index from list
+	 * @retval profile index of the current bandwidth
+	 */
+	int GetProfileIndexForBW(BitsPerSecond mTsbBandwidth);
 
 	/**
 	 * @fn GetCurrentBandWidth
@@ -580,12 +579,12 @@ public:
 	 */
 	double GetTotalFetchedDuration() { return totalFetchedDuration; };
 
-        /**
-     	 * @brief Get total duration of fetched fragments
-      	 *
-     	 * @return Total duration in seconds
-     	 */
-    	 double GetTotalInjectedChunksDuration() { return totalInjectedChunksDuration; };
+	/**
+	 * @brief Get total duration of fetched fragments
+	 *
+	 * @return Total duration in seconds
+	 */
+	double GetTotalInjectedChunksDuration() { return totalInjectedChunksDuration; };
 
 	/**
 	 * @brief Check if discontinuity is being processed
@@ -697,7 +696,7 @@ public:
 	 */
 	void LoadNewSubtitle(bool val);
 
-/**
+	/**
 	 * @brief To set Track's Fetch and Inject duration after playlist update
 	 */
 	void OffsetTrackParams(double deltaFetchedDuration, double deltaInjectedDuration, int deltaFragmentsDownloaded);
@@ -750,8 +749,13 @@ public:
 	 */
 	void  FlushSubtitlePositionDuringTrackSwitch(  CachedFragment* cachedFragment );
 
-protected:
+	/**
+	 * @fn ResetTrickModePtsRestamping
+	 * @brief Reset trick mode PTS restamping
+	 */
+	void ResetTrickModePtsRestamping(void);
 
+protected:
 	/**
 	 * @fn UpdateTSAfterInject
 	 *
@@ -922,7 +926,7 @@ private:
 	std::condition_variable fragmentInjected;    	/**< Signaled after a fragment is injected*/
 	std::thread fragmentInjectorThreadID;  	/**< Fragment injector thread id*/
 	std::condition_variable fragmentChunkInjected;	/**< Signaled after a fragment is injected*/
-    	std::thread bufferMonitorThreadID;    	/**< Buffer Monitor thread id */
+	std::thread bufferMonitorThreadID;    	/**< Buffer Monitor thread id */
 	std::thread subtitleClockThreadID;    	/**< subtitle clock synchronisation thread id */
 	int totalFragmentsDownloaded;       	/**< Total fragments downloaded since start by track*/
 	int totalFragmentChunksDownloaded;      /**< Total fragments downloaded since start by track*/
@@ -1076,12 +1080,12 @@ public:
 		return 0.0;
 	}
 
-        /**
-         *   @brief  Returns AvailabilityStartTime from the manifest
-         *
-         *   @retval double . AvailabilityStartTime
-         */
-        virtual double GetAvailabilityStartTime()
+	/**
+	 *   @brief  Returns AvailabilityStartTime from the manifest
+	 *
+	 *   @retval double . AvailabilityStartTime
+	 */
+	virtual double GetAvailabilityStartTime()
 	{
 		return 0.0;
 	}
@@ -1222,7 +1226,7 @@ public:
 		return -1.0;
 	}
 
-    	/**
+	/**
 	 *   @fn IsLowestProfile
 	 *
 	 *   @param currentProfileIndex - current profile index to be checked.
@@ -1238,7 +1242,7 @@ public:
 	 */
 	int getOriginalCurlError(int http_error);
 
-    	/**
+	/**
 	 *   @fn CheckForRampDownProfile
 	 *
 	 *   @param http_error - Http error code
@@ -1401,6 +1405,12 @@ public:
 	void SetTrickplayMode(float rate) { trickplayMode = (rate != AAMP_NORMAL_PLAY_RATE); }
 
 	/**
+	 * @fn ResetTrickModePtsRestamping
+	 * @brief Reset trick mode PTS restamping
+	 */
+	void ResetTrickModePtsRestamping(void);
+
+	/**
 	 * @fn SetVideoPlaybackRate
 	 * @brief Set the Video playback rate
 	 *
@@ -1459,14 +1469,15 @@ public:
 		return aamp->mhAbrManager.getProfileCount();
 	}
 
-       /**
-       * @brief Get profile index for TsbBandwidth
-       * @param mTsbBandwidth - bandwidth to identify profile index from list
-       * @retval profile index of the current bandwidth
-       */
-       virtual int GetProfileIndexForBandwidth( BitsPerSecond mTsbBandwidth) {
-		   return aamp->mhAbrManager.getBestMatchedProfileIndexByBandWidth((int)mTsbBandwidth);
-	   }
+	/**
+	 * @brief Get profile index for TsbBandwidth
+	 * @param mTsbBandwidth - bandwidth to identify profile index from list
+	 * @retval profile index of the current bandwidth
+	 */
+	virtual int GetProfileIndexForBandwidth(BitsPerSecond mTsbBandwidth)
+	{
+		return aamp->mhAbrManager.getBestMatchedProfileIndexByBandWidth((int)mTsbBandwidth);
+	}
 
 	BitsPerSecond GetCurProfIdxBW(){
 		return aamp->mhAbrManager.getBandwidthOfProfile(this->currentProfileIndex);
@@ -1722,33 +1733,32 @@ public:
 		return std::vector<StreamInfo*>();
 	}
 
-        /**
-     	 *   @brief Get available thumbnail bitrates.
-     	 *
-     	 *   @return available thumbnail bitrates.
-     	 */
-    	virtual std::vector<StreamInfo*> GetAvailableThumbnailTracks(void)
-		{ // STUB
-			return std::vector<StreamInfo*>();
-		}
+	/**
+	 *   @brief Get available thumbnail bitrates.
+	 *
+	 *   @return available thumbnail bitrates.
+	 */
+	virtual std::vector<StreamInfo *> GetAvailableThumbnailTracks(void)
+	{ // STUB
+		return std::vector<StreamInfo *>();
+	}
 
-
-    	/**
-     	 *   @brief Set thumbnail bitrate.
-    	 *
-     	 *   @return none.
-     	 */
+	/**
+	 *   @brief Set thumbnail bitrate.
+	 *
+	 *   @return none.
+	 */
 	virtual bool SetThumbnailTrack(int thumbnailIndex)
 	{
 		(void) thumbnailIndex;	/* unused */
 		return false;
 	}
 
-    	/**
-     	 *   @brief Get thumbnail data for duration value.
-     	 *
-     	 *   @return thumbnail data.
-     	 */
+	/**
+	 *   @brief Get thumbnail data for duration value.
+	 *
+	 *   @return thumbnail data.
+	 */
 	virtual std::vector<ThumbnailData> GetThumbnailRangeData(double start, double end, std::string *baseurl, int *raw_w, int *raw_h, int *width, int *height)
 	{
 		(void)start;
@@ -1762,36 +1772,35 @@ public:
 		return std::vector<ThumbnailData>();
 	}
 
-
-    	/**
-     	 * @brief SetAudioTrack set the audio track using index value. [currently for OTA]
-     	 *
-     	 * @param[in] index -  Index of audio track
-     	 * @return void
-     	 */
-    	virtual void SetAudioTrack (int index) {}
-
-    	/**
-     	 * @brief SetAudioTrackByLanguage set the audio language. [currently for OTA]
-     	 *
-     	 * @param[in] lang Language to be set
-     	 * @param[in]
-     	 */
-    	virtual void SetAudioTrackByLanguage(const char* lang) {}
-
-    	/**
-     	 * @brief SetPreferredAudioLanguages set the preferred audio languages and rendition. [currently for OTA]
-     	 *
-     	 * @param[in]
-     	 * @param[in]
-     	 */
-    	virtual void SetPreferredAudioLanguages() {}
+	/**
+	 * @brief SetAudioTrack set the audio track using index value. [currently for OTA]
+	 *
+	 * @param[in] index -  Index of audio track
+	 * @return void
+	 */
+	virtual void SetAudioTrack(int index) {}
 
 	/**
-     	 * @fn MuteSubtitles
-     	 *
-     	 * @param[in] mute mute/unmute
-     	 */
+	 * @brief SetAudioTrackByLanguage set the audio language. [currently for OTA]
+	 *
+	 * @param[in] lang Language to be set
+	 * @param[in]
+	 */
+	virtual void SetAudioTrackByLanguage(const char *lang) {}
+
+	/**
+	 * @brief SetPreferredAudioLanguages set the preferred audio languages and rendition. [currently for OTA]
+	 *
+	 * @param[in]
+	 * @param[in]
+	 */
+	virtual void SetPreferredAudioLanguages() {}
+
+	/**
+	 * @fn MuteSubtitles
+	 *
+	 * @param[in] mute mute/unmute
+	 */
 	void MuteSubtitles(bool mute);
 
 	/**
@@ -1802,15 +1811,14 @@ public:
 	void WaitForVideoTrackCatchupForAux();
 
 	/**
-     	 *   @brief Set Content Restrictions
-     	 *   @param[in] restrictions - restrictions to be applied
-     	 *
-     	 *   @return void
-     	 */
+	 *   @brief Set Content Restrictions
+	 *   @param[in] restrictions - restrictions to be applied
+	 *
+	 *   @return void
+	 */
 	virtual void ApplyContentRestrictions(std::vector<std::string> restrictions){};
 
-
-    	/**
+	/**
 	 *   @brief Disable Content Restrictions - unlock
 	 *   @param[in] grace - seconds from current time, grace period, grace = -1 will allow an unlimited grace period
 	 *   @param[in] time - seconds from current time,time till which the channel need to be kept unlocked
@@ -1820,9 +1828,9 @@ public:
 	virtual void DisableContentRestrictions(long grace, long time, bool eventChange){};
 
 	/**
-     	 *   @brief Enable Content Restrictions - lock
-     	 *   @return void
-     	 */
+	 *   @brief Enable Content Restrictions - lock
+	 *   @return void
+	 */
 	virtual void EnableContentRestrictions(){};
 
 	/**
@@ -1874,51 +1882,51 @@ public:
 	//Apis for sidecar caption support
 
 	/**
-         *   @brief Initialize subtitle parser for sidecar support
-         *
-         *   @param data - subtitle data received from application
-         *   @return void
-         */
-	virtual void InitSubtitleParser(char *data) { };
+	 *   @brief Initialize subtitle parser for sidecar support
+	 *
+	 *   @param data - subtitle data received from application
+	 *   @return void
+	 */
+	virtual void InitSubtitleParser(char *data) {};
 
 	/**
-         *   @brief reset subtitle parser created for sidecar support
-         *
-         *   @return void
-         */
-	virtual void ResetSubtitle() { };
+	 *   @brief reset subtitle parser created for sidecar support
+	 *
+	 *   @return void
+	 */
+	virtual void ResetSubtitle() {};
 
 	/**
-         *   @brief mute subtitles on pause
-         *
-         *   @return void
-         */
-	virtual void MuteSubtitleOnPause() { };
+	 *   @brief mute subtitles on pause
+	 *
+	 *   @return void
+	 */
+	virtual void MuteSubtitleOnPause() {};
 
 	/**
-         *   @brief resume subtitles on play
-         *
-         *   @param mute - mute status
-         *   @param data - subtitle data received from application
-         *   @return void
-         */
-	virtual void ResumeSubtitleOnPlay(bool mute, char *data) { };
+	 *   @brief resume subtitles on play
+	 *
+	 *   @param mute - mute status
+	 *   @param data - subtitle data received from application
+	 *   @return void
+	 */
+	virtual void ResumeSubtitleOnPlay(bool mute, char *data) {};
 
 	/**
-         *   @brief mute/unmute sidecar subtitles
-         *   @param mute - mute/unmute
-         *
-         *   @return void
-         */
+	 *   @brief mute/unmute sidecar subtitles
+	 *   @param mute - mute/unmute
+	 *
+	 *   @return void
+	 */
 	virtual void MuteSidecarSubtitles(bool mute) { };
 
 	/**
-         *   @brief resume subtitles after trickplay
-         *
-         *   @param mute - mute status
-         *   @param data - subtitle data received from application
-         *   @return void
-         */
+	 *   @brief resume subtitles after trickplay
+	 *
+	 *   @param mute - mute status
+	 *   @param data - subtitle data received from application
+	 *   @return void
+	 */
 	virtual void ResumeSubtitleAfterSeek(bool mute, char *data) { };
 
 	/**

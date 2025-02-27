@@ -1089,6 +1089,24 @@ bool MediaTrack::ProcessFragmentChunk()
 	return true;
 }
 
+void StreamAbstractionAAMP::ResetTrickModePtsRestamping(void)
+{
+	for (int i = 0; i < AAMP_TRACK_COUNT; i++)
+	{
+		auto track = GetMediaTrack(static_cast<TrackType>(i));
+		if(nullptr != track)
+		{
+			track->ResetTrickModePtsRestamping();
+		}
+	}
+}
+
+void MediaTrack::ResetTrickModePtsRestamping(void)
+{
+	mTrickmodeState = TrickmodeState::UNDEF;
+	mRestampedPts = 0.0;
+}
+
 void MediaTrack::TrickModePtsRestamp(AampGrowableBuffer &fragment, double &position, double &duration,
 									 bool initFragment, bool  discontinuity)
 {
@@ -1122,9 +1140,10 @@ void MediaTrack::TrickModePtsRestamp(AampGrowableBuffer &fragment, double &posit
 		}
 		else
 		{
-			// Initialize the restamped pts timeline when handling the first media fragment
-			mTrickmodeState = TrickmodeState::FIRST_FRAGMENT;
-			mRestampedPts = 0.0;
+			if (TrickmodeState::UNDEF == mTrickmodeState)
+			{
+				mTrickmodeState = TrickmodeState::FIRST_FRAGMENT;
+			}
 		}
 	}
 	else // Media segment
@@ -1173,8 +1192,9 @@ void MediaTrack::TrickModePtsRestamp(AampGrowableBuffer &fragment, double &posit
 	// Update cached values for GStreamer
 	position = mRestampedPts.inSeconds();
 
-	AAMPLOG_INFO("rate %f, trickPlayFPS %d, initFragment %d, discontinuity %d, "
-				 "position %lfs, duration %lfs, restamped position %lfs, duration %lfs",
+	AAMPLOG_INFO("state %d rate %f trickPlayFPS %d initFragment %d discontinuity %d "
+				 "position %lfs duration %lfs restamped position %lfs duration %lfs",
+				 static_cast<int>(mTrickmodeState),
 				 aamp->rate, trickPlayFPS, initFragment, discontinuity,
 				 inFragmentPosition.inSeconds(), inFragmentDuration.inSeconds(),
 				 position, duration);
