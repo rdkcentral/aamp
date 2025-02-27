@@ -925,12 +925,15 @@ void AampConfig::ApplyDeviceCapabilities( PlatformType platform )
 		case ePLATFORM_AMLOGIC:
 			SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_NoNativeAV, true);
 			break;
-			
+
 		case ePLATFORM_REALTEK:
 			SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_SyncAudioFragments, true);		// Handled in HLS::Init to avoid audio loss while seeking HLS/TS AV of different duration w/o affecting VOD Discontinuities
 			SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_RequiredQueuedFrames, 3 + 1);
+			SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_MaxFragmentCached, 3);
+
+			AAMPLOG_WARN("MaxFragmentCached: %d",GetConfigValue(eAAMPConfig_MaxFragmentCached));
 			break;
-			
+
 		case ePLATFORM_BROADCOM:
 			SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_DisableAC4, true);
 			if (!AAMPGstPlayer::IsMS2V12Supported())
@@ -939,7 +942,7 @@ void AampConfig::ApplyDeviceCapabilities( PlatformType platform )
 				SetConfigValue(AAMP_TUNE_SETTING, eAAMPConfig_EnableLiveLatencyCorrection, false);
 			}
 			break;
-			
+
 		case ePLATFORM_DEFAULT:
 			SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_EnableLowLatencyCorrection, false);
 			SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_UseWesterosSink, false );
