@@ -3445,7 +3445,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::InitTsbReader(TuneType tuneType)
 		{
 			seekPosition = position;
 			mFirstPTS = tsbSessionManager->GetTsbReader(eMEDIATYPE_VIDEO)->GetFirstPTS();
-			AAMPLOG_WARN("Updated position: %lfs, pts:%lfs", seekPosition, mFirstPTS);
+			AAMPLOG_MIL("Updated position: %lfs, pts:%lfs", seekPosition, mFirstPTS);
 		}
 		else
 		{
@@ -10009,7 +10009,7 @@ void StreamAbstractionAAMP_MPD::TsbReader()
 	double delta = 0;
 	//bool adStateChanged = false;
 
-	AAMPLOG_WARN("aamp: ready to read fragments");
+	AAMPLOG_MIL("aamp: ready to read fragments");
 	/*
 	 * Ready to collect fragments
 	 */
@@ -10086,7 +10086,7 @@ void StreamAbstractionAAMP_MPD::TsbReader()
 		}
 	}
 	while (!exitLoop);
-	AAMPLOG_WARN("TsbReader done");
+	AAMPLOG_MIL("TsbReader done");
 }
 
 /**
