@@ -30,6 +30,11 @@ from l2test_pts_restamp import PtsRestampUtils
 from l2test_window_server import WindowServer
 
 ###############################################################################
+aamp = None
+# Callbacks used by the tests
+def send_command(match, command):
+        aamp.sendline(command)  # Send the command
+
 archive_url = "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/streams/L2/AAMP-CDAI-8004_ShortAd/content.tar.xz"
 
 pts_restamp_utils = PtsRestampUtils()
@@ -52,7 +57,7 @@ TESTDATA1 = {
     #Source ad is 120 secs, all ads will sum up to 120 secs
     "expect_list": [
         {"expect": r"\[Tune\]\[\d+\]FOREGROUND PLAYER\[0\] aamp_tune: attempt: 1 format: DASH URL: http://localhost:8080/content/main.mpd", "max": 3},
-        {"expect": r'RestampPts.*?\[(\w+)\] timeScale (\d+) before (\d+) after (\d+) duration (\d+) ([\w:/\.\-\?=]+)\r\n', "max":300, "callback" : pts_restamp_utils.check_restamp},
+        {"expect": pts_restamp_utils.LOG_LINE, "callback" : pts_restamp_utils.check_restamp},
         {"expect": r"\[FoundEventBreak\]\[\d+\]\[CDAI\] Found Adbreak on period\[2\] Duration\[120000\]", "max": 150},
         {"expect": r"\[AAMPCLI\] \[CDAI\] Dynamic ad start signalled", "max": 150},
         {"expect": r"\[AAMPCLI\] AAMP_EVENT_TIMED_METADATA place advert breakId\=2 adId\=adId1 url\=.*?ad_30s.mpd", "max": 150},
@@ -88,7 +93,7 @@ TESTDATA2 = {
     #Source ad is 120 secs but all ads will sum up to 100 secs
     "expect_list": [
         {"expect": r"\[Tune\]\[\d+\]FOREGROUND PLAYER\[0\] aamp_tune: attempt: 1 format: DASH URL: http://localhost:8080/content/main.mpd", "max": 3},
-        {"expect": r'RestampPts.*?\[(\w+)\] timeScale (\d+) before (\d+) after (\d+) duration (\d+) ([\w:/\.\-\?=]+)\r\n', "max":400, "callback" : pts_restamp_utils.check_restamp},
+        {"expect": pts_restamp_utils.LOG_LINE, "callback" : pts_restamp_utils.check_restamp},
         {"expect": r"\[FoundEventBreak\]\[\d+\]\[CDAI\] Found Adbreak on period\[2\] Duration\[120000\]", "max": 150},
         {"expect": r"\[AAMPCLI\] \[CDAI\] Dynamic ad start signalled", "max": 150},
         {"expect": r"\[AAMPCLI\] AAMP_EVENT_TIMED_METADATA place advert breakId\=2 adId\=adId1 url\=.*?ad_30s.mpd", "max": 150},
@@ -107,37 +112,153 @@ TESTDATA2 = {
         {"expect": re.escape("Period ID changed from '2-113' to '2' [BasePeriodId='2']"), "min": 200, "max": 260},
         # Make sure we log these segments so restamp values can be checked
         # The ptsoffset calculated value on returning to period 2
-        {"expect": r"UpdatePtsOffset.*?Id 2 mPTSOffsetSec 0.000000 mNextPts -70.000000 timelineStartSec 142.000000", "min": 220, "max": 400},
+        {"expect": r"UpdatePtsOffset.*?Id 2 mPTSOffsetSec 0.000000 mNextPts -70.000000 timelineStartSec 142.000000", "min": 220},
         # First seg from base period 2 after returning from ad should be 122
-        {"expect": r"HttpRequestEnd.*?(1080|720|480|360)p_121.m4s\?live=true", "min": 220, "max": 400, "not_expected":True},
-        {"expect": r"HttpRequestEnd.*?(1080|720|480|360)p_122.m4s\?live=true", "min": 220, "max": 400},
+        {"expect": r"HttpRequestEnd.*?(1080|720|480|360)p_121.m4s\?live=true", "min": 220, "not_expected":True},
+        {"expect": r"HttpRequestEnd.*?(1080|720|480|360)p_122.m4s\?live=true", "min": 220},
         # Last seg from base period 2
-        {"expect": r"HttpRequestEnd.*?(1080|720|480|360)p_131.m4s\?live=true", "min": 220, "max": 400},
+        {"expect": r"HttpRequestEnd.*?(1080|720|480|360)p_131.m4s\?live=true", "min": 220},
         # first seg from base period 3
-        {"expect": r"HttpRequestEnd.*?(1080|720|480|360)p_132.m4s\?live=true", "min": 220, "max": 400},
+        {"expect": r"HttpRequestEnd.*?(1080|720|480|360)p_132.m4s\?live=true", "min": 220},
         # End the test
-        {"expect": r"HttpRequestEnd.*?(1080|720|480|360)p_133.m4s\?live=true", "min": 220, "max": 400, "end_of_test":True},
+        {"expect": r"HttpRequestEnd.*?(1080|720|480|360)p_133.m4s\?live=true", "min": 220, "end_of_test":True},
     ]
 
 }
+# TestCase3 : Test case for seeking on ads
+# Test content is as follows : described as -> <N>th period <duration of period> seconds -> <scte35 marker duration> seconds ad
+# - Period 0: 30 seconds long, containing no ads
+# - Period 1: 30 seconds long, with a 20-second ad and a 10-second ad
+# - Period 2: 10 seconds long, with a single 10-second ad.
+# - Period 4: 30 seconds long, containing no ads
+TESTDATA3 = {
+    "title": "Seek on CDAI back to back source period CDAI substitution",
+    "max_test_time_seconds": 180,
+    "aamp_cfg": "client-dai=true\nenablePTSReStamp=true\ninfo=true\nprogress=true\n",
+    "archive_url": archive_url,
+    "archive_server": { 'server_class': WindowServer},
+    "url": "http://localhost:8080/content/BackToBackAd.mpd?live=true&livewindow=120",
+    "cmdlist": [
+        "adtesting",
+    	# Add a 20-second ad,10-second ad to Period 1
+        "advert map 1 http://localhost:8080/content/ad_20s.mpd",
+        "advert map 1 http://localhost:8080/content/ad_10s.mpd",
+        # Add a 10-second ad to Period 2
+        "advert map 2 http://localhost:8080/content/ad_10s.mpd",
+    ],
 
-TESTLIST = [TESTDATA1,TESTDATA2]
+    "expect_list": [
+        {"expect": r"\[Tune\]\[\d+\]FOREGROUND PLAYER\[0\] aamp_tune:", "max": 3},
+        {"expect": pts_restamp_utils.LOG_LINE, "max":70, "callback" : pts_restamp_utils.check_restamp},
+        #Starting adbreak in 'period 1'
+        {"expect": r"\[FulFillAdObject\]\[\d+\]New Ad successfully for periodId : 1 added\[Id\=adId1, url\=http://localhost:8080/content/ad_20s.mpd, durationMs\=20000\]."},
+        {"expect": r"\[FulFillAdObject\]\[\d+\]New Ad successfully for periodId : 1 added\[Id\=adId2, url\=http://localhost:8080/content/ad_10s.mpd, durationMs\=10000]"},
+        {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: STARTING ADBREAK\[1\] AdIdx\[0\] Found at Period\[1\]."},
+        {"expect": re.escape("Period ID changed from '0' to '0-114' [BasePeriodId='1']"),"min": 20, "max": 30},
+        {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: Ad finished at Period. Waiting to catchup the base offset.\[idx\=0\] \[period\=1\]"},
+        {"expect": re.escape("Period ID changed from '0-114' to '1-114' [BasePeriodId='1']"),"min": 30, "max": 50},
+        {"expect": r"\[PlaceAds\]\[\d+\]\[CDAI\] Placement Done: \{AdbreakId: 1, duration: 30000, endPeriodId: 2, endPeriodOffset: 0, \#Ads: 2,"},
+        #Starting adbreak in 'period 2'
+        {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: STARTING ADBREAK\[2\] AdIdx\[0\] Found at Period\[2\]."},
+        {"expect": re.escape("Period ID changed from '1-114' to '2-114' [BasePeriodId='2']"),"min": 50, "max": 60},
+        {"expect": r"\[PlaceAds\]\[\d+\]\[CDAI\] Placement Done: \{AdbreakId: 2, duration: 10000, endPeriodId: 4, endPeriodOffset: 0, \#Ads: 1,"},
+        {"expect": re.escape("Period ID changed from '2-114' to '4' [BasePeriodId='4']"),"min": 50, "max": 80},
+        # Confirm the transition from the content to the ad by checking the period ID change
+        # Seek to pos 55
+        {"expect": r"aamp pos: \[0..7[2-6]..*..1.00\]","callback_once": send_command, "callback_arg": "seek 55"},
+        {"expect": r"aamp_Seek\(55.000000\)"},
+        # Seek to 'period 1', seeked 25 seconds from period 1 and started to download the last 5 seconds ad period
+        {"expect": r"HttpRequestEnd: .*?http://localhost:8080/content/ad_20/(1080|720|480|360)p_003.m4s","min": 70, "max": 80},
+        # Confirm the transition from the content to the ad by checking the period ID change
+        {"expect": re.escape("Period ID changed from '1-114' to '2-114' [BasePeriodId='2']"),"min": 70, "max": 80},
+        {"expect": r"aamp pos: \[0..8[4-8]..*..1.00\]","callback_once": send_command, "callback_arg": "seek 30","min": 100, "max": 140},
+        # Seek to pos 30
+        {"expect": r"aamp_Seek\(30.000000\)"},
+        # Seek to 'period 1', start to download 20s ad
+        {"expect": r"HttpRequestEnd: .*?http://localhost:8080/content/ad_20/(1080|720|480|360)p_001.m4s","min": 100, "max": 140},
+        {"expect": re.escape("Period ID changed from '0-114' to '1-114' [BasePeriodId='1']"),"min": 100, "max": 140},
+        {"expect": re.escape("Period ID changed from '1-114' to '2-114' [BasePeriodId='2']"),"min": 100, "max": 140},
+        {"expect": re.escape("Period ID changed from '2-114' to '4' [BasePeriodId='4']"),"min": 100, "max": 140},
+        {"expect": r"HttpRequestEnd.*?(1080|720|480|360)p_043.m4s\?live=true","min": 100,"end_of_test": True},
+    ]
+}
+# TestCase4 : Test case for trickplay functionality, particularly performing trickplay within CDAI ads, and source period, covers rewind and the fast forward operations
+# Test content is as follows : described as -> <N>th period <duration of period> seconds -> <scte35 marker duration> seconds ad
+# - Period 0: 30 seconds long, containing no ads
+# - Period 1: 30 seconds long, with a 20-second ad and a 10-second ad
+# - Period 2: 10 seconds long, with a single 10-second ad.
+# - Period 4: 30 seconds long, containing no ads
+TESTDATA4 = {
+    "title": "Trickplay on CDAI back to back source period CDAI substitution",
+    "max_test_time_seconds": 180,
+    "aamp_cfg": "client-dai=true\nenablePTSReStamp=true\ninfo=true\nprogress=true\n",
+    "archive_url": archive_url,
+    "archive_server": { 'server_class': WindowServer},
+    "url": "http://localhost:8080/content/BackToBackAd.mpd?live=true&livewindow=120",
+    "cmdlist": [
+        "adtesting",
+    	# Add a 30-second ad to Period 1
+        "advert map 1 http://localhost:8080/content/ad_20s.mpd",
+        "advert map 1 http://localhost:8080/content/ad_10s.mpd",
+        # Add a 10-second ad to Period 2
+        "advert map 2 http://localhost:8080/content/ad_10s.mpd",
+    ],
+
+    "expect_list": [
+        {"expect": r"\[Tune\]\[\d+\]FOREGROUND PLAYER\[0\] aamp_tune:", "max": 3}, 
+        {"expect": pts_restamp_utils.LOG_LINE, "max":60, "callback" : pts_restamp_utils.check_restamp},
+
+        #Starting adbreak in 'period 1'
+        {"expect": r"\[FulFillAdObject\]\[\d+\]New Ad successfully for periodId : 1 added\[Id\=adId1, url\=http://localhost:8080/content/ad_20s.mpd, durationMs\=20000\]."},
+        {"expect": r"\[FulFillAdObject\]\[\d+\]New Ad successfully for periodId : 1 added\[Id\=adId2, url\=http://localhost:8080/content/ad_10s.mpd, durationMs\=10000]"},
+        {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: STARTING ADBREAK\[1\] AdIdx\[0\] Found at Period\[1\]."},
+        {"expect": re.escape("Period ID changed from '0' to '0-114' [BasePeriodId='1']"),"min": 20, "max": 30},
+        {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: Ad finished at Period. Waiting to catchup the base offset.\[idx\=0\] \[period\=1\]"},
+        {"expect": re.escape("Period ID changed from '0-114' to '1-114' [BasePeriodId='1']"),"min": 30, "max": 50},
+        {"expect": r"\[PlaceAds\]\[\d+\]\[CDAI\] Placement Done: \{AdbreakId: 1, duration: 30000, endPeriodId: 2, endPeriodOffset: 0, \#Ads: 2,"},
+        #Starting adbreak in 'period 2'
+        {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: STARTING ADBREAK\[2\] AdIdx\[0\] Found at Period\[2\]."},
+        {"expect": re.escape("Period ID changed from '1-114' to '2-114' [BasePeriodId='2']"),"min": 50, "max": 60},
+        {"expect": r"\[PlaceAds\]\[\d+\]\[CDAI\] Placement Done: \{AdbreakId: 2, duration: 10000, endPeriodId: 4, endPeriodOffset: 0, \#Ads: 1,"},
+        {"expect": re.escape("Period ID changed from '2-114' to '4' [BasePeriodId='4']"),"min": 50, "max": 80},
+        # Confirm the transition from the content to the ad by checking the period ID change
+        {"expect": r"aamp pos: \[0..6[4-8]..*..1.00\]","callback_once": send_command, "callback_arg": "rew 2"},
+        {"expect": r"aamp_SetRate rate\(1.000000\)->\(-2.000000\)"},
+        # Confirm the period transitions happening properly during rewind
+        {"expect": re.escape("Period ID changed from '2-114' to '1-114' [BasePeriodId='1']"),"min": 60, "max": 80},
+        {"expect": re.escape("Period ID changed from '1-114' to '0-114' [BasePeriodId='1']"),"min": 60, "max": 80},
+        {"expect": re.escape("Period ID changed from '0-114' to '0' [BasePeriodId='0']"),"min": 60, "max": 80},
+        #To ensure the 'playrate -2'
+        {"expect": r"aamp pos: \[0..[3-4][0-9]...*.-2.00\]","min": 70, "max": 100},
+        # Reach end of rewind
+        {"expect": r"on BOS"},
+        # Let the playback resume and reach 10 seconds before starting ff2
+        {"expect": r"aamp pos: \[0..1[1-7]..0..-1..*.1.00\]","callback_once": send_command, "callback_arg": "ff 2","min": 100, "max": 130},
+        {"expect": r"aamp_SetRate rate\(1.000000\)->\(2.000000\)"},
+        # Confirm the period transitions happening properly during fastforward
+        {"expect": re.escape("Period ID changed from '0' to '0-114' [BasePeriodId='1']"),"min": 100, "max": 120},
+        {"expect": re.escape("Period ID changed from '0-114' to '1-114' [BasePeriodId='1']"),"min": 100, "max": 120},
+        {"expect": re.escape("Period ID changed from '1-114' to '2-114' [BasePeriodId='2']"),"min": 100, "max": 120},
+        {"expect": re.escape("Period ID changed from '2-114' to '4' [BasePeriodId='4']"),"min": 100, "max": 120},
+        # Quit the test execution once it reaches the normal playrate
+        {"expect": r"aamp pos: \[0..9[1-5]...*.1.00\]","min": 130,"end_of_test": True},
+    ]
+}
+
+
+TESTLIST = [TESTDATA1,TESTDATA2,TESTDATA3,TESTDATA4]
 @pytest.fixture(params=TESTLIST)
 def test_data(request):
     return request.param
 
 def test_8004(aamp_setup_teardown, test_data):
-    global pts_restamp_utils
-    aamp = None
+    global aamp,pts_restamp_utils
 
     pts_restamp_utils.reset()
     pts_restamp_utils.tolerance_min = 0.7
     pts_restamp_utils.max_segment_cnt = 20
-    
     aamp = aamp_setup_teardown
     aamp.set_paths(os.path.abspath(getsourcefile(lambda: 0)))
-
     aamp.run_expect_b(test_data)
-
     pts_restamp_utils.check_num_segments()
 
