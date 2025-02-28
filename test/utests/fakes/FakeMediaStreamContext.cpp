@@ -110,5 +110,8 @@ bool MediaStreamContext::CacheTsbFragment(std::shared_ptr<CachedFragment> fragme
 	{
 		return g_mockMediaStreamContext->CacheTsbFragment(fragment);
 	}
-    	return 0;
+	else
+	{
+		return false;
+	}
 }

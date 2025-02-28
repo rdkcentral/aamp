@@ -109,7 +109,7 @@ public:
 	 *
 	 * @return bool - true if first download
 	 */
-	bool IsFirstDownload() { return (mStartPosition == mUpcomingFragmentPosition); }
+	bool IsFirstDownload();
 
 	/**
 	 * @fn TrackEnabled
@@ -137,7 +137,7 @@ public:
 	 *
 	 * @return float - Playback rate
 	 */
-	float GetPlaybackRate() { return mCurrentRate; }
+	float GetPlaybackRate();
 
 	/**
 	 * @fn IsDiscontinuous
@@ -206,6 +206,7 @@ public:
 	bool mTrackEnabled;
 	std::shared_ptr<AampTsbDataManager> mDataMgr;
 	double mCurrentBandwidth;
+	TsbInitDataPtr mLastInitFragmentData;
 };
 
 #endif // AAMP_TSBREADER_H

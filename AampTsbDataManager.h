@@ -94,12 +94,12 @@ private:
 public:
 	/**
 	 *   @fn incrementUser
-	 *   @return Increment count of fragments used
+	 *   @brief Increment count of fragments used
 	 */
 	void incrementUser() { users++; };
 	/**
 	 *   @fn decrementUser
-	 *   @return decrement count of fragments used
+	 *   @brief Decrement count of fragments used
 	 */
 	void decrementUser() { users--; };
 	/**
@@ -124,19 +124,22 @@ public:
 
 	/**
 	 * @fn GetBandWidth
-	 * @return double bandwidth information
+	 * @brief Get the bandwidth information
+	 * @return Bandwidth information in bits per second
 	 */
 	BitsPerSecond GetBandWidth() { return fragStreamInfo.bandwidthBitsPerSecond; }
 
 	/**
 	 * @fn GetCacheFragStreamInfo
-	 * @return StreamInfo Fragment stream info
+	 * @brief Get the cached fragment stream info
+	 * @return Fragment stream info
 	 */
 	const StreamInfo& GetCacheFragStreamInfo() { return fragStreamInfo; }
 
 	/**
 	 * @fn GetProfileIndex
-	 * @return int ABR profile index
+	 * @brief Get ABR profile index
+	 * @return ABR profile index
 	 */
 	int GetProfileIndex() { return profileIndex; }
 

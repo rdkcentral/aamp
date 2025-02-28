@@ -758,7 +758,7 @@ void AampTSBSessionManager::SkipFragment(std::shared_ptr<AampTsbReader>& reader,
  *
  * @param[in] MediaStreamContext of appropriate track
  * @return bool - true if success
- * @brief Fetches and caches audio fragment parallelly for video fragment.
+ * @brief Fetches and caches audio fragment in parallel with video fragment.
  */
 bool AampTSBSessionManager::PushNextTsbFragment(MediaStreamContext *pMediaStreamContext)
 {
@@ -784,9 +784,14 @@ bool AampTSBSessionManager::PushNextTsbFragment(MediaStreamContext *pMediaStream
 			ret = true;
 			TsbInitDataPtr initFragmentData = nextFragmentData->GetInitFragData();
 			double bandwidth = initFragmentData->GetBandWidth();
-			AAMPLOG_INFO("Profile Changed : %d : CurrentBandwidth: %.02lf Previous Bandwidth: %.02lf",(bandwidth != reader->mCurrentBandwidth),bandwidth,reader->mCurrentBandwidth);
-			if((reader->IsDiscontinuous()) || (reader->IsPeriodBoundary()) || isFirstDownload || bandwidth != reader->mCurrentBandwidth)
+			AAMPLOG_INFO("[%s] Inject init fragment: %d CurrentBandwidth: %.02lf Previous Bandwidth: %.02lf IsDiscontinuous: %d IsPeriodBoundary: %d IsFirstDownload: %d",
+				GetMediaTypeName(mediaType), (reader->mLastInitFragmentData.get() != initFragmentData.get()),
+				bandwidth, reader->mCurrentBandwidth, reader->IsDiscontinuous(), reader->IsPeriodBoundary(), isFirstDownload);
+			if (reader->mLastInitFragmentData != initFragmentData)
 			{
+				AAMPLOG_TRACE("[%s] Previous init fragment data is different from current init fragment data, injecting", GetMediaTypeName(mediaType));
+				reader->mLastInitFragmentData = initFragmentData;
+
 				CachedFragmentPtr initFragment = Read(initFragmentData);
 				if (initFragment)
 				{
@@ -805,6 +810,10 @@ bool AampTSBSessionManager::PushNextTsbFragment(MediaStreamContext *pMediaStream
 				}
 				reader->mCurrentBandwidth = bandwidth; // Update bandwidth
 			}
+		}
+		else
+		{
+			AAMPLOG_WARN("[%s] Failed to read next fragment", GetMediaTypeName(mediaType));
 		}
 
 		if (ret && nextFragmentData)

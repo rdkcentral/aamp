@@ -26,7 +26,8 @@
 #include "AampTsbReader.h"
 #include "MockTSBReader.h"
 
-MockTSBReader *g_mockTSBReader = nullptr;
+std::shared_ptr<MockTSBReader> g_mockTSBReader{};
+
 /**
  * @fn AampTsbReader Constructor
  *
@@ -60,7 +61,14 @@ AAMPStatusType AampTsbReader::Init(double &startPosSec, float rate, TuneType tun
 
 std::shared_ptr<TsbFragmentData> AampTsbReader::ReadNext()
 {
-	return nullptr;
+	if (g_mockTSBReader)
+	{
+		return g_mockTSBReader->ReadNext();
+	}
+	else
+	{
+		return nullptr;
+	}
 }
 
 void AampTsbReader::CheckPeriodBoundary(TsbFragmentDataPtr  currFragment)
@@ -73,4 +81,28 @@ void AampTsbReader::CheckForWaitIfReaderDone()
 
 void AampTsbReader::AbortCheckForWaitIfReaderDone()
 {
+}
+
+bool AampTsbReader::IsFirstDownload()
+{
+	if (g_mockTSBReader)
+	{
+		return g_mockTSBReader->IsFirstDownload();
+	}
+	else
+	{
+		return false;
+	}
+}
+
+float AampTsbReader::GetPlaybackRate()
+{
+	if (g_mockTSBReader)
+	{
+		return g_mockTSBReader->GetPlaybackRate();
+	}
+	else
+	{
+		return 0.0;
+	}
 }

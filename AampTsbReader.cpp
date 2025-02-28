@@ -36,7 +36,7 @@ AampTsbReader::AampTsbReader(PrivateInstanceAAMP *aamp, std::shared_ptr<AampTsbD
 	: mAamp(aamp), mDataMgr(dataMgr), mMediaType(mediaType), mInitialized_(false), mStartPosition(0.0),
 	  mUpcomingFragmentPosition(0.0), mCurrentRate(AAMP_NORMAL_PLAY_RATE), mTsbSessionId(sessionId), mEosReached(false), mTrackEnabled(false),
 	  mFirstPTS(0.0), mCurrentBandwidth(0.0), mNewInitWaiting(false), mActiveTuneType(eTUNETYPE_NEW_NORMAL),
-	  mEosCVWait(), mEosMutex(), mIsEndFragmentInjected(false)
+	  mEosCVWait(), mEosMutex(), mIsEndFragmentInjected(false), mLastInitFragmentData(nullptr)
 {
 }
 
@@ -240,7 +240,7 @@ std::shared_ptr<TsbFragmentData> AampTsbReader::ReadNext()
 
 /**
  * @fn CheckPeriodBoundary
- * 
+ *
  * @param[in] currFragment - Current fragment
  */
 void AampTsbReader::CheckPeriodBoundary(TsbFragmentDataPtr currFragment)
@@ -280,6 +280,7 @@ void AampTsbReader::Term()
 	mActiveTuneType = eTUNETYPE_NEW_NORMAL;
 	mIsPeriodBoundary = false;
 	mIsEndFragmentInjected.store(false);
+	mLastInitFragmentData = nullptr;
 	AAMPLOG_INFO("mediaType : %s", GetMediaTypeName(mMediaType));
 }
 
@@ -310,3 +311,21 @@ void AampTsbReader::AbortCheckForWaitIfReaderDone()
 		mEosCVWait.notify_one();
 	}
 }
+
+	/**
+	 * @fn IsFirstDownload
+	 * @return True if first download
+	 */
+	bool AampTsbReader::IsFirstDownload()
+	{
+		return (mStartPosition == mUpcomingFragmentPosition);
+	}
+
+	/**
+	 * @fn GetPlaybackRate
+	 * @return Playback rate
+	 */
+	float AampTsbReader::GetPlaybackRate()
+	{
+		return mCurrentRate;
+	}
