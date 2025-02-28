@@ -36,12 +36,6 @@
 
 using namespace std;
 
-#if defined(WIN32) && defined(_MSC_VER)
-#ifndef snprintf
-#define snprintf _snprintf
-#endif
-#endif
-
 /**
  * @typedef TemplateContext
  * @brief

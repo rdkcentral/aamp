@@ -28,7 +28,7 @@
 #include <chrono>
 #include <cstdio>
 #include <stdarg.h>
-#if !(defined(WIN32) || defined(__APPLE__))
+#if !defined(__APPLE__)
 #if defined(USE_SYSTEMD_JOURNAL_PRINT)
 #define ENABLE_RDK_LOGGER true
 #include <systemd/sd-journal.h>
