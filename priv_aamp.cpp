@@ -10886,14 +10886,9 @@ void PrivateInstanceAAMP::SetTextTrack(int trackId, char *data)
 						else
 						{
 							SetPreferredTextTrack(track);
-							if(ISCONFIGSET_PRIV(eAAMPConfig_useRialtoSink))
+							if((ISCONFIGSET_PRIV(eAAMPConfig_useRialtoSink)) && ((mCurrentTextTrackIndex == -1) || (mCurrentTextTrackIndex == trackId)))
 							{ // by default text track is enabled and muted for Rialto; notify only if there is change in the subtitles
 								AAMPLOG_INFO("useRialtoSink mCurrentTextTrackIndex = %d trackId = %d",mCurrentTextTrackIndex,trackId);
-								if (-1 != mCurrentTextTrackIndex && mCurrentTextTrackIndex != trackId)
-								{
-									AAMPLOG_INFO("useRialtoSink TextTrackChanges");
-									NotifyTextTracksChanged();
-								}
 								mpStreamAbstractionAAMP->currentTextTrackProfileIndex = mCurrentTextTrackIndex = trackId;
 							}
 							else
