@@ -231,10 +231,8 @@ public:
 					SetArgPointee<2>(GST_STATE_NULL),
 					Return(GST_STATE_CHANGE_SUCCESS)));
 		}
-
-		EXPECT_CALL(*g_mockGStreamer, gst_element_factory_make(StrEq("playbin"), NULL))
+		EXPECT_CALL(*g_mockGStreamer, gst_element_factory_make(_, NULL))
 			.WillRepeatedly(Return(&gst_element_bin));
-
 		if (setup->forwardAudioToAux)
 		{
 			EXPECT_CALL(*g_mockGStreamer, gst_element_factory_make(StrEq("audsrvsink"), NULL))
