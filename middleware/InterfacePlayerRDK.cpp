@@ -461,8 +461,8 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int auxF
 		if( !gstPrivateContext->subtitle_sink ) MW_LOG_WARN( "subtitle_sink==NULL" );
 		gst_structure_set(
 						  contextStructure,
-						  "video-streams", G_TYPE_UINT, 0x1u,
-						  "audio-streams", G_TYPE_UINT, 0x1u,
+						  "video-streams", G_TYPE_UINT, (gstPrivateContext->video_sink)?0x1u:0x0u,
+						  "audio-streams", G_TYPE_UINT, (gstPrivateContext->audio_sink)?0x1u:0x0u,
 						  "text-streams", G_TYPE_UINT, (gstPrivateContext->subtitle_sink)?0x1u:0x0u,
 						  nullptr );
 		gst_element_set_context(GST_ELEMENT(gstPrivateContext->pipeline), context);
@@ -2170,6 +2170,7 @@ int InterfacePlayerRDK::SetupStream(int streamId,  void *playerInstance, std::st
 			GstElement* vidsink = gst_element_factory_make("rialtomsevideosink", NULL);
 			if (vidsink)
 			{
+				MW_LOG_INFO("Created rialtomsevideosink: %s", GST_ELEMENT_NAME(vidsink));
 				g_object_set(stream->sinkbin, "video-sink", vidsink, NULL);				/* In the stream->sinkbin, set the video-sink property to vidsink */
 				GstMediaFormat mediaFormat = (GstMediaFormat)m_gstConfigParam->media;
 				if(eGST_MEDIAFORMAT_HLS == mediaFormat)
@@ -2177,10 +2178,26 @@ int InterfacePlayerRDK::SetupStream(int streamId,  void *playerInstance, std::st
 					MW_LOG_INFO("setting has-drm=false for clear HLS/TS playback");
 					g_object_set(vidsink, "has-drm", FALSE, NULL);
 				}
+				pInterfacePlayerRDK->gstPrivateContext->video_sink = vidsink;
 			}
 			else
 			{
 				MW_LOG_WARN("Failed to create rialtomsevideosink");
+			}
+		}
+		else if (pInterfacePlayerRDK->gstPrivateContext->usingRialtoSink && eGST_MEDIATYPE_AUDIO == streamId)
+		{
+			MW_LOG_INFO("using rialtomseaudiosink");
+			GstElement* audSink = gst_element_factory_make("rialtomseaudiosink",NULL);
+			if(audSink)
+			{
+				MW_LOG_INFO("Created rialtomseaudiosink : %s",GST_ELEMENT_NAME(audSink));
+				g_object_set(stream->sinkbin, "audio-sink", audSink, NULL);
+				pInterfacePlayerRDK->gstPrivateContext->audio_sink = audSink;
+			}
+			else
+			{
+				AAMPLOG_WARN("Failed to create rialtomseaudiosink");
 			}
 		}
 		else if (pInterfacePlayerRDK->gstPrivateContext->using_westerossink && eGST_MEDIATYPE_VIDEO == streamId)
