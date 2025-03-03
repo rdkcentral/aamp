@@ -81,16 +81,23 @@ class PtsRestampUtils:
 		assert self.segment_cnt >= self.max_segment_cnt, str
 
 class TrickModesPtsRestampUtils:
-	LOG_LINE = r'\[TrickModePtsRestamp\]\[\d+\]rate (-?\d+\.\d+), initFragment ([01]), discontinuity [01], position \d+\.\d+s, duration (\d+\.\d+)s, restamped position (\d+\.\d+)s, duration \d+\.\d+s'
-	expected_position = 0.0
+	LOG_LINE = r'\[TrickModePtsRestamp\]\[\d+\]rate (-?\d+\.\d+), trickPlayFPS (\d+), initFragment ([01]), discontinuity ([01]), position (\d+\.\d+)s, duration (\d+\.\d+)s, restamped position (\d+\.\d+)s, duration (\d+\.\d+)s'
+	last_position = 0.0
+	restamped_position = 0.0
+	restamped_duration = 0.0
 	segment_cnt = 0
 	max_segment_cnt = 0
+	# Flag to indicate first_fragment that is used to determine if different duration calc is used in trickplay
+	state = "FIRST_FRAGMENT"
 	# Minimum tolerance for floating point calculation.
 	tolerance = 0.001
 	segment_cnt_reached = None
 
 	def reset(self):
-		self.restamp_pos = 0.0
+		self.last_position = 0.0
+		self.restamped_position = 0.0
+		self.restamped_duration = 0.0
+		state = "FIRST_FRAGMENT"
 		self.segment_cnt = 0
 		self.max_segment_cnt = 0
 		self.segment_cnt_reached = None
@@ -98,24 +105,48 @@ class TrickModesPtsRestampUtils:
 	def check_restamp(self,match,arg):
 		# Get the fields from the log line
 		rate = float(match.group(1))
-		initFragment = match.group(2)
-		originalDuration = float(match.group(3))
-		restampedPosition = float(match.group(4))
+		trickPlayFPS = int(match.group(2))
+		initFragment = match.group(3)
+		discontinuity = match.group(4)
+		originalPosition = float(match.group(5))
+		originalDuration = float(match.group(6))
+		restampedPosition = float(match.group(7))
+		restampedDuration = float(match.group(8))
 
 		self.segment_cnt += 1
-		print(f"Trick modes PTS check ({self.segment_cnt}) rate {rate} initFragment {initFragment} restampedPosition {restampedPosition}s")
+		print(f"Trick modes PTS check ({self.segment_cnt}) state {self.state} rate {rate} trickPlayFPS {trickPlayFPS} initFragment {initFragment} discontinuity {discontinuity} originalPosition {originalPosition}s originalDuration {originalDuration}s restampedPosition {restampedPosition}s restampedDuration {restampedDuration}s")
 
 		# Set the expected restamped postion to 0 for each init fragment
 		if initFragment == '1':
-			self.expected_position = 0.0
+			if discontinuity == '1':
+				self.state = "DISCONTINUITY"
+				self.restamped_position += self.restamped_duration
+			else:
+				self.state = "FIRST_FRAGMENT"
+				self.restamped_position = 0.0
 		else:
-			diff_sec = abs(restampedPosition - self.restamp_pos)
-			str = f"Trick modes PTS: rate {rate:.1f}, actual {restampedPosition:.3f}s, expected {self.restamp_pos:.3f}s, diff {diff_sec:.3f}s"
+			if (self.state == "FIRST_FRAGMENT"):
+				self.restamped_duration = max (originalDuration / abs(rate), 1 / trickPlayFPS)
+			elif (self.state == "STEADY"):
+				positionDelta = abs(originalPosition - self.last_position)
+				self.restamped_duration = positionDelta / abs(rate)
+				self.restamped_position += self.restamped_duration
+			else:
+				assert False, "Unknown state"
+			self.state = "STEADY"
+			self.last_position = originalPosition
+
+			# Check restamped position
+			diff_sec = abs(restampedPosition - self.restamped_position)
+			str = f"Trick modes PTS: rate {rate:.1f}, actual {restampedPosition:.3f}s, expected {self.restamped_position:.3f}s, diff {diff_sec:.3f}s"
 			print(str)
 			assert diff_sec <= self.tolerance, str
 
-		# Save what we are expecting for the next value
-		self.restamp_pos = restampedPosition + abs(originalDuration / rate)
+			# Check restamped duration
+			diff_sec = abs(restampedDuration - self.restamped_duration)
+			str = f"Trick modes Duration: rate {rate:.1f}, actual {restampedDuration:.3f}s, expected {self.restamped_duration:.3f}s, diff {diff_sec:.3f}s"
+			print(str)
+			assert diff_sec <= self.tolerance, str
 
 		# Call function provided if enough segments have been restamped
 		if self.segment_cnt_reached != None and self.max_segment_cnt != 0 and self.segment_cnt > self.max_segment_cnt:

@@ -10415,8 +10415,16 @@ void StreamAbstractionAAMP_MPD::StartFromAampLocalTsb(void)
 	mTrackState = eDISCONTINUITY_FREE;
 	for (int i = 0; i < mNumberOfTracks; i++)
 	{
+		// Flush fragments from mCachedFragment, potentially cached during Live SLD
+		if (!mMediaStreamContext[i]->IsLocalTSBInjection())
+		{
+			mMediaStreamContext[i]->FlushFetchedFragments();
+		}
 		mMediaStreamContext[i]->SetLocalTSBInjection(true);
+		
+		// Flush fragments from mCachedFragmentChunks
 		mMediaStreamContext[i]->FlushFragments();
+
 		// For seek to live, we will employ chunk cache and hence size has to be increased to max
 		// For other tune types, we don't need chunks so revert to max cache fragment size
 		if (mTuneType == eTUNETYPE_SEEKTOLIVE)

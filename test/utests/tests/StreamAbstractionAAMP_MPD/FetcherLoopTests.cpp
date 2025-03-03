@@ -995,6 +995,8 @@ R"(<?xml version="1.0" encoding="UTF-8"?>
 	//when skipfetch sets to true, fetchfragment will be avoided
 	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, eCURLINSTANCE_AUDIO, _,_, _, _, _, _, _, _, _))
 				.Times(0);
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetPositionMilliseconds()).WillRepeatedly(Return(0.0));
+
 	mStreamAbstractionAAMP_MPD->SwitchAudioTrack();
 
 

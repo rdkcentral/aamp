@@ -272,7 +272,14 @@ bool PrivateInstanceAAMP::GetPauseOnFirstVideoFrameDisp(void)
 
 long long PrivateInstanceAAMP::GetPositionMilliseconds()
 {
-	return 0;
+	long long positionMs = 0;
+
+	if (g_mockPrivateInstanceAAMP != nullptr)
+	{
+		positionMs = g_mockPrivateInstanceAAMP->GetPositionMilliseconds();
+	}
+
+	return positionMs;
 }
 
 bool PrivateInstanceAAMP::SetStateBufferingIfRequired()
@@ -286,10 +293,18 @@ void PrivateInstanceAAMP::NotifyFirstBufferProcessed(const std::string&)
 
 void PrivateInstanceAAMP::StopDownloads()
 {
+	if (g_mockPrivateInstanceAAMP != nullptr)
+	{
+		g_mockPrivateInstanceAAMP->StopDownloads();
+	}
 }
 
 void PrivateInstanceAAMP::ResumeDownloads()
 {
+	if (g_mockPrivateInstanceAAMP != nullptr)
+	{
+		g_mockPrivateInstanceAAMP->ResumeDownloads();
+	}
 }
 
 void PrivateInstanceAAMP::EnableDownloads()
@@ -302,6 +317,10 @@ void PrivateInstanceAAMP::AcquireStreamLock()
 
 void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 {
+	if (g_mockPrivateInstanceAAMP != nullptr)
+	{
+		g_mockPrivateInstanceAAMP->TuneHelper(tuneType, seekWhilePaused);
+	}
 }
 
 void PrivateInstanceAAMP::ReleaseStreamLock()

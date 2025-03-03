@@ -48,6 +48,7 @@ public:
     MOCK_METHOD(bool, SendStreamCopy, (AampMediaType, const void *, size_t, double, double, double));
     MOCK_METHOD(MediaFormat,GetMediaFormatTypeEnum,());
     MOCK_METHOD(long long, GetPositionMs, ());
+    MOCK_METHOD(long long, GetPositionMilliseconds, ());
     MOCK_METHOD(int, ScheduleAsyncTask, (IdleTask task, void *arg, std::string taskName));
     MOCK_METHOD(bool, RemoveAsyncTask, (int taskId));
 
@@ -68,6 +69,9 @@ public:
     MOCK_METHOD(bool, IsLocalAAMPTsbInjection, ());
     MOCK_METHOD(bool,  GetLLDashAdjustSpeed, ());
     MOCK_METHOD(double, GetLLDashCurrentPlayBackRate, ());
+    MOCK_METHOD(void, StopDownloads, ());
+    MOCK_METHOD(void, ResumeDownloads, ());
+    MOCK_METHOD(void, TuneHelper, (TuneType tuneType, bool seekWhilePaused));
 };
 
 extern MockPrivateInstanceAAMP *g_mockPrivateInstanceAAMP;

@@ -673,3 +673,57 @@ TEST_F(MediaTrackTests, DashTrickModePtsRestampDiscontinuityTest)
 	ASSERT_DOUBLE_EQ(bufferedFragment->duration, restampedDuration.inSeconds());
 	ASSERT_DOUBLE_EQ(bufferedFragment->position, restampedPts.inSeconds());
 }
+
+TEST_F(MediaTrackTests, FlushFetchedFragmentsTest)
+{
+	CachedFragment* bufferedFragment1{nullptr};
+	CachedFragment* bufferedFragment2{nullptr};
+	CachedFragment* bufferedFragment3{nullptr};
+
+	mPrivateInstanceAAMP->rate = FASTEST_TRICKPLAY_RATE;
+	mPrivateInstanceAAMP->mMediaFormat = eMEDIAFORMAT_DASH;
+	mStreamAbstractionAAMP_MPD->trickplayMode = true;
+
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnablePTSReStamp))
+		.WillRepeatedly(Return(true));
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_MaxFragmentCached))
+		.WillRepeatedly(Return(5));
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_MaxFragmentChunkCached))
+		.WillRepeatedly(Return(5));
+
+	TestableMediaTrack videoTrack{eTRACK_VIDEO, mPrivateInstanceAAMP, "video", mStreamAbstractionAAMP_MPD};
+
+	bufferedFragment1 = videoTrack.GetFetchBuffer(true);
+	bufferedFragment1->initFragment = true;
+	bufferedFragment1->fragment.AppendBytes(FRAGMENT_TEST_DATA, strlen(FRAGMENT_TEST_DATA));
+	videoTrack.UpdateTSAfterFetch(bufferedFragment1->initFragment);
+
+	// First media segment
+	bufferedFragment2 = videoTrack.GetFetchBuffer(true);
+	bufferedFragment2->initFragment = false;
+	bufferedFragment2->duration = FRAGMENT_DURATION.inSeconds();
+	bufferedFragment2->position = FIRST_PTS.inSeconds();
+	bufferedFragment2->fragment.AppendBytes(FRAGMENT_TEST_DATA, strlen(FRAGMENT_TEST_DATA));
+	videoTrack.UpdateTSAfterFetch(bufferedFragment2->initFragment);
+
+	// Second media segment, not updated for injection
+	bufferedFragment3 = videoTrack.GetFetchBuffer(true);
+	bufferedFragment3->initFragment = false;
+	bufferedFragment3->duration = FRAGMENT_DURATION.inSeconds();
+	bufferedFragment3->position = 2 * FIRST_PTS.inSeconds();
+	bufferedFragment3->fragment.AppendBytes(FRAGMENT_TEST_DATA, strlen(FRAGMENT_TEST_DATA));
+
+	ASSERT_EQ(videoTrack.numberOfFragmentsCached, 2);
+	ASSERT_EQ(bufferedFragment1->position, 0);
+	ASSERT_EQ(bufferedFragment2->position, FIRST_PTS.inSeconds());
+	ASSERT_EQ(bufferedFragment3->position, (2 * FIRST_PTS.inSeconds()));
+
+	videoTrack.FlushFetchedFragments();
+
+	// Check that the fragments added for injection have been removed
+	// But the current fragment has not been cleared
+	EXPECT_EQ(videoTrack.numberOfFragmentsCached, 0);
+	EXPECT_EQ(bufferedFragment1->position, 0);
+	EXPECT_EQ(bufferedFragment2->position, 0);
+	EXPECT_EQ(bufferedFragment3->position, (2 * FIRST_PTS.inSeconds()));
+}
