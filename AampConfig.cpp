@@ -196,12 +196,6 @@ struct ConfigLookupEntryString
 #define DEFAULT_VALUE_USE_SINGLE_PIPELINE false
 #endif
 
-#ifdef DISABLE_MEDIA_PROCESSOR
-#define DEFAULT_VALUE_ENABLE_MEDIA_PROCESSOR false
-#else
-#define DEFAULT_VALUE_ENABLE_MEDIA_PROCESSOR true
-#endif
-
 /**
  * @brief AAMPConfigSettingString metadata
  * note that order must match the actual order of the enum; this is enforced with asserts to catch any wrong/missing declarations
@@ -359,7 +353,7 @@ static const ConfigLookupEntryBool mConfigLookupTableBool[AAMPCONFIG_BOOL_COUNT]
 	{false,"sendLicenseResponseHeaders", eAAMPConfig_SendLicenseResponseHeaders, false},
 	{false,"suppressDecode", eAAMPConfig_SuppressDecode, false},
 	{false,"reconfigPipelineOnDiscontinuity", eAAMPConfig_ReconfigPipelineOnDiscontinuity, false},
-	{DEFAULT_VALUE_ENABLE_MEDIA_PROCESSOR,"enableMediaProcessor", eAAMPConfig_EnableMediaProcessor, true},
+	{true,"enableMediaProcessor", eAAMPConfig_EnableMediaProcessor, true},
 	{true,"mpdStichingSupport", eAAMPConfig_MPDStitchingSupport, true}, // FIXME - spelling
 	{false,"sendUserAgentInLicense", eAAMPConfig_SendUserAgent, false},
 	{false,"enablePTSReStamp", eAAMPConfig_EnablePTSReStamp, true},
