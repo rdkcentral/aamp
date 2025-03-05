@@ -28,6 +28,7 @@ import re
 from inspect import getsourcefile
 
 archive_url = "https://cpetestutility.stb.r53.xcal.tv/AAMP/simlinear/aamptest/streams/simlinear/SkyWitness/30t-after-fix/skywitness-30t-after-fix.zip"
+archive_url1 = "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/streams/L2/AAMP-AUDIO-13004/HLS-LoveThePlanet.zip"
 
 TESTDATA1 = {
      "title": f"Test multi audio profile",
@@ -130,7 +131,25 @@ TESTDATA3 = {
     ]
 }
 
-TESTDATA = [TESTDATA1,TESTDATA2,TESTDATA3]
+TESTDATA4 = {
+    "title": "Test case to validate availableAudioTracks with specific codec",
+    "max_test_time_seconds": 30,
+    "aamp_cfg": f"info=true\nprogress=true\nenablePublishingMuxedAudio=true\n",
+    "archive_url": archive_url1,
+    "url": "11802/88889518/hls/master-cc.m3u8",
+    "simlinear_type": "HLS",
+    "expect_list": [
+	{"expect": r"found audio#0 in program 1 with pcr pid 256 audio pid 257 lan: codec:mp4a.40.2 group:"},
+        {"not_expect": r"found audio#1 in program 1 with pcr pid 256 audio pid 500 lan: codec:UNKNOWN group:"},
+        {"cmd": "get 20"},
+        {"expect": r"AVAILABLE AUDIO TRACKS"},
+	{"expect": "\"codec\":\t\"mp4a.40.2\","},
+        {"expect": "\"characteristics\":\t\"muxed-audio\""},
+        {"not_expect": "\"codec\":\t\"UNKNOWN"},
+    ]
+}
+
+TESTDATA = [TESTDATA1,TESTDATA2,TESTDATA3,TESTDATA4]
 @pytest.fixture(params=TESTDATA)
 def test_data(request):
     return request.param

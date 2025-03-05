@@ -386,6 +386,7 @@ void TSProcessor::processPMTSection(unsigned char* section, int sectionLength)
 	char work[32];
 	StreamOutputFormat videoFormat = FORMAT_INVALID;
 	StreamOutputFormat audioFormat = FORMAT_INVALID;
+	bool cueiDescriptorFound = false;
 
 	int version = ((section[2] >> 1) & 0x1F);
 	int pcrPid = (((section[5] & 0x1F) << 8) + section[6]);
@@ -409,10 +410,30 @@ void TSProcessor::processPMTSection(unsigned char* section, int sectionLength)
 	videoComponentCount = audioComponentCount = 0;
 	m_dsmccComponentFound = false;
 
+	//program info descriptors
+	unsigned char *esInfo = section + 9;
+	unsigned char *esInfoEnd = esInfo + infoLength;
+	while (esInfo < esInfoEnd)
+	{
+        /*If the PMT program_info loop carries a registration descriptor (tag = 0x05)
+         and the registration descriptor carries a format_identifier attribute with value of "0x43554549" (as per ANSI/SCTE 35 2019a), then the corresponding ES with stream_type as "0x86" is an ES carrying SCTE-35 payload */
+		int descriptorTag = esInfo[0];
+		int descriptorLength = esInfo[1];
+		AAMPLOG_INFO("program info descriptors : descriptorTag 0x%x  descriptorLength %d", descriptorTag ,descriptorLength);
+		if (descriptorTag == 0x05 && descriptorLength >= 4 &&
+			esInfo[2] == 'C' && esInfo[3] == 'U' && esInfo[4] == 'E' && esInfo[5] == 'I')
+		{
+			AAMPLOG_INFO("Found SCTE-35 descriptor (CUEI)");
+			cueiDescriptorFound = true;
+		}
+		// move to the next descriptor
+		esInfo += 2 + descriptorLength; // 2 - descriptor tag and descriptor length bytes
+	}
 	// Program loop starts after program info descriptor and continues
 	// to the CRC at the end of the section
 	programInfo = &section[9 + infoLength];
 	programInfoEnd = section + sectionLength - 4;
+
 	while (programInfo < programInfoEnd)
 	{
 		streamType = programInfo[0];
@@ -498,6 +519,12 @@ void TSProcessor::processPMTSection(unsigned char* section, int sectionLength)
 		case eSTREAM_TYPE_LPCM_AUDIO:
 		case eSTREAM_TYPE_ATSC_AC3PLUS:
 		case eSTREAM_TYPE_DTSHD_AUDIO:
+		if (cueiDescriptorFound && streamType == eSTREAM_TYPE_DTSHD_AUDIO)
+		{
+			// Skip processing for DTSHD_AUDIO(0x86) if cueiDescriptorFound is true , since it is SCTE-35 data
+			AAMPLOG_INFO(" Stream Type : SCTE-35");
+			break;
+		}
 		case eSTREAM_TYPE_ATSC_EAC3:
 		case eSTREAM_TYPE_DTS_AUDIO:
 		case eSTREAM_TYPE_AC3_AUDIO:
