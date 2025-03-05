@@ -1384,6 +1384,11 @@ void InterfacePlayerRDK::Stop(bool keepLastFrame)
 	gstPrivateContext->segmentStart = 0;
 	gstPrivateContext->paused = false;
 	gstPrivateContext->pipelineState = GST_STATE_NULL;
+	// Reset mute and volume params
+	gstPrivateContext->audioMuted = false;
+	gstPrivateContext->videoMuted = false;
+	gstPrivateContext->subtitleMuted = false;
+	gstPrivateContext->audioVolume = 1.0;
 }
 
 void InterfacePlayerRDK::ResetGstEvents()
@@ -4791,24 +4796,27 @@ static GstBusSyncReply bus_sync_handler(GstBus * bus, GstMessage * msg, Interfac
 					{
 						if (pInterfacePlayerRDK->m_gstConfigParam->enableRectPropertyCfg)
 						{
-							MW_LOG_MIL("InterfacePlayerRDK - using %s, setting cached rectangle and video mute", GST_OBJECT_NAME(msg->src));
+							MW_LOG_MIL("InterfacePlayerRDK - using %s, setting cached rectangle(%s)",
+								GST_OBJECT_NAME(msg->src), pInterfacePlayerRDK->gstPrivateContext->videoRectangle);
 							g_object_set(msg->src, "rectangle", pInterfacePlayerRDK->gstPrivateContext->videoRectangle, NULL);
 						}
-						else
-						{
-							MW_LOG_MIL("InterfacePlayerRDK - using %s, setting video mute", GST_OBJECT_NAME(msg->src));
-						}
+						MW_LOG_MIL("InterfacePlayerRDK - using %s, setting cached video mute(%d)",
+							GST_OBJECT_NAME(msg->src), pInterfacePlayerRDK->gstPrivateContext->videoMuted);
 						g_object_set(msg->src, "show-video-window", !pInterfacePlayerRDK->gstPrivateContext->videoMuted, NULL);
 					}
 					else if ((pInterfacePlayerRDK->gstPrivateContext->using_westerossink) && !(pInterfacePlayerRDK->m_gstConfigParam->enableRectPropertyCfg))
 					{
-						MW_LOG_MIL("InterfacePlayerRDK - using westerossink, setting cached video mute and zoom");
+						MW_LOG_MIL("InterfacePlayerRDK - using westerossink, setting cached video mute(%d) and zoom(%d)",
+							pInterfacePlayerRDK->gstPrivateContext->videoMuted, pInterfacePlayerRDK->gstPrivateContext->zoom);
 						g_object_set(msg->src, "zoom-mode", pInterfacePlayerRDK->gstPrivateContext->zoom, NULL );
 						g_object_set(msg->src, "show-video-window", !pInterfacePlayerRDK->gstPrivateContext->videoMuted, NULL);
 					}
 					else
 					{
-						MW_LOG_MIL("InterfacePlayerRDK setting cached rectangle, video mute and zoom");
+						MW_LOG_MIL("InterfacePlayerRDK setting cached rectangle(%s), video mute(%d) and zoom(%d)",
+							pInterfacePlayerRDK->gstPrivateContext->videoRectangle,
+							pInterfacePlayerRDK->gstPrivateContext->videoMuted,
+							pInterfacePlayerRDK->gstPrivateContext->zoom);
 						g_object_set(msg->src, "rectangle", pInterfacePlayerRDK->gstPrivateContext->videoRectangle, NULL);
 						g_object_set(msg->src, "zoom-mode", pInterfacePlayerRDK->gstPrivateContext->zoom, NULL );
 						g_object_set(msg->src, "show-video-window", !pInterfacePlayerRDK->gstPrivateContext->videoMuted, NULL);
