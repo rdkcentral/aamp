@@ -123,15 +123,15 @@ TEST_F(FunctionalTests, TsbFragmentData_Constructor)
 	// Mock valid fragment data
 	std::string url = "http://example.com";
 	AampMediaType media = eMEDIATYPE_VIDEO;
-	double position = 1000.0;
-	double duration = 5.0;
-	double pts = 0.0;
+	AampTime position = 1000.0;
+	AampTime duration = 5.0;
+	AampTime pts = 0.0;
 	bool discont = false;
 	std::string periodId = "testPeriodId";
 	StreamInfo streamInfo;
 	int profileIdx = 0;
 	uint32_t timeScale = 240000;
-	double PTSOffsetSec = 123.4;
+	AampTime PTSOffsetSec = 123.4;
 
 	// Create init data and fragments
 	TsbInitDataPtr initFragment = std::make_shared<TsbInitData>(url, media, streamInfo, periodId, profileIdx);
@@ -142,13 +142,13 @@ TEST_F(FunctionalTests, TsbFragmentData_Constructor)
 	// Check fragment data
 	EXPECT_STREQ(fragment->GetUrl().c_str(), url.c_str());
 	EXPECT_EQ(fragment->GetMediaType(), media);
-	EXPECT_DOUBLE_EQ(fragment->GetAbsPosition(), position);
-	EXPECT_DOUBLE_EQ(fragment->GetDuration(), duration);
-	EXPECT_DOUBLE_EQ(fragment->GetPTS(), pts);
+	EXPECT_EQ(fragment->GetAbsPosition(), position);
+	EXPECT_EQ(fragment->GetDuration(), duration);
+	EXPECT_EQ(fragment->GetPTS(), pts);
 	EXPECT_EQ(fragment->IsDiscontinuous(), discont);
 	EXPECT_EQ(fragment->GetInitFragData(), initFragment);
 	EXPECT_EQ(fragment->GetTimeScale(), timeScale);
-	EXPECT_DOUBLE_EQ(fragment->GetPTSOffsetSec(), PTSOffsetSec);
+	EXPECT_EQ(fragment->GetPTSOffsetSec(), PTSOffsetSec);
 }
 
 /**
@@ -245,15 +245,15 @@ TEST_F(FunctionalTests, Init_SeekToStart)
 	// Mock valid fragment data
 	std::string url = "http://example.com";
 	AampMediaType media = eMEDIATYPE_VIDEO;
-	double position = 1000.0;
-	double duration = 5.0;
-	double pts = 0.0;
+	AampTime position = 1000.0;
+	AampTime duration = 5.0;
+	AampTime pts = 0.0;
 	bool discont = false;
 	std::string periodId = "testPeriodId";
 	StreamInfo streamInfo;
 	int profileIdx = 0;
 	uint32_t timeScale = 240000;
-	double PTSOffsetSec = 0.0;
+	AampTime PTSOffsetSec = 0.0;
 
 	// Create init data and fragments
 	TsbInitDataPtr initFragment = std::make_shared<TsbInitData>(url, media, streamInfo, periodId, profileIdx);
@@ -269,10 +269,10 @@ TEST_F(FunctionalTests, Init_SeekToStart)
 	EXPECT_CALL(*g_mockTSBDataManager, GetLastFragment())
 		.WillOnce(Return(lastFragment));
 
-	EXPECT_CALL(*g_mockTSBDataManager, GetNearestFragment(firstFragment->GetAbsPosition()))
+	EXPECT_CALL(*g_mockTSBDataManager, GetNearestFragment(firstFragment->GetAbsPosition().inSeconds()))
 		.WillOnce(Return(firstFragment));
 	EXPECT_EQ(mTestableTsbReader->Init(seekPos, rate, tuneType, nullptr), eAAMPSTATUS_OK);
-	EXPECT_DOUBLE_EQ(seekPos, firstFragment->GetAbsPosition());
+	EXPECT_DOUBLE_EQ(seekPos, firstFragment->GetAbsPosition().inSeconds());
 }
 
 /**
@@ -292,15 +292,15 @@ TEST_F(FunctionalTests, Init_SeekToEnd)
 	// Mock valid fragment data
 	std::string url = "http://example.com";
 	AampMediaType media = eMEDIATYPE_VIDEO;
-	double position = 1000.0;
-	double duration = 5.0;
-	double pts = 0.0;
+	AampTime position = 1000.0;
+	AampTime duration = 5.0;
+	AampTime pts = 0.0;
 	bool discont = false;
 	std::string periodId = "testPeriodId";
 	StreamInfo streamInfo;
 	int profileIdx = 0;
 	uint32_t timeScale = 240000;
-	double PTSOffsetSec = 0.0;
+	AampTime PTSOffsetSec = 0.0;
 
 	// Create init data and fragments
 	TsbInitDataPtr initFragment = std::make_shared<TsbInitData>(url, media, streamInfo, periodId, profileIdx);
@@ -315,10 +315,10 @@ TEST_F(FunctionalTests, Init_SeekToEnd)
 	EXPECT_CALL(*g_mockTSBDataManager, GetLastFragment())
 		.WillOnce(Return(lastFragment));
 
-	EXPECT_CALL(*g_mockTSBDataManager, GetNearestFragment(lastFragment->GetAbsPosition()))
+	EXPECT_CALL(*g_mockTSBDataManager, GetNearestFragment(lastFragment->GetAbsPosition().inSeconds()))
 		.WillOnce(Return(lastFragment));
 	EXPECT_EQ(mTestableTsbReader->Init(seekPos, rate, tuneType, nullptr), eAAMPSTATUS_OK);
-	EXPECT_DOUBLE_EQ(seekPos, lastFragment->GetAbsPosition());
+	EXPECT_DOUBLE_EQ(seekPos, lastFragment->GetAbsPosition().inSeconds());
 }
 
 /**
@@ -338,15 +338,15 @@ TEST_F(FunctionalTests, Init_SeekOutOfRange)
 	// Mock valid fragment data
 	std::string url = "http://example.com";
 	AampMediaType media = eMEDIATYPE_VIDEO;
-	double position = 1000.0;
-	double duration = 5.0;
-	double pts = 0.0;
+	AampTime position = 1000.0;
+	AampTime duration = 5.0;
+	AampTime pts = 0.0;
 	bool discont = false;
 	std::string periodId = "testPeriodId";
 	StreamInfo streamInfo;
 	int profileIdx = 0;
 	uint32_t timeScale = 240000;
-	double PTSOffsetSec = 0.0;
+	AampTime PTSOffsetSec = 0.0;
 
 	// Create init data and fragments
 	TsbInitDataPtr initFragment = std::make_shared<TsbInitData>(url, media, streamInfo, periodId, profileIdx);
@@ -361,10 +361,10 @@ TEST_F(FunctionalTests, Init_SeekOutOfRange)
 	EXPECT_CALL(*g_mockTSBDataManager, GetLastFragment())
 		.WillOnce(Return(lastFragment));
 
-	EXPECT_CALL(*g_mockTSBDataManager, GetNearestFragment(lastFragment->GetAbsPosition()))
+	EXPECT_CALL(*g_mockTSBDataManager, GetNearestFragment(lastFragment->GetAbsPosition().inSeconds()))
 		.WillOnce(Return(lastFragment));
 	EXPECT_EQ(mTestableTsbReader->Init(seekPos, rate, tuneType, nullptr), eAAMPSTATUS_OK);
-	EXPECT_DOUBLE_EQ(seekPos, lastFragment->GetAbsPosition());
+	EXPECT_DOUBLE_EQ(seekPos, lastFragment->GetAbsPosition().inSeconds());
 }
 
 /**
@@ -383,15 +383,15 @@ TEST_F(FunctionalTests, Init_SeekWithAudioTrack)
 
 	// Mock valid fragment data
 	std::string url = "http://example.com";
-	double position = 1000.0;
-	double duration = 5.0;
-	double pts = 250.0;
+	AampTime position = 1000.0;
+	AampTime duration = 5.0;
+	AampTime pts = 250.0;
 	bool discont = false;
 	std::string periodId = "testPeriodId";
 	StreamInfo streamInfo;
 	int profileIdx = 0;
 	uint32_t timeScale = 240000;
-	double PTSOffsetSec = 0.0;
+	AampTime PTSOffsetSec = 0.0;
 
 	// Create init data and fragments
 	TsbInitDataPtr videoInitFragment = std::make_shared<TsbInitData>(url, eMEDIATYPE_VIDEO, streamInfo, periodId, profileIdx);
@@ -407,10 +407,10 @@ TEST_F(FunctionalTests, Init_SeekWithAudioTrack)
 	EXPECT_CALL(*g_mockTSBDataManager, GetLastFragment())
 		.WillOnce(Return(lastVideoFragment));
 
-	EXPECT_CALL(*g_mockTSBDataManager, GetNearestFragment(lastVideoFragment->GetAbsPosition()))
+	EXPECT_CALL(*g_mockTSBDataManager, GetNearestFragment(lastVideoFragment->GetAbsPosition().inSeconds()))
 		.WillOnce(Return(lastVideoFragment));
 	EXPECT_EQ(mTestableTsbReader->Init(seekPos, rate, tuneType, nullptr), eAAMPSTATUS_OK);
-	EXPECT_DOUBLE_EQ(seekPos, lastVideoFragment->GetAbsPosition());
+	EXPECT_DOUBLE_EQ(seekPos, lastVideoFragment->GetAbsPosition().inSeconds());
 	EXPECT_EQ(mTestableTsbReader->GetFirstPTS(), lastVideoFragment->GetPTS());
 
 	// Initialize secondary reader
@@ -429,7 +429,7 @@ TEST_F(FunctionalTests, Init_SeekWithAudioTrack)
 		.WillOnce(Return(lastAudioFragment));
 	std::shared_ptr<AampTsbReader> primaryReaderPtr(mTestableTsbReader, [](AampTsbReader *) {});
 	EXPECT_EQ(mTestableSecondaryTsbReader->Init(seekPos, rate, tuneType, primaryReaderPtr), eAAMPSTATUS_OK);
-	EXPECT_DOUBLE_EQ(seekPos, lastVideoFragment->GetAbsPosition());
+	EXPECT_DOUBLE_EQ(seekPos, lastVideoFragment->GetAbsPosition().inSeconds());
 	EXPECT_EQ(mTestableSecondaryTsbReader->GetFirstPTS(), lastAudioFragment->GetPTS());
 }
 
@@ -449,15 +449,15 @@ TEST_F(FunctionalTests, Init_SeekWithAudioTrackDiffInPTS)
 
 	// Mock valid fragment data
 	std::string url = "http://example.com";
-	double position = 1000.0;
-	double duration = 5.0;
-	double pts = 250.0;
+	AampTime position = 1000.0;
+	AampTime duration = 5.0;
+	AampTime pts = 250.0;
 	bool discont = false;
 	std::string periodId = "testPeriodId";
 	StreamInfo streamInfo;
 	int profileIdx = 0;
 	uint32_t timeScale = 240000;
-	double PTSOffsetSec = 0.0;
+	AampTime PTSOffsetSec = 0.0;
 
 	// Create init data and fragments
 	TsbInitDataPtr videoInitFragment = std::make_shared<TsbInitData>(url, eMEDIATYPE_VIDEO, streamInfo, periodId, profileIdx);
@@ -473,7 +473,7 @@ TEST_F(FunctionalTests, Init_SeekWithAudioTrackDiffInPTS)
 	EXPECT_CALL(*g_mockTSBDataManager, GetLastFragment())
 		.WillOnce(Return(lastVideoFragment));
 
-	EXPECT_CALL(*g_mockTSBDataManager, GetNearestFragment(lastVideoFragment->GetAbsPosition()))
+	EXPECT_CALL(*g_mockTSBDataManager, GetNearestFragment(lastVideoFragment->GetAbsPosition().inSeconds()))
 		.WillOnce(Return(lastVideoFragment));
 	EXPECT_EQ(mTestableTsbReader->Init(seekPos, rate, tuneType, nullptr), eAAMPSTATUS_OK);
 	EXPECT_EQ(seekPos, lastVideoFragment->GetAbsPosition());
