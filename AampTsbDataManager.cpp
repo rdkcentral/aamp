@@ -258,7 +258,7 @@ double AampTsbDataManager::GetFirstFragmentPosition()
 	std::lock_guard<std::mutex> lock(mTsbDataMutex);
 	if (!mTsbFragmentData.empty())
 	{
-		pos = mTsbFragmentData.begin()->second->GetAbsPosition();
+		pos = mTsbFragmentData.begin()->second->GetAbsPosition().inSeconds();
 	}
 	return pos;
 }
@@ -306,7 +306,7 @@ double AampTsbDataManager::GetLastFragmentPosition()
 	std::lock_guard<std::mutex> lock(mTsbDataMutex);
 	if (!mTsbFragmentData.empty())
 	{
-		pos = (std::prev(mTsbFragmentData.end()))->second->GetAbsPosition();
+		pos = (std::prev(mTsbFragmentData.end()))->second->GetAbsPosition().inSeconds();
 	}
 	return pos;
 }
@@ -399,7 +399,7 @@ bool AampTsbDataManager::DumpData()
 				TsbFragmentDataPtr fragmentData = it->second;
 				TsbInitDataPtr initdata = fragmentData->GetInitFragData();
 				AAMPLOG_INFO("Fragment Meta Data: { Media [%d] absPosition : %.02lf duration: %.02lf PTS : %.02lf bandwidth: %" BITSPERSECOND_FORMAT " discontinuous: %d fragmentUrl: '%s' initHeaderUrl: '%s' }",
-							 fragmentData->GetMediaType(), fragmentData->GetAbsPosition(), fragmentData->GetDuration(), fragmentData->GetPTS(),
+							 fragmentData->GetMediaType(), fragmentData->GetAbsPosition().inSeconds(), fragmentData->GetDuration().inSeconds(), fragmentData->GetPTS().inSeconds(),
 							 initdata->GetBandWidth(), fragmentData->IsDiscontinuous(), fragmentData->GetUrl().c_str(), initdata->GetUrl().c_str());
 			}
 		}
