@@ -33,6 +33,8 @@
 #include "AampEvent.h"
 #include "AampDRMLicPreFetcherInterface.h"
 
+#define SECCLIENT_RESULT_HTTP_FAILURE_TIMEOUT (-7) /**< License result is not returned to the device due to network failure */
+
 class PrivateInstanceAAMP;
 
 /**
