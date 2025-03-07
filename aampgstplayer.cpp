@@ -1249,7 +1249,7 @@ bool AAMPGstPlayer::SetTextStyle(const std::string &options)
 bool AAMPGstPlayer::SignalSubtitleClock( void )
 {
 	bool signalSent=false;
-	signalSent = playerInstance->SignalSubtitleClock(aamp->GetVideoPTS(), aamp->GetBufUnderFlowStatus());
+	signalSent = playerInstance->SignalSubtitleClock(GetVideoPTS(), aamp->GetBufUnderFlowStatus());
 	return signalSent;
 }
 

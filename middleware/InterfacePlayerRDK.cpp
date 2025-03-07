@@ -2098,6 +2098,7 @@ int InterfacePlayerRDK::SetupStream(int streamId,  void *playerInstance, std::st
 				pInterfacePlayerRDK->gstPrivateContext->subtitle_sink = textsink;
 				MW_LOG_MIL("using rialtomsesubtitlesink muted=%d sink=%p", pInterfacePlayerRDK->gstPrivateContext->subtitleMuted, pInterfacePlayerRDK->gstPrivateContext->subtitle_sink);
 				g_object_set(textsink, "mute", pInterfacePlayerRDK->gstPrivateContext->subtitleMuted ? TRUE : FALSE, NULL);
+				g_object_set(textsink, "pts-offset", static_cast<std::uint64_t>(0), NULL);
 			}
 			else
 			{
@@ -2125,7 +2126,7 @@ int InterfacePlayerRDK::SetupStream(int streamId,  void *playerInstance, std::st
 				gst_element_sync_state_with_parent(stream->sinkbin);
 				pInterfacePlayerRDK->gstPrivateContext->subtitle_sink = GST_ELEMENT(gst_object_ref(stream->sinkbin));
 				g_object_set(stream->sinkbin, "mute", pInterfacePlayerRDK->gstPrivateContext->subtitleMuted ? TRUE : FALSE, NULL);
-				
+				g_object_set(pInterfacePlayerRDK->gstPrivateContext->subtitle_sink, "pts-offset", static_cast<std::uint64_t>(0), NULL);
 				return 0;
 #else
 				MW_LOG_INFO("subs using playbin");

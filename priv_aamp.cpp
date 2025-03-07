@@ -5998,6 +5998,7 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 	mbPlayEnabled = autoPlay;
 	mPlayerPreBuffered = !autoPlay ;
 
+	mVideoBasePTS = 0;
 	ResumeDownloads();
 
 	if (!autoPlay)
@@ -9696,7 +9697,7 @@ void PrivateInstanceAAMP::NotifyVideoBasePTS(unsigned long long basepts, unsigne
 	{
 		mVideoBasePTS = basepts;
 	}
-	AAMPLOG_INFO("mVideoBasePTS::%llus", mVideoBasePTS);
+	AAMPLOG_INFO("mVideoBasePTS::%llu", mVideoBasePTS);
 }
 
 /**
