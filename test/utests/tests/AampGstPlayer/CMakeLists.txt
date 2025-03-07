@@ -33,6 +33,7 @@ include_directories(SYSTEM ${UTESTS_ROOT}/mocks)
 include_directories(${AAMP_ROOT}/tsb/api)
 include_directories(${AAMP_ROOT}/middleware/test/utests/mocks)
 include_directories(${AAMP_ROOT}/middleware)
+include_directories(${AAMP_ROOT}/externals)
 
 message(GSTREAMER_INCLUDE_DIRS=${GSTREAMER_INCLUDE_DIRS})
 

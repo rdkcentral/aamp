@@ -25,6 +25,7 @@
 #include "opencdmsessionadapter.h"
 #include "AampDrmHelper.h"
 #include "AampUtils.h"
+#include "playerIarmRfcInterface.h"
 
 #include <assert.h>
 #include <iostream>
@@ -75,7 +76,7 @@ AAMPOCDMSessionAdapter::AAMPOCDMSessionAdapter(std::shared_ptr<AampDrmHelper> dr
 	initAampDRMSystem();
 
 	// Get output protection pointer
-	m_pOutputProtection = AampOutputProtection::GetAampOutputProtectionInstance();
+	m_pOutputProtection = PlayerIarmRfcInterface::GetPlayerIarmRfcInterfaceInstance();
 	AAMPLOG_WARN("AAMPOCDMSessionAdapter :: exit ");
 }
 
@@ -110,9 +111,6 @@ AAMPOCDMSessionAdapter::~AAMPOCDMSessionAdapter()
 		m_pOpenCDMSystem = NULL;
 	}
 
-	if(m_pOutputProtection) {
-			m_pOutputProtection->Release();
-	}
 }
 
 

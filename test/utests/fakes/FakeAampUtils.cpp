@@ -593,11 +593,6 @@ bool parseAndValidateSCTE35(const std::string &scte35Data)
 	return false;
 }
 
-bool IsContainerEnvironment(void)
-{
-	return false;
-}
-
 extern "C"
 {
 void aamp_ApplyPageHttpHeaders(PlayerInstanceAAMP *aamp)

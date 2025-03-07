@@ -23,10 +23,11 @@ pkg_check_modules(GOBJECT REQUIRED gobject-2.0)
 set(AAMP_ROOT "../../../..")
 set(UTESTS_ROOT "../..")
 set(DRM_ROOT ${UTESTS_ROOT}/drm)
+set(RFC_ROOT ${UTESTS_ROOT}/rfc)
 set(EXEC_NAME DrmOcdm)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DREALTEKCE=1")
 
-include_directories(${AAMP_ROOT} ${AAMP_ROOT}/drm ${AAMP_ROOT}/drm/helper ${AAMP_ROOT}/subtitle ${AAMP_ROOT}/downloader ${AAMP_ROOT}/isobmff ${AAMP_ROOT}/subtec/subtecparser ${AAMP_ROOT}/subtec/libsubtec)
+include_directories(${AAMP_ROOT} ${AAMP_ROOT}/drm ${AAMP_ROOT}/externals ${AAMP_ROOT}/drm/helper ${AAMP_ROOT}/subtitle ${AAMP_ROOT}/downloader ${AAMP_ROOT}/isobmff ${AAMP_ROOT}/subtec/subtecparser ${AAMP_ROOT}/subtec/libsubtec)
 include_directories(${AAMP_ROOT}/tsb/api)
 include_directories(${AAMP_ROOT}/middleware)
 include_directories(${GTEST_INCLUDE_DIRS})
@@ -36,6 +37,7 @@ include_directories(${GSTREAMER_INCLUDE_DIRS})
 include_directories(${LIBCJSON_INCLUDE_DIRS})
 include_directories(${UUID_INCLUDE_DIRS})
 include_directories(${DRM_ROOT})
+include_directories(${RFC_ROOT})
 include_directories(${DRM_ROOT}/ocdm)
 include_directories(${DRM_ROOT}/mocks)
 
@@ -57,6 +59,9 @@ set(MOCK_SOURCES ${DRM_ROOT}/mocks/aampMocks.cpp
 				 ${DRM_ROOT}/mocks/openSslMocks.c
 				 ${DRM_ROOT}/mocks/Fakeopencdm.cpp)
 
+set(FAKE_SOURCES ${UTESTS_ROOT}/fakes/FakeAampRfc.cpp
+				 ${UTESTS_ROOT}/fakes/FakePlayerIarmRfcInterface.cpp)
+
 set(AAMP_SOURCES ${AAMP_ROOT}/_base64.cpp
 				 ${AAMP_ROOT}/AampConfig.cpp
 				 ${AAMP_ROOT}/downloader/AampCurlStore.cpp
@@ -69,7 +74,6 @@ set(AAMP_SOURCES ${AAMP_ROOT}/_base64.cpp
 				 ${AAMP_ROOT}/AampUtils.cpp
 				 ${AAMP_ROOT}/iso639map.cpp
 				 ${AAMP_ROOT}/drm/AampDRMutils.cpp
-				 ${AAMP_ROOT}/drm/aampoutputprotection.cpp
 				 ${AAMP_ROOT}/drm/aampdrmsessionfactory.cpp
 				 ${AAMP_ROOT}/drm/helper/AampDrmHelper.cpp
 				 ${AAMP_ROOT}/drm/helper/AampDrmHelperFactory.cpp
@@ -99,7 +103,8 @@ add_executable(${EXEC_NAME}
 			   ${DRM_ROOT}/AampDrmTestUtils.cpp
 			   ${TEST_SOURCES}
 			   ${MOCK_SOURCES}
-			   ${AAMP_SOURCES})
+			   ${AAMP_SOURCES}
+			   ${FAKE_SOURCES})
 
 set_target_properties(${EXEC_NAME} PROPERTIES FOLDER "utests")
 

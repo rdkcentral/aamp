@@ -29,6 +29,7 @@ include_directories(${AAMP_ROOT}/subtec/libsubtec)
 include_directories(${AAMP_ROOT}/subtec/subtecparser)
 include_directories(${AAMP_ROOT} ${AAMP_ROOT}/drm ${AAMP_ROOT}/drm/helper  ${AAMP_ROOT}/downloader ${AAMP_ROOT}/subtitle)
 include_directories(${AAMP_ROOT}/closedcaptions)
+include_directories(${AAMP_ROOT}/externals)
 
 include_directories(${GTEST_INCLUDE_DIRS})
 include_directories(${GMOCK_INCLUDE_DIRS})
@@ -46,7 +47,7 @@ include_directories(${AAMP_ROOT}/subtec/subtecparser)
 
 set(TEST_SOURCES    PrivAampTests.cpp
                     PrivAampAAMPTests.cpp)
-set(AAMP_SOURCES ${AAMP_ROOT}/priv_aamp.cpp )
+set(AAMP_SOURCES ${AAMP_ROOT}/priv_aamp.cpp)
 add_executable(${EXEC_NAME}
                ${TEST_SOURCES}
                ${AAMP_SOURCES})

@@ -30,7 +30,6 @@
 #include "AampDrmHelper.h"
 #include "AampJsonObject.h"
 #include "AampUtils.h"
-#include "AampRfc.h"
 #include <inttypes.h>
 #ifdef USE_SECMANAGER
 #include "AampSecManager.h"

@@ -1326,11 +1326,6 @@ void PrivateInstanceAAMP::updateManifest(const char *manifestData)
 		mProvidedManifestFile = manifestData;
 }
 
-bool AAMPGstPlayer::IsMS2V12Supported()
-{
-	return false;
-}
-
 PlatformType AAMPGstPlayer::InferPlatformFromPluginScan()
 {
 	return ePLATFORM_DEFAULT;
