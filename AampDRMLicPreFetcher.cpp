@@ -442,12 +442,18 @@ void AampLicensePreFetcher::NotifyDrmFailure(LicensePreFetchObjectPtr fetchObj, 
 	{
 		if (!selfAbort)
 		{
-			isRetryEnabled =   (failure != AAMP_TUNE_AUTHORIZATION_FAILURE)
-						&& (failure != AAMP_TUNE_LICENCE_REQUEST_FAILED)
-						&& (failure != AAMP_TUNE_LICENCE_TIMEOUT)
-						&& (failure != AAMP_TUNE_DEVICE_NOT_PROVISIONED)
-						&& (failure != AAMP_TUNE_HDCP_COMPLIANCE_ERROR);
-
+			//Set the isRetryEnabled flag to true if the failure is due to
+			//SEC_CLIENT_RESULT_HTTP_RESULT_FAILURE_TIMEOUT (error -7). This
+			//error is caused by a network failure, so the tune may succeed
+			//on a retry attempt.
+			//For other DRM failures, the flag should be set to false.
+			isRetryEnabled = ((failure == AAMP_TUNE_LICENCE_REQUEST_FAILED) && (event->getResponseCode() == SECCLIENT_RESULT_HTTP_FAILURE_TIMEOUT))
+				      || ((failure != AAMP_TUNE_AUTHORIZATION_FAILURE)
+				      && (failure != AAMP_TUNE_LICENCE_REQUEST_FAILED)
+				      && (failure != AAMP_TUNE_LICENCE_TIMEOUT)
+				      && (failure != AAMP_TUNE_DEVICE_NOT_PROVISIONED)
+				      && (failure != AAMP_TUNE_HDCP_COMPLIANCE_ERROR));
+			AAMPLOG_WARN("Drm failure:%d response: %d isRetryEnabled:%d ",(int)failure,event->getResponseCode(),isRetryEnabled);
 			mPrivAAMP->SendDrmErrorEvent(event, isRetryEnabled);
 			mPrivAAMP->profiler.SetDrmErrorCode((int)failure);
 			mPrivAAMP->profiler.ProfileError(PROFILE_BUCKET_LA_TOTAL, (int)failure);
