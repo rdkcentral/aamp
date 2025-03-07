@@ -67,7 +67,7 @@ TESTDATA1 = {
 	"title": "configfalse",
 	"logfile": "01-configfalse.log",
 	"max_test_time_seconds": 15,
-	"aamp_cfg": "info=true\ntrace=true\nlocalTSBEnabled=false\nprogress=true\ntsbLocation=/tmp/data\nsupressDecode=true\nlldUrlKeyword=chunked\n",
+	"aamp_cfg": "info=true\ntrace=true\nlocalTSBEnabled=false\nprogress=true\ntsbLocation=/tmp/data\nsupressDecode=true\nlldUrlKeyword=chunked\nenablePTSReStamp=true\n",
 	"archive_url": archive_url,
 	"url": TEST_URL,
 	"cmdlist": ["contentType LINEAR_TV"],
@@ -157,9 +157,11 @@ TESTDATA5 = {
 	"archive_url": archive_url,
 	"url": TEST_URL,
 	"cmdlist": ["contentType LINEAR_TV"],
-	"aamp_cfg": "progress=true\ninfo=true\nlocalTSBEnabled=true\ntsbLocation=/tmp/data\ntsbLength=500\ntsbLog=0\nsupressDecode=true\nlldUrlKeyword=chunked\n",
+	"aamp_cfg": "progress=true\ninfo=true\nlocalTSBEnabled=true\ntsbLocation=/tmp/data\ntsbLength=500\ntsbLog=0\nsupressDecode=true\nlldUrlKeyword=chunked\nenablePTSReStamp=true\n",
 	"expect_list":
 	[
+		{"expect" : r"\[TSB Store\] Initiating with config values", "max":1},
+
 		# Wait until one specific fragment is added to TSB
 		{"expect": r"\[TsbStore.cpp:\d+\] msg=\"File written\" file=\"([\w:\-\. /\']+)track-audio-periodid-881036617-([\w:\-\. /\']+)frag-881045321", "callback": send_command, "callback_arg": "seek 0"},
 
@@ -184,6 +186,8 @@ TESTDATA6 = {
 	"aamp_cfg": "info=true\ntrace=true\nlocalTSBEnabled=true\ntsbLocation=/tmp/data\ntsbLength=500\ntsbLog=0\nsupressDecode=true\nenablePTSReStamp=true\n",
 	"expect_list":
 	[
+		{"expect" : r"\[TSB Store\] Initiating with config values", "max":1},
+
 		# Check the PTS restamp is done correctly
 		{"expect": r'\[RestampPts\].*?\[(\w+)\] timeScale (\d+) before (\d+) after (\d+) duration (\d+) ([\w:/?\.\-]+)\r\n', "callback" : pts_restamp_utils.check_restamp},
 
@@ -203,6 +207,8 @@ TESTDATA7 = {
 	"aamp_cfg": "info=true\nlocalTSBEnabled=true\ntsbLocation=/tmp/data\ntsbLength=500\ntsbLog=0\nsupressDecode=true\nenablePTSReStamp=true\n",
 	"expect_list":
 	[
+		{"expect" : r"\[TSB Store\] Initiating with config values", "max":1},
+
 		# Wait until one specific fragment is added to TSB (~10s)
 		{"expect": r"\[TsbStore.cpp:\d+\] msg=\"File written\" file=\"([\w:\-\. /\']+)track-audio-periodid-881036617-([\w:\-\. /\']+)frag-881045321", "callback": send_command, "callback_arg": "seek 0"},
 
@@ -231,6 +237,8 @@ TESTDATA8 = {
 	"aamp_cfg": "info=true\ntrace=true\nlocalTSBEnabled=true\ntsbLocation=/tmp/data\ntsbLength=500\ntsbLog=0\nsupressDecode=true\nenablePTSReStamp=true\n",
 	"expect_list":
 	[
+		{"expect" : r"\[TSB Store\] Initiating with config values", "max":1},
+
 		# Pause live
 		{"expect": r'AAMPGstPlayerPipeline \w+ -> PLAYING', "callback": send_command, "callback_arg": "pause"},
  		# Confirm adding to TSB initially
@@ -251,6 +259,8 @@ TESTDATA9 = {
 	"aamp_cfg": "info=true\nlocalTSBEnabled=true\ntsbLocation=/tmp/data\ntsbLength=500\ntsbLog=0\nsupressDecode=true\nenablePTSReStamp=true\n",
 	"expect_list":
 	[
+		{"expect" : r"\[TSB Store\] Initiating with config values", "max":1},
+
 		# Wait 5s and then pause when the next fragment is added to TSB
 		{"expect": r'\[AddFragment\]', "min": 5, "max": 9, "callback_once": send_command, "callback_arg": "pause"},
 		{"expect": r'AAMPGstPlayerPipeline PLAYING -> PAUSED', "min": 5, "max": 10},
@@ -290,6 +300,8 @@ TESTDATA10 = {
 	"aamp_cfg": "info=true\nlocalTSBEnabled=true\ntsbLocation=/tmp/data\ntsbLength=500\ntsbLog=0\nsupressDecode=true\nenablePTSReStamp=true\n",
 	"expect_list":
 	[
+		{"expect" : r"\[TSB Store\] Initiating with config values", "max":1},
+
 		# The test data transitions over periods 881036616 and 881036617 with frag-881045317 being the first in period 881036617 
 		# Wait until one specific fragment is added to TSB (~10s)
 		{"expect": r'\[AddFragment\]\[\d+\]\[audio\] Adding fragment data\:.*track-audio-periodid-881036617-([\w:\-\. /\']+)frag-881045320', "callback": send_command, "callback_arg": "rew 2"},
@@ -325,6 +337,8 @@ TESTDATA11 = {
     "cmdlist": [ "contentType LINEAR_TV" ],
 	"expect_list":
 	[
+		{"expect" : r"\[TSB Store\] Initiating with config values", "max":1},
+
 		# Wait until position reaches > 50s
 		{"expect": r'\[ReportProgress\]\[\d+\]aamp pos: \[\d+..5\d..\d+..-?\d+..\d+.\d+..-?\d+.\d+..\w*..\d+..\d+..1.00]', "callback_once": send_command, "callback_arg": "rew 2"},
 
@@ -357,7 +371,7 @@ TESTDATA12 = {
 	"title": "VOD ",
 	"logfile": "12-vod.log",
 	"max_test_time_seconds": 20,
-	"aamp_cfg": "info=true\nlocalTSBEnabled=true\nprogress=true\ntsbLocation=/tmp/data\ntsbLength=4\ntsbLog=0\nsupressDecode=true\nlldUrlKeyword=chunked\n",
+	"aamp_cfg": "info=true\nlocalTSBEnabled=true\nprogress=true\ntsbLocation=/tmp/data\ntsbLength=4\ntsbLog=0\nsupressDecode=true\nlldUrlKeyword=chunked\nenablePTSReStamp=true\n",
 	"archive_url": archive_url,
 	"url": TEST_URL,
 	"cmdlist": ["contentType VOD"],

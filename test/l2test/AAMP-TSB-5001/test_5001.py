@@ -196,6 +196,8 @@ TESTDATA7 = {
 	"aamp_cfg": "info=true\nlocalTSBEnabled=true\ntsbLocation=/tmp/data\ntsbLength=500\ntsbLog=0\nsupressDecode=true\nenablePTSReStamp=true\n",
 	"expect_list":
 	[
+		{"expect" : r"\[TSB Store\] Initiating with config values"},
+
 		# Wait until one specific fragment is added to TSB (~10s)
 		{"expect": r'\[AddFragment\]\[\d+\]\[audio\] Adding fragment data\: ([\w:\-\. /\']+)track-audio-periodid-1729780927911-1-repid-trackId-201-tc-0-time-927982192360\.mp4', "callback": send_command, "callback_arg": "seek 0"},
 
@@ -220,6 +222,8 @@ TESTDATA8 = {
 	"aamp_cfg": "info=true\nlocalTSBEnabled=true\ntsbLocation=/tmp/data\ntsbLength=500\ntsbLog=0\nsupressDecode=true\nenablePTSReStamp=true\n",
 	"expect_list":
 	[
+		{"expect" : r"\[TSB Store\] Initiating with config values"},
+
 		# Check the PTS restamp is done correctly
 		{"expect": r'\[RestampPts\].*?\[(\w+)\] timeScale (\d+) before (\d+) after (\d+) duration (\d+) ([\w:/?\.\-]+)\r\n', "callback" : pts_restamp_utils.check_restamp},
 
@@ -239,6 +243,8 @@ TESTDATA9 = {
 	"aamp_cfg": "info=true\nlocalTSBEnabled=true\ntsbLocation=/tmp/data\ntsbLength=500\ntsbLog=0\nsupressDecode=true\nenablePTSReStamp=true\n",
 	"expect_list":
 	[
+		{"expect" : r"\[TSB Store\] Initiating with config values"},
+
 		# Wait until one specific fragment is added to TSB (~10s)
 		{"expect": r'\[AddFragment\]\[\d+\]\[audio\] Adding fragment data\: ([\w:\-\. /\']+)track-audio-periodid-1729780927911-1-repid-trackId-201-tc-0-time-927982192360\.mp4', "callback": send_command, "callback_arg": "seek 0"},
 
@@ -267,6 +273,8 @@ TESTDATA10 = {
 	"aamp_cfg": "info=true\nlocalTSBEnabled=true\ntsbLocation=/tmp/data\ntsbLength=500\ntsbLog=0\nsupressDecode=true\nenablePTSReStamp=true\n",
 	"expect_list":
 	[
+		{"expect" : r"\[TSB Store\] Initiating with config values"},
+
 		# Pause live
 		{"expect": r'AAMPGstPlayerPipeline \w+ -> PLAYING', "callback": send_command, "callback_arg": "pause"},
  		# Confirm adding to TSB initially
@@ -287,6 +295,8 @@ TESTDATA11 = {
 	"aamp_cfg": "info=true\nlocalTSBEnabled=true\ntsbLocation=/tmp/data\ntsbLength=500\ntsbLog=0\nsupressDecode=true\nenablePTSReStamp=true\n",
 	"expect_list":
 	[
+		{"expect" : r"\[TSB Store\] Initiating with config values"},
+
 		# Wait 5s and then pause when the next fragment is added to TSB
 		{"expect": r'\[AddFragment\]', "min": 5, "max": 9, "callback_once": send_command, "callback_arg": "pause"},
 		{"expect": r'AAMPGstPlayerPipeline PLAYING -> PAUSED', "min": 5, "max": 10},
@@ -326,6 +336,8 @@ TESTDATA12 = {
 	"aamp_cfg": "info=true\nlocalTSBEnabled=true\ntsbLocation=/tmp/data\ntsbLength=500\ntsbLog=0\nsupressDecode=true\nenablePTSReStamp=true\n",
 	"expect_list":
 	[
+		{"expect" : r"\[TSB Store\] Initiating with config values"},
+
 		# Wait until one specific fragment is added to TSB (~10s)
 		{"expect": r'\[AddFragment\]\[\d+\]\[audio\] Adding fragment data\: ([\w:\-\. /\']+)track-audio-periodid-1729780927911-1-repid-trackId-201-tc-0-time-927982192360\.mp4', "callback": send_command, "callback_arg": "rew 2"},
 
@@ -360,6 +372,8 @@ TESTDATA13 = {
     "cmdlist": [ "contentType LINEAR_TV" ],
 	"expect_list":
 	[
+		{"expect" : r"\[TSB Store\] Initiating with config values"},
+
 		# Wait until position reaches > 50s
 		{"expect": r'\[ReportProgress\]\[\d+\]aamp pos: \[\d+..181[7-9]..\d+..-?\d+..\d+.\d+..-?\d+.\d+..\w*..\d+..\d+..1.00]', "callback_once": send_command, "callback_arg": "rew 2"},
 

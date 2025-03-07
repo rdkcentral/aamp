@@ -407,16 +407,23 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 			CacheTsbFragment(fragmentToTsbSessionMgr);
 		}
 
-		// Notify fragment fetched if no local TSB, or not playing from TSB and not paused
-		// As injected fragments are coming from the Fetcher 
-		bool isInjectionFromCachedFragmentChunks = IsInjectionFromCachedFragmentChunks();
-		if (tsbSessionManager && (isInjectionFromCachedFragmentChunks || aamp->pipeline_paused))
+		// If playing back from local TSB, or pending playing back from local TSB as paused
+		if (tsbSessionManager && (IsLocalTSBInjection() || aamp->pipeline_paused))
 		{
-			AAMPLOG_TRACE("Injecting from TSB(%d) or paused(%d)", isInjectionFromCachedFragmentChunks, aamp->pipeline_paused);
+			AAMPLOG_TRACE("Skip notifying fragment fetch");
+			// Free the memory
+			cachedFragment->fragment.Free();
 		}
-		else
+		else 
 		{
+			// Update buffer index after fetch for injection
 			UpdateTSAfterFetch(initSegment);
+
+			// If injection is from chunk buffer, remove the fragment for injection
+			if(IsInjectionFromCachedFragmentChunks())
+			{
+				UpdateTSAfterInject();
+			}
 		}
 
 		ret = true;
