@@ -19,7 +19,7 @@
 
 /**
  * @file playerIARMRDKInterface.cpp
- * @brief player inferface with IARM specific to RDK
+ * @brief player interface with IARM specific to RDK
  */
 #include "playerIarmRdkInterface.h"
 
@@ -42,7 +42,7 @@ typedef enum _NetworkManager_EventId_t {
 
 /**
  * @struct _IARM_BUS_NetSrvMgr_Iface_EventData_t
- * @brief IARM Bus struct contains active streaming interface, origional definition present in homenetworkingservice.h
+ * @brief IARM Bus struct contains active streaming interface, original definition present in homenetworkingservice.h
  */
 typedef struct _IARM_BUS_NetSrvMgr_Iface_EventData_t {
 	union{

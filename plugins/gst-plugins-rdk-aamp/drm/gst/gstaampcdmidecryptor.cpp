@@ -137,7 +137,7 @@ static void gst_aampcdmidecryptor_class_init(
 			"Decrypt encrypted content with CDMi",
 			GST_ELEMENT_FACTORY_KLASS_DECRYPTOR,
 			"Decrypts streams encrypted using Encryption.",
-			"comcast");
+			"Comcast");
 	//GST_DEBUG_OBJECT(aampcdmidecryptor, "Inside custom plugin init\n");
 }
 

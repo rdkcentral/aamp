@@ -1322,7 +1322,6 @@ bool TrackState::FetchFragmentHelper(int &http_error, bool &decryption_error, bo
 			{
 				range = NULL;
 			}
-			// patch for http://example.com/content/sintel/hls/playlist.m3u8
 			// if fragment URI uses relative path, we don't want to replace effective URI
 			std::string tempEffectiveUrl;
 			AAMPLOG_TRACE(" Calling Getfile . buffer %p avail %d", &cachedFragment->fragment, (int)cachedFragment->fragment.GetAvail());

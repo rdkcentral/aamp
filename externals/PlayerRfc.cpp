@@ -31,7 +31,7 @@
 #include "PlayerRfc.h"
 #include "playerExternalUtils.h"
 
-//replace below and dependcies with dedicated logger once implemented
+//replace below and dependencies with dedicated logger once implemented
 #include "AampLogManager.h"
 
 namespace RFCSettings
@@ -41,7 +41,7 @@ namespace RFCSettings
 	* @param   CallerId and Parameter to be fetched
 	* @retval  std::string host value
 	*/
-	std::string readRFCValue(const std::string& parameter,const char* playername){
+	std::string readRFCValue(const std::string& parameter,const char* playerName){
 		std::string strhost="";
 		#ifdef AAMP_RFC_ENABLED
 		if(!IsContainerEnvironment())
@@ -49,7 +49,7 @@ namespace RFCSettings
             TR181_ParamData_t param = {0};
 
 			//getParam() wrongly char* not const char*; cast to avoid compilation error
-			tr181ErrorCode_t status = getParam((char *)playername, parameter.c_str(), &param);
+			tr181ErrorCode_t status = getParam((char *)playerName, parameter.c_str(), &param);
 
 			if (tr181Success == status)
 			{

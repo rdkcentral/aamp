@@ -19,7 +19,7 @@
 
 /**
  * @file playerIARMInterfaceBase.h
- * @brief Base class for player inferface with IARM
+ * @brief Base class for player interface with IARM
  */
 
 #ifndef PLAYER_IARM_INTERFACE_BASE_H
@@ -31,10 +31,10 @@
 
 #include <gst/gst.h>
 
-//replace below and dependcies with dedicated logger once implemented
+//replace below and dependencies with dedicated logger once implemented
 #include "AampLogManager.h"
 
-#define UHD_WITDH   3840
+#define UHD_WIDTH   3840
 #define UHD_HEIGHT  2160
 
 //base class for iarm interface
@@ -85,7 +85,7 @@ class PlayerIarmInterfaceBase
                 m_sourceHeight  = sourceHeight;
             }
             if(sourceWidth != 0 && sourceHeight != 0 &&
-            (sourceWidth >= UHD_WITDH || sourceHeight >= UHD_HEIGHT) ) {
+            (sourceWidth >= UHD_WIDTH || sourceHeight >= UHD_HEIGHT) ) {
                 // Source Material is UHD
                 retVal = true;
             }
@@ -127,7 +127,7 @@ class PlayerIarmInterfaceBase
 
         /**
          * @fn SetHDMIStatus
-         * @brief Checks Display Settings and sets HDMI parameters like vport resolution, HDCP protocol
+         * @brief Checks Display Settings and sets HDMI parameters like video output resolution, HDCP protocol
          */
         virtual void SetHDMIStatus(){}
 
@@ -148,9 +148,9 @@ class PlayerIarmInterfaceBase
         /**
          * @fn GetTR181Config
          * @brief Gets appropriate TR181 Config
-         * @param[in] paramName String of name of the parameter to be retreived
-         * @param[out] iConfigLen Length of config retreived
-         * @return Parameter config retreived
+         * @param[in] paramName String of name of the parameter to be retrieved
+         * @param[out] iConfigLen Length of config retrieved
+         * @return Parameter config retrieved
          */
         virtual char * GetTR181Config(const char * paramName, size_t & iConfigLen){return nullptr;}
         

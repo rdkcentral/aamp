@@ -45,18 +45,6 @@ struct StreamWriteCallbackContext
 };
 
 /**
-Test Content Examples:
-http://127.0.0.1:8080/overlay360.mp4
-- unable to play on OSX with error:
-/GstPipeline:AAMPGstPlayerPipeline/GstPlayBin:playbin0/GstURIDecodeBin:uridecodebin0/GstDecodeBin:decodebin0/GstQTDemux:qtdemux0:
- no 'moov' atom within the first 10 MB
-
-http://d3rlna7iyyu8wu.cloudfront.net/Atmos/MP4/shattered-3Mb.mp4
-- plays on OSX but without audio
-
-http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4
-- plays on OSX with video/audio
-
  TODO: consider harvesting fixed size chunks instead of immediately tiny ranges of bytes to gstreamer
  TODO: consider config for required bytes to collect before starting gstreamer pipeline
  TODO: if we can't keep up with required bandwidth we don't have luxury of ABR ramp down; need to inform app about buffering status

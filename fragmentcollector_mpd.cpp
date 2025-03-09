@@ -7857,7 +7857,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, 
 					pMediaStreamContext->representationIndex = 0; //Fog custom mpd has single representation
 				}
 			}
-                  	//The logic is added to avoid a crash in AAMP due to stream issue in charter HEVC stream.
+                  	//The logic is added to avoid a crash in AAMP due to stream issue in HEVC stream.
                   	//Player will be able to end the playback gracefully with the fix.
 			if(pMediaStreamContext->representationIndex < pMediaStreamContext->adaptationSet->GetRepresentation().size())
 			{

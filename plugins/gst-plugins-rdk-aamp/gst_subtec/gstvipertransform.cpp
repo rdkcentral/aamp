@@ -19,7 +19,7 @@
 /**
  * SECTION:element-gstvipertransform
  *
- * The vipertransform element performs the necessary transforms for Comcast Viper linear content.
+ * The vipertransform element performs the necessary transforms for legacy linear content.
  * These are needed to overcome limitations in the TTML delivery
  *
  */
@@ -91,8 +91,7 @@ gst_vipertransform_class_init (GstViperTransformClass * klass)
       &gst_vipertransform_sink_template);
 
   gst_element_class_set_static_metadata (GST_ELEMENT_CLASS(klass),
-      "vipertransform", "Formatter/Subtitle", "Transforms TTML buffers for Viper broadcast",
-      "Stephen Waddell <stephen.waddell@consult.red>");
+      "vipertransform", "Formatter/Subtitle", "Transforms TTML buffers for broadcast", "Comcast");
 
   gobject_class->dispose = gst_vipertransform_dispose;
   gobject_class->finalize = gst_vipertransform_finalize;
@@ -573,6 +572,6 @@ plugin_init (GstPlugin * plugin)
 GST_PLUGIN_DEFINE (GST_VERSION_MAJOR,
     GST_VERSION_MINOR,
     vipertransform,
-    "Applies any necessary transforms for Viper TTML content",
+    "Applies any necessary transforms for TTML content",
     plugin_init, VERSION, "LGPL", PACKAGE_NAME, GST_PACKAGE_ORIGIN)
 

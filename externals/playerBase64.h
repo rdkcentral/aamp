@@ -17,8 +17,8 @@
  * limitations under the License.
 */
 
-#ifndef PLAYERBASE64_H
-#define PLAYERBASE64_H
+#ifndef PLAYER_BASE64_H
+#define PLAYER_BASE64_H
 
 /**
  * @file _base64.h
@@ -49,4 +49,4 @@ unsigned char *player_base64_Decode(const char *src, size_t *len);
  */
 unsigned char *base64_Decode(const char *src, size_t *len, size_t srcLen);
 
-#endif // PLAYERBASE64_H
+#endif // PLAYER_BASE64_H

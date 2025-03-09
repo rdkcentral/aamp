@@ -19,7 +19,7 @@
 
 /**
  * @file playerIARMRDKInterface.h
- * @brief player inferface with IARM specific to RDK
+ * @brief player interface with IARM specific to RDK
  */
 
 #ifndef PLAYER_IARM_RDK_INTERFACE_H
@@ -40,7 +40,7 @@
 
 #include "playerIARMInterfaceBase.h"
 
-//class representing IARM inetrface in rdk
+//class representing IARM interface in rdk
 class PlayerIarmRdkInterface : public PlayerIarmInterfaceBase
 {
     
@@ -76,7 +76,7 @@ class PlayerIarmRdkInterface : public PlayerIarmInterfaceBase
 
         /**
          * @fn SetHDMIStatus
-         * @brief Checks Display Settings and sets HDMI parameters like vport resolution, HDCP protocol
+         * @brief Checks Display Settings and sets HDMI parameters like video output resolution, HDCP protocol
          */
         void SetHDMIStatus() override;
 
@@ -113,9 +113,9 @@ class PlayerIarmRdkInterface : public PlayerIarmInterfaceBase
         /**
          * @fn GetTR181Config
          * @brief Gets appropriate TR181 Config
-         * @param[in] paramName String of name of the parameter to be retreived
-         * @param[out] iConfigLen Length of config retreived
-         * @return Parameter config retreived
+         * @param[in] paramName String of name of the parameter to be retrieved
+         * @param[out] iConfigLen Length of config retrieved
+         * @return Parameter config retrieved
          */
         char * GetTR181Config(const char * paramName, size_t & iConfigLen) override;
 

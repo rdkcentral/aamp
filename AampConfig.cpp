@@ -1731,7 +1731,7 @@ void AampConfig::ReadAampCfgFromEnv()
 static std::string getRFCValue( const char *strParamName )
 {
 	const std::string  strAAMPTr181BasePath = "Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.aamp.";
-	std::string value = RFCSettings::readRFCValue(strAAMPTr181BasePath+strParamName,PLAYERNAME);
+	std::string value = RFCSettings::readRFCValue(strAAMPTr181BasePath+strParamName,PLAYER_NAME);
 	return value;
 }
 

@@ -81,7 +81,7 @@ static void gst_aampverimatrixdecryptor_class_init(GstAampverimatrixdecryptorCla
 	        "Decrypt Verimatrix encrypted contents",
 	        GST_ELEMENT_FACTORY_KLASS_DECRYPTOR,
 	        "Decrypts streams encrypted using Verimatrix Encryption.",
-	        "comcast");
+	        "Comcast");
 }
 
 static void gst_aampverimatrixdecryptor_init(GstAampverimatrixdecryptor *aampverimatrixdecryptor)
