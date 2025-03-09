@@ -31,6 +31,6 @@ namespace RFCSettings{
      * @param   Parameter to be fetched
      * @retval  std::string host value
      */
-    std::string readRFCValue(const std::string& parameter,const char* playername);
+    std::string readRFCValue(const std::string& parameter,const char* playerName);
 }
 #endif

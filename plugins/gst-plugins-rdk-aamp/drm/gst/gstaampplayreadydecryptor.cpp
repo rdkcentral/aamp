@@ -91,7 +91,7 @@ static void gst_aampplayreadydecryptor_class_init(
 	        "Decrypt PlayReady encrypted contents",
 	        GST_ELEMENT_FACTORY_KLASS_DECRYPTOR,
 	        "Decrypts streams encrypted using PlayReady Encryption.",
-	        "comcast");
+	        "Comcast");
 }
 
 /**

@@ -140,7 +140,7 @@ static EventTypeMap aamp_eventTypes[] =
  */
 static EventTypeMap aampPlayer_eventTypes[] =
 {
-//TODO: Need separate event list to avoid breaking existing viper impl. Unify later.
+//TODO: Need separate event list to avoid breaking existing legacy impl. Unify later.
 	{ (AAMPEventType)0, "onEvent"},
 	{ AAMP_EVENT_TUNED, "playbackStarted"},
 	{ AAMP_EVENT_TUNE_FAILED, "playbackFailed"},

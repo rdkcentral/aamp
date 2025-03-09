@@ -1021,7 +1021,7 @@ void PlaybackCommand::registerPlaybackCommands()
 	addCommand("exit","Exit aampcli");
 	addCommand("advert <params>", "manage injected advert list - 'list', 'add <url or channel in virtual channel map>', 'rm <url or index into list>'");
 	addCommand("scte35 <base64>", "decode SCTE-35 signal base64 string");
-	addCommand("release <playerid/playername>", "to remove the player");
+	addCommand("release <playerId/playerName>", "to remove the player");
 	addCommand("tunedata <url>","Tune passing a manifest buffer as a string");
 	addCommand("adtesting", "toggle index based adtesting logic for testing");
 }

@@ -39,14 +39,14 @@
 
 
 //used for FakePlayerIarmInterface only, mimics dsmgr params
-#define PLYR_dsHDCP_VERSION_MAX 30
-#define PLYR_dsHDCP_VERSION_2X 22
-#define PLYR_dsHDCP_VERSION_1X 14
-typedef int plyrDsHdcpProtocolVersion_t;
+#define PLAYER_dsHDCP_VERSION_MAX 30
+#define PLAYER_dsHDCP_VERSION_2X 22
+#define PLAYER_dsHDCP_VERSION_1X 14
+typedef int playerDsHdcpProtocolVersion_t;
 
 class FakePlayerIarmInterface : public PlayerIarmInterfaceBase
 {
-        plyrDsHdcpProtocolVersion_t m_hdcpCurrentProtocol;
+        playerDsHdcpProtocolVersion_t m_hdcpCurrentProtocol;
     public:
         FakePlayerIarmInterface(){}
 
@@ -79,10 +79,10 @@ class FakePlayerIarmInterface : public PlayerIarmInterfaceBase
 
         /**
          * @fn SetHDMIStatus
-         * @brief Checks Display Settings and sets HDMI parameters like vport resolution, HDCP protocol
+         * @brief Checks Display Settings and sets HDMI parameters like video output resolution, HDCP protocol
          */
         void SetHDMIStatus() override{
-            m_hdcpCurrentProtocol = PLYR_dsHDCP_VERSION_1X;
+            m_hdcpCurrentProtocol = PLAYER_dsHDCP_VERSION_1X;
             m_isHDCPEnabled = true;
         }
 
@@ -103,9 +103,9 @@ class FakePlayerIarmInterface : public PlayerIarmInterfaceBase
         /**
          * @fn GetTR181Config
          * @brief Gets appropriate TR181 Config
-         * @param[in] paramName String of name of the parameter to be retreived
-         * @param[out] iConfigLen Length of config retreived
-         * @return Parameter config retreived
+         * @param[in] paramName String of name of the parameter to be retrieved
+         * @param[out] iConfigLen Length of config retrieved
+         * @return Parameter config retrieved
          */
         char * GetTR181Config(const char * paramName, size_t & iConfigLen) override{return nullptr;}
         
@@ -114,7 +114,7 @@ class FakePlayerIarmInterface : public PlayerIarmInterfaceBase
          * @brief Is current HDCP protocol 2_2
          * @return True if current HDCP protocol is 2_2. False, if not.
          */
-        bool isHDCPConnection2_2() override{ return m_hdcpCurrentProtocol == PLYR_dsHDCP_VERSION_2X; }
+        bool isHDCPConnection2_2() override{ return m_hdcpCurrentProtocol == PLAYER_dsHDCP_VERSION_2X; }
 
         /**
          * @fn GetActiveInterface
@@ -239,4 +239,4 @@ public:
 
 };
 
-#endif // playerIarmRfcInetrface_h
+#endif // playerIarmRfcInterface_h

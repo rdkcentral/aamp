@@ -111,8 +111,7 @@ gst_subtecsink_class_init (GstSubtecSinkClass * klass)
       &gst_subtecsink_sink_template);
 
   gst_element_class_set_static_metadata (GST_ELEMENT_CLASS(klass),
-      "OOB Subtec data sink", "Sink/Parser/Subtitle", "Packs TTML or WebVTT data into SubTtxRend APP suitable packets",
-      "Stephen Waddell <stephen.waddell@consult.red>");
+      "OOB Subtec data sink", "Sink/Parser/Subtitle", "Packs TTML or WebVTT data into SubTtxRend APP suitable packets", "Comcast");
 
 
   gobject_class->set_property = gst_subtecsink_set_property;

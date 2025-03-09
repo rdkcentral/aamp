@@ -91,7 +91,7 @@ static void gst_aampclearkeydecryptor_class_init(
             "Decrypt ClearKey encrypted contents",
             GST_ELEMENT_FACTORY_KLASS_DECRYPTOR,
             "Decrypts streams encrypted using ClearKey Encryption.",
-            "comcast");
+            "Comcast");
 }
 
 /**
