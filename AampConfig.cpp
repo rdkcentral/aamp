@@ -1258,11 +1258,6 @@ bool AampConfig::ProcessConfigJson(const cJSON *cfgdata, ConfigPriority owner )
 					SetConfigValue(owner,eAAMPConfig_CKLicenseServerUrl,conv);
 					drmType = eDRM_ClearKey;
 				}
-				if(strcasecmp("preferredKeysystem",subitem->string)==0)
-				{
-					AAMPLOG_MIL("Preferred key system received - %s", conv.c_str());
-					SetConfigValue(owner,eAAMPConfig_PreferredDRM,(int)drmType);
-				}
 				if(strcasecmp("customData",subitem->string)==0)
 				{
 					AAMPLOG_MIL("customData received - %s", conv.c_str());
@@ -1270,6 +1265,27 @@ bool AampConfig::ProcessConfigJson(const cJSON *cfgdata, ConfigPriority owner )
 				}
 				subitem = subitem->next;
 			}
+
+			// preferredKeysystem used to disambiguate DRM type to use when manifest advertises multiple supported systems.
+			cJSON *preferredKeySystemItem = cJSON_GetObjectItem(drmConfig, "preferredKeysystem");
+			if (preferredKeySystemItem && cJSON_IsString(preferredKeySystemItem))
+			{
+				const char * preferredKeySystem = preferredKeySystemItem->valuestring;
+				AAMPLOG_MIL("preferredKeySystem received - %s", preferredKeySystem );
+				if( strcmp(preferredKeySystem,"com.widevine.alpha")==0 )
+				{
+					drmType = eDRM_WideVine;
+				}
+				else if ( strcmp(preferredKeySystem,"com.microsoft.playready")==0 )
+				{
+					drmType = eDRM_PlayReady;
+				}
+				else if ( strcmp(preferredKeySystem,"org.w3.clearkey")==0 )
+				{
+					drmType = eDRM_ClearKey;
+				}
+			}
+			SetConfigValue(owner, eAAMPConfig_PreferredDRM, (int)drmType);
 		}
 		retval = true;
 	}

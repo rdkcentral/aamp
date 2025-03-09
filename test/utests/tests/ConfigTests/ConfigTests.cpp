@@ -825,10 +825,86 @@ TEST_F(AampConfigTests, ProcessConfigJson)
 	EXPECT_EQ(aampConfig.CustomSearch(url, playerId, appname), true);
 	playerId = 1;
 	EXPECT_EQ(aampConfig.CustomSearch(url, playerId, appname), true);
-		
+
+	// Clean up
+	cJSON_Delete(cfgdata);
 	//Test channel map code
 	cfgdata = cJSON_Parse(chmap.c_str());
 	aampConfig.ProcessConfigJson(cfgdata, AAMP_DEV_CFG_SETTING);
+	// Test DRM config with preferredKeysystem "com.widevine.alpha"
+	const std::string drmConfigJsonWidevine = R"(
+		{
+			"preferredAudioLanguage": "en",
+			"nativeCCRendering": false,
+			"offset": 3599,
+			"drmConfig": {
+				"preferredKeysystem": "com.widevine.alpha",
+				"com.widevine.alpha": "https://widevine-license-url"
+			}
+		})";
+
+	// Clean up
+	cJSON_Delete(cfgdata);
+	cfgdata = cJSON_Parse(drmConfigJsonWidevine.c_str());
+	aampConfig.ProcessConfigJson(cfgdata, AAMP_DEV_CFG_SETTING);
+
+	// Verify DRM config values for Widevine
+	DRMSystems preferredKeySystem = (DRMSystems) aampConfig.GetConfigValue(eAAMPConfig_PreferredDRM);
+	EXPECT_EQ(preferredKeySystem, eDRM_WideVine);
+
+	std::string widevineUrl = aampConfig.GetConfigValue(eAAMPConfig_WVLicenseServerUrl);
+	EXPECT_EQ(widevineUrl, "https://widevine-license-url");
+
+	// Test DRM config with preferredKeysystem "com.microsoft.playready"
+	const std::string drmConfigJsonPlayReady = R"(
+	{
+		"preferredAudioLanguage": "en",
+		"nativeCCRendering": false,
+		"offset": 3599,
+		"drmConfig": {
+			"preferredKeysystem": "com.microsoft.playready",
+			"com.microsoft.playready": "https://playready-license-url"
+		}
+	})";
+
+	// Clean up
+	cJSON_Delete(cfgdata);
+	cfgdata = cJSON_Parse(drmConfigJsonPlayReady.c_str());
+	aampConfig.ProcessConfigJson(cfgdata, AAMP_DEV_CFG_SETTING);
+
+	// Verify DRM config values for PlayReady
+	preferredKeySystem = (DRMSystems)aampConfig.GetConfigValue(eAAMPConfig_PreferredDRM);
+	EXPECT_EQ(preferredKeySystem, eDRM_PlayReady);
+
+	std::string playreadyUrl = aampConfig.GetConfigValue(eAAMPConfig_PRLicenseServerUrl);
+	EXPECT_EQ(playreadyUrl, "https://playready-license-url");
+
+	// Test DRM config with preferredKeysystem "org.w3.clearkey"
+	const std::string drmConfigJsonClearKey = R"(
+	{
+		"preferredAudioLanguage": "en",
+		"nativeCCRendering": false,
+		"offset": 3599,
+		"drmConfig": {
+			"preferredKeysystem": "org.w3.clearkey",
+			"org.w3.clearkey": "https://clearkey-license-url"
+		}
+	})";
+
+	// Clean up
+	cJSON_Delete(cfgdata);
+	cfgdata = cJSON_Parse(drmConfigJsonClearKey.c_str());
+	aampConfig.ProcessConfigJson(cfgdata, AAMP_DEV_CFG_SETTING);
+
+	// Verify DRM config values for ClearKey
+	preferredKeySystem =(DRMSystems) aampConfig.GetConfigValue(eAAMPConfig_PreferredDRM);
+	EXPECT_EQ(preferredKeySystem, eDRM_ClearKey);
+
+	std::string clearkeyUrl = aampConfig.GetConfigValue(eAAMPConfig_CKLicenseServerUrl);
+	EXPECT_EQ(clearkeyUrl, "https://clearkey-license-url");
+
+	// Clean up
+	cJSON_Delete(cfgdata);
 }
 
 TEST_F(AampConfigTests, GetAampConfigJSONStr)
