@@ -68,7 +68,7 @@ if [ $(version $gtts_version) -ge $(version "2.3.2") ]; then
     echo "gtts $gtts_version is up to date"
 else
     if [[ "$OSTYPE" == "darwin"* ]]; then
-       pip3 install "gtts >=2.3.2"
+       pip3 install "gtts >=2.3.2" --break-system-packages # Required for system wide download
     elif [[ "$OSTYPE" == "linux"* ]]; then
        sudo pip3 install "gtts>=2.3.2"
     fi
