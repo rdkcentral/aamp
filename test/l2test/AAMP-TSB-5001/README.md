@@ -26,13 +26,17 @@ From the *test/l2test/ folder run:
 ```
 
 ## Details
-* TESTDATA1 ------> Test Session Manager initialization with config true
-* TESTDATA2 ------>Test Session Manager not initialized with config false
-* TESTDATA3 ------>Test CullSegments() is working to cull old fragments
-* TESTDATA4 ------>Test TSB Data Manager basic logs
-* TESTDATA5 ------>Test for TSB Store logs
-* TESTDATA6 ------>Test if Playback starts with chunked word passed alongwith Non LLD URL
-* TESTDATA_read ------>Test File Read logs are coming after seek back to test Read API
-
-
-
+* TESTDATA0 ------> Test Session Manager initialization with config true
+* TESTDATA1 ------> Test Session Manager not initialized with config false
+* TESTDATA2 ------> Test AAMP Local TSB with PTS restamping disabled
+* TESTDATA3 ------> Test CullSegments() is working to cull old fragments
+* TESTDATA4 ------> Test TSB Data Manager basic logs
+* TESTDATA5 ------> Test for TSB Store logs
+* TESTDATA6 ------> Test if Playback starts with chunked word passed along with Non LLD URL
+* TESTDATA7 ------> Test File Read logs are coming after seek back to test Read API
+* TESTDATA8 ------> Test writing to TSB
+* TESTDATA9 ------> Test seek
+* TESTDATA10 -----> Test pause on live
+* TESTDATA11 -----> Test pause and resume
+* TESTDATA12 -----> Test trick modes (rewind and fast forward)
+* TESTDATA13 -----> Test pause and trick modes

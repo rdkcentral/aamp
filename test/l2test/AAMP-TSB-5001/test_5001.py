@@ -51,7 +51,7 @@ TESTDATA0 = {
 	"title": "Config true",
 	"logfile": "00-configtrue.log",
 	"max_test_time_seconds": 15,
-	"aamp_cfg": "info=true\nlocalTSBEnabled=true\ntsbLocation=/tmp/data\ntsbLog=0\nsupressDecode=true\nenablePTSReStamp=true\n",
+	"aamp_cfg": "info=true\nlocalTSBEnabled=true\ntsbLocation=/tmp/data\ntsbLog=0\nsupressDecode=true\n",
 	"archive_url": archive_url,
 	"url": LLD_URL,
 	"cmdlist": ["contentType LINEAR_TV"],
@@ -69,7 +69,7 @@ TESTDATA1 = {
 	"title": "Config false",
 	"logfile": "01-configfalse.log",
 	"max_test_time_seconds": 15,
-	"aamp_cfg": "info=true\ntrace=true\nlocalTSBEnabled=false\ntsbLocation=/tmp/data\nsupressDecode=true\nnenablePTSReStamp=true\n",
+	"aamp_cfg": "info=true\ntrace=true\nlocalTSBEnabled=false\ntsbLocation=/tmp/data\nsupressDecode=true\n",
 	"archive_url": archive_url,
 	"url": LLD_URL,
 	"cmdlist": ["contentType LINEAR_TV"],
@@ -106,7 +106,7 @@ TESTDATA3 = {
 	"title": "Culling",
 	"logfile": "03-culling.log",
 	"max_test_time_seconds": 30,
-	"aamp_cfg": "info=true\ntrace=true\nlocalTSBEnabled=true\ntsbLocation=/tmp/data\ntsbLength=6\ntsbLog=0\nsupressDecode=true\nenablePTSReStamp=true\n",
+	"aamp_cfg": "info=true\ntrace=true\nlocalTSBEnabled=true\ntsbLocation=/tmp/data\ntsbLength=6\ntsbLog=0\nsupressDecode=true\n",
 	"archive_url": archive_url,
 	"url": LLD_URL,
 	"cmdlist": ["contentType LINEAR_TV"],
@@ -127,7 +127,7 @@ TESTDATA4 = {
 	"title": "Data Manager",
 	"logfile": "04-datamgr.log",
 	"max_test_time_seconds": 20,
-	"aamp_cfg": "info=true\ntrace=true\nlocalTSBEnabled=true\ntsbLocation=/tmp/data\ntsbLog=0\ntsbLength=4\nenablePTSReStamp=true\n",
+	"aamp_cfg": "info=true\ntrace=true\nlocalTSBEnabled=true\ntsbLocation=/tmp/data\ntsbLog=0\ntsbLength=4\n",
 	"archive_url": archive_url,
 	"url": LLD_URL,
 	"cmdlist": ["contentType LINEAR_TV"],
@@ -149,7 +149,7 @@ TESTDATA5 = {
 	"title": "TSB Library",
 	"logfile": "05-tsblib.log",
 	"max_test_time_seconds": 25,
-	"aamp_cfg": "info=true\ntrace=true\nlocalTSBEnabled=true\ntsbLocation=/tmp/data\ntsbLength=4\ntsbLog=0\nsupressDecode=true\nenablePTSReStamp=true\n",
+	"aamp_cfg": "info=true\ntrace=true\nlocalTSBEnabled=true\ntsbLocation=/tmp/data\ntsbLength=4\ntsbLog=0\nsupressDecode=true\n",
 	"archive_url": archive_url,
 	"url": LLD_URL,
 	"cmdlist": ["contentType LINEAR_TV"],
@@ -174,7 +174,7 @@ TESTDATA6 = {
 	"title": "Non LLD + Chunked",
 	"logfile": "06-nonlldchunked.log",
 	"max_test_time_seconds": 20,
-	"aamp_cfg": "progress=true\ninfo=true\nlocalTSBEnabled=true\ntsbLocation=/tmp/data\ntsbLength=12\ntsbLog=0\nsupressDecode=true\nenablePTSReStamp=true\n",
+	"aamp_cfg": "progress=true\ninfo=true\nlocalTSBEnabled=true\ntsbLocation=/tmp/data\ntsbLength=12\ntsbLog=0\nsupressDecode=true\n",
 	"url": SLD_URL+"?chunked=/low/",
 	"cmdlist": ["contentType LINEAR_TV"],
 	"expect_list":
@@ -193,7 +193,7 @@ TESTDATA7 = {
 	"archive_url": archive_url,
 	"url": LLD_URL,
 	"cmdlist": ["contentType LINEAR_TV"],
-	"aamp_cfg": "info=true\nlocalTSBEnabled=true\ntsbLocation=/tmp/data\ntsbLength=500\ntsbLog=0\nsupressDecode=true\nenablePTSReStamp=true\n",
+	"aamp_cfg": "info=true\nlocalTSBEnabled=true\ntsbLocation=/tmp/data\ntsbLength=500\ntsbLog=0\nsupressDecode=true\n",
 	"expect_list":
 	[
 		{"expect" : r"\[TSB Store\] Initiating with config values"},
@@ -212,14 +212,14 @@ TESTDATA7 = {
 }
 
 TESTDATA8 = {
-	"title": "Test write to AAMP TSB with PTS restamping",
+	"title": "Test write to AAMP TSB",
 	"logfile": "08-ptsrestamp.log",
 	"max_test_time_seconds": 20,
 	'simlinear_type': 'DASH',
 	"archive_url": archive_url,
 	"url": LLD_URL,
 	"cmdlist": ["contentType LINEAR_TV"],
-	"aamp_cfg": "info=true\nlocalTSBEnabled=true\ntsbLocation=/tmp/data\ntsbLength=500\ntsbLog=0\nsupressDecode=true\nenablePTSReStamp=true\n",
+	"aamp_cfg": "info=true\nlocalTSBEnabled=true\ntsbLocation=/tmp/data\ntsbLength=500\ntsbLog=0\nsupressDecode=true\n",
 	"expect_list":
 	[
 		{"expect" : r"\[TSB Store\] Initiating with config values"},
@@ -233,14 +233,14 @@ TESTDATA8 = {
 }
 
 TESTDATA9 = {
-	"title": "Test Seek with PTS restamping",
+	"title": "Test Seek",
 	"logfile": "09-seek.log",
 	"max_test_time_seconds": 20,
 	'simlinear_type': 'DASH',
 	"archive_url": archive_url,
 	"url": LLD_URL,
 	"cmdlist": ["contentType LINEAR_TV"],
-	"aamp_cfg": "info=true\nlocalTSBEnabled=true\ntsbLocation=/tmp/data\ntsbLength=500\ntsbLog=0\nsupressDecode=true\nenablePTSReStamp=true\n",
+	"aamp_cfg": "info=true\nlocalTSBEnabled=true\ntsbLocation=/tmp/data\ntsbLength=500\ntsbLog=0\nsupressDecode=true\n",
 	"expect_list":
 	[
 		{"expect" : r"\[TSB Store\] Initiating with config values"},
@@ -270,7 +270,7 @@ TESTDATA10 = {
 	"archive_url": archive_url,
 	"url": LLD_URL,
 	"cmdlist": ["contentType LINEAR_TV"],
-	"aamp_cfg": "info=true\nlocalTSBEnabled=true\ntsbLocation=/tmp/data\ntsbLength=500\ntsbLog=0\nsupressDecode=true\nenablePTSReStamp=true\n",
+	"aamp_cfg": "info=true\nlocalTSBEnabled=true\ntsbLocation=/tmp/data\ntsbLength=500\ntsbLog=0\nsupressDecode=true\n",
 	"expect_list":
 	[
 		{"expect" : r"\[TSB Store\] Initiating with config values"},
@@ -292,7 +292,7 @@ TESTDATA11 = {
 	"archive_url": archive_url,
 	"url": LLD_URL,
 	"cmdlist": ["contentType LINEAR_TV"],
-	"aamp_cfg": "info=true\nlocalTSBEnabled=true\ntsbLocation=/tmp/data\ntsbLength=500\ntsbLog=0\nsupressDecode=true\nenablePTSReStamp=true\n",
+	"aamp_cfg": "info=true\nlocalTSBEnabled=true\ntsbLocation=/tmp/data\ntsbLength=500\ntsbLog=0\nsupressDecode=true\n",
 	"expect_list":
 	[
 		{"expect" : r"\[TSB Store\] Initiating with config values"},
@@ -326,14 +326,14 @@ TESTDATA11 = {
 }
 
 TESTDATA12 = {
-	"title": "Test trick modes (rewind and fast forward) with PTS restamping",
+	"title": "Test trick modes (rewind and fast forward)",
 	"logfile": "12-trickmodes.log",
 	"max_test_time_seconds": 50,
 	'simlinear_type': 'DASH',
 	"archive_url": archive_url,
 	"url": LLD_URL,
 	"cmdlist": ["contentType LINEAR_TV"],
-	"aamp_cfg": "info=true\nlocalTSBEnabled=true\ntsbLocation=/tmp/data\ntsbLength=500\ntsbLog=0\nsupressDecode=true\nenablePTSReStamp=true\n",
+	"aamp_cfg": "info=true\nlocalTSBEnabled=true\ntsbLocation=/tmp/data\ntsbLength=500\ntsbLog=0\nsupressDecode=true\n",
 	"expect_list":
 	[
 		{"expect" : r"\[TSB Store\] Initiating with config values"},
@@ -368,7 +368,7 @@ TESTDATA13 = {
 	'simlinear_type': 'DASH',
 	"archive_url": archive_url,
 	"url": LLD_URL,
-	"aamp_cfg": "progress=true\nprogressReportingInterval=0.250\ninfo=true\nlocalTSBEnabled=true\ntsbLocation=/tmp/data\ntsbLength=500\ntsbLog=0\nenablePTSReStamp=true\n",
+	"aamp_cfg": "progress=true\nprogressReportingInterval=0.250\ninfo=true\nlocalTSBEnabled=true\ntsbLocation=/tmp/data\ntsbLength=500\ntsbLog=0\n",
     "cmdlist": [ "contentType LINEAR_TV" ],
 	"expect_list":
 	[
@@ -411,14 +411,10 @@ TESTDATA = [
 	{'testdata': TESTDATA5, 'expected_restamps': 0, 'expected_trickmodes_restamps': 0},
 	{'testdata': TESTDATA6, 'expected_restamps': 0, 'expected_trickmodes_restamps': 0},
 	{'testdata': TESTDATA7, 'expected_restamps': 0, 'expected_trickmodes_restamps': 0},
-
-	# Verify AAMP TSB with PTS restamping
 	{'testdata': TESTDATA8, 'expected_restamps': 20, 'expected_trickmodes_restamps': 0},
 	{'testdata': TESTDATA9, 'expected_restamps': 20, 'expected_trickmodes_restamps': 0},
 	{'testdata': TESTDATA10, 'expected_restamps': 0, 'expected_trickmodes_restamps': 0},
 	{'testdata': TESTDATA11, 'expected_restamps': 10, 'expected_trickmodes_restamps': 0},
-
-	# Verify AAMP TSB with PTS restamping and trick modes
 	{'testdata': TESTDATA12, 'expected_restamps': 10, 'expected_trickmodes_restamps': 10},
 	{'testdata': TESTDATA13, 'expected_restamps': 10, 'expected_trickmodes_restamps': 10},
 ]

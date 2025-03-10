@@ -32,10 +32,10 @@ From the *test/l2test/ folder run:
 * TESTDATA3 ------> Test TSB Data Manager basic logs
 * TESTDATA4 ------> Test for TSB Store logs
 * TESTDATA5 ------> Test the read API
-* TESTDATA6 ------> Test writing to TSB whilst PTS restamping
-* TESTDATA7 ------> Test seek with PTS restamping
-* TESTDATA8 ------> Test pause with PTS restamping
-* TESTDATA9 ------> Test trick modes with PTS restamping
-
-
-
+* TESTDATA6 ------> Test writing to TSB
+* TESTDATA7 ------> Test seek
+* TESTDATA8 ------> Test pause on live
+* TESTDATA9 ------> Test pause and resume
+* TESTDATA10 -----> Test trick modes (rewind and fast forward)
+* TESTDATA11 -----> Test pause and trick modes
+* TESTDATA12 -----> Test AAMP Local TSB with VoD content
