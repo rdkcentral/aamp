@@ -254,6 +254,13 @@ private:
 		mDataManagers[mediaType].second += durationInSeconds;
 	}
 
+	/**
+	 * @brief Remove fragment from list and delete init fragment from TSB store if nolonger referenced
+	 * @param[in] mediaType - track type
+	 * @return shared ptr to fragment removed is any
+	 */
+	TsbFragmentDataPtr RemoveFragmentDeleteInit(AampMediaType mediatype);
+
 	bool mInitialized_;
 	std::atomic_bool mStopThread_;			// This variable is atomic because it can be accessed from multiple threads
 

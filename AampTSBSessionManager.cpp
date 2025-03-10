@@ -292,6 +292,17 @@ void AampTSBSessionManager::EnqueueWrite(std::string url, std::shared_ptr<Cached
 	mWriteThreadCV.notify_one(); // Notify the monitoring thread that there is data in the queue
 }
 
+TsbFragmentDataPtr AampTSBSessionManager::RemoveFragmentDeleteInit(AampMediaType mediatype)
+{
+	bool deleteInit = false;
+	TsbFragmentDataPtr removedFragment = GetTsbDataManager(mediatype)->RemoveFragment(deleteInit);
+	if (removedFragment && deleteInit)
+	{
+		mTSBStore->Delete(removedFragment->GetInitFragData()->GetUrl());
+	}
+	return removedFragment;
+}
+
 /**
  * @brief Monitors the write queue and writes any pending data to AAMP TSB
  */
@@ -403,7 +414,7 @@ void AampTSBSessionManager::ProcessWriteQueue()
 					}
 					else
 					{
-						TsbFragmentDataPtr removedFragment = GetTsbDataManager(mediatype)->RemoveFragment();
+						TsbFragmentDataPtr removedFragment = RemoveFragmentDeleteInit(mediatype);
 						if (removedFragment)
 						{
 							UpdateTotalStoreDuration(mediatype, -removedFragment->GetDuration());
@@ -518,7 +529,7 @@ double AampTSBSessionManager::CullSegments()
 		if (!skip)
 		{
 			// Remove the oldest segment
-			TsbFragmentDataPtr removedFragment = GetTsbDataManager(mediaTypeToRemove)->RemoveFragment();
+			TsbFragmentDataPtr removedFragment = RemoveFragmentDeleteInit(mediaTypeToRemove);
 			if (removedFragment)
 			{
 				double durationInSeconds = removedFragment->GetDuration();

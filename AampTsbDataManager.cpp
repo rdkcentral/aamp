@@ -108,7 +108,7 @@ TsbFragmentDataPtr AampTsbDataManager::GetNearestFragment(double position)
 /**
  *  @brief RemoveFragment - remove fragment from the top
  */
-TsbFragmentDataPtr AampTsbDataManager::RemoveFragment()
+TsbFragmentDataPtr AampTsbDataManager::RemoveFragment(bool &deleteInit)
 {
 	TSB_DM_TIME_DATA();
 	TsbFragmentDataPtr deletedFragment = nullptr;
@@ -123,7 +123,8 @@ TsbFragmentDataPtr AampTsbDataManager::RemoveFragment()
 			initData->decrementUser();
 			if (initData->GetUsers() <= 0)
 			{
-				AAMPLOG_INFO("Removing Init fragment of BW( %" BITSPERSECOND_FORMAT ") since no more cached fragment using it", initData->GetBandWidth());
+				AAMPLOG_INFO("Removing Init fragment of BW( %" BITSPERSECOND_FORMAT ")", initData->GetBandWidth());
+				deleteInit = true;
 				mTsbInitData.remove(initData);
 			}
 			if (deletedFragment->next)
@@ -450,11 +451,11 @@ TsbFragmentDataPtr AampTsbDataManager::GetNextDiscFragment(double position, bool
 	try
 	{
 		auto segment = mTsbFragmentData.lower_bound(position);
-		if (!backwardSearch) 
+		if (!backwardSearch)
 		{
 			while( segment != mTsbFragmentData.end())
 			{
-				if (segment->second->IsDiscontinuous()) 
+				if (segment->second->IsDiscontinuous())
 				{
 					fragment =  segment->second;
 					break;

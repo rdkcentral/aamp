@@ -142,21 +142,21 @@ TEST_F(FunctionalTests, TSBWriteTests)
     cachedFragment->fragment.AppendBytes(TEST_DATA, strlen(TEST_DATA));
 
     // Add video init fragment to TSB successfullly
-    std::string url = std::string(TEST_BASE_URL) + std::string("vinit.mp4");
+    const std::string INIT_URL= std::string(TEST_BASE_URL) + std::string("vinit.mp4");
     cachedFragment->type = eMEDIATYPE_INIT_VIDEO;
 
-    EXPECT_CALL(*g_mockTSBStore, Write(url, TEST_DATA, strlen(TEST_DATA))).WillOnce(Return(TSB::Status::OK));
+    EXPECT_CALL(*g_mockTSBStore, Write(INIT_URL, TEST_DATA, strlen(TEST_DATA))).WillOnce(Return(TSB::Status::OK));
     EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetVidTimeScale()).WillRepeatedly(Return(1));
-    mAampTSBSessionManager->EnqueueWrite(url, cachedFragment, TEST_PERIOD_ID);
+    mAampTSBSessionManager->EnqueueWrite(INIT_URL, cachedFragment, TEST_PERIOD_ID);
     std::this_thread::sleep_for(std::chrono::milliseconds(25));
 
     // Add video init fragment to TSB which already exists
-    EXPECT_CALL(*g_mockTSBStore, Write(url, TEST_DATA, strlen(TEST_DATA))).WillOnce(Return(TSB::Status::ALREADY_EXISTS));
-    mAampTSBSessionManager->EnqueueWrite(url, cachedFragment, TEST_PERIOD_ID);
+    EXPECT_CALL(*g_mockTSBStore, Write(INIT_URL, TEST_DATA, strlen(TEST_DATA))).WillOnce(Return(TSB::Status::ALREADY_EXISTS));
+    mAampTSBSessionManager->EnqueueWrite(INIT_URL, cachedFragment, TEST_PERIOD_ID);
     std::this_thread::sleep_for(std::chrono::milliseconds(25));
-    
+
     // Add video fragment 1 to TSB successfully
-    url = std::string(TEST_BASE_URL) + std::string("video1.mp4");
+    std::string url = std::string(TEST_BASE_URL) + std::string("video1.mp4");
     cachedFragment->type = eMEDIATYPE_VIDEO;
     cachedFragment->initFragment = 0;
     cachedFragment->duration = FRAG_DURATION;  // 3
@@ -184,6 +184,7 @@ TEST_F(FunctionalTests, TSBWriteTests)
     EXPECT_CALL(*g_mockTSBStore, Write(url,_,_))
         .WillOnce(Return(TSB::Status::NO_SPACE))
         .WillOnce(Return(TSB::Status::OK));
+    EXPECT_CALL(*g_mockTSBStore, Delete(INIT_URL)).Times(1);
     EXPECT_CALL(*g_mockTSBStore, Delete(urlToRemove)).Times(1);
     mAampTSBSessionManager->EnqueueWrite(url, cachedFragment, TEST_PERIOD_ID);
     std::this_thread::sleep_for(std::chrono::milliseconds(25));

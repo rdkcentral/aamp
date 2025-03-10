@@ -407,7 +407,9 @@ TEST_F(FunctionalTests, RemoveFragmentsNone)
 
 TEST_F(FunctionalTests, RemoveFragment_EmptyList)
 {
-    TsbFragmentDataPtr removedFragment = mDataManager->RemoveFragment();
+    bool initDeleted = false;
+    TsbFragmentDataPtr removedFragment = mDataManager->RemoveFragment(initDeleted);
+    EXPECT_EQ(initDeleted,false);
     EXPECT_EQ(removedFragment, nullptr);
 }
 
@@ -418,8 +420,10 @@ TEST_F(FunctionalTests, RemoveFragment_SingleElement)
     writeData.url = url1;
     writeData.periodId = period1;
     mDataManager->AddFragment(writeData, eMEDIATYPE_VIDEO, false);
+    bool initDeleted = false;
 
-    TsbFragmentDataPtr removedFragment = mDataManager->RemoveFragment();
+    TsbFragmentDataPtr removedFragment = mDataManager->RemoveFragment(initDeleted);
+    EXPECT_EQ(initDeleted,true);
     EXPECT_NE(removedFragment, nullptr);
     EXPECT_DOUBLE_EQ(removedFragment->GetAbsPosition(), 1005.0);
     double absPosition = mDataManager->GetFirstFragmentPosition();
@@ -428,6 +432,7 @@ TEST_F(FunctionalTests, RemoveFragment_SingleElement)
 
 TEST_F(FunctionalTests, RemoveFragment_MultipleElements)
 {
+    bool initDeleted = false;
     mDataManager->AddInitFragment(url, eMEDIATYPE_VIDEO, streamInfo, period);
 
     writeData.url = url1;
@@ -446,14 +451,16 @@ TEST_F(FunctionalTests, RemoveFragment_MultipleElements)
     writeData.cachedFragment->absPosition = 1015.0;
     mDataManager->AddFragment(writeData, eMEDIATYPE_VIDEO, false);
 
-    TsbFragmentDataPtr removedFragment = mDataManager->RemoveFragment();
+    TsbFragmentDataPtr removedFragment = mDataManager->RemoveFragment(initDeleted);
+    EXPECT_EQ(initDeleted,false);
     EXPECT_NE(removedFragment, nullptr);
     EXPECT_DOUBLE_EQ(removedFragment->GetAbsPosition(), 1005.0);
 
     double firstPositionAfterRemoval = mDataManager->GetFirstFragmentPosition();
     EXPECT_DOUBLE_EQ(firstPositionAfterRemoval, 1010.0);
 
-    removedFragment = mDataManager->RemoveFragment();
+    removedFragment = mDataManager->RemoveFragment(initDeleted);
+    EXPECT_EQ(initDeleted,false);
     EXPECT_NE(removedFragment, nullptr);
     EXPECT_DOUBLE_EQ(removedFragment->GetAbsPosition(), 1010.0);
 

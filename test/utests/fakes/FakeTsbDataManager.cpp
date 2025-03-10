@@ -50,11 +50,11 @@ bool AampTsbDataManager::AddFragment(TSBWriteData &writeData, AampMediaType medi
 	return false;
 }
 
-std::shared_ptr<TsbFragmentData> AampTsbDataManager::RemoveFragment()
+std::shared_ptr<TsbFragmentData> AampTsbDataManager::RemoveFragment(bool &initDeleted)
 {
 	if (g_mockTSBDataManager)
 	{
-		return g_mockTSBDataManager->RemoveFragment();
+		return g_mockTSBDataManager->RemoveFragment(initDeleted);
 	}
 	else
 	{

@@ -27,7 +27,7 @@ class MockTSBDataManager
 {
 public:
 	MOCK_METHOD(std::shared_ptr<TsbFragmentData>, GetFragment, (double position, bool& eos));
-	MOCK_METHOD(std::shared_ptr<TsbFragmentData>, RemoveFragment, ());
+	MOCK_METHOD(std::shared_ptr<TsbFragmentData>, RemoveFragment, (bool &initDeleted));
 	MOCK_METHOD(TsbFragmentDataPtr, GetFirstFragment, ());
 	MOCK_METHOD(TsbFragmentDataPtr, GetLastFragment, ());
 	MOCK_METHOD(TsbFragmentDataPtr, GetNearestFragment, (double position));

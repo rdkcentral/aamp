@@ -503,7 +503,7 @@ static bool IsActiveStreamingInterfaceWifi (void)
 {
 	bool wifiStatus = false;
 	wifiStatus = PlayerIarmRfcInterface::IsActiveStreamingInterfaceWifi();
-	activeInterfaceWifi =  pPlayerIarmRfcInterface->GetActiveInterface();	
+	activeInterfaceWifi =  pPlayerIarmRfcInterface->GetActiveInterface();
 	return wifiStatus;
 }
 
@@ -1342,7 +1342,7 @@ PrivateInstanceAAMP::~PrivateInstanceAAMP()
 			mCurlShared = NULL;
 		}
 	}
-	
+
 	if(pPlayerIarmRfcInterface)
 	{
 		pPlayerIarmRfcInterface.reset();
