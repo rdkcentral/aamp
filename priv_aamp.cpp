@@ -5122,6 +5122,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 	if (eTUNETYPE_LAST == tuneType)
 	{
 		tuneType = mTuneType;
+		AAMPLOG_INFO("Set tune type to last value %d", tuneType);
 	}
 	else
 	{
@@ -5129,6 +5130,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 	}
 
 	newTune = IsNewTune();
+	AAMPLOG_INFO("tuneType %d newTune %d", tuneType, newTune);
 
 	// Get position before pipeline is teared down
 	if (eTUNETYPE_RETUNE == tuneType)
@@ -5858,6 +5860,14 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 		mIscDVR = true;
 	}
 
+#ifdef ENABLE_PTS_RESTAMP
+	if (ContentType_LINEAR == mContentType)
+	{
+		SETCONFIGVALUE_PRIV(AAMP_TUNE_SETTING, eAAMPConfig_EnablePTSReStamp, true);
+	}
+
+	AAMPLOG_MIL("ContentType(%d) EnablePTSReStamp(%d)", mContentType, GETCONFIGVALUE_PRIV(eAAMPConfig_EnablePTSReStamp));
+#endif
 	if ((ContentType_LINEAR == mContentType) && (eMEDIAFORMAT_DASH == mMediaFormat))
 	{
 		if(mTSBSessionManager)
@@ -6095,14 +6105,6 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 	mCurrentVideoTrackId = -1;
 	mCurrentDrm = nullptr;
 
-#ifdef ENABLE_PTS_RESTAMP
-	if (ContentType_LINEAR == mContentType)
-	{
-		SETCONFIGVALUE_PRIV(AAMP_TUNE_SETTING, eAAMPConfig_EnablePTSReStamp, true);
-	}
-
-	AAMPLOG_WARN("ContentType(%d) EnablePTSReStamp(%d)", mContentType, GETCONFIGVALUE_PRIV(eAAMPConfig_EnablePTSReStamp));
-#endif
 
 	// Enable the eAAMPConfig_EnableMediaProcessor if the PTS Restamp set for DASH.
 	if (ISCONFIGSET_PRIV(eAAMPConfig_EnablePTSReStamp) && (eMEDIAFORMAT_DASH == mMediaFormat))

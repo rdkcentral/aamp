@@ -713,6 +713,11 @@ if (CMAKE_WPEFRAMEWORK_REQUIRED)
 	target_link_libraries(aamp ${WPEFRAMEWORK_LIBRARIES})
 endif()
 
+if(CMAKE_ENABLE_PTS_RESTAMP)
+	message("ENABLE_PTS_RESTAMP set")
+	set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DENABLE_PTS_RESTAMP")
+endif()
+
 target_link_libraries(aamp-cli aamp ${AAMP_CLI_LD_FLAGS})
 
 set_target_properties(aamp PROPERTIES COMPILE_FLAGS "${LIBAAMP_DEFINES} ${OS_CXX_FLAGS}")
