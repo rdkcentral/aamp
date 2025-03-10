@@ -255,7 +255,7 @@ private:
 	}
 
 	/**
-	 * @brief Remove fragment from list and delete init fragment from TSB store if nolonger referenced
+	 * @brief Remove fragment from list and delete init fragment from TSB store if no longer referenced
 	 * @param[in] mediaType - track type
 	 * @return shared ptr to fragment removed is any
 	 */
