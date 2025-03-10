@@ -330,9 +330,10 @@ public:
 
 	/**
 	 *   @fn RemoveFragment
+	 *   @param[in,out] deleteInit - True if init segment was removed as well
 	 *   @return Shared pointer to removed fragment
 	 */
-	std::shared_ptr<TsbFragmentData> RemoveFragment();
+	std::shared_ptr<TsbFragmentData> RemoveFragment(bool &deleteInit);
 
 	/**
 	 *   @fn RemoveFragments
