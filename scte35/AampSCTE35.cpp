@@ -386,6 +386,11 @@ bool SCTE35Decoder::checkOffset(size_t mMaxOffset)
 	return mOffset < mMaxOffset;
 }
 
+bool SCTE35Decoder::isEnd()
+{
+	return (mOffset == mMaxOffset);
+}
+
 SCTE35DecoderDescriptorLoop::SCTE35DecoderDescriptorLoop(const std::string &key, SCTE35Decoder *decoder, size_t maxOffset) :
 														 mKey(key),
 														 mDecoder(decoder),
@@ -578,17 +583,22 @@ static void SCTE35ParseSection(SCTE35Section *section)
 				segmentation_type_id = descriptor->Byte("segmentation_type_id");
 				(void)descriptor->Byte("segment_num");
 				(void)descriptor->Byte("segments_expected");
-				switch (segmentation_type_id)
+				// sub_segment_num and sub_segments_expected are optional.
+				// Check if the descriptor is not at the end, before reading them to avoid throwing error
+				if (!descriptor->isEnd())
 				{
-					case 0x34:
-					case 0x36:
-					case 0x38:
-					case 0x3a:
-						(void)descriptor->Byte("sub_segment_num");
-						(void)descriptor->Byte("sub_segments_expected");
-						break;
-					default:
-						break;
+					switch (segmentation_type_id)
+					{
+						case 0x34:
+						case 0x36:
+						case 0x38:
+						case 0x3a:
+							(void)descriptor->Byte("sub_segment_num");
+							(void)descriptor->Byte("sub_segments_expected");
+							break;
+						default:
+							break;
+					}
 				}
 			}
 			else

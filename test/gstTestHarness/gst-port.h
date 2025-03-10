@@ -26,7 +26,7 @@
 #include <gst/gst.h>
 #include "initializationheaderinfo.hpp"
 
-// refer  gstreamer pipeline unexpected behaviors when attempting to render single iframe
+// refer gstreamer pipeline unexpected behaviors when attempting to render single iframe
 // #define REALTEK_HACK
 
 typedef enum
@@ -41,10 +41,10 @@ typedef enum
 
 typedef enum
 { // 1-to-1 map to GstState
-	ePIPELINESTATE_NULL		= 1, // GST_STATE_NULL
-	ePIPELINESTATE_READY	= 2, // GST_STATE_READY
-	ePIPELINESTATE_PAUSED	= 3, // GST_STATE_PAUSED
-	ePIPELINESTATE_PLAYING	= 4, // GST_STATE_PLAYING
+	ePIPELINeSTATE_NULL		= 1, // GST_STATE_NULL
+	ePIPELINeSTATE_READY	= 2, // GST_STATE_READY
+	ePIPELINeSTATE_PAUSED	= 3, // GST_STATE_PAUSED
+	ePIPELINeSTATE_PLAYING	= 4, // GST_STATE_PLAYING
 } PipelineState;
 
 struct _GstElement;

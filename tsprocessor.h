@@ -29,10 +29,9 @@
 #include "ID3Metadata.hpp"
 #include "uint33_t.h"
 #include "main_aamp.h"
-
 #include <stdio.h>
-#include <pthread.h>
-
+#include <mutex>
+#include <condition_variable>
 #include <vector>
 
 #define MAX_PIDS (8) //PMT Parsing
@@ -397,7 +396,7 @@ class TSProcessor : public MediaProcessor
       /**
        * @fn abortUnlocked
        */
-      void abortUnlocked();
+      void abortUnlocked(std::unique_lock<std::mutex>&lock);
 
       bool m_needDiscontinuity;
       long long m_currStreamOffset;
@@ -570,9 +569,9 @@ class TSProcessor : public MediaProcessor
       int m_throttleMaxDiffSegments;
       int m_throttleDelayIgnoredMs;
       int m_throttleDelayForDiscontinuityMs;
-      pthread_cond_t m_throttleCond;
-      pthread_cond_t m_basePTSCond;
-      pthread_mutex_t m_mutex;
+      std::condition_variable m_throttleCond;
+      std::condition_variable m_basePTSCond;
+      std::mutex m_mutex;
       bool m_enabled;
       bool m_processing;
       int m_framesProcessedInSegment;

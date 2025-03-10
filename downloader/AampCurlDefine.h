@@ -101,7 +101,7 @@ enum AampCurlInstance
 		CURLSHcode rc = curl_share_setopt( SH, OPT, PARAM ); \
 		if( rc != CURLSHE_OK ) \
 		{ \
-			AAMPLOG_WARN( "curl_share_setopt fail %d\n", rc ); \
+			AAMPLOG_WARN( "curl_share_setopt fail %d", rc ); \
 		} \
 	}
 #define CURL_EASY_SETOPT_POINTER( handle, option, parameter )\

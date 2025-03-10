@@ -33,6 +33,7 @@
 #include <map>
 #include <iterator>
 #include <vector>
+#include <condition_variable>
 
 #include <glib.h>
 #include "subtitleParser.h"
@@ -55,6 +56,8 @@ typedef enum
 	eTRACK_SUBTITLE,  /**< Subtitle track */
 	eTRACK_AUX_AUDIO  /**< Auxiliary audio track */
 } TrackType;
+
+AampMediaType TrackTypeToMediaType( TrackType trackType );
 
 /**
  * @brief Structure holding the resolution of stream
@@ -807,6 +810,15 @@ protected:
 
 	double GetLastInjectedFragmentPosition() { return lastInjectedPosition; }
 
+	/**
+	 * @fn IsInjectionFromCachedFragmentChunks
+	 *
+	 * @brief Are fragments to inject coming from mCachedFragmentChunks
+	 *
+	 * @return True if fragments to inject are coming from mCachedFragmentChunks
+	 */
+	bool IsInjectionFromCachedFragmentChunks();
+
 private:
 	/**
 	 * @fn GetBufferHealthStatusString
@@ -866,10 +878,10 @@ public:
 	bool refreshAudio;                  /** Switch audio track in the FetcherLoop */
 	int maxCachedFragmentsPerTrack;
 	int maxCachedFragmentChunksPerTrack;
-	pthread_cond_t fragmentChunkFetched;/**< Signaled after a fragment Chunk is fetched*/
-	int noMDATCount;                    /**< MDAT Chunk Not Found count continuously while chunk buffer processing */
+	std::condition_variable fragmentChunkFetched;/**< Signaled after a fragment Chunk is fetched*/
+	int noMDATCount;                    /**< MDAT Chunk Not Found count continuously while chunk buffer processing*/
 	std::shared_ptr<MediaProcessor> playContext;		/**< state for s/w demuxer / pts/pcr restamper module */
-    bool seamlessAudioSwitchInProgress; /**< Flag to indicate seamless audio track switch in progress */
+	bool seamlessAudioSwitchInProgress; /**< Flag to indicate seamless audio track switch in progress */
 	bool seamlessSubtitleSwitchInProgress;
 	bool mCheckForRampdown;		        /**< flag to indicate if the track is undergoing rampdown or not */
 
@@ -881,13 +893,13 @@ protected:
 	AampGrowableBuffer unparsedBufferChunk; /**< Buffer to keep fragment content */
 	AampGrowableBuffer parsedBufferChunk;   /**< Buffer to keep fragment content */
 	bool abort;                         /**< Abort all operations if flag is set*/
-	pthread_mutex_t mutex;              /**< protection of track variables accessed from multiple threads */
+	std::mutex mutex;                   /**< protection of track variables accessed from multiple threads */
 	bool ptsError;                      /**< flag to indicate if last injected fragment has ptsError */
 	bool abortInject;                   /**< Abort inject operations if flag is set*/
 	bool abortInjectChunk;              /**< Abort inject operations if flag is set*/
-	pthread_mutex_t audioMutex;         /**< protection of audio track reconfiguration */
+	std::mutex audioMutex;              /**< protection of audio track reconfiguration */
 	bool loadNewAudio;                  /**< Flag to indicate new audio loading started on seamless audio switch */
-	pthread_mutex_t subtitleMutex;
+	std::mutex subtitleMutex;
 	bool loadNewSubtitle;
 
 	StreamOutputFormat mSourceFormat {StreamOutputFormat::FORMAT_INVALID};
@@ -900,12 +912,12 @@ private:
 		DISCONTINUITY,
 		STEADY
 	};
-	pthread_cond_t fragmentFetched;     	/**< Signaled after a fragment is fetched*/
-	pthread_cond_t fragmentInjected;    	/**< Signaled after a fragment is injected*/
+	std::condition_variable fragmentFetched;     	/**< Signaled after a fragment is fetched*/
+	std::condition_variable fragmentInjected;    	/**< Signaled after a fragment is injected*/
 	std::thread fragmentInjectorThreadID;  	/**< Fragment injector thread id*/
-	pthread_cond_t fragmentChunkInjected;	/**< Signaled after a fragment is injected*/
-	std::thread bufferMonitorThreadID;    	/**< Buffer Monitor thread id */
-	std::thread subtitleClockThreadID;    	/**< subtitle clock synchronization thread id */
+	std::condition_variable fragmentChunkInjected;	/**< Signaled after a fragment is injected*/
+    	std::thread bufferMonitorThreadID;    	/**< Buffer Monitor thread id */
+	std::thread subtitleClockThreadID;    	/**< subtitle clock synchronisation thread id */
 	int totalFragmentsDownloaded;       	/**< Total fragments downloaded since start by track*/
 	int totalFragmentChunksDownloaded;      /**< Total fragments downloaded since start by track*/
 	bool fragmentInjectorThreadStarted; 	/**< Fragment injector's thread started or not*/
@@ -935,10 +947,10 @@ private:
 	std::mutex dwnldMutex;					/**< Download mutex for conditional timed wait, used for playlist and fragment downloads*/
 	bool fragmentCollectorWaitingForPlaylistUpdate;	/**< Flag to indicate that the fragment collector is waiting for ongoing playlist download, used for profile changes*/
 	std::condition_variable frDownloadWait;	/**< Conditional variable for signaling timed wait*/
-	pthread_cond_t audioFragmentCached;  /**< Signal after a audio fragment cached after reconfigure */
+	std::condition_variable audioFragmentCached;  /**< Signal after a audio fragment cached after reconfigure */
 	double lastInjectedPosition;             /**< Last injected position */
 	double lastInjectedDuration;             /**< Last injected fragment end position */
-	pthread_cond_t subtitleFragmentCached;
+	std::condition_variable subtitleFragmentCached;
 	std::atomic_bool mIsLocalTSBInjection;
 	size_t mCachedFragmentChunksSize;		/**< Size of fragment chunks cache */
 	AampTime mLastFragmentPts;				/**< pts of the previous fragment, used in trick modes */
@@ -1382,6 +1394,14 @@ public:
 	 */
 	void SetTrickplayMode(float rate) { trickplayMode = (rate != AAMP_NORMAL_PLAY_RATE); }
 
+	/**
+	 * @fn SetVideoPlaybackRate
+	 * @brief Set the Video playback rate
+	 *
+	 * @param[in] rate - play rate
+	 */
+	void SetVideoPlaybackRate(float rate);
+
 	bool trickplayMode;                     /**< trick play flag to be updated by subclasses*/
 	int currentProfileIndex;                /**< current Video profile index of the track*/
 	int currentAudioProfileIndex;           /**< current Audio profile index of the track*/
@@ -1588,7 +1608,7 @@ public:
 	/**
 	*   @brief Update seek position when player is initialized
 	*
-	*   @param[in] secondsRelativeToTuneTime seekposition time.
+	*   @param[in] secondsRelativeToTuneTime can be the offset (seconds from tune time) or absolute position (seconds from 1970)
 	*/
 	virtual void SeekPosUpdate(double secondsRelativeToTuneTime) { (void) secondsRelativeToTuneTime ;}
 
@@ -1961,10 +1981,10 @@ protected:
 	 */
 	bool UpdateProfileBasedOnFragmentCache(void);
 
-	pthread_mutex_t mLock;              /**< lock for A/V track catchup logic*/
-	pthread_cond_t mCond;               /**< condition for A/V track catchup logic*/
-	pthread_cond_t mSubCond;            /**< condition for Audio/Subtitle track catchup logic*/
-	pthread_cond_t mAuxCond;            /**< condition for Aux and video track catchup logic*/
+	std::mutex mLock;              /**< lock for A/V track catchup logic*/
+	std::condition_variable mCond;               /**< condition for A/V track catchup logic*/
+	std::condition_variable mSubCond;            /**< condition for Audio/Subtitle track catchup logic*/
+	std::condition_variable mAuxCond;            /**< condition for Aux and video track catchup logic*/
 
 	// abr variables
 	long mCurrentBandwidth;             /**< stores current bandwidth*/
@@ -1987,8 +2007,8 @@ protected:
 	long long mTotalPausedDurationMS;   /**< Total duration for which stream is paused */
 	long long mStartTimeStamp;          /**< stores timestamp at which injection starts */
 	long long mLastPausedTimeStamp;     /**< stores timestamp of last pause operation */
-	pthread_mutex_t mStateLock;         /**< lock for A/V track discontinuity injection*/
-	pthread_cond_t mStateCond;          /**< condition for A/V track discontinuity injection*/
+	std::mutex mStateLock;         /**< lock for A/V track discontinuity injection*/
+	std::condition_variable mStateCond;          /**< condition for A/V track discontinuity injection*/
 	int mRampDownLimit;                 /**< stores ramp down limit value */
 	BitrateChangeReason mBitrateReason; /**< holds the reason for last bitrate change */
 protected:

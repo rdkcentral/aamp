@@ -155,7 +155,7 @@ public:
 class TsbFragmentData : public TsbSegment
 {
 private:
-	double position; /**< position of the current fragment*/
+	double position; /**< absolute position of the current fragment, in seconds since 1970 */
 	double duration; /**< duration of the current fragment*/
 	double mPTS; /**< PTS of the current fragment*/
 	bool isDiscontinuous;  /**< the current fragment is discontinuous*/
@@ -172,7 +172,7 @@ public:
 	 *   @fn constructor
 	 *   @param[in] url - Segment URL as string
 	 *   @param[in] media - Segment type as AampMediaType
-	 *   @param[in] position - position of the current fragment
+	 *   @param[in] position - absolute position of the current fragment, in seconds since 1970
 	 *   @param[in] duration - duration of the current fragment
 	 *   @param[in] pts - PTS of the current fragment
 	 *   @param[in] disc - discontinuity flag
@@ -205,7 +205,7 @@ public:
 	/**
 	 * @fn GetPosition
 	 *
-	 * @return position of the fragment as double
+	 * @return absolute position of the current fragment, in seconds since 1970
 	 */
 	double GetPosition() const { return position; }
 
@@ -295,27 +295,30 @@ public:
 
 	/**
 	 *   @fn GetNearestFragment
-	 *   @param[in] position - Nearest position as double
-	 *   @return pointer to Fragment data and TsbFragmentData
+	 *   @brief Get the nearest fragment for the position
+	 *   @param[in] position - Absolute position of the fragment, in seconds since 1970
+	 *   @return pointer to the nearest fragment data
 	 */
 	std::shared_ptr<TsbFragmentData> GetNearestFragment(double position);
+
 	/**
 	 *   @fn GetFragment
-	 *   @param[in] position - Exact position as double
+	 *   @brief Get fragment for the position
+	 *   @param[in] position - Exact absolute position of the fragment, in seconds since 1970
 	 *   @param[out] eos - Flag to identify the End of stream
 	 *   @return pointer to Fragment data and TsbFragmentData
 	 */
 	std::shared_ptr<TsbFragmentData> GetFragment(double position, bool &eos);
 
 	/**
-	 *   @fn GetFirstFragment
-	 *   @return pointer to first Fragment data
+	 *   @fn GetFirstFragmentPosition
+	 *   @return Absolute position of the first fragment, in seconds since 1970
 	 */
 	double GetFirstFragmentPosition();
 
 	/**
-	 *   @fn GetFirstFragment
-	 *   @return pointer to first Fragment data
+	 *   @fn GetLastFragmentPosition
+	 *   @return Absolute position of the last fragment, in seconds since 1970
 	 */
 	double GetLastFragmentPosition();
 
@@ -339,7 +342,8 @@ public:
 
 	/**
 	 *   @fn RemoveFragments
-	 *   @param[in] position - position to  remove segment until
+	 *   @brief Remove all fragments until the given position
+	 *   @param[in] position - Absolute position, in seconds since 1970, to remove segment until
 	 *   @return shared pointer List of TSB fragments removed
 	 */
 	std::list<std::shared_ptr<TsbFragmentData>> RemoveFragments(double position);
@@ -367,7 +371,8 @@ public:
 
 	/**
 	 *   @fn IsFragmentPresent
-	 *   @param[in] position - position as double
+	 *   @brief Check for any fragment availability at the given position
+	 *   @param[in] position - Absolute position of the fragment, in seconds since 1970
 	 *   @return true if present
 	 */
 	bool IsFragmentPresent(double position);
@@ -379,8 +384,9 @@ public:
 	void Flush();
 
 	/**
-	 *   @fn constructor
-	 *   @param[in] position - Position for querying the discontinuous fragment
+	 *   @fn GetNextDiscFragment
+	 *   @brief API to get next discontinuous fragment in the list. If not found, will return nullptr.
+	 *   @param[in] position - Absolute position, in seconds since 1970, for querying the discontinuous fragment
 	 *   @param[in] backwordSerach - Search direction from the position to discontinuous fragment, default forward
 	 *   @return TsbFragmentData shared object to fragment data
 	 */

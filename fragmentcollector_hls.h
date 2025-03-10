@@ -655,9 +655,9 @@ class TrackState : public MediaTrack
 		bool mInjectInitFragment;				/**< Indicates if init fragment injection is required*/
 		lstring mInitFragmentInfo;			/**< Holds init fragment Information index*/
 		bool mForceProcessDrmMetadata;			/**< Indicates if processing drm metadata to be forced on indexing*/
-		pthread_mutex_t mPlaylistMutex;			/**< protect playlist update */
-		pthread_cond_t mPlaylistIndexed;		/**< Notifies after a playlist indexing operation */
-		pthread_mutex_t mTrackDrmMutex;			/**< protect DRM Interactions for the track */
+		std::mutex mPlaylistMutex;			/**< protect playlist update */
+		std::condition_variable mPlaylistIndexed;		/**< Notifies after a playlist indexing operation */
+		std::mutex mTrackDrmMutex;			/**< protect DRM Interactions for the track */
 		AampTime mLastMatchedDiscontPosition;		/**< Holds discontinuity position last matched	by other track */
 		AampTime mCulledSeconds;					/**< Total culled duration in this streamer instance*/
 		AampTime mCulledSecondsOld;				/**< Total culled duration in this streamer instance*/
@@ -909,7 +909,7 @@ class StreamAbstractionAAMP_HLS : public StreamAbstractionAAMP
 		bool firstFragmentDecrypted;			/**< Flag indicating if first fragment is decrypted for stream */
 		bool mStartTimestampZero;			/**< Flag indicating if timestamp to start is zero or not (No audio stream) */
 		int mNumberOfTracks;				/**< Number of media tracks.*/
-		pthread_mutex_t mDiscoCheckMutex;               	/**< protect playlist discontinuity check */
+		std::mutex mDiscoCheckMutex;               	/**< protect playlist discontinuity check */
 
 		/***************************************************************************
 		 * @fn ParseMainManifest

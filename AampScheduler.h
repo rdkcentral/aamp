@@ -153,7 +153,7 @@ public:
 	 *
 	 * @return void
 	 */
-	void SetState(PrivAAMPState sstate);
+	void SetState(AAMPPlayerState state);
 
 protected:
 	/**
@@ -173,7 +173,7 @@ protected:
 	int mNextTaskId;			/**< counter that holds ID value of next task to be scheduled */
 	int mCurrentTaskId;			/**< ID of current executed task */
 	bool mLockOut;				/**< flag indicates if the queue is locked out or not */
-	PrivAAMPState mState;		        /**< Player State */
+	AAMPPlayerState mState;		        /**< Player State */
 };
 
 #endif /* __AAMP_SCHEDULER_H__ */

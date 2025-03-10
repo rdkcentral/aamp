@@ -165,7 +165,6 @@ WebVTTParser::WebVTTParser(PrivateInstanceAAMP *aamp, SubtitleMimeType type) : S
 	mReset(true), mVttQueue(), mVttQueueIdleTaskId(0), mVttQueueMutex(), lastCue(),
 	mProgressOffset(0)
 {
-	pthread_mutex_init(&mVttQueueMutex, NULL);
 	lastCue = { 0, 0 };
 }
 
@@ -179,7 +178,6 @@ WebVTTParser::WebVTTParser(PrivateInstanceAAMP *aamp, SubtitleMimeType type) : S
 WebVTTParser::~WebVTTParser()
 {
 	close();
-	pthread_mutex_destroy(&mVttQueueMutex);
 }
 
 
@@ -426,7 +424,7 @@ bool WebVTTParser::close()
                 mVttQueueIdleTaskId = 0;
 	}
 
-	pthread_mutex_lock(&mVttQueueMutex);
+	std::lock_guard<std::mutex> guard(mVttQueueMutex);
 	if (!mVttQueue.empty())
 	{
 		while(mVttQueue.size() > 0)
@@ -436,7 +434,6 @@ bool WebVTTParser::close()
 			SAFE_DELETE(cue);
 		}
 	}
-	pthread_mutex_unlock(&mVttQueueMutex);
 
 	lastCue.mStart = 0;
 	lastCue.mDuration = 0;
@@ -480,9 +477,8 @@ void WebVTTParser::addCueData(VTTCue *cue)
 {
 	if (lastCue.mStart != cue->mStart || lastCue.mDuration != cue->mDuration)
 	{
-		pthread_mutex_lock(&mVttQueueMutex);
+		std::lock_guard<std::mutex> guard(mVttQueueMutex);
 		mVttQueue.push(cue);
-		pthread_mutex_unlock(&mVttQueueMutex);
 		lastCue.mStart = cue->mStart;
 		lastCue.mDuration = cue->mDuration;
 	}
@@ -501,7 +497,7 @@ void WebVTTParser::addCueData(VTTCue *cue)
 ***************************************************************************/
 void WebVTTParser::sendCueData()
 {
-	pthread_mutex_lock(&mVttQueueMutex);
+	std::lock_guard<std::mutex> guard(mVttQueueMutex);
 	if (!mVttQueue.empty())
 	{
 		while(mVttQueue.size() > 0)
@@ -519,7 +515,6 @@ void WebVTTParser::sendCueData()
 			SAFE_DELETE(cue);
 		}
 	}
-	pthread_mutex_unlock(&mVttQueueMutex);
 }
 
 /**

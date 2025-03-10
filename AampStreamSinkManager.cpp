@@ -444,7 +444,9 @@ void AampStreamSinkManager::SetActive(PrivateInstanceAAMP *aamp, double position
 	AAMPLOG_INFO("AampStreamSinkManager(%p) Setting PLAYER[%d] active, position(%f)", this, aamp->mPlayerId, position);
 
 	mGstPlayer->ChangeAamp(aamp, mInactiveGstPlayersMap[aamp]->GetID3MetadataHandler());
+	aamp->mIsFlushOperationInProgress = true;
 	mGstPlayer->Flush(position, aamp->rate, true);
+	aamp->mIsFlushOperationInProgress = false;
 	mGstPlayer->SetSubtitleMute(aamp->subtitles_muted);
 	if(!aamp->IsTuneCompleted() && aamp->IsPlayEnabled() && (mPipelineMode == ePIPELINEMODE_SINGLE))
 	{

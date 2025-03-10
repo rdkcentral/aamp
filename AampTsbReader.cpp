@@ -52,24 +52,26 @@ AampTsbReader::~AampTsbReader()
 
 /**
  * @fn AampTsbReader Init function
- * @param[out] - start position
- * @param[in] - current rate
- * @param[in] - tuneType
- * @param[in] - video track reader
- * @return AampStatusType
+ *
+ * @param[in,out] startPosSec - Start absolute position, seconds since 1970; in: requested, out: selected
+ * @param[in] rate - Playback rate
+ * @param[in] tuneType - Type of tune
+ * @param[in] other - Optional other TSB reader
+ *
+ * @return AAMPStatusType
  */
-AAMPStatusType AampTsbReader::Init(double &startPos, float rate, TuneType tuneType, std::shared_ptr<AampTsbReader> other)
+AAMPStatusType AampTsbReader::Init(double &startPosSec, float rate, TuneType tuneType, std::shared_ptr<AampTsbReader> other)
 {
 	AAMPStatusType ret = eAAMPSTATUS_OK;
 	if (!mInitialized_)
 	{
-		if (startPos >= 0)
+		if (startPosSec >= 0)
 		{
 			if (mDataMgr)
 			{
 				TsbFragmentDataPtr firstFragment = mDataMgr->GetFirstFragment();
 				TsbFragmentDataPtr lastFragment = mDataMgr->GetLastFragment();
-				double currentFragmentPosition = 0.0;
+				double requestedPosition = 0.0;
 				mActiveTuneType = tuneType;
 				if (!(firstFragment && lastFragment))
 				{
@@ -79,18 +81,18 @@ AAMPStatusType AampTsbReader::Init(double &startPos, float rate, TuneType tuneTy
 				}
 				else
 				{
-					if ((lastFragment->GetRelativePosition() - firstFragment->GetRelativePosition()) < startPos)
+					if (lastFragment->GetPosition() < startPosSec)
 					{
 						// Handle seek out of range
-						AAMPLOG_WARN("[%s] Seeking to the TSB End : %lf (Requested:%lf), Position:%lf, Range:(%lf-%lf) tunetype:%d", GetMediaTypeName(mMediaType), lastFragment->GetRelativePosition(), startPos, lastFragment->GetPosition(), firstFragment->GetRelativePosition(), lastFragment->GetRelativePosition(), mActiveTuneType);
-						currentFragmentPosition = lastFragment->GetPosition();
+						AAMPLOG_WARN("[%s] Seeking to the TSB End: %lfs (Requested:%lfs), Range:(%lfs-%lfs) tunetype:%d", GetMediaTypeName(mMediaType), lastFragment->GetPosition(), startPosSec, firstFragment->GetPosition(), lastFragment->GetPosition(), mActiveTuneType);
+						requestedPosition = lastFragment->GetPosition();
 					}
 					else
 					{
 						// Adjust the position according to the stored values.
-						currentFragmentPosition = firstFragment->GetPosition() + startPos;
+						requestedPosition = startPosSec;
 					}
-					TsbFragmentDataPtr firstFragmentToFetch = mDataMgr->GetNearestFragment(currentFragmentPosition);
+					TsbFragmentDataPtr firstFragmentToFetch = mDataMgr->GetNearestFragment(requestedPosition);
 					if (eMEDIATYPE_VIDEO != mMediaType)
 					{
 						if (other)
@@ -128,9 +130,9 @@ AAMPStatusType AampTsbReader::Init(double &startPos, float rate, TuneType tuneTy
 						}
 						// Save First PTS
 						mFirstPTS = firstFragmentToFetch->GetPTS();
-						AAMPLOG_INFO("[%s] startPosition:%lf relative:%lf rate:%f pts:%lf Window:(%lf..%lf)", GetMediaTypeName(mMediaType), mStartPosition, firstFragmentToFetch->GetRelativePosition(), mCurrentRate, mFirstPTS, firstFragment->GetRelativePosition(), lastFragment->GetRelativePosition());
+						AAMPLOG_INFO("[%s] startPosition:%lfs rate:%f pts:%lfs Range:(%lfs-%lfs)", GetMediaTypeName(mMediaType), mStartPosition, mCurrentRate, mFirstPTS, firstFragment->GetPosition(), lastFragment->GetPosition());
 						mInitialized_ = true;
-						startPos = firstFragmentToFetch->GetPosition();
+						startPosSec = firstFragmentToFetch->GetPosition();
 					}
 					else
 					{
@@ -224,9 +226,10 @@ std::shared_ptr<TsbFragmentData> AampTsbReader::ReadNext()
 	// For reverse iteration, inspect the discontinuity marker in the current fragment,
 	//		indicating that the upcoming iteration will transition to a different period.
 	mIsNextFragmentDisc = (mCurrentRate >= 0) ? (ret ? ret->IsDiscontinuous() : false) : (ret->next ? ret->next->IsDiscontinuous() : false);
-	if (AAMP_NORMAL_PLAY_RATE == mCurrentRate)
+
+	if (!IsFirstDownload())
 	{
-		DetectDiscontinuity(ret);
+		CheckPeriodBoundary(ret);
 	}
 	mUpcomingFragmentPosition += (mCurrentRate >= 0) ? ret->GetDuration() : -ret->GetDuration();
 	AAMPLOG_INFO("[%s] Returning fragment: pos %lfs pts %lfs relativePos %lfs next %lfs eos %d initWaiting %d discontinuity %d mIsPeriodBoundary %d period %s timeScale %u ptsOffset %fs url %s",
@@ -236,37 +239,27 @@ std::shared_ptr<TsbFragmentData> AampTsbReader::ReadNext()
 }
 
 /**
- * @fn GetStartPosition
- *
- * @return startPosition
+ * @fn CheckPeriodBoundary
+ * 
+ * @param[in] currFragment - Current fragment
  */
-void AampTsbReader::DetectDiscontinuity(TsbFragmentDataPtr currFragment)
+void AampTsbReader::CheckPeriodBoundary(TsbFragmentDataPtr currFragment)
 {
-	/**
-	 * Current rate > 0 check the current Period Id is equal to next fragment period Id else current period Iid is equal to previous fragment
-	 * period Id
-	 */
-	if (!IsFirstDownload())
+	mIsPeriodBoundary = false;
+
+	TsbFragmentDataPtr adjFragment = (mCurrentRate >= 0) ? currFragment->prev : currFragment->next;
+	if (adjFragment)
 	{
-		mIsPeriodBoundary = (mCurrentRate >= 0) ? (currFragment->prev ? (currFragment->GetPeriodId() != currFragment->prev->GetPeriodId()) : false) : (currFragment->next ? (currFragment->GetPeriodId() != currFragment->next->GetPeriodId()) : false);
+		mIsPeriodBoundary = (currFragment->GetPeriodId() != adjFragment->GetPeriodId());
 	}
-	if (mIsPeriodBoundary)
+
+	if (mIsPeriodBoundary && (AAMP_NORMAL_PLAY_RATE == mCurrentRate))
 	{
-		// Continuous PTS check
-		TsbFragmentDataPtr adjFragment = (mCurrentRate >= 0) ? currFragment->prev : currFragment->next;
-		if (adjFragment)
+		double nextPTSCal = (adjFragment->GetPTS()) + ((mCurrentRate >= 0) ? adjFragment->GetDuration() : -adjFragment->GetDuration());
+		if (nextPTSCal != currFragment->GetPTS())
 		{
-			double nextPTSCal = (adjFragment->GetPTS()) + ((mCurrentRate >= 0) ? adjFragment->GetDuration() : -adjFragment->GetDuration());
-			if (nextPTSCal != currFragment->GetPTS())
-			{
-				mIsPeriodBoundary = true;
-				mFirstPTS = currFragment->GetPTS();
-				AAMPLOG_INFO("Discontinuity detected at PTS position %lf", mFirstPTS);
-			}
-			else
-			{
-				mIsPeriodBoundary = false;
-			}
+			mFirstPTS = currFragment->GetPTS();
+			AAMPLOG_INFO("Discontinuity detected at PTS position %lf", mFirstPTS);
 		}
 	}
 }

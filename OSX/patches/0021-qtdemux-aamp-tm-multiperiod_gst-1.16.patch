@@ -1,7 +1,7 @@
 From f6cc4ea70e98f2c062c3c1bb4c9f01375a90e6e8 Mon Sep 17 00:00:00 2001
 From: Balaji Selvam <balaji_selvam@comcast.com>
 Date: Thu, 30 Jan 2020 19:17:45 +0000
-Subject: [PATCH] Subject: [PATCH] BCOM-3327 - [DASH] Support iframe trickmode
+Subject: [PATCH] Subject: [PATCH]  [DASH] Support iframe trickmode
  for multi period assets.
 
 Support smooth PTS restamping across period boundaries

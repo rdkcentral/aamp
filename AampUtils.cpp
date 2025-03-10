@@ -1477,7 +1477,9 @@ bool parseAndValidateSCTE35(const std::string &scte35Data)
 			(int)splice.type, splice.time, splice.duration, splice.event_id);
 
 		if ((splice.type == SCTE35SpliceInfo::SEGMENTATION_TYPE::PROVIDER_ADVERTISEMENT_START) ||
-			(splice.type == SCTE35SpliceInfo::SEGMENTATION_TYPE::PROVIDER_PLACEMENT_OPPORTUNITY_START))
+			(splice.type == SCTE35SpliceInfo::SEGMENTATION_TYPE::PROVIDER_PLACEMENT_OPPORTUNITY_START) ||
+			(splice.type == SCTE35SpliceInfo::SEGMENTATION_TYPE::DISTRIBUTOR_PLACEMENT_OPPORTUNITY_START) ||
+			(splice.type == SCTE35SpliceInfo::SEGMENTATION_TYPE::PROVIDER_AD_BLOCK_START))
 		{
 			isValidDAIEvent = true;
 			break;

@@ -739,8 +739,8 @@ int PrivateCDAIObjectMPD::CheckForAdStart(const float &rate, bool init, const st
 					// This adbreak was placed completely, so endPeriodOffset can be used which will be more accurate than curP2Ad.duration
 					end = abObj.endPeriodOffset;	//No need to look beyond the adbreakEnd
 				}
-				if( (key >= start) &&
-				    (key < end) || ( (rate < AAMP_RATE_PAUSE) && (key == end))
+				if( ( (key >= start) && (key < end) ) ||
+				    ( (rate < AAMP_RATE_PAUSE) && (key == end) )
 				  )
 				{
 					//Yes, Key is in Adbreak. Find which Ad.

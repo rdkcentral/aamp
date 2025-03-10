@@ -27,7 +27,6 @@
 #include "priv_aamp.h"
 #include <stdlib.h>
 #include <string.h>
-#include <pthread.h>
 #include <signal.h>
 #include <assert.h>
 
@@ -93,7 +92,7 @@ void StreamAbstractionAAMP_OTA::onPlayerStatusHandler(const JsonObject& paramete
 
 	if(0 != prevState.compare(currState) || blockedReasonChanged)
 	{
-		PrivAAMPState state = eSTATE_IDLE;
+		AAMPPlayerState state = eSTATE_IDLE;
 		prevBlockedReason.clear();
 		AAMPLOG_WARN( "[OTA_SHIM] State changed from %s to %s ",  prevState.c_str(), currState.c_str());
 		prevState = currState;

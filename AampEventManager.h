@@ -31,7 +31,6 @@
 #include "AampEventListener.h"
 #include "AampLogManager.h"
 #include "AampUtils.h"
-#include <pthread.h>
 #include <signal.h>
 #include <mutex>
 #include <queue>
@@ -58,8 +57,8 @@ class AampEventManager
 private:
 	bool mIsFakeTune;			 		  /**< Flag indicating if fake tune enabled or not  */
 	bool mAsyncTuneEnabled;			   		  /**< Flag indicating if Async tune enabled or not  */
-	PrivAAMPState mPlayerState;	    		  	  /**< Player state flag , updated only at start and Release */
-	pthread_mutex_t mMutexVar ;        			  /**< Mutex variable to handle pending and dispatch operation */
+	AAMPPlayerState mPlayerState;	    		  	  /**< Player state flag , updated only at start and Release */
+	std::mutex mMutexVar ;        			  /**< Mutex variable to handle pending and dispatch operation */
 	int mEventPriority;		    			  /**< Async Event task Priority  */
 	// Separate registration for each event
 	ListenerData* mEventListeners[AAMP_MAX_NUM_EVENTS];	  /**< Event listener registration */
@@ -147,7 +146,7 @@ public:
 	 * @param state - Aamp Player state
 	 * @return void
 	 */
-	void SetPlayerState(PrivAAMPState state);
+	void SetPlayerState(AAMPPlayerState state);
 	/**
 	 * @fn SendEvent
 	 * @param eventData - Event data

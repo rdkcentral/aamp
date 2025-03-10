@@ -810,7 +810,7 @@ const std::string &BulkTimedMetadataEvent::getContent() const
 /**
  * @brief StateChangedEvent Constructor
  */
-StateChangedEvent::StateChangedEvent(PrivAAMPState state, std::string sid):
+StateChangedEvent::StateChangedEvent(AAMPPlayerState state, std::string sid):
 		AAMPEventObject(AAMP_EVENT_STATE_CHANGED, std::move(sid)), mState(state)
 {
 
@@ -821,7 +821,7 @@ StateChangedEvent::StateChangedEvent(PrivAAMPState state, std::string sid):
  *
  * @return Player state
  */
-PrivAAMPState StateChangedEvent::getState() const
+AAMPPlayerState StateChangedEvent::getState() const
 {
 	return mState;
 }

@@ -29,6 +29,7 @@
 #include "HlsDrmBase.h"
 #include <openssl/evp.h>
 #include <memory>
+#include <condition_variable>
 
 /**
  * @class AesDec
@@ -129,7 +130,7 @@ public:
 	 * @param[in] timeInMs timeout
 	 * @param[out] err error on failure
 	 */
-	void WaitForKeyAcquireCompleteUnlocked(int timeInMs, DrmReturn &err);
+	void WaitForKeyAcquireCompleteUnlocked(int timeInMs, DrmReturn &err, std::unique_lock<std::mutex>& lock );
 	/**
 	 * @fn AesDec
 	 * 
@@ -146,8 +147,8 @@ private:
 
 	static std::shared_ptr<AesDec> mInstance;
 	PrivateInstanceAAMP *mpAamp;
-	pthread_cond_t mCond;
-	pthread_mutex_t mMutex;
+	std::condition_variable mCond;
+	std::mutex mMutex;
 #if OPENSSL_VERSION_NUMBER >= 0x10100000L
 	EVP_CIPHER_CTX *mOpensslCtx;
 #else

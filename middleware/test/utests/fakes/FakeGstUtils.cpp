@@ -2,7 +2,7 @@
  * If not stated otherwise in this file or this component's license file the
  * following copyright and licenses apply:
  *
- * Copyright 2018 RDK Management
+ * Copyright 2023 RDK Management
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,35 +15,26 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
-*/
-
-/**
- * @file AampMutex.h
- * @brief Helper class for scoped mutex lock
  */
 
-#ifndef _AAMP_MUTEX_H
-#define _AAMP_MUTEX_H
+#include "MockGstUtils.h"
+#include "middleware/GstUtils.h"
 
-#include <pthread.h>
-
-/**
- * @class AampMutexHold 
- * @brief auto Lock the provided mutex during the object scope
- */
-class AampMutexHold 
+MockGstUtils *g_mockGstUtils = nullptr;
+GstCaps *GetCaps(GstStreamOutputFormat format, GstPlatformType platform)
 {
-	pthread_mutex_t& mutex_;
-public:
-	AampMutexHold(pthread_mutex_t& mutex): mutex_(mutex)
-	{
-		pthread_mutex_lock(&mutex_);
-	}
+	return nullptr;
+}
 
-	~AampMutexHold()
-	{
-		pthread_mutex_unlock(&mutex_);
-	}
-};
+long long GetCurrentTimeMS(void)
+{
+        long long timeMS = 0;
 
-#endif //_AAMP_MUTEX_H
+        if (g_mockGstUtils)
+        {
+                timeMS = g_mockGstUtils->GetCurrentTimeMS();
+        }
+
+        return timeMS;
+}
+

@@ -25,17 +25,15 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-#include <pthread.h>
-
 #include "jsbindings-version.h"
 #include "jsutils.h"
 #include "main_aamp.h"
 #include "priv_aamp.h"
-
+#include <mutex>
 #include "AampCCManager.h"
 
 static class PlayerInstanceAAMP* _allocated_aamp = NULL;
-static pthread_mutex_t jsMutex = PTHREAD_MUTEX_INITIALIZER;
+static std::mutex jsMutex;
 
 extern void ClearAAMPPlayerInstances();
 
@@ -1035,7 +1033,7 @@ public:
 
 /**
  * @class AAMP_JSListener_AnomalyReport
- * @brief AAMP_JSListener_AnomalyReport to receive anomalyreport
+ * @brief AAMP_JSListener_AnomalyReport to receive anomaly report
  */
 class AAMP_JSListener_AnomalyReport : public AAMP_JSListener
 {
@@ -4352,16 +4350,17 @@ static void AAMP_finalize(JSObjectRef thisObject)
 		}
 	}
 
-	pthread_mutex_lock(&jsMutex);
-	if (NULL != _allocated_aamp)
 	{
-		//when finalizing JS object, don't generate state change events
-        	LOG_WARN(pAAMP," aamp->Stop(false)");
-		_allocated_aamp->Stop(false);
-        	LOG_WARN(pAAMP,"delete aamp %p",_allocated_aamp);
-		SAFE_DELETE(_allocated_aamp);
+		std::lock_guard<std::mutex> guard(jsMutex);
+		if (NULL != _allocated_aamp)
+		{
+			//when finalizing JS object, don't generate state change events
+			LOG_WARN(pAAMP," aamp->Stop(false)");
+			_allocated_aamp->Stop(false);
+			LOG_WARN(pAAMP,"delete aamp %p",_allocated_aamp);
+			SAFE_DELETE(_allocated_aamp);
+		}
 	}
-	pthread_mutex_unlock(&jsMutex);
 	SAFE_DELETE(pAAMP);
 
 	//disable CC rendering so that state will not be persisted between two different sessions.
@@ -4666,7 +4665,7 @@ void aamp_LoadJS(void* context, void* playerInstanceAAMP)
 	}
 	else
 	{
-		pthread_mutex_lock(&jsMutex);
+		std::lock_guard<std::mutex> guard(jsMutex);
 		if (NULL == _allocated_aamp )
 		{
 			_allocated_aamp = new PlayerInstanceAAMP(NULL, NULL);
@@ -4677,7 +4676,6 @@ void aamp_LoadJS(void* context, void* playerInstanceAAMP)
 			LOG_WARN_EX("reuse aamp %p", _allocated_aamp);
 		}
 		pAAMP->_aamp = _allocated_aamp;
-		pthread_mutex_unlock(&jsMutex);
 	}
 
 	pAAMP->_listeners = NULL;
@@ -4728,7 +4726,7 @@ void aamp_UnloadJS(void* context)
 				// So it makes sense to remove the object when webpage is unloaded.
 				AAMP_finalize(aampObj);
 			}
-			// use JSObjectDeleteProperty instead of JSObjectSetProperty when trying to invalidate a read-only property
+			//use JSObjectDeleteProperty instead of JSObjectSetProperty when trying to invalidate a read-only property
 			JSObjectDeleteProperty(jsContext, globalObj, str, NULL);
 			
 			// Force a garbage collection to clean-up all AAMP objects.
@@ -4745,20 +4743,16 @@ void aamp_UnloadJS(void* context)
  */
 void __attribute__ ((destructor(101))) _aamp_term()
 {
-	
 	LOG_TRACE("Enter");
-	pthread_mutex_lock(&jsMutex);
 	if (NULL != _allocated_aamp)
 	{
-        	LOG_WARN_EX("stopping aamp");
+		LOG_WARN_EX("stopping aamp");
 		//when finalizing JS object, don't generate state change events
 		_allocated_aamp->Stop(false);
-        	LOG_WARN_EX("stopped aamp");
+		LOG_WARN_EX("stopped aamp");
 		delete _allocated_aamp;
 		_allocated_aamp = NULL;
 	}
-	pthread_mutex_unlock(&jsMutex);
-
 	//Clear any active js mediaplayer instances on term
 	ClearAAMPPlayerInstances();
 }

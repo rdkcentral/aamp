@@ -34,7 +34,6 @@
 #include <IPVideoStat.h>
 #include "AampGrowableBuffer.h"
 
-#include <pthread.h>
 #include <signal.h>
 #include <semaphore.h>
 #include <curl/curl.h>
@@ -109,8 +108,6 @@ class AampTSBSessionManager;
 #define MAX_LOW_LATENCY_DASH_RETUNE_ALLOWED 2
 
 #define MAX_LOW_LATENCY_DASH_ABR_SPEEDSTORE_SIZE 10
-
-/* Define AAMP_DEBUG_FETCH_INJECT: 1 for debugging video track, 2 for audio track, 4 for subtitle track and 7 for all */
 
 /**
  * @brief Max URL log size
@@ -596,7 +593,7 @@ public:
 	 * @param[in] bFirstAttempt - External initiated tune
 	 * @param[in] bFinalAttempt - Final retry/attempt.
 	 * @param[in] audioDecoderStreamSync - Enable or disable audio decoder stream sync,
-	 *                set to 'false' if audio fragments come with additional padding at the end
+	 *                set to 'false' if audio fragments come with additional padding at the end 
 	 *
 	 * @param[in] refreshManifestUrl -
 	 * @param[in] mpdStitchingMode -
@@ -827,9 +824,8 @@ public:
 	int mTelemetryInterval;
 	std::vector< std::pair<long long,long> > mAbrBitrateData;
 
-	pthread_mutex_t mLock;				/**< = PTHREAD_MUTEX_INITIALIZER; */
-	pthread_mutexattr_t mMutexAttr;
-	pthread_mutex_t mParallelPlaylistFetchLock; 	/**< mutex lock for parallel fetch */
+	std::recursive_mutex mLock;
+	std::recursive_mutex mParallelPlaylistFetchLock; 	/**< mutex lock for parallel fetch */
 	std::thread  mRateCorrectionThread;     /**< Rate correction thread Id **/
 
 	class StreamAbstractionAAMP *mpStreamAbstractionAAMP; /**< HLS or MPD collector */
@@ -842,7 +838,7 @@ public:
 	StreamOutputFormat mPreviousAudioType; 		/**< Used to maintain previous audio type of HLS playback */
 	StreamOutputFormat mAuxFormat;
 	StreamOutputFormat mSubtitleFormat{FORMAT_UNKNOWN};
-	pthread_cond_t mDownloadsDisabled;
+	std::condition_variable_any mDownloadsDisabled;
 	bool mDownloadsEnabled;
 	std::map<AampMediaType, bool> mMediaDownloadsEnabled; /* Used to enable/Disable individual mediaType downloads */
 	HybridABRManager mhAbrManager;                 /**< Pointer to Hybrid abr manager*/
@@ -1029,8 +1025,8 @@ public:
 	bool mIsIframeTrackPresent;				/**< flag to check iframe track availability*/
 
 	bool IsTuneTypeNew; 					/**< Flag for the eTUNETYPE_NEW_NORMAL */
-	pthread_cond_t waitforplaystart;    			/**< Signaled after playback starts */
-	pthread_mutex_t mMutexPlaystart;			/**< Mutex associated with playstart */
+	std::condition_variable waitforplaystart;    			/**< Signaled after playback starts */
+	std::mutex mMutexPlaystart;			/**< Mutex associated with playstart */
 	long long trickStartUTCMS;
 	double durationSeconds;
 	double culledSeconds;
@@ -1051,7 +1047,7 @@ public:
 	std::string mAdProgressId;
 	bool discardEnteringLiveEvt;
 	bool mIsRetuneInProgress;
-	pthread_cond_t mCondDiscontinuity;
+	std::condition_variable_any mCondDiscontinuity;
 	guint mDiscontinuityTuneOperationId;
 	bool mIsVSS;       					/**< Indicates if stream is VSS, updated during Tune */
 	long curlDLTimeout[eCURLINSTANCE_MAX]; 			/**< To store download timeout of each curl instance*/
@@ -1071,7 +1067,7 @@ public:
 
 #ifdef AAMP_HLS_DRM
 	std::vector <attrNameData> aesCtrAttrDataList; 		/**< Queue to hold the values of DRM data parsed from manifest */
-	pthread_mutex_t drmParserMutex; 			/**< Mutex to lock DRM parsing logic */
+	std::mutex drmParserMutex; 			/**< Mutex to lock DRM parsing logic */
 	bool fragmentCdmEncrypted; 				/**< Indicates CDM protection added in fragments **/
 #endif
 	std::thread mPreCachePlaylistThreadId;
@@ -1082,7 +1078,7 @@ public:
 	AampDRMSessionManager *mDRMSessionManager;
 #endif
 	int mPlaylistFetchFailError;				/**< To store HTTP error code when playlist download fails */
-	bool mAudioDecoderStreamSync; 				/**< Flag to set or clear 'stream_sync_mode' property
+	bool mAudioDecoderStreamSync; 				/**<  Flag to set or clear 'stream_sync_mode' property
 	                                				in gst brcmaudiodecoder, default: True */
 	std::string mSessionToken; 				/**< Field to set session token for player */
 	bool midFragmentSeekCache;    				/**< To find if cache is updated when seeked to mid fragment boundary */
@@ -1135,8 +1131,8 @@ public:
 	std::vector<uint8_t> mcurrent_keyIdArray;		/**< Current KeyID for DRM license */
 	DynamicDrmInfo mDynamicDrmDefaultconfig;		/**< Init drmConfig stored as default config */
 	std::vector<std::string> mDynamicDrmCache;
-	pthread_mutex_t mDynamicDrmUpdateLock;
-	pthread_cond_t mWaitForDynamicDRMToUpdate;
+	std::recursive_mutex mDynamicDrmUpdateLock;
+	std::condition_variable_any mWaitForDynamicDRMToUpdate;
 	bool mAudioComponentCount;
 	bool mVideoComponentCount;
 	bool mAudioOnlyPb;
@@ -1163,6 +1159,7 @@ public:
 	aamp::id3_metadata::MetadataCache mId3MetadataCache; /**< Metadata cache object for the JS event */
 
 	bool mIsFlushFdsInCurlStore;	/**< Mark to clear curl store instance in case of playback stopped due to download Error */
+	bool mIsFlushOperationInProgress;		/**< Flag to indicate pipeline flush Opeartion is going on */
 
 	/**
 	 * @fn ProcessID3Metadata
@@ -2249,15 +2246,14 @@ public:
 	 *   @param[in] state - New state
 	 *   @return void
 	 */
-	void SetState(PrivAAMPState state);
+	void SetState(AAMPPlayerState state);
 
 	/**
 	 *   @fn GetState
 	 *
-	 *   @param[out] state - Get current state of aamp
-	 *   @return void
+	 *  @return current logical player state, i.e. eSTATE_PLAYING, eSTATE_IDLE
 	 */
-	void GetState(PrivAAMPState &state);
+	AAMPPlayerState GetState();
 
 	/**
      	 *   @fn AddHighIdleTask
@@ -4118,7 +4114,7 @@ public:
 	 * @brief Signal the clock to subtitle module
 	 * @return - true indicating successful operation in sending the clock update
 	 */
-	bool SignalSubtitleClock(bool verboseDebug);
+	bool SignalSubtitleClock( void );
 
 	/**
 	 * @brief Apply CC/Subtitle mute but preserve the original status
@@ -4366,7 +4362,7 @@ protected:
 	int mfirstTuneFmt;			//First Tune Format HLS(0) or DASH(1)
 	int  mTuneAttempts;			//To distinguish between new tune & retries with redundant over urls.
 	long long mPlayerLoadTime;
-	std::atomic<PrivAAMPState> mState;  //Changed to atomic as there are cross thread accesses.
+	std::atomic<AAMPPlayerState> mState;  //Changed to atomic as there are cross thread accesses.
 	long long lastUnderFlowTimeMs[AAMP_TRACK_COUNT];
 	bool mbTrackDownloadsBlocked[AAMP_TRACK_COUNT];
 	std::shared_ptr<AampDrmHelper> mCurrentDrm;
@@ -4403,7 +4399,7 @@ protected:
 	int mMinInitialCacheSeconds; 		/**< Minimum cached duration before playing in seconds*/
 	std::string mDrmInitData; 		/**< DRM init data from main manifest URL (if present) */
 	bool mFragmentCachingRequired; 		/**< True if fragment caching is required or ongoing */
-	pthread_mutex_t mFragmentCachingLock; 	/**< To sync fragment initial caching operations */
+	std::recursive_mutex mFragmentCachingLock; 	/**< To sync fragment initial caching operations */
 	bool mPauseOnFirstVideoFrameDisp; 	/**< True if pause AAMP after displaying first video frame */
 //	AudioTrackInfo mPreferredAudioTrack; 	/**< Preferred audio track from available tracks in asset */
 	TextTrackInfo mPreferredTextTrack; 	/**< Preferred text track from available tracks in asset */
@@ -4412,9 +4408,9 @@ protected:
 
 	guint mAutoResumeTaskId;		/**< handler id for auto resume idle callback */
 	AampScheduler *mScheduler; 		/**< instance to schedule async tasks */
-	pthread_mutex_t mEventLock; 		/**< lock for operation on mPendingAsyncEvents */
+	std::recursive_mutex mEventLock; 		/**< lock for operation on mPendingAsyncEvents */
 	int mEventPriority; 			/**< priority for async events */
-	pthread_mutex_t mStreamLock; 		/**< Mutex for accessing mpStreamAbstractionAAMP */
+	std::recursive_mutex mStreamLock; 		/**< Mutex for accessing mpStreamAbstractionAAMP */
 	int mHarvestCountLimit;			/**< Harvest count */
 	int mHarvestConfig;			/**< Harvest config */
 	std::string mAuxAudioLanguage; 		/**< auxiliary audio language */
@@ -4451,7 +4447,7 @@ protected:
 	bool mLocalAAMPTsb;
 	bool mbPauseOnStartPlayback;						/**< Start playback in paused state */
 
-	pthread_mutex_t mPreProcessLock;
+	std::mutex mPreProcessLock;
 	bool mIsChunkMode;		/** LLD ChunkMode */
 
 };

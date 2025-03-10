@@ -62,6 +62,8 @@
  *
  */
 
+#define PrivAAMPState AAMPPlayerState // backwards compatibility for apps using native interface
+
 /**
  * @enum AAMPAnomalyMessageType
  * @brief AAMP anomaly message types
@@ -726,10 +728,9 @@ public:
 
 	/**
 	 * @brief Signal the new clock to subtitle module
-	 * @param[in] verboseDebug - enable more debug
 	 * @return - true indicating successful operation in sending the clock update
 	 */
-	virtual bool SignalSubtitleClock(bool verboseDebug) { return false; };
+	virtual bool SignalSubtitleClock( void ) { return false; };
 
 	/**
 	 * @fn SetPauseOnPlayback
@@ -737,6 +738,17 @@ public:
 	 * @param[in] enable - Flag to set whether enabled
 	 */
 	virtual void SetPauseOnStartPlayback(bool enable) {};
+	
+	/**
+ 	* @brief Notifies the injector to resume buffer pushing.
+ 	*/
+	virtual void NotifyInjectorToResume() {};
+
+	/**
+ 	* @brief Notifies the injector to pause buffer pushing.
+ 	*/
+	virtual void NotifyInjectorToPause() {};
+
 };
 
 
@@ -812,7 +824,7 @@ public:
 	 *   @param[in]  mainManifestUrl - HTTP/HTTPS url to be played.
 	 *   @param[in]  contentType - Content type of the asset
 	 *   @param[in]  audioDecoderStreamSync - Enable or disable audio decoder stream sync,
-	 *                set to 'false' if audio fragments come with additional padding at the end
+	 *                set to 'false' if audio fragments come with additional padding at the end 
 	 *   @return void
 	 */
 	void Tune(const char *mainManifestUrl, const char *contentType, bool bFirstAttempt,
@@ -825,7 +837,7 @@ public:
 	 *   @param[in]  autoPlay - Start playback immediately or not
 	 *   @param[in]  contentType - Content type of the asset
 	 *   @param[in]  audioDecoderStreamSync - Enable or disable audio decoder stream sync,
-	 *                set to 'false' if audio fragments come with additional padding at the end
+	 *                set to 'false' if audio fragments come with additional padding at the end 
 	 *   @return void
 	 */
 	void Tune(const char *mainManifestUrl,
@@ -1068,8 +1080,7 @@ public:
 	 *
 	 *   @return bool - True if jsinfo is enabled, false otherwise
 	 */
-
-	 bool IsJsInfoLoggingEnabled();
+	bool IsJsInfoLoggingEnabled();
 
 
 	/**
@@ -1285,13 +1296,13 @@ public:
 	int GetId(void);
 	void SetId( int iPlayerId );
 
-
+	
 	/**
 	 *   @fn GetState
 	 *
 	 *   @return current AAMP state
 	 */
-	PrivAAMPState GetState(void);
+	AAMPPlayerState GetState(void);
 
 	/**
 	 *   @fn GetVideoBitrate

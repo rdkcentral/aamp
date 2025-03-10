@@ -38,7 +38,7 @@
 #define CHAR_CODE_1 49
 #define CHAR_CODE_6 54
 
-int IsCCOnFlag = 0;															//Extern variable introduced in meta-bcm
+int IsCCOnFlag = 0;
 
 #if defined(AAMP_SUBTITLE_SUPPORTED)
 static mrcc_Error GetCapability(gsw_CcAttribType attribType, gsw_CcType ccType, void **values, unsigned int *size)

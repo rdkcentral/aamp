@@ -91,7 +91,7 @@ std::string convertCueToTtmlString(int id, VTTCue *cue, double startTime)
 		ss << "</p>\n";
 	}
 	
-	AAMPLOG_TRACE(" %s\n", ss.str().c_str());
+	AAMPLOG_TRACE(" %s", ss.str().c_str());
 	
 	return ss.str();
 }
@@ -183,7 +183,7 @@ void WebVTTSubtecDevParser::pause(bool pause)
  */
 std::string WebVTTSubtecDevParser::getVttAsTtml()
 {	
-	pthread_mutex_lock(&mVttQueueMutex);
+	std::lock_guard<std::mutex> guard(mVttQueueMutex);
 	std::string ss;
 	int counter = 0;
 	
@@ -221,9 +221,6 @@ std::string WebVTTSubtecDevParser::getVttAsTtml()
 	ss += "</div>\n";
 	ss += "</body>\n";
 	ss += "</tt>\n";
-
-
-	pthread_mutex_unlock(&mVttQueueMutex);
 
 	return ss;
 }

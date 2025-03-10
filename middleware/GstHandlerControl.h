@@ -16,55 +16,54 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#ifndef AAMP_HANDLER_CONTROL_H
-#define AAMP_HANDLER_CONTROL_H
+#ifndef GST_HANDLER_CONTROL_H
+#define GST_HANDLER_CONTROL_H
 
 #include <mutex>
 #include <condition_variable>
 
-#include "AampConfig.h"
 
 /**
- * @brief AampHandlerControl boilerplate to include at the outer scope of the handler/callback to be managed by a corresponding AampHandlerControl
+ * @brief GstHandlerControl boilerplate to include at the outer scope of the handler/callback to be managed by a corresponding GstHandlerControl
  * Note these macros are intentionally not wrapped in {} as the scopeHelper must remain at the outer scope of the handler/callback
  */
 #define HANDLER_CONTROL_HELPER(HANDLER_CONTROL, RTN) auto scopeHelper = HANDLER_CONTROL.getScopeHelper(); \
 								if(scopeHelper.returnStraightAway()) return RTN;
-#define HANDLER_CONTROL_HELPER_CALLBACK_VOID() auto scopeHelper = _this->privateContext->callbackControl.getScopeHelper(); \
-								if(scopeHelper.returnStraightAway()) return;
+
+#define HANDLER_CONTROL_HELPER_CALLBACK_VOID() auto scopeHelper = pInterfacePlayerRDK->gstPrivateContext->callbackControl.getScopeHelper();
 
 /**
- * @class AampHandlerControl
- * @brief Provides a thread safe way of disabling & confirming that handlers or callbacks are disabled (i.e. AampHandlerControl::done()) when
- * the corresponding handlers implement the boiler plate using AampHandlerControl::getScopeHelper() & AampHandlerControl::ScopeHelper::returnStraightAway()
+ * @class HandlerControl
+ * @brief Provides a thread safe way of disabling & confirming that handlers or callbacks are disabled (i.e. GstHandlerControl::done()) when
+ * the corresponding handlers implement the boiler plate using GstHandlerControl::getScopeHelper() & GstHandlerControl::ScopeHelper::returnStraightAway()
  */
-class AampHandlerControl{
+class GstHandlerControl{
 	public:
 
 	bool isEnabled() const;
 
 	/**
-	 * @class AampHandlerControl::ScopeHelper
-	 * @brief An object that Indicates if the handler is permitted to perform any action (i.e. via AampHandlerControl::ScopeHelper::returnStraightAway()) and
-	 * signals to its corresponding AampHandlerControl object when the handler is complete (so that AampHandlerControl can maintain an accurate count of the number of handlers running)
+	 * @class GstHandlerControl::ScopeHelper
+	 * @brief An object that Indicates if the handler is permitted to perform any action (i.e. via GstHandlerControl::ScopeHelper::returnStraightAway()) and
+	 * signals to its corresponding GstHandlerControl object when the handler is complete (so that GstHandlerControl can maintain an accurate count of the number of handlers running)
 	 * ScopeHelper instances should only be accessed from one thread i.e. the corresponding handler.
-	 * AampHandlerControl's methods are threadsafe.
-	 * The lifetime of referenced AampHandlerControl objects must exceed the lifetime of referencing ScopeHelpers.
+	 * GstHandlerControl's methods are threadsafe.
+	 * The lifetime of referenced GstHandlerControl objects must exceed the lifetime of referencing ScopeHelpers.
 	 */
 	class ScopeHelper
 	{
 		private:
-		AampHandlerControl* mpController;
+		GstHandlerControl* mpController;
 
 		public:
 		ScopeHelper(): mpController(nullptr){/*empty*/}
 
-		explicit ScopeHelper(AampHandlerControl* pController):mpController(pController){/*empty*/}
+		explicit ScopeHelper(GstHandlerControl* pController):mpController(pController){/*empty*/}
 
 		/**
 		 * @brief move constructor
-		 * The new object takes on the responsibility for signaling any corresponding AampHandlerControl from 'other'.
-		 * After this function 'other' will not reference or signal any AampHandlerControl.  It's scope is irrelevant.
+		 * The new object takes on the responsibility for signaling any corresponding GstHandlerControl from 'other'.
+		 * After this function 'other' will not reference or signal any GstHandlerControl.  It's scope is irrelevant.
 		 */
 		ScopeHelper(ScopeHelper&& other): mpController(nullptr)
 		{
@@ -74,13 +73,13 @@ class AampHandlerControl{
 
 		/**
 		 * @brief move assignment
-		 * The assigned to object will signal any currently referenced AampHandlerControl first.  Then
-		 * the assigned to object will take on the responsibility any AampHandlerControl referenced by other.
-		 * After this function 'other' will not reference or signal any AampHandlerControl.  It's scope is irrelevant.
+		 * The assigned to object will signal any currently referenced GstHandlerControl first.  Then
+		 * the assigned to object will take on the responsibility any GstHandlerControl referenced by other.
+		 * After this function 'other' will not reference or signal any GstHandlerControl.  It's scope is irrelevant.
 		 */
-		ScopeHelper& operator=(AampHandlerControl::ScopeHelper&& other);
+		ScopeHelper& operator=(GstHandlerControl::ScopeHelper&& other);
 
-		//not copyable this would invalidate the count held in AampHandlerControl
+		//not copyable this would invalidate the count held in GstHandlerControl
 		ScopeHelper(const ScopeHelper& other)=delete;
 		ScopeHelper& operator=(const ScopeHelper& other)=delete;
 		~ScopeHelper()
@@ -114,7 +113,7 @@ class AampHandlerControl{
 	void handlerEnd();
 
 	public:
-	AampHandlerControl():mEnabled(true), mInstanceCount(0), mSync(), mDoneCond()
+	GstHandlerControl():mEnabled(true), mInstanceCount(0), mSync(), mDoneCond()
 	{
 		//empty
 	}
@@ -149,7 +148,7 @@ class AampHandlerControl{
 	/**
 	 * @brief Call at the start of the handler, and store the return value in a local variable with handler scope.
 	 * The returnStraightAway() method of the returned object should be called straight afterwards. e.g. using HANDLER_CONTROL_HELPER
-	 * @return A AampHandlerControl::ScopeHelper linked to this object
+	 * @return A GstHandlerControl::ScopeHelper linked to this object
 	 */
 	ScopeHelper getScopeHelper();
 
@@ -163,4 +162,4 @@ class AampHandlerControl{
 	bool waitForDone(int MaximumDelayMilliseconds, std::string errormessage);
 };
 
-#endif /* AAMP_HANDLER_CONTROL_H  */
+#endif /* GST_HANDLER_CONTROL_H  */

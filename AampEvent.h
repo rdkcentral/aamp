@@ -156,29 +156,29 @@ typedef enum
 } AAMPTuneFailure;
 
 /**
- * @enum PrivAAMPState
+ * @enum AAMPPlayerState
  * @brief  Mapping all required status codes based on JS player requirement. These requirements may be
  * forced by psdk player.AAMP may not use all the statuses mentioned below:
  * Mainly required states - idle, initializing, initialized, preparing, prepared, playing, paused, seek, complete and error
  */
 typedef enum
 {
-	eSTATE_IDLE,         /**< 0  - Player is idle */
-	eSTATE_INITIALIZING, /**< 1  - Player is initializing a particular content */
-	eSTATE_INITIALIZED,  /**< 2  - Player has initialized for a content successfully */
-	eSTATE_PREPARING,    /**< 3  - Player is loading all associated resources */
-	eSTATE_PREPARED,     /**< 4  - Player has loaded all associated resources successfully */
-	eSTATE_BUFFERING,    /**< 5  - Player is in buffering state */
-	eSTATE_PAUSED,       /**< 6  - Playback is paused */
-	eSTATE_SEEKING,      /**< 7  - Seek is in progress */
-	eSTATE_PLAYING,      /**< 8  - Playback is in progress */
-	eSTATE_STOPPING,     /**< 9  - Player is stopping the playback */
-	eSTATE_STOPPED,      /**< 10 - Player has stopped playback successfully */
-	eSTATE_COMPLETE,     /**< 11 - Playback completed */
-	eSTATE_ERROR,        /**< 12 - Error encountered and playback stopped */
-	eSTATE_RELEASED,     /**< 13 - Player has released all resources for playback */
-	eSTATE_BLOCKED       /**< 14 - Player has blocked and cant play content*/
-} PrivAAMPState;
+	eSTATE_IDLE         = 0,  /**< initial state for player instance */
+	eSTATE_INITIALIZING = 1,  /**< application-initiated tune started */
+	eSTATE_INITIALIZED  = 2,  /**< tune-related configuration complete */
+	eSTATE_PREPARING    = 3,  /**< acquiring manifest/playlists */
+	eSTATE_PREPARED     = 4,  /**< manifests/playlists acquired and parsed */
+	eSTATE_BUFFERING    = 5,  /**< AV pipeline has run dry */
+	eSTATE_PAUSED       = 6,  /**< AV pipeline is paused */
+	eSTATE_SEEKING      = 7,  /**< application-initiated seek in progress */
+	eSTATE_PLAYING      = 8,  /**< AV presenting (normal rate or FF/REW) */
+	eSTATE_STOPPING     = 9,  /**< application-initiated stop in progress */
+	eSTATE_STOPPED      = 10, /**< playback stop request complete */
+	eSTATE_COMPLETE     = 11, /**< reached VOD end-of-stream */
+	eSTATE_ERROR        = 12, /**< fatal playback error encountered; playback is stopped */
+	eSTATE_RELEASED     = 13, /**< all resources released (equivalent to eSTATE_IDLE)  */
+	eSTATE_BLOCKED      = 14  /**< AV muted due to parental control */
+} AAMPPlayerState;
 
 /**
  * @enum MetricsDataType
@@ -383,7 +383,7 @@ struct AAMPEvent
 		 */
 		struct
 		{
-			PrivAAMPState state;        /**< Player state */
+			AAMPPlayerState state;        /**< Player state */
 		} stateChanged;
 
 		/**
@@ -1313,7 +1313,7 @@ public:
  */
 class StateChangedEvent: public AAMPEventObject
 {
-	PrivAAMPState mState;	/**< Player state */
+	AAMPPlayerState mState;	/**< Player state */
 
 public:
 	StateChangedEvent() = delete;
@@ -1325,7 +1325,7 @@ public:
 	 *
 	 * @param[in] state - New player state
 	 */
-	StateChangedEvent(PrivAAMPState state, std::string sid);
+	StateChangedEvent(AAMPPlayerState state, std::string sid);
 
 	/**
 	 * @brief StateChangedEvent Destructor
@@ -1337,7 +1337,7 @@ public:
 	 *
 	 * @return Player state
 	 */
-	PrivAAMPState getState() const;
+	AAMPPlayerState getState() const;
 };
 
 /**

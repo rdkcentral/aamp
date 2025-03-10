@@ -380,7 +380,7 @@ Status StoreImpl::WriteBuffer(const FS::path& path, const void* buffer, std::siz
 		else
 		{
 			file.write(static_cast<const char *>(buffer), size);
-			// The ofstream's badbit is set on writing errors raised by the underlying
+			// The ofstream's bad bit is set on writing errors raised by the underlying
 			// platform-specific implementation, such as ENOSPC.  The ENOSPC checks below assume
 			// that the implementation sets errno when such writing errors occur, which is
 			// highly likely on Linux-based systems as they will be using the Linux C standard

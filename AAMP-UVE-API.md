@@ -1,6 +1,6 @@
 
 # ![](images/logo.png) <br/> AAMP / Universal Video Engine (UVE)
-# V6.9
+# V7.01
 
 ## Overview
 
@@ -77,7 +77,7 @@ Configuration options are passed to AAMP using the UVE initConfig method. This a
 | ----- | ----- | ----- | ----- |
 | abr | Boolean | True | Configuration to enable/disable adaptive bitrate logic. |
 | abrCacheLength | Number | 3 | Length of abr cache for network bandwidth calculation. |
-| abrCacheLife | Number | 5000 | Lifetime value for abr cache for network bandwidth calculation (in milli secs). |
+| abrCacheLife | Number | 5000 | Lifetime value for abr cache for network bandwidth calculation (in milliseconds). |
 | abrCacheOutlier | Number | 5000000 | Outlier difference which will be ignored from network bandwidth calculation (default: 5 MB in bytes). |
 | abrNwConsistency | Number | 2 | Number of checks before profile incr/decr by 1. This is to avoid frequent profile switching with network change. |
 | abrSkipDuration | Number | 6 | Minimum duration of fragment to be downloaded before triggering abr (in secs). |
@@ -117,10 +117,10 @@ Configuration options are passed to AAMP using the UVE initConfig method. This a
 | seekMidFragment | Boolean | False | Configuration to enable/disable mid-Fragment seek. |
 | segmentInjectFailThreshold | Number | 10 | Configuration to enable/disable mid-Fragment seek. |
 | sendUserAgentInLicense | Boolean | False | Configuration to enable/disable sending user agent in the DRM license request header. |
-| stallTimeout | Number | 10000 | Stall detection timeout in milli secs. |
+| stallTimeout | Number | 10000 | Stall detection timeout in milliseconds. |
 | thresholdSizeABR | Number | 6000 | ABR threshold size. |
 | uriParameter | String | - | Uri parameter data to be appended on download-url during curl request. |
-| waitTimeBeforeRetryHttp5xx | Number | 1000 | Wait time before retry for 5xx http errors in milli secs. |
+| waitTimeBeforeRetryHttp5xx | Number | 1000 | Wait time before retry for 5xx http errors in milliseconds. |
 | wifiCurlHeader | Boolean | False | Configuration to enable/disable wifi custom curl header inclusion. |
 | initialBitrate | Number | 2500000 | Initial bitrate (bps) for playback |
 | initialBitrate4K | Number | 13000000 | Initial bitrate (bps) for 4k video playback |
@@ -202,8 +202,9 @@ Configuration options are passed to AAMP using the UVE initConfig method. This a
 | mpdStichingSupport | Boolean | True | Optional field to enable/disable DASH MPD stitching functionality with dual manifest ( one manifest used during tune and another manifest during refresh ) |
 | enablePTSReStamp | Boolean | False | Optional field to enable/disable PTS Re-stamping functionality across discontinuity while moving from Content to Ads or vice-versa |
 | subtitleClockSyncInterval | Number | 30 | Time interval for synchronizing the clock with subtitle module . Default of 30 seconds |
-| showDiagnosticsOverlay | Configures the diagnostics overlay: 0 (none), 1 (minimal), 2 (extended). Controls the visibility and level of detail for diagnostics displayed during playback.
-
+| showDiagnosticsOverlay | Number | 0 (None) | Configures the diagnostics overlay: 0 (None), 1 (Minimal), 2 (Extended). Controls the visibility and level of detail for diagnostics displayed during playback.
+| localTSBEnabled | Boolean | False | Enable use of time shift buffer (TSB) for live playback, leveraging local storage.  Use of a TSB allows pause, seek, fast forward/rewind operations beyond the size of the default manifest live window supported by the CDN |
+| tsbLength | Number | 3600 (1 hour) or 1500 (25 min) | Max duration (seconds) of Local TSB to build up before culling  (not recommended for apps to change) |
 
 Example:
 ```js

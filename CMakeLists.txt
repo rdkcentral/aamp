@@ -24,6 +24,8 @@ function(xcode_define_schema new_schema)
     set_property(TARGET ${new_schema} PROPERTY XCODE_SCHEME_ADDRESS_SANITIZER_USE_AFTER_RETURN TRUE)
 endfunction()
 
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/test/gstTestHarness)
 if(APPLE)
     set(CMAKE_C_COMPILER "/usr/bin/cc")
     set(CMAKE_CXX_COMPILER "/usr/bin/c++")
@@ -184,14 +186,12 @@ set(LIBAAMP_HEADERS AampCacheHandler.h
 					AampEvent.h
 					AampEventListener.h
 					AampEventManager.h
-					AampGstUtils.h
+					middleware/GstUtils.h
 					AampGrowableBuffer.h
-					AampSmartMutex.hpp
 					AampJsonObject.h
 					AampLogManager.h
 					AampMediaType.h
 					AampMemoryUtils.h
-					AampMutex.h
 					AampProfiler.h
 					AampRfc.h
 					AampScheduler.h
@@ -202,6 +202,12 @@ set(LIBAAMP_HEADERS AampCacheHandler.h
 					StreamAbstractionAAMP.h
 					ThunderAccess.h
 					_base64.h
+					middleware/PlayerLogManager.h
+					middleware/PlayerScheduler.h
+					middleware/gstplayertaskpool.h
+					middleware/GstHandlerControl.h
+					middleware/GstUtils.h
+					middleware/InterfacePlayerRDK.h
 					aampgstplayer.h
 					AampBufferControl.h
 					admanager_mpd.h
@@ -251,7 +257,6 @@ set(LIBAAMP_HEADERS AampCacheHandler.h
 					tsDemuxer.hpp
 					tsFragmentProcessor.hpp
 					AampTime.h
-					AampHandlerControl.h
 					AampTSBSessionManager.h
 					AampTsbDataManager.h
 					AampTsbReader.h
@@ -269,7 +274,6 @@ set(LIBAAMP_SOURCES iso639map.cpp
 					AampGrowableBuffer.cpp
 					AampScheduler.cpp
 					AampUtils.cpp
-					AampHandlerControl.cpp
 					AampJsonObject.cpp
 					AampProfiler.cpp
 					AampEvent.cpp
@@ -286,6 +290,12 @@ set(LIBAAMP_SOURCES iso639map.cpp
 					streamabstraction.cpp
 					priv_aamp.cpp
 					main_aamp.cpp
+					middleware/PlayerLogManager.cpp
+					middleware/PlayerScheduler.cpp
+					middleware/gstplayertaskpool.cpp
+					middleware/GstHandlerControl.cpp
+					middleware/GstUtils.cpp
+					middleware/InterfacePlayerRDK.cpp
 					aampgstplayer.cpp
 					AampBufferControl.cpp
 					tsprocessor.cpp
@@ -299,12 +309,11 @@ set(LIBAAMP_SOURCES iso639map.cpp
 					isobmff/isobmffprocessor.cpp
 					isobmff/isobmffhelper.cpp
 					drm/helper/AampDrmHelper.cpp
-					AampGstUtils.cpp
 					MediaStreamContext.cpp
 					downloader/AampCurlStore.cpp
 					AampDRMLicPreFetcher.cpp
 					AampCMCDCollector.cpp
-					gstaamptaskpool.cpp
+					middleware/gstplayertaskpool.cpp
 					downloader/AampCurlDownloader.cpp
 					ID3Metadata.cpp
 					dash/xml/DomDocument.cpp
@@ -625,7 +634,7 @@ target_link_libraries(aamp-cli "-lreadline")
 # XCode schema target
 xcode_define_schema(aamp-cli)
 
-add_executable(playbintest test/playbintest.cpp)
+add_executable(playbintest middleware/test/playbintest.cpp)
 target_link_libraries(playbintest ${PLAYBINTEST_DEPENDS})
 # XCode schema target
 xcode_define_schema(playbintest)
@@ -750,11 +759,12 @@ install(TARGETS aamp-cli DESTINATION bin)
 install(TARGETS playbintest DESTINATION bin)
 
 install(TARGETS aamp DESTINATION lib PUBLIC_HEADER DESTINATION include PRIVATE_HEADER DESTINATION include)
-install(FILES Accessibility.hpp AampEvent.h AampConfig.h AampCMCDCollector.h AampEventManager.h AampDefine.h AampEventListener.h drm/AampMemorySystem.h drm/AampDRMSessionManager.h AampDrmSystems.h AampMediaType.h
+install(FILES   
+  Accessibility.hpp AampEvent.h AampConfig.h AampCMCDCollector.h AampEventManager.h AampDefine.h AampEventListener.h drm/AampMemorySystem.h drm/AampDRMSessionManager.h AampDrmSystems.h AampMediaType.h
   drm/AampDrmData.h drm/AampDrmInfo.h drm/AampDrmMediaFormat.h AampDrmCallbacks.h AampLogManager.h
   drm/AampDrmSession.h drm/ClearKeyDrmSession.h drm/AampDRMutils.h drm/aampdrmsessionfactory.h
   drm/helper/AampDrmHelper.h subtitle/vttCue.h AampUtils.h
-  AampMemoryUtils.h AampProfiler.h AampConstants.h iso639map.h AampRfc.h AampGstUtils.h AampGrowableBuffer.h
+  AampMemoryUtils.h AampProfiler.h AampConstants.h iso639map.h AampRfc.h middleware/GstUtils.h AampGrowableBuffer.h
   AampScheduler.h
   drm/AampSecManager.h
   downloader/AampCurlStore.h
@@ -772,6 +782,12 @@ install(FILES Accessibility.hpp AampEvent.h AampConfig.h AampCMCDCollector.h Aam
   AampTsbReader.h
   tsb/api/TsbApi.h
   closedcaptions/AampCCManager.h
+  middleware/PlayerLogManager.h
+  middleware/PlayerScheduler.h
+  middleware/gstplayertaskpool.h
+  middleware/GstHandlerControl.h
+  middleware/GstUtils.h
+  middleware/InterfacePlayerRDK.h
   DESTINATION include)
 
 if (CMAKE_AAMP_RFC_REQUIRED)

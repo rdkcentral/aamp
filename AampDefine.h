@@ -30,7 +30,7 @@
 #define AAMP_CFG_PATH "/opt/aamp.cfg"
 #define AAMP_JSON_PATH "/opt/aampcfg.json"
 
-#define AAMP_VERSION "7.01"
+#define AAMP_VERSION "7.02"
 #define AAMP_TUNETIME_VERSION 5
 
 //Stringification of Macro : use two levels of macros
@@ -79,7 +79,7 @@
 #define TRICKPLAY_LINEAR_PLAYBACK_FPS 8                		/**< Frames rate for trickplay from TSB */
 #define DEFAULT_DOWNLOAD_RETRY_COUNT (1)			/**< max download failure retry attempt count */
 #define DEFAULT_FRAGMENT_DOWNLOAD_502_RETRY_COUNT (1) /**< max fragment download failure retry attempt count for 502 error */
-#define DEFAULT_MANIFEST_DOWNLOAD_502_RETRY_COUNT (10) /**< max manifest download failure retry attempt count for 502 error */
+#define MANIFEST_DOWNLOAD_502_RETRY_COUNT (10) /**< max manifest download failure retry attempt count for 502 error */
 #define DEFAULT_DISCONTINUITY_TIMEOUT 3000          		/**< Default discontinuity timeout after cache is empty in MS */
 #define CURL_FRAGMENT_DL_TIMEOUT 10L    			/**< Curl timeout for fragment download */
 #define DEFAULT_STALL_ERROR_CODE (7600)             		/**< Default stall error code: 7600 */
@@ -144,9 +144,9 @@
 
 // the +1 is used to compensate for internal use originally being a > check, now >=
 #if defined(REALTEKCE)
-#define DEFAULT_BUFFERING_QUEUED_FRAMES_MIN (3+1) // TODO: deprecate -specific config (risk: tune time impact)
+#define DEFAULT_BUFFERING_QUEUED_FRAMES_MIN (3+1) // TODO: deprecate specific config (risk: tune time impact)
 #else
-#define DEFAULT_BUFFERING_QUEUED_FRAMES_MIN (5+1) // more conservative config;
+#define DEFAULT_BUFFERING_QUEUED_FRAMES_MIN (5+1) // more conservative config; used on specific platform
 #endif
 
 // Player supported play/trick-play rates.

@@ -154,7 +154,7 @@ std::shared_ptr<CachedFragment> AampTSBSessionManager::Read(TsbInitDataPtr initf
 	CachedFragmentPtr cachedFragment = std::make_shared<CachedFragment>();
 	std::string url = initfragdata->GetUrl();
 	std::string effectiveUrl;
-	bool readFromAampCache = mAamp->getAampCacheHandler()->RetrieveFromInitFragCache(url, &cachedFragment->fragment, effectiveUrl);
+	bool readFromAampCache = mAamp->getAampCacheHandler()->RetrieveFromInitFragmentCache(url, &cachedFragment->fragment, effectiveUrl);
 	cachedFragment->type = initfragdata->GetMediaType();
 	cachedFragment->cacheFragStreamInfo = initfragdata->GetCacheFragStreamInfo();
 	cachedFragment->profileIndex = initfragdata->GetProfileIndex();
@@ -659,30 +659,24 @@ std::shared_ptr<AampTsbReader> AampTSBSessionManager::GetTsbReader(AampMediaType
 
 /**
  * @brief Invoke TSB Readers
- * @param[out] offsetFromStart
+ * @param[in,out] startPosSec - Start absolute position, seconds since 1970; in: requested, out: selected
  * @param[in] rate
  * @param[in] tuneType
  *
  * @return AAMPSTatusType - OK if success
  */
-AAMPStatusType AampTSBSessionManager::InvokeTsbReaders(double &position, float rate, TuneType tuneType)
+AAMPStatusType AampTSBSessionManager::InvokeTsbReaders(double &startPosSec, float rate, TuneType tuneType)
 {
 	INIT_CHECK_RETURN_VAL(eAAMPSTATUS_GENERIC_ERROR);
 
 	LockReadMutex();
 	AAMPStatusType ret = eAAMPSTATUS_OK;
-	double relativePos = position;
-	if (relativePos < 0)
-	{
-		AAMPLOG_INFO("relativePos reset to 0!!");
-		relativePos = 0;
-	}
 	if (!mTsbReaders.empty())
 	{
 		// Re-Invoke TSB readers to new position
 		mActiveTuneType = tuneType;
 		GetTsbReader(eMEDIATYPE_VIDEO)->Term();
-		ret = GetTsbReader(eMEDIATYPE_VIDEO)->Init(relativePos, rate, tuneType);
+		ret = GetTsbReader(eMEDIATYPE_VIDEO)->Init(startPosSec, rate, tuneType);
 		if (eAAMPSTATUS_OK != ret)
 		{
 			UnlockReadMutex();
@@ -693,15 +687,14 @@ AAMPStatusType AampTSBSessionManager::InvokeTsbReaders(double &position, float r
 		for (int i = (AAMP_TRACK_COUNT - 1); i > eMEDIATYPE_VIDEO; i--)
 		{
 			// Re-initialize reader with synchronized values
-			double startPos = relativePos;
+			double startPosOtherTracks = startPosSec;
 			GetTsbReader((AampMediaType)i)->Term();
 			if(AAMP_NORMAL_PLAY_RATE == rate)
 			{
-				ret = GetTsbReader((AampMediaType)i)->Init(startPos, rate, tuneType, GetTsbReader(eMEDIATYPE_VIDEO));
+				ret = GetTsbReader((AampMediaType)i)->Init(startPosOtherTracks, rate, tuneType, GetTsbReader(eMEDIATYPE_VIDEO));
 			}
 		}
 	}
-	position = relativePos;
 	UnlockReadMutex();
 	return ret;
 }
@@ -785,7 +778,7 @@ bool AampTSBSessionManager::PushNextTsbFragment(MediaStreamContext *pMediaStream
 			TsbInitDataPtr initFragmentData = nextFragmentData->GetInitFragData();
 			double bandwidth = initFragmentData->GetBandWidth();
 			AAMPLOG_INFO("Profile Changed : %d : CurrentBandwidth: %.02lf Previous Bandwidth: %.02lf",(bandwidth != reader->mCurrentBandwidth),bandwidth,reader->mCurrentBandwidth);
-			if((reader->IsDiscontinuous()) || isFirstDownload || bandwidth != reader->mCurrentBandwidth)
+			if((reader->IsDiscontinuous()) || (reader->IsPeriodBoundary()) || isFirstDownload || bandwidth != reader->mCurrentBandwidth)
 			{
 				CachedFragmentPtr initFragment = Read(initFragmentData);
 				if (initFragment)

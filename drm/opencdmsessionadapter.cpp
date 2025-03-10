@@ -71,8 +71,6 @@ AAMPOCDMSessionAdapter::AAMPOCDMSessionAdapter(std::shared_ptr<AampDrmHelper> dr
 		m_keyStored()
 {
 	AAMPLOG_WARN("AAMPOCDMSessionAdapter :: enter ");
-	pthread_mutex_init(&decryptMutex, NULL);
-
 	AAMPLOG_WARN("AAMPOCDMSessionAdapter :: key process timeout is %d", drmHelper->keyProcessTimeout());
 
 	initAampDRMSystem();
@@ -86,7 +84,7 @@ AAMPOCDMSessionAdapter::AAMPOCDMSessionAdapter(std::shared_ptr<AampDrmHelper> dr
 void AAMPOCDMSessionAdapter::initAampDRMSystem()
 {
 	AAMPLOG_WARN("initAampDRMSystem :: enter ");
-	pthread_mutex_lock(&decryptMutex);
+	std::lock_guard<std::mutex> guard(decryptMutex);
 	if (m_pOpenCDMSystem == nullptr) {
 #ifdef USE_THUNDER_OCDM_API_0_2
 		m_pOpenCDMSystem = opencdm_create_system(m_keySystem.c_str());
@@ -97,7 +95,6 @@ void AAMPOCDMSessionAdapter::initAampDRMSystem()
 			AAMPLOG_ERR("opencdm_create_system() FAILED");
 		}
 	}
-	pthread_mutex_unlock(&decryptMutex);
 	AAMPLOG_WARN("initAampDRMSystem :: exit ");
 }
 
@@ -106,8 +103,6 @@ AAMPOCDMSessionAdapter::~AAMPOCDMSessionAdapter()
 {
 	AAMPLOG_WARN("[HHH]OCDMSessionAdapter destructor called! keySystem %s", m_keySystem.c_str());
 	clearDecryptContext();
-
-	pthread_mutex_destroy(&decryptMutex);
 
 	if (m_pOpenCDMSystem) {
 #ifdef USE_THUNDER_OCDM_API_0_2
@@ -127,7 +122,7 @@ void AAMPOCDMSessionAdapter::generateAampDRMSession(const uint8_t *f_pbInitData,
 {
 	AAMPLOG_INFO("at %p, with %p, %p", this , m_pOpenCDMSystem, m_pOpenCDMSession);
 
-	pthread_mutex_lock(&decryptMutex);
+	std::lock_guard<std::mutex> guard(decryptMutex);
 	if (m_pOpenCDMSystem == nullptr)
 	{
 		AAMPLOG_WARN("OpenCDM system not present, unable to generate DRM session");
@@ -175,8 +170,6 @@ void AAMPOCDMSessionAdapter::generateAampDRMSession(const uint8_t *f_pbInitData,
 			m_eKeyState = KEY_ERROR;
 		}
 	}
-
-	pthread_mutex_unlock(&decryptMutex);
 }
 
 
@@ -323,7 +316,7 @@ int AAMPOCDMSessionAdapter::aampDRMProcessKey(DrmData* key, uint32_t timeout)
 		else if(m_keyStatus == KeyStatus::HWError)
 #endif
 		{
-			// SAGE Hang .. Need to restart the wpecdmi process and then self kill player to recover
+			//  SAGE Hang .. Need to restart the wpecdmi process and then self kill player to recover
 			AAMPLOG_WARN("processKey: Update() returned HWError.Restarting process...");
 			ProcessHandler processHandler;
 			// In Release another process handles opencdm which needs to be restarts .In Sprint this process is not available.
@@ -399,15 +392,13 @@ void AAMPOCDMSessionAdapter:: clearDecryptContext()
 {
 	AAMPLOG_WARN("[HHH] clearDecryptContext.");
 
-	pthread_mutex_lock(&decryptMutex);
+	std::lock_guard<std::mutex> guard(decryptMutex);
 
 	if (m_pOpenCDMSession) {
 		opencdm_session_close(m_pOpenCDMSession);
 		opencdm_destruct_session(m_pOpenCDMSession);
 		m_pOpenCDMSession = NULL;
 	}
-
-	pthread_mutex_unlock(&decryptMutex);
 	m_eKeyState = KEY_INIT;
 }
 

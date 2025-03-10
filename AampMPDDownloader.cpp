@@ -46,8 +46,8 @@ void _manifestDownloadResponse::show()
 		}
 		AAMPLOG_INFO("type: %s", mMPDInstance->GetType().c_str());
 		auto periods = mMPDInstance->GetPeriods();
-		AAMPLOG_INFO("Size of 'periods': %zu\n", periods.size());
-		AAMPLOG_INFO("Minimum Update Period:  %s\n", mMPDInstance->GetMinimumUpdatePeriod().c_str());
+		AAMPLOG_INFO("Size of 'periods': %zu", periods.size());
+		AAMPLOG_INFO("Minimum Update Period:  %s", mMPDInstance->GetMinimumUpdatePeriod().c_str());
 	}
 }
 
@@ -193,7 +193,7 @@ void AampMPDDownloader::Initialize(ManifestDownloadConfigPtr mpdDnldCfg, std::st
 {
 	if(mpdDnldCfg == nullptr)
 	{
-		AAMPLOG_INFO("Need a valid MPD download config.\n");
+		AAMPLOG_INFO("Need a valid MPD download config.");
 		return;
 	}
 
@@ -360,11 +360,10 @@ void AampMPDDownloader::downloadMPDThread1()
 	bool refreshNeeded = false;
 	std::string tuneUrl = mMPDDnldCfg->mTuneUrl;
 	bool firstDownload	=	true;
-	int retryCount = 0;
 	ManifestDownloadResponsePtr cachedBackupData = nullptr;
 	do
 	{
-		
+
 		std::unordered_map<std::string, std::vector<std::string>> Headers = mMPDDnldCfg->mDnldConfig->sCustomHeaders;
 		bool doPush = true;
 		long long tStartTime = NOW_STEADY_TS_MS;
@@ -378,6 +377,7 @@ void AampMPDDownloader::downloadMPDThread1()
 				Headers.insert(CMCDHeaders.begin(), CMCDHeaders.end());
 			}
 			mMPDDnldCfg->mDnldConfig->sCustomHeaders = Headers;
+			mMPDDnldCfg->mDnldConfig->iDownload502RetryCount = MANIFEST_DOWNLOAD_502_RETRY_COUNT;
 			mDownloader1.Initialize(mMPDDnldCfg->mDnldConfig);
 			refreshNeeded = false;
 			//mDownloader1.Clear();
@@ -411,22 +411,6 @@ void AampMPDDownloader::downloadMPDThread1()
 			else
 			{
 				mDownloader1.Download(tuneUrl, mMPDData->mMPDDownloadResponse);
-				if(mMPDData->mMPDDownloadResponse->iHttpRetValue == 502 && retryCount < DEFAULT_MANIFEST_DOWNLOAD_502_RETRY_COUNT)
-				{
-					mRefreshInterval = MIN_DELAY_BETWEEN_MANIFEST_UPDATE_FOR_502_MS;
-					waitForRefreshInterval();
-					refreshNeeded = true;
-					retryCount++;
-					continue;
-				}
-				else
-				{
-					retryCount = 0;
-					if(mMPDData->mMPDDownloadResponse->iHttpRetValue == 502)
-					{
-						AAMPLOG_ERR("Manifest retries exhausted for HTTP error 502,exiting mpd downloader!!");
-					}
-				}
 			}
 		}
 
@@ -835,7 +819,7 @@ bool AampMPDDownloader::readMPDData(std::shared_ptr<ManifestDownloadResponse> dn
 	{
 		publishTimeMSec = (uint64_t)ISO8601DateTimeToUTCSeconds(publishTimeStr.c_str()) * 1000;
 	}
-	AAMPLOG_TRACE("Publish Time of Updated manifest %" PRIu64 ", Previous manifest update time %" PRIu64 "\n", publishTimeMSec, mPublishTime);
+	AAMPLOG_TRACE("Publish Time of Updated manifest %" PRIu64 ", Previous manifest update time %" PRIu64, publishTimeMSec, mPublishTime);
 
 	/* If there is no update in the manifest and publish time is not zero, Set the refresh interval to a minimal value (500ms). This is done for a maximum of two times to avoid frequent manifest refresh.*/
 	if (publishTimeMSec == mPublishTime && publishTimeMSec != 0) 
@@ -1201,7 +1185,6 @@ std::unordered_map<std::string, std::vector<std::string>> AampMPDDownloader::get
 				std::string header_name = header.substr(0, colon_pos + 1); // include the colon
 				std::string header_value = header.substr(colon_pos + 1);
 				trim(header_value); // remove any whitespace
-				//AAMPLOG_INFO("CMCD Header: %s, Value: %s\n", header_name.c_str(), header_value.c_str());
 				cmcd[header_name].push_back(header_value);
 			}
 		}

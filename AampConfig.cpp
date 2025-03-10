@@ -30,7 +30,6 @@
 #include "AampRfc.h"
 #include <time.h>
 #include <map>
-
 //////////////// CAUTION !!!! STOP !!! Read this before you proceed !!!!!!! /////////////
 /// 1. This Class handles Configuration Parameters of AAMP Player , only Config related functionality to be added
 /// 2. Simple Steps to add a new configuration
@@ -914,7 +913,7 @@ PlatformType AampConfig::InferPlatformFromDeviceProperties( void )
 
 PlatformType AampConfig::InferPlatformFromPluginScan()
 {
-	return AAMPGstPlayer::InferPlatformFromPluginScan();
+	return (PlatformType)AAMPGstPlayer::InferPlatformFromPluginScan();
 }
 
 void AampConfig::ApplyDeviceCapabilities( PlatformType platform )
@@ -925,12 +924,13 @@ void AampConfig::ApplyDeviceCapabilities( PlatformType platform )
 		case ePLATFORM_AMLOGIC:
 			SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_NoNativeAV, true);
 			break;
-			
+
 		case ePLATFORM_REALTEK:
 			SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_SyncAudioFragments, true);		// Handled in HLS::Init to avoid audio loss while seeking HLS/TS AV of different duration w/o affecting VOD Discontinuities
 			SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_RequiredQueuedFrames, 3 + 1);
+			SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_MaxFragmentCached, 3);
 			break;
-			
+
 		case ePLATFORM_BROADCOM:
 			SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_DisableAC4, true);
 			if (!AAMPGstPlayer::IsMS2V12Supported())
@@ -939,7 +939,7 @@ void AampConfig::ApplyDeviceCapabilities( PlatformType platform )
 				SetConfigValue(AAMP_TUNE_SETTING, eAAMPConfig_EnableLiveLatencyCorrection, false);
 			}
 			break;
-			
+
 		case ePLATFORM_DEFAULT:
 			SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_EnableLowLatencyCorrection, false);
 			SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_UseWesterosSink, false );
@@ -1635,7 +1635,7 @@ bool AampConfig::ProcessBase64AampCfg(const char * base64Config, size_t configLe
 				{
 					if (line.length() > 0)
 					{
-						AAMPLOG_INFO("aamp-cmd:[%s]\n", line.c_str());
+						AAMPLOG_INFO("aamp-cmd:[%s]", line.c_str());
 						ProcessConfigText(line,cfgPriority);
 					}
 				}
@@ -1981,7 +1981,7 @@ void AampConfig::DoCustomSetting(ConfigPriority owner)
 	}
 	if(GetConfigValue(eAAMPConfig_InitialBuffer) > 0)
 	{
-		//Enabling initialBuffer and gstBufferAndPlay together cause first frame freeze in amlogic.
+		//Enabling initialBuffer and gstBufferAndPlay together cause first frame freeze in specific platform.
 		SetConfigValue(owner, eAAMPConfig_GStreamerBufferingBeforePlay, false);
 	}
 	ConfigureLogSettings();

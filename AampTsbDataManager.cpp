@@ -29,11 +29,11 @@
  */
 class DebugTimeData
 {
-	std::string APIName;
+	std::string apiName;
 	std::chrono::steady_clock::time_point creationTime;
 
 public:
-	DebugTimeData(std::string api) : APIName(api)
+	DebugTimeData(std::string api) : apiName(api)
 	{
 		creationTime = std::chrono::steady_clock::now();
 	}
@@ -42,7 +42,7 @@ public:
 	{
 		auto endTime = std::chrono::steady_clock::now();
 		std::chrono::duration<double> duration = endTime - creationTime;
-		AAMPLOG_WARN("API: %s Taken time: %.02lf ", APIName.c_str(), duration.count() * 1000);
+		AAMPLOG_WARN("API: %s Taken time: %.02lf ", apiName.c_str(), duration.count() * 1000);
 	}
 };
 
@@ -53,7 +53,10 @@ public:
 #endif
 
 /**
- *  @brief GetNearestFragment Get Nearest Fragment for the position
+ *   @fn GetNearestFragment
+ *   @brief Get the nearest fragment for the position
+ *   @param[in] position - Absolute position of the fragment, in seconds since 1970
+ *   @return pointer to the nearest fragment data
  */
 TsbFragmentDataPtr AampTsbDataManager::GetNearestFragment(double position)
 {
@@ -139,7 +142,10 @@ TsbFragmentDataPtr AampTsbDataManager::RemoveFragment()
 }
 
 /**
- *  @brief RemoveFragments - remove fragments until position
+ *   @fn RemoveFragments
+ *   @brief Remove all fragments until the given position
+ *   @param[in] position - Absolute position, in seconds since 1970, to remove segment until
+ *   @return shared pointer List of TSB fragments removed
  */
 std::list<TsbFragmentDataPtr> AampTsbDataManager::RemoveFragments(double position)
 {
@@ -182,7 +188,10 @@ std::list<TsbFragmentDataPtr> AampTsbDataManager::RemoveFragments(double positio
 }
 
 /**
- *  @brief IsFragmentPresent - Check for any fragment availability at the position
+ *   @fn IsFragmentPresent
+ *   @brief Check for any fragment availability at the given position
+ *   @param[in] position - Absolute position of the fragment, in seconds since 1970
+ *   @return true if present
  */
 bool AampTsbDataManager::IsFragmentPresent(double position)
 {
@@ -209,7 +218,11 @@ bool AampTsbDataManager::IsFragmentPresent(double position)
 }
 
 /**
- *  @brief GetFragment - Get Fragment for the position
+ *   @fn GetFragment
+ *   @brief Get fragment for the position
+ *   @param[in] position - Exact absolute position of the fragment, in seconds since 1970
+ *   @param[out] eos - Flag to identify the End of stream
+ *   @return pointer to Fragment data and TsbFragmentData
  */
 TsbFragmentDataPtr AampTsbDataManager::GetFragment(double position, bool &eos)
 {
@@ -235,7 +248,7 @@ TsbFragmentDataPtr AampTsbDataManager::GetFragment(double position, bool &eos)
 
 /**
  *   @fn GetFirstFragmentPosition
- *   @return return the position of first fragment in the list
+ *   @return Absolute position of the first fragment, in seconds since 1970
  */
 double AampTsbDataManager::GetFirstFragmentPosition()
 {
@@ -283,7 +296,7 @@ TsbFragmentDataPtr AampTsbDataManager::GetLastFragment()
 
 /**
  *   @fn GetLastFragmentPosition
- *   @return return the position of last fragment in the list
+ *   @return Absolute position of the last fragment, in seconds since 1970
  */
 double AampTsbDataManager::GetLastFragmentPosition()
 {
@@ -331,7 +344,7 @@ bool AampTsbDataManager::AddFragment(TSBWriteData &writeData, AampMediaType medi
 	TSB_DM_TIME_DATA();
 	bool ret = false;
 	std::string url {writeData.url};
-	double position {writeData.cachedFragment->position};
+	double position {writeData.cachedFragment->absPosition};
 	double duration {writeData.cachedFragment->duration};
 	double pts {writeData.pts};
 	std::string periodId {writeData.periodId};
@@ -426,9 +439,11 @@ void AampTsbDataManager::Flush()
 }
 
 /**
- * @brief GetNextDiscFragment - API to get next discontinuous fragment in the list
- * 		If not found, will return nullptr
- *
+ *   @fn GetNextDiscFragment
+ *   @brief API to get next discontinuous fragment in the list. If not found, will return nullptr.
+ *   @param[in] position - Absolute position, in seconds since 1970, for querying the discontinuous fragment
+ *   @param[in] backwordSerach - Search direction from the position to discontinuous fragment, default forward
+ *   @return TsbFragmentData shared object to fragment data
  */
 TsbFragmentDataPtr AampTsbDataManager::GetNextDiscFragment(double position, bool backwardSearch)
 {

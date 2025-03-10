@@ -32,7 +32,7 @@
 #include <sstream>
 #include <string>
 #include <ctype.h>
-#include <gst/gst.h>
+#include <glib.h>
 #include <readline/readline.h>
 #include <readline/history.h>
 #include <priv_aamp.h>
@@ -46,11 +46,12 @@
 #include "AampcliGet.h"
 #include "AampcliSet.h"
 #include "AampcliShader.h"
+#include "middleware/GstUtils.h"
 
 class MyAAMPEventListener : public AAMPEventObjectListener
 {
 	public:
-		const char *stringifyPrivAAMPState(PrivAAMPState state);
+		const char *stringifyPlayerState(AAMPPlayerState state);
 		void Event(const AAMPEventPtr& e) override;
 };
 
@@ -65,10 +66,10 @@ class Aampcli
 		std::string mTuneFailureDescription;
 		PlayerInstanceAAMP *mSingleton;
 		MyAAMPEventListener *mEventListener;
-		GMainLoop *mAampGstPlayerMainLoop;
-		GThread *mAampMainLoopThread;
 		std::vector<PlayerInstanceAAMP *> mPlayerInstances;
 		std::string mManifestDataUrl;
+		GMainLoop *mAampGstPlayerMainLoop;
+		GThread *mAampMainLoopThread;
 
 		static void runCommand( std::string args );
 		static gpointer aampGstPlayerStreamThread( gpointer arg );
@@ -91,6 +92,7 @@ class Aampcli
 
 	private:
 		std::vector<std::string> mPlayerSessionID;
+		
 };
 
 #endif // AAMPCLI_H

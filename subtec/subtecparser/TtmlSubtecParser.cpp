@@ -25,7 +25,7 @@
 TtmlSubtecParser::TtmlSubtecParser(PrivateInstanceAAMP *aamp, SubtitleMimeType type) : SubtitleParser(aamp, type), m_channel(nullptr)
 {
 #ifdef TTML_DEBUG
-	printf( "TtmlSubtecParser::TtmlSubtecParser\n" );
+	printf( "TtmlSubtecParser::TtmlSubtecParser" );
 #endif
 	m_channel = SubtecChannel::SubtecChannelFactory(SubtecChannel::ChannelType::TTML);
 	if (!m_channel->InitComms())

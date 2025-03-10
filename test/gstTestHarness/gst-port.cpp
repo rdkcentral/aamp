@@ -753,7 +753,7 @@ void Pipeline::HandleGstMessageStateChanged( GstMessage *msg, const char *messag
 			   strstr(name,"westerossink") ||
 			   strstr(name,"audiosink") || strstr(name,"videosink") || // rialtomsevideosink, rialtomseaudiosink
 			   strstr(name,"videodecoder") || strstr(name,"audiodecoder") || // brcmvideodecoder, brcmaudiodecoder
-			   strstr(name,"omx") || strstr(name,"rtkv1sink") ) 
+			   strstr(name,"omx") || strstr(name,"rtkv1sink") )
 			{
 				g_print( "found sink: %s\n", name );
 				auto obj = G_OBJECT_GET_CLASS(msg->src);

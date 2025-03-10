@@ -26,6 +26,7 @@
 #include "scte35/AampSCTE35.h"
 #include "AampcliShader.h"
 
+
 Aampcli mAampcli;
 const char *gApplicationPath = NULL;
 extern VirtualChannelMap mVirtualChannelMap;
@@ -62,6 +63,7 @@ Aampcli::Aampcli(const Aampcli& aampcli):
 {
 	mSingleton = aampcli.mSingleton;
 	mEventListener = aampcli.mEventListener;
+	
 };
 
 Aampcli& Aampcli::operator=(const Aampcli& aampcli)
@@ -107,7 +109,7 @@ void Aampcli::doAutomation( int startChannel, int stopChannel, int maxTuneTimeS,
 			snprintf( cmd, sizeof(cmd), "%d", chan );
 			mTuneFailureDescription.clear();
 			lCommandHandler.dispatchAampcliCommands(cmd,mSingleton);
-			PrivAAMPState state = eSTATE_IDLE;
+			AAMPPlayerState state = eSTATE_IDLE;
 			for(int i=0; i<maxTuneTimeS; i++ )
 			{
 				sleep(1);
@@ -236,7 +238,8 @@ void Aampcli::initPlayerLoop(int argc, char **argv)
 	if (!mInitialized)
 	{
 		mInitialized = true;
-		gst_init(&argc, &argv);
+		PlayerCliGstInit(&argc, &argv);
+		
 		mAampGstPlayerMainLoop = g_main_loop_new(NULL, FALSE);
 		mAampMainLoopThread = g_thread_new("AAMPGstPlayerLoop", &aampGstPlayerStreamThread, NULL );
 	}
@@ -494,7 +497,7 @@ void Aampcli::getAdvertUrlIndexed( std::vector<AdvertInfo>& adList, int idx)
 	}
 }
 
-const char *MyAAMPEventListener::stringifyPrivAAMPState(PrivAAMPState state)
+const char *MyAAMPEventListener::stringifyPlayerState(AAMPPlayerState state)
 {
 	static const char *stateName[] =
 	{
@@ -534,7 +537,7 @@ void MyAAMPEventListener::Event(const AAMPEventPtr& e)
 		case AAMP_EVENT_STATE_CHANGED:
 			{
 				StateChangedEventPtr ev = std::dynamic_pointer_cast<StateChangedEvent>(e);
-				printf("[AAMPCLI] AAMP_EVENT_STATE_CHANGED: %s (%d)\n", mAampcli.mEventListener->stringifyPrivAAMPState(ev->getState()), ev->getState());
+				printf("[AAMPCLI] AAMP_EVENT_STATE_CHANGED: %s (%d)\n", mAampcli.mEventListener->stringifyPlayerState(ev->getState()), ev->getState());
 				break;
 			}
 		case AAMP_EVENT_SEEKED:
@@ -729,7 +732,7 @@ void MyAAMPEventListener::Event(const AAMPEventPtr& e)
 								{
 									// set default url
 									advertInfo ad;
-									ad.url = "https://ads-gb-s8-prd-ak.cdn01.skycdp.com/v1/frag/bmff/t/ipvodad17/dc004d50-30ea-4f46-add8-9a007fe7c8ec/1628085330949/AD/HD/manifest.mpd";
+									ad.url = "https://example.com/AD/HD/manifest.mpd";
 									ad.duration = 0;
 									adList.push_back(ad);
 

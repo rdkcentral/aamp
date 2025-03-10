@@ -27,6 +27,7 @@
 
 #include "AdManagerBase.h"
 #include <string>
+#include <condition_variable>
 #include "libdash/INode.h"
 #include "libdash/IDASHManager.h"
 #include "libdash/xml/Node.h"

@@ -31,7 +31,7 @@
 #include <stddef.h>
 #include <functional>
 #include <gst/gst.h>
-#include <pthread.h>
+#include "InterfacePlayerRDK.h"
 
 /**
  * @struct AAMPGstPlayerPriv
@@ -75,6 +75,15 @@ struct BufferControlData
 };
 
 /**
+ *@enum TaskType
+ *@brief Enum for task type
+ */
+enum TaskType {
+    FIRST_PROGRESS_CALLBACK,
+    FIRST_VIDEO_FRAME_DISPLAYED
+};
+
+/**
  * @class AAMPGstPlayer
  * @brief Class declaration of Gstreamer based player
  */
@@ -94,35 +103,11 @@ private:
          */
 	bool SendHelper(AampMediaType mediaType, const void *ptr, size_t len, double fpts, double fdts, double duration, bool copy, bool initFragment = 0, bool discontinuity = false);
 
-	/**
-	 * @fn SendGstEvents
-	 * @param[in] mediaType stream type
-	 * @param[in] pts position value of first buffer
-	 */
-	void SendGstEvents(AampMediaType mediaType, GstClockTime pts);
-
-	/**
-         * @fn SendNewSegmentEvent
-         * @param[in] mediaType stream type
-         * @param[in] startPts Start Position of first buffer
-         * @param[in] stopPts Stop position of last buffer
-         */
-	void SendNewSegmentEvent(AampMediaType mediaType, GstClockTime startPts ,GstClockTime stopPts = 0);
-
-	/**
-	 * @fn SendQtDemuxOverrideEvent
-	 * @param[in] mediaType stream type
-	 * @param[in] pts position value of buffer
-	 * @param[in] ptr buffer pointer
-	 * @param[in] len length of buffer
-	 * @ret TRUE if override is enabled, FALSE otherwise
-	 */
-	gboolean SendQtDemuxOverrideEvent(AampMediaType mediaType, GstClockTime pts, const void *ptr = nullptr, size_t len = 0);
-
 public:
 
 	class PrivateInstanceAAMP *aamp;
 	class PrivateInstanceAAMP *mEncryptedAamp;
+	InterfacePlayerRDK* playerInterface;
 	/**
          * @fn Configure
          * @param[in] format video format
@@ -198,11 +183,6 @@ public:
          * @retval playback duration in MS
          */
 	long GetDurationMilliseconds(void) override;
-	/**
-         * @fn getCCDecoderHandle
-         * @retval the decoder handle
-         */
-	unsigned long getCCDecoderHandle(void) override;
 	/**
          * @fn GetVideoPTS
          * @retval Video PTS value
@@ -299,45 +279,6 @@ public:
          */
 	void ClearProtectionEvent() override;
 	/**
-         * @fn IdleTaskAdd
-         * @param[in] taskDetails task control data (e.g. id, pending flag and task name)
-         * @param[in] funcPtr function pointer to add to the asynchronous queue task
-         * @return true - if task was added
-         */
-	bool IdleTaskAdd(TaskControlData& taskDetails, BackgroundTask funcPtr);
-	/**
-         * @fn IdleTaskRemove
-         * @param[in] taskDetails task control data (e.g. id, pending flag and task name)
-         * @return true - if task was removed
-         */
-	bool IdleTaskRemove(TaskControlData& taskDetails);
-	/**
-         * @fn IdleTaskClearFlags
-         * @param[in] taskDetails task control data (e.g. id, pending flag and task name)
-         */
-	void IdleTaskClearFlags(TaskControlData& taskDetails);
-	/**
-         * @fn TimerAdd
-         * @param[in] funcPtr function to execute on timer expiry
-         * @param[in] repeatTimeout timeout between calls in ms
-         * @param[in] user_data data to pass to the timer function
-         * @param[in] timerName name of the timer being added
-         * @param[out] taskId id of the timer to be returned
-         */
-	void TimerAdd(GSourceFunc funcPtr, int repeatTimeout, guint& taskId, gpointer user_data, const char* timerName = nullptr);
-	/**
-         * @fn TimerRemove
-         * @param[in] taskId id of the timer to be removed
-         * @param[in] timerName name of the timer being removed (for debug) (opt)
-         */
-	void TimerRemove(guint& taskId, const char* timerName = nullptr);
-	/**
-         * @fn TimerIsRunning
-         * @param[in] taskId id of the timer to be removed
-         * @return true - timer is currently running
-         */
-	bool TimerIsRunning(guint& taskId);
-	/**
          * @fn StopBuffering
          *
          * @param[in] forceStop - true to force end buffering
@@ -377,19 +318,10 @@ public:
 	 */
 	static PlatformType InferPlatformFromPluginScan();
 	/**
-	 * @fn NotifyEOS
-	 */
-	void NotifyEOS();
-	/**
 	 * @fn NotifyFirstFrame
 	 * @param[in] type media type of the frame which is decoded, either audio or video.
 	 */
 	void NotifyFirstFrame(AampMediaType type);
-	/**
-     	 * @fn DumpDiagnostics
-    	 *
-     	 */
-	void DumpDiagnostics();
 	/**
      	 *   @fn SignalTrickModeDiscontinuity
      	 *   @return void
@@ -397,13 +329,6 @@ public:
 	void SignalTrickModeDiscontinuity() override;
 	
 	std::function< void(const unsigned char *, int, int, int) > cbExportYUVFrame;
-	/**
-     	 * @fn AAMPGstPlayer_OnVideoSample
-     	 * @param[in] object - pointer to appsink instance triggering "new-sample" signal
-     	 * @param[in] _this  - pointer to AAMPGstPlayer instance
-     	 * @retval GST_FLOW_OK
-     	 */
-	static GstFlowReturn AAMPGstPlayer_OnVideoSample(GstElement* object, AAMPGstPlayer * _this);
 
     	/**
      	 * @fn SeekStreamSink
@@ -416,7 +341,7 @@ public:
      	 * @fn static IsCodecSupported
     	 * @param[in] codecName - name of the codec value
      	 */
-	static bool IsCodecSupported(const std::string &codecName);
+	 static bool IsCodecSupported(const std::string &codecName);
 	
 	/**
      	 *   @fn GetVideoRectangle
@@ -429,11 +354,6 @@ public:
          *
          */
     static bool IsMS2V12Supported();
-	/**
-        *   @fn SignalConnect
-	    *   @note wraps g_signal_connect, adds functionality required by DisconnectSignals()
-	 */
-	void SignalConnect(gpointer instance, const gchar *detailed_signal, GCallback c_handler, gpointer data);
 
 	/**
 		* @brief Set the text style of the subtitle to the options passed
@@ -479,10 +399,9 @@ public:
 	/**
 	 * @fn SignalSubtitleClock
 	 * @brief Signal the new clock to subtitle module
-	 * @param[in] verboseDebug - enable more debug
 	 * @return - true indicating successful operation in sending the clock update
 	 */
-	bool SignalSubtitleClock(bool verboseDebug) override;
+	bool SignalSubtitleClock( void ) override;
 
 /**
 	 * @fn GetBufferControlData
@@ -498,71 +417,20 @@ public:
 	 * @param[in] enable - Flag to set whether enabled
 	 */
 	void SetPauseOnStartPlayback(bool enable) override;
+	void NotifyInjectorToPause() override;
+	void NotifyInjectorToResume() override;
+	void RegisterFirstFrameCallbacks();
+	void NotifyFirstFrame(int mediatype, bool notifyFirstBuffer, bool initCC, bool &requireFirstVideoFrameDisplay, bool &audioOnly);
+	void UnregisterBusCb();
+        void UnregisterFirstFrameCallbacks();
 
 private:
-	/**
-     	 * @fn TearDownStream
-     	 * @param[in] mediaType stream type
-     	 */
-	void TearDownStream(AampMediaType mediaType);
-	/**
-     	 * @fn CreatePipeline
-     	 */
-	bool CreatePipeline();
-	/**
-     	 * @fn DestroyPipeline
-     	 */
-	void DestroyPipeline();
-	static bool initialized;
-	/**
-     	 * @fn WaitForSourceSetup
-     	 *
-     	 * @param[in] mediaType - source element for media type
-     	 * @return bool - true if source setup completed within timeout
-     	 */
-	bool WaitForSourceSetup(AampMediaType mediaType);
-	/**
-     	 * @fn ForwardBuffersToAuxPipeline
-    	 *
-     	 * @param[in] buffer - input buffer to be forwarded
-     	 */
-	void ForwardBuffersToAuxPipeline(GstBuffer *buffer);
-	/**
-     	 * @fn ForwardAudioBuffersToAux
-     	 *
-     	 * @return bool - true if audio to be forwarded
-     	 */
-	bool ForwardAudioBuffersToAux();
-	/**
-         *   @fn DisconnectSignals
-	     *   @brief runs g_signal_handler_disconnect() for signals connected using SignalConnect() since
-	     *  this function was last called unless
-	     *  these were subsequently removed using RemoveSignalsFromDisconnectList()
-	     */
-	void DisconnectSignals();
-
-	/**
-	     *   @fn RemoveSignalsFromDisconnectList
-	     *   @brief Prevents signals associated with the supplied element from being disconnected by DisconnectSignals
-	     */
-	void RemoveSignalsFromDisconnectList(const gpointer pElementOrBin);
-	
-	/**
-	 * @fn RemoveProbes
-	 * @brief Remove probes from the pipeline
-	 */
-	void RemoveProbes();
-
-	/**
-	 * @fn SetSeekPosition
-	 * @param[in] positionSecs - the start position to seek the pipeline to in seconds
-	 */
-	void SetSeekPosition(double positionSecs);
-
-	pthread_mutex_t mBufferingLock;
-	pthread_mutex_t mProtectionLock;
-
+	std::mutex mBufferingLock;
 	id3_callback_t m_ID3MetadataHandler; /**< Function to call to generate the JS event for in ID3 packet */
+
+public:
+	AampLogManager *mLogObj;
+        InterfacePlayerRDK *playerInstance ;
 };
 
 #endif // AAMPGSTPLAYER_H

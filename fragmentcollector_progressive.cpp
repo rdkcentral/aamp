@@ -26,7 +26,6 @@
 #include "priv_aamp.h"
 #include <stdlib.h>
 #include <string.h>
-#include <pthread.h>
 #include <signal.h>
 #include <assert.h>
 #include "AampCurlStore.h"
@@ -79,11 +78,10 @@ static size_t StreamWriteCallback( void *ptr, size_t size, size_t nmemb, void *u
 {
     StreamWriteCallbackContext *context = (StreamWriteCallbackContext *)userdata;
     struct PrivateInstanceAAMP *aamp = context->aamp;
-	//pthread_mutex_lock(&context->aamp->mLock);
     if( context->aamp->mDownloadsEnabled)
     {
        // TODO: info logging is normally only done up until first frame rendered, but even so is too noisy for below, since CURL write callback yields many small chunks
-		AAMPLOG_INFO("StreamWriteCallback(%zu bytes)\n", nmemb);
+		AAMPLOG_INFO("StreamWriteCallback(%zu bytes)", nmemb);
         // throttle download speed if gstreamer isn't hungry
         aamp->BlockUntilGstreamerWantsData( NULL/*CB*/, 0.0/*periodMs*/, eMEDIATYPE_VIDEO );
         double fpts = 0.0;
@@ -101,10 +99,9 @@ static size_t StreamWriteCallback( void *ptr, size_t size, size_t nmemb, void *u
    }
    else
    {
-       AAMPLOG_WARN("write_callback - interrupted\n");
+       AAMPLOG_WARN("write_callback - interrupted");
        nmemb = 0;
    }
-   //pthread_mutex_unlock(&context->aamp->mLock);
    return nmemb;
 }
 
@@ -112,7 +109,7 @@ static size_t StreamWriteCallback( void *ptr, size_t size, size_t nmemb, void *u
 void StreamAbstractionAAMP_PROGRESSIVE::StreamFile( const char *uri, int *http_error )
 { // TODO: move to main_aamp
 	int http_code = -1;
-	AAMPLOG_INFO("StreamFile: %s\n", uri );
+	AAMPLOG_INFO("StreamFile: %s", uri );
 	CURL *curl = curl_easy_init();
 	if (curl)
 	{
@@ -170,7 +167,7 @@ void StreamAbstractionAAMP_PROGRESSIVE::FragmentCollector(void)
 {
     if(aamp_pthread_setname(pthread_self(), "aampPSFetcher"))
     {
-        AAMPLOG_WARN("aamp_pthread_setname failed\n");
+        AAMPLOG_WARN("aamp_pthread_setname failed");
     }
     FetcherLoop();
     return;

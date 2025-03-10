@@ -1,7 +1,7 @@
 From f6cc4ea70e98f2c062c3c1bb4c9f01375a90e6e8 Mon Sep 17 00:00:00 2001
 From: Joseph Brighter <joseph_brighter@comcast.com>
 Date: Fri, Jan 13, 2023 2:31pm
-Subject: [PATCH] Small change for updated installation on Linux - Updated for RDKAAMP-64
+Subject: [PATCH] Small change for updated installation on Linux
 [Development][Linux Simulator] Make a unified install-aamp.sh script for OSX and Linux
 Source: COMCAST
 Upstream-Status: Pending

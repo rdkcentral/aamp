@@ -48,7 +48,18 @@ void vethanlog(int level, const char *filename, const char *function, int line, 
 #else
 // stub for OSX, where sd_journal_print not available
 #define LOG_NOTICE 0
-void sd_journal_printv(int priority, const char *format, va_list arg ){}
+static void sd_journal_printv(int priority, const char *format, va_list arg ){
+	size_t fmt_len = strlen(format);
+	char *fmt_with_newline = (char *)malloc(fmt_len+2);
+	if( fmt_with_newline )
+	{
+		memcpy( fmt_with_newline, format, fmt_len );
+		fmt_with_newline[fmt_len++] = '\n';
+		fmt_with_newline[fmt_len++] = 0x00;
+		vprintf(fmt_with_newline,arg);
+		free( fmt_with_newline );
+	}
+}
 #endif
 
 static const char *mLogLevelStr[eLOGLEVEL_ERROR+1] =

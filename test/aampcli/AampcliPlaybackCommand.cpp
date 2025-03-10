@@ -436,10 +436,10 @@ void PlaybackCommand::HandleCommandUnlock( const char *cmd, PlayerInstanceAAMP *
 
 void PlaybackCommand::HandleCommandAuto( const char *cmd )
 {
-	int start=500, end=1000;
-	int maxTuneTimeS = 6;
-	int playTimeS = 15;
-	int betweenTimeS = 15;
+	int start=1, end=9999; // default range of virtual channels to tune (from aampcli.csv)
+	int maxTuneTimeS = 6; // how long to wait before considering a tune failed (important, as some tunes do not promptly surface errors)
+	int playTimeS = 15; // how long to leave playing before stopping
+	int betweenTimeS = 11; // delay between stop and next tune long enough for automatic cache flush
 	(void)sscanf(cmd, "auto %d %d %d %d %d", &start, &end, &maxTuneTimeS, &playTimeS, &betweenTimeS );
 	mAampcli.doAutomation( start, end, maxTuneTimeS, playTimeS, betweenTimeS );
 }
@@ -1098,7 +1098,7 @@ void PlaybackCommand::termPlayerLoop()
 	{
 		g_main_loop_quit(mAampcli.mAampGstPlayerMainLoop);
 		g_thread_join(mAampcli.mAampMainLoopThread);
-		gst_deinit ();
+		PlayerCliGstTerm();
 		printf("[AAMPCLI] Exit\n");
 	}
 }

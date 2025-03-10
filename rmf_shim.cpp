@@ -27,7 +27,6 @@
 #include "priv_aamp.h"
 #include <stdlib.h>
 #include <string.h>
-#include <pthread.h>
 #include <signal.h>
 #include <assert.h>
 
@@ -97,7 +96,7 @@ AAMPStatusType StreamAbstractionAAMP_RMF::Init(TuneType tuneType)
 	param["source_type"] = "qam";
 	if(false == thunderAccessObj.InvokeJSONRPC("initialize", param, result)) //Note: do not terminate unless we're desperate for resources. deinit is sluggish.
 	{
-		AAMPLOG_ERR("Failed to initialize %s plugin.\n", RMF_PLUGIN_CALLSIGN);
+		AAMPLOG_ERR("Failed to initialize %s plugin", RMF_PLUGIN_CALLSIGN);
 		retval = eAAMPSTATUS_GENERIC_ERROR;
 	}
 	return retval;
@@ -139,11 +138,11 @@ void StreamAbstractionAAMP_RMF::Start(void)
 
 	if(true != thunderAccessObj.SubscribeEvent(_T("onStatusChanged"), eventHandler))
 	{
-		AAMPLOG_ERR("Failed to register for onStatusChanged notification from RMF plugin.\n");
+		AAMPLOG_ERR("Failed to register for onStatusChanged notification from RMF plugin");
 	}
 	if(true != thunderAccessObj.SubscribeEvent(_T("onError"), errorHandler))
 	{
-		AAMPLOG_ERR("Failed to register for onError notification from RMF plugin.\n");
+		AAMPLOG_ERR("Failed to register for onError notification from RMF plugin");
 	}
 
 	JsonObject playParam;
@@ -151,7 +150,7 @@ void StreamAbstractionAAMP_RMF::Start(void)
 	playParam["identifier"] = url;
 	if(true != thunderAccessObj.InvokeJSONRPC("play", playParam, result))
 	{
-		AAMPLOG_ERR("Failed to play RMF URL %s.\n", url.c_str());
+		AAMPLOG_ERR("Failed to play RMF URL %s", url.c_str());
 	}
 }
 
@@ -171,7 +170,7 @@ void StreamAbstractionAAMP_RMF::Stop(bool clearChannelData)
 	JsonObject result;;
 	if(true != thunderAccessObj.InvokeJSONRPC("stop", param, result))
 	{
-		AAMPLOG_ERR("Failed to stop RMF playback. URL: %s.\n", aamp->GetManifestUrl().c_str());
+		AAMPLOG_ERR("Failed to stop RMF playback. URL: %s", aamp->GetManifestUrl().c_str());
 	}
 	thunderAccessObj.UnSubscribeEvent(_T("onStatusChanged"));
 	thunderAccessObj.UnSubscribeEvent(_T("onError"));
@@ -188,7 +187,7 @@ bool StreamAbstractionAAMP_RMF::GetScreenResolution(int & screenWidth, int & scr
 	{
 		screenWidth = result["w"].Number();
 		screenHeight = result["h"].Number();
-		AAMPLOG_INFO( "StreamAbstractionAAMP_RMF: screenWidth:%d screenHeight:%d  ",screenWidth, screenHeight);
+		AAMPLOG_INFO( "StreamAbstractionAAMP_RMF: screenWidth:%d screenHeight:%d", screenWidth, screenHeight);
 		bRetVal = true;
 	}
 	return bRetVal;
@@ -211,7 +210,7 @@ void StreamAbstractionAAMP_RMF::SetVideoRectangle(int x, int y, int w, int h)
 
 	if(true != thunderAccessObj.InvokeJSONRPC("setVideoRectangle", param, result))
 	{
-		AAMPLOG_ERR("Failed to set video rectangle for URL: %s.\n", aamp->GetManifestUrl().c_str());
+		AAMPLOG_ERR("Failed to set video rectangle for URL: %s", aamp->GetManifestUrl().c_str());
 	}
 }
 
