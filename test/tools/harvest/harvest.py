@@ -102,7 +102,7 @@ class SegmentDownloader:
     shutdown_when_empty = False
     shutdown_immediatly = False
     thread_no = 0
-    missing = []
+    missing = {}
 
     def __init__(self):
         self.requests_session = requests.Session()
@@ -131,7 +131,7 @@ class SegmentDownloader:
                     write_file(filename, resp.content)
                 else:
                     log.error("status_code=%d %s", resp.status_code, url)
-                    self.missing.append(url)
+                    self.missing[url] = resp.status_code
 
             except queue.Empty:
                 pass
@@ -444,7 +444,7 @@ if __name__ == "__main__":
         "--maxtime",
         type=int,
         help="""For VOD asset then harvest will download this duration of segments. 
-                        For a live asset then harvest will download all segments 
+                        For a live asset then harvest  will download all segments 
                         referenced by manifest and then poll for further segments 
                         for this duration.
                         default=40s""",
@@ -593,11 +593,13 @@ This may result in 30mins of segments preceeding the live edge being processed""
     if not args.no_segments:
         SegmentDownloader.stop_all()
 
-        log.info("Missing details %d", len(SegmentDownloader.missing))
+        log.info("Missing Segments %d", len(SegmentDownloader.missing))
         with open("missing_segments.txt", "a") as f:
-            f.write("Missing details " + str(len(set(SegmentDownloader.missing))) + "\n\n")
-            for filename in set(SegmentDownloader.missing):
-                log.info("%s", filename)
-                f.write(filename + "\n\n")
+            f.write("Missing Segments " + str(len(SegmentDownloader.missing)) + "\n\n")
+            failedCounter = 1
+            for filename, errorCode in SegmentDownloader.missing.items():
+                log.info("%s CDN Status Code: %i", filename, errorCode)
+                f.write(f"{failedCounter}. {filename} | CDN Status Code {errorCode}\n\n")
+                failedCounter += 1
 
     sys.exit(0)
