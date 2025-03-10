@@ -454,9 +454,8 @@ if __name__ == "__main__":
         "-b",
         "--bandwidths",
         action="append",
-        type=int,
-        help="""Restrict processing to just the specified bit rates. If an invalid
-                        value is provided or it would remove all of one media type, then this 
+        help="""Restrict processing to just the specified bit rates. Bandwidth specified must be either 'highest' or 'lowest', else specific bandwidth integer(s).
+                        If an invalid value is provided or it would remove all of one media type, then this 
                         is an error. This maybe supplied multiple times. This can be used if 
                         having ABR ability for the content is not required.""",
     )
@@ -554,9 +553,11 @@ This may result in 30mins of segments preceeding the live edge being processed""
             # This is a 'top level' manifest
             print(str(man))
 
-            if args.bandwidths and not man.reduce_bandwidth(args.bandwidths):
-                log.error("Bandwidths invalid %s", man.rept_bands())
-                sys.exit(1)
+            if man.bands:
+                
+                if args.bandwidths and not man.reduce_bandwidth(args.bandwidths):
+                    log.error("Bandwidths invalid %s", man.rept_bands())
+                    sys.exit(1)
 
             man.trim_urls()
             write_file(url_to_filename(url), str(man))

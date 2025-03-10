@@ -116,6 +116,28 @@ def read_harvest_details(do_search=False):
             log.error("Failed to read harvest details: %s", e)
     return d
 
+def set_highest_or_lowest(type, bands):
+
+    """
+    Helper function to determine the highest or lowest bandwidths for video media type.
+    Defaults to 0 for highest and 999999999999999 for lowest. Adjust as needed for your function call.
+    """
+    
+    if type == "highest":
+        video = 0    
+
+        for key, value in bands.items():
+            if "video" in value:
+                video = max(video, key)
+    
+    elif type == "lowest":
+        video = 999999999999999
+
+        for key, value in bands.items():
+            if "video" in value:
+                video = min(video, key)
+    
+    return video
 
 def write_transcode_details():
     """

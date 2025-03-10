@@ -32,7 +32,7 @@ import re
 import io
 import logging
 import xml.etree.ElementTree as ET
-from library.manifests import delHTTPhost, Manifest, SegmentList
+from library.manifests import delHTTPhost, set_highest_or_lowest, Manifest, SegmentList
 from library.attriblist import AttribList
 from library.filesys_utils import url_to_filename
 
@@ -270,13 +270,23 @@ class DASHManifest(Manifest):
         """
         Reduce down the number of bandwidths supported by the top level manifest.
         """
+        
         log.debug(f"bands {band_list}")
-        if type(band_list) in [str, int]:
-            band_list = [int(band_list)]
 
-        band_check = {int(band) for band in band_list if int(band) in self.bands}
-        mime_upd = {self.bands[band][0] for band in band_check}
+        print("INFO: Bandwidth specified must be either 'highest' or 'lowest', else specific bandwidth integer(s)")
+        band_check = set()
 
+        if band_list[0] == "highest" or band_list[0] == "lowest":
+            band_list[0] = band_list[0].lower()
+
+            video = set_highest_or_lowest(band_list[0], self.bands) 
+            
+            if not video in [0, 999999999999999]:
+                band_check.add(video)
+        
+        else:
+                band_check = {int(band) for band in band_list if int(band) in self.bands}    
+        mime_upd = {self.bands[band][0] for band in band_check} 
         log.info("Reducing to bandwidths %s for %s", band_check,mime_upd)
         if len(band_check) < len(band_list) or band_list == []:
             return False

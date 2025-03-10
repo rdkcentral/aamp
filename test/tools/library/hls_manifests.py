@@ -30,7 +30,7 @@ import logging
 from datetime import datetime, timedelta, timezone
 import time
 from pathlib import Path
-from library.manifests import delHTTPhost, Manifest, SegmentList
+from library.manifests import delHTTPhost, set_highest_or_lowest,  Manifest, SegmentList
 from library.attriblist import AttribList
 import urllib
 import uuid
@@ -430,7 +430,7 @@ class HLSMainManifest(Manifest):
 
     def add_sub_man(self, mime_type, uri, attrs):
         """
-        Index a reference to a sub-manfest based upon nedia type.
+        Index a reference to a sub-manfest based upon media type.
         """
         attrs.TYPE = mime_type
         self.sub_list.setdefault(mime_type, {})[uri] = attrs
@@ -439,10 +439,21 @@ class HLSMainManifest(Manifest):
         """
         Reduce down the number of bandwidths supported by the top level manifest.
         """
-        if type(band_list) in [str, int]:
-            band_list = [band_list]
 
-        band_check = [int(band) for band in band_list if int(band) in self.bands]
+        print("INFO: Bandwidth specified must be either 'highest' or 'lowest', else specific bandwidth integer(s)")
+        band_check = set()
+
+        if band_list[0] == "highest" or band_list[0] == "lowest":
+            band_list[0] = band_list[0].lower()
+
+            video = set_highest_or_lowest(band_list[0], self.bands) 
+            
+            if not video in [0, 999999999999999]:
+                band_check.add(video)
+        
+        else:
+                band_check = {int(band) for band in band_list if int(band) in self.bands}
+
 
         if len(band_check) < len(band_list) or band_list == []:
             return False
