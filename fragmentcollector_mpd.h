@@ -1108,6 +1108,7 @@ protected:
 	std::vector<BitsPerSecond> mBitrateIndexVector;
 	bool playlistDownloaderThreadStarted; // Playlist downloader thread start status
 	bool isVidDiscInitFragFail;
+	double mLivePeriodCulledSeconds;
 
 	// In case of streams with multiple video Adaptation Sets, A profile
 	// is a combination of an Adaptation Set and Representation within
