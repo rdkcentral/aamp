@@ -86,19 +86,20 @@ typedef struct _manifestDownloadConfig
 	std::string mHarvestPathConfigured;    // Harvest Path 	
 	AampCMCDCollector* mCMCDCollector; // new variable for cmcd header collector
 	std::string mPreProcessedManifest; // provided pre-processed manifest file
+	int mPlayerId;
 
 
-	_manifestDownloadConfig() :mDnldConfig(std::make_shared<DownloadConfig> ()),mTuneUrl(),mStichUrl(),
+	_manifestDownloadConfig( int playerId ) :mDnldConfig(std::make_shared<DownloadConfig> ()),mTuneUrl(),mStichUrl(),
 									mIsLLDConfigEnabled(false),	mCullManifestAtTuneStart(false),mTSBDuration(-1),
 									mStartPosnToTSB(-1),mCMCDCollector(nullptr),mMPDStichOption(OPT_1_FULL_MANIFEST_TUNE),
-									mHarvestCountLimit(0),mHarvestConfig(0),mHarvestPathConfigured(),mPreProcessedManifest() {}
+									mHarvestCountLimit(0),mHarvestConfig(0),mHarvestPathConfigured(),mPreProcessedManifest(),mPlayerId(playerId) {}
 
 	_manifestDownloadConfig(const _manifestDownloadConfig& other): mDnldConfig(other.mDnldConfig),mTuneUrl(other.mTuneUrl),
 								mStichUrl(other.mStichUrl),mIsLLDConfigEnabled(other.mIsLLDConfigEnabled),
 								mCullManifestAtTuneStart(other.mCullManifestAtTuneStart), mTSBDuration(other.mTSBDuration),
 								mStartPosnToTSB(other.mStartPosnToTSB),mCMCDCollector(other.mCMCDCollector),
 								mMPDStichOption(other.mMPDStichOption),mHarvestCountLimit(other.mHarvestCountLimit),
-								mHarvestConfig(other.mHarvestConfig),mHarvestPathConfigured(other.mHarvestPathConfigured),mPreProcessedManifest(other.mPreProcessedManifest) {}
+								mHarvestConfig(other.mHarvestConfig),mHarvestPathConfigured(other.mHarvestPathConfigured),mPreProcessedManifest(other.mPreProcessedManifest),mPlayerId(other.mPlayerId) {}
 
 
 	_manifestDownloadConfig& operator=(const _manifestDownloadConfig& other)
@@ -332,11 +333,7 @@ private:
 	*	@brief Thread Function to download manifest file and refresh it if live
 	*/
 	void downloadMPDThread1();
-	/**
-	*	@fn downloadMPDThread2
-	*	@brief Thread Function to download second manifest file for post stitching ( not supported now)
-	*/	
-	void downloadMPDThread2();
+
 	/**
 	*	@fn downloadNotifierThread
 	*	@brief Thread Function to notify the registered user fo manifest refresh. This will avoid any delays in 

@@ -80,7 +80,7 @@ TEST_F(FunctionalTests, AampMPDDownloader_PreInitTest_1)
 TEST_F(FunctionalTests, AampMPDDownloader_PreInitTest_2)
 {
     // EXPECT_NO_THROW(mAampMPDDownloader->Initialize(nullptr));
-    std::shared_ptr<ManifestDownloadConfig> inpData = std::make_shared<ManifestDownloadConfig>();
+    std::shared_ptr<ManifestDownloadConfig> inpData = std::make_shared<ManifestDownloadConfig>(-1);
     EXPECT_NO_THROW(mAampMPDDownloader->Initialize(inpData));
     EXPECT_NO_THROW(mAampMPDDownloader->Start());
 
@@ -94,7 +94,7 @@ TEST_F(FunctionalTests, AampMPDDownloader_PreInitTest_2)
 TEST_F(FunctionalTests, AampMPDDownloader_PreInitTest_3)
 {
     // VOD Test
-    std::shared_ptr<ManifestDownloadConfig> inpData = std::make_shared<ManifestDownloadConfig>();
+    std::shared_ptr<ManifestDownloadConfig> inpData = std::make_shared<ManifestDownloadConfig>(-1);
     inpData->mTuneUrl = url2;
     inpData->mDnldConfig->bNeedDownloadMetrics = true;
     EXPECT_NO_THROW(mAampMPDDownloader->Initialize(inpData));
@@ -107,7 +107,7 @@ TEST_F(FunctionalTests, AampMPDDownloader_PreInitTest_4)
 {
  	std::shared_ptr<ManifestDownloadResponse> respData = std::make_shared<ManifestDownloadResponse> ();
 	// Live Test
-	std::shared_ptr<ManifestDownloadConfig> inpData = std::make_shared<ManifestDownloadConfig> ();
+	std::shared_ptr<ManifestDownloadConfig> inpData = std::make_shared<ManifestDownloadConfig> (-1);
 	inpData->mTuneUrl = url1;
 	inpData->mDnldConfig->bNeedDownloadMetrics = true;
 	EXPECT_NO_THROW(mAampMPDDownloader->Initialize(inpData));
@@ -126,7 +126,7 @@ TEST_F(FunctionalTests, AampMPDDownloader_PreInitTest_5)
 {
 	std::shared_ptr<ManifestDownloadResponse> respData = std::make_shared<ManifestDownloadResponse> ();
         // Live Test
-        std::shared_ptr<ManifestDownloadConfig> inpData = std::make_shared<ManifestDownloadConfig> ();
+        std::shared_ptr<ManifestDownloadConfig> inpData = std::make_shared<ManifestDownloadConfig> (-1);
         inpData->mTuneUrl = url3;
         inpData->mDnldConfig->bNeedDownloadMetrics = true;
         EXPECT_NO_THROW(mAampMPDDownloader->Initialize(inpData));
@@ -147,7 +147,7 @@ TEST_F(FunctionalTests, AampMPDDownloader_PreInitTest_5)
 
 TEST_F(FunctionalTests, AampMPDDownloader_PushDownloadDataToQueue)
 {
-	std::shared_ptr<ManifestDownloadConfig> inpData = std::make_shared<ManifestDownloadConfig> ();
+	std::shared_ptr<ManifestDownloadConfig> inpData = std::make_shared<ManifestDownloadConfig> (-1);
 	std::shared_ptr<ManifestDownloadResponse> respData = nullptr;
 	std::shared_ptr<ManifestDownloadResponse> respData1 = nullptr;
 	//1st mMPDData
@@ -274,7 +274,7 @@ TEST_F(FunctionalTests, ParseMpdDocumentTest1)
 
 TEST_F(FunctionalTests, AampMPDDownloader_PreInitTest_6)
 {
-	std::shared_ptr<ManifestDownloadConfig> inpData = std::make_shared<ManifestDownloadConfig> ();
+	std::shared_ptr<ManifestDownloadConfig> inpData = std::make_shared<ManifestDownloadConfig> (-1);
 	inpData->mPreProcessedManifest = "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<MPD xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"";
 	if(!inpData->mPreProcessedManifest.empty())
 	{
@@ -290,7 +290,7 @@ TEST_F(FunctionalTests, AampMPDDownloader_PreInitTest_6)
 
 TEST_F(FunctionalTests, AampMPDDownloader_NotifyLockup)
 {
-    std::shared_ptr<ManifestDownloadConfig> inpData = std::make_shared<ManifestDownloadConfig>();
+    std::shared_ptr<ManifestDownloadConfig> inpData = std::make_shared<ManifestDownloadConfig>(-1);
     EXPECT_NO_THROW(mAampMPDDownloader->Initialize(inpData));
 //    EXPECT_NO_THROW(mAampMPDDownloader->Start());
 	
