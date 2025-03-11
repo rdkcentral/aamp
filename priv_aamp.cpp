@@ -13235,7 +13235,7 @@ void PrivateInstanceAAMP::UpdateMaxDRMSessions()
 std::shared_ptr<ManifestDownloadConfig> PrivateInstanceAAMP::prepareManifestDownloadConfig()
 {
 	// initialize the MPD Downloader instance
-	std::shared_ptr<ManifestDownloadConfig> inpData = std::make_shared<ManifestDownloadConfig> ();
+	std::shared_ptr<ManifestDownloadConfig> inpData = std::make_shared<ManifestDownloadConfig> (mPlayerId);
 	inpData->mTuneUrl 	= GetManifestUrl();
 	if(!mMPDStichRefreshUrl.empty() && ISCONFIGSET_PRIV(eAAMPConfig_MPDStitchingSupport))
 	{
