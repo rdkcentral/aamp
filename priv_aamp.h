@@ -56,6 +56,7 @@
 #include <inttypes.h>
 #include <type_traits>
 #include <chrono>
+#include "AampRfc.h"
 #include "AampEventManager.h"
 #include <HybridABRManager.h>
 #include "AampCMCDCollector.h"

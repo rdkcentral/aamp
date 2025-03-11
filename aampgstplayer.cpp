@@ -41,6 +41,9 @@
 #include "AampSegmentInfo.hpp"
 #include "AampBufferControl.h"
 #include <functional>
+#ifdef AAMP_MPD_DRM
+#include "aampoutputprotection.h"
+#endif
 
 #ifdef USE_EXTERNAL_STATS
 // narrowly define MediaType for backwards compatibility
@@ -1131,6 +1134,20 @@ bool AAMPGstPlayer::IsCodecSupported(const std::string &codecName)
 	InterfacePlayerRDK Instance;
 	retValue = Instance.IsCodecSupported(codecName);
 	return retValue;
+}
+
+/**
+ * @brief function to check whether the device is having MS12V2 audio support or not
+ */
+bool AAMPGstPlayer::IsMS2V12Supported()
+{
+	bool IsMS12V2 = false;
+#ifdef AAMP_MPD_DRM
+	AampOutputProtection *pInstance = AampOutputProtection::GetAampOutputProtectionInstance();
+	IsMS12V2  = pInstance->IsMS2V12Supported();
+	pInstance->Release();
+#endif
+	return IsMS12V2;
 }
 
 /**

@@ -21,7 +21,12 @@
  * @file main_aamp.cpp
  * @brief Advanced Adaptive Media Player (AAMP)
  */
-
+#ifdef IARM_MGR
+#include "host.hpp"
+#include "manager.hpp"
+#include "libIBus.h"
+#include "libIBusDaemon.h"
+#endif
 
 #include "main_aamp.h"
 #include "AampConfig.h"
@@ -31,7 +36,6 @@
 #include "helper/AampDrmHelper.h"
 #include "StreamAbstractionAAMP.h"
 #include "AampStreamSinkManager.h"
-#include "playerIarmRfcInterface.h"
 
 #include <dlfcn.h>
 #include <termios.h>
@@ -55,19 +59,33 @@ PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink
 {
 //Need to do iarm initialization process before reading the tr181 aamp parameters.
 //Using printf here since AAMP logs can only use after creating the global object
-	static bool iarmInitialized = false;
-	if(!iarmInitialized)
+#ifdef IARM_MGR
+	// IARM doesn't work in container environment hence dont init IARM in container
+	if(!IsContainerEnvironment() )
 	{
-			char processName[20] = {0};
+		static bool iarmInitialized = false;
+		if(!iarmInitialized)
+		{
+		char processName[20] = {0};
+		IARM_Result_t result;
+		snprintf(processName, sizeof(processName), "AAMP-PLAYER-%u", getpid());
+		if (IARM_RESULT_SUCCESS == (result = IARM_Bus_Init((const char*) &processName))) {
+			printf("IARM Interface Inited in AAMP");
+		}
+		else {
+			printf("IARM Interface Inited Externally : %d", result);
+		}
 
-			snprintf(processName, sizeof(processName), "PLAYER-%u", getpid());
-
-			PlayerIarmRfcInterface::IARMInit(processName);
-
-
-			iarmInitialized = true;
+		if (IARM_RESULT_SUCCESS == (result = IARM_Bus_Connect())) {
+			printf("IARM Interface Connected  in AAMP");
+		}
+		else {
+			printf("IARM Interface Connected Externally :%d", result);
+		}
+		iarmInitialized = true;
 	}
-	
+}
+#endif // IARM_MGR
 	// Create very first instance of Aamp Config to read the cfg & Operator file .This is needed for very first
 	// tune only . After that every tune will use the same config parameters
 	if(gpGlobalConfig == NULL)
@@ -3299,7 +3317,6 @@ void PlayerInstanceAAMP::SetAuxiliaryLanguageInternal(const std::string &languag
 		AAMPLOG_WARN("aamp_SetAuxiliaryLanguage(%s)->(%s)", currentLanguage.c_str(), language.c_str());
 		if(language != currentLanguage)
 		{
-
 			AAMPPlayerState state = aamp->GetState();
 			// There is no active playback session, save the language for later
 			if (state == eSTATE_IDLE || state == eSTATE_RELEASED)

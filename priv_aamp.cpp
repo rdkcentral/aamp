@@ -29,7 +29,6 @@
 #include "AampConstants.h"
 #include "AampCacheHandler.h"
 #include "AampUtils.h"
-#include "playerIarmRfcInterface.h"
 #include "iso639map.h"
 #include "fragmentcollector_mpd.h"
 #include "admanager_mpd.h"
@@ -51,6 +50,9 @@
 #include "AampGrowableBuffer.h"
 
 #include "AampCCManager.h"
+#ifdef USE_OPENCDM // AampOutputProtection is compiled when this  flag is enabled
+#include "aampoutputprotection.h"
+#endif
 
 #ifdef AAMP_TELEMETRY_SUPPORT
 #include <AampTelemetry2.hpp>
@@ -64,6 +66,14 @@
 #include <iomanip>
 #include <unordered_set>
 
+#ifdef IARM_MGR
+#include "host.hpp"
+#include "manager.hpp"
+#include "libIBus.h"
+#include "libIBusDaemon.h"
+#include <hostIf_tr69ReqHandler.h>
+#include <sstream>
+#endif
 #include <sys/time.h>
 #include <cmath>
 #include <regex>
@@ -143,8 +153,6 @@ static const char* strAAMPPipeName = "/tmp/ipc_aamp";
 
 static bool activeInterfaceWifi = false;
 
-std::shared_ptr<PlayerIarmRfcInterface> pPlayerIarmRfcInterface = NULL;
-
 static unsigned int ui32CurlTrace = 0;
 
 bool PrivateInstanceAAMP::mTrackGrowableBufMem;
@@ -165,6 +173,28 @@ struct CurlCbContextSyncTime
 	CurlCbContextSyncTime& operator=(const CurlCbContextSyncTime& other) = delete;
 };
 
+/**
+ * @brief Enumeration for net_srv_mgr active interface event callback
+ */
+typedef enum _NetworkManager_EventId_t {
+	IARM_BUS_NETWORK_MANAGER_EVENT_SET_INTERFACE_ENABLED=50,
+	IARM_BUS_NETWORK_MANAGER_EVENT_INTERFACE_IPADDRESS=55,
+	IARM_BUS_NETWORK_MANAGER_MAX
+} IARM_Bus_NetworkManager_EventId_t;
+
+/**
+ * @struct _IARM_BUS_NetSrvMgr_Iface_EventData_t
+ * @brief IARM Bus struct contains active streaming interface, original definition present in homenetworkingservice.h
+ */
+typedef struct _IARM_BUS_NetSrvMgr_Iface_EventData_t {
+	union{
+		char activeIface[10];
+		char allNetworkInterfaces[50];
+		char enableInterface[10];
+	};
+	char interfaceCount;
+	bool isInterfaceEnabled;
+} IARM_BUS_NetSrvMgr_Iface_EventData_t;
 
 static TuneFailureMap tuneFailureMap[] =
 {
@@ -476,6 +506,40 @@ static bool replace(std::string &str, const char *existingSubStringToReplace, co
 	return rc;
 }
 
+#ifdef IARM_MGR
+
+/**
+ * @brief Active interface state change from netsrvmgr
+ * @param owner reference to net_srv_mgr
+ * @param IARM eventId received
+ * @data pointer reference to interface struct
+ */
+void getActiveInterfaceEventHandler (const char *owner, IARM_EventId_t eventId, void *data, size_t len)
+{
+	static char previousInterface[20] = {'\0'};
+
+	if (strcmp (owner, "NET_SRV_MGR") != 0)
+		return;
+
+	IARM_BUS_NetSrvMgr_Iface_EventData_t *param = (IARM_BUS_NetSrvMgr_Iface_EventData_t *) data;
+
+	if (NULL == strstr (param->activeIface, previousInterface) || (strlen(previousInterface) == 0))
+	{
+		memset(previousInterface, 0, sizeof(previousInterface));
+		strncpy(previousInterface, param->activeIface, sizeof(previousInterface) - 1);
+		AAMPLOG_WARN("getActiveInterfaceEventHandler EventId %d activeinterface %s", eventId,  param->activeIface);
+	}
+
+	if (NULL != strstr (param->activeIface, "wlan"))
+	{
+		 activeInterfaceWifi = true;
+	}
+	else if (NULL != strstr (param->activeIface, "eth"))
+	{
+		 activeInterfaceWifi = false;
+	}
+}
+#endif
 
 /**
  * @brief convert https to https in recordedUrl part of manifestUrl
@@ -493,7 +557,6 @@ void ForceHttpConversionForFog(std::string& url,const std::string& from, const s
 		url.replace(startPos, from.length(), to);
 	}
 }
-
 /**
  * @brief Active streaming interface is wifi
  *
@@ -502,8 +565,26 @@ void ForceHttpConversionForFog(std::string& url,const std::string& from, const s
 static bool IsActiveStreamingInterfaceWifi (void)
 {
 	bool wifiStatus = false;
-	wifiStatus = PlayerIarmRfcInterface::IsActiveStreamingInterfaceWifi();
-	activeInterfaceWifi =  pPlayerIarmRfcInterface->GetActiveInterface();
+#ifdef IARM_MGR
+if(!IsContainerEnvironment()) // IARM doesn't work in container
+{
+	IARM_Result_t ret = IARM_RESULT_SUCCESS;
+	IARM_BUS_NetSrvMgr_Iface_EventData_t param;
+
+	ret = IARM_Bus_Call("NET_SRV_MGR", "getActiveInterface", (void*)&param, sizeof(param));
+	if (ret != IARM_RESULT_SUCCESS) {
+		AAMPLOG_ERR("NET_SRV_MGR getActiveInterface read failed : %d", ret);
+	}
+	else
+	{
+		AAMPLOG_WARN("NET_SRV_MGR getActiveInterface = %s", param.activeIface);
+		if (!strcmp(param.activeIface, "WIFI")){
+			wifiStatus = true;
+		}
+	}
+	IARM_Bus_RegisterEventHandler("NET_SRV_MGR", IARM_BUS_NETWORK_MANAGER_EVENT_INTERFACE_IPADDRESS, getActiveInterfaceEventHandler);
+}
+#endif
 	return wifiStatus;
 }
 
@@ -1265,8 +1346,6 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 	}
 	mPendingAsyncEvents.clear();
 
-	pPlayerIarmRfcInterface = PlayerIarmRfcInterface::GetPlayerIarmRfcInterfaceInstance();
-
 	if (ISCONFIGSET_PRIV(eAAMPConfig_WifiCurlHeader)) {
 		if (true == IsActiveStreamingInterfaceWifi()) {
 			mCustomHeaders["Wifi:"] = std::vector<std::string> { "1" };
@@ -1342,13 +1421,12 @@ PrivateInstanceAAMP::~PrivateInstanceAAMP()
 			mCurlShared = NULL;
 		}
 	}
-
-	if(pPlayerIarmRfcInterface)
-	{
-		pPlayerIarmRfcInterface.reset();
-	}
-
-
+#ifdef IARM_MGR
+if(!IsContainerEnvironment())
+{
+	IARM_Bus_RemoveEventHandler("NET_SRV_MGR", IARM_BUS_NETWORK_MANAGER_EVENT_INTERFACE_IPADDRESS, getActiveInterfaceEventHandler);
+}
+#endif //IARM_MGR
 	SAFE_DELETE(mEventManager);
 	SAFE_DELETE(mCMCDCollector);
 
@@ -3392,7 +3470,6 @@ void PrivateInstanceAAMP::TuneFail(bool fail)
 	}
 	bool eventAvailStatus = IsEventListenerAvailable(AAMP_EVENT_TUNE_TIME_METRICS);
 	std::string tuneData("");
-	activeInterfaceWifi =  pPlayerIarmRfcInterface->GetActiveInterface();
 	profiler.TuneEnd(mTuneMetrics, mAppName,(mbPlayEnabled?STRFGPLAYER:STRBGPLAYER), mPlayerId, mPlayerPreBuffered, durationSeconds, activeInterfaceWifi, mFailureReason, eventAvailStatus ? &tuneData : NULL);
 	if(eventAvailStatus)
 	{
@@ -3419,7 +3496,6 @@ void PrivateInstanceAAMP::LogTuneComplete(void)
 	mTuneMetrics.mFogTSBEnabled                 = mFogTSBEnabled;
 	bool eventAvailStatus = IsEventListenerAvailable(AAMP_EVENT_TUNE_TIME_METRICS);
 	std::string tuneData("");
-	activeInterfaceWifi =  pPlayerIarmRfcInterface->GetActiveInterface();
 	profiler.TuneEnd(mTuneMetrics,mAppName,(mbPlayEnabled?STRFGPLAYER:STRBGPLAYER), mPlayerId, mPlayerPreBuffered, durationSeconds, activeInterfaceWifi, mFailureReason, eventAvailStatus ? &tuneData : NULL);
 	if(eventAvailStatus)
 	{
@@ -5104,7 +5180,9 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 		mTunedEventPending = true;
 		mProfileCappedStatus = false;
 #ifdef USE_OPENCDM
-		pPlayerIarmRfcInterface->GetDisplayResolution(mDisplayWidth, mDisplayHeight);
+		AampOutputProtection *pInstance = AampOutputProtection::GetAampOutputProtectionInstance();
+		pInstance->GetDisplayResolution(mDisplayWidth, mDisplayHeight);
+		pInstance->Release();
 #endif
 		AAMPLOG_INFO ("Display Resolution width:%d height:%d", mDisplayWidth, mDisplayHeight);
 
@@ -12510,7 +12588,6 @@ struct curl_slist* PrivateInstanceAAMP::GetCustomHeaders(AampMediaType mediaType
 			}
 			if (it->first.compare("Wifi:") == 0)
 			{
-				activeInterfaceWifi =  pPlayerIarmRfcInterface->GetActiveInterface();
 				if (true == activeInterfaceWifi)
 				{
 					headerValue = "1";
