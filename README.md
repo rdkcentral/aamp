@@ -427,11 +427,11 @@ in version 1.0,
 in version 2.0
 	S = Session summary
 	200 = http success
-	18(0) - Curl 18 occured, network connectivity is down
-	18(1) = Curl 18 occured, network connectivity is up
-	28(0) - Curl 28 occured, network connectivity is down
-	28(1) = Curl 28 occured, network connectivity is up
-	404, 42, 7, etc.. = http/curl error code occured during download.
+	18(0) - Curl 18 occurred, network connectivity is down
+	18(1) = Curl 18 occurred, network connectivity is up
+	28(0) - Curl 28 occurred, network connectivity is down
+	28(1) = Curl 28 occurred, network connectivity is up
+	404, 42, 7, etc.. = http/curl error code occurred during download.
 		Example : "S":{"200":341,"404":6} - 341 success attempts and 4 attempts with 404
 			  "S":{"200":116,"28(1)":1,"404":114} - 115 success attempts, 114 attempts with 404 and 1 attempt with curl-28
 	T0

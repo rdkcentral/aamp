@@ -3388,7 +3388,7 @@ void PrivateInstanceAAMP::TuneFail(bool fail)
 	mTuneMetrics.mFogTSBEnabled             	= mFogTSBEnabled;
 	if(mTuneMetrics.success  == -1 && mPlayerPreBuffered)
 	{
-		LogPlayerPreBuffered();        //Need to calculate prebufferedtime when tune interruption happens with playerprebuffer
+		LogPlayerPreBuffered();        //Need to calculate prebuffered time when tune interruption happens with player prebuffer
 	}
 	bool eventAvailStatus = IsEventListenerAvailable(AAMP_EVENT_TUNE_TIME_METRICS);
 	std::string tuneData("");
@@ -3476,7 +3476,7 @@ void PrivateInstanceAAMP::LogFirstFrame(void)
 }
 
 /**
- *  @brief Profile Player changed from background to foreground i.e prebuffred
+ *  @brief Profile Player changed from background to foreground i.e prebuffered
  */
 void PrivateInstanceAAMP::ResetProfileCache(void)
 {
@@ -3494,7 +3494,7 @@ void PrivateInstanceAAMP::ActivatePlayer(void)
 	AampStreamSinkManager::GetInstance().ActivatePlayer(this);
 }
 /**
- *  @brief Profile Player changed from background to foreground i.e prebuffred
+ *  @brief Profile Player changed from background to foreground i.e prebuffered
  */
 void PrivateInstanceAAMP::LogPlayerPreBuffered(void)
 {

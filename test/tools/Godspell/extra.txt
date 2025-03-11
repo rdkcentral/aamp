@@ -1366,7 +1366,6 @@ nwconsistency
 nwtime
 nxt
 ocap
-occured
 ocdm
 ocdmbasic
 ocdmchallenge
@@ -1540,10 +1539,8 @@ ppv
 pragma
 prd
 prebuffer
-prebufferd
 prebuffered
-prebufferedtime
-prebuffred
+prebuffering
 prebuild
 prebuilt
 precache
