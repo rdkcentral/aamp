@@ -863,7 +863,7 @@ public:
 	/**
 	 * @brief Pauses GStreamer.
 	 * @param[in] pause Indicates whether to pause or resume.
-	 * @param[in] forceStopGstreamerPreBuffering Indicates whether to force stop GStreamer pre-buffering.
+	 * @param[in] forceStopGstreamerPreBuffering Indicates whether to force stop GStreamer prebuffering.
 	 * @return True if the operation was successful, false otherwise.
 	 */
 	bool Pause(bool pause, bool forceStopGstreamerPreBuffering);

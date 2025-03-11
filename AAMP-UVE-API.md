@@ -1893,26 +1893,26 @@ Example:
 	- tbu -> tuneStartBaseUTCMS - when tune logically started from AAMP perspective
 	- mms -> ManifestDownloadStartTime - offset in milliseconds from tunestart when main manifest begins download
 	- mmt -> ManifestDownloadTotalTime - time (ms) taken for main manifest download, relative to ManifestDownloadStartTime
-	- mme -> ManifestDownloadFailCount - errors/retries occured during this operation
-	- vps -> video offset in milliseconds from tunestart when playlist subManifest begins download(in MS)
-	- vpt -> time (ms) taken for video playlist subManifest download, relative to PlaylistDownloadStartTime(in MS)
-	- vpe -> video playlist errors/retries occured during this operation
-	- aps -> audio offset in milliseconds from tunestart when playlist subManifest begins download(in MS)
-	- apt -> time (ms) taken for audio playlist subManifest download, relative to PlaylistDownloadStartTime(in MS)
-	- ape -> audio playlist errors/retries occured during this operation
-	- vis -> video init-segment relative start time(in MS)
-	- vit -> video init-segment total duration(in MS)
-	- vie -> video init-segment errors/retries occured during this operation
-	- ais -> audio init-segment relative start time(in MS)
-	- ait -> audio init-segment total duration(in MS)
-	- aie -> audio init-segment errors/retries occured during this operation
-	- vfs -> video fragment relative start time(in MS)
-	- vft -> video fragment total duration(in MS)
-	- vfe -> video fragment errors/retries occured during this operation
+	- mme -> ManifestDownloadFailCount - errors/retries occurred during this operation
+	- vps -> video offset in milliseconds from tunestart when playlist subManifest begins download(in ms)
+	- vpt -> time (ms) taken for video playlist subManifest download, relative to PlaylistDownloadStartTime(in ms)
+	- vpe -> video playlist errors/retries occurred during this operation
+	- aps -> audio offset in milliseconds from tunestart when playlist subManifest begins download(in ms)
+	- apt -> time (ms) taken for audio playlist subManifest download, relative to PlaylistDownloadStartTime(in ms)
+	- ape -> audio playlist errors/retries occurred during this operation
+	- vis -> video init-segment relative start time(in ms)
+	- vit -> video init-segment total duration(in ms)
+	- vie -> video init-segment errors/retries occurred during this operation
+	- ais -> audio init-segment relative start time(in ms)
+	- ait -> audio init-segment total duration(in ms)
+	- aie -> audio init-segment errors/retries occurred during this operation
+	- vfs -> video fragment relative start time(in ms)
+	- vft -> video fragment total duration(in ms)
+	- vfe -> video fragment errors/retries occurred during this operation
 	- vfb -> video bandwidth in bps
-	- afs -> audio fragment relative start time(in MS)
-	- aft -> audio fragment total duration(in MS)
-	- afe -> audio fragment errors/retries occured during this operation
+	- afs -> audio fragment relative start time(in ms)
+	- aft -> audio fragment total duration(in ms)
+	- afe -> audio fragment errors/retries occurred during this operation
 	- afb -> audio bandwidth in bps
 	- las -> drmLicenseRequestStart - offset in milliseconds from tunestart
 	- lat ->drmLicenseRequestTotalTime -time (ms) for license acquisition relative to drmLicenseRequestStart
@@ -1932,8 +1932,8 @@ Example:
 		- Example:
 			stt for playready dash stream = 22 =  20 (DASH ) + 2 ( PlayReady Codec type )
 	- ftt -> firstTune - To identify the first tune after load
-	- pbm -> If Player was in prebufferd mode
-	- tpb -> time spent in prebufferd(BG) mode
+	- pbm -> If Player was in prebuffered mode
+	- tpb -> time spent in prebuffered(BG) mode
 	- dus -> Asset duration in seconds
 	- ifw -> Connection is wifi or not - wifi(1) ethernet(0)
 	- tat -> TuneAttempts
