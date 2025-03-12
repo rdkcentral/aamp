@@ -1343,12 +1343,6 @@ PrivateInstanceAAMP::~PrivateInstanceAAMP()
 		}
 	}
 
-	if(pPlayerIarmRfcInterface)
-	{
-		pPlayerIarmRfcInterface.reset();
-	}
-
-
 	SAFE_DELETE(mEventManager);
 	SAFE_DELETE(mCMCDCollector);
 
