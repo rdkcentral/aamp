@@ -19,7 +19,7 @@
 ##########################################################################
 
 """
-This code was copied from 
+This code was copied from
 https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/streams/L2/AAMP-CDAI-8004_ShortAd/content.tar.xz
 """
 import time
@@ -35,6 +35,16 @@ import xml.etree.ElementTree as ET
 from inspect import getsourcefile
 import subprocess
 import atexit
+import logging
+import sys
+
+logging.basicConfig(
+    format="%(asctime)s %(funcName)-15s:%(lineno)04d %(message)s",
+    stream=sys.stdout,
+)
+
+log = logging.getLogger('root')
+log.setLevel(logging.INFO)
 
 def getBoolean(key, string, value):
     """Get a bolean parameter.
@@ -48,7 +58,7 @@ def getBoolean(key, string, value):
     elif string in ("false", "False", "0"):
         value = False
     else:
-        print("Unexpected %s value %s" % (key, string))
+        log.error("Unexpected %s value %s" % (key, string))
 
     return value
 
@@ -89,7 +99,7 @@ class DASHManifest():
             if m:
                 duration = float(m.group(1))
             else:
-                print("Unsupported duration format %s" % (durationString))
+                log.error("Unsupported duration format %s" % (durationString))
                 duration = 0.0
         return duration
 
@@ -256,7 +266,7 @@ class DASHManifest():
                 if len(self.namespaces[ns]):
                     tag = "%s:%s" % (self.namespaces[ns], tag)
             else:
-                print("Namespace %s not recognized" % (ns))
+                log.error("Namespace %s not recognized" % (ns))
         return tag
 
     def toString(self, element, depth = 0):
@@ -359,7 +369,7 @@ class DASHManifest():
                 if "start" in period.attrib:
                     periodStartTimes.append(self.getDuration(period.get("start")))
                 else:
-                    print("No start in period")
+                    log.error("No start in period")
                     periodStartTimes.append(0.0)
         # Use None here to indicate an unknown end of the last period.
         periodStartTimes.append(mediaPresentationDuration)
@@ -433,7 +443,9 @@ class ServerParams():
 class TestServer(BaseHTTPRequestHandler):
     """Test webserver class."""
 
-    startTime = time.time()
+    # class static variable for when first .mpd request is processed
+    startTime = None
+
     params = ServerParams()
 
     def getEventHLSPlaylist(self, path, params):
@@ -448,9 +460,13 @@ class TestServer(BaseHTTPRequestHandler):
         path -- Playlist file path
         params -- Server parameters
         """
+        #Set time reference when first .mpd is requested
+        if TestServer.startTime is None:
+            TestServer.startTime = time.time()
+            log.info(f"startTime: {TestServer.startTime}")
 
         currentTime = time.time()
-        currentPlayTime = (currentTime - self.startTime) + params.minTime
+        currentPlayTime = (currentTime - TestServer.startTime) + params.minTime
         segmentTime = 0.0
         extXTargetDurationPattern = re.compile(r"^#EXT-X-TARGETDURATION:([\d\.]+).*")
         extXPlaylistTypePattern = re.compile(r"^#EXT-X-PLAYLIST-TYPE:.*")
@@ -533,7 +549,7 @@ class TestServer(BaseHTTPRequestHandler):
 
                     if params.addPDTTags:
                         # Add program date time tag
-                        timestring = datetime.fromtimestamp(self.startTime + segmentTime).astimezone().isoformat(timespec='milliseconds')
+                        timestring = datetime.fromtimestamp(TestServer.startTime + segmentTime).astimezone().isoformat(timespec='milliseconds')
                         self.wfile.write(bytes("#EXT-X-PROGRAM-DATE-TIME:" + timestring + "\n", "utf-8"))
 
                     segmentTime += segmentDuration
@@ -573,8 +589,13 @@ class TestServer(BaseHTTPRequestHandler):
         params -- Server parameters
         """
 
+        #Set time reference when first .mpd is requested
+        if TestServer.startTime is None:
+            TestServer.startTime = time.time()
+            log.info(f"startTime: {TestServer.startTime}")
+
         currentTime = time.time()
-        availabilityStartTime = self.startTime - params.minTime
+        availabilityStartTime = TestServer.startTime - params.minTime
 
         manifest = DASHManifest()
 
@@ -610,7 +631,7 @@ class TestServer(BaseHTTPRequestHandler):
         # Check for any force 404 rules
         if len(self.params.force404) != 0:
             if re.search(self.params.force404, path):
-                print("pattern found, sending 404")
+                log.info("pattern found, sending 404")
                 self.send_error(404)
                 return
 
@@ -665,9 +686,9 @@ class TestServer(BaseHTTPRequestHandler):
                     elif key == "force404":
                         params.force404 = value
                     else:
-                        print("Ignoring parameter %s" % (key))
+                        log.info("Ignoring parameter %s" % (key))
                 else:
-                    print("Ignoring parameter %s" % (query))
+                    log.info("Ignoring parameter %s" % (query))
 
         try:
             if extension == ".m3u8":
@@ -729,37 +750,34 @@ class WindowServer():
     def start(self):
         server_path = os.path.abspath(getsourcefile(lambda: 0))
         self.logfile = open(self.logfile_path, "wb")
-        print("start_window_server")
-        self.logfile.write("start_window_server\n".encode('utf-8'))
+        log.info("start_window_server")
         self.logfile.flush()
 
         if os.path.isfile(server_path):
             try:
                 cmd = [server_path] + self.extra_args
-                print(cmd)
+                log.info(cmd)
                 self.server_process = subprocess.Popen(cmd, cwd=self.testdata_path, stdout=self.logfile, stderr=self.logfile)
                 atexit.register(self.server_process.terminate)
                 time.sleep(3)  # Takes time to startup
                 return True
             except Exception as e:
-                print(f"Failed to start {server_path} {e}")
-                self.logfile.write(f"Failed to start {server_path} {e}\n".encode('utf-8'))
+                log.error(f"Failed to start {server_path} {e}")
                 self.logfile.flush()
                 return False
         else:
-            print("Error: server.py file not found "+ server_path)
-            self.logfile.write(f"Error: server.py file not found {server_path}\n".encode('utf-8'))
+            log.error("Error: server.py file not found "+ server_path)
             self.logfile.flush()
             return False
 
     def stop(self):
-       
+
         if self.server_process:
-            print("stop server")
-            self.logfile.write("stop server\n".encode('utf-8'))
+            log.info("stop server")
             self.logfile.flush()
             self.server_process.terminate()
             self.server_process = None
+
 
 if __name__ == "__main__":
     hostName = "localhost"
@@ -822,7 +840,7 @@ if __name__ == "__main__":
 
     # Create and run the HTTP server.
     testServer = HTTPServer((hostName, serverPort), TestServer)
-    print("Server started http://%s:%s" % (hostName, serverPort))
+    log.info("Server started http://%s:%s" % (hostName, serverPort))
 
     try:
         testServer.serve_forever()
@@ -830,5 +848,5 @@ if __name__ == "__main__":
         pass
 
     testServer.server_close()
-    print("Server stopped.")
+    log.info("Server stopped.")
 

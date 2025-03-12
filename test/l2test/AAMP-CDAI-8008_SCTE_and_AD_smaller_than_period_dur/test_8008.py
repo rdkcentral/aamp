@@ -47,7 +47,7 @@ pts_restamp_utils = PtsRestampUtils()
 # - The TestCase5.2.mpd file contains three periods:
 #   - Period 0: 30 seconds long, with no ads.
 #   - Period 1: 30 seconds long, containing a single ad break. The SCTE break duration is set to 10 seconds, ad duration is 10 seconds
-#   - Period 2: 10 sec duration with 5 seconds scte 
+#   - Period 2: 10 sec duration with 5 seconds scte
 #   - Period 3: 30 seconds long, with no ads.
 # - The expectation is period1 and 2 should play the remaining content from source .
 
@@ -122,7 +122,7 @@ TESTDATA2 = {
         {"expect": r"\[AAMPCLI\] AAMP_EVENT_TIMED_METADATA place advert breakId\=2 adId\=adId2"},
         {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: STARTING ADBREAK\[1\] AdIdx\[0\] Found at Period\[1\]"},
         {"expect": re.escape("Period ID changed from '0' to '0-114' [BasePeriodId='1']"), "min": 20,},
-        
+
         {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: State changed from \[OUTSIDE_ADBREAK\] \=\> \[IN_ADBREAK_AD_PLAYING\]"},
         {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: State changed from \[IN_ADBREAK_AD_PLAYING\] \=\> \[IN_ADBREAK_WAIT2CATCHUP\]"},
         {"expect": r"\[PlaceAds\]\[\d+\]\[CDAI\] Current Ad completely placed.end period:1 end period offset:10000 adjustEndPeriodOffset:1"},
@@ -145,7 +145,7 @@ TESTDATA2 = {
         # Transition back to outside ad break state after playback completion
         {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: State changed from \[IN_ADBREAK_WAIT2CATCHUP\] \=\> \[OUTSIDE_ADBREAK\].", "min": 30},
         {"expect":r"aamp url:0,0,0,2.000000,http://localhost:8080/content/ad_20/(360|480|720|1080)p_005.m4s","count":2},
-        # Expectation for playing remaning content from period 
+        # Expectation for playing remaning content from period
         {"expect": r"aamp url:0,0,0,2.000000,http://localhost:8080/content/dash/1080p_033.m4s"},
         # Ensuring the remaning content played from period 2
         {"expect": r"aamp url:0,0,0,2.000000,http://localhost:8080/content/dash/1080p_045.m4s", "count": 2, "end_of_test": True},
@@ -289,11 +289,11 @@ def test_data(request):
 
 def test_8008(aamp_setup_teardown, test_data):
     global pts_restamp_utils,aamp
-    
+
     pts_restamp_utils.reset()
     pts_restamp_utils.tolerance_min = 0.7
     pts_restamp_utils.max_segment_cnt = 20
- 
+
     aamp = aamp_setup_teardown
     aamp.set_paths(os.path.abspath(getsourcefile(lambda: 0)))
     aamp.run_expect_b(test_data)

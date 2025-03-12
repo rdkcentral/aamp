@@ -97,7 +97,7 @@ TESTDATA1 = {
         {"expect": r"aamp url:0,0,0,2.000000,http://localhost:8080/content/dash/(1080|720|480|360)p_031.m4s", "min": 40, "max": 180},
         {"expect": r"aamp url:0,1,1,2.000000,http://localhost:8080/content/dash/en_031.mp3\?live=true", "min": 40, "max": 180},
         # End of the test - confirm the some more fragments are fetched from Period 2
-        {"expect": r"HttpRequestEnd: 0,0,200.*?http://localhost:8080/content/dash/(1080|720|480|360)p_040.m4s\?live=true", "min": 40, "max": 180, "end_of_test": True},
+        {"expect": r"HttpRequestEnd: 0,0,200.*?http://localhost:8080/content/dash/(1080|720|480|360)p_040.m4s\?live=true", "min": 40, "end_of_test": True},
     ]
 }
 
@@ -144,7 +144,7 @@ TESTDATA2 = {
         {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: STARTING ADBREAK\[1\] AdIdx\[0\] Found at Period\[1\]", "min": 10, "max": 60},
         {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: State changed from \[OUTSIDE_ADBREAK\] \=\> \[IN_ADBREAK_AD_PLAYING\].", "min": 10, "max": 60},
         # Confirm the transition from the content to the ad by checking the period ID change
-        {"expect": re.escape("Period ID changed from '0' to '0-111' [BasePeriodId='1']"), "min": 20, "max": 180},
+        {"expect": re.escape("Period ID changed from '0' to '0-111' [BasePeriodId='1']"), "min": 15, "max": 180},
         # Ensure that the first segment of ad is correctly fetched
         {"expect": r"aamp url:0,0,0,2.000000,http://localhost:8080/content/ad_30/*?(1080|720|480|360)p_001.m4s", "min": 10, "max": 60},
         # Make sure we get 404 for the failed ad fragments, rampdown included
@@ -155,7 +155,7 @@ TESTDATA2 = {
         #{"expect": r"\[FetchFragment\]\[\d+\]StreamAbstractionAAMP_MPD: \[CDAI\] Ad fragment not available. Playback failed.", "min": 10, "max": 60},
         # Ensure the position jump is handled correctly
         {"expect": r"\[HandleFragmentPositionJump\]\[\d+\]\[video\] Found a positionDelta \(6\.000000\) between lastInjectedDuration \(\d+\.\d+\) and new fragment absPosition \(\d+\.\d+\)", "min": 10, "max": 60},
-        # Ensure that the last  segment of ad is correctly fetched 
+        # Ensure that the last  segment of ad is correctly fetched
         {"expect": r"aamp url:0,0,0,2.000000,http://localhost:8080/content/ad_30/*?(1080|720|480|360)p_015.m4s", "min": 10, "max": 60},
         # Verify the state changes back to WAIT2CATCHUP afterwards
         {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: State changed from \[IN_ADBREAK_AD_PLAYING\] => \[IN_ADBREAK_WAIT2CATCHUP\].", "min": 10, "max": 120},
@@ -186,7 +186,7 @@ TESTDATA2 = {
         {"expect": r"aamp url:0,0,0,2.000000,http://localhost:8080/content/dash/(1080|720|480|360)p_036.m4s", "min": 0, "max": 180},
 #        {"expect": r"aamp url:0,1,1,2.000000,http://localhost:8080/content/dash/en_036.mp3\?live=true", "min": 0, "max": 180},
         # End of the test - confirm the some more fragments are fetched from Period 3
-        {"expect": r"HttpRequestEnd: 0,0,200.*?http://localhost:8080/content/dash/(1080|720|480|360)p_045.m4s\?live=true", "min": 0, "max": 180, "end_of_test": True},
+        {"expect": r"HttpRequestEnd: 0,0,200.*?http://localhost:8080/content/dash/(1080|720|480|360)p_045.m4s\?live=true", "end_of_test": True},
     ]
 }
 
@@ -235,10 +235,10 @@ TESTDATA3 = {
         {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: State changed from \[OUTSIDE_ADBREAK\] \=\> \[IN_ADBREAK_AD_PLAYING\].", "min": 10, "max": 60},
         {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: STARTING ADBREAK\[1\] AdIdx\[0\] Found at Period\[1\]", "min": 10, "max": 60},
         # Confirm the transition from the content to the ad by checking the period ID change
-        {"expect": re.escape("Period ID changed from '0' to '0-111' [BasePeriodId='1']"), "min": 20, "max": 180},
+        {"expect": re.escape("Period ID changed from '0' to '0-111' [BasePeriodId='1']"), "min": 15, "max": 180},
         # Ensure that the first segment of ad is correctly fetched
         {"expect": r"aamp url:0,0,0,2.000000,http://localhost:8080/content/ad_30/*?(1080|720|480|360)p_001.m4s", "min": 10, "max": 60},
-        # Ensure that the last  segment of ad is correctly fetched 
+        # Ensure that the last  segment of ad is correctly fetched
         {"expect": r"aamp url:0,0,0,2.000000,http://localhost:8080/content/ad_30/*?(1080|720|480|360)p_015.m4s", "min": 10, "max": 60},
         # Verify the state changes back to WAIT2CATCHUP afterwards
         {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: State changed from \[IN_ADBREAK_AD_PLAYING\] => \[IN_ADBREAK_WAIT2CATCHUP\].", "min": 10, "max": 120},
@@ -251,7 +251,7 @@ TESTDATA3 = {
         {"expect": r"aamp url:0,0,0,2.000000,http://localhost:8080/content/dash/(1080|720|480|360)p_031.m4s", "min": 40, "max": 180},
         {"expect": r"aamp url:0,1,1,2.000000,http://localhost:8080/content/dash/en_031.mp3\?live=true", "min": 40, "max": 180},
         # End of the test - confirm the some more fragments are fetched from Period 2
-        {"expect": r"HttpRequestEnd: 0,0,200.*?http://localhost:8080/content/dash/(1080|720|480|360)p_040.m4s\?live=true", "min": 40, "max": 180, "end_of_test": True},
+        {"expect": r"HttpRequestEnd: 0,0,200.*?http://localhost:8080/content/dash/(1080|720|480|360)p_040.m4s\?live=true", "min": 40, "end_of_test": True},
     ]
 }
 

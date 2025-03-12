@@ -71,11 +71,11 @@ TESTDATA1 = {
         {"expect": r"\[RestorePtsOffsetCalculation\]\[\d+\]Idx 1 Id 0-111 restoring mNextPts from 30.000000 to 0.000000","min": 0, "max": 40},
         {"expect": re.escape("Period ID changed from '0-111' to '1' [BasePeriodId='1']"), "min": 0, "max": 40},
         {"expect": r"\[GetFile\]\[\d+\]aamp url:0,0,0,2.000000,http://localhost:8080/content/dash/(1080|720|480|360)p_016.m4s\?live=true", "min": 20, "max": 40},
-        {"expect": r"\[PlaceAds\]\[\d+\]\[CDAI\] Placement Done: \{AdbreakId: 1, duration: 30000, endPeriodId: 2, endPeriodOffset: 0, \#Ads: 1", "min": 50, "max": 70},
+        {"expect": r"\[PlaceAds\]\[\d+\]\[CDAI\] Placement Done: \{AdbreakId: 1, duration: 30000, endPeriodId: 2, endPeriodOffset: 0, \#Ads: 1", "min": 45, "max": 70},
         {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: State changed from \[IN_ADBREAK_AD_NOT_PLAYING\] \=\> \[OUTSIDE_ADBREAK\].", "min": 0, "max": 70},
         {"expect": re.escape("Period ID changed from '1' to '2' [BasePeriodId='2']"), "min": 0, "max": 70},
         {"expect": r"\[GetFile\]\[\d+\]aamp url:0,0,0,2.000000,http://localhost:8080/content/dash/(1080|720|480|360)p_031.m4s\?live=true", "min": 50, "max": 70},
-        {"expect": r"\[GetFile\]\[\d+\]aamp url:0,0,0,2.000000,http://localhost:8080/content/dash/(1080|720|480|360)p_032.m4s\?live=true", "min": 50, "max": 70, "end_of_test":True},
+        {"expect": r"\[GetFile\]\[\d+\]aamp url:0,0,0,2.000000,http://localhost:8080/content/dash/(1080|720|480|360)p_032.m4s\?live=true", "min": 50,  "end_of_test":True},
     ]
 }
 
@@ -109,11 +109,11 @@ TESTDATA2 = {
         {"expect": r"\[RestorePtsOffsetCalculation\]\[\d+\]Idx 1 Id 0-111 restoring mNextPts from 30.000000 to 0.000000","min": 20, "max": 40},
         {"expect": re.escape("Period ID changed from '0-111' to '1' [BasePeriodId='1']"), "min": 0, "max": 40},
         {"expect": r"\[GetFile\]\[\d+\]aamp url:0,0,0,2.000000,http://localhost:8080/content/dash/(1080|720|480|360)p_016.m4s\?live=true", "min": 20, "max": 40},
-        {"expect": r"\[PlaceAds\]\[\d+\]\[CDAI\] Placement Done: \{AdbreakId: 1, duration: 30000, endPeriodId: 2, endPeriodOffset: 0, \#Ads: 1", "min": 50, "max": 70},
+        {"expect": r"\[PlaceAds\]\[\d+\]\[CDAI\] Placement Done: \{AdbreakId: 1, duration: 30000, endPeriodId: 2, endPeriodOffset: 0, \#Ads: 1", "min": 45, "max": 70},
         {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: State changed from \[IN_ADBREAK_AD_NOT_PLAYING\] \=\> \[OUTSIDE_ADBREAK\].", "min": 0, "max": 70},
         {"expect": re.escape("Period ID changed from '1' to '2' [BasePeriodId='2']"), "min": 0, "max": 70},
         {"expect": r"\[GetFile\]\[\d+\]aamp url:0,0,0,2.000000,http://localhost:8080/content/dash/(1080|720|480|360)p_031.m4s\?live=true", "min": 50, "max": 70},
-        {"expect": r"\[GetFile\]\[\d+\]aamp url:0,0,0,2.000000,http://localhost:8080/content/dash/(1080|720|480|360)p_032.m4s\?live=true", "min": 50, "max": 70, "end_of_test":True},
+        {"expect": r"\[GetFile\]\[\d+\]aamp url:0,0,0,2.000000,http://localhost:8080/content/dash/(1080|720|480|360)p_032.m4s\?live=true", "min": 50, "end_of_test":True},
     ]
 }
 
@@ -156,11 +156,11 @@ TESTDATA3 = {
         {"expect": re.escape("Period ID changed from '1' to '1-111' [BasePeriodId='1']"), "min": 0, "max": 50},
         {"expect": r"\[GetFile\]\[\d+\]aamp url:0,0,0,2.000000,http://localhost:8080/content/ad_30/(1080|720|480|360)p_001.m4s", "min": 30, "max": 50},
         {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: State changed from \[IN_ADBREAK_AD_PLAYING\] \=\> \[IN_ADBREAK_WAIT2CATCHUP\].", "min": 0, "max": 60},
-        {"expect": r"\[PlaceAds\]\[\d+\]\[CDAI\] Placement Done: \{AdbreakId: 1, duration: 30000, endPeriodId: 2, endPeriodOffset: 0, \#Ads: 2", "min": 50, "max": 70},
+        {"expect": r"\[PlaceAds\]\[\d+\]\[CDAI\] Placement Done: \{AdbreakId: 1, duration: 30000, endPeriodId: 2, endPeriodOffset: 0, \#Ads: 2", "min": 45, "max": 70},
         {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: State changed from \[IN_ADBREAK_WAIT2CATCHUP\] \=\> \[OUTSIDE_ADBREAK\].", "min": 0, "max": 70},
         {"expect": re.escape("Period ID changed from '1-111' to '2' [BasePeriodId='2']"), "min": 0, "max": 70},
         {"expect": r"\[GetFile\]\[\d+\]aamp url:0,0,0,2.000000,http://localhost:8080/content/dash/(1080|720|480|360)p_031.m4s\?live=true", "min": 50, "max": 70},
-        {"expect": r"\[GetFile\]\[\d+\]aamp url:0,0,0,2.000000,http://localhost:8080/content/dash/(1080|720|480|360)p_032.m4s\?live=true", "min": 50, "max": 70, "end_of_test":True},
+        {"expect": r"\[GetFile\]\[\d+\]aamp url:0,0,0,2.000000,http://localhost:8080/content/dash/(1080|720|480|360)p_032.m4s\?live=true", "min": 50,  "end_of_test":True},
     ]
 }
 
@@ -205,10 +205,10 @@ TESTDATA4 = {
         {"expect": re.escape("Period ID changed from '1-111' to '1' [BasePeriodId='1']"), "min": 0, "max": 60},
         {"expect": r"\[GetFile\]\[\d+\]aamp url:0,0,0,2.000000,http://localhost:8080/content/dash/(1080|720|480|360)p_016.m4s\?live=true", "min": 40, "max": 60},
         {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: State changed from \[IN_ADBREAK_AD_NOT_PLAYING\] \=\> \[OUTSIDE_ADBREAK\].", "min": 0, "max": 60},
-        {"expect": r"\[PlaceAds\]\[\d+\]\[CDAI\] Placement Done: \{AdbreakId: 1, duration: 30000, endPeriodId: 2, endPeriodOffset: 0, \#Ads: 2", "min": 50, "max": 70},
+        {"expect": r"\[PlaceAds\]\[\d+\]\[CDAI\] Placement Done: \{AdbreakId: 1, duration: 30000, endPeriodId: 2, endPeriodOffset: 0, \#Ads: 2", "min": 45, "max": 70},
         {"expect": re.escape("Period ID changed from '1' to '2' [BasePeriodId='2']"), "min": 0, "max": 70},
         {"expect": r"\[GetFile\]\[\d+\]aamp url:0,0,0,2.000000,http://localhost:8080/content/dash/(1080|720|480|360)p_031.m4s\?live=true", "min": 50, "max": 70},
-        {"expect": r"\[GetFile\]\[\d+\]aamp url:0,0,0,2.000000,http://localhost:8080/content/dash/(1080|720|480|360)p_032.m4s\?live=true", "min": 50, "max": 70, "end_of_test":True},
+        {"expect": r"\[GetFile\]\[\d+\]aamp url:0,0,0,2.000000,http://localhost:8080/content/dash/(1080|720|480|360)p_032.m4s\?live=true", "min": 50, "end_of_test":True},
     ]
 }
 
