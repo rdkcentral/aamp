@@ -805,6 +805,11 @@ protected:
 	 * @fn PushEncryptedHeaders
 	 */
 	void PushEncryptedHeaders(std::map<int, std::string>& mappedHeaders);
+
+	/**
+	 * @fn CacheEncryptedHeader
+	 */
+	void CacheEncryptedHeader(int trackIndex, std::string headerUrl);
 	/**
 	 * @fn GetEncryptedHeaders
 	 * @return bool
