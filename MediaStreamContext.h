@@ -261,9 +261,9 @@ public:
     double periodStartOffset;
     uint64_t timeStampOffset;
 	AampGrowableBuffer IDX;
-    uint64_t lastSegmentTime;
+    uint64_t lastSegmentTime;       // zeroed at start of period and also 0 when first segment of an ad has been sent otherwise fragmentDescriptor.Time
     uint64_t lastSegmentNumber;
-    uint64_t lastSegmentDuration;
+    uint64_t lastSegmentDuration;   //lastSegmentTime+ duration of that segment
     int adaptationSetIdx;
     int representationIndex;
     StreamAbstractionAAMP_MPD* context;
