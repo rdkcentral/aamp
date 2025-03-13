@@ -1002,7 +1002,116 @@ bool StreamAbstractionAAMP_MPD::FetchFragment(MediaStreamContext *pMediaStreamCo
 	}
 	return retval;
 }
+/*
+* @brief Use lastSegmentTime to find position in segment timeline after manifest update
+*
+* @param[in] pMediaStreamContext->fragmentDescriptor.Time == 0
+* @param[in] pMediaStreamContext->lastSegmentTime               Time of the last segment that was injected
+* @param[in] pMediaStreamContext->fragmentDescriptor.Number     Set to the SegmentTemplate startNumber
+* @param[in] pMediaStreamContext->fragmentRepeatCount == 0
+* @param[in] pMediaStreamContext->lastSegmentDuration           Duration of the last segment injected
 
+* @param[out] pMediaStreamContext->fragmentDescriptor.Number    Number of the last segment that was injected
+* @param[out] pMediaStreamContext->fragmentDescriptor.nextfragmentNum
+* @param[out] pMediaStreamContext->fragmentRepeatCount          0 base index into row of the SegmentTimeline
+* @param[out] pMediaStreamContext->timeLineIndex                0 base index of row
+* @param[out] pMediaStreamContext->fragmentDescriptor.Time      Start time of the last segment that was injected
+*/
+uint64_t StreamAbstractionAAMP_MPD::FindPositionInTimeline(class MediaStreamContext *pMediaStreamContext, const std::vector<ITimeline *>&timelines)
+{
+	uint32_t duration = 0;
+	uint32_t repeatCount = 0;
+	uint64_t nextStartTime = 0;
+	uint64_t startTime = 0;
+	int index = pMediaStreamContext->timeLineIndex;
+	ITimeline *timeline = NULL;
+
+#if defined(DEBUG_TIMELINE) || defined(AAMP_SIMULATOR_BUILD)
+	AAMPLOG_INFO("Type[%d] timeLineIndex %d timelines.size %zu fragmentRepeatCount %d Number %" PRIu64 "lastSegmentTime %" PRIu64 " lastSegmentDuration %" PRIu64, pMediaStreamContext->type,
+	pMediaStreamContext->timeLineIndex, timelines.size(), pMediaStreamContext->fragmentRepeatCount, pMediaStreamContext->fragmentDescriptor.Number,
+	pMediaStreamContext->lastSegmentTime, pMediaStreamContext->lastSegmentDuration);
+#endif
+
+	for(;index<timelines.size();index++)
+	{
+		timeline = timelines.at(index);
+		map<string, string> attributeMap = timeline->GetRawAttributes();
+		if(attributeMap.find("t") != attributeMap.end())
+		{
+			startTime = timeline->GetStartTime();
+		}
+		else
+		{
+			startTime = pMediaStreamContext->fragmentDescriptor.Time;
+		}
+
+		duration = timeline->GetDuration();
+		// For Dynamic segment timeline content
+		if (0 == startTime && 0 != duration)
+		{
+			startTime = nextStartTime;
+		}
+		repeatCount = timeline->GetRepeatCount();
+
+		nextStartTime = startTime+((uint64_t)(repeatCount+1)*duration);  //CID:98056 - Resolve overflow Before Widen
+
+		/* For a timeline
+		* <SegmentTimeline>
+        *  <S d="109568" t="0"/>
+        *  <S d="107520" r="4" t="109568"/>
+		* and a manifest update after segment 1 has been sent. Ensure one cycle of the for loop so
+		* timeLineIndex gets incremented.
+		* Without this we get a segment dropped and another repeated in server side ads
+		*/
+
+		bool isFirstSegment = pMediaStreamContext->lastSegmentTime == 0 && startTime == 0
+									&& pMediaStreamContext->lastSegmentDuration != 0
+									&& repeatCount == 0 && pMediaStreamContext->timeLineIndex == 0;
+
+#if defined(DEBUG_TIMELINE) || defined(AAMP_SIMULATOR_BUILD)
+		AAMPLOG_INFO("Type[%d] nextStartTime=%" PRIu64 " startTime=%" PRIu64 " repeatCount=%u", pMediaStreamContext->type,
+			nextStartTime,startTime,repeatCount);
+#endif
+		if(pMediaStreamContext->lastSegmentTime < nextStartTime && !isFirstSegment)
+		{
+			break;
+		}
+		pMediaStreamContext->fragmentDescriptor.Number += (repeatCount+1);
+		pMediaStreamContext->fragmentDescriptor.nextfragmentNum = pMediaStreamContext->fragmentDescriptor.Number+(repeatCount+1);
+	}// end of for
+
+	/*
+	*  Boundary check added to handle the edge case leading to crash,
+	*/
+	if(index == timelines.size())
+	{
+		AAMPLOG_WARN("Type[%d] Boundary Condition !!! Index(%d) reached Max.Start=%" PRIu64 " Last=%" PRIu64 " ",
+			pMediaStreamContext->type,index,startTime,pMediaStreamContext->lastSegmentTime);
+		index--;
+		startTime = pMediaStreamContext->lastSegmentTime;
+		pMediaStreamContext->fragmentRepeatCount = repeatCount+1;
+	}
+
+	pMediaStreamContext->timeLineIndex = index;
+	// Now we reached the right row , need to traverse the repeat index to reach right node
+	// Whenever new fragments arrive inside the same timeline update fragment number,repeat count and startNumber.
+	// If first fragment start Number is zero, check lastSegmentDuration of period timeline for update.
+	while((pMediaStreamContext->fragmentRepeatCount < repeatCount && startTime < pMediaStreamContext->lastSegmentTime) ||
+		(startTime == 0 && pMediaStreamContext->lastSegmentTime == 0 && pMediaStreamContext->lastSegmentDuration != 0))
+	{
+		startTime += duration;
+		pMediaStreamContext->fragmentDescriptor.Number++;
+		pMediaStreamContext->fragmentRepeatCount++;
+		pMediaStreamContext->fragmentDescriptor.nextfragmentNum = pMediaStreamContext->fragmentDescriptor.Number+1;
+	}
+
+#if defined(DEBUG_TIMELINE) || defined(AAMP_SIMULATOR_BUILD)
+	AAMPLOG_INFO("Type[%d] timeLineIndex %d timelines.size %zu fragmentRepeatCount %d Number %" PRIu64 "lastSegmentTime %" PRIu64 " lastSegmentDuration %" PRIu64, pMediaStreamContext->type,
+	pMediaStreamContext->timeLineIndex, timelines.size(), pMediaStreamContext->fragmentRepeatCount, pMediaStreamContext->fragmentDescriptor.Number,
+	pMediaStreamContext->lastSegmentTime, pMediaStreamContext->lastSegmentDuration);
+#endif
+	return startTime;
+}
 /**
  * @brief Fetch and push next fragment
  * @param pMediaStreamContext Track object
@@ -1213,9 +1322,12 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 						// Modify the descriptor time to start download
 						pMediaStreamContext->fragmentDescriptor.Time = segmentStartTime;
 #if defined(DEBUG_TIMELINE) || defined(AAMP_SIMULATOR_BUILD)
-						AAMPLOG_INFO("Type[%d] timelineCnt=%zu timeLineIndex:%d FDTime=%f L=%" PRIu64 " [fragmentTime = %f,  mLiveEndPosition = %f]",
-						pMediaStreamContext->type ,timelines.size(), pMediaStreamContext->timeLineIndex, pMediaStreamContext->fragmentDescriptor.Time, pMediaStreamContext->lastSegmentTime,
+						AAMPLOG_INFO("Type[%d] timelineCnt %zu timeLineIndex %d FDTime %f fragmentTime %f mLiveEndPosition %f",
+						pMediaStreamContext->type ,timelines.size(), pMediaStreamContext->timeLineIndex, pMediaStreamContext->fragmentDescriptor.Time,
 						pMediaStreamContext->fragmentTime, mLiveEndPosition);
+
+						AAMPLOG_INFO("Type[%d] lastSegmentTime %" PRIu64 " lastSegmentDuration %" PRIu64 " lastSegmentNumber %" PRIu64,pMediaStreamContext->type,
+						pMediaStreamContext->lastSegmentTime, pMediaStreamContext->lastSegmentDuration, pMediaStreamContext->lastSegmentNumber);
 #endif
 					}
 					else if (pMediaStreamContext->fragmentRepeatCount == 0 && !pMediaStreamContext->mReachedFirstFragOnRewind)
@@ -1237,76 +1349,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 							// After mpd refresh , Time will be 0. Need to traverse to the right fragment for playback
 							if((0 == pMediaStreamContext->fragmentDescriptor.Time) || rate > AAMP_NORMAL_PLAY_RATE)
 							{
-								uint32_t duration =0;
-								uint32_t repeatCount =0;
-								uint64_t nextStartTime = 0;
-								int index = pMediaStreamContext->timeLineIndex;
-								// This for loop is to go to the right index based on LastSegmentTime
-
-								for(;index<timelines.size();index++)
-								{
-									timeline = timelines.at(index);
-									map<string, string> attributeMap = timeline->GetRawAttributes();
-									if(attributeMap.find("t") != attributeMap.end())
-									{
-										startTime = timeline->GetStartTime();
-									}
-									else
-									{
-										startTime = pMediaStreamContext->fragmentDescriptor.Time;
-									}
-
-									duration = timeline->GetDuration();
-									// For Dynamic segment timeline content
-									if (0 == startTime && 0 != duration)
-									{
-										startTime = nextStartTime;
-									}
-									repeatCount = timeline->GetRepeatCount();
-									nextStartTime = startTime+((uint64_t)(repeatCount+1)*duration);  //CID:98056 - Resolve overflow Before Widen
-									if(pMediaStreamContext->lastSegmentTime < nextStartTime)
-									{
-										break;
-									}
-									pMediaStreamContext->fragmentDescriptor.Number += (repeatCount+1);
-									pMediaStreamContext->fragmentDescriptor.nextfragmentNum = pMediaStreamContext->fragmentDescriptor.Number+(repeatCount+1);
-								}// end of for
-
-
-								/*
-								*  Boundary check added to handle the edge case leading to crash,
-								*/
-								if(index == timelines.size())
-								{
-									AAMPLOG_WARN("Type[%d] Boundary Condition !!! Index(%d) reached Max.Start=%" PRIu64 " Last=%" PRIu64 " ",
-										pMediaStreamContext->type,index,startTime,pMediaStreamContext->lastSegmentTime);
-									index--;
-									startTime = pMediaStreamContext->lastSegmentTime;
-									pMediaStreamContext->fragmentRepeatCount = repeatCount+1;
-								}
-
-#if defined(DEBUG_TIMELINE) || defined(AAMP_SIMULATOR_BUILD)
-								AAMPLOG_INFO("Type[%d] t=%" PRIu64 " L=%" PRIu64 " d=%d r=%d Index=%d Num=%" PRIu64 " FTime=%f", pMediaStreamContext->type,
-								startTime,pMediaStreamContext->lastSegmentTime, duration, repeatCount,index,
-								pMediaStreamContext->fragmentDescriptor.Number,pMediaStreamContext->fragmentTime);
-#endif
-								pMediaStreamContext->timeLineIndex = index;
-								// Now we reached the right row , need to traverse the repeat index to reach right node
-								// Whenever new fragments arrive inside the same timeline update fragment number,repeat count and startNumber.
-								// If first fragment start Number is zero, check lastSegmentDuration of period timeline for update.
-								while((pMediaStreamContext->fragmentRepeatCount < repeatCount && startTime < pMediaStreamContext->lastSegmentTime) ||
-									(startTime == 0 && pMediaStreamContext->lastSegmentTime == 0 && pMediaStreamContext->lastSegmentDuration != 0))
-								{
-									startTime += duration;
-									pMediaStreamContext->fragmentDescriptor.Number++;
-									pMediaStreamContext->fragmentRepeatCount++;
-									pMediaStreamContext->fragmentDescriptor.nextfragmentNum = pMediaStreamContext->fragmentDescriptor.Number+1;
-								}
-#if defined(DEBUG_TIMELINE) || defined(AAMP_SIMULATOR_BUILD)
-								AAMPLOG_INFO("Type[%d] t=%" PRIu64 " L=%" PRIu64 " d=%d r=%d fragRep=%d Index=%d Num=%" PRIu64 " FTime=%f", pMediaStreamContext->type,
-								startTime,pMediaStreamContext->lastSegmentTime, duration, repeatCount,pMediaStreamContext->fragmentRepeatCount,pMediaStreamContext->timeLineIndex,
-								pMediaStreamContext->fragmentDescriptor.Number,pMediaStreamContext->fragmentTime);
-#endif
+								startTime = FindPositionInTimeline(pMediaStreamContext, timelines);
 							}
 						}// if starttime
 						if(0 == pMediaStreamContext->timeLineIndex)
@@ -1315,25 +1358,25 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 						}
 						pMediaStreamContext->fragmentDescriptor.Time = startTime;
 						//Some partner streams have timeline start variation(~1) under diff representation but on same adaptation with same startNumber. Reset lastSegmentTime, as FDT>lastSegmentTime, it leads to Fetch duplicate fragment, as fragment number remains same.
-                                                if(pMediaStreamContext->mediaType == eMEDIATYPE_VIDEO &&
-						(prevTimeScale != 0 && prevTimeScale != timeScale) && (pMediaStreamContext->lastSegmentTime != 0 && pMediaStreamContext->lastSegmentTime < pMediaStreamContext->fragmentDescriptor.Time) &&
-						(pMediaStreamContext->lastSegmentNumber != 0 && pMediaStreamContext->lastSegmentNumber == pMediaStreamContext->fragmentDescriptor.Number))
-                                                {
-                                                        pMediaStreamContext->lastSegmentTime = pMediaStreamContext->fragmentDescriptor.Time;
-                                                }
+						if (pMediaStreamContext->mediaType == eMEDIATYPE_VIDEO &&
+							(prevTimeScale != 0 && prevTimeScale != timeScale) && (pMediaStreamContext->lastSegmentTime != 0 && pMediaStreamContext->lastSegmentTime < pMediaStreamContext->fragmentDescriptor.Time) &&
+							(pMediaStreamContext->lastSegmentNumber != 0 && pMediaStreamContext->lastSegmentNumber == pMediaStreamContext->fragmentDescriptor.Number))
+						{
+							pMediaStreamContext->lastSegmentTime = pMediaStreamContext->fragmentDescriptor.Time;
+						}
 
 #if defined(DEBUG_TIMELINE) || defined(AAMP_SIMULATOR_BUILD)
-						AAMPLOG_INFO("Type[%d] Setting startTime to %" PRIu64 ,pMediaStreamContext->type, startTime);
+						AAMPLOG_INFO("Type[%d] Setting startTime to %" PRIu64, pMediaStreamContext->type, startTime);
 #endif
-					}// if fragRepeat == 0
+					} // if fragRepeat == 0
 
 					ITimeline *timeline = timelines.at(pMediaStreamContext->timeLineIndex);
 					uint32_t repeatCount = timeline->GetRepeatCount();
 					uint32_t duration = timeline->GetDuration();
-					if(pMediaStreamContext->mediaType == eMEDIATYPE_VIDEO)
-                                        {
+					if (pMediaStreamContext->mediaType == eMEDIATYPE_VIDEO)
+					{
 						prevTimeScale = timeScale;
-                                        }
+					}
 
 					// Flag used to identify manifest refresh after fragment download (FetchFragment)
 					pMediaStreamContext->freshManifest = false;
@@ -1413,16 +1456,16 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 						bool liveEdgePeriodPlayback = mIsLiveManifest && (mCurrentPeriodIdx == mMPDParseHelper->mUpperBoundaryPeriod);
 						uint64_t fragmentNumberBackUp = pMediaStreamContext->fragmentDescriptor.Number;
 
-						if(firstStartTime < presentationTimeOffset)
-                                                {
-                                                        firstSegStartTime = (double)(firstStartTime/tScale);
+						if (firstStartTime < presentationTimeOffset)
+						{
+							firstSegStartTime = (double)(firstStartTime / tScale);
 							// Period end time also needs to be updated based on the PTO.
 							// Otherwise, there is a chance to skip the last few fragments from the period if there is a large delta between the  start time available in the manifest and the PTO.
-							endTime  = (firstSegStartTime+(mPeriodDuration/1000));
+							endTime = (firstSegStartTime + (mPeriodDuration / 1000));
 
-                                                        AAMPLOG_INFO(" PTO ::(startTime < PTO) firstStartTime %" PRIu64 " tScale : %d presentationTimeOffset[%" PRIu64 "] positionInPeriod = %f  startTime = %f  endTime : %f mPeriodStartTime = %f mPeriodDuration = %f ",
-    firstStartTime, tScale, presentationTimeOffset, positionInPeriod, firstSegStartTime, endTime, mPeriodStartTime, mPeriodDuration);
-                                                }
+							AAMPLOG_INFO(" PTO ::(startTime < PTO) firstStartTime %" PRIu64 " tScale : %d presentationTimeOffset[%" PRIu64 "] positionInPeriod = %f  startTime = %f  endTime : %f mPeriodStartTime = %f mPeriodDuration = %f ",
+										 firstStartTime, tScale, presentationTimeOffset, positionInPeriod, firstSegStartTime, endTime, mPeriodStartTime, mPeriodDuration);
+						}
 
 						if(!fcsContent &&
 							(mIsFogTSB ||
@@ -10456,7 +10499,7 @@ void StreamAbstractionAAMP_MPD::StartFromAampLocalTsb(void)
 			mMediaStreamContext[i]->FlushFetchedFragments();
 		}
 		mMediaStreamContext[i]->SetLocalTSBInjection(true);
-		
+
 		// Flush fragments from mCachedFragmentChunks
 		mMediaStreamContext[i]->FlushFragments();
 

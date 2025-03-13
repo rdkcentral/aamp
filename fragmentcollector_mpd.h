@@ -58,7 +58,7 @@ double aamp_GetPeriodNewContentDuration(dash::mpd::IMPD *mpd, IPeriod * period, 
 /**
  * @struct ProfileInfo
  * @brief Manifest file adaptation and representation info
- */ 
+ */
 struct ProfileInfo
 {
 	int adaptationSetIndex;
@@ -232,7 +232,7 @@ public:
 	 */
 	double GetFirstPTS() override;
 	/**
-         * @fn GetMidSeekPosOffset 
+         * @fn GetMidSeekPosOffset
          */
 	double GetMidSeekPosOffset() override;
 	/**
@@ -291,14 +291,14 @@ public:
 	 * @brief check if current stream have 4K content
 	 * @param height - resolution of 4K stream if found
 	 * @param bandwidth - bandwidth of 4K stream if found
-	 * @return true on success 
+	 * @return true on success
 	 */
 	virtual bool Is4KStream(int &height, BitsPerSecond &bandwidth) override;
 
-	
+
 	/**
          * @fn GetProfileCount
-         * 
+         *
          */
 	int GetProfileCount() override;
 	/**
@@ -356,7 +356,7 @@ public:
 	 */
 	bool FetchFragment( class MediaStreamContext *pMediaStreamContext, std::string media, double fragmentDuration, bool isInitializationSegment, unsigned int curlInstance, bool discontinuity = false, double pto = 0 , uint32_t timeScale = 0);
 	/**
-	 * @fn PushNextFragment 
+	 * @fn PushNextFragment
 	 * @param pMediaStreamContext Track object
 	 * @param curlInstance instance of curl to be used to fetch
 	 * @param skipFetch true if fragment fetch is to be skipped for seamlessaudio
@@ -719,7 +719,7 @@ protected:
 	 * @fn FindServerUTCTime
 	 * @param mpd:  MPD top level element
 	 * @param root: XML root node
-	 */ 
+	 */
 	bool FindServerUTCTime(Node* root);
 	/**
 	 * @fn FetchDashManifest
@@ -880,7 +880,7 @@ protected:
 	 * @fn SeekInPeriod
 	 * @param seekPositionSeconds seek position in seconds
 	 */
-	void SeekInPeriod( double seekPositionSeconds, bool skipToEnd = false);	
+	void SeekInPeriod( double seekPositionSeconds, bool skipToEnd = false);
 	/**
 	 * @fn ApplyLiveOffsetWorkaroundForSAP
 	 * @param seekPositionSeconds seek position in seconds.
@@ -985,26 +985,26 @@ protected:
 	 * @param disableEC3 whether EC3 disabled by config
 	 * @param disableATMOS whether ATMOS audio disabled by config
  	 */
-	bool GetPreferredCodecIndex(IAdaptationSet *adaptationSet, int &selectedRepIdx, AudioType &selectedCodecType, 
+	bool GetPreferredCodecIndex(IAdaptationSet *adaptationSet, int &selectedRepIdx, AudioType &selectedCodecType,
 	uint32_t &selectedRepBandwidth, long &bestScore, bool disableEC3, bool disableATMOS, bool disableAC4, bool disableAC3, bool &disabled);
- 	
+
 	/**
          * @brief Get the audio track information from all period
          * updated member variable mAudioTracksAll
          * @return void
          */
 	void PopulateAudioTracks(void);
-	
+
 	/**
          * @brief Get the audio track information from all preselection node of the period
-         * @param period Node ans IMPDElement 
+         * @param period Node ans IMPDElement
          * @return void
          */
 	void ParseAvailablePreselections(IMPDElement *period, std::vector<AudioTrackInfo> & audioAC4Tracks);
-	
+
 	/**
 	 * @fn PopulateTrackInfo
-	 * @param media - Media type 
+	 * @param media - Media type
 	 * @param - Do need to reset vector?
 	 * @return none
 	 */
@@ -1065,6 +1065,8 @@ protected:
 	 */
 	void InitializeWorkers();
 
+	uint64_t FindPositionInTimeline(class MediaStreamContext *pMediaStreamContext, const std::vector<ITimeline *>&timelines);
+
 	std::mutex mStreamLock;
 	bool fragmentCollectorThreadStarted;
 	bool tsbReaderThreadStarted;
@@ -1075,10 +1077,10 @@ protected:
 	float rate;
 	std::thread fragmentCollectorThreadID;
 	std::thread tsbReaderThreadID;
-	ManifestDownloadResponsePtr mManifestDnldRespPtr ; 
+	ManifestDownloadResponsePtr mManifestDnldRespPtr ;
 	bool    mManifestUpdateHandleFlag;
 	AampMPDParseHelperPtr	mMPDParseHelper;
-	bool mLowLatencyMode;	
+	bool mLowLatencyMode;
 	dash::mpd::IMPD *mpd;
 	class MediaStreamContext *mMediaStreamContext[AAMP_TRACK_COUNT];
 	int mNumberOfTracks;
@@ -1115,7 +1117,7 @@ protected:
 	// that Adaptation Set. Hence we need a mapping from a profile to
 	// corresponding Adaptation Set and Representation Index
 	std::map<int, struct ProfileInfo> mProfileMaps;
-	
+
 	bool mIsFogTSB;
 	IPeriod *mCurrentPeriod;
 	std::string mBasePeriodId;
@@ -1172,7 +1174,7 @@ protected:
 	 * @fn IndexNewMPDDocument
 	 */
 	AAMPStatusType IndexNewMPDDocument(bool updateTrackInfo = true);
-	
+
 	/**
 	 * @fn CreateDrmHelper
 	 * @param adaptationSet Adaptation set object
