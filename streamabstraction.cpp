@@ -939,7 +939,7 @@ bool MediaTrack::ProcessFragmentChunk()
 		{
 			AAMPLOG_INFO("Injecting init chunk for %s",name);
 			InjectFragmentChunkInternal((AampMediaType)type, &cachedFragment->fragment, cachedFragment->position, cachedFragment->position, cachedFragment->duration, cachedFragment->initFragment, cachedFragment->discontinuity);
-			if (eTRACK_VIDEO == type && aamp->IsLocalAAMPTsb() && pContext && pContext->GetProfileCount())
+			if (eTRACK_VIDEO == type && pContext && pContext->GetProfileCount())
 			{
 				pContext->NotifyBitRateUpdate(cachedFragment->profileIndex, cachedFragment->cacheFragStreamInfo, cachedFragment->position);
 			}
@@ -1265,7 +1265,7 @@ void MediaTrack::ProcessAndInjectFragment(CachedFragment *cachedFragment, bool f
 			}
 		}
 		class StreamAbstractionAAMP* pContext = GetContext();
-		if (eTRACK_VIDEO == type && !aamp->IsLocalAAMPTsb() && pContext && pContext->GetProfileCount())
+		if (eTRACK_VIDEO == type && pContext && pContext->GetProfileCount())
 		{
 			pContext->NotifyBitRateUpdate(cachedFragment->profileIndex, cachedFragment->cacheFragStreamInfo, cachedFragment->position);
 		}
