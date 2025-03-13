@@ -28,13 +28,20 @@ from inspect import getsourcefile
 from l2test_pts_restamp import PtsRestampUtils
 from l2test_pts_restamp import TrickModesPtsRestampUtils
 
+# The progress report is printed in the log at the interval times 4, i.e. 1s
+PROGRESS_REPORT_INTERVAL = 0.250
+PROGRESS_REPORT_DIVISOR = 4
+PROGRESS_REPORT_INTERVAL_IN_LOG = PROGRESS_REPORT_INTERVAL * PROGRESS_REPORT_DIVISOR
+PROGRESS_REPORT_TOLERANCE = 1
+
 pts_restamp_utils = PtsRestampUtils()
 trick_modes_pts_restamp_utils = TrickModesPtsRestampUtils()
 aamp = None
+position = 0
+state = None
 
 archive_url = "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/streams/L2/misc/ch920_10min.tgz"
 
-# // Test URL with Low Latency Content. Containes the default LLD URL keyword "/low/"
 LLD_URL="v1/frag/bmff/enc/cenc/latency/low/t/UK3054_HD_SU_SKYUK_3054_0_8371500471198371163.mpd?chunked"
 
 SLD_URL="https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/streams/generated/main.mpd"
@@ -43,8 +50,28 @@ SLD_URL="https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/
 def send_command(match, command):
 	aamp.sendline(command)
 
-def pts_restamp_restart(match,arg):
+def pts_restamp_restart(match, arg):
 	pts_restamp_utils.restart()
+
+def check_position(match, new_state):
+	global position, state
+	new_position = int(match.group(1))
+	position_diff = new_position - position
+	min_expected_position = PROGRESS_REPORT_INTERVAL_IN_LOG - PROGRESS_REPORT_TOLERANCE
+	max_expected_position = PROGRESS_REPORT_INTERVAL_IN_LOG + PROGRESS_REPORT_TOLERANCE
+
+	if state == "paused" and new_state == "paused":
+		assert position_diff == 0, f"Paused: previous position {position}, new {new_position}, diff {position_diff} != 0s"
+	elif state == "playing" and new_state == "paused":
+		assert abs(position_diff) <= max_expected_position, f"Playing->Paused: previous position {position}, new {new_position}, diff {position_diff} > {max_expected_position}s"
+	elif state == "paused" and new_state == "playing":
+		assert abs(position_diff) <= max_expected_position, f"Paused->Playing: previous position {position}, new {new_position}, diff {position_diff} > {max_expected_position}s"
+	elif state == "playing" and new_state == "playing":
+		assert position_diff >= min_expected_position, f"Playing: previous position {position}, new {new_position}, diff {position_diff} < {min_expected_position}s"
+		assert position_diff <= max_expected_position, f"Playing: previous position {position}, new {new_position}, diff {position_diff} > {max_expected_position}s"
+
+	position = new_position
+	state = new_state
 
 # Test Session Manager initialization with config true
 TESTDATA0 = {
@@ -265,22 +292,25 @@ TESTDATA9 = {
 TESTDATA10 = {
 	"title": "Test pause on live",
 	"logfile": "10-pause.log",
-	"max_test_time_seconds": 35,
+	"max_test_time_seconds": 25,
 	'simlinear_type': 'DASH',
 	"archive_url": archive_url,
 	"url": LLD_URL,
 	"cmdlist": ["contentType LINEAR_TV"],
-	"aamp_cfg": "info=true\nlocalTSBEnabled=true\ntsbLocation=/tmp/data\ntsbLength=500\ntsbLog=0\nsupressDecode=true\n",
+	"aamp_cfg": f"info=true\nprogress=true\nprogressReportingInterval={PROGRESS_REPORT_INTERVAL}\nlocalTSBEnabled=true\ntsbLocation=/tmp/data\ntsbLength=500\ntsbLog=0\nsupressDecode=true\n",
 	"expect_list":
 	[
 		{"expect" : r"\[TSB Store\] Initiating with config values"},
 
 		# Pause live
-		{"expect": r'AAMPGstPlayerPipeline \w+ -> PLAYING', "callback": send_command, "callback_arg": "pause"},
+		{"expect": r'AAMPGstPlayerPipeline \w+ -> PLAYING', "callback_once": send_command, "callback_arg": "pause"},
+		{"expect": r'AAMPGstPlayerPipeline PLAYING -> PAUSED'},
+		{"expect": r'\[ReportProgress\]\[\d+\]aamp pos: \[\d+..(\d+)..\d+..-?\d+..\d+.\d+..-?\d+.\d+..\w*..\d+..\d+..1.00]', "callback": check_position, "callback_arg": "playing"},
+		{"expect": r'\[ReportProgress\]\[\d+\]aamp pos: \[\d+..(\d+)..\d+..-?\d+..\d+.\d+..-?\d+.\d+..\w*..\d+..\d+..0.00]', "callback": check_position, "callback_arg": "paused"},
  		# Confirm adding to TSB initially
-		{"expect": r'\[AddFragment\]\[\d+\]\[video\]',           "max": 5,},
+		{"expect": r'\[AddFragment\]\[\d+\]\[video\]', "max": 5,},
 		# Confirm adding to TSB continues (checks specific issue where fetch loop got blocked due to injection stopping).
-		{"expect": r'\[AddFragment\]\[\d+\]\[video\]', "min": 30, "end_of_test": True}
+		{"expect": r'\[AddFragment\]\[\d+\]\[video\]', "min": 20, "end_of_test": True}
 	]
 }
 
@@ -292,7 +322,7 @@ TESTDATA11 = {
 	"archive_url": archive_url,
 	"url": LLD_URL,
 	"cmdlist": ["contentType LINEAR_TV"],
-	"aamp_cfg": "info=true\nlocalTSBEnabled=true\ntsbLocation=/tmp/data\ntsbLength=500\ntsbLog=0\nsupressDecode=true\n",
+	"aamp_cfg": f"info=true\nprogress=true\nprogressReportingInterval={PROGRESS_REPORT_INTERVAL}\nlocalTSBEnabled=true\ntsbLocation=/tmp/data\ntsbLength=500\ntsbLog=0\nsupressDecode=true\n",
 	"expect_list":
 	[
 		{"expect" : r"\[TSB Store\] Initiating with config values"},
@@ -314,6 +344,8 @@ TESTDATA11 = {
 		{"expect": r'\[ReadNext\]', "min": 20, "max": 24, "callback_once": send_command, "callback_arg": "pause"},
 		{"expect": r'AAMPGstPlayerPipeline PLAYING -> PAUSED', "min": 20, "max": 25},
 		{"expect": r'AAMPGstPlayerPipeline \w+ -> PLAYING', "min": 20, "max": 25, "not_expected" : True},
+		{"expect": r'\[ReportProgress\]\[\d+\]aamp pos: \[\d+..(\d+)..\d+..-?\d+..\d+.\d+..-?\d+.\d+..\w*..\d+..\d+..1.00]', "callback": check_position, "callback_arg": "playing"},
+		{"expect": r'\[ReportProgress\]\[\d+\]aamp pos: \[\d+..(\d+)..\d+..-?\d+..\d+.\d+..-?\d+.\d+..\w*..\d+..\d+..0.00]', "callback": check_position, "callback_arg": "paused"},
 
 		# Wait 25s since start of the test and then play when the next fragment is processed
 		{"expect": r'\[AddFragment\]\[\d+\]\[video\]', "min": 25, "max": 30, "callback_once": send_command, "callback_arg": "play"},
@@ -368,7 +400,7 @@ TESTDATA13 = {
 	'simlinear_type': 'DASH',
 	"archive_url": archive_url,
 	"url": LLD_URL,
-	"aamp_cfg": "progress=true\nprogressReportingInterval=0.250\ninfo=true\nlocalTSBEnabled=true\ntsbLocation=/tmp/data\ntsbLength=500\ntsbLog=0\n",
+	"aamp_cfg": f"progress=true\nprogressReportingInterval={PROGRESS_REPORT_INTERVAL}\ninfo=true\nlocalTSBEnabled=true\ntsbLocation=/tmp/data\ntsbLength=500\ntsbLog=0\n",
     "cmdlist": [ "contentType LINEAR_TV" ],
 	"expect_list":
 	[
@@ -424,7 +456,10 @@ def test_data(request):
 	return request.param
 
 def test_5001(aamp_setup_teardown, test_data):
-	global aamp, pts_restamp_utils, trick_modes_pts_restamp_utils
+	global aamp, pts_restamp_utils, trick_modes_pts_restamp_utils, state
+
+	# Start each test with a clean state
+	state = None
 
 	pts_restamp_utils.reset()
 	pts_restamp_utils.max_segment_cnt = test_data.get('expected_restamps')
