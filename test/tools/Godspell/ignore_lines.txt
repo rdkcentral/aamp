@@ -1,0 +1,10 @@
+<scte35:Binary>
+// psshData
+// base64
+<cenc:pssh>
+_UUID 
+AAMP_CFG_BASE64=
+,IV=
+PTS/DTS format:
+slice start:
+subtec-app checkout

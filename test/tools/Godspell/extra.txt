@@ -2374,3 +2374,7 @@ zlib
 zorder
 zu
 zx
+denable
+ldflags
+lwavpack
+cppflags

@@ -41,6 +41,8 @@ mWordWhitelist = {
     "un" + "copy" + "righted"
 }
 mFileWhitelist = set()
+markers = set()
+prefixes = []
 
 # Convert a word to lowercase
 def to_lower(word):
@@ -62,10 +64,38 @@ def load_dictionary_helper(path):
     except FileNotFoundError:
         print(f"Dictionary file not found: {path}")
 
+# Load ignore lines from a file (Lines that should be ignored)
+def load_dictionary_ignore_lines(path):
+    global markers
+    try:
+        with open(path, "r", encoding="utf-8") as file:
+            for line in file:
+                if line:
+                    markers.add(line.strip())
+        
+    except FileNotFoundError:
+        print(f"Dictionary file not found: {path}")
+
+def load_dictionary_ignore_prefixes(path):
+    global prefixes
+    try:
+        with open(path, "r", encoding="utf-8") as file:
+            for prefix in file:
+                prefix = prefix.strip()
+                if prefix:
+                    to_lower(prefix)
+                    prefixes.append(prefix)
+        
+    except FileNotFoundError:
+        print(f"Dictionary file not found: {path}")
+
 # Load whitelisted words
 def load_dictionary():
     load_dictionary_helper("extra.txt")
     load_dictionary_helper("words_alpha.txt")
+    load_dictionary_ignore_lines("ignore_lines.txt")
+    load_dictionary_ignore_prefixes("ignore_prefixes.txt")
+        
 
 # Process a word and check against the whitelist
 def process_word(word, path, lineno):
@@ -78,10 +108,8 @@ def process_word(word, path, lineno):
             if not c.isalpha() or (part[-1].islower() and c.isupper()):
                 part = to_lower(part)
 
-                # Remove known prefixes
-                prefixes = ["current", "custom", "content", "hdcp", "hdmi", "drm", "aamp",
-                            "abr", "http", "json", "js", "video", "uri", "url", "tune",
-                            "tsb", "cmcd", "curl", "mpd", "lld"]
+                global prefixes
+
                 for prefix in prefixes:
                     if part.startswith(prefix) and len(part) > len(prefix):
                         part = part[len(prefix):]
@@ -89,6 +117,7 @@ def process_word(word, path, lineno):
 
                 # Add to suspect words if not in whitelist and longer than 4 characters
                 if part and part not in mWordWhitelist and len(part) > 4:
+                    print(f"Suspect word found: \"{part}\" in {path}:{lineno}")
                     mDictionaryOfSuspectWords[part].append((path, lineno, word))
 
                 part = ""
@@ -108,10 +137,6 @@ def process_word(word, path, lineno):
 
 # Process a single line
 def process_line(line, path, lineno):
-    # Skip certain lines with markers
-    markers = ["<scte35:Binary>", "// psshData", "// base64", "<cenc:pssh>",
-               "_UUID ", "AAMP_CFG_BASE64=", ",IV=", "PTS/DTS format:",
-               "slice start:", "subtec-app checkout"]
     
     if any(marker in line for marker in markers):
         return
@@ -157,6 +182,7 @@ def dump_dictionary():
             locations = "\n".join(f"{path}:{lineno}" for path, lineno, _ in occurrences)
             original_texts = "\n".join(orig_text.replace('"', '`') for _, _, orig_text in occurrences)
             writer.writerow([word, len(occurrences), locations, original_texts])
+        
 
 # Main function
 if __name__ == "__main__":
@@ -176,3 +202,10 @@ if __name__ == "__main__":
     load_dictionary()
     scan(dir_path)
     dump_dictionary()
+
+    if (len(mDictionaryOfSuspectWords) == 0):
+        print("No Typos found.")
+    else:
+        print(f"Total Typos found: {len(mDictionaryOfSuspectWords)}")
+        print("Report available in typos.csv")
+        sys.exit(1)
