@@ -1568,6 +1568,22 @@ std::string convertTimeToHHMMSS( long long t )
 	return rc;
 }
 
+const char *mystrstr(const char *haystack_ptr, const char *haystack_fin, const char *needle_ptr)
+{
+	size_t needle_len = strlen(needle_ptr);
+	haystack_fin -= needle_len;
+	while( haystack_ptr<=haystack_fin )
+	{
+		if( memcmp(needle_ptr,haystack_ptr,needle_len)==0 )
+		{
+			return haystack_ptr;
+		}
+		haystack_ptr++;
+	}
+	return NULL;
+}
+
 /*
  * EOF
  */
+

@@ -18,7 +18,7 @@
 */
 
 /**
-* \file fragmentcollector_hls.cpp
+* @file fragmentcollector_hls.cpp
 *
 * Fragment Collect file includes class implementation for handling
 * HLS streaming of AAMP player.
@@ -1002,7 +1002,7 @@ lstring TrackState::GetNextFragmentUriFromPlaylist(bool& reloadUri, bool ignoreD
 				}
 				else if ( ptr.removePrefix("-X-DISCONTINUITY"))
 				{
-					if( demuxOp != eStreamOp_DEMUX_ALL || !ISCONFIGSET(eAAMPConfig_HlsTsEnablePTSReStamp) )
+					if( !ISCONFIGSET(eAAMPConfig_HlsTsEnablePTSReStamp) )
 					{ // ignore discontinuities when presenting muxed hls/ts
 						discontinuity = true;
 					}
@@ -1329,6 +1329,36 @@ bool TrackState::FetchFragmentHelper(int &http_error, bool &decryption_error, bo
 			std::string tempEffectiveUrl;
 			AAMPLOG_TRACE(" Calling Getfile . buffer %p avail %d", &cachedFragment->fragment, (int)cachedFragment->fragment.GetAvail());
 			double downloadTime = 0;
+			
+			cachedFragment->discontinuityIndex = 0;
+			if( ISCONFIGSET(eAAMPConfig_HlsTsEnablePTSReStamp) )
+			{ // TODO: optimize me
+				lstring iter = lstring( playlist.GetPtr(), playlist.GetLen() );
+				while( !iter.empty() )
+				{
+					lstring ptr = iter.mystrpbrk();
+					if( !ptr.empty() )
+					{
+						if( ptr.getPtr() >= fragmentURI.getPtr() )
+						{
+							break;
+						}
+						if(ptr.removePrefix("#EXT-X-DISCONTINUITY-SEQUENCE:"))
+						{ // expected to appear once
+							cachedFragment->discontinuityIndex = ptr.atoll();
+						}
+						else if( ptr.removePrefix("#EXT-X-DISCONTINUITY"))
+						{
+							cachedFragment->discontinuityIndex++;
+						}
+					}
+					else
+					{
+						break;
+					}
+				}
+			}
+			
 			bool fetched = aamp->GetFile(fragmentUrl, (AampMediaType)(type), &cachedFragment->fragment,
 			 tempEffectiveUrl, &http_error, &downloadTime, range, type, false, NULL, NULL, fragmentDurationSeconds);
 			//Workaround for 404 of subtitle fragments
@@ -1744,6 +1774,20 @@ void TrackState::InjectFragmentInternal(CachedFragment* cachedFragment, bool &fr
 				aamp->SendStreamCopy(type, buf.data(), buf.size(), info.pts_s, info.dts_s, info.duration);
 			}
 		};
+		
+		if( demuxOp == eStreamOp_DEMUX_ALL && ISCONFIGSET(eAAMPConfig_HlsTsEnablePTSReStamp) )
+		{
+			if( context->mPtsOffsetMap.count(cachedFragment->discontinuityIndex)==0 )
+			{ // compute muxed AV track pts offset and save for use by subtitle track
+				double firstPts = playContext->getFirstPts(&cachedFragment->fragment);
+				double ptsOffset = m_totalDurationForPtsRestamping - firstPts;
+				AAMPLOG_MIL( "video pts_offset[%lld]=%f duration=%f+%f", cachedFragment->discontinuityIndex, ptsOffset, m_totalDurationForPtsRestamping, cachedFragment->duration );
+				playContext->setPtsOffset( ptsOffset );
+				context->mPtsOffsetMap[cachedFragment->discontinuityIndex] = ptsOffset;
+			}
+			m_totalDurationForPtsRestamping += cachedFragment->duration;
+		}
+		
 		fragmentDiscarded = !playContext->sendSegment( &cachedFragment->fragment,
 			position.inSeconds(),
 			cachedFragment->duration,
@@ -5425,9 +5469,9 @@ void StreamAbstractionAAMP_HLS::StartSubtitleParser()
 	if (subtitle && subtitle->enabled && subtitle->mSubtitleParser)
 	{
 		AAMPLOG_INFO("sending init isLive : %d firstPTS : %.3f seek_pos :%f ",aamp->IsLive(), mFirstPTS.inSeconds() * 1000.0,aamp->seek_pos_seconds);
-		if(aamp->IsLive())
+		if( ISCONFIGSET(eAAMPConfig_HlsTsEnablePTSReStamp) || aamp->IsLive())
 		{
-			subtitle->mSubtitleParser->init(mFirstPTS.inSeconds(),0);
+			subtitle->mSubtitleParser->init( mFirstPTS.inSeconds(),0);
 		}
 		else
 		{

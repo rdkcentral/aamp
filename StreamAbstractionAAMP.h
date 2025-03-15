@@ -137,6 +137,7 @@ public:
 	StreamInfo cacheFragStreamInfo; /**< Bitrate info of the fragment */
 	AampMediaType type;				/**< AampMediaType info of the fragment */
 	long long downloadStartTime;	/**< The start time of file download */
+	long long discontinuityIndex;
 	double PTSOffsetSec; 			/* PTS offset to apply for this segment */
 	double absPosition;		/** Absolute position */
 	CachedFragment() : fragment(AampGrowableBuffer("cached-fragment")), position(0.0), duration(0.0),
@@ -854,6 +855,8 @@ private:
 	 * @param[in] cachedFragment - fragment to be restamped for trickmodes
 	 */
 	void TrickModePtsRestamp(CachedFragment* cachedFragment);
+	
+	std::string RestampSubtitle( const char* buffer, size_t bufferLen, double position, double duration, double pts_offset );
 
 	/**
 	 * @fn TrickModePtsRestamp
@@ -899,6 +902,7 @@ public:
 	int maxCachedFragmentChunksPerTrack;
 	std::condition_variable fragmentChunkFetched;/**< Signaled after a fragment Chunk is fetched*/
 	int noMDATCount;                    /**< MDAT Chunk Not Found count continuously while chunk buffer processing*/
+	double m_totalDurationForPtsRestamping;
 	std::shared_ptr<MediaProcessor> playContext;		/**< state for s/w demuxer / pts/pcr restamper module */
 	bool seamlessAudioSwitchInProgress; /**< Flag to indicate seamless audio track switch in progress */
 	bool seamlessSubtitleSwitchInProgress;
@@ -985,6 +989,8 @@ private:
 class StreamAbstractionAAMP : public AampLicenseFetcher
 {
 public:
+	std::map<long long, double> mPtsOffsetMap; /** @brief map from period index to pts offset, used for hls/ts pts restamping */
+
 	/** @brief ABR mode */
 	enum class ABRMode
 	{
