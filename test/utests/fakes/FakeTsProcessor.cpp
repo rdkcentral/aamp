@@ -30,6 +30,15 @@ TSProcessor::~TSProcessor()
 {
 }
 
+double TSProcessor::getFirstPts( AampGrowableBuffer* pBuffer )
+{
+	return 0.0;
+}
+
+void TSProcessor::setPtsOffset( double ptsOffset )
+{
+}
+
 bool TSProcessor::sendSegment( AampGrowableBuffer* pBuffer, double position, double duration, bool discontinuous,
 									bool isInit, process_fcn_t processor, bool &ptsError)
 {

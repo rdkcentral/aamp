@@ -157,6 +157,16 @@ public:
 	 * @return void
 	 */
 	void resetPTSOnAudioSwitch(AampGrowableBuffer *pBuffer, double position) override;
+	
+	double getFirstPts( AampGrowableBuffer* pBuffer ) override
+	{
+		return 0;
+	}
+	
+	void setPtsOffset( double ptsOffset ) override
+	{
+	}
+	
 	/**
 	 * @fn sendSegment
 	 *

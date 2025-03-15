@@ -71,6 +71,15 @@ public:
 	 */
 	void setFrameRateForTM (int frameRate) override { };
 
+	double getFirstPts( AampGrowableBuffer* pBuffer ) override
+	{
+		return 0;
+	}
+	
+	void setPtsOffset( double ptsOffset ) override
+	{
+	}
+	
 	/**
 	 * @fn sendSegment
 	 *

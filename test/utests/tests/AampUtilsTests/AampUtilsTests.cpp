@@ -719,3 +719,18 @@ TEST(_AampUtils, parseAndValidateSCTE35_3)
 	bool result = parseAndValidateSCTE35(scte35);
 	EXPECT_TRUE(result);
 }
+
+TEST(_AampUtils, strstr )
+{
+	const char *haystack_ptr = "bob is my name. you can call me bobby bob";
+	const char *haystack_fin = haystack_ptr + strlen(haystack_ptr);
+	EXPECT_TRUE( mystrstr(haystack_ptr, haystack_fin,"xxx") == NULL );
+	EXPECT_TRUE( mystrstr(haystack_ptr, haystack_fin,"bob") == &haystack_ptr[0] );
+	EXPECT_TRUE( mystrstr(haystack_ptr, haystack_fin, "name") == &haystack_ptr[10]);
+	EXPECT_TRUE( mystrstr(haystack_ptr+10,haystack_fin,"bob") == &haystack_ptr[32] );
+	EXPECT_TRUE( mystrstr(haystack_ptr+34,haystack_fin,"bob") == &haystack_ptr[38] );
+	EXPECT_TRUE( mystrstr(haystack_ptr,&haystack_ptr[14],"name") == &haystack_ptr[10] );
+	EXPECT_TRUE( mystrstr(haystack_ptr,&haystack_ptr[13],"name") == NULL );
+	EXPECT_TRUE( mystrstr(haystack_ptr,&haystack_ptr[9],"is") == &haystack_ptr[4] );
+}
+

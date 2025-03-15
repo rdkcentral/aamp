@@ -593,6 +593,21 @@ bool parseAndValidateSCTE35(const std::string &scte35Data)
 	return false;
 }
 
+long long convertHHMMSSToTime(const char * str)
+{
+	return 0;
+}
+
+std::string convertTimeToHHMMSS( long long t )
+{
+	return "";
+}
+
+const char *mystrstr(const char *haystack_ptr, const char *haystack_fin, const char *needle_ptr)
+{
+	return NULL;
+}
+
 extern "C"
 {
 void aamp_ApplyPageHttpHeaders(PlayerInstanceAAMP *aamp)

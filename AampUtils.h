@@ -388,4 +388,16 @@ long long convertHHMMSSToTime(const char * str);
  */
 std::string convertTimeToHHMMSS( long long t );
 
+/**
+ * @brief strstr variant that doesn't require the string being searched to end with NUL terminator
+ *
+ * @param haystack_ptr start of character range to search
+ * @param haystack_fin pointer just past end of character range to search (haystack_len = haystack_fin-haystack_ptr)
+ * @param needle cstring for character to find
+ *
+ * @retval pointer within haystack if needle found as a substring
+ * @retval NULL if needle not present within haystack
+ */
+const char *mystrstr(const char *haystack_ptr, const char *haystack_fin, const char *needle_ptr);
+
 #endif  /* __AAMP_UTILS_H__ */

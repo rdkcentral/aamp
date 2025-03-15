@@ -588,7 +588,7 @@ TEST_F(StreamAbstractionAAMP_HLSTest, StreamAbstractionAAMP_HLS_Is4KStream_no_4k
     mediaInfoStore.push_back(media);
     // Add the sample HlsStreamInfo objects to the streamInfoStore
     mStreamAbstractionAAMP_HLS->streamInfoStore.push_back(streamInfo);
-    bool TestResult = mPrivateInstanceAAMP->IsLiveAdjustRequired();
+    bool TestResult = mPrivateInstanceAAMP->IsLiveAdjustRequired(); (void)TestResult;
     mStreamAbstractionAAMP_HLS->CallPopulateAudioAndTextTracks();
 
     mStreamAbstractionAAMP_HLS->mainManifest.AppendBytes(manifest, sizeof(manifest));
@@ -888,11 +888,9 @@ TEST_F(StreamAbstractionAAMP_HLSTest, GetMediaIndexForLanguage)
 
 TEST_F(StreamAbstractionAAMP_HLSTest, GetMediaIndexForLanguage2)
 {
-    // Arrange
     std::string lang = "en";       // Replace with the desired language
     TrackType type = eTRACK_SUBTITLE; // Replace with the desired track type
     int index = 0;
-    // Act
     HlsStreamInfo *streamInfo = (HlsStreamInfo*)mStreamAbstractionAAMP_HLS->CallGetStreamInfo(index);
 	if( streamInfo )
 	{
@@ -911,8 +909,7 @@ TEST_F(StreamAbstractionAAMP_HLSTest, TestGetStreamInfo)
 {
     int index = 0;
     StreamInfo *streamInfo = mStreamAbstractionAAMP_HLS->CallGetStreamInfo(index);
-	//EXPECT_NE(streamInfo, nullptr);
-	EXPECT_EQ(streamInfo, nullptr); // ??
+	EXPECT_EQ(streamInfo, nullptr);
 }
 
 TEST_F(TrackStateTests, GetNextFragmentPeriodInfo_WhenIndexIsEmpty)
@@ -984,11 +981,6 @@ TEST_F(StreamAbstractionAAMP_HLSTest, GetAvailableVideoTracksTest2)
     ASSERT_EQ(0, videoTracks.size());
 }
 
-// required to work around Adobe SSAI session lifecycle problem
-// TEST_F(StreamAbstractionAAMP_HLSTest,PreCachePlaylisttest){
-//     mStreamAbstractionAAMP_HLS->PreCachePlaylist();
-// }
-
 TEST_F(StreamAbstractionAAMP_HLSTest, GetABRModetest)
 {
     mStreamAbstractionAAMP_HLS->GetABRMode();
@@ -1006,9 +998,8 @@ TEST_F(StreamAbstractionAAMP_HLSTest, GetBestAudioTrackByLanguagetest)
     mediaInfoStore.push_back(media);
     // Add the sample HlsStreamInfo objects to the streamInfoStore
     mStreamAbstractionAAMP_HLS->streamInfoStore.push_back(streamInfo);
-
-    int index = mStreamAbstractionAAMP_HLS->GetBestAudioTrackByLanguage();
-    // ASSERT_EQ(index, -1);
+	int index = mStreamAbstractionAAMP_HLS->GetBestAudioTrackByLanguage();
+	(void)index;
 }
 
 TEST_F(StreamAbstractionAAMP_HLSTest, IsLivetest)
@@ -1033,7 +1024,7 @@ TEST_F(StreamAbstractionAAMP_HLSTest, GetFirstPTStest)
 
 TEST_F(StreamAbstractionAAMP_HLSTest, GetFirstPTStest2)
 {
-    double result = mStreamAbstractionAAMP_HLS->GetFirstPTS();
+	double result = mStreamAbstractionAAMP_HLS->GetFirstPTS(); (void)result;
 }
 
 TEST_F(StreamAbstractionAAMP_HLSTest, GetBufferedDurationtest)
@@ -1264,241 +1255,196 @@ TEST_F(TrackStateTests, GetNextFragmentUri_WithReloadUri)
 {
     bool reloadUri = true;
     bool ignoreDiscontinuity = false;
-    auto fragmentUri = TrackStateobj->GetNextFragmentUriFromPlaylist(reloadUri, ignoreDiscontinuity);
-    ASSERT_TRUE(fragmentUri.empty());
+    auto indexNode = TrackStateobj->GetNextFragmentUriFromPlaylist(reloadUri, ignoreDiscontinuity);
+	(void)indexNode;
 }
 
 TEST_F(TrackStateTests, GetNextFragmentUri_WithoutReloadUri)
 {
     bool reloadUri = false;
     bool ignoreDiscontinuity = true;
-    auto fragmentUri = TrackStateobj->GetNextFragmentUriFromPlaylist(reloadUri, ignoreDiscontinuity);
-    ASSERT_TRUE(fragmentUri.empty());
+    auto indexNode = TrackStateobj->GetNextFragmentUriFromPlaylist(reloadUri, ignoreDiscontinuity);
+	(void)indexNode;
 }
 
 
 TEST_F(TrackStateTests, GetNextFragmentUri_WithReloadUri_new)
 {
-    // Arrange: Set up the necessary conditions for the test
     bool reloadUri = true;
     bool ignoreDiscontinuity = false;
     TrackStateobj->playTarget = -1.1;
-
-    // Act: Call the function to be tested
-    auto fragmentUri = TrackStateobj->GetNextFragmentUriFromPlaylist(reloadUri, ignoreDiscontinuity);
+    auto indexNode = TrackStateobj->GetNextFragmentUriFromPlaylist(reloadUri, ignoreDiscontinuity);
+	(void)indexNode;
 }
 
 TEST_F(TrackStateTests, GetNextFragmentUri_WithReloadUri_new1)
 {
-    // Arrange: Set up the necessary conditions for the test
     bool reloadUri = true;
     bool ignoreDiscontinuity = false;
     TrackStateobj->playTarget = -1.1;
     TrackStateobj->playlistPosition = -1.0;
-    // Act: Call the function to be tested
-    auto fragmentUri = TrackStateobj->GetNextFragmentUriFromPlaylist(reloadUri, ignoreDiscontinuity);
+    auto indexNode = TrackStateobj->GetNextFragmentUriFromPlaylist(reloadUri, ignoreDiscontinuity);
+	(void)indexNode;
 }
 
 TEST_F(TrackStateTests, GetNextFragmentUri_WithReloadUri_new2)
 {
-    // Arrange: Set up the necessary conditions for the test
     bool reloadUri = true;
     bool ignoreDiscontinuity = false;
     TrackStateobj->playTarget = -1.1;
     TrackStateobj->playlistPosition = -1.0;
-    char fragmentURIData[] = {'a','b','c','d','e',0x00};
-    TrackStateobj->fragmentURI = lstring(fragmentURIData,strlen(fragmentURIData));
-    // Act: Call the function to be tested
-	auto fragmentUri = TrackStateobj->GetNextFragmentUriFromPlaylist(reloadUri, ignoreDiscontinuity);
+	auto indexNode = TrackStateobj->GetNextFragmentUriFromPlaylist(reloadUri, ignoreDiscontinuity);
+	(void)indexNode;
 }
 
 TEST_F(TrackStateTests, GetNextFragmentUri_WithReloadUri_new3)
 {
-    // Arrange: Set up the necessary conditions for the test
     bool reloadUri = true;
     bool ignoreDiscontinuity = false;
     TrackStateobj->playTarget = -1.1;
     TrackStateobj->playlistPosition = -1.0;
-    char fragmentURIData[] = {'a','b','c','d','e',0x00};
-    TrackStateobj->fragmentURI = lstring(fragmentURIData,strlen(fragmentURIData));
-
     int height;
     BitsPerSecond bandwidth;
     char manifest[] = MANIFEST_6SD_1A;
-
     mStreamAbstractionAAMP_HLS->mainManifest.AppendBytes(manifest, sizeof(manifest));
-	auto fragmentUri = TrackStateobj->GetNextFragmentUriFromPlaylist(reloadUri, ignoreDiscontinuity);
+	auto indexNode = TrackStateobj->GetNextFragmentUriFromPlaylist(reloadUri, ignoreDiscontinuity);
+	(void)indexNode;
     mStreamAbstractionAAMP_HLS->Is4KStream(height, bandwidth);
 }
 
 
 TEST_F(TrackStateTests, GetNextFragmentUri_WithReloadUri_new4)
 {
-    // Arrange: Set up the necessary conditions for the test
     bool reloadUri = true;
     bool ignoreDiscontinuity = false;
     TrackStateobj->playTarget = -1.1;
     TrackStateobj->playlistPosition = -1.0;
-    char fragmentURIData[] = {'a','b','c','d','e',0x00};
-    TrackStateobj->fragmentURI = lstring(fragmentURIData,strlen(fragmentURIData));
-
     int height;
     BitsPerSecond bandwidth;
     char manifest[] = "#EXT-X-BYTERANGE:";
-
     mStreamAbstractionAAMP_HLS->mainManifest.AppendBytes(manifest, sizeof(manifest));
-
-    auto fragmentUri = TrackStateobj->GetNextFragmentUriFromPlaylist(reloadUri, ignoreDiscontinuity);
+    auto indexNode = TrackStateobj->GetNextFragmentUriFromPlaylist(reloadUri, ignoreDiscontinuity);
+	(void)indexNode;
     mStreamAbstractionAAMP_HLS->Is4KStream(height, bandwidth);
 }
 
 TEST_F(TrackStateTests, GetNextFragmentUri_WithReloadUri_new5)
 {
-    // Arrange: Set up the necessary conditions for the test
     bool reloadUri = true;
     bool ignoreDiscontinuity = false;
     TrackStateobj->playTarget = -1.1;
     TrackStateobj->playlistPosition = -1.0;
-    char fragmentURIData[] = {'a','b','c','d','e',0x00};
-    TrackStateobj->fragmentURI = lstring(fragmentURIData,strlen(fragmentURIData));
-
     int height;
     BitsPerSecond bandwidth;
     char manifest[] = "#EXTINF:";
-
     mStreamAbstractionAAMP_HLS->mainManifest.AppendBytes(manifest, sizeof(manifest));
-
-    // EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_AvgBWForABR)).WillOnce(Return(true));
-
-    // Act: Call the function to be tested
-    auto fragmentUri = TrackStateobj->GetNextFragmentUriFromPlaylist(reloadUri, ignoreDiscontinuity);
+    auto indexNode = TrackStateobj->GetNextFragmentUriFromPlaylist(reloadUri, ignoreDiscontinuity);
+	(void)indexNode;
     mStreamAbstractionAAMP_HLS->Is4KStream(height, bandwidth);
 }
 
 TEST_F(TrackStateTests, GetNextFragmentUri_WithReloadUri_new6)
 {
-    // Arrange: Set up the necessary conditions for the test
     bool reloadUri = true;
     bool ignoreDiscontinuity = false;
     TrackStateobj->playTarget = -1.1;
     TrackStateobj->playlistPosition = -1.0;
-    //char fragmentURIData[] = {'a','b','c','d','e',0x00};
-
     int height;
     BitsPerSecond bandwidth;
     char manifest[] = "#EXT-X-TARGETDURATION:";
-
     mStreamAbstractionAAMP_HLS->mainManifest.AppendBytes(manifest, sizeof(manifest));
-    auto fragmentUri = TrackStateobj->GetNextFragmentUriFromPlaylist(reloadUri, ignoreDiscontinuity);
+    auto indexNode = TrackStateobj->GetNextFragmentUriFromPlaylist(reloadUri, ignoreDiscontinuity);
+	(void)indexNode;
     mStreamAbstractionAAMP_HLS->Is4KStream(height, bandwidth);
 }
 
 TEST_F(TrackStateTests, GetNextFragmentUri_WithReloadUri_new7)
 {
-    // Arrange: Set up the necessary conditions for the test
     bool reloadUri = true;
     bool ignoreDiscontinuity = false;
     TrackStateobj->playTarget = -1.1;
     TrackStateobj->playlistPosition = -1.0;
-    char fragmentURIData[] = {'a','b','c','d','e',0x00};
-    TrackStateobj->fragmentURI = lstring(fragmentURIData,strlen(fragmentURIData));
-
     int height;
     BitsPerSecond bandwidth;
     char manifest[] = "#EXT-X-MEDIA-SEQUENCE:";
-
     mStreamAbstractionAAMP_HLS->mainManifest.AppendBytes(manifest, sizeof(manifest));
-    auto fragmentUri = TrackStateobj->GetNextFragmentUriFromPlaylist(reloadUri, ignoreDiscontinuity);
+    auto indexNode = TrackStateobj->GetNextFragmentUriFromPlaylist(reloadUri, ignoreDiscontinuity);
+	(void)indexNode;
     mStreamAbstractionAAMP_HLS->Is4KStream(height, bandwidth);
 }
 
 TEST_F(TrackStateTests, GetNextFragmentUri_WithReloadUri_new8)
 {
-    // Arrange: Set up the necessary conditions for the test
     bool reloadUri = true;
     bool ignoreDiscontinuity = false;
     TrackStateobj->playTarget = -1.1;
     TrackStateobj->playlistPosition = -1.0;
-    char fragmentURIData[] = {'a','b','c','d','e',0x00};
-    TrackStateobj->fragmentURI = lstring(fragmentURIData,strlen(fragmentURIData));
     int height;
     BitsPerSecond bandwidth;
     char manifest[] = "#EXT-X-KEY:";
-
     mStreamAbstractionAAMP_HLS->mainManifest.AppendBytes(manifest, sizeof(manifest));
-    auto fragmentUri = TrackStateobj->GetNextFragmentUriFromPlaylist(reloadUri, ignoreDiscontinuity);
+    auto indexNode = TrackStateobj->GetNextFragmentUriFromPlaylist(reloadUri, ignoreDiscontinuity);
+	(void)indexNode;
     mStreamAbstractionAAMP_HLS->Is4KStream(height, bandwidth);
 }
 
 TEST_F(TrackStateTests, GetNextFragmentUri_WithReloadUri_new9)
 {
-    // Arrange: Set up the necessary conditions for the test
     bool reloadUri = true;
     bool ignoreDiscontinuity = false;
     TrackStateobj->playTarget = -1.1;
     TrackStateobj->playlistPosition = -1.0;
-    char fragmentURIData[] = {'a','b','c','d','e',0x00};
-    TrackStateobj->fragmentURI = lstring(fragmentURIData,strlen(fragmentURIData));
     int height;
     BitsPerSecond bandwidth;
     char manifest[] = "#EXT-X-MAP:";
-
     mStreamAbstractionAAMP_HLS->mainManifest.AppendBytes(manifest, sizeof(manifest));
-    auto fragmentUri = TrackStateobj->GetNextFragmentUriFromPlaylist(reloadUri, ignoreDiscontinuity);
+    auto indexNode = TrackStateobj->GetNextFragmentUriFromPlaylist(reloadUri, ignoreDiscontinuity);
+	(void)indexNode;
     mStreamAbstractionAAMP_HLS->Is4KStream(height, bandwidth);
 }
 
 TEST_F(TrackStateTests, GetNextFragmentUri_WithReloadUri_new10)
 {
-    // Arrange: Set up the necessary conditions for the test
     bool reloadUri = true;
     bool ignoreDiscontinuity = false;
     TrackStateobj->playTarget = -1.1;
     TrackStateobj->playlistPosition = -1.0;
-    char fragmentURIData[] = {'a','b','c','d','e',0x00};
-    TrackStateobj->fragmentURI = lstring(fragmentURIData,strlen(fragmentURIData));
     int height;
     BitsPerSecond bandwidth;
     char manifest[] = "#EXT-X-PROGRAM-DATE-TIME:";
-
     mStreamAbstractionAAMP_HLS->mainManifest.AppendBytes(manifest, sizeof(manifest));
-    auto fragmentUri = TrackStateobj->GetNextFragmentUriFromPlaylist(reloadUri, ignoreDiscontinuity);
+    auto indexNode = TrackStateobj->GetNextFragmentUriFromPlaylist(reloadUri, ignoreDiscontinuity);
+	(void)indexNode;
     mStreamAbstractionAAMP_HLS->Is4KStream(height, bandwidth);
 }
 
 TEST_F(TrackStateTests, GetNextFragmentUri_WithReloadUri_new11)
 {
-
     bool reloadUri = true;
     bool ignoreDiscontinuity = false;
     TrackStateobj->playTarget = -1.1;
     TrackStateobj->playlistPosition = -1.0;
-    char fragmentURIData[] = {'a','b','c','d','e',0x00};
-    TrackStateobj->fragmentURI = lstring(fragmentURIData,strlen(fragmentURIData));
     int height;
     BitsPerSecond bandwidth;
     char manifest[] = "#EXT-X-ALLOW-CACHE:";
-
     mStreamAbstractionAAMP_HLS->mainManifest.AppendBytes(manifest, sizeof(manifest));
-    auto fragmentUri = TrackStateobj->GetNextFragmentUriFromPlaylist(reloadUri, ignoreDiscontinuity);
+    auto indexNode = TrackStateobj->GetNextFragmentUriFromPlaylist(reloadUri, ignoreDiscontinuity);
+	(void)indexNode;
     mStreamAbstractionAAMP_HLS->Is4KStream(height, bandwidth);
 }
 
 TEST_F(TrackStateTests, GetNextFragmentUri_WithReloadUri_new12)
 {
-
     bool reloadUri = true;
     bool ignoreDiscontinuity = false;
     TrackStateobj->playTarget = -1.1;
     TrackStateobj->playlistPosition = -1.0;
-    char fragmentURIData[] = {'a','b','c','d','e',0x00};
-    TrackStateobj->fragmentURI = lstring(fragmentURIData,strlen(fragmentURIData));
     int height;
     BitsPerSecond bandwidth;
     char manifest[] = "#EXT-X-ENDLIST";
-
     mStreamAbstractionAAMP_HLS->mainManifest.AppendBytes(manifest, sizeof(manifest));
-    auto fragmentUri = TrackStateobj->GetNextFragmentUriFromPlaylist(reloadUri, ignoreDiscontinuity);
+    auto indexNode = TrackStateobj->GetNextFragmentUriFromPlaylist(reloadUri, ignoreDiscontinuity);
+	(void)indexNode;
     mStreamAbstractionAAMP_HLS->Is4KStream(height, bandwidth);
 }
 
@@ -1508,31 +1454,27 @@ TEST_F(TrackStateTests, GetNextFragmentUri_WithReloadUri_new13)
     bool ignoreDiscontinuity = false;
     TrackStateobj->playTarget = -1.1;
     TrackStateobj->playlistPosition = -1.0;
-    char fragmentURIData[] = {'a','b','c','d','e',0x00};
-    TrackStateobj->fragmentURI = lstring(fragmentURIData,strlen(fragmentURIData));
     int height;
     BitsPerSecond bandwidth;
     char manifest[] = "#EXT-X-DISCONTINUITY";
-
     mStreamAbstractionAAMP_HLS->mainManifest.AppendBytes(manifest, sizeof(manifest));
-    auto fragmentUri = TrackStateobj->GetNextFragmentUriFromPlaylist(reloadUri, ignoreDiscontinuity);
+    auto indexNode = TrackStateobj->GetNextFragmentUriFromPlaylist(reloadUri, ignoreDiscontinuity);
+	(void)indexNode;
     mStreamAbstractionAAMP_HLS->Is4KStream(height, bandwidth);
 }
 
 TEST_F(TrackStateTests, GetNextFragmentUri_WithReloadUri_new14)
 {
-    // Arrange: Set up the necessary conditions for the test
     bool reloadUri = true;
     bool ignoreDiscontinuity = false;
     TrackStateobj->playTarget = -1.1;
     TrackStateobj->playlistPosition = -1.0;
-    char fragmentURIData[] = {'a','b','c','d','e',0x00};
-    TrackStateobj->fragmentURI = lstring(fragmentURIData,strlen(fragmentURIData));
     int height;
     BitsPerSecond bandwidth;
     char manifest[] = "#EXT-X-I-FRAMES-ONLY";
     mStreamAbstractionAAMP_HLS->mainManifest.AppendBytes(manifest, sizeof(manifest));
-    auto fragmentUri = TrackStateobj->GetNextFragmentUriFromPlaylist(reloadUri, ignoreDiscontinuity);
+    auto indexNode = TrackStateobj->GetNextFragmentUriFromPlaylist(reloadUri, ignoreDiscontinuity);
+	(void)indexNode;
     mStreamAbstractionAAMP_HLS->Is4KStream(height, bandwidth);
 }
 
@@ -1554,7 +1496,6 @@ TEST_F(TrackStateTests, ABRProfileChangedTest2)
 
 TEST_F(TrackStateTests, DrmDecrypt_SuccessfulDecryption)
 {
-
     CachedFragment cachedFragment; // Create a CachedFragment with valid data
     ProfilerBucketType bucketType = ProfilerBucketType::PROFILE_BUCKET_PLAYLIST_VIDEO;
     DrmReturn result = TrackStateobj->DrmDecrypt(&cachedFragment, bucketType);
@@ -1589,30 +1530,22 @@ TEST_F(TrackStateTests, FindTimedMetadata_WithTags)
 
 TEST_F(TrackStateTests, FindTimedMetadata_ReportBulk)
 {
-    // Arrange: Set up the necessary conditions for the test
     bool reportBulkMeta = true; // Simulate the reportBulkMeta flag being set
     bool bInitCall = false;
-
-    // Act: Call the function to be tested
     TrackStateobj->FindTimedMetadata(reportBulkMeta, bInitCall);
 }
 
 TEST_F(TrackStateTests, FindTimedMetadata_InitCall)
 {
-    // Arrange: Set up the necessary conditions for the test
     bool reportBulkMeta = false;
     bool bInitCall = true; // Simulate the bInitCall flag being set
-    // Act: Call the function to be tested
     TrackStateobj->FindTimedMetadata(reportBulkMeta, bInitCall);
 }
 
 TEST_F(TrackStateTests, FindTimedMetadata_New)
 {
-    // Arrange: Set up the necessary conditions for the test
     bool reportBulkMeta = false;
     bool bInitCall = true; // Simulate the bInitCall flag being set
-    // Act: Call the function to be tested
-
     EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnableSubscribedTags)).WillOnce(Return(true));
     AampGrowableBuffer buffer("tsProcessor PAT/PMT test");
         //buffer.AppendBytes(10);
@@ -1632,46 +1565,31 @@ TEST_F(TrackStateTests, GetNextFragmentPeriodInfoTest)
 
 TEST_F(TrackStateTests, SetXStartTimeOffset)
 {
-    // Arrange: Set up the necessary conditions for the test
     // double offset = 123.45; // Choose a test offset value
     AampTime offset = -12; // Choose a test offset value
-    // Act: Call the function to be tested
     TrackStateobj->SetXStartTimeOffset(offset.inSeconds());
-
     ASSERT_EQ(TrackStateobj->GetXStartTimeOffset(), offset); // Check if the offset matches what was set
 }
 
 TEST_F(TrackStateTests, SetEffectivePlaylistUrl)
 {
-    // Arrange: Set up the necessary conditions for the test
     std::string url = "https://example.com/playlist.m3u8"; // Choose a test URL
-
-    // Act: Call the function to be tested
     TrackStateobj->SetEffectivePlaylistUrl(url);
-
     ASSERT_EQ(TrackStateobj->GetEffectivePlaylistUrl(), url); // Check if the URL matches what was set
 }
 
 TEST_F(TrackStateTests, GetLastPlaylistDownloadTime)
 {
-    // Arrange: Set up the necessary conditions for the test
     long long expectedTime = 123456789; // Choose a test time value
     TrackStateobj->SetLastPlaylistDownloadTime(expectedTime);
-
-    // Act: Call the function to be tested
     long long actualTime = TrackStateobj->GetLastPlaylistDownloadTime();
-
     ASSERT_EQ(actualTime, expectedTime); // Check if the actual time matches the expected time
 }
 
 TEST_F(TrackStateTests, SetLastPlaylistDownloadTime)
 {
-    // Arrange: Set up the necessary conditions for the test
     long long timeToSet = 987654321; // Choose a test time value
-
-    // Act: Call the function to be tested
     TrackStateobj->SetLastPlaylistDownloadTime(timeToSet);
-
     ASSERT_EQ(TrackStateobj->GetLastPlaylistDownloadTime(), timeToSet); // Check if the time was correctly set
 }
 
@@ -2656,24 +2574,18 @@ TEST_F(StreamAbstractionAAMP_HLSTest, CheckForRampDownProfileTest)
 
 TEST_F(TrackStateTests, GetNextFragmentUri_WithReloadUri_1)
 {
-    // Arrange: Set up the necessary conditions for the test
     bool reloadUri = false;
     bool ignoreDiscontinuity = false;
-    // Act: Call the function to be tested
-    auto fragmentUri = TrackStateobj->GetNextFragmentUriFromPlaylist(reloadUri, ignoreDiscontinuity);
-    // Assert: Make assertions to verify the function's behavior in this case
-    ASSERT_TRUE(fragmentUri.empty());
+    auto indexNode = TrackStateobj->GetNextFragmentUriFromPlaylist(reloadUri, ignoreDiscontinuity);
+	(void)indexNode;
 }
 
 TEST_F(TrackStateTests, GetNextFragmentUri_WithReloadUri_2)
 {
-    // Arrange: Set up the necessary conditions for the test
     bool reloadUri = true;
     bool ignoreDiscontinuity = true;
-    // Act: Call the function to be tested
-    auto fragmentUri = TrackStateobj->GetNextFragmentUriFromPlaylist(reloadUri, ignoreDiscontinuity);
-    // Assert: Make assertions to verify the function's behavior in this case
-    ASSERT_TRUE(fragmentUri.empty());
+    auto indexNode = TrackStateobj->GetNextFragmentUriFromPlaylist(reloadUri, ignoreDiscontinuity);
+	(void)indexNode;
 }
 
 TEST_F(TrackStateTests, WaitTimeBasedOnBufferAvailableTest) {
