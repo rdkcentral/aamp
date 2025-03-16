@@ -62,7 +62,11 @@ def set_configs():
     # Download specific content types - currently only text (subtitles) is supported
     specificContent = args.content_type
     if specificContent:
-        library.config.harvestSpecificContent = {content: True for content in specificContent}
+
+        # Set the global configuration of content download to False, if not in --content_type
+        for content, value in library.config.harvestContent.items():
+            if content not in specificContent:
+                library.config.harvestContent[content] = False
 
 NUM_DOWNLOADERS = 6
 

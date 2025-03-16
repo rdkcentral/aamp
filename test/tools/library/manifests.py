@@ -506,10 +506,6 @@ class SegmentList:
         segment_filename  Local path to file
         """
 
-        if library.config.harvestSpecificContent["text"]:
-            if (not ("ttml" in segment_filename and segment_filename.endswith("mp4"))) and not segment_filename.endswith("vtt") and not "subtitles" in segment_filename:
-                return
-
         if segment_url in self.segments_already_added:
             log.debug(f"Potential duplicate {segment_duration} {segment_url}")
             if segment_duration > 0:

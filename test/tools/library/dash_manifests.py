@@ -35,6 +35,7 @@ import xml.etree.ElementTree as ET
 from library.manifests import delHTTPhost, set_highest_or_lowest, Manifest, SegmentList
 from library.attriblist import AttribList
 from library.filesys_utils import url_to_filename
+import library.config as config
 
 class DASHManifest(Manifest):
     """
@@ -384,10 +385,19 @@ class DASHManifest(Manifest):
         if seg_list is None:
             seg_list = SegmentList()
 
+        contentsToHarvest = []
+        for content, value in config.harvestContent.items():
+            if value == True:
+
+                contentsToHarvest.append(content)
+                
         # Process each of the AdaptationSets
         for period, adpset in self.adpsets:
 
             if self.do_skip_period(period):
+               continue
+
+            if not self.resolve_mime(adpset) in contentsToHarvest:
                 continue
 
             prefix = self.urls[period].text if period in self.urls else ""
