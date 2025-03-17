@@ -43,5 +43,5 @@ Status LocationLock::Lock()
 LocationLock::~LocationLock()
 {
 	// This will also release the file lock
-	FS::close(mLocationFd);
+	(void)FS::close(mLocationFd);
 }

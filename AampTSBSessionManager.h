@@ -255,7 +255,6 @@ private:
 	}
 
 	/**
-	 * @brief Remove fragment from list and delete init fragment from TSB store if no longer referenced
 	 * @brief Generate unique URL for TSB store
 	 * @param[in] url - url of segment
 	 * @param[in] absPosition - abs position of segment
@@ -269,6 +268,13 @@ private:
 	 * @return shared ptr to fragment removed is any
 	 */
 	TsbFragmentDataPtr RemoveFragmentDeleteInit(AampMediaType mediatype);
+
+	/**
+	 * @brief Check if a track for the given media type is stored in TSB
+	 * @param[in] mediaType - track type
+	 * @return true if track is stored in TSB, false otherwise
+	 */
+	bool IsTrackStoredInTsb(AampMediaType mediatype);
 
 	bool mInitialized_;
 	std::atomic_bool mStopThread_;			// This variable is atomic because it can be accessed from multiple threads

@@ -33,10 +33,10 @@
  * @return None
  */
 AampTsbReader::AampTsbReader(PrivateInstanceAAMP *aamp, std::shared_ptr<AampTsbDataManager> dataMgr, AampMediaType mediaType, std::string sessionId)
-	: mAamp(aamp), mDataMgr(dataMgr), mMediaType(mediaType), mInitialized_(false), mStartPosition(0.0),
-	  mUpcomingFragmentPosition(0.0), mCurrentRate(AAMP_NORMAL_PLAY_RATE), mTsbSessionId(sessionId), mEosReached(false), mTrackEnabled(false),
+	: mAamp(aamp), mDataMgr(std::move(dataMgr)), mMediaType(mediaType), mInitialized_(false), mStartPosition(0.0),
+	  mUpcomingFragmentPosition(0.0), mCurrentRate(AAMP_NORMAL_PLAY_RATE), mTsbSessionId(std::move(sessionId)), mEosReached(false), mTrackEnabled(false),
 	  mFirstPTS(0.0), mCurrentBandwidth(0.0), mNewInitWaiting(false), mActiveTuneType(eTUNETYPE_NEW_NORMAL),
-	  mEosCVWait(), mEosMutex(), mIsEndFragmentInjected(false), mLastInitFragmentData(nullptr)
+	  mEosCVWait(), mEosMutex(), mIsEndFragmentInjected(false), mLastInitFragmentData(nullptr), mIsNextFragmentDisc(false), mIsPeriodBoundary(false)
 {
 }
 
@@ -225,7 +225,14 @@ std::shared_ptr<TsbFragmentData> AampTsbReader::ReadNext()
 	// For forward iteration, examine the discontinuity marker in the next fragment.
 	// For reverse iteration, inspect the discontinuity marker in the current fragment,
 	//		indicating that the upcoming iteration will transition to a different period.
-	mIsNextFragmentDisc = (mCurrentRate >= 0) ? (ret ? ret->IsDiscontinuous() : false) : (ret->next ? ret->next->IsDiscontinuous() : false);
+	if (mCurrentRate >= 0)
+	{
+		mIsNextFragmentDisc = ret->IsDiscontinuous();
+	}
+	else
+	{
+		mIsNextFragmentDisc = (ret->next && ret->next->IsDiscontinuous());
+	}
 
 	if (!IsFirstDownload())
 	{

@@ -68,18 +68,18 @@ class AampTime
 
 		/// @brief Get the stored time
 		/// @return Time in seconds (double)
-		inline const double inSeconds() const {return (baseTime / double(baseTimescale));}
+		inline double inSeconds() const { return (baseTime / double(baseTimescale)); }
 
 		/// @brief Get the stored time in seconds
 		/// @return Time in seconds (integer)
-		inline const int64_t seconds() const { return (baseTime / baseTimescale); }
+		inline int64_t seconds() const { return (baseTime / baseTimescale); }
 
 		/// @brief Get the stored time in milliseconds
 		/// @return Time in milliseconds (integer)
-		inline const int64_t milliseconds() const { return (baseTime / (baseTimescale / milli)); }
+		inline int64_t milliseconds() const { return (baseTime / (baseTimescale / milli)); }
 
 		// Equivalent to round() but in integer domain
-		inline const int64_t nearestSecond() const
+		inline int64_t nearestSecond() const
 		{
 			int64_t retval = this->seconds();
 
@@ -96,7 +96,7 @@ class AampTime
 
 		// Overloads for comparison operators to check AampTime : AampTime and AampTime : double
 		// Converting (and truncating) the double to the timescale should avoid the issues around epsilon for floating point
-		inline const bool operator==(const AampTime &rhs) const
+		inline bool operator==(const AampTime &rhs) const
 		{
 			if (this == &rhs)
 				return true;
@@ -104,7 +104,7 @@ class AampTime
 				return (baseTime == rhs.baseTime);
 		}
 
-		inline const bool operator==(double &rhs) const { return (baseTime == int64_t(rhs * baseTimescale)); }
+		inline bool operator==(const double &rhs) const { return (baseTime == int64_t(rhs * baseTimescale)); }
 
 		inline AampTime& operator=(const AampTime &rhs)
 		{
@@ -128,29 +128,29 @@ class AampTime
 			return temp;
 		}
 
-		inline const bool operator!=(const AampTime &rhs) const { return !(*this == rhs); }
-		inline const bool operator!=(double &rhs) const { return !(*this == rhs); }
+		inline bool operator!=(const AampTime &rhs) const { return !(*this == rhs); }
+		inline bool operator!=(double &rhs) const { return !(*this == rhs); }
 
-		inline const bool operator>(const AampTime &rhs) const { return (baseTime > rhs.baseTime); }
-		inline const bool operator>(const double &rhs) const { return (baseTime > int64_t(rhs * baseTimescale)); }
+		inline bool operator>(const AampTime &rhs) const { return (baseTime > rhs.baseTime); }
+		inline bool operator>(const double &rhs) const { return (baseTime > int64_t(rhs * baseTimescale)); }
 
-		inline const bool operator<(const AampTime &rhs) const { return ((*this != rhs) && (!(*this > rhs))); }
-		inline const bool operator<(const double &rhs) const { return ((*this != rhs) && (!(*this > rhs))); }
+		inline bool operator<(const AampTime &rhs) const { return ((*this != rhs) && (!(*this > rhs))); }
+		inline bool operator<(const double &rhs) const { return ((*this != rhs) && (!(*this > rhs))); }
 
-		inline const bool operator>=(const AampTime &rhs) const { return ((*this > rhs) || (*this == rhs)); }
-		inline const bool operator>=(double rhs) const { return ((*this > rhs) || (*this == rhs)); }
+		inline bool operator>=(const AampTime &rhs) const { return ((*this > rhs) || (*this == rhs)); }
+		inline bool operator>=(double rhs) const { return ((*this > rhs) || (*this == rhs)); }
 
-		inline const bool operator<=(const AampTime &rhs) const { return ((*this < rhs) || (*this == rhs)); }
-		inline const bool operator<=(double rhs) const { return ((*this < rhs) || (*this == rhs)); }
+		inline bool operator<=(const AampTime &rhs) const { return ((*this < rhs) || (*this == rhs)); }
+		inline bool operator<=(double rhs) const { return ((*this < rhs) || (*this == rhs)); }
 
-		inline const AampTime operator+(const AampTime &t) const
+		inline AampTime operator+(const AampTime &t) const
 		{
 			AampTime temp(*this);
 
 			temp.baseTime = baseTime + t.baseTime;
 			return temp;
 		}
-		inline const AampTime operator+(const double &t) const
+		inline AampTime operator+(const double &t) const
 		{
 			AampTime temp(*this);
 
@@ -169,7 +169,7 @@ class AampTime
 			return *this;
 		}
 
-		inline const AampTime operator-(const AampTime &t) const
+		inline AampTime operator-(const AampTime &t) const
 		{
 			AampTime temp(*this);
 
@@ -177,7 +177,7 @@ class AampTime
 			return std::move(temp);
 		}
 
-		inline const AampTime operator-(const double &t) const
+		inline AampTime operator-(const double &t) const
 		{
 			AampTime temp(*this);
 			temp.baseTime = baseTime - int64_t(t * baseTimescale);
@@ -195,7 +195,7 @@ class AampTime
 			return *this;
 		}
 
-		inline const AampTime operator/(const double &t) const
+		inline AampTime operator/(const double &t) const
 		{
 			AampTime temp(*this);
 
@@ -203,7 +203,7 @@ class AampTime
 			return std::move(temp);
 		}
 
-		inline const AampTime operator*(const double &t) const
+		inline AampTime operator*(const double &t) const
 		{
 			AampTime temp(*this);
 
@@ -216,28 +216,28 @@ class AampTime
 };
 
 //  For those who like if (0.0 == b)
-inline const bool operator==(const double& lhs, const AampTime& rhs) { return (rhs.operator==(lhs)); };
-inline const bool operator!=(const double& lhs, const AampTime& rhs) { return !(rhs == lhs); };
+inline bool operator==(const double& lhs, const AampTime& rhs) { return (rhs.operator==(lhs)); };
+inline bool operator!=(const double& lhs, const AampTime& rhs) { return !(rhs == lhs); };
 
-inline const AampTime operator+(const double &lhs, const AampTime &rhs) { return rhs + lhs; };
-inline const AampTime operator-(const double &lhs, const AampTime &rhs) { return -rhs + lhs; };
+inline AampTime operator+(const double &lhs, const AampTime &rhs) { return rhs + lhs; };
+inline AampTime operator-(const double &lhs, const AampTime &rhs) { return -rhs + lhs; };
 
-inline const AampTime operator*(const int64_t &lhs, const AampTime &rhs) { return rhs * lhs; };
+inline AampTime operator*(const int64_t &lhs, const AampTime &rhs) { return rhs * lhs; };
 
 // Adding double & AampTime and expecting a double will need to use AampTime::inSeconds() instead
 // Where a double is to be passed by reference, if the prototype cannot be rewritten or overloaded then
 // a temporary double will be needed
 
-inline const double operator+=(double &lhs, const AampTime &rhs)
+inline double operator+=(double &lhs, const AampTime &rhs)
 {
 	lhs = lhs + rhs.inSeconds();
 	return lhs;
 }
 
-inline const bool operator>(const double &lhs, const AampTime &rhs) { return (rhs.operator<(lhs)); };
-inline const bool operator<(const double &lhs, const AampTime &rhs) { return (rhs.operator>(lhs)); };
-inline const bool operator<=(const double &lhs, const AampTime &rhs) { return (rhs >= lhs); };
-inline const bool operator>=(const double &lhs, const AampTime &rhs) { return (rhs <= lhs); };
+inline bool operator>(const double &lhs, const AampTime &rhs) { return (rhs.operator<(lhs)); };
+inline bool operator<(const double &lhs, const AampTime &rhs) { return (rhs.operator>(lhs)); };
+inline bool operator<=(const double &lhs, const AampTime &rhs) { return (rhs >= lhs); };
+inline bool operator>=(const double &lhs, const AampTime &rhs) { return (rhs <= lhs); };
 
 // Is stream operator used?
 inline std::ostream &operator<<(std::ostream &out, const AampTime& t)

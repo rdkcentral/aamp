@@ -30,6 +30,7 @@
 #include "MockTSBStore.h"
 #include "MockTSBDataManager.h"
 #include "MockMediaStreamContext.h"
+#include "MockAampUtils.h"
 #include <memory>
 
 using ::testing::_;
@@ -39,8 +40,12 @@ using ::testing::NiceMock;
 AampConfig *gpGlobalConfig{nullptr};
 
 // Test fixture.  Set up mocks here.
-class PushNextTsbFragmentTest : public ::testing::Test {
+class AampTsbSessionManagerTests : public ::testing::Test {
 protected:
+	static constexpr const char *TEST_BASE_URL = "http://server/";
+	static constexpr const char *TEST_DATA = "This is a dummy data";
+	std::string TEST_PERIOD_ID = "1";
+
 	void SetUp() override
 	{
 		AampLogManager::setLogLevel(eLOGLEVEL_TRACE);   // Enable all levels of AAMP logging
@@ -57,6 +62,7 @@ protected:
 		g_mockTSBDataManager = new NiceMock<MockTSBDataManager>();
 		g_mockTSBStore = new NiceMock<MockTSBStore>();
 		g_mockMediaStreamContext = new NiceMock<MockMediaStreamContext>();
+		g_mockAampUtils = new NiceMock<MockAampUtils>();
 
 		// Create a TSBDataManager object with the mock data
 		mTsbDataManager = std::make_shared<AampTsbDataManager>();
@@ -79,6 +85,8 @@ protected:
 	void TearDown() override
 	{
 		// reset all the shared pointers in Setup() in the reverse order they were created
+		delete g_mockAampUtils;
+		g_mockAampUtils = nullptr;
 		g_mockTSBReader.reset();
 		delete (g_mockTSBDataManager);
 		g_mockTSBDataManager = nullptr;
@@ -111,7 +119,7 @@ protected:
 };
 
 // Test calling PushNextTsbFragment() for a track that is disabled
-TEST_F(PushNextTsbFragmentTest, TrackDisabled)
+TEST_F(AampTsbSessionManagerTests, TrackDisabled)
 {
 	mAampTSBSessionManager->GetTsbReader(eMEDIATYPE_VIDEO)->mTrackEnabled = false;
 
@@ -119,7 +127,7 @@ TEST_F(PushNextTsbFragmentTest, TrackDisabled)
 }
 
 // Test the behaviour when reading the next fragment returns nullptr
-TEST_F(PushNextTsbFragmentTest, ReadNextNull)
+TEST_F(AampTsbSessionManagerTests, ReadNextNull)
 {
 	mAampTSBSessionManager->GetTsbReader(eMEDIATYPE_VIDEO)->mTrackEnabled = true;
 	EXPECT_CALL(*g_mockTSBReader, ReadNext()).WillOnce(Return(nullptr));
@@ -128,7 +136,7 @@ TEST_F(PushNextTsbFragmentTest, ReadNextNull)
 }
 
 // Test the behaviour when reading the init fragment fails
-TEST_F(PushNextTsbFragmentTest, ReadInitFragmentFailure)
+TEST_F(AampTsbSessionManagerTests, ReadInitFragmentFailure)
 {
 	// Create a dummy TsbInitData object (needed for the constructor)
 	std::shared_ptr<TsbInitData> mockInitData = std::make_shared<TsbInitData>(
@@ -163,7 +171,7 @@ TEST_F(PushNextTsbFragmentTest, ReadInitFragmentFailure)
 }
 
 // Test that the init fragment is not injected if it has not changed
-TEST_F(PushNextTsbFragmentTest, SameInitFragment)
+TEST_F(AampTsbSessionManagerTests, SameInitFragment)
 {
 	std::string dummyUrl = "dummyUrl";
 	AampMediaType dummyMediaType = eMEDIATYPE_VIDEO;
@@ -199,7 +207,7 @@ TEST_F(PushNextTsbFragmentTest, SameInitFragment)
 }
 
 // Test that the init fragment is injected if it has changed
-TEST_F(PushNextTsbFragmentTest, FirstDownload_Success)
+TEST_F(AampTsbSessionManagerTests, FirstDownload_Success)
 {
 	std::string dummyUrl = "dummyUrl";
 	AampMediaType dummyMediaType = eMEDIATYPE_VIDEO;
@@ -234,7 +242,7 @@ TEST_F(PushNextTsbFragmentTest, FirstDownload_Success)
 
 // Test that when skip fragments is called, the next fragment is read
 // and the init fragment for the 2nd test fragment is injected
-TEST_F(PushNextTsbFragmentTest, SkipFragments)
+TEST_F(AampTsbSessionManagerTests, SkipFragments)
 {
 	std::string dummyUrl = "dummyUrl";
 	AampMediaType dummyMediaType = eMEDIATYPE_VIDEO;
@@ -282,4 +290,37 @@ TEST_F(PushNextTsbFragmentTest, SkipFragments)
 
 	// Call PushNextTsbFragment, expect the init fragment to be read and injected
 	EXPECT_TRUE(mAampTSBSessionManager->PushNextTsbFragment(mMediaStreamContext.get()));
+}
+
+// Test that EnqueueWrite does not call RecalculatePTS when TSBWrite is called with the wrong media type
+TEST_F(AampTsbSessionManagerTests, TSBWriteTests_WrongMediaType)
+{
+	std::shared_ptr<CachedFragment> cachedFragment = std::make_shared<CachedFragment>();
+	double FRAG_DURATION = 3.0;
+
+	cachedFragment->initFragment = true;
+	cachedFragment->duration = 0;
+	cachedFragment->position = 0;
+	cachedFragment->fragment.AppendBytes(TEST_DATA, strlen(TEST_DATA));
+	// Valid media types are only VIDEO, AUDIO, SUBTITLE, AUX_AUDIO and INIT fragments
+	cachedFragment->type = eMEDIATYPE_DEFAULT;
+
+	EXPECT_CALL(*g_mockAampUtils, RecalculatePTS(_,_,_,_)).Times(0);
+	mAampTSBSessionManager->EnqueueWrite(TEST_BASE_URL, cachedFragment, TEST_PERIOD_ID);
+}
+
+// Test EnqueueWrite behaviour for a video init fragment
+TEST_F(AampTsbSessionManagerTests, TSBWriteTests_InitFragmentSuccess)
+{
+	std::shared_ptr<CachedFragment> cachedFragment = std::make_shared<CachedFragment>();
+	double FRAG_DURATION = 3.0;
+
+	cachedFragment->initFragment = true;
+	cachedFragment->duration = 0;
+	cachedFragment->position = 0;
+	cachedFragment->fragment.AppendBytes(TEST_DATA, strlen(TEST_DATA));
+	cachedFragment->type = eMEDIATYPE_INIT_VIDEO;
+
+	EXPECT_CALL(*g_mockAampUtils, RecalculatePTS(eMEDIATYPE_INIT_VIDEO, _, _, _)).Times(1).WillOnce(Return(0.0));
+	mAampTSBSessionManager->EnqueueWrite(TEST_BASE_URL, cachedFragment, TEST_PERIOD_ID);
 }
