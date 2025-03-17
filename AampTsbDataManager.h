@@ -31,6 +31,7 @@
 #include <map>
 #include <exception>
 #include <mutex>
+#include <utility>
 #include "priv_aamp.h"
 #include "StreamAbstractionAAMP.h"
 #include "ABRManager.h" // For BitsPerSecond
@@ -57,7 +58,7 @@ protected:
 	AampMediaType mediaType; /**< Type of the fragment*/
 	std::string periodId; /**< period Id of the fragment*/
 
-	TsbSegment(std::string link, AampMediaType media, std::string prId) : url(link), mediaType(media), periodId(prId){}
+	TsbSegment(std::string link, AampMediaType media, std::string prId) : url(std::move(link)), mediaType(media), periodId(std::move(prId)){}
 
 public:
 	/**
@@ -111,7 +112,8 @@ public:
 	 *   @param[in] profileIdx - ABR profile index
 	 *   @return void
 	 */
-	TsbInitData(std::string url, AampMediaType media, const StreamInfo &streamInfo, std::string prId, int profileIdx) : TsbSegment(url, media, prId), fragStreamInfo(streamInfo), users(0), profileIndex(profileIdx)
+	TsbInitData(std::string url, AampMediaType media, const StreamInfo &streamInfo, std::string prId, int profileIdx)
+		: TsbSegment(std::move(url), media, std::move(prId)), fragStreamInfo(streamInfo), users(0), profileIndex(profileIdx)
 	{
 	}
 
@@ -185,7 +187,7 @@ public:
 	 */
 	TsbFragmentData(std::string url, AampMediaType media, double absolutePositionS, double duration, double pts, bool disc,
 		std::string prId, std::shared_ptr<TsbInitData> initData, uint32_t timeScale, double PTSOffsetSec)
-		: TsbSegment(url, media, prId), absolutePositionS(absolutePositionS), duration(duration), mPTS(pts), isDiscontinuous(disc), initFragData(initData),
+		: TsbSegment(std::move(url), media, std::move(prId)), absolutePositionS(absolutePositionS), duration(duration), mPTS(pts), isDiscontinuous(disc), initFragData(std::move(initData)),
 		timeScale(timeScale), PTSOffsetSec(PTSOffsetSec)
 	{
 	}

@@ -29,6 +29,7 @@
 #include "isobmffhelper.h"
 #include <iostream>
 #include <cmath>
+#include <utility>
 
 #define INIT_CHECK_RETURN_VAL(val) \
 	if(!mInitialized_){ \
@@ -55,6 +56,7 @@ AampTSBSessionManager::AampTSBSessionManager(PrivateInstanceAAMP *aamp)
 		, mTsbMaxDiskStorage(0)
 		, mTsbMinFreePercentage(0)
 		, mIsoBmffHelper(std::make_shared<IsoBmffHelper>())
+		, mTsbLength(0)
 {
 }
 
@@ -83,7 +85,7 @@ void AampTSBSessionManager::Init()
 		config.location = mTsbLocation;
 		config.minFreePercentage = mTsbMinFreePercentage;
 		config.maxCapacity =  mTsbMaxDiskStorage;
-		TSB::LogLevel level = static_cast<TSB::LogLevel>(ConvertTsbLogLevel( mAamp->mConfig->GetConfigValue(eAAMPConfig_TsbLogLevel)));
+		TSB::LogLevel level = static_cast<TSB::LogLevel>(ConvertTsbLogLevel(mAamp->mConfig->GetConfigValue(eAAMPConfig_TsbLogLevel)));
 		AAMPLOG_INFO("[TSB Store] Initiating with config values { logLevel:%d maxCapacity : %d minFreePercentage : %d location : %s }",  static_cast<int>(level), config.maxCapacity, config.minFreePercentage, config.location.c_str());
 
 		// All Configuration to TSBHandler to be set before calling Init
@@ -197,7 +199,7 @@ std::shared_ptr<CachedFragment> AampTSBSessionManager::Read(TsbFragmentDataPtr f
 {
 	INIT_CHECK_RETURN_VAL(nullptr);
 
-	std::string url = fragment->GetUrl();
+	std::string url {fragment->GetUrl()};
 	std::string uniqueUrl = ToUniqueUrl(url,fragment->GetAbsPosition());
 	TSB::Status status = TSB::Status::FAILED; // Initialize status as FAILED
 	CachedFragmentPtr cachedFragment = std::make_shared<CachedFragment>();
@@ -215,7 +217,7 @@ std::shared_ptr<CachedFragment> AampTSBSessionManager::Read(TsbFragmentDataPtr f
 		cachedFragment->type = fragment->GetInitFragData()->GetMediaType();
 		cachedFragment->PTSOffsetSec = fragment->GetPTSOffsetSec();
 		cachedFragment->timeScale = fragment->GetTimeScale();
-		cachedFragment->uri = url;
+		cachedFragment->uri = std::move(url);
 		pts = fragment->GetPTS();
 		AAMPLOG_INFO("[%s] Read fragment from AAMP TSB: position (restamped PTS) %fs absPosition %fs pts %fs duration %fs discontinuity %d ptsOffset %fs timeScale %u url %s",
 			GetMediaTypeName(cachedFragment->type), cachedFragment->position, cachedFragment->absPosition, pts, cachedFragment->duration,
@@ -266,32 +268,45 @@ void AampTSBSessionManager::EnqueueWrite(std::string url, std::shared_ptr<Cached
 {
 	INIT_CHECK_RETURN_VOID();
 
-	{	// Protect this section with the write queue mutex
-		std::lock_guard<std::mutex> guard(mWriteQueueMutex);
+	// Protect this section with the write queue mutex
+	std::unique_lock<std::mutex> guard(mWriteQueueMutex);
 
-		AampMediaType mediaType = ConvertMediaType(cachedFragment->type);
+	AampMediaType mediaType = ConvertMediaType(cachedFragment->type);
+	if (!IsTrackStoredInTsb(mediaType))
+	{
+		AAMPLOG_WARN("Track not stored in TSB for media type: %d", mediaType);
+	}
+	else
+	{
 		// Read the PTS from the ISOBMFF boxes (baseMediaDecodeTime / timescale) before applying the PTS offset.
 		// The PTS value will be restamped by the injector thread.
 		// This function is called in the context of the fetcher thread before the fragment is added to the list to be injected, to avoid
 		// any race conditions; so it cannot be moved to ProcessWriteQueue() or any other functions called from a different context.
 		double pts = RecalculatePTS(static_cast<AampMediaType>(cachedFragment->type), cachedFragment->fragment.GetPtr(), cachedFragment->fragment.GetLen(), mAamp);
+
 		// Get or create the datamanager for the mediatype
 		std::shared_ptr<AampTsbDataManager> dataManager = GetTsbDataManager(mediaType);
-
 		if (!dataManager)
 		{
 			AAMPLOG_WARN("Failed to get data manager for media type: %d", mediaType);
-			return;
 		}
-
-		// TBD : Is there any possibility for TSBData add fragment failure ????
-		TSBWriteData writeData = {url, cachedFragment, pts, periodId};
-		AAMPLOG_TRACE("Enqueueing Write Data discontinuity %d for URL: %s",cachedFragment->discontinuity, url.c_str());
-		// TODO :Need to add the same data on Addfragment and AddInitfragment of AampTsbDataManager
-		mWriteQueue.push(writeData);
+		else
+		{
+			// TBD : Is there any possibility for TSBData add fragment failure ????
+			TSBWriteData writeData = {url, cachedFragment, pts, std::move(periodId)};
+			AAMPLOG_TRACE("Enqueueing Write Data discontinuity %d for URL: %s",cachedFragment->discontinuity, url.c_str());
+			// TODO :Need to add the same data on Addfragment and AddInitfragment of AampTsbDataManager
+			mWriteQueue.push(writeData);
+			// Notify the monitoring thread that there is data in the queue
+			guard.unlock();
+			mWriteThreadCV.notify_one();
+		}
 	}
+}
 
-	mWriteThreadCV.notify_one(); // Notify the monitoring thread that there is data in the queue
+bool AampTSBSessionManager::IsTrackStoredInTsb(AampMediaType mediatype)
+{
+	return mDataManagers.find(mediatype) != mDataManagers.end();
 }
 
 std::string AampTSBSessionManager::ToUniqueUrl(std::string url, double absPosition)
@@ -748,6 +763,10 @@ void AampTSBSessionManager::SkipFragment(std::shared_ptr<AampTsbReader>& reader,
 				delta = 0.0;
 				mAamp->playerStartedWithTrickPlay = false;
 			}
+			else if (vodTrickplayFPS == 0)
+			{
+				AAMPLOG_WARN("vodTrickplayFPS is zero, delta set to zero");
+			}
 			else
 			{
 				delta = (double)std::abs((double)rate/(double)vodTrickplayFPS);
@@ -814,7 +833,7 @@ bool AampTSBSessionManager::PushNextTsbFragment(MediaStreamContext *pMediaStream
 				AAMPLOG_TRACE("[%s] Previous init fragment data is different from current init fragment data, injecting", GetMediaTypeName(mediaType));
 				reader->mLastInitFragmentData = initFragmentData;
 
-				CachedFragmentPtr initFragment = Read(initFragmentData);
+				CachedFragmentPtr initFragment = Read(std::move(initFragmentData));
 				if (initFragment)
 				{
 					if(reader->IsDiscontinuous())
@@ -823,7 +842,7 @@ bool AampTSBSessionManager::PushNextTsbFragment(MediaStreamContext *pMediaStream
 					}
 					initFragment->position = nextFragmentData->GetPTS();/* For init fragment use next fragment PTS as position for injection,as the PTS value is required for overriding events in qtdemux*/
 
-					ret = pMediaStreamContext->CacheTsbFragment(initFragment);
+					ret = pMediaStreamContext->CacheTsbFragment(std::move(initFragment));
 				}
 				else
 				{
@@ -854,7 +873,7 @@ bool AampTSBSessionManager::PushNextTsbFragment(MediaStreamContext *pMediaStream
 					}
 				}
 				UnlockReadMutex();
-				ret = pMediaStreamContext->CacheTsbFragment(nextFragment);
+				ret = pMediaStreamContext->CacheTsbFragment(std::move(nextFragment));
 				LockReadMutex();
 			}
 			else

@@ -25,7 +25,6 @@
 #ifndef AAMP_TSBREADER_H
 #define AAMP_TSBREADER_H
 
-#include "AampTSBSessionManager.h"
 #include "AampTsbDataManager.h"
 #include "priv_aamp.h"
 #include "AampMediaType.h"

@@ -5413,7 +5413,7 @@ static void DumpFile(const char* fileName)
 			printf("%c", c);
 			c = getc(fp);
 		}
-		fclose(fp);
+		(void)fclose(fp);
 		printf("\n**********************Dump %s end *************************\n", fileName);
 	}
 	else

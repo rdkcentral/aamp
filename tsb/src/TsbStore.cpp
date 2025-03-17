@@ -130,37 +130,45 @@ Status StoreImpl::UrlToFileMapper(const std::string& url, FS::path& path) const
 		size_t separatorPos = url.find(separator);
 		size_t filePathPos = (separatorPos == std::string::npos) ? 0 : (separatorPos + separator.length());
 
-		FS::path p = url.substr(filePathPos);
-
-		std::string dirPath = p.parent_path();
-		std::string fileName = p.filename();
-
-		if (dirPath[0] == '/')
+		if (filePathPos > url.length())
 		{
-			TSB_LOG_WARN(mLogger, "Directory begins with invalid delimiter", "path", dirPath);
-		}
-		else if (dirPath.find("//") != std::string::npos)
-		{
-			TSB_LOG_WARN(mLogger, "Invalid delimiter in the dir path", "path", dirPath);
-		}
-		else if (dirPath.find("..") != std::string::npos)
-		{
-			TSB_LOG_WARN(mLogger, "Invalid storage access", "path", dirPath);
-		}
-		else if (url.find('\0') != std::string::npos)
-		{
-			TSB_LOG_WARN(mLogger, "Invalid UTF-8 character url", "url", url);
-		}
-		else if (fileName.empty())
-		{
-			TSB_LOG_WARN(mLogger, "No file is supplied in url", "url", url);
+			TSB_LOG_WARN(mLogger, "Invalid file path position", "filePathPos", filePathPos, "urlLength", url.length());
 		}
 		else
 		{
-			path = mLocation;
-			path /= std::to_string(mActiveDirNum.load());
-			path /= p;
-			returnStatus = Status::OK;
+			FS::path p = url.substr(filePathPos);
+
+			std::string dirPath = p.parent_path();
+			std::string fileName = p.filename();
+
+			if (dirPath[0] == '/')
+			{
+				TSB_LOG_WARN(mLogger, "Directory begins with invalid delimiter", "path", dirPath);
+			}
+			else if (dirPath.find("//") != std::string::npos)
+			{
+				TSB_LOG_WARN(mLogger, "Invalid delimiter in the dir path", "path", dirPath);
+			}
+			else if (dirPath.find("..") != std::string::npos)
+			{
+				TSB_LOG_WARN(mLogger, "Invalid storage access", "path", dirPath);
+			}
+			else if (url.find('\0') != std::string::npos)
+			{
+				TSB_LOG_WARN(mLogger, "Invalid UTF-8 character url", "url", url);
+			}
+			else if (fileName.empty())
+			{
+				TSB_LOG_WARN(mLogger, "No file is supplied in url", "url", url);
+			}
+			else
+			{
+				path = mLocation;
+				auto activeDirNum = mActiveDirNum.load();
+				path /= std::to_string(activeDirNum);
+				path /= p;
+				returnStatus = Status::OK;
+			}
 		}
 	}
 	return returnStatus;
