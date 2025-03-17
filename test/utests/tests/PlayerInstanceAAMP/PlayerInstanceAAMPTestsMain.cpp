@@ -1168,6 +1168,38 @@ TEST_F(PlayerInstanceAAMPTests, GetManifestTest) {
     std::string result = mPlayerInstance->GetManifest();
 }
 
+TEST_F(PlayerInstanceAAMPTests, GetManifestTest2) {
+    mPrivateInstanceAAMP->SetState(eSTATE_IDLE);
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_IDLE));
+    mPrivateInstanceAAMP->mMediaFormat = eMEDIAFORMAT_DASH;
+    std::string result = mPlayerInstance->GetManifest();
+    EXPECT_EQ(result,"");
+}
+
+TEST_F(PlayerInstanceAAMPTests, GetManifestTest3) {
+    mPrivateInstanceAAMP->SetState(eSTATE_ERROR);
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_ERROR));
+    mPrivateInstanceAAMP->mMediaFormat = eMEDIAFORMAT_DASH;
+    std::string result = mPlayerInstance->GetManifest();
+    EXPECT_EQ(result,"");
+}
+
+TEST_F(PlayerInstanceAAMPTests, GetManifestTest4) {
+    mPrivateInstanceAAMP->SetState(eSTATE_RELEASED);
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_RELEASED));
+    mPrivateInstanceAAMP->mMediaFormat = eMEDIAFORMAT_DASH;
+    std::string result = mPlayerInstance->GetManifest();
+    EXPECT_EQ(result,"");
+}
+
+TEST_F(PlayerInstanceAAMPTests, GetManifestTest5) {
+    mPrivateInstanceAAMP->SetState(eSTATE_STOPPED);
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_STOPPED));
+    mPrivateInstanceAAMP->mMediaFormat = eMEDIAFORMAT_DASH;
+    std::string result = mPlayerInstance->GetManifest();
+    EXPECT_EQ(result,"");
+}
+
 TEST_F(PlayerInstanceAAMPTests, SetInitialBitrateTest) {
     BitsPerSecond bitrate = 1500; 
     mPlayerInstance->SetInitialBitrate(bitrate);
