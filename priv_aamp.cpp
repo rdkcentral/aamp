@@ -663,11 +663,15 @@ size_t PrivateInstanceAAMP::HandleSSLWriteCallback ( char *ptr, size_t size, siz
 
 		if(mCtx)
 		{
-			bool ischunkMode = context->aamp->GetLLDashChunkMode();
-			if(context->aamp->GetLLDashServiceData()->lowLatencyMode && ischunkMode && !mCtx->IsLocalTSBInjection() && ptr && (numBytesForBlock > 0) &&
-					(context->mediaType == eMEDIATYPE_VIDEO ||
-					context->mediaType ==  eMEDIATYPE_AUDIO ||
-					context->mediaType ==  eMEDIATYPE_SUBTITLE))
+			bool ischunkMode = context->aamp->GetLLDashServiceData()->lowLatencyMode &&
+							   context->aamp->GetLLDashChunkMode() &&
+							   !mCtx->IsLocalTSBInjection() &&
+							   !(IsLocalAAMPTsb() && pipeline_paused);
+
+			if (ischunkMode && ptr && (numBytesForBlock > 0) &&
+				(context->mediaType == eMEDIATYPE_VIDEO ||
+				context->mediaType ==  eMEDIATYPE_AUDIO ||
+				context->mediaType ==  eMEDIATYPE_SUBTITLE))
 			{
 				// Release PrivateInstanceAAMP mutex to unblock async APIs
 				lock.unlock();

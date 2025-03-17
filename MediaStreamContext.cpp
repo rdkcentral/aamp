@@ -410,7 +410,7 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 		// If playing back from local TSB, or pending playing back from local TSB as paused
 		if (tsbSessionManager && (IsLocalTSBInjection() || aamp->pipeline_paused))
 		{
-			AAMPLOG_TRACE("Skip notifying fragment fetch");
+			AAMPLOG_TRACE("[%s] cachedFragment %p ptr %p not injecting", name, cachedFragment, cachedFragment->fragment.GetPtr());
 			// Free the memory
 			cachedFragment->fragment.Free();
 		}
@@ -461,14 +461,7 @@ bool MediaStreamContext::CacheFragmentChunk(AampMediaType actualType, char *ptr,
 		cachedFragment->PTSOffsetSec = GetContext()->mPTSOffset.inSeconds();
 
 		AAMPLOG_TRACE("[%s] cachedFragment %p ptr %p", name, cachedFragment, cachedFragment->fragment.GetPtr());
-		if (IsLocalTSBInjection())
-		{
-			cachedFragment->fragment.Free();
-		}
-		else
-		{
-			UpdateTSAfterChunkFetch();
-		}
+		UpdateTSAfterChunkFetch();
 	}
 	else
 	{
