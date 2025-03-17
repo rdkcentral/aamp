@@ -297,19 +297,26 @@ TESTDATA10 = {
 	"archive_url": archive_url,
 	"url": LLD_URL,
 	"cmdlist": ["contentType LINEAR_TV"],
-	"aamp_cfg": f"info=true\nprogress=true\nprogressReportingInterval={PROGRESS_REPORT_INTERVAL}\nlocalTSBEnabled=true\ntsbLocation=/tmp/data\ntsbLength=500\ntsbLog=0\nsupressDecode=true\n",
+	"aamp_cfg": f"info=true\ntrace=true\nprogress=true\nprogressReportingInterval={PROGRESS_REPORT_INTERVAL}\nlocalTSBEnabled=true\ntsbLocation=/tmp/data\ntsbLength=500\ntsbLog=0\nsupressDecode=true\n",
 	"expect_list":
 	[
 		{"expect" : r"\[TSB Store\] Initiating with config values"},
 
-		# Pause live
-		{"expect": r'AAMPGstPlayerPipeline \w+ -> PLAYING', "callback_once": send_command, "callback_arg": "pause"},
+ 		# Confirm caching chunks initially
+		{"expect": r'\[CacheFragmentChunk\]\[\d+\]', "max": 5},
+
+ 		# Confirm adding to TSB initially
+		{"expect": r'\[AddFragment\]\[\d+\]\[video\]', "max": 5},
+
+		# Wait for 5s then Pause 
+		{"expect": r'\[ReportProgress\]\[\d+\]aamp pos: \[\d+..(\d+)..\d+..-?\d+..\d+.\d+..-?\d+.\d+..\w*..\d+..\d+..1.00]', "min": 5, "max": 8, "callback_once": send_command, "callback_arg": "pause"},
 		{"expect": r'AAMPGstPlayerPipeline PLAYING -> PAUSED'},
 		{"expect": r'\[ReportProgress\]\[\d+\]aamp pos: \[\d+..(\d+)..\d+..-?\d+..\d+.\d+..-?\d+.\d+..\w*..\d+..\d+..1.00]', "callback": check_position, "callback_arg": "playing"},
 		{"expect": r'\[ReportProgress\]\[\d+\]aamp pos: \[\d+..(\d+)..\d+..-?\d+..\d+.\d+..-?\d+.\d+..\w*..\d+..\d+..0.00]', "callback": check_position, "callback_arg": "paused"},
- 		# Confirm adding to TSB initially
-		{"expect": r'\[AddFragment\]\[\d+\]\[video\]', "max": 5,},
-		# Confirm adding to TSB continues (checks specific issue where fetch loop got blocked due to injection stopping).
+
+		# Confirm chunks not cached after paused
+		# And check the fetcher loop continues to add fragments to the TSB
+		{"expect": r'\[CacheFragmentChunk\]\[\d+\]', "min": 9, "not_expected" : True},
 		{"expect": r'\[AddFragment\]\[\d+\]\[video\]', "min": 20, "end_of_test": True}
 	]
 }
@@ -406,14 +413,15 @@ TESTDATA13 = {
 	[
 		{"expect" : r"\[TSB Store\] Initiating with config values"},
 
-		# Wait until position reaches > 50s
+		# Initial pos 1795
+		# Wait until position reaches >= 1817 (approx 22s)
 		{"expect": r'\[ReportProgress\]\[\d+\]aamp pos: \[\d+..181[7-9]..\d+..-?\d+..\d+.\d+..-?\d+.\d+..\w*..\d+..\d+..1.00]', "callback_once": send_command, "callback_arg": "rew 2"},
 
 		# Start rewinding
 		{"expect": r"\[SetRateInternal\]\[\d+]PLAYER\[0\] rate=-2.000000."},
 		{"expect": r"AAMP_EVENT_SPEED_CHANGED current rate=-2.000000"},
 
- 		# Pause for 10s when pos is around 30s
+ 		# Pause for 10s when pos is around 1804
 		{"expect": r'\[ReportProgress\]\[\d+\]aamp pos: \[\d+..180[0-4]..\d+..-?\d+..-?\d+.\d+..-?\d+.\d+..\w*..\d+..\d+..-2.00]', "callback_once": send_command, "callback_arg": "pause"},
 
 		{"expect": r"AAMP_EVENT_SPEED_CHANGED current rate=0.000000", "min": 25, "max": 35},

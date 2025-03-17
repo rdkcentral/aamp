@@ -262,7 +262,7 @@ TESTDATA8 = {
 	"archive_url": archive_url,
 	"url": TEST_URL,
 	"cmdlist": ["contentType LINEAR_TV"],
-	"aamp_cfg": f"info=true\nprogress=true\nprogressReportingInterval={PROGRESS_REPORT_INTERVAL}\nlocalTSBEnabled=true\ntsbLocation=/tmp/data\ntsbLength=500\ntsbLog=0\nsupressDecode=true\n",
+	"aamp_cfg": f"info=true\ntrace=true\nprogress=true\nprogressReportingInterval={PROGRESS_REPORT_INTERVAL}\nlocalTSBEnabled=true\ntsbLocation=/tmp/data\ntsbLength=500\ntsbLog=0\nsupressDecode=true\n",
 	"expect_list":
 	[
 		{"expect" : r"\[TSB Store\] Initiating with config values", "max":1},
@@ -274,7 +274,10 @@ TESTDATA8 = {
 		{"expect": r'\[ReportProgress\]\[\d+\]aamp pos: \[\d+..(\d+)..\d+..-?\d+..\d+.\d+..-?\d+.\d+..\w*..\d+..\d+..0.00]', "callback": check_position, "callback_arg": "paused"},
  		# Confirm adding to TSB initially
 		{"expect": r'\[AddFragment\]\[\d+\]\[video\]', "max": 5,},
-		# Confirm adding to TSB continues (checks specific issue where fetch loop got blocked due to injection stopping).
+		# Confirm chunks not injected but adding to TSB continues 
+		# Specifically checking the fetch loop has not got blocked due to injection.
+		{"expect": r'\[CacheFragment\]\[\d+\]\[video\][\w\- ]+ not injecting'},
+		{"expect": r'\[CacheFragment\]\[\d+\]\[audio\][\w\- ]+ not injecting'},
 		{"expect": r'\[AddFragment\]\[\d+\]\[video\]', "min": 30, "end_of_test": True}
 	]
 }
@@ -372,7 +375,8 @@ TESTDATA11 = {
 	[
 		{"expect" : r"\[TSB Store\] Initiating with config values", "max":1},
 
-		# Wait until position reaches > 50s
+		# Initial position 29s
+		# Wait until position reaches >= 50 (approx 21s)
 		{"expect": r'\[ReportProgress\]\[\d+\]aamp pos: \[\d+..5\d..\d+..-?\d+..\d+.\d+..-?\d+.\d+..\w*..\d+..\d+..1.00]', "callback_once": send_command, "callback_arg": "rew 2"},
 
 		# Start rewinding

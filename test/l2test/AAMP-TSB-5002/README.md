@@ -18,7 +18,7 @@ source l2venv/bin/activate
 
 ## Run l2test using script:
 
-Expect around 80 seconds for test to complete./run_l2_aamp.py -t 5002
+Expect around 300 seconds for test to complete./run_l2_aamp.py -t 5002
 
 From the *test/l2test/ folder run:
 ```
