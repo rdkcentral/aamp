@@ -59,7 +59,7 @@ bool WebVTTSubtecParser::init(double startPosSeconds, unsigned long long basePTS
 	return true;
 }
 
-bool WebVTTSubtecParser::processData(char* buffer, size_t bufferLen, double position, double duration)
+bool WebVTTSubtecParser::processData(const char* buffer, size_t bufferLen, double position, double duration)
 {
 	std::string str(const_cast<const char*>(buffer), bufferLen);
 	std::vector<uint8_t> data(str.begin(), str.end());

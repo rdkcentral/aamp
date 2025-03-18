@@ -69,7 +69,7 @@ public:
 	SubtitleParser& operator=(const SubtitleParser&) = delete;
 
 	virtual bool init(double startPosSeconds, unsigned long long basePTS) { return false; }
-	virtual bool processData(char* buffer, size_t bufferLen, double position, double duration) = 0;
+	virtual bool processData(const char* buffer, size_t bufferLen, double position, double duration) = 0;
 	virtual bool close() = 0;
 	virtual void reset() = 0;
 	virtual void setProgressEventOffset(double offset) = 0;

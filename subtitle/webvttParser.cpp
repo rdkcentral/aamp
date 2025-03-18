@@ -92,51 +92,6 @@ static char * findWebVTTLineBreak(char *buffer)
 	return next;
 }
 
-
-/***************************************************************************
-* @fn convertHHMMSSToTime
-* @brief Function to convert time in HH:MM:SS.MS format to milliseconds
-* 
-* @param str[in] time in HH:MM:SS.MS format
-* @return long long equivalent time in milliseconds
-***************************************************************************/
-static long long convertHHMMSSToTime(char *str)
-{
-	long long timeValueMs = 0;
-	//HH:MM:SS.MS
-	char *args[4] = { str, NULL, NULL, NULL };
-	int argCount = 1;
-	while(*(++str) != '\0' && argCount < 4)
-	{
-		if(*str == ':' || *str == '.')
-		{
-			args[argCount++] = (str + 1);
-			*str = '\0';
-		}
-	}
-
-	if (argCount == 1)
-	{
-		AAMPLOG_ERR("Unsupported value received!");
-	}
-	//HH:MM:SS.MS
-	else
-	{
-		timeValueMs = atoll(args[--argCount]);
-		int multiplier = 1;
-		while (argCount > 0)
-		{
-			timeValueMs += (atoll(args[--argCount]) * multiplier * 1000);
-			if (argCount > 0)
-			{
-				multiplier *= 60;
-			}
-		}
-	}
-	return timeValueMs;
-}
-
-
 /***************************************************************************
  * @fn SendVttCueToExt
  * @brief Timer's callback to send WebVTT cues to external app
@@ -216,8 +171,9 @@ bool WebVTTParser::init(double startPosSeconds, unsigned long long basePTS)
 * @param duration[in] duration of buffer
 * @return bool true if successful, false otherwise
 ***************************************************************************/
-bool WebVTTParser::processData(char* buffer, size_t bufferLen, double position, double duration)
+bool WebVTTParser::processData(const char* cBuffer, size_t bufferLen, double position, double duration)
 {
+	char *buffer = (char *)cBuffer;
 	bool ret = false;
 
 	AAMPLOG_TRACE("WebVTTParser::Enter with position:%.3f and duration:%.3f ", position, duration);

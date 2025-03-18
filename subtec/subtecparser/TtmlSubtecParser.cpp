@@ -108,7 +108,7 @@ static std::int64_t parseFirstBegin(std::stringstream &ss)
 	return firstBegin;
 }
 
-bool TtmlSubtecParser::processData(char* buffer, size_t bufferLen, double position, double duration)
+bool TtmlSubtecParser::processData(const char* buffer, size_t bufferLen, double position, double duration)
 {
 #ifdef TTML_DEBUG
 	printf( "TtmlSubtecParser::processData(bufferLen=%zu,position=%f,duration=%f)\n", bufferLen, position, duration );
@@ -116,7 +116,7 @@ bool TtmlSubtecParser::processData(char* buffer, size_t bufferLen, double positi
 
 	IsoBmffBuffer isobuf;
 
-	isobuf.setBuffer(reinterpret_cast<uint8_t *>(buffer), bufferLen);
+	isobuf.setBuffer( (uint8_t *)buffer, bufferLen);
 	isobuf.parseBuffer();
 
 	if (!isobuf.isInitSegment())

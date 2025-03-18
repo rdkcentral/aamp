@@ -32,7 +32,7 @@ public:
 
 	
 	bool init(double startPosSeconds, unsigned long long basePTS) override;
-	bool processData(char* buffer, size_t bufferLen, double position, double duration) override;
+	bool processData(const char* buffer, size_t bufferLen, double position, double duration) override;
 	bool close() override { return true; }
 	void reset() override;
 	void setProgressEventOffset(double offset) override {}
