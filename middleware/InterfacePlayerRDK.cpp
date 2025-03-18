@@ -555,8 +555,10 @@ gboolean InterfacePlayerRDK::IdleCallbackOnEOS(gpointer user_data)
 
 void MonitorAV( InterfacePlayerRDK *pInterfacePlayerRDK )
 {
-	const int AVSYNC_THRESHOLD_MS = 100;
-	const int JUMP_THRESHOLD_MS = 100;
+	const int AVSYNC_THRESHOLD_MS = pInterfacePlayerRDK->m_gstConfigParam->monitorAvsyncThresholdMs;
+	const int JUMP_THRESHOLD_MS = pInterfacePlayerRDK->m_gstConfigParam->monitorJumpThresholdMs;
+
+
 	GstState state = GST_STATE_VOID_PENDING;
 	GstState pending = GST_STATE_VOID_PENDING;
 	GstClockTime timeout = 0;
