@@ -130,7 +130,10 @@
 #define MIN_DELAY_BETWEEN_PLAYLIST_UPDATE_MS (500) // 500mSec
 #define MIN_DELAY_BETWEEN_MANIFEST_UPDATE_FOR_502_MS (1000) // 1000mSec
 #define STEADYSTATE_RAMPDOWN_DELTA 2000000 //2000 kbps
-#define DEFAULT_TELEMETRY_REPORT_INTERVAL (300) /**< time interval for the telemetry reporting 300sec*/
+#define DEFAULT_TELEMETRY_REPORT_INTERVAL (300) 	/**< time interval for the telemetry reporting 300sec*/
+#define MIN_MONITOR_AV_DELTA_MS 1 	/**< minimum delta to trigger MonitorAV reportings*/
+#define MAX_MONITOR_AV_DELTA_MS 10000 	/**< maximum delta to trigger MonitorAV reportings*/
+#define DEFAULT_MONITOR_AV_DELTA_MS 100 	/**< default delta for MonitorAV reporting*/
 
 // We can enable the following once we have a thread monitoring video PTS progress and triggering subtec clock fast update when we detect video freeze. Disabled it for now for brute force fast refresh..
 //#define SUBTEC_VARIABLE_CLOCK_UPDATE_RATE   /* enable this to make the clock update rate dynamic*/

@@ -79,6 +79,7 @@ typedef enum
 	eCONFIG_RANGE_ABSOLUTE_REPORTING, // eABSOLUTE_PROGRESS_EPOCH..eABSOLUTE_PROGRESS_MAX
 	eCONFIG_RANGE_LLDBUFFER, // 1 to 100 LLD buffer
 	eCONFIG_RANGE_SHOW_DIAGNOSTICS_OVERLAY,//0 to 2
+	eCONFIG_RANGE_MONITOR_AVSYNC, //1ms to 10000ms
 	eCONFIG_RANGE_MAX_VALUE,
 } ConfigValidRange;
 #define CONFIG_RANGE_ENUM_COUNT (eCONFIG_RANGE_MAX_VALUE)
@@ -119,6 +120,7 @@ static const struct
 	{eABSOLUTE_PROGRESS_EPOCH, eABSOLUTE_PROGRESS_MAX, eCONFIG_RANGE_ABSOLUTE_REPORTING},
 	{ 1, 100, eCONFIG_RANGE_LLDBUFFER }, /** Minimum buffer should be a average chunk size(only int is possible), upper limit does not have much impact*/
 	{ eDIAG_OVERLAY_NONE, eDIAG_OVERLAY_EXTENDED, eCONFIG_RANGE_SHOW_DIAGNOSTICS_OVERLAY},
+	{ MIN_MONITOR_AV_DELTA_MS, MAX_MONITOR_AV_DELTA_MS, eCONFIG_RANGE_MONITOR_AVSYNC},
 };
 
 static ConfigPriority customOwner;
@@ -462,6 +464,8 @@ static const ConfigLookupEntryInt mConfigLookupTableInt[AAMPCONFIG_INT_COUNT+CON
 	{DEFAULT_AD_FULFILLMENT_TIMEOUT,"adFulfillmentTimeout",eAAMPConfig_AdFulfillmentTimeout,true},
 	{MAX_AD_FULFILLMENT_TIMEOUT,"adFulfillmentTimeoutMax",eAAMPConfig_AdFulfillmentTimeoutMax,true},
 	{eDIAG_OVERLAY_NONE,"showDiagnosticsOverlay",eAAMPConfig_ShowDiagnosticsOverlay,true, eCONFIG_RANGE_SHOW_DIAGNOSTICS_OVERLAY },
+	{DEFAULT_MONITOR_AV_DELTA_MS,"monitorAVSyncThreshold",eAAMPConfig_MonitorAVSyncThreshold ,false,eCONFIG_RANGE_MONITOR_AVSYNC },
+	{DEFAULT_MONITOR_AV_DELTA_MS,"monitorAVJumpThreshold",eAAMPConfig_MonitorAVJumpThreshold,false,eCONFIG_RANGE_MONITOR_AVSYNC },
 	// aliases, kept for backwards compatibility
 	{DEFAULT_INIT_BITRATE,"defaultBitrate",eAAMPConfig_DefaultBitrate,true },
 	{DEFAULT_INIT_BITRATE_4K,"defaultBitrate4K",eAAMPConfig_DefaultBitrate4K,true },
