@@ -23,7 +23,7 @@ WebVTTSubtecDevParser::WebVTTSubtecDevParser(PrivateInstanceAAMP *aamp, Subtitle
 {
 }
 
-bool WebVTTSubtecDevParser::processData(char *buffer, size_t bufferLen, double position, double duration)
+bool WebVTTSubtecDevParser::processData(const char *buffer, size_t bufferLen, double position, double duration)
 {	
 	return true;
 }

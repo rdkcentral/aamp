@@ -68,6 +68,14 @@ protected:
 const char* teststr = "abcdefghijklmnopqrstuvwxyz01234567890!\"£$%^&*()ABCDEFGHIJKLMNOPQRSTUVWXYZ|\\<>?,./:;@'~#{}[]-_";
 const char* b64_encoded_teststr = "YWJjZGVmZ2hpamtsbW5vcHFyc3R1dnd4eXowMTIzNDU2Nzg5MCEiwqMkJV4mKigpQUJDREVGR0hJSktMTU5PUFFSU1RVVldYWVp8XDw-PywuLzo7QCd-I3t9W10tXw";
 
+TEST(_AampUtils, convertHMMSS )
+{
+	long long t = convertHHMMSSToTime("9912:34:56.789");
+	EXPECT_EQ( t, 35685296789 );
+	std::string rc = convertTimeToHHMMSS( t );
+	EXPECT_STREQ( rc.c_str(), "9912:34:56.789" );
+}
+
 TEST(_AampUtils, aamp_GetCurrentTimeMS)
 {
 	long long result1 = aamp_GetCurrentTimeMS();

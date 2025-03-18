@@ -35,7 +35,7 @@ bool WebVTTSubtecParser::init(double startPosSeconds, unsigned long long basePTS
 	return true;
 }
 
-bool WebVTTSubtecParser::processData(char* buffer, size_t bufferLen, double position, double duration)
+bool WebVTTSubtecParser::processData(const char* buffer, size_t bufferLen, double position, double duration)
 {
 	return true;
 }

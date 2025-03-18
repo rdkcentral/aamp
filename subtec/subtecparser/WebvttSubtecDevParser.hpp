@@ -32,7 +32,7 @@ public:
 	WebVTTSubtecDevParser& operator=(const WebVTTSubtecDevParser&) = delete;
 	
 	bool init(double startPosSeconds, unsigned long long basePTS) override;
-	bool processData(char* buffer, size_t bufferLen, double position, double duration) override;
+	bool processData(const char* buffer, size_t bufferLen, double position, double duration) override;
 	void reset() override;
 	void sendCueData() override;
 	void setProgressEventOffset(double offset) override {}

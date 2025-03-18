@@ -377,4 +377,15 @@ std::string aamp_GetConfigPath( const std::string &filename );
  */
 bool parseAndValidateSCTE35(const std::string &scte35Data);
 
+
+/**
+ * @brief convert time in HH:SS:MM.ms format to milliseconds
+ */
+long long convertHHMMSSToTime(const char * str);
+
+/**
+ * @brief convert time in milliseconds to HH:SS:MM.ms format
+ */
+std::string convertTimeToHHMMSS( long long t );
+
 #endif  /* __AAMP_UTILS_H__ */

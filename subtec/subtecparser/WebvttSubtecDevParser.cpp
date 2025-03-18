@@ -113,7 +113,7 @@ WebVTTSubtecDevParser::WebVTTSubtecDevParser(PrivateInstanceAAMP *aamp, Subtitle
 	m_channel->SendMutePacket();
 }
 
-bool WebVTTSubtecDevParser::processData(char *buffer, size_t bufferLen, double position, double duration)
+bool WebVTTSubtecDevParser::processData(const char *buffer, size_t bufferLen, double position, double duration)
 {	
 	bool ret;
 	

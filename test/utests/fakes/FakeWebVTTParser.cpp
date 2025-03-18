@@ -32,7 +32,7 @@ bool WebVTTParser::init(double startPosSeconds, unsigned long long basePTS)
 	return true;
 }
 
-bool WebVTTParser::processData(char* buffer, size_t bufferLen, double position, double duration)
+bool WebVTTParser::processData(const char* buffer, size_t bufferLen, double position, double duration)
 {
 	return true;
 }

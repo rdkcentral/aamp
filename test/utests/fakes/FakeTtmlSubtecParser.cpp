@@ -40,7 +40,7 @@ void TtmlSubtecParser::reset()
 //	return 0;
 //}
 
-bool TtmlSubtecParser::processData(char* buffer, size_t bufferLen, double position, double duration)
+bool TtmlSubtecParser::processData(const char* buffer, size_t bufferLen, double position, double duration)
 {
 	return true;
 }
