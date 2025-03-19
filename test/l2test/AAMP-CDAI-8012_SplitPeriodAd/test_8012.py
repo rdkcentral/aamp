@@ -72,7 +72,7 @@ TESTDATA1 = {
         {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: Ad finished at Period. Waiting to catchup the base offset.\[idx=0\] \[period\=2\]"},
         # Ads started in 'period 2', overlapped in 'period 3', ends in 'period 3'
         {"expect": r"\[PlaceAds\]\[\d+\]\[CDAI\] Current Ad completely placed.end period:3 end period offset:10000 adjustEndPeriodOffset:1"},
-        {"expect": r"\[PlaceAds\]\[\d+\]\[CDAI\] Detected split period.*?CDAIPeriod\[adId2 - 20000\]", "max": 150},
+        {"expect": r"\[PlaceAds\]\[\d+\]\[CDAI\] Detected split period.*?adId2-20000", "max": 150},
         {"expect": r"\[PlaceAds\]\[\d+\]\[CDAI\] Placement Done: \{AdbreakId: 2, duration: 20000, endPeriodId: 4, endPeriodOffset: 0, \#Ads: 1"},
         #Expect not to download any fragments from 3rd period
         {"expect": r"\[GetFile\]\[\d+\]aamp url:0,0,0,2.000000,http://localhost:8080/content/dash/(1080|720|480|360)p_031.m4s\?live=true", "not_expected" : True},
@@ -123,7 +123,7 @@ TESTDATA2 = {
         {"expect": re.escape("Period ID changed from '0-114' to '1-114' [BasePeriodId='2']")},
         {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: Ad finished at Period. Waiting to catchup the base offset.\[idx=0\] \[period\=2\]"},
         # Ads started in 'period 2', overlapped in 'period 3', ends in 'period 3'
-        {"expect": r"\[PlaceAds\]\[\d+\]\[CDAI\] Detected split period.*?CDAIPeriod\[adId2 - 15000\]", "max": 150},
+        {"expect": r"\[PlaceAds\]\[\d+\]\[CDAI\] Detected split period.*?adId2-15000", "max": 150},
         {"expect": r"\[PlaceAds\]\[\d+\]\[CDAI\] Placement Done: \{AdbreakId: 2, duration: 15000, endPeriodId: 3, endPeriodOffset: 5000, \#Ads: 1"},
         {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: All Ads in the ADBREAK\[2\] FINISHED. Playing the basePeriod\[3\] at Offset\[5.000000\]."},
         {"expect": re.escape("Period ID changed from '1-114' to '3' [BasePeriodId='3']")},
@@ -166,7 +166,7 @@ TESTDATA3 = {
         {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: STARTING ADBREAK\[1\] AdIdx\[0\] Found at Period\[1\]"},
         {"expect": r"\[SendAnomalyEvent\]\[\d+\]Anomaly evt:2 msg:\[CDAI\] AdId\=adId1 starts. Duration\=30 sec URL\=http://localhost:8080/content/ad_30s.mpd"},
         {"expect": re.escape("Period ID changed from '0' to '0-111' [BasePeriodId='1']")},
-        {"expect": r"\[PlaceAds\]\[\d+\]\[CDAI\] Detected split period.*?CDAIPeriod\[adId1 - 30000\]", "min": 0, "max": 150},
+        {"expect": r"\[PlaceAds\]\[\d+\]\[CDAI\] Detected split period.*?adId1-30000", "min": 0, "max": 150},
         {"expect": r"\[PlaceAds\]\[\d+\]\[CDAI\] Placement Done: \{AdbreakId: 1, duration: 30000, endPeriodId: 4, endPeriodOffset: 0, \#Ads: 1,"},
         {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: All Ads in the ADBREAK\[1\] FINISHED. Playing the basePeriod\[4\] at Offset\[0.000000\]."},
         {"expect": re.escape("Period ID changed from '0-111' to '4' [BasePeriodId='4']")},
@@ -209,7 +209,7 @@ TESTDATA4 = {
         {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: Next AdIdx\[1\] Found at Period\[1\]."},
         {"expect": r"\[SendAnomalyEvent\]\[\d+\]Anomaly evt:2 msg:\[CDAI\] AdId\=adId2 starts. Duration\=10 sec URL\=http://localhost:8080/content/ad_10s.mpd"},
         {"expect": r"\[PlaceAds\]\[\d+\]\[CDAI\] Current Ad completely placed.end period:3 end period offset:10000 adjustEndPeriodOffset:1"},
-        {"expect": r"\[PlaceAds\]\[\d+\]\[CDAI\] Detected split period.*?CDAIPeriod\[adId1 - 20000\] CDAIPeriod\[adId2 - 10000\]"},
+        {"expect": r"\[PlaceAds\]\[\d+\]\[CDAI\] Detected split period.*?adId1-20000,adId2-10000"},
         {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: Next AdIdx\[1\] Found at Period\[1\]."},
         {"expect": re.escape("Period ID changed from '0-114' to '1-114' [BasePeriodId='1']")},
         {"expect": r"\[PlaceAds\]\[\d+\]\[CDAI\] Placement Done: \{AdbreakId: 1, duration: 30000, endPeriodId: 4, endPeriodOffset: 0, \#Ads: 2,"},
