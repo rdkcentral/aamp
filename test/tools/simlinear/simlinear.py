@@ -415,7 +415,6 @@ class DASHServerHandler(BaseHTTPRequestHandler):
                                     elif args.ad_server != "":
                                         # Replace BaseURL to Ad-Server
                                         rtn["contents"] = re.sub(r'<BaseURL>https?://'+basURL_domain.netloc, f"<BaseURL>{args.ad_server}/{basURL_domain.netloc}", rtn["contents"])
-    
                     contents = rtn["contents"].encode("utf-8")
                 else:
                     modify_response(self.path) #RDKAAMP-3019
@@ -901,6 +900,9 @@ if __name__ == "__main__":
         "--dash", help="Direct start of DASH server on specified port with no control interface", type=int
     )
     parser.add_argument(
+        "-m", "--manifest", help="Specify Top Level Manifest", type=str
+    )
+    parser.add_argument(
         "--ad_server", help="Ad-Server URL", type=str, default="" #RDKAAMP-1435
     )
     parser.add_argument(
@@ -925,10 +927,19 @@ if __name__ == "__main__":
 
     # Just read harvest_details once at start of test
     harvest_details = read_harvest_details(do_search=True)
+
+    if args.manifest:
+        harvest_details['url'] = str("http://example.com" + args.manifest)
+
+        # Using file creation time as recording start time if harvest_details.json is not provided
+        file_creation_time = datetime.fromtimestamp(os.path.getctime(args.manifest)).isoformat()
+        harvest_details['recording_start_time'] = str(file_creation_time)
+
     if harvest_details != {}:
         print("Found Harvest Details")
+        print("HARVEST DETAILS", harvest_details)
     else:
-        print("WARNING: missing harvest details, playback may be impacted.")
+        print("""WARNING: missing harvest details, playback may be impacted. \nPlease specify top level manifest using -m <manifest_file_name>""")
 
     init_routes()
 
