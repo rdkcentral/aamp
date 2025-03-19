@@ -793,6 +793,7 @@ hev
 hevc
 hexdigit
 hexstr
+hhmmss
 hh
 hhen
 hhh
