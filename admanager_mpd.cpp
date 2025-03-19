@@ -608,14 +608,18 @@ void PrivateCDAIObjectMPD::PlaceAds(AampMPDParseHelperPtr adMPDParseHelper)
 					{
 						if(it->second.adBreakId == mPlacementObj.pendingAdbrkId)
 						{
-							splitStr<<" BasePeriod["<<it->first<<" -  "<<it->second.duration<<"]";
+							splitStr<<it->first<<"-"<<it->second.duration<<",";
 						}
 					}
 					for(int k=0;k<abObj.ads->size();k++)
 					{
-						splitStr<<" CDAIPeriod["<<abObj.ads->at(k).adId<<" - "<<abObj.ads->at(k).duration<<"]";
+						splitStr<<abObj.ads->at(k).adId<<"-"<<abObj.ads->at(k).duration;
+						if (k != (abObj.ads->size() - 1))
+						{
+							splitStr<<",";
+						}
 					}
-					AAMPLOG_MIL("[CDAI] Detected split period.%s", splitStr.str().c_str());
+					AAMPLOG_MIL("[CDAI] Detected split period: %s", splitStr.str().c_str());
 				}
 				//Printing the placement positions
 				std::stringstream ss;
