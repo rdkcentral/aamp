@@ -1443,7 +1443,7 @@ std::string aamp_GetConfigPath( const std::string &filename )
 		cfgPath += filename;
 	}
 
-#elif defined(AAMP_CPC) // AAMP_ENABLE_OPT_OVERRIDE defined only in Comcast PROD builds
+#elif defined(AAMP_CPC)
 	char *env_aamp_enable_opt = getenv("AAMP_ENABLE_OPT_OVERRIDE");
 	/*
 	 * defined(AAMP_CPC) 
