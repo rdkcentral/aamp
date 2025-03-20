@@ -605,7 +605,7 @@ TEST_P(StreamSelectionTests, TestCorrectTrackSelection)
 
 INSTANTIATE_TEST_SUITE_P( TestCorrectTrackSelection, StreamSelectionTests,
 	::testing::ValuesIn(std::vector<StreamSelectionTestParams>{
-		/** Case 1 & 2: current nuumber of profiles 5, start in second period (30+ pos),
+		/** Case 1 & 2: current number of profiles 5, start in second period (30+ pos),
 		 * number of tracks only video now, live manifest used with representations are same
 		 * AD state IN and OUT  
 		 * Expected to same track from previous if outside and reset to -1 if inside AD
@@ -613,7 +613,7 @@ INSTANTIATE_TEST_SUITE_P( TestCorrectTrackSelection, StreamSelectionTests,
 		{5, 32, 1, mLiveManifestSame, AdState::OUTSIDE_ADBREAK, 4},
 		{5, 32, 1, mLiveManifestSame, AdState::IN_ADBREAK_AD_PLAYING, -1},
 
-		/** Case 3 & 4: current nuumber of profiles 5, start in second period (30+ pos),
+		/** Case 3 & 4: current number of profiles 5, start in second period (30+ pos),
 		 * number of tracks only video now, VOD manifest used with representations are same
 		 * AD state IN and OUT  
 		 * Expected to same track from previous if outside and reset to -1 if inside AD
@@ -621,7 +621,7 @@ INSTANTIATE_TEST_SUITE_P( TestCorrectTrackSelection, StreamSelectionTests,
 		{5, 32, 1, mVodManifestSame , AdState::OUTSIDE_ADBREAK, 4},
 		{5, 32, 1, mVodManifestSame, AdState::IN_ADBREAK_AD_PLAYING, -1},
 
-		/** Case 1 & 2: current nuumber of profiles 5, start in second period (30+ pos),
+		/** Case 1 & 2: current number of profiles 5, start in second period (30+ pos),
 		 * number of tracks only video now, live manifest used with representations are not same
 		 * AD state IN and OUT  
 		 * Expected to to reset to -1 in both cases
@@ -629,7 +629,7 @@ INSTANTIATE_TEST_SUITE_P( TestCorrectTrackSelection, StreamSelectionTests,
 		{5, 32, 1, mLiveManifestNotSame, AdState::OUTSIDE_ADBREAK, -1},
 		{5, 32, 1, mLiveManifestNotSame, AdState::IN_ADBREAK_AD_PLAYING, -1},
 
-		/** Case 3 & 4: current nuumber of profiles 5, start in second period (30+ pos),
+		/** Case 3 & 4: current number of profiles 5, start in second period (30+ pos),
 		 * number of tracks only video now, VOD manifest used with representations are not sssame
 		 * AD state IN and OUT  
 		 * Expected to to reset to -1 in both cases
