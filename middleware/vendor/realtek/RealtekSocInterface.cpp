@@ -242,7 +242,7 @@ bool RealtekSocInterface::DisableAsyncAudio(GstElement *audio_sink, int rate, bo
 	{
 		if(rate > 1 || rate < 0 || isSeeking)
 		{
-			if (!(audio_sink && g_str_has_prefix(GST_OBJECT_NAME(audio_sink), "rialtomseaudiosink")))
+			if (!(g_str_has_prefix(GST_OBJECT_NAME(audio_sink), "rialtomseaudiosink")))
 			{
 				MW_LOG_MIL("Disable async for audio stream at trickplay");
 				if(gst_base_sink_is_async_enabled(GST_BASE_SINK(audio_sink)) == TRUE)
