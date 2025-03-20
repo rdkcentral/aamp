@@ -81,6 +81,16 @@ int AampScheduler::ScheduleTask(AsyncTaskObj obj)
 				mNextTaskId = AAMP_SCHEDULER_ID_DEFAULT;
 			}
 			obj.mId = id;
+			if (obj.mTaskName == "SetRate")
+			{
+				// Remove any existing SetRate task from the queue
+				auto it = std::find_if(mTaskQueue.begin(), mTaskQueue.end(),
+									   [](const AsyncTaskObj& obj) { return obj.mTaskName == "SetRate"; });
+				if (it != mTaskQueue.end()) {
+					AAMPLOG_INFO("Found queued SetRate task, removing old one. task: %s taskId:%d", it->mTaskName.c_str(), it->mId);
+					mTaskQueue.erase(it);
+				}
+			}
 			mTaskQueue.push_back(obj);
 			mQCond.notify_one();
 		}
