@@ -42,6 +42,7 @@ aamp_tsb_utils = AampTsbUtils()
 aamp = None
 position = 0
 state = None
+tsb_start_position = 0
 
 archive_url = "https://cpetestutility.stb.r53.xcal.tv/AAMP/simlinear/SkyAtlantic/30t-2/skyatlantic-30t-2.tgz"
 
@@ -77,8 +78,16 @@ def check_position(match, new_state):
 	position = new_position
 	state = new_state
 
+def update_tsb_start(match, arg):
+    global tsb_start_position
+    tsb_start_position = float(match.group(1))
+
+def verify_autoplay_pos(match, arg):
+    tsb_read_position = float(match.group(1))
+    assert tsb_start_position == tsb_read_position, f"tsb_read_position {tsb_read_position} is not equal to tsb_start_position {tsb_start_position}"
+
 TESTDATA0 = {
-	"title": "Test Seek",
+    "title": "Test Seek",
 	"logfile": "00-seek.log",
 	"max_test_time_seconds": 30,
 	'simlinear_type': 'DASH',
@@ -257,6 +266,37 @@ TESTDATA4 = {
 	]
 }
 
+TESTDATA5 = {
+    "title": "Test culled TSB - autoplay immediate",
+    "logfile": "05-autoplay-immediate.log",
+    "max_test_time_seconds": 40,
+    'simlinear_type': 'DASH',
+    "archive_url": archive_url,
+    "url": TEST_URL,
+    "aamp_cfg": f"info=true\nprogress=true\nprogressReportingInterval={PROGRESS_REPORT_INTERVAL}\nlocalTSBEnabled=true\ntsbLocation=/tmp/data\ntsbLength=30\ntsbLog=0\nlivePauseBehavior=0\n",
+    "cmdlist": [ "contentType LINEAR_TV" ],
+    "expect_list":
+    [
+        {"expect" : r"\[TSB Store\] Initiating with config values", "max":1},
+
+        # Initial position 29s
+        # Pause when position is around 30s
+        {"expect": r'\[ReportProgress\]\[\d+\]aamp pos: \[\d+..3[0-1]..\d+..-?\d+..-?\d+.\d+..-?\d+.\d+..\w*..\d+..\d+..1.00]', "callback_once": send_command, "callback_arg": "pause"},
+        {"expect": r"AAMP_EVENT_SPEED_CHANGED current rate=0.000000", "min": 1, "max": 5},
+        {"expect": r'AAMPGstPlayerPipeline PLAYING -> PAUSED', "min": 1, "max": 5},
+        {"expect": r'AAMPGstPlayerPipeline \w+ -> PLAYING', "min": 5, "max": 17, "not_expected" : True},
+
+        # When culling starts, store the tsb start position
+        {"expect": r'\[UpdateCullingState\]\[\d+\]Resume playback since playlist start position\((\d+.\d+)\) has moved past paused position\(\d+.\d+\)', "min": 18, "max": 24, "callback_once": update_tsb_start},
+        # Check that the autoplay is happening with tsb start position
+        {"expect": r'\[ReadNext\]\[\d+\]\[video\] Returning fragment: absPos (\d+.\d+)s.*?', "min": 18, "max": 24, "callback_once": verify_autoplay_pos},
+        {"expect": r"AAMP_EVENT_SPEED_CHANGED current rate=1.000000", "min": 18, "max": 24},
+        {"expect": r'AAMPGstPlayerPipeline PAUSED -> PLAYING', "min": 18, "max": 24},
+        # Continue playing from TSB until 24s since the start of the test when UpdateProgress is logged from AAMP TSB
+        {"expect": r'\[UpdateProgress\]\[\d+\]tsb pos: \[(\d+.\d+)..\[X\]..\d+.\d+\]', "min": 24, "end_of_test": True},
+    ]
+}
+
 # Given that presentation is in progress at any negative rate
 # The Player presents video I-frames from the linear content in reverse at the specified rate
 # When the presentation position reaches the TSB start position
@@ -334,6 +374,7 @@ TESTLIST = [
 	{'testdata': TESTDATA2, 'expected_restamps': 20, 'expected_trickmodes_restamps': 0},
 	{'testdata': TESTDATA3, 'expected_restamps': 8, 'expected_trickmodes_restamps': 10},
 	{'testdata': TESTDATA4, 'expected_restamps': 10, 'expected_trickmodes_restamps': 10},
+	{'testdata': TESTDATA5, 'expected_restamps': 0, 'expected_trickmodes_restamps': 0},
 	{'testdata': TESTDATA_REW2, 'expected_restamps': 0, 'expected_trickmodes_restamps': 0},
 	{'testdata': TESTDATA_REW64, 'expected_restamps': 0, 'expected_trickmodes_restamps': 0},
 	{'testdata': TESTDATA_SEEK, 'expected_restamps': 0, 'expected_trickmodes_restamps': 0},

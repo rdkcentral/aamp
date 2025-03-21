@@ -23,6 +23,7 @@ From the *test/l2test/* folder run:
 * TESTDATA2 -----> Test pause and resume
 * TESTDATA3 -----> Test trick modes (rewind and fast forward)
 * TESTDATA4 -----> Test pause and trick modes
+* TESTDATA5 -----> Test culled TSB - autoplay immediate
 * TESTDATA_REW2 -----> Test to verify the Acceptance Criteria for Reverse trick play rew 2
 * TESTDATA_REW64 -----> Test to verify the Acceptance Criteria for Reverse trick play rew 64
 * TESTDATA_SEEK -----> Test to verify the Acceptance Criteria for Seek with useAbsoluteTimeline=false(default config value)

@@ -42,6 +42,7 @@ aamp_tsb_utils = AampTsbUtils()
 aamp = None
 position = 0
 state = None
+tsb_start_position = 0
 
 archive_url = "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/streams/L2/misc/ch920_10min.tgz"
 
@@ -78,6 +79,14 @@ def check_position(match, new_state):
 
 	position = new_position
 	state = new_state
+
+def update_tsb_start(match, arg):
+    global tsb_start_position
+    tsb_start_position = float(match.group(1))
+
+def verify_autoplay_pos(match, arg):
+    tsb_read_position = float(match.group(1))
+    assert tsb_start_position == tsb_read_position, f"tsb_read_position {tsb_read_position} is not equal to tsb_start_position {tsb_start_position}"
 
 TESTDATA0 = {
 	"title": "Test Seek",
@@ -128,7 +137,7 @@ TESTDATA1 = {
  		# Confirm adding to TSB initially
 		{"expect": r'\[AddFragment\]\[\d+\]\[video\]', "max": 5},
 
-		# Wait for 5s then Pause 
+		# Wait for 5s then Pause
 		{"expect": r'\[ReportProgress\]\[\d+\]aamp pos: \[\d+..(\d+)..\d+..-?\d+..\d+.\d+..-?\d+.\d+..\w*..\d+..\d+..1.00]', "min": 5, "max": 8, "callback_once": send_command, "callback_arg": "pause"},
 		{"expect": r'AAMPGstPlayerPipeline PLAYING -> PAUSED'},
 		{"expect": r'\[ReportProgress\]\[\d+\]aamp pos: \[\d+..(\d+)..\d+..-?\d+..\d+.\d+..-?\d+.\d+..\w*..\d+..\d+..1.00]', "callback": check_position, "callback_arg": "playing"},
@@ -262,6 +271,36 @@ TESTDATA4 = {
 	]
 }
 
+TESTDATA5 = {
+    "title": "Test culled TSB - autoplay immediate",
+    "logfile": "05-autoplay-immediate.log",
+    "max_test_time_seconds": 50,
+    'simlinear_type': 'DASH',
+    "archive_url": archive_url,
+    "url": LLD_URL,
+    "aamp_cfg": f"info=true\nprogress=true\nprogressReportingInterval={PROGRESS_REPORT_INTERVAL}\nlocalTSBEnabled=true\ntsbLocation=/tmp/data\ntsbLength=30\ntsbLog=0\nlivePauseBehavior=0\n",
+    "cmdlist": [ "contentType LINEAR_TV" ],
+    "expect_list":
+    [
+        {"expect" : r"\[TSB Store\] Initiating with config values", "max":1},
+
+        # Wait for 5s then Pause
+        {"expect": r'\[ReportProgress\]\[\d+\]aamp pos: \[\d+..(\d+)..\d+..-?\d+..\d+.\d+..-?\d+.\d+..\w*..\d+..\d+..1.00]', "min": 5, "max": 8, "callback_once": send_command, "callback_arg": "pause"},
+        {"expect": r'AAMPGstPlayerPipeline PLAYING -> PAUSED', "min": 5, "max": 8},
+        {"expect": r"AAMP_EVENT_SPEED_CHANGED current rate=0.000000", "min": 5, "max": 8},
+        {"expect": r'AAMPGstPlayerPipeline \w+ -> PLAYING', "min": 8, "max": 25, "not_expected" : True},
+
+        # When culling starts, store the tsb start position
+        {"expect": r'\[UpdateCullingState\]\[\d+\]Resume playback since playlist start position\((\d+.\d+)\) has moved past paused position\(\d+.\d+\)', "min": 26, "max": 38, "callback_once": update_tsb_start},
+        # Check that the autoplay is happening with an expected position
+        {"expect": r'\[ReadNext\]\[\d+\]\[video\] Returning fragment: absPos (\d+.\d+)s.*?', "min": 26, "max": 38, "callback_once": verify_autoplay_pos},
+        {"expect": r"AAMP_EVENT_SPEED_CHANGED current rate=1.000000", "min": 26, "max": 38},
+        {"expect": r'AAMPGstPlayerPipeline PAUSED -> PLAYING', "min": 26, "max": 38},
+        # Continue playing from TSB until 38s since the start of the test when UpdateProgress is logged from AAMP TSB
+        {"expect": r'\[UpdateProgress\]\[\d+\]tsb pos: \[(\d+.\d+)..\[X\]..\d+.\d+\]', "min": 38, "end_of_test": True},
+    ]
+}
+
 # Given that presentation is in progress at any fast-forward rate
 # The Player presents video I-frames from the linear content in fast forward at the specified rate
 # When presentation position reaches the TSB End position
@@ -376,6 +415,7 @@ TESTLIST = [
 	{'testdata': TESTDATA2, 'expected_restamps': 10, 'expected_trickmodes_restamps': 0},
 	{'testdata': TESTDATA3, 'expected_restamps': 10, 'expected_trickmodes_restamps': 10},
 	{'testdata': TESTDATA4, 'expected_restamps': 10, 'expected_trickmodes_restamps': 10},
+	{'testdata': TESTDATA5, 'expected_restamps': 0, 'expected_trickmodes_restamps': 0},
 	# fast forward show position jump in transition from trick mode speed to x1 i.e. live
 	# The bug is investigated under VPLAY-9019. Once fixed FF2, FF64 can be enabled
 	#{'testdata': TESTDATA_FF2, 'expected_restamps': 0, 'expected_trickmodes_restamps': 0},

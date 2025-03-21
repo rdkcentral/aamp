@@ -23,6 +23,7 @@ From the *test/l2test/* folder run:
 * TESTDATA2 -----> Test pause and resume
 * TESTDATA3 -----> Test trick modes (rewind and fast forward)
 * TESTDATA4 -----> Test pause and trick modes
+* TESTDATA5 -----> Test culled TSB - autoplay immediate
 * TESTDATA_FF2 -----> Test to verify the Acceptance Criteria for forward trick play x 2
 * TESTDATA_FF64 -----> Test to verify the Acceptance Criteria for forward trick play x 64
 * TESTDATA_REW2 -----> Test to verify the Acceptance Criteria for Reverse trick play rew 2
