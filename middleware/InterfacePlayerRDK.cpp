@@ -2066,7 +2066,6 @@ int InterfacePlayerRDK::SetupStream(int streamId,  void *playerInstance, std::st
 				pInterfacePlayerRDK->gstPrivateContext->subtitle_sink = textsink;
 				MW_LOG_MIL("using rialtomsesubtitlesink muted=%d sink=%p", pInterfacePlayerRDK->gstPrivateContext->subtitleMuted, pInterfacePlayerRDK->gstPrivateContext->subtitle_sink);
 				g_object_set(textsink, "mute", pInterfacePlayerRDK->gstPrivateContext->subtitleMuted ? TRUE : FALSE, NULL);
-				g_object_set(textsink, "pts-offset", static_cast<std::uint64_t>(0), NULL);
 			}
 			else
 			{
@@ -2094,7 +2093,6 @@ int InterfacePlayerRDK::SetupStream(int streamId,  void *playerInstance, std::st
 				gst_element_sync_state_with_parent(stream->sinkbin);
 				pInterfacePlayerRDK->gstPrivateContext->subtitle_sink = GST_ELEMENT(gst_object_ref(stream->sinkbin));
 				g_object_set(stream->sinkbin, "mute", pInterfacePlayerRDK->gstPrivateContext->subtitleMuted ? TRUE : FALSE, NULL);
-				g_object_set(pInterfacePlayerRDK->gstPrivateContext->subtitle_sink, "pts-offset", static_cast<std::uint64_t>(0), NULL);
 				return 0;
 #else
 				MW_LOG_INFO("subs using playbin");
@@ -2288,6 +2286,22 @@ void InterfacePlayerRDK::SendGstEvents(GstMediaType mediaType, GstClockTime pts)
 				MW_LOG_ERR("Seek failed");
 			}
 
+		}
+		// Until the restiction above is fixed, we will send a sub_clock_sync here in order to initialise
+		// the mediatime in subtec
+		else if (mediaType == eMEDIATYPE_SUBTITLE)
+		{
+			if (sourceEleSrcPad != NULL)
+			{
+				GstClockTime seekPts = gstPrivateContext->seekPosition * GST_SECOND; // use the seekPosition for consitency with above
+                AAMPLOG_INFO("Sending initial sub_clock_sync event, pts:%" GST_TIME_FORMAT, GST_TIME_ARGS(seekPts));
+
+				GstStructure * eventStruct = gst_structure_new("sub_clock_sync", "current-pts", G_TYPE_UINT64, seekPts, NULL);
+				if (!gst_pad_push_event(sourceEleSrcPad, gst_event_new_custom(GST_EVENT_CUSTOM_DOWNSTREAM, eventStruct)))
+				{
+					AAMPLOG_ERR("Error on sending initial sub_clock_sync event");
+				}
+			}
 		}
 		stream->pendingSeek = false;
 	}
