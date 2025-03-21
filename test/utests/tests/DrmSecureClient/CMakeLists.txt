@@ -44,6 +44,7 @@ include_directories(${DRM_ROOT})
 include_directories(${DRM_ROOT}/ocdm)
 include_directories(${AAMP_ROOT}/../secclient)
 include_directories(${DRM_ROOT}/mocks)
+include_directories(${AAMP_ROOT}/middleware/vendor)
 
 message(GSTREAMER_INCLUDE_DIRS=${GSTREAMER_INCLUDE_DIRS})
 
@@ -54,7 +55,8 @@ if(SEC_CLIENT_HEADERS)
 	message("Found Secure Client headers - building ${EXEC_NAME}")
 
 	set(FAKE_SOURCES ${UTESTS_ROOT}/fakes/FakeAampRfc.cpp
-					 ${UTESTS_ROOT}/fakes/FakePlayerIarmRfcInterface.cpp)
+					 ${UTESTS_ROOT}/fakes/FakePlayerIarmRfcInterface.cpp
+					 ${AAMP_ROOT}/middleware/test/utests/fakes/FakeSocUtils.cpp)
 
 	set(MOCK_SOURCES ${DRM_ROOT}/mocks/aampMocks.cpp
 					 ${DRM_ROOT}/mocks/FakeID3Metadata.cpp

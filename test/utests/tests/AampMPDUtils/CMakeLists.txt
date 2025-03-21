@@ -34,6 +34,7 @@ include_directories(SYSTEM ${UTESTS_ROOT}/mocks)
 include_directories(${LIBCJSON_INCLUDE_DIRS})
 include_directories(${AAMP_ROOT}/tsb/api)
 include_directories(${AAMP_ROOT}/middleware)
+include_directories(${AAMP_ROOT}/middleware/vendor)
 
 set (DASH_PARSER_SOURCES ${AAMP_ROOT}/dash/xml/DomDocument.cpp
                 ${AAMP_ROOT}/dash/xml/DomElement.cpp

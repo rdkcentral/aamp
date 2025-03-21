@@ -259,17 +259,6 @@ void AAMPGstPlayer::SetPauseOnStartPlayback(bool enable)
 	}
 }
 
-/*PlatformType AAMPGstPlayer::InitializeAAMPPlatformConfigs()
-{
-	return ePLATFORM_DEFAULT;
-}
-*/
-
-PlatformType AAMPGstPlayer::InferPlatformFromPluginScan()
-{
-        return ePLATFORM_DEFAULT;
-}
-
 void AAMPGstPlayer::NotifyInjectorToPause()
 {
 }

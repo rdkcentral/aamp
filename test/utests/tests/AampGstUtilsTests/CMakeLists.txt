@@ -32,6 +32,8 @@ include_directories(${LIBCJSON_INCLUDE_DIRS})
 include_directories(${AAMP_ROOT}/tsb/api)
 include_directories(${AAMP_ROOT}/middleware)
 include_directories(${AAMP_ROOT}/middleware/test/utests/mocks)
+include_directories(${AAMP_ROOT}/middleware/vendor)
+
 
 set(TEST_SOURCES    GstUtilsAAMPTests.cpp
                     ${AAMP_ROOT}/middleware/test/utests/tests/GstUtilsTests/GstUtilsTests.cpp)

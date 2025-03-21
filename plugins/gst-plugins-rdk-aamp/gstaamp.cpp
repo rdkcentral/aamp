@@ -885,7 +885,7 @@ static void gst_aamp_configure(GstAamp * aamp, StreamOutputFormat format, Stream
 		}
 	}
 
-	caps = GetCaps((GstStreamOutputFormat)format, (GstPlatformType)aamp->player_aamp->aamp->GetPlatformType());
+	caps = GetCaps((GstStreamOutputFormat)format);
 
 	if (caps)
 	{
@@ -913,7 +913,7 @@ static void gst_aamp_configure(GstAamp * aamp, StreamOutputFormat format, Stream
 		return;
 	}
 
-	caps = GetCaps((GstStreamOutputFormat)audioFormat, (GstPlatformType)aamp->player_aamp->aamp->GetPlatformType());
+	caps = GetCaps((GstStreamOutputFormat)audioFormat);
 	if (caps)
 	{
 		media_stream* audio = &aamp->stream[eMEDIATYPE_AUDIO];

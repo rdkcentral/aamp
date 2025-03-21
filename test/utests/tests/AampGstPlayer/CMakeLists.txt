@@ -34,12 +34,13 @@ include_directories(${AAMP_ROOT}/tsb/api)
 include_directories(${AAMP_ROOT}/middleware/test/utests/mocks)
 include_directories(${AAMP_ROOT}/middleware)
 include_directories(${AAMP_ROOT}/externals)
+include_directories(${AAMP_ROOT}/middleware/vendor)
 
 message(GSTREAMER_INCLUDE_DIRS=${GSTREAMER_INCLUDE_DIRS})
 
 set(TEST_SOURCES FunctionalTests.cpp
 		 PauseOnPlaybackTests.cpp
-                 AampGstPlayerTests.cpp
+		 AampGstPlayerTests.cpp
                  )
 
 set(AAMP_SOURCES ${AAMP_ROOT}/aampgstplayer.cpp
