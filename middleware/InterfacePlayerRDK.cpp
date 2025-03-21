@@ -2287,13 +2287,13 @@ void InterfacePlayerRDK::SendGstEvents(GstMediaType mediaType, GstClockTime pts)
 			}
 
 		}
-		// Until the restiction above is fixed, we will send a sub_clock_sync here in order to initialise
-		// the mediatime in subtec
+		// Until the restriction above is fixed, we will send a sub_clock_sync here in order to initialise
+		// the media time in subtec
 		else if (mediaType == eMEDIATYPE_SUBTITLE)
 		{
 			if (sourceEleSrcPad != NULL)
 			{
-				GstClockTime seekPts = gstPrivateContext->seekPosition * GST_SECOND; // use the seekPosition for consitency with above
+				GstClockTime seekPts = gstPrivateContext->seekPosition * GST_SECOND; // use the seekPosition for consistency with above
                 AAMPLOG_INFO("Sending initial sub_clock_sync event, pts:%" GST_TIME_FORMAT, GST_TIME_ARGS(seekPts));
 
 				GstStructure * eventStruct = gst_structure_new("sub_clock_sync", "current-pts", G_TYPE_UINT64, seekPts, NULL);
