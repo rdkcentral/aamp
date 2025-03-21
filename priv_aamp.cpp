@@ -11329,12 +11329,6 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 	bool isRetuneNeeded = false;
 	bool accessibilityPresent = false;
 
-	// IsLocalAAMPTsb will be set once the playback of HiFi LLD stream starts and local TSB config is enabled
-	if (IsLocalAAMPTsb())
-	{
-		AAMPLOG_WARN("Local TSB playback is in progress!!. SetPreferredLanguages() will be ignored!!");
-		return;
-	}
 	try
 	{
 		jsObject = new AampJsonObject(languageList);
