@@ -17,13 +17,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# TSB L2 initial Tests
+# AAMP Local TSB SLD L2 Tests
 
 
 import os
-import sys
-import json
-import copy
 import pytest
 from inspect import getsourcefile
 from l2test_pts_restamp import PtsRestampUtils
@@ -72,161 +69,9 @@ def check_position(match, new_state):
 	position = new_position
 	state = new_state
 
-# Test Session Manager initialization with config true
 TESTDATA0 = {
-	"title": "Config true",
-	"logfile": "00-configtrue.log",
-	"max_test_time_seconds": 15,
-	"aamp_cfg": "info=true\nlocalTSBEnabled=true\nprogress=true\ntsbLocation=/tmp/data\ntsbLog=0\nsupressDecode=true\nlldUrlKeyword=chunked\n",
-	"archive_url": archive_url,
-	"url": TEST_URL,
-	"cmdlist": ["contentType LINEAR_TV"],
-	'simlinear_type': 'DASH',
-	"expect_list":
-	[
-		{"expect" : r"\[TSB Store\] Initiating with config values", "max":1},
-		{"expect": r"aamp_tune", "max":1},
-		{"expect" : r"msg=\"File written\"", "end_of_test":True}
-	]
-}
-
-# Test Session Manager not initialized with config false
-TESTDATA1 = {
-	"title": "Config false",
-	"logfile": "01-configfalse.log",
-	"max_test_time_seconds": 15,
-	"aamp_cfg": "info=true\ntrace=true\nlocalTSBEnabled=false\nprogress=true\ntsbLocation=/tmp/data\nsupressDecode=true\nlldUrlKeyword=chunked\n",
-	"archive_url": archive_url,
-	"url": TEST_URL,
-	"cmdlist": ["contentType LINEAR_TV"],
-	'simlinear_type': 'DASH',
-	"expect_list":
-	[
-		{"expect": r"aamp_tune", "max":1},
-		{"expect" : r"\[TSB Store\] Initiating TSBStore with config values", "max":3, "not_expected" : True},
-		{"expect": r"first buffer received", "end_of_test":True}
-	]
-}
-
-# Test for TSB Culling logs
-TESTDATA2 = {
-	"title": "Culling",
-	"logfile": "02-culling.log",
-	"max_test_time_seconds": 30,
-	"aamp_cfg": "info=true\ntrace=true\nlocalTSBEnabled=true\nprogress=true\ntsbLocation=/tmp/data\ntsbLength=6\ntsbLog=0\nsupressDecode=true\nlldUrlKeyword=chunked\n",
-	"archive_url": archive_url,
-	"url": TEST_URL,
-	"cmdlist": ["contentType LINEAR_TV"],
-	'simlinear_type': 'DASH',
-	"expect_list":
-	[
-		{"expect" : r"\[TSB Store\] Initiating with config values", "max":1},
-		{"expect": r"aamp_tune", "max":1},
-		{"expect" : r"TSBWrite Metrics...OK", "min":1},
-		{"expect" : r"TSB Write Operation FAILED", "max":8, "not_expected" : True},
-		{"expect" : r"CullSegments","min":1},
-		{"expect" : r"Removed \d.\d+ fragment duration seconds", "min":8, "end_of_test":True}
-	]
-}
-
-# Test TSB Data Manager basic logs
-TESTDATA3 = {
-	"title": "Data Manager",
-	"logfile": "03-datamgr.log",
-	"max_test_time_seconds": 20,
-	"aamp_cfg": "info=true\ntrace=true\nlocalTSBEnabled=true\nprogress=true\ntsbLocation=/tmp/data\ntsbLog=0\ntsbLength=4\nlldUrlKeyword=chunked\n",
-	"archive_url": archive_url,
-	"url": TEST_URL,
-	"cmdlist": ["contentType LINEAR_TV"],
-	'simlinear_type': 'DASH',
-	"expect_list":
-	[
-		{"expect" : r"\[TSB Store\] Initiating with config values", "max":1},
-		{"expect": r"aamp_tune"," max":1},
-		{"expect" : r"Adding Init Data:", "max":10},
-		{"expect" : r"Adding fragment data: ", "max":10},
-		{"expect" : r"TSBWrite Metrics...OK","min":3, "max":10},
-		{"expect" : r"TSB Write Operation FAILED", "min":3, "not_expected" : True},
-		{"expect" : r"Removed \d.\d+ fragment duration seconds", "min":8, "end_of_test":True}
-	]
-}
-
-# Test for TSB Store logs
-TESTDATA4 = {
-	"title": "TSB Library",
-	"logfile": "04-tsblib.log",
-	"max_test_time_seconds": 35,
-	"aamp_cfg": "info=true\ntrace=true\nlocalTSBEnabled=true\nprogress=true\ntsbLocation=/tmp/data\ntsbLength=4\ntsbLog=0\nsupressDecode=true\nlldUrlKeyword=chunked\n",
-	"archive_url": archive_url,
-	"url": TEST_URL,
-	"cmdlist": ["contentType LINEAR_TV"],
-	'simlinear_type': 'DASH',
-	"expect_list":
-	[
-		{"expect" : r"\[TSB Store\] Initiating with config values", "max":1},
-		{"expect" : r"minFreePercentage : \d+", "max":1},
-		{"expect" : r"msg=\"Flusher thread running\"", "max":1},
-		{"expect" : r"msg=\"Flush storage content\"", "max":1},
-		{"expect" : r"msg=\"Store Constructed\"", "max":1},
-		{"expect" : r"msg=\"File written\" ", "max":10},
-		{"expect" : r"msg=\"Deleted file\" ", "max":10},
-		{"expect" : r"TSBWrite Metrics...OK", "max":10},
-		{"expect" : r"TSB Write Operation FAILED", "max":10, "not_expected" : True},
-		{"expect" : r"Removed \d.\d+ fragment duration seconds", "min":8, "end_of_test":True}
-	]
-}
-
-# Read API Test
-TESTDATA5 = {
-	"title": "Test Read API",
-	"logfile": "05-readapi.log",
-	"max_test_time_seconds": 60,
-	'simlinear_type': 'DASH',
-	"archive_url": archive_url,
-	"url": TEST_URL,
-	"cmdlist": ["contentType LINEAR_TV"],
-	"aamp_cfg": "progress=true\ninfo=true\nlocalTSBEnabled=true\ntsbLocation=/tmp/data\ntsbLength=500\ntsbLog=0\nsupressDecode=true\nlldUrlKeyword=chunked\n",
-	"expect_list":
-	[
-		{"expect" : r"\[TSB Store\] Initiating with config values", "max":1},
-
-		# Wait until one specific fragment is added to TSB
-		{"expect": r"\[TsbStore.cpp:\d+\] msg=\"File written\" file=\"([\w:\-\. /\']+)track-audio-periodid-881036617-([\w:\-\. /\']+)frag-881045321", "callback": send_command, "callback_arg": "seek 0"},
-
-		# Seek to the beginning of the buffer
-		{"expect": r"aamp_Seek\(0.000000\)"},
-		{"expect": r"msg=\"Got size\""},
-		{"expect": r"File Read"},
-
-		# Play from TSB until one specific fragment is added to TSB
-		{"expect": r'\[TsbStore.cpp:\d+\] msg=\"File written\" file=\"([\w:\-\. /\']+)track-audio-periodid-881036617-([\w:\-\. /\']+)frag-881045325', "end_of_test": True}
-	]
-}
-
-TESTDATA6 = {
-	"title": "Test write to AAMP TSB",
-	"logfile": "06-WriteWithRestamp.log",
-	"max_test_time_seconds": 30,
-	'simlinear_type': 'DASH',
-	"archive_url": archive_url,
-	"url": TEST_URL,
-	"cmdlist": ["contentType LINEAR_TV"],
-	"aamp_cfg": "info=true\ntrace=true\nlocalTSBEnabled=true\ntsbLocation=/tmp/data\ntsbLength=500\ntsbLog=0\nsupressDecode=true\n",
-	"expect_list":
-	[
-		{"expect" : r"\[TSB Store\] Initiating with config values", "max":1},
-
-		# Check the PTS restamp is done correctly
-		{"expect": r'\[RestampPts\].*?\[(\w+)\] timeScale (\d+) before (\d+) after (\d+) duration (\d+) ([\w:/?\.\-]+)\r\n', "callback" : pts_restamp_utils.check_restamp},
-
-		# Play until a specific fragment is added to AAMP TSB.
-		{"expect": r'\[AddFragment\]\[\d+\]\[video\] Adding fragment data\:.*track-video-periodid-.*-0-frag-881045324\.mp4', "end_of_test": True}
-	]
-}
-
-TESTDATA7 = {
 	"title": "Test Seek",
-	"logfile": "07-seek.log",
+	"logfile": "00-seek.log",
 	"max_test_time_seconds": 30,
 	'simlinear_type': 'DASH',
 	"archive_url": archive_url,
@@ -247,16 +92,16 @@ TESTDATA7 = {
 		{"expect": r"File Read"},
 
 		# Check the PTS restamp is done correctly
-		{"expect": r'\[RestampPts\].*?\[(\w+)\] timeScale (\d+) before (\d+) after (\d+) duration (\d+) ([\w:/?\.\-]+)\r\n', "callback" : pts_restamp_utils.check_restamp},
+		{"expect": pts_restamp_utils.LOG_LINE, "callback" : pts_restamp_utils.check_restamp},
 
 		# Play from TSB until a specific fragment is read from AAMP TSB.
 		{"expect": r'\[ReadNext\].*?track-audio-periodid-881036617-([\w:\-\. /\']+)frag-881045325', "end_of_test": True}
 	]
 }
 
-TESTDATA8 = {
+TESTDATA1 = {
 	"title": "Test pause on live",
-	"logfile": "08-pause.log",
+	"logfile": "01-pause-live.log",
 	"max_test_time_seconds": 35,
 	'simlinear_type': 'DASH',
 	"archive_url": archive_url,
@@ -274,7 +119,7 @@ TESTDATA8 = {
 		{"expect": r'\[ReportProgress\]\[\d+\]aamp pos: \[\d+..(\d+)..\d+..-?\d+..\d+.\d+..-?\d+.\d+..\w*..\d+..\d+..0.00]', "callback": check_position, "callback_arg": "paused"},
  		# Confirm adding to TSB initially
 		{"expect": r'\[AddFragment\]\[\d+\]\[video\]', "max": 5,},
-		# Confirm chunks not injected but adding to TSB continues 
+		# Confirm chunks not injected but adding to TSB continues
 		# Specifically checking the fetch loop has not got blocked due to injection.
 		{"expect": r'\[CacheFragment\]\[\d+\]\[video\][\w\- ]+ not injecting'},
 		{"expect": r'\[CacheFragment\]\[\d+\]\[audio\][\w\- ]+ not injecting'},
@@ -282,9 +127,9 @@ TESTDATA8 = {
 	]
 }
 
-TESTDATA9 = {
+TESTDATA2 = {
 	"title": "Test pause and resume",
-	"logfile": "09-pause.log",
+	"logfile": "02-pause-resume.log",
 	"max_test_time_seconds": 55,
 	'simlinear_type': 'DASH',
 	"archive_url": archive_url,
@@ -306,7 +151,7 @@ TESTDATA9 = {
 		{"expect": r'AAMPGstPlayerPipeline PAUSED -> PLAYING', "min": 10, "max": 16},
 
 		# Check the PTS restamp is done correctly after the pause and play
-		{"expect": r'\[RestampPts\].*?\[(\w+)\] timeScale (\d+) before (\d+) after (\d+) duration (\d+) ([\w:/?\.\-]+)\r\n', "min":16, "callback" : pts_restamp_utils.check_restamp},
+		{"expect": pts_restamp_utils.LOG_LINE, "min":16, "callback" : pts_restamp_utils.check_restamp},
 
 		# Play from TSB until 20s since the start of the test when a fragment is read from AAMP TSB, then pause
 		{"expect": r'\[ReadNext\]', "min": 20, "max": 24, "callback_once": send_command, "callback_arg": "pause"},
@@ -325,9 +170,9 @@ TESTDATA9 = {
 	]
 }
 
-TESTDATA10 = {
+TESTDATA3 = {
 	"title": "Test trick modes (rewind and fast forward)",
-	"logfile": "10-trickmodes.log",
+	"logfile": "03-trickmodes.log",
 	"max_test_time_seconds": 60,
 	'simlinear_type': 'DASH',
 	"archive_url": archive_url,
@@ -338,7 +183,7 @@ TESTDATA10 = {
 	[
 		{"expect" : r"\[TSB Store\] Initiating with config values", "max":1},
 
-		# The test data transitions over periods 881036616 and 881036617 with frag-881045317 being the first in period 881036617 
+		# The test data transitions over periods 881036616 and 881036617 with frag-881045317 being the first in period 881036617
 		# Wait until one specific fragment is added to TSB (~10s)
 		{"expect": r'\[AddFragment\]\[\d+\]\[audio\] Adding fragment data\:.*track-audio-periodid-881036617-([\w:\-\. /\']+)frag-881045320', "callback": send_command, "callback_arg": "rew 2"},
 
@@ -348,7 +193,7 @@ TESTDATA10 = {
 		{"expect": r"GST_MESSAGE_EOS"},
 
 		# Check the PTS restamp is done correctly
-		{"expect": r'\[RestampPts\].*?\[(\w+)\] timeScale (\d+) before (\d+) after (\d+) duration (\d+) ([\w:/?\.\-]+)\r\n', "min":15, "callback" : pts_restamp_utils.check_restamp},
+		{"expect": pts_restamp_utils.LOG_LINE, "min":15, "callback" : pts_restamp_utils.check_restamp},
 		# Check the PTS restamp is done correctly during trick modes (rewind and fast forward)
 		{"expect": trick_modes_pts_restamp_utils.LOG_LINE, "callback" : trick_modes_pts_restamp_utils.check_restamp},
 
@@ -362,9 +207,9 @@ TESTDATA10 = {
 	]
 }
 
-TESTDATA11 = {
+TESTDATA4 = {
 	"title": "Test pause and trick modes",
-	"logfile": "11-pause.log",
+	"logfile": "04-pause-trickmodes.log",
 	"max_test_time_seconds": 45,
 	'simlinear_type': 'DASH',
 	"archive_url": archive_url,
@@ -404,41 +249,15 @@ TESTDATA11 = {
 	]
 }
 
-TESTDATA12 = {
-	"title": "VOD",
-	"logfile": "12-vod.log",
-	"max_test_time_seconds": 20,
-	# Enable PTS restamping to ensure that AAMP Local TSB is not used for being VoD content, and not because PTS restamping is disabled.
-	"aamp_cfg": "info=true\nlocalTSBEnabled=true\nprogress=true\ntsbLocation=/tmp/data\ntsbLength=4\ntsbLog=0\nsupressDecode=true\nlldUrlKeyword=chunked\nenablePTSReStamp=true\n",
-	"archive_url": archive_url,
-	"url": TEST_URL,
-	"cmdlist": ["contentType VOD"],
-	'simlinear_type': 'DASH',
-	"expect_list":
-	[
-		{"expect" : r"\[TSB Store\] Initiating with config values", "not_expected" : True},
-		{"expect" : r"msg=\"File written\" ", "not_expected" : True},
-		{"expect" : r"HttpRequestEnd.*track-video-periodid-.*-0-frag-881045324\.mp4", "end_of_test":True}
-	]
-}
-
-TESTDATA = [
-	{'testdata': TESTDATA0, 'expected_restamps': 0, 'expected_trickmodes_restamps': 0},
+TESTLIST = [
+	{'testdata': TESTDATA0, 'expected_restamps': 20, 'expected_trickmodes_restamps': 0},
 	{'testdata': TESTDATA1, 'expected_restamps': 0, 'expected_trickmodes_restamps': 0},
-	{'testdata': TESTDATA2, 'expected_restamps': 0, 'expected_trickmodes_restamps': 0},
-	{'testdata': TESTDATA3, 'expected_restamps': 0, 'expected_trickmodes_restamps': 0},
-	{'testdata': TESTDATA4, 'expected_restamps': 0, 'expected_trickmodes_restamps': 0},
-	{'testdata': TESTDATA5, 'expected_restamps': 0, 'expected_trickmodes_restamps': 0},
-	{'testdata': TESTDATA6, 'expected_restamps': 20, 'expected_trickmodes_restamps': 0},
-	{'testdata': TESTDATA7, 'expected_restamps': 20, 'expected_trickmodes_restamps': 0},
-	{'testdata': TESTDATA8, 'expected_restamps': 0, 'expected_trickmodes_restamps': 0},
-	{'testdata': TESTDATA9, 'expected_restamps': 20, 'expected_trickmodes_restamps': 0},
-	{'testdata': TESTDATA10, 'expected_restamps': 8, 'expected_trickmodes_restamps': 10},
-	{'testdata': TESTDATA11, 'expected_restamps': 10, 'expected_trickmodes_restamps': 10},
-	{'testdata': TESTDATA12, 'expected_restamps': 0, 'expected_trickmodes_restamps': 0},
+	{'testdata': TESTDATA2, 'expected_restamps': 20, 'expected_trickmodes_restamps': 0},
+	{'testdata': TESTDATA3, 'expected_restamps': 8, 'expected_trickmodes_restamps': 10},
+	{'testdata': TESTDATA4, 'expected_restamps': 10, 'expected_trickmodes_restamps': 10}
 ]
 
-@pytest.fixture(params=TESTDATA)
+@pytest.fixture(params=TESTLIST)
 def test_data(request):
 	return request.param
 
