@@ -136,7 +136,7 @@ void AampMPDDownloader::Start()
  *   @fn GetManifest
  *   @brief GetManifest Application to read the Manifest stored in MPD Downloader
  */
-std::shared_ptr<ManifestDownloadResponse> AampMPDDownloader::GetManifest(bool bWait, int iWaitDurationMs,int errorSimulation)
+ManifestDownloadResponsePtr AampMPDDownloader::GetManifest(bool bWait, int iWaitDurationMs,int errorSimulation)
 {
 	if (g_mockAampMPDDownloader != nullptr)
 	{

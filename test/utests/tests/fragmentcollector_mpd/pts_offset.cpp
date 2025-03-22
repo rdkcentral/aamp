@@ -179,7 +179,7 @@ protected:
 		}
 		return NULL;
 	}
-	void GetMPDFromManifest(std::shared_ptr<ManifestDownloadResponse> response)
+	void GetMPDFromManifest(ManifestDownloadResponsePtr response)
 	{
 		dash::mpd::MPD *mpd = nullptr;
 		std::string manifestStr = std::string(response->mMPDDownloadResponse->mDownloadData.begin(), response->mMPDDownloadResponse->mDownloadData.end());
@@ -205,9 +205,9 @@ protected:
 		xmlFreeTextReader(reader);
 	}
 
-	std::shared_ptr<ManifestDownloadResponse> GetManifestForMPDDownloader()
+	ManifestDownloadResponsePtr GetManifestForMPDDownloader()
 	{
-		std::shared_ptr<ManifestDownloadResponse> response = std::make_shared<ManifestDownloadResponse>();
+		ManifestDownloadResponsePtr response = MakeSharedManifestDownloadResponsePtr();
 		response->mMPDStatus = AAMPStatusType::eAAMPSTATUS_OK;
 		response->mMPDDownloadResponse->iHttpRetValue = 200;
 		response->mMPDDownloadResponse->sEffectiveUrl = std::string(TEST_MANIFEST_URL);
@@ -237,7 +237,7 @@ TEST_F(fragmentcollector_mpd, UpdatePtsOffsetTest1)
 </MPD>
 )";
 	mManifest = manifest;
-	std::shared_ptr<ManifestDownloadResponse> respData = nullptr;
+	ManifestDownloadResponsePtr respData = nullptr;
 	respData = GetManifestForMPDDownloader();
 	mStreamAbstractionAAMP_MPD->mpd = respData->mMPDInstance.get();
 

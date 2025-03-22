@@ -174,7 +174,7 @@ public:
 		}
 		return NULL;
 	}
-	void GetMPDFromManifest(std::shared_ptr<ManifestDownloadResponse> response)
+	void GetMPDFromManifest(ManifestDownloadResponsePtr response)
 	{
 		dash::mpd::MPD* mpd = nullptr;
 		std::string manifestStr = std::string( response->mMPDDownloadResponse->mDownloadData.begin(), response->mMPDDownloadResponse->mDownloadData.end());
@@ -200,9 +200,9 @@ public:
 		xmlFreeTextReader(reader);
 	}
 
-	std::shared_ptr<ManifestDownloadResponse> GetManifestForMPDDownloader()
+	ManifestDownloadResponsePtr GetManifestForMPDDownloader()
 	{
-		std::shared_ptr<ManifestDownloadResponse> response = std::make_shared<ManifestDownloadResponse> ();
+		ManifestDownloadResponsePtr response = MakeSharedManifestDownloadResponsePtr();
 		response->mMPDStatus = AAMPStatusType::eAAMPSTATUS_OK;
 		response->mMPDDownloadResponse->iHttpRetValue = 200;
 		response->mMPDDownloadResponse->sEffectiveUrl = std::string(TEST_MANIFEST_URL);
@@ -236,7 +236,7 @@ TEST_F(FunctionalTests, Live_TSBEmpty_PerioDurationTest)
 	
 	mManifest = manifest;
 	string currentTimeISO = "2023-01-01T00:10:00Z";
-	std::shared_ptr<ManifestDownloadResponse> respData = nullptr;
+	ManifestDownloadResponsePtr respData = nullptr;
 	respData = GetManifestForMPDDownloader();
 	mpd = respData->mMPDInstance.get();
 	ParseHelper->Initialize(mpd);
@@ -279,7 +279,7 @@ TEST_F(FunctionalTests, SinglePeriod_withDurationTag)
 	
 	mManifest = manifest;
 	string currentTimeISO = "2023-01-01T00:10:00Z";
-	std::shared_ptr<ManifestDownloadResponse> respData = nullptr;
+	ManifestDownloadResponsePtr respData = nullptr;
 	respData = GetManifestForMPDDownloader();
 	mpd = respData->mMPDInstance.get();
 	ParseHelper->Initialize(mpd);
@@ -324,7 +324,7 @@ TEST_F(FunctionalTests, SinglePeriod_withoutDurationTag)
 	
 	mManifest = manifest;
 	string currentTimeISO = "2023-01-01T00:10:00Z";
-	std::shared_ptr<ManifestDownloadResponse> respData = nullptr;
+	ManifestDownloadResponsePtr respData = nullptr;
 	respData = GetManifestForMPDDownloader();
 	mpd = respData->mMPDInstance.get();
 	ParseHelper->Initialize(mpd);
@@ -403,7 +403,7 @@ TEST_F(FunctionalTests, Multiperiod_with_duration)
 
 	mManifest = manifest;
 	string currentTimeISO = "2023-01-01T00:10:00Z";
-	std::shared_ptr<ManifestDownloadResponse> respData = nullptr;
+	ManifestDownloadResponsePtr respData = nullptr;
 	respData = GetManifestForMPDDownloader();
 	mpd = respData->mMPDInstance.get();
 	ParseHelper->Initialize(mpd);
@@ -478,7 +478,7 @@ TEST_F(FunctionalTests, Multiperiod_without_Duration_Live)
 
 	mManifest = manifest;
 	string currentTimeISO = "2023-01-01T00:10:00Z";
-	std::shared_ptr<ManifestDownloadResponse> respData = nullptr;
+	ManifestDownloadResponsePtr respData = nullptr;
 	respData = GetManifestForMPDDownloader();
 	mpd = respData->mMPDInstance.get();
 	ParseHelper->Initialize(mpd);
@@ -551,7 +551,7 @@ TEST_F(FunctionalTests, Multiperiod_without_Duration_NonLive)
 
 	mManifest = manifest;
 	string currentTimeISO = "2023-01-01T00:10:00Z";
-	std::shared_ptr<ManifestDownloadResponse> respData = nullptr;
+	ManifestDownloadResponsePtr respData = nullptr;
 	respData = GetManifestForMPDDownloader();
 	mpd = respData->mMPDInstance.get();
 	ParseHelper->Initialize(mpd);
@@ -632,7 +632,7 @@ TEST_F(FunctionalTests, SegmentTimeline)
 
 	mManifest = manifest;
 	string currentTimeISO = "2023-01-01T00:10:00Z";
-	std::shared_ptr<ManifestDownloadResponse> respData = nullptr;
+	ManifestDownloadResponsePtr respData = nullptr;
 	respData = GetManifestForMPDDownloader();
 	mpd = respData->mMPDInstance.get();
 	ParseHelper->Initialize(mpd);
@@ -710,7 +710,7 @@ TEST_F(FunctionalTests, SegmentTimeline1)
 	uint32_t timeScale;
 	mManifest = manifest;
 	string currentTimeISO = "2023-01-01T00:10:00Z";
-	std::shared_ptr<ManifestDownloadResponse> respData = nullptr;
+	ManifestDownloadResponsePtr respData = nullptr;
 	respData = GetManifestForMPDDownloader();
 	mpd = respData->mMPDInstance.get();
 	ParseHelper->Initialize(mpd);
@@ -758,7 +758,7 @@ TEST_F(FunctionalTests, SinglePeriod_withStartTimeTag_Live)
 	
 	mManifest = manifest;
 	string currentTimeISO = "2023-01-01T00:10:00Z";
-	std::shared_ptr<ManifestDownloadResponse> respData = nullptr;
+	ManifestDownloadResponsePtr respData = nullptr;
 	respData = GetManifestForMPDDownloader();
 	mpd = respData->mMPDInstance.get();
 	ParseHelper->Initialize(mpd);
@@ -794,7 +794,7 @@ TEST_F(FunctionalTests, SinglePeriod_withoutStartTimeTag_Live)
 	
 	mManifest = manifest;
 	string currentTimeISO = "2023-01-01T00:10:00Z";
-	std::shared_ptr<ManifestDownloadResponse> respData = nullptr;
+	ManifestDownloadResponsePtr respData = nullptr;
 	respData = GetManifestForMPDDownloader();
 	mpd = respData->mMPDInstance.get();
 	ParseHelper->Initialize(mpd);
@@ -844,7 +844,7 @@ TEST_F(FunctionalTests, MultiPeriod_withoutStartTag_Live)
 	
 	mManifest = manifest;
 	string currentTimeISO = "2023-01-01T00:10:00Z";
-	std::shared_ptr<ManifestDownloadResponse> respData = nullptr;
+	ManifestDownloadResponsePtr respData = nullptr;
 	respData = GetManifestForMPDDownloader();
 	mpd = respData->mMPDInstance.get();
 	ParseHelper->Initialize(mpd);
@@ -881,7 +881,7 @@ TEST_F(FunctionalTests, PeriodEndTime1)
 	
 	mManifest = manifest;
 	string currentTimeISO = "2023-01-01T00:10:00Z";
-	std::shared_ptr<ManifestDownloadResponse> respData = nullptr;
+	ManifestDownloadResponsePtr respData = nullptr;
 	respData = GetManifestForMPDDownloader();
 	mpd = respData->mMPDInstance.get();
 	ParseHelper->Initialize(mpd);
@@ -919,7 +919,7 @@ TEST_F(FunctionalTests, PeriodEndTime_TestCase2)
 	
 	mManifest = manifest;
 	string currentTimeISO = "2023-01-01T00:10:00Z";
-	std::shared_ptr<ManifestDownloadResponse> respData = nullptr;
+	ManifestDownloadResponsePtr respData = nullptr;
 	respData = GetManifestForMPDDownloader();
 	mpd = respData->mMPDInstance.get();
 	ParseHelper->Initialize(mpd);
@@ -963,7 +963,7 @@ TEST_F(FunctionalTests, PeriodEndTime_TestCase3)
 	
 	mManifest = manifest;
 	string currentTimeISO = "2023-01-01T00:10:00Z";
-	std::shared_ptr<ManifestDownloadResponse> respData = nullptr;
+	ManifestDownloadResponsePtr respData = nullptr;
 	respData = GetManifestForMPDDownloader();
 	mpd = respData->mMPDInstance.get();
 	ParseHelper->Initialize(mpd);
@@ -1003,7 +1003,7 @@ TEST_F(FunctionalTests, PeriodEndTime_TestCase4)
 	
 	mManifest = manifest;
 	string currentTimeISO = "2023-01-01T00:10:00Z";
-	std::shared_ptr<ManifestDownloadResponse> respData = nullptr;
+	ManifestDownloadResponsePtr respData = nullptr;
 	respData = GetManifestForMPDDownloader();
 	mpd = respData->mMPDInstance.get();
 	ParseHelper->Initialize(mpd);
@@ -1037,7 +1037,7 @@ TEST_F(FunctionalTests, PeriodEndTime_TestCase5)
 	
 	mManifest = manifest;
 	string currentTimeISO = "2023-01-01T00:10:00Z";
-	std::shared_ptr<ManifestDownloadResponse> respData = nullptr;
+	ManifestDownloadResponsePtr respData = nullptr;
 	respData = GetManifestForMPDDownloader();
 	mpd = respData->mMPDInstance.get();
 	ParseHelper->Initialize(mpd);
@@ -1071,7 +1071,7 @@ TEST_F(FunctionalTests, TestCase1_ForGetPeriodIdx)
 )";
 		mManifest = manifest;
 	string currentTimeISO = "2023-01-01T00:10:00Z";
-	std::shared_ptr<ManifestDownloadResponse> respData = nullptr;
+	ManifestDownloadResponsePtr respData = nullptr;
 	respData = GetManifestForMPDDownloader();
 	mpd = respData->mMPDInstance.get();
 	ParseHelper->Initialize(mpd);
@@ -1098,7 +1098,7 @@ TEST_F(FunctionalTests, NegativeTestCase_ForGetPeriodIdx)
 )";
 		mManifest = manifest;
 	string currentTimeISO = "2023-01-01T00:10:00Z";
-	std::shared_ptr<ManifestDownloadResponse> respData = nullptr;
+	ManifestDownloadResponsePtr respData = nullptr;
 	respData = GetManifestForMPDDownloader();
 	mpd = respData->mMPDInstance.get();
 	ParseHelper->Initialize(mpd);
@@ -1125,7 +1125,7 @@ TEST_F(FunctionalTests, TestCase1_For_UpdateBoundaryPeriod)
 )";
 		mManifest = manifest;
 	string currentTimeISO = "2023-01-01T00:10:00Z";
-	std::shared_ptr<ManifestDownloadResponse> respData = nullptr;
+	ManifestDownloadResponsePtr respData = nullptr;
 	respData = GetManifestForMPDDownloader();
 	mpd = respData->mMPDInstance.get();
 	ParseHelper->Initialize(mpd);
@@ -1167,7 +1167,7 @@ TEST_F(FunctionalTests, TestCase2_For_UpdateBoundaryPeriod)
 )";
 		mManifest = manifest;
 	string currentTimeISO = "2023-01-01T00:10:00Z";
-	std::shared_ptr<ManifestDownloadResponse> respData = nullptr;
+	ManifestDownloadResponsePtr respData = nullptr;
 	respData = GetManifestForMPDDownloader();
 	mpd = respData->mMPDInstance.get();
 	ParseHelper->Initialize(mpd);
@@ -1192,7 +1192,7 @@ TEST_F(FunctionalTests, TestForAbsoluteTime)
 )";
 
 	mManifest = manifest;
-	std::shared_ptr<ManifestDownloadResponse> respData = nullptr;
+	ManifestDownloadResponsePtr respData = nullptr;
 	respData = GetManifestForMPDDownloader();
 	mpd = respData->mMPDInstance.get();
 	ParseHelper->Initialize(mpd);

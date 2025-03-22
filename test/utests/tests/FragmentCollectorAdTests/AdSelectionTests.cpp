@@ -223,7 +223,7 @@ protected:
 				</MPD>
 				)";
 
-	std::shared_ptr<ManifestDownloadResponse> mResponse = std::make_shared<ManifestDownloadResponse>();
+	ManifestDownloadResponsePtr mResponse = MakeSharedManifestDownloadResponsePtr();
 	using BoolConfigSettings = std::map<AAMPConfigSettingBool, bool>;
 	using IntConfigSettings = std::map<AAMPConfigSettingInt, int>;
 
@@ -374,7 +374,7 @@ protected:
 	}
 
 public:
-	void GetMPDFromManifest(std::shared_ptr<ManifestDownloadResponse> response)
+	void GetMPDFromManifest(ManifestDownloadResponsePtr response)
 	{
 		dash::mpd::MPD *mpd = nullptr;
 		std::string manifestStr = std::string(response->mMPDDownloadResponse->mDownloadData.begin(), response->mMPDDownloadResponse->mDownloadData.end());
@@ -407,15 +407,17 @@ public:
 	 * @param[out] buffer Buffer containing manifest data
 	 * @retval true on success
 	 */
-	std::shared_ptr<ManifestDownloadResponse> GetManifestForMPDDownloader()
+	ManifestDownloadResponsePtr GetManifestForMPDDownloader()
 	{
 		if (!mResponse->mMPDInstance)
 		{
-			std::shared_ptr<ManifestDownloadResponse> response = std::make_shared<ManifestDownloadResponse>();
+			ManifestDownloadResponsePtr response = MakeSharedManifestDownloadResponsePtr();
 			response->mMPDStatus = AAMPStatusType::eAAMPSTATUS_OK;
 			response->mMPDDownloadResponse->iHttpRetValue = 200;
 			response->mMPDDownloadResponse->sEffectiveUrl = std::string(TEST_MANIFEST_URL);
-			response->mMPDDownloadResponse->mDownloadData.assign((uint8_t *)mManifest, (uint8_t *)(mManifest + strlen(mManifest)));
+			response->mMPDDownloadResponse->mDownloadData.assign(
+																 (uint8_t *)mManifest,
+																 (uint8_t *)&mManifest[strlen(mManifest)] );
 			GetMPDFromManifest(response);
 			mResponse = response;
 		}

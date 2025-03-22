@@ -125,7 +125,6 @@ typedef struct _manifestDownloadResponse
 {
 	DownloadResponsePtr mMPDDownloadResponse;
 	std::shared_ptr<dash::mpd::IMPD> mMPDInstance;
-
 	bool mIsLiveManifest;
 	bool mRefreshRequired;
 	AAMPStatusType mMPDStatus;
@@ -136,9 +135,8 @@ private:
 	AampMPDParseHelperPtr	mMPDParseHelper;
 
 public:
-	_manifestDownloadResponse() : mMPDDownloadResponse(std::make_shared<DownloadResponse> ()),mMPDInstance(nullptr),mIsLiveManifest(false),
-									mMPDStatus(AAMPStatusType::eAAMPSTATUS_OK),mRootNode(NULL),mRefreshRequired(false),
-									mDashMpdDoc(nullptr),mMPDParseHelper(std::make_shared<AampMPDParseHelper>()),mLastPlaylistDownloadTimeMs(0){}
+	_manifestDownloadResponse() : mMPDDownloadResponse(std::make_shared<DownloadResponse>()), mMPDInstance(nullptr), mIsLiveManifest(false), mRefreshRequired(false), mMPDStatus(AAMPStatusType::eAAMPSTATUS_OK), mRootNode(NULL), mDashMpdDoc(nullptr), mLastPlaylistDownloadTimeMs(0), mMPDParseHelper(std::make_shared<AampMPDParseHelper>()) {}
+	
 	_manifestDownloadResponse& operator=(const _manifestDownloadResponse& other)
 	{
 		_manifestDownloadResponse temp(other);
@@ -193,6 +191,8 @@ public:
 }ManifestDownloadResponse;
 
 typedef std::shared_ptr<ManifestDownloadResponse> ManifestDownloadResponsePtr;
+#define MakeSharedManifestDownloadResponsePtr std::make_shared<ManifestDownloadResponse>
+
 typedef std::shared_ptr<ManifestDownloadConfig> ManifestDownloadConfigPtr;
 
 
@@ -344,7 +344,7 @@ private:
 	*	@fn readMPDData
 	*	@brief Function to parse the downloaded manifest response from curl downloader
 	*/	
-	bool readMPDData(std::shared_ptr<ManifestDownloadResponse> mMPD);
+	bool readMPDData(ManifestDownloadResponsePtr mMPD);
 	/**
 	*	@fn waitForRefreshInterval
 	*	@brief Function to wait for refresh interval before next download
@@ -369,12 +369,12 @@ private:
 	*	@fn isMPDLowLatency
 	*	@brief Function to parse the manifest and check if DASH Low latency is supported in the manifest and read parameters 
 	*/				
-	bool isMPDLowLatency(std::shared_ptr<ManifestDownloadResponse> mMPD, AampLLDashServiceData &LLDashData);
+	bool isMPDLowLatency(ManifestDownloadResponsePtr mMPD, AampLLDashServiceData &LLDashData);
 	/**
 	*	@fn getMeNextManifestDownloadWaitTime
 	*	@brief Function to calculate the download refresh interval 
 	*/	
-	uint32_t getMeNextManifestDownloadWaitTime(std::shared_ptr<ManifestDownloadResponse> mMPD);
+	uint32_t getMeNextManifestDownloadWaitTime(ManifestDownloadResponsePtr mMPD);
 	/**
 	*	@fn GetCMCDHeader
 	*	@brief Function to get CMCD Headers to pack during download  
@@ -387,7 +387,7 @@ private:
 	void harvestManifest();
 private:
 
-	std::queue<std::shared_ptr<ManifestDownloadResponse>> mMPDBufferQ;
+	std::queue<ManifestDownloadResponsePtr> mMPDBufferQ;
 	uint32_t mMPDBufferSize; // maximum size of buffer
 	std::mutex mMPDBufferMutex; // mutex to protect buffer
 

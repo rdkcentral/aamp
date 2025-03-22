@@ -50,7 +50,7 @@ using ::testing::WithoutArgs;
  */
 struct StreamSelectionTestParams {
 	int configProfileCount; /** Current profile count */
-	int position; /** Plaayback start position Ad or content */
+	int position; /** Playback start position Ad or content */
 	int numTracks; /** Number tracks const now but can extend test in future */
 	const char *manifestUsed; /** Manifest to be used  */
 	AdState currAdState; /** Current state of Ad playback */
@@ -325,7 +325,6 @@ protected:
 	const char *mManifest;
 	static constexpr const char *TEST_BASE_URL = "http://host/asset/";
 	static constexpr const char *TEST_MANIFEST_URL = "http://host/asset/manifest.mpd";
-	std::shared_ptr<ManifestDownloadResponse> mResponse = std::make_shared<ManifestDownloadResponse>();
 	using BoolConfigSettings = std::map<AAMPConfigSettingBool, bool>;
 	using IntConfigSettings = std::map<AAMPConfigSettingInt, int>;
 
@@ -392,29 +391,20 @@ protected:
 		{
 			gpGlobalConfig = new AampConfig();
 		}
-
 		mPrivateInstanceAAMP = new PrivateInstanceAAMP(gpGlobalConfig);
 		mPrivateInstanceAAMP->mIsDefaultOffset = true;
-
 		AampLogManager::setLogLevel(eLOGLEVEL_TRACE);
 		AampLogManager::lockLogLevel(true);
-
 		g_mockAampConfig = new NiceMock<MockAampConfig>();
-
 		mPrivateInstanceAAMP->mIsDefaultOffset = true;
-
 		g_mockPrivateInstanceAAMP = new StrictMock<MockPrivateInstanceAAMP>();
-
 		g_mockMediaStreamContext = new StrictMock<MockMediaStreamContext>();
-
 		g_mockAampMPDDownloader = new StrictMock<MockAampMPDDownloader>();
-
 		mStreamAbstractionAAMP_MPD = nullptr;
-
 		mManifest = nullptr;
-		// mResponse = nullptr;
 		mBoolConfigSettings = mDefaultBoolConfigSettings;
 		mIntConfigSettings = mDefaultIntConfigSettings;
+		mCdaiObj = nullptr;
 	}
 
 	void TearDown()
@@ -447,25 +437,25 @@ protected:
 		g_mockAampMPDDownloader = nullptr;
 
 		mManifest = nullptr;
-		mResponse = nullptr;
 	}
 
 public:
-	void GetMPDFromManifest(std::shared_ptr<ManifestDownloadResponse> response)
+	void GetMPDFromManifest(ManifestDownloadResponsePtr response)
 	{
-		dash::mpd::MPD *mpd = nullptr;
-		std::string manifestStr = std::string(response->mMPDDownloadResponse->mDownloadData.begin(), response->mMPDDownloadResponse->mDownloadData.end());
-
-		xmlTextReaderPtr reader = xmlReaderForMemory((char *)manifestStr.c_str(), (int)manifestStr.length(), NULL, NULL, 0);
+		std::string manifestStr = std::string(
+											  response->mMPDDownloadResponse->mDownloadData.begin(),
+											  response->mMPDDownloadResponse->mDownloadData.end());
+		size_t len = manifestStr.length();
+		xmlTextReaderPtr reader = xmlReaderForMemory( manifestStr.c_str(), (int)len, NULL, NULL, 0 );
 		if (reader != NULL)
 		{
 			if (xmlTextReaderRead(reader))
 			{
 				response->mRootNode = MPDProcessNode(&reader, TEST_MANIFEST_URL);
-				if (response->mRootNode != NULL)
+				if( response->mRootNode )
 				{
-					mpd = response->mRootNode->ToMPD();
-					if (mpd)
+					dash::mpd::MPD *mpd = response->mRootNode->ToMPD();
+					if( mpd )
 					{
 						std::shared_ptr<dash::mpd::IMPD> tmp_ptr(mpd);
 						response->mMPDInstance = tmp_ptr;
@@ -484,19 +474,16 @@ public:
 	 * @param[out] buffer Buffer containing manifest data
 	 * @retval true on success
 	 */
-	std::shared_ptr<ManifestDownloadResponse> GetManifestForMPDDownloader()
+	ManifestDownloadResponsePtr GetManifestForMPDDownloader()
 	{
-		if (!mResponse->mMPDInstance)
-		{
-			std::shared_ptr<ManifestDownloadResponse> response = std::make_shared<ManifestDownloadResponse>();
-			response->mMPDStatus = AAMPStatusType::eAAMPSTATUS_OK;
-			response->mMPDDownloadResponse->iHttpRetValue = 200;
-			response->mMPDDownloadResponse->sEffectiveUrl = std::string(TEST_MANIFEST_URL);
-			response->mMPDDownloadResponse->mDownloadData.assign((uint8_t *)mManifest, (uint8_t *)(mManifest + strlen(mManifest)));
-			GetMPDFromManifest(response);
-			mResponse = response;
-		}
-		return mResponse;
+		ManifestDownloadResponsePtr response = MakeSharedManifestDownloadResponsePtr();
+		response->mMPDStatus = AAMPStatusType::eAAMPSTATUS_OK;
+		response->mMPDDownloadResponse->iHttpRetValue = 200;
+		response->mMPDDownloadResponse->sEffectiveUrl = std::string(TEST_MANIFEST_URL);
+		size_t len = strlen(mManifest);
+		response->mMPDDownloadResponse->mDownloadData.assign( (uint8_t *)mManifest, (uint8_t *)&mManifest[len] );
+		GetMPDFromManifest(response);
+		return response;
 	}
 
 	/**
@@ -580,19 +567,12 @@ public:
 TEST_P(StreamSelectionTests, TestCorrectTrackSelection)
 {
 	const auto& params = GetParam(); /*Retrieve the parameter values */
-	std::string fragmentUrl;
-	AAMPStatusType status;
 	mPrivateInstanceAAMP->rate = AAMP_NORMAL_PLAY_RATE;
-
-	/* Initialize MPD. The video initialization segment is cached. */
-	fragmentUrl = std::string(TEST_BASE_URL) + std::string("video_p0_init.mp4");
 	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, _, _, _, _, _, _))
 		.Times(AnyNumber())
 		.WillOnce(Return(true));
-	
-	status = InitializeMPD(params.manifestUsed, TuneType::eTUNETYPE_NEW_NORMAL, params.position);
+	AAMPStatusType status = InitializeMPD(params.manifestUsed, TuneType::eTUNETYPE_NEW_NORMAL, params.position);
 	EXPECT_EQ(status, eAAMPSTATUS_OK);
-
 	mStreamAbstractionAAMP_MPD->SetNumberOfTracks(params.numTracks); // only video now
 	mStreamAbstractionAAMP_MPD->mProfileCount = params.configProfileCount; //  Current profile count
 	auto cdaiObj = mStreamAbstractionAAMP_MPD->GetCDAIObject();
