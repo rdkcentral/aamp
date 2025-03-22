@@ -2887,7 +2887,7 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 }
 
 
-void StreamAbstractionAAMP_MPD::ProcessManifestHeaderResponse(std::shared_ptr<ManifestDownloadResponse> mpdDnldResp,
+void StreamAbstractionAAMP_MPD::ProcessManifestHeaderResponse(ManifestDownloadResponsePtr mpdDnldResp,
 			bool init)
 {
 	if(aamp->IsEventListenerAvailable(AAMP_EVENT_HTTP_RESPONSE_HEADER) && (aamp->manifestHeadersNeeded.size()))
@@ -2907,7 +2907,7 @@ void StreamAbstractionAAMP_MPD::ProcessManifestHeaderResponse(std::shared_ptr<Ma
 					auto delim = availHeader.find(':');
 					if (delim != std::string::npos)
 					{
-						std:string headerString = availHeader.substr(0, delim); // normalize - strip whitespace
+						std::string headerString = availHeader.substr(0, delim); // normalize - strip whitespace
 						headerString.erase(std::remove_if(headerString.begin(), headerString.end(), ::isspace),headerString.end());
 						if(headerString == header)
 						{
@@ -2935,7 +2935,7 @@ void StreamAbstractionAAMP_MPD::ProcessManifestHeaderResponse(std::shared_ptr<Ma
  * @brief Process Metadata from the manifest
  * @retval None
 */
-void StreamAbstractionAAMP_MPD::ProcessMetadataFromManifest( std::shared_ptr<ManifestDownloadResponse> mpdDnldResp, bool init)
+void StreamAbstractionAAMP_MPD::ProcessMetadataFromManifest( ManifestDownloadResponsePtr mpdDnldResp, bool init)
 {
 	vector<std::string> locationUrl;
 	// Store the mpd pointer which is already parsed in the MPDDownloader
@@ -2979,7 +2979,7 @@ void StreamAbstractionAAMP_MPD::ProcessMetadataFromManifest( std::shared_ptr<Man
  * @brief Get mpd object of manifest
  * @retval AAMPStatusType indicates if success or fail
 */
-AAMPStatusType StreamAbstractionAAMP_MPD::GetMPDFromManifest( std::shared_ptr<ManifestDownloadResponse> mpdDnldResp, bool init)
+AAMPStatusType StreamAbstractionAAMP_MPD::GetMPDFromManifest( ManifestDownloadResponsePtr mpdDnldResp, bool init)
 {
 	AAMPStatusType ret = eAAMPSTATUS_MANIFEST_PARSE_ERROR;
 	vector<std::string> locationUrl;
@@ -4433,13 +4433,12 @@ AAMPStatusType StreamAbstractionAAMP_MPD::FetchDashManifest()
 	int http_error = 0;
 
 	{
-		mManifestDnldRespPtr = std::make_shared<ManifestDownloadResponse> ();
+		mManifestDnldRespPtr = MakeSharedManifestDownloadResponsePtr();
 		aamp->profiler.ProfileBegin(PROFILE_BUCKET_MANIFEST);
 
 		AampMPDDownloader *dnldInstance = aamp->GetMPDDownloader();
 		// Get the Manifest with a wait of Manifest Timeout time
 		mManifestDnldRespPtr = dnldInstance->GetManifest(true, aamp->mManifestTimeoutMs);
-		//mManifestDnldRespPtr->show();
 		gotManifest		=	(mManifestDnldRespPtr->mMPDStatus == AAMPStatusType::eAAMPSTATUS_OK);
 		http_error		=	mManifestDnldRespPtr->mMPDDownloadResponse->iHttpRetValue;
 		downloadTime	=	mManifestDnldRespPtr->mMPDDownloadResponse->downloadCompleteMetrics.total;

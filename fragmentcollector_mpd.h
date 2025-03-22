@@ -941,9 +941,9 @@ protected:
 	 * @param manifestUrl manifest url
 	 * @param init true if this is the first playlist download for a tune/seek/trickplay
 	 */
-	AAMPStatusType GetMPDFromManifest( std::shared_ptr<ManifestDownloadResponse> mpdDnldResp, bool init);
-	void ProcessMetadataFromManifest( std::shared_ptr<ManifestDownloadResponse> mpdDnldResp, bool init);
-	void ProcessManifestHeaderResponse(std::shared_ptr<ManifestDownloadResponse> mpdDnldResp,bool init);
+	AAMPStatusType GetMPDFromManifest( ManifestDownloadResponsePtr mpdDnldResp, bool init);
+	void ProcessMetadataFromManifest( ManifestDownloadResponsePtr mpdDnldResp, bool init);
+	void ProcessManifestHeaderResponse(ManifestDownloadResponsePtr mpdDnldResp,bool init);
 	void MPDUpdateCallbackExec();
 	/**
 	 * @fn GetDrmPrefs

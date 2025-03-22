@@ -366,7 +366,7 @@ void AampMPDDownloader::downloadMPDThread1()
 			refreshNeeded = false;
 			//mDownloader1.Clear();
 			AAMPLOG_INFO("aamp url:%d,%d,%d,%f,%s", eMEDIATYPE_TELEMETRY_MANIFEST, eMEDIATYPE_MANIFEST,eCURLINSTANCE_VIDEO,0.000000, tuneUrl.c_str());
-			mMPDData = std::make_shared<ManifestDownloadResponse> ();
+			mMPDData = MakeSharedManifestDownloadResponsePtr();
 		}
 		//If Manifest data already provided use it ,not required to download the Manifest
 		if (!mMPDDnldCfg->mPreProcessedManifest.empty())
@@ -649,7 +649,7 @@ void AampMPDDownloader::pushDownloadDataToQueue()
 */
 ManifestDownloadResponsePtr AampMPDDownloader::GetManifest(bool bWait, int iWaitDurationMs,int errorSimulation)
 {
-	ManifestDownloadResponsePtr respPtr = std::make_shared<ManifestDownloadResponse> ();
+	ManifestDownloadResponsePtr respPtr = MakeSharedManifestDownloadResponsePtr();
 	respPtr->mMPDStatus = AAMPStatusType::eAAMPSTATUS_MANIFEST_DOWNLOAD_ERROR;
 	// Check if anything available in the Q to return
 	// If last downloaded manifest present , return it to the application
@@ -745,7 +745,7 @@ bool AampMPDDownloader::waitForRefreshInterval()
 *   @fn readMPDData
 *   @brief readMPDData function to read the mpd and pull the parameters like isLive/Refresh Interval
 */
-bool AampMPDDownloader::readMPDData(std::shared_ptr<ManifestDownloadResponse> dnldManifest)
+bool AampMPDDownloader::readMPDData(ManifestDownloadResponsePtr dnldManifest)
 {
 	bool retVal = true;
 	dnldManifest->mIsLiveManifest   =       !(dnldManifest->mMPDInstance->GetType() == "static");
@@ -805,7 +805,7 @@ bool AampMPDDownloader::IsMPDLowLatency(AampLLDashServiceData &LLDashData)
 }
 
 
-bool AampMPDDownloader::isMPDLowLatency(std::shared_ptr<ManifestDownloadResponse> dnldManifest, AampLLDashServiceData &LLDashData)
+bool AampMPDDownloader::isMPDLowLatency(ManifestDownloadResponsePtr dnldManifest, AampLLDashServiceData &LLDashData)
 {
 	bool isSuccess=false;
 	LLDashData.lowLatencyMode	=	 false;
@@ -891,7 +891,7 @@ bool AampMPDDownloader::isMPDLowLatency(std::shared_ptr<ManifestDownloadResponse
 	return isSuccess;
 }
 
-uint32_t AampMPDDownloader::getMeNextManifestDownloadWaitTime(std::shared_ptr<ManifestDownloadResponse> dnldManifest)
+uint32_t AampMPDDownloader::getMeNextManifestDownloadWaitTime(ManifestDownloadResponsePtr dnldManifest)
 {
 	uint32_t minUpdateDuration		=       DEFAULT_INTERVAL_BETWEEN_MPD_UPDATES_MS;
 	uint32_t minDelayBetweenPlaylistUpdates = DEFAULT_INTERVAL_BETWEEN_MPD_UPDATES_MS;
