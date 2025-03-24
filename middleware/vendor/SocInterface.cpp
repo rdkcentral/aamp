@@ -182,7 +182,7 @@ std::shared_ptr<SocInterface> SocInterface::CreateSocInterface()
  *
  * Retrieves the current video presentation timestamp (PTS).
  *
- * @param video_sink The video sink element.
+ * @param video_sink The video sink element (unused)
  * @param video_dec The video decoder element.
  * @param isWesteros A flag for Westeros logic.
  *
@@ -191,17 +191,12 @@ std::shared_ptr<SocInterface> SocInterface::CreateSocInterface()
 long long SocInterface::GetVideoPts(GstElement *video_sink, GstElement *video_dec, bool isWesteros)
 {
 	gint64 currentPTS = 0;
-	GstElement *element;
 	if(video_dec)
 	{
-		element = video_dec;
-	}
-	if(element)
-	{
-		g_object_get(element, "video-pts", &currentPTS, NULL);/* Gets the 'video-pts' from the element into the currentPTS */
+		g_object_get(video_dec, "video-pts", &currentPTS, NULL);
 		if(!isWesteros)
 		{
-			currentPTS = currentPTS * 2;
+			currentPTS *= 2;
 		}
 	}
 	return (long long)currentPTS;
