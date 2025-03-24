@@ -132,6 +132,35 @@ void PlaybackCommand::HandleCommandList( const char *cmd )
 	mVirtualChannelMap.showList(start, end, tail);
 }
 
+void PlaybackCommand::HandleCommandBatch()
+{
+	std::string batchFilePath = std::string(getenv("HOME")) + "/aampcli.bat";
+	std::ifstream batchFile(batchFilePath);
+
+	if (!batchFile.is_open())
+	{
+		printf("[AAMPCLI] ERROR - unable to open batch file\n");
+		return;
+	}
+
+	std::string line;
+	while (std::getline(batchFile, line))
+	{
+		if (line.compare("batch") == 0)
+		{
+			printf("[AAMPCLI] ERROR - nested batch command not allowed\n");
+			continue;
+		}
+		
+		else if (!line.empty() && line[0] != '#')
+		{
+			printf("[AAMPCLI] Executing command: %s\n", line.c_str());
+			execute(line.c_str(), mAampcli.mSingleton);
+		}
+	}
+}
+
+
 void PlaybackCommand::HandleCommandContentType( const char *cmd )
 {
 	if (strlen(cmd) > strlen("contentType "))
@@ -882,6 +911,10 @@ bool PlaybackCommand::execute( const char *cmd, PlayerInstanceAAMP *playerInstan
 	{
 		HandleAdTesting();
 	}
+	else if (isCommandMatch(cmd, "batch"))
+	{
+		HandleCommandBatch();
+	}
 	else
 	{
 		printf( "[AAMP-CLI] unmatched command: %s\n", cmd );
@@ -968,6 +1001,7 @@ void PlaybackCommand::registerPlaybackCommands()
 	addCommand("get help","Show 'get' commands");
 	addCommand("set help","Show 'set' commands");
 	addCommand("history","Show user-entered aampcli command history" );
+	addCommand("batch","Execute commands line by line as batch as defined in #Home/aampcli.bat (~/aampcli.bat)" );
 	addCommand("help","Show this list of available commands");
 
 	// tuning
