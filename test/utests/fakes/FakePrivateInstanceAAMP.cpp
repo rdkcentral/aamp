@@ -186,7 +186,7 @@ AAMPPlayerState PrivateInstanceAAMP::GetState()
 	return state;
 }
 
-void PrivateInstanceAAMP::SetState(AAMPPlayerState state, bool generateEvent)
+void PrivateInstanceAAMP::SetState(AAMPPlayerState state)
 {
 	if (g_mockPrivateInstanceAAMP != nullptr)
 	{
@@ -194,10 +194,9 @@ void PrivateInstanceAAMP::SetState(AAMPPlayerState state, bool generateEvent)
 	}
 }
 
-void PrivateInstanceAAMP::Stop( bool sendStateChangeEvents )
+void PrivateInstanceAAMP::Stop()
 {
 }
-
 void PrivateInstanceAAMP::SetAudioTrack(int)
 {
 

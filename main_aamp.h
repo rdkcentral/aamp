@@ -854,9 +854,10 @@ public:
 
 	/**
 	 *   @brief Stop playback and release resources.
+	 *   @param[in]  sendStateChangeEvent - true if state change events need to be sent for Stop operation
 	 *   @return void
 	 */
-	void Stop(void);
+	void Stop(bool sendStateChangeEvent = true);
 
 	/**
 	 *   @fn ResetConfiguration
@@ -2193,6 +2194,15 @@ protected:
 	 */
 	void SetTextTrackInternal(int trackId, char *data);
 private:
+
+	/**
+	 *   @fn StopInternal
+	 *
+	 *   @param[in]  sendStateChangeEvent - true if state change events need to be sent for Stop operation
+	 *   @return void
+	 */
+	void StopInternal(bool sendStateChangeEvent);
+
 	void* mJSBinding_DL;                /**< Handle to AAMP plugin dynamic lib.  */
 	static std::mutex mPrvAampMtx;      /**< Mutex to protect aamp instance in GetState() */
 	bool mAsyncRunning;                 /**< Flag denotes if async mode is on or not */

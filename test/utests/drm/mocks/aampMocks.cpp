@@ -82,7 +82,7 @@ void PrivateInstanceAAMP::SendEvent(AAMPEventPtr eventData, AAMPEventMode eventM
 {
 }
 
-void PrivateInstanceAAMP::SetState(AAMPPlayerState state, bool sendStateChangeEvent)
+void PrivateInstanceAAMP::SetState(AAMPPlayerState state)
 {
 }
 
@@ -228,7 +228,7 @@ void PrivateInstanceAAMP::SendMediaMetadataEvent()
 {
 }
 
-void PrivateInstanceAAMP::Stop( bool sendStateChangedEvents )
+void PrivateInstanceAAMP::Stop()
 {
 }
 
