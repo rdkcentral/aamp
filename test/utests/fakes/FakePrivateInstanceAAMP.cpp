@@ -133,13 +133,19 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) :
 	mBlacklistedProfiles(),
 	mId3MetadataCache{},
 	mMPDDownloaderInstance(new AampMPDDownloader()),
+	mMPDStichOption(OPT_1_FULL_MANIFEST_TUNE),mMPDStichRefreshUrl(""),
 	mDiscoCompleteLock(),
 	mWaitForDiscoToComplete(),
 	mIsPeriodChangeMarked(false),
 	mProgressReportAvailabilityOffset(-1),
 	mpStreamAbstractionAAMP(),
 	zoom_mode(VIDEO_ZOOM_NONE),
-	mLocalAAMPTsb(false)
+	mLocalAAMPTsb(false),
+	mVideoFormat(),
+	mAudioFormat(),
+	mPreviousAudioType(),
+	mAuxFormat(),
+	mCurlShared()
 {
 }
 

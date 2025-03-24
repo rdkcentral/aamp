@@ -337,8 +337,6 @@ public:
 	 */
 	AAMPStatusType InitializeMPD(TuneType tuneType = TuneType::eTUNETYPE_NEW_NORMAL, double seekPos = 0.0, float rate = AAMP_NORMAL_PLAY_RATE)
 	{
-		AAMPStatusType status;
-
 		/* Setup configuration mock. */
 		for (const auto &b : mBoolConfigSettings)
 		{
@@ -383,7 +381,6 @@ TEST_P(MonitorLatencyTests, LatencyChangeExpectedScenarios)
 	std::string fragmentUrl;
 	AAMPStatusType status;
 	mPrivateInstanceAAMP->rate = 1.0;
-	bool ret = false;
 	status = InitializeMPD();
 	EXPECT_EQ(status, eAAMPSTATUS_OK);
 

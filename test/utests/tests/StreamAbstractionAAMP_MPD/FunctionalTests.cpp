@@ -64,7 +64,7 @@ protected:
 	static constexpr const char *TEST_BASE_URL = "http://host/asset/";
 	static constexpr const char *TEST_MANIFEST_URL = "http://host/asset/manifest.mpd";
 	std::string mManifestUrl {TEST_MANIFEST_URL};
-	std::shared_ptr<ManifestDownloadResponse> mResponse =  std::make_shared<ManifestDownloadResponse> ();
+	ManifestDownloadResponsePtr mResponse =  MakeSharedManifestDownloadResponsePtr();
 	using BoolConfigSettings = std::map<AAMPConfigSettingBool, bool>;
 	using IntConfigSettings = std::map<AAMPConfigSettingInt, int>;
 
@@ -151,6 +151,7 @@ protected:
 		mBoolConfigSettings = mDefaultBoolConfigSettings;
 		mIntConfigSettings = mDefaultIntConfigSettings;
 		AampLogManager::setLogLevel(eLOGLEVEL_TRACE);   // Enable all levels of AAMP logging
+		mCdaiObj = nullptr;
 	}
 
 	void TearDown()
@@ -220,7 +221,7 @@ public:
 	}
 
 
-	void GetMPDFromManifest(std::shared_ptr<ManifestDownloadResponse> response)
+	void GetMPDFromManifest(ManifestDownloadResponsePtr response)
 	{
 		dash::mpd::MPD* mpd = nullptr;
 		std::string manifestStr = std::string( response->mMPDDownloadResponse->mDownloadData.begin(), response->mMPDDownloadResponse->mDownloadData.end());
@@ -253,9 +254,9 @@ public:
 	 * @param[out] buffer Buffer containing manifest data
 	 * @retval true on success
 	*/
-	std::shared_ptr<ManifestDownloadResponse> GetManifestForMPDDownloader()
+	ManifestDownloadResponsePtr GetManifestForMPDDownloader()
 	{
-		std::shared_ptr<ManifestDownloadResponse> response = std::make_shared<ManifestDownloadResponse> ();
+		ManifestDownloadResponsePtr response = MakeSharedManifestDownloadResponsePtr();
 		response->mMPDStatus = AAMPStatusType::eAAMPSTATUS_OK;
 		response->mMPDDownloadResponse->iHttpRetValue = 200;
 		response->mMPDDownloadResponse->sEffectiveUrl = mManifestUrl;
@@ -333,19 +334,20 @@ public:
 		EXPECT_NE(track, nullptr);
 
 		MediaStreamContext *pMediaStreamContext = static_cast<MediaStreamContext *>(track);
-		double fragmentDuration = ComputeFragmentDuration(12, 12);
+		double fragmentDuration = ComputeFragmentDuration(12, 12); (void)fragmentDuration;
 		pMediaStreamContext->mediaType = eMEDIATYPE_VIDEO;
 
 		SegmentTemplate *segmentTemplate = new SegmentTemplate();
-		const IFailoverContent *failoverContent = segmentTemplate->GetFailoverContent();
+		const IFailoverContent *failoverContent = segmentTemplate->GetFailoverContent(); (void)failoverContent;
 
 		static std::vector<IFCS *> failovercontents;
 		dash::mpd::IFCS *IFCSobj;
 		failovercontents.push_back(IFCSobj);
 
 		AampMPDParseHelper *mMPDParseHelper = new AampMPDParseHelper();
-		int duration = mMPDParseHelper->GetMediaPresentationDuration();
-		bool mIsLiveStream = mMPDParseHelper->IsLiveManifest();
+		auto duration = mMPDParseHelper->GetMediaPresentationDuration(); (void)duration;
+		bool mIsLiveStream = mMPDParseHelper->IsLiveManifest(); (void)mIsLiveStream;
+		delete mMPDParseHelper;
 
 		mStreamAbstractionAAMP_MPD->PushNextFragment(pMediaStreamContext, 0);
 	}
@@ -856,7 +858,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _, _, _))
 		.WillOnce(Return(true));
 
-	status = InitializeMPD(manifest);
+	status = InitializeMPD(manifest); (void)status;
 
 	/* The seek position will be at the beginning of the fragment containing the
 	 * live point measured from the beginning of the available content in the
@@ -966,7 +968,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _, _, _))
 		.WillOnce(Return(true));
 
-	status = InitializeMPD(manifest, eTUNETYPE_SEEKTOLIVE, initialSeekPosition);
+	status = InitializeMPD(manifest, eTUNETYPE_SEEKTOLIVE, initialSeekPosition); (void)status;
 
 	/* The seek position will be at the live point measured from the start of
 	 * the available content. This may be in the middle of a fragment.
@@ -1036,9 +1038,9 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 	* Gets Max Bitrate available for current playback.
 	* long MAX video bitrates
 	*/
-	BitsPerSecond maxBitrate  = mStreamAbstractionAAMP_MPD->GetMaxBitrate();
+	BitsPerSecond maxBitrate  = mStreamAbstractionAAMP_MPD->GetMaxBitrate(); (void)maxBitrate;
 	int thumbnailIndex = 3;
-	bool retthumbnailIndex = mStreamAbstractionAAMP_MPD->SetThumbnailTrack(thumbnailIndex);
+	bool retThumbnailIndex = mStreamAbstractionAAMP_MPD->SetThumbnailTrack(thumbnailIndex); (void)retThumbnailIndex;
 	mStreamAbstractionAAMP_MPD->StopInjection();
 
 	/* The first segment downloaded will be at the live point. */
@@ -1120,7 +1122,6 @@ TEST_F(FunctionalTests, VP8AndVorbisInMP4)
 {
 	std::string fragmentUrl;
 	AAMPStatusType status;
-	dash::mpd::IMPD *mpd;
 	static const char *manifest =
 R"(<?xml version="1.0" encoding="utf-8"?>
 <MPD xmlns="urn:mpeg:dash:schema:mpd:2011" profiles="urn:mpeg:dash:profile:isoff-live:2011" type="static" mediaPresentationDuration="PT2M0.0S" minBufferTime="PT4.0S">
@@ -1183,7 +1184,6 @@ TEST_F(FunctionalTests, VP9AndOpusInMP4)
 {
 	std::string fragmentUrl;
 	AAMPStatusType status;
-	dash::mpd::IMPD *mpd;
 	static const char *manifest =
 R"(<?xml version="1.0" encoding="utf-8"?>
 <MPD xmlns="urn:mpeg:dash:schema:mpd:2011" profiles="urn:mpeg:dash:profile:isoff-live:2011" type="static" mediaPresentationDuration="PT2M0.0S" minBufferTime="PT4.0S">
@@ -1247,7 +1247,6 @@ TEST_F(FunctionalTests, MultiCodecMP4)
 {
 	std::string fragmentUrl;
 	AAMPStatusType status;
-	dash::mpd::IMPD *mpd;
 	static const char *manifest =
 R"(<?xml version="1.0" encoding="utf-8"?>
 <MPD xmlns="urn:mpeg:dash:schema:mpd:2011" profiles="urn:mpeg:dash:profile:isoff-live:2011" type="static" mediaPresentationDuration="PT2M0.0S" minBufferTime="PT4.0S">
@@ -1480,7 +1479,6 @@ TEST_F(FunctionalTests, SeekPosUpdateTest)
 {
 	std::string fragmentUrl;
 	AAMPStatusType status;
-	dash::mpd::IMPD *mpd;
 	static const char *manifest =
 R"(<?xml version="1.0"?>
 <MPD xmlns="urn:mpeg:dash:schema:mpd:2011" minBufferTime="PT2S" type="static" mediaPresentationDuration="PT0H0M6.000S" maxSegmentDuration="PT0H0M2.000S" profiles="urn:mpeg:dash:profile:full:2011,urn:mpeg:dash:profile:cmaf:2019">
@@ -2097,13 +2095,14 @@ TEST_F(StreamAbstractionAAMP_MPDTest, GetStreamInfoTest) {
 	// Assuming some index for testing
 	int idx=-1;
 	StreamInfo* streamInfo = mStreamAbstractionAAMP_MPD->CallGetStreamInfo(idx);
+	(void)streamInfo;
 }
 
 TEST_F(StreamAbstractionAAMP_MPDTest, EnableAndSetLiveOffsetForLLDashPlaybackTest)
 {
-	const MPD *mpd;
+	const MPD *mpd = NULL;
 	AAMPStatusType result = mStreamAbstractionAAMP_MPD->CallEnableAndSetLiveOffsetForLLDashPlayback(mpd);
-
+	(void)result;
 }
 
 TEST_F(StreamAbstractionAAMP_MPDTest, FetchAndInjectInitFragmentsTest)
@@ -2142,7 +2141,7 @@ TEST_F(StreamAbstractionAAMP_MPDTest, StreamSelectionTest_3)
 
 TEST_F(StreamAbstractionAAMP_MPDTest, CheckForInitalClearPeriodTest)
 {
-	bool result = mStreamAbstractionAAMP_MPD->CallCheckForInitalClearPeriod();
+	bool result = mStreamAbstractionAAMP_MPD->CallCheckForInitalClearPeriod(); (void)result;
 }
 
 TEST_F(StreamAbstractionAAMP_MPDTest, PushEncryptedHeadersTest)
@@ -2154,7 +2153,7 @@ TEST_F(StreamAbstractionAAMP_MPDTest, PushEncryptedHeadersTest)
 TEST_F(StreamAbstractionAAMP_MPDTest, GetProfileIdxForBandwidthNotificationTest)
 {
 	uint32_t bandwidth = 22;
-	int result = mStreamAbstractionAAMP_MPD->CallGetProfileIdxForBandwidthNotification(bandwidth);
+	int result = mStreamAbstractionAAMP_MPD->CallGetProfileIdxForBandwidthNotification(bandwidth); (void)result;
 }
 
 TEST_F(StreamAbstractionAAMP_MPDTest, GetCurrentMimeTypeTest)
@@ -2167,28 +2166,28 @@ TEST_F(StreamAbstractionAAMP_MPDTest, UpdateTrackInfoTest)
 {
 	bool modifyDefaultBW = true;
 	bool resetTimeLineIndex = true;
-	AAMPStatusType result = mStreamAbstractionAAMP_MPD->CallUpdateTrackInfo(modifyDefaultBW, resetTimeLineIndex);
+	AAMPStatusType result = mStreamAbstractionAAMP_MPD->CallUpdateTrackInfo(modifyDefaultBW, resetTimeLineIndex); (void)result;
 }
 
 TEST_F(StreamAbstractionAAMP_MPDTest, UpdateTrackInfoTest_1)
 {
 	bool modifyDefaultBW = false;
 	bool resetTimeLineIndex = false;
-	AAMPStatusType result = mStreamAbstractionAAMP_MPD->CallUpdateTrackInfo(modifyDefaultBW, resetTimeLineIndex);
+	AAMPStatusType result = mStreamAbstractionAAMP_MPD->CallUpdateTrackInfo(modifyDefaultBW, resetTimeLineIndex); (void)result;
 }
 
 TEST_F(StreamAbstractionAAMP_MPDTest, UpdateTrackInfoTest_2)
 {
 	bool modifyDefaultBW = true;
 	bool resetTimeLineIndex = false;
-	AAMPStatusType result = mStreamAbstractionAAMP_MPD->CallUpdateTrackInfo(modifyDefaultBW, resetTimeLineIndex);
+	AAMPStatusType result = mStreamAbstractionAAMP_MPD->CallUpdateTrackInfo(modifyDefaultBW, resetTimeLineIndex); (void)result;
 }
 
 TEST_F(StreamAbstractionAAMP_MPDTest, UpdateTrackInfoTest_3)
 {
 	bool modifyDefaultBW = false;
 	bool resetTimeLineIndex = true;
-	AAMPStatusType result = mStreamAbstractionAAMP_MPD->CallUpdateTrackInfo(modifyDefaultBW, resetTimeLineIndex);
+	AAMPStatusType result = mStreamAbstractionAAMP_MPD->CallUpdateTrackInfo(modifyDefaultBW, resetTimeLineIndex); (void)result;
 }
 
 TEST_F(StreamAbstractionAAMP_MPDTest, SeekInPeriodTest)
@@ -2201,17 +2200,17 @@ TEST_F(StreamAbstractionAAMP_MPDTest, SeekInPeriodTest)
 TEST_F(StreamAbstractionAAMP_MPDTest, GetFirstValidCurrMPDPeriodTest)
 {
 	std::vector<PeriodInfo> currMPDPeriodDetails;
-	PeriodInfo result = mStreamAbstractionAAMP_MPD->CallGetFirstValidCurrMPDPeriod(currMPDPeriodDetails);
+	PeriodInfo result = mStreamAbstractionAAMP_MPD->CallGetFirstValidCurrMPDPeriod(currMPDPeriodDetails); (void)result;
 }
 
 TEST_F(StreamAbstractionAAMP_MPDTest, GetLatencyStatusTest)
 {
-	LatencyStatus result = mStreamAbstractionAAMP_MPD->CallGetLatencyStatus();
+	LatencyStatus result = mStreamAbstractionAAMP_MPD->CallGetLatencyStatus(); (void)result;
 }
 
 TEST_F(StreamAbstractionAAMP_MPDTest, QueueContentProtectionTest)
 {
-	IPeriod *period;
+	IPeriod *period = NULL;
 	uint32_t adaptationSetIdx = 1;
 	AampMediaType mediaType = eMEDIATYPE_DEFAULT;
 	bool qGstProtectEvent = true;
@@ -2229,15 +2228,15 @@ TEST_F(StreamAbstractionAAMP_MPDTest, ProcessAllContentProtectionForMediaTypeTes
 
 TEST_F(StreamAbstractionAAMP_MPDTest, OnAdEventTest)
 {
-	AdEvent evt;
-	bool result = mStreamAbstractionAAMP_MPD->CallOnAdEvent(evt);
+	AdEvent evt = AdEvent::INIT;
+	bool result = mStreamAbstractionAAMP_MPD->CallOnAdEvent(evt); (void)result;
 }
 
 TEST_F(StreamAbstractionAAMP_MPDTest, OnAdEventWithOffsetTest)
 {
-	AdEvent evt;
+	AdEvent evt = AdEvent::INIT;
 	double adOffset = 1.0;
-	bool result = mStreamAbstractionAAMP_MPD->CallOnAdEvent(evt, adOffset);
+	bool result = mStreamAbstractionAAMP_MPD->CallOnAdEvent(evt, adOffset); (void)result;
 }
 
 TEST_F(StreamAbstractionAAMP_MPDTest, SetAudioTrackInfoTest)
@@ -2257,7 +2256,7 @@ TEST_F(StreamAbstractionAAMP_MPDTest, SetTextTrackInfoTest)
 
 TEST_F(StreamAbstractionAAMP_MPDTest, CheckForVssTagsTest)
 {
-	bool result = mStreamAbstractionAAMP_MPD->CallCheckForVssTags();
+	bool result = mStreamAbstractionAAMP_MPD->CallCheckForVssTags(); (void)result;
 	// Add assertions based on the expected behavior or state changes
 	// ASSERT_TRUE(result);
 }
@@ -2332,7 +2331,6 @@ TEST_F(FunctionalTests, Accessibility_Test1)
 {
 	std::string fragmentUrl;
 	AAMPStatusType status;
-	dash::mpd::IMPD *mpd;
 	static const char *manifest =
 R"(<?xml version="1.0" encoding="utf-8"?>
 <MPD xmlns="urn:mpeg:dash:schema:mpd:2011" availabilityStartTime="1970-01-01T00:00:00Z" maxSegmentDuration="PT2S" minBufferTime="PT4.000S" minimumUpdatePeriod="P100Y" profiles="urn:dvb:dash:profile:dvb-dash:2014,urn:dvb:dash:profile:dvb-dash:isoff-ext-live:2014" publishTime="2023-01-01T00:00:00Z" timeShiftBufferDepth="PT5M" type="dynamic">
@@ -2371,7 +2369,6 @@ TEST_F(FunctionalTests, Accessibility_Test2)
 {
 	std::string fragmentUrl;
 	AAMPStatusType status;
-	dash::mpd::IMPD *mpd;
 	static const char *manifest =
 R"(<?xml version="1.0" encoding="utf-8"?>
 <MPD xmlns="urn:mpeg:dash:schema:mpd:2011" availabilityStartTime="1970-01-01T00:00:00Z" maxSegmentDuration="PT2S" minBufferTime="PT4.000S" minimumUpdatePeriod="P100Y" profiles="urn:dvb:dash:profile:dvb-dash:2014,urn:dvb:dash:profile:dvb-dash:isoff-ext-live:2014" publishTime="2023-01-01T00:00:00Z" timeShiftBufferDepth="PT5M" type="dynamic">
@@ -2611,7 +2608,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 	fragmentUrl = std::string(TEST_BASE_URL) + std::string("video_init.mp4");
 	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _, _, _))
 	.WillOnce(Return(true));
-	status = InitializeMPD(manifest);
+	status = InitializeMPD(manifest); (void)status;
 
 	std::vector<StreamInfo *> thumbnailtracks = mStreamAbstractionAAMP_MPD->GetAvailableThumbnailTracks();
 
@@ -2649,7 +2646,7 @@ TEST_F(FunctionalTests, SetThumbnailTrack)
 	fragmentUrl = std::string(TEST_BASE_URL) + std::string("video_init.mp4");
 	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _, _, _))
 	.WillOnce(Return(true));
-	status = InitializeMPD(manifest);
+	status = InitializeMPD(manifest); (void)status;
 	rc = mStreamAbstractionAAMP_MPD->SetThumbnailTrack(0);
 	EXPECT_EQ(rc, 1);
 	rc = mStreamAbstractionAAMP_MPD->SetThumbnailTrack(1);
@@ -2685,7 +2682,7 @@ TEST_F(FunctionalTests, GetThumbnailRangeDataTest1)
 	fragmentUrl = std::string(TEST_BASE_URL) + std::string("video_init.mp4");
 	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _, _, _))
 	.WillOnce(Return(true));
-	status = InitializeMPD(manifest);
+	status = InitializeMPD(manifest); (void)status;
 	int raw_w = 0, raw_h = 0, width = 0, height = 0;
 	std::string baseUrl = "http://example.com/thumbnails/";
 

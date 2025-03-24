@@ -105,7 +105,7 @@ TEST_F(FunctionalTests, AampMPDDownloader_PreInitTest_3)
 #if 0
 TEST_F(FunctionalTests, AampMPDDownloader_PreInitTest_4)
 {
- 	std::shared_ptr<ManifestDownloadResponse> respData = std::make_shared<ManifestDownloadResponse> ();
+	ManifestDownloadResponsePtr respData = MakeSharedManifestDownloadResponsePtr();
 	// Live Test
 	std::shared_ptr<ManifestDownloadConfig> inpData = std::make_shared<ManifestDownloadConfig> (-1);
 	inpData->mTuneUrl = url1;
@@ -124,7 +124,7 @@ TEST_F(FunctionalTests, AampMPDDownloader_PreInitTest_4)
 
 TEST_F(FunctionalTests, AampMPDDownloader_PreInitTest_5)
 {
-	std::shared_ptr<ManifestDownloadResponse> respData = std::make_shared<ManifestDownloadResponse> ();
+	ManifestDownloadResponsePtr respData = MakeSharedManifestDownloadResponsePtr();
         // Live Test
         std::shared_ptr<ManifestDownloadConfig> inpData = std::make_shared<ManifestDownloadConfig> (-1);
         inpData->mTuneUrl = url3;
@@ -148,8 +148,8 @@ TEST_F(FunctionalTests, AampMPDDownloader_PreInitTest_5)
 TEST_F(FunctionalTests, AampMPDDownloader_PushDownloadDataToQueue)
 {
 	std::shared_ptr<ManifestDownloadConfig> inpData = std::make_shared<ManifestDownloadConfig> (-1);
-	std::shared_ptr<ManifestDownloadResponse> respData = nullptr;
-	std::shared_ptr<ManifestDownloadResponse> respData1 = nullptr;
+	ManifestDownloadResponsePtr respData = nullptr;
+	ManifestDownloadResponsePtr respData1 = nullptr;
 	//1st mMPDData
 	inpData->mTuneUrl = url4;
 	inpData->mDnldConfig->bNeedDownloadMetrics = true;

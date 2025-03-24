@@ -99,7 +99,7 @@ public:
 	const char *mManifest;
 	static constexpr const char *TEST_BASE_URL = "http://host/asset/";
 	static constexpr const char *TEST_MANIFEST_URL = "http://host/asset/manifest.mpd";
-	std::shared_ptr<ManifestDownloadResponse> mResponse = std::make_shared<ManifestDownloadResponse>();
+	ManifestDownloadResponsePtr mResponse = MakeSharedManifestDownloadResponsePtr();
 	using BoolConfigSettings = std::map<AAMPConfigSettingBool, bool>;
 	const BoolConfigSettings mDefaultBoolConfigSettings = {
 		{eAAMPConfig_EnableMediaProcessor, true},
@@ -176,7 +176,7 @@ public:
 	}
 
 public:
-	void GetMPDFromManifest(std::shared_ptr<ManifestDownloadResponse> response)
+	void GetMPDFromManifest(ManifestDownloadResponsePtr response)
 	{
 		dash::mpd::MPD *mpd = nullptr;
 		std::string manifestStr = std::string(response->mMPDDownloadResponse->mDownloadData.begin(), response->mMPDDownloadResponse->mDownloadData.end());
@@ -207,9 +207,9 @@ public:
 	 * @param[out] buffer Buffer containing manifest data
 	 * @retval true on success
 	 */
-	std::shared_ptr<ManifestDownloadResponse> GetManifestForMPDDownloader()
+	ManifestDownloadResponsePtr GetManifestForMPDDownloader()
 	{
-		std::shared_ptr<ManifestDownloadResponse> response = std::make_shared<ManifestDownloadResponse>();
+		ManifestDownloadResponsePtr response = MakeSharedManifestDownloadResponsePtr();
 		response->mMPDStatus = AAMPStatusType::eAAMPSTATUS_OK;
 		response->mMPDDownloadResponse->iHttpRetValue = 200;
 		response->mMPDDownloadResponse->sEffectiveUrl = std::string(TEST_MANIFEST_URL);

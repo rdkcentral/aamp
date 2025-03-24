@@ -60,7 +60,7 @@ protected:
 	const char *mManifest;
 	static constexpr const char *TEST_BASE_URL = "http://host/asset/";
 	static constexpr const char *TEST_MANIFEST_URL = "http://host/asset/manifest.mpd";
-	std::shared_ptr<ManifestDownloadResponse> mResponse =  std::make_shared<ManifestDownloadResponse> ();
+	ManifestDownloadResponsePtr mResponse =  MakeSharedManifestDownloadResponsePtr();
 	using BoolConfigSettings = std::map<AAMPConfigSettingBool, bool>;
 	using IntConfigSettings = std::map<AAMPConfigSettingInt, int>;
 
@@ -140,6 +140,7 @@ protected:
 		mResponse = nullptr;
 		mBoolConfigSettings = mDefaultBoolConfigSettings;
 		mIntConfigSettings = mDefaultIntConfigSettings;
+		mCdaiObj = nullptr;
 	}
 
 	void TearDown()
@@ -183,7 +184,7 @@ protected:
 
 public:
 
-	void GetMPDFromManifest(std::shared_ptr<ManifestDownloadResponse> response)
+	void GetMPDFromManifest(ManifestDownloadResponsePtr response)
 	{
 		dash::mpd::MPD* mpd = nullptr;
 		std::string manifestStr = std::string( response->mMPDDownloadResponse->mDownloadData.begin(), response->mMPDDownloadResponse->mDownloadData.end());
@@ -216,9 +217,9 @@ public:
 	 * @param[out] buffer Buffer containing manifest data
 	 * @retval true on success
 	*/
-	std::shared_ptr<ManifestDownloadResponse> GetManifestForMPDDownloader()
+	ManifestDownloadResponsePtr GetManifestForMPDDownloader()
 	{
-		std::shared_ptr<ManifestDownloadResponse> response = std::make_shared<ManifestDownloadResponse> ();
+		ManifestDownloadResponsePtr response = MakeSharedManifestDownloadResponsePtr();
 		response->mMPDStatus = AAMPStatusType::eAAMPSTATUS_OK;
 		response->mMPDDownloadResponse->iHttpRetValue = 200;
 		response->mMPDDownloadResponse->sEffectiveUrl = std::string(TEST_MANIFEST_URL);
@@ -335,7 +336,6 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 	</Period>
 </MPD>
 )";
-	bool ret = false;
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_AudioOnlyPlayback))
 		.WillRepeatedly(Return(true));
 	/* Initialize MPD. The audio initialization segment is cached. */
@@ -408,7 +408,6 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 	</Period>
 </MPD>
 )";
-	bool ret = false;
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_AudioOnlyPlayback))
 		.WillRepeatedly(Return(false));
 	/* Initialize MPD. The audio initialization segment is cached. */
@@ -481,7 +480,6 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 	</Period>
 </MPD>
 )";
-	bool ret = false;
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_AudioOnlyPlayback))
 		.WillRepeatedly(Return(false));
 	/* Initialize MPD. The audio initialization segment is cached. */

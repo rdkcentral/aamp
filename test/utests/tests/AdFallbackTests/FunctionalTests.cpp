@@ -129,7 +129,7 @@ class AdFallbackTests : public ::testing::Test
 		static constexpr const char *TEST_AD_BASE_URL = "http://host/ad/";
 		static constexpr const char *TEST_AD_MANIFEST_URL = "http://host/ad/manifest.mpd";
 
-		std::shared_ptr<ManifestDownloadResponse> mResponse = std::make_shared<ManifestDownloadResponse>();
+		ManifestDownloadResponsePtr mResponse = MakeSharedManifestDownloadResponsePtr();
 
 		void SetUp()
 		{
@@ -196,7 +196,7 @@ class AdFallbackTests : public ::testing::Test
 
 	public:
 
-		void GetMPDFromManifest(std::shared_ptr<ManifestDownloadResponse> response)
+		void GetMPDFromManifest(ManifestDownloadResponsePtr response)
 		{
 			dash::mpd::MPD *mpd = nullptr;
 			std::string manifestStr = std::string(response->mMPDDownloadResponse->mDownloadData.begin(), response->mMPDDownloadResponse->mDownloadData.end());
@@ -222,15 +222,15 @@ class AdFallbackTests : public ::testing::Test
 			xmlFreeTextReader(reader);
 		}
 
-		std::shared_ptr<ManifestDownloadResponse> GetManifestForMPDDownloader()
+	ManifestDownloadResponsePtr GetManifestForMPDDownloader()
 		{
 			if (!mResponse->mMPDInstance)
 			{
-				std::shared_ptr<ManifestDownloadResponse> response = std::make_shared<ManifestDownloadResponse>();
+				ManifestDownloadResponsePtr response = MakeSharedManifestDownloadResponsePtr();
 				response->mMPDStatus = AAMPStatusType::eAAMPSTATUS_OK;
 				response->mMPDDownloadResponse->iHttpRetValue = 200;
 				response->mMPDDownloadResponse->sEffectiveUrl = std::string(TEST_MANIFEST_URL);
-				response->mMPDDownloadResponse->mDownloadData.assign((uint8_t *)mManifest, (uint8_t *)(mManifest + strlen(mManifest)));
+				response->mMPDDownloadResponse->mDownloadData.assign((uint8_t *)mManifest, (uint8_t *)&mManifest[strlen(mManifest)]);
 				GetMPDFromManifest(response);
 				mResponse = response;
 			}
