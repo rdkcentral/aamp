@@ -4444,6 +4444,8 @@ protected:
 	std::mutex mPreProcessLock;
 	bool mIsChunkMode;		/** LLD ChunkMode */
 
+private:
+	void SetCMCDTrackData(AampMediaType mediaType);
 };
 
 #endif // PRIVAAMP_H

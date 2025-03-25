@@ -38,10 +38,11 @@ public:
 	MOCK_METHOD(CURLcode, curl_easy_setopt_func_xferinfo, (CURL *handle, CURLoption option, curl_progress_callback_t progress_callback));
 	MOCK_METHOD(CURLcode, curl_easy_setopt_ptr, (CURL *handle, CURLoption option, const void *ptr));
 	MOCK_METHOD(CURLcode, curl_easy_setopt_str, (CURL *handle, CURLoption option, const char *str));
+	MOCK_METHOD(CURLcode, curl_easy_setopt_long, (CURL *handle, CURLoption option, long value));
+	MOCK_METHOD(CURLcode, curl_easy_setopt_slist, (CURL *handle, CURLoption option, struct curl_slist *list));
 	MOCK_METHOD(char *, curl_easy_unescape, (CURL *curl, const char *url, int inlength, int *outlength));
 	MOCK_METHOD(void, curl_free, (void *ptr));
 };
-
 extern MockCurl *g_mockCurl;
 
 #endif /* AAMP_MOCK_CURL_H */

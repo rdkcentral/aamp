@@ -39,6 +39,8 @@
 #include "MockAampEventManager.h"
 #include "MockAampDRMSessionManager.h"
 #include "MockAampConfig.h"
+#include "MockCurl.h"
+#include "MockAampCurlStore.h"
 #include "fragmentcollector_mpd.h"
 
 using ::testing::NiceMock;
@@ -54,12 +56,15 @@ class PrivAampTests : public ::testing::Test
 	public:
 	PrivateInstanceAAMP *p_aamp{nullptr};
 	AampConfig *config{nullptr};
+	CURL *mCurlEasyHandle{nullptr};
+
 	protected:
 	void SetUp() override
 	{
 		AampLogManager::setLogLevel(eLOGLEVEL_TRACE);   // Enable all levels of AAMP logging
 		config=new AampConfig();
 		p_aamp = new PrivateInstanceAAMP(config);
+		mCurlEasyHandle = new int(1); // Valid ptr, though not used.
 		g_mockAampGstPlayer = new NiceMock<MockAAMPGstPlayer>(p_aamp);
 		g_mockAampStreamSinkManager = new NiceMock<MockAampStreamSinkManager>();
 		g_mockAampEventManager = new NiceMock<MockAampEventManager>();
@@ -67,10 +72,18 @@ class PrivAampTests : public ::testing::Test
 		g_mockAampConfig = new NiceMock<MockAampConfig>();
 		g_mockStreamAbstractionAAMP_MPD = new NiceMock<MockStreamAbstractionAAMP_MPD>(p_aamp, 0, 0);
 		g_mockStreamAbstractionAAMP = new NiceMock<MockStreamAbstractionAAMP>(p_aamp);
+		g_mockCurl = new NiceMock<MockCurl>();
+		g_mockAampCurlStore = new NiceMock<MockAampCurlStore>();
 	}
 
 	void TearDown() override
 	{
+		delete g_mockAampCurlStore;
+		g_mockAampCurlStore = nullptr;
+
+		delete g_mockCurl;
+		g_mockCurl = nullptr;
+
 		delete g_mockStreamAbstractionAAMP;
 		g_mockStreamAbstractionAAMP = nullptr;
 
@@ -91,6 +104,9 @@ class PrivAampTests : public ::testing::Test
 
 		delete g_mockAampGstPlayer;
 		g_mockAampGstPlayer = nullptr;
+
+		delete (int*)mCurlEasyHandle;
+		mCurlEasyHandle = nullptr;
 
 		delete p_aamp;
 		p_aamp = nullptr;
@@ -1405,6 +1421,124 @@ TEST_F(PrivAampTests,GetFileTest_4)
 									&bitrate,&fogError,0.0));
 }
 
+class PrivAampInitMediaTypeTest : public PrivAampTests,
+								  public ::testing::WithParamInterface<AampMediaType> {
+};
+
+TEST_P(PrivAampInitMediaTypeTest, GetFileTest_RetryInitWhilstBufferDepthTest)
+{
+	std::string effectiveUrl;
+	int http_error;
+	AampGrowableBuffer gBuff("GrowableBuffer");
+	double downloadTime;
+	bool resetBuffer = true;
+	AampMediaType mType = GetParam(); // Get the current media type parameter
+	BitsPerSecond bitrate;
+	int fogError;
+	const int initFragmentRetryCount = 2;
+
+	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP;
+	p_aamp->EnableDownloads();
+
+	p_aamp->curl[eCURLINSTANCE_MANIFEST_MAIN] = mCurlEasyHandle;
+	p_aamp->curlDLTimeout[eCURLINSTANCE_MANIFEST_MAIN] = 2000; // 2000ms timeout
+
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(testing::Matcher<AAMPConfigSettingInt>(_))).WillRepeatedly(Return(0));
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(testing::Matcher<AAMPConfigSettingFloat>(_))).WillRepeatedly(Return(0.0));
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(testing::Matcher<AAMPConfigSettingString>(_))).WillRepeatedly(Return(""));
+
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_InitFragmentRetryCount))
+		.WillOnce(Return(initFragmentRetryCount));
+
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_ptr( mCurlEasyHandle, _, _)).WillRepeatedly(Return(CURLE_OK));
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_str( mCurlEasyHandle, _, _)).WillRepeatedly(Return(CURLE_OK));
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_long( mCurlEasyHandle, _, _)).WillRepeatedly(Return(CURLE_OK));
+	EXPECT_CALL(*g_mockAampCurlStore, GetCurlResponseCode( mCurlEasyHandle )).Times(0);
+
+	EXPECT_CALL(*g_mockCurl, curl_easy_perform(mCurlEasyHandle))
+		.Times(initFragmentRetryCount + 5) // 1 + initFragmentRetryCount + getBufferedDuration calls with enough depth (4)
+		.WillRepeatedly(Return(CURLE_OPERATION_TIMEDOUT));
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetBufferedDuration())
+		.WillOnce(Return(10.0))
+		.WillOnce(Return(8.0))
+		.WillOnce(Return(6.0))
+		.WillOnce(Return(4.0))
+		.WillOnce(Return(2.0))
+		.WillRepeatedly(Return(0.0));
+
+	EXPECT_FALSE(p_aamp->GetFile("remoteurl", mType, &gBuff, effectiveUrl, &http_error, &downloadTime, "0-150",
+								eCURLINSTANCE_MANIFEST_MAIN, resetBuffer, &bitrate, &fogError, 0.0));
+}
+
+// Instantiate the test case with all initialization media types
+INSTANTIATE_TEST_SUITE_P(
+	InitMediaTypes,
+	PrivAampInitMediaTypeTest,
+	::testing::Values(
+		eMEDIATYPE_INIT_VIDEO,
+		eMEDIATYPE_INIT_AUDIO,
+		eMEDIATYPE_INIT_AUX_AUDIO,
+		eMEDIATYPE_INIT_SUBTITLE,
+		eMEDIATYPE_INIT_IFRAME
+	),
+	[](const ::testing::TestParamInfo<AampMediaType>& info) {
+		switch (info.param) {
+			case eMEDIATYPE_INIT_VIDEO: return "InitVideo";
+			case eMEDIATYPE_INIT_AUDIO: return "InitAudio";
+			case eMEDIATYPE_INIT_AUX_AUDIO: return "InitAuxAudio";
+			case eMEDIATYPE_INIT_SUBTITLE: return "InitSubtitle";
+			case eMEDIATYPE_INIT_IFRAME: return "InitIFrame";
+			default: return "Unknown";
+		}
+	}
+);
+
+
+TEST_F(PrivAampTests,GetFileTest_RetryInitWhilstBufferDepthBeforeSuccessTest)
+{
+	std::string effectiveUrl;
+	int http_error;
+	AampGrowableBuffer gBuff("GrowableBuffer");
+	double downloadTime;
+	bool resetBuffer = true;
+	AampMediaType mType = eMEDIATYPE_INIT_SUBTITLE;
+	BitsPerSecond bitrate;
+	int fogError;
+	const int initFragmentRetryCount = 2;
+
+	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP;
+	p_aamp->EnableDownloads();
+
+	p_aamp->curl[eCURLINSTANCE_MANIFEST_MAIN] = mCurlEasyHandle;
+	p_aamp->curlDLTimeout[eCURLINSTANCE_MANIFEST_MAIN] = 2000; // 2000ms timeout
+
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(testing::Matcher<AAMPConfigSettingInt>(_))).WillRepeatedly(Return(0));
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(testing::Matcher<AAMPConfigSettingFloat>(_))).WillRepeatedly(Return(0.0));
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(testing::Matcher<AAMPConfigSettingString>(_))).WillRepeatedly(Return(""));
+
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_InitFragmentRetryCount))
+		.WillOnce(Return(initFragmentRetryCount));
+
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_ptr( mCurlEasyHandle, _, _)).WillRepeatedly(Return(CURLE_OK));
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_str( mCurlEasyHandle, _, _)).WillRepeatedly(Return(CURLE_OK));
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_long( mCurlEasyHandle, _, _)).WillRepeatedly(Return(CURLE_OK));
+	EXPECT_CALL(*g_mockAampCurlStore, GetCurlResponseCode( mCurlEasyHandle )).WillOnce(Return(200));
+
+	EXPECT_CALL(*g_mockCurl, curl_easy_perform(mCurlEasyHandle))
+		.Times(initFragmentRetryCount + 3)
+		.WillOnce(Return(CURLE_OPERATION_TIMEDOUT))
+		.WillOnce(Return(CURLE_OPERATION_TIMEDOUT))
+		.WillOnce(Return(CURLE_OPERATION_TIMEDOUT))
+		.WillOnce(Return(CURLE_OPERATION_TIMEDOUT))
+		.WillOnce(Return(CURLE_OK));
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetBufferedDuration())
+		.WillOnce(Return(10.0))
+		.WillOnce(Return(8.0));
+
+	EXPECT_TRUE(p_aamp->GetFile("remoteurl", mType, &gBuff, effectiveUrl, &http_error, &downloadTime, "0-150",
+								eCURLINSTANCE_MANIFEST_MAIN, resetBuffer, &bitrate, &fogError, 0.0));
+}
+
 TEST_F(PrivAampTests,GetOnVideoEndSessionStatDataTest)
 {
 	std::string stringData= "sampleStringdata";
@@ -2479,7 +2613,7 @@ TEST_F(PrivAampTests,SendAdPlacementEventTest)
 	uint32_t adOffset = 5678;
 	uint32_t adDuration = 0;
 	long error_code = 0;
-	
+
 	p_aamp->SendAdPlacementEvent(AAMP_EVENT_AD_PLACEMENT_START,"adStringid", position, absolutePositionMs, adOffset, adDuration, true, error_code);
 	p_aamp->SendAdPlacementEvent(AAMP_EVENT_AD_PLACEMENT_START,"adStringid", position, absolutePositionMs, adOffset, adDuration, false, error_code);
 	p_aamp->SendAdPlacementEvent(AAMP_EVENT_AD_PLACEMENT_ERROR,"adStringid", position,  absolutePositionMs, adOffset, adDuration, true, error_code);
@@ -3702,55 +3836,55 @@ TEST_F(PrivAampTests,isDecryptClearSamplesRequired)
 TEST_F(PrivAampTests,AccessibilityParsing)
 {
 	Accessibility accessibilityItem;
-	
+
 	// numeric value
 	accessibilityItem = Accessibility("schemeId","1234");
 	EXPECT_EQ(1234,accessibilityItem.getIntValue());
 	EXPECT_STREQ(accessibilityItem.getTypeName(),"int_value");
 	EXPECT_STREQ( accessibilityItem.print().c_str(), "{ scheme:schemeId, int_value:1234 }" );
-	
+
 	// equality operators
 	EXPECT_TRUE( Accessibility("schemeId","2345") != accessibilityItem );
 	EXPECT_TRUE( Accessibility("schemeId","1234") == accessibilityItem );
-	
+
 	// setAccessibilityData( int )
 	accessibilityItem.setAccessibilityData("altSchemeId1",5);
 	EXPECT_STREQ("altSchemeId1",accessibilityItem.getSchemeId().c_str() );
 	EXPECT_EQ(5,accessibilityItem.getIntValue());
-	
+
 	// setAccessibilityData( string )
 	accessibilityItem.setAccessibilityData("altSchemeId2","x");
 	EXPECT_STREQ("altSchemeId2",accessibilityItem.getSchemeId().c_str() );
 	EXPECT_EQ(-1,accessibilityItem.getIntValue());
 	EXPECT_STREQ("x",accessibilityItem.getStrValue().c_str());
-	
+
 	// string value
 	accessibilityItem = Accessibility("schemeId","Foo");
 	EXPECT_EQ(-1,accessibilityItem.getIntValue());
 	EXPECT_STREQ(accessibilityItem.getTypeName(),"string_value");
 	EXPECT_STREQ( accessibilityItem.print().c_str(), "{ scheme:schemeId, string_value:Foo }" );
-	
+
 	//Exception cases:
 	accessibilityItem = Accessibility("schemeId","12340000000000000000000000000000");
 	EXPECT_EQ(-1,accessibilityItem.getIntValue());
-	
+
 	// empty string
 	accessibilityItem = Accessibility("schemeId","");
 	EXPECT_EQ(-1,accessibilityItem.getIntValue());
 	EXPECT_STREQ(accessibilityItem.getStrValue().c_str(),"");
 	EXPECT_STREQ(accessibilityItem.getTypeName(),"string_value");
-	
+
 	accessibilityItem = Accessibility("schemeId","123q4");
 	EXPECT_EQ(-1,accessibilityItem.getIntValue());
 	EXPECT_STREQ(accessibilityItem.getStrValue().c_str(),"123q4");
 	EXPECT_STREQ(accessibilityItem.getTypeName(),"string_value");
-	
+
 	// starts with non-numeric character, should be considered as string
 	accessibilityItem = Accessibility("schemeId","q2341");
 	EXPECT_EQ(-1,accessibilityItem.getIntValue());
 	EXPECT_STREQ(accessibilityItem.getStrValue().c_str(),"q2341");
 	EXPECT_STREQ(accessibilityItem.getTypeName(),"string_value");
-	
+
 	//negative value should not be considered
 	accessibilityItem = Accessibility("schemeId","-1234");
 	EXPECT_EQ(-1,accessibilityItem.getIntValue());
@@ -3828,7 +3962,7 @@ TEST_F(PrivAampTests, TuneHelperWithAampTsb)
 	EXPECT_FALSE(p_aamp->mpStreamAbstractionAAMP->trickplayMode);
 	// Verify that the StreamAbstraction seek position is updated to the expected value
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP_MPD, SeekPosUpdate(SEEK_POS)).Times(2);
-	/* We only expect SetVideoPlaybackRate() to be called when not in LLD mode, so only one of the TuneHelper() calls 
+	/* We only expect SetVideoPlaybackRate() to be called when not in LLD mode, so only one of the TuneHelper() calls
 	   will trigger the call*/
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, SetVideoPlaybackRate(AAMP_RATE_PAUSE)).Times(1);
 	p_aamp->TuneHelper(eTUNETYPE_SEEK);

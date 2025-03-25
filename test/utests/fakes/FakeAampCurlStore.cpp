@@ -18,6 +18,9 @@
  */
 
 #include "AampCurlStore.h"
+#include "MockAampCurlStore.h"
+
+MockAampCurlStore *g_mockAampCurlStore = nullptr;
 
 CurlStore::CurlStore(PrivateInstanceAAMP *pAamp)
 {
@@ -41,9 +44,16 @@ CurlStore& CurlStore::GetCurlStoreInstance ( PrivateInstanceAAMP *pAamp )
 	return cs;
 }
 
-int GetCurlResponseCode( CURL *curlhandle )
+int GetCurlResponseCode(CURL *curlhandle)
 {
-	return 0;
+	int rv = 0;
+
+	if (g_mockAampCurlStore != nullptr)
+	{
+		rv = g_mockAampCurlStore->GetCurlResponseCode(curlhandle);
+	}
+
+	return rv;
 }
 
 CURL* CurlStore::GetCurlHandle(PrivateInstanceAAMP *aamp,std::string url, AampCurlInstance startIdx )
