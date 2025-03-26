@@ -53,14 +53,6 @@ class AmlogicSocInterface : public SocInterface
 		void SetSeamlessSwitch(GstElement* object, gboolean value) override;
 
 		/**
-		 * @brief Processes a pending seek operation for the given GStreamer source.
-		 * @param source The GStreamer source element.
-		 * @param seekPos The desired seek position in seconds.
-		 * @return True if the seek operation was successful, false otherwise.
-		 */
-		bool ProcessPendingSeek(GstElement *source, double seekPos) override {return true;}
-
-		/**
 		 * @brief Sets the sinkbin to audio-only mode.
 		 *
 		 * This is a pure virtual function that must be implemented by derived classes.

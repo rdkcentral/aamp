@@ -58,14 +58,6 @@ class DefaultSocInterface : public SocInterface
 		void SetAudioProperty(const char **volume, const char **mute, bool& isSinkBinVolume)override;
 
 		/**
-		 * @brief Processes a pending seek operation for the given GStreamer source.
-		 * @param source The GStreamer source element.
-		 * @param seekPos The desired seek position in seconds.
-		 * @return True if the seek operation was successful, false otherwise.
-		 */
-		bool ProcessPendingSeek(GstElement *source, double seekPos) override;
-
-		/**
 		 * @brief Sets the playback rate for the given GStreamer elements.
 		 *
 		 * @param sources A vector of GStreamer source elements.

@@ -1343,6 +1343,7 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 		lastUnderFlowTimeMs[i] = 0;
 		mProcessingDiscontinuity[i] = false;
 		mIsDiscontinuityIgnored[i] = false;
+		mbNewSegmentEvtSent[i] = true;
 	}
 	{
 		std::lock_guard<std::mutex> guard(gMutex);

@@ -53,18 +53,6 @@ void DefaultSocInterface::SetAudioProperty(const char **volume, const char **mut
 #endif
 }
 
-bool DefaultSocInterface::ProcessPendingSeek(GstElement *source, double seekPos)
-{
-	bool ret = true;
-	if(seekPos > 0)
-	{
-		if(!gst_element_seek_simple(GST_ELEMENT(source), GST_FORMAT_TIME, GST_SEEK_FLAG_FLUSH, (seekPos * GST_SECOND)))
-		{
-			ret = false;
-		}
-	}
-	return ret;
-}
 
 /**
  * @brief Set AC4 tracks.
