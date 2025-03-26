@@ -53,22 +53,6 @@ void DefaultSocInterface::SetAudioProperty(const char **volume, const char **mut
 }
 
 /**
- * @brief Processes a pending seek operation for the given GStreamer source.
- * @param source The GStreamer source element.
- * @param seekPos The desired seek position in seconds.
- * @return True if the seek operation was successful, false otherwise.
- */
-bool DefaultSocInterface::ProcessPendingSeek(GstElement *source, double seekPos)
-{
-	bool ret = true;
-	if(!gst_element_seek_simple(GST_ELEMENT(source), GST_FORMAT_TIME, GST_SEEK_FLAG_FLUSH, (seekPos * GST_SECOND)))
-	{
-		ret = false;
-	}
-	return ret;
-}
-
-/**
  * @brief Set AC4 tracks.
  * @param src Source element.
  * @param trackId Track ID.

@@ -35,22 +35,6 @@ void BrcmSocInterface::SetAudioProperty(const char **volume, const char **mute, 
 }
 
 /**
- * @brief Processes a pending seek operation for the given GStreamer source.
- * @param source The GStreamer source element.
- * @param seekPos The desired seek position in seconds.
- * @return True if the seek operation was successful, false otherwise.
- */
-bool BrcmSocInterface::ProcessPendingSeek(GstElement *source, double seekPos)
-{
-	bool ret = true;
-	if(!gst_element_seek_simple(GST_ELEMENT(source), GST_FORMAT_TIME, GST_SEEK_FLAG_FLUSH, (seekPos * GST_SECOND)))
-	{
-		ret = false;
-	}
-	return ret;
-}
-
-/**
  * @brief Sets the playback rate for the given GStreamer elements.
  *
  * @param sources A vector of GStreamer source elements.

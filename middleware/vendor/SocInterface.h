@@ -213,14 +213,6 @@ class SocInterface
 		virtual void SetSeamlessSwitch(GstElement* object,  gboolean value){}
 
 		/**
-		 * @brief Processes a pending seek operation for the given GStreamer source.
-		 * @param source The GStreamer source element.
-		 * @param seekPos The desired seek position in seconds.
-		 * @return True if the seek operation was successful, false otherwise.
-		 */
-		virtual bool ProcessPendingSeek(GstElement *source, double seekPos) = 0;
-
-		/**
 		 * @brief Sets the sinkbin to audio-only mode.
 		 *
 		 * This is a pure virtual function that must be implemented by derived classes.
