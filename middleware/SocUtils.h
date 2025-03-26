@@ -85,12 +85,6 @@ namespace SocUtils
 	 */
 	bool EnablePTSRestamp(void);
 	/**
-	 * @brief Resets segment event flags during trickplay transitions.
-	 *
-	 * Manages segment event tracking for trickplay scenarios without disrupting seekplay or advertisements.
-	 */
-	bool ResetNewSegmentEvent();
-	/**
 	 *	@brief Check if GST Subtec is enabled
 	 */
 	bool isGstSubtecEnabled();

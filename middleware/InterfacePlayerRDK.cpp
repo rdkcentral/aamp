@@ -1871,6 +1871,38 @@ void InterfacePlayerRDK::InitializeSourceForPlayer(void *PlayerInstance, void * 
 	stream->sourceConfigured = true;
 }
 
+static GstPadProbeReturn InterfacePlayerRDK_DemuxPadProbeCallbackEvent(GstPad *pad, GstPadProbeInfo *info, void* _this)
+{
+	if (_this)
+	{
+		InterfacePlayerRDK* pInterfacePlayerRDK = (InterfacePlayerRDK*)_this;
+		if ((pad == pInterfacePlayerRDK->gstPrivateContext->stream[eGST_MEDIATYPE_VIDEO].demuxPad) && (pInterfacePlayerRDK->gstPrivateContext->rate == GST_NORMAL_PLAY_RATE))
+		{
+			GstEvent *event = GST_PAD_PROBE_INFO_EVENT(info);
+			if (GST_EVENT_TYPE(event) == GST_EVENT_SEGMENT)
+			{
+				GstSegment segment;
+				gst_event_copy_segment(event, &segment);
+				MW_LOG_TRACE("duration  %" G_GUINT64_FORMAT " start %" G_GUINT64_FORMAT " stop %" G_GUINT64_FORMAT,
+							 segment.duration, segment.start, segment.stop);
+
+				// Reset the stop value
+				segment.stop = GST_CLOCK_TIME_NONE;
+				
+				// Replace the event with a new one
+				GstEvent *new_event = gst_event_new_segment(&segment);
+				gst_event_replace(&event, new_event);
+				gst_event_unref(new_event);
+				
+				// Update the probe info with the new event
+				info->data = event;
+			}
+		}
+	}
+	return GST_PAD_PROBE_OK;
+}
+
+
 static GstPadProbeReturn InterfacePlayerRDK_DemuxPadProbeCallback(GstPad * pad, GstPadProbeInfo * info, void* _this)
 {
 	GstBuffer *buffer = GST_PAD_PROBE_INFO_BUFFER(info);
@@ -2407,9 +2439,11 @@ int InterfacePlayerRDK::SetupStream(int streamId,  void *playerInstance, std::st
 
 	if (( ((mediaFormat == eGST_MEDIAFORMAT_DASH || mediaFormat == eGST_MEDIAFORMAT_HLS_MP4) &&
 		   m_gstConfigParam->seamlessAudioSwitch))
+		// Seamless audio switch implemented only for DASH and HLS/MP4
 		||
 		(mediaFormat == eGST_MEDIAFORMAT_DASH && eGST_MEDIATYPE_VIDEO == streamId &&
-		 m_gstConfigParam->enablePTSReStamp))
+		   m_gstConfigParam->enablePTSReStamp))
+		// Its not known if HLS/MP4 with restamp require segment.stop override. Issue was originally reported in DASH
 	{
 		// Send the media_stream object so that qtdemux can be instantly mapped to media type without caps/parent check
 		g_signal_connect(stream->sinkbin, "element_setup", G_CALLBACK(element_setup_cb), pInterfacePlayerRDK);
@@ -2949,7 +2983,7 @@ void InterfacePlayerRDK::SetPlayerName(std::string name)
 /**
  *  @brief Inject stream buffer to gstreamer pipeline
  */
-bool InterfacePlayerRDK::SendHelper(int type, MediaSample&& sample, bool copy, bool initFragment, bool &discontinuity, bool &notifyFirstBufferProcessed, bool &sendNewSegmentEvent, bool &resetTrickUTC, bool &firstBufferPushed)
+bool InterfacePlayerRDK::SendHelper(int type, const void *ptr, size_t len, double fpts, double fdts, double fDuration, bool copy, bool initFragment, bool &discontinuity, bool &notifyFirstBufferProcessed, bool &resetTrickUTC, bool &firstBufferPushed)
 {
 	GstMediaType mediaType = static_cast<GstMediaType>(type);
 	GstClockTime pts = (GstClockTime)(sample.mPts * GST_SECOND);
@@ -2987,21 +3021,15 @@ bool InterfacePlayerRDK::SendHelper(int type, MediaSample&& sample, bool copy, b
 	if (isFirstBuffer)
 	{
 		//Send Gst Event when first buffer received after new tune, seek or period change
-		int enableGstQuery = m_gstConfigParam->enableGstPosQuery;
-		interfacePlayerPriv->SendGstEvents((int)mediaType, pts, enableGstQuery, m_gstConfigParam->enablePTSReStamp, m_gstConfigParam->vodTrickModeFPS);
-
-		// included to fix av sync / trickmode speed issues
-		// Also add check for trick-play on 1st frame.
-		if( interfacePlayerPriv->gstPrivateContext->video_sink &&
-			sendNewSegmentEvent == true)
+		SendGstEvents((GstMediaType)mediaType, pts);
+		
+		if (mediaType == eGST_MEDIATYPE_AUDIO && ForwardAudioBuffersToAux())
 		{
-			interfacePlayerPriv->SendNewSegmentEvent(mediaType, pts, 0);
-			segmentEventSent = true;
+			SendGstEvents((GstMediaType)eGST_MEDIATYPE_AUX_AUDIO, pts);
 		}
 		MW_LOG_DEBUG("mediaType[%d] SendGstEvents - first buffer received !!! initFragment: %d, pts: %" G_GUINT64_FORMAT, mediaType, initFragment, pts);
 	}
 
-	sendNewSegmentEvent = segmentEventSent;
 	bool bPushBuffer = !mPauseInjector;
 	if(bPushBuffer)
 	{
@@ -3138,68 +3166,6 @@ void InterfacePlayerRDK::ResumeInjector()
 	std::unique_lock<std::mutex> lock(mSourceSetupMutex);
 	mPauseInjector = false;
 	mSourceSetupCV.notify_all();
-}
-
-/**
- *  @brief Send new segment event to pipeline
- */
-void InterfacePlayerPriv::SendNewSegmentEvent(int type, GstClockTime startPts ,GstClockTime stopPts)
-{
-	GstMediaType mediaType = static_cast<GstMediaType>(type);
-	gst_media_stream* stream = &gstPrivateContext->stream[mediaType];
-	// isMp4DemuxPlayback is originally ISO BMFF format, but demuxed
-	if (stream->format == GST_FORMAT_ISO_BMFF || gstPrivateContext->isMp4DemuxPlayback)
-	{
-		GstSegment segment;
-		gst_segment_init(&segment, GST_FORMAT_TIME);
-
-		segment.start = startPts;
-		segment.position = 0;
-		segment.rate = GST_NORMAL_PLAY_RATE;
-		segment.applied_rate = GST_NORMAL_PLAY_RATE;
-
-		if(stopPts)
-		{
-			segment.stop = stopPts;
-		} 
-
-		if( (GstMediaType)mediaType == eGST_MEDIATYPE_VIDEO )
-		{
-			bool isVideoMaster = socInterface->IsVideoMaster(gstPrivateContext->video_sink);
-			if( !isVideoMaster )
-			{
-				// set applied_rate to trickplay rate if video sink doesn't use vmaster
-				// so that it can correctly handle there being no audio
-				segment.applied_rate = gstPrivateContext->rate;
-			}
-		}
-
-		if (gstPrivateContext->usingRialtoSink)
-		{
-			GstCaps *currentCaps = gst_app_src_get_caps(GST_APP_SRC(stream->source));
-			GstSample *sample = gst_sample_new (nullptr, currentCaps, &segment, nullptr);
-
-			MW_LOG_INFO("Pushing sample with segment for mediaType[%d]. start %" G_GUINT64_FORMAT " stop %" G_GUINT64_FORMAT" rate %f applied_rate %f", mediaType, segment.start, segment.stop, segment.rate, segment.applied_rate);
-			if (GST_FLOW_OK != gst_app_src_push_sample(GST_APP_SRC(stream->source), sample))
-			{
-				MW_LOG_ERR("Failed to push sample with segment for mediaType[%d]", mediaType);
-			}
-			gst_sample_unref(sample);
-			gst_caps_unref(currentCaps);
-		}
-		else
-		{
-			MW_LOG_INFO("Sending segment event for mediaType[%d]. start %" G_GUINT64_FORMAT " stop %" G_GUINT64_FORMAT" rate %f applied_rate %f", mediaType, segment.start, segment.stop, segment.rate, segment.applied_rate);
-			GstPad* sourceEleSrcPad = gst_element_get_static_pad(GST_ELEMENT(stream->source), "src");
-			GstEvent* event = gst_event_new_segment (&segment);
-			if (!gst_pad_push_event(sourceEleSrcPad, event))
-			{
-				MW_LOG_ERR("Failed to push segment event for mediaType[%d]", mediaType);
-			}
-			gst_object_unref(sourceEleSrcPad);			
-
-		}
-	}
 }
 
 /**
@@ -3790,6 +3756,40 @@ bool GstPlayer_isVideoDecoder(const char* name, InterfacePlayerRDK * pInterfaceP
 }
 
 /**
+ * @brief GstPlayer_SourceElementPadProbe
+ * @param[in] pad pad element
+ * @param[in] info Pad information
+ * @param[in] data pointer to data
+ */
+static GstPadProbeReturn GstPlayer_SourceElementPadProbe(GstPad* pad, GstPadProbeInfo* info, gpointer data)
+{
+	GstEvent *event = GST_PAD_PROBE_INFO_EVENT(info);
+	InterfacePlayerRDK *pInterfacePlayerRDK = reinterpret_cast<InterfacePlayerRDK*>(data);
+
+	// This probe should be only added to video source element pad, so not doing any additional checks
+	if (GST_EVENT_TYPE(event) == GST_EVENT_SEGMENT &&
+		pInterfacePlayerRDK->gstPrivateContext->rate != GST_NORMAL_PLAY_RATE)
+	{
+		GstSegment segment;
+		gst_event_copy_segment(event, &segment);
+		MW_LOG_TRACE("Set applied_rate %f to %d start %" G_GUINT64_FORMAT " stop %" G_GUINT64_FORMAT,
+					segment.applied_rate, pInterfacePlayerRDK->gstPrivateContext->rate, segment.start, segment.stop);
+
+		// Reset the stop value
+		segment.applied_rate = pInterfacePlayerRDK->gstPrivateContext->rate;
+
+		// Replace the event with a new one
+		GstEvent *new_event = gst_event_new_segment(&segment);
+		gst_event_replace(&event, new_event);
+		gst_event_unref(new_event);
+
+		// Update the probe info with the new event
+		info->data = event;
+	}
+	return GST_PAD_PROBE_OK;
+}
+
+/**
  * @brief GstPlayer_HandleInstantRateChangeSeekProbe
  * @param[in] pad pad element
  * @param[in] info Pad information
@@ -3811,6 +3811,7 @@ static GstPadProbeReturn GstPlayer_HandleInstantRateChangeSeekProbe(GstPad* pad,
 			return GST_PAD_PROBE_OK;
 	};
 
+#if GST_CHECK_VERSION(1,18,0)
 	gdouble rate = 1.0;
 	GstSeekFlags flags = GST_SEEK_FLAG_NONE;
 	gst_event_parse_seek (event, &rate, nullptr, &flags, nullptr, nullptr, nullptr, nullptr);
@@ -3832,6 +3833,7 @@ static GstPadProbeReturn GstPlayer_HandleInstantRateChangeSeekProbe(GstPad* pad,
 		gst_event_unref(event);
 		return GST_PAD_PROBE_HANDLED;
 	}
+#endif
 	return GST_PAD_PROBE_OK;
 }
 
@@ -4285,6 +4287,18 @@ static gboolean bus_message(GstBus * bus, GstMessage * msg, InterfacePlayerRDK *
 											   GstPlayer_HandleInstantRateChangeSeekProbe,
 											   gst_segment_new(),
 											   reinterpret_cast<GDestroyNotify>(gst_segment_free));
+							// Add a probe to video source in platforms with audio as master clock to set applied_rate
+							// during trickplay to move it temporarily to video as master clock.
+							if (!pInterfacePlayerRDK->socInterface->IsVideoMaster() &&
+								GST_ELEMENT(msg->src) == pInterfacePlayerRDK->gstPrivateContext->stream[eGST_MEDIATYPE_VIDEO].source)
+							{
+								gst_pad_add_probe (
+												   sourceEleSrcPad,
+												   GST_PAD_PROBE_TYPE_EVENT_BOTH,
+												   GstPlayer_SourceElementPadProbe,
+												   pInterfacePlayerRDK,
+												   NULL);
+							}
 							gst_object_unref(sourceEleSrcPad);
 						}
 					}

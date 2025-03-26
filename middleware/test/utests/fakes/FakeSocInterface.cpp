@@ -46,6 +46,8 @@ void DefaultSocInterface::SetAudioProperty(const char * &volume, const char * &m
 	isSinkBinVolume = true;
 #endif
 }
+
+
 /**
  * @brief Set AC4 tracks.
  * @param src Source element.

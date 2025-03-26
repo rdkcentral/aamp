@@ -147,6 +147,163 @@ enum class InterfaceCB
 	startNewSubtitleStream // Add more events here if needed
 };
 
+/**
+ * @name gstMapDecoderLookUptable
+ *
+ * @brief Decoder map list lookup table
+ * convert from codec to string map list of gstreamer
+ * component.
+ */
+static std::map<std::string, std::vector<std::string>> gstMapDecoderLookUptable =
+	{
+		{"ac-3", {"omxac3dec", "avdec_ac3", "avdec_ac3_fixed"}},
+		{"ac-4", {"omxac4dec"}}};
+
+struct gst_media_stream
+{
+	GstElement *sinkbin;		  /**< Sink element to consume data */
+	GstElement *source;			  /**< to provide data to the pipleline */
+	GstStreamOutputFormat format; /**< Stream output format for this stream */
+	bool pendingSeek;			  /**< Flag denotes if a seek event has to be sent to the source */
+	bool resetPosition;			  /**< To indicate that the position of the stream is reset */
+	bool bufferUnderrun;
+	bool eosReached;	   /**< To indicate the status of End of Stream reached */
+	bool sourceConfigured; /**< To indicate that the current source is initialized and configured */
+	pthread_mutex_t sourceLock;
+	uint32_t timeScale;
+	int32_t trackId;		   /**< Current Audio Track Id,so far it is implemented for AC4 track selection only */
+	bool firstBufferProcessed; /**< Indicates if the first buffer is processed in this stream */
+	GstPad *demuxPad;		   /**< Demux src pad >*/
+	gulong demuxProbeId;	   /**< Demux pad probe ID >*/
+
+	gst_media_stream() : sinkbin(NULL), source(NULL), format(GST_FORMAT_INVALID),
+						 pendingSeek(false), resetPosition(false),
+						 bufferUnderrun(false), eosReached(false), sourceConfigured(false), sourceLock(PTHREAD_MUTEX_INITIALIZER),
+						 timeScale(1), trackId(-1), firstBufferProcessed(false), demuxPad(NULL), demuxProbeId(0)
+	{
+	}
+
+	~gst_media_stream()
+	{
+		g_clear_object(&sinkbin);
+		g_clear_object(&source);
+	}
+
+	gst_media_stream(const gst_media_stream &) = delete;
+
+	gst_media_stream &operator=(const gst_media_stream &) = delete;
+};
+
+struct MonitorAVState
+{
+	long long tLastReported;
+	long long tLastSampled;
+	const char *description;
+	gint64 av_position[2];
+	bool happy;
+};
+/**
+ * @struct GstPlayerPriv
+ * @brief Holds private variables of InterfacePlayerRDK
+ */
+struct GstPlayerPriv
+{
+	GstPlayerPriv(const GstPlayerPriv &) = delete;
+	GstPlayerPriv &operator=(const GstPlayerPriv &) = delete;
+
+	gst_media_stream stream[GST_TRACK_COUNT];
+	MonitorAVState monitorAVstate;
+	GstElement *pipeline; /**< GstPipeline used for playback. */
+	GstBus *bus;		  /**< Bus for receiving GstEvents from pipeline. */
+	guint64 total_bytes;
+	gint n_audio;				 /**< Number of audio tracks. */
+	gint current_audio;			 /**< Offset of current audio track. */
+	std::mutex TaskControlMutex; /**< For scheduling/de-scheduling or resetting async tasks/variables and timers */
+	GstTaskControlData firstProgressCallbackIdleTask;
+	guint periodicProgressCallbackIdleTaskId; /**< ID of timed handler created for notifying progress events. */
+	guint bufferingTimeoutTimerId;			  /**< ID of timer handler created for buffering timeout. */
+	GstElement *video_dec;					  /**< Video decoder used by pipeline. */
+	GstElement *audio_dec;					  /**< Audio decoder used by pipeline. */
+	GstElement *video_sink;					  /**< Video sink used by pipeline. */
+	GstElement *audio_sink;					  /**< Audio sink used by pipeline. */
+	GstElement *subtitle_sink;				  /**< Subtitle sink used by pipeline. */
+	GstTaskPool *task_pool;					  /**< Task pool in case RT priority is needed. */
+
+	int rate;											 /**< Current playback rate. */
+	GstVideoZoomMode zoom;								 /**< Video-zoom setting. */
+	bool videoMuted;									 /**< Video mute status. */
+	bool audioMuted;									 /**< Audio mute status. */
+	std::mutex volumeMuteMutex;							 /**< Mutex to ensure setVolumeOrMuteUnMute is thread-safe. */
+	bool subtitleMuted;									 /**< Subtitle mute status. */
+	double audioVolume;									 /**< Audio volume. */
+	guint eosCallbackIdleTaskId;						 /**< ID of idle handler created for notifying EOS event. */
+	std::atomic<bool> eosCallbackIdleTaskPending;		 /**< Set if any eos callback is pending. */
+	bool firstFrameReceived;							 /**< Flag that denotes if first frame was notified. */
+	bool pendingPlayState;								 /**< Flag that denotes if set pipeline to PLAYING state is pending. */
+	bool decoderHandleNotified;							 /**< Flag that denotes if decoder handle was notified. */
+	guint firstFrameCallbackIdleTaskId;					 /**< ID of idle handler created for notifying first frame event. */
+	GstEvent *protectionEvent[GST_TRACK_COUNT];			 /**< GstEvent holding the pssi data to be sent downstream. */
+	std::atomic<bool> firstFrameCallbackIdleTaskPending; /**< Set if any first frame callback is pending. */
+	bool using_westerossink;							 /**< true if westeros sink is used as video sink */
+	bool usingRialtoSink;								 /**< true if rialto sink is used for video and audio sinks */
+	char videoRectangle[VIDEO_COORDINATES_SIZE];
+	bool pauseOnStartPlayback;								 /**< true if should start playback paused */
+	std::atomic<bool> eosSignalled;							 /**< Indicates if EOS has signaled */
+	gboolean buffering_enabled;								 /**< enable buffering based on multiqueue */
+	gboolean buffering_in_progress;							 /**< buffering is in progress */
+	guint buffering_timeout_cnt;							 /**< make sure buffering_timeout doesn't get stuck */
+	GstState buffering_target_state;						 /**< the target state after buffering */
+	gint64 lastKnownPTS;									 /**< To store the PTS of last displayed video */
+	long long ptsUpdatedTimeMS;								 /**< Timestamp when PTS was last updated */
+	guint ptsCheckForEosOnUnderflowIdleTaskId;				 /**< ID of task to ensure video PTS is not moving before notifying EOS on underflow. */
+	int numberOfVideoBuffersSent;							 /**< Number of video buffers sent to pipeline */
+	gint64 segmentStart;									 /**< segment start value; required when qtdemux is enabled or restamping is disabled; -1 to send a segment.start query to gstreamer */
+	GstQuery *positionQuery;								 /**< pointer that holds a position query object */
+	GstQuery *durationQuery;								 /**< pointer that holds a duration query object */
+	bool paused;											 /**< if pipeline is deliberately put in PAUSED state due to user interaction */
+	GstState pipelineState;									 /**< current state of pipeline */
+	GstTaskControlData firstVideoFrameDisplayedCallbackTask; /**< Task control data of the handler created for notifying state changed to Playing */
+	bool firstTuneWithWesterosSinkOff;						 /**< track if first tune was done for Realtekce build */
+	long long decodeErrorMsgTimeMS;							 /**< Timestamp when decode error message last posted */
+	int decodeErrorCBCount;									 /**< Total decode error cb received within threshold time */
+	bool progressiveBufferingEnabled;
+	bool progressiveBufferingStatus;
+	bool forwardAudioBuffers;				  /**< flag denotes if audio buffers to be forwarded to aux pipeline */
+	bool enableSEITimeCode;					  /**< Enables SEI Time Code handling */
+	bool firstVideoFrameReceived;			  /**< flag that denotes if first video frame was notified. */
+	bool firstAudioFrameReceived;			  /**< flag that denotes if first audio frame was notified */
+	int NumberOfTracks;						  /**< Indicates the number of tracks */
+	GstPlaybackQualityStruct playbackQuality; /**< video playback quality info */
+	struct CallbackData
+	{
+		gpointer instance;
+		gulong id;
+		std::string name;
+		CallbackData(gpointer _instance, gulong _id, std::string _name) : instance(_instance), id(_id), name(_name) {};
+		CallbackData(const CallbackData &original) : instance(original.instance), id(original.id), name(original.name) {};
+		CallbackData(CallbackData &&original) : instance(original.instance), id(original.id), name(original.name) {};
+		CallbackData &operator=(const CallbackData &) = delete;
+		CallbackData &operator=(CallbackData &&original)
+		{
+			instance = std::move(original.instance);
+			id = std::move(original.id);
+			name = std::move(original.name);
+			return *this;
+		}
+		~CallbackData() {};
+	};
+	std::mutex mSignalVectorAccessMutex;
+	std::vector<CallbackData> mCallBackIdentifiers;
+	GstHandlerControl aSyncControl;
+	GstHandlerControl syncControl;
+	GstHandlerControl callbackControl;
+
+	bool filterAudioDemuxBuffers; /**< flag to filter audio demux buffers */
+	double seekPosition;		  /**< the position to seek the pipeline to in seconds */
+	GstPlayerPriv();
+	~GstPlayerPriv();
+};
+
 // Class to encapsulate GStreamer-related functionality
 class InterfacePlayerRDK
 {
@@ -156,6 +313,8 @@ class InterfacePlayerRDK
 		std::map<std::string, int> configMap;
 
 	public:
+		std::shared_ptr<SocInterface> socInterface;
+		GstPlayerPriv *gstPrivateContext;
 		Configs *m_gstConfigParam;
 		char *mDrmSystem;
 		void *mEncrypt;
