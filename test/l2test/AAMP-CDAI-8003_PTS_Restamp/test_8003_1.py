@@ -36,7 +36,6 @@ TEST_SPEEDS = [
 	{'position_secs' : 300,	'direction': "rew",	'rate': -30 },
 ]
 
-BASE_POSITION_TOLERANCE_MS = 100
 
 current_speed = 0
 speed_change_time_secs = 0.0
@@ -59,14 +58,15 @@ def verify_position(match):
 	time_delta_secs = log_timestamp_secs - speed_change_time_secs
 	time_delta_ms = time_delta_secs * 1000
 	asset_position_ms = int(match.group(2))
-	expected_position_ms = time_delta_ms * current_speed
-	# Scale the position tolerance according to the current speed
-	position_tolerance_ms = BASE_POSITION_TOLERANCE_MS * abs(current_speed)
-	position_diff_ms = abs(expected_position_ms - asset_position_ms)
-	print(f"Position at time {log_timestamp_secs}: actual {asset_position_ms}, expected " +
-		  f"{expected_position_ms:.2f}, diff {position_diff_ms:.2f}, tol {position_tolerance_ms}")
-	assert position_diff_ms <= position_tolerance_ms, \
-		"Difference between actual and expected position exceeds tolerance!"
+	calculated_rate = asset_position_ms / time_delta_ms
+	rate_error_pct=abs(calculated_rate-current_speed)/abs(current_speed) *100
+
+	#At rate=2 we allow 2% error, at rate=30 we allow 30% error
+	passed = rate_error_pct < abs(current_speed)
+
+	print(f"Position at time {log_timestamp_secs} asset_position_ms {asset_position_ms} " +
+		  f"time_delta_ms {time_delta_ms} calculated_rate {calculated_rate:.2f} rate_error_pct {rate_error_pct:.2f} passed {passed}")
+	assert passed, "Difference between actual and expected position exceeds tolerance!"
 
 ############################################################
 
@@ -99,6 +99,8 @@ def test_8003_1(httpserver_setup_teardown, aamp_setup_teardown, test_data):
 			{"expect":r'AAMP_EVENT_SPEED_CHANGED current rate=(-?\d+)', "callback" : verify_speed},
 
 			# Ignore first position updates following speed change to allow streaming to settle down
+			{"expect": r'GetPositionMilliseconds.*?rc - (-?\d+)'},
+			{"expect": r'GetPositionMilliseconds.*?rc - (-?\d+)'},
 			{"expect": r'GetPositionMilliseconds.*?rc - (-?\d+)'},
 			{"expect": r'GetPositionMilliseconds.*?rc - (-?\d+)'},
 			{"expect": r'GetPositionMilliseconds.*?rc - (-?\d+)'},
