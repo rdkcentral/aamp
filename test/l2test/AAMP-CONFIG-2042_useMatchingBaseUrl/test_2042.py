@@ -40,7 +40,7 @@ TESTDATA1 = {
 		{"expect":r"fragmentUrl http://localhost:8085/matchingUrlDump/audio_init.mp4"},
 		{"expect":r"inserted init_audio http://localhost:8085/matchingUrlDump/audio_init.mp4"},
 		{"expect":r"Returning Position as [0-4](\d{3})"},
-		{"expect":r"Returning Position as [5-9](\d{3})"}, 
+		{"expect":r"Returning Position as [5-9](\d{3})", "end_of_test": True},
 	]
 }
 
@@ -60,7 +60,7 @@ TESTDATA2 = {
 		{"expect":r"Init fragment fetch failed -- fragmentUrl http://0.0.0.0:8085/video_init.mp4"},
 		{"expect":r"AAMP_EVENT_TUNE_FAILED reason=AAMP: init fragment download failed : Http Error Code 404"},
 		{"expect":r"fragmentUrl http://0.0.0.0:8085/audio_init.mp4"},
-		{"expect":r"StreamAbstractionAAMP_MPD: failed. fragmentUrl http://0.0.0.0:8085/audio_init.mp4"},
+		{"expect":r"StreamAbstractionAAMP_MPD: failed. fragmentUrl http://0.0.0.0:8085/audio_init.mp4", "end_of_test": True},
 	]
 }
 
@@ -75,4 +75,4 @@ def test_data(request):
 def test_2042(aamp_setup_teardown, test_data):
     aamp = aamp_setup_teardown
     aamp.set_paths(os.path.abspath(getsourcefile(lambda: 0)))
-    aamp.run_expect_a(test_data)
+    aamp.run_expect_b(test_data)
