@@ -378,7 +378,7 @@ public:
 
 	InterfacePlayerRDK();
 	~InterfacePlayerRDK();
-	
+
 	/**
 	 * @brief Idle callback for the first frame.
 	 *
@@ -428,9 +428,9 @@ public:
 	using HandleRedButtonCallback = std::function<void(const char *data)>;
 	using HandleNeedDataCb = std::function<void(int mediaType)>;
 	using HandleEnoughDataCb = std::function<void(int mediaType)>;
-	
+
 	/*
-	 *@brief Registers need data callback from application 
+	 *@brief Registers need data callback from application
 	 */
 	void RegisterNeedDataCb(const HandleNeedDataCb &callback)
 	{
@@ -438,7 +438,7 @@ public:
 	}
 
 	/*
- 	*@brief Registers enough data callback from application 
+ 	*@brief Registers enough data callback from application
 	 */
 	void RegisterEnoughDataCb(const HandleEnoughDataCb &callback)
         {
@@ -452,7 +452,7 @@ public:
 	{
 		OnBuffering_timeoutCb = callback;
 	}
-	
+
 	/*
 	 *@brief register HandleOnGstPtsErrorCb
 	 */
@@ -702,6 +702,7 @@ public:
 	 * @param[in] fpts First PTS value.
 	 * @param[in] fdts First DTS value.
 	 * @param[in] fDuration Duration of the event.
+	 * @param[in] fragmentPTSoffset Offset PTS value.
 	 * @param[in] copy True to copy the event data.
 	 * @param[in] initFragment True if this is an initialization fragment.
 	 * @param[out] discontinuity Indicates whether there is a discontinuity.
@@ -711,7 +712,7 @@ public:
 	 * @param[out] firstBufferPushed Indicates whether the first buffer was pushed.
 	 * @return True if the event was sent successfully, false otherwise.
 	 */
-	bool SendHelper(int type, const void *ptr, size_t len, double fpts, double fdts, double fDuration, bool copy, bool initFragment, bool &discontinuity, bool &notifyFirstBufferProcessed, bool &sendNewSegmentEvent, bool &resetTrickUTC, bool &firstBufferPushed);
+	bool SendHelper(int type, const void *ptr, size_t len, double fpts, double fdts, double fDuration, double fragmentPTSoffset, bool copy, bool initFragment, bool &discontinuity, bool &notifyFirstBufferProcessed, bool &sendNewSegmentEvent, bool &resetTrickUTC, bool &firstBufferPushed);
 
 	/**
 	 * @brief Pauses the injector.

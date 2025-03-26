@@ -591,7 +591,7 @@ public:
 	 * @param[in] bFirstAttempt - External initiated tune
 	 * @param[in] bFinalAttempt - Final retry/attempt.
 	 * @param[in] audioDecoderStreamSync - Enable or disable audio decoder stream sync,
-	 *                set to 'false' if audio fragments come with additional padding at the end 
+	 *                set to 'false' if audio fragments come with additional padding at the end
 	 *
 	 * @param[in] refreshManifestUrl -
 	 * @param[in] mpdStitchingMode -
@@ -1712,10 +1712,12 @@ public:
 	 *   @param[in]  fpts - Presentation Time Stamp.
 	 *   @param[in]  fdts - Decode Time Stamp
 	 *   @param[in]  fDuration - Buffer duration.
+	 *   @param[in]  fragmentPTSoffset - Offset PTS
 	 *   @param[in]  initFragment - flag for buffer type (init, data)
+	 *   @param[in]  discontinuity - flag for discontinuity
 	 *   @return void
 	 */
-	void SendStreamTransfer(AampMediaType mediaType, AampGrowableBuffer* buffer, double fpts, double fdts, double fDuration, bool initFragment = 0, bool discontinuity = false);
+	void SendStreamTransfer(AampMediaType mediaType, AampGrowableBuffer* buffer, double fpts, double fdts, double fDuration, double fragmentPTSoffset, bool initFragment = 0, bool discontinuity = false);
 
 	/**
 	 * @fn IsLive
@@ -1936,7 +1938,7 @@ public:
 	void ResetProfileCache(void);
 
 	void ActivatePlayer();
-	
+
 	/**
 	 *   @fn LogPlayerPreBuffered
 	 *

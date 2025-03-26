@@ -42,9 +42,9 @@ TESTDATA1 = {
         {"cmd": "get playbackPosition"},
         {"expect": re.escape(f"PLAYBACK POSITION = {offset}")},
         # Started Playback from position 10 and progressed at positions 12, 14...
-        {"expect": r"Returning Position as 1[1-2](\d{3}) "}, 
-        {"expect": r"Returning Position as 1[3-4](\d{3}) "}, 
-        # Confirming the player config loaded, the offset is set to 10. 
+        {"expect": r"Returning Position as 1[1-2](\d{3}) "},
+        {"expect": r"Returning Position as 1[3-4](\d{3}) "},
+        # Confirming the player config loaded, the offset is set to 10.
         {"cmd": "getconfig"},
         {"expect": f'"offset":{offset}'},
     ]
@@ -66,14 +66,14 @@ TESTDATA2 = {
         {"expect": re.escape(f"offsetFromStart({offset}.000000)")},
         {"expect": re.escape(f"Setting PTS offset: {offset}.000000")},
         {"expect": re.escape(f"Returning Position as {offset}000 (seek_pos_seconds = {offset}.000000) and updating previous position.")},
-        {"expect": re.escape(f"Sending segment for mediaType[0]. pts {offset}000000000 dts {offset}000000000")}, 
+        {"expect": re.escape(f"Sending segment for mediaType[0]. pts {offset}000000000 dts {offset}000000000")},
         {"expect": re.escape(f"Send first progress event with position {offset}")},
         {"cmd": "get playbackPosition"},
-        {"expect": re.escape(f"PLAYBACK POSITION = {offset}")}, 
+        {"expect": re.escape(f"PLAYBACK POSITION = {offset}")},
         # Started Playback from position 20 and progressed at positions 22, 24...
-        {"expect": r"Returning Position as 2[1-3](\d{3}) "}, 
-        {"expect": r"Returning Position as 2[4-7](\d{3}) "}, 
-        # Confirming the player config loaded, the offset is set to 20. 
+        {"expect": r"Returning Position as 2[1-3](\d{3}) "},
+        {"expect": r"Returning Position as 2[4-7](\d{3}) "},
+        # Confirming the player config loaded, the offset is set to 20.
         {"cmd": "getconfig"},
         {"expect": f'"offset":{offset}'},
     ]
@@ -83,7 +83,7 @@ TESTLIST = [TESTDATA1, TESTDATA2]
 
 ############################################################
 """
-With this fixture we cause the test to be called 
+With this fixture we cause the test to be called
 with each entry in TESTLIST
 """
 @pytest.fixture(params=TESTLIST)
@@ -94,6 +94,3 @@ def test_2011(aamp_setup_teardown, test_data):
     aamp = aamp_setup_teardown
     aamp.set_paths(os.path.abspath(getsourcefile(lambda: 0)))
     aamp.run_expect_a(test_data)
-
-
-

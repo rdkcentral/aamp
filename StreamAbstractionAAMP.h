@@ -812,11 +812,18 @@ protected:
 
 	/**
 	 * @fn InjectFragmentChunkInternal
+	 *
+	 * @param[in] mediaType - Media type of the fragment
 	 * @param[in] buffer - contains fragment to be processed and injected
-	 * @param[out] fragmentChunkDiscarded - true if fragment is discarded.
+	 * @param[in] fpts - fragment PTS
+	 * @param[in] fdts - fragment DTS
+	 * @param[in] fDuration - fragment duration
+	 * @param[in] fragmentPTSOffset - PTS offset to be applied
+	 * @param[in] init - true if fragment is init fragment
+	 * @param[in] discontinuity - true if there is a discontinuity, false otherwise
 	 * @return void
 	 */
-	void InjectFragmentChunkInternal(AampMediaType mediaType, AampGrowableBuffer* buffer, double fpts, double fdts, double fDuration, bool init=false, bool discontinuity=false);
+	void InjectFragmentChunkInternal(AampMediaType mediaType, AampGrowableBuffer* buffer, double fpts, double fdts, double fDuration, double fragmentPTSOffset, bool init=false, bool discontinuity=false);
 
 
 	static int GetDeferTimeMs(long maxTimeSeconds);

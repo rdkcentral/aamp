@@ -540,6 +540,7 @@ class TrackState : public MediaTrack
 		 *
 		 * @param[in] cachedFragment CachedFragment structure
 		 * @param[out] fragmentDiscarded bool to indicate fragment successfully injected
+		 * @param[in] isDiscontinuity bool to indicate if discontinuity
 		 * @return void
 		 ***************************************************************************/
 		void InjectFragmentInternal(CachedFragment* cachedFragment, bool &fragmentDiscarded,bool isDiscontinuity=false)override;
@@ -987,7 +988,7 @@ class StreamAbstractionAAMP_HLS : public StreamAbstractionAAMP
 		 *	 @return void
 		 ****************************************************************************/
 		void ChangeMuxedAudioTrackIndex(std::string& index) override;
-                
+
 
 		/***************************************************************************
 		 * @brief  Function to get output format for audio/aux track

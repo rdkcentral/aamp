@@ -11,4 +11,3 @@ add_library(middleware SHARED ${SOURCES})
 target_link_libraries(middleware ${GST_LIBRARIES})
 
 target_include_directories(middleware PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
-

@@ -377,7 +377,7 @@ TEST_P(MediaTrackDashTrickModePtsRestampValidPlayRateTests, ValidPlayRateTest)
 					SendStreamTransfer(eMEDIATYPE_VIDEO,
 									   AampGrowableBufferPtrEq(&(testFragment.fragment)),
 									   restampedPts.inSeconds(), restampedPts.inSeconds(),
-									   restampedDuration.inSeconds(), _, _));
+									   restampedDuration.inSeconds(), _, _, _));
 	}
 	ASSERT_TRUE(iframeTrack.InjectFragment());
 	if (!testParam.lowLatencyMode)
@@ -404,7 +404,7 @@ TEST_P(MediaTrackDashTrickModePtsRestampValidPlayRateTests, ValidPlayRateTest)
 			EXPECT_CALL(*g_mockPrivateInstanceAAMP,
 						SendStreamTransfer(eMEDIATYPE_VIDEO,
 										   AampGrowableBufferPtrEq(&(testFragment.fragment)),
-										   _,  _,
+										   _,  _, _,
 										   _, _, _));
 		}
 		ASSERT_TRUE(iframeTrack.InjectFragment());
@@ -437,7 +437,7 @@ TEST_P(MediaTrackDashTrickModePtsRestampValidPlayRateTests, ValidPlayRateTest)
 						SendStreamTransfer(eMEDIATYPE_VIDEO,
 										   AampGrowableBufferPtrEq(&(testFragment.fragment)),
 										   restampedPts.inSeconds(), restampedPts.inSeconds(),
-										   restampedDuration.inSeconds(), _, _));
+										   restampedDuration.inSeconds(), _, _, _));
 		}
 		ASSERT_TRUE(iframeTrack.InjectFragment());
 		if (!testParam.lowLatencyMode)
@@ -513,7 +513,7 @@ TEST_P(MediaTrackDashPlaybackPtsRestampTests, PlaybackTest)
 		EXPECT_CALL(*g_mockPrivateInstanceAAMP,
 					SendStreamTransfer(eMEDIATYPE_VIDEO,
 									   AampGrowableBufferPtrEq(&(testFragment.fragment)),
-									   expectedPts, expectedPts, _, _, _));
+									   expectedPts, expectedPts, _, _, _, _));
 	}
 
 	ASSERT_TRUE(videoTrack.InjectFragment());
@@ -657,7 +657,7 @@ TEST_F(MediaTrackTests, DashTrickModePtsRestampDiscontinuityTest)
 
 	int64_t expectedDuration{restampedDuration * TRICKMODE_TIMESCALE};
 	int64_t expectedPts = (int64_t)(restampedPts.inSeconds() * TRICKMODE_TIMESCALE);
-	
+
 	EXPECT_CALL(
 		*g_mockIsoBmffHelper,
 		SetPtsAndDuration(AampGrowableBufferRefEq(std::cref(testFragment.fragment)),

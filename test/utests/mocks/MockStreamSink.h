@@ -29,7 +29,7 @@ public:
 
     MOCK_METHOD(bool, SendCopy, (AampMediaType, const void *, size_t, double, double, double));
 
-    MOCK_METHOD(bool, SendTransfer, (AampMediaType, void *, size_t, double, double, double, bool, bool));
+    MOCK_METHOD(bool, SendTransfer, (AampMediaType, void *, size_t, double, double, double, double, bool, bool));
 
     MOCK_METHOD(bool, Discontinuity, (AampMediaType));
 

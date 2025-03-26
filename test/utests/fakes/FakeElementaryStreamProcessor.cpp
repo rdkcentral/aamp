@@ -23,7 +23,7 @@ ElementaryProcessor::ElementaryProcessor(class PrivateInstanceAAMP *aamp)
 {
 }
 
-bool ElementaryProcessor::sendSegment(AampGrowableBuffer* pBuffer, double position, double duration, bool discontinuous,
+bool ElementaryProcessor::sendSegment(AampGrowableBuffer* pBuffer, double position, double duration, double fragmentPTSoffset, bool discontinuous,
 						                    bool isInit, process_fcn_t processor, bool &ptsError)
 {
     return true;

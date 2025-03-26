@@ -107,7 +107,7 @@ public:
 		AAMPLOG_WARN("Type[%d] cachedFragment->position: %f cachedFragment->duration: %f cachedFragment->initFragment: %d",
 					 type, cachedFragment->position, cachedFragment->duration, cachedFragment->initFragment);
 		g_mockPrivateInstanceAAMP->SendStreamTransfer((AampMediaType)type, &cachedFragment->fragment, cachedFragment->position,
-													  cachedFragment->position, cachedFragment->duration, cachedFragment->initFragment, cachedFragment->discontinuity);
+													  cachedFragment->position, cachedFragment->duration, 0.0, cachedFragment->initFragment, cachedFragment->discontinuity);
 	}
 
 	void fillCachedFragment(bool isInit, bool isDisc, bool isLLD)
@@ -290,7 +290,7 @@ TEST_F(TrackInjectTests, RunInjectLoopTestNonLLD)
 		.WillOnce(Return(true))
 		.WillOnce(Return(false));
 
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendStreamTransfer(eMEDIATYPE_VIDEO, _, _, _, _, false, false));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendStreamTransfer(eMEDIATYPE_VIDEO, _, _, _, _, _, false, false));
 	mMediaTrack->RunInjectLoop();
 }
 
@@ -311,7 +311,7 @@ TEST_F(TrackInjectTests, RunInjectLoopTestNonLLDInit)
 		.WillOnce(Return(true))
 		.WillOnce(Return(false));
 
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendStreamTransfer(_, _, _, _, _, true, false));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendStreamTransfer(_, _, _, _, _, _, true, false));
 	mMediaTrack->RunInjectLoop();
 }
 
@@ -350,7 +350,7 @@ TEST_F(TrackInjectTests, RunInjectLoopTestLLD)
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetVidTimeScale())
 		.WillRepeatedly(Return(1));
 
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendStreamTransfer((AampMediaType)eMEDIATYPE_VIDEO, _, pts, pts, duration, false, false));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendStreamTransfer((AampMediaType)eMEDIATYPE_VIDEO, _, pts, pts, duration, 0.0, false, false));
 	mMediaTrack->RunInjectLoop();
 }
 
@@ -373,6 +373,6 @@ TEST_F(TrackInjectTests, RunInjectLoopTestLLDInit)
 		.WillOnce(Return(true))
 		.WillOnce(Return(false));
 
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendStreamTransfer(_, _, _, _, _, true, false));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendStreamTransfer(_, _, _, _, _, _, true, false));
 	mMediaTrack->RunInjectLoop();
 }

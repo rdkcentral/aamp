@@ -43,7 +43,7 @@ bool AAMPGstPlayer::SendCopy( AampMediaType mediaType, const void *ptr, size_t l
 	return true;
 }
 
-bool AAMPGstPlayer::SendTransfer(AampMediaType mediaType, void *ptr, size_t len, double fpts, double fdts, double fDuration, bool initFragment, bool discontinuity)
+bool AAMPGstPlayer::SendTransfer(AampMediaType mediaType, void *ptr, size_t len, double fpts, double fdts, double fDuration, double fragmentPTSoffset, bool initFragment, bool discontinuity)
 {
 	return true;
 }

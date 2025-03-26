@@ -588,7 +588,7 @@ endif()
 
 set(LIBAAMP_SOURCES ${LIBAAMP_SOURCES} middleware/closedcaptions/PlayerCCManager.cpp middleware/PlayerUtils.cpp)
 
-set(LIBAAMP_SOURCES ${LIBAAMP_SOURCES} externals/PlayerRfc.cpp 
+set(LIBAAMP_SOURCES ${LIBAAMP_SOURCES} externals/PlayerRfc.cpp
 externals/playerExternalUtils.cpp)
 if (CMAKE_AAMP_RFC_REQUIRED)
         message("AAMP RFC set")
@@ -793,7 +793,7 @@ install(TARGETS aamp-cli DESTINATION bin)
 install(TARGETS aamp DESTINATION lib PUBLIC_HEADER DESTINATION include PRIVATE_HEADER DESTINATION include)
 install(FILES Accessibility.hpp AampEvent.h AampConfig.h AampCMCDCollector.h AampEventManager.h AampDefine.h AampEventListener.h middleware/drm/DrmMemorySystem.h drm/AampDRMSessionManager.h middleware/drm/DrmSystems.h AampMediaType.h
 	middleware/drm/DrmData.h middleware/drm/DrmInfo.h middleware/drm/DrmMediaFormat.h middleware/drm/DrmCallbacks.h AampLogManager.h
-	middleware/drm/DrmSession.h middleware/drm/ClearKeyDrmSession.h middleware/drm/DrmUtils.h middleware/drm/drmsessionfactory.h middleware/drm/ocdm/opencdmsessionadapter.h middleware/PlayerUtils.h 
+	middleware/drm/DrmSession.h middleware/drm/ClearKeyDrmSession.h middleware/drm/DrmUtils.h middleware/drm/drmsessionfactory.h middleware/drm/ocdm/opencdmsessionadapter.h middleware/PlayerUtils.h
   middleware/drm/helper/DrmHelper.h subtitle/vttCue.h AampUtils.h
   AampMemoryUtils.h AampProfiler.h AampConstants.h middleware/drm/DrmConstants.h iso639map.h externals/PlayerRfc.h externals/playerBase64.h middleware/GstUtils.h AampGrowableBuffer.h
   AampScheduler.h
