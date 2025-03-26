@@ -64,7 +64,7 @@ public:
      *   @fn SendTransfer
 	 *   @brief stub implementation for Inactive aamp instance
 	 */
-	virtual bool SendTransfer( AampMediaType mediaType, void *ptr, size_t len, double fpts, double fdts, double duration, bool initFragment = false, bool discontinuity = false)
+	virtual bool SendTransfer( AampMediaType mediaType, void *ptr, size_t len, double fpts, double fdts, double duration, double fragmentPTSoffset, bool initFragment = false, bool discontinuity = false)
 	{
 		AAMPLOG_WARN("Called AAMPGstPlayer()::%s stub", __FUNCTION__);
 		return false;

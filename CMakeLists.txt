@@ -594,6 +594,7 @@ endif()
 
 set(LIBAAMP_SOURCES ${LIBAAMP_SOURCES} middleware/closedcaptions/PlayerCCManager.cpp middleware/PlayerUtils.cpp)
 
+
 if (CMAKE_AAMP_RFC_REQUIRED)
         message("AAMP RFC set")
         set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DAAMP_RFC_ENABLED")

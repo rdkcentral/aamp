@@ -1076,7 +1076,7 @@ bool TSProcessor::processBuffer(unsigned char *buffer, int size, bool &insPatPmt
 						int version = packet[payloadOffset + 6];
 						int current = (version & 0x01);
 						version = ((version >> 1) & 0x1F);
-						
+
 						AAMPLOG_TRACE("PAT current version %d existing version %d", version, m_versionPAT);
 						if (!m_havePAT || (current && (version != m_versionPAT)))
 						{
@@ -1105,11 +1105,11 @@ bool TSProcessor::processBuffer(unsigned char *buffer, int size, bool &insPatPmt
 									do {
 										m_program = ((packet[patTableIndex + 0] << 8) + packet[patTableIndex + 1]);
 										m_pmtPid = (((packet[patTableIndex + 2] & 0x1F) << 8) + packet[patTableIndex + 3]);
-										
+
 										patTableIndex += PAT_TABLE_ENTRY_SIZE;
 										// Find first program number not 0 or until end of PAT
 									} while (m_program == 0 && patTableIndex < patTableEndIndex);
-									
+
 									if ((m_program != 0) && (m_pmtPid != 0))
 									{
 										if (length > PAT_SPTS_SIZE)
@@ -1820,8 +1820,9 @@ void TSProcessor::setPtsOffset( double ptsOffset )
  * @brief Does configured operation on the segment and injects data to sink
  *        Process and send media fragment
  */
-bool TSProcessor::sendSegment(AampGrowableBuffer* pBuffer, double position, double duration, bool discontinuous, bool isInit, process_fcn_t processor, bool &ptsError)
-{	
+bool TSProcessor::sendSegment(AampGrowableBuffer* pBuffer, double position, double duration, double fragmentPTSoffset, bool discontinuous,
+								bool isInit, process_fcn_t processor, bool &ptsError)
+{
 	bool insPatPmt = false;  //CID:84507 - Initialization
 	unsigned char * packetStart;
 	char *segment = pBuffer->GetPtr();
@@ -1840,7 +1841,7 @@ bool TSProcessor::sendSegment(AampGrowableBuffer* pBuffer, double position, doub
 		{
 			AAMPLOG_TRACE("change play mode");
 			m_playMode = m_playModeNext;
-			
+
 			m_playRate = m_playRateNext;
 			m_absPlayRate = fabs(m_playRate);
 			AAMPLOG_INFO("playback changed to rate %f mode %d", m_playRate, m_playMode);
@@ -4031,4 +4032,3 @@ void TSProcessor::SetAudioGroupId(std::string& id)
 		m_audioGroupId = id;
 	}
 }
-

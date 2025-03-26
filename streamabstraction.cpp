@@ -391,15 +391,15 @@ void MediaTrack::UpdateTSAfterChunkInject()
 
 	parsedBufferChunk.Free();
 	//memset(&parsedBufferChunk, 0x00, sizeof(AampGrowableBuffer));
-	
+
 	//increment Inject Index
 	++fragmentChunkIdxToInject;
 	fragmentChunkIdxToInject = (fragmentChunkIdxToInject) % mCachedFragmentChunksSize;
 	if(numberOfFragmentChunksCached > 0) numberOfFragmentChunksCached--;
-	
+
 	AAMPLOG_DEBUG("[%s] updated fragmentChunkIdxToInject = %d numberOfFragmentChunksCached %d",
 				  name, fragmentChunkIdxToInject, numberOfFragmentChunksCached);
-	
+
 	fragmentChunkInjected.notify_one();
 }
 
@@ -407,10 +407,10 @@ void MediaTrack::UpdateTSAfterChunkInject()
  * @brief To be implemented by derived classes to receive cached fragment Chunk
  * Receives cached fragment and injects to sink.
  */
-void MediaTrack::InjectFragmentChunkInternal(AampMediaType mediaType, AampGrowableBuffer* buffer, double fpts, double fdts, double fDuration, bool init, bool discontinuity)
+void MediaTrack::InjectFragmentChunkInternal(AampMediaType mediaType, AampGrowableBuffer* buffer, double fpts, double fdts, double fDuration, double fragmentPTSOffset, bool init, bool discontinuity)
 {
-	aamp->SendStreamTransfer(mediaType, buffer, fpts, fdts, fDuration, init, discontinuity);
-	
+	aamp->SendStreamTransfer(mediaType, buffer, fpts, fdts, fDuration, fragmentPTSOffset, init, discontinuity);
+
 }
 
 /**
@@ -740,7 +740,7 @@ void MediaTrack::AbortWaitForCachedAndFreeFragment(bool immediate)
 	aamp->waitforplaystart.notify_one();
 	fragmentFetched.notify_one();
 	lock.unlock();
-	
+
 	GetContext()?GetContext()->AbortWaitForDiscontinuity(): void();
 }
 
@@ -756,11 +756,11 @@ void MediaTrack::AbortWaitForCachedFragment()
 		AAMPLOG_DEBUG("[%s] signal fragmentChunkFetched condition", name);
 		fragmentChunkFetched.notify_one();
 	}
-	
+
 	abortInject = true;
 	fragmentFetched.notify_one();
 	lock.unlock();
-	
+
 	GetContext()?GetContext()->AbortWaitForDiscontinuity():void();
 }
 
@@ -940,7 +940,7 @@ bool MediaTrack::ProcessFragmentChunk()
 		if (type != eTRACK_SUBTITLE || (aamp->IsGstreamerSubsEnabled()))
 		{
 			AAMPLOG_INFO("Injecting init chunk for %s",name);
-			InjectFragmentChunkInternal((AampMediaType)type, &cachedFragment->fragment, cachedFragment->position, cachedFragment->position, cachedFragment->duration, cachedFragment->initFragment, cachedFragment->discontinuity);
+			InjectFragmentChunkInternal((AampMediaType)type, &cachedFragment->fragment, cachedFragment->position, cachedFragment->position, cachedFragment->duration, cachedFragment->PTSOffsetSec, cachedFragment->initFragment, cachedFragment->discontinuity);
 			if (eTRACK_VIDEO == type && pContext && pContext->GetProfileCount())
 			{
 				pContext->NotifyBitRateUpdate(cachedFragment->profileIndex, cachedFragment->cacheFragStreamInfo, cachedFragment->position);
@@ -1065,7 +1065,7 @@ bool MediaTrack::ProcessFragmentChunk()
 		if (type != eTRACK_SUBTITLE || (aamp->IsGstreamerSubsEnabled()))
 		{
 			AAMPLOG_INFO("Injecting chunk for %s br=%d,chunksize=%zu fpts=%f fduration=%f",name,bandwidthBitsPerSecond,parsedBufferChunk.GetLen(),fpts,fduration);
-			InjectFragmentChunkInternal((AampMediaType)type,&parsedBufferChunk , fpts, fpts, fduration);
+			InjectFragmentChunkInternal((AampMediaType)type,&parsedBufferChunk , fpts, fpts, fduration, cachedFragment->PTSOffsetSec);
 			totalInjectedChunksDuration += fduration;
 		}
 	}
@@ -1345,11 +1345,11 @@ void MediaTrack::ProcessAndInjectFragment(CachedFragment *cachedFragment, bool f
 		{
 			if(AAMP_NORMAL_PLAY_RATE==aamp->rate)
 			{
-				InjectFragmentInternal(cachedFragment, fragmentDiscarded,isDiscontinuity);
+				InjectFragmentInternal(cachedFragment, fragmentDiscarded, isDiscontinuity);
 			}
 			else
 			{
-				InjectFragmentInternal(cachedFragment, fragmentDiscarded,cachedFragment->discontinuity);
+				InjectFragmentInternal(cachedFragment, fragmentDiscarded, cachedFragment->discontinuity);
 			}
 		}
 		class StreamAbstractionAAMP* pContext = GetContext();
@@ -1648,7 +1648,7 @@ void MediaTrack::RunInjectLoop()
 		}
 		// Disable audio video balancing for CDVR content ..
 		// CDVR Content includes eac3 audio, the duration of audio doesn't match with video
-		// and hence balancing fetch/inject not needed for CDVR 
+		// and hence balancing fetch/inject not needed for CDVR
 		// TBD Not needed for LLD
 		// Not needed for local TSB gstreamer will balance A/V - thats what it does
 		if(!ISCONFIGSET(eAAMPConfig_AudioOnlyPlayback) && !aamp->IsCDVRContent() && (!aamp->mAudioOnlyPb && !aamp->mVideoOnlyPb) && !lowLatency && !aamp->IsLocalAAMPTsb())
@@ -1800,7 +1800,7 @@ void MediaTrack::FlushFetchedFragments()
 		AAMPLOG_DEBUG("[%s] Free cachedFragment[%d] numberOfFragmentsCached %d", name, fragmentIdxToInject, numberOfFragmentsCached);
 		mCachedFragment[fragmentIdxToInject].fragment.Free();
 		memset(&mCachedFragment[fragmentIdxToInject], 0, sizeof(CachedFragment));
-		
+
 		fragmentIdxToInject++;
 		if (fragmentIdxToInject == maxCachedFragmentsPerTrack)
 		{
@@ -3882,7 +3882,7 @@ bool StreamAbstractionAAMP::IsSeekedToLive(double seekPosition)
  *
  * @param[in] rate - play rate
  *
- * Note: A common abstraction object is used for recording the live edge to TSB, and playing back from TSB. 
+ * Note: A common abstraction object is used for recording the live edge to TSB, and playing back from TSB.
  * For this reason we only want to adjust the MediaProcessors speed when playing back from TSB.
  */
 void StreamAbstractionAAMP::SetVideoPlaybackRate(float rate)

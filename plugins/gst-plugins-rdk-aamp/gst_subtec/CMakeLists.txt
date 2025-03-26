@@ -82,4 +82,3 @@ install (TARGETS gstvipertransform
          LIBRARY DESTINATION lib/gstreamer-1.0
          ARCHIVE DESTINATION lib/gstreamer-1.0
 )
-

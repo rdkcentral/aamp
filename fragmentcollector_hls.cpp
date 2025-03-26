@@ -803,11 +803,11 @@ lstring TrackState::GetIframeFragmentUriFromIndex(bool &bSegmentRepeated)
 				fragmentInfo = iter.mystrpbrk(); // #EXTINF
 				fragmentInfo = iter.mystrpbrk(); // url
 			}
-			
+
 			{
 				mFragmentURIFromIndex = fragmentInfo;
 				uri = mFragmentURIFromIndex;
-				
+
 				//The EXT-X-TARGETDURATION tag specifies the maximum Media Segment   duration.
 				//The EXTINF duration of each Media Segment in the Playlist   file, when rounded to the nearest integer,
 				//MUST be less than or equal   to the target duration
@@ -816,7 +816,7 @@ lstring TrackState::GetIframeFragmentUriFromIndex(bool &bSegmentRepeated)
 					AAMPLOG_WARN("WARN - Fragment duration[%f] > TargetDuration[%f] for URI:%.*s",fragmentDurationSeconds, targetDurationSeconds.inSeconds(), uri.getLen(), uri.getPtr() );
 				}
 			}
-			
+
 			if (-1 == idxNode->drmMetadataIdx)
 			{
 				fragmentEncrypted = false;
@@ -859,14 +859,14 @@ lstring TrackState::GetIframeFragmentUriFromIndex(bool &bSegmentRepeated)
 lstring TrackState::GetNextFragmentUriFromPlaylist(bool& reloadUri, bool ignoreDiscontinuity)
 {
 	lstring rc;
-	
+
 	auto p = fragmentURI.getPtr();
 	auto l = playlist.GetLen();
 	size_t offs = p - playlist.GetPtr();
 	if( offs>=l ) return lstring();
 	lstring iter( p, l-offs );
 	lstring ptr = iter.mystrpbrk();
-	
+
 	size_t byteRangeLength = 0; // default, when optional byterange offset is left unspecified
 	size_t byteRangeOffset = 0;
 	bool discontinuity = false;
@@ -1791,6 +1791,7 @@ void TrackState::InjectFragmentInternal(CachedFragment* cachedFragment, bool &fr
 		fragmentDiscarded = !playContext->sendSegment( &cachedFragment->fragment,
 			position.inSeconds(),
 			cachedFragment->duration,
+			cachedFragment->PTSOffsetSec,
 			isDiscontinuity,
 			cachedFragment->initFragment,
 			processor,
@@ -1963,7 +1964,7 @@ void TrackState::IndexPlaylist(bool IsRefresh, AampTime &culledSec)
 		mDrmInfo.initData = aamp->GetDrmInitData();
 		mDrmInfo.bDecryptClearSamplesRequired = aamp->isDecryptClearSamplesRequired();
 		AampTime fragDuration{};
-		
+
 		while(!iter.empty())
 		{
 			ptr = iter.mystrpbrk();
@@ -2369,7 +2370,7 @@ void TrackState::ProcessPlaylist(AampGrowableBuffer& newPlaylist, int http_error
 			FindTimedMetadata();
 		}
 		if( mDuration > 0.0f )
-		{	
+		{
 			// If we are loading new audio playlist for seamless switching, we should not seek based on sequence number
 			if (IsLive() && !seamlessAudioSwitchInProgress)
 			{
@@ -2816,7 +2817,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::SyncTracksForDiscontinuity()
 			AampTime diff{roundedIndexPosition - roundedPlayTarget};
 
 			videoPeriodStartCurrentPeriod = videoDiscontinuity.position;
-			
+
 			DiscontinuityIndexNode &audioDiscontinuity = audio->mDiscontinuityIndex[i];
 			audioPeriodStartCurrentPeriod = audioDiscontinuity.position;
 
@@ -5554,7 +5555,7 @@ DrmReturn TrackState::DrmDecrypt( CachedFragment * cachedFragment, ProfilerBucke
 			{
 				drmReturn = mDrm->Decrypt(bucketTypeFragmentDecrypt, cachedFragment->fragment.GetPtr(),
 										  cachedFragment->fragment.GetLen(), MAX_LICENSE_ACQ_WAIT_TIME);
-				
+
 			}
 		}
 	}

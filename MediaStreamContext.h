@@ -282,4 +282,3 @@ public:
 }; // MediaStreamContext
 
 #endif /* MEDIASTREAMCONTEXT_H */
-

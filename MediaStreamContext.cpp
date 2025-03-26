@@ -41,14 +41,14 @@ void MediaStreamContext::InjectFragmentInternal(CachedFragment* cachedFragment, 
 		{
 		};
 		fragmentDiscarded = !playContext->sendSegment( &cachedFragment->fragment, cachedFragment->position,
-														cachedFragment->duration, isDiscontinuity, cachedFragment->initFragment, processor, ptsError);
+														cachedFragment->duration, cachedFragment->PTSOffsetSec, isDiscontinuity, cachedFragment->initFragment, processor, ptsError);
 	}
 	else
 	{
 		aamp->ProcessID3Metadata(cachedFragment->fragment.GetPtr(), cachedFragment->fragment.GetLen(), (AampMediaType) type);
 		AAMPLOG_DEBUG("Type[%d] cachedFragment->position: %f cachedFragment->duration: %f cachedFragment->initFragment: %d", type, cachedFragment->position,cachedFragment->duration,cachedFragment->initFragment);
 		aamp->SendStreamTransfer((AampMediaType)type, &cachedFragment->fragment,
-		cachedFragment->position, cachedFragment->position, cachedFragment->duration, cachedFragment->initFragment, cachedFragment->discontinuity);
+		cachedFragment->position, cachedFragment->position, cachedFragment->duration, cachedFragment->PTSOffsetSec, cachedFragment->initFragment, cachedFragment->discontinuity);
 	}
 
 	fragmentDiscarded = false;
@@ -414,7 +414,7 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 			// Free the memory
 			cachedFragment->fragment.Free();
 		}
-		else 
+		else
 		{
 			// Update buffer index after fetch for injection
 			UpdateTSAfterFetch(initSegment);

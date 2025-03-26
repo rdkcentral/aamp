@@ -75,7 +75,7 @@ typedef enum
 	eStreamOp_DEMUX_ALL, 		/**< Demux and inject audio and video*/
 	eStreamOp_DEMUX_AUX, 		/**< Demux and inject auxiliary audio only*/
 	eStreamOp_DEMUX_VIDEO_AND_AUX	/**< Demux and inject auxiliary audio and video*/
-	
+
 } StreamOperation;
 
 /**
@@ -118,24 +118,25 @@ class TSProcessor : public MediaProcessor
        * @fn ~TSProcessor
        */
       ~TSProcessor();
-	
-	
+
+
 	double getFirstPts( AampGrowableBuffer* pBuffer ) override;
 	void setPtsOffset( double ptsOffset ) override;
-    
+
 	  /**
        * @fn sendSegment
        *
        * @param[in] pBuffer - Pointer to the AampGrowableBuffer
        * @param[in] position - position of fragment
        * @param[in] duration - duration of fragment
+       * @param[in] fragmentPTSoffset - offset PTS of fragment
        * @param[in] discontinuous - true if discontinuous fragment
        * @param[in] isInit - flag for buffer type (init, data)
        * @param[in] processor - Function to use for processing the fragments (only used by HLS/TS)
        * @param[out] ptsError - flag indicates if any PTS error occurred
        * @return true if fragment was sent, false otherwise
        */
-      bool sendSegment(AampGrowableBuffer* pBuffer, double position, double duration, bool discontinuous,
+      bool sendSegment(AampGrowableBuffer* pBuffer, double position, double duration, double fragmentPTSoffset, bool discontinuous,
                            bool isInit, process_fcn_t processor, bool &ptsError) override;
       /**
        * @fn setRate
@@ -147,7 +148,7 @@ class TSProcessor : public MediaProcessor
        */
       void setRate(double rate, PlayMode mode) override;
       /**
-       * @fn setThrottleEnable 
+       * @fn setThrottleEnable
        * @param[in] enable true to enable throttle, false to disable
        */
       void setThrottleEnable(bool enable) override;
@@ -227,14 +228,14 @@ class TSProcessor : public MediaProcessor
       * @param[in] offset offset value in seconds
       */
       void setTrackOffset(double offset) override { };
-	
+
    protected:
       /**
        * @fn getAudioComponents
        * @param[out] audioComponentsPtr pointer to audio component array
        * @param[out] count Number of audio components
        */
-      void getAudioComponents(const RecordingComponent** audioComponentsPtr, int &count);  
+      void getAudioComponents(const RecordingComponent** audioComponentsPtr, int &count);
       /**
        * @fn sendQueuedSegment
        * @param[in] basepts new base pts to be set. Valid only for eStreamOp_DEMUX_AUDIO.
@@ -372,7 +373,7 @@ class TSProcessor : public MediaProcessor
        */
       unsigned int getBits( unsigned char *& p, int& mask, int bitCount );
       /**
-       * @fn putBits 
+       * @fn putBits
        * @param[in,out] p reference of buffer to which bits to be put
        * @param[in,out] mask mask to be applied
        * @param[in] bitCount count of bits to be put
@@ -394,8 +395,8 @@ class TSProcessor : public MediaProcessor
        */
       int getSExpGolomb( unsigned char *& p, int& mask );
       /**
-       * @fn updatePATPMT 
-       */ 
+       * @fn updatePATPMT
+       */
       void updatePATPMT();
       /**
        * @fn abortUnlocked
@@ -604,4 +605,3 @@ class TSProcessor : public MediaProcessor
 };
 
 #endif
-
