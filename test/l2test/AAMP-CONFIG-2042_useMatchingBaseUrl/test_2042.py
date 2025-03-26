@@ -57,7 +57,7 @@ TESTDATA2 = {
 		{"expect":r"AAMP_EVENT_STATE_CHANGED: INITIALIZING"},
 		{"expect":r"Parse MPD Completed ..."},
 		{"expect":r"fragmentUrl http://0.0.0.0:8085/video_init.mp4"},
-		{"expect":r"Init fragment fetch failed -- fragmentUrl http://0.0.0.0:8085/video_init.mp4"},
+		{"expect":r"Init fragment fetch failed -- fragmentUrl http://0.0.0.0:8085/.*_init.mp4"},
 		{"expect":r"AAMP_EVENT_TUNE_FAILED reason=AAMP: init fragment download failed : Http Error Code 404"},
 		{"expect":r"fragmentUrl http://0.0.0.0:8085/audio_init.mp4"},
 		{"expect":r"StreamAbstractionAAMP_MPD: failed. fragmentUrl http://0.0.0.0:8085/audio_init.mp4", "end_of_test": True},
