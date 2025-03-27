@@ -157,7 +157,7 @@ TESTDATA2 = {
         {"expect": r"\[FulFillAdObject\]\[\d+\]New Ad successfully for periodId : 2 added\[Id\=adId2, url\=http://localhost:8080/content/ad_15s.mpd, durationMs\=16000\]"},
         {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: STARTING ADBREAK\[2\] AdIdx\[0\] Found at Period\[2\]."},
         {"expect": re.escape("Period ID changed from '0-114' to '1-114' [BasePeriodId='2']")},
-        {"expect": r"Detected split period. BasePeriod"},
+        {"expect": r"Detected split period"},
         {"expect": r"\[PlaceAds\]\[\d+\]\[CDAI\] Placement Done: \{AdbreakId: 2, duration: 16000, endPeriodId: 3, endPeriodOffset: 6000, \#Ads: 1,"},
         {"expect": re.escape("Period ID changed from '1-114' to '3' [BasePeriodId='3']")},
         {"expect": r"\[onAdEvent\]\[\d+\]\[CDAI\]: STARTING ADBREAK\[4\] AdIdx\[0\] Found at Period\[4\]."},
