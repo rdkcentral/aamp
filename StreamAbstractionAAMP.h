@@ -640,10 +640,12 @@ public:
 	/**
 	 * @brief Set local TSB injection flag
 	 */
-	void SetLocalTSBInjection(bool value) { mIsLocalTSBInjection.store(value);}
+	void SetLocalTSBInjection(bool value);
 
 	/**
-	 * @brief Is mLocalAAMPTsb enabled/disabled
+	 * @brief Is injection from local AAMP TSB
+	 *
+	 * @return true if injection is from local AAMP TSB, false otherwise
 	 */
 	bool IsLocalTSBInjection() {return mIsLocalTSBInjection.load();}
 

@@ -250,6 +250,10 @@ bool MediaTrack::SignalIfEOSReached()
 	return false;
 }
 
+void MediaTrack::SetLocalTSBInjection(bool value)
+{
+}
+
 bool StreamAbstractionAAMP::CheckForRampDownLimitReached()
 {
 	return true;

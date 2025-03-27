@@ -3058,6 +3058,15 @@ double StreamAbstractionAAMP::GetLastInjectedFragmentPosition()
 }
 
 /**
+ * @brief Set local AAMP TSB injection flag
+ */
+void MediaTrack::SetLocalTSBInjection(bool value)
+{
+	mIsLocalTSBInjection.store(value);
+	AAMPLOG_INFO("isLocalAampTsbInjection %d", mIsLocalTSBInjection.load());
+}
+
+/**
  *  @brief To check for discontinuity in future fragments.
  */
 bool MediaTrack::CheckForFutureDiscontinuity(double &cachedDuration)
