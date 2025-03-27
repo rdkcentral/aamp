@@ -1802,6 +1802,7 @@ void PrivateInstanceAAMP::SetIsPeriodChangeMarked(bool value)
 	// CID:306170 - Data race condition
 	std::lock_guard<std::mutex>lock(mDiscoCompleteLock);
 	mIsPeriodChangeMarked = value;
+	AAMPLOG_TRACE("isPeriodChangeMarked %d", mIsPeriodChangeMarked);
 
 	if (false == mIsPeriodChangeMarked)
 	{
