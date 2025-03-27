@@ -107,6 +107,7 @@ avdec
 avedrm
 aveplayer
 avinput
+avjump
 avs
 avstate
 avsync
