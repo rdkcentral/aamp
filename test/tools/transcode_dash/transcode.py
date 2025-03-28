@@ -132,6 +132,8 @@ def do_transcode(base_dir, segment_detail_list, attrs=None):
         codec = 'hevc'
     elif re.match(r'mp4a',attrs.codecs):
         codec = 'aac'
+    elif re.match(r'avc1',attrs.codecs):
+        codec = 'h264'
     elif re.match(r'ec-3',attrs.codecs):
         codec = 'eac3'
     elif re.match(r'ac-3',attrs.codecs):
