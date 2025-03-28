@@ -83,6 +83,7 @@ if (CMAKE_INBUILT_AAMP_DEPENDENCIES)
 	add_subdirectory(support/aampabr)
 	add_subdirectory(support/aampmetrics)
 	add_subdirectory(plugins/gst-plugins-rdk-aamp)
+	add_subdirectory(middleware)
 endif()
 
 message("Adding tsb folder")
@@ -186,7 +187,7 @@ set(LIBAAMP_HEADERS AampCacheHandler.h
 					AampEvent.h
 					AampEventListener.h
 					AampEventManager.h
-					middleware/GstUtils.h
+					#middleware/GstUtils.h
 					AampGrowableBuffer.h
 					AampJsonObject.h
 					AampLogManager.h
@@ -202,12 +203,12 @@ set(LIBAAMP_HEADERS AampCacheHandler.h
 					StreamAbstractionAAMP.h
 					ThunderAccess.h
 					_base64.h
-					middleware/PlayerLogManager.h
-					middleware/PlayerScheduler.h
-					middleware/gstplayertaskpool.h
-					middleware/GstHandlerControl.h
-					middleware/GstUtils.h
-					middleware/InterfacePlayerRDK.h
+					#middleware/PlayerLogManager.h
+					#middleware/PlayerScheduler.h
+					#middleware/gstplayertaskpool.h
+					#middleware/GstHandlerControl.h
+					#middleware/GstUtils.h
+					#middleware/InterfacePlayerRDK.h
 					aampgstplayer.h
 					AampBufferControl.h
 					admanager_mpd.h
@@ -290,12 +291,12 @@ set(LIBAAMP_SOURCES iso639map.cpp
 					streamabstraction.cpp
 					priv_aamp.cpp
 					main_aamp.cpp
-					middleware/PlayerLogManager.cpp
-					middleware/PlayerScheduler.cpp
-					middleware/gstplayertaskpool.cpp
-					middleware/GstHandlerControl.cpp
-					middleware/GstUtils.cpp
-					middleware/InterfacePlayerRDK.cpp
+					#middleware/PlayerLogManager.cpp
+					#middleware/PlayerScheduler.cpp
+					#middleware/gstplayertaskpool.cpp
+					#middleware/GstHandlerControl.cpp
+					#middleware/GstUtils.cpp
+					#middleware/InterfacePlayerRDK.cpp
 					aampgstplayer.cpp
 					AampBufferControl.cpp
 					tsprocessor.cpp
@@ -313,7 +314,7 @@ set(LIBAAMP_SOURCES iso639map.cpp
 					downloader/AampCurlStore.cpp
 					AampDRMLicPreFetcher.cpp
 					AampCMCDCollector.cpp
-					middleware/gstplayertaskpool.cpp
+					#middleware/gstplayertaskpool.cpp
 					downloader/AampCurlDownloader.cpp
 					ID3Metadata.cpp
 					dash/xml/DomDocument.cpp
@@ -719,6 +720,7 @@ set_target_properties(aamp PROPERTIES PRIVATE_HEADER "priv_aamp.h")
 if (CMAKE_INBUILT_AAMP_DEPENDENCIES)
 	include_directories(support/aampabr)
 	include_directories(support/aampmetrics)
+	include_directories(middleware)
 endif()
 include_directories(tsb/api)
 
@@ -750,7 +752,7 @@ install(TARGETS gstTestHarness DESTINATION bin)
 target_link_libraries(aamp-cli subtec tsb)
 target_link_libraries(aamp subtec tsb)
 if (CMAKE_INBUILT_AAMP_DEPENDENCIES)
-	target_link_libraries(aamp abr metrics)
+	target_link_libraries(aamp abr metrics middleware)
 endif()
 if (CMAKE_AAMP_SUBTITLE_SUPPORT)
 	target_link_libraries(aamp subtec_connector)
@@ -782,12 +784,12 @@ install(FILES
   AampTsbReader.h
   tsb/api/TsbApi.h
   closedcaptions/AampCCManager.h
-  middleware/PlayerLogManager.h
-  middleware/PlayerScheduler.h
-  middleware/gstplayertaskpool.h
-  middleware/GstHandlerControl.h
-  middleware/GstUtils.h
-  middleware/InterfacePlayerRDK.h
+  #middleware/PlayerLogManager.h
+  #middleware/PlayerScheduler.h
+  #middleware/gstplayertaskpool.h
+  #middleware/GstHandlerControl.h
+  #middleware/GstUtils.h
+  #middleware/InterfacePlayerRDK.h
   DESTINATION include)
 
 if (CMAKE_AAMP_RFC_REQUIRED)

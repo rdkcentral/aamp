@@ -31,7 +31,7 @@
 #include <stdio.h>
 #include <cstdarg>
 #include <cstring>
-#include <middleware/PlayerLogManager.h>
+#include <PlayerLogManager.h>
 
 
 #ifdef USE_ETHAN_LOG

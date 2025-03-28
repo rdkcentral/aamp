@@ -25,9 +25,9 @@
 #include "PlayerLogManager.h"
 #include <sys/time.h>
 #include "GstUtils.h"
-#include "aampoutputprotection.h"						//ToDo: Replace once outputprotection moved to middleware
+//#include "aampoutputprotection.h"						//ToDo: Replace once outputprotection moved to middleware
 #include <inttypes.h>
-#include "TextStyleAttributes.h"
+//#include "TextStyleAttributes.h"
 
 #define DEFAULT_BUFFERING_TO_MS 10                       /**< TimeOut interval to check buffer fullness */
 #define DEFAULT_BUFFERING_MAX_MS (1000)                  /**< max buffering time */
@@ -1368,12 +1368,14 @@ void InterfacePlayerRDK::Stop(bool keepLastFrame)
 		SetStateWithWarnings(gstPrivateContext->pipeline, GST_STATE_NULL);
 		MW_LOG_MIL(" InterfacePlayerRDK: Pipeline state set to null");
 	}
+#if 0
 	if(AampOutputProtection::IsAampOutputProtectionInstanceActive())
 	{
 		AampOutputProtection *pInstance = AampOutputProtection::GetAampOutputProtectionInstance();
 		pInstance->setGstElement((GstElement *)(NULL));
 		pInstance->Release();
 	}
+#endif
 	for(int i = 0; i<GST_TRACK_COUNT;i++)
 	{
 		TearDownStream((GstMediaType(i)));
@@ -2198,7 +2200,7 @@ int InterfacePlayerRDK::SetupStream(int streamId,  void *playerInstance, std::st
 			}
 			else
 			{
-				AAMPLOG_WARN("Failed to create rialtomseaudiosink");
+			        MW_LOG_WARN("Failed to create rialtomseaudiosink");
 			}
 		}
 		else if (pInterfacePlayerRDK->gstPrivateContext->using_westerossink && eGST_MEDIATYPE_VIDEO == streamId)
@@ -4253,12 +4255,14 @@ static gboolean bus_message(GstBus * bus, GstMessage * msg, InterfacePlayerRDK *
 				// so it can get the source width/height
 				if (GstPlayer_isVideoDecoder(GST_OBJECT_NAME(msg->src), pInterfacePlayerRDK))
 				{
+#if 0
 					if(AampOutputProtection::IsAampOutputProtectionInstanceActive())
 					{
 						AampOutputProtection *pInstance = AampOutputProtection::GetAampOutputProtectionInstance();
 						pInstance->setGstElement((GstElement *)(msg->src));
 						pInstance->Release();
 					}
+#endif
 				}
 			}
 			else if((platformType == eGST_PLATFORM_AMLOGIC && GST_CHECK_VERSION(1,18,0)) && NULL != msg->src)
@@ -4691,6 +4695,7 @@ void InterfacePlayerRDK::SetVideoMute(bool muted)
 bool InterfacePlayerRDK::SetTextStyle(const std::string &options)
 {
 	bool ret = false;
+#if 0
 	if (gstPrivateContext->subtitle_sink)
 	{
 		TextStyleAttributes textStyleAttributes;
@@ -4723,6 +4728,8 @@ bool InterfacePlayerRDK::SetTextStyle(const std::string &options)
 	{
 		MW_LOG_INFO("InterfacePlayerRDK: subtitle sink not set");
 	}
+
+#	endif
 	return ret;
 }
 

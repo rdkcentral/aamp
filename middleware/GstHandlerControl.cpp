@@ -18,7 +18,7 @@
  */
 
 #include "GstHandlerControl.h"
-#include <middleware/PlayerLogManager.h>
+#include <PlayerLogManager.h>
 #include <cstdio>
 #include <string>
 
