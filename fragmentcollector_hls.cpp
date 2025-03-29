@@ -2161,7 +2161,7 @@ void TrackState::IndexPlaylist(bool IsRefresh, AampTime &culledSec)
 		}
 
 		if(mediaSequence==false)
-		{ // for Sling content
+		{
 			AAMPLOG_INFO("warning: no EXT-X-MEDIA-SEQUENCE tag");
 			indexFirstMediaSequenceNumber = 0;
 		}
@@ -7322,4 +7322,41 @@ void StreamAbstractionAAMP_HLS::SelectSubtitleTrack()
         }
     }
     AAMPLOG_INFO("using RialtoSink TextTrack Selected :%d", currentTextTrackProfileIndex);
+}
+
+bool StreamAbstractionAAMP_HLS::SelectPreferredTextTrack(TextTrackInfo& selectedTextTrack)
+{
+	bool bestTrackFound = false;
+	unsigned long long bestScore = 0;
+
+	std::vector<TextTrackInfo> availableTracks = GetAvailableTextTracks();
+
+	for (const auto& track : availableTracks)
+	{
+		unsigned long long score = 1; // Default score for each track
+
+		// Check for language match
+		if (!aamp->preferredTextLanguagesString.empty() && track.language == aamp->preferredTextLanguagesString)
+		{
+			score += AAMP_LANGUAGE_SCORE; // Add score for language match
+		}
+
+		if( !aamp->preferredTextRenditionString.empty() && aamp->preferredTextRenditionString.compare(track.rendition) == 0)
+		{
+			score += AAMP_ROLE_SCORE; // Add score for rendition match
+		}
+
+		// Check for name match
+		if( !aamp->preferredTextNameString.empty() && aamp->preferredTextNameString.compare(track.name) == 0)
+		{
+			score += AAMP_TYPE_SCORE; // Add score for name match
+		}
+		if(score > bestScore)
+		{
+			bestTrackFound = true;
+			bestScore = score;
+			selectedTextTrack = track;
+		}
+	}
+	return bestTrackFound;
 }

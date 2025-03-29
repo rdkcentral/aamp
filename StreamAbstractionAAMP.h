@@ -1953,6 +1953,8 @@ public:
 	 */
 	virtual ABRMode GetABRMode() { return ABRMode::UNDEF; };
 
+	virtual bool SelectPreferredTextTrack(TextTrackInfo &selectedTextTrack) { return false; };
+
 protected:
 	/**
 	 *   @brief Get stream information of a profile from subclass.

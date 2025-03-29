@@ -12308,6 +12308,14 @@ void PrivateInstanceAAMP::SetPreferredTextLanguages(const char *param )
 				}
 				else
 				{
+					if((mMediaFormat == eMEDIAFORMAT_HLS) ||(mMediaFormat == eMEDIAFORMAT_HLS_MP4))
+					{
+						TextTrackInfo selectedTextTrack;
+						if(mpStreamAbstractionAAMP->SelectPreferredTextTrack(selectedTextTrack))
+						{
+							SetPreferredTextTrack(selectedTextTrack);
+						}
+					}
 					seek_pos_seconds = GetPositionSeconds();
 					TeardownStream(false);
 					if(IsFogTSBSupported() &&
