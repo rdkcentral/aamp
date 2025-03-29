@@ -1023,6 +1023,12 @@ class StreamAbstractionAAMP_HLS : public StreamAbstractionAAMP
 		 * @return void
 		 ***************************************************************************/
 		void ConfigureAudioTrack();
+		/***************************************************************************
+                 * @fn SelectPreferredTextTrack
+                 * @param selectedTextTrack Current PreferredTextTrack Info
+                 * @return bool
+                 ***************************************************************************/
+		bool SelectPreferredTextTrack(TextTrackInfo& selectedTextTrack) override;
 
 	protected:
 		/***************************************************************************

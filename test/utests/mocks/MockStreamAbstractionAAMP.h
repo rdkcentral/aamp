@@ -84,6 +84,8 @@ public:
 	MOCK_METHOD(void, MuteSubtitles, (bool));
 
 	MOCK_METHOD(void, SetVideoPlaybackRate, (float rate));
+
+	MOCK_METHOD(bool, SelectPreferredTextTrack , (TextTrackInfo& selectedTextTrack) , (override));	
 };
 
 extern MockStreamAbstractionAAMP *g_mockStreamAbstractionAAMP;

@@ -203,6 +203,12 @@ protected:
             return IsLowestProfile(currentProfileIndex);
         }
 
+	void CallSetAvailableTextTracks(std::vector<TextTrackInfo>& tracks)
+	{
+	    TestableStreamAbstractionAAMP_HLS::mTextTracks = tracks;
+	    return;
+	}
+
     };
 
     PrivateInstanceAAMP *mPrivateInstanceAAMP;
@@ -2875,4 +2881,30 @@ TEST_F(StreamAbstractionAAMP_HLSTest, ThumbnailIndexing)
 	EXPECT_EQ(x[2].layout.numRows,3);
 	EXPECT_EQ(x[2].layout.posterDuration,30);
 	EXPECT_EQ(x[2].layout.tileSetDuration,100.8367);
+}
+TEST_F(StreamAbstractionAAMP_HLSTest,SelectPreferredTextTrack)
+{
+	std::vector<TextTrackInfo> tracks;
+	TextTrackInfo trackInfo;
+	tracks.push_back(TextTrackInfo("idx0", "lang0", false, "","","","",0));
+	mStreamAbstractionAAMP_HLS->CallSetAvailableTextTracks(tracks);
+	mStreamAbstractionAAMP_HLS->aamp->preferredTextLanguagesString = "lang0";
+	mStreamAbstractionAAMP_HLS->SelectPreferredTextTrack(trackInfo);
+	EXPECT_EQ("lang0",trackInfo.language);
+	tracks.push_back(TextTrackInfo("idx0", "lang0", false, "rend0","","","",0));
+	mStreamAbstractionAAMP_HLS->CallSetAvailableTextTracks(tracks);
+	mStreamAbstractionAAMP_HLS->aamp->preferredTextLanguagesString = "lang0";
+	mStreamAbstractionAAMP_HLS->aamp->preferredTextRenditionString = "rend0";
+	mStreamAbstractionAAMP_HLS->SelectPreferredTextTrack(trackInfo);
+	EXPECT_EQ("lang0",trackInfo.language);
+	EXPECT_EQ("rend0",trackInfo.rendition);
+	tracks.push_back(TextTrackInfo("idx0", "lang0", false, "rend0","trackName0","","",0));
+	mStreamAbstractionAAMP_HLS->CallSetAvailableTextTracks(tracks);
+	mStreamAbstractionAAMP_HLS->aamp->preferredTextLanguagesString = "lang0";
+	mStreamAbstractionAAMP_HLS->aamp->preferredTextRenditionString = "rend0";
+	mStreamAbstractionAAMP_HLS->aamp->preferredTextNameString = "trackName0";
+	mStreamAbstractionAAMP_HLS->SelectPreferredTextTrack(trackInfo);
+	EXPECT_EQ("lang0",trackInfo.language);
+	EXPECT_EQ("rend0",trackInfo.rendition);
+	EXPECT_EQ("trackName0",trackInfo.name);
 }

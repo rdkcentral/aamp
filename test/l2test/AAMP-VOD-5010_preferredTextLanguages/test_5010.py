@@ -246,8 +246,64 @@ TESTDATA9 = {
 	]
 }
 
+TESTDATA10 = {
+        "title": "Confirm language selection using SetPreferredTextLanguages",
+        "logfile": "testdata10.txt",
+        "max_test_time_seconds": 30,
+        "aamp_cfg": f"info=true\nforceHttp=true\n",
+        "expect_list": [
+                {"cmd":"set subtecSimulator 1"},
+                {"cmd":HLS_URL},
+        {"cmd": "sleep 3000"},
+                {"expect": r"TextTrack Selected :5"},
+                {"cmd":"set 33 de"},
+                {"expect": r"Preferred Text languages string: de"},
+                {"expect": r"AAMP_EVENT_TEXT_TRACKS_CHANGED"},
+        {"cmd": "sleep 3000"},
+                {"cmd" :"get 27"},
+                {"expect": r" CURRENT TEXT TRACK INFO: \[\{" },
+                {"expect": "\"name\":\t\"Deutsch\","},
+                {"expect": "\"language\":\t\"de\","},
+                {"expect": "\"rendition\":\t\"subs\""},
+                {"expect": r"\}\]"},
+                {"cmd": "stop"},
+                {"cmd": "set subtecSimulator 0"},
+        ]
+}
 
-TESTLIST = [TESTDATA1, TESTDATA2, TESTDATA3, TESTDATA4, TESTDATA5,TESTDATA6,TESTDATA7,TESTDATA8,TESTDATA9]
+TESTDATA11 = {
+        "title": "Confirm multiple language selection using SetPreferredTextLanguages",
+        "logfile": "testdata11.txt",
+        "max_test_time_seconds": 30,
+        "aamp_cfg": f"info=true\nforceHttp=true\n",
+        "expect_list": [
+                {"cmd":"set subtecSimulator 1"},
+                {"cmd":HLS_URL},
+         {"cmd": "sleep 3000"},
+                {"cmd":"set 33 es"},
+                {"expect": r"Preferred Text languages string: es"},
+                {"expect": r"AAMP_EVENT_TEXT_TRACKS_CHANGED"},
+                {"cmd" :"get 27"},
+                {"expect": r" CURRENT TEXT TRACK INFO: \[\{" },
+                {"expect": "\"name\":\t\"Espanol\","},
+                {"expect": "\"language\":\t\"es\","},
+                {"expect": "\"rendition\":\t\"subs\""},
+                {"expect": r"\}\]"},
+        {"cmd": "sleep 3000"},
+                {"cmd":"set 33 fr"},
+                {"expect": r"Preferred Text languages string: fr"},
+                {"cmd" :"get 27"},
+                {"expect": r" CURRENT TEXT TRACK INFO: \[\{" },
+                {"expect": "\"name\":\t\"Français\","},
+                {"expect": "\"language\":\t\"fr\","},
+                {"expect": "\"rendition\":\t\"subs\""},
+                {"expect": r"\}\]"},
+                {"cmd": "stop"},
+                {"cmd": "set subtecSimulator 0"},
+        ]
+}
+
+TESTLIST = [TESTDATA1, TESTDATA2, TESTDATA3, TESTDATA4, TESTDATA5,TESTDATA6,TESTDATA7,TESTDATA8,TESTDATA9,TESTDATA10,TESTDATA11]
 
 
 
