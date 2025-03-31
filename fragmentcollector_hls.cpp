@@ -933,7 +933,7 @@ lstring TrackState::GetNextFragmentUriFromPlaylist(bool& reloadUri, bool ignoreD
 					size_t offsetDelim = ptr.find('@');
 					if( offsetDelim<ptr.length() )
 					{
-						ptr.removePrefix(offsetDelim);
+						ptr.removePrefix(offsetDelim+1); // skip past '@'
 						byteRangeOffset = ptr.atoll();
 					}
 
