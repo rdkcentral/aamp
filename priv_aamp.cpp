@@ -3417,7 +3417,8 @@ void PrivateInstanceAAMP::LogTuneComplete(void)
 	mTuneMetrics.mTimedMetadataDuration      = (int)mTimedMetadataDuration;
 	mTuneMetrics.mTuneAttempts 		 = mTuneAttempts;
 	mTuneMetrics.streamType 		 = streamType;
-	mTuneMetrics.mFogTSBEnabled                 = mFogTSBEnabled;
+	mTuneMetrics.mFogTSBEnabled              = mFogTSBEnabled;
+	mTuneMetrics.mFirstTune                  = mFirstTune;
 	bool eventAvailStatus = IsEventListenerAvailable(AAMP_EVENT_TUNE_TIME_METRICS);
 	std::string tuneData("");
 	activeInterfaceWifi =  pPlayerIarmRfcInterface->GetActiveInterface();
