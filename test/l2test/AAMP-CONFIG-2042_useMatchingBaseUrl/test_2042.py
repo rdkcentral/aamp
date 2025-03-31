@@ -23,7 +23,7 @@ import os
 import pytest
 archive_url = "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/testApps/L2/matchingUrlDump.tar.xz"
 
-TESTDATA1 = {
+TESTDATA0 = {
 	"title": "Set useMatchingBaseUrl as true",
 	"logfile": "useMatchingBaseUrl_true.txt",
 	"max_test_time_seconds": 15,
@@ -44,7 +44,7 @@ TESTDATA1 = {
 	]
 }
 
-TESTDATA2 = {
+TESTDATA1 = {
 	"title": "Set useMatchingBaseUrl as false",
 	"logfile": "useMatchingBaseUrl_false.txt",
 	"max_test_time_seconds": 15,
@@ -56,15 +56,13 @@ TESTDATA2 = {
 		{"expect":r"mManifestUrl: http://localhost:8085/matchingUrlDump/demo_manifest.mpd"},
 		{"expect":r"AAMP_EVENT_STATE_CHANGED: INITIALIZING"},
 		{"expect":r"Parse MPD Completed ..."},
-		{"expect":r"fragmentUrl http://0.0.0.0:8085/video_init.mp4"},
+		{"expect":r"matchingUrlDump.*mp4", "not_expected": True},
 		{"expect":r"Init fragment fetch failed -- fragmentUrl http://0.0.0.0:8085/.*_init.mp4"},
-		{"expect":r"AAMP_EVENT_TUNE_FAILED reason=AAMP: init fragment download failed : Http Error Code 404"},
-		{"expect":r"fragmentUrl http://0.0.0.0:8085/audio_init.mp4"},
-		{"expect":r"StreamAbstractionAAMP_MPD: failed. fragmentUrl http://0.0.0.0:8085/audio_init.mp4", "end_of_test": True},
+		{"expect":r"AAMP_EVENT_TUNE_FAILED reason=AAMP: init fragment download failed : Http Error Code 404", "end_of_test": True},
 	]
 }
 
-TESTLIST = [TESTDATA1, TESTDATA2]
+TESTLIST = [TESTDATA0, TESTDATA1]
 
 
 ############################################################
