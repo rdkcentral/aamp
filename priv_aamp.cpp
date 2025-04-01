@@ -4307,8 +4307,7 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 								{
 									double bufferValue = mpStreamAbstractionAAMP->GetBufferedDuration();
 									AAMPLOG_INFO("Keep trying init request while enough buffer buffer %fs curlDownloadTimeoutMS %ldms", bufferValue, curlDownloadTimeoutMS);
-									// buffer is -1 when sesssion not created. buffer is 0 when session created but playlist not downloaded
-									if (bufferValue * 1000 > curlDownloadTimeoutMS || bufferValue == -1.0 || bufferValue == 0)
+									if (bufferValue * 1000 > curlDownloadTimeoutMS)
 									{
 										// Keep retrying init segments whilst there is some buffer depth.
 										maxDownloadAttempt++;
