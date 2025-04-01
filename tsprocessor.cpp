@@ -638,7 +638,7 @@ void TSProcessor::processPMTSection(unsigned char* section, int sectionLength)
 			{
 				// Audio demuxer found, select audio by preference
 				int trackIndex = SelectAudioIndexToPlay();
-				if(trackIndex != -1 && trackIndex < audioComponentCount)
+				if(trackIndex != -1 && trackIndex < audioComponentCount && aamp && aamp->mpStreamAbstractionAAMP)
 				{
 					AAMPLOG_INFO("Selected best track audio#%d with per preference", trackIndex);
 					m_AudioTrackIndexToPlay = trackIndex;

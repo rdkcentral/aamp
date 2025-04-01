@@ -9963,7 +9963,7 @@ void PrivateInstanceAAMP::PreCachePlaylistDownloadTask()
 					if(state == eSTATE_SEEKING || state == eSTATE_PREPARED)
 					{
 						// wait for seek to complete
-						sleep(1);
+						usleep(1000000);
 					}
 					else if (state != eSTATE_RELEASED && state != eSTATE_IDLE && state != eSTATE_ERROR)
 					{

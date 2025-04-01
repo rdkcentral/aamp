@@ -179,6 +179,7 @@ private:
 	void parseAdaptationExtension( void )
 	{
 		int adaptation_extension_length = readByte();
+		(void) adaptation_extension_length;
 		if( TSDEMUX_MINIMAL_PARSING )
 		{
 			skipBits( adaptation_extension_length*8 );

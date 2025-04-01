@@ -2178,6 +2178,7 @@ int InterfacePlayerRDK::SetupStream(int streamId,  void *playerInstance, std::st
 		else if (pInterfacePlayerRDK->gstPrivateContext->using_westerossink && eGST_MEDIATYPE_VIDEO == streamId)
 		{
 			GstElement* vidsink = pInterfacePlayerRDK->socInterface->GetVideoSink(stream->sinkbin);
+			(void)vidsink;
 		}
 
 #if defined(__APPLE__)
