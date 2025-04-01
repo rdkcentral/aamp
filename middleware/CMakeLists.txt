@@ -3,7 +3,7 @@
 cmake_minimum_required(VERSION 3.5)
 project(Middleware)
 find_package(PkgConfig REQUIRED)
-pkg_check_modules(GST REQUIRED gstreamer-1.0 gstreamer-plugins-base-1.0)
+pkg_check_modules(GST REQUIRED gstreamer-1.0 gstreamer-app-1.0 gstreamer-plugins-base-1.0)
 include_directories(${GST_INCLUDE_DIRS})
 
 set(SOURCES GstUtils.cpp InterfacePlayerRDK.cpp GstHandlerControl.cpp PlayerScheduler.cpp gstplayertaskpool.cpp PlayerLogManager.cpp )
