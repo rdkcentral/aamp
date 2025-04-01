@@ -81,6 +81,7 @@ LLpreDelay = 10
 harvest_details = {}
 #threadingEvent = threading.Event()
 playback_start_time = None
+relativePath = False
 
 def normalize_query_param(value):
     """
@@ -346,6 +347,7 @@ class DASHServerHandler(BaseHTTPRequestHandler):
         global LLmidDelay
         global LLpreDelay
         global harvest_details
+        global relativePath
         #global threadingEvent
         # path=/some/kind/of/path?query
         # becomes some/kind/of/path
@@ -377,7 +379,7 @@ class DASHServerHandler(BaseHTTPRequestHandler):
                         restart = True
                         shutdown = True
 
-                        return;
+                        return
                 rtn = dash_server.dash_get_manifest(path)
                 modify_response(self.path)
                 if not rtn:
@@ -410,8 +412,8 @@ class DASHServerHandler(BaseHTTPRequestHandler):
                             if len(baseURLs) > 0:
                                 for baseURL in baseURLs:
                                     basURL_domain = urlparse(baseURL)
-                                    if basURL_domain.netloc in harvest_details['url']:
-                                        rtn["contents"] = re.sub(r'<BaseURL>https?://'+basURL_domain.netloc, f"<BaseURL>http://{self.server.server_address[0]}:{self.server.server_address[1]}/{basURL_domain.netloc}", rtn["contents"])
+                                    if (basURL_domain.netloc in harvest_details['url']) or relativePath:
+                                        rtn["contents"] = re.sub(r'<BaseURL>https?://'+basURL_domain.netloc, f"<BaseURL>/{basURL_domain.netloc}", rtn["contents"])
                                     elif args.ad_server != "":
                                         # Replace BaseURL to Ad-Server
                                         rtn["contents"] = re.sub(r'<BaseURL>https?://'+basURL_domain.netloc, f"<BaseURL>{args.ad_server}/{basURL_domain.netloc}", rtn["contents"])
@@ -568,7 +570,7 @@ def start_web_server(port, abr_type):
             "proc": ThreadingDASHServer((hostName, port), DASHServerHandler),
             "process": None,
         }
-        log.info("Server started http://%s:%s",hostName, port)
+        log.info("DASH Server started http://%s:%s",hostName, port)
         display_all_manifests(hostName, port, abr_type)
 
     try:
@@ -903,6 +905,9 @@ if __name__ == "__main__":
         "-m", "--manifest", help="Specify Top Level Manifest", type=str
     )
     parser.add_argument(
+        "--all_relative", help="Every single fragment will be fetched from a relative path on the local device. Any absolute locator will be converted to local relative path. This assumes that you have all the content downloaded locally.", action="store_true"
+    )
+    parser.add_argument(
         "--ad_server", help="Ad-Server URL", type=str, default="" #RDKAAMP-1435
     )
     parser.add_argument(
@@ -918,15 +923,18 @@ if __name__ == "__main__":
         "--throttle", help="Set fragment size and delay between them. Can control the delay of first chunk separately from the rest  Format: FirstDELAY:DELAY:SIZE   SIZE in bytes integer (default 100000), DELAY and FirstDELAY in milliseconds integer (default 10)   Can leave numbers blank e.g. '::150000' would only change the size and use defaults for both delays", nargs='?', const="-1", type=str 
     )
 
+    relativePath = False
+
     args = parser.parse_args()
+
+    if args.all_relative:
+        relativePath = True
+
     hostName = args.interface
 
     CMD_PORT=args.port
 
     app = Flask(__name__)
-
-    # Just read harvest_details once at start of test
-    harvest_details = read_harvest_details(do_search=True)
 
     if args.manifest:
         harvest_details['url'] = str("http://example.com" + args.manifest)
@@ -934,6 +942,9 @@ if __name__ == "__main__":
         # Using file creation time as recording start time if harvest_details.json is not provided
         file_creation_time = datetime.fromtimestamp(os.path.getctime(args.manifest)).isoformat()
         harvest_details['recording_start_time'] = str(file_creation_time)
+    
+    else:
+        harvest_details = read_harvest_details(do_search=True)
 
     if harvest_details != {}:
         print("Found Harvest Details")
