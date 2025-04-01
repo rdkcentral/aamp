@@ -245,6 +245,7 @@ gst_subtecsink_init (GstSubtecSink *subtecsink)
 
   subtecsink->m_attribute_mask = 0;
   subtecsink->m_attribute_values = {0};
+  subtecsink->m_pts_offset = 0;
 }
 
 void
@@ -554,6 +555,7 @@ gst_subtecsink_event (GstBaseSink * sink, GstEvent * event)
                         __func__,
                         static_cast<std::uint32_t>(timestampMs));
         subtecsink->m_channel->SendTimestampPacket((timestampMs));
+        subtecsink->m_send_timestamp = false;
       }
       gst_event_unref(event);
       res = TRUE;
