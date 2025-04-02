@@ -2592,7 +2592,7 @@ bool StreamAbstractionAAMP::CheckForRampDownProfile(int http_error)
 	{
 		http_error = getOriginalCurlError(http_error);
 
-		if (http_error == 404 || http_error == 500 || http_error == 503 || http_error == CURLE_PARTIAL_FILE)
+		if (http_error == 404 || http_error == 403 || http_error == 500 || http_error == 503 || http_error == CURLE_PARTIAL_FILE)
 		{
 			if (RampDownProfile(http_error))
 			{
