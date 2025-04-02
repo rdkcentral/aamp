@@ -75,8 +75,48 @@ TESTDATA0 = {
 	]
 }
 
+# Test NotifyBitrate for LLD with localTSBEnabled false
+TESTDATA1 = {
+	"title": "LLD playback with no AAMP local TSB notifybitrate Verification",
+	"logfile": "01-notifybitrate_without_tsb.log",
+	"max_test_time_seconds": 15,
+	"aamp_cfg": "info=true\nlocalTSBEnabled=false\n",
+	"archive_url": archive_url,
+	"url": LLD_URL,
+	"cmdlist": ["contentType LINEAR_TV"],
+	'simlinear_type': 'DASH',
+	"expect_list":
+	[
+		{"expect" : r"aamp_tune"},
+		{"expect" : r"\[TSB Store\] Initiating with config values", "not_expected" : True},
+		{"expect": r"NotifyBitRateChangeEvent"},
+		{"expect": r"IP_AAMP_TUNETIME", "end_of_test":True}
+	]
+}
+
+# Test NotifyBitrate for LLD with localTSBEnabled true
+TESTDATA2 = {
+	"title": "LLD playback with AAMP local TSB notifybitrate Verification",
+	"logfile": "02-notifybitrate_with_tsb.log",
+	"max_test_time_seconds": 15,
+	"aamp_cfg": "info=true\nlocalTSBEnabled=true\ntsbLocation=/tmp/data\ntsbLog=0\n",
+	"archive_url": archive_url,
+	"url": LLD_URL,
+	"cmdlist": ["contentType LINEAR_TV"],
+	'simlinear_type': 'DASH',
+	"expect_list":
+	[
+		{"expect" : r"aamp_tune"},
+		{"expect" : r"\[TSB Store\] Initiating with config values"},
+		{"expect": r"NotifyBitRateChangeEvent"},
+		{"expect": r"IP_AAMP_TUNETIME", "end_of_test":True}
+	]
+}
+
 TESTDATA = [
 	{'testdata': TESTDATA0},
+	{'testdata': TESTDATA1},
+	{'testdata': TESTDATA2},
 ]
 
 @pytest.fixture(params=TESTDATA)
