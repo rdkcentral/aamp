@@ -185,7 +185,7 @@ bool RealtekSocInterface::IsVideoDecoder(const char* name, bool isRialto)
  */
 bool RealtekSocInterface::ConfigureAudioSink(GstElement **audio_sink, GstObject *src, bool decStreamSync)
 {
-	if (!audio_sink || !src) 
+	if (!audio_sink || !src)
 	{
 		MW_LOG_ERR("ConfigureAudioSink: Invalid input parameters");
 		return false;
@@ -233,23 +233,20 @@ bool RealtekSocInterface::IsAudioOrVideoDecoder(const char* name, bool isRialto)
  * @param audio_sink Audio sink element.
  * @param rate Playback rate.
  * @param isSeeking True if seeking is in progress, false otherwise.
- * @return True on success, false otherwise.
+ * @return True if async changed from enabled to disabled, false otherwise.
  */
 bool RealtekSocInterface::DisableAsyncAudio(GstElement *audio_sink, int rate, bool isSeeking)
 {
 	bool bAsyncModify = false;
-	if(audio_sink)
+	if (audio_sink)
 	{
-		if(rate > 1 || rate < 0 || isSeeking)
+		if (rate > 1 || rate < 0 || isSeeking)
 		{
-			if (!(g_str_has_prefix(GST_OBJECT_NAME(audio_sink), "rialtomseaudiosink")))
+			MW_LOG_MIL("Disable async for audio stream at trickplay");
+			if (gst_base_sink_is_async_enabled(GST_BASE_SINK(audio_sink)) == TRUE)
 			{
-				MW_LOG_MIL("Disable async for audio stream at trickplay");
-				if(gst_base_sink_is_async_enabled(GST_BASE_SINK(audio_sink)) == TRUE)
-				{
-					gst_base_sink_set_async_enabled(GST_BASE_SINK(audio_sink), FALSE);
-					bAsyncModify = true;
-				}
+				gst_base_sink_set_async_enabled(GST_BASE_SINK(audio_sink), FALSE);
+				bAsyncModify = true;
 			}
 		}
 	}
