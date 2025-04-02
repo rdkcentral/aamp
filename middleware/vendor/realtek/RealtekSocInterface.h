@@ -179,7 +179,7 @@ class RealtekSocInterface : public SocInterface
 		 * @param audio_sink Audio sink element.
 		 * @param rate Playback rate.
 		 * @param isSeeking True if seeking is in progress, false otherwise.
-		 * @return True on success, false otherwise.
+		 * @return True if async changed from enabled to disabled, false otherwise.
 		 */
 		bool DisableAsyncAudio(GstElement *audio_sink, int rate, bool isSeeking)override;
 
