@@ -666,29 +666,30 @@ public:
 
 		JSObjectRef eventObj = JSObjectMake(_aamp->_ctx, Event_class_ref(), NULL);
 		if (eventObj) {
-			JSValueProtect(_aamp->_ctx, eventObj);
+			JSGlobalContextRef ctx = _aamp->_ctx;
+			JSValueProtect(ctx, eventObj);
 			JSStringRef name = JSStringCreateWithUTF8CString("type");
-			JSObjectSetProperty(_aamp->_ctx, eventObj, name, JSValueMakeNumber(_aamp->_ctx, evtType), kJSPropertyAttributeReadOnly, NULL);
+			JSObjectSetProperty(ctx, eventObj, name, JSValueMakeNumber(ctx, evtType), kJSPropertyAttributeReadOnly, NULL);
 			JSStringRelease(name);
-			setEventProperties(e, _aamp->_ctx, eventObj);
+			setEventProperties(e, ctx, eventObj);
 			JSValueRef args[1] = { eventObj };
 			if (evtType == AAMP_EVENT_AD_RESOLVED)
 			{
 				if (_aamp->_promiseCallback != NULL)
 				{
-					JSObjectCallAsFunction(_aamp->_ctx, _aamp->_promiseCallback, NULL, 1, args, NULL);
+					JSObjectCallAsFunction(ctx, _aamp->_promiseCallback, NULL, 1, args, NULL);
 				}
 				else
 				{
-                                        LOG_WARN( _aamp,"No promise callback registered ctx=%p, jsCallback=%p", _aamp->_ctx, _aamp->_promiseCallback);
+                                        LOG_WARN( _aamp,"No promise callback registered ctx=%p, jsCallback=%p", ctx, _aamp->_promiseCallback);
 
 				}
 			}
 			else
 			{
-				JSObjectCallAsFunction(_aamp->_ctx, _jsCallback, NULL, 1, args, NULL);
+				JSObjectCallAsFunction(ctx, _jsCallback, NULL, 1, args, NULL);
 			}
-			JSValueUnprotect(_aamp->_ctx, eventObj);
+			JSValueUnprotect(ctx, eventObj);
 		}
 	}
 
