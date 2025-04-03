@@ -80,6 +80,10 @@ void AampTSBSessionManager::EnqueueWrite(std::string url, std::shared_ptr<Cached
  */
 void AampTSBSessionManager::Flush()
 {
+    if (g_mockTSBSessionManager)
+    {
+        g_mockTSBSessionManager->Flush();
+    }
 }
 
 AAMPStatusType AampTSBSessionManager::InvokeTsbReaders(double &startPosSec, float rate, TuneType tuneType)

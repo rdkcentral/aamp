@@ -43,10 +43,16 @@
 #include "MockAampConfig.h"
 #include "MockCurl.h"
 #include "MockAampCurlStore.h"
+#include "MockAampJsonObject.h"
+#include "MockTSBSessionManager.h"
+
 #include "fragmentcollector_mpd.h"
 
+using ::testing::DoAll;
 using ::testing::NiceMock;
 using ::testing::Return;
+using ::testing::ReturnRef;
+using ::testing::SetArgPointee;
 using ::testing::_;
 
 AampConfig *gpGlobalConfig{nullptr};
@@ -138,10 +144,25 @@ class PrivAampPrivTests : public ::testing::Test
 		g_mockStreamAbstractionAAMP_MPD = new NiceMock<MockStreamAbstractionAAMP_MPD>(testp_aamp, 0, 0);
 		g_mockStreamAbstractionAAMP = new NiceMock<MockStreamAbstractionAAMP>(testp_aamp);
 		g_mockAampEventManager = new NiceMock<MockAampEventManager>();
+		g_mockAampStreamSinkManager = new NiceMock<MockAampStreamSinkManager>();
+		g_mockAampGstPlayer = new NiceMock<MockAAMPGstPlayer>(testp_aamp);
+		g_mockAampJsonObject = std::make_shared<NiceMock<MockAampJsonObject>>();
+		g_mockTSBSessionManager = new NiceMock<MockTSBSessionManager>(testp_aamp);
 	}
 
 	void TearDown() override
 	{
+		delete g_mockTSBSessionManager;
+		g_mockTSBSessionManager = nullptr;
+
+		g_mockAampJsonObject.reset();
+
+		delete g_mockAampGstPlayer;
+		g_mockAampGstPlayer = nullptr;
+
+		delete g_mockAampStreamSinkManager;
+		g_mockAampStreamSinkManager = nullptr;
+
 		delete g_mockAampEventManager;
 		g_mockAampEventManager = nullptr;
 
@@ -349,6 +370,107 @@ TEST_F(PrivAampPrivTests, NotifyEOSReachedFastForwardAampTsbTest)
 	EXPECT_CALL(*g_mockAampEventManager, SendEvent(SpeedChanged(AAMP_NORMAL_PLAY_RATE), _)).Times(1);
 
 	testp_aamp->NotifyEOSReached();
+}
+
+/**
+ * @brief Change the language while playing live with AAMP TSB enabled.
+ */
+TEST_F(PrivAampPrivTests, SetPreferredLanguagesPlayingLiveAampTsbTest)
+{
+	std::vector<AudioTrackInfo> tracks;
+
+	tracks.push_back(AudioTrackInfo("idx0", "lang0", "rend0", "trackName0", "codec0", 0, "type0", false, "label0", "type0", true));
+	tracks.push_back(AudioTrackInfo("idx1", "lang1", "rend1", "trackName1", "codec1", 0, "type1", false, "label1", "type1", true));
+	testp_aamp->SetLocalAAMPTsb(true);
+	testp_aamp->SetTsbSessionManager();
+	testp_aamp->preferredLanguagesString = "lang0";
+	testp_aamp->preferredLanguagesList.clear();
+	testp_aamp->preferredLanguagesList.push_back("lang0");
+
+	testp_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP;
+	testp_aamp->SetState(eSTATE_PLAYING);
+
+	EXPECT_CALL(*g_mockAampJsonObject, isString(_)).WillRepeatedly(Return(true));
+	EXPECT_CALL(*g_mockAampJsonObject, get_string("languages", _)).WillOnce(DoAll(testing::SetArgReferee<1>("lang1"), Return(true)));
+	EXPECT_CALL(*g_mockAampJsonObject, get_string("rendition", _)).WillOnce(Return(false));
+	EXPECT_CALL(*g_mockAampJsonObject, get_string("codec", _)).WillOnce(Return(false));
+	EXPECT_CALL(*g_mockAampJsonObject, get_string("name", _)).WillOnce(Return(false));
+	EXPECT_CALL(*g_mockAampJsonObject, get_string("label", _)).WillOnce(Return(false));
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(_)).WillRepeatedly(Return(false));
+
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer));
+
+	/* Call SetPreferredLanguages() changing the preferred languages list.
+	 * There should be a retune.
+	 */
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetAvailableAudioTracks(_))
+		.WillOnce(ReturnRef(tracks));
+	/* mpStreamAbstractionAAMP->Stop() is called from TeardownStream(). That function is
+	 * called twice, once directly from SetPreferredLanguages() and once from TuneHelper()
+	 */
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_)).Times(2);
+	EXPECT_CALL(*g_mockAampGstPlayer, Flush(_,_,_)).Times(2);
+	/* TSB Session Manager should be reinitialised by calling Flush() followed by Init() */
+	EXPECT_CALL(*g_mockTSBSessionManager, Flush()).Times(1);
+	EXPECT_CALL(*g_mockTSBSessionManager, Init()).Times(1);
+
+	testp_aamp->SetPreferredLanguages("lang1", NULL, NULL, NULL, NULL);
+
+	/* Verify the preferred languages list. */
+	EXPECT_STREQ(testp_aamp->preferredLanguagesString.c_str(), "lang1");
+	EXPECT_EQ(testp_aamp->preferredLanguagesList.size(), 1);
+	EXPECT_STREQ(testp_aamp->preferredLanguagesList.at(0).c_str(), "lang1");
+}
+
+/**
+ * @brief Change the language while playing from AAMP TSB.
+ */
+TEST_F(PrivAampPrivTests, SetPreferredLanguagesPlayingFromAampTsbTest)
+{
+	std::vector<AudioTrackInfo> tracks;
+
+	tracks.push_back(AudioTrackInfo("idx0", "lang0", "rend0", "trackName0", "codec0", 0, "type0", false, "label0", "type0", true));
+	tracks.push_back(AudioTrackInfo("idx1", "lang1", "rend1", "trackName1", "codec1", 0, "type1", false, "label1", "type1", true));
+	testp_aamp->SetLocalAAMPTsb(true);
+	/* Simulate playing from AAMP TSB by setting the injection flag to true */
+	testp_aamp->SetLocalAAMPTsbInjection(true);
+	testp_aamp->SetTsbSessionManager();
+	testp_aamp->preferredLanguagesString = "lang0";
+	testp_aamp->preferredLanguagesList.clear();
+	testp_aamp->preferredLanguagesList.push_back("lang0");
+
+	testp_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP;
+	testp_aamp->SetState(eSTATE_PLAYING);
+
+	EXPECT_CALL(*g_mockAampJsonObject, isString(_)).WillRepeatedly(Return(true));
+	EXPECT_CALL(*g_mockAampJsonObject, get_string("languages", _)).WillOnce(DoAll(testing::SetArgReferee<1>("lang1"), Return(true)));
+	EXPECT_CALL(*g_mockAampJsonObject, get_string("rendition", _)).WillOnce(Return(false));
+	EXPECT_CALL(*g_mockAampJsonObject, get_string("codec", _)).WillOnce(Return(false));
+	EXPECT_CALL(*g_mockAampJsonObject, get_string("name", _)).WillOnce(Return(false));
+	EXPECT_CALL(*g_mockAampJsonObject, get_string("label", _)).WillOnce(Return(false));
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(_)).WillRepeatedly(Return(false));
+
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer));
+
+	/* Call SetPreferredLanguages() changing the preferred languages list.
+	 * There should be a retune.
+	 */
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetAvailableAudioTracks(_))
+		.WillOnce(ReturnRef(tracks));
+	/* mpStreamAbstractionAAMP->Stop() is called from TeardownStream(). That function is
+	 * called twice, once directly from SetPreferredLanguages() and once from TuneHelper()
+	 */
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_)).Times(2);
+	/* TSB Session Manager should be reinitialised by calling Flush() followed by Init() */
+	EXPECT_CALL(*g_mockTSBSessionManager, Flush()).Times(1);
+	EXPECT_CALL(*g_mockTSBSessionManager, Init()).Times(1);
+
+	testp_aamp->SetPreferredLanguages("lang1", NULL, NULL, NULL, NULL);
+
+	/* Verify the preferred languages list. */
+	EXPECT_STREQ(testp_aamp->preferredLanguagesString.c_str(), "lang1");
+	EXPECT_EQ(testp_aamp->preferredLanguagesList.size(), 1);
+	EXPECT_STREQ(testp_aamp->preferredLanguagesList.at(0).c_str(), "lang1");
 }
 
 TEST_F(PrivAampTests,IsAudioLanguageSupportedTest_12)

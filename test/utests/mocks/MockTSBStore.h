@@ -19,9 +19,12 @@
 */
 #ifndef AAMP_MOCK_TSB_STORE_H
 #define AAMP_MOCK_TSB_STORE_H
+
 #include <gmock/gmock.h>
 #include "TsbApi.h"
+
 using namespace TSB;
+
 class MockTSBStore
 {
 public:
@@ -29,7 +32,9 @@ public:
 	MOCK_METHOD(TSB::Status, Read, (const std::string& url, void* buffer, std::size_t size), (const));
 	MOCK_METHOD(std::size_t, GetSize, (const std::string& url), (const));
 	MOCK_METHOD(void, Delete, (const std::string& url));
+	MOCK_METHOD(void, Flush, ());
 };
-extern MockTSBStore *g_mockTSBStore;
-#endif /* AAMP_MOCK_TSB_STORE_H */
 
+extern MockTSBStore *g_mockTSBStore;
+
+#endif /* AAMP_MOCK_TSB_STORE_H */

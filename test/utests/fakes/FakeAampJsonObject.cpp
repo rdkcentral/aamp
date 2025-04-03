@@ -159,7 +159,7 @@ bool AampJsonObject::get(const std::string& name, std::string& value)
 {
 	if (g_mockAampJsonObject != nullptr)
 	{
-		return g_mockAampJsonObject->get(name, value);
+		return g_mockAampJsonObject->get_string(name, value);
 	}
 	return false;
 }
@@ -212,6 +212,10 @@ bool AampJsonObject::isArray(const std::string& name)
 
 bool AampJsonObject::isString(const std::string& name)
 {
+	if (g_mockAampJsonObject != nullptr)
+	{
+		return g_mockAampJsonObject->isString(name);
+	}
 	return false;
 }
 

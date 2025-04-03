@@ -40,10 +40,12 @@ public:
     MOCK_METHOD(bool, set, (AampJsonObject *parent, cJSON *object));
 
     MOCK_METHOD(bool, get, (const std::string& name, AampJsonObject &value));
-    MOCK_METHOD(bool, get, (const std::string& name, std::string& value));
+    MOCK_METHOD(bool, get_string, (const std::string& name, std::string& value));
     MOCK_METHOD(bool, get, (const std::string& name, int& value));
     MOCK_METHOD(bool, get, (const std::string& name, std::vector<std::string>& values));
     MOCK_METHOD(bool, get, (const std::string& name, std::vector<uint8_t>& values, const ENCODING encoding));
+
+    MOCK_METHOD(bool, isString, (const std::string& name));
 };
 
 extern std::shared_ptr<MockAampJsonObject> g_mockAampJsonObject;
