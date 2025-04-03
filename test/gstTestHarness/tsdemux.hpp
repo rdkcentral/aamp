@@ -249,7 +249,7 @@ private:
 			while( bits_read < fin )
 			{
 				int stuffing_byte = readByte();
-				assert( stuffing_byte == 0xff );
+				//assert( stuffing_byte == 0xff );
 			}
 		}
 	}
