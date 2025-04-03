@@ -44,7 +44,7 @@ MockPlayerInstanceAAMP *g_mockPlayerInstanceAAMP = nullptr;
 									std::string session_id,
 									const char *preprocessedManifest
 									) { }
-    void PlayerInstanceAAMP::Stop(bool sendStateChangeEvent) {  }
+    void PlayerInstanceAAMP::Stop(void) {  }
 	void PlayerInstanceAAMP::ResetConfiguration() {  }
 	void PlayerInstanceAAMP::SetRate(float rate, int overshootcorrection) {  }
 	void PlayerInstanceAAMP::PauseAt(double  position) {  }
