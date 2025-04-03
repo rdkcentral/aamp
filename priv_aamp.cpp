@@ -5047,6 +5047,7 @@ static int aampApplyThreadPrioFromEnv(const char *env, int defaultPolicy, int de
 void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 {
 	bool newTune;
+
 	aampApplyThreadPrioFromEnv("AAMP_AV_PIPELINE_PRIORITY", SCHED_OTHER, 0);
 	for (int i = 0; i < AAMP_TRACK_COUNT; i++)
 	{
@@ -5197,7 +5198,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 	{
 		playlistSeekPos = 0;
 		seek_pos_seconds = culledSeconds;
-		AAMPLOG_WARN("Updated seek_pos_seconds %f ", seek_pos_seconds);
+		AAMPLOG_MIL("Updated seek_pos_seconds %f ", seek_pos_seconds);
 	}
 
 	if (mMediaFormat == eMEDIAFORMAT_DASH)
@@ -5436,7 +5437,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 		AAMP-CONFIG-2033_live
 		AAMP-CONFIG-2029_seekMidFragment
 		*/
-		AAMPLOG_WARN("Updated seek_pos_seconds %f culledSeconds/start %f culledOffset %f", seek_pos_seconds, culledSeconds, culledOffset);
+		AAMPLOG_MIL("Updated seek_pos_seconds %f culledSeconds/start %f culledOffset %f", seek_pos_seconds, culledSeconds, culledOffset);
 #endif
 		mpStreamAbstractionAAMP->GetStreamFormat(mVideoFormat, mAudioFormat, mAuxFormat, mSubtitleFormat);
 		AAMPLOG_INFO("TuneHelper : mVideoFormat %d, mAudioFormat %d mAuxFormat %d", mVideoFormat, mAudioFormat, mAuxFormat);
@@ -5485,6 +5486,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 			mFirstVideoFrameDisplayedEnabled = true;
 			mPauseOnFirstVideoFrameDisp = true;
 		}
+
 #ifndef AAMP_STOP_SINK_ON_SEEK
 		if (mMediaFormat == eMEDIAFORMAT_HLS)
 		{
@@ -5584,7 +5586,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 		if (newTune && IsLocalAAMPTsb() && !GetTSBSessionManager())
 		{
 			SetLocalAAMPTsb(false);
-			AAMPLOG_WARN("Disabling local TSB handling for this tune");
+			AAMPLOG_MIL("Disabling local TSB handling for this tune");
 		}
 
 		// TODO - X1-TSB : ES Change status needs to be checked
@@ -7721,7 +7723,7 @@ void PrivateInstanceAAMP::Stop( bool sendStateChangeEvent )
 
 	AampStreamSinkManager::GetInstance().DeactivatePlayer(this, true);
 	SetState( eSTATE_RELEASED, sendStateChangeEvent );
-	
+
 	// Revert all custom specific setting, tune specific setting and stream specific setting , back to App/default setting
 	mConfig->RestoreConfiguration(AAMP_CUSTOM_DEV_CFG_SETTING);
 	mConfig->RestoreConfiguration(AAMP_TUNE_SETTING);
@@ -11919,7 +11921,34 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 						{
 							ReloadTSB();
 						}
-						if(mDisableRateCorrection)
+
+						/* If AAMP TSB is enabled, flush the TSB before seeking to live */
+						if(IsLocalAAMPTsb())
+						{
+							if(mTSBSessionManager)
+							{
+								AAMPLOG_MIL("Flush TSB Session Manager");
+								mTSBSessionManager->Flush();
+								mTSBSessionManager->Init();
+								/* Check if we are on the live edge or in the TSB */
+								if(IsLocalAAMPTsbInjection())
+								{
+									AAMPLOG_INFO("Playing from TSB Buffer!");
+									SetLocalAAMPTsbInjection(false);
+									TuneHelper(eTUNETYPE_NEW_END);
+								}
+								else
+								{
+									AAMPLOG_INFO("Playing from the live edge!");
+									TuneHelper(eTUNETYPE_SEEKTOLIVE);
+								}
+							}
+							else
+							{
+								AAMPLOG_ERR("TSB Session Manager is NULL");
+							}
+						}
+						else if(mDisableRateCorrection)
 						{
 							TuneHelper(eTUNETYPE_SEEK);
 						}

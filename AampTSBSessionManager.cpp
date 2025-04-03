@@ -512,6 +512,7 @@ void AampTSBSessionManager::Flush()
 		{
 			it.second.first->Flush();
 		}
+		mInitialized_ = false;
 	}
 	mStoreEndPosition = 0.0;
 	mLiveEndPosition = 0.0;
