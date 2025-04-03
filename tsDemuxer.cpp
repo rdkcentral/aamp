@@ -138,7 +138,7 @@ SegmentInfo_t Demuxer::UpdateSegmentInfo() const
 	{
 		ret.dts_s = position + static_cast<double>(current_dts.value - base_pts.value) / 90000.;
 	}
-	if(ISCONFIGSET(eAAMPConfig_HlsTsEnablePTSReStamp))
+	if( aamp && ISCONFIGSET(eAAMPConfig_HlsTsEnablePTSReStamp))
 	{
 		ret.pts_s += ptsOffset; // non-zero when pts restamping in use
 		ret.dts_s += ptsOffset; // non-zero when pts restamping in use
