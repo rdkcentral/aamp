@@ -26,7 +26,7 @@ set(DRM_ROOT ${UTESTS_ROOT}/drm)
 set(RFC_ROOT ${UTESTS_ROOT}/rfc)
 set(EXEC_NAME DrmLegacy)
 
-include_directories(${AAMP_ROOT} ${AAMP_ROOT}/drm ${AAMP_ROOT}/externals ${AAMP_ROOT}/drm/helper ${AAMP_ROOT}/subtitle ${AAMP_ROOT}/downloader ${AAMP_ROOT}/isobmff ${AAMP_ROOT}/subtec/subtecparser ${AAMP_ROOT}/subtec/libsubtec)
+include_directories(${AAMP_ROOT} ${AAMP_ROOT}/drm ${AAMP_ROOT}/externals /drm ${AAMP_ROOT}/drm/helper ${AAMP_ROOT}/subtitle ${AAMP_ROOT}/middleware/subtitle ${AAMP_ROOT}/downloader ${AAMP_ROOT}/isobmff ${AAMP_ROOT}/middleware/subtec/subtecparser ${AAMP_ROOT}/middleware/subtec/playerjsonobject ${AAMP_ROOT}/middleware/subtec/libsubtec)
 include_directories(${AAMP_ROOT}/tsb/api)
 include_directories(${AAMP_ROOT}/middleware)
 include_directories(${GTEST_INCLUDE_DIRS})

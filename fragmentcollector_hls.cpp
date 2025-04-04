@@ -69,7 +69,7 @@
 #include "AampDRMSessionManager.h"
 #endif
 #include "AampVanillaDrmHelper.h"
-#include "AampCCManager.h"
+#include "PlayerCCManager.h"
 
 static const int DEFAULT_STREAM_WIDTH = 720;
 static const int DEFAULT_STREAM_HEIGHT = 576;
@@ -3778,13 +3778,23 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 						if(!ISCONFIGSET(eAAMPConfig_GstSubtecEnabled))
 						{
 							AAMPLOG_WARN("Legacy subtec");
-							ts->mSubtitleParser = SubtecFactory::createSubtitleParser(aamp, type);
+							ts->mSubtitleParser = this->RegisterSubtitleParser_CB(type);
 						}
 						else
 						{
 							AAMPLOG_WARN("GST subtec");
 							if (aamp->WebVTTCueListenersRegistered())
-								ts->mSubtitleParser = subtec_make_unique<WebVTTParser>(aamp, type);
+							{
+								int width = 0, height = 0;
+								PlayerCallbacks playerCallBack = {};
+								this->InitializePlayerCallbacks(playerCallBack);
+								aamp->GetPlayerVideoSize(width, height);
+								ts->mSubtitleParser = subtec_make_unique<WebVTTParser>(type, width, height);
+								if(ts->mSubtitleParser)
+								{
+									ts->mSubtitleParser->RegisterCallback(playerCallBack);
+								}
+							}
 						}
 						if (!ts->mSubtitleParser)
 						{
@@ -7091,11 +7101,13 @@ void StreamAbstractionAAMP_HLS::PopulateAudioAndTextTracks()
 		}
 		std::vector<TextTrackInfo> textTracksCopy;
 		std::copy_if(begin(mTextTracks), end(mTextTracks), back_inserter(textTracksCopy), [](const TextTrackInfo& e){return e.isCC;});
-		AampCCManager::GetInstance()->updateLastTextTracks(textTracksCopy);
+		std::vector<CCTrackInfo> updatedTextTracks;
+		aamp->UpdateCCTrackInfo(textTracksCopy,updatedTextTracks);
+		PlayerCCManager::GetInstance()->updateLastTextTracks(updatedTextTracks);
 	}
 	else
 	{
-		AampCCManager::GetInstance()->updateLastTextTracks({});
+		PlayerCCManager::GetInstance()->updateLastTextTracks({});
 		AAMPLOG_ERR("StreamAbstractionAAMP_HLS:: Fail to get available audio/text tracks, mMediaCount=%d and profileCount=%d!", mMediaCount, mProfileCount);
 	}
 

@@ -29,6 +29,8 @@
 #include <cctype>
 #include <algorithm>
 #include "webvttParser.h"
+#include "AampLogManager.h"
+#include "AampUtils.h"
 
 //Macros
 #define CHAR_CARRIAGE_RETURN    '\r'
@@ -115,7 +117,7 @@ static gboolean SendVttCueToExt(gpointer user_data)
 * @param type[in] VTT data type
 * @return void
 ***************************************************************************/
-WebVTTParser::WebVTTParser(PrivateInstanceAAMP *aamp, SubtitleMimeType type) : SubtitleParser(aamp, type),
+WebVTTParser::WebVTTParser(SubtitleMimeType type, int width, int height) : SubtitleParser(type, width, height),
 	mStartPTS(0), mCurrentPos(0), mStartPos(0), mPtsOffset(0),
 	mReset(true), mVttQueue(), mVttQueueIdleTaskId(0), mVttQueueMutex(), lastCue(),
 	mProgressOffset(0)
@@ -156,7 +158,10 @@ bool WebVTTParser::init(double startPosSeconds, unsigned long long basePTS)
 
 	AAMPLOG_WARN("WebVTTParser::startPos:%.3f and mStartPTS:%lld", startPosSeconds, mStartPTS);
 	//We are ready to receive data, unblock in PrivateInstanceAAMP
-	mAamp->ResumeTrackDownloads(eMEDIATYPE_SUBTITLE);
+	if(playerResumeTrackDownloads_CB)
+	{
+		playerResumeTrackDownloads_CB();
+	}
 	return ret;
 }
 
@@ -413,7 +418,10 @@ void WebVTTParser::reset()
 	//Avoid calling stop injection if the first buffer is discontinuous
 	if (!mReset)
 	{
-		mAamp->StopTrackDownloads(eMEDIATYPE_SUBTITLE);
+		if(playerStopTrackDownloads_CB)
+		{
+			playerStopTrackDownloads_CB();
+		}
 	}
 	mPtsOffset = 0;
 	mStartPTS = 0;
@@ -462,7 +470,10 @@ void WebVTTParser::sendCueData()
 			mVttQueue.pop();
 			if (cue->mStart > 0)
 			{
-				mAamp->SendVTTCueDataAsEvent(cue);
+				if(playerSendVTTCueData_CB)
+				{
+					playerSendVTTCueData_CB(cue);
+				}
 			}
 			else
 			{

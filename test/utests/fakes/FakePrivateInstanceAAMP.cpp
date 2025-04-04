@@ -1588,3 +1588,15 @@ unsigned char* PrivateInstanceAAMP::ReplaceKeyIDPsshData(const unsigned char *In
 	
 	return NULL;
 }
+
+void PrivateInstanceAAMP::GetPlayerVideoSize(int &width, int &height)
+{
+}
+
+void PrivateInstanceAAMP::SendVTTCueDataAsEvent(VTTCue* cue)
+{
+}
+
+void PrivateInstanceAAMP::UpdateCCTrackInfo(const std::vector<TextTrackInfo>& textTracksCopy, std::vector<CCTrackInfo>& updatedTextTracks)
+{
+}

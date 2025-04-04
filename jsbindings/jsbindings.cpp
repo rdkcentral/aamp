@@ -30,7 +30,7 @@
 #include "main_aamp.h"
 #include "priv_aamp.h"
 #include <mutex>
-#include "AampCCManager.h"
+#include "PlayerCCManager.h"
 
 static class PlayerInstanceAAMP* _allocated_aamp = NULL;
 static std::mutex jsMutex;
@@ -4365,7 +4365,7 @@ static void AAMP_finalize(JSObjectRef thisObject)
 
 	//disable CC rendering so that state will not be persisted between two different sessions.
 	AAMPLOG_WARN("Disabling CC");
-	AampCCManager::GetInstance()->SetStatus(false);
+	PlayerCCManager::GetInstance()->SetStatus(false);
 }
 
 

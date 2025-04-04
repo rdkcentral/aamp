@@ -18,7 +18,7 @@
 */
 #include "WebVttSubtecParser.hpp"
 
-WebVTTSubtecParser::WebVTTSubtecParser(PrivateInstanceAAMP *aamp, SubtitleMimeType type) : SubtitleParser(aamp, type), m_channel(nullptr)
+WebVTTSubtecParser::WebVTTSubtecParser(SubtitleMimeType type, int width, int height) : SubtitleParser(type, width, height), m_channel(nullptr)
 {
 }
 

@@ -20,66 +20,66 @@
 #include <vector>
 #include "main_aamp.h"
 #include "AampLogManager.h"
-#include "AampCCManager.h"
+#include "PlayerCCManager.h"
 
-AampCCManagerBase* AampCCManager::mInstance = nullptr;
-int AampCCManagerBase::Init(void *handle)
+PlayerCCManagerBase* PlayerCCManager::mInstance = nullptr;
+int PlayerCCManagerBase::Init(void *handle)
 {
 	return 0;
 }
-void AampCCManagerBase::RestoreCC()
+void PlayerCCManagerBase::RestoreCC()
 {
 }
-void AampCCManagerBase::Release(int iID)
+void PlayerCCManagerBase::Release(int iID)
 {
 }
-bool AampCCManagerBase::IsOOBCCRenderingSupported()
+bool PlayerCCManagerBase::IsOOBCCRenderingSupported()
 {
 	return false;
 }
-int AampCCManagerBase::SetStatus(bool enable)
+int PlayerCCManagerBase::SetStatus(bool enable)
 { 
 	return 0;
 };
-int AampCCManagerBase::SetStyle(const std::string &options)
+int PlayerCCManagerBase::SetStyle(const std::string &options)
 {
 	return 0;
 };
-int AampCCManagerBase::SetTrack(const std::string &track, const CCFormat format)
+int PlayerCCManagerBase::SetTrack(const std::string &track, const CCFormat format)
 {
 	return 0; 
 };
-void AampCCManagerBase::SetTrickplayStatus(bool enable)
+void PlayerCCManagerBase::SetTrickplayStatus(bool enable)
 {
 };
-void AampCCManagerBase::SetParentalControlStatus(bool locked)
-{
-};
-
-void AampCCManagerBase::StartRendering()
-{
-};
-void AampCCManagerBase::StopRendering()
+void PlayerCCManagerBase::SetParentalControlStatus(bool locked)
 {
 };
 
-int AampCCManagerBase::SetDigitalChannel(unsigned int id)
+void PlayerCCManagerBase::StartRendering()
+{
+};
+void PlayerCCManagerBase::StopRendering()
+{
+};
+
+int PlayerCCManagerBase::SetDigitalChannel(unsigned int id)
 {
        return 0;
 };
-int AampCCManagerBase::SetAnalogChannel(unsigned int id)
+int PlayerCCManagerBase::SetAnalogChannel(unsigned int id)
 {
        return 0;
 };
 
-void AampCCManager::DestroyInstance()
+void PlayerCCManager::DestroyInstance()
 {
 	delete mInstance;
 }
 
-AampCCManagerBase *AampCCManager::GetInstance()
+PlayerCCManagerBase *PlayerCCManager::GetInstance()
 {
-	mInstance = new AampFakeCCManager();
+	mInstance = new PlayerFakeCCManager();
         return mInstance;
 }
 

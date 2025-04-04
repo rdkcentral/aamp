@@ -226,6 +226,7 @@ ccstatus
 ccstream
 ccstyle
 ccsupported
+cctrack
 cctype
 ccx
 cdai
@@ -474,6 +475,7 @@ dsmcc
 dsmgr
 dst
 dsubtec
+dsubtitle
 dsupport
 dtarget
 dtask
@@ -1497,6 +1499,10 @@ playcontext
 playerconfig
 playerid
 playerinstance
+playerisobmff
+playerisobmffbuffer
+playerisobmffbox
+playerjsonobject
 playerprebuffer
 playerrate
 playhead
@@ -2087,6 +2093,7 @@ topbitrate
 tostring
 totalfetch
 totchunklen
+toupper
 tparam
 tpb
 tpe

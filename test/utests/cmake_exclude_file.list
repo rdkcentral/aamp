@@ -6,7 +6,8 @@
     set(COVERAGE_EXCLUDES
         "/usr/*"
         "${BASE_DIR}/.libs/lib/include/*"
-        "${BASE_DIR}/subtec/subtecparser/*"
+        "${BASE_DIR}/middleware/subtec/subtecparser/*"
+        "${BASE_DIR}/middleware/playerjsonobject/*"
         "${BASE_DIR}/test/*"
         "/Applications/*"
         "./v1/*")

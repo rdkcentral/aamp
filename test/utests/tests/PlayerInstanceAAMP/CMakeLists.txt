@@ -23,10 +23,11 @@ set(AAMP_ROOT "../../../../")
 set(UTESTS_ROOT "../../")
 set(EXEC_NAME PlayerInstanceAAMP)
 
-include_directories(${AAMP_ROOT} ${AAMP_ROOT}/drm ${AAMP_ROOT}/downloader ${AAMP_ROOT}/drm/helper ${AAMP_ROOT}/subtitle)
+include_directories(${AAMP_ROOT} ${AAMP_ROOT}/drm ${AAMP_ROOT}/downloader ${AAMP_ROOT}/drm/helper ${AAMP_ROOT}/subtitle ${AAMP_ROOT}/middleware/subtitle)
 include_directories(${AAMP_ROOT}/tsb/api)
 include_directories(${AAMP_ROOT}/middleware)
-include_directories(${AAMP_ROOT}/closedcaptions)
+include_directories(${AAMP_ROOT}/middleware/closedcaptions)
+include_directories(${AAMP_ROOT}/middleware/subtec/libsubtec)
 include_directories(${AAMP_ROOT}/externals)
 
 include_directories(${GTEST_INCLUDE_DIRS})
@@ -41,7 +42,8 @@ set(TEST_SOURCES PauseOnPlaybackTests.cpp
                  PlayerInstanceAAMPTestsMain.cpp
                  PlayerInstanceAAMPTests.cpp)
 
-set(AAMP_SOURCES ${AAMP_ROOT}/main_aamp.cpp)
+set(AAMP_SOURCES ${AAMP_ROOT}/main_aamp.cpp
+                 ${AAMP_ROOT}/middleware/PlayerLogManager.cpp)
 
 add_executable(${EXEC_NAME}
                ${TEST_SOURCES}

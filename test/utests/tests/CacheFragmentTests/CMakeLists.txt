@@ -23,8 +23,10 @@ set(EXEC_NAME CacheFragmentTests)
 
 pkg_check_modules(LIBDASH REQUIRED libdash)
 
-include_directories(${AAMP_ROOT} ${AAMP_ROOT}/isobmff ${AAMP_ROOT}/subtitle ${AAMP_ROOT}/tsb/api ${AAMP_ROOT}/drm/helper ${AAMP_ROOT}/drm ${AAMP_ROOT}/downloader ${AAMP_ROOT}/dash/xml ${AAMP_ROOT}/dash/utils ${AAMP_ROOT}/dash/mpd)
-include_directories(${AAMP_ROOT}/subtec/libsubtec)
+include_directories(${AAMP_ROOT} ${AAMP_ROOT}/isobmff ${AAMP_ROOT}/subtitle ${AAMP_ROOT}/middleware/subtitle ${AAMP_ROOT}/tsb/api ${AAMP_ROOT}/drm/helper ${AAMP_ROOT}/middleware/playerisobmff ${AAMP_ROOT}/drm ${AAMP_ROOT}/downloader ${AAMP_ROOT}/dash/xml ${AAMP_ROOT}/dash/utils ${AAMP_ROOT}/dash/mpd)
+include_directories(${AAMP_ROOT}/middleware/subtec/libsubtec)
+include_directories(${AAMP_ROOT}/middleware/subtec/subtecparser)
+include_directories(${AAMP_ROOT}/middleware/playerjsonobject)
 include_directories(${AAMP_ROOT}/subtec/subtecparser)
 
 include_directories(${GTEST_INCLUDE_DIRS})

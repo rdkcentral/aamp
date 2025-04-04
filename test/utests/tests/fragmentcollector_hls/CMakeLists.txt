@@ -21,8 +21,11 @@ set(AAMP_ROOT "../../../../")
 set(UTESTS_ROOT "../../")
 set(EXEC_NAME fragmentcollector_hls)
 
-include_directories(${AAMP_ROOT} ${AAMP_ROOT}/isobmff ${AAMP_ROOT}/drm ${AAMP_ROOT}/downloader ${AAMP_ROOT}/drm/helper ${AAMP_ROOT}/drm/ave ${AAMP_ROOT}/subtitle)
-include_directories(${AAMP_ROOT}/subtec/libsubtec)
+include_directories(${AAMP_ROOT} ${AAMP_ROOT}/isobmff ${AAMP_ROOT}/middleware/playerisobmff ${AAMP_ROOT}/drm ${AAMP_ROOT}/downloader ${AAMP_ROOT}/drm/helper ${AAMP_ROOT}/drm/ave ${AAMP_ROOT}/subtitle ${AAMP_ROOT}/middleware/subtitle)
+include_directories(${AAMP_ROOT}/middleware/subtec/libsubtec)
+include_directories(${AAMP_ROOT}/middleware/subtec/subtecparser)
+include_directories(${AAMP_ROOT}/middleware/playerjsonobject)
+include_directories(${AAMP_ROOT}/middleware)
 include_directories(${AAMP_ROOT}/subtec/subtecparser)
 
 include_directories(${GTEST_INCLUDE_DIRS})
@@ -35,13 +38,12 @@ include_directories(${LIBDASH_INCLUDE_DIRS})
 include_directories(SYSTEM ${UTESTS_ROOT}/mocks)
 include_directories(${AAMP_ROOT}/tsb/api)
 include_directories(${AAMP_ROOT}/middleware)
-include_directories(${AAMP_ROOT}/closedcaptions)
 
 
 set(TEST_SOURCES byteRangeTests.cpp
 		 fragmentCollector_hls.cpp)
 
-set(AAMP_SOURCES ${AAMP_ROOT}/streamabstraction.cpp ${AAMP_ROOT}/fragmentcollector_hls.cpp)
+set(AAMP_SOURCES ${AAMP_ROOT}/streamabstraction.cpp ${AAMP_ROOT}/middleware/PlayerLogManager.cpp ${AAMP_ROOT}/fragmentcollector_hls.cpp)
 
 add_executable(${EXEC_NAME}
                ${TEST_SOURCES}

@@ -21,7 +21,7 @@ set(AAMP_ROOT "../../../../")
 set(UTESTS_ROOT "../../")
 set(EXEC_NAME AampCliSet)
 
-include_directories(${AAMP_ROOT} ${AAMP_ROOT}/test/aampcli ${AAMP_ROOT}/subtitle ${AAMP_ROOT}/drm ${AAMP_ROOT}/downloader ${AAMP_ROOT}/drm/helper)
+include_directories(${AAMP_ROOT} ${AAMP_ROOT}/test/aampcli ${AAMP_ROOT}/subtitle ${AAMP_ROOT}/middleware/subtitle ${AAMP_ROOT}/drm ${AAMP_ROOT}/downloader ${AAMP_ROOT}/drm/helper)
 include_directories(${AAMP_ROOT}/tsb/api)
 include_directories(${AAMP_ROOT}/middleware)
 include_directories(${AAMP_ROOT}/middleware/vendor)

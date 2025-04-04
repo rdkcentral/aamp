@@ -2174,7 +2174,7 @@ int InterfacePlayerRDK::SetupStream(int streamId,  void *playerInstance, std::st
 			}
 			else
 			{
-				AAMPLOG_WARN("Failed to create rialtomseaudiosink");
+				MW_LOG_WARN("Failed to create rialtomseaudiosink");
 			}
 		}
 		else if (pInterfacePlayerRDK->gstPrivateContext->using_westerossink && eGST_MEDIATYPE_VIDEO == streamId)

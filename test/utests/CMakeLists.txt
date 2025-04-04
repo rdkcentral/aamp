@@ -27,6 +27,7 @@ set(AAMP_ROOT "../../")
 include_directories(${AAMP_ROOT}/support/aampabr)
 include_directories(${AAMP_ROOT}/support/aampmetrics)
 include_directories(${AAMP_ROOT}/middleware)
+include_directories(${AAMP_ROOT}/middleware/closedcaptions)
 
 find_package(PkgConfig REQUIRED)
 

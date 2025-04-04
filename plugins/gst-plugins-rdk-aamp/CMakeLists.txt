@@ -49,6 +49,7 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 include_directories(${GSTREAMER_INCLUDE_DIRS})
 include_directories(${CURL_INCLUDE_DIRS})
 include_directories(${GSTREAMERBASE_INCLUDE_DIRS})
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../../middleware/closedcaptions)
 
 if(CMAKE_CONTENT_METADATA_IPDVR_ENABLED)
 	message("CMAKE_CONTENT_METADATA_IPDVR_ENABLED set")
