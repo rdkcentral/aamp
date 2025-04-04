@@ -6511,8 +6511,8 @@ void StreamAbstractionAAMP_MPD::SelectSubtitleTrack(bool newTune, std::vector<Te
 					pMediaStreamContext->mSubtitleParser = NULL;
 				}
 			}
-			bool isExpectedMimetype = !mimeType.compare("text/vtt");
-			pMediaStreamContext->mSubtitleParser = this->RegisterSubtitleParser_CB( mimeType, isExpectedMimetype);
+			bool isExpectedMimeType = !mimeType.compare("text/vtt");
+			pMediaStreamContext->mSubtitleParser = this->RegisterSubtitleParser_CB( mimeType, isExpectedMimeType);
 			if (!pMediaStreamContext->mSubtitleParser)
 			{
 				pMediaStreamContext->enabled = false;

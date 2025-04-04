@@ -3111,9 +3111,9 @@ void StreamAbstractionAAMP::InitializePlayerCallbacks(PlayerCallbacks& callbacks
 }
 
 /**
- * @brief Function to initialize the create subtitle parese instance & player related callbacks
+ * @brief Function to initialize the create subtitle parser instance & player related callbacks
  */
-std::unique_ptr<SubtitleParser> StreamAbstractionAAMP::RegisterSubtitleParser_CB(std::string mimeType, bool isExpectedMimetype)
+std::unique_ptr<SubtitleParser> StreamAbstractionAAMP::RegisterSubtitleParser_CB(std::string mimeType, bool isExpectedMimeType)
 {
 	SubtitleMimeType type = eSUB_TYPE_UNKNOWN;
 
@@ -3125,18 +3125,18 @@ std::unique_ptr<SubtitleParser> StreamAbstractionAAMP::RegisterSubtitleParser_CB
 			!mimeType.compare("application/mp4"))
 		type = eSUB_TYPE_TTML;
 
-	return RegisterSubtitleParser_CB(type, isExpectedMimetype);
+	return RegisterSubtitleParser_CB(type, isExpectedMimeType);
 }
 
 /**
- * @brief Function to initialize the create subtitle parese instance & player related callbacks
+ * @brief Function to initialize the create subtitle parser instance & player related callbacks
  */
-std::unique_ptr<SubtitleParser> StreamAbstractionAAMP::RegisterSubtitleParser_CB(SubtitleMimeType mimeType, bool isExpectedMimetype) {
+std::unique_ptr<SubtitleParser> StreamAbstractionAAMP::RegisterSubtitleParser_CB(SubtitleMimeType mimeType, bool isExpectedMimeType) {
     int width = 0, height = 0;
     bool webVTTCueListenersRegistered = false, isWebVTTNativeConfigured = false, resumeTrackDownload = false;
     PlayerCallbacks playerCallBack = {};
 
-	if(isExpectedMimetype)
+	if(isExpectedMimeType)
 	{
 		webVTTCueListenersRegistered = aamp->WebVTTCueListenersRegistered();
 		isWebVTTNativeConfigured = ISCONFIGSET(eAAMPConfig_WebVTTNative);
