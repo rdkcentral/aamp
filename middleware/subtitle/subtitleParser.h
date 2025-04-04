@@ -48,7 +48,7 @@ typedef enum
 } SubtitleMimeType;
 
 /**
- * @breif Structure holding the player callback.
+ * @brief Structure holding the player callback.
  */
 struct PlayerCallbacks {
     std::function<void()> resumeTrackDownloads_CB; /**< Callback to resume track downloads */

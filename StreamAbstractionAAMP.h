@@ -1466,25 +1466,25 @@ public:
 	 * @fn RegisterSubtitleParser_CB
 	 * @brief Registers and initializes the subtitle parser based on the provided MIME type.
 	 *
-	 * @param[in] isExpectedMimetype - Indicates whether the expected MIME type.
-	 * @param[in] mimeType - mimetye as enum
+	 * @param[in] isExpectedMimeType - Indicates whether the expected MIME type.
+	 * @param[in] mimeType - mime type as enum
 	 * @param[out] SubtitleParser - Provides the created subtitle parser instance.
 	 *
 	 * @return SubtitleParser* - Pointer to the created subtitle parser instance.
 	 */
-	std::unique_ptr<SubtitleParser> RegisterSubtitleParser_CB( SubtitleMimeType mimeType, bool isExpectedMimetype = true);
+	std::unique_ptr<SubtitleParser> RegisterSubtitleParser_CB( SubtitleMimeType mimeType, bool isExpectedMimeType = true);
 
 	/**
 	 * @fn RegisterSubtitleParser_CB
 	 * @brief Registers and initializes the subtitle parser based on the provided MIME type.
 	 *
-	 * @param[in] isExpectedMimetype - Indicates whether the expected MIME type.
-	 * @param[in] mimeType - mimetye as string
+	 * @param[in] isExpectedMimeType - Indicates whether the expected MIME type.
+	 * @param[in] mimeType - mime type as string
 	 * @param[out] SubtitleParser - Provides the created subtitle parser instance.
 	 *
 	 * @return SubtitleParser* - Pointer to the created subtitle parser instance.
 	 */
-	std::unique_ptr<SubtitleParser> RegisterSubtitleParser_CB(std::string mimeType, bool isExpectedMimetype = true);
+	std::unique_ptr<SubtitleParser> RegisterSubtitleParser_CB(std::string mimeType, bool isExpectedMimeType = true);
 
 	bool trickplayMode;                     /**< trick play flag to be updated by subclasses*/
 	int currentProfileIndex;                /**< current Video profile index of the track*/
