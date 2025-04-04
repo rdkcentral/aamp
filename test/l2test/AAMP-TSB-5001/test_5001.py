@@ -206,7 +206,7 @@ TESTDATA3 = {
 		{"expect": r"GST_MESSAGE_EOS"},
 
 		# Check the PTS restamp is done correctly
-		{"expect": pts_restamp_utils.LOG_LINE, "min":10, "callback" : pts_restamp_utils.check_restamp},
+		{"expect": pts_restamp_utils.LOG_LINE, "min":10, "max":30, "callback" : pts_restamp_utils.check_restamp},
 		# Check the PTS restamp is done correctly during trick modes (rewind and fast forward)
 		{"expect": trick_modes_pts_restamp_utils.LOG_LINE, "callback" : trick_modes_pts_restamp_utils.check_restamp},
 
@@ -215,8 +215,8 @@ TESTDATA3 = {
 		{"expect": r"\[SetRateInternal\]\[\d+]PLAYER\[0\] rate=2.000000."},
 		{"expect": r"AAMP_EVENT_SPEED_CHANGED current rate=2.000000"},
 
-		# Fast forward to live
-		{"expect": r"Adjusting position to live edge", "min":10, "end_of_test": True}
+		# Fast forward to live, check that aamp-cli receives the ENTERING_LIVE event
+		{"expect": r"AAMP_EVENT_ENTERING_LIVE", "min":10, "end_of_test": True}
 	]
 }
 

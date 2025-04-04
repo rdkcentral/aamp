@@ -27,8 +27,9 @@ class MockTSBSessionManager : public AampTSBSessionManager
 public:
 	MockTSBSessionManager(PrivateInstanceAAMP *aamp) : AampTSBSessionManager(aamp) { }
 	MOCK_METHOD(void, Init, ());
+	MOCK_METHOD(std::shared_ptr<AampTsbReader>, GetTsbReader, (AampMediaType mediaType));
 };
+
 extern MockTSBSessionManager *g_mockTSBSessionManager;
+
 #endif /* AAMP_MOCK_TSB_SESSION_MANAGER_H */
-
-

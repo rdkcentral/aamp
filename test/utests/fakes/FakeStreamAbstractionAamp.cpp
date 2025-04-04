@@ -119,7 +119,12 @@ void StreamAbstractionAAMP::NotifyPlaybackPaused(bool paused)
 
 bool StreamAbstractionAAMP::IsEOSReached()
 {
-	return false;
+	bool eos = false;
+	if (g_mockStreamAbstractionAAMP != nullptr)
+	{
+		eos = g_mockStreamAbstractionAAMP->IsEOSReached();
+	}
+	return eos;
 }
 
 bool StreamAbstractionAAMP::GetPreferredLiveOffsetFromConfig()

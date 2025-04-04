@@ -210,8 +210,8 @@ TESTDATA3 = {
 		{"expect": r"\[SetRateInternal\]\[\d+]PLAYER\[0\] rate=2.000000."},
 		{"expect": r"AAMP_EVENT_SPEED_CHANGED current rate=2.000000"},
 
-		# Fast forward to live
-		{"expect": r"Adjusting position to live edge","min":10, "end_of_test": True}
+		# Fast forward to live, check that aamp-cli receives the ENTERING_LIVE event
+		{"expect": r"AAMP_EVENT_ENTERING_LIVE", "min":10, "end_of_test": True}
 	]
 }
 

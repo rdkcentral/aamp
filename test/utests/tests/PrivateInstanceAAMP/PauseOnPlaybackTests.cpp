@@ -117,32 +117,6 @@ protected:
 public:
 };
 
-MATCHER_P(SpeedChanged, rate, "")
-{
-    bool match = false;
-
-    if (AAMP_EVENT_SPEED_CHANGED == arg->getType())
-    {
-        SpeedChangedEventPtr ev = std::dynamic_pointer_cast<SpeedChangedEvent>(arg);
-        match = (rate == ev->getRate());
-    }
-    return match;
-}
-
-MATCHER_P(StateChanged, state, "")
-{
-    bool match = false;
-
-    printf("arg->getType() = %d", arg->getType());
-    if (AAMP_EVENT_STATE_CHANGED == arg->getType())
-    {
-        StateChangedEventPtr ev = std::dynamic_pointer_cast<StateChangedEvent>(arg);
-        printf("state %d ev->getState() = %d", state, ev->getState());
-        match = (state == ev->getState());
-    }
-    return match;
-}
-
 // ensure default zoom mod initialized as expected
 TEST_F(PauseOnPlaybackTests, DefaultZoomMode )
 {
