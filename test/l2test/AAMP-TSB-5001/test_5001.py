@@ -25,6 +25,7 @@ import pytest
 from inspect import getsourcefile
 from l2test_pts_restamp import PtsRestampUtils
 from l2test_pts_restamp import TrickModesPtsRestampUtils
+from l2test_aamp_tsb import AampTsbUtils
 
 # The progress report is printed in the log at the interval times 4, i.e. 1s
 PROGRESS_REPORT_INTERVAL = 0.250
@@ -32,8 +33,12 @@ PROGRESS_REPORT_DIVISOR = 4
 PROGRESS_REPORT_INTERVAL_IN_LOG = PROGRESS_REPORT_INTERVAL * PROGRESS_REPORT_DIVISOR
 PROGRESS_REPORT_TOLERANCE = 1
 
+POSITION_TOLERANCE_RW_SEEK = 1.5
+SEEK_POSITION = 6
+
 pts_restamp_utils = PtsRestampUtils()
 trick_modes_pts_restamp_utils = TrickModesPtsRestampUtils()
+aamp_tsb_utils = AampTsbUtils()
 aamp = None
 position = 0
 state = None
@@ -47,6 +52,9 @@ SLD_URL="https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/
 # Callbacks used by the tests
 def send_command(match, command):
 	aamp.sendline(command)
+
+def send_seek_command(match, arg):
+	aamp.sendline(f"seek {aamp_tsb_utils.seek_position+aamp_tsb_utils.first_progress_event_position}")
 
 def pts_restamp_restart(match, arg):
 	pts_restamp_utils.restart()
@@ -254,12 +262,128 @@ TESTDATA4 = {
 	]
 }
 
+# Given that presentation is in progress at any fast-forward rate
+# The Player presents video I-frames from the linear content in fast forward at the specified rate
+# When presentation position reaches the TSB End position
+# Then the player changes playback rate to X 1 from the current position and notifies the client of a speed change event
+def generate_ff_testdata(ff_data):
+	test_data = {
+		"title": f"Acceptance Criteria for forward trick play ff {ff_data}",
+		"logfile": f"ff{ff_data}-trickmodes.log",
+		"max_test_time_seconds": 80,
+		"simlinear_type": "DASH",
+		"archive_url": archive_url,
+		"url": LLD_URL,
+		"cmdlist": ["contentType LINEAR_TV"],
+		"aamp_cfg": f"trace=true\nprogress=true\nprogressReportingInterval={PROGRESS_REPORT_INTERVAL}\ninfo=true\nlocalTSBEnabled=true\ntsbLocation=/tmp/data\ntsbLength=500\ntsbLog=0\n",
+		"expect_list": [
+			# Wait for playing and then pause
+			{"expect": r"AAMP_EVENT_STATE_CHANGED: PLAYING", "callback_once": send_command, "callback_arg": "pause"},
+			# Pause for 30 seconds for speed of 2, 60 seconds for speed of 64
+			{"expect": r'AAMPGstPlayerPipeline PLAYING -> PAUSED', "callback_once": send_command, "callback_arg": f"sleep {30000 if ff_data == 2 else 60000}"},
+			# Could have used ReportProgress to get log time stamp but GetPositionMilliseconds is accurate
+			{"expect": r"(\d+\.\d+):.*?\[GetPositionMilliseconds\]\[\d+\]Returning Position as", "min": 25 if ff_data == 2 else 55, "callback": aamp_tsb_utils.get_time_stamp_at_trick_play},
+			{"expect": r'sleep complete', "callback_once": send_command, "callback_arg": f"ff {ff_data}"},
+			{"expect": rf"AAMP_EVENT_SPEED_CHANGED current rate={ff_data}.000000", "callback_once": aamp_tsb_utils.set_flag_time_stamp_at_trick_play_achieved},
+
+			{"expect": r"AAMP_EVENT_SPEED_CHANGED current rate=1.000000", "min":45},
+			{"expect": r'(\d+\.\d+).*?\[ReportProgress\]\[\d+\]aamp pos: \[(\d+)..(\d+)..\d+..-?\d+..\d+.\d+..-?\d+.\d+..\w*..\d+..\d+..1.00]', "min": 45, "callback": aamp_tsb_utils.check_current_play_position, "callback_arg": ("ff",ff_data)},
+
+			# Checks the position in the playing state
+			{"expect": r'\[ReportProgress\]\[\d+\]aamp pos: \[\d+..(\d+)..\d+..-?\d+..\d+.\d+..-?\d+.\d+..\w*..\d+..\d+..1.00]', "min":45, "callback": check_position, "callback_arg": "playing"},
+			# Carry on additional verification (well past the assertion criteria) to terminate the test successfully
+			{"expect": r"\[GetPositionMilliseconds\]", "min":60 if ff_data == 2 else 70, "end_of_test": True}
+		],
+	}
+	return test_data
+
+# Given that presentation is in progress at any negative rate
+# The Player presents video I-frames from the linear content in reverse at the specified rate
+# When the presentation position reaches the TSB start position
+# Then The player changes playback rate to x 1 from the current position and notifies the client of a speed change event
+def generate_rew_testdata(rew_data):
+	test_data = {
+		"title": f"Acceptance Criteria for rewind rew {rew_data}",
+		"logfile": f"rew{rew_data}-trickmodes.log",
+		"max_test_time_seconds": 80,
+		'simlinear_type': 'DASH',
+		"archive_url": archive_url,
+		"url": LLD_URL,
+		"cmdlist": ["contentType LINEAR_TV"],
+		"aamp_cfg": f"trace=true\nprogress=true\nprogressReportingInterval={PROGRESS_REPORT_INTERVAL}\ninfo=true\nlocalTSBEnabled=true\ntsbLocation=/tmp/data\ntsbLength=500\ntsbLog=0\n",
+		"expect_list": [
+			# Wait until a minimum of 10s data for 2x and 60s data for 64x is built into buffer
+			{"expect": r'\[ReportProgress\]\[\d+\]', "min": 10 if rew_data == 2 else 60, "callback_once": send_command, "callback_arg": f"rew {rew_data}"},
+			{"expect": rf"AAMP_EVENT_SPEED_CHANGED current rate=-{rew_data}.000000"},
+			{"expect": r"GST_MESSAGE_EOS", "min": 10 if rew_data == 2 else 60},
+			# Once the speed changes to X 1 get the play position from the next sample.
+			{"expect": r"AAMP_EVENT_SPEED_CHANGED current rate=1.000000"},
+			{"expect": r'\[ReportProgress\]\[\d+\]aamp pos: \[(\d+)..(\d+)..\d+..-?\d+..\d+.\d+..-?\d+.\d+..\w*..\d+..\d+..1.00]', "min": 11 if rew_data == 2 else 61, "callback_once": aamp_tsb_utils.check_current_play_position, "callback_arg": "rew"},
+
+			# Checks the position in the playing state
+			{"expect": r'\[ReportProgress\]\[\d+\]aamp pos: \[\d+..(\d+)..\d+..-?\d+..\d+.\d+..-?\d+.\d+..\w*..\d+..\d+..1.00]', "min": 14 if rew_data == 2 else 62, "callback": check_position, "callback_arg": "playing"},
+			# Carry on additional verification (well past the assertion criteria) to terminate the test successfully
+			{"expect": r"\[GetPositionMilliseconds\]", "min": 20 if rew_data == 2 else 70, "end_of_test": True}
+		]
+	}
+	return test_data
+
+# Given that presentation is in progress from the TSB
+# Seek to a specified position within the TSB depth
+# The Player presents the audio and video content from the TSB at x1 rate from the seeked position
+def generate_seek_testdata(extra_config):
+	test_data = {
+		"title": f"AC for seek {extra_config}",
+		"logfile": f"seek-trickmode-{extra_config}.log",
+		"max_test_time_seconds": 40,
+		"simlinear_type": "DASH",
+		"archive_url": archive_url,
+		"url": LLD_URL,
+		"cmdlist": ["contentType LINEAR_TV"],
+		"aamp_cfg": f"trace=true\nprogress=true\nprogressReportingInterval={PROGRESS_REPORT_INTERVAL}\ninfo=true\nlocalTSBEnabled=true\ntsbLocation=/tmp/data\ntsbLength=500\ntsbLog=0\n{extra_config}\n",
+
+		"expect_list": [
+			{"expect": r'\[ReportProgress\]\[\d+\]Send first progress event with position (\d+)', "callback_once": aamp_tsb_utils.extract_first_progress_event_position },
+
+			# Wait 10s and then pause when the next fragment is added to TSB
+			{"expect": r'\[ReportProgress\]\[\d+\]', "min": 10, "max": 14, "callback_once": send_command, "callback_arg": "pause"},
+			# Wait 15s since the start of the test and then play when the next fragment is processed
+			{"expect": r'\[ReportProgress\]\[\d+\]', "min": 15,"max": 20, "callback_once": send_command, "callback_arg": "play"},
+
+			{"expect": r'\[ReportProgress\]\[\d+\]', "min":20, "max":25, "callback_once": send_seek_command},
+			{"expect": r'aamp_Seek\(\d+.\d+\)', "min":20},
+			{"expect": r'\[(SeekInternal)\]\[.*\]aamp_Seek position adjusted to absolute value: ', "callback" : aamp_tsb_utils.set_flag_check_seek_position},
+
+			{"expect": r'\[ReportProgress\]\[\d+\]aamp pos: \[(\d+)..(\d+)..\d+..-?\d+..\d+.\d+..-?\d+.\d+..\w*..\d+..\d+..1.00]', "min": 20,  "callback": aamp_tsb_utils.check_current_play_position,"callback_arg": "seek"},
+
+			# Checks the position in the playing state
+			{"expect": r'\[ReportProgress\]\[\d+\]aamp pos: \[\d+..(\d+)..\d+..-?\d+..\d+.\d+..-?\d+.\d+..\w*..\d+..\d+..1.00]', "min":24, "callback": check_position, "callback_arg": "playing"},
+			{"expect": r"\[GetPositionMilliseconds\]\[\d+]rate=1.000000.", "min":30, "end_of_test": True}
+		]
+	}
+	return test_data
+
+TESTDATA_FF2 = generate_ff_testdata(2)
+TESTDATA_FF64 = generate_ff_testdata(64)
+TESTDATA_REW2 = generate_rew_testdata(2)
+TESTDATA_REW64 = generate_rew_testdata(64)
+TESTDATA_SEEK = generate_seek_testdata("")
+TESTDATA_SEEK_ABS = generate_seek_testdata("useAbsoluteTimeline=true")
+
 TESTLIST = [
 	{'testdata': TESTDATA0, 'expected_restamps': 20, 'expected_trickmodes_restamps': 0},
 	{'testdata': TESTDATA1, 'expected_restamps': 0, 'expected_trickmodes_restamps': 0},
 	{'testdata': TESTDATA2, 'expected_restamps': 10, 'expected_trickmodes_restamps': 0},
 	{'testdata': TESTDATA3, 'expected_restamps': 10, 'expected_trickmodes_restamps': 10},
-	{'testdata': TESTDATA4, 'expected_restamps': 10, 'expected_trickmodes_restamps': 10}
+	{'testdata': TESTDATA4, 'expected_restamps': 10, 'expected_trickmodes_restamps': 10},
+	# fast forward show position jump in transition from trick mode speed to x1 i.e. live
+	# The bug is investigated under VPLAY-9019. Once fixed FF2, FF64 can be enabled
+	#{'testdata': TESTDATA_FF2, 'expected_restamps': 0, 'expected_trickmodes_restamps': 0},
+	#{'testdata': TESTDATA_FF64, 'expected_restamps': 0, 'expected_trickmodes_restamps': 0},
+	{'testdata': TESTDATA_REW2, 'expected_restamps': 0, 'expected_trickmodes_restamps': 0},
+	{'testdata': TESTDATA_REW64, 'expected_restamps': 0, 'expected_trickmodes_restamps': 0},
+	{'testdata': TESTDATA_SEEK, 'expected_restamps': 0, 'expected_trickmodes_restamps': 0},
+	{'testdata': TESTDATA_SEEK_ABS, 'expected_restamps': 0, 'expected_trickmodes_restamps': 0}
 ]
 
 @pytest.fixture(params=TESTLIST)
@@ -267,7 +391,7 @@ def test_data(request):
 	return request.param
 
 def test_5001(aamp_setup_teardown, test_data):
-	global aamp, pts_restamp_utils, trick_modes_pts_restamp_utils, state
+	global aamp, pts_restamp_utils, trick_modes_pts_restamp_utils, state, aamp_tsb_utils, POSITION_TOLERANCE_RW_SEEK, SEEK_POSITION
 
 	# Start each test with a clean state
 	state = None
@@ -277,6 +401,9 @@ def test_5001(aamp_setup_teardown, test_data):
 
 	trick_modes_pts_restamp_utils.reset()
 	trick_modes_pts_restamp_utils.max_segment_cnt = test_data.get('expected_trickmodes_restamps')
+
+	aamp_tsb_utils.POSITION_TOLERANCE_RW_SEEK = POSITION_TOLERANCE_RW_SEEK
+	aamp_tsb_utils.seek_position = SEEK_POSITION
 
 	aamp = aamp_setup_teardown
 	aamp.set_paths(os.path.abspath(getsourcefile(lambda: 0)))

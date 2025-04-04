@@ -23,3 +23,9 @@ From the *test/l2test/* folder run:
 * TESTDATA2 -----> Test pause and resume
 * TESTDATA3 -----> Test trick modes (rewind and fast forward)
 * TESTDATA4 -----> Test pause and trick modes
+* TESTDATA_FF2 -----> Test to verify the Acceptance Criteria for forward trick play x 2
+* TESTDATA_FF64 -----> Test to verify the Acceptance Criteria for forward trick play x 64
+* TESTDATA_REW2 -----> Test to verify the Acceptance Criteria for Reverse trick play rew 2
+* TESTDATA_REW64 -----> Test to verify the Acceptance Criteria for Reverse trick play rew 64
+* TESTDATA_SEEK -----> Test to verify the Acceptance Criteria for Seek with useAbsoluteTimeline=false(default config value)
+* TESTDATA_SEEK_ABS ------> Test to verify the Acceptance Criteria for Seek with useAbsoluteTimeline=true
