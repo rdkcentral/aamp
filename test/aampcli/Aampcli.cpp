@@ -716,6 +716,12 @@ void MyAAMPEventListener::Event(const AAMPEventPtr& e)
 			break;
 		}
 
+		case AAMP_EVENT_ENTERING_LIVE:
+		{
+			printf("[AAMPCLI] AAMP_EVENT_ENTERING_LIVE\n");
+			break;
+		}
+
 		default:
 			break;
 	}

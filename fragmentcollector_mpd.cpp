@@ -3482,6 +3482,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::InitTsbReader(TuneType tuneType)
 				mTuneType = eTUNETYPE_SEEKTOLIVE;
 			}
 			mIsAtLivePoint = true;
+			aamp->NotifyOnEnteringLive();
 		}
 
 		retVal = tsbSessionManager->InvokeTsbReaders(position, aamp->rate, mTuneType);

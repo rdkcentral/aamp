@@ -3292,7 +3292,7 @@ void PrivateInstanceAAMP::NotifyEOSReached()
 	bool isDiscontinuity = IsDiscontinuityProcessPending();
 	bool isLive = IsLive();
 
-	AAMPLOG_WARN("Enter . processingDiscontinuity %d isLive %d", isDiscontinuity, isLive);
+	AAMPLOG_MIL("Enter . processingDiscontinuity %d isLive %d", isDiscontinuity, isLive);
 	mDiscontinuityFound = isDiscontinuity;
 	if(mDiscontinuityFound)
 	{
@@ -5294,6 +5294,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 					std::bind(&PrivateInstanceAAMP::ID3MetadataHandler, this,
 						std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4, std::placeholders::_5)
 					);
+			AAMPLOG_MIL("New stream abstraction object created");
 			if (NULL == mCdaiObject)
 			{
 				mCdaiObject = new CDAIObjectMPD(this); // special version for DASH
@@ -5375,7 +5376,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 	}
 
 	mInitSuccess = true;
-	AAMPStatusType retVal;
+	AAMPStatusType retVal = eAAMPSTATUS_GENERIC_ERROR;
 	if(newTune && !IsLocalAAMPTsb() && GetTSBSessionManager())
 	{
 		// Set Local TSB flag after starting the streamabstraction
@@ -5405,6 +5406,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 	}
 	else
 	{
+		AAMPLOG_WARN("Stream abstraction object is NULL");
 		retVal = eAAMPSTATUS_GENERIC_ERROR;
 	}
 
@@ -11757,11 +11759,12 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 		else
 		{
 			AAMPLOG_INFO("Discarding Retune set language(s) (%s) , rendition (%s) and accessibility (%s) since already set",
-			languageList?languageList:"", preferredRendition?preferredRendition:"", preferredType?preferredType:"");
+				languageList?languageList:"", preferredRendition?preferredRendition:"", preferredType?preferredType:"");
 		}
 	}
 
 	AAMPPlayerState state = GetState();
+	AAMPLOG_INFO("state %d, isRetuneNeeded %d", state, isRetuneNeeded);
 	if (state != eSTATE_IDLE && state != eSTATE_RELEASED && state != eSTATE_ERROR && isRetuneNeeded)
 	{ // active playback session; apply immediately
 		if (mpStreamAbstractionAAMP)
