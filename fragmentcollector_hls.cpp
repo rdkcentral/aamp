@@ -69,7 +69,7 @@
 #include "AampDRMSessionManager.h"
 #endif
 #include "AampVanillaDrmHelper.h"
-#include "AampCCManager.h"
+#include "PlayerCCManager.h"
 
 static const int DEFAULT_STREAM_WIDTH = 720;
 static const int DEFAULT_STREAM_HEIGHT = 576;
@@ -3778,13 +3778,23 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 						if(!ISCONFIGSET(eAAMPConfig_GstSubtecEnabled))
 						{
 							AAMPLOG_WARN("Legacy subtec");
-							ts->mSubtitleParser = SubtecFactory::createSubtitleParser(aamp, type);
+							ts->mSubtitleParser = this->RegisterSubtitleParser_CB(type);
 						}
 						else
 						{
 							AAMPLOG_WARN("GST subtec");
 							if (aamp->WebVTTCueListenersRegistered())
-								ts->mSubtitleParser = subtec_make_unique<WebVTTParser>(aamp, type);
+							{
+								int width = 0, height = 0;
+								PlayerCallbacks playerCallBack = {};
+								this->InitializePlayerCallbacks(playerCallBack);
+								aamp->GetPlayerVideoSize(width, height);
+								ts->mSubtitleParser = subtec_make_unique<WebVTTParser>(type, width, height);
+								if(ts->mSubtitleParser)
+								{
+									ts->mSubtitleParser->RegisterCallback(playerCallBack);
+								}
+							}
 						}
 						if (!ts->mSubtitleParser)
 						{
@@ -4068,7 +4078,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 			/** Set preferred live Offset for 4K or non 4K; Default value of mIsStream4K = false */
 			aamp->mIsStream4K = GetPreferredLiveOffsetFromConfig();
 
-			/* Check if we are seeking to live using aamp->seek_pos_seconds for Peacock */
+			/* Check if we are seeking to live using aamp->seek_pos_seconds */
 			if (tuneType == eTUNETYPE_SEEK && IsSeekedToLive(aamp->seek_pos_seconds))
 			{
 				tuneType = eTUNETYPE_SEEKTOLIVE;
@@ -4549,7 +4559,7 @@ void StreamAbstractionAAMP_HLS::InitTracks()
 void StreamAbstractionAAMP_HLS::CachePlaylistThreadFunction(void)
 {
 	// required to work around Adobe SSAI session lifecycle problem
-	// Temporary workaround code to address Peacock/Adobe Server issue
+	// Temporary workaround code 
 	aamp->PreCachePlaylistDownloadTask();
 	return;
 }
@@ -7091,11 +7101,13 @@ void StreamAbstractionAAMP_HLS::PopulateAudioAndTextTracks()
 		}
 		std::vector<TextTrackInfo> textTracksCopy;
 		std::copy_if(begin(mTextTracks), end(mTextTracks), back_inserter(textTracksCopy), [](const TextTrackInfo& e){return e.isCC;});
-		AampCCManager::GetInstance()->updateLastTextTracks(textTracksCopy);
+		std::vector<CCTrackInfo> updatedTextTracks;
+		aamp->UpdateCCTrackInfo(textTracksCopy,updatedTextTracks);
+		PlayerCCManager::GetInstance()->updateLastTextTracks(updatedTextTracks);
 	}
 	else
 	{
-		AampCCManager::GetInstance()->updateLastTextTracks({});
+		PlayerCCManager::GetInstance()->updateLastTextTracks({});
 		AAMPLOG_ERR("StreamAbstractionAAMP_HLS:: Fail to get available audio/text tracks, mMediaCount=%d and profileCount=%d!", mMediaCount, mProfileCount);
 	}
 

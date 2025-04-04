@@ -169,7 +169,7 @@ endif(CMAKE_SYSTEM_NAME STREQUAL Darwin)
 
 find_package (Threads REQUIRED)
 
-include_directories(${CMAKE_CURRENT_SOURCE_DIR} drm downloader drm/aes drm/helper subtitle isobmff dash/xml dash/mpd dash/utils)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR} drm downloader drm/aes drm/helper subtitle subtec middleware/playerisobmff middleware/subtitle isobmff dash/xml dash/mpd dash/utils middleware middleware/closedcaptions middleware/closedcaptions/subtec)
 include_directories(${GSTREAMER_INCLUDE_DIRS})
 include_directories(${CURL_INCLUDE_DIRS})
 include_directories(${GSTREAMERBASE_INCLUDE_DIRS})
@@ -197,6 +197,7 @@ set(LIBAAMP_HEADERS AampCacheHandler.h
 					middleware/GstUtils.h
 					AampGrowableBuffer.h
 					AampJsonObject.h
+					middleware/closedcaptions/CCTrackInfo.h
 					AampLogManager.h
 					AampMediaType.h
 					AampMemoryUtils.h
@@ -204,6 +205,9 @@ set(LIBAAMP_HEADERS AampCacheHandler.h
 					AampRfc.h
 					AampScheduler.h
 					AampUtils.h
+					middleware/PlayerUtils.h
+					middleware/PlayerMetadata.hpp
+					middleware/closedcaptions/PlayerCCManager.h
 					AdManagerBase.h
 					MediaStreamContext.h
 					Module.h
@@ -576,8 +580,7 @@ if(CMAKE_USE_OPENCDM_ADAPTER)
     include_directories(${STAGING_INCDIR}/gstreamer-1.0)
 endif()
 
-include_directories(closedcaptions)
-set(LIBAAMP_SOURCES ${LIBAAMP_SOURCES} closedcaptions/AampCCManager.cpp)
+set(LIBAAMP_SOURCES ${LIBAAMP_SOURCES} middleware/closedcaptions/PlayerCCManager.cpp middleware/PlayerUtils.cpp)
 
 if (CMAKE_AAMP_RFC_REQUIRED)
         message("AAMP RFC set")
@@ -592,33 +595,35 @@ if (CMAKE_AAMP_RFC_REQUIRED)
         endif()
 endif()
 
-set(AAMP_SUBTEC_CLASS_SOURCES subtec/subtecparser/WebVttSubtecParser.cpp subtec/subtecparser/TtmlSubtecParser.cpp subtec/subtecparser/WebvttSubtecDevParser.cpp subtec/subtecparser/TextStyleAttributes.cpp)
+set(AAMP_SUBTEC_CLASS_SOURCES middleware/playerisobmff/playerisobmffbox.cpp middleware/playerisobmff/playerisobmffbuffer.cpp middleware/subtec/subtecparser/WebVttSubtecParser.cpp middleware/subtec/subtecparser/TtmlSubtecParser.cpp middleware/subtec/subtecparser/WebvttSubtecDevInterface.cpp subtec/subtecparser/WebvttSubtecDevParser.cpp middleware/subtec/subtecparser/TextStyleAttributes.cpp middleware/playerjsonobject/PlayerJsonObject.cpp)
 set(LIBAAMP_SOURCES ${LIBAAMP_SOURCES} ${AAMP_SUBTEC_CLASS_SOURCES})
+include_directories(middleware/subtec/subtecparser)
 include_directories(subtec/subtecparser)
+include_directories(middleware/playerjsonobject)
 
-add_library(subtec SHARED subtec/libsubtec/PacketSender.cpp subtec/libsubtec/SubtecChannel.cpp)
-set(AAMP_SUBTEC_PUBLIC_HEADERS subtec/libsubtec/SubtecChannel.hpp subtec/libsubtec/SubtecAttribute.hpp)
+add_library(subtec SHARED middleware/subtec/libsubtec/PacketSender.cpp middleware/subtec/libsubtec/SubtecChannel.cpp middleware/PlayerLogManager.cpp)
+set(AAMP_SUBTEC_PUBLIC_HEADERS middleware/subtec/libsubtec/SubtecChannel.hpp middleware/subtec/libsubtec/SubtecAttribute.hpp middleware/PlayerMetadata.hpp middleware/PlayerLogManager.h)
 set_target_properties(subtec PROPERTIES PUBLIC_HEADER "${AAMP_SUBTEC_PUBLIC_HEADERS}")
 set(AAMP_SUBTEC_COMPILE_FLAGS "${CMAKE_CXX_FLAGS} -DSUBTEC_PACKET_DEBUG=1")
 if(CMAKE_PLATFORM_UBUNTU)
 	set(AAMP_SUBTEC_COMPILE_FLAGS "${AAMP_SUBTEC_COMPILE_FLAGS} -DUBUNTU=1")
 endif()
 set_target_properties(subtec PROPERTIES COMPILE_FLAGS "${AAMP_SUBTEC_COMPILE_FLAGS}")
-include_directories(subtec/libsubtec)
+include_directories(middleware/subtec/libsubtec)
 install (TARGETS subtec
 		DESTINATION lib
 		PUBLIC_HEADER DESTINATION include
 )
 
 if (CMAKE_GST_SUBTEC_ENABLED)
-    set(CMAKE_AAMP_SUBTITLE_SUPPORT TRUE)
+    set(CMAKE_SUBTITLE_SUPPORT TRUE)
     message("CMAKE_GST_SUBTEC_ENABLED set")
     set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DGST_SUBTEC_ENABLED")
 endif()
 
-if (CMAKE_AAMP_SUBTITLE_SUPPORT)
-    message("CMAKE_AAMP_SUBTITLE_SUPPORT set")
-    set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DAAMP_SUBTITLE_SUPPORTED")
+if (CMAKE_SUBTITLE_SUPPORT)
+    message("CMAKE_SUBTITLE_SUPPORT set")
+    set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DSUBTITLE_SUPPORTED")
     set(LIBSUBTECCONNECTOR_DEFINES "${LIBAAMP_DEFINES}")
     find_path(STAGING_INCDIR closedcaption/ccDataReader.h)
     include_directories(${STAGING_INCDIR}/closedcaption)
@@ -629,15 +634,15 @@ if (CMAKE_AAMP_SUBTITLE_SUPPORT)
     endif()
 
     set(LIBSUBTECCONNECTOR_SOURCES  ${AAMP_SUBTEC_SOURCES}
-        closedcaptions/subtec/SubtecConnector.cpp
-        closedcaptions/subtec/CCDataController.cpp
-        aamplogging.cpp)
+        middleware/closedcaptions/subtec/SubtecConnector.cpp
+        middleware/closedcaptions/subtec/CCDataController.cpp
+        middleware/PlayerLogManager.cpp)
 
     add_library(subtec_connector SHARED ${LIBSUBTECCONNECTOR_SOURCES})
     target_link_libraries(subtec_connector ${LIBSUBTECCONNECTOR_DEPENDS})
     install(TARGETS subtec_connector DESTINATION lib)
 
-    set(LIBAAMP_SOURCES ${LIBAAMP_SOURCES} closedcaptions/subtec/AampSubtecCCManager.cpp)
+    set(LIBAAMP_SOURCES ${LIBAAMP_SOURCES} middleware/closedcaptions/subtec/PlayerSubtecCCManager.cpp)
 endif()
 
 set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} ${SEC_CONTENT_METADATA_ENABLED}")
@@ -778,7 +783,7 @@ target_link_libraries(aamp subtec tsb)
 if (CMAKE_INBUILT_AAMP_DEPENDENCIES)
 	target_link_libraries(aamp abr metrics)
 endif()
-if (CMAKE_AAMP_SUBTITLE_SUPPORT)
+if (CMAKE_SUBTITLE_SUPPORT)
 	target_link_libraries(aamp subtec_connector)
 endif()
 install(TARGETS aamp-cli DESTINATION bin)
@@ -807,7 +812,7 @@ install(FILES
   AampTSBSessionManager.h
   AampTsbReader.h
   tsb/api/TsbApi.h
-  closedcaptions/AampCCManager.h
+  middleware/closedcaptions/CCTrackInfo.h
   middleware/PlayerLogManager.h
   middleware/PlayerScheduler.h
   middleware/gstplayertaskpool.h
@@ -815,6 +820,8 @@ install(FILES
   middleware/GstUtils.h
   middleware/InterfacePlayerRDK.h
   middleware/SocUtils.h
+  middleware/closedcaptions/PlayerCCManager.h
+  middleware/PlayerUtils.h
   DESTINATION include)
 
 if (CMAKE_AAMP_RFC_REQUIRED)

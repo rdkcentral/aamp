@@ -19,30 +19,34 @@
 
 #pragma once
 
-#include "webvttParser.h"
-#include "vttCue.h"
+#include "subtitleParser.h"
+#include "playerisobmffbuffer.h"
 #include "SubtecChannel.hpp"
-#include "AampUtils.h"
-#include "WebvttSubtecDevInterface.hpp"
 
-class WebVTTSubtecDevParser : public WebVTTParser
+class TtmlSubtecParser : public SubtitleParser
 {
 public:
-	WebVTTSubtecDevParser(SubtitleMimeType type, int width, int height);
+	TtmlSubtecParser(SubtitleMimeType type, int width, int height);
 	
-	WebVTTSubtecDevParser(const WebVTTSubtecDevParser&) = delete;
-	WebVTTSubtecDevParser& operator=(const WebVTTSubtecDevParser&) = delete;
+	TtmlSubtecParser(const TtmlSubtecParser&) = delete;
+	TtmlSubtecParser& operator=(const TtmlSubtecParser&) = delete;
+
 	
 	bool init(double startPosSeconds, unsigned long long basePTS) override;
 	bool processData(const char* buffer, size_t bufferLen, double position, double duration) override;
+	bool close() override { return true; }
 	void reset() override;
-	void sendCueData() override;
 	void setProgressEventOffset(double offset) override {}
 	void updateTimestamp(unsigned long long positionMs) override;
 	void pause(bool pause) override;
 	void mute(bool mute) override;
+
+	void isLinear(bool isLinear) override { m_isLinear = isLinear; }
+
 protected:
-	std::unique_ptr<WebvttSubtecDevInterface> mSubtecInterface;
-private:
-	std::string getVttAsTtml();
+	std::unique_ptr<SubtecChannel> m_channel;
+	bool m_isLinear = false;
+	bool m_parsedFirstPacket = false;
+	bool m_sentOffset = false;
+	double m_firstBeginOffset = 0.0;
 };

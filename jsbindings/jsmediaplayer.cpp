@@ -37,8 +37,9 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
+#include "CCTrackInfo.h"
+#include "PlayerCCManager.h"
 
-#include "AampCCManager.h"
 
 extern "C"
 {
@@ -3946,7 +3947,7 @@ public:
 	static std::string findTextTrackWithLang(JSContextRef ctx, std::string selectedLang)
 	{
 
-		const auto textTracks = AampCCManager::GetInstance()->getLastTextTracks();
+		const auto textTracks = PlayerCCManager::GetInstance()->getLastTextTracks();
 		LOG_WARN_EX("[XREReceiver]:found %d text tracks", (int)textTracks.size());
 
 		if(!selectedLang.empty() && isdigit(selectedLang[0]))
@@ -4009,10 +4010,10 @@ private:
 			const bool enable_value = JSValueToBoolean(ctx, param_enable_value);
 			LOG_WARN_EX("[XREReceiver]:received enable boolean %d", enable_value);
 
-			AampCCManager::GetInstance()->SetStatus(enable_value);
+			PlayerCCManager::GetInstance()->SetStatus(enable_value);
 			if(enable_value)
 			{
-				const auto textTracks = AampCCManager::GetInstance()->getLastTextTracks();
+				const auto textTracks = PlayerCCManager::GetInstance()->getLastTextTracks();
 				std::string defaultTrack;
 				if(!textTracks.empty())
 				{
@@ -4024,7 +4025,7 @@ private:
 
 				LOG_WARN_EX("[XREReceiver]: found %d tracks, selected default textTrack = '%s'", (int)textTracks.size(), defaultTrack.c_str());
 
-				AampCCManager::GetInstance()->SetTrack(defaultTrack);
+				PlayerCCManager::GetInstance()->SetTrack(defaultTrack);
 			}
 		}
 
@@ -4048,7 +4049,7 @@ private:
 
 			LOG_WARN_EX("[XREReceiver]: selected textTrack = '%s'", textTrack.c_str());
 
-			AampCCManager::GetInstance()->SetTrack(textTrack);
+			PlayerCCManager::GetInstance()->SetTrack(textTrack);
 		}
 
 		JSStringRelease(param_enable);

@@ -54,8 +54,7 @@
 #include <chrono>
 #include "AampTSBSessionManager.h"
 //#define DEBUG_TIMELINE
-
-#include "AampCCManager.h"
+#include "PlayerCCManager.h"
 
 /**
  * @addtogroup AAMP_COMMON_TYPES
@@ -6512,7 +6511,8 @@ void StreamAbstractionAAMP_MPD::SelectSubtitleTrack(bool newTune, std::vector<Te
 					pMediaStreamContext->mSubtitleParser = NULL;
 				}
 			}
-			pMediaStreamContext->mSubtitleParser = SubtecFactory::createSubtitleParser(aamp, mimeType);
+			bool isExpectedMimetype = !mimeType.compare("text/vtt");
+			pMediaStreamContext->mSubtitleParser = this->RegisterSubtitleParser_CB( mimeType, isExpectedMimetype);
 			if (!pMediaStreamContext->mSubtitleParser)
 			{
 				pMediaStreamContext->enabled = false;
@@ -10339,7 +10339,7 @@ std::string StreamAbstractionAAMP_MPD::GetVssVirtualStreamID()
  */
 void StreamAbstractionAAMP_MPD::InitSubtitleParser(char *data)
 {
-	mSubtitleParser = SubtecFactory::createSubtitleParser(aamp, eSUB_TYPE_WEBVTT);
+	mSubtitleParser = this->RegisterSubtitleParser_CB(eSUB_TYPE_WEBVTT);
 	if (mSubtitleParser)
 	{
 		double position = aamp->GetPositionSeconds();
@@ -10410,7 +10410,7 @@ void StreamAbstractionAAMP_MPD::MuteSidecarSubtitles(bool mute)
  */
 void  StreamAbstractionAAMP_MPD::ResumeSubtitleAfterSeek(bool mute, char *data)
 {
-	mSubtitleParser = SubtecFactory::createSubtitleParser(aamp, eSUB_TYPE_WEBVTT);
+	mSubtitleParser = this->RegisterSubtitleParser_CB(eSUB_TYPE_WEBVTT);
 	if (mSubtitleParser)
 	{
 		mSubtitleParser->updateTimestamp(seekPosition*1000);
@@ -12460,7 +12460,10 @@ void StreamAbstractionAAMP_MPD::SetTextTrackInfo(const std::vector<TextTrackInfo
 
 	std::vector<TextTrackInfo> textTracksCopy;
 	std::copy_if(begin(mTextTracks), end(mTextTracks), back_inserter(textTracksCopy), [](const TextTrackInfo& e){return e.isCC;});
-	AampCCManager::GetInstance()->updateLastTextTracks(textTracksCopy);
+
+	std::vector<CCTrackInfo> updatedTextTracks;
+	aamp->UpdateCCTrackInfo(textTracksCopy,updatedTextTracks);
+	PlayerCCManager::GetInstance()->updateLastTextTracks(updatedTextTracks);
 
 	if (tracksChanged)
 	{

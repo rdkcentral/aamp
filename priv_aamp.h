@@ -33,7 +33,7 @@
 #include "main_aamp.h"
 #include <IPVideoStat.h>
 #include "AampGrowableBuffer.h"
-
+#include "CCTrackInfo.h"
 #include <signal.h>
 #include <semaphore.h>
 #include <curl/curl.h>
@@ -158,7 +158,6 @@ enum PlaybackErrorType
 	eDASH_LOW_LATENCY_INPUT_PROTECTION_ERROR,  /**< Low Latency Dash Input Protection error **/
 	eDASH_RECONFIGURE_FOR_ENC_PERIOD /**< Retune to reconfigure pipeline for encrypted period **/
 };
-
 
 /**
  * @brief Tune Type
@@ -1938,7 +1937,7 @@ public:
 	void ResetProfileCache(void);
 
 	void ActivatePlayer();
-
+	
 	/**
 	 *   @fn LogPlayerPreBuffered
 	 *
@@ -3436,6 +3435,14 @@ public:
 	 *   @return void
 	 */
 	void SetCCStatus(bool enabled);
+
+	/**
+	 * @brief Updates the provided vector of CCTrackInfo with data from a vector of TextTrackInfo.
+	 *
+	 * @param textTracksCopy A vector of TextTrackInfo objects to be processed.
+	 * @param updatedTextTracks A vector of CCTrackInfo objects to be updated.
+	 */
+	void UpdateCCTrackInfo(const std::vector<TextTrackInfo>& textTracksCopy, std::vector<CCTrackInfo>& updatedTextTracks);
 
 	/**
 	 *   @fn GetCCStatus

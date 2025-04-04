@@ -37,6 +37,7 @@
 #include "AampTSBSessionManager.h"
 #include "isobmffhelper.h"
 #include "AampConfig.h"
+#include "SubtecFactory.hpp"
 
 // checks if current state is going to use IFRAME ( Fragment/Playlist )
 #define IS_FOR_IFRAME(rate, type) ((type == eTRACK_VIDEO) && (rate != AAMP_NORMAL_PLAY_RATE))
@@ -3063,6 +3064,95 @@ void MediaTrack::SetLocalTSBInjection(bool value)
 {
 	mIsLocalTSBInjection.store(value);
 	AAMPLOG_INFO("isLocalAampTsbInjection %d", mIsLocalTSBInjection.load());
+}
+
+/**
+ * @brief Function to Resume track downloader
+ */
+void StreamAbstractionAAMP::ResumeTrackDownloadsHandler( )
+{
+	aamp->ResumeTrackDownloads(eMEDIATYPE_SUBTITLE);
+}
+
+/**
+ * @brief Function to Stop track downloader
+ */
+void StreamAbstractionAAMP::StopTrackDownloadsHandler( )
+{
+	aamp->StopTrackDownloads(eMEDIATYPE_SUBTITLE);
+}
+
+/**
+ * @brief Function to Send VTT Cue Data as event
+ */
+void StreamAbstractionAAMP::SendVTTCueDataHandler(VTTCue* cueData)
+{
+	aamp->SendVTTCueDataAsEvent(cueData);
+}
+
+/**
+ * @brief Function to Get the seek position current playback position in seconds
+ */
+void StreamAbstractionAAMP::GetPlayerPositionsHandler(long long& getPositionMS, double& seekPositionSeconds)
+{
+    getPositionMS = aamp->GetPositionMs();
+    seekPositionSeconds = aamp->seek_pos_seconds;
+}
+
+/**
+ * @brief Function to initialize the player related callbacks
+ */
+void StreamAbstractionAAMP::InitializePlayerCallbacks(PlayerCallbacks& callbacks)
+{
+	callbacks.resumeTrackDownloads_CB = std::bind(&StreamAbstractionAAMP::ResumeTrackDownloadsHandler, this);
+	callbacks.stopTrackDownloads_CB = std::bind(&StreamAbstractionAAMP::StopTrackDownloadsHandler, this);
+	callbacks.sendVTTCueData_CB = std::bind(&StreamAbstractionAAMP::SendVTTCueDataHandler, this, std::placeholders::_1);
+	callbacks.getPlayerPositions_CB = std::bind(&StreamAbstractionAAMP::GetPlayerPositionsHandler, this, std::placeholders::_1, std::placeholders::_2);
+}
+
+/**
+ * @brief Function to initialize the create subtitle parese instance & player related callbacks
+ */
+std::unique_ptr<SubtitleParser> StreamAbstractionAAMP::RegisterSubtitleParser_CB(std::string mimeType, bool isExpectedMimetype)
+{
+	SubtitleMimeType type = eSUB_TYPE_UNKNOWN;
+
+	AAMPLOG_INFO("RegisterSubtitleParser_CB: mimeType %s", mimeType.c_str());
+
+	if (!mimeType.compare("text/vtt"))
+		type = eSUB_TYPE_WEBVTT;
+	else if (!mimeType.compare("application/ttml+xml") ||
+			!mimeType.compare("application/mp4"))
+		type = eSUB_TYPE_TTML;
+
+	return RegisterSubtitleParser_CB(type, isExpectedMimetype);
+}
+
+/**
+ * @brief Function to initialize the create subtitle parese instance & player related callbacks
+ */
+std::unique_ptr<SubtitleParser> StreamAbstractionAAMP::RegisterSubtitleParser_CB(SubtitleMimeType mimeType, bool isExpectedMimetype) {
+    int width = 0, height = 0;
+    bool webVTTCueListenersRegistered = false, isWebVTTNativeConfigured = false, resumeTrackDownload = false;
+    PlayerCallbacks playerCallBack = {};
+
+	if(isExpectedMimetype)
+	{
+		webVTTCueListenersRegistered = aamp->WebVTTCueListenersRegistered();
+		isWebVTTNativeConfigured = ISCONFIGSET(eAAMPConfig_WebVTTNative);
+	}
+
+    this->InitializePlayerCallbacks(playerCallBack);
+    aamp->GetPlayerVideoSize(width, height);
+
+    std::unique_ptr<SubtitleParser> subtitleParser = SubtecFactory::createSubtitleParser(mimeType, width, height, webVTTCueListenersRegistered, isWebVTTNativeConfigured, resumeTrackDownload);
+    if (subtitleParser) {
+        subtitleParser->RegisterCallback(playerCallBack);
+        if (resumeTrackDownload) {
+            aamp->ResumeTrackDownloads(eMEDIATYPE_SUBTITLE);
+        }
+    }
+    return subtitleParser;
 }
 
 /**

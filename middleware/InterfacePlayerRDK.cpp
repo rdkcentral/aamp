@@ -2175,7 +2175,7 @@ int InterfacePlayerRDK::SetupStream(int streamId,  void *playerInstance, std::st
 			}
 			else
 			{
-				AAMPLOG_WARN("Failed to create rialtomseaudiosink");
+				MW_LOG_WARN("Failed to create rialtomseaudiosink");
 			}
 		}
 		else if (pInterfacePlayerRDK->gstPrivateContext->using_westerossink && eGST_MEDIATYPE_VIDEO == streamId)
@@ -3627,7 +3627,7 @@ bool gst_StartsWith( const char *inputStr, const char *prefix )
 bool GstPlayer_isVideoOrAudioDecoder(const char *name, InterfacePlayerRDK *pInterfacePlayerRDK)
 {
 	// The idea is to identify video or audio decoder plugin created at runtime by playbin and register to its first-frame/pts-error callbacks
-	// This support is available in BCOM plugins in RDK builds and hence checking only for such plugin instances here
+	// This support is available in plugins in RDK builds and hence checking only for such plugin instances here
 	// For platforms that doesnt support callback, we use GST_STATE_PLAYING state change of playbin to notify first frame to app
 	bool isAudioOrVideoDecoder = false;
 	bool isRialto = pInterfacePlayerRDK->gstPrivateContext->usingRialtoSink;

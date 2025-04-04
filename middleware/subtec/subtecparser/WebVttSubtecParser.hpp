@@ -19,30 +19,30 @@
 
 #pragma once
 
-#include "webvttParser.h"
-#include "vttCue.h"
+#include "subtitleParser.h"
 #include "SubtecChannel.hpp"
-#include "AampUtils.h"
-#include "WebvttSubtecDevInterface.hpp"
 
-class WebVTTSubtecDevParser : public WebVTTParser
+class WebVTTSubtecParser : public SubtitleParser
 {
 public:
-	WebVTTSubtecDevParser(SubtitleMimeType type, int width, int height);
+	WebVTTSubtecParser(SubtitleMimeType type, int width, int height);
 	
-	WebVTTSubtecDevParser(const WebVTTSubtecDevParser&) = delete;
-	WebVTTSubtecDevParser& operator=(const WebVTTSubtecDevParser&) = delete;
+	WebVTTSubtecParser(const WebVTTSubtecParser&) = delete;
+	WebVTTSubtecParser& operator=(const WebVTTSubtecParser&) = delete;
+
 	
 	bool init(double startPosSeconds, unsigned long long basePTS) override;
 	bool processData(const char* buffer, size_t bufferLen, double position, double duration) override;
+	bool close() override { return true; }
 	void reset() override;
-	void sendCueData() override;
 	void setProgressEventOffset(double offset) override {}
 	void updateTimestamp(unsigned long long positionMs) override;
 	void pause(bool pause) override;
 	void mute(bool mute) override;
+	void setTextStyle(const std::string &options) override;
 protected:
-	std::unique_ptr<WebvttSubtecDevInterface> mSubtecInterface;
+	std::unique_ptr<SubtecChannel> m_channel;
 private:
-	std::string getVttAsTtml();
+	std::uint64_t time_offset_ms_ = 0;
+	std::uint64_t start_ms_ = 0;
 };

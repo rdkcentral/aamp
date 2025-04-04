@@ -1427,6 +1427,65 @@ public:
 	 */
 	void SetVideoPlaybackRate(float rate);
 
+	/**
+	 * @fn ResumeTrackDownloadsHandler
+	 *
+	 * @return void
+	 */
+	void ResumeTrackDownloadsHandler();
+
+	/**
+	 * @fn ResumeTrackDownloadsHandler
+	 *
+	 * @return void
+	 */
+	void StopTrackDownloadsHandler();
+
+	/**
+	* @fn GetPlayerPositionsHandler
+	*
+	* @return seek & current position in seconds
+	*/
+	void GetPlayerPositionsHandler(long long& getPositionMS, double& seekPositionSeconds);
+
+	/**
+	* @fn SendVTTCueDataHandler
+	*
+	* @return void
+	*/
+	void SendVTTCueDataHandler(VTTCue* cueData);
+
+	/**
+	 * @fn InitializePlayerCallbacks
+	 *
+	 * @return void
+	 */
+	void InitializePlayerCallbacks(PlayerCallbacks& callbacks);
+
+	/**
+	 * @fn RegisterSubtitleParser_CB
+	 * @brief Registers and initializes the subtitle parser based on the provided MIME type.
+	 *
+	 * @param[in] isExpectedMimetype - Indicates whether the expected MIME type.
+	 * @param[in] mimeType - mimetye as enum
+	 * @param[out] SubtitleParser - Provides the created subtitle parser instance.
+	 *
+	 * @return SubtitleParser* - Pointer to the created subtitle parser instance.
+	 */
+	std::unique_ptr<SubtitleParser> RegisterSubtitleParser_CB( SubtitleMimeType mimeType, bool isExpectedMimetype = true);
+
+	/**
+	 * @fn RegisterSubtitleParser_CB
+	 * @brief Registers and initializes the subtitle parser based on the provided MIME type.
+	 *
+	 * @param[in] isExpectedMimetype - Indicates whether the expected MIME type.
+	 * @param[in] mimeType - mimetye as string
+	 * @param[out] SubtitleParser - Provides the created subtitle parser instance.
+	 *
+	 * @return SubtitleParser* - Pointer to the created subtitle parser instance.
+	 */
+	std::unique_ptr<SubtitleParser> RegisterSubtitleParser_CB(std::string mimeType, bool isExpectedMimetype = true);
+
 	bool trickplayMode;                     /**< trick play flag to be updated by subclasses*/
 	int currentProfileIndex;                /**< current Video profile index of the track*/
 	int currentAudioProfileIndex;           /**< current Audio profile index of the track*/

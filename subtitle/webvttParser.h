@@ -57,7 +57,7 @@ class WebVTTParser : public SubtitleParser
 {
 
 public:
-	WebVTTParser(PrivateInstanceAAMP *aamp, SubtitleMimeType type);
+	WebVTTParser(SubtitleMimeType type, int width, int height);
 	virtual ~WebVTTParser();
 
 	virtual bool init(double startPosSeconds, unsigned long long basePTS) override;

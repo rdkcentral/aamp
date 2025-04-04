@@ -52,7 +52,6 @@
 #undef MediaType
 #endif
 
-#define PLAYER_NAME "aamp"
 #define PIPELINE_NAME "AAMPGstPlayerPipeline"
 
 #define AAMP_MIN_DECODE_ERROR_INTERVAL 10000                     /**< Minimum time interval in milliseconds between two decoder error CB to send anomaly error */

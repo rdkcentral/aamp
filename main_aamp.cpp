@@ -32,10 +32,11 @@
 #include "AampConfig.h"
 #include "AampCacheHandler.h"
 #include "AampUtils.h"
-#include "AampCCManager.h"
+#include "PlayerCCManager.h"
 #include "helper/AampDrmHelper.h"
 #include "StreamAbstractionAAMP.h"
 #include "AampStreamSinkManager.h"
+#include "PlayerMetadata.hpp"
 
 #include <dlfcn.h>
 #include <termios.h>
@@ -97,6 +98,7 @@ PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink
 		gpGlobalConfig =  new AampConfig();
 		gpGlobalConfig->Initialize();
 		gpGlobalConfig->ApplyDeviceCapabilities();
+		SetPlayerName(PLAYER_NAME);
 		
 		AAMPLOG_MIL("[AAMP_JS][%p]Creating GlobalConfig Instance[%p]",this,gpGlobalConfig);
 		if(!gpGlobalConfig->ReadAampCfgTxtFile())
@@ -212,7 +214,7 @@ PlayerInstanceAAMP::~PlayerInstanceAAMP()
 
 	if (isLastPlayerInstance)
 	{
-		AampCCManager::DestroyInstance();
+		PlayerCCManager::DestroyInstance();
 	}
 #ifdef SUPPORT_JS_EVENTS
 	if (mJSBinding_DL && isLastPlayerInstance)
@@ -3540,7 +3542,7 @@ void PlayerInstanceAAMP::SetRuntimeDRMConfigSupport(bool DynamicDRMSupported)
  */
 bool PlayerInstanceAAMP::IsOOBCCRenderingSupported()
 {
-	return AampCCManager::GetInstance()->IsOOBCCRenderingSupported();
+	return PlayerCCManager::GetInstance()->IsOOBCCRenderingSupported();
 }
 
 /**

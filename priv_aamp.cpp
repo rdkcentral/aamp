@@ -49,7 +49,7 @@
 #include "SubtecFactory.hpp"
 #include "AampGrowableBuffer.h"
 
-#include "AampCCManager.h"
+#include "PlayerCCManager.h"
 #ifdef USE_OPENCDM // AampOutputProtection is compiled when this  flag is enabled
 #include "aampoutputprotection.h"
 #endif
@@ -452,6 +452,28 @@ static MediaTypeTelemetry aamp_GetMediaTypeForTelemetry(AampMediaType type)
 						break;
 	}
 	return ret;
+}
+
+/**
+ * @brief Updates a vector of CCTrackInfo objects with data from a vector of TextTrackInfo objects.
+ *
+ * This function clears the provided `updatedTextTracks` vector and populates it with
+ * CCTrackInfo objects created from the data in the `textTracksCopy` vector.
+ *
+ * @param[in] textTracksCopy A vector of TextTrackInfo objects to be processed.
+ * @param[out] updatedTextTracks A vector of CCTrackInfo objects to be updated with the processed data.
+ */
+void PrivateInstanceAAMP::UpdateCCTrackInfo(const std::vector<TextTrackInfo>& textTracksCopy, std::vector<CCTrackInfo>& updatedTextTracks)
+{
+    updatedTextTracks.clear(); // Clear the vector to ensure no stale data remains.
+
+    for (const auto& track : textTracksCopy)
+    {
+        CCTrackInfo ccTrack;
+        ccTrack.language = track.language;
+        ccTrack.instreamId = track.instreamId;
+        updatedTextTracks.push_back(ccTrack);
+    }
 }
 
 /**
@@ -1385,7 +1407,7 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 PrivateInstanceAAMP::~PrivateInstanceAAMP()
 {
 	StopPausePositionMonitoring("AAMP destroyed");
-	AampCCManager::GetInstance()->Release(mCCId);
+	PlayerCCManager::GetInstance()->Release(mCCId);
 	mCCId = 0;
 	{
 		std::lock_guard<std::mutex> guard(gMutex);
@@ -3006,11 +3028,11 @@ void PrivateInstanceAAMP::NotifySpeedChanged(float rate, bool changeState)
 	{
 		if (rate == AAMP_NORMAL_PLAY_RATE)
 		{
-			AampCCManager::GetInstance()->SetTrickplayStatus(false);
+			PlayerCCManager::GetInstance()->SetTrickplayStatus(false);
 		}
 		else
 		{
-			AampCCManager::GetInstance()->SetTrickplayStatus(true);
+			PlayerCCManager::GetInstance()->SetTrickplayStatus(true);
 		}
 	}
 	if(ISCONFIGSET_PRIV(eAAMPConfig_RepairIframes))
@@ -4870,7 +4892,7 @@ void PrivateInstanceAAMP::TeardownStream(bool newTune)
 			AAMPLOG_INFO("before CC Release - mTuneType:%d mbPlayEnabled:%d ", mTuneType, mbPlayEnabled);
 			if (mbPlayEnabled && mTuneType != eTUNETYPE_RETUNE)
 			{
-				AampCCManager::GetInstance()->Release(mCCId);
+				PlayerCCManager::GetInstance()->Release(mCCId);
 				mCCId = 0;
 			}
 			else
@@ -5709,11 +5731,11 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 		// if mCCId has non zero value means it is same instance and cc release was not callee then dont get id. if zero then call getid.
 		if(mCCId == 0 )
 		{
-			mCCId = AampCCManager::GetInstance()->GetId();
+			mCCId = PlayerCCManager::GetInstance()->GetId();
 		}
 		//restore CC if it was enabled for previous content.
 		if(mIsInbandCC)
-			AampCCManager::GetInstance()->RestoreCC();
+			PlayerCCManager::GetInstance()->RestoreCC();
 	}
 
 	if (newTune && !mIsFakeTune)
@@ -6144,7 +6166,7 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 	{
 		if (ISCONFIGSET_PRIV(eAAMPConfig_NativeCCRendering))
 		{
-			AampCCManager::GetInstance()->SetParentalControlStatus(false);
+			PlayerCCManager::GetInstance()->SetParentalControlStatus(false);
 		}
 	}
 
@@ -6751,7 +6773,7 @@ void PrivateInstanceAAMP::detach()
 		// Stop CC when pipeline is stopped
 		if (ISCONFIGSET_PRIV(eAAMPConfig_NativeCCRendering))
 		{
-			AampCCManager::GetInstance()->Release(mCCId);
+			PlayerCCManager::GetInstance()->Release(mCCId);
 			mCCId = 0;
 		}
 #ifdef USE_SECMANAGER
@@ -8048,7 +8070,7 @@ void PrivateInstanceAAMP::InitializeCC(unsigned long decoderHandle)
 	}
 #endif
 
-		AampCCManager::GetInstance()->Init((void *)decoderHandle);
+		PlayerCCManager::GetInstance()->Init((void *)decoderHandle);
 
 	if (ISCONFIGSET_PRIV(eAAMPConfig_NativeCCRendering))
 	{
@@ -8057,7 +8079,7 @@ void PrivateInstanceAAMP::InitializeCC(unsigned long decoderHandle)
 		if (overrideCfg == 0)
 		{
 			AAMPLOG_WARN("PrivateInstanceAAMP: CC format override to 608 present, selecting 608CC");
-			AampCCManager::GetInstance()->SetTrack("CC1");
+			PlayerCCManager::GetInstance()->SetTrack("CC1");
 		}
 
 	}
@@ -9322,7 +9344,7 @@ void PrivateInstanceAAMP::SendBlockedEvent(const std::string & reason, const std
 	{
 		if (ISCONFIGSET_PRIV(eAAMPConfig_NativeCCRendering))
 		{
-			AampCCManager::GetInstance()->SetParentalControlStatus(true);
+			PlayerCCManager::GetInstance()->SetParentalControlStatus(true);
 		}
 	}
 }
@@ -10300,7 +10322,9 @@ std::string PrivateInstanceAAMP::GetAvailableTextTracks(bool allTrack)
 
 		std::vector<TextTrackInfo> textTracksCopy;
 		std::copy_if(begin(trackInfo), end(trackInfo), back_inserter(textTracksCopy), [](const TextTrackInfo& e){return e.isCC;});
-		AampCCManager::GetInstance()->updateLastTextTracks(textTracksCopy);
+        std::vector<CCTrackInfo> updatedTextTracks;
+		UpdateCCTrackInfo(textTracksCopy,updatedTextTracks);
+        PlayerCCManager::GetInstance()->updateLastTextTracks(updatedTextTracks);
 		if (!trackInfo.empty())
 		{
 			//Convert to JSON format
@@ -10696,9 +10720,9 @@ std::string PrivateInstanceAAMP::GetTextTrackInfo()
 	{
 		TextTrackInfo trackInfo;
 
-		if (AampCCManager::GetInstance()->GetStatus() && mIsInbandCC)
+		if (PlayerCCManager::GetInstance()->GetStatus() && mIsInbandCC)
 		{
-			std::string trackId = AampCCManager::GetInstance()->GetTrack();
+			std::string trackId = PlayerCCManager::GetInstance()->GetTrack();
 			if (!trackId.empty())
 			{
 				std::vector<TextTrackInfo> tracks = mpStreamAbstractionAAMP->GetAvailableTextTracks();
@@ -10871,7 +10895,7 @@ void PrivateInstanceAAMP::SetTextTrack(int trackId, char *data)
 					if (!track.instreamId.empty())
 					{
 						CCFormat format = eCLOSEDCAPTION_FORMAT_DEFAULT;
-						// AampCCManager expects the CC type, ie 608 or 708
+						// PlayerCCManager expects the CC type, ie 608 or 708
 						// For DASH, there is a possibility that instreamId is just an integer so we infer rendition
 						if (mMediaFormat == eMEDIAFORMAT_DASH && (std::isdigit(static_cast<unsigned char>(track.instreamId[0]))) && !track.rendition.empty())
 						{
@@ -10892,7 +10916,7 @@ void PrivateInstanceAAMP::SetTextTrack(int trackId, char *data)
 							format = (CCFormat)(overrideCfg & 1);
 							AAMPLOG_WARN("PrivateInstanceAAMP: CC format override present, override format to: %d", format);
 						}
-						AampCCManager::GetInstance()->SetTrack(track.instreamId, format);
+						PlayerCCManager::GetInstance()->SetTrack(track.instreamId, format);
 					}
 					else
 					{
@@ -10985,9 +11009,9 @@ int PrivateInstanceAAMP::GetTextTrack()
 {
 	int idx = -1;
 	AcquireStreamLock();
-	if (AampCCManager::GetInstance()->GetStatus() && mpStreamAbstractionAAMP)
+	if (PlayerCCManager::GetInstance()->GetStatus() && mpStreamAbstractionAAMP)
 	{
-		std::string trackId = AampCCManager::GetInstance()->GetTrack();
+		std::string trackId = PlayerCCManager::GetInstance()->GetTrack();
 		if (!trackId.empty())
 		{
 			std::vector<TextTrackInfo> tracks = mpStreamAbstractionAAMP->GetAvailableTextTracks();
@@ -11013,7 +11037,7 @@ int PrivateInstanceAAMP::GetTextTrack()
  */
 void PrivateInstanceAAMP::SetCCStatus(bool enabled)
 {
-	AampCCManager::GetInstance()->SetStatus(enabled);
+	PlayerCCManager::GetInstance()->SetStatus(enabled);
 	AcquireStreamLock();
 	subtitles_muted = !enabled;
 	if (mpStreamAbstractionAAMP)
@@ -11087,8 +11111,8 @@ void PrivateInstanceAAMP::SetTextStyle(const std::string &options)
 	else
 	{
 			// Try setting text style via CC Manager
-		AAMPLOG_WARN("Calling AampCCManager::SetTextStyle(%s)", options.c_str());
-		AampCCManager::GetInstance()->SetStyle(options);
+		AAMPLOG_WARN("Calling PlayerCCManager::SetTextStyle(%s)", options.c_str());
+		PlayerCCManager::GetInstance()->SetStyle(options);
 	}
 }
 
@@ -11103,7 +11127,7 @@ std::string PrivateInstanceAAMP::GetTextStyle()
 	{
 		// CCManager is a singleton potentially used by multiple players
 		// so should retrieve from CCManager.
-		textStyle = AampCCManager::GetInstance()->GetStyle();
+		textStyle = PlayerCCManager::GetInstance()->GetStyle();
 	}
 	return textStyle;
 }
@@ -11285,7 +11309,7 @@ void PrivateInstanceAAMP::DisableContentRestrictions(long grace, long time, bool
 		mpStreamAbstractionAAMP->DisableContentRestrictions(grace, time, eventChange);
 		if (ISCONFIGSET_PRIV(eAAMPConfig_NativeCCRendering))
 		{
-			AampCCManager::GetInstance()->SetParentalControlStatus(false);
+			PlayerCCManager::GetInstance()->SetParentalControlStatus(false);
 		}
 	}
 	mApplyContentRestriction = false;
@@ -12399,7 +12423,7 @@ void PrivateInstanceAAMP::SetPreferredTextLanguages(const char *param )
 								format = eCLOSEDCAPTION_FORMAT_708;
 							}
 						}
-						AampCCManager::GetInstance()->SetTrack(track.instreamId, format);
+						PlayerCCManager::GetInstance()->SetTrack(track.instreamId, format);
 					}
 				}
 
