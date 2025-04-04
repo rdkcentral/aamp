@@ -32,7 +32,7 @@ include_directories(${AAMP_ROOT} ${AAMP_ROOT}/plugins/gst-plugins-rdk-aamp/drm/g
 include_directories(${AAMP_ROOT}/drm)
 include_directories(${AAMP_ROOT}/drm/helper)
 include_directories(${AAMP_ROOT}/subtitle)
-include_directories(${AAMP_ROOT}/closedcaptions)
+include_directories(${AAMP_ROOT}/middleware/closedcaptions)
 include_directories(${AAMP_ROOT}/downloader)
 include_directories(${AAMP_ROOT}/tsb/api)
 include_directories(${AAMP_ROOT}/middleware)

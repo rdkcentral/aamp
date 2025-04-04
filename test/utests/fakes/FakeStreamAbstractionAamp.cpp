@@ -377,6 +377,22 @@ void StreamAbstractionAAMP::UpdateIframeTracks()
 {
 }
 
+void StreamAbstractionAAMP::ResumeTrackDownloadsHandler()
+{
+}
+
+void StreamAbstractionAAMP::StopTrackDownloadsHandler()
+{
+}
+
+void StreamAbstractionAAMP::GetPlayerPositionsHandler(long long& getPositionMS, double& seekPositionSeconds)
+{
+}
+
+void StreamAbstractionAAMP::SendVTTCueDataHandler(VTTCue* cueData)
+{
+}
+
 void MediaTrack::FlushFragmentChunks()
 {
 }

@@ -19,7 +19,7 @@
 
 #include "webvttParser.h"
 
-WebVTTParser::WebVTTParser(PrivateInstanceAAMP *aamp, SubtitleMimeType type) : SubtitleParser(aamp, type)
+WebVTTParser::WebVTTParser(SubtitleMimeType type, int width, int height) : SubtitleParser(type, width, height)
 {
 }
 

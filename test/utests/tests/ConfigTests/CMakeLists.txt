@@ -22,9 +22,10 @@ set(UTESTS_ROOT "../../")
 set(EXEC_NAME ConfigTests)
 set(CMAKE_CXX_FLAGS "-DUTEST")
 
-include_directories(${AAMP_ROOT} ${AAMP_ROOT}/downloader ${AAMP_ROOT}/drm ${AAMP_ROOT}/drm/helper ${AAMP_ROOT}/subtitle) # ${AAMP_ROOT}/isobmff ${AAMP_ROOT}/subtec/subtecparser)
+include_directories(${AAMP_ROOT} ${AAMP_ROOT}/downloader ${AAMP_ROOT}/drm ${AAMP_ROOT}/drm/helper ${AAMP_ROOT}/subtitle ${AAMP_ROOT}/middleware/subtitle) # ${AAMP_ROOT}/isobmff ${AAMP_ROOT}/middleware/playerjsonobject ${AAMP_ROOT}/middleware/subtec/subtecparser)
 include_directories(${AAMP_ROOT}/tsb/api)
 include_directories(${AAMP_ROOT}/middleware)
+include_directories(${AAMP_ROOT}/middleware/subtec/libsubtec)
 include_directories(${AAMP_ROOT}/externals)
 include_directories(${AAMP_ROOT}/tsb/api ${AAMP_ROOT}/middleware)
 

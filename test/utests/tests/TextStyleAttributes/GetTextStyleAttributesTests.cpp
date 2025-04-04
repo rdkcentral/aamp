@@ -21,8 +21,8 @@
 #include <gmock/gmock.h>
 #include "AampLogManager.h"
 #include "MockAampConfig.h"
-#include "MockAampJsonObject.h"
-#include "subtec/subtecparser/TextStyleAttributes.h"
+#include "MockPlayerJsonObject.h"
+#include "middleware/subtec/subtecparser/TextStyleAttributes.h"
 
 using ::testing::_;
 using ::testing::Return;
@@ -43,20 +43,20 @@ protected:
     {
         mAttributes = std::unique_ptr<TextStyleAttributes>(new TextStyleAttributes());
 
-        g_mockAampJsonObject = std::make_shared<StrictMock<MockAampJsonObject>>();
+        g_mockPlayerJsonObject = std::make_shared<StrictMock<MockPlayerJsonObject>>();
     }
 
     void TearDown() override
     {
         mAttributes = nullptr;
 
-        g_mockAampJsonObject = nullptr;
+        g_mockPlayerJsonObject = nullptr;
     }
 };
 
 ACTION(ThrowJsonException)
 {
-    throw AampJsonParseException();
+    throw PlayerJsonParseException();
 }
 
 /*
@@ -74,7 +74,7 @@ TEST_F(GetTextStyleAttributesTests, EmptyJsonOptionsString)
 }
 
 /*
-    Test the getAttributes function when AampJsonObject throws exception
+    Test the getAttributes function when PlayerJsonObject throws exception
     In this case getAttributes must set the attributeMask to 0; informing caller nothing to proceed
 */
 TEST_F(GetTextStyleAttributesTests, JsonExceptionThrown)
@@ -83,13 +83,13 @@ TEST_F(GetTextStyleAttributesTests, JsonExceptionThrown)
     std::uint32_t attributesMask = 0x1234;
     attributesType attributesValues = {0};
 
-    EXPECT_CALL(*g_mockAampJsonObject, get("penSize", An<std::string&>())).WillOnce(ThrowJsonException());
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("penSize", An<std::string&>())).WillOnce(ThrowJsonException());
     EXPECT_EQ(-1, mAttributes->getAttributes(options, attributesValues, attributesMask));
     EXPECT_EQ(attributesMask, 0);
 }
 
 /*
-    Test the getAttributes function when AampJsonObject unsuccessfully retrieves value
+    Test the getAttributes function when PlayerJsonObject unsuccessfully retrieves value
     A wrong key in the Json object (as set in options) is used to test the function.
     In this case getAttributes must set the attributeMask to 0; informing caller nothing to proceed
 */
@@ -99,16 +99,16 @@ TEST_F(GetTextStyleAttributesTests, JsonValueNotReturned)
     std::uint32_t attributesMask = 0x1234;
     attributesType attributesValues = {0};
 
-    EXPECT_CALL(*g_mockAampJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
     EXPECT_EQ(0, mAttributes->getAttributes(options, attributesValues, attributesMask));
     EXPECT_EQ(attributesMask, 0);
 }
@@ -124,18 +124,18 @@ TEST_F(GetTextStyleAttributesTests, FontSizeRightKeyInvalidValueJsonOptionsStrin
     std::uint32_t attributesMask = 0x1234;
     attributesType attributesValues = {0};
 
-    EXPECT_CALL(*g_mockAampJsonObject, get("penSize", An<std::string&>()))
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("penSize", An<std::string&>()))
         .WillOnce(DoAll(SetArgReferee<1>(penSizeValue), Return(true)));
 
-    EXPECT_CALL(*g_mockAampJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
     EXPECT_EQ(0, mAttributes->getAttributes(options, attributesValues, attributesMask));
     EXPECT_EQ(attributesMask, 0);
 }
@@ -152,17 +152,17 @@ TEST_F(GetTextStyleAttributesTests, FontSizeExpectedJsonOptionsStringValueSmallL
     std::uint32_t attributesMask = 0;
     attributesType attributesValues = {0};
 
-    EXPECT_CALL(*g_mockAampJsonObject, get("penSize", An<std::string&>()))
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("penSize", An<std::string&>()))
         .WillOnce(DoAll(SetArgReferee<1>(penSizeValue), Return(true)));
-    EXPECT_CALL(*g_mockAampJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
 
     EXPECT_EQ(0, mAttributes->getAttributes(options, attributesValues, attributesMask));
     EXPECT_EQ(attributesMask, (1<<mAttributes->FONT_SIZE_ARR_POSITION));
@@ -181,17 +181,17 @@ TEST_F(GetTextStyleAttributesTests, FontSizeExpectedJsonOptionsStringValueSmallU
     std::uint32_t attributesMask = 0;
     attributesType attributesValues = {0};
 
-    EXPECT_CALL(*g_mockAampJsonObject, get("penSize", An<std::string&>()))
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("penSize", An<std::string&>()))
         .WillOnce(DoAll(SetArgReferee<1>(penSizeValue), Return(true)));
-    EXPECT_CALL(*g_mockAampJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
 
     EXPECT_EQ(0, mAttributes->getAttributes(options, attributesValues, attributesMask));
     EXPECT_EQ(attributesMask, (1<<mAttributes->FONT_SIZE_ARR_POSITION));
@@ -210,17 +210,17 @@ TEST_F(GetTextStyleAttributesTests, FontSizeExpectedJsonOptionsStringValueMedium
     std::uint32_t attributesMask = 0;
     attributesType attributesValues = {0};
 
-    EXPECT_CALL(*g_mockAampJsonObject, get("penSize", An<std::string&>()))
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("penSize", An<std::string&>()))
         .WillOnce(DoAll(SetArgReferee<1>(penSizeValue), Return(true)));
-    EXPECT_CALL(*g_mockAampJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
 
     EXPECT_EQ(0, mAttributes->getAttributes(options, attributesValues, attributesMask));
     EXPECT_EQ(attributesMask, (1<<mAttributes->FONT_SIZE_ARR_POSITION));
@@ -240,17 +240,17 @@ TEST_F(GetTextStyleAttributesTests, FontSizeExpectedJsonOptionsStringValueMedium
     std::uint32_t attributesMask = 0;
     attributesType attributesValues = {0};
 
-    EXPECT_CALL(*g_mockAampJsonObject, get("penSize", An<std::string&>()))
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("penSize", An<std::string&>()))
         .WillOnce(DoAll(SetArgReferee<1>(penSizeValue), Return(true)));
-    EXPECT_CALL(*g_mockAampJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
 
     EXPECT_EQ(0, mAttributes->getAttributes(options, attributesValues, attributesMask));
     EXPECT_EQ(attributesMask, (1<<mAttributes->FONT_SIZE_ARR_POSITION));
@@ -269,17 +269,17 @@ TEST_F(GetTextStyleAttributesTests, FontSizeExpectedJsonOptionsStringValueStanda
     std::uint32_t attributesMask = 0;
     attributesType attributesValues = {0};
 
-    EXPECT_CALL(*g_mockAampJsonObject, get("penSize", An<std::string&>()))
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("penSize", An<std::string&>()))
         .WillOnce(DoAll(SetArgReferee<1>(penSizeValue), Return(true)));
-    EXPECT_CALL(*g_mockAampJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
 
     EXPECT_EQ(0, mAttributes->getAttributes(options, attributesValues, attributesMask));
     EXPECT_EQ(attributesMask, (1<<mAttributes->FONT_SIZE_ARR_POSITION));
@@ -298,17 +298,17 @@ TEST_F(GetTextStyleAttributesTests, FontSizeExpectedJsonOptionsStringValueLarge)
     std::uint32_t attributesMask = 0;
     attributesType attributesValues = {0};
 
-    EXPECT_CALL(*g_mockAampJsonObject, get("penSize", An<std::string&>()))
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("penSize", An<std::string&>()))
         .WillOnce(DoAll(SetArgReferee<1>(penSizeValue), Return(true)));
-    EXPECT_CALL(*g_mockAampJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
 
     EXPECT_EQ(0, mAttributes->getAttributes(options, attributesValues, attributesMask));
     EXPECT_EQ(attributesMask, (1<<mAttributes->FONT_SIZE_ARR_POSITION));
@@ -327,17 +327,17 @@ TEST_F(GetTextStyleAttributesTests, FontSizeExpectedJsonOptionsStringValueExtral
     std::uint32_t attributesMask = 0;
     attributesType attributesValues = {0};
 
-    EXPECT_CALL(*g_mockAampJsonObject, get("penSize", An<std::string&>()))
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("penSize", An<std::string&>()))
         .WillOnce(DoAll(SetArgReferee<1>(penSizeValue), Return(true)));
-    EXPECT_CALL(*g_mockAampJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
 
     EXPECT_EQ(0, mAttributes->getAttributes(options, attributesValues, attributesMask));
     EXPECT_EQ(attributesMask, (1<<mAttributes->FONT_SIZE_ARR_POSITION));
@@ -356,17 +356,17 @@ TEST_F(GetTextStyleAttributesTests, FontSizeExpectedJsonOptionsStringValueAuto)
     std::uint32_t attributesMask = 0;
     attributesType attributesValues = {0};
 
-    EXPECT_CALL(*g_mockAampJsonObject, get("penSize", An<std::string&>()))
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("penSize", An<std::string&>()))
         .WillOnce(DoAll(SetArgReferee<1>(penSizeValue), Return(true)));
-    EXPECT_CALL(*g_mockAampJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
 
     EXPECT_EQ(0, mAttributes->getAttributes(options, attributesValues, attributesMask));
     EXPECT_EQ(attributesMask, (1<<mAttributes->FONT_SIZE_ARR_POSITION));
@@ -384,17 +384,17 @@ TEST_F(GetTextStyleAttributesTests, FontStyleRightKeyInvalidValueJsonOptionsStri
     std::uint32_t attributesMask = 0x1234;
     attributesType attributesValues = {0};
 
-    EXPECT_CALL(*g_mockAampJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("fontStyle", An<std::string&>()))
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("fontStyle", An<std::string&>()))
         .WillOnce(DoAll(SetArgReferee<1>(fontStyleValue), Return(true)));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
     EXPECT_EQ(0, mAttributes->getAttributes(options, attributesValues, attributesMask));
     EXPECT_EQ(attributesMask, 0);
 }
@@ -411,17 +411,17 @@ TEST_F(GetTextStyleAttributesTests, FontStyleExpectedJsonOptionsStringValueMonos
     std::uint32_t attributesMask = 0;
     attributesType attributesValues = {0};
 
-    EXPECT_CALL(*g_mockAampJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("fontStyle", An<std::string&>()))
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("fontStyle", An<std::string&>()))
         .WillOnce(DoAll(SetArgReferee<1>(fontStyleValue), Return(true)));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
 
     EXPECT_EQ(0, mAttributes->getAttributes(options, attributesValues, attributesMask));
     EXPECT_EQ(attributesMask, (1<<mAttributes->FONT_STYLE_ARR_POSITION));
@@ -440,17 +440,17 @@ TEST_F(GetTextStyleAttributesTests, FontStyleExpectedJsonOptionsStringValueMonos
     std::uint32_t attributesMask = 0;
     attributesType attributesValues = {0};
 
-    EXPECT_CALL(*g_mockAampJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("fontStyle", An<std::string&>()))
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("fontStyle", An<std::string&>()))
         .WillOnce(DoAll(SetArgReferee<1>(fontStyleValue), Return(true)));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
 
     EXPECT_EQ(0, mAttributes->getAttributes(options, attributesValues, attributesMask));
     EXPECT_EQ(attributesMask, (1<<mAttributes->FONT_STYLE_ARR_POSITION));
@@ -469,17 +469,17 @@ TEST_F(GetTextStyleAttributesTests, FontStyleExpectedJsonOptionsStringValueMonos
     std::uint32_t attributesMask = 0;
     attributesType attributesValues = {0};
 
-    EXPECT_CALL(*g_mockAampJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("fontStyle", An<std::string&>()))
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("fontStyle", An<std::string&>()))
         .WillOnce(DoAll(SetArgReferee<1>(fontStyleValue), Return(true)));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
 
     EXPECT_EQ(0, mAttributes->getAttributes(options, attributesValues, attributesMask));
     EXPECT_EQ(attributesMask, (1<<mAttributes->FONT_STYLE_ARR_POSITION));
@@ -498,17 +498,17 @@ TEST_F(GetTextStyleAttributesTests, FontStyleExpectedJsonOptionsStringValuePropo
     std::uint32_t attributesMask = 0;
     attributesType attributesValues = {0};
 
-    EXPECT_CALL(*g_mockAampJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("fontStyle", An<std::string&>()))
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("fontStyle", An<std::string&>()))
         .WillOnce(DoAll(SetArgReferee<1>(fontStyleValue), Return(true)));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
 
     EXPECT_EQ(0, mAttributes->getAttributes(options, attributesValues, attributesMask));
     EXPECT_EQ(attributesMask, (1<<mAttributes->FONT_STYLE_ARR_POSITION));
@@ -527,17 +527,17 @@ TEST_F(GetTextStyleAttributesTests, FontStyleExpectedJsonOptionsStringValueMonos
     std::uint32_t attributesMask = 0;
     attributesType attributesValues = {0};
 
-    EXPECT_CALL(*g_mockAampJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("fontStyle", An<std::string&>()))
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("fontStyle", An<std::string&>()))
         .WillOnce(DoAll(SetArgReferee<1>(fontStyleValue), Return(true)));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
 
     EXPECT_EQ(0, mAttributes->getAttributes(options, attributesValues, attributesMask));
     EXPECT_EQ(attributesMask, (1<<mAttributes->FONT_STYLE_ARR_POSITION));
@@ -556,17 +556,17 @@ TEST_F(GetTextStyleAttributesTests, FontStyleExpectedJsonOptionsStringValuePropo
     std::uint32_t attributesMask = 0;
     attributesType attributesValues = {0};
 
-    EXPECT_CALL(*g_mockAampJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("fontStyle", An<std::string&>()))
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("fontStyle", An<std::string&>()))
         .WillOnce(DoAll(SetArgReferee<1>(fontStyleValue), Return(true)));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
 
     EXPECT_EQ(0, mAttributes->getAttributes(options, attributesValues, attributesMask));
     EXPECT_EQ(attributesMask, (1<<mAttributes->FONT_STYLE_ARR_POSITION));
@@ -585,17 +585,17 @@ TEST_F(GetTextStyleAttributesTests, FontStyleExpectedJsonOptionsStringValueCasua
     std::uint32_t attributesMask = 0;
     attributesType attributesValues = {0};
 
-    EXPECT_CALL(*g_mockAampJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("fontStyle", An<std::string&>()))
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("fontStyle", An<std::string&>()))
         .WillOnce(DoAll(SetArgReferee<1>(fontStyleValue), Return(true)));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
 
     EXPECT_EQ(0, mAttributes->getAttributes(options, attributesValues, attributesMask));
     EXPECT_EQ(attributesMask, (1<<mAttributes->FONT_STYLE_ARR_POSITION));
@@ -614,17 +614,17 @@ TEST_F(GetTextStyleAttributesTests, FontStyleExpectedJsonOptionsStringValueCursi
     std::uint32_t attributesMask = 0;
     attributesType attributesValues = {0};
 
-    EXPECT_CALL(*g_mockAampJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("fontStyle", An<std::string&>()))
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("fontStyle", An<std::string&>()))
         .WillOnce(DoAll(SetArgReferee<1>(fontStyleValue), Return(true)));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
 
     EXPECT_EQ(0, mAttributes->getAttributes(options, attributesValues, attributesMask));
     EXPECT_EQ(attributesMask, (1<<mAttributes->FONT_STYLE_ARR_POSITION));
@@ -643,17 +643,17 @@ TEST_F(GetTextStyleAttributesTests, FontStyleExpectedJsonOptionsStringValueSmall
     std::uint32_t attributesMask = 0;
     attributesType attributesValues = {0};
 
-    EXPECT_CALL(*g_mockAampJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("fontStyle", An<std::string&>()))
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("fontStyle", An<std::string&>()))
         .WillOnce(DoAll(SetArgReferee<1>(fontStyleValue), Return(true)));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
 
     EXPECT_EQ(0, mAttributes->getAttributes(options, attributesValues, attributesMask));
     EXPECT_EQ(attributesMask, (1<<mAttributes->FONT_STYLE_ARR_POSITION));
@@ -672,17 +672,17 @@ TEST_F(GetTextStyleAttributesTests, FontStyleExpectedJsonOptionsStringValueDefau
     std::uint32_t attributesMask = 0;
     attributesType attributesValues = {0};
 
-    EXPECT_CALL(*g_mockAampJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("fontStyle", An<std::string&>()))
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("fontStyle", An<std::string&>()))
         .WillOnce(DoAll(SetArgReferee<1>(fontStyleValue), Return(true)));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
 
     EXPECT_EQ(0, mAttributes->getAttributes(options, attributesValues, attributesMask));
     EXPECT_EQ(attributesMask, (1<<mAttributes->FONT_STYLE_ARR_POSITION));
@@ -701,17 +701,17 @@ TEST_F(GetTextStyleAttributesTests, FontStyleExpectedJsonOptionsStringValueAuto)
     std::uint32_t attributesMask = 0;
     attributesType attributesValues = {0};
 
-    EXPECT_CALL(*g_mockAampJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("fontStyle", An<std::string&>()))
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("fontStyle", An<std::string&>()))
         .WillOnce(DoAll(SetArgReferee<1>(fontStyleValue), Return(true)));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
 
     EXPECT_EQ(0, mAttributes->getAttributes(options, attributesValues, attributesMask));
     EXPECT_EQ(attributesMask, (1<<mAttributes->FONT_STYLE_ARR_POSITION));
@@ -729,17 +729,17 @@ TEST_F(GetTextStyleAttributesTests, FontColorRightKeyInvalidValueJsonOptionsStri
     std::uint32_t attributesMask = 0x1234;
     attributesType attributesValues = {0};
 
-    EXPECT_CALL(*g_mockAampJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundColor", An<std::string&>()))
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundColor", An<std::string&>()))
         .WillOnce(DoAll(SetArgReferee<1>(fontColorValue), Return(true)));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
     EXPECT_EQ(0, mAttributes->getAttributes(options, attributesValues, attributesMask));
     EXPECT_EQ(attributesMask, 0);
 }
@@ -756,17 +756,17 @@ TEST_F(GetTextStyleAttributesTests, FontColorExpectedJsonOptionsStringValueBlack
     std::uint32_t attributesMask = 0;
     attributesType attributesValues = {0};
 
-    EXPECT_CALL(*g_mockAampJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundColor", An<std::string&>()))
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundColor", An<std::string&>()))
         .WillOnce(DoAll(SetArgReferee<1>(fontColorValue), Return(true)));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
 
     EXPECT_EQ(0, mAttributes->getAttributes(options, attributesValues, attributesMask));
     EXPECT_EQ(attributesMask, (1<<mAttributes->FONT_COLOR_ARR_POSITION));
@@ -785,17 +785,17 @@ TEST_F(GetTextStyleAttributesTests, FontColorExpectedJsonOptionsStringValueBlack
     std::uint32_t attributesMask = 0;
     attributesType attributesValues = {0};
 
-    EXPECT_CALL(*g_mockAampJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundColor", An<std::string&>()))
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundColor", An<std::string&>()))
         .WillOnce(DoAll(SetArgReferee<1>(fontColorValue), Return(true)));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
 
     EXPECT_EQ(0, mAttributes->getAttributes(options, attributesValues, attributesMask));
     EXPECT_EQ(attributesMask, (1<<mAttributes->FONT_COLOR_ARR_POSITION));
@@ -814,17 +814,17 @@ TEST_F(GetTextStyleAttributesTests, FontColorExpectedJsonOptionsStringValueWhite
     std::uint32_t attributesMask = 0;
     attributesType attributesValues = {0};
 
-    EXPECT_CALL(*g_mockAampJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundColor", An<std::string&>()))
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundColor", An<std::string&>()))
         .WillOnce(DoAll(SetArgReferee<1>(fontColorValue), Return(true)));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
 
     EXPECT_EQ(0, mAttributes->getAttributes(options, attributesValues, attributesMask));
     EXPECT_EQ(attributesMask, (1<<mAttributes->FONT_COLOR_ARR_POSITION));
@@ -843,17 +843,17 @@ TEST_F(GetTextStyleAttributesTests, FontColorExpectedJsonOptionsStringValueRed)
     std::uint32_t attributesMask = 0;
     attributesType attributesValues = {0};
 
-    EXPECT_CALL(*g_mockAampJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundColor", An<std::string&>()))
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundColor", An<std::string&>()))
         .WillOnce(DoAll(SetArgReferee<1>(fontColorValue), Return(true)));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
 
     EXPECT_EQ(0, mAttributes->getAttributes(options, attributesValues, attributesMask));
     EXPECT_EQ(attributesMask, (1<<mAttributes->FONT_COLOR_ARR_POSITION));
@@ -872,17 +872,17 @@ TEST_F(GetTextStyleAttributesTests, FontColorExpectedJsonOptionsStringValueGreen
     std::uint32_t attributesMask = 0;
     attributesType attributesValues = {0};
 
-    EXPECT_CALL(*g_mockAampJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundColor", An<std::string&>()))
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundColor", An<std::string&>()))
         .WillOnce(DoAll(SetArgReferee<1>(fontColorValue), Return(true)));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
 
     EXPECT_EQ(0, mAttributes->getAttributes(options, attributesValues, attributesMask));
     EXPECT_EQ(attributesMask, (1<<mAttributes->FONT_COLOR_ARR_POSITION));
@@ -901,17 +901,17 @@ TEST_F(GetTextStyleAttributesTests, FontColorExpectedJsonOptionsStringValueBlue)
     std::uint32_t attributesMask = 0;
     attributesType attributesValues = {0};
 
-    EXPECT_CALL(*g_mockAampJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundColor", An<std::string&>()))
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundColor", An<std::string&>()))
         .WillOnce(DoAll(SetArgReferee<1>(fontColorValue), Return(true)));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
 
     EXPECT_EQ(0, mAttributes->getAttributes(options, attributesValues, attributesMask));
     EXPECT_EQ(attributesMask, (1<<mAttributes->FONT_COLOR_ARR_POSITION));
@@ -930,17 +930,17 @@ TEST_F(GetTextStyleAttributesTests, FontColorExpectedJsonOptionsStringValueBlack
     std::uint32_t attributesMask = 0;
     attributesType attributesValues = {0};
 
-    EXPECT_CALL(*g_mockAampJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundColor", An<std::string&>()))
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundColor", An<std::string&>()))
         .WillOnce(DoAll(SetArgReferee<1>(fontColorValue), Return(true)));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
 
     EXPECT_EQ(0, mAttributes->getAttributes(options, attributesValues, attributesMask));
     EXPECT_EQ(attributesMask, (1<<mAttributes->FONT_COLOR_ARR_POSITION));
@@ -959,17 +959,17 @@ TEST_F(GetTextStyleAttributesTests, FontColorExpectedJsonOptionsStringValueMagen
     std::uint32_t attributesMask = 0;
     attributesType attributesValues = {0};
 
-    EXPECT_CALL(*g_mockAampJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundColor", An<std::string&>()))
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundColor", An<std::string&>()))
         .WillOnce(DoAll(SetArgReferee<1>(fontColorValue), Return(true)));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
 
     EXPECT_EQ(0, mAttributes->getAttributes(options, attributesValues, attributesMask));
     EXPECT_EQ(attributesMask, (1<<mAttributes->FONT_COLOR_ARR_POSITION));
@@ -988,17 +988,17 @@ TEST_F(GetTextStyleAttributesTests, FontColorExpectedJsonOptionsStringValueCyan)
     std::uint32_t attributesMask = 0;
     attributesType attributesValues = {0};
 
-    EXPECT_CALL(*g_mockAampJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundColor", An<std::string&>()))
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundColor", An<std::string&>()))
         .WillOnce(DoAll(SetArgReferee<1>(fontColorValue), Return(true)));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
 
     EXPECT_EQ(0, mAttributes->getAttributes(options, attributesValues, attributesMask));
     EXPECT_EQ(attributesMask, (1<<mAttributes->FONT_COLOR_ARR_POSITION));
@@ -1017,17 +1017,17 @@ TEST_F(GetTextStyleAttributesTests, FontColorExpectedJsonOptionsStringValueAuto)
     std::uint32_t attributesMask = 0;
     attributesType attributesValues = {0};
 
-    EXPECT_CALL(*g_mockAampJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundColor", An<std::string&>()))
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundColor", An<std::string&>()))
         .WillOnce(DoAll(SetArgReferee<1>(fontColorValue), Return(true)));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
 
     EXPECT_EQ(0, mAttributes->getAttributes(options, attributesValues, attributesMask));
     EXPECT_EQ(attributesMask, (1<<mAttributes->FONT_COLOR_ARR_POSITION));
@@ -1045,17 +1045,17 @@ TEST_F(GetTextStyleAttributesTests, BackgroundColorRightKeyInvalidValueJsonOptio
     std::uint32_t attributesMask = 0x1234;
     attributesType attributesValues = {0};
 
-    EXPECT_CALL(*g_mockAampJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundColor", An<std::string&>()))
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundColor", An<std::string&>()))
         .WillOnce(DoAll(SetArgReferee<1>(backgroundColorValue), Return(true)));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
     EXPECT_EQ(0, mAttributes->getAttributes(options, attributesValues, attributesMask));
     EXPECT_EQ(attributesMask, 0);
 }
@@ -1072,17 +1072,17 @@ TEST_F(GetTextStyleAttributesTests, BackgroundColorExpectedJsonOptionsStringValu
     std::uint32_t attributesMask = 0;
     attributesType attributesValues = {0};
 
-    EXPECT_CALL(*g_mockAampJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundColor", An<std::string&>()))
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundColor", An<std::string&>()))
         .WillOnce(DoAll(SetArgReferee<1>(backgroundColorValue), Return(true)));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
 
     EXPECT_EQ(0, mAttributes->getAttributes(options, attributesValues, attributesMask));
     EXPECT_EQ(attributesMask, (1<<mAttributes->BACKGROUND_COLOR_ARR_POSITION));
@@ -1101,17 +1101,17 @@ TEST_F(GetTextStyleAttributesTests, BackgroundColorExpectedJsonOptionsStringValu
     std::uint32_t attributesMask = 0;
     attributesType attributesValues = {0};
 
-    EXPECT_CALL(*g_mockAampJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundColor", An<std::string&>()))
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundColor", An<std::string&>()))
         .WillOnce(DoAll(SetArgReferee<1>(backgroundColorValue), Return(true)));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
 
     EXPECT_EQ(0, mAttributes->getAttributes(options, attributesValues, attributesMask));
     EXPECT_EQ(attributesMask, (1<<mAttributes->BACKGROUND_COLOR_ARR_POSITION));
@@ -1130,17 +1130,17 @@ TEST_F(GetTextStyleAttributesTests, BackgroundColorExpectedJsonOptionsStringValu
     std::uint32_t attributesMask = 0;
     attributesType attributesValues = {0};
 
-    EXPECT_CALL(*g_mockAampJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundColor", An<std::string&>()))
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundColor", An<std::string&>()))
         .WillOnce(DoAll(SetArgReferee<1>(backgroundColorValue), Return(true)));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
 
     EXPECT_EQ(0, mAttributes->getAttributes(options, attributesValues, attributesMask));
     EXPECT_EQ(attributesMask, (1<<mAttributes->BACKGROUND_COLOR_ARR_POSITION));
@@ -1159,17 +1159,17 @@ TEST_F(GetTextStyleAttributesTests, BackgroundColorExpectedJsonOptionsStringValu
     std::uint32_t attributesMask = 0;
     attributesType attributesValues = {0};
 
-    EXPECT_CALL(*g_mockAampJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundColor", An<std::string&>()))
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundColor", An<std::string&>()))
         .WillOnce(DoAll(SetArgReferee<1>(backgroundColorValue), Return(true)));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
 
     EXPECT_EQ(0, mAttributes->getAttributes(options, attributesValues, attributesMask));
     EXPECT_EQ(attributesMask, (1<<mAttributes->BACKGROUND_COLOR_ARR_POSITION));
@@ -1188,17 +1188,17 @@ TEST_F(GetTextStyleAttributesTests, BackgroundColorExpectedJsonOptionsStringValu
     std::uint32_t attributesMask = 0;
     attributesType attributesValues = {0};
 
-    EXPECT_CALL(*g_mockAampJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundColor", An<std::string&>()))
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundColor", An<std::string&>()))
         .WillOnce(DoAll(SetArgReferee<1>(backgroundColorValue), Return(true)));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
 
     EXPECT_EQ(0, mAttributes->getAttributes(options, attributesValues, attributesMask));
     EXPECT_EQ(attributesMask, (1<<mAttributes->BACKGROUND_COLOR_ARR_POSITION));
@@ -1217,17 +1217,17 @@ TEST_F(GetTextStyleAttributesTests, BackgroundColorExpectedJsonOptionsStringValu
     std::uint32_t attributesMask = 0;
     attributesType attributesValues = {0};
 
-    EXPECT_CALL(*g_mockAampJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundColor", An<std::string&>()))
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundColor", An<std::string&>()))
         .WillOnce(DoAll(SetArgReferee<1>(backgroundColorValue), Return(true)));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
 
     EXPECT_EQ(0, mAttributes->getAttributes(options, attributesValues, attributesMask));
     EXPECT_EQ(attributesMask, (1<<mAttributes->BACKGROUND_COLOR_ARR_POSITION));
@@ -1246,17 +1246,17 @@ TEST_F(GetTextStyleAttributesTests, BackgroundColorExpectedJsonOptionsStringValu
     std::uint32_t attributesMask = 0;
     attributesType attributesValues = {0};
 
-    EXPECT_CALL(*g_mockAampJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundColor", An<std::string&>()))
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundColor", An<std::string&>()))
         .WillOnce(DoAll(SetArgReferee<1>(backgroundColorValue), Return(true)));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
 
     EXPECT_EQ(0, mAttributes->getAttributes(options, attributesValues, attributesMask));
     EXPECT_EQ(attributesMask, (1<<mAttributes->BACKGROUND_COLOR_ARR_POSITION));
@@ -1275,17 +1275,17 @@ TEST_F(GetTextStyleAttributesTests, BackgroundColorExpectedJsonOptionsStringValu
     std::uint32_t attributesMask = 0;
     attributesType attributesValues = {0};
 
-    EXPECT_CALL(*g_mockAampJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundColor", An<std::string&>()))
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundColor", An<std::string&>()))
         .WillOnce(DoAll(SetArgReferee<1>(backgroundColorValue), Return(true)));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
 
     EXPECT_EQ(0, mAttributes->getAttributes(options, attributesValues, attributesMask));
     EXPECT_EQ(attributesMask, (1<<mAttributes->BACKGROUND_COLOR_ARR_POSITION));
@@ -1304,17 +1304,17 @@ TEST_F(GetTextStyleAttributesTests, BackgroundColorExpectedJsonOptionsStringValu
     std::uint32_t attributesMask = 0;
     attributesType attributesValues = {0};
 
-    EXPECT_CALL(*g_mockAampJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundColor", An<std::string&>()))
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundColor", An<std::string&>()))
         .WillOnce(DoAll(SetArgReferee<1>(backgroundColorValue), Return(true)));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
 
     EXPECT_EQ(0, mAttributes->getAttributes(options, attributesValues, attributesMask));
     EXPECT_EQ(attributesMask, (1<<mAttributes->BACKGROUND_COLOR_ARR_POSITION));
@@ -1333,17 +1333,17 @@ TEST_F(GetTextStyleAttributesTests, BackgroundColorExpectedJsonOptionsStringValu
     std::uint32_t attributesMask = 0;
     attributesType attributesValues = {0};
 
-    EXPECT_CALL(*g_mockAampJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundColor", An<std::string&>()))
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundColor", An<std::string&>()))
         .WillOnce(DoAll(SetArgReferee<1>(backgroundColorValue), Return(true)));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
 
     EXPECT_EQ(0, mAttributes->getAttributes(options, attributesValues, attributesMask));
     EXPECT_EQ(attributesMask, (1<<mAttributes->BACKGROUND_COLOR_ARR_POSITION));
@@ -1361,17 +1361,17 @@ TEST_F(GetTextStyleAttributesTests, EdgeTypeRightKeyInvalidValueJsonOptionsStrin
     std::uint32_t attributesMask = 0x1234;
     attributesType attributesValues = {0};
 
-    EXPECT_CALL(*g_mockAampJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeStyle", An<std::string&>()))
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeStyle", An<std::string&>()))
         .WillOnce(DoAll(SetArgReferee<1>(edgeTypeValue), Return(true)));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
     EXPECT_EQ(0, mAttributes->getAttributes(options, attributesValues, attributesMask));
     EXPECT_EQ(attributesMask, 0);
 }
@@ -1388,17 +1388,17 @@ TEST_F(GetTextStyleAttributesTests, EdgeTypeExpectedJsonOptionsStringValueNoneLo
     std::uint32_t attributesMask = 0;
     attributesType attributesValues = {0};
 
-    EXPECT_CALL(*g_mockAampJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeStyle", An<std::string&>()))
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeStyle", An<std::string&>()))
         .WillOnce(DoAll(SetArgReferee<1>(edgeTypeValue), Return(true)));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
 
     EXPECT_EQ(0, mAttributes->getAttributes(options, attributesValues, attributesMask));
     EXPECT_EQ(attributesMask, (1<<mAttributes->EDGE_TYPE_ARR_POSITION));
@@ -1417,17 +1417,17 @@ TEST_F(GetTextStyleAttributesTests, EdgeTypeExpectedJsonOptionsStringValueNoneUp
     std::uint32_t attributesMask = 0;
     attributesType attributesValues = {0};
 
-    EXPECT_CALL(*g_mockAampJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeStyle", An<std::string&>()))
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeStyle", An<std::string&>()))
         .WillOnce(DoAll(SetArgReferee<1>(edgeTypeValue), Return(true)));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
 
     EXPECT_EQ(0, mAttributes->getAttributes(options, attributesValues, attributesMask));
     EXPECT_EQ(attributesMask, (1<<mAttributes->EDGE_TYPE_ARR_POSITION));
@@ -1446,17 +1446,17 @@ TEST_F(GetTextStyleAttributesTests, EdgeTypeExpectedJsonOptionsStringValueRaised
     std::uint32_t attributesMask = 0;
     attributesType attributesValues = {0};
 
-    EXPECT_CALL(*g_mockAampJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeStyle", An<std::string&>()))
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeStyle", An<std::string&>()))
         .WillOnce(DoAll(SetArgReferee<1>(edgeTypeValue), Return(true)));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
 
     EXPECT_EQ(0, mAttributes->getAttributes(options, attributesValues, attributesMask));
     EXPECT_EQ(attributesMask, (1<<mAttributes->EDGE_TYPE_ARR_POSITION));
@@ -1475,17 +1475,17 @@ TEST_F(GetTextStyleAttributesTests, EdgeTypeExpectedJsonOptionsStringValueDepres
     std::uint32_t attributesMask = 0;
     attributesType attributesValues = {0};
 
-    EXPECT_CALL(*g_mockAampJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeStyle", An<std::string&>()))
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeStyle", An<std::string&>()))
         .WillOnce(DoAll(SetArgReferee<1>(edgeTypeValue), Return(true)));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
 
     EXPECT_EQ(0, mAttributes->getAttributes(options, attributesValues, attributesMask));
     EXPECT_EQ(attributesMask, (1<<mAttributes->EDGE_TYPE_ARR_POSITION));
@@ -1504,17 +1504,17 @@ TEST_F(GetTextStyleAttributesTests, EdgeTypeExpectedJsonOptionsStringValueUnifor
     std::uint32_t attributesMask = 0;
     attributesType attributesValues = {0};
 
-    EXPECT_CALL(*g_mockAampJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeStyle", An<std::string&>()))
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeStyle", An<std::string&>()))
         .WillOnce(DoAll(SetArgReferee<1>(edgeTypeValue), Return(true)));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
 
     EXPECT_EQ(0, mAttributes->getAttributes(options, attributesValues, attributesMask));
     EXPECT_EQ(attributesMask, (1<<mAttributes->EDGE_TYPE_ARR_POSITION));
@@ -1533,17 +1533,17 @@ TEST_F(GetTextStyleAttributesTests, EdgeTypeExpectedJsonOptionsStringValueLeftdr
     std::uint32_t attributesMask = 0;
     attributesType attributesValues = {0};
 
-    EXPECT_CALL(*g_mockAampJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeStyle", An<std::string&>()))
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeStyle", An<std::string&>()))
         .WillOnce(DoAll(SetArgReferee<1>(edgeTypeValue), Return(true)));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
 
     EXPECT_EQ(0, mAttributes->getAttributes(options, attributesValues, attributesMask));
     EXPECT_EQ(attributesMask, (1<<mAttributes->EDGE_TYPE_ARR_POSITION));
@@ -1562,17 +1562,17 @@ TEST_F(GetTextStyleAttributesTests, EdgeTypeExpectedJsonOptionsStringValueRightd
     std::uint32_t attributesMask = 0;
     attributesType attributesValues = {0};
 
-    EXPECT_CALL(*g_mockAampJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeStyle", An<std::string&>()))
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeStyle", An<std::string&>()))
         .WillOnce(DoAll(SetArgReferee<1>(edgeTypeValue), Return(true)));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
 
     EXPECT_EQ(0, mAttributes->getAttributes(options, attributesValues, attributesMask));
     EXPECT_EQ(attributesMask, (1<<mAttributes->EDGE_TYPE_ARR_POSITION));
@@ -1591,17 +1591,17 @@ TEST_F(GetTextStyleAttributesTests, EdgeTypeExpectedJsonOptionsStringValueAuto)
     std::uint32_t attributesMask = 0;
     attributesType attributesValues = {0};
 
-    EXPECT_CALL(*g_mockAampJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeStyle", An<std::string&>()))
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeStyle", An<std::string&>()))
         .WillOnce(DoAll(SetArgReferee<1>(edgeTypeValue), Return(true)));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
 
     EXPECT_EQ(0, mAttributes->getAttributes(options, attributesValues, attributesMask));
     EXPECT_EQ(attributesMask, (1<<mAttributes->EDGE_TYPE_ARR_POSITION));
@@ -1619,17 +1619,17 @@ TEST_F(GetTextStyleAttributesTests, EdgeColorRightKeyInvalidValueJsonOptionsStri
     std::uint32_t attributesMask = 0x1234;
     attributesType attributesValues = {0};
 
-    EXPECT_CALL(*g_mockAampJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeColor", An<std::string&>()))
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeColor", An<std::string&>()))
         .WillOnce(DoAll(SetArgReferee<1>(edgeColorValue), Return(true)));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
     EXPECT_EQ(0, mAttributes->getAttributes(options, attributesValues, attributesMask));
     EXPECT_EQ(attributesMask, 0);
 }
@@ -1646,17 +1646,17 @@ TEST_F(GetTextStyleAttributesTests, EdgeColorExpectedJsonOptionsStringValueBlack
     std::uint32_t attributesMask = 0;
     attributesType attributesValues = {0};
 
-    EXPECT_CALL(*g_mockAampJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeColor", An<std::string&>()))
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeColor", An<std::string&>()))
         .WillOnce(DoAll(SetArgReferee<1>(edgeColorValue), Return(true)));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
 
     EXPECT_EQ(0, mAttributes->getAttributes(options, attributesValues, attributesMask));
     EXPECT_EQ(attributesMask, (1<<mAttributes->EDGE_COLOR_ARR_POSITION));
@@ -1675,17 +1675,17 @@ TEST_F(GetTextStyleAttributesTests, EdgeColorExpectedJsonOptionsStringValueBlack
     std::uint32_t attributesMask = 0;
     attributesType attributesValues = {0};
 
-    EXPECT_CALL(*g_mockAampJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeColor", An<std::string&>()))
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeColor", An<std::string&>()))
         .WillOnce(DoAll(SetArgReferee<1>(edgeColorValue), Return(true)));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
 
     EXPECT_EQ(0, mAttributes->getAttributes(options, attributesValues, attributesMask));
     EXPECT_EQ(attributesMask, (1<<mAttributes->EDGE_COLOR_ARR_POSITION));
@@ -1704,17 +1704,17 @@ TEST_F(GetTextStyleAttributesTests, EdgeColorExpectedJsonOptionsStringValueWhite
     std::uint32_t attributesMask = 0;
     attributesType attributesValues = {0};
 
-    EXPECT_CALL(*g_mockAampJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeColor", An<std::string&>()))
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeColor", An<std::string&>()))
         .WillOnce(DoAll(SetArgReferee<1>(edgeColorValue), Return(true)));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
 
     EXPECT_EQ(0, mAttributes->getAttributes(options, attributesValues, attributesMask));
     EXPECT_EQ(attributesMask, (1<<mAttributes->EDGE_COLOR_ARR_POSITION));
@@ -1733,17 +1733,17 @@ TEST_F(GetTextStyleAttributesTests, EdgeColorExpectedJsonOptionsStringValueRed)
     std::uint32_t attributesMask = 0;
     attributesType attributesValues = {0};
 
-    EXPECT_CALL(*g_mockAampJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeColor", An<std::string&>()))
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeColor", An<std::string&>()))
         .WillOnce(DoAll(SetArgReferee<1>(edgeColorValue), Return(true)));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
 
     EXPECT_EQ(0, mAttributes->getAttributes(options, attributesValues, attributesMask));
     EXPECT_EQ(attributesMask, (1<<mAttributes->EDGE_COLOR_ARR_POSITION));
@@ -1762,17 +1762,17 @@ TEST_F(GetTextStyleAttributesTests, EdgeColorExpectedJsonOptionsStringValueGreen
     std::uint32_t attributesMask = 0;
     attributesType attributesValues = {0};
 
-    EXPECT_CALL(*g_mockAampJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeColor", An<std::string&>()))
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeColor", An<std::string&>()))
         .WillOnce(DoAll(SetArgReferee<1>(edgeColorValue), Return(true)));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
 
     EXPECT_EQ(0, mAttributes->getAttributes(options, attributesValues, attributesMask));
     EXPECT_EQ(attributesMask, (1<<mAttributes->EDGE_COLOR_ARR_POSITION));
@@ -1791,17 +1791,17 @@ TEST_F(GetTextStyleAttributesTests, EdgeColorExpectedJsonOptionsStringValueBlue)
     std::uint32_t attributesMask = 0;
     attributesType attributesValues = {0};
 
-    EXPECT_CALL(*g_mockAampJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeColor", An<std::string&>()))
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeColor", An<std::string&>()))
         .WillOnce(DoAll(SetArgReferee<1>(edgeColorValue), Return(true)));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
 
     EXPECT_EQ(0, mAttributes->getAttributes(options, attributesValues, attributesMask));
     EXPECT_EQ(attributesMask, (1<<mAttributes->EDGE_COLOR_ARR_POSITION));
@@ -1820,17 +1820,17 @@ TEST_F(GetTextStyleAttributesTests, EdgeColorExpectedJsonOptionsStringValueYello
     std::uint32_t attributesMask = 0;
     attributesType attributesValues = {0};
 
-    EXPECT_CALL(*g_mockAampJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeColor", An<std::string&>()))
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeColor", An<std::string&>()))
         .WillOnce(DoAll(SetArgReferee<1>(edgeColorValue), Return(true)));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
 
     EXPECT_EQ(0, mAttributes->getAttributes(options, attributesValues, attributesMask));
     EXPECT_EQ(attributesMask, (1<<mAttributes->EDGE_COLOR_ARR_POSITION));
@@ -1849,17 +1849,17 @@ TEST_F(GetTextStyleAttributesTests, EdgeColorExpectedJsonOptionsStringValueMagen
     std::uint32_t attributesMask = 0;
     attributesType attributesValues = {0};
 
-    EXPECT_CALL(*g_mockAampJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeColor", An<std::string&>()))
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeColor", An<std::string&>()))
         .WillOnce(DoAll(SetArgReferee<1>(edgeColorValue), Return(true)));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
 
     EXPECT_EQ(0, mAttributes->getAttributes(options, attributesValues, attributesMask));
     EXPECT_EQ(attributesMask, (1<<mAttributes->EDGE_COLOR_ARR_POSITION));
@@ -1878,17 +1878,17 @@ TEST_F(GetTextStyleAttributesTests, EdgeColorExpectedJsonOptionsStringValueCyan)
     std::uint32_t attributesMask = 0;
     attributesType attributesValues = {0};
 
-    EXPECT_CALL(*g_mockAampJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeColor", An<std::string&>()))
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeColor", An<std::string&>()))
         .WillOnce(DoAll(SetArgReferee<1>(edgeColorValue), Return(true)));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
 
     EXPECT_EQ(0, mAttributes->getAttributes(options, attributesValues, attributesMask));
     EXPECT_EQ(attributesMask, (1<<mAttributes->EDGE_COLOR_ARR_POSITION));
@@ -1907,17 +1907,17 @@ TEST_F(GetTextStyleAttributesTests, EdgeColorExpectedJsonOptionsStringValueAuto)
     std::uint32_t attributesMask = 0;
     attributesType attributesValues = {0};
 
-    EXPECT_CALL(*g_mockAampJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeColor", An<std::string&>()))
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeColor", An<std::string&>()))
         .WillOnce(DoAll(SetArgReferee<1>(edgeColorValue), Return(true)));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
 
     EXPECT_EQ(0, mAttributes->getAttributes(options, attributesValues, attributesMask));
     EXPECT_EQ(attributesMask, (1<<mAttributes->EDGE_COLOR_ARR_POSITION));
@@ -1935,17 +1935,17 @@ TEST_F(GetTextStyleAttributesTests, BackgroundOpacityRightKeyInvalidValueJsonOpt
     std::uint32_t attributesMask = 0x1234;
     attributesType attributesValues = {0};
 
-    EXPECT_CALL(*g_mockAampJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundOpacity", An<std::string&>()))
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundOpacity", An<std::string&>()))
         .WillOnce(DoAll(SetArgReferee<1>(backgroundOpacityValue), Return(true)));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
     EXPECT_EQ(0, mAttributes->getAttributes(options, attributesValues, attributesMask));
     EXPECT_EQ(attributesMask, 0);
 }
@@ -1962,17 +1962,17 @@ TEST_F(GetTextStyleAttributesTests, BackgroundOpacityExpectedJsonOptionsStringVa
     std::uint32_t attributesMask = 0;
     attributesType attributesValues = {0};
 
-    EXPECT_CALL(*g_mockAampJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundOpacity", An<std::string&>()))
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundOpacity", An<std::string&>()))
         .WillOnce(DoAll(SetArgReferee<1>(backgroundOpacityValue), Return(true)));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
 
     EXPECT_EQ(0, mAttributes->getAttributes(options, attributesValues, attributesMask));
     EXPECT_EQ(attributesMask, (1<<mAttributes->BACKGROUND_OPACITY_ARR_POSITION));
@@ -1991,17 +1991,17 @@ TEST_F(GetTextStyleAttributesTests, BackgroundOpacityExpectedJsonOptionsStringVa
     std::uint32_t attributesMask = 0;
     attributesType attributesValues = {0};
 
-    EXPECT_CALL(*g_mockAampJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundOpacity", An<std::string&>()))
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundOpacity", An<std::string&>()))
         .WillOnce(DoAll(SetArgReferee<1>(backgroundOpacityValue), Return(true)));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
 
     EXPECT_EQ(0, mAttributes->getAttributes(options, attributesValues, attributesMask));
     EXPECT_EQ(attributesMask, (1<<mAttributes->BACKGROUND_OPACITY_ARR_POSITION));
@@ -2020,17 +2020,17 @@ TEST_F(GetTextStyleAttributesTests, BackgroundOpacityExpectedJsonOptionsStringVa
     std::uint32_t attributesMask = 0;
     attributesType attributesValues = {0};
 
-    EXPECT_CALL(*g_mockAampJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundOpacity", An<std::string&>()))
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundOpacity", An<std::string&>()))
         .WillOnce(DoAll(SetArgReferee<1>(backgroundOpacityValue), Return(true)));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
 
     EXPECT_EQ(0, mAttributes->getAttributes(options, attributesValues, attributesMask));
     EXPECT_EQ(attributesMask, (1<<mAttributes->BACKGROUND_OPACITY_ARR_POSITION));
@@ -2049,17 +2049,17 @@ TEST_F(GetTextStyleAttributesTests, BackgroundOpacityExpectedJsonOptionsStringVa
     std::uint32_t attributesMask = 0;
     attributesType attributesValues = {0};
 
-    EXPECT_CALL(*g_mockAampJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundOpacity", An<std::string&>()))
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundOpacity", An<std::string&>()))
         .WillOnce(DoAll(SetArgReferee<1>(backgroundOpacityValue), Return(true)));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
 
     EXPECT_EQ(0, mAttributes->getAttributes(options, attributesValues, attributesMask));
     EXPECT_EQ(attributesMask, (1<<mAttributes->BACKGROUND_OPACITY_ARR_POSITION));
@@ -2078,17 +2078,17 @@ TEST_F(GetTextStyleAttributesTests, BackgroundOpacityExpectedJsonOptionsStringVa
     std::uint32_t attributesMask = 0;
     attributesType attributesValues = {0};
 
-    EXPECT_CALL(*g_mockAampJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundOpacity", An<std::string&>()))
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundOpacity", An<std::string&>()))
         .WillOnce(DoAll(SetArgReferee<1>(backgroundOpacityValue), Return(true)));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
 
     EXPECT_EQ(0, mAttributes->getAttributes(options, attributesValues, attributesMask));
     EXPECT_EQ(attributesMask, (1<<mAttributes->BACKGROUND_OPACITY_ARR_POSITION));
@@ -2107,17 +2107,17 @@ TEST_F(GetTextStyleAttributesTests, BackgroundOpacityExpectedJsonOptionsStringVa
     std::uint32_t attributesMask = 0;
     attributesType attributesValues = {0};
 
-    EXPECT_CALL(*g_mockAampJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundOpacity", An<std::string&>()))
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundOpacity", An<std::string&>()))
         .WillOnce(DoAll(SetArgReferee<1>(backgroundOpacityValue), Return(true)));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
 
     EXPECT_EQ(0, mAttributes->getAttributes(options, attributesValues, attributesMask));
     EXPECT_EQ(attributesMask, (1<<mAttributes->BACKGROUND_OPACITY_ARR_POSITION));
@@ -2135,17 +2135,17 @@ TEST_F(GetTextStyleAttributesTests, FontOpacityRightKeyInvalidValueJsonOptionsSt
     std::uint32_t attributesMask = 0x1234;
     attributesType attributesValues = {0};
 
-    EXPECT_CALL(*g_mockAampJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundOpacity", An<std::string&>()))
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundOpacity", An<std::string&>()))
         .WillOnce(DoAll(SetArgReferee<1>(fontOpacityValue), Return(true)));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
     EXPECT_EQ(0, mAttributes->getAttributes(options, attributesValues, attributesMask));
     EXPECT_EQ(attributesMask, 0);
 }
@@ -2162,17 +2162,17 @@ TEST_F(GetTextStyleAttributesTests, FontOpacityExpectedJsonOptionsStringValueSol
     std::uint32_t attributesMask = 0;
     attributesType attributesValues = {0};
 
-    EXPECT_CALL(*g_mockAampJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundOpacity", An<std::string&>()))
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundOpacity", An<std::string&>()))
         .WillOnce(DoAll(SetArgReferee<1>(fontOpacityValue), Return(true)));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
 
     EXPECT_EQ(0, mAttributes->getAttributes(options, attributesValues, attributesMask));
     EXPECT_EQ(attributesMask, (1<<mAttributes->FONT_OPACITY_ARR_POSITION));
@@ -2191,17 +2191,17 @@ TEST_F(GetTextStyleAttributesTests, FontOpacityExpectedJsonOptionsStringValueSol
     std::uint32_t attributesMask = 0;
     attributesType attributesValues = {0};
 
-    EXPECT_CALL(*g_mockAampJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundOpacity", An<std::string&>()))
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundOpacity", An<std::string&>()))
         .WillOnce(DoAll(SetArgReferee<1>(fontOpacityValue), Return(true)));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
 
     EXPECT_EQ(0, mAttributes->getAttributes(options, attributesValues, attributesMask));
     EXPECT_EQ(attributesMask, (1<<mAttributes->FONT_OPACITY_ARR_POSITION));
@@ -2220,17 +2220,17 @@ TEST_F(GetTextStyleAttributesTests, FontOpacityExpectedJsonOptionsStringValueFla
     std::uint32_t attributesMask = 0;
     attributesType attributesValues = {0};
 
-    EXPECT_CALL(*g_mockAampJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundOpacity", An<std::string&>()))
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundOpacity", An<std::string&>()))
         .WillOnce(DoAll(SetArgReferee<1>(fontOpacityValue), Return(true)));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
 
     EXPECT_EQ(0, mAttributes->getAttributes(options, attributesValues, attributesMask));
     EXPECT_EQ(attributesMask, (1<<mAttributes->FONT_OPACITY_ARR_POSITION));
@@ -2249,17 +2249,17 @@ TEST_F(GetTextStyleAttributesTests, FontOpacityExpectedJsonOptionsStringValueTra
     std::uint32_t attributesMask = 0;
     attributesType attributesValues = {0};
 
-    EXPECT_CALL(*g_mockAampJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundOpacity", An<std::string&>()))
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundOpacity", An<std::string&>()))
         .WillOnce(DoAll(SetArgReferee<1>(fontOpacityValue), Return(true)));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
 
     EXPECT_EQ(0, mAttributes->getAttributes(options, attributesValues, attributesMask));
     EXPECT_EQ(attributesMask, (1<<mAttributes->FONT_OPACITY_ARR_POSITION));
@@ -2278,17 +2278,17 @@ TEST_F(GetTextStyleAttributesTests, FontOpacityExpectedJsonOptionsStringValueTra
     std::uint32_t attributesMask = 0;
     attributesType attributesValues = {0};
 
-    EXPECT_CALL(*g_mockAampJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundOpacity", An<std::string&>()))
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundOpacity", An<std::string&>()))
         .WillOnce(DoAll(SetArgReferee<1>(fontOpacityValue), Return(true)));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
 
     EXPECT_EQ(0, mAttributes->getAttributes(options, attributesValues, attributesMask));
     EXPECT_EQ(attributesMask, (1<<mAttributes->FONT_OPACITY_ARR_POSITION));
@@ -2307,17 +2307,17 @@ TEST_F(GetTextStyleAttributesTests, FontOpacityExpectedJsonOptionsStringValueAut
     std::uint32_t attributesMask = 0;
     attributesType attributesValues = {0};
 
-    EXPECT_CALL(*g_mockAampJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundOpacity", An<std::string&>()))
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundOpacity", An<std::string&>()))
         .WillOnce(DoAll(SetArgReferee<1>(fontOpacityValue), Return(true)));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
 
     EXPECT_EQ(0, mAttributes->getAttributes(options, attributesValues, attributesMask));
     EXPECT_EQ(attributesMask, (1<<mAttributes->FONT_OPACITY_ARR_POSITION));
@@ -2335,17 +2335,17 @@ TEST_F(GetTextStyleAttributesTests, WindowColorRightKeyInvalidValueJsonOptionsSt
     std::uint32_t attributesMask = 0x1234;
     attributesType attributesValues = {0};
 
-    EXPECT_CALL(*g_mockAampJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillColor", An<std::string&>()))
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillColor", An<std::string&>()))
         .WillOnce(DoAll(SetArgReferee<1>(windowColorValue), Return(true)));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
     EXPECT_EQ(0, mAttributes->getAttributes(options, attributesValues, attributesMask));
     EXPECT_EQ(attributesMask, 0);
 }
@@ -2362,17 +2362,17 @@ TEST_F(GetTextStyleAttributesTests, WindowColorExpectedJsonOptionsStringValueBla
     std::uint32_t attributesMask = 0;
     attributesType attributesValues = {0};
 
-    EXPECT_CALL(*g_mockAampJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillColor", An<std::string&>()))
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillColor", An<std::string&>()))
         .WillOnce(DoAll(SetArgReferee<1>(windowColorValue), Return(true)));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
 
     EXPECT_EQ(0, mAttributes->getAttributes(options, attributesValues, attributesMask));
     EXPECT_EQ(attributesMask, (1<<mAttributes->WIN_COLOR_ARR_POSITION));
@@ -2391,17 +2391,17 @@ TEST_F(GetTextStyleAttributesTests, WindowColorExpectedJsonOptionsStringValueBla
     std::uint32_t attributesMask = 0;
     attributesType attributesValues = {0};
 
-    EXPECT_CALL(*g_mockAampJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillColor", An<std::string&>()))
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillColor", An<std::string&>()))
         .WillOnce(DoAll(SetArgReferee<1>(windowColorValue), Return(true)));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
 
     EXPECT_EQ(0, mAttributes->getAttributes(options, attributesValues, attributesMask));
     EXPECT_EQ(attributesMask, (1<<mAttributes->WIN_COLOR_ARR_POSITION));
@@ -2420,17 +2420,17 @@ TEST_F(GetTextStyleAttributesTests, WindowColorExpectedJsonOptionsStringValueWhi
     std::uint32_t attributesMask = 0;
     attributesType attributesValues = {0};
 
-    EXPECT_CALL(*g_mockAampJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillColor", An<std::string&>()))
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillColor", An<std::string&>()))
         .WillOnce(DoAll(SetArgReferee<1>(windowColorValue), Return(true)));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
 
     EXPECT_EQ(0, mAttributes->getAttributes(options, attributesValues, attributesMask));
     EXPECT_EQ(attributesMask, (1<<mAttributes->WIN_COLOR_ARR_POSITION));
@@ -2449,17 +2449,17 @@ TEST_F(GetTextStyleAttributesTests, WindowColorExpectedJsonOptionsStringValueRed
     std::uint32_t attributesMask = 0;
     attributesType attributesValues = {0};
 
-    EXPECT_CALL(*g_mockAampJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillColor", An<std::string&>()))
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillColor", An<std::string&>()))
         .WillOnce(DoAll(SetArgReferee<1>(windowColorValue), Return(true)));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
 
     EXPECT_EQ(0, mAttributes->getAttributes(options, attributesValues, attributesMask));
     EXPECT_EQ(attributesMask, (1<<mAttributes->WIN_COLOR_ARR_POSITION));
@@ -2478,17 +2478,17 @@ TEST_F(GetTextStyleAttributesTests, WindowColorExpectedJsonOptionsStringValueGre
     std::uint32_t attributesMask = 0;
     attributesType attributesValues = {0};
 
-    EXPECT_CALL(*g_mockAampJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillColor", An<std::string&>()))
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillColor", An<std::string&>()))
         .WillOnce(DoAll(SetArgReferee<1>(windowColorValue), Return(true)));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
 
     EXPECT_EQ(0, mAttributes->getAttributes(options, attributesValues, attributesMask));
     EXPECT_EQ(attributesMask, (1<<mAttributes->WIN_COLOR_ARR_POSITION));
@@ -2507,17 +2507,17 @@ TEST_F(GetTextStyleAttributesTests, WindowColorExpectedJsonOptionsStringValueBlu
     std::uint32_t attributesMask = 0;
     attributesType attributesValues = {0};
 
-    EXPECT_CALL(*g_mockAampJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillColor", An<std::string&>()))
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillColor", An<std::string&>()))
         .WillOnce(DoAll(SetArgReferee<1>(windowColorValue), Return(true)));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
 
     EXPECT_EQ(0, mAttributes->getAttributes(options, attributesValues, attributesMask));
     EXPECT_EQ(attributesMask, (1<<mAttributes->WIN_COLOR_ARR_POSITION));
@@ -2536,17 +2536,17 @@ TEST_F(GetTextStyleAttributesTests, WindowColorExpectedJsonOptionsStringValueYel
     std::uint32_t attributesMask = 0;
     attributesType attributesValues = {0};
 
-    EXPECT_CALL(*g_mockAampJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillColor", An<std::string&>()))
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillColor", An<std::string&>()))
         .WillOnce(DoAll(SetArgReferee<1>(windowColorValue), Return(true)));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
 
     EXPECT_EQ(0, mAttributes->getAttributes(options, attributesValues, attributesMask));
     EXPECT_EQ(attributesMask, (1<<mAttributes->WIN_COLOR_ARR_POSITION));
@@ -2565,17 +2565,17 @@ TEST_F(GetTextStyleAttributesTests, WindowColorExpectedJsonOptionsStringValueMag
     std::uint32_t attributesMask = 0;
     attributesType attributesValues = {0};
 
-    EXPECT_CALL(*g_mockAampJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillColor", An<std::string&>()))
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillColor", An<std::string&>()))
         .WillOnce(DoAll(SetArgReferee<1>(windowColorValue), Return(true)));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
 
     EXPECT_EQ(0, mAttributes->getAttributes(options, attributesValues, attributesMask));
     EXPECT_EQ(attributesMask, (1<<mAttributes->WIN_COLOR_ARR_POSITION));
@@ -2594,17 +2594,17 @@ TEST_F(GetTextStyleAttributesTests, WindowColorExpectedJsonOptionsStringValueCya
     std::uint32_t attributesMask = 0;
     attributesType attributesValues = {0};
 
-    EXPECT_CALL(*g_mockAampJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillColor", An<std::string&>()))
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillColor", An<std::string&>()))
         .WillOnce(DoAll(SetArgReferee<1>(windowColorValue), Return(true)));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
 
     EXPECT_EQ(0, mAttributes->getAttributes(options, attributesValues, attributesMask));
     EXPECT_EQ(attributesMask, (1<<mAttributes->WIN_COLOR_ARR_POSITION));
@@ -2623,17 +2623,17 @@ TEST_F(GetTextStyleAttributesTests, WindowColorExpectedJsonOptionsStringValueAut
     std::uint32_t attributesMask = 0;
     attributesType attributesValues = {0};
 
-    EXPECT_CALL(*g_mockAampJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillColor", An<std::string&>()))
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillColor", An<std::string&>()))
         .WillOnce(DoAll(SetArgReferee<1>(windowColorValue), Return(true)));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillOpacity", An<std::string&>())).WillOnce(Return(false));
 
     EXPECT_EQ(0, mAttributes->getAttributes(options, attributesValues, attributesMask));
     EXPECT_EQ(attributesMask, (1<<mAttributes->WIN_COLOR_ARR_POSITION));
@@ -2651,16 +2651,16 @@ TEST_F(GetTextStyleAttributesTests, WindowOpacityRightKeyInvalidValueJsonOptions
     std::uint32_t attributesMask = 0x1234;
     attributesType attributesValues = {0};
 
-    EXPECT_CALL(*g_mockAampJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillOpacity", An<std::string&>()))
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillOpacity", An<std::string&>()))
         .WillOnce(DoAll(SetArgReferee<1>(windowOpacityValue), Return(true)));
     EXPECT_EQ(0, mAttributes->getAttributes(options, attributesValues, attributesMask));
     EXPECT_EQ(attributesMask, 0);
@@ -2678,16 +2678,16 @@ TEST_F(GetTextStyleAttributesTests, WindowOpacityExpectedJsonOptionsStringValueS
     std::uint32_t attributesMask = 0;
     attributesType attributesValues = {0};
 
-    EXPECT_CALL(*g_mockAampJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillOpacity", An<std::string&>()))
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillOpacity", An<std::string&>()))
         .WillOnce(DoAll(SetArgReferee<1>(windowOpacityValue), Return(true)));
 
     EXPECT_EQ(0, mAttributes->getAttributes(options, attributesValues, attributesMask));
@@ -2707,16 +2707,16 @@ TEST_F(GetTextStyleAttributesTests, WindowOpacityExpectedJsonOptionsStringValueS
     std::uint32_t attributesMask = 0;
     attributesType attributesValues = {0};
 
-    EXPECT_CALL(*g_mockAampJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillOpacity", An<std::string&>()))
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillOpacity", An<std::string&>()))
         .WillOnce(DoAll(SetArgReferee<1>(windowOpacityValue), Return(true)));
 
     EXPECT_EQ(0, mAttributes->getAttributes(options, attributesValues, attributesMask));
@@ -2736,16 +2736,16 @@ TEST_F(GetTextStyleAttributesTests, WindowOpacityExpectedJsonOptionsStringValueF
     std::uint32_t attributesMask = 0;
     attributesType attributesValues = {0};
 
-    EXPECT_CALL(*g_mockAampJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillOpacity", An<std::string&>()))
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillOpacity", An<std::string&>()))
         .WillOnce(DoAll(SetArgReferee<1>(windowOpacityValue), Return(true)));
 
     EXPECT_EQ(0, mAttributes->getAttributes(options, attributesValues, attributesMask));
@@ -2765,16 +2765,16 @@ TEST_F(GetTextStyleAttributesTests, WindowOpacityExpectedJsonOptionsStringValueT
     std::uint32_t attributesMask = 0;
     attributesType attributesValues = {0};
 
-    EXPECT_CALL(*g_mockAampJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillOpacity", An<std::string&>()))
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillOpacity", An<std::string&>()))
         .WillOnce(DoAll(SetArgReferee<1>(windowOpacityValue), Return(true)));
 
     EXPECT_EQ(0, mAttributes->getAttributes(options, attributesValues, attributesMask));
@@ -2794,16 +2794,16 @@ TEST_F(GetTextStyleAttributesTests, WindowOpacityExpectedJsonOptionsStringValueT
     std::uint32_t attributesMask = 0;
     attributesType attributesValues = {0};
 
-    EXPECT_CALL(*g_mockAampJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillOpacity", An<std::string&>()))
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillOpacity", An<std::string&>()))
         .WillOnce(DoAll(SetArgReferee<1>(windowOpacityValue), Return(true)));
 
     EXPECT_EQ(0, mAttributes->getAttributes(options, attributesValues, attributesMask));
@@ -2823,16 +2823,16 @@ TEST_F(GetTextStyleAttributesTests, WindowOpacityExpectedJsonOptionsStringValueA
     std::uint32_t attributesMask = 0;
     attributesType attributesValues = {0};
 
-    EXPECT_CALL(*g_mockAampJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
-    EXPECT_CALL(*g_mockAampJsonObject, get("windowFillOpacity", An<std::string&>()))
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("penSize", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("fontStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeStyle", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textEdgeColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textBackgroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("textForegroundOpacity", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillColor", An<std::string&>())).WillOnce(Return(false));
+    EXPECT_CALL(*g_mockPlayerJsonObject, get("windowFillOpacity", An<std::string&>()))
         .WillOnce(DoAll(SetArgReferee<1>(windowOpacityValue), Return(true)));
 
     EXPECT_EQ(0, mAttributes->getAttributes(options, attributesValues, attributesMask));

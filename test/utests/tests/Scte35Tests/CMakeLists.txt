@@ -32,6 +32,7 @@ endif(CMAKE_SYSTEM_NAME STREQUAL Linux)
 
 include_directories(${UTESTS_ROOT}/mocks)
 include_directories(${AAMP_ROOT}/subtitle)
+include_directories(${AAMP_ROOT}/middleware/subtitle)
 include_directories(${AAMP_ROOT}/downloader)
 include_directories(${AAMP_ROOT}/drm)
 include_directories(${AAMP_ROOT}/drm/helper)
