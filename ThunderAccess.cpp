@@ -25,7 +25,9 @@
 #include "priv_aamp.h"
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Weffc++"
+#ifndef DISABLE_SECURITY_TOKEN
 #include <securityagent/SecurityTokenUtil.h>
+#endif
 #pragma GCC diagnostic pop
 #include "ThunderAccess.h"
 
@@ -63,20 +65,25 @@ ThunderAccessAAMP::ThunderAccessAAMP(std::string callsign)
     uint32_t status = Core::ERROR_NONE;
 
     Core::SystemInfo::SetEnvironment(_T("THUNDER_ACCESS"), (_T(SERVER_DETAILS)));
-
+    string sToken = "";
+#ifdef DISABLE_SECURITY_TOKEN
+     gSecurityData.securityToken = "token=" + sToken;
+     gSecurityData.tokenQueried = true;
+#else
     if(!gSecurityData.tokenQueried)
     {
         unsigned char buffer[MAX_LENGTH] = {0};
         gSecurityData.tokenStatus = GetSecurityToken(MAX_LENGTH,buffer);
         if(gSecurityData.tokenStatus > 0){
             AAMPLOG_INFO( "[ThunderAccessAAMP] : GetSecurityToken success");
-            string sToken = (char*)buffer;
+            sToken = (char*)buffer;
             gSecurityData.securityToken = "token=" + sToken;
         }
         gSecurityData.tokenQueried = true;
 
         //AAMPLOG_WARN( "[ThunderAccessAAMP] securityToken : %s tokenStatus : %d tokenQueried : %s", gSecurityData.securityToken.c_str(), gSecurityData.tokenStatus, ((gSecurityData.tokenQueried)?"true":"false"));
     }
+#endif
 
     if (NULL == controllerObject) {
         /*Passing empty string instead of Controller callsign.This is assumed as controller plugin.*/
