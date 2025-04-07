@@ -1295,6 +1295,16 @@ void PlayerInstanceAAMP::SeekInternal(double secondsRelativeToTuneTime, bool kee
 			aamp->ResumeDownloads();
 		}
 
+		// Add additional checks for BG playerInstance
+		// If player is in background and only been in PREPARED state
+		// and a seek is attempted to the same position it started, then ignore the seek
+		if (!aamp->mbPlayEnabled && tuneType == eTUNETYPE_SEEK && state == eSTATE_PREPARED &&
+			(aamp->GetPositionSeconds() == secondsRelativeToTuneTime))
+		{
+			AAMPLOG_WARN("Ignoring seek to same position as start position(%lf) for BG player", aamp->GetPositionSeconds());
+			return;
+		}
+
 		/*
 		 * PositionMilisecondLock is intended to ensure both state and seek_pos_seconds
 		 * are updated before GetPositionMilliseconds() can be used*/
