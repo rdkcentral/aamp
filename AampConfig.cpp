@@ -466,6 +466,7 @@ static const ConfigLookupEntryInt mConfigLookupTableInt[AAMPCONFIG_INT_COUNT+CON
 	{eDIAG_OVERLAY_NONE,"showDiagnosticsOverlay",eAAMPConfig_ShowDiagnosticsOverlay,true, eCONFIG_RANGE_SHOW_DIAGNOSTICS_OVERLAY },
 	{DEFAULT_MONITOR_AV_DELTA_MS,"monitorAVSyncThreshold",eAAMPConfig_MonitorAVSyncThreshold ,false,eCONFIG_RANGE_MONITOR_AVSYNC },
 	{DEFAULT_MONITOR_AV_DELTA_MS,"monitorAVJumpThreshold",eAAMPConfig_MonitorAVJumpThreshold,false,eCONFIG_RANGE_MONITOR_AVSYNC },
+	{DEFAULT_PROGRESS_LOGGING_DIVISOR,"progressLoggingDivisor",eAAMPConfig_ProgressLoggingDivisor,false},
 	// aliases, kept for backwards compatibility
 	{DEFAULT_INIT_BITRATE,"defaultBitrate",eAAMPConfig_DefaultBitrate,true },
 	{DEFAULT_INIT_BITRATE_4K,"defaultBitrate4K",eAAMPConfig_DefaultBitrate4K,true },

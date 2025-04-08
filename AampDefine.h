@@ -61,6 +61,7 @@
 #define DEFAULT_ABR_CACHE_LENGTH 3                  		/**< Default ABR cache length */
 #define DEFAULT_ABR_BUFFER_COUNTER 4				/**< Default ABR Buffer Counter */
 #define DEFAULT_REPORT_PROGRESS_INTERVAL 1     			/**< Progress event reporting interval: 1sec */
+#define DEFAULT_PROGRESS_LOGGING_DIVISOR 4			/**< Divisor of progress logging frequency to print logging */
 #define DEFAULT_LICENSE_REQ_RETRY_WAIT_TIME 500			/**< Wait time in milliseconds before retrying for DRM license */
 #define MIN_LICENSE_KEY_ACQUIRE_WAIT_TIME 500			/**<minimum wait time in milliseconds for DRM license to ACQUIRE */
 #define DEFAULT_LICENSE_KEY_ACQUIRE_WAIT_TIME 5000		/**< Wait time in milliseconds for DRM license to ACQUIRE  */

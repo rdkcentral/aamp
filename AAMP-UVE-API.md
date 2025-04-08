@@ -155,6 +155,8 @@ Configuration options are passed to AAMP using the UVE initConfig method. This a
 | maxPlaylistCacheSize | Number | 0 | Optional field to configure maximum cache size in Kbytes to store different profile HLS VOD playlist |
 | maxInitFragCachePerTrack | Number | 5 | Number of initialization header file cached per player instance per track type. Use cached data instead of network re-download  |
 | progressReportingInterval | Number | 1 | Optionally change Progress Report Interval (in seconds) |
+| progress | Boolean | False | Enables Progress logging |
+| progressLoggingDivisor | Number | 4 | If Progress logging is enabled, this divides the progressReportingInterval to reduce the amount of logging |
 | useRetuneForUnpairedDiscontinuity | Boolean | True | Optional unpaired discontinuity retune config ( version 1.0) |
 | useMatchingBaseUrl | Boolean | False | use DASH main manifest hostname to select from multiple base urls in DASH (when present).  By default, will always choose first (version 2.4) |
 | initFragmentRetryCount | Number | 1 | Maximum number of retries for MP4 header fragment download failures (version 2.4)  |

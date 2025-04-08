@@ -2298,7 +2298,8 @@ void PrivateInstanceAAMP::ReportProgress(bool sync, bool beginningOfStream)
 			if (ISCONFIGSET_PRIV(eAAMPConfig_ProgressLogging))
 			{
 				static int tick;
-				if ((tick++ % 4) == 0)
+				int divisor = GETCONFIGVALUE_PRIV(eAAMPConfig_ProgressLoggingDivisor);
+				if( divisor==0 || (tick++ % divisor) == 0 )
 				{
 					AAMPLOG_MIL("aamp pos: [%ld..%ld..%ld..%lld..%.2f..%.2f..%s..%ld..%ld..%.2f]",
 						(long)(start / 1000),
@@ -2374,9 +2375,10 @@ void PrivateInstanceAAMP::ReportAdProgress(bool sync, double positionMs)
 
 		if (ISCONFIGSET_PRIV(eAAMPConfig_ProgressLogging))
 		{
-			static int tick2;
+			static int tick;
 			uint64_t adEnd = mAdAbsoluteStartTime + mAdDuration;
-			if ((tick2++ % 4) == 0)
+			int divisor = GETCONFIGVALUE_PRIV(eAAMPConfig_ProgressLoggingDivisor);
+			if( divisor==0 || (tick++ % divisor) == 0 )
 			{
 				AAMPLOG_WARN("AdId:%s pos:  %" PRIu64 "..%.2lf..%" PRIu64 "..%.2f%%)", mAdProgressId.c_str(), mAdAbsoluteStartTime/1000, curPosition/1000, adEnd/1000, pct);
 			}
