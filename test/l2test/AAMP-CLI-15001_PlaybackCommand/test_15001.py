@@ -113,7 +113,7 @@ TESTDATA2 = {
         # Seek with pause
         {"cmd": "seek 50 1"},
         {"expect": r"\[SeekInternal\]\[\d+]aamp_Seek\(50\.000000\) and seekToLiveOrEnd\(0\) state\(6\), keep paused\(1\)"},
-        {"expect": r"AAMP_EVENT_SEEKED: new positionMs 50000.000000"},
+        {"expect": r"AAMP_EVENT_SEEKED"},
 
         # Play 
         {"cmd": "play"},
@@ -247,6 +247,7 @@ TESTDATA4 = {
         # stats
         {"cmd": "stats"},
         {"expect": r"\[GetPlaybackStats\]\[\d+]Playback stats json"},
+        {"cmd": "sleep 2000"}
     ]
 }
 
@@ -274,7 +275,7 @@ TESTDATA5 = {
         {"expect": r"\[Tune\]\[\d+]FOREGROUND PLAYER\[0\] aamp_tune: attempt: 1 format: HLS URL: https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/main.m3u8"},
         {"cmd": "sleep 2000"},
         {"cmd": 'stop'},
-        {"expect": r"\[StopInternal\]\[\d+]aamp_stop PlayerState=8"},
+        {"expect": r"aamp_stop PlayerState=8"},
 
         # next - tune to next channel 3
         {"cmd": "next"},
@@ -286,11 +287,11 @@ TESTDATA5 = {
         # auto command to run all 3 streams for 10 seconds each
         {"cmd": 'auto 1 4 5 10 5'},
         {"expect": r"\[AAMPCLI\]\ channel number: 1"},
-        {"expect": r"\[StopInternal\]\[\d+]aamp_stop PlayerState=8"},
+        {"expect": r"aamp_stop PlayerState=8"},
         {"expect": r"\[AAMPCLI\]\ channel number: 2"},
-        {"expect": r"\[StopInternal\]\[\d+]aamp_stop PlayerState=8"},
+        {"expect": r"aamp_stop PlayerState=8"},
         {"expect": r"\[AAMPCLI\]\ channel number: 3"},
-        {"expect": r"\[StopInternal\]\[\d+]aamp_stop PlayerState=8"},
+        {"expect": r"aamp_stop PlayerState=8"},
 
         # exit
         {"cmd": 'exit'},

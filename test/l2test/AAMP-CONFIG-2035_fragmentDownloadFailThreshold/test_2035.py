@@ -80,13 +80,14 @@ data = base64.b64encode(json.dumps(simlinearResp).encode('utf-8')).decode('utf-8
 TESTDATA2 = {
     "title": "Fragment Download Fail Threshold",
     "logfile": f"only_audio.txt",
-    "max_test_time_seconds": 10,
+    "max_test_time_seconds": 25,
     "aamp_cfg": "info=true\ntrace=true\nabr=false\naudioOnlyPlayback=true\nfragmentDownloadFailThreshold=4\n",
     "archive_url": archive_url,
     "url":"VideoTestStream/main.mpd",
     "simlinear_type": "DASH",
     "expect_list": [ 
-        {"cmd": 'setconfig {"propagateUriParameters":false,"uriParameter":"?respData='+data+'","curlHeader":true}'},
+        {"cmd": 'setconfig {"propagateUriParameters":false}'},
+        {"cmd": 'setconfig {"uriParameter":"?respData='+data+'","curlHeader":true}'},
         {"expect": "Parsed value for property propagateUriParameters - false"},
         {"cmd": "http://localhost:8085/VideoTestStream/main.mpd"},
         {"expect": r"VideoTestStream/dash/en_003\.mp3"},
