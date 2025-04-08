@@ -1991,6 +1991,7 @@ strncpy
 strpbrk
 strptime
 strstr
+mystrstr
 strtok
 stt
 sttaus
