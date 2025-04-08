@@ -1743,10 +1743,10 @@ public:
 
 	/**
 	 * @fn Stop
-	 *
+	 * @param pass sendStateChangeEvents if state change events should be generated during transition
 	 * @return void
 	 */
-	void Stop(void);
+	void Stop( bool sendStateChangeEvents );
 
 	/**
 	 * @brief Checking whether TSB enabled or not
@@ -2241,8 +2241,8 @@ public:
 	 *   @param[in] state - New state
 	 *   @return void
 	 */
-	void SetState(AAMPPlayerState state);
-
+	void SetState( AAMPPlayerState state, bool generateEvent=true );
+	
 	/**
 	 *   @fn GetState
 	 *
@@ -4225,7 +4225,8 @@ public:
 	 * @return A constant character pointer to the error string corresponding to the provided error type.
 	 */
 	const char* getStringForPlaybackError(PlaybackErrorType errorType);
-
+	bool mPausePositionMonitoringThreadStarted; // Flag to indicate PausePositionMonitoring thread started
+	
 protected:
 
 	/**
@@ -4352,7 +4353,6 @@ protected:
 	std::mutex mPausePositionMonitorMutex;				// Mutex lock for PausePosition condition variable
 	std::condition_variable mPausePositionMonitorCV;	// Condition Variable to signal to stop PausePosition monitoring
     std::thread mPausePositionMonitoringThreadID;			// Thread Id of the PausePositionMonitoring thread
-	bool mPausePositionMonitoringThreadStarted;			// Flag to indicate PausePositionMonitoring thread started
 	TuneType mTuneType;
 	int m_fd;
 	bool mIsLive;				// Flag to indicate manifest type.
