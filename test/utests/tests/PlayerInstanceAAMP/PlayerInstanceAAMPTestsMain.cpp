@@ -245,7 +245,7 @@ TEST_F(PlayerInstanceAAMPTests, PauseAt_Tune)
     EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_PLAYING));
 
     EXPECT_CALL(*g_mockPrivateInstanceAAMP, StopPausePositionMonitoring("Tune() called")).Times(1);
-	//EXPECT_CALL(*g_mockPrivateInstanceAAMP, Stop(false)).Times(1);
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, StopPausePositionMonitoring("Stop() called")).Times(1);
     EXPECT_CALL(*g_mockPrivateInstanceAAMP, StartPausePositionMonitoring(_)).Times(0);
 
     mPlayerInstance->Tune(mainManifestUrl);
@@ -286,8 +286,8 @@ TEST_F(PlayerInstanceAAMPTests, PauseAt_Stop)
 {
     EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_PLAYING));
 
-	//EXPECT_CALL(*g_mockPrivateInstanceAAMP, Stop(false)).Times(1);
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, StartPausePositionMonitoring(_)).Times(0);
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, StopPausePositionMonitoring("Stop() called")).Times(1);
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, StartPausePositionMonitoring(_)).Times(0);
 
     mPlayerInstance->Stop();
 }
