@@ -1781,7 +1781,7 @@ void TrackState::InjectFragmentInternal(CachedFragment* cachedFragment, bool &fr
 			{ // compute muxed AV track pts offset and save for use by subtitle track
 				double firstPts = playContext->getFirstPts(&cachedFragment->fragment);
 				double ptsOffset = m_totalDurationForPtsRestamping - firstPts;
-				AAMPLOG_MIL( "video pts_offset[%lld]=%f duration=%f+%f", cachedFragment->discontinuityIndex, ptsOffset, m_totalDurationForPtsRestamping, cachedFragment->duration );
+				AAMPLOG_MIL( "video pts_offset[%lld]=%lldms", cachedFragment->discontinuityIndex, llround(ptsOffset*1000) );
 				playContext->setPtsOffset( ptsOffset );
 				context->mPtsOffsetMap[cachedFragment->discontinuityIndex] = ptsOffset;
 			}

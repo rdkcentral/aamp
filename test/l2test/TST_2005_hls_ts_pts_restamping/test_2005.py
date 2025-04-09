@@ -48,13 +48,13 @@ TESTDATA1 = {
     # ( string, min time seconds, max time seconds)
     # TODO: these floating point values look brittle - may want to use AampTime and log as ms
     # TODO: can we get webvtt subtitle track also playing/validated in l2 test?
-    {"expect": re.escape("pts_offset[0]=-1379.368002 duration=-0.000002+6.006000") },
-    {"expect": re.escape("pts_offset[1]=24.191998 duration=34.191998+3.770000") },
-    {"expect": re.escape("pts_offset[2]=27.961998 duration=37.961998+6.006000") },
-    {"expect": re.escape("pts_offset[3]=148.048998 duration=158.048998+3.770000") },
-    {"expect": re.escape("pts_offset[4]=-1251.783202 duration=161.818998+1.844000") },
-    {"expect": re.escape("pts_offset[5]=862.898998 duration=872.898998+5.172000") },
-    {"expect": re.escape("pts_offset[6]=868.070998 duration=878.070998+6.006000"), "end_of_test":True }
+    {"expect": re.escape("pts_offset[0]=-1379368ms") },
+    {"expect": re.escape("pts_offset[1]=24192ms") },
+    {"expect": re.escape("pts_offset[2]=27962ms") },
+    {"expect": re.escape("pts_offset[3]=148049ms") },
+    {"expect": re.escape("pts_offset[4]=-1251783ms") },
+    {"expect": re.escape("pts_offset[5]=862899ms") },
+    {"expect": re.escape("pts_offset[6]=868071ms"), "end_of_test":True }
     ]
 }
 
