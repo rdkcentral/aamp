@@ -576,26 +576,45 @@ double MediaStreamContext::GetBufferedDuration()
 {
 	double bufferedDuration=0;
 	double position = aamp->GetPositionMs() / 1000.00;
-	if(downloadedDuration >= position)
+	AAMPLOG_INFO("[%s] lastDownloadedPosition %lfs position %lfs prevFirstPeriodStartTime %llds",
+		GetMediaTypeName(mediaType),
+		lastDownloadedPosition.load(),
+		position,
+		aamp->prevFirstPeriodStartTime);
+	if(lastDownloadedPosition >= position)
 	{
 		// If player faces buffering, this will be 0
-		bufferedDuration = downloadedDuration - position;
+		bufferedDuration = lastDownloadedPosition - position;
+		AAMPLOG_TRACE("[%s] bufferedDuration %fs lastDownloadedPosition %lfs position %lfs",
+			GetMediaTypeName(mediaType),
+			bufferedDuration,
+			lastDownloadedPosition.load(),
+			position);
 	}
-	else if( downloadedDuration < aamp->prevFirstPeriodStartTime )
+	else if( lastDownloadedPosition < aamp->prevFirstPeriodStartTime )
 	{
 		//When Player is rolling from IVOD window to Linear
 		position = aamp->prevFirstPeriodStartTime - position;
 		aamp->prevFirstPeriodStartTime = 0;
-		bufferedDuration = downloadedDuration - position;
+		bufferedDuration = lastDownloadedPosition - position;
+		AAMPLOG_TRACE("[%s] bufferedDuration %fs lastDownloadedPosition %lfs position %lfs prevFirstPeriodStartTime %llds",
+			GetMediaTypeName(mediaType),
+			bufferedDuration,
+			lastDownloadedPosition.load(),
+			position,
+			aamp->prevFirstPeriodStartTime);
 	}
 	else
 	{
 		// This avoids negative buffer, expecting
-		// downloadedDuration never exceeds position in normal case.
+		// lastDownloadedPosition never exceeds position in normal case.
 		// Other case happens when contents are yet to be injected.
-		downloadedDuration = 0;
-		bufferedDuration = downloadedDuration;
+		lastDownloadedPosition = 0;
+		bufferedDuration = lastDownloadedPosition;
 	}
+	AAMPLOG_INFO("[%s] bufferedDuration %fs",
+		GetMediaTypeName(mediaType),
+		bufferedDuration);
 	return bufferedDuration;
 }
 

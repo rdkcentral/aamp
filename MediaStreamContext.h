@@ -50,12 +50,14 @@ public:
 	        lastSegmentTime(0), lastSegmentNumber(0), lastSegmentDuration(0), adaptationSetIdx(0), representationIndex(0), profileChanged(true),
             adaptationSetId(0), fragmentDescriptor(), context(ctx), initialization(""),
             mDownloadedFragment("downloaded-fragment"), discontinuity(false), mSkipSegmentOnError(true),
-            downloadedDuration(0)//,mCMCDNetworkMetrics{-1,-1,-1}
+            lastDownloadedPosition(0)//,mCMCDNetworkMetrics{-1,-1,-1}
 		   , scaledPTO(0)
 		   , failAdjacentSegment(false),httpErrorCode(0)
 	       , mPlaylistUrl(""), mEffectiveUrl(""),freshManifest(false),nextfragmentIndex(-1)
 	       , mReachedFirstFragOnRewind(false),fetchChunkBufferMutex()
     {
+        AAMPLOG_INFO("[%s] Create new MediaStreamContext",
+            GetMediaTypeName(mediaType));
         mPlaylistUrl = aamp->GetManifestUrl();
         fragmentDescriptor.bUseMatchingBaseUrl = ISCONFIGSET(eAAMPConfig_MatchBaseUrl);
         mTempFragment = std::make_shared<AampGrowableBuffer>("temp");
@@ -257,7 +259,7 @@ public:
     std::shared_ptr<AampGrowableBuffer> mTempFragment;
 
     double fragmentTime; // Absolute Fragment time from Availability start
-    std::atomic<double> downloadedDuration;
+    std::atomic<double> lastDownloadedPosition;
     double periodStartOffset;
     uint64_t timeStampOffset;
 	AampGrowableBuffer IDX;
