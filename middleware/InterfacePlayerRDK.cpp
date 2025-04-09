@@ -283,10 +283,13 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int auxF
 	}
 
 	if(rate != INVALID_RATE)
+	{
 		gstPrivateContext->rate = rate;
+	}
 
 	if (gstPrivateContext->pipeline == NULL || gstPrivateContext->bus == NULL)
 	{
+		MW_LOG_MIL("Create pipeline %s (pipeline %p bus %p)", pipelineName, gstPrivateContext->pipeline, gstPrivateContext->bus);
 		CreatePipeline(pipelineName, PipelinePriority); 		/*Create a new pipeline if pipeline or the message bus does not exist*/
 	}
 
@@ -3720,7 +3723,7 @@ bool InterfacePlayerRDK::CreatePipeline(const char *pipelineName, int PipelinePr
 	{
 		DestroyPipeline();
 	}
-	MW_LOG_MIL("Creating gstreamer pipeline\n");
+	MW_LOG_MIL("Creating gstreamer pipeline %s priority %d", pipelineName, PipelinePriority);
 	gstPrivateContext->pipeline = gst_pipeline_new(pipelineName); //get it from app
 
 	if (gstPrivateContext->pipeline)

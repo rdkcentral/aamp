@@ -9857,6 +9857,7 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 				// If download status is disabled then need to exit from fetcher loop
 				if (!aamp->DownloadsAreEnabled())
 				{
+					AAMPLOG_INFO("Downloads are disabled, so exit FetcherLoop");
 					exitFetchLoop = true;
 					cacheFullStatus[eMEDIATYPE_VIDEO] = cacheFullStatus[eMEDIATYPE_AUDIO] = false;
 				}
@@ -10575,64 +10576,102 @@ void StreamAbstractionAAMP_MPD::Start(void)
  */
 void StreamAbstractionAAMP_MPD::Stop(bool clearChannelData)
 {
-	if(!aamp->IsLocalAAMPTsb())
+
+	if (!aamp->IsLocalAAMPTsb() || aamp->mAampTsbLanguageChangeInProgress)
 	{
 		aamp->DisableDownloads();
 		mCdaiObject->AbortWaitForNextAdResolved();
-		ReassessAndResumeAudioTrack(true);
-		AbortWaitForAudioTrackCatchup(false);
-		// Change order of stopping threads. Collector thread has to be stopped at the earliest
-		// There is a chance fragment collector is processing StreamSelection() which can change the mNumberOfTracks
-		// and Enabled() status of MediaTrack momentarily.
-		// Call AbortWaitForCachedAndFreeFragment() to unblock collector thread from WaitForFreeFragmentAvailable
-		for (int iTrack = 0; iTrack < mMaxTracks; iTrack++)
+		aamp->mAampTsbLanguageChangeInProgress = false;
+	}
+
+	ReassessAndResumeAudioTrack(true);
+	AbortWaitForAudioTrackCatchup(false);
+	// Change order of stopping threads. Collector thread has to be stopped at the earliest
+	// There is a chance fragment collector is processing StreamSelection() which can change the mNumberOfTracks
+	// and Enabled() status of MediaTrack momentarily.
+	// Call AbortWaitForCachedAndFreeFragment() to unblock collector thread from WaitForFreeFragmentAvailable
+	for (int iTrack = 0; iTrack < mMaxTracks; iTrack++)
+	{
+		MediaStreamContext *track = mMediaStreamContext[iTrack];
+		if(track)
 		{
-			MediaStreamContext *track = mMediaStreamContext[iTrack];
-			if(track)
+			if(track->playContext)
 			{
-				if(track->playContext)
-				{
-					track->playContext->abort();
-				}
+				track->playContext->abort();
+			}
+			if(!aamp->IsLocalAAMPTsb())
+			{
 				track->AbortWaitForCachedAndFreeFragment(true);
 			}
-		}
-
-		if(latencyMonitorThreadStarted)
-		{
-			aamp->SetLLDashAdjustSpeed(false);
-			aamp->SetLLDashCurrentPlayBackRate(GETCONFIGVALUE(eAAMPConfig_NormalLatencyCorrectionPlaybackRate));
-			AAMPLOG_TRACE("Waiting to join StartLatencyMonitorThread");
-			latencyMonitorThreadID.join();
-			AAMPLOG_INFO("Joined StartLatencyMonitorThread");
-			latencyMonitorThreadStarted = false;
-		}
-
-
-		if(fragmentCollectorThreadStarted)
-		{
-			fragmentCollectorThreadID.join();
-			fragmentCollectorThreadStarted = false;
-		}
-
-		for (int iTrack = 0; iTrack < mMaxTracks; iTrack++)
-		{
-			MediaStreamContext *track = mMediaStreamContext[iTrack];
-			if(track)
+			else
 			{
-				aamp->StopTrackInjection((AampMediaType) iTrack);
-				track->StopInjectLoop();
-				if(!ISCONFIGSET(eAAMPConfig_GstSubtecEnabled))
+				track->AbortWaitForCachedFragment();
+				if (track->IsLocalTSBInjection())
 				{
-					if (iTrack == eMEDIATYPE_SUBTITLE && track->mSubtitleParser)
-					{
-						track->mSubtitleParser->reset();
-					}
+					// TSBReader could be waiting indefinitely WaitForCachedFragmentChunkInjected, this will unblock the same
+					track->AbortWaitForCachedFragmentChunk();
 				}
-				track->IDX.Free();
 			}
 		}
+	}
 
+	if(latencyMonitorThreadStarted)
+	{
+		aamp->SetLLDashAdjustSpeed(false);
+		aamp->SetLLDashCurrentPlayBackRate(GETCONFIGVALUE(eAAMPConfig_NormalLatencyCorrectionPlaybackRate));
+		if (aamp->IsLocalAAMPTsb())
+		{
+			aamp->WakeupLatencyCheck();
+		}
+		AAMPLOG_TRACE("Waiting to join StartLatencyMonitorThread");
+		latencyMonitorThreadID.join();
+		AAMPLOG_INFO("Joined StartLatencyMonitorThread");
+		latencyMonitorThreadStarted = false;
+	}
+
+	if (!aamp->DownloadsAreEnabled() && (fragmentCollectorThreadStarted))
+	{
+		fragmentCollectorThreadID.join();
+		fragmentCollectorThreadStarted = false;
+	}
+
+	if(tsbReaderThreadStarted)
+	{
+		abortTsbReader = true;
+		if(tsbReaderThreadID.joinable())
+		{
+			tsbReaderThreadID.join();
+		}
+		tsbReaderThreadStarted = false;
+	}
+
+	for (int iTrack = 0; iTrack < mMaxTracks; iTrack++)
+	{
+		MediaStreamContext *track = mMediaStreamContext[iTrack];
+		if(track)
+		{
+			aamp->StopTrackInjection((AampMediaType) iTrack);
+			track->StopInjectLoop();
+			if(!ISCONFIGSET(eAAMPConfig_GstSubtecEnabled))
+			{
+				if (iTrack == eMEDIATYPE_SUBTITLE && track->mSubtitleParser)
+				{
+					track->mSubtitleParser->reset();
+				}
+			}
+			/* Once playing back from TSB we only stop on new tune / retune, or for
+				LLD when returning to normal rate at the live edge (done in cacheFragment).
+				So avoid clearing the flag unless we are stopping for a new tune / retune. */
+			if (aamp->IsLocalAAMPTsb() && clearChannelData)
+			{
+				track->SetLocalTSBInjection(false);
+			}
+			track->IDX.Free();
+		}
+	}
+
+	if (!aamp->IsLocalAAMPTsb())
+	{
 		StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(aamp);
 		if (sink)
 		{
@@ -10650,95 +10689,17 @@ void StreamAbstractionAAMP_MPD::Stop(bool clearChannelData)
 #ifdef AAMP_MPD_DRM
 		aamp->mDRMSessionManager->setSessionMgrState(SessionMgrState::eSESSIONMGR_INACTIVE);
 #endif
-		if(tsbReaderThreadStarted)
-		{
-			abortTsbReader = true;
-			if(tsbReaderThreadID.joinable())
-			{
-				tsbReaderThreadID.join();
-			}
-			tsbReaderThreadStarted = false;
-		}
 
-		aamp->EnableDownloads();
-		if(!clearChannelData)
-		{
-			mCdaiObject->NotifyAdLoopWait();
-		}
 	}
-	else
-	{
-		//mLicensePrefetcher.Term();
-		//aamp->mStreamSink->ClearProtectionEvent();
-		ReassessAndResumeAudioTrack(true);
-		// This may impact subtitle seamless switching, but need to abort for other tracks for now
-		// Downloads are not disabled here.
-		AbortWaitForAudioTrackCatchup(true);
-		// Change order of stopping threads. Collector thread has to be stopped at the earliest
-		// There is a chance fragment collector is processing StreamSelection() which can change the mNumberOfTracks
-		// and Enabled() status of MediaTrack momentarily.
-		// Call AbortWaitForCachedAndFreeFragment() to unblock collector thread from WaitForFreeFragmentAvailable
-		for (int iTrack = 0; iTrack < mMaxTracks; iTrack++)
-		{
-			MediaStreamContext *track = mMediaStreamContext[iTrack];
-			if(track)
-			{
-				if(track->playContext)
-				{
-					track->playContext->abort();
-				}
-				track->AbortWaitForCachedFragment();
-				if (track->IsLocalTSBInjection())
-				{
-					// TSBReader could be waiting indefinitely WaitForCachedFragmentChunkInjected, this will unblock the same
-					track->AbortWaitForCachedFragmentChunk();
-				}
-			}
-		}
-		if(latencyMonitorThreadStarted)
-		{
-			aamp->SetLLDashAdjustSpeed(false);
-			aamp->SetLLDashCurrentPlayBackRate(GETCONFIGVALUE(eAAMPConfig_NormalLatencyCorrectionPlaybackRate));
-			aamp->WakeupLatencyCheck();
-			AAMPLOG_TRACE("Waiting to join StartLatencyMonitorThread");
-			latencyMonitorThreadID.join();
-			AAMPLOG_INFO("Joined StartLatencyMonitorThread");
-			latencyMonitorThreadStarted = false;
-		}
-		if(tsbReaderThreadStarted)
-		{
-			abortTsbReader = true;
-			if(tsbReaderThreadID.joinable())
-			{
-				tsbReaderThreadID.join();
-			}
-			tsbReaderThreadStarted = false;
-		}
 
-		for (int iTrack = 0; iTrack < mMaxTracks; iTrack++)
-		{
-			MediaStreamContext *track = mMediaStreamContext[iTrack];
-			if( track )
-			{
-				aamp->StopTrackInjection((AampMediaType) iTrack);
-				track->StopInjectLoop();
-				if(!ISCONFIGSET(eAAMPConfig_GstSubtecEnabled))
-				{
-					if (iTrack == eMEDIATYPE_SUBTITLE && track->mSubtitleParser)
-					{
-						track->mSubtitleParser->reset();
-					}
-				}
-				/* Once playing back from TSB we only stop on new tune / retune, or for
-				   LLD when returning to normal rate at the live edge (done in cacheFragment).
-				   So avoid clearing the flag unless we are stopping for a new tune / retune. */
-				if(clearChannelData)
-				{
-					track->SetLocalTSBInjection(false);
-				}
-				track->IDX.Free();
-			}
-		}
+	if (!aamp->DownloadsAreEnabled())
+	{
+		aamp->EnableDownloads();
+	}
+
+	if (!aamp->IsLocalAAMPTsb() && !clearChannelData)
+	{
+		mCdaiObject->NotifyAdLoopWait();
 	}
 }
 

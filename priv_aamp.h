@@ -1114,6 +1114,7 @@ public:
 
 	double mOffsetFromTunetimeForSAPWorkaround; 		/**< current playback position in epoch */
 	bool mLanguageChangeInProgress;
+	bool mAampTsbLanguageChangeInProgress;     /**< set during AAMP TSB language change */
 	int mSupportedTLSVersion;    				/**< ssl/TLS default version */
 	std::string mFailureReason;   				/**< String to hold the tune failure reason  */
 	long long mTimedMetadataStartTime;			/**< Start time to report TimedMetadata   */

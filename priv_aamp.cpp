@@ -1255,6 +1255,7 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 	, mNextPeriodScaledPtoStartTime(0)
 	, mOffsetFromTunetimeForSAPWorkaround(0)
 	, mLanguageChangeInProgress(false)
+	, mAampTsbLanguageChangeInProgress(false)
 	, mSupportedTLSVersion(0)
 	, mbSeeked(false)
 	, mFailureReason("")
@@ -5388,8 +5389,8 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 		SetLocalAAMPTsb(true);
 	}
 	// Local AAMP TSB injection is true if Local AAMP TSB is enabled and TuneHelper() is called for
-	// any reason other than a new tune (set rate, seek...)
-	if (!newTune && IsLocalAAMPTsb())
+	// any reason other than a new tune or seek to live (set rate, seek...)
+	if (!newTune && IsLocalAAMPTsb() && (tuneType != eTUNETYPE_SEEKTOLIVE))
 	{
 		SetLocalAAMPTsbInjection(true);
 	}
@@ -7254,6 +7255,7 @@ void PrivateInstanceAAMP::DisableDownloads(void)
 {
 	{
 		std::lock_guard<std::recursive_mutex> guard(mLock);
+		AAMPLOG_MIL("Disable downloads");
 		mDownloadsEnabled = false;
 		mDownloadsDisabled.notify_all();
 	}
@@ -7286,6 +7288,7 @@ void PrivateInstanceAAMP::EnableDownloads()
 {
 	{
 		std::lock_guard<std::recursive_mutex> guard(mLock);
+		AAMPLOG_MIL("Enable downloads");
 		mDownloadsEnabled = true;
 	}
 	StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
@@ -11994,6 +11997,11 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 					else
 					{
 						seek_pos_seconds = GetPositionSeconds();
+						AAMPLOG_MIL("Retune to change the audio track at pos %fs", seek_pos_seconds);
+						if (IsLocalAAMPTsb())
+						{
+							mAampTsbLanguageChangeInProgress = true;
+						}
 						TeardownStream(false);
 						if(IsFogTSBSupported() &&
 								((languagePresent && !languageAvailabilityInManifest) ||
