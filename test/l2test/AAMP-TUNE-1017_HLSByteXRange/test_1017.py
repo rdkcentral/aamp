@@ -17,10 +17,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Starts aamp-cli and initiates playback by giving it a DASH stream URL
-# Stops stream after ~1s of playback, and ensure that player state flows through STOPPING, with RELEASED state reached after all resources actually released
-# verifies aamp log output against expected list of events
-# Also see README.md
 
 from inspect import getsourcefile
 import os
@@ -52,7 +48,7 @@ def test_data(request):
     return request.param
 
 @pytest.mark.ci_test_set
-def test_1015(aamp_setup_teardown, test_data):
+def test_1017(aamp_setup_teardown, test_data):
 
     aamp = aamp_setup_teardown
     aamp.set_paths(os.path.abspath(getsourcefile(lambda: 0)))
