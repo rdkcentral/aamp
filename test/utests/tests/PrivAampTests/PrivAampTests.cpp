@@ -1546,12 +1546,59 @@ INSTANTIATE_TEST_SUITE_P(
 			case eMEDIATYPE_INIT_AUDIO: return "InitAudio";
 			case eMEDIATYPE_INIT_AUX_AUDIO: return "InitAuxAudio";
 			case eMEDIATYPE_INIT_SUBTITLE: return "InitSubtitle";
-			case eMEDIATYPE_INIT_IFRAME: return "InitIFrame";
 			default: return "Unknown";
 		}
 	}
 );
 
+TEST_F(PrivAampTests, GetFileTest_RetryInitWhilstBufferDepthTsbTest)
+{
+	std::string effectiveUrl;
+	int http_error;
+	AampGrowableBuffer gBuff("GrowableBuffer");
+	double downloadTime;
+	bool resetBuffer = true;
+	AampMediaType mType = eMEDIATYPE_INIT_VIDEO;
+	BitsPerSecond bitrate;
+	int fogError;
+
+	// expected_curl_calls = (maxInitTimeoutDuration - curlTimeout) as a number in units of sleep duration
+	const int initFragmentRetryCount = 2;
+	const int curlTimeout = 20;
+	const int maxInitTimeoutDuration = 60;
+	const int expected_curl_calls = 4;
+
+	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP;
+	p_aamp->EnableDownloads();
+
+	p_aamp->curl[eCURLINSTANCE_MANIFEST_MAIN] = mCurlEasyHandle;
+	p_aamp->curlDLTimeout[eCURLINSTANCE_MANIFEST_MAIN] = curlTimeout;
+
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(testing::Matcher<AAMPConfigSettingInt>(_))).WillRepeatedly(Return(0));
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(testing::Matcher<AAMPConfigSettingFloat>(_))).WillRepeatedly(Return(0.0));
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(testing::Matcher<AAMPConfigSettingString>(_))).WillRepeatedly(Return(""));
+
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_InitFragmentRetryCount))
+		.WillOnce(Return(initFragmentRetryCount));
+
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_ptr( mCurlEasyHandle, _, _)).WillRepeatedly(Return(CURLE_OK));
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_str( mCurlEasyHandle, _, _)).WillRepeatedly(Return(CURLE_OK));
+	EXPECT_CALL(*g_mockCurl, curl_easy_setopt_long( mCurlEasyHandle, _, _)).WillRepeatedly(Return(CURLE_OK));
+	EXPECT_CALL(*g_mockAampCurlStore, GetCurlResponseCode( mCurlEasyHandle )).Times(0);
+
+	EXPECT_CALL(*g_mockCurl, curl_easy_perform(mCurlEasyHandle))
+		.Times(expected_curl_calls)
+		.WillRepeatedly(testing::DoAll(testing::InvokeWithoutArgs([]()
+																  { usleep(1000 * 10); }),
+									   Return(CURLE_OPERATION_TIMEDOUT)));
+
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetBufferedDuration())
+		.WillRepeatedly(Return(3000.0));
+
+	EXPECT_FALSE(p_aamp->GetFile("remoteurl", mType, &gBuff, effectiveUrl, &http_error, &downloadTime, "0-150",
+								 eCURLINSTANCE_MANIFEST_MAIN, resetBuffer, &bitrate, &fogError, 0.0, PROFILE_BUCKET_TYPE_COUNT,
+								 maxInitTimeoutDuration));
+}
 
 TEST_F(PrivAampTests,GetFileTest_RetryInitWhilstBufferDepthBeforeSuccessTest)
 {

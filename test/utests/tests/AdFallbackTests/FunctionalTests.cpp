@@ -280,12 +280,12 @@ class AdFallbackTests : public ::testing::Test
 			{
 				mAdManifest = manifest;
 				// remoteUrl, manifest, effectiveUrl
-				EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile (adManifestUrl, _, _, _, _, _, _, _, _, _, _, _, _))
+				EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile (adManifestUrl, _, _, _, _, _, _, _, _, _, _, _, _, _))
 					.WillOnce(WithArgs<0,2,3,4>(Invoke(this, &AdFallbackTests::GetManifest)));
 			}
 			else
 			{
-				EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile (adManifestUrl, _, _, _, _, _, _, _, _, _, _, _, _))
+				EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile (adManifestUrl, _, _, _, _, _, _, _, _, _, _, _, _, _))
 					.WillOnce(Return(true));
 			}
 		}

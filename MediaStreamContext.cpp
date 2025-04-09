@@ -119,7 +119,22 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 		}
 		if(!bReadfromcache)
 		{
-			ret = aamp->GetFile(fragmentUrl, actualType, mTempFragment.get(), effectiveUrl, &httpErrorCode, &downloadTimeS, range, curlInstance, true/*resetBuffer*/,  &bitrate, &iFogError, fragmentDurationS, bucketType );
+			AampMPDDownloader *dnldInstance = aamp->GetMPDDownloader();
+			int maxInitDownloadTimeMS = 0;
+			if ((aamp->IsLocalAAMPTsb()) && (dnldInstance))
+			{
+				//Calculate the time remaining for the fragment to be available in the timeshift buffer window
+				//         A                                     B                        C
+				// --------|-------------------------------------|------------------------|
+				// AC represents timeshiftBufferDepth in MPD; B is absolute time position of fragment and
+				// C is MPD publishtime(absolute time). So AC - (C-B) gives the time remaining for the
+				//fragment to be available in the timeshift buffer window
+				maxInitDownloadTimeMS = aamp->mTsbDepthMs - (dnldInstance->GetPublishTime() - (fragmentTime * 1000));
+				AAMPLOG_INFO("maxInitDownloadTimeMS %d, initSegment %d, mTsbDepthMs %d, GetPublishTime %llu(ms), fragmentTime %f(s) ",
+					maxInitDownloadTimeMS, initSegment, aamp->mTsbDepthMs, (unsigned long long)dnldInstance->GetPublishTime(), fragmentTime);
+			}
+
+			ret = aamp->GetFile(fragmentUrl, actualType, mTempFragment.get(), effectiveUrl, &httpErrorCode, &downloadTimeS, range, curlInstance, true/*resetBuffer*/,  &bitrate, &iFogError, fragmentDurationS, bucketType, maxInitDownloadTimeMS);
 			if (initSegment && ret)
 			{
 				aamp->getAampCacheHandler()->InsertToInitFragCache(fragmentUrl, mTempFragment.get(), effectiveUrl, actualType);

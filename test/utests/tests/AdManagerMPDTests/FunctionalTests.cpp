@@ -135,7 +135,7 @@ public:
     {
       mManifest = manifest;
       // remoteUrl, manifest, effectiveUrl
-      EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile (adManifestUrl, _,_ , _, _, _, _, _, _, _, _, _, _))
+      EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile (adManifestUrl, _,_ , _, _, _, _, _, _, _, _, _, _, _))
               .Times(count)
               .WillRepeatedly(WithArgs<0,2,3,4>(Invoke(this, &AdManagerMPDTests::GetManifest)));
       if (isFOG)
@@ -145,19 +145,19 @@ public:
         std::string adFogManifestUrl = TEST_FOG_AD_MANIFEST_URL;
         if (fogDownloadSuccess)
         {
-          EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile (adFogManifestUrl, _, _, _, _, _, _, _, _, _, _, _, _))
+          EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile (adFogManifestUrl, _, _, _, _, _, _, _, _, _, _, _, _, _))
               .WillOnce(WithArgs<0,2,3,4>(Invoke(this, &AdManagerMPDTests::GetManifest)));;
         }
         else
         {
-          EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile (adFogManifestUrl, _, _, _, _, _, _, _, _, _, _, _, _))
+          EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile (adFogManifestUrl, _, _, _, _, _, _, _, _, _, _, _, _, _))
               .WillOnce(Return(false));
         }
       }
     }
     else
     {
-      EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile (adManifestUrl, _, _, _, _, _, _, _, _, _, _, _, _))
+      EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile (adManifestUrl, _, _, _, _, _, _, _, _, _, _, _, _, _))
               .WillOnce(Return(false));
     }
   }
