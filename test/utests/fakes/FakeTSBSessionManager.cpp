@@ -83,9 +83,16 @@ AAMPStatusType AampTSBSessionManager::InvokeTsbReaders(double &startPosSec, floa
     return eAAMPSTATUS_OK;
 }
 
-std::shared_ptr<AampTsbReader> AampTSBSessionManager::GetTsbReader(AampMediaType)
+std::shared_ptr<AampTsbReader> AampTSBSessionManager::GetTsbReader(AampMediaType mediaType)
 {
-    return nullptr;
+    std::shared_ptr<AampTsbReader> reader = nullptr;
+
+    if (g_mockTSBSessionManager)
+    {
+        reader = g_mockTSBSessionManager->GetTsbReader(mediaType);
+    }
+
+    return reader;
 }
 
 void AampTSBSessionManager::ProcessWriteQueue()

@@ -35,6 +35,7 @@
 #include "MockAampStreamSinkManager.h"
 #include "MockAdManager.h"
 #include "MockIsoBmffProcessor.h"
+#include "MockTSBSessionManager.h"
 
 using ::testing::_;
 using ::testing::An;
@@ -610,19 +611,26 @@ protected:
 	void SetUp() override
 	{
 		// Set up your objects before each test case
-
+		AampLogManager::setLogLevel(eLOGLEVEL_TRACE);   // Enable all levels of AAMP logging
 		mPrivateInstanceAAMP = new PrivateInstanceAAMP();
+		g_mockPrivateInstanceAAMP = new NiceMock<MockPrivateInstanceAAMP>();
 		mStreamAbstractionAAMP_MPD = new TestableStreamAbstractionAAMP_MPD(mPrivateInstanceAAMP, 0.0, 1.0);
 
 		g_MockPrivateCDAIObjectMPD = new NiceMock<MockPrivateCDAIObjectMPD>();
-		//EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnableLowLatencyDash)).WillRepeatedly(Return(false));
+		g_mockTSBSessionManager = new NiceMock<MockTSBSessionManager>(mPrivateInstanceAAMP);
 	}
 
 	void TearDown() override
 	{
-		// Clean up your objects after each test case
+		// Clean up your objects after each test
+		delete g_mockTSBSessionManager;
+		g_mockTSBSessionManager = nullptr;
+
 		delete mStreamAbstractionAAMP_MPD;
 		mStreamAbstractionAAMP_MPD = nullptr;
+
+		delete g_mockPrivateInstanceAAMP;
+		g_mockPrivateInstanceAAMP = nullptr;
 
 		delete mPrivateInstanceAAMP;
 		mPrivateInstanceAAMP = nullptr;
@@ -968,6 +976,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _, _, _))
 		.WillOnce(Return(true));
 
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, NotifyOnEnteringLive()).Times(1);
 	status = InitializeMPD(manifest, eTUNETYPE_SEEKTOLIVE, initialSeekPosition); (void)status;
 
 	/* The seek position will be at the live point measured from the start of
@@ -1005,6 +1014,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 	/**
 	* PTS of first sample
 	*/
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetTSBSessionManager()).WillRepeatedly(Return(nullptr));
 	double mFirstPTS = mStreamAbstractionAAMP_MPD->GetFirstPTS();
 	EXPECT_EQ(mFirstPTS,15);
 	/**
@@ -1095,6 +1105,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _, _, _))
 		.WillOnce(Return(true));
 
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, NotifyOnEnteringLive()).Times(1);
 	status = InitializeMPD(manifest, eTUNETYPE_SEEKTOLIVE, initialSeekPosition);
 	EXPECT_EQ(status, eAAMPSTATUS_OK);
 
@@ -2426,6 +2437,7 @@ TEST_F(FunctionalTests, ChunkMode_NonLLD)
 	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, _, _, _, _, _, _))
 		.WillRepeatedly(Return(true));
 
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, NotifyOnEnteringLive()).Times(1);
 	status = InitializeMPD(manifest,TuneType::eTUNETYPE_NEW_NORMAL, seekPosition, rate);
 	EXPECT_EQ(status, eAAMPSTATUS_OK);
 	EXPECT_EQ(mPrivateInstanceAAMP->GetLLDashChunkMode(), false);
@@ -2491,6 +2503,7 @@ TEST_F(FunctionalTests, ChunkMode_LLD)
 	EXPECT_CALL(*g_mockAampMPDDownloader, IsMPDLowLatency (_))
 		.WillRepeatedly(Return(true));
 
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, NotifyOnEnteringLive()).Times(1);
 	status = InitializeMPD(manifest,TuneType::eTUNETYPE_NEW_NORMAL, seekPosition, rate,false);
 	EXPECT_EQ(status, eAAMPSTATUS_OK);
 	EXPECT_EQ(mPrivateInstanceAAMP->GetLLDashChunkMode(), true);
@@ -2801,4 +2814,16 @@ TEST_F(StreamAbstractionAAMP_MPDTest, CheckAdResolvedStatus_AdResolved)
 	mStreamAbstractionAAMP_MPD->CallCheckForAdResolvedStatus(ads, adIdx, periodId);
 
 	EXPECT_FALSE(ads->at(adIdx).invalid);
+}
+
+TEST_F(StreamAbstractionAAMP_MPDTest, InitTsbReaderTest)
+{
+	AampTSBSessionManager *tsbSessionManager = new AampTSBSessionManager(mPrivateInstanceAAMP);
+	std::shared_ptr<AampTsbDataManager> dataMgr;
+	std::shared_ptr<AampTsbReader> tsbReader = std::make_shared<AampTsbReader>(mPrivateInstanceAAMP, dataMgr, eMEDIATYPE_VIDEO, "sessionId");
+	mPrivateInstanceAAMP->rate = AAMP_NORMAL_PLAY_RATE;
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetTSBSessionManager()).WillOnce(Return(tsbSessionManager));
+	EXPECT_CALL(*g_mockTSBSessionManager, GetTsbReader(eMEDIATYPE_VIDEO)).WillOnce(Return(tsbReader));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, NotifyOnEnteringLive()).Times(1);
+	mStreamAbstractionAAMP_MPD->InitTsbReader(eTUNETYPE_SEEKTOLIVE);
 }

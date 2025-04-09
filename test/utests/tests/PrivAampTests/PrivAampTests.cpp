@@ -31,6 +31,7 @@
 #include "MockPrivateInstanceAAMP.h"
 #include "main_aamp.h"
 #include "AampConfig.h"
+#include "AampTSBSessionManager.h"
 #include "MockAampConfig.h"
 #include "MockAampGstPlayer.h"
 #include "MockStreamAbstractionAAMP.h"
@@ -125,15 +126,26 @@ class PrivAampPrivTests : public ::testing::Test
 	protected:
 	void SetUp() override
 	{
+		AampLogManager::setLogLevel(eLOGLEVEL_TRACE);   // Enable all levels of AAMP logging
 		config=new AampConfig();
 		aamp = new PrivateInstanceAAMP(config);
+		aamp->SetSessionId(session_id);
 		testp_aamp = new TestablePrivAamp(config);
 		g_mockAampConfig = new NiceMock<MockAampConfig>();
-		aamp->SetSessionId(session_id);
+		g_mockStreamAbstractionAAMP_MPD = new NiceMock<MockStreamAbstractionAAMP_MPD>(testp_aamp, 0, 0);
+		g_mockStreamAbstractionAAMP = new NiceMock<MockStreamAbstractionAAMP>(testp_aamp);
+		g_mockAampEventManager = new NiceMock<MockAampEventManager>();
 	}
 
 	void TearDown() override
 	{
+		delete g_mockAampEventManager;
+		g_mockAampEventManager = nullptr;
+
+		delete g_mockStreamAbstractionAAMP;
+		g_mockStreamAbstractionAAMP = nullptr;
+		delete g_mockStreamAbstractionAAMP_MPD;
+		g_mockStreamAbstractionAAMP_MPD = nullptr;
 
 		delete g_mockAampConfig;
 		g_mockAampConfig = nullptr;
@@ -148,7 +160,8 @@ class PrivAampPrivTests : public ::testing::Test
 		testp_aamp = nullptr;
 
 	}
-	   class TestablePrivAamp : public PrivateInstanceAAMP
+
+	class TestablePrivAamp : public PrivateInstanceAAMP
 	{
 public:
 	TestablePrivAamp(AampConfig *config):PrivateInstanceAAMP(config)
@@ -294,8 +307,13 @@ public:
 	{
 		return mCustomLicenseHeaders;
 	}
+	void SetTsbSessionManager()
+	{
+		AampTSBSessionManager *aampTsbSessionManager = new AampTSBSessionManager(this);
+		mTSBSessionManager = aampTsbSessionManager;
+	}
 
-};
+	};
 	TestablePrivAamp *testp_aamp{nullptr};
 };
 TEST_F(PrivAampPrivTests,GetAvailableTracksTest_1)
@@ -306,6 +324,28 @@ TEST_F(PrivAampPrivTests,GetAvailableTracksTest_1)
 TEST_F(PrivAampPrivTests,NotifyEOSReachedTest_2)
 {
 	testp_aamp->CallNotifyEOSReached();
+}
+
+TEST_F(PrivAampPrivTests, NotifyEOSReachedFastForwardAampTsbTest)
+{
+	constexpr float kRate = 2.0;
+	testp_aamp->rate = kRate;
+	testp_aamp->mMediaFormat = eMEDIAFORMAT_DASH;
+	testp_aamp->InitStreamAbstraction();
+	testp_aamp->SetIsLive(true);
+	testp_aamp->SetTsbSessionManager();
+	testp_aamp->SetLocalAAMPTsb(true);
+
+	// NotifyEOSReached() calls IsEOSReached(). There is no implementation for that method in class
+	// StreamAbstractionAAMP_MPD, so the method from base class StreamAbstractionAAMP is called.
+	// The fake implementation is called, which calls the method in StreamAbstractionAAMP mock class.
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, IsEOSReached()).WillOnce(Return(true));
+	// NotifyEOSReached() calls TuneHelper(), which calls StreamAbstractionAAMP_MPD::InitTsbReader().
+	// The fake implementation is called, which calls the method in StreamAbstractionAAMP_MPD mock class.
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP_MPD, InitTsbReader(_)).WillOnce(Return(eAAMPSTATUS_OK));
+	EXPECT_CALL(*g_mockAampEventManager, SendEvent(SpeedChanged(AAMP_NORMAL_PLAY_RATE), _)).Times(1);
+
+	testp_aamp->NotifyEOSReached();
 }
 
 TEST_F(PrivAampTests,IsAudioLanguageSupportedTest_12)
@@ -1049,18 +1089,34 @@ TEST_F(PrivAampTests,NotifyEOSReachedTest_1)
 	p_aamp->NotifyEOSReached();
 }
 
+TEST_F(PrivAampTests, NotifyEOSReachedFastForwardTest)
+{
+	constexpr float kRate = 2.0;
+	StreamAbstractionAAMP_MPD *streamAbstractionMpd = new StreamAbstractionAAMP_MPD(p_aamp, 0, kRate, nullptr);
+	p_aamp->rate = kRate;
+	p_aamp->mpStreamAbstractionAAMP = streamAbstractionMpd;
+	p_aamp->SetIsLive(true);
+	p_aamp->mMediaFormat = eMEDIAFORMAT_DASH;
+
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, IsEOSReached()).WillOnce(Return(true));
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP_MPD, Init(_)).Times(1);
+	EXPECT_CALL(*g_mockAampEventManager, SendEvent(SpeedChanged(AAMP_NORMAL_PLAY_RATE), _)).Times(1);
+
+	p_aamp->NotifyEOSReached();
+}
+
 TEST_F(PrivAampTests,NotifyOnEnteringLiveTest1)
 {
-	bool flag = p_aamp->discardEnteringLiveEvt;
+	p_aamp->discardEnteringLiveEvt = false;
+	EXPECT_CALL(*g_mockAampEventManager, SendEvent(AnEventOfType(AAMP_EVENT_ENTERING_LIVE), _)).Times(1);
 	p_aamp->NotifyOnEnteringLive();
-
-	EXPECT_FALSE(flag);
 }
+
 TEST_F(PrivAampTests,NotifyOnEnteringLiveTest2)
 {
-	bool flag = p_aamp->discardEnteringLiveEvt = true;
+	p_aamp->discardEnteringLiveEvt = true;
+	EXPECT_CALL(*g_mockAampEventManager, SendEvent(_, _)).Times(0);
 	p_aamp->NotifyOnEnteringLive();
-	EXPECT_TRUE(flag);
 }
 
 TEST_F(PrivAampTests,AdditionalTuneFailLogEntriesTest)

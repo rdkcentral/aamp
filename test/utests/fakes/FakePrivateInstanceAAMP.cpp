@@ -270,6 +270,10 @@ bool PrivateInstanceAAMP::IsLive()
 
 void PrivateInstanceAAMP::NotifyOnEnteringLive()
 {
+	if (g_mockPrivateInstanceAAMP != nullptr)
+	{
+		g_mockPrivateInstanceAAMP->NotifyOnEnteringLive();
+	}
 }
 
 bool PrivateInstanceAAMP::GetPauseOnFirstVideoFrameDisp(void)
@@ -1508,8 +1512,16 @@ void PrivateInstanceAAMP::IncreaseGSTBufferSize()
 
 AampTSBSessionManager *PrivateInstanceAAMP::GetTSBSessionManager()
 {
-    return NULL;
+	AampTSBSessionManager *aampTsbSessionManager = nullptr;
+
+	if (g_mockPrivateInstanceAAMP)
+	{
+		aampTsbSessionManager = g_mockPrivateInstanceAAMP->GetTSBSessionManager();
+	}
+
+	return aampTsbSessionManager;
 }
+
 std::string PrivateInstanceAAMP::GetLicenseReqProxy()
 {
 	return "";

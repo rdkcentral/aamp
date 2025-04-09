@@ -85,7 +85,9 @@ public:
 
 	MOCK_METHOD(void, SetVideoPlaybackRate, (float rate));
 
-	MOCK_METHOD(bool, SelectPreferredTextTrack , (TextTrackInfo& selectedTextTrack) , (override));	
+	MOCK_METHOD(bool, SelectPreferredTextTrack, (TextTrackInfo& selectedTextTrack), (override));
+
+	MOCK_METHOD(bool, IsEOSReached, (), (override));
 };
 
 extern MockStreamAbstractionAAMP *g_mockStreamAbstractionAAMP;

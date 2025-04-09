@@ -30,6 +30,7 @@ public:
 	MockStreamAbstractionAAMP_MPD(PrivateInstanceAAMP *aamp, double seek_pos, float rate) : StreamAbstractionAAMP_MPD(aamp, seek_pos, rate) { }
 
 	MOCK_METHOD(AAMPStatusType, Init, (TuneType tuneType), (override));
+	MOCK_METHOD(AAMPStatusType, InitTsbReader, (TuneType tuneType), (override));
 	MOCK_METHOD(BitsPerSecond, GetMaxBitrate, (), (override));
 	MOCK_METHOD(void, SeekPosUpdate, (double secondsRelativeToTuneTime), (override) );
 	MOCK_METHOD(double, GetMidSeekPosOffset, (), (override));

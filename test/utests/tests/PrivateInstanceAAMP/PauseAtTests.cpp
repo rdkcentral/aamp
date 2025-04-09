@@ -159,8 +159,6 @@ public:
     }
 };
 
-MATCHER_P(AnEventOfType, type, "") { return type == arg->getType(); }
-
 // Testing calling StartPausePositionMonitoring when pipeline paused
 // Don't expect ScheduleTask to be called to execute pause
 TEST_F(PauseAtTests, StartPausePositionMonitoring_PipelinePaused)
