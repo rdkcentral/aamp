@@ -83,7 +83,7 @@ typedef struct _manifestDownloadConfig
 
 	int mHarvestCountLimit;			/**< Harvest count */
 	int mHarvestConfig;				/**< Harvest config */
-	std::string mHarvestPathConfigured;    // Harvest Path 	
+	std::string mHarvestPathConfigured;    // Harvest Path
 	AampCMCDCollector* mCMCDCollector; // new variable for cmcd header collector
 	std::string mPreProcessedManifest; // provided pre-processed manifest file
 	int mPlayerId;
@@ -136,7 +136,7 @@ private:
 
 public:
 	_manifestDownloadResponse() : mMPDDownloadResponse(std::make_shared<DownloadResponse>()), mMPDInstance(nullptr), mIsLiveManifest(false), mRefreshRequired(false), mMPDStatus(AAMPStatusType::eAAMPSTATUS_OK), mRootNode(NULL), mDashMpdDoc(nullptr), mLastPlaylistDownloadTimeMs(0), mMPDParseHelper(std::make_shared<AampMPDParseHelper>()) {}
-	
+
 	_manifestDownloadResponse& operator=(const _manifestDownloadResponse& other)
 	{
 		_manifestDownloadResponse temp(other);
@@ -147,15 +147,15 @@ public:
 	~_manifestDownloadResponse();
 
 	_manifestDownloadResponse(const _manifestDownloadResponse& other)
-    : mMPDDownloadResponse(other.mMPDDownloadResponse),
-      mMPDInstance(other.mMPDInstance),
-      mIsLiveManifest(other.mIsLiveManifest),
-      mMPDStatus(other.mMPDStatus),
-      mRootNode(other.mRootNode),
-      mRefreshRequired(other.mRefreshRequired),
-      mDashMpdDoc(other.mDashMpdDoc),
-      mMPDParseHelper(std::make_shared<AampMPDParseHelper>(*(other.mMPDParseHelper))), // Copy the content
-      mLastPlaylistDownloadTimeMs(other.mLastPlaylistDownloadTimeMs){}
+	: mMPDDownloadResponse(other.mMPDDownloadResponse),
+	  mMPDInstance(other.mMPDInstance),
+	  mIsLiveManifest(other.mIsLiveManifest),
+	  mMPDStatus(other.mMPDStatus),
+	  mRootNode(other.mRootNode),
+	  mRefreshRequired(other.mRefreshRequired),
+	  mDashMpdDoc(other.mDashMpdDoc),
+	  mMPDParseHelper(std::make_shared<AampMPDParseHelper>(*(other.mMPDParseHelper))), // Copy the content
+	  mLastPlaylistDownloadTimeMs(other.mLastPlaylistDownloadTimeMs){}
 
 
 public:
@@ -294,16 +294,23 @@ public:
 	 */
 	void GetLastDownloadedManifest(std::string& manifestBuffer);
 
-	//copy constructor 
+	//copy constructor
 	AampMPDDownloader(const AampMPDDownloader&)=delete;
 	//copy assignment operator
 	AampMPDDownloader& operator=(const AampMPDDownloader&) = delete;
-	
+
 	/**
 	 * @fn SetCurrentPositionDeltaToManifestEnd
 	 * @brief function to set the delta between current position and manifestEnd
 	 */
 	void SetCurrentPositionDeltaToManifestEnd(int delta) {mCurrentposDeltaToManifestEnd = delta;}
+
+	/*
+	 * @fn GetPublishTime
+	 * @brief function to get the manifest publish time
+	 * @return publish time in milliseconds
+	 */
+	uint64_t GetPublishTime() { return mPublishTime;}
 
 private:
 
@@ -336,54 +343,54 @@ private:
 
 	/**
 	*	@fn downloadNotifierThread
-	*	@brief Thread Function to notify the registered user fo manifest refresh. This will avoid any delays in 
+	*	@brief Thread Function to notify the registered user fo manifest refresh. This will avoid any delays in
 	*			main loop function
-	*/	
+	*/
 	void downloadNotifierThread();
 	/**
 	*	@fn readMPDData
 	*	@brief Function to parse the downloaded manifest response from curl downloader
-	*/	
+	*/
 	bool readMPDData(ManifestDownloadResponsePtr mMPD);
 	/**
 	*	@fn waitForRefreshInterval
 	*	@brief Function to wait for refresh interval before next download
-	*/	
+	*/
 	bool waitForRefreshInterval();
 	/**
 	*	@fn pushDownloadDataToQueue
-	*	@brief Function to push the download MPD to Queue for collector to read it 
-	*/	
+	*	@brief Function to push the download MPD to Queue for collector to read it
+	*/
 	void pushDownloadDataToQueue();
 	/**
 	*	@fn showDownloadMetrics
-	*	@brief Function to show download Metrics 
-	*/		
+	*	@brief Function to show download Metrics
+	*/
 	void showDownloadMetrics(DownloadResponsePtr dnldPtr, int totalPerformanceTime);
 	/**
 	*	@fn stichToCachedManifest
-	*	@brief Function called to Stich the cached manifest with downloaded manifest 
-	*/			
+	*	@brief Function called to Stich the cached manifest with downloaded manifest
+	*/
 	void stichToCachedManifest(ManifestDownloadResponsePtr mpdToAppend);
 	/**
 	*	@fn isMPDLowLatency
-	*	@brief Function to parse the manifest and check if DASH Low latency is supported in the manifest and read parameters 
-	*/				
+	*	@brief Function to parse the manifest and check if DASH Low latency is supported in the manifest and read parameters
+	*/
 	bool isMPDLowLatency(ManifestDownloadResponsePtr mMPD, AampLLDashServiceData &LLDashData);
 	/**
 	*	@fn getMeNextManifestDownloadWaitTime
-	*	@brief Function to calculate the download refresh interval 
-	*/	
+	*	@brief Function to calculate the download refresh interval
+	*/
 	uint32_t getMeNextManifestDownloadWaitTime(ManifestDownloadResponsePtr mMPD);
 	/**
 	*	@fn GetCMCDHeader
-	*	@brief Function to get CMCD Headers to pack during download  
-	*/	
+	*	@brief Function to get CMCD Headers to pack during download
+	*/
 	std::unordered_map<std::string, std::vector<std::string>> getCMCDHeader();
 	/**
 	*	@fn harvestManifest
-	*	@brief Function to harvest the downloaded manifest 
-	*/		
+	*	@brief Function to harvest the downloaded manifest
+	*/
 	void harvestManifest();
 private:
 

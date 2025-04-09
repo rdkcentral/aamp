@@ -715,6 +715,12 @@ void MyAAMPEventListener::Event(const AAMPEventPtr& e)
 			mAampcli.mSingleton->updateManifest(manifestData.c_str());
 			break;
 		}
+		case AAMP_EVENT_REPORT_ANOMALY:
+		{
+			printf("[AAMPCLI] AAMP_EVENT_REPORT_ANOMALY received \n");
+			break;
+		}
+
 
 		case AAMP_EVENT_ENTERING_LIVE:
 		{

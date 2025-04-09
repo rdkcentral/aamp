@@ -1306,9 +1306,10 @@ public:
 	 * @param[in] bitrate
 	 * @param[out] fogError
 	 * @param[in] fragmentDurationS
+	 * @param[in] maxInitDownloadTimeMS - Max time to retry init segment downloads if AAMP TSB is enabled, 0 otherwise
 	 * @return true iff successful
 	 */
-	bool GetFile( std::string remoteUrl, AampMediaType mediaType, AampGrowableBuffer *buffer, std::string& effectiveUrl, int *http_error = NULL, double *downloadTime = NULL, const char *range = NULL, unsigned int curlInstance = 0, bool resetBuffer = true, BitsPerSecond *bitrate = NULL,  int * fogError = NULL, double fragmentDurationS = 0, ProfilerBucketType bucketType=PROFILE_BUCKET_TYPE_COUNT );
+	bool GetFile( std::string remoteUrl, AampMediaType mediaType, AampGrowableBuffer *buffer, std::string& effectiveUrl, int *http_error = NULL, double *downloadTime = NULL, const char *range = NULL, unsigned int curlInstance = 0, bool resetBuffer = true, BitsPerSecond *bitrate = NULL,  int * fogError = NULL, double fragmentDurationS = 0, ProfilerBucketType bucketType=PROFILE_BUCKET_TYPE_COUNT, int maxInitDownloadTimeMS = 0);
 
 	/**
 	 * @fn getUUID

@@ -3957,7 +3957,7 @@ void PrivateInstanceAAMP::SetCMCDTrackData(AampMediaType mediaType)
 /**
  * @brief Download a file from the CDN
  */
-bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaType, AampGrowableBuffer *buffer, std::string& effectiveUrl, int * http_error, double *downloadTimeS, const char *range, unsigned int curlInstance, bool resetBuffer, BitsPerSecond *bitrate, int * fogError, double fragmentDurationS, ProfilerBucketType bucketType )
+bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaType, AampGrowableBuffer *buffer, std::string& effectiveUrl, int * http_error, double *downloadTimeS, const char *range, unsigned int curlInstance, bool resetBuffer, BitsPerSecond *bitrate, int * fogError, double fragmentDurationS, ProfilerBucketType bucketType, int maxInitDownloadTimeMS)
 {
 	if( bucketType!=PROFILE_BUCKET_TYPE_COUNT)
 	{
@@ -4090,6 +4090,7 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 			}
 			progressCtx.stallTimeout = GETCONFIGVALUE_PRIV(eAAMPConfig_CurlStallTimeout);
 
+			AAMPLOG_INFO("lowBWTimeout:%d, stallTimeout:%d", progressCtx.lowBWTimeout, progressCtx.stallTimeout);
 			// caller must pass either NULL or a string encoding range
 			// here we add sanity check to use null instead of empty string; this avoids undefined behavior
 			if( range && *range=='\0' ) range = NULL;
@@ -4128,6 +4129,9 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 				CURL_EASY_SETOPT_LIST(curl, CURLOPT_HTTPHEADER, httpHeaders);
 			}
 			long curlDownloadTimeoutMS = curlDLTimeout[curlInstance]; // curlDLTimeout is in msec
+			long long maxInitDownloadRetryUntil = maxInitDownloadTimeMS + NOW_STEADY_TS_MS;
+			AAMPLOG_INFO("steady ms %lld, maxInitDownloadRetryUntil %lld, maxInitDownloadTimeMS %d",
+				(long long int)NOW_STEADY_TS_MS, maxInitDownloadRetryUntil, maxInitDownloadTimeMS);
 
 			while(downloadAttempt < maxDownloadAttempt)
 			{
@@ -4334,11 +4338,17 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 								if (downloadAttempt == maxDownloadAttempt)
 								{
 									double bufferValue = mpStreamAbstractionAAMP->GetBufferedDuration();
-									AAMPLOG_INFO("Keep trying init request while enough buffer buffer %fs curlDownloadTimeoutMS %ldms", bufferValue, curlDownloadTimeoutMS);
+									AAMPLOG_INFO("Keep trying init request while enough buffer buffer %fs, curlDownloadTimeoutMS %ldms, maxInitDownloadTimeMS %d, steady ms %lld, maxInitDownloadRetryUntil %lld",
+										bufferValue, curlDownloadTimeoutMS, maxInitDownloadTimeMS,
+										(long long int)NOW_STEADY_TS_MS, maxInitDownloadRetryUntil);
+									// Keep retrying init segments whilst there is enough buffer depth to last until curl times out
 									if (bufferValue * 1000 > curlDownloadTimeoutMS)
 									{
-										// Keep retrying init segments whilst there is some buffer depth.
-										maxDownloadAttempt++;
+										// Only retry again if its likely the segment is still available
+										if (((NOW_STEADY_TS_MS + curlDownloadTimeoutMS)  < maxInitDownloadRetryUntil) || (maxInitDownloadTimeMS == 0))
+										{
+											maxDownloadAttempt++;
+										}
 									}
 								}
 								break;
