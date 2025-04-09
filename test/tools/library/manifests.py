@@ -288,8 +288,8 @@ class ManifestServerCommon:
             for timestamp, manifest_file in file_timestamps:
                 if manifest_file.endswith(f".{self.serving_manifest_id}"):
                     break
-            self.serving_manifest_id += 1 
-            return manifest_file
+                self.serving_manifest_id += 1 
+            
         if len(file_timestamps) == 0:
             # No manifests - need return 404
             log.info("Not found index %s", path)
