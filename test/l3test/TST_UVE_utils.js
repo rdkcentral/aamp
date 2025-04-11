@@ -1,5 +1,10 @@
-// Main test asset URL
+// Main test asset URL (VOD)
 var mainContentUrl = "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/streams/generated/main.mpd";
+
+// Main test asset URL (Live)
+var simlinearBaseUrl = "http://<host_ip>:<simlinear_port>"; // Placeholder to be replaced with host device IP
+var simlinearContentUrl = simlinearBaseUrl + "/30003/88889531/hls/master.m3u8"
+
 var adUrl = "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/streams/ads/Ad-generated-30s/ad-generated-30s.mpd"
 
 var TST_fail_count = 0;

@@ -1,5 +1,7 @@
 # How to run L3 tests on HW platforms within a widget container. Alternatively these could be run using RDKShell.
 
+Make sure that the host device (PC/Laptop) and RDK device are on the same network and subnet.
+
 ## To run all the tests
 
 ```
@@ -80,6 +82,16 @@ curl -X POST --header "Content-Type:application/zip" --data-binary @/tmp/com.aam
 # Run an individual test inside the widget - eg, Run test 2000:
 curl 'http://127.0.0.1:9001/as/apps/action/launch?appId=com.aamp' -X POST -d '{"url":"'"http://<IP_ADDR>:<PORT>/TST_2000_UVE_AampPlayback.html"'"}'
 
+# Run an individual Simlinear test inside the widget - eg, Run test 2002:
+- Download content, unzip and replace host ip, simlinear port for the test using script:
+    ```
+    ./simlinear.sh <content_url> <HOST_IP_ADDR> <simlinear_port> <TST_UVE_UTILS.js (or file containing related simlinearBaseUrl)>
+    ```
+    cd into content
+    start simlinear
+
+    Run rest of the test like any other test
+
 # Stop the widget and then run another test - eg 2001:
 curl 'http://127.0.0.1:9001/as/apps/action/close?appId=com.aamp' -X POST -d '{}'
 curl 'http://127.0.0.1:9001/as/apps/action/launch?appId=com.aamp' -X POST -d '{"url":"'"http://<IP_ADDR>:<PORT>/TST_2001_UVE_AampMainAndAdPlayback.html"'"}'
@@ -87,3 +99,12 @@ curl 'http://127.0.0.1:9001/as/apps/action/launch?appId=com.aamp' -X POST -d '{"
 
 # TST_3000: CITestApp - can be run as follows from the test server:
 curl 'http://127.0.0.1:9001/as/apps/action/launch?appId=com.aamp' -X POST -d '{"url":"'"https://cpetestutility.stb.r53.xcal.tv/aamptest/testApps/CITestApp/index.html"'"}'
+
+# How to create tests with Simlinear:
+- Add required configurations in simlinearConfig.json
+  "contentUrl" - URL of the content to download
+  "contentType" - "hls" or "dash"
+  "contentDirectory" - Directory name of content after download
+  "testFile" - File containing simlinearContentUrl for the test. For example - for test TST_2002_UVE_SimlinearMainAndAdPlayBack.html, it would be TST_UVE_utils.js
+
+- Test file should have either "simlinear" or "Simlinear" word in it for the python script to identify the file.

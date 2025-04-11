@@ -1,0 +1,8 @@
+{
+    "2002": {
+        "contentUrl": "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/streams/L3/TST_2002_HLS.tar.xz",
+        "contentType": "hls",
+        "contentDirectory": "TST_2002_HLS",
+        "testFile": "TST_UVE_utils.js"
+    }
+}
