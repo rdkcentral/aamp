@@ -1304,7 +1304,7 @@ void MediaTrack::ProcessAndInjectFragment(CachedFragment *cachedFragment, bool f
 				}
 			}
 		}
-		if ((mSubtitleParser || (aamp->IsGstreamerSubsEnabled())) && type == eTRACK_SUBTITLE)
+		if (mSubtitleParser && type == eTRACK_SUBTITLE)
 		{
 			auto ptr = cachedFragment->fragment.GetPtr();
 			auto len = cachedFragment->fragment.GetLen();
@@ -1326,12 +1326,7 @@ void MediaTrack::ProcessAndInjectFragment(CachedFragment *cachedFragment, bool f
 														  cachedFragment->position,
 														  cachedFragment->duration,
 														  cachedFragment->PTSOffsetSec );
-						cachedFragment->fragment.Clear();
-						cachedFragment->fragment.AppendBytes(str.data(),str.size());
-						if(mSubtitleParser)
-						{
-							mSubtitleParser->processData(str.data(), str.size(), cachedFragment->position, cachedFragment->duration);
-						}
+						mSubtitleParser->processData(str.data(), str.size(), cachedFragment->position, cachedFragment->duration);
 						break;
 					}
 				}
