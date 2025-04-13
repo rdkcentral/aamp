@@ -137,7 +137,7 @@ public:
 		 * @param[in] fpts PTS of buffer (in sec)
 		 * @param[in] fdts DTS of buffer (in sec)
 		 * @param[in] fDuration duration of buffer (in sec)
-		 * @param[in] fragmentfragmentPTSoffset PTS offset
+		 * @param[in] fragmentPTSoffset PTS offset
 		 * @param[in] initFragment flag for buffer type (init, data)
 		 * @param[in] discontinuity flag for discontinuity
 		 */
