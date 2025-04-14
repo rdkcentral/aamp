@@ -273,7 +273,7 @@ TESTDATA5 = {
     'simlinear_type': 'DASH',
     "archive_url": archive_url,
     "url": TEST_URL,
-    "aamp_cfg": f"info=true\nprogress=true\nprogressReportingInterval={PROGRESS_REPORT_INTERVAL}\nlocalTSBEnabled=true\ntsbLocation=/tmp/data\ntsbLength=30\ntsbLog=0\nlivePauseBehavior=0\n",
+    "aamp_cfg": f"info=true\nprogress=true\nprogressReportingInterval={PROGRESS_REPORT_INTERVAL}\nprogressLoggingDivisor={PROGRESS_REPORT_DIVISOR}\nlocalTSBEnabled=true\ntsbLocation=/tmp/data\ntsbLength=30\ntsbLog=0\nlivePauseBehavior=0\n",
     "cmdlist": [ "contentType LINEAR_TV" ],
     "expect_list":
     [
