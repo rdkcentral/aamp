@@ -919,7 +919,6 @@ void AampConfig::ApplyDeviceCapabilities( PlatformType platform )
 		case ePLATFORM_REALTEK:
 			SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_SyncAudioFragments, true);		// Handled in HLS::Init to avoid audio loss while seeking HLS/TS AV of different duration w/o affecting VOD Discontinuities
 			SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_RequiredQueuedFrames, 3 + 1);
-			SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_MaxFragmentCached, 3);
 			break;
 
 		case ePLATFORM_BROADCOM:
