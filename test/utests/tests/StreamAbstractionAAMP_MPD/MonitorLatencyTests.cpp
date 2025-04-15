@@ -256,27 +256,24 @@ protected:
 		{
 			gpGlobalConfig = new AampConfig();
 		}
-		
+
 		mPrivateInstanceAAMP = new PrivateInstanceAAMP(gpGlobalConfig);
 		mPrivateInstanceAAMP->mIsDefaultOffset = true;
-		
-		AampLogManager::setLogLevel(eLOGLEVEL_TRACE);
-		AampLogManager::lockLogLevel(true);
-		
+
 		g_mockAampConfig = new NiceMock<MockAampConfig>();
-		
+
 		g_mockAampGstPlayer = new MockAAMPGstPlayer(mPrivateInstanceAAMP);
-		
+
 		mPrivateInstanceAAMP->mIsDefaultOffset = true;
-		
+
 		g_mockPrivateInstanceAAMP = new StrictMock<MockPrivateInstanceAAMP>();
-		
+
 		g_mockMediaStreamContext = new StrictMock<MockMediaStreamContext>();
-		
+
 		g_mockAampStreamSinkManager = new NiceMock<MockAampStreamSinkManager>();
-		
+
 		g_MockPrivateCDAIObjectMPD = new NiceMock<MockPrivateCDAIObjectMPD>();
-		
+
 		mStreamAbstractionAAMP_MPD = nullptr;
 		mBoolConfigSettings = mDefaultBoolConfigSettings;
 		mIntConfigSettings = mDefaultIntConfigSettings;

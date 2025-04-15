@@ -27,9 +27,12 @@
 #include "priv_aamp.h"
 #include "AampLogManager.h"
 
-//Enable the define below to get AAMP logging out when running tests
-//#define ENABLE_LOGGING
+// Enable all log levels for L1 testing by default and lock the minimum log level,
+// as AAMP changes the log level internally in some scenarios.
+// The minimum log level could be changed in a test by calling lockLogLevel(false) and setLogLevel()
+#ifndef TEST_LOG_LEVEL
 #define TEST_LOG_LEVEL eLOGLEVEL_TRACE
+#endif
 
 static const char *mLogLevelStr[] =
 {
@@ -44,13 +47,14 @@ static const char *mLogLevelStr[] =
 
 bool AampLogManager::disableLogRedirection = false;
 bool AampLogManager::enableEthanLogRedirection = false;
-AAMP_LogLevel AampLogManager::aampLoglevel = eLOGLEVEL_WARN;
-bool AampLogManager::locked = false;
+AAMP_LogLevel AampLogManager::aampLoglevel = TEST_LOG_LEVEL;
+bool AampLogManager::locked = true;
 
 thread_local int gPlayerId = -1;
 
 void logprintf(AAMP_LogLevel level, const char* file, int line, const char *format, ...)
 {
+// ENABLE_LOGGING is defined in L1 utests CMakeLists.txt
 #ifdef ENABLE_LOGGING
 	char *format_ptr = NULL;
 	int format_bytes = 0;

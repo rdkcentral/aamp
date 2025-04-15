@@ -141,7 +141,6 @@ class AdFallbackTests : public ::testing::Test
 			mPrivateInstanceAAMP = new PrivateInstanceAAMP(gpGlobalConfig);
 			mPrivateInstanceAAMP->mIsDefaultOffset = true;
 
-//			mLogObj->aampLoglevel = eLOGLEVEL_TRACE;		//To enable all levels of AAMP logging
 			mCdaiObj = new CDAIObjectMPD(mPrivateInstanceAAMP);
 
 			g_mockAampConfig = new NiceMock<MockAampConfig>();

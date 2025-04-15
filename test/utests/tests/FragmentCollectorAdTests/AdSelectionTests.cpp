@@ -295,9 +295,6 @@ protected:
 		mPrivateInstanceAAMP = new PrivateInstanceAAMP(gpGlobalConfig);
 		mPrivateInstanceAAMP->mIsDefaultOffset = true;
 
-		AampLogManager::setLogLevel(eLOGLEVEL_TRACE);
-		AampLogManager::lockLogLevel(true);
-
 		g_mockAampConfig = new NiceMock<MockAampConfig>();
 
 		g_mockAampUtils = nullptr;

@@ -46,7 +46,6 @@ protected:
 
 	void SetUp() override
 	{
-//		mLogObj->aampLoglevel = eLOGLEVEL_TRACE;		//To enable all levels of AAMP logging
 		gpGlobalConfig = new AampConfig();
 
 		mPrivateInstanceAAMP = new PrivateInstanceAAMP(gpGlobalConfig);

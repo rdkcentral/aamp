@@ -107,7 +107,6 @@ protected:
 
 	void SetUp() override
 	{
-		//mLogObj->aampLoglevel = eLOGLEVEL_TRACE; // To enable all levels of AAMP logging
 		gpGlobalConfig = new AampConfig();
 		g_mockAampConfig = new NiceMock<MockAampConfig>();
 

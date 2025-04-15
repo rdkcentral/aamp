@@ -93,9 +93,6 @@ protected:
 			gpGlobalConfig = new AampConfig();
 		}
 
-		AampLogManager::setLogLevel(eLOGLEVEL_TRACE);
-		AampLogManager::lockLogLevel(true);
-
 		mPrivateInstanceAAMP = new PrivateInstanceAAMP(gpGlobalConfig);
 
 		mTestableAampTrackWorker = new TestableAampTrackWorker(mPrivateInstanceAAMP, mMediaType);

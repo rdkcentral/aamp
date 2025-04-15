@@ -65,8 +65,6 @@ protected:
 		}
 
 		mPrivateInstanceAAMP = new PrivateInstanceAAMP(gpGlobalConfig);
-		AampLogManager::setLogLevel(eLOGLEVEL_TRACE);
-		AampLogManager::lockLogLevel(true);
 		mDataMgr = std::make_shared<AampTsbDataManager>();
 		mTestableTsbReader = new TestableAampTsbReader(mPrivateInstanceAAMP, mDataMgr, eMEDIATYPE_VIDEO, "testSessionId");
 

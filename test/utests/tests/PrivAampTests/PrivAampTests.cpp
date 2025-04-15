@@ -62,7 +62,6 @@ class PrivAampTests : public ::testing::Test
 	protected:
 	void SetUp() override
 	{
-		AampLogManager::setLogLevel(eLOGLEVEL_TRACE);   // Enable all levels of AAMP logging
 		config=new AampConfig();
 		p_aamp = new PrivateInstanceAAMP(config);
 		mCurlEasyHandle = new int(1); // Valid ptr, though not used.
@@ -126,7 +125,6 @@ class PrivAampPrivTests : public ::testing::Test
 	protected:
 	void SetUp() override
 	{
-		AampLogManager::setLogLevel(eLOGLEVEL_TRACE);   // Enable all levels of AAMP logging
 		config=new AampConfig();
 		aamp = new PrivateInstanceAAMP(config);
 		aamp->SetSessionId(session_id);

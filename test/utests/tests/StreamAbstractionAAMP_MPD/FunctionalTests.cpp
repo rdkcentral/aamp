@@ -152,7 +152,6 @@ protected:
 		mResponse = nullptr;
 		mBoolConfigSettings = mDefaultBoolConfigSettings;
 		mIntConfigSettings = mDefaultIntConfigSettings;
-		AampLogManager::setLogLevel(eLOGLEVEL_TRACE);   // Enable all levels of AAMP logging
 		mCdaiObj = nullptr;
 	}
 
@@ -612,7 +611,6 @@ protected:
 	void SetUp() override
 	{
 		// Set up your objects before each test case
-		AampLogManager::setLogLevel(eLOGLEVEL_TRACE);   // Enable all levels of AAMP logging
 		mPrivateInstanceAAMP = new PrivateInstanceAAMP();
 		g_mockPrivateInstanceAAMP = new NiceMock<MockPrivateInstanceAAMP>();
 		mStreamAbstractionAAMP_MPD = new TestableStreamAbstractionAAMP_MPD(mPrivateInstanceAAMP, 0.0, 1.0);

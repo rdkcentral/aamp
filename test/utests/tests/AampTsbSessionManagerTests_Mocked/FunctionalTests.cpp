@@ -48,7 +48,6 @@ protected:
 
 	void SetUp() override
 	{
-		AampLogManager::setLogLevel(eLOGLEVEL_TRACE);   // Enable all levels of AAMP logging
 		if (gpGlobalConfig == nullptr)
 		{
 			gpGlobalConfig = new AampConfig();

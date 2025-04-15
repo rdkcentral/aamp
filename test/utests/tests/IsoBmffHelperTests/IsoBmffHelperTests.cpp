@@ -36,10 +36,6 @@ class IsoBmffHelperTests : public ::testing::Test
 
 		void SetUp() override
 		{
-			AampLogManager::setLogLevel(eLOGLEVEL_TRACE);
-			AampLogManager::lockLogLevel(true);
-			
-			//mLogObj->aampLoglevel = eLOGLEVEL_TRACE;		//To enable all levels of AAMP logging
 			g_mockIsoBmffBuffer = new MockIsoBmffBuffer();
 			helper = std::make_shared<IsoBmffHelper>();
 		}
