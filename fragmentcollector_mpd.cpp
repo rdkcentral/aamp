@@ -10033,20 +10033,11 @@ void StreamAbstractionAAMP_MPD::AdvanceTsbFetch(int trackIdx, bool trickPlay, do
 
 	if (isAllowNextFrag && tsbReader)
 	{
-			if((pMediaStreamContext->numberOfFragmentChunksCached != maxCachedFragmentsPerTrack) && !(pMediaStreamContext->profileChanged))
-			{	// profile not changed and Cache not full scenario
-				bool isIEos = tsbReader->IsEos();
-				if (!isIEos)
-				{
-					if (tsbSessionManager->PushNextTsbFragment(pMediaStreamContext))
-					{
-						AAMPLOG_TRACE("[%s] PushNextTsbFragment Success for track", GetMediaTypeName((AampMediaType)trackIdx));
-					}
-					else
-					{
-						AAMPLOG_INFO("PushNextTsbFragment failed for track:%d", trackIdx);
-					}
-				}
+			// profile not changed and not at EOS
+			if(!pMediaStreamContext->profileChanged && !tsbReader->IsEos())
+			{
+				bool fragmentCached = tsbSessionManager->PushNextTsbFragment(pMediaStreamContext, maxCachedFragmentsPerTrack - pMediaStreamContext->numberOfFragmentChunksCached);
+				AAMPLOG_TRACE("[%s] Fragment %s", GetMediaTypeName((AampMediaType)trackIdx), fragmentCached ? "cached" : "not cached");
 			}
 			if(pMediaStreamContext->numberOfFragmentChunksCached != maxCachedFragmentsPerTrack && bCacheFullState)
 			{

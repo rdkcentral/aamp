@@ -177,9 +177,10 @@ public:
 	 * @brief Read next fragment and push it to the injector loop
 	 *
 	 * @param[in] MediaStreamContext of appropriate track
-	 * @return bool - true if success
+	 * @param[in] numFreeFragments number of free fragment spaces in the cache
+	 * @return bool - true if cached fragment
 	 */
-	bool PushNextTsbFragment(MediaStreamContext *pMediaStreamContext);
+	bool PushNextTsbFragment(MediaStreamContext *pMediaStreamContext, uint32_t numFreeFragments);
 	/**
 	 * @brief UpdateProgress - Progress updates
 	 *
@@ -298,7 +299,6 @@ protected:
 	 * @brief Skip Fragment based on rate
 	 * @param reader Reader object
 	 * @param nextFragmentData Fragment Data
-	 * @return duration of skipped frames
 	 */
 	void SkipFragment(std::shared_ptr<AampTsbReader> &reader, TsbFragmentDataPtr& nextFragmentData);
 

@@ -163,24 +163,36 @@ AAMPStatusType AampTsbReader::Init(double &startPosSec, float rate, TuneType tun
 }
 
 /**
- * @fn ReadNext - function to read file from TSB
+ * @fn FindNext - function to find the next fragment from TSB
  *
- * @return pointer of TsbFragmentData
+ * @param[in] offset - Offset from last read fragment
+ *
+ * @return Pointer to the next fragment data
  */
-std::shared_ptr<TsbFragmentData> AampTsbReader::ReadNext()
+TsbFragmentDataPtr AampTsbReader::FindNext(AampTime offset)
 {
 	if (!mInitialized_)
 	{
 		AAMPLOG_ERR("TsbReader[%s] not initialized", GetMediaTypeName(mMediaType));
 		return nullptr;
 	}
-	/**< Reset while reading new fragment*/
-	mIsPeriodBoundary = false;
-	TsbFragmentDataPtr ret = mDataMgr->GetFragment(mUpcomingFragmentPosition, mEosReached);
+
+	double position = mUpcomingFragmentPosition;
+	if (mCurrentRate >= 0)
+	{
+		position += offset.inSeconds();
+	}
+	else
+	{
+		position -= offset.inSeconds();
+	}
+
+	bool eos;
+	TsbFragmentDataPtr ret = mDataMgr->GetFragment(position, eos);
 	if (!ret)
 	{
-		AAMPLOG_TRACE("[%s]Retrying fragment to fetch at position: %lf, EOS:%d", GetMediaTypeName(mMediaType), mUpcomingFragmentPosition, mEosReached);
-		double correctedPosition = mUpcomingFragmentPosition - FLOATING_POINT_EPSILON;
+		AAMPLOG_TRACE("[%s]Retrying fragment to fetch at position: %lf", GetMediaTypeName(mMediaType), position);
+		double correctedPosition = position - FLOATING_POINT_EPSILON;
 		ret = mDataMgr->GetNearestFragment(correctedPosition);
 		if (!ret)
 		{
@@ -190,25 +202,25 @@ std::shared_ptr<TsbFragmentData> AampTsbReader::ReadNext()
 		}
 		// Error Handling
 		// We are skipping one fragment if not found based on the rate
-		if (mCurrentRate > 0 && (ret->GetAbsolutePosition() + FLOATING_POINT_EPSILON) < mUpcomingFragmentPosition)
+		if (mCurrentRate > 0 && (ret->GetAbsolutePosition() + FLOATING_POINT_EPSILON) < position)
 		{
 			// Forward rate
-			// Nearest fragment behind mUpcomingFragmentPosition calculated based of last fragment info
+			// Nearest fragment behind position calculated based of last fragment info
 			// The fragment currently active in 'ret' should be the last injected fragment.
 			// Therefore, retrieve the next fragment from the linked list if it exists, otherwise, return nullptr.
 			ret = ret->next;
 		}
-		else if (mCurrentRate < 0 && (ret->GetAbsolutePosition() - FLOATING_POINT_EPSILON) > mUpcomingFragmentPosition)
+		else if (mCurrentRate < 0 && (ret->GetAbsolutePosition() - FLOATING_POINT_EPSILON) > position)
 		{
 			// Rewinding
-			// Nearest fragment ahead of mUpcomingFragmentPosition calculated based of last fragment info
+			// Nearest fragment ahead of position calculated based of last fragment info
 			// The fragment currently active in 'ret' should be the last injected fragment.
 			// Therefore, retrieve the previous fragment from the linked list if it exists, otherwise, return nullptr.
 			ret = ret->prev;
 		}
 		if (!ret)
 		{
-			AAMPLOG_TRACE("[%s] Retry is also failing, returning nullptr", GetMediaTypeName(mMediaType));
+			AAMPLOG_INFO("[%s] Retry is also failing mCurrentRate %f, returning nullptr ", GetMediaTypeName(mMediaType), mCurrentRate);
 			if (AAMP_NORMAL_PLAY_RATE != mCurrentRate)
 			{
 				// Culling segment, but EOS never marked
@@ -217,35 +229,49 @@ std::shared_ptr<TsbFragmentData> AampTsbReader::ReadNext()
 			return ret;
 		}
 	}
-	// Mark EOS, for forward iteration check next fragment, for reverse check prev
-	mEosReached = (mCurrentRate >= 0) ? (ret->next == nullptr) : (ret->prev == nullptr);
-	// Compliment this state with last init header push status
-	if (mActiveTuneType == eTUNETYPE_SEEKTOLIVE)
-	{
-		mEosReached &= !mNewInitWaiting;
-	}
-	// Determine if the next fragment is discontinuous.
-	// For forward iteration, examine the discontinuity marker in the next fragment.
-	// For reverse iteration, inspect the discontinuity marker in the current fragment,
-	//		indicating that the upcoming iteration will transition to a different period.
-	if (mCurrentRate >= 0)
-	{
-		mIsNextFragmentDisc = ret->IsDiscontinuous();
-	}
-	else
-	{
-		mIsNextFragmentDisc = (ret->next && ret->next->IsDiscontinuous());
-	}
-
-	if (!IsFirstDownload())
-	{
-		CheckPeriodBoundary(ret);
-	}
-	mUpcomingFragmentPosition += (mCurrentRate >= 0) ? ret->GetDuration() : -ret->GetDuration();
-	AAMPLOG_INFO("[%s] Returning fragment: absPos %lfs pts %lfs next %lfs eos %d initWaiting %d discontinuity %d mIsPeriodBoundary %d period %s timeScale %u ptsOffset %fs url %s",
-		GetMediaTypeName(mMediaType), ret->GetAbsolutePosition().inSeconds(), ret->GetPTS().inSeconds(), mUpcomingFragmentPosition, mEosReached, mNewInitWaiting, mIsNextFragmentDisc, mIsPeriodBoundary, ret->GetPeriodId().c_str(), ret->GetTimeScale(), ret->GetPTSOffsetSec().inSeconds(), ret->GetUrl().c_str());
+	AAMPLOG_INFO("[%s] Returning fragment: absPos %lfs pts %lfs period %s timeScale %u ptsOffset %fs url %s",
+		GetMediaTypeName(mMediaType), ret->GetAbsolutePosition().inSeconds(), ret->GetPTS().inSeconds(), ret->GetPeriodId().c_str(), ret->GetTimeScale(), ret->GetPTSOffsetSec().inSeconds(), ret->GetUrl().c_str());
 
 	return ret;
+}
+
+/**
+ * @fn ReadNext - function to update the last read file from TSB
+ *
+ * @param[in] nextFragmentData - Next fragment data obtained previously from FindNext
+ */
+void AampTsbReader::ReadNext(TsbFragmentDataPtr nextFragmentData)
+{
+	if (nextFragmentData != nullptr)
+	{
+		// Mark EOS, for forward iteration check next fragment, for reverse check prev
+		mEosReached = (mCurrentRate >= 0) ? (nextFragmentData->next == nullptr) : (nextFragmentData->prev == nullptr);
+		// Compliment this state with last init header push status
+		if (mActiveTuneType == eTUNETYPE_SEEKTOLIVE)
+		{
+			mEosReached &= !mNewInitWaiting;
+		}
+		// Determine if the next fragment is discontinuous.
+		// For forward iteration, examine the discontinuity marker in the next fragment.
+		// For reverse iteration, inspect the discontinuity marker in the current fragment,
+		//		indicating that the upcoming iteration will transition to a different period.
+		if (mCurrentRate >= 0)
+		{
+			mIsNextFragmentDisc = nextFragmentData->IsDiscontinuous();
+		}
+		else
+		{
+			mIsNextFragmentDisc = (nextFragmentData->next && nextFragmentData->next->IsDiscontinuous());
+		}
+
+		if (!IsFirstDownload())
+		{
+			CheckPeriodBoundary(nextFragmentData);
+		}
+		mUpcomingFragmentPosition += (mCurrentRate >= 0) ? nextFragmentData->GetDuration() : -nextFragmentData->GetDuration();
+		AAMPLOG_INFO("[%s] Fragment: absPos %lfs next %lfs eos %d initWaiting %d mIsNextFragmentDisc %d mIsPeriodBoundary %d",
+			GetMediaTypeName(mMediaType), nextFragmentData->GetAbsolutePosition().inSeconds(), mUpcomingFragmentPosition, mEosReached, mNewInitWaiting, mIsNextFragmentDisc, mIsPeriodBoundary);
+	}
 }
 
 /**
