@@ -367,7 +367,10 @@ JSValueRef PersistentWatermark::StoragePersistent::Update(JSContextRef ctx, JSOb
 bool PersistentWatermark::StoragePersistent::UpdatePlugin(int layerID)
 {
 	LOG_TRACE("PersistentWatermark::StoragePersistent::UpdatePlugin() AKA PersistentStoreLoad");
-	if(PluginAccess::get().PersistentStoreLoadWatermark(layerID))
+	
+	bool success = PluginAccess::get().PersistentStoreLoadWatermark(layerID);
+
+	if(success)
 	{
 		LOG_TRACE("PersistentWatermark::StoragePersistent::UpdatePlugin() success");
 	}
