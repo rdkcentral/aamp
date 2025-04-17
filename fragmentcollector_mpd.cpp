@@ -1524,9 +1524,14 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 								pMediaStreamContext->lastSegmentNumber = pMediaStreamContext->fragmentDescriptor.Number;
 							}
 
-							// pMediaStreamContext->downloadedDuration is introduced to calculate the buffered duration value.
+							// pMediaStreamContext->lastDownloadedPosition is introduced to calculate the buffered duration value.
 							// Update position in period after fragment download
-							pMediaStreamContext->downloadedDuration = pMediaStreamContext->fragmentTime + fragmentDuration;
+							pMediaStreamContext->lastDownloadedPosition = pMediaStreamContext->fragmentTime + fragmentDuration;
+							AAMPLOG_INFO("[%s] lastDownloadedPosition %lfs fragmentTime %lfs fragmentDuration %fs",
+								GetMediaTypeName(pMediaStreamContext->mediaType),
+								pMediaStreamContext->lastDownloadedPosition.load(),
+								pMediaStreamContext->fragmentTime,
+								fragmentDuration);
 						}
 						else if((mIsFogTSB && !mAdPlayingFromCDN) && pMediaStreamContext->mDownloadedFragment.GetPtr() )
 						{
@@ -1869,7 +1874,11 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 				}
 				retval = FetchFragment(pMediaStreamContext, media, fragmentDuration, false, curlInstance, false, pto, scale);
 				string startTimeStringValue = mpd->GetPeriods().at(mCurrentPeriodIdx)->GetStart();
-				pMediaStreamContext->downloadedDuration = pMediaStreamContext->fragmentTime;
+				pMediaStreamContext->lastDownloadedPosition = pMediaStreamContext->fragmentTime;
+				AAMPLOG_INFO("[%s] lastDownloadedPosition %lfs fragmentTime %lfs",
+					GetMediaTypeName(pMediaStreamContext->mediaType),
+					pMediaStreamContext->lastDownloadedPosition.load(),
+					pMediaStreamContext->fragmentTime);
 				if( pMediaStreamContext->mCheckForRampdown )
 				{
 					/* NOTE : This case needs to be validated with the segmentTimeline not available stream */
@@ -2032,9 +2041,13 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 						pMediaStreamContext->fragmentOffset += referenced_size;
 						retval = true;
 					}
-					// pMediaStreamContext->downloadedDuration is introduced to calculate the buffered duration value for SegmentBase contents.
-                                        //Absolute position reporting
-                                        pMediaStreamContext->downloadedDuration = pMediaStreamContext->fragmentTime;
+					// pMediaStreamContext->lastDownloadedPosition is introduced to calculate the buffered duration value for SegmentBase contents.
+					//Absolute position reporting
+					pMediaStreamContext->lastDownloadedPosition = pMediaStreamContext->fragmentTime;
+					AAMPLOG_INFO("[%s] lastDownloadedPosition %lfs fragmentTime %lfs",
+						GetMediaTypeName(pMediaStreamContext->mediaType),
+						pMediaStreamContext->lastDownloadedPosition.load(),
+						pMediaStreamContext->fragmentTime);
 				}
 				else
 				{ // done with index
