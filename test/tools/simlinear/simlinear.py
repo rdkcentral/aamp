@@ -155,7 +155,8 @@ def display_all_manifests(host, port, abr_type):
             print(hostInfo + file_path + "/" + fileName)
 
         if (("._" not in fileName) and (ext+'.' in fileName) and (".orig" not in fileName)):
-            content = fileName.split(".")
+            content = re.split(r'\.(' + ext[1:] + r')\.', fileName)
+
             try:
                 manifest_dict[content[0]] = manifest_dict.get(content[0]) + 1
             except:
@@ -517,7 +518,7 @@ class HLSServerHandler(BaseHTTPRequestHandler):
                         restart = True
                         shutdown = True
 
-                        return;
+                        return
                 rtn_path = hls_server.manifest_serve(path)
                 if not rtn_path:
                     raise FileNotFoundError
