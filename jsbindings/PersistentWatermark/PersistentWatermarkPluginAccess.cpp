@@ -31,42 +31,42 @@ PersistentWatermark::PluginAccess::PluginAccess(): mThunderAccess(PlayerThunderA
 	}
 }
 
-bool PersistentWatermark::DeleteWatermark(int layerID)
+bool PersistentWatermark::PluginAccess::DeleteWatermark(int layerID)
 {
 	return mThunderAccess.DeleteWatermark(layerID);
 }
 
-bool PersistentWatermark::CreateWatermark(int layerID)
+bool PersistentWatermark::PluginAccess::CreateWatermark(int layerID)
 {
 	return mThunderAccess.CreateWatermark(layerID);
 }
 
-bool PersistentWatermark::ShowWatermark(int opacity)
+bool PersistentWatermark::PluginAccess::ShowWatermark(int opacity)
 {
 	return mThunderAccess.ShowWatermark(opacity);
 }
 
-bool PersistentWatermark::HideWatermark()
+bool PersistentWatermark::PluginAccess::HideWatermark()
 {
 	return mThunderAccess.HideWatermark();
 }
 
-bool PersistentWatermark::UpdateWatermark(int layerID, int sharedMemoryKey, int size)
+bool PersistentWatermark::PluginAccess::UpdateWatermark(int layerID, int sharedMemoryKey, int size)
 {
 	return mThunderAccess.UpdateWatermark(layerID, sharedMemoryKey, size);
 }
 
-std::string PersistentWatermark::GetMetaDataWatermark()
+std::string PersistentWatermark::PluginAccess::GetMetaDataWatermark()
 {
 	return mThunderAccess.GetMetaDataWatermark();
 }
 
-bool PersistentWatermark::PersistentStoreSaveWatermark(const char* base64Image, std::string metaData)
+bool PersistentWatermark::PluginAccess::PersistentStoreSaveWatermark(const char* base64Image, std::string metaData)
 {
 	return mThunderAccess.PersistentStoreSaveWatermark(base64Image, metaData);
 }
 
-bool PersistentWatermark::PersistentStoreLoadWatermark(int layerID)
+bool PersistentWatermark::PluginAccess::PersistentStoreLoadWatermark(int layerID)
 {
     return mThunderAccess.PersistentStoreLoadWatermark(layerID);
 }
