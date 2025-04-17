@@ -560,7 +560,16 @@ class AAMPPlayer {
         {
             var i = 0;
             var current_state = this.player.getCurrentState();
-            var expected_state = aamp_State.eSTATE_IDLE;
+
+            while (current_state != eSTATE_STOPPING)
+            {
+                    var stateChanged = await this.waitForEventWithTimeout(this.player, 'playbackStateChanged', aamp_timeout, (i == 0) ? () => this.player.stop() : null).catch(e => { TST_ASSERT_FAIL_FATAL(e) });
+                    current_state = stateChanged.state;
+                    console.log("aamp_Stop (Current State:" + current_state +")");
+                    i += 1;
+            }
+
+            var expected_state = aamp_State.eSTATE_RELEASED;
             console.log("aamp_Stop START: (Current State:" + current_state + ", Expected State: " + expected_state +")");
 
             while (current_state != expected_state)
