@@ -57,9 +57,10 @@ protected:
 	/* data */
 	std::string url; /**< URL of the fragment  init or media*/
 	AampMediaType mediaType; /**< Type of the fragment*/
+	AampTime absolutePositionS; /**< absolute position of the current fragment, in seconds since 1970 */
 	std::string periodId; /**< period Id of the fragment*/
 
-	TsbSegment(std::string link, AampMediaType media, std::string prId) : url(std::move(link)), mediaType(media), periodId(std::move(prId)){}
+	TsbSegment(std::string link, AampMediaType media, AampTime absolutePositionS, std::string prId) : url(std::move(link)), mediaType(media), absolutePositionS(absolutePositionS), periodId(std::move(prId)){}
 
 public:
 	/**
@@ -79,6 +80,13 @@ public:
 	 *   @return API to get periodId
 	 */
 	std::string& GetPeriodId() { return periodId; }
+
+	/**
+	 * @fn GetAbsolutePosition
+	 *
+	 * @return absolute position of the current fragment, in seconds since 1970
+	 */
+	AampTime GetAbsolutePosition() const { return absolutePositionS; }
 };
 
 /**
@@ -108,13 +116,14 @@ public:
 	 *   @fn constructor
 	 *   @param[in] url - Segment URL as string
 	 *   @param[in] media - Segment type as AampMediaType
+	 *   @param[in] absolutePositionS - absolute position of the current fragment, in seconds since 1970
 	 *   @param[in] streamInfo - fragment stream info
 	 *   @param[in] prId - Period Id of the fragment
 	 *   @param[in] profileIdx - ABR profile index
 	 *   @return void
 	 */
-	TsbInitData(std::string url, AampMediaType media, const StreamInfo &streamInfo, std::string prId, int profileIdx)
-		: TsbSegment(std::move(url), media, std::move(prId)), fragStreamInfo(streamInfo), users(0), profileIndex(profileIdx)
+	TsbInitData(std::string url, AampMediaType media, AampTime absolutePositionS, const StreamInfo &streamInfo, std::string prId, int profileIdx)
+		: TsbSegment(std::move(url), media, absolutePositionS, std::move(prId)), fragStreamInfo(streamInfo), users(0), profileIndex(profileIdx)
 	{
 	}
 
@@ -161,7 +170,6 @@ public:
 class TsbFragmentData : public TsbSegment
 {
 private:
-	AampTime absolutePositionS; /**< absolute position of the current fragment, in seconds since 1970 */
 	AampTime duration; /**< duration of the current fragment*/
 	AampTime mPTS; /**< PTS of the current fragment in seconds before applying PTS offset, i.e. ISO BMFF baseMediaDecodeTime / timescale */
 	bool isDiscontinuous;  /**< the current fragment is discontinuous*/
@@ -188,7 +196,7 @@ public:
 	 */
 	TsbFragmentData(std::string url, AampMediaType media, AampTime absolutePositionS, AampTime duration, AampTime pts, bool disc,
 		std::string prId, std::shared_ptr<TsbInitData> initData, uint32_t timeScale, AampTime PTSOffsetSec)
-		: TsbSegment(std::move(url), media, std::move(prId)), absolutePositionS(absolutePositionS), duration(duration), mPTS(pts), isDiscontinuous(disc), initFragData(std::move(initData)),
+		: TsbSegment(std::move(url), media, absolutePositionS, std::move(prId)), duration(duration), mPTS(pts), isDiscontinuous(disc), initFragData(std::move(initData)),
 		timeScale(timeScale), PTSOffsetSec(PTSOffsetSec)
 	{
 	}
@@ -205,13 +213,6 @@ public:
 	 *   @return return initFragment shared pointer associated with it
 	 */
 	std::shared_ptr<TsbInitData> GetInitFragData() const { return initFragData; }
-
-	/**
-	 * @fn GetAbsPosition
-	 *
-	 * @return absolute position of the current fragment, in seconds since 1970
-	 */
-	AampTime GetAbsPosition() const { return absolutePositionS; }
 
 	/**
 	 * @fn GetPTS
@@ -356,10 +357,11 @@ public:
 	 *   @param[in] media - Segment type as AampMediaType
 	 *   @param[in] streamInfo - fragment stream info
 	 *   @param[in] periodId - Period Id of this fragment
+	 *   @param[in] absPosition - Abs position of this fragment
 	 *   @param[in] profileIdx - ABR profile index
 	 *   @return true if no exception
 	 */
-	bool AddInitFragment(std::string &url, AampMediaType media, const StreamInfo &streamInfo, std::string &periodId, int profileIdx = 0);
+	bool AddInitFragment(std::string &url, AampMediaType media, const StreamInfo &streamInfo, std::string &periodId, double absPosition, int profileIdx = 0);
 
 	/**
 	 *   @fn AddFragment
