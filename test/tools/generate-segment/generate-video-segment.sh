@@ -59,8 +59,9 @@ fi
 
 ffmpeg -y \
     -loop 1 \
+    -framerate $FPS \
     -i $SOURCE_MEDIA \
-    -vf "$SCALE,fps=$FPS,drawtext=$MEDIATIME_OVERLAY,drawtext=$RESOLUTION_OVERLAY" \
+    -vf "$SCALE,drawtext=$MEDIATIME_OVERLAY,drawtext=$RESOLUTION_OVERLAY" \
     -t $DURATION_S \
     -c:v $VIDEO_CODEC \
     -movie_timescale $TIMESCALE \
