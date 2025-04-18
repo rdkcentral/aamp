@@ -27,6 +27,8 @@
 #include "StreamAbstractionAAMP.h"
 #include "AampCacheHandler.h"
 #include "isobmffhelper.h"
+#include "AampTsbAdPlacementMetaData.h"
+#include "AampTsbAdReservationMetaData.h"
 #include <iostream>
 #include <cmath>
 #include <utility>
@@ -57,6 +59,8 @@ AampTSBSessionManager::AampTSBSessionManager(PrivateInstanceAAMP *aamp)
 		, mTsbMinFreePercentage(0)
 		, mIsoBmffHelper(std::make_shared<IsoBmffHelper>())
 		, mTsbLength(0)
+		, mCurrentWritePosition(0)
+		, mLastAdMetaDataProcessed(nullptr)  // Initialize to nullptr
 {
 }
 
@@ -95,6 +99,9 @@ void AampTSBSessionManager::Init()
 		{
 			// Initialize datamanager for respective mediatype
 			InitializeDataManagers();
+			// Initialize metadata manager
+			InitializeMetaDataManager();
+			// Initialize TSB readers
 			InitializeTsbReaders();
 			// Start monitoring the write queue in a separate thread
 			mWriteThread = std::thread(&AampTSBSessionManager::ProcessWriteQueue, this);
@@ -114,6 +121,25 @@ void AampTSBSessionManager::InitializeDataManagers()
 	{
 		AampMediaType mediaType = static_cast<AampMediaType>(i);
 		mDataManagers[mediaType] = {std::make_shared<AampTsbDataManager>(), 0.0};
+	}
+}
+
+/**
+ * @brief Initialize the metadata manager and register metadata types
+ */
+void AampTSBSessionManager::InitializeMetaDataManager()
+{
+	// Initialize the metadata manager
+	mMetaDataManager.Initialize();
+
+	// Register AD_METADATA_TYPE as transient
+	if (mMetaDataManager.RegisterMetaDataType(AampTsbMetaData::Type::AD_METADATA_TYPE, true))
+	{
+		AAMPLOG_INFO("Successfully registered AD_METADATA_TYPE as transient");
+	}
+	else
+	{
+		AAMPLOG_ERR("Failed to register AD_METADATA_TYPE");
 	}
 }
 
@@ -295,6 +321,8 @@ void AampTSBSessionManager::EnqueueWrite(std::string url, std::shared_ptr<Cached
 			// TBD : Is there any possibility for TSBData add fragment failure ????
 			TSBWriteData writeData = {url, cachedFragment, pts, std::move(periodId)};
 			AAMPLOG_TRACE("Enqueueing Write Data discontinuity %d for URL: %s",cachedFragment->discontinuity, url.c_str());
+
+			mCurrentWritePosition = cachedFragment->absPosition;
 			// TODO :Need to add the same data on Addfragment and AddInitfragment of AampTsbDataManager
 			mWriteQueue.push(writeData);
 			// Notify the monitoring thread that there is data in the queue
@@ -368,7 +396,7 @@ void AampTSBSessionManager::ProcessWriteQueue()
 					LockReadMutex();
 					if (writeData.cachedFragment->initFragment)
 					{
-					    TSBDataAddStatus = GetTsbDataManager(mediatype)->AddInitFragment(writeData.url, mediatype, writeData.cachedFragment->cacheFragStreamInfo, writeData.periodId, writeData.cachedFragment->profileIndex);
+						TSBDataAddStatus = GetTsbDataManager(mediatype)->AddInitFragment(writeData.url, mediatype, writeData.cachedFragment->cacheFragStreamInfo, writeData.periodId, writeData.cachedFragment->profileIndex);
 
 					}
 					else
@@ -567,6 +595,11 @@ double AampTSBSessionManager::CullSegments()
 				LockReadMutex();
 				AAMPLOG_INFO("[%s] Removed %lf fragment duration seconds, Url: %s, AbsPosition: %lf, pts %lf", GetMediaTypeName(mediaTypeToRemove), durationInSeconds, removedFragmentUrl.c_str(), removedFragment->GetAbsPosition().inSeconds(), removedFragment->GetPTS().inSeconds());
 
+				if (eMEDIATYPE_VIDEO == mediaTypeToRemove)
+				{
+					(void)mMetaDataManager.RemoveMetaData(removedFragment->GetAbsPosition() + removedFragment->GetDuration());
+				}
+
 				// Update total stored duration
 				UpdateTotalStoreDuration(mediaTypeToRemove, -durationInSeconds);
 			}
@@ -643,14 +676,14 @@ double AampTSBSessionManager::GetTotalStoreDuration(AampMediaType mediaType)
 	std::shared_ptr<AampTsbDataManager> dataMgr = GetTsbDataManager(mediaType);
 	if(nullptr != dataMgr)
 	{
-        if(dataMgr->GetLastFragment())
-        {
-            totalDuration = (dataMgr->GetLastFragmentPosition() + dataMgr->GetLastFragment()->GetDuration().inSeconds()) - dataMgr->GetFirstFragmentPosition();
-        }
-        else
-        {
-            totalDuration = 0;
-        }
+		if(dataMgr->GetLastFragment())
+		{
+			totalDuration = (dataMgr->GetLastFragmentPosition() + dataMgr->GetLastFragment()->GetDuration().inSeconds()) - dataMgr->GetFirstFragmentPosition();
+		}
+		else
+		{
+			totalDuration = 0;
+		}
 	}
 	else
 	{
@@ -719,6 +752,7 @@ AAMPStatusType AampTSBSessionManager::InvokeTsbReaders(double &startPosSec, floa
 	{
 		// Re-Invoke TSB readers to new position
 		mActiveTuneType = tuneType;
+		mLastAdMetaDataProcessed = nullptr;
 		GetTsbReader(eMEDIATYPE_VIDEO)->Term();
 		ret = GetTsbReader(eMEDIATYPE_VIDEO)->Init(startPosSec, rate, tuneType);
 		if (eAAMPSTATUS_OK != ret)
@@ -872,6 +906,9 @@ bool AampTSBSessionManager::PushNextTsbFragment(MediaStreamContext *pMediaStream
 					}
 				}
 				UnlockReadMutex();
+
+				ProcessAdMetadata(mediaType, nextFragmentData, rate);
+
 				ret = pMediaStreamContext->CacheTsbFragment(std::move(nextFragment));
 				LockReadMutex();
 			}
@@ -963,4 +1000,164 @@ BitsPerSecond AampTSBSessionManager::GetVideoBitrate()
 		bitrate = static_cast<BitsPerSecond> (reader->mCurrentBandwidth);
 	}
 	return bitrate;
+}
+
+/**
+ * @brief Start an ad reservation
+ * @param[in] adBreakId - ID of the ad break
+ * @param[in] periodPosition - position of the ad reservation
+ * @param[in] absPosition - absolute position
+ * @return bool - true if success
+ */
+bool AampTSBSessionManager::StartAdReservation(const std::string &adBreakId, uint64_t periodPosition, AampTime absPosition)
+{
+	auto metaData = std::make_shared<AampTsbAdReservationMetaData>(
+		AampTsbAdMetaData::EventType::START,
+		absPosition,
+		adBreakId,
+		periodPosition);
+	return mMetaDataManager.AddMetaData(metaData);
+}
+
+/**
+ * @brief End an ad reservation
+ * @param[in] adBreakId - ID of the ad break
+ * @param[in] periodPosition - position of the ad reservation
+ * @param[in] absPosition - absolute position
+ * @return bool - true if success
+ */
+bool AampTSBSessionManager::EndAdReservation(const std::string &adBreakId, uint64_t periodPosition, AampTime absPosition)
+{
+	auto metaData = std::make_shared<AampTsbAdReservationMetaData>(
+		AampTsbAdMetaData::EventType::END,
+		absPosition,
+		adBreakId,
+		periodPosition);
+	return mMetaDataManager.AddMetaData(metaData);
+}
+
+/**
+ * @brief Start an ad placement
+ * @param[in] adId - ID of the ad
+ * @param[in] relativePosition - position of the ad placement
+ * @param[in] absPosition - absolute position
+ * @param[in] duration - duration of the ad placement
+ * @param[in] offset - offset of the ad placement
+ * @return bool - true if success
+ */
+bool AampTSBSessionManager::StartAdPlacement(const std::string &adId, uint32_t relativePosition, AampTime absPosition, double duration, uint32_t offset)
+{
+	auto metaData = std::make_shared<AampTsbAdPlacementMetaData>(
+		AampTsbAdMetaData::EventType::START,
+		absPosition,
+		duration,
+		adId,
+		relativePosition,
+		offset);
+	return mMetaDataManager.AddMetaData(metaData);
+}
+
+/**
+ * @brief End an ad placement
+ * @param[in] adId - ID of the ad
+ * @param[in] relativePosition - position of the ad placement
+ * @param[in] absPosition - absolute position
+ * @param[in] duration - duration of the ad placement
+ * @param[in] offset - offset of the ad placement
+ * @return bool - true if success
+ */
+bool AampTSBSessionManager::EndAdPlacement(const std::string &adId, uint32_t relativePosition, AampTime absPosition, double duration, uint32_t offset)
+{
+	auto metaData = std::make_shared<AampTsbAdPlacementMetaData>(
+		AampTsbAdMetaData::EventType::END,
+		absPosition,
+		duration,
+		adId,
+		relativePosition,
+		offset);
+	return mMetaDataManager.AddMetaData(metaData);
+}
+
+/**
+ * @brief End an ad placement with error
+ * @param[in] adId - ID of the ad
+ * @param[in] relativePosition - position of the ad placement
+ * @param[in] absPosition - absolute position
+ * @param[in] duration - duration of the ad placement
+ * @param[in] offset - offset of the ad placement
+ * @return bool - true if success
+ */
+bool AampTSBSessionManager::EndAdPlacementWithError(const std::string &adId, uint32_t relativePosition, AampTime absPosition, double duration, uint32_t offset)
+{
+	auto metaData = std::make_shared<AampTsbAdPlacementMetaData>(
+		AampTsbAdMetaData::EventType::ERROR,
+		absPosition,
+		duration,
+		adId,
+		relativePosition,
+		offset);
+	return mMetaDataManager.AddMetaData(metaData);
+}
+
+// Need a method that simulates the send immediate flag for ads
+// Shifts all current and future positions to the current position.
+void AampTSBSessionManager::ShiftFutureAdEvents()
+{
+	// Protect this section with the write queue mutex
+	std::unique_lock<std::mutex> guard(mWriteQueueMutex);
+	AampTime currentWritePosition = mCurrentWritePosition;
+	guard.unlock();
+
+	// Get only AD type metadata using the template method with explicit type
+	auto result = mMetaDataManager.GetMetaDataByType<AampTsbMetaData>(AampTsbMetaData::Type::AD_METADATA_TYPE, currentWritePosition, currentWritePosition + mTsbLength);
+	(void)mMetaDataManager.ChangeMetaDataPosition(result, currentWritePosition);
+}
+
+void AampTSBSessionManager::ProcessAdMetadata(AampMediaType mediaType, TsbFragmentDataPtr nextFragmentData, float rate)
+{
+	if ((AAMP_NORMAL_PLAY_RATE == rate) && (eMEDIATYPE_VIDEO == mediaType))
+	{
+		AampTime rangeStart;
+		if (mLastAdMetaDataProcessed != nullptr)
+		{
+			rangeStart = mLastAdMetaDataProcessed->GetPosition();
+		}
+		else
+		{
+			rangeStart = nextFragmentData->GetAbsPosition();
+		}
+		AampTime rangeEnd = nextFragmentData->GetAbsPosition() + nextFragmentData->GetDuration();
+
+		AAMPLOG_DEBUG("rangeStart = %" PRIu64 "ms, rangeEnd = %" PRIu64 "ms",
+			rangeStart.milliseconds(), rangeEnd.milliseconds());
+
+		// Get all ad metadata within the fragment's time range
+		auto adMetadataItems = mMetaDataManager.GetMetaDataByType<AampTsbAdMetaData>(
+			AampTsbMetaData::Type::AD_METADATA_TYPE, rangeStart, rangeEnd);
+
+		// Process metadata items in chronological order
+		bool skip = mLastAdMetaDataProcessed != nullptr;
+		for (const auto& adMetadata : adMetadataItems)
+		{
+			// Skip until we have reached the last processed metadata
+			if (skip)
+			{
+				if (adMetadata == mLastAdMetaDataProcessed)
+				{
+					skip = false;
+				}
+			}
+			else
+			{
+				AAMPLOG_INFO("Processing ad metadata type %d event %d at position: %" PRIu64 "ms",
+							static_cast<int>(adMetadata->GetAdType()),
+							static_cast<int>(adMetadata->GetEventType()),
+							adMetadata->GetPosition().milliseconds());
+
+				// Let the metadata object handle sending the appropriate event
+				adMetadata->SendEvent(mAamp);
+				mLastAdMetaDataProcessed = std::static_pointer_cast<AampTsbMetaData>(adMetadata);
+			}
+		}
+	}
 }

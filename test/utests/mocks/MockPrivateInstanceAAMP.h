@@ -75,6 +75,9 @@ public:
     MOCK_METHOD(void, TuneHelper, (TuneType tuneType, bool seekWhilePaused));
     MOCK_METHOD(AampTSBSessionManager*, GetTSBSessionManager, ());
     MOCK_METHOD(void, NotifyOnEnteringLive, ());
+
+    MOCK_METHOD(void, SendAdPlacementEvent, (AAMPEventType, const std::string &, uint32_t, uint64_t, uint32_t, uint32_t, bool, long));
+    MOCK_METHOD(void, SendAdReservationEvent, (AAMPEventType, const std::string &, uint64_t, uint64_t, bool));
 };
 
 extern MockPrivateInstanceAAMP *g_mockPrivateInstanceAAMP;

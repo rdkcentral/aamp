@@ -1854,7 +1854,7 @@ public:
 class AdPlacementEvent: public AAMPEventObject
 {
 	std::string mAdId;	/**< Ad Id */
-	uint32_t mPosition;	/**< Ad Position relative to Reservation Start */
+	uint32_t mPosition;	/**< Ad Position relative to Reservation Start/Percentage for progress */
 	uint64_t mAbsolutePositionMs; /**< Absolute Ad Position in UTC milliseconds */
 	uint32_t mOffset;	/**< Ad start offset */
 	uint32_t mDuration;	/**< Ad's duration */

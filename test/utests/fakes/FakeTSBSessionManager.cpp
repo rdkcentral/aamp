@@ -22,12 +22,13 @@
  * @brief TSBSession Manager for Aamp
  **************************************/
 
-
 #include "AampTSBSessionManager.h"
 #include "AampLogManager.h"
 #include "MockTSBSessionManager.h"
+#include "isobmffhelper.h" // Include for IsoBmffHelper
 
 MockTSBSessionManager *g_mockTSBSessionManager = nullptr;
+
 /**
  * @fn AampTSBSessionManager Constructor
  *
@@ -37,7 +38,7 @@ AampTSBSessionManager::AampTSBSessionManager(PrivateInstanceAAMP* aamp)	:
         mInitialized_(true), mStopThread_(false), mAamp(aamp), mTSBStore(nullptr),
         mActiveTuneType(eTUNETYPE_NEW_NORMAL), mLastVideoPos(AAMP_PAUSE_POSITION_INVALID_POSITION),
 		mCulledDuration(0.0), mStoreEndPosition(0.0), mLiveEndPosition(0.0), mTsbMaxDiskStorage(0),
-		mTsbMinFreePercentage(0)
+		mTsbMinFreePercentage(0), mIsoBmffHelper(std::make_shared<IsoBmffHelper>())
 {
 }
 
@@ -49,6 +50,7 @@ AampTSBSessionManager::AampTSBSessionManager(PrivateInstanceAAMP* aamp)	:
 AampTSBSessionManager::~AampTSBSessionManager()
 {
 }
+
 /**
  * @fn AampTSBSessionManager Init function
  *
@@ -61,19 +63,21 @@ void AampTSBSessionManager::Init()
         g_mockTSBSessionManager->Init();
     }
 }
+
 /**
  * @fn Write - function to Enqueues data for writing
  *
  * @return None
  */
-void AampTSBSessionManager::EnqueueWrite(std::string url,std::shared_ptr<CachedFragment> cachedFragment, std::string periodId)
+void AampTSBSessionManager::EnqueueWrite(std::string url, std::shared_ptr<CachedFragment> cachedFragment, std::string periodId)
 {
 }
+
 /**
  * @fn Flush  - function to clear the TSB storage
  *
  * @return None
- */	
+ */
 void AampTSBSessionManager::Flush()
 {
 }
@@ -97,7 +101,6 @@ std::shared_ptr<AampTsbReader> AampTSBSessionManager::GetTsbReader(AampMediaType
 
 void AampTSBSessionManager::ProcessWriteQueue()
 {
-
 }
 
 double AampTSBSessionManager::CullSegments()
@@ -122,11 +125,104 @@ void AampTSBSessionManager::InitializeTsbReaders()
 {
 }
 
+void AampTSBSessionManager::InitializeDataManagers()
+{
+}
+
 BitsPerSecond AampTSBSessionManager::GetVideoBitrate()
 {
     return 0;
 }
+
 double AampTSBSessionManager::GetManifestEndDelta()
 {
     return 0;
+}
+
+double AampTSBSessionManager::GetTotalStoreDuration(AampMediaType mediaType)
+{
+    return 0.0;
+}
+
+std::shared_ptr<AampTsbDataManager> AampTSBSessionManager::GetTsbDataManager(AampMediaType mediaType)
+{
+    return nullptr;
+}
+
+AampMediaType AampTSBSessionManager::ConvertMediaType(AampMediaType mediatype)
+{
+    return mediatype;
+}
+
+bool AampTSBSessionManager::StartAdReservation(const std::string &adBreakId, uint64_t periodPosition, AampTime absPosition)
+{
+    bool ret = false;
+    if (g_mockTSBSessionManager)
+    {
+        ret = g_mockTSBSessionManager->StartAdReservation(adBreakId, periodPosition, absPosition);
+    }
+    return ret;
+}
+
+bool AampTSBSessionManager::EndAdReservation(const std::string &adBreakId, uint64_t periodPosition, AampTime absPosition)
+{
+    bool ret = false;
+    if (g_mockTSBSessionManager)
+    {
+        ret = g_mockTSBSessionManager->EndAdReservation(adBreakId, periodPosition, absPosition);
+    }
+    return ret;
+}
+
+bool AampTSBSessionManager::StartAdPlacement(const std::string &adId, uint32_t relativePosition, AampTime absPosition, double duration, uint32_t offset)
+{
+    bool ret = false;
+    if (g_mockTSBSessionManager)
+    {
+        ret = g_mockTSBSessionManager->StartAdPlacement(adId, relativePosition, absPosition, duration, offset);
+    }
+    return ret;
+}
+
+bool AampTSBSessionManager::EndAdPlacement(const std::string &adId, uint32_t relativePosition, AampTime absPosition, double duration, uint32_t offset)
+{
+    bool ret = false;
+    if (g_mockTSBSessionManager)
+    {
+        ret = g_mockTSBSessionManager->EndAdPlacement(adId, relativePosition, absPosition, duration, offset);
+    }
+    return ret;
+}
+
+bool AampTSBSessionManager::EndAdPlacementWithError(const std::string &adId, uint32_t relativePosition, AampTime absPosition, double duration, uint32_t offset)
+{
+    bool ret = false;
+    if (g_mockTSBSessionManager)
+    {
+        ret = g_mockTSBSessionManager->EndAdPlacementWithError(adId, relativePosition, absPosition, duration, offset);
+    }
+    return ret;
+}
+
+void AampTSBSessionManager::ShiftFutureAdEvents()
+{
+    if (g_mockTSBSessionManager)
+    {
+        g_mockTSBSessionManager->ShiftFutureAdEvents();
+    }
+}
+
+std::shared_ptr<CachedFragment> AampTSBSessionManager::Read(TsbInitDataPtr initfragdata)
+{
+    return nullptr;
+}
+
+std::shared_ptr<CachedFragment> AampTSBSessionManager::Read(TsbFragmentDataPtr fragmentdata, double &pts)
+{
+    return nullptr;
+}
+
+TsbFragmentDataPtr AampTSBSessionManager::RemoveFragmentDeleteInit(AampMediaType mediatype)
+{
+    return nullptr;
 }
