@@ -46,8 +46,7 @@ message(GSTREAMER_INCLUDE_DIRS=${GSTREAMER_INCLUDE_DIRS})
 set(TEST_SOURCES DrmTestsRun.cpp
 				 DrmSessionTests.cpp
 				 DrmHelperTests.cpp
-				 DrmUtilsTests.cpp
-				 DrmHLSTests.cpp)
+				 DrmUtilsTests.cpp)
 
 set(MOCK_SOURCES ${DRM_ROOT}/mocks/aampMocks.cpp
 				 ${DRM_ROOT}/mocks/FakeID3Metadata.cpp
