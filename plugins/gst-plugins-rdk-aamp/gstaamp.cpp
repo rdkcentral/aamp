@@ -79,14 +79,6 @@ static gboolean gst_aamp_src_query(GstPad * pad, GstObject *parent, GstQuery * q
 static void gst_aamp_configure(GstAamp * aamp, StreamOutputFormat format, StreamOutputFormat audioFormat);
 static gboolean gst_aamp_ready(GstAamp *aamp);
 
-#ifdef AAMP_JSCONTROLLER_ENABLED
-extern "C"
-{
-	void setAAMPPlayerInstance(PlayerInstanceAAMP *, int);
-	void unsetAAMPPlayerInstance(PlayerInstanceAAMP *);
-}
-#endif
-
 /**
  * @enum GstAampProperties
  * @brief Placeholder for gstaamp  properties
@@ -1285,20 +1277,6 @@ static GstStateChangeReturn gst_aamp_change_state(GstElement * element, GstState
 			{
 				return GST_STATE_CHANGE_FAILURE;
 			}
-#ifdef AAMP_JSCONTROLLER_ENABLED
-			{
-				int sessionId = 0;
-				if (aamp->location)
-				{
-					char *sessionValue = strstr(aamp->location, "?sessionId=");
-					if (sessionValue != NULL)
-					{
-						sscanf(sessionValue + 1, "sessionId=%d", &sessionId);
-					}
-				}
-				setAAMPPlayerInstance(aamp->player_aamp, sessionId);
-			}
-#endif
 			gst_aamp_tune_async( aamp);
 			aamp->report_tune = TRUE;
 			aamp->report_decode_handle = TRUE;
@@ -1395,9 +1373,6 @@ static GstStateChangeReturn gst_aamp_change_state(GstElement * element, GstState
 		case GST_STATE_CHANGE_READY_TO_NULL:
 			GST_DEBUG_OBJECT(aamp, "GST_STATE_CHANGE_READY_TO_NULL");
 			aamp->player_aamp->RegisterEvents(NULL);
-#ifdef AAMP_JSCONTROLLER_ENABLED
-			unsetAAMPPlayerInstance(aamp->player_aamp);
-#endif
 			break;
 		case GST_STATE_CHANGE_NULL_TO_READY:
 			if (!gst_aamp_configured(aamp))
