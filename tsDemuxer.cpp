@@ -105,6 +105,11 @@ bool Demuxer::CheckForSteadyState()
 {
 	if (!reached_steady_state)
 	{
+		if( aamp && ISCONFIGSET(eAAMPConfig_HlsTsEnablePTSReStamp) )
+		{ // skip below sanity checks if restamping from 0
+			reached_steady_state = true;
+			return true;
+		}
 		if ((base_pts > current_pts)
 			|| (current_dts && base_pts > current_dts))
 		{
@@ -177,7 +182,6 @@ void Demuxer::sendInternal(MediaProcessor::process_fcn_t processor)
 			const auto len = es.GetLen();
 			std::vector<uint8_t> buf(len);
 			const auto info {UpdateSegmentInfo()};
-
 			buf.assign(data_ptr, data_ptr + len);
 			processor(type, std::move(info), std::move(buf));
 			es.Clear();

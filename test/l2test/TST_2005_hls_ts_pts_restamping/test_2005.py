@@ -46,7 +46,6 @@ TESTDATA1 = {
 "aamp_cfg": "info=true\nenablePTSRestampForHlsTs=true\noffset=330\n",
 "expect_list": [
     # ( string, min time seconds, max time seconds)
-    # TODO: these floating point values look brittle - may want to use AampTime and log as ms
     # TODO: can we get webvtt subtitle track also playing/validated in l2 test?
     {"expect": re.escape("pts_offset[0]=-1379368ms") },
     {"expect": re.escape("pts_offset[1]=24192ms") },
@@ -58,9 +57,25 @@ TESTDATA1 = {
     ]
 }
 
+archive_url2 = "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/streams/L2/TST_2005_HLS_TS_PTS_RESTAMPING/d32e20a7-b227-4574-885b-4b9da697110b.zip"
+
+TESTDATA2 = {
+"title": "muxed hls/ts playback large pts",
+"archive_url": archive_url2,
+"url": "d32e20a7-b227-4574-885b-4b9da697110b/vod_4.m3u8",
+"simlinear_type": "HLS",
+"max_test_time_seconds": 10,
+"aamp_cfg": "info=true\nenablePTSRestampForHlsTs=true\n",
+"expect_list": [
+	{"expect": r"aamp_tune"},
+    {"expect": r"PAUSED -> PLAYING"},
+    {"expect": r"NotifyFirstFrameReceived"},
+    {"expect": r"SendTuneMetricsEvent","end_of_test":True}
+    ]
+}
 
 #The full list of tests
-TESTLIST = [TESTDATA1]
+TESTLIST = [TESTDATA1, TESTDATA2]
 
 ############################################################
 
