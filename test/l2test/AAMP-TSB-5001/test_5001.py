@@ -27,9 +27,9 @@ from l2test_pts_restamp import PtsRestampUtils
 from l2test_pts_restamp import TrickModesPtsRestampUtils
 from l2test_aamp_tsb import AampTsbUtils
 
-# The progress report is printed in the log at the interval times 4, i.e. 1s
-PROGRESS_REPORT_INTERVAL = 0.250
-PROGRESS_REPORT_DIVISOR = 4
+# Define the progress report interval, and the divisor
+PROGRESS_REPORT_INTERVAL = 0.5
+PROGRESS_REPORT_DIVISOR = 1
 PROGRESS_REPORT_INTERVAL_IN_LOG = PROGRESS_REPORT_INTERVAL * PROGRESS_REPORT_DIVISOR
 PROGRESS_REPORT_TOLERANCE = 1
 
@@ -96,7 +96,7 @@ TESTDATA0 = {
 	"archive_url": archive_url,
 	"url": LLD_URL,
 	"cmdlist": ["contentType LINEAR_TV"],
-	"aamp_cfg": "info=true\nlocalTSBEnabled=true\ntsbLocation=/tmp/data\ntsbLength=500\ntsbLog=0\nsupressDecode=true\n",
+	"aamp_cfg": f"info=true\nlocalTSBEnabled=true\ntsbLocation=/tmp/data\ntsbLength=500\ntsbLog=0\nsupressDecode=true\n",
 	"expect_list":
 	[
 		{"expect" : r"\[TSB Store\] Initiating with config values"},
@@ -126,7 +126,7 @@ TESTDATA1 = {
 	"archive_url": archive_url,
 	"url": LLD_URL,
 	"cmdlist": ["contentType LINEAR_TV"],
-	"aamp_cfg": f"info=true\ntrace=true\nprogress=true\nprogressReportingInterval={PROGRESS_REPORT_INTERVAL}\nlocalTSBEnabled=true\ntsbLocation=/tmp/data\ntsbLength=500\ntsbLog=0\nsupressDecode=true\n",
+	"aamp_cfg": f"info=true\ntrace=true\nprogress=true\nprogressReportingInterval={PROGRESS_REPORT_INTERVAL}\nprogressLoggingDivisor={PROGRESS_REPORT_DIVISOR}\nlocalTSBEnabled=true\ntsbLocation=/tmp/data\ntsbLength=500\ntsbLog=0\nsupressDecode=true\n",
 	"expect_list":
 	[
 		{"expect" : r"\[TSB Store\] Initiating with config values"},
@@ -158,7 +158,7 @@ TESTDATA2 = {
 	"archive_url": archive_url,
 	"url": LLD_URL,
 	"cmdlist": ["contentType LINEAR_TV"],
-	"aamp_cfg": f"info=true\nprogress=true\nprogressReportingInterval={PROGRESS_REPORT_INTERVAL}\nlocalTSBEnabled=true\ntsbLocation=/tmp/data\ntsbLength=500\ntsbLog=0\nsupressDecode=true\n",
+	"aamp_cfg": f"info=true\nprogress=true\nprogressReportingInterval={PROGRESS_REPORT_INTERVAL}\nprogressLoggingDivisor={PROGRESS_REPORT_DIVISOR}\nlocalTSBEnabled=true\ntsbLocation=/tmp/data\ntsbLength=500\ntsbLog=0\nsupressDecode=true\n",
 	"expect_list":
 	[
 		{"expect" : r"\[TSB Store\] Initiating with config values"},
@@ -201,7 +201,7 @@ TESTDATA3 = {
 	"archive_url": archive_url,
 	"url": LLD_URL,
 	"cmdlist": ["contentType LINEAR_TV"],
-	"aamp_cfg": "info=true\nlocalTSBEnabled=true\ntsbLocation=/tmp/data\ntsbLength=500\ntsbLog=0\nsupressDecode=true\n",
+	"aamp_cfg": f"info=true\nlocalTSBEnabled=true\ntsbLocation=/tmp/data\ntsbLength=500\ntsbLog=0\nsupressDecode=true\n",
 	"expect_list":
 	[
 		{"expect" : r"\[TSB Store\] Initiating with config values"},
@@ -236,7 +236,7 @@ TESTDATA4 = {
 	'simlinear_type': 'DASH',
 	"archive_url": archive_url,
 	"url": LLD_URL,
-	"aamp_cfg": f"progress=true\nprogressReportingInterval={PROGRESS_REPORT_INTERVAL}\ninfo=true\nlocalTSBEnabled=true\ntsbLocation=/tmp/data\ntsbLength=500\ntsbLog=0\n",
+	"aamp_cfg": f"progress=true\nprogressReportingInterval={PROGRESS_REPORT_INTERVAL}\nprogressLoggingDivisor={PROGRESS_REPORT_DIVISOR}\ninfo=true\nlocalTSBEnabled=true\ntsbLocation=/tmp/data\ntsbLength=500\ntsbLog=0\n",
     "cmdlist": [ "contentType LINEAR_TV" ],
 	"expect_list":
 	[
@@ -314,7 +314,7 @@ def generate_ff_testdata(ff_data):
 		"archive_url": archive_url,
 		"url": LLD_URL,
 		"cmdlist": ["contentType LINEAR_TV"],
-		"aamp_cfg": f"trace=true\nprogress=true\nprogressReportingInterval={PROGRESS_REPORT_INTERVAL}\ninfo=true\nlocalTSBEnabled=true\ntsbLocation=/tmp/data\ntsbLength=500\ntsbLog=0\n",
+		"aamp_cfg": f"trace=true\nprogress=true\nprogressReportingInterval={PROGRESS_REPORT_INTERVAL}\nprogressLoggingDivisor={PROGRESS_REPORT_DIVISOR}\ninfo=true\nlocalTSBEnabled=true\ntsbLocation=/tmp/data\ntsbLength=500\ntsbLog=0\n",
 		"expect_list": [
 			# Wait for playing and then pause
 			{"expect": r"AAMP_EVENT_STATE_CHANGED: PLAYING", "callback_once": send_command, "callback_arg": "pause"},
@@ -349,7 +349,7 @@ def generate_rew_testdata(rew_data):
 		"archive_url": archive_url,
 		"url": LLD_URL,
 		"cmdlist": ["contentType LINEAR_TV"],
-		"aamp_cfg": f"trace=true\nprogress=true\nprogressReportingInterval={PROGRESS_REPORT_INTERVAL}\ninfo=true\nlocalTSBEnabled=true\ntsbLocation=/tmp/data\ntsbLength=500\ntsbLog=0\n",
+		"aamp_cfg": f"trace=true\nprogress=true\nprogressReportingInterval={PROGRESS_REPORT_INTERVAL}\nprogressLoggingDivisor={PROGRESS_REPORT_DIVISOR}\ninfo=true\nlocalTSBEnabled=true\ntsbLocation=/tmp/data\ntsbLength=500\ntsbLog=0\n",
 		"expect_list": [
 			# Wait until a minimum of 10s data for 2x and 60s data for 64x is built into buffer
 			{"expect": r'\[ReportProgress\]\[\d+\]', "min": 10 if rew_data == 2 else 60, "callback_once": send_command, "callback_arg": f"rew {rew_data}"},
@@ -362,7 +362,7 @@ def generate_rew_testdata(rew_data):
 			# Checks the position in the playing state
 			{"expect": r'\[ReportProgress\]\[\d+\]aamp pos: \[\d+..(\d+)..\d+..-?\d+..\d+.\d+..-?\d+.\d+..\w*..\d+..\d+..1.00]', "min": 14 if rew_data == 2 else 62, "callback": check_position, "callback_arg": "playing"},
 			# Carry on additional verification (well past the assertion criteria) to terminate the test successfully
-			{"expect": r"\[GetPositionMilliseconds\]", "min": 20 if rew_data == 2 else 70, "end_of_test": True}
+			{"expect": r"\[ReportProgress\]\[\d+\]aamp pos: \[\d+..\d+", "min": 20 if rew_data == 2 else 70, "end_of_test": True}
 		]
 	}
 	return test_data
@@ -379,7 +379,7 @@ def generate_seek_testdata(extra_config):
 		"archive_url": archive_url,
 		"url": LLD_URL,
 		"cmdlist": ["contentType LINEAR_TV"],
-		"aamp_cfg": f"trace=true\nprogress=true\nprogressReportingInterval={PROGRESS_REPORT_INTERVAL}\ninfo=true\nlocalTSBEnabled=true\ntsbLocation=/tmp/data\ntsbLength=500\ntsbLog=0\n{extra_config}\n",
+		"aamp_cfg": f"trace=true\nprogress=true\nprogressReportingInterval={PROGRESS_REPORT_INTERVAL}\nprogressLoggingDivisor={PROGRESS_REPORT_DIVISOR}\ninfo=true\nlocalTSBEnabled=true\ntsbLocation=/tmp/data\ntsbLength=500\ntsbLog=0\n{extra_config}\n",
 
 		"expect_list": [
 			{"expect": r'\[ReportProgress\]\[\d+\]Send first progress event with position (\d+)', "callback_once": aamp_tsb_utils.extract_first_progress_event_position },

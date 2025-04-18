@@ -877,6 +877,11 @@ TEST_F(FetcherLoopTests, SelectSourceOrAdPeriodTests3)
 	bool mpdChanged = false;
 	std::string currentPeriodId = "p0";
 
+
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetTSBSessionManager()).WillRepeatedly(Return(nullptr));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection()).WillRepeatedly(Return(false));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdReservationEvent(_, _, _, _, _)).Times(AnyNumber());
+
 	/*
 	 * Test the scenario where ad is not placed and we are waiting for base period to catchup
 	 */

@@ -567,6 +567,9 @@ TEST_F(AdSelectionTests, WaitForAdFallbackTest)
 	std::string currentPeriodId = "p0";
 	mStreamAbstractionAAMP_MPD->IncrementIteratorPeriodIdx();
 
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetTSBSessionManager()).WillRepeatedly(Return(nullptr));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection()).WillRepeatedly(Return(false));
+
 	/*
 	 * Test the scenario where ad is not placed and we are waiting for base period to catchup
 	 */
@@ -647,6 +650,11 @@ TEST_F(AdSelectionTests, AdTransitionTest)
 	bool mpdChanged = false;
 	std::string currentPeriodId = "p0";
 	mStreamAbstractionAAMP_MPD->IncrementIteratorPeriodIdx();
+
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetTSBSessionManager()).WillRepeatedly(Return(nullptr));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection()).WillRepeatedly(Return(false));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdReservationEvent(_, _, _, _, _)).Times(AnyNumber());
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdPlacementEvent(_, _, _, _, _, _, _, _)).Times(AnyNumber());
 
 	/*
 	 * Test the scenario where ad is not placed and we are waiting for base period to catchup
@@ -811,6 +819,11 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(audioInitFragmentUrl, _, _, _, _, true, _, _, _, _, _))
 		.Times(1)
 		.WillOnce(Return(true));
+
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetTSBSessionManager()).WillRepeatedly(Return(nullptr));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection()).WillRepeatedly(Return(false));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdReservationEvent(_, _, _, _, _)).Times(AnyNumber());
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdPlacementEvent(_, _, _, _, _, _, _, _)).Times(AnyNumber());
 
 	// Start the playback at P0
 	status = InitializeMPD(mManifest, eTUNETYPE_SEEK, 10);

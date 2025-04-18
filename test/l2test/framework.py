@@ -489,7 +489,7 @@ class Aamp:
         for j in range(len(expect_did_happen)):
             ee = testdata["expect_list"][j]
             if expect_did_happen[j] is False and elapsed > ee.get("max",self.max_test_time_seconds) and ("not_expected" not in ee) and ("end_of_test" not in ee):
-                assert 0, "ERROR {} never occurred in expected time window".format(ee)
+                assert 0, "ERROR {} never occurred in expected time window max {}".format(ee, elapsed)
 
     def run_expect_b(self, testdata):
         """

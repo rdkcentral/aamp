@@ -603,6 +603,18 @@ protected:
 			CheckAdResolvedStatus(ads, adIdx, periodId);
 		}
 
+		void CallSendAdPlacementEvent(AAMPEventType type, const std::string& adId,
+			uint32_t relativePosition, uint64_t absPosition, uint32_t offset,
+			uint32_t duration, bool immediate)
+		{
+			SendAdPlacementEvent(type, adId, relativePosition, absPosition, offset, duration, immediate);
+		}
+
+		void CallSendAdReservationEvent(AAMPEventType type, const std::string& adBreakId,
+			  uint64_t periodPosition, uint64_t absPosition, bool immediate)
+		{
+			SendAdReservationEvent(type, adBreakId, periodPosition, absPosition, immediate);
+		}
 	};
 
 	PrivateInstanceAAMP *mPrivateInstanceAAMP;
@@ -2826,3 +2838,382 @@ TEST_F(StreamAbstractionAAMP_MPDTest, InitTsbReaderTest)
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, NotifyOnEnteringLive()).Times(1);
 	mStreamAbstractionAAMP_MPD->InitTsbReader(eTUNETYPE_SEEKTOLIVE);
 }
+
+TEST_F(StreamAbstractionAAMP_MPDTest, SendAdReservationEvent_NoTSB)
+{
+	// Set up test parameters for start event
+	std::string startAdBreakId = "adBreak1";
+	uint32_t startPeriodPosition = 1000;
+	uint64_t startAbsPosition = 2000000;
+	bool startImmediate = true;
+
+	// Set up test parameters for end event
+	std::string endAdBreakId = "adBreak1";
+	uint32_t endPeriodPosition = 2000;
+	uint64_t endAbsPosition = 2000000;
+	bool endImmediate = false;
+
+	// Set up expectations for no TSB manager
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetTSBSessionManager())
+		.WillRepeatedly(Return(nullptr));
+
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection())
+		.Times(0);
+
+	// Test START event
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdReservationEvent(
+		AAMP_EVENT_AD_RESERVATION_START, startAdBreakId, startPeriodPosition, startAbsPosition, startImmediate))
+		.Times(1);
+	mStreamAbstractionAAMP_MPD->CallSendAdReservationEvent(
+		AAMP_EVENT_AD_RESERVATION_START, startAdBreakId, startPeriodPosition, startAbsPosition, startImmediate);
+
+	// Test END event
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdReservationEvent(
+		AAMP_EVENT_AD_RESERVATION_END, endAdBreakId, endPeriodPosition, endAbsPosition, endImmediate))
+		.Times(1);
+	mStreamAbstractionAAMP_MPD->CallSendAdReservationEvent(
+		AAMP_EVENT_AD_RESERVATION_END, endAdBreakId, endPeriodPosition, endAbsPosition, endImmediate);
+}
+
+TEST_F(StreamAbstractionAAMP_MPDTest, SendAdReservationEvent_WithTSBNoLocalInjection)
+{
+	// Set up test parameters for both events
+	std::string startAdBreakId = "adBreak1";
+	std::string endAdBreakId = "adBreak2";
+	uint32_t startPeriodPosition = 1000;
+	uint32_t endPeriodPosition = 2000;
+	uint64_t startAbsPosition = 3000000;
+	uint64_t endAbsPosition = 4000000;
+	bool startImmediate = true;
+	bool endImmediate = false;
+
+	// Set up expectations for TSB manager without local injection
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetTSBSessionManager())
+		.WillRepeatedly(Return(g_mockTSBSessionManager));
+
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection())
+		.WillRepeatedly(Return(false));
+
+	// Test START event
+	{
+		testing::InSequence seq;
+		EXPECT_CALL(*g_mockTSBSessionManager, StartAdReservation(
+			startAdBreakId, startPeriodPosition, testing::Eq(AampTime(startAbsPosition / 1000.0))))
+			.WillOnce(Return(true));
+		EXPECT_CALL(*g_mockTSBSessionManager, ShiftFutureAdEvents())
+			.Times(1);
+	}
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdReservationEvent(
+		AAMP_EVENT_AD_RESERVATION_START, startAdBreakId, startPeriodPosition, startAbsPosition, startImmediate))
+		.Times(1);
+
+	mStreamAbstractionAAMP_MPD->CallSendAdReservationEvent(
+		AAMP_EVENT_AD_RESERVATION_START, startAdBreakId, startPeriodPosition, startAbsPosition, startImmediate);
+
+	// Test END event
+	{
+		testing::InSequence seq;
+		EXPECT_CALL(*g_mockTSBSessionManager, EndAdReservation(
+			endAdBreakId, endPeriodPosition, testing::Eq(AampTime(endAbsPosition / 1000.0))))
+			.WillOnce(Return(true));
+		EXPECT_CALL(*g_mockTSBSessionManager, ShiftFutureAdEvents())
+			.Times(0);
+	}
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdReservationEvent(
+		AAMP_EVENT_AD_RESERVATION_END, endAdBreakId, endPeriodPosition, endAbsPosition, endImmediate))
+		.Times(1);
+
+	mStreamAbstractionAAMP_MPD->CallSendAdReservationEvent(
+		AAMP_EVENT_AD_RESERVATION_END, endAdBreakId, endPeriodPosition, endAbsPosition, endImmediate);
+}
+
+TEST_F(StreamAbstractionAAMP_MPDTest, SendAdReservationEvent_WithTSBAndLocalInjection)
+{
+	// Set up test parameters for both events
+	std::string startAdBreakId = "adBreak1";
+	std::string endAdBreakId = "adBreak2";
+	uint32_t startPeriodPosition = 1000;
+	uint32_t endPeriodPosition = 2000;
+	uint64_t startAbsPosition = 3000000;
+	uint64_t endAbsPosition = 4000000;
+	bool startImmediate = true;
+	bool endImmediate = false;
+
+	// Set up expectations for TSB manager with local injection
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetTSBSessionManager())
+		.WillRepeatedly(Return(g_mockTSBSessionManager));
+
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection())
+		.WillRepeatedly(Return(true));
+
+	// No SendAdReservationEvent calls expected due to local injection
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdReservationEvent(_,_,_,_,_))
+		.Times(0);
+
+	// Test START event
+	{
+		testing::InSequence seq;
+		EXPECT_CALL(*g_mockTSBSessionManager, StartAdReservation(
+			startAdBreakId, startPeriodPosition, testing::Eq(AampTime(startAbsPosition / 1000.0))))
+			.WillOnce(Return(true));
+		EXPECT_CALL(*g_mockTSBSessionManager, ShiftFutureAdEvents())
+			.Times(1);
+	}
+	mStreamAbstractionAAMP_MPD->CallSendAdReservationEvent(
+		AAMP_EVENT_AD_RESERVATION_START, startAdBreakId, startPeriodPosition, startAbsPosition, startImmediate);
+
+	// Test END event
+	{
+		testing::InSequence seq;
+		EXPECT_CALL(*g_mockTSBSessionManager, EndAdReservation(
+			endAdBreakId, endPeriodPosition, testing::Eq(AampTime(endAbsPosition / 1000.0))))
+			.WillOnce(Return(true));
+		EXPECT_CALL(*g_mockTSBSessionManager, ShiftFutureAdEvents())
+			.Times(0);
+	}
+	mStreamAbstractionAAMP_MPD->CallSendAdReservationEvent(
+		AAMP_EVENT_AD_RESERVATION_END, endAdBreakId, endPeriodPosition, endAbsPosition, endImmediate);
+}
+
+TEST_F(StreamAbstractionAAMP_MPDTest, SendAdPlacementEvent_NoTSB)
+{
+	// Set up test parameters for both non-immediate and immediate events
+	std::string adId = "testAd1";
+	uint32_t relativePosition = 1000;
+	uint64_t absPosition = 2000000;
+	uint32_t offset = 500;
+	uint32_t duration = 30000;
+	bool immediate = false;
+
+	// Set up expectations for no TSB manager
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetTSBSessionManager())
+		.WillRepeatedly(Return(nullptr));
+
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection())
+		.Times(0);
+
+	// Test non-immediate events for each type
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdPlacementEvent(
+		AAMP_EVENT_AD_PLACEMENT_START, adId, relativePosition, absPosition, offset, duration, false, 0))
+		.Times(1);
+	mStreamAbstractionAAMP_MPD->CallSendAdPlacementEvent(
+		AAMP_EVENT_AD_PLACEMENT_START, adId, relativePosition, absPosition, offset, duration, false);
+
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdPlacementEvent(
+		AAMP_EVENT_AD_PLACEMENT_ERROR, adId, relativePosition, absPosition, offset, duration, false, 0))
+		.Times(1);
+	mStreamAbstractionAAMP_MPD->CallSendAdPlacementEvent(
+		AAMP_EVENT_AD_PLACEMENT_ERROR, adId, relativePosition, absPosition, offset, duration, false);
+
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdPlacementEvent(
+		AAMP_EVENT_AD_PLACEMENT_END, adId, relativePosition, absPosition, offset, duration, false, 0))
+		.Times(1);
+	mStreamAbstractionAAMP_MPD->CallSendAdPlacementEvent(
+		AAMP_EVENT_AD_PLACEMENT_END, adId, relativePosition, absPosition, offset, duration, false);
+
+	// Test immediate events for each type
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdPlacementEvent(
+		AAMP_EVENT_AD_PLACEMENT_START, adId, relativePosition, absPosition, offset, duration, true, 0))
+		.Times(1);
+	mStreamAbstractionAAMP_MPD->CallSendAdPlacementEvent(
+		AAMP_EVENT_AD_PLACEMENT_START, adId, relativePosition, absPosition, offset, duration, true);
+
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdPlacementEvent(
+		AAMP_EVENT_AD_PLACEMENT_ERROR, adId, relativePosition, absPosition, offset, duration, true, 0))
+		.Times(1);
+	mStreamAbstractionAAMP_MPD->CallSendAdPlacementEvent(
+		AAMP_EVENT_AD_PLACEMENT_ERROR, adId, relativePosition, absPosition, offset, duration, true);
+
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdPlacementEvent(
+		AAMP_EVENT_AD_PLACEMENT_END, adId, relativePosition, absPosition, offset, duration, true, 0))
+		.Times(1);
+	mStreamAbstractionAAMP_MPD->CallSendAdPlacementEvent(
+		AAMP_EVENT_AD_PLACEMENT_END, adId, relativePosition, absPosition, offset, duration, true);
+}
+
+TEST_F(StreamAbstractionAAMP_MPDTest, SendAdPlacementEvent_WithTSBNoLocalInjection)
+{
+	// Set up test parameters for both non-immediate and immediate events
+	std::string adId = "testAd1";
+	uint32_t relativePosition = 1000;
+	uint64_t absPosition = 2000000;
+	uint32_t offset = 500;
+	uint32_t duration = 30000;
+
+	// Set up expectations for TSB manager without local injection
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetTSBSessionManager())
+		.WillRepeatedly(Return(g_mockTSBSessionManager));
+
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection())
+		.WillRepeatedly(Return(false));
+
+	// Test non-immediate events for each type
+	{
+		testing::InSequence seq;
+		EXPECT_CALL(*g_mockTSBSessionManager, StartAdPlacement(
+			adId, relativePosition, testing::Eq(AampTime(absPosition / 1000.0)), duration, offset))
+			.WillOnce(Return(true));
+		EXPECT_CALL(*g_mockTSBSessionManager, ShiftFutureAdEvents())
+			.Times(0);
+	}
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdPlacementEvent(
+		AAMP_EVENT_AD_PLACEMENT_START, adId, relativePosition, absPosition, offset, duration, false, 0))
+		.Times(1);
+	mStreamAbstractionAAMP_MPD->CallSendAdPlacementEvent(
+		AAMP_EVENT_AD_PLACEMENT_START, adId, relativePosition, absPosition, offset, duration, false);
+
+	{
+		testing::InSequence seq;
+		EXPECT_CALL(*g_mockTSBSessionManager, EndAdPlacementWithError(
+			adId, relativePosition, testing::Eq(AampTime(absPosition / 1000.0)), duration, offset))
+			.WillOnce(Return(true));
+		EXPECT_CALL(*g_mockTSBSessionManager, ShiftFutureAdEvents())
+			.Times(0);
+	}
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdPlacementEvent(
+		AAMP_EVENT_AD_PLACEMENT_ERROR, adId, relativePosition, absPosition, offset, duration, false, 0))
+		.Times(1);
+	mStreamAbstractionAAMP_MPD->CallSendAdPlacementEvent(
+		AAMP_EVENT_AD_PLACEMENT_ERROR, adId, relativePosition, absPosition, offset, duration, false);
+
+	{
+		testing::InSequence seq;
+		EXPECT_CALL(*g_mockTSBSessionManager, EndAdPlacement(
+			adId, relativePosition, testing::Eq(AampTime(absPosition / 1000.0)), duration, offset))
+			.WillOnce(Return(true));
+		EXPECT_CALL(*g_mockTSBSessionManager, ShiftFutureAdEvents())
+			.Times(0);
+	}
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdPlacementEvent(
+		AAMP_EVENT_AD_PLACEMENT_END, adId, relativePosition, absPosition, offset, duration, false, 0))
+		.Times(1);
+	mStreamAbstractionAAMP_MPD->CallSendAdPlacementEvent(
+		AAMP_EVENT_AD_PLACEMENT_END, adId, relativePosition, absPosition, offset, duration, false);
+
+	// Test immediate events for each type
+	{
+		testing::InSequence seq;
+		EXPECT_CALL(*g_mockTSBSessionManager, StartAdPlacement(
+			adId, relativePosition, testing::Eq(AampTime(absPosition / 1000.0)), duration, offset))
+			.WillOnce(Return(true));
+		EXPECT_CALL(*g_mockTSBSessionManager, ShiftFutureAdEvents())
+			.Times(1);
+	}
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdPlacementEvent(
+		AAMP_EVENT_AD_PLACEMENT_START, adId, relativePosition, absPosition, offset, duration, true, 0))
+		.Times(1);
+	mStreamAbstractionAAMP_MPD->CallSendAdPlacementEvent(
+		AAMP_EVENT_AD_PLACEMENT_START, adId, relativePosition, absPosition, offset, duration, true);
+
+	{
+		testing::InSequence seq;
+		EXPECT_CALL(*g_mockTSBSessionManager, EndAdPlacementWithError(
+			adId, relativePosition, testing::Eq(AampTime(absPosition / 1000.0)), duration, offset))
+			.WillOnce(Return(true));
+		EXPECT_CALL(*g_mockTSBSessionManager, ShiftFutureAdEvents())
+			.Times(1);
+	}
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdPlacementEvent(
+		AAMP_EVENT_AD_PLACEMENT_ERROR, adId, relativePosition, absPosition, offset, duration, true, 0))
+		.Times(1);
+	mStreamAbstractionAAMP_MPD->CallSendAdPlacementEvent(
+		AAMP_EVENT_AD_PLACEMENT_ERROR, adId, relativePosition, absPosition, offset, duration, true);
+
+	{
+		testing::InSequence seq;
+		EXPECT_CALL(*g_mockTSBSessionManager, EndAdPlacement(
+			adId, relativePosition, testing::Eq(AampTime(absPosition / 1000.0)), duration, offset))
+			.WillOnce(Return(true));
+		EXPECT_CALL(*g_mockTSBSessionManager, ShiftFutureAdEvents())
+			.Times(1);
+	}
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdPlacementEvent(
+		AAMP_EVENT_AD_PLACEMENT_END, adId, relativePosition, absPosition, offset, duration, true, 0))
+		.Times(1);
+	mStreamAbstractionAAMP_MPD->CallSendAdPlacementEvent(
+		AAMP_EVENT_AD_PLACEMENT_END, adId, relativePosition, absPosition, offset, duration, true);
+}
+
+TEST_F(StreamAbstractionAAMP_MPDTest, SendAdPlacementEvent_WithTSBAndLocalInjection)
+{
+	// Set up test parameters for both non-immediate and immediate events
+	std::string adId = "testAd1";
+	uint32_t relativePosition = 1000;
+	uint64_t absPosition = 2000000;
+	uint32_t offset = 500;
+	uint32_t duration = 30000;
+
+	// Set up expectations for TSB manager with local injection
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetTSBSessionManager())
+		.WillRepeatedly(Return(g_mockTSBSessionManager));
+
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection())
+		.WillRepeatedly(Return(true));
+
+	// No SendAdPlacementEvent calls expected due to local injection
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdPlacementEvent(_,_,_,_,_,_,_,_))
+		.Times(0);
+
+	// Test non-immediate events for each type
+	{
+		testing::InSequence seq;
+		EXPECT_CALL(*g_mockTSBSessionManager, StartAdPlacement(adId, relativePosition, testing::Eq(AampTime(absPosition / 1000.0)), duration, offset))
+			.WillOnce(Return(true));
+		EXPECT_CALL(*g_mockTSBSessionManager, ShiftFutureAdEvents())
+			.Times(0);
+	}
+	mStreamAbstractionAAMP_MPD->CallSendAdPlacementEvent(
+		AAMP_EVENT_AD_PLACEMENT_START, adId, relativePosition, absPosition, offset, duration, false);
+
+	{
+		testing::InSequence seq;
+		EXPECT_CALL(*g_mockTSBSessionManager, EndAdPlacementWithError(adId, relativePosition, testing::Eq(AampTime(absPosition / 1000.0)), duration, offset))
+			.WillOnce(Return(true));
+		EXPECT_CALL(*g_mockTSBSessionManager, ShiftFutureAdEvents())
+			.Times(0);
+	}
+	mStreamAbstractionAAMP_MPD->CallSendAdPlacementEvent(
+		AAMP_EVENT_AD_PLACEMENT_ERROR, adId, relativePosition, absPosition, offset, duration, false);
+
+	{
+		testing::InSequence seq;
+		EXPECT_CALL(*g_mockTSBSessionManager, EndAdPlacement(adId, relativePosition, testing::Eq(AampTime(absPosition / 1000.0)), duration, offset))
+			.WillOnce(Return(true));
+		EXPECT_CALL(*g_mockTSBSessionManager, ShiftFutureAdEvents())
+			.Times(0);
+	}
+	mStreamAbstractionAAMP_MPD->CallSendAdPlacementEvent(
+		AAMP_EVENT_AD_PLACEMENT_END, adId, relativePosition, absPosition, offset, duration, false);
+
+	// Test immediate events for each type
+	{
+		testing::InSequence seq;
+		EXPECT_CALL(*g_mockTSBSessionManager, StartAdPlacement(adId, relativePosition, testing::Eq(AampTime(absPosition / 1000.0)), duration, offset))
+			.WillOnce(Return(true));
+		EXPECT_CALL(*g_mockTSBSessionManager, ShiftFutureAdEvents())
+			.Times(1);
+	}
+	mStreamAbstractionAAMP_MPD->CallSendAdPlacementEvent(
+		AAMP_EVENT_AD_PLACEMENT_START, adId, relativePosition, absPosition, offset, duration, true);
+
+	{
+		testing::InSequence seq;
+		EXPECT_CALL(*g_mockTSBSessionManager, EndAdPlacementWithError(adId, relativePosition, testing::Eq(AampTime(absPosition / 1000.0)), duration, offset))
+			.WillOnce(Return(true));
+		EXPECT_CALL(*g_mockTSBSessionManager, ShiftFutureAdEvents())
+			.Times(1);
+	}
+	mStreamAbstractionAAMP_MPD->CallSendAdPlacementEvent(
+		AAMP_EVENT_AD_PLACEMENT_ERROR, adId, relativePosition, absPosition, offset, duration, true);
+
+	{
+		testing::InSequence seq;
+		EXPECT_CALL(*g_mockTSBSessionManager, EndAdPlacement(adId, relativePosition, testing::Eq(AampTime(absPosition / 1000.0)), duration, offset))
+			.WillOnce(Return(true));
+		EXPECT_CALL(*g_mockTSBSessionManager, ShiftFutureAdEvents())
+			.Times(1);
+	}
+	mStreamAbstractionAAMP_MPD->CallSendAdPlacementEvent(
+		AAMP_EVENT_AD_PLACEMENT_END, adId, relativePosition, absPosition, offset, duration, true);
+}
+
