@@ -2311,7 +2311,7 @@ static JSValueRef AAMP_tune(JSContextRef context, JSObjectRef function, JSObject
 				char* url = aamp_JSValueToCString(context, arguments[0], exception);
 				aamp_ApplyPageHttpHeaders(pAAMP->_aamp);
 				{
-                                        LOG_WARN(pAAMP," _aamp->Tune(%d, %s, %d, %d)", true, contentType, bFirstAttempt, bFinalAttempt);
+					LOG_WARN(pAAMP," _aamp->Tune(%d, %s, %d, %d)", true, contentType, bFirstAttempt, bFinalAttempt);
 					pAAMP->_aamp->Tune(url, true, contentType, bFirstAttempt, bFinalAttempt);                  
 				}
 				SAFE_DELETE_ARRAY(url);
@@ -2401,11 +2401,11 @@ static JSValueRef AAMP_load(JSContextRef context, JSObjectRef function, JSObject
 		char* url = aamp_JSValueToCString(context, arguments[0], exception);
 		aamp_ApplyPageHttpHeaders(pAAMP->_aamp);
 		if (strAuthToken != NULL){
-                        LOG_WARN(pAAMP,"authToken provided by the App");
+			LOG_WARN(pAAMP,"authToken provided by the App");
 			pAAMP->_aamp->SetSessionToken(strAuthToken);
 		}
 		{
-                        LOG_WARN(pAAMP," _aamp->Tune(%d, %s, %d, %d, %s)", true, contentType, bFirstAttempt, bFinalAttempt, strTraceId);
+			LOG_WARN(pAAMP," _aamp->Tune(%d, %s, %d, %d, %s)", true, contentType, bFirstAttempt, bFinalAttempt, strTraceId);
 			pAAMP->_aamp->Tune(url, true, contentType, bFirstAttempt, bFinalAttempt, strTraceId);
 		}
 
