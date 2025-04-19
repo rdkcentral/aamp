@@ -7,6 +7,7 @@ import sys
 import time
 import re
 import l3_utils
+import json
 
 # Parse command line arguments - Device IP
 parser = argparse.ArgumentParser(description="RDK Device IP")
@@ -30,6 +31,7 @@ host_ip = l3_utils.get_internal_ip(rdk_device_ip)
 passed = True
 envVar = "DONT_END_TESTSUITE_ON_FAILURE=0"
 aamp_widget ="com.aamp" #Set defalut to non rialto
+simlinear_config = {}
 
 # Test setup initialization
 def initialize():
@@ -37,7 +39,14 @@ def initialize():
     global aamp_widget
 
     global envVar
+    global simlinear_config
     # Create a shell script at /tmp/data on the device to set the required environment variables.
+
+    # Read the contents of simlinearConfig.json
+    simlinear_config_path = os.path.join(os.getcwd(), "simlinearConfig.json")
+    with open(simlinear_config_path, "r") as config_file:
+        simlinear_config = json.load(config_file)
+
     if args.dont_end_testsuit_on_failure:
         envVar = "DONT_END_TESTSUITE_ON_FAILURE=1"
 
@@ -119,9 +128,35 @@ def run_tests():
         # Get the list of all HTML files in the current directory
         test_files = all_test_files
 
+    global simlinear_process
     # Run each test file
     for test_file in test_files:
         print("Running test file: ", test_file)
+        
+        match = re.search(r"TST_(\d+)_UVE", test_file)
+        if match:
+            test_number = match.group(1)
+        else:
+            print("No test number found in the test file name. Test file name should contain test number.")
+
+        if test_number in simlinear_config:
+
+            match = re.search(r"TST_(\d+)_UVE", test_file)
+            if match:
+                test_number = match.group(1)
+            else:
+                print("No test number found in the test file name. Test file name should contain test number.")
+            
+            # Download the simlinear content, extract it and replace host IP in the respective test file
+            subprocess.run(["./simlinear.sh", simlinear_config[test_number]["contentUrl"], host_ip, "8085", simlinear_config[test_number]["testFile"]], cwd=current_directory)
+
+            # Start the simlinear server
+            simlinear_process = l3_utils.start_simlinear_server(simlinear_config[test_number]["contentDirectory"], simlinear_config[test_number]["contentType"], "8085")
+            print("Simlinear server started", simlinear_process)
+
+            time.sleep(5)
+            
+
         l3_utils.send_ssh_command(rdk_device_ip, f"curl 'http://127.0.0.1:9001/as/apps/action/close?appId={aamp_widget}' -X POST -d '{{}}'", rdk_device_port)
         time.sleep(5)
         l3_utils.send_ssh_command(
@@ -147,6 +182,9 @@ def run_tests():
             stdout=output_file,
             text=True
             )
+        
+        if test_number in simlinear_config:
+            l3_utils.stop_simlinear_server(simlinear_process)
         time.sleep(15)
 
 def generate_report():

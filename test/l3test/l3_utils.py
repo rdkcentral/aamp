@@ -80,6 +80,45 @@ def send_ssh_command(host, command, port):
         print(f"Failed to run command on {host}: {e}")
         sys.exit(1)
 
+def start_simlinear_server(contentDirectory, hlsOrDash, simlinear_port):
+
+    try:
+        # Start the SimLinear server
+        simlinear_process = subprocess.Popen(
+            ["../../tools/simlinear/simlinear.py", "-i", "0.0.0.0", f"--{hlsOrDash}", simlinear_port],
+            cwd=contentDirectory,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True
+        )
+
+        return simlinear_process
+
+    except FileNotFoundError as e:
+        print(f"Failed to start SimLinear server: File not found - {e}")
+    except Exception as e:
+        print(f"Failed to start SimLinear server: {e}")
+    return None
+
+
+def stop_simlinear_server(simlinear_process):
+
+    try:
+        if simlinear_process:
+            # Attempt to terminate the process gracefully
+            simlinear_process.terminate()
+            try:
+                simlinear_process.wait(timeout=5)  # Wait for up to 5 seconds
+                print("SimLinear server terminated gracefully.")
+            except subprocess.TimeoutExpired:
+                print("SimLinear server did not terminate in time. Force killing it.")
+                simlinear_process.kill()
+                simlinear_process.wait()
+        else:
+            print("SimLinear process is not running.")
+    except Exception as e:
+        print(f"Failed to stop SimLinear server: {e}")
+
 
 # Parse a single L3 log line extracting the useful information
 def parse_l3_log_line(line):
