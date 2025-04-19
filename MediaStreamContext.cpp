@@ -127,7 +127,7 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 				//         A                                     B                        C
 				// --------|-------------------------------------|------------------------|
 				// AC represents timeshiftBufferDepth in MPD; B is absolute time position of fragment and
-				// C is MPD publishtime(absolute time). So AC - (C-B) gives the time remaining for the
+				// C is MPD publishTime(absolute time). So AC - (C-B) gives the time remaining for the
 				//fragment to be available in the timeshift buffer window
 				maxInitDownloadTimeMS = aamp->mTsbDepthMs - (dnldInstance->GetPublishTime() - (fragmentTime * 1000));
 				AAMPLOG_INFO("maxInitDownloadTimeMS %d, initSegment %d, mTsbDepthMs %d, GetPublishTime %llu(ms), fragmentTime %f(s) ",

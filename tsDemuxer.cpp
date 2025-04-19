@@ -309,7 +309,7 @@ void Demuxer::processPacket(const unsigned char * packetStart, bool &basePtsUpda
 							{
 								if (-1 == base_pts)
 								{
-									/*Few sling HLS streams are not muxed TS content, instead video is in TS and audio is in AAC format.
+									/*Few  HLS streams are not muxed TS content, instead video is in TS and audio is in AAC format.
 									So need to avoid  pts modification with offset value for video to avoid av sync issues.*/
 									if(applyOffset)
 									{
