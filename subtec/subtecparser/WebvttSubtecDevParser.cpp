@@ -146,7 +146,6 @@ bool WebVTTSubtecDevParser::init(double startPosSeconds, unsigned long long base
 	mVttQueueIdleTaskId = -1;
 
 	ret = WebVTTParser::init(startPosSeconds, 0);
-	(void)ret;
 	mVttQueueIdleTaskId = 0;
 	ret = mSubtecInterface->init(static_cast<uint64_t>(basePTS));
 

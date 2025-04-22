@@ -249,7 +249,6 @@ private:
 			while( bits_read < fin )
 			{
 				int stuffing_byte = readByte();
-				(void)stuffing_byte;
 				//assert( stuffing_byte == 0xff );
 			}
 		}
