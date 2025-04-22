@@ -4036,8 +4036,8 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 			}
 			long curlDownloadTimeoutMS = curlDLTimeout[curlInstance]; // curlDLTimeout is in msec
 			long long maxInitDownloadRetryUntil = maxInitDownloadTimeMS + NOW_STEADY_TS_MS;
-			AAMPLOG_INFO("steady ms %lld, maxInitDownloadRetryUntil %lld, maxInitDownloadTimeMS %d",
-				(long long int)NOW_STEADY_TS_MS, maxInitDownloadRetryUntil, maxInitDownloadTimeMS);
+			AAMPLOG_INFO("[%s] steady ms %lld, maxInitDownloadRetryUntil %lld, maxInitDownloadTimeMS %d maxDownloadAttempt %d",
+				GetMediaTypeName(mediaType), (long long int)NOW_STEADY_TS_MS, maxInitDownloadRetryUntil, maxInitDownloadTimeMS, maxDownloadAttempt);
 
 			while(downloadAttempt < maxDownloadAttempt)
 			{
@@ -4243,12 +4243,9 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 								loopAgain = true;
 								if (downloadAttempt == maxDownloadAttempt)
 								{
-									double bufferValue = mpStreamAbstractionAAMP->GetBufferedDuration();
-									AAMPLOG_INFO("Keep trying init request while enough buffer buffer %fs, curlDownloadTimeoutMS %ldms, maxInitDownloadTimeMS %d, steady ms %lld, maxInitDownloadRetryUntil %lld",
-										bufferValue, curlDownloadTimeoutMS, maxInitDownloadTimeMS,
-										(long long int)NOW_STEADY_TS_MS, maxInitDownloadRetryUntil);
+									double bufferDurationS = mpStreamAbstractionAAMP->GetBufferedDuration();
 									// Keep retrying init segments whilst there is enough buffer depth to last until curl times out
-									if (bufferValue * 1000 > curlDownloadTimeoutMS)
+									if (bufferDurationS * 1000 > curlDownloadTimeoutMS)
 									{
 										// Only retry again if its likely the segment is still available
 										if (((NOW_STEADY_TS_MS + curlDownloadTimeoutMS)  < maxInitDownloadRetryUntil) || (maxInitDownloadTimeMS == 0))
@@ -4256,13 +4253,16 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 											maxDownloadAttempt++;
 										}
 									}
+									AAMPLOG_INFO("Keep trying init request while enough buffer buffer %fs, curlDownloadTimeoutMS %ldms, maxInitDownloadTimeMS %d, steady ms %lld, maxInitDownloadRetryUntil %lld, maxDownloadAttempt %d",
+										bufferDurationS, curlDownloadTimeoutMS, maxInitDownloadTimeMS,
+										(long long int)NOW_STEADY_TS_MS, maxInitDownloadRetryUntil, maxDownloadAttempt);
 								}
 								break;
 
 							default:
-								double bufferValue = mpStreamAbstractionAAMP->GetBufferedDuration();
+								double bufferDurationS = mpStreamAbstractionAAMP->GetBufferedDuration();
 								// buffer is -1 when sesssion not created. buffer is 0 when session created but playlist not downloaded
-								if (bufferValue == -1.0 || bufferValue == 0 || bufferValue * 1000 > (curlDownloadTimeoutMS + fragmentDurationMs))
+								if (bufferDurationS == -1.0 || bufferDurationS == 0 || bufferDurationS * 1000 > (curlDownloadTimeoutMS + fragmentDurationMs))
 								{
 									// Check if buffer is available and more than timeout interval then only reattempt
 									// Not to retry download if there is no buffer left
