@@ -49,6 +49,7 @@
 #include "fragmentcollector_mpd.h"
 
 using ::testing::DoAll;
+using ::testing::InvokeWithoutArgs;
 using ::testing::NiceMock;
 using ::testing::Return;
 using ::testing::ReturnRef;
@@ -1684,11 +1685,13 @@ TEST_F(PrivAampTests, GetFileTest_RetryInitWhilstBufferDepthTsbTest)
 	BitsPerSecond bitrate;
 	int fogError;
 
-	// expected_curl_calls = (maxInitTimeoutDuration - curlTimeout) as a number in units of sleep duration
-	const int initFragmentRetryCount = 2;
-	const int curlTimeout = 20;
-	const int maxInitTimeoutDuration = 60;
-	const int expected_curl_calls = 4;
+	// expected_curl_calls = (maxInitTimeoutDuration - curlTimeout) / how long does each request take
+	// Each request sleeps for 100ms (requestSleep), but can take a little longer due to scheduling etc.
+	constexpr std::chrono::milliseconds requestSleep {100};
+	constexpr int initFragmentRetryCount = 2;
+	constexpr int curlTimeout = 200;
+	constexpr int maxInitTimeoutDuration = 600;
+	constexpr int expected_curl_calls = 4;
 
 	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP;
 	p_aamp->EnableDownloads();
@@ -1710,9 +1713,9 @@ TEST_F(PrivAampTests, GetFileTest_RetryInitWhilstBufferDepthTsbTest)
 
 	EXPECT_CALL(*g_mockCurl, curl_easy_perform(mCurlEasyHandle))
 		.Times(expected_curl_calls)
-		.WillRepeatedly(testing::DoAll(testing::InvokeWithoutArgs([]()
-																  { usleep(1000 * 10); }),
-									   Return(CURLE_OPERATION_TIMEDOUT)));
+		.WillRepeatedly(DoAll(InvokeWithoutArgs([requestSleep]()
+												{ std::this_thread::sleep_for(requestSleep); }),
+							  Return(CURLE_OPERATION_TIMEDOUT)));
 
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetBufferedDuration())
 		.WillRepeatedly(Return(3000.0));
