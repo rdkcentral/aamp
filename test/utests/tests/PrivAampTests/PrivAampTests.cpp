@@ -45,6 +45,7 @@
 #include "MockAampCurlStore.h"
 #include "MockAampJsonObject.h"
 #include "MockTSBSessionManager.h"
+#include "MockTSBStore.h"
 
 #include "fragmentcollector_mpd.h"
 
@@ -148,10 +149,14 @@ class PrivAampPrivTests : public ::testing::Test
 		g_mockAampGstPlayer = new NiceMock<MockAAMPGstPlayer>(testp_aamp);
 		g_mockAampJsonObject = std::make_shared<NiceMock<MockAampJsonObject>>();
 		g_mockTSBSessionManager = new NiceMock<MockTSBSessionManager>(testp_aamp);
+		g_mockTSBStore = new NiceMock<MockTSBStore>();
 	}
 
 	void TearDown() override
 	{
+		delete g_mockTSBStore;
+		g_mockTSBStore = nullptr;
+
 		delete g_mockTSBSessionManager;
 		g_mockTSBSessionManager = nullptr;
 
@@ -336,6 +341,12 @@ public:
 		AampTSBSessionManager *aampTsbSessionManager = new AampTSBSessionManager(this);
 		mTSBSessionManager = aampTsbSessionManager;
 	}
+	void SetTsbStore()
+	{
+		TSB::Store::Config config;
+		// This call creates the TSB Store if it doesn't exist.
+		(void)GetTSBStore(config, AampLogManager::aampLogger, TSB::LogLevel::TRACE);
+	}
 
 	};
 	TestablePrivAamp *testp_aamp{nullptr};
@@ -383,11 +394,14 @@ TEST_F(PrivAampPrivTests, SetPreferredLanguagesPlayingLiveAampTsbTest)
 	tracks.push_back(AudioTrackInfo("idx1", "lang1", "rend1", "trackName1", "codec1", 0, "type1", false, "label1", "type1", true));
 	testp_aamp->SetLocalAAMPTsb(true);
 	testp_aamp->SetTsbSessionManager();
+	testp_aamp->SetTsbStore();
 	testp_aamp->preferredLanguagesString = "lang0";
 	testp_aamp->preferredLanguagesList.clear();
 	testp_aamp->preferredLanguagesList.push_back("lang0");
 
 	testp_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP;
+	testp_aamp->SetContentType("LINEAR_TV");
+	testp_aamp->mMediaFormat = eMEDIAFORMAT_DASH;
 	testp_aamp->SetState(eSTATE_PLAYING);
 
 	EXPECT_CALL(*g_mockAampJsonObject, isString(_)).WillRepeatedly(Return(true));
@@ -397,6 +411,8 @@ TEST_F(PrivAampPrivTests, SetPreferredLanguagesPlayingLiveAampTsbTest)
 	EXPECT_CALL(*g_mockAampJsonObject, get_string("name", _)).WillOnce(Return(false));
 	EXPECT_CALL(*g_mockAampJsonObject, get_string("label", _)).WillOnce(Return(false));
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(_)).WillRepeatedly(Return(false));
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_LocalTSBEnabled)).WillRepeatedly(Return(true));
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnablePTSReStamp)).WillRepeatedly(Return(true));
 
 	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer));
 
@@ -409,10 +425,10 @@ TEST_F(PrivAampPrivTests, SetPreferredLanguagesPlayingLiveAampTsbTest)
 	 * called twice, once directly from SetPreferredLanguages() and once from TuneHelper()
 	 */
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_)).Times(2);
-	EXPECT_CALL(*g_mockAampGstPlayer, Flush(_,_,_)).Times(2);
-	/* TSB Session Manager should be reinitialised by calling Flush() followed by Init() */
-	EXPECT_CALL(*g_mockTSBSessionManager, Flush()).Times(1);
+	EXPECT_CALL(*g_mockAampGstPlayer, Flush(_,_,_)).Times(1);
+	/* TSB Session Manager should be recreated and the TSB store flushed. */
 	EXPECT_CALL(*g_mockTSBSessionManager, Init()).Times(1);
+	EXPECT_CALL(*g_mockTSBStore, Flush()).Times(1);
 
 	testp_aamp->SetPreferredLanguages("lang1", NULL, NULL, NULL, NULL);
 
@@ -435,11 +451,14 @@ TEST_F(PrivAampPrivTests, SetPreferredLanguagesPlayingFromAampTsbTest)
 	/* Simulate playing from AAMP TSB by setting the injection flag to true */
 	testp_aamp->SetLocalAAMPTsbInjection(true);
 	testp_aamp->SetTsbSessionManager();
+	testp_aamp->SetTsbStore();
 	testp_aamp->preferredLanguagesString = "lang0";
 	testp_aamp->preferredLanguagesList.clear();
 	testp_aamp->preferredLanguagesList.push_back("lang0");
 
 	testp_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP;
+	testp_aamp->SetContentType("LINEAR_TV");
+	testp_aamp->mMediaFormat = eMEDIAFORMAT_DASH;
 	testp_aamp->SetState(eSTATE_PLAYING);
 
 	EXPECT_CALL(*g_mockAampJsonObject, isString(_)).WillRepeatedly(Return(true));
@@ -449,6 +468,8 @@ TEST_F(PrivAampPrivTests, SetPreferredLanguagesPlayingFromAampTsbTest)
 	EXPECT_CALL(*g_mockAampJsonObject, get_string("name", _)).WillOnce(Return(false));
 	EXPECT_CALL(*g_mockAampJsonObject, get_string("label", _)).WillOnce(Return(false));
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(_)).WillRepeatedly(Return(false));
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_LocalTSBEnabled)).WillRepeatedly(Return(true));
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnablePTSReStamp)).WillRepeatedly(Return(true));
 
 	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer));
 
@@ -461,9 +482,9 @@ TEST_F(PrivAampPrivTests, SetPreferredLanguagesPlayingFromAampTsbTest)
 	 * called twice, once directly from SetPreferredLanguages() and once from TuneHelper()
 	 */
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_)).Times(2);
-	/* TSB Session Manager should be reinitialised by calling Flush() followed by Init() */
-	EXPECT_CALL(*g_mockTSBSessionManager, Flush()).Times(1);
+	/* TSB Session Manager should be recreated and the TSB store flushed. */
 	EXPECT_CALL(*g_mockTSBSessionManager, Init()).Times(1);
+	EXPECT_CALL(*g_mockTSBStore, Flush()).Times(1);
 
 	testp_aamp->SetPreferredLanguages("lang1", NULL, NULL, NULL, NULL);
 

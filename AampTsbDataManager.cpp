@@ -131,6 +131,7 @@ TsbFragmentDataPtr AampTsbDataManager::RemoveFragment(bool &deleteInit)
 			{
 				deletedFragment->next->prev = nullptr;
 			}
+			AAMPLOG_INFO("Remove fragment");
 			mTsbFragmentData.erase(it);
 		}
 	}
@@ -157,6 +158,7 @@ std::list<TsbFragmentDataPtr> AampTsbDataManager::RemoveFragments(double positio
 		std::lock_guard<std::mutex> lock(mTsbDataMutex);
 		if (!mTsbFragmentData.empty())
 		{
+			AAMPLOG_INFO("Remove fragments");
 			auto it = mTsbFragmentData.begin();
 			while (it != mTsbFragmentData.end())
 			{
@@ -419,6 +421,7 @@ bool AampTsbDataManager::DumpData()
 void AampTsbDataManager::Flush()
 {
 	TSB_DM_TIME_DATA();
+	AAMPLOG_INFO("Flush AAMP TSB data");
 	try
 	{
 		std::lock_guard<std::mutex> lock(mTsbDataMutex);
