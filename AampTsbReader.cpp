@@ -38,6 +38,7 @@ AampTsbReader::AampTsbReader(PrivateInstanceAAMP *aamp, std::shared_ptr<AampTsbD
 	  mFirstPTS(0.0), mCurrentBandwidth(0.0), mNewInitWaiting(false), mActiveTuneType(eTUNETYPE_NEW_NORMAL),
 	  mEosCVWait(), mEosMutex(), mIsEndFragmentInjected(false), mLastInitFragmentData(nullptr), mIsNextFragmentDisc(false), mIsPeriodBoundary(false)
 {
+	AAMPLOG_INFO("[%s] Constructor", GetMediaTypeName(mMediaType));
 }
 
 /**
@@ -47,6 +48,7 @@ AampTsbReader::AampTsbReader(PrivateInstanceAAMP *aamp, std::shared_ptr<AampTsbD
  */
 AampTsbReader::~AampTsbReader()
 {
+	AAMPLOG_INFO("[%s] Destructor", GetMediaTypeName(mMediaType));
 	Term();
 }
 
@@ -76,7 +78,7 @@ AAMPStatusType AampTsbReader::Init(double &startPosSec, float rate, TuneType tun
 				if (!(firstFragment && lastFragment))
 				{
 					// No fragments available
-					AAMPLOG_INFO("[%s] TSB is empty", GetMediaTypeName(mMediaType));
+					AAMPLOG_WARN("[%s] TSB is empty", GetMediaTypeName(mMediaType));
 					mTrackEnabled = false;
 				}
 				else
@@ -152,6 +154,7 @@ AAMPStatusType AampTsbReader::Init(double &startPosSec, float rate, TuneType tun
 		}
 		else
 		{
+			AAMPLOG_ERR("[%s] Negative position requested %fs", GetMediaTypeName(mMediaType), startPosSec);
 			ret = eAAMPSTATUS_SEEK_RANGE_ERROR;
 			mInitialized_ = false;
 		}

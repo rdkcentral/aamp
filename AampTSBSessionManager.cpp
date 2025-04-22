@@ -103,6 +103,7 @@ void AampTSBSessionManager::Init()
 			InitializeMetaDataManager();
 			// Initialize TSB readers
 			InitializeTsbReaders();
+			mStopThread_.store(false);
 			// Start monitoring the write queue in a separate thread
 			mWriteThread = std::thread(&AampTSBSessionManager::ProcessWriteQueue, this);
 			mInitialized_ = true;
@@ -360,6 +361,7 @@ TsbFragmentDataPtr AampTSBSessionManager::RemoveFragmentDeleteInit(AampMediaType
 void AampTSBSessionManager::ProcessWriteQueue()
 {
 	std::unique_lock<std::mutex> lock(mWriteQueueMutex);
+	AAMPLOG_INFO("Enter AAMP TSB write thread");
 	while (!mStopThread_.load())
 	{
 		mWriteThreadCV.wait(lock, [this]()
@@ -483,19 +485,20 @@ void AampTSBSessionManager::ProcessWriteQueue()
 			lock.lock(); // Reacquire the lock for next iter
 		}
 	}
+	AAMPLOG_INFO("Exit AAMP TSB write thread");
 }
 
 /**
- * @brief Flush  - function to clear the TSB storage
+ * @brief Flush - function to clear the TSB storage
  *
  * @return None
  */
 void AampTSBSessionManager::Flush()
 {
+	AAMPLOG_INFO("Flush AAMP TSB");
 	// Call TSBHandler Flush to clear the TSB
-	// Clear all the datastructure within AampTSBSessionManager
-	// Stop the monitorthread
-	// Set the flag to stop the monitor thread
+	// Clear all the data structure within AampTSBSessionManager
+	// Stop the monitor thread
 	mStopThread_.store(true);
 
 	if (mInitialized_)

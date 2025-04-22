@@ -4000,6 +4000,14 @@ public:
 	void LoadLocalTSBConfig(void);
 
 	/**
+	 * @fn CreateTsbSessionManager
+	 * @brief Create a new TSB Session Manager
+	 * The new session manager will be created only for DASH linear content.
+	 * If one already exists it will be destroyed (wiping the content of the TSB) and a new one created.
+	 */
+	void CreateTsbSessionManager();
+
+	/**
 	 *    @brief To increment gaps between periods for dash
 	 *    return none
 	 */

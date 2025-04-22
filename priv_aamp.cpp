@@ -5843,39 +5843,8 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 
 	AAMPLOG_MIL("ContentType(%d) EnablePTSReStamp(%d)", mContentType, GETCONFIGVALUE_PRIV(eAAMPConfig_EnablePTSReStamp));
 #endif
-	if ((ContentType_LINEAR == mContentType) && (eMEDIAFORMAT_DASH == mMediaFormat))
-	{
-		if(mTSBSessionManager)
-		{
-			SAFE_DELETE(mTSBSessionManager);
-		}
-		if(ISCONFIGSET_PRIV(eAAMPConfig_LocalTSBEnabled))
-		{
-			if (ISCONFIGSET_PRIV(eAAMPConfig_EnablePTSReStamp))
-			{
-				mTSBSessionManager = new AampTSBSessionManager(this);
-				//TODO unique session id for each
-				if(mTSBSessionManager)
-				{
-					LoadLocalTSBConfig();
-					if (mTSBSessionManager->IsActive())
-					{
-						SetIsIframeExtractionEnabled(true);
-						AAMPLOG_INFO("TSB Session Manager created and Active!!");
-					}
-					if(mTSBStore)
-					{
-						AAMPLOG_INFO("Refreshing the TSB Store session!!");
-						mTSBStore->Flush();
-					}
-				}
-			}
-			else
-			{
-				AAMPLOG_WARN("Local TSB is not enabled due to PTS Restamp is disabled");
-			}
-		}
-	}
+
+	CreateTsbSessionManager();
 
 	mFogTSBEnabled = strcasestr(mainManifestUrl, AAMP_FOG_TSB_URL_KEYWORD) && ISCONFIGSET_PRIV(eAAMPConfig_Fog);
 
@@ -11927,9 +11896,8 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 						{
 							if(mTSBSessionManager)
 							{
-								AAMPLOG_MIL("Flush TSB Session Manager");
-								mTSBSessionManager->Flush();
-								mTSBSessionManager->Init();
+								AAMPLOG_INFO("Recreate the TSB Session Manager");
+								CreateTsbSessionManager();
 								/* Check if we are on the live edge or in the TSB */
 								if(IsLocalAAMPTsbInjection())
 								{
@@ -13254,7 +13222,48 @@ void PrivateInstanceAAMP::LoadLocalTSBConfig()
 	mTSBSessionManager->Init();
 }
 
-
+/**
+ * @brief Create a new TSB Session Manager
+ * The new session manager will be created only for DASH linear content.
+ * If one already exists it will be destroyed (wiping the content of the TSB) and a new one created.
+ */
+void PrivateInstanceAAMP::CreateTsbSessionManager()
+{
+	if ((ContentType_LINEAR == mContentType) && (eMEDIAFORMAT_DASH == mMediaFormat))
+	{
+		if(mTSBSessionManager)
+		{
+			AAMPLOG_INFO("Destroying TSB Session Manager %p", mTSBSessionManager);
+			SAFE_DELETE(mTSBSessionManager);
+		}
+		if(ISCONFIGSET_PRIV(eAAMPConfig_LocalTSBEnabled))
+		{
+			if (ISCONFIGSET_PRIV(eAAMPConfig_EnablePTSReStamp))
+			{
+				mTSBSessionManager = new AampTSBSessionManager(this);
+				//TODO unique session id for each
+				if(mTSBSessionManager)
+				{
+					LoadLocalTSBConfig();
+					if (mTSBSessionManager->IsActive())
+					{
+						SetIsIframeExtractionEnabled(true);
+						AAMPLOG_INFO("TSB Session Manager %p created and active", mTSBSessionManager);
+					}
+					if(mTSBStore)
+					{
+						AAMPLOG_INFO("Refreshing the TSB Store session");
+						mTSBStore->Flush();
+					}
+				}
+			}
+			else
+			{
+				AAMPLOG_WARN("Local TSB is not enabled due to PTS Restamp is disabled");
+			}
+		}
+	}
+}
 
 
 /**

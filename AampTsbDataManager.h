@@ -280,15 +280,19 @@ private:
 public:
 	/**
 	 * @brief Construct a new Aamp Tsb Data Manager object
-	 *
 	 */
-	AampTsbDataManager() : mTsbDataMutex(), mTsbFragmentData(), mTsbInitData(), mCurrentInitData(nullptr), mCurrHead(nullptr), mRelativePos(0.0) {}
+	AampTsbDataManager() : mTsbDataMutex(), mTsbFragmentData(), mTsbInitData(), mCurrentInitData(nullptr), mCurrHead(nullptr), mRelativePos(0.0)
+	{
+		AAMPLOG_INFO("Constructor");
+	}
 
 	/**
 	 * @brief Destroy the Aamp Tsb Data Manager object
-	 *
 	 */
-	~AampTsbDataManager() {}
+	~AampTsbDataManager()
+	{
+		AAMPLOG_INFO("Destructor");
+	}
 
 	/**
 	 *   @fn GetNearestFragment
