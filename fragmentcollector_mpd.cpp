@@ -1490,7 +1490,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 						{
 							pMediaStreamContext->profileChanged = true;
 							profileIdxForBandwidthNotification = GetProfileIdxForBandwidthNotification(pMediaStreamContext->fragmentDescriptor.Bandwidth);
-							FetchAndInjectInitFragments();
+							FetchAndInjectInitialization(eMEDIATYPE_VIDEO);
 							UpdateRampUpOrDownProfileReason();
 							pMediaStreamContext->SetCurrentBandWidth(pMediaStreamContext->fragmentDescriptor.Bandwidth);
 							return false;
@@ -1540,7 +1540,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 						{
 							pMediaStreamContext->profileChanged = true;
 							profileIdxForBandwidthNotification = GetProfileIdxForBandwidthNotification(pMediaStreamContext->fragmentDescriptor.Bandwidth);
-							FetchAndInjectInitFragments();
+							FetchAndInjectInitialization(eMEDIATYPE_VIDEO);
 							UpdateRampUpOrDownProfileReason();
                                                         pMediaStreamContext->SetCurrentBandWidth(pMediaStreamContext->fragmentDescriptor.Bandwidth);
 							return false;
@@ -2086,7 +2086,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 										pMediaStreamContext->profileChanged = true;
 										profileIdxForBandwidthNotification = GetProfileIdxForBandwidthNotification(bitrate);
 										// CID:306172 - Value not atomically updated
-										FetchAndInjectInitFragments();
+										FetchAndInjectInitialization(eMEDIATYPE_VIDEO);
 										UpdateRampUpOrDownProfileReason();
 										pMediaStreamContext->SetCurrentBandWidth(pMediaStreamContext->fragmentDescriptor.Bandwidth);
 										return false; //Since we need to check WaitForFreeFragmentCache
@@ -3520,6 +3520,8 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 		mNumberOfTracks = 0;
 		bool mpdDurationAvailable = false;
 		std::string tempString;
+		// Start the worker threads for each track
+		InitializeWorkers();
 		if(mpd == NULL)
 		{
 			AAMPLOG_WARN("mpd is null");  //CID:81139 , 81645 ,82315.83556- Null Returns
@@ -8430,7 +8432,25 @@ void StreamAbstractionAAMP_MPD::FetchAndInjectInitFragments(bool discontinuity)
 {
 	for( int i = 0; i < mNumberOfTracks; i++)
 	{
-		FetchAndInjectInitialization(i,discontinuity);
+		if (i < mTrackWorkers.size() && ISCONFIGSET(eAAMPConfig_DashParallelFragDownload) && mTrackWorkers[i])
+		{
+			// Download the video, audio & subtitle init fragments in a separate parallel thread.
+			AAMPLOG_DEBUG("Submitting init job for track %d", i);
+			mTrackWorkers[i]->SubmitJob([this, i, discontinuity]() { FetchAndInjectInitialization(i,discontinuity); });
+		}
+		else
+		{
+			AAMPLOG_INFO("Track %d worker not available, downloading init fragment sequentially", i);
+			FetchAndInjectInitialization(i,discontinuity);
+		}
+	}
+
+	for (int trackIdx = (mNumberOfTracks - 1); (ISCONFIGSET(eAAMPConfig_DashParallelFragDownload) && trackIdx >= 0); trackIdx--)
+	{
+		if(trackIdx < mTrackWorkers.size() && mTrackWorkers[trackIdx])
+		{
+			mTrackWorkers[trackIdx]->WaitForCompletion();
+		}
 	}
 }
 
@@ -8439,7 +8459,6 @@ void StreamAbstractionAAMP_MPD::FetchAndInjectInitFragments(bool discontinuity)
  */
 void StreamAbstractionAAMP_MPD::FetchAndInjectInitialization(int trackIdx, bool discontinuity)
 {
-		std::thread trackDownloadThreadID;
 		class MediaStreamContext *pMediaStreamContext = mMediaStreamContext[trackIdx];
 
 		if(discontinuity && pMediaStreamContext->enabled)
@@ -8457,28 +8476,15 @@ void StreamAbstractionAAMP_MPD::FetchAndInjectInitialization(int trackIdx, bool 
 					std::string initialization = segmentTemplates.Getinitialization();
 					if (!initialization.empty())
 					{
-						/*
-						 * This block is added to download the initialization tracks in parallel
-						 * to reduce the tune time, especially when using DRM.
-						 * Moving the fragment download of first AAMPTRACK to separate thread
-						 */
-						try
+						std::string media = segmentTemplates.Getmedia();
+						pMediaStreamContext->fragmentDescriptor.nextfragmentTime = pMediaStreamContext->fragmentDescriptor.Time;
+						pMediaStreamContext->fragmentDescriptor.nextfragmentNum = pMediaStreamContext->fragmentDescriptor.Number;
+						if(!mIsFogTSB)
 						{
-							std::string media = segmentTemplates.Getmedia();
-							pMediaStreamContext->fragmentDescriptor.nextfragmentTime = pMediaStreamContext->fragmentDescriptor.Time;
-							pMediaStreamContext->fragmentDescriptor.nextfragmentNum = pMediaStreamContext->fragmentDescriptor.Number;
-							if(!mIsFogTSB)
-							{
-								setNextobjectrequestUrl(media,&pMediaStreamContext->fragmentDescriptor,AampMediaType(pMediaStreamContext->type));
-							}
-							pMediaStreamContext->fragmentDescriptor.nextfragmentNum = pMediaStreamContext->fragmentDescriptor.Number+1;
-							trackDownloadThreadID = std::thread(&StreamAbstractionAAMP_MPD::TrackDownloader, this, trackIdx, initialization);
-							AAMPLOG_INFO("Thread created for TrackDownloader [%zx]", GetPrintableThreadID(trackDownloadThreadID));
+							setNextobjectrequestUrl(media,&pMediaStreamContext->fragmentDescriptor,AampMediaType(pMediaStreamContext->type));
 						}
-						catch(std::exception &e)
-						{
-							AAMPLOG_WARN("StreamAbstractionAAMP_MPD: Thread create failed for TrackDownloader : %s", e.what());
-						}
+						pMediaStreamContext->fragmentDescriptor.nextfragmentNum = pMediaStreamContext->fragmentDescriptor.Number+1;
+						TrackDownloader(trackIdx, initialization);
 					}
 					else
 					{
@@ -8566,27 +8572,14 @@ void StreamAbstractionAAMP_MPD::FetchAndInjectInitialization(int trackIdx, bool 
 							std::string initialization = urlType->GetSourceURL();
 							if (!initialization.empty())
 							{
-								/*
-								 * This block is added to download the initialization tracks in parallel
-								 * to reduce the tune time, especially when using DRM.
-								 * Moving the fragment download of first AAMPTRACK to separate thread
-								 */
-								try
+								const std::vector<ISegmentURL*> segmentURLs = segmentList->GetSegmentURLs();
+								ISegmentURL* nextsegmentURL = segmentURLs.at(pMediaStreamContext->fragmentIndex);
+								pMediaStreamContext->fragmentDescriptor.nextfragmentTime = pMediaStreamContext->fragmentDescriptor.Time;
+								if(nextsegmentURL != NULL && (mIsFogTSB != true))
 								{
-									const std::vector<ISegmentURL*> segmentURLs = segmentList->GetSegmentURLs();
-									ISegmentURL* nextsegmentURL = segmentURLs.at(pMediaStreamContext->fragmentIndex);
-									pMediaStreamContext->fragmentDescriptor.nextfragmentTime = pMediaStreamContext->fragmentDescriptor.Time;
-									if(nextsegmentURL != NULL && (mIsFogTSB != true))
-									{
-										setNextobjectrequestUrl(nextsegmentURL->GetMediaURI(),&pMediaStreamContext->fragmentDescriptor,AampMediaType(pMediaStreamContext->type));
-									}
-									trackDownloadThreadID = std::thread(&StreamAbstractionAAMP_MPD::TrackDownloader, this, trackIdx, initialization);
-									AAMPLOG_INFO("Thread created for TrackDownloader [%zx] %d %s", GetPrintableThreadID(trackDownloadThreadID), trackIdx, initialization.c_str());
+									setNextobjectrequestUrl(nextsegmentURL->GetMediaURI(),&pMediaStreamContext->fragmentDescriptor,AampMediaType(pMediaStreamContext->type));
 								}
-								catch(const std::exception& e)
-								{
-									AAMPLOG_WARN("StreamAbstractionAAMP_MPD: std::thread failed for TrackDownloader : %s", e.what());
-								}
+								TrackDownloader(trackIdx, initialization);
 							}
 							else
 							{
@@ -8668,20 +8661,7 @@ void StreamAbstractionAAMP_MPD::FetchAndInjectInitialization(int trackIdx, bool 
 						{
 							if( pMediaStreamContext->mediaType == eMEDIATYPE_SUBTITLE )
 							{
-								try
-								{
- 									trackDownloadThreadID = std::thread(
-																		&StreamAbstractionAAMP_MPD::TrackDownloader,
-																		this,
-																		trackIdx,
-																		"" // BaseUrl used for WebVTT download
-																		);
-									AAMPLOG_INFO("Thread created for TrackDownloader [%zx]", GetPrintableThreadID(trackDownloadThreadID));
- 								}
-								catch(std::exception &e)
-								{
-									AAMPLOG_WARN("StreamAbstractionAAMP_MPD: Thread create failed for TrackDownloader : %s", e.what());
-								}
+								TrackDownloader(trackIdx,"");// BaseUrl used for WebVTT download
 							}
 							else
 							{ // note: this risks flooding logs, as will get called repeatedly
@@ -8692,13 +8672,6 @@ void StreamAbstractionAAMP_MPD::FetchAndInjectInitialization(int trackIdx, bool 
 				}
 			}
 		}
-
-	if(trackDownloadThreadID.joinable())
-	{
-		AAMPLOG_TRACE("Waiting for join trackDownloadThread");
-		trackDownloadThreadID.join();
-		AAMPLOG_TRACE("Joined trackDownloadThread");
-	}
 }
 
 
@@ -8737,29 +8710,49 @@ void StreamAbstractionAAMP_MPD::PushEncryptedHeaders(std::map<int, std::string>&
 {
 	for (std::map<int, std::string>::iterator it=mappedHeaders.begin(); it!=mappedHeaders.end(); ++it)
 	{
-		int i = it->first;
-		std::string fragmentUrl = it->second;
-
-		//update the next segment for download
-		//aamp->mCMCDCollector->CMCDSetNextObjectRequest( fragmentUrl , (long long)fragmentDescriptor->Number,
-		//		fragmentDescriptor->Bandwidth,(AampMediaType)i);
-		if (mMediaStreamContext[i]->WaitForFreeFragmentAvailable())
+		if (it->first < mTrackWorkers.size() && ISCONFIGSET(eAAMPConfig_DashParallelFragDownload) && mTrackWorkers[it->first])
 		{
-			AAMPLOG_WARN("Pushing encrypted header for %s fragmentUrl %s", GetMediaTypeName(AampMediaType(i)), fragmentUrl.c_str());
-			//Set the last parameter (overWriteTrackId) true to overwrite the track id if ad and content has different track ids
-			bool temp = false;
-			try
-			{
-				temp =  mMediaStreamContext[i]->CacheFragment(fragmentUrl, (eCURLINSTANCE_VIDEO + mMediaStreamContext[i]->mediaType), mMediaStreamContext[i]->fragmentTime, 0.0, NULL, true, false, false, 0, 0, true);
-			}
-			catch(const std::regex_error& e)
-			{
-				AAMPLOG_ERR("regex exception in Calling CacheFragment: %s", e.what());
-			}
-			if(!temp)
-			{
-				AAMPLOG_TRACE("StreamAbstractionAAMP_MPD: did not cache fragmentUrl %s fragmentTime %f", fragmentUrl.c_str(), mMediaStreamContext[i]->fragmentTime); //CID:84438 - checked return
-			}
+			// Download the video, audio & subtitle fragments in a separate parallel thread.
+			AAMPLOG_DEBUG("Submitting job for init encrypted header track %d", it->first);
+			mTrackWorkers[it->first]->SubmitJob([this, track = it->first, header = it->second]() { CacheEncryptedHeader(track, header); });
+		}
+		else
+		{
+			AAMPLOG_INFO("Track %d worker not available, caching init encrypted header sequentially", it->first);
+			CacheEncryptedHeader(it->first, it->second);
+		}
+	}
+
+	for (int trackIdx = (mNumberOfTracks - 1); (ISCONFIGSET(eAAMPConfig_DashParallelFragDownload) && trackIdx >= 0); trackIdx--)
+	{
+		if(trackIdx < mTrackWorkers.size() && mTrackWorkers[trackIdx])
+		{
+			mTrackWorkers[trackIdx]->WaitForCompletion();
+		}
+	}
+}
+
+void StreamAbstractionAAMP_MPD::CacheEncryptedHeader(int trackIdx, std::string headerUrl)
+{
+	//update the next segment for download
+	//aamp->mCMCDCollector->CMCDSetNextObjectRequest( fragmentUrl , (long long)fragmentDescriptor->Number,
+	//		fragmentDescriptor->Bandwidth,(AampMediaType)i);
+	if (mMediaStreamContext[trackIdx]->WaitForFreeFragmentAvailable())
+	{
+		AAMPLOG_WARN("Pushing encrypted header for %s fragmentUrl %s", GetMediaTypeName(AampMediaType(trackIdx)), headerUrl.c_str());
+		//Set the last parameter (overWriteTrackId) true to overwrite the track id if ad and content has different track ids
+		bool temp = false;
+		try
+		{
+			temp =  mMediaStreamContext[trackIdx]->CacheFragment(headerUrl, (eCURLINSTANCE_VIDEO + mMediaStreamContext[trackIdx]->mediaType), mMediaStreamContext[trackIdx]->fragmentTime, 0.0, NULL, true, false, false, 0, 0, true);
+		}
+		catch(const std::regex_error& e)
+		{
+			AAMPLOG_ERR("regex exception in Calling CacheFragment: %s", e.what());
+		}
+		if(!temp)
+		{
+			AAMPLOG_TRACE("StreamAbstractionAAMP_MPD: did not cache fragmentUrl %s fragmentTime %f", headerUrl.c_str(), mMediaStreamContext[trackIdx]->fragmentTime); //CID:84438 - checked return
 		}
 	}
 }
@@ -10382,7 +10375,6 @@ void StreamAbstractionAAMP_MPD::StartFromOtherThanAampLocalTsb(void)
 	aamp->mDRMSessionManager->setSessionMgrState(SessionMgrState::eSESSIONMGR_ACTIVE);
 #endif
 	// Start the worker threads for each track
-	InitializeWorkers();
 	try{
 		fragmentCollectorThreadID = std::thread(&StreamAbstractionAAMP_MPD::FetcherLoop, this);
 		fragmentCollectorThreadStarted = true;
