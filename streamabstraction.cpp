@@ -928,10 +928,17 @@ bool MediaTrack::ProcessFragmentChunk()
 	}
 	if(cachedFragment->initFragment)
 	{
-		if ((pContext && pContext->trickplayMode) && ISCONFIGSET(eAAMPConfig_EnablePTSReStamp))
+		if ((pContext) && ISCONFIGSET(eAAMPConfig_EnablePTSReStamp))
 		{
-			// If in trick mode, do trick mode PTS restamp
-			TrickModePtsRestamp(cachedFragment);
+			if (pContext->trickplayMode)
+			{
+				// If in trick mode, do trick mode PTS restamp
+				TrickModePtsRestamp(cachedFragment);
+			}
+			else
+			{
+				ClearMediaHeaderDuration(cachedFragment);
+			}
 		}
 		if (mSubtitleParser && type == eTRACK_SUBTITLE)
 		{
@@ -1132,6 +1139,7 @@ void MediaTrack::TrickModePtsRestamp(AampGrowableBuffer &fragment, double &posit
 		// enable restamping the media segment PTS and duration with adequate precision, e.g.
 		// 100,000
 		(void)mIsoBmffHelper->SetTimescale(fragment, TRICKMODE_TIMESCALE);
+		(void)mIsoBmffHelper->ClearMediaHeaderDuration(fragment);
 
 		if (discontinuity)
 		{
@@ -1261,6 +1269,11 @@ std::string MediaTrack::RestampSubtitle( const char* buffer, size_t bufferLen, d
 	return str;
 }
 
+void MediaTrack::ClearMediaHeaderDuration(CachedFragment *fragment)
+{
+	(void)mIsoBmffHelper->ClearMediaHeaderDuration(fragment->fragment);
+}
+
 /**
  *  @brief Inject fragment Chunk into the gstreamer
  */
@@ -1301,6 +1314,10 @@ void MediaTrack::ProcessAndInjectFragment(CachedFragment *cachedFragment, bool f
 					(void)mIsoBmffHelper->RestampPts(cachedFragment->fragment, ptsOffset,
 													 cachedFragment->uri, name,
 													 cachedFragment->timeScale);
+				}
+				else
+				{
+					ClearMediaHeaderDuration(cachedFragment);
 				}
 			}
 		}

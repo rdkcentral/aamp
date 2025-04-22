@@ -112,3 +112,26 @@ bool IsoBmffHelper::SetPtsAndDuration(AampGrowableBuffer &buffer, uint64_t pts, 
 
 	return retval;
 }
+
+bool IsoBmffHelper::ClearMediaHeaderDuration(AampGrowableBuffer &buffer)
+{
+	bool retval{false};
+	IsoBmffBuffer isoBmffBuffer{};
+
+	isoBmffBuffer.setBuffer(reinterpret_cast<uint8_t *>(buffer.GetPtr()), buffer.GetLen());
+
+	if (!isoBmffBuffer.parseBuffer())
+	{
+		AAMPLOG_WARN("Failed to parse buffer");
+	}
+	else if (!isoBmffBuffer.isInitSegment())
+	{
+		AAMPLOG_WARN("Buffer is not an initialization segment");
+	}
+	else
+	{
+		retval = isoBmffBuffer.setMediaHeaderDuration(0);
+	}
+
+	return retval;
+}
