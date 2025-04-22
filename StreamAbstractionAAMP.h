@@ -891,6 +891,14 @@ private:
 	 */
 	void HandleFragmentPositionJump(CachedFragment* cachedFragment);
 
+	/**
+	 * @brief Clear the media header duration in init fragment
+	 *
+	 * @param[in,out] cachedFragment - fragment whose media header duration to be cleared
+	 * @return void
+	 */
+	void ClearMediaHeaderDuration(CachedFragment* cachedFragment);
+
 public:
 	bool eosReached;                    /**< set to true when a vod asset has been played to completion */
 	bool enabled;                       /**< set to true if track is enabled */
