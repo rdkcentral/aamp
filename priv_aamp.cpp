@@ -2019,7 +2019,11 @@ void PrivateInstanceAAMP::ReportProgress(bool sync, bool beginningOfStream)
 	}
 
 	//Once GST_MESSAGE_EOS is received, AAMP does not want any stray progress to be sent to player. so added the condition state != eSTATE_COMPLETE
-	if (mDownloadsEnabled && (state != eSTATE_IDLE) && (state != eSTATE_RELEASED) && (state != eSTATE_COMPLETE) && (state != eSTATE_SEEKING))
+	if (mDownloadsEnabled &&
+		(state != eSTATE_IDLE) &&
+		(state != eSTATE_RELEASED) &&
+		(state != eSTATE_COMPLETE) &&
+		(state != eSTATE_SEEKING))
 	{
 		// set position to 0 if the rewind operation has reached Beginning Of Stream
 		double position = beginningOfStream? 0: GetPositionMilliseconds();
@@ -2172,7 +2176,17 @@ void PrivateInstanceAAMP::ReportProgress(bool sync, bool beginningOfStream)
 	   		currentRate  = rate;
 		}
 
-		ProgressEventPtr evt = std::make_shared<ProgressEvent>(duration, reportFormatPosition, start, end, speed, videoPTS, bufferedDuration, seiTimecode.c_str(), latency, mpStreamAbstractionAAMP->GetVideoBitrate(), mNetworkBandwidth, currentRate, GetSessionId());
+		// This is a short-term solution. We are not acquiring StreamLock here, so we could still access mpStreamAbstractionAAMP
+		// as its getting deleted. StreamLock is acquired for a lot stuff, so getting it here would lead to unexpected delays
+		// Another approach would be to save the bitrate in a local variable as bitrateChangedEvents are fired
+		// Planning a tech-debt to stop deleting mpStreamAbstractionAAMP in-between seek/trickplays
+		BitsPerSecond bps = 0;
+		if (mpStreamAbstractionAAMP)
+		{
+			bps = mpStreamAbstractionAAMP->GetVideoBitrate();
+		}
+
+		ProgressEventPtr evt = std::make_shared<ProgressEvent>(duration, reportFormatPosition, start, end, speed, videoPTS, bufferedDuration, seiTimecode.c_str(), latency, bps, mNetworkBandwidth, currentRate, GetSessionId());
 
 		if (trickStartUTCMS >= 0 && (bProcessEvent || mFirstProgress))
 		{
@@ -2215,7 +2229,7 @@ void PrivateInstanceAAMP::ReportProgress(bool sync, bool beginningOfStream)
 						(double)(bufferedDuration / 1000.0),
 						(latency / 1000),
 						seiTimecode.c_str(),
-						mpStreamAbstractionAAMP->GetVideoBitrate(),
+						bps,
 						mNetworkBandwidth,
 						currentRate);
 				}
