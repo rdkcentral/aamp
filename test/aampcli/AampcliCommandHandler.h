@@ -34,14 +34,12 @@
 #include "AampcliGet.h"
 #include "AampcliSet.h"
 #include "AampcliPlaybackCommand.h"
-#include "AampcliSmokeTest.h"
 
 class CommandHandler
 {
 	private:
 		Set mSet{};
 		Get mGet{};
-		SmokeTest mSmokeTest{};
 		PlaybackCommand mPlaybackCommand{};
 
 		std::map<std::string, Command*> mCommandMap{};
