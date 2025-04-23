@@ -3221,17 +3221,27 @@ void PrivateInstanceAAMP::NotifyEOSReached()
 		In this case it makes sense to exit this function ASAP.
 		A more complete (larger, higher risk, more time consuming, threadsafe) change to scheduling is required in the future.
 		*/
-		if(!mpStreamAbstractionAAMP)
+		// Used TryStreamLock() to avoid crash when mpStreamAbstractionAAMP gets deleted by SetRate b/w checking for
+		// mpStreamAbstractionAAMP not null & IsEOSReached()
+		if( TryStreamLock() )
 		{
-			AAMPLOG_ERR("null Stream Abstraction AAMP");
-			return;
+			if(!mpStreamAbstractionAAMP)
+			{
+				AAMPLOG_ERR("null Stream Abstraction AAMP");
+				return;
+			}
+			if (!mpStreamAbstractionAAMP->IsEOSReached())
+			{
+				AAMPLOG_ERR("Bogus EOS event received from GStreamer, discarding it!");
+				return;
+			}
+			ReleaseStreamLock();
+		}
+		else
+		{
+			AAMPLOG_WARN("StreamLock not available");
 		}
 
-		if (!mpStreamAbstractionAAMP->IsEOSReached())
-		{
-			AAMPLOG_ERR("Bogus EOS event received from GStreamer, discarding it!");
-			return;
-		}
 		if (!isLive && rate > 0)
 		{
 			SetState(eSTATE_COMPLETE);
