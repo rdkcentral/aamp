@@ -110,6 +110,7 @@ protected:
 
 	void TearDown() override
 	{
+		EXPECT_CALL(*g_mockTSBStore, Flush()).Times(1);
 		mAampTSBSessionManager->Flush();
 
 		delete g_mockAampTsbMetaDataManager;
@@ -202,7 +203,7 @@ TEST_F(FunctionalTests, TSBWriteTests)
 	mAampTSBSessionManager->EnqueueWrite(VIDEO2_URL, cachedFragment, TEST_PERIOD_ID);
 	std::this_thread::sleep_for(std::chrono::milliseconds(25));
 	double TSBDuration = mAampTSBSessionManager->GetTotalStoreDuration(eMEDIATYPE_VIDEO);
-	EXPECT_EQ(TSBDuration, FRAG_DURATION);
+	EXPECT_DOUBLE_EQ(TSBDuration, FRAG_DURATION);
 
 	// Add video fragment 3 to TSB which fails with no space and then writes on next iteration
 	const std::string VIDEO3_URL = std::string(TEST_BASE_URL) + std::string("video3.mp4");
@@ -220,8 +221,24 @@ TEST_F(FunctionalTests, TSBWriteTests)
 
 	// Check the final TSB store duration is updated
 	TSBDuration = mAampTSBSessionManager->GetTotalStoreDuration(eMEDIATYPE_VIDEO);
-	EXPECT_EQ(TSBDuration, FRAG_DURATION);
+	EXPECT_DOUBLE_EQ(TSBDuration, FRAG_DURATION);
 
+	// Reinitialise TSB and check that it is empty
+	EXPECT_CALL(*g_mockTSBStore, Flush()).Times(1);
+	mAampTSBSessionManager->Flush();
+	EXPECT_FALSE(mAampTSBSessionManager->IsActive());
+	TSBDuration = mAampTSBSessionManager->GetTotalStoreDuration(eMEDIATYPE_VIDEO);
+	EXPECT_DOUBLE_EQ(TSBDuration, 0);
+
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_TsbLogLevel))
+		.WillOnce(Return(static_cast<int>(TSB::LogLevel::TRACE)));
+	EXPECT_CALL(*g_mockAampTsbMetaDataManager, Initialize())
+		.WillOnce(Return());
+	// Mock successful registration of AD_METADATA_TYPE
+	EXPECT_CALL(*g_mockAampTsbMetaDataManager, RegisterMetaDataType(AampTsbMetaData::Type::AD_METADATA_TYPE, true))
+		.WillOnce(Return(true));
+	mAampTSBSessionManager->Init();
+	EXPECT_TRUE(mAampTSBSessionManager->IsActive());
 }
 
 TEST_F(FunctionalTests, Cullsegments)
@@ -274,7 +291,7 @@ TEST_F(FunctionalTests, Cullsegments)
 	std::this_thread::sleep_for(std::chrono::milliseconds(25));
 
 	double TSBDuration = mAampTSBSessionManager->GetTotalStoreDuration(eMEDIATYPE_VIDEO);
-	EXPECT_EQ(TSBDuration, FRAG_DURATION * 2);
+	EXPECT_DOUBLE_EQ(TSBDuration, FRAG_DURATION * 2);
 
 	EXPECT_CALL(*g_mockTSBStore, Delete(videoUrl_unique)).Times(1);
 	EXPECT_CALL(*g_mockTSBStore, Delete(audioUrl_unique)).Times(1);
@@ -288,9 +305,9 @@ TEST_F(FunctionalTests, Cullsegments)
 
 	// Check TSB store duration after culling. Only one fragment each should be present.
 	TSBDuration = mAampTSBSessionManager->GetTotalStoreDuration(eMEDIATYPE_VIDEO);
-	EXPECT_EQ(TSBDuration, FRAG_DURATION);
+	EXPECT_DOUBLE_EQ(TSBDuration, FRAG_DURATION);
 	TSBDuration = mAampTSBSessionManager->GetTotalStoreDuration(eMEDIATYPE_AUDIO);
-	EXPECT_EQ(TSBDuration, FRAG_DURATION);
+	EXPECT_DOUBLE_EQ(TSBDuration, FRAG_DURATION);
 }
 
 TEST_F(FunctionalTests, TSBReadTests)

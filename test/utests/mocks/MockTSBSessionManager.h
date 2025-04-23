@@ -34,6 +34,7 @@ public:
 	MOCK_METHOD(bool, EndAdPlacement, (const std::string &, uint32_t, AampTime, double, uint32_t));
 	MOCK_METHOD(bool, EndAdPlacementWithError, (const std::string &, uint32_t, AampTime, double, uint32_t));
 	MOCK_METHOD(void, ShiftFutureAdEvents, ());
+	MOCK_METHOD(void, Flush, ());
 };
 
 extern MockTSBSessionManager *g_mockTSBSessionManager;

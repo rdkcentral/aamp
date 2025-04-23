@@ -80,4 +80,8 @@ void Store::Delete(const std::string& url)
 
 void Store::Flush()
 {
+    if (g_mockTSBStore)
+    {
+        g_mockTSBStore->Flush();
+    }
 }

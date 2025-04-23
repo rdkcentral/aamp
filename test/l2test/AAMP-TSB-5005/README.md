@@ -1,5 +1,5 @@
 # AAMP TSB tests
-L2 tests to verify AAMP Local TSB.
+L2 tests to verify audio track change with Local AAMP TSB enabled.
 
 ## Test Files
 + test_5005.py  Iterates through test cases.
