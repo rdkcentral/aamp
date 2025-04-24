@@ -25,10 +25,6 @@
 #include "ID3Metadata.hpp"
 #include "AampSegmentInfo.hpp"
 
-//Enable the define below to get AAMP logging out when running tests
-//#define ENABLE_LOGGING
-#define TEST_LOG_LEVEL eLOGLEVEL_TRACE
-
 MockPrivateInstanceAAMP *g_mockPrivateInstanceAAMP = nullptr;
 
 bool PrivateInstanceAAMP::mTrackGrowableBufMem;
