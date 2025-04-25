@@ -54,14 +54,14 @@ TESTDATA0 = {
 		#Make sure we stay in the right 'mode'
 		{"expect": r"Local AAMP TSB 0", "not_expected": True },
 		{"expect": r"Local AAMP TSB 1" },
-		#Check we are fetching from 'std' audio track and switch to alternative
-		{"expect": r"CacheFragment.*track-audio-periodid-881036616", "callback_once":send_command, "callback_arg": f"set preferredLanguages {sap_track}"},
+		#Check 'std' audio track segments are written to TSB and switch to alternative
+		{"expect": r"AddFragment.*track-audio-periodid-881036616", "callback_once":send_command, "callback_arg": f"set preferredLanguages {sap_track}"},
 
 		#Check that the TSB Store is being flushed
 		{"expect": r"TsbStore.*msg=\"Flush triggered\" oldActiveDirNum=\"2\""},
 
-		#Check we are fetching from alternate audio track and finish test
-		{"expect": r"CacheFragment.*track-sap-periodid-881036617", "end_of_test":True}
+		#Check alternate audio track segments are written to TSB and finish test
+		{"expect": r"AddFragment.*track-sap-periodid-881036617", "end_of_test":True}
 	]
 }
 
@@ -83,20 +83,20 @@ TESTDATA1 = {
 		#Make sure we stay in the right 'mode'
 		{"expect": r"Local AAMP TSB 0", "not_expected": True },
 		{"expect": r"Local AAMP TSB 1" },
-		#Check we are fetching from 'std' audio track and pause playback
-		{"expect": r"CacheFragment.*track-audio-periodid-881036616", "max": 3, "callback_once":send_command, "callback_arg": "pause"},
+		#Check 'std' audio track segments are written to TSB and pause playback
+		{"expect": r"AddFragment.*track-audio-periodid-881036616", "max": 3, "callback_once":send_command, "callback_arg": "pause"},
 
 		#Wait for a few seconds and resume playback from TSB
 		{"expect": r"\[AddFragment\]\[\d+\]\[audio\]", "min": 6, "max": 9, "callback_once":send_command, "callback_arg": "play"},
 
-		#Check we are still fetching from 'std' audio track and switch to alternative
-		{"expect": r"CacheFragment.*track-audio.*frag", "min": 9, "callback_once":send_command, "callback_arg": f"set preferredLanguages {sap_track}"},
+		#Check 'std' audio track segments are still written to TSB and switch to alternative
+		{"expect": r"AddFragment.*track-audio.*frag", "min": 9, "callback_once":send_command, "callback_arg": f"set preferredLanguages {sap_track}"},
 
 		#Check that the TSB Store is being flushed
 		{"expect": r"TsbStore.*msg=\"Flush triggered\" oldActiveDirNum=\"2\""},
 
-		#Check we are fetching from alternate audio track and finish test
-		{"expect": r"CacheFragment.*track-sap-periodid-881036617", "end_of_test":True}
+		#Check alternate audio track segments are written to TSB and finish test
+		{"expect": r"AddFragment.*track-sap-periodid-881036617", "end_of_test":True}
 	]
 }
 
@@ -118,18 +118,47 @@ TESTDATA2 = {
 		#Make sure we stay in the right 'mode'
 		{"expect": r"Local AAMP TSB 0", "not_expected": True },
 		{"expect": r"Local AAMP TSB 1" },
-		#Check we are fetching from 'std' audio track and switch to alternative
-		{"expect": r"CacheFragment.*track-audio-periodid-881036616", "callback_once":send_command, "callback_arg": f"set preferredLanguages {unavailable_track}"},
+		#Check 'std' audio track segments are written to TSB and switch to an unavailable audio track
+		{"expect": r"AddFragment.*track-audio-periodid-881036616", "callback_once":send_command, "callback_arg": f"set preferredLanguages {unavailable_track}"},
 
 		#Check that the TSB Store is not flushed
 		{"expect": r"Flush TSB Session Manager", "not_expected": True },
 
-		#Check we continue fetching the same audio track and finish test
-		{"expect": r"CacheFragment.*track-audio-periodid-881036617", "end_of_test":True}
+		#Check alternate audio track segments are written to TSB and finish test
+		{"expect": r"AddFragment.*track-audio-periodid-881036617", "end_of_test":True}
 	]
 }
 
-TESTLIST = [TESTDATA0, TESTDATA1, TESTDATA2]
+TESTDATA3 = {
+	"title": "Rewind after Audio Track Switch",
+	"max_test_time_seconds": 30,
+	"aamp_cfg": "info=true\nlocalTSBEnabled=true\nprogress=true\ntsbLocation=/tmp/data\ntsbLog=0\n",
+	"archive_url": archive_sld_url,
+	"url": SLD_URL,
+	"cmdlist": ["contentType LINEAR_TV"],
+	'simlinear_type': 'DASH',
+	"expect_list":
+	[
+		{"expect": r"aamp_tune", "max":1},
+
+		#Make sure we stay in the right 'mode'
+		{"expect": r"Local AAMP TSB 0", "not_expected": True },
+		{"expect": r"Local AAMP TSB 1" },
+		#Check 'std' audio track segments are written to TSB and switch to alternative
+		{"expect": r"AddFragment.*track-audio-periodid-881036616", "callback_once":send_command, "callback_arg": f"set preferredLanguages {sap_track}"},
+
+		#Check that the TSB Store is being flushed
+		{"expect": r"TsbStore.*msg=\"Flush triggered\" oldActiveDirNum=\"2\""},
+
+		#Check alternate audio track segments are written to TSB and rewind
+		{"expect": r"AddFragment.*track-sap-periodid-881036617", "callback_once":send_command, "callback_arg": "rew 2"},
+
+		#End the test when rewind reaches the beginning of the buffer
+		{"expect": r"on BOS", "end_of_test":True}
+	]
+}
+
+TESTLIST = [TESTDATA0, TESTDATA1, TESTDATA2, TESTDATA3]
 
 @pytest.fixture(params=TESTLIST)
 def test_data(request):
