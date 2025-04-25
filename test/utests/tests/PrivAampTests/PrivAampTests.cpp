@@ -49,6 +49,7 @@
 
 #include "fragmentcollector_mpd.h"
 
+using ::testing::An;
 using ::testing::DoAll;
 using ::testing::InvokeWithoutArgs;
 using ::testing::NiceMock;
@@ -406,11 +407,11 @@ TEST_F(PrivAampPrivTests, SetPreferredLanguagesPlayingLiveAampTsbTest)
 	testp_aamp->SetState(eSTATE_PLAYING);
 
 	EXPECT_CALL(*g_mockAampJsonObject, isString(_)).WillRepeatedly(Return(true));
-	EXPECT_CALL(*g_mockAampJsonObject, get_string("languages", _)).WillOnce(DoAll(testing::SetArgReferee<1>("lang1"), Return(true)));
-	EXPECT_CALL(*g_mockAampJsonObject, get_string("rendition", _)).WillOnce(Return(false));
-	EXPECT_CALL(*g_mockAampJsonObject, get_string("codec", _)).WillOnce(Return(false));
-	EXPECT_CALL(*g_mockAampJsonObject, get_string("name", _)).WillOnce(Return(false));
-	EXPECT_CALL(*g_mockAampJsonObject, get_string("label", _)).WillOnce(Return(false));
+	EXPECT_CALL(*g_mockAampJsonObject, get("languages", An<std::string&>())).WillOnce(DoAll(testing::SetArgReferee<1>("lang1"), Return(true)));
+	EXPECT_CALL(*g_mockAampJsonObject, get("rendition", An<std::string&>())).WillOnce(Return(false));
+	EXPECT_CALL(*g_mockAampJsonObject, get("codec", An<std::string&>())).WillOnce(Return(false));
+	EXPECT_CALL(*g_mockAampJsonObject, get("name", An<std::string&>())).WillOnce(Return(false));
+	EXPECT_CALL(*g_mockAampJsonObject, get("label", An<std::string&>())).WillOnce(Return(false));
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(_)).WillRepeatedly(Return(false));
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_LocalTSBEnabled)).WillRepeatedly(Return(true));
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnablePTSReStamp)).WillRepeatedly(Return(true));
@@ -463,11 +464,11 @@ TEST_F(PrivAampPrivTests, SetPreferredLanguagesPlayingFromAampTsbTest)
 	testp_aamp->SetState(eSTATE_PLAYING);
 
 	EXPECT_CALL(*g_mockAampJsonObject, isString(_)).WillRepeatedly(Return(true));
-	EXPECT_CALL(*g_mockAampJsonObject, get_string("languages", _)).WillOnce(DoAll(testing::SetArgReferee<1>("lang1"), Return(true)));
-	EXPECT_CALL(*g_mockAampJsonObject, get_string("rendition", _)).WillOnce(Return(false));
-	EXPECT_CALL(*g_mockAampJsonObject, get_string("codec", _)).WillOnce(Return(false));
-	EXPECT_CALL(*g_mockAampJsonObject, get_string("name", _)).WillOnce(Return(false));
-	EXPECT_CALL(*g_mockAampJsonObject, get_string("label", _)).WillOnce(Return(false));
+	EXPECT_CALL(*g_mockAampJsonObject, get("languages", An<std::string&>())).WillOnce(DoAll(testing::SetArgReferee<1>("lang1"), Return(true)));
+	EXPECT_CALL(*g_mockAampJsonObject, get("rendition", An<std::string&>())).WillOnce(Return(false));
+	EXPECT_CALL(*g_mockAampJsonObject, get("codec", An<std::string&>())).WillOnce(Return(false));
+	EXPECT_CALL(*g_mockAampJsonObject, get("name", An<std::string&>())).WillOnce(Return(false));
+	EXPECT_CALL(*g_mockAampJsonObject, get("label", An<std::string&>())).WillOnce(Return(false));
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(_)).WillRepeatedly(Return(false));
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_LocalTSBEnabled)).WillRepeatedly(Return(true));
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnablePTSReStamp)).WillRepeatedly(Return(true));
