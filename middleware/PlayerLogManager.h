@@ -131,6 +131,16 @@ if( (LEVEL) >= PlayerLogManager::mwLoglevel ) \
 }\
 }while(0)
 
+#ifdef MW_LOG_TRACE
+// avoid compile time macro redefinition warnings due to defines in SubtecChannel.cpp
+#undef MW_LOG_TRACE
+#undef MW_LOG_DEBUG
+#undef MW_LOG_INFO
+#undef MW_LOG_WARN
+#undef MW_LOG_MIL
+#undef MW_LOG_ERR
+#endif
+
 /**
  * @brief Middleware logging defines, this can be enabled through setLogLevel() as per the need
  */
