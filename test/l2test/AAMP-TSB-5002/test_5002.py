@@ -26,6 +26,8 @@ from inspect import getsourcefile
 from l2test_pts_restamp import PtsRestampUtils
 from l2test_pts_restamp import TrickModesPtsRestampUtils
 from l2test_aamp_tsb import AampTsbUtils
+import base64
+import json
 
 # The progress report is printed in the log at the interval times, i.e. 1.0s
 PROGRESS_REPORT_INTERVAL = 1.0
@@ -301,6 +303,11 @@ TESTDATA5 = {
 # The Player presents video I-frames from the linear content in reverse at the specified rate
 # When the presentation position reaches the TSB start position
 # Then The player changes playback rate to x 1 from the current position and notifies the client of a speed change event
+#Should give a 404 for 1 audio and 1 video segment
+simlinearResp = [
+        {"status": 404, "pattern": "881045315.mp4" },
+    ]
+encoded_simlinear_control = base64.b64encode(json.dumps(simlinearResp).encode('utf-8')).decode('utf-8')
 def generate_rew_testdata(rew_data):
 	test_data = {
 		"title": f"Acceptance Criteria for rewind rew {rew_data}",
@@ -308,13 +315,18 @@ def generate_rew_testdata(rew_data):
 		"max_test_time_seconds": 80,
 		'simlinear_type': 'DASH',
 		"archive_url": archive_url,
-		"url": TEST_URL,
+		"url": TEST_URL + f"?respData={encoded_simlinear_control}",
 		"cmdlist": ["contentType LINEAR_TV"],
 		"aamp_cfg": f"trace=true\nprogress=true\nprogressReportingInterval={PROGRESS_REPORT_INTERVAL}\nprogressLoggingDivisor={PROGRESS_REPORT_DIVISOR}\ninfo=true\nlocalTSBEnabled=true\ntsbLocation=/tmp/data\ntsbLength=500\ntsbLog=0\n",
 		"expect_list": [
+			# Check we get the 404 that has been setup in the test conditions
+			{"expect":"LogNetworkError.*http error 404.*-video-"},
+			{"expect":"LogNetworkError.*http error 404.*-audio-"},
 			# Wait until a minimum of 10s data for 2x and 60s data for 64x is built into buffer
 			{"expect": r'\[ReportProgress\]\[\d+\]', "min": 10 if rew_data == 2 else 60, "callback_once": send_command, "callback_arg": f"rew {rew_data}"},
 			{"expect": rf"AAMP_EVENT_SPEED_CHANGED current rate=-{rew_data}.000000"},
+			# Check the PTS restamp is done correctly during trick modes
+			{"expect": trick_modes_pts_restamp_utils.LOG_LINE, "callback" : trick_modes_pts_restamp_utils.check_restamp},
 			{"expect": r"GST_MESSAGE_EOS", "min": 10 if rew_data == 2 else 60},
 			# Once the speed changes to X 1 get the play position from the next sample.
 			{"expect": r"AAMP_EVENT_SPEED_CHANGED current rate=1.000000"},
@@ -338,11 +350,15 @@ def generate_seek_testdata(extra_config):
 		"max_test_time_seconds": 40,
 		"simlinear_type": "DASH",
 		"archive_url": archive_url,
-		"url": TEST_URL,
+		"url": TEST_URL + f"?respData={encoded_simlinear_control}",
 		"cmdlist": ["contentType LINEAR_TV"],
 		"aamp_cfg": f"trace=true\nprogress=true\nprogressReportingInterval={PROGRESS_REPORT_INTERVAL}\nprogressLoggingDivisor={PROGRESS_REPORT_DIVISOR}\ninfo=true\nlocalTSBEnabled=true\ntsbLocation=/tmp/data\ntsbLength=500\ntsbLog=0\n{extra_config}",
 
 		"expect_list": [
+			# Check we get the 404 that has been setup in the test conditions
+			{"expect":"LogNetworkError.*http error 404.*-video-"},
+			{"expect":"LogNetworkError.*http error 404.*-audio-"},
+
 			{"expect": r'\[ReportProgress\]\[\d+\]Send first progress event with position (\d+)', "callback_once": aamp_tsb_utils.extract_first_progress_event_position },
 
 			# Wait 10s and then pause when the next fragment is added to TSB
@@ -375,8 +391,8 @@ TESTLIST = [
 	{'testdata': TESTDATA3, 'expected_restamps': 8, 'expected_trickmodes_restamps': 10},
 	{'testdata': TESTDATA4, 'expected_restamps': 10, 'expected_trickmodes_restamps': 10},
 	{'testdata': TESTDATA5, 'expected_restamps': 0, 'expected_trickmodes_restamps': 0},
-	{'testdata': TESTDATA_REW2, 'expected_restamps': 0, 'expected_trickmodes_restamps': 0},
-	{'testdata': TESTDATA_REW64, 'expected_restamps': 0, 'expected_trickmodes_restamps': 0},
+	{'testdata': TESTDATA_REW2, 'expected_restamps': 0, 'expected_trickmodes_restamps': 7},
+	{'testdata': TESTDATA_REW64, 'expected_restamps': 0, 'expected_trickmodes_restamps': 5},
 	{'testdata': TESTDATA_SEEK, 'expected_restamps': 0, 'expected_trickmodes_restamps': 0},
 	{'testdata': TESTDATA_SEEK_ABS, 'expected_restamps': 0, 'expected_trickmodes_restamps': 0}
 ]

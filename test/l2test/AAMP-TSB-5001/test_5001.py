@@ -26,6 +26,8 @@ from inspect import getsourcefile
 from l2test_pts_restamp import PtsRestampUtils
 from l2test_pts_restamp import TrickModesPtsRestampUtils
 from l2test_aamp_tsb import AampTsbUtils
+import base64
+import json
 
 # Define the progress report interval, and the divisor
 PROGRESS_REPORT_INTERVAL = 0.5
@@ -46,7 +48,7 @@ tsb_start_position = 0
 
 archive_url = "https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/streams/L2/misc/ch920_10min.tgz"
 
-LLD_URL="v1/frag/bmff/enc/cenc/latency/low/t/UK3054_HD_SU_SKYUK_3054_0_8371500471198371163.mpd?chunked"
+LLD_URL="v1/frag/bmff/enc/cenc/latency/low/t/UK3054_HD_SU_SKYUK_3054_0_8371500471198371163.mpd"
 
 SLD_URL="https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/streams/generated/main.mpd"
 
@@ -336,6 +338,12 @@ def generate_ff_testdata(ff_data):
 	}
 	return test_data
 
+
+#Should give a 404 for 1 audio and 1 video segment
+simlinearResp = [
+        {"status": 404, "pattern": "927981270760.mp4|927981261613.mp4" },
+    ]
+encoded_simlinear_control = base64.b64encode(json.dumps(simlinearResp).encode('utf-8')).decode('utf-8')
 # Given that presentation is in progress at any negative rate
 # The Player presents video I-frames from the linear content in reverse at the specified rate
 # When the presentation position reaches the TSB start position
@@ -347,13 +355,19 @@ def generate_rew_testdata(rew_data):
 		"max_test_time_seconds": 80,
 		'simlinear_type': 'DASH',
 		"archive_url": archive_url,
-		"url": LLD_URL,
+		"url": LLD_URL + f"?respData={encoded_simlinear_control}",
 		"cmdlist": ["contentType LINEAR_TV"],
 		"aamp_cfg": f"trace=true\nprogress=true\nprogressReportingInterval={PROGRESS_REPORT_INTERVAL}\nprogressLoggingDivisor={PROGRESS_REPORT_DIVISOR}\ninfo=true\nlocalTSBEnabled=true\ntsbLocation=/tmp/data\ntsbLength=500\ntsbLog=0\n",
 		"expect_list": [
+			# Check we get the 404 that has been setup in the test conditions
+			{"expect":"LogNetworkError.*http error 404.*-video-"},
+			{"expect":"LogNetworkError.*http error 404.*-audio-"},
 			# Wait until a minimum of 10s data for 2x and 60s data for 64x is built into buffer
 			{"expect": r'\[ReportProgress\]\[\d+\]', "min": 10 if rew_data == 2 else 60, "callback_once": send_command, "callback_arg": f"rew {rew_data}"},
 			{"expect": rf"AAMP_EVENT_SPEED_CHANGED current rate=-{rew_data}.000000"},
+			# Check the PTS restamp is done correctly during trick modes
+			{"expect": trick_modes_pts_restamp_utils.LOG_LINE, "callback" : trick_modes_pts_restamp_utils.check_restamp},
+			# End of rew
 			{"expect": r"GST_MESSAGE_EOS", "min": 10 if rew_data == 2 else 60},
 			# Once the speed changes to X 1 get the play position from the next sample.
 			{"expect": r"AAMP_EVENT_SPEED_CHANGED current rate=1.000000"},
@@ -377,13 +391,15 @@ def generate_seek_testdata(extra_config):
 		"max_test_time_seconds": 40,
 		"simlinear_type": "DASH",
 		"archive_url": archive_url,
-		"url": LLD_URL,
+		"url": LLD_URL + f"?respData={encoded_simlinear_control}",
 		"cmdlist": ["contentType LINEAR_TV"],
 		"aamp_cfg": f"trace=true\nprogress=true\nprogressReportingInterval={PROGRESS_REPORT_INTERVAL}\nprogressLoggingDivisor={PROGRESS_REPORT_DIVISOR}\ninfo=true\nlocalTSBEnabled=true\ntsbLocation=/tmp/data\ntsbLength=500\ntsbLog=0\n{extra_config}\n",
 
 		"expect_list": [
 			{"expect": r'\[ReportProgress\]\[\d+\]Send first progress event with position (\d+)', "callback_once": aamp_tsb_utils.extract_first_progress_event_position },
-
+			# Check we get the 404 that has been setup in the test conditions
+			{"expect":"LogNetworkError.*http error 404.*-video-"},
+			{"expect":"LogNetworkError.*http error 404.*-audio-"},
 			# Wait 10s and then pause when the next fragment is added to TSB
 			{"expect": r'\[ReportProgress\]\[\d+\]', "min": 10, "max": 14, "callback_once": send_command, "callback_arg": "pause"},
 			# Wait 15s since the start of the test and then play when the next fragment is processed
@@ -420,8 +436,8 @@ TESTLIST = [
 	# The bug is investigated under VPLAY-9019. Once fixed FF2, FF64 can be enabled
 	#{'testdata': TESTDATA_FF2, 'expected_restamps': 0, 'expected_trickmodes_restamps': 0},
 	#{'testdata': TESTDATA_FF64, 'expected_restamps': 0, 'expected_trickmodes_restamps': 0},
-	{'testdata': TESTDATA_REW2, 'expected_restamps': 0, 'expected_trickmodes_restamps': 0},
-	{'testdata': TESTDATA_REW64, 'expected_restamps': 0, 'expected_trickmodes_restamps': 0},
+	{'testdata': TESTDATA_REW2, 'expected_restamps': 0, 'expected_trickmodes_restamps': 7},
+	{'testdata': TESTDATA_REW64, 'expected_restamps': 0, 'expected_trickmodes_restamps': 5},
 	{'testdata': TESTDATA_SEEK, 'expected_restamps': 0, 'expected_trickmodes_restamps': 0},
 	{'testdata': TESTDATA_SEEK_ABS, 'expected_restamps': 0, 'expected_trickmodes_restamps': 0}
 ]
