@@ -196,7 +196,6 @@ TSProcessor::TSProcessor(class PrivateInstanceAAMP *aamp,StreamOperation streamO
 	, m_auxiliaryAudio(false)
 	,m_audioGroupId()
 	,m_applyOffset(true)
-	,m_totalDuration(0)
 {
 	AAMPLOG_INFO(" constructor: %p", this);
 	bool optimizeMuxed = false;
@@ -1788,33 +1787,42 @@ void TSProcessor::setBasePTS(double position, long long pts)
 #include "test/gstTestHarness/tsdemux.hpp"
 
 /**
+ * @brief given TS media segment (not yet injected), extract and report first PTS
+ */
+double TSProcessor::getFirstPts( AampGrowableBuffer* pBuffer )
+{
+	double firstPts = 0.0;
+	auto tsDemux = new TsDemux( eMEDIATYPE_VIDEO, pBuffer->GetPtr(), pBuffer->GetLen(), true );
+	if( tsDemux )
+	{
+		firstPts = tsDemux->getPts(0);
+		delete tsDemux;
+	}
+	return firstPts;
+}
+
+/**
+ * @brief optionally specify new pts offset to apply for subsequently injected TS media segments
+ */
+void TSProcessor::setPtsOffset( double ptsOffset )
+{
+	if( m_vidDemuxer )
+	{
+		m_vidDemuxer->setPtsOffset( ptsOffset );
+	}
+	if( m_audDemuxer )
+	{
+		m_audDemuxer->setPtsOffset( ptsOffset );
+	}
+}
+
+/**
  * @brief Does configured operation on the segment and injects data to sink
  *        Process and send media fragment
  */
 bool TSProcessor::sendSegment(AampGrowableBuffer* pBuffer, double position, double duration, double fragmentPTSoffset, bool discontinuous,
 								bool isInit, process_fcn_t processor, bool &ptsError)
 {
-	if( (m_streamOperation == eStreamOp_DEMUX_ALL) && (ISCONFIGSET(eAAMPConfig_HlsTsEnablePTSReStamp)) )
-	{
-		double firstPts = 0.0;
-		auto tsDemux = new TsDemux( eMEDIATYPE_VIDEO, pBuffer->GetPtr(), pBuffer->GetLen(), true );
-		if( tsDemux )
-		{
-			firstPts = tsDemux->getPts(0);
-			delete tsDemux;
-		}
-		double ptsOffset = m_totalDuration - firstPts;
-		if( m_vidDemuxer )
-		{
-			m_vidDemuxer->setPtsOffset( ptsOffset );
-		}
-		if( m_audDemuxer )
-		{
-			m_audDemuxer->setPtsOffset( ptsOffset );
-		}
-		m_totalDuration += duration;
-	}
-	
 	bool insPatPmt = false;  //CID:84507 - Initialization
 	unsigned char * packetStart;
 	char *segment = pBuffer->GetPtr();

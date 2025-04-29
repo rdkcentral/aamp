@@ -38,6 +38,7 @@
 #include "isobmffhelper.h"
 #include "AampConfig.h"
 #include "SubtecFactory.hpp"
+#include "AampUtils.h"
 
 // checks if current state is going to use IFRAME ( Fragment/Playlist )
 #define IS_FOR_IFRAME(rate, type) ((type == eTRACK_VIDEO) && (rate != AAMP_NORMAL_PLAY_RATE))
@@ -1207,6 +1208,59 @@ void MediaTrack::TrickModePtsRestamp(CachedFragment *cachedFragment)
 						cachedFragment->initFragment, cachedFragment->discontinuity);
 }
 
+static bool isWebVttSegment( const char *buffer, size_t bufferLen )
+{
+	if( bufferLen>=3 && buffer[0]==(char)0xEF && buffer[1]==(char)0xBB && buffer[2]==(char)0xBF )
+	{ // skip UTF-8 BOM if present
+		buffer += 3;
+		bufferLen -= 3;
+	}
+	return bufferLen>=6 && memcmp(buffer,"WEBVTT",6)==0;
+}
+
+std::string MediaTrack::RestampSubtitle( const char* buffer, size_t bufferLen, double position, double duration, double pts_offset_s )
+{
+	long long pts_offset_ms = pts_offset_s*1000;
+	std::string str;
+	if( ISCONFIGSET(eAAMPConfig_HlsTsEnablePTSReStamp) && pts_offset_ms && isWebVttSegment(buffer,bufferLen) )
+	{
+		const char *fin = &buffer[bufferLen];
+		const char *prev = buffer;
+		while( prev<fin )
+		{
+			const char *line_start = mystrstr( prev, fin, "\n\n" );
+			if( line_start )
+			{
+				line_start += 2; // advance past \n\n
+				str += std::string(prev,line_start-prev);
+				prev = line_start;
+				const char *line_end = mystrstr(line_start, fin, "\n" );
+				if( line_end )
+				{
+					const char *line_delim = mystrstr( line_start, line_end, " --> " );
+					if( line_delim )
+					{ // apply pts offset by rewriting inline begin/end times
+						prev = line_end;
+						str += convertTimeToHHMMSS( convertHHMMSSToTime(line_start) + pts_offset_ms );
+						str +=  " --> ";
+						str += convertTimeToHHMMSS( convertHHMMSSToTime(line_delim+5) + pts_offset_ms );
+					}
+				}
+			}
+			else
+			{ // trailing
+				str += std::string(prev,fin-prev);
+				prev = fin;
+			}
+		}
+	}
+	else
+	{
+		str = std::string(buffer,bufferLen);
+	}
+	return str;
+}
+
 /**
  *  @brief Inject fragment Chunk into the gstreamer
  */
@@ -1250,9 +1304,42 @@ void MediaTrack::ProcessAndInjectFragment(CachedFragment *cachedFragment, bool f
 				}
 			}
 		}
-		if (mSubtitleParser && type == eTRACK_SUBTITLE)
+		if ((mSubtitleParser || (aamp->IsGstreamerSubsEnabled())) && type == eTRACK_SUBTITLE)
 		{
-			mSubtitleParser->processData(cachedFragment->fragment.GetPtr(), cachedFragment->fragment.GetLen(), cachedFragment->position, cachedFragment->duration);
+			auto ptr = cachedFragment->fragment.GetPtr();
+			auto len = cachedFragment->fragment.GetLen();
+			if( ISCONFIGSET(eAAMPConfig_HlsTsEnablePTSReStamp) )
+			{
+				while( aamp->mDownloadsEnabled )
+				{
+					if( pContext->mPtsOffsetMap.count(cachedFragment->discontinuityIndex)==0 )
+					{
+						AAMPLOG_WARN( "blocking subtitle track injection\n" );
+						pContext->aamp->interruptibleMsSleep(1000);
+					}
+					else
+					{
+						auto firstElement = *pContext->mPtsOffsetMap.begin();
+						cachedFragment->PTSOffsetSec = pContext->mPtsOffsetMap[cachedFragment->discontinuityIndex] - firstElement.second;
+						std::string str = RestampSubtitle(
+														  ptr,len,
+														  cachedFragment->position,
+														  cachedFragment->duration,
+														  cachedFragment->PTSOffsetSec );
+						cachedFragment->fragment.Clear();
+						cachedFragment->fragment.AppendBytes(str.data(),str.size());
+						if(mSubtitleParser)
+						{
+							mSubtitleParser->processData(str.data(), str.size(), cachedFragment->position, cachedFragment->duration);
+						}
+						break;
+					}
+				}
+			}
+			else if(mSubtitleParser)
+			{ // no restamping
+				mSubtitleParser->processData( ptr, len, cachedFragment->position, cachedFragment->duration);
+			}
 		}
 		if (!cachedFragment->isDummy && (type != eTRACK_SUBTITLE || (aamp->IsGstreamerSubsEnabled())))
 		{

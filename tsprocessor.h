@@ -119,7 +119,11 @@ class TSProcessor : public MediaProcessor
        */
       ~TSProcessor();
 
-      /**
+
+	double getFirstPts( AampGrowableBuffer* pBuffer ) override;
+	void setPtsOffset( double ptsOffset ) override;
+
+	  /**
        * @fn sendSegment
        *
        * @param[in] pBuffer - Pointer to the AampGrowableBuffer
@@ -246,8 +250,6 @@ class TSProcessor : public MediaProcessor
       void setBasePTS(double position, long long pts);
 
    protected:
-      double m_totalDuration; // used with muxed hlt/ts pts restamping
-	
       class PrivateInstanceAAMP *aamp;
       /**
        * @fn setPlayMode

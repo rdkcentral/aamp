@@ -79,6 +79,16 @@ public:
 	MediaProcessor& operator=(const MediaProcessor&) = delete;
 
 	/**
+	 * @brief given TS media segment (not yet injected), extract and report first PTS
+	 */
+	virtual double getFirstPts( AampGrowableBuffer* pBuffer ) = 0;
+
+	/**
+	 * @brief optionally specify new pts offset to apply for subsequently injected TS media segments
+	 */
+	virtual void setPtsOffset( double ptsOffset ) = 0;
+
+	/**
 	 * @fn sendSegment
 	 *
 	 * @param[in] pBuffer - Pointer to the AampGrowableBuffer
