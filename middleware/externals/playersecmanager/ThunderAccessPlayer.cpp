@@ -2,7 +2,7 @@
  * If not stated otherwise in this file or this component's license file the
  * following copyright and licenses apply:
  *
- * Copyright 2018 RDK Management
+ * Copyright 2025 RDK Management
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,107 +21,115 @@
  * @file ThunderAccess.cpp
  * @brief wrapper class for accessing thunder plugins
  */
-#include "Module.h"
-#include "priv_aamp.h"
+#include "PlayerLogManager.h"
+#include "ThunderAccessPlayer.h"
+
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Weffc++"
+#ifdef USE_CPP_THUNDER_PLUGIN_ACCESS
 #include <securityagent/SecurityTokenUtil.h>
 #pragma GCC diagnostic pop
-#include "ThunderAccess.h"
-
 
 using namespace std;
 using namespace WPEFramework;
+#endif
 
 #define SERVER_DETAILS  "127.0.0.1:9998"
+
 #define MAX_LENGTH 1024
 
 /**
  * @brief Structure to save the Thunder security token details
  **/
-typedef struct ThunderSecurity
+typedef struct ThunderSecurityPlayer
 {
     std::string securityToken;
     int tokenStatus;
     bool tokenQueried;
-    ThunderSecurity(): securityToken(), tokenStatus(0), tokenQueried(false) { };
-}ThunderSecurityData;
+    ThunderSecurityPlayer(): securityToken(), tokenStatus(0), tokenQueried(false) { };
+}ThunderSecurityPlayerData;
 
-ThunderSecurityData gSecurityData;
+ThunderSecurityPlayerData gSecurityPlayerData;
 
 
 /**
- * @brief  ThunderAccessAAMP constructor
+ * @brief  ThunderAccessPlayer constructor
  */
-ThunderAccessAAMP::ThunderAccessAAMP(std::string callsign)
-                 : remoteObject(NULL),
-                   controllerObject(NULL),
-                   pluginCallsign(callsign)
+ThunderAccessPlayer::ThunderAccessPlayer(std::string callsign)
+#ifdef USE_CPP_THUNDER_PLUGIN_ACCESS
+                 : remoteObject(NULL)
+                   ,controllerObject(NULL)
+                   ,pluginCallsign(callsign)
+#endif
 {
-    AAMPLOG_INFO( "[ThunderAccessAAMP]Inside");
-
+    MW_LOG_INFO( "[ThunderAccessPlayer]Inside");
+#ifdef USE_CPP_THUNDER_PLUGIN_ACCESS
     uint32_t status = Core::ERROR_NONE;
 
     Core::SystemInfo::SetEnvironment(_T("THUNDER_ACCESS"), (_T(SERVER_DETAILS)));
 
-    if(!gSecurityData.tokenQueried)
+    if(!gSecurityPlayerData.tokenQueried)
     {
         unsigned char buffer[MAX_LENGTH] = {0};
-        gSecurityData.tokenStatus = GetSecurityToken(MAX_LENGTH,buffer);
-        if(gSecurityData.tokenStatus > 0){
-            AAMPLOG_INFO( "[ThunderAccessAAMP] : GetSecurityToken success");
+        gSecurityPlayerData.tokenStatus = GetSecurityToken(MAX_LENGTH,buffer);
+        if(gSecurityPlayerData.tokenStatus > 0){
+            MW_LOG_INFO( "[ThunderAccessPlayer] : GetSecurityToken success");
             string sToken = (char*)buffer;
-            gSecurityData.securityToken = "token=" + sToken;
+            gSecurityPlayerData.securityToken = "token=" + sToken;
         }
-        gSecurityData.tokenQueried = true;
+        gSecurityPlayerData.tokenQueried = true;
 
-        //AAMPLOG_WARN( "[ThunderAccessAAMP] securityToken : %s tokenStatus : %d tokenQueried : %s", gSecurityData.securityToken.c_str(), gSecurityData.tokenStatus, ((gSecurityData.tokenQueried)?"true":"false"));
+        //MW_LOG_WARN( "[ThunderAccessPlayer] securityToken : %s tokenStatus : %d tokenQueried : %s", gSecurityPlayerData.securityToken.c_str(), gSecurityPlayerData.tokenStatus, ((gSecurityPlayerData.tokenQueried)?"true":"false"));
     }
 
     if (NULL == controllerObject) {
         /*Passing empty string instead of Controller callsign.This is assumed as controller plugin.*/
-        if(gSecurityData.tokenStatus > 0){
-            controllerObject = new JSONRPC::LinkType<Core::JSON::IElement>(_T(""), _T(""), false, gSecurityData.securityToken);
+        if(gSecurityPlayerData.tokenStatus > 0){
+            controllerObject = new JSONRPC::LinkType<Core::JSON::IElement>(_T(""), _T(""), false, gSecurityPlayerData.securityToken);
         }
         else{
             controllerObject = new JSONRPC::LinkType<Core::JSON::IElement>(_T(""));
         }
 
         if (NULL == controllerObject) {
-            AAMPLOG_WARN( "[ThunderAccessAAMP] Controller object creation failed");
+            MW_LOG_WARN( "[ThunderAccessPlayer] Controller object creation failed");
         } else {
-            AAMPLOG_INFO( "[ThunderAccessAAMP] Controller object creation success");
+            MW_LOG_INFO( "[ThunderAccessPlayer] Controller object creation success");
         }
     }
 
-    if(gSecurityData.tokenStatus > 0){
-        remoteObject = new JSONRPC::LinkType<Core::JSON::IElement>(_T(pluginCallsign), _T(""), false, gSecurityData.securityToken);
+    if(gSecurityPlayerData.tokenStatus > 0){
+        remoteObject = new JSONRPC::LinkType<Core::JSON::IElement>(_T(pluginCallsign), _T(""), false, gSecurityPlayerData.securityToken);
     }
     else{
         remoteObject = new JSONRPC::LinkType<Core::JSON::IElement>(_T(pluginCallsign), _T(""));
     }
     if (NULL == remoteObject) {
-        AAMPLOG_WARN( "[ThunderAccessAAMP] %s Client initialization failed", pluginCallsign.c_str());
+        MW_LOG_WARN( "[ThunderAccessPlayer] %s Client initialization failed", pluginCallsign.c_str());
     } else {
-        AAMPLOG_INFO( "[ThunderAccessAAMP] %s Client initialization success", pluginCallsign.c_str());
+        MW_LOG_INFO( "[ThunderAccessPlayer] %s Client initialization success", pluginCallsign.c_str());
     }
+#endif
 }
 
 /**
- * @brief  ThunderAccessAAMP destructor
+ * @brief  ThunderAccessPlayer destructor
  */
-ThunderAccessAAMP::~ThunderAccessAAMP()
+ThunderAccessPlayer::~ThunderAccessPlayer()
 {
+#ifdef USE_CPP_THUNDER_PLUGIN_ACCESS
     SAFE_DELETE(controllerObject);
     SAFE_DELETE(remoteObject);
+#endif
 }
 
 /**
  * @brief  ActivatePlugin
  */
-bool ThunderAccessAAMP::ActivatePlugin()
+bool ThunderAccessPlayer::ActivatePlugin()
 {
     bool ret = true;
+#ifdef USE_CPP_THUNDER_PLUGIN_ACCESS
     JsonObject result;
     JsonObject controlParam;
     std::string response;
@@ -132,70 +140,74 @@ bool ThunderAccessAAMP::ActivatePlugin()
         status = controllerObject->Invoke<JsonObject, JsonObject>(THUNDER_RPC_TIMEOUT, _T("activate"), controlParam, result);
         if (Core::ERROR_NONE == status){
             result.ToString(response);
-            AAMPLOG_INFO( "[ThunderAccessAAMP] %s plugin Activated. Response : %s ", pluginCallsign.c_str(), response.c_str());
+            MW_LOG_INFO( "[ThunderAccessPlayer] %s plugin Activated. Response : %s ", pluginCallsign.c_str(), response.c_str());
         }
         else
         {
-            AAMPLOG_WARN( "[ThunderAccessAAMP] %s plugin Activation failed with error status : %u ", pluginCallsign.c_str(), status);
+            MW_LOG_WARN( "[ThunderAccessPlayer] %s plugin Activation failed with error status : %u ", pluginCallsign.c_str(), status);
             ret = false;
         }
     } else {
-        AAMPLOG_WARN( "[ThunderAccessAAMP] Controller Object NULL ");
+        MW_LOG_WARN( "[ThunderAccessPlayer] Controller Object NULL ");
         ret = false;
     }
-
+#endif
     return ret;
 }
 
-
+#ifdef USE_CPP_THUNDER_PLUGIN_ACCESS
 /*To Do: Only JSON Object can be used as parameter now*/
 /**
  * @brief  subscribeEvent
  */
-bool ThunderAccessAAMP::SubscribeEvent (string eventName, std::function<void(const WPEFramework::Core::JSON::VariantContainer&)> functionHandler)
+bool ThunderAccessPlayer::SubscribeEvent (string eventName, std::function<void(const WPEFramework::Core::JSON::VariantContainer&)> functionHandler)
 {
     bool ret = true;
+#ifdef USE_CPP_THUNDER_PLUGIN_ACCESS
     uint32_t status = Core::ERROR_NONE;
     if (NULL != remoteObject) {
         status = remoteObject->Subscribe<JsonObject>(THUNDER_RPC_TIMEOUT, _T(eventName), functionHandler);
         if (Core::ERROR_NONE == status) {
-            AAMPLOG_INFO( "[ThunderAccessAAMP] Subscribed to : %s", eventName.c_str());
+            MW_LOG_INFO( "[ThunderAccessPlayer] Subscribed to : %s", eventName.c_str());
         } else {
-            AAMPLOG_WARN( "[ThunderAccessAAMP] Subscription failed for : %s with error status %u", eventName.c_str(), status);
+            MW_LOG_WARN( "[ThunderAccessPlayer] Subscription failed for : %s with error status %u", eventName.c_str(), status);
             ret = false;
         }
     } else {
-        AAMPLOG_WARN( "[ThunderAccessAAMP] remoteObject not created for the plugin!");
+        MW_LOG_WARN( "[ThunderAccessPlayer] remoteObject not created for the plugin!");
         ret = false;
     }
+#endif
     return ret;
 }
-
+#endif
 
 /*To Do: Only JSON Object can be used as parameter now*/
 
 /**
  * @brief  unSubscribeEvent
  */
-bool ThunderAccessAAMP::UnSubscribeEvent (string eventName)
+bool ThunderAccessPlayer::UnSubscribeEvent (std::string eventName)
 {
     bool ret = true;
+#ifdef USE_CPP_THUNDER_PLUGIN_ACCESS
     if (NULL != remoteObject) {
         remoteObject->Unsubscribe(THUNDER_RPC_TIMEOUT, _T(eventName));
-        AAMPLOG_INFO( "[ThunderAccessAAMP] UnSubscribed : %s event", eventName.c_str());
+        MW_LOG_INFO( "[ThunderAccessPlayer] UnSubscribed : %s event", eventName.c_str());
     } else {
-        AAMPLOG_WARN( "[ThunderAccessAAMP] remoteObject not created for the plugin!");
+        MW_LOG_WARN( "[ThunderAccessPlayer] remoteObject not created for the plugin!");
         ret = false;
     }
+#endif
     return ret;
 }
 
-
+#ifdef USE_CPP_THUNDER_PLUGIN_ACCESS
 /**
  *  @brief  invokeJSONRPC
  *  @note   Invoke JSONRPC call for the plugin
  */
-bool ThunderAccessAAMP::InvokeJSONRPC(std::string method, const JsonObject &param, JsonObject &result, const uint32_t waitTime)
+bool ThunderAccessPlayer::InvokeJSONRPC(std::string method, const JsonObject &param, JsonObject &result, const uint32_t waitTime)
 {
     bool ret = true;
     std::string response;
@@ -203,7 +215,7 @@ bool ThunderAccessAAMP::InvokeJSONRPC(std::string method, const JsonObject &para
 
     if(NULL == remoteObject)
     {
-        AAMPLOG_WARN( "[ThunderAccessAAMP] client not initialized! ");
+        MW_LOG_WARN( "[ThunderAccessPlayer] client not initialized! ");
         return false;
     }
 
@@ -213,17 +225,18 @@ bool ThunderAccessAAMP::InvokeJSONRPC(std::string method, const JsonObject &para
     {
         if (result_internal["success"].Boolean()) {
             result_internal.ToString(response);
-            AAMPLOG_TRACE( "[ThunderAccessAAMP] %s success! Response : %s", method.c_str() , response.c_str());
+            MW_LOG_TRACE( "[ThunderAccessPlayer] %s success! Response : %s", method.c_str() , response.c_str());
         } else {
             result_internal.ToString(response);
-            AAMPLOG_WARN( "[ThunderAccessAAMP] %s call failed! Response : %s", method.c_str() , response.c_str());
+            MW_LOG_WARN( "[ThunderAccessPlayer] %s call failed! Response : %s", method.c_str() , response.c_str());
             ret = false;
         }
     } else {
-        AAMPLOG_WARN( "[ThunderAccessAAMP] %s : invoke failed with error status %u", method.c_str(), status);
+        MW_LOG_WARN( "[ThunderAccessPlayer] %s : invoke failed with error status %u", method.c_str(), status);
         ret = false;
     }
 
     result = result_internal;
     return ret;
 }
+#endif

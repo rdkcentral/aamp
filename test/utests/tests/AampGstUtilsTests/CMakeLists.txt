@@ -34,6 +34,7 @@ include_directories(${AAMP_ROOT}/middleware)
 include_directories(${AAMP_ROOT}/middleware/test/utests/mocks)
 include_directories(${AAMP_ROOT}/middleware/vendor)
 include_directories(${AAMP_ROOT}/middleware/subtec/libsubtec)
+include_directories(${AAMP_ROOT}/middleware/playerLogManager)
 
 
 set(TEST_SOURCES    GstUtilsAAMPTests.cpp

@@ -34,6 +34,12 @@ void AampLicenseManager::renewLicense(std::shared_ptr<DrmHelper>, void*, Private
 {
 }
 
+DrmData * AampLicenseManager::getLicenseSec(const LicenseRequest &licenseRequest, std::shared_ptr<DrmHelper> drmHelper,
+		const ChallengeInfo& challengeInfo, void* aampI, int32_t *httpCode, int32_t *httpExtStatusCode, DrmMetaDataEventPtr eventHandle)
+{
+	return nullptr;
+}
+
 void AampLicenseManager::setPlaybackSpeedState(bool , double, bool, double, int, double, bool)
 {
 }

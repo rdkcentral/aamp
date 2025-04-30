@@ -28,12 +28,11 @@
 #include <pthread.h>
 #include "downloader/AampCurlStore.h"
 #include "_base64.h"
-#ifdef USE_SECMANAGER
-#include "AampSecManager.h"
-#endif
+#include "PlayerSecManager.h"
 #include "AampStreamSinkManager.h"
 #include "AampJsonObject.h"
 #include "AampConfig.h"
+
 
 
 
@@ -92,7 +91,7 @@ AampLicenseManager::AampLicenseManager(int maxDrmSessions, PrivateInstanceAAMP *
     aampInstance = aamp; 
     mDRMSessionManager = new DRMSessionManager(maxDrmSessions ,aampInstance);
     registerCb(this, mDRMSessionManager);
-    getConfigs(mDRMSessionManager, aampInstance); 
+    getConfigs(mDRMSessionManager, aampInstance);
     
     mLicenseDownloader = new AampCurlDownloader[mMaxDRMSessions];
     mLicensePrefetcher = new AampLicensePreFetcher(aampInstance);
@@ -313,7 +312,6 @@ KeyState AampLicenseManager::acquireLicense(std::shared_ptr<DrmHelper> drmHelper
 				{
 					aampInstance->profiler.ProfileBegin(PROFILE_BUCKET_LA_NETWORK);
 				}
-#if defined(USE_SECCLIENT) || defined(USE_SECMANAGER)
 				bool isContentMetadataAvailable = configureLicenseServerParameters(drmHelper, licenseRequest, licenseServerProxy, challengeInfo, aampInstance);
 				if (isContentMetadataAvailable)
 				{
@@ -345,7 +343,6 @@ KeyState AampLicenseManager::acquireLicense(std::shared_ptr<DrmHelper> drmHelper
 					}
 				}
 				else
-#endif
 				{
 					if(usingAppDefinedAuthToken)
 					{
@@ -376,7 +373,6 @@ KeyState AampLicenseManager::handleLicenseResponse(std::shared_ptr<DrmHelper> dr
 			{
 				aampInstance->profiler.ProfileEnd(PROFILE_BUCKET_LA_NETWORK);
 			}
-#if !defined(USE_SECCLIENT) && !defined(USE_SECMANAGER)
 			if (!drmHelper->getDrmMetaData().empty() || aampInstance->mConfig->IsConfigSet(eAAMPConfig_Base64LicenseWrapping))
 			{
 				/*
@@ -405,7 +401,6 @@ KeyState AampLicenseManager::handleLicenseResponse(std::shared_ptr<DrmHelper> dr
 					AAMPLOG_WARN("Failed to parse JSON response (%s)", jsonStr.c_str());
 				}
 			}
-#endif
 			AAMPLOG_INFO("license acquisition completed");
 			drmHelper->transformLicenseResponse(licenseResponse);
 		}
@@ -709,9 +704,10 @@ bool AampLicenseManager::configureLicenseServerParameters(std::shared_ptr<DrmHel
 	{
 		if (!licenseRequest.url.empty())
 		{
-#if defined(USE_SECCLIENT) || defined(USE_SECMANAGER)
-			licenseRequest.url = getFormattedLicenseServerURL(licenseRequest.url);
-#endif
+			if( isSecFeatureEnabled() )
+			{
+				licenseRequest.url = getFormattedLicenseServerURL(licenseRequest.url);
+			}			
 		}
 	}
 
@@ -1097,7 +1093,6 @@ DrmData * AampLicenseManager::getLicense(LicenseRequest &licenseRequest,
 	// Filled in KeyInfo is returned back 
 	return keyInfo;
 }
-#if defined(USE_SECCLIENT) || defined(USE_SECMANAGER)
 
 DrmData * AampLicenseManager::getLicenseSec(const LicenseRequest &licenseRequest, std::shared_ptr<DrmHelper> drmHelper,
 		const ChallengeInfo& challengeInfo, void* aampI, int32_t *httpCode, int32_t *httpExtStatusCode, DrmMetaDataEventPtr eventHandle)
@@ -1120,6 +1115,10 @@ DrmData * AampLicenseManager::getLicenseSec(const LicenseRequest &licenseRequest
 	const char *accessAttributes[2][2] = {NULL, NULL, NULL, NULL};
 	long long tStartTime = 0, tEndTime = 0, downloadTimeMS=0;
 	std::string serviceZone, streamID;
+
+	int sleepTime = aampInstance->mConfig->GetConfigValue(eAAMPConfig_LicenseRetryWaitTime);
+	if(sleepTime<=0) sleepTime = 100;
+
 	if(aampInstance->mIsVSS)
 	{
 		if (aampInstance->GetEnableAccessAttributesFlag())
@@ -1149,7 +1148,6 @@ DrmData * AampLicenseManager::getLicenseSec(const LicenseRequest &licenseRequest
 	AAMPLOG_WARN("[HHH] Before calling SecClient_AcquireLicense-----------");
 	AAMPLOG_WARN("destinationURL is %s (drm server now used)", licenseRequest.url.c_str());
 	AAMPLOG_WARN("MoneyTrace[%s]", requestMetadata[0][1]);
-#if USE_SECMANAGER
 	if(aampInstance->mConfig->IsConfigSet(eAAMPConfig_UseSecManager))
 	{
 		size_t encodedDataLen = ((contentMetaData.length() + 2) /3) * 4;
@@ -1158,7 +1156,7 @@ DrmData * AampLicenseManager::getLicenseSec(const LicenseRequest &licenseRequest
 		int32_t reasonCode;
 		int32_t businessStatus;
 
-		if (!mAampSecManagerSession.isSessionValid())
+		if (!mDRMSessionManager->mPlayerSecManagerSession.isSessionValid())
 		{
 			// if we're about to get a licence and are not re-using a session, then we have not seen the first video frame yet. Do not allow watermarking to get enabled yet.
 			bool videoMuteState = mIsVideoOnMute;
@@ -1167,7 +1165,7 @@ DrmData * AampLicenseManager::getLicenseSec(const LicenseRequest &licenseRequest
 		}
 
 		tStartTime = NOW_STEADY_TS_MS;
-		bool res = AampSecManager::GetInstance()->AcquireLicense(aampInstance, licenseRequest.url.c_str(),
+		bool res = PlayerSecManager::GetInstance()->AcquireLicense(licenseRequest.url.c_str(),
 																 requestMetadata,
 																 ((numberOfAccessAttributes == 0) ? NULL : accessAttributes),
 																 encodedData, encodedDataLen,
@@ -1175,9 +1173,9 @@ DrmData * AampLicenseManager::getLicenseSec(const LicenseRequest &licenseRequest
 																 keySystem,
 																 mediaUsage,
 																 secclientSessionToken, challengeInfo.accessToken.length(),
-																 mAampSecManagerSession,
+																 mDRMSessionManager->mPlayerSecManagerSession,
 																 &licenseResponseStr, &licenseResponseLength,
-																 &statusCode, &reasonCode, &businessStatus, mIsVideoOnMute);
+																 &statusCode, &reasonCode, &businessStatus, mIsVideoOnMute, sleepTime);
 		tEndTime = NOW_STEADY_TS_MS;
 		downloadTimeMS = tEndTime - tStartTime;
 		if (res)
@@ -1208,22 +1206,16 @@ DrmData * AampLicenseManager::getLicenseSec(const LicenseRequest &licenseRequest
 			//TODO: Sort this out for backward compatibility
 		}
 	}
-#endif
-#if USE_SECCLIENT
-#if USE_SECMANAGER
 	else
 	{
-#endif
-		int32_t sec_client_result = SEC_CLIENT_RESULT_FAILURE;
-		SecClient_ExtendedStatus statusInfo;
+		int32_t sec_client_result = 0;
+		PlayerSecExtendedStatus statusInfo;
 		unsigned int attemptCount = 0;
-		int sleepTime = aampInstance->mConfig->GetConfigValue(eAAMPConfig_LicenseRetryWaitTime) ;
-		if(sleepTime<=0) sleepTime = 100;
 		tStartTime = NOW_STEADY_TS_MS;
 		while (attemptCount < MAX_LICENSE_REQUEST_ATTEMPTS)
 		{
 			attemptCount++;
-			sec_client_result = SecClient_AcquireLicense(licenseRequest.url.c_str(), 1,
+			sec_client_result = mDRMSessionManager->playerSecInstance->PlayerSec_AcquireLicense(licenseRequest.url.c_str(), 1,
 														 requestMetadata, numberOfAccessAttributes,
 														 ((numberOfAccessAttributes == 0) ? NULL : accessAttributes),
 														 encodedData,
@@ -1232,13 +1224,13 @@ DrmData * AampLicenseManager::getLicenseSec(const LicenseRequest &licenseRequest
 														 secclientSessionToken,
 														 &licenseResponseStr, &licenseResponseLength, &refreshDuration, &statusInfo);
 			if (((sec_client_result >= 500 && sec_client_result < 600)||
-				 (sec_client_result >= SEC_CLIENT_RESULT_HTTP_RESULT_FAILURE_TLS  && sec_client_result <= SEC_CLIENT_RESULT_HTTP_RESULT_FAILURE_GENERIC ))
+				 ( mDRMSessionManager->playerSecInstance->isSecResultInRange(sec_client_result)))
 				&& attemptCount < MAX_LICENSE_REQUEST_ATTEMPTS)
 			{
 				AAMPLOG_ERR(" acquireLicense FAILED! license request attempt : %d; response code : sec_client %d", attemptCount, sec_client_result);
 				if (licenseResponseStr)
 				{
-					SecClient_FreeResource(licenseResponseStr);
+					mDRMSessionManager->playerSecInstance->PlayerSec_FreeResource(licenseResponseStr);
 					licenseResponseStr = NULL;
 				}
 				AAMPLOG_WARN(" acquireLicense : Sleeping %d milliseconds before next retry.", sleepTime);
@@ -1258,7 +1250,7 @@ DrmData * AampLicenseManager::getLicenseSec(const LicenseRequest &licenseRequest
 		AAMPLOG_TRACE("refreshDuration is %d", refreshDuration);
 		AAMPLOG_TRACE("total download time is %lld", downloadTimeMS);
 
-		if (sec_client_result != SEC_CLIENT_RESULT_SUCCESS)
+		if ( mDRMSessionManager->playerSecInstance-> isSecRequestFailed(sec_client_result))
 		{
 			AAMPLOG_ERR(" acquireLicense FAILED! license request attempt : %d; response code : sec_client %d extStatus %d", attemptCount, sec_client_result, statusInfo.statusCode);
 
@@ -1281,18 +1273,14 @@ DrmData * AampLicenseManager::getLicenseSec(const LicenseRequest &licenseRequest
 			eventHandle->setAccessStatusValue(statusInfo.accessAttributeStatus);
 			licenseResponse = new DrmData(licenseResponseStr, licenseResponseLength);
 		}
-		if (licenseResponseStr) SecClient_FreeResource(licenseResponseStr);
-#if USE_SECMANAGER
+		if (licenseResponseStr) mDRMSessionManager->playerSecInstance->PlayerSec_FreeResource(licenseResponseStr);
 	}
-#endif
-#endif
-        UpdateLicenseMetrics(DRM_GET_LICENSE_SEC, *httpCode, licenseRequest.url.c_str(), downloadTimeMS, eventHandle, nullptr );
+	UpdateLicenseMetrics(DRM_GET_LICENSE_SEC, *httpCode, licenseRequest.url.c_str(), downloadTimeMS, eventHandle, nullptr );
 
 	free(encodedData);
 	free(encodedChallengeData);
 	return licenseResponse;
 }
-#endif
 /*
  * @brief callback for to do profiling from middleware 
  */

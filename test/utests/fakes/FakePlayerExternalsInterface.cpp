@@ -18,26 +18,26 @@
 */
 
 /**
- * @file FakePlayerIarmRfcInterface.cpp
+ * @file FakePlayerExternalsInterface.cpp
  * @brief Fake Player Iarm Rfc Interface manager
  */
 
-#include "PlayerIarmRfcInterface.h"
+#include "PlayerExternalsInterface.h"
 
 /**< Static local variables */
-std::shared_ptr<PlayerIarmRfcInterface> PlayerIarmRfcInterface::s_pPlayerOP = NULL;
+std::shared_ptr<PlayerExternalsInterface> PlayerExternalsInterface::s_pPlayerOP = NULL;
 
 /**
- * @brief PlayerIarmRfcInterface Constructor
+ * @brief PlayerExternalsInterface Constructor
  */
-PlayerIarmRfcInterface::PlayerIarmRfcInterface()
+PlayerExternalsInterface::PlayerExternalsInterface()
 {
 }
 
 /**
- * @brief PlayerIarmRfcInterface Destructor
+ * @brief PlayerExternalsInterface Destructor
  */
-PlayerIarmRfcInterface::~PlayerIarmRfcInterface()
+PlayerExternalsInterface::~PlayerExternalsInterface()
 {
     s_pPlayerOP = NULL;
 }
@@ -46,7 +46,7 @@ PlayerIarmRfcInterface::~PlayerIarmRfcInterface()
 /**
  * @brief Check if source is UHD using video decoder dimensions
  */
-bool PlayerIarmRfcInterface::IsSourceUHD()
+bool PlayerExternalsInterface::IsSourceUHD()
 {
     return false;
 }
@@ -54,7 +54,7 @@ bool PlayerIarmRfcInterface::IsSourceUHD()
 /**
  * @brief Is there support for live latency correction
  */
-bool PlayerIarmRfcInterface::IsLiveLatencyCorrectionSupported()
+bool PlayerExternalsInterface::IsLiveLatencyCorrectionSupported()
 {
 	return false;
 }
@@ -62,14 +62,14 @@ bool PlayerIarmRfcInterface::IsLiveLatencyCorrectionSupported()
 /**
  * @brief gets display resolution
  */
-void PlayerIarmRfcInterface::GetDisplayResolution(int &width, int &height)
+void PlayerExternalsInterface::GetDisplayResolution(int &width, int &height)
 {
 }
 
 /**
- * @brief Check if  PlayerIarmRfcInterfaceInstance active
+ * @brief Check if  PlayerExternalsInterfaceInstance active
  */
-bool PlayerIarmRfcInterface::IsPlayerIarmRfcInterfaceInstanceActive()
+bool PlayerExternalsInterface::IsPlayerExternalsInterfaceInstanceActive()
 {
     bool retval = false;
 
@@ -82,10 +82,10 @@ bool PlayerIarmRfcInterface::IsPlayerIarmRfcInterfaceInstanceActive()
 /**
  * @brief Singleton for object creation
  */
-std::shared_ptr<PlayerIarmRfcInterface> PlayerIarmRfcInterface::GetPlayerIarmRfcInterfaceInstance()
+std::shared_ptr<PlayerExternalsInterface> PlayerExternalsInterface::GetPlayerExternalsInterfaceInstance()
 {
     if(s_pPlayerOP == NULL) {
-        s_pPlayerOP = std::shared_ptr<PlayerIarmRfcInterface>(new PlayerIarmRfcInterface());
+        s_pPlayerOP = std::shared_ptr<PlayerExternalsInterface>(new PlayerExternalsInterface());
     }
 
     return s_pPlayerOP;
@@ -94,7 +94,7 @@ std::shared_ptr<PlayerIarmRfcInterface> PlayerIarmRfcInterface::GetPlayerIarmRfc
 /**
  * @brief Get paramName TR181 config
  */
-char * PlayerIarmRfcInterface::GetTR181PlayerConfig(const char * paramName, size_t & iConfigLen)
+char * PlayerExternalsInterface::GetTR181PlayerConfig(const char * paramName, size_t & iConfigLen)
 {
 	return nullptr;
 }
@@ -102,7 +102,7 @@ char * PlayerIarmRfcInterface::GetTR181PlayerConfig(const char * paramName, size
 /**
  * @brief get active interface , true if wifi false if not
  */
-bool PlayerIarmRfcInterface::GetActiveInterface()
+bool PlayerExternalsInterface::GetActiveInterface()
 {
     return false;
 }
@@ -110,7 +110,7 @@ bool PlayerIarmRfcInterface::GetActiveInterface()
 /**
  * @brief setup active interface handler , true if wifi false if not
  */
-bool PlayerIarmRfcInterface::IsActiveStreamingInterfaceWifi(void)
+bool PlayerExternalsInterface::IsActiveStreamingInterfaceWifi(void)
 {
     return false;
 }
@@ -118,14 +118,14 @@ bool PlayerIarmRfcInterface::IsActiveStreamingInterfaceWifi(void)
 /**
  * @brief initilaize IARM
  */
-void PlayerIarmRfcInterface::IARMInit(const char* processName)
+void PlayerExternalsInterface::IARMInit(const char* processName)
 {
 }
 
 /**
  * @brief should wifi curl header be configured
  */
-bool PlayerIarmRfcInterface::IsConfigWifiCurlHeader()
+bool PlayerExternalsInterface::IsConfigWifiCurlHeader()
 {
     return false;
 }

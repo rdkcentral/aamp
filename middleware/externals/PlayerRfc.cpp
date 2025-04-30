@@ -25,14 +25,13 @@
 #include <string>
 #include <cstdio>
 #include <cstring>
-#ifdef AAMP_RFC_ENABLED
+#ifdef PLAYER_RFC_ENABLED
 #include "tr181api.h"
 #endif
 #include "PlayerRfc.h"
 #include "PlayerExternalUtils.h"
 
-//replace below and dependencies with dedicated logger once implemented
-#include "AampLogManager.h"
+#include "PlayerLogManager.h"
 
 namespace RFCSettings
 {
@@ -43,7 +42,7 @@ namespace RFCSettings
 	*/
 	std::string readRFCValue(const std::string& parameter,const char* playerName){
 		std::string strhost="";
-		#ifdef AAMP_RFC_ENABLED
+		#ifdef PLAYER_RFC_ENABLED
 		if(!IsContainerEnvironment())
 		{
             TR181_ParamData_t param = {0};
@@ -53,17 +52,17 @@ namespace RFCSettings
 
 			if (tr181Success == status)
 			{
-				AAMPLOG_INFO("RFC Parameter for %s is %s type = %d", parameter.c_str(), param.value, param.type);
+				MW_LOG_INFO("RFC Parameter for %s is %s type = %d", parameter.c_str(), param.value, param.type);
 				strhost = std::string(param.value);
 			}
 			else if (tr181ValueIsEmpty == status)
 			{
 				// NO RFC is set , which is success case
-				AAMPLOG_TRACE("RFC Parameter : %s is not set", parameter.c_str());
+				MW_LOG_TRACE("RFC Parameter : %s is not set", parameter.c_str());
 			}
 			else
 			{
-				AAMPLOG_ERR("get RFC Parameter for %s Failed : %s type = %d", parameter.c_str(), getTR181ErrorString(status), param.type);
+				MW_LOG_ERR("get RFC Parameter for %s Failed : %s type = %d", parameter.c_str(), getTR181ErrorString(status), param.type);
 			}   
 		} 
 		#endif

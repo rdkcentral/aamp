@@ -17,9 +17,86 @@
 * limitations under the License.
 */
 
-#include "base16.h"
+#include "_base64.h"
+#include <stdlib.h>
+#include <string.h>
+#include <stdio.h>
 
+
+#define WRITE_HASCII( DST, BYTE ) \
+{ \
+	*DST++ = "0123456789abcdef"[BYTE>>4]; \
+	*DST++ = "0123456789abcdef"[BYTE&0xf]; \
+}
+
+/**
+ * @brief convert binary data to hascii-encoded equivalent
+ * @retval pointer to malloc'd cstring containing base16-encoded copy
+ * @retval NULL if unsufficient memory to allocate base16-encoded copy
+ * @note caller responsible for freeing returned cstring
+ * @note returned string will always contain an even number of characters
+ */
+char *base16_Encode(const unsigned char *src, size_t len)
+{
+	size_t outLen = len*2;
+	char *outData = (char *)malloc(1 + outLen);
+	if( outData )
+	{
+		char *dst = outData;
+		const unsigned char *finish = src + len;
+		while (src < finish)
+		{
+			unsigned char c = *src++;
+			WRITE_HASCII( dst, c );
+		}
+		*dst = 0x00;
+	}
+	return outData;
+}
+
+
+/**
+ * @brief decode base16 encoded data to binary equivalent
+ * @retval pointer to malloc'd memory containing decoded binary data.
+ * @retval NULL if insufficient memory to allocate base16-decoded data
+ * @note caller responsible for freeing returned data
+ */
 unsigned char *base16_Decode( const char *srcPtr, size_t srcLen, size_t *len )
 {
-    return NULL;
+	static const signed char mBase16CharToIndex[256] = {
+		-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+		-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+		-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+		 0,  1,  2,  3,  4,  5,  6,  7,  8,  9, -1, -1,	-1, -1, -1, -1,
+		-1, 10, 11, 12, 13, 14, 15, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+		-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+		-1, 10, 11, 12,	13, 14, 15, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+		-1, -1, -1, -1, -1, -1, -1, -1,	-1, -1, -1, -1, -1, -1, -1, -1,
+		-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,	-1, -1, -1, -1,
+		-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+		-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+		-1, -1, -1, -1,	-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+		-1, -1, -1, -1, -1, -1, -1, -1,	-1, -1, -1, -1, -1, -1, -1, -1,
+		-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,	-1, -1, -1, -1,
+		-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+		-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1
+	};
+	size_t numChars = (srcLen/2); // assumes even
+	unsigned char *outData = (unsigned char *)malloc(numChars);
+	if (outData)
+	{
+		unsigned char *dst = outData;
+		const char *finish = srcPtr + srcLen;
+		while (srcPtr < finish)
+		{
+			*dst = mBase16CharToIndex[(unsigned char)*srcPtr++] << 4;
+			*dst++ |= mBase16CharToIndex[(unsigned char)*srcPtr++];
+		}
+		*len = numChars;
+	}
+	else
+	{ // insufficient memory
+		*len = 0;
+	}
+	return outData;
 }

@@ -25,7 +25,7 @@
 #include <string.h>
 #include <vector>
 #include <mutex>
-#include <middleware/PlayerLogManager.h>
+#include "PlayerLogManager.h"
 #include "PlayerScheduler.h"
 #include <gst/app/gstappsrc.h>
 #include <gst/app/gstappsink.h>
@@ -536,15 +536,6 @@ public:
 	 */
 	void SetPlayerName(std::string name);
 
-	/**
-	 * @brief Sets the logger information.
-	 *
-	 * @param[in] logRedirectStatus Status of log redirection.
-	 * @param[in] ethanLogStatus Status of Ethan logging.
-	 * @param[in] level Log level.
-	 * @param[in] lock Lock status.
-	 */
-	void SetLoggerInfo(bool logRedirectStatus, bool ethanLogStatus, int level, bool lock);
 	/**
 	 *@brief sets the preferred drm by app
 	 *@param[in] drmID preferred drm

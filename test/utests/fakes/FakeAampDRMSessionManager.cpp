@@ -65,6 +65,7 @@ DrmSession * DRMSessionManager::createDrmSession(int& err,
 		{
 			return nullptr;
 		}
+
 		
 SessionMgrState DRMSessionManager::getSessionMgrState()
 {

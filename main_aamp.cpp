@@ -31,7 +31,8 @@
 #include "DrmHelper.h"
 #include "StreamAbstractionAAMP.h"
 #include "AampStreamSinkManager.h"
-#include "PlayerIarmRfcInterface.h"
+#include "PlayerExternalsInterface.h"
+#include "PlayerLogManager.h"
 #include "PlayerMetadata.hpp"
 
 #include <dlfcn.h>
@@ -41,9 +42,7 @@
 
 AampConfig *gpGlobalConfig=NULL;
 
-#ifdef USE_SECMANAGER
-#include "AampSecManager.h"
-#endif
+#include "PlayerSecManager.h"
 
 std::mutex PlayerInstanceAAMP::mPrvAampMtx;
 
@@ -63,7 +62,7 @@ PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink
 
 			snprintf(processName, sizeof(processName), "PLAYER-%u", getpid());
 
-			PlayerIarmRfcInterface::IARMInit(processName);
+			PlayerExternalsInterface::IARMInit(processName);
 
 
 			iarmInitialized = true;
@@ -116,6 +115,8 @@ PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink
 	// sd_journal logging doesn't work with AAMP/Rialto running in Container, so route to Ethan Logger instead
 	AampLogManager::enableEthanLogRedirection = mConfig.IsConfigSet(eAAMPConfig_useRialtoSink);
 
+	PlayerLogManager::SetLoggerInfo(AampLogManager::disableLogRedirection, AampLogManager::enableEthanLogRedirection, AampLogManager::aampLoglevel, AampLogManager::locked);
+	
 	sp_aamp = std::make_shared<PrivateInstanceAAMP>(&mConfig);
 	aamp = sp_aamp.get();
 	UsingPlayerId playerId(aamp->mPlayerId);
@@ -204,12 +205,10 @@ PlayerInstanceAAMP::~PlayerInstanceAAMP()
 		dlclose(mJSBinding_DL);
 	}
 #endif
-#ifdef USE_SECMANAGER
 	if (isLastPlayerInstance)
 	{
-		AampSecManager::DestroyInstance();
+		PlayerSecManager::DestroyInstance();
 	}
-#endif
 	if (isLastPlayerInstance && gpGlobalConfig)
 	{
 		AAMPLOG_WARN("[%p] Release GlobalConfig(%p)",this,gpGlobalConfig);

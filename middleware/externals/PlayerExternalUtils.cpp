@@ -25,8 +25,7 @@
 #include "PlayerExternalUtils.h"
 
 #include <sys/stat.h>
-//replace below and dependencies with dedicated logger once implemented
-#include "AampLogManager.h"
+#include "PlayerLogManager.h"
 
 /**
  * Hack to check if code is running in container environment.
@@ -41,12 +40,12 @@ bool IsContainerEnvironment(void)
 		struct stat buffer;
 		if (stat("/etc/device.properties", &buffer) == 0)
 		{ // if we can access file, infer that are are NOT running in container
-			AAMPLOG_MIL("not running in container environment");
+			MW_LOG_MIL("not running in container environment");
 			isContainer = false;
 		}
 		else
 		{ // if we cannot access file, infer that we ARE running in container
-			AAMPLOG_WARN("detected container environment");
+			MW_LOG_WARN("detected container environment");
 			isContainer = true;
 		}
 		isValid = true;

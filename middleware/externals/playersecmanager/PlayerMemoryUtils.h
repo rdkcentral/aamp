@@ -2,7 +2,7 @@
  * If not stated otherwise in this file or this component's license file the
  * following copyright and licenses apply:
  *
- * Copyright 2020 RDK Management
+ * Copyright 2025 RDK Management
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,34 +18,30 @@
 */
 
 /**
- * @file AampMemoryUtils.h
+ * @file PlayerMemoryUtils.h
  * @brief Header file of helper functions for memory management
  */
 
 
-#ifndef __AAMP_MEMORY_UTILS_H__
-#define __AAMP_MEMORY_UTILS_H__
+#ifndef __PLAYER_MEMORY_UTILS_H__
+#define __PLAYER_MEMORY_UTILS_H__
 
 #include <stddef.h>
-#ifdef USE_SECMANAGER
 #include <sys/shm.h>
 #define SHM_ACCESS_PERMISSION 0666
 #define SHMGET_RETRY_MAX 10
-#endif
 
-#ifdef USE_SECMANAGER
 /**
- * @fn aamp_CreateSharedMem
+ * @fn player_CreateSharedMem
  * @param shmLen Length of the buffer to be created
  * @param shmKey shared memory key
  */
-void * aamp_CreateSharedMem( size_t shmLen, key_t & shmKey);
+void * player_CreateSharedMem( size_t shmLen, key_t & shmKey);
 /**
- * @fn aamp_CleanUpSharedMem
+ * @fn player_CleanUpSharedMem
  * @param shmPointer Pointer to the created memory
  * @param shmKey shared memory key
  * @param shmLen Length of the buffer
  */
-void aamp_CleanUpSharedMem(void* shmPointer, key_t shmKey, size_t shmLen);
-#endif
-#endif /* __AAMP_MEMORY_UTILS_H__ */
+void player_CleanUpSharedMem(void* shmPointer, key_t shmKey, size_t shmLen);
+#endif /* __PLAYER_MEMORY_UTILS_H__ */

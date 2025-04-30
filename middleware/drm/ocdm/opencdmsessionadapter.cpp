@@ -75,7 +75,7 @@ OCDMSessionAdapter::OCDMSessionAdapter(DrmHelperPtr drmHelper, DrmCallbacks *cal
 	initDRMSystem();
 
 	// Get output protection pointer
-	m_pOutputProtection = PlayerIarmRfcInterface::GetPlayerIarmRfcInterfaceInstance();
+	m_pOutputProtection = PlayerExternalsInterface::GetPlayerExternalsInterfaceInstance();
 	MW_LOG_WARN("OCDMSessionAdapter :: exit ");
 }
 

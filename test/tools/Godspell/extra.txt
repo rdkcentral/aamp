@@ -4,6 +4,7 @@ aacparse
 aamp
 aapname
 abcdef
+abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz
 abrlog
 acctoken
 acn
@@ -294,6 +295,7 @@ cls
 clut
 cmaf
 cmake
+cmakelists
 cmath
 cmcd
 cmsha
@@ -458,6 +460,7 @@ downloadtime
 downscale
 doxygen
 dpkg
+dplayer
 drealtekce
 drialto
 drm
@@ -530,6 +533,7 @@ endtimes
 enospc
 enq
 enqueueing
+entos
 enum
 enums
 eoscallback
@@ -1310,6 +1314,7 @@ ndoe
 needdata
 neeed
 neglact
+netinet
 netmemory
 netsrvmgr
 netwwork
@@ -1506,6 +1511,7 @@ playerisobmffbox
 playerjsonobject
 playerprebuffer
 playerrate
+playersecmanager
 playhead
 playlist
 playlistcacheddata
@@ -1525,6 +1531,7 @@ playstate
 playtarget
 plugin
 plugins
+plyrlogmgr
 pmtpid
 pmtsection
 pne
@@ -1784,7 +1791,9 @@ secapi
 secbuf
 secclient
 secmamaner
+secman
 secmanager
+secmanagersession
 secmgr
 securityagent
 seekable
@@ -2052,6 +2061,7 @@ threadsafe
 thumbnailtrack
 thumbtest
 thunderaccess
+thunderaccessplayer
 timecode
 timedelta
 timedmetadata

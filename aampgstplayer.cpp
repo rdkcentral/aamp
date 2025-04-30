@@ -22,7 +22,6 @@
  * @brief Gstreamer based player impl for AAMP
  */
 
-#include "AampMemoryUtils.h"
 #include "aampgstplayer.h"
 #include "isobmffbuffer.h"
 #include "AampUtils.h"
@@ -400,7 +399,6 @@ AAMPGstPlayer::AAMPGstPlayer(PrivateInstanceAAMP *aamp, id3_callback_t id3Handle
 			playerInstance->EnableGstDebugLogging(debugLevel);
 		}
 		InitializePlayerConfigs(this,playerInstance);
-		playerInstance->SetLoggerInfo(AampLogManager::disableLogRedirection, AampLogManager::enableEthanLogRedirection, AampLogManager::aampLoglevel, AampLogManager::locked);
 		playerInstance->SetPlayerName(PLAYER_NAME);
 		playerInstance->setEncryption((void*)aamp);
 		RegisterFirstFrameCallbacks();

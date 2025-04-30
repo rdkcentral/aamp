@@ -33,9 +33,8 @@
 #include <atomic>
 #include "DrmHelper.h"
 
-#ifdef USE_SECCLIENT
-#include "sec_client.h"
-#endif
+#include "PlayerSecInterface.h"
+#include "PlayerSecManagerSession.h"
 
 #include <functional>
 
@@ -127,6 +126,8 @@ class DRMSessionManager
 
 	DrmSessionContext *drmSessionContexts;
 	configs *m_drmConfigParam;
+	PlayerSecInterface *playerSecInstance;/** PlayerSecInterface instance **/
+	PlayerSecManagerSession mPlayerSecManagerSession;
 private:
 	KeyID *cachedKeyIDs;
 	char* accessToken;
@@ -137,12 +138,9 @@ private:
 	std::mutex mDrmSessionLock;
 	bool mEnableAccessAttributes;
 	int mMaxDRMSessions;
-#ifdef USE_SECMANAGER
-	AampSecManagerSession mAampSecManagerSession;
 	std::atomic<bool> mIsVideoOnMute;
 	std::atomic<int> mCurrentSpeed;
 	std::atomic<bool> mFirstFrameSeen;
-#endif
 	/**     
      	 * @brief Copy constructor disabled
      	 *
@@ -192,6 +190,26 @@ public:
 
 	void initializeDrmSessions();
 
+	/**
+	 *  @fn watermarkSessionHandlerWrapper
+	 *  @brief Wrapper function to handle session watermark.
+	 *  @param[in]	sessionHndle - Session handle.
+	 *  @param[in]	status - Status of the session.
+	 *  @param[in]	systemData - System data.
+	 */
+	void watermarkSessionHandlerWrapper(uint32_t sessionHndle, uint32_t status, const std::string &systemData);
+
+	/**
+	 *  @fn registerCallback
+	 */
+	void registerCallback( );
+
+	/**
+	 * @brief Set the Common Key Duration object
+	 * 
+	 * @param keyDuration key duration
+	 */
+	void SetCommonKeyDuration(int keyDuration);
 
 
 	/**

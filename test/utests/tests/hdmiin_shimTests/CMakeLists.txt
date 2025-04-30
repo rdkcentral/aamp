@@ -31,7 +31,8 @@ include_directories(SYSTEM ${UTESTS_ROOT}/mocks)
 include_directories(${LIBCJSON_INCLUDE_DIRS})
 include_directories(${AAMP_ROOT}/tsb/api)
 include_directories(${AAMP_ROOT}/middleware)
-include_directories(${AAMP_ROOT}/externals)
+include_directories(${AAMP_ROOT}/middleware/externals)
+include_directories(${AAMP_ROOT}/middleware/playerLogManager)
 
 set(TEST_SOURCES hdmiin_shimAamptest.cpp
 hdmiin_shimtest.cpp)

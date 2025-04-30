@@ -20,7 +20,7 @@
 #include <string>
 #include <gtest/gtest.h>
 #include "AampLicManager.cpp"
-#include "PlayerLogManager.cpp"
+#include "PlayerLogManager.h"
 #include "DRMSessionManager.cpp"
 #include "DrmJsonObject.h"
 #include "AampJsonObject.h"

@@ -2,7 +2,7 @@
  * If not stated otherwise in this file or this component's license file the
  * following copyright and licenses apply:
  *
- * Copyright 2021 RDK Management
+ * Copyright 2025 RDK Management
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,35 +18,56 @@
 */
 
 /**
- * @file AampSecManager.h
+ * @file PlayerSecManager.h
  * @brief Class to communicate with SecManager Thunder plugin
  */
 
-#ifndef __AAMP_SECMANAGER_H__
-#define __AAMP_SECMANAGER_H__
+#ifndef __PLAYER_SECMANAGER_H__
+#define __PLAYER_SECMANAGER_H__
 
 #include <mutex>
-#include "priv_aamp.h"
-#include "ThunderAccess.h"
-#include "DrmUtils.h"
+#include <sys/time.h>
+#include "ThunderAccessPlayer.h"
+#include "PlayerSecManagerSession.h"
+#include "PlayerScheduler.h"
+#include "PlayerMemoryUtils.h"
+#include <inttypes.h>
+#include <memory>
+#include <list>
+#include <map>
+#include <vector>
 
+//Secmanager error class codes
+#define SECMANAGER_DRM_FAILURE 200
+#define SECMANAGER_WM_FAILURE 300 	/**< If secmanager couldn't initialize watermark service */
+
+//Secmanager error reason codes
+#define SECMANAGER_DRM_GEN_FAILURE 1	/**< General or internal failure */
+#define SECMANAGER_SERVICE_TIMEOUT 3
+#define SECMANAGER_SERVICE_CON_FAILURE 4
+#define SECMANAGER_SERVICE_BUSY 5
+#define SECMANAGER_ACCTOKEN_EXPIRED 8
+#define SECMANAGER_ENTITLEMENT_FAILURE 102
+
+#define SECMANAGER_CALL_SIGN "org.rdk.SecManager.1"
+#define WATERMARK_PLUGIN_CALLSIGN "org.rdk.Watermark.1"
 //#define RDKSHELL_CALLSIGN "org.rdk.RDKShell.1"   //need to be used instead of WATERMARK_PLUGIN_CALLSIGN if RDK Shell is used for rendering watermark
 
 /**
- * @class AampSecManager
+ * @class PlayerSecManager
  * @brief Class to get License from Sec Manager
  */
-class AampSecManager : public AampScheduler
+class PlayerSecManager : public PlayerScheduler
 {
 public:
-	//allow access to AampSecManager::ReleaseSession()
-	friend AampSecManagerSession::SessionManager::~SessionManager();
+	//allow access to PlayerSecManager::ReleaseSession()
+	friend PlayerSecManagerSession::SessionManager::~SessionManager();
 	/**
 	 * @fn GetInstance
 	 *
-	 * @return AampSecManager instance
+	 * @return PlayerSecManager instance
 	 */
-	static AampSecManager* GetInstance();
+	static PlayerSecManager* GetInstance();
 
 	/**
 	 * @fn DestroyInstance
@@ -71,13 +92,13 @@ public:
 	 * @param[out] reasonCode - license fetch reason code
 	 * @return bool - true if license fetch successful, false otherwise
 	 */
-	bool AcquireLicense(PrivateInstanceAAMP* aamp, const char* licenseUrl, const char* moneyTraceMetadata[][2],
+	bool AcquireLicense( const char* licenseUrl, const char* moneyTraceMetadata[][2],
 						const char* accessAttributes[][2], const char* contentMetadata, size_t contentMetadataLen,
 						const char* licenseRequest, size_t licenseRequestLen, const char* keySystemId,
 						const char* mediaUsage, const char* accessToken, size_t accessTokenLen,
-						AampSecManagerSession &session,
+						PlayerSecManagerSession &session,
 						char** licenseResponse, size_t* licenseResponseLength,
-						int32_t* statusCode, int32_t* reasonCode, int32_t*  businessStatus, bool isVideoMuted);
+						int32_t* statusCode, int32_t* reasonCode, int32_t*  businessStatus, bool isVideoMuted, int sleepTime);
 
 
 	/**
@@ -110,51 +131,99 @@ public:
 	 *  
 	 */
 	bool loadClutWatermark(int64_t sessionId, int64_t graphicId, int64_t watermarkClutBufferKey, int64_t watermarkImageBufferKey, int64_t clutPaletteSize, const char* clutPaletteFormat, int64_t watermarkWidth, int64_t watermarkHeight, float aspectRatio);
+	/**
+	 *   @fn SendWatermarkSessionEvent_CB
+	 */
+	static std::function<void(uint32_t, uint32_t, const std::string&)> SendWatermarkSessionEvent_CB;
 
+	/**
+	 * @fn getSchedulerStatus
+	 *
+	 * @return bool - true if scheduler is running, false otherwise
+	 */
+	bool getSchedulerStatus();
+
+	/**
+	 *   @fn CreateWatermark
+	 */
+	void CreateWatermark(int graphicId, int zIndex);
+	/**
+	 *   @fn UpdateWatermark
+	 */
+	void UpdateWatermark(int graphicId, int smKey, int smSize);
+	/**
+	 *   @fn GetWaterMarkPalette
+	 */
+	void GetWaterMarkPalette(int sessionId, int graphicId);
+	/**
+	 *   @fn ModifyWatermarkPalette
+	 */
+	void ModifyWatermarkPalette(int graphicId, int clutKey, int imageKey);
+	/**
+	 *   @fn DeleteWatermark
+	 */
+	void DeleteWatermark(int graphicId);
+	/**
+	 *   @fn AlwaysShowWatermarkOnTop
+	 */
+	void AlwaysShowWatermarkOnTop(bool show);
+	/**
+	 *   @fn ShowWatermark
+	 */
+	void ShowWatermark(bool show);
+
+	/**
+	 * @fn setWatermarkSessionEvent_CB
+	 * @param[in] callback - callback function
+	 * @return void
+	 * @brief Set callback function for watermark session
+	 */
+	static void setWatermarkSessionEvent_CB(const std::function<void(uint32_t, uint32_t, const std::string&)>& callback);
+
+	/**
+	 * @fn getWatermarkSessionEvent_CB
+	 * @return std::function<void(uint32_t, uint32_t, const std::string&)>&
+	 * @brief Get callback function for watermark session
+	 */
+	static std::function<void(uint32_t, uint32_t, const std::string&)>& getWatermarkSessionEvent_CB( );
 private:
 
 	/* Run AcquireLicenseOpenOrUpdate is the old AcquireLicense code
 	 * It is used by AcquireLicense() to for opening sessions & for calling update when this is required*/
-	bool AcquireLicenseOpenOrUpdate(PrivateInstanceAAMP* aamp, const char* licenseUrl, const char* moneyTraceMetadata[][2],
+	bool AcquireLicenseOpenOrUpdate( const char* licenseUrl, const char* moneyTraceMetadata[][2],
 						const char* accessAttributes[][2], const char* contentMetadata, size_t contentMetadataLen,
 						const char* licenseRequest, size_t licenseRequestLen, const char* keySystemId,
 						const char* mediaUsage, const char* accessToken, size_t accessTokenLen,
-						AampSecManagerSession &session,
+						PlayerSecManagerSession &session,
 						char** licenseResponse, size_t* licenseResponseLength,
-						int32_t* statusCode, int32_t* reasonCode, int32_t*  businessStatus, bool isVideoMuted);
+						int32_t* statusCode, int32_t* reasonCode, int32_t*  businessStatus, bool isVideoMuted, int sleepTime);
 
 	/**
-	 * @fn ReleaseSession - this should only be used by AampSecManagerSession::SessionManager::~SessionManager();
+	 * @fn ReleaseSession - this should only be used by PlayerSecManagerSession::SessionManager::~SessionManager();
 	 *
 	 * @param[in] sessionId - session id
 	 */
 	void ReleaseSession(int64_t sessionId);
 
 	/**
-	 * @fn AampSecManager
+	 * @fn PlayerSecManager
 	 */
-	AampSecManager();
+	PlayerSecManager();
 
 	/**
-	 * @fn ~AampSecManager
+	 * @fn ~PlayerSecManager
 	 */
-	~AampSecManager();
+	~PlayerSecManager();
 	/**     
      	 * @brief Copy constructor disabled
     	 *
      	 */
-	AampSecManager(const AampSecManager&) = delete;
+	PlayerSecManager(const PlayerSecManager&) = delete;
 	/**
  	 * @brief assignment operator disabled
          *
          */
-	AampSecManager* operator=(const AampSecManager&) = delete;
-	/**
-	 *   @fn RegisterEvent
-	 *   @param[in] eventName : Event name
-	 *   @param[in] functionHandler : Event function pointer
-	 */
-	void RegisterEvent (string eventName, std::function<void(const WPEFramework::Core::JSON::VariantContainer&)> functionHandler);
+	PlayerSecManager* operator=(const PlayerSecManager&) = delete;
 	/**
 	 *   @fn RegisterAllEvents
 	 */
@@ -164,65 +233,8 @@ private:
 	 */
 	void UnRegisterAllEvents ();
 
-	/*Event Handlers*/
-	/**
-	 *   @fn watermarkSessionHandler
-	 *   @param  parameters - i/p JsonObject params
-	 */
-	void watermarkSessionHandler(const JsonObject& parameters);
-	/**
-	 *   @fn addWatermarkHandler
-	 *   @param  parameters - i/p JsonObject params
-	 */
-	void addWatermarkHandler(const JsonObject& parameters);
-	/**
-	 *   @fn updateWatermarkHandler
-	 *   @param  parameters - i/p JsonObject params
-	 */
-	void updateWatermarkHandler(const JsonObject& parameters);
-	/**
-	 *   @fn removeWatermarkHandler
-	 *   @param  parameters - i/p JsonObject params
-	 */
-	void removeWatermarkHandler(const JsonObject& parameters);
-	/**
-	 *   @fn showWatermarkHandler
-	 *   @param parameters - i/p JsonObject params	 
-	 */
-	void showWatermarkHandler(const JsonObject& parameters);
-
-	/**
-	 *   @fn ShowWatermark
-	 */
-	void ShowWatermark(bool show);
-	/**
-	 *   @fn CreateWatermark
-	 */
-	void CreateWatermark(int graphicId, int zIndex);
-	/**
-	 *   @fn DeleteWatermark
-	 */
-	void DeleteWatermark(int graphicId);
-	/**
-	 *   @fn UpdateWatermark
-	 */
-	void UpdateWatermark(int graphicId, int smKey, int smSize);
-	/**
-	 *   @fn AlwaysShowWatermarkOnTop
-	 */
-	void AlwaysShowWatermarkOnTop(bool show);
-	/**
-	 *   @fn GetWaterMarkPalette
-	 */
-	void GetWaterMarkPalette(int sessionId, int graphicId);
-	/**
-	 *   @fn ModifyWatermarkPalette
-	 */
-	void ModifyWatermarkPalette(int graphicId, int clutKey, int imageKey);
-
-	PrivateInstanceAAMP* mAamp;             /**< Pointer to the PrivateInstanceAAMP*/
-	ThunderAccessAAMP mSecManagerObj;       /**< ThunderAccessAAMP object for communicating with SecManager*/
-	ThunderAccessAAMP mWatermarkPluginObj;  /**< ThunderAccessAAMP object for communicating with Watermark Plugin Obj*/
+	ThunderAccessPlayer mSecManagerObj;       /**< ThunderAccessPlayer object for communicating with SecManager*/
+	ThunderAccessPlayer mWatermarkPluginObj;  /**< ThunderAccessPlayer object for communicating with Watermark Plugin Obj*/
 	std::mutex mSecMutex;    	        /**< Lock for accessing mSecManagerObj*/
 	std::mutex mWatMutex;		        /**< Lock for accessing mWatermarkPluginObj*/
 	std::mutex mSpeedStateMutex;		/**< mutex for setPlaybackSpeedState()*/
@@ -230,4 +242,4 @@ private:
 	bool mSchedulerStarted;
 };
 
-#endif /* __AAMP_SECMANAGER_H__ */
+#endif /* __PLAYER_SECMANAGER_H__ */
