@@ -790,10 +790,15 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 				aamp->NotifySpeedChanged(rate, false);
 				return;
 			}
+			// Adjusting the play/pause position value
+			double offset = aamp->GetFormatPositionOffsetInMSecs();
+			double formattedCurrPos = aamp->GetPositionMilliseconds() - offset;
+			double formattedSeekPos = (aamp->seek_pos_seconds * 1000.0) - offset;
 
-			AAMPLOG_WARN("aamp_SetRate (%f)overshoot(%d) ProgressReportDelta:(%d) ", rate,overshootcorrection,timeDeltaFromProgReport);
-			AAMPLOG_WARN("aamp_SetRate rate(%f)->(%f) cur pipeline: %s. Adj position: %f Play/Pause Position:%lld", aamp->rate,rate,aamp->pipeline_paused ? "paused" : "playing",aamp->seek_pos_seconds,aamp->GetPositionMilliseconds()); // current position relative to tune time
-
+			AAMPLOG_WARN("aamp_SetRate (%f)overshoot(%d) ProgressReportDelta:(%d) ", rate, overshootcorrection, timeDeltaFromProgReport);
+			AAMPLOG_WARN("aamp_SetRate rate(%f)->(%f) cur pipeline: %s. Adj position: %f Play/Pause Position:%lld",
+					aamp->rate, rate,aamp->pipeline_paused ? "paused" : "playing", formattedSeekPos, (static_cast<long long int>(formattedCurrPos)));
+			
 			if (!aamp->mSeekFromPausedState && (rate == aamp->rate) && !aamp->mbDetached)
 			{ // no change in desired play rate
 				// no deferring for playback resume
