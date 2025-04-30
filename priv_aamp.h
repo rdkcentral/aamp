@@ -3879,6 +3879,7 @@ public:
 	 * @return A constant character pointer to the error string corresponding to the provided error type.
 	 */
 	const char* getStringForPlaybackError(PlaybackErrorType errorType);
+
 	bool mPausePositionMonitoringThreadStarted; // Flag to indicate PausePositionMonitoring thread started
 
 	/**
@@ -3897,6 +3898,13 @@ public:
 	 * @retval current live play position of the stream in seconds.
 	 */
 	 double GetLivePlayPosition(void);
+	
+	/**
+	 * @fn GetFormatPositionOffsetInMSecs
+	 * @brief API to get the offset value in msecs for the position values to be reported.
+	 * @return Offset value in msecs
+	 */
+	double GetFormatPositionOffsetInMSecs();
 
 protected:
 

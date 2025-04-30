@@ -1662,3 +1662,7 @@ double PrivateInstanceAAMP::GetStreamPositionMs()
 {
 	return 0.0;
 }
+double PrivateInstanceAAMP::GetFormatPositionOffsetInMSecs()
+{
+	return 0;
+}
