@@ -2905,7 +2905,19 @@ bool InterfacePlayerRDK::SendHelper(int type, const void *ptr, size_t len, doubl
 	if(bPushBuffer)
 	{
 		GstBuffer *buffer;
-		gint64 pts_offset{(gint64)(fragmentPTSoffset * (-1000))};
+
+		// If pts restamp is enabled in config
+		// we need to set the pts offset used for subtitles else set it to 0
+		gint64 pts_offset;
+
+		if (m_gstConfigParam->enablePTSReStamp)
+		{
+			pts_offset = -(gint64)(fragmentPTSoffset * 1000L);
+		}
+		else
+		{
+			pts_offset = 0;
+		}
 
 		if(copy)
 		{
