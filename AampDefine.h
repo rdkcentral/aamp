@@ -147,8 +147,6 @@
 #define SUBTITLE_CLOCK_ASSUMED_PLAYSTATE_TIME_MS (20000) /**< period after channel change/seek where we try to sync the subtitle clock quickly, before giving up and falling to slower rate */
 
 
-// Player supported play/trick-play rates.
-#define AAMP_RATE_TRICKPLAY_MAX		64
 #define AAMP_NORMAL_PLAY_RATE		1
 #define AAMP_SLOWMOTION_RATE        0.5
 #define AAMP_RATE_PAUSE			0

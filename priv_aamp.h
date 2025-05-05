@@ -4455,5 +4455,6 @@ protected:
 
 private:
 	void SetCMCDTrackData(AampMediaType mediaType);
+	std::vector<float> getSupportedPlaybackSpeeds(void);
 };
 #endif // PRIVAAMP_H

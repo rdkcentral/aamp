@@ -2381,7 +2381,7 @@ void PrivateInstanceAAMP::UpdateCullingState(double culledSecs)
 	// Fix checks if the player is put into paused state with lighting mode(by checking last stored rate).
   	// In this state player will not come out of Paused state, even if the culled position reaches paused position.
 	// The rate check is a special case for a specific player, if this is contradicting to other players, we will have to add a config to enable/disable
-	if (pipeline_paused && mpStreamAbstractionAAMP && (abs(rate) != AAMP_RATE_TRICKPLAY_MAX))
+	if( pipeline_paused && mpStreamAbstractionAAMP )
 	{
 		double position = GetPositionSeconds();
 		double minPlaylistPositionToResume = (position < maxRefreshPlaylistIntervalSecs) ? position : (position - maxRefreshPlaylistIntervalSecs);
@@ -9104,6 +9104,26 @@ void PrivateInstanceAAMP::SendHTTPHeaderResponse()
 	}
 }
 
+std::vector<float> PrivateInstanceAAMP::getSupportedPlaybackSpeeds(void)
+{
+	std::vector<float> supportedPlaybackSpeeds = { 0,1 };
+	if (mIsIframeTrackPresent)
+	{ //Iframe track present and hence playbackRate change is supported
+		supportedPlaybackSpeeds.push_back(-64);
+		supportedPlaybackSpeeds.push_back(-32);
+		supportedPlaybackSpeeds.push_back(-16);
+		supportedPlaybackSpeeds.push_back(-4);
+		supportedPlaybackSpeeds.push_back(4);
+		supportedPlaybackSpeeds.push_back(16);
+		supportedPlaybackSpeeds.push_back(32);
+		supportedPlaybackSpeeds.push_back(64);
+	}
+	if( ISCONFIGSET_PRIV(eAAMPConfig_EnableSlowMotion) )
+	{
+		supportedPlaybackSpeeds.push_back( 0.5 );
+	}
+	return supportedPlaybackSpeeds;
+}
 /**
  * @brief  Generate media metadata event based on parsed attribute values.
  *
@@ -9112,7 +9132,6 @@ void PrivateInstanceAAMP::SendMediaMetadataEvent(void)
 {
 	std::vector<BitsPerSecond> bitrateList;
 	std::set<std::string> langList;
-	std::vector<float> supportedPlaybackSpeeds { -64, -32, -16, -4, -1, 0, 0.5, 1, 4, 16, 32, 64 };
 	int width  = 1280;
 	int height = 720;
 
@@ -9148,32 +9167,10 @@ void PrivateInstanceAAMP::SendMediaMetadataEvent(void)
 		event->addBitrate(bitrateList[i]);
 	}
 
-	//Iframe track present and hence playbackRate change is supported
-	if (mIsIframeTrackPresent)
+	auto supportedSpeeds = getSupportedPlaybackSpeeds();
+	for( auto speed : supportedSpeeds )
 	{
-		if(!(ISCONFIGSET_PRIV(eAAMPConfig_EnableSlowMotion)))
-		{
-			auto position = std::find(supportedPlaybackSpeeds.begin(), supportedPlaybackSpeeds.end(), 0.5);
-			if(position != supportedPlaybackSpeeds.end())
-			{
-				supportedPlaybackSpeeds.erase(position); //remove 0.5 from supported speeds
-			}
-		}
-
-		for(int i = 0; i < supportedPlaybackSpeeds.size(); i++)
-		{
-			event->addSupportedSpeed(supportedPlaybackSpeeds[i]);
-		}
-	}
-	else
-	{
-		//Supports only pause and play
-		event->addSupportedSpeed(0);
-		if(ISCONFIGSET_PRIV(eAAMPConfig_EnableSlowMotion))
-		{
-			event->addSupportedSpeed(0.5);
-		}
-		event->addSupportedSpeed(1);
+		event->addSupportedSpeed(speed);
 	}
 
 	event->setMediaFormat(mMediaFormatName[mMediaFormat]);
@@ -9188,35 +9185,11 @@ void PrivateInstanceAAMP::SendSupportedSpeedsChangedEvent(bool isIframeTrackPres
 {
 	SupportedSpeedsChangedEventPtr event = std::make_shared<SupportedSpeedsChangedEvent>(GetSessionId());
 	std::vector<float> supportedPlaybackSpeeds { -64, -32, -16, -4, -1, 0, 0.5, 1, 4, 16, 32, 64 };
-
-	//Iframe track present and hence playbackRate change is supported
-	if (isIframeTrackPresent)
+	auto supportedSpeeds = getSupportedPlaybackSpeeds();
+	for( auto speed : supportedSpeeds )
 	{
-		if(!(ISCONFIGSET_PRIV(eAAMPConfig_EnableSlowMotion)))
-		{
-			auto position = std::find(supportedPlaybackSpeeds.begin(), supportedPlaybackSpeeds.end(), 0.5);
-			if(position != supportedPlaybackSpeeds.end())
-			{
-				supportedPlaybackSpeeds.erase(position); //remove 0.5 from supported speeds
-			}
-		}
-
-		for(int i = 0; i < supportedPlaybackSpeeds.size(); i++)
-		{
-			event->addSupportedSpeed(supportedPlaybackSpeeds[i]);;
-		}
+		event->addSupportedSpeed(speed);
 	}
-	else
-	{
-		//Supports only pause and play
-		event->addSupportedSpeed(0);
-		if(ISCONFIGSET_PRIV(eAAMPConfig_EnableSlowMotion))
-		{
-			event->addSupportedSpeed(0.5);
-		}
-		event->addSupportedSpeed(1);
-	}
-
 	AAMPLOG_WARN("aamp: sending supported speeds changed event with count %d", event->getSupportedSpeedCount());
 	SendEvent(event,AAMP_EVENT_ASYNC_MODE);
 }

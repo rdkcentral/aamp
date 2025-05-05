@@ -36,7 +36,7 @@
 using namespace testing;
 
 static constexpr const char* FRAGMENT_TEST_DATA{"Fragment test data"};
-static constexpr float FASTEST_TRICKPLAY_RATE{AAMP_RATE_TRICKPLAY_MAX};
+static constexpr float FASTEST_TRICKPLAY_RATE{64};
 static constexpr float SLOWEST_TRICKPLAY_RATE{2};
 static constexpr int TRICKMODE_FPS{4};
 static constexpr uint32_t TRICKMODE_TIMESCALE{100000};
