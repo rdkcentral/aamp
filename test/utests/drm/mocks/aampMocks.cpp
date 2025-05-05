@@ -30,10 +30,6 @@
 
 #include "MockPrivateInstanceAAMP.h"
 
-// Enable the define below to get AAMP logging out when running tests
-// #define ENABLE_LOGGING
-#define TEST_LOG_LEVEL eLOGLEVEL_TRACE
-
 MockPrivateInstanceAAMP *g_mockPrivateInstanceAAMP = nullptr;
 
 std::shared_ptr<AampConfig> gGlobalConfig;
@@ -188,7 +184,6 @@ bool AampLogManager::locked = false;
 void logprintf(AAMP_LogLevel level, const char *file, int line, const char *format,
 			   ...)
 {
-#ifdef ENABLE_LOGGING
 	int playerId = -1;
 	va_list args;
 	va_start(args, format);
@@ -203,7 +198,6 @@ void logprintf(AAMP_LogLevel level, const char *file, int line, const char *form
 			 format );
 	vprintf(fmt, args);
 	va_end(args);
-#endif
 }
 
 void DumpBlob(const unsigned char *ptr, size_t len)
