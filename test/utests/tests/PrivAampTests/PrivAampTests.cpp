@@ -2359,11 +2359,16 @@ TEST_F(PrivAampTests,IsAudioPlayContextCreationSkippedTest)
 TEST_F(PrivAampTests,stopTest)
 {
 	constexpr long long POS = 1234;
+	p_aamp->rate = AAMP_NORMAL_PLAY_RATE;
 	p_aamp->StartPausePositionMonitoring(POS);
+	// Give some time for the PausePositionMonitoring thread to start
+	std::this_thread::sleep_for(std::chrono::milliseconds(10));
 	EXPECT_EQ(POS, p_aamp->mPausePositionMilliseconds);
 	EXPECT_TRUE(p_aamp->mPausePositionMonitoringThreadStarted);
 
 	p_aamp->Stop(false);
+	// Give some time for the PausePositionMonitoring thread to be destroyed
+	std::this_thread::sleep_for(std::chrono::milliseconds(10));
 	EXPECT_FALSE(p_aamp->mAutoResumeTaskPending);
 
 	// StopPausePositionMonitoring() should have been called
