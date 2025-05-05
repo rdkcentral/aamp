@@ -1,15 +1,15 @@
 cmake_minimum_required(VERSION 3.5)
-project(plyrLogMgr)
+project(PlayerLogManager)
 
 include_directories(..)
 
-set(PLYRLOGMGR_SRC PlayerLogManager.cpp)
+set(PlayerLogManager_SRC PlayerLogManager.cpp)
 
-add_library(plyrLogMgr SHARED ${PLYRLOGMGR_SRC})
+add_library(PlayerLogManager SHARED ${PlayerLogManager_SRC})
 
-set_target_properties(plyrLogMgr PROPERTIES PUBLIC_HEADER "PlayerLogManager.h")
+set_target_properties(PlayerLogManager PROPERTIES PUBLIC_HEADER "PlayerLogManager.h")
 
 # Install the library and its headers
-install(TARGETS plyrLogMgr
+install(TARGETS PlayerLogManager
     DESTINATION lib
     PUBLIC_HEADER DESTINATION include)

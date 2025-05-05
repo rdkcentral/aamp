@@ -30,7 +30,7 @@ include_directories(${AAMP_ROOT}/middleware/closedcaptions)
 include_directories(${AAMP_ROOT}/middleware/drm)
 include_directories(${AAMP_ROOT}/middleware/externals)
 include_directories(${AAMP_ROOT}/middleware/externals/playersecmanager)
-include_directories(${AAMP_ROOT}/middleware/base16_64)
+include_directories(${AAMP_ROOT}/middleware/baseConversion)
 include_directories(${AAMP_ROOT}/middleware/playerLogManager)
 
 include_directories(${GTEST_INCLUDE_DIRS})

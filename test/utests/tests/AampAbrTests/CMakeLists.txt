@@ -25,7 +25,7 @@ pkg_check_modules(LIBDASH REQUIRED libdash)
 pkg_check_modules(UUID REQUIRED uuid)
 
 include_directories(${AAMP_ROOT} ${AAMP_ROOT}/isobmff ${AAMP_ROOT}/middleware/playerisobmff ${AAMP_ROOT}/drm ${AAMP_ROOT}/downloader ${AAMP_ROOT}/drm/helper ${AAMP_ROOT}/drm/ave ${AAMP_ROOT}/subtitle ${AAMP_ROOT}/middleware/subtitle ${AAMP_ROOT}/dash/xml ${AAMP_ROOT}/dash/utils ${AAMP_ROOT}/dash/mpd ${AAMP_ROOT}/support/aampabr ${AAMP_ROOT}/middleware/externals/playersecmanager)
-include_directories(${AAMP_ROOT}/middleware/base16_64)
+include_directories(${AAMP_ROOT}/middleware/baseConversion)
 include_directories(${AAMP_ROOT}/middleware/subtec/libsubtec)
 include_directories(${AAMP_ROOT}/middleware/subtec/subtecparser)
 include_directories(${AAMP_ROOT}/middleware/playerjsonobject)

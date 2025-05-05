@@ -24,7 +24,7 @@ set(EXEC_NAME UrlEncDecAAMP)
 include_directories(${AAMP_ROOT} ${AAMP_ROOT}/drm ${AAMP_ROOT}/downloader ${AAMP_ROOT}/drm/helper ${AAMP_ROOT}/subtitle ${AAMP_ROOT}/middleware/subtitle)
 include_directories(${AAMP_ROOT}/tsb/api)
 include_directories(${AAMP_ROOT}/middleware)
-include_directories(${AAMP_ROOT}/middleware/base16_64)
+include_directories(${AAMP_ROOT}/middleware/baseConversion)
 include_directories(${AAMP_ROOT}/middleware/subtec/libsubtec)
 
 include_directories(${GTEST_INCLUDE_DIRS})

@@ -30,7 +30,7 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/externals)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/externals/playersecmanager)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/externals/rdk)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/vendor)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/base16_64)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/baseConversion)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/playerLogManager)
 
 if(APPLE)
@@ -84,10 +84,7 @@ pkg_check_modules(UUID REQUIRED uuid)
 
 include(test/mocks/mocks.cmake NO_POLICY_SCOPE)
 
-#shoud be made part of middleware cmakelists
-add_subdirectory(middleware/base16_64)
-add_subdirectory(middleware/playerLogManager)
-add_subdirectory(middleware/externals)
+add_subdirectory(middleware)
 
 if (CMAKE_INBUILT_AAMP_DEPENDENCIES)
 	message("Building aamp support libraries")

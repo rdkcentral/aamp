@@ -38,7 +38,7 @@ include_directories(${AAMP_ROOT}/drm)
 include_directories(${AAMP_ROOT}/drm/helper)
 include_directories(${AAMP_ROOT}/tsb/api)
 include_directories(${AAMP_ROOT}/middleware)
-include_directories(${AAMP_ROOT}/middleware/base16_64)
+include_directories(${AAMP_ROOT}/middleware/baseConversion)
 
 set(TEST_SOURCES Scte35Tests.cpp
                  Scte35SectionTests.cpp

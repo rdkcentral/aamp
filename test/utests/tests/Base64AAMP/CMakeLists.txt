@@ -22,7 +22,7 @@ set(UTESTS_ROOT "../../")
 set(EXEC_NAME Base64AAMP)
 
 include_directories(${AAMP_ROOT}/middleware)
-include_directories(${AAMP_ROOT}/middleware/base16_64)
+include_directories(${AAMP_ROOT}/middleware/baseConversion)
 include_directories(${AAMP_ROOT} ${AAMP_ROOT}/drm ${AAMP_ROOT}/drm/helper ${AAMP_ROOT}/subtitle ${AAMP_ROOT}/middleware/subtitle)
 
 include_directories(${GTEST_INCLUDE_DIRS})

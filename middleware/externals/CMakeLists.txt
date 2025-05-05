@@ -13,7 +13,7 @@ pkg_check_modules(GSTREAMERVIDEO REQUIRED gstreamer-video-1.0)
 
 include_directories(${GSTREAMER_INCLUDE_DIRS})
 include_directories(${MW_ROOT}/playerLogManager)
-include_directories(${MW_ROOT}/base16_64)
+include_directories(${MW_ROOT}/baseConversion)
 include_directories(${MW_ROOT})
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/rdk)
 
@@ -98,8 +98,8 @@ string(STRIP "${LIB_EXT_DEPENDS}" LIB_EXT_DEPENDS)
 
 target_link_libraries(EntosPlayerFireboltInterface ${LIB_EXT_DEPENDS})
 
-target_link_libraries(EntosPlayerFireboltInterface plyrLogMgr)
-target_link_libraries(EntosPlayerFireboltInterface base16_64)
+target_link_libraries(EntosPlayerFireboltInterface PlayerLogManager)
+target_link_libraries(EntosPlayerFireboltInterface BaseConversion)
 
 # Install the library and its headers
 install(TARGETS EntosPlayerFireboltInterface

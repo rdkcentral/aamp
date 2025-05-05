@@ -39,7 +39,7 @@ include_directories(${LIBDASH_INCLUDE_DIRS})
 include_directories(SYSTEM ${UTESTS_ROOT}/mocks)
 include_directories(${AAMP_ROOT}/tsb/api)
 include_directories(${AAMP_ROOT}/middleware)
-include_directories(${AAMP_ROOT}/middleware/base16_64)
+include_directories(${AAMP_ROOT}/middleware/baseConversion)
 include_directories(${AAMP_ROOT}/middleware/playerLogManager)
 
 

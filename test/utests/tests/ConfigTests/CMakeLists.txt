@@ -28,7 +28,7 @@ include_directories(${AAMP_ROOT}/middleware)
 include_directories(${AAMP_ROOT}/middleware/subtec/libsubtec)
 include_directories(${AAMP_ROOT}/middleware/externals)
 include_directories(${AAMP_ROOT}/tsb/api ${AAMP_ROOT}/middleware)
-include_directories(${AAMP_ROOT}/middleware/base16_64)
+include_directories(${AAMP_ROOT}/middleware/baseConversion)
 include_directories(${AAMP_ROOT}/middleware/externals/playersecmanager)
 include_directories(${AAMP_ROOT}/middleware/playerLogManager)
 

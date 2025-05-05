@@ -32,7 +32,7 @@ include_directories(${AAMP_ROOT}/subtec/subtecparser)
 include_directories(${AAMP_ROOT}/subtitle)
 include_directories(${AAMP_ROOT}/middleware/closedcaptions)
 include_directories(${AAMP_ROOT}/middleware/externals)
-include_directories(${AAMP_ROOT}/middleware/base16_64)
+include_directories(${AAMP_ROOT}/middleware/baseConversion)
 
 include_directories(${GTEST_INCLUDE_DIRS})
 include_directories(${GMOCK_INCLUDE_DIRS})

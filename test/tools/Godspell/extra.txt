@@ -1531,7 +1531,7 @@ playstate
 playtarget
 plugin
 plugins
-plyrlogmgr
+playerLogManager
 pmtpid
 pmtsection
 pne
