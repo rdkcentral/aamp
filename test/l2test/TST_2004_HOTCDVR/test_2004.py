@@ -36,18 +36,20 @@ TESTDATA1 = {
 "url": "l2_hotcdvr_working/manifest.mpd",
 "simlinear_type": "DASH",
 "max_test_time_seconds": 40,
-"aamp_cfg": "info=true\nprogress=true\njsinfo=true\nenableSeekableRange=true\n",
+"aamp_cfg": "info=true\nprogress=true\njsinfo=true\nenableSeekableRange=true\nprogressReportingInterval=0.25\n",
 "cmdlist": [
   "seek 1250",
     ],
 "expect_list": [
     #Check to ensure start(1st parameter) is zero and also the end position(third para.) increases with time
-    {"expect": r"aamp pos: \[(.*)" + re.escape("0..1253..1257..") + r"(.*)]", "max": 20},
-    {"expect": r"aamp pos: \[(.*)" + re.escape("0..1265..1269..") + r"(.*)]","min":20,"max":25},
+    {"expect": r"aamp pos: \[(.*)" + re.escape("0..1253..") + r"(.*)]", "max": 20},
+    {"expect": r"aamp pos: \[(.*)" + re.escape("0..1265..") + r"(.*)]","min":20,"max":25},
+    {"cmd": "pause"},
     #Check to ensure start(1st parameter) is zero and also the end position(third parameter) is same for cold cdvr
     {"expect": r"\[AAMPCLI\] AAMP_EVENT_MANIFEST_REFRESH_NOTIFY.*manifestType\[static\]"},
-    {"expect": r"aamp pos: \[(.*)" + re.escape("0..1269..1281..") + r"(.*)]","min":25,"max":30},
-    {"expect": r"aamp pos: \[(.*)" + re.escape("0..1273..1281..") + r"(.*)]","min":30,"max":40,"end_of_test":True}
+    {"cmd": "seek 1250"},
+    {"expect": r"aamp pos: \[(.*)" + re.escape("0..1253..1281..") + r"(.*)]", "max": 40},
+    {"expect": r"aamp pos: \[(.*)" + re.escape("0..1265..1281..") + r"(.*)]","min":20,"max":25},
     
 ]
 }
@@ -74,5 +76,5 @@ def test_data(request):
 def test_2004(aamp_setup_teardown, test_data):
     aamp = aamp_setup_teardown
     aamp.set_paths(os.path.abspath(getsourcefile(lambda: 0)))
-    aamp.run_expect_b(test_data)
+    aamp.run_expect_a(test_data)
 

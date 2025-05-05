@@ -115,7 +115,7 @@ static bool IsIframeTrack(IAdaptationSet *adaptationSet);
 StreamAbstractionAAMP_MPD::StreamAbstractionAAMP_MPD(class PrivateInstanceAAMP *aamp, double seek_pos, float rate, id3_callback_t id3Handler)
 	: StreamAbstractionAAMP(aamp, id3Handler),
 	fragmentCollectorThreadStarted(false), mLangList(), seekPosition(seek_pos), rate(rate), fragmentCollectorThreadID(),tsbReaderThreadID(),
-	mpd(NULL), mNumberOfTracks(0), mCurrentPeriodIdx(0), mEndPosition(0), mIsLiveStream(true), mIsLiveManifest(true),mManifestDnldRespPtr(nullptr),mManifestUpdateHandleFlag(false),
+	mpd(NULL), mNumberOfTracks(0), mCurrentPeriodIdx(0), mEndPosition(0), mIsLiveStream(true), mIsLiveManifest(true),mManifestDnldRespPtr(nullptr),mManifestUpdateHandleFlag(false),mUpdateManifestState(false),
 	mStreamInfo(NULL), mPrevStartTimeSeconds(0), mPrevLastSegurlMedia(""), mPrevLastSegurlOffset(0),
 	mPeriodEndTime(0), mPeriodStartTime(0), mPeriodDuration(0), mMinUpdateDurationMs(DEFAULT_INTERVAL_BETWEEN_MPD_UPDATES_MS),
 	mLastPlaylistDownloadTimeMs(0), mFirstPTS(0), mStartTimeOfFirstPTS(0), mAudioType(eAUDIO_UNKNOWN),
@@ -3046,6 +3046,15 @@ AAMPStatusType StreamAbstractionAAMP_MPD::GetMPDFromManifest( ManifestDownloadRe
 
 		//Node *root			=	mpdDnldResp->mRootNode;
 		// this flag for current state of manifest ( Linear to VOD can happen)
+		if((mMPDParseHelper->IsLiveManifest() != mIsLiveManifest) && !init )
+		{
+			AAMPLOG_INFO("Linear to Vod transition , update the manifest state");
+			mUpdateManifestState = true;
+		}
+		else
+		{
+			mUpdateManifestState = false;
+		}
 		mIsLiveManifest		=	mMPDParseHelper->IsLiveManifest();
 		aamp->SetIsLive(mIsLiveManifest);
 
@@ -8387,7 +8396,7 @@ void StreamAbstractionAAMP_MPD::UpdateCulledAndDurationFromPeriodInfo(std::vecto
 		}
 		double firstPeriodStart = mMPDParseHelper->GetPeriodStartTime(firstPeriodIdx,mLastPlaylistDownloadTimeMs);
 		double availStartTime = mMPDParseHelper->GetAvailabilityStartTime();
-		if( true == aamp->IsIVODContent() && ( firstPeriodStart != mPrevFirstPeriodStart && availStartTime <=0 ) )
+		if( ( mUpdateManifestState == true )|| (true == aamp->IsIVODContent() && ( firstPeriodStart != mPrevFirstPeriodStart && availStartTime <=0 )) )
 		{
 
 			/*
