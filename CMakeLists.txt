@@ -24,7 +24,7 @@ function(xcode_define_schema new_schema)
     set_property(TARGET ${new_schema} PROPERTY XCODE_SCHEME_ADDRESS_SANITIZER_USE_AFTER_RETURN TRUE)
 endfunction()
 
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware)
+#include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/test/gstTestHarness)
 if(APPLE)
     set(CMAKE_C_COMPILER "/usr/bin/cc")
@@ -186,7 +186,7 @@ set(LIBAAMP_HEADERS AampCacheHandler.h
 					AampEvent.h
 					AampEventListener.h
 					AampEventManager.h
-					middleware/GstUtils.h
+					#middleware/GstUtils.h
 					AampGrowableBuffer.h
 					AampJsonObject.h
 					AampLogManager.h
@@ -202,12 +202,12 @@ set(LIBAAMP_HEADERS AampCacheHandler.h
 					StreamAbstractionAAMP.h
 					ThunderAccess.h
 					_base64.h
-					middleware/PlayerLogManager.h
-					middleware/PlayerScheduler.h
-					middleware/gstplayertaskpool.h
-					middleware/GstHandlerControl.h
-					middleware/GstUtils.h
-					middleware/InterfacePlayerRDK.h
+					#middleware/PlayerLogManager.h
+					#middleware/PlayerScheduler.h
+					#middleware/gstplayertaskpool.h
+					#middleware/GstHandlerControl.h
+					#middleware/GstUtils.h
+					#middleware/InterfacePlayerRDK.h
 					aampgstplayer.h
 					AampBufferControl.h
 					admanager_mpd.h
@@ -290,12 +290,12 @@ set(LIBAAMP_SOURCES iso639map.cpp
 					streamabstraction.cpp
 					priv_aamp.cpp
 					main_aamp.cpp
-					middleware/PlayerLogManager.cpp
-					middleware/PlayerScheduler.cpp
-					middleware/gstplayertaskpool.cpp
-					middleware/GstHandlerControl.cpp
-					middleware/GstUtils.cpp
-					middleware/InterfacePlayerRDK.cpp
+					#middleware/PlayerLogManager.cpp
+					#middleware/PlayerScheduler.cpp
+					#middleware/gstplayertaskpool.cpp
+					#middleware/GstHandlerControl.cpp
+					#middleware/GstUtils.cpp
+					#middleware/InterfacePlayerRDK.cpp
 					aampgstplayer.cpp
 					AampBufferControl.cpp
 					tsprocessor.cpp
@@ -313,7 +313,7 @@ set(LIBAAMP_SOURCES iso639map.cpp
 					downloader/AampCurlStore.cpp
 					AampDRMLicPreFetcher.cpp
 					AampCMCDCollector.cpp
-					middleware/gstplayertaskpool.cpp
+					#middleware/gstplayertaskpool.cpp
 					downloader/AampCurlDownloader.cpp
 					ID3Metadata.cpp
 					dash/xml/DomDocument.cpp
@@ -634,10 +634,10 @@ target_link_libraries(aamp-cli "-lreadline")
 # XCode schema target
 xcode_define_schema(aamp-cli)
 
-add_executable(playbintest middleware/test/playbintest.cpp)
-target_link_libraries(playbintest ${PLAYBINTEST_DEPENDS})
+#add_executable(playbintest middleware/test/playbintest.cpp)
+#target_link_libraries(playbintest ${PLAYBINTEST_DEPENDS})
 # XCode schema target
-xcode_define_schema(playbintest)
+#xcode_define_schema(playbintest)
 
 if(CMAKE_SYSTEMD_JOURNAL)
     message("CMAKE_SYSTEMD_JOURNAL set")
@@ -748,7 +748,7 @@ xcode_define_schema(gstTestHarness)
 
 install(TARGETS gstTestHarness DESTINATION bin)
 target_link_libraries(aamp-cli subtec tsb)
-target_link_libraries(aamp subtec tsb)
+target_link_libraries(aamp subtec tsb middleware)
 if (CMAKE_INBUILT_AAMP_DEPENDENCIES)
 	target_link_libraries(aamp abr metrics)
 endif()
@@ -764,7 +764,9 @@ install(FILES
   drm/AampDrmData.h drm/AampDrmInfo.h drm/AampDrmMediaFormat.h AampDrmCallbacks.h AampLogManager.h
   drm/AampDrmSession.h drm/ClearKeyDrmSession.h drm/AampDRMutils.h drm/aampdrmsessionfactory.h
   drm/helper/AampDrmHelper.h subtitle/vttCue.h AampUtils.h
-  AampMemoryUtils.h AampProfiler.h AampConstants.h iso639map.h AampRfc.h middleware/GstUtils.h AampGrowableBuffer.h
+  AampMemoryUtils.h AampProfiler.h AampConstants.h iso639map.h AampRfc.h 
+  #middleware/GstUtils.h 
+  AampGrowableBuffer.h
   AampScheduler.h
   drm/AampSecManager.h
   downloader/AampCurlStore.h
@@ -775,19 +777,19 @@ install(FILES
   AampDRMLicPreFetcher.h
   AampDRMLicPreFetcherInterface.h
   AampMPDDownloader.h
-  AampMPDParseHelper.h
+  AampMPDParseHelper. middlewareh
   AampMPDPeriodInfo.h
   AampLLDASHData.h
   AampTSBSessionManager.h
   AampTsbReader.h
   tsb/api/TsbApi.h
   closedcaptions/AampCCManager.h
-  middleware/PlayerLogManager.h
-  middleware/PlayerScheduler.h
-  middleware/gstplayertaskpool.h
-  middleware/GstHandlerControl.h
-  middleware/GstUtils.h
-  middleware/InterfacePlayerRDK.h
+  #middleware/PlayerLogManager.h
+  #middleware/PlayerScheduler.h
+  #middleware/gstplayertaskpool.h
+  #middleware/GstHandlerControl.h
+  #middleware/GstUtils.h
+  #middleware/InterfacePlayerRDK.h
   DESTINATION include)
 
 if (CMAKE_AAMP_RFC_REQUIRED)
