@@ -22,6 +22,7 @@
  * @brief Advanced Adaptive Media Player (AAMP)
  */
 
+
 #include "main_aamp.h"
 #include "AampConfig.h"
 #include "AampCacheHandler.h"
@@ -534,6 +535,20 @@ BitsPerSecond PlayerInstanceAAMP::GetMaximumBitrate(void)
 }
 
 /**
+ *  @brief Check given rate is valid.
+ */
+bool PlayerInstanceAAMP::IsValidRate(int rate)
+{
+	bool retValue = false;
+	if (abs(rate) <= AAMP_RATE_TRICKPLAY_MAX)
+	{
+		retValue = true;
+	}
+	return retValue;
+}
+
+
+/**
  *  @brief Set playback rate.
  */
 void PlayerInstanceAAMP::SetRate(float rate,int overshootcorrection)
@@ -542,6 +557,12 @@ void PlayerInstanceAAMP::SetRate(float rate,int overshootcorrection)
 	AAMPLOG_INFO("PLAYER[%d] rate=%f.", aamp->mPlayerId, rate);
 	if(aamp)
 	{
+		if (!IsValidRate(rate))
+		{
+			AAMPLOG_WARN("SetRate ignored!! Invalid rate (%f)", rate);
+			return;
+		}
+
 		if(mAsyncTuneEnabled)
 		{
 			mScheduler.ScheduleTask(AsyncTaskObj([rate,overshootcorrection](void *data)
@@ -607,6 +628,11 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 			return;
 		}
 
+		if (!IsValidRate(rate))
+		{
+			AAMPLOG_WARN("SetRate ignored!! Invalid rate (%f)", rate);
+			return;
+		}
 		//convert the incoming rates into acceptable rates
 		if(ISCONFIGSET(eAAMPConfig_RepairIframes))
 		{
@@ -1360,6 +1386,11 @@ void PlayerInstanceAAMP::SetRateAndSeek(int rate, double secondsRelativeToTuneTi
 		AAMPPlayerState state = GetState();
 		TuneType tuneType = eTUNETYPE_SEEK;
 		AAMPLOG_WARN("aamp_SetRateAndSeek(%d)(%f)", rate, secondsRelativeToTuneTime);
+		if (!IsValidRate(rate))
+		{
+			AAMPLOG_WARN("SetRate ignored!! Invalid rate (%d)", rate);
+			return;
+		}
 		
 		//convert the incoming rates into acceptable rates
 		if(ISCONFIGSET(eAAMPConfig_RepairIframes))
@@ -3245,6 +3276,7 @@ void PlayerInstanceAAMP::SetAuxiliaryLanguageInternal(const std::string &languag
 		AAMPLOG_WARN("aamp_SetAuxiliaryLanguage(%s)->(%s)", currentLanguage.c_str(), language.c_str());
 		if(language != currentLanguage)
 		{
+
 			AAMPPlayerState state = aamp->GetState();
 			// There is no active playback session, save the language for later
 			if (state == eSTATE_IDLE || state == eSTATE_RELEASED)

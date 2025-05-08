@@ -59,6 +59,7 @@ struct AAMPGstPlayerPriv
 	AampBufferControl::BufferControlMaster mBufferControl[AAMP_TRACK_COUNT];
 	AAMPGstPlayerPriv() :mBufferControl()
 	{
+
 	}
 };
 
@@ -103,6 +104,7 @@ static void InitializePlayerConfigs(AAMPGstPlayer *_this, void *playerInstance)
 
 /*
  * @brief Handles GStreamer buffer underflow events.
+
  * @param mediaType Type of media affected by the underflow.
  * @param _this Pointer to the AAMPGstPlayer instance.
  */
@@ -110,6 +112,7 @@ static void HandleOnGstBufferUnderflowCb(int mediaType, AAMPGstPlayer * _this);
 
 /**
  * @brief Handles buffering timeout events.
+
  * @param isBufferingTimeoutConditionMet Indicates if the buffering timeout condition is met.
  * @param isRateCorrectionDefaultOnPlaying Indicates if rate correction is enabled.
  * @param isPlayerReady used to notify subtitle parser for direct subtec integration
@@ -129,6 +132,7 @@ static void RegisterBusCb(AAMPGstPlayer *_this, void *playerInstance);
 
 /**
  * @brief Handles red button callback events.
+
  * @param data Pointer to the data containing the SEI timecode.
  * @param _this Pointer to the AAMPGstPlayer instance.
  */
@@ -136,6 +140,7 @@ static void HandleRedButtonCallback(const char *data, AAMPGstPlayer * _this);
 
 /**
  * @brief Handles GStreamer bus messages.
+
  * @param busEvent GStreamer bus event data.
  * @param _this Pointer to the AAMPGstPlayer instance.
  */
@@ -143,6 +148,7 @@ static void HandleBusMessage(const BusEventData busEvent, AAMPGstPlayer * _this)
 
 /**
  * @brief Handles GStreamer decode error events.
+
  * @param decodeErrorCBCount Count of decode errors.
  * @param _this Pointer to the AAMPGstPlayer instance.
  */
@@ -150,6 +156,7 @@ static void HandleOnGstDecodeErrorCb(int decodeErrorCBCount, AAMPGstPlayer * _th
 
 /**
  * @brief Handles GStreamer PTS error events.
+
  * @param isVideo Indicates if the error is related to video.
  * @param isAudioSink Indicates if the error is related to the audio sink.
  * @param _this Pointer to the AAMPGstPlayer instance.
@@ -256,6 +263,7 @@ void AAMPGstPlayer::RegisterFirstFrameCallbacks()
 	{
 		UsingPlayerId playerId( aamp->mPlayerId );
 		aamp->ReportProgress();
+
 	};
 	playerInstance->callbackMap[InterfaceCB::progressCb] = [this]()
 	{
@@ -382,6 +390,7 @@ AAMPGstPlayer::AAMPGstPlayer(PrivateInstanceAAMP *aamp, id3_callback_t id3Handle
 		this->aamp = aamp;
 		// Initially set to this instance, can be changed by SetEncryptedAamp
 		this->mEncryptedAamp = aamp;
+
 		this->cbExportYUVFrame = exportFrames;
 		playerInstance->gstCbExportYUVFrame = exportFrames;
 		std::string debugLevel = GETCONFIGVALUE(eAAMPConfig_GstDebugLevel);
@@ -415,6 +424,7 @@ AAMPGstPlayer::~AAMPGstPlayer()
 
 /**
  * @brief Handles buffering timeout events.
+
  * @param isBufferingTimeoutConditionMet Indicates if the buffering timeout condition is met.
  * @param isRateCorrectionDefaultOnPlaying Indicates if rate correction is enabled.
  * @param isPlayerReady used to notify subtitle parser for direct subtec integration
@@ -452,6 +462,7 @@ static void HandleBufferingTimeoutCb(bool isBufferingTimeoutConditionMet, bool i
 
 /**
  * @brief Handles GStreamer decode error events.
+
  * @param decodeErrorCBCount Count of decode errors.
  * @param _this Pointer to the AAMPGstPlayer instance.
  */
@@ -463,6 +474,7 @@ static void HandleOnGstDecodeErrorCb(int decodeErrorCBCount, AAMPGstPlayer * _th
 
 /**
  * @brief Handles GStreamer PTS error events.
+
  * @param isVideo Indicates if the error is related to video.
  * @param isAudioSink Indicates if the error is related to the audio sink.
  * @param _this Pointer to the AAMPGstPlayer instance.
@@ -482,6 +494,7 @@ static void HandleOnGstPtsErrorCb(bool isVideo, bool isAudioSink, AAMPGstPlayer 
 
 /**
  * @brief Handles GStreamer buffer underflow events.
+
  * @param mediaType Type of media affected by the underflow.
  * @param _this Pointer to the AAMPGstPlayer instance.
  */
@@ -496,6 +509,7 @@ static void HandleOnGstBufferUnderflowCb(int mediaType, AAMPGstPlayer * _this)
 
 /**
  * @brief Handles red button callback events.
+
  * @param data Pointer to the data containing the SEI timecode.
  * @param _this Pointer to the AAMPGstPlayer instance.
  */
@@ -547,6 +561,7 @@ static void HandleBusMessage(const BusEventData busEvent, AAMPGstPlayer * _this)
 			}
 		}
 			break;
+
 		case MESSAGE_WARNING:
 			if (_this->aamp->mConfig->IsConfigSet(eAAMPConfig_DecoderUnavailableStrict)  && busEvent.msg.find("No decoder available") != std::string::npos)
 			{
@@ -567,6 +582,7 @@ static void HandleBusMessage(const BusEventData busEvent, AAMPGstPlayer * _this)
 				_this->aamp->LogFirstFrame();
 				_this->aamp->LogTuneComplete();
 			}
+
 			if(_this->aamp->mSetPlayerRateAfterFirstframe || (busEvent.setPlaybackRate && ((AAMP_SLOWMOTION_RATE == _this->aamp->playerrate) && (_this->aamp->rate == AAMP_NORMAL_PLAY_RATE))))
 			{
 				StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(_this->aamp);
@@ -575,6 +591,7 @@ static void HandleBusMessage(const BusEventData busEvent, AAMPGstPlayer * _this)
 					if(_this->aamp->mSetPlayerRateAfterFirstframe)
 					{
 						_this->aamp->mSetPlayerRateAfterFirstframe=false;
+
 						if(false != sink->SetPlayBackRate(_this->aamp->playerrate))
 						{
 							_this->aamp->rate=_this->aamp->playerrate;
@@ -662,14 +679,17 @@ bool AAMPGstPlayer::SendHelper(AampMediaType mediaType, const void *ptr, size_t 
 		}
 		return false;
 	}
+
 	bool sendNewSegmentEvent = false;
 	bool notifyFirstBufferProcessed = false;
 	bool resetTrickUTC = false;
 	bool firstBufferPushed = false;
+
 	// This block checks if the data contain a valid ID3 header and if it is the case
 	// calls the callback function.
 	{
 		namespace aih = aamp::id3_metadata::helpers;
+
 		if (aih::IsValidMediaType(mediaType) &&
 			aih::IsValidHeader(static_cast<const uint8_t*>(ptr), len))
 		{
@@ -677,6 +697,7 @@ bool AAMPGstPlayer::SendHelper(AampMediaType mediaType, const void *ptr, size_t 
 								 {fpts, fdts, fDuration}, nullptr);
 		}
 	}
+
 	// Ignore eMEDIATYPE_DSM_CC packets
 	if(mediaType == eMEDIATYPE_DSM_CC)
 	{
@@ -715,6 +736,7 @@ bool AAMPGstPlayer::SendHelper(AampMediaType mediaType, const void *ptr, size_t 
 		{
 			aamp->ResetTrickStartUTCTime();
 		}
+
 		StopBuffering(false);
 	}
 	return bPushBuffer;
@@ -781,6 +803,7 @@ void AAMPGstPlayer::Configure(StreamOutputFormat format, StreamOutputFormat audi
 bool AAMPGstPlayer::PipelineConfiguredForMedia(AampMediaType type)
 {
 	bool pipelineConfigured = true;
+
 	if( type != eMEDIATYPE_SUBTITLE || aamp->IsGstreamerSubsEnabled() )
 	{
 		pipelineConfigured = playerInstance->PipelineConfiguredForMedia((int) type);
@@ -824,6 +847,7 @@ void AAMPGstPlayer::SetEncryptedAamp(PrivateInstanceAAMP *aamp)
 {
 	mEncryptedAamp = aamp;
 	playerInstance->setEncryption((void*)mEncryptedAamp);
+
 }
 
 bool AAMPGstPlayer::IsAssociatedAamp(PrivateInstanceAAMP *aampInstance)
@@ -858,6 +882,7 @@ void AAMPGstPlayer::FlushTrack(AampMediaType type,double pos)
 	double audioDelta = aamp->mAudioDelta;
 	double subDelta = aamp->mSubtitleDelta;
 	double rate = playerInstance->FlushTrack(mediaType, pos, audioDelta, subDelta);
+
 	if(aamp->mCorrectionRate != rate)
 	{
 		AAMPLOG_MIL("Reset Rate Correction to 1");
@@ -983,6 +1008,7 @@ void AAMPGstPlayer::Flush(double position, int rate, bool shouldTearDown)
 			//reset buffer control states prior to gstreamer flush so that the first needs_data event is caught
 			privateContext->mBufferControl[i].flush();
 		}
+
 		aamp->mCorrectionRate = (double)AAMP_NORMAL_PLAY_RATE;
 	}
 }
@@ -1003,6 +1029,7 @@ bool AAMPGstPlayer::Discontinuity(AampMediaType type)
 		AAMPLOG_WARN("NO EOS: PTS-RESTAMP ENABLED and codec has not changed");
 		aamp->CompleteDiscontinuityDataDeliverForPTSRestamp(type);
 	}
+
 	else if(shouldHaltBuffering)
 	{
 		StopBuffering(true);
@@ -1041,6 +1068,7 @@ bool AAMPGstPlayer::IsCacheEmpty(AampMediaType mediaType)
 	bool ret = true;
 	int MediaType = (int)mediaType;
 	ret = playerInstance->IsCacheEmpty(MediaType);
+
 	return ret;
 }
 
@@ -1112,6 +1140,7 @@ void AAMPGstPlayer::SeekStreamSink(double position, double rate)
 	// might not be in a playing/paused state which causes Flush() to destroy
 	// pipeline. This has to be avoided.
 	Flush(position, rate, false);
+
 }
 
 /**
@@ -1138,6 +1167,7 @@ void AAMPGstPlayer::StopBuffering(bool forceStop)
 			sendEndEvent = aamp->PausePipeline(false, false);
 			aamp->UpdateSubtitleTimestamp();
 		}
+
 		if( !sendEndEvent )
 		{
 			AAMPLOG_ERR("Failed to un-pause pipeline for stop buffering!");
@@ -1187,6 +1217,7 @@ void AAMPGstPlayer::GetBufferControlData(AampMediaType mediaType, BufferControlD
 	if (data.StreamReady)
 	{
 		data.ElapsedSeconds = std::abs(aamp->GetPositionRelativeToSeekSeconds());
+
 		data.GstWaitingForData = playerInstance->GetBufferControlData(mediaType);
 	}
 	else

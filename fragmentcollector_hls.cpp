@@ -805,6 +805,7 @@ lstring TrackState::GetIframeFragmentUriFromIndex(bool &bSegmentRepeated)
 					AAMPLOG_WARN("WARN - Fragment duration[%f] > TargetDuration[%f] for URI:%.*s",fragmentDurationSeconds, targetDurationSeconds.inSeconds(), uri.getLen(), uri.getPtr() );
 				}
 			}
+
 			if (-1 == idxNode->drmMetadataIdx)
 			{
 				fragmentEncrypted = false;
@@ -847,12 +848,14 @@ lstring TrackState::GetIframeFragmentUriFromIndex(bool &bSegmentRepeated)
 lstring TrackState::GetNextFragmentUriFromPlaylist(bool& reloadUri, bool ignoreDiscontinuity)
 {
 	lstring rc;
+
 	auto p = fragmentURI.getPtr();
 	auto l = playlist.GetLen();
 	size_t offs = p - playlist.GetPtr();
 	if( offs>=l ) return lstring();
 	lstring iter( p, l-offs );
 	lstring ptr = iter.mystrpbrk();
+
 	size_t byteRangeLength = 0; // default, when optional byterange offset is left unspecified
 	size_t byteRangeOffset = 0;
 	bool discontinuity = false;
@@ -1953,6 +1956,7 @@ void TrackState::IndexPlaylist(bool IsRefresh, AampTime &culledSec)
 		mDrmInfo.initData = aamp->GetDrmInitData();
 		mDrmInfo.bDecryptClearSamplesRequired = aamp->isDecryptClearSamplesRequired();
 		AampTime fragDuration{};
+
 		while(!iter.empty())
 		{
 			ptr = iter.mystrpbrk();
@@ -2801,6 +2805,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::SyncTracksForDiscontinuity()
 			AampTime diff{roundedIndexPosition - roundedPlayTarget};
 
 			videoPeriodStartCurrentPeriod = videoDiscontinuity.position;
+
 			DiscontinuityIndexNode &audioDiscontinuity = audio->mDiscontinuityIndex[i];
 			audioPeriodStartCurrentPeriod = audioDiscontinuity.position;
 
@@ -5531,6 +5536,7 @@ DrmReturn TrackState::DrmDecrypt( CachedFragment * cachedFragment, ProfilerBucke
 			{
 				drmReturn = mDrm->Decrypt(bucketTypeFragmentDecrypt, cachedFragment->fragment.GetPtr(),
 										  cachedFragment->fragment.GetLen(), MAX_LICENSE_ACQ_WAIT_TIME);
+
 			}
 		}
 	}

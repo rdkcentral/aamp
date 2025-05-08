@@ -249,6 +249,7 @@ bool IsoBmffProcessor::setTuneTimePTS(AampGrowableBuffer *fragBuffer, double pos
 				}
 			}
 		}
+
 		if (ret && !initSegmentProcessComplete)
 		{
 			if (processPTSComplete)
@@ -574,6 +575,7 @@ void IsoBmffProcessor::restampPTSAndSendSegment(AampGrowableBuffer *pBuffer,doub
 			prevPTS = currentPTS;
 
 			sumPTS +=durationFromFragment;
+
 			AAMPLOG_INFO("IsoBmffProcessor %s fragment restamp complete durationFromFragment = %" PRIu64 " currentPTS = %" PRIu64 ""
 							" restampedPTS = %" PRIu64 " sumPTS = %" PRIu64 " position = %.02lf newPos = %0.2lf", IsoBmffProcessorTypeName[type], durationFromFragment, currentPTS,
 							sumPTS-durationFromFragment, sumPTS, position, newPos);
@@ -866,6 +868,7 @@ bool IsoBmffProcessor::scaleToNewTimeScale(uint64_t pts)
 		}
 		AAMPLOG_WARN("IsoBmffProcessor %s  startPos = %f sumPTS = %" PRIu64 " trackOffsetInSecs = %lf",
 						IsoBmffProcessorTypeName[type], startPos, sumPTS, trackOffsetInSecs);
+
 
 		pushInitSegment(startPos);
 		basePTS = sumPTS;

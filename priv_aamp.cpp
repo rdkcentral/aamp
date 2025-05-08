@@ -514,6 +514,7 @@ void ForceHttpConversionForFog(std::string& url,const std::string& from, const s
 		url.replace(startPos, from.length(), to);
 	}
 }
+
 /**
  * @brief Active streaming interface is wifi
  *
@@ -1356,6 +1357,7 @@ PrivateInstanceAAMP::~PrivateInstanceAAMP()
 			mCurlShared = NULL;
 		}
 	}
+
 	SAFE_DELETE(mEventManager);
 	SAFE_DELETE(mCMCDCollector);
 
@@ -2379,7 +2381,7 @@ void PrivateInstanceAAMP::UpdateCullingState(double culledSecs)
 	// Fix checks if the player is put into paused state with lighting mode(by checking last stored rate).
   	// In this state player will not come out of Paused state, even if the culled position reaches paused position.
 	// The rate check is a special case for a specific player, if this is contradicting to other players, we will have to add a config to enable/disable
-	if( pipeline_paused && mpStreamAbstractionAAMP )
+	if (pipeline_paused && mpStreamAbstractionAAMP && (abs(rate) != AAMP_RATE_TRICKPLAY_MAX))
 	{
 		double position = GetPositionSeconds();
 		double minPlaylistPositionToResume = (position < maxRefreshPlaylistIntervalSecs) ? position : (position - maxRefreshPlaylistIntervalSecs);
@@ -3219,27 +3221,17 @@ void PrivateInstanceAAMP::NotifyEOSReached()
 		In this case it makes sense to exit this function ASAP.
 		A more complete (larger, higher risk, more time consuming, threadsafe) change to scheduling is required in the future.
 		*/
-		// Used TryStreamLock() to avoid crash when mpStreamAbstractionAAMP gets deleted by SetRate b/w checking for
-		// mpStreamAbstractionAAMP not null & IsEOSReached()
-		if( TryStreamLock() )
+		if(!mpStreamAbstractionAAMP)
 		{
-			if(!mpStreamAbstractionAAMP)
-			{
-				AAMPLOG_ERR("null Stream Abstraction AAMP");
-				return;
-			}
-			if (!mpStreamAbstractionAAMP->IsEOSReached())
-			{
-				AAMPLOG_ERR("Bogus EOS event received from GStreamer, discarding it!");
-				return;
-			}
-			ReleaseStreamLock();
-		}
-		else
-		{
-			AAMPLOG_WARN("StreamLock not available");
+			AAMPLOG_ERR("null Stream Abstraction AAMP");
+			return;
 		}
 
+		if (!mpStreamAbstractionAAMP->IsEOSReached())
+		{
+			AAMPLOG_ERR("Bogus EOS event received from GStreamer, discarding it!");
+			return;
+		}
 		if (!isLive && rate > 0)
 		{
 			SetState(eSTATE_COMPLETE);
@@ -5063,6 +5055,7 @@ static int aampApplyThreadPrioFromEnv(const char *env, int defaultPolicy, int de
 void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 {
 	bool newTune;
+
 	aampApplyThreadPrioFromEnv("AAMP_AV_PIPELINE_PRIORITY", SCHED_OTHER, 0);
 	for (int i = 0; i < AAMP_TRACK_COUNT; i++)
 	{
@@ -5501,6 +5494,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 			mFirstVideoFrameDisplayedEnabled = true;
 			mPauseOnFirstVideoFrameDisp = true;
 		}
+
 #ifndef AAMP_STOP_SINK_ON_SEEK
 		if (mMediaFormat == eMEDIAFORMAT_HLS)
 		{
@@ -9110,26 +9104,6 @@ void PrivateInstanceAAMP::SendHTTPHeaderResponse()
 	}
 }
 
-std::vector<float> PrivateInstanceAAMP::getSupportedPlaybackSpeeds(void)
-{
-	std::vector<float> supportedPlaybackSpeeds = { 0,1 };
-	if (mIsIframeTrackPresent)
-	{ //Iframe track present and hence playbackRate change is supported
-		supportedPlaybackSpeeds.push_back(-64);
-		supportedPlaybackSpeeds.push_back(-32);
-		supportedPlaybackSpeeds.push_back(-16);
-		supportedPlaybackSpeeds.push_back(-4);
-		supportedPlaybackSpeeds.push_back(4);
-		supportedPlaybackSpeeds.push_back(16);
-		supportedPlaybackSpeeds.push_back(32);
-		supportedPlaybackSpeeds.push_back(64);
-	}
-	if( ISCONFIGSET_PRIV(eAAMPConfig_EnableSlowMotion) )
-	{
-		supportedPlaybackSpeeds.push_back( 0.5 );
-	}
-	return supportedPlaybackSpeeds;
-}
 /**
  * @brief  Generate media metadata event based on parsed attribute values.
  *
@@ -9138,6 +9112,7 @@ void PrivateInstanceAAMP::SendMediaMetadataEvent(void)
 {
 	std::vector<BitsPerSecond> bitrateList;
 	std::set<std::string> langList;
+	std::vector<float> supportedPlaybackSpeeds { -64, -32, -16, -4, -1, 0, 0.5, 1, 4, 16, 32, 64 };
 	int width  = 1280;
 	int height = 720;
 
@@ -9173,10 +9148,32 @@ void PrivateInstanceAAMP::SendMediaMetadataEvent(void)
 		event->addBitrate(bitrateList[i]);
 	}
 
-	auto supportedSpeeds = getSupportedPlaybackSpeeds();
-	for( auto speed : supportedSpeeds )
+	//Iframe track present and hence playbackRate change is supported
+	if (mIsIframeTrackPresent)
 	{
-		event->addSupportedSpeed(speed);
+		if(!(ISCONFIGSET_PRIV(eAAMPConfig_EnableSlowMotion)))
+		{
+			auto position = std::find(supportedPlaybackSpeeds.begin(), supportedPlaybackSpeeds.end(), 0.5);
+			if(position != supportedPlaybackSpeeds.end())
+			{
+				supportedPlaybackSpeeds.erase(position); //remove 0.5 from supported speeds
+			}
+		}
+
+		for(int i = 0; i < supportedPlaybackSpeeds.size(); i++)
+		{
+			event->addSupportedSpeed(supportedPlaybackSpeeds[i]);
+		}
+	}
+	else
+	{
+		//Supports only pause and play
+		event->addSupportedSpeed(0);
+		if(ISCONFIGSET_PRIV(eAAMPConfig_EnableSlowMotion))
+		{
+			event->addSupportedSpeed(0.5);
+		}
+		event->addSupportedSpeed(1);
 	}
 
 	event->setMediaFormat(mMediaFormatName[mMediaFormat]);
@@ -9191,11 +9188,35 @@ void PrivateInstanceAAMP::SendSupportedSpeedsChangedEvent(bool isIframeTrackPres
 {
 	SupportedSpeedsChangedEventPtr event = std::make_shared<SupportedSpeedsChangedEvent>(GetSessionId());
 	std::vector<float> supportedPlaybackSpeeds { -64, -32, -16, -4, -1, 0, 0.5, 1, 4, 16, 32, 64 };
-	auto supportedSpeeds = getSupportedPlaybackSpeeds();
-	for( auto speed : supportedSpeeds )
+
+	//Iframe track present and hence playbackRate change is supported
+	if (isIframeTrackPresent)
 	{
-		event->addSupportedSpeed(speed);
+		if(!(ISCONFIGSET_PRIV(eAAMPConfig_EnableSlowMotion)))
+		{
+			auto position = std::find(supportedPlaybackSpeeds.begin(), supportedPlaybackSpeeds.end(), 0.5);
+			if(position != supportedPlaybackSpeeds.end())
+			{
+				supportedPlaybackSpeeds.erase(position); //remove 0.5 from supported speeds
+			}
+		}
+
+		for(int i = 0; i < supportedPlaybackSpeeds.size(); i++)
+		{
+			event->addSupportedSpeed(supportedPlaybackSpeeds[i]);;
+		}
 	}
+	else
+	{
+		//Supports only pause and play
+		event->addSupportedSpeed(0);
+		if(ISCONFIGSET_PRIV(eAAMPConfig_EnableSlowMotion))
+		{
+			event->addSupportedSpeed(0.5);
+		}
+		event->addSupportedSpeed(1);
+	}
+
 	AAMPLOG_WARN("aamp: sending supported speeds changed event with count %d", event->getSupportedSpeedCount());
 	SendEvent(event,AAMP_EVENT_ASYNC_MODE);
 }

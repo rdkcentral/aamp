@@ -176,6 +176,7 @@ struct ConfigLookupEntryString
 };
 
 
+
 #ifdef GST_SUBTEC_ENABLED
 #define DEFAULT_VALUE_GST_SUBTEC_ENABLED true
 #else
@@ -2093,4 +2094,5 @@ void AampConfig::ShowConfiguration(ConfigPriority owner)
 	}
 
 }
+
 

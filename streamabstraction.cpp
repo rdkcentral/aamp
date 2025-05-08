@@ -392,6 +392,7 @@ void MediaTrack::UpdateTSAfterChunkInject()
 
 	parsedBufferChunk.Free();
 	//memset(&parsedBufferChunk, 0x00, sizeof(AampGrowableBuffer));
+
 	//increment Inject Index
 	++fragmentChunkIdxToInject;
 	fragmentChunkIdxToInject = (fragmentChunkIdxToInject) % mCachedFragmentChunksSize;
@@ -740,6 +741,7 @@ void MediaTrack::AbortWaitForCachedAndFreeFragment(bool immediate)
 	aamp->waitforplaystart.notify_one();
 	fragmentFetched.notify_one();
 	lock.unlock();
+
 	GetContext()?GetContext()->AbortWaitForDiscontinuity(): void();
 }
 
@@ -1799,6 +1801,7 @@ void MediaTrack::FlushFetchedFragments()
 		AAMPLOG_DEBUG("[%s] Free cachedFragment[%d] numberOfFragmentsCached %d", name, fragmentIdxToInject, numberOfFragmentsCached);
 		mCachedFragment[fragmentIdxToInject].fragment.Free();
 		memset(&mCachedFragment[fragmentIdxToInject], 0, sizeof(CachedFragment));
+
 		fragmentIdxToInject++;
 		if (fragmentIdxToInject == maxCachedFragmentsPerTrack)
 		{

@@ -126,14 +126,11 @@ bool AampCacheHandler::RetrieveFromInitFragmentCache(const std::string &url, Aam
 	AampCachedData *cachedData = mInitFragmentCache.Find(url);
 	if( cachedData )
 	{
-		std::shared_ptr<AampGrowableBuffer> buf = cachedData->buffer;
-		if (cachedData->effectiveUrl.empty())
+		AampGrowableBuffer * buf = cachedData->buffer;
+		effectiveUrl = cachedData->effectiveUrl;
+		if( effectiveUrl.empty() )
 		{
 			effectiveUrl = url;
-		}
-		else
-		{
-			effectiveUrl = cachedData->effectiveUrl;
 		}
 		buffer->Clear();
 		buffer->AppendBytes( buf->GetPtr(), buf->GetLen() );

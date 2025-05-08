@@ -1117,7 +1117,6 @@ protected:
 	double mEndPosition;
 	bool mIsLiveStream;    	    	   /**< Stream is live or not; won't change during runtime. */
 	bool mIsLiveManifest;   	   /**< Current manifest is dynamic or static; may change during runtime. eg: Hot DVR. */
-	bool mUpdateManifestState;
 	StreamInfo* mStreamInfo;
 	bool mUpdateStreamInfo;		   /**< Indicates mStreamInfo needs to be updated */
 	double mPrevStartTimeSeconds;
@@ -1145,6 +1144,7 @@ protected:
 	// that Adaptation Set. Hence we need a mapping from a profile to
 	// corresponding Adaptation Set and Representation Index
 	std::map<int, struct ProfileInfo> mProfileMaps;
+
 	bool mIsFogTSB;
 	IPeriod *mCurrentPeriod;
 	std::string mBasePeriodId;
@@ -1201,6 +1201,7 @@ protected:
 	 * @fn IndexNewMPDDocument
 	 */
 	AAMPStatusType IndexNewMPDDocument(bool updateTrackInfo = true);
+
 	/**
 	 * @fn CreateDrmHelper
 	 * @param adaptationSet Adaptation set object

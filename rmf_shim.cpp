@@ -169,7 +169,7 @@ int StreamAbstractionAAMP_RMF::GetAudioTrack()
 		{
 			if (it->index == mAudioTrackIndex)
 			{
-				index = (int)std::distance(mAudioTracks.begin(), it);
+				index = std::distance(mAudioTracks.begin(), it);
 			}
 		}
 	}
@@ -181,6 +181,7 @@ int StreamAbstractionAAMP_RMF::GetAudioTrack()
  */
 bool StreamAbstractionAAMP_RMF::GetCurrentAudioTrack(AudioTrackInfo &audioTrack)
 {
+	int index = -1;
 	bool bFound = false;
 	if (mAudioTrackIndex.empty())
 		GetAudioTracks();
@@ -204,10 +205,23 @@ bool StreamAbstractionAAMP_RMF::GetCurrentAudioTrack(AudioTrackInfo &audioTrack)
  */
 void StreamAbstractionAAMP_RMF::SetPreferredAudioLanguages()
 {
+	bool modifiedLang = false;
+	bool modifiedRend = false;
+
 	PlayerPreferredAudioData data;
 	data.preferredLanguagesString = aamp->preferredLanguagesString;
 	data.pluginPreferredLanguagesString = gRMFSettings.preferredLanguages;
 	thunderAccessObj.SetPreferredAudioLanguages(data, PlayerThunderAccessShim::RMF_SHIM);
+
+	if((0 != aamp->preferredLanguagesString.length()) && (aamp->preferredLanguagesString != gRMFSettings.preferredLanguages)){
+		modifiedLang = true;
+	}
+	if(modifiedLang || modifiedRend)
+	{
+		bool rpcResult = false;
+		//TODO: Pass preferred audio language to MediaEngineRMF. Not currently supported.
+
+	}
 }
 
 /**
@@ -227,7 +241,7 @@ void StreamAbstractionAAMP_RMF::SetAudioTrackByLanguage(const char* lang)
 		{
 			if(0 == strcmp(lang, itr->language.c_str()))
 			{
-				index = (int)std::distance(mAudioTracks.begin(), itr);
+				index = std::distance(mAudioTracks.begin(), itr);
 				break;
 			}
 		}

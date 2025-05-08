@@ -273,12 +273,14 @@ public:
 	* @param[in] offset offset value in seconds
 	*/
 	void setTrackOffset(double offset) override { trackOffsetInSecs = offset; }
+
 	/**
 	 * @brief Set peer subtitle instance of IsoBmffProcessor
 	 *
 	 * @param[in] processor - peer instance
 	 */
 	void setPeerSubtitleProcessor(IsoBmffProcessor *processor);
+
 	/**
 	* @brief Function to add peer listener to a media processor
 	* These listeners will be notified when the basePTS processing is complete
@@ -412,6 +414,7 @@ private:
 	 * @return true if init push is success, false otherwise
 	 */
 	bool continueInjectionInSameTimeScale(uint64_t pts);
+
 	/**
 	 * @fn waitForVideoPTS
 	 *
@@ -513,6 +516,7 @@ private:
 	std::mutex initSegmentTransferMutex;
 	std::mutex skipMutex;
 	skipTypeMap skipPointMap;
+
 	std::mutex m_mutex;
 	std::condition_variable m_cond;
 };

@@ -198,7 +198,7 @@ play
 > Examples:
 ```
 path ../../test/VideoTestStream
-path https://example.com/VideoTestStream
+path https://cpetestutility.stb.r53.xcal.tv/VideoTestStream
 path http://localhost:8080
 path file:///home/user/aamp/test/VideoTestStream
 ```

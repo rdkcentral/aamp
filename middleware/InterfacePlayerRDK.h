@@ -378,6 +378,7 @@ public:
 
 	InterfacePlayerRDK();
 	~InterfacePlayerRDK();
+
 	/**
 	 * @brief Idle callback for the first frame.
 	 *
@@ -451,6 +452,7 @@ public:
 	{
 		OnBuffering_timeoutCb = callback;
 	}
+
 	/*
 	 *@brief register HandleOnGstPtsErrorCb
 	 */

@@ -739,6 +739,7 @@ public:
 	 * @param[in] enable - Flag to set whether enabled
 	 */
 	virtual void SetPauseOnStartPlayback(bool enable) {};
+
 	/**
  	* @brief Notifies the injector to resume buffer pushing.
  	*/
@@ -1294,6 +1295,7 @@ public:
 	 */
 	int GetId(void);
 	void SetId( int iPlayerId );
+
 
 	/**
 	 *   @fn GetState
@@ -2125,6 +2127,13 @@ public:
 	void updateManifest(const char *manifestData);
 
 protected:
+	/**
+	 *   @fn IsValidRate
+	 *
+	 *   @param[in]  rate - Rate of playback.
+	 *   @retval return true if the given rate is valid.
+	 */
+	bool IsValidRate(int rate);
 		/**
 		 *   @fn TuneInternal
 		 *

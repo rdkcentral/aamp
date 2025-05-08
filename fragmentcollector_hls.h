@@ -991,6 +991,7 @@ class StreamAbstractionAAMP_HLS : public StreamAbstractionAAMP
 		 ****************************************************************************/
 		void ChangeMuxedAudioTrackIndex(std::string& index) override;
 
+
 		/***************************************************************************
 		 * @brief  Function to get output format for audio/aux track
 		 *

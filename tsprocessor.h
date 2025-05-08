@@ -75,6 +75,7 @@ typedef enum
 	eStreamOp_DEMUX_ALL, 		/**< Demux and inject audio and video*/
 	eStreamOp_DEMUX_AUX, 		/**< Demux and inject auxiliary audio only*/
 	eStreamOp_DEMUX_VIDEO_AND_AUX	/**< Demux and inject auxiliary audio and video*/
+
 } StreamOperation;
 
 /**

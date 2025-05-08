@@ -212,6 +212,7 @@ protected:
      * @return void
      */
     void GetAudioTracks();
+
     /**
      * @fn NotifyAudioTrackChange
      *

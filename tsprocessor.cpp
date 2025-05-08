@@ -1076,6 +1076,7 @@ bool TSProcessor::processBuffer(unsigned char *buffer, int size, bool &insPatPmt
 						int version = packet[payloadOffset + 6];
 						int current = (version & 0x01);
 						version = ((version >> 1) & 0x1F);
+
 						AAMPLOG_TRACE("PAT current version %d existing version %d", version, m_versionPAT);
 						if (!m_havePAT || (current && (version != m_versionPAT)))
 						{
@@ -1840,6 +1841,7 @@ bool TSProcessor::sendSegment(AampGrowableBuffer* pBuffer, double position, doub
 		{
 			AAMPLOG_TRACE("change play mode");
 			m_playMode = m_playModeNext;
+
 			m_playRate = m_playRateNext;
 			m_absPlayRate = fabs(m_playRate);
 			AAMPLOG_INFO("playback changed to rate %f mode %d", m_playRate, m_playMode);
