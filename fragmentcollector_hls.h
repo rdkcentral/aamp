@@ -49,7 +49,7 @@
 #include <deque>
 #include <tuple>
 #include "lstring.hpp"
-
+#include "DrmInterface.h"
 #define FOG_FRAG_BW_IDENTIFIER "bandwidth-"
 #define FOG_FRAG_BW_IDENTIFIER_LEN 10
 #define FOG_FRAG_BW_DELIMITER "-"
@@ -540,6 +540,7 @@ class TrackState : public MediaTrack
 		 *
 		 * @param[in] cachedFragment CachedFragment structure
 		 * @param[out] fragmentDiscarded bool to indicate fragment successfully injected
+		 * @param[in] isDiscontinuity bool to indicate if discontinuity
 		 * @return void
 		 ***************************************************************************/
 		void InjectFragmentInternal(CachedFragment* cachedFragment, bool &fragmentDiscarded,bool isDiscontinuity=false)override;
@@ -649,6 +650,7 @@ class TrackState : public MediaTrack
 		int manifestDLFailCount;		/**< Manifest Download fail count for retry*/
 		bool firstIndexDone;					/**< Indicates if first indexing is done*/
 		std::shared_ptr<HlsDrmBase> mDrm;		/**< DRM decrypt context*/
+		std::shared_ptr<DrmInterface> mDrmInterface;		/**< Interface bw drm and application */
 		bool mDrmLicenseRequestPending;			/**< Indicates if DRM License Request is Pending*/
 		bool mInjectInitFragment;				/**< Indicates if init fragment injection is required*/
 		lstring mInitFragmentInfo;			/**< Holds init fragment Information index*/
@@ -669,6 +671,8 @@ class TrackState : public MediaTrack
 		AampTime mCulledSecondsAtStart;		/**< Total culled duration with this asset prior to streamer instantiation*/
 		bool mSkipSegmentOnError;		/**< Flag used to enable segment skip on fetch error */
 		AampMediaType playlistMediaType;		/**< Media type of playlist of this track */
+public:
+		StreamOperation demuxOp; /** denotes whether a given (hls/ts) track is muxed */
 };
 
 class PrivateInstanceAAMP;
@@ -908,6 +912,7 @@ class StreamAbstractionAAMP_HLS : public StreamAbstractionAAMP
 		bool mStartTimestampZero;			/**< Flag indicating if timestamp to start is zero or not (No audio stream) */
 		int mNumberOfTracks;				/**< Number of media tracks.*/
 		std::mutex mDiscoCheckMutex;               	/**< protect playlist discontinuity check */
+		DrmInterface mDrmInterface;
 
 		/***************************************************************************
 		 * @fn ParseMainManifest
@@ -985,7 +990,6 @@ class StreamAbstractionAAMP_HLS : public StreamAbstractionAAMP
 		 *	 @return void
 		 ****************************************************************************/
 		void ChangeMuxedAudioTrackIndex(std::string& index) override;
-                
 
 		/***************************************************************************
 		 * @brief  Function to get output format for audio/aux track
@@ -1021,6 +1025,12 @@ class StreamAbstractionAAMP_HLS : public StreamAbstractionAAMP
 		 * @return void
 		 ***************************************************************************/
 		void ConfigureAudioTrack();
+		/***************************************************************************
+                 * @fn SelectPreferredTextTrack
+                 * @param selectedTextTrack Current PreferredTextTrack Info
+                 * @return bool
+                 ***************************************************************************/
+		bool SelectPreferredTextTrack(TextTrackInfo& selectedTextTrack) override;
 
 	protected:
 		/***************************************************************************
@@ -1087,7 +1097,7 @@ class StreamAbstractionAAMP_HLS : public StreamAbstractionAAMP
 
 		std::mutex mMP_mutex;  // protects mMetadataProcessor
  		std::unique_ptr<aamp::MetadataProcessorIntf> mMetadataProcessor;
-
+             
 };
 
 #endif // FRAGMENTCOLLECTOR_HLS_H

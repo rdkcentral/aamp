@@ -84,6 +84,7 @@ private:
 	void HandleCommandBPS( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp );
 	void HandleCommandTuneData( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp);
 	void HandleAdTesting();
+	void HandleCommandBatch();
 };
 
 #endif // AAMPCLIPLAYBACKCOMMAND_H

@@ -30,29 +30,13 @@
 #include <signal.h>
 #include <assert.h>
 
-#ifdef USE_CPP_THUNDER_PLUGIN_ACCESS
-#include <core/core.h>
-#include <websocket/websocket.h>
-
 using namespace std;
-using namespace WPEFramework;
 
-#define RMF_PLUGIN_CALLSIGN "org.rdk.MediaEngineRMF.1"
 #define APP_ID "MainPlayer"
-
-#define RDKSHELL_CALLSIGN "org.rdk.RDKShell.1"
 
 RMFGlobalSettings gRMFSettings;
 
-void StreamAbstractionAAMP_RMF::onPlayerStatusHandler(const JsonObject& parameters) {
-	std::string message;
-	parameters.ToString(message);
-
-	JsonObject playerData = parameters[APP_ID].Object();
-	AAMPLOG_WARN( "[RMF_SHIM]Received event : message : %s ",  message.c_str());
-
-
-	std::string title = parameters["title"].String();
+void StreamAbstractionAAMP_RMF::onPlayerStatusHandler(std::string title) {
 
 	if(0 == title.compare("report first video frame"))
 	{
@@ -66,13 +50,8 @@ void StreamAbstractionAAMP_RMF::onPlayerStatusHandler(const JsonObject& paramete
 	}
 }
 
-void StreamAbstractionAAMP_RMF::onPlayerErrorHandler(const JsonObject& parameters) {
-	std::string message;
-	parameters.ToString(message);
-
-	AAMPLOG_WARN( "[RMF_SHIM]Received error : message : %s ",  message.c_str());
-
-	std::string error_message = parameters["source"].String() + ": " + parameters["title"].String() + "- " + parameters["message"].String();
+void StreamAbstractionAAMP_RMF::onPlayerErrorHandler(std::string error_message) {
+	
 	aamp->SendAnomalyEvent(ANOMALY_WARNING, error_message.c_str());
 	aamp->SetState(eSTATE_ERROR);
 }
@@ -90,13 +69,9 @@ AAMPStatusType StreamAbstractionAAMP_RMF::Init(TuneType tuneType)
 
 	aamp->SetContentType("RMF");
 
-	thunderAccessObj.ActivatePlugin();
-	JsonObject param;
-	JsonObject result;
-	param["source_type"] = "qam";
-	if(false == thunderAccessObj.InvokeJSONRPC("initialize", param, result)) //Note: do not terminate unless we're desperate for resources. deinit is sluggish.
+	if(false == thunderAccessObj.InitRmf()) //Note: do not terminate unless we're desperate for resources. deinit is sluggish.
 	{
-		AAMPLOG_ERR("Failed to initialize %s plugin", RMF_PLUGIN_CALLSIGN);
+		AAMPLOG_ERR("Failed to initialize RMF plugin");
 		retval = eAAMPSTATUS_GENERIC_ERROR;
 	}
 	return retval;
@@ -108,8 +83,7 @@ AAMPStatusType StreamAbstractionAAMP_RMF::Init(TuneType tuneType)
 StreamAbstractionAAMP_RMF::StreamAbstractionAAMP_RMF(class PrivateInstanceAAMP *aamp,double seek_pos, float rate)
 	: StreamAbstractionAAMP(aamp)
 	  , tuned(false),
-	  thunderAccessObj(RMF_PLUGIN_CALLSIGN),
-	  thunderRDKShellObj(RDKSHELL_CALLSIGN)
+	  thunderAccessObj(PlayerThunderAccessPlugin::RMF)
 { // STUB
 }
 
@@ -129,26 +103,13 @@ void StreamAbstractionAAMP_RMF::Start(void)
 	std::string url = aamp->GetManifestUrl();
 
 	AAMPLOG_INFO( "[RMF_SHIM] url : %s ", url.c_str());
-	JsonObject result;
 
 	//SetPreferredAudioLanguages(); //TODO
 
-	std::function<void(const WPEFramework::Core::JSON::VariantContainer&)> eventHandler = std::bind(&StreamAbstractionAAMP_RMF::onPlayerStatusHandler, this, std::placeholders::_1);
-	std::function<void(const WPEFramework::Core::JSON::VariantContainer&)> errorHandler = std::bind(&StreamAbstractionAAMP_RMF::onPlayerErrorHandler, this, std::placeholders::_1);
+	std::function<void(std::string)> eventHandler = std::bind(&StreamAbstractionAAMP_RMF::onPlayerStatusHandler, this, std::placeholders::_1);
+	std::function<void(std::string)> errorHandler = std::bind(&StreamAbstractionAAMP_RMF::onPlayerErrorHandler, this, std::placeholders::_1);
 
-	if(true != thunderAccessObj.SubscribeEvent(_T("onStatusChanged"), eventHandler))
-	{
-		AAMPLOG_ERR("Failed to register for onStatusChanged notification from RMF plugin");
-	}
-	if(true != thunderAccessObj.SubscribeEvent(_T("onError"), errorHandler))
-	{
-		AAMPLOG_ERR("Failed to register for onError notification from RMF plugin");
-	}
-
-	JsonObject playParam;
-	playParam["source_type"] = "qam";
-	playParam["identifier"] = url;
-	if(true != thunderAccessObj.InvokeJSONRPC("play", playParam, result))
+	if(!thunderAccessObj.StartRmf(url, eventHandler, errorHandler))
 	{
 		AAMPLOG_ERR("Failed to play RMF URL %s", url.c_str());
 	}
@@ -166,31 +127,8 @@ void StreamAbstractionAAMP_RMF::Stop(bool clearChannelData)
 	if(!clearChannelData)
 		return;
 
-	JsonObject param;
-	JsonObject result;;
-	if(true != thunderAccessObj.InvokeJSONRPC("stop", param, result))
-	{
-		AAMPLOG_ERR("Failed to stop RMF playback. URL: %s", aamp->GetManifestUrl().c_str());
-	}
-	thunderAccessObj.UnSubscribeEvent(_T("onStatusChanged"));
-	thunderAccessObj.UnSubscribeEvent(_T("onError"));
+	thunderAccessObj.StopRmf();
 	aamp->SetState(eSTATE_STOPPED);
-}
-
-bool StreamAbstractionAAMP_RMF::GetScreenResolution(int & screenWidth, int & screenHeight)
-{
-	JsonObject param;
-	JsonObject result;
-	bool bRetVal = false;
-
-	if( thunderRDKShellObj.InvokeJSONRPC("getScreenResolution", param, result) )
-	{
-		screenWidth = result["w"].Number();
-		screenHeight = result["h"].Number();
-		AAMPLOG_INFO( "StreamAbstractionAAMP_RMF: screenWidth:%d screenHeight:%d", screenWidth, screenHeight);
-		bRetVal = true;
-	}
-	return bRetVal;
 }
 
 /**
@@ -198,17 +136,8 @@ bool StreamAbstractionAAMP_RMF::GetScreenResolution(int & screenWidth, int & scr
  */
 void StreamAbstractionAAMP_RMF::SetVideoRectangle(int x, int y, int w, int h)
 {
-	JsonObject param;
-	JsonObject videoRect;
-	JsonObject result;
-	videoRect["x"] = x;
-	videoRect["y"] = y;
-	videoRect["width"] = w;
-	videoRect["height"] = h;
-
-	param["video_rectangle"] = videoRect;
-
-	if(true != thunderAccessObj.InvokeJSONRPC("setVideoRectangle", param, result))
+	std::string videoInputType = "";
+	if(true != thunderAccessObj.SetVideoRectangle(x, y, w, h, videoInputType, PlayerThunderAccessShim::RMF_SHIM))
 	{
 		AAMPLOG_ERR("Failed to set video rectangle for URL: %s", aamp->GetManifestUrl().c_str());
 	}
@@ -240,7 +169,7 @@ int StreamAbstractionAAMP_RMF::GetAudioTrack()
 		{
 			if (it->index == mAudioTrackIndex)
 			{
-				index = std::distance(mAudioTracks.begin(), it);
+				index = (int)std::distance(mAudioTracks.begin(), it);
 			}
 		}
 	}
@@ -252,7 +181,6 @@ int StreamAbstractionAAMP_RMF::GetAudioTrack()
  */
 bool StreamAbstractionAAMP_RMF::GetCurrentAudioTrack(AudioTrackInfo &audioTrack)
 {
-	int index = -1;
 	bool bFound = false;
 	if (mAudioTrackIndex.empty())
 		GetAudioTracks();
@@ -276,24 +204,10 @@ bool StreamAbstractionAAMP_RMF::GetCurrentAudioTrack(AudioTrackInfo &audioTrack)
  */
 void StreamAbstractionAAMP_RMF::SetPreferredAudioLanguages()
 {
-	JsonObject properties;
-	bool modifiedLang = false;
-	bool modifiedRend = false;
-
-	if((0 != aamp->preferredLanguagesString.length()) && (aamp->preferredLanguagesString != gRMFSettings.preferredLanguages)){
-		properties["preferredAudioLanguage"] = aamp->preferredLanguagesString.c_str();
-		modifiedLang = true;
-	}
-	if(modifiedLang || modifiedRend)
-	{
-		bool rpcResult = false;
-		JsonObject result;
-		JsonObject param;
-
-		param["properties"] = properties;
-		//TODO: Pass preferred audio language to MediaEngineRMF. Not currently supported.
-
-	}
+	PlayerPreferredAudioData data;
+	data.preferredLanguagesString = aamp->preferredLanguagesString;
+	data.pluginPreferredLanguagesString = gRMFSettings.preferredLanguages;
+	thunderAccessObj.SetPreferredAudioLanguages(data, PlayerThunderAccessShim::RMF_SHIM);
 }
 
 /**
@@ -301,9 +215,6 @@ void StreamAbstractionAAMP_RMF::SetPreferredAudioLanguages()
  */
 void StreamAbstractionAAMP_RMF::SetAudioTrackByLanguage(const char* lang)
 {
-	JsonObject param;
-	JsonObject result;
-	JsonObject properties;
 	int index = -1;
 
 	if(NULL != lang)
@@ -316,7 +227,7 @@ void StreamAbstractionAAMP_RMF::SetAudioTrackByLanguage(const char* lang)
 		{
 			if(0 == strcmp(lang, itr->language.c_str()))
 			{
-				index = std::distance(mAudioTracks.begin(), itr);
+				index = (int)std::distance(mAudioTracks.begin(), itr);
 				break;
 			}
 		}
@@ -441,5 +352,3 @@ double StreamAbstractionAAMP_RMF::GetStartTimeOfFirstPTS()
 	return 0.0;
 }
 
-
-#endif //USE_CPP_THUNDER_PLUGIN_ACCESS

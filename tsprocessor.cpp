@@ -162,8 +162,7 @@ static StreamOutputFormat getStreamFormatForCodecType(int streamType)
 /**
  * @brief TSProcessor Constructor
  */
-TSProcessor::TSProcessor(class PrivateInstanceAAMP *aamp,StreamOperation streamOperation, id3_callback_t id3_hdl,
-	int track, TSProcessor* peerTSProcessor, TSProcessor* auxTSProcessor)
+TSProcessor::TSProcessor(class PrivateInstanceAAMP *aamp,StreamOperation streamOperation, id3_callback_t id3_hdl, int track, TSProcessor* peerTSProcessor, TSProcessor* auxTSProcessor)
 	: m_needDiscontinuity(true),
 	m_PatPmtLen(0), m_PatPmt(0), m_PatPmtTrickLen(0), m_PatPmtTrick(0), m_PatPmtPcrLen(0), m_PatPmtPcr(0),
 	m_nullPFrame(0), m_nullPFrameLength(0), m_nullPFrameNextCount(0), m_nullPFrameOffset(0),
@@ -199,6 +198,12 @@ TSProcessor::TSProcessor(class PrivateInstanceAAMP *aamp,StreamOperation streamO
 	,m_applyOffset(true)
 {
 	AAMPLOG_INFO(" constructor: %p", this);
+	bool optimizeMuxed = false;
+
+	if( aamp && ISCONFIGSET(eAAMPConfig_HlsTsEnablePTSReStamp))
+	{
+		optimizeMuxed = (m_streamOperation == eStreamOp_DEMUX_ALL);
+	}
 
 	memset(m_SPS, 0, 32 * sizeof(H264SPS));
 	memset(m_PPS, 0, 256 * sizeof(H264PPS));
@@ -206,21 +211,21 @@ TSProcessor::TSProcessor(class PrivateInstanceAAMP *aamp,StreamOperation streamO
 
 	if ((m_streamOperation == eStreamOp_DEMUX_ALL) || (m_streamOperation == eStreamOp_DEMUX_VIDEO) || (m_streamOperation == eStreamOp_DEMUX_VIDEO_AND_AUX))
 	{
-		m_vidDemuxer = new Demuxer(aamp, eMEDIATYPE_VIDEO);
+		m_vidDemuxer = new Demuxer(aamp, eMEDIATYPE_VIDEO, optimizeMuxed );
 		//demux DSM CC stream only together with video stream
-		m_dsmccDemuxer = new Demuxer(aamp, eMEDIATYPE_DSM_CC);
+		m_dsmccDemuxer = new Demuxer(aamp, eMEDIATYPE_DSM_CC, optimizeMuxed );
 		m_demux = true;
 	}
 
 	if ((m_streamOperation == eStreamOp_DEMUX_ALL) || (m_streamOperation == eStreamOp_DEMUX_AUDIO))
 	{
-		m_audDemuxer = new Demuxer(aamp, eMEDIATYPE_AUDIO);
+		m_audDemuxer = new Demuxer(aamp, eMEDIATYPE_AUDIO, optimizeMuxed);
 		m_demux = true;
 	}
 	else if ((m_streamOperation == eStreamOp_DEMUX_AUX) || m_streamOperation == eStreamOp_DEMUX_VIDEO_AND_AUX)
 	{
 		m_auxiliaryAudio = true;
-		m_audDemuxer = new Demuxer(aamp, eMEDIATYPE_AUX_AUDIO);
+		m_audDemuxer = new Demuxer(aamp, eMEDIATYPE_AUX_AUDIO, optimizeMuxed);
 		// Map auxiliary specific streamOperation back to generic streamOperation used by TSProcessor
 		if (m_streamOperation == eStreamOp_DEMUX_AUX)
 		{
@@ -632,7 +637,7 @@ void TSProcessor::processPMTSection(unsigned char* section, int sectionLength)
 			{
 				// Audio demuxer found, select audio by preference
 				int trackIndex = SelectAudioIndexToPlay();
-				if(trackIndex != -1 && trackIndex < audioComponentCount)
+				if(trackIndex != -1 && trackIndex < audioComponentCount && aamp && aamp->mpStreamAbstractionAAMP)
 				{
 					AAMPLOG_INFO("Selected best track audio#%d with per preference", trackIndex);
 					m_AudioTrackIndexToPlay = trackIndex;
@@ -1017,8 +1022,9 @@ bool TSProcessor::processBuffer(unsigned char *buffer, int size, bool &insPatPmt
 		assert(false);
 	}
 
-	if (discontinuity_pending)
+	if ( discontinuity_pending || ((m_streamOperation == eStreamOp_DEMUX_ALL) && (ISCONFIGSET(eAAMPConfig_HlsTsEnablePTSReStamp))) )
 	{
+		// HACK - PAT/PMT can change across HLS discontinuity with PTS Restamp enabled ; without this, our test asset ends up losing audio during 2nd period
 		AAMPLOG_INFO(" Discontinuity pending, resetting m_havePAT & m_havePMT");
 
 		std::lock_guard<std::mutex> guard(m_mutex);
@@ -1070,7 +1076,6 @@ bool TSProcessor::processBuffer(unsigned char *buffer, int size, bool &insPatPmt
 						int version = packet[payloadOffset + 6];
 						int current = (version & 0x01);
 						version = ((version >> 1) & 0x1F);
-						
 						AAMPLOG_TRACE("PAT current version %d existing version %d", version, m_versionPAT);
 						if (!m_havePAT || (current && (version != m_versionPAT)))
 						{
@@ -1099,11 +1104,11 @@ bool TSProcessor::processBuffer(unsigned char *buffer, int size, bool &insPatPmt
 									do {
 										m_program = ((packet[patTableIndex + 0] << 8) + packet[patTableIndex + 1]);
 										m_pmtPid = (((packet[patTableIndex + 2] & 0x1F) << 8) + packet[patTableIndex + 3]);
-										
+
 										patTableIndex += PAT_TABLE_ENTRY_SIZE;
 										// Find first program number not 0 or until end of PAT
 									} while (m_program == 0 && patTableIndex < patTableEndIndex);
-									
+
 									if ((m_program != 0) && (m_pmtPid != 0))
 									{
 										if (length > PAT_SPTS_SIZE)
@@ -1451,6 +1456,12 @@ bool TSProcessor::demuxAndSend(const void *ptr, size_t len, double position, dou
 	bool notifyPeerBasePTS = false;
 	bool ret = true;
 	bool basePtsUpdatedFromCurrentSegment = false;
+	bool optimizeMuxed = false;
+
+	if( aamp && ISCONFIGSET(eAAMPConfig_HlsTsEnablePTSReStamp))
+	{
+		optimizeMuxed = (m_streamOperation == eStreamOp_DEMUX_ALL);
+	}
 
 	if (m_vidDemuxer && ((trackToDemux == ePC_Track_Both) || (trackToDemux == ePC_Track_Video)))
 	{
@@ -1469,9 +1480,9 @@ bool TSProcessor::demuxAndSend(const void *ptr, size_t len, double position, dou
 				AAMPLOG_INFO("TSProcessor:%p discontinuous buffer- flushing video demux", this);
 			}
 			m_vidDemuxer->flush();
-			m_vidDemuxer->init(position, duration, isTrickMode, true);
+			m_vidDemuxer->init(position, duration, isTrickMode, true, optimizeMuxed );
 			m_dsmccDemuxer->flush();
-			m_dsmccDemuxer->init(position, duration, isTrickMode, true);
+			m_dsmccDemuxer->init(position, duration, isTrickMode, true, optimizeMuxed);
 		}
 	}
 	if (m_audDemuxer && ((trackToDemux == ePC_Track_Both) || (trackToDemux == ePC_Track_Audio)))
@@ -1487,7 +1498,7 @@ bool TSProcessor::demuxAndSend(const void *ptr, size_t len, double position, dou
 				AAMPLOG_INFO("TSProcessor:%p discontinuous buffer- flushing audio demux", this);
 			}
 			m_audDemuxer->flush();
-			m_audDemuxer->init(position, duration, isTrickMode, (eStreamOp_DEMUX_AUDIO != m_streamOperation));
+			m_audDemuxer->init(position, duration, isTrickMode, (eStreamOp_DEMUX_AUDIO != m_streamOperation), optimizeMuxed );
 		}
 	}
 
@@ -1763,19 +1774,52 @@ void TSProcessor::setBasePTS(double position, long long pts)
 	AAMPLOG_INFO("pts = %lld", pts);
 	if (m_audDemuxer)
 	{
+		bool optimizeMuxed = false;
 		m_audDemuxer->flush();
-		m_audDemuxer->init(position, 0, false, true);
+		m_audDemuxer->init(position, 0, false, true, optimizeMuxed);
 		m_audDemuxer->setBasePTS(pts, true);
 		m_demuxInitialized = true;
 	}
 	m_basePTSCond.notify_one();
 }
 
+#include "test/gstTestHarness/tsdemux.hpp"
+
+/**
+ * @brief given TS media segment (not yet injected), extract and report first PTS
+ */
+double TSProcessor::getFirstPts( AampGrowableBuffer* pBuffer )
+{
+	double firstPts = 0.0;
+	auto tsDemux = new TsDemux( eMEDIATYPE_VIDEO, pBuffer->GetPtr(), pBuffer->GetLen(), true );
+	if( tsDemux )
+	{
+		firstPts = tsDemux->getPts(0);
+		delete tsDemux;
+	}
+	return firstPts;
+}
+
+/**
+ * @brief optionally specify new pts offset to apply for subsequently injected TS media segments
+ */
+void TSProcessor::setPtsOffset( double ptsOffset )
+{
+	if( m_vidDemuxer )
+	{
+		m_vidDemuxer->setPtsOffset( ptsOffset );
+	}
+	if( m_audDemuxer )
+	{
+		m_audDemuxer->setPtsOffset( ptsOffset );
+	}
+}
+
 /**
  * @brief Does configured operation on the segment and injects data to sink
  *        Process and send media fragment
  */
-bool TSProcessor::sendSegment(AampGrowableBuffer* pBuffer, double position, double duration, bool discontinuous,
+bool TSProcessor::sendSegment(AampGrowableBuffer* pBuffer, double position, double duration, double fragmentPTSoffset, bool discontinuous,
 								bool isInit, process_fcn_t processor, bool &ptsError)
 {
 	bool insPatPmt = false;  //CID:84507 - Initialization
@@ -1796,7 +1840,6 @@ bool TSProcessor::sendSegment(AampGrowableBuffer* pBuffer, double position, doub
 		{
 			AAMPLOG_TRACE("change play mode");
 			m_playMode = m_playModeNext;
-			
 			m_playRate = m_playRateNext;
 			m_absPlayRate = fabs(m_playRate);
 			AAMPLOG_INFO("playback changed to rate %f mode %d", m_playRate, m_playMode);
@@ -3987,4 +4030,3 @@ void TSProcessor::SetAudioGroupId(std::string& id)
 		m_audioGroupId = id;
 	}
 }
-

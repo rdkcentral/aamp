@@ -31,7 +31,6 @@ CommandHandler::CommandHandler()
 	mCommandMap = {
 		{"set", &mSet},
 		{"get", &mGet},
-		{"smoketest", &mSmokeTest},
 		{"default", &mPlaybackCommand}
 	};
 }

@@ -13,7 +13,6 @@
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
  * See the License for the specfaific language governing permissions and
  * limitations under the License.
  */
@@ -1433,7 +1432,10 @@ public:
 					if( segmentCount==1 )
 					{
 						auto d = representation.data.duration[0]/representation.data.timescale;
-						segmentCount = period.duration/d;
+						if( d>0 )
+						{ // avoids division by zero and ambiguity with SegmentTimeline having 1 segment
+							segmentCount = period.duration/d;
+						}
 					}
 				}
 				
@@ -1692,7 +1694,7 @@ public:
 			const char *baseUrl;
 			int count;
 		} mPeriodInfo[] =
-		{ // https://example.com/VideoTestStream/public/aamptest/streams/ads/stitched/manifest.mpd
+		{ // https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/public/aamptest/streams/ads/stitched/manifest.mpd
 			{
 				"hsar1022-soip-ads-prd.cdn01.skycdp.com/ads-gb-s8-prd-ak.cdn01.skycdp.com/v1/frag/bmff/t/ipvodad10/141865a9-d4cb-483f-a838-da28edd53ff2/1685615384261/AD/HD",
 				5

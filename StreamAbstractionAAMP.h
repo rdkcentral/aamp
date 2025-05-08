@@ -25,7 +25,6 @@
 #ifndef STREAMABSTRACTIONAAMP_H
 #define STREAMABSTRACTIONAAMP_H
 
-#include "AampMemoryUtils.h"
 #include "priv_aamp.h"
 #include "AampJsonObject.h"
 #include "mediaprocessor.h"
@@ -137,6 +136,7 @@ public:
 	StreamInfo cacheFragStreamInfo; /**< Bitrate info of the fragment */
 	AampMediaType type;				/**< AampMediaType info of the fragment */
 	long long downloadStartTime;	/**< The start time of file download */
+	long long discontinuityIndex;
 	double PTSOffsetSec; 			/* PTS offset to apply for this segment */
 	double absPosition;		/** Absolute position */
 	CachedFragment() : fragment(AampGrowableBuffer("cached-fragment")), position(0.0), duration(0.0),
@@ -438,6 +438,13 @@ public:
 	double GetTotalInjectedDuration();
 
 	/**
+ 	* @brief update total fragment injected duration
+	*
+ 	* @return void
+	*/
+	void UpdateInjectedDuration(double surplusDuration);
+
+	/**
 	* @brief Get total fragment chunk injected duration
 	*
 	* @return Total duration in seconds
@@ -633,10 +640,12 @@ public:
 	/**
 	 * @brief Set local TSB injection flag
 	 */
-	void SetLocalTSBInjection(bool value) { mIsLocalTSBInjection.store(value);}
+	void SetLocalTSBInjection(bool value);
 
 	/**
-	 * @brief Is mLocalAAMPTsb enabled/disabled
+	 * @brief Is injection from local AAMP TSB
+	 *
+	 * @return true if injection is from local AAMP TSB, false otherwise
 	 */
 	bool IsLocalTSBInjection() {return mIsLocalTSBInjection.load();}
 
@@ -802,11 +811,18 @@ protected:
 
 	/**
 	 * @fn InjectFragmentChunkInternal
+	 *
+	 * @param[in] mediaType - Media type of the fragment
 	 * @param[in] buffer - contains fragment to be processed and injected
-	 * @param[out] fragmentChunkDiscarded - true if fragment is discarded.
+	 * @param[in] fpts - fragment PTS
+	 * @param[in] fdts - fragment DTS
+	 * @param[in] fDuration - fragment duration
+	 * @param[in] fragmentPTSOffset - PTS offset to be applied
+	 * @param[in] init - true if fragment is init fragment
+	 * @param[in] discontinuity - true if there is a discontinuity, false otherwise
 	 * @return void
 	 */
-	void InjectFragmentChunkInternal(AampMediaType mediaType, AampGrowableBuffer* buffer, double fpts, double fdts, double fDuration, bool init=false, bool discontinuity=false);
+	void InjectFragmentChunkInternal(AampMediaType mediaType, AampGrowableBuffer* buffer, double fpts, double fdts, double fDuration, double fragmentPTSOffset, bool init=false, bool discontinuity=false);
 
 
 	static int GetDeferTimeMs(long maxTimeSeconds);
@@ -845,6 +861,8 @@ private:
 	 * @param[in] cachedFragment - fragment to be restamped for trickmodes
 	 */
 	void TrickModePtsRestamp(CachedFragment* cachedFragment);
+	
+	std::string RestampSubtitle( const char* buffer, size_t bufferLen, double position, double duration, double pts_offset );
 
 	/**
 	 * @fn TrickModePtsRestamp
@@ -890,6 +908,7 @@ public:
 	int maxCachedFragmentChunksPerTrack;
 	std::condition_variable fragmentChunkFetched;/**< Signaled after a fragment Chunk is fetched*/
 	int noMDATCount;                    /**< MDAT Chunk Not Found count continuously while chunk buffer processing*/
+	double m_totalDurationForPtsRestamping;
 	std::shared_ptr<MediaProcessor> playContext;		/**< state for s/w demuxer / pts/pcr restamper module */
 	bool seamlessAudioSwitchInProgress; /**< Flag to indicate seamless audio track switch in progress */
 	bool seamlessSubtitleSwitchInProgress;
@@ -976,6 +995,8 @@ private:
 class StreamAbstractionAAMP : public AampLicenseFetcher
 {
 public:
+	std::map<long long, double> mPtsOffsetMap; /** @brief map from period index to pts offset, used for hls/ts pts restamping */
+
 	/** @brief ABR mode */
 	enum class ABRMode
 	{
@@ -1417,6 +1438,65 @@ public:
 	 * @param[in] rate - play rate
 	 */
 	void SetVideoPlaybackRate(float rate);
+
+	/**
+	 * @fn ResumeTrackDownloadsHandler
+	 *
+	 * @return void
+	 */
+	void ResumeTrackDownloadsHandler();
+
+	/**
+	 * @fn ResumeTrackDownloadsHandler
+	 *
+	 * @return void
+	 */
+	void StopTrackDownloadsHandler();
+
+	/**
+	* @fn GetPlayerPositionsHandler
+	*
+	* @return seek & current position in seconds
+	*/
+	void GetPlayerPositionsHandler(long long& getPositionMS, double& seekPositionSeconds);
+
+	/**
+	* @fn SendVTTCueDataHandler
+	*
+	* @return void
+	*/
+	void SendVTTCueDataHandler(VTTCue* cueData);
+
+	/**
+	 * @fn InitializePlayerCallbacks
+	 *
+	 * @return void
+	 */
+	void InitializePlayerCallbacks(PlayerCallbacks& callbacks);
+
+	/**
+	 * @fn RegisterSubtitleParser_CB
+	 * @brief Registers and initializes the subtitle parser based on the provided MIME type.
+	 *
+	 * @param[in] isExpectedMimeType - Indicates whether the expected MIME type.
+	 * @param[in] mimeType - mime type as enum
+	 * @param[out] SubtitleParser - Provides the created subtitle parser instance.
+	 *
+	 * @return SubtitleParser* - Pointer to the created subtitle parser instance.
+	 */
+	std::unique_ptr<SubtitleParser> RegisterSubtitleParser_CB( SubtitleMimeType mimeType, bool isExpectedMimeType = true);
+
+	/**
+	 * @fn RegisterSubtitleParser_CB
+	 * @brief Registers and initializes the subtitle parser based on the provided MIME type.
+	 *
+	 * @param[in] isExpectedMimeType - Indicates whether the expected MIME type.
+	 * @param[in] mimeType - mime type as string
+	 * @param[out] SubtitleParser - Provides the created subtitle parser instance.
+	 *
+	 * @return SubtitleParser* - Pointer to the created subtitle parser instance.
+	 */
+	std::unique_ptr<SubtitleParser> RegisterSubtitleParser_CB(std::string mimeType, bool isExpectedMimeType = true);
 
 	bool trickplayMode;                     /**< trick play flag to be updated by subclasses*/
 	int currentProfileIndex;                /**< current Video profile index of the track*/
@@ -1943,6 +2023,8 @@ public:
 	 * @return the ABR mode.
 	 */
 	virtual ABRMode GetABRMode() { return ABRMode::UNDEF; };
+
+	virtual bool SelectPreferredTextTrack(TextTrackInfo &selectedTextTrack) { return false; };
 
 protected:
 	/**

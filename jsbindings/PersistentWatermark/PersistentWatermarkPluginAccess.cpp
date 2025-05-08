@@ -19,7 +19,7 @@
 #ifdef USE_WATERMARK_JSBINDINGS
 #include "PersistentWatermarkPluginAccess.h"
 
-PersistentWatermark::PluginAccess::PluginAccess(): mThunderAccess("org.rdk.Watermark.1")
+PersistentWatermark::PluginAccess::PluginAccess(): mThunderAccess(PlayerThunderAccessPlugin::WATERMARK)
 {
 	if(mThunderAccess.ActivatePlugin())
 	{
@@ -31,20 +31,44 @@ PersistentWatermark::PluginAccess::PluginAccess(): mThunderAccess("org.rdk.Water
 	}
 }
 
-
-bool PersistentWatermark::PluginAccess::InvokeJSONRPC(std::string method, const JsonObject &param, JsonObject &result, const uint32_t waitTime)
+bool PersistentWatermark::PluginAccess::DeleteWatermark(int layerID)
 {
-	return mThunderAccess.InvokeJSONRPC(method, param, result, waitTime);
+	return mThunderAccess.DeleteWatermark(layerID);
 }
 
-bool PersistentWatermark::PluginAccess::SubscribeEvent (string eventName, std::function<void(const WPEFramework::Core::JSON::VariantContainer&)> functionHandler)
+bool PersistentWatermark::PluginAccess::CreateWatermark(int layerID)
 {
-	return mThunderAccess.SubscribeEvent(eventName, functionHandler);
+	return mThunderAccess.CreateWatermark(layerID);
 }
 
-bool PersistentWatermark::PluginAccess::UnSubscribeEvent (string eventName)
+bool PersistentWatermark::PluginAccess::ShowWatermark(int opacity)
 {
-	return mThunderAccess.UnSubscribeEvent(eventName);
+	return mThunderAccess.ShowWatermark(opacity);
+}
+
+bool PersistentWatermark::PluginAccess::HideWatermark()
+{
+	return mThunderAccess.HideWatermark();
+}
+
+bool PersistentWatermark::PluginAccess::UpdateWatermark(int layerID, int sharedMemoryKey, int size)
+{
+	return mThunderAccess.UpdateWatermark(layerID, sharedMemoryKey, size);
+}
+
+std::string PersistentWatermark::PluginAccess::GetMetaDataWatermark()
+{
+	return mThunderAccess.GetMetaDataWatermark();
+}
+
+bool PersistentWatermark::PluginAccess::PersistentStoreSaveWatermark(const char* base64Image, std::string metaData)
+{
+	return mThunderAccess.PersistentStoreSaveWatermark(base64Image, metaData);
+}
+
+bool PersistentWatermark::PluginAccess::PersistentStoreLoadWatermark(int layerID)
+{
+    return mThunderAccess.PersistentStoreLoadWatermark(layerID);
 }
 
 PersistentWatermark::PluginAccess& PersistentWatermark::PluginAccess::get()

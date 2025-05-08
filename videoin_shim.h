@@ -28,10 +28,7 @@
 #include "StreamAbstractionAAMP.h"
 #include <string>
 #include <stdint.h>
-#ifdef USE_CPP_THUNDER_PLUGIN_ACCESS
-#include "Module.h"
-#include "ThunderAccess.h"
-#endif
+#include "PlayerThunderInterface.h"
 using namespace std;
 
 /**
@@ -47,7 +44,7 @@ public:
      * @param seekpos Seek position
      * @param rate playback rate
      */
-    StreamAbstractionAAMP_VIDEOIN(const std::string name, const std::string callSign, class PrivateInstanceAAMP *aamp,double seekpos, float rate, const std::string type);
+    StreamAbstractionAAMP_VIDEOIN(const std::string name, PlayerThunderAccessPlugin callSign, class PrivateInstanceAAMP *aamp,double seekpos, float rate, const std::string type);
     /**
      * @fn ~StreamAbstractionAAMP_VIDEOIN
      */
@@ -123,44 +120,25 @@ protected:
     void StopHelper() ;
     bool mTuned;
 
-#ifdef USE_CPP_THUNDER_PLUGIN_ACCESS
-    /**
-     *   @fn RegisterEvent
-     *   @param[in] eventName : Event name
-     *   @param[in] functionHandler : Event function pointer
-     */
-    void RegisterEvent (string eventName, std::function<void(const WPEFramework::Core::JSON::VariantContainer&)> functionHandler);
-    /**
-     *   @fn RegisterAllEvents
-     */
-    void RegisterAllEvents ();
-#endif
-
+    
 //private:
 protected:
-#ifdef USE_CPP_THUNDER_PLUGIN_ACCESS
-    ThunderAccessAAMP thunderAccessObj;
-    ThunderAccessAAMP thunderRDKShellObj;
-    ThunderAccessAAMP thunderDSAccessObj;
+    PlayerThunderInterface thunderAccessObj;
     
     /**
      *  @fn OnInputStatusChanged
+     *  @param strStatus string containing "status"
      *  @return void
      */
-    void OnInputStatusChanged(const JsonObject& parameters);
+    void OnInputStatusChanged(std::string strStatus);
     /** 
      *  @fn OnSignalChanged
-     *  @param parameters Json object 
+     *  @param strStatus string containing "status"
      *  @return void
      */
-    void OnSignalChanged(const JsonObject& parameters);
-#endif
-    bool GetScreenResolution(int & screenWidth, int & screenHeight);
-    bool GetResolutionFromDS(int & widthFromDS, int & heightFromDS);
-    int videoInputPort;
+    void OnSignalChanged(std::string strStatus);
     std::string videoInputType;
     std::string mName; // Used for logging
-    std::list<std::string> mRegisteredEvents;
     bool mIsInitialized;
 };
 

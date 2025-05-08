@@ -82,14 +82,22 @@ function install_options_fn()
         echo "protobuf branch : ${PROTOBUF_REFERENCE}"
         ;;  
       * )
-        echo "Usage: $0 [-b aamp branch name] [-d local setup directory name] [-c] [-f compiler flags] [-g google release tag] [-n] [-q] [-s] [subtec [clean]]"
-        echo "          [-r rialto tag] [-p protobuf branch name] [rialto] (Linux only)"
-        echo
-        echo "Note:  Subtec is built by default but can be rebuilt separately with the subtec"
-        echo "       option 'clean' will delete the subtec source and reinstall before"
-        echo "       building"
-        echo
-        echo "Note:  Rialto is built with the 'rialto' option. Use '-r' to set the rialto tag, "
+        echo "'Usage: No flags/options specified - build AAMP with default options
+        [-b] Specify aamp branch name (default: current sprint branch)
+        [-d] Local setup directory name (default: current working directory)
+        [-c] Test coverage scan on
+        [-f] Add compiler flags
+        [-g] Specify gtest release test to be built. Default - tags/release-1.11.0
+        [-q] Quick build, skips installed (not built) dependency checks
+
+        [-s] Skip subtec build and installation]"
+        echo "        Note:  Subtec is built by default but can be rebuilt separately with the subtec"
+        
+        echo "
+        [-r] Specify rialto to be built
+        [-p] Specify protobuf branch name] (Linux only)"
+
+        echo "        Note:  Rialto is built with the 'rialto' option. Use '-r' to set the rialto tag, "
         echo "       '-p' to set the Protobuf branch used for Rialto (Linux only)."
         return 1
         ;;

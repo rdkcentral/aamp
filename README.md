@@ -327,6 +327,7 @@ CLI-specific commands:
 ```
 <enter>		dump currently available profiles
 help		show usage notes
+batch       Execute commands line by line as batch defined in #Home/aampcli.bat (~/aampcli.bat)
 http://...	tune to specified URL
 <number>	tune to specified channel (based on canned aamp channel map)
 next        tune to next virtual channel

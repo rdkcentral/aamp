@@ -18,10 +18,11 @@
 */
 
 #include "AampDRMLicPreFetcher.h"
-#include "AampDrmSession.h"
-#include "AampDRMSessionManager.h"
+#include "DrmSession.h"
 #include "AampUtils.h"	// for aamp_GetDeferTimeMs
 #include "priv_aamp.h"
+#include "AampLicManager.h"
+#include "PlayerSecInterface.h"
 
 /**
  * @brief For generating IDs for LicensePreFetchObject
@@ -129,14 +130,14 @@ bool AampLicensePreFetcher::KeyIsQueued(LicensePreFetchObjectPtr &fetchObject)
 /**
  * @brief Queue a content protection info to be processed later
  * 
- * @param drmHelper AampDrmHelper shared_ptr
+ * @param drmHelper DrmHelper shared_ptr
  * @param periodId ID of the period to which CP belongs to
  * @param adapId Index of the adaptation to which CP belongs to
  * @param type media type
  * @return true if successfully queued
  * @return false if error occurred
  */
-bool AampLicensePreFetcher::QueueContentProtection(std::shared_ptr<AampDrmHelper> drmHelper, std::string periodId, uint32_t adapIdx, AampMediaType type, bool isVssPeriod)
+bool AampLicensePreFetcher::QueueContentProtection(DrmHelperPtr drmHelper, std::string periodId, uint32_t adapIdx, AampMediaType type, bool isVssPeriod)
 {
 	bool ret = true;
 	if(!mExitLoop)
@@ -251,25 +252,21 @@ void AampLicensePreFetcher::PreFetchThread()
 			{
 				bool skip = false;
 				bool keyStatus = false;
-#if defined(AAMP_MPD_DRM) || defined(AAMP_HLS_DRM) || defined(USE_OPENCDM)
 				std::vector<uint8_t> keyIdArray;
 				obj->mHelper->getKey(keyIdArray);
-				if (!keyIdArray.empty() && mPrivAAMP->mDRMSessionManager->IsKeyIdProcessed(keyIdArray, keyStatus))
+				if (!keyIdArray.empty() && mPrivAAMP->mDRMLicenseManager->mDRMSessionManager->IsKeyIdProcessed(keyIdArray, keyStatus))
 				{
 					AAMPLOG_WARN("Key already processed [status:%s] for type:%d adaptationSetIdx:%u !", keyStatus ? "SUCCESS" : "FAIL", obj->mType, obj->mAdaptationIdx);
 					mPrivAAMP->setCurrentDrm(obj->mHelper);
 					skip = true;
 				}
-#endif
 				if (!skip)
 				{
-#if defined(AAMP_MPD_DRM) || defined(AAMP_HLS_DRM) || defined(USE_OPENCDM)
 					if (!keyIdArray.empty())
 					{
 						std::string keyIdDebugStr = AampLogManager::getHexDebugStr(keyIdArray);
 						AAMPLOG_INFO("Creating DRM session for type:%d period ID:%s and Key ID:%s", obj->mType, obj->mPeriodId.c_str(), keyIdDebugStr.c_str());
 					}
-#endif
 					if (CreateDRMSession(obj))
 					{
 						keyStatus = true;
@@ -328,15 +325,13 @@ void AampLicensePreFetcher::VssPreFetchThread()
 			{
 				bool skip = false;
 				bool keyStatus = false;
-#if defined(AAMP_MPD_DRM) || defined(AAMP_HLS_DRM) || defined(USE_OPENCDM)
 				std::vector<uint8_t> keyIdArray;
 				obj->mHelper->getKey(keyIdArray);
-				if (!keyIdArray.empty() && mPrivAAMP->mDRMSessionManager->IsKeyIdProcessed(keyIdArray, keyStatus))
+				if (!keyIdArray.empty() && mPrivAAMP->mDRMLicenseManager->mDRMSessionManager->IsKeyIdProcessed(keyIdArray, keyStatus))
 				{
 					AAMPLOG_WARN("Key already processed [status:%s] for type:%d adaptationSetIdx:%u !", keyStatus ? "SUCCESS" : "FAIL", obj->mType, obj->mAdaptationIdx);
 					skip = true;
 				}
-#endif
 				if (!skip)
 				{
                                         if (mCommonKeyDuration > 0)
@@ -348,13 +343,11 @@ void AampLicensePreFetcher::VssPreFetchThread()
                                         }
 					if(!mExitLoop)
 					{
-#if defined(AAMP_MPD_DRM) || defined(AAMP_HLS_DRM) || defined(USE_OPENCDM)
 						if (!keyIdArray.empty())
 						{
 							std::string keyIdDebugStr = AampLogManager::getHexDebugStr(keyIdArray);
 							AAMPLOG_INFO("Creating DRM session for type:%d period ID:%s and Key ID:%s", obj->mType, obj->mPeriodId.c_str(), keyIdDebugStr.c_str());
 						}
-#endif
 						if (CreateDRMSession(obj))
 						{
 							keyStatus = true;
@@ -471,11 +464,7 @@ void AampLicensePreFetcher::NotifyDrmFailure(LicensePreFetchObjectPtr fetchObj, 
 bool AampLicensePreFetcher::CreateDRMSession(LicensePreFetchObjectPtr fetchObj)
 {
 	bool ret = false;
-#if defined(USE_SECCLIENT) || defined(USE_SECMANAGER)
-	bool isSecClientError = true;
-#else
-	bool isSecClientError = false;
-#endif
+	bool isSecClientError = isSecFeatureEnabled();
 	DrmMetaDataEventPtr e = std::make_shared<DrmMetaDataEvent>(AAMP_TUNE_FAILURE_UNKNOWN, "", 0, 0, isSecClientError, mPrivAAMP->GetSessionId());
 
 	if (mPrivAAMP == nullptr)
@@ -489,10 +478,9 @@ bool AampLicensePreFetcher::CreateDRMSession(LicensePreFetchObjectPtr fetchObj)
 		NotifyDrmFailure(fetchObj, e);
 		return ret;
 	}
-#if defined(AAMP_MPD_DRM) || defined(AAMP_HLS_DRM) || defined(USE_OPENCDM)
-	AampDRMSessionManager* sessionManger = mPrivAAMP->mDRMSessionManager;
+	AampLicenseManager* licManger= mPrivAAMP->mDRMLicenseManager;
 
-	if (sessionManger == nullptr)
+	if (licManger == nullptr)
 	{
 		AAMPLOG_ERR("no mPrivAAMP->mDrmSessionManager available");
 		return ret;
@@ -500,8 +488,10 @@ bool AampLicensePreFetcher::CreateDRMSession(LicensePreFetchObjectPtr fetchObj)
 	mPrivAAMP->setCurrentDrm(fetchObj->mHelper);
 
 	mPrivAAMP->profiler.ProfileBegin(PROFILE_BUCKET_LA_TOTAL);
-	AampDrmSession *drmSession = sessionManger->createDrmSession(fetchObj->mHelper, e, mPrivAAMP, fetchObj->mType);
+	DrmSession *drmSession = licManger->createDrmSession( fetchObj->mHelper, mPrivAAMP, e, (int)fetchObj->mType);
 
+
+	//set failures here 
 	if(NULL == drmSession)
 	{
 		AAMPLOG_ERR("Failed DRM Session Creation for systemId = %s", fetchObj->mHelper->getUuid().c_str());
@@ -517,7 +507,6 @@ bool AampLicensePreFetcher::CreateDRMSession(LicensePreFetchObjectPtr fetchObj)
 		}
 	}
 	mPrivAAMP->profiler.ProfileEnd(PROFILE_BUCKET_LA_TOTAL);
-#endif
 	if(mPrivAAMP->mIsFakeTune)
 	{
 		mPrivAAMP->SetState(eSTATE_COMPLETE);

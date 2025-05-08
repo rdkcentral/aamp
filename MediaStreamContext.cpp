@@ -23,7 +23,6 @@
  */
 
 #include "MediaStreamContext.h"
-#include "AampMemoryUtils.h"
 #include "isobmff/isobmffbuffer.h"
 #include "AampCacheHandler.h"
 #include "AampTSBSessionManager.h"
@@ -41,14 +40,14 @@ void MediaStreamContext::InjectFragmentInternal(CachedFragment* cachedFragment, 
 		{
 		};
 		fragmentDiscarded = !playContext->sendSegment( &cachedFragment->fragment, cachedFragment->position,
-														cachedFragment->duration, isDiscontinuity, cachedFragment->initFragment, processor, ptsError);
+														cachedFragment->duration, cachedFragment->PTSOffsetSec, isDiscontinuity, cachedFragment->initFragment, processor, ptsError);
 	}
 	else
 	{
 		aamp->ProcessID3Metadata(cachedFragment->fragment.GetPtr(), cachedFragment->fragment.GetLen(), (AampMediaType) type);
 		AAMPLOG_DEBUG("Type[%d] cachedFragment->position: %f cachedFragment->duration: %f cachedFragment->initFragment: %d", type, cachedFragment->position,cachedFragment->duration,cachedFragment->initFragment);
 		aamp->SendStreamTransfer((AampMediaType)type, &cachedFragment->fragment,
-		cachedFragment->position, cachedFragment->position, cachedFragment->duration, cachedFragment->initFragment, cachedFragment->discontinuity);
+		cachedFragment->position, cachedFragment->position, cachedFragment->duration, cachedFragment->PTSOffsetSec, cachedFragment->initFragment, cachedFragment->discontinuity);
 	}
 
 	fragmentDiscarded = false;
@@ -119,7 +118,22 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 		}
 		if(!bReadfromcache)
 		{
-			ret = aamp->GetFile(fragmentUrl, actualType, mTempFragment.get(), effectiveUrl, &httpErrorCode, &downloadTimeS, range, curlInstance, true/*resetBuffer*/,  &bitrate, &iFogError, fragmentDurationS, bucketType );
+			AampMPDDownloader *dnldInstance = aamp->GetMPDDownloader();
+			int maxInitDownloadTimeMS = 0;
+			if ((aamp->IsLocalAAMPTsb()) && (dnldInstance))
+			{
+				//Calculate the time remaining for the fragment to be available in the timeshift buffer window
+				//         A                                     B                        C
+				// --------|-------------------------------------|------------------------|
+				// AC represents timeshiftBufferDepth in MPD; B is absolute time position of fragment and
+				// C is MPD publishTime(absolute time). So AC - (C-B) gives the time remaining for the
+				//fragment to be available in the timeshift buffer window
+				maxInitDownloadTimeMS = aamp->mTsbDepthMs - (dnldInstance->GetPublishTime() - (fragmentTime * 1000));
+				AAMPLOG_INFO("maxInitDownloadTimeMS %d, initSegment %d, mTsbDepthMs %d, GetPublishTime %llu(ms), fragmentTime %f(s) ",
+					maxInitDownloadTimeMS, initSegment, aamp->mTsbDepthMs, (unsigned long long)dnldInstance->GetPublishTime(), fragmentTime);
+			}
+
+			ret = aamp->GetFile(fragmentUrl, actualType, mTempFragment.get(), effectiveUrl, &httpErrorCode, &downloadTimeS, range, curlInstance, true/*resetBuffer*/,  &bitrate, &iFogError, fragmentDurationS, bucketType, maxInitDownloadTimeMS);
 			if (initSegment && ret)
 			{
 				aamp->getAampCacheHandler()->InsertToInitFragCache(fragmentUrl, mTempFragment.get(), effectiveUrl, actualType);
@@ -410,11 +424,11 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 		// If playing back from local TSB, or pending playing back from local TSB as paused
 		if (tsbSessionManager && (IsLocalTSBInjection() || aamp->pipeline_paused))
 		{
-			AAMPLOG_TRACE("Skip notifying fragment fetch");
+			AAMPLOG_TRACE("[%s] cachedFragment %p ptr %p not injecting", name, cachedFragment, cachedFragment->fragment.GetPtr());
 			// Free the memory
 			cachedFragment->fragment.Free();
 		}
-		else 
+		else
 		{
 			// Update buffer index after fetch for injection
 			UpdateTSAfterFetch(initSegment);
@@ -461,14 +475,7 @@ bool MediaStreamContext::CacheFragmentChunk(AampMediaType actualType, char *ptr,
 		cachedFragment->PTSOffsetSec = GetContext()->mPTSOffset.inSeconds();
 
 		AAMPLOG_TRACE("[%s] cachedFragment %p ptr %p", name, cachedFragment, cachedFragment->fragment.GetPtr());
-		if (IsLocalTSBInjection())
-		{
-			cachedFragment->fragment.Free();
-		}
-		else
-		{
-			UpdateTSAfterChunkFetch();
-		}
+		UpdateTSAfterChunkFetch();
 	}
 	else
 	{
@@ -583,26 +590,45 @@ double MediaStreamContext::GetBufferedDuration()
 {
 	double bufferedDuration=0;
 	double position = aamp->GetPositionMs() / 1000.00;
-	if(downloadedDuration >= position)
+	AAMPLOG_INFO("[%s] lastDownloadedPosition %lfs position %lfs prevFirstPeriodStartTime %llds",
+		GetMediaTypeName(mediaType),
+		lastDownloadedPosition.load(),
+		position,
+		aamp->prevFirstPeriodStartTime);
+	if(lastDownloadedPosition >= position)
 	{
 		// If player faces buffering, this will be 0
-		bufferedDuration = downloadedDuration - position;
+		bufferedDuration = lastDownloadedPosition - position;
+		AAMPLOG_TRACE("[%s] bufferedDuration %fs lastDownloadedPosition %lfs position %lfs",
+			GetMediaTypeName(mediaType),
+			bufferedDuration,
+			lastDownloadedPosition.load(),
+			position);
 	}
-	else if( downloadedDuration < aamp->prevFirstPeriodStartTime )
+	else if( lastDownloadedPosition < aamp->prevFirstPeriodStartTime )
 	{
 		//When Player is rolling from IVOD window to Linear
 		position = aamp->prevFirstPeriodStartTime - position;
 		aamp->prevFirstPeriodStartTime = 0;
-		bufferedDuration = downloadedDuration - position;
+		bufferedDuration = lastDownloadedPosition - position;
+		AAMPLOG_TRACE("[%s] bufferedDuration %fs lastDownloadedPosition %lfs position %lfs prevFirstPeriodStartTime %llds",
+			GetMediaTypeName(mediaType),
+			bufferedDuration,
+			lastDownloadedPosition.load(),
+			position,
+			aamp->prevFirstPeriodStartTime);
 	}
 	else
 	{
 		// This avoids negative buffer, expecting
-		// downloadedDuration never exceeds position in normal case.
+		// lastDownloadedPosition never exceeds position in normal case.
 		// Other case happens when contents are yet to be injected.
-		downloadedDuration = 0;
-		bufferedDuration = downloadedDuration;
+		lastDownloadedPosition = 0;
+		bufferedDuration = lastDownloadedPosition;
 	}
+	AAMPLOG_INFO("[%s] bufferedDuration %fs",
+		GetMediaTypeName(mediaType),
+		bufferedDuration);
 	return bufferedDuration;
 }
 

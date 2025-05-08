@@ -30,7 +30,7 @@
 #define AAMP_CFG_PATH "/opt/aamp.cfg"
 #define AAMP_JSON_PATH "/opt/aampcfg.json"
 
-#define AAMP_VERSION "7.03"
+#define AAMP_VERSION "7.04"
 #define AAMP_TUNETIME_VERSION 5
 
 //Stringification of Macro : use two levels of macros
@@ -61,6 +61,7 @@
 #define DEFAULT_ABR_CACHE_LENGTH 3                  		/**< Default ABR cache length */
 #define DEFAULT_ABR_BUFFER_COUNTER 4				/**< Default ABR Buffer Counter */
 #define DEFAULT_REPORT_PROGRESS_INTERVAL 1     			/**< Progress event reporting interval: 1sec */
+#define DEFAULT_PROGRESS_LOGGING_DIVISOR 4			/**< Divisor of progress logging frequency to print logging */
 #define DEFAULT_LICENSE_REQ_RETRY_WAIT_TIME 500			/**< Wait time in milliseconds before retrying for DRM license */
 #define MIN_LICENSE_KEY_ACQUIRE_WAIT_TIME 500			/**<minimum wait time in milliseconds for DRM license to ACQUIRE */
 #define DEFAULT_LICENSE_KEY_ACQUIRE_WAIT_TIME 5000		/**< Wait time in milliseconds for DRM license to ACQUIRE  */
@@ -130,7 +131,10 @@
 #define MIN_DELAY_BETWEEN_PLAYLIST_UPDATE_MS (500) // 500mSec
 #define MIN_DELAY_BETWEEN_MANIFEST_UPDATE_FOR_502_MS (1000) // 1000mSec
 #define STEADYSTATE_RAMPDOWN_DELTA 2000000 //2000 kbps
-#define DEFAULT_TELEMETRY_REPORT_INTERVAL (300) /**< time interval for the telemetry reporting 300sec*/
+#define DEFAULT_TELEMETRY_REPORT_INTERVAL (300) 	/**< time interval for the telemetry reporting 300sec*/
+#define MIN_MONITOR_AV_DELTA_MS 1 	/**< minimum delta to trigger MonitorAV reporting */
+#define MAX_MONITOR_AV_DELTA_MS 10000 	/**< maximum delta to trigger MonitorAV reporting */
+#define DEFAULT_MONITOR_AV_DELTA_MS 100 	/**< default delta for MonitorAV reporting*/
 
 // We can enable the following once we have a thread monitoring video PTS progress and triggering subtec clock fast update when we detect video freeze. Disabled it for now for brute force fast refresh..
 //#define SUBTEC_VARIABLE_CLOCK_UPDATE_RATE   /* enable this to make the clock update rate dynamic*/
@@ -142,15 +146,6 @@
 #endif
 #define SUBTITLE_CLOCK_ASSUMED_PLAYSTATE_TIME_MS (20000) /**< period after channel change/seek where we try to sync the subtitle clock quickly, before giving up and falling to slower rate */
 
-// the +1 is used to compensate for internal use originally being a > check, now >=
-#if defined(REALTEKCE)
-#define DEFAULT_BUFFERING_QUEUED_FRAMES_MIN (3+1) // TODO: deprecate specific config (risk: tune time impact)
-#else
-#define DEFAULT_BUFFERING_QUEUED_FRAMES_MIN (5+1) // more conservative config; used on specific platform
-#endif
-
-// Player supported play/trick-play rates.
-#define AAMP_RATE_TRICKPLAY_MAX		64
 #define AAMP_NORMAL_PLAY_RATE		1
 #define AAMP_SLOWMOTION_RATE        0.5
 #define AAMP_RATE_PAUSE			0
@@ -241,6 +236,7 @@
 
 #define MAX_SESSION_ID_LENGTH 128                                /**<session id string length */
 
+#define PLAYER_NAME "aamp" 
 
 /**
  * @brief Enumeration for TUNED Event Configuration
@@ -293,62 +289,6 @@ enum LatencyStatus
 	LATENCY_STATUS_THRESHOLD_MAX,  /**< The latency is more that target latency but less than maximum latency */
 	LATENCY_STATUS_MAX             /**< The latency is more than maximum latency */
 };
-
-
-typedef enum {
-	SECMANAGER_CLASS_RESULT_SUCCESS = 0,
-	SECMANAGER_CLASS_RESULT_API_FAIL = 100,
-	SECMANAGER_CLASS_RESULT_DRM_FAIL = 200,
-	SECMANAGER_CLASS_RESULT_WATERMARK_FAIL = 300,
-	SECMANAGER_CLASS_RESULT_SECCLIENT_FAIL = 400,
-	SECMANAGER_CLASS_RESULT_UNDEFINED = 9999
-} SecManagerResultClassStatusCode;
-
-typedef enum {
-	SECMANAGER_SUCCESS = 0,
-	SECMANAGER_SUCCESS_WATERMARK_SESSION_ENGAGED = 100,
-	SECMANAGER_SUCCESS_WATERMARK_NOT_REQUIRED = 101
-} SecManagerResultSuccessCode;
-
-typedef enum {
-	SECMANAGER_REASON_API_INVALID_SESSION_CONFIG = 1,
-	SECMANAGER_REASON_API_INVALID_ASPECT_DIMENSION = 2,
-	SECMANAGER_REASON_API_INVALID_KEY_SYSTEM_PARAM = 3,
-	SECMANAGER_REASON_API_INVALID_DRM_LICENSE_PARAM = 4,
-	SECMANAGER_REASON_API_INVALID_CONTENT_METADATA = 5,
-	SECMANAGER_REASON_API_INVALID_MEDIA_USAGE = 6,
-	SECMANAGER_REASON_API_INVALID_ACCESS_TOKEN = 7,
-	SECMANAGER_REASON_API_INVALID_ACCESS_ATTRIBUTE = 8,
-	SECMANAGER_REASON_API_INVALID_SESSION_ID = 9,
-	SECMANAGER_REASON_API_INVALID_APPLICATION_ID = 10,
-	SECMANAGER_REASON_API_INVALID_EVENT_ID = 11,
-	SECMANAGER_REASON_API_INVALID_CLIENT_ID = 12,
-	SECMANAGER_REASON_API_INVALID_PERCEPTION_ID = 13,
-	SECMANAGER_REASON_API_INVALID_WATERMARK_PARAMETER = 14,
-	SECMANAGER_REASON_API_INVALID_CONTENT_PARAMETER = 15,
-	SECMANAGER_REASON_API_UNDEFINED_ERROR = 9999
-} SecManagerResultApiCode;
-
-typedef enum {
-	SECMANAGER_REASON_DRM_GENERAL_FAILURE = 1,
-	SECMANAGER_REASON_DRM_NO_PLAYBACK_SESSION = 2,
-	SECMANAGER_REASON_DRM_LICENSE_TIMEOUT = 3,
-	SECMANAGER_REASON_DRM_LICENSE_NETWORK_FAIL = 4,
-	SECMANAGER_REASON_DRM_LICENSE_BUSY = 5,
-	SECMANAGER_REASON_DRM_ACCESS_TOKEN_ERROR = 6,
-	SECMANAGER_REASON_DRM_ACCESS_TOKEN_IP_DIFF = 7,
-	SECMANAGER_REASON_DRM_ACCESS_TOKEN_EXPIRED = 8,
-	SECMANAGER_REASON_DRM_DEVICE_TOKEN_EXPIRED = 9,
-	SECMANAGER_REASON_DRM_MAC_TOKEN_MISSING = 10,
-	SECMANAGER_REASON_DRM_MAC_TOKEN_NO_PROV = 11,
-	SECMANAGER_REASON_DRM_MEMORY_ALLOCATION_ERROR = 12,
-	SECMANAGER_REASON_DRM_SECAPI_USAGE_FAILURE = 13,
-	SECMANAGER_REASON_DRM_PERMISSION_DENIED = 100,
-	SECMANAGER_REASON_DRM_RULE_ERROR = 101,
-	SECMANAGER_REASON_DRM_ENTITLEMENT_ERROR = 102,
-	SECMANAGER_REASON_DRM_AUTHENTICATION_FAIL = 103
-} SecManagerResultDRMCode;
-
 
 /**
  * @brief AAMP Function return values
@@ -420,14 +360,6 @@ enum EOSInjectionModeCode
 	/* In addition to the EOS_INJECTION_MODE_NO_EXTRA cases
 	 * EOS is injected in AAMPGstPlayer::Stop() prior to setting the state to null.*/
 	EOS_INJECTION_MODE_STOP_ONLY,
-};
-
-enum PlatformType
-{
-	ePLATFORM_DEFAULT,
-	ePLATFORM_AMLOGIC,
-	ePLATFORM_REALTEK,
-	ePLATFORM_BROADCOM
 };
 
 #endif

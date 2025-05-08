@@ -71,19 +71,29 @@ public:
 	 */
 	void setFrameRateForTM (int frameRate) override { };
 
+	double getFirstPts( AampGrowableBuffer* pBuffer ) override
+	{
+		return 0;
+	}
+
+	void setPtsOffset( double ptsOffset ) override
+	{
+	}
+
 	/**
 	 * @fn sendSegment
 	 *
 	 * @param[in] pBuffer - Pointer to the AampGrowableBuffer
 	 * @param[in] position - position of fragment
 	 * @param[in] duration - duration of fragment
+	 * @param[in] fragmentPTSoffset - PTS offset
 	 * @param[in] discontinuous - true if discontinuous fragment
 	 * @param[in] isInit - flag for buffer type (init, data)
 	 * @param[in] processor - Function to use for processing the fragments (only used by HLS/TS)
 	 * @param[out] ptsError - flag indicates if any PTS error occurred
 	 * @return true if fragment was sent, false otherwise
 	 */
-	bool sendSegment(AampGrowableBuffer* pBuffer, double position, double duration, bool discontinuous,
+	bool sendSegment(AampGrowableBuffer* pBuffer, double position, double duration, double fragmentPTSoffset, bool discontinuous,
 						bool isInit, process_fcn_t processor, bool &ptsError) override;
 
 	/**
@@ -139,11 +149,12 @@ private:
 	 * @param[in] pBuffer - Pointer to the AampGrowableBuffer
 	 * @param[in] position - position of fragment
 	 * @param[in] duration - duration of fragment
+	 * @param[in] fragmentPTSoffset - PTS offset
 	 * @param[in] discontinuous - true if discontinuous fragment
 	 * @param[in] isInit - flag for buffer type (init, data)
 	 * @return void
 	 */
-	void sendStream(AampGrowableBuffer *pBuffer,double position, double duration,bool discontinuous,bool isInit);
+	void sendStream(AampGrowableBuffer *pBuffer,double position, double duration, double fragmentPTSoffset, bool discontinuous,bool isInit);
 
     /**
 	 * @fn setTuneTimePTS

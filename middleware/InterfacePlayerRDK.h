@@ -25,7 +25,7 @@
 #include <string.h>
 #include <vector>
 #include <mutex>
-#include <middleware/PlayerLogManager.h>
+#include "PlayerLogManager.h"
 #include "PlayerScheduler.h"
 #include <gst/app/gstappsrc.h>
 #include <gst/app/gstappsink.h>
@@ -39,6 +39,7 @@
 #include <chrono>
 #include "GstUtils.h"
 #include <any>
+#include "SocUtils.h"
 
 /**
  * @enum eGstPlayFlags
@@ -96,8 +97,6 @@ struct Configs
 	std::string manifestUrl;
 	int media;
 	int videoBufBytes;
-	int platformType;
-	bool noNativeAV;
 	bool enableDisconnectSignals;
 	int eosInjectionMode;
 	bool enablePtsSync;
@@ -118,6 +117,8 @@ struct Configs
 	bool progressLogging;
 	bool monitorAV;
 	bool disableUnderflow;
+	int monitorAvsyncThresholdMs;
+	int monitorJumpThresholdMs;
 };
 
 typedef enum
@@ -133,21 +134,6 @@ typedef enum
 	eGST_MEDIAFORMAT_RMF,				   /**< RMF media */
 	eGST_MEDIAFORMAT_UNKNOWN			   /**< Unknown media format */
 } GstMediaFormat;
-
-typedef enum
-{
-	eGST_PLAY_FLAG_VIDEO = (1 << 0),			 /**< value is 0x001 */
-	eGST_PLAY_FLAG_AUDIO = (1 << 1),			 /**< value is 0x002 */
-	eGST_PLAY_FLAG_TEXT = (1 << 2),				 /**< value is 0x004 */
-	eGST_PLAY_FLAG_VIS = (1 << 3),				 /**< value is 0x008 */
-	eGST_PLAY_FLAG_SOFT_VOLUME = (1 << 4),		 /**< value is 0x010 */
-	eGST_PLAY_FLAG_NATIVE_AUDIO = (1 << 5),		 /**< value is 0x020 */
-	eGST_PLAY_FLAG_NATIVE_VIDEO = (1 << 6),		 /**< value is 0x040 */
-	eGST_PLAY_FLAG_DOWNLOAD = (1 << 7),			 /**< value is 0x080 */
-	eGST_PLAY_FLAG_BUFFERING = (1 << 8),		 /**< value is 0x100 */
-	eGST_PLAY_FLAG_DEINTERLACE = (1 << 9),		 /**< value is 0x200 */
-	eGST_PLAY_FLAG_SOFT_COLORBALANCE = (1 << 10) /**< value is 0x400 */
-} eGstPlayFlags;
 
 struct GstTaskControlData
 {
@@ -382,6 +368,7 @@ private:
 	PlayerScheduler mScheduler;
 
 public:
+	std::shared_ptr<SocInterface> socInterface;
 	GstPlayerPriv *gstPrivateContext;
 	Configs *m_gstConfigParam;
 	char *mDrmSystem;
@@ -391,7 +378,6 @@ public:
 
 	InterfacePlayerRDK();
 	~InterfacePlayerRDK();
-	
 	/**
 	 * @brief Idle callback for the first frame.
 	 *
@@ -441,9 +427,9 @@ public:
 	using HandleRedButtonCallback = std::function<void(const char *data)>;
 	using HandleNeedDataCb = std::function<void(int mediaType)>;
 	using HandleEnoughDataCb = std::function<void(int mediaType)>;
-	
+
 	/*
-	 *@brief Registers need data callback from application 
+	 *@brief Registers need data callback from application
 	 */
 	void RegisterNeedDataCb(const HandleNeedDataCb &callback)
 	{
@@ -451,7 +437,7 @@ public:
 	}
 
 	/*
- 	*@brief Registers enough data callback from application 
+ 	*@brief Registers enough data callback from application
 	 */
 	void RegisterEnoughDataCb(const HandleEnoughDataCb &callback)
         {
@@ -465,7 +451,6 @@ public:
 	{
 		OnBuffering_timeoutCb = callback;
 	}
-	
 	/*
 	 *@brief register HandleOnGstPtsErrorCb
 	 */
@@ -514,7 +499,6 @@ public:
 	std::function<void(const unsigned char *, int, int, int)> gstCbExportYUVFrame;
 
 	pthread_mutex_t mProtectionLock;
-	GstPlatformType mPlatformType;
 	std::string mPlayerName;
 	bool mFirstFrameRequired;
 	bool mPauseInjector;
@@ -550,15 +534,6 @@ public:
 	 */
 	void SetPlayerName(std::string name);
 
-	/**
-	 * @brief Sets the logger information.
-	 *
-	 * @param[in] logRedirectStatus Status of log redirection.
-	 * @param[in] ethanLogStatus Status of Ethan logging.
-	 * @param[in] level Log level.
-	 * @param[in] lock Lock status.
-	 */
-	void SetLoggerInfo(bool logRedirectStatus, bool ethanLogStatus, int level, bool lock);
 	/**
 	 *@brief sets the preferred drm by app
 	 *@param[in] drmID preferred drm
@@ -716,6 +691,7 @@ public:
 	 * @param[in] fpts First PTS value.
 	 * @param[in] fdts First DTS value.
 	 * @param[in] fDuration Duration of the event.
+	 * @param[in] fragmentPTSoffset Offset PTS value.
 	 * @param[in] copy True to copy the event data.
 	 * @param[in] initFragment True if this is an initialization fragment.
 	 * @param[out] discontinuity Indicates whether there is a discontinuity.
@@ -725,7 +701,7 @@ public:
 	 * @param[out] firstBufferPushed Indicates whether the first buffer was pushed.
 	 * @return True if the event was sent successfully, false otherwise.
 	 */
-	bool SendHelper(int type, const void *ptr, size_t len, double fpts, double fdts, double fDuration, bool copy, bool initFragment, bool &discontinuity, bool &notifyFirstBufferProcessed, bool &sendNewSegmentEvent, bool &resetTrickUTC, bool &firstBufferPushed);
+	bool SendHelper(int type, const void *ptr, size_t len, double fpts, double fdts, double fDuration, double fragmentPTSoffset, bool copy, bool initFragment, bool &discontinuity, bool &notifyFirstBufferProcessed, bool &sendNewSegmentEvent, bool &resetTrickUTC, bool &firstBufferPushed);
 
 	/**
 	 * @brief Pauses the injector.
@@ -953,7 +929,7 @@ public:
 	 * @param[in] codecName The name of the codec to check.
 	 * @return True if the codec is supported, false otherwise.
 	 */
-	bool IsCodecSupported(const std::string &codecName);
+	static bool IsCodecSupported(const std::string &codecName);
 
 	/**
 	 * @brief Disables the decoder handle notification.
@@ -1115,12 +1091,6 @@ public:
 	 * This function initializes the necessary plugins for Player GStreamer.
 	 */
 	static void InitializePlayerGstreamerPlugins();
-
-	/**
-	 * @brief Infers the platform type from a plugin scan.
-	 * @return The inferred platform type.
-	 */
-	static GstPlatformType InferPlatformFromPluginScan();
 
 	/**
 	 * @brief Dumps diagnostic information.

@@ -21,21 +21,18 @@
  * @file main_aamp.cpp
  * @brief Advanced Adaptive Media Player (AAMP)
  */
-#ifdef IARM_MGR
-#include "host.hpp"
-#include "manager.hpp"
-#include "libIBus.h"
-#include "libIBusDaemon.h"
-#endif
 
 #include "main_aamp.h"
 #include "AampConfig.h"
 #include "AampCacheHandler.h"
 #include "AampUtils.h"
-#include "AampCCManager.h"
-#include "helper/AampDrmHelper.h"
+#include "PlayerCCManager.h"
+#include "DrmHelper.h"
 #include "StreamAbstractionAAMP.h"
 #include "AampStreamSinkManager.h"
+#include "PlayerExternalsInterface.h"
+#include "PlayerLogManager.h"
+#include "PlayerMetadata.hpp"
 
 #include <dlfcn.h>
 #include <termios.h>
@@ -44,9 +41,7 @@
 
 AampConfig *gpGlobalConfig=NULL;
 
-#ifdef USE_SECMANAGER
-#include "AampSecManager.h"
-#endif
+#include "PlayerSecManager.h"
 
 std::mutex PlayerInstanceAAMP::mPrvAampMtx;
 
@@ -59,33 +54,19 @@ PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink
 {
 //Need to do iarm initialization process before reading the tr181 aamp parameters.
 //Using printf here since AAMP logs can only use after creating the global object
-#ifdef IARM_MGR
-	// IARM doesn't work in container environment hence dont init IARM in container
-	if(!IsContainerEnvironment() )
+	static bool iarmInitialized = false;
+	if(!iarmInitialized)
 	{
-		static bool iarmInitialized = false;
-		if(!iarmInitialized)
-		{
-		char processName[20] = {0};
-		IARM_Result_t result;
-		snprintf(processName, sizeof(processName), "AAMP-PLAYER-%u", getpid());
-		if (IARM_RESULT_SUCCESS == (result = IARM_Bus_Init((const char*) &processName))) {
-			printf("IARM Interface Inited in AAMP");
-		}
-		else {
-			printf("IARM Interface Inited Externally : %d", result);
-		}
+			char processName[20] = {0};
 
-		if (IARM_RESULT_SUCCESS == (result = IARM_Bus_Connect())) {
-			printf("IARM Interface Connected  in AAMP");
-		}
-		else {
-			printf("IARM Interface Connected Externally :%d", result);
-		}
-		iarmInitialized = true;
+			snprintf(processName, sizeof(processName), "PLAYER-%u", getpid());
+
+			PlayerExternalsInterface::IARMInit(processName);
+
+
+			iarmInitialized = true;
 	}
-}
-#endif // IARM_MGR
+	
 	// Create very first instance of Aamp Config to read the cfg & Operator file .This is needed for very first
 	// tune only . After that every tune will use the same config parameters
 	if(gpGlobalConfig == NULL)
@@ -96,12 +77,8 @@ PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink
 
 		gpGlobalConfig =  new AampConfig();
 		gpGlobalConfig->Initialize();
-		PlatformType platform = gpGlobalConfig->InferPlatformFromDeviceProperties();
-		if( platform == ePLATFORM_DEFAULT )
-		{
-			platform = gpGlobalConfig->InferPlatformFromPluginScan();
-		}
-		gpGlobalConfig->ApplyDeviceCapabilities(platform);
+		gpGlobalConfig->ApplyDeviceCapabilities();
+		SetPlayerName(PLAYER_NAME);
 		
 		AAMPLOG_MIL("[AAMP_JS][%p]Creating GlobalConfig Instance[%p]",this,gpGlobalConfig);
 		if(!gpGlobalConfig->ReadAampCfgTxtFile())
@@ -137,6 +114,8 @@ PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink
 	// sd_journal logging doesn't work with AAMP/Rialto running in Container, so route to Ethan Logger instead
 	AampLogManager::enableEthanLogRedirection = mConfig.IsConfigSet(eAAMPConfig_useRialtoSink);
 
+	PlayerLogManager::SetLoggerInfo(AampLogManager::disableLogRedirection, AampLogManager::enableEthanLogRedirection, AampLogManager::aampLoglevel, AampLogManager::locked);
+	
 	sp_aamp = std::make_shared<PrivateInstanceAAMP>(&mConfig);
 	aamp = sp_aamp.get();
 	UsingPlayerId playerId(aamp->mPlayerId);
@@ -200,9 +179,8 @@ PlayerInstanceAAMP::~PlayerInstanceAAMP()
 		// Remove all the tasks
 		mScheduler.RemoveAllTasks();
 		if (state != eSTATE_IDLE && state != eSTATE_RELEASED)
-		{
-			//Avoid stop call since already stopped
-			aamp->Stop();
+		{ // release resources if actively streaming
+			aamp->Stop( false );
 		}
 
 		std::lock_guard<std::mutex> lock (mPrvAampMtx);
@@ -217,7 +195,7 @@ PlayerInstanceAAMP::~PlayerInstanceAAMP()
 
 	if (isLastPlayerInstance)
 	{
-		AampCCManager::DestroyInstance();
+		PlayerCCManager::DestroyInstance();
 	}
 #ifdef SUPPORT_JS_EVENTS
 	if (mJSBinding_DL && isLastPlayerInstance)
@@ -226,12 +204,10 @@ PlayerInstanceAAMP::~PlayerInstanceAAMP()
 		dlclose(mJSBinding_DL);
 	}
 #endif
-#ifdef USE_SECMANAGER
 	if (isLastPlayerInstance)
 	{
-		AampSecManager::DestroyInstance();
+		PlayerSecManager::DestroyInstance();
 	}
-#endif
 	if (isLastPlayerInstance && gpGlobalConfig)
 	{
 		AAMPLOG_WARN("[%p] Release GlobalConfig(%p)",this,gpGlobalConfig);
@@ -257,7 +233,7 @@ void PlayerInstanceAAMP::ResetConfiguration()
 /**
  *  @brief Stop playback and release resources.
  */
-void PlayerInstanceAAMP::Stop(bool sendStateChangeEvent)
+void PlayerInstanceAAMP::Stop(void)
 {
 	if (aamp)
 	{
@@ -273,8 +249,8 @@ void PlayerInstanceAAMP::Stop(bool sendStateChangeEvent)
 
 		//state will be eSTATE_IDLE or eSTATE_RELEASED, right after an init or post-processing of a Stop call
 		if (state != eSTATE_IDLE && state != eSTATE_RELEASED)
-		{
-			StopInternal(sendStateChangeEvent);
+		{ // stop in-progress tune and generate state change events
+			aamp->Stop(true);
 		}
 
 		//Release lock
@@ -306,6 +282,10 @@ void PlayerInstanceAAMP::Tune(const char *mainManifestUrl,
 								const char *manifestData
 								)
 {
+	// If already released instance is reused for New Tune
+	aamp->SetState(eSTATE_IDLE, false);
+	AAMPLOG_DEBUG("New Tune, STATE set to %d", aamp->GetState());
+
 	ManageAsyncTuneConfig(mainManifestUrl);
 	if(mAsyncTuneEnabled)
 	{
@@ -371,7 +351,7 @@ void PlayerInstanceAAMP::TuneInternal(const char *mainManifestUrl,
 		if ((state != eSTATE_IDLE) && (state != eSTATE_RELEASED) && (!IsOTAtoOTA))
 		{
 			//Calling tune without closing previous tune
-			StopInternal(false);
+			aamp->Stop(false);
 		}
 		aamp->getAampCacheHandler()->StartPlaylistCache();
 		aamp->Tune(mainManifestUrl, autoPlay, contentType, bFirstAttempt, bFinalAttempt, traceUUID, audioDecoderStreamSync, refreshManifestUrl, mpdStitchingMode, std::move(sid),manifestData);
@@ -554,20 +534,6 @@ BitsPerSecond PlayerInstanceAAMP::GetMaximumBitrate(void)
 }
 
 /**
- *  @brief Check given rate is valid.
- */
-bool PlayerInstanceAAMP::IsValidRate(int rate)
-{
-	bool retValue = false;
-	if (abs(rate) <= AAMP_RATE_TRICKPLAY_MAX)
-	{
-		retValue = true;
-	}
-	return retValue;
-}
-
-
-/**
  *  @brief Set playback rate.
  */
 void PlayerInstanceAAMP::SetRate(float rate,int overshootcorrection)
@@ -576,12 +542,6 @@ void PlayerInstanceAAMP::SetRate(float rate,int overshootcorrection)
 	AAMPLOG_INFO("PLAYER[%d] rate=%f.", aamp->mPlayerId, rate);
 	if(aamp)
 	{
-		if (!IsValidRate(rate))
-		{
-			AAMPLOG_WARN("SetRate ignored!! Invalid rate (%f)", rate);
-			return;
-		}
-
 		if(mAsyncTuneEnabled)
 		{
 			mScheduler.ScheduleTask(AsyncTaskObj([rate,overshootcorrection](void *data)
@@ -647,11 +607,6 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 			return;
 		}
 
-		if (!IsValidRate(rate))
-		{
-			AAMPLOG_WARN("SetRate ignored!! Invalid rate (%f)", rate);
-			return;
-		}
 		//convert the incoming rates into acceptable rates
 		if(ISCONFIGSET(eAAMPConfig_RepairIframes))
 		{
@@ -1267,6 +1222,15 @@ void PlayerInstanceAAMP::SeekInternal(double secondsRelativeToTuneTime, bool kee
 				aamp->ResumeDownloads();
 			}
 			
+			// Add additional checks for BG playerInstance
+			// If player is in background and only been in PREPARED state
+			// and a seek is attempted to the same position it started, then ignore the seek
+			if (!aamp->mbPlayEnabled && tuneType == eTUNETYPE_SEEK && state == eSTATE_PREPARED &&
+				(aamp->GetPositionSeconds() == secondsRelativeToTuneTime))
+			{
+				AAMPLOG_WARN("Ignoring seek to same position as start position(%lf) for BG player", aamp->GetPositionSeconds());
+				return;
+			}
 			/*
 			 * PositionMillisecondLock is intended to ensure both state and seek_pos_seconds
 			 * are updated before GetPositionMilliseconds() can be used*/
@@ -1396,11 +1360,6 @@ void PlayerInstanceAAMP::SetRateAndSeek(int rate, double secondsRelativeToTuneTi
 		AAMPPlayerState state = GetState();
 		TuneType tuneType = eTUNETYPE_SEEK;
 		AAMPLOG_WARN("aamp_SetRateAndSeek(%d)(%f)", rate, secondsRelativeToTuneTime);
-		if (!IsValidRate(rate))
-		{
-			AAMPLOG_WARN("SetRate ignored!! Invalid rate (%d)", rate);
-			return;
-		}
 		
 		//convert the incoming rates into acceptable rates
 		if(ISCONFIGSET(eAAMPConfig_RepairIframes))
@@ -1758,7 +1717,7 @@ std::string PlayerInstanceAAMP::GetDRM(void)
 	std::string ret;
 	if(aamp)
 	{
-		std::shared_ptr<AampDrmHelper> helper = aamp->GetCurrentDRM();
+		DrmHelperPtr helper = aamp->GetCurrentDRM();
 		if (helper)
 		{
 			ret = helper->friendlyName();
@@ -3146,37 +3105,6 @@ void PlayerInstanceAAMP::PersistBitRateOverSeek(bool bValue)
 	SETCONFIGVALUE(AAMP_APPLICATION_SETTING,eAAMPConfig_PersistentBitRateOverSeek,bValue);
 }
 
-
-/**
- *  @brief Stop playback and release resources.
- */
-void PlayerInstanceAAMP::StopInternal(bool sendStateChangeEvent)
-{
-	aamp->StopPausePositionMonitoring("Stop() called");
-
-	AAMPPlayerState state = aamp->GetState();
-	if(!aamp->IsTuneCompleted())
-	{
-		aamp->TuneFail(true);
-
-	}
-
-	AAMPLOG_WARN("aamp_stop PlayerState=%d",state);
-
-	if (sendStateChangeEvent)
-	{
-		aamp->SetState(eSTATE_IDLE);
-	}
-
-	AAMPLOG_WARN("%s PLAYER[%d] Stopping Playback at Position %lld", (aamp->mbPlayEnabled?STRFGPLAYER:STRBGPLAYER), aamp->mPlayerId, aamp->GetPositionMilliseconds());
-	aamp->Stop();
-	// Revert all custom specific setting, tune specific setting and stream specific setting , back to App/default setting
-	mConfig.RestoreConfiguration(AAMP_CUSTOM_DEV_CFG_SETTING);
-	mConfig.RestoreConfiguration(AAMP_TUNE_SETTING);
-	mConfig.RestoreConfiguration(AAMP_STREAM_SETTING);
-	aamp->mIsStream4K = false;
-}
-
 /**
  *  @brief To set preferred paused state behavior
  */
@@ -3536,7 +3464,7 @@ void PlayerInstanceAAMP::SetRuntimeDRMConfigSupport(bool DynamicDRMSupported)
  */
 bool PlayerInstanceAAMP::IsOOBCCRenderingSupported()
 {
-	return AampCCManager::GetInstance()->IsOOBCCRenderingSupported();
+	return PlayerCCManager::GetInstance()->IsOOBCCRenderingSupported();
 }
 
 /**

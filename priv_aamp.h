@@ -25,15 +25,14 @@
 #ifndef PRIVAAMP_H
 #define PRIVAAMP_H
 
-#include "AampMemoryUtils.h"
 #include "AampProfiler.h"
-#include "AampDrmHelper.h"
-#include "AampDrmMediaFormat.h"
-#include "AampDrmCallbacks.h"
+#include "DrmHelper.h"
+#include "DrmMediaFormat.h"
+#include "DrmCallbacks.h"
 #include "main_aamp.h"
 #include <IPVideoStat.h>
 #include "AampGrowableBuffer.h"
-
+#include "CCTrackInfo.h"
 #include <signal.h>
 #include <semaphore.h>
 #include <curl/curl.h>
@@ -56,7 +55,6 @@
 #include <inttypes.h>
 #include <type_traits>
 #include <chrono>
-#include "AampRfc.h"
 #include "AampEventManager.h"
 #include <HybridABRManager.h>
 #include "AampCMCDCollector.h"
@@ -158,7 +156,6 @@ enum PlaybackErrorType
 	eDASH_LOW_LATENCY_INPUT_PROTECTION_ERROR,  /**< Low Latency Dash Input Protection error **/
 	eDASH_RECONFIGURE_FOR_ENC_PERIOD /**< Retune to reconfigure pipeline for encrypted period **/
 };
-
 
 /**
  * @brief Tune Type
@@ -448,7 +445,6 @@ class AudioTrackTuple
 		}
 };
 
-#ifdef AAMP_HLS_DRM
 /**
  *	\Class attrNameData
  * 	\brief	local class to hold DRM information
@@ -468,8 +464,6 @@ public:
 
 	bool operator==(const attrNameData& rhs) const { return (this->attrName == rhs.attrName); }
 };
-
-#endif
 
 /**
  * @brief To have hostname mapped curl handles
@@ -526,8 +520,8 @@ typedef struct BlacklistProfileInfo_t
 
 class AampCacheHandler;
 
-class AampDRMSessionManager;
-
+class DRMSessionManager;
+class AampLicenseManager;
 /**
  * @brief
  *
@@ -537,7 +531,7 @@ class SegmentInfo_t;
 /**
  * @brief Class representing the AAMP player's private instance, which is not exposed to outside world.
  */
-class PrivateInstanceAAMP : public AampDrmCallbacks, public std::enable_shared_from_this<PrivateInstanceAAMP>
+class PrivateInstanceAAMP : public DrmCallbacks, public std::enable_shared_from_this<PrivateInstanceAAMP>
 {
 
 	enum AAMP2ReceiverMsgType
@@ -593,7 +587,7 @@ public:
 	 * @param[in] bFirstAttempt - External initiated tune
 	 * @param[in] bFinalAttempt - Final retry/attempt.
 	 * @param[in] audioDecoderStreamSync - Enable or disable audio decoder stream sync,
-	 *                set to 'false' if audio fragments come with additional padding at the end 
+	 *                set to 'false' if audio fragments come with additional padding at the end
 	 *
 	 * @param[in] refreshManifestUrl -
 	 * @param[in] mpdStitchingMode -
@@ -813,12 +807,6 @@ public:
 	 * This function is invoked continuously when ever there is an update in manifest
 	 */
 	void updateManifest(const char *manifestData);
-
-	/**
-	 * @fn GetPlatformType - to get platform type
-	 * return int
-	 */
-	int GetPlatformType() override;
 
 	bool mDiscontinuityFound;
 	int mTelemetryInterval;
@@ -1065,18 +1053,14 @@ public:
 	bool mEncryptedPeriodFound;				/**< Will be set if an encrypted pipeline is found while pipeline is clear*/
 	bool mPipelineIsClear;					/**< To keep the status of pipeline (whether configured for clear or not)*/
 
-#ifdef AAMP_HLS_DRM
 	std::vector <attrNameData> aesCtrAttrDataList; 		/**< Queue to hold the values of DRM data parsed from manifest */
 	std::mutex drmParserMutex; 			/**< Mutex to lock DRM parsing logic */
 	bool fragmentCdmEncrypted; 				/**< Indicates CDM protection added in fragments **/
-#endif
 	std::thread mPreCachePlaylistThreadId;
 	bool mbPlayEnabled;					/**< Send buffer to pipeline or just cache them */
-#if defined(AAMP_MPD_DRM) || defined(AAMP_HLS_DRM) || defined(USE_OPENCDM)
 	std::thread createDRMSessionThreadID; 			/**< thread ID for DRM session creation */
 	bool drmSessionThreadStarted; 				/**< flag to indicate the thread is running on not */
-	AampDRMSessionManager *mDRMSessionManager;
-#endif
+	AampLicenseManager *mDRMLicenseManager;
 	int mPlaylistFetchFailError;				/**< To store HTTP error code when playlist download fails */
 	bool mAudioDecoderStreamSync; 				/**<  Flag to set or clear 'stream_sync_mode' property
 	                                				in gst brcmaudiodecoder, default: True */
@@ -1121,6 +1105,7 @@ public:
 
 	double mOffsetFromTunetimeForSAPWorkaround; 		/**< current playback position in epoch */
 	bool mLanguageChangeInProgress;
+	bool mAampTsbLanguageChangeInProgress;     /**< set during AAMP TSB language change */
 	int mSupportedTLSVersion;    				/**< ssl/TLS default version */
 	std::string mFailureReason;   				/**< String to hold the tune failure reason  */
 	long long mTimedMetadataStartTime;			/**< Start time to report TimedMetadata   */
@@ -1278,7 +1263,7 @@ public:
 	 * @param[in] userData - DrmSession data
 	 * @return void
 	 */
-	void LicenseRenewal(std::shared_ptr<AampDrmHelper> drmHelper,void* userData) override;
+	void LicenseRenewal(DrmHelperPtr drmHelper,void* userData) override;
 	/**
 	 * @fn CurlTerm
 	 *
@@ -1312,9 +1297,10 @@ public:
 	 * @param[in] bitrate
 	 * @param[out] fogError
 	 * @param[in] fragmentDurationS
+	 * @param[in] maxInitDownloadTimeMS - Max time to retry init segment downloads if AAMP TSB is enabled, 0 otherwise
 	 * @return true iff successful
 	 */
-	bool GetFile( std::string remoteUrl, AampMediaType mediaType, AampGrowableBuffer *buffer, std::string& effectiveUrl, int *http_error = NULL, double *downloadTime = NULL, const char *range = NULL, unsigned int curlInstance = 0, bool resetBuffer = true, BitsPerSecond *bitrate = NULL,  int * fogError = NULL, double fragmentDurationS = 0, ProfilerBucketType bucketType=PROFILE_BUCKET_TYPE_COUNT );
+	bool GetFile( std::string remoteUrl, AampMediaType mediaType, AampGrowableBuffer *buffer, std::string& effectiveUrl, int *http_error = NULL, double *downloadTime = NULL, const char *range = NULL, unsigned int curlInstance = 0, bool resetBuffer = true, BitsPerSecond *bitrate = NULL,  int * fogError = NULL, double fragmentDurationS = 0, ProfilerBucketType bucketType=PROFILE_BUCKET_TYPE_COUNT, int maxInitDownloadTimeMS = 0);
 
 	/**
 	 * @fn getUUID
@@ -1720,10 +1706,12 @@ public:
 	 *   @param[in]  fpts - Presentation Time Stamp.
 	 *   @param[in]  fdts - Decode Time Stamp
 	 *   @param[in]  fDuration - Buffer duration.
+	 *   @param[in]  fragmentPTSoffset - Offset PTS
 	 *   @param[in]  initFragment - flag for buffer type (init, data)
+	 *   @param[in]  discontinuity - flag for discontinuity
 	 *   @return void
 	 */
-	void SendStreamTransfer(AampMediaType mediaType, AampGrowableBuffer* buffer, double fpts, double fdts, double fDuration, bool initFragment = 0, bool discontinuity = false);
+	void SendStreamTransfer(AampMediaType mediaType, AampGrowableBuffer* buffer, double fpts, double fdts, double fDuration, double fragmentPTSoffset, bool initFragment = 0, bool discontinuity = false);
 
 	/**
 	 * @fn IsLive
@@ -1748,10 +1736,10 @@ public:
 
 	/**
 	 * @fn Stop
-	 *
+	 * @param pass sendStateChangeEvents if state change events should be generated during transition
 	 * @return void
 	 */
-	void Stop(void);
+	void Stop( bool sendStateChangeEvents );
 
 	/**
 	 * @brief Checking whether TSB enabled or not
@@ -1973,7 +1961,7 @@ public:
 	 *   @param[in] bucketType profiler bucket type
 	 *   @return void
 	 */
-	void LogDrmDecryptEnd( ProfilerBucketType bucketType );
+	void LogDrmDecryptEnd( int bucketType );
 
 	/**
 	 *   @brief Get manifest URL
@@ -2246,8 +2234,8 @@ public:
 	 *   @param[in] state - New state
 	 *   @return void
 	 */
-	void SetState(AAMPPlayerState state);
-
+	void SetState( AAMPPlayerState state, bool generateEvent=true );
+	
 	/**
 	 *   @fn GetState
 	 *
@@ -2592,7 +2580,7 @@ public:
 	 *
 	 *   @return current drm helper
 	 */
-	std::shared_ptr<AampDrmHelper>  GetCurrentDRM();
+	DrmHelperPtr  GetCurrentDRM();
 
 	/**
 	 *   @fn GetPreferredAudioProperties
@@ -2612,9 +2600,8 @@ public:
 	 *   @param[in] drm - New DRM type
 	 *   @return void
 	 */
-	void setCurrentDrm(std::shared_ptr<AampDrmHelper> drm) { mCurrentDrm = drm; }
+	void setCurrentDrm(DrmHelperPtr drm) { mCurrentDrm = drm; }
 
-#if defined(USE_SECCLIENT) || defined(USE_SECMANAGER)
 	/**
 	 * @fn GetMoneyTraceString
 	 * @param[out] customHeader - Generated moneytrace is stored
@@ -2622,7 +2609,6 @@ public:
 	 * @return void
 	 */
 	void GetMoneyTraceString(std::string &) const;
-#endif /* USE_SECCLIENT */
 
 	/**
 	 *   @fn NotifyFirstFragmentDecrypted
@@ -3313,7 +3299,7 @@ public:
 	 */
 	BitsPerSecond GetIframeBitrate4K();
 
-	/* End AampDrmCallbacks implementation */
+	/* End DrmCallbacks implementation */
 
 	/**
 	 *   @brief Set initial buffer duration in seconds
@@ -3329,16 +3315,16 @@ public:
 	 */
 	int GetInitialBufferDuration();
 
-	/* AampDrmCallbacks implementation */
+	/* DrmCallbacks implementation */
 	/**
 	 *   @fn individualization
 	 *
 	 *   @param[in] payload - individualization payload
 	 *   @return void
 	 */
-	void individualization(const std::string& payload) override;
+	void Individualization(const std::string& payload) override;
 
-	/* End AampDrmCallbacks implementation */
+	/* End DrmCallbacks implementation */
 
 	/**
 	 *   @fn SetContentType
@@ -3442,6 +3428,14 @@ public:
 	 *   @return void
 	 */
 	void SetCCStatus(bool enabled);
+
+	/**
+	 * @brief Updates the provided vector of CCTrackInfo with data from a vector of TextTrackInfo.
+	 *
+	 * @param textTracksCopy A vector of TextTrackInfo objects to be processed.
+	 * @param updatedTextTracks A vector of CCTrackInfo objects to be updated.
+	 */
+	void UpdateCCTrackInfo(const std::vector<TextTrackInfo>& textTracksCopy, std::vector<CCTrackInfo>& updatedTextTracks);
 
 	/**
 	 *   @fn GetCCStatus
@@ -4003,6 +3997,14 @@ public:
 	void LoadLocalTSBConfig(void);
 
 	/**
+	 * @fn CreateTsbSessionManager
+	 * @brief Create a new TSB Session Manager
+	 * The new session manager will be created only for DASH linear content.
+	 * If one already exists it will be destroyed (wiping the content of the TSB) and a new one created.
+	 */
+	void CreateTsbSessionManager();
+
+	/**
 	 *    @brief To increment gaps between periods for dash
 	 *    return none
 	 */
@@ -4222,7 +4224,8 @@ public:
 	 * @return A constant character pointer to the error string corresponding to the provided error type.
 	 */
 	const char* getStringForPlaybackError(PlaybackErrorType errorType);
-
+	bool mPausePositionMonitoringThreadStarted; // Flag to indicate PausePositionMonitoring thread started
+	
 protected:
 
 	/**
@@ -4349,7 +4352,6 @@ protected:
 	std::mutex mPausePositionMonitorMutex;				// Mutex lock for PausePosition condition variable
 	std::condition_variable mPausePositionMonitorCV;	// Condition Variable to signal to stop PausePosition monitoring
     std::thread mPausePositionMonitoringThreadID;			// Thread Id of the PausePositionMonitoring thread
-	bool mPausePositionMonitoringThreadStarted;			// Flag to indicate PausePositionMonitoring thread started
 	TuneType mTuneType;
 	int m_fd;
 	bool mIsLive;				// Flag to indicate manifest type.
@@ -4365,7 +4367,7 @@ protected:
 	std::atomic<AAMPPlayerState> mState;  //Changed to atomic as there are cross thread accesses.
 	long long lastUnderFlowTimeMs[AAMP_TRACK_COUNT];
 	bool mbTrackDownloadsBlocked[AAMP_TRACK_COUNT];
-	std::shared_ptr<AampDrmHelper> mCurrentDrm;
+	DrmHelperPtr mCurrentDrm;
 	int  mPersistedProfileIndex;
 	long mAvailableBandwidth;
 	bool mProcessingDiscontinuity[AAMP_TRACK_COUNT];
@@ -4451,6 +4453,8 @@ protected:
 	std::mutex mPreProcessLock;
 	bool mIsChunkMode;		/** LLD ChunkMode */
 
+private:
+	void SetCMCDTrackData(AampMediaType mediaType);
+	std::vector<float> getSupportedPlaybackSpeeds(void);
 };
-
 #endif // PRIVAAMP_H

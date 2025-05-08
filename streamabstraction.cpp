@@ -11,7 +11,8 @@
  * http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
+ * distributed under the License is distributed on an
+ "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
@@ -37,6 +38,8 @@
 #include "AampTSBSessionManager.h"
 #include "isobmffhelper.h"
 #include "AampConfig.h"
+#include "SubtecFactory.hpp"
+#include "AampUtils.h"
 
 // checks if current state is going to use IFRAME ( Fragment/Playlist )
 #define IS_FOR_IFRAME(rate, type) ((type == eTRACK_VIDEO) && (rate != AAMP_NORMAL_PLAY_RATE))
@@ -389,15 +392,14 @@ void MediaTrack::UpdateTSAfterChunkInject()
 
 	parsedBufferChunk.Free();
 	//memset(&parsedBufferChunk, 0x00, sizeof(AampGrowableBuffer));
-	
 	//increment Inject Index
 	++fragmentChunkIdxToInject;
 	fragmentChunkIdxToInject = (fragmentChunkIdxToInject) % mCachedFragmentChunksSize;
 	if(numberOfFragmentChunksCached > 0) numberOfFragmentChunksCached--;
-	
+
 	AAMPLOG_DEBUG("[%s] updated fragmentChunkIdxToInject = %d numberOfFragmentChunksCached %d",
 				  name, fragmentChunkIdxToInject, numberOfFragmentChunksCached);
-	
+
 	fragmentChunkInjected.notify_one();
 }
 
@@ -405,10 +407,10 @@ void MediaTrack::UpdateTSAfterChunkInject()
  * @brief To be implemented by derived classes to receive cached fragment Chunk
  * Receives cached fragment and injects to sink.
  */
-void MediaTrack::InjectFragmentChunkInternal(AampMediaType mediaType, AampGrowableBuffer* buffer, double fpts, double fdts, double fDuration, bool init, bool discontinuity)
+void MediaTrack::InjectFragmentChunkInternal(AampMediaType mediaType, AampGrowableBuffer* buffer, double fpts, double fdts, double fDuration, double fragmentPTSOffset, bool init, bool discontinuity)
 {
-	aamp->SendStreamTransfer(mediaType, buffer, fpts, fdts, fDuration, init, discontinuity);
-	
+	aamp->SendStreamTransfer(mediaType, buffer, fpts, fdts, fDuration, fragmentPTSOffset, init, discontinuity);
+
 }
 
 /**
@@ -738,7 +740,6 @@ void MediaTrack::AbortWaitForCachedAndFreeFragment(bool immediate)
 	aamp->waitforplaystart.notify_one();
 	fragmentFetched.notify_one();
 	lock.unlock();
-	
 	GetContext()?GetContext()->AbortWaitForDiscontinuity(): void();
 }
 
@@ -754,11 +755,11 @@ void MediaTrack::AbortWaitForCachedFragment()
 		AAMPLOG_DEBUG("[%s] signal fragmentChunkFetched condition", name);
 		fragmentChunkFetched.notify_one();
 	}
-	
+
 	abortInject = true;
 	fragmentFetched.notify_one();
 	lock.unlock();
-	
+
 	GetContext()?GetContext()->AbortWaitForDiscontinuity():void();
 }
 
@@ -790,7 +791,7 @@ bool MediaTrack::CheckForDiscontinuity(CachedFragment* cachedFragment, bool& fra
 		if ((cachedFragment->discontinuity || ptsError) && (AAMP_NORMAL_PLAY_RATE == aamp->rate))
 		{
 			bool isDiscoIgnoredForOtherTrack = aamp->IsDiscontinuityIgnoredForOtherTrack((AampMediaType)!type);
-			AAMPLOG_TRACE("track %s - encountered aamp discontinuity @position - %f, isDiscoIgnoredForOtherTrack - %d", name, cachedFragment->position, isDiscoIgnoredForOtherTrack);
+			AAMPLOG_TRACE("track %s - encountered aamp discontinuity @position - %f, isDiscoIgnoredForOtherTrack - %d ptsError %d", name, cachedFragment->position, isDiscoIgnoredForOtherTrack,ptsError );
 			if (eTRACK_SUBTITLE != type)
 			{
 				cachedFragment->discontinuity = false;
@@ -938,7 +939,7 @@ bool MediaTrack::ProcessFragmentChunk()
 		if (type != eTRACK_SUBTITLE || (aamp->IsGstreamerSubsEnabled()))
 		{
 			AAMPLOG_INFO("Injecting init chunk for %s",name);
-			InjectFragmentChunkInternal((AampMediaType)type, &cachedFragment->fragment, cachedFragment->position, cachedFragment->position, cachedFragment->duration, cachedFragment->initFragment, cachedFragment->discontinuity);
+			InjectFragmentChunkInternal((AampMediaType)type, &cachedFragment->fragment, cachedFragment->position, cachedFragment->position, cachedFragment->duration, cachedFragment->PTSOffsetSec, cachedFragment->initFragment, cachedFragment->discontinuity);
 			if (eTRACK_VIDEO == type && pContext && pContext->GetProfileCount())
 			{
 				pContext->NotifyBitRateUpdate(cachedFragment->profileIndex, cachedFragment->cacheFragStreamInfo, cachedFragment->position);
@@ -1063,7 +1064,7 @@ bool MediaTrack::ProcessFragmentChunk()
 		if (type != eTRACK_SUBTITLE || (aamp->IsGstreamerSubsEnabled()))
 		{
 			AAMPLOG_INFO("Injecting chunk for %s br=%d,chunksize=%zu fpts=%f fduration=%f",name,bandwidthBitsPerSecond,parsedBufferChunk.GetLen(),fpts,fduration);
-			InjectFragmentChunkInternal((AampMediaType)type,&parsedBufferChunk , fpts, fpts, fduration);
+			InjectFragmentChunkInternal((AampMediaType)type,&parsedBufferChunk , fpts, fpts, fduration, cachedFragment->PTSOffsetSec);
 			totalInjectedChunksDuration += fduration;
 		}
 	}
@@ -1206,6 +1207,59 @@ void MediaTrack::TrickModePtsRestamp(CachedFragment *cachedFragment)
 						cachedFragment->initFragment, cachedFragment->discontinuity);
 }
 
+static bool isWebVttSegment( const char *buffer, size_t bufferLen )
+{
+	if( bufferLen>=3 && buffer[0]==(char)0xEF && buffer[1]==(char)0xBB && buffer[2]==(char)0xBF )
+	{ // skip UTF-8 BOM if present
+		buffer += 3;
+		bufferLen -= 3;
+	}
+	return bufferLen>=6 && memcmp(buffer,"WEBVTT",6)==0;
+}
+
+std::string MediaTrack::RestampSubtitle( const char* buffer, size_t bufferLen, double position, double duration, double pts_offset_s )
+{
+	long long pts_offset_ms = pts_offset_s*1000;
+	std::string str;
+	if( ISCONFIGSET(eAAMPConfig_HlsTsEnablePTSReStamp) && pts_offset_ms && isWebVttSegment(buffer,bufferLen) )
+	{
+		const char *fin = &buffer[bufferLen];
+		const char *prev = buffer;
+		while( prev<fin )
+		{
+			const char *line_start = mystrstr( prev, fin, "\n\n" );
+			if( line_start )
+			{
+				line_start += 2; // advance past \n\n
+				str += std::string(prev,line_start-prev);
+				prev = line_start;
+				const char *line_end = mystrstr(line_start, fin, "\n" );
+				if( line_end )
+				{
+					const char *line_delim = mystrstr( line_start, line_end, " --> " );
+					if( line_delim )
+					{ // apply pts offset by rewriting inline begin/end times
+						prev = line_end;
+						str += convertTimeToHHMMSS( convertHHMMSSToTime(line_start) + pts_offset_ms );
+						str +=  " --> ";
+						str += convertTimeToHHMMSS( convertHHMMSSToTime(line_delim+5) + pts_offset_ms );
+					}
+				}
+			}
+			else
+			{ // trailing
+				str += std::string(prev,fin-prev);
+				prev = fin;
+			}
+		}
+	}
+	else
+	{
+		str = std::string(buffer,bufferLen);
+	}
+	return str;
+}
+
 /**
  *  @brief Inject fragment Chunk into the gstreamer
  */
@@ -1249,19 +1303,52 @@ void MediaTrack::ProcessAndInjectFragment(CachedFragment *cachedFragment, bool f
 				}
 			}
 		}
-		if (mSubtitleParser && type == eTRACK_SUBTITLE)
+		if ((mSubtitleParser || (aamp->IsGstreamerSubsEnabled())) && type == eTRACK_SUBTITLE)
 		{
-			mSubtitleParser->processData(cachedFragment->fragment.GetPtr(), cachedFragment->fragment.GetLen(), cachedFragment->position, cachedFragment->duration);
+			auto ptr = cachedFragment->fragment.GetPtr();
+			auto len = cachedFragment->fragment.GetLen();
+			if( ISCONFIGSET(eAAMPConfig_HlsTsEnablePTSReStamp) )
+			{
+				while( aamp->mDownloadsEnabled )
+				{
+					if( pContext->mPtsOffsetMap.count(cachedFragment->discontinuityIndex)==0 )
+					{
+						AAMPLOG_WARN( "blocking subtitle track injection\n" );
+						pContext->aamp->interruptibleMsSleep(1000);
+					}
+					else
+					{
+						auto firstElement = *pContext->mPtsOffsetMap.begin();
+						cachedFragment->PTSOffsetSec = pContext->mPtsOffsetMap[cachedFragment->discontinuityIndex] - firstElement.second;
+						std::string str = RestampSubtitle(
+														  ptr,len,
+														  cachedFragment->position,
+														  cachedFragment->duration,
+														  cachedFragment->PTSOffsetSec );
+						cachedFragment->fragment.Clear();
+						cachedFragment->fragment.AppendBytes(str.data(),str.size());
+						if(mSubtitleParser)
+						{
+							mSubtitleParser->processData(str.data(), str.size(), cachedFragment->position, cachedFragment->duration);
+						}
+						break;
+					}
+				}
+			}
+			else if(mSubtitleParser)
+			{ // no restamping
+				mSubtitleParser->processData( ptr, len, cachedFragment->position, cachedFragment->duration);
+			}
 		}
 		if (!cachedFragment->isDummy && (type != eTRACK_SUBTITLE || (aamp->IsGstreamerSubsEnabled())))
 		{
 			if(AAMP_NORMAL_PLAY_RATE==aamp->rate)
 			{
-				InjectFragmentInternal(cachedFragment, fragmentDiscarded,isDiscontinuity);
+				InjectFragmentInternal(cachedFragment, fragmentDiscarded, isDiscontinuity);
 			}
 			else
 			{
-				InjectFragmentInternal(cachedFragment, fragmentDiscarded,cachedFragment->discontinuity);
+				InjectFragmentInternal(cachedFragment, fragmentDiscarded, cachedFragment->discontinuity);
 			}
 		}
 		class StreamAbstractionAAMP* pContext = GetContext();
@@ -1328,6 +1415,8 @@ bool MediaTrack::InjectFragment()
 		if(isChunkBuffer)
 		{
 			cachedFragment = &this->mCachedFragmentChunks[fragmentChunkIdxToInject];
+			AAMPLOG_TRACE("[%s] fragmentChunkIdxToInject : %d Discontinuity %d ", name, fragmentChunkIdxToInject, cachedFragment->discontinuity);
+
 		}
 		else
 		{
@@ -1558,8 +1647,10 @@ void MediaTrack::RunInjectLoop()
 		}
 		// Disable audio video balancing for CDVR content ..
 		// CDVR Content includes eac3 audio, the duration of audio doesn't match with video
-		// and hence balancing fetch/inject not needed for CDVR //TBD Not needed for LLD
-		if(!ISCONFIGSET(eAAMPConfig_AudioOnlyPlayback) && !aamp->IsCDVRContent() && (!aamp->mAudioOnlyPb && !aamp->mVideoOnlyPb) && !lowLatency)
+		// and hence balancing fetch/inject not needed for CDVR
+		// TBD Not needed for LLD
+		// Not needed for local TSB gstreamer will balance A/V - thats what it does
+		if(!ISCONFIGSET(eAAMPConfig_AudioOnlyPlayback) && !aamp->IsCDVRContent() && (!aamp->mAudioOnlyPb && !aamp->mVideoOnlyPb) && !lowLatency && !aamp->IsLocalAAMPTsb())
 		{
 			if(pContext != NULL)
 			{
@@ -1708,7 +1799,6 @@ void MediaTrack::FlushFetchedFragments()
 		AAMPLOG_DEBUG("[%s] Free cachedFragment[%d] numberOfFragmentsCached %d", name, fragmentIdxToInject, numberOfFragmentsCached);
 		mCachedFragment[fragmentIdxToInject].fragment.Free();
 		memset(&mCachedFragment[fragmentIdxToInject], 0, sizeof(CachedFragment));
-		
 		fragmentIdxToInject++;
 		if (fragmentIdxToInject == maxCachedFragmentsPerTrack)
 		{
@@ -2506,7 +2596,7 @@ bool StreamAbstractionAAMP::RampDownProfile(int http_error)
 				aamp->ResetCurrentlyAvailableBandwidth(newBW,false,profileIdxForBandwidthNotification);
 				mBitrateReason = eAAMP_BITRATE_CHANGE_BY_RAMPDOWN;
 
-				// Send abr notification
+				// Send abr notification to XRE
 				video->ABRProfileChanged();
 				mABRLowBufferCounter = 0 ;
 				mABRHighBufferCounter = 0;
@@ -2588,7 +2678,7 @@ bool StreamAbstractionAAMP::CheckForRampDownProfile(int http_error)
 	{
 		http_error = getOriginalCurlError(http_error);
 
-		if (http_error == 404 || http_error == 500 || http_error == 503 || http_error == CURLE_PARTIAL_FILE)
+		if (http_error == 404 || http_error == 403 || http_error == 500 || http_error == 503 || http_error == CURLE_PARTIAL_FILE)
 		{
 			if (RampDownProfile(http_error))
 			{
@@ -3050,6 +3140,104 @@ double StreamAbstractionAAMP::GetLastInjectedFragmentPosition()
 	}
 	AAMPLOG_INFO("Last Injected fragment Position : %f", pos);
 	return pos;
+}
+
+/**
+ * @brief Set local AAMP TSB injection flag
+ */
+void MediaTrack::SetLocalTSBInjection(bool value)
+{
+	mIsLocalTSBInjection.store(value);
+	AAMPLOG_INFO("isLocalAampTsbInjection %d", mIsLocalTSBInjection.load());
+}
+
+/**
+ * @brief Function to Resume track downloader
+ */
+void StreamAbstractionAAMP::ResumeTrackDownloadsHandler( )
+{
+	aamp->ResumeTrackDownloads(eMEDIATYPE_SUBTITLE);
+}
+
+/**
+ * @brief Function to Stop track downloader
+ */
+void StreamAbstractionAAMP::StopTrackDownloadsHandler( )
+{
+	aamp->StopTrackDownloads(eMEDIATYPE_SUBTITLE);
+}
+
+/**
+ * @brief Function to Send VTT Cue Data as event
+ */
+void StreamAbstractionAAMP::SendVTTCueDataHandler(VTTCue* cueData)
+{
+	aamp->SendVTTCueDataAsEvent(cueData);
+}
+
+/**
+ * @brief Function to Get the seek position current playback position in seconds
+ */
+void StreamAbstractionAAMP::GetPlayerPositionsHandler(long long& getPositionMS, double& seekPositionSeconds)
+{
+    getPositionMS = aamp->GetPositionMs();
+    seekPositionSeconds = aamp->seek_pos_seconds;
+}
+
+/**
+ * @brief Function to initialize the player related callbacks
+ */
+void StreamAbstractionAAMP::InitializePlayerCallbacks(PlayerCallbacks& callbacks)
+{
+	callbacks.resumeTrackDownloads_CB = std::bind(&StreamAbstractionAAMP::ResumeTrackDownloadsHandler, this);
+	callbacks.stopTrackDownloads_CB = std::bind(&StreamAbstractionAAMP::StopTrackDownloadsHandler, this);
+	callbacks.sendVTTCueData_CB = std::bind(&StreamAbstractionAAMP::SendVTTCueDataHandler, this, std::placeholders::_1);
+	callbacks.getPlayerPositions_CB = std::bind(&StreamAbstractionAAMP::GetPlayerPositionsHandler, this, std::placeholders::_1, std::placeholders::_2);
+}
+
+/**
+ * @brief Function to initialize the create subtitle parser instance & player related callbacks
+ */
+std::unique_ptr<SubtitleParser> StreamAbstractionAAMP::RegisterSubtitleParser_CB(std::string mimeType, bool isExpectedMimeType)
+{
+	SubtitleMimeType type = eSUB_TYPE_UNKNOWN;
+
+	AAMPLOG_INFO("RegisterSubtitleParser_CB: mimeType %s", mimeType.c_str());
+
+	if (!mimeType.compare("text/vtt"))
+		type = eSUB_TYPE_WEBVTT;
+	else if (!mimeType.compare("application/ttml+xml") ||
+			!mimeType.compare("application/mp4"))
+		type = eSUB_TYPE_TTML;
+
+	return RegisterSubtitleParser_CB(type, isExpectedMimeType);
+}
+
+/**
+ * @brief Function to initialize the create subtitle parser instance & player related callbacks
+ */
+std::unique_ptr<SubtitleParser> StreamAbstractionAAMP::RegisterSubtitleParser_CB(SubtitleMimeType mimeType, bool isExpectedMimeType) {
+    int width = 0, height = 0;
+    bool webVTTCueListenersRegistered = false, isWebVTTNativeConfigured = false, resumeTrackDownload = false;
+    PlayerCallbacks playerCallBack = {};
+
+	if(isExpectedMimeType)
+	{
+		webVTTCueListenersRegistered = aamp->WebVTTCueListenersRegistered();
+		isWebVTTNativeConfigured = ISCONFIGSET(eAAMPConfig_WebVTTNative);
+	}
+
+    this->InitializePlayerCallbacks(playerCallBack);
+    aamp->GetPlayerVideoSize(width, height);
+
+    std::unique_ptr<SubtitleParser> subtitleParser = SubtecFactory::createSubtitleParser(mimeType, width, height, webVTTCueListenersRegistered, isWebVTTNativeConfigured, resumeTrackDownload);
+    if (subtitleParser) {
+        subtitleParser->RegisterCallback(playerCallBack);
+        if (resumeTrackDownload) {
+            aamp->ResumeTrackDownloads(eMEDIATYPE_SUBTITLE);
+        }
+    }
+    return subtitleParser;
 }
 
 /**
@@ -3692,7 +3880,7 @@ bool StreamAbstractionAAMP::IsSeekedToLive(double seekPosition)
  *
  * @param[in] rate - play rate
  *
- * Note: A common abstraction object is used for recording the live edge to TSB, and playing back from TSB. 
+ * Note: A common abstraction object is used for recording the live edge to TSB, and playing back from TSB.
  * For this reason we only want to adjust the MediaProcessors speed when playing back from TSB.
  */
 void StreamAbstractionAAMP::SetVideoPlaybackRate(float rate)
@@ -4221,6 +4409,16 @@ double MediaTrack::GetTotalInjectedDuration()
 		ret = totalInjectedChunksDuration;
 	}
 	return ret;
+}
+
+/**
+ * @brief update total fragment injected duration
+ *
+ * @return void
+ */
+void MediaTrack::UpdateInjectedDuration(double surplusDuration)
+{
+	totalInjectedDuration -= surplusDuration ;
 }
 
 /**

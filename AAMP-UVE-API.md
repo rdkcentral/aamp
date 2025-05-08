@@ -155,6 +155,8 @@ Configuration options are passed to AAMP using the UVE initConfig method. This a
 | maxPlaylistCacheSize | Number | 0 | Optional field to configure maximum cache size in Kbytes to store different profile HLS VOD playlist |
 | maxInitFragCachePerTrack | Number | 5 | Number of initialization header file cached per player instance per track type. Use cached data instead of network re-download  |
 | progressReportingInterval | Number | 1 | Optionally change Progress Report Interval (in seconds) |
+| progress | Boolean | False | Enables Progress logging |
+| progressLoggingDivisor | Number | 4 | If Progress logging is enabled, this divides the progressReportingInterval to reduce the amount of logging |
 | useRetuneForUnpairedDiscontinuity | Boolean | True | Optional unpaired discontinuity retune config ( version 1.0) |
 | useMatchingBaseUrl | Boolean | False | use DASH main manifest hostname to select from multiple base urls in DASH (when present).  By default, will always choose first (version 2.4) |
 | initFragmentRetryCount | Number | 1 | Maximum number of retries for MP4 header fragment download failures (version 2.4)  |
@@ -200,7 +202,7 @@ Configuration options are passed to AAMP using the UVE initConfig method. This a
 | sendUserAgentInLicense | Boolean | False | Optional field to enable sending User Agent string in license request also |
 | useSinglePipeline | Boolean | False | Optional field to enable single pipeline while switching between multiple player instances( Ad & Content) to avoid delay in flush operations. Used primarily for Client Side Ad-Insertion with multi-player usage |
 | mpdStichingSupport | Boolean | True | Optional field to enable/disable DASH MPD stitching functionality with dual manifest ( one manifest used during tune and another manifest during refresh ) |
-| enablePTSReStamp | Boolean | False | Optional field to enable/disable PTS Re-stamping functionality across discontinuity while moving from Content to Ads or vice-versa |
+| enablePTSReStamp | Boolean | False | Optional field to enable/disable PTS Re-stamping functionality across discontinuity while moving from Content to Ads or vice-versa. Currently only applicable to DASH content. |
 | subtitleClockSyncInterval | Number | 30 | Time interval for synchronizing the clock with subtitle module . Default of 30 seconds |
 | showDiagnosticsOverlay | Number | 0 (None) | Configures the diagnostics overlay: 0 (None), 1 (Minimal), 2 (Extended). Controls the visibility and level of detail for diagnostics displayed during playback.
 | localTSBEnabled | Boolean | False | Enable use of time shift buffer (TSB) for live playback, leveraging local storage.  Use of a TSB allows pause, seek, fast forward/rewind operations beyond the size of the default manifest live window supported by the CDN |

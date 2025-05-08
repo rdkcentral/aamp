@@ -31,9 +31,11 @@
 #include <map>
 #include <exception>
 #include <mutex>
+#include <utility>
 #include "priv_aamp.h"
 #include "StreamAbstractionAAMP.h"
 #include "ABRManager.h" // For BitsPerSecond
+#include "AampTime.h"
 
 #define TSB_DATA_DEBUG_ENABLED 0 /** Enable debug log on development/debug */
 
@@ -57,7 +59,7 @@ protected:
 	AampMediaType mediaType; /**< Type of the fragment*/
 	std::string periodId; /**< period Id of the fragment*/
 
-	TsbSegment(std::string link, AampMediaType media, std::string prId) : url(link), mediaType(media), periodId(prId){}
+	TsbSegment(std::string link, AampMediaType media, std::string prId) : url(std::move(link)), mediaType(media), periodId(std::move(prId)){}
 
 public:
 	/**
@@ -111,7 +113,8 @@ public:
 	 *   @param[in] profileIdx - ABR profile index
 	 *   @return void
 	 */
-	TsbInitData(std::string url, AampMediaType media, const StreamInfo &streamInfo, std::string prId, int profileIdx) : TsbSegment(url, media, prId), fragStreamInfo(streamInfo), users(0), profileIndex(profileIdx)
+	TsbInitData(std::string url, AampMediaType media, const StreamInfo &streamInfo, std::string prId, int profileIdx)
+		: TsbSegment(std::move(url), media, std::move(prId)), fragStreamInfo(streamInfo), users(0), profileIndex(profileIdx)
 	{
 	}
 
@@ -158,13 +161,13 @@ public:
 class TsbFragmentData : public TsbSegment
 {
 private:
-	double absolutePositionS; /**< absolute position of the current fragment, in seconds since 1970 */
-	double duration; /**< duration of the current fragment*/
-	double mPTS; /**< PTS of the current fragment in seconds before applying PTS offset, i.e. ISO BMFF baseMediaDecodeTime / timescale */
+	AampTime absolutePositionS; /**< absolute position of the current fragment, in seconds since 1970 */
+	AampTime duration; /**< duration of the current fragment*/
+	AampTime mPTS; /**< PTS of the current fragment in seconds before applying PTS offset, i.e. ISO BMFF baseMediaDecodeTime / timescale */
 	bool isDiscontinuous;  /**< the current fragment is discontinuous*/
 	std::shared_ptr<TsbInitData> initFragData; /**< init Fragment of the current fragment*/
 	uint32_t timeScale; /**< timescale of the current fragment */
-	double PTSOffsetSec; /**< PTS offset of the current fragment */
+	AampTime PTSOffsetSec; /**< PTS offset of the current fragment */
 
 	/* data */
 public:
@@ -183,9 +186,9 @@ public:
 	 *   @param[in] timeScale - timescale of the current fragment
 	 *   @param[in] PTSOffsetSec - PTS offset of the current fragment
 	 */
-	TsbFragmentData(std::string url, AampMediaType media, double absolutePositionS, double duration, double pts, bool disc,
-		std::string prId, std::shared_ptr<TsbInitData> initData, uint32_t timeScale, double PTSOffsetSec)
-		: TsbSegment(url, media, prId), absolutePositionS(absolutePositionS), duration(duration), mPTS(pts), isDiscontinuous(disc), initFragData(initData),
+	TsbFragmentData(std::string url, AampMediaType media, AampTime absolutePositionS, AampTime duration, AampTime pts, bool disc,
+		std::string prId, std::shared_ptr<TsbInitData> initData, uint32_t timeScale, AampTime PTSOffsetSec)
+		: TsbSegment(std::move(url), media, std::move(prId)), absolutePositionS(absolutePositionS), duration(duration), mPTS(pts), isDiscontinuous(disc), initFragData(std::move(initData)),
 		timeScale(timeScale), PTSOffsetSec(PTSOffsetSec)
 	{
 	}
@@ -208,21 +211,21 @@ public:
 	 *
 	 * @return absolute position of the current fragment, in seconds since 1970
 	 */
-	double GetAbsPosition() const { return absolutePositionS; }
+	AampTime GetAbsPosition() const { return absolutePositionS; }
 
 	/**
 	 * @fn GetPTS
 	 *
 	 * @return Query the PST of fragment
 	 */
-	double GetPTS() const { return mPTS; }
+	AampTime GetPTS() const { return mPTS; }
 
 	/**
 	 * @fn GetDuration
 	 *
 	 * @return duration of the fragment as double
 	 */
-	double GetDuration() const { return duration; }
+	AampTime GetDuration() const { return duration; }
 
 	/**
 	 * @fn IsDiscontinuous
@@ -243,7 +246,7 @@ public:
 	 *
 	 * @return PTS offset of the fragment
 	 */
-	double GetPTSOffsetSec() const { return PTSOffsetSec; }
+	AampTime GetPTSOffsetSec() const { return PTSOffsetSec; }
 };
 
 typedef std::shared_ptr<TsbFragmentData> TsbFragmentDataPtr;
@@ -277,15 +280,19 @@ private:
 public:
 	/**
 	 * @brief Construct a new Aamp Tsb Data Manager object
-	 *
 	 */
-	AampTsbDataManager() : mTsbDataMutex(), mTsbFragmentData(), mTsbInitData(), mCurrentInitData(nullptr), mCurrHead(nullptr), mRelativePos(0.0) {}
+	AampTsbDataManager() : mTsbDataMutex(), mTsbFragmentData(), mTsbInitData(), mCurrentInitData(nullptr), mCurrHead(nullptr), mRelativePos(0.0)
+	{
+		AAMPLOG_INFO("Constructor");
+	}
 
 	/**
 	 * @brief Destroy the Aamp Tsb Data Manager object
-	 *
 	 */
-	~AampTsbDataManager() {}
+	~AampTsbDataManager()
+	{
+		AAMPLOG_INFO("Destructor");
+	}
 
 	/**
 	 *   @fn GetNearestFragment

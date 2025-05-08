@@ -24,7 +24,8 @@
 
 #include <gst/gst.h>
 #include <gst/base/gstbasetransform.h>
-#include "AampDRMSessionManager.h"
+#include "AampLicManager.h"
+#include "DRMSessionManager.h"
 #include "priv_aamp.h"
 
 
@@ -46,8 +47,9 @@ typedef struct _GstAampCDMIDecryptorClass GstAampCDMIDecryptorClass;
 struct _GstAampCDMIDecryptor
 {
     GstBaseTransform                base_aampcdmidecryptor;
-    class AampDRMSessionManager*    sessionManager;
-    class AampDrmSession*           drmSession;
+    class AampLicenseManager*    licenseManager;
+    class DRMSessionManager*    sessionManager;
+    class DrmSession*           drmSession;
     class PrivateInstanceAAMP *     aamp;
     gboolean                        streamReceived;
     gboolean                        canWait;

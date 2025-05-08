@@ -27,7 +27,10 @@
 #include "AampJsonObject.h" // For JSON parsing
 #include "AampUtils.h"
 #include "aampgstplayer.h"
-#include "AampRfc.h"
+#include "PlayerRfc.h"
+#include "PlayerExternalsInterface.h"
+#include "PlayerSecInterface.h"
+#include "SocUtils.h"
 #include <time.h>
 #include <map>
 //////////////// CAUTION !!!! STOP !!! Read this before you proceed !!!!!!! /////////////
@@ -77,8 +80,8 @@ typedef enum
 	eCONFIG_RANGE_HARVEST_DURATION, // -1...10 HRS
 	eCONFIG_RANGE_ABSOLUTE_REPORTING, // eABSOLUTE_PROGRESS_EPOCH..eABSOLUTE_PROGRESS_MAX
 	eCONFIG_RANGE_LLDBUFFER, // 1 to 100 LLD buffer
-	eCONFIG_RANGE_PLATFORM_TYPES, // 0..3
 	eCONFIG_RANGE_SHOW_DIAGNOSTICS_OVERLAY,//0 to 2
+	eCONFIG_RANGE_MONITOR_AVSYNC, //1ms to 10000ms
 	eCONFIG_RANGE_MAX_VALUE,
 } ConfigValidRange;
 #define CONFIG_RANGE_ENUM_COUNT (eCONFIG_RANGE_MAX_VALUE)
@@ -118,8 +121,8 @@ static const struct
 	{-1, 60*60*10, eCONFIG_RANGE_HARVEST_DURATION },
 	{eABSOLUTE_PROGRESS_EPOCH, eABSOLUTE_PROGRESS_MAX, eCONFIG_RANGE_ABSOLUTE_REPORTING},
 	{ 1, 100, eCONFIG_RANGE_LLDBUFFER }, /** Minimum buffer should be a average chunk size(only int is possible), upper limit does not have much impact*/
-	{0, 3, eCONFIG_RANGE_PLATFORM_TYPES},
 	{ eDIAG_OVERLAY_NONE, eDIAG_OVERLAY_EXTENDED, eCONFIG_RANGE_SHOW_DIAGNOSTICS_OVERLAY},
+	{ MIN_MONITOR_AV_DELTA_MS, MAX_MONITOR_AV_DELTA_MS, eCONFIG_RANGE_MONITOR_AVSYNC},
 };
 
 static ConfigPriority customOwner;
@@ -172,22 +175,11 @@ struct ConfigLookupEntryString
 	bool bConfigurableByOperatorRFC; // better to have a separate list?
 };
 
-#ifdef IARM_MGR
-#define DEFAULT_VALUE_WIFI_CURL_HEADER true
-#else
-#define DEFAULT_VALUE_WIFI_CURL_HEADER false
-#endif
 
 #ifdef GST_SUBTEC_ENABLED
 #define DEFAULT_VALUE_GST_SUBTEC_ENABLED true
 #else
 #define DEFAULT_VALUE_GST_SUBTEC_ENABLED false
-#endif
-
-#ifdef USE_SECMANAGER
-#define DEFAULT_VALUE_USE_SECMANAGER true
-#else
-#define DEFAULT_VALUE_USE_SECMANAGER false
 #endif
 
 #ifdef ENABLE_USE_SINGLE_PIPELINE
@@ -297,7 +289,7 @@ static const ConfigLookupEntryBool mConfigLookupTableBool[AAMPCONFIG_BOOL_COUNT]
 	{true,"useRetuneForUnpairedDiscontinuity",eAAMPConfig_RetuneForUnpairDiscontinuity,false},
 	{true,"useRetuneForGstInternalError",eAAMPConfig_RetuneForGSTError,false},
 	{false,"useMatchingBaseUrl",eAAMPConfig_MatchBaseUrl,false},
-	{DEFAULT_VALUE_WIFI_CURL_HEADER,"wifiCurlHeader",eAAMPConfig_WifiCurlHeader,false},
+	{false,"wifiCurlHeader",eAAMPConfig_WifiCurlHeader,false},
 	{false,"enableSeekableRange",eAAMPConfig_EnableSeekRange,false},
 	{false,"enableLiveLatencyCorrection",eAAMPConfig_EnableLiveLatencyCorrection,true},
 	{true,"dashParallelFragDownload",eAAMPConfig_DashParallelFragDownload,false},
@@ -319,7 +311,7 @@ static const ConfigLookupEntryBool mConfigLookupTableBool[AAMPCONFIG_BOOL_COUNT]
 	{false,"limitResolution",eAAMPConfig_LimitResolution,false},
 	{false,"useAbsoluteTimeline",eAAMPConfig_UseAbsoluteTimeline,false},
 	{true,"enableAccessAttributes",eAAMPConfig_EnableAccessAttributes,false},
-	{false,"WideVineKIDWorkaround",eAAMPConfig_WideVineKIDWorkaround,false},
+	{false,"SkyStoreDE",eAAMPConfig_WideVineKIDWorkaround,false},
 	{false,"repairIframes",eAAMPConfig_RepairIframes,false},
 	{true,"seiTimeCode",eAAMPConfig_SEITimeCode,false},
 	{false,"disable4K" , eAAMPConfig_Disable4K, false},
@@ -331,7 +323,7 @@ static const ConfigLookupEntryBool mConfigLookupTableBool[AAMPCONFIG_BOOL_COUNT]
 	{true,"enableLowLatencyOffsetMin",eAAMPConfig_EnableLowLatencyOffsetMin,false},
 	{false,"syncAudioFragments",eAAMPConfig_SyncAudioFragments,false},
 	{false,"enableEosSmallFragment", eAAMPConfig_EnableIgnoreEosSmallFragment, false},
-	{DEFAULT_VALUE_USE_SECMANAGER,"useSecManager",eAAMPConfig_UseSecManager, true},
+	{false,"useSecManager",eAAMPConfig_UseSecManager, true},
 	{false,"enablePTO", eAAMPConfig_EnablePTO,false},
 	{true,"enableFogConfig", eAAMPConfig_EnableAampConfigToFog, false},
 	{false,"xreSupportedTune",eAAMPConfig_XRESupportedTune,false},
@@ -368,8 +360,8 @@ static const ConfigLookupEntryBool mConfigLookupTableBool[AAMPCONFIG_BOOL_COUNT]
 	{false, "enableIFrameTrackExtract", eAAMPConfig_EnableIFrameTrackExtract, true},
 	{false, "forceMultiPeriodDiscontinuity", eAAMPConfig_ForceMultiPeriodDiscontinuity, false},
 	{false, "forceLLDFlow", eAAMPConfig_ForceLLDFlow, false},
-	{false, "noNativeAV", eAAMPConfig_NoNativeAV, true},
 	{false, "monitorAV", eAAMPConfig_MonitorAV, true},
+	{false, "enablePTSRestampForHlsTs", eAAMPConfig_HlsTsEnablePTSReStamp, true},
 };
 
 #define CONFIG_INT_ALIAS_COUNT 2
@@ -462,9 +454,10 @@ static const ConfigLookupEntryInt mConfigLookupTableInt[AAMPCONFIG_INT_COUNT+CON
 	{static_cast<int>(TSB::LogLevel::WARN),"tsbLog",eAAMPConfig_TsbLogLevel,false},
 	{DEFAULT_AD_FULFILLMENT_TIMEOUT,"adFulfillmentTimeout",eAAMPConfig_AdFulfillmentTimeout,true},
 	{MAX_AD_FULFILLMENT_TIMEOUT,"adFulfillmentTimeoutMax",eAAMPConfig_AdFulfillmentTimeoutMax,true},
-	{DEFAULT_BUFFERING_QUEUED_FRAMES_MIN,"queuedFrames",eAAMPConfig_RequiredQueuedFrames,false},
-	{ePLATFORM_DEFAULT, "platformType", eAAMPConfig_PlatformType, true, eCONFIG_RANGE_PLATFORM_TYPES},
 	{eDIAG_OVERLAY_NONE,"showDiagnosticsOverlay",eAAMPConfig_ShowDiagnosticsOverlay,true, eCONFIG_RANGE_SHOW_DIAGNOSTICS_OVERLAY },
+	{DEFAULT_MONITOR_AV_DELTA_MS,"monitorAVSyncThreshold",eAAMPConfig_MonitorAVSyncThreshold ,false,eCONFIG_RANGE_MONITOR_AVSYNC },
+	{DEFAULT_MONITOR_AV_DELTA_MS,"monitorAVJumpThreshold",eAAMPConfig_MonitorAVJumpThreshold,false,eCONFIG_RANGE_MONITOR_AVSYNC },
+	{DEFAULT_PROGRESS_LOGGING_DIVISOR,"progressLoggingDivisor",eAAMPConfig_ProgressLoggingDivisor,false},
 	// aliases, kept for backwards compatibility
 	{DEFAULT_INIT_BITRATE,"defaultBitrate",eAAMPConfig_DefaultBitrate,true },
 	{DEFAULT_INIT_BITRATE_4K,"defaultBitrate4K",eAAMPConfig_DefaultBitrate4K,true },
@@ -847,106 +840,26 @@ void AampConfig::Initialize()
 	}
 }
 
-PlatformType AampConfig::InferPlatformFromDeviceProperties( void )
+void AampConfig::ApplyDeviceCapabilities()
 {
-	PlatformType platform = ePLATFORM_DEFAULT;
-    FILE* fp = fopen("/etc/device.properties", "rb");
-    if (fp)
-    {
-        AAMPLOG_MIL("opened /etc/device.properties");
-        char buf[4096];
-        while( fgets(buf, sizeof(buf), fp) )
-        {
-            if (strncmp(buf, "SOC=", 4) == 0)
-            {
-                char* socName = buf + 4;  // Start after "SOC="
-                for (int i = 0; socName[i] != '\0'; i++)
-                {
-                    if (isspace(socName[i]))
-                    {
-                        socName[i] = '\0';  // Terminate at first whitespace
-                        break;
-                    }
-                }
-                if (*socName != '\0')  // If SOC name is not empty
-                {
-                    AAMPLOG_MIL("*** SOC %s ***", socName);
-                    if (strcmp(socName, "AMLOGIC") == 0)
-                    {
-                        platform = ePLATFORM_AMLOGIC;
-						break;
-                    }
-                    else if (strcmp(socName, "RTK") == 0)
-                    {
-						platform = ePLATFORM_REALTEK;
-						break;
-                    }
-                    else if (strcmp(socName, "BRCM") == 0)
-                    {
-						platform = ePLATFORM_BROADCOM;
-						break;
-                    }
-                }
-                else
-                {
-                    AAMPLOG_WARN("*** SOC not found ***");
-                }
-            }
-        }
-        fclose(fp);
-    }
-    else
-    {
-        AAMPLOG_WARN("failed to open /etc/device.properties.");
-    }
-    return platform;
-}
+	std::shared_ptr<PlayerExternalsInterface> pInstance = PlayerExternalsInterface::GetPlayerExternalsInterfaceInstance();
+	bool IsWifiCurlHeader = pInstance->IsConfigWifiCurlHeader();	
 
-PlatformType AampConfig::InferPlatformFromPluginScan()
-{
-	return (PlatformType)AAMPGstPlayer::InferPlatformFromPluginScan();
-}
+	configValueBool[eAAMPConfig_UseAppSrcForProgressivePlayback].value = SocUtils::UseAppSrcForProgressivePlayback();
+	configValueBool[eAAMPConfig_DisableAC4].value = SocUtils::IsSupportedAC4();
+	configValueBool[eAAMPConfig_DisableAC3].value = SocUtils::IsSupportedAC3();
+	configValueBool[eAAMPConfig_UseWesterosSink].value = SocUtils::UseWesterosSink();
+	configValueBool[eAAMPConfig_SyncAudioFragments].value = SocUtils::IsAudioFragmentSyncSupported();
+	SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_WifiCurlHeader, IsWifiCurlHeader);
 
-void AampConfig::ApplyDeviceCapabilities( PlatformType platform )
-{
-	SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_PlatformType, platform);
-	switch( platform )
+	bool isSecMgr = isSecFeatureEnabled();
+	SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_UseSecManager, isSecMgr);
+
+	//To override App Setting, Tune Setting is given priority	
+	if(!pInstance->IsLiveLatencyCorrectionSupported())
 	{
-		case ePLATFORM_AMLOGIC:
-			SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_NoNativeAV, true);
-			break;
-
-		case ePLATFORM_REALTEK:
-			SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_SyncAudioFragments, true);		// Handled in HLS::Init to avoid audio loss while seeking HLS/TS AV of different duration w/o affecting VOD Discontinuities
-			SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_RequiredQueuedFrames, 3 + 1);
-			SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_MaxFragmentCached, 3);
-			break;
-
-		case ePLATFORM_BROADCOM:
-			SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_DisableAC4, true);
-			if (!AAMPGstPlayer::IsMS2V12Supported())
-			{
-				configValueBool[eAAMPConfig_EnableLowLatencyCorrection].value = false;
-				SetConfigValue(AAMP_TUNE_SETTING, eAAMPConfig_EnableLiveLatencyCorrection, false);
-			}
-			break;
-
-		case ePLATFORM_DEFAULT:
-			SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_EnableLowLatencyCorrection, false);
-			SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_UseWesterosSink, false );
-			SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_NoNativeAV, true );
-#if defined(__APPLE__)
-			SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_UseAppSrcForProgressivePlayback, true );
-#endif
-			break;
-	}
-	if(!AAMPGstPlayer::IsCodecSupported("ac-4"))
-	{
-		SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_DisableAC4, true);
-	}
-	if(!AAMPGstPlayer::IsCodecSupported("ac-3"))
-	{
-		SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_DisableAC3, true);
+		configValueBool[eAAMPConfig_EnableLowLatencyCorrection].value = false;
+		SetConfigValue(AAMP_TUNE_SETTING, eAAMPConfig_EnableLiveLatencyCorrection, false);
 	}
 }
 
@@ -1658,16 +1571,18 @@ bool AampConfig::ProcessBase64AampCfg(const char * base64Config, size_t configLe
  */
 void AampConfig::ReadBase64TR181Param()
 {
-#ifdef IARM_MGR
 	size_t iConfigLen = 0;
-	char *	cloudConf = GetTR181AAMPConfig("Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.AAMP_CFG.b64Config", iConfigLen);
-	if(NULL != cloudConf)
+	if(PlayerExternalsInterface::IsPlayerExternalsInterfaceInstanceActive())
 	{
-		ProcessBase64AampCfg(cloudConf, iConfigLen,AAMP_OPERATOR_SETTING);
-		free(cloudConf); // allocated by base64_Decode in GetTR181AAMPConfig
-		ConfigureLogSettings();
+		std::shared_ptr<PlayerExternalsInterface> pInstance = PlayerExternalsInterface::GetPlayerExternalsInterfaceInstance();
+		char * cloudConf = pInstance->GetTR181PlayerConfig("Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.AAMP_CFG.b64Config", iConfigLen);
+		if(NULL != cloudConf)
+		{	
+			ProcessBase64AampCfg(cloudConf, iConfigLen,AAMP_OPERATOR_SETTING);
+			free(cloudConf); // allocated by base64_Decode in GetTR181PlayerConfig
+			ConfigureLogSettings();
+		}
 	}
-#endif
 }
 
 /**
@@ -1722,11 +1637,7 @@ void AampConfig::ReadAampCfgFromEnv()
 static std::string getRFCValue( const char *strParamName )
 {
 	const std::string  strAAMPTr181BasePath = "Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.aamp.";
-#ifdef AAMP_RFC_ENABLED
-	std::string value = RFCSettings::getRFCValue(strAAMPTr181BasePath+strParamName);
-#else
-	std::string value;
-#endif
+	std::string value = RFCSettings::readRFCValue(strAAMPTr181BasePath+strParamName,PLAYER_NAME);
 	return value;
 }
 
@@ -1799,15 +1710,13 @@ void AampConfig::ReadOperatorConfiguration()
 {
 	// Tr181 doesn't work in container environment hence ignore it if it is container
 	// this will improve load time of aamp in container environment
-	if(!IsContainerEnvironment() )
-	{
-		// Not all parameters are supported as  individual  tr181 parameter hence keeping base64 version.
-		ReadBase64TR181Param();
+	
+	// Not all parameters are supported as  individual  tr181 parameter hence keeping base64 version.
+	ReadBase64TR181Param();
 
-		// new way of reading RFC for each separate parameter it will override any parameter set before ReadBase64TR181Param
-		// read all individual  config parameters,
-		ReadAllTR181Params();
-	}
+	// new way of reading RFC for each separate parameter it will override any parameter set before ReadBase64TR181Param
+	// read all individual  config parameters,
+	ReadAllTR181Params();
 
 	// this required to set log settings based on configs either default or read from Tr181
 	ConfigureLogSettings();   
@@ -2185,47 +2094,3 @@ void AampConfig::ShowConfiguration(ConfigPriority owner)
 
 }
 
-#ifdef IARM_MGR
-/**
- * @brief GetTR181AAMPConfig
- *
- * @return config value
- */
-char * AampConfig::GetTR181AAMPConfig(const char * paramName, size_t & iConfigLen)
-{
-	char *  strConfig = NULL;
-	IARM_Result_t result;
-	HOSTIF_MsgData_t param;
-	memset(&param,0,sizeof(param));
-	snprintf(param.paramName,TR69HOSTIFMGR_MAX_PARAM_LEN,"%s",paramName);
-	param.reqType = HOSTIF_GET;
-
-	result = IARM_Bus_Call(IARM_BUS_TR69HOSTIFMGR_NAME,IARM_BUS_TR69HOSTIFMGR_API_GetParams,
-                    (void *)&param,	sizeof(param));
-	if(result  == IARM_RESULT_SUCCESS)
-	{
-		if(fcNoFault == param.faultCode)
-		{
-			if(param.paramtype == hostIf_StringType && param.paramLen > 0 )
-			{
-				std::string strforLog(param.paramValue,param.paramLen);
-
-				iConfigLen = param.paramLen;
-				const char *src = (const char*)(param.paramValue);
-				strConfig = (char * ) base64_Decode(src,&iConfigLen);
-
-				AAMPLOG_INFO("GetTR181AAMPConfig: Got:%s En-Len:%d Dec-len:%d",strforLog.c_str(),param.paramLen,iConfigLen);
-			}
-			else
-			{
-				AAMPLOG_ERR("GetTR181AAMPConfig: Not a string param type=%d or Invalid len:%d ",param.paramtype, param.paramLen);
-			}
-		}
-	}
-	else
-	{
-		AAMPLOG_ERR("GetTR181AAMPConfig: Failed to retrieve value result=%d",result);
-	}
-	return strConfig;
-}
-#endif // IARM_MGR

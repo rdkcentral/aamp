@@ -21,8 +21,3 @@ uname -o
 uname -m
 git branch --show-current
 git rev-parse --short HEAD
-if git describe --tags --exact-match HEAD > /dev/null 2>&1; then
-  git describe --tags --exact-match HEAD
-else
-  echo "No-Tag"
-fi

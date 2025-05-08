@@ -57,11 +57,11 @@ class WebVTTParser : public SubtitleParser
 {
 
 public:
-	WebVTTParser(PrivateInstanceAAMP *aamp, SubtitleMimeType type);
+	WebVTTParser(SubtitleMimeType type, int width, int height);
 	virtual ~WebVTTParser();
 
 	virtual bool init(double startPosSeconds, unsigned long long basePTS) override;
-	virtual bool processData(char *buffer, size_t bufferLen, double position, double duration) override;
+	virtual bool processData(const char *buffer, size_t bufferLen, double position, double duration) override;
 	virtual bool close() override;
 	virtual void reset() override;
 	virtual void setProgressEventOffset(double offset) override { mProgressOffset = offset; }

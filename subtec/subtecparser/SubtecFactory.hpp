@@ -2,7 +2,7 @@
  * If not stated otherwise in this file or this component's license file the
  * following copyright and licenses apply:
  *
- * Copyright 2020 RDK Management
+ * Copyright 2025 RDK Management
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@
 */
 
 #include <string>
-
+#include "PlayerLogManager.h"
 #include "WebvttSubtecDevParser.hpp"
 #include "WebVttSubtecParser.hpp"
 #include "TtmlSubtecParser.hpp"
@@ -36,7 +36,7 @@ namespace
 class SubtecFactory
 {
 public:
-    static std::unique_ptr<SubtitleParser> createSubtitleParser(PrivateInstanceAAMP *aamp, std::string mimeType)
+    static std::unique_ptr<SubtitleParser> createSubtitleParser(std::string mimeType, int width, int height, bool webVTTCueListenersRegistered, bool isWebVTTNativeConfigSet, bool& playerResumeDownload)
     {
         SubtitleMimeType type = eSUB_TYPE_UNKNOWN;
 
@@ -48,10 +48,10 @@ public:
                 !mimeType.compare("application/mp4"))
             type = eSUB_TYPE_TTML;
 
-        return createSubtitleParser(aamp, type);
+        return createSubtitleParser(type, width, height, webVTTCueListenersRegistered, isWebVTTNativeConfigSet, playerResumeDownload);
     }
 
-    static std::unique_ptr<SubtitleParser> createSubtitleParser(PrivateInstanceAAMP *aamp, SubtitleMimeType mimeType)
+    static std::unique_ptr<SubtitleParser> createSubtitleParser(SubtitleMimeType mimeType, int width, int height, bool webVTTCueListenersRegistered, bool isWebVTTNativeConfigSet, bool& playerResumeDownload)
     {
         AAMPLOG_INFO("createSubtitleParser: mimeType: %d", mimeType);
         std::unique_ptr<SubtitleParser> empty;
@@ -62,15 +62,18 @@ public:
                 case eSUB_TYPE_WEBVTT:
                     // If JavaScript cue listeners have been registered use WebVTTParser,
                     // otherwise use subtec
-                    if (!aamp->WebVTTCueListenersRegistered())
-			            if (ISCONFIGSET(eAAMPConfig_WebVTTNative))
-                            return subtec_make_unique<WebVTTSubtecParser>(aamp, mimeType);
+                    if (!webVTTCueListenersRegistered)
+			            if (isWebVTTNativeConfigSet)
+                            return subtec_make_unique<WebVTTSubtecParser>(mimeType, width, height);
                         else
-                            return subtec_make_unique<WebVTTSubtecDevParser>(aamp, mimeType);
+                            return subtec_make_unique<WebVTTSubtecDevParser>(mimeType, width, height);
                     else
-                        return subtec_make_unique<WebVTTParser>(aamp, mimeType);
+                        return subtec_make_unique<WebVTTParser>(mimeType, width, height);
                 case eSUB_TYPE_TTML:
-                    return subtec_make_unique<TtmlSubtecParser>(aamp, mimeType);
+                {
+                    playerResumeDownload = true;
+                    return subtec_make_unique<TtmlSubtecParser>(mimeType, width, height);
+                }
                 default:
                     AAMPLOG_WARN("Unknown subtitle parser type %d, returning empty", mimeType);
                     break;

@@ -2,7 +2,7 @@
  * If not stated otherwise in this file or this component's license file the
  * following copyright and licenses apply:
  *
- * Copyright 2020 RDK Management
+ * Copyright 2025 RDK Management
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,17 +22,19 @@
 #include "webvttParser.h"
 #include "vttCue.h"
 #include "SubtecChannel.hpp"
+#include "AampUtils.h"
+#include "WebvttSubtecDevInterface.hpp"
 
 class WebVTTSubtecDevParser : public WebVTTParser
 {
 public:
-	WebVTTSubtecDevParser(PrivateInstanceAAMP *aamp, SubtitleMimeType type);
+	WebVTTSubtecDevParser(SubtitleMimeType type, int width, int height);
 	
 	WebVTTSubtecDevParser(const WebVTTSubtecDevParser&) = delete;
 	WebVTTSubtecDevParser& operator=(const WebVTTSubtecDevParser&) = delete;
 	
 	bool init(double startPosSeconds, unsigned long long basePTS) override;
-	bool processData(char* buffer, size_t bufferLen, double position, double duration) override;
+	bool processData(const char* buffer, size_t bufferLen, double position, double duration) override;
 	void reset() override;
 	void sendCueData() override;
 	void setProgressEventOffset(double offset) override {}
@@ -40,7 +42,7 @@ public:
 	void pause(bool pause) override;
 	void mute(bool mute) override;
 protected:
-	std::unique_ptr<SubtecChannel> m_channel;
+	std::unique_ptr<WebvttSubtecDevInterface> mSubtecInterface;
 private:
 	std::string getVttAsTtml();
 };

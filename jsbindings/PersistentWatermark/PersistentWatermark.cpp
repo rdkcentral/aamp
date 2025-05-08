@@ -36,10 +36,6 @@ void PersistentWatermark_LoadJS(void* context)
 */
 static std::mutex JSInterfaceMutex;
 
-#ifndef USE_CPP_THUNDER_PLUGIN_ACCESS
-	#error "thunder plugin access required"
-#endif
-
 #include "PersistentWatermarkDisplaySequencer.h"
 
 /**

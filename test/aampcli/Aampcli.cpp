@@ -595,6 +595,8 @@ void MyAAMPEventListener::Event(const AAMPEventPtr& e)
 				for(int i=0;i<key.size();i++)
 					cJSON_AddItemToArray(KeyId, cJSON_CreateNumber(key.at(i)));
 				cJSON_AddItemToObject(root,"keyID",KeyId);
+				//     cJSON_AddItemToObject(root, "com.widevine.alpha", cJSON_CreateString("mds.ccp.xcal.tv"));
+				//     cJSON_AddItemToObject(root, "com.microsoft.playready", cJSON_CreateString("mds-stage.ccp.xcal.tv"));
 				std::string json = cJSON_Print(root);
 				mAampcli.mSingleton->ProcessContentProtectionDataConfig(json.c_str());
 				break;
@@ -647,7 +649,7 @@ void MyAAMPEventListener::Event(const AAMPEventPtr& e)
 		{
 			std::string manifest;
 			ManifestRefreshEventPtr ev = std::dynamic_pointer_cast<ManifestRefreshEvent>(e);
-			printf("\n[AAMPCLI] AAMP_EVENT_MANIFEST_REFRESH_NOTIFY received Dur[%u]:NoPeriods[%u]:PubTime[%u]\nmanifestType[%s]\n",ev->getManifestDuration(),ev->getNoOfPeriods(),ev->getManifestPublishedTime(),ev->getManifestType());
+			printf("\n[AAMPCLI] AAMP_EVENT_MANIFEST_REFRESH_NOTIFY received Dur[%u]:NoPeriods[%u]:PubTime[%u] manifestType[%s]\n",ev->getManifestDuration(),ev->getNoOfPeriods(),ev->getManifestPublishedTime(),ev->getManifestType());
 			manifest = mAampcli.mSingleton->GetManifest();
 			printf("\n [AAMPCLI] Dash  Manifest length [%zu]\n",manifest.length());
 			break;
@@ -662,21 +664,21 @@ void MyAAMPEventListener::Event(const AAMPEventPtr& e)
 		case AAMP_EVENT_AD_RESOLVED:
 		{
 			AdResolvedEventPtr ev = std::dynamic_pointer_cast<AdResolvedEvent>(e);
-			printf("[AAMPCLI] AAMP_EVENT_AD_RESOLVED\n\tresolveStatus=%d\n\tadId=%s\n\tstart=%" PRIu64 "\n\tduration=%" PRIu64 "\n", ev->getResolveStatus(), ev->getAdId().c_str(), ev->getStart(), ev->getDuration());
+			printf("[AAMPCLI] AAMP_EVENT_AD_RESOLVED\tresolveStatus=%d\tadId=%s\tstart=%" PRIu64 "\tduration=%" PRIu64 "\n", ev->getResolveStatus(), ev->getAdId().c_str(), ev->getStart(), ev->getDuration());
 			break;
 		}
 
 		case AAMP_EVENT_AD_RESERVATION_START:
 		{
 			AdReservationEventPtr ev = std::dynamic_pointer_cast<AdReservationEvent>(e);
-			printf("[AAMPCLI] AAMP_EVENT_AD_RESERVATION_START\n\tadBreakId=%s\n\tposition=%" PRIu64 "\n", ev->getAdBreakId().c_str(), ev->getPosition());
+			printf("[AAMPCLI] AAMP_EVENT_AD_RESERVATION_START\tadBreakId=%s\tposition=%" PRIu64 "\n", ev->getAdBreakId().c_str(), ev->getPosition());
 			break;
 		}
 
 		case AAMP_EVENT_AD_RESERVATION_END:
 		{
 			AdReservationEventPtr ev = std::dynamic_pointer_cast<AdReservationEvent>(e);
-			printf("[AAMPCLI] AAMP_EVENT_AD_RESERVATION_END\n\tadBreakId=%s\n\tposition=%" PRIu64 "\n", ev->getAdBreakId().c_str(), ev->getPosition());
+			printf("[AAMPCLI] AAMP_EVENT_AD_RESERVATION_END\tadBreakId=%s\tposition=%" PRIu64 "\n", ev->getAdBreakId().c_str(), ev->getPosition());
 			break;
 		}
 
@@ -713,6 +715,18 @@ void MyAAMPEventListener::Event(const AAMPEventPtr& e)
 			std::string manifestData = PlaybackCommand::getManifestData(mAampcli.mManifestDataUrl);
 			printf("[AAMPCLI] updateManifest\n");
 			mAampcli.mSingleton->updateManifest(manifestData.c_str());
+			break;
+		}
+		case AAMP_EVENT_REPORT_ANOMALY:
+		{
+			printf("[AAMPCLI] AAMP_EVENT_REPORT_ANOMALY received \n");
+			break;
+		}
+
+
+		case AAMP_EVENT_ENTERING_LIVE:
+		{
+			printf("[AAMPCLI] AAMP_EVENT_ENTERING_LIVE\n");
 			break;
 		}
 

@@ -58,7 +58,7 @@ double aamp_GetPeriodNewContentDuration(dash::mpd::IMPD *mpd, IPeriod * period, 
 /**
  * @struct ProfileInfo
  * @brief Manifest file adaptation and representation info
- */ 
+ */
 struct ProfileInfo
 {
 	int adaptationSetIndex;
@@ -232,7 +232,7 @@ public:
 	 */
 	double GetFirstPTS() override;
 	/**
-         * @fn GetMidSeekPosOffset 
+         * @fn GetMidSeekPosOffset
          */
 	double GetMidSeekPosOffset() override;
 	/**
@@ -291,14 +291,14 @@ public:
 	 * @brief check if current stream have 4K content
 	 * @param height - resolution of 4K stream if found
 	 * @param bandwidth - bandwidth of 4K stream if found
-	 * @return true on success 
+	 * @return true on success
 	 */
 	virtual bool Is4KStream(int &height, BitsPerSecond &bandwidth) override;
 
-	
+
 	/**
          * @fn GetProfileCount
-         * 
+         *
          */
 	int GetProfileCount() override;
 	/**
@@ -356,7 +356,7 @@ public:
 	 */
 	bool FetchFragment( class MediaStreamContext *pMediaStreamContext, std::string media, double fragmentDuration, bool isInitializationSegment, unsigned int curlInstance, bool discontinuity = false, double pto = 0 , uint32_t timeScale = 0);
 	/**
-	 * @fn PushNextFragment 
+	 * @fn PushNextFragment
 	 * @param pMediaStreamContext Track object
 	 * @param curlInstance instance of curl to be used to fetch
 	 * @param skipFetch true if fragment fetch is to be skipped for seamlessaudio
@@ -719,7 +719,7 @@ protected:
 	 * @fn FindServerUTCTime
 	 * @param mpd:  MPD top level element
 	 * @param root: XML root node
-	 */ 
+	 */
 	bool FindServerUTCTime(Node* root);
 	/**
 	 * @fn FetchDashManifest
@@ -845,6 +845,11 @@ protected:
 	 * @fn PushEncryptedHeaders
 	 */
 	void PushEncryptedHeaders(std::map<int, std::string>& mappedHeaders);
+
+	/**
+	 * @fn CacheEncryptedHeader
+	 */
+	void CacheEncryptedHeader(int trackIndex, std::string headerUrl);
 	/**
 	 * @fn GetEncryptedHeaders
 	 * @return bool
@@ -875,7 +880,7 @@ protected:
 	 * @fn SeekInPeriod
 	 * @param seekPositionSeconds seek position in seconds
 	 */
-	void SeekInPeriod( double seekPositionSeconds, bool skipToEnd = false);	
+	void SeekInPeriod( double seekPositionSeconds, bool skipToEnd = false);
 	/**
 	 * @fn ApplyLiveOffsetWorkaroundForSAP
 	 * @param seekPositionSeconds seek position in seconds.
@@ -936,9 +941,9 @@ protected:
 	 * @param manifestUrl manifest url
 	 * @param init true if this is the first playlist download for a tune/seek/trickplay
 	 */
-	AAMPStatusType GetMPDFromManifest( std::shared_ptr<ManifestDownloadResponse> mpdDnldResp, bool init);
-	void ProcessMetadataFromManifest( std::shared_ptr<ManifestDownloadResponse> mpdDnldResp, bool init);
-	void ProcessManifestHeaderResponse(std::shared_ptr<ManifestDownloadResponse> mpdDnldResp,bool init);
+	AAMPStatusType GetMPDFromManifest( ManifestDownloadResponsePtr mpdDnldResp, bool init);
+	void ProcessMetadataFromManifest( ManifestDownloadResponsePtr mpdDnldResp, bool init);
+	void ProcessManifestHeaderResponse(ManifestDownloadResponsePtr mpdDnldResp,bool init);
 	void MPDUpdateCallbackExec();
 	/**
 	 * @fn GetDrmPrefs
@@ -980,26 +985,26 @@ protected:
 	 * @param disableEC3 whether EC3 disabled by config
 	 * @param disableATMOS whether ATMOS audio disabled by config
  	 */
-	bool GetPreferredCodecIndex(IAdaptationSet *adaptationSet, int &selectedRepIdx, AudioType &selectedCodecType, 
+	bool GetPreferredCodecIndex(IAdaptationSet *adaptationSet, int &selectedRepIdx, AudioType &selectedCodecType,
 	uint32_t &selectedRepBandwidth, long &bestScore, bool disableEC3, bool disableATMOS, bool disableAC4, bool disableAC3, bool &disabled);
- 	
+
 	/**
          * @brief Get the audio track information from all period
          * updated member variable mAudioTracksAll
          * @return void
          */
 	void PopulateAudioTracks(void);
-	
+
 	/**
          * @brief Get the audio track information from all preselection node of the period
-         * @param period Node ans IMPDElement 
+         * @param period Node ans IMPDElement
          * @return void
          */
 	void ParseAvailablePreselections(IMPDElement *period, std::vector<AudioTrackInfo> & audioAC4Tracks);
-	
+
 	/**
 	 * @fn PopulateTrackInfo
-	 * @param media - Media type 
+	 * @param media - Media type
 	 * @param - Do need to reset vector?
 	 * @return none
 	 */
@@ -1060,6 +1065,35 @@ protected:
 	 */
 	void InitializeWorkers();
 
+	uint64_t FindPositionInTimeline(class MediaStreamContext *pMediaStreamContext, const std::vector<ITimeline *>&timelines);
+
+	/**
+	 * @brief Send ad placement event to listeners
+	 *
+	 * @param[in] type Event type
+	 * @param[in] adId Identifier of the ad
+	 * @param[in] position Position relative to the start of the reservation
+	 * @param[in] positionMs Absolute position in milliseconds
+	 * @param[in] offset Offset from the start of the ad
+	 * @param[in] duration Duration of the ad in milliseconds
+	 * @param[in] immediate Flag to indicate if event(s) should be sent immediately
+	 */
+	void SendAdPlacementEvent(AAMPEventType type, const std::string& adId,
+                             uint32_t position, uint64_t positionMs, uint32_t offset,
+                             uint32_t duration, bool immediate);
+
+	/**
+	 * @brief Send ad reservation event to listeners
+	 *
+	 * @param[in] type Event type
+	 * @param[in] adBreakId Identifier of the ad break
+	 * @param[in] position Period position of the ad break
+	 * @param[in] positionMs Absolute position in milliseconds
+	 * @param[in] immediate Flag to indicate if event(s) should be sent immediately
+	 */
+	void SendAdReservationEvent(AAMPEventType type, const std::string& adBreakId,
+                               uint64_t position, uint64_t positionMs, bool immediate);
+
 	std::mutex mStreamLock;
 	bool fragmentCollectorThreadStarted;
 	bool tsbReaderThreadStarted;
@@ -1070,10 +1104,10 @@ protected:
 	float rate;
 	std::thread fragmentCollectorThreadID;
 	std::thread tsbReaderThreadID;
-	ManifestDownloadResponsePtr mManifestDnldRespPtr ; 
+	ManifestDownloadResponsePtr mManifestDnldRespPtr ;
 	bool    mManifestUpdateHandleFlag;
 	AampMPDParseHelperPtr	mMPDParseHelper;
-	bool mLowLatencyMode;	
+	bool mLowLatencyMode;
 	dash::mpd::IMPD *mpd;
 	class MediaStreamContext *mMediaStreamContext[AAMP_TRACK_COUNT];
 	int mNumberOfTracks;
@@ -1083,6 +1117,7 @@ protected:
 	double mEndPosition;
 	bool mIsLiveStream;    	    	   /**< Stream is live or not; won't change during runtime. */
 	bool mIsLiveManifest;   	   /**< Current manifest is dynamic or static; may change during runtime. eg: Hot DVR. */
+	bool mUpdateManifestState;
 	StreamInfo* mStreamInfo;
 	bool mUpdateStreamInfo;		   /**< Indicates mStreamInfo needs to be updated */
 	double mPrevStartTimeSeconds;
@@ -1103,13 +1138,13 @@ protected:
 	std::vector<BitsPerSecond> mBitrateIndexVector;
 	bool playlistDownloaderThreadStarted; // Playlist downloader thread start status
 	bool isVidDiscInitFragFail;
+	double mLivePeriodCulledSeconds;
 
 	// In case of streams with multiple video Adaptation Sets, A profile
 	// is a combination of an Adaptation Set and Representation within
 	// that Adaptation Set. Hence we need a mapping from a profile to
 	// corresponding Adaptation Set and Representation Index
 	std::map<int, struct ProfileInfo> mProfileMaps;
-	
 	bool mIsFogTSB;
 	IPeriod *mCurrentPeriod;
 	std::string mBasePeriodId;
@@ -1136,6 +1171,8 @@ protected:
 	bool mIsFcsRepresentation;
 	int mFcsRepresentationId;
 	std::vector<IFCS *>mFcsSegments;
+	AampTime mAudioSurplus;
+	AampTime mVideoSurplus;
 	/**
 	 * @fn isAdbreakStart
 	 * @param[in] period instance.
@@ -1164,13 +1201,12 @@ protected:
 	 * @fn IndexNewMPDDocument
 	 */
 	AAMPStatusType IndexNewMPDDocument(bool updateTrackInfo = true);
-	
 	/**
 	 * @fn CreateDrmHelper
 	 * @param adaptationSet Adaptation set object
 	 * @param mediaType type of track
 	 */
-	std::shared_ptr<AampDrmHelper> CreateDrmHelper(const IAdaptationSet * adaptationSet,AampMediaType mediaType);
+	DrmHelperPtr CreateDrmHelper(const IAdaptationSet * adaptationSet,AampMediaType mediaType);
 
 	/**
 	* @fn CheckForVssTags
