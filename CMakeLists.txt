@@ -82,8 +82,6 @@ pkg_check_modules(OPENSSL REQUIRED openssl)
 pkg_check_modules(LIBCJSON REQUIRED libcjson)
 pkg_check_modules(UUID REQUIRED uuid)
 
-include(test/mocks/mocks.cmake NO_POLICY_SCOPE)
-
 add_subdirectory(middleware)
 
 if (CMAKE_INBUILT_AAMP_DEPENDENCIES)
@@ -778,10 +776,6 @@ install(FILES Accessibility.hpp AampEvent.h AampConfig.h AampCMCDCollector.h Aam
   middleware/PlayerUtils.h
   DESTINATION include)
 
-
-if (UTEST_ENABLED)
-	add_subdirectory(test/utests EXCLUDE_FROM_ALL)
-endif()
 
 if (CMAKE_PLATFORM_UBUNTU OR CMAKE_SYSTEM_NAME STREQUAL Darwin )
     install(FILES build/aampcli-run-subtec.sh DESTINATION bin)
