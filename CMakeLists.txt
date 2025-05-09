@@ -18,10 +18,10 @@
 # XCode schema generation / flag setting
 # Other flags see here: https://cmake.org/cmake/help/latest/prop_tgt/XCODE_GENERATE_SCHEME.html
 function(xcode_define_schema new_schema)
-    message( "xcode_define_schema for ${new_schema}" )
-    set_property(TARGET ${new_schema} PROPERTY XCODE_GENERATE_SCHEME TRUE)
-    set_property(TARGET ${new_schema} PROPERTY XCODE_SCHEME_ADDRESS_SANITIZER TRUE)
-    set_property(TARGET ${new_schema} PROPERTY XCODE_SCHEME_ADDRESS_SANITIZER_USE_AFTER_RETURN TRUE)
+	message( "xcode_define_schema for ${new_schema}" )
+	set_property(TARGET ${new_schema} PROPERTY XCODE_GENERATE_SCHEME TRUE)
+	set_property(TARGET ${new_schema} PROPERTY XCODE_SCHEME_ADDRESS_SANITIZER TRUE)
+	set_property(TARGET ${new_schema} PROPERTY XCODE_SCHEME_ADDRESS_SANITIZER_USE_AFTER_RETURN TRUE)
 endfunction()
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware)
@@ -34,23 +34,23 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/baseConversion)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/playerLogManager)
 
 if(APPLE)
-    set(CMAKE_C_COMPILER "/usr/bin/cc")
-    set(CMAKE_CXX_COMPILER "/usr/bin/c++")
+	set(CMAKE_C_COMPILER "/usr/bin/cc")
+	set(CMAKE_CXX_COMPILER "/usr/bin/c++")
 
-    set(CMAKE_MACOSX_RPATH 1)
-    # use, i.e. don't skip the full RPATH for the build tree
-    set(CMAKE_SKIP_BUILD_RPATH FALSE)
+	set(CMAKE_MACOSX_RPATH 1)
+	# use, i.e. don't skip the full RPATH for the build tree
+	set(CMAKE_SKIP_BUILD_RPATH FALSE)
 
-    list(APPEND CMAKE_BUILD_RPATH "${CMAKE_SOURCE_DIR}/.libs/lib")
+	list(APPEND CMAKE_BUILD_RPATH "${CMAKE_SOURCE_DIR}/.libs/lib")
 
-    # when building, don't use the install RPATH already
-    # (but later on when installing)
-    set(CMAKE_BUILD_WITH_INSTALL_RPATH FALSE)
-    set(CMAKE_INSTALL_RPATH "${CMAKE_SOURCE_DIR}/.libs/lib")
+	# when building, don't use the install RPATH already
+	# (but later on when installing)
+	set(CMAKE_BUILD_WITH_INSTALL_RPATH FALSE)
+	set(CMAKE_INSTALL_RPATH "${CMAKE_SOURCE_DIR}/.libs/lib")
 
-    # add the automatically determined parts of the RPATH
-    # which point to directories outside the build tree to the install RPATH
-    set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
+	# add the automatically determined parts of the RPATH
+	# which point to directories outside the build tree to the install RPATH
+	set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
 endif()
 project (AAMP)
 cmake_minimum_required (VERSION 2.6)
@@ -354,19 +354,19 @@ set(LIBAAMP_SOURCES iso639map.cpp
 )
 
 if (CMAKE_PLATFORM_UBUNTU OR CMAKE_SYSTEM_NAME STREQUAL Darwin )
-  message("AAMP_SIMULATOR_BUILD set")
-  set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DAAMP_SIMULATOR_BUILD=1")
-  set(CMAKE_TELEMETRY_2_0_REQUIRED TRUE)
-  set(CMAKE_AAMP_SIMULATOR TRUE)
-  # uncomment below to build additional drm support in simulator
-  # set(CMAKE_USE_OPENCDM_ADAPTER TRUE)
-  # set(CMAKE_USE_OPENCDM_ADAPTER_MOCKS TRUE)
-  # set(CMAKE_USE_THUNDER_OCDM_API_0_2 TRUE)
+	message("AAMP_SIMULATOR_BUILD set")
+	set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DAAMP_SIMULATOR_BUILD=1")
+	set(CMAKE_TELEMETRY_2_0_REQUIRED TRUE)
+	set(CMAKE_AAMP_SIMULATOR TRUE)
+	# uncomment below to build additional drm support in simulator
+	# set(CMAKE_USE_OPENCDM_ADAPTER TRUE)
+	# set(CMAKE_USE_OPENCDM_ADAPTER_MOCKS TRUE)
+	# set(CMAKE_USE_THUNDER_OCDM_API_0_2 TRUE)
 endif()
 
 if(CMAKE_SOC_PLATFORM_RPI)
-    message("CMAKE_SOC_PLATFORM_RPI set")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DRPI=1")
+	message("CMAKE_SOC_PLATFORM_RPI set")
+	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DRPI=1")
 endif()
 
 execute_process(COMMAND bash "-c" "${CMAKE_SOURCE_DIR}/buildinfo.sh" OUTPUT_STRIP_TRAILING_WHITESPACE OUTPUT_VARIABLE buildinfo)
@@ -447,7 +447,7 @@ endif()
 
 # Sources common to all forms of OpenCDM and CDM
 set(LIBAAMP_DRM_SOURCES middleware/drm/DRMSessionManager.cpp
-                		middleware/drm/PlayerHlsDrmSessionInterface.cpp
+						middleware/drm/PlayerHlsDrmSessionInterface.cpp
 						middleware/drm/processProtectionHls.cpp
 						middleware/drm/DrmSession.cpp
 						middleware/drm/DrmSessionFactory.cpp
@@ -537,12 +537,12 @@ endif()
 set(LIBAAMP_SOURCES ${LIBAAMP_SOURCES} middleware/closedcaptions/PlayerCCManager.cpp middleware/PlayerUtils.cpp)
 
 if (CMAKE_AAMP_RFC_REQUIRED)
-        message("AAMP RFC set")
-        if(CMAKE_USE_RFC_MOCKS)
-            copy_staging_header_file(tr181api.h)
-            set(LIBAAMP_MOCK_SOURCES ${LIBAAMP_MOCK_SOURCES} test/mocks/rfcMocks.cpp)
-            set(LIBAAMP_MOCK_DEPENDS -lgmock -lgtest)
-        endif()
+	message("AAMP RFC set")
+	if(CMAKE_USE_RFC_MOCKS)
+		copy_staging_header_file(tr181api.h)
+		set(LIBAAMP_MOCK_SOURCES ${LIBAAMP_MOCK_SOURCES} test/mocks/rfcMocks.cpp)
+		set(LIBAAMP_MOCK_DEPENDS -lgmock -lgtest)
+	endif()
 endif()
 
 set(AAMP_SUBTEC_CLASS_SOURCES middleware/playerLogManager/PlayerLogManager.cpp middleware/playerisobmff/playerisobmffbox.cpp middleware/playerisobmff/playerisobmffbuffer.cpp middleware/subtec/subtecparser/WebVttSubtecParser.cpp middleware/subtec/subtecparser/TtmlSubtecParser.cpp middleware/subtec/subtecparser/WebvttSubtecDevInterface.cpp subtec/subtecparser/WebvttSubtecDevParser.cpp middleware/subtec/subtecparser/TextStyleAttributes.cpp middleware/playerjsonobject/PlayerJsonObject.cpp)
@@ -566,32 +566,32 @@ install (TARGETS subtec
 )
 
 if (CMAKE_GST_SUBTEC_ENABLED)
-    set(CMAKE_SUBTITLE_SUPPORT TRUE)
-    message("CMAKE_GST_SUBTEC_ENABLED set")
-    set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DGST_SUBTEC_ENABLED")
+	set(CMAKE_SUBTITLE_SUPPORT TRUE)
+	message("CMAKE_GST_SUBTEC_ENABLED set")
+	set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DGST_SUBTEC_ENABLED")
 endif()
 
 if (CMAKE_SUBTITLE_SUPPORT)
-    message("CMAKE_SUBTITLE_SUPPORT set")
-    set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DSUBTITLE_SUPPORTED")
-    set(LIBSUBTECCONNECTOR_DEFINES "${LIBAAMP_DEFINES}")
-    find_path(STAGING_INCDIR closedcaption/ccDataReader.h)
-    include_directories(${STAGING_INCDIR}/closedcaption)
-    if (CMAKE_USE_CC_MANAGER_MOCKS)
-        set(LIBAAMP_MOCK_SOURCES ${LIBAAMP_MOCK_SOURCES} test/fakes/ccManagerFakes.cpp)
-    else()
-        set(LIBSUBTECCONNECTOR_DEPENDS pthread rdkCCReader subtec)
-    endif()
+	message("CMAKE_SUBTITLE_SUPPORT set")
+	set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DSUBTITLE_SUPPORTED")
+	set(LIBSUBTECCONNECTOR_DEFINES "${LIBAAMP_DEFINES}")
+	find_path(STAGING_INCDIR closedcaption/ccDataReader.h)
+	include_directories(${STAGING_INCDIR}/closedcaption)
+	if (CMAKE_USE_CC_MANAGER_MOCKS)
+		set(LIBAAMP_MOCK_SOURCES ${LIBAAMP_MOCK_SOURCES} test/fakes/ccManagerFakes.cpp)
+	else()
+		set(LIBSUBTECCONNECTOR_DEPENDS pthread rdkCCReader subtec)
+	endif()
 
-    set(LIBSUBTECCONNECTOR_SOURCES  ${AAMP_SUBTEC_SOURCES}
-        middleware/closedcaptions/subtec/SubtecConnector.cpp
-        middleware/closedcaptions/subtec/CCDataController.cpp)
+	set(LIBSUBTECCONNECTOR_SOURCES  ${AAMP_SUBTEC_SOURCES}
+		middleware/closedcaptions/subtec/SubtecConnector.cpp
+		middleware/closedcaptions/subtec/CCDataController.cpp)
 
-    add_library(subtec_connector SHARED ${LIBSUBTECCONNECTOR_SOURCES})
-    target_link_libraries(subtec_connector ${LIBSUBTECCONNECTOR_DEPENDS})
-    install(TARGETS subtec_connector DESTINATION lib)
+	add_library(subtec_connector SHARED ${LIBSUBTECCONNECTOR_SOURCES})
+	target_link_libraries(subtec_connector ${LIBSUBTECCONNECTOR_DEPENDS})
+	install(TARGETS subtec_connector DESTINATION lib)
 
-    set(LIBAAMP_SOURCES ${LIBAAMP_SOURCES} middleware/closedcaptions/subtec/PlayerSubtecCCManager.cpp)
+	set(LIBAAMP_SOURCES ${LIBAAMP_SOURCES} middleware/closedcaptions/subtec/PlayerSubtecCCManager.cpp)
 endif()
 
 set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} ${SEC_CONTENT_METADATA_ENABLED}")
@@ -599,8 +599,8 @@ set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} ${SEC_CONTENT_METADATA_ENABLED}")
 set(LIBAAMP_SOURCES "${LIBAAMP_SOURCES}" "${LIBAAMP_DRM_SOURCES}" "${LIBAAMP_MOCK_SOURCES}")
 
 if (COVERAGE_ENABLED)
-    set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} --coverage")
-    set(LIBAAMP_DEPENDS "${LIBAAMP_DEPENDS} --coverage")
+	set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} --coverage")
+	set(LIBAAMP_DEPENDS "${LIBAAMP_DEPENDS} --coverage")
 endif()
 
 add_library(aamp SHARED ${LIBAAMP_HEADERS} ${LIBAAMP_SOURCES} ${LIBAAMP_HELP_SOURCES})
@@ -610,66 +610,66 @@ target_link_libraries(aamp-cli "-lreadline")
 xcode_define_schema(aamp-cli)
 
 if(CMAKE_SYSTEMD_JOURNAL)
-    message("CMAKE_SYSTEMD_JOURNAL set")
-    set(LIBAAMP_DEPENDS "${LIBAAMP_DEPENDS} -lsystemd")
-    set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DUSE_SYSTEMD_JOURNAL_PRINT=1 -DSD_JOURNAL_SUPPRESS_LOCATION=1")
-    set(LIBAAMPJSBINDINGS_DEFINES "${LIBAAMPJSBINDINGS_DEFINES} -DUSE_SYSTEMD_JOURNAL_PRINT=1 -DSD_JOURNAL_SUPPRESS_LOCATION=1")
+	message("CMAKE_SYSTEMD_JOURNAL set")
+	set(LIBAAMP_DEPENDS "${LIBAAMP_DEPENDS} -lsystemd")
+	set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DUSE_SYSTEMD_JOURNAL_PRINT=1 -DSD_JOURNAL_SUPPRESS_LOCATION=1")
+	set(LIBAAMPJSBINDINGS_DEFINES "${LIBAAMPJSBINDINGS_DEFINES} -DUSE_SYSTEMD_JOURNAL_PRINT=1 -DSD_JOURNAL_SUPPRESS_LOCATION=1")
 
 endif()
 
 if(CMAKE_USE_ETHAN_LOG)
-     message("DCMAKE_USE_ETHAN_LOG set")
- # Find the ethanlog library for container logger
-     find_package( EthanLog REQUIRED )
+	message("DCMAKE_USE_ETHAN_LOG set")
+# Find the ethanlog library for container logger
+	find_package( EthanLog REQUIRED )
 # Add the include directories for EthanLog
-     include_directories(${ETHANLOG_INCLUDE_DIRS})
+	include_directories(${ETHANLOG_INCLUDE_DIRS})
 
-     set(LIBAAMP_DEPENDS "${LIBAAMP_DEPENDS} -lethanlog")
-     set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DUSE_ETHAN_LOG=1")
-     set(LIBAAMPJSBINDINGS_DEFINES "${LIBAAMPJSBINDINGS_DEFINES} -DUSE_ETHAN_LOG=1")
+	set(LIBAAMP_DEPENDS "${LIBAAMP_DEPENDS} -lethanlog")
+	set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DUSE_ETHAN_LOG=1")
+	set(LIBAAMPJSBINDINGS_DEFINES "${LIBAAMPJSBINDINGS_DEFINES} -DUSE_ETHAN_LOG=1")
 endif()
 
 
 if(CMAKE_WPEWEBKIT_JSBINDINGS)
 	message("CMAKE_WPEWEBKIT_JSBINDINGS set, creating jsbinding library")
-    include_directories(${CMAKE_CURRENT_SOURCE_DIR} jsbindings jsbindings/PersistentWatermark)
+	include_directories(${CMAKE_CURRENT_SOURCE_DIR} jsbindings jsbindings/PersistentWatermark)
 	add_subdirectory(test)
-    set(JSBINDINGS_STD_SOURCES jsbindings/jscontroller-jsbindings.cpp jsbindings/jsbindings.cpp jsbindings/jsutils.cpp jsbindings/jsmediaplayer.cpp jsbindings/jseventlistener.cpp jsbindings/jsevent.cpp jsbindings/PersistentWatermark/PersistentWatermark.cpp)
-    if(CMAKE_WPEWEBKIT_WATERMARK_JSBINDINGS)
-        add_library(aampjsbindings SHARED ${JSBINDINGS_STD_SOURCES} jsbindings/PersistentWatermark/PersistentWatermarkDisplaySequencer.cpp  jsbindings/PersistentWatermark/PersistentWatermarkEventHandler.cpp jsbindings/PersistentWatermark/PersistentWatermarkPluginAccess.cpp jsbindings/PersistentWatermark/PersistentWatermarkStorage.cpp)
-    else()
-	    add_library(aampjsbindings SHARED ${JSBINDINGS_STD_SOURCES})
-    endif()
-    target_link_libraries(aampjsbindings aamp systemd)
+	set(JSBINDINGS_STD_SOURCES jsbindings/jscontroller-jsbindings.cpp jsbindings/jsbindings.cpp jsbindings/jsutils.cpp jsbindings/jsmediaplayer.cpp jsbindings/jseventlistener.cpp jsbindings/jsevent.cpp jsbindings/PersistentWatermark/PersistentWatermark.cpp)
+	if(CMAKE_WPEWEBKIT_WATERMARK_JSBINDINGS)
+		add_library(aampjsbindings SHARED ${JSBINDINGS_STD_SOURCES} jsbindings/PersistentWatermark/PersistentWatermarkDisplaySequencer.cpp  jsbindings/PersistentWatermark/PersistentWatermarkEventHandler.cpp jsbindings/PersistentWatermark/PersistentWatermarkPluginAccess.cpp jsbindings/PersistentWatermark/PersistentWatermarkStorage.cpp)
+	else()
+		add_library(aampjsbindings SHARED ${JSBINDINGS_STD_SOURCES})
+	endif()
+	target_link_libraries(aampjsbindings aamp systemd)
 
-    if(CMAKE_WPEWEBKIT_WATERMARK_JSBINDINGS)
-        set(LIBAAMPJSBINDINGS_DEFINES "${LIBAAMPJSBINDINGS_DEFINES} -DUSE_WATERMARK_JSBINDINGS")
-        target_link_libraries(aampjsbindings ${WPEFRAMEWORK_LIBRARIES})
-    endif()
+	if(CMAKE_WPEWEBKIT_WATERMARK_JSBINDINGS)
+		set(LIBAAMPJSBINDINGS_DEFINES "${LIBAAMPJSBINDINGS_DEFINES} -DUSE_WATERMARK_JSBINDINGS")
+		target_link_libraries(aampjsbindings ${WPEFRAMEWORK_LIBRARIES})
+	endif()
 # Check if CMAKE_WPEWEBKIT_JSBINDINGS is enabled
 if(CMAKE_WPEWEBKIT_JSBINDINGS)
-    message("CMAKE_WPEWEBKIT_JSBINDINGS is set, searching for WPE WebKit libraries")
+	message("CMAKE_WPEWEBKIT_JSBINDINGS is set, searching for WPE WebKit libraries")
 
-    # Search for WPE WebKit libraries
-    pkg_check_modules(WPE_WEBKIT wpe-webkit-1.1)
-    if(NOT WPE_WEBKIT_FOUND)
-        pkg_check_modules(WPE_WEBKIT wpe-webkit-1.0)
-    endif()
+	# Search for WPE WebKit libraries
+	pkg_check_modules(WPE_WEBKIT wpe-webkit-1.1)
+	if(NOT WPE_WEBKIT_FOUND)
+		pkg_check_modules(WPE_WEBKIT wpe-webkit-1.0)
+	endif()
 
-    # Check if any WPE WebKit library was found
-    if(NOT WPE_WEBKIT_FOUND)
-        message(FATAL_ERROR "WPE WebKit library not found. Please install wpe-webkit-1.1 or wpe-webkit-1.0.")
-    else()
-        message("The WPE WebKit library found is ${WPE_WEBKIT_LINK_LIBRARIES}")
+	# Check if any WPE WebKit library was found
+	if(NOT WPE_WEBKIT_FOUND)
+		message(FATAL_ERROR "WPE WebKit library not found. Please install wpe-webkit-1.1 or wpe-webkit-1.0.")
+	else()
+		message("The WPE WebKit library found is ${WPE_WEBKIT_LINK_LIBRARIES}")
 
-        # Link WPE WebKit package to aampjsbindings
-        target_link_libraries(aampjsbindings PUBLIC ${WPE_WEBKIT_LINK_LIBRARIES})
-    endif()
+		# Link WPE WebKit package to aampjsbindings
+		target_link_libraries(aampjsbindings PUBLIC ${WPE_WEBKIT_LINK_LIBRARIES})
+	endif()
 else()
     message("CMAKE_WPEWEBKIT_JSBINDINGS is not set, skipping WPE WebKit library linking")
 endif()
 
-    set_target_properties(aampjsbindings PROPERTIES COMPILE_FLAGS "${LIBAAMPJSBINDINGS_DEFINES}")
+	set_target_properties(aampjsbindings PROPERTIES COMPILE_FLAGS "${LIBAAMPJSBINDINGS_DEFINES}")
 
 	install(TARGETS aampjsbindings DESTINATION lib)
 	set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DAAMP_WPEWEBKIT_JSBINDINGS")
@@ -707,22 +707,22 @@ include_directories(tsb/api)
 
 set(GSTTESTHARNESS_DEPENDS ${OS_LD_FLAGS} ${CMAKE_THREAD_LIBS_INIT} ${GSTREAMER_LINK_LIBRARIES} ${GSTREAMERBASE_LINK_LIBRARIES} ${LIBDASH_LIBRARIES} ${CURL_LINK_LIBRARIES})
 set(GSTTESTHARNESS_HEADERS test/gstTestHarness/gst-port.h
-                           test/gstTestHarness/gst-test.h
-                           test/gstTestHarness/mp4demux.hpp
-                           test/gstTestHarness/tsdemux.hpp
-                           test/gstTestHarness/dash_adapter.hpp
-                           test/gstTestHarness/downloader.hpp
-                           test/gstTestHarness/stream_utils.hpp
-                           test/gstTestHarness/string_utils.hpp
-                           test/gstTestHarness/turbo_xml.hpp
-                           test/gstTestHarness/initializationheaderinfo.hpp )
+							test/gstTestHarness/gst-test.h
+							test/gstTestHarness/mp4demux.hpp
+							test/gstTestHarness/tsdemux.hpp
+							test/gstTestHarness/dash_adapter.hpp
+							test/gstTestHarness/downloader.hpp
+							test/gstTestHarness/stream_utils.hpp
+							test/gstTestHarness/string_utils.hpp
+							test/gstTestHarness/turbo_xml.hpp
+							test/gstTestHarness/initializationheaderinfo.hpp )
 set(GSTTESTHARNESS_SOURCES test/gstTestHarness/gst-port.cpp
-                           test/gstTestHarness/gst-test.cpp
-                           test/gstTestHarness/mp4demux.cpp
-                           test/gstTestHarness/dash_adapter.cpp
-                           test/gstTestHarness/downloader.cpp
-                           test/gstTestHarness/stream_utils.cpp
-						   test/gstTestHarness/string_utils.cpp)
+							test/gstTestHarness/gst-test.cpp
+							test/gstTestHarness/mp4demux.cpp
+							test/gstTestHarness/dash_adapter.cpp
+							test/gstTestHarness/downloader.cpp
+							test/gstTestHarness/stream_utils.cpp
+							test/gstTestHarness/string_utils.cpp)
 
 add_executable(gstTestHarness ${GSTTESTHARNESS_HEADERS} ${GSTTESTHARNESS_SOURCES})
 target_link_libraries(gstTestHarness ${GSTTESTHARNESS_DEPENDS} "-lreadline")
@@ -748,33 +748,33 @@ install(TARGETS aamp DESTINATION lib PUBLIC_HEADER DESTINATION include PRIVATE_H
 install(FILES Accessibility.hpp AampEvent.h AampConfig.h AampCMCDCollector.h AampEventManager.h AampDefine.h AampEventListener.h middleware/drm/DrmMemorySystem.h middleware/drm/DRMSessionManager.h middleware/drm/DrmSystems.h AampMediaType.h
 	middleware/drm/DrmData.h middleware/drm/DrmInfo.h middleware/drm/DrmMediaFormat.h middleware/drm/DrmCallbacks.h AampLogManager.h
 	middleware/drm/DrmSession.h middleware/drm/ClearKeyDrmSession.h middleware/drm/DrmUtils.h middleware/drm/DrmSessionFactory.h middleware/drm/ocdm/opencdmsessionadapter.h middleware/PlayerUtils.h 
-  middleware/drm/helper/DrmHelper.h subtitle/vttCue.h AampUtils.h
-  AampProfiler.h AampConstants.h middleware/drm/DrmConstants.h iso639map.h middleware/GstUtils.h AampGrowableBuffer.h
-  AampScheduler.h
-  downloader/AampCurlStore.h
-  downloader/AampCurlDownloader.h
-  downloader/AampCurlDefine.h
-  ID3Metadata.hpp
-  AampSegmentInfo.hpp
-  AampDRMLicPreFetcher.h
-  AampDRMLicPreFetcherInterface.h
-  AampMPDDownloader.h
-  AampMPDParseHelper.h
-  AampMPDPeriodInfo.h
-  AampLLDASHData.h
-  AampTSBSessionManager.h
-  AampTsbReader.h
-  tsb/api/TsbApi.h
-  middleware/closedcaptions/CCTrackInfo.h
-  middleware/PlayerScheduler.h
-  middleware/gstplayertaskpool.h
-  middleware/GstHandlerControl.h
-  middleware/GstUtils.h
-  middleware/InterfacePlayerRDK.h
-  middleware/SocUtils.h
-  middleware/closedcaptions/PlayerCCManager.h
-  middleware/PlayerUtils.h
-  DESTINATION include)
+	middleware/drm/helper/DrmHelper.h subtitle/vttCue.h AampUtils.h
+	AampProfiler.h AampConstants.h middleware/drm/DrmConstants.h iso639map.h middleware/GstUtils.h AampGrowableBuffer.h
+	AampScheduler.h
+	downloader/AampCurlStore.h
+	downloader/AampCurlDownloader.h
+	downloader/AampCurlDefine.h
+	ID3Metadata.hpp
+	AampSegmentInfo.hpp
+	AampDRMLicPreFetcher.h
+	AampDRMLicPreFetcherInterface.h
+	AampMPDDownloader.h
+	AampMPDParseHelper.h
+	AampMPDPeriodInfo.h
+	AampLLDASHData.h
+	AampTSBSessionManager.h
+	AampTsbReader.h
+	tsb/api/TsbApi.h
+	middleware/closedcaptions/CCTrackInfo.h
+	middleware/PlayerScheduler.h
+	middleware/gstplayertaskpool.h
+	middleware/GstHandlerControl.h
+	middleware/GstUtils.h
+	middleware/InterfacePlayerRDK.h
+	middleware/SocUtils.h
+	middleware/closedcaptions/PlayerCCManager.h
+	middleware/PlayerUtils.h
+	DESTINATION include)
 
 
 if (CMAKE_PLATFORM_UBUNTU OR CMAKE_SYSTEM_NAME STREQUAL Darwin )
