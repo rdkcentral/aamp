@@ -27,6 +27,8 @@ endfunction()
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/test/gstTestHarness)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/vendor)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/externals)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/externals/rdk)
 
 if(APPLE)
     set(CMAKE_C_COMPILER "/usr/bin/cc")
@@ -204,7 +206,7 @@ set(LIBAAMP_HEADERS middleware/drm/DrmSystems.h
 					AampMediaType.h
 					AampMemoryUtils.h
 					AampProfiler.h
-					AampRfc.h
+					externals/PlayerRfc.h
 					AampScheduler.h
 					AampUtils.h
 					middleware/PlayerUtils.h
@@ -230,6 +232,7 @@ set(LIBAAMP_HEADERS middleware/drm/DrmSystems.h
 					middleware/GstUtils.h
 					middleware/InterfacePlayerRDK.h
 					middleware/SocUtils.h
+					externals/playerIarmRfcInterface.h
 					aampgstplayer.h
 					AampBufferControl.h
 					admanager_mpd.h
@@ -509,7 +512,8 @@ endif()
 set(LIBAAMP_DRM_SOURCES drm/AampDRMSessionManager.cpp
 						drm/AampDrmSession.cpp
 						drm/aampdrmsessionfactory.cpp
-						drm/aampoutputprotection.cpp
+						externals/playerIarmRfcInterface.cpp
+						externals/playerExternalUtils.cpp
 						drm/helper/AampDrmHelperFactory.cpp
 						drm/AampDRMutils.cpp
 						middleware/drm/DrmSession.cpp
@@ -518,6 +522,10 @@ set(LIBAAMP_DRM_SOURCES drm/AampDRMSessionManager.cpp
 						middleware/drm/DrmUtils.cpp
 						middleware/drm/DrmSystems.h
 )
+
+if(CMAKE_IARM_MGR)
+	set(LIBAAMP_DRM_SOURCES "${LIBAAMP_DRM_SOURCES}" externals/rdk/playerIarmRdkInterface.cpp externals/playerBase64.cpp)
+endif()
 if(CMAKE_USE_THUNDER_OCDM_API_0_2)
 	set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DUSE_THUNDER_OCDM_API_0_2")
 endif()
@@ -605,10 +613,11 @@ endif()
 set(LIBAAMP_SOURCES ${LIBAAMP_SOURCES} middleware/closedcaptions/PlayerCCManager.cpp middleware/PlayerUtils.cpp)
 
 
+set(LIBAAMP_SOURCES ${LIBAAMP_SOURCES} externals/PlayerRfc.cpp 
+externals/playerExternalUtils.cpp)
 if (CMAKE_AAMP_RFC_REQUIRED)
         message("AAMP RFC set")
         set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DAAMP_RFC_ENABLED")
-        set(LIBAAMP_SOURCES ${LIBAAMP_SOURCES} AampRfc.cpp)
         if(CMAKE_USE_RFC_MOCKS)
             copy_staging_header_file(tr181api.h)
             set(LIBAAMP_MOCK_SOURCES ${LIBAAMP_MOCK_SOURCES} test/mocks/rfcMocks.cpp)
@@ -830,6 +839,7 @@ install(TARGETS aamp-cli DESTINATION bin)
 
 install(TARGETS aamp DESTINATION lib PUBLIC_HEADER DESTINATION include PRIVATE_HEADER DESTINATION include)
 
+
 install(FILES   Accessibility.hpp AampEvent.h AampConfig.h AampCMCDCollector.h AampEventManager.h AampDefine.h AampEventListener.h middleware/drm/DrmMemorySystem.h drm/AampDRMSessionManager.h middleware/drm/DrmSystems.h AampMediaType.h
 	middleware/drm/DrmData.h middleware/drm/DrmInfo.h middleware/drm/DrmMediaFormat.h middleware/drm/DrmCallbacks.h AampLogManager.h
 	middleware/drm/DrmSession.h middleware/drm/ClearKeyDrmSession.h middleware/drm/DrmUtils.h middleware/drm/drmsessionfactory.h middleware/drm/ocdm/opencdmsessionadapter.h middleware/PlayerUtils.h
@@ -863,9 +873,6 @@ install(FILES   Accessibility.hpp AampEvent.h AampConfig.h AampCMCDCollector.h A
   middleware/PlayerUtils.h
   DESTINATION include)
 
-if (CMAKE_AAMP_RFC_REQUIRED)
-install(FILES AampRfc.h DESTINATION include)
-endif()
 
 # Might need to bring back later. 
 #if (UTEST_ENABLED)

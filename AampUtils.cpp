@@ -1493,31 +1493,6 @@ bool parseAndValidateSCTE35(const std::string &scte35Data)
 }
 
 
-/**
- * Hack to check if code is running in container environment.
- * @return True if running in container environment, false otherwise.
- */
-bool IsContainerEnvironment(void)
-{
-	static bool isContainer;
-	static bool isValid;
-	if( !isValid )
-	{
-		struct stat buffer;
-		if (stat("/etc/device.properties", &buffer) == 0)
-		{ // if we can access file, infer that are are NOT running in container
-			AAMPLOG_MIL("not running in container environment");
-			isContainer = false;
-		}
-		else
-		{ // if we cannot access file, infer that we ARE running in container
-			AAMPLOG_WARN("detected container environment");
-			isContainer = true;
-		}
-		isValid = true;
-	}
-	return isContainer;
-}
 
 long long convertHHMMSSToTime(const char * str)
 { // parse HH:MM:SS.ms

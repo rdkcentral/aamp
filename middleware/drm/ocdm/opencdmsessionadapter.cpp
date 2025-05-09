@@ -28,6 +28,7 @@
 #include "PlayerUtils.h"
 
 #include "ProcessHandler.h"
+#include "playerIarmRfcInterface.h"
 
 #include <assert.h>
 #include <iostream>
@@ -78,7 +79,7 @@ OCDMSessionAdapter::OCDMSessionAdapter(DrmHelperPtr drmHelper, DrmCallbacks *cal
 	initDRMSystem();
 
 	// Get output protection pointer
-	m_pOutputProtection = AampOutputProtection::GetAampOutputProtectionInstance();
+	m_pOutputProtection = PlayerIarmRfcInterface::GetPlayerIarmRfcInterfaceInstance();
 	MW_LOG_WARN("OCDMSessionAdapter :: exit ");
 }
 
@@ -113,9 +114,6 @@ OCDMSessionAdapter::~OCDMSessionAdapter()
 		m_pOpenCDMSystem = NULL;
 	}
 
-	if(m_pOutputProtection) {
-			m_pOutputProtection->Release();
-	}
 }
 
 

@@ -349,12 +349,6 @@ public:
 	std::string GetVideoRectangle() override;
 
 	/**
-         * @fn to check MS2V12Supported or not
-         *
-         */
-    static bool IsMS2V12Supported();
-
-	/**
 		* @brief Set the text style of the subtitle to the options passed
 		* @fn SetTextStyle()
 		* @param[in] options - reference to the Json string that contains the information

@@ -239,6 +239,7 @@
 
 #define MAX_SESSION_ID_LENGTH 128                                /**<session id string length */
 
+#define PLAYER_NAME "aamp" 
 
 /**
  * @brief Enumeration for TUNED Event Configuration

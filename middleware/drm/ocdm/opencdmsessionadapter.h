@@ -25,7 +25,7 @@
  * @brief Handles operation with OCDM session to handle DRM License data
  */
 
-#include "aampoutputprotection.h"
+#include "playerIarmRfcInterface.h"
 #include "DrmSession.h"
 #include "DrmHelper.h"
 
@@ -96,7 +96,7 @@ protected:
 	struct OpenCDMAccessor* m_pOpenCDMSystem;
 #endif
 	OpenCDMSessionCallbacks m_OCDMSessionCallbacks;
-	AampOutputProtection* m_pOutputProtection;
+	std::shared_ptr<PlayerIarmRfcInterface> m_pOutputProtection;
 
 	std::string m_challenge;
 	uint16_t m_challengeSize;
