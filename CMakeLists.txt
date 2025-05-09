@@ -507,17 +507,14 @@ endif()
 
 # Sources common to all forms of OpenCDM and CDM
 set(LIBAAMP_DRM_SOURCES drm/AampDRMSessionManager.cpp
-						drm/AampDrmSession.cpp
-						drm/aampdrmsessionfactory.cpp
 						externals/PlayerIarmRfcInterface.cpp
 						externals/PlayerExternalUtils.cpp
-						drm/helper/AampDrmHelperFactory.cpp
-						drm/AampDRMutils.cpp
 						middleware/drm/DrmSession.cpp
 						middleware/drm/drmsessionfactory.cpp
 						middleware/drm/helper/DrmHelperFactory.cpp
 						middleware/drm/DrmUtils.cpp
 						middleware/drm/DrmSystems.h
+						drm/processProtectionHls.cpp
 )
 
 if(CMAKE_IARM_MGR)
