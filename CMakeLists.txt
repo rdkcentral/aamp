@@ -30,8 +30,6 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/test/gstTestHarness)
 # include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/externals/playersecmanager)
 # include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/externals/rdk)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/vendor)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/baseConversion)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/playerLogManager)
 
 if(APPLE)
 	set(CMAKE_C_COMPILER "/usr/bin/cc")
@@ -83,6 +81,7 @@ pkg_check_modules(LIBCJSON REQUIRED libcjson)
 pkg_check_modules(UUID REQUIRED uuid)
 pkg_check_modules(ENTOSPLAYERFIREBOLTINTERFACE REQUIRED libEntosPlayerFireboltInterface)
 pkg_check_modules(BASECONVERSION REQUIRED libBaseConversion)
+pkg_check_modules(PLAYERLOGMANAGER REQUIRED libPlayerLogManager)
 
 # add_subdirectory(middleware)
 
@@ -161,6 +160,7 @@ include_directories(${OPENGL_INCLUDE_DIRS})
 include_directories(${GLEW_INCLUDE_DIRS})
 include_directories(${ENTOSPLAYERFIREBOLTINTERFACE_INCLUDE_DIRS})
 include_directories(${BASECONVERSION_INCLUDE_DIRS})
+include_directories(${PLAYERLOGMANAGER_INCLUDE_DIRS})
 # Locally built/installed dependencies are here
 include_directories(.libs/include)
 
@@ -549,16 +549,19 @@ if (CMAKE_AAMP_RFC_REQUIRED)
 	endif()
 endif()
 
-set(AAMP_SUBTEC_CLASS_SOURCES middleware/playerLogManager/PlayerLogManager.cpp middleware/playerisobmff/playerisobmffbox.cpp middleware/playerisobmff/playerisobmffbuffer.cpp middleware/subtec/subtecparser/WebVttSubtecParser.cpp middleware/subtec/subtecparser/TtmlSubtecParser.cpp middleware/subtec/subtecparser/WebvttSubtecDevInterface.cpp subtec/subtecparser/WebvttSubtecDevParser.cpp middleware/subtec/subtecparser/TextStyleAttributes.cpp middleware/playerjsonobject/PlayerJsonObject.cpp)
+set(AAMP_SUBTEC_CLASS_SOURCES middleware/playerisobmff/playerisobmffbox.cpp middleware/playerisobmff/playerisobmffbuffer.cpp middleware/subtec/subtecparser/WebVttSubtecParser.cpp middleware/subtec/subtecparser/TtmlSubtecParser.cpp middleware/subtec/subtecparser/WebvttSubtecDevInterface.cpp subtec/subtecparser/WebvttSubtecDevParser.cpp middleware/subtec/subtecparser/TextStyleAttributes.cpp middleware/playerjsonobject/PlayerJsonObject.cpp)
 set(LIBAAMP_SOURCES ${LIBAAMP_SOURCES} ${AAMP_SUBTEC_CLASS_SOURCES})
 include_directories(middleware/subtec/subtecparser)
 include_directories(subtec/subtecparser)
 include_directories(middleware/playerjsonobject)
 
-add_library(subtec SHARED middleware/playerLogManager/PlayerLogManager.cpp middleware/subtec/libsubtec/PacketSender.cpp middleware/subtec/libsubtec/SubtecChannel.cpp)
+add_library(subtec SHARED middleware/subtec/libsubtec/PacketSender.cpp middleware/subtec/libsubtec/SubtecChannel.cpp)
 set(AAMP_SUBTEC_PUBLIC_HEADERS middleware/subtec/libsubtec/SubtecChannel.hpp middleware/subtec/libsubtec/SubtecAttribute.hpp middleware/PlayerMetadata.hpp)
 set_target_properties(subtec PROPERTIES PUBLIC_HEADER "${AAMP_SUBTEC_PUBLIC_HEADERS}")
 set(AAMP_SUBTEC_COMPILE_FLAGS "${CMAKE_CXX_FLAGS} -DSUBTEC_PACKET_DEBUG=1")
+
+target_link_libraries(subtec ${PLAYERLOGMANAGER_LINK_LIBRARIES})
+
 if(CMAKE_PLATFORM_UBUNTU)
 	set(AAMP_SUBTEC_COMPILE_FLAGS "${AAMP_SUBTEC_COMPILE_FLAGS} -DUBUNTU=1")
 endif()
@@ -737,8 +740,8 @@ install(TARGETS gstTestHarness DESTINATION bin)
 target_link_libraries(aamp-cli subtec tsb)
 target_link_libraries(aamp subtec tsb)
 
-target_link_libraries(aamp ${ENTOSPLAYERFIREBOLTINTERFACE_LINK_LIBRARIES} ${BASECONVERSION_LINK_LIBRARIES})
-target_link_libraries(aamp-cli ${ENTOSPLAYERFIREBOLTINTERFACE_LINK_LIBRARIES} ${BASECONVERSION_LINK_LIBRARIES})
+target_link_libraries(aamp ${ENTOSPLAYERFIREBOLTINTERFACE_LINK_LIBRARIES} ${BASECONVERSION_LINK_LIBRARIES} ${PLAYERLOGMANAGER_LINK_LIBRARIES})
+target_link_libraries(aamp-cli ${ENTOSPLAYERFIREBOLTINTERFACE_LINK_LIBRARIES} ${BASECONVERSION_LINK_LIBRARIES} ${PLAYERLOGMANAGER_LINK_LIBRARIES})
 
 if (CMAKE_INBUILT_AAMP_DEPENDENCIES)
 	target_link_libraries(aamp abr metrics)

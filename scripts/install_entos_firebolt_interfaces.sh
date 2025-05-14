@@ -32,6 +32,7 @@ function install_build_entos_player_firebolt_interface_fn()
 
         echo -e 'prefix='$LOCAL_DEPS_BUILD_DIR'/lib \nexec_prefix='$LOCAL_DEPS_BUILD_DIR' \nlibdir='$LOCAL_DEPS_BUILD_DIR'/lib \nincludedir='$LOCAL_DEPS_BUILD_DIR'/include \n \nName: EntosPlayerFireboltInterface \nDescription: iarm rfc interfaces library \nVersion: 1.0 \nLibs: -L${libdir} -lEntosPlayerFireboltInterface \nCflags: -I${includedir}' > $LOCAL_DEPS_BUILD_DIR/lib/pkgconfig/libEntosPlayerFireboltInterface.pc
         echo -e 'prefix='$LOCAL_DEPS_BUILD_DIR'/lib \nexec_prefix='$LOCAL_DEPS_BUILD_DIR' \nlibdir='$LOCAL_DEPS_BUILD_DIR'/lib \nincludedir='$LOCAL_DEPS_BUILD_DIR'/include \n \nName: BaseConversion \nDescription: base 16 and 64 conversion library \nVersion: 1.0 \nLibs: -L${libdir} -lBaseConversion \nCflags: -I${includedir}' > $LOCAL_DEPS_BUILD_DIR/lib/pkgconfig/libBaseConversion.pc
+        echo -e 'prefix='$LOCAL_DEPS_BUILD_DIR'/lib \nexec_prefix='$LOCAL_DEPS_BUILD_DIR' \nlibdir='$LOCAL_DEPS_BUILD_DIR'/lib \nincludedir='$LOCAL_DEPS_BUILD_DIR'/include \n \nName: PlayerLogManager \nDescription: player log manager library \nVersion: 1.0 \nLibs: -L${libdir} -lPlayerLogManager \nCflags: -I${includedir}' > $LOCAL_DEPS_BUILD_DIR/lib/pkgconfig/libPlayerLogManager.pc
         
         INSTALL_STATUS_ARR+=("middleware was successfully installed.")
     fi
