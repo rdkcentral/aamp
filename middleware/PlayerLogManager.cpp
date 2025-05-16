@@ -36,9 +36,7 @@
 
 #ifdef USE_ETHAN_LOG
 #include <ethanlog.h>
-printf("Nithya: Ethan Logger support is enabled (USE_ETHAN_LOG defined) in middleware\n");
 #else
-printf("Nithya: Ethan Logger support is not enabled (USE_ETHAN_LOG not defined) in middleware\n");
 // stubs for use if USE_ETHAN_LOG not defined
 static void vethanlog(int level, const char *filename, const char *function, int line, const char *format, va_list ap){}
 #define ETHAN_LOG_INFO 0

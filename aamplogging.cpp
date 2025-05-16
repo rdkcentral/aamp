@@ -32,9 +32,7 @@ using namespace std;
 
 #ifdef USE_ETHAN_LOG
 #include <ethanlog.h>
-printf("Nithya: Ethan Logger support is enabled (USE_ETHAN_LOG defined)\n");
 #else
-printf("Nithya: Ethan Logger support is NOT enabled (USE_ETHAN_LOG not defined)\n");
 // stubs for use if USE_ETHAN_LOG not defined
 void vethanlog(int level, const char *filename, const char *function, int line, const char *format, va_list ap){}
 #define ETHAN_LOG_INFO 0
@@ -129,7 +127,7 @@ void logprintf(AAMP_LogLevel logLevelIndex, const char* file, int line, const ch
 				int ethanLogLevel;
 				// Important: in production builds, Ethan logger filters out everything
 				// except ETHAN_LOG_MILESTONE and ETHAN_LOG_FATAL
-				printf("Nithya : AampLogManager::enableEthanLogRedirection is enabled\n");
+				AAMPLOG_ERR("Nithya : AampLogManager::enableEthanLogRedirection is enabled\n");
 				switch (logLevelIndex)
 				{
 					case eLOGLEVEL_TRACE:
@@ -152,7 +150,7 @@ void logprintf(AAMP_LogLevel logLevelIndex, const char* file, int line, const ch
 			}
 			else
 			{
-				printf("Nithya : AampLogManager::enableEthanLogRedirection is not enabled\n");
+				AAMPLOG_ERR("Nithya : AampLogManager::enableEthanLogRedirection is not enabled\n");
 				format_ptr[format_bytes-1] = 0x00; // strip not-needed newline (good for Ethan Logger, too?)
 				sd_journal_printv(LOG_NOTICE,format_ptr,args); // note: truncates to 2040 characters
 			}

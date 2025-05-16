@@ -1,0 +1,190 @@
+From b69b40e3bffcf062afd4b2cd582367b7df111eb1 Mon Sep 17 00:00:00 2001
+From: Naren Ramesh <naren_ramesh@comcast.com>
+Date: Fri, 16 May 2025 14:49:39 +0530
+Subject: [PATCH] debug logs
+
+---
+ CMakeLists.txt                    | 24 +++++++++++++++---------
+ aampgstplayer.cpp                 |  5 +++++
+ aamplogging.cpp                   |  4 ++++
+ jsbindings/jsutils.cpp            |  4 ++++
+ main_aamp.cpp                     |  3 ++-
+ middleware/InterfacePlayerRDK.cpp |  1 +
+ middleware/PlayerLogManager.cpp   |  4 ++++
+ 7 files changed, 35 insertions(+), 10 deletions(-)
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index f325c3a9c..3949af478 100755
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -692,15 +692,21 @@ if(CMAKE_SYSTEMD_JOURNAL)
+ endif()
+ 
+ if(CMAKE_USE_ETHAN_LOG)
+-     message("DCMAKE_USE_ETHAN_LOG set")
+- # Find the ethanlog library for container logger
+-     find_package( EthanLog REQUIRED )
+-# Add the include directories for EthanLog
+-     include_directories(${ETHANLOG_INCLUDE_DIRS})
+-
+-     set(LIBAAMP_DEPENDS "${LIBAAMP_DEPENDS} -lethanlog")
+-     set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DUSE_ETHAN_LOG=1")
+-     set(LIBAAMPJSBINDINGS_DEFINES "${LIBAAMPJSBINDINGS_DEFINES} -DUSE_ETHAN_LOG=1")
++    message("DEBUG Nithya : CMAKE_USE_ETHAN_LOG is set")
++    # Find the ethanlog library for container logger
++    find_package(EthanLog REQUIRED)
++    message("DEBUG Nithya: EthanLog package found, include dirs: ${ETHANLOG_INCLUDE_DIRS}")
++    # Add the include directories for EthanLog
++    include_directories(${ETHANLOG_INCLUDE_DIRS})
++
++    set(LIBAAMP_DEPENDS "${LIBAAMP_DEPENDS} -lethanlog")
++    message("DEBUG Nithya : LIBAAMP_DEPENDS updated: ${LIBAAMP_DEPENDS}")
++
++    set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DUSE_ETHAN_LOG=1")
++    message("DEBUG Nithya: LIBAAMP_DEFINES updated: ${LIBAAMP_DEFINES}")
++
++    set(LIBAAMPJSBINDINGS_DEFINES "${LIBAAMPJSBINDINGS_DEFINES} -DUSE_ETHAN_LOG=1")
++    message("DEBUG Nithya: LIBAAMPJSBINDINGS_DEFINES updated: ${LIBAAMPJSBINDINGS_DEFINES}")
+ endif()
+ 
+ 
+diff --git a/aampgstplayer.cpp b/aampgstplayer.cpp
+index 395285990..3719cfd94 100644
+--- a/aampgstplayer.cpp
++++ b/aampgstplayer.cpp
+@@ -399,6 +399,11 @@ AAMPGstPlayer::AAMPGstPlayer(PrivateInstanceAAMP *aamp, id3_callback_t id3Handle
+ 			playerInstance->EnableGstDebugLogging(debugLevel);
+ 		}
+ 		InitializePlayerConfigs(this,playerInstance);
++		printf("Nithya: Calling SetLoggerInfo with the following parameters in aampgstplayer.cpp:\n");
++		printf("Nithya: disableLogRedirection: %s\n", AampLogManager::disableLogRedirection ? "true" : "false");
++		printf("Nithya: enableEthanLogRedirection: %s\n", AampLogManager::enableEthanLogRedirection ? "true" : "false");
++		printf("Nithya: aampLoglevel: %d\n", AampLogManager::aampLoglevel);
++		printf("Nithya: locked: %s\n", AampLogManager::locked ? "true" : "false");
+ 		playerInstance->SetLoggerInfo(AampLogManager::disableLogRedirection, AampLogManager::enableEthanLogRedirection, AampLogManager::aampLoglevel, AampLogManager::locked);
+ 		playerInstance->SetPlayerName(PLAYER_NAME);
+ 		playerInstance->setEncryption((void*)aamp);
+diff --git a/aamplogging.cpp b/aamplogging.cpp
+index b617e0dbb..f19129ced 100644
+--- a/aamplogging.cpp
++++ b/aamplogging.cpp
+@@ -32,7 +32,9 @@ using namespace std;
+ 
+ #ifdef USE_ETHAN_LOG
+ #include <ethanlog.h>
++printf("Nithya: Ethan Logger support is enabled (USE_ETHAN_LOG defined)\n");
+ #else
++printf("Nithya: Ethan Logger support is NOT enabled (USE_ETHAN_LOG not defined)\n");
+ // stubs for use if USE_ETHAN_LOG not defined
+ void vethanlog(int level, const char *filename, const char *function, int line, const char *format, va_list ap){}
+ #define ETHAN_LOG_INFO 0
+@@ -127,6 +129,7 @@ void logprintf(AAMP_LogLevel logLevelIndex, const char* file, int line, const ch
+ 				int ethanLogLevel;
+ 				// Important: in production builds, Ethan logger filters out everything
+ 				// except ETHAN_LOG_MILESTONE and ETHAN_LOG_FATAL
++				printf("Nithya : AampLogManager::enableEthanLogRedirection is enabled\n");
+ 				switch (logLevelIndex)
+ 				{
+ 					case eLOGLEVEL_TRACE:
+@@ -149,6 +152,7 @@ void logprintf(AAMP_LogLevel logLevelIndex, const char* file, int line, const ch
+ 			}
+ 			else
+ 			{
++				printf("Nithya : AampLogManager::enableEthanLogRedirection is not enabled\n");
+ 				format_ptr[format_bytes-1] = 0x00; // strip not-needed newline (good for Ethan Logger, too?)
+ 				sd_journal_printv(LOG_NOTICE,format_ptr,args); // note: truncates to 2040 characters
+ 			}
+diff --git a/jsbindings/jsutils.cpp b/jsbindings/jsutils.cpp
+index 7cec8c674..564d2a15c 100644
+--- a/jsbindings/jsutils.cpp
++++ b/jsbindings/jsutils.cpp
+@@ -39,8 +39,10 @@
+ 
+ #ifdef USE_ETHAN_LOG
+ #include <ethanlog.h>
++printf("Nithya: Ethan Logger support is enabled (USE_ETHAN_LOG defined)in jsbindings\n");
+ #else
+ // stubs for use if USE_ETHAN_LOG not defined
++printf("Nithya: Ethan Logger support is not enabled (USE_ETHAN_LOG not defined) in jsbindings\n");
+ void ethanlog(int level, const char *filename, const char *function, int line, const char *format, ...){}
+ #define ETHAN_LOG_INFO 0
+ #define ETHAN_LOG_DEBUG 1
+@@ -619,6 +621,7 @@ void jsBindingLogprintf(int playerId ,const char* functionName, int line, int lo
+ 		int ethanLogLevel;
+ 		// Important: in production builds, Ethan logger filters out everything
+ 		// except ETHAN_LOG_MILESTONE and ETHAN_LOG_FATAL
++		printf("Nithya : AampLogManager::enableEthanLogRedirection is : %s\n in jsbindings", AampLogManager::enableEthanLogRedirection ? "true" : "false");
+ 		switch (logLevel)
+ 		{
+ 			case eLOGLEVEL_TRACE:
+@@ -641,6 +644,7 @@ void jsBindingLogprintf(int playerId ,const char* functionName, int line, int lo
+ 	}
+ 	else
+ 	 {
++		printf("AampLogManager::enableEthanLogRedirection is : %s\n ,as other logger system is enabled", AampLogManager::enableEthanLogRedirection ? "true" : "false");
+ #if (defined (USE_SYSTEMD_JOURNAL_PRINT) || defined (USE_SYSLOG_HELPER_PRINT))
+ #ifdef USE_SYSTEMD_JOURNAL_PRINT
+ 
+diff --git a/main_aamp.cpp b/main_aamp.cpp
+index 645b5281c..14173a872 100755
+--- a/main_aamp.cpp
++++ b/main_aamp.cpp
+@@ -115,7 +115,7 @@ PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink
+ 
+ 	// sd_journal logging doesn't work with AAMP/Rialto running in Container, so route to Ethan Logger instead
+ 	AampLogManager::enableEthanLogRedirection = mConfig.IsConfigSet(eAAMPConfig_useRialtoSink);
+-
++	printf("Nithya : AampLogManager::enableEthanLogRedirection is : %s\n if AAMP/Rialto is running in Container", AampLogManager::enableEthanLogRedirection ? "true" : "false");
+ 	sp_aamp = std::make_shared<PrivateInstanceAAMP>(&mConfig);
+ 	aamp = sp_aamp.get();
+ 	UsingPlayerId playerId(aamp->mPlayerId);
+@@ -3222,6 +3222,7 @@ bool PlayerInstanceAAMP::InitAAMPConfig(const char *jsonStr)
+ 
+ 	// also enable Ethan log redirection if useRialtoSink enabled using initconfig option.
+ 	AampLogManager::enableEthanLogRedirection = ISCONFIGSET(eAAMPConfig_useRialtoSink);
++	printf("Nithya : AampLogManager::enableEthanLogRedirection is : %s\n if Rialto is enabled using initConfig", AampLogManager::enableEthanLogRedirection ? "true" : "false");
+ 	return retVal;
+ }
+ 
+diff --git a/middleware/InterfacePlayerRDK.cpp b/middleware/InterfacePlayerRDK.cpp
+index 2e7cca8f0..eabb78517 100644
+--- a/middleware/InterfacePlayerRDK.cpp
++++ b/middleware/InterfacePlayerRDK.cpp
+@@ -2835,6 +2835,7 @@ void InterfacePlayerRDK::SetPlayerName(std::string name)
+ 
+ void InterfacePlayerRDK::SetLoggerInfo(bool logRedirectStatus, bool ethanLogStatus, int level, bool lock)
+ {
++	printf("Nithya : SetLoggerInfo is called\n");
+ 	PlayerLogManager::disableLogRedirection = logRedirectStatus;
+ 	PlayerLogManager::enableEthanLogRedirection = ethanLogStatus;
+ 	PlayerLogManager::setLogLevel(MW_LogLevel(level));
+diff --git a/middleware/PlayerLogManager.cpp b/middleware/PlayerLogManager.cpp
+index f5d756673..b75a4237e 100644
+--- a/middleware/PlayerLogManager.cpp
++++ b/middleware/PlayerLogManager.cpp
+@@ -36,7 +36,9 @@
+ 
+ #ifdef USE_ETHAN_LOG
+ #include <ethanlog.h>
++printf("Nithya: Ethan Logger support is enabled (USE_ETHAN_LOG defined) in middleware\n");
+ #else
++printf("Nithya: Ethan Logger support is not enabled (USE_ETHAN_LOG not defined) in middleware\n");
+ // stubs for use if USE_ETHAN_LOG not defined
+ static void vethanlog(int level, const char *filename, const char *function, int line, const char *format, va_list ap){}
+ #define ETHAN_LOG_INFO 0
+@@ -134,6 +136,7 @@ void logprintf(MW_LogLevel logLevelIndex, const char* file, int line, const char
+ 			    int ethanLogLevel;
+ 			    // Important: in production builds, Ethan logger filters out everything
+ 			    // except ETHAN_LOG_MILESTONE and ETHAN_LOG_FATAL
++				printf("Nithya : PlayerLogManager::enableEthanLogRedirection is : %s\n", PlayerLogManager::enableEthanLogRedirection ? "true" : "false");
+ 			    switch (logLevelIndex)
+ 			    {
+ 				    case mLOGLEVEL_TRACE:
+@@ -156,6 +159,7 @@ void logprintf(MW_LogLevel logLevelIndex, const char* file, int line, const char
+ 		    }
+ 		    else
+ 		    {
++				printf("Nithya : PlayerLogManager::enableEthanLogRedirection is : %s\n", PlayerLogManager::enableEthanLogRedirection ? "true" : "false");
+ 			    format_ptr[format_bytes-1] = 0x00; // strip not-needed newline (good for Ethan Logger, too?)
+ 			    sd_journal_printv(LOG_NOTICE,format_ptr,args); // note: truncates to 2040 characters
+ 		    }
