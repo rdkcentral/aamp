@@ -36,7 +36,9 @@
 
 #ifdef USE_ETHAN_LOG
 #include <ethanlog.h>
+printf("Nithya: Ethan Logger support is enabled (USE_ETHAN_LOG defined) in middleware\n");
 #else
+printf("Nithya: Ethan Logger support is not enabled (USE_ETHAN_LOG not defined) in middleware\n");
 // stubs for use if USE_ETHAN_LOG not defined
 static void vethanlog(int level, const char *filename, const char *function, int line, const char *format, va_list ap){}
 #define ETHAN_LOG_INFO 0
@@ -134,6 +136,7 @@ void logprintf(MW_LogLevel logLevelIndex, const char* file, int line, const char
 			    int ethanLogLevel;
 			    // Important: in production builds, Ethan logger filters out everything
 			    // except ETHAN_LOG_MILESTONE and ETHAN_LOG_FATAL
+				printf("Nithya : PlayerLogManager::enableEthanLogRedirection is : %s\n", PlayerLogManager::enableEthanLogRedirection ? "true" : "false");
 			    switch (logLevelIndex)
 			    {
 				    case mLOGLEVEL_TRACE:
@@ -156,6 +159,7 @@ void logprintf(MW_LogLevel logLevelIndex, const char* file, int line, const char
 		    }
 		    else
 		    {
+				printf("Nithya : PlayerLogManager::enableEthanLogRedirection is : %s\n", PlayerLogManager::enableEthanLogRedirection ? "true" : "false");
 			    format_ptr[format_bytes-1] = 0x00; // strip not-needed newline (good for Ethan Logger, too?)
 			    sd_journal_printv(LOG_NOTICE,format_ptr,args); // note: truncates to 2040 characters
 		    }

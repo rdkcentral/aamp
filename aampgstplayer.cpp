@@ -399,6 +399,11 @@ AAMPGstPlayer::AAMPGstPlayer(PrivateInstanceAAMP *aamp, id3_callback_t id3Handle
 			playerInstance->EnableGstDebugLogging(debugLevel);
 		}
 		InitializePlayerConfigs(this,playerInstance);
+		printf("Nithya: Calling SetLoggerInfo with the following parameters in aampgstplayer.cpp:\n");
+		printf("Nithya: disableLogRedirection: %s\n", AampLogManager::disableLogRedirection ? "true" : "false");
+		printf("Nithya: enableEthanLogRedirection: %s\n", AampLogManager::enableEthanLogRedirection ? "true" : "false");
+		printf("Nithya: aampLoglevel: %d\n", AampLogManager::aampLoglevel);
+		printf("Nithya: locked: %s\n", AampLogManager::locked ? "true" : "false");
 		playerInstance->SetLoggerInfo(AampLogManager::disableLogRedirection, AampLogManager::enableEthanLogRedirection, AampLogManager::aampLoglevel, AampLogManager::locked);
 		playerInstance->SetPlayerName(PLAYER_NAME);
 		playerInstance->setEncryption((void*)aamp);

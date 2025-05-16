@@ -39,8 +39,10 @@
 
 #ifdef USE_ETHAN_LOG
 #include <ethanlog.h>
+printf("Nithya: Ethan Logger support is enabled (USE_ETHAN_LOG defined)in jsbindings\n");
 #else
 // stubs for use if USE_ETHAN_LOG not defined
+printf("Nithya: Ethan Logger support is not enabled (USE_ETHAN_LOG not defined) in jsbindings\n");
 void ethanlog(int level, const char *filename, const char *function, int line, const char *format, ...){}
 #define ETHAN_LOG_INFO 0
 #define ETHAN_LOG_DEBUG 1
@@ -619,6 +621,7 @@ void jsBindingLogprintf(int playerId ,const char* functionName, int line, int lo
 		int ethanLogLevel;
 		// Important: in production builds, Ethan logger filters out everything
 		// except ETHAN_LOG_MILESTONE and ETHAN_LOG_FATAL
+		printf("Nithya : AampLogManager::enableEthanLogRedirection is : %s\n in jsbindings", AampLogManager::enableEthanLogRedirection ? "true" : "false");
 		switch (logLevel)
 		{
 			case eLOGLEVEL_TRACE:
@@ -641,6 +644,7 @@ void jsBindingLogprintf(int playerId ,const char* functionName, int line, int lo
 	}
 	else
 	 {
+		printf("AampLogManager::enableEthanLogRedirection is : %s\n ,as other logger system is enabled", AampLogManager::enableEthanLogRedirection ? "true" : "false");
 #if (defined (USE_SYSTEMD_JOURNAL_PRINT) || defined (USE_SYSLOG_HELPER_PRINT))
 #ifdef USE_SYSTEMD_JOURNAL_PRINT
 

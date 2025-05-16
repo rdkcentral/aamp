@@ -2835,6 +2835,7 @@ void InterfacePlayerRDK::SetPlayerName(std::string name)
 
 void InterfacePlayerRDK::SetLoggerInfo(bool logRedirectStatus, bool ethanLogStatus, int level, bool lock)
 {
+	printf("Nithya : SetLoggerInfo is called\n");
 	PlayerLogManager::disableLogRedirection = logRedirectStatus;
 	PlayerLogManager::enableEthanLogRedirection = ethanLogStatus;
 	PlayerLogManager::setLogLevel(MW_LogLevel(level));

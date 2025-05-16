@@ -692,15 +692,21 @@ if(CMAKE_SYSTEMD_JOURNAL)
 endif()
 
 if(CMAKE_USE_ETHAN_LOG)
-     message("DCMAKE_USE_ETHAN_LOG set")
- # Find the ethanlog library for container logger
-     find_package( EthanLog REQUIRED )
-# Add the include directories for EthanLog
-     include_directories(${ETHANLOG_INCLUDE_DIRS})
+    message("DEBUG Nithya : CMAKE_USE_ETHAN_LOG is set")
+    # Find the ethanlog library for container logger
+    find_package(EthanLog REQUIRED)
+    message("DEBUG Nithya: EthanLog package found, include dirs: ${ETHANLOG_INCLUDE_DIRS}")
+    # Add the include directories for EthanLog
+    include_directories(${ETHANLOG_INCLUDE_DIRS})
 
-     set(LIBAAMP_DEPENDS "${LIBAAMP_DEPENDS} -lethanlog")
-     set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DUSE_ETHAN_LOG=1")
-     set(LIBAAMPJSBINDINGS_DEFINES "${LIBAAMPJSBINDINGS_DEFINES} -DUSE_ETHAN_LOG=1")
+    set(LIBAAMP_DEPENDS "${LIBAAMP_DEPENDS} -lethanlog")
+    message("DEBUG Nithya : LIBAAMP_DEPENDS updated: ${LIBAAMP_DEPENDS}")
+
+    set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DUSE_ETHAN_LOG=1")
+    message("DEBUG Nithya: LIBAAMP_DEFINES updated: ${LIBAAMP_DEFINES}")
+
+    set(LIBAAMPJSBINDINGS_DEFINES "${LIBAAMPJSBINDINGS_DEFINES} -DUSE_ETHAN_LOG=1")
+    message("DEBUG Nithya: LIBAAMPJSBINDINGS_DEFINES updated: ${LIBAAMPJSBINDINGS_DEFINES}")
 endif()
 
 
