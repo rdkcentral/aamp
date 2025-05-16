@@ -1933,7 +1933,6 @@ public:
 	{
 		ManifestRefreshEventPtr evt = std::dynamic_pointer_cast<ManifestRefreshEvent>(e);
 		JSStringRef prop;
-		const char* manifestType = evt->getManifestType();
 		prop = JSStringCreateWithUTF8CString("manifestDuration");
 		JSObjectSetProperty(context, eventObj, prop, JSValueMakeNumber(context, evt->getManifestDuration()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
@@ -1947,7 +1946,7 @@ public:
 		JSStringRelease(prop);
 
 		prop = JSStringCreateWithUTF8CString("manifestType");
-		JSObjectSetProperty(context, eventObj, prop, aamp_CStringToJSValue(context, manifestType), kJSPropertyAttributeReadOnly, NULL);
+		JSObjectSetProperty(context, eventObj, prop, aamp_CStringToJSValue(context, evt->getManifestType().c_str()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
 	}
 };
@@ -1989,6 +1988,52 @@ public:
 	}
 };
 
+/**
+ * @class AAMP_JSListener_MonitorAVStatus
+ * @brief Event listener impl for provide monitorAVStatus AAMP event
+ */
+class AAMP_JSListener_MonitorAVStatus : public AAMP_JSListener
+{
+public:
+	/**
+	* @brief AAMP_JSListener_MonitorAVStatus Constructor
+	* @param[in] aamp instance of AAMP_JS
+	* @param[in] type event type
+	* @param[in] jsCallback callback to be registered as listener
+	*/
+	AAMP_JSListener_MonitorAVStatus(AAMP_JS* aamp, AAMPEventType type, JSObjectRef jsCallback) : AAMP_JSListener(aamp, type, jsCallback)
+	{
+	}
+
+	/**
+	* @brief Set JS event properties
+	* @param[in] e AAMP event object
+	* @param[in] context JS execution context
+	* @param[out] eventObj JS event object
+	*/
+	void setEventProperties(const AAMPEventPtr& e, JSContextRef context, JSObjectRef eventObj)
+	{
+		MonitorAVStatusEventPtr evt = std::dynamic_pointer_cast<MonitorAVStatusEvent>(e);
+		JSStringRef prop;
+		const char* monitorAVStatus = evt->getMonitorAVStatus().c_str();
+		prop = JSStringCreateWithUTF8CString("currentState");
+		LOG_TRACE("AAMP_Listener_MonitorAVStatus MonitorAVStatus data %s", monitorAVStatus);
+		JSObjectSetProperty(context, eventObj, prop, aamp_CStringToJSValue(context, monitorAVStatus), kJSPropertyAttributeReadOnly, NULL);
+		JSStringRelease(prop);
+
+		prop = JSStringCreateWithUTF8CString("videoPosMs");
+		JSObjectSetProperty(context, eventObj, prop, JSValueMakeNumber(context, evt->getVideoPositionMS()), kJSPropertyAttributeReadOnly, NULL);
+		JSStringRelease(prop);
+
+		prop = JSStringCreateWithUTF8CString("audioPosMs");
+		JSObjectSetProperty(context, eventObj, prop, JSValueMakeNumber(context, evt->getAudioPositionMS()), kJSPropertyAttributeReadOnly, NULL);
+		JSStringRelease(prop);
+
+		prop = JSStringCreateWithUTF8CString("timeInStateMs");
+		JSObjectSetProperty(context, eventObj, prop, JSValueMakeNumber(context, evt->getTimeInStateMS()), kJSPropertyAttributeReadOnly, NULL);
+		JSStringRelease(prop);
+	}
+};
 /**
  * @brief Callback invoked from JS to add an event listener for a particular event
  * @param[in] context JS execution context
@@ -2160,6 +2205,10 @@ void AAMP_JSListener::AddEventListener(AAMP_JS* aamp, AAMPEventType type, JSObje
 	else if(type == AAMP_EVENT_TUNE_TIME_METRICS)
 	{
 		pListener = new AAMP_JSListener_TuneMetricData(aamp, type, jsCallback);
+	}
+	else if (type == AAMP_EVENT_MONITORAV_STATUS)
+	{
+		pListener = new AAMP_JSListener_MonitorAVStatus(aamp, type, jsCallback);
 	}
 	else
 	{

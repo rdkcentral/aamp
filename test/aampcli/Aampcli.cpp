@@ -663,7 +663,7 @@ void MyAAMPEventListener::Event(const AAMPEventPtr& e)
 		{
 			std::string manifest;
 			ManifestRefreshEventPtr ev = std::dynamic_pointer_cast<ManifestRefreshEvent>(e);
-			printf("\n[AAMPCLI] AAMP_EVENT_MANIFEST_REFRESH_NOTIFY received Dur[%u]:NoPeriods[%u]:PubTime[%u] manifestType[%s]\n",ev->getManifestDuration(),ev->getNoOfPeriods(),ev->getManifestPublishedTime(),ev->getManifestType());
+			printf("\n[AAMPCLI] AAMP_EVENT_MANIFEST_REFRESH_NOTIFY received Dur[%u]:NoPeriods[%u]:PubTime[%u] manifestType[%s]\n",ev->getManifestDuration(),ev->getNoOfPeriods(),ev->getManifestPublishedTime(),ev->getManifestType().c_str());
 			manifest = mAampcli.mSingleton->GetManifest();
 			printf("\n [AAMPCLI] Dash  Manifest length [%zu]\n",manifest.length());
 			break;
@@ -730,6 +730,11 @@ void MyAAMPEventListener::Event(const AAMPEventPtr& e)
 			printf("[AAMPCLI] updateManifest\n");
 			mAampcli.mSingleton->updateManifest(manifestData.c_str());
 			break;
+		}
+		case AAMP_EVENT_MONITORAV_STATUS:
+		{
+			MonitorAVStatusEventPtr ev = std::dynamic_pointer_cast<MonitorAVStatusEvent>(e);
+			printf("[AAMPCLI] AAMP_EVENT_MONITORAV_STATUS\tstatus=%s\tvposition =%" PRId64 "\taposition=%" PRId64 "\ttimeInStateMS= %" PRIu64 "\n", ev->getMonitorAVStatus().c_str(), ev->getVideoPositionMS(), ev->getAudioPositionMS(), ev->getTimeInStateMS());
 		}
 		case AAMP_EVENT_REPORT_ANOMALY:
 		{
