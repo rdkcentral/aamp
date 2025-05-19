@@ -134,6 +134,7 @@ void logprintf(MW_LogLevel logLevelIndex, const char* file, int line, const char
 			    int ethanLogLevel;
 			    // Important: in production builds, Ethan logger filters out everything
 			    // except ETHAN_LOG_MILESTONE and ETHAN_LOG_FATAL
+			   printf("Nitz : Ethan is set in Middleware\n");
 			    switch (logLevelIndex)
 			    {
 				    case mLOGLEVEL_TRACE:
@@ -156,6 +157,7 @@ void logprintf(MW_LogLevel logLevelIndex, const char* file, int line, const char
 		    }
 		    else
 		    {
+			    printf("Nitz: Sd log is set in Middleware\n");
 			    format_ptr[format_bytes-1] = 0x00; // strip not-needed newline (good for Ethan Logger, too?)
 			    sd_journal_printv(LOG_NOTICE,format_ptr,args); // note: truncates to 2040 characters
 		    }

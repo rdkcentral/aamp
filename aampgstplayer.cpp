@@ -383,10 +383,12 @@ AAMPGstPlayer::AAMPGstPlayer(PrivateInstanceAAMP *aamp, id3_callback_t id3Handle
 
 {
 	privateContext = new AAMPGstPlayerPriv();
-	playerInstance = new InterfacePlayerRDK();                                       // for time being to use across class and non-class members when progressive testing
+	playerInstance = new InterfacePlayerRDK();           // for time being to use across class and non-class members when progressive testing
+	AAMPLOG_ERR("Nitz : PlayerInstance is created\n");
 	RegisterBusCb(this, playerInstance);
 	if(privateContext)
 	{
+		AAMPLOG_ERR("Nitz : PrivContxt is created\n);
 		this->aamp = aamp;
 		// Initially set to this instance, can be changed by SetEncryptedAamp
 		this->mEncryptedAamp = aamp;
@@ -399,14 +401,16 @@ AAMPGstPlayer::AAMPGstPlayer(PrivateInstanceAAMP *aamp, id3_callback_t id3Handle
 			playerInstance->EnableGstDebugLogging(debugLevel);
 		}
 		InitializePlayerConfigs(this,playerInstance);
+		AAMPLOG_ERR("Nitz : Initialised PlayerConfigs and calling SetLoggerInfo\n");
 		playerInstance->SetLoggerInfo(AampLogManager::disableLogRedirection, AampLogManager::enableEthanLogRedirection, AampLogManager::aampLoglevel, AampLogManager::locked);
+		AAMPLOG_ERR("Nitz : Called SetLoggerInfo\n");
 		playerInstance->SetPlayerName(PLAYER_NAME);
 		playerInstance->setEncryption((void*)aamp);
 		RegisterFirstFrameCallbacks();
 	}
 	else
 	{
-		AAMPLOG_WARN("privateContext  is null");  //CID:85372 - Null Returns
+		AAMPLOG_WARN("Nitz : privateContext  is null\n");  //CID:85372 - Null Returns
 	}
 }
 

@@ -127,6 +127,8 @@ void logprintf(AAMP_LogLevel logLevelIndex, const char* file, int line, const ch
 				int ethanLogLevel;
 				// Important: in production builds, Ethan logger filters out everything
 				// except ETHAN_LOG_MILESTONE and ETHAN_LOG_FATAL
+				AAMPLOG_ERR("Nitz : Ethan Log is set in AAMP\n");
+				printf("Nitz : Ethan Log is set in AAMP\n");
 				switch (logLevelIndex)
 				{
 					case eLOGLEVEL_TRACE:
@@ -149,6 +151,8 @@ void logprintf(AAMP_LogLevel logLevelIndex, const char* file, int line, const ch
 			}
 			else
 			{
+				AAMPLOG_ERR("Nitz : sd Log is set in AAMP\n");
+				printf("Nitz : sd Log is set in AAMP\n");
 				format_ptr[format_bytes-1] = 0x00; // strip not-needed newline (good for Ethan Logger, too?)
 				sd_journal_printv(LOG_NOTICE,format_ptr,args); // note: truncates to 2040 characters
 			}

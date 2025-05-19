@@ -115,7 +115,14 @@ PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink
 
 	// sd_journal logging doesn't work with AAMP/Rialto running in Container, so route to Ethan Logger instead
 	AampLogManager::enableEthanLogRedirection = mConfig.IsConfigSet(eAAMPConfig_useRialtoSink);
-
+	if(AampLogManager::enableEthanLogRedirection)
+	{
+		AAMPLOG_ERR("Nitz: Ethan Log Redirection is True if running in Container\n");
+	}
+	else
+	{
+		AAMPLOG_ERR("Nitz: Ethan is not set here\n");
+	}
 	sp_aamp = std::make_shared<PrivateInstanceAAMP>(&mConfig);
 	aamp = sp_aamp.get();
 	UsingPlayerId playerId(aamp->mPlayerId);
@@ -3222,6 +3229,14 @@ bool PlayerInstanceAAMP::InitAAMPConfig(const char *jsonStr)
 
 	// also enable Ethan log redirection if useRialtoSink enabled using initconfig option.
 	AampLogManager::enableEthanLogRedirection = ISCONFIGSET(eAAMPConfig_useRialtoSink);
+	if(AampLogManager::enableEthanLogRedirection)
+        {
+                AAMPLOG_ERR("Nitz: Ethan Log Redirection is True if its set via initconfig\n");
+        }
+        else
+        {
+                AAMPLOG_ERR("Nitz: Ethan is not set here via initconfig\n");
+        }
 	return retVal;
 }
 
