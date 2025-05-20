@@ -1,0 +1,98 @@
+# If not stated otherwise in this file or this component's license file the
+# following copyright and licenses apply:
+#
+# Copyright 2018 RDK Management
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+include(GoogleTest)
+
+add_subdirectory(JsBindingTests)
+add_subdirectory(AampEventTests)
+add_subdirectory(AampCliSet)
+add_subdirectory(AampGrowableBuffer)
+add_subdirectory(AampCacheHandlerTests)
+add_subdirectory(videoin_shimTests)
+add_subdirectory(AampGstPlayer)
+add_subdirectory(Base64AAMP)
+add_subdirectory(AampUtilsTests)
+add_subdirectory(ConfigTests)
+add_subdirectory(Iso639MapTests)
+add_subdirectory(JsonObjectTests)
+add_subdirectory(PlayerInstanceAAMP)
+add_subdirectory(PrivateInstanceAAMP)
+add_subdirectory(PreferredLanguages)
+add_subdirectory(TextStyleAttributes)
+add_subdirectory(UrlEncDecAAMP)
+add_subdirectory(StreamAbstractionAAMP_HLS)
+add_subdirectory(StreamAbstractionAAMP_MPD)
+add_subdirectory(AampCurlDownloader)
+add_subdirectory(AampMPDDownloader)
+add_subdirectory(AampCMCDCollectorTests)
+add_subdirectory(ManifestStitching)
+add_subdirectory(AampMPDParseHelper)
+add_subdirectory(AampLogManagerTests)
+add_subdirectory(TsProcessorTests)
+add_subdirectory(AampGstUtilsTests)
+add_subdirectory(ID3MetaDataTests)
+add_subdirectory(compositein_shimTests)
+add_subdirectory(hdmiin_shimTests)
+add_subdirectory(ota_shimTests)
+add_subdirectory(Scte35Tests)
+add_subdirectory(DashUtilsTests)
+add_subdirectory(AampSchedulerTests)
+add_subdirectory(base16Tests)
+add_subdirectory(AampProfilerTests)
+add_subdirectory(DashUrl)
+add_subdirectory(MediaStreamContextTests)
+add_subdirectory(AampEventManagerTests)
+add_subdirectory(fragmentcollector_hls)
+add_subdirectory(AampBufferControlTests)
+add_subdirectory(fragmentcollector_progressiveTests)
+add_subdirectory(AampMPDUtils)
+add_subdirectory(PrivAampTests)
+add_subdirectory(AampTsbDataManager)
+add_subdirectory(AampTsbAdPlacementMetaDataTests)
+add_subdirectory(AampTsbAdReservationMetaDataTests)
+add_subdirectory(AampTsbMetaDataManagerTests)
+add_subdirectory(IsoBmffBufferTests)
+add_subdirectory(IsoBmffBoxTests)
+add_subdirectory(IsoBmffProcessorTests)
+add_subdirectory(IsoBmffConvertToKeyFrameTests)
+add_subdirectory(IsoBmffHelperTests)
+add_subdirectory(AampStreamSinkManagerTests)
+add_subdirectory(ElementaryProcessorTests)
+add_subdirectory(AampTimeTests)
+add_subdirectory(GstHandlerControlTests)
+add_subdirectory(AampTelemetryTests)
+add_subdirectory(OcdmBasicSessionAdapterTests)
+add_subdirectory(DrmOcdm)
+add_subdirectory(DrmLegacy)
+add_subdirectory(DrmSecureClient)
+add_subdirectory(DrmUrlTests)
+add_subdirectory(lstringTests)
+add_subdirectory(AampTSBSessionManager)
+add_subdirectory(fragmentcollector_mpd)
+add_subdirectory(AdManagerMPDTests)
+add_subdirectory(TrackInjectTests)
+add_subdirectory(AdFallbackTests)
+add_subdirectory(MediaTrackTests)
+add_subdirectory(tsb)
+add_subdirectory(CacheFragmentTests)
+add_subdirectory(OCDMSessionAdapter)
+add_subdirectory(FragmentCollectorAdTests)
+add_subdirectory(AampTsbReader)
+add_subdirectory(AampAbrTests)
+add_subdirectory(AampTrackWorkerTests)
+add_subdirectory(PluginsTests)
+add_subdirectory(AampTsbSessionManagerTests_Mocked)
