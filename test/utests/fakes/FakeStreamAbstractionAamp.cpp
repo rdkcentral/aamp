@@ -374,7 +374,7 @@ void StreamAbstractionAAMP::SetVideoPlaybackRate(float rate)
 	}
 }
 
-void StreamAbstractionAAMP::InitializeMediaProcessor()
+void StreamAbstractionAAMP::InitializeMediaProcessor(bool initBasePTSFromManifest)
 {
 }
 
