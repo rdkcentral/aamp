@@ -3684,29 +3684,36 @@ bool GstPlayer_isVideoOrAudioDecoder(const char* name, InterfacePlayerRDK * pInt
 	// The idea is to identify video or audio decoder plugin created at runtime by playbin and register to its first-frame/pts-error callbacks
 	// This support is available in specific platform plugins in RDK builds and hence checking only for such plugin instances here
 	// For platforms that don't support callback, we use GST_STATE_PLAYING state change of playbin to notify first frame to app
+	MW_LOG_MIL("GstPlayer_isVideoOrAudioDecoder entry %s", name);
 	bool isAudioOrVideoDecoder = false;
 	const auto platformType = pInterfacePlayerRDK->m_gstConfigParam->platformType;
 	if (!pInterfacePlayerRDK->gstPrivateContext->using_westerossink && gst_StartsWith(name, "brcmvideodecoder"))
 	{
+		MW_LOG_MIL("GstPlayer_isVideoOrAudioDecoder brcmvideodecoder");
 		isAudioOrVideoDecoder = true;
 	}
 	
 	else if(platformType == eGST_PLATFORM_REALTEK && gst_StartsWith(name, "omx"))
 	{
+		MW_LOG_MIL("GstPlayer_isVideoOrAudioDecoder omx");
 		isAudioOrVideoDecoder = true;
 	}
 	else if ((platformType != eGST_PLATFORM_REALTEK) && pInterfacePlayerRDK->gstPrivateContext->using_westerossink && gst_StartsWith(name, "westerossink"))
 	{
+		MW_LOG_MIL("GstPlayer_isVideoOrAudioDecoder westerossink");
 		isAudioOrVideoDecoder = true;
 	}
 	else if (pInterfacePlayerRDK->gstPrivateContext->usingRialtoSink && gst_StartsWith(name, "rialtomse"))
 	{
+		MW_LOG_MIL("GstPlayer_isVideoOrAudioDecoder rialtomse");
 		isAudioOrVideoDecoder = true;
 	}
 	else if (gst_StartsWith(name, "brcmaudiodecoder"))
 	{
+		MW_LOG_MIL("GstPlayer_isVideoOrAudioDecoder brcmaudio");
 		isAudioOrVideoDecoder = true;
 	}
+	MW_LOG_MIL("GstPlayer_isVideoOrAudioDecoder: %d", isAudioOrVideoDecoder);
 	return isAudioOrVideoDecoder;
 }
 
@@ -4849,8 +4856,10 @@ static GstBusSyncReply bus_sync_handler(GstBus * bus, GstMessage * msg, Interfac
 			}
 			if (old_state == GST_STATE_NULL && new_state == GST_STATE_READY)
 			{
+				MW_LOG_MIL("Querying for GstPlayer_isVideoOrAudioDecoder");
 				if ((NULL != msg->src) && GstPlayer_isVideoOrAudioDecoder(GST_OBJECT_NAME(msg->src), pInterfacePlayerRDK))
 				{
+					MW_LOG_MIL("Querying for GstPlayer_isVideoDecoder");
 					if (GstPlayer_isVideoDecoder(GST_OBJECT_NAME(msg->src), pInterfacePlayerRDK))
 					{
 						gst_object_replace((GstObject **)&pInterfacePlayerRDK->gstPrivateContext->video_dec, msg->src);
