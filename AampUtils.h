@@ -26,7 +26,7 @@
 #ifndef __AAMP_UTILS_H__
 #define __AAMP_UTILS_H__
 
-#include "AampDrmSystems.h"
+#include "DrmSystems.h"
 #include "main_aamp.h"
 #include "iso639map.h"
 #include <string>
@@ -377,5 +377,27 @@ std::string aamp_GetConfigPath( const std::string &filename );
  */
 bool parseAndValidateSCTE35(const std::string &scte35Data);
 
+
+/**
+ * @brief convert time in HH:SS:MM.ms format to milliseconds
+ */
+long long convertHHMMSSToTime(const char * str);
+
+/**
+ * @brief convert time in milliseconds to HH:SS:MM.ms format
+ */
+std::string convertTimeToHHMMSS( long long t );
+
+/**
+ * @brief strstr variant that doesn't require the string being searched to end with NUL terminator
+ *
+ * @param haystack_ptr start of character range to search
+ * @param haystack_fin pointer just past end of character range to search (haystack_len = haystack_fin-haystack_ptr)
+ * @param needle cstring for character to find
+ *
+ * @retval pointer within haystack if needle found as a substring
+ * @retval NULL if needle not present within haystack
+ */
+const char *mystrstr(const char *haystack_ptr, const char *haystack_fin, const char *needle_ptr);
 
 #endif  /* __AAMP_UTILS_H__ */

@@ -298,12 +298,7 @@ bool PersistentWatermark::StorageVolatile::UpdatePlugin(int layerID)
 	}
 
 	LOG_TRACE("Watermark update key=%d, size=%d", mSharedMemoryKey, msize);
-	JsonObject param, result;
-	param["id"] = layerID;
-	param["key"] = mSharedMemoryKey;
-	param["size"] = msize;
-	bool success = PluginAccess::get().InvokeJSONRPC("updateWatermark", param, result);
-	if(success && result["success"].Boolean())
+	if(PluginAccess::get().UpdateWatermark(layerID, mSharedMemoryKey, msize))
 	{
 		return true;
 	}
@@ -323,12 +318,9 @@ PersistentWatermark::StorageVolatile::~StorageVolatile()
 std::string PersistentWatermark::StoragePersistent::getMetadata()
 {
 	LOG_TRACE("PersistentWatermark::StoragePersistent::getMetadata()");
-	JsonObject param, result;
-	bool success = PluginAccess::get().InvokeJSONRPC("PersistentStoreMetadata", param, result);
-	std::string metaData="";
-	if(success)
+	std::string metaData = PluginAccess::get().GetMetaDataWatermark();
+	if(!metaData.empty())
 	{
-		metaData = result["metadata"].String();
 		LOG_WARN_EX("metadata: %s", metaData.c_str());
 	}
 	else
@@ -355,11 +347,7 @@ JSValueRef PersistentWatermark::StoragePersistent::Update(JSContextRef ctx, JSOb
 
 		const char* base64Image = base64_Encode(reinterpret_cast<unsigned char*>(inputBuffer), binarySize);
 
-		JsonObject param, result;
-		param["image"] = base64Image;
-		param["metadata"] = metaData;
-		success = PluginAccess::get().InvokeJSONRPC("PersistentStoreSave", param, result) && result["success"].Boolean();
-		if(success)
+		if(PluginAccess::get().PersistentStoreSaveWatermark(base64Image, metaData))
 		{
 			LOG_TRACE("PersistentWatermark::StoragePersistent::Update() success");
 		}
@@ -379,9 +367,7 @@ JSValueRef PersistentWatermark::StoragePersistent::Update(JSContextRef ctx, JSOb
 bool PersistentWatermark::StoragePersistent::UpdatePlugin(int layerID)
 {
 	LOG_TRACE("PersistentWatermark::StoragePersistent::UpdatePlugin() AKA PersistentStoreLoad");
-	JsonObject param, result;
-	param["id"] = layerID;
-	bool success = PluginAccess::get().InvokeJSONRPC("PersistentStoreLoad", param, result) && result["success"].Boolean();
+	bool success = PluginAccess::get().PersistentStoreLoadWatermark(layerID);
 	if(success)
 	{
 		LOG_TRACE("PersistentWatermark::StoragePersistent::UpdatePlugin() success");

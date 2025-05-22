@@ -25,7 +25,6 @@
 #ifndef AAMP_TSBREADER_H
 #define AAMP_TSBREADER_H
 
-#include "AampTSBSessionManager.h"
 #include "AampTsbDataManager.h"
 #include "priv_aamp.h"
 #include "AampMediaType.h"
@@ -53,17 +52,32 @@ public:
 
 	/**
 	 * @fn AampTsbReader Init function
+	 * @brief Initialize TSB reader
 	 *
-	 * @return AampStatusType
+	 * @param[in,out] startPosSec - Start absolute position, seconds since 1970; in: requested, out: selected
+	 * @param[in] rate - Playback rate
+	 * @param[in] tuneType - Type of tune
+	 * @param[in] other - Optional other TSB reader
+	 *
+	 * @return AAMPStatusType
 	 */
-	AAMPStatusType Init(double &startPos, float rate, TuneType tuneType, std::shared_ptr<AampTsbReader> other=nullptr);
+	AAMPStatusType Init(double &startPosSec, float rate, TuneType tuneType, std::shared_ptr<AampTsbReader> other=nullptr);
 
 	/**
-	 * @fn ReadNext - function to read file from TSB
+	 * @fn FindNext - function to find the next fragment from TSB
 	 *
-	 * @return None
+	 * @param[in] offset - Offset from last read fragment
+	 *
+	 * @return Pointer to the next fragment data
 	 */
-	std::shared_ptr<TsbFragmentData> ReadNext();
+	TsbFragmentDataPtr FindNext(AampTime offset = 0.0);
+
+	/**
+	 * @fn ReadNext - function to update the last read file from TSB
+	 *
+	 * @param[in] nextFragmentData - Next fragment data obtained previously with FindNext
+	 */
+	void ReadNext(TsbFragmentDataPtr nextFragmentData);
 
 	/**
 	 * @fn GetStartPosition
@@ -103,7 +117,7 @@ public:
 	 *
 	 * @return bool - true if first download
 	 */
-	bool IsFirstDownload() { return (mStartPosition == mUpcomingFragmentPosition); }
+	bool IsFirstDownload();
 
 	/**
 	 * @fn TrackEnabled
@@ -131,7 +145,7 @@ public:
 	 *
 	 * @return float - Playback rate
 	 */
-	float GetPlaybackRate() { return mCurrentRate; }
+	float GetPlaybackRate();
 
 	/**
 	 * @fn IsDiscontinuous
@@ -188,11 +202,11 @@ private:
 
 protected:
 	/**
-	 * @fn DetectDiscontinuity
-	 *
-	 * @return None
+	 * @fn CheckPeriodBoundary
+	 * 
+	 * @param[in] currFragment - Current fragment
 	 */
-	void DetectDiscontinuity(TsbFragmentDataPtr  currFragment);
+	void CheckPeriodBoundary(TsbFragmentDataPtr currFragment);
 
 public:
 	PrivateInstanceAAMP *mAamp;
@@ -200,6 +214,7 @@ public:
 	bool mTrackEnabled;
 	std::shared_ptr<AampTsbDataManager> mDataMgr;
 	double mCurrentBandwidth;
+	TsbInitDataPtr mLastInitFragmentData;
 };
 
 #endif // AAMP_TSBREADER_H

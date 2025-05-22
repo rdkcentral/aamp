@@ -105,6 +105,11 @@ bool Demuxer::CheckForSteadyState()
 {
 	if (!reached_steady_state)
 	{
+		if( aamp && ISCONFIGSET(eAAMPConfig_HlsTsEnablePTSReStamp) )
+		{ // skip below sanity checks if restamping from 0
+			reached_steady_state = true;
+			return true;
+		}
 		if ((base_pts > current_pts)
 			|| (current_dts && base_pts > current_dts))
 		{
@@ -137,6 +142,11 @@ SegmentInfo_t Demuxer::UpdateSegmentInfo() const
 	if (!trickmode)
 	{
 		ret.dts_s = position + static_cast<double>(current_dts.value - base_pts.value) / 90000.;
+	}
+	if( aamp && ISCONFIGSET(eAAMPConfig_HlsTsEnablePTSReStamp))
+	{
+		ret.pts_s += ptsOffset; // non-zero when pts restamping in use
+		ret.dts_s += ptsOffset; // non-zero when pts restamping in use
 	}
 	return ret;
 }
@@ -172,7 +182,6 @@ void Demuxer::sendInternal(MediaProcessor::process_fcn_t processor)
 			const auto len = es.GetLen();
 			std::vector<uint8_t> buf(len);
 			const auto info {UpdateSegmentInfo()};
-
 			buf.assign(data_ptr, data_ptr + len);
 			processor(type, std::move(info), std::move(buf));
 			es.Clear();
@@ -184,7 +193,7 @@ void Demuxer::sendInternal(MediaProcessor::process_fcn_t processor)
 	}
 }
 
-void Demuxer::init(double position, double duration, bool trickmode, bool resetBasePTS)
+void Demuxer::init(double position, double duration, bool trickmode, bool resetBasePTS, bool optimizeMuxed )
 {
 	std::lock_guard<std::mutex> lock{mMutex};
 	this->position = position;
@@ -201,6 +210,12 @@ void Demuxer::init(double position, double duration, bool trickmode, bool resetB
 	finalized_base_pts = false;
 	pes_state = PES_STATE_WAITING_FOR_HEADER;
 	AAMPLOG_DEBUG("init : position %f, duration %f resetBasePTS %d", position, duration, resetBasePTS);
+	
+	if( optimizeMuxed )
+	{ // when hls/ts in use, restamp starting from zero to avoid jitter at playback start
+		base_pts = 0;
+		finalized_base_pts = true;
+	}
 }
 
 void Demuxer::flush()
@@ -228,8 +243,11 @@ void Demuxer::setBasePTS(unsigned long long basePTS, bool isFinal)
 	{
 		AAMPLOG_INFO("Type[%d], basePTS %llu final %d", (int)type, basePTS, (int)isFinal);
 	}
-	base_pts = basePTS;
-	finalized_base_pts = isFinal;
+	if( !finalized_base_pts )
+	{
+		base_pts = basePTS;
+		finalized_base_pts = isFinal;
+	}
 }
 
 unsigned long long Demuxer::getBasePTS()
@@ -291,8 +309,8 @@ void Demuxer::processPacket(const unsigned char * packetStart, bool &basePtsUpda
 							{
 								if (-1 == base_pts)
 								{
-									/*Few sling HLS streams are not muxed TS content , instead video is in TS and audio is in AAC format.
-									So  need to avoid  pts modification with offset value for video to avoid av sync issues.*/
+									/*Few  HLS streams are not muxed TS content, instead video is in TS and audio is in AAC format.
+									So need to avoid  pts modification with offset value for video to avoid av sync issues.*/
 									if(applyOffset)
 									{
 										base_pts = current_pts - MAX_FIRST_PTS_OFFSET;
@@ -331,7 +349,6 @@ void Demuxer::processPacket(const unsigned char * packetStart, bool &basePtsUpda
 										auto delta = current_pts - base_pts;
 										if (MAX_FIRST_PTS_OFFSET < delta)
 										{
-											
 											auto orig_base_pts = base_pts;
 											if(applyOffset)
 											{
@@ -402,7 +419,7 @@ void Demuxer::processPacket(const unsigned char * packetStart, bool &basePtsUpda
 					* So we returned the PTS error from this api, as current_pts is less than
 					* base_pts value.
 					* Now we have avoided the pts check if the current_pts is not updated for
-					* first audio, video or dsmcc packet due to TS packet doesnt have proper PES data.
+					* first audio, video or dsmcc packet due to TS packet doesn't have proper PES data.
 					*/
 				if( current_pts == 0 )
 				{

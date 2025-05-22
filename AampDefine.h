@@ -30,7 +30,7 @@
 #define AAMP_CFG_PATH "/opt/aamp.cfg"
 #define AAMP_JSON_PATH "/opt/aampcfg.json"
 
-#define AAMP_VERSION "7.01"
+#define AAMP_VERSION "7.04"
 #define AAMP_TUNETIME_VERSION 5
 
 //Stringification of Macro : use two levels of macros
@@ -61,6 +61,7 @@
 #define DEFAULT_ABR_CACHE_LENGTH 3                  		/**< Default ABR cache length */
 #define DEFAULT_ABR_BUFFER_COUNTER 4				/**< Default ABR Buffer Counter */
 #define DEFAULT_REPORT_PROGRESS_INTERVAL 1     			/**< Progress event reporting interval: 1sec */
+#define DEFAULT_PROGRESS_LOGGING_DIVISOR 4			/**< Divisor of progress logging frequency to print logging */
 #define DEFAULT_LICENSE_REQ_RETRY_WAIT_TIME 500			/**< Wait time in milliseconds before retrying for DRM license */
 #define MIN_LICENSE_KEY_ACQUIRE_WAIT_TIME 500			/**<minimum wait time in milliseconds for DRM license to ACQUIRE */
 #define DEFAULT_LICENSE_KEY_ACQUIRE_WAIT_TIME 5000		/**< Wait time in milliseconds for DRM license to ACQUIRE  */
@@ -79,7 +80,7 @@
 #define TRICKPLAY_LINEAR_PLAYBACK_FPS 8                		/**< Frames rate for trickplay from TSB */
 #define DEFAULT_DOWNLOAD_RETRY_COUNT (1)			/**< max download failure retry attempt count */
 #define DEFAULT_FRAGMENT_DOWNLOAD_502_RETRY_COUNT (1) /**< max fragment download failure retry attempt count for 502 error */
-#define DEFAULT_MANIFEST_DOWNLOAD_502_RETRY_COUNT (10) /**< max manifest download failure retry attempt count for 502 error */
+#define MANIFEST_DOWNLOAD_502_RETRY_COUNT (10) /**< max manifest download failure retry attempt count for 502 error */
 #define DEFAULT_DISCONTINUITY_TIMEOUT 3000          		/**< Default discontinuity timeout after cache is empty in MS */
 #define CURL_FRAGMENT_DL_TIMEOUT 10L    			/**< Curl timeout for fragment download */
 #define DEFAULT_STALL_ERROR_CODE (7600)             		/**< Default stall error code: 7600 */
@@ -130,7 +131,10 @@
 #define MIN_DELAY_BETWEEN_PLAYLIST_UPDATE_MS (500) // 500mSec
 #define MIN_DELAY_BETWEEN_MANIFEST_UPDATE_FOR_502_MS (1000) // 1000mSec
 #define STEADYSTATE_RAMPDOWN_DELTA 2000000 //2000 kbps
-#define DEFAULT_TELEMETRY_REPORT_INTERVAL (300) /**< time interval for the telemetry reporting 300sec*/
+#define DEFAULT_TELEMETRY_REPORT_INTERVAL (300) 	/**< time interval for the telemetry reporting 300sec*/
+#define MIN_MONITOR_AV_DELTA_MS 1 	/**< minimum delta to trigger MonitorAV reporting */
+#define MAX_MONITOR_AV_DELTA_MS 10000 	/**< maximum delta to trigger MonitorAV reporting */
+#define DEFAULT_MONITOR_AV_DELTA_MS 100 	/**< default delta for MonitorAV reporting*/
 
 // We can enable the following once we have a thread monitoring video PTS progress and triggering subtec clock fast update when we detect video freeze. Disabled it for now for brute force fast refresh..
 //#define SUBTEC_VARIABLE_CLOCK_UPDATE_RATE   /* enable this to make the clock update rate dynamic*/
@@ -142,12 +146,6 @@
 #endif
 #define SUBTITLE_CLOCK_ASSUMED_PLAYSTATE_TIME_MS (20000) /**< period after channel change/seek where we try to sync the subtitle clock quickly, before giving up and falling to slower rate */
 
-// the +1 is used to compensate for internal use originally being a > check, now >=
-#if defined(REALTEKCE)
-#define DEFAULT_BUFFERING_QUEUED_FRAMES_MIN (3+1) // TODO: deprecate -specific config (risk: tune time impact)
-#else
-#define DEFAULT_BUFFERING_QUEUED_FRAMES_MIN (5+1) // more conservative config;
-#endif
 
 // Player supported play/trick-play rates.
 #define AAMP_RATE_TRICKPLAY_MAX		64
@@ -165,9 +163,6 @@
 
 #define MAX_GST_VIDEO_BUFFER_BYTES			(GST_VIDEOBUFFER_SIZE_BYTES)
 #define MAX_GST_AUDIO_BUFFER_BYTES			(GST_AUDIOBUFFER_SIZE_BYTES)
-
-#define MAX_GST_VIDEO_BUFFER_BYTES_FOG_LIVE 		(2097152) /* GST Buffer for FOG Linear Video*/
-#define MAX_GST_AUDIO_BUFFER_BYTES_FOG_LIVE		(256000)  /* GST Buffer for FOG Linear Audio*/
 
 #define DEFAULT_LATENCY_MONITOR_DELAY			9					/**< Latency Monitor Delay */
 #define DEFAULT_LATENCY_MONITOR_INTERVAL		6					/**< Latency monitor Interval */
@@ -187,8 +182,6 @@
 #define AAMP_BUFFER_MONITOR_GREEN_THRESHOLD 4               /**< 2 fragments for MSO specific linear streams. */
 #define AAMP_BUFFER_MONITOR_GREEN_THRESHOLD_LLD 1           /**< LLD 1 sec minimum buffer to alert */
 
-#define AAMP_LOW_LATENCY_URL_KEYWORD "/low/" /**< AAMP expect this keyword in low latency URL to enable local TSB*/
-#define AAMP_LOW_LATENCY_URL_KEYWORD_ENCODED "%2Flow%2F" /**< AAMP expect this keyword in low latency URL to defog*/
 #define AAMP_FOG_TSB_URL_KEYWORD "tsb?" /**< AAMP expect this keyword in URL to identify it is FOG url */
 
 #define DEFAULT_INITIAL_RATE_CORRECTION_SPEED 1.000001f	/**< Initial rate correction speed to avoid audio drop */
@@ -245,6 +238,8 @@
 #define FIRST_PLAYER_INSTANCE_ID (0) /** Indicate fist player Id */
 
 #define MAX_SESSION_ID_LENGTH 128                                /**<session id string length */
+
+#define PLAYER_NAME "aamp" 
 
 /**
  * @brief Enumeration for TUNED Event Configuration
@@ -424,14 +419,6 @@ enum EOSInjectionModeCode
 	/* In addition to the EOS_INJECTION_MODE_NO_EXTRA cases
 	 * EOS is injected in AAMPGstPlayer::Stop() prior to setting the state to null.*/
 	EOS_INJECTION_MODE_STOP_ONLY,
-};
-
-enum PlatformType
-{
-	ePLATFORM_DEFAULT,
-	ePLATFORM_AMLOGIC,
-	ePLATFORM_REALTEK,
-	ePLATFORM_BROADCOM
 };
 
 #endif

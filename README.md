@@ -162,7 +162,7 @@ bufferHealthMonitorInterval	Override for buffer health monitor interval(in secs)
 abrCacheLife 			Lifetime value (ms) for abr cache  for network bandwidth calculation. Default: 5000ms
 abrCacheLength  		Length of abr cache for network bandwidth calculation (# of segments. Default 3
 abrCacheOutlier 		Outlier difference which will be ignored from network bandwidth calculation. Default: 5MB (in bytes)
-abrNwConsistency		Number of checks before profile incr/decr by 1.This is to avoid frequent profile switching with network change: Default 2
+abrNwConsistency		Number of checks before profile increment/decrement by 1.This is to avoid frequent profile switching with network change: Default 2
 abrSkipDuration			Minimum duration of fragment to be downloaded before triggering abr. Default: 6s
 progressReportingInterval	Interval (seconds) for progress reporting(in seconds. Default: 1
 licenseRetryWaitTime		License retry wait (ms) interval. Default: 500
@@ -327,6 +327,7 @@ CLI-specific commands:
 ```
 <enter>		dump currently available profiles
 help		show usage notes
+batch       Execute commands line by line as batch defined in #Home/aampcli.bat (~/aampcli.bat)
 http://...	tune to specified URL
 <number>	tune to specified channel (based on canned aamp channel map)
 next        tune to next virtual channel
@@ -347,12 +348,11 @@ bps <val>   Set video bitrate in bps
 fog <url|host=ip:port> 'fog url' tune to arbitrary locator via fog. 'fog host=ip:port' set fog location (default: 127.0.0.1:9080)
 adtesting   Toggle indexed ad insertion that does NOT check for any duration match
 advert <params>
-	advert add <url> <duration> <index> (index and duration optional -> index of adbreak , possible to add multiple ads to same index to insert multiple into same adbreak)
-	advert add <channel number> <duration> <index> ( index and duration optional , add a url from the virtual channel map, if given channel number exists , at index)
-	advert rm <url> (remove a matching url)
-	advert rm <index> (remove the url at the given index)
-	advert clear (clear current ad map)
-	advert list (display the advert list)
+	advert map <adBreakId> <url>
+		specify ad locator to present instead of source content during specified ad break
+		note: multiple sequential ads can be mapped to fill a single ad break by calling advert map multiple times with same adBreakId
+	advert clear (clear current advert map)
+	advert list	(display the advert list)
 new <name>	create a new player instance with optional name
 select <val|name> move player val or name to foreground. With no option list all players
 detach		move current foreground player to background
@@ -428,11 +428,11 @@ in version 1.0,
 in version 2.0
 	S = Session summary
 	200 = http success
-	18(0) - Curl 18 occured, network connectivity is down
-	18(1) = Curl 18 occured, network connectivity is up
-	28(0) - Curl 28 occured, network connectivity is down
-	28(1) = Curl 28 occured, network connectivity is up
-	404, 42, 7, etc.. = http/curl error code occured during download.
+	18(0) - Curl 18 occurred, network connectivity is down
+	18(1) = Curl 18 occurred, network connectivity is up
+	28(0) - Curl 28 occurred, network connectivity is down
+	28(1) = Curl 28 occurred, network connectivity is up
+	404, 42, 7, etc.. = http/curl error code occurred during download.
 		Example : "S":{"200":341,"404":6} - 341 success attempts and 4 attempts with 404
 			  "S":{"200":116,"28(1)":1,"404":114} - 115 success attempts, 114 attempts with 404 and 1 attempt with curl-28
 	T0

@@ -1,6 +1,6 @@
 
 # ![](images/logo.png) <br/> AAMP / Universal Video Engine (UVE)
-# V6.9
+# V7.01
 
 ## Overview
 
@@ -42,7 +42,7 @@ This document is targeted to application developers  who are interested in evalu
 	<script>
 	    window.onload = function() {
 		    var player = new AAMPMediaPlayer();
-		    var url = "https://example.com/multilang/main.m3u8";
+		    var url = "https://example.com/multilang/main.m3u8"; // replace with valid URL!
 		    player.load(url);
 	    }
 	</script>
@@ -77,9 +77,9 @@ Configuration options are passed to AAMP using the UVE initConfig method. This a
 | ----- | ----- | ----- | ----- |
 | abr | Boolean | True | Configuration to enable/disable adaptive bitrate logic. |
 | abrCacheLength | Number | 3 | Length of abr cache for network bandwidth calculation. |
-| abrCacheLife | Number | 5000 | Lifetime value for abr cache for network bandwidth calculation (in milli secs). |
+| abrCacheLife | Number | 5000 | Lifetime value for abr cache for network bandwidth calculation (in milliseconds). |
 | abrCacheOutlier | Number | 5000000 | Outlier difference which will be ignored from network bandwidth calculation (default: 5 MB in bytes). |
-| abrNwConsistency | Number | 2 | Number of checks before profile incr/decr by 1. This is to avoid frequent profile switching with network change. |
+| abrNwConsistency | Number | 2 | Number of checks before profile increment/decrement by 1. This is to avoid frequent profile switching with network change. |
 | abrSkipDuration | Number | 6 | Minimum duration of fragment to be downloaded before triggering abr (in secs). |
 | audioOnlyPlayback | Boolean | False | Configuration to enable/disable Audio only Playback. |
 | cdvrLiveOffset | Number | 30 | Live offset time in seconds for cdvr, aamp starts live playback this much time before the live point for inprogress cdvr. |
@@ -117,10 +117,10 @@ Configuration options are passed to AAMP using the UVE initConfig method. This a
 | seekMidFragment | Boolean | False | Configuration to enable/disable mid-Fragment seek. |
 | segmentInjectFailThreshold | Number | 10 | Configuration to enable/disable mid-Fragment seek. |
 | sendUserAgentInLicense | Boolean | False | Configuration to enable/disable sending user agent in the DRM license request header. |
-| stallTimeout | Number | 10000 | Stall detection timeout in milli secs. |
+| stallTimeout | Number | 10000 | Stall detection timeout in milliseconds. |
 | thresholdSizeABR | Number | 6000 | ABR threshold size. |
 | uriParameter | String | - | Uri parameter data to be appended on download-url during curl request. |
-| waitTimeBeforeRetryHttp5xx | Number | 1000 | Wait time before retry for 5xx http errors in milli secs. |
+| waitTimeBeforeRetryHttp5xx | Number | 1000 | Wait time before retry for 5xx http errors in milliseconds. |
 | wifiCurlHeader | Boolean | False | Configuration to enable/disable wifi custom curl header inclusion. |
 | initialBitrate | Number | 2500000 | Initial bitrate (bps) for playback |
 | initialBitrate4K | Number | 13000000 | Initial bitrate (bps) for 4k video playback |
@@ -155,6 +155,8 @@ Configuration options are passed to AAMP using the UVE initConfig method. This a
 | maxPlaylistCacheSize | Number | 0 | Optional field to configure maximum cache size in Kbytes to store different profile HLS VOD playlist |
 | maxInitFragCachePerTrack | Number | 5 | Number of initialization header file cached per player instance per track type. Use cached data instead of network re-download  |
 | progressReportingInterval | Number | 1 | Optionally change Progress Report Interval (in seconds) |
+| progress | Boolean | False | Enables Progress logging |
+| progressLoggingDivisor | Number | 4 | If Progress logging is enabled, this divides the progressReportingInterval to reduce the amount of logging |
 | useRetuneForUnpairedDiscontinuity | Boolean | True | Optional unpaired discontinuity retune config ( version 1.0) |
 | useMatchingBaseUrl | Boolean | False | use DASH main manifest hostname to select from multiple base urls in DASH (when present).  By default, will always choose first (version 2.4) |
 | initFragmentRetryCount | Number | 1 | Maximum number of retries for MP4 header fragment download failures (version 2.4)  |
@@ -202,21 +204,21 @@ Configuration options are passed to AAMP using the UVE initConfig method. This a
 | mpdStichingSupport | Boolean | True | Optional field to enable/disable DASH MPD stitching functionality with dual manifest ( one manifest used during tune and another manifest during refresh ) |
 | enablePTSReStamp | Boolean | False | Optional field to enable/disable PTS Re-stamping functionality across discontinuity while moving from Content to Ads or vice-versa |
 | subtitleClockSyncInterval | Number | 30 | Time interval for synchronizing the clock with subtitle module . Default of 30 seconds |
-| showDiagnosticsOverlay | Configures the diagnostics overlay: 0 (none), 1 (minimal), 2 (extended). Controls the visibility and level of detail for diagnostics displayed during playback.
-
+| showDiagnosticsOverlay | Number | 0 (None) | Configures the diagnostics overlay: 0 (None), 1 (Minimal), 2 (Extended). Controls the visibility and level of detail for diagnostics displayed during playback.
+| localTSBEnabled | Boolean | False | Enable use of time shift buffer (TSB) for live playback, leveraging local storage.  Use of a TSB allows pause, seek, fast forward/rewind operations beyond the size of the default manifest live window supported by the CDN |
+| tsbLength | Number | 3600 (1 hour) or 1500 (25 min) | Max duration (seconds) of Local TSB to build up before culling  (not recommended for apps to change) |
 
 Example:
 ```js
     {
-            // configuration setting for player
-            var playerInitConfig = {
-                initialBitrate: 2500000,
-                offset: 0,
-                networkTimeout: 10,
-                preferredAudioLanguage: "en",
-            };
-            // Use valid URL instead of example
-	    var url = "https://example.com/multilang/sample.m3u8";
+        // configuration setting for player
+        var playerInitConfig = {
+            initialBitrate: 2500000,
+            offset: 0,
+            networkTimeout: 10,
+            preferredAudioLanguage: "en",
+        };
+	    var url = "https://example.com/multilang/sample.m3u8"; // replace with valid URL!
 	    var player = new AAMPMediaPlayer();
 	    player.initConfig(playerInitConfig);
 	    player.load(url);
@@ -239,14 +241,13 @@ DRM configuration options are passed to AAMP using the setDRMConfig method. Para
 Example:
 ```js
     {
-            // configuration for DRM -Sample for Widevine
-            var DrmConfig = {
-	    'https://example.com/AcquireLicense', // Use valid URL instead of example
-            'preferredKeysystem':'com.widevine.alpha'
-            };
-            // Use valid URL instead of example
-	    var url = "https://example.com/multilang/sample.m3u8";
-	    var player = new AAMPMediaPlayer();
+        // configuration for DRM -Sample for Widevine
+        var DrmConfig = {
+	    'https://example.com/AcquireLicense', // replace with valid URL!
+	        'preferredKeysystem':'com.widevine.alpha'
+        };
+        var url = "https://example.com/multilang/sample.m3u8"; // replace with valid URL!
+        var player = new AAMPMediaPlayer();
 	    player.setDRMConfig(DrmConfig);
 	    player.load(url);
     }
@@ -301,16 +302,15 @@ Example:
 ```js
     {
 	    var player = new AAMPMediaPlayer();
-	    var url = "https://example.com/multilang/sample.m3u8"; // Use valid URL instead of example
+	    var url = "https://example.com/multilang/sample.m3u8"; // replace with valid URL!
 	    player.load(url); // for autoplayback
     }
     // support for multiple player instances
     {
 	    var player1 = new AAMPMediaPlayer();
 	    var player2 = new AAMPMediaPlayer();
-            // Use valid URLs instead of example
-	    var url1 = "https://example.com/multilang/sample.m3u8";
-	    var url2 = "https://example.com/multilang/sample1.m3u8";
+	    var url1 = "https://example.com/multilang/sample.m3u8"; // replace with valid URL!
+	    var url2 = "https://example.com/multilang/sample1.m3u8"; // replace with valid URL!
 	    player1.load(url1); // for immediate playback
 	    player2.load(url2,false); // for background buffering,no playback.
     }
@@ -318,9 +318,8 @@ Example:
     {
 	    var player1 = new AAMPMediaPlayer();
 	    var player2 = new AAMPMediaPlayer();
-            // Use valid URLs instead of example
-	    var url1 = "https://example.com/multilang/sample.m3u8";
-	    var url2 = "https://example.com/multilang/sample1.m3u8";
+	    var url1 = "https://example.com/multilang/sample.m3u8"; // replace with valid URL!
+	    var url2 = "https://example.com/multilang/sample1.m3u8"; // replace with valid URL!
 
 	    var params_1 = { sessionId: "12192978-da71-4da7-8335-76fbd9ae2ae9" };
 	    var params_2 = { sessionId: "6e3c49cb-6254-4324-9f5e-bddef465bdff" };
@@ -331,9 +330,9 @@ Example:
     // support for preprocessed DASH manifest
     {
 	    var player = new AAMPMediaPlayer();
-            // Use valid URL instead of example
-	    var url = "https://example.com/VideoTestStream/aamptest/streams/ads/stitched/sample_manifest.mpd"
-	    const xml = "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<MPD xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"" ...; // for working case need valid DASH manifest XML
+	    var url = "https://example.com/VideoTestStream/aamptest/streams/ads/stitched/sample_manifest.mpd";  // replace with valid URL!
+        // replace below with valid full DASH manifest XML
+	    const xml = "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n<MPD xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"" ...;
 	    player.load(url,true,{ manifest: xml});
       }
 ```
@@ -349,11 +348,10 @@ Example:
 ```js
     {
 	    var player = new AAMPMediaPlayer();
-	    var url = "https://example.com/multilang/main.m3u8"; // Use valid URL instead of example
+	    var url = "https://example.com/multilang/main.m3u8"; // replace with valid URL!
 	    player.load(url,false); // for background buffering,no playback.
 	    // application can start the playback background session using play API
 	    player.play();  // Or player.setPlaybackRate(1);
-
     }
 ```
 ---
@@ -387,7 +385,7 @@ Note: starting in RDK 6.9, we support ability to start video paused on first fra
 	    .....
 	    // start playback backgrounded with autoplay=false
             // Use valid URL instead of example
-	    player.load("https://example.com/public/aamptest/streams/main.mpd", false);
+	    player.load("https://example.com/public/aamptest/streams/main.mpd", false); // replace with valid URL!
 	    player.seek(30); // optionally jump to new position
 	    player.pause(); // bring video to foreground, and show first frame of video
     }
@@ -629,8 +627,7 @@ Example:
 		var player;
 		window.onload = function() {
 			player = new AAMPMediaPlayer(); // create player instance for AAMP
-                        // Use valid URL instead of example
-			let url = "http://example.com/12345678-1234-1234-1234-123456789012/SampleVideo.ism/manifest(format=mpd-time-csf)";
+			let url = "http://example.com/12345678-1234-1234-1234-123456789012/SampleVideo.ism/manifest(format=mpd-time-csf)"; // replace with valid URL!
 			console.log("loading " + url );
 			player.load( url ); // tune using AMP
 			console.log("screen size: " + screen.width + "x" + screen.height); // typically 1280x720
@@ -715,12 +712,12 @@ Example:
     {
             // configuration for DRM -Sample for Widevine
             var DrmConfig = {
-            'com.widevine.alpha':'https://example.com/AcquireLicense', // Use valid URL instead of example
+            'com.widevine.alpha':'https://example.com/AcquireLicense', // replace with valid URL!
             'preferredKeysystem':'com.widevine.alpha'
             };
 
 
-	    var url = "https://example.com/multilang/sample.m3u8"; // Use valid URL instead of example
+	    var url = "https://example.com/multilang/sample.m3u8"; // replace with valid URL!
 	    var player = new AAMPMediaPlayer();
 	    player.setDRMConfig(DrmConfig);
 	    // custom header message for license request
@@ -1015,7 +1012,7 @@ playerInstance.setPreferredAudioLanguage( "en,de,mul","alternate","description",
     - If PreferredAudioLanguage is not configured:
         - Player will take default preferred language as English, and
         choose better quality track from the language matching list.
-        - For Live (with TSB support), time shift buffer includes all available language tracks in the manifest .
+        - For Live (with TSB support), time shift buffer includes all available language tracks in the manifest.
     - If PreferredAudioLanguage is set pretune:
         - Player will pick best quality track from the language matching list.
         - For Live (with TSB support), time shift buffer downloads only preferred language tracks but publishes all available languages to application with availability field as false.
@@ -1189,7 +1186,7 @@ playerInstance.setPreferredAudioLanguage( trackPreferenceObject );
 - Supported pre-tune and post tune.
 - If PreferredTextLanguage is not configured:
     - Player will take default preferred language as English,
-    - For Live (with TSB support), time shift buffer includes all available language tracks in the manifest .
+    - For Live (with TSB support), time shift buffer includes all available language tracks in the manifest.
 - If PreferredTextLanguage is set pretune:
     - Player will text track from the language matching list.
     - For Live (with TSB support), time shift buffer downloads only preferred language tracks but publishes all available languages to application with availability field as false.
@@ -1441,7 +1438,7 @@ playerInstance.setPreferredTextLanguage( trackPreferenceObject );
 Linear Streams:
       {
 	  // Use valid URL instead of example
-	  "baseUrl" : "https://example.com/12345678-1234-1234-1234-123456789012/",
+	  "baseUrl" : "https://example.com/12345678-1234-1234-1234-123456789012/", // replace with valid URL!
 	  "raw_w":1600,
 	  "raw_h":900,
 	  "width":320,
@@ -1458,8 +1455,7 @@ Linear Streams:
 
 VOD Streams:
       {
-	  // Use valid URL instead of example
-	  "baseUrl" : "https://example.com/pub/global/abc/def/Example_1234567890123_01/cmaf_thumbtest_segtime_d/mpeg_2sec/images/416x234/",
+	  "baseUrl" : "https://example.com/pub/global/abc/def/Example_1234567890123_01/cmaf_thumbtest_segtime_d/mpeg_2sec/images/416x234/", // replace with valid URL!
           "raw_w": 3744,
           "raw_h": 3978,
           "width": 416,
@@ -1516,7 +1512,7 @@ acquisition |
 ```
  {
     "keyID" : [57, 49, 49, 100, 98, 54, 99, 99, 45],
-    "com.widevine.alpha" : "example.com", // Use valid URL instead of example.com
+    "com.widevine.alpha" : "example.com", // replace with valid URL!
     "customData" : “data”,
     "authToken"  : “token string”,
  }
@@ -1899,26 +1895,26 @@ Example:
 	- tbu -> tuneStartBaseUTCMS - when tune logically started from AAMP perspective
 	- mms -> ManifestDownloadStartTime - offset in milliseconds from tunestart when main manifest begins download
 	- mmt -> ManifestDownloadTotalTime - time (ms) taken for main manifest download, relative to ManifestDownloadStartTime
-	- mme -> ManifestDownloadFailCount - errors/retries occured during this operation
-	- vps -> video offset in milliseconds from tunestart when playlist subManifest begins download(in MS)
-	- vpt -> time (ms) taken for video playlist subManifest download, relative to PlaylistDownloadStartTime(in MS)
-	- vpe -> video playlist errors/retries occured during this operation
-	- aps -> audio offset in milliseconds from tunestart when playlist subManifest begins download(in MS)
-	- apt -> time (ms) taken for audio playlist subManifest download, relative to PlaylistDownloadStartTime(in MS)
-	- ape -> audio playlist errors/retries occured during this operation
-	- vis -> video init-segment relative start time(in MS)
-	- vit -> video init-segment total duration(in MS)
-	- vie -> video init-segment errors/retries occured during this operation
-	- ais -> audio init-segment relative start time(in MS)
-	- ait -> audio init-segment total duration(in MS)
-	- aie -> audio init-segment errors/retries occured during this operation
-	- vfs -> video fragment relative start time(in MS)
-	- vft -> video fragment total duration(in MS)
-	- vfe -> video fragment errors/retries occured during this operation
+	- mme -> ManifestDownloadFailCount - errors/retries occurred during this operation
+	- vps -> video offset in milliseconds from tunestart when playlist subManifest begins download(in ms)
+	- vpt -> time (ms) taken for video playlist subManifest download, relative to PlaylistDownloadStartTime(in ms)
+	- vpe -> video playlist errors/retries occurred during this operation
+	- aps -> audio offset in milliseconds from tunestart when playlist subManifest begins download(in ms)
+	- apt -> time (ms) taken for audio playlist subManifest download, relative to PlaylistDownloadStartTime(in ms)
+	- ape -> audio playlist errors/retries occurred during this operation
+	- vis -> video init-segment relative start time(in ms)
+	- vit -> video init-segment total duration(in ms)
+	- vie -> video init-segment errors/retries occurred during this operation
+	- ais -> audio init-segment relative start time(in ms)
+	- ait -> audio init-segment total duration(in ms)
+	- aie -> audio init-segment errors/retries occurred during this operation
+	- vfs -> video fragment relative start time(in ms)
+	- vft -> video fragment total duration(in ms)
+	- vfe -> video fragment errors/retries occurred during this operation
 	- vfb -> video bandwidth in bps
-	- afs -> audio fragment relative start time(in MS)
-	- aft -> audio fragment total duration(in MS)
-	- afe -> audio fragment errors/retries occured during this operation
+	- afs -> audio fragment relative start time(in ms)
+	- aft -> audio fragment total duration(in ms)
+	- afe -> audio fragment errors/retries occurred during this operation
 	- afb -> audio bandwidth in bps
 	- las -> drmLicenseRequestStart - offset in milliseconds from tunestart
 	- lat ->drmLicenseRequestTotalTime -time (ms) for license acquisition relative to drmLicenseRequestStart
@@ -1938,8 +1934,8 @@ Example:
 		- Example:
 			stt for playready dash stream = 22 =  20 (DASH ) + 2 ( PlayReady Codec type )
 	- ftt -> firstTune - To identify the first tune after load
-	- pbm -> If Player was in prebufferd mode
-	- tpb -> time spent in prebufferd(BG) mode
+	- pbm -> If Player was in prebuffered mode
+	- tpb -> time spent in prebuffered(BG) mode
 	- dus -> Asset duration in seconds
 	- ifw -> Connection is wifi or not - wifi(1) ethernet(0)
 	- tat -> TuneAttempts
@@ -2276,9 +2272,9 @@ This feature can be enabled in two methods
 * Video Engine Managed
 * Application managing Multi Player instance
 
-### CDAI Mechanism#1 – Engine Managed CDAI
+### CDAI Mechanism #1 – Engine Managed CDAI
 
-Supported for DASH Linear, working with period structure and SCTE35 markers, with optional replacement for like-amount of content.
+Supported for DASH Linear, working with period structure and SCTE35 markers.  Supports optional replacement for like-amount of content.  Source may be left as-is, replaced with a single similar sized alternate ad, or replaced with multiple alternate ads whose total duration is expected to fill the ad break.  If insufficient alternate content duration is provided, or ads manifests are unable to download, player falls back to original (non-DAI) content.
 
 #### setSubscribedTags( tagNames )
 - Supported UVE version 0.8 and above.
@@ -2317,7 +2313,7 @@ Supported UVE version 0.8 and above
 
 ---
 
-### CDAI Mechanism#2 – Multi player instance
+### CDAI Mechanism #2 – Multi player instance
 Can be leveraged for quick stream transitions.  Suitable for preroll, and midroll insertions.  No limitations with respect to content type – can transition between DASH and HLS.
 
 
@@ -2371,6 +2367,9 @@ adPlayer2.detach();
 player.play();
 adPlayer2.stop();
 ```
+
+When a player instance is no longer needed, recommend to call explicit release() method rather than rely only on eventual garbage collection.  However, player instances can be recycled and reused throughout an app's lifecycle.
+
 ---
 
 <div style="page-break-after: always;"></div>

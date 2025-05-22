@@ -106,16 +106,9 @@ bool epochSecondsToIsoDateTime(double seconds, std::string& isoDateTime) {
     std::ostringstream ss;
     auto utc = (time_t) seconds;
     tm *time = std::gmtime(&utc);
-#ifdef WIN32
-    if (!time) {
-        return false;
-    }
-    ss << std::put_time(time, "%Y-%m-%dT%H:%M:%SZ");
-#else
     char buffer[80];
     strftime(buffer,80,"%Y-%m-%dT%H:%M:%SZ", time);
     ss << buffer;
-#endif
     isoDateTime = ss.str();
     return true;
 }

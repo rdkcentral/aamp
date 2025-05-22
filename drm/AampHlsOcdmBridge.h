@@ -26,8 +26,8 @@
  */
 
 #include "HlsDrmBase.h"
-#include "AampDRMutils.h"
-#include "AampDrmSession.h"
+#include "DrmUtils.h"
+#include "DrmSession.h"
 
 #define DECRYPT_WAIT_TIME_MS 3000
 
@@ -41,11 +41,11 @@ class AampHlsOcdmBridge : public HlsDrmBase
 	DRMState m_drmState;
 
 	const DrmInfo* m_drmInfo;
-	AampDrmSession* m_drmSession;
+	DrmSession* m_drmSession;
 	PrivateInstanceAAMP* m_aampInstance;
-	pthread_mutex_t m_Mutex;
+	std::mutex m_Mutex;
 public:
-	AampHlsOcdmBridge(AampDrmSession * aampDrmSession);
+	AampHlsOcdmBridge(DrmSession * aampDrmSession);
 
 	~AampHlsOcdmBridge();
 

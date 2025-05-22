@@ -28,11 +28,8 @@
 #include <mutex>
 #include "priv_aamp.h"
 #include "ThunderAccess.h"
-#include "AampDRMutils.h"
+#include "DrmUtils.h"
 
-
-#define SECMANAGER_CALL_SIGN "org.rdk.SecManager.1"
-#define WATERMARK_PLUGIN_CALLSIGN "org.rdk.Watermark.1"
 //#define RDKSHELL_CALLSIGN "org.rdk.RDKShell.1"   //need to be used instead of WATERMARK_PLUGIN_CALLSIGN if RDK Shell is used for rendering watermark
 
 /**
@@ -60,7 +57,7 @@ public:
 	 * @fn AcquireLicense
 	 *
 	 * @param[in] licenseUrl - url to fetch license from
-	 * @param[in] moneyTraceMetdata - moneytrace info
+	 * @param[in] moneyTraceMetadata - moneytrace info
 	 * @param[in] accessAttributes - accessAttributes info
 	 * @param[in] contentMetadata - content metadata info
 	 * @param[in] licenseRequest - license challenge info
@@ -74,7 +71,7 @@ public:
 	 * @param[out] reasonCode - license fetch reason code
 	 * @return bool - true if license fetch successful, false otherwise
 	 */
-	bool AcquireLicense(PrivateInstanceAAMP* aamp, const char* licenseUrl, const char* moneyTraceMetdata[][2],
+	bool AcquireLicense(PrivateInstanceAAMP* aamp, const char* licenseUrl, const char* moneyTraceMetadata[][2],
 						const char* accessAttributes[][2], const char* contentMetadata, size_t contentMetadataLen,
 						const char* licenseRequest, size_t licenseRequestLen, const char* keySystemId,
 						const char* mediaUsage, const char* accessToken, size_t accessTokenLen,
@@ -118,7 +115,7 @@ private:
 
 	/* Run AcquireLicenseOpenOrUpdate is the old AcquireLicense code
 	 * It is used by AcquireLicense() to for opening sessions & for calling update when this is required*/
-	bool AcquireLicenseOpenOrUpdate(PrivateInstanceAAMP* aamp, const char* licenseUrl, const char* moneyTraceMetdata[][2],
+	bool AcquireLicenseOpenOrUpdate(PrivateInstanceAAMP* aamp, const char* licenseUrl, const char* moneyTraceMetadata[][2],
 						const char* accessAttributes[][2], const char* contentMetadata, size_t contentMetadataLen,
 						const char* licenseRequest, size_t licenseRequestLen, const char* keySystemId,
 						const char* mediaUsage, const char* accessToken, size_t accessTokenLen,

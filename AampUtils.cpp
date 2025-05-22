@@ -1314,17 +1314,22 @@ double RecalculatePTS(AampMediaType mediaType, const void *ptr, size_t len, Priv
 {
 	double ret = 0;
 	uint32_t timeScale = 0;
-
-	if(mediaType == eMEDIATYPE_VIDEO)
+	switch( mediaType )
 	{
+	case eMEDIATYPE_VIDEO:
 		timeScale = aamp->GetVidTimeScale();
-	}
-	else if(mediaType == eMEDIATYPE_AUDIO || mediaType == eMEDIATYPE_AUX_AUDIO)
-	{
+		break;
+	case eMEDIATYPE_AUDIO:
+	case eMEDIATYPE_AUX_AUDIO:
 		timeScale = aamp->GetAudTimeScale();
+		break;
+	case eMEDIATYPE_SUBTITLE:
+		timeScale = aamp->GetSubTimeScale();
+		break;
+	default:
+		AAMPLOG_WARN("Invalid media type %d", mediaType);
+		break;
 	}
-
-
 	IsoBmffBuffer isobuf;
 	isobuf.setBuffer((uint8_t *)ptr, len);
 	bool bParse = false;
@@ -1351,7 +1356,6 @@ double RecalculatePTS(AampMediaType mediaType, const void *ptr, size_t len, Priv
 		if (bParse)
 		{
 			ret = fPts/(timeScale*1.0);
-			AAMPLOG_TRACE("restamped PTS : %lf", ret);
 		}
 	}
 	return ret;
@@ -1439,7 +1443,7 @@ std::string aamp_GetConfigPath( const std::string &filename )
 		cfgPath += filename;
 	}
 
-#elif defined(AAMP_CPC) // AAMP_ENABLE_OPT_OVERRIDE defined only in Comcast PROD builds
+#elif defined(AAMP_CPC)
 	char *env_aamp_enable_opt = getenv("AAMP_ENABLE_OPT_OVERRIDE");
 	/*
 	 * defined(AAMP_CPC) 
@@ -1477,7 +1481,9 @@ bool parseAndValidateSCTE35(const std::string &scte35Data)
 			(int)splice.type, splice.time, splice.duration, splice.event_id);
 
 		if ((splice.type == SCTE35SpliceInfo::SEGMENTATION_TYPE::PROVIDER_ADVERTISEMENT_START) ||
-			(splice.type == SCTE35SpliceInfo::SEGMENTATION_TYPE::PROVIDER_PLACEMENT_OPPORTUNITY_START))
+			(splice.type == SCTE35SpliceInfo::SEGMENTATION_TYPE::PROVIDER_PLACEMENT_OPPORTUNITY_START) ||
+			(splice.type == SCTE35SpliceInfo::SEGMENTATION_TYPE::DISTRIBUTOR_PLACEMENT_OPPORTUNITY_START) ||
+			(splice.type == SCTE35SpliceInfo::SEGMENTATION_TYPE::PROVIDER_AD_BLOCK_START))
 		{
 			isValidDAIEvent = true;
 			break;
@@ -1485,6 +1491,74 @@ bool parseAndValidateSCTE35(const std::string &scte35Data)
 	}
 	return isValidDAIEvent;
 }
-/**
+
+
+
+long long convertHHMMSSToTime(const char * str)
+{ // parse HH:MM:SS.ms
+	long long timeValueMs = 0;
+	const int multiplier[4] = { 0,60,60,1000 };
+	for( int part=0; part<4; part++ )
+	{
+		int num = 0;
+		for(;;)
+		{
+			int c = *str++;
+			if( c>='0' && c<='9' )
+			{
+				num*=10;
+				num+=(c-'0');
+			}
+			else
+			{
+				timeValueMs *= multiplier[part];
+				timeValueMs += num;
+				break;
+			}
+		}
+	}
+	return timeValueMs;
+}
+
+static std::string numberToString( long number, int minDigits=2 )
+{
+	std::string rc = std::to_string(number);
+	while( rc.length() < minDigits )
+	{
+		rc = '0' + rc;
+	}
+	return rc;
+}
+
+std::string convertTimeToHHMMSS( long long t )
+{ // pack HH:MM:SS.ms
+	std::string rc;
+	int ms = t%1000;
+	int sec = (int)(t/1000);
+	int minute = sec/60;
+	int hour = minute/60;
+	minute %= 60;
+	sec %= 60;
+	rc = numberToString(hour) + ":" + numberToString(minute) + ":" + numberToString(sec) + "." + numberToString(ms,3);
+	return rc;
+}
+
+const char *mystrstr(const char *haystack_ptr, const char *haystack_fin, const char *needle_ptr)
+{
+	size_t needle_len = strlen(needle_ptr);
+	haystack_fin -= needle_len;
+	while( haystack_ptr<=haystack_fin )
+	{
+		if( memcmp(needle_ptr,haystack_ptr,needle_len)==0 )
+		{
+			return haystack_ptr;
+		}
+		haystack_ptr++;
+	}
+	return NULL;
+}
+
+/*
  * EOF
  */
+

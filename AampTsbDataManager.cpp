@@ -29,11 +29,11 @@
  */
 class DebugTimeData
 {
-	std::string APIName;
+	std::string apiName;
 	std::chrono::steady_clock::time_point creationTime;
 
 public:
-	DebugTimeData(std::string api) : APIName(api)
+	DebugTimeData(std::string api) : apiName(std::move(api))
 	{
 		creationTime = std::chrono::steady_clock::now();
 	}
@@ -42,7 +42,7 @@ public:
 	{
 		auto endTime = std::chrono::steady_clock::now();
 		std::chrono::duration<double> duration = endTime - creationTime;
-		AAMPLOG_WARN("API: %s Taken time: %.02lf ", APIName.c_str(), duration.count() * 1000);
+		AAMPLOG_MIL("API: %s Taken time: %.02lf ", apiName.c_str(), duration.count() * 1000);
 	}
 };
 
@@ -53,7 +53,10 @@ public:
 #endif
 
 /**
- *  @brief GetNearestFragment Get Nearest Fragment for the position
+ *   @fn GetNearestFragment
+ *   @brief Get the nearest fragment for the position
+ *   @param[in] position - Absolute position of the fragment, in seconds since 1970
+ *   @return pointer to the nearest fragment data
  */
 TsbFragmentDataPtr AampTsbDataManager::GetNearestFragment(double position)
 {
@@ -61,11 +64,11 @@ TsbFragmentDataPtr AampTsbDataManager::GetNearestFragment(double position)
 	TsbFragmentDataPtr fragmentData = nullptr;
 	try
 	{
+		std::lock_guard<std::mutex> lock(mTsbDataMutex);
 		if(!mTsbFragmentData.empty())
 		{
 			do
 			{
-				std::lock_guard<std::mutex> lock(mTsbDataMutex);
 				auto lower = mTsbFragmentData.lower_bound(position); // Find the first element not less than position
 				if (lower == mTsbFragmentData.begin())				 // If target is less than the first key
 				{
@@ -105,7 +108,7 @@ TsbFragmentDataPtr AampTsbDataManager::GetNearestFragment(double position)
 /**
  *  @brief RemoveFragment - remove fragment from the top
  */
-TsbFragmentDataPtr AampTsbDataManager::RemoveFragment()
+TsbFragmentDataPtr AampTsbDataManager::RemoveFragment(bool &deleteInit)
 {
 	TSB_DM_TIME_DATA();
 	TsbFragmentDataPtr deletedFragment = nullptr;
@@ -120,13 +123,15 @@ TsbFragmentDataPtr AampTsbDataManager::RemoveFragment()
 			initData->decrementUser();
 			if (initData->GetUsers() <= 0)
 			{
-				AAMPLOG_INFO("Removing Init fragment of BW( %" BITSPERSECOND_FORMAT ") since no more cached fragment using it", initData->GetBandWidth());
+				AAMPLOG_INFO("Removing Init fragment of BW( %" BITSPERSECOND_FORMAT ")", initData->GetBandWidth());
+				deleteInit = true;
 				mTsbInitData.remove(initData);
 			}
 			if (deletedFragment->next)
 			{
 				deletedFragment->next->prev = nullptr;
 			}
+			AAMPLOG_INFO("Remove fragment");
 			mTsbFragmentData.erase(it);
 		}
 	}
@@ -139,7 +144,10 @@ TsbFragmentDataPtr AampTsbDataManager::RemoveFragment()
 }
 
 /**
- *  @brief RemoveFragments - remove fragments until position
+ *   @fn RemoveFragments
+ *   @brief Remove all fragments until the given position
+ *   @param[in] position - Absolute position, in seconds since 1970, to remove segment until
+ *   @return shared pointer List of TSB fragments removed
  */
 std::list<TsbFragmentDataPtr> AampTsbDataManager::RemoveFragments(double position)
 {
@@ -150,6 +158,7 @@ std::list<TsbFragmentDataPtr> AampTsbDataManager::RemoveFragments(double positio
 		std::lock_guard<std::mutex> lock(mTsbDataMutex);
 		if (!mTsbFragmentData.empty())
 		{
+			AAMPLOG_INFO("Remove fragments");
 			auto it = mTsbFragmentData.begin();
 			while (it != mTsbFragmentData.end())
 			{
@@ -182,7 +191,10 @@ std::list<TsbFragmentDataPtr> AampTsbDataManager::RemoveFragments(double positio
 }
 
 /**
- *  @brief IsFragmentPresent - Check for any fragment availability at the position
+ *   @fn IsFragmentPresent
+ *   @brief Check for any fragment availability at the given position
+ *   @param[in] position - Absolute position of the fragment, in seconds since 1970
+ *   @return true if present
  */
 bool AampTsbDataManager::IsFragmentPresent(double position)
 {
@@ -209,7 +221,11 @@ bool AampTsbDataManager::IsFragmentPresent(double position)
 }
 
 /**
- *  @brief GetFragment - Get Fragment for the position
+ *   @fn GetFragment
+ *   @brief Get fragment for the position
+ *   @param[in] position - Exact absolute position of the fragment, in seconds since 1970
+ *   @param[out] eos - Flag to identify the End of stream
+ *   @return pointer to Fragment data and TsbFragmentData
  */
 TsbFragmentDataPtr AampTsbDataManager::GetFragment(double position, bool &eos)
 {
@@ -235,7 +251,7 @@ TsbFragmentDataPtr AampTsbDataManager::GetFragment(double position, bool &eos)
 
 /**
  *   @fn GetFirstFragmentPosition
- *   @return return the position of first fragment in the list
+ *   @return Absolute position of the first fragment, in seconds since 1970
  */
 double AampTsbDataManager::GetFirstFragmentPosition()
 {
@@ -244,7 +260,7 @@ double AampTsbDataManager::GetFirstFragmentPosition()
 	std::lock_guard<std::mutex> lock(mTsbDataMutex);
 	if (!mTsbFragmentData.empty())
 	{
-		pos = mTsbFragmentData.begin()->second->GetPosition();
+		pos = mTsbFragmentData.begin()->second->GetAbsolutePosition().inSeconds();
 	}
 	return pos;
 }
@@ -283,7 +299,7 @@ TsbFragmentDataPtr AampTsbDataManager::GetLastFragment()
 
 /**
  *   @fn GetLastFragmentPosition
- *   @return return the position of last fragment in the list
+ *   @return Absolute position of the last fragment, in seconds since 1970
  */
 double AampTsbDataManager::GetLastFragmentPosition()
 {
@@ -292,7 +308,7 @@ double AampTsbDataManager::GetLastFragmentPosition()
 	std::lock_guard<std::mutex> lock(mTsbDataMutex);
 	if (!mTsbFragmentData.empty())
 	{
-		pos = (std::prev(mTsbFragmentData.end()))->second->GetPosition();
+		pos = (std::prev(mTsbFragmentData.end()))->second->GetAbsolutePosition().inSeconds();
 	}
 	return pos;
 }
@@ -300,19 +316,20 @@ double AampTsbDataManager::GetLastFragmentPosition()
 /**
  *  @brief  AddInitFragment - add Init fragment to TSB data
  */
-bool AampTsbDataManager::AddInitFragment(std::string &url, AampMediaType media, const StreamInfo &streamInfo, std::string &periodId, int profileIndex)
+bool AampTsbDataManager::AddInitFragment(std::string &url, AampMediaType media, const StreamInfo &streamInfo, std::string &periodId, double absPosition, int profileIndex)
 {
 	TSB_DM_TIME_DATA();
 	bool ret = false;
+
 	try
 	{
 		std::lock_guard<std::mutex> lock(mTsbDataMutex);
-		AAMPLOG_INFO("Adding Init Data: { Media [%d] bw: %" BITSPERSECOND_FORMAT " periodId:%s wt: %d ht: %d fr: %.02lf Url: '%s' }",
-					 media, streamInfo.bandwidthBitsPerSecond, periodId.c_str(), streamInfo.resolution.width,
-					 streamInfo.resolution.height, streamInfo.resolution.framerate, url.c_str());
-		TsbInitDataPtr newInitFragData = std::make_shared<TsbInitData>(url, media, streamInfo, periodId, profileIndex);
+		AAMPLOG_INFO("[%s] Adding Init Data: position %.02lfs bandwidth %" BITSPERSECOND_FORMAT "  periodId:%s wt: %d ht: %d fr: %.02lf Url: '%s'",
+					GetMediaTypeName(media), absPosition, streamInfo.bandwidthBitsPerSecond, periodId.c_str(),
+					streamInfo.resolution.width, streamInfo.resolution.height, streamInfo.resolution.framerate, url.c_str());
+		TsbInitDataPtr newInitFragData = std::make_shared<TsbInitData>(url, media, AampTime(absPosition), streamInfo, periodId, profileIndex);
 		mTsbInitData.push_back(newInitFragData);
-		mCurrentInitData = newInitFragData;
+		mCurrentInitData = std::move(newInitFragData);
 		ret = true;
 	}
 	catch (const std::exception &e)
@@ -331,7 +348,7 @@ bool AampTsbDataManager::AddFragment(TSBWriteData &writeData, AampMediaType medi
 	TSB_DM_TIME_DATA();
 	bool ret = false;
 	std::string url {writeData.url};
-	double position {writeData.cachedFragment->position};
+	double position {writeData.cachedFragment->absPosition};
 	double duration {writeData.cachedFragment->duration};
 	double pts {writeData.pts};
 	std::string periodId {writeData.periodId};
@@ -345,18 +362,17 @@ bool AampTsbDataManager::AddFragment(TSBWriteData &writeData, AampMediaType medi
 			AAMPLOG_WARN("Inserting fragment at %.02lf but init header information is missing !!!", position);
 			return ret;
 		}
-		AAMPLOG_INFO("[%s] Adding fragment data: position %.02lfs duration %.02lfs pts %.02lfs relativePos %.02lfs bandwidth %" BITSPERSECOND_FORMAT " discontinuous %d periodId %s timeScale %u ptsOffset %fs fragmentUrl '%s' initHeaderUrl '%s'",
-					 GetMediaTypeName(media), position, duration, pts, mRelativePos, mCurrentInitData->GetBandWidth(), discont, periodId.c_str(), timeScale, PTSOffsetSec,
+		AAMPLOG_INFO("[%s] Adding fragment data: position %.02lfs duration %.02lfs pts %.02lfs bandwidth %" BITSPERSECOND_FORMAT " discontinuous %d periodId %s timeScale %u ptsOffset %fs fragmentUrl '%s' initHeaderUrl '%s'",
+					 GetMediaTypeName(media), position, duration, pts, mCurrentInitData->GetBandWidth(), discont, periodId.c_str(), timeScale, PTSOffsetSec,
 					 url.c_str(), mCurrentInitData->GetUrl().c_str());
 		mCurrentInitData->incrementUser();
-		TsbFragmentDataPtr fragmentData = std::make_shared<TsbFragmentData>(url, media, position, duration, pts, discont, mRelativePos, periodId, mCurrentInitData, timeScale, PTSOffsetSec);
-		mRelativePos += duration;
+		TsbFragmentDataPtr fragmentData = std::make_shared<TsbFragmentData>(url, media, AampTime(position), duration, pts, discont, periodId, mCurrentInitData, timeScale, PTSOffsetSec);
 		if (mCurrHead != nullptr)
 		{
 			fragmentData->prev = mCurrHead;
 			mCurrHead->next = fragmentData;
 		}
-		mCurrHead = fragmentData;
+		mCurrHead = std::move(fragmentData);
 		mTsbFragmentData[position] = mCurrHead;
 		ret = true;
 	}
@@ -385,8 +401,8 @@ bool AampTsbDataManager::DumpData()
 			{
 				TsbFragmentDataPtr fragmentData = it->second;
 				TsbInitDataPtr initdata = fragmentData->GetInitFragData();
-				AAMPLOG_INFO("Fragment Meta Data: { Media [%d] position : %.02lf duration: %.02lf PTS : %.02lf bandwidth: %" BITSPERSECOND_FORMAT " discontinuous: %d fragmentUrl: '%s' initHeaderUrl: '%s' }",
-							 fragmentData->GetMediaType(), fragmentData->GetPosition(), fragmentData->GetDuration(), fragmentData->GetPTS(),
+				AAMPLOG_INFO("Fragment Meta Data: { Media [%d] absPosition : %.02lf duration: %.02lf PTS : %.02lf bandwidth: %" BITSPERSECOND_FORMAT " discontinuous: %d fragmentUrl: '%s' initHeaderUrl: '%s' }",
+							 fragmentData->GetMediaType(), fragmentData->GetAbsolutePosition().inSeconds(), fragmentData->GetDuration().inSeconds(), fragmentData->GetPTS().inSeconds(),
 							 initdata->GetBandWidth(), fragmentData->IsDiscontinuous(), fragmentData->GetUrl().c_str(), initdata->GetUrl().c_str());
 			}
 		}
@@ -406,6 +422,7 @@ bool AampTsbDataManager::DumpData()
 void AampTsbDataManager::Flush()
 {
 	TSB_DM_TIME_DATA();
+	AAMPLOG_INFO("Flush AAMP TSB data");
 	try
 	{
 		std::lock_guard<std::mutex> lock(mTsbDataMutex);
@@ -426,21 +443,24 @@ void AampTsbDataManager::Flush()
 }
 
 /**
- * @brief GetNextDiscFragment - API to get next discontinuous fragment in the list
- * 		If not found, will return nullptr
- *
+ *   @fn GetNextDiscFragment
+ *   @brief API to get next discontinuous fragment in the list. If not found, will return nullptr.
+ *   @param[in] position - Absolute position, in seconds since 1970, for querying the discontinuous fragment
+ *   @param[in] backwordSerach - Search direction from the position to discontinuous fragment, default forward
+ *   @return TsbFragmentData shared object to fragment data
  */
 TsbFragmentDataPtr AampTsbDataManager::GetNextDiscFragment(double position, bool backwardSearch)
 {
 	TsbFragmentDataPtr fragment = nullptr;
 	try
 	{
+		std::lock_guard<std::mutex> lock(mTsbDataMutex);
 		auto segment = mTsbFragmentData.lower_bound(position);
-		if (!backwardSearch) 
+		if (!backwardSearch)
 		{
 			while( segment != mTsbFragmentData.end())
 			{
-				if (segment->second->IsDiscontinuous()) 
+				if (segment->second->IsDiscontinuous())
 				{
 					fragment =  segment->second;
 					break;

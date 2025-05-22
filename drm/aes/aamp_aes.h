@@ -29,6 +29,7 @@
 #include "HlsDrmBase.h"
 #include <openssl/evp.h>
 #include <memory>
+#include <condition_variable>
 
 /**
  * @class AesDec
@@ -79,13 +80,6 @@ public:
 	 * @param encryptedDataLen length in bytes of data pointed to by encryptedDataPtr
 	 * @param timeInMs wait time
 	 */
-	/**
-	 * @fn SetIV
-	 *
-	 * @param iv New address of initialization vector to use in Decrypt (because received new #EXT-X-KEY with IV)
-	 * @retval eDRM_SUCCESS on success
-	 */
-	DrmReturn SetIV(unsigned char* iv);
 	DrmReturn Decrypt(ProfilerBucketType bucketType, void *encryptedDataPtr, size_t encryptedDataLen, int timeInMs);
 	/**
 	 * @fn Release
@@ -100,7 +94,6 @@ public:
 	 * @fn RestoreKeyState
 	 */
 	void RestoreKeyState();
-
 	/*Functions to support internal operations*/
 	/**
 	 * @brief key acquisition thread
@@ -121,15 +114,15 @@ public:
 	 */
 	void NotifyDRMError(AAMPTuneFailure drmFailure);
 	/**
-     	 * @fn SignalDrmError 
-         */
+	 * @fn SignalDrmError 
+	 */
 	void SignalDrmError();
 	/**
 	 * @fn WaitForKeyAcquireCompleteUnlocked
 	 * @param[in] timeInMs timeout
 	 * @param[out] err error on failure
 	 */
-	void WaitForKeyAcquireCompleteUnlocked(int timeInMs, DrmReturn &err);
+	void WaitForKeyAcquireCompleteUnlocked(int timeInMs, DrmReturn &err, std::unique_lock<std::mutex>& lock );
 	/**
 	 * @fn AesDec
 	 * 
@@ -146,8 +139,8 @@ private:
 
 	static std::shared_ptr<AesDec> mInstance;
 	PrivateInstanceAAMP *mpAamp;
-	pthread_cond_t mCond;
-	pthread_mutex_t mMutex;
+	std::condition_variable mCond;
+	std::mutex mMutex;
 #if OPENSSL_VERSION_NUMBER >= 0x10100000L
 	EVP_CIPHER_CTX *mOpensslCtx;
 #else

@@ -27,6 +27,10 @@
 #include "_base64.h"
 #include <inttypes.h> // For PRId64
 
+//call_signs
+#define SECMANAGER_CALLSIGN "org.rdk.SecManager.1"
+#define WATERMARK_CALLSIGN "org.rdk.Watermark.1"
+
 static AampSecManager *Instance = nullptr; /**< singleton instance*/
 
 /* mutex GetInstance() & DestroyInstance() to improve thread safety
@@ -64,8 +68,8 @@ void AampSecManager::DestroyInstance()
 /**
  * @brief AampScheduler Constructor
  */
-AampSecManager::AampSecManager() : mSecManagerObj(SECMANAGER_CALL_SIGN), mSecMutex(), mSchedulerStarted(false),
-				   mRegisteredEvents(), mWatermarkPluginObj(WATERMARK_PLUGIN_CALLSIGN), mWatMutex(), mSpeedStateMutex(),
+AampSecManager::AampSecManager() : mSecManagerObj(SECMANAGER_CALLSIGN), mSecMutex(), mSchedulerStarted(false),
+				   mRegisteredEvents(), mWatermarkPluginObj(WATERMARK_CALLSIGN), mWatMutex(), mSpeedStateMutex(),
 				   mAamp(NULL)
 {
 	
@@ -133,14 +137,14 @@ AampSecManager::~AampSecManager()
 
 	UnRegisterAllEvents();
 }
-static std::size_t getInputSummaryHash(const char* moneyTraceMetdata[][2], const char* contentMetdata,
+static std::size_t getInputSummaryHash(const char* moneyTraceMetadata[][2], const char* contentMetadata,
 					size_t contMetaLen, const char* licenseRequest, const char* keySystemId,
 					const char* mediaUsage, const char* accessToken, bool isVideoMuted)
 {
 	std::stringstream ss;
-	ss<< moneyTraceMetdata[0][1]<<isVideoMuted<<//sessionConfiguration (only variables)
-	//ignoring hard coded aspectDimensions 
-	keySystemId<<mediaUsage<<accessToken<<contentMetdata<<licenseRequest;
+	ss<< moneyTraceMetadata[0][1]<<isVideoMuted<<//sessionConfiguration (only variables)
+	//ignoring hard coded aspectDimensions
+	keySystemId<<mediaUsage<<accessToken<<contentMetadata<<licenseRequest;
 
 	std::string InputSummary =  ss.str();
 
@@ -152,8 +156,8 @@ static std::size_t getInputSummaryHash(const char* moneyTraceMetdata[][2], const
 }
 
 
-bool AampSecManager::AcquireLicense(PrivateInstanceAAMP* aamp, const char* licenseUrl, const char* moneyTraceMetdata[][2],
-					const char* accessAttributes[][2], const char* contentMetdata, size_t contMetaLen,
+bool AampSecManager::AcquireLicense(PrivateInstanceAAMP* aamp, const char* licenseUrl, const char* moneyTraceMetadata[][2],
+					const char* accessAttributes[][2], const char* contentMetadata, size_t contMetaLen,
 					const char* licenseRequest, size_t licReqLen, const char* keySystemId,
 					const char* mediaUsage, const char* accessToken, size_t accTokenLen,
 					AampSecManagerSession &session,
@@ -161,7 +165,7 @@ bool AampSecManager::AcquireLicense(PrivateInstanceAAMP* aamp, const char* licen
 {
 	bool success = false;
 
-	auto inputSummaryHash = getInputSummaryHash(moneyTraceMetdata, contentMetdata,
+	auto inputSummaryHash = getInputSummaryHash(moneyTraceMetadata, contentMetadata,
 					contMetaLen, licenseRequest, keySystemId,
 					mediaUsage, accessToken, isVideoMuted);
 
@@ -183,8 +187,8 @@ bool AampSecManager::AcquireLicense(PrivateInstanceAAMP* aamp, const char* licen
 	{
 		/*old AcquireLicense() code used for open & update (expected operation) and
 		 * if setPlaybackSessionState doesn't have the expected result*/
-		success = AcquireLicenseOpenOrUpdate(aamp, licenseUrl, moneyTraceMetdata,
-					accessAttributes, contentMetdata, contMetaLen,
+		success = AcquireLicenseOpenOrUpdate(aamp, licenseUrl, moneyTraceMetadata,
+					accessAttributes, contentMetadata, contMetaLen,
 					licenseRequest, licReqLen, keySystemId,
 					mediaUsage, accessToken, accTokenLen,
 					session,
@@ -199,8 +203,8 @@ bool AampSecManager::AcquireLicense(PrivateInstanceAAMP* aamp, const char* licen
 /**
  * @brief To acquire license from SecManager
  */
-bool AampSecManager::AcquireLicenseOpenOrUpdate(PrivateInstanceAAMP* aamp, const char* licenseUrl, const char* moneyTraceMetdata[][2],
-					const char* accessAttributes[][2], const char* contentMetdata, size_t contMetaLen,
+bool AampSecManager::AcquireLicenseOpenOrUpdate(PrivateInstanceAAMP* aamp, const char* licenseUrl, const char* moneyTraceMetadata[][2],
+					const char* accessAttributes[][2], const char* contentMetadata, size_t contMetaLen,
 					const char* licenseRequest, size_t licReqLen, const char* keySystemId,
 					const char* mediaUsage, const char* accessToken, size_t accTokenLen,
 					AampSecManagerSession &session,
@@ -238,7 +242,7 @@ bool AampSecManager::AcquireLicenseOpenOrUpdate(PrivateInstanceAAMP* aamp, const
 		mAamp = aamp;
 
 	sessionConfig["distributedTraceType"] = "money";
-	sessionConfig["distributedTraceId"] = moneyTraceMetdata[0][1];
+	sessionConfig["distributedTraceId"] = moneyTraceMetadata[0][1];
 	//Start the playback session as inactive if the video mute is on
 	sessionConfig["sessionState"] = isVideoMuted ? "inactive" : "active";
 	// TODO: Remove hardcoded values
@@ -276,12 +280,12 @@ bool AampSecManager::AcquireLicenseOpenOrUpdate(PrivateInstanceAAMP* aamp, const
 		
 		//Set shared memory with the buffer
 		if(NULL != shmPt_accToken && NULL != accessToken &&
-		   NULL != shmPt_contMeta && NULL != contentMetdata &&
+		   NULL != shmPt_contMeta && NULL != contentMetadata &&
 		   NULL != shmPt_licReq && NULL != licenseRequest)
 		{
 			//copy buffer to shm
 			memcpy(shmPt_accToken, accessToken, accTokenLen);
-			memcpy(shmPt_contMeta, contentMetdata, contMetaLen);
+			memcpy(shmPt_contMeta, contentMetadata, contMetaLen);
 			memcpy(shmPt_licReq, licenseRequest, licReqLen);
 			
 			AAMPLOG_INFO("Access token, Content metadata and license request are copied to the shared memory successfully, passing details with SecManager");
@@ -320,7 +324,7 @@ bool AampSecManager::AcquireLicenseOpenOrUpdate(PrivateInstanceAAMP* aamp, const
 						* where input data changes e.g. following a call to updatePlaybackSession
 						* the input data to the shared session is updated here*/
 						newSession = AampSecManagerSession(response["sessionId"].Number(), 
-						getInputSummaryHash(moneyTraceMetdata, contentMetdata,
+						getInputSummaryHash(moneyTraceMetadata, contentMetadata,
 						contMetaLen, licenseRequest, keySystemId,
 						mediaUsage, accessToken, isVideoMuted));
 

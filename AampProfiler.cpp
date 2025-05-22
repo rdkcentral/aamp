@@ -122,7 +122,7 @@ std::string ProfileEventAAMP::GetTuneTimeMetricAsJson(TuneEndMetrics tuneMetrics
 	cJSON_AddStringToObject(item, "frs", failureReason.c_str());
 	cJSON_AddStringToObject(item, "app", appName.c_str());
 
-	cJSON_AddNumberToObject(item, "tsb", tuneMetricsData.mTSBEnabled);
+	cJSON_AddNumberToObject(item, "tsb", tuneMetricsData.mFogTSBEnabled);
 	cJSON_AddNumberToObject(item, "tot", tuneMetricsData.mTotalTime);
 
 	//lets use cJSON_PrintUnformatted , cJSON_Print is formated adds whitespace n hence takes more memory also eats up more logs if logged.
@@ -341,7 +341,7 @@ void ProfileEventAAMP::TuneEnd(TuneEndMetrics &mTuneEndMetrics,std::string appNa
 		playerPreBuffered,playerPreBuffered ? buckets[PROFILE_BUCKET_PLAYER_PRE_BUFFERED].tStart : 0,
 		durationSeconds,interfaceWifi,
 		mTuneEndMetrics.mTuneAttempts, mTuneEndMetrics.success,failureReason.c_str(),appName.c_str(),
-		mTuneEndMetrics.mTimedMetadata,mTimedMetadataStartTime < 0 ? 0 : mTimedMetadataStartTime , mTuneEndMetrics.mTimedMetadataDuration,mTuneEndMetrics.mTSBEnabled,mTotalTime
+		mTuneEndMetrics.mTimedMetadata,mTimedMetadataStartTime < 0 ? 0 : mTimedMetadataStartTime , mTuneEndMetrics.mTimedMetadataDuration,mTuneEndMetrics.mFogTSBEnabled,mTotalTime
 		);
 
 		// Telemetry is generated in GetTuneTimeMetricAsJson hence calling always,
@@ -375,7 +375,7 @@ void ProfileEventAAMP::GetClassicTuneTimeInfo(bool success, int tuneRetries, int
 	unsigned int playBucketTime                     =       (unsigned int)(xreTimeBuckets[TuneTimePlay]- xreTimeBuckets[TuneTimePrepareToPlay]);
 	unsigned int fragmentBucketTime                 =       (unsigned int)(fragmentReadyTime - xreTimeBuckets[TuneTimePlay]) ;
 	unsigned int decoderStreamingBucketTime         =       (unsigned int)(xreTimeBuckets[TuneTimeStreaming] - xreTimeBuckets[TuneTimeStartStream]);
-	/*Note: 'Drm Ready' to 'decrypt start' gap is not covered in any of the buckets.*/
+	/*Note: 'Drm Ready' to 'decrypt start' gap is not in any of the buckets.*/
 
 	unsigned int manifestTotal      =       bucketDuration(PROFILE_BUCKET_MANIFEST);
 	unsigned int profilesTotal      =       effectiveBucketTime(PROFILE_BUCKET_PLAYLIST_VIDEO, PROFILE_BUCKET_PLAYLIST_AUDIO);

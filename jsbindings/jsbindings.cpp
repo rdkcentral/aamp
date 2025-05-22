@@ -25,17 +25,15 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-#include <pthread.h>
-
 #include "jsbindings-version.h"
 #include "jsutils.h"
 #include "main_aamp.h"
 #include "priv_aamp.h"
-
-#include "AampCCManager.h"
+#include <mutex>
+#include "PlayerCCManager.h"
 
 static class PlayerInstanceAAMP* _allocated_aamp = NULL;
-static pthread_mutex_t jsMutex = PTHREAD_MUTEX_INITIALIZER;
+static std::mutex jsMutex;
 
 extern void ClearAAMPPlayerInstances();
 
@@ -668,29 +666,30 @@ public:
 
 		JSObjectRef eventObj = JSObjectMake(_aamp->_ctx, Event_class_ref(), NULL);
 		if (eventObj) {
-			JSValueProtect(_aamp->_ctx, eventObj);
+			JSGlobalContextRef ctx = _aamp->_ctx;
+			JSValueProtect(ctx, eventObj);
 			JSStringRef name = JSStringCreateWithUTF8CString("type");
-			JSObjectSetProperty(_aamp->_ctx, eventObj, name, JSValueMakeNumber(_aamp->_ctx, evtType), kJSPropertyAttributeReadOnly, NULL);
+			JSObjectSetProperty(ctx, eventObj, name, JSValueMakeNumber(ctx, evtType), kJSPropertyAttributeReadOnly, NULL);
 			JSStringRelease(name);
-			setEventProperties(e, _aamp->_ctx, eventObj);
+			setEventProperties(e, ctx, eventObj);
 			JSValueRef args[1] = { eventObj };
 			if (evtType == AAMP_EVENT_AD_RESOLVED)
 			{
 				if (_aamp->_promiseCallback != NULL)
 				{
-					JSObjectCallAsFunction(_aamp->_ctx, _aamp->_promiseCallback, NULL, 1, args, NULL);
+					JSObjectCallAsFunction(ctx, _aamp->_promiseCallback, NULL, 1, args, NULL);
 				}
 				else
 				{
-                                        LOG_WARN( _aamp,"No promise callback registered ctx=%p, jsCallback=%p", _aamp->_ctx, _aamp->_promiseCallback);
+                                        LOG_WARN( _aamp,"No promise callback registered ctx=%p, jsCallback=%p", ctx, _aamp->_promiseCallback);
 
 				}
 			}
 			else
 			{
-				JSObjectCallAsFunction(_aamp->_ctx, _jsCallback, NULL, 1, args, NULL);
+				JSObjectCallAsFunction(ctx, _jsCallback, NULL, 1, args, NULL);
 			}
-			JSValueUnprotect(_aamp->_ctx, eventObj);
+			JSValueUnprotect(ctx, eventObj);
 		}
 	}
 
@@ -1035,7 +1034,7 @@ public:
 
 /**
  * @class AAMP_JSListener_AnomalyReport
- * @brief AAMP_JSListener_AnomalyReport to receive anomalyreport
+ * @brief AAMP_JSListener_AnomalyReport to receive anomaly report
  */
 class AAMP_JSListener_AnomalyReport : public AAMP_JSListener
 {
@@ -2312,7 +2311,7 @@ static JSValueRef AAMP_tune(JSContextRef context, JSObjectRef function, JSObject
 				char* url = aamp_JSValueToCString(context, arguments[0], exception);
 				aamp_ApplyPageHttpHeaders(pAAMP->_aamp);
 				{
-                                        LOG_WARN(pAAMP," _aamp->Tune(%d, %s, %d, %d)", true, contentType, bFirstAttempt, bFinalAttempt);
+					LOG_WARN(pAAMP," _aamp->Tune(%d, %s, %d, %d)", true, contentType, bFirstAttempt, bFinalAttempt);
 					pAAMP->_aamp->Tune(url, true, contentType, bFirstAttempt, bFinalAttempt);                  
 				}
 				SAFE_DELETE_ARRAY(url);
@@ -2402,11 +2401,11 @@ static JSValueRef AAMP_load(JSContextRef context, JSObjectRef function, JSObject
 		char* url = aamp_JSValueToCString(context, arguments[0], exception);
 		aamp_ApplyPageHttpHeaders(pAAMP->_aamp);
 		if (strAuthToken != NULL){
-                        LOG_WARN(pAAMP,"authToken provided by the App");
+			LOG_WARN(pAAMP,"authToken provided by the App");
 			pAAMP->_aamp->SetSessionToken(strAuthToken);
 		}
 		{
-                        LOG_WARN(pAAMP," _aamp->Tune(%d, %s, %d, %d, %s)", true, contentType, bFirstAttempt, bFinalAttempt, strTraceId);
+			LOG_WARN(pAAMP," _aamp->Tune(%d, %s, %d, %d, %s)", true, contentType, bFirstAttempt, bFinalAttempt, strTraceId);
 			pAAMP->_aamp->Tune(url, true, contentType, bFirstAttempt, bFinalAttempt, strTraceId);
 		}
 
@@ -2480,7 +2479,7 @@ static JSValueRef AAMP_setRate(JSContextRef context, JSObjectRef function, JSObj
 	{
 		int overshoot = 0;
 		float rate = (float)JSValueToNumber(context, arguments[0], exception);
-		// present JS doesnt support overshoot , check for argument count and store.
+		// present JS doesn't support overshoot , check for argument count and store.
 		if(argumentCount > 1)
 		{
 			overshoot = (int)JSValueToNumber(context, arguments[1], exception);
@@ -4352,21 +4351,21 @@ static void AAMP_finalize(JSObjectRef thisObject)
 		}
 	}
 
-	pthread_mutex_lock(&jsMutex);
-	if (NULL != _allocated_aamp)
 	{
-		//when finalizing JS object, don't generate state change events
-        	LOG_WARN(pAAMP," aamp->Stop(false)");
-		_allocated_aamp->Stop(false);
-        	LOG_WARN(pAAMP,"delete aamp %p",_allocated_aamp);
-		SAFE_DELETE(_allocated_aamp);
+		std::lock_guard<std::mutex> guard(jsMutex);
+		if (NULL != _allocated_aamp)
+		{
+			LOG_WARN(pAAMP,"aamp->Stop()");
+			_allocated_aamp->Stop();
+			LOG_WARN(pAAMP,"delete aamp %p",_allocated_aamp);
+			SAFE_DELETE(_allocated_aamp);
+		}
 	}
-	pthread_mutex_unlock(&jsMutex);
 	SAFE_DELETE(pAAMP);
 
 	//disable CC rendering so that state will not be persisted between two different sessions.
 	AAMPLOG_WARN("Disabling CC");
-	AampCCManager::GetInstance()->SetStatus(false);
+	PlayerCCManager::GetInstance()->SetStatus(false);
 }
 
 
@@ -4666,7 +4665,7 @@ void aamp_LoadJS(void* context, void* playerInstanceAAMP)
 	}
 	else
 	{
-		pthread_mutex_lock(&jsMutex);
+		std::lock_guard<std::mutex> guard(jsMutex);
 		if (NULL == _allocated_aamp )
 		{
 			_allocated_aamp = new PlayerInstanceAAMP(NULL, NULL);
@@ -4677,7 +4676,6 @@ void aamp_LoadJS(void* context, void* playerInstanceAAMP)
 			LOG_WARN_EX("reuse aamp %p", _allocated_aamp);
 		}
 		pAAMP->_aamp = _allocated_aamp;
-		pthread_mutex_unlock(&jsMutex);
 	}
 
 	pAAMP->_listeners = NULL;
@@ -4728,7 +4726,7 @@ void aamp_UnloadJS(void* context)
 				// So it makes sense to remove the object when webpage is unloaded.
 				AAMP_finalize(aampObj);
 			}
-			// use JSObjectDeleteProperty instead of JSObjectSetProperty when trying to invalidate a read-only property
+			//use JSObjectDeleteProperty instead of JSObjectSetProperty when trying to invalidate a read-only property
 			JSObjectDeleteProperty(jsContext, globalObj, str, NULL);
 			
 			// Force a garbage collection to clean-up all AAMP objects.
@@ -4745,20 +4743,15 @@ void aamp_UnloadJS(void* context)
  */
 void __attribute__ ((destructor(101))) _aamp_term()
 {
-	
 	LOG_TRACE("Enter");
-	pthread_mutex_lock(&jsMutex);
 	if (NULL != _allocated_aamp)
 	{
-        	LOG_WARN_EX("stopping aamp");
-		//when finalizing JS object, don't generate state change events
-		_allocated_aamp->Stop(false);
-        	LOG_WARN_EX("stopped aamp");
+		LOG_WARN_EX("stopping aamp");
+		_allocated_aamp->Stop();
+		LOG_WARN_EX("stopped aamp");
 		delete _allocated_aamp;
 		_allocated_aamp = NULL;
 	}
-	pthread_mutex_unlock(&jsMutex);
-
 	//Clear any active js mediaplayer instances on term
 	ClearAAMPPlayerInstances();
 }

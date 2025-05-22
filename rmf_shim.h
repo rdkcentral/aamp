@@ -28,9 +28,7 @@
 #include "StreamAbstractionAAMP.h"
 #include <string>
 #include <stdint.h>
-#ifdef USE_CPP_THUNDER_PLUGIN_ACCESS
-#include "Module.h"
-#include "ThunderAccess.h"
+#include "PlayerThunderInterface.h"
 using namespace std;
 
 /**
@@ -73,8 +71,8 @@ class StreamAbstractionAAMP_RMF : public StreamAbstractionAAMP
 	StreamAbstractionAAMP_RMF& operator=(const StreamAbstractionAAMP_RMF&) = delete;
 
 	/*Event Handlers*/
-	void onPlayerStatusHandler(const JsonObject& parameters);
-	void onPlayerErrorHandler(const JsonObject& parameters);
+	void onPlayerStatusHandler(std::string title);
+	void onPlayerErrorHandler(std::string err_msg);
 	/**
 	 *   @fn Start
 	 */
@@ -96,7 +94,7 @@ class StreamAbstractionAAMP_RMF : public StreamAbstractionAAMP
 	 * @param[out]  primaryOutputFormat - format of primary track
 	 * @param[out]  audioOutputFormat - format of audio track
 	 * @param[out]  auxOutputFormat - format of aux audio track
-	 * @param[out]  subtitleOutputFormat - format of sutbtile track
+	 * @param[out]  subtitleOutputFormat - format of subtitle track
 	 */
 	void GetStreamFormat(StreamOutputFormat &primaryOutputFormat, StreamOutputFormat &audioOutputFormat, StreamOutputFormat &auxOutputFormat, StreamOutputFormat &subtitleOutputFormat) override;
 	/**
@@ -191,11 +189,9 @@ class StreamAbstractionAAMP_RMF : public StreamAbstractionAAMP
 	 */
 	void UpdateFailedDRMStatus(LicensePreFetchObject *object) override { }
 	private:
-	ThunderAccessAAMP thunderAccessObj;
+	PlayerThunderInterface thunderAccessObj;
 	bool tuned;
 
-	ThunderAccessAAMP thunderRDKShellObj;
-	bool GetScreenResolution(int & screenWidth, int & screenHeight);
 	/**
 	 * @fn GetAudioTracks
 	 * @return void
@@ -222,7 +218,6 @@ class StreamAbstractionAAMP_RMF : public StreamAbstractionAAMP
 	 */
 	StreamInfo* GetStreamInfo(int idx) override;
 };
-#endif //USE_CPP_THUNDER_PLUGIN_ACCESS
 #endif //RMF_SHIM_H_
 /**
  * @}

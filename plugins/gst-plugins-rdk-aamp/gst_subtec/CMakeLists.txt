@@ -28,7 +28,7 @@ include_directories(${GSTREAMER_INCLUDE_DIRS})
 include_directories(${GSTREAMERBASE_INCLUDE_DIRS})
 
 if(CMAKE_SYSTEM_NAME STREQUAL Darwin)
-    include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../../../subtec/libsubtec)
+    include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../../../middleware/subtec/libsubtec)
     link_directories(${GSTREAMERBASE_LIBRARY_DIRS} ${GSTREAMER_LIBRARY_DIRS})
     link_directories(${CMAKE_INSTALL_PREFIX})
 endif(CMAKE_SYSTEM_NAME STREQUAL Darwin)
@@ -40,7 +40,7 @@ set(GSTSUBTEC_DEPENDENCIES ${GSTREAMERBASE_LIBRARIES} ${GSTREAMER_LIBRARIES})
 add_library(gstsubtecsink SHARED gstsubtecsink.cpp)
 
 if (CMAKE_INBUILT_AAMP_DEPENDENCIES)
-    include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../../../subtec/libsubtec)
+    include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../../../middleware/subtec/libsubtec)
     target_link_libraries(gstsubtecsink PRIVATE subtec)
     target_link_libraries(gstsubtecsink ${GSTSUBTEC_DEPENDENCIES})
 else()
@@ -82,4 +82,3 @@ install (TARGETS gstvipertransform
          LIBRARY DESTINATION lib/gstreamer-1.0
          ARCHIVE DESTINATION lib/gstreamer-1.0
 )
-

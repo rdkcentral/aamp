@@ -29,8 +29,8 @@
 #include <sys/time.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <pthread.h>
 #include <errno.h>
+#include <mutex>
 
 
 #if OPENSSL_VERSION_NUMBER >= 0x10100000L
@@ -40,7 +40,7 @@
 #endif
 #define AES_128_KEY_LEN_BYTES 16
 
-static pthread_mutex_t instanceLock = PTHREAD_MUTEX_INITIALIZER;
+static std::mutex instanceLock;
 
 /**
  * @brief key acquisition thread
@@ -80,12 +80,10 @@ void AesDec::NotifyDRMError(AAMPTuneFailure drmFailure)
  */
 void AesDec::SignalDrmError()
 {
-	pthread_mutex_lock(&mMutex);
+	std::unique_lock<std::mutex> lock(mMutex);
 	mDrmState = eDRM_KEY_FAILED;
-	pthread_cond_broadcast(&mCond);
-	pthread_mutex_unlock(&mMutex);
+	mCond.notify_all();
 }
-
 
 /**
  * @brief Signal key acquired event
@@ -93,10 +91,11 @@ void AesDec::SignalDrmError()
 void AesDec::SignalKeyAcquired()
 {
 	AAMPLOG_WARN("aamp:AesDRMListener drmState:%d moving to KeyAcquired", mDrmState);
-	pthread_mutex_lock(&mMutex);
-	mDrmState = eDRM_KEY_ACQUIRED;
-	pthread_cond_broadcast(&mCond);
-	pthread_mutex_unlock(&mMutex);
+	{
+		std::unique_lock<std::mutex> lock(mMutex);
+		mDrmState = eDRM_KEY_ACQUIRED;
+		mCond.notify_all();
+	}
 	mpAamp->LogDrmInitComplete();
 }
 
@@ -189,7 +188,7 @@ DRMState AesDec::GetState()
 DrmReturn AesDec::SetDecryptInfo( PrivateInstanceAAMP *aamp, const struct DrmInfo *drmInfo)
 {
 	DrmReturn err = eDRM_ERROR;
-	pthread_mutex_lock(&mMutex);
+	std::unique_lock<std::mutex> lock(mMutex);
 	mpAamp = aamp;
 
 	if (NULL!= mpAamp)
@@ -199,7 +198,7 @@ DrmReturn AesDec::SetDecryptInfo( PrivateInstanceAAMP *aamp, const struct DrmInf
 	if (mDrmState == eDRM_ACQUIRING_KEY)
 	{
 		AAMPLOG_WARN("AesDec:: acquiring key in progress");
-		WaitForKeyAcquireCompleteUnlocked(mAcquireKeyWaitTime, err);
+		WaitForKeyAcquireCompleteUnlocked(mAcquireKeyWaitTime, err, lock );
 	}
 	mDrmInfo = *drmInfo;
 
@@ -208,7 +207,6 @@ DrmReturn AesDec::SetDecryptInfo( PrivateInstanceAAMP *aamp, const struct DrmInf
 		if ((eDRM_KEY_ACQUIRED == mDrmState) && (drmInfo->keyURI == mDrmUrl))
 		{
 			AAMPLOG_TRACE("AesDec: same url:%s - not acquiring key", mDrmUrl.c_str());
-			pthread_mutex_unlock(&mMutex);
 			return eDRM_SUCCESS;
 		}
 	}
@@ -240,34 +238,17 @@ DrmReturn AesDec::SetDecryptInfo( PrivateInstanceAAMP *aamp, const struct DrmInf
 		mDrmState = eDRM_KEY_FAILED;
 		licenseAcquisitionThreadStarted = false;
 	}
-	pthread_mutex_unlock(&mMutex);
 	AAMPLOG_INFO("AesDec: drmState:%d ", mDrmState);
 	return err;
 }
 
 /**
- * @brief Set new address of initialization vector to use in Decrypt
- */
-DrmReturn AesDec::SetIV(unsigned char* iv)
-{
-	if (iv)
-	{
-		mDrmInfo.iv = iv;
-		return eDRM_SUCCESS;
-	}
-	return eDRM_ERROR;
-}
-
-/**
  * @brief Wait for key acquisition completion
  */
-void AesDec::WaitForKeyAcquireCompleteUnlocked(int timeInMs, DrmReturn &err )
+void AesDec::WaitForKeyAcquireCompleteUnlocked(int timeInMs, DrmReturn &err, std::unique_lock<std::mutex>& lock )
 {
-	struct timespec ts;
 	AAMPLOG_INFO( "aamp:waiting for key acquisition to complete,wait time:%d",timeInMs );
-	ts = aamp_GetTimespec(timeInMs);
-
-	if(0 != pthread_cond_timedwait(&mCond, &mMutex, &ts)) // block until drm ready
+	if( std::cv_status::timeout == mCond.wait_for(lock, std::chrono::milliseconds(timeInMs)) ) // block until drm ready
 	{
 		AAMPLOG_WARN("AesDec:: wait for key acquisition timed out");
 		err = eDRM_KEY_ACQUISITION_TIMEOUT;
@@ -281,10 +262,10 @@ DrmReturn AesDec::Decrypt( ProfilerBucketType bucketType, void *encryptedDataPtr
 {
 	DrmReturn err = eDRM_ERROR;
 
-	pthread_mutex_lock(&mMutex);
+	std::unique_lock<std::mutex> lock(mMutex);
 	if (mDrmState == eDRM_ACQUIRING_KEY)
 	{
-		WaitForKeyAcquireCompleteUnlocked(timeInMs, err);
+		WaitForKeyAcquireCompleteUnlocked(timeInMs, err, lock);
 	}
 	if (mDrmState == eDRM_KEY_ACQUIRED)
 	{
@@ -335,7 +316,6 @@ DrmReturn AesDec::Decrypt( ProfilerBucketType bucketType, void *encryptedDataPtr
 	{
 		AAMPLOG_ERR( "AesDec::key acquisition failure! mDrmState = %d",(int)mDrmState);
 	}
-	pthread_mutex_unlock(&mMutex);
 	return err;
 }
 
@@ -346,19 +326,19 @@ DrmReturn AesDec::Decrypt( ProfilerBucketType bucketType, void *encryptedDataPtr
 void AesDec::Release()
 {
 	DrmReturn err = eDRM_ERROR;
-	pthread_mutex_lock(&mMutex);
+	std::unique_lock<std::mutex> lock(mMutex);
 	//We wait for license acquisition to complete. Once license acquisition is complete
 	//the appropriate state will be set to mDrmState and hence RestoreKeyState will be a no-op.
 	if ( ( mDrmState == eDRM_ACQUIRING_KEY || mPrevDrmState == eDRM_ACQUIRING_KEY ) && mDrmState != eDRM_KEY_FAILED )
 	{
-		WaitForKeyAcquireCompleteUnlocked(mAcquireKeyWaitTime, err);
+		WaitForKeyAcquireCompleteUnlocked(mAcquireKeyWaitTime, err, lock );
 	}
 	if (licenseAcquisitionThreadStarted)
 	{
 		licenseAcquisitionThreadId.join();
 		licenseAcquisitionThreadStarted = false;
 	}
-	pthread_cond_broadcast(&mCond);
+	mCond.notify_all();
 	if (-1 != mCurlInstance)
 	{
 		if (mpAamp)
@@ -369,7 +349,6 @@ void AesDec::Release()
 		}
 		mCurlInstance = -1;
 	}
-	pthread_mutex_unlock(&mMutex);
 }
 
 /**
@@ -378,7 +357,7 @@ void AesDec::Release()
  */
 void AesDec::CancelKeyWait()
 {
-	pthread_mutex_lock(&mMutex);
+	std::lock_guard<std::mutex> guard(mMutex);
 	//save the current state in case required to restore later.
 	if (mDrmState != eDRM_KEY_FLUSH)
 	{
@@ -386,8 +365,7 @@ void AesDec::CancelKeyWait()
 	}
 	//required for demuxed assets where the other track might be waiting on mMutex lock.
 	mDrmState = eDRM_KEY_FLUSH;
-	pthread_cond_broadcast(&mCond);
-	pthread_mutex_unlock(&mMutex);
+	mCond.notify_all();
 }
 
 /**
@@ -396,13 +374,12 @@ void AesDec::CancelKeyWait()
  */
 void AesDec::RestoreKeyState()
 {
-	pthread_mutex_lock(&mMutex);
+	std::lock_guard<std::mutex> guard(mMutex);
 	//In case somebody overwritten mDrmState before restore operation, keep that state
 	if (mDrmState == eDRM_KEY_FLUSH)
 	{
 		mDrmState = mPrevDrmState;
 	}
-	pthread_mutex_unlock(&mMutex);
 }
 
 std::shared_ptr<AesDec> AesDec::mInstance = nullptr;
@@ -412,12 +389,11 @@ std::shared_ptr<AesDec> AesDec::mInstance = nullptr;
  */
 std::shared_ptr<AesDec> AesDec::GetInstance()
 {
-	pthread_mutex_lock(&instanceLock);
+	std::lock_guard<std::mutex> guard(instanceLock);
 	if (nullptr == mInstance)
 	{
 		mInstance = std::make_shared<AesDec>();
 	}
-	pthread_mutex_unlock(&instanceLock);
 	return mInstance;
 }
 
@@ -433,8 +409,6 @@ AesDec::AesDec() : mpAamp(nullptr), mDrmState(eDRM_INITIALIZED),
 		licenseAcquisitionThreadStarted(false),
 		mAcquireKeyWaitTime(MAX_LICENSE_ACQ_WAIT_TIME)
 {
-	pthread_cond_init(&mCond, NULL);
-	pthread_mutex_init(&mMutex, NULL);
 #if OPENSSL_VERSION_NUMBER >= 0x10100000L
 	OPEN_SSL_CONTEXT = EVP_CIPHER_CTX_new();
 #else
@@ -450,8 +424,6 @@ AesDec::~AesDec()
 {
 	CancelKeyWait();
 	Release();
-	pthread_mutex_destroy(&mMutex);
-	pthread_cond_destroy(&mCond);
 #if OPENSSL_VERSION_NUMBER >= 0x10100000L
 	EVP_CIPHER_CTX_free(OPEN_SSL_CONTEXT);
 #else

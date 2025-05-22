@@ -199,10 +199,18 @@ function install_pkgs_fn()
       fi
 
       install_pkgs_darwin_fn git json-glib cmake "openssl@3.4" libxml2 ossp-uuid cjson gnu-sed jpeg-turbo taglib speex mpg123 meson ninja pkg-config flac asio jsoncpp lcov gcovr jq curl
-      install_pkgs_darwin_fn coreutils websocketpp boost jansson libxkbcommon cppunit gnu-sed fontconfig doxygen graphviz tinyxml2 openldap krb5
+      install_pkgs_darwin_fn coreutils websocketpp "boost@1.85" jansson libxkbcommon cppunit gnu-sed fontconfig doxygen graphviz tinyxml2 openldap krb5
 
       # ORC causes compile errors on x86_64 Mac, but not on ARM64
       if [[ $ARCH == "x86_64" ]]; then
+          
+          # Workaround for making boost compatible with websocketpp (used for subtec)
+
+          export BOOST_ROOT="/usr/local/opt/boost@1.85"
+          export CMAKE_PREFIX_PATH="/usr/local/opt/boost@1.85"
+          export LDFLAGS="-L/usr/local/opt/boost@1.85/lib -L/usr/local/lib -lwavpack"
+          export CPPFLAGS="-I/usr/local/opt/boost@1.85/include"
+
           echo "Checking/removing ORC package which cause compile errors with gst-plugins-good"
 
           # "|| true" prevents the script from exiting if orc is not found, that is not an error
@@ -218,6 +226,13 @@ function install_pkgs_fn()
               esac
           fi
       elif [[ $ARCH == "arm64" ]]; then
+          
+          # Workaround for making boost compatible with websocketpp (used for subtec)
+          export BOOST_ROOT="/opt/homebrew/opt/boost@1.85"
+          export CMAKE_PREFIX_PATH="/opt/homebrew/opt/boost@1.85"
+          export LDFLAGS="-L/opt/homebrew/opt/boost@1.85/lib -L/opt/homebrew/lib -lwavpack"
+          export CPPFLAGS="-I/opt/homebrew/opt/boost@1.85/include"
+
           install_pkgs_darwin_fn orc
       fi
 

@@ -2,7 +2,7 @@
  * If not stated otherwise in this file or this component's license file the
  * following copyright and licenses apply:
  *
- * Copyright 2020 RDK Management
+ * Copyright 2025 RDK Management
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@
 */
 
 #include "WebvttSubtecDevParser.hpp"
+#include <sstream>
 
 std::string getTtmlHeader()
 {
@@ -91,29 +92,23 @@ std::string convertCueToTtmlString(int id, VTTCue *cue, double startTime)
 		ss << "</p>\n";
 	}
 	
-	AAMPLOG_TRACE(" %s\n", ss.str().c_str());
+	AAMPLOG_TRACE(" %s", ss.str().c_str());
 	
 	return ss.str();
 }
 
-
-WebVTTSubtecDevParser::WebVTTSubtecDevParser(PrivateInstanceAAMP *aamp, SubtitleMimeType type) : WebVTTParser(aamp, type), m_channel(nullptr)
+WebVTTSubtecDevParser::WebVTTSubtecDevParser(SubtitleMimeType type, int width, int height) : WebVTTParser(type, width, height), mSubtecInterface(nullptr)
 {
-	m_channel = SubtecChannel::SubtecChannelFactory(SubtecChannel::ChannelType::TTML);
-	if (!m_channel->InitComms())
-	{
-		AAMPLOG_INFO("Init failed - subtitle parsing disabled");
-		throw std::runtime_error("PacketSender init failed");
-	}
-	m_channel->SendResetAllPacket();
-	int width = 1920, height = 1080;
-
-	mAamp->GetPlayerVideoSize(width, height);
-	m_channel->SendSelectionPacket(width, height);
-	m_channel->SendMutePacket();
+       int screenWidth = 1920, screenHeight = 1080;
+       if(width != 0 && height != 0)
+        {
+               screenWidth = width;
+               screenHeight = height;
+        }
+       mSubtecInterface = aamp_utils::make_unique<WebvttSubtecDevInterface>(screenWidth, screenHeight);
 }
 
-bool WebVTTSubtecDevParser::processData(char *buffer, size_t bufferLen, double position, double duration)
+bool WebVTTSubtecDevParser::processData(const char *buffer, size_t bufferLen, double position, double duration)
 {	
 	bool ret;
 	
@@ -128,24 +123,21 @@ bool WebVTTSubtecDevParser::processData(char *buffer, size_t bufferLen, double p
 void WebVTTSubtecDevParser::sendCueData()
 {
 	std::string ttml = getVttAsTtml();
-	std::vector<uint8_t> data(ttml.begin(), ttml.end());
-	
-	m_channel->SendDataPacket(std::move(data), 0);
+	mSubtecInterface->sendCueData(ttml);
 }
 
 void WebVTTSubtecDevParser::reset()
 {
 	if (!mReset)
 	{
-		m_channel->SendResetChannelPacket();
+		mSubtecInterface->reset();
 	}
 	WebVTTParser::reset();
 }
 
 void WebVTTSubtecDevParser::updateTimestamp(unsigned long long positionMs)
 {
-	AAMPLOG_TRACE("timestamp: %lldms", positionMs );
-	m_channel->SendTimestampPacket(positionMs);
+	mSubtecInterface->updateTimestamp(positionMs);
 }
 
 bool WebVTTSubtecDevParser::init(double startPosSeconds, unsigned long long basePTS)
@@ -154,28 +146,21 @@ bool WebVTTSubtecDevParser::init(double startPosSeconds, unsigned long long base
 	mVttQueueIdleTaskId = -1;
 
 	ret = WebVTTParser::init(startPosSeconds, 0);
+	(void)ret;
 	mVttQueueIdleTaskId = 0;
-
-	m_channel->SendTimestampPacket(static_cast<uint64_t>(basePTS));
-
+	ret = mSubtecInterface->init(static_cast<uint64_t>(basePTS));
 
 	return ret;
 }
 
 void WebVTTSubtecDevParser::mute(bool mute)
 {
-	if (mute)
-		m_channel->SendMutePacket();
-	else
-		m_channel->SendUnmutePacket();
+	mSubtecInterface->mute(mute);
 }
 
 void WebVTTSubtecDevParser::pause(bool pause)
 {
-	if (pause)
-		m_channel->SendPausePacket();
-	else
-		m_channel->SendResumePacket();
+	mSubtecInterface->pause(pause);
 }
 
 /**
@@ -183,7 +168,7 @@ void WebVTTSubtecDevParser::pause(bool pause)
  */
 std::string WebVTTSubtecDevParser::getVttAsTtml()
 {	
-	pthread_mutex_lock(&mVttQueueMutex);
+	std::lock_guard<std::mutex> guard(mVttQueueMutex);
 	std::string ss;
 	int counter = 0;
 	
@@ -221,9 +206,6 @@ std::string WebVTTSubtecDevParser::getVttAsTtml()
 	ss += "</div>\n";
 	ss += "</body>\n";
 	ss += "</tt>\n";
-
-
-	pthread_mutex_unlock(&mVttQueueMutex);
 
 	return ss;
 }

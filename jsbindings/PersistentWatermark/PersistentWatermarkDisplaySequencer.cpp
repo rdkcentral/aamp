@@ -31,10 +31,7 @@ void PersistentWatermark::DisplaySequencer::deleteLayer()
 	if(mCurrentLayerID)
 	{
 		LOG_TRACE("delete watermark");
-		JsonObject param, result;
-		param["id"] = mCurrentLayerID;
-		bool success = PluginAccess::get().InvokeJSONRPC("deleteWatermark", param, result);
-		if(success && result["success"].Boolean())
+		if(PluginAccess::get().DeleteWatermark(mCurrentLayerID))
 		{
 			LOG_TRACE("Watermark deleted");
 			mCurrentLayerID = 0;
@@ -78,11 +75,7 @@ void PersistentWatermark::DisplaySequencer::Show(PersistentWatermark::Storage& s
 		mCurrentLayerID  = nextLayerID();
 		{
 			LOG_TRACE("PersistentWatermark::DisplaySequencer::Show() Watermark create");
-			JsonObject param, result;
-			param["id"] = mCurrentLayerID;
-			param["zorder"] = 1;
-			bool success = PluginAccess::get().InvokeJSONRPC("createWatermark", param, result);
-			if(success && result["success"].Boolean())
+			if(PluginAccess::get().CreateWatermark(mCurrentLayerID))
 			{
 				LOG_TRACE("Watermark Create successful");
 			}
@@ -98,11 +91,7 @@ void PersistentWatermark::DisplaySequencer::Show(PersistentWatermark::Storage& s
 
 	{
 		LOG_TRACE("Watermark show");
-		JsonObject param, result;
-		param["show"] = true;
-		param["alpha"] = opacity;
-		bool success = PluginAccess::get().InvokeJSONRPC("showWatermark", param, result);
-		if(success && result["success"].Boolean())
+		if(PluginAccess::get().ShowWatermark(opacity))
 		{
 			LOG_TRACE("PersistentWatermark::DisplaySequencer::Show() Watermark Show successful");
 		}
@@ -133,11 +122,7 @@ void PersistentWatermark::DisplaySequencer::Hide()
 	LOG_TRACE("Watermark hide");
 	deleteLayer();
 
-	JsonObject param, result;
-	param["show"] = false;
-	bool success = PluginAccess::get().InvokeJSONRPC("showWatermark", param, result);
-
-	if(success && result["success"].Boolean())
+	if(PluginAccess::get().HideWatermark())
 	{
 		SendEvent(EventHandler::eventType::HideSuccess);
 	}

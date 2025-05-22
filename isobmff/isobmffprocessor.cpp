@@ -24,10 +24,7 @@
 
 #include "isobmffprocessor.h"
 #include "StreamAbstractionAAMP.h"
-
-#include <pthread.h>
 #include <assert.h>
-
 
 #define FLOATING_POINT_EPSILON 0.1 // workaround for floating point math precision issues
 #define DEFAULT_DURATION 0.0f
@@ -59,8 +56,6 @@ IsoBmffProcessor::IsoBmffProcessor(class PrivateInstanceAAMP *aamp, id3_callback
 	{
 		peerSubtitleProcessor->setPeerProcessor(this);
 	}
-	pthread_mutex_init(&m_mutex, NULL);
-	pthread_cond_init(&m_cond, NULL);
 	mediaFormat = p_aamp->GetMediaFormatTypeEnum();
 
 	// Sometimes AAMP pushes an encrypted init segment first to force decryptor plugin selection
@@ -82,17 +77,15 @@ IsoBmffProcessor::~IsoBmffProcessor()
 	AAMPLOG_DEBUG("IsoBmffProcessor %s instance (%p) getting destroyed", IsoBmffProcessorTypeName[type], this);
 	clearInitSegment();
 	clearRestampInitSegment();
-	pthread_mutex_destroy(&m_mutex);
-	pthread_cond_destroy(&m_cond);
 }
 
 /**
  *  @brief Process and send ISOBMFF fragment
  */
-bool IsoBmffProcessor::sendSegment(AampGrowableBuffer* pBuffer,double position,double duration, bool discontinuous,
+bool IsoBmffProcessor::sendSegment(AampGrowableBuffer* pBuffer,double position,double duration, double fragmentPTSoffset, bool discontinuous,
 									bool isInit, process_fcn_t processor, bool &ptsError)
 {
-	AAMPLOG_INFO("IsoBmffProcessor %s sending segment at pos:%f dur:%f", IsoBmffProcessorTypeName[type], position, duration);
+	AAMPLOG_INFO("IsoBmffProcessor %s sending segment at pos:%f dur:%f fragmentPTSoffset: %.3f", IsoBmffProcessorTypeName[type], position, duration, fragmentPTSoffset);
 	bool ret = true;
 	ptsError = false;
 	if (!initSegmentProcessComplete)
@@ -103,12 +96,13 @@ bool IsoBmffProcessor::sendSegment(AampGrowableBuffer* pBuffer,double position,d
 	{
 		if(isRestampConfigEnabled && (playRate == AAMP_NORMAL_PLAY_RATE))
 		{
+			AAMPLOG_INFO("IsoBmffProcessor %s Restamping PTS", IsoBmffProcessorTypeName[type]);
 			restampPTSAndSendSegment(pBuffer,position,duration,discontinuous,isInit);
 		}
 		else
 		{
 			p_aamp->ProcessID3Metadata(pBuffer->GetPtr(), pBuffer->GetLen(), (AampMediaType)type);
-			sendStream(pBuffer,position,duration,discontinuous,isInit);
+			sendStream(pBuffer, position, duration, fragmentPTSoffset, discontinuous, isInit);
 		}
 	}
 	return true;
@@ -213,9 +207,9 @@ bool IsoBmffProcessor::setTuneTimePTS(AampGrowableBuffer *fragBuffer, double pos
 {
 	bool ret = true;
 
-	AAMPLOG_INFO("IsoBmffProcessor:: %s sending segment at pos:%f dur:%f, aborted:%d", IsoBmffProcessorTypeName[type], position, duration, aborted);
+	AAMPLOG_INFO("IsoBmffProcessor:: %s sending segment at pos:%f dur:%f aborted:%d", IsoBmffProcessorTypeName[type], position, duration, aborted);
 
-	pthread_mutex_lock(&m_mutex);
+	std::unique_lock<std::mutex> lock(m_mutex);
 	ret = !aborted;  // check the module is active
 
 	// Logic for Audio & Subtitle Track
@@ -227,7 +221,7 @@ bool IsoBmffProcessor::setTuneTimePTS(AampGrowableBuffer *fragBuffer, double pos
 			buffer.setBuffer((uint8_t *)fragBuffer->GetPtr(), fragBuffer->GetLen());
 			buffer.parseBuffer();
 
-			if (buffer.isInitSegment()) 
+			if (buffer.isInitSegment())
 			{
 				uint32_t tScale = 0;
 				if (buffer.getTimeScale(tScale))
@@ -246,7 +240,7 @@ bool IsoBmffProcessor::setTuneTimePTS(AampGrowableBuffer *fragBuffer, double pos
 				if (!processPTSComplete)
 				{
 					AAMPLOG_INFO("IsoBmffProcessor %s Going into wait for PTS processing to complete",  IsoBmffProcessorTypeName[type]);
-					pthread_cond_wait(&m_cond, &m_mutex);
+					m_cond.wait(lock);
 				}
 				if (aborted) // check there wasn't an abort during the wait
 				{
@@ -255,7 +249,7 @@ bool IsoBmffProcessor::setTuneTimePTS(AampGrowableBuffer *fragBuffer, double pos
 				}
 			}
 		}
-		
+
 		if (ret && !initSegmentProcessComplete)
 		{
 			if (processPTSComplete)
@@ -270,7 +264,7 @@ bool IsoBmffProcessor::setTuneTimePTS(AampGrowableBuffer *fragBuffer, double pos
 					// We have no cached init fragment, maybe audio download was delayed very much
 					// Push this fragment with calculated PTS
 					currTimeScale = timeScale;
-					sendStream(fragBuffer,pos,duration,discontinuous,isInit);
+					sendStream(fragBuffer,pos,duration, 0.0, discontinuous,isInit);
 					ret = false;
 				}
 				initSegmentProcessComplete = true;
@@ -343,9 +337,7 @@ bool IsoBmffProcessor::setTuneTimePTS(AampGrowableBuffer *fragBuffer, double pos
 					// For post processing, release mutex
 					// If AAMP override hack is enabled for this platform, then we need to pass the basePTS value to
 					// PrivateInstanceAAMP since PTS will be restamped in qtdemux. This ensures proper pts value is sent in progress event.
-
-					pthread_mutex_unlock(&m_mutex);
-
+					lock.unlock();
 					p_aamp->NotifyFirstVideoPTS(basePTS, timeScale);
 					if (type == eBMFFPROCESSOR_TYPE_VIDEO)
 					{
@@ -371,9 +363,7 @@ bool IsoBmffProcessor::setTuneTimePTS(AampGrowableBuffer *fragBuffer, double pos
 					}
 					// This is one-time operation
 					peerListeners.clear();
-
-					pthread_mutex_lock(&m_mutex);
-
+					lock.lock();
 					if (!aborted)
 					{
 						pushInitSegment(pos);
@@ -396,20 +386,17 @@ bool IsoBmffProcessor::setTuneTimePTS(AampGrowableBuffer *fragBuffer, double pos
 	}
 
 	ret = ret && !aborted;
-
-	pthread_mutex_unlock(&m_mutex);
-
 	return (ret);
 }
 
 /**
  *  @brief send stream based on media format
  */
-void IsoBmffProcessor::sendStream(AampGrowableBuffer *pBuffer,double position, double duration,bool discontinuous,bool isInit)
+void IsoBmffProcessor::sendStream(AampGrowableBuffer *pBuffer, double position, double duration, double fragmentPTSoffset, bool discontinuous, bool isInit)
 {
 	if(mediaFormat == eMEDIAFORMAT_DASH)
 	{
-		p_aamp->SendStreamTransfer((AampMediaType)type, pBuffer,position, position, duration, isInit, discontinuous);
+		p_aamp->SendStreamTransfer((AampMediaType)type, pBuffer,position, position, duration, fragmentPTSoffset, isInit, discontinuous);
 	}
 	else
 	{
@@ -449,7 +436,7 @@ void IsoBmffProcessor::restampPTSAndSendSegment(AampGrowableBuffer *pBuffer,doub
 
 				currTimeScale = timeScale;
 				p_aamp->ProcessID3Metadata(pBuffer->GetPtr(), pBuffer->GetLen(), (AampMediaType)type);
-				sendStream(pBuffer,position,duration,isDiscontinuity,isInit);
+				sendStream(pBuffer,position,duration, 0.0, isDiscontinuity, isInit);
 			}
 			/*check is current time scale same. If same then save the init fragment*/
 			else if ( currTimeScale == tScale && sumPTS != 0 && isDiscontinuity == false )
@@ -463,7 +450,7 @@ void IsoBmffProcessor::restampPTSAndSendSegment(AampGrowableBuffer *pBuffer,doub
 					already init fragment for  ad<->to<->content is cached,
 					however next fragment also init fragment due to ramping
 					down of profile(curl 28 error). Due to this audio pts is
-					not going to be in sync with video PTS and it will be  waiting 
+					not going to be in sync with video PTS and it will be  waiting
 					for ever for video pts leading to video only playback and then stall
 					Handling this case will slove mentioned issue
 					*/
@@ -588,16 +575,16 @@ void IsoBmffProcessor::restampPTSAndSendSegment(AampGrowableBuffer *pBuffer,doub
 			prevPTS = currentPTS;
 
 			sumPTS +=durationFromFragment;
-			
+
 			AAMPLOG_INFO("IsoBmffProcessor %s fragment restamp complete durationFromFragment = %" PRIu64 " currentPTS = %" PRIu64 ""
 							" restampedPTS = %" PRIu64 " sumPTS = %" PRIu64 " position = %.02lf newPos = %0.2lf", IsoBmffProcessorTypeName[type], durationFromFragment, currentPTS,
 							sumPTS-durationFromFragment, sumPTS, position, newPos);
 
 			p_aamp->ProcessID3Metadata(pBuffer->GetPtr(), pBuffer->GetLen(), (AampMediaType)type);
-			sendStream(pBuffer,newPos,duration,isDiscontinuity,isInit);
+			sendStream(pBuffer, newPos, duration, 0.0, isDiscontinuity, isInit);
 		}
 		prevPosition = position;
-		prevDuration = duration; 
+		prevDuration = duration;
 		if( -1 == nextPos || 0.0f == position || position > nextPos )
 			nextPos = position + duration;
 		else
@@ -683,7 +670,7 @@ uint64_t IsoBmffProcessor::handleSkipFragments( double skipPosition , skipTimeTy
 					}
 				}
 				if(isSkipPTS )
-					AAMPLOG_WARN("IsoBmffProcessor %s :mark for skipPTS for skipPosition: %lf durationToSkip: %lf remaining duration to skip: %lf %zu", IsoBmffProcessorTypeName[type], 
+					AAMPLOG_WARN("IsoBmffProcessor %s :mark for skipPTS for skipPosition: %lf durationToSkip: %lf remaining duration to skip: %lf %zu", IsoBmffProcessorTypeName[type],
 									skipPosition,sumOfSkipDuration, st.sumOfSkipDuration, st.skipPosToDurMap.size() );
 			}
 		}
@@ -820,7 +807,7 @@ bool IsoBmffProcessor::pushInitAndSetRestampPTSAsBasePTS(uint64_t pts)
 }
 
 /**
- * @brief 
+ * @brief
  * continue injecting on same time sacle
  */
 bool IsoBmffProcessor::continueInjectionInSameTimeScale(uint64_t pts)
@@ -828,7 +815,7 @@ bool IsoBmffProcessor::continueInjectionInSameTimeScale(uint64_t pts)
 	bool ret= true;
 	if( prevPTS != pts) /*PrevPTS is not equal to current pts indicates it is fresh fragment or ABR changed*/
 	{
-		AAMPLOG_INFO("IsoBmffProcessor %s pushing Init Fragment prevPTS: %" PRIu64 " currentPTS: %" PRIu64 " sumPTS: %" PRIu64 " sumInitSegments: %zu", 
+		AAMPLOG_INFO("IsoBmffProcessor %s pushing Init Fragment prevPTS: %" PRIu64 " currentPTS: %" PRIu64 " sumPTS: %" PRIu64 " sumInitSegments: %zu",
 						IsoBmffProcessorTypeName[type], prevPTS, pts, sumPTS, resetPTSInitSegment.size());
 		pushRestampInitSegment();
 	}
@@ -859,7 +846,7 @@ bool IsoBmffProcessor::scaleToNewTimeScale(uint64_t pts)
 		waitForVideoPTS();  //wait for video init to arrive
 		/*
 		BasePTS is derived from video timescale. There might be chances audio timescale is different.
-		always good to sync the basePTS for audio timescale as well to avoid surprises 
+		always good to sync the basePTS for audio timescale as well to avoid surprises
 		*/
 		//Now video and audio pts is in sync. push it
 		if(peerProcessor)
@@ -881,7 +868,7 @@ bool IsoBmffProcessor::scaleToNewTimeScale(uint64_t pts)
 		}
 		AAMPLOG_WARN("IsoBmffProcessor %s  startPos = %f sumPTS = %" PRIu64 " trackOffsetInSecs = %lf",
 						IsoBmffProcessorTypeName[type], startPos, sumPTS, trackOffsetInSecs);
-		
+
 
 		pushInitSegment(startPos);
 		basePTS = sumPTS;
@@ -1029,13 +1016,12 @@ void IsoBmffProcessor::updateSkipPoint(double skipPoint, double skipDuration )
  */
 void IsoBmffProcessor::waitForVideoPTS()
 {
-	pthread_mutex_lock(&m_mutex);
+	std::unique_lock<std::mutex> lock(m_mutex);
 	if( !scalingOfPTSComplete)
 	{
 		AAMPLOG_WARN("IsoBmffProcessor %s going in wait untill video PTS is ready", IsoBmffProcessorTypeName[type]);
-		pthread_cond_wait(&m_cond, &m_mutex);
+		m_cond.wait(lock);
 	}
-	pthread_mutex_unlock(&m_mutex);
 	AAMPLOG_WARN("IsoBmffProcessor %s Wait complete", IsoBmffProcessorTypeName[type]);
 }
 
@@ -1044,10 +1030,9 @@ void IsoBmffProcessor::waitForVideoPTS()
  */
 void IsoBmffProcessor::abortWaitForVideoPTS()
 {
-	pthread_mutex_lock(&m_mutex);
+	std::unique_lock<std::mutex> lock(m_mutex);
 	AAMPLOG_WARN("IsoBmffProcessor %s unblocking PTS restamp", IsoBmffProcessorTypeName[type]);
-	pthread_cond_signal(&m_cond);
-	pthread_mutex_unlock(&m_mutex);
+	m_cond.notify_one();
 	AAMPLOG_WARN("IsoBmffProcessor %s unblock complete", IsoBmffProcessorTypeName[type]);
 }
 
@@ -1059,9 +1044,10 @@ void IsoBmffProcessor::abortWaitForVideoPTS()
 void IsoBmffProcessor::reset()
 {
 	AAMPLOG_MIL(" %s IsoBmffProcessor::reset() called ", IsoBmffProcessorTypeName[type]);
-	pthread_mutex_lock(&m_mutex);
-	aborted = false;
-	pthread_mutex_unlock(&m_mutex);
+	{
+		std::lock_guard<std::mutex> guard(m_mutex);
+		aborted = false;
+	}
 	// reset variables that might have been set due to race conditions
 	resetInternal();
 }
@@ -1072,10 +1058,11 @@ void IsoBmffProcessor::reset()
 void IsoBmffProcessor::abort()
 {
 	AAMPLOG_WARN(" %s IsoBmffProcessor::abort() called ", IsoBmffProcessorTypeName[type]);
-	pthread_mutex_lock(&m_mutex);
-	aborted = true;
-	pthread_cond_signal(&m_cond);
-	pthread_mutex_unlock(&m_mutex);
+	{
+		std::unique_lock<std::mutex> lock(m_mutex);
+		aborted = true;
+		m_cond.notify_one();
+	}
 	resetInternal();
 }
 
@@ -1096,9 +1083,8 @@ void IsoBmffProcessor::internalResetRestampVariables()
  */
 void IsoBmffProcessor::resetRestampVariables()
 {
-	pthread_mutex_lock(&m_mutex);
+	std::lock_guard<std::mutex> guard(m_mutex);
 	internalResetRestampVariables();
-	pthread_mutex_unlock(&m_mutex);
 }
 
 /**
@@ -1106,13 +1092,12 @@ void IsoBmffProcessor::resetRestampVariables()
  */
 void IsoBmffProcessor::resetInternal()
 {
-	pthread_mutex_lock(&m_mutex);
+	std::lock_guard<std::mutex> guard(m_mutex);
 	internalResetRestampVariables();
 	basePTS = 0;
 	timeScale = 0;
 	processPTSComplete = false;
 	initSegmentProcessComplete = false;
-	pthread_mutex_unlock(&m_mutex);
 }
 
 /**
@@ -1129,24 +1114,22 @@ void IsoBmffProcessor::setRate(double rate, PlayMode mode)
 void IsoBmffProcessor::setBasePTS(uint64_t pts, uint32_t tScale)
 {
 	AAMPLOG_WARN("[%s] Base PTS (%" PRIu64 ") and TimeScale (%u) set",  IsoBmffProcessorTypeName[type], pts, tScale);
-	pthread_mutex_lock(&m_mutex);
+	std::lock_guard<std::mutex> guard(m_mutex);
 	basePTS = pts;
 	timeScale = tScale;
 	processPTSComplete = true;
-	pthread_cond_signal(&m_cond);
-	pthread_mutex_unlock(&m_mutex);
+	m_cond.notify_one();
 }
 
 std::pair<uint64_t, bool> IsoBmffProcessor::GetBasePTS()
 {
 	std::pair<uint64_t, bool> ret{0, false};
-	pthread_mutex_lock(&m_mutex);
+	std::lock_guard<std::mutex> guard(m_mutex);
 	if (processPTSComplete)
 	{
 		ret.first = basePTS;
 		ret.second = true;
 	}
-	pthread_mutex_unlock(&m_mutex);
 	return ret;
 }
 
@@ -1156,10 +1139,9 @@ std::pair<uint64_t, bool> IsoBmffProcessor::GetBasePTS()
 void IsoBmffProcessor::abortInjectionWait()
 {
 	AAMPLOG_WARN("[%s] Aborting wait for injection", IsoBmffProcessorTypeName[type]);
-	pthread_mutex_lock(&m_mutex);
+	std::lock_guard<std::mutex> guard(m_mutex);
 	processPTSComplete = true;
-	pthread_cond_signal(&m_cond);
-	pthread_mutex_unlock(&m_mutex);
+	m_cond.notify_one();
 }
 
 /**
@@ -1168,11 +1150,10 @@ void IsoBmffProcessor::abortInjectionWait()
 void IsoBmffProcessor::setRestampBasePTS(uint64_t pts)
 {
 	AAMPLOG_WARN("[%s] Base PTS (%" PRIu64 ") ",  IsoBmffProcessorTypeName[type], pts);
-	pthread_mutex_lock(&m_mutex);
+	std::lock_guard<std::mutex> guard(m_mutex);
 	basePTS = pts;
 	scalingOfPTSComplete = true;
-	pthread_cond_signal(&m_cond);
-	pthread_mutex_unlock(&m_mutex);
+	m_cond.notify_one();
 }
 
 /**
@@ -1216,7 +1197,7 @@ void IsoBmffProcessor::pushRestampInitSegment()
 		for (auto it = resetPTSInitSegment.begin(); it != resetPTSInitSegment.end();)
 		{
 			stInitRestampSegment *Pst = *it;
-			sendStream(Pst->buffer, Pst->position, Pst->duration,Pst->isDiscontinuity,true);
+			sendStream(Pst->buffer, Pst->position, Pst->duration, 0.0, Pst->isDiscontinuity, true);
 			SAFE_DELETE(Pst->buffer);
 			SAFE_DELETE(Pst);
 			it = resetPTSInitSegment.erase(it);
@@ -1241,7 +1222,7 @@ void IsoBmffProcessor::pushInitSegment(double position)
 		for (auto it = initSegment.begin(); it != initSegment.end();)
 		{
 			AampGrowableBuffer *buf = *it;
-			p_aamp->SendStreamTransfer((AampMediaType)type, buf, position, position, 0, true);
+			p_aamp->SendStreamTransfer((AampMediaType)type, buf, position, position, 0, 0.0, true);
 			SAFE_DELETE(buf);
 			it = initSegment.erase(it);
 		}

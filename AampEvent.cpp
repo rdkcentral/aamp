@@ -810,7 +810,7 @@ const std::string &BulkTimedMetadataEvent::getContent() const
 /**
  * @brief StateChangedEvent Constructor
  */
-StateChangedEvent::StateChangedEvent(PrivAAMPState state, std::string sid):
+StateChangedEvent::StateChangedEvent(AAMPPlayerState state, std::string sid):
 		AAMPEventObject(AAMP_EVENT_STATE_CHANGED, std::move(sid)), mState(state)
 {
 
@@ -821,7 +821,7 @@ StateChangedEvent::StateChangedEvent(PrivAAMPState state, std::string sid):
  *
  * @return Player state
  */
-PrivAAMPState StateChangedEvent::getState() const
+AAMPPlayerState StateChangedEvent::getState() const
 {
 	return mState;
 }
@@ -1408,7 +1408,7 @@ ID3MetadataEvent::ID3MetadataEvent(const std::vector<uint8_t> &metadata, const s
 }
 
 /**
- * @brief Get ID3 metdata
+ * @brief Get ID3 metadata
  *
  * @return ID3 metadata content
  */
@@ -1418,7 +1418,7 @@ const std::vector<uint8_t> &ID3MetadataEvent::getMetadata() const
 }
 
 /**
- * @brief Get ID3 metdata size
+ * @brief Get ID3 metadata size
  *
  * @return ID3 metadata size
  */

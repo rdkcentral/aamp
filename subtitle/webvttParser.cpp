@@ -29,6 +29,8 @@
 #include <cctype>
 #include <algorithm>
 #include "webvttParser.h"
+#include "AampLogManager.h"
+#include "AampUtils.h"
 
 //Macros
 #define CHAR_CARRIAGE_RETURN    '\r'
@@ -92,51 +94,6 @@ static char * findWebVTTLineBreak(char *buffer)
 	return next;
 }
 
-
-/***************************************************************************
-* @fn convertHHMMSSToTime
-* @brief Function to convert time in HH:MM:SS.MS format to milliseconds
-* 
-* @param str[in] time in HH:MM:SS.MS format
-* @return long long equivalent time in milliseconds
-***************************************************************************/
-static long long convertHHMMSSToTime(char *str)
-{
-	long long timeValueMs = 0;
-	//HH:MM:SS.MS
-	char *args[4] = { str, NULL, NULL, NULL };
-	int argCount = 1;
-	while(*(++str) != '\0' && argCount < 4)
-	{
-		if(*str == ':' || *str == '.')
-		{
-			args[argCount++] = (str + 1);
-			*str = '\0';
-		}
-	}
-
-	if (argCount == 1)
-	{
-		AAMPLOG_ERR("Unsupported value received!");
-	}
-	//HH:MM:SS.MS
-	else
-	{
-		timeValueMs = atoll(args[--argCount]);
-		int multiplier = 1;
-		while (argCount > 0)
-		{
-			timeValueMs += (atoll(args[--argCount]) * multiplier * 1000);
-			if (argCount > 0)
-			{
-				multiplier *= 60;
-			}
-		}
-	}
-	return timeValueMs;
-}
-
-
 /***************************************************************************
  * @fn SendVttCueToExt
  * @brief Timer's callback to send WebVTT cues to external app
@@ -160,12 +117,11 @@ static gboolean SendVttCueToExt(gpointer user_data)
 * @param type[in] VTT data type
 * @return void
 ***************************************************************************/
-WebVTTParser::WebVTTParser(PrivateInstanceAAMP *aamp, SubtitleMimeType type) : SubtitleParser(aamp, type),
+WebVTTParser::WebVTTParser(SubtitleMimeType type, int width, int height) : SubtitleParser(type, width, height),
 	mStartPTS(0), mCurrentPos(0), mStartPos(0), mPtsOffset(0),
 	mReset(true), mVttQueue(), mVttQueueIdleTaskId(0), mVttQueueMutex(), lastCue(),
 	mProgressOffset(0)
 {
-	pthread_mutex_init(&mVttQueueMutex, NULL);
 	lastCue = { 0, 0 };
 }
 
@@ -179,7 +135,6 @@ WebVTTParser::WebVTTParser(PrivateInstanceAAMP *aamp, SubtitleMimeType type) : S
 WebVTTParser::~WebVTTParser()
 {
 	close();
-	pthread_mutex_destroy(&mVttQueueMutex);
 }
 
 
@@ -203,7 +158,10 @@ bool WebVTTParser::init(double startPosSeconds, unsigned long long basePTS)
 
 	AAMPLOG_WARN("WebVTTParser::startPos:%.3f and mStartPTS:%lld", startPosSeconds, mStartPTS);
 	//We are ready to receive data, unblock in PrivateInstanceAAMP
-	mAamp->ResumeTrackDownloads(eMEDIATYPE_SUBTITLE);
+	if(playerResumeTrackDownloads_CB)
+	{
+		playerResumeTrackDownloads_CB();
+	}
 	return ret;
 }
 
@@ -218,8 +176,9 @@ bool WebVTTParser::init(double startPosSeconds, unsigned long long basePTS)
 * @param duration[in] duration of buffer
 * @return bool true if successful, false otherwise
 ***************************************************************************/
-bool WebVTTParser::processData(char* buffer, size_t bufferLen, double position, double duration)
+bool WebVTTParser::processData(const char* cBuffer, size_t bufferLen, double position, double duration)
 {
+	char *buffer = (char *)cBuffer;
 	bool ret = false;
 
 	AAMPLOG_TRACE("WebVTTParser::Enter with position:%.3f and duration:%.3f ", position, duration);
@@ -426,7 +385,7 @@ bool WebVTTParser::close()
                 mVttQueueIdleTaskId = 0;
 	}
 
-	pthread_mutex_lock(&mVttQueueMutex);
+	std::lock_guard<std::mutex> guard(mVttQueueMutex);
 	if (!mVttQueue.empty())
 	{
 		while(mVttQueue.size() > 0)
@@ -436,7 +395,6 @@ bool WebVTTParser::close()
 			SAFE_DELETE(cue);
 		}
 	}
-	pthread_mutex_unlock(&mVttQueueMutex);
 
 	lastCue.mStart = 0;
 	lastCue.mDuration = 0;
@@ -460,7 +418,10 @@ void WebVTTParser::reset()
 	//Avoid calling stop injection if the first buffer is discontinuous
 	if (!mReset)
 	{
-		mAamp->StopTrackDownloads(eMEDIATYPE_SUBTITLE);
+		if(playerStopTrackDownloads_CB)
+		{
+			playerStopTrackDownloads_CB();
+		}
 	}
 	mPtsOffset = 0;
 	mStartPTS = 0;
@@ -480,9 +441,8 @@ void WebVTTParser::addCueData(VTTCue *cue)
 {
 	if (lastCue.mStart != cue->mStart || lastCue.mDuration != cue->mDuration)
 	{
-		pthread_mutex_lock(&mVttQueueMutex);
+		std::lock_guard<std::mutex> guard(mVttQueueMutex);
 		mVttQueue.push(cue);
-		pthread_mutex_unlock(&mVttQueueMutex);
 		lastCue.mStart = cue->mStart;
 		lastCue.mDuration = cue->mDuration;
 	}
@@ -501,7 +461,7 @@ void WebVTTParser::addCueData(VTTCue *cue)
 ***************************************************************************/
 void WebVTTParser::sendCueData()
 {
-	pthread_mutex_lock(&mVttQueueMutex);
+	std::lock_guard<std::mutex> guard(mVttQueueMutex);
 	if (!mVttQueue.empty())
 	{
 		while(mVttQueue.size() > 0)
@@ -510,7 +470,10 @@ void WebVTTParser::sendCueData()
 			mVttQueue.pop();
 			if (cue->mStart > 0)
 			{
-				mAamp->SendVTTCueDataAsEvent(cue);
+				if(playerSendVTTCueData_CB)
+				{
+					playerSendVTTCueData_CB(cue);
+				}
 			}
 			else
 			{
@@ -519,7 +482,6 @@ void WebVTTParser::sendCueData()
 			SAFE_DELETE(cue);
 		}
 	}
-	pthread_mutex_unlock(&mVttQueueMutex);
 }
 
 /**

@@ -28,8 +28,8 @@
 #include "isobmffbuffer.h"
 #include "mediaprocessor.h"
 #include "priv_aamp.h"
-
-#include <pthread.h>
+#include <condition_variable>
+#include <mutex>
 
 /**
  * @enum IsoBmffProcessorType
@@ -157,19 +157,30 @@ public:
 	 * @return void
 	 */
 	void resetPTSOnAudioSwitch(AampGrowableBuffer *pBuffer, double position) override;
+
+	double getFirstPts( AampGrowableBuffer* pBuffer ) override
+	{
+		return 0;
+	}
+
+	void setPtsOffset( double ptsOffset ) override
+	{
+	}
+
 	/**
 	 * @fn sendSegment
 	 *
 	 * @param[in] pBuffer - Pointer to the AampGrowableBuffer
 	 * @param[in] position - position of fragment
 	 * @param[in] duration - duration of fragment
+	 * @param[in] fragmentPTSoffset - offset PTS value
 	 * @param[in] discontinuous - true if discontinuous fragment
 	 * @param[in] isInit - flag for buffer type (init, data)
 	 * @param[in] processor - Function to use for processing the fragments (only used by HLS/TS)
 	 * @param[out] ptsError - flag indicates if any PTS error occurred
 	 * @return true if fragment was sent, false otherwise
 	 */
-	bool sendSegment(AampGrowableBuffer* pBuffer, double position, double duration, bool discontinuous,
+	bool sendSegment(AampGrowableBuffer* pBuffer, double position, double duration, double fragmentPTSoffset, bool discontinuous,
 						bool isInit,process_fcn_t processor, bool &ptsError) override;
 
 	/**
@@ -262,14 +273,14 @@ public:
 	* @param[in] offset offset value in seconds
 	*/
 	void setTrackOffset(double offset) override { trackOffsetInSecs = offset; }
-	
+
 	/**
 	 * @brief Set peer subtitle instance of IsoBmffProcessor
 	 *
 	 * @param[in] processor - peer instance
 	 */
 	void setPeerSubtitleProcessor(IsoBmffProcessor *processor);
-	
+
 	/**
 	* @brief Function to add peer listener to a media processor
 	* These listeners will be notified when the basePTS processing is complete
@@ -290,11 +301,12 @@ private:
 	 * @param[in] pBuffer - Pointer to the AampGrowableBuffer
 	 * @param[in] position - position of fragment
 	 * @param[in] duration - duration of fragment
+	 * @param[in] fragmentPTSoffset - offset PTS value
 	 * @param[in] discontinuous - true if discontinuous fragment
 	 * @param[in] isInit - flag for buffer type (init, data)
 	 * @return void
 	 */
-	void sendStream(AampGrowableBuffer *pBuffer,double position, double duration,bool discontinuous,bool isInit);
+	void sendStream(AampGrowableBuffer *pBuffer,double position, double duration, double fragmentPTSoffset, bool discontinuous, bool isInit);
 
 	/**
 	 * @brief Set peer instance of IsoBmffProcessor
@@ -402,7 +414,7 @@ private:
 	 * @return true if init push is success, false otherwise
 	 */
 	bool continueInjectionInSameTimeScale(uint64_t pts);
-	
+
 	/**
 	 * @fn waitForVideoPTS
 	 *
@@ -504,10 +516,9 @@ private:
 	std::mutex initSegmentTransferMutex;
 	std::mutex skipMutex;
 	skipTypeMap skipPointMap;
-	
-	pthread_mutex_t m_mutex;
-	pthread_cond_t m_cond;
+
+	std::mutex m_mutex;
+	std::condition_variable m_cond;
 };
 
 #endif /* __ISOBMFFPROCESSOR_H__ */
-

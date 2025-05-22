@@ -33,7 +33,7 @@
 #include "gstaamp.h"
 #include "main_aamp.h"
 #include "priv_aamp.h"
-#include "AampGstUtils.h"
+#include "middleware/GstUtils.h"
 
 GST_DEBUG_CATEGORY_STATIC (gst_aamp_debug_category);
 #define GST_CAT_DEFAULT gst_aamp_debug_category
@@ -78,14 +78,6 @@ static gboolean gst_aamp_src_query(GstPad * pad, GstObject *parent, GstQuery * q
 
 static void gst_aamp_configure(GstAamp * aamp, StreamOutputFormat format, StreamOutputFormat audioFormat);
 static gboolean gst_aamp_ready(GstAamp *aamp);
-
-#ifdef AAMP_JSCONTROLLER_ENABLED
-extern "C"
-{
-	void setAAMPPlayerInstance(PlayerInstanceAAMP *, int);
-	void unsetAAMPPlayerInstance(PlayerInstanceAAMP *);
-}
-#endif
 
 /**
  * @enum GstAampProperties
@@ -330,16 +322,17 @@ private:
 	 * @param[in] fpts PTS of buffer (in sec)
 	 * @param[in] fdts DTS of buffer (in sec)
 	 * @param[in] fDuration duration of buffer (in sec)
+	 * @param[in] ptsOffset offset to be added to PTS/DTS
 	 * @param[in] copy to map or transfer the buffer
 	 */
-	bool SendHelper(AampMediaType mediaType, const void *ptr, size_t len, double fpts, double fdts, double fDuration, bool copy)
+	bool SendHelper(AampMediaType mediaType, const void *ptr, size_t len, double fpts, double fdts, double fDuration, double ptsOffset, bool copy)
 	{
 		const char* mediaTypeStr = (mediaType == eMEDIATYPE_AUDIO) ? "AUDIO" : "VIDEO";
 		media_stream* stream = &aamp->stream[mediaType];
 		gboolean discontinuity = FALSE;
 		bool bPushBuffer = true;
 
-		GST_DEBUG_OBJECT(aamp, "%s:%d MediaType(%s) len(%lu), fpts(%lf), fdts(%lf), fDuration(%lf)\n", __FUNCTION__, __LINE__, mediaTypeStr, len, fpts, fdts, fDuration);
+		GST_DEBUG_OBJECT(aamp, "%s:%d MediaType(%s) len(%lu), fpts(%lf), fdts(%lf), fDuration(%lf), ptsOffset(%lf)\n", __FUNCTION__, __LINE__, mediaTypeStr, len, fpts, fdts, fDuration, ptsOffset);
 
 #ifdef AAMP_DISCARD_AUDIO_TRACK
 		if (mediaType == eMEDIATYPE_AUDIO)
@@ -542,6 +535,9 @@ public:
 			gst_aamp_stream_add_item(stream, event);
 			stream->resetPosition = FALSE;
 		}
+
+
+
 		stream->eventsPending = FALSE;
 	}
 
@@ -557,7 +553,7 @@ public:
 	 */
 	bool SendCopy(AampMediaType mediaType, const void *ptr, size_t len0, double fpts, double fdts, double fDuration)
 	{
-		return SendHelper(mediaType, ptr, len0, fpts, fdts, fDuration, true /*copy*/);
+		return SendHelper(mediaType, ptr, len0, fpts, fdts, fDuration, 0.0, true /*copy*/);
 	}
 
 	/**
@@ -567,12 +563,13 @@ public:
 	 * @param[in] fpts PTS of buffer (in sec)
 	 * @param[in] fdts DTS of buffer (in sec)
 	 * @param[in] fDuration duration of buffer (in sec)
+	 * @param[in] ptsOffset offset to be added to PTS/DTS
 	 * @param[in] initFragment flag to indicate init header
 	 * @note Ownership of pBuffer is transferred
 	 */
-	bool SendTransfer(AampMediaType mediaType, void *ptr, size_t len, double fpts, double fdts, double fDuration, bool initFragment = false, bool discontinuity = false)
+	bool SendTransfer(AampMediaType mediaType, void *ptr, size_t len, double fpts, double fdts, double fDuration, double ptsOffset, bool initFragment = false, bool discontinuity = false)
 	{
-		return SendHelper(mediaType, ptr, len, fpts, fdts, fDuration, false /*transfer*/);
+		return SendHelper(mediaType, ptr, len, fpts, fdts, fDuration, ptsOffset, false /*transfer*/);
 	}
 
 	/**
@@ -885,7 +882,7 @@ static void gst_aamp_configure(GstAamp * aamp, StreamOutputFormat format, Stream
 		}
 	}
 
-	caps = GetGstCaps(format, (PlatformType)aamp->player_aamp->aamp->GetPlatformType());
+	caps = GetCaps((GstStreamOutputFormat)format);
 
 	if (caps)
 	{
@@ -913,7 +910,7 @@ static void gst_aamp_configure(GstAamp * aamp, StreamOutputFormat format, Stream
 		return;
 	}
 
-	caps = GetGstCaps(audioFormat, (PlatformType)aamp->player_aamp->aamp->GetPlatformType());
+	caps = GetCaps((GstStreamOutputFormat)audioFormat);
 	if (caps)
 	{
 		media_stream* audio = &aamp->stream[eMEDIATYPE_AUDIO];
@@ -1280,20 +1277,6 @@ static GstStateChangeReturn gst_aamp_change_state(GstElement * element, GstState
 			{
 				return GST_STATE_CHANGE_FAILURE;
 			}
-#ifdef AAMP_JSCONTROLLER_ENABLED
-			{
-				int sessionId = 0;
-				if (aamp->location)
-				{
-					char *sessionValue = strstr(aamp->location, "?sessionId=");
-					if (sessionValue != NULL)
-					{
-						sscanf(sessionValue + 1, "sessionId=%d", &sessionId);
-					}
-				}
-				setAAMPPlayerInstance(aamp->player_aamp, sessionId);
-			}
-#endif
 			gst_aamp_tune_async( aamp);
 			aamp->report_tune = TRUE;
 			aamp->report_decode_handle = TRUE;
@@ -1390,9 +1373,6 @@ static GstStateChangeReturn gst_aamp_change_state(GstElement * element, GstState
 		case GST_STATE_CHANGE_READY_TO_NULL:
 			GST_DEBUG_OBJECT(aamp, "GST_STATE_CHANGE_READY_TO_NULL");
 			aamp->player_aamp->RegisterEvents(NULL);
-#ifdef AAMP_JSCONTROLLER_ENABLED
-			unsetAAMPPlayerInstance(aamp->player_aamp);
-#endif
 			break;
 		case GST_STATE_CHANGE_NULL_TO_READY:
 			if (!gst_aamp_configured(aamp))

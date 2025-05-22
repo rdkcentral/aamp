@@ -21,7 +21,6 @@
  * @file AampCacheHandler.h
  * @brief Cache handler for AAMP
  */
- 
 #ifndef __AAMP_CACHE_HANDLER_H__
 #define __AAMP_CACHE_HANDLER_H__
 
@@ -30,77 +29,272 @@
 #include <unordered_map>
 #include <exception>
 #include "priv_aamp.h"
+#include <mutex>
+#include <condition_variable>
 
 #define PLAYLIST_CACHE_SIZE_UNLIMITED -1
 
 /**
- * @brief PlayListCachedData structure to store playlist data
+ * @brief AampCacheData to cache Initialization Fragments, HLS main manifest, and HLS VOD playlists
+ *
+ * For DASH playback, this module is not involved.  Instead AampMPDDownloader handles caching the static VOD DASH manifest..
+ * Caches are cleared upon exiting from aamp player or by an async thread that automatically purges after ~10 seconds of no active playback.
  */
-typedef struct playlistcacheddata{
-	std::string mEffectiveUrl;
-	AampGrowableBuffer* mCachedBuffer;
-	AampMediaType mMediaType;
-	bool mDuplicateEntry;
-
-	playlistcacheddata() : mEffectiveUrl(""), mCachedBuffer(NULL), mMediaType(eMEDIATYPE_DEFAULT),mDuplicateEntry(false)
-	{
-	}
-
-	playlistcacheddata(const playlistcacheddata& p) : mEffectiveUrl(p.mEffectiveUrl), mCachedBuffer(p.mCachedBuffer), mMediaType(p.mMediaType),mDuplicateEntry(p.mDuplicateEntry)
-	{
-		mCachedBuffer = p.mCachedBuffer;
-		mCachedBuffer->Replace( p.mCachedBuffer );
-	}
-
-	playlistcacheddata& operator=(const playlistcacheddata &p)
-	{
-		mEffectiveUrl = p.mEffectiveUrl;
-		mCachedBuffer = p.mCachedBuffer;
-		mMediaType = p.mMediaType;
-		mDuplicateEntry = p.mDuplicateEntry;
-		return *this;
-	}
-
-}PlayListCachedData;
-
-/**
- * @brief InitFragCacheStruct to store Init Fragment data
- * Init fragment cache mechanism
- * All types (VID/AUD/SUB/AUX) of Init Fragment maintained in a single Cache Table,
- * and these fragment's url are stored in a Track Queue corresponding to file type.
- * This queue will be used to count fragments inserted, to remove entry in FIFO order
- * upon exceeding limit with respect to file type.
- * Eg:
- * TrackQ[VID]={"http://sample_domain/vid_qual1.init"}	   umCacheTable={{"http://sample_domain/vid_qual1.init"}, VidUrlData1}
- *             {"http://sample_domain/vid_qual2.init"}					{{"http://sample_domain/vid_qual1.init_redirect"}, VidUrlData1}
- * 			   {"http://sample_domain/vid_qual3.init"}					{{"http://sample_domain/aud_qual1.init"}, AudUrlData1}
- * TrackQ[AUD]={"http://sample_domain/aud_qual1.init"}					{{"http://sample_domain/vid_qual2.init"}, VidUrlData2}
- *             {"http://sample_domain/aud_qual2.init"}					{{"http://sample_domain/aud_qual1.init_redirect"}, AudUrlData1}
- * 			   {"http://sample_domain/aud_qual3.init"}					{{"http://sample_domain/aud_qual3.init"}, AudUrlData3}
- * 																		{{"http://sample_domain/aud_qual2.init"}, AudUrlData2}
- * 																		{{"http://sample_domain/vid_qual2.init_redirect"}, VidUrlData2}
- * 																		{{"http://sample_domain/vid_qual3.init"}, VidUrlData3}
- * 																		{{"http://sample_domain/aud_qual2.init_redirect"}, AudUrlData2}
- * Track queue will not maintain duplicate entry of cache table, so we can have maximum of different init fragments in cache table.
- * As per above eg, TrackQ[VID] size is 3, but cache table has 5 including effective url entry. If we maintain effective url entry
- * in cache queue, we will have only 3 init fragments in diff quality.
- * If cache table reaches max no of cache per track, we remove both main entry and dup entry if present, in FIFO order.
- * 
- * Fragment cache & track queue will be cleared upon exiting from aamp player or from async clear thread.
- */
-typedef struct playlistcacheddata InitFragCacheStruct;
-
-/**
- * @brief initfragtrackstruct to store init fragment url per media track in FIFO Queue.
- */
-typedef struct initfragtrackstruct
+class AampCachedData
 {
-	std::queue<std::string> trackQueue;
+public:
+	std::string effectiveUrl;
+	AampGrowableBuffer* buffer;
+	AampMediaType mediaType;
+	long seqNo;
 
-	initfragtrackstruct() : trackQueue()
+	~AampCachedData(){};
+
+	/**
+	 * @brief representation for a cache entry
+	 *
+	 * @param effectiveUrl if equal to url (primary key for cache), this is a self contained entry with no alternate effectiveUrl alias;
+	 * if empty, this is a mirrored entry for the corresponding effectiveUrl, sharing storage with main entry;
+	 * if populated and not same as url, this is main cache entry, with effectiveUrl also present in cache as an alias
+	 *
+	 * @param buffer data payload associated with cache entry (initialization fragment or playlist)
+	 * @param mediaType type of cache entry
+	 * @param seqNo bigger for more recent usage; used to drive LRU purging heuristic
+	 */
+	AampCachedData( const std::string &effectiveUrl, AampGrowableBuffer *buffer, AampMediaType mediaType ) : effectiveUrl(effectiveUrl), buffer(buffer), mediaType(mediaType), seqNo()
 	{
 	}
-}InitFragTrackStruct;
+};
+
+typedef enum
+{
+	eCACHE_TYPE_INIT_FRAGMENT,
+	eCACHE_TYPE_PLAYLIST
+} AampCacheType;
+
+class AampCache
+{
+private:
+	AampCacheType cacheType;
+	size_t totalCachedBytes;
+	long seqNo;
+
+	/**
+	 *   @fn allocatePlaylistCacheSlot
+	 *   @param[in] mediaType type of playlist caller wants to add to cache
+	 *   @param[in] targetCacheSize  threshold (bytes) for needed cache size reduction
+	 *
+	 *   @return bool Success or Failure
+	 */
+	void reduceCacheSize( AampMediaType mediaType, size_t targetCacheSize )
+	{
+		// First pass - remove playlists only of specific type
+		auto iter = cache.begin();
+		AAMPLOG_WARN( "removing %s playlists from cache", GetMediaTypeName(mediaType) );
+		while(iter != cache.end())
+		{
+			AampCachedData *cachedData = iter->second;
+			if(cachedData->mediaType == eMEDIATYPE_MANIFEST || cachedData->mediaType != mediaType)
+			{ // leave main manifest and alternate playlist types
+				iter++;
+			}
+			else
+			{
+				if( !cachedData->effectiveUrl.empty() )
+				{ // not alias; reclaim space
+					totalCachedBytes -= cachedData->buffer->GetLen();
+					SAFE_DELETE(cachedData->buffer);
+				}
+				SAFE_DELETE(cachedData);
+				iter = cache.erase(iter);
+			}
+		}
+		
+		//Second Pass - if more reduction needed, remove other playlist types, too
+		if( totalCachedBytes <= targetCacheSize )
+		{
+			AAMPLOG_WARN( "removing ALL playlists from cache" );
+			iter = cache.begin();
+			while(iter != cache.end())
+			{
+				AampCachedData *cachedData = iter->second;
+				if( cachedData->mediaType == eMEDIATYPE_MANIFEST )
+				{ // leave main manifest
+					iter++;
+				}
+				else
+				{
+					if( !cachedData->effectiveUrl.empty() )
+					{
+						totalCachedBytes -= cachedData->buffer->GetLen();
+						SAFE_DELETE(cachedData->buffer);
+					}
+					SAFE_DELETE(cachedData);
+					iter = cache.erase(iter);
+				}
+			}
+		}
+	}
+	
+	bool makeRoomForPlaylist( AampMediaType mediaType, size_t bytesNeeded )
+	{
+		bool ok = true;
+		if( mediaType==eMEDIATYPE_MANIFEST )
+		{ // flush and old playlist files (associated with different manifest)
+			Clear();
+		}
+		else if( maxPlaylistCacheBytes != PLAYLIST_CACHE_SIZE_UNLIMITED )
+		{ // cache size constraint to be enforced
+			if( totalCachedBytes+bytesNeeded > maxPlaylistCacheBytes  )
+			{
+				reduceCacheSize( mediaType, maxPlaylistCacheBytes - bytesNeeded );
+				ok = totalCachedBytes+bytesNeeded <= maxPlaylistCacheBytes;
+			}
+		}
+		return ok;
+	}
+	
+	bool makeRoomForInitFragment( AampMediaType mediaType )
+	{
+		int count = 0;
+		std::unordered_map<std::string, AampCachedData *>::iterator lru = cache.end();
+		auto iter = cache.begin();
+		while( iter != cache.end() )
+		{
+			AampCachedData *cachedData = iter->second;
+			if(cachedData->mediaType == mediaType && !cachedData->effectiveUrl.empty() )
+			{
+				if( lru==cache.end() || cachedData->seqNo < lru->second->seqNo )
+				{
+					lru = iter;
+				}
+				count++;
+			}
+			iter++;
+		}
+		if( count >= maxCachedInitFragmentsPerTrack )
+		{
+			AAMPLOG_WARN( "removing entry from %s init fragment cache", GetMediaTypeName(mediaType) );
+			Remove( lru->first );
+		}
+		return true; // success
+	}
+
+	
+public:
+	int maxCachedInitFragmentsPerTrack;
+	int maxPlaylistCacheBytes;
+	std::unordered_map<std::string, AampCachedData *> cache;
+	
+	AampCache()
+	{
+	}
+	
+	AampCache( AampCacheType cacheType ) : cacheType(cacheType), cache(), totalCachedBytes(), maxPlaylistCacheBytes(MAX_PLAYLIST_CACHE_SIZE*1024), maxCachedInitFragmentsPerTrack(MAX_INIT_FRAGMENT_CACHE_PER_TRACK), seqNo()
+	{
+	}
+	
+	~AampCache()
+	{
+	}
+	
+public:
+	void Insert( const std::string &url, const AampGrowableBuffer* buffer, const std::string &effectiveUrl, AampMediaType mediaType )
+	{
+		if( buffer->GetLen()==0 )
+		{
+			AAMPLOG_ERR( "empty buffer" );
+		}
+		else if( Find(url) )
+		{ // should never happen - caller has no business downloading if already cached
+			AAMPLOG_ERR("%s %s already cached", GetMediaTypeName(mediaType), url.c_str());
+		}
+		else
+		{
+			bool ok = false;
+			switch( cacheType )
+			{
+				case eCACHE_TYPE_INIT_FRAGMENT:
+					ok = makeRoomForInitFragment( mediaType );
+					break;
+				case eCACHE_TYPE_PLAYLIST:
+					ok = makeRoomForPlaylist( mediaType, buffer->GetLen() );
+					break;
+				default:
+					break;
+			}
+			if( ok )
+			{
+				size_t len = buffer->GetLen();
+				AampCachedData *cachedData = new AampCachedData( effectiveUrl, new AampGrowableBuffer("cached-data"), mediaType );
+				cachedData->buffer->AppendBytes( buffer->GetPtr(), len );
+				cache[url] = cachedData;
+				cachedData->seqNo = ++seqNo;
+				totalCachedBytes += len;
+				AAMPLOG_MIL( "inserted %s %s", GetMediaTypeName(mediaType), url.c_str() ); // used by l2tests
+				// There are cases where main url and effective url will be different (often for main manifest)
+				// Need to store both the entries with same content data
+				// When retune happens within aamp due to failure, effective url wll be asked to read from cached manifest
+				// When retune happens from JS, regular Main url will be asked to read from cached manifest.
+				// So need to have two entries in cache table but both pointing to same CachedBuffer (no space is consumed for storage)
+				if( url != effectiveUrl )
+				{ // re-use buffer without extra copy
+					AampCachedData *newData = new AampCachedData( "", cachedData->buffer, mediaType );
+					cache[effectiveUrl] = newData;
+					AAMPLOG_MIL( "duplicate %s %s", GetMediaTypeName(mediaType), effectiveUrl.c_str() );
+				}
+			}
+		}
+	}
+	
+	void Remove( const std::string &url )
+	{
+		auto iter = cache.find(url);
+		assert( iter != cache.end() );
+		AampCachedData *cachedData = iter->second;
+		totalCachedBytes -= cachedData->buffer->GetLen();
+		assert( !cachedData->effectiveUrl.empty() );
+		if( url != cachedData->effectiveUrl )
+		{ // remove main entry with payload
+			auto iter2 = cache.find(cachedData->effectiveUrl);
+			assert( iter2 != cache.end() );
+			AampCachedData *cachedData2 = iter2->second;
+			assert( cachedData2->effectiveUrl.empty() );
+			SAFE_DELETE(cachedData2);
+			cache.erase(iter2);
+		}
+		SAFE_DELETE(cachedData->buffer);
+		SAFE_DELETE(cachedData);
+		cache.erase(iter);
+	}
+
+	void Clear( void )
+	{
+		for( auto it = cache.begin(); it != cache.end(); it++)
+		{
+			AampCachedData *cachedData = it->second;
+			if( !cachedData->effectiveUrl.empty() )
+			{
+				SAFE_DELETE(cachedData->buffer);
+			}
+			SAFE_DELETE(cachedData);
+		}
+		cache.clear();
+		totalCachedBytes = 0;
+	}
+	
+	AampCachedData * Find( const std::string &url )
+	{
+		AampCachedData *cachedData = NULL;
+		auto it = cache.find(url);
+		if( it != cache.end() )
+		{ // cache hit
+			cachedData = it->second;
+			cachedData->seqNo = ++seqNo;
+		}
+		return cachedData;
+	}
+};
 
 /**
  * @class AampCacheHandler
@@ -111,166 +305,167 @@ class AampCacheHandler
 {
 private:
 	int mPlayerId;
-	typedef std::unordered_map<std::string, PlayListCachedData *> PlaylistCache ;
-	typedef std::unordered_map<std::string, PlayListCachedData *>::iterator PlaylistCacheIter;
-	PlaylistCache mPlaylistCache;
-	int mCacheStoredSize;
-	bool mInitialized;
+	std::mutex mCacheAccessMutex;
+	AampCache mPlaylistCache;
+	AampCache mInitFragmentCache;
+	bool mbCleanUpTaskInitialized;
 	bool mCacheActive;
 	bool mAsyncCacheCleanUpThread;
-	int mMaxPlaylistCacheSize;
-	std::recursive_mutex mMutex;
-	pthread_mutex_t mCondVarMutex;
-	pthread_cond_t mCondVar ;
+	std::mutex mCondVarMutex;
+	std::condition_variable mCondVar;
 	std::thread mAsyncCleanUpTaskThreadId;
-
-	typedef std::unordered_map <std::string, InitFragCacheStruct*> InitFragCache ;
-	typedef std::unordered_map <std::string, InitFragCacheStruct*>::iterator InitFragCacheIter;
-	typedef std::unordered_map <AampMediaType, InitFragTrackStruct*, std::hash<int>> CacheTrackQueue;
-	typedef std::unordered_map <AampMediaType, InitFragTrackStruct*, std::hash<int>>::iterator CacheTrackQueueIter;
-	InitFragCache umInitFragCache;
-	CacheTrackQueue umCacheTrackQ;
-	pthread_mutex_t mInitFragMutex;
-	bool bInitFragCache;
-	int MaxInitCacheSlot;						/**< Max no of init fragment per track */
-
-//private:
+	
 protected:
+	/**
+	 *  @brief Thread function for Async Cache clean
+	 */
+	void AsyncCacheCleanUpTask( void )
+	{
+		UsingPlayerId playerId(mPlayerId);
+		std::unique_lock<std::mutex> lock(mCondVarMutex);
 
+		while( mAsyncCacheCleanUpThread )
+		{
+			mCondVar.wait(lock);
+			if(!mCacheActive)
+			{
+				std::cv_status status = mCondVar.wait_for(lock, std::chrono::seconds(10));
+				if( status == std::cv_status::timeout )
+				{
+					AAMPLOG_MIL("[%p] Cacheflush timed out", this);
+					mPlaylistCache.Clear();
+					mInitFragmentCache.Clear();
+				}
+			}
+		}
+	}
+	
 	/**
 	* @fn Init
 	*/
-	void Init();
+	void InitializeIfNeeded( void )
+	{
+		if( !mbCleanUpTaskInitialized )
+		{
+			try
+			{
+				mAsyncCleanUpTaskThreadId = std::thread(&AampCacheHandler::AsyncCacheCleanUpTask, this);
+				{
+					std::lock_guard<std::mutex> guard(mCondVarMutex);
+					mAsyncCacheCleanUpThread = true;
+				}
+				AAMPLOG_INFO("Thread created AsyncCacheCleanUpTask[%zx]", GetPrintableThreadID(mAsyncCleanUpTaskThreadId));
+			}
+			catch(std::exception &e)
+			{
+				AAMPLOG_ERR( "Failed to create AampCacheHandler thread : %s", e.what() );
+			}
+			mbCleanUpTaskInitialized = true;
+		}
+	}
 
 	/**
-	* @fn ClearCacheHandler
-	*/
-	void ClearCacheHandler();
-
-	/**
-	 *	 @fn AsyncCacheCleanUpTask
-	 *
-	 *	 @return void
+	 *  @brief Clear Cache Handler. Exit clean up thread.
 	 */
-	void AsyncCacheCleanUpTask();
-	/**
-	 *	 @fn ClearPlaylistCache
-	 *	 @return void
-	 */
-	void ClearPlaylistCache();
-	/**
-	 *   @fn AllocatePlaylistCacheSlot
-	 *   @param[in] mediaType - Indicate the type of playlist to store/remove
-	 *   @param[in] newLen  - Size required to store new playlist
-	 *
-	 *   @return bool Success or Failure
-	 */
-	bool AllocatePlaylistCacheSlot(AampMediaType mediaType,size_t newLen);
-
-	/**
-	 *   @fn ClearInitFragCache
-	 *
-	 *   @return void
-	 */
-	void ClearInitFragCache();
-
-	/**
-	 *   @fn RemoveInitFragCacheEntry
-	 * 
-	 *   @param mediaType type of file format to be removed from cache table
-	 * 
-	 *   @return void
-	 */
-	void RemoveInitFragCacheEntry ( AampMediaType mediaType );
-
+	void ClearCacheHandler( void )
+	{
+		if( mbCleanUpTaskInitialized )
+		{
+			mCacheActive = true;
+			{
+				std::lock_guard<std::mutex> guard(mCondVarMutex);
+				mAsyncCacheCleanUpThread = false;
+				mCondVar.notify_one();
+			}
+			if(mAsyncCleanUpTaskThreadId.joinable())
+			{
+				mAsyncCleanUpTaskThreadId.join();
+			}
+			mPlaylistCache.Clear();
+			mInitFragmentCache.Clear();
+			mbCleanUpTaskInitialized = false;
+		}
+	}
+	
 public:
-
 	/**
-	 *	 @fn AampCacheHandler
-	 *
-	 *	 @return void
+	 * @brief constructor
 	 */
-	AampCacheHandler(int playerid);
+	AampCacheHandler( int playerId );
 
 	/**
-	*        @fn ~AampCacheHandler
-	*/
-	~AampCacheHandler();
-
-	/**
-	 *	 @fn StartPlaylistCache
-	 *
-	 *	 @return void
+	 *  @brief destructor
 	 */
-	void StartPlaylistCache();
-	/**
-	 *	 @fn StopPlaylistCache
-	 *
-	 *	 @return void
-	 */
-	void StopPlaylistCache();
+	~AampCacheHandler( void );
 
 	/**
-	 *   @fn InsertToPlaylistCache
+	 *  @brief Start playlist caching
+	 */
+	void StartPlaylistCache( void );
+
+	/**
+	 *  @brief Stop playlist caching
+	 */
+	void StopPlaylistCache( void );
+
+	/**
+	 *   @brief Add playlist to cache
 	 *   @param[in] url - URL
 	 *   @param[in] buffer - Pointer to growable buffer
 	 *   @param[in] effectiveUrl - Final URL
-	 *   @param[in] trackLiveStatus - Live Status of the track inserted
+	 *   @param[in] isLive
 	 *   @param[in] mediaType - Type of the file inserted
      	 *
 	 *   @return void
 	 */
-	void InsertToPlaylistCache(const std::string url, const AampGrowableBuffer* buffer, std::string effectiveUrl,bool trackLiveStatus,AampMediaType mediaType );
+	void InsertToPlaylistCache( const std::string &url, const AampGrowableBuffer* buffer, const std::string &effectiveUrl, bool isLive, AampMediaType mediaType );
 
 	/**
-	 *   @fn RetrieveFromPlaylistCache
+	 *   @brief Find playlist in cache
 	 *   @param[in] url - URL
 	 *   @param[out] buffer - Pointer to growable buffer
 	 *   @param[out] effectiveUrl - Final URL
 	 *   @return true: found, false: not found
 	 */
-	bool RetrieveFromPlaylistCache(const std::string url, AampGrowableBuffer* buffer, std::string& effectiveUrl);
+	bool RetrieveFromPlaylistCache( const std::string &url, AampGrowableBuffer* buffer, std::string& effectiveUrl, AampMediaType mediaType );
+	
+	/**
+	 * @brief Remove playlist from cache
+	 * @param[in] url - URL
+	 */
+	void RemoveFromPlaylistCache( const std::string &url );
 
 	/**
-	 *  @brief Remove specific playlist cache
-	 *   @param[in] url - URL
+	 *  @brief set max playlist cache size (bytes)
 	 */
-	void RemoveFromPlaylistCache(const std::string url);
+	void SetMaxPlaylistCacheSize(int maxBytes);
+	
+	/**
+	 * @brief get max playlist cache size (bytes)
+	 *
+	 * @return int - maxCacheSize
+	 */
+	int GetMaxPlaylistCacheSize() { return mPlaylistCache.maxPlaylistCacheBytes; }
 
 	/**
-	 *   @fn SetMaxPlaylistCacheSize
-	 *
-	 *   @param[in] maxPlaylistCacheSz - CacheSize
-	 *   @return None
+	 *  @brief check if playlist in cache
 	 */
-	void SetMaxPlaylistCacheSize(int maxPlaylistCacheSz);
-	/**
-	 *   @brief GetMaxPlaylistCacheSiz   @fn RetrieveFromPlaylistCache - Get present CacheSize
-	 *
-	 *   @return int - maxCacheSize
-	 */
-	int  GetMaxPlaylistCacheSize() { return mMaxPlaylistCacheSize; }
-	/**
-  	 *   @fn IsUrlCached 
-	 *
-	 *   @return bool - true if file found, else false
-	 */
-	bool IsUrlCached(std::string);
+	bool IsPlaylistUrlCached( const std::string &playlistUrl );
 
 	/**
-	 *   @fn InsertToInitFragCache
+	 *   @brief add initialization fragment to cache
 	 *
 	 *   @param[in] url - URL
 	 *   @param[in] buffer - Pointer to growable buffer
 	 *   @param[in] effectiveUrl - Final URL
 	 *   @param[in] mediaType - Type of the file inserted
-     	 *
+     *
 	 *   @return void
 	 */
-	void InsertToInitFragCache(const std::string url, const AampGrowableBuffer* buffer, std::string effectiveUrl,AampMediaType mediaType);
+	void InsertToInitFragCache( const std::string &url, const AampGrowableBuffer* buffer, const std::string &effectiveUrl, AampMediaType mediaType );
 
 	/**
-	 *   @fn RetrieveFromInitFragCache
+	 *   @brief Find initialization fragment in cache
 	 *
 	 *   @param[in] url - URL
 	 *   @param[out] buffer - Pointer to growable buffer
@@ -278,35 +473,32 @@ public:
 	 * 
 	 *   @return true: found, false: not found
 	 */
-	bool RetrieveFromInitFragCache(const std::string url, AampGrowableBuffer* buffer, std::string& effectiveUrl);
-
+	bool RetrieveFromInitFragmentCache(const std::string &url, AampGrowableBuffer* buffer, std::string& effectiveUrl);
+	
 	/**
-	*   @fn SetMaxInitFragCacheSize
+	*   @brief set max initialization fragments allowed in cache (per track)
 	*
 	*   @param[in] maxInitFragCacheSz - CacheSize
 	*
 	*   @return None
 	*/
-	void SetMaxInitFragCacheSize( int maxInitFragCacheSz);
+	void SetMaxInitFragCacheSize( int maxFragmentsPerTrack );
 
 	/**
 	*   @brief GetMaxPlaylistCacheSize - Get present CacheSize
 	*
 	*   @return int - maxCacheSize
 	*/
-	int  GetMaxInitFragCacheSize() { return MaxInitCacheSlot; }
+	int GetMaxInitFragCacheSize() { return mInitFragmentCache.maxCachedInitFragmentsPerTrack; }
 
-        /**
-         * @brief Copy constructor disabled
-         *
-         */
+	/**
+	 * @brief Copy constructor disabled
+	 */
 	AampCacheHandler(const AampCacheHandler&) = delete;
 	/**
-         * @brief assignment operator disabled
-         *
-         */
+	 * @brief assignment operator disabled
+	 */
 	AampCacheHandler& operator=(const AampCacheHandler&) = delete;
 };
-
 
 #endif

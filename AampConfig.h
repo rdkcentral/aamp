@@ -50,16 +50,7 @@
 #include "AampDefine.h"
 #include "AampLogManager.h"
 #include <cjson/cJSON.h>
-#include "AampDrmSystems.h"
-#ifdef IARM_MGR
-#include "host.hpp"
-#include "manager.hpp"
-#include "libIBus.h"
-#include "libIBusDaemon.h"
-
-#include <hostIf_tr69ReqHandler.h>
-#include <sstream>
-#endif
+#include "DrmSystems.h"
 
 
 //////////////// CAUTION !!!! STOP !!! Read this before you proceed !!!!!!! /////////////
@@ -219,9 +210,10 @@ typedef enum
 	eAAMPConfig_EnableIFrameTrackExtract,			/**< Config to enable and disable iFrame extraction from video track*/
 	eAAMPConfig_ForceMultiPeriodDiscontinuity,		/**< Config to forcefully process multiperiod discontinuity even if they are continuous in PTS */
 	eAAMPConfig_ForceLLDFlow,						/**< Config to forcefully process LLD workflow even if they are live SLD */
-	eAAMPConfig_NoNativeAV,                                                 /**< Config to allow gstreamer be responsible for handling AV, bypassing use of native platform-specific audio-video handling */
 	eAAMPConfig_MonitorAV,						/**< enable background monitoring of audio/video positions to infer video freeze, audio drop, or av sync issues */
+	eAAMPConfig_HlsTsEnablePTSReStamp,
 	eAAMPConfig_BoolMaxValue						/**< Max value of bool config always last element */
+
 } AAMPConfigSettingBool;
 #define AAMPCONFIG_BOOL_COUNT (eAAMPConfig_BoolMaxValue)
 
@@ -293,8 +285,6 @@ typedef enum
 	eAAMPConfig_MinBitrate,                         			/**< minimum bitrate filter for playback profiles */
 	eAAMPConfig_MaxBitrate,                         			/**< maximum bitrate filter for playback profiles*/
 	eAAMPConfig_TLSVersion,							/**< TLS Version value*/
-	eAAMPConfig_GstVideoBufBytesForFogLive,                                 /**< Gstreamer Max Video buffering bytes for fog linear*/
-	eAAMPConfig_GstAudioBufBytesForFogLive,                                 /**< Gstreamer Max Audio buffering bytes for fog linear*/
 	eAAMPConfig_DrmNetworkTimeout,                                          /**< DRM license request timeout in sec*/
 	eAAMPConfig_DrmStallTimeout,                                            /**< Stall Timeout for DRM license request*/
 	eAAMPConfig_DrmStartTimeout,						/**< Start Timeout for DRM license request*/
@@ -312,9 +302,10 @@ typedef enum
 	eAAMPConfig_TsbLogLevel,					/** Override the TSB log level */
 	eAAMPConfig_AdFulfillmentTimeout,					/**< Ad fulfillment timeout in milliseconds */
 	eAAMPConfig_AdFulfillmentTimeoutMax,					/**< Ad fulfillment maximum timeout in milliseconds */
-	eAAMPConfig_RequiredQueuedFrames,				/**< required queued frames while tuning */
-	eAAMPConfig_PlatformType,                       /**< To determine the current device platform/soc type */
 	eAAMPConfig_ShowDiagnosticsOverlay,		       /** configures the diagnostics overlay,accessed by UVE API getConfiguration()*/
+	eAAMPConfig_MonitorAVSyncThreshold,				/**< configures threshold for pair of mismatched audio,video positions to be reported as avsync in milliseconds*/
+	eAAMPConfig_MonitorAVJumpThreshold,				/**< configures threshold aligned audio,video positions advancing together by unexpectedly large delta to be reported as jump in milliseconds*/
+	eAAMPConfig_ProgressLoggingDivisor,				/**<  Divisor to avoid printing the progress report too frequently in the log */
 	eAAMPConfig_IntMaxValue							/**< Max value of int config always last element*/
 } AAMPConfigSettingInt;
 #define AAMPCONFIG_INT_COUNT (eAAMPConfig_IntMaxValue)
@@ -375,7 +366,6 @@ typedef enum
 	eAAMPConfig_GstDebugLevel,							/**< gstreamer debug level as you'd define in GST_DEBUG */
 	eAAMPConfig_TsbType,
 	eAAMPConfig_TsbLocation,                                                        /**< tsbType location for local TSB storage*/
-	eAAMPConfig_LLDUrlKeyword,								/** Keyword to identify the lld stream */
 	eAAMPConfig_StringMaxValue						/**< Max value for string config always last element */
 } AAMPConfigSettingString;
 #define AAMPCONFIG_STRING_COUNT (eAAMPConfig_StringMaxValue)
@@ -498,20 +488,10 @@ public:
 	AampConfig& operator=(const AampConfig&);
 	void Initialize();
 	/**
-	 * @fn InferPlatformFromDeviceProperties - Read device.Properties from /etc/ (e.g., soc,region,tv/stb fields) and set platform type bypassing use of compile time flags on non-containerized apps.
-	 * @return bool
-	 */
-	PlatformType InferPlatformFromDeviceProperties( void );
-	/**
-	 * @fn InferPlatformFromPluginScan - Read platform specific unique decoder/sink elements and set platform type on containerized apps.
-	 * @return void
-	 */
-	PlatformType InferPlatformFromPluginScan( void );
-	/**
 	 * @fn ApplyDeviceCapabilities
 	 * @return Void
 	 */
-	void ApplyDeviceCapabilities( PlatformType platform );
+	void ApplyDeviceCapabilities();
 	/**
      	 * @fn ShowOperatorSetConfiguration
      	 * @return Void
@@ -723,13 +703,6 @@ private:
 	template<class J,class K>
 	void SetValue(J &setting, ConfigPriority newowner, const K &value,std::string cfgName);
 	void trim(std::string& src);
-	
-	/**
-    	 * @fn GetTR181AAMPConfig
-     	 * @param[in] paramName - Parameter Name to parse
-     	 * @param[in] iConfigLen - Length of the configuration
-     	 */
-	char * GetTR181AAMPConfig(const char * paramName, size_t & iConfigLen);
 	
 	void ShowConfiguration(ConfigPriority owner);	
 	/**

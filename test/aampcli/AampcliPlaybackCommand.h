@@ -27,13 +27,12 @@
 
 #include "AampcliCommand.h"
 
-typedef struct advertInfo
+typedef struct AdvertInfo
 {
 	std::string url;
-	uint32_t duration;
-
-	advertInfo():url(),duration(0){};
-}AdvertInfo;
+	std::string adBreakId;
+	AdvertInfo():url(),adBreakId(){};
+} AdvertInfo;
 
 class PlaybackCommand : public Command
 {
@@ -57,6 +56,7 @@ private:
 	static std::map<std::string,std::string> playbackCommands;
 	
 	void HandleCommandList( const char *cmd );
+	void HandleCommandContentType( const char *cmd );
 	void HandleCommandNew( const char *cmd );
 	void HandleCommandSelect( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp );
 	void HandleCommandRelease( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp );
@@ -84,6 +84,7 @@ private:
 	void HandleCommandBPS( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp );
 	void HandleCommandTuneData( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp);
 	void HandleAdTesting();
+	void HandleCommandBatch();
 };
 
 #endif // AAMPCLIPLAYBACKCOMMAND_H

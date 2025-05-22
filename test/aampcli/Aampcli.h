@@ -32,7 +32,7 @@
 #include <sstream>
 #include <string>
 #include <ctype.h>
-#include <gst/gst.h>
+#include <glib.h>
 #include <readline/readline.h>
 #include <readline/history.h>
 #include <priv_aamp.h>
@@ -46,11 +46,12 @@
 #include "AampcliGet.h"
 #include "AampcliSet.h"
 #include "AampcliShader.h"
+#include "middleware/GstUtils.h"
 
 class MyAAMPEventListener : public AAMPEventObjectListener
 {
 	public:
-		const char *stringifyPrivAAMPState(PrivAAMPState state);
+		const char *stringifyPlayerState(AAMPPlayerState state);
 		void Event(const AAMPEventPtr& e) override;
 };
 
@@ -61,14 +62,14 @@ class Aampcli
 		bool mEnableProgressLog;
 		bool mbAutoPlay;
 		bool mIndexedAds = false;
-		int mAdBrkIndex=0;
+		std::string mContentType;
 		std::string mTuneFailureDescription;
 		PlayerInstanceAAMP *mSingleton;
 		MyAAMPEventListener *mEventListener;
-		GMainLoop *mAampGstPlayerMainLoop;
-		GThread *mAampMainLoopThread;
 		std::vector<PlayerInstanceAAMP *> mPlayerInstances;
 		std::string mManifestDataUrl;
+		GMainLoop *mAampGstPlayerMainLoop;
+		GThread *mAampMainLoopThread;
 
 		static void runCommand( std::string args );
 		static gpointer aampGstPlayerStreamThread( gpointer arg );
@@ -78,8 +79,7 @@ class Aampcli
 		void newPlayerInstance( std::string appName = "");
 		int getApplicationDir( char *buffer, uint32_t size );
 		void getAdvertUrl( uint32_t reqDuration, uint32_t &adDuration, std::vector<AdvertInfo>& adList);
-		void getAdvertUrlIndexed( std::vector<AdvertInfo>& adList, int idx);
-
+		
 		bool SetSessionId(std::string sid);
 		std::string GetSessionId() const;
 		std::string GetSessionId(size_t index) const;
@@ -91,6 +91,7 @@ class Aampcli
 
 	private:
 		std::vector<std::string> mPlayerSessionID;
+		
 };
 
 #endif // AAMPCLI_H

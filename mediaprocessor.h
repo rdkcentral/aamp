@@ -79,19 +79,30 @@ public:
 	MediaProcessor& operator=(const MediaProcessor&) = delete;
 
 	/**
+	 * @brief given TS media segment (not yet injected), extract and report first PTS
+	 */
+	virtual double getFirstPts( AampGrowableBuffer* pBuffer ) = 0;
+
+	/**
+	 * @brief optionally specify new pts offset to apply for subsequently injected TS media segments
+	 */
+	virtual void setPtsOffset( double ptsOffset ) = 0;
+
+	/**
 	 * @fn sendSegment
 	 *
 	 * @param[in] pBuffer - Pointer to the AampGrowableBuffer
 	 * @param[in] position - position of fragment
 	 * @param[in] duration - duration of fragment
+	 * @param[in] fragmentPTSoffset - offset PTS of fragment
 	 * @param[in] discontinuous - true if discontinuous fragment
 	 * @param[in] isInit - flag for buffer type (init, data)
 	 * @param[in] processor - Function to use for processing the fragments (only used by HLS/TS)
 	 * @param[out] ptsError - flag indicates if any PTS error occurred
 	 * @return true if fragment was sent, false otherwise
 	 */
-	virtual bool sendSegment(AampGrowableBuffer* pBuffer,double position,double duration, bool discontinuous,
-								bool isInit,process_fcn_t processor, bool &ptsError) = 0;
+	virtual bool sendSegment(AampGrowableBuffer* pBuffer,double position,double duration, double fragmentPTSoffset, bool discontinuous,
+								bool isInit, process_fcn_t processor, bool &ptsError) = 0;
 
 	/**
 	 * @brief Set playback rate

@@ -1661,7 +1661,7 @@ void DashMPDRoot::removePeriod(shared_ptr<DashMPDPeriod> &period) {
     for(int periodCount = 0; periodCount < periods.size(); periodCount++)
     {
 	periods[periodCount]->index = periodCount;
-	AAMPLOG_TRACE("Index updated as %d for period:%s\n",periodCount,periods[periodCount]->getId().c_str());
+	AAMPLOG_TRACE("Index updated as %d for period:%s", periodCount,periods[periodCount]->getId().c_str());
     }
 }
 
@@ -2606,7 +2606,7 @@ shared_ptr<DashMPDPeriod> DashMPDRoot::addPeriodAt(const shared_ptr<DashMPDPerio
         // sync index
         for (int i = 0; i < periods.size(); i++) {
             periods[i]->index = i;
-            AAMPLOG_TRACE("Index updated as %d for period:%s\n",i,periods[i]->getId().c_str());
+            AAMPLOG_TRACE("Index updated as %d for period:%s", i,periods[i]->getId().c_str());
         }
     }
     else {

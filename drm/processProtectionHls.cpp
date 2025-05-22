@@ -28,27 +28,26 @@
 */
 #include "_base64.h"
 #include "AampDRMSessionManager.h"
-#include "AampDrmSession.h"
+#include "DrmSession.h"
 #include "fragmentcollector_hls.h"
 
 #include <cstdlib>
 #include <string>
 using namespace std;
 
-#ifdef AAMP_HLS_DRM
 
 /**
  * Global aamp config data 
  */
 extern AampConfig *gpGlobalConfig;
-shared_ptr<AampDrmHelper> ProcessContentProtection(PrivateInstanceAAMP *aamp, std::string attrName);
+shared_ptr<DrmHelper> ProcessContentProtection(PrivateInstanceAAMP *aamp, std::string attrName);
 
 /**
  * Local APIs declarations
  */
 static int GetFieldValue(string &attrName, string keyName, string &valuePtr);
 static int getPsshData(string attrName, string &psshData);
-static shared_ptr<AampDrmHelper> getDrmHelper(string attrName , bool bPropagateUriParams, bool bDecryptClearSamplesRequired);
+static shared_ptr<DrmHelper> getDrmHelper(string attrName , bool bPropagateUriParams, bool bDecryptClearSamplesRequired);
 
 /**
  * @brief Return the string value, from the input KEY="value"
@@ -140,9 +139,9 @@ static int getPsshData(string attrName, string &psshData){
  * @brief API to get the DRM helper from the manifest attribute list, getDrmType
  * @param [in] Attribute list
  * 
- * @return AampDrmHelper - DRM Helper (nullptr in case of unexpected behavior)
+ * @return DrmHelper - DRM Helper (nullptr in case of unexpected behavior)
  */
-static std::shared_ptr<AampDrmHelper> getDrmHelper(string attrName , bool bPropagateUriParams, bool bDecryptClearSamplesRequired){
+static DrmHelperPtr getDrmHelper(string attrName , bool bPropagateUriParams, bool bDecryptClearSamplesRequired){
 
 	string systemId = "";
 	
@@ -161,25 +160,25 @@ static std::shared_ptr<AampDrmHelper> getDrmHelper(string attrName , bool bPropa
 	drmInfo.systemUUID = systemId;
 	drmInfo.bPropagateUriParams = bPropagateUriParams;
 	drmInfo.bDecryptClearSamplesRequired = bDecryptClearSamplesRequired;
-	return AampDrmHelperEngine::getInstance().createHelper(drmInfo);
+	return DrmHelperEngine::getInstance().createHelper(drmInfo);
 }
 
 /**
  * @brief Process content protection of track
  * @param aamp PrivateInstanceAAMP instance 
  * @param attrName attribute value
- * @return shared_ptr to the AampDrmHelper instance
+ * @return shared_ptr to the DrmHelper instance
  */
-shared_ptr<AampDrmHelper> ProcessContentProtection(PrivateInstanceAAMP *aamp, std::string attrName)
+shared_ptr<DrmHelper> ProcessContentProtection(PrivateInstanceAAMP *aamp, std::string attrName)
 {
 	/* StreamAbstractionAAMP_HLS* context; */
 	/* Pseudo code for ProcessContentProtection in HLS is below
 	 * Get Aamp instance as aamp
-	 * 1. Create AampDrmHelper object based on attribute value
+	 * 1. Create DrmHelper object based on attribute value
 	 * 2. Get pssh data from manifest (extract URI value)
-	 * 3. Set PSSH data to AampDrmHelper object
+	 * 3. Set PSSH data to DrmHelper object
 	 */
-	shared_ptr<AampDrmHelper> finalDrmHelper = nullptr;
+	shared_ptr<DrmHelper> finalDrmHelper = nullptr;
 	unsigned char* data = NULL;
 	size_t dataLength = 0;
 	int status = DRM_API_FAILED;  
@@ -188,7 +187,7 @@ shared_ptr<AampDrmHelper> ProcessContentProtection(PrivateInstanceAAMP *aamp, st
 
 	do
 	{
-		shared_ptr<AampDrmHelper> drmHelper = getDrmHelper(attrName, ISCONFIGSET(eAAMPConfig_PropagateURIParam), aamp->isDecryptClearSamplesRequired());
+		shared_ptr<DrmHelper> drmHelper = getDrmHelper(attrName, ISCONFIGSET(eAAMPConfig_PropagateURIParam), aamp->isDecryptClearSamplesRequired());
 		if (nullptr == drmHelper)
 		{
 			AAMPLOG_ERR("Failed to get DRM type/helper from manifest!");
@@ -255,15 +254,6 @@ shared_ptr<AampDrmHelper> ProcessContentProtection(PrivateInstanceAAMP *aamp, st
 	}
 	return finalDrmHelper;
 }
-
-#else
-
-void* ProcessContentProtection(PrivateInstanceAAMP *aamp, std::string attrName)
-{
-	AAMPLOG_INFO("AAMP_HLS_DRM not enabled");
-	return NULL;
-}
-#endif /** AAMP_HLS_DRM */
 
 /**
  * EOF

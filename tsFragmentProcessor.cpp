@@ -97,13 +97,15 @@ TSFragmentProcessor::TSFragmentProcessor() :
 	m_audioComponentCount{0},
 	m_dsmccComponentFound{false}
 {
-	mAudioDemuxer = aamp_utils::make_unique<Demuxer>(nullptr, eMEDIATYPE_AUDIO);
+	bool optimizeMuxed = false;
+	
+	mAudioDemuxer = aamp_utils::make_unique<Demuxer>(nullptr, eMEDIATYPE_AUDIO, optimizeMuxed );
 	AAMPLOG_INFO(" [%p] Audio demuxer: %p", this, mAudioDemuxer.get());
 
-	mVideoDemuxer = aamp_utils::make_unique<Demuxer>(nullptr, eMEDIATYPE_VIDEO);
+	mVideoDemuxer = aamp_utils::make_unique<Demuxer>(nullptr, eMEDIATYPE_VIDEO, optimizeMuxed);
 	AAMPLOG_INFO(" [%p] Video demuxer: %p", this, mVideoDemuxer.get());
 
-	mDsmccDemuxer = aamp_utils::make_unique<Demuxer>(nullptr, eMEDIATYPE_DSM_CC);
+	mDsmccDemuxer = aamp_utils::make_unique<Demuxer>(nullptr, eMEDIATYPE_DSM_CC, optimizeMuxed);
 	AAMPLOG_INFO(" [%p] DSMCC demuxer: %p", this, mDsmccDemuxer.get());
 
 	ResetAudioComponents();
@@ -155,7 +157,13 @@ bool TSFragmentProcessor::ProcessFragment(const AampGrowableBuffer & fragment,
 				AAMPLOG_INFO("Initializing demuxer [%d | %p]", demuxer->GetType(), demuxer.get());
 
 				demuxer->flush();
-				demuxer->init(position, duration, false, true);
+				demuxer->init(
+							  position,
+							  duration,
+							  false,
+							  true,
+							  false // optimizeMuxed
+							  );
 			}
 		}
 	}

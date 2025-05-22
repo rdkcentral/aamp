@@ -27,11 +27,13 @@
 #include <array>
 #include <mutex>
 #include <condition_variable>
-#include "AampDrmHelper.h"
+#include "DrmHelper.h"
 #include "AampLogManager.h"
 #include "AampDefine.h"
 #include "AampEvent.h"
 #include "AampDRMLicPreFetcherInterface.h"
+
+#define SECCLIENT_RESULT_HTTP_FAILURE_TIMEOUT (-7) /**< License result is not returned to the device due to network failure */
 
 class PrivateInstanceAAMP;
 
@@ -41,7 +43,7 @@ class PrivateInstanceAAMP;
  */
 struct LicensePreFetchObject
 {
-	std::shared_ptr<AampDrmHelper> mHelper; /** drm helper for the content protection*/
+	DrmHelperPtr mHelper; /** drm helper for the content protection*/
 	std::string mPeriodId;                  /** Period ID*/
 	uint32_t mAdaptationIdx;                /** adaptation Index*/
 	AampMediaType mType;                        /** Stream type*/
@@ -52,13 +54,13 @@ struct LicensePreFetchObject
 	/**
 	 * @brief Construct a new License Pre Fetch Object object
 	 * 
-	 * @param drmHelper AampDrmHelper shared_ptr
+	 * @param drmHelper DrmHelper shared_ptr
 	 * @param periodId ID of the period to which CP belongs to
 	 * @param adapIdx Index of the adaptation to which CP belongs to
 	 * @param isVssPeriod flag denotes if this is for a VSS period
 	 * @param type media type
 	 */
-	LicensePreFetchObject(std::shared_ptr<AampDrmHelper> drmHelper, std::string periodId, uint32_t adapIdx, AampMediaType type, bool isVssPeriod): mHelper(drmHelper),
+	LicensePreFetchObject(DrmHelperPtr drmHelper, std::string periodId, uint32_t adapIdx, AampMediaType type, bool isVssPeriod): mHelper(drmHelper),
 															mPeriodId(periodId),
 															mAdaptationIdx(adapIdx),
 															mType(type),
@@ -150,7 +152,7 @@ public:
 	/**
 	 * @brief Queue a content protection info to be processed later
 	 * 
-	 * @param drmHelper AampDrmHelper shared_ptr
+	 * @param drmHelper DrmHelper shared_ptr
 	 * @param periodId ID of the period to which CP belongs to
 	 * @param adapId Index of the adaptation to which CP belongs to
 	 * @param type media type
@@ -158,7 +160,7 @@ public:
 	 * @return true if successfully queued
 	 * @return false if error occurred
 	 */
-	bool QueueContentProtection(std::shared_ptr<AampDrmHelper> drmHelper, std::string periodId, uint32_t adapIdx, AampMediaType type, bool isVssPeriod = false);
+	bool QueueContentProtection(DrmHelperPtr drmHelper, std::string periodId, uint32_t adapIdx, AampMediaType type, bool isVssPeriod = false);
 
 	/**
 	 * @brief De-initialize/free resources

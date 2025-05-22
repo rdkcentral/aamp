@@ -120,8 +120,7 @@ gst_subtecmp4transform_class_init (GstSubtecMp4TransformClass * klass)
       &gst_subtecmp4transform_sink_template);
 
   gst_element_class_set_static_metadata (GST_ELEMENT_CLASS(klass),
-      "Subtec ISO MP4 demuxer", "Demuxer/Subtitle", "Pulls subtitle data from stpp box",
-      "Stephen Waddell <stephen.waddell@consult.red>");
+      "Subtec ISO MP4 demuxer", "Demuxer/Subtitle", "Pulls subtitle data from stpp box", "Comcast");
 
   base_transform_class->transform_caps = GST_DEBUG_FUNCPTR (gst_subtecmp4transform_transform_caps);
   base_transform_class->transform_ip = GST_DEBUG_FUNCPTR (gst_subtecmp4transform_transform_ip);

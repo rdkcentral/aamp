@@ -111,8 +111,7 @@ gst_subtecsink_class_init (GstSubtecSinkClass * klass)
       &gst_subtecsink_sink_template);
 
   gst_element_class_set_static_metadata (GST_ELEMENT_CLASS(klass),
-      "OOB Subtec data sink", "Sink/Parser/Subtitle", "Packs TTML or WebVTT data into SubTtxRend APP suitable packets",
-      "Stephen Waddell <stephen.waddell@consult.red>");
+      "OOB Subtec data sink", "Sink/Parser/Subtitle", "Packs TTML or WebVTT data into SubTtxRend APP suitable packets", "Comcast");
 
 
   gobject_class->set_property = gst_subtecsink_set_property;
@@ -246,6 +245,7 @@ gst_subtecsink_init (GstSubtecSink *subtecsink)
 
   subtecsink->m_attribute_mask = 0;
   subtecsink->m_attribute_values = {0};
+  subtecsink->m_pts_offset = 0;
 }
 
 void
@@ -555,6 +555,7 @@ gst_subtecsink_event (GstBaseSink * sink, GstEvent * event)
                         __func__,
                         static_cast<std::uint32_t>(timestampMs));
         subtecsink->m_channel->SendTimestampPacket((timestampMs));
+        subtecsink->m_send_timestamp = false;
       }
       gst_event_unref(event);
       res = TRUE;

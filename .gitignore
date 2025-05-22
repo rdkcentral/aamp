@@ -1,8 +1,10 @@
 oe-*
+.vscode
 /build/
 nbproject/
 test/utests/build/
 Linux/gst-plugins-good-*/
+test/tools/Godspell/typos.csv
 test/VideoTestStream/hls/
 test/VideoTestStream/dash/
 test/VideoTestStream/temp/
@@ -21,3 +23,4 @@ Linux/googletest/
 .libs/
 test/l2test/result/
 test/l2test/data/aamp/*
+**/*.swp

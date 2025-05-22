@@ -28,10 +28,6 @@
 #include "videoin_shim.h"
 #include <string>
 #include <stdint.h>
-#ifdef USE_CPP_THUNDER_PLUGIN_ACCESS
-#include <core/core.h>
-#include "ThunderAccess.h"
-#endif
 using namespace std;
 
 /**
@@ -91,13 +87,11 @@ private:
     StreamAbstractionAAMP_HDMIIN(class PrivateInstanceAAMP *aamp,double seekpos, float rate);
 
     static StreamAbstractionAAMP_HDMIIN* mHdmiinInstance;
-#ifdef USE_CPP_THUNDER_PLUGIN_ACCESS
     /*Event Handler*/
     /**
      *   @fn OnVideoStreamInfoUpdate
      */
-    void OnVideoStreamInfoUpdate(const JsonObject& parameters);
-#endif
+    void OnVideoStreamInfoUpdate(PlayerVideoStreamInfoData data);
 };
 
 #endif // HDMIIN_SHIM_H_

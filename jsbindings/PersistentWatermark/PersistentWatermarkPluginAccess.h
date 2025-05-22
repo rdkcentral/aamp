@@ -20,8 +20,7 @@
 #ifndef __PERSISTENT_WATERMARK_PLUGIN_ACCESS__H__
 #define __PERSISTENT_WATERMARK_PLUGIN_ACCESS__H__
 
-#ifdef USE_CPP_THUNDER_PLUGIN_ACCESS
-#include "ThunderAccess.h"
+#include "PlayerThunderInterface.h"
 #include "jsutils.h"
 
 namespace PersistentWatermark
@@ -39,9 +38,14 @@ namespace PersistentWatermark
 		static PluginAccess& get();
 
 		//Provide the ThunderAccessAAMP interface
-		bool InvokeJSONRPC(std::string method, const JsonObject &param, JsonObject &result, const uint32_t waitTime = THUNDER_RPC_TIMEOUT);
-		bool SubscribeEvent (string eventName, std::function<void(const WPEFramework::Core::JSON::VariantContainer&)> functionHandler);
-		bool UnSubscribeEvent (string eventName);
+		bool DeleteWatermark(int layerID);
+		bool CreateWatermark(int layerID);
+		bool ShowWatermark(int opacity);
+		bool HideWatermark();
+		bool UpdateWatermark(int layerID, int sharedMemoryKey, int size);
+		std::string GetMetaDataWatermark();
+		bool PersistentStoreSaveWatermark(const char* base64Image, std::string metaData);
+		bool PersistentStoreLoadWatermark(int layerID);
 
 		//singleton, no copy, move or assignment
 		PluginAccess(const PluginAccess&) = delete;
@@ -51,13 +55,12 @@ namespace PersistentWatermark
 
 	private:
 
-		ThunderAccessAAMP mThunderAccess;
+		PlayerThunderInterface mThunderAccess;
 		/**
 		 @brief private constructor for singleton class
 		**/
 		PluginAccess();
 	};
 };
-#endif // USE_CPP_THUNDER_PLUGIN_ACCESS
 #endif // __PERSISTENT_WATERMARK_PLUGIN_ACCESS__H__
 

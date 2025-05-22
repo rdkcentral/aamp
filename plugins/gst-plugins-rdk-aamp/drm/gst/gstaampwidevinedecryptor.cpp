@@ -84,7 +84,7 @@ static void gst_aampwidevinedecryptor_class_init(GstAampwidevinedecryptorClass *
 	        "Decrypt Widevine encrypted contents",
 	        GST_ELEMENT_FACTORY_KLASS_DECRYPTOR,
 	        "Decrypts streams encrypted using Widevine Encryption.",
-	        "comcast");
+	        "Comcast");
 }
 
 static void gst_aampwidevinedecryptor_init(GstAampwidevinedecryptor *aampwidevinedecryptor)

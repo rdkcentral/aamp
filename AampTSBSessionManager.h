@@ -22,8 +22,8 @@
  * @brief AampTSBSessionManager for AAMP
  */
 
-#ifndef AAMP_TSBSSESSIONMANAGER_H
-#define AAMP_TSBSSESSIONMANAGER_H
+#ifndef AAMP_TSB_SESSION_MANAGER_H
+#define AAMP_TSB_SESSION_MANAGER_H
 
 #include <string>
 #include <thread>
@@ -34,6 +34,7 @@
 #include "priv_aamp.h"
 #include "AampMediaType.h"
 #include "AampTsbDataManager.h"
+#include "AampTsbMetaDataManager.h"
 #include "AampTsbReader.h"
 #include "MediaStreamContext.h"
 #include <condition_variable>
@@ -147,19 +148,25 @@ public:
 	std::shared_ptr<AampTsbReader> GetTsbReader(AampMediaType);
 	/**
 	 * @brief Invoke TSB Readers
-	 * @param[out] offsetFromStart
+	 * @param[in,out] startPosSec - Start absolute position, seconds since 1970; in: requested, out: selected
 	 * @param[in] rate
 	 * @param[in] tuneType
 	 *
 	 * @return AAMPSTatusType - OK if success
 	 */
-	AAMPStatusType InvokeTsbReaders(double &position, float rate, TuneType tuneType);
+	AAMPStatusType InvokeTsbReaders(double &startPosSec, float rate, TuneType tuneType);
 	/**
 	 * @brief InitializeDataManagers
 	 *
 	 * @return None
 	 */
 	void InitializeDataManagers();
+	/**
+	 * @brief Initialize metadata manager and register types
+	 *
+	 * @return None
+	 */
+	void InitializeMetaDataManager();
 	/**
 	 * @brief Initialize TSB readers for different media type
 	 *
@@ -170,9 +177,10 @@ public:
 	 * @brief Read next fragment and push it to the injector loop
 	 *
 	 * @param[in] MediaStreamContext of appropriate track
-	 * @return bool - true if success
+	 * @param[in] numFreeFragments number of free fragment spaces in the cache
+	 * @return bool - true if cached fragment
 	 */
-	bool PushNextTsbFragment(MediaStreamContext *pMediaStreamContext);
+	bool PushNextTsbFragment(MediaStreamContext *pMediaStreamContext, uint32_t numFreeFragments);
 	/**
 	 * @brief UpdateProgress - Progress updates
 	 *
@@ -212,6 +220,65 @@ public:
 	 */
 	bool IsActive() { return mInitialized_; }
 
+	/**
+	 * @brief Start an ad reservation
+	 * @param[in] adBreakId - ID of the ad break
+	 * @param[in] periodPosition - event position in terms of channel's timeline
+	 * @param[in] absPosition - event absolute position
+	 * @return bool - true if success
+	 */
+	bool StartAdReservation(const std::string &adBreakId, uint64_t periodPosition, AampTime absPosition);
+
+	/**
+	 * @brief End an ad reservation
+	 * @param[in] adBreakId - ID of the ad break
+	 * @param[in] periodPosition - event position in terms of channel's timeline
+	 * @param[in] absPosition - event absolute position of the ad reservation end
+	 * @return bool - true if success
+	 */
+	bool EndAdReservation(const std::string &adBreakId, uint64_t periodPosition, AampTime absPosition);
+
+	/**
+	 * @brief Start an ad placement
+	 * @param[in] adId - ID of the ad
+	 * @param[in] relativePosition - event position wrt to the corresponding adbreak start
+	 * @param[in] absPosition - event absolute position
+	 * @param[in] duration - duration of the current ad
+	 * @param[in] offset - offset point of the current ad
+	 * @return bool - true if success
+	 */
+	bool StartAdPlacement(const std::string &adId, uint32_t relativePosition, AampTime absPosition, double duration, uint32_t offset);
+
+	/**
+	 * @brief End an ad placement
+	 * @param[in] adId - ID of the ad
+	 * @param[in] relativePosition - event position wrt to the corresponding adbreak start
+	 * @param[in] absPosition - event absolute position
+	 * @param[in] duration - duration of the current ad
+	 * @param[in] offset - offset point of the current ad
+	 * @return bool - true if success
+	 */
+	bool EndAdPlacement(const std::string &adId, uint32_t relativePosition, AampTime absPosition, double duration, uint32_t offset);
+
+	/**
+	 * @brief End an ad placement with error
+	 * @param[in] adId - ID of the ad
+	 * @param[in] relativePosition - event position wrt to the corresponding adbreak start
+	 * @param[in] absPosition - event absolute position
+	 * @param[in] duration - duration of the current ad
+	 * @param[in] offset - offset point of the current ad
+	 * @return bool - true if success
+	 */
+	bool EndAdPlacementWithError(const std::string &adId, uint32_t relativePosition, AampTime absPosition, double duration, uint32_t offset);
+
+	/**
+	 * @brief Shift future ad events to the position of mCurrentWritePosition
+	 * This simulates the send immediate flag for ads by shifting all existing 
+	 * metadata events whose position is greater than mCurrentWritePosition to 
+	 * mCurrentWritePosition.
+	 */
+	void ShiftFutureAdEvents();
+
 protected:
 	/**
 	 * @brief Reads from the TSB library based on the initialization fragment data.
@@ -232,9 +299,22 @@ protected:
 	 * @brief Skip Fragment based on rate
 	 * @param reader Reader object
 	 * @param nextFragmentData Fragment Data
-	 * @return duration of skipped frames
 	 */
 	void SkipFragment(std::shared_ptr<AampTsbReader> &reader, TsbFragmentDataPtr& nextFragmentData);
+
+	/**
+	 * @brief Process ad metadata events for the current fragment
+	 *
+	 * This function processes ad metadata events that occur within the time range
+	 * of the current fragment.
+	 *
+	 * @param[in] mediaType Type of media track being processed
+	 * @param[in] nextFragmentData Fragment data containing timing information
+	 * @param[in] rate Current playback rate
+	 *
+	 * @note Ad events are only processed for video fragments during normal speed playback
+	 */
+	void ProcessAdMetadata(AampMediaType mediaType, TsbFragmentDataPtr nextFragmentData, float rate);
 
 private:
 	/**
@@ -254,6 +334,28 @@ private:
 		mDataManagers[mediaType].second += durationInSeconds;
 	}
 
+	/**
+	 * @brief Generate unique URL for TSB store
+	 * @param[in] url - url of segment
+	 * @param[in] absPosition - abs position of segment
+	 * @return string - unique url
+	 */
+	std::string ToUniqueUrl(std::string url, double absPosition);
+
+	/**
+	 * @brief Remove fragment from list and delete init fragment from TSB store if nolonger referenced
+	 * @param[in] mediaType - track type
+	 * @return shared ptr to fragment removed is any
+	 */
+	TsbFragmentDataPtr RemoveFragmentDeleteInit(AampMediaType mediatype);
+
+	/**
+	 * @brief Check if a track for the given media type is stored in TSB
+	 * @param[in] mediaType - track type
+	 * @return true if track is stored in TSB, false otherwise
+	 */
+	bool IsTrackStoredInTsb(AampMediaType mediatype);
+
 	bool mInitialized_;
 	std::atomic_bool mStopThread_;			// This variable is atomic because it can be accessed from multiple threads
 
@@ -266,6 +368,7 @@ private:
 	std::thread mWriteThread;
 	std::unordered_map<AampMediaType, std::pair<std::shared_ptr<AampTsbDataManager>, double>> mDataManagers; // AampMediaType -> {AampTsbDataManager, totalStoreDuration in seconds}
 	std::unordered_map<AampMediaType, std::shared_ptr<AampTsbReader>> mTsbReaders;
+	AampTsbMetaDataManager mMetaDataManager;
 	double mCulledDuration;
 	TuneType mActiveTuneType;
 	std::mutex mWriteQueueMutex;			// Mutex to synchronize access to the write queue.
@@ -275,10 +378,11 @@ private:
 	double mLastVideoPos;
 	double mStoreEndPosition; 		/**< Last reported TSB Store end position*/
 	double mLiveEndPosition;		/**< Last reported Live end position*/
-
+	AampTime  mCurrentWritePosition; /**< The last fragment position written to the TSB */
+	std::shared_ptr<AampTsbMetaData> mLastAdMetaDataProcessed; /**< Last ad metadata processed */
 public:
 	PrivateInstanceAAMP *mAamp; /**< AAMP player's private instance */
 	std::shared_ptr<IsoBmffHelper> mIsoBmffHelper; /**< ISO BMFF helper object */
 };
 
-#endif // AAMP_TSBSSESSIONMANAGER_H
+#endif // AAMP_TSB_SESSION_MANAGER_H

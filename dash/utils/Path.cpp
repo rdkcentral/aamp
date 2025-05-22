@@ -164,7 +164,7 @@ bool Path::isRoot() const {
 
 /**
  * @brief   Relative Path
- * @retval  true if path doesnt start with '/'
+ * @retval  true if path doesn't start with '/'
  */
 bool Path::isRelative() const {
     return path[0] != '/';

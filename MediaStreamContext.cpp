@@ -33,32 +33,24 @@
  */
 void MediaStreamContext::InjectFragmentInternal(CachedFragment* cachedFragment, bool &fragmentDiscarded,bool isDiscontinuity)
 {
-	if(
-	   !((aamp->GetLLDashChunkMode() &&
-		   (cachedFragment->type == eMEDIATYPE_AUDIO ||
-			cachedFragment->type == eMEDIATYPE_VIDEO)
-		   ) || aamp->IsLocalAAMPTsb() ) )
+	assert(!aamp->GetLLDashChunkMode());
+
+	if(playContext)
 	{
-		if(playContext)
+		MediaProcessor::process_fcn_t processor = [this](AampMediaType type, SegmentInfo_t info, std::vector<uint8_t> buf)
 		{
-			MediaProcessor::process_fcn_t processor = [this](AampMediaType type, SegmentInfo_t info, std::vector<uint8_t> buf)
-			{
-			};
-			fragmentDiscarded = !playContext->sendSegment( &cachedFragment->fragment, cachedFragment->position, 
-                                                            cachedFragment->duration, isDiscontinuity, cachedFragment->initFragment, processor, ptsError);
-        }
-		else
-		{
-			aamp->ProcessID3Metadata(cachedFragment->fragment.GetPtr(), cachedFragment->fragment.GetLen(), (AampMediaType) type);
-			AAMPLOG_DEBUG("Type[%d] cachedFragment->position: %f cachedFragment->duration: %f cachedFragment->initFragment: %d", type, cachedFragment->position,cachedFragment->duration,cachedFragment->initFragment);
-			aamp->SendStreamTransfer((AampMediaType)type, &cachedFragment->fragment,
-			cachedFragment->position, cachedFragment->position, cachedFragment->duration, cachedFragment->initFragment, cachedFragment->discontinuity);
-		}
+		};
+		fragmentDiscarded = !playContext->sendSegment( &cachedFragment->fragment, cachedFragment->position,
+														cachedFragment->duration, cachedFragment->PTSOffsetSec, isDiscontinuity, cachedFragment->initFragment, processor, ptsError);
 	}
 	else
 	{
-		AAMPLOG_TRACE("Full Fragment Send Ignored in LL Mode");
+		aamp->ProcessID3Metadata(cachedFragment->fragment.GetPtr(), cachedFragment->fragment.GetLen(), (AampMediaType) type);
+		AAMPLOG_DEBUG("Type[%d] cachedFragment->position: %f cachedFragment->duration: %f cachedFragment->initFragment: %d", type, cachedFragment->position,cachedFragment->duration,cachedFragment->initFragment);
+		aamp->SendStreamTransfer((AampMediaType)type, &cachedFragment->fragment,
+		cachedFragment->position, cachedFragment->position, cachedFragment->duration, cachedFragment->PTSOffsetSec, cachedFragment->initFragment, cachedFragment->discontinuity);
 	}
+
 	fragmentDiscarded = false;
 } // InjectFragmentInternal
 
@@ -71,13 +63,13 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 	bool ret = false;
 	double posInAbsTimeline = ((double)fragmentTime);
 	AAMPLOG_INFO("Type[%d] position(before restamp) %f discontinuity %d pto %f scale %u duration %f mPTSOffsetSec %f absTime %lf fragmentUrl %s", type, position, discontinuity, pto, scale, fragmentDurationS, GetContext()->mPTSOffset.inSeconds(), posInAbsTimeline, fragmentUrl.c_str());
-	
+
 	ProfilerBucketType bucketType = aamp->GetProfilerBucketForMedia(mediaType, initSegment);
 	CachedFragment* cachedFragment = GetFetchBuffer(true);
 	BitsPerSecond bitrate = 0;
 	double downloadTimeS = 0;
 	AampMediaType actualType = (AampMediaType)(initSegment?(eMEDIATYPE_INIT_VIDEO+mediaType):mediaType); //Need to revisit the logic
-	
+
 	cachedFragment->type = actualType;
 	cachedFragment->initFragment = initSegment;
 	cachedFragment->timeScale = fragmentDescriptor.TimeScale;
@@ -91,24 +83,25 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 	{
 		// apply pts offset to position which ends up getting put into gst_buffer in sendHelper
 		position += GetContext()->mPTSOffset.inSeconds();
+		AAMPLOG_INFO("Type[%d] position after restamp = %fs", type, position);
 	}
 	AampTSBSessionManager *tsbSessionManager = aamp->GetTSBSessionManager();
-	
+
 	auto CheckEos = [this, &tsbSessionManager, &actualType]() {
-		return tsbSessionManager &&
-		aamp->IsLocalAAMPTsbInjection() &&
-		IsLocalTSBInjection() &&
-		AAMP_NORMAL_PLAY_RATE == aamp->rate &&
-		eTUNETYPE_SEEKTOLIVE == context->mTuneType &&
-		tsbSessionManager->GetTsbReader((AampMediaType)type) &&
-		tsbSessionManager->GetTsbReader((AampMediaType)type)->IsEos();
+		return IsLocalTSBInjection() &&
+			AAMP_NORMAL_PLAY_RATE == aamp->rate &&
+			!aamp->pipeline_paused &&
+			eTUNETYPE_SEEKTOLIVE == context->mTuneType &&
+			tsbSessionManager &&
+			tsbSessionManager->GetTsbReader((AampMediaType)type) &&
+			tsbSessionManager->GetTsbReader((AampMediaType)type)->IsEos();
 	};
-	
+
 	if(initSegment && discontinuity )
 	{
 		setDiscontinuityState(true);
 	}
-	
+
 	if(!initSegment && mDownloadedFragment.GetPtr() )
 	{
 		ret = true;
@@ -122,11 +115,26 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 		bool bReadfromcache = false;
 		if(initSegment)
 		{
-			ret = bReadfromcache = aamp->getAampCacheHandler()->RetrieveFromInitFragCache(fragmentUrl,&cachedFragment->fragment,effectiveUrl);
+			ret = bReadfromcache = aamp->getAampCacheHandler()->RetrieveFromInitFragmentCache(fragmentUrl,&cachedFragment->fragment,effectiveUrl);
 		}
 		if(!bReadfromcache)
 		{
-			ret = aamp->GetFile(fragmentUrl, actualType, mTempFragment.get(), effectiveUrl, &httpErrorCode, &downloadTimeS, range, curlInstance, true/*resetBuffer*/,  &bitrate, &iFogError, fragmentDurationS, bucketType );
+			AampMPDDownloader *dnldInstance = aamp->GetMPDDownloader();
+			int maxInitDownloadTimeMS = 0;
+			if ((aamp->IsLocalAAMPTsb()) && (dnldInstance))
+			{
+				//Calculate the time remaining for the fragment to be available in the timeshift buffer window
+				//         A                                     B                        C
+				// --------|-------------------------------------|------------------------|
+				// AC represents timeshiftBufferDepth in MPD; B is absolute time position of fragment and
+				// C is MPD publishTime(absolute time). So AC - (C-B) gives the time remaining for the
+				//fragment to be available in the timeshift buffer window
+				maxInitDownloadTimeMS = aamp->mTsbDepthMs - (dnldInstance->GetPublishTime() - (fragmentTime * 1000));
+				AAMPLOG_INFO("maxInitDownloadTimeMS %d, initSegment %d, mTsbDepthMs %d, GetPublishTime %llu(ms), fragmentTime %f(s) ",
+					maxInitDownloadTimeMS, initSegment, aamp->mTsbDepthMs, (unsigned long long)dnldInstance->GetPublishTime(), fragmentTime);
+			}
+
+			ret = aamp->GetFile(fragmentUrl, actualType, mTempFragment.get(), effectiveUrl, &httpErrorCode, &downloadTimeS, range, curlInstance, true/*resetBuffer*/,  &bitrate, &iFogError, fragmentDurationS, bucketType, maxInitDownloadTimeMS);
 			if (initSegment && ret)
 			{
 				aamp->getAampCacheHandler()->InsertToInitFragCache(fragmentUrl, mTempFragment.get(), effectiveUrl, actualType);
@@ -137,7 +145,7 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 				mTempFragment->Free();
 			}
 		}
-		
+
 		if (iCurrentRate != AAMP_NORMAL_PLAY_RATE)
 		{
 			if(actualType == eMEDIATYPE_VIDEO)
@@ -233,14 +241,14 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 				// Not overwriting for subtitles, as subtecmp4transform never read trackId from init fragments
 			}
 		}
-		
+
 		if(!bReadfromcache)
 		{
 			//update videoend info
 			aamp->UpdateVideoEndMetrics( actualType, bitrate? bitrate : fragmentDescriptor.Bandwidth, (iFogError > 0 ? iFogError : httpErrorCode),effectiveUrl,fragmentDurationS, downloadTimeS);
 		}
 	}
-	
+
 	mCheckForRampdown = false;
 	// Check for overWriteTrackId to avoid this logic for PushEncrypted init fragment use-case
 	if(ret && (bitrate > 0 && bitrate != fragmentDescriptor.Bandwidth && !overWriteTrackId))
@@ -294,7 +302,7 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 						AAMPLOG_ERR("%s Not able to download init fragments; reached failure threshold sending tune failed event",name);
 						abortWaitForVideoPTS();
 						aamp->SetFlushFdsNeededInCurlStore(true);
-						
+
 						aamp->SendDownloadErrorEvent(AAMP_TUNE_INIT_FRAGMENT_DOWNLOAD_FAILURE, httpErrorCode);
 					}
 				}
@@ -337,17 +345,20 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 			else if (AampLogManager::isLogworthyErrorCode(httpErrorCode))
 			{
 				AAMPLOG_ERR("StreamAbstractionAAMP_MPD::Error on fetching %s fragment. failedCount:%d",name, segDLFailCount);
-				
-				if(!initSegment)
+
+				if (initSegment)
 				{
-					updateSkipPoint(position+fragmentDurationS,fragmentDurationS);
+					// For init fragment, rampdown limit is reached. Send error event.
+					if (!playingAd && httpErrorCode != 502)
+					{
+						abortWaitForVideoPTS();
+						aamp->SetFlushFdsNeededInCurlStore(true);
+						aamp->SendDownloadErrorEvent(AAMP_TUNE_INIT_FRAGMENT_DOWNLOAD_FAILURE, httpErrorCode);
+					}
 				}
-				// For init fragment, rampdown limit is reached. Send error event.
-				if(!playingAd && initSegment)
+				else
 				{
-					abortWaitForVideoPTS();
-					aamp->SetFlushFdsNeededInCurlStore(true);
-					aamp->SendDownloadErrorEvent(AAMP_TUNE_INIT_FRAGMENT_DOWNLOAD_FAILURE, httpErrorCode);
+					updateSkipPoint(position + fragmentDurationS, fragmentDurationS);
 				}
 			}
 		}
@@ -357,25 +368,14 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 		cachedFragment->position = position;
 		cachedFragment->duration = fragmentDurationS;
 		cachedFragment->discontinuity = discontinuity;
-
-#ifdef AAMP_DEBUG_INJECT
-		if (discontinuity)
-		{
-			AAMPLOG_WARN("Discontinuous fragment");
-		}
-		if ((1 << type) & AAMP_DEBUG_INJECT)
-		{
-			cachedFragment->uri.assign(fragmentUrl);
-		}
-#endif
 		segDLFailCount = 0;
 		if ((eTRACK_VIDEO == type) && (!initSegment))
 		{
 			// reset count on video fragment success
 			context->mRampDownCount = 0;
 		}
-		
-		if(tsbSessionManager && aamp->GetLLDashServiceData()->lowLatencyMode && cachedFragment->fragment.GetLen())
+
+		if(tsbSessionManager && cachedFragment->fragment.GetLen())
 		{
 			std::shared_ptr<CachedFragment> fragmentToTsbSessionMgr = std::make_shared<CachedFragment>();
 			fragmentToTsbSessionMgr->Copy(cachedFragment, cachedFragment->fragment.GetLen());
@@ -385,25 +385,27 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 				GetContext()->UpdateStreamInfoBitrateData(fragmentToTsbSessionMgr->profileIndex, fragmentToTsbSessionMgr->cacheFragStreamInfo);
 			}
 			fragmentToTsbSessionMgr->cacheFragStreamInfo.bandwidthBitsPerSecond = fragmentDescriptor.Bandwidth;
-			if(CheckEos())
+			if (aamp->GetLLDashServiceData()->lowLatencyMode)
 			{
-				// A reader EOS check is performed after downloading live edge segment
-				// If reader is at EOS, inject the missing live segment directly
-				AAMPLOG_INFO("Reader at EOS, Pushing last downloaded data");
-				tsbSessionManager->GetTsbReader((AampMediaType)type)->CheckForWaitIfReaderDone();
-				CacheTsbFragment(fragmentToTsbSessionMgr);
-				SetLocalTSBInjection(false);
+				if(CheckEos())
+				{
+					// A reader EOS check is performed after downloading live edge segment
+					// If reader is at EOS, inject the missing live segment directly
+					AAMPLOG_INFO("Reader at EOS, Pushing last downloaded data");
+					tsbSessionManager->GetTsbReader((AampMediaType)type)->CheckForWaitIfReaderDone();
+					CacheTsbFragment(fragmentToTsbSessionMgr);
+					SetLocalTSBInjection(false);
+				}
+				else if(fragmentToTsbSessionMgr->initFragment && !IsLocalTSBInjection() && !aamp->pipeline_paused)
+				{
+					// Insert init fragment through chunk injector
+					CacheTsbFragment(fragmentToTsbSessionMgr);
+				}
 			}
-			else if(fragmentToTsbSessionMgr->initFragment && !IsLocalTSBInjection())
-			{
-				// Insert init fragment through chunk injector
-				CacheTsbFragment(fragmentToTsbSessionMgr);
-			}
-			fragmentToTsbSessionMgr->position = posInAbsTimeline; // Need to store the fragment with absolute position
 			tsbSessionManager->EnqueueWrite(fragmentUrl, fragmentToTsbSessionMgr, context->GetPeriod()->GetId());
 		}
 		// Added the duplicate conditional statements, to log only for localAAMPTSB cases.
-		else if(tsbSessionManager && aamp->GetLLDashServiceData()->lowLatencyMode && cachedFragment->fragment.GetLen() == 0)
+		else if(tsbSessionManager && cachedFragment->fragment.GetLen() == 0)
 		{
 			AAMPLOG_WARN("Type[%d] Empty cachedFragment ignored!! fragmentUrl %s fragmentTime %f discontinuity %d pto %f  scale %u duration %f", type, fragmentUrl.c_str(), position, discontinuity, pto, scale, fragmentDurationS);
 		}
@@ -419,13 +421,26 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 			fragmentToTsbSessionMgr->cacheFragStreamInfo.bandwidthBitsPerSecond = fragmentDescriptor.Bandwidth;
 			CacheTsbFragment(fragmentToTsbSessionMgr);
 		}
-		UpdateTSAfterFetch(initSegment);
-		// When LocalAAMPTSBInjection is set, buffers are sent via chunkInjector, so update cachedFragments here itself.
-		// IsLocalAAMPTsb() was used earlier, but its set before FetchAndInjectInitialization for non-LLD streams causing the init fragment to be lost.
-		if(aamp->IsLocalAAMPTsbInjection() || aamp->GetLLDashChunkMode())
+
+		// If playing back from local TSB, or pending playing back from local TSB as paused
+		if (tsbSessionManager && (IsLocalTSBInjection() || aamp->pipeline_paused))
 		{
-			UpdateTSAfterInject();
+			AAMPLOG_TRACE("[%s] cachedFragment %p ptr %p not injecting", name, cachedFragment, cachedFragment->fragment.GetPtr());
+			// Free the memory
+			cachedFragment->fragment.Free();
 		}
+		else
+		{
+			// Update buffer index after fetch for injection
+			UpdateTSAfterFetch(initSegment);
+
+			// If injection is from chunk buffer, remove the fragment for injection
+			if(IsInjectionFromCachedFragmentChunks())
+			{
+				UpdateTSAfterInject();
+			}
+		}
+
 		ret = true;
 	}
 	return ret;
@@ -461,14 +476,7 @@ bool MediaStreamContext::CacheFragmentChunk(AampMediaType actualType, char *ptr,
 		cachedFragment->PTSOffsetSec = GetContext()->mPTSOffset.inSeconds();
 
 		AAMPLOG_TRACE("[%s] cachedFragment %p ptr %p", name, cachedFragment, cachedFragment->fragment.GetPtr());
-		if (IsLocalTSBInjection())
-		{
-			cachedFragment->fragment.Free();
-		}
-		else
-		{
-			UpdateTSAfterChunkFetch();
-		}
+		UpdateTSAfterChunkFetch();
 	}
 	else
 	{
@@ -484,12 +492,12 @@ bool MediaStreamContext::CacheFragmentChunk(AampMediaType actualType, char *ptr,
 void MediaStreamContext::updateSkipPoint(double position, double duration )
 {
 	if(ISCONFIGSET(eAAMPConfig_EnablePTSReStamp) && (aamp->mVideoFormat == FORMAT_ISO_BMFF ))
-    {
-        if(playContext)
-        {
+	{
+		if(playContext)
+		{
 			playContext->updateSkipPoint(position,duration);
 		}
-    }
+	}
 }
 
 /**
@@ -497,13 +505,13 @@ void MediaStreamContext::updateSkipPoint(double position, double duration )
  */
  void MediaStreamContext::setDiscontinuityState(bool isDiscontinuity)
  {
-    if(ISCONFIGSET(eAAMPConfig_EnablePTSReStamp) && (aamp->mVideoFormat == FORMAT_ISO_BMFF ))
-    {
-    	if(playContext)
+	if(ISCONFIGSET(eAAMPConfig_EnablePTSReStamp) && (aamp->mVideoFormat == FORMAT_ISO_BMFF ))
+	{
+		if(playContext)
 		{
 			playContext->setDiscontinuityState(isDiscontinuity);
 		}
-    }
+	}
  }
 
  /**
@@ -511,14 +519,14 @@ void MediaStreamContext::updateSkipPoint(double position, double duration )
  */
  void MediaStreamContext::abortWaitForVideoPTS()
  {
-    if(ISCONFIGSET(eAAMPConfig_EnablePTSReStamp) && (aamp->mVideoFormat == FORMAT_ISO_BMFF ))
-    {
-    	if(playContext)
+	if(ISCONFIGSET(eAAMPConfig_EnablePTSReStamp) && (aamp->mVideoFormat == FORMAT_ISO_BMFF ))
+	{
+		if(playContext)
 		{
 			AAMPLOG_WARN(" %s abort waiting for video PTS arrival",name );
-          	playContext->abortWaitForVideoPTS();
+		  	playContext->abortWaitForVideoPTS();
 		}
-    }
+	}
  }
 
 /**
@@ -526,25 +534,25 @@ void MediaStreamContext::updateSkipPoint(double position, double duration )
  */
 void MediaStreamContext::ABRProfileChanged(void)
 {
-    struct ProfileInfo profileMap = context->GetAdaptationSetAndRepresentationIndicesForProfile(context->currentProfileIndex);
-    // Get AdaptationSet Index and Representation Index from the corresponding profile
-    int adaptIdxFromProfile = profileMap.adaptationSetIndex;
-    int reprIdxFromProfile = profileMap.representationIndex;
-    if (!((adaptationSetIdx == adaptIdxFromProfile) && (representationIndex == reprIdxFromProfile)))
-    {
-        const IAdaptationSet *pNewAdaptationSet = context->GetAdaptationSetAtIndex(adaptIdxFromProfile);
-        IRepresentation *pNewRepresentation = pNewAdaptationSet->GetRepresentation().at(reprIdxFromProfile);
-        if(representation != NULL)
-        {
-            AAMPLOG_WARN("StreamAbstractionAAMP_MPD: ABR %dx%d[%d] -> %dx%d[%d]",
-                    representation->GetWidth(), representation->GetHeight(), representation->GetBandwidth(),
-                    pNewRepresentation->GetWidth(), pNewRepresentation->GetHeight(), pNewRepresentation->GetBandwidth());
-            adaptationSetIdx = adaptIdxFromProfile;
-            adaptationSet = pNewAdaptationSet;
-            adaptationSetId = adaptationSet->GetId();
-            representationIndex = reprIdxFromProfile;
-            representation = pNewRepresentation;
-	
+	struct ProfileInfo profileMap = context->GetAdaptationSetAndRepresentationIndicesForProfile(context->currentProfileIndex);
+	// Get AdaptationSet Index and Representation Index from the corresponding profile
+	int adaptIdxFromProfile = profileMap.adaptationSetIndex;
+	int reprIdxFromProfile = profileMap.representationIndex;
+	if (!((adaptationSetIdx == adaptIdxFromProfile) && (representationIndex == reprIdxFromProfile)))
+	{
+		const IAdaptationSet *pNewAdaptationSet = context->GetAdaptationSetAtIndex(adaptIdxFromProfile);
+		IRepresentation *pNewRepresentation = pNewAdaptationSet->GetRepresentation().at(reprIdxFromProfile);
+		if(representation != NULL)
+		{
+			AAMPLOG_WARN("StreamAbstractionAAMP_MPD: ABR %dx%d[%d] -> %dx%d[%d]",
+					representation->GetWidth(), representation->GetHeight(), representation->GetBandwidth(),
+					pNewRepresentation->GetWidth(), pNewRepresentation->GetHeight(), pNewRepresentation->GetBandwidth());
+			adaptationSetIdx = adaptIdxFromProfile;
+			adaptationSet = pNewAdaptationSet;
+			adaptationSetId = adaptationSet->GetId();
+			representationIndex = reprIdxFromProfile;
+			representation = pNewRepresentation;
+
 			dash::mpd::IMPD *mpd = context->GetMPD();
 			IPeriod *period = context->GetPeriod();
 			fragmentDescriptor.ClearMatchingBaseUrl();
@@ -554,25 +562,25 @@ void MediaStreamContext::ABRProfileChanged(void)
 			fragmentDescriptor.AppendMatchingBaseUrl( &representation->GetBaseURLs() );
 
 			fragmentDescriptor.Bandwidth = representation->GetBandwidth();
-            fragmentDescriptor.RepresentationID.assign(representation->GetId());
-            // Update timescale when video profile changes in ABR
-            SegmentTemplates segmentTemplates (representation->GetSegmentTemplate(), adaptationSet->GetSegmentTemplate());
-            if (segmentTemplates.HasSegmentTemplate())
-            {
-                fragmentDescriptor.TimeScale = segmentTemplates.GetTimescale();
-            }
-            profileChanged = true;
-        }
-        else
-        {
-            AAMPLOG_WARN("representation is null");  //CID:83962 - Null Returns
-        }
-    }
-    else
-    {
-        AAMPLOG_DEBUG("StreamAbstractionAAMP_MPD:: Not switching ABR %dx%d[%d] ",
-                representation->GetWidth(), representation->GetHeight(), representation->GetBandwidth());
-    }
+			fragmentDescriptor.RepresentationID.assign(representation->GetId());
+			// Update timescale when video profile changes in ABR
+			SegmentTemplates segmentTemplates (representation->GetSegmentTemplate(), adaptationSet->GetSegmentTemplate());
+			if (segmentTemplates.HasSegmentTemplate())
+			{
+				fragmentDescriptor.TimeScale = segmentTemplates.GetTimescale();
+			}
+			profileChanged = true;
+		}
+		else
+		{
+			AAMPLOG_WARN("representation is null");  //CID:83962 - Null Returns
+		}
+	}
+	else
+	{
+		AAMPLOG_DEBUG("StreamAbstractionAAMP_MPD:: Not switching ABR %dx%d[%d] ",
+				representation->GetWidth(), representation->GetHeight(), representation->GetBandwidth());
+	}
 
 }
 
@@ -581,29 +589,48 @@ void MediaStreamContext::ABRProfileChanged(void)
  */
 double MediaStreamContext::GetBufferedDuration()
 {
-    double bufferedDuration=0;
-    double position = aamp->GetPositionMs() / 1000.00;
-    if(downloadedDuration >= position)
-    {
-        // If player faces buffering, this will be 0
-        bufferedDuration = downloadedDuration - position;
-    }
-    else if( downloadedDuration < aamp->prevFirstPeriodStartTime )
-    {
+	double bufferedDuration=0;
+	double position = aamp->GetPositionMs() / 1000.00;
+	AAMPLOG_INFO("[%s] lastDownloadedPosition %lfs position %lfs prevFirstPeriodStartTime %llds",
+		GetMediaTypeName(mediaType),
+		lastDownloadedPosition.load(),
+		position,
+		aamp->prevFirstPeriodStartTime);
+	if(lastDownloadedPosition >= position)
+	{
+		// If player faces buffering, this will be 0
+		bufferedDuration = lastDownloadedPosition - position;
+		AAMPLOG_TRACE("[%s] bufferedDuration %fs lastDownloadedPosition %lfs position %lfs",
+			GetMediaTypeName(mediaType),
+			bufferedDuration,
+			lastDownloadedPosition.load(),
+			position);
+	}
+	else if( lastDownloadedPosition < aamp->prevFirstPeriodStartTime )
+	{
 		//When Player is rolling from IVOD window to Linear
 		position = aamp->prevFirstPeriodStartTime - position;
-        aamp->prevFirstPeriodStartTime = 0;
-        bufferedDuration = downloadedDuration - position;
-    }
-    else
-    {
-        // This avoids negative buffer, expecting
-        // downloadedDuration never exceeds position in normal case.
-        // Other case happens when contents are yet to be injected.
-        downloadedDuration = 0;
-        bufferedDuration = downloadedDuration;
-    }
-    return bufferedDuration;
+		aamp->prevFirstPeriodStartTime = 0;
+		bufferedDuration = lastDownloadedPosition - position;
+		AAMPLOG_TRACE("[%s] bufferedDuration %fs lastDownloadedPosition %lfs position %lfs prevFirstPeriodStartTime %llds",
+			GetMediaTypeName(mediaType),
+			bufferedDuration,
+			lastDownloadedPosition.load(),
+			position,
+			aamp->prevFirstPeriodStartTime);
+	}
+	else
+	{
+		// This avoids negative buffer, expecting
+		// lastDownloadedPosition never exceeds position in normal case.
+		// Other case happens when contents are yet to be injected.
+		lastDownloadedPosition = 0;
+		bufferedDuration = lastDownloadedPosition;
+	}
+	AAMPLOG_INFO("[%s] bufferedDuration %fs",
+		GetMediaTypeName(mediaType),
+		bufferedDuration);
+	return bufferedDuration;
 }
 
 /**
@@ -611,7 +638,7 @@ double MediaStreamContext::GetBufferedDuration()
  */
 void MediaStreamContext::SignalTrickModeDiscontinuity()
 {
-    aamp->SignalTrickModeDiscontinuity();
+	aamp->SignalTrickModeDiscontinuity();
 }
 
 /**
@@ -619,7 +646,7 @@ void MediaStreamContext::SignalTrickModeDiscontinuity()
  */
 bool MediaStreamContext::IsAtEndOfTrack()
 {
-    return eosReached;
+	return eosReached;
 }
 
 /**
@@ -627,7 +654,7 @@ bool MediaStreamContext::IsAtEndOfTrack()
  */
 std::string& MediaStreamContext::GetPlaylistUrl()
 {
-    return mPlaylistUrl;
+	return mPlaylistUrl;
 }
 
 /**
@@ -635,7 +662,7 @@ std::string& MediaStreamContext::GetPlaylistUrl()
  */
 std::string& MediaStreamContext::GetEffectivePlaylistUrl()
 {
-    return mEffectiveUrl;
+	return mEffectiveUrl;
 }
 
 /**
@@ -643,7 +670,7 @@ std::string& MediaStreamContext::GetEffectivePlaylistUrl()
  */
 void MediaStreamContext::SetEffectivePlaylistUrl(std::string url)
 {
-    mEffectiveUrl = url;
+	mEffectiveUrl = url;
 }
 
 /**
@@ -651,7 +678,7 @@ void MediaStreamContext::SetEffectivePlaylistUrl(std::string url)
  */
 long long MediaStreamContext::GetLastPlaylistDownloadTime()
 {
-    return (long long) context->mLastPlaylistDownloadTimeMs;
+	return (long long) context->mLastPlaylistDownloadTimeMs;
 }
 
 /**
@@ -659,7 +686,7 @@ long long MediaStreamContext::GetLastPlaylistDownloadTime()
  */
 void MediaStreamContext::SetLastPlaylistDownloadTime(long long time)
 {
-    context->mLastPlaylistDownloadTimeMs = time;
+	context->mLastPlaylistDownloadTimeMs = time;
 }
 
 /**
@@ -667,7 +694,7 @@ void MediaStreamContext::SetLastPlaylistDownloadTime(long long time)
  */
 long MediaStreamContext::GetMinUpdateDuration()
 {
-    return (long) context->GetMinUpdateDuration();
+	return (long) context->GetMinUpdateDuration();
 }
 
 /**
@@ -675,7 +702,7 @@ long MediaStreamContext::GetMinUpdateDuration()
  */
 int MediaStreamContext::GetDefaultDurationBetweenPlaylistUpdates()
 {
-    return DEFAULT_INTERVAL_BETWEEN_PLAYLIST_UPDATES_MS;
+	return DEFAULT_INTERVAL_BETWEEN_PLAYLIST_UPDATES_MS;
 }
 
 
@@ -686,33 +713,33 @@ int MediaStreamContext::GetDefaultDurationBetweenPlaylistUpdates()
  */
 bool MediaStreamContext::CacheTsbFragment(std::shared_ptr<CachedFragment> fragment)
 {
-    // FN_TRACE_F_MPD( __FUNCTION__ );
-    std::lock_guard<std::mutex> lock(fetchChunkBufferMutex);
-    bool ret = false;
-    if(fragment->fragment.GetPtr() && WaitForCachedFragmentChunkInjected())
-    {
-        AAMPLOG_TRACE("Type[%s] fragmentTime %f discontinuity %d duration %f initFragment:%d", name, fragment->position, fragment->discontinuity, fragment->duration, fragment->initFragment);
-        CachedFragment* cachedFragment = GetFetchChunkBuffer(true);
-        if(cachedFragment->fragment.GetPtr())
-        {
-            // If following log is coming, possible memory leak. Need to clear the data first before slot reuse.
-            AAMPLOG_WARN("Fetch buffer has junk data, Need to free this up");
-        }
-        cachedFragment->fragment.Clear();
-        cachedFragment->Copy(fragment.get(), fragment->fragment.GetLen());
-        if(cachedFragment->fragment.GetPtr() && cachedFragment->fragment.GetLen() > 0)
-        {
-            ret = true;
-            UpdateTSAfterChunkFetch();
-        }
-        else
-        {
-            cachedFragment->fragment.Free();
-        }
-    }
-    else
-    {
-        AAMPLOG_WARN("[%s] Failed to update inject", name);
-    }
-    return ret;
+	// FN_TRACE_F_MPD( __FUNCTION__ );
+	std::lock_guard<std::mutex> lock(fetchChunkBufferMutex);
+	bool ret = false;
+	if(fragment->fragment.GetPtr() && WaitForCachedFragmentChunkInjected())
+	{
+		AAMPLOG_TRACE("Type[%s] fragmentTime %f discontinuity %d duration %f initFragment:%d", name, fragment->position, fragment->discontinuity, fragment->duration, fragment->initFragment);
+		CachedFragment* cachedFragment = GetFetchChunkBuffer(true);
+		if(cachedFragment->fragment.GetPtr())
+		{
+			// If following log is coming, possible memory leak. Need to clear the data first before slot reuse.
+			AAMPLOG_WARN("Fetch buffer has junk data, Need to free this up");
+		}
+		cachedFragment->fragment.Clear();
+		cachedFragment->Copy(fragment.get(), fragment->fragment.GetLen());
+		if(cachedFragment->fragment.GetPtr() && cachedFragment->fragment.GetLen() > 0)
+		{
+			ret = true;
+			UpdateTSAfterChunkFetch();
+		}
+		else
+		{
+			cachedFragment->fragment.Free();
+		}
+	}
+	else
+	{
+		AAMPLOG_WARN("[%s] Failed to update inject", name);
+	}
+	return ret;
 }

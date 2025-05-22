@@ -21,12 +21,8 @@
  * @file jsmediaplayer.cpp
  * @brief JavaScript bindings for AAMPMediaPlayer
  */
-#ifdef USE_CPP_THUNDER_PLUGIN_ACCESS
-    #include "Module.h"
-	#include "ThunderAccess.h"
-	#include "AampUtils.h"
-#endif
 
+#include "AampUtils.h"
 
 #include "jsbindings-version.h"
 #include "jsbindings.h"
@@ -37,8 +33,9 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
+#include "CCTrackInfo.h"
+#include "PlayerCCManager.h"
 
-#include "AampCCManager.h"
 
 extern "C"
 {
@@ -179,7 +176,7 @@ std::vector<AAMPMediaPlayer_JS *> AAMPMediaPlayer_JS::_jsMediaPlayerInstances = 
 /**
  * @brief Mutex for global cache of AAMPMediaPlayer_JS instances
  */
-static pthread_mutex_t jsMediaPlayerCacheMutex = PTHREAD_MUTEX_INITIALIZER;
+static std::mutex jsMediaPlayerCacheMutex;
 
 /**
  * @brief Helper function to parse a JS property value as number
@@ -311,9 +308,8 @@ static void releaseNativeResources(AAMPMediaPlayer_JS *privObj)
 		// clean all members of AAMPMediaPlayer_JS(privObj)
 		if (privObj->_aamp != NULL)
 		{
-			//when finalizing JS object, don't generate state change events
-			LOG_WARN(privObj," aamp->Stop(false)");
-			privObj->_aamp->Stop(false);
+			LOG_WARN(privObj,"aamp->Stop()");
+			privObj->_aamp->Stop();
 			privObj->clearCallbackForAllAdIds();
 			if (privObj->_listeners.size() > 0)
 			{
@@ -339,7 +335,7 @@ static bool findInGlobalCacheAndRelease(AAMPMediaPlayer_JS *privObj)
 
 	if (privObj != NULL)
 	{
-		pthread_mutex_lock(&jsMediaPlayerCacheMutex);
+		std::unique_lock<std::mutex> lock(jsMediaPlayerCacheMutex);
 		for (std::vector<AAMPMediaPlayer_JS *>::iterator iter = AAMPMediaPlayer_JS::_jsMediaPlayerInstances.begin(); iter != AAMPMediaPlayer_JS::_jsMediaPlayerInstances.end(); iter++)
 		{
 			if (privObj == *iter)
@@ -350,7 +346,7 @@ static bool findInGlobalCacheAndRelease(AAMPMediaPlayer_JS *privObj)
 				break;
 			}
 		}
-		pthread_mutex_unlock(&jsMediaPlayerCacheMutex);
+		lock.unlock();
 
 		if (found)
 		{
@@ -3418,7 +3414,7 @@ JSValueRef AAMPMediaPlayerJS_getVideoPlaybackQuality (JSContextRef ctx, JSObject
 }
 
 /**
- * @brief CFunction to set pre-proceed DASH manifest data.
+ * @brief C Function to set pre-proceed DASH manifest data.
  *
  * @param[in] ctx JS execution context
  * @param[in] function JSObject that is the function being called
@@ -3864,16 +3860,17 @@ JSObjectRef AAMPMediaPlayer_JS_class_constructor(JSContextRef ctx, JSObjectRef c
 	// In this case AAMPMediaPlayer_JS should be available to access
 	JSObjectRef newObj = JSObjectMake(ctx, AAMPMediaPlayer_object_ref(), privObj);
 
-	pthread_mutex_lock(&jsMediaPlayerCacheMutex);
-	AAMPMediaPlayer_JS::_jsMediaPlayerInstances.push_back(privObj);
-	pthread_mutex_unlock(&jsMediaPlayerCacheMutex);
+	{
+		std::lock_guard<std::mutex> guard(jsMediaPlayerCacheMutex);
+		AAMPMediaPlayer_JS::_jsMediaPlayerInstances.push_back(privObj);
+	}
 
 	// Add a dummy event listener without any function callback.
 	// Upto JS application to register a common callback function for AAMP to notify ad resolve status
 	// or individually as part of setAlternateContent call. NULL checks added in eventlistener to avoid undesired behavior
 	AAMP_JSEventListener::AddEventListener(privObj, AAMP_EVENT_AD_RESOLVED, NULL);
 
-	// Required for viper-player
+	
 	JSStringRef fName = JSStringCreateWithUTF8CString("toString");
 	JSStringRef fString = JSStringCreateWithUTF8CString("return \"[object __AAMPMediaPlayer]\";");
 	JSObjectRef toStringFunc = JSObjectMakeFunction(ctx, NULL, 0, NULL, fString, NULL, 0, NULL);
@@ -3917,7 +3914,6 @@ static JSClassDefinition AAMPMediaPlayer_JS_class_def {
  */
 void ClearAAMPPlayerInstances(void)
 {
-	pthread_mutex_lock(&jsMediaPlayerCacheMutex);
 	LOG_WARN_EX("Number of active jsmediaplayer instances: %zu", AAMPMediaPlayer_JS::_jsMediaPlayerInstances.size());
 	while(AAMPMediaPlayer_JS::_jsMediaPlayerInstances.size() > 0)
 	{
@@ -3925,7 +3921,6 @@ void ClearAAMPPlayerInstances(void)
 		releaseNativeResources(obj);
 		AAMPMediaPlayer_JS::_jsMediaPlayerInstances.pop_back();
 	}
-	pthread_mutex_unlock(&jsMediaPlayerCacheMutex);
 }
 
 class XREReceiver_onEventHandler
@@ -3947,7 +3942,7 @@ public:
 	static std::string findTextTrackWithLang(JSContextRef ctx, std::string selectedLang)
 	{
 
-		const auto textTracks = AampCCManager::GetInstance()->getLastTextTracks();
+		const auto textTracks = PlayerCCManager::GetInstance()->getLastTextTracks();
 		LOG_WARN_EX("[XREReceiver]:found %d text tracks", (int)textTracks.size());
 
 		if(!selectedLang.empty() && isdigit(selectedLang[0]))
@@ -4010,10 +4005,10 @@ private:
 			const bool enable_value = JSValueToBoolean(ctx, param_enable_value);
 			LOG_WARN_EX("[XREReceiver]:received enable boolean %d", enable_value);
 
-			AampCCManager::GetInstance()->SetStatus(enable_value);
+			PlayerCCManager::GetInstance()->SetStatus(enable_value);
 			if(enable_value)
 			{
-				const auto textTracks = AampCCManager::GetInstance()->getLastTextTracks();
+				const auto textTracks = PlayerCCManager::GetInstance()->getLastTextTracks();
 				std::string defaultTrack;
 				if(!textTracks.empty())
 				{
@@ -4025,7 +4020,7 @@ private:
 
 				LOG_WARN_EX("[XREReceiver]: found %d tracks, selected default textTrack = '%s'", (int)textTracks.size(), defaultTrack.c_str());
 
-				AampCCManager::GetInstance()->SetTrack(defaultTrack);
+				PlayerCCManager::GetInstance()->SetTrack(defaultTrack);
 			}
 		}
 
@@ -4049,7 +4044,7 @@ private:
 
 			LOG_WARN_EX("[XREReceiver]: selected textTrack = '%s'", textTrack.c_str());
 
-			AampCCManager::GetInstance()->SetTrack(textTrack);
+			PlayerCCManager::GetInstance()->SetTrack(textTrack);
 		}
 
 		JSStringRelease(param_enable);
@@ -4204,7 +4199,10 @@ void AAMPPlayer_UnloadJS(void* context)
 	JSGlobalContextRef jsContext = (JSGlobalContextRef)context;
 
 	//Clear all active js mediaplayer instances and its resources
-	ClearAAMPPlayerInstances();
+	{
+		std::lock_guard<std::mutex> guard(jsMediaPlayerCacheMutex);
+		ClearAAMPPlayerInstances();
+	}
 
 	JSObjectRef globalObj = JSContextGetGlobalObject(jsContext);
 	JSStringRef str = JSStringCreateWithUTF8CString("AAMPMediaPlayer");

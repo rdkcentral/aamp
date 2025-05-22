@@ -24,19 +24,16 @@
 #include "compositein_shim.h"
 #include <stdlib.h>
 #include <string.h>
-#include <pthread.h>
 #include <signal.h>
 #include <assert.h>
 
-
-#define COMPOSITEINPUT_CALLSIGN "org.rdk.AVInput.1"
 StreamAbstractionAAMP_COMPOSITEIN* StreamAbstractionAAMP_COMPOSITEIN::mCompositeinInstance = NULL;
 
 /**
  * @brief StreamAbstractionAAMP_COMPOSITEIN Constructor
  */
 StreamAbstractionAAMP_COMPOSITEIN::StreamAbstractionAAMP_COMPOSITEIN(class PrivateInstanceAAMP *aamp,double seek_pos, float rate)
-                             : StreamAbstractionAAMP_VIDEOIN("COMPOSITEIN", COMPOSITEINPUT_CALLSIGN, aamp,seek_pos,rate,"COMPOSITE")
+                             : StreamAbstractionAAMP_VIDEOIN("COMPOSITEIN", PlayerThunderAccessPlugin::AVINPUT, aamp,seek_pos,rate,"COMPOSITE")
 {
 	aamp->SetContentType("COMPOSITE_IN");
 }

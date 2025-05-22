@@ -46,8 +46,8 @@ void _manifestDownloadResponse::show()
 		}
 		AAMPLOG_INFO("type: %s", mMPDInstance->GetType().c_str());
 		auto periods = mMPDInstance->GetPeriods();
-		AAMPLOG_INFO("Size of 'periods': %zu\n", periods.size());
-		AAMPLOG_INFO("Minimum Update Period:  %s\n", mMPDInstance->GetMinimumUpdatePeriod().c_str());
+		AAMPLOG_INFO("Size of 'periods': %zu", periods.size());
+		AAMPLOG_INFO("Minimum Update Period:  %s", mMPDInstance->GetMinimumUpdatePeriod().c_str());
 	}
 }
 
@@ -193,7 +193,7 @@ void AampMPDDownloader::Initialize(ManifestDownloadConfigPtr mpdDnldCfg, std::st
 {
 	if(mpdDnldCfg == nullptr)
 	{
-		AAMPLOG_INFO("Need a valid MPD download config.\n");
+		AAMPLOG_INFO("Need a valid MPD download config.");
 		return;
 	}
 
@@ -328,22 +328,6 @@ void AampMPDDownloader::Start()
 		{
 			AAMPLOG_WARN("Thread create failed for MPD Downloader1 : %s", e.what());
 		}
-
-		#if 0 // downloader thread 2 is not required now . When Option 2 is considered , need to do parallel download
-		// Following to be done after successful download of Main Manifest
-		if(!mMPDDnldCfg->mStichUrl.empty())
-		{
-			try
-			{
-				mDownloaderThread_t2 = std::thread(&AampMPDDownloader::downloadMPDThread2, this);
-				AAMPLOG_INFO("Thread created for MPD Downloader2 [%zu]", GetPrintableThreadID(mDownloaderThread_t2));
-			}
-			catch(std::exception &e)
-			{
-				AAMPLOG_WARN("Thread create failed for MPD Downloader2 : %s", e.what());
-			}
-		}
-		#endif
 	}
 	else
 	{
@@ -357,14 +341,13 @@ void AampMPDDownloader::Start()
 */
 void AampMPDDownloader::downloadMPDThread1()
 {
+	UsingPlayerId playerId(mMPDDnldCfg->mPlayerId);
 	bool refreshNeeded = false;
 	std::string tuneUrl = mMPDDnldCfg->mTuneUrl;
 	bool firstDownload	=	true;
-	int retryCount = 0;
 	ManifestDownloadResponsePtr cachedBackupData = nullptr;
 	do
 	{
-		
 		std::unordered_map<std::string, std::vector<std::string>> Headers = mMPDDnldCfg->mDnldConfig->sCustomHeaders;
 		bool doPush = true;
 		long long tStartTime = NOW_STEADY_TS_MS;
@@ -378,11 +361,12 @@ void AampMPDDownloader::downloadMPDThread1()
 				Headers.insert(CMCDHeaders.begin(), CMCDHeaders.end());
 			}
 			mMPDDnldCfg->mDnldConfig->sCustomHeaders = Headers;
+			mMPDDnldCfg->mDnldConfig->iDownload502RetryCount = MANIFEST_DOWNLOAD_502_RETRY_COUNT;
 			mDownloader1.Initialize(mMPDDnldCfg->mDnldConfig);
 			refreshNeeded = false;
 			//mDownloader1.Clear();
 			AAMPLOG_INFO("aamp url:%d,%d,%d,%f,%s", eMEDIATYPE_TELEMETRY_MANIFEST, eMEDIATYPE_MANIFEST,eCURLINSTANCE_VIDEO,0.000000, tuneUrl.c_str());
-			mMPDData = std::make_shared<ManifestDownloadResponse> ();
+			mMPDData = MakeSharedManifestDownloadResponsePtr();
 		}
 		//If Manifest data already provided use it ,not required to download the Manifest
 		if (!mMPDDnldCfg->mPreProcessedManifest.empty())
@@ -411,22 +395,6 @@ void AampMPDDownloader::downloadMPDThread1()
 			else
 			{
 				mDownloader1.Download(tuneUrl, mMPDData->mMPDDownloadResponse);
-				if(mMPDData->mMPDDownloadResponse->iHttpRetValue == 502 && retryCount < DEFAULT_MANIFEST_DOWNLOAD_502_RETRY_COUNT)
-				{
-					mRefreshInterval = MIN_DELAY_BETWEEN_MANIFEST_UPDATE_FOR_502_MS;
-					waitForRefreshInterval();
-					refreshNeeded = true;
-					retryCount++;
-					continue;
-				}
-				else
-				{
-					retryCount = 0;
-					if(mMPDData->mMPDDownloadResponse->iHttpRetValue == 502)
-					{
-						AAMPLOG_ERR("Manifest retries exhausted for HTTP error 502,exiting mpd downloader!!");
-					}
-				}
 			}
 		}
 
@@ -508,7 +476,6 @@ void AampMPDDownloader::downloadMPDThread1()
 			}
 		}
 		long long tEndTime = NOW_STEADY_TS_MS;
-
 		showDownloadMetrics(mMPDData->mMPDDownloadResponse, (int)(tEndTime - tStartTime));
 		if(doPush)
 		{
@@ -579,8 +546,6 @@ void AampMPDDownloader::harvestManifest()
 				}  //CID:168113 - forward null
 			}
 	}
-
-
 }
 
 
@@ -619,7 +584,6 @@ void AampMPDDownloader::stichToCachedManifest(ManifestDownloadResponsePtr mpdToA
 */
 void AampMPDDownloader::showDownloadMetrics(DownloadResponsePtr dnldPtr, int totalPerformanceTime)
 {
-
 	CURLcode res 			=	static_cast<CURLcode>(dnldPtr->curlRetValue);
 	int http_code			=	dnldPtr->iHttpRetValue;
 	double total			=	dnldPtr->downloadCompleteMetrics.total;
@@ -649,45 +613,6 @@ void AampMPDDownloader::showDownloadMetrics(DownloadResponsePtr dnldPtr, int tot
 			dnldPtr->downloadCompleteMetrics.appConnect, dnldPtr->downloadCompleteMetrics.preTransfer, dnldPtr->downloadCompleteMetrics.redirect,
 			dnldPtr->downloadCompleteMetrics.dlSize, dnldPtr->downloadCompleteMetrics.reqSize, dnldPtr->downloadCompleteMetrics.downloadbps,
 			0, dnldPtr->sEffectiveUrl.c_str());
-}
-
-
-/**
-*   @fn downloadMPDThread2
-*   @brief downloadMPDThread1 thread function to download the Manifest 2
-*/
-void AampMPDDownloader::downloadMPDThread2()
-{
-	mDownloader2.Initialize(mMPDDnldCfg->mDnldConfig);
-	do
-	{
-		long long tStartTime = NOW_STEADY_TS_MS;
-		mDownloader2.Clear();
-		AAMPLOG_INFO("aamp url:%d,%d,%d,%f,%s", eMEDIATYPE_TELEMETRY_MANIFEST, eMEDIATYPE_MANIFEST,eCURLINSTANCE_VIDEO,0.000000, mMPDDnldCfg->mStichUrl.c_str());
-		ManifestDownloadResponsePtr tmpFullManifestData	=	std::make_shared<ManifestDownloadResponse> ();
-		mDownloader2.Download(mMPDDnldCfg->mStichUrl, tmpFullManifestData->mMPDDownloadResponse);
-
-		if(tmpFullManifestData->mMPDDownloadResponse->curlRetValue == 0 && tmpFullManifestData->mMPDDownloadResponse->iHttpRetValue == 200)
-		{
-			tmpFullManifestData->parseMPD();
-			// Update the effective url , so that next refresh uses the effective url
-			mMPDDnldCfg->mStichUrl = tmpFullManifestData->mMPDDownloadResponse->sEffectiveUrl;
-			AAMPLOG_INFO("Successfully parsed Full Manifest ...IsLive[%d]",tmpFullManifestData->mIsLiveManifest);
-			mCachedMPDData	=	tmpFullManifestData;
-		}
-		else
-		{
-			// Failure in request
-			AAMPLOG_ERR("curl request %s httpError[%u] curlError[%u]", mMPDDnldCfg->mStichUrl.c_str(), tmpFullManifestData->mMPDDownloadResponse->iHttpRetValue,tmpFullManifestData->mMPDDownloadResponse->curlRetValue);
-			tmpFullManifestData->mMPDStatus	=	AAMPStatusType::eAAMPSTATUS_MANIFEST_DOWNLOAD_ERROR;
-		}
-		long long tEndTime = NOW_STEADY_TS_MS;
-
-		showDownloadMetrics(tmpFullManifestData->mMPDDownloadResponse, (int)(tEndTime - tStartTime));
-
-	}while(false);
-	AAMPLOG_INFO("Out of Full Manifest Download ...");
-
 }
 
 /**
@@ -724,7 +649,7 @@ void AampMPDDownloader::pushDownloadDataToQueue()
 */
 ManifestDownloadResponsePtr AampMPDDownloader::GetManifest(bool bWait, int iWaitDurationMs,int errorSimulation)
 {
-	ManifestDownloadResponsePtr respPtr = std::make_shared<ManifestDownloadResponse> ();
+	ManifestDownloadResponsePtr respPtr = MakeSharedManifestDownloadResponsePtr();
 	respPtr->mMPDStatus = AAMPStatusType::eAAMPSTATUS_MANIFEST_DOWNLOAD_ERROR;
 	// Check if anything available in the Q to return
 	// If last downloaded manifest present , return it to the application
@@ -820,7 +745,7 @@ bool AampMPDDownloader::waitForRefreshInterval()
 *   @fn readMPDData
 *   @brief readMPDData function to read the mpd and pull the parameters like isLive/Refresh Interval
 */
-bool AampMPDDownloader::readMPDData(std::shared_ptr<ManifestDownloadResponse> dnldManifest)
+bool AampMPDDownloader::readMPDData(ManifestDownloadResponsePtr dnldManifest)
 {
 	bool retVal = true;
 	dnldManifest->mIsLiveManifest   =       !(dnldManifest->mMPDInstance->GetType() == "static");
@@ -835,7 +760,7 @@ bool AampMPDDownloader::readMPDData(std::shared_ptr<ManifestDownloadResponse> dn
 	{
 		publishTimeMSec = (uint64_t)ISO8601DateTimeToUTCSeconds(publishTimeStr.c_str()) * 1000;
 	}
-	AAMPLOG_TRACE("Publish Time of Updated manifest %" PRIu64 ", Previous manifest update time %" PRIu64 "\n", publishTimeMSec, mPublishTime);
+	AAMPLOG_TRACE("Publish Time of Updated manifest %" PRIu64 ", Previous manifest update time %" PRIu64, publishTimeMSec, mPublishTime);
 
 	/* If there is no update in the manifest and publish time is not zero, Set the refresh interval to a minimal value (500ms). This is done for a maximum of two times to avoid frequent manifest refresh.*/
 	if (publishTimeMSec == mPublishTime && publishTimeMSec != 0) 
@@ -880,7 +805,7 @@ bool AampMPDDownloader::IsMPDLowLatency(AampLLDashServiceData &LLDashData)
 }
 
 
-bool AampMPDDownloader::isMPDLowLatency(std::shared_ptr<ManifestDownloadResponse> dnldManifest, AampLLDashServiceData &LLDashData)
+bool AampMPDDownloader::isMPDLowLatency(ManifestDownloadResponsePtr dnldManifest, AampLLDashServiceData &LLDashData)
 {
 	bool isSuccess=false;
 	LLDashData.lowLatencyMode	=	 false;
@@ -966,7 +891,7 @@ bool AampMPDDownloader::isMPDLowLatency(std::shared_ptr<ManifestDownloadResponse
 	return isSuccess;
 }
 
-uint32_t AampMPDDownloader::getMeNextManifestDownloadWaitTime(std::shared_ptr<ManifestDownloadResponse> dnldManifest)
+uint32_t AampMPDDownloader::getMeNextManifestDownloadWaitTime(ManifestDownloadResponsePtr dnldManifest)
 {
 	uint32_t minUpdateDuration		=       DEFAULT_INTERVAL_BETWEEN_MPD_UPDATES_MS;
 	uint32_t minDelayBetweenPlaylistUpdates = DEFAULT_INTERVAL_BETWEEN_MPD_UPDATES_MS;
@@ -1161,6 +1086,7 @@ void AampMPDDownloader::UnRegisterCallback()
 */
 void AampMPDDownloader::downloadNotifierThread()
 {
+	UsingPlayerId playerId(mMPDDnldCfg->mPlayerId);
 	std::unique_lock<std::mutex> lck2(mMPDNotifierMtx);
 
 	// infinite wait for download notification
@@ -1201,7 +1127,6 @@ std::unordered_map<std::string, std::vector<std::string>> AampMPDDownloader::get
 				std::string header_name = header.substr(0, colon_pos + 1); // include the colon
 				std::string header_value = header.substr(colon_pos + 1);
 				trim(header_value); // remove any whitespace
-				//AAMPLOG_INFO("CMCD Header: %s, Value: %s\n", header_name.c_str(), header_value.c_str());
 				cmcd[header_name].push_back(header_value);
 			}
 		}

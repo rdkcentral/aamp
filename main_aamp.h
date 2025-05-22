@@ -49,7 +49,7 @@
 #include "Accessibility.hpp"
 #include "AampEvent.h"
 #include "AampEventListener.h"
-#include "AampDrmSystems.h"
+#include "DrmSystems.h"
 #include "AampMediaType.h"
 #include "AampScheduler.h"
 #include "AampConfig.h"
@@ -61,6 +61,8 @@
  * See PlayerInstanceAAMP for libaamp public C++ API's
  *
  */
+
+#define PrivAAMPState AAMPPlayerState // backwards compatibility for apps using native interface
 
 /**
  * @enum AAMPAnomalyMessageType
@@ -222,7 +224,7 @@ struct AudioTrackInfo
 	AudioTrackInfo(std::string idx, std::string lang, std::string rend, std::string trackName, std::string codecStr, int pk, std::string conType, std::string mixType):
 			index(idx), language(lang), rendition(rend), name(trackName),
 			codec(codecStr), characteristics(), channels(0), bandwidth(-1), primaryKey(pk),
-                        contentType(conType), mixType(mixType), accessibilityType(), isMuxed(false), label(), mType(), accessibilityItem(),
+						contentType(conType), mixType(mixType), accessibilityType(), isMuxed(false), label(), mType(), accessibilityItem(),
 			isAvailable(true),isDefault(false)
 	{
 	}
@@ -407,7 +409,7 @@ public:
 	 *   @param[in]  auxFormat - Aux audio output format.
 	 *   @param[in]  bESChangeStatus - Flag to keep force configure the pipeline value
 	 *   @param[in]  forwardAudioToAux - Flag denotes if audio buffers have to be forwarded to aux pipeline
-         *   @param[in]  setReadyAfterPipelineCreation - Flag denotes if pipeline has to be reset to ready or not
+	 *   @param[in]  setReadyAfterPipelineCreation - Flag denotes if pipeline has to be reset to ready or not
 	 *   @return void
 	 */
 	virtual void Configure(StreamOutputFormat format, StreamOutputFormat audioFormat, StreamOutputFormat auxFormat, StreamOutputFormat subFormat, bool bESChangeStatus, bool forwardAudioToAux, bool setReadyAfterPipelineCreation=false){}
@@ -433,10 +435,11 @@ public:
 	 *   @param[in]  fpts - Presentation Time Stamp.
 	 *   @param[in]  fdts - Decode Time Stamp
 	 *   @param[in]  fDuration - Buffer duration.
-         *   @param[in]  initFragment - flag for buffer type (init, data)
+	 *   @param[in]  fragmentPTSoffset - Offset PTS
+	 *   @param[in]  initFragment - flag for buffer type (init, data)
 	 *   @return void
 	 */
-	virtual bool SendTransfer( AampMediaType mediaType, void *ptr, size_t len, double fpts, double fdts, double fDuration, bool initFragment = false, bool discontinuity = false)= 0;
+	virtual bool SendTransfer( AampMediaType mediaType, void *ptr, size_t len, double fpts, double fdts, double fDuration, double fragmentPTSoffset, bool initFragment = false, bool discontinuity = false)= 0;
 
 	/**
 	 *   @brief  Checks pipeline is configured for media type
@@ -726,10 +729,9 @@ public:
 
 	/**
 	 * @brief Signal the new clock to subtitle module
-	 * @param[in] verboseDebug - enable more debug
 	 * @return - true indicating successful operation in sending the clock update
 	 */
-	virtual bool SignalSubtitleClock(bool verboseDebug) { return false; };
+	virtual bool SignalSubtitleClock( void ) { return false; };
 
 	/**
 	 * @fn SetPauseOnPlayback
@@ -737,6 +739,17 @@ public:
 	 * @param[in] enable - Flag to set whether enabled
 	 */
 	virtual void SetPauseOnStartPlayback(bool enable) {};
+
+	/**
+ 	* @brief Notifies the injector to resume buffer pushing.
+ 	*/
+	virtual void NotifyInjectorToResume() {};
+
+	/**
+ 	* @brief Notifies the injector to pause buffer pushing.
+ 	*/
+	virtual void NotifyInjectorToPause() {};
+
 };
 
 
@@ -842,10 +855,9 @@ public:
 
 	/**
 	 *   @brief Stop playback and release resources.
-	 *   @param[in]  sendStateChangeEvent - true if state change events need to be sent for Stop operation
 	 *   @return void
 	 */
-	void Stop(bool sendStateChangeEvent = true);
+	void Stop(void);
 
 	/**
 	 *   @fn ResetConfiguration
@@ -1015,9 +1027,9 @@ public:
 	void SetSubscribedTags(std::vector<std::string> subscribedTags);
 
 	/**
-         *   @fn SubscribeResponseHeaders
-         *
-         *   @param  responseHeaders - Array of response headers.
+		 *   @fn SubscribeResponseHeaders
+		 *
+		 *   @param  responseHeaders - Array of response headers.
 	 *   @return void
 	 */
 	void SubscribeResponseHeaders(std::vector<std::string> responseHeaders);
@@ -1068,8 +1080,7 @@ public:
 	 *
 	 *   @return bool - True if jsinfo is enabled, false otherwise
 	 */
-
-	 bool IsJsInfoLoggingEnabled();
+	bool IsJsInfoLoggingEnabled();
 
 
 	/**
@@ -1291,7 +1302,7 @@ public:
 	 *
 	 *   @return current AAMP state
 	 */
-	PrivAAMPState GetState(void);
+	AAMPPlayerState GetState(void);
 
 	/**
 	 *   @fn GetVideoBitrate
@@ -1358,11 +1369,11 @@ public:
 	std::vector<BitsPerSecond> GetVideoBitrates(void);
 
 	/**
-         *   @fn GetManifest
-         *
-         *   @return available manifest
-         */
-        std::string GetManifest(void);
+		 *   @fn GetManifest
+		 *
+		 *   @return available manifest
+		 */
+		std::string GetManifest(void);
 
 	/**
 	 *   @fn GetAudioBitrates
@@ -1499,12 +1510,12 @@ public:
 	void SetParallelPlaylistDL(bool bValue);
 
 	 /**
-         *   @fn ManageAsyncTuneConfig
-         *   @param[in] url - main manifest url
-         *
-         *   @return void
-         */
-        void ManageAsyncTuneConfig(const char* url);
+		 *   @fn ManageAsyncTuneConfig
+		 *   @param[in] url - main manifest url
+		 *
+		 *   @return void
+		 */
+		void ManageAsyncTuneConfig(const char* url);
 
 	/**
 	 *   @fn SetAsyncTuneConfig
@@ -1539,11 +1550,11 @@ public:
 	void SetLicenseCaching(bool bValue);
 
 	/**
-         *      @fn SetOutputResolutionCheck
-         *      @param[in] bValue - true/false to enable/disable profile filtering by display resolution
-         *
-         *      @return void
-         */
+		 *      @fn SetOutputResolutionCheck
+		 *      @param[in] bValue - true/false to enable/disable profile filtering by display resolution
+		 *
+		 *      @return void
+		 */
 	void SetOutputResolutionCheck(bool bValue);
 
 	/**
@@ -1554,21 +1565,21 @@ public:
 	 */
 	void SetMatchingBaseUrlConfig(bool bValue);
 
-        /**
-         *   @fn SetPropagateUriParameters
-         *
-         *   @param[in] bValue - default value: true
-         *   @return void
-         */
+		/**
+		 *   @fn SetPropagateUriParameters
+		 *
+		 *   @param[in] bValue - default value: true
+		 *   @return void
+		 */
 	void SetPropagateUriParameters(bool bValue);
 
-        /**
-         *   @fn ApplyArtificialDownloadDelay
-         *
-         *   @param[in] DownloadDelayInMs - default value: zero
-         *   @return void
-         */
-        void ApplyArtificialDownloadDelay(unsigned int DownloadDelayInMs);
+		/**
+		 *   @fn ApplyArtificialDownloadDelay
+		 *
+		 *   @param[in] DownloadDelayInMs - default value: zero
+		 *   @return void
+		 */
+		void ApplyArtificialDownloadDelay(unsigned int DownloadDelayInMs);
 
 	/**
 	 *   @fn SetSslVerifyPeerConfig
@@ -1648,8 +1659,8 @@ public:
 	 *   @fn SetPreferredLanguages
 	 *   @param[in] languageList - string with comma-delimited language list in ISO-639
 	 *             from most to least preferred: "lang1,lang2". Set NULL to clear current list.
-     	 *   @param[in] preferredRendition  - preferred rendition from role
-     	 *   @param[in] preferredType -  preferred accessibility type
+	 	 *   @param[in] preferredRendition  - preferred rendition from role
+	 	 *   @param[in] preferredType -  preferred accessibility type
 	 *   @param[in] codecList - string with comma-delimited codec list
 	 *             from most to least preferred: "codec1,codec2". Set NULL to clear current list.
 	 *   @param[in] labelList - string with comma-delimited label list
@@ -2028,7 +2039,7 @@ public:
 	/**
   	 *   @fn XRESupportedTune
    	 *   @param[in] xreSupported bool On/Off
-     	 */
+	 	 */
 	void XRESupportedTune(bool xreSupported);
 
 	/**
@@ -2091,7 +2102,7 @@ public:
 
 	/**
 	 *   @fn GetPlaybackStats
-         *
+		 *
    	 *   @return json string representing the stats
   	 */
 	std::string GetPlaybackStats();
@@ -2123,13 +2134,13 @@ protected:
 	 *   @retval return true if the given rate is valid.
 	 */
 	bool IsValidRate(int rate);
-        /**
-         *   @fn TuneInternal
-         *
-         *   @param  mainManifestUrl - HTTP/HTTPS url to be played.
-         *   @param[in] autoPlay - Start playback immediately or not
-         *   @param  contentType - content Type.
-         */
+		/**
+		 *   @fn TuneInternal
+		 *
+		 *   @param  mainManifestUrl - HTTP/HTTPS url to be played.
+		 *   @param[in] autoPlay - Start playback immediately or not
+		 *   @param  contentType - content Type.
+		 */
 	void TuneInternal(const char *mainManifestUrl,
 						bool autoPlay,
 						const char *contentType,
@@ -2142,11 +2153,11 @@ protected:
 						std::string sid = {},
 						const char *manifestData = NULL );
 	/**
-         *   @fn SetRateInternal
-         *
-         *   @param  rate - Rate of playback.
-         *   @param  overshootcorrection - overshoot correction in milliseconds.
-         */
+		 *   @fn SetRateInternal
+		 *
+		 *   @param  rate - Rate of playback.
+		 *   @param  overshootcorrection - overshoot correction in milliseconds.
+		 */
 	void SetRateInternal(float rate,int overshootcorrection);
 	/**
 		 *   @fn PauseAtInternal
@@ -2155,12 +2166,12 @@ protected:
 		 */
 	void PauseAtInternal(double secondsRelativeToTuneTime);
 	/**
-         *   @fn SeekInternal
-         *
-         *   @param  secondsRelativeToTuneTime - Seek position for VOD,
-         *           relative position from first tune command.
-         *   @param  keepPaused - set true if want to keep paused state after seek
-         */
+		 *   @fn SeekInternal
+		 *
+		 *   @param  secondsRelativeToTuneTime - Seek position for VOD,
+		 *           relative position from first tune command.
+		 *   @param  keepPaused - set true if want to keep paused state after seek
+		 */
 
 	void SeekInternal(double secondsRelativeToTuneTime, bool keepPaused);
 	/**
@@ -2183,15 +2194,6 @@ protected:
 	 */
 	void SetTextTrackInternal(int trackId, char *data);
 private:
-
-	/**
-	 *   @fn StopInternal
-	 *
-	 *   @param[in]  sendStateChangeEvent - true if state change events need to be sent for Stop operation
-	 *   @return void
-	 */
-	void StopInternal(bool sendStateChangeEvent);
-
 	void* mJSBinding_DL;                /**< Handle to AAMP plugin dynamic lib.  */
 	static std::mutex mPrvAampMtx;      /**< Mutex to protect aamp instance in GetState() */
 	bool mAsyncRunning;                 /**< Flag denotes if async mode is on or not */
