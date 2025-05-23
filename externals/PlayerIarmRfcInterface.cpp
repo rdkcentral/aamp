@@ -142,7 +142,7 @@ char * PlayerIarmRfcInterface::GetTR181PlayerConfig(const char * paramName, size
 bool PlayerIarmRfcInterface::GetActiveInterface()
 {
     bool bRet = false;
-    if(!IsContainerEnvironment())
+    if(m_pIarmInterface != nullptr && !IsContainerEnvironment())
     {
         bRet = m_pIarmInterface->GetActiveInterface();
     }
