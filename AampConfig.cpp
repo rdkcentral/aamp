@@ -886,6 +886,11 @@ PlatformType AampConfig::InferPlatformFromDeviceProperties( void )
 						platform = ePLATFORM_BROADCOM;
 						break;
                     }
+		    else if (strcmp(socName, "MEDIATEK") == 0)
+		    {
+						platform = ePLATFORM_MEDIATEK;
+						break;
+		    }
                 }
                 else
                 {

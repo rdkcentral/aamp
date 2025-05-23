@@ -2782,8 +2782,7 @@ bool InterfacePlayerRDK::StopBuffering(bool forceStop, bool &isPlaying)
  */
 unsigned long InterfacePlayerRDK::GetCCDecoderHandle()
 {
-	unsigned long vHandle = 0xDEADBEEF;
-	gpointer dec_handle = &vHandle;
+	gpointer dec_handle = NULL;
 	if(this->gstPrivateContext->video_dec != NULL)
 	{
 		MW_LOG_MIL("Querying video decoder for handle");
