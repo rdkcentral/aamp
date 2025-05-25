@@ -5337,6 +5337,7 @@ GstPlatformType InterfacePlayerRDK::InferPlatformFromPluginScan()
 		{"amlhalasink", eGST_PLATFORM_AMLOGIC},
 		{"omxeac3dec", eGST_PLATFORM_REALTEK},
 		{"brcmaudiodecoder", eGST_PLATFORM_BROADCOM},
+		{"mtkaudiosink", eGST_PLATFORM_MEDIATEK}
 	};
 	
 	GstRegistry* registry = gst_registry_get();
@@ -5344,6 +5345,7 @@ GstPlatformType InterfacePlayerRDK::InferPlatformFromPluginScan()
 	for (const auto& plugin : plugins)
 	{
 		GstPluginFeature* pluginFeature = gst_registry_lookup_feature(registry, plugin.first);
+		MW_LOG_MIL("InterfacePlayerRDK: %s checking for plugin in registry", plugin.first);
 		if (pluginFeature)
 		{
 			gst_object_unref(pluginFeature);

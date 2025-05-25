@@ -88,6 +88,7 @@ enum GstPlatformType
         eGST_PLATFORM_AMLOGIC,      /**< Amlogic */
         eGST_PLATFORM_REALTEK,      /**< Realtek */
         eGST_PLATFORM_BROADCOM,     /**< Broadcom */
+	eGST_PLATFORM_MEDIATEK
 };
 
 

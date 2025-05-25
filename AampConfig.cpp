@@ -915,6 +915,7 @@ PlatformType AampConfig::InferPlatformFromPluginScan()
 void AampConfig::ApplyDeviceCapabilities( PlatformType platform )
 {
 	SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_PlatformType, platform);
+	AAMPLOG_WARN("ApplyDeviceCapabilities platform %d", platform);
 	switch( platform )
 	{
 		case ePLATFORM_AMLOGIC:
@@ -938,7 +939,7 @@ void AampConfig::ApplyDeviceCapabilities( PlatformType platform )
 
 		case ePLATFORM_DEFAULT:
 			SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_EnableLowLatencyCorrection, false);
-			SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_UseWesterosSink, false );
+			//SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_UseWesterosSink, false );
 			SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_NoNativeAV, true );
 #if defined(__APPLE__)
 			SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_UseAppSrcForProgressivePlayback, true );
