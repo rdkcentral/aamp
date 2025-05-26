@@ -5337,7 +5337,6 @@ GstPlatformType InterfacePlayerRDK::InferPlatformFromPluginScan()
 		{"amlhalasink", eGST_PLATFORM_AMLOGIC},
 		{"omxeac3dec", eGST_PLATFORM_REALTEK},
 		{"brcmaudiodecoder", eGST_PLATFORM_BROADCOM},
-		{"mtkaudiosink", eGST_PLATFORM_MEDIATEK}
 	};
 	
 	GstRegistry* registry = gst_registry_get();
