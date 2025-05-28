@@ -4244,9 +4244,36 @@ TEST_F(PrivAampTests, TuneHelperWithAampTsb)
 	p_aamp->SetLLDashChunkMode(true);
 	p_aamp->TuneHelper(eTUNETYPE_SEEK);
 }
-/*
-	Verifies that the seek position is calculated correctly when EOS is reached while performing FF.
+
+/**
+ * @test PrivAampTests::NotifyEOSReached
+ * @brief Test the method NotifyEOSReached with AAMP TSB enabled, Rate a negative value and SetIsLive true.
+ *
+ * Verifies that the seek position is calculated correctly when BOS is reached while performing REW.
 */
+TEST_F(PrivAampTests, NotifyBOSReachedREWSeekPositionCalculation)
+{
+	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP;
+	p_aamp->SetIsLive(true);
+	p_aamp->SetLLDashChunkMode(false);
+	p_aamp->SetLocalAAMPTsb(true);
+	constexpr double kLiveEdgeDeltaFromCurrentTime = 10.0;
+	constexpr double kLiveOffset = 15.0;
+	p_aamp->mLiveEdgeDeltaFromCurrentTime = kLiveEdgeDeltaFromCurrentTime;
+	p_aamp->mLiveOffset= kLiveOffset;
+	p_aamp->rate = -2;
+
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, IsEOSReached()).WillOnce(Return(true));
+	p_aamp->NotifyEOSReached();
+	EXPECT_EQ(p_aamp->GetTuneType(), eTUNETYPE_SEEK);
+}
+
+/**
+ * @test PrivAampTests::NotifyEOSReached
+ * @brief Test the method NotifyEOSReached with AAMP TSB enabled, Rate > 1 and SetIsLive true.
+ *
+ * Verifies that the seek position is calculated correctly when EOS is reached while performing FF.
+ */
 TEST_F(PrivAampTests, NotifyEOSReachedFFSeekPositionCalculation)
 {
 	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP;
@@ -4257,6 +4284,7 @@ TEST_F(PrivAampTests, NotifyEOSReachedFFSeekPositionCalculation)
 	constexpr double kLiveOffset = 15.0;
 	p_aamp->mLiveEdgeDeltaFromCurrentTime = kLiveEdgeDeltaFromCurrentTime;
 	p_aamp->mLiveOffset= kLiveOffset;
+	p_aamp->rate = 2;
 
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, IsEOSReached()).WillOnce(Return(true));
 	p_aamp->NotifyEOSReached();

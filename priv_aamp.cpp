@@ -3252,7 +3252,7 @@ void PrivateInstanceAAMP::NotifyEOSReached()
 			AAMPLOG_WARN("StreamLock not available");
 		}
 
-		if (!isLive && rate > 0)
+		if (!isLive && rate > AAMP_RATE_PAUSE)
 		{
 			SetState(eSTATE_COMPLETE);
 			SendEvent(std::make_shared<AAMPEventObject>(AAMP_EVENT_EOS, GetSessionId()),AAMP_EVENT_ASYNC_MODE);
@@ -3269,7 +3269,8 @@ void PrivateInstanceAAMP::NotifyEOSReached()
 			return;
 		}
 
-		if (rate < 0)
+		/* If rate is normal play, no need to seek to live etc. This can be due to the EPG changing rate from RWD to play near begging of the TSB. */
+		if (rate < AAMP_RATE_PAUSE)
 		{
 			seek_pos_seconds = culledSeconds;
 			AAMPLOG_WARN("Updated seek_pos_seconds %f on BOS", seek_pos_seconds);
@@ -3286,16 +3287,16 @@ void PrivateInstanceAAMP::NotifyEOSReached()
 			AcquireStreamLock();
 			TuneHelper(eTUNETYPE_SEEK);
 			ReleaseStreamLock();
+			NotifySpeedChanged(rate);
 		}
-		else
+		else if (rate > AAMP_NORMAL_PLAY_RATE)
 		{
 			rate = AAMP_NORMAL_PLAY_RATE;
 			AcquireStreamLock();
 			TuneHelper(eTUNETYPE_SEEKTOLIVE);
 			ReleaseStreamLock();
+			NotifySpeedChanged(rate);
 		}
-
-		NotifySpeedChanged(rate);
 	}
 	else
 	{
