@@ -928,7 +928,6 @@ class StreamAbstractionAAMP_HLS : public StreamAbstractionAAMP
 		 * @return string playlist URI
 		 ***************************************************************************/
 		std::string GetPlaylistURI(TrackType trackType, StreamOutputFormat* format = NULL);
-		int lastSelectedProfileIndex;	/**< Variable  to restore in case of playlist download failure */
 		/***************************************************************************
 		 * @fn StopInjection
 		 *

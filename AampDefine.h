@@ -30,7 +30,7 @@
 #define AAMP_CFG_PATH "/opt/aamp.cfg"
 #define AAMP_JSON_PATH "/opt/aampcfg.json"
 
-#define AAMP_VERSION "7.04"
+#define AAMP_VERSION "7.05"
 #define AAMP_TUNETIME_VERSION 5
 
 //Stringification of Macro : use two levels of macros
@@ -146,9 +146,11 @@
 #endif
 #define SUBTITLE_CLOCK_ASSUMED_PLAYSTATE_TIME_MS (20000) /**< period after channel change/seek where we try to sync the subtitle clock quickly, before giving up and falling to slower rate */
 
+#define DEFAULT_THUMBNAIL_TILE_ROWS 1		/**< default number of rows for thumbnail if not present in manifest*/
+#define DEFAULT_THUMBNAIL_TILE_COLUMNS 1	/**< default number of columns for thumbnail if not present in manifest*/
+#define DEFAULT_THUMBNAIL_TILE_DURATION 10.0f	/**< default tile duration of thumbnail if not present in manifest in seconds*/
 
-// Player supported play/trick-play rates.
-#define AAMP_RATE_TRICKPLAY_MAX		64
+
 #define AAMP_NORMAL_PLAY_RATE		1
 #define AAMP_SLOWMOTION_RATE        0.5
 #define AAMP_RATE_PAUSE			0

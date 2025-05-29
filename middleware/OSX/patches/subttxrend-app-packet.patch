@@ -1,0 +1,39 @@
+Source: COMCAST
+Upstream-Status: Pending
+Notice: Code in patch files takes the license of the source which is being patched.
+diff --git a/subttxrend-protocol/include/Packet.hpp b/subttxrend-protocol/include/Packet.hpp
+index cc5d9ad..a1ff731 100644
+--- a/subttxrend-protocol/include/Packet.hpp
++++ b/subttxrend-protocol/include/Packet.hpp
+@@ -65,11 +65,12 @@ public:
+         RESUME = 12,
+         MUTE = 13,
+         UNMUTE = 14,
+-        TTML_INFO = 15,
+-        WEBVTT_SELECTION = 16,
+-        WEBVTT_DATA = 17,
+-        WEBVTT_TIMESTAMP = 18,
++        WEBVTT_SELECTION = 15,
++        WEBVTT_DATA = 16,
++        WEBVTT_TIMESTAMP = 17,
++        SET_CC_ATTRIBUTES = 18,
+         FLUSH = 19,
++        TTML_INFO = 20,
+
+         MAX,
+         INVALID = 0xFFFFFFFF,
+@@ -252,11 +253,12 @@ const std::array<const char*, static_cast<int>(Packet::Type::MAX)> packetTypeStr
+         "RESUME",
+         "MUTE",
+         "UNMUTE",
+-        "TTML_INFO",
+         "WEBVTT_SELECTION",
+         "WEBVTT_DATA",
+         "WEBVTT_TIMESTAMP",
+-        "FLUSH"
++        "SET_CC_ATTRIBUTES",
++        "FLUSH",
++        "TTML_INFO"
+ };
+
+ inline std::ostream& operator<<(std::ostream& out, Packet::Type packetType)

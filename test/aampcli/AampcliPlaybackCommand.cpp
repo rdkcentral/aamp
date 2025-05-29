@@ -622,7 +622,7 @@ void PlaybackCommand::HandleCommandFF( const char *cmd, PlayerInstanceAAMP *play
 	int rate;
 	if (sscanf(cmd, "ff%d", &rate) == 1)
 	{
-		playerInstanceAamp->SetRate((float)rate);
+		playerInstanceAamp->SetRate(rate);
 	}
 }
 void PlaybackCommand::HandleCommandREW( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp )
@@ -630,7 +630,7 @@ void PlaybackCommand::HandleCommandREW( const char *cmd, PlayerInstanceAAMP *pla
 	int rate;
 	if (sscanf(cmd, "rew%d", &rate) == 1)
 	{
-		playerInstanceAamp->SetRate((float)(-rate));
+		playerInstanceAamp->SetRate(-rate);
 	}
 }
 
@@ -1019,8 +1019,8 @@ void PlaybackCommand::registerPlaybackCommands()
 	// trickplay
 	addCommand("play","Continue existing playback");
 	addCommand("slow","Slow Motion playback");
-	addCommand("ff <x>","Fast <speed>; up to 128x");
-	addCommand("rew <x>","Rewind <speed>; up to 128x");
+	addCommand("ff <x>","Fast <speed>");
+	addCommand("rew <x>","Rewind <speed>");
 	addCommand("pause","Pause playerback");
 	addCommand("pause <s>","Schedule pause at position<s>; pass -1 to cancel");
 	addCommand("seek <s> <p>","Seek to position<s>; optionally pass 1 for <p> to remain paused");

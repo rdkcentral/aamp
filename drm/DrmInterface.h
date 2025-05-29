@@ -21,8 +21,8 @@
 #define _DRM_INTERFACE_H_
 
 /**
- * @file drm_interface.h
- * @brief 
+ * @file Drm_interface.h
+ * @brief Header file for interface between player and  middleware DRM  
  */
 
 #include <stddef.h>
@@ -43,11 +43,11 @@
 class DrmInterface 
 {
 public:
-	DrmInterface() = default;
-	 /**
-         * @fn GetInstance
-         */
-        static std::shared_ptr<DrmInterface> GetInstance(PrivateInstanceAAMP* aamp);
+	DrmInterface() = delete;
+	/**
+	 * @fn GetInstance
+	 */
+	static std::shared_ptr<DrmInterface> GetInstance(PrivateInstanceAAMP* aamp);
 
 	/** 
 	 * @fn DrmInterface - constructor
@@ -62,32 +62,28 @@ public:
 	/*
 	 * @fn - register callbacks between aes and aamp
 	 */
-	void RegisterAesInterfaceCb( std::shared_ptr<DrmInterface> drmInterface ,std::shared_ptr<HlsDrmBase> instance);
+	void RegisterAesInterfaceCb( std::shared_ptr<HlsDrmBase> instance);
 #endif
 	/*
 	 * @fn - register callbacks between HlsOcdmBridge and aamp
 	 */
-	void RegisterHlsInterfaceCb( std::shared_ptr<DrmInterface> drmInterface ,PlayerHlsDrmSessionInterface* instance);
+	void RegisterHlsInterfaceCb(PlayerHlsDrmSessionInterface* instance);
 
-       /** 
-	* variable - stores the drmInterface instance
-	*/	
+	/** 
+	 * variable - stores the drmInterface instance
+	 */	
 	static std::shared_ptr<DrmInterface> mInstance;
 
-       /** 
-	* @fn TerminateCurlInstance - Terminate the curl instances 
-	* */	
+	/** 
+	 * @fn TerminateCurlInstance - Terminate the curl instances 
+	 * */	
 	void TerminateCurlInstance(int mCurlInstance);
 
 	/*
 	 * @fn ProfileUpdateDrmDecryptInit -Update init profiling 
-	*/
-	 void ProfileUpdateDrmDecryptInit(int bucketType);
+	 */
+	void ProfileUpdateDrmDecrypt(bool type, int bucketType);
 
-	 /**
-	  * @fn ProfileUpdateDrmDecryptEnd -update end of profiling
-	  */
-	void ProfileUpdateDrmDecryptEnd(int bucketType);
 	/**
 	 * @fn GetCurlInit 
 	 */
@@ -98,7 +94,7 @@ public:
 	 */
 	void NotifyDrmError(int drmFailure);
 	/**
-	* Storing aamp instance */
+	 * Storing aamp instance */
 	PrivateInstanceAAMP* mpAamp;
 	/**Storing AampGrowableBuffer */
 	AampGrowableBuffer mAesKeyBuf;
@@ -114,7 +110,12 @@ public:
 	/*
 	 * @fn getHlsDrmSession 
 	 */
-         void  getHlsDrmSession(std::shared_ptr <HlsDrmBase>&bridge, std::shared_ptr<DrmHelper> &drmHelper,DrmSession* &session , int streamType);
+	void  getHlsDrmSession(std::shared_ptr <HlsDrmBase>&bridge, std::shared_ptr<DrmHelper> &drmHelper,DrmSession* &session , int streamType);
+
+	/*
+	 * @fn enumeration update mapping wrt aamp enumeration 
+	 */
+	ProfilerBucketType MapDrmToProfilerBucket(DrmProfilerBucketType drmType);
 
 };
 

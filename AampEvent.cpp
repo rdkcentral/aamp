@@ -855,7 +855,7 @@ bool BufferingChangedEvent::buffering() const
 DrmMetaDataEvent::DrmMetaDataEvent(AAMPTuneFailure failure, const std::string &accessStatus, int statusValue, int responseCode, bool secclientErr, std::string sid):
 	AAMPEventObject(AAMP_EVENT_DRM_METADATA, std::move(sid)), mFailure(failure), mAccessStatus(accessStatus),
 	mAccessStatusValue(statusValue), mResponseCode(responseCode), mSecclientError(secclientErr), mSecManagerReasonCode(-1), mSecManagerClass(-1),
-	mBusinessStatus(-1), mHeaderResponses(),mResponseData(),mNetworkMetrics()
+	mBusinessStatus(-1), mHeaderResponses(),mResponseData(),mNetworkMetrics(), mBodyResponses()
 {
 	
 }
@@ -1014,7 +1014,7 @@ void DrmMetaDataEvent::ConvertToVerboseErrorCode(int32_t httpCode, int32_t httpE
 	mSecManagerClass = SECMANAGER_CLASS_RESULT_DRM_FAIL;
 	mSecManagerReasonCode = SECMANAGER_REASON_DRM_GENERAL_FAILURE;
 	//look for the correct code from the lookup
-	if (getAsVerboseErrorCode(httpCode, mSecManagerClass, mSecManagerReasonCode)) 
+	if (getAsVerboseErrorCode(httpCode, mSecManagerClass, mSecManagerReasonCode))
 	{
 		if(412 == httpCode && 401 == httpExtStatusCode) 
 		{
@@ -1074,6 +1074,22 @@ const std::vector<std::string> &DrmMetaDataEvent::getHeaderResponses() const
 void DrmMetaDataEvent::setHeaderResponses(const std::vector<std::string> &responses)
 {
 	mHeaderResponses = responses;
+}
+
+/**
+ * @brief Get Body response
+ */
+const std::string &DrmMetaDataEvent::getBodyResponse() const
+{
+	return mBodyResponses;
+}
+
+/**
+ * @brief Set body response from license request
+ */
+void DrmMetaDataEvent::setBodyResponse(const std::string &responses)
+{
+	mBodyResponses = responses;
 }
 
 /**

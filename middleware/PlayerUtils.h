@@ -35,9 +35,9 @@
 #include <cstring>
 
 //Delete non-array object
-#define SAFE_DELETE(ptr) { delete(ptr); ptr = NULL; }
+#define MW_SAFE_DELETE(ptr) { delete(ptr); ptr = NULL; }
 //Delete Array object
-#define SAFE_DELETE_ARRAY(ptr) { delete [] ptr; ptr = NULL; }
+#define MW_SAFE_DELETE_ARRAY(ptr) { delete [] ptr; ptr = NULL; }
 
 
 #define WRITE_HASCII( DST, BYTE ) \
@@ -92,22 +92,17 @@ void ResolveURL(std::string& dst, std::string base, const char *uri , bool bProp
  * @return The current time in milliseconds
  */
 long long GetCurrentTimeMS(void);
+/**
+ * @brief Resolve file URL from the base and file path
+ */
+void player_ResolveURL(std::string& dst, std::string base, const char *uri , bool bPropagateUriParams);
 
-typedef enum
-{
-	MIDDLEWARE_DRM_INIT_FAILED,			   /**< DRM initialization failure */
-	MIDDLEWARE_DRM_DATA_BIND_FAILED,			   /**< InitData binding with DRM failed */
-	MIDDLEWARE_DRM_SESSIONID_EMPTY,			   /**< DRM session ID empty */
-	MIDDLEWARE_DRM_CHALLENGE_FAILED,			   /**< DRM key request challenge generation failed */
-	MIDDLEWARE_INVALID_DRM_KEY,			   /**< DRM reporting invalid license key */
-	MIDDLEWARE_CORRUPT_DRM_DATA,			   /**< DRM failure due to corrupt drm data, self heal might clear further errors*/
-	MIDDLEWARE_CORRUPT_DRM_METADATA,			   /**< DRM failure due to corrupt drm metadata in the stream*/
-	MIDDLEWARE_DRM_DECRYPT_FAILED,			   /**< DRM Decryption Failed for Fragments */
-	MIDDLEWARE_DRM_UNSUPPORTED,			   /**< DRM Format Unsupported */
-	MIDDLEWARE_DRM_SELF_ABORT,			   /**< Download activity is aborted by player */
-	MIDDLEWARE_DRM_KEY_UPDATE_FAILED,		   /**< Failed to process DRM key, see the error code returned from Update() for more info */
-	MIDDLEWARE_UNTRACKED_DRM_ERROR,
-	MIDDLEWARE_FAILED_TO_GET_KEYID			   /**< Failed to parse key id from init data*/
-} DrmTuneFailure;
+/**
+ * @brief parse leading protocol from uri if present
+ * @param[in] uri manifest/ fragment uri
+ * @retval return pointer just past protocol (i.e. http://) if present (or) return NULL uri doesn't start with protcol
+ */
+static const char * ParseUriProtocol(const char *uri);
+
 #endif  /* __PLAYER_UTILS_H__ */
 

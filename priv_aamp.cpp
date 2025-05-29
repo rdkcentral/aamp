@@ -48,7 +48,7 @@
 
 #include "PlayerCCManager.h"
 #include "AampDRMLicPreFetcher.h"
-#include "AampLicManager.h"
+#include "AampDRMLicManager.h"
 
 #ifdef AAMP_TELEMETRY_SUPPORT
 #include <AampTelemetry2.hpp>
@@ -1251,7 +1251,7 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 	preferredTextLabelString = GETCONFIGVALUE_PRIV(eAAMPConfig_PreferredTextLabel);
 	preferredTextTypeString = GETCONFIGVALUE_PRIV(eAAMPConfig_PreferredTextType);
 	int maxDrmSession = GETCONFIGVALUE_PRIV(eAAMPConfig_MaxDASHDRMSessions);
-	mDRMLicenseManager = new AampLicenseManager(maxDrmSession, this);
+	mDRMLicenseManager = new AampDRMLicenseManager(maxDrmSession, this);
 	mSubLanguage = GETCONFIGVALUE_PRIV(eAAMPConfig_SubTitleLanguage);
 	for (int i = 0; i < eCURLINSTANCE_MAX; i++)
 	{
@@ -1381,7 +1381,7 @@ std::shared_ptr<TSB::Store> PrivateInstanceAAMP::GetTSBStore(const TSB::Store::C
 	{
 		try
 		{
-			mTSBStore = std::make_shared<TSB::Store>(config, logger, level);
+			mTSBStore = std::make_shared<TSB::Store>(config, logger, mPlayerId, level);
 		}
 		catch (std::exception &e)
 		{
@@ -2178,7 +2178,7 @@ void PrivateInstanceAAMP::ReportProgress(bool sync, bool beginningOfStream)
 		// This is a short-term solution. We are not acquiring StreamLock here, so we could still access mpStreamAbstractionAAMP
 		// as its getting deleted. StreamLock is acquired for a lot stuff, so getting it here would lead to unexpected delays
 		// Another approach would be to save the bitrate in a local variable as bitrateChangedEvents are fired
-		// Planning a tech-debt to stop deleting mpStreamAbstractionAAMP in-between seek/trickplays
+		// Planning a tech-debt to stop deleting mpStreamAbstractionAAMP in-between seek/trickplay
 		BitsPerSecond bps = 0;
 		if (mpStreamAbstractionAAMP)
 		{
@@ -2381,7 +2381,7 @@ void PrivateInstanceAAMP::UpdateCullingState(double culledSecs)
 	// Fix checks if the player is put into paused state with lighting mode(by checking last stored rate).
   	// In this state player will not come out of Paused state, even if the culled position reaches paused position.
 	// The rate check is a special case for a specific player, if this is contradicting to other players, we will have to add a config to enable/disable
-	if (pipeline_paused && mpStreamAbstractionAAMP && (abs(rate) != AAMP_RATE_TRICKPLAY_MAX))
+	if( pipeline_paused && mpStreamAbstractionAAMP )
 	{
 		double position = GetPositionSeconds();
 		double minPlaylistPositionToResume = (position < maxRefreshPlaylistIntervalSecs) ? position : (position - maxRefreshPlaylistIntervalSecs);
@@ -3221,17 +3221,32 @@ void PrivateInstanceAAMP::NotifyEOSReached()
 		In this case it makes sense to exit this function ASAP.
 		A more complete (larger, higher risk, more time consuming, threadsafe) change to scheduling is required in the future.
 		*/
-		if(!mpStreamAbstractionAAMP)
+		// Used TryStreamLock() to avoid crash when mpStreamAbstractionAAMP gets deleted by SetRate b/w checking for
+		// mpStreamAbstractionAAMP not null & IsEOSReached()
+		if( TryStreamLock() )
 		{
-			AAMPLOG_ERR("null Stream Abstraction AAMP");
-			return;
+			int ret = false;
+			if(!mpStreamAbstractionAAMP)
+			{
+				AAMPLOG_ERR("null Stream Abstraction AAMP");
+				ret = true;
+			}
+			else if (!mpStreamAbstractionAAMP->IsEOSReached())
+			{
+				AAMPLOG_ERR("Bogus EOS event received from GStreamer, discarding it!");
+				ret = true;
+			}
+			ReleaseStreamLock();
+			if (ret)
+			{
+				return;
+			}
+		}
+		else
+		{
+			AAMPLOG_WARN("StreamLock not available");
 		}
 
-		if (!mpStreamAbstractionAAMP->IsEOSReached())
-		{
-			AAMPLOG_ERR("Bogus EOS event received from GStreamer, discarding it!");
-			return;
-		}
 		if (!isLive && rate > 0)
 		{
 			SetState(eSTATE_COMPLETE);
@@ -5214,7 +5229,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 		/* This relies on the fact that when tuning to a new channel, the flag mLocalAAMPTsb is set after this point,
 		so the StreamAbstraction object is created even if Local AAMP TSB is used. When TuneHelper is called for
 		another reason, like changing the rate, the flag is already set and the object is not re-created. */
-		if(!IsLocalAAMPTsb())
+		if(!mpStreamAbstractionAAMP)
 		{
 			mpStreamAbstractionAAMP = new StreamAbstractionAAMP_MPD(this, playlistSeekPos, rate,
 					std::bind(&PrivateInstanceAAMP::ID3MetadataHandler, this,
@@ -9104,6 +9119,26 @@ void PrivateInstanceAAMP::SendHTTPHeaderResponse()
 	}
 }
 
+std::vector<float> PrivateInstanceAAMP::getSupportedPlaybackSpeeds(void)
+{
+	std::vector<float> supportedPlaybackSpeeds = { 0,1 };
+	if (mIsIframeTrackPresent)
+	{ //Iframe track present and hence playbackRate change is supported
+		supportedPlaybackSpeeds.push_back(-64);
+		supportedPlaybackSpeeds.push_back(-32);
+		supportedPlaybackSpeeds.push_back(-16);
+		supportedPlaybackSpeeds.push_back(-4);
+		supportedPlaybackSpeeds.push_back(4);
+		supportedPlaybackSpeeds.push_back(16);
+		supportedPlaybackSpeeds.push_back(32);
+		supportedPlaybackSpeeds.push_back(64);
+	}
+	if( ISCONFIGSET_PRIV(eAAMPConfig_EnableSlowMotion) )
+	{
+		supportedPlaybackSpeeds.push_back( 0.5 );
+	}
+	return supportedPlaybackSpeeds;
+}
 /**
  * @brief  Generate media metadata event based on parsed attribute values.
  *
@@ -9112,7 +9147,6 @@ void PrivateInstanceAAMP::SendMediaMetadataEvent(void)
 {
 	std::vector<BitsPerSecond> bitrateList;
 	std::set<std::string> langList;
-	std::vector<float> supportedPlaybackSpeeds { -64, -32, -16, -4, -1, 0, 0.5, 1, 4, 16, 32, 64 };
 	int width  = 1280;
 	int height = 720;
 
@@ -9148,32 +9182,10 @@ void PrivateInstanceAAMP::SendMediaMetadataEvent(void)
 		event->addBitrate(bitrateList[i]);
 	}
 
-	//Iframe track present and hence playbackRate change is supported
-	if (mIsIframeTrackPresent)
+	auto supportedSpeeds = getSupportedPlaybackSpeeds();
+	for( auto speed : supportedSpeeds )
 	{
-		if(!(ISCONFIGSET_PRIV(eAAMPConfig_EnableSlowMotion)))
-		{
-			auto position = std::find(supportedPlaybackSpeeds.begin(), supportedPlaybackSpeeds.end(), 0.5);
-			if(position != supportedPlaybackSpeeds.end())
-			{
-				supportedPlaybackSpeeds.erase(position); //remove 0.5 from supported speeds
-			}
-		}
-
-		for(int i = 0; i < supportedPlaybackSpeeds.size(); i++)
-		{
-			event->addSupportedSpeed(supportedPlaybackSpeeds[i]);
-		}
-	}
-	else
-	{
-		//Supports only pause and play
-		event->addSupportedSpeed(0);
-		if(ISCONFIGSET_PRIV(eAAMPConfig_EnableSlowMotion))
-		{
-			event->addSupportedSpeed(0.5);
-		}
-		event->addSupportedSpeed(1);
+		event->addSupportedSpeed(speed);
 	}
 
 	event->setMediaFormat(mMediaFormatName[mMediaFormat]);
@@ -9188,35 +9200,11 @@ void PrivateInstanceAAMP::SendSupportedSpeedsChangedEvent(bool isIframeTrackPres
 {
 	SupportedSpeedsChangedEventPtr event = std::make_shared<SupportedSpeedsChangedEvent>(GetSessionId());
 	std::vector<float> supportedPlaybackSpeeds { -64, -32, -16, -4, -1, 0, 0.5, 1, 4, 16, 32, 64 };
-
-	//Iframe track present and hence playbackRate change is supported
-	if (isIframeTrackPresent)
+	auto supportedSpeeds = getSupportedPlaybackSpeeds();
+	for( auto speed : supportedSpeeds )
 	{
-		if(!(ISCONFIGSET_PRIV(eAAMPConfig_EnableSlowMotion)))
-		{
-			auto position = std::find(supportedPlaybackSpeeds.begin(), supportedPlaybackSpeeds.end(), 0.5);
-			if(position != supportedPlaybackSpeeds.end())
-			{
-				supportedPlaybackSpeeds.erase(position); //remove 0.5 from supported speeds
-			}
-		}
-
-		for(int i = 0; i < supportedPlaybackSpeeds.size(); i++)
-		{
-			event->addSupportedSpeed(supportedPlaybackSpeeds[i]);;
-		}
+		event->addSupportedSpeed(speed);
 	}
-	else
-	{
-		//Supports only pause and play
-		event->addSupportedSpeed(0);
-		if(ISCONFIGSET_PRIV(eAAMPConfig_EnableSlowMotion))
-		{
-			event->addSupportedSpeed(0.5);
-		}
-		event->addSupportedSpeed(1);
-	}
-
 	AAMPLOG_WARN("aamp: sending supported speeds changed event with count %d", event->getSupportedSpeedCount());
 	SendEvent(event,AAMP_EVENT_ASYNC_MODE);
 }
@@ -13306,14 +13294,14 @@ void PrivateInstanceAAMP::UpdateMaxDRMSessions()
 	if (mState == eSTATE_IDLE || mState == eSTATE_RELEASED)
 	{
 		int maxSessions = GETCONFIGVALUE_PRIV(eAAMPConfig_MaxDASHDRMSessions);
-	    if(mDRMLicenseManager)
-	    {
-	    	mDRMLicenseManager->UpdateMaxDRMSessions(maxSessions);
-	    }
-	    else
-	    {
-	    	AAMPLOG_ERR("DRM is not supported");
-	    }
+		if(mDRMLicenseManager)
+		{
+			mDRMLicenseManager->UpdateMaxDRMSessions(maxSessions);
+		}
+		else
+		{
+			AAMPLOG_ERR("DRM is not supported");
+		}
 	}
 	else
 	{

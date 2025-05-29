@@ -68,13 +68,13 @@ public:
      *   @note   Security token acquisition, controller object creation
      */
     ThunderAccessPlayer(std::string callsign);
-	
+
     /**
      *   @fn ~ThunderAccessPlayer
      *   @note   clean up
      */
     ~ThunderAccessPlayer();
-   
+
     /**
      *   @brief  ThunderAccessPlayer copy constructor disabled
      */
@@ -93,7 +93,7 @@ public:
      *   @retval false on failure
      */
     bool ActivatePlugin();
-#ifdef USE_CPP_THUNDER_PLUGIN_ACCESS	
+#ifdef USE_CPP_THUNDER_PLUGIN_ACCESS
     /**
      *   @fn InvokeJSONRPC
      *   @note   Invoke JSONRPC call for the plugin
@@ -102,7 +102,7 @@ public:
      *   @retval false on failure
      */
     bool InvokeJSONRPC(std::string method, const JsonObject &param, JsonObject &result, const uint32_t waitTime = THUNDER_RPC_TIMEOUT);
-	
+
     /**
      *   @fn SubscribeEvent
      *   @note   Subscribe event data for the specific plugin
@@ -111,7 +111,7 @@ public:
      *   @retval false on failure
      */
     bool SubscribeEvent (std::string eventName, std::function<void(const WPEFramework::Core::JSON::VariantContainer&)> functionHandler);
-#endif	
+#endif
     /**
      *   @fn UnSubscribeEvent
      *   @note   unSubscribe event data for the specific plugin

@@ -260,7 +260,7 @@ double AampTsbDataManager::GetFirstFragmentPosition()
 	std::lock_guard<std::mutex> lock(mTsbDataMutex);
 	if (!mTsbFragmentData.empty())
 	{
-		pos = mTsbFragmentData.begin()->second->GetAbsPosition().inSeconds();
+		pos = mTsbFragmentData.begin()->second->GetAbsolutePosition().inSeconds();
 	}
 	return pos;
 }
@@ -308,7 +308,7 @@ double AampTsbDataManager::GetLastFragmentPosition()
 	std::lock_guard<std::mutex> lock(mTsbDataMutex);
 	if (!mTsbFragmentData.empty())
 	{
-		pos = (std::prev(mTsbFragmentData.end()))->second->GetAbsPosition().inSeconds();
+		pos = (std::prev(mTsbFragmentData.end()))->second->GetAbsolutePosition().inSeconds();
 	}
 	return pos;
 }
@@ -316,17 +316,18 @@ double AampTsbDataManager::GetLastFragmentPosition()
 /**
  *  @brief  AddInitFragment - add Init fragment to TSB data
  */
-bool AampTsbDataManager::AddInitFragment(std::string &url, AampMediaType media, const StreamInfo &streamInfo, std::string &periodId, int profileIndex)
+bool AampTsbDataManager::AddInitFragment(std::string &url, AampMediaType media, const StreamInfo &streamInfo, std::string &periodId, double absPosition, int profileIndex)
 {
 	TSB_DM_TIME_DATA();
 	bool ret = false;
+
 	try
 	{
 		std::lock_guard<std::mutex> lock(mTsbDataMutex);
-		AAMPLOG_INFO("Adding Init Data: { Media [%d] bw: %" BITSPERSECOND_FORMAT " periodId:%s wt: %d ht: %d fr: %.02lf Url: '%s' }",
-					 media, streamInfo.bandwidthBitsPerSecond, periodId.c_str(), streamInfo.resolution.width,
-					 streamInfo.resolution.height, streamInfo.resolution.framerate, url.c_str());
-		TsbInitDataPtr newInitFragData = std::make_shared<TsbInitData>(url, media, streamInfo, periodId, profileIndex);
+		AAMPLOG_INFO("[%s] Adding Init Data: position %.02lfs bandwidth %" BITSPERSECOND_FORMAT "  periodId:%s wt: %d ht: %d fr: %.02lf Url: '%s'",
+					GetMediaTypeName(media), absPosition, streamInfo.bandwidthBitsPerSecond, periodId.c_str(),
+					streamInfo.resolution.width, streamInfo.resolution.height, streamInfo.resolution.framerate, url.c_str());
+		TsbInitDataPtr newInitFragData = std::make_shared<TsbInitData>(url, media, AampTime(absPosition), streamInfo, periodId, profileIndex);
 		mTsbInitData.push_back(newInitFragData);
 		mCurrentInitData = std::move(newInitFragData);
 		ret = true;
@@ -365,7 +366,7 @@ bool AampTsbDataManager::AddFragment(TSBWriteData &writeData, AampMediaType medi
 					 GetMediaTypeName(media), position, duration, pts, mCurrentInitData->GetBandWidth(), discont, periodId.c_str(), timeScale, PTSOffsetSec,
 					 url.c_str(), mCurrentInitData->GetUrl().c_str());
 		mCurrentInitData->incrementUser();
-		TsbFragmentDataPtr fragmentData = std::make_shared<TsbFragmentData>(url, media, position, duration, pts, discont, periodId, mCurrentInitData, timeScale, PTSOffsetSec);
+		TsbFragmentDataPtr fragmentData = std::make_shared<TsbFragmentData>(url, media, AampTime(position), duration, pts, discont, periodId, mCurrentInitData, timeScale, PTSOffsetSec);
 		if (mCurrHead != nullptr)
 		{
 			fragmentData->prev = mCurrHead;
@@ -401,7 +402,7 @@ bool AampTsbDataManager::DumpData()
 				TsbFragmentDataPtr fragmentData = it->second;
 				TsbInitDataPtr initdata = fragmentData->GetInitFragData();
 				AAMPLOG_INFO("Fragment Meta Data: { Media [%d] absPosition : %.02lf duration: %.02lf PTS : %.02lf bandwidth: %" BITSPERSECOND_FORMAT " discontinuous: %d fragmentUrl: '%s' initHeaderUrl: '%s' }",
-							 fragmentData->GetMediaType(), fragmentData->GetAbsPosition().inSeconds(), fragmentData->GetDuration().inSeconds(), fragmentData->GetPTS().inSeconds(),
+							 fragmentData->GetMediaType(), fragmentData->GetAbsolutePosition().inSeconds(), fragmentData->GetDuration().inSeconds(), fragmentData->GetPTS().inSeconds(),
 							 initdata->GetBandWidth(), fragmentData->IsDiscontinuous(), fragmentData->GetUrl().c_str(), initdata->GetUrl().c_str());
 			}
 		}

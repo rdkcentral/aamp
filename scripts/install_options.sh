@@ -12,6 +12,7 @@ OPTION_QUICK=false
 OPTION_RIALTO_REFERENCE="v0.2.2"
 OPTION_RIALTO_BUILD=false
 OPTION_SUBTEC_SKIP=false
+OPTION_AAMPCLIKOTLIN_SKIP=false
 OPTION_SUBTEC_BUILD=true
 OPTION_SUBTEC_CLEAN=false
 OPTION_GOOGLETEST_REFERENCE="tags/release-1.11.0"
@@ -60,6 +61,10 @@ function install_options_fn()
         # overrides any subtec or subtec clean setting
         echo "Skip subtec: ${OPTION_SKIP_SUBTEC}"
         ;;
+      k ) 
+        OPTION_AAMPCLIKOTLIN_SKIP=true
+        echo "Skip aamp-cli on Kotlin: ${OPTION_SKIP_SUBTEC}"
+        ;;
       p )     
         OPTION_PROTOBUF_REFERENCE=${OPTARG}
         echo "protobuf branch : ${PROTOBUF_REFERENCE}"
@@ -74,7 +79,8 @@ function install_options_fn()
         [-q] Quick build, skips installed (not built) dependency checks
 
         [-s] Skip subtec build and installation]"
-        echo "        Note:  Subtec is built by default but can be rebuilt separately with the subtec"
+        echo "        Note:  Subtec is built by default but can be rebuilt separately with the subtec
+        [-k] Skip aamp-cli Kotlin build and installation]"
         
         echo "
         [-r] Specify rialto to be built

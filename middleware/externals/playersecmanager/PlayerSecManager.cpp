@@ -230,7 +230,7 @@ PlayerSecManager::PlayerSecManager() : mSecManagerObj(SECMANAGER_CALL_SIGN), mSe
 				   mRegisteredEvents(), mWatermarkPluginObj(WATERMARK_PLUGIN_CALLSIGN), mWatMutex(), mSpeedStateMutex()
 {
 	std::lock_guard<std::mutex> lock(mSecMutex);
-	mSecManagerObj.ActivatePlugin();	
+	mSecManagerObj.ActivatePlugin();
 	{
 		std::lock_guard<std::mutex> lock(mWatMutex);
 		mWatermarkPluginObj.ActivatePlugin();
@@ -239,7 +239,7 @@ PlayerSecManager::PlayerSecManager() : mSecManagerObj(SECMANAGER_CALL_SIGN), mSe
 	/* hide watermarking at startup */
 	ShowWatermark(false);
 
-	/*Start Scheduler for handling RDKShell API invocation*/    
+	/*Start Scheduler for handling RDKShell API invocation*/
 	if(false == mSchedulerStarted)
 	{
 		StartScheduler(); // pass dummy required playerId parameter; note that we don't yet have a valid player instance to derive it from
@@ -285,7 +285,7 @@ PlayerSecManager::~PlayerSecManager()
 {
 	std::lock_guard<std::mutex> lock(mSecMutex);
 
-	/*Stop Scheduler used for handling RDKShell API invocation*/    
+	/*Stop Scheduler used for handling RDKShell API invocation*/
 	if(true == mSchedulerStarted)
 	{
 		StopScheduler();
@@ -300,7 +300,7 @@ static std::size_t getInputSummaryHash(const char* moneyTraceMetadata[][2], cons
 {
 	std::stringstream ss;
 	ss<< moneyTraceMetadata[0][1]<<isVideoMuted<<//sessionConfiguration (only variables)
-	//ignoring hard coded aspectDimensions 
+	//ignoring hard coded aspectDimensions
 	keySystemId<<mediaUsage<<accessToken<<contentMetadata<<licenseRequest;
 
 	std::string InputSummary =  ss.str();
@@ -372,7 +372,7 @@ bool PlayerSecManager::AcquireLicenseOpenOrUpdate( const char* licenseUrl, const
 	bool ret = false;
 	bool rpcResult = false;
 	unsigned int retryCount = 0;
-	
+
 	//Initializing it with default error codes (which would be sent if there any jsonRPC
 	//call failures to thunder)
 	*statusCode = SECMANAGER_DRM_FAILURE;
@@ -408,7 +408,7 @@ bool PlayerSecManager::AcquireLicenseOpenOrUpdate( const char* licenseUrl, const
 
 	param["keySystem"] = keySystemId;
 	param["mediaUsage"] = mediaUsage;
-	
+
 	// If sessionId is present, we are trying to acquire a new license within the same session
 	if (session.isSessionValid())
 	{
@@ -421,7 +421,7 @@ bool PlayerSecManager::AcquireLicenseOpenOrUpdate( const char* licenseUrl, const
 	param.ToString(params);
 	MW_LOG_WARN("SecManager %s param: %s",apiName, params.c_str());
 #endif
-	
+
 	{
 		std::lock_guard<std::mutex> lock(mSecMutex);
 		if(accTokenLen > 0 && contMetaLen > 0 && licReqLen > 0)
@@ -430,20 +430,20 @@ bool PlayerSecManager::AcquireLicenseOpenOrUpdate( const char* licenseUrl, const
 			shmPt_contMeta = player_CreateSharedMem(contMetaLen, shmKey_contMeta);
 			shmPt_licReq = player_CreateSharedMem(licReqLen, shmKey_licReq);
 		}
-		
+
 		//Set shared memory with the buffer
 		//Set shared memory with the buffer
 		if(nullptr != shmPt_accToken && nullptr != accessToken &&
 			nullptr != shmPt_contMeta && nullptr != contentMetadata &&
 		   nullptr != shmPt_licReq && nullptr != licenseRequest)
-		{			
+		{
 			//copy buffer to shm
 			memcpy(shmPt_accToken, accessToken, accTokenLen);
 			memcpy(shmPt_contMeta, contentMetadata, contMetaLen);
 			memcpy(shmPt_licReq, licenseRequest, licReqLen);
 
 			MW_LOG_INFO("Access token, Content metadata and license request are copied successfully, passing details with SecManager");
-			
+
 			//Set json params to be used by sec manager
 			param["accessTokenBufferKey"] = shmKey_accToken;
 			param["accessTokenLength"] = accTokenLen;
@@ -474,7 +474,7 @@ bool PlayerSecManager::AcquireLicenseOpenOrUpdate( const char* licenseUrl, const
 						* multiple object creation is OK as an existing instance should be returned
 						* where input data changes e.g. following a call to updatePlaybackSession
 						* the input data to the shared session is updated here*/
-						newSession = PlayerSecManagerSession(response["sessionId"].Number(), 
+						newSession = PlayerSecManagerSession(response["sessionId"].Number(),
 						getInputSummaryHash(moneyTraceMetadata, contentMetadata,
 						contMetaLen, licenseRequest, keySystemId,
 						mediaUsage, accessToken, isVideoMuted));
@@ -517,13 +517,13 @@ bool PlayerSecManager::AcquireLicenseOpenOrUpdate( const char* licenseUrl, const
 					{
 						session = newSession;
 					}
-					
+
 				}
 				// TODO: Sort these values out for backward compatibility
 				if(response.HasLabel("secManagerResultContext"))
 				{
 					JsonObject resultContext = response["secManagerResultContext"].Object();
-					
+
 					if(resultContext.HasLabel("class"))
 						*statusCode = resultContext["class"].Number();
 					if(resultContext.HasLabel("reason"))
@@ -531,7 +531,7 @@ bool PlayerSecManager::AcquireLicenseOpenOrUpdate( const char* licenseUrl, const
 					if(resultContext.HasLabel("businessStatus"))
 						*businessStatus = resultContext["businessStatus"].Number();
 				}
-				
+
 				if(!ret)
 				{
 					//As per Secmanager retry is meaningful only for
@@ -548,7 +548,7 @@ bool PlayerSecManager::AcquireLicenseOpenOrUpdate( const char* licenseUrl, const
 					{
 						++retryCount;
 						MW_LOG_WARN("SecManager license request failed, response for %s : statusCode: %d, reasonCode: %d, so retrying with delay %d, retry count : %u", apiName, *statusCode, *reasonCode, sleepTime, retryCount );
-						ms_sleep(sleepTime);						
+						ms_sleep(sleepTime);
 					}
 					else
 					{
@@ -722,7 +722,7 @@ bool PlayerSecManager::setPlaybackSpeedState(int64_t sessionId, int64_t playback
                std::lock_guard<std::mutex> lock(mSecMutex);
                rpcResult = mSecManagerObj.InvokeJSONRPC("setPlaybackSpeedState", param, result);
        }
-	   
+
        if (rpcResult)
        {
                if (!result["success"].Boolean())
@@ -871,7 +871,7 @@ void watermarkSessionHandler(const JsonObject& parameters)
 	std::string param;
 	parameters.ToString(param);
 	MW_LOG_WARN("PlayerSecManager::%s:%d i/p params: %s", __FUNCTION__, __LINE__, param.c_str());
- 	std::function<void(uint32_t, uint32_t, const std::string&)> sendWatermarkEvent_CB = PlayerSecManager::getWatermarkSessionEvent_CB();
+	std::function<void(uint32_t, uint32_t, const std::string&)> sendWatermarkEvent_CB = PlayerSecManager::getWatermarkSessionEvent_CB();
 	if (nullptr != sendWatermarkEvent_CB)
 	{
 		sendWatermarkEvent_CB( parameters["sessionId"].Number(),parameters["conditionContext"].Number(),parameters["watermarkingSystem"].String());
@@ -908,7 +908,7 @@ void addWatermarkHandler(const JsonObject& parameters)
 						PlayerSecManager *instance = static_cast<PlayerSecManager *>(data);
 						instance->UpdateWatermark(graphicId, smKey, smSize);
 					  }, (void *)PlayerSecManager::GetInstance()));
-		
+
 		if (parameters["adjustVisibilityRequired"].Boolean())
 		{
 			int sessionId = parameters["sessionId"].Number();

@@ -109,6 +109,17 @@ bool isSecFeatureEnabled() {
 }
 
 /**
+ *	@brief Check if Sec Manager is enabled
+ */
+bool isSecManagerEnabled() {
+#if defined(USE_SECMANAGER)
+    return true;
+#else
+    return false;
+#endif
+}
+
+/**
  * @brief Convert the secclient DRM error code into secmanager error code to have a unified verbose error reported
  */
 bool getAsVerboseErrorCode(int32_t httpCode, int32_t &secManagerClass, int32_t &secManagerReasonCode )

@@ -22,7 +22,7 @@
  * @brief Common utility functions
  */
 #include "PlayerUtils.h"
-#include "base64.h"
+#include "_base64.h"
 
 /**
  * @brief Check if string start with a prefix
@@ -51,7 +51,7 @@ bool player_StartsWith( const char *inputStr, const char *prefix )
  */
 char *base64_URL_Encode(const unsigned char *src, size_t len)
 {
-	char *rc = Base64Utils::base64Encode(src,len);
+	char *rc = base64_Encode(src,len);
 	if( rc )
 	{
 		char *dst = rc;
@@ -108,7 +108,7 @@ unsigned char *base64_URL_Decode(const char *src, size_t *len, size_t srcLen)
 			}
 			temp[iter] = c;
 		}
-		rc = Base64Utils::base64Decode(temp, len );
+		rc = base64_Decode(temp, len );
 		free(temp);
 	}
 	else

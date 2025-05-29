@@ -1,0 +1,161 @@
+Source: COMCAST
+Upstream-Status: Pending
+Notice: Code in patch files takes the license of the source which is being patched.
+diff --git a/subttxrend-app/CMakeLists.txt b/subttxrend-app/CMakeLists.txt
+index 5ef5616..b6180d8 100644
+--- a/subttxrend-app/CMakeLists.txt
++++ b/subttxrend-app/CMakeLists.txt
+@@ -63,6 +63,9 @@ find_package(LibSubTtxRendTtxt REQUIRED)
+ find_package(LibSubTtxRendTtml REQUIRED)
+ find_package(LibSubTtxRendWebvtt REQUIRED)
+ find_package(Ipp2Utils REQUIRED CONFIG)
++find_package(PkgConfig REQUIRED)
++
++pkg_check_modules(XKBCOMMON REQUIRED xkbcommon)
+
+ #
+ # Include directories
+@@ -80,6 +83,7 @@ include_directories(${LIBSUBTTXRENDCC_INCLUDE_DIRS})
+ include_directories(${LIBSUBTTXRENDTTXT_INCLUDE_DIRS})
+ include_directories(${LIBSUBTTXRENDTTML_INCLUDE_DIRS})
+ include_directories(${LIBSUBTTXRENDWEBVTT_INCLUDE_DIRS})
++include_directories(${XKBCOMMON_INCLUDE_DIRS})
+
+ #
+ # Definitions (flags etc.)
+diff --git a/subttxrend-cc/CMakeLists.txt b/subttxrend-cc/CMakeLists.txt
+index 949921f..33f6cf8 100644
+--- a/subttxrend-cc/CMakeLists.txt
++++ b/subttxrend-cc/CMakeLists.txt
+@@ -50,6 +50,9 @@ ENDIF(CMAKE_COMPILER_IS_GNUCXX)
+ find_package(LibSubTtxRendGfx REQUIRED)
+ find_package(LibSubTtxRendProtocol REQUIRED)
+ find_package(Ipp2Utils REQUIRED CONFIG)
++find_package(PkgConfig REQUIRED)
++
++pkg_check_modules(XKBCOMMON REQUIRED xkbcommon)
+
+ #
+ # Include directories
+@@ -57,6 +60,7 @@ find_package(Ipp2Utils REQUIRED CONFIG)
+ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
+ include_directories(${LIBSUBTTXRENDGFX_INCLUDE_DIRS})
+ include_directories(${LIBSUBTTXRENDPROTOCOL_INCLUDE_DIRS})
++include_directories(${XKBCOMMON_INCLUDE_DIRS})
+
+ #
+ # Public headers
+diff --git a/subttxrend-dvbsub/CMakeLists.txt b/subttxrend-dvbsub/CMakeLists.txt
+index a405d1b..8234a5d 100644
+--- a/subttxrend-dvbsub/CMakeLists.txt
++++ b/subttxrend-dvbsub/CMakeLists.txt
+@@ -50,6 +50,10 @@ ENDIF(CMAKE_COMPILER_IS_GNUCXX)
+ find_package(LibSubTtxRendGfx REQUIRED)
+ find_package(LibDvbSubDecoder REQUIRED)
+ find_package(Ipp2Utils REQUIRED CONFIG)
++find_package(PkgConfig REQUIRED)
++
++pkg_check_modules(XKBCOMMON REQUIRED xkbcommon)
++
+
+ #
+ # Include directories
+@@ -57,6 +61,7 @@ find_package(Ipp2Utils REQUIRED CONFIG)
+ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
+ include_directories(${LIBSUBTTXRENDGFX_INCLUDE_DIRS})
+ include_directories(${LIBDVBSUBDECODER_INCLUDE_DIRS})
++include_directories(${XKBCOMMON_INCLUDE_DIRS})
+
+ #
+ # Documentation
+diff --git a/subttxrend-scte/CMakeLists.txt b/subttxrend-scte/CMakeLists.txt
+index 958bc5d..89f182b 100644
+--- a/subttxrend-scte/CMakeLists.txt
++++ b/subttxrend-scte/CMakeLists.txt
+@@ -52,6 +52,10 @@ find_package(LibSubTtxRendGfx REQUIRED)
+ find_package(LibSubTtxRendProtocol REQUIRED)
+ find_package(ZLIB)
+ find_package(Ipp2Utils REQUIRED CONFIG)
++find_package(PkgConfig REQUIRED)
++
++pkg_check_modules(XKBCOMMON REQUIRED xkbcommon)
++
+
+ #
+ # Include directories
+@@ -61,6 +65,7 @@ include_directories(${LIBSUBTTXRENDCOMMON_INCLUDE_DIRS})
+ include_directories(${LIBSUBTTXRENDGFX_INCLUDE_DIRS})
+ include_directories(${LIBSUBTTXRENDPROTOCOL_INCLUDE_DIRS})
+ include_directories(${ZLIB_INCLUDE_DIRS})
++include_directories(${XKBCOMMON_INCLUDE_DIRS})
+
+ #
+ # Public headers
+diff --git a/subttxrend-ttml/CMakeLists.txt b/subttxrend-ttml/CMakeLists.txt
+index 6ecc66b..db7ff8a 100644
+--- a/subttxrend-ttml/CMakeLists.txt
++++ b/subttxrend-ttml/CMakeLists.txt
+@@ -51,6 +51,10 @@ find_package(LibSubTtxRendCommon REQUIRED)
+ find_package(LibSubTtxRendGfx REQUIRED)
+ find_package(LibXml2 REQUIRED)
+ find_package(Ipp2Utils REQUIRED CONFIG)
++find_package(PkgConfig REQUIRED)
++
++pkg_check_modules(XKBCOMMON REQUIRED xkbcommon)
++
+
+ #
+ # Include directories
+@@ -60,6 +64,7 @@ include_directories(${LIBSUBTTXRENDCOMMON_INCLUDE_DIRS})
+ include_directories(${LIBSUBTTXRENDGFX_INCLUDE_DIRS})
+ include_directories(${LIBXML2_INCLUDE_DIRS})
+ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/src)
++include_directories(${XKBCOMMON_INCLUDE_DIRS})
+
+ #
+ # Documentation
+diff --git a/subttxrend-ttxt/CMakeLists.txt b/subttxrend-ttxt/CMakeLists.txt
+index 7873230..9370671 100644
+--- a/subttxrend-ttxt/CMakeLists.txt
++++ b/subttxrend-ttxt/CMakeLists.txt
+@@ -51,6 +51,9 @@ find_package(LibSubTtxRendCommon REQUIRED)
+ find_package(LibSubTtxRendGfx REQUIRED)
+ find_package(LibTtxDecoder REQUIRED)
+ find_package(Ipp2Utils REQUIRED CONFIG)
++find_package(PkgConfig REQUIRED)
++
++pkg_check_modules(XKBCOMMON REQUIRED xkbcommon)
+
+ #
+ # Include directories
+@@ -59,6 +62,7 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
+ include_directories(${LIBSUBTTXRENDCOMMON_INCLUDE_DIRS})
+ include_directories(${LIBSUBTTXRENDGFX_INCLUDE_DIRS})
+ include_directories(${LIBTTXDECODER_INCLUDE_DIRS})
++include_directories(${XKBCOMMON_INCLUDE_DIRS})
+
+ #
+ # Documentation
+diff --git a/subttxrend-webvtt/CMakeLists.txt b/subttxrend-webvtt/CMakeLists.txt
+index 407c4c3..09ccd60 100644
+--- a/subttxrend-webvtt/CMakeLists.txt
++++ b/subttxrend-webvtt/CMakeLists.txt
+@@ -37,6 +37,10 @@ ENDIF(CMAKE_COMPILER_IS_GNUCXX)
+ find_package(LibSubTtxRendCommon REQUIRED)
+ find_package(LibSubTtxRendGfx REQUIRED)
+ find_package(Ipp2Utils REQUIRED CONFIG)
++find_package(PkgConfig REQUIRED)
++
++pkg_check_modules(XKBCOMMON REQUIRED xkbcommon)
++
+
+ #
+ # Include directories
+@@ -45,6 +49,7 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
+ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/Parser/include)
+ include_directories(${LIBSUBTTXRENDCOMMON_INCLUDE_DIRS})
+ include_directories(${LIBSUBTTXRENDGFX_INCLUDE_DIRS})
++include_directories(${XKBCOMMON_INCLUDE_DIRS})
+
+ #
+ # Documentation

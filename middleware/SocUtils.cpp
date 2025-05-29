@@ -21,7 +21,7 @@
  * @file SocUtils.cpp
  */
 #include "SocUtils.h"
-#include "AampLogManager.h"
+#include "SocInterface.h"
 #include "InterfacePlayerRDK.h"
 #include <assert.h>
 

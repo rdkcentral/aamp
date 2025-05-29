@@ -63,8 +63,8 @@ namespace RFCSettings
 			else
 			{
 				MW_LOG_ERR("get RFC Parameter for %s Failed : %s type = %d", parameter.c_str(), getTR181ErrorString(status), param.type);
-			}   
-		} 
+			}
+		}
 		#endif
 		return strhost;
 	}

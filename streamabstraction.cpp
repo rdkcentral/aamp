@@ -929,10 +929,17 @@ bool MediaTrack::ProcessFragmentChunk()
 	}
 	if(cachedFragment->initFragment)
 	{
-		if ((pContext && pContext->trickplayMode) && ISCONFIGSET(eAAMPConfig_EnablePTSReStamp))
+		if ((pContext) && ISCONFIGSET(eAAMPConfig_EnablePTSReStamp))
 		{
-			// If in trick mode, do trick mode PTS restamp
-			TrickModePtsRestamp(cachedFragment);
+			if (pContext->trickplayMode)
+			{
+				// If in trick mode, do trick mode PTS restamp
+				TrickModePtsRestamp(cachedFragment);
+			}
+			else
+			{
+				ClearMediaHeaderDuration(cachedFragment);
+			}
 		}
 		if (mSubtitleParser && type == eTRACK_SUBTITLE)
 		{
@@ -1133,6 +1140,7 @@ void MediaTrack::TrickModePtsRestamp(AampGrowableBuffer &fragment, double &posit
 		// enable restamping the media segment PTS and duration with adequate precision, e.g.
 		// 100,000
 		(void)mIsoBmffHelper->SetTimescale(fragment, TRICKMODE_TIMESCALE);
+		(void)mIsoBmffHelper->ClearMediaHeaderDuration(fragment);
 
 		if (discontinuity)
 		{
@@ -1262,6 +1270,11 @@ std::string MediaTrack::RestampSubtitle( const char* buffer, size_t bufferLen, d
 	return str;
 }
 
+void MediaTrack::ClearMediaHeaderDuration(CachedFragment *fragment)
+{
+	(void)mIsoBmffHelper->ClearMediaHeaderDuration(fragment->fragment);
+}
+
 /**
  *  @brief Inject fragment Chunk into the gstreamer
  */
@@ -1302,6 +1315,10 @@ void MediaTrack::ProcessAndInjectFragment(CachedFragment *cachedFragment, bool f
 					(void)mIsoBmffHelper->RestampPts(cachedFragment->fragment, ptsOffset,
 													 cachedFragment->uri, name,
 													 cachedFragment->timeScale);
+				}
+				else
+				{
+					ClearMediaHeaderDuration(cachedFragment);
 				}
 			}
 		}
@@ -1398,12 +1415,12 @@ void MediaTrack::ProcessAndInjectFragment(CachedFragment *cachedFragment, bool f
 bool MediaTrack::InjectFragment()
 {
 	bool ret = true;
-	bool isChunkMode = aamp->GetLLDashChunkMode();
+	bool isChunkMode = aamp->GetLLDashChunkMode() && (aamp->IsLocalAAMPTsbInjection() == false);
 	bool isChunkBuffer = IsInjectionFromCachedFragmentChunks();
 	bool lowLatency = aamp->GetLLDashServiceData()->lowLatencyMode;
 	StreamAbstractionAAMP* pContext = GetContext();
 
-	if(!isChunkMode) //TBD
+	if(!isChunkMode)
 	{
 		aamp->BlockUntilGstreamerWantsData(NULL, 0, type);
 	}
@@ -1522,16 +1539,25 @@ bool MediaTrack::SignalIfEOSReached()
  */
 void MediaTrack::StartInjectLoop()
 {
-	abort = false;
-	abortInject = false;
-	abortInjectChunk = false;
-	discontinuityProcessed = false;
-	assert(!fragmentInjectorThreadStarted);
+
 	try
 	{
-		fragmentInjectorThreadID = std::thread(&MediaTrack::RunInjectLoop, this);
-		fragmentInjectorThreadStarted = true;
-		AAMPLOG_INFO("Thread created for RunInjectLoop [%zx]", GetPrintableThreadID(fragmentInjectorThreadID));
+		std::lock_guard<std::mutex> guard(injectorStartMutex);
+		if (fragmentInjectorThreadStarted)
+		{
+			AAMPLOG_WARN("Fragment injector thread already started");
+		}
+		else
+		{
+			abort = false;
+			abortInject = false;
+			abortInjectChunk = false;
+			discontinuityProcessed = false;
+
+			fragmentInjectorThreadID = std::thread(&MediaTrack::RunInjectLoop, this);
+			fragmentInjectorThreadStarted = true;
+			AAMPLOG_INFO("Thread created for RunInjectLoop [%zx]", GetPrintableThreadID(fragmentInjectorThreadID));
+		}
 	}
 	catch(const std::exception& e)
 	{
@@ -1699,14 +1725,11 @@ void MediaTrack::StopInjectLoop()
 {
 	NotifyCachedAudioFragmentAvailable();
 	NotifyCachedSubtitleFragmentAvailable();
+	std::lock_guard<std::mutex> guard(injectorStartMutex);
 	if(fragmentInjectorThreadStarted && fragmentInjectorThreadID.joinable())
 	{
 		fragmentInjectorThreadID.join();
-#ifdef TRACE
-		{
-			AAMPLOG_WARN("joined fragmentInjectorThread");
-		}
-#endif
+		AAMPLOG_INFO("Fragment injector thread joined");
 	}
 	fragmentInjectorThreadStarted = false;
 }
@@ -1949,10 +1972,6 @@ MediaTrack::~MediaTrack()
 		{
 			AAMPLOG_ERR("Unable to join subtitleClockThreadID for UpdateSubtitleClockTask!");
 		}
-	}
-	if (fragmentInjectorThreadStarted)
-	{
-		AAMPLOG_WARN("In MediaTrack destructor - fragmentInjectorThreads are still running, signaling cond variable");
 	}
 
 	if(aamp->GetLLDashServiceData()->lowLatencyMode)

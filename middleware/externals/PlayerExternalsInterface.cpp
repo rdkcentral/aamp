@@ -45,7 +45,7 @@ PlayerExternalsInterface::PlayerExternalsInterface()
     {
         m_pIarmInterface = new FakePlayerIarmInterface();
     }
-    
+
 #else
     m_pIarmInterface = new FakePlayerIarmInterface();
 #endif
@@ -82,7 +82,7 @@ bool PlayerExternalsInterface::IsLiveLatencyCorrectionSupported()
     {
 	    bRet = m_pIarmInterface->IsLiveLatencyCorrectionSupported();
     }
-    
+
     return bRet;
 }
 
@@ -132,7 +132,7 @@ char * PlayerExternalsInterface::GetTR181PlayerConfig(const char * paramName, si
     {
 	    sRet = m_pIarmInterface->GetTR181Config(paramName, iConfigLen);
     }
-    
+
     return sRet;
 }
 
@@ -200,4 +200,3 @@ bool PlayerExternalsInterface::IsConfigWifiCurlHeader()
 #endif
     return bRet;
 }
-

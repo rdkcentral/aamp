@@ -96,33 +96,41 @@ struct PlayerSecExtendedStatus
 /**
  * @fn isSecFeatureEnabled
  * @brief check if sec feature is enabled
- * 
+ *
  * @return bool
  */
 bool isSecFeatureEnabled();
 
 /**
+ * @fn isSecManagerEnabled
+ * @brief check if sec manager is enabled
+ *
+ * @return bool
+ */
+bool isSecManagerEnabled();
+
+/**
  * @fn DrmMetaDataEvent::getAsVerboseErrorCode
  * @brief get as verbose error code
- * 
+ *
  * @param httpCode - http code
  * @param secManagerClass - sec manager class
  * @param secManagerReasonCode - sec manager reason code
- * 
+ *
  * @return bool
  */
 bool getAsVerboseErrorCode(int32_t httpCode, int32_t &secManagerClass, int32_t &secManagerReasonCode );
 
 /**
- * @class PlayerSecInterface 
+ * @class PlayerSecInterface
  * @brief PlayerSecInterface Class
  */
-class PlayerSecInterface 
+class PlayerSecInterface
 {
 public :
 	/**
 	 * @fn PlayerSecInterface
-	 * 
+	 *
 	 * @brief acquire license via sec client
 	 * @param[in] serviceHostUrl - service host url
 	 * @param[in] numberOfRequestMetadataKeys - number of request metadata keys
@@ -140,10 +148,10 @@ public :
 	 * @param[out] licenseResponseLength - license response length
 	 * @param[out] refreshDurationSeconds - refresh duration seconds
 	 * @param[out] statusInfo - status info
-	 * 
+	 *
 	 * @return int32_t
 	 */
-	 
+
 	int32_t PlayerSec_AcquireLicense( const char *serviceHostUrl, uint8_t numberOfRequestMetadataKeys,
 									 const char *requestMetadata[][2], uint8_t numberOfAccessAttributes,
 									 const char *accessAttributes[][2], const char *contentMetadata,
@@ -160,20 +168,20 @@ public :
 	 * @return int32_t
 	 */
 	int32_t PlayerSec_FreeResource( const char *resource );
-	
+
 	/**
 	 * @fn isSecRequestFailed
 	 * @brief check if sec request failed
-	 * 
+	 *
 	 * @param requestResult - request result
-	 * 
+	 *
 	 * @return bool
 	 */
 	bool isSecRequestFailed( int32_t requestResult );
 
 	/**
 	 * @fn isSecResultInRange
-	 * 
+	 *
 	 * @brief check if sec result is in range
 	 * @param requestResult - request result
 	 *

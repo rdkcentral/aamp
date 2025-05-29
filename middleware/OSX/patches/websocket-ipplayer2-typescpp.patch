@@ -1,0 +1,14 @@
+Source: COMCAST
+Upstream-Status: Pending
+Notice: Code in patch files takes the license of the source which is being patched.
+diff --git a/src/ipp2/Types.cpp b/src/ipp2/Types.cpp
+index 05ff8e2..8aa2db5 100644
+--- a/src/ipp2/Types.cpp
++++ b/src/ipp2/Types.cpp
+@@ -28,6 +28,7 @@
+ #include "EnumSerializer.h"
+ #include "Serializer.h"
+ #include "Utils.h"
++#include <array>
+
+ namespace ipp2 {

@@ -853,7 +853,7 @@ void AampConfig::ApplyDeviceCapabilities()
 	configValueBool[eAAMPConfig_SyncAudioFragments].value = SocUtils::IsAudioFragmentSyncSupported();
 	SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_WifiCurlHeader, IsWifiCurlHeader);
 
-	bool isSecMgr = isSecFeatureEnabled();
+	bool isSecMgr = isSecManagerEnabled();
 	SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_UseSecManager, isSecMgr);
 
 	//To override App Setting, Tune Setting is given priority	

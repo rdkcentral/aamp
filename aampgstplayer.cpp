@@ -34,14 +34,13 @@
 #include "priv_aamp.h"
 #include <atomic>
 #include <algorithm>
-
+#include "AampDRMLicManager.h"
 #include "InterfacePlayerRDK.h"
 #include "ID3Metadata.hpp"
 #include "AampSegmentInfo.hpp"
 #include "AampBufferControl.h"
 #include "AampDefine.h"
 #include <functional>
-
 
 #define PIPELINE_NAME "AAMPGstPlayerPipeline"
 
@@ -286,7 +285,7 @@ void AAMPGstPlayer::RegisterFirstFrameCallbacks()
 	});
 	playerInstance->setupStreamCallbackMap[InterfaceCB::startNewSubtitleStream] = [this](int streamId)
 	{
-		if (eGST_MEDIATYPE_SUBTITLE == streamId)
+		if (eMEDIATYPE_SUBTITLE == streamId)
 		{
 			if(this->aamp->IsGstreamerSubsEnabled())
 			{
@@ -400,7 +399,7 @@ AAMPGstPlayer::AAMPGstPlayer(PrivateInstanceAAMP *aamp, id3_callback_t id3Handle
 		}
 		InitializePlayerConfigs(this,playerInstance);
 		playerInstance->SetPlayerName(PLAYER_NAME);
-		playerInstance->setEncryption((void*)aamp);
+		playerInstance->setEncryption((void*)aamp, (void*)aamp->mDRMLicenseManager->mDRMSessionManager);
 		RegisterFirstFrameCallbacks();
 	}
 	else
@@ -846,8 +845,8 @@ void AAMPGstPlayer::Stop(bool keepLastFrame)
 void AAMPGstPlayer::SetEncryptedAamp(PrivateInstanceAAMP *aamp)
 {
 	mEncryptedAamp = aamp;
-	playerInstance->setEncryption((void*)mEncryptedAamp);
-
+ 	void*	mDRMSessionManager = aamp->mDRMLicenseManager->mDRMSessionManager;
+	playerInstance->setEncryption((void*)mEncryptedAamp,(void*)mDRMSessionManager);
 }
 
 bool AAMPGstPlayer::IsAssociatedAamp(PrivateInstanceAAMP *aampInstance)
@@ -1085,11 +1084,11 @@ void AAMPGstPlayer::NotifyFragmentCachingComplete()
  */
 void AAMPGstPlayer::NotifyFragmentCachingOngoing()
 {
-	if(!playerInstance->gstPrivateContext->paused)
+	if(!playerInstance->IsPipelinePaused())
 	{
 		Pause(true, true);
 	}
-	playerInstance->gstPrivateContext->pendingPlayState = true;
+	playerInstance->EnablePendingPlayState();
 }
 
 /**

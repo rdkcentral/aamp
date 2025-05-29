@@ -104,9 +104,9 @@ class SocInterface
 		 * @param status Set to `true` if Westeros Sink is enabled, `false` otherwise.
 		 */
 		void SetWesterosSinkState(bool status);
-
+		
 		/*@brief returns true if video stats required from sink otherwise false*/
-		virtual bool IsPlaybackQualityFromSink(){return false;}
+		virtual bool IsPlaybackQualityFromSink(){return false;}	
 
 		/**
 		 * Sets buffer size and duration for the given GstElement.

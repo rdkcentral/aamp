@@ -37,21 +37,6 @@ enum DrmMediaType
 	eDRM_MEDIATYPE_AUDIO,               /**< Type audio */
 	eDRM_MEDIATYPE_SUBTITLE,            /**< Type subtitle */
 	eDRM_MEDIATYPE_AUX_AUDIO,           /**< Type auxiliary audio */
-	eDRM_MEDIATYPE_MANIFEST,            /**< Type manifest */
-	eDRM_MEDIATYPE_LICENCE,             /**< Type license */
-	eDRM_MEDIATYPE_IFRAME,              /**< Type iframe */
-	eDRM_MEDIATYPE_INIT_VIDEO,          /**< Type video init fragment */
-	eDRM_MEDIATYPE_INIT_AUDIO,          /**< Type audio init fragment */
-	eDRM_MEDIATYPE_INIT_SUBTITLE,       /**< Type subtitle init fragment */
-	eDRM_MEDIATYPE_INIT_AUX_AUDIO,      /**< Type auxiliary audio init fragment */
-	eDRM_MEDIATYPE_PLAYLIST_VIDEO,      /**< Type video playlist */
-	eDRM_MEDIATYPE_PLAYLIST_AUDIO,      /**< Type audio playlist */
-	eDRM_MEDIATYPE_PLAYLIST_SUBTITLE,	/**< Type subtitle playlist */
-	eDRM_MEDIATYPE_PLAYLIST_AUX_AUDIO,	/**< Type auxiliary audio playlist */
-	eDRM_MEDIATYPE_PLAYLIST_IFRAME,     /**< Type Iframe playlist */
-	eDRM_MEDIATYPE_INIT_IFRAME,         /**< Type IFRAME init fragment */
-	eDRM_MEDIATYPE_DSM_CC,              /**< Type digital storage media command and control (DSM-CC) */
-	eDRM_MEDIATYPE_IMAGE,	        	/**< Type image for thumbnail playlist */
 	eDRM_MEDIATYPE_DEFAULT              /**< Type unknown */
 };
 
@@ -83,7 +68,7 @@ public:
 	virtual std::shared_ptr<HlsDrmBase> createSession( const struct DrmInfo& drmInfo, int  streamType){return nullptr;}
    
    	/** ProfileUpdate callback for initiating the curl init  from application  */
-    GetHlsDrmSessionCallback GetHlsDrmSessionCb;
+        GetHlsDrmSessionCallback GetHlsDrmSessionCb;
 
 	/**
 	 *@brief Registers GetAccessKey callback from application

@@ -2127,13 +2127,6 @@ public:
 	void updateManifest(const char *manifestData);
 
 protected:
-	/**
-	 *   @fn IsValidRate
-	 *
-	 *   @param[in]  rate - Rate of playback.
-	 *   @retval return true if the given rate is valid.
-	 */
-	bool IsValidRate(int rate);
 		/**
 		 *   @fn TuneInternal
 		 *

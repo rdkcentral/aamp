@@ -84,7 +84,7 @@ void AesDec::SignalKeyAcquired()
 		mDrmState = eDRM_KEY_ACQUIRED;
 		mCond.notify_all();
 	}
-	this->ProfileUpdateEndCb(DRM_PROFILE_BUCKET_LA_TOTAL); 
+	this->ProfileUpdateDrmDecrypt(1, DRM_PROFILE_BUCKET_LA_TOTAL); 
 }
 
 /**
@@ -97,7 +97,7 @@ void AesDec::AcquireKey()
 	int http_error = 0;  //CID:88814 - Initialization
 	double downloadTime = 0.0;
 	bool keyAcquisitionStatus = false;
-	DrmTuneFailure failureReasonIn = MIDDLEWARE_UNTRACKED_DRM_ERROR;
+	DrmTuneFailure failureReasonIn = MW_UNTRACKED_DRM_ERROR;
 
         if (drm_pthread_setname(pthread_self(), "aesDRM"))
 	{
@@ -237,7 +237,7 @@ DrmReturn AesDec::Decrypt( int bucketTypeIn, void *encryptedDataPtr, size_t encr
 			int decLen = (int)encryptedDataLen;
 			memset(decryptedDataBuf, 0, encryptedDataLen);
 	               
-		       this->ProfileUpdateInitCb(bucketType);
+		       this->ProfileUpdateDrmDecrypt(0, bucketType);
 		       if(!EVP_DecryptInit_ex(OPEN_SSL_CONTEXT, EVP_aes_128_cbc(), NULL, (unsigned char*)m_ptr, mDrmInfo.iv))
 			{
 				MW_LOG_ERR( "AesDec::EVP_DecryptInit_ex failed mDrmState = %d",(int)mDrmState);
@@ -266,7 +266,7 @@ DrmReturn AesDec::Decrypt( int bucketTypeIn, void *encryptedDataPtr, size_t encr
 					}
 				}
 			}
-                        this->ProfileUpdateEndCb(bucketType);
+                        this->ProfileUpdateDrmDecrypt(1, bucketType);
 			memcpy(encryptedDataPtr, decryptedDataBuf, encryptedDataLen);
 			free(decryptedDataBuf);
 			(void)decryptedDataLen; // Avoid a warning as this is only used in a log.

@@ -1,0 +1,22 @@
+Source: COMCAST
+Upstream-Status: Pending
+Notice: Code in patch files takes the license of the source which is being patched.
+diff --git a/src/ipp2/CMakeLists.txt b/src/ipp2/CMakeLists.txt
+index 05cc1a9..bf25e95 100644
+--- a/src/ipp2/CMakeLists.txt
++++ b/src/ipp2/CMakeLists.txt
+@@ -183,10 +183,10 @@ else(ASIO_PATH)
+ endif(ASIO_PATH)
+
+ target_link_libraries(${IPP2_UTILS_LIBNAME} PUBLIC pthread)
+-target_link_libraries(${IPP2_UTILS_LIBNAME} PUBLIC ${CURL_LIBRARIES})
+-target_link_libraries(${IPP2_UTILS_LIBNAME} PUBLIC ${JSONCPP_LIBRARIES})
+-target_link_libraries(${IPP2_UTILS_LIBNAME} PUBLIC ${LIBGIO_LIBRARIES})
+-target_link_libraries(${IPP2_UTILS_LIBNAME} PUBLIC ${TINYXML2_LIBRARIES})
++target_link_libraries(${IPP2_UTILS_LIBNAME} PUBLIC ${CURL_LINK_LIBRARIES})
++target_link_libraries(${IPP2_UTILS_LIBNAME} PUBLIC ${JSONCPP_LINK_LIBRARIES})
++target_link_libraries(${IPP2_UTILS_LIBNAME} PUBLIC ${LIBGIO_LINK_LIBRARIES})
++target_link_libraries(${IPP2_UTILS_LIBNAME} PUBLIC ${TINYXML2_LINK_LIBRARIES})
+
+ if (NOT BUILD_PC)
+     target_link_libraries(${IPP2_UTILS_LIBNAME} PUBLIC ${LIBRDKLOGGER_LIBRARIES})

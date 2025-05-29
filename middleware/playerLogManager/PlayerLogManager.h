@@ -45,10 +45,10 @@ enum MW_LogLevel
 };
 
 /**
- * @class PlayerLogManager 
+ * @class PlayerLogManager
  * @brief PlayerLogManager Class
  */
-class PlayerLogManager 
+class PlayerLogManager
 {
 public :
 	static MW_LogLevel mwLoglevel;
@@ -63,7 +63,7 @@ public :
 	 * @param[in] ethanLogStatus Status of Ethan logging.
 	 * @param[in] level Log level.
 	 * @param[in] lock Lock status.
-	 */	
+	 */
 	static void SetLoggerInfo(bool logRedirectStatus, bool ethanLogStatus, int level, bool lock)
 	{
 		PlayerLogManager::disableLogRedirection = logRedirectStatus;
@@ -82,7 +82,7 @@ public :
 	{
 		return (chkLevel>=mwLoglevel);
 	}
-	
+
 	/**
 	 * @fn setLogLevel
 	 *
@@ -96,21 +96,21 @@ public :
 			mwLoglevel = newLevel;
 		}
 	}
-	
+
 	/**
 	 * @brief lock or unlock log level.  This allows (for example) logging to be locked to info or trace, so that "more verbose while tuning, less verbose after tune complete" behavior doesn't override desired log level used for debugging.  This is also used as part of aampcli "noisy" and "quiet" command handling.
-	 * 
+	 *
 	 * @param lock if true, subsequent calls to setLogLevel will be ignored
 	 */
 	static void lockLogLevel( bool lock )
 	{
 		locked = lock;
 	}
-/**     
+/**
          * @fn getHexDebugStr
-         */     
+         */
         static std::string getHexDebugStr(const std::vector<uint8_t>& data)
-        {  
+        {
                 std::ostringstream hexSs;
                 hexSs << "0x";
                 hexSs << std::hex << std::uppercase << std::setfill('0');

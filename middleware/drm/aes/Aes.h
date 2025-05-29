@@ -33,7 +33,6 @@
 #include <functional>
 #include <DrmInfo.h>
 #include <thread>
-#include "middleware/PlayerUtils.h"
 
 #define MAX_LICENSE_ACQ_WAIT_TIME 12000                         /**< 12 secs Increase from 10 to 12 sec */
 
@@ -171,23 +170,16 @@ public:
                TerminateCurlInstanceCb = Callback;
         };
 	  /** ProfileUpdate callback for updating the profile bucket type to application */
-                using ProfileUpdateCallback = std::function<void(int bucketType)>;
-        ProfileUpdateCallback ProfileUpdateInitCb;
-        ProfileUpdateCallback ProfileUpdateEndCb;
+                using ProfileUpdateCallback = std::function<void(bool type, int bucketType)>;
+        ProfileUpdateCallback ProfileUpdateDrmDecrypt;
 
         /*
          *@brief Registers ProfileUpdate  callback from application
          */
-        void RegisterProfileUpdateInitCb(const ProfileUpdateCallback Callback){
-               ProfileUpdateInitCb = Callback;
+        void RegisterProfileUpdateCb(const ProfileUpdateCallback Callback){
+               ProfileUpdateDrmDecrypt = Callback;
         };
 
-	/*
-         *@brief Registers ProfileUpdate  callback from application
-         */
-        void RegisterProfileUpdateEndCb(const ProfileUpdateCallback Callback){
-               ProfileUpdateEndCb = Callback;
-        };
 	  /** ProfileUpdate callback for getting the access key from application  */
         using GetAccessKeyCallback = std::function<void( std::string &keyURI, std::string& tempEffectiveUrl, int& http_error, double& downloadTime, unsigned int curlInstance, bool &KeyAcquisitionStatus, int &failureReason, char** ptr)>;
         GetAccessKeyCallback GetAccessKeyCb;

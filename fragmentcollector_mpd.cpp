@@ -27,7 +27,7 @@
 #include "AampStreamSinkManager.h"
 #include "MediaStreamContext.h"
 #include "priv_aamp.h"
-#include "AampLicManager.h"
+#include "AampDRMLicManager.h"
 #include "AampConstants.h"
 #include "SubtecFactory.hpp"
 #include "isobmffprocessor.h"
@@ -115,7 +115,7 @@ static bool IsIframeTrack(IAdaptationSet *adaptationSet);
 StreamAbstractionAAMP_MPD::StreamAbstractionAAMP_MPD(class PrivateInstanceAAMP *aamp, double seek_pos, float rate, id3_callback_t id3Handler)
 	: StreamAbstractionAAMP(aamp, id3Handler),
 	fragmentCollectorThreadStarted(false), mLangList(), seekPosition(seek_pos), rate(rate), fragmentCollectorThreadID(),tsbReaderThreadID(),
-	mpd(NULL), mNumberOfTracks(0), mCurrentPeriodIdx(0), mEndPosition(0), mIsLiveStream(true), mIsLiveManifest(true),mManifestDnldRespPtr(nullptr),mManifestUpdateHandleFlag(false),
+	mpd(NULL), mNumberOfTracks(0), mCurrentPeriodIdx(0), mEndPosition(0), mIsLiveStream(true), mIsLiveManifest(true),mManifestDnldRespPtr(nullptr),mManifestUpdateHandleFlag(false),mUpdateManifestState(false),
 	mStreamInfo(NULL), mPrevStartTimeSeconds(0), mPrevLastSegurlMedia(""), mPrevLastSegurlOffset(0),
 	mPeriodEndTime(0), mPeriodStartTime(0), mPeriodDuration(0), mMinUpdateDurationMs(DEFAULT_INTERVAL_BETWEEN_MPD_UPDATES_MS),
 	mLastPlaylistDownloadTimeMs(0), mFirstPTS(0), mStartTimeOfFirstPTS(0), mAudioType(eAUDIO_UNKNOWN),
@@ -163,7 +163,7 @@ StreamAbstractionAAMP_MPD::StreamAbstractionAAMP_MPD(class PrivateInstanceAAMP *
 	this->aamp = aamp;
 	if (aamp->mDRMLicenseManager)
 	{
-		AampLicenseManager *licenseManager = aamp->mDRMLicenseManager;
+		AampDRMLicenseManager *licenseManager = aamp->mDRMLicenseManager;
 		licenseManager->SetLicenseFetcher(this);
 	}
 	memset(&mMediaStreamContext, 0, sizeof(mMediaStreamContext));
@@ -3046,6 +3046,15 @@ AAMPStatusType StreamAbstractionAAMP_MPD::GetMPDFromManifest( ManifestDownloadRe
 
 		//Node *root			=	mpdDnldResp->mRootNode;
 		// this flag for current state of manifest ( Linear to VOD can happen)
+		if((mMPDParseHelper->IsLiveManifest() != mIsLiveManifest) && !init )
+		{
+			AAMPLOG_INFO("Linear to Vod transition , update the manifest state");
+			mUpdateManifestState = true;
+		}
+		else
+		{
+			mUpdateManifestState = false;
+		}
 		mIsLiveManifest		=	mMPDParseHelper->IsLiveManifest();
 		aamp->SetIsLive(mIsLiveManifest);
 
@@ -3386,7 +3395,7 @@ void StreamAbstractionAAMP_MPD::QueueContentProtection(IPeriod* period, uint32_t
 				{
 					if (aamp->mDRMLicenseManager)
 					{
-						AampLicenseManager *licenseMgr = aamp->mDRMLicenseManager;
+						AampDRMLicenseManager *licenseMgr = aamp->mDRMLicenseManager;
 						if (qGstProtectEvent)
 						{
 							/** Queue protection event to the pipeline **/
@@ -3511,7 +3520,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 	{
 		sink->ClearProtectionEvent();
 	}
-	AampLicenseManager *licenseManager = aamp->mDRMLicenseManager;
+	AampDRMLicenseManager *licenseManager = aamp->mDRMLicenseManager;
 	bool forceClearSession = (!ISCONFIGSET(eAAMPConfig_SetLicenseCaching) && (tuneType == eTUNETYPE_NEW_NORMAL));
 	licenseManager->clearDrmSession(forceClearSession);
 	licenseManager->clearFailedKeyIds();
@@ -7262,7 +7271,7 @@ void StreamAbstractionAAMP_MPD::StreamSelection( bool newTune, bool forceSpeedsC
 	} // next track
 	if (aamp->mDRMLicenseManager)
 	{
-		AampLicenseManager *licenseManager = aamp->mDRMLicenseManager;
+		AampDRMLicenseManager *licenseManager = aamp->mDRMLicenseManager;
 		if (mMultiVideoAdaptationPresent)
 		{
 			// We have multiple video adaptations in the same period and
@@ -8387,7 +8396,7 @@ void StreamAbstractionAAMP_MPD::UpdateCulledAndDurationFromPeriodInfo(std::vecto
 		}
 		double firstPeriodStart = mMPDParseHelper->GetPeriodStartTime(firstPeriodIdx,mLastPlaylistDownloadTimeMs);
 		double availStartTime = mMPDParseHelper->GetAvailabilityStartTime();
-		if( true == aamp->IsIVODContent() && ( firstPeriodStart != mPrevFirstPeriodStart && availStartTime <=0 ) )
+		if( ( mUpdateManifestState == true )|| (true == aamp->IsIVODContent() && ( firstPeriodStart != mPrevFirstPeriodStart && availStartTime <=0 )) )
 		{
 
 			/*
@@ -8958,8 +8967,15 @@ void StreamAbstractionAAMP_MPD::AdvanceTrack(int trackIdx, bool trickPlay, doubl
 	{
 		if (pMediaStreamContext->adaptationSet )
 		{
+			/*
+			* When injecting from TSBReader we do not want to stop the fetcher loop because of injector cache full. TSB injection
+			* uses numberOfFragmentChunksCached so assuming (pMediaStreamContext->numberOfFragmentsCached != maxCachedFragmentsPerTrack) == true
+			*
+			* Also aamp->IsLocalAAMPTsbInjection() || aamp->TrackDownloadsAreEnabled(static_cast<AampMediaType>(trackIdx) because a pause in playback
+			* should not stop the fetcher loop during TSB injection.
+			*/
 			if((pMediaStreamContext->numberOfFragmentsCached != maxCachedFragmentsPerTrack) && !(pMediaStreamContext->profileChanged) &&
-				(!lowLatency || aamp->TrackDownloadsAreEnabled(static_cast<AampMediaType>(trackIdx))))
+				(aamp->IsLocalAAMPTsbInjection() || !lowLatency || aamp->TrackDownloadsAreEnabled(static_cast<AampMediaType>(trackIdx))))
 			{
 				// profile not changed and Cache not full scenario
 				if (!pMediaStreamContext->eos)
@@ -9038,7 +9054,7 @@ void StreamAbstractionAAMP_MPD::AdvanceTrack(int trackIdx, bool trickPlay, doubl
 			}
 
 			if((pMediaStreamContext->numberOfFragmentsCached != maxCachedFragmentsPerTrack) && bCacheFullState &&
-				(!lowLatency || aamp->TrackDownloadsAreEnabled(static_cast<AampMediaType>(trackIdx))))
+				( !lowLatency || aamp->TrackDownloadsAreEnabled(static_cast<AampMediaType>(trackIdx))))
 			{
 				bCacheFullState = false;
 			}
@@ -9322,6 +9338,11 @@ bool StreamAbstractionAAMP_MPD::SelectSourceOrAdPeriod(bool &periodChanged, bool
 				}
 				// Check if the new period is having ads
 				adStateChanged = onAdEvent(AdEvent::DEFAULT);
+				if(adStateChanged && AdState::OUTSIDE_ADBREAK_WAIT4ADS == mCdaiObject->mAdState)
+				{
+					// Adbreak was available, but ads were not available and waited for fulfillment. Now, check if ads are available.
+					adStateChanged = onAdEvent(AdEvent::DEFAULT);
+				}
 			}
 
 			if (AdState::IN_ADBREAK_AD_PLAYING != mCdaiObject->mAdState)
@@ -9334,7 +9355,11 @@ bool StreamAbstractionAAMP_MPD::SelectSourceOrAdPeriod(bool &periodChanged, bool
 			int adaptationSetCount = (int)adaptationSets.size();
 			if (currentPeriodId != mCurrentPeriod->GetId())
 			{
-				if (aamp->GetIsPeriodChangeMarked() && !mMediaStreamContext[eMEDIATYPE_VIDEO]->IsLocalTSBInjection())
+				// If not: playing from aamp tsb, or paused on live before entering tsb
+				// Then wait for ad discontinuity to be processed by stream injection before continuing
+				if (aamp->GetIsPeriodChangeMarked() &&
+					!mMediaStreamContext[eMEDIATYPE_VIDEO]->IsLocalTSBInjection() &&
+					!(aamp->IsLocalAAMPTsb() && aamp->pipeline_paused))
 				{
 					aamp->WaitForDiscontinuityProcessToComplete();
 				}
@@ -9347,7 +9372,9 @@ bool StreamAbstractionAAMP_MPD::SelectSourceOrAdPeriod(bool &periodChanged, bool
 					currentPeriodId = mCurrentPeriod->GetId();
 					mPrevAdaptationSetCount = adaptationSetCount;
 					periodChanged = true;
-					if ((rate == AAMP_NORMAL_PLAY_RATE) && !mMediaStreamContext[eMEDIATYPE_VIDEO]->IsLocalTSBInjection())
+					if ((rate == AAMP_NORMAL_PLAY_RATE) &&
+					    !mMediaStreamContext[eMEDIATYPE_VIDEO]->IsLocalTSBInjection() &&
+						!(aamp->IsLocalAAMPTsb() && aamp->pipeline_paused))
 					{
 						aamp->SetIsPeriodChangeMarked(true);
 					}
@@ -9371,7 +9398,7 @@ bool StreamAbstractionAAMP_MPD::SelectSourceOrAdPeriod(bool &periodChanged, bool
 					// If DAI ad is available for the period and we are still not in AD playing state, log a warning
 					if ((mCdaiObject->HasDaiAd(mBasePeriodId)) && (AdState::IN_ADBREAK_AD_PLAYING != mCdaiObject->mAdState) && (mBasePeriodOffset == 0))
 					{
-						AAMPLOG_WARN("Ad available for periodID:%s, but skipped!!", mBasePeriodId.c_str());
+						AAMPLOG_WARN("Ad available but skipped!! periodID %s mAdState %s", mBasePeriodId.c_str(), ADSTATE_STR[static_cast<int>(mCdaiObject->mAdState)]);
 					}
 				}
 				else
@@ -9606,7 +9633,10 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 
 	bool exitFetchLoop = false;
 	bool trickPlay = (AAMP_NORMAL_PLAY_RATE != aamp->rate);
-	bool waitForFreeFrag = true;
+
+	//If we are injecting from TSB then we are not injecting from the Fetcher hence
+	//the fetcher does not need to wait for a free slot in the fragment cache FIFO
+	bool waitForFreeFrag = !aamp->IsLocalAAMPTsbInjection();
 	double delta = 0;
 	bool adStateChanged = false;
 	bool resetIterator = true;
@@ -9794,7 +9824,8 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 				}
 				for (int trackIdx = (mNumberOfTracks - 1); trackIdx >= 0; trackIdx--)
 				{
-					cacheFullStatus[trackIdx] = true;
+					// When injecting from TSB reader then fetcher should ignore the cache full status
+					cacheFullStatus[trackIdx] = !aamp->IsLocalAAMPTsbInjection();
 					if (!mMediaStreamContext[trackIdx]->eos)
 					{
 						if (parallelDnld && trackIdx < mTrackWorkers.size() && mTrackWorkers[trackIdx])
@@ -9926,7 +9957,8 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 					// play cache is full , wait until cache is available to inject next, max wait of 1sec
 					int timeoutMs = MAX_WAIT_TIMEOUT_MS;
 					int trackIdx = (vEos && !aEos) ? eMEDIATYPE_AUDIO : eMEDIATYPE_VIDEO;
-					AAMPLOG_DEBUG("Cache full state track(%d), no download until(%d) Time(%lld)", trackIdx, timeoutMs, aamp_GetCurrentTimeMS());
+					AAMPLOG_DEBUG("Cache full state trackIdx %d vEos %d aEos %d timeoutMs %d Time %lld",
+						trackIdx, vEos, aEos, timeoutMs, aamp_GetCurrentTimeMS());
 					if(aamp->GetLLDashChunkMode() && !aamp->TrackDownloadsAreEnabled(static_cast<AampMediaType>(trackIdx)))
 					{
 						// Track is already at enough-data state, no need to wait for cache full
@@ -9995,7 +10027,7 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
  *
  * @return void
  */
-void StreamAbstractionAAMP_MPD::AdvanceTsbFetch(int trackIdx, bool trickPlay, double delta, bool *waitForFreeFrag, bool *bCacheFullState)
+void StreamAbstractionAAMP_MPD::AdvanceTsbFetch(int trackIdx, bool trickPlay, double delta, bool &waitForFreeFrag, bool &bCacheFullState)
 {
 	class MediaStreamContext *pMediaStreamContext = mMediaStreamContext[trackIdx];
 	AampMediaType mediaType = (AampMediaType) trackIdx;
@@ -10008,7 +10040,7 @@ void StreamAbstractionAAMP_MPD::AdvanceTsbFetch(int trackIdx, bool trickPlay, do
 	bool isAllowNextFrag = true;
 	int  maxCachedFragmentsPerTrack = (int)pMediaStreamContext->GetCachedFragmentChunksSize();
 
-	if (waitForFreeFrag && *waitForFreeFrag && !trickPlay)
+	if (waitForFreeFrag && !trickPlay)
 	{
 		AAMPPlayerState state = aamp->GetState();
 		if(ISCONFIGSET(eAAMPConfig_SuppressDecode))
@@ -10017,12 +10049,12 @@ void StreamAbstractionAAMP_MPD::AdvanceTsbFetch(int trackIdx, bool trickPlay, do
 		}
 		if(state == eSTATE_PLAYING)
 		{
-			*waitForFreeFrag = false;
+			waitForFreeFrag = false;
 		}
 		else
 		{
 			int timeoutMs = -1;
-			if(bCacheFullState && *bCacheFullState &&
+			if(bCacheFullState &&
 				(pMediaStreamContext->numberOfFragmentChunksCached == maxCachedFragmentsPerTrack))
 			{
 				timeoutMs = MAX_WAIT_TIMEOUT_MS;
@@ -10033,24 +10065,15 @@ void StreamAbstractionAAMP_MPD::AdvanceTsbFetch(int trackIdx, bool trickPlay, do
 
 	if (isAllowNextFrag && tsbReader)
 	{
-			if((pMediaStreamContext->numberOfFragmentChunksCached != maxCachedFragmentsPerTrack) && !(pMediaStreamContext->profileChanged))
-			{	// profile not changed and Cache not full scenario
-				bool isIEos = tsbReader->IsEos();
-				if (!isIEos)
-				{
-					if (tsbSessionManager->PushNextTsbFragment(pMediaStreamContext))
-					{
-						AAMPLOG_TRACE("[%s] PushNextTsbFragment Success for track", GetMediaTypeName((AampMediaType)trackIdx));
-					}
-					else
-					{
-						AAMPLOG_INFO("PushNextTsbFragment failed for track:%d", trackIdx);
-					}
-				}
+			// profile not changed and not at EOS
+			if(!pMediaStreamContext->profileChanged && !tsbReader->IsEos())
+			{
+				bool fragmentCached = tsbSessionManager->PushNextTsbFragment(pMediaStreamContext, maxCachedFragmentsPerTrack - pMediaStreamContext->numberOfFragmentChunksCached);
+				AAMPLOG_TRACE("[%s] Fragment %s", GetMediaTypeName((AampMediaType)trackIdx), fragmentCached ? "cached" : "not cached");
 			}
 			if(pMediaStreamContext->numberOfFragmentChunksCached != maxCachedFragmentsPerTrack && bCacheFullState)
 			{
-				*bCacheFullState = false;
+				bCacheFullState = false;
 			}
 	}
 }
@@ -10089,7 +10112,7 @@ void StreamAbstractionAAMP_MPD::TsbReader()
 					cacheFullStatus[trackIdx] = true;
 					if (!tsbSessionManager->GetTsbReader((AampMediaType) trackIdx)->IsEos())
 					{
-						AdvanceTsbFetch(trackIdx, trickPlay, delta, &waitForFreeFrag, &cacheFullStatus[trackIdx]);
+						AdvanceTsbFetch(trackIdx, trickPlay, delta, waitForFreeFrag, cacheFullStatus[trackIdx]);
 					}
 				}
 				if(abortTsbReader)
@@ -10252,7 +10275,7 @@ bool StreamAbstractionAAMP_MPD::CheckForVssTags()
 							AAMPLOG_INFO("Received Common Key Duration : %d of VSS stream", mCommonKeyDuration);
 							if (aamp->mDRMLicenseManager)
 							{
-								AampLicenseManager *licenseManager = aamp->mDRMLicenseManager;
+								AampDRMLicenseManager *licenseManager = aamp->mDRMLicenseManager;
 								licenseManager->SetCommonKeyDuration(mCommonKeyDuration);
 							}
 							isVss = true;
@@ -10437,9 +10460,8 @@ StreamAbstractionAAMP_MPD::~StreamAbstractionAAMP_MPD()
 
 void StreamAbstractionAAMP_MPD::StartFromOtherThanAampLocalTsb(void)
 {
-		aamp->mDRMLicenseManager->setSessionMgrState(SessionMgrState::eSESSIONMGR_ACTIVE);
+	aamp->mDRMLicenseManager->setSessionMgrState(SessionMgrState::eSESSIONMGR_ACTIVE);
 	// Start the worker threads for each track
-	InitializeWorkers();
 	try{
 		fragmentCollectorThreadID = std::thread(&StreamAbstractionAAMP_MPD::FetcherLoop, this);
 		fragmentCollectorThreadStarted = true;
@@ -10649,7 +10671,18 @@ void StreamAbstractionAAMP_MPD::Stop(bool clearChannelData)
 			}
 		}
 		aamp->mDRMLicenseManager->setSessionMgrState(SessionMgrState::eSESSIONMGR_INACTIVE);
+		if(tsbReaderThreadStarted)
+		{
+			abortTsbReader = true;
+			if(tsbReaderThreadID.joinable())
+			{
+				tsbReaderThreadID.join();
+			}
+			tsbReaderThreadStarted = false;
+		}
+
 	}
+
 	if (!aamp->DownloadsAreEnabled())
 	{
 		aamp->EnableDownloads();
@@ -11769,6 +11802,11 @@ bool StreamAbstractionAAMP_MPD::onAdEvent(AdEvent evt, double &adOffset)
 				else
 				{
 					AAMPLOG_INFO("[CDAI] No AdBreak found for period[%s] at offset:%lf", mBasePeriodId.c_str(), mBasePeriodOffset);
+					if (AdState::OUTSIDE_ADBREAK_WAIT4ADS == mCdaiObject->mAdState)
+					{
+						stateChanged = true;
+						mCdaiObject->mAdState = AdState::OUTSIDE_ADBREAK;
+					}
 				}
 			}
 			break;

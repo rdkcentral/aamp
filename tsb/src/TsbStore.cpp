@@ -36,7 +36,7 @@ using namespace std::chrono_literals;
 class TSB::StoreImpl
 {
 public:
-	StoreImpl(const Store::Config& config, LogFunction logger, LogLevel level);
+	StoreImpl(const Store::Config& config, LogFunction logger, int loggerData, LogLevel level);
 
 	~StoreImpl();
 
@@ -73,8 +73,8 @@ private:
 	FS::space_info GetFilesystemSpace() const;
 };
 
-Store::Store(const Config& config, LogFunction logger, LogLevel level)
-	: mPimpl(new StoreImpl(config, std::move(logger), level))
+Store::Store(const Config& config, LogFunction logger, int loggerData, LogLevel level)
+	: mPimpl(new StoreImpl(config, std::move(logger), loggerData, level))
 {
 }
 
@@ -258,8 +258,8 @@ bool StoreImpl::CreateDirectoriesWithPermissions(const std::filesystem::path& pa
 	return success;
 }
 
-StoreImpl::StoreImpl(const Store::Config& config, LogFunction logger, LogLevel level)
-					: mLogger{std::move(logger), level},
+StoreImpl::StoreImpl(const Store::Config& config, LogFunction logger, int loggerData, LogLevel level)
+					: mLogger{std::move(logger), loggerData, level},
 					mLocation(SanitizePath(config.location)),
 					mMinFreePercent(config.minFreePercentage),
 					mMaxCapacity(static_cast<uintmax_t>(config.maxCapacity) * TSB_BYTES_IN_MIB),

@@ -37,23 +37,6 @@
  */
 typedef enum
 {
-	DRM_PROFILE_BUCKET_MANIFEST,            /**< Manifest download bucket*/
-
-	DRM_PROFILE_BUCKET_PLAYLIST_VIDEO,      /**< Video playlist download bucket*/
-	DRM_PROFILE_BUCKET_PLAYLIST_AUDIO,      /**< Audio playlist download bucket*/
-	DRM_PROFILE_BUCKET_PLAYLIST_SUBTITLE,   /**< Subtitle playlist download bucket*/
-	DRM_PROFILE_BUCKET_PLAYLIST_AUXILIARY,  /**< Auxiliary playlist download bucket*/
-
-	DRM_PROFILE_BUCKET_INIT_VIDEO,          /**< Video init fragment download bucket*/
-	DRM_PROFILE_BUCKET_INIT_AUDIO,          /**< Audio init fragment download bucket*/
-	DRM_PROFILE_BUCKET_INIT_SUBTITLE,       /**< Subtitle fragment download bucket*/
-	DRM_PROFILE_BUCKET_INIT_AUXILIARY,      /**< Auxiliary fragment download bucket*/
-
-	DRM_PROFILE_BUCKET_FRAGMENT_VIDEO,      /**< Video fragment download bucket*/
-	DRM_PROFILE_BUCKET_FRAGMENT_AUDIO,      /**< Audio fragment download bucket*/
-	DRM_PROFILE_BUCKET_FRAGMENT_SUBTITLE,   /**< Subtitle fragment download bucket*/
-	DRM_PROFILE_BUCKET_FRAGMENT_AUXILIARY,  /**< Auxiliary fragment download bucket*/
-
 	DRM_PROFILE_BUCKET_DECRYPT_VIDEO,       /**< Video decryption bucket*/
 	DRM_PROFILE_BUCKET_DECRYPT_AUDIO,       /**< Audio decryption bucket*/
 	DRM_PROFILE_BUCKET_DECRYPT_SUBTITLE,    /**< Subtitle decryption bucket*/
@@ -61,17 +44,7 @@ typedef enum
 
 	DRM_PROFILE_BUCKET_LA_TOTAL,            /**< License acquisition total bucket*/
 	DRM_PROFILE_BUCKET_LA_PREPROC,          /**< License acquisition pre-processing bucket*/
-	DRM_PROFILE_BUCKET_LA_NETWORK,          /**< License acquisition network operation bucket*/
-	DRM_PROFILE_BUCKET_LA_POSTPROC,         /**< License acquisition post-processing bucket*/
 
-	DRM_PROFILE_BUCKET_FIRST_BUFFER,        /**< First buffer to gstreamer bucket*/
-	DRM_PROFILE_BUCKET_FIRST_FRAME,         /**< First frame displayed bucket*/
-	DRM_PROFILE_BUCKET_PLAYER_PRE_BUFFERED, /**< Prebuffer bucket ( BG to FG )*/
-
-	DRM_PROFILE_BUCKET_DISCO_TOTAL,          /**< Discontinuity transition total bucket*/
-	DRM_PROFILE_BUCKET_DISCO_FLUSH,           /**< Discontinuity transition pipeline flush bucket*/
-	DRM_PROFILE_BUCKET_DISCO_FIRST_FRAME,      /**< Discontinuity transition first frame displayed bucket*/
-	DRM_PROFILE_BUCKET_TYPE_COUNT           /**< Bucket count*/	
 } DrmProfilerBucketType;
 
 /**

@@ -44,11 +44,11 @@ class AampCachedData
 {
 public:
 	std::string effectiveUrl;
-	AampGrowableBuffer* buffer;
+	std::shared_ptr<AampGrowableBuffer> buffer;
 	AampMediaType mediaType;
 	long seqNo;
 
-	~AampCachedData(){};
+	~AampCachedData() {};
 
 	/**
 	 * @brief representation for a cache entry
@@ -61,7 +61,11 @@ public:
 	 * @param mediaType type of cache entry
 	 * @param seqNo bigger for more recent usage; used to drive LRU purging heuristic
 	 */
-	AampCachedData( const std::string &effectiveUrl, AampGrowableBuffer *buffer, AampMediaType mediaType ) : effectiveUrl(effectiveUrl), buffer(buffer), mediaType(mediaType), seqNo()
+	AampCachedData(const std::string &effectiveUrl, std::shared_ptr<AampGrowableBuffer> buffer, AampMediaType mediaType)
+		: effectiveUrl(effectiveUrl)
+		, buffer(buffer)
+		, mediaType(mediaType)
+		, seqNo()
 	{
 	}
 };
@@ -103,13 +107,12 @@ private:
 				if( !cachedData->effectiveUrl.empty() )
 				{ // not alias; reclaim space
 					totalCachedBytes -= cachedData->buffer->GetLen();
-					SAFE_DELETE(cachedData->buffer);
 				}
 				SAFE_DELETE(cachedData);
 				iter = cache.erase(iter);
 			}
 		}
-		
+
 		//Second Pass - if more reduction needed, remove other playlist types, too
 		if( totalCachedBytes <= targetCacheSize )
 		{
@@ -127,7 +130,6 @@ private:
 					if( !cachedData->effectiveUrl.empty() )
 					{
 						totalCachedBytes -= cachedData->buffer->GetLen();
-						SAFE_DELETE(cachedData->buffer);
 					}
 					SAFE_DELETE(cachedData);
 					iter = cache.erase(iter);
@@ -135,7 +137,7 @@ private:
 			}
 		}
 	}
-	
+
 	bool makeRoomForPlaylist( AampMediaType mediaType, size_t bytesNeeded )
 	{
 		bool ok = true;
@@ -153,7 +155,7 @@ private:
 		}
 		return ok;
 	}
-	
+
 	bool makeRoomForInitFragment( AampMediaType mediaType )
 	{
 		int count = 0;
@@ -180,24 +182,37 @@ private:
 		return true; // success
 	}
 
-	
+	int countReferencesToEffectiveUrl( const std::string effectiveUrl )
+	{
+		int count = 0;
+		for (auto& it: cache)
+		{
+			AampCachedData *cachedData = it.second;
+			if(cachedData->effectiveUrl == effectiveUrl)
+			{
+				count++;
+			}
+		}
+		return count;
+	}
+
 public:
 	int maxCachedInitFragmentsPerTrack;
 	int maxPlaylistCacheBytes;
 	std::unordered_map<std::string, AampCachedData *> cache;
-	
+
 	AampCache()
 	{
 	}
-	
+
 	AampCache( AampCacheType cacheType ) : cacheType(cacheType), cache(), totalCachedBytes(), maxPlaylistCacheBytes(MAX_PLAYLIST_CACHE_SIZE*1024), maxCachedInitFragmentsPerTrack(MAX_INIT_FRAGMENT_CACHE_PER_TRACK), seqNo()
 	{
 	}
-	
+
 	~AampCache()
 	{
 	}
-	
+
 public:
 	void Insert( const std::string &url, const AampGrowableBuffer* buffer, const std::string &effectiveUrl, AampMediaType mediaType )
 	{
@@ -226,8 +241,9 @@ public:
 			if( ok )
 			{
 				size_t len = buffer->GetLen();
-				AampCachedData *cachedData = new AampCachedData( effectiveUrl, new AampGrowableBuffer("cached-data"), mediaType );
+				AampCachedData *cachedData = new AampCachedData( effectiveUrl, std::make_shared<AampGrowableBuffer>("cached-data"), mediaType );
 				cachedData->buffer->AppendBytes( buffer->GetPtr(), len );
+
 				cache[url] = cachedData;
 				cachedData->seqNo = ++seqNo;
 				totalCachedBytes += len;
@@ -239,6 +255,10 @@ public:
 				// So need to have two entries in cache table but both pointing to same CachedBuffer (no space is consumed for storage)
 				if( url != effectiveUrl )
 				{ // re-use buffer without extra copy
+					if ( cache.find(effectiveUrl) != cache.end() )
+					{	// effective url was already in cache, so delete the old one
+						SAFE_DELETE(cache[effectiveUrl]);
+					}
 					AampCachedData *newData = new AampCachedData( "", cachedData->buffer, mediaType );
 					cache[effectiveUrl] = newData;
 					AAMPLOG_MIL( "duplicate %s %s", GetMediaTypeName(mediaType), effectiveUrl.c_str() );
@@ -246,7 +266,7 @@ public:
 			}
 		}
 	}
-	
+
 	void Remove( const std::string &url )
 	{
 		auto iter = cache.find(url);
@@ -254,7 +274,8 @@ public:
 		AampCachedData *cachedData = iter->second;
 		totalCachedBytes -= cachedData->buffer->GetLen();
 		assert( !cachedData->effectiveUrl.empty() );
-		if( url != cachedData->effectiveUrl )
+		if(( url != cachedData->effectiveUrl ) &&
+			(countReferencesToEffectiveUrl(cachedData->effectiveUrl) == 1))
 		{ // remove main entry with payload
 			auto iter2 = cache.find(cachedData->effectiveUrl);
 			assert( iter2 != cache.end() );
@@ -263,7 +284,6 @@ public:
 			SAFE_DELETE(cachedData2);
 			cache.erase(iter2);
 		}
-		SAFE_DELETE(cachedData->buffer);
 		SAFE_DELETE(cachedData);
 		cache.erase(iter);
 	}
@@ -273,16 +293,12 @@ public:
 		for( auto it = cache.begin(); it != cache.end(); it++)
 		{
 			AampCachedData *cachedData = it->second;
-			if( !cachedData->effectiveUrl.empty() )
-			{
-				SAFE_DELETE(cachedData->buffer);
-			}
 			SAFE_DELETE(cachedData);
 		}
 		cache.clear();
 		totalCachedBytes = 0;
 	}
-	
+
 	AampCachedData * Find( const std::string &url )
 	{
 		AampCachedData *cachedData = NULL;
@@ -314,7 +330,7 @@ private:
 	std::mutex mCondVarMutex;
 	std::condition_variable mCondVar;
 	std::thread mAsyncCleanUpTaskThreadId;
-	
+
 protected:
 	/**
 	 *  @brief Thread function for Async Cache clean
@@ -339,7 +355,7 @@ protected:
 			}
 		}
 	}
-	
+
 	/**
 	* @fn Init
 	*/
@@ -386,7 +402,7 @@ protected:
 			mbCleanUpTaskInitialized = false;
 		}
 	}
-	
+
 public:
 	/**
 	 * @brief constructor
@@ -415,7 +431,7 @@ public:
 	 *   @param[in] effectiveUrl - Final URL
 	 *   @param[in] isLive
 	 *   @param[in] mediaType - Type of the file inserted
-     	 *
+	 *
 	 *   @return void
 	 */
 	void InsertToPlaylistCache( const std::string &url, const AampGrowableBuffer* buffer, const std::string &effectiveUrl, bool isLive, AampMediaType mediaType );
@@ -428,7 +444,7 @@ public:
 	 *   @return true: found, false: not found
 	 */
 	bool RetrieveFromPlaylistCache( const std::string &url, AampGrowableBuffer* buffer, std::string& effectiveUrl, AampMediaType mediaType );
-	
+
 	/**
 	 * @brief Remove playlist from cache
 	 * @param[in] url - URL
@@ -439,7 +455,7 @@ public:
 	 *  @brief set max playlist cache size (bytes)
 	 */
 	void SetMaxPlaylistCacheSize(int maxBytes);
-	
+
 	/**
 	 * @brief get max playlist cache size (bytes)
 	 *
@@ -459,7 +475,7 @@ public:
 	 *   @param[in] buffer - Pointer to growable buffer
 	 *   @param[in] effectiveUrl - Final URL
 	 *   @param[in] mediaType - Type of the file inserted
-     *
+	 *
 	 *   @return void
 	 */
 	void InsertToInitFragCache( const std::string &url, const AampGrowableBuffer* buffer, const std::string &effectiveUrl, AampMediaType mediaType );
@@ -470,11 +486,11 @@ public:
 	 *   @param[in] url - URL
 	 *   @param[out] buffer - Pointer to growable buffer
 	 *   @param[out] effectiveUrl - Final URL
-	 * 
+	 *
 	 *   @return true: found, false: not found
 	 */
 	bool RetrieveFromInitFragmentCache(const std::string &url, AampGrowableBuffer* buffer, std::string& effectiveUrl);
-	
+
 	/**
 	*   @brief set max initialization fragments allowed in cache (per track)
 	*

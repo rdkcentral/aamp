@@ -24,7 +24,7 @@
 
 #include "HlsOcdmBridgeInterface.h"
 
-#ifdef USE_OPENCDM
+#ifdef USE_OPENCDM_ADAPTER
 #include "HlsOcdmBridge.h"
 #endif
 
@@ -32,7 +32,7 @@
 HlsDrmBase* HlsOcdmBridgeInterface::GetBridge(DrmSession * playerDrmSession)
 {
    
-#ifdef USE_OPENCDM
+#ifdef USE_OPENCDM_ADAPTER
     return new HlsOcdmBridge(playerDrmSession);
 #else
    return new FakeHlsOcdmBridge(playerDrmSession);

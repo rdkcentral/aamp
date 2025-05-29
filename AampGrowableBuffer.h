@@ -34,7 +34,7 @@
 class AampGrowableBuffer
 {
 public:
-	AampGrowableBuffer( const char *name ):ptr(NULL),len(0),avail(0),name(name){};
+	AampGrowableBuffer( const char *name="?" ):ptr(NULL),len(0),avail(0),name(name){}
 	~AampGrowableBuffer();
 	/*
 	 AampGrowableBuffer converted to class

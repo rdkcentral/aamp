@@ -1029,7 +1029,20 @@ public:
 			JSObjectSetProperty(context, eventObj, name, prop, kJSPropertyAttributeReadOnly, NULL);
 			JSStringRelease(name);
 		}
-        }
+		const char *pBodyResponse = evt->getBodyResponse().c_str();
+		if( NULL != pBodyResponse )
+		{
+			JSObjectRef bodyResponseObj = aamp_CreateBodyResponseJSObject(context, pBodyResponse);
+			if( bodyResponseObj )
+			{
+				JSValueProtect(context, bodyResponseObj);
+				name = JSStringCreateWithUTF8CString("body");
+				JSObjectSetProperty(context, eventObj, name, bodyResponseObj, kJSPropertyAttributeReadOnly, NULL);
+				JSStringRelease(name);
+				JSValueUnprotect(context, bodyResponseObj);
+			}
+		}
+    }
 };
 
 /**

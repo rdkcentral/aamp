@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 2.6)
-project(EntosPlayerFireboltInterface_LIB)
+project(playerfbinterface_LIB)
 
 set(MW_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../")
 
@@ -15,6 +15,7 @@ include_directories(${GSTREAMER_INCLUDE_DIRS})
 include_directories(${MW_ROOT}/playerLogManager)
 include_directories(${MW_ROOT}/baseConversion)
 include_directories(${MW_ROOT})
+include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/rdk)
 
 set(LIB_EXT_DEPENDS ${LIB_EXT_DEPENDS} ${GSTREAMER_LINK_LIBRARIES} ${GSTREAMERBASE_LINK_LIBRARIES})
@@ -77,31 +78,31 @@ if(CMAKE_USE_SECMANAGER)
 endif()
 
 # Define the shared library
-if(NOT TARGET EntosPlayerFireboltInterface)
-    add_library(EntosPlayerFireboltInterface SHARED ${EXT_SOURCES} ${SECMGR_SOURCES} ${THUNDER_INTERFACE_SRCS})
+if(NOT TARGET playerfbinterface)
+    add_library(playerfbinterface SHARED ${EXT_SOURCES} ${SECMGR_SOURCES} ${THUNDER_INTERFACE_SRCS})
 endif()
 
 # Set public headers for the library
-set_target_properties(EntosPlayerFireboltInterface PROPERTIES PUBLIC_HEADER "PlayerThunderInterface.h;PlayerThunderAccessBase.h;PlayerExternalsInterfaceBase.h;PlayerExternalsInterface.h;PlayerRfc.h;playersecmanager/PlayerSecManagerSession.h;playersecmanager/ThunderAccessPlayer.h;playersecmanager/PlayerSecInterface.h;playersecmanager/PlayerSecManager.h;playersecmanager/PlayerMemoryUtils.h")
+set_target_properties(playerfbinterface PROPERTIES PUBLIC_HEADER "PlayerThunderInterface.h;PlayerThunderAccessBase.h;PlayerExternalsInterfaceBase.h;PlayerExternalsInterface.h;PlayerRfc.h;playersecmanager/PlayerSecManagerSession.h;playersecmanager/ThunderAccessPlayer.h;playersecmanager/PlayerSecInterface.h;playersecmanager/PlayerSecManager.h;playersecmanager/PlayerMemoryUtils.h;Module.h")
 
 if(CMAKE_IARM_MGR)
-    set_target_properties(EntosPlayerFireboltInterface PROPERTIES PUBLIC_HEADER "rdk/PlayerExternalsRdkInterface.h")
+    set_target_properties(playerfbinterface PROPERTIES PUBLIC_HEADER "rdk/PlayerExternalsRdkInterface.h")
 endif()
 
 if (CMAKE_WPEFRAMEWORK_REQUIRED)
-    set_target_properties(EntosPlayerFireboltInterface PROPERTIES PUBLIC_HEADER "rdk/PlayerThunderAccess.h")
+    set_target_properties(playerfbinterface PROPERTIES PUBLIC_HEADER "rdk/PlayerThunderAccess.h")
 endif()
 
-set_target_properties(EntosPlayerFireboltInterface PROPERTIES COMPILE_FLAGS "${LIB_EXT_DEFINES}")
+set_target_properties(playerfbinterface PROPERTIES COMPILE_FLAGS "${LIB_EXT_DEFINES}")
 
 string(STRIP "${LIB_EXT_DEPENDS}" LIB_EXT_DEPENDS)
 
-target_link_libraries(EntosPlayerFireboltInterface ${LIB_EXT_DEPENDS})
+target_link_libraries(playerfbinterface ${LIB_EXT_DEPENDS})
 
-target_link_libraries(EntosPlayerFireboltInterface PlayerLogManager)
-target_link_libraries(EntosPlayerFireboltInterface BaseConversion)
+target_link_libraries(playerfbinterface PlayerLogManager)
+target_link_libraries(playerfbinterface BaseConversion)
 
 # Install the library and its headers
-install(TARGETS EntosPlayerFireboltInterface
+install(TARGETS playerfbinterface
     DESTINATION lib
     PUBLIC_HEADER DESTINATION include)

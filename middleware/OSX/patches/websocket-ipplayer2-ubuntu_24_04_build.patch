@@ -1,0 +1,19 @@
+Subject: [PATCH] Subject: [PATCH] RDKAAMP-2907 Fix compilation
+ warnings in Ubuntu 24.04
+
+Fix compilation issues with subtec
+and its dependent components
+
+Signed-off-by: Vinish K B <Vinish_KorasseryBalakrishnan@comcast.com>
+---
+diff --git a/src/ipp2/clients/IpAddress.h b/src/ipp2/clients/IpAddress.h
+index 3ff9a2f..4e0b925 100644
+--- a/src/ipp2/clients/IpAddress.h
++++ b/src/ipp2/clients/IpAddress.h
+@@ -28,6 +28,7 @@
+ #include <string>
+ #include <ostream>
+ #include <vector>
++#include <cstdint>
+
+ struct sockaddr_storage;

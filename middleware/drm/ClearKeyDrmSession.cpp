@@ -22,7 +22,6 @@
 * @brief Source file for ClearKey DRM Session.
 */
 
-//#include "config.h"
 #include "ClearKeyDrmSession.h"
 #include "PlayerUtils.h"
 #include <gst/gst.h>

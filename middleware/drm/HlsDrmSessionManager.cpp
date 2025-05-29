@@ -24,7 +24,7 @@
  */
 
 #include "HlsDrmSessionManager.h"
-#include "DRMSessionManager.h"
+#include "DrmSessionManager.h"
 #include "DrmHelper.h"
 #include "HlsOcdmBridge.h"
 using namespace std;
