@@ -66,8 +66,7 @@
 #include "PlayerCCManager.h"
 
 #include "VanillaDrmHelper.h"
-#include "AampLicManager.h"
-#include "DrmInterface.h"
+#include "AampDRMLicManager.h"
 static const int DEFAULT_STREAM_WIDTH = 720;
 static const int DEFAULT_STREAM_HEIGHT = 576;
 static const double  DEFAULT_STREAM_FRAMERATE = 25.0;
@@ -468,7 +467,7 @@ void StreamAbstractionAAMP_HLS::InitiateDrmProcess()
 		}
 		if ((drmHelperToUse != nullptr) && (aamp->mDRMLicenseManager))
 		{
-			AampLicenseManager *licenseManager = aamp->mDRMLicenseManager;
+			AampDRMLicenseManager *licenseManager = aamp->mDRMLicenseManager;
 			/** Queue protection event to the pipeline **/
 			licenseManager->QueueProtectionEvent(drmHelperToUse, "1", 0, eMEDIATYPE_VIDEO);
 			/** Queue content protection in DRM license fetcher **/
@@ -1393,8 +1392,9 @@ bool TrackState::FetchFragmentHelper(int &http_error, bool &decryption_error, bo
 			}
 			else
 			{
-				// increment the buffer value after download
-				playTargetBufferCalc += fragmentDurationSeconds;
+				// Track the end of buffer from the last downloaded fragment
+				// Use the playlistPosition instead of a rolling count in case segments are dropped
+				playTargetBufferCalc = playlistPosition + fragmentDurationSeconds;
 			}
 
 			if((eTRACK_VIDEO == type)  && (aamp->IsFogTSBSupported()))
@@ -1586,7 +1586,6 @@ void TrackState::FetchFragment()
 				// should continue with next fragment,no retry needed .
 				if (eTRACK_VIDEO == type && http_error != 0 && aamp->CheckABREnabled())
 				{
-					context->lastSelectedProfileIndex = context->currentProfileIndex;
 					// Check whether player reached rampdown limit, then rampdown
 					if(!context->CheckForRampDownLimitReached())
 					{
@@ -1878,10 +1877,9 @@ void TrackState::SetDrmContext()
 	mDrmInfo.bPropagateUriParams = ISCONFIGSET(eAAMPConfig_PropagateURIParam);
 	if (PlayerHlsDrmSessionInterface::getInstance()->isDrmSupported(mDrmInfo))
 	{
-		mDrmInterface  = DrmInterface::GetInstance(aamp);
 		// OCDM-based DRM decryption is available via the HLS OCDM bridge
 		AAMPLOG_INFO("Drm support available");
-		mDrmInterface->RegisterHlsInterfaceCb(mDrmInterface, PlayerHlsDrmSessionInterface::getInstance());
+		mDrmInterface->RegisterHlsInterfaceCb( PlayerHlsDrmSessionInterface::getInstance());
 		mDrm = PlayerHlsDrmSessionInterface::getInstance()->createSession( mDrmInfo,(int)(type));
 		if (!mDrm)
 		{
@@ -1894,8 +1892,7 @@ void TrackState::SetDrmContext()
 #ifdef AAMP_VANILLA_AES_SUPPORT
 		AAMPLOG_INFO("StreamAbstractionAAMP_HLS::Get AesDec");
 		mDrm = AesDec::GetInstance();
-		mDrmInterface  = DrmInterface::GetInstance(aamp);
-		mDrmInterface->RegisterAesInterfaceCb(mDrmInterface,(std::shared_ptr <HlsDrmBase>) mDrm);
+		mDrmInterface->RegisterAesInterfaceCb((std::shared_ptr <HlsDrmBase>) mDrm);
 
 		aamp->setCurrentDrm(std::make_shared<VanillaDrmHelper>());
 
@@ -2382,15 +2379,6 @@ void TrackState::ProcessPlaylist(AampGrowableBuffer& newPlaylist, int http_error
 		if (newPlaylist.GetPtr() )
 		{
 			newPlaylist.Free();
-		}
-		//Refresh happened due to ABR switching, we need to reset the profileIndex
-		//so that ABR can be attempted later
-		if (playlist.GetPtr() )
-		{
-			if (refreshPlaylist)
-			{
-				context->currentProfileIndex = context->lastSelectedProfileIndex;
-			}
 		}
 
 		if (aamp->DownloadsAreEnabled())
@@ -3368,7 +3356,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 			printf("***Main Manifest***:\n\n%s\n************\n", this->mainManifest.GetPtr());
 		}
 
-		AampLicenseManager *licenseManager = aamp->mDRMLicenseManager;
+		AampDRMLicenseManager *licenseManager = aamp->mDRMLicenseManager;
 		bool forceClearSession = (!ISCONFIGSET(eAAMPConfig_SetLicenseCaching) && (tuneType == eTUNETYPE_NEW_NORMAL));
 		licenseManager->clearDrmSession(forceClearSession);
 		licenseManager->clearFailedKeyIds();
@@ -3479,7 +3467,6 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 			currentProfileIndex = GetDesiredProfile(false);
 			HlsStreamInfo *streamInfo = (HlsStreamInfo*)GetStreamInfo(currentProfileIndex);
 			long bandwidthBitsPerSecond = streamInfo->bandwidthBitsPerSecond;
-			lastSelectedProfileIndex = currentProfileIndex;
 			aamp->ResetCurrentlyAvailableBandwidth(bandwidthBitsPerSecond, trickplayMode, currentProfileIndex);
 			aamp->profiler.SetBandwidthBitsPerSecondVideo(bandwidthBitsPerSecond);
 			AAMPLOG_INFO("Selected BitRate: %ld, Max BitRate: %ld", bandwidthBitsPerSecond, GetStreamInfo(GetMaxBWProfile())->bandwidthBitsPerSecond);
@@ -3537,6 +3524,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 			}
 			if(!video->playlist.GetLen() )
 			{
+				int lastSelectedProfileIndex = currentProfileIndex;
 				int limitCount = 0;
 				int numberOfLimit = GETCONFIGVALUE(eAAMPConfig_InitRampDownLimit);
 				do{
@@ -4798,7 +4786,6 @@ void TrackState::RunFetchLoop()
 			// Avoid ABR if we have seen or just pushed an init fragment
 			if((eTRACK_VIDEO == type) && (!context->trickplayMode) && !(mInjectInitFragment || mSkipAbr))
 			{
-				context->lastSelectedProfileIndex = context->currentProfileIndex;
 				// if rampdown is attempted to any failure , no abr change to be attempted .
 				// else profile be reset to top one leading to looping of bad fragment
 				if(!mCheckForRampdown)
@@ -4920,7 +4907,7 @@ StreamAbstractionAAMP_HLS::StreamAbstractionAAMP_HLS(class PrivateInstanceAAMP *
 : StreamAbstractionAAMP(aamp, id3Handler),
 	rate(rate), maxIntervalBtwPlaylistUpdateMs(DEFAULT_INTERVAL_BETWEEN_PLAYLIST_UPDATES_MS), mainManifest("mainManifest"), allowsCache(false), seekPosition(seekpos), mTrickPlayFPS(),
 	enableThrottle(false), firstFragmentDecrypted(false), mStartTimestampZero(false), mNumberOfTracks(0), midSeekPtsOffset(0),
-	lastSelectedProfileIndex(0), segDLFailCount(0), segDrmDecryptFailCount(0), mMediaCount(0),mProfileCount(0),
+	segDLFailCount(0), segDrmDecryptFailCount(0), mMediaCount(0),mProfileCount(0),
 	mLangList(),mIframeAvailable(false), thumbnailManifest("thumbnailManifest"), indexedTileInfo(),
 	mFirstPTS(0),mDiscoCheckMutex(),
 	mPtsOffsetUpdate{ptsUpdate},
@@ -4929,7 +4916,7 @@ StreamAbstractionAAMP_HLS::StreamAbstractionAAMP_HLS(class PrivateInstanceAAMP *
 {
 	if (aamp->mDRMLicenseManager)
 	{
-		AampLicenseManager *licenseManager = aamp->mDRMLicenseManager;
+		AampDRMLicenseManager *licenseManager = aamp->mDRMLicenseManager;
 		licenseManager->SetLicenseFetcher(this);
 	}
 	trickplayMode = false;
@@ -4996,6 +4983,7 @@ TrackState::TrackState(TrackType type, StreamAbstractionAAMP_HLS* parent, Privat
 	mProgramDateTime = aamp->mProgramDateTime;
 	AAMPLOG_INFO("Restore PDT (%f) ",mProgramDateTime.inSeconds());
 	playlistMediaType = GetPlaylistMediaTypeFromTrack(type, IS_FOR_IFRAME(aamp->rate,type));
+	mDrmInterface  = DrmInterface::GetInstance(aamp);
 }
 
 
@@ -5268,12 +5256,16 @@ std::vector<StreamInfo*> StreamAbstractionAAMP_HLS::GetAvailableThumbnailTracks(
 * @param *ptr pointer to thumbnail manifest
 * @return Updated vector of available thumbnail tracks.
 ***************************************************************************/
-/*static*/std::vector<TileInfo> IndexThumbnails( lstring iter )
+std::vector<TileInfo> IndexThumbnails( lstring iter , double stTime=0 )
 {
 	std::vector<TileInfo> rc;
-	AampTime startTime{};
+	AampTime startTime = stTime;
 	TileLayout layout;
 	memset( &layout, 0, sizeof(layout) );
+
+	layout.numRows = DEFAULT_THUMBNAIL_TILE_ROWS;
+	layout.numCols = DEFAULT_THUMBNAIL_TILE_COLUMNS;
+
 	while(!iter.empty())
 	{
 		lstring ptr = iter.mystrpbrk();
@@ -5293,6 +5285,17 @@ std::vector<StreamInfo*> StreamAbstractionAAMP_HLS::GetAvailableThumbnailTracks(
 			else if( !ptr.startswith('#') )
 			{
 				TileInfo tileInfo;
+				if( 0.0f == layout.posterDuration )
+				{
+					if( layout.tileSetDuration )
+					{
+						layout.posterDuration = layout.tileSetDuration;
+					}
+					else
+					{
+						layout.posterDuration = DEFAULT_THUMBNAIL_TILE_DURATION;
+					}
+				}
 				tileInfo.layout = layout;
 				tileInfo.url = ptr.tostring();
 				tileInfo.startTime = startTime.inSeconds();
@@ -5300,6 +5303,10 @@ std::vector<StreamInfo*> StreamAbstractionAAMP_HLS::GetAvailableThumbnailTracks(
 				rc.push_back( tileInfo );
 			}
 		}
+	}
+	if(rc.empty() )
+	{
+		AAMPLOG_WARN("IndexThumbnails failed");
 	}
 	return rc;
 }
@@ -5338,10 +5345,26 @@ bool StreamAbstractionAAMP_HLS::SetThumbnailTrack( int thumbIndex )
 					downloadTime = tempDownloadTime;
 					AAMPLOG_WARN("In StreamAbstractionAAMP_HLS: Configured Thumbnail");
 					thumbnailManifest.AppendNulTerminator();
+					ContentType type = aamp->GetContentType();
+					if( ContentType_LINEAR == type  || ContentType_SLE == type )
+					{
+						if( aamp->getAampCacheHandler()->IsPlaylistUrlCached(streamInfo.uri) )
+						{
+							aamp->getAampCacheHandler()->RemoveFromPlaylistCache(streamInfo.uri);
+						}
+						rc=true;
+					}
 					aamp->getAampCacheHandler()->InsertToPlaylistCache(streamInfo.uri, &thumbnailManifest, tempEffectiveUrl,false,eMEDIATYPE_PLAYLIST_IFRAME);
-					lstring iter = lstring(thumbnailManifest.GetPtr(), thumbnailManifest.GetLen());
-					indexedTileInfo = IndexThumbnails( iter );
-					rc = true;
+					if( ContentType_SLE != type && ContentType_LINEAR != type )
+					{
+						lstring iter = lstring(thumbnailManifest.GetPtr(), thumbnailManifest.GetLen());
+						indexedTileInfo = IndexThumbnails( iter );
+						rc = !indexedTileInfo.empty();
+					}
+					if( !rc )
+					{
+						AAMPLOG_WARN("Thumbnail index failed");
+					}
 				}
 				else
 				{
@@ -5363,13 +5386,15 @@ std::vector<ThumbnailData> StreamAbstractionAAMP_HLS::GetThumbnailRangeData(doub
 {
 	std::vector<ThumbnailData> data{};
 	HlsStreamInfo &streamInfo = streamInfoStore[aamp->mthumbIndexValue];
-	if(!thumbnailManifest.GetPtr())
+	ContentType type = aamp->GetContentType();
+	if(!thumbnailManifest.GetPtr() || ( type == ContentType_SLE || type == ContentType_LINEAR ) )
 	{
+		thumbnailManifest.Free();
 		std::string tmpurl;
-		if(aamp->getAampCacheHandler()->RetrieveFromPlaylistCache(streamInfo.uri, &thumbnailManifest, tmpurl, eMEDIATYPE_PLAYLIST_IFRAME))
+		if(aamp->getAampCacheHandler()->RetrieveFromPlaylistCache(streamInfo.uri, &thumbnailManifest, tmpurl,eMEDIATYPE_PLAYLIST_IFRAME))
 		{
 			lstring iter = lstring(thumbnailManifest.GetPtr(),thumbnailManifest.GetLen());
-			indexedTileInfo = IndexThumbnails( iter );
+			indexedTileInfo = IndexThumbnails( iter, tStart );
 		}
 		else
 		{
@@ -5422,6 +5447,10 @@ std::vector<ThumbnailData> StreamAbstractionAAMP_HLS::GetThumbnailRangeData(doub
 		*baseurl = url.substr(0,url.find_last_of("/\\")+1);
 		*width = streamInfo.resolution.width;
 		*height = streamInfo.resolution.height;
+	}
+	if( data.empty() )
+	{
+		AAMPLOG_WARN("thumbnail Data is empty");
 	}
 	return data;
 }

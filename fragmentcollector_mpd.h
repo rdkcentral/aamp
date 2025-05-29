@@ -622,7 +622,7 @@ protected:
 	 *
 	 * @return void
 	 */
-	void AdvanceTsbFetch(int trackIdx, bool trickPlay, double delta, bool *waitForFreeFrag, bool *bCacheFullState);
+	void AdvanceTsbFetch(int trackIdx, bool trickPlay, double delta, bool &waitForFreeFrag, bool &bCacheFullState);
 
 	/**
 	 * @fn FetcherLoop
@@ -1117,6 +1117,7 @@ protected:
 	double mEndPosition;
 	bool mIsLiveStream;    	    	   /**< Stream is live or not; won't change during runtime. */
 	bool mIsLiveManifest;   	   /**< Current manifest is dynamic or static; may change during runtime. eg: Hot DVR. */
+	bool mUpdateManifestState;
 	StreamInfo* mStreamInfo;
 	bool mUpdateStreamInfo;		   /**< Indicates mStreamInfo needs to be updated */
 	double mPrevStartTimeSeconds;

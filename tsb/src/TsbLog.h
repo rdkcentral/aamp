@@ -166,7 +166,7 @@
                                                                                                    \
 			/* Create the message and send to the client's registered logger */                    \
 			(logger).func(                                                                         \
-				TSB::Log::MakeMessage(logLevel, __func__, srcFileName_, __LINE__, __VA_ARGS__));   \
+				TSB::Log::MakeMessage(logLevel, __func__, srcFileName_, __LINE__, __VA_ARGS__), (logger).loggerData);   \
 		}                                                                                          \
 	} while (0)
 
@@ -179,6 +179,7 @@ namespace TSB
 struct Logger
 {
 	LogFunction func;
+	int loggerData;
 	LogLevel minLevel;
 };
 

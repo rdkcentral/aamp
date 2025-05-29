@@ -520,8 +520,7 @@ typedef struct BlacklistProfileInfo_t
 
 class AampCacheHandler;
 
-class DRMSessionManager;
-class AampLicenseManager;
+class AampDRMLicenseManager;
 /**
  * @brief
  *
@@ -1060,7 +1059,7 @@ public:
 	bool mbPlayEnabled;					/**< Send buffer to pipeline or just cache them */
 	std::thread createDRMSessionThreadID; 			/**< thread ID for DRM session creation */
 	bool drmSessionThreadStarted; 				/**< flag to indicate the thread is running on not */
-	AampLicenseManager *mDRMLicenseManager;
+	AampDRMLicenseManager *mDRMLicenseManager;
 	int mPlaylistFetchFailError;				/**< To store HTTP error code when playlist download fails */
 	bool mAudioDecoderStreamSync; 				/**<  Flag to set or clear 'stream_sync_mode' property
 	                                				in gst brcmaudiodecoder, default: True */
@@ -4455,5 +4454,6 @@ protected:
 
 private:
 	void SetCMCDTrackData(AampMediaType mediaType);
+	std::vector<float> getSupportedPlaybackSpeeds(void);
 };
 #endif // PRIVAAMP_H

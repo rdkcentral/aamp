@@ -24,8 +24,7 @@
 
 #include "Aampcli.h"
 #include "scte35/AampSCTE35.h"
-#include "AampcliShader.h"
-
+//#include "AampcliShader.h"
 
 Aampcli mAampcli;
 const char *gApplicationPath = NULL;
@@ -355,7 +354,7 @@ std::string Aampcli::GetSessionId(size_t index) const
  * @param argv
  * @retval
  */
-int main(int argc, char **argv)
+static int main_func(int argc, char **argv)
 {
 	AampLogManager::disableLogRedirection = true;
 	ABRManager mAbrManager;
@@ -401,6 +400,15 @@ int main(int argc, char **argv)
 	createAppWindow(argc,argv);
 	cmdThreadId.join();
 	printf( "[AAMPCLI] done\n" );
+}
+
+int main( int argc, char **argv )
+{
+#if defined(__APPLE__) && !defined(USE_OPENGL)
+	return gst_macos_main((GstMainFunc)main_func, argc, argv, NULL);
+#else
+	return main_func(argc,argv);
+#endif
 }
 
 const char *MyAAMPEventListener::stringifyPlayerState(AAMPPlayerState state)

@@ -58,12 +58,6 @@ std::string aamp_GetLocalPath( const char *filename )
 #include "jpeglib.h"
 #endif
 
-// temporarily exclude Ubuntu, to avoid ubuntu L2 tests failing when run in container
-#if defined(__APPLE__) // || defined(UBUNTU)
-#define USE_OPENGL
-// for now, use with simulator only, to avoid device compilation issues
-#endif
-
 #ifdef USE_OPENGL
 // extract each frame and render using opengl shader
 
@@ -528,27 +522,11 @@ void Shader::updateYUVFrame(const unsigned char *buffer, int size, int width, in
 
 std::function< void(const unsigned char *, int, int, int) > gpUpdateYUV = nullptr;
 
-/**
-	No need to have OSX-specific variant here, as we're leveraging gstreamer windows.
-	But we still need to create a dummy cocoa window or nothing renders(!)
-	Historically, an osx cocoa window was once used andconnected under hood with gstreamer
-	This gave us ability to programatically resize the window.
-	This also gave us ability to update title bar contextually.
-*/
-#ifdef __APPLE__
-#import <cocoa_window.h>
-#else
-#define osx_createAppWindow(argc,argv) // NOP
-#define osx_destroyAppWindow() // NOP
-#endif
-
 void createAppWindow( int argc, char **argv )
 {
-	osx_createAppWindow( argc, argv );
 }
 void destroyAppWindow( void )
 {
-	osx_destroyAppWindow();
 }
 
 #endif // !USE_OPENGL

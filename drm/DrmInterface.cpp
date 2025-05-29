@@ -21,7 +21,7 @@
 #include "HlsOcdmBridgeInterface.h"
 #include "AampGrowableBuffer.h"
 #include "HlsDrmSessionManager.h"
-#include "AampLicManager.h"
+#include "AampDRMLicManager.h"
 #define AES_128_KEY_LEN_BYTES 16
 /**
  * @file Drm_Interface.cpp
@@ -46,14 +46,8 @@ void registerCallback(DrmInterface *_this ,std::shared_ptr<AesDec> instance )
      /** 
       * @brief Register callback to do profiling 
       */
-      instance->RegisterProfileUpdateInitCb([_this](int bucketType ) {
-        return _this->ProfileUpdateDrmDecryptInit((int)bucketType);
-    });
-      /**
-       * @brief Reigster callback to update the end of profileupdate 
-       */
-      instance->RegisterProfileUpdateEndCb([_this](int bucketType ) {
-        return _this->ProfileUpdateDrmDecryptEnd((int)bucketType);
+      instance->RegisterProfileUpdateCb([_this](bool type , int bucketType ) {
+        return _this->ProfileUpdateDrmDecrypt(type, (int)bucketType);
     });
       /**
        * @brief  Callback for Access key 
@@ -77,14 +71,13 @@ void registerCallback(DrmInterface *_this ,std::shared_ptr<AesDec> instance )
  */
 void registerCallbackForHls(DrmInterface* _this, PlayerHlsDrmSessionInterface* instance)
 {
-        
+
       instance->RegisterGetHlsDrmSessionCb([_this](std::shared_ptr <HlsDrmBase>&bridge, std::shared_ptr<DrmHelper> &drmHelper ,  DrmSession* &session , int streamType){
 		      return _this->getHlsDrmSession(bridge, drmHelper, session ,  streamType);
 		      });
-                      
 }
 /* 
- * @brief DrmInterface consturctor 
+ * @brief DrmInterface constructor 
  * */
 DrmInterface::DrmInterface(PrivateInstanceAAMP* aamp):mAesKeyBuf("aesKeyBuf")
 {
@@ -128,21 +121,35 @@ void DrmInterface::NotifyDrmError(int drmFailure)
 	}
 
 }
+ProfilerBucketType DrmInterface::MapDrmToProfilerBucket(DrmProfilerBucketType drmType)
+{
+    switch (drmType)
+    {
+        case DRM_PROFILE_BUCKET_DECRYPT_VIDEO:    return PROFILE_BUCKET_DECRYPT_VIDEO;
+        case DRM_PROFILE_BUCKET_DECRYPT_AUDIO:    return PROFILE_BUCKET_DECRYPT_AUDIO;
+        case DRM_PROFILE_BUCKET_DECRYPT_SUBTITLE: return PROFILE_BUCKET_DECRYPT_SUBTITLE;
+        case DRM_PROFILE_BUCKET_DECRYPT_AUXILIARY:return PROFILE_BUCKET_DECRYPT_AUXILIARY;
+
+        case DRM_PROFILE_BUCKET_LA_TOTAL:         return PROFILE_BUCKET_LA_TOTAL;
+        case DRM_PROFILE_BUCKET_LA_PREPROC:       return PROFILE_BUCKET_LA_PREPROC;
+
+        default: return PROFILE_BUCKET_TYPE_COUNT; // or handle as error
+    }
+}
 /**
  * @brief Update the profiling type to player
  */
-void DrmInterface::ProfileUpdateDrmDecryptInit(int bucketType)
+void DrmInterface::ProfileUpdateDrmDecrypt(bool type, int bucketType)
 {
-	mpAamp->LogDrmInitComplete();
-
-
-}
-/**
- * @brief Update End of profiling
- */
-void DrmInterface::ProfileUpdateDrmDecryptEnd(int bucketType)
-{
-      mpAamp->LogDrmDecryptEnd((int)bucketType);
+	if(type == 0)
+	{
+		mpAamp->LogDrmInitComplete();
+	}
+	else
+	{
+	       ProfilerBucketType val = MapDrmToProfilerBucket((DrmProfilerBucketType)bucketType);
+	       mpAamp->LogDrmDecryptEnd(val);
+	}
 }
 /**
  * @brief GetAccessKey To get access of the key 
@@ -177,12 +184,6 @@ void DrmInterface::GetAccessKey(std::string &keyURI,  std::string& tempEffective
                         failureReason = AAMP_TUNE_LICENCE_REQUEST_FAILED;
                 }
         }
-	if(!keyAcquisitionStatus);
-	{
-
-	}
-
-
 }
 /*
  * initialise the static member variable 
@@ -199,7 +200,7 @@ std::shared_ptr<DrmInterface> DrmInterface::GetInstance(PrivateInstanceAAMP* aam
         } 
         return mInstance;
 }
-void DrmInterface::RegisterAesInterfaceCb( std::shared_ptr<DrmInterface> drmInterface ,std::shared_ptr<HlsDrmBase> instance)
+void DrmInterface::RegisterAesInterfaceCb( std::shared_ptr<HlsDrmBase> instance)
 {
       std::shared_ptr<AesDec> aesDecPtr = std::dynamic_pointer_cast<AesDec>(instance);
 
@@ -211,7 +212,7 @@ void DrmInterface::RegisterAesInterfaceCb( std::shared_ptr<DrmInterface> drmInte
 /** 
  * @brief RegisterHlsInterfaceCb callback to register 
  */
-void DrmInterface::RegisterHlsInterfaceCb( std::shared_ptr<DrmInterface> drmInterface ,PlayerHlsDrmSessionInterface* instance)
+void DrmInterface::RegisterHlsInterfaceCb( PlayerHlsDrmSessionInterface* instance)
 {
       PlayerHlsDrmSessionInterface* hlsDecPtr = (PlayerHlsDrmSessionInterface*)instance;
 

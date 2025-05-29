@@ -33,4 +33,12 @@ extern std::function<void(const unsigned char *, int, int, int)> gpUpdateYUV;
 extern void createAppWindow( int argc, char **argv );
 extern void destroyAppWindow( void );
 
+// exclude Ubuntu, to avoid ubuntu L2 tests failing when run in container
+#if defined(__APPLE__)
+#define USE_OPENGL
+// USE_OPENGL used only in simulator to avoid device compilation issues
+// this renders video using opengl shader and raw yuv frame data
+// this avoids spawning multiple windows, and can be used with optional OCR support
+#endif
+
 #endif // AAMPCLISHADER_H
