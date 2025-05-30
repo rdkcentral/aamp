@@ -4682,7 +4682,7 @@ void PrivateInstanceAAMP::GetOnVideoEndSessionStatData(std::string &data)
 /**
  * @brief Terminate the stream
  */
-void PrivateInstanceAAMP::TeardownStream(bool newTune)
+void PrivateInstanceAAMP::TeardownStream(bool newTune, bool disableDownloads)
 {
 	std::unique_lock<std::recursive_mutex> lock(mLock);
 	//Have to perform this for trick and stop operations but avoid ad insertion related ones
@@ -4739,8 +4739,9 @@ void PrivateInstanceAAMP::TeardownStream(bool newTune)
 	lock.unlock();
 	if (mpStreamAbstractionAAMP)
 	{
-		mpStreamAbstractionAAMP->Stop(false);
-
+		mpStreamAbstractionAAMP->Stop(disableDownloads);
+                // Using StreamLock to make sure this is not interfering with GetFile() from PreCachePlaylistDownloadTask
+		AcquireStreamLock();
 		if(mContentType == ContentType_HDMIIN)
 		{
 			StreamAbstractionAAMP_HDMIIN::ResetInstance();
@@ -4758,6 +4759,7 @@ void PrivateInstanceAAMP::TeardownStream(bool newTune)
 				SAFE_DELETE(mpStreamAbstractionAAMP);
 			}
 		}
+		ReleaseStreamLock();
 	}
 	m_lastSubClockSyncTime = std::chrono::system_clock::time_point();
 
@@ -7471,9 +7473,6 @@ void PrivateInstanceAAMP::Stop( bool sendStateChangeEvent )
 	// so downloads are disabled among other things
 	SetLocalAAMPTsb(false);
 	SetLocalAAMPTsbInjection(false);
-	// Using StreamLock to make sure this is not interfering with GetFile() from PreCachePlaylistDownloadTask
-	// and protect against the StreamAbstraction object being accessed by a different thread
-	AcquireStreamLock();
 	// Stopping the playback, release all DRM context
 	if (mpStreamAbstractionAAMP)
 	{
@@ -7482,36 +7481,18 @@ void PrivateInstanceAAMP::Stop( bool sendStateChangeEvent )
 			ReleaseDynamicDRMToUpdateWait();
 			mDRMLicenseManager->setLicenseRequestAbort(true);
 		}
-		mpStreamAbstractionAAMP->Stop(true);
 		if (HasSidecarData())
 		{ // has sidecar data
 			mpStreamAbstractionAAMP->ResetSubtitle();
 		}
-		//Deleting mpStreamAbstractionAAMP here will prevent the extra stop call in TeardownStream()
-		//and will avoid enableDownload() call being made unnecessarily
-		if(mContentType == ContentType_HDMIIN)
-		{
-			StreamAbstractionAAMP_HDMIIN::ResetInstance();
-			mpStreamAbstractionAAMP = NULL;
-		}
-		else if(mContentType == ContentType_COMPOSITEIN)
-		{
-			StreamAbstractionAAMP_COMPOSITEIN::ResetInstance();
-			mpStreamAbstractionAAMP = NULL;
-		}
-		else
-		{
-			SAFE_DELETE(mpStreamAbstractionAAMP);
-		}
 	}
-	ReleaseStreamLock();
+	TeardownStream(true,true); //disable download as well
+
 	// stop the mpd update immediately after Stream abstraction delete
 	if(mMPDDownloaderInstance != nullptr)
 	{
 		mMPDDownloaderInstance->Release();
 	}
-	TeardownStream(true);
-
 	if(mTSBSessionManager)
 	{
 		// Clear all the local TSB data
