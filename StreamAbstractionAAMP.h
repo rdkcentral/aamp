@@ -847,6 +847,10 @@ protected:
 	double GetLastInjectedFragmentPosition() { return lastInjectedPosition; }
 
 private:
+	bool gotLocalTime;
+	bool ptsRollover;
+	long long currentLocalTimeMs;
+	
 	/**
 	 * @fn GetBufferHealthStatusString
 	 *

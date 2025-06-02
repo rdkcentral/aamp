@@ -29,7 +29,6 @@
 Aampcli mAampcli;
 const char *gApplicationPath = NULL;
 extern VirtualChannelMap mVirtualChannelMap;
-extern void tsdemuxer_InduceRollover( bool enable );
 
 extern std::vector<AdvertInfo> mAdvertList;
 static int mAdReservationIndex = 0;
