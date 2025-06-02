@@ -270,7 +270,7 @@ public:
 			}
 			else
 			{ // initialization header
-				context->pipeline->SetCaps(mediaType, mp4Demux );
+				context->pipeline->SetCaps(mediaType, &mp4Demux->info );
 			}
 		}
 		else if( ptr )

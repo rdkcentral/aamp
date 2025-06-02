@@ -293,7 +293,6 @@ set(LIBAAMP_HEADERS middleware/drm/DrmSystems.h
 					Accessibility.hpp
 					AampTrackWorker.h
 					test/gstTestHarness/tsdemux.hpp
-					test/gstTestHarness/mp4demux.hpp
 )
 
 set(LIBAAMP_SOURCES iso639map.cpp
@@ -388,7 +387,6 @@ set(LIBAAMP_SOURCES iso639map.cpp
 					scte35/AampSCTE35.cpp
 					AampTrackWorker.cpp
 					externals/PlayerThunderInterface.cpp
-					test/gstTestHarness/mp4demux.cpp
 )
 
 if (CMAKE_WPEFRAMEWORK_REQUIRED)
@@ -832,7 +830,8 @@ set(GSTTESTHARNESS_HEADERS test/gstTestHarness/gst-port.h
                            test/gstTestHarness/downloader.hpp
                            test/gstTestHarness/stream_utils.hpp
                            test/gstTestHarness/string_utils.hpp
-                           test/gstTestHarness/turbo_xml.hpp )
+                           test/gstTestHarness/turbo_xml.hpp
+                           test/gstTestHarness/initializationheaderinfo.hpp )
 set(GSTTESTHARNESS_SOURCES test/gstTestHarness/gst-port.cpp
                            test/gstTestHarness/gst-utils.cpp
                            test/gstTestHarness/gst-test.cpp
