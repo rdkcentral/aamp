@@ -1,4 +1,5 @@
 /*
+ * test...
  * If not stated otherwise in this file or this component's license file the
  * following copyright and licenses apply:
  *
@@ -5890,7 +5891,7 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 
 	}
 	//temporary hack 
-	if (strcasestr(mAppName.c_str(), "peacock"))
+	if (strcasestr(mAppName.c_str(), "abcd"))
 	{
 		// Enable PTS Restamping
 		if(SocUtils::EnableLiveLatencyCorrection())
