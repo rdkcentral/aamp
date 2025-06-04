@@ -30,9 +30,9 @@ function install_build_middleware_interface_fn()
         make
         make install
 
-        echo -e 'prefix='$LOCAL_DEPS_BUILD_DIR'/lib \nexec_prefix='$LOCAL_DEPS_BUILD_DIR' \nlibdir='$LOCAL_DEPS_BUILD_DIR'/lib \nincludedir='$LOCAL_DEPS_BUILD_DIR'/include \n \nName: EntosPlayerFireboltInterface \nDescription: iarm rfc interfaces library \nVersion: 1.0 \nLibs: -L${libdir} -lEntosPlayerFireboltInterface \nCflags: -I${includedir}' > $LOCAL_DEPS_BUILD_DIR/lib/pkgconfig/libEntosPlayerFireboltInterface.pc
-        echo -e 'prefix='$LOCAL_DEPS_BUILD_DIR'/lib \nexec_prefix='$LOCAL_DEPS_BUILD_DIR' \nlibdir='$LOCAL_DEPS_BUILD_DIR'/lib \nincludedir='$LOCAL_DEPS_BUILD_DIR'/include \n \nName: BaseConversion \nDescription: base 16 and 64 conversion library \nVersion: 1.0 \nLibs: -L${libdir} -lBaseConversion \nCflags: -I${includedir}' > $LOCAL_DEPS_BUILD_DIR/lib/pkgconfig/libBaseConversion.pc
-        echo -e 'prefix='$LOCAL_DEPS_BUILD_DIR'/lib \nexec_prefix='$LOCAL_DEPS_BUILD_DIR' \nlibdir='$LOCAL_DEPS_BUILD_DIR'/lib \nincludedir='$LOCAL_DEPS_BUILD_DIR'/include \n \nName: PlayerLogManager \nDescription: player log manager library \nVersion: 1.0 \nLibs: -L${libdir} -lPlayerLogManager \nCflags: -I${includedir}' > $LOCAL_DEPS_BUILD_DIR/lib/pkgconfig/libPlayerLogManager.pc
+        echo -e 'prefix='$LOCAL_DEPS_BUILD_DIR'/lib \nexec_prefix='$LOCAL_DEPS_BUILD_DIR' \nlibdir='$LOCAL_DEPS_BUILD_DIR'/lib \nincludedir='$LOCAL_DEPS_BUILD_DIR'/include \n \nName: playerfbinterface \nDescription: iarm rfc interfaces library \nVersion: 1.0 \nLibs: -L${libdir} -lplayerfbinterface \nCflags: -I${includedir}' > $LOCAL_DEPS_BUILD_DIR/lib/pkgconfig/libplayerfbinterface.pc
+        echo -e 'prefix='$LOCAL_DEPS_BUILD_DIR'/lib \nexec_prefix='$LOCAL_DEPS_BUILD_DIR' \nlibdir='$LOCAL_DEPS_BUILD_DIR'/lib \nincludedir='$LOCAL_DEPS_BUILD_DIR'/include \n \nName: baseconversion \nDescription: base 16 and 64 conversion library \nVersion: 1.0 \nLibs: -L${libdir} -lbaseconversion \nCflags: -I${includedir}' > $LOCAL_DEPS_BUILD_DIR/lib/pkgconfig/libbaseconversion.pc
+        echo -e 'prefix='$LOCAL_DEPS_BUILD_DIR'/lib \nexec_prefix='$LOCAL_DEPS_BUILD_DIR' \nlibdir='$LOCAL_DEPS_BUILD_DIR'/lib \nincludedir='$LOCAL_DEPS_BUILD_DIR'/include \n \nName: playerlogmanager \nDescription: player log manager library \nVersion: 1.0 \nLibs: -L${libdir} -lplayerlogmanager \nCflags: -I${includedir}' > $LOCAL_DEPS_BUILD_DIR/lib/pkgconfig/libplayerlogmanager.pc
         
         INSTALL_STATUS_ARR+=("middleware was successfully installed.")
     fi
