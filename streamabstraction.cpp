@@ -1441,10 +1441,10 @@ bool MediaTrack::InjectFragment()
 			cachedFragment = &this->mCachedFragment[fragmentIdxToInject];
 			AAMPLOG_TRACE("[%s] fragmentIdxToInject : %d Discontinuity %d ", name, fragmentIdxToInject, cachedFragment->discontinuity);
 		}
-#ifdef TRACE
-		AAMPLOG_WARN("[%s] - fragmentIdxToInject %d cachedFragment %p ptr %p",
-					 name, fragmentIdxToInject, cachedFragment, cachedFragment->fragment.ptr);
-#endif
+
+		AAMPLOG_TRACE("[%s] - fragmentIdxToInject %d cachedFragment %p ptr %p",
+					 name, fragmentIdxToInject, cachedFragment, cachedFragment->fragment.GetPtr());
+
 		if (cachedFragment->fragment.GetPtr())
 		{
 			// This is currently supported for non-LL DASH streams only at normal play rate
@@ -1956,23 +1956,17 @@ MediaTrack::~MediaTrack()
 	if (bufferMonitorThreadStarted)
 	{
 		bufferMonitorThreadID.join();
-#ifdef TRACE
 		{
-			AAMPLOG_WARN("joined bufferMonitorThreadID");
+			AAMPLOG_TRACE("joined bufferMonitorThreadID");
 		}
-#endif
 	}
 	if ((UpdateSubtitleClockTaskStarted) && (type == eTRACK_SUBTITLE))
 	{
-#ifdef TRACE
-		AAMPLOG_WARN("joining subtitleClockThreadID for UpdateSubtitleClockTask");
-#endif
+		AAMPLOG_TRACE("joining subtitleClockThreadID for UpdateSubtitleClockTask");
 		if (subtitleClockThreadID.joinable())
 		{
 			subtitleClockThreadID.join();
-#ifdef TRACE
-			AAMPLOG_WARN("joined subtitleClockThreadID for UpdateSubtitleClockTask");
-#endif
+			AAMPLOG_TRACE("joined subtitleClockThreadID for UpdateSubtitleClockTask");
 		}
 		else
 		{

@@ -1472,30 +1472,6 @@ TEST_F(PlayerInstanceAAMPTests, SetPreferredSubtitleLanguageIdleState3)
 	char language[] = { CHAR_MIN, 0x00 };  
     mPlayerInstance->SetPreferredSubtitleLanguage(language);
 }
-TEST_F(PlayerInstanceAAMPTests, SetParallelPlaylistDLTest1)
-{
-    //checking true condition
-    bool bValue = true;
-    mPlayerInstance->SetParallelPlaylistDL(bValue);
-}
-TEST_F(PlayerInstanceAAMPTests, SetParallelPlaylistDLTest2)
-{
-    //checking false condition
-    bool bValue = false;
-    mPlayerInstance->SetParallelPlaylistDL(bValue);
-}
-TEST_F(PlayerInstanceAAMPTests, SetParallelPlaylistRefreshTest1)
-{
-    //checking true condition
-    bool bValue = true;
-    mPlayerInstance->SetParallelPlaylistRefresh(bValue);
-}
-TEST_F(PlayerInstanceAAMPTests, SetParallelPlaylistRefreshTest2)
-{
-    //checking false condition
-    bool bValue = false;
-    mPlayerInstance->SetParallelPlaylistRefresh(bValue);
-}
 TEST_F(PlayerInstanceAAMPTests, SetWesterosSinkConfigTest1)
 {
     //checking true condition

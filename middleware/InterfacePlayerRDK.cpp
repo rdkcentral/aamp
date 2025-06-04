@@ -1623,9 +1623,7 @@ static gboolean gstappsrc_seek(void *src, guint64 offset, void* _this)
 {
 	InterfacePlayerRDK *pInterfacePlayerRDK = (InterfacePlayerRDK*)_this;
 	HANDLER_CONTROL_HELPER(pInterfacePlayerRDK->gstPrivateContext->callbackControl, TRUE);
-#ifdef TRACE
-	MW_LOG_MIL("appsrc %p seek-signal - offset %" G_GUINT64_FORMAT, src, offset);
-#endif
+	MW_LOG_TRACE("appsrc %p seek-signal - offset %" G_GUINT64_FORMAT, src, offset);
 	return TRUE;
 }
 static GstMediaType gstGetMediaTypeForSource(const void  *source, const void *_this)

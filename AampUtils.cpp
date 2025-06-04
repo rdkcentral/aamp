@@ -44,21 +44,8 @@
 #include <dirent.h>
 #include <algorithm>
 
-#ifdef USE_MAC_FOR_RANDOM_GEN
-#include <fcntl.h>
-#include <unistd.h>
-#include <openssl/sha.h>
-#include <sys/ioctl.h>
-#include <net/if.h>
-#include "base16.h"
-#endif
-
 #define DEFER_DRM_LIC_OFFSET_FROM_START 5
 #define DEFER_DRM_LIC_OFFSET_TO_UPPER_BOUND 5
-#define MAC_STRING_LEN 12
-#define URAND_STRING_LEN 16
-#define RAND_STRING_LEN (MAC_STRING_LEN + 2*URAND_STRING_LEN)
-#define MAX_BUFF_LENGTH 4096 
 
 /*
  * Variable initialization for various audio formats
@@ -441,80 +428,6 @@ std::string aamp_PostJsonRPC( std::string id, std::string method, std::string pa
 	
 }
 
-
-#ifdef USE_MAC_FOR_RANDOM_GEN
-/**
- * @brief get EstbMac
- *
- * @param  mac[out] eSTB MAC address
- * @return true on success.
- */
-static bool getEstbMac(char* mac)
-{
-	bool ret = false;
-	char nwInterface[IFNAMSIZ] = { 'e', 't', 'h', '0', '\0' };
-#ifdef READ_ESTB_IFACE_FROM_DEVICE_PROPERTIES
-	FILE* fp = fopen("/etc/device.properties", "rb");
-	if (fp)
-	{
-		AAMPLOG_WARN("opened /etc/device.properties");
-		char buf[MAX_BUFF_LENGTH];
-		while (fgets(buf, sizeof(buf), fp))
-		{
-			if(strstr(buf, "ESTB_INTERFACE") != NULL)
-			{
-				const char * nwIfaceNameStart = buf + 15;
-				int ifLen = 0;
-				for (int i = 0; i < IFNAMSIZ-1; i++ )
-				{
-					if (!isspace(nwIfaceNameStart[i]))
-					{
-						nwInterface[i] = nwIfaceNameStart[i];
-					}
-					else
-					{
-						nwInterface[i] = '\0';
-						break;
-					}
-				}
-				nwInterface[IFNAMSIZ-1] = '\0';
-				break;
-			}
-		}
-		fclose(fp);
-	}
-	else
-	{
-		AAMPLOG_ERR("failed to open /etc/device.properties");
-	}
-#endif
-	AAMPLOG_WARN("use nwInterface %s", nwInterface);
-	int sockFd = socket(AF_INET, SOCK_DGRAM, 0);
-	if (sockFd == -1)
-	{
-		AAMPLOG_ERR("Socket open failed");
-	}
-	else
-	{
-		struct ifreq ifr;
-		strcpy(ifr.ifr_name, nwInterface);
-		if (ioctl(sockFd, SIOCGIFHWADDR, &ifr) == -1)
-		{
-			AAMPLOG_ERR("Socket ioctl failed");
-		}
-		else
-		{
-			char* macAddress = base16_Encode((unsigned char*) ifr.ifr_hwaddr.sa_data, 6);
-			strcpy(mac, macAddress);
-			free(macAddress);
-			AAMPLOG_WARN("Mac %s", mac);
-			ret = true;
-		}
-		close(sockFd);
-	}
-	return ret;
-}
-#endif
 /**
  * @brief Get time to defer DRM acquisition
  *
@@ -523,57 +436,7 @@ static bool getEstbMac(char* mac)
 int aamp_GetDeferTimeMs(long maxTimeSeconds)
 {
 	int ret = 0;
-#ifdef USE_MAC_FOR_RANDOM_GEN
-	static char randString[RAND_STRING_LEN+1];
-	static bool estbMacAvailable = getEstbMac(randString);
-	if (estbMacAvailable)
-	{
-		AAMPLOG_TRACE ("estbMac %s", randString);
-		int randFD = open("/dev/urandom", O_RDONLY);
-		if (randFD < 0)
-		{
-			AAMPLOG_ERR("ERROR - opening /dev/urandom  failed");
-		}
-		else
-		{
-			char* uRandString = &randString[MAC_STRING_LEN];
-			int uRandStringLen = 0;
-			unsigned char temp;
-			for (int i = 0; i < URAND_STRING_LEN; i++)
-			{
-				ssize_t bytes = read(randFD, &temp, 1);
-				if (bytes < 0)
-				{
-					AAMPLOG_ERR("ERROR - reading /dev/urandom  failed");
-					break;
-				}
-				WRITE_HASCII(uRandString,temp);
-			}
-			close(randFD);
-			randString[RAND_STRING_LEN] = '\0';
-			AAMPLOG_WARN("randString %s", randString);
-			unsigned char hash[SHA_DIGEST_LENGTH];
-			SHA1((unsigned char*) randString, RAND_STRING_LEN, hash);
-			int divisor = maxTimeSeconds - DEFER_DRM_LIC_OFFSET_FROM_START - DEFER_DRM_LIC_OFFSET_TO_UPPER_BOUND;
-
-			int mod = 0;
-			for (int i = 0; i < SHA_DIGEST_LENGTH; i++)
-			{
-				AAMPLOG_TRACE ("mod %d hash[%d] %x", mod, i, hash[i]);
-				mod = (mod * 10 + hash[i]) % divisor;
-			}
-			AAMPLOG_TRACE ("divisor %d mod %d ", divisor, (int) mod);
-			ret = (mod + DEFER_DRM_LIC_OFFSET_FROM_START) * 1000;
-		}
-	}
-	else
-	{
-		AAMPLOG_ERR("ERROR - estbMac not available");
-		ret = (DEFER_DRM_LIC_OFFSET_FROM_START + rand()%(maxTimeSeconds - DEFER_DRM_LIC_OFFSET_FROM_START - DEFER_DRM_LIC_OFFSET_TO_UPPER_BOUND))*1000;
-	}
-#else
 	ret = (DEFER_DRM_LIC_OFFSET_FROM_START + rand()%(maxTimeSeconds - DEFER_DRM_LIC_OFFSET_FROM_START - DEFER_DRM_LIC_OFFSET_TO_UPPER_BOUND))*1000;
-#endif
 	AAMPLOG_WARN("Added time for deferred license acquisition  %d ", (int)ret);
 	return ret;
 }
