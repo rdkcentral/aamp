@@ -9636,6 +9636,7 @@ void StreamAbstractionAAMP_MPD::DetectDiscontinuityAndFetchInit(bool periodChang
  */
 void StreamAbstractionAAMP_MPD::FetcherLoop()
 {
+	UsingPlayerId playerId(aamp->mPlayerId);
 	aamp_setThreadName("aampFragmentDownloader");
 	bool exitFetchLoop = false;
 	bool trickPlay = (AAMP_NORMAL_PLAY_RATE != aamp->rate);
