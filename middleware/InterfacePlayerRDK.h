@@ -25,7 +25,7 @@
 #include <string.h>
 #include <vector>
 #include <mutex>
-#include <middleware/PlayerLogManager.h>
+#include "PlayerLogManager.h"
 #include "PlayerScheduler.h"
 #include <gst/app/gstappsrc.h>
 #include <gst/app/gstappsink.h>

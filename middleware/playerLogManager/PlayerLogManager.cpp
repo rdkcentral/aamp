@@ -22,10 +22,7 @@
  * @brief Interface Player logging mechanism source file
  */
 
-#include <iomanip>
-#include <algorithm>
 #include <thread>
-#include <sstream>
 #include <sys/time.h>
 #include <ctime>
 #include <stdio.h>

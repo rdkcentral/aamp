@@ -25,7 +25,7 @@
 #include "PlayerLogManager.h"
 #include <sys/time.h>
 #include "GstUtils.h"
-#include "PlayerIarmRfcInterface.h"						//ToDo: Replace once outputprotection moved to middleware
+#include "PlayerExternalsInterface.h"						//ToDo: Replace once outputprotection moved to middleware
 #include <inttypes.h>
 #include "TextStyleAttributes.h"
 #include <memory>
@@ -1385,9 +1385,9 @@ void InterfacePlayerRDK::Stop(bool keepLastFrame)
 		SetStateWithWarnings(gstPrivateContext->pipeline, GST_STATE_NULL);
 		MW_LOG_MIL(" InterfacePlayerRDK: Pipeline state set to null");
 	}
-	if(PlayerIarmRfcInterface::IsPlayerIarmRfcInterfaceInstanceActive())
+	if(PlayerExternalsInterface::IsPlayerExternalsInterfaceInstanceActive())
 	{
-		std::shared_ptr<PlayerIarmRfcInterface> pInstance = PlayerIarmRfcInterface::GetPlayerIarmRfcInterfaceInstance();
+		std::shared_ptr<PlayerExternalsInterface> pInstance = PlayerExternalsInterface::GetPlayerExternalsInterfaceInstance();
 		pInstance->setGstElement((GstElement *)(NULL));
 	}
 	for(int i = 0; i<GST_TRACK_COUNT;i++)
@@ -4091,9 +4091,9 @@ static gboolean bus_message(GstBus * bus, GstMessage * msg, InterfacePlayerRDK *
 				// so it can get the source width/height
 				if (GstPlayer_isVideoDecoder(GST_OBJECT_NAME(msg->src), pInterfacePlayerRDK))
 				{
-					if(PlayerIarmRfcInterface::IsPlayerIarmRfcInterfaceInstanceActive())
+					if(PlayerExternalsInterface::IsPlayerExternalsInterfaceInstanceActive())
 					{
-						std::shared_ptr<PlayerIarmRfcInterface> pInstance = PlayerIarmRfcInterface::GetPlayerIarmRfcInterfaceInstance();
+						std::shared_ptr<PlayerExternalsInterface> pInstance = PlayerExternalsInterface::GetPlayerExternalsInterfaceInstance();
 						pInstance->setGstElement((GstElement *)(msg->src));
 					}
 				}

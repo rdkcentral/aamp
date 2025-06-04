@@ -27,8 +27,7 @@
 #pragma GCC diagnostic pop
 #include "PlayerThunderAccess.h"
 
-//replace below and dependencies with dedicated logger once implemented
-#include "AampLogManager.h"
+#include "PlayerLogManager.h"
 
 
 using namespace std;
@@ -110,7 +109,7 @@ PlayerThunderAccess::PlayerThunderAccess(PlayerThunderAccessPlugin callsign)
             pluginCallsign = COMPOSITEINPUT_CALLSIGN;
             break;
         default:
-            AAMPLOG_ERR("Undefined plugin tried to initialize: %d", (int)callsign);
+            MW_LOG_ERR("Undefined plugin tried to initialize: %d", (int)callsign);
             pluginCallsign = "";
             break;
     }
@@ -141,9 +140,9 @@ PlayerThunderAccess::PlayerThunderAccess(PlayerThunderAccessPlugin callsign)
         }
 
         if (NULL == controllerObject) {
-            AAMPLOG_WARN( "[ThunderAccess] Controller object creation failed");
+            MW_LOG_WARN( "[ThunderAccess] Controller object creation failed");
         } else {
-            AAMPLOG_INFO( "[ThunderAccess] Controller object creation success");
+            MW_LOG_INFO( "[ThunderAccess] Controller object creation success");
         }
     }
 
@@ -154,9 +153,9 @@ PlayerThunderAccess::PlayerThunderAccess(PlayerThunderAccessPlugin callsign)
         remoteObject = new JSONRPC::LinkType<Core::JSON::IElement>(_T(pluginCallsign), _T(""));
     }
     if (NULL == remoteObject) {
-        AAMPLOG_WARN( "[ThunderAccess] %s Client initialization failed", pluginCallsign.c_str());
+        MW_LOG_WARN( "[ThunderAccess] %s Client initialization failed", pluginCallsign.c_str());
     } else {
-        AAMPLOG_INFO( "[ThunderAccess] %s Client initialization success", pluginCallsign.c_str());
+        MW_LOG_INFO( "[ThunderAccess] %s Client initialization success", pluginCallsign.c_str());
     }
 }
 
@@ -187,15 +186,15 @@ bool PlayerThunderAccess::ActivatePlugin()
         status = controllerObject->Invoke<JsonObject, JsonObject>(THUNDER_RPC_TIMEOUT, _T("activate"), controlParam, result);
         if (Core::ERROR_NONE == status){
             result.ToString(response);
-            AAMPLOG_INFO( "[ThunderAccess] %s plugin Activated. Response : %s ", pluginCallsign.c_str(), response.c_str());
+            MW_LOG_INFO( "[ThunderAccess] %s plugin Activated. Response : %s ", pluginCallsign.c_str(), response.c_str());
         }
         else
         {
-            AAMPLOG_WARN( "[ThunderAccess] %s plugin Activation failed with error status : %u ", pluginCallsign.c_str(), status);
+            MW_LOG_WARN( "[ThunderAccess] %s plugin Activation failed with error status : %u ", pluginCallsign.c_str(), status);
             ret = false;
         }
     } else {
-        AAMPLOG_WARN( "[ThunderAccess] Controller Object NULL ");
+        MW_LOG_WARN( "[ThunderAccess] Controller Object NULL ");
         ret = false;
     }
 
@@ -214,13 +213,13 @@ bool PlayerThunderAccess::SubscribeEvent (string eventName, std::function<void(c
     if (NULL != remoteObject) {
         status = remoteObject->Subscribe<JsonObject>(THUNDER_RPC_TIMEOUT, _T(eventName), functionHandler);
         if (Core::ERROR_NONE == status) {
-            AAMPLOG_INFO( "[ThunderAccess] Subscribed to : %s", eventName.c_str());
+            MW_LOG_INFO( "[ThunderAccess] Subscribed to : %s", eventName.c_str());
         } else {
-            AAMPLOG_WARN( "[ThunderAccess] Subscription failed for : %s with error status %u", eventName.c_str(), status);
+            MW_LOG_WARN( "[ThunderAccess] Subscription failed for : %s with error status %u", eventName.c_str(), status);
             ret = false;
         }
     } else {
-        AAMPLOG_WARN( "[ThunderAccess] remoteObject not created for the plugin!");
+        MW_LOG_WARN( "[ThunderAccess] remoteObject not created for the plugin!");
         ret = false;
     }
     return ret;
@@ -237,9 +236,9 @@ bool PlayerThunderAccess::UnSubscribeEvent (string eventName)
     bool ret = true;
     if (NULL != remoteObject) {
         remoteObject->Unsubscribe(THUNDER_RPC_TIMEOUT, _T(eventName));
-        AAMPLOG_INFO( "[ThunderAccess] UnSubscribed : %s event", eventName.c_str());
+        MW_LOG_INFO( "[ThunderAccess] UnSubscribed : %s event", eventName.c_str());
     } else {
-        AAMPLOG_WARN( "[ThunderAccess] remoteObject not created for the plugin!");
+        MW_LOG_WARN( "[ThunderAccess] remoteObject not created for the plugin!");
         ret = false;
     }
     return ret;
@@ -258,7 +257,7 @@ bool PlayerThunderAccess::InvokeJSONRPC(std::string method, const JsonObject &pa
 
     if(NULL == remoteObject)
     {
-        AAMPLOG_WARN( "[ThunderAccess] client not initialized! ");
+        MW_LOG_WARN( "[ThunderAccess] client not initialized! ");
         return false;
     }
 
@@ -268,14 +267,14 @@ bool PlayerThunderAccess::InvokeJSONRPC(std::string method, const JsonObject &pa
     {
         if (result_internal["success"].Boolean()) {
             result_internal.ToString(response);
-            AAMPLOG_TRACE( "[ThunderAccess] %s success! Response : %s", method.c_str() , response.c_str());
+            MW_LOG_TRACE( "[ThunderAccess] %s success! Response : %s", method.c_str() , response.c_str());
         } else {
             result_internal.ToString(response);
-            AAMPLOG_WARN( "[ThunderAccess] %s call failed! Response : %s", method.c_str() , response.c_str());
+            MW_LOG_WARN( "[ThunderAccess] %s call failed! Response : %s", method.c_str() , response.c_str());
             ret = false;
         }
     } else {
-        AAMPLOG_WARN( "[ThunderAccess] %s : invoke failed with error status %u", method.c_str(), status);
+        MW_LOG_WARN( "[ThunderAccess] %s : invoke failed with error status %u", method.c_str(), status);
         ret = false;
     }
 
@@ -298,7 +297,7 @@ bool PlayerThunderAccess::SetVideoRectangle(int x, int y, int w, int h, std::str
             bRet = SetVideoRectangle_RMF(x, y, w, h);
             break;
         default:
-            AAMPLOG_ERR("Undefined shim used: %d", (int)shim);
+            MW_LOG_ERR("Undefined shim used: %d", (int)shim);
             break;
     }
     return bRet;
@@ -317,7 +316,7 @@ bool PlayerThunderAccess::SetVideoRectangle_VIDEOIN(int x, int y, int w, int h, 
         {
             width_ratio = (float)widthFromDS /(float) screenWidth;
             height_ratio =(float) heightFromDS / (float) screenHeight;
-            AAMPLOG_INFO("screenWidth:%d screenHeight:%d widthFromDS:%d heightFromDS:%d width_ratio:%f height_ratio:%f",screenWidth,screenHeight,widthFromDS,heightFromDS,width_ratio,height_ratio);
+            MW_LOG_INFO("screenWidth:%d screenHeight:%d widthFromDS:%d heightFromDS:%d width_ratio:%f height_ratio:%f",screenWidth,screenHeight,widthFromDS,heightFromDS,width_ratio,height_ratio);
         }
     }
 
@@ -328,7 +327,7 @@ bool PlayerThunderAccess::SetVideoRectangle_VIDEOIN(int x, int y, int w, int h, 
     param["w"] = (int) (w * width_ratio);
     param["h"] = (int) (h * height_ratio);
     param["typeOfInput"] = videoInputType;
-    AAMPLOG_WARN("type:%s x:%d y:%d w:%d h:%d w-ratio:%f h-ratio:%f",videoInputType.c_str(),x,y,w,h,width_ratio,height_ratio);
+    MW_LOG_WARN("type:%s x:%d y:%d w:%d h:%d w-ratio:%f h-ratio:%f",videoInputType.c_str(),x,y,w,h,width_ratio,height_ratio);
     return InvokeJSONRPC("setVideoRectangle", param, result);
 
 }
@@ -346,7 +345,7 @@ bool PlayerThunderAccess::GetResolutionFromDS_VIDEOIN(int & widthFromDS, int & h
     {
         widthFromDS = result["w"].Number();
         heightFromDS = result["h"].Number();
-        AAMPLOG_INFO("widthFromDS:%d heightFromDS:%d ",widthFromDS, heightFromDS);
+        MW_LOG_INFO("widthFromDS:%d heightFromDS:%d ",widthFromDS, heightFromDS);
         bRetVal = true;
     }
 	return bRetVal;
@@ -365,7 +364,7 @@ bool PlayerThunderAccess::GetScreenResolution(int & screenWidth, int & screenHei
     {
         screenWidth = result["w"].Number();
         screenHeight = result["h"].Number();
-        AAMPLOG_INFO("screenWidth:%d screenHeight:%d ",screenWidth, screenHeight);
+        MW_LOG_INFO("screenWidth:%d screenHeight:%d ",screenWidth, screenHeight);
         bRetVal = true;
     }
 	return bRetVal;
@@ -420,7 +419,7 @@ void PlayerThunderAccess::OnInputStatusChanged(const JsonObject& parameters)
 {
     std::string message;
     parameters.ToString(message);
-    AAMPLOG_WARN("%s",message.c_str());
+    MW_LOG_WARN("%s",message.c_str());
 
     std::string strStatus = parameters["status"].String();
 
@@ -434,7 +433,7 @@ void PlayerThunderAccess::OnSignalChanged (const JsonObject& parameters)
 {
     std::string message;
     parameters.ToString(message);
-    AAMPLOG_WARN("%s",message.c_str());
+    MW_LOG_WARN("%s",message.c_str());
     std::string strStatus = parameters["signalStatus"].String();
 
     mOnSignalChangedCb(strStatus);
@@ -445,7 +444,7 @@ void PlayerThunderAccess::OnSignalChanged (const JsonObject& parameters)
  */
 void PlayerThunderAccess::StartHelperVideoin(int port, std::string videoInputType)
 {
-	AAMPLOG_WARN("port:%d",port);
+	MW_LOG_WARN("port:%d",port);
 
 	videoInputPort = port;
 	JsonObject param;
@@ -482,14 +481,14 @@ void PlayerThunderAccess::RegisterEventOnVideoStreamInfoUpdateHdmiin(std::functi
 }
 
 /**
- * @brief  Gets videoStreamInfoUpdate event and translates into aamp events
+ * @brief  Gets videoStreamInfoUpdate event and translates into player events
  */
 void PlayerThunderAccess::OnVideoStreamInfoUpdate(const JsonObject& parameters)
 {
 	
     std::string message;
     parameters.ToString(message);
-    AAMPLOG_WARN("%s",message.c_str());
+    MW_LOG_WARN("%s",message.c_str());
 
     JsonObject videoInfoObj = parameters;
     PlayerVideoStreamInfoData data;
@@ -517,7 +516,7 @@ void PlayerThunderAccess::onPlayerStatusHandler_OTA(const JsonObject& parameters
 	parameters.ToString(message);
 
 	JsonObject playerData = parameters[APP_ID].Object();
-	AAMPLOG_TRACE( "[OTA_SHIM]Received event : message : %s ",  message.c_str());
+	MW_LOG_TRACE( "[OTA_SHIM]Received event : message : %s ",  message.c_str());
 	/* For detailed event data, we can print or use details like
 	   playerData["locator"].String(), playerData["length"].String(), playerData["position"].String() */
 	data.currState = playerData["playerStatus"].String();
@@ -568,15 +567,15 @@ void PlayerThunderAccess::ReleaseOta()
     }
     else
     {
-        AAMPLOG_WARN("[OTA_SHIM]OTA Destructor finds Player Status Event not Subscribed !! ");
+        MW_LOG_WARN("[OTA_SHIM]OTA Destructor finds Player Status Event not Subscribed !! ");
     }
 
-    AAMPLOG_INFO("[OTA_SHIM]StreamAbstractionAAMP_OTA Destructor called !! ");
+    MW_LOG_INFO("[OTA_SHIM]StreamAbstractionAAMP_OTA Destructor called !! ");
 }
 
 void PlayerThunderAccess::StartOta(std::string url, std::string waylandDisplay, std::string preferredLanguagesString, std::string atsc_preferredLanguagesString, std::string preferredRenditionString, std::string atsc_preferredRenditionString)
 {
-    AAMPLOG_INFO( "[OTA_SHIM] url : %s ", url.c_str());
+    MW_LOG_INFO( "[OTA_SHIM] url : %s ", url.c_str());
 
     JsonObject result;
 
@@ -640,7 +639,7 @@ void PlayerThunderAccess::SetPreferredAudioLanguages(PlayerPreferredAudioData da
             SetPreferredAudioLanguages_RMF(data.preferredLanguagesString, data.pluginPreferredLanguagesString);
             break;
         default:
-            AAMPLOG_ERR("Undefined shim used: %d", (int)shim);
+            MW_LOG_ERR("Undefined shim used: %d", (int)shim);
             break;
     }
 }
@@ -650,8 +649,7 @@ void PlayerThunderAccess::SetPreferredAudioLanguages_OTA(std::string preferredLa
     JsonObject properties;
     bool modifiedLang = false;
     bool modifiedRend = false;
-    //AAMPLOG_WARN( "[OTA_SHIM]aamp->preferredLanguagesString : %s, gATSCSettings.preferredLanguages : %s aamp->preferredRenditionString : %s gATSCSettings.preferredRendition : %s",  aamp->preferredLanguagesString.c_str(),gATSCSettings.preferredLanguages.c_str(), aamp->preferredRenditionString.c_str(), gATSCSettings.preferredRendition.c_str());fflush(stdout);
-
+   
     if((0 != preferredLanguagesString.length()) && (preferredLanguagesString != atsc_preferredLanguagesString)){
         properties["preferredAudioLanguage"] = preferredLanguagesString.c_str();
         modifiedLang = true;
@@ -682,11 +680,11 @@ void PlayerThunderAccess::SetPreferredAudioLanguages_OTA(std::string preferredLa
             if (!result["success"].Boolean()){
                 std::string responseStr;
                 result.ToString(responseStr);
-                AAMPLOG_WARN( "[OTA_SHIM] setProperties API failed result:%s", responseStr.c_str());
+                MW_LOG_WARN( "[OTA_SHIM] setProperties API failed result:%s", responseStr.c_str());
             }else{
                 std::string paramStr;
                 param.ToString(paramStr);
-                AAMPLOG_WARN( "[OTA_SHIM] setProperties success with param:%s", paramStr.c_str());
+                MW_LOG_WARN( "[OTA_SHIM] setProperties success with param:%s", paramStr.c_str());
                 
             }
         }
@@ -703,7 +701,7 @@ int PlayerThunderAccess::GetAudioTrackInternal_OTA()
 	JsonObject param;
     JsonObject result;
 
-    AAMPLOG_TRACE("[OTA_SHIM]Entered ");
+    MW_LOG_TRACE("[OTA_SHIM]Entered ");
     param["id"] = APP_ID;
     InvokeJSONRPC("getAudioTrack", param, result);
     pk = result["pk"].Number();
@@ -744,7 +742,7 @@ std::string PlayerThunderAccess::GetAudioTracksOta(std::vector<PlayerAudioData> 
     InvokeJSONRPC("getAudioTracks", param, result);
 
     result.ToString(output);
-    AAMPLOG_TRACE( "[OTA_SHIM]:audio track output : %s ",  output.c_str());
+    MW_LOG_TRACE( "[OTA_SHIM]:audio track output : %s ",  output.c_str());
     outputArray = result["table"].Array();
     arrayCount = outputArray.Length();
 
@@ -760,9 +758,6 @@ std::string PlayerThunderAccess::GetAudioTracksOta(std::vector<PlayerAudioData> 
 
         audData.push_back(temp);
 
-        // std::string languageCode;
-        // languageCode = Getiso639map_NormalizeLanguageCode(audioData["language"].String(),aamp->GetLangCodePreference());
-        // aTracks.push_back(AudioTrackInfo(index, /*idx*/ languageCode, /*lang*/ audioData["contentType"].String(), /*rend*/ audioData["name"].String(), /*name*/ audioData["type"].String(), /*codecStr*/ (int)audioData["pk"].Number(), /*primaryKey*/ audioData["contentType"].String(), /*contentType*/ audioData["mixType"].String() /*mixType*/));
     }
     return aTrackIdx;
 }
@@ -794,7 +789,7 @@ std::string PlayerThunderAccess::SetAudioTrackOta(int trackId, int primaryKey)
  */
 bool PlayerThunderAccess::GetTextTracksOta(std::vector<PlayerTextData> txtData)
 {
-	AAMPLOG_TRACE("[OTA_SHIM]");
+	MW_LOG_TRACE("[OTA_SHIM]");
 	JsonObject param;
     JsonObject result;
     JsonArray attributesArray;
@@ -822,7 +817,7 @@ bool PlayerThunderAccess::GetTextTracksOta(std::vector<PlayerTextData> txtData)
     InvokeJSONRPC("getSubtitleTracks", param, result);
 
     result.ToString(output);
-    AAMPLOG_TRACE( "[OTA_SHIM]:text track output : %s ", output.c_str());
+    MW_LOG_TRACE( "[OTA_SHIM]:text track output : %s ", output.c_str());
     outputArray = result["table"].Array();
     arrayCount = outputArray.Length();
 
@@ -866,17 +861,17 @@ void PlayerThunderAccess::DisableContentRestrictionsOta(long grace, long time, b
         param["grace"] = -1;
         param["time"] = -1;
         param["eventChange"] = false;
-        AAMPLOG_WARN( "[OTA_SHIM] unlocked till next reboot or explicit enable" );
+        MW_LOG_WARN( "[OTA_SHIM] unlocked till next reboot or explicit enable" );
     }else{
         param["grace"] = 0;
         param["time"] = time;
         param["eventChange"] = eventChange;
 
         if(-1 != time)
-            AAMPLOG_WARN( "[OTA_SHIM] unlocked for %ld sec ", time);
+            MW_LOG_WARN( "[OTA_SHIM] unlocked for %ld sec ", time);
 
         if(eventChange)
-            AAMPLOG_WARN( "[OTA_SHIM] unlocked till next program ");
+            MW_LOG_WARN( "[OTA_SHIM] unlocked till next program ");
     }
     InvokeJSONRPC("disableContentRestrictionsUntil", param, result);
 
@@ -888,7 +883,7 @@ void PlayerThunderAccess::DisableContentRestrictionsOta(long grace, long time, b
  */
 void PlayerThunderAccess::EnableContentRestrictionsOta()
 {
-	AAMPLOG_WARN( "[OTA_SHIM] locked ");
+	MW_LOG_WARN( "[OTA_SHIM] locked ");
     JsonObject param;
     JsonObject result;
     param["id"] = APP_ID;
@@ -904,7 +899,7 @@ bool PlayerThunderAccess::InitRmf()
 	param["source_type"] = "qam";
 	if(false == InvokeJSONRPC("initialize", param, result)) //Note: do not terminate unless we're desperate for resources. deinit is sluggish.
 	{
-		AAMPLOG_ERR("Failed to initialize RMF plugin");
+		MW_LOG_ERR("Failed to initialize RMF plugin");
 		retval = false;
 	}
 
@@ -916,7 +911,7 @@ void PlayerThunderAccess::onPlayerStatusHandler_RMF(const JsonObject& parameters
 	parameters.ToString(message);
 
 	JsonObject playerData = parameters[APP_ID].Object();
-	AAMPLOG_WARN( "[RMF_SHIM]Received event : message : %s ",  message.c_str());
+	MW_LOG_WARN( "[RMF_SHIM]Received event : message : %s ",  message.c_str());
 
 
 	std::string title = parameters["title"].String();
@@ -928,7 +923,7 @@ void PlayerThunderAccess::onPlayerErrorHandler_RMF(const JsonObject& parameters)
 	std::string message;
 	parameters.ToString(message);
 
-	AAMPLOG_WARN( "[RMF_SHIM]Received error : message : %s ",  message.c_str());
+	MW_LOG_WARN( "[RMF_SHIM]Received error : message : %s ",  message.c_str());
 
 	std::string error_message = parameters["source"].String() + ": " + parameters["title"].String() + "- " + parameters["message"].String();
 	mOnPlayerErrorHandlerCb(error_message);
@@ -947,11 +942,11 @@ bool PlayerThunderAccess::StartRmf(std::string url, std::function<void(std::stri
 
 	if(true != SubscribeEvent(_T("onStatusChanged"), eventHandler))
 	{
-		AAMPLOG_ERR("Failed to register for onStatusChanged notification from RMF plugin");
+		MW_LOG_ERR("Failed to register for onStatusChanged notification from RMF plugin");
 	}
 	if(true != SubscribeEvent(_T("onError"), errorHandler))
 	{
-		AAMPLOG_ERR("Failed to register for onError notification from RMF plugin");
+		MW_LOG_ERR("Failed to register for onError notification from RMF plugin");
 	}
 
 	JsonObject playParam;
@@ -996,7 +991,7 @@ void PlayerThunderAccess::StopRmf()
 	JsonObject result;;
 	if(true != InvokeJSONRPC("stop", param, result))
 	{
-		AAMPLOG_ERR("Failed to stop RMF playback");
+		MW_LOG_ERR("Failed to stop RMF playback");
 	}
 	UnSubscribeEvent(_T("onStatusChanged"));
 	UnSubscribeEvent(_T("onError"));

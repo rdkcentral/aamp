@@ -22,7 +22,6 @@
  * @brief Gstreamer based player impl for AAMP
  */
 
-#include "AampMemoryUtils.h"
 #include "aampgstplayer.h"
 #include "isobmffbuffer.h"
 #include "AampUtils.h"

@@ -29,7 +29,8 @@
 #include "aampgstplayer.h"
 #include "SocUtils.h"
 #include "PlayerRfc.h"
-#include "PlayerIarmRfcInterface.h"
+#include "PlayerExternalsInterface.h"
+#include "PlayerSecInterface.h"
 #include <time.h>
 #include <map>
 //////////////// CAUTION !!!! STOP !!! Read this before you proceed !!!!!!! /////////////
@@ -186,12 +187,6 @@ struct ConfigLookupEntryString
 #define DEFAULT_VALUE_GST_SUBTEC_ENABLED false
 #endif
 
-#ifdef USE_SECMANAGER
-#define DEFAULT_VALUE_USE_SECMANAGER true
-#else
-#define DEFAULT_VALUE_USE_SECMANAGER false
-#endif
-
 #ifdef ENABLE_USE_SINGLE_PIPELINE
 #define DEFAULT_VALUE_USE_SINGLE_PIPELINE true
 #else
@@ -333,7 +328,7 @@ static const ConfigLookupEntryBool mConfigLookupTableBool[AAMPCONFIG_BOOL_COUNT]
 	{true,"enableLowLatencyOffsetMin",eAAMPConfig_EnableLowLatencyOffsetMin,false},
 	{false,"syncAudioFragments",eAAMPConfig_SyncAudioFragments,false},
 	{false,"enableEosSmallFragment", eAAMPConfig_EnableIgnoreEosSmallFragment, false},
-	{DEFAULT_VALUE_USE_SECMANAGER,"useSecManager",eAAMPConfig_UseSecManager, true},
+	{false,"useSecManager",eAAMPConfig_UseSecManager, true},
 	{false,"enablePTO", eAAMPConfig_EnablePTO,false},
 	{true,"enableFogConfig", eAAMPConfig_EnableAampConfigToFog, false},
 	{false,"xreSupportedTune",eAAMPConfig_XRESupportedTune,false},
@@ -853,7 +848,7 @@ void AampConfig::Initialize()
 
 void AampConfig::ApplyDeviceCapabilities()
 {
-	std::shared_ptr<PlayerIarmRfcInterface> pInstance = PlayerIarmRfcInterface::GetPlayerIarmRfcInterfaceInstance();
+	std::shared_ptr<PlayerExternalsInterface> pInstance = PlayerExternalsInterface::GetPlayerExternalsInterfaceInstance();
 	bool IsWifiCurlHeader = pInstance->IsConfigWifiCurlHeader();	
 
 	configValueBool[eAAMPConfig_UseAppSrcForProgressivePlayback].value = SocUtils::UseAppSrcForProgressivePlayback();
@@ -862,6 +857,10 @@ void AampConfig::ApplyDeviceCapabilities()
 	configValueBool[eAAMPConfig_UseWesterosSink].value = SocUtils::UseWesterosSink();
 	configValueBool[eAAMPConfig_SyncAudioFragments].value = SocUtils::IsAudioFragmentSyncSupported();
 	SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_WifiCurlHeader, IsWifiCurlHeader);
+
+	bool isSecMgr = isSecManagerEnabled();
+	SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_UseSecManager, isSecMgr);
+
 }
 
 std::string AampConfig::GetUserAgentString()
@@ -1573,9 +1572,9 @@ bool AampConfig::ProcessBase64AampCfg(const char * base64Config, size_t configLe
 void AampConfig::ReadBase64TR181Param()
 {
 	size_t iConfigLen = 0;
-	if(PlayerIarmRfcInterface::IsPlayerIarmRfcInterfaceInstanceActive())
+	if(PlayerExternalsInterface::IsPlayerExternalsInterfaceInstanceActive())
 	{
-		std::shared_ptr<PlayerIarmRfcInterface> pInstance = PlayerIarmRfcInterface::GetPlayerIarmRfcInterfaceInstance();
+		std::shared_ptr<PlayerExternalsInterface> pInstance = PlayerExternalsInterface::GetPlayerExternalsInterfaceInstance();
 		char * cloudConf = pInstance->GetTR181PlayerConfig("Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.AAMP_CFG.b64Config", iConfigLen);
 		if(NULL != cloudConf)
 		{	
