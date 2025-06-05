@@ -117,6 +117,11 @@ public:
 	 */
 	ProfilerBucketType MapDrmToProfilerBucket(DrmProfilerBucketType drmType);
 
+	/*
+	 *@brief Updates the PrivateInstanceAAMP instance.
+	 */
+	void UpdateAamp(PrivateInstanceAAMP* aamp);
+
 };
 
 #endif // _DRM_INTERFACE_H_
