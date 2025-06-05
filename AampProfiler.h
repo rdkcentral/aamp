@@ -22,6 +22,7 @@
  * @brief ProfileEventAAMP header file
  */
 
+
 #ifndef __AAMP_PROFILER_H__
 #define __AAMP_PROFILER_H__
 
