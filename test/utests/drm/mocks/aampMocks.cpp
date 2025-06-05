@@ -1319,3 +1319,12 @@ void PrivateInstanceAAMP::updateManifest(const char *manifestData)
 	if(NULL != manifestData)
 		mProvidedManifestFile = manifestData;
 }
+
+void PrivateInstanceAAMP::IncrementGaps()
+{
+}
+
+double PrivateInstanceAAMP::GetStreamPositionMs()
+{
+	return 0.0;
+}

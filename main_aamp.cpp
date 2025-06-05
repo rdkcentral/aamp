@@ -2413,22 +2413,6 @@ void PlayerInstanceAAMP::SetPreferredSubtitleLanguage(const char* language)
 }
 
 /**
- *  @brief Set parallel playlist download config value.
- */
-void PlayerInstanceAAMP::SetParallelPlaylistDL(bool bValue)
-{
-	SETCONFIGVALUE(AAMP_APPLICATION_SETTING,eAAMPConfig_PlaylistParallelFetch,bValue);
-}
-
-/**
- *  @brief Set parallel playlist download config value for linear
- */
-void PlayerInstanceAAMP::SetParallelPlaylistRefresh(bool bValue)
-{
-	SETCONFIGVALUE(AAMP_APPLICATION_SETTING,eAAMPConfig_PlaylistParallelRefresh,bValue);
-}
-
-/**
  *  @brief Set Westeros sink configuration
  */
 void PlayerInstanceAAMP::SetWesterosSinkConfig(bool bValue)

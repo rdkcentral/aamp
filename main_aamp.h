@@ -1502,20 +1502,12 @@ public:
 	void SetAlternateContents(const std::string &adBreakId, const std::string &adId, const std::string &url);
 
 	/**
-	 *   @fn SetParallelPlaylistDL
-	 *   @param[in] bValue - true if a/v playlist to be downloaded in parallel
+	 *   @fn ManageAsyncTuneConfig
+	 *   @param[in] url - main manifest url
 	 *
 	 *   @return void
 	 */
-	void SetParallelPlaylistDL(bool bValue);
-
-	 /**
-		 *   @fn ManageAsyncTuneConfig
-		 *   @param[in] url - main manifest url
-		 *
-		 *   @return void
-		 */
-		void ManageAsyncTuneConfig(const char* url);
+	void ManageAsyncTuneConfig(const char* url);
 
 	/**
 	 *   @fn SetAsyncTuneConfig
@@ -1524,14 +1516,6 @@ public:
 	 *   @return void
 	 */
 	void SetAsyncTuneConfig(bool bValue);
-
-	/**
-	 *	@fn SetParallelPlaylistRefresh
-	 *	@param[in] bValue - true if a/v playlist to be downloaded in parallel
-	 *
-	 *	@return void
-	 */
-	void SetParallelPlaylistRefresh(bool bValue);
 
 	/**
 	 *   @fn SetWesterosSinkConfig

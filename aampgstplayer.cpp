@@ -785,17 +785,13 @@ void AAMPGstPlayer::Configure(StreamOutputFormat format, StreamOutputFormat audi
 
 	const char *envVal = getenv("AAMP_AV_PIPELINE_PRIORITY");
 	PipelinePriority = envVal ? atoi(envVal) : -1;
-#ifdef AAMP_STOP_SINK_ON_SEEK
-	rate = aamp->rate;
-#endif
+
 	bool FirstFrameFlag = aamp->IsFirstVideoFrameDisplayedRequired();
 	/*Configure and create the pipeline*/
 	playerInstance->ConfigurePipeline(static_cast<int>(format),static_cast<int>(audioFormat),static_cast<int>(auxFormat),static_cast<int>(subFormat),
 									  bESChangeStatus,forwardAudioToAux,setReadyAfterPipelineCreation,
 									  isSubEnable, trackId, rate, PIPELINE_NAME, PipelinePriority, FirstFrameFlag, aamp->GetManifestUrl().c_str());
-#ifdef TRACE
-	AAMPLOG_MIL("exiting AAMPGstPlayer");
-#endif
+	AAMPLOG_TRACE("exiting AAMPGstPlayer");
 }
 
 /**
