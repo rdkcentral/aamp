@@ -65,6 +65,13 @@ void registerCallback(DrmInterface *_this ,std::shared_ptr<AesDec> instance )
     });
 
 }
+/**
+ *@brief updates the PrivateInstanceAAMP instance
+ */
+void DrmInterface::UpdateAamp(PrivateInstanceAAMP* aamp)
+{
+	mpAamp = aamp;
+}
 
 /**
  * @brief registerCallbackForHls - register callback only for HLS

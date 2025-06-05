@@ -1903,6 +1903,7 @@ void TrackState::SetDrmContext()
 
 	if(mDrm)
 	{
+		mDrmInterface->UpdateAamp(aamp);
 		mDrm->SetDecryptInfo( &mDrmInfo,  aamp->mConfig->GetConfigValue(eAAMPConfig_LicenseKeyAcquireWaitTime) );
 	}
 }
