@@ -571,6 +571,78 @@ static int ReadConfigNumericHelper(std::string buf, const char* prefixPtr, T& va
 
 // End of helper functions for loading configuration
 
+// HTTP/1.1 Chunked Transfer Protocol
+static size_t chunked_write_callback(char *ptr, size_t size, size_t nmemb, void *userdata)
+{
+	CurlCallbackContext *context = (CurlCallbackContext *)userdata;
+	
+	size_t numBytes = size*nmemb;
+	//printf( "CURLOPT_WRITEFUNCTION size=%zu nmemb=%zu\n", size, nmemb );
+	char *fin = &ptr[numBytes];
+	while( ptr<fin )
+	{
+		int c = *ptr++;
+		switch( context->mTransferState.state )
+		{
+			case CurlCallbackContext::eTRANSFER_STATE_READING_CHUNK_SIZE:
+				if( c==0xd )
+				{
+					printf( "***CHUNK SIZE = %zu\n", context->mTransferState.remaining );
+					context->mTransferState.state = CurlCallbackContext::eTRANSFER_STATE_PENDING_CHUNK_START_LF;
+				}
+				else
+				{
+					context->mTransferState.remaining *= 16;
+					if( c>='0' && c<='9' )
+					{
+						context->mTransferState.remaining += (c-'0');
+					}
+					else if( c>='a' && c<='f' )
+					{
+						context->mTransferState.remaining += 10 + (c-'a');
+					}
+					else if( c>='A' && c<='F' )
+					{
+						context->mTransferState.remaining += 10 + (c-'A');
+					}
+					else
+					{
+						assert(0);
+					}
+				}
+				break;
+			case CurlCallbackContext::eTRANSFER_STATE_PENDING_CHUNK_START_LF:
+				assert( c == 0xa );
+				if( context->mTransferState.remaining > 0 )
+				{
+					context->mTransferState.state = CurlCallbackContext::eTRANSFER_STATE_READING_CHUNK_DATA;
+				}
+				else
+				{
+					context->mTransferState.state = CurlCallbackContext::eTRANSFER_STATE_PENDING_CHUNK_END_CR;
+				}
+				break;
+			case CurlCallbackContext::eTRANSFER_STATE_READING_CHUNK_DATA:
+				// printf( "remaining: %zu\n", mTransferState.remaining );
+				// todo: handle in bulk, not one byte at a time
+				context->mTransferState.remaining--;
+				if( context->mTransferState.remaining == 0 )
+				{
+					context->mTransferState.state = CurlCallbackContext::eTRANSFER_STATE_PENDING_CHUNK_END_CR;
+				}
+				break;
+			case CurlCallbackContext::eTRANSFER_STATE_PENDING_CHUNK_END_CR:
+				assert( c == 0xd );
+				context->mTransferState.state = CurlCallbackContext::eTRANSFER_STATE_PENDING_CHUNK_END_LF;
+				break;
+			case CurlCallbackContext::eTRANSFER_STATE_PENDING_CHUNK_END_LF:
+				context->mTransferState.state = CurlCallbackContext::eTRANSFER_STATE_READING_CHUNK_SIZE;
+				break;
+		}
+	}
+	return numBytes;
+}
+
 /**
  * @brief HandleSSLWriteCallback - Handle write callback from CURL
  */
@@ -614,6 +686,11 @@ size_t PrivateInstanceAAMP::HandleSSLWriteCallback ( char *ptr, size_t size, siz
 				context->mediaType ==  eMEDIATYPE_AUDIO ||
 				context->mediaType ==  eMEDIATYPE_SUBTITLE))
 			{
+				if( context->chunkedDownload )
+				{
+					chunked_write_callback(ptr, size, nmemb, userdata );
+				}
+				
 				// Release PrivateInstanceAAMP mutex to unblock async APIs
 				lock.unlock();
 				AAMPLOG_TRACE("[%d] Caching chunk with size %zu nmemb:%zu size:%zu", context->mediaType, numBytesForBlock, nmemb, size);
@@ -664,6 +741,7 @@ static void print_headerResponse(std::vector<std::string> &allResponseHeaders, A
 size_t PrivateInstanceAAMP::HandleSSLHeaderCallback ( const char *ptr, size_t size, size_t nmemb, void* user_data )
 {
 	size_t len = nmemb * size;
+	printf( "***CURLOPT_HEADERFUNCTION: %zu '%.*s'\n", len, (int)len, ptr );
 	if( user_data )
 	{
 		CurlCallbackContext *context = static_cast<CurlCallbackContext *>(user_data);
@@ -3947,6 +4025,13 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 		if (curl)
 		{
 			CURL_EASY_SETOPT_STRING(curl, CURLOPT_URL, remoteUrl.c_str());
+			
+			//  by default libcurl handles chunked transfer encoding transparently; below allows us to see the chunk boundaries
+			CURL_EASY_SETOPT_LONG(curl, CURLOPT_HTTP_TRANSFER_DECODING, 0);
+			assert( context.mTransferState.remaining == 0 );
+			assert( context.mTransferState.state == CurlCallbackContext::eTRANSFER_STATE_READING_CHUNK_SIZE );
+			assert( context.chunkedDownload == false );
+			
 			if(this->mAampLLDashServiceData.lowLatencyMode)
 			{
 				CURL_EASY_SETOPT_LONG(curl, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_1);
