@@ -126,6 +126,7 @@ public:
 	 */
 	static std::shared_ptr<SocInterface> CreateSocInterface();
 	
+	virtual bool IsAmlogicPlatform() const { return false; }
 	/**
 	 * @brief Check if AppSrc should be used.
 	 *
