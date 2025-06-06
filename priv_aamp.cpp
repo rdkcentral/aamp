@@ -573,12 +573,57 @@ static int ReadConfigNumericHelper(std::string buf, const char* prefixPtr, T& va
 
 // End of helper functions for loading configuration
 
+//#define SAVE_CHUNKS
+static std::string chunkyPath[2];
+
+static bool gBad = false;
+
 bool PrivateInstanceAAMP::chunked_write_callback(const char *ptr, size_t numBytes, void *userdata)
 { // HTTP/1.1 Chunked Transfer Protocol
 	CurlCallbackContext *context = (CurlCallbackContext *)userdata;
 	const char *fin = &ptr[numBytes];
+	if( 1 )
+	{
+		FILE *f = fopen( chunkyPath[context->mediaType].c_str(), "ab" );
+		assert(f);
+		fwrite( ptr, numBytes, 1, f );
+		fclose(f);
+	}
+	if( gBad )
+	{
+		return true;
+	}
+#ifdef SAVE_CHUNKS
+	static FILE *f[2];
+#endif
 	while( ptr<fin )
 	{
+		const char *state_name = "?";
+		switch( context->mTransferState.state )
+		{
+			case CurlCallbackContext::eTRANSFER_STATE_READING_CHUNK_SIZE:
+				state_name = "reading chunk size";
+				break;
+			case CurlCallbackContext::eTRANSFER_STATE_PENDING_CHUNK_START_LF:
+				state_name = "awaiting start LF";
+				break;
+			case CurlCallbackContext::eTRANSFER_STATE_READING_CHUNK_DATA:
+				state_name = "reading chunk data";
+				break;
+			case CurlCallbackContext::eTRANSFER_STATE_PENDING_CHUNK_END_CR:
+				state_name = "awaiting end CR";
+				break;
+			case CurlCallbackContext::eTRANSFER_STATE_PENDING_CHUNK_END_LF:
+				state_name = "awaiting end LF";
+				break;
+			default:
+				break;
+		}
+		AAMPLOG_INFO("%s (%s)) remaining=%zu",
+				GetMediaTypeName(context->mediaType),
+				state_name,
+				context->mTransferState.remaining );
+		
 		switch( context->mTransferState.state )
 		{
 			case CurlCallbackContext::eTRANSFER_STATE_READING_CHUNK_SIZE:
@@ -591,9 +636,12 @@ bool PrivateInstanceAAMP::chunked_write_callback(const char *ptr, size_t numByte
 				else
 				{
 					int octet = aamp_hascii_char_to_number(c);
+					//assert( octet>=0 );
 					if( octet<0 )
 					{
-						return false;
+						gBad = true;
+						return true;
+						//return false;
 					}
 					context->mTransferState.remaining <<= 4;
 					context->mTransferState.remaining += octet;
@@ -602,8 +650,35 @@ bool PrivateInstanceAAMP::chunked_write_callback(const char *ptr, size_t numByte
 				break;
 				
 			case CurlCallbackContext::eTRANSFER_STATE_PENDING_CHUNK_START_LF:
-				assert( *ptr++ == '\n' );
-				AAMPLOG_INFO( "CHUNK_SIZE=%zu %s", context->mTransferState.remaining, GetMediaTypeName(context->mediaType) );
+				if( *ptr++ != '\n' )
+				{
+					gBad = true;
+					return true;
+				}
+				//assert( *ptr++ == '\n' );
+#ifdef SAVE_CHUNKS
+			{
+				assert( f[context->mediaType] == NULL );
+				char path[256];
+				static int seqNo[2];
+				snprintf( path, sizeof(path), "/Users/pstrof200/Downloads/chunk-archive/%s-%03d-%zu.mp4",
+						GetMediaTypeName(context->mediaType),
+						seqNo[context->mediaType],
+						context->mTransferState.remaining );
+				f[context->mediaType] = fopen( path, "wb" );
+				assert( f );
+				seqNo[context->mediaType]++;
+			}
+#endif
+				
+				if( context->mTransferState.remaining )
+				{
+					AAMPLOG_INFO( "CHUNK_START %zu %s", context->mTransferState.remaining, GetMediaTypeName(context->mediaType) );
+				}
+				else
+				{
+					AAMPLOG_INFO( "CHUNK_END %s", GetMediaTypeName(context->mediaType) );
+				}
 				context->mTransferState.state = CurlCallbackContext::eTRANSFER_STATE_READING_CHUNK_DATA;
 				break;
 				
@@ -615,26 +690,50 @@ bool PrivateInstanceAAMP::chunked_write_callback(const char *ptr, size_t numByte
 					{ // clamp
 						n = context->mTransferState.remaining;
 					}
+					
+#ifdef SAVE_CHUNKS
+					assert( f[context->mediaType] );
+					fwrite( ptr, n, 1, f[context->mediaType] );
+#endif
 					context->buffer->AppendBytes( ptr, n );
 					ptr += n;
 					context->mTransferState.remaining -= n;
 				}
 				else
 				{
-					// here we will be at the end of an 'mdat', suitable for injection
+#ifdef SAVE_CHUNKS
+					assert( f[context->mediaType] );
+					fclose( f[context->mediaType] );
+					f[context->mediaType] = NULL;
+#endif
+					// here we will presumably be at the end of an 'mdat', suitable for injection
 					// bytes collected so far may include 1..4 packed ('moov','mdat') boxes.
-					assert( context->mTransferState.remaining == 0 );
+					if( context->mTransferState.remaining != 0 )
+					{
+						gBad = true;
+						return true;
+					}
+					//assert( context->mTransferState.remaining == 0 );
 					context->mTransferState.state = CurlCallbackContext::eTRANSFER_STATE_PENDING_CHUNK_END_CR;
 				}
 				break;
 				
 			case CurlCallbackContext::eTRANSFER_STATE_PENDING_CHUNK_END_CR:
-				assert( *ptr++ == '\r' );
+				if( *ptr++!='\r' )
+				{
+					gBad = true;
+					return true;
+				}
 				context->mTransferState.state = CurlCallbackContext::eTRANSFER_STATE_PENDING_CHUNK_END_LF;
 				break;
 				
 			case CurlCallbackContext::eTRANSFER_STATE_PENDING_CHUNK_END_LF:
-				assert( *ptr++ == '\n' );
+				if( *ptr++ != '\n' )
+				{
+					gBad = true;
+					return true;
+				}
+				//assert( *ptr++ == '\n' );
 				context->mTransferState.state = CurlCallbackContext::eTRANSFER_STATE_READING_CHUNK_SIZE;
 				assert( context->mTransferState.remaining == 0 );
 				break;
@@ -3978,6 +4077,20 @@ void PrivateInstanceAAMP::SetCMCDTrackData(AampMediaType mediaType)
  */
 bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaType, AampGrowableBuffer *buffer, std::string& effectiveUrl, int * http_error, double *downloadTimeS, const char *range, unsigned int curlInstance, bool resetBuffer, BitsPerSecond *bitrate, int * fogError, double fragmentDurationS, ProfilerBucketType bucketType, int maxInitDownloadTimeMS)
 {
+	assert( !gBad );
+	size_t pos;
+	switch( mediaType )
+	{
+		case eMEDIATYPE_VIDEO:
+		case eMEDIATYPE_AUDIO:
+			chunkyPath[mediaType] = "/Users/pstrof200/Desktop/outputChunks/out/";
+			pos = remoteUrl.find_last_of('/');
+			chunkyPath[mediaType] += remoteUrl.substr(pos+1);
+			break;
+		default:
+			break;
+	}
+	
 	if( bucketType!=PROFILE_BUCKET_TYPE_COUNT)
 	{
 		profiler.ProfileBegin(bucketType);
@@ -4720,6 +4833,7 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 		}
 		profiler.ProfileEnd(bucketType);
 	}
+	assert( !gBad );
 	return ret;
 }
 
