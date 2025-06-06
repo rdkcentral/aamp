@@ -90,7 +90,7 @@ const std::string& ID3MetadataEvent::getSchemeIdUri() const
 	return mSchemeIdUri;
 }
 
-MediaMetadataEvent::MediaMetadataEvent(long duration, int width, int height, bool hasDrm, bool isLive, const std::string &DrmType, double programStartTime, int tsbDepthMs, std::string sid):
+MediaMetadataEvent::MediaMetadataEvent(long duration, int width, int height, bool hasDrm, bool isLive, const std::string &DrmType, double programStartTime, int tsbDepthMs, std::string sid, const std::string &url):
 		AAMPEventObject(AAMP_EVENT_MEDIA_METADATA, std::move(sid))
 {
 }
@@ -108,6 +108,7 @@ void MediaMetadataEvent::addLanguage(const std::string &lang)
 }
 
 const std::string &MediaMetadataEvent::getDrmType(void) const{return mDrmType;}
+const std::string &MediaMetadataEvent::getUrl(void) const{return mUrl;}
 const std::vector<BitsPerSecond> &MediaMetadataEvent::getBitrates(void) const{ return mBitrates; }
 long MediaMetadataEvent::getDuration(void) const{ return 0; }
 int MediaMetadataEvent::getTsbDepth(void) const{ return 0; }
