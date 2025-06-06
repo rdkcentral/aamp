@@ -88,9 +88,9 @@ pkg_check_modules(LIBDASH REQUIRED libdash)
 pkg_check_modules(OPENSSL REQUIRED openssl)
 pkg_check_modules(LIBCJSON REQUIRED libcjson)
 pkg_check_modules(UUID REQUIRED uuid)
-pkg_check_modules(BASECONVERSION REQUIRED baseconversion)
-pkg_check_modules(PLAYERLOGMANAGER REQUIRED playerlogmanager)
-pkg_check_modules(PLAYERFBINTERFACE REQUIRED playerfbinterface)
+pkg_check_modules(BASECONVERSION REQUIRED libbaseconversion)
+pkg_check_modules(PLAYERLOGMANAGER REQUIRED libplayerlogmanager)
+pkg_check_modules(PLAYERFBINTERFACE REQUIRED libplayerfbinterface)
 
 # add_subdirectory(middleware)
 
