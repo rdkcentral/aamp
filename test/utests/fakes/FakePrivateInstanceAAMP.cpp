@@ -1664,3 +1664,12 @@ double PrivateInstanceAAMP::GetLivePlayPosition(void)
 	}
 	return livePlayPosition;
 }
+
+void PrivateInstanceAAMP::IncrementGaps()
+{
+}
+
+double PrivateInstanceAAMP::GetStreamPositionMs()
+{
+	return 0.0;
+}

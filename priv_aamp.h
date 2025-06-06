@@ -2348,48 +2348,6 @@ public:
 	DRMSystems GetPreferredDRM();
 
 	/**
-	 *   @brief Set Stereo Only Playback.
-	 *   @param[in] bValue - disable EC3/ATMOS if the value is true
-	 *
-	 *   @return void
-	 */
-	void SetStereoOnlyPlayback(bool bValue);
-
-	/**
-	 *   @brief Set Bulk TimedMetadata Reporting flag
-	 *   @param[in] bValue - if true Bulk event reporting enabled
-	 *
-	 *   @return void
-	 */
-	void SetBulkTimedMetaReport(bool bValue);
-
-	/**
-	 *   @brief Set Bulk TimedMetadata Reporting flag for live
-	 *   @param[in] bValue - if true Bulk event reporting enabled for live
-	 *
-	 *   @return void
-	 */
-
-	void SetBulkTimedMetaReportLive(bool bValue);
-
-	/**
-	 *	 @brief Set unpaired discontinuity retune flag
-	 *	 @param[in] bValue - true if unpaired discontinuity retune set
-	 *
-	 *	 @return void
-	 */
-
-	void SetRetuneForUnpairedDiscontinuity(bool bValue);
-
-	/**
-	 *	 @brief Set retune configuration for gstpipeline internal data stream error.
-	 *	 @param[in] bValue - true if gst internal error retune set
-	 *
-	 *	 @return void
-	 */
-	void SetRetuneForGSTInternalError(bool bValue);
-
-	/**
 	 *   @fn FoundEventBreak
 	 *
 	 *   @param[in] adBreakId Adbreak's unique identifier.
@@ -2441,65 +2399,6 @@ public:
 	 *   @param[in] error_code - Error code (in case of placement error)
 	 */
 	void SendAdPlacementEvent(AAMPEventType type, const std::string &adId, uint32_t position, uint64_t absolutePositionMs, uint32_t adOffset, uint32_t adDuration, bool immediate=false, long error_code=0);
-
-	/**
-	 *   @brief Set anonymous request true or false
-	 *
-	 *   @param[in] isAnonymous - New status
-	 *   @return void
-	 */
-	void SetAnonymousRequest(bool isAnonymous);
-
-	/**
-	 *   @brief Indicates average BW to be used for ABR Profiling.
-	 *
-	 *   @param  useAvgBW - Flag for true / false
-	 */
-	void SetAvgBWForABR(bool useAvgBW);
-	/**
-	 *   @brief SetPreCacheTimeWindow Function to Set PreCache Time
-	 *
-	 *   @param  nTimeWindow - Time in minutes, Max PreCache Time
-	 */
-	void SetPreCacheTimeWindow(int nTimeWindow);
-	/**
-	 *   @brief Set frames per second for VOD trickplay
-	 *
-	 *   @param[in] vodTrickplayFPS - FPS count
-	 *   @return void
-	 */
-	void SetVODTrickplayFPS(int vodTrickplayFPS);
-
-	/**
-	 *   @brief Set frames per second for linear trickplay
-	 *
-	 *   @param[in] linearTrickplayFPS - FPS count
-	 *   @return void
-	 */
-	void SetLinearTrickplayFPS(int linearTrickplayFPS);
-
-	/**
-	 *   @brief Set stall error code
-	 *
-	 *   @param[in] errorCode - Stall error code
-	 *   @return void
-	 */
-	void SetStallErrorCode(int errorCode);
-
-	/**
-	 *   @brief Set stall timeout
-	 *
-	 *   @param[in] timeoutMS - Timeout in milliseconds
-	 *   @return void
-	 */
-	void SetStallTimeout(int timeoutMS);
-
-	/**
-	 *	 @brief To set the max retry attempts for init frag curl timeout failures
-	 *
-	 *	 @param  count - max attempt for timeout retry count
-	 */
-	void SetInitFragTimeoutRetryCount(int count);
 
 	/**
 	 *   @brief Send stalled events to listeners
@@ -2618,10 +2517,10 @@ public:
 	double GetFirstPTS();
 
 	/**
-         *   @fn GetMidSeekPosOffset
-         *
-         *   @return PTS offset for mid fragment seek
-         */
+	 *   @fn GetMidSeekPosOffset
+	 *
+	 *   @return PTS offset for mid fragment seek
+	 */
 	double GetMidSeekPosOffset();
 
 	/**
@@ -2667,47 +2566,6 @@ public:
 	void SendWatermarkSessionUpdateEvent(uint32_t sessionHandle, uint32_t status, const std::string &system);
 
 	/**
-	 *   @brief To set the initial bitrate value.
-	 *
-	 *   @param[in] bitrate initial bitrate to be selected
-	 */
-	void SetInitialBitrate(BitsPerSecond bitrate);
-
-	/**
-	 *   @brief To set the initial bitrate value for 4K assets.
-	 *
-	 *   @param[in] bitrate4K initial bitrate to be selected for 4K assets
-	 */
-	void SetInitialBitrate4K(BitsPerSecond bitrate4K);
-
-	/**
-	 *   @brief To set the network download timeout value.
-	 *
-	 *   @param[in] timeout preferred timeout value
-	 */
-	void SetNetworkTimeout(double timeout);
-
-	/**
-	 *   @brief To set the manifest download timeout value.
-	 *
-	 *   @param[in] timeout preferred timeout value
-	 */
-	void SetManifestTimeout(double timeout);
-	/**
-	 *   @brief To set the playlist download timeout value.
-	 *
-	 *   @param[in] timeout preferred timeout value
-	 */
-	void SetPlaylistTimeout(double timeout);
-
-	/**
-	 *   @brief To set the download buffer size value
-	 *
-	 *   @param[in] bufferSize preferred download buffer size
-	 */
-	void SetDownloadBufferSize(int bufferSize);
-
-	/**
 	 *   @fn IsTuneCompleted
 	 *
 	 *   @return true, if tune completed.
@@ -2720,12 +2578,7 @@ public:
 	 *   @return true if ABR enabled.
 	 */
 	bool CheckABREnabled(void) { return ISCONFIGSET_PRIV(eAAMPConfig_EnableABR); }
-	/**
-	 *   @brief Set a preferred bitrate for video.
-	 *
-	 *   @param[in] preferred bitrate.
-	 */
-	void SetVideoBitrate(BitsPerSecond bitrate);
+
 	/**
  	 *    @fn GetThumbnails
 	 *
@@ -2746,25 +2599,11 @@ public:
 	long GetVideoBitrate();
 
 	/**
-	 *   @brief To set the network proxy
-	 *
-	 *   @param[in] proxy network proxy to use
-	 */
-	void SetNetworkProxy(const char * proxy);
-
-	/**
 	 *   @fn GetNetworkProxy
 	 *
 	 *   @return Network proxy URL, if exists.
 	 */
 	std::string GetNetworkProxy();
-
-	/**
-	 *   @brief To set the proxy for license request
-	 *
-	 *   @param[in] licenseProxy proxy to use for license request
-	 */
-	void SetLicenseReqProxy(const char * licenseProxy);
 
 	/**
 	 *   @fn GetLicenseReqProxy
@@ -2834,12 +2673,12 @@ public:
 	 */
 	bool IsNewTune()  { return ((eTUNETYPE_NEW_NORMAL == mTuneType) || (eTUNETYPE_NEW_SEEK == mTuneType) || (eTUNETYPE_NEW_END == mTuneType)); }
 
-        /**
-     	 *   @brief IsFirstRequestToFog Function to check first request to fog
-     	 *
-     	 *   @return true if first request to fog
-     	 */
-    	bool IsFirstRequestToFog()  { return mIsFirstRequestToFOG; }
+	/**
+	 *   @brief IsFirstRequestToFog Function to check first request to fog
+	 *
+	 *   @return true if first request to fog
+	 */
+	bool IsFirstRequestToFog()  { return mIsFirstRequestToFOG; }
 
 	/**
 	 *   @fn IsMuxedStream
@@ -2847,20 +2686,6 @@ public:
 	 *   @return true if current stream is muxed
 	 */
 	bool IsMuxedStream();
-
-	/**
-	 *   @brief To set the curl stall timeout value
-	 *
-	 *   @param[in] stallTimeout curl stall timeout
-	 */
-	void SetDownloadStallTimeout(int stallTimeout);
-
-	/**
-	 *   @brief To set the curl download start timeout value
-	 *
-	 *   @param[in] startTimeout curl download start timeout
-	 */
-	void SetDownloadStartTimeout(long startTimeout);
 
 	/**
 	 * @fn StopTrackInjection
@@ -3013,13 +2838,6 @@ public:
 	void GetCustomLicenseHeaders(std::unordered_map<std::string, std::vector<std::string>>& customHeaders);
 
 	/**
-	 *   @brief Set parallel playlist download config value.
-	 *
-	 *   @param[in] bValue - true if a/v playlist to be downloaded in parallel
-	 *   @return void
-	 */
-	void SetParallelPlaylistDL(bool bValue);
-	/**
 	 *   @brief Set async tune configuration for EventPriority
 	 *
 	 *   @param[in] bValue - true if async tune enabled
@@ -3033,69 +2851,6 @@ public:
 	 *   @return bool - true if async tune enabled
 	 */
 	bool GetAsyncTuneConfig();
-
-	/**
-	 * @brief Set parallel playlist download config value for linear
-	 * @param[in] bValue - true if a/v playlist to be downloaded in parallel
-	 *
-	 * @return void
-	 */
-	void SetParallelPlaylistRefresh(bool bValue);
-
-	/**
-	 *   @brief Set Westeros sink Configuration
-	 *
-	 *   @param[in] bValue - true if westeros sink enabled
-	 *   @return void
-	 */
-	void SetWesterosSinkConfig(bool bValue);
-
-	/**
-	 *	 @brief Set license caching
-	 *	 @param[in] bValue - true/false to enable/disable license caching
-	 *
-	 *	 @return void
-	 */
-	void SetLicenseCaching(bool bValue);
-
-	/**
-	 *   @brief Set Matching BaseUrl Config Configuration
-	 *
-	 *   @param[in] bValue - true if Matching BaseUrl enabled
-	 *   @return void
-	 */
-	void SetMatchingBaseUrlConfig(bool bValue);
-
-	/**
-	 *	 @brief Configure URI  parameters
-	 *	 @param[in] bValue - true to enable, false to disable.
-	 *
-	 *	 @return void
-	 */
-	void SetPropagateUriParameters(bool bValue);
-
-	/**
-	 *   @brief to configure disable ssl verify peer parameter
-	 *
-	 *   @param[in] bValue - default value: false
-	 *   @return void
-	 */
-	void SetSslVerifyPeerConfig(bool bValue);
-
-	/**
-	 *	 @brief Configure New ABR Enable/Disable
-	 *	 @param[in] bValue - true if new ABR enabled
-	 *
-	 *	 @return void
-	 */
-	void SetNewABRConfig(bool bValue);
-	/**
-	 *	 @brief Configure New AdBreaker Enable/Disable
-	 *	 @param[in] bValue - true if new AdBreaker enabled
-	 *
-	 *	 @return void
-	 */
-	void SetNewAdBreakerConfig(bool bValue);
 
 	/**
 	 * @brief Flush the stream sink
@@ -3120,10 +2875,10 @@ public:
 	std::string GetAvailableVideoTracks();
 
 	/**
-     	 *   @fn SetVideoTracks
-     	 *   @param[in] bitrateList bitrate list
+	 *   @fn SetVideoTracks
+	 *   @param[in] bitrateList bitrate list
 	 *
-     	 *   @return void
+	 *   @return void
 	 */
 	void SetVideoTracks(std::vector<BitsPerSecond> bitrateList);
 
@@ -3232,30 +2987,6 @@ public:
 	 */
 	AampCacheHandler * getAampCacheHandler();
 
-	/*
-	 * @brief Set profile ramp down limit.
-	 *
-	 */
-	void SetRampDownLimit(int limit);
-
-	/**
-	 * @brief Set Initil profile ramp down limit.
-	 *
-	 */
-	void SetInitRampdownLimit(int limit);
-
-	/**
-	 * @brief Set minimum bitrate value.
-	 *
-	 */
-	void SetMinimumBitrate(BitsPerSecond bitrate);
-
-	/**
-	 * @brief Set maximum bitrate value.
-	 *
-	 */
-	void SetMaximumBitrate(BitsPerSecond bitrate);
-
 	/**
 	 * @fn GetMaximumBitrate
 	 * @return maximum bitrate value
@@ -3291,15 +3022,6 @@ public:
 	 * @return default iframe bitrate 4K value
 	 */
 	BitsPerSecond GetIframeBitrate4K();
-
-	/* End DrmCallbacks implementation */
-
-	/**
-	 *   @brief Set initial buffer duration in seconds
-	 *
-	 *   @return void
-	 */
-	void SetInitialBufferDuration(int durationSec);
 
 	/**
 	 *   @fn GetInitialBufferDuration
@@ -3458,15 +3180,6 @@ public:
 	 */
 	void NotifyTextTracksChanged();
 
-	/*
-	 *   @brief Set preferred audio track
-	 *   Required to persist across trickplay or other operations
-	 *
-	 *   @param[in] track - audio track info object
-	 *   @return void
-	 */
-	//void SetPreferredAudioTrack(const AudioTrackInfo track) { mPreferredAudioTrack = track; }
-
 	/**
 	 *   @brief Set preferred text track
 	 *   Required to persist across trickplay or other operations
@@ -3475,13 +3188,6 @@ public:
 	 *   @return void
 	 */
 	void SetPreferredTextTrack(const TextTrackInfo track) { mPreferredTextTrack = track; }
-
-	/**
-	 *   @brief Get preferred audio track
-	 *
-	 *   @return AudioTrackInfo - preferred audio track object
-	 */
-	//const AudioTrackInfo &GetPreferredAudioTrack() { return mPreferredAudioTrack; }
 
 	/**
 	 *   @brief Get preferred text track
@@ -3545,50 +3251,21 @@ public:
 	 */
 	void SetStreamFormat(StreamOutputFormat videoFormat, StreamOutputFormat audioFormat,  StreamOutputFormat auxFormat);
 
-        /**
-         *   @fn IsAudioOrVideoOnly
-         *
-         *   @param[in] videoFormat - video stream format
-         *   @param[in] audioFormat - audio stream format
-         *   @param[in] auxFormat - aux stream format
-         *   @return bool
-         */
+	/**
+	 *   @fn IsAudioOrVideoOnly
+	 *
+	 *   @param[in] videoFormat - video stream format
+	 *   @param[in] audioFormat - audio stream format
+	 *   @param[in] auxFormat - aux stream format
+	 *   @return bool
+	 */
 	bool IsAudioOrVideoOnly(StreamOutputFormat videoFormat, StreamOutputFormat audioFormat, StreamOutputFormat auxFormat);
 
 	/**
-	 *       @brief Set Maximum Cache Size for storing playlist
-	 *       @return void
-	 */
-	void SetMaxPlaylistCacheSize(int cacheSize);
-
-	/**
-	 *   @brief Set video rectangle property
-	 *
-	 *   @param[in] rectProperty video rectangle property
-	 */
-	void EnableVideoRectangle(bool rectProperty);
-
-	/**
-	 *   @brief Enable seekable range values in progress event
-	 *
-	 *   @param[in] enabled - true if enabled
-	 */
-	void EnableSeekableRange(bool enabled);
-
-	/**
-	 *   @brief Enable video PTS reporting in progress event
-	 *
-	 *   @param[in] enabled - true if enabled
-	 */
-	void SetReportVideoPTS(bool enabled);
-
-	/**
-	 *       @fn DisableContentRestrictions
-	 *       @param[in] grace - seconds from current time, grace period, grace = -1 will allow an unlimited grace period
-	 *       @param[in] time - seconds from current time,time till which the channel need to be kept unlocked
-	 *       @param[in] eventChange - disable restriction handling till next program event boundary
-	 *
-	 *       @return void
+	 *   @fn DisableContentRestrictions
+	 *   @param[in] grace - seconds from current time, grace period, grace = -1 will allow an unlimited grace period
+	 *   @param[in] time - seconds from current time,time till which the channel need to be kept unlocked
+	 *   @param[in] eventChange - disable restriction handling till next program event boundary
 	 */
 	void DisableContentRestrictions(long grace=0, long time=-1, bool eventChange=false);
 
@@ -3597,15 +3274,6 @@ public:
 	 *   @return void
 	 */
 	void EnableContentRestrictions();
-
-
-	/**
-	 *   @brief Enable/disable configuration to persist ABR profile over Seek/SAP
-	 *
-	 *   @param[in] value - To enable/disable configuration
-	 *   @return void
-	 */
-	void PersistBitRateOverSeek(bool value);
 
 	/**
 	 *   @brief Get config for ABR profile persistence over Seek/Audio Chg
@@ -3619,7 +3287,7 @@ public:
 	 *   @param[in] languageList - string with comma-delimited language list in ISO-639
 	 *             from most to least preferred. Set NULL to clear current list.
 	 *   @param[in] preferredRendition  - preferred rendition from role
-     	 *   @param[in] preferredType -  preferred accessibility type
+	 *   @param[in] preferredType -  preferred accessibility type
 	 *   @param[in] codecList  - preferred codec list
 	 *   @param[in] labelList  - preferred label list
 	 *   @param[in] accessibilityItem - preferred accessibilityNode with scheme id and value
@@ -3702,8 +3370,8 @@ public:
 	std::string GetAuxiliaryAudioLanguage() { return mAuxAudioLanguage; }
 
 	/**
-	 *     @fn GetPauseOnFirstVideoFrameDisp
-	 *     @return bool
+	 *   @fn GetPauseOnFirstVideoFrameDisp
+	 *   @return bool
 	 */
 	bool GetPauseOnFirstVideoFrameDisp(void);
 
@@ -3784,10 +3452,7 @@ public:
 	  *   @param[in] rate - playback rate to set
 	  *   @return void
 	  */
-	void SetLLDashCurrentPlayBackRate(double rate)
-	{
-			mLLDashCurrentPlayRate = rate;
-	}
+	void SetLLDashCurrentPlayBackRate(double rate) { mLLDashCurrentPlayRate = rate; }
 
 	/**
 	 *   @brief Gets Low Latency current play back rate
@@ -3802,10 +3467,7 @@ public:
 	 *   @param[in] state - true or false
 	 *   @return void
 	 */
-	void SetLLDashAdjustSpeed(bool state)
-	{
-		bLLDashAdjustPlayerSpeed = state;
-	}
+	void SetLLDashAdjustSpeed(bool state) { bLLDashAdjustPlayerSpeed = state; }
 
 	/**
 	 *   @brief Gets the state of the player speed correction for Low latency Dash
@@ -3838,10 +3500,7 @@ public:
 	 *
 	 *   @return true if LL-DASH chunk mode is enabled, false otherwise.
 	 */
-	bool GetLLDashChunkMode()
-	{
-		return mIsChunkMode;
-	}
+	bool GetLLDashChunkMode() { return mIsChunkMode; }
 
 	/**
 	 *   @brief Is iframe extraction enabled
@@ -3893,11 +3552,11 @@ public:
 	 */
 	void SetCurrentLatency(long currentLatency);
 
-    	/**
-   	 *     @brief Get Media Stream Context
-     	 *     @param[in] type AampMediaType
-     	 *     @return MediaStreamContext*
-     	 */
+	/**
+	 *     @brief Get Media Stream Context
+	 *     @param[in] type AampMediaType
+	 *     @return MediaStreamContext*
+	 */
 	class MediaStreamContext* GetMediaStreamContext(AampMediaType type);
 
 	/**
@@ -4001,9 +3660,7 @@ public:
 	 *    @brief To increment gaps between periods for dash
 	 *    return none
 	 */
-	void IncrementGaps() {
-		if(mVideoEnd)	mVideoEnd->IncrementGaps();
-	}
+	void IncrementGaps();
 
 	/**
  	 *     @fn GetPlaybackStats
@@ -4131,26 +3788,14 @@ public:
 	  * @param Void
 	  * @return double, live offset value in ms
 	  */
-	double GetLiveOffsetMs()
-	{
-		return mLiveOffset * 1000;
-	}
+	double GetLiveOffsetMs() { return mLiveOffset * 1000; }
 
 	/**
 	  * @fn GetStreamPositionMs
 	  *
-	  * @param Void
 	  * @return double, current position in the stream
 	  */
-	double GetStreamPositionMs()
-	{
-		double pos = (double)GetPositionMilliseconds();
-		if (mProgressReportOffset >= 0)
-		{
-			pos -= (mProgressReportOffset * 1000);
-		}
-		return pos;
-	}
+	double GetStreamPositionMs();
 
 	/**
 	  * @fn IsAtLivePoint
