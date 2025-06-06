@@ -36,7 +36,7 @@ public:
 	/**
 	 *  @fn LocationLock (constructor)
 	 *
-	 *  @brief Creates and initialises a new LocationLock for a given TSB Store filesystem location.
+	 *  @brief Creates and initializes a new LocationLock for a given TSB Store filesystem location.
 	 *         The LocationLock is constructed in unlocked state.
 	 *
 	 *  @param[in] location - directory location, specified as an absolute filesystem path

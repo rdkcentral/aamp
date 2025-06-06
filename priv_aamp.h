@@ -3840,6 +3840,12 @@ public:
 	 * @brief Is AAMP local TSB injection enabled/disabled
 	 */
 	bool IsLocalAAMPTsbInjection();
+
+	/**
+	 * @brief Clear Local AAMP TSB injection flag if there are no media tracks playing from TSB
+	 */
+	void UpdateLocalAAMPTsbInjection();
+
 	/**
 	 * @brief Increase Buffer value dynamically according to Max Profile Bandwidth to accommodate Larger Buffers
 	 */

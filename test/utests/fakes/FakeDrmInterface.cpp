@@ -33,6 +33,10 @@ DrmInterface::DrmInterface(PrivateInstanceAAMP* aamp):mAesKeyBuf("aesKeyBuf")
 DrmInterface::~DrmInterface()
 {
 }
+
+void DrmInterface::UpdateAamp(PrivateInstanceAAMP*)
+{
+}
 void DrmInterface::TerminateCurlInstance(int mCurlInstance)
 {
 }

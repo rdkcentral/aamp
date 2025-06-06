@@ -63,8 +63,6 @@ void StreamAbstractionAAMP_MPD::Stop(bool clearChannelData) {  }
 
 void StreamAbstractionAAMP_MPD::GetStreamFormat(StreamOutputFormat &primaryOutputFormat, StreamOutputFormat &audioOutputFormat, StreamOutputFormat &auxAudioOutputFormat, StreamOutputFormat &subtitleOutputFormat) {  }
 
-double StreamAbstractionAAMP_MPD::GetStreamPosition() { return 0; }
-
 double StreamAbstractionAAMP_MPD::GetFirstPTS() { return 0; }
 
 double StreamAbstractionAAMP_MPD::GetMidSeekPosOffset() { 
@@ -236,6 +234,17 @@ void StreamAbstractionAAMP_MPD::SeekPosUpdate(double secondsRelativeToTuneTime)
     }
 }
 
+double StreamAbstractionAAMP_MPD::GetStreamPosition()
+{
+	double position = 0;
+	if (g_mockStreamAbstractionAAMP_MPD)
+	{
+		position = g_mockStreamAbstractionAAMP_MPD->GetStreamPosition();
+	}
+
+	return position;
+}
+
 void StreamAbstractionAAMP_MPD::NotifyFirstVideoPTS(unsigned long long, unsigned long)
 {
 }
@@ -265,4 +274,8 @@ void StreamAbstractionAAMP_MPD::CheckAdResolvedStatus(AdNodeVectorPtr &ads, int 
 bool StreamAbstractionAAMP_MPD::UseIframeTrack(void)
 {
 	return true;
+}
+bool StreamAbstractionAAMP_MPD::DoEarlyStreamSinkFlush(bool newTune, float rate)
+{
+    return false;
 }
