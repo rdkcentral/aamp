@@ -28,7 +28,7 @@
 #include "PlayerUtils.h"
 
 #include "ProcessHandler.h"
-#include "PlayerIarmRfcInterface.h"
+#include "PlayerExternalsInterface.h"
 
 #include <assert.h>
 #include <iostream>
