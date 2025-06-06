@@ -24,6 +24,8 @@ function(xcode_define_schema new_schema)
     set_property(TARGET ${new_schema} PROPERTY XCODE_SCHEME_ADDRESS_SANITIZER_USE_AFTER_RETURN TRUE)
 endfunction()
 
+#test commit - do not merge
+
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/test/gstTestHarness)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/vendor)
