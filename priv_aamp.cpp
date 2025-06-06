@@ -78,6 +78,8 @@
 #include "AampTSBSessionManager.h"
 #include "SocUtils.h"
 
+#define LEVERAGE_CHUNK_TRANSFER_MODE
+
 #define LOCAL_HOST_IP       "127.0.0.1"
 #define AAMP_MAX_TIME_BW_UNDERFLOWS_TO_TRIGGER_RETUNE_MS (20*1000LL)
 #define AAMP_MAX_TIME_LL_BW_UNDERFLOWS_TO_TRIGGER_RETUNE_MS (AAMP_MAX_TIME_BW_UNDERFLOWS_TO_TRIGGER_RETUNE_MS/10)
@@ -571,6 +573,76 @@ static int ReadConfigNumericHelper(std::string buf, const char* prefixPtr, T& va
 
 // End of helper functions for loading configuration
 
+bool PrivateInstanceAAMP::chunked_write_callback(const char *ptr, size_t numBytes, void *userdata)
+{ // HTTP/1.1 Chunked Transfer Protocol
+	CurlCallbackContext *context = (CurlCallbackContext *)userdata;
+	const char *fin = &ptr[numBytes];
+	while( ptr<fin )
+	{
+		switch( context->mTransferState.state )
+		{
+			case CurlCallbackContext::eTRANSFER_STATE_READING_CHUNK_SIZE:
+			{
+				char c = *ptr++;
+				if( c=='\r' )
+				{
+					context->mTransferState.state = CurlCallbackContext::eTRANSFER_STATE_PENDING_CHUNK_START_LF;
+				}
+				else
+				{
+					int octet = aamp_hascii_char_to_number(c);
+					if( octet<0 )
+					{
+						return false;
+					}
+					context->mTransferState.remaining <<= 4;
+					context->mTransferState.remaining += octet;
+				}
+			}
+				break;
+				
+			case CurlCallbackContext::eTRANSFER_STATE_PENDING_CHUNK_START_LF:
+				assert( *ptr++ == '\n' );
+				AAMPLOG_INFO( "CHUNK_SIZE=%zu %s", context->mTransferState.remaining, GetMediaTypeName(context->mediaType) );
+				context->mTransferState.state = CurlCallbackContext::eTRANSFER_STATE_READING_CHUNK_DATA;
+				break;
+				
+			case CurlCallbackContext::eTRANSFER_STATE_READING_CHUNK_DATA:
+				if( context->mTransferState.remaining > 0 )
+				{
+					size_t n = fin - ptr;
+					if( n > context->mTransferState.remaining )
+					{ // clamp
+						n = context->mTransferState.remaining;
+					}
+					context->buffer->AppendBytes( ptr, n );
+					ptr += n;
+					context->mTransferState.remaining -= n;
+				}
+				else
+				{
+					// here we will be at the end of an 'mdat', suitable for injection
+					// bytes collected so far may include 1..4 packed ('moov','mdat') boxes.
+					assert( context->mTransferState.remaining == 0 );
+					context->mTransferState.state = CurlCallbackContext::eTRANSFER_STATE_PENDING_CHUNK_END_CR;
+				}
+				break;
+				
+			case CurlCallbackContext::eTRANSFER_STATE_PENDING_CHUNK_END_CR:
+				assert( *ptr++ == '\r' );
+				context->mTransferState.state = CurlCallbackContext::eTRANSFER_STATE_PENDING_CHUNK_END_LF;
+				break;
+				
+			case CurlCallbackContext::eTRANSFER_STATE_PENDING_CHUNK_END_LF:
+				assert( *ptr++ == '\n' );
+				context->mTransferState.state = CurlCallbackContext::eTRANSFER_STATE_READING_CHUNK_SIZE;
+				assert( context->mTransferState.remaining == 0 );
+				break;
+		}
+	}
+	return true;
+}
+
 /**
  * @brief HandleSSLWriteCallback - Handle write callback from CURL
  */
@@ -595,11 +667,29 @@ size_t PrivateInstanceAAMP::HandleSSLWriteCallback ( char *ptr, size_t size, siz
 			context->buffer->ReserveBytes(len);
 		}
 		size_t numBytesForBlock = size*nmemb;
-		if(ptr && numBytesForBlock > 0)
-		{
-			context->buffer->AppendBytes( ptr, numBytesForBlock );
-		}
 		ret = numBytesForBlock;
+		if( ptr && numBytesForBlock > 0)
+		{
+#ifdef LEVERAGE_CHUNK_TRANSFER_MODE
+			if( context->chunkedDownload )
+			{
+				if( chunked_write_callback( ptr, numBytesForBlock, userdata ) )
+				{
+					ptr = context->buffer->GetPtr();
+					numBytesForBlock = context->buffer->GetLen();
+				}
+				else
+				{
+					AAMPLOG_ERR("CHUNK_TRANSFER_MODE unexpected data");
+					return 0;
+				}
+			}
+			else
+#endif
+			{
+				context->buffer->AppendBytes( ptr, numBytesForBlock );
+			}
+		}
 		MediaStreamContext *mCtx = context->aamp->GetMediaStreamContext(context->mediaType);
 
 		if(mCtx)
@@ -618,9 +708,17 @@ size_t PrivateInstanceAAMP::HandleSSLWriteCallback ( char *ptr, size_t size, siz
 				lock.unlock();
 				AAMPLOG_TRACE("[%d] Caching chunk with size %zu nmemb:%zu size:%zu", context->mediaType, numBytesForBlock, nmemb, size);
 				long long startTime = aamp_GetCurrentTimeMS();
-				mCtx->CacheFragmentChunk(context->mediaType, ptr, numBytesForBlock,context->remoteUrl,context->downloadStartTime);
+				mCtx->CacheFragmentChunk(context->mediaType, ptr,
+										 numBytesForBlock,context->remoteUrl,context->downloadStartTime);
 				context->processDelay += aamp_GetCurrentTimeMS() - startTime;
 				lock.lock();
+				
+#ifdef LEVERAGE_CHUNK_TRANSFER_MODE
+				if( context->chunkedDownload )
+				{
+					context->buffer->Clear();
+				}
+#endif
 			}
 		}
 	}
@@ -732,6 +830,7 @@ size_t PrivateInstanceAAMP::HandleSSLHeaderCallback ( const char *ptr, size_t si
 		}
 		else if (STARTS_WITH_IGNORE_CASE(ptr, TRANSFER_ENCODING_STRING ))
 		{
+			AAMPLOG_INFO( "chunkedDownload: '%.*s'\n", (int)len, ptr );
 			context->chunkedDownload = true;
 		}
 		else if (0 == context->buffer->GetAvail() )
@@ -3923,6 +4022,12 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 		if (curl)
 		{
 			CURL_EASY_SETOPT_STRING(curl, CURLOPT_URL, remoteUrl.c_str());
+			
+			//  by default libcurl handles chunked transfer encoding transparently
+			#ifdef LEVERAGE_CHUNK_TRANSFER_MODE
+			CURL_EASY_SETOPT_LONG(curl, CURLOPT_HTTP_TRANSFER_DECODING, 0);
+			#endif
+			
 			if(this->mAampLLDashServiceData.lowLatencyMode)
 			{
 				CURL_EASY_SETOPT_LONG(curl, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_1);
