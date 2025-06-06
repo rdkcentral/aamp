@@ -21,6 +21,7 @@
  * @file priv_aamp.cpp
  * @brief Advanced Adaptive Media Player (AAMP) PrivateInstanceAAMP impl
  */
+#if 1
 #include "AampMemoryUtils.h"
 #include "isobmffprocessor.h"
 #include "priv_aamp.h"
