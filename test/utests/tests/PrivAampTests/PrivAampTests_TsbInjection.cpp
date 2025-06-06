@@ -26,6 +26,7 @@
 
 #include "priv_aamp.h"
 #include "MockStreamAbstractionAAMP.h"
+#include "MockMediaTrack.h"
 
 using ::testing::NiceMock;
 using ::testing::Return;

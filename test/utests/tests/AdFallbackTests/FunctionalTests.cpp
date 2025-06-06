@@ -384,11 +384,15 @@ TEST_F(AdFallbackTests, AdInitFailureTest)
 	InitializeAdMPD(adManifest);
 
 	// Called again to populate mAdBreaks and other variables
+	// Need to fail ad init fragment
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile (AdInitFragmentUrl, eMEDIATYPE_INIT_VIDEO, _, _, _, _, _, _, _, _, _, _, _, _))
+              .WillOnce(Return(false));
 	mStreamAbstractionAAMP_MPD->mCdaiObject->SetAlternateContents(periodId, adId, adurl, startMS, breakdur);
 	std::this_thread::sleep_for(std::chrono::milliseconds(50));
 	EXPECT_EQ(mStreamAbstractionAAMP_MPD->mCdaiObject->mAdBreaks[periodId].ads->size(), 1);
 	EXPECT_EQ(mStreamAbstractionAAMP_MPD->mCdaiObject->mAdBreaks[periodId].ads->at(0).adId, adId);
-	EXPECT_NE(mStreamAbstractionAAMP_MPD->mCdaiObject->mAdBreaks[periodId].ads->at(0).mpd, nullptr);
+	// After ad init failure, the ad break should not have mpd set
+	EXPECT_EQ(mStreamAbstractionAAMP_MPD->mCdaiObject->mAdBreaks[periodId].ads->at(0).mpd, nullptr);
 
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled())
 		.Times(AnyNumber())
@@ -398,23 +402,20 @@ TEST_F(AdFallbackTests, AdInitFailureTest)
 				return (++counter < 10);
 			});
 
-	// Need to fail ad init fragment
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(AdInitFragmentUrl, _, _, _, _, true, _, _, _, _, _))
-		.Times(1)
-		.WillOnce(Return(false));
-
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(SourceInitFragmentUrl, _, _, _, _, true, _, _, _, _, _))
-		.Times(1)
-		.WillOnce(Return(true));
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(SourceInitFragmentUrl, _, _, _, _, true, _, _, _))
+		.Times(2)
+		.WillRepeatedly(Return(true));
 
 	TuneType tuneType = TuneType::eTUNETYPE_NEW_NORMAL;
 	// Will start fetching the ad, but fails in ad init fragment and should fallback to source period and its init fragment
 	status = Init(tuneType);
 	EXPECT_EQ(status, eAAMPSTATUS_OK);
-	EXPECT_EQ(mStreamAbstractionAAMP_MPD->mCdaiObject->mAdState, AdState::IN_ADBREAK_AD_PLAYING);
+	EXPECT_EQ(mStreamAbstractionAAMP_MPD->mCdaiObject->mAdState, AdState::IN_ADBREAK_AD_NOT_PLAYING);
 
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, false, _, _, _))
+		.WillRepeatedly(Return(true));
 	mStreamAbstractionAAMP_MPD->InvokeFetcherLoop();
 	// Gets updated in FetcherLoop
-	EXPECT_EQ(mStreamAbstractionAAMP_MPD->mCdaiObject->mAdState, AdState::IN_ADBREAK_AD_NOT_PLAYING);
-	EXPECT_DOUBLE_EQ(mStreamAbstractionAAMP_MPD->mPTSOffset.inSeconds(), 0.0);
+	EXPECT_EQ(mStreamAbstractionAAMP_MPD->mCdaiObject->mAdState, AdState::OUTSIDE_ADBREAK);
+	EXPECT_DOUBLE_EQ(mStreamAbstractionAAMP_MPD->mPTSOffset.inSeconds(), 60.0);
 }

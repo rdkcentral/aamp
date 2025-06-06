@@ -87,6 +87,7 @@ set(AAMP_SOURCES ${AAMP_ROOT}/AampConfig.cpp
 				 ${AAMP_ROOT}/middleware/drm/DrmJsonObject.cpp
 				 ${AAMP_ROOT}/AampProfiler.cpp
 				 ${AAMP_ROOT}/scte35/AampSCTE35.cpp
+				 ${AAMP_ROOT}/AampFragmentDescriptor.cpp
 				 ${AAMP_ROOT}/AampUtils.cpp
 				 ${AAMP_ROOT}/iso639map.cpp
 				 ${AAMP_ROOT}/middleware/drm/DrmUtils.cpp

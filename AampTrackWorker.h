@@ -34,6 +34,7 @@
 #include <functional>
 #include <vector>
 #include <mutex>
+#include <future>
 #include "AampUtils.h"
 #include "AampLogManager.h"
 #include "AampConfig.h"
@@ -41,6 +42,114 @@
 
 namespace aamp
 {
+	class AampTrackWorkerJob
+	{
+	public:
+		virtual ~AampTrackWorkerJob() = default;
+
+		/**
+		 * @brief Called by the worker thread to run the job.
+		 * It wraps Execute() and sets the promise when done.
+		 */
+		void Run()
+		{
+			try
+			{
+				if (!mCancelled.load())
+				{
+					Execute(); // calls derived class's Execute method
+				}
+				mPromise.set_value();
+			}
+			catch (...)
+			{
+				try
+				{
+					mPromise.set_exception(std::current_exception());
+				}
+				catch (...)
+				{
+					AAMPLOG_ERR("Exception in AampTrackWorkerJob::Run: Failed to set exception on promise");
+				}
+			}
+		}
+
+		/**
+		 * @brief Virtual Execute method to override in subclasses.
+		 */
+		virtual void Execute() {}
+
+		/**
+		 * @brief Clones the job for worker pool.
+		 */
+		virtual std::unique_ptr<AampTrackWorkerJob> Clone() const
+		{
+			return aamp_utils::make_unique<AampTrackWorkerJob>();
+		}
+
+		/**
+		 * @brief Cancels the job by setting the cancelled flag.
+		 */
+		void SetCancelled()
+		{
+			if (!mCancelled.exchange(true))
+			{
+				try
+				{
+					mPromise.set_exception(std::make_exception_ptr(std::runtime_error("Job cancelled")));
+				}
+				catch (...)
+				{
+					AAMPLOG_ERR("Exception in AampTrackWorkerJob::SetCancelled: Failed to set exception on promise");
+				}
+			}
+		}
+
+		/**
+		 * @brief Check if job has been cancelled.
+		 *
+		 * @return true if cancelled
+		 */
+		bool IsCancelled() const
+		{
+			return mCancelled.load();
+		}
+
+		/**
+		 * @brief Get a future to wait for job completion.
+		 */
+		std::shared_future<void> GetFuture() const
+		{
+			return mPromise.get_future();
+		}
+
+	private:
+		std::atomic<bool> mCancelled{false};
+		mutable std::promise<void> mPromise;
+	};
+
+	/**
+	 * @typedef AampTrackWorkerJobSharedPtr
+	 * @typedef AampTrackWorkerJobUniquePtr
+	 * @brief Represents a job to download a media fragment.
+	 *
+	 * The DownloadJob typedef encapsulates the job to download a media fragment.
+	 **/
+	typedef std::shared_ptr<AampTrackWorkerJob> AampTrackWorkerJobSharedPtr;
+	typedef std::unique_ptr<AampTrackWorkerJob> AampTrackWorkerJobUniquePtr;
+
+	/**
+	 * Forward declaration of AampTrackWorker to resolve unknown type error.
+	 */
+	class AampTrackWorker;
+
+	/**
+	 * @typedef AampTrackWorkerWeakPtr
+	 * @brief Represents a weak pointer to an AampTrackWorker instance.
+	 *
+	 * This typedef is used to avoid circular references between the worker and the job.
+	 */
+	typedef std::weak_ptr<AampTrackWorker> AampTrackWorkerWeakPtr;
 
 	/**
 	 * @class AampTrackWorker
@@ -51,30 +160,37 @@ namespace aamp
 	 * wait for job completion, and clean up the worker thread.
 	 */
 
-	class AampTrackWorker
+	class AampTrackWorker : public std::enable_shared_from_this<AampTrackWorker>
 	{
 	public:
 		AampTrackWorker(PrivateInstanceAAMP *_aamp, AampMediaType _mediaType);
 		~AampTrackWorker();
 
-		void SubmitJob(std::function<void()> job);
+		std::shared_future<void> SubmitJob(AampTrackWorkerJobSharedPtr job, bool highPriority = false);
 		void WaitForCompletion();
+		bool WaitForCompletionWithTimeout(int timeout);
+		void Pause();
+		void Resume();
+		void ClearJobs();
+		void RescheduleActiveJob();
+		void StartWorker();
+		void StopWorker();
+		bool IsStopped() const { return mStop.load(); }
 
 	protected:
 		AampMediaType mMediaType;
 		std::thread mWorkerThread;
-		std::mutex mMutex;
-		std::condition_variable mCondVar;
-		std::condition_variable mCompletionVar;
-		std::function<void()> mJob;
+		std::mutex mQueueMutex; // Mutex to protect job queue
+		std::condition_variable mCondVar; // Condition variable to notify worker thread
+		std::deque<AampTrackWorkerJobSharedPtr> mJobQueue; // Job queue
 		PrivateInstanceAAMP *aamp;
-		bool mJobAvailable;
-		bool mStop;
+		std::atomic<bool> mStop;
+		std::atomic<bool> mPaused; // Flag to pause the worker threads
 
 	private:
-		void ProcessJob();
+		void ProcessJob(AampTrackWorkerWeakPtr weakSelf);
+		AampTrackWorkerJobSharedPtr mActiveJob; // Active job being processed
 	};
-
 } // namespace aamp
 
 #endif // AAMP_TRACK_WORKER_H
