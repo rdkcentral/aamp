@@ -22,7 +22,6 @@
  * @brief Gstreamer based player impl for AAMP
  */
 
-#include "AampMemoryUtils.h"
 #include "aampgstplayer.h"
 #include "isobmffbuffer.h"
 #include "AampUtils.h"
@@ -287,7 +286,7 @@ void AAMPGstPlayer::RegisterFirstFrameCallbacks()
 	});
 	playerInstance->setupStreamCallbackMap[InterfaceCB::startNewSubtitleStream] = [this](int streamId)
 	{
-		if (eGST_MEDIATYPE_SUBTITLE == streamId)
+		if (eMEDIATYPE_SUBTITLE == streamId)
 		{
 			if(this->aamp->IsGstreamerSubsEnabled())
 			{
@@ -1086,11 +1085,11 @@ void AAMPGstPlayer::NotifyFragmentCachingComplete()
  */
 void AAMPGstPlayer::NotifyFragmentCachingOngoing()
 {
-	if(!playerInstance->gstPrivateContext->paused)
+	if(!playerInstance->IsPipelinePaused())
 	{
 		Pause(true, true);
 	}
-	playerInstance->gstPrivateContext->pendingPlayState = true;
+	playerInstance->EnablePendingPlayState();
 }
 
 /**

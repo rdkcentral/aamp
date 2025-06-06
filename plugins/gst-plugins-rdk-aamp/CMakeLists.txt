@@ -120,15 +120,6 @@ if (CMAKE_AMLOGIC_SOC)
 		target_link_libraries (gstaamp gstsvpext)
 endif()
 
-#TODO Remove once PrivateInstanceAAMP is compilation flag independent.
-if(CMAKE_USE_SECCLIENT)
-	message("CMAKE_USE_SECCLIENT set")
-	set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DUSE_SECCLIENT")
-elseif(CMAKE_USE_SECMANAGER)
-	message("CMAKE_USE_SECMANAGER set")
-	set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DUSE_SECMANAGER")
-endif()
-
 install(TARGETS gstaamp DESTINATION lib/gstreamer-1.0)
 
 if(CMAKE_WPEWEBKIT_JSBINDINGS)

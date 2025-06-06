@@ -31,8 +31,9 @@ include_directories(${AAMP_ROOT}/middleware/playerjsonobject)
 include_directories(${AAMP_ROOT}/subtec/subtecparser)
 include_directories(${AAMP_ROOT}/subtitle)
 include_directories(${AAMP_ROOT}/middleware/closedcaptions)
-include_directories(${AAMP_ROOT}/externals)
-
+include_directories(${AAMP_ROOT}/middleware/externals)
+include_directories(${AAMP_ROOT}/middleware/baseConversion)
+include_directories(${AAMP_ROOT}/middleware/vendor)
 include_directories(${GTEST_INCLUDE_DIRS})
 include_directories(${GMOCK_INCLUDE_DIRS})
 include_directories(${GLIB_INCLUDE_DIRS})
@@ -43,6 +44,8 @@ include_directories(SYSTEM ${UTESTS_ROOT}/mocks)
 include_directories(${LIBCJSON_INCLUDE_DIRS})
 include_directories(${AAMP_ROOT}/tsb/api)
 include_directories(${AAMP_ROOT}/middleware)
+include_directories(${AAMP_ROOT}/middleware/externals/playersecmanager)
+include_directories(${AAMP_ROOT}/middleware/playerLogManager)
 
 set(TEST_SOURCES    PrivAampTests.cpp
                     PrivAampAAMPTests.cpp)
@@ -51,7 +54,6 @@ add_executable(${EXEC_NAME}
                ${TEST_SOURCES}
                ${AAMP_SOURCES})
 set_target_properties(${EXEC_NAME} PROPERTIES FOLDER "utests")
-target_compile_definitions(${EXEC_NAME} PRIVATE USE_SECMANAGER)
 
 if (CMAKE_XCODE_BUILD_SYSTEM)
   # XCode schema target

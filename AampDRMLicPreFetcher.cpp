@@ -22,6 +22,8 @@
 #include "AampUtils.h"	// for aamp_GetDeferTimeMs
 #include "priv_aamp.h"
 #include "AampDRMLicManager.h"
+#include "PlayerSecInterface.h"
+
 /**
  * @brief For generating IDs for LicensePreFetchObject
  * 
@@ -458,11 +460,7 @@ void AampLicensePreFetcher::NotifyDrmFailure(LicensePreFetchObjectPtr fetchObj, 
 bool AampLicensePreFetcher::CreateDRMSession(LicensePreFetchObjectPtr fetchObj)
 {
 	bool ret = false;
-#if defined(USE_SECCLIENT) || defined(USE_SECMANAGER)
-	bool isSecClientError = true;
-#else
-	bool isSecClientError = false;
-#endif
+	bool isSecClientError = isSecFeatureEnabled();
 	DrmMetaDataEventPtr e = std::make_shared<DrmMetaDataEvent>(AAMP_TUNE_FAILURE_UNKNOWN, "", 0, 0, isSecClientError, mPrivAAMP->GetSessionId());
 
 	if (mPrivAAMP == nullptr)

@@ -56,12 +56,9 @@ public:
 	AampCurlDownloader mAccessTokenConnector;
 	AampLicensePreFetcher* mLicensePrefetcher; /**< DRM license prefetcher instance */
 	PrivateInstanceAAMP *aampInstance; /** AAMP instance **/
-#ifdef USE_SECMANAGER
-	AampSecManagerSession mAampSecManagerSession;
 	std::atomic<bool> mIsVideoOnMute;
 	std::atomic<int> mCurrentSpeed;
 	std::atomic<bool> mFirstFrameSeen;
-#endif
 	/**
 	 * @fn          setLicenseRequestAbort
 	 * @param       isAbort bool flag to curl abort
@@ -258,10 +255,10 @@ public:
 	 *
 	 */
 	DrmData * getLicense(LicenseRequest &licRequest, int32_t *httpError, AampMediaType streamType, void* aamp, DrmMetaDataEventPtr eventHandle,AampCurlDownloader *pLicenseDownloader,std::string licenseProxy="");
-#if defined(USE_SECCLIENT) || defined(USE_SECMANAGER)
+
 	DrmData * getLicenseSec(const LicenseRequest &licenseRequest, std::shared_ptr<DrmHelper> drmHelper,
 			const ChallengeInfo& challengeInfo, void* aampInstance, int32_t *httpCode, int32_t *httpExtStatusCode, DrmMetaDataEventPtr eventHandle);
-#endif
+
 	/**
 	 * @fn ProfilerUpdate 
 	 * @return void 
