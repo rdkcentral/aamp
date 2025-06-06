@@ -1240,6 +1240,11 @@ public:
 		name = JSStringCreateWithUTF8CString("hasDrm");
 		JSObjectSetProperty(context, eventObj, name, JSValueMakeBoolean(context, evt->hasDrm()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(name);
+
+		name = JSStringCreateWithUTF8CString("url");
+		JSObjectSetProperty(context, eventObj, name, aamp_CStringToJSValue(context, evt->getUrl().c_str()), kJSPropertyAttributeReadOnly, NULL);
+		JSStringRelease(name);
+
 	}
 };
 

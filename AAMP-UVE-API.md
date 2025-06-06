@@ -1726,13 +1726,15 @@ Example:
 - height: number
 - hasDrm: boolean
 - isLive: boolean
-- programStartTime: DRM: string[]
+- programStartTime: number
+- DRM: string
 - tsbDepth: number
+- url: string
 
 
 **Description:**
 - Supported UVE version 0.7 and above.
-- Fired with metadata of the asset currently played, includes duration(in ms), audio language list, available bitrate list, hasDrm, supported playback speeds , tsbDepth
+- Fired with metadata of the asset currently played, includes duration(in ms), audio language list, available bitrate list, hasDrm, supported playback speeds, tsbDepth, url (final, effective URL after any 302 redirection by video engine)
 
 ---
 

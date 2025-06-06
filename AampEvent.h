@@ -859,6 +859,7 @@ class MediaMetadataEvent: public AAMPEventObject
 	std::string mAudioMixType; 		  /**<  AudioMixType(- E.g STEREO. */
 	bool  isAtmos;  	 		  /**<  Is Atmos : 1 - True if audio playing is Dolby Atmos, 0 false ,  -1 indicates data not available */
 	int mTsbDepthMs;                /**<  TsbDepth in Milliseconds*/
+	std::string mUrl;          /**< effectiveUrl */
 
 public:
 	MediaMetadataEvent() = delete;
@@ -874,9 +875,10 @@ public:
 	 * @param[in] hasDrm   - Drm enablement status
 	 * @param[in] isLive   - Is Live
 	 * @param[in] DrmType  - DRM Type
+	 * @param[in] Url    - EffectiveUrl
 	 * @param[in] programStartTime  - Program/Availability start time
 	 */
-	MediaMetadataEvent(long duration, int width, int height, bool hasDrm, bool isLive, const std::string &DrmType, double programStartTime, int tsbDepthMs, std::string sid);
+	MediaMetadataEvent(long duration, int width, int height, bool hasDrm, bool isLive, const std::string &DrmType, double programStartTime, int tsbDepthMs, std::string sid, const std::string &url);
 
 	/**
 	 * @brief MediaMetadataEvent Destructor
@@ -953,6 +955,11 @@ public:
 	 * @fn isLive
 	 */
 	bool isLive() const;
+
+	/**
+	 * @fn getUrl
+	 */
+	const std::string &getUrl() const;
 
 	/**
 	 * @fn getDrmType
