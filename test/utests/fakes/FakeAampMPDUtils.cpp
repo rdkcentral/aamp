@@ -19,10 +19,23 @@
 
 #include "AampMPDUtils.h"
 
+/**
+ * @brief Computes the fragment duration
+ * @param duration of the fragment.
+ * @param timeScale value.
+ * @return - computed fragment duration in double.
+ */
 double ComputeFragmentDuration( uint32_t duration, uint32_t timeScale )
 {
 	return 0;
 }
+
+/**
+ * @brief Check if mime type is compatible with media type
+ * @param mimeType mime type
+ * @param mediaType media type
+ * @retval true if compatible
+ */
 bool IsCompatibleMimeType(const std::string& mimeType, AampMediaType mediaType)
 {
 	return false;

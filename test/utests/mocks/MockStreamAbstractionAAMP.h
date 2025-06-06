@@ -88,6 +88,10 @@ public:
 	MOCK_METHOD(bool, SelectPreferredTextTrack, (TextTrackInfo& selectedTextTrack), (override));
 
 	MOCK_METHOD(bool, IsEOSReached, (), (override));
+
+	MOCK_METHOD(bool, CheckForRampDownLimitReached, ());
+
+	MOCK_METHOD(bool, CheckForRampDownProfile, (int http_error));
 };
 
 extern MockStreamAbstractionAAMP *g_mockStreamAbstractionAAMP;

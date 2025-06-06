@@ -2,7 +2,7 @@
 * If not stated otherwise in this file or this component's license file the
 * following copyright and licenses apply:
 *
-* Copyright 2022 RDK Management
+* Copyright 2025 RDK Management
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -16,14 +16,24 @@
 * See the License for the specific language governing permissions and
 * limitations under the License.
 */
-#include <gtest/gtest.h>
-#include "MediaStreamContext.h"
 
-AampConfig *gpGlobalConfig{nullptr};
+#ifndef AAMP_MOCK_MEDIA_TRACK_H
+#define AAMP_MOCK_MEDIA_TRACK_H
 
-int main(int argc, char** argv)
+#include <gmock/gmock.h>
+#include "StreamAbstractionAAMP.h"
+
+class MockMediaTrack
 {
-    testing::InitGoogleTest(&argc, argv);
-    return RUN_ALL_TESTS();
-}
+public:
+	MOCK_METHOD(CachedFragment*, GetFetchBuffer, (bool initialize));
+	MOCK_METHOD(CachedFragment*, GetFetchChunkBuffer, (bool initialize));
+	MOCK_METHOD(void, UpdateTSAfterFetch, (bool isInitSegment));
+	MOCK_METHOD(void, UpdateTSAfterChunkFetch, ());
+	MOCK_METHOD(void, UpdateTSAfterInject, ());
+	MOCK_METHOD(bool, IsInjectionFromCachedFragmentChunks, ());
+};
 
+extern MockMediaTrack *g_mockMediaTrack;
+
+#endif /* AAMP_MOCK_MEDIA_TRACK_H */

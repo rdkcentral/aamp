@@ -286,6 +286,7 @@ typedef enum
 	eAAMPConfig_DrmStallTimeout,                                            /**< Stall Timeout for DRM license request*/
 	eAAMPConfig_DrmStartTimeout,						/**< Start Timeout for DRM license request*/
 	eAAMPConfig_TimeBasedBufferSeconds,
+	eAAMPConfig_MaxDownloadBuffer,					/**< Max download buffer in seconds, this can be used to limit player download job scheduling for DASH*/
 	eAAMPConfig_TelemetryInterval,						/**< time interval for the telemetry reporting*/
 	eAAMPConfig_RateCorrectionDelay,			/**< Delay Rate Correction upon discontinuity in seconds */
 	eAAMPConfig_HarvestDuration,						/**< Harvest  duration time */

@@ -41,6 +41,33 @@
 
 namespace aamp
 {
+	class AampTrackWorkerJob
+	{
+	public:
+		virtual ~AampTrackWorkerJob() = default;
+		virtual void Execute() {};
+	};
+
+	/**
+	 * @typedef AampTrackWorkerJobPtr
+	 * @brief Represents a job to download a media fragment.
+	 *
+	 * The DownloadJob typedef encapsulates the job to download a media fragment.
+	 **/
+	typedef std::shared_ptr<AampTrackWorkerJob> AampTrackWorkerJobPtr;
+
+	/**
+	 * Forward declaration of AampTrackWorker to resolve unknown type error.
+	 */
+	class AampTrackWorker;
+
+	/**
+	 * @typedef AampTrackWorkerWeakPtr
+	 * @brief Represents a weak pointer to an AampTrackWorker instance.
+	 *
+	 * This typedef is used to avoid circular references between the worker and the job.
+	 */
+	typedef std::weak_ptr<AampTrackWorker> AampTrackWorkerWeakPtr;
 
 	/**
 	 * @class AampTrackWorker
@@ -51,30 +78,38 @@ namespace aamp
 	 * wait for job completion, and clean up the worker thread.
 	 */
 
-	class AampTrackWorker
+	class AampTrackWorker : public std::enable_shared_from_this<AampTrackWorker>
 	{
 	public:
 		AampTrackWorker(PrivateInstanceAAMP *_aamp, AampMediaType _mediaType);
 		~AampTrackWorker();
 
-		void SubmitJob(std::function<void()> job);
+		void SubmitJob(AampTrackWorkerJobPtr job, bool highPriority = false);
 		void WaitForCompletion();
+		bool WaitForCompletionWithTimeout(int timeout);
+		void Pause();
+		void Resume();
+		void ClearJobs();
+		void RescheduleActiveJob();
+		void StartWorker();
+		void StopWorker();
+		bool IsStopped() const { return mStop.load(); }
 
 	protected:
 		AampMediaType mMediaType;
 		std::thread mWorkerThread;
-		std::mutex mMutex;
+		std::mutex mQueueMutex; // Mutex to protect job queue
 		std::condition_variable mCondVar;
 		std::condition_variable mCompletionVar;
-		std::function<void()> mJob;
+		std::deque<AampTrackWorkerJobPtr> mJobQueue; // Job queue
 		PrivateInstanceAAMP *aamp;
-		bool mJobAvailable;
-		bool mStop;
+		std::atomic<bool> mStop;
+		std::atomic<bool> mPaused; // Flag to pause the worker threads
 
 	private:
-		void ProcessJob();
+		void ProcessJob(AampTrackWorkerWeakPtr weakSelf);
+		AampTrackWorkerJobPtr mActiveJob; // Active job being processed
 	};
-
 } // namespace aamp
 
 #endif // AAMP_TRACK_WORKER_H

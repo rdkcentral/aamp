@@ -141,6 +141,7 @@
 #define MIN_MONITOR_AV_JUMP_THRESHOLD_MS 1 	/**< minimum  jump threshold to trigger MonitorAV reporting */
 #define MAX_MONITOR_AV_JUMP_THRESHOLD_MS 10000 	/**< maximum jump threshold to trigger MonitorAV reporting */
 #define DEFAULT_MONITOR_AV_JUMP_THRESHOLD_MS 100 	/**< default jump threshold to MonitorAV reporting */
+#define DEFAULT_MAX_DOWNLOAD_BUFFER 10	/**< Default maximum download buffer in seconds, this can be used to limit player download job scheduling for DASH */
 
 // We can enable the following once we have a thread monitoring video PTS progress and triggering subtec clock fast update when we detect video freeze. Disabled it for now for brute force fast refresh..
 //#define SUBTEC_VARIABLE_CLOCK_UPDATE_RATE   /* enable this to make the clock update rate dynamic*/

@@ -290,6 +290,11 @@ set(LIBAAMP_HEADERS middleware/drm/DrmSystems.h
 					scte35/AampSCTE35.h
 					Accessibility.hpp
 					AampTrackWorker.h
+					AampTrackWorkerManager.hpp
+					AampDownloadInfo.hpp
+					AampFragmentDescriptor.hpp
+					MediaSegmentDownloadJob.hpp
+					AampTimeBasedBufferManager.hpp
 					test/gstTestHarness/tsdemux.hpp
 )
 
@@ -385,6 +390,9 @@ set(LIBAAMP_SOURCES iso639map.cpp
 					scte35/AampSCTE35.cpp
 					AampTrackWorker.cpp
 					externals/PlayerThunderInterface.cpp
+					AampTrackWorkerManager.cpp
+					AampFragmentDescriptor.cpp
+					AampTimeBasedBufferManager.cpp
 )
 
 if (CMAKE_WPEFRAMEWORK_REQUIRED)

@@ -65,6 +65,7 @@ set(AAMP_SOURCES ${AAMP_ROOT}/middleware/drm/base64.cpp
 		 ${AAMP_ROOT}/middleware/PlayerLogManager.cpp
 		 ${AAMP_ROOT}/middleware/drm/DrmUtils.cpp
 		 ${AAMP_ROOT}/middleware/PlayerUtils.cpp
+		 ${AAMP_ROOT}/AampFragmentDescriptor.cpp
 		 ${AAMP_ROOT}/downloader/AampCurlStore.cpp
 		 ${AAMP_ROOT}/downloader/AampCurlDownloader.cpp
 		 ${AAMP_ROOT}/AampDRMLicPreFetcher.cpp

@@ -45,6 +45,7 @@
 
 #include "AampDRMLicPreFetcherInterface.h"
 #include "AampTime.h"
+#include "AampTimeBasedBufferManager.hpp"
 
 /**
  * @brief Media Track Types
@@ -774,6 +775,15 @@ public:
 	 */
 	bool IsInjectionFromCachedFragmentChunks();
 
+	/**
+	 * @fn GetTimeBasedBufferManager 
+	 *
+	 * @brief Get the time based buffer manager for this track
+	 *
+	 * @return AampTimeBasedBufferManager object
+	 */
+	std::shared_ptr<aamp::AampTimeBasedBufferManager> GetTimeBasedBufferManager() { return mTimeBasedBufferManager; }
+
 protected:
 	/**
 	 * @fn UpdateTSAfterInject
@@ -845,6 +855,8 @@ protected:
 	virtual void SignalTrickModeDiscontinuity(){};
 
 	double GetLastInjectedFragmentPosition() { return lastInjectedPosition; }
+
+	double GetLastInjectedFragmentDuration() { return lastInjectedDuration; }
 
 private:
 	/**
@@ -939,8 +951,13 @@ protected:
 	bool loadNewAudio;                  /**< Flag to indicate new audio loading started on seamless audio switch */
 	std::mutex subtitleMutex;
 	bool loadNewSubtitle;
+	int fragmentIdxToInject;            	/**< Write position */
+	int fragmentChunkIdxToInject;       	/**< Write position */
+	int fragmentIdxToFetch;             	/**< Read position */
+	int fragmentChunkIdxToFetch;        	/**< Read position */
 
 	StreamOutputFormat mSourceFormat {StreamOutputFormat::FORMAT_INVALID};
+	std::shared_ptr<aamp::AampTimeBasedBufferManager> mTimeBasedBufferManager; /**< Time based buffer for managing fragment download and playback */
 
 private:
 	enum class TrickmodeState
@@ -969,10 +986,6 @@ private:
 	int currentInitialCacheDurationSeconds; /**< Current cached fragments duration before playing*/
 	bool sinkBufferIsFull;                	/**< True if sink buffer is full and do not want new fragments*/
 	bool cachingCompleted;              	/**< Fragment caching completed or not*/
-	int fragmentIdxToInject;            	/**< Write position */
-	int fragmentChunkIdxToInject;       	/**< Write position */
-	int fragmentIdxToFetch;             	/**< Read position */
-	int fragmentChunkIdxToFetch;        	/**< Read position */
 	int bandwidthBitsPerSecond;        	/**< Bandwidth of last selected profile*/
 	double totalFetchedDuration;        	/**< Total fragment fetched duration*/
 	bool discontinuityProcessed;

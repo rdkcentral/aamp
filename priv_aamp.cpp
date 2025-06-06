@@ -1237,6 +1237,7 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 	, mIsChunkMode(false)
 	, prevFirstPeriodStartTime(0)
 	, mIsFlushOperationInProgress(false)
+	, mAampTrackWorkerManager(nullptr)
 {
 	mAampCacheHandler = new AampCacheHandler(mPlayerId);
 	// Create the event manager for player instance
@@ -1313,7 +1314,7 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 
  	mTrackGrowableBufMem = ISCONFIGSET_PRIV(eAAMPConfig_TrackMemory);
 	mLastTelemetryTimeMS = aamp_GetCurrentTimeMS();
-
+	mAampTrackWorkerManager = std::make_shared<aamp::AampTrackWorkerManager>();
 }
 
 /**
@@ -1321,6 +1322,7 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
  */
 PrivateInstanceAAMP::~PrivateInstanceAAMP()
 {
+	mAampTrackWorkerManager.reset();
 	StopPausePositionMonitoring("AAMP destroyed");
 	PlayerCCManager::GetInstance()->Release(mCCId);
 	mCCId = 0;
@@ -7512,10 +7514,17 @@ void PrivateInstanceAAMP::Stop( bool sendStateChangeEvent )
 		profiler.GetTelemetryParam();
 		mTelemetryInterval = 0;
 	}
-
+	AcquireStreamLock();
 	// Stopping the playback, release all DRM context
 	if (mpStreamAbstractionAAMP)
 	{
+		if(DownloadsAreEnabled())
+		{
+			// Parallel TuneHelper after EOS or retune re-enables downloads
+			// but we need to disable them again before stopping the player
+			AAMPLOG_WARN("Re-Enabled downloads after Stop, Disabling again!!");
+			DisableDownloads(); // disable download
+		}
 		if (mDRMLicenseManager)
 		{
 			ReleaseDynamicDRMToUpdateWait();
@@ -7526,8 +7535,6 @@ void PrivateInstanceAAMP::Stop( bool sendStateChangeEvent )
 		{ // has sidecar data
 			mpStreamAbstractionAAMP->ResetSubtitle();
 		}
-		// Using StreamLock to make sure this is not interfering with GetFile() from PreCachePlaylistDownloadTask
-		AcquireStreamLock();
 		//Deleting mpStreamAbstractionAAMP here will prevent the extra stop call in TeardownStream()
 		//and will avoid enableDownload() call being made unnecessarily
 		if(mContentType == ContentType_HDMIIN)
@@ -7544,8 +7551,8 @@ void PrivateInstanceAAMP::Stop( bool sendStateChangeEvent )
 		{
 			SAFE_DELETE(mpStreamAbstractionAAMP);
 		}
-		ReleaseStreamLock();
 	}
+	ReleaseStreamLock();
 	// stop the mpd update immediately after Stream abstraction delete
 	if(mMPDDownloaderInstance != nullptr)
 	{
@@ -8814,9 +8821,13 @@ void PrivateInstanceAAMP::SendStalledErrorEvent()
  */
 void PrivateInstanceAAMP::UpdateSubtitleTimestamp()
 {
-	if (mpStreamAbstractionAAMP)
+	if(TryStreamLock())
 	{
-		mpStreamAbstractionAAMP->StartSubtitleParser();
+		if (mpStreamAbstractionAAMP)
+		{
+			mpStreamAbstractionAAMP->StartSubtitleParser();
+		}
+		ReleaseStreamLock();
 	}
 }
 
@@ -8826,9 +8837,13 @@ void PrivateInstanceAAMP::UpdateSubtitleTimestamp()
  */
 void PrivateInstanceAAMP::PauseSubtitleParser(bool pause)
 {
-	if (mpStreamAbstractionAAMP)
+	if(TryStreamLock())
 	{
-		mpStreamAbstractionAAMP->PauseSubtitleParser(pause);
+		if (mpStreamAbstractionAAMP)
+		{
+			mpStreamAbstractionAAMP->PauseSubtitleParser(pause);
+		}
+		ReleaseStreamLock();
 	}
 }
 

@@ -114,6 +114,7 @@ protected:
 		{eAAMPConfig_PrePlayBufferCount, DEFAULT_PREBUFFER_COUNT},
 		{eAAMPConfig_VODTrickPlayFPS, TRICKPLAY_VOD_PLAYBACK_FPS},
 		{eAAMPConfig_ABRBufferCounter, DEFAULT_ABR_BUFFER_COUNTER},
+		{eAAMPConfig_MaxDownloadBuffer, DEFAULT_MAX_DOWNLOAD_BUFFER},
 		{eAAMPConfig_MaxFragmentChunkCached, DEFAULT_CACHED_FRAGMENT_CHUNKS_PER_TRACK}
 	};
 
@@ -162,6 +163,7 @@ protected:
 
 		if (mStreamAbstractionAAMP_MPD)
 		{
+			mPrivateInstanceAAMP->GetAampTrackWorkerManager()->RemoveWorkers();
 			delete mStreamAbstractionAAMP_MPD;
 			mStreamAbstractionAAMP_MPD = nullptr;
 		}
@@ -411,11 +413,9 @@ protected:
 			printSelectedTrack(trackIndex, media);
 		}
 
-		void CallAdvanceTrack(int trackIdx, bool trickPlay, double *delta, bool &waitForFreeFrag, bool &bCacheFullState)
+		void CallAdvanceTrack(int trackIdx, bool trickPlay, double &delta)
 		{
-					bool throttleAudioDownload = false;
-					bool isDiscontinuity = false;
-					AdvanceTrack(trackIdx, trickPlay, delta, waitForFreeFrag, bCacheFullState, throttleAudioDownload, isDiscontinuity );
+			AdvanceTrack(trackIdx, trickPlay, delta);
 		}
 
 		void CallFetcherLoop()
@@ -485,10 +485,6 @@ protected:
 		void CallProcessStreamRestrictionList(Node *node, const std::string &AdID, uint64_t startMS, bool isInit, bool reportBulkMeta = false)
 		{
 			ProcessStreamRestrictionList(node, AdID, startMS, isInit, reportBulkMeta);
-		}
-		void CallTrackDownloader(int trackIdx, std::string initialization)
-		{
-			TrackDownloader(trackIdx, initialization);
 		}
 
 		void CallFetchAndInjectInitFragments(bool discontinuity = false)
@@ -643,6 +639,7 @@ protected:
 		delete g_mockTSBSessionManager;
 		g_mockTSBSessionManager = nullptr;
 
+		mPrivateInstanceAAMP->GetAampTrackWorkerManager()->RemoveWorkers();
 		delete mStreamAbstractionAAMP_MPD;
 		mStreamAbstractionAAMP_MPD = nullptr;
 
@@ -749,17 +746,16 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 
 	/* Initialize MPD. The video initialization segment is cached. */
 	fragmentUrl = std::string(TEST_BASE_URL) + std::string("video_init.mp4");
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _, _, _))
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _))
 		.WillOnce(Return(true));
 
 	status = InitializeMPD(manifest);
 	EXPECT_EQ(status, eAAMPSTATUS_OK);
-
 	/* Push the first video segment to present. The segment time identifier ("$Time$") is zero. The
 	 * segment starts at time 0.0s and has a duration of 2.0s.
 	 */
 	fragmentUrl = std::string(TEST_BASE_URL) + std::string("video_0.mp4");
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, 0.0, 2.0, _, false, _, _, _, _, _))
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, 0.0, 2.0, _, false, _, _, _))
 		.WillOnce(Return(true));
 
 	PushNextFragment(eTRACK_VIDEO);
@@ -769,7 +765,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 	 * starts at time 2.0s and has a duration of 2.0s.
 	 */
 	fragmentUrl = std::string(TEST_BASE_URL) + std::string("video_5000.mp4");
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, 2.0, 2.0, _, false, _, _, _, _, _))
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, 2.0, 2.0, _, false, _, _, _))
 		.WillOnce(Return(true));
 
 	PushNextFragment(eTRACK_VIDEO);
@@ -804,7 +800,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 
 	/* Initialize MPD. The video initialization segment is cached. */
 	fragmentUrl = std::string(TEST_BASE_URL) + std::string("video_init.mp4");
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _, _, _))
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _))
 		.WillOnce(Return(true));
 
 	status = InitializeMPD(manifest);
@@ -815,7 +811,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 	 * and has a duration of 2.0s.
 	 */
 	fragmentUrl = std::string(TEST_BASE_URL) + std::string("video_0.mp4");
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, 0.0, 2.0, _, false, _, _, _, _, _))
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, 0.0, 2.0, _, false, _, _, _))
 		.WillOnce(Return(true));
 
 	PushNextFragment(eTRACK_VIDEO);
@@ -825,7 +821,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 	 * starts at time 2.0s and has a duration of 2.0s.
 	 */
 	fragmentUrl = std::string(TEST_BASE_URL) + std::string("video_5000.mp4");
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, 2.0, 2.0, _, false, _, _, _, _, _))
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, 2.0, 2.0, _, false, _, _, _))
 		.WillOnce(Return(true));
 
 	PushNextFragment(eTRACK_VIDEO);
@@ -880,7 +876,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 
 	/* Initialize MPD. The video initialization segment is cached. */
 	fragmentUrl = std::string(TEST_BASE_URL) + std::string("video_init.mp4");
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _, _, _))
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _))
 		.WillOnce(Return(true));
 
 	status = InitializeMPD(manifest); (void)status;
@@ -898,7 +894,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 	/* Push the first video segment to present. */
 	(void)snprintf(url, sizeof(url), "%svideo_%lld.m4s", TEST_BASE_URL, fragmentNumber);
 	fragmentUrl = std::string(url);
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, false, _, _, _, _, _))
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, false, _, _, _))
 		.WillOnce(Return(true));
 
 	PushNextFragment(eTRACK_VIDEO);
@@ -907,7 +903,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 	fragmentNumber++;
 	(void)snprintf(url, sizeof(url), "%svideo_%lld.m4s", TEST_BASE_URL, fragmentNumber);
 	fragmentUrl = std::string(url);
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, false, _, _, _, _, _))
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, false, _, _, _))
 		.WillOnce(Return(true));
 
 	PushNextFragment(eTRACK_VIDEO);
@@ -990,7 +986,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 
 	/* Initialize MPD. The video initialization segment is cached. */
 	fragmentUrl = std::string(TEST_BASE_URL) + std::string("video_p1_init.mp4");
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _, _, _))
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _))
 		.WillOnce(Return(true));
 
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, NotifyOnEnteringLive()).Times(1);
@@ -1027,7 +1023,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 	mStreamAbstractionAAMP_MPD->ReassessAndResumeAudioTrack(true);
 	mStreamAbstractionAAMP_MPD->AbortWaitForAudioTrackCatchup(false);
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(_)).WillRepeatedly(Return(false));
-	mStreamAbstractionAAMP_MPD->Stop(false);
+	//mStreamAbstractionAAMP_MPD->Stop(false);
 	/**
 	* PTS of first sample
 	*/
@@ -1076,7 +1072,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 	/* Push the first video segment to present. */
 	(void)snprintf(url, sizeof(url), "%svideo_p1_%lld.m4s", TEST_BASE_URL, fragmentNumber);
 	fragmentUrl = std::string(url);
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, false, _, _, _, _, _))
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, false, _, _, _))
 		.WillOnce(Return(true));
 
 	PushNextFragment(eTRACK_VIDEO);
@@ -1085,7 +1081,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 	fragmentNumber++;
 	(void)snprintf(url, sizeof(url), "%svideo_p1_%lld.m4s", TEST_BASE_URL, fragmentNumber);
 	fragmentUrl = std::string(url);
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, false, _, _, _, _, _))
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, false, _, _, _))
 		.WillOnce(Return(true));
 
 	PushNextFragment(eTRACK_VIDEO);
@@ -1119,7 +1115,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 
 	/* Initialize MPD. The video initialization segment is cached. */
 	fragmentUrl = std::string(TEST_BASE_URL) + std::string("video_p0_init.mp4");
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _, _, _))
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _))
 		.WillOnce(Return(true));
 
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, NotifyOnEnteringLive()).Times(1);
@@ -1178,11 +1174,11 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 
 	/* Initialize MPD. The initialization segments are cached. */
 	fragmentUrl = std::string(TEST_BASE_URL) + std::string("vp8/video_init.mp4");
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _, _, _))
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _))
 		.WillOnce(Return(true));
 
 	fragmentUrl = std::string(TEST_BASE_URL) + std::string("vorbis/audio_init.mp4");
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _, _, _))
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _))
 		.WillOnce(Return(true));
 
 	status = InitializeMPD(manifest);
@@ -1190,14 +1186,14 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 
 	/* Push the first video segment to present. */
 	fragmentUrl = std::string(TEST_BASE_URL) + std::string("vp8/video_1.m4s");
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, false, _, _, _, _, _))
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, false, _, _, _))
 		.WillOnce(Return(true));
 
 	PushNextFragment(eTRACK_VIDEO);
 
 	/* Push the first audio segment to present. */
 	fragmentUrl = std::string(TEST_BASE_URL) + std::string("vorbis/audio_1.mp3");
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, false, _, _, _, _, _))
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, false, _, _, _))
 		.WillOnce(Return(true));
 
 	PushNextFragment(eTRACK_AUDIO);
@@ -1240,11 +1236,11 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 
 	/* Initialize MPD. The initialization segments are cached. */
 	fragmentUrl = std::string(TEST_BASE_URL) + std::string("vp9/video_init.mp4");
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _, _, _))
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _))
 		.WillOnce(Return(true));
 
 	fragmentUrl = std::string(TEST_BASE_URL) + std::string("opus/audio_init.mp4");
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _, _, _))
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _))
 		.WillOnce(Return(true));
 
 	status = InitializeMPD(manifest);
@@ -1252,14 +1248,14 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 
 	/* Push the first video segment to present. */
 	fragmentUrl = std::string(TEST_BASE_URL) + std::string("vp9/video_1.m4s");
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, false, _, _, _, _, _))
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, false, _, _, _))
 		.WillOnce(Return(true));
 
 	PushNextFragment(eTRACK_VIDEO);
 
 	/* Push the first audio segment to present. */
 	fragmentUrl = std::string(TEST_BASE_URL) + std::string("opus/audio_1.mp3");
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, false, _, _, _, _, _))
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, false, _, _, _))
 		.WillOnce(Return(true));
 
 	PushNextFragment(eTRACK_AUDIO);
@@ -1324,11 +1320,11 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 	 * Opus.
 	 */
 	fragmentUrl = std::string(TEST_BASE_URL) + std::string("h264/video_init.mp4");
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _, _, _))
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _))
 		.WillOnce(Return(true));
 
 	fragmentUrl = std::string(TEST_BASE_URL) + std::string("aac/audio_init.mp4");
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _, _, _))
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _))
 		.WillOnce(Return(true));
 
 	status = InitializeMPD(manifest);
@@ -1336,14 +1332,14 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 
 	/* Push the first video segment to present. */
 	fragmentUrl = std::string(TEST_BASE_URL) + std::string("h264/video_1.m4s");
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, false, _, _, _, _, _))
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, false, _, _, _))
 		.WillOnce(Return(true));
 
 	PushNextFragment(eTRACK_VIDEO);
 
 	/* Push the first audio segment to present. */
 	fragmentUrl = std::string(TEST_BASE_URL) + std::string("aac/audio_1.mp3");
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, false, _, _, _, _, _))
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, false, _, _, _))
 		.WillOnce(Return(true));
 
 	PushNextFragment(eTRACK_AUDIO);
@@ -1401,7 +1397,7 @@ R"(<?xml version="1.0"?>
 
 	/* Initialize MPD. The first video initialization segment is cached. */
 	fragmentUrl = std::string(TEST_BASE_URL) + std::string("video_init.mp4");
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _, _, _))
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _))
 		.WillOnce(Return(true));
 
 	status = InitializeMPD(manifest);
@@ -1449,7 +1445,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 
 	/* Initialize MPD. The video initialization segment is cached. */
 	fragmentUrl = std::string(TEST_BASE_URL) + std::string("video_init.mp4");
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _, _, _))
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _))
 		.WillOnce(Return(true));
 
 	status = InitializeMPD(manifest);
@@ -1488,7 +1484,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 
 	/* Initialize MPD. The video initialization segment is cached. */
 	fragmentUrl = std::string(TEST_BASE_URL) + std::string("video_init.mp4");
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _, _, _))
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _))
 		.WillOnce(Return(true));
 
 	status = InitializeMPD(manifest);
@@ -1548,7 +1544,7 @@ R"(<?xml version="1.0"?>
 
 	/* Initialize MPD. The first video initialization segment is cached. */
 	fragmentUrl = std::string(TEST_BASE_URL) + std::string("video_init.mp4");
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _, _, _))
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _))
 		.WillOnce(Return(true));
 
 	status = InitializeMPD(manifest);
@@ -1607,7 +1603,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 	// Initialize MPD. The video initialization segment is cached.
 	std::string expectedCData = R"({"version":1,"identifiers":[{"scheme":"urn:smpte:ul:060E2B34.01040101.01200900.00000000","value":"5493003","ad_position":"_PT0S_0","ad_type":"avail","tracking_uri":"../../../../../../../../../../tracking/99247e89c7677df85a85aabdd3256ffe02a60196/example-dash-vod-2s-generic/f38d0147-7bee-480f-83a7-fec49fda39b9","custom_vast_data":null}]})";
 	fragmentUrl = std::string(TEST_BASE_URL) + std::string("video_init.mp4");
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _, _, _))
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _))
 		.WillOnce(Return(true));
 
 	status = InitializeMPD(manifest);
@@ -1663,7 +1659,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 	 * segment is cached.
 	 */
 	fragmentUrl = std::string(TEST_BASE_URL) + std::string("dash/iframe_init.m4s");
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _, _, _))
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _))
 		.WillOnce(Return(true));
 
 	status = InitializeMPD(manifest, TuneType::eTUNETYPE_NEW_NORMAL, seekPosition, rate);
@@ -1673,7 +1669,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 	/* Push the first video segment to present. */
 	(void)snprintf(url, sizeof(url), "%sdash/iframe_%03d.m4s", TEST_BASE_URL, fragmentNumber);
 	fragmentUrl = std::string(url);
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, false, _, _, _, _, _))
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, false, _, _, _))
 		.WillOnce(Return(true));
 
 	PushNextFragment(eTRACK_VIDEO);
@@ -1694,7 +1690,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 
 	(void)snprintf(url, sizeof(url), "%sdash/iframe_%03d.m4s", TEST_BASE_URL, fragmentNumber);
 	fragmentUrl = std::string(url);
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, false, _, _, _, _, _))
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, false, _, _, _))
 		.WillOnce(Return(true));
 
 	PushNextFragment(eTRACK_VIDEO);
@@ -1793,7 +1789,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 
 	/* Initialize MPD with seek position and play rate. */
 	fragmentUrl = std::string(TEST_BASE_URL) + std::string("dash/iframe_init.m4s");
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _, _, _))
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _))
 		.WillOnce(Return(true));
 
 	status = InitializeMPD(manifest, TuneType::eTUNETYPE_NEW_NORMAL, seekPosition, rate);
@@ -1807,7 +1803,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 		char number[50];
 		(void)snprintf(number, sizeof(number), "dash/iframe_%d.m4s", trickplay_time_tbl[idx].expected_seg_time[j]);
 		fragmentUrl = std::string(TEST_BASE_URL) + std::string(number);
-		EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, false, _, _, _, _, _))
+		EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, false, _, _, _))
 			.WillOnce(Return(true));
 	}
 
@@ -2335,7 +2331,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 	// Initialize MPD. The video initialization segment is cached.
 	std::string expectedCData = R"({"version":1,"identifiers":[{"scheme":"urn:smpte:ul:060E2B34.01040101.01200900.00000000","value":"5493003","ad_position":"_PT0S_0","ad_type":"avail","tracking_uri":"../../../../../../../../../../tracking/99247e89c7677df85a85aabdd3256ffe02a60196/example-dash-vod-2s-generic/f38d0147-7bee-480f-83a7-fec49fda39b9","custom_vast_data":null}]})";
 	fragmentUrl = std::string(TEST_BASE_URL) + std::string("video_init.mp4");
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _, _, _))
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _))
 		.WillOnce(Return(true));
 
 	status = InitializeMPD(manifest);
@@ -2377,7 +2373,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 )";
 	// Initialize MPD. The video initialization segment is cached.
 	fragmentUrl = std::string(TEST_BASE_URL) + std::string("video_init.mp4");
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _, _, _))
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _))
 		.WillOnce(Return(true));
 	status = InitializeMPD(manifest);
 	std::vector<TextTrackInfo> textTracks = mStreamAbstractionAAMP_MPD->GetAvailableTextTracks();
@@ -2415,7 +2411,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 )";
 	// Initialize MPD. The video initialization segment is cached.
 	fragmentUrl = std::string(TEST_BASE_URL) + std::string("video_init.mp4");
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _, _, _))
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _))
 		.WillOnce(Return(true));
 	status = InitializeMPD(manifest);
 	std::vector<TextTrackInfo> textTracks = mStreamAbstractionAAMP_MPD->GetAvailableTextTracks();
@@ -2451,7 +2447,7 @@ TEST_F(FunctionalTests, ChunkMode_NonLLD)
 )";
 	float seekPosition = 0;
 	int rate = 1 ; //Normal playrate test
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, _, _, _, _, _, _))
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, _, _, _, _))
 		.WillRepeatedly(Return(true));
 
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, NotifyOnEnteringLive()).Times(1);
@@ -2510,7 +2506,7 @@ TEST_F(FunctionalTests, ChunkMode_LLD)
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetLLDashAdjustSpeed())
 		.WillRepeatedly(Return(true));
 
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, _, _, _, _, _, _))
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, _, _, _, _))
 		.WillRepeatedly(Return(true));
 	//For this test case we need EnableLowLatencyDash as true
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(_))
@@ -2580,7 +2576,7 @@ TEST_F(FunctionalTests, ChunkMode_LLD_ForMaxLatency_Case)
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetLLDashAdjustSpeed())
 		.WillRepeatedly(Return(true));
 
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, _, _, _, _, _, _))
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, _, _, _, _))
 		.WillRepeatedly(Return(true));
 
 	EXPECT_CALL(*g_mockAampMPDDownloader, IsMPDLowLatency (_))
@@ -2636,7 +2632,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 </MPD>
 )";
 	fragmentUrl = std::string(TEST_BASE_URL) + std::string("video_init.mp4");
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _, _, _))
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _))
 	.WillOnce(Return(true));
 	status = InitializeMPD(manifest); (void)status;
 
@@ -2674,7 +2670,7 @@ TEST_F(FunctionalTests, SetThumbnailTrack)
 	</MPD>
 	)";
 	fragmentUrl = std::string(TEST_BASE_URL) + std::string("video_init.mp4");
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _, _, _))
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _))
 	.WillOnce(Return(true));
 	status = InitializeMPD(manifest); (void)status;
 	rc = mStreamAbstractionAAMP_MPD->SetThumbnailTrack(0);
@@ -2710,7 +2706,7 @@ TEST_F(FunctionalTests, GetThumbnailRangeDataTest1)
 	</MPD>
 	)";
 	fragmentUrl = std::string(TEST_BASE_URL) + std::string("video_init.mp4");
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _, _, _))
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _))
 	.WillOnce(Return(true));
 	status = InitializeMPD(manifest); (void)status;
 	int raw_w = 0, raw_h = 0, width = 0, height = 0;
@@ -2754,7 +2750,7 @@ TEST_F(FunctionalTests, FindServerUTCTimeTest)
 	EXPECT_CALL(*g_mockAampUtils, aamp_GetCurrentTimeMS())
 	.Times(AnyNumber())
 	.WillRepeatedly(Return(timeMS));
-	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, _, _, _, _, _, _))
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, _, _, _, _))
 	.WillRepeatedly(Return(true));
 	// Verify that the parameters from the manifest URL are not added to the time request URL
 	EXPECT_CALL(*g_mockAampUtils, GetNetworkTime("http://host/timing", _, _)).WillOnce(Return(currentTime));

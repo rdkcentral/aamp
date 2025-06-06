@@ -33,8 +33,6 @@
 
 using namespace testing;
 
-AampConfig *gpGlobalConfig{nullptr};
-
 class MediaStreamContextTest : public testing::Test
 {
     protected:
