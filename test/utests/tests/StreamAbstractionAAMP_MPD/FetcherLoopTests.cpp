@@ -809,6 +809,7 @@ TEST_F(FetcherLoopTests, BasicFetcherLoop)
 	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, false, _, _, _, _, _))
 		.WillRepeatedly(Return(true));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection()).WillRepeatedly(Return(false));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsInjectionFromCachedFragmentChunks()).WillRepeatedly(Return(false));
 	status = InitializeMPD(mVodManifest);
 	EXPECT_EQ(status, eAAMPSTATUS_OK);
 
@@ -1023,6 +1024,7 @@ R"(<?xml version="1.0" encoding="UTF-8"?>
 )";
 	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, true, _, _, _, _, _))
 				.WillRepeatedly(Return(true));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsInjectionFromCachedFragmentChunks()).WillRepeatedly(Return(false));
 
 	AAMPStatusType status = InitializeMPD(manifest, eTUNETYPE_NEW_NORMAL, 10.0);
 	EXPECT_EQ(status, eAAMPSTATUS_OK);
@@ -1039,8 +1041,6 @@ R"(<?xml version="1.0" encoding="UTF-8"?>
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetPositionMilliseconds()).WillRepeatedly(Return(0.0));
 
 	mTestableStreamAbstractionAAMP_MPD->SwitchAudioTrack();
-
-
 }
 
 /**

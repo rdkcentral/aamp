@@ -421,12 +421,6 @@ void MediaTrack::FlushFragmentChunks()
 {
 }
 
-bool MediaTrack::IsInjectionFromCachedFragmentChunks()
-{
-	bool ret = false;
-	return ret;
-}
-
 void MediaTrack::ClearMediaHeaderDuration(CachedFragment* cachedFragment)
 {
 }

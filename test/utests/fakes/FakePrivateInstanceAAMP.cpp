@@ -1662,3 +1662,13 @@ double PrivateInstanceAAMP::GetStreamPositionMs()
 {
 	return 0.0;
 }
+
+bool PrivateInstanceAAMP::IsInjectionFromCachedFragmentChunks()
+{
+	bool isInjectionFromCachedFragmentChunks = false;
+	if (g_mockPrivateInstanceAAMP)
+	{
+		isInjectionFromCachedFragmentChunks = g_mockPrivateInstanceAAMP->IsInjectionFromCachedFragmentChunks();
+	}
+	return isInjectionFromCachedFragmentChunks;
+}

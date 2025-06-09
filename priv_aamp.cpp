@@ -3264,6 +3264,7 @@ void PrivateInstanceAAMP::NotifyEOSReached()
 			return;
 		}
 
+		TuneType tuneType = eTUNETYPE_SEEKTOLIVE;
 		/* If rate is normal play, no need to seek to live etc. This can be due to the EPG changing rate from RWD to play near begging of the TSB. */
 		if (rate < AAMP_RATE_PAUSE)
 		{
@@ -3278,20 +3279,14 @@ void PrivateInstanceAAMP::NotifyEOSReached()
 			}
 			// A new report progress event to be emitted with position 0 when rewind reaches BOS
 			ReportProgress(true, true);
-			rate = AAMP_NORMAL_PLAY_RATE;
-			AcquireStreamLock();
-			TuneHelper(eTUNETYPE_SEEK);
-			ReleaseStreamLock();
-			NotifySpeedChanged(rate);
+			tuneType = eTUNETYPE_SEEK;
 		}
-		else if (rate > AAMP_NORMAL_PLAY_RATE)
-		{
-			rate = AAMP_NORMAL_PLAY_RATE;
-			AcquireStreamLock();
-			TuneHelper(eTUNETYPE_SEEKTOLIVE);
-			ReleaseStreamLock();
-			NotifySpeedChanged(rate);
-		}
+
+		rate = AAMP_NORMAL_PLAY_RATE;
+		AcquireStreamLock();
+		TuneHelper(tuneType);
+		ReleaseStreamLock();
+		NotifySpeedChanged(rate);
 	}
 	else
 	{
@@ -13707,4 +13702,16 @@ double PrivateInstanceAAMP::GetStreamPositionMs()
 		pos -= (mProgressReportOffset * 1000);
 	}
 	return pos;
+}
+
+bool PrivateInstanceAAMP::IsInjectionFromCachedFragmentChunks()
+{
+	// CachedFragmentChunks is used for LL-DASH and for any content if AAMP TSB is enabled
+	bool isLLDashChunkMode = GetLLDashChunkMode();
+	bool aampTsbEnabled = IsLocalAAMPTsb();
+	bool isInjectionFromCachedFragmentChunks = isLLDashChunkMode || aampTsbEnabled;
+
+	AAMPLOG_TRACE("isLLDashChunkMode %d aampTsbEnabled %d ret %d",
+				  isLLDashChunkMode, aampTsbEnabled, isInjectionFromCachedFragmentChunks);
+	return isInjectionFromCachedFragmentChunks;
 }

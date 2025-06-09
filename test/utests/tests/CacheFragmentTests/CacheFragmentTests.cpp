@@ -305,6 +305,8 @@ class MediaStreamContextTest : public ::testing::TestWithParam<TestParams>
 			}
 			EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetTSBSessionManager()).WillOnce(Return(tsbSessionManager));
 			EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile(_, _, _, _, _, _, _, _, _, _, _, _, _, _)).WillOnce(Return(true));
+			// Chunk cache is used for chunked fragments or when AAMP TSB is enabled
+			EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsInjectionFromCachedFragmentChunks()).WillRepeatedly(Return(chunk||tsb));
 		}
 };
 

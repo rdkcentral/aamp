@@ -1388,7 +1388,7 @@ void MediaTrack::ProcessAndInjectFragment(CachedFragment *cachedFragment, bool f
 		}
 
 		// Release the memory and Update the inject
-		if(IsInjectionFromCachedFragmentChunks())
+		if(aamp->IsInjectionFromCachedFragmentChunks())
 		{
 			UpdateTSAfterChunkInject();
 		}
@@ -1406,7 +1406,7 @@ bool MediaTrack::InjectFragment()
 {
 	bool ret = true;
 	bool isChunkMode = aamp->GetLLDashChunkMode() && (aamp->IsLocalAAMPTsbInjection() == false);
-	bool isChunkBuffer = IsInjectionFromCachedFragmentChunks();
+	bool isChunkBuffer = aamp->IsInjectionFromCachedFragmentChunks();
 	bool lowLatency = aamp->GetLLDashServiceData()->lowLatencyMode;
 	StreamAbstractionAAMP* pContext = GetContext();
 
@@ -1824,7 +1824,7 @@ void MediaTrack::FlushFetchedFragments()
 void MediaTrack::FlushFragments()
 {
 	AAMPLOG_WARN("[%s]", name);
-	if(IsInjectionFromCachedFragmentChunks())
+	if(aamp->IsInjectionFromCachedFragmentChunks())
 	{
 		for (int i = 0; i < maxCachedFragmentChunksPerTrack; i++)
 		{
@@ -4418,7 +4418,7 @@ double MediaTrack::GetTotalInjectedDuration()
 {
 	std::lock_guard<std::mutex> lock(mTrackParamsMutex);
 	double ret = totalInjectedDuration;
-	if (IsInjectionFromCachedFragmentChunks())
+	if (aamp->IsInjectionFromCachedFragmentChunks())
 	{
 		ret = totalInjectedChunksDuration;
 	}
@@ -4485,16 +4485,4 @@ void MediaTrack::HandleFragmentPositionJump(CachedFragment* cachedFragment)
 			}
 		}
 	}
-}
-
-bool MediaTrack::IsInjectionFromCachedFragmentChunks()
-{
-	// CachedFragmentChunks is used for LL-DASH and for any content if AAMP TSB is enabled
-	bool isLLDashChunkMode = aamp->GetLLDashChunkMode();
-	bool aampTsbEnabled = aamp->IsLocalAAMPTsb();
-	bool isInjectionFromCachedFragmentChunks = isLLDashChunkMode || aampTsbEnabled;
-
-	AAMPLOG_TRACE("[%s] isLLDashChunkMode %d aampTsbEnabled %d ret %d",
-				  name, isLLDashChunkMode, aampTsbEnabled, isInjectionFromCachedFragmentChunks);
-	return isInjectionFromCachedFragmentChunks;
 }
