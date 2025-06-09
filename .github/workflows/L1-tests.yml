@@ -19,11 +19,9 @@ jobs:
     steps:
       - name: Checkout aamp code
         uses: actions/checkout@v3
-        with:
-            path: aamp
 
       - name: Run unit tests
-        run: /bin/bash test/utests/run.sh
+        run: /bin/bash aamp/test/utests/run.sh
 
       # - name: Upload test results to automatic test result management system
       #   run: >
