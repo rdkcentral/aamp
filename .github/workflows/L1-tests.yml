@@ -1,4 +1,4 @@
-name: Unit tests
+name: L1 tests
 
 on:
   pull_request:
@@ -13,20 +13,41 @@ env:
 
 jobs:
   execute-unit-tests-on-pr:
-    name: Execute unit tests in gtest test suite
+    name: Runs all unit tests
     runs-on: ubuntu-latest
     
     steps:
+      # Checkout the aamp repository
       - name: Checkout aamp code
         uses: actions/checkout@v3
       
+      # Install AAMP
       - name: Install AAMP
         run: yes | ./install-aamp.sh -s -k file
-
+      
+      # Run L1 tests
       - name: Run unit tests
         working-directory: ./test/utests
         run: ./run.sh
-
-      # - name: Upload test results to automatic test result management system
-      #   run: >
-      #     gtest-json-result-push.py /tmp/Gtest_Report ${{ env.TEST_RESULTS_SERVER }} `pwd`
+      
+      # Publish test results
+      - name: Publish L1 test results
+        uses: dorny/test-reporter@v1
+        if: always()
+        with:
+          name: Unit Tests
+          path: test/utests/build/ctest-results.xml
+          reporter: java-junit
+      
+      # Upload artifact (test/utests/build/ctest-results.xml)
+      - name: Upload test result file
+        uses: actions/upload-artifact@v3
+        with:
+          name: ctest-results
+          path: test/utests/build/ctest-results.xml
+      
+      # Show failure
+      - name: Show test result (tail)
+        if: failure()
+        run: tail -n 50 test/utests/build/ctest-results.xml
+        
