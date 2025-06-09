@@ -2,7 +2,7 @@ name: Unit tests
 
 on:
   pull_request:
-    branches: [ develop, main ]
+    branches: [ develop, test-branch ]
 
 env:
   AUTOMATICS_UNAME: ${{ secrets.AUTOMATICS_UNAME }}
@@ -15,8 +15,6 @@ jobs:
   execute-unit-tests-on-pr:
     name: Execute unit tests in gtest test suite
     runs-on: ubuntu-latest
-    container:
-      image: ${{ env.CI_CONTAINER }}
 
     steps:
       - name: Checkout aamp code
@@ -25,10 +23,8 @@ jobs:
             path: aamp
 
       - name: Run unit tests
-        if: env.CI_CONTAINER != ''
-        run: /bin/bash aamp/test/run_ut.sh
+        run: /bin/bash aamp/test/utests/run.sh
 
-      - name: Upload test results to automatic test result management system
-        if: env.CI_CONTAINER != ''
-        run: >
-          gtest-json-result-push.py /tmp/Gtest_Report ${{ env.TEST_RESULTS_SERVER }} `pwd`
+      # - name: Upload test results to automatic test result management system
+      #   run: >
+      #     gtest-json-result-push.py /tmp/Gtest_Report ${{ env.TEST_RESULTS_SERVER }} `pwd`
