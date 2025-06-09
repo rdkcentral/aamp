@@ -19,8 +19,6 @@ jobs:
     steps:
       - name: Checkout aamp code
         uses: actions/checkout@v3
-        with:
-            path: aamp
       
       - name: Install AAMP
         working-directory: ./aamp
