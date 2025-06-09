@@ -1510,6 +1510,14 @@ bool PrivateInstanceAAMP::IsLocalAAMPTsbInjection()
 	return false;
 }
 
+void PrivateInstanceAAMP::UpdateLocalAAMPTsbInjection()
+{
+	if (g_mockPrivateInstanceAAMP)
+	{
+		g_mockPrivateInstanceAAMP->UpdateLocalAAMPTsbInjection();
+	}
+}
+
 bool PrivateInstanceAAMP::GetLLDashAdjustSpeed(void)
 {
 	if (g_mockPrivateInstanceAAMP)
