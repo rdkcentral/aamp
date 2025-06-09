@@ -7685,7 +7685,10 @@ void PrivateInstanceAAMP::Stop( bool sendStateChangeEvent )
 	EnableDownloads();
 
 	AampStreamSinkManager::GetInstance().DeactivatePlayer(this, true);
-	SetState( eSTATE_RELEASED, sendStateChangeEvent );
+	AAMPLOG_INFO("HariPriya ... current state : %d ",mState);
+	SetState( eSTATE_IDLE, sendStateChangeEvent );
+	AAMPLOG_INFO("HariPriya ... state changed to IDLE ... ");
+	//SetState( eSTATE_RELEASED, sendStateChangeEvent );
 
 	// Revert all custom specific setting, tune specific setting and stream specific setting , back to App/default setting
 	mConfig->RestoreConfiguration(AAMP_CUSTOM_DEV_CFG_SETTING);
