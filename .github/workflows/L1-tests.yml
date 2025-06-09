@@ -25,8 +25,8 @@ jobs:
         run: yes | ./install-aamp.sh -s -k file
 
       - name: Run unit tests
-        working-directory: ./aamp
-        run: test/utests/run.sh
+        # working-directory: ./aamp
+        run: yes | ./test/utests/run.sh
 
       # - name: Upload test results to automatic test result management system
       #   run: >
