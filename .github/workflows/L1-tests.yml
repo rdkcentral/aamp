@@ -24,7 +24,7 @@ jobs:
       
       - name: Install AAMP
         working-directory: ./aamp
-        run: install-aamp.sh -s -k || yes
+        run: yes | install-aamp.sh -s -k file
 
       - name: Run unit tests
         working-directory: ./aamp
