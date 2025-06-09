@@ -11855,13 +11855,6 @@ void PrivateInstanceAAMP::SetPreferredTextLanguages(const char *param )
 	bool accessibilityPresent = false;
 	std::vector<std::string> inputTextLanguagesList;
 
-	// IsLocalAAMPTsb will be set once the playback of HiFi LLD stream starts and local TSB config is enabled
-	if (IsLocalAAMPTsb())
-	{
-		AAMPLOG_WARN("Local TSB playback is in progress!!. SetPreferredTextLanguages() will be ignored!!");
-		return;
-	}
-
 	try
 	{
 		jsObject = new AampJsonObject(param);
