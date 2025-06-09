@@ -529,6 +529,7 @@ void MyAAMPEventListener::Event(const AAMPEventPtr& e)
 		case AAMP_EVENT_PROGRESS:
 			{
 				ProgressEventPtr ev = std::dynamic_pointer_cast<ProgressEvent>(e);
+				printf("[AAMLCLI] AAMP_EVENT_PROGRESS: start:%ldms, position:%ldms, end:%ldms, duration:%ldms, rate:%.2f\n", (long)(ev->getStart()), (long)(ev->getPosition()), (long) (ev->getEnd()), (long) (ev->getDuration()), ev->getCurrentPlayRate());
 				if(mAampcli.mEnableProgressLog)
 				{
 					char seekableRange[32];
