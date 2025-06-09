@@ -31,10 +31,7 @@
 #include <memory>
 
 #ifdef USE_EXTERNAL_STATS
-// narrowly define MediaType for backwards compatibility
-#define MediaType GstMediaType
-#include "aamp-xternal-stats.h"
-#undef MediaType
+#include "player-xternal-stats.h"
 #endif
 #include "PlayerUtils.h"
 
