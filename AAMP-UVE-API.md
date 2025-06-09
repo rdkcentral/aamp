@@ -207,6 +207,8 @@ Configuration options are passed to AAMP using the UVE initConfig method. This a
 | showDiagnosticsOverlay | Number | 0 (None) | Configures the diagnostics overlay: 0 (None), 1 (Minimal), 2 (Extended). Controls the visibility and level of detail for diagnostics displayed during playback. Refer [Diagnostics Overlay Configuration](#diagnostics-overlay-configuration)
 | localTSBEnabled | Boolean | False | Enable use of time shift buffer (TSB) for live playback, leveraging local storage.  Use of a TSB allows pause, seek, fast forward/rewind operations beyond the size of the default manifest live window supported by the CDN |
 | tsbLength | Number | 3600 (1 hour) or 1500 (25 min) | Max duration (seconds) of Local TSB to build up before culling  (not recommended for apps to change) |
+| monitorAV | Boolean | False | Enable background monitoring of audio/video positions to infer video freeze, audio drop, or av sync issues |
+| monitorAVReportingInterval | Number | 1000 | Timeout in milliseconds for reporting MonitorAV events |
 
 Example:
 ```js
@@ -2265,6 +2267,22 @@ Example:
 ```
 ---
 
+### monitorAVStatus
+
+**Event Payload:**
+- sessionId: string Refer to [load](#load-uri_autoplay_tuneparams) API for details
+- currentState: string
+- videoPosMs : number
+- audioPosMs : number
+- timeInStateMs : number
+
+**Description:**
+- Player periodically reports the video and audio position to the application which could be used to infer video freeze, audio drop, or av sync issues.
+- Reporting interval can be configured using monitorAVReportingInterval which ranges from 1s to 60s.
+- Player also sends a currentState which is identified by the player based on the continuous a/v positions.
+
+---
+
 <div style="page-break-after: always;"></div>
 
 ## Client DAI Feature Support
@@ -3577,7 +3595,9 @@ Aug 2024
     - wifiCurlHeader ( default value changed to false )
     - enableMediaProcessor ( default value changed to true )
     - enablePTSRestampForHlsTs
+    - monitorAV
     - monitorAVSyncThreshold
     - monitorAVJumpThreshold
     - progressLoggingDivisor
     - showDiagnosticsOverlay ( added example in Appendix )
+    - monitorAVReportingInterval
