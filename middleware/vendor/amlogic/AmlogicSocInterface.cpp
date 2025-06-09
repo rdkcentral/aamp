@@ -30,11 +30,11 @@ AmlogicSocInterface::AmlogicSocInterface()
  * @brief Get SoC volume property name.
  * @return Volume property name.
  */
-void AmlogicSocInterface::SetAudioProperty(const char **volume, const char **mute, bool& isSinkBinVolume)
+void AmlogicSocInterface::SetAudioProperty(const char * &volume, const char * &mute, bool& isSinkBinVolume)
 {
 	/* Avoid mute property setting for AMLOGIC as use of "mute" property on pipeline is impacting all other players */
 	/* Using "stream-volume" property of audio-sink for setting volume and mute for AMLOGIC platform */
-	*volume = "stream-volume";
+	volume = "stream-volume";
 	isSinkBinVolume = false;
 }
 

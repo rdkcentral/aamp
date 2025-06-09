@@ -80,10 +80,7 @@ void WriteUint64(uint8_t *dst, uint64_t val);
  */
 int ReadCStringLen(const uint8_t* buffer, uint32_t bufferLen);
 
-#define READ_BMDT64(buf) \
-		ReadUint64(buf); buf+=8;
-
-#define READ_64(buf) \
+#define READ_U64(buf) \
 		ReadUint64(buf); buf+=8;
 
 #define IS_TYPE(value, type) \
@@ -445,6 +442,8 @@ class MdhdBox : public FullBox
 private:
 	uint32_t timeScale;
 	uint8_t* const timeScale_loc;
+	uint64_t duration;
+	uint8_t* const duration_loc;
 
 public:
 	/**
@@ -453,8 +452,10 @@ public:
 	 * @param[in] sz - box size
 	 * @param[in] tScale - TimeScale value
 	 * @param[in] tScale_loc - pointer with the location of the TimeScale in the buffer
+	 * @param[in] dur - duration value
+	 * @param[in] dur_loc - pointer with the location of the Duration in the buffer
 	 */
-	MdhdBox(uint32_t sz, uint32_t tScale, uint8_t* tScale_loc);
+	MdhdBox(uint32_t sz, uint32_t tScale, uint8_t* tScale_loc, uint64_t dur, uint8_t* dur_loc);
 
 	/**
 	 * @fn MdhdBox
@@ -462,8 +463,10 @@ public:
 	 * @param[in] fbox - box object
 	 * @param[in] tScale - TimeScale value
 	 * @param[in] tScale_loc - pointer with the location of the TimeScale in the buffer
+	 * @param[in] dur - duration value
+	 * @param[in] dur_loc - pointer with the location of the Duration in the buffer
 	 */
-	MdhdBox(FullBox &fbox, uint32_t tScale, uint8_t* tScale_loc);
+	MdhdBox(FullBox &fbox, uint32_t tScale, uint8_t* tScale_loc, uint64_t dur, uint8_t* dur_loc);
 
 	/**
 	 * @fn setTimeScale
@@ -479,6 +482,21 @@ public:
 	 * @return TimeScale value
 	 */
 	uint32_t getTimeScale();
+
+	/**
+	 * @fn setDuration
+	 *
+	 * @param[in] dur - duration value
+	 * @return void
+	 */
+	void setDuration(uint64_t dur);
+
+	/**
+	 * @fn getDuration
+	 *
+	 * @return duration value
+	 */
+	uint64_t getDuration();
 
 	/**
 	 * @fn constructMdhdBox
@@ -1133,4 +1151,5 @@ public:
 	 */
 	uint64_t getSampleDuration();
 };
+
 #endif /* __ISOBMFFBOX_H__ */

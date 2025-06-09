@@ -16,13 +16,14 @@
 * See the License for the specific language governing permissions and
 * limitations under the License.
 */
-
+#include "HlsDrmBase.h"
+#include "priv_aamp.h"
+#include "DrmInterface.h"
 #include "fragmentcollector_hls.h"
-
 StreamAbstractionAAMP_HLS::StreamAbstractionAAMP_HLS(class PrivateInstanceAAMP *aamp,double seekpos, float rate,
 			id3_callback_t id3Handler,
 			ptsoffset_update_t ptsOffsetUpdate)
-    : StreamAbstractionAAMP(aamp), mainManifest("mainManifest"), thumbnailManifest("thumbnailManifest")
+    : StreamAbstractionAAMP(aamp), mainManifest("mainManifest"), thumbnailManifest("thumbnailManifest"),mDrmInterface(aamp)
 {
 }
 
@@ -79,3 +80,6 @@ StreamAbstractionAAMP::ABRMode StreamAbstractionAAMP_HLS::GetABRMode() { return 
 void StreamAbstractionAAMP_HLS::RefreshTrack(AampMediaType type) { }
 
 bool StreamAbstractionAAMP_HLS::SelectPreferredTextTrack(TextTrackInfo& selectedTextTrack) { return true; }
+
+bool StreamAbstractionAAMP_HLS::DoEarlyStreamSinkFlush(bool newTune, float rate){ return false; }
+

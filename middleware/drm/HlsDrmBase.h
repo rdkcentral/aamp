@@ -2,7 +2,7 @@
  * If not stated otherwise in this file or this component's license file the
  * following copyright and licenses apply:
  *
- * Copyright 2018 RDK Management
+ * Copyright 2025 RDK Management
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,8 +25,27 @@
 
 #ifndef _DRM_HLSDRMBASE_H_
 #define _DRM_HLSDRMBASE_H_
+#include "PlayerUtils.h"
+#include "DrmSession.h"
 
-#include "priv_aamp.h"
+
+#define DECRYPT_WAIT_TIME_MS 3000
+
+/**
+ * @enum ProfilerBucketType
+ * @brief Bucket types of  profiler
+ */
+typedef enum
+{
+	DRM_PROFILE_BUCKET_DECRYPT_VIDEO,       /**< Video decryption bucket*/
+	DRM_PROFILE_BUCKET_DECRYPT_AUDIO,       /**< Audio decryption bucket*/
+	DRM_PROFILE_BUCKET_DECRYPT_SUBTITLE,    /**< Subtitle decryption bucket*/
+	DRM_PROFILE_BUCKET_DECRYPT_AUXILIARY,   /**< Auxiliary decryption bucket*/
+
+	DRM_PROFILE_BUCKET_LA_TOTAL,            /**< License acquisition total bucket*/
+	DRM_PROFILE_BUCKET_LA_PREPROC,          /**< License acquisition pre-processing bucket*/
+
+} DrmProfilerBucketType;
 
 /**
  * @enum DrmReturn
@@ -63,20 +82,18 @@ public:
 	/**
 	 * @brief Set DRM specific meta-data
 	 *
-	 * @param aamp AAMP instance to be associated with this decryptor
 	 * @param metadata DRM specific metadata
 	 * @retval 0 on success
 	 */
-	virtual DrmReturn SetMetaData( class PrivateInstanceAAMP *aamp, void* metadata,int trackType) = 0;
+	virtual DrmReturn SetMetaData(void* metadata,int trackType) = 0;
 
 	/**
 	 * @brief Set information required for decryption
 	 *
-	 * @param aamp AAMP instance to be associated with this decryptor
 	 * @param drmInfo Drm information
 	 * @retval eDRM_SUCCESS on success
 	 */
-	virtual DrmReturn SetDecryptInfo( PrivateInstanceAAMP *aamp, const struct DrmInfo *drmInfo) = 0;
+	virtual DrmReturn SetDecryptInfo(const struct DrmInfo *drmInfo,  int acquireKeyWaitTime) = 0;
 
 
 	/**
@@ -87,7 +104,7 @@ public:
 	 * @param timeInMs wait time
 	 * @retval eDRM_SUCCESS on success
 	 */
-	virtual DrmReturn Decrypt(ProfilerBucketType bucketType, void *encryptedDataPtr, size_t encryptedDataLen, int timeInMs = 3000) = 0;
+	virtual DrmReturn Decrypt(int bucketType, void *encryptedDataPtr, size_t encryptedDataLen, int timeInMs = 3000) = 0;
 
 	/**
 	 * @brief Release drm session
@@ -108,7 +125,7 @@ public:
 	* @brief AcquireKey Function to get DRM Key
 	*
 	*/
-	virtual void AcquireKey( class PrivateInstanceAAMP *aamp, void *metadata,int trackType) = 0;
+	virtual void AcquireKey(void *metadata,int trackType) = 0;
 	/**
 	* @brief GetState Function to get current DRM state
 	*

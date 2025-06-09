@@ -24,16 +24,16 @@
 #include <cstring>
 #include <memory>
 #include <cjson/cJSON.h>
+#include "priv_aamp.h"
 
 #include <gmock/gmock.h>
 
 #include "curlMocks.h"
-#include "AampDRMSessionManager.h"
+#include "DrmSessionManager.h"
+#include "AampDRMLicManager.h"
 
 #ifdef USE_OPENCDM_ADAPTER
-#include "AampHlsOcdmBridge.h"
 #include "MockOpenCdm.h"
-
 #define OCDM_SESSION ((OpenCDMSession*)0x0CD12345)
 #define OCDM_SYSTEM ((OpenCDMSystem*)0x0CDACC12345)
 #endif /* USE_OPENCDM_ADAPTER */
@@ -112,13 +112,14 @@ private:
 	PrivateInstanceAAMP* mAamp = nullptr;
 	std::map<std::string, TestCurlResponse> mCurlResponses;
 	MockChallengeData mMockChallengeData;
-	std::unique_ptr<AampDRMSessionManager> mSessionManager;
+	std::unique_ptr<AampDRMLicenseManager> mLicenseManager;
+	std::unique_ptr<DrmSessionManager> mSessionManager;
 
 public:
 	TestUtilDrm(PrivateInstanceAAMP* privAamp);
 	~TestUtilDrm();
 
-	AampDRMSessionManager* getSessionManager();
+	AampDRMLicenseManager* getSessionManager();
 #ifdef USE_OPENCDM_ADAPTER
 	DrmSession* createDrmSessionForHelper(DrmHelperPtr drmHelper,
 											  const char* keySystem);

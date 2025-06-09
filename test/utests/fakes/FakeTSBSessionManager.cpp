@@ -88,7 +88,12 @@ void AampTSBSessionManager::Flush()
 
 AAMPStatusType AampTSBSessionManager::InvokeTsbReaders(double &startPosSec, float rate, TuneType tuneType)
 {
-	return eAAMPSTATUS_OK;
+	AAMPStatusType ret = eAAMPSTATUS_OK;
+	if (g_mockTSBSessionManager)
+	{
+		ret = g_mockTSBSessionManager->InvokeTsbReaders(startPosSec, rate, tuneType);
+	}
+	return ret;
 }
 
 std::shared_ptr<AampTsbReader> AampTSBSessionManager::GetTsbReader(AampMediaType mediaType)

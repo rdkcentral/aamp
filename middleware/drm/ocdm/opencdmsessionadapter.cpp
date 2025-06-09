@@ -327,7 +327,7 @@ int OCDMSessionAdapter::processDRMKey(DrmData* key, uint32_t timeout)
 			}
 			else 
 			{
-				if(processHandler.KillProcess("WPEcdmi")) /** Backword compatability **/
+				if(processHandler.KillProcess("WPEcdmi")) /** Backword compatibility **/
 				{
 					MW_LOG_WARN("OCDM HWError reported.. Killed the process WPEcdmi for recovery..");
 				}

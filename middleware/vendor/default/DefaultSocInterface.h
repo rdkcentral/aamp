@@ -55,7 +55,7 @@ class DefaultSocInterface : public SocInterface
 		 * @brief Get volume property name.
 		 * @return Volume property name.
 		 */
-		void SetAudioProperty(const char **volume, const char **mute, bool& isSinkBinVolume)override;
+		void SetAudioProperty(const char * &volume, const char * &mute, bool& isSinkBinVolume)override;
 
 		/**
 		 * @brief Sets the playback rate for the given GStreamer elements.

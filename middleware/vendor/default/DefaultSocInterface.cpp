@@ -42,11 +42,11 @@ bool DefaultSocInterface::UseAppSrc()
  * @brief Get SoC volume property name.
  * @return Volume property name.
  */
-void DefaultSocInterface::SetAudioProperty(const char **volume, const char **mute, bool& isSinkBinVolume)
+void DefaultSocInterface::SetAudioProperty(const char * &volume, const char * &mute, bool& isSinkBinVolume)
 {
 	isSinkBinVolume = false;
-	*volume = "volume";
-	*mute = "mute";
+	volume = "volume";
+	mute = "mute";
 #if defined(__APPLE__)
 	isSinkBinVolume = true;
 #endif
@@ -116,12 +116,12 @@ bool DefaultSocInterface::IsAudioOrVideoDecoder(const char* name, bool isRialto)
  */
 void DefaultSocInterface::SetPlaybackFlags(gint &flags, bool isSub)
 {
-#if  (defined(__APPLE__))
-	flags = PLAY_FLAG_VIDEO | PLAY_FLAG_AUDIO | PLAY_FLAG_SOFT_VOLUME;
+#if defined(__APPLE__)
+	// on OSX, just use working defaults
+	// note that if PLAY_FLAG_DEINTERLACE is not included, video freezes on first frame
 #else
-	flags = PLAY_FLAG_VIDEO | PLAY_FLAG_AUDIO | PLAY_FLAG_NATIVE_AUDIO | PLAY_FLAG_NATIVE_VIDEO;
-#endif
 	flags = PLAY_FLAG_VIDEO | PLAY_FLAG_AUDIO | PLAY_FLAG_SOFT_VOLUME;
+#endif
 	if(isSub)
 	{
 		flags = PLAY_FLAG_TEXT;

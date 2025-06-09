@@ -117,8 +117,9 @@ struct Configs
 	bool progressLogging;
 	bool monitorAV;
 	bool disableUnderflow;
-	int monitorAvsyncThresholdMs;
-	int monitorJumpThresholdMs;
+	int monitorAvsyncThresholdPositiveMs;
+	int monitorAvsyncThresholdNegativeMs;
+	int monitorAvJumpThresholdMs;
 };
 
 typedef enum
@@ -202,18 +203,6 @@ enum class InterfaceCB
 	startNewSubtitleStream // Add more events here if needed
 };
 
-/**
- * @name gstMapDecoderLookUptable
- *
- * @brief Decoder map list lookup table
- * convert from codec to string map list of gstreamer
- * component.
- */
-static std::map<std::string, std::vector<std::string>> gstMapDecoderLookUptable =
-	{
-		{"ac-3", {"omxac3dec", "avdec_ac3", "avdec_ac3_fixed"}},
-		{"ac-4", {"omxac4dec"}}};
-
 struct gst_media_stream
 {
 	GstElement *sinkbin;		  /**< Sink element to consume data */
@@ -255,6 +244,12 @@ struct MonitorAVState
 	const char *description;
 	gint64 av_position[2];
 	bool happy;
+
+	MonitorAVState() : tLastReported(0), tLastSampled(0), description(nullptr), happy(false)
+	{
+		av_position[0] = 0; // Video position
+		av_position[1] = 0; // Audio position
+	}
 };
 /**
  * @struct GstPlayerPriv
@@ -536,15 +531,6 @@ public:
 	 */
 	void SetPlayerName(std::string name);
 
-	/**
-	 * @brief Sets the logger information.
-	 *
-	 * @param[in] logRedirectStatus Status of log redirection.
-	 * @param[in] ethanLogStatus Status of Ethan logging.
-	 * @param[in] level Log level.
-	 * @param[in] lock Lock status.
-	 */
-	void SetLoggerInfo(bool logRedirectStatus, bool ethanLogStatus, int level, bool lock);
 	/**
 	 *@brief sets the preferred drm by app
 	 *@param[in] drmID preferred drm
@@ -1104,15 +1090,16 @@ public:
 	static void InitializePlayerGstreamerPlugins();
 
 	/**
-	 * @brief Dumps diagnostic information.
-	 */
-	void DumpDiagnostics();
-
-	/**
 	 * @brief Enables GStreamer debug logging.
 	 * @param[in] debugLevel The level of debug logging to enable.
 	 */
 	void EnableGstDebugLogging(std::string debugLevel);
+
+	/**
+	 * @brief Gets the monitor AV state.
+	 * @return A pointer to the MonitorAVState structure containing the AV status or nullptr.
+	 */
+	const MonitorAVState& GetMonitorAVState() const { return gstPrivateContext->monitorAVstate; }
 };
 struct data
 {

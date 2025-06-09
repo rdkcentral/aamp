@@ -27,20 +27,19 @@
 * 
 */
 #include "_base64.h"
-#include "AampDRMSessionManager.h"
 #include "DrmSession.h"
-#include "fragmentcollector_hls.h"
+#include "DrmHelper.h"
 
+#include "PlayerLogManager.h"
 #include <cstdlib>
 #include <string>
 using namespace std;
 
 
 /**
- * Global aamp config data 
+ * Global  config data 
  */
-extern AampConfig *gpGlobalConfig;
-shared_ptr<DrmHelper> ProcessContentProtection(PrivateInstanceAAMP *aamp, std::string attrName);
+shared_ptr<DrmHelper> ProcessContentProtection(std::string attrName, bool propagateURIParam , bool isSamplesRequired);
 
 /**
  * Local APIs declarations
@@ -64,11 +63,11 @@ static int GetFieldValue(string &attrName, string keyName, string &valuePtr){
 	int status = DRM_API_FAILED;
 	int found = 0, foundpos = 0;
 
-	AAMPLOG_TRACE("Entering..");
+	MW_LOG_TRACE("Entering..");
 
 	while ( (foundpos = (int)attrName.find(keyName,found)) != std::string::npos)
 	{
-		AAMPLOG_TRACE("keyName = %s",
+		MW_LOG_TRACE("keyName = %s",
 		 keyName.c_str());
 
 		valueStartPos = foundpos + keylen;
@@ -76,7 +75,7 @@ static int GetFieldValue(string &attrName, string keyName, string &valuePtr){
 		{
 			string valueTempPtr = attrName.substr(valueStartPos+1);
 
-			AAMPLOG_TRACE("valueTempPtr = %s",
+			MW_LOG_TRACE("valueTempPtr = %s",
 			valueTempPtr.c_str());
 
 			/* update start position based on substring */
@@ -93,14 +92,14 @@ static int GetFieldValue(string &attrName, string keyName, string &valuePtr){
 			}
 
 			valuePtr = valueTempPtr.substr(valueStartPos, valueEndPos);
-			AAMPLOG_INFO("Value found : %s for Key : %s",
+			MW_LOG_INFO("Value found : %s for Key : %s",
 			valuePtr.c_str(), keyName.c_str());
 			status = DRM_API_SUCCESS;
 			break;
 		}
 		else
 		{
-			AAMPLOG_TRACE("Checking next occurrence of %s= in %s",
+			MW_LOG_TRACE("Checking next occurrence of %s= in %s",
 			keyName.c_str(), attrName.c_str());
 			found = valueStartPos+1;
 		}
@@ -108,7 +107,7 @@ static int GetFieldValue(string &attrName, string keyName, string &valuePtr){
 
 	if(DRM_API_SUCCESS != status)
 	{
-		AAMPLOG_ERR("Could not able to find %s in %s",
+		MW_LOG_ERR("Could not able to find %s in %s",
 		keyName.c_str(), attrName.c_str());
 	}
 
@@ -125,7 +124,7 @@ static int getPsshData(string attrName, string &psshData){
 
 	int status = GetFieldValue(attrName, "URI", psshData );
 	if(DRM_API_SUCCESS != status){
-		AAMPLOG_ERR("Could not able to get psshData from manifest"
+		MW_LOG_ERR("Could not able to get psshData from manifest"
 		);
 		return status;
 	}
@@ -146,7 +145,7 @@ static DrmHelperPtr getDrmHelper(string attrName , bool bPropagateUriParams, boo
 	string systemId = "";
 	
 	if(DRM_API_SUCCESS != GetFieldValue(attrName, "KEYFORMAT", systemId )){
-		AAMPLOG_ERR("Could not able to receive key id from manifest"
+		MW_LOG_ERR("Could not able to receive key id from manifest"
 		);
 		return nullptr;
 	}
@@ -165,15 +164,15 @@ static DrmHelperPtr getDrmHelper(string attrName , bool bPropagateUriParams, boo
 
 /**
  * @brief Process content protection of track
- * @param aamp PrivateInstanceAAMP instance 
  * @param attrName attribute value
+ * @param propagateURIParam propagate URI value
+ * @param isSamplesRequired boolean for sample required 
  * @return shared_ptr to the DrmHelper instance
  */
-shared_ptr<DrmHelper> ProcessContentProtection(PrivateInstanceAAMP *aamp, std::string attrName)
+shared_ptr<DrmHelper> ProcessContentProtection( std::string attrName, bool propagateURIParam , bool isSamplesRequired)
 {
-	/* StreamAbstractionAAMP_HLS* context; */
+	/* StreamAbstraction_HLS* context; */
 	/* Pseudo code for ProcessContentProtection in HLS is below
-	 * Get Aamp instance as aamp
 	 * 1. Create DrmHelper object based on attribute value
 	 * 2. Get pssh data from manifest (extract URI value)
 	 * 3. Set PSSH data to DrmHelper object
@@ -187,17 +186,17 @@ shared_ptr<DrmHelper> ProcessContentProtection(PrivateInstanceAAMP *aamp, std::s
 
 	do
 	{
-		shared_ptr<DrmHelper> drmHelper = getDrmHelper(attrName, ISCONFIGSET(eAAMPConfig_PropagateURIParam), aamp->isDecryptClearSamplesRequired());
+	 	shared_ptr<DrmHelper> drmHelper = getDrmHelper(attrName, propagateURIParam, isSamplesRequired);
 		if (nullptr == drmHelper)
 		{
-			AAMPLOG_ERR("Failed to get DRM type/helper from manifest!");
+			MW_LOG_ERR("Failed to get DRM type/helper from manifest!");
 			break;
 		}
 
 		status  = getPsshData(attrName, psshDataStr);
 		if (DRM_API_SUCCESS != status)
 		{
-			AAMPLOG_ERR("Failed to get PSSH Data from manifest!");
+			MW_LOG_ERR("Failed to get PSSH Data from manifest!");
 			break;
 		}
 		psshData = (char*) malloc(psshDataStr.length() + 1);
@@ -206,7 +205,7 @@ shared_ptr<DrmHelper> ProcessContentProtection(PrivateInstanceAAMP *aamp, std::s
 
 		if(drmHelper->friendlyName().compare("Verimatrix") == 0)
 		{
-			AAMPLOG_WARN( "Verimatrix DRM" );
+			MW_LOG_WARN( "Verimatrix DRM" );
 			data = (unsigned char *)psshData;
 			dataLength = psshDataStr.length();
 		}
@@ -220,12 +219,12 @@ shared_ptr<DrmHelper> ProcessContentProtection(PrivateInstanceAAMP *aamp, std::s
 
 		if (dataLength == 0)
 		{
-			AAMPLOG_ERR("Could not able to retrive DRM data from PSSH");
+			MW_LOG_ERR("Could not able to retrive DRM data from PSSH");
 			break;
 		}
-		if (AampLogManager::isLogLevelAllowed(eLOGLEVEL_TRACE))
+		if (PlayerLogManager::isLogLevelAllowed(mLOGLEVEL_TRACE))
 		{
-			AAMPLOG_TRACE("content metadata from manifest; length %zu", dataLength);
+			MW_LOG_TRACE("content metadata from manifest; length %zu", dataLength);
 			printf("*****************************************************************\n");
 			for (int i = 0; i < dataLength; i++)
 			{
@@ -241,7 +240,7 @@ shared_ptr<DrmHelper> ProcessContentProtection(PrivateInstanceAAMP *aamp, std::s
 		}
 		if (!drmHelper->parsePssh(data, (uint32_t)dataLength))
 		{
-			AAMPLOG_ERR("Failed to get key Id from manifest");
+			MW_LOG_ERR("Failed to get key Id from manifest");
 			break;
 		}
 		// After processing the PSSH information, return the drmHelper

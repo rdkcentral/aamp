@@ -2,7 +2,7 @@
  * If not stated otherwise in this file or this component's license file the
  * following copyright and licenses apply:
  *
- * Copyright 2018 RDK Management
+ * Copyright 2025 RDK Management
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,27 +19,26 @@
 
 
 /**
-* @file AampDRMSessionManager.h
+* @file DrmSessionManager.h
 * @brief Header file for DRM session manager
 */
-#ifndef AampDRMSessionManager_h
-#define AampDRMSessionManager_h
+#ifndef DrmSessionManager_h
+#define DrmSessionManager_h
 
-#include "drmsessionfactory.h"
+#include "DrmSessionFactory.h"
 #include "DrmSession.h"
 #include "DrmUtils.h"
+#include "GstUtils.h"
 #include <string>
 #include <atomic>
-#include "AampCurlDownloader.h"
 #include "DrmHelper.h"
 
 #ifdef USE_SECCLIENT
 #include "sec_client.h"
 #endif
 
-#include "AampDRMLicPreFetcher.h"
+#include <functional>
 
-class PrivateInstanceAAMP;
 
 #define VIDEO_SESSION 0
 #define AUDIO_SESSION 1
@@ -53,12 +52,11 @@ struct DrmSessionContext
 	std::vector<uint8_t> data;
 	std::mutex sessionMutex;
 	DrmSession * drmSession;
-	AampCurlDownloader mLicenseDownloader;
 
-	DrmSessionContext() : sessionMutex(), drmSession(NULL),data(),mLicenseDownloader()
+	DrmSessionContext() : sessionMutex(), drmSession(NULL),data()
 	{
 	}
-	DrmSessionContext(const DrmSessionContext& other) : data(other.data), drmSession(other.drmSession),mLicenseDownloader()
+	DrmSessionContext(const DrmSessionContext& other) : data(other.data), drmSession(other.drmSession)
 	{
 		// Releases memory allocated after destructing any of these objects
 	}
@@ -106,15 +104,30 @@ typedef enum{
 	DRM_GET_LICENSE_SEC    /**< DRM get license SEC request */
 }DrmRequestType;
 
+struct configs{
+    bool mUseSecManager;
+    int mLicenseRetryWaitTime;
+    int mDrmNetworkTimeout;
+    int mDrmStallTimeout;
+    int mCurlConnectTimeout;
+    bool mCurlLicenseLogging;
+    bool mRuntimeDRMConfig;
+    int mContentProtectionDataUpdateTimeout;
+    bool mEnablePROutputProtection;
+    bool  mPropagateURIParam; 
+    bool mIsFakeTune;
+};
 /**
- *  @class	AampDRMSessionManager
+ *  @class	DrmSessionManager
  *  @brief	Controller for managing DRM sessions.
  */
-class AampDRMSessionManager
+class DrmSessionManager
 {
+	public:
 
-private:
 	DrmSessionContext *drmSessionContexts;
+	configs *m_drmConfigParam;
+private:
 	KeyID *cachedKeyIDs;
 	char* accessToken;
 	int accessTokenLen;
@@ -122,13 +135,8 @@ private:
 	std::mutex accessTokenMutex;
 	std::mutex cachedKeyMutex;
 	std::mutex mDrmSessionLock;
-	bool licenseRequestAbort;
 	bool mEnableAccessAttributes;
-	int mMaxDRMSessions;
-	std::vector<std::thread> mLicenseRenewalThreads;
-	AampCurlDownloader mAccessTokenConnector;
-	AampLicensePreFetcher* mLicensePrefetcher; /**< DRM license prefetcher instance */
-	PrivateInstanceAAMP *aampInstance; /** AAMP instance **/
+	int mMaxDrmSessions;
 #ifdef USE_SECMANAGER
 	AampSecManagerSession mAampSecManagerSession;
 	std::atomic<bool> mIsVideoOnMute;
@@ -139,12 +147,12 @@ private:
      	 * @brief Copy constructor disabled
      	 *
      	 */
-	AampDRMSessionManager(const AampDRMSessionManager &) = delete;
+	DrmSessionManager(const DrmSessionManager &) = delete;
 	/**
  	 * @brief assignment operator disabled
 	 *
  	 */
-	AampDRMSessionManager& operator=(const AampDRMSessionManager &) = delete;
+	DrmSessionManager& operator=(const DrmSessionManager &) = delete;
 	/**
 	 *  @fn write_callback
 	 *  @param[in]	ptr - Pointer to received data.
@@ -178,25 +186,13 @@ private:
 public:
 	
 	/**
-	 *  @fn AampDRMSessionManager
+	 *  @fn DrmSessionManager
 	 */
-	AampDRMSessionManager(int maxDrmSessions, PrivateInstanceAAMP *aamp);
+	DrmSessionManager(int maxDrmSessions, void *player);
 
 	void initializeDrmSessions();
 
-	/**
-	 * @brief Set the Common Key Duration object
-	 * 
-	 * @param keyDuration key duration
-	 */
-	void SetCommonKeyDuration(int keyDuration);
 
-	/**
-	 * @brief set license prefetcher
-	 * 
-	 * @return none
-	 */
-	void SetLicenseFetcher(AampLicenseFetcher *fetcherInstance);
 
 	/**
 	 * @brief Set to true if error event to be sent to application if any license request fails
@@ -217,7 +213,7 @@ public:
 	 * @return true if successfully queued
 	 * @return false if error occurred
 	 */
-	bool QueueContentProtection(DrmHelperPtr drmHelper, std::string periodId, uint32_t adapIdx, AampMediaType type, bool isVssPeriod = false);
+	bool QueueContentProtection(DrmHelperPtr drmHelper, std::string periodId, uint32_t adapIdx, GstMediaType type, bool isVssPeriod = false);
 
 	/**
 	 * @brief Queue a content protection event to the pipeline
@@ -228,22 +224,16 @@ public:
 	 * @param type media type
 	 * @return none
 	 */
-	void QueueProtectionEvent(DrmHelperPtr drmHelper, std::string periodId, uint32_t adapIdx, AampMediaType type);
+	void QueueProtectionEvent(DrmHelperPtr drmHelper, std::string periodId, uint32_t adapIdx, GstMediaType type);
+
 
 	/**
-	 * @brief Stop DRM session manager and terminate license fetcher
-	 * 
-	 * @param none
-	 * @return none
+	 *  @fn ~DrmSessionManager
 	 */
-	void Stop();
-
-	/**
-	 *  @fn ~AampDRMSessionManager
-	 */
-	~AampDRMSessionManager();
+	~DrmSessionManager();
 	/**
 	 *  @fn 	createDrmSession
+	 *  @param[in]	err - To retrieve the error case  and to report to application 
 	 *  @param[in]	systemId - UUID of the DRM system.
 	 *  @param[in]	initDataPtr - Pointer to PSSH data.
 	 *  @param[in]	dataLength - Length of PSSH data.
@@ -252,40 +242,20 @@ public:
 	 *  			is already extracted during manifest parsing. Used when content meta data
 	 *  			is available as part of another PSSH header, like DRM Agnostic PSSH
 	 *  			header.
-	 *  @param[in]	aamp - Pointer to PrivateInstanceAAMP, for DRM related profiling.
+	 *  @param[in]	Player - Pointer to player, for DRM related profiling.
 	 *  @retval  	error_code - Gets updated with proper error code, if session creation fails.
 	 *  			No NULL checks are done for error_code, caller should pass a valid pointer.
 	 */
-	DrmSession * createDrmSession(const char* systemId, MediaFormat mediaFormat,
-			const unsigned char * initDataPtr, uint16_t dataLength, AampMediaType streamType,
-			PrivateInstanceAAMP* aamp, DrmMetaDataEventPtr e, const unsigned char *contentMetadata = nullptr,
-			bool isPrimarySession = false);
+	DrmSession * createDrmSession(int &err, const char* systemId, MediaFormat mediaFormat,
+			const unsigned char * initDataPtr, uint16_t dataLength, int streamType,
+			DrmCallbacks* player, void *ptr, const unsigned char *contentMetadata = nullptr, 
+	                	bool isPrimarySession = false );
 	/**
 	 * @fn createDrmSession
-	 * @return AampdrmSession
+	 * @return drmSession
 	 */
-	DrmSession* createDrmSession(DrmHelperPtr drmHelper, DrmMetaDataEventPtr eventHandle, PrivateInstanceAAMP* aampInstance, AampMediaType streamType);
+	DrmSession* createDrmSession( int &err, DrmHelperPtr drmHelper,  DrmCallbacks* Instance, int streamType, void *metaDataPtr);
 
-#if defined(USE_SECCLIENT) || defined(USE_SECMANAGER)
-	DrmData * getLicenseSec(const LicenseRequest &licenseRequest, DrmHelperPtr drmHelper,
-			const ChallengeInfo& challengeInfo, PrivateInstanceAAMP* aampInstance, int32_t *httpCode, int32_t *httpExtStatusCode, DrmMetaDataEventPtr eventHandle);
-#endif
-	/**
-	 *  @fn 	getLicense
-	 *
-	 *  @param[in]	licRequest - License request details (URL, headers etc.)
-	 *  @param[out]	httpError - Gets updated with http error; default -1.
-	 *  @param[in]	eventHandle - DRM Metadata event handle
-	 *  @param[in]	isContentMetadataAvailable - Flag to indicate whether MSO specific headers
-	 *  			are to be used.
-	 *  @param[in]	licenseProxy - Proxy to use for license requests.
-	 *  @return		Structure holding DRM license key and it's length; NULL and 0 if request fails
-	 *  @note		Memory for license key is dynamically allocated, deallocation
-	 *				should be handled at the caller side.
-	 *			customHeader ownership should be taken up by getLicense function
-	 *
-	 */
-	DrmData * getLicense(LicenseRequest &licRequest, int32_t *httpError, AampMediaType streamType, PrivateInstanceAAMP* aamp, DrmMetaDataEventPtr eventHandle,AampCurlDownloader *pLicenseDownloader,std::string licenseProxy="");
 	/**
 	 *  @fn		IsKeyIdProcessed
 	 *  @param[in]	keyIdArray - key Id extracted from pssh data
@@ -335,7 +305,7 @@ public:
 	 * @param   firstFrameSeen set to true the first time we see a video frame after tune
 	 * @return	void.
  	 */
-	void setPlaybackSpeedState(int speed, double positionMs, bool firstFrameSeen = false);
+	void setPlaybackSpeedState(bool live, double currentLatency, bool livepoint , double liveOffsetMs,int speed, double positionMs, bool firstFrameSeen = false);
 	
 	/**
 	 * @fn 	Update tracking of video mute status and update watermarking requests as required, based on video presence, video mute state, and speed
@@ -343,7 +313,7 @@ public:
 	 * @param	seek_pos_seconds indicates the playback position at which most recent playback activity began
 	 * @return	void.
  	 */
- 	void setVideoMute(bool videoMuteStatus, double positionMs);
+ 	void setVideoMute(bool live, double currentLatency, bool livepoint , double liveOffsetMs,bool videoMuteStatus, double positionMs);
 	/**
 	 * @fn    	setSessionMgrState
 	 * @param	state session manager sate to be set
@@ -357,12 +327,6 @@ public:
 	 */
 	SessionMgrState getSessionMgrState();
 	/**
-	 * @fn		setLicenseRequestAbort
-	 * @param	isAbort bool flag to curl abort
-	 * @return	void
-	 */
-	void setLicenseRequestAbort(bool isAbort);
-	/**
 	 *  @fn getAccessToken
 	 *
 	 *  @param[out]	tokenLength - Gets updated with accessToken length.
@@ -375,31 +339,12 @@ public:
 	 * @fn getDrmSession
 	 * @return index to the selected drmSessionContext which has been selected
 	 */
-	KeyState getDrmSession(DrmHelperPtr drmHelper, int &selectedSlot, DrmMetaDataEventPtr eventHandle, PrivateInstanceAAMP* aampInstance, bool isPrimarySession = false);
+	KeyState getDrmSession(int &err, DrmHelperPtr drmHelper, int &selectedSlot, DrmCallbacks* Instance, bool isPrimarySession = false );
 	/**
 	 * @fn getSlotIdForSession
 	 * @return index to the session slot for selected drmSessionContext 
 	 */
 	int getSlotIdForSession(DrmSession* session);
-	/**
-	 * @fn renewLicense
-	 *
-	 * @param[in] drmHelper - Current drm helper
-	 * @param[in] userData - Data holds the current drm Session
-	 * @param[in] aampInstance - Aamp instance
-	 * @return void
-	 */
-
-	void renewLicense(DrmHelperPtr drmHelper, void* userData, PrivateInstanceAAMP* aampInstance);
-	/**
-	 * @fn licenseRenewalThread
-	 *
-	 * @param[in] drmHelper - Current drm helper
-	 * @param[in] sessionSlot - Session slot that holds the current drm Session
-	 * @param[in] aampInstance - Aamp instance
-	 * @return void
- 	 */
-	void licenseRenewalThread(DrmHelperPtr drmHelper, int sessionSlot, PrivateInstanceAAMP* aampInstance);
 	/**
 	 * @fn releaseLicenseRenewalThreads
 	 */
@@ -407,32 +352,12 @@ public:
 	/**
 	 * @fn initializeDrmSession
 	 */
-	KeyState initializeDrmSession(DrmHelperPtr drmHelper, int sessionSlot, DrmMetaDataEventPtr eventHandle, PrivateInstanceAAMP* aampInstance);
-	/**
-	 * @fn acquireLicense
-	 */
-	KeyState acquireLicense(DrmHelperPtr drmHelper, int sessionSlot, int &cdmError,
-			DrmMetaDataEventPtr eventHandle, PrivateInstanceAAMP* aampInstance, AampMediaType streamType, bool isLicenseRenewal = false);
-
-	KeyState handleLicenseResponse(DrmHelperPtr drmHelper, int sessionSlot, int &cdmError,
-			int32_t httpResponseCode, int32_t httpExtResponseCode, shared_ptr<DrmData> licenseResponse, DrmMetaDataEventPtr eventHandle, PrivateInstanceAAMP* aampInstance, bool isLicenseRenewal = false);
-
-	KeyState processLicenseResponse(DrmHelperPtr drmHelper, int sessionSlot, int &cdmError,
-			shared_ptr<DrmData> licenseResponse, DrmMetaDataEventPtr eventHandle, PrivateInstanceAAMP* aampInstance, bool isLicenseRenewal = false);
-	/**
-	 * @fn configureLicenseServerParameters
-	 */
-	bool configureLicenseServerParameters(DrmHelperPtr drmHelper, LicenseRequest& licRequest,
-			std::string &licenseServerProxy, const ChallengeInfo& challengeInfo, PrivateInstanceAAMP* aampInstance);
+	KeyState initializeDrmSession(DrmHelperPtr drmHelper, int sessionSlot,  int& err);
 	/**
 	 * @fn notifyCleanup
 	 */
 	void notifyCleanup();
 
-	/**
-	 * @fn ContentProtectionDataUpdate
-	 */
-	void ContentProtectionDataUpdate(PrivateInstanceAAMP* aampInstance, std::vector<uint8_t> keyId, AampMediaType streamType);
 
 	/**
 	 * @brief To update the max DRM sessions supported
@@ -441,17 +366,58 @@ public:
 	 */
 	void UpdateMaxDRMSessions(int maxSessions);
 
-	/**
-	 * @brief To update the max DRM sessions supported
-	 *
-	 * @param[in] requestType DRM License type
-	 * @param[in] statusCode response code
-	 * @param[in] licenseRequestUrl max DRM Sessions
-	 * @param[in] downloadTimeMS total download time
-	 * @param[in] eventHandle - DRM Metadata event handle
-	 * @param[in] respData - download response data
+        /*
+         *@brief Type definition for acquireLicense callback from application 
+         */
+        using LicenseCallback = std::function<KeyState(DrmHelperPtr drmHelper, int sessionSlot, int &cdmError,
+                        GstMediaType streamType,void *metaDataPtr, bool isLicenseRenewal)>;
+        LicenseCallback AcquireLicenseCb;
+        /*
+         *@brief Registers acquireLicense callback from application 
+         */
+        void RegisterLicenseDataCb(const LicenseCallback Callback)      {
+               AcquireLicenseCb = Callback;
+        };
+	/*
+	 * @brief Register Profile update callback to application 
 	 */
-	void UpdateLicenseMetrics(DrmRequestType requestType, int32_t statusCode, std::string licenseRequestUrl, long long downloadTimeMS, DrmMetaDataEventPtr eventHandle, DownloadResponsePtr respData );
+        using ProfileUpdateCallback =	std::function<void()>;
+	ProfileUpdateCallback ProfileUpdateCb;
+
+	void RegisterProfilingUpdateCb(const ProfileUpdateCallback callback)
+        {
+              ProfileUpdateCb = callback;
+        };
+	/*
+	 * @brief Register Content Protection Update callback to application 
+	 */
+	using ContentUpdateCallback = std::function<std::string(DrmHelperPtr drmHelper, int streamType, std::vector<uint8_t> keyId, int contentProtectionUpd)>;
+	ContentUpdateCallback ContentUpdateCb;
+	void RegisterHandleContentProtectionCb(const ContentUpdateCallback callback)
+	{
+	    ContentUpdateCb = callback;
+	};
+
+	/*
+	 * @brief Custom data stores  
+	 */
+        std::string mCustomData;
+        /**
+	 * @brief Configuration parameters needed from Player
+	 */
+        void UpdateDRMConfig(
+                       bool useSecManager,
+                //       int licenseRetryWaitTime,
+                //       int drmNetworkTimeout,
+                //       int curlConnectTimeout,
+                //       bool curlLicenseLogging,
+                //       bool runtimeDRMConfig,
+                //       int contentProtectionDataUpdateTimeout,
+                       bool enablePROutputProtection,
+                       bool propagateURIParam,
+                       bool isFakeTune);
+
+
 };
 
 /**
@@ -461,7 +427,7 @@ public:
 
 typedef struct writeCallbackData{
 	DrmData *data ;
-	AampDRMSessionManager* mDRMSessionManager;
+	DrmSessionManager* mDrmSessionManager;
 }writeCallbackData;
 
 #endif

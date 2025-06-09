@@ -27,6 +27,12 @@
 #include "PersistentWatermarkPluginAccess.h"
 #include "PersistentWatermarkStorage.h"
 #include <gtest/gtest.h>
+#include <gmock/gmock.h>
+#include "MockJavaScriptCore.h"
+
+using ::testing::_;
+
+MockJavaScriptCore *g_mockJavaScriptCore;
 
 class JsBindingTests : public ::testing::Test
 {
@@ -36,10 +42,12 @@ protected:
 	void SetUp() override
 	{
 		playerInstanceAAMP = new PlayerInstanceAAMP();
+		g_mockJavaScriptCore = new MockJavaScriptCore();
 	}
 
 	void TearDown() override
 	{
+		g_mockJavaScriptCore = nullptr;
 		delete playerInstanceAAMP;
 	}
 public:
@@ -51,4 +59,15 @@ TEST_F(JsBindingTests, TestJsBindings)
 	aamp_LoadJS(context, playerInstanceAAMP);
 
 	aamp_UnloadJS( context );
+}
+
+TEST_F(JsBindingTests, TestJsonUtils )
+{
+	JSContextRef context = NULL;
+
+	//EXPECT_CALL(*g_mockJavaScriptCore, JSObjectMake(_,_,_)).WillOnce(testing::Return( objRef ));
+	JSObjectRef temp1 = aamp_CreateBodyResponseJSObject(context, "{}");
+	JSObjectRef temp2 = aamp_CreateBodyResponseJSObject(context, "" );
+	JSObjectRef temp3 = aamp_CreateBodyResponseJSObject(context, NULL );
+	JSObjectRef temp4 = aamp_CreateBodyResponseJSObject(context, "{\"a\":1,\"b\":\"foo\"}" );
 }

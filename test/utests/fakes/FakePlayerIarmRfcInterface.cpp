@@ -52,14 +52,6 @@ bool PlayerIarmRfcInterface::IsSourceUHD()
 }
 
 /**
- * @brief Is there support for live latency correction
- */
-bool PlayerIarmRfcInterface::IsLiveLatencyCorrectionSupported()
-{
-	return false;
-}
-
-/**
  * @brief gets display resolution
  */
 void PlayerIarmRfcInterface::GetDisplayResolution(int &width, int &height)

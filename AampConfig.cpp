@@ -80,7 +80,9 @@ typedef enum
 	eCONFIG_RANGE_ABSOLUTE_REPORTING, // eABSOLUTE_PROGRESS_EPOCH..eABSOLUTE_PROGRESS_MAX
 	eCONFIG_RANGE_LLDBUFFER, // 1 to 100 LLD buffer
 	eCONFIG_RANGE_SHOW_DIAGNOSTICS_OVERLAY,//0 to 2
-	eCONFIG_RANGE_MONITOR_AVSYNC, //1ms to 10000ms
+	eCONFIG_RANGE_MONITOR_AVSYNC_THRESHOLD_POSITIVE, //1ms to 10000ms
+	eCONFIG_RANGE_MONITOR_AVSYNC_THRESHOLD_NEGATIVE, //-1 to -10000ms
+	eCONFIG_RANGE_MONITOR_AVSYNC_JUMP_THRESHOLD,//1ms to 10000
 	eCONFIG_RANGE_MAX_VALUE,
 } ConfigValidRange;
 #define CONFIG_RANGE_ENUM_COUNT (eCONFIG_RANGE_MAX_VALUE)
@@ -121,7 +123,9 @@ static const struct
 	{eABSOLUTE_PROGRESS_EPOCH, eABSOLUTE_PROGRESS_MAX, eCONFIG_RANGE_ABSOLUTE_REPORTING},
 	{ 1, 100, eCONFIG_RANGE_LLDBUFFER }, /** Minimum buffer should be a average chunk size(only int is possible), upper limit does not have much impact*/
 	{ eDIAG_OVERLAY_NONE, eDIAG_OVERLAY_EXTENDED, eCONFIG_RANGE_SHOW_DIAGNOSTICS_OVERLAY},
-	{ MIN_MONITOR_AV_DELTA_MS, MAX_MONITOR_AV_DELTA_MS, eCONFIG_RANGE_MONITOR_AVSYNC},
+	{ MIN_MONITOR_AVSYNC_POSITIVE_DELTA_MS, MAX_MONITOR_AVSYNC_POSITIVE_DELTA_MS, eCONFIG_RANGE_MONITOR_AVSYNC_THRESHOLD_POSITIVE},
+	{ MIN_MONITOR_AVSYNC_NEGATIVE_DELTA_MS, MAX_MONITOR_AVSYNC_NEGATIVE_DELTA_MS, eCONFIG_RANGE_MONITOR_AVSYNC_THRESHOLD_NEGATIVE},
+	{ MIN_MONITOR_AV_JUMP_THRESHOLD_MS, MAX_MONITOR_AV_JUMP_THRESHOLD_MS, eCONFIG_RANGE_MONITOR_AVSYNC_JUMP_THRESHOLD},
 };
 
 static ConfigPriority customOwner;
@@ -242,7 +246,6 @@ static const ConfigLookupEntryBool mConfigLookupTableBool[AAMPCONFIG_BOOL_COUNT]
 	{true,"abr",eAAMPConfig_EnableABR,false},
 	{true,"fog",eAAMPConfig_Fog,false},
 	{false,"preFetchIframePlaylist",eAAMPConfig_PrefetchIFramePlaylistDL,false},
-	{false,"preservePipeline",eAAMPConfig_PreservePipeline,false},
 	{false,"throttle",eAAMPConfig_Throttle,false},
 	{false,"demuxAudioBeforeVideo",eAAMPConfig_DemuxAudioBeforeVideo,false},
 	{false,"disableEC3",eAAMPConfig_DisableEC3,true},
@@ -304,8 +307,6 @@ static const ConfigLookupEntryBool mConfigLookupTableBool[AAMPCONFIG_BOOL_COUNT]
 	{true,"fragmp4LicensePrefetch",eAAMPConfig_Fragmp4PrefetchLicense,false},
 	{true,"useNewABR",eAAMPConfig_ABRBufferCheckEnabled,false},
 	{false,"useNewAdBreaker",eAAMPConfig_NewDiscontinuity,false},
-	{false,"parallelPlaylistDownload",eAAMPConfig_PlaylistParallelFetch,false},
-	{true,"parallelPlaylistRefresh",eAAMPConfig_PlaylistParallelRefresh ,false},
 	{false,"bulkTimedMetadata",eAAMPConfig_BulkTimedMetaReport,false},
 	{false,"bulkTimedMetadataLive",eAAMPConfig_BulkTimedMetaReportLive,false},
 	{false,"useAverageBandwidth",eAAMPConfig_AvgBWForABR,false},
@@ -461,9 +462,11 @@ static const ConfigLookupEntryInt mConfigLookupTableInt[AAMPCONFIG_INT_COUNT+CON
 	{DEFAULT_AD_FULFILLMENT_TIMEOUT,"adFulfillmentTimeout",eAAMPConfig_AdFulfillmentTimeout,true},
 	{MAX_AD_FULFILLMENT_TIMEOUT,"adFulfillmentTimeoutMax",eAAMPConfig_AdFulfillmentTimeoutMax,true},
 	{eDIAG_OVERLAY_NONE,"showDiagnosticsOverlay",eAAMPConfig_ShowDiagnosticsOverlay,true, eCONFIG_RANGE_SHOW_DIAGNOSTICS_OVERLAY },
-	{DEFAULT_MONITOR_AV_DELTA_MS,"monitorAVSyncThreshold",eAAMPConfig_MonitorAVSyncThreshold ,false,eCONFIG_RANGE_MONITOR_AVSYNC },
-	{DEFAULT_MONITOR_AV_DELTA_MS,"monitorAVJumpThreshold",eAAMPConfig_MonitorAVJumpThreshold,false,eCONFIG_RANGE_MONITOR_AVSYNC },
+	{DEFAULT_MONITOR_AVSYNC_POSITIVE_DELTA_MS, "monitorAVSyncThresholdPositive", eAAMPConfig_MonitorAVSyncThresholdPositive,true, eCONFIG_RANGE_MONITOR_AVSYNC_THRESHOLD_POSITIVE },
+	{DEFAULT_MONITOR_AVSYNC_NEGATIVE_DELTA_MS,"monitorAVSyncThresholdNegative",eAAMPConfig_MonitorAVSyncThresholdNegative,true,eCONFIG_RANGE_MONITOR_AVSYNC_THRESHOLD_NEGATIVE },
+	{DEFAULT_MONITOR_AV_JUMP_THRESHOLD_MS,"monitorAVJumpThreshold",eAAMPConfig_MonitorAVJumpThreshold,true,eCONFIG_RANGE_MONITOR_AVSYNC_JUMP_THRESHOLD },
 	{DEFAULT_PROGRESS_LOGGING_DIVISOR,"progressLoggingDivisor",eAAMPConfig_ProgressLoggingDivisor,false},
+	{DEFAULT_MONITORAVREPORTING_INTERVAL, "monitorAVReportingInterval", eAAMPConfig_MonitorAVReportingInterval, false},
 	// aliases, kept for backwards compatibility
 	{DEFAULT_INIT_BITRATE,"defaultBitrate",eAAMPConfig_DefaultBitrate,true },
 	{DEFAULT_INIT_BITRATE_4K,"defaultBitrate4K",eAAMPConfig_DefaultBitrate4K,true },
@@ -857,12 +860,6 @@ void AampConfig::ApplyDeviceCapabilities()
 	configValueBool[eAAMPConfig_UseWesterosSink].value = SocUtils::UseWesterosSink();
 	configValueBool[eAAMPConfig_SyncAudioFragments].value = SocUtils::IsAudioFragmentSyncSupported();
 	SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_WifiCurlHeader, IsWifiCurlHeader);
-	//To override App Setting, Tune Setting is given priority	
-	if(!pInstance->IsLiveLatencyCorrectionSupported())
-	{
-		configValueBool[eAAMPConfig_EnableLowLatencyCorrection].value = false;
-		SetConfigValue(AAMP_TUNE_SETTING, eAAMPConfig_EnableLiveLatencyCorrection, false);
-	}
 }
 
 std::string AampConfig::GetUserAgentString()

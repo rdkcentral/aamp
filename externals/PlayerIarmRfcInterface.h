@@ -87,13 +87,6 @@ class FakePlayerIarmInterface : public PlayerIarmInterfaceBase
         }
 
         /**
-         * @fn IsLiveLatencyCorrectionSupported
-         * @brief Checks if Live Latency Correction is supported
-         * @return True if supported. False if not.
-         */
-        bool IsLiveLatencyCorrectionSupported() override {return false;}
-
-        /**
          * @fn IsActiveStreamingInterfaceWifi
          * @brief Checks if current active interface is wifi and also sets up NET_SRV_MGR event to handles active interface change
          * @return True if current active is wifi. False if not.
@@ -210,12 +203,6 @@ public:
      * @retval true or false
      */
     static bool IsPlayerIarmRfcInterfaceInstanceActive();
-	
-    /** 
-    * @fn IsLiveLatencyCorrectionSupported
-    * @retval true or false
-    */
-    bool IsLiveLatencyCorrectionSupported();
 
     /**
      * @fn GetActiveInterface

@@ -305,6 +305,10 @@ public:
 			{
 				if( iter.empty() ) break;
 				char c = iter.popFirstChar();
+				if( c==0x00 )
+				{ // avoid parsing into trailing 0x00
+					break;
+				}
 				if (c == ',' && !inQuote)
 				{ // next attribute/value pair
 					break;

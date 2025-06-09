@@ -132,13 +132,6 @@ class PlayerIarmInterfaceBase
         virtual void SetHDMIStatus(){}
 
         /**
-         * @fn IsLiveLatencyCorrectionSupported
-         * @brief Checks if Live Latency Correction is supported
-         * @return True if supported. False if not.
-         */
-        virtual bool IsLiveLatencyCorrectionSupported() {return false;}
-
-        /**
          * @fn IsActiveStreamingInterfaceWifi
          * @brief Checks if current active interface is wifi and also sets up NET_SRV_MGR event to handles active interface change
          * @return True if current active is wifi. False if not.
