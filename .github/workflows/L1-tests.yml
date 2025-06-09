@@ -41,7 +41,7 @@ jobs:
       
       # Upload artifact (test/utests/build/ctest-results.xml)
       - name: Upload test result file
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: ctest-results
           path: test/utests/build/ctest-results.xml
