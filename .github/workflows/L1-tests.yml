@@ -23,7 +23,7 @@ jobs:
             path: aamp
 
       - name: Run unit tests
-        run: /bin/bash aamp/test/utests/run.sh
+        run: /bin/bash test/utests/run.sh
 
       # - name: Upload test results to automatic test result management system
       #   run: >
