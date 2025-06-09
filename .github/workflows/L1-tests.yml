@@ -21,6 +21,10 @@ jobs:
         uses: actions/checkout@v3
         with:
             path: aamp
+      
+      - name: Install AAMP
+        working-directory: ./aamp
+        run: install-aamp.sh -s -k || yes
 
       - name: Run unit tests
         working-directory: ./aamp
