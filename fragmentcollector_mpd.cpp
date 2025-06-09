@@ -923,7 +923,7 @@ bool StreamAbstractionAAMP_MPD::FetchFragment(MediaStreamContext *pMediaStreamCo
 			{
 				// Insert a dummy fragment with discontinuity, since we didn't get an init fragments so it wouldn't get flagged
 				CachedFragment* cachedFragment = nullptr;
-				if(pMediaStreamContext->IsInjectionFromCachedFragmentChunks())
+				if(aamp->IsInjectionFromCachedFragmentChunks())
 				{
 					if(pMediaStreamContext->WaitForCachedFragmentChunkInjected())
 					{
@@ -948,7 +948,7 @@ bool StreamAbstractionAAMP_MPD::FetchFragment(MediaStreamContext *pMediaStreamCo
 					cachedFragment->profileIndex=0;
 					cachedFragment->isDummy=true;
 					cachedFragment->type=pMediaStreamContext->mediaType;
-					if(pMediaStreamContext->IsInjectionFromCachedFragmentChunks())
+					if(aamp->IsInjectionFromCachedFragmentChunks())
 					{
 						pMediaStreamContext->UpdateTSAfterChunkFetch();
 					}

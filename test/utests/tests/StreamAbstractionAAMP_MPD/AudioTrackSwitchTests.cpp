@@ -542,19 +542,20 @@ R"(<?xml version="1.0" encoding="utf-8"?>
     </Period>
 </MPD>
 )";
-    status = InitializeMPD(manifest);
-    EXPECT_EQ(status, eAAMPSTATUS_OK);
-    MediaTrack *track = mStreamAbstractionAAMP_MPD->GetMediaTrack(eTRACK_AUDIO);
-    EXPECT_NE(track, nullptr);
-    MediaStreamContext *pMediaStreamContext = static_cast<MediaStreamContext *>(track);
-    EXPECT_EQ(pMediaStreamContext->adaptationSetIdx,0);
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsInjectionFromCachedFragmentChunks()).WillRepeatedly(Return(false));
+	status = InitializeMPD(manifest);
+	EXPECT_EQ(status, eAAMPSTATUS_OK);
+	MediaTrack *track = mStreamAbstractionAAMP_MPD->GetMediaTrack(eTRACK_AUDIO);
+	EXPECT_NE(track, nullptr);
+	MediaStreamContext *pMediaStreamContext = static_cast<MediaStreamContext *>(track);
+	EXPECT_EQ(pMediaStreamContext->adaptationSetIdx,0);
 	//mPrivateInstanceAAMP->SetPreferredLanguages("ger",NULL,NULL,NULL,NULL,NULL,NULL);//switching to german audio
-    pMediaStreamContext->enabled = true;
+	pMediaStreamContext->enabled = true;
 	mPrivateInstanceAAMP->preferredLanguagesList.push_back("ger");
 
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetPositionMilliseconds()).WillRepeatedly(Return(0.0));
 
 	mStreamAbstractionAAMP_MPD->SwitchAudioTrack();
-    EXPECT_EQ(pMediaStreamContext->adaptationSetIdx,2);
-    EXPECT_EQ(pMediaStreamContext->adaptationSetId,3);
+	EXPECT_EQ(pMediaStreamContext->adaptationSetIdx,2);
+	EXPECT_EQ(pMediaStreamContext->adaptationSetId,3);
 }

@@ -290,6 +290,7 @@ TEST_F(TrackInjectTests, RunInjectLoopTestNonLLD)
 		.WillOnce(Return(true))
 		.WillOnce(Return(false));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection()).WillRepeatedly(Return(true));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsInjectionFromCachedFragmentChunks()).WillRepeatedly(Return(false));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendStreamTransfer(eMEDIATYPE_VIDEO, _, _, _, _, _, false, false));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, BlockUntilGstreamerWantsData( _, _, _));
 	EXPECT_EQ(mPrivateInstanceAAMP->GetLLDashChunkMode(),false); //Check setup
@@ -315,6 +316,7 @@ TEST_F(TrackInjectTests, RunInjectLoopTestNonLLDInit)
 		.WillOnce(Return(true))
 		.WillOnce(Return(false));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection()).WillRepeatedly(Return(false));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsInjectionFromCachedFragmentChunks()).WillRepeatedly(Return(false));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendStreamTransfer(_, _, _, _, _, _, true, false));
 	EXPECT_EQ(mPrivateInstanceAAMP->GetLLDashChunkMode(),false); //Check setup
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, BlockUntilGstreamerWantsData( _, _, _));
@@ -343,6 +345,7 @@ TEST_F(TrackInjectTests, RunInjectLoopTestLLD)
 	EXPECT_CALL(*g_mockIsoBmffBuffer, parseBuffer(_, _))
 		.WillOnce(Return(true));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection()).WillRepeatedly(Return(false));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsInjectionFromCachedFragmentChunks()).WillRepeatedly(Return(true));
 
 	char unParsedBuffer[] = "AAAAAAAAAAAAAAAAAA";
 	int parsedBufferSize = 12, unParsedBufferSize = sizeof(unParsedBuffer);
@@ -383,6 +386,7 @@ TEST_F(TrackInjectTests, RunInjectLoopTestLLDInit)
 
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendStreamTransfer(_, _, _, _, _, _, true, false));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection()).WillRepeatedly(Return(false));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsInjectionFromCachedFragmentChunks()).WillRepeatedly(Return(true));
 
 	mMediaTrack->RunInjectLoop();
 }

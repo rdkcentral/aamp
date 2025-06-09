@@ -3898,6 +3898,15 @@ public:
 	 */
 	 double GetLivePlayPosition(void);
 
+	/**
+	 * @fn IsInjectionFromCachedFragmentChunks
+	 *
+	 * @brief Are fragments to inject coming from mCachedFragmentChunks
+	 *
+	 * @return True if fragments to inject are coming from mCachedFragmentChunks
+	 */
+	bool IsInjectionFromCachedFragmentChunks();
+
 protected:
 
 	/**

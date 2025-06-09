@@ -414,6 +414,7 @@ TEST_F(SubtitleTrackTests, SwitchSubtitleTrack)
     </Period>
 </MPD>
 )";
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsInjectionFromCachedFragmentChunks()).WillRepeatedly(Return(false));
 	status = InitializeMPD(manifest);
 	EXPECT_EQ(status, eAAMPSTATUS_OK);
 	MediaTrack *track = mStreamAbstractionAAMP_MPD->GetMediaTrack(eTRACK_SUBTITLE);
@@ -454,6 +455,7 @@ TEST_F(SubtitleTrackTests, RefreshTrack)
     </Period>
 </MPD>
 )";
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsInjectionFromCachedFragmentChunks()).WillRepeatedly(Return(false));
 	status = InitializeMPD(manifest);
 	EXPECT_EQ(status, eAAMPSTATUS_OK);
 	MediaTrack *track = mStreamAbstractionAAMP_MPD->GetMediaTrack(eTRACK_SUBTITLE);
@@ -522,6 +524,7 @@ TEST_F(SubtitleTrackTests, SkipSubtitleFetchTests)
         .Times(2);//init segment is  available for audio and video so set to true
 	EXPECT_CALL(*g_mockMediaStreamContext,CacheFragment(_, _, _, _, _, false, _, _, _, _, _))
         .Times(1);//init segment is not available for subtitle so set to false
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsInjectionFromCachedFragmentChunks()).WillRepeatedly(Return(false));
 
 	status = InitializeMPD(manifest);
 	EXPECT_EQ(status, eAAMPSTATUS_OK);

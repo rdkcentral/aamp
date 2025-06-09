@@ -452,7 +452,7 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 			}
 
 			// If injection is from chunk buffer, remove the fragment for injection
-			if(IsInjectionFromCachedFragmentChunks())
+			if(aamp->IsInjectionFromCachedFragmentChunks())
 			{
 				UpdateTSAfterInject();
 			}
