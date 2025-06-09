@@ -735,12 +735,13 @@ static gboolean gst_aampcdmidecryptor_sink_event(GstBaseTransform * trans,
 		GST_DEBUG_OBJECT(aampcdmidecryptor, "origin: %s", origin);
 		/** If WideVine KeyID workaround is present check the systemId is clearKey **/
 		if (aampcdmidecryptor->aamp->mIsWVKIDWorkaround){
+			printf("\ntanuj mIsWVKIDWorkaround is true for CLEARKEY_UUID\n");
 			if(!g_str_equal(systemId, CLEARKEY_UUID) ){
 				gst_event_unref(event);
 				result = TRUE;
 				break;
 			}
-			GST_DEBUG_OBJECT(aampcdmidecryptor, "\nWideVine KeyID workaround is present, Select KeyID from Clear Key\n");
+			printf( "\n tanuj WideVine KeyID workaround is present, Select KeyID from Clear Key\n");
 			systemId = WIDEVINE_UUID ;
 
 		}else{ /* else check the selected protection system */
@@ -798,10 +799,10 @@ static gboolean gst_aampcdmidecryptor_sink_event(GstBaseTransform * trans,
 		}
 
 		if (aampcdmidecryptor->aamp->mIsWVKIDWorkaround){
-			GST_DEBUG_OBJECT(aampcdmidecryptor, "\nWideVine KeyID workaround is present, Applying WideVine KID workaround\n");
+			printf("\n tanuj WideVine KeyID workaround is present for replaceKeyIdPsshData, Applying WideVine KID workaround\n");
 			outData = aampcdmidecryptor->aamp->ReplaceKeyIDPsshData(reinterpret_cast<unsigned char *>(mapInfo.data), mapInfo.size, outDataLen);
 			if (NULL == outData){
-				GST_ERROR_OBJECT(aampcdmidecryptor, "\nFailed to Apply WideVine KID workaround!\n");
+				printf("\ntanuj Failed to Apply WideVine KID workaround!\n");
 				break;
 			}
 		}
@@ -816,6 +817,7 @@ static gboolean gst_aampcdmidecryptor_sink_event(GstBaseTransform * trans,
 		aampcdmidecryptor->licenseManager  = aampcdmidecryptor->aamp->mDRMLicenseManager;
 		DrmMetaDataEventPtr e = std::make_shared<DrmMetaDataEvent>(AAMP_TUNE_FAILURE_UNKNOWN, "", 0, 0, false, std::string{});
 		if (aampcdmidecryptor->aamp->mIsWVKIDWorkaround){
+			printf("\ntanuj mIsWVKIDWorkaround is true for createDrmSession\n");
 			aampcdmidecryptor->drmSession =
 				aampcdmidecryptor->licenseManager->createDrmSession(
 						reinterpret_cast<const char *>(systemId), eMEDIAFORMAT_DASH,
