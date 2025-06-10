@@ -67,7 +67,9 @@ protected:
 		g_mockAampConfig = new NiceMock<MockAampConfig>();
 		g_mockGstHandlerControl= new MockGstHandlerControl();
 		g_mockPrivateInstanceAAMP = new MockPrivateInstanceAAMP();
-		mPrivateInstanceAAMP = new PrivateInstanceAAMP{};
+		
+		auto config = new AampConfig();
+		mPrivateInstanceAAMP = new PrivateInstanceAAMP(config);
 	}
 
 	void TearDown() override

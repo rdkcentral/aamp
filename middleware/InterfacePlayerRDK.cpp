@@ -2922,7 +2922,6 @@ bool InterfacePlayerRDK::SendHelper(int type, const void *ptr, size_t len, doubl
 			{
 				ForwardBuffersToAuxPipeline(buffer);
 			}
-#ifdef SUPPORTS_MP4DEMUX
 			if( m_gstConfigParam->useMp4Demux )
 			{
 				static uint32_t timescale[2]; // FIXME!
@@ -2970,7 +2969,6 @@ bool InterfacePlayerRDK::SendHelper(int type, const void *ptr, size_t len, doubl
 				}
 			}
 			else
-#endif // SUPPORTS_MP4DEMUX
 			{
 				GstFlowReturn ret = gst_app_src_push_buffer(GST_APP_SRC(stream->source), buffer);
 				
