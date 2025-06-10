@@ -867,6 +867,10 @@ bool PlaybackCommand::execute( const char *cmd, PlayerInstanceAAMP *playerInstan
 	{
 		mAampcli.mEnableProgressLog = mAampcli.mEnableProgressLog ? false : true;
 	}
+	else if( isCommandMatch(cmd, "progress_one_line") )
+	{
+		mAampcli.mEnableProgressLogOneLine = mAampcli.mEnableProgressLogOneLine ? false : true;
+	}
 	else if( isCommandMatch(cmd, "stats") )
 	{
 		printf("[AAMPCLI] statistics:\n%s\n", playerInstanceAamp->GetPlaybackStats().c_str());
