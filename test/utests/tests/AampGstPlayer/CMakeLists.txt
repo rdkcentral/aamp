@@ -47,7 +47,6 @@ set(TEST_SOURCES FunctionalTests.cpp
 
 set(AAMP_SOURCES ${AAMP_ROOT}/aampgstplayer.cpp
 		${AAMP_ROOT}/middleware/InterfacePlayerRDK.cpp
-		${AAMP_ROOT}/middleware/PlayerLogManager.cpp
 		${AAMP_ROOT}/test/gstTestHarness/mp4demux.cpp
 	)
 
