@@ -36,16 +36,19 @@ include_directories(${AAMP_ROOT}/middleware)
 include_directories(${AAMP_ROOT}/middleware/externals)
 include_directories(${AAMP_ROOT}/middleware/vendor)
 include_directories(${AAMP_ROOT}/middleware/playerLogManager)
+include_directories(${AAMP_ROOT}/test/gstTestHarness)
 
 message(GSTREAMER_INCLUDE_DIRS=${GSTREAMER_INCLUDE_DIRS})
 
 set(TEST_SOURCES FunctionalTests.cpp
 		 PauseOnPlaybackTests.cpp
 		 AampGstPlayerTests.cpp
-                 )
+	)
 
 set(AAMP_SOURCES ${AAMP_ROOT}/aampgstplayer.cpp
-	         ${AAMP_ROOT}/middleware/InterfacePlayerRDK.cpp
+		${AAMP_ROOT}/middleware/InterfacePlayerRDK.cpp
+		${AAMP_ROOT}/middleware/PlayerLogManager.cpp
+		${AAMP_ROOT}/test/gstTestHarness/mp4demux.cpp
 	)
 
 add_executable(${EXEC_NAME}

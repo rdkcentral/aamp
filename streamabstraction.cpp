@@ -1288,6 +1288,7 @@ std::string MediaTrack::RestampSubtitle( const char* buffer, size_t bufferLen, d
 	{
 		str = std::string(buffer,bufferLen);
 	}
+	printf( "***restamped caption: %s\n", str.c_str() );
 	return str;
 }
 
