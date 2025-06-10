@@ -244,6 +244,12 @@ struct MonitorAVState
 	const char *description;
 	gint64 av_position[2];
 	bool happy;
+
+	MonitorAVState() : tLastReported(0), tLastSampled(0), description(nullptr), happy(false)
+	{
+		av_position[0] = 0; // Video position
+		av_position[1] = 0; // Audio position
+	}
 };
 /**
  * @struct GstPlayerPriv
@@ -1088,6 +1094,12 @@ public:
 	 * @param[in] debugLevel The level of debug logging to enable.
 	 */
 	void EnableGstDebugLogging(std::string debugLevel);
+
+	/**
+	 * @brief Gets the monitor AV state.
+	 * @return A pointer to the MonitorAVState structure containing the AV status or nullptr.
+	 */
+	const MonitorAVState& GetMonitorAVState() const { return gstPrivateContext->monitorAVstate; }
 };
 struct data
 {

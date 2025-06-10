@@ -2055,6 +2055,24 @@ TEST_F(PlayerInstanceAAMPTests, GetAvailableVideoTracksTest)
 
 }
 
+TEST_F(PlayerInstanceAAMPTests, GetAvailableAudioTracksTest1)
+{
+    std::string result;
+    mPrivateInstanceAAMP->SetState(eSTATE_ERROR);
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_ERROR));
+    std::string availableTracks = mPlayerInstance->GetAvailableAudioTracks();
+    EXPECT_STREQ(result.c_str(),availableTracks.c_str());
+}
+
+TEST_F(PlayerInstanceAAMPTests, GetAvailableAudioTracksTest2)
+{
+    std::string result;
+    mPrivateInstanceAAMP->SetState(eSTATE_IDLE);
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_IDLE));
+    std::string availableTracks = mPlayerInstance->GetAvailableAudioTracks();
+    EXPECT_STREQ(result.c_str(),availableTracks.c_str());
+}
+
 TEST_F(PlayerInstanceAAMPTests, GetAudioTrackInfoTest)
 {
     std::string result = "AudioTrack";

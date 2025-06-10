@@ -461,7 +461,7 @@ const std::vector<uint8_t> &ContentProtectionDataEvent::getKeyID() const { retur
 /*
  * @brief ManifestRefreshEvent Constructor
  */
-ManifestRefreshEvent::ManifestRefreshEvent(uint32_t manifestDuration,int noOfPeriods, uint32_t manifestPublishedTime, std::string sid, const char *manifestType):
+ManifestRefreshEvent::ManifestRefreshEvent(uint32_t manifestDuration,int noOfPeriods, uint32_t manifestPublishedTime, const std::string &manifestType, std::string sid):
 	AAMPEventObject(AAMP_EVENT_MANIFEST_REFRESH_NOTIFY, std::move(sid))
 	, mManifestDuration(manifestDuration),mNoOfPeriods(noOfPeriods),mManifestPublishedTime(manifestPublishedTime)
 {
@@ -483,9 +483,8 @@ uint32_t ManifestRefreshEvent::getManifestDuration() const
  *
  * @return ManifestType
  */
-const char * ManifestRefreshEvent::getManifestType() const
+const std::string& ManifestRefreshEvent::getManifestType() const
 {
-
    return mManifestType;
 }
 
@@ -541,3 +540,51 @@ MetricsDataEvent::MetricsDataEvent(MetricsDataType dataType, const std::string &
 MetricsDataType MetricsDataEvent::getMetricsDataType() const { return mMetricsDataType; }
 const std::string &MetricsDataEvent::getMetricUUID() const { return mMetricUUID; }
 const std::string &MetricsDataEvent::getMetricsData() const { return mMetricsData; }
+
+/**
+ * @fn MonitorAVStatusEvent Constructor                                                                                               */
+MonitorAVStatusEvent::MonitorAVStatusEvent(const std::string &status, int64_t videoPositionMS, int64_t audioPositionMS, uint64_t timeInStateMS, std::string sid):
+		AAMPEventObject(AAMP_EVENT_MONITORAV_STATUS, std::move(sid)), mMonitorAVStatus(status), mVideoPositionMS(videoPositionMS),
+		mAudioPositionMS(audioPositionMS), mTimeInStateMS(timeInStateMS)
+{
+}
+
+/**
+ * @brief getMonitorAVStatus
+ *
+ * @return MonitorAVStatus
+ */
+const std::string &MonitorAVStatusEvent::getMonitorAVStatus() const
+{
+	return mMonitorAVStatus;
+}
+
+/**
+ * @brief getVideoPositionMS
+ *
+ * @return Video Position in MS
+ */
+int64_t MonitorAVStatusEvent::getVideoPositionMS() const
+{
+	return mVideoPositionMS;
+}
+
+/**
+ * @brief getAudioPositionMS
+ *
+ * @return Audio Position in MS
+ */
+int64_t MonitorAVStatusEvent::getAudioPositionMS() const
+{
+	return mAudioPositionMS;
+}
+
+/**
+ * @brief getTimeInStateMS
+ *
+ * @return Time in the current state in MS
+ */
+uint64_t MonitorAVStatusEvent::getTimeInStateMS() const
+{
+	return mTimeInStateMS;
+}

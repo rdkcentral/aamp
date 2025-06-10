@@ -1033,8 +1033,8 @@ protected:
         manifestDuration = 100;
         noOfPeriods = 3;
         manifestPublishedTime = 12345;
-        manifestType ="dynamic";
-        event = new ManifestRefreshEvent(manifestDuration, noOfPeriods, manifestPublishedTime, session_id,manifestType);
+        manifestType = "dynamic";
+        event = new ManifestRefreshEvent(manifestDuration, noOfPeriods, manifestPublishedTime, manifestType, session_id);
     }
 
     void TearDown() override {
@@ -1045,7 +1045,7 @@ protected:
     uint32_t manifestDuration;
     int noOfPeriods;
     uint32_t manifestPublishedTime;
-    const char *manifestType;
+    std::string manifestType;
     ManifestRefreshEvent* event;
 };
 
@@ -1080,4 +1080,32 @@ TEST_F(TuneTimeMetricsEventTest, Constructor) {
 TEST_F(TuneTimeMetricsEventTest, GetTuneMetricsData) {
     
     EXPECT_EQ(event->getTuneMetricsData(), timeMetricData);
+}
+
+class MonitorAVStatusEventTest : public ::testing::Test {
+protected:
+	void SetUp() override {
+		status = "ok";
+		videoPositionMS = 3717;
+		audioPositionMS = 3717;
+		timeInStateMS = 1748499898430;
+		monitorEvent = new MonitorAVStatusEvent(status,videoPositionMS,audioPositionMS,timeInStateMS,session_id);
+	}
+
+	void TearDown() override {
+		delete monitorEvent;
+	}
+
+	MonitorAVStatusEvent* monitorEvent;
+	std::string status;
+	int64_t videoPositionMS;
+	int64_t audioPositionMS;
+	uint64_t timeInStateMS;
+};
+
+TEST_F(MonitorAVStatusEventTest, ConstructorTest){
+	EXPECT_EQ(monitorEvent->getMonitorAVStatus().c_str(),status);
+	EXPECT_EQ(monitorEvent->getVideoPositionMS(), videoPositionMS);
+	EXPECT_EQ(monitorEvent->getAudioPositionMS(), audioPositionMS);
+	EXPECT_EQ(monitorEvent->getTimeInStateMS(), timeInStateMS);
 }

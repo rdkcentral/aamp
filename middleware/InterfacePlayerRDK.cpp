@@ -562,18 +562,22 @@ gboolean InterfacePlayerRDK::IdleCallbackOnEOS(gpointer user_data)
 	return G_SOURCE_REMOVE;
 }
 
+/**
+ * @brief Updates the monitor AV status.
+ *
+ * @param[in] pInterfacePlayerRDK pointer to InterfacePlayerRDK instance
+ */
 void MonitorAV( InterfacePlayerRDK *pInterfacePlayerRDK )
 {
 	const int AVSYNC_POSITIVE_THRESHOLD_MS = pInterfacePlayerRDK->m_gstConfigParam->monitorAvsyncThresholdPositiveMs;
 	const int AVSYNC_NEGATIVE_THRESHOLD_MS = pInterfacePlayerRDK->m_gstConfigParam->monitorAvsyncThresholdNegativeMs;
 	const int JUMP_THRESHOLD_MS = pInterfacePlayerRDK->m_gstConfigParam->monitorAvJumpThresholdMs;
 
-
 	GstState state = GST_STATE_VOID_PENDING;
 	GstState pending = GST_STATE_VOID_PENDING;
 	GstClockTime timeout = 0;
 	gint64 av_position[2] = {0,0};
-	gint rc = gst_element_get_state(pInterfacePlayerRDK->gstPrivateContext->pipeline, &state, &pending, timeout );
+	gint rc = gst_element_get_state(pInterfacePlayerRDK->gstPrivateContext->pipeline, &state, &pending, timeout);
 	if( rc == GST_STATE_CHANGE_SUCCESS )
 	{
 		if( state == GST_STATE_PLAYING )
