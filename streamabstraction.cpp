@@ -1221,17 +1221,48 @@ std::string MediaTrack::RestampSubtitle( const char* buffer, size_t bufferLen, d
 {
 	long long pts_offset_ms = pts_offset_s*1000;
 	std::string str;
-	if( ISCONFIGSET(eAAMPConfig_HlsTsEnablePTSReStamp) && pts_offset_ms && isWebVttSegment(buffer,bufferLen) )
+	if( ISCONFIGSET(eAAMPConfig_HlsTsEnablePTSReStamp) && isWebVttSegment(buffer,bufferLen) )
 	{
 		const char *fin = &buffer[bufferLen];
 		const char *prev = buffer;
+		bool processedHeader = false;
 		while( prev<fin )
 		{
 			const char *line_start = mystrstr( prev, fin, "\n\n" );
 			if( line_start )
 			{
-				line_start += 2; // advance past \n\n
-				str += std::string(prev,line_start-prev);
+				if( !processedHeader )
+				{
+					const char *localTimePtr = mystrstr(prev,line_start,"LOCAL:");
+					long long localTimeMs = localTimePtr?convertHHMMSSToTime(localTimePtr+6):0;
+					const char *mpegtsPtr = mystrstr(prev,line_start,"MPEGTS:");
+					long long mpegts = mpegtsPtr?atoll(mpegtsPtr+7):0;
+					pts_offset_ms -= localTimeMs;
+					if( localTimeMs != currentLocalTimeMs  )
+					{
+						if( gotLocalTime )
+						{
+							AAMPLOG_MIL( "webvtt pts rollover" );
+							ptsRollover = true;
+						}
+						currentLocalTimeMs = localTimeMs;
+						gotLocalTime = true;
+					}
+					line_start += 2; // advance past \n\n
+					str += "WEBVTT\nX-TIMESTAMP-MAP=LOCAL:00:00:00.000,MPEGTS:";
+					str += std::to_string(mpegts);
+					str += "\n\n";
+					processedHeader = true;
+					if( ptsRollover )
+					{ // adjust by max pts ms
+						pts_offset_ms += 95443717; // 0x1ffffffff/90
+					}
+				}
+				else
+				{
+					line_start += 2; // advance past \n\n
+					str += std::string(prev,line_start-prev);
+				}
 				prev = line_start;
 				const char *line_end = mystrstr(line_start, fin, "\n" );
 				if( line_end )
@@ -1902,6 +1933,7 @@ MediaTrack::MediaTrack(TrackType type, PrivateInstanceAAMP* aamp, const char* na
 		,mIsoBmffHelper(std::make_shared<IsoBmffHelper>())
 		,mLastFragmentPts(0), mRestampedPts(0), mRestampedDuration(0), mTrickmodeState(TrickmodeState::UNDEF)
 		,mTrackParamsMutex(), mCheckForRampdown(false)
+		,gotLocalTime(false),ptsRollover(false),currentLocalTimeMs(0)
 {
 	maxCachedFragmentsPerTrack = GETCONFIGVALUE(eAAMPConfig_MaxFragmentCached);
 	if( !maxCachedFragmentsPerTrack )
