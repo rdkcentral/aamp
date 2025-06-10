@@ -60,6 +60,7 @@ class Aampcli
 	public:
 		bool mInitialized;
 		bool mEnableProgressLog;
+		bool mEnableProgressLogOneLine;
 		bool mbAutoPlay;
 		bool mIndexedAds = false;
 		std::string mContentType;
