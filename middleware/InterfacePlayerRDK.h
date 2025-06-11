@@ -120,6 +120,7 @@ struct Configs
 	int monitorAvsyncThresholdPositiveMs;
 	int monitorAvsyncThresholdNegativeMs;
 	int monitorAvJumpThresholdMs;
+	bool useMp4Demux;
 };
 
 typedef enum

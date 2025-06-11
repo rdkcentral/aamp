@@ -71,6 +71,7 @@ static void InitializePlayerConfigs(AAMPGstPlayer *_this, void *playerInstance)
 {
 	auto interfacePlayer = static_cast<InterfacePlayerRDK*>(playerInstance);
 	auto& config = _this->aamp->mConfig;
+//	assert( config );
 	interfacePlayer->m_gstConfigParam->media = _this->aamp->GetMediaFormatTypeEnum();
 	interfacePlayer->m_gstConfigParam->networkProxy =_this->aamp->GetNetworkProxy();
 	interfacePlayer->m_gstConfigParam->tcpServerSink = config->IsConfigSet(eAAMPConfig_useTCPServerSink);
@@ -101,6 +102,7 @@ static void InitializePlayerConfigs(AAMPGstPlayer *_this, void *playerInstance)
 	interfacePlayer->m_gstConfigParam->audioOnlyMode = _this->aamp->mAudioOnlyPb;
 	interfacePlayer->m_gstConfigParam->gstreamerSubsEnabled = _this->aamp->IsGstreamerSubsEnabled();
 	interfacePlayer->m_gstConfigParam->media = _this->aamp->GetMediaFormatTypeEnum();
+	interfacePlayer->m_gstConfigParam->useMp4Demux = config->IsConfigSet(eAAMPConfig_UseMp4Demux);
 }
 
 /*

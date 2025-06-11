@@ -369,6 +369,7 @@ static const ConfigLookupEntryBool mConfigLookupTableBool[AAMPCONFIG_BOOL_COUNT]
 	{false, "forceLLDFlow", eAAMPConfig_ForceLLDFlow, false},
 	{false, "monitorAV", eAAMPConfig_MonitorAV, true},
 	{false, "enablePTSRestampForHlsTs", eAAMPConfig_HlsTsEnablePTSReStamp, true},
+	{false, "useMp4Demux", eAAMPConfig_UseMp4Demux,false }
 };
 
 #define CONFIG_INT_ALIAS_COUNT 2
