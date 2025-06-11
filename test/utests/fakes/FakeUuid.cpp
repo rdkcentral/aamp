@@ -2,7 +2,7 @@
  * If not stated otherwise in this file or this component's license file the
  * following copyright and licenses apply:
  *
- * Copyright 2024 RDK Management
+ * Copyright 2025 RDK Management
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,10 +17,28 @@
  * limitations under the License.
  */
 
-#include <gtest/gtest.h>
+#include <uuid/uuid.h>
+#include <iostream>
+using namespace std;
 
-int main(int argc, char **argv)
+#if 0
+#define TRACE_FUNC() printf("%s\n" ,__func__)
+#else
+#define TRACE_FUNC() ((void)0)
+#endif
+
+/**
+ * @brief To generate UUID
+ */
+void uuid_generate(uuid_t out)
 {
-	testing::InitGoogleTest(&argc, argv);
-	return RUN_ALL_TESTS();
+	TRACE_FUNC();
+}
+
+/**
+ * @brief To parse UUID
+ */
+void uuid_unparse(const uuid_t uu, char *out)
+{
+	TRACE_FUNC();
 }

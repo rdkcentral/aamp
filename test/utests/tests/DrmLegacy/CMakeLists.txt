@@ -26,7 +26,7 @@ set(DRM_ROOT ${UTESTS_ROOT}/drm)
 set(RFC_ROOT ${UTESTS_ROOT}/rfc)
 set(EXEC_NAME DrmLegacy)
 
-include_directories(${AAMP_ROOT} ${AAMP_ROOT}/drm ${AAMP_ROOT}/externals ${AAMP_ROOT}/middleware/drm/helper ${AAMP_ROOT}/middleware  ${AAMP_ROOT}/middleware/drm ${AAMP_ROOT}/middleware/drm/ocdm ${AAMP_ROOT}/drm/helper ${AAMP_ROOT}/subtitle ${AAMP_ROOT}/middleware/subtitle ${AAMP_ROOT}/downloader ${AAMP_ROOT}/isobmff ${AAMP_ROOT}/middleware/subtec/subtecparser ${AAMP_ROOT}/middleware/subtec/playerjsonobject ${AAMP_ROOT}/middleware/subtec/libsubtec)
+include_directories(${AAMP_ROOT} ${AAMP_ROOT}/drm ${AAMP_ROOT}/externals ${AAMP_ROOT}/middleware/drm/helper ${AAMP_ROOT}/middleware  ${AAMP_ROOT}/middleware/drm ${AAMP_ROOT}/middleware/drm/ocdm ${AAMP_ROOT}/drm/helper ${AAMP_ROOT}/subtitle ${AAMP_ROOT}/middleware/subtitle ${AAMP_ROOT}/downloader ${AAMP_ROOT}/isobmff ${AAMP_ROOT}/middleware/subtec/subtecparser ${AAMP_ROOT}/middleware/subtec/playerjsonobject ${AAMP_ROOT}/middleware/subtec/libsubtec ${AAMP_ROOT}/middleware/IFirebolt)
 include_directories(${AAMP_ROOT}/tsb/api)
 include_directories(${GTEST_INCLUDE_DIRS})
 include_directories(${GMOCK_INCLUDE_DIRS})
@@ -36,6 +36,7 @@ include_directories(${LIBCJSON_INCLUDE_DIRS})
 include_directories(${UUID_INCLUDE_DIRS})
 include_directories(${DRM_ROOT})
 include_directories(${DRM_ROOT}/mocks)
+include_directories(${AAMP_ROOT}/test/utests/mocks)
 include_directories(${RFC_ROOT}/mocks)
 include_directories(${AAMP_ROOT}/middleware/test/utests/mocks)
 
@@ -56,7 +57,8 @@ set(MOCK_SOURCES ${DRM_ROOT}/mocks/aampMocks.cpp
 
 set(FAKE_SOURCES ${UTESTS_ROOT}/fakes/FakeAampRfc.cpp
 				 ${UTESTS_ROOT}/fakes/FakePlayerIarmRfcInterface.cpp
-			 	 ${AAMP_ROOT}/middleware/test/utests/fakes/FakeSocUtils.cpp)
+			 	 ${AAMP_ROOT}/middleware/test/utests/fakes/FakeSocUtils.cpp
+				 ${AAMP_ROOT}/test/utests/fakes/FakePlayerScheduler.cpp)
 
 set(AAMP_SOURCES ${AAMP_ROOT}/middleware/drm/base64.cpp
 				 ${AAMP_ROOT}/_base64.cpp			 
@@ -83,6 +85,7 @@ set(AAMP_SOURCES ${AAMP_ROOT}/middleware/drm/base64.cpp
 				 ${AAMP_ROOT}/middleware/drm/DrmSession.cpp
 				 ${AAMP_ROOT}/middleware/drm/ClearKeyDrmSession.cpp
 				 ${AAMP_ROOT}/middleware/drm/helper/ClearKeyHelper.cpp
+				 ${AAMP_ROOT}/middleware/IFirebolt/ContentProtectionPriv.cpp
 				 ${AAMP_ROOT}/isobmff/isobmffbox.h ${AAMP_ROOT}/isobmff/isobmffbox.cpp ${AAMP_ROOT}/isobmff/isobmffbuffer.h ${AAMP_ROOT}/isobmff/isobmffbuffer.cpp)
 
 add_definitions(-DUSE_CLEARKEY)

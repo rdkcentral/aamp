@@ -27,7 +27,9 @@ set(RFC_ROOT ${UTESTS_ROOT}/rfc)
 set(EXEC_NAME DrmOcdm)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DREALTEKCE=1")
 
-include_directories(${AAMP_ROOT} ${AAMP_ROOT}/drm ${AAMP_ROOT}/externals ${AAMP_ROOT}/middleware/drm/helper ${AAMP_ROOT}/middleware ${AAMP_ROOT}/middleware/drm/ocdm ${AAMP_ROOT}/middleware/drm/ ${AAMP_ROOT}/drm/helper ${AAMP_ROOT}/subtitle ${AAMP_ROOT}/middleware/subtitle ${AAMP_ROOT}/downloader ${AAMP_ROOT}/isobmff ${AAMP_ROOT}/middleware/subtec/subtecparser ${AAMP_ROOT}/middleware/playerjsonobject ${AAMP_ROOT}/middleware/subtec/libsubtec)
+include_directories(${AAMP_ROOT} ${AAMP_ROOT}/drm ${AAMP_ROOT}/externals ${AAMP_ROOT}/middleware/drm/helper ${AAMP_ROOT}/middleware ${AAMP_ROOT}/middleware/drm/ocdm ${AAMP_ROOT}/middleware/drm/ ${AAMP_ROOT}/drm/helper ${AAMP_ROOT}/subtitle ${AAMP_ROOT}/middleware/subtitle ${AAMP_ROOT}/downloader ${AAMP_ROOT}/isobmff ${AAMP_ROOT}/middleware/subtec/subtecparser ${AAMP_ROOT}/middleware/playerjsonobject ${AAMP_ROOT}/middleware/subtec/libsubtec ${AAMP_ROOT}/middleware/IFirebolt)
+include_directories(${AAMP_ROOT}/subtec/subtecparser)
+include_directories(${AAMP_ROOT}/subtec/libsubtec)
 include_directories(${AAMP_ROOT}/tsb/api)
 include_directories(${AAMP_ROOT}/middleware)
 include_directories(${GTEST_INCLUDE_DIRS})
@@ -41,6 +43,7 @@ include_directories(${RFC_ROOT})
 include_directories(${DRM_ROOT}/ocdm)
 include_directories(${DRM_ROOT}/mocks)
 include_directories(${AAMP_ROOT}/middleware/vendor)
+include_directories(${AAMP_ROOT}/test/utests/mocks)
 message(GSTREAMER_INCLUDE_DIRS=${GSTREAMER_INCLUDE_DIRS})
 
 set(TEST_SOURCES DrmTestsRun.cpp
@@ -61,7 +64,9 @@ set(MOCK_SOURCES ${DRM_ROOT}/mocks/aampMocks.cpp
 set(FAKE_SOURCES ${UTESTS_ROOT}/fakes/FakeAampRfc.cpp
 				 ${UTESTS_ROOT}/fakes/FakePlayerIarmRfcInterface.cpp
 				 ${UTESTS_ROOT}/fakes/FakeProcessProtectionHls.cpp
-			    	${AAMP_ROOT}/middleware/test/utests/fakes/FakeSocUtils.cpp)
+			     ${AAMP_ROOT}/middleware/test/utests/fakes/FakeSocUtils.cpp
+				 ${AAMP_ROOT}/test/utests/fakes/FakePlayerScheduler.cpp
+				 ${AAMP_ROOT}/test/utests/fakes/FakeContentProtectionPriv.cpp)
 
 set(AAMP_SOURCES ${AAMP_ROOT}/_base64.cpp
 				${AAMP_ROOT}/AampConfig.cpp
@@ -98,7 +103,8 @@ set(AAMP_SOURCES ${AAMP_ROOT}/_base64.cpp
 				 ${AAMP_ROOT}/isobmff/isobmffbox.h
 				 ${AAMP_ROOT}/isobmff/isobmffbox.cpp
 				 ${AAMP_ROOT}/isobmff/isobmffbuffer.h
-				 ${AAMP_ROOT}/isobmff/isobmffbuffer.cpp)
+				 ${AAMP_ROOT}/isobmff/isobmffbuffer.cpp
+				 ${AAMP_ROOT}/middleware/IFirebolt/ContentProtectionSession.h)
 
 add_definitions(-DUSE_SHARED_MEMORY)
 add_definitions(-DUSE_OPENCDM_ADAPTER)

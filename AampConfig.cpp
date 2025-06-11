@@ -32,6 +32,7 @@
 #include "PlayerIarmRfcInterface.h"
 #include <time.h>
 #include <map>
+#include "ContentProtectionPriv.h"
 //////////////// CAUTION !!!! STOP !!! Read this before you proceed !!!!!!! /////////////
 /// 1. This Class handles Configuration Parameters of AAMP Player , only Config related functionality to be added
 /// 2. Simple Steps to add a new configuration
@@ -182,12 +183,6 @@ struct ConfigLookupEntryString
 #define DEFAULT_VALUE_GST_SUBTEC_ENABLED false
 #endif
 
-#ifdef USE_SECMANAGER
-#define DEFAULT_VALUE_USE_SECMANAGER true
-#else
-#define DEFAULT_VALUE_USE_SECMANAGER false
-#endif
-
 #ifdef ENABLE_USE_SINGLE_PIPELINE
 #define DEFAULT_VALUE_USE_SINGLE_PIPELINE true
 #else
@@ -329,7 +324,7 @@ static const ConfigLookupEntryBool mConfigLookupTableBool[AAMPCONFIG_BOOL_COUNT]
 	{true,"enableLowLatencyOffsetMin",eAAMPConfig_EnableLowLatencyOffsetMin,false},
 	{false,"syncAudioFragments",eAAMPConfig_SyncAudioFragments,false},
 	{false,"enableEosSmallFragment", eAAMPConfig_EnableIgnoreEosSmallFragment, false},
-	{DEFAULT_VALUE_USE_SECMANAGER,"useSecManager",eAAMPConfig_UseSecManager, true},
+	{false,"useSecManager",eAAMPConfig_UseSecManager, true},
 	{false,"enablePTO", eAAMPConfig_EnablePTO,false},
 	{true,"enableFogConfig", eAAMPConfig_EnableAampConfigToFog, false},
 	{false,"xreSupportedTune",eAAMPConfig_XRESupportedTune,false},
@@ -862,6 +857,10 @@ void AampConfig::ApplyDeviceCapabilities()
 	{
 		configValueBool[eAAMPConfig_EnableLowLatencyCorrection].value = false;
 		SetConfigValue(AAMP_TUNE_SETTING, eAAMPConfig_EnableLiveLatencyCorrection, false);
+	}
+	if(ContentProtection::ContentProtectionEnabled())
+	{
+		SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_UseSecManager, true);
 	}
 }
 

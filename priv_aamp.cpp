@@ -21,7 +21,6 @@
  * @file priv_aamp.cpp
  * @brief Advanced Adaptive Media Player (AAMP) PrivateInstanceAAMP impl
  */
-#include "AampMemoryUtils.h"
 #include "isobmffprocessor.h"
 #include "priv_aamp.h"
 #include "AampJsonObject.h"
@@ -2947,12 +2946,10 @@ void PrivateInstanceAAMP::NotifySpeedChanged(float rate, bool changeState)
 	{
 		SendEvent(std::make_shared<SpeedChangedEvent>(rate, GetSessionId()),AAMP_EVENT_ASYNC_MODE);
 	}
-#ifdef USE_SECMANAGER
 	if(ISCONFIGSET_PRIV(eAAMPConfig_UseSecManager))
 	{
 		mDRMSessionManager->setPlaybackSpeedState(rate, GetStreamPositionMs());
 	}
-#endif
 }
 
 /**
@@ -6658,9 +6655,7 @@ void PrivateInstanceAAMP::detach()
 			PlayerCCManager::GetInstance()->Release(mCCId);
 			mCCId = 0;
 		}
-#ifdef USE_SECMANAGER
 		mDRMSessionManager->hideWatermarkOnDetach();
-#endif
 		AampStreamSinkManager::GetInstance().DeactivatePlayer(this, false);
 
 		StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
@@ -7083,12 +7078,10 @@ void PrivateInstanceAAMP::SetVideoMute(bool muted)
 	{
 		sink->SetVideoMute(muted);
 	}
-#ifdef USE_SECMANAGER
 	if(ISCONFIGSET_PRIV(eAAMPConfig_UseSecManager))
 	{
 		mDRMSessionManager->setVideoMute(muted, GetStreamPositionMs());
 	}
-#endif
 }
 
 /**
@@ -8898,7 +8891,6 @@ void PrivateInstanceAAMP::NotifyFirstBufferProcessed(const std::string& videoRec
 	AAMPLOG_WARN("seek pos %.3f", seek_pos_seconds);
 
 
-#ifdef USE_SECMANAGER
 	if(ISCONFIGSET_PRIV(eAAMPConfig_UseSecManager))
 	{
 		double streamPositionMs = GetStreamPositionMs();
@@ -8912,7 +8904,6 @@ void PrivateInstanceAAMP::NotifyFirstBufferProcessed(const std::string& videoRec
 		AAMPLOG_WARN("calling setVideoWindowSize  w:%d x h:%d ",w,h);
 		mDRMSessionManager->setVideoWindowSize(w,h);
 	}
-#endif
 
 }
 
@@ -8969,7 +8960,6 @@ MediaFormat PrivateInstanceAAMP::GetMediaFormatTypeEnum() const
 	return mMediaFormat;
 }
 
-#if defined(USE_SECCLIENT) || defined(USE_SECMANAGER)
 
 /**
  * @brief Extracts / Generates MoneyTrace string
@@ -9022,7 +9012,6 @@ void PrivateInstanceAAMP::GetMoneyTraceString(std::string &customHeader) const
 	}
 	AAMPLOG_TRACE("[GetMoneyTraceString] MoneyTrace[%s]",customHeader.c_str());
 }
-#endif /* USE_SECCLIENT || USE_SECMANAGER */
 
 /**
  * @brief Notify the decryption completion of the fist fragment.

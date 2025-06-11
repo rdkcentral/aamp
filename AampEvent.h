@@ -1657,11 +1657,6 @@ public:
 	void SetVerboseErrorCode(int32_t statusCode,  int32_t reasonCode, int32_t businessStatus );
 
 	/**
-	 * @brief Convert the secclient DRM error code into secmanager error code to have a unified verbose error reported
-	 */
-	void ConvertToVerboseErrorCode(int32_t httpCode, int32_t httpExtStatusCode );
-
-	/**
 	 * @brief Get header responses
 	 *
 	 * @return header response vector

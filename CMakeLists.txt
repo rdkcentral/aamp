@@ -172,7 +172,7 @@ endif(CMAKE_SYSTEM_NAME STREQUAL Darwin)
 find_package (Threads REQUIRED)
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR} drm downloader drm/aes drm/helper subtitle subtec middleware/playerisobmff middleware/subtitle isobmff dash/xml dash/mpd dash/utils middleware middleware/closedcaptions middleware/closedcaptions/subtec middleware/drm/ocdm middleware/drm/helper middleware/drm)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR} drm downloader drm/aes subtitle isobmff dash/xml dash/mpd dash/utils middleware middleware/drm/ocdm middleware/drm/helper middleware/drm)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR} drm downloader drm/aes subtitle isobmff dash/xml dash/mpd dash/utils middleware middleware/drm/ocdm middleware/drm/helper middleware/drm middleware/IFirebolt middleware/IFirebolt)
 include_directories(${GSTREAMER_INCLUDE_DIRS})
 include_directories(${CURL_INCLUDE_DIRS})
 include_directories(${GSTREAMERBASE_INCLUDE_DIRS})
@@ -204,7 +204,6 @@ set(LIBAAMP_HEADERS middleware/drm/DrmSystems.h
 					middleware/drm/DrmJsonObject.h
 					AampLogManager.h
 					AampMediaType.h
-					AampMemoryUtils.h
 					AampProfiler.h
 					externals/PlayerRfc.h
 					AampScheduler.h
@@ -229,6 +228,8 @@ set(LIBAAMP_HEADERS middleware/drm/DrmSystems.h
 					middleware/GstHandlerControl.h
 					middleware/GstUtils.h
 					middleware/InterfacePlayerRDK.h
+					middleware/IFirebolt/ContentProtectionSession.h
+					middleware/IFirebolt/ContentProtectionPriv.h
 					middleware/SocUtils.h
 					externals/PlayerIarmRfcInterface.h
 					aampgstplayer.h
@@ -332,8 +333,9 @@ set(LIBAAMP_SOURCES iso639map.cpp
 					middleware/gstplayertaskpool.cpp
 					middleware/GstHandlerControl.cpp
 					middleware/GstUtils.cpp
-                                        middleware/InterfacePlayerRDK.cpp
-                                        middleware/SocUtils.cpp
+					middleware/InterfacePlayerRDK.cpp
+					middleware/IFirebolt/ContentProtectionPriv.cpp
+					middleware/SocUtils.cpp
 					aampgstplayer.cpp
 					AampBufferControl.cpp
 					tsprocessor.cpp
@@ -409,23 +411,8 @@ if(CMAKE_SOC_PLATFORM_RPI)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DRPI=1")
 endif()
 
-if(CMAKE_USE_SECCLIENT)
-	if (CMAKE_USE_SECCLIENT_MOCKS)
-		set(LIBAAMP_HEADERS ${LIBAAMP_HEADERS} sec_client.h sec_security_datatype.h)
-		# copy_staging_header_file(sec_client.h)
-		# copy_staging_header_file(sec_security_datatype.h)
-		set(LIBAAMP_MOCK_SOURCES ${LIBAAMP_MOCK_SOURCES} test/mocks/secClientMocks.cpp)
-		set(LIBAAMP_MOCK_DEPENDS -lgmock -lgtest)
-	else()
-		set(SEC_CLIENT_LIB -lSecClient )
-	endif()
-endif()
-if(CMAKE_USE_SECMANAGER)
-	if (NOT CMAKE_WPEFRAMEWORK_REQUIRED)
-		message(FATAL_ERROR "CMAKE_USE_SECMANAGER set but CMAKE_WPEFRAMEWORK_REQUIRED not set")
-	else()
-		set(LIBAAMP_SOURCES ${LIBAAMP_SOURCES} drm/AampSecManager.cpp)
-	endif()
+if(CMAKE_USE_SECCLIENT OR CMAKE_USE_SECMANAGER)	#To-Do: To be updated after meta change is done
+    set(LIBAAMP_SOURCES ${LIBAAMP_SOURCES}  middleware/IFirebolt/ContentProtectionFirebolt.cpp)
 endif()
 
 execute_process(COMMAND bash "-c" "${CMAKE_SOURCE_DIR}/buildinfo.sh" WORKING_DIRECTORY ${CMAKE_SOURCE_DIR} OUTPUT_STRIP_TRAILING_WHITESPACE OUTPUT_VARIABLE buildinfo)
@@ -444,7 +431,7 @@ if(CMAKE_USE_RDK_PLUGINS)
 	set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DREAD_ESTB_IFACE_FROM_DEVICE_PROPERTIES -DCREATE_PIPE_SESSION_TO_XRE")
 endif()
 
-set(LIBAAMP_DEPENDS ${OS_LD_FLAGS} ${UUID_LINK_LIBRARIES} ${LIBCJSON_LINK_LIBRARIES} ${GSTREAMERBASE_LINK_LIBRARIES} ${GSTREAMER_LINK_LIBRARIES} ${CURL_LINK_LIBRARIES} ${LIBDASH_LINK_LIBRARIES} ${LibXml2_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT} ${OPENSSL_LIBRARIES} ${OPENGL_LIBRARIES} ${GLEW_LIBRARIES} ${AAMP_CLI_LD_FLAGS} -ldl ${SEC_CLIENT_LIB})
+set(LIBAAMP_DEPENDS ${OS_LD_FLAGS} ${UUID_LINK_LIBRARIES} ${LIBCJSON_LINK_LIBRARIES} ${GSTREAMERBASE_LINK_LIBRARIES} ${GSTREAMER_LINK_LIBRARIES} ${CURL_LINK_LIBRARIES} ${LIBDASH_LINK_LIBRARIES} ${LibXml2_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT} ${OPENSSL_LIBRARIES} ${OPENGL_LIBRARIES} ${GLEW_LIBRARIES} ${AAMP_CLI_LD_FLAGS} -ldl ${FIREBOLT_LIB})
 set(PLAYBINTEST_DEPENDS ${OS_LD_FLAGS} ${CMAKE_THREAD_LIBS_INIT} ${GSTREAMER_LIBRARIES})
 
 if(CMAKE_WPEWEBKIT_JSBINDINGS)
@@ -454,7 +441,7 @@ else()
 	message("CMAKE_WPEWEBKIT_JSBINDINGS not set")
 endif()
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror=format -Wno-multichar -std=c++11 -Wno-non-virtual-dtor -Wno-psabi")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror=format -Wno-multichar -std=c++17 -Wno-non-virtual-dtor -Wno-psabi")
 
 if(CMAKE_IARM_MGR)
 	message("CMAKE_IARM_MGR set")
@@ -703,13 +690,9 @@ if(CMAKE_USE_ETHAN_LOG)
      set(LIBAAMPJSBINDINGS_DEFINES "${LIBAAMPJSBINDINGS_DEFINES} -DUSE_ETHAN_LOG=1")
 endif()
 
-
-if(CMAKE_USE_SECCLIENT)
-	message("CMAKE_USE_SECCLIENT set")
-	set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DUSE_SECCLIENT")
-endif()
-if(CMAKE_USE_SECMANAGER)
+if(CMAKE_USE_SECCLIENT OR CMAKE_USE_SECMANAGER)
 	message("CMAKE_USE_SECMANAGER set")
+	set(LIBAAMP_DEPENDS "${LIBAAMP_DEPENDS}  -lFireboltSDK")
 	set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DUSE_SECMANAGER")
 endif()
 
@@ -835,9 +818,8 @@ install(FILES   Accessibility.hpp AampEvent.h AampConfig.h AampCMCDCollector.h A
 	middleware/drm/DrmData.h middleware/drm/DrmInfo.h middleware/drm/DrmMediaFormat.h middleware/drm/DrmCallbacks.h AampLogManager.h
 	middleware/drm/DrmSession.h middleware/drm/ClearKeyDrmSession.h middleware/drm/DrmUtils.h middleware/drm/drmsessionfactory.h middleware/drm/ocdm/opencdmsessionadapter.h middleware/PlayerUtils.h
 	middleware/drm/helper/DrmHelper.h subtitle/vttCue.h AampUtils.h
-	AampMemoryUtils.h AampProfiler.h AampConstants.h middleware/drm/DrmConstants.h iso639map.h externals/PlayerRfc.h externals/PlayerBase64.h middleware/GstUtils.h AampGrowableBuffer.h
+	AampProfiler.h AampConstants.h middleware/drm/DrmConstants.h iso639map.h externals/PlayerRfc.h externals/PlayerBase64.h middleware/GstUtils.h AampGrowableBuffer.h
   AampScheduler.h
-  drm/AampSecManager.h
   downloader/AampCurlStore.h
   downloader/AampCurlDownloader.h
   downloader/AampCurlDefine.h
@@ -862,6 +844,9 @@ install(FILES   Accessibility.hpp AampEvent.h AampConfig.h AampCMCDCollector.h A
   middleware/SocUtils.h
   middleware/closedcaptions/PlayerCCManager.h
   middleware/PlayerUtils.h
+  middleware/playerjsonobject/PlayerJsonObject.h
+  middleware/IFirebolt/ContentProtectionSession.h
+  middleware/IFirebolt/ContentProtectionPriv.h
   DESTINATION include)
 
 

@@ -75,6 +75,12 @@ DrmSession * AampDRMSessionManager::createDrmSession(
 		{
 			return nullptr;
 		}
+
+DrmData * AampDRMSessionManager::getLicenseSec(const LicenseRequest &licenseRequest, DrmHelperPtr drmHelper,
+		const ChallengeInfo& challengeInfo, PrivateInstanceAAMP* aampInstance, int32_t *httpCode, int32_t *httpExtStatusCode, DrmMetaDataEventPtr eventHandle)
+{
+	return nullptr;
+}
 		
 SessionMgrState AampDRMSessionManager::getSessionMgrState()
 {

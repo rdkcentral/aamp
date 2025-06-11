@@ -31,9 +31,9 @@
 #include "AampJsonObject.h"
 #include "AampUtils.h"
 #include <inttypes.h>
-#ifdef USE_SECMANAGER
-#include "AampSecManager.h"
-#endif
+
+#include "ContentProtectionPriv.h"
+#include "ContentProtectionSession.h"
 
 #include "downloader/AampCurlStore.h"
 #include "AampDRMLicPreFetcherInterface.h"
@@ -101,12 +101,10 @@ AampDRMSessionManager::AampDRMSessionManager(int maxDrmSessions, PrivateInstance
 		,mAccessTokenConnector()
 		,aampInstance(aamp)
 		,mLicensePrefetcher(nullptr)
-#ifdef USE_SECMANAGER
-		,mAampSecManagerSession()
+		,mContentProtectionSession()
 		,mIsVideoOnMute(false)
 		,mCurrentSpeed(0),
 		mFirstFrameSeen(false)
-#endif
 {
 	drmSessionContexts	= new DrmSessionContext[mMaxDRMSessions];
 	cachedKeyIDs		= new KeyID[mMaxDRMSessions];
@@ -114,6 +112,7 @@ AampDRMSessionManager::AampDRMSessionManager(int maxDrmSessions, PrivateInstance
 	AAMPLOG_INFO("AampDRMSessionManager MaxSession:%d",mMaxDRMSessions);
 	mLicensePrefetcher = new AampLicensePreFetcher(aamp);
 	mLicensePrefetcher->Init();
+	registerCallback();
 }
 
 /**
@@ -127,6 +126,7 @@ AampDRMSessionManager::~AampDRMSessionManager()
 	releaseLicenseRenewalThreads();
 	SAFE_DELETE_ARRAY(drmSessionContexts);
 	SAFE_DELETE_ARRAY(cachedKeyIDs);
+	ContentProtection::GetInstance()->setWatermarkSessionEvent_CB(nullptr);
 }
 
 /**
@@ -336,13 +336,12 @@ void AampDRMSessionManager::clearDrmSession(bool forceClearSession)
 
 void AampDRMSessionManager::setVideoWindowSize(int width, int height)
 {
-#ifdef USE_SECMANAGER
-	auto localSession = mAampSecManagerSession; //Remove potential isSessionValid(), getSessionID() race by using a local copy
+	auto localSession = mContentProtectionSession; //Remove potential isSessionValid(), getSessionID() race by using a local copy
 	AAMPLOG_WARN("In AampDRMSessionManager:: setting video window size w:%d x h:%d mMaxDRMSessions=%d sessionID=[%" PRId64 "]",width,height,mMaxDRMSessions,localSession.getSessionID());
 	if(localSession.isSessionValid())
 	{
 		AAMPLOG_WARN("In AampDRMSessionManager:: valid session ID. Calling setVideoWindowSize().");
-		AampSecManager::GetInstance()->setVideoWindowSize(localSession.getSessionID(), width, height);
+		//ContentProtection::GetInstance()->setVideoWindowSize(localSession.getSessionID(), width, height);
 	}
 #endif
 }
@@ -351,14 +350,13 @@ void AampDRMSessionManager::setVideoWindowSize(int width, int height)
  */
 void AampDRMSessionManager::setVideoMute(bool isVideoOnMute, double positionMs)
 {
-#ifdef USE_SECMANAGER
 	AAMPLOG_WARN("Video mute status (new): %d, state changed: %.1s, pos: %f", isVideoOnMute, (isVideoOnMute == mIsVideoOnMute) ? "N":"Y", positionMs);
 
 	mIsVideoOnMute = isVideoOnMute;
-	auto localSession = mAampSecManagerSession; //Remove potential isSessionValid(), getSessionID() race by using a local copy
+	auto localSession = mContentProtectionSession; //Remove potential isSessionValid(), getSessionID() race by using a local copy
 	if(localSession.isSessionValid())
 	{
-		AampSecManager::GetInstance()->UpdateSessionState(localSession.getSessionID(), !mIsVideoOnMute);
+		ContentProtection::GetInstance()->UpdateSessionState(localSession.getSessionID(), !mIsVideoOnMute);
 		if(!mIsVideoOnMute)
 		{
 			//this is required as secmanager waits for speed update to show wm once session is active
@@ -367,7 +365,6 @@ void AampDRMSessionManager::setVideoMute(bool isVideoOnMute, double positionMs)
 			setPlaybackSpeedState(mCurrentSpeed, positionMs);
 		}
 	}
-#endif
 }
 
 /**
@@ -375,23 +372,20 @@ void AampDRMSessionManager::setVideoMute(bool isVideoOnMute, double positionMs)
  */
 void AampDRMSessionManager::hideWatermarkOnDetach(void)
 {
-#ifdef USE_SECMANAGER
 	AAMPLOG_WARN("Clearing first frame flag and de-activating watermark.");
-	auto localSession = mAampSecManagerSession; //Remove potential isSessionValid(), getSessionID() race by using a local copy
+	auto localSession = mContentProtectionSession; //Remove potential isSessionValid(), getSessionID() race by using a local copy
 	if(localSession.isSessionValid())
 	{
-		AampSecManager::GetInstance()->UpdateSessionState(localSession.getSessionID(), false);
+		ContentProtection::GetInstance()->UpdateSessionState(localSession.getSessionID(), false);
 	}
 	mFirstFrameSeen = false;
-#endif
 }
 
 
 void AampDRMSessionManager::setPlaybackSpeedState(int speed, double positionMs, bool firstFrameSeen)
 {
-#ifdef USE_SECMANAGER
 	bool isVideoOnMute=mIsVideoOnMute;
-	auto localSession = mAampSecManagerSession; //Remove potential isSessionValid(), getSessionID() race by using a local copy
+	auto localSession = mContentProtectionSession; //Remove potential isSessionValid(), getSessionID() race by using a local copy
 	AAMPLOG_WARN("In AampDRMSessionManager::after calling setPlaybackSpeedState speed=%d position=%f sessionID=[%" PRId64 "], mute: %d",speed, positionMs, localSession.getSessionID(), isVideoOnMute);
 	mCurrentSpeed = speed;
 	if(firstFrameSeen)
@@ -406,7 +400,7 @@ void AampDRMSessionManager::setPlaybackSpeedState(int speed, double positionMs, 
 
 	if(localSession.isSessionValid() && !mIsVideoOnMute && mFirstFrameSeen)
 	{
-		AAMPLOG_INFO("calling AampSecManager::setPlaybackSpeedState()");
+		AAMPLOG_INFO("calling ContentProtection::setPlaybackSpeedState()");
 
 		double adjustedPos;
 		if( aampInstance->IsLive() )
@@ -424,15 +418,14 @@ void AampDRMSessionManager::setPlaybackSpeedState(int speed, double positionMs, 
 		}
 
 		AAMPLOG_INFO("setPlaybackSpeedState pos=%fs speed=%d", adjustedPos/1000, speed );
-		AampSecManager::GetInstance()->setPlaybackSpeedState(localSession.getSessionID(), speed, adjustedPos);
+		ContentProtection::GetInstance()->setPlaybackSpeedState(localSession.getSessionID(), speed, (int)adjustedPos);
 	}
 	else
 	{
 		bool firstFrameSeenCopy=mFirstFrameSeen;
 		isVideoOnMute=mIsVideoOnMute;
-		AAMPLOG_INFO("Not calling AampSecManager::setPlaybackSpeedState(), sessionID=[%" PRId64 "], mIsVideoOnMute=%d, firstFrameSeen=%d", localSession.getSessionID(), isVideoOnMute, firstFrameSeenCopy);
+		AAMPLOG_INFO("Not calling ContentProtection::setPlaybackSpeedState(), sessionID=[%" PRId64 "], mIsVideoOnMute=%d, firstFrameSeen=%d", localSession.getSessionID(), isVideoOnMute, firstFrameSeenCopy);
 	}
-#endif
 }
 
 
@@ -568,8 +561,6 @@ bool AampDRMSessionManager::IsKeyIdProcessed(std::vector<uint8_t> keyIdArray, bo
 }
 
 
-#if defined(USE_SECCLIENT) || defined(USE_SECMANAGER)
-
 DrmData * AampDRMSessionManager::getLicenseSec(const LicenseRequest &licenseRequest, DrmHelperPtr drmHelper,
 		const ChallengeInfo& challengeInfo, PrivateInstanceAAMP* aampInstance, int32_t *httpCode, int32_t *httpExtStatusCode, DrmMetaDataEventPtr eventHandle)
 {
@@ -591,6 +582,10 @@ DrmData * AampDRMSessionManager::getLicenseSec(const LicenseRequest &licenseRequ
 	const char *accessAttributes[2][2] = {NULL, NULL, NULL, NULL};
 	long long tStartTime = 0, tEndTime = 0, downloadTimeMS=0;
 	std::string serviceZone, streamID;
+	
+	int sleepTime = aampInstance->mConfig->GetConfigValue(eAAMPConfig_LicenseRetryWaitTime);
+	if(sleepTime<=0) sleepTime = 100;
+
 	if(aampInstance->mIsVSS)
 	{
 		if (aampInstance->GetEnableAccessAttributesFlag())
@@ -617,10 +612,10 @@ DrmData * AampDRMSessionManager::getLicenseSec(const LicenseRequest &licenseRequ
 	aampInstance->GetMoneyTraceString(moneytracestr);
 	requestMetadata[0][1] = moneytracestr.c_str();
 
-	AAMPLOG_WARN("[HHH] Before calling SecClient_AcquireLicense-----------");
+	AAMPLOG_WARN("[HHH] Before calling AcquireLicense-----------");
 	AAMPLOG_WARN("destinationURL is %s (drm server now used)", licenseRequest.url.c_str());
 	AAMPLOG_WARN("MoneyTrace[%s]", requestMetadata[0][1]);
-#if USE_SECMANAGER
+
 	if(aampInstance->mConfig->IsConfigSet(eAAMPConfig_UseSecManager))
 	{
 		size_t encodedDataLen = ((contentMetaData.length() + 2) /3) * 4;
@@ -629,7 +624,7 @@ DrmData * AampDRMSessionManager::getLicenseSec(const LicenseRequest &licenseRequ
 		int32_t reasonCode;
 		int32_t businessStatus;
 
-		if (!mAampSecManagerSession.isSessionValid())
+		if (!mContentProtectionSession.isSessionValid())
 		{
 			// if we're about to get a licence and are not re-using a session, then we have not seen the first video frame yet. Do not allow watermarking to get enabled yet.
 			bool videoMuteState = mIsVideoOnMute;
@@ -638,17 +633,27 @@ DrmData * AampDRMSessionManager::getLicenseSec(const LicenseRequest &licenseRequ
 		}
 
 		tStartTime = NOW_STEADY_TS_MS;
-		bool res = AampSecManager::GetInstance()->AcquireLicense(aampInstance, licenseRequest.url.c_str(),
-																 requestMetadata,
-																 ((numberOfAccessAttributes == 0) ? NULL : accessAttributes),
-																 encodedData, encodedDataLen,
-																 encodedChallengeData, encodedChallengeDataLen,
-																 keySystem,
-																 mediaUsage,
-																 secclientSessionToken, challengeInfo.accessToken.length(),
-																 mAampSecManagerSession,
-																 &licenseResponseStr, &licenseResponseLength,
-																 &statusCode, &reasonCode, &businessStatus, mIsVideoOnMute);
+		std::string clientId = "aamp";								//Do we need "com.comcast.vipa:1" or can be aamp as it is.
+		std::string appId;
+		if (!aampInstance->GetAppName().empty())
+		{
+			appId = aampInstance->GetAppName();
+		}
+		else
+		{
+			appId = clientId;
+		}
+		AAMPLOG_WARN("____________CLIENT ID %s App ID___________________________%s", clientId.c_str(), appId.c_str());
+		bool res = ContentProtection::GetInstance()->AcquireLicense(clientId, appId, licenseRequest.url.c_str(),
+ 																 requestMetadata,
+ 																 ((numberOfAccessAttributes == 0) ? NULL : accessAttributes),
+ 																 encodedData, encodedDataLen,
+ 																 keySystem,
+ 																 mediaUsage,
+ 																 secclientSessionToken, challengeInfo.accessToken.length(),
+																 mContentProtectionSession,
+ 																 &licenseResponseStr, &licenseResponseLength,
+																 &statusCode, &reasonCode, &businessStatus, mIsVideoOnMute, sleepTime);
 		tEndTime = NOW_STEADY_TS_MS;
 		downloadTimeMS = tEndTime - tStartTime;
 		if (res)
@@ -679,91 +684,13 @@ DrmData * AampDRMSessionManager::getLicenseSec(const LicenseRequest &licenseRequ
 			//TODO: Sort this out for backward compatibility
 		}
 	}
-#endif
-#if USE_SECCLIENT
-#if USE_SECMANAGER
-	else
-	{
-#endif
-		int32_t sec_client_result = SEC_CLIENT_RESULT_FAILURE;
-		SecClient_ExtendedStatus statusInfo;
-		unsigned int attemptCount = 0;
-		int sleepTime = aampInstance->mConfig->GetConfigValue(eAAMPConfig_LicenseRetryWaitTime) ;
-		if(sleepTime<=0) sleepTime = 100;
-		tStartTime = NOW_STEADY_TS_MS;
-		while (attemptCount < MAX_LICENSE_REQUEST_ATTEMPTS)
-		{
-			attemptCount++;
-			sec_client_result = SecClient_AcquireLicense(licenseRequest.url.c_str(), 1,
-														 requestMetadata, numberOfAccessAttributes,
-														 ((numberOfAccessAttributes == 0) ? NULL : accessAttributes),
-														 encodedData,
-														 strlen(encodedData),
-														 encodedChallengeData, strlen(encodedChallengeData), keySystem, mediaUsage,
-														 secclientSessionToken,
-														 &licenseResponseStr, &licenseResponseLength, &refreshDuration, &statusInfo);
-			if (((sec_client_result >= 500 && sec_client_result < 600)||
-				 (sec_client_result >= SEC_CLIENT_RESULT_HTTP_RESULT_FAILURE_TLS  && sec_client_result <= SEC_CLIENT_RESULT_HTTP_RESULT_FAILURE_GENERIC ))
-				&& attemptCount < MAX_LICENSE_REQUEST_ATTEMPTS)
-			{
-				AAMPLOG_ERR(" acquireLicense FAILED! license request attempt : %d; response code : sec_client %d", attemptCount, sec_client_result);
-				if (licenseResponseStr)
-				{
-					SecClient_FreeResource(licenseResponseStr);
-					licenseResponseStr = NULL;
-				}
-				AAMPLOG_WARN(" acquireLicense : Sleeping %d milliseconds before next retry.", sleepTime);
-				mssleep(sleepTime);
-			}
-			else
-			{
-				break;
-			}
-		}
-		tEndTime = NOW_STEADY_TS_MS;
-		downloadTimeMS = tEndTime - tStartTime;
 
-		AAMPLOG_TRACE("licenseResponse is %s", licenseResponseStr);
-		AAMPLOG_TRACE("licenseResponse len is %zd", licenseResponseLength);
-		AAMPLOG_TRACE("accessAttributesStatus is %d", statusInfo.accessAttributeStatus);
-		AAMPLOG_TRACE("refreshDuration is %d", refreshDuration);
-		AAMPLOG_TRACE("total download time is %lld", downloadTimeMS);
-
-		if (sec_client_result != SEC_CLIENT_RESULT_SUCCESS)
-		{
-			AAMPLOG_ERR(" acquireLicense FAILED! license request attempt : %d; response code : sec_client %d extStatus %d", attemptCount, sec_client_result, statusInfo.statusCode);
-
-			eventHandle->ConvertToVerboseErrorCode( sec_client_result,  statusInfo.statusCode);
-
-			if(licenseResponseStr != NULL)
-			{
-				std::string responseData(licenseResponseStr);
-				eventHandle->setResponseData(responseData);
-			}
-
-			*httpCode = sec_client_result;
-			*httpExtStatusCode = statusInfo.statusCode;
-
-			AAMPLOG_WARN("Converted the secclient httpCode : %d, httpExtStatusCode: %d to verbose error with class : %d, Reason Code : %d Business status: %d ", *httpCode, *httpExtStatusCode, eventHandle->getSecManagerClassCode(), eventHandle->getSecManagerReasonCode(), eventHandle->getBusinessStatus());
-		}
-		else
-		{
-			AAMPLOG_WARN(" acquireLicense SUCCESS! license request attempt %d; response code : sec_client %d", attemptCount, sec_client_result);
-			eventHandle->setAccessStatusValue(statusInfo.accessAttributeStatus);
-			licenseResponse = new DrmData(licenseResponseStr, licenseResponseLength);
-		}
-		if (licenseResponseStr) SecClient_FreeResource(licenseResponseStr);
-#if USE_SECMANAGER
-	}
-#endif
-#endif
 	UpdateLicenseMetrics(DRM_GET_LICENSE_SEC, *httpCode, licenseRequest.url.c_str(), downloadTimeMS, eventHandle, nullptr );
 
 	free(encodedData);
 	free(encodedChallengeData);
 	return licenseResponse;
 }
-#endif
 
 int AampDRMSessionManager::getSlotIdForSession(DrmSession* session)
 {
@@ -793,10 +720,7 @@ int AampDRMSessionManager::getSlotIdForSession(DrmSession* session)
 
 void AampDRMSessionManager::licenseRenewalThread(DrmHelperPtr drmHelper, int sessionSlot, PrivateInstanceAAMP* aampInstance)
 {
-	bool isSecClientError = false;
-#if defined(USE_SECCLIENT) || defined(USE_SECMANAGER)
-	isSecClientError = true;
-#endif
+	bool isSecClientError = ContentProtection::ContentProtectionEnabled();
 	DrmMetaDataEventPtr e = std::make_shared<DrmMetaDataEvent>(AAMP_TUNE_FAILURE_UNKNOWN, "", 0, 0, isSecClientError, aampInstance->GetSessionId());
 	int cdmError = -1;
 	KeyState code = acquireLicense(drmHelper, sessionSlot, cdmError, e, aampInstance, eMEDIATYPE_LICENCE, true);
@@ -1181,15 +1105,13 @@ DrmSession* AampDRMSessionManager::createDrmSession(DrmHelperPtr drmHelper, DrmM
 		return nullptr;
 	}
 
-#ifdef USE_SECMANAGER
-	// License acquisition was done, so mAampSecManagerSession will be populated now
-	auto localSession = mAampSecManagerSession; //Remove potential isSessionValid(), getSessionID() race by using a local copy
+	// License acquisition was done, so mContentProtectionSession will be populated now
+	auto localSession = mContentProtectionSession; //Remove potential isSessionValid(), getSessionID() race by using a local copy
 	if (localSession.isSessionValid())
 	{
 		AAMPLOG_WARN(" Setting sessionId[%" PRId64 "] to current drmSession", localSession.getSessionID());
-		drmSessionContexts[selectedSlot].drmSession->setSecManSession(localSession);
+		drmSessionContexts[selectedSlot].drmSession->setSecManagerSession(localSession);
 	}
-#endif
 
 	return drmSessionContexts[selectedSlot].drmSession;
 }
@@ -1328,19 +1250,16 @@ KeyState AampDRMSessionManager::getDrmSession(DrmHelperPtr drmHelper, int &selec
 			if (existingState == KEY_READY)
 			{
 				AAMPLOG_INFO("Found drm session READY with same keyID %s - Reusing drm session", keyIdDebugStr.c_str());
-#ifdef USE_SECMANAGER
 				// Cached session is re-used, set its session ID to active.
 				// State management will be done from getLicenseSec function in case of KEY_INIT
-				auto slotSession = drmSessionContexts[sessionSlot].drmSession->getSecManSession();
-				if (slotSession.isSessionValid() && (!mAampSecManagerSession.isSessionValid()) )
+				auto slotSession = drmSessionContexts[sessionSlot].drmSession->getSecManagerSession();
+				if (slotSession.isSessionValid() && (!mContentProtectionSession.isSessionValid()) )
 				{
-					// Set the drmSession's ID as mAampSecManagerSession so that this code will not be repeated for multiple calls for createDrmSession					
-					mAampSecManagerSession = slotSession;
+					// Set the drmSession's ID as mContentProtectionSession so that this code will not be repeated for multiple calls for createDrmSession+					mContentProtectionSession = slotSession;
 					bool videoMuteState = mIsVideoOnMute;
 					AAMPLOG_WARN("Activating re-used DRM, sessionId[%" PRId64 "], with video mute = %d", slotSession.getSessionID(), videoMuteState);
-					AampSecManager::GetInstance()->UpdateSessionState(slotSession.getSessionID(), true);
+					ContentProtection::GetInstance()->UpdateSessionState(slotSession.getSessionID(), true);
 				}
-#endif
 				return KEY_READY;
 			}
 			if (existingState == KEY_INIT)
@@ -1564,7 +1483,7 @@ KeyState AampDRMSessionManager::acquireLicense(DrmHelperPtr drmHelper, int sessi
 				{
 					aampInstance->profiler.ProfileBegin(PROFILE_BUCKET_LA_NETWORK);
 				}
-#if defined(USE_SECCLIENT) || defined(USE_SECMANAGER)
+
 				bool isContentMetadataAvailable = configureLicenseServerParameters(drmHelper, licenseRequest, licenseServerProxy, challengeInfo, aampInstance);
 				if (isContentMetadataAvailable)
 				{
@@ -1595,7 +1514,6 @@ KeyState AampDRMSessionManager::acquireLicense(DrmHelperPtr drmHelper, int sessi
 					}
 				}
 				else
-#endif
 				{
 					if(usingAppDefinedAuthToken)
 					{
@@ -1628,7 +1546,7 @@ KeyState AampDRMSessionManager::handleLicenseResponse(DrmHelperPtr drmHelper, in
 			{
 				aamp->profiler.ProfileEnd(PROFILE_BUCKET_LA_NETWORK);
 			}
-#if !defined(USE_SECCLIENT) && !defined(USE_SECMANAGER)
+
 			if (!drmHelper->getDrmMetaData().empty() || ISCONFIGSET(eAAMPConfig_Base64LicenseWrapping))
 			{
 				/*
@@ -1657,7 +1575,7 @@ KeyState AampDRMSessionManager::handleLicenseResponse(DrmHelperPtr drmHelper, in
 					AAMPLOG_WARN("Failed to parse JSON response (%s)", jsonStr.c_str());
 				}
 			}
-#endif
+
 			AAMPLOG_INFO("license acquisition completed");
 			drmHelper->transformLicenseResponse(licenseResponse);
 		}
@@ -1787,9 +1705,10 @@ bool AampDRMSessionManager::configureLicenseServerParameters(DrmHelperPtr drmHel
 	{
 		if (!licenseRequest.url.empty())
 		{
-#if defined(USE_SECCLIENT) || defined(USE_SECMANAGER)
-			licenseRequest.url = getFormattedLicenseServerURL(licenseRequest.url);
-#endif
+			if( ContentProtection::ContentProtectionEnabled() )
+			{
+				licenseRequest.url = getFormattedLicenseServerURL(licenseRequest.url);
+			}
 		}
 	}
 
@@ -1854,19 +1773,17 @@ bool AampDRMSessionManager::configureLicenseServerParameters(DrmHelperPtr drmHel
  */
 void AampDRMSessionManager::notifyCleanup()
 {
-#ifdef USE_SECMANAGER
-	auto localSession = mAampSecManagerSession; //Remove potential isSessionValid(), getSessionID() race by using a local copy
+	auto localSession = mContentProtectionSession;	//Remove potential isSessionValid(), getSessionID() race by using a local copy
 	if(localSession.isSessionValid())
 	{
 		// Set current session to inactive
 		AAMPLOG_WARN("De-activate DRM session [%" PRId64 "] and watermark", localSession.getSessionID() );
-		AampSecManager::GetInstance()->UpdateSessionState(localSession.getSessionID(), false);
-		// Reset the session ID, the session ID is preserved within DrmSession instances
-		mAampSecManagerSession.setSessionInvalid();	//note this doesn't necessarily close the session as the session ID is also saved in the slot
+		ContentProtection::GetInstance()->UpdateSessionState(localSession.getSessionID(), false);
+		// Reset the session ID, the session ID is preserved within AampDrmSession instances
+		mContentProtectionSession.setSessionInvalid();	//note this doesn't necessarily close the session as the session ID is also saved in the slot
 		mCurrentSpeed = 0;
 		mFirstFrameSeen = false;
 	}
-#endif
 }
 
 void AampDRMSessionManager::ContentProtectionDataUpdate(PrivateInstanceAAMP* aampInstance, std::vector<uint8_t> keyId, AampMediaType streamType)
@@ -1938,6 +1855,32 @@ void AampDRMSessionManager::ContentProtectionDataUpdate(PrivateInstanceAAMP* aam
 		{
 			AAMPLOG_WARN("%s:%d [WARN] cond_timedwait(dynamicDrmUpdate) returned success!", __FUNCTION__, __LINE__);
 		}
+	}
+}
+
+/**
+ * @brief To register the callback for watermark session update
+ */
+void AampDRMSessionManager::registerCallback() {
+        std::function<void(uint32_t, uint32_t, const std::string&)> watermarkCallBack =
+        [this](uint32_t sessionHandle, uint32_t status, const std::string& system) {
+                this->watermarkSessionHandlerWrapper(sessionHandle, status, system);
+        };
+        ContentProtectionBase::setWatermarkSessionEvent_CB(watermarkCallBack);
+}
+
+/**
+ * @brief To wrap the callback for watermark session update
+ * @param[in] sessionHndle session handle
+ * @param[in] status status of the session
+ * @param[in] systemData system data
+ * @retval void
+ */
+void AampDRMSessionManager::watermarkSessionHandlerWrapper(uint32_t sessionHandle, uint32_t status, const std::string &systemData)
+{
+	if(NULL != aampInstance)
+	{
+		aampInstance->SendWatermarkSessionUpdateEvent( sessionHandle, status, systemData);
 	}
 }
 

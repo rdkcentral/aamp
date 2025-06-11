@@ -29,9 +29,7 @@
  * @brief Constructor for DrmSession.
  */
 DrmSession::DrmSession(const string &keySystem) : m_keySystem(keySystem),m_OutputProtectionEnabled(false)
-#ifdef USE_SECMANAGER
-		, mAampSecManagerSession()
-#endif
+		, mContentProtectionSession()
 {
 }
 

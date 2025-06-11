@@ -33,9 +33,8 @@
 #include "AampCurlDownloader.h"
 #include "DrmHelper.h"
 
-#ifdef USE_SECCLIENT
-#include "sec_client.h"
-#endif
+#include "ContentProtectionPriv.h"
+#include "ContentProtectionSession.h"
 
 #include "AampDRMLicPreFetcher.h"
 
@@ -129,12 +128,10 @@ private:
 	AampCurlDownloader mAccessTokenConnector;
 	AampLicensePreFetcher* mLicensePrefetcher; /**< DRM license prefetcher instance */
 	PrivateInstanceAAMP *aampInstance; /** AAMP instance **/
-#ifdef USE_SECMANAGER
-	AampSecManagerSession mAampSecManagerSession;
+	ContentProtectionSession mContentProtectionSession;
 	std::atomic<bool> mIsVideoOnMute;
 	std::atomic<int> mCurrentSpeed;
 	std::atomic<bool> mFirstFrameSeen;
-#endif
 	/**     
      	 * @brief Copy constructor disabled
      	 *
@@ -183,6 +180,20 @@ public:
 	AampDRMSessionManager(int maxDrmSessions, PrivateInstanceAAMP *aamp);
 
 	void initializeDrmSessions();
+
+	/**
+	 *  @fn watermarkSessionHandlerWrapper
+	 *  @brief Wrapper function to handle session watermark.
+	 *  @param[in]	sessionHndle - Session handle.
+	 *  @param[in]	status - Status of the session.
+	 *  @param[in]	systemData - System data.
+	 */
+	void watermarkSessionHandlerWrapper(uint32_t sessionHndle, uint32_t status, const std::string &systemData);
+
+	/**
+	 *  @fn registerCallback
+	 */
+	void registerCallback( );
 
 	/**
 	 * @brief Set the Common Key Duration object
@@ -266,10 +277,8 @@ public:
 	 */
 	DrmSession* createDrmSession(DrmHelperPtr drmHelper, DrmMetaDataEventPtr eventHandle, PrivateInstanceAAMP* aampInstance, AampMediaType streamType);
 
-#if defined(USE_SECCLIENT) || defined(USE_SECMANAGER)
 	DrmData * getLicenseSec(const LicenseRequest &licenseRequest, DrmHelperPtr drmHelper,
 			const ChallengeInfo& challengeInfo, PrivateInstanceAAMP* aampInstance, int32_t *httpCode, int32_t *httpExtStatusCode, DrmMetaDataEventPtr eventHandle);
-#endif
 	/**
 	 *  @fn 	getLicense
 	 *

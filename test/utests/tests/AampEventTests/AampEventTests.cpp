@@ -644,17 +644,6 @@ TEST_F(DrmMetaDataEventTest, GetterSetterMethodsTest) {
     EXPECT_EQ(headerResponses[0], "Header1");
     EXPECT_EQ(headerResponses[1], "Header2");
 }
-// Test case for ConvertToVerboseErrorCode method
-TEST_F(DrmMetaDataEventTest, ConvertToVerboseErrorCodeTest) {
-    drmMetaDataEvent->ConvertToVerboseErrorCode(404, 0);
-    int value = drmMetaDataEvent->getSecManagerClassCode();
-    EXPECT_EQ(value, 200);
-    EXPECT_EQ(drmMetaDataEvent->getSecManagerReasonCode(), 1);
-    EXPECT_EQ(drmMetaDataEvent->getBusinessStatus(), -1);
-
-    drmMetaDataEvent->ConvertToVerboseErrorCode(412, 401);
-    EXPECT_EQ(drmMetaDataEvent->getSecManagerReasonCode(), 1);
-}
 
 // Test case for SetVerboseErrorCode method
 TEST_F(DrmMetaDataEventTest, SetVerboseErrorCodeTest) {

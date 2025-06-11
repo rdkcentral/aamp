@@ -41,9 +41,7 @@
 
 AampConfig *gpGlobalConfig=NULL;
 
-#ifdef USE_SECMANAGER
-#include "AampSecManager.h"
-#endif
+#include "ContentProtectionPriv.h"
 
 std::mutex PlayerInstanceAAMP::mPrvAampMtx;
 
@@ -204,12 +202,10 @@ PlayerInstanceAAMP::~PlayerInstanceAAMP()
 		dlclose(mJSBinding_DL);
 	}
 #endif
-#ifdef USE_SECMANAGER
 	if (isLastPlayerInstance)
 	{
-		AampSecManager::DestroyInstance();
+		ContentProtection::DestroyInstance();
 	}
-#endif
 	if (isLastPlayerInstance && gpGlobalConfig)
 	{
 		AAMPLOG_WARN("[%p] Release GlobalConfig(%p)",this,gpGlobalConfig);

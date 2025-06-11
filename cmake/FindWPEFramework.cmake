@@ -47,16 +47,10 @@ if(PC_WPEFRAMEWORK_FOUND)
         HINTS ${PC_WPEFRAMEWORK_INCLUDEDIR} ${PC_WPEFRAMEWORK_INCLUDE_DIRS})
 
 if (USE_THUNDER_R4)
-       set(WPEFRAMEWORK_LIBS WPEFrameworkPlugins WPEFrameworkCore WPEFrameworkCOM WPEFrameworkWebSocket)
+       set(WPEFRAMEWORK_LIBS WPEFrameworkPlugins WPEFrameworkCore WPEFrameworkCOM WPEFrameworkSecurityUtil WPEFrameworkWebSocket)
 else()
-    set(WPEFRAMEWORK_LIBS WPEFrameworkPlugins WPEFrameworkCore WPEFrameworkTracing WPEFrameworkProtocols)
+    set(WPEFRAMEWORK_LIBS WPEFrameworkPlugins WPEFrameworkCore WPEFrameworkTracing WPEFrameworkProtocols WPEFrameworkSecurityUtil)
 endif()
-
-# Add WPEFrameworkSecurityUtil if DISABLE_SECURITY_TOKEN is not enabled
-if (NOT DISABLE_SECURITY_TOKEN)
-    list(APPEND WPEFRAMEWORK_LIBS WPEFrameworkSecurityUtil)
-endif()
-
     set(WPEFRAMEWORK_LIBRARY )
     foreach(LIB ${WPEFRAMEWORK_LIBS})
         find_library(WPEFRAMEWORK_LIBRARY_${LIB} NAMES ${LIB}

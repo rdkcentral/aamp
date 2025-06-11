@@ -28,6 +28,14 @@ const std::string &MediaErrorEvent::getDescription() const
 	return mDescription;
 }
 
+void DrmMetaDataEvent::SetVerboseErrorCode(int32_t statusCode,  int32_t reasonCode, int32_t businessStatus )
+{
+}
+
+void DrmMetaDataEvent::setAccessStatusValue(int value)
+{
+}
+
 const std::string &MediaErrorEvent::getResponseData() const
 {
 	return mResponseData;

@@ -28,8 +28,3 @@ version R4.4.1:
 The ocdm/open_cdm.h has been patched with the patch file ocdm/open_cdm.h.patch to avoid a
 compilation error, since both the OCDM headers and AAMP itself define a AampMediaType enum.
 
-# Secure Client header dependency
-
-The secclient/ headers are Comcast proprietary code, and are only available from Comcast's source
-repositories for the Secure Client.  If the headers are not present (i.e. the aamp/../secclient/ directory
-is empty or does not exist), then the DrmSecureClient tests will be skipped.
