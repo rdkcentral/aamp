@@ -357,6 +357,69 @@ void Aampcli::doHandleAampCliCommands(std::string args)
 	}
 }
 
+static bool validate_chunked_transfer( const char *path )
+{
+	bool rc = false;
+	printf( "validating: %s\n", path );
+	FILE *f = fopen(path,"rb");
+	if( f )
+	{
+		size_t chunkLen = 0;
+		for(;;)
+		{
+			int c = fgetc(f);
+			if( c<0 )
+			{ // end-of-file
+				if( chunkLen ==0 )
+				{
+					rc = true;
+				}
+				break;
+			}
+			if( c == '\r' )
+			{
+				c = fgetc(f);
+				if( chunkLen )
+				{
+					printf( "\tchunk size = %zu\n", chunkLen );
+				}
+				else
+				{
+					printf( "\tfinal empty chunk\n" );
+				}
+				fseek( f, chunkLen, SEEK_CUR );
+				c = fgetc( f );
+				if( c!='\r' ) break;
+				c = fgetc( f );
+				if( c!='\n' ) break;
+				chunkLen = 0;
+			}
+			else
+			{
+				chunkLen <<= 4;
+				if( c>='0' && c<='9' )
+				{
+					chunkLen += (c-'0');
+				}
+				else if( c>='A' && c<='F' )
+				{
+					chunkLen += (c-'A')+10;
+				}
+				else
+				{
+					break;
+				}
+			}
+		}
+		fclose( f );
+	}
+	if( !rc )
+	{
+		printf( "chunked transfer syntax exception!\n" );
+	}
+	return rc;
+}
+
 /**
  * @brief
  * @param argc
@@ -365,6 +428,11 @@ void Aampcli::doHandleAampCliCommands(std::string args)
  */
 static int main_func(int argc, char **argv)
 {
+	// examples of bad chunked transfer syntax
+	validate_chunked_transfer( "/Users/pstrof200/Desktop/outputChunks/out/_trackId-110-T-20558923602.m4s");
+	validate_chunked_transfer( "/Users/pstrof200/Desktop/outputChunks/out/_trackId-110-T-20230834002.m4s" );
+	validate_chunked_transfer( "/Users/pstrof200/Desktop/outputChunks/out/_trackId-110-T-19447934802.m4s" );
+
 	AampLogManager::disableLogRedirection = true;
 	ABRManager mAbrManager;
 
