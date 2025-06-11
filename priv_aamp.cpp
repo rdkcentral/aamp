@@ -573,12 +573,43 @@ static int ReadConfigNumericHelper(std::string buf, const char* prefixPtr, T& va
 
 // End of helper functions for loading configuration
 
+//#define SAVE_CHUNKS
+
 bool PrivateInstanceAAMP::chunked_write_callback(const char *ptr, size_t numBytes, void *userdata)
 { // HTTP/1.1 Chunked Transfer Protocol
 	CurlCallbackContext *context = (CurlCallbackContext *)userdata;
 	const char *fin = &ptr[numBytes];
+#ifdef SAVE_CHUNKS
+	static FILE *f[2];
+#endif
 	while( ptr<fin )
 	{
+		const char *state_name = "?";
+		switch( context->mTransferState.state )
+		{
+			case CurlCallbackContext::eTRANSFER_STATE_READING_CHUNK_SIZE:
+				state_name = "reading chunk size";
+				break;
+			case CurlCallbackContext::eTRANSFER_STATE_PENDING_CHUNK_START_LF:
+				state_name = "awaiting start LF";
+				break;
+			case CurlCallbackContext::eTRANSFER_STATE_READING_CHUNK_DATA:
+				state_name = "reading chunk data";
+				break;
+			case CurlCallbackContext::eTRANSFER_STATE_PENDING_CHUNK_END_CR:
+				state_name = "awaiting end CR";
+				break;
+			case CurlCallbackContext::eTRANSFER_STATE_PENDING_CHUNK_END_LF:
+				state_name = "awaiting end LF";
+				break;
+			default:
+				break;
+		}
+		AAMPLOG_INFO("%s (%s)) remaining=%zu",
+				GetMediaTypeName(context->mediaType),
+				state_name,
+				context->mTransferState.remaining );
+		
 		switch( context->mTransferState.state )
 		{
 			case CurlCallbackContext::eTRANSFER_STATE_READING_CHUNK_SIZE:
@@ -591,6 +622,7 @@ bool PrivateInstanceAAMP::chunked_write_callback(const char *ptr, size_t numByte
 				else
 				{
 					int octet = aamp_hascii_char_to_number(c);
+					assert( octet>=0 );
 					if( octet<0 )
 					{
 						return false;
@@ -603,7 +635,30 @@ bool PrivateInstanceAAMP::chunked_write_callback(const char *ptr, size_t numByte
 				
 			case CurlCallbackContext::eTRANSFER_STATE_PENDING_CHUNK_START_LF:
 				assert( *ptr++ == '\n' );
-				AAMPLOG_INFO( "CHUNK_SIZE=%zu %s", context->mTransferState.remaining, GetMediaTypeName(context->mediaType) );
+				
+#ifdef SAVE_CHUNKS
+			{
+				assert( f[context->mediaType] == NULL );
+				char path[256];
+				static int seqNo[2];
+				snprintf( path, sizeof(path), "/Users/pstrof200/Downloads/chunk-archive/%s-%03d-%zu.mp4",
+						GetMediaTypeName(context->mediaType),
+						seqNo[context->mediaType],
+						context->mTransferState.remaining );
+				f[context->mediaType] = fopen( path, "wb" );
+				assert( f );
+				seqNo[context->mediaType]++;
+			}
+#endif
+				
+				if( context->mTransferState.remaining )
+				{
+					AAMPLOG_INFO( "CHUNK_START %zu %s", context->mTransferState.remaining, GetMediaTypeName(context->mediaType) );
+				}
+				else
+				{
+					AAMPLOG_INFO( "CHUNK_END %s", GetMediaTypeName(context->mediaType) );
+				}
 				context->mTransferState.state = CurlCallbackContext::eTRANSFER_STATE_READING_CHUNK_DATA;
 				break;
 				
@@ -615,13 +670,23 @@ bool PrivateInstanceAAMP::chunked_write_callback(const char *ptr, size_t numByte
 					{ // clamp
 						n = context->mTransferState.remaining;
 					}
+					
+#ifdef SAVE_CHUNKS
+					assert( f[context->mediaType] );
+					fwrite( ptr, n, 1, f[context->mediaType] );
+#endif
 					context->buffer->AppendBytes( ptr, n );
 					ptr += n;
 					context->mTransferState.remaining -= n;
 				}
 				else
 				{
-					// here we will be at the end of an 'mdat', suitable for injection
+#ifdef SAVE_CHUNKS
+					assert( f[context->mediaType] );
+					fclose( f[context->mediaType] );
+					f[context->mediaType] = NULL;
+#endif
+					// here we will presumably be at the end of an 'mdat', suitable for injection
 					// bytes collected so far may include 1..4 packed ('moov','mdat') boxes.
 					assert( context->mTransferState.remaining == 0 );
 					context->mTransferState.state = CurlCallbackContext::eTRANSFER_STATE_PENDING_CHUNK_END_CR;
