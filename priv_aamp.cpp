@@ -9049,8 +9049,16 @@ void PrivateInstanceAAMP::SendMediaMetadataEvent(void)
 	{
 		drmType = helper->friendlyName();
 	}
-
- 	MediaMetadataEventPtr event = std::make_shared<MediaMetadataEvent>(CONVERT_SEC_TO_MS(durationSeconds), width, height, mpStreamAbstractionAAMP->hasDrm, IsLive(), drmType, mpStreamAbstractionAAMP->mProgramStartTime, mTsbDepthMs, GetSessionId());
+	// Introduced to send the effective URL to app
+	std::string url = mManifestUrl;
+	if(mFogTSBEnabled)
+	{
+		url =  mTunedManifestUrl;
+		// For Fog playback mTunedManifestUrl contains a defogged URL using the "_fogs" scheme
+		// To send an event to app we convert the URL scheme to "https" by replacing the prefix which is the CDN url sent from app
+		url.replace(0,4,"http");
+	}
+	MediaMetadataEventPtr event = std::make_shared<MediaMetadataEvent>(CONVERT_SEC_TO_MS(durationSeconds), width, height, mpStreamAbstractionAAMP->hasDrm, IsLive(), drmType, mpStreamAbstractionAAMP->mProgramStartTime, mTsbDepthMs, GetSessionId(), url);
 
 	for (auto iter = langList.begin(); iter != langList.end(); iter++)
 	{

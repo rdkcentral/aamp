@@ -312,12 +312,12 @@ unsigned long CCHandleEvent::getCCHandle() const
 /**
  * @brief MediaMetadataEvent Constructor
  */
-MediaMetadataEvent::MediaMetadataEvent(long duration, int width, int height, bool hasDrm, bool isLive, const std::string &DrmType, double programStartTime, int tsbDepthMs, std::string sid):
+MediaMetadataEvent::MediaMetadataEvent(long duration, int width, int height, bool hasDrm, bool isLive, const std::string &DrmType, double programStartTime, int tsbDepthMs, std::string sid,const std::string &url):
 		AAMPEventObject(AAMP_EVENT_MEDIA_METADATA, std::move(sid)), mDuration(duration),
 		mLanguages(), mBitrates(), mWidth(width), mHeight(height),
 		mHasDrm(hasDrm), mSupportedSpeeds(), mIsLive(isLive), mDrmType(DrmType), mProgramStartTime(programStartTime),
 		mPCRating(),mSsi(-1),mFrameRate(0),mVideoScanType(eVIDEOSCAN_UNKNOWN),mAspectRatioWidth(0),mAspectRatioHeight(0),
-		mVideoCodec(),mHdrType(),mAudioBitrates(),mAudioCodec(),mAudioMixType(),isAtmos(false),mMediaFormatName(), mTsbDepthMs(tsbDepthMs)
+		mVideoCodec(),mHdrType(),mAudioBitrates(),mAudioCodec(),mAudioMixType(),isAtmos(false),mMediaFormatName(), mTsbDepthMs(tsbDepthMs), mUrl(url)
 {
 
 }
@@ -485,6 +485,16 @@ bool MediaMetadataEvent::isLive() const
 const std::string &MediaMetadataEvent::getDrmType() const
 {
 	return mDrmType;
+}
+
+/**
+ * @brief Get Effective Url
+ *
+ * @return Url
+ */
+const std::string &MediaMetadataEvent::getUrl() const
+{
+	return mUrl;
 }
 
 /**
