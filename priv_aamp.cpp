@@ -13719,7 +13719,7 @@ double PrivateInstanceAAMP::GetStreamPositionMs()
 }
 
 /**
- * @brief Send MonitorAVEvent
+ * @brief Send MonitorAvEvent
  * @param[in] status - Current MonitorAV status
  * @param[in] videoPositionMS - video position in milliseconds
  * @param[in] audioPositionMS - audio position in milliseconds
@@ -13728,7 +13728,7 @@ double PrivateInstanceAAMP::GetStreamPositionMs()
  * It is used to monitor the audio and video status during playback.
  * It is called when the playback is enabled (mbPlayEnabled is true).
  */
-void PrivateInstanceAAMP::SendMonitorAVEvent(const std::string &status, int64_t videoPositionMS, int64_t audioPositionMS, uint64_t timeInStateMS)
+void PrivateInstanceAAMP::SendMonitorAvEvent(const std::string &status, int64_t videoPositionMS, int64_t audioPositionMS, uint64_t timeInStateMS)
 {
 	if(mbPlayEnabled)
 	{
