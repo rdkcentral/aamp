@@ -113,8 +113,7 @@ static bool IsIframeTrack(IAdaptationSet *adaptationSet);
  * @brief StreamAbstractionAAMP_MPD Constructor
  */
 StreamAbstractionAAMP_MPD::StreamAbstractionAAMP_MPD(class PrivateInstanceAAMP *aamp, double seek_pos, float rate, id3_callback_t id3Handler)
-	: StreamAbstractionAAMP(aamp, id3Handler),
-	fragmentCollectorThreadStarted(false), mLangList(), seekPosition(seek_pos), rate(rate), fragmentCollectorThreadID(),tsbReaderThreadID(),
+	: StreamAbstractionAAMP(aamp, id3Handler), mLangList(), seekPosition(seek_pos), rate(rate), fragmentCollectorThreadID(),tsbReaderThreadID(),
 	mpd(NULL), mNumberOfTracks(0), mCurrentPeriodIdx(0), mEndPosition(0), mIsLiveStream(true), mIsLiveManifest(true),mManifestDnldRespPtr(nullptr),mManifestUpdateHandleFlag(false),mUpdateManifestState(false),
 	mStreamInfo(NULL), mPrevStartTimeSeconds(0), mPrevLastSegurlMedia(""), mPrevLastSegurlOffset(0),
 	mPeriodEndTime(0), mPeriodStartTime(0), mPeriodDuration(0), mMinUpdateDurationMs(DEFAULT_INTERVAL_BETWEEN_MPD_UPDATES_MS),
@@ -10473,7 +10472,6 @@ void StreamAbstractionAAMP_MPD::StartFromOtherThanAampLocalTsb(void)
 	// Start the worker threads for each track
 	try{
 		fragmentCollectorThreadID = std::thread(&StreamAbstractionAAMP_MPD::FetcherLoop, this);
-		fragmentCollectorThreadStarted = true;
 		AAMPLOG_INFO("Thread created for FetcherLoop [%zx]", GetPrintableThreadID(fragmentCollectorThreadID));
 	}
 	catch (std::exception &e)
@@ -10623,11 +10621,9 @@ void StreamAbstractionAAMP_MPD::Stop(bool clearChannelData)
 		AAMPLOG_INFO("Joined StartLatencyMonitorThread");
 		latencyMonitorThreadStarted = false;
 	}
-
-	if (!aamp->DownloadsAreEnabled() && (fragmentCollectorThreadStarted))
+	if (fragmentCollectorThreadID.joinable())
 	{
 		fragmentCollectorThreadID.join();
-		fragmentCollectorThreadStarted = false;
 	}
 
 	if(tsbReaderThreadStarted)

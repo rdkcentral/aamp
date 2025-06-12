@@ -1105,7 +1105,6 @@ protected:
                                uint64_t position, AampTime absolutePosition, bool immediate);
 
 	std::mutex mStreamLock;
-	bool fragmentCollectorThreadStarted;
 	bool tsbReaderThreadStarted;
 	bool abortTsbReader;
 	std::set<std::string> mLangList;

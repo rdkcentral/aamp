@@ -204,7 +204,7 @@ AAMPStatusType StreamAbstractionAAMP_PROGRESSIVE::Init(TuneType tuneType)
  * @brief StreamAbstractionAAMP_PROGRESSIVE Constructor
  */
 StreamAbstractionAAMP_PROGRESSIVE::StreamAbstractionAAMP_PROGRESSIVE(class PrivateInstanceAAMP *aamp,double seek_pos, float rate): StreamAbstractionAAMP(aamp),
-fragmentCollectorThreadStarted(false), fragmentCollectorThreadID(), seekPosition(seek_pos)
+fragmentCollectorThreadID(), seekPosition(seek_pos)
 {
     trickplayMode = (rate != AAMP_NORMAL_PLAY_RATE);
 }
@@ -224,7 +224,6 @@ void StreamAbstractionAAMP_PROGRESSIVE::Start(void)
     try
     {
         fragmentCollectorThreadID = std::thread(&StreamAbstractionAAMP_PROGRESSIVE::FragmentCollector, this);
-        fragmentCollectorThreadStarted = true;
         AAMPLOG_INFO("Thread created for FragmentCollector [%zx]", GetPrintableThreadID(fragmentCollectorThreadID));
     }
     catch(const std::exception& e)
@@ -239,11 +238,10 @@ void StreamAbstractionAAMP_PROGRESSIVE::Start(void)
  */
 void StreamAbstractionAAMP_PROGRESSIVE::Stop(bool clearChannelData)
 {
-    if(fragmentCollectorThreadStarted)
+    if(fragmentCollectorThreadID.joinable())
     {
         aamp->DisableDownloads();
         fragmentCollectorThreadID.join();
-        fragmentCollectorThreadStarted = false;
         aamp->EnableDownloads();
     }
  }

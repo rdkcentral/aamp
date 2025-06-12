@@ -132,7 +132,6 @@ public:
 
 private:
     void StreamFile( const char *uri, int *http_error );
-    bool fragmentCollectorThreadStarted;
     std::thread fragmentCollectorThreadID;
 };
 
@@ -141,5 +140,3 @@ private:
  * @}
  */
  
-
-

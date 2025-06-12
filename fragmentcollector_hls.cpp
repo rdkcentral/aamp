@@ -4952,7 +4952,6 @@ TrackState::TrackState(TrackType type, StreamAbstractionAAMP_HLS* parent, Privat
 		playTargetOffset(0),
 		discontinuity(false),
 		refreshPlaylist(false), fragmentCollectorThreadID(), isFirstFragmentAfterABR(false),
-		fragmentCollectorThreadStarted(false),
 		manifestDLFailCount(0),
 		mCMSha1Hash(), mDrmTimeStamp(0), firstIndexDone(false), mDrm(NULL), mDrmLicenseRequestPending(false),
 		mInjectInitFragment(false), mInitFragmentInfo(), mDrmKeyTagCount(0), mIndexingInProgress(false), mForceProcessDrmMetadata(false),
@@ -5017,10 +5016,9 @@ void TrackState::Stop(bool clearDRM)
 	{
 		StopPlaylistDownloaderThread();
 	}
-	if (fragmentCollectorThreadStarted)
+	if (fragmentCollectorThreadID.joinable())
 	{
 		fragmentCollectorThreadID.join();
-		fragmentCollectorThreadStarted = false;
 	}
 
 	aamp->StopTrackInjection((AampMediaType) type);
@@ -5073,7 +5071,7 @@ void TrackState::Start(void)
 	{
 		playContext->reset();
 	}
-	assert(!fragmentCollectorThreadStarted);
+	assert(!fragmentCollectorThreadID.joinable() && "FragmentCollector thread already started or not joined properly.");
 	if(aamp->IsLive())
 	{
 		StartPlaylistDownloaderThread();
@@ -5082,7 +5080,6 @@ void TrackState::Start(void)
 	try
 	{
 		fragmentCollectorThreadID =  std::thread(&TrackState::FragmentCollector, this);
-		fragmentCollectorThreadStarted = true;
 		AAMPLOG_INFO("Thread created for FragmentCollector [%zx]", GetPrintableThreadID(fragmentCollectorThreadID));
 	}
 	catch(const std::exception& e)
