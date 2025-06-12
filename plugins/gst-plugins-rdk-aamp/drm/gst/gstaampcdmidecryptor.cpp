@@ -22,6 +22,7 @@
 #include "config.h"
 #endif
 
+#include "AmlogicSocInterface.h" 
 #include <gst/gst.h>
 #include <gst/base/gstbasetransform.h>
 #include "gstaampcdmidecryptor.h"
@@ -49,6 +50,8 @@ enum
 #else
 #define DEBUG_FUNC()
 #endif
+
+SocInterface* socInterface = SocInterface::CreateSocInterface();
 
 static const gchar *srcMimeTypes[] = { "video/x-h264", "video/x-h264(memory:SecMem)", "audio/mpeg", "video/x-h265", "video/x-h265(memory:SecMem)", "audio/x-eac3", "audio/x-gst-fourcc-ec_3", "audio/x-ac3","audio/x-opus", nullptr };
 
@@ -110,10 +113,11 @@ static void gst_aampcdmidecryptor_class_init(
 	base_transform_class->transform_ip = GST_DEBUG_FUNCPTR(
 			gst_aampcdmidecryptor_transform_ip);
 
-#if !defined(AMLOGIC)
+if (!socInterface || !socInterface->isTargetSoc())
+{
 	base_transform_class->accept_caps = GST_DEBUG_FUNCPTR(
 			gst_aampcdmidecryptor_accept_caps);
-#endif
+}
 	base_transform_class->transform_ip_on_passthrough = FALSE;
 
 	gst_element_class_set_static_metadata(GST_ELEMENT_CLASS(klass),
@@ -354,10 +358,11 @@ gst_aampcdmidecryptor_transform_caps(GstBaseTransform * trans,
 
 		gst_aampcdmicapsappendifnotduplicate(transformedCaps, out);
 
-#if defined(AMLOGIC)
-	if (direction == GST_PAD_SINK && !gst_caps_is_empty(transformedCaps) && OCDMGstTransformCaps)
-		OCDMGstTransformCaps(&transformedCaps);
-#endif
+if (socInterface && socInterface->IsTargetSoc())
+{
+    if (direction == GST_PAD_SINK && !gst_caps_is_empty(transformedCaps) && OCDMGstTransformCaps)
+        OCDMGstTransformCaps(&transformedCaps);
+}
 	}
 
 	if (filter)
@@ -430,7 +435,8 @@ static GstFlowReturn gst_aampcdmidecryptor_transform_ip(
 	{
 		GST_DEBUG_OBJECT(aampcdmidecryptor,
 				"Failed to get GstProtection metadata from buffer %p, could be clear buffer",buffer);
-#if defined(AMLOGIC)
+if (socInterface && socInterface->IsTargetSoc())
+{
 		// call decrypt even for clear samples in order to copy it to a secure buffer. If secure buffers are not supported
 		// decrypt() call will return without doing anything
 		if (aampcdmidecryptor->drmSession != NULL)
@@ -440,7 +446,7 @@ static GstFlowReturn gst_aampcdmidecryptor_transform_ip(
 			result = GST_FLOW_NOT_SUPPORTED;
 			GST_ERROR_OBJECT(aampcdmidecryptor, "drmSession is **** NULL ****, returning GST_FLOW_NOT_SUPPORTED");
 		}
-#endif
+}
 		goto free_resources;
 	}
 
