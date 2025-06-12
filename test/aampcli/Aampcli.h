@@ -46,7 +46,7 @@
 #include "AampcliGet.h"
 #include "AampcliSet.h"
 #include "AampcliShader.h"
-#include "middleware/GstUtils.h"
+#include "GstUtils.h"
 
 class MyAAMPEventListener : public AAMPEventObjectListener
 {

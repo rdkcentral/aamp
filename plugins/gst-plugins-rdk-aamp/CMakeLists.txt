@@ -28,6 +28,8 @@ pkg_check_modules(GSTREAMER REQUIRED gstreamer-1.0)
 pkg_check_modules(GSTREAMERBASE REQUIRED gstreamer-app-1.0)
 
 pkg_check_modules(CURL REQUIRED libcurl)
+pkg_check_modules(PLAYERGSTINTERFACE REQUIRES libplayergstinterface)
+
 
 # Mac OS X
 if(CMAKE_SYSTEM_NAME STREQUAL Darwin)
@@ -45,7 +47,7 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 include_directories(${GSTREAMER_INCLUDE_DIRS})
 include_directories(${CURL_INCLUDE_DIRS})
 include_directories(${GSTREAMERBASE_INCLUDE_DIRS})
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../../middleware/closedcaptions)
+include_directories(${PLAYERGSTINTERFACE_INCLUDE_DIRS})
 
 set(AAMP_COMMON_DEPENDENCIES ${OS_LD_FLAGS} ${GSTREAMERBASE_LIBRARIES} ${GSTREAMER_LIBRARIES} ${CURL_LIBRARIES}  ${AAMP_CLI_LD_FLAGS} -ldl -luuid ${SEC_CLIENT_LIB})
 
@@ -103,7 +105,7 @@ else()
 endif()
 
 target_link_libraries (gstaamp aamp ${AAMP_COMMON_DEPENDENCIES} )
-target_include_directories (gstaamp PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../../ ${CMAKE_CURRENT_SOURCE_DIR}/../../drm ${CMAKE_CURRENT_SOURCE_DIR}/../../drm/helper ${CMAKE_CURRENT_SOURCE_DIR}/../../tsb/api ${CMAKE_CURRENT_SOURCE_DIR}/../../downloader ${CMAKE_CURRENT_SOURCE_DIR}/../../middleware ${CMAKE_CURRENT_SOURCE_DIR}/../../middleware/drm ${CMAKE_CURRENT_SOURCE_DIR}/../../middleware/drm/ocdm ${CMAKE_CURRENT_SOURCE_DIR}/../../middleware/drm/helper)
+target_include_directories (gstaamp PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../../ ${CMAKE_CURRENT_SOURCE_DIR}/../../drm ${CMAKE_CURRENT_SOURCE_DIR}/../../drm/helper ${CMAKE_CURRENT_SOURCE_DIR}/../../tsb/api ${CMAKE_CURRENT_SOURCE_DIR}/../../downloader)
 target_include_directories (gstaamp PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../../support/aampabr)
 target_include_directories (gstaamp PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../../support/aampmetrics)
 

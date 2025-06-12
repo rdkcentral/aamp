@@ -22,10 +22,13 @@ find_package(PkgConfig REQUIRED)
 
 pkg_check_modules(GSTREAMER REQUIRED gstreamer-1.0)
 pkg_check_modules(GSTREAMERBASE REQUIRED gstreamer-app-1.0)
+pkg_check_modules(SUBTEC REQUIRED libsubtec)
+
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 include_directories(${GSTREAMER_INCLUDE_DIRS})
 include_directories(${GSTREAMERBASE_INCLUDE_DIRS})
+include_directories(${SUBTEC_INCLUDE_DIRS})
 
 if(CMAKE_SYSTEM_NAME STREQUAL Darwin)
     include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../../../middleware/subtec/libsubtec)
@@ -41,10 +44,10 @@ add_library(gstsubtecsink SHARED gstsubtecsink.cpp)
 
 if (CMAKE_INBUILT_AAMP_DEPENDENCIES)
     include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../../../middleware/subtec/libsubtec)
-    target_link_libraries(gstsubtecsink PRIVATE subtec)
+    target_link_libraries(gstsubtecsink PRIVATE ${SUBTEC_LINK_LIBRARIES})
     target_link_libraries(gstsubtecsink ${GSTSUBTEC_DEPENDENCIES})
 else()
-    target_link_libraries(gstsubtecsink ${GSTSUBTEC_DEPENDENCIES} "-lsubtec")
+    target_link_libraries(gstsubtecsink ${GSTSUBTEC_DEPENDENCIES} ${SUBTEC_LINK_LIBRARIES})
 endif()
 
 add_library(gstsubtecbin SHARED gstsubtecbin.cpp)

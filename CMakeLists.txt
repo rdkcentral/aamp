@@ -24,21 +24,7 @@ function(xcode_define_schema new_schema)
     set_property(TARGET ${new_schema} PROPERTY XCODE_SCHEME_ADDRESS_SANITIZER_USE_AFTER_RETURN TRUE)
 endfunction()
 
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/test/gstTestHarness)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/externals)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/externals/playersecmanager)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/externals/rdk)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/vendor)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/baseConversion)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/playerLogManager)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/subtitle)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/drm)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/drm/aes)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/drm/ocdm)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/drm/helper)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/subtec/subtecparser)
-
 
 if(APPLE)
     set(CMAKE_C_COMPILER "/usr/bin/cc")
@@ -88,12 +74,16 @@ pkg_check_modules(LIBDASH REQUIRED libdash)
 pkg_check_modules(OPENSSL REQUIRED openssl)
 pkg_check_modules(LIBCJSON REQUIRED libcjson)
 pkg_check_modules(UUID REQUIRED uuid)
+pkg_check_modules(BASECONVERSION REQUIRED libbaseconversion)
+pkg_check_modules(PLAYERLOGMANAGER REQUIRED libplayerlogmanager)
+pkg_check_modules(PLAYERFBINTERFACE REQUIRED libplayerfbinterface)
+pkg_check_modules(PLAYERGSTINTERFACE REQUIRED libplayergstinterface)
 
 
 # TDB needs to bring back for UT. 
 #include(test/mocks/mocks.cmake NO_POLICY_SCOPE)
 
-add_subdirectory(middleware)
+# add_subdirectory(middleware)
 
 if (CMAKE_INBUILT_AAMP_DEPENDENCIES)
 	message("Building aamp support libraries")
@@ -170,6 +160,10 @@ include_directories(${LibXml2_INCLUDE_DIRS})
 include_directories(${OPENSSL_INCLUDE_DIRS})
 include_directories(${OPENGL_INCLUDE_DIRS})
 include_directories(${GLEW_INCLUDE_DIRS})
+include_directories(${PLAYERFBINTERFACE_INCLUDE_DIRS})
+include_directories(${BASECONVERSION_INCLUDE_DIRS})
+include_directories(${PLAYERLOGMANAGER_INCLUDE_DIRS})
+include_directories(${PLAYERGSTINTERFACE_INCLUDE_DIRS})
 # Locally built/installed dependencies are here
 include_directories(.libs/include)
 
@@ -353,7 +347,7 @@ if(CMAKE_USE_RDK_PLUGINS)
 	set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DCREATE_PIPE_SESSION_TO_XRE")
 endif()
 
-set(LIBAAMP_DEPENDS ${OS_LD_FLAGS} ${UUID_LINK_LIBRARIES} ${LIBCJSON_LINK_LIBRARIES} ${GSTREAMERBASE_LINK_LIBRARIES} ${GSTREAMER_LINK_LIBRARIES} ${CURL_LINK_LIBRARIES} ${LIBDASH_LINK_LIBRARIES} ${LibXml2_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT} ${OPENSSL_LIBRARIES} ${OPENGL_LIBRARIES} ${GLEW_LIBRARIES} ${AAMP_CLI_LD_FLAGS} -ldl ${SEC_CLIENT_LIB})
+set(LIBAAMP_DEPENDS ${OS_LD_FLAGS} ${UUID_LINK_LIBRARIES} ${LIBCJSON_LINK_LIBRARIES} ${GSTREAMERBASE_LINK_LIBRARIES} ${GSTREAMER_LINK_LIBRARIES} ${CURL_LINK_LIBRARIES} ${LIBDASH_LINK_LIBRARIES} ${PLAYERFBINTERFACE_LINK_LIBRARIES} ${BASECONVERSION_LINK_LIBRARIES} ${PLAYERLOGMANAGER_LINK_LIBRARIES} ${PLAYERGSTINTERFACE_LINK_LIBRARIES} ${LibXml2_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT} ${OPENSSL_LIBRARIES} ${OPENGL_LIBRARIES} ${GLEW_LIBRARIES} ${AAMP_CLI_LD_FLAGS} -ldl ${SEC_CLIENT_LIB})
 
 if(CMAKE_WPEWEBKIT_JSBINDINGS)
 	message("CMAKE_WPEWEBKIT_JSBINDINGS set, just setting flags")
@@ -535,7 +529,7 @@ if(CMAKE_ENABLE_PTS_RESTAMP)
 	set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DENABLE_PTS_RESTAMP")
 endif()
 
-target_link_libraries(aamp-cli aamp ${AAMP_CLI_LD_FLAGS})
+target_link_libraries(aamp-cli aamp ${AAMP_CLI_LD_FLAGS} ${PLAYERFBINTERFACE_LINK_LIBRARIES} ${BASECONVERSION_LINK_LIBRARIES} ${PLAYERLOGMANAGER_LINK_LIBRARIES} ${PLAYERGSTINTERFACE_LINK_LIBRARIES})
 
 set_target_properties(aamp PROPERTIES COMPILE_FLAGS "${LIBAAMP_DEFINES} ${OS_CXX_FLAGS}")
 #aamp-cli is not an ideal standalone app. It uses private aamp instance for debugging purposes
@@ -582,8 +576,8 @@ target_link_libraries(aamp tsb)
 if (CMAKE_INBUILT_AAMP_DEPENDENCIES)
 	target_link_libraries(aamp abr metrics)
 endif()
-target_link_libraries(aamp playergstinterface EntosPlayerFireboltInterface)
-target_link_libraries(aamp-cli playergstinterface EntosPlayerFireboltInterface)
+# target_link_libraries(aamp playergstinterface playerfbinterface)
+# target_link_libraries(aamp-cli playergstinterface playerfbinterface)
 
 install(TARGETS aamp-cli DESTINATION bin)
 
