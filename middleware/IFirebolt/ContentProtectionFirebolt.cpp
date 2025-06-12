@@ -168,6 +168,7 @@ void ContentProtectionFirebolt::Deinitialize()
 
 bool ContentProtectionFirebolt::CreateFireboltInstance(const std::string &url)
 {
+	/*
     const std::string config = "{\
             \"waitTime\": 3000,\
             \"logLevel\": \"Info\",\
@@ -177,6 +178,17 @@ bool ContentProtectionFirebolt::CreateFireboltInstance(const std::string &url)
             },\
             \"wsUrl\": "  url 
                                "}";
+	*/
+	const std::string config = "{"
+            "\"waitTime\": 3000,"
+            "\"logLevel\": \"Info\","
+            "\"workerPool\":{"
+            "\"queueSize\": 8,"
+            "\"threadCount\": 3"
+            "},"
+            "\"wsUrl\": \"" + url + "\"" // Concatenate the variable here
+            "}";
+
     	auto callback = [this](bool connected, Firebolt::Error error) {
 		this->ConnectionChanged(connected, static_cast<int>(error));
 	};

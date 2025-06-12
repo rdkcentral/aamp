@@ -647,7 +647,7 @@ DrmData * AampDRMSessionManager::getLicenseSec(const LicenseRequest &licenseRequ
 		bool res = ContentProtection::GetInstance()->AcquireLicense(clientId, appId, licenseRequest.url.c_str(),
  																 requestMetadata,
  																 ((numberOfAccessAttributes == 0) ? NULL : accessAttributes),
- 																 encodedData, encodedDataLen,
+ 																 encodedData, encodedDataLen, NULL, 0,
  																 keySystem,
  																 mediaUsage,
  																 secclientSessionToken, challengeInfo.accessToken.length(),

@@ -301,7 +301,6 @@ set(LIBAAMP_SOURCES iso639map.cpp
 					_base64.cpp
 					middleware/PlayerUtils.cpp
 					middleware/drm/base64.cpp
-					AampMemoryUtils.cpp
 					AampCacheHandler.cpp
 					AampGrowableBuffer.cpp
 					AampScheduler.cpp
