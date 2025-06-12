@@ -81,7 +81,7 @@ static size_t StreamWriteCallback( void *ptr, size_t size, size_t nmemb, void *u
     if( context->aamp->mDownloadsEnabled)
     {
        // TODO: info logging is normally only done up until first frame rendered, but even so is too noisy for below, since CURL write callback yields many small chunks
-		AAMPLOG_INFO("StreamWriteCallback(%zu bytes)", nmemb);
+        AAMPLOG_INFO("StreamWriteCallback(%zu bytes)", nmemb);
         // throttle download speed if gstreamer isn't hungry
         aamp->BlockUntilGstreamerWantsData( NULL/*CB*/, 0.0/*periodMs*/, eMEDIATYPE_VIDEO );
         double fpts = 0.0;
@@ -108,29 +108,29 @@ static size_t StreamWriteCallback( void *ptr, size_t size, size_t nmemb, void *u
 
 void StreamAbstractionAAMP_PROGRESSIVE::StreamFile( const char *uri, int *http_error )
 { // TODO: move to main_aamp
-	int http_code = -1;
-	AAMPLOG_INFO("StreamFile: %s", uri );
-	CURL *curl = curl_easy_init();
-	if (curl)
-	{
-		StreamWriteCallbackContext context;
-		context.aamp = aamp;
-		context.sentTunedEvent = false;
-		CURL_EASY_SETOPT_FUNC(curl, CURLOPT_WRITEFUNCTION, StreamWriteCallback );
-		CURL_EASY_SETOPT_POINTER(curl, CURLOPT_WRITEDATA, (void *)&context );
-		CURL_EASY_SETOPT_STRING(curl, CURLOPT_URL, uri );
-		CURL_EASY_SETOPT_STRING(curl, CURLOPT_USERAGENT, "aamp-progressive/1.0"); // TODO: use same user agent string normally used by AAMP
-		CURLcode res = curl_easy_perform(curl); // synchronous; callbacks allow interruption
-		if( res == CURLE_OK)
-		{ // all data collected
-			http_code = GetCurlResponseCode(curl);
-		}
-		if (http_error)
-		{
-			*http_error = http_code;
-		}
-		curl_easy_cleanup(curl);
-	}
+    int http_code = -1;
+    AAMPLOG_INFO("StreamFile: %s", uri );
+    CURL *curl = curl_easy_init();
+    if (curl)
+    {
+        StreamWriteCallbackContext context;
+        context.aamp = aamp;
+        context.sentTunedEvent = false;
+        CURL_EASY_SETOPT_FUNC(curl, CURLOPT_WRITEFUNCTION, StreamWriteCallback );
+        CURL_EASY_SETOPT_POINTER(curl, CURLOPT_WRITEDATA, (void *)&context );
+        CURL_EASY_SETOPT_STRING(curl, CURLOPT_URL, uri );
+        CURL_EASY_SETOPT_STRING(curl, CURLOPT_USERAGENT, "aamp-progressive/1.0"); // TODO: use same user agent string normally used by AAMP
+        CURLcode res = curl_easy_perform(curl); // synchronous; callbacks allow interruption
+        if( res == CURLE_OK)
+        { // all data collected
+            http_code = GetCurlResponseCode(curl);
+        }
+        if (http_error)
+        {
+            *http_error = http_code;
+        }
+        curl_easy_cleanup(curl);
+    }
 }
 
 /**
@@ -144,12 +144,12 @@ void StreamAbstractionAAMP_PROGRESSIVE::FetcherLoop()
     
     if(ISCONFIGSET(eAAMPConfig_UseAppSrcForProgressivePlayback))
     {
-	    StreamFile( contentUrl.c_str(), &http_error );
+        StreamFile( contentUrl.c_str(), &http_error );
     }
     else
     {
-	    // send TunedEvent after first chunk injected - this is hint for XRE to hide the "tuning overcard"
-	    aamp->SendTunedEvent(false);
+        // send TunedEvent after first chunk injected - this is hint for XRE to hide the "tuning overcard"
+        aamp->SendTunedEvent(false);
     }
 
     while( aamp->DownloadsAreEnabled() )
@@ -223,6 +223,11 @@ void StreamAbstractionAAMP_PROGRESSIVE::Start(void)
 {
     try
     {
+        if (fragmentCollectorThreadID.joinable()) {
+            AAMPLOG_WARN("FragmentCollector thread was still joinable in Start(). Joining now. This might indicate a logical error where Stop() was not called.");
+            fragmentCollectorThreadID.join();
+        }
+        assert(!fragmentCollectorThreadID.joinable() && "FragmentCollector thread already started or not joined properly.");
         fragmentCollectorThreadID = std::thread(&StreamAbstractionAAMP_PROGRESSIVE::FragmentCollector, this);
         AAMPLOG_INFO("Thread created for FragmentCollector [%zx]", GetPrintableThreadID(fragmentCollectorThreadID));
     }
@@ -279,7 +284,7 @@ double StreamAbstractionAAMP_PROGRESSIVE::GetFirstPTS()
  */
 bool StreamAbstractionAAMP_PROGRESSIVE::IsInitialCachingSupported()
 {
-	return false;
+    return false;
 }
 
 /**
