@@ -10621,7 +10621,7 @@ void StreamAbstractionAAMP_MPD::Stop(bool clearChannelData)
 		AAMPLOG_INFO("Joined StartLatencyMonitorThread");
 		latencyMonitorThreadStarted = false;
 	}
-	if (fragmentCollectorThreadID.joinable())
+	if (!aamp->DownloadsAreEnabled() && fragmentCollectorThreadID.joinable())
 	{
 		fragmentCollectorThreadID.join();
 	}
