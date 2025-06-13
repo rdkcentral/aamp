@@ -29,7 +29,9 @@
 #include <inttypes.h>
 #include "TextStyleAttributes.h"
 #include <memory>
-
+#ifdef AAMP_TELEMETRY_SUPPORT
+#include <AampTelemetry2.hpp>
+#endif
 #ifdef USE_EXTERNAL_STATS
 // narrowly define MediaType for backwards compatibility
 #define MediaType GstMediaType
@@ -1208,6 +1210,17 @@ static GstStateChangeReturn SetStateWithWarnings(GstElement *element, GstState t
 			case GST_STATE_CHANGE_FAILURE:
 				MW_LOG_ERR("InterfacePlayerRDK: %s is in FAILURE state : current %s  pending %s", SafeName(element).c_str(),gst_element_state_get_name(current), gst_element_state_get_name(pending));
 				LogStatus(element);
+				#ifdef AAMP_TELEMETRY_SUPPORT
+{
+    AAMPTelemetry2 telemetry("InterfacePlayerRDK");
+    std::string telemetryName = "GstStateChangeFailure";
+    std::map<std::string, int> intData;
+    intData["StateChangeFailure"] = 1;
+    intData["CurrentState"] = current;
+    intData["PendingState"] = pending;
+    telemetry.send(telemetryName, intData, {}, {});
+}
+#endif
 				break;
 			case GST_STATE_CHANGE_SUCCESS:
 				MW_LOG_DEBUG("InterfacePlayerRDK: %s is in success state : current %s  pending %s", SafeName(element).c_str(),gst_element_state_get_name(current), gst_element_state_get_name(pending));
@@ -3989,6 +4002,17 @@ static gboolean bus_message(GstBus * bus, GstMessage * msg, InterfacePlayerRDK *
 		case GST_MESSAGE_ERROR:
 			gst_message_parse_error(msg, &error, &dbg_info);
 			MW_LOG_ERR("GST_MESSAGE_ERROR %s: %s\n", GST_OBJECT_NAME(msg->src), error->message);
+			#ifdef AAMP_TELEMETRY_SUPPORT
+			{
+AAMPTelemetry2 telemetry("InterfacePlayerRDK");
+std::string telemetryName = "GstBusError";
+std::map<std::string, int> intData;
+std::map<std::string, std::string> strData;
+strData["Source"] = GST_OBJECT_NAME(msg->src);
+strData["Error"] = error->message;
+telemetry.send(telemetryName, intData, strData, {});
+	}
+#endif
 			busEvent.msgType = MESSAGE_ERROR;
 			busEvent.msg = error->message;
 			if(dbg_info)
