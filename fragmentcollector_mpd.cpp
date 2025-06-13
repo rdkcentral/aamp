@@ -9639,6 +9639,7 @@ void StreamAbstractionAAMP_MPD::DetectDiscontinuityAndFetchInit(bool periodChang
  */
 void StreamAbstractionAAMP_MPD::FetcherLoop()
 {
+	UsingPlayerId playerId(aamp->mPlayerId);
 	aamp_setThreadName("aampFragmentDownloader");
 	bool exitFetchLoop = false;
 	bool trickPlay = (AAMP_NORMAL_PLAY_RATE != aamp->rate);
@@ -12845,6 +12846,7 @@ void StreamAbstractionAAMP_MPD::StartLatencyMonitorThread()
  */
 void StreamAbstractionAAMP_MPD::MonitorLatency()
 {
+	UsingPlayerId playerId(aamp->mPlayerId);
 	int latencyMonitorDelay = GETCONFIGVALUE(eAAMPConfig_LatencyMonitorDelay);
 	int latencyMonitorInterval = GETCONFIGVALUE(eAAMPConfig_LatencyMonitorInterval);
 	double minbuffer = GETCONFIGVALUE(eAAMPConfig_LowLatencyMinBuffer);
