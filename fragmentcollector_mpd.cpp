@@ -4649,9 +4649,9 @@ void StreamAbstractionAAMP_MPD::MPDUpdateCallbackExec()
 				manifestDuration = mMPDParser->GetMediaPresentationDuration();
 			}
 
-			const char *manifestType = mMPDParser->IsLiveManifest() ? "dynamic" : "static";
-			AAMPLOG_INFO( "Send RefreshNotify Dur[%" PRIu64 "] NoOfPeriods[%d] PubTime[%u] ManifestType[%s]", manifestDuration,mMPDParser->GetNumberOfPeriods(),tmpManifestDnldRespPtr->mMPDInstance->GetFetchTime(),manifestType);
-			aamp->SendEvent(std::make_shared<ManifestRefreshEvent>(manifestDuration,mMPDParser->GetNumberOfPeriods(),tmpManifestDnldRespPtr->mMPDInstance->GetFetchTime(), aamp->GetSessionId(),manifestType),AAMP_EVENT_ASYNC_MODE);
+			std::string manifestType = mMPDParser->IsLiveManifest() ? "dynamic" : "static";
+			AAMPLOG_INFO( "Send RefreshNotify Dur[%" PRIu64 "] NoOfPeriods[%d] PubTime[%u] ManifestType[%s]", manifestDuration, mMPDParser->GetNumberOfPeriods(), tmpManifestDnldRespPtr->mMPDInstance->GetFetchTime(), manifestType.c_str());
+			aamp->SendEvent(std::make_shared<ManifestRefreshEvent>(manifestDuration, mMPDParser->GetNumberOfPeriods(), tmpManifestDnldRespPtr->mMPDInstance->GetFetchTime(), manifestType, aamp->GetSessionId()), AAMP_EVENT_ASYNC_MODE);
 		}
 	}
 	else
@@ -9639,6 +9639,7 @@ void StreamAbstractionAAMP_MPD::DetectDiscontinuityAndFetchInit(bool periodChang
  */
 void StreamAbstractionAAMP_MPD::FetcherLoop()
 {
+	UsingPlayerId playerId(aamp->mPlayerId);
 	aamp_setThreadName("aampFragmentDownloader");
 	bool exitFetchLoop = false;
 	bool trickPlay = (AAMP_NORMAL_PLAY_RATE != aamp->rate);
@@ -12845,6 +12846,7 @@ void StreamAbstractionAAMP_MPD::StartLatencyMonitorThread()
  */
 void StreamAbstractionAAMP_MPD::MonitorLatency()
 {
+	UsingPlayerId playerId(aamp->mPlayerId);
 	int latencyMonitorDelay = GETCONFIGVALUE(eAAMPConfig_LatencyMonitorDelay);
 	int latencyMonitorInterval = GETCONFIGVALUE(eAAMPConfig_LatencyMonitorInterval);
 	double minbuffer = GETCONFIGVALUE(eAAMPConfig_LowLatencyMinBuffer);
