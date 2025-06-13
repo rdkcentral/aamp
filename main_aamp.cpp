@@ -31,7 +31,7 @@
 #include "DrmHelper.h"
 #include "StreamAbstractionAAMP.h"
 #include "AampStreamSinkManager.h"
-#include "PlayerIarmRfcInterface.h"
+#include "PlayerExternalsInterface.h"
 #include "PlayerMetadata.hpp"
 #include "PlayerLogManager.h"
 
@@ -42,9 +42,7 @@
 
 AampConfig *gpGlobalConfig=NULL;
 
-#ifdef USE_SECMANAGER
-#include "AampSecManager.h"
-#endif
+#include "PlayerSecManager.h"
 
 std::mutex PlayerInstanceAAMP::mPrvAampMtx;
 
@@ -64,7 +62,7 @@ PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink
 
 			snprintf(processName, sizeof(processName), "PLAYER-%u", getpid());
 
-			PlayerIarmRfcInterface::IARMInit(processName);
+			PlayerExternalsInterface::IARMInit(processName);
 
 
 			iarmInitialized = true;
@@ -205,12 +203,10 @@ PlayerInstanceAAMP::~PlayerInstanceAAMP()
 		dlclose(mJSBinding_DL);
 	}
 #endif
-#ifdef USE_SECMANAGER
 	if (isLastPlayerInstance)
 	{
-		AampSecManager::DestroyInstance();
+		PlayerSecManager::DestroyInstance();
 	}
-#endif
 	if (isLastPlayerInstance && gpGlobalConfig)
 	{
 		AAMPLOG_WARN("[%p] Release GlobalConfig(%p)",this,gpGlobalConfig);

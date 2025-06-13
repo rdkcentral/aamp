@@ -1,0 +1,10 @@
+diff a/aampgstplayer.cpp b/aampgstplayer.cpp	(rejected hunks)
+@@ -401,7 +400,7 @@
+ 		}
+ 		InitializePlayerConfigs(this,playerInstance);
+ 		playerInstance->SetPlayerName(PLAYER_NAME);
+-		playerInstance->setEncryption((void*)aamp);
++		playerInstance->setEncryption((void*)aamp, (void*)aamp->mDRMLicenseManager->mDRMSessionManager);
+ 		RegisterFirstFrameCallbacks();
+ 	}
+ 	else

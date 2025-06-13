@@ -51,37 +51,54 @@ void DrmSessionManager::setVideoWindowSize(int width, int height)
 	}
 }
 
-
 void DrmSessionManager::UpdateMaxDRMSessions(int)
 {
 }
 
+void DrmSessionManager::clearSessionData(void)
+{
+}
+
+int DrmSessionManager::getSlotIdForSession(DrmSession* )
+{
+	return false;	
+}
+
+string DrmSession::getKeySystem(void)
+{
+	return NULL;
+}
+
+void DrmSessionManager::UpdateDRMConfig( bool useSecManager, bool enablePROutputProtection, bool propagateURIParam, bool isFakeTune, bool wideVineKIDWorkaround)
+{
+}
 
 DrmSession * DrmSessionManager::createDrmSession(int& err,
 		const char* systemId, MediaFormat mediaFormat, const unsigned char * initDataPtr,
 		uint16_t initDataLen, int streamType, 
 		DrmCallbacks* aamp, void *ptr , const unsigned char* contentMetadataPtr,
 		bool isPrimarySession)
-		{
-			return nullptr;
-		}
+{
+	return nullptr;
+}
+
+DrmSession* DrmSessionManager::createDrmSession(int &err, std::shared_ptr<DrmHelper> drmHelper,  DrmCallbacks* Instance, int streamType,void* metaDataPtr)
+{
+	return nullptr;
+}
 		
 SessionMgrState DrmSessionManager::getSessionMgrState()
 {
 	return SessionMgrState::eSESSIONMGR_INACTIVE;
 }
-#if 0
-void DrmSessionManager::SetLicenseFetcher(AampLicenseFetcher *fetcherInstance)
+
+void DrmSessionManager::notifyCleanup()
 {
 }
 
-bool DrmSessionManager::QueueContentProtection(DrmHelperPtr drmHelper, std::string periodId, uint32_t adapIdx, AampMediaType type, bool isVssPeriod)
+bool DrmSessionManager::IsKeyIdProcessed(std::vector<uint8_t> keyIdArray, bool &status)
 {
 	return false;
-}
-
-void DrmSessionManager::QueueProtectionEvent(DrmHelperPtr drmHelper, std::string periodId, uint32_t adapIdx, AampMediaType type)
-{
 }
 
 void DrmSessionManager::clearDrmSession(bool forceClearSession)
@@ -96,15 +113,25 @@ void DrmSessionManager::setSessionMgrState(SessionMgrState state)
 {
 }
 
+#if 0
+void DrmSessionManager::SetLicenseFetcher(AampLicenseFetcher *fetcherInstance)
+{
+}
+
+bool DrmSessionManager::QueueContentProtection(DrmHelperPtr drmHelper, std::string periodId, uint32_t adapIdx, AampMediaType type, bool isVssPeriod)
+{
+	return false;
+}
+
+void DrmSessionManager::QueueProtectionEvent(DrmHelperPtr drmHelper, std::string periodId, uint32_t adapIdx, AampMediaType type)
+{
+}
+
 void DrmSessionManager::SetSendErrorOnFailure(bool sendErrorOnFailure)
 {
 }
 
 void DrmSessionManager::SetCommonKeyDuration(int keyDuration)
-{
-}
-
-void DrmSessionManager::notifyCleanup()
 {
 }
 #endif

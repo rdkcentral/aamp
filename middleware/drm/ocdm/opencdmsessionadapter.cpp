@@ -21,7 +21,6 @@
  * @file opencdmsessionadapter.cpp
  * @brief Handles operation with OCDM session to handle DRM License data
  */
-#include "config.h"
 #include "opencdmsessionadapter.h"
 
 #include "DrmHelper.h"
@@ -79,7 +78,7 @@ OCDMSessionAdapter::OCDMSessionAdapter(DrmHelperPtr drmHelper, DrmCallbacks *cal
 	initDRMSystem();
 
 	// Get output protection pointer
-	m_pOutputProtection = PlayerIarmRfcInterface::GetPlayerIarmRfcInterfaceInstance();
+	m_pOutputProtection = PlayerExternalsInterface::GetPlayerExternalsInterfaceInstance();
 	MW_LOG_WARN("OCDMSessionAdapter :: exit ");
 }
 
@@ -401,7 +400,6 @@ void OCDMSessionAdapter:: clearDecryptContext()
 	}
 	m_eKeyState = KEY_INIT;
 }
-
 
 void OCDMSessionAdapter::setKeyId(const std::vector<uint8_t>& keyId)
 {

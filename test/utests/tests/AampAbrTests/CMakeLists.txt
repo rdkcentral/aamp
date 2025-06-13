@@ -24,7 +24,8 @@ set(EXEC_NAME AampAbrTests)
 pkg_check_modules(LIBDASH REQUIRED libdash)
 pkg_check_modules(UUID REQUIRED uuid)
 
-include_directories(${AAMP_ROOT} ${AAMP_ROOT}/isobmff ${AAMP_ROOT}/middleware/playerisobmff ${AAMP_ROOT}/drm ${AAMP_ROOT}/downloader ${AAMP_ROOT}/drm/helper ${AAMP_ROOT}/drm/ave ${AAMP_ROOT}/subtitle ${AAMP_ROOT}/middleware/subtitle ${AAMP_ROOT}/dash/xml ${AAMP_ROOT}/dash/utils ${AAMP_ROOT}/dash/mpd ${AAMP_ROOT}/support/aampabr)
+include_directories(${AAMP_ROOT} ${AAMP_ROOT}/isobmff ${AAMP_ROOT}/middleware/playerisobmff ${AAMP_ROOT}/drm ${AAMP_ROOT}/downloader ${AAMP_ROOT}/drm/helper ${AAMP_ROOT}/drm/ave ${AAMP_ROOT}/subtitle ${AAMP_ROOT}/middleware/subtitle ${AAMP_ROOT}/dash/xml ${AAMP_ROOT}/dash/utils ${AAMP_ROOT}/dash/mpd ${AAMP_ROOT}/support/aampabr ${AAMP_ROOT}/middleware/externals/playersecmanager)
+include_directories(${AAMP_ROOT}/middleware/baseConversion)
 include_directories(${AAMP_ROOT}/middleware/subtec/libsubtec)
 include_directories(${AAMP_ROOT}/middleware/subtec/subtecparser)
 include_directories(${AAMP_ROOT}/middleware/playerjsonobject)
@@ -32,7 +33,9 @@ include_directories(${AAMP_ROOT}/middleware/closedcaptions)
 include_directories(${AAMP_ROOT}/subtec/subtecparser)
 include_directories(${AAMP_ROOT}/tsb/api)
 include_directories(${AAMP_ROOT}/middleware)
-include_directories(${AAMP_ROOT}/externals)
+include_directories(${AAMP_ROOT}/middleware/vendor)
+include_directories(${AAMP_ROOT}/middleware/externals)
+include_directories(${AAMP_ROOT}/middleware/playerLogManager)
 include_directories(${GTEST_INCLUDE_DIRS})
 include_directories(${GMOCK_INCLUDE_DIRS})
 include_directories(${GLIB_INCLUDE_DIRS})
@@ -41,7 +44,7 @@ include_directories(${LIBDASH_INCLUDE_DIRS})
 include_directories(${LibXml2_INCLUDE_DIRS})
 include_directories(SYSTEM ${UTESTS_ROOT}/mocks)
 include_directories(${LIBCJSON_INCLUDE_DIRS})
-
+include_directories(${AAMP_ROOT}/middleware/vendor)
 set(TEST_SOURCES    AbrTests.cpp
 	AAMPAbrTests.cpp)
 set(AAMP_SOURCES ${AAMP_ROOT}/priv_aamp.cpp ${AAMP_ROOT}/support/aampabr/ABRManager.cpp ${AAMP_ROOT}/support/aampabr/HybridABRManager.cpp)
@@ -49,7 +52,6 @@ add_executable(${EXEC_NAME}
 	${TEST_SOURCES}
 	${AAMP_SOURCES})
 set_target_properties(${EXEC_NAME} PROPERTIES FOLDER "utests")
-target_compile_definitions(${EXEC_NAME} PRIVATE USE_SECMANAGER)
 
 if (CMAKE_XCODE_BUILD_SYSTEM)
 	# XCode schema target
