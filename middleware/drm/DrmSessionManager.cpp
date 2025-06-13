@@ -473,25 +473,19 @@ DrmSession* DrmSessionManager::createDrmSession(int &err, std::shared_ptr<DrmHel
 	if (code != KEY_INIT)
 	{
 		MW_LOG_WARN(" Unable to initialize DrmSession : Key State %d ", code);
-		std::lock_guard<std::mutex> guard(cachedKeyMutex);
- 		cachedKeyIDs[selectedSlot].isFailedKeyId = true;
-		return nullptr;
+		goto failure;
 	}
 
 	if(m_drmConfigParam->mIsFakeTune)
 	{
 		MW_LOG_MIL( "Exiting fake tune after DRM initialization.");
-		std::lock_guard<std::mutex> guard(cachedKeyMutex);
-		cachedKeyIDs[selectedSlot].isFailedKeyId = true;
-		return nullptr;
+		goto failure;
 	}
 	code =this->AcquireLicenseCb(drmHelper, selectedSlot, cdmError,  (GstMediaType)streamType, metaDataPtr, false);
 	if (code != KEY_READY)
 	{
 		MW_LOG_WARN(" Unable to get Ready Status DrmSession : Key State %d ", code);
-		std::lock_guard<std::mutex> guard(cachedKeyMutex);
-		cachedKeyIDs[selectedSlot].isFailedKeyId = true;
-		return nullptr;
+		goto failure; 
 	}
 
 #ifdef USE_SECMANAGER
@@ -505,6 +499,16 @@ DrmSession* DrmSessionManager::createDrmSession(int &err, std::shared_ptr<DrmHel
 #endif
 
 	return drmSessionContexts[selectedSlot].drmSession;
+
+	failure:
+	std::lock_guard<std::mutex> guard(cachedKeyMutex);
+	if (cachedKeyIDs)
+	{
+		cachedKeyIDs[selectedSlot].isFailedKeyId = true;
+	}
+	MW_LOG_TRACE("Exiting");
+
+	return nullptr;
 }
 
 /**
