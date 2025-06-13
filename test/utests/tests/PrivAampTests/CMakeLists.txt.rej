@@ -1,0 +1,18 @@
+diff a/test/utests/tests/PrivAampTests/CMakeLists.txt b/test/utests/tests/PrivAampTests/CMakeLists.txt	(rejected hunks)
+@@ -43,6 +44,8 @@
+ include_directories(${LIBCJSON_INCLUDE_DIRS})
+ include_directories(${AAMP_ROOT}/tsb/api)
+ include_directories(${AAMP_ROOT}/middleware)
++include_directories(${AAMP_ROOT}/middleware/externals/playersecmanager)
++include_directories(${AAMP_ROOT}/middleware/playerLogManager)
+ 
+ set(TEST_SOURCES    PrivAampTests.cpp
+                     PrivAampAAMPTests.cpp)
+@@ -51,7 +54,6 @@
+                ${TEST_SOURCES}
+                ${AAMP_SOURCES})
+ set_target_properties(${EXEC_NAME} PROPERTIES FOLDER "utests")
+-target_compile_definitions(${EXEC_NAME} PRIVATE USE_SECMANAGER)
+ 
+ if (CMAKE_XCODE_BUILD_SYSTEM)
+   # XCode schema target

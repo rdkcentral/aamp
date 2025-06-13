@@ -33,9 +33,8 @@
 #include <atomic>
 #include "DrmHelper.h"
 
-#ifdef USE_SECCLIENT
-#include "sec_client.h"
-#endif
+#include "PlayerSecInterface.h"
+#include "PlayerSecManagerSession.h"
 
 #include <functional>
 
@@ -114,8 +113,9 @@ struct configs{
     bool mRuntimeDRMConfig;
     int mContentProtectionDataUpdateTimeout;
     bool mEnablePROutputProtection;
-    bool  mPropagateURIParam; 
+    bool  mPropagateURIParam;
     bool mIsFakeTune;
+    bool mIsWVKIDWorkaround;
 };
 /**
  *  @class	DrmSessionManager
@@ -127,6 +127,8 @@ class DrmSessionManager
 
 	DrmSessionContext *drmSessionContexts;
 	configs *m_drmConfigParam;
+	PlayerSecInterface *playerSecInstance;/** PlayerSecInterface instance **/
+	PlayerSecManagerSession mPlayerSecManagerSession;
 private:
 	KeyID *cachedKeyIDs;
 	char* accessToken;
@@ -137,16 +139,14 @@ private:
 	std::mutex mDrmSessionLock;
 	bool mEnableAccessAttributes;
 	int mMaxDrmSessions;
-#ifdef USE_SECMANAGER
-	AampSecManagerSession mAampSecManagerSession;
 	std::atomic<bool> mIsVideoOnMute;
 	std::atomic<int> mCurrentSpeed;
 	std::atomic<bool> mFirstFrameSeen;
-#endif
+
 	/**     
-     	 * @brief Copy constructor disabled
-     	 *
-     	 */
+	 * @brief Copy constructor disabled
+	 *
+	 */
 	DrmSessionManager(const DrmSessionManager &) = delete;
 	/**
  	 * @brief assignment operator disabled
@@ -192,7 +192,26 @@ public:
 
 	void initializeDrmSessions();
 
+	/**
+	 *  @fn watermarkSessionHandlerWrapper
+	 *  @brief Wrapper function to handle session watermark.
+	 *  @param[in]	sessionHndle - Session handle.
+	 *  @param[in]	status - Status of the session.
+	 *  @param[in]	systemData - System data.
+	 */
+	void watermarkSessionHandlerWrapper(uint32_t sessionHndle, uint32_t status, const std::string &systemData);
 
+	/**
+	 *  @fn registerCallback
+	 */
+	void registerCallback( );
+
+	/**
+	 * @brief Set the Common Key Duration object
+	 *
+	 * @param keyDuration key duration
+	 */
+	void SetCommonKeyDuration(int keyDuration);
 
 	/**
 	 * @brief Set to true if error event to be sent to application if any license request fails
@@ -388,6 +407,63 @@ public:
         {
               ProfileUpdateCb = callback;
         };
+
+	using ProfileBeginCallback = std::function<void(int)>;
+	ProfileBeginCallback profileBeginCb;
+	void RegisterProfBegin(const ProfileBeginCallback callback)
+	{
+		profileBeginCb = callback;
+	};
+
+	using ProfileEndCallback = std::function<void(int streamType)>;
+	ProfileEndCallback profileEndCb;
+	void RegisterProfEnd(const ProfileEndCallback callback)
+	{
+		profileEndCb = callback;
+	};
+
+	using ProfileErrorCallback = std::function<void(int streamType, int result)>;
+	ProfileErrorCallback profileErrorCb;
+	void RegisterProfError(const ProfileErrorCallback callback)
+	{
+		profileErrorCb = callback;
+	};
+
+	using LAProfileBeginCallback = std::function<void(int)>;
+	LAProfileBeginCallback laprofileBeginCb;
+	void RegisterLAProfBegin(const LAProfileBeginCallback callback)
+	{
+		laprofileBeginCb = callback;
+	};
+
+	using LAProfileEndCallback = std::function<void(int streamType)>;
+	LAProfileEndCallback laprofileEndCb;
+	void RegisterLAProfEnd(const LAProfileEndCallback callback)
+	{
+		laprofileEndCb = callback;
+	};
+
+	using LAProfileErrorCallback = std::function<void(void *ptr)>;
+	LAProfileErrorCallback laprofileErrorCb;
+	void RegisterLAProfError(const LAProfileErrorCallback callback)
+	{
+		laprofileErrorCb = callback;
+	};
+
+	using SetFailureCallback = std::function<void(void *ptr, int err)>;
+	SetFailureCallback setfailureCb;
+	void RegisterSetFailure(const SetFailureCallback callback)
+	{
+		setfailureCb = callback;
+	};
+
+	//using DrmMetaDataCallback =	std::function<void *()>;
+	using DrmMetaDataCallback = std::function<std::shared_ptr<void>()>;
+	DrmMetaDataCallback DrmMetaDataCb;
+	void RegisterMetaDataCb(const DrmMetaDataCallback callback)
+	{
+		DrmMetaDataCb = callback;
+	};
 	/*
 	 * @brief Register Content Protection Update callback to application 
 	 */
@@ -407,15 +483,10 @@ public:
 	 */
         void UpdateDRMConfig(
                        bool useSecManager,
-                //       int licenseRetryWaitTime,
-                //       int drmNetworkTimeout,
-                //       int curlConnectTimeout,
-                //       bool curlLicenseLogging,
-                //       bool runtimeDRMConfig,
-                //       int contentProtectionDataUpdateTimeout,
                        bool enablePROutputProtection,
                        bool propagateURIParam,
-                       bool isFakeTune);
+                       bool isFakeTune,
+		       bool wideVineKIDWorkaround);
 
 
 };

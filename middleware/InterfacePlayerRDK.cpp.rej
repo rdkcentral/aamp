@@ -1,0 +1,79 @@
+diff a/middleware/InterfacePlayerRDK.cpp b/middleware/InterfacePlayerRDK.cpp	(rejected hunks)
+@@ -19,22 +19,21 @@
+ 
+ #include <iostream>
+ #include "InterfacePlayerRDK.h"
++#include "InterfacePlayerPriv.h"
+ #include <string.h>
+ #include <assert.h>
+ #include <stdlib.h>
+ #include "PlayerLogManager.h"
+-#include <sys/time.h>
+ #include "GstUtils.h"
+-#include "PlayerIarmRfcInterface.h"						//ToDo: Replace once outputprotection moved to middleware
++#include <sys/time.h>
++#include "PlayerExternalsInterface.h"						//ToDo: Replace once outputprotection moved to middleware
+ #include <inttypes.h>
+ #include "TextStyleAttributes.h"
+ #include <memory>
++#include <gst/gst.h>
+ 
+ #ifdef USE_EXTERNAL_STATS
+-// narrowly define MediaType for backwards compatibility
+-#define MediaType GstMediaType
+-#include "aamp-xternal-stats.h"
+-#undef MediaType
++#include "player-xternal-stats.h"
+ #endif
+ #include "PlayerUtils.h"
+ 
+@@ -571,14 +609,15 @@
+ 
+ 	GstState state = GST_STATE_VOID_PENDING;
+ 	GstState pending = GST_STATE_VOID_PENDING;
++	InterfacePlayerPriv* privatePlayer = pInterfacePlayerRDK->GetPrivatePlayer();
+ 	GstClockTime timeout = 0;
+ 	gint64 av_position[2] = {0,0};
+-	gint rc = gst_element_get_state(pInterfacePlayerRDK->gstPrivateContext->pipeline, &state, &pending, timeout );
++	gint rc = gst_element_get_state(privatePlayer->gstPrivateContext->pipeline, &state, &pending, timeout );
+ 	if( rc == GST_STATE_CHANGE_SUCCESS )
+ 	{
+ 		if( state == GST_STATE_PLAYING )
+ 		{
+-			struct MonitorAVState *monitorAVState = &pInterfacePlayerRDK->gstPrivateContext->monitorAVstate;
++			struct MonitorAVState *monitorAVState = &privatePlayer->gstPrivateContext->monitorAVstate;
+ 			const char *description = NULL;
+ 			int numTracks = 0;
+ 			bool bigJump = false;
+@@ -1622,7 +1668,8 @@
+ static gboolean gstappsrc_seek(void *src, guint64 offset, void* _this)
+ {
+ 	InterfacePlayerRDK *pInterfacePlayerRDK = (InterfacePlayerRDK*)_this;
+-	HANDLER_CONTROL_HELPER(pInterfacePlayerRDK->gstPrivateContext->callbackControl, TRUE);
++	InterfacePlayerPriv* privatePlayer = pInterfacePlayerRDK->GetPrivatePlayer();
++	HANDLER_CONTROL_HELPER(privatePlayer->gstPrivateContext->callbackControl, TRUE);
+ #ifdef TRACE
+ 	MW_LOG_MIL("appsrc %p seek-signal - offset %" G_GUINT64_FORMAT, src, offset);
+ #endif
+@@ -2916,7 +2981,7 @@
+ 		{
+ 			if (mediaType == eGST_MEDIATYPE_AUDIO && ForwardAudioBuffersToAux())
+ 			{
+-				ForwardBuffersToAuxPipeline(buffer);
++				interfacePlayerPriv->ForwardBuffersToAuxPipeline(buffer, mPauseInjector, this);
+ 			}
+ 
+ 			GstFlowReturn ret = gst_app_src_push_buffer(GST_APP_SRC(stream->source), buffer);
+@@ -3591,9 +3659,10 @@
+ 	// This support is available in BCOM plugins in RDK builds and hence checking only for such plugin instances here
+ 	// For platforms that doesnt support callback, we use GST_STATE_PLAYING state change of playbin to notify first frame to app
+ 	bool isAudioOrVideoDecoder = false;
+-	bool isRialto = pInterfacePlayerRDK->gstPrivateContext->usingRialtoSink;
++	InterfacePlayerPriv* privatePlayer = pInterfacePlayerRDK->GetPrivatePlayer();
++	bool isRialto = privatePlayer->gstPrivateContext->usingRialtoSink;
+ 
+-	if (pInterfacePlayerRDK->socInterface->IsAudioOrVideoDecoder(name, isRialto))
++	if (privatePlayer->socInterface->IsAudioOrVideoDecoder(name, isRialto))
+ 	{
+ 		isAudioOrVideoDecoder = true;
+ 	}

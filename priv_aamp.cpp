@@ -21,7 +21,6 @@
  * @file priv_aamp.cpp
  * @brief Advanced Adaptive Media Player (AAMP) PrivateInstanceAAMP impl
  */
-#include "AampMemoryUtils.h"
 #include "isobmffprocessor.h"
 #include "priv_aamp.h"
 #include "AampJsonObject.h"
@@ -29,7 +28,7 @@
 #include "AampConstants.h"
 #include "AampCacheHandler.h"
 #include "AampUtils.h"
-#include "PlayerIarmRfcInterface.h"
+#include "PlayerExternalsInterface.h"
 #include "iso639map.h"
 #include "fragmentcollector_mpd.h"
 #include "admanager_mpd.h"
@@ -143,7 +142,7 @@ static const char* strAAMPPipeName = "/tmp/ipc_aamp";
 
 static bool activeInterfaceWifi = false;
 
-std::shared_ptr<PlayerIarmRfcInterface> pPlayerIarmRfcInterface = NULL;
+std::shared_ptr<PlayerExternalsInterface> pPlayerExternalsInterface = NULL;
 
 static unsigned int ui32CurlTrace = 0;
 
@@ -525,8 +524,8 @@ void ForceHttpConversionForFog(std::string& url,const std::string& from, const s
 static bool IsActiveStreamingInterfaceWifi (void)
 {
 	bool wifiStatus = false;
-	wifiStatus = PlayerIarmRfcInterface::IsActiveStreamingInterfaceWifi();
-	activeInterfaceWifi =  pPlayerIarmRfcInterface->GetActiveInterface();
+	wifiStatus = PlayerExternalsInterface::IsActiveStreamingInterfaceWifi();
+	activeInterfaceWifi =  pPlayerExternalsInterface->GetActiveInterface();
 	return wifiStatus;
 }
 
@@ -1291,7 +1290,7 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 	}
 	mPendingAsyncEvents.clear();
 
-	pPlayerIarmRfcInterface = PlayerIarmRfcInterface::GetPlayerIarmRfcInterfaceInstance();
+	pPlayerExternalsInterface = PlayerExternalsInterface::GetPlayerExternalsInterfaceInstance();
 
 	if (ISCONFIGSET_PRIV(eAAMPConfig_WifiCurlHeader)) {
 		if (true == IsActiveStreamingInterfaceWifi()) {
@@ -2967,12 +2966,10 @@ void PrivateInstanceAAMP::NotifySpeedChanged(float rate, bool changeState)
 	{
 		SendEvent(std::make_shared<SpeedChangedEvent>(rate, GetSessionId()),AAMP_EVENT_ASYNC_MODE);
 	}
-#ifdef USE_SECMANAGER
 	if(ISCONFIGSET_PRIV(eAAMPConfig_UseSecManager))
 	{
 		mDRMLicenseManager->setPlaybackSpeedState(IsLive(), GetCurrentLatency(), IsAtLivePoint(), GetLiveOffsetMs(),rate, GetStreamPositionMs());
 	}
-#endif
 }
 
 /**
@@ -3423,7 +3420,7 @@ void PrivateInstanceAAMP::TuneFail(bool fail)
 	}
 	bool eventAvailStatus = IsEventListenerAvailable(AAMP_EVENT_TUNE_TIME_METRICS);
 	std::string tuneData("");
-	activeInterfaceWifi =  pPlayerIarmRfcInterface->GetActiveInterface();
+	activeInterfaceWifi =  pPlayerExternalsInterface->GetActiveInterface();
 	profiler.TuneEnd(mTuneMetrics, mAppName,(mbPlayEnabled?STRFGPLAYER:STRBGPLAYER), mPlayerId, mPlayerPreBuffered, durationSeconds, activeInterfaceWifi, mFailureReason, eventAvailStatus ? &tuneData : NULL);
 	if(eventAvailStatus)
 	{
@@ -3451,7 +3448,7 @@ void PrivateInstanceAAMP::LogTuneComplete(void)
 	mTuneMetrics.mFirstTune                  = mFirstTune;
 	bool eventAvailStatus = IsEventListenerAvailable(AAMP_EVENT_TUNE_TIME_METRICS);
 	std::string tuneData("");
-	activeInterfaceWifi =  pPlayerIarmRfcInterface->GetActiveInterface();
+	activeInterfaceWifi =  pPlayerExternalsInterface->GetActiveInterface();
 	profiler.TuneEnd(mTuneMetrics,mAppName,(mbPlayEnabled?STRFGPLAYER:STRBGPLAYER), mPlayerId, mPlayerPreBuffered, durationSeconds, activeInterfaceWifi, mFailureReason, eventAvailStatus ? &tuneData : NULL);
 	if(eventAvailStatus)
 	{
@@ -5133,7 +5130,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 		StoreLanguageList(std::set<std::string>());
 		mTunedEventPending = true;
 		mProfileCappedStatus = false;
-		pPlayerIarmRfcInterface->GetDisplayResolution(mDisplayWidth, mDisplayHeight);
+		pPlayerExternalsInterface->GetDisplayResolution(mDisplayWidth, mDisplayHeight);
 		AAMPLOG_INFO ("Display Resolution width:%d height:%d", mDisplayWidth, mDisplayHeight);
 
 		mOrigManifestUrl.hostname = aamp_getHostFromURL(mManifestUrl);
@@ -6588,9 +6585,7 @@ void PrivateInstanceAAMP::detach()
 			PlayerCCManager::GetInstance()->Release(mCCId);
 			mCCId = 0;
 		}
-#ifdef USE_SECMANAGER
 		mDRMLicenseManager->hideWatermarkOnDetach();
-#endif
 		AampStreamSinkManager::GetInstance().DeactivatePlayer(this, false);
 
 		StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
@@ -7010,12 +7005,10 @@ void PrivateInstanceAAMP::SetVideoMute(bool muted)
 	{
 		sink->SetVideoMute(muted);
 	}
-#ifdef USE_SECMANAGER
 	if(ISCONFIGSET_PRIV(eAAMPConfig_UseSecManager))
 	{
 		mDRMLicenseManager->setVideoMute(IsLive(), GetCurrentLatency(), IsAtLivePoint(), GetLiveOffsetMs(),muted, GetStreamPositionMs());
 	}
-#endif
 }
 
 /**
@@ -8814,7 +8807,6 @@ void PrivateInstanceAAMP::NotifyFirstBufferProcessed(const std::string& videoRec
 	AAMPLOG_WARN("seek pos %.3f", seek_pos_seconds);
 
 
-#ifdef USE_SECMANAGER
 	if(ISCONFIGSET_PRIV(eAAMPConfig_UseSecManager))
 	{
 		double streamPositionMs = GetStreamPositionMs();
@@ -8828,7 +8820,6 @@ void PrivateInstanceAAMP::NotifyFirstBufferProcessed(const std::string& videoRec
 		AAMPLOG_WARN("calling setVideoWindowSize  w:%d x h:%d ",w,h);
 		mDRMLicenseManager->setVideoWindowSize(w,h);
 	}
-#endif
 
 }
 
@@ -8885,8 +8876,6 @@ MediaFormat PrivateInstanceAAMP::GetMediaFormatTypeEnum() const
 	return mMediaFormat;
 }
 
-#if defined(USE_SECCLIENT) || defined(USE_SECMANAGER)
-
 /**
  * @brief Extracts / Generates MoneyTrace string
  */
@@ -8938,7 +8927,6 @@ void PrivateInstanceAAMP::GetMoneyTraceString(std::string &customHeader) const
 	}
 	AAMPLOG_TRACE("[GetMoneyTraceString] MoneyTrace[%s]",customHeader.c_str());
 }
-#endif /* USE_SECCLIENT || USE_SECMANAGER */
 
 /**
  * @brief Notify the decryption completion of the fist fragment.
@@ -12463,7 +12451,7 @@ struct curl_slist* PrivateInstanceAAMP::GetCustomHeaders(AampMediaType mediaType
 			}
 			if (it->first.compare("Wifi:") == 0)
 			{
-				activeInterfaceWifi =  pPlayerIarmRfcInterface->GetActiveInterface();
+				activeInterfaceWifi =  pPlayerExternalsInterface->GetActiveInterface();
 				if (true == activeInterfaceWifi)
 				{
 					headerValue = "1";

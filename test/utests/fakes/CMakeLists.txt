@@ -16,7 +16,6 @@
 # limitations under the License.
 
 file(GLOB fakes_SRC "*.cpp")
-file(GLOB middleware_fakes_SRC "../../../middleware/test/utests/fakes/*.cpp")
 
 set(AAMP_ROOT "../../../")
 set(UTESTS_ROOT "..")
@@ -44,8 +43,12 @@ include_directories(${AAMP_ROOT}/middleware)
 include_directories(${AAMP_ROOT}/middleware/drm)
 include_directories(${AAMP_ROOT}/middleware/drm/aes)
 include_directories(${AAMP_ROOT}/middleware/test/utests/mocks)
-include_directories(${AAMP_ROOT}/externals)
+include_directories(${AAMP_ROOT}/middleware/externals)
 include_directories(${AAMP_ROOT}/middleware/vendor)
+include_directories(${AAMP_ROOT}/middleware/playerLogManager)
+include_directories(${AAMP_ROOT}/middleware/baseConversion)
+include_directories(${AAMP_ROOT}/middleware/externals/playersecmanager)
+
 if (JSC_INCDIR)
     include_directories(${JSC_INCDIR})
 endif()
