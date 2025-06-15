@@ -10691,7 +10691,7 @@ void StreamAbstractionAAMP_MPD::Stop(bool clearChannelData)
 		}
 		if (clearChannelData)
 		{
-			if(ISCONFIGSET(eAAMPConfig_UseSecManager))
+			if(ISCONFIGSET(eAAMPConfig_UseSecManager) || ISCONFIGSET(eAAMPConfig_UseFireboltSDK))
 			{
 				aamp->mDRMLicenseManager->notifyCleanup();
 			}
