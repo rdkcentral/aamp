@@ -27,10 +27,10 @@
 
 #include <mutex>
 #include <sys/time.h>
-#include "ThunderAccessPlayer.h"
 #include "PlayerSecManagerSession.h"
 #include "PlayerScheduler.h"
 #include "PlayerMemoryUtils.h"
+#include "PlayerExternalUtils.h"
 #include <inttypes.h>
 #include <memory>
 #include <list>
@@ -52,6 +52,8 @@
 #define SECMANAGER_CALL_SIGN "org.rdk.SecManager.1"
 #define WATERMARK_PLUGIN_CALLSIGN "org.rdk.Watermark.1"
 //#define RDKSHELL_CALLSIGN "org.rdk.RDKShell.1"   //need to be used instead of WATERMARK_PLUGIN_CALLSIGN if RDK Shell is used for rendering watermark
+
+#define MAX_LICENSE_REQUEST_ATTEMPT 2
 
 /**
  * @class PlayerSecManager
@@ -92,7 +94,7 @@ public:
 	 * @param[out] reasonCode - license fetch reason code
 	 * @return bool - true if license fetch successful, false otherwise
 	 */
-	bool AcquireLicense( const char* licenseUrl, const char* moneyTraceMetadata[][2],
+	virtual bool AcquireLicense( std::string clientId, std::string appId, const char* licenseUrl, const char* moneyTraceMetadata[][2],
 						const char* accessAttributes[][2], const char* contentMetadata, size_t contentMetadataLen,
 						const char* licenseRequest, size_t licenseRequestLen, const char* keySystemId,
 						const char* mediaUsage, const char* accessToken, size_t accessTokenLen,
@@ -107,7 +109,7 @@ public:
 	 * @param[in] sessionId - session id
 	 * @param[in] active - true if session is active, false otherwise
 	 */
-	bool UpdateSessionState(int64_t sessionId, bool active);
+	virtual bool UpdateSessionState(int64_t sessionId, bool active);
 
 	/**
 	 * @fn setVideoWindowSize
@@ -116,7 +118,7 @@ public:
 	 * @param[in] video_width - video width 
 	 * @param[in] video_height - video height 
 	 */
-	bool setVideoWindowSize(int64_t sessionId, int64_t video_width, int64_t video_height);
+	virtual bool setVideoWindowSize(int64_t sessionId, int64_t video_width, int64_t video_height);
 	/**
 	 * @fn setPlaybackSpeedState
 	 *
@@ -124,53 +126,25 @@ public:
 	 * @param[in] playback_speed - playback speed 
 	 * @param[in] playback_position - playback position	 
 	 */
-	bool setPlaybackSpeedState(int64_t sessionId, int64_t playback_speed, int64_t playback_position);
-	/**
-	 * @fn loadClutWatermark
-	 * @param[in] sessionId - session id
-	 *  
-	 */
-	bool loadClutWatermark(int64_t sessionId, int64_t graphicId, int64_t watermarkClutBufferKey, int64_t watermarkImageBufferKey, int64_t clutPaletteSize, const char* clutPaletteFormat, int64_t watermarkWidth, int64_t watermarkHeight, float aspectRatio);
+	virtual bool setPlaybackSpeedState(int64_t sessionId, int64_t playback_speed, int64_t playback_position);
+	
+        /**
+         * @fn ReleaseSession - this should only be used by PlayerSecManagerSession::SessionManager::~SessionManager();
+         *
+         * @param[in] sessionId - session id
+         */
+        virtual void ReleaseSession(int64_t sessionId);
+
 	/**
 	 *   @fn SendWatermarkSessionEvent_CB
 	 */
 	static std::function<void(uint32_t, uint32_t, const std::string&)> SendWatermarkSessionEvent_CB;
 
 	/**
-	 * @fn getSchedulerStatus
-	 *
-	 * @return bool - true if scheduler is running, false otherwise
+	 * @fn UseFireboltSDK
+	 * @brief To indicate whether application support firebolt capability
 	 */
-	bool getSchedulerStatus();
-
-	/**
-	 *   @fn CreateWatermark
-	 */
-	void CreateWatermark(int graphicId, int zIndex);
-	/**
-	 *   @fn UpdateWatermark
-	 */
-	void UpdateWatermark(int graphicId, int smKey, int smSize);
-	/**
-	 *   @fn GetWaterMarkPalette
-	 */
-	void GetWaterMarkPalette(int sessionId, int graphicId);
-	/**
-	 *   @fn ModifyWatermarkPalette
-	 */
-	void ModifyWatermarkPalette(int graphicId, int clutKey, int imageKey);
-	/**
-	 *   @fn DeleteWatermark
-	 */
-	void DeleteWatermark(int graphicId);
-	/**
-	 *   @fn AlwaysShowWatermarkOnTop
-	 */
-	void AlwaysShowWatermarkOnTop(bool show);
-	/**
-	 *   @fn ShowWatermark
-	 */
-	void ShowWatermark(bool show);
+	static void UseFireboltSDK(bool status);
 
 	/**
 	 * @fn setWatermarkSessionEvent_CB
@@ -186,34 +160,60 @@ public:
 	 * @brief Get callback function for watermark session
 	 */
 	static std::function<void(uint32_t, uint32_t, const std::string&)>& getWatermarkSessionEvent_CB( );
-private:
+
+	static std::size_t getInputSummaryHash(const char* moneyTraceMetadata[][2], const char* contentMetadata,
+                                        size_t contMetaLen, const char* licenseRequest, const char* keySystemId,
+                                        const char* mediaUsage, const char* accessToken, bool isVideoMuted);
+protected:
 
 	/* Run AcquireLicenseOpenOrUpdate is the old AcquireLicense code
 	 * It is used by AcquireLicense() to for opening sessions & for calling update when this is required*/
-	bool AcquireLicenseOpenOrUpdate( const char* licenseUrl, const char* moneyTraceMetadata[][2],
+	virtual bool AcquireLicenseOpenOrUpdate( std::string clientId, std::string appId, const char* licenseUrl, const char* moneyTraceMetadata[][2],
 						const char* accessAttributes[][2], const char* contentMetadata, size_t contentMetadataLen,
 						const char* licenseRequest, size_t licenseRequestLen, const char* keySystemId,
 						const char* mediaUsage, const char* accessToken, size_t accessTokenLen,
 						PlayerSecManagerSession &session,
 						char** licenseResponse, size_t* licenseResponseLength,
-						int32_t* statusCode, int32_t* reasonCode, int32_t*  businessStatus, bool isVideoMuted, int sleepTime);
-
+						int32_t* statusCode, int32_t* reasonCode, int32_t*  businessStatus, bool isVideoMuted, int sleepTime) { return false; }
+        /**
+         * @brief Sets DRM session state (e.g., active/inactive)
+         * @param sessionId DRM session ID
+         * @param active Whether the session should be marked active
+         * @return true on success, false otherwise
+         */
+    	virtual bool SetDrmSessionState(int64_t sessionId, bool active) { return false; }
+        /**
+         * @brief Closes an existing DRM session
+         * @param sessionId DRM session ID
+         * @return true if closed successfully
+         */
+	virtual void CloseDrmSession(int64_t sessionId) {}
+        /**
+         * @brief Sets playback state for watermark alignment
+         * @param sessionId Session ID
+         * @param speed Playback rate (1.0 = normal)
+         * @param position Current position in seconds
+         * @return true if command succeeded
+         */
+	virtual bool SetPlaybackPosition(int64_t sessionId, float speed, int32_t position) { return false; }
 	/**
-	 * @fn ReleaseSession - this should only be used by PlayerSecManagerSession::SessionManager::~SessionManager();
+	 * @fn setWindowSize
 	 *
 	 * @param[in] sessionId - session id
-	 */
-	void ReleaseSession(int64_t sessionId);
+	 * @param[in] video_width - video width 
+	 * @param[in] video_height - video height 
+         */
+        virtual bool setWindowSize(int64_t sessionId, int64_t video_width, int64_t video_height) { return false; };
 
 	/**
 	 * @fn PlayerSecManager
 	 */
-	PlayerSecManager();
+	PlayerSecManager(){};
 
 	/**
 	 * @fn ~PlayerSecManager
 	 */
-	~PlayerSecManager();
+	~PlayerSecManager(){};
 	/**     
      	 * @brief Copy constructor disabled
     	 *
@@ -224,22 +224,54 @@ private:
          *
          */
 	PlayerSecManager* operator=(const PlayerSecManager&) = delete;
-	/**
-	 *   @fn RegisterAllEvents
-	 */
-	void RegisterAllEvents ();
-	/**
-	 *   @fn UnRegisterAllEvents
-	 */
-	void UnRegisterAllEvents ();
-
-	ThunderAccessPlayer mSecManagerObj;       /**< ThunderAccessPlayer object for communicating with SecManager*/
-	ThunderAccessPlayer mWatermarkPluginObj;  /**< ThunderAccessPlayer object for communicating with Watermark Plugin Obj*/
-	std::mutex mSecMutex;    	        /**< Lock for accessing mSecManagerObj*/
-	std::mutex mWatMutex;		        /**< Lock for accessing mWatermarkPluginObj*/
-	std::mutex mSpeedStateMutex;		/**< mutex for setPlaybackSpeedState()*/
-	std::list<std::string> mRegisteredEvents;
-	bool mSchedulerStarted;
 };
 
+/**
+ * @class FakeSecManager
+ * @brief Dummy no-op fallback implementation for unsupported platforms
+ */
+class FakeSecManager : public PlayerSecManager 
+{
+public:
+	/**
+	 * @fn FakeSecManager
+	 */
+	FakeSecManager() = default;
+
+	/**
+	 * @brief Destructor
+	 */
+	~FakeSecManager() = default;
+
+	FakeSecManager(const FakeSecManager&) = delete;
+	FakeSecManager& operator=(const FakeSecManager&) = delete;
+        bool AcquireLicense( std::string clientId, std::string appId, const char* licenseUrl, const char* moneyTraceMetadata[][2],
+                                                const char* accessAttributes[][2], const char* contentMetadata, size_t contentMetadataLen,
+                                                const char* licenseRequest, size_t licenseRequestLen, const char* keySystemId,
+                                                const char* mediaUsage, const char* accessToken, size_t accessTokenLen,
+                                                PlayerSecManagerSession &session,
+                                                char** licenseResponse, size_t* licenseResponseLength,
+                                                int32_t* statusCode, int32_t* reasonCode, int32_t*  businessStatus, bool isVideoMuted, int sleepTime) override
+	{
+		return false;
+	}
+
+	bool UpdateSessionState(int64_t sessionId, bool active) override
+	{
+		return false;
+	}
+
+	bool setPlaybackSpeedState(int64_t sessionId, int64_t speed, int64_t position) override
+	{
+		return false;
+	}
+        bool setVideoWindowSize(int64_t sessionId, int64_t video_width, int64_t video_height) override
+	{
+		return false;
+	}
+        void ReleaseSession(int64_t sessionId) override
+	{
+		
+	}
+};
 #endif /* __PLAYER_SECMANAGER_H__ */

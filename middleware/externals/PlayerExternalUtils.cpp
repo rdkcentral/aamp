@@ -52,3 +52,17 @@ bool IsContainerEnvironment(void)
 	}
 	return isContainer;
 }
+
+/**
+ * @brief Sleep for given milliseconds
+ */
+void ms_sleep(int milliseconds)
+{
+        struct timespec req, rem;
+        if (milliseconds > 0)
+        {
+                req.tv_sec = milliseconds / 1000;
+                req.tv_nsec = (milliseconds % 1000) * 1000000;
+                nanosleep(&req, &rem);
+        }
+}
