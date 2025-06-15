@@ -79,7 +79,8 @@ void getConfigs(DrmSessionManager *mDrmSessionManager , PrivateInstanceAAMP *aam
         aampInstance->mConfig->GetConfigValue(eAAMPConfig_ContentProtectionDataUpdateTimeout),
         aampInstance->mConfig->IsConfigSet(eAAMPConfig_EnablePROutputProtection),
         aampInstance->mConfig->IsConfigSet(eAAMPConfig_PropagateURIParam),
-        aampInstance->mIsFakeTune
+        aampInstance->mIsFakeTune,
+	aampInstance->mConfig->IsConfigSet(eAAMPConfig_UseFireboltSDK)
     );
 }
 /**
@@ -319,7 +320,7 @@ KeyState AampDRMLicenseManager::acquireLicense(std::shared_ptr<DrmHelper> drmHel
 					eventHandle->setSecclientError(true);
 					licenseResponse.reset(getLicenseSec(licenseRequest, drmHelper, challengeInfo, aampInstance, &httpResponseCode, &httpExtendedStatusCode, eventHandle));
 
-					bool sec_accessTokenExpired = aampInstance->mConfig->IsConfigSet(eAAMPConfig_UseSecManager) && SECMANAGER_DRM_FAILURE == httpResponseCode && SECMANAGER_ACCTOKEN_EXPIRED == httpExtendedStatusCode;
+					bool sec_accessTokenExpired = (aampInstance->mConfig->IsConfigSet(eAAMPConfig_UseSecManager) || aampInstance->mConfig->IsConfigSet(eAAMPConfig_UseFireboltSDK)) && SECMANAGER_DRM_FAILURE == httpResponseCode && SECMANAGER_ACCTOKEN_EXPIRED == httpExtendedStatusCode;
 					// Reload Expired access token only on http error code 412 with status code 401
 					if (((412 == httpResponseCode && 401 == httpExtendedStatusCode) || sec_accessTokenExpired) && !usingAppDefinedAuthToken)
 					{
@@ -415,7 +416,7 @@ KeyState AampDRMLicenseManager::handleLicenseResponse(std::shared_ptr<DrmHelper>
 			AAMPLOG_ERR("Error!! Invalid License Response was provided by the Server");
 			
 			//Handle secmanager specific error codes here
-			if( aampInstance->mConfig->IsConfigSet(eAAMPConfig_UseSecManager))
+			if( aampInstance->mConfig->IsConfigSet(eAAMPConfig_UseSecManager) || aampInstance->mConfig->IsConfigSet(eAAMPConfig_UseFireboltSDK))
 			{
 				eventHandle->setResponseCode(httpResponseCode);
 				eventHandle->setSecManagerReasonCode(httpExtendedStatusCode);
@@ -1154,7 +1155,7 @@ DrmData * AampDRMLicenseManager::getLicenseSec(const LicenseRequest &licenseRequ
 	AAMPLOG_WARN("[HHH] Before calling SecClient_AcquireLicense-----------");
 	AAMPLOG_WARN("destinationURL is %s (drm server now used)", licenseRequest.url.c_str());
 	AAMPLOG_WARN("MoneyTrace[%s]", requestMetadata[0][1]);
-	if(aampInstance->mConfig->IsConfigSet(eAAMPConfig_UseSecManager))
+	if(aampInstance->mConfig->IsConfigSet(eAAMPConfig_UseSecManager) || aampInstance->mConfig->IsConfigSet(eAAMPConfig_UseFireboltSDK))
 	{
 		size_t encodedDataLen = ((contentMetaData.length() + 2) /3) * 4;
 		size_t encodedChallengeDataLen = ((challengeInfo.data->getDataLength() + 2) /3) * 4;
@@ -1170,8 +1171,19 @@ DrmData * AampDRMLicenseManager::getLicenseSec(const LicenseRequest &licenseRequ
 			mFirstFrameSeen = false;
 		}
 
+		std::string clientId = "aamp";
+		std::string appId;
+		if (!aampInstance->GetAppName().empty())
+		{
+			appId = aampInstance->GetAppName();
+		}
+		else
+		{
+			appId = clientId;
+		}
+		AAMPLOG_INFO("Client ID %s App ID %s", clientId.c_str(), appId.c_str());
 		tStartTime = NOW_STEADY_TS_MS;
-		bool res = PlayerSecManager::GetInstance()->AcquireLicense(licenseRequest.url.c_str(),
+		bool res = PlayerSecManager::GetInstance()->AcquireLicense(clientId, appId, licenseRequest.url.c_str(),
 																 requestMetadata,
 																 ((numberOfAccessAttributes == 0) ? NULL : accessAttributes),
 																 encodedData, encodedDataLen,

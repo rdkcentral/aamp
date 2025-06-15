@@ -434,9 +434,8 @@ public:
                        int contentProtectionDataUpdateTimeout,
                        bool enablePROutputProtection,
                        bool propagateURIParam,
-                       bool isFakeTune);
-
-
+                       bool isFakeTune,
+		       bool useFireboltSDK);
 };
 
 /**

@@ -2716,6 +2716,7 @@ TEST_F(PrivAampTests, NotifyFirstBufferProcessedTest)
 
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnableGstPositionQuery)).WillOnce(Return(false));
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_UseSecManager)).WillOnce(Return(true));
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_UseFireboltSDK)).WillOnce(Return(true));
 	EXPECT_CALL(*g_mockAampLicenseManager, setVideoWindowSize(1024, 768));
 //PECT_CALL(*g_mockDRMSessionManager, setVideoWindowSize(1024, 768));
 	p_aamp->NotifyFirstBufferProcessed(std::string("0,0,1024,768"));
@@ -2729,6 +2730,7 @@ TEST_F(PrivAampTests, NotifyFirstBufferProcessedTest_VideoRectangleEmpty)
 
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnableGstPositionQuery)).WillOnce(Return(false));
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_UseSecManager)).WillOnce(Return(true));
+        EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_UseFireboltSDK)).WillOnce(Return(true));
 	EXPECT_CALL(*g_mockAampLicenseManager, setVideoWindowSize(0, 0));
 //	EXPECT_CALL(*g_mockDRMSessionManager, setVideoWindowSize(0, 0));
 	p_aamp->NotifyFirstBufferProcessed(std::string());
