@@ -61,8 +61,8 @@ set(FAKE_SOURCES ${UTESTS_ROOT}/fakes/FakeAampRfc.cpp
 				 ${UTESTS_ROOT}/fakes/FakePlayerExternalsInterface.cpp
 			 	 ${AAMP_ROOT}/middleware/test/utests/fakes/FakeSocUtils.cpp
 			 	 ${AAMP_ROOT}/test/utests/fakes/FakePlayerSecInterface.cpp
+				 ${AAMP_ROOT}/test/utests/fakes/FakePlayerSecManagerSession.cpp
 			 	 ${AAMP_ROOT}/test/utests/fakes/FakePlayerSecManager.cpp
-			 	 ${AAMP_ROOT}/test/utests/fakes/FakeThunderAccessPlayer.cpp
 			 	 ${AAMP_ROOT}/test/utests/fakes/FakePlayerScheduler.cpp
 				 ${AAMP_ROOT}/test/utests/fakes/FakeBase64.cpp
 				 ${AAMP_ROOT}/test/utests/fakes/FakePlayerLogManager.cpp)

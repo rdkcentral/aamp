@@ -5188,7 +5188,7 @@ void StreamAbstractionAAMP_HLS::Stop(bool clearChannelData)
 				sink->ClearProtectionEvent();
 			}
 		}
-		if(ISCONFIGSET(eAAMPConfig_UseSecManager))
+		if(ISCONFIGSET(eAAMPConfig_UseSecManager) || ISCONFIGSET(eAAMPConfig_UseFireboltSDK))
 		{
 			aamp->mDRMLicenseManager->notifyCleanup();
 		}

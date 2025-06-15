@@ -211,6 +211,7 @@ typedef enum
 	eAAMPConfig_HlsTsEnablePTSReStamp,
 	eAAMPConfig_UseMp4Demux,
 	eAAMPConfig_CurlThroughput,
+	eAAMPConfig_UseFireboltSDK,						/**< Config to use Firebolt SDK for license Acquisition */
 	eAAMPConfig_BoolMaxValue						/**< Max value of bool config always last element */
 
 } AAMPConfigSettingBool;
