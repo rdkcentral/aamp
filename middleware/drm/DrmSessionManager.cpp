@@ -103,7 +103,7 @@ void DrmSessionManager::UpdateDRMConfig(
     m_drmConfigParam->mEnablePROutputProtection = enablePROutputProtection;
     m_drmConfigParam->mPropagateURIParam = propagateURIParam;
     m_drmConfigParam->mIsFakeTune = isFakeTune;
-
+    PlayerSecManager::UseFireboltSDK(useFireboltSDK);
 }
 /**
  *  @brief  Clean up the memory used by session variables.

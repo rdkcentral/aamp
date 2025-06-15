@@ -27,9 +27,9 @@
 
 #include <mutex>
 #include <sys/time.h>
-#include "ThunderAccessPlayer.h"
 #include "PlayerSecManagerSession.h"
 #include "PlayerScheduler.h"
+#include "PlayerExternalUtils.h"
 #include "PlayerMemoryUtils.h"
 #include <inttypes.h>
 #include <memory>
@@ -37,6 +37,7 @@
 #include <map>
 #include <vector>
 
+#define MAX_LICENSE_REQUEST_ATTEMPT 2
 //Secmanager error class codes
 #define SECMANAGER_DRM_FAILURE 200
 #define SECMANAGER_WM_FAILURE 300 	/**< If secmanager couldn't initialize watermark service */
@@ -48,10 +49,6 @@
 #define SECMANAGER_SERVICE_BUSY 5
 #define SECMANAGER_ACCTOKEN_EXPIRED 8
 #define SECMANAGER_ENTITLEMENT_FAILURE 102
-
-#define SECMANAGER_CALL_SIGN "org.rdk.SecManager.1"
-#define WATERMARK_PLUGIN_CALLSIGN "org.rdk.Watermark.1"
-//#define RDKSHELL_CALLSIGN "org.rdk.RDKShell.1"   //need to be used instead of WATERMARK_PLUGIN_CALLSIGN if RDK Shell is used for rendering watermark
 
 /**
  * @class PlayerSecManager

@@ -109,7 +109,7 @@ static std::size_t getInputSummaryHash(const char* moneyTraceMetdata[][2], const
 	return 0;
 }
 
-bool PlayerSecManager::AcquireLicense( const char* licenseUrl, const char* moneyTraceMetdata[][2],
+bool PlayerSecManager::AcquireLicense( std::string clientId, std::string appId, const char* licenseUrl, const char* moneyTraceMetdata[][2],
 					const char* accessAttributes[][2], const char* contentMetdata, size_t contMetaLen,
 					const char* licenseRequest, size_t licReqLen, const char* keySystemId,
 					const char* mediaUsage, const char* accessToken, size_t accTokenLen,
