@@ -91,7 +91,8 @@ void DrmSessionManager::UpdateDRMConfig(
     int contentProtectionDataUpdateTimeout,
     bool enablePROutputProtection,
     bool propagateURIParam,
-    bool isFakeTune)
+    bool isFakeTune,
+    bool useFireboltSDK)
 {
     m_drmConfigParam->mUseSecManager = useSecManager;
     m_drmConfigParam->mLicenseRetryWaitTime = licenseRetryWaitTime;
@@ -103,7 +104,7 @@ void DrmSessionManager::UpdateDRMConfig(
     m_drmConfigParam->mEnablePROutputProtection = enablePROutputProtection;
     m_drmConfigParam->mPropagateURIParam = propagateURIParam;
     m_drmConfigParam->mIsFakeTune = isFakeTune;
-
+    PlayerSecManager::UseFireboltSDK(useFireboltSDK);
 }
 /**
  *  @brief  Clean up the memory used by session variables.

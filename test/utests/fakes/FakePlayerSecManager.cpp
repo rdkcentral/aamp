@@ -35,45 +35,6 @@ static PlayerSecManager *Instance = nullptr; /**< singleton instance*/
 static std::mutex InstanceMutex;
 
 /**
- * @brief Sleep for given milliseconds
- */
-void ms_sleep(int milliseconds)
-{
-}
-
-std::shared_ptr<PlayerSecManagerSession::SessionManager> PlayerSecManagerSession::SessionManager::getInstance(int64_t sessionID, std::size_t inputSummaryHash)
-{
-	std::shared_ptr<SessionManager> returnValue = nullptr;
-	return returnValue;
-}
-
-PlayerSecManagerSession::SessionManager::~SessionManager()
-{
-}
-void PlayerSecManagerSession::SessionManager::setInputSummaryHash(std::size_t inputSummaryHash)
-{
-}
-
-
-PlayerSecManagerSession::SessionManager::SessionManager(int64_t sessionID, std::size_t inputSummaryHash)
-{};
-
-PlayerSecManagerSession::PlayerSecManagerSession(int64_t sessionID, std::size_t inputSummaryHash)
-{};
-
-int64_t PlayerSecManagerSession::getSessionID(void) const
-{
-	int64_t ID = PLAYER_SECMGR_INVALID_SESSION_ID;
-	return ID;
-}
-
-std::size_t PlayerSecManagerSession::getInputSummaryHash()
-{
-	std::size_t hash=0;
-	return hash;
-}
-
-/**
  * @brief To get PlayerSecManager instance
  */
 PlayerSecManager* PlayerSecManager::GetInstance()
@@ -88,20 +49,6 @@ void PlayerSecManager::DestroyInstance()
 {
 }
 
-/**
- * @brief PlayerScheduler Constructor
- */
-PlayerSecManager::PlayerSecManager() : mSecManagerObj(SECMANAGER_CALL_SIGN), mSecMutex(), mSchedulerStarted(false),
-				   mRegisteredEvents(), mWatermarkPluginObj(WATERMARK_PLUGIN_CALLSIGN), mWatMutex(), mSpeedStateMutex()
-{
-}
-
-/**
- * @brief PlayerScheduler Destructor
- */
-PlayerSecManager::~PlayerSecManager()
-{
-}
 static std::size_t getInputSummaryHash(const char* moneyTraceMetdata[][2], const char* contentMetdata,
 					size_t contMetaLen, const char* licenseRequest, const char* keySystemId,
 					const char* mediaUsage, const char* accessToken, bool isVideoMuted)
@@ -109,7 +56,7 @@ static std::size_t getInputSummaryHash(const char* moneyTraceMetdata[][2], const
 	return 0;
 }
 
-bool PlayerSecManager::AcquireLicense( const char* licenseUrl, const char* moneyTraceMetdata[][2],
+bool PlayerSecManager::AcquireLicense( std::string clientId, std::string appId, const char* licenseUrl, const char* moneyTraceMetdata[][2],
 					const char* accessAttributes[][2], const char* contentMetdata, size_t contMetaLen,
 					const char* licenseRequest, size_t licReqLen, const char* keySystemId,
 					const char* mediaUsage, const char* accessToken, size_t accTokenLen,
@@ -143,14 +90,12 @@ bool PlayerSecManager::setPlaybackSpeedState(int64_t sessionId, int64_t playback
        return false;
 }
 
-
 /**
- * @brief To Load ClutWatermark
+ * @brief To notify SecManager to release a session
  */
-bool PlayerSecManager::loadClutWatermark(int64_t sessionId, int64_t graphicId, int64_t watermarkClutBufferKey, int64_t watermarkImageBufferKey, int64_t clutPaletteSize,
-                                                                       const char* clutPaletteFormat, int64_t watermarkWidth, int64_t watermarkHeight, float aspectRatio)
+void PlayerSecManager::ReleaseSession(int64_t sessionId)
 {
-       return false;
+	return;
 }
 
 /**
@@ -166,8 +111,13 @@ void PlayerSecManager::setWatermarkSessionEvent_CB(const std::function<void(uint
  */
 std::function<void(uint32_t, uint32_t, const std::string&)>& PlayerSecManager::getWatermarkSessionEvent_CB( )
 {
-	std::function<void(uint32_t, uint32_t, const std::string&)> callback = nullptr;
+	static std::function<void(uint32_t, uint32_t, const std::string&)> callback = nullptr;
 	return callback;
+}
+
+void PlayerSecManager::UseFireboltSDK(bool status)
+{
+	return;
 }
 
 /**
@@ -175,6 +125,7 @@ std::function<void(uint32_t, uint32_t, const std::string&)>& PlayerSecManager::g
  */
 void uuid_generate(uuid_t out)
 {
+	return;
 }
 
 /**
@@ -182,4 +133,5 @@ void uuid_generate(uuid_t out)
  */
 void uuid_unparse(const uuid_t uu, char *out)
 {
+	return;
 }
