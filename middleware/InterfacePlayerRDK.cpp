@@ -59,10 +59,10 @@
 
 
 // for now name is being kept as aamp should be changed when gst-plugins are migrated
-static const char* GstPluginNamePR = "aampplayreadydecryptor";
-static const char* GstPluginNameWV = "aampwidevinedecryptor";
-static const char* GstPluginNameCK = "aampclearkeydecryptor";
-static const char* GstPluginNameVMX = "aampverimatrixdecryptor";
+static const char* GstPluginNamePR = "ampplayreadydecryptor";
+static const char* GstPluginNameWV = "ampwidevinedecryptor";
+static const char* GstPluginNameCK = "ampclearkeydecryptor";
+static const char* GstPluginNameVMX = "ampverimatrixdecryptor";
 #define GST_MIN_PTS_UPDATE_INTERVAL 4000                        /**< Time duration in milliseconds if exceeded and pts has not changed; it is concluded pts is not changing */
 
 #include <assert.h>
@@ -5014,7 +5014,7 @@ void InterfacePlayerRDK::InitializePlayerGstreamerPlugins()
 
 	if (pluginFeature == NULL)
 	{
-		MW_LOG_ERR("InterfacePlayerRDK: %s plugin feature not available; reloading player's plugin", GstPluginNamePR);
+		MW_LOG_ERR("Nitz : InterfacePlayerRDK: %s plugin feature not available; reloading player's plugin", GstPluginNamePR);
 		GstPlugin * plugin = gst_plugin_load_by_name ("aamp");
 		if(plugin)
 		{
@@ -5022,7 +5022,7 @@ void InterfacePlayerRDK::InitializePlayerGstreamerPlugins()
 		}
 		pluginFeature = gst_registry_lookup_feature(registry, GstPluginNamePR);
 		if(pluginFeature == NULL)
-			MW_LOG_ERR("InterfacePlayerRDK: %s plugin feature not available", GstPluginNamePR);
+			MW_LOG_ERR("Nitz : InterfacePlayerRDK: %s plugin feature not available", GstPluginNamePR);
 	}
 	if(pluginFeature)
 	{
