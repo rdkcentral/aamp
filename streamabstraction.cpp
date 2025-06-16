@@ -1627,8 +1627,8 @@ void MediaTrack::NotifyCachedSubtitleFragmentAvailable()
  */
 void MediaTrack::RunInjectLoop()
 {
-	AAMPLOG_WARN("fragment injector started. track %s", name);
 	UsingPlayerId playerId( aamp->mPlayerId );
+	AAMPLOG_WARN("fragment injector started. track %s", name);
 
 	bool notifyFirstFragment = true;
 	bool keepInjecting = true;
