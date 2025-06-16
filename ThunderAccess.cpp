@@ -63,8 +63,14 @@ ThunderAccessAAMP::ThunderAccessAAMP(std::string callsign)
     AAMPLOG_INFO( "[ThunderAccessAAMP]Inside");
 
     uint32_t status = Core::ERROR_NONE;
-
-    Core::SystemInfo::SetEnvironment(_T("THUNDER_ACCESS"), (_T(SERVER_DETAILS)));
+    const char* serverDetails = getenv("THUNDER_ACCESS_VIPA");
+    if (serverDetails != nullptr && strlen(serverDetails) > 0) {
+	    AAMPLOG_WARN("[ThunderAccessAAMP] Environment variable THUNDER_ACCESS is set from ENV as :%s",serverDetails);
+	    Core::SystemInfo::SetEnvironment(_T("THUNDER_ACCESS"), _T(serverDetails));
+    } else {
+	    AAMPLOG_WARN("[ThunderAccessAAMP] Environment variable THUNDER_ACCESS not set. Using default value.");
+	    Core::SystemInfo::SetEnvironment(_T("THUNDER_ACCESS"), (_T(SERVER_DETAILS)));//default value
+    }
     string sToken = "";
 #ifdef DISABLE_SECURITY_TOKEN
      gSecurityData.securityToken = "token=" + sToken;

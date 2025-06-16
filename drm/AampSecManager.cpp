@@ -26,6 +26,9 @@
 #include <string.h>
 #include "_base64.h"
 #include <inttypes.h> // For PRId64
+#include <fstream>
+#include <sstream>
+#include <string>
 
 //call_signs
 #define SECMANAGER_CALLSIGN "org.rdk.SecManager.1"
@@ -222,16 +225,15 @@ bool AampSecManager::AcquireLicenseOpenOrUpdate(PrivateInstanceAAMP* aamp, const
 	*statusCode = SECMANAGER_DRM_FAILURE;
 	*reasonCode = SECMANAGER_DRM_GEN_FAILURE;
 	
-	//Shared memory pointer, key declared here,
-	//Access token, content metadata and licence request will be passed to
-	//secmanager via shared memory
-	void * shmPt_accToken = NULL;
-	key_t shmKey_accToken = 0;
-	void * shmPt_contMeta = NULL;
-	key_t shmKey_contMeta = 0;
-	void * shmPt_licReq = NULL;
-	key_t shmKey_licReq = 0;
-		
+	std::string accessTokenData = accessToken
+		? std::string(accessToken, accTokenLen)
+		: std::string();
+	std::string contentMetdataData = contentMetadata
+		? std::string(contentMetadata, contMetaLen)
+		: std::string();
+	std::string licenseRequestData = licenseRequest
+		? std::string(licenseRequest, licReqLen)
+		: std::string();	
 	const char* apiName = "openPlaybackSession";
 	JsonObject param;
 	JsonObject response;
@@ -263,59 +265,54 @@ bool AampSecManager::AcquireLicenseOpenOrUpdate(PrivateInstanceAAMP* aamp, const
 		param["sessionId"] = session.getSessionID();
 	}
 
-#ifdef DEBUG_SECMAMANER
 	std::string params;
 	param.ToString(params);
 	AAMPLOG_WARN("SecManager %s param: %s",apiName, params.c_str());
-#endif
 	
 	{
 		std::lock_guard<std::mutex> lock(mSecMutex);
-		if(accTokenLen > 0 && contMetaLen > 0 && licReqLen > 0)
+               if(NULL != accessToken &&
+                  NULL != contentMetadata &&
+                  NULL != licenseRequest)
+               {
+                       AAMPLOG_INFO("Access token, Content metadata and license request are copied successfully, passing details with SecManager");
+
+                        //Set json params to be used by sec manager
+                       param["accessToken"] = accessTokenData;
+                       param["contentMetadata"] = contentMetdataData;
+                       param["licenseRequest"] = licenseRequestData;
+        std::string params;
+        param.ToString(params);
+
+        AAMPLOG_WARN("SecManager %s param: %s",apiName, params.c_str());
+	//Retry delay
+	std::stringstream logMsg;
+	logMsg << "SecManager " << apiName << " param: " << params;
+	std::string fullLogMessage = logMsg.str();
+	std::cout<<"SecManager::::"<<fullLogMessage;
+	//AAMPLOG_WARN("SAMIIIII123333333:::: %s",fullLogMessage.c_str());			//It truncates the log lines, not printing entire log
+	std::ofstream logFile("/opt/sectestlog.txt", std::ios::app);
+	if (logFile.is_open()) {
+		// Write to the file
+		logFile << "SecManager INPUT:::" << fullLogMessage << std::endl;
+//		logFile << "SAMIIIII123333333:::: " << fullLogMessage << std::endl;
+		logFile.close();
+	}
+
+	//Retry delay
+	int sleepTime = GETCONFIGVALUE(eAAMPConfig_LicenseRetryWaitTime);
+	if(sleepTime<=0) sleepTime = 100;
+	//invoke "openPlaybackSession" or "updatePlaybackSession" with retries for specific error cases
+	do	
 		{
-			shmPt_accToken = aamp_CreateSharedMem(accTokenLen, shmKey_accToken);
-			shmPt_contMeta = aamp_CreateSharedMem(contMetaLen, shmKey_contMeta);
-			shmPt_licReq = aamp_CreateSharedMem(licReqLen, shmKey_licReq);
-		}
-		
-		//Set shared memory with the buffer
-		if(NULL != shmPt_accToken && NULL != accessToken &&
-		   NULL != shmPt_contMeta && NULL != contentMetadata &&
-		   NULL != shmPt_licReq && NULL != licenseRequest)
-		{
-			//copy buffer to shm
-			memcpy(shmPt_accToken, accessToken, accTokenLen);
-			memcpy(shmPt_contMeta, contentMetadata, contMetaLen);
-			memcpy(shmPt_licReq, licenseRequest, licReqLen);
-			
-			AAMPLOG_INFO("Access token, Content metadata and license request are copied to the shared memory successfully, passing details with SecManager");
-			
-			//Set json params to be used by sec manager
-			param["accessTokenBufferKey"] = shmKey_accToken;
-			param["accessTokenLength"] = accTokenLen;
-			
-			param["contentMetadataBufferKey"] = shmKey_contMeta;
-			param["contentMetadataLength"] = contMetaLen;
-			
-			param["licenseRequestBufferKey"] = shmKey_licReq;
-			param["licenseRequestLength"] = licReqLen;
-			
-			//Retry delay
-			int sleepTime = GETCONFIGVALUE(eAAMPConfig_LicenseRetryWaitTime);
-			if(sleepTime<=0) sleepTime = 100;
-			//invoke "openPlaybackSession" or "updatePlaybackSession" with retries for specific error cases
-			do
-			{
 				rpcResult = mSecManagerObj.InvokeJSONRPC(apiName, param, response, 10000);
 				if (rpcResult)
 				{
 					AampSecManagerSession newSession;
 
-				#ifdef DEBUG_SECMAMANER
 					std::string output;
 					response.ToString(output);
 					AAMPLOG_WARN("SecManager %s o/p: %s",apiName, output.c_str());
-				#endif
 					if (response["success"].Boolean())
 					{
 						/*
@@ -413,10 +410,6 @@ bool AampSecManager::AcquireLicenseOpenOrUpdate(PrivateInstanceAAMP* aamp, const
 			}
 			while(retryCount < MAX_LICENSE_REQUEST_ATTEMPTS);
 			
-			//Cleanup the shared memory after sharing it with secmanager
-			aamp_CleanUpSharedMem( shmPt_accToken, shmKey_accToken, accTokenLen);
-			aamp_CleanUpSharedMem( shmPt_contMeta, shmKey_contMeta, contMetaLen);
-			aamp_CleanUpSharedMem( shmPt_licReq, shmKey_licReq, licReqLen);
 		}
 		else
 		{
