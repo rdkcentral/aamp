@@ -2270,6 +2270,9 @@ void PrivateInstanceAAMP::ReportAdProgress(bool sync, double positionMs)
 {
 	// This API reports progress of Ad playback in percentage
 	double pct = -1;
+	// Sometimes ReportAdProgress() called twice in <1sec. Avoid sending the same pct twice.
+	static uint32_t lastUintPct = 1000;
+
 	if (mDownloadsEnabled && !mAdProgressId.empty())
 	{
 		// Report Ad progress percentage to JSPP
@@ -2288,7 +2291,10 @@ void PrivateInstanceAAMP::ReportAdProgress(bool sync, double positionMs)
 			pct = ((curPosition - static_cast<double>(mAdAbsoluteStartTime)) / static_cast<double>(mAdDuration)) * 100;
 		}
 
-
+		if (pct < 0)
+		{
+			pct = 0;
+		}
 		if(pct > 100)
 		{
 			pct = 100;
@@ -2305,13 +2311,10 @@ void PrivateInstanceAAMP::ReportAdProgress(bool sync, double positionMs)
 			}
 		}
 
-		if (pct < 0)
+		uint32_t uintPct = static_cast<uint32_t>(pct);
+		if ( uintPct != lastUintPct)
 		{
-			AAMPLOG_WARN("Not sending PLACEMENT_PROGRESS pct %f", pct);
-		}
-		else
-		{
-			AdPlacementEventPtr evt = std::make_shared<AdPlacementEvent>(AAMP_EVENT_AD_PLACEMENT_PROGRESS, mAdProgressId, static_cast<uint32_t>(pct), 0, GetSessionId());
+			AdPlacementEventPtr evt = std::make_shared<AdPlacementEvent>(AAMP_EVENT_AD_PLACEMENT_PROGRESS, mAdProgressId, uintPct, 0, GetSessionId());
 			if (sync)
 			{
 				mEventManager->SendEvent(evt, AAMP_EVENT_SYNC_MODE);
@@ -2320,6 +2323,7 @@ void PrivateInstanceAAMP::ReportAdProgress(bool sync, double positionMs)
 			{
 				mEventManager->SendEvent(evt);
 			}
+			lastUintPct = uintPct;
 		}
 	}
 }
