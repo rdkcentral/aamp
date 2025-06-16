@@ -356,10 +356,20 @@ void PrivateCDAIObjectMPD::PlaceAds(AampMPDParseHelperPtr adMPDParseHelper)
 							double adDurationToPlaceInBreak = GetRemainingAdDurationInBreak(mPlacementObj.pendingAdbrkId, mPlacementObj.curAdIdx, mPlacementObj.adStartOffset);
 							// This is the duration that is available in the current period, after deducting already placed duration of ads if any.
 							// If periodDurationAvailable is not matching adDurationToPlaceInBreak, then its a split period case
-							double periodDurationAvailable = 0;
+							int64_t periodDurationAvailable = currPeriodDur;
 							if( abObj.ads )
 							{
-								periodDurationAvailable = (currPeriodDur - abObj.ads->at(mPlacementObj.curAdIdx).basePeriodOffset);
+								//Adjusting periodDurationAvailable only if ad's base periodId
+								//matches the current periodId.This avoid incorrect calculation in split period cases
+								//where an ad spans next into the next period which could otherwise result in a negative value.
+								if( abObj.ads->at(mPlacementObj.curAdIdx).basePeriodId == periodId )
+								{ 
+									periodDurationAvailable -= abObj.ads->at(mPlacementObj.curAdIdx).basePeriodOffset;
+									if (periodDurationAvailable < 0)
+									{
+										periodDurationAvailable = 0;
+									}
+								}
 							}
 							if((nextPeriodDur > 0) && ((periodDurationAvailable >= 0) && (periodDurationAvailable <= adDurationToPlaceInBreak)))
 							{
