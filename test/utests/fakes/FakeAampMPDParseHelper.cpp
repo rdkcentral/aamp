@@ -239,7 +239,3 @@ double AampMPDParseHelper::GetPeriodNewContentDurationMs(IPeriod * period, uint6
 {
 	return 0;
 }
-bool AampMPDParseHelper::aamp_HasSegmentTimeline(IPeriod * period)
-{
-	return false;
-}

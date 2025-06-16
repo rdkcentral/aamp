@@ -5460,26 +5460,73 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 			mFirstVideoFrameDisplayedEnabled = true;
 			mPauseOnFirstVideoFrameDisp = true;
 		}
-		/* executing the flush earlier in order to avoid the tune delay while waiting for the first video and audio fragment to download
-		 * and retrieving the pts value, as in the segmenttimeline streams we get the pts value from manifest itself
-		 */
-		if (mpStreamAbstractionAAMP->DoEarlyStreamSinkFlush(newTune, rate))
+
+		if (mMediaFormat == eMEDIAFORMAT_HLS)
+		{
+			//Live adjust or syncTrack occurred, sent an updated flush event
+			if (!newTune)
+			{
+				StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
+				if (sink)
+				{
+					sink->Flush(mpStreamAbstractionAAMP->GetFirstPTS(), rate);
+				}
+			}
+		}
+		else if (mMediaFormat == eMEDIAFORMAT_DASH)
+		{
+			/*
+			   commenting the Flush call with updatedSeekPosition as a work around for
+			   Trick play freeze issues observed for partner cDVR content
+			   @TODO Need to investigate and identify proper way to send Flush and segment
+			   events to avoid the freeze
+			if (!(newTune || (eTUNETYPE_RETUNE == tuneType)) && !IsFogTSBSupported())
+			{
+				StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
+				if (sink)
+				{
+					sink->Flush(updatedSeekPosition, rate);
+				}
+			}
+			else
+			{
+				StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
+				if (sink)
+				{
+					sink->Flush(0, rate);
+				}
+			}
+				*/
+			StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
+			if (sink && (mAampLLDashServiceData.lowLatencyMode || !ISCONFIGSET_PRIV(eAAMPConfig_EnableMediaProcessor)))
+			{
+				/* Do flush to PTS position when:
+				*	Not PTS restamp
+				*	OR normal play
+				* This means we skip this flush when
+				*	trickplay and PTS restamp
+				*	and we are using the flush(0) that occurs else where
+				*/
+				if (!ISCONFIGSET_PRIV(eAAMPConfig_EnablePTSReStamp) || rate == AAMP_NORMAL_PLAY_RATE )
+				{
+					sink->Flush(mpStreamAbstractionAAMP->GetFirstPTS(), rate);
+				}
+			}
+		}
+		else if (mMediaFormat == eMEDIAFORMAT_PROGRESSIVE)
 		{
 			StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
 			if (sink)
 			{
-				double flushPosition = (mMediaFormat == eMEDIAFORMAT_PROGRESSIVE) ? updatedSeekPosition : mpStreamAbstractionAAMP->GetFirstPTS();
-				sink->Flush(flushPosition, rate);
+				sink->Flush(updatedSeekPosition, rate);
 			}
-		}
-		// Additional logic for progressive content
-		if (mMediaFormat == eMEDIAFORMAT_PROGRESSIVE)
-		{
+			// ff trick mode, mp4 content is single file and muted audio to avoid glitch
 			if (rate > AAMP_NORMAL_PLAY_RATE)
 			{
-				volume = 0; // Mute audio to avoid glitches
+				volume = 0;
 			}
-			seek_pos_seconds = 0; // Reset seek position
+			// reset seek_pos after updating playback start, since mp4 content provide absolute position value
+			seek_pos_seconds = 0;
 		}
 
 		// Increase Buffer value dynamically according to Max Profile Bandwidth to accommodate HiFi Content Buffers

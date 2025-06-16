@@ -1146,14 +1146,6 @@ public:
 	{
 		return 0.0;
 	}
-	/**
-	*   @brief Should flush the stream Sink on new tune or not.  
-	*
-	*   @param[in] newTune - true if this is a new tune, false if it is a seek
-	*   @param[in] rate - playback rate
-	*   @return true if stream should be flushed, false otherwise
-	*/
-	virtual bool DoEarlyStreamSinkFlush(bool newTune, float rate) { return false; }
 
 	/**
 	 * @brief Sets the minimum buffer for ABR (Adaptive Bit Rate).
@@ -2062,10 +2054,11 @@ protected:
 	}
 
 	/**
-	 * @brief This function is used to initialize the media processor for ISOBMFF streams.
-	 * @param[in] passThroughMode - true if processor should skip parsing PTS and flush
+	 * @brief Initialize ISOBMFF Media Processor
+	 *
+	 * @return void
 	 */
-	void InitializeMediaProcessor(bool passThroughMode = false);
+	void InitializeMediaProcessor();
 
 //private:
 protected:
