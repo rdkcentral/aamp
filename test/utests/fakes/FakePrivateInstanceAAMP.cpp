@@ -1491,6 +1491,14 @@ bool PrivateInstanceAAMP::IsLocalAAMPTsbInjection()
 	return false;
 }
 
+void PrivateInstanceAAMP::UpdateLocalAAMPTsbInjection()
+{
+	if (g_mockPrivateInstanceAAMP)
+	{
+		g_mockPrivateInstanceAAMP->UpdateLocalAAMPTsbInjection();
+	}
+}
+
 bool PrivateInstanceAAMP::GetLLDashAdjustSpeed(void)
 {
 	if (g_mockPrivateInstanceAAMP)
@@ -1653,4 +1661,8 @@ void PrivateInstanceAAMP::IncrementGaps()
 double PrivateInstanceAAMP::GetStreamPositionMs()
 {
 	return 0.0;
+}
+
+void PrivateInstanceAAMP::SendMonitorAvEvent(const std::string &status, int64_t videoPositionMS, int64_t audioPositionMS, uint64_t timeInStateMS)
+{
 }

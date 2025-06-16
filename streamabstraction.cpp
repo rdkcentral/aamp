@@ -183,6 +183,8 @@ void MediaTrack::MonitorBufferHealth()
 	assert(bufferHealthMonitorDelay >= bufferHealthMonitorInterval);
 	unsigned int bufferMontiorScheduleTime = bufferHealthMonitorDelay - bufferHealthMonitorInterval;
 	bool keepRunning = false;
+	AAMPLOG_INFO("[%s] Start MonitorBufferHealth, downloads %d abort %d delay %ds interval %ds discontinuityTimeout %dms",
+				 name, aamp->DownloadsAreEnabled(), abort, bufferHealthMonitorDelay, bufferHealthMonitorInterval, discontinuityTimeoutValue);
 	if(aamp->DownloadsAreEnabled() && !abort)
 	{
 		aamp->interruptibleMsSleep(bufferMontiorScheduleTime *1000);
@@ -241,6 +243,8 @@ void MediaTrack::MonitorBufferHealth()
 		}
 		lock.unlock();
 	}
+	AAMPLOG_INFO("[%s] Exit MonitorBufferHealth, downloads %d abort %d",
+				 name, aamp->DownloadsAreEnabled(), abort);
 }
 
 
@@ -696,9 +700,9 @@ bool MediaTrack::WaitForCachedFragmentChunkAvailable()
 	AAMPLOG_TRACE("DEBUG Enter");
 	std::unique_lock<std::mutex> lock(mutex);
 
-	AAMPLOG_DEBUG("[%s] Acquired MUTEX ==> fragmentChunkIdxToInject = %d numberOfFragmentChunksCached %d ret = %d abort = %d abortInjectChunk = %d ", name, fragmentChunkIdxToInject, numberOfFragmentChunksCached, ret, abort, abortInjectChunk);
+	AAMPLOG_DEBUG("[%s] Acquired MUTEX ==> fragmentChunkIdxToInject = %d numberOfFragmentChunksCached %d ret = %d abort = %d abortInject = %d ", name, fragmentChunkIdxToInject, numberOfFragmentChunksCached, ret, abort, abortInject);
 
-	if ((numberOfFragmentChunksCached == 0) && !(abort || abortInjectChunk ))
+	if ((numberOfFragmentChunksCached == 0) && !(abort || abortInject))
 	{
 		AAMPLOG_DEBUG("## [%s] Waiting for CachedFragment to be available, eosReached=%d ##", name, eosReached);
 
@@ -709,9 +713,9 @@ bool MediaTrack::WaitForCachedFragmentChunkAvailable()
 		}
 	}
 
-	ret = !(abort || abortInjectChunk|| numberOfFragmentChunksCached == 0);
-	AAMPLOG_DEBUG("[%s] fragmentChunkIdxToInject = %d numberOfFragmentChunksCached %d ret = %d abort = %d abortInjectChunk = %d",
-				  name, fragmentChunkIdxToInject, numberOfFragmentChunksCached, ret, abort, abortInjectChunk);
+	ret = !(abort || abortInject || numberOfFragmentChunksCached == 0);
+	AAMPLOG_DEBUG("[%s] fragmentChunkIdxToInject = %d numberOfFragmentChunksCached %d ret = %d abort = %d abortInject = %d",
+				  name, fragmentChunkIdxToInject, numberOfFragmentChunksCached, ret, abort, abortInject);
 	return ret;
 }
 
@@ -725,18 +729,12 @@ void MediaTrack::AbortWaitForCachedAndFreeFragment(bool immediate)
 	{
 		abort = true;
 		fragmentInjected.notify_one();
-		if(IsInjectionFromCachedFragmentChunks())
-		{
-			AAMPLOG_DEBUG("[%s] signal fragmentChunkInjected condition", name);
-			// For TSB playback, WaitForCachedFragmentChunkInject is invoked from TSBReader and CacheFragmentChunk threads
-			fragmentChunkInjected.notify_all();
-		}
+		AAMPLOG_DEBUG("[%s] signal fragmentChunkInjected condition", name);
+		// For TSB playback, WaitForCachedFragmentChunkInject is invoked from TSBReader and CacheFragmentChunk threads
+		fragmentChunkInjected.notify_all();
 	}
-	if(IsInjectionFromCachedFragmentChunks())
-	{
-		AAMPLOG_DEBUG("[%s] signal fragmentChunkFetched condition", name);
-		fragmentChunkFetched.notify_one();
-	}
+	AAMPLOG_DEBUG("[%s] signal fragmentChunkFetched condition", name);
+	fragmentChunkFetched.notify_one();
 	aamp->waitforplaystart.notify_one();
 	fragmentFetched.notify_one();
 	lock.unlock();
@@ -750,12 +748,8 @@ void MediaTrack::AbortWaitForCachedAndFreeFragment(bool immediate)
 void MediaTrack::AbortWaitForCachedFragment()
 {
 	std::unique_lock<std::mutex> lock(mutex);
-	if(IsInjectionFromCachedFragmentChunks())
-	{
-		abortInjectChunk = true;
-		AAMPLOG_DEBUG("[%s] signal fragmentChunkFetched condition", name);
-		fragmentChunkFetched.notify_one();
-	}
+	AAMPLOG_DEBUG("[%s] signal fragmentChunkFetched condition", name);
+	fragmentChunkFetched.notify_one();
 
 	abortInject = true;
 	fragmentFetched.notify_one();
@@ -770,11 +764,8 @@ void MediaTrack::AbortWaitForCachedFragment()
 void MediaTrack::AbortWaitForCachedFragmentChunk()
 {
 	std::lock_guard<std::mutex> guard(mutex);
-	if(IsInjectionFromCachedFragmentChunks())
-	{
-		AAMPLOG_TRACE("[%s] signal fragmentChunkInjected condition", name);
-		fragmentChunkInjected.notify_all();
-	}
+	AAMPLOG_TRACE("[%s] signal fragmentChunkInjected condition", name);
+	fragmentChunkInjected.notify_all();
 }
 
 /**
@@ -1230,17 +1221,48 @@ std::string MediaTrack::RestampSubtitle( const char* buffer, size_t bufferLen, d
 {
 	long long pts_offset_ms = pts_offset_s*1000;
 	std::string str;
-	if( ISCONFIGSET(eAAMPConfig_HlsTsEnablePTSReStamp) && pts_offset_ms && isWebVttSegment(buffer,bufferLen) )
+	if( ISCONFIGSET(eAAMPConfig_HlsTsEnablePTSReStamp) && isWebVttSegment(buffer,bufferLen) )
 	{
 		const char *fin = &buffer[bufferLen];
 		const char *prev = buffer;
+		bool processedHeader = false;
 		while( prev<fin )
 		{
 			const char *line_start = mystrstr( prev, fin, "\n\n" );
 			if( line_start )
 			{
-				line_start += 2; // advance past \n\n
-				str += std::string(prev,line_start-prev);
+				if( !processedHeader )
+				{
+					const char *localTimePtr = mystrstr(prev,line_start,"LOCAL:");
+					long long localTimeMs = localTimePtr?convertHHMMSSToTime(localTimePtr+6):0;
+					const char *mpegtsPtr = mystrstr(prev,line_start,"MPEGTS:");
+					long long mpegts = mpegtsPtr?atoll(mpegtsPtr+7):0;
+					pts_offset_ms -= localTimeMs;
+					if( localTimeMs != currentLocalTimeMs  )
+					{
+						if( gotLocalTime )
+						{
+							AAMPLOG_MIL( "webvtt pts rollover" );
+							ptsRollover = true;
+						}
+						currentLocalTimeMs = localTimeMs;
+						gotLocalTime = true;
+					}
+					line_start += 2; // advance past \n\n
+					str += "WEBVTT\nX-TIMESTAMP-MAP=LOCAL:00:00:00.000,MPEGTS:";
+					str += std::to_string(mpegts);
+					str += "\n\n";
+					processedHeader = true;
+					if( ptsRollover )
+					{ // adjust by max pts ms
+						pts_offset_ms += 95443717; // 0x1ffffffff/90
+					}
+				}
+				else
+				{
+					line_start += 2; // advance past \n\n
+					str += std::string(prev,line_start-prev);
+				}
 				prev = line_start;
 				const char *line_end = mystrstr(line_start, fin, "\n" );
 				if( line_end )
@@ -1266,6 +1288,7 @@ std::string MediaTrack::RestampSubtitle( const char* buffer, size_t bufferLen, d
 	{
 		str = std::string(buffer,bufferLen);
 	}
+	printf( "***restamped caption: %s\n", str.c_str() );
 	return str;
 }
 
@@ -1550,7 +1573,6 @@ void MediaTrack::StartInjectLoop()
 		{
 			abort = false;
 			abortInject = false;
-			abortInjectChunk = false;
 			discontinuityProcessed = false;
 
 			fragmentInjectorThreadID = std::thread(&MediaTrack::RunInjectLoop, this);
@@ -1605,8 +1627,8 @@ void MediaTrack::NotifyCachedSubtitleFragmentAvailable()
  */
 void MediaTrack::RunInjectLoop()
 {
-	AAMPLOG_WARN("fragment injector started. track %s", name);
 	UsingPlayerId playerId( aamp->mPlayerId );
+	AAMPLOG_WARN("fragment injector started. track %s", name);
 
 	bool notifyFirstFragment = true;
 	bool keepInjecting = true;
@@ -1705,15 +1727,7 @@ void MediaTrack::RunInjectLoop()
 		}
 	}
 
-	// Low latency, or injecting from chunk buffer when playing back from local tsb
-	if(IsInjectionFromCachedFragmentChunks())
-	{
-		abortInjectChunk = true;
-	}
-	else
-	{
-		abortInject = true;
-	}
+	abortInject = true;
 	AAMPLOG_WARN("fragment injector done. track %s", name);
 }
 
@@ -1910,7 +1924,7 @@ MediaTrack::MediaTrack(TrackType type, PrivateInstanceAAMP* aamp, const char* na
 		discontinuityProcessed(false), ptsError(false), mCachedFragment(NULL), name(name), type(type), aamp(aamp),
 		mutex(), fragmentFetched(), fragmentInjected(), abortInject(false),
 		mSubtitleParser(), refreshSubtitles(false), refreshAudio(false), maxCachedFragmentsPerTrack(0),
-		mCachedFragmentChunks{}, unparsedBufferChunk{"unparsedBufferChunk"}, parsedBufferChunk{"parsedBufferChunk"}, fragmentChunkFetched(), fragmentChunkInjected(), abortInjectChunk(false), maxCachedFragmentChunksPerTrack(0),
+		mCachedFragmentChunks{}, unparsedBufferChunk{"unparsedBufferChunk"}, parsedBufferChunk{"parsedBufferChunk"}, fragmentChunkFetched(), fragmentChunkInjected(), maxCachedFragmentChunksPerTrack(0),
 		noMDATCount(0), loadNewAudio(false), audioFragmentCached(), audioMutex(), loadNewSubtitle(false), subtitleFragmentCached(), subtitleMutex(),
 		abortPlaylistDownloader(true), playlistDownloaderThreadStarted(false), plDownloadWait()
 		,dwnldMutex(), playlistDownloaderThread(NULL), fragmentCollectorWaitingForPlaylistUpdate(false)
@@ -1920,6 +1934,7 @@ MediaTrack::MediaTrack(TrackType type, PrivateInstanceAAMP* aamp, const char* na
 		,mIsoBmffHelper(std::make_shared<IsoBmffHelper>())
 		,mLastFragmentPts(0), mRestampedPts(0), mRestampedDuration(0), mTrickmodeState(TrickmodeState::UNDEF)
 		,mTrackParamsMutex(), mCheckForRampdown(false)
+		,gotLocalTime(false),ptsRollover(false),currentLocalTimeMs(0)
 {
 	maxCachedFragmentsPerTrack = GETCONFIGVALUE(eAAMPConfig_MaxFragmentCached);
 	if( !maxCachedFragmentsPerTrack )
@@ -3171,6 +3186,16 @@ void MediaTrack::SetLocalTSBInjection(bool value)
 {
 	mIsLocalTSBInjection.store(value);
 	AAMPLOG_INFO("isLocalAampTsbInjection %d", mIsLocalTSBInjection.load());
+}
+
+/**
+ * @brief Is injection from local AAMP TSB
+ *
+ * @return true if injection is from local AAMP TSB, false otherwise
+ */
+bool MediaTrack::IsLocalTSBInjection()
+{
+	return mIsLocalTSBInjection.load();
 }
 
 /**

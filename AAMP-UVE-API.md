@@ -207,6 +207,8 @@ Configuration options are passed to AAMP using the UVE initConfig method. This a
 | showDiagnosticsOverlay | Number | 0 (None) | Configures the diagnostics overlay: 0 (None), 1 (Minimal), 2 (Extended). Controls the visibility and level of detail for diagnostics displayed during playback. Refer [Diagnostics Overlay Configuration](#diagnostics-overlay-configuration)
 | localTSBEnabled | Boolean | False | Enable use of time shift buffer (TSB) for live playback, leveraging local storage.  Use of a TSB allows pause, seek, fast forward/rewind operations beyond the size of the default manifest live window supported by the CDN |
 | tsbLength | Number | 3600 (1 hour) or 1500 (25 min) | Max duration (seconds) of Local TSB to build up before culling  (not recommended for apps to change) |
+| monitorAV | Boolean | False | Enable background monitoring of audio/video positions to infer video freeze, audio drop, or av sync issues |
+| monitorAVReportingInterval | Number | 1000 | Timeout in milliseconds for reporting MonitorAV events |
 
 Example:
 ```js
@@ -1726,13 +1728,15 @@ Example:
 - height: number
 - hasDrm: boolean
 - isLive: boolean
-- programStartTime: DRM: string[]
+- programStartTime: number
+- DRM: string
 - tsbDepth: number
+- url: string
 
 
 **Description:**
 - Supported UVE version 0.7 and above.
-- Fired with metadata of the asset currently played, includes duration(in ms), audio language list, available bitrate list, hasDrm, supported playback speeds , tsbDepth
+- Fired with metadata of the asset currently played, includes duration(in ms), audio language list, available bitrate list, hasDrm, supported playback speeds, tsbDepth, url (final, effective URL after any 302 redirection by video engine)
 
 ---
 
@@ -2263,6 +2267,22 @@ Example:
 [102,101,97,53,53,48,48,54,45,51,102,48,102,45,99,101,97,99,45,55,54,99,48,45,5
 1,55,50,98,99,50,54,100,48,55,100,50,0],"streamType":"VIDEO", "sessionId":""}
 ```
+---
+
+### monitorAVStatus
+
+**Event Payload:**
+- sessionId: string Refer to [load](#load-uri_autoplay_tuneparams) API for details
+- currentState: string
+- videoPosMs : number
+- audioPosMs : number
+- timeInStateMs : number
+
+**Description:**
+- Player periodically reports the video and audio position to the application which could be used to infer video freeze, audio drop, or av sync issues.
+- Reporting interval can be configured using monitorAVReportingInterval which ranges from 1s to 60s.
+- Player also sends a currentState which is identified by the player based on the continuous a/v positions.
+
 ---
 
 <div style="page-break-after: always;"></div>
@@ -3577,7 +3597,9 @@ Aug 2024
     - wifiCurlHeader ( default value changed to false )
     - enableMediaProcessor ( default value changed to true )
     - enablePTSRestampForHlsTs
+    - monitorAV
     - monitorAVSyncThreshold
     - monitorAVJumpThreshold
     - progressLoggingDivisor
     - showDiagnosticsOverlay ( added example in Appendix )
+    - monitorAVReportingInterval

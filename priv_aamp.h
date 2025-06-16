@@ -2229,7 +2229,7 @@ public:
 	 *   @return void
 	 */
 	void SetState( AAMPPlayerState state, bool generateEvent=true );
-	
+
 	/**
 	 *   @fn GetState
 	 *
@@ -3832,6 +3832,14 @@ public:
 	}
 
 	/**
+	 * @brief Is AAMP local TSB enabled/disabled from config
+	 */
+	bool IsLocalAAMPTsbFromConfig()
+	{
+		return mLocalAAMPTsbFromConfig;
+	};
+
+	/**
 	 * @brief Set AAMP local TSB injection flag
 	 */
 	void SetLocalAAMPTsbInjection(bool value);
@@ -3840,6 +3848,12 @@ public:
 	 * @brief Is AAMP local TSB injection enabled/disabled
 	 */
 	bool IsLocalAAMPTsbInjection();
+
+	/**
+	 * @brief Clear Local AAMP TSB injection flag if there are no media tracks playing from TSB
+	 */
+	void UpdateLocalAAMPTsbInjection();
+
 	/**
 	 * @brief Increase Buffer value dynamically according to Max Profile Bandwidth to accommodate Larger Buffers
 	 */
@@ -3850,6 +3864,15 @@ public:
 	 * @param[in] enable - Flag to set whether enabled
 	 */
 	void SetPauseOnStartPlayback(bool enable);
+
+	/**
+	 * @brief Send MonitorAvEvent
+	 * @param[in] status - Current MonitorAV status
+	 * @param[in] videoPositionMS - video position in milliseconds
+	 * @param[in] audioPositionMS - audio position in milliseconds
+	 * @param[in] timeInStateMS - time in state in milliseconds
+	 */
+	void SendMonitorAvEvent(const std::string &status, int64_t videoPositionMS, int64_t audioPositionMS, uint64_t timeInStateMS);
 
 	/**
 	 * @brief Determines if decrypt should be called on clear samples
@@ -3866,7 +3889,7 @@ public:
 	 */
 	const char* getStringForPlaybackError(PlaybackErrorType errorType);
 	bool mPausePositionMonitoringThreadStarted; // Flag to indicate PausePositionMonitoring thread started
-	
+
 	/**
 	 *	@fn CalculateTrickModePositionEOS
 	 *		- this function only works for (rate > 1) - see priv_aamp.cpp
@@ -4105,11 +4128,12 @@ protected:
 	AampTSBSessionManager *mTSBSessionManager;
 	bool mLocalAAMPInjectionEnabled;					/**< Injecting segments from AAMP Local TSB */
 	bool mLocalAAMPTsb;									/**< AAMP Local TSB enabled for the current channel
-															(localTSBEnabled and enablePTSReStamp enabled, and playing DASH content) */
+															(localTSBEnabled and enablePTSReStamp enabled, and playing linear DASH content) */
 	bool mbPauseOnStartPlayback;						/**< Start playback in paused state */
 
 	std::mutex mPreProcessLock;
 	bool mIsChunkMode;		/** LLD ChunkMode */
+	bool mLocalAAMPTsbFromConfig;						/**< AAMP TSB enabled in the configuration, regardless of the current channel */
 
 private:
 	void SetCMCDTrackData(AampMediaType mediaType);

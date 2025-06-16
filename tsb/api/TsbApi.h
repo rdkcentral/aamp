@@ -117,7 +117,7 @@ public:
 	/**
 	 *  @fn Store (constructor)
 	 *
-	 *  @brief Creates and initialises a new, empty Store instance for segment data.
+	 *  @brief Creates and initializes a new, empty Store instance for segment data.
 	 *         This includes doing a Flush to delete any stale files at the Store's location.
 	 *
 	 *         In normal usage, the Store's location should be empty on construction,

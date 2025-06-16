@@ -398,6 +398,8 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 					CacheTsbFragment(fragmentToTsbSessionMgr);
 				}
 				SetLocalTSBInjection(false);
+				// If all of the active media contexts are no longer injecting from TSB, update the AAMP flag
+				aamp->UpdateLocalAAMPTsbInjection();
 			}
 			else if (fragmentToTsbSessionMgr->initFragment && !IsLocalTSBInjection() && !aamp->pipeline_paused)
 			{

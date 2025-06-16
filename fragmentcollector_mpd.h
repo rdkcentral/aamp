@@ -1083,13 +1083,13 @@ protected:
 	 * @param[in] type Event type
 	 * @param[in] adId Identifier of the ad
 	 * @param[in] position Position relative to the start of the reservation
-	 * @param[in] positionMs Absolute position in milliseconds
+	 * @param[in] absolutePosition Absolute position
 	 * @param[in] offset Offset from the start of the ad
 	 * @param[in] duration Duration of the ad in milliseconds
 	 * @param[in] immediate Flag to indicate if event(s) should be sent immediately
 	 */
 	void SendAdPlacementEvent(AAMPEventType type, const std::string& adId,
-                             uint32_t position, uint64_t positionMs, uint32_t offset,
+                             uint32_t position, AampTime absolutePosition, uint32_t offset,
                              uint32_t duration, bool immediate);
 
 	/**
@@ -1098,11 +1098,11 @@ protected:
 	 * @param[in] type Event type
 	 * @param[in] adBreakId Identifier of the ad break
 	 * @param[in] position Period position of the ad break
-	 * @param[in] positionMs Absolute position in milliseconds
+	 * @param[in] absolutePosition Absolute position
 	 * @param[in] immediate Flag to indicate if event(s) should be sent immediately
 	 */
 	void SendAdReservationEvent(AAMPEventType type, const std::string& adBreakId,
-                               uint64_t position, uint64_t positionMs, bool immediate);
+                               uint64_t position, AampTime absolutePosition, bool immediate);
 
 	std::mutex mStreamLock;
 	bool fragmentCollectorThreadStarted;

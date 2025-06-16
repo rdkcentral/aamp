@@ -349,7 +349,10 @@ public:
 		// This call creates the TSB Store if it doesn't exist.
 		(void)GetTSBStore(config, AampLogManager::aampLogger, TSB::LogLevel::TRACE);
 	}
-
+	void SetLocalAAMPTsbFromConfig(bool value)
+	{
+		mLocalAAMPTsbFromConfig = value;
+	}
 	};
 	TestablePrivAamp *testp_aamp{nullptr};
 };
@@ -395,6 +398,7 @@ TEST_F(PrivAampPrivTests, SetPreferredLanguagesPlayingLiveAampTsbTest)
 	tracks.push_back(AudioTrackInfo("idx0", "lang0", "rend0", "trackName0", "codec0", 0, "type0", false, "label0", "type0", true));
 	tracks.push_back(AudioTrackInfo("idx1", "lang1", "rend1", "trackName1", "codec1", 0, "type1", false, "label1", "type1", true));
 	testp_aamp->SetLocalAAMPTsb(true);
+	testp_aamp->SetLocalAAMPTsbFromConfig(true);
 	testp_aamp->SetTsbSessionManager();
 	testp_aamp->SetTsbStore();
 	testp_aamp->preferredLanguagesString = "lang0";
@@ -413,7 +417,6 @@ TEST_F(PrivAampPrivTests, SetPreferredLanguagesPlayingLiveAampTsbTest)
 	EXPECT_CALL(*g_mockAampJsonObject, get("name", An<std::string&>())).WillOnce(Return(false));
 	EXPECT_CALL(*g_mockAampJsonObject, get("label", An<std::string&>())).WillOnce(Return(false));
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(_)).WillRepeatedly(Return(false));
-	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_LocalTSBEnabled)).WillRepeatedly(Return(true));
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnablePTSReStamp)).WillRepeatedly(Return(true));
 
 	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer));
@@ -452,6 +455,7 @@ TEST_F(PrivAampPrivTests, SetPreferredLanguagesPlayingFromAampTsbTest)
 	testp_aamp->SetLocalAAMPTsb(true);
 	/* Simulate playing from AAMP TSB by setting the injection flag to true */
 	testp_aamp->SetLocalAAMPTsbInjection(true);
+	testp_aamp->SetLocalAAMPTsbFromConfig(true);
 	testp_aamp->SetTsbSessionManager();
 	testp_aamp->SetTsbStore();
 	testp_aamp->preferredLanguagesString = "lang0";
@@ -470,7 +474,6 @@ TEST_F(PrivAampPrivTests, SetPreferredLanguagesPlayingFromAampTsbTest)
 	EXPECT_CALL(*g_mockAampJsonObject, get("name", An<std::string&>())).WillOnce(Return(false));
 	EXPECT_CALL(*g_mockAampJsonObject, get("label", An<std::string&>())).WillOnce(Return(false));
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(_)).WillRepeatedly(Return(false));
-	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_LocalTSBEnabled)).WillRepeatedly(Return(true));
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnablePTSReStamp)).WillRepeatedly(Return(true));
 
 	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer));

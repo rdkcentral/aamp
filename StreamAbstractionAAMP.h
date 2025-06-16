@@ -648,7 +648,7 @@ public:
 	 *
 	 * @return true if injection is from local AAMP TSB, false otherwise
 	 */
-	bool IsLocalTSBInjection() {return mIsLocalTSBInjection.load();}
+	bool IsLocalTSBInjection();
 
 	/**
 	 * @brief Returns if the end of track reached.
@@ -847,6 +847,10 @@ protected:
 	double GetLastInjectedFragmentPosition() { return lastInjectedPosition; }
 
 private:
+	bool gotLocalTime;
+	bool ptsRollover;
+	long long currentLocalTimeMs;
+	
 	/**
 	 * @fn GetBufferHealthStatusString
 	 *
@@ -934,7 +938,6 @@ protected:
 	std::mutex mutex;                   /**< protection of track variables accessed from multiple threads */
 	bool ptsError;                      /**< flag to indicate if last injected fragment has ptsError */
 	bool abortInject;                   /**< Abort inject operations if flag is set*/
-	bool abortInjectChunk;              /**< Abort inject operations if flag is set*/
 	std::mutex audioMutex;              /**< protection of audio track reconfiguration */
 	bool loadNewAudio;                  /**< Flag to indicate new audio loading started on seamless audio switch */
 	std::mutex subtitleMutex;
