@@ -582,7 +582,6 @@ bool PrivateInstanceAAMP::chunked_write_callback(const char *ptr, size_t numByte
 { // HTTP/1.1 Chunked Transfer Protocol
 	CurlCallbackContext *context = (CurlCallbackContext *)userdata;
 	const char *fin = &ptr[numBytes];
-	
 	if( 1 )
 	{
 		FILE *f = fopen( chunkyPath[context->mediaType].c_str(), "ab" );
@@ -594,7 +593,6 @@ bool PrivateInstanceAAMP::chunked_write_callback(const char *ptr, size_t numByte
 	{
 		return true;
 	}
-	
 #ifdef SAVE_CHUNKS
 	static FILE *f[2];
 #endif
@@ -658,7 +656,6 @@ bool PrivateInstanceAAMP::chunked_write_callback(const char *ptr, size_t numByte
 					return true;
 				}
 				//assert( *ptr++ == '\n' );
-				
 #ifdef SAVE_CHUNKS
 			{
 				assert( f[context->mediaType] == NULL );
