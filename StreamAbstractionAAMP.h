@@ -1702,7 +1702,11 @@ public:
 	 *   @param[in] cdaiObj - Pointer to Client Side DAI object.
 	 */
 	virtual void SetCDAIObject(CDAIObject *cdaiObj) {};
-
+	/**
+	 * @brief Get the segment time scale of the video stream
+	 * @return timescale of the video stream
+	 */
+	virtual uint32_t GetVideoTimeScale() { return 1; };
 	/**
 	 *   @fn IsEOSReached
 	 *
@@ -2063,9 +2067,10 @@ protected:
 
 	/**
 	 * @brief This function is used to initialize the media processor for ISOBMFF streams.
-	 * @param[in] passThroughMode - true if processor should skip parsing PTS and flush
+	 * @param[in] initBasePTSFromManifest - true if segment timeline is used, false otherwise
+	 * @return void
 	 */
-	void InitializeMediaProcessor(bool passThroughMode = false);
+	void InitializeMediaProcessor(bool initBasePTSFromManifest = false);
 
 //private:
 protected:
