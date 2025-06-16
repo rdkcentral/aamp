@@ -2288,10 +2288,7 @@ void PrivateInstanceAAMP::ReportAdProgress(bool sync, double positionMs)
 			pct = ((curPosition - static_cast<double>(mAdAbsoluteStartTime)) / static_cast<double>(mAdDuration)) * 100;
 		}
 
-		if (pct < 0)
-		{
-			pct = 0;
-		}
+
 		if(pct > 100)
 		{
 			pct = 100;
@@ -2308,14 +2305,21 @@ void PrivateInstanceAAMP::ReportAdProgress(bool sync, double positionMs)
 			}
 		}
 
-		AdPlacementEventPtr evt = std::make_shared<AdPlacementEvent>(AAMP_EVENT_AD_PLACEMENT_PROGRESS, mAdProgressId, static_cast<uint32_t>(pct), 0, GetSessionId());
-		if(sync)
+		if (pct < 0)
 		{
-			mEventManager->SendEvent(evt,AAMP_EVENT_SYNC_MODE);
+			AAMPLOG_WARN("Not sending PLACEMENT_PROGRESS pct %f", pct);
 		}
 		else
 		{
-			mEventManager->SendEvent(evt);
+			AdPlacementEventPtr evt = std::make_shared<AdPlacementEvent>(AAMP_EVENT_AD_PLACEMENT_PROGRESS, mAdProgressId, static_cast<uint32_t>(pct), 0, GetSessionId());
+			if (sync)
+			{
+				mEventManager->SendEvent(evt, AAMP_EVENT_SYNC_MODE);
+			}
+			else
+			{
+				mEventManager->SendEvent(evt);
+			}
 		}
 	}
 }
@@ -5797,7 +5801,7 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 		}
 
 	}
-	//temporary hack 
+	//temporary hack
 	if (strcasestr(mAppName.c_str(), "peacock"))
 	{
 		// Enable PTS Restamping
