@@ -4466,7 +4466,7 @@ double MediaTrack::GetTotalInjectedDuration()
 {
 	std::lock_guard<std::mutex> lock(mTrackParamsMutex);
 	double ret = totalInjectedDuration;
-	if (IsInjectionFromCachedFragmentChunks())
+	if (aamp->GetLLDashChunkMode())
 	{
 		ret = totalInjectedChunksDuration;
 	}
