@@ -39,6 +39,10 @@
 #endif
 #include "PlayerUtils.h"
 
+#ifdef AAMP_TELEMETRY_SUPPORT
+#include "AampTelemetry2.hpp"
+#endif
+
 #define DEFAULT_BUFFERING_TO_MS 10                       /**< TimeOut interval to check buffer fullness */
 #define DEFAULT_BUFFERING_MAX_MS (1000)                  /**< max buffering time */
 #define DEFAULT_BUFFERING_MAX_CNT (DEFAULT_BUFFERING_MAX_MS/DEFAULT_BUFFERING_TO_MS)   /**< max buffering timeout count */
@@ -60,10 +64,10 @@
 
 
 // for now name is being kept as aamp should be changed when gst-plugins are migrated
-static const char* GstPluginNamePR = "aampplayreadydecryptor";
-static const char* GstPluginNameWV = "aampwidevinedecryptor";
-static const char* GstPluginNameCK = "aampclearkeydecryptor";
-static const char* GstPluginNameVMX = "aampverimatrixdecryptor";
+static const char* GstPluginNamePR = "ampplayreadydecryptor";
+static const char* GstPluginNameWV = "ampwidevinedecryptor";
+static const char* GstPluginNameCK = "ampclearkeydecryptor";
+static const char* GstPluginNameVMX = "ampverimatrixdecryptor";
 #define GST_MIN_PTS_UPDATE_INTERVAL 4000                        /**< Time duration in milliseconds if exceeded and pts has not changed; it is concluded pts is not changing */
 
 #include <assert.h>
@@ -5015,7 +5019,7 @@ void InterfacePlayerRDK::InitializePlayerGstreamerPlugins()
 
 	if (pluginFeature == NULL)
 	{
-		MW_LOG_ERR("InterfacePlayerRDK: %s plugin feature not available; reloading player's plugin", GstPluginNamePR);
+		MW_LOG_ERR("Nitz : InterfacePlayerRDK: %s plugin feature not available; reloading player's plugin", GstPluginNamePR);
 		GstPlugin * plugin = gst_plugin_load_by_name ("aamp");
 		if(plugin)
 		{
@@ -5023,7 +5027,28 @@ void InterfacePlayerRDK::InitializePlayerGstreamerPlugins()
 		}
 		pluginFeature = gst_registry_lookup_feature(registry, GstPluginNamePR);
 		if(pluginFeature == NULL)
-			MW_LOG_ERR("InterfacePlayerRDK: %s plugin feature not available", GstPluginNamePR);
+			MW_LOG_ERR("Nitz : InterfacePlayerRDK: %s plugin feature not available", GstPluginNamePR);
+#ifdef AAMP_TELEMETRY_SUPPORT
+    printf("[NITZ] Creating AAMPTelemetry2 object with player name: %s\n", mPlayerName.c_str());
+    AAMPTelemetry2 telemetry(mPlayerName);
+
+    std::string telemetryName = "PluginFeatureNotAvailable";
+    printf("[NITZ] telemetryName set to: %s\n", telemetryName.c_str());
+
+    std::map<std::string, int> intData;
+    std::map<std::string, std::string> strData;
+
+    strData["PluginName"] = GstPluginNamePR;
+    printf("[NITZ] strData[\"PluginName\"] = %s\n", strData["PluginName"].c_str());
+
+    printf("[NITZ] Sending telemetry event: %s\n", telemetryName.c_str());
+    telemetry.send(telemetryName, intData, strData, {});
+    printf("[NITZ] Telemetry event sent\n");
+    MW_LOG_ERR("[NITZ] Telemetry is enabled");
+#else
+    printf("[NITZ] Telemetry not enabled\n");
+    MW_LOG_ERR("[NITZ] Telemetry not enabled");
+#endif
 	}
 	if(pluginFeature)
 	{
