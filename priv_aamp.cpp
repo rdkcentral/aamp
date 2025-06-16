@@ -6570,6 +6570,8 @@ bool PrivateInstanceAAMP::IsPlayEnabled()
  */
 void PrivateInstanceAAMP::detach()
 {
+	// Protect against StreamAbstraction being modified from a different thread
+	AcquireStreamLock();
 	if(mpStreamAbstractionAAMP && mbPlayEnabled) //Player is running
 	{
 		pipeline_paused = true;
@@ -6608,6 +6610,7 @@ void PrivateInstanceAAMP::detach()
 	{
 		AampStreamSinkManager::GetInstance().DeactivatePlayer(this, false);
 	}
+	ReleaseStreamLock();
 }
 
 /**
