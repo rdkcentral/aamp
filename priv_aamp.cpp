@@ -572,6 +572,8 @@ static int ReadConfigNumericHelper(std::string buf, const char* prefixPtr, T& va
 
 // End of helper functions for loading configuration
 
+std::string chunkyPath[2];
+
 /**
  * @brief HandleSSLWriteCallback - Handle write callback from CURL
  */
@@ -579,6 +581,27 @@ size_t PrivateInstanceAAMP::HandleSSLWriteCallback ( char *ptr, size_t size, siz
 {
 	size_t ret = 0;
 	CurlCallbackContext *context = (CurlCallbackContext *)userdata;
+
+	FILE *f = fopen( DEBUG_CURL_PATH,"ab");
+	assert( f );
+	switch( context->mediaType )
+	{
+			// CURLINFO_APPCONNECT_TIME
+			// CURLINFO_PRETRANSFER_TIME
+		case eMEDIATYPE_AUDIO:
+		case eMEDIATYPE_VIDEO:
+			fprintf( f, "%llu,%zu,%d,%s,%d\n",
+					aamp_GetCurrentTimeMS(),
+					size*nmemb,
+					context->mediaType,
+					chunkyPath[context->mediaType].c_str(),
+					context->chunkedDownload );
+			break;
+		default:
+			break;
+	}
+	fclose( f );
+
 	if(!context) return ret;
 	// There is scope for rework here, mDownloadsEnabled can be queried with a lock, rather than acquiring lock here
 	std::unique_lock<std::recursive_mutex> lock(context->aamp->mLock);
@@ -3881,6 +3904,36 @@ void PrivateInstanceAAMP::SetCMCDTrackData(AampMediaType mediaType)
  */
 bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaType, AampGrowableBuffer *buffer, std::string& effectiveUrl, int * http_error, double *downloadTimeS, const char *range, unsigned int curlInstance, bool resetBuffer, BitsPerSecond *bitrate, int * fogError, double fragmentDurationS, ProfilerBucketType bucketType, int maxInitDownloadTimeMS)
 {
+	size_t pos;
+	switch( mediaType )
+	{
+		case eMEDIATYPE_VIDEO:
+		case eMEDIATYPE_AUDIO:
+			pos = remoteUrl.find_last_of('/');
+			chunkyPath[mediaType] = remoteUrl.substr(pos+1);
+			break;
+		default:
+			break;
+	}
+
+	// profiling: initial getfile (before any bytes received)
+	FILE *f = fopen( DEBUG_CURL_PATH,"ab");
+	assert( f );
+	switch( mediaType )
+	{
+		case eMEDIATYPE_AUDIO:
+		case eMEDIATYPE_VIDEO:
+			fprintf( f, "%llu,%d,%d,%s\n",
+					aamp_GetCurrentTimeMS(),
+					0,
+					mediaType,
+					chunkyPath[mediaType].c_str() );
+			break;
+		default:
+			break;
+	}
+	fclose( f );
+	
 	if( bucketType!=PROFILE_BUCKET_TYPE_COUNT)
 	{
 		profiler.ProfileBegin(bucketType);
