@@ -1145,14 +1145,6 @@ public:
 	{
 		return 0.0;
 	}
-	/**
-	*   @brief Should flush the stream Sink on new tune or not.  
-	*
-	*   @param[in] newTune - true if this is a new tune, false if it is a seek
-	*   @param[in] rate - playback rate
-	*   @return true if stream should be flushed, false otherwise
-	*/
-	virtual bool DoEarlyStreamSinkFlush(bool newTune, float rate) { return false; }
 
 	/**
 	 * @brief Sets the minimum buffer for ABR (Adaptive Bit Rate).
@@ -1701,11 +1693,7 @@ public:
 	 *   @param[in] cdaiObj - Pointer to Client Side DAI object.
 	 */
 	virtual void SetCDAIObject(CDAIObject *cdaiObj) {};
-	/**
-	 * @brief Get the segment time scale of the video stream
-	 * @return timescale of the video stream
-	 */
-	virtual uint32_t GetVideoTimeScale() { return 1; };
+
 	/**
 	 *   @fn IsEOSReached
 	 *
@@ -2065,11 +2053,11 @@ protected:
 	}
 
 	/**
-	 * @brief This function is used to initialize the media processor for ISOBMFF streams.
-	 * @param[in] initBasePTSFromManifest - true if segment timeline is used, false otherwise
+	 * @brief Initialize ISOBMFF Media Processor
+	 *
 	 * @return void
 	 */
-	void InitializeMediaProcessor(bool initBasePTSFromManifest = false);
+	void InitializeMediaProcessor();
 
 //private:
 protected:

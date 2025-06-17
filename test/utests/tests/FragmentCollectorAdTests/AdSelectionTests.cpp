@@ -528,8 +528,7 @@ public:
 
 		/* Initialize MPD. */
 		EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetState(eSTATE_PREPARING));
-		EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetTSBSessionManager()).WillRepeatedly(Return(nullptr));
-		EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection()).WillRepeatedly(Return(false));
+
 		EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState())
 			.Times(AnyNumber())
 			.WillRepeatedly(Return(eSTATE_PREPARING));
@@ -628,6 +627,7 @@ TEST_F(AdSelectionTests, WaitForAdFallbackTest)
 	std::string currentPeriodId = "p0";
 	mStreamAbstractionAAMP_MPD->IncrementIteratorPeriodIdx();
 
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetTSBSessionManager()).WillRepeatedly(Return(nullptr));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection()).WillRepeatedly(Return(false));
 
 	/*
@@ -693,6 +693,7 @@ TEST_F(AdSelectionTests, onAdEventTest_1)
 		std::make_pair (0, AdOnPeriod(0, 0)), // for adId1 idx=0, offset=0s
 	});
 	mStreamAbstractionAAMP_MPD->SetBasePeriodId(adPeriodId);
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetTSBSessionManager()).WillRepeatedly(Return(nullptr));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection()).WillRepeatedly(Return(false));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdReservationEvent(AAMP_EVENT_AD_RESERVATION_START, "p1", _, _, _)).Times(1);
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdPlacementEvent(AAMP_EVENT_AD_PLACEMENT_START, "adId1", _, _, _, _, _, _)).Times(1);
@@ -734,6 +735,8 @@ TEST_F(AdSelectionTests, onAdEventTest_2)
 	});
 
 	mStreamAbstractionAAMP_MPD->SetBasePeriodId(adPeriodId);
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetTSBSessionManager()).WillRepeatedly(Return(nullptr));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection()).WillRepeatedly(Return(false));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdReservationEvent(AAMP_EVENT_AD_RESERVATION_START, "p1", _, _, _)).Times(1);
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdPlacementEvent(_, _, _, _, _, _, _, _)).Times(0);
 	EXPECT_TRUE(mStreamAbstractionAAMP_MPD->CallOnAdEvent(AdEvent::DEFAULT));
@@ -817,6 +820,8 @@ TEST_F(AdSelectionTests, onAdEventTest_4)
 	});
 	mStreamAbstractionAAMP_MPD->SetBasePeriodId(adPeriodId);
 
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetTSBSessionManager()).WillRepeatedly(Return(nullptr));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection()).WillRepeatedly(Return(false));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdReservationEvent(AAMP_EVENT_AD_RESERVATION_START, adPeriodId, _, _, _)).Times(1);
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdPlacementEvent(_, _, _, _, _, _, _, _)).Times(0);
 	EXPECT_TRUE(mStreamAbstractionAAMP_MPD->CallOnAdEvent(AdEvent::DEFAULT));
@@ -879,6 +884,8 @@ TEST_F(AdSelectionTests, onAdEventTest_5)
 	cdaiObj->mCurAds = cdaiObj->mAdBreaks[adPeriodId].ads;
 	mStreamAbstractionAAMP_MPD->SetBasePeriodId(adPeriodId);
 
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetTSBSessionManager()).WillRepeatedly(Return(nullptr));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection()).WillRepeatedly(Return(false));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdReservationEvent(_, _, _, _, _)).Times(0);
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdPlacementEvent(AAMP_EVENT_AD_PLACEMENT_END, "adId1", _, _, _, _, _, _)).Times(1);
 	EXPECT_TRUE(mStreamAbstractionAAMP_MPD->CallOnAdEvent(AdEvent::AD_FINISHED));
@@ -941,6 +948,8 @@ TEST_F(AdSelectionTests, onAdEventTest_6)
 	cdaiObj->mCurAds = cdaiObj->mAdBreaks[adPeriodId].ads;
 
 	mStreamAbstractionAAMP_MPD->SetBasePeriodId(adPeriodId);
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetTSBSessionManager()).WillRepeatedly(Return(nullptr));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection()).WillRepeatedly(Return(false));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdReservationEvent(_, _, _, _, _)).Times(0);
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdPlacementEvent(AAMP_EVENT_AD_PLACEMENT_ERROR, "adId1", _, _, _, _, _, _)).Times(1);
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdPlacementEvent(AAMP_EVENT_AD_PLACEMENT_END, "adId1", _, _, _, _, _, _)).Times(1);
@@ -1069,6 +1078,8 @@ TEST_F(AdSelectionTests, onAdEventTest_8)
 	cdaiObj->mCurAds = cdaiObj->mAdBreaks[adPeriodId].ads;
 	mStreamAbstractionAAMP_MPD->SetBasePeriodId(adPeriodId);
 
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetTSBSessionManager()).WillRepeatedly(Return(nullptr));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection()).WillRepeatedly(Return(false));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdReservationEvent(AAMP_EVENT_AD_RESERVATION_END, adPeriodId, _, _, _)).Times(1);
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdPlacementEvent(_, _, _, _, _, _, _, _)).Times(0);
 	EXPECT_FALSE(mStreamAbstractionAAMP_MPD->CallOnAdEvent(AdEvent::DEFAULT));
@@ -1142,6 +1153,8 @@ TEST_F(AdSelectionTests, onAdEventTest_9)
 	cdaiObj->mCurAds = cdaiObj->mAdBreaks[adPeriodId].ads;
 	mStreamAbstractionAAMP_MPD->SetBasePeriodId(adPeriodId);
 
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetTSBSessionManager()).WillRepeatedly(Return(nullptr));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection()).WillRepeatedly(Return(false));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdReservationEvent(_, _, _, _, _)).Times(0);
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdPlacementEvent(AAMP_EVENT_AD_PLACEMENT_START, "adId2", _, _, _, _, _, _)).Times(1);
 	EXPECT_TRUE(mStreamAbstractionAAMP_MPD->CallOnAdEvent(AdEvent::DEFAULT));
@@ -1206,6 +1219,8 @@ TEST_F(AdSelectionTests, onAdEventTest_10)
 	});
 	mStreamAbstractionAAMP_MPD->SetBasePeriodId(adPeriodId);
 
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetTSBSessionManager()).WillRepeatedly(Return(nullptr));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection()).WillRepeatedly(Return(false));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdPlacementEvent(AAMP_EVENT_AD_PLACEMENT_START, "adId1", _, _, _, _, _, _)).Times(1);
 	EXPECT_TRUE(mStreamAbstractionAAMP_MPD->CallOnAdEvent(AdEvent::BASE_OFFSET_CHANGE));
 	EXPECT_EQ( cdaiObj->mAdState, AdState::IN_ADBREAK_AD_PLAYING);
@@ -1359,6 +1374,8 @@ TEST_F(AdSelectionTests, onAdEventTest_13)
 
 	mStreamAbstractionAAMP_MPD->SetBasePeriodoffset(30);
 	mStreamAbstractionAAMP_MPD->SetBasePeriodId(adPeriodId);
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetTSBSessionManager()).WillRepeatedly(Return(nullptr));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection()).WillRepeatedly(Return(false));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdPlacementEvent(_, _, _, _, _, _, _, _)).Times(0);
 	EXPECT_TRUE(mStreamAbstractionAAMP_MPD->CallOnAdEvent(AdEvent::DEFAULT));
 	EXPECT_EQ(cdaiObj->mAdState, AdState::IN_ADBREAK_AD_NOT_PLAYING);
@@ -1429,6 +1446,8 @@ TEST_F(AdSelectionTests, onAdEventTest_14)
 	});
 	mStreamAbstractionAAMP_MPD->SetBasePeriodId(adPeriodId);
 	mStreamAbstractionAAMP_MPD->SetBasePeriodoffset(30);
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetTSBSessionManager()).WillRepeatedly(Return(nullptr));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection()).WillRepeatedly(Return(false));
 	EXPECT_TRUE(mStreamAbstractionAAMP_MPD->CallOnAdEvent(AdEvent::DEFAULT));
 	EXPECT_EQ( cdaiObj->mAdState, AdState::IN_ADBREAK_AD_PLAYING);
 
@@ -1494,6 +1513,8 @@ TEST_F(AdSelectionTests, onAdEventTest_15)
 	});
 
 	mStreamAbstractionAAMP_MPD->SetBasePeriodId(adPeriodId);
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetTSBSessionManager()).WillRepeatedly(Return(nullptr));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection()).WillRepeatedly(Return(false));
 	EXPECT_TRUE(mStreamAbstractionAAMP_MPD->CallOnAdEvent(AdEvent::INIT));
 	EXPECT_EQ( cdaiObj->mAdState, AdState::IN_ADBREAK_AD_PLAYING);
 
@@ -1581,6 +1602,8 @@ TEST_F(AdSelectionTests, AdTransitionTest)
 	std::string currentPeriodId = "p0";
 	mStreamAbstractionAAMP_MPD->IncrementIteratorPeriodIdx();
 
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetTSBSessionManager()).WillRepeatedly(Return(nullptr));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection()).WillRepeatedly(Return(false));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdReservationEvent(_, _, _, _, _)).Times(AnyNumber());
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdPlacementEvent(_, _, _, _, _, _, _, _)).Times(AnyNumber());
 
@@ -1688,6 +1711,8 @@ TEST_F(AdSelectionTests, AdTransitionTest_PausedWithAampTSB)
 	std::string currentPeriodId = "p0";
 	mStreamAbstractionAAMP_MPD->IncrementIteratorPeriodIdx();
 
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetTSBSessionManager()).WillRepeatedly(Return(nullptr));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection()).WillRepeatedly(Return(false));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdReservationEvent(_, _, _, _, _)).Times(AnyNumber());
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdPlacementEvent(_, _, _, _, _, _, _, _)).Times(AnyNumber());
 
@@ -1871,6 +1896,8 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 		.Times(1)
 		.WillOnce(Return(true));
 
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetTSBSessionManager()).WillRepeatedly(Return(nullptr));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection()).WillRepeatedly(Return(false));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdReservationEvent(_, _, _, _, _)).Times(AnyNumber());
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdPlacementEvent(_, _, _, _, _, _, _, _)).Times(AnyNumber());
 
