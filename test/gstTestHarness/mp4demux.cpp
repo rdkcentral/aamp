@@ -21,6 +21,12 @@
 #include <stdio.h>
 #include <inttypes.h>
 
+#define STR_TO_DECIMAL(str) \
+    ( (static_cast<uint32_t>((str)[0]) << 24) | \
+      (static_cast<uint32_t>((str)[1]) << 16) | \
+      (static_cast<uint32_t>((str)[2]) << 8)  | \
+      (static_cast<uint32_t>((str)[3])) )
+
 static void WriteBytes( uint8_t *ptr, int n, uint64_t value )
 {
 	while( n>0 )
@@ -56,7 +62,7 @@ uint64_t mp4_AdjustMediaDecodeTime( uint8_t *ptr, size_t len, int64_t pts_restam
 	{
 		uint8_t *next = ptr + READ_U32(ptr);
 		uint32_t type = READ_U32(ptr);
-		if( type == 'tfdt' ) // Track Fragment Base Media Decode Time Box
+		if( type == STR_TO_DECIMAL("tfdt")/*'tfdt' */) // Track Fragment Base Media Decode Time Box
 		{
 			uint8_t version = READ_VERSION(ptr);
 			int sz = (version==1)?8:4;
@@ -72,15 +78,15 @@ uint64_t mp4_AdjustMediaDecodeTime( uint8_t *ptr, size_t len, int64_t pts_restam
 		{ // walk children
 			switch( type )
 			{
-				case 'traf': // Track Fragment Box
-				case 'moov': // Movie Box
-				case 'trak': // Track Box
-				case 'minf': // Media Information Box
-				case 'dinf': // Data Information Box
-				case 'stbl': // Sample Table Box
-				case 'mvex': // Movie Extends Box
-				case 'moof': // Movie Fragment Boxes
-				case 'mdia': // Media Box
+				case STR_TO_DECIMAL("traf")://'traf': // Track Fragment Box
+				case STR_TO_DECIMAL("moov")://'moov': // Movie Box
+				case STR_TO_DECIMAL("trak")://'trak': // Track Box
+				case STR_TO_DECIMAL("minf")://'minf': // Media Information Box
+				case STR_TO_DECIMAL("dinf")://'dinf': // Data Information Box
+				case STR_TO_DECIMAL("stbl")://'stbl': // Sample Table Box
+				case STR_TO_DECIMAL("mves")://'mvex': // Movie Extends Box
+				case STR_TO_DECIMAL("moof")://'moof': // Movie Fragment Boxes
+				case STR_TO_DECIMAL("mdia")://'mdia': // Media Box
 					baseMediaDecodeTime = mp4_AdjustMediaDecodeTime( ptr, next-ptr, pts_restamp_delta );
 					break;
 					
