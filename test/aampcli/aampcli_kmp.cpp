@@ -33,7 +33,8 @@ static int main_func( gpointer user_data )
 
 extern "C" void kmp_init( void )
 {
-#if defined(__APPLE__)
+#if defined(__APPLE__) && defined(__aarch64__)
+// this workaround needed/working only on new 64 bit mac
 		gst_macos_main_simple(main_func, NULL );
 #else
 		main_func(NULL);

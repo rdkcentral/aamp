@@ -88,7 +88,6 @@ typedef enum
 	eAAMPConfig_EnableABR,						/**< Enable/Disable adaptive bitrate logic*/
 	eAAMPConfig_Fog, 							/**< Enable / Disable FOG*/
 	eAAMPConfig_PrefetchIFramePlaylistDL,					/**< Enabled prefetching of I-Frame playlist*/
-	eAAMPConfig_PreservePipeline,						/**< Flush instead of teardown*/
 	eAAMPConfig_Throttle,							/**< Regulate output data flow*/
 	eAAMPConfig_DemuxAudioBeforeVideo,					/**< Demux video track from HLS transport stream track mode*/
 	eAAMPConfig_DisableEC3, 						/**< Disable DDPlus*/
@@ -150,8 +149,6 @@ typedef enum
 	eAAMPConfig_Fragmp4PrefetchLicense,					/*** Enable fragment mp4 license prefetching**/
 	eAAMPConfig_ABRBufferCheckEnabled,					/**< Flag to enable/disable buffer based ABR handling*/
 	eAAMPConfig_NewDiscontinuity,						/**< Flag to enable/disable new discontinuity handling with PDT*/
-	eAAMPConfig_PlaylistParallelFetch,					/**< Enabled parallel fetching of audio & video playlists*/
-	eAAMPConfig_PlaylistParallelRefresh,					/**< Enabled parallel fetching for refresh of audio & video playlists*/
 	eAAMPConfig_BulkTimedMetaReport, 					/**< Enabled Bulk event reporting for TimedMetadata*/
 	eAAMPConfig_BulkTimedMetaReportLive,					/**< Enabled Bulk TimedMetadata event reporting for live stream */
 	eAAMPConfig_AvgBWForABR,						/**< Enables usage of AverageBandwidth if available for ABR */
@@ -212,6 +209,7 @@ typedef enum
 	eAAMPConfig_ForceLLDFlow,						/**< Config to forcefully process LLD workflow even if they are live SLD */
 	eAAMPConfig_MonitorAV,						/**< enable background monitoring of audio/video positions to infer video freeze, audio drop, or av sync issues */
 	eAAMPConfig_HlsTsEnablePTSReStamp,
+	eAAMPConfig_UseMp4Demux,
 	eAAMPConfig_BoolMaxValue						/**< Max value of bool config always last element */
 
 } AAMPConfigSettingBool;
@@ -307,6 +305,7 @@ typedef enum
 	eAAMPConfig_MonitorAVSyncThresholdNegative,				/**< (negative) milliseconds threshold for video behind audio to be considered as unacceptable avsync*/
 	eAAMPConfig_MonitorAVJumpThreshold,				/**< configures threshold aligned audio,video positions advancing together by unexpectedly large delta to be reported as jump in milliseconds*/
 	eAAMPConfig_ProgressLoggingDivisor,				/**<  Divisor to avoid printing the progress report too frequently in the log */
+	eAAMPConfig_MonitorAVReportingInterval,			/**< Timeout in milliseconds for reporting MonitorAV events */
 	eAAMPConfig_IntMaxValue							/**< Max value of int config always last element*/
 } AAMPConfigSettingInt;
 #define AAMPCONFIG_INT_COUNT (eAAMPConfig_IntMaxValue)

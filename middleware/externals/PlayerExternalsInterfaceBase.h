@@ -18,7 +18,7 @@
 */
 
 /**
- * @file PlayerIARMInterfaceBase.h
+ * @file PlayerExternalsInterfaceBase.h
  * @brief Base class for player interface with IARM
  */
 
@@ -31,14 +31,13 @@
 
 #include <gst/gst.h>
 
-//replace below and dependencies with dedicated logger once implemented
-#include "AampLogManager.h"
+#include "PlayerLogManager.h"
 
 #define UHD_WIDTH   3840
 #define UHD_HEIGHT  2160
 
 //base class for iarm interface
-class PlayerIarmInterfaceBase
+class PlayerExternalsInterfaceBase
 {
     protected:
         bool m_isHDCPEnabled;
@@ -54,7 +53,7 @@ class PlayerIarmInterfaceBase
         
     public:
 
-        PlayerIarmInterfaceBase():m_sourceWidth(0),m_sourceHeight(0),m_gstElement(nullptr){}
+        PlayerExternalsInterfaceBase():m_sourceWidth(0),m_sourceHeight(0),m_gstElement(nullptr){}
 
         /**
         * @fn IsSourceUHD
@@ -80,7 +79,7 @@ class PlayerIarmInterfaceBase
             g_object_get(m_gstElement, "video_width", &sourceWidth, NULL);
 
             if(sourceWidth != m_sourceWidth || sourceHeight != m_sourceHeight) {
-                AAMPLOG_WARN("viddec (%p) --> says width %d, height %d", m_gstElement, sourceWidth, sourceHeight);
+                MW_LOG_WARN("viddec (%p) --> says width %d, height %d", m_gstElement, sourceWidth, sourceHeight);
                 m_sourceWidth   = sourceWidth;
                 m_sourceHeight  = sourceHeight;
             }
@@ -161,7 +160,7 @@ class PlayerIarmInterfaceBase
          */
         virtual bool GetActiveInterface(){return false;}
 
-        virtual ~PlayerIarmInterfaceBase(){}
+        virtual ~PlayerExternalsInterfaceBase(){}
 
 };
 

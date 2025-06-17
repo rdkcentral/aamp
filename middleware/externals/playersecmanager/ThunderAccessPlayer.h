@@ -2,7 +2,7 @@
  * If not stated otherwise in this file or this component's license file the
  * following copyright and licenses apply:
  *
- * Copyright 2018 RDK Management
+ * Copyright 2025 RDK Management
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,55 +18,65 @@
 */
 
 /**
- * @file ThunderAccess.h
+ * @file ThunderAccessPlayer.h
  * @brief shim for dispatching UVE HDMI input playback
  */
 
-#ifndef THUNDERACCESS_H_
-#define THUNDERACCESS_H_
+#ifndef THUNDERACCESSPLAYER_H_
+#define THUNDERACCESSPLAYER_H_
+
+#include <string>
+#include <sys/socket.h>
+#include <sys/ioctl.h>
+#include <netinet/in.h>
+#include <net/if.h>
+#include <arpa/inet.h>
 
 #include "Module.h"
+
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Weffc++"
+#ifdef USE_CPP_THUNDER_PLUGIN_ACCESS
 #include <core/core.h>
 #include <websocket/websocket.h>
 #pragma GCC diagnostic pop
 
 using namespace std;
 using namespace WPEFramework;
+#endif
 
 #define THUNDER_RPC_TIMEOUT 5000
 
-class  AampLogManager;
+class  PlayerLogManager;
 
 /**
- * @class ThunderAccessAAMP
+ * @class ThunderAccessPlayer
  * @brief Support Thunder Plugin Access from AAMP
  */
-class ThunderAccessAAMP
+class ThunderAccessPlayer
 {
 public:
     /**
-     *   @fn ThunderAccessAAMP
+     *   @fn ThunderAccessPlayer
      *   @note   Security token acquisition, controller object creation
      */
-    ThunderAccessAAMP(std::string callsign);
+    ThunderAccessPlayer(std::string callsign);
 	
     /**
-     *   @fn ~ThunderAccessAAMP
+     *   @fn ~ThunderAccessPlayer
      *   @note   clean up
      */
-    ~ThunderAccessAAMP();
+    ~ThunderAccessPlayer();
    
     /**
-     *   @brief  ThunderAccessAAMP copy constructor disabled
+     *   @brief  ThunderAccessPlayer copy constructor disabled
      */
-    ThunderAccessAAMP(const ThunderAccessAAMP&) = delete;
+    ThunderAccessPlayer(const ThunderAccessPlayer&) = delete;
 
     /**
-     *   @brief  ThunderAccessAAMP assignment disabled
+     *   @brief  ThunderAccessPlayer assignment disabled
      */
-    ThunderAccessAAMP& operator=(const ThunderAccessAAMP&) = delete;
+    ThunderAccessPlayer& operator=(const ThunderAccessPlayer&) = delete;
 
     /**
      *   @brief  ActivatePlugin
@@ -76,7 +86,7 @@ public:
      *   @retval false on failure
      */
     bool ActivatePlugin();
-	
+#ifdef USE_CPP_THUNDER_PLUGIN_ACCESS	
     /**
      *   @fn InvokeJSONRPC
      *   @note   Invoke JSONRPC call for the plugin
@@ -93,8 +103,8 @@ public:
      *   @retval true on success
      *   @retval false on failure
      */
-    bool SubscribeEvent (string eventName, std::function<void(const WPEFramework::Core::JSON::VariantContainer&)> functionHandler);
-	
+    bool SubscribeEvent (std::string eventName, std::function<void(const WPEFramework::Core::JSON::VariantContainer&)> functionHandler);
+#endif	
     /**
      *   @fn UnSubscribeEvent
      *   @note   unSubscribe event data for the specific plugin
@@ -102,13 +112,15 @@ public:
      *   @retval true on success
      *   @retval false on failure
      */
-    bool UnSubscribeEvent (string eventName);
+    bool UnSubscribeEvent (std::string eventName);
 
 private:
+#ifdef USE_CPP_THUNDER_PLUGIN_ACCESS
     /**< The Remote object connected to specific Plugin*/
     JSONRPC::LinkType<Core::JSON::IElement> *remoteObject;
     /**< The Remote object connected to controller Plugin*/
     JSONRPC::LinkType<Core::JSON::IElement> *controllerObject;
+#endif
     std::string pluginCallsign;
 };
-#endif // THUNDERACCESS_H_
+#endif // THUNDERACCESSPLAYER_H_

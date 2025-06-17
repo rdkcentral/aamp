@@ -25,6 +25,7 @@ include_directories(${AAMP_ROOT} ${AAMP_ROOT}/isobmff ${AAMP_ROOT}/drm ${AAMP_RO
 include_directories(${AAMP_ROOT}/middleware/subtec/libsubtec)
 include_directories(${AAMP_ROOT}/middleware/subtec/subtecparser)
 include_directories(${AAMP_ROOT}/middleware/playerjsonobject)
+include_directories(${AAMP_ROOT}/middleware/playerLogManager)
 
 include_directories(${GTEST_INCLUDE_DIRS})
 include_directories(${GMOCK_INCLUDE_DIRS})
@@ -38,7 +39,7 @@ include_directories(${LIBCJSON_INCLUDE_DIRS})
 set(TEST_SOURCES GstHandlerControlTests.cpp
   GstHandlerControlAampTests.cpp)
 
-set(AAMP_SOURCES ${AAMP_ROOT}/middleware/GstHandlerControl.cpp ${AAMP_ROOT}/middleware/PlayerLogManager.cpp)
+set(AAMP_SOURCES ${AAMP_ROOT}/middleware/GstHandlerControl.cpp)
 
 add_executable(${EXEC_NAME}
                ${TEST_SOURCES}

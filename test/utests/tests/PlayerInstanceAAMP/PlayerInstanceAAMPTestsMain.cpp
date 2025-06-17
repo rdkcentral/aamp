@@ -1472,30 +1472,6 @@ TEST_F(PlayerInstanceAAMPTests, SetPreferredSubtitleLanguageIdleState3)
 	char language[] = { CHAR_MIN, 0x00 };  
     mPlayerInstance->SetPreferredSubtitleLanguage(language);
 }
-TEST_F(PlayerInstanceAAMPTests, SetParallelPlaylistDLTest1)
-{
-    //checking true condition
-    bool bValue = true;
-    mPlayerInstance->SetParallelPlaylistDL(bValue);
-}
-TEST_F(PlayerInstanceAAMPTests, SetParallelPlaylistDLTest2)
-{
-    //checking false condition
-    bool bValue = false;
-    mPlayerInstance->SetParallelPlaylistDL(bValue);
-}
-TEST_F(PlayerInstanceAAMPTests, SetParallelPlaylistRefreshTest1)
-{
-    //checking true condition
-    bool bValue = true;
-    mPlayerInstance->SetParallelPlaylistRefresh(bValue);
-}
-TEST_F(PlayerInstanceAAMPTests, SetParallelPlaylistRefreshTest2)
-{
-    //checking false condition
-    bool bValue = false;
-    mPlayerInstance->SetParallelPlaylistRefresh(bValue);
-}
 TEST_F(PlayerInstanceAAMPTests, SetWesterosSinkConfigTest1)
 {
     //checking true condition
@@ -2077,6 +2053,24 @@ TEST_F(PlayerInstanceAAMPTests, GetAvailableVideoTracksTest)
     
     std::string availableTracks = mPlayerInstance->GetAvailableVideoTracks();
 
+}
+
+TEST_F(PlayerInstanceAAMPTests, GetAvailableAudioTracksTest1)
+{
+    std::string result;
+    mPrivateInstanceAAMP->SetState(eSTATE_ERROR);
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_ERROR));
+    std::string availableTracks = mPlayerInstance->GetAvailableAudioTracks();
+    EXPECT_STREQ(result.c_str(),availableTracks.c_str());
+}
+
+TEST_F(PlayerInstanceAAMPTests, GetAvailableAudioTracksTest2)
+{
+    std::string result;
+    mPrivateInstanceAAMP->SetState(eSTATE_IDLE);
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_IDLE));
+    std::string availableTracks = mPlayerInstance->GetAvailableAudioTracks();
+    EXPECT_STREQ(result.c_str(),availableTracks.c_str());
 }
 
 TEST_F(PlayerInstanceAAMPTests, GetAudioTrackInfoTest)
