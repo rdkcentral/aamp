@@ -230,7 +230,6 @@ set(LIBAAMP_HEADERS AampCacheHandler.h
 					dash/utils/Url.h
 					dash/utils/Path.h
 					dash/utils/StringEx.h
-					ProcessHandler.h
 					AampMPDDownloader.h
 					AampMPDParseHelper.h
 					AampLLDASHData.h
@@ -308,7 +307,6 @@ set(LIBAAMP_SOURCES iso639map.cpp
 					dash/utils/Url.cpp
 					dash/utils/StringEx.cpp
 					dash/utils/Path.cpp
-					ProcessHandler.cpp
 					AampMPDDownloader.cpp
 					AampMPDParseHelper.cpp
 					AampMPDUtils.cpp
