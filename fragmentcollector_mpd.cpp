@@ -4188,7 +4188,6 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 			}
 			if(!mLowLatencyMode && ISCONFIGSET(eAAMPConfig_EnableMediaProcessor))
 			{
-				// For segment timeline based streams, media processor is initialized in passthrough mode
 				InitializeMediaProcessor(mIsSegmentTimelineEnabled);
 			}
 		}
@@ -9499,7 +9498,6 @@ bool StreamAbstractionAAMP_MPD::IndexSelectedPeriod(bool periodChanged, bool adS
 		}
 		if (!mLowLatencyMode && ISCONFIGSET(eAAMPConfig_EnableMediaProcessor))
 		{
-			// For segment timeline based streams, media processor is initialized in passthrough mode
 			InitializeMediaProcessor(mIsSegmentTimelineEnabled);
 		}
 		if (ISCONFIGSET(eAAMPConfig_EnablePTSReStamp) && (rate == AAMP_NORMAL_PLAY_RATE) && mMediaStreamContext[eMEDIATYPE_SUBTITLE]->enabled)
@@ -14052,6 +14050,26 @@ void StreamAbstractionAAMP_MPD::GetNextAdInBreak(int direction)
 	{
 		AAMPLOG_ERR("Invalid value[%d] for direction, not expected!", direction);
 	}
+}
+
+/**
+ * @fn GetVideoTimeScale
+ * @brief Get the timescale of the video stream
+ * @return The time scale of the video stream, or 1 if not available
+ */
+uint32_t StreamAbstractionAAMP_MPD::GetVideoTimeScale(void)
+{
+	uint32_t ret = 1; // Default value
+	MediaStreamContext *track = mMediaStreamContext[eMEDIATYPE_VIDEO];
+	if (track && track->enabled && track->fragmentDescriptor.TimeScale > 0)
+	{
+		ret = track->fragmentDescriptor.TimeScale;
+	}
+	else
+	{
+		AAMPLOG_WARN("Video track not available! Returning default value: %u", ret);
+	}
+	return ret;
 }
 
 /**
