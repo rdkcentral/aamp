@@ -83,7 +83,8 @@ set(PLAYER_SOURCES ${PLAYER_ROOT}/drm/DrmUtils.cpp
 				 ${PLAYER_ROOT}/drm/helper/WidevineDrmHelper.cpp
 				 ${PLAYER_ROOT}/drm/helper/PlayReadyHelper.cpp
 				 ${PLAYER_ROOT}/playerLogManager/PlayerLogManager.cpp
-				 ${UTESTS_ROOT}/drm/mocks/gstMocks.c)
+				 ${UTESTS_ROOT}/drm/mocks/gstMocks.c
+				 ${PLAYER_ROOT}/ProcessHandler.cpp)
 
 
 add_definitions(-DAAMP_HLS_DRM)

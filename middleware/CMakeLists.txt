@@ -108,7 +108,8 @@ set(LIBMIDDLEWARE_HEADERS
 	vendor/realtek/RealtekSocInterface.h
 	vendor/brcm/BrcmSocInterface.h
 	vendor/default/DefaultSocInterface.h
-    subtitle/vttCue.h
+        subtitle/vttCue.h
+	ProcessHandler.h
 	)
 
 install(FILES closedcaptions/CCTrackInfo.h
@@ -157,6 +158,7 @@ set(SOURCES
 	vendor/brcm/BrcmSocInterface.cpp
 	vendor/default/DefaultSocInterface.cpp
 	drm/processProtectionHls.cpp
+	ProcessHandler.cpp
 	)
 set(LIBMIDDLEWARE_DRM_SOURCES drm/PlayerHlsDrmSessionInterface.cpp
 	drm/DrmSessionManager.cpp

@@ -104,5 +104,11 @@ void player_ResolveURL(std::string& dst, std::string base, const char *uri , boo
  */
 static const char * ParseUriProtocol(const char *uri);
 
+/**
+ * @fn trim
+ * @param[in][out] src Buffer containing string
+ */
+void trim(std::string& src);
+
 #endif  /* __PLAYER_UTILS_H__ */
 

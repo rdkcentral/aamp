@@ -250,3 +250,18 @@ void ResolveURL(std::string& dst, std::string base, const char *uri , bool bProp
 		}
 	}
 }
+
+
+/**
+ * @brief Trim a string
+ */
+void trim(std::string& src)
+{
+	size_t first = src.find_first_not_of(" \n\r\t\f\v");
+	if (first != std::string::npos)
+	{
+		size_t last = src.find_last_not_of(" \n\r\t\f\v");
+		std::string dst = src.substr(first, (last - first + 1));
+		src = dst;
+	}
+}
