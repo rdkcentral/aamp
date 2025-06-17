@@ -221,21 +221,23 @@ StreamAbstractionAAMP_PROGRESSIVE::~StreamAbstractionAAMP_PROGRESSIVE()
  */
 void StreamAbstractionAAMP_PROGRESSIVE::Start(void)
 {
-	try
-	{
-		if (fragmentCollectorThreadID.joinable()) {
-			AAMPLOG_WARN("FragmentCollector thread was still joinable in Start(). Joining now. This might indicate a logical error where Stop() was not called.");
-			fragmentCollectorThreadID.join();
+    try
+    {
+    	// Attempting to assign to a running thread will cause std::terminate(), not an exception
+		if(!fragmentCollectorThreadID.joinable())
+		{
+			fragmentCollectorThreadID = std::thread(&StreamAbstractionAAMP_PROGRESSIVE::FetcherLoop, this);
+			AAMPLOG_INFO("Thread created for FragmentCollector [%zx]", GetPrintableThreadID(fragmentCollectorThreadID));
 		}
-		assert(!fragmentCollectorThreadID.joinable() && "FragmentCollector thread already started or not joined properly.");
-		fragmentCollectorThreadID = std::thread(&StreamAbstractionAAMP_PROGRESSIVE::FragmentCollector, this);
-		AAMPLOG_INFO("Thread created for FragmentCollector [%zx]", GetPrintableThreadID(fragmentCollectorThreadID));
-	}
-	catch(const std::exception& e)
-	{
-		AAMPLOG_ERR("Failed to create FragmentCollector thread : %s", e.what());
-	}
-	
+		else
+		{
+			AAMPLOG_ERR("FragmentCollector thread already running, not creating a new one");
+		}
+    }
+    catch(const std::exception& e)
+    {
+        AAMPLOG_ERR("Failed to create FragmentCollector thread : %s", e.what());
+    }
 }
 
 /**
@@ -243,12 +245,12 @@ void StreamAbstractionAAMP_PROGRESSIVE::Start(void)
  */
 void StreamAbstractionAAMP_PROGRESSIVE::Stop(bool clearChannelData)
 {
-	if(fragmentCollectorThreadID.joinable())
-	{
-		aamp->DisableDownloads();
-		fragmentCollectorThreadID.join();
-		aamp->EnableDownloads();
-	}
+    if(fragmentCollectorThreadID.joinable())
+    {
+        aamp->DisableDownloads();
+        fragmentCollectorThreadID.join();
+        aamp->EnableDownloads();
+    }
  }
 
 /**

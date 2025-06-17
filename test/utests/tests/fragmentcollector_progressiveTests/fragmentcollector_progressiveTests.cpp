@@ -49,6 +49,21 @@ protected:
    
 };
 
+// Test that calling Start() twice in succession does not cause the test to terminate
+TEST_F(fragmentcollector_progressiveTests, testRepeatedStart) 
+{
+    // Call the Start function
+    profileEvent->Start();
+    // Assert that the thread ID is valid (not zero)
+    ASSERT_NE(profileEvent->fragmentCollectorThreadID, std::thread::id());
+    // Call the Start function again
+    profileEvent->Start();
+    // Assert that the thread ID is still valid (not zero)
+    ASSERT_NE(profileEvent->fragmentCollectorThreadID, std::thread::id());
+    // Assert that the thread ID has not changed
+    ASSERT_EQ(profileEvent->fragmentCollectorThreadID, std::this_thread::get_id());
+}
+
 TEST_F(fragmentcollector_progressiveTests, StopTest) {
     // Call the Start function
    profileEvent->Stop(true);

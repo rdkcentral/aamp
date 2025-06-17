@@ -113,8 +113,9 @@ static bool IsIframeTrack(IAdaptationSet *adaptationSet);
  * @brief StreamAbstractionAAMP_MPD Constructor
  */
 StreamAbstractionAAMP_MPD::StreamAbstractionAAMP_MPD(class PrivateInstanceAAMP *aamp, double seek_pos, float rate, id3_callback_t id3Handler)
-	: StreamAbstractionAAMP(aamp, id3Handler), mLangList(), seekPosition(seek_pos), rate(rate), fragmentCollectorThreadID(),tsbReaderThreadID(),
-	mpd(NULL), mNumberOfTracks(0), mCurrentPeriodIdx(0), mEndPosition(0), mIsLiveStream(true), mIsLiveManifest(true),mManifestDnldRespPtr(nullptr),mManifestUpdateHandleFlag(false),mUpdateManifestState(false),
+	: StreamAbstractionAAMP(aamp, id3Handler),
+	mLangList(), seekPosition(seek_pos), rate(rate), fragmentCollectorThreadID(),tsbReaderThreadID(),
+	mpd(NULL), mNumberOfTracks(0), mCurrentPeriodIdx(0), mEndPosition(0), mIsLiveStream(true), mIsLiveManifest(true),mManifestDnldRespPtr(nullptr),mManifestUpdateHandleFlag(false), mUpdateManifestState(false),
 	mStreamInfo(NULL), mPrevStartTimeSeconds(0), mPrevLastSegurlMedia(""), mPrevLastSegurlOffset(0),
 	mPeriodEndTime(0), mPeriodStartTime(0), mPeriodDuration(0), mMinUpdateDurationMs(DEFAULT_INTERVAL_BETWEEN_MPD_UPDATES_MS),
 	mLastPlaylistDownloadTimeMs(0), mFirstPTS(0), mStartTimeOfFirstPTS(0), mAudioType(eAUDIO_UNKNOWN),
@@ -150,7 +151,7 @@ StreamAbstractionAAMP_MPD::StreamAbstractionAAMP_MPD(class PrivateInstanceAAMP *
 	,mFcsRepresentationId(-1)
 	,mFcsSegments()
 	,isVidDiscInitFragFail(false)
-	,tsbReaderThreadStarted(false), abortTsbReader(false)
+	,abortTsbReader(false)
 	,mShortAdOffsetCalc(false)
 	,mNextPts(0.0)
 	,mPrevFirstPeriodStart(0.0f)
@@ -10470,17 +10471,19 @@ void StreamAbstractionAAMP_MPD::StartFromOtherThanAampLocalTsb(void)
 {
 	aamp->mDRMLicenseManager->setSessionMgrState(SessionMgrState::eSESSIONMGR_ACTIVE);
 	// Start the worker threads for each track
-	try{
-
-		if (fragmentCollectorThreadID.joinable()) 
+	try
+	{
+		// Attempting to assign to a running thread will cause std::terminate(), not an exception
+		if(!fragmentCollectorThreadID.joinable())
 		{
-	c		AAMPLOG_WARN("FetcherLoop thread was still joinable in StartFromOtherThanAampLocalTsb(). Joining now. This might indicate a logical error where Stop() was not called.");
-			fragmentCollectorThreadID.join();
+			fragmentCollectorThreadID = std::thread(&StreamAbstractionAAMP_MPD::FetcherLoop, this);
+			AAMPLOG_INFO("Thread created for FetcherLoop [%zx]", GetPrintableThreadID(fragmentCollectorThreadID));
 		}
-		assert(!fragmentCollectorThreadID.joinable() && "FetcherLoop thread aleady started or not joined");
-		fragmentCollectorThreadID = std::thread(&StreamAbstractionAAMP_MPD::FetcherLoop, this);
-		AAMPLOG_INFO("Thread created for FetcherLoop [%zx]", GetPrintableThreadID(fragmentCollectorThreadID));
-	}
+		else
+		{
+			AAMPLOG_WARN("FetcherLoop thread already running, not creating a new one");
+		}
+	} 
 	catch (std::exception &e)
 	{
 		AAMPLOG_ERR("Thread allocation failed for FetcherLoop : %s ", e.what());
@@ -10543,9 +10546,15 @@ void StreamAbstractionAAMP_MPD::StartFromAampLocalTsb(void)
 	try
 	{
 		abortTsbReader = false;
-		tsbReaderThreadID = std::thread(&StreamAbstractionAAMP_MPD::TsbReader, this);
-		tsbReaderThreadStarted = true;
-		AAMPLOG_INFO("Thread created for TsbReader [%zx]", GetPrintableThreadID(tsbReaderThreadID));
+		if (!tsbReaderThreadID.joinable())
+		{
+			tsbReaderThreadID = std::thread(&StreamAbstractionAAMP_MPD::TsbReader, this);
+			AAMPLOG_INFO("Thread created for TsbReader [%zx]", GetPrintableThreadID(tsbReaderThreadID));
+		}
+		else
+		{
+			AAMPLOG_WARN("Attempt to create TsbReader thread while thread is running");
+		}
 	}
 	catch(const std::exception& e)
 	{
@@ -10633,7 +10642,7 @@ void StreamAbstractionAAMP_MPD::Stop(bool clearChannelData)
 		fragmentCollectorThreadID.join();
 	}
 
-	if(tsbReaderThreadStarted)
+	if(tsbReaderThreadID.joinable())
 	{
 		AAMPLOG_INFO("Abort TsbReader");
 		abortTsbReader = true;
@@ -10642,7 +10651,6 @@ void StreamAbstractionAAMP_MPD::Stop(bool clearChannelData)
 			tsbReaderThreadID.join();
 			AAMPLOG_INFO("Joined tsbReaderThreadID");
 		}
-		tsbReaderThreadStarted = false;
 	}
 
 	for (int iTrack = 0; iTrack < mMaxTracks; iTrack++)
@@ -10685,14 +10693,10 @@ void StreamAbstractionAAMP_MPD::Stop(bool clearChannelData)
 			}
 		}
 		aamp->mDRMLicenseManager->setSessionMgrState(SessionMgrState::eSESSIONMGR_INACTIVE);
-		if(tsbReaderThreadStarted)
+		if(tsbReaderThreadID.joinable())
 		{
 			abortTsbReader = true;
-			if(tsbReaderThreadID.joinable())
-			{
-				tsbReaderThreadID.join();
-			}
-			tsbReaderThreadStarted = false;
+			tsbReaderThreadID.join();
 		}
 
 	}

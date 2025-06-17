@@ -80,6 +80,38 @@ protected:
 		{
 			mCurrentPeriod = mpd->GetPeriods().at(0);
 		}
+
+		void TsbReader() override
+		{
+			// This is a stub to allow testing without actual thread execution
+			// In real implementation, this would start the TSB reader thread
+			for(;;)
+			{
+				// Simulate thread work
+				std::this_thread::sleep_for(std::chrono::milliseconds(100));
+				if (abortTsbReader)
+				{
+					break;
+				}
+			}
+		}
+
+
+		// Method to explicity shut down running threads
+		void ShutdownThreads()
+		{
+			if (fragmentCollectorThreadID.joinable())
+			{
+				fragmentCollectorThreadID.join();
+			}
+
+			abortTsbReader = true; // Signal the TSB reader to stop
+			// Wait for the TSB reader thread to finish
+			if (tsbReaderThreadID.joinable())
+			{
+				tsbReaderThreadID.join();
+			}
+		}
 	};
 
 	PrivateInstanceAAMP *mPrivateInstanceAAMP;
@@ -335,3 +367,40 @@ TEST_F(MpdTests, FindPositionInTimeline2)
 	EXPECT_EQ(1, ms->timeLineIndex);
 	EXPECT_EQ(4, ms->fragmentRepeatCount);
 }
+
+// Test that calling Start() twice in succession does not cause the test to terminate
+
+TEST_F(MpdTests, testRepeatedStartLocalTSB)
+{
+	// InitializeMPD("");
+	// Set local TSB to true
+	mStreamAbstractionAAMP_MPD = new TestableStreamAbstractionAAMP_MPD(mPrivateInstanceAAMP);
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled()).WillRepeatedly(Return(true));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection()).WillRepeatedly(Return(true));
+
+
+	mStreamAbstractionAAMP_MPD->Start();
+
+	// Call the Start function again
+	mStreamAbstractionAAMP_MPD->Start();
+	mStreamAbstractionAAMP_MPD->ShutdownThreads();
+}
+
+// Test that calling Start() twice in succession does not cause the test to terminate
+// This test is for the case where local TSB is false
+
+TEST_F(MpdTests, testRepeatedStartNotLocalTSB)
+{
+	// InitializeMPD("");
+	// Set local TSB to true
+	mStreamAbstractionAAMP_MPD = new TestableStreamAbstractionAAMP_MPD(mPrivateInstanceAAMP);
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled()).WillRepeatedly(Return(false));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection()).WillRepeatedly(Return(false));
+
+	mStreamAbstractionAAMP_MPD->Start();
+
+	// Call the Start function again
+	mStreamAbstractionAAMP_MPD->Start();
+	mStreamAbstractionAAMP_MPD->ShutdownThreads();
+}
+

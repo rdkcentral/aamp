@@ -5071,20 +5071,24 @@ void TrackState::Start(void)
 	{
 		playContext->reset();
 	}
-	if (fragmentCollectorThreadID.joinable()) {
-		AAMPLOG_WARN("FragmentCollector thread was still joinable in Start(). Joining now. This might indicate a logical error where Stop() was not called.");
-		fragmentCollectorThreadID.join();
-	}
-	assert(!fragmentCollectorThreadID.joinable() && "FragmentCollector thread already started or not joined properly.");
+
 	if(aamp->IsLive())
 	{
 		StartPlaylistDownloaderThread();
 	}
 
-	try
+	try 
 	{
-		fragmentCollectorThreadID =  std::thread(&TrackState::FragmentCollector, this);
-		AAMPLOG_INFO("Thread created for FragmentCollector [%zx]", GetPrintableThreadID(fragmentCollectorThreadID));
+    	// Attempting to assign to a running thread will cause std::terminate(), not an exception
+		if(!fragmentCollectorThreadID.joinable())
+		{
+			fragmentCollectorThreadID = std::thread(&TrackState::FragmentCollector, this);
+			AAMPLOG_INFO("Thread created for FragmentCollector [%zx]", GetPrintableThreadID(fragmentCollectorThreadID));
+		}
+		else
+		{
+			AAMPLOG_ERR("FragmentCollector thread already running, not creating a new one");
+		}
 	}
 	catch(const std::exception& e)
 	{

@@ -85,39 +85,38 @@ public:
 	 * @param[out]  subtitleOutputFormat - format of subtitle track
 	 */
 	void GetStreamFormat(StreamOutputFormat &primaryOutputFormat, StreamOutputFormat &audioOutputFormat, StreamOutputFormat &auxOutputFormat, StreamOutputFormat &subtitleOutputFormat) override;
-	/**
-	 * @fn GetStreamPosition 
-	 *
-	 * @retval current position of stream.
-	 */
-	double GetStreamPosition() override;
-	/**
-	 *   @fn GetFirstPTS 
-	 *
-	 *   @retval PTS of first sample
-	 */
-	double GetFirstPTS() override;
-	
-	/**
-	 *  @fn IsInitialCachingSupported
-	 *
-	 */
-	bool IsInitialCachingSupported() override;
-	/**
-	 * @fn GetMaxBitrate
-	 * @return long MAX video bitrates
-	 */
-	BitsPerSecond GetMaxBitrate(void) override;
-	/**
-	 * @fn FetcherLoop
-	 * @return void
-	 */
-	void FetcherLoop();
-	/**
-	 * @fn FragmentCollector
-	 * @retval void
-	 */
-	void FragmentCollector();
+    /**
+     * @fn GetStreamPosition 
+     *
+     * @retval current position of stream.
+     */
+    double GetStreamPosition() override;
+    /**
+     *   @fn GetFirstPTS 
+     *
+     *   @retval PTS of first sample
+     */
+    double GetFirstPTS() override;
+    
+    /**
+     *  @fn IsInitialCachingSupported
+     *
+     */
+    bool IsInitialCachingSupported() override;
+    /**
+     * @fn GetMaxBitrate
+     * @return long MAX video bitrates
+     */
+    BitsPerSecond GetMaxBitrate(void) override;
+    /**
+     * @fn FetcherLoop
+     * @return void
+     */
+    void FetcherLoop();
+    /**
+     * @fn FragmentCollector
+     */
+    void FragmentCollector();
 
 	/**
 	 * @fn DoEarlyStreamSinkFlush
@@ -131,8 +130,8 @@ public:
 
 
 private:
-	void StreamFile( const char *uri, int *http_error );
-	std::thread fragmentCollectorThreadID;
+    void StreamFile( const char *uri, int *http_error );
+    std::thread fragmentCollectorThreadID;
 };
 
 #endif //FRAGMENTCOLLECTOR_PROGRESSIVE_H_

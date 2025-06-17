@@ -686,7 +686,7 @@ protected:
 	 * @fn TsbReader
 	 * @return void
 	 */
-	void TsbReader();
+	virtual void TsbReader();
 
 	/**
 	 * @fn GetStreamInfo
@@ -1105,7 +1105,6 @@ protected:
 							   uint64_t position, AampTime absolutePosition, bool immediate);
 
 	std::mutex mStreamLock;
-	bool tsbReaderThreadStarted;
 	bool abortTsbReader;
 	std::set<std::string> mLangList;
 	double seekPosition;    // Seek offset from or position at time of tuning, in seconds.
