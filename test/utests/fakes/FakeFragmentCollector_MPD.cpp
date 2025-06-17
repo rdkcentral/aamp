@@ -279,3 +279,8 @@ bool StreamAbstractionAAMP_MPD::DoEarlyStreamSinkFlush(bool newTune, float rate)
 {
     return false;
 }
+
+void StreamAbstractionAAMP_MPD::TsbReader()
+{
+    
+}

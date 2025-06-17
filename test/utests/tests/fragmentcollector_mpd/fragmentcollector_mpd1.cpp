@@ -112,6 +112,38 @@ protected:
 				tsbReaderThreadID.join();
 			}
 		}
+
+		void TsbReader() override
+		{
+			// This is a stub to allow testing without actual thread execution
+			// In real implementation, this would start the TSB reader thread
+			for(;;)
+			{
+				// Simulate thread work
+				std::this_thread::sleep_for(std::chrono::milliseconds(100));
+				if (abortTsbReader)
+				{
+					break;
+				}
+			}
+		}
+
+
+		// Method to explicity shut down running threads
+		void ShutdownThreads()
+		{
+			if (fragmentCollectorThreadID.joinable())
+			{
+				fragmentCollectorThreadID.join();
+			}
+
+			abortTsbReader = true; // Signal the TSB reader to stop
+			// Wait for the TSB reader thread to finish
+			if (tsbReaderThreadID.joinable())
+			{
+				tsbReaderThreadID.join();
+			}
+		}
 	};
 
 	PrivateInstanceAAMP *mPrivateInstanceAAMP;
