@@ -2065,7 +2065,9 @@ void PrivateInstanceAAMP::ReportProgress(bool sync, bool beginningOfStream)
 			position = start;
 		}
 		DeliverAdEvents(false, position); // use progress reporting as trigger to belatedly deliver ad events
-		ReportAdProgress(sync, position);
+		//AAMP_EVENT_AD_PLACEMENT_START is async so we need AAMP_EVENT_AD_PLACEMENT_PROGRESS to be async as well
+		//to keep them in order
+		ReportAdProgress(false, position);
 
 		if(ISCONFIGSET_PRIV(eAAMPConfig_ReportVideoPTS))
 		{
