@@ -24,7 +24,9 @@
 
 
 #include "ProcessHandler.h"
-#include "AampUtils.h"
+
+#include "PlayerUtils.h"
+#include "PlayerLogManager.h"
 #include <string>
 #include <fstream>
 #include <algorithm>
@@ -116,7 +118,7 @@ bool ProcessHandler::KillProcess(std::string processName)
             std::string name = GetProcessName(strPid);
             if (name == processName)
             {
-                AAMPLOG_INFO("Killing the process %s PID %ld", name.c_str(), lPid); 
+                MW_LOG_INFO("Killing the process %s PID %ld", name.c_str(), lPid); 
                 status = KillProcess(lPid);
                 break; /**< No need to move further*/
             }
@@ -147,7 +149,7 @@ bool ProcessHandler::KillProcess(long pid)
     bool ret = true;
     if(kill(pid, SIGKILL) < 0)
     {
-        AAMPLOG_WARN("Kill Failed = %d", errno);
+        MW_LOG_WARN("Kill Failed = %d", errno);
         ret = false;
     }
     return ret;
