@@ -292,12 +292,6 @@ public:
 	* @brief Initialize the processor to advance to restamp phase directly
 	*/
 	void initProcessorForRestamp();
-	/**
-	* @brief Set base PTS from the manifest, this prevents calling setTunetimePTS()
-	* @param[in] pts - PTS value
-	* @param[in] tScale - TimeScale value
-	*/
-	void InitializeBasePTSFromManifest(uint64_t pts, uint32_t tScale);
 
 private:
 

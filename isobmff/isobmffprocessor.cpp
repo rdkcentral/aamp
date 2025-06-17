@@ -1309,14 +1309,3 @@ void IsoBmffProcessor::initProcessorForRestamp()
 	// Hence setting timeScale changed state to complete
 	timeScaleChangeState = eBMFFPROCESSOR_TIMESCALE_COMPLETE;
 }
-/**
- * @brief Initialize the base PTS from manifest, This will be used to set the basePTS and timeScale in the segment timeline streams
- * @param[in] pts - PTS value from manifest
- * @param[in] tScale - Time scale value from manifest
- */
-void IsoBmffProcessor::InitializeBasePTSFromManifest(uint64_t pts, uint32_t tScale)
-{
-	currTimeScale = tScale;
-	setBasePTS(pts, tScale);
-	initSegmentProcessComplete = true;
-}

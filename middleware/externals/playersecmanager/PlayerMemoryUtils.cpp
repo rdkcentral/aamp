@@ -18,22 +18,20 @@
 */
 
 /**
- * @file AampMemoryUtils.cpp
+ * @file PlayerMemoryUtils.cpp
  * @brief Helper functions for memory management
  */
 
-#include "AampMemoryUtils.h"
-#include "AampConfig.h"
+#include "PlayerMemoryUtils.h"
+#include "PlayerLogManager.h"
 #include <assert.h>
 #include <glib.h>
 #include <errno.h>
 
-#ifdef USE_SECMANAGER
-
 /**
  * @brief Creates shared memory and provides the key
  */
-void * aamp_CreateSharedMem( size_t shmLen, key_t & shmKey)
+void * player_CreateSharedMem( size_t shmLen, key_t & shmKey)
 {
 	void *shmPointer = NULL;
 	if( shmLen > 0)
@@ -53,26 +51,26 @@ void * aamp_CreateSharedMem( size_t shmLen, key_t & shmKey)
 				shmPointer = shmat(shmId, NULL, 0 );
 				if( shmPointer != (void *)-1 )
 				{ // success!
-					AAMPLOG_WARN("Shared memory shmId=%d ptr=%p created for the key, %u",
+					MW_LOG_WARN("Shared memory shmId=%d ptr=%p created for the key, %u",
 								 shmId, shmPointer, shmKey);
 				}
 				else
 				{
-					AAMPLOG_ERR("shmat err=%d shmId=%d", errno, shmId );
-					aamp_CleanUpSharedMem( shmPointer, shmKey, shmLen);
+					MW_LOG_ERR("shmat err=%d shmId=%d", errno, shmId );
+					player_CleanUpSharedMem( shmPointer, shmKey, shmLen);
 					shmPointer = NULL;
 				}
 				break;
 			}
 			else
 			{
-				AAMPLOG_ERR("shmget err=%d", errno);
+				MW_LOG_ERR("shmget err=%d", errno);
 			}
 		}
 	}
 	else
 	{
-		AAMPLOG_ERR("invalid shmLen=%zu", shmLen);
+		MW_LOG_ERR("invalid shmLen=%zu", shmLen);
 	}
 	return shmPointer;
 }
@@ -80,31 +78,30 @@ void * aamp_CreateSharedMem( size_t shmLen, key_t & shmKey)
 /**
  * @brief detach and delete shared memory
  */
-void aamp_CleanUpSharedMem(void* shmPointer, key_t shmKey, size_t shmLen)
+void player_CleanUpSharedMem(void* shmPointer, key_t shmKey, size_t shmLen)
 {
 	if( NULL != shmPointer && (void*)-1 != shmPointer)
 	{ // detach shared memory
 		if( -1 == shmdt(shmPointer) )
 		{
-			AAMPLOG_ERR("shmdt failure %d for key %u", errno, shmKey);
+			MW_LOG_ERR("shmdt failure %d for key %u", errno, shmKey);
 		}
 		int shmId = shmget(shmKey, shmLen, SHM_ACCESS_PERMISSION);
 		if( shmId != -1 )
 		{ // mark segment to be destroyed
 			if( -1 == shmctl(shmId, IPC_RMID, NULL) )
 			{
-				AAMPLOG_ERR("shmctl err=%d shmId=%d", errno, shmId );
+				MW_LOG_ERR("shmctl err=%d shmId=%d", errno, shmId );
 			}
 		}
 		else
 		{
-			AAMPLOG_ERR("bad shmKey=%u", shmKey);
+			MW_LOG_ERR("bad shmKey=%u", shmKey);
 		}
 	}
 	else
 	{
-		AAMPLOG_ERR("bad shmPointer=%p", shmPointer );
+		MW_LOG_ERR("bad shmPointer=%p", shmPointer );
 	}
 }
 
-#endif
