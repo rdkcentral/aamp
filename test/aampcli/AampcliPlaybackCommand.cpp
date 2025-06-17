@@ -860,10 +860,6 @@ bool PlaybackCommand::execute( const char *cmd, PlayerInstanceAAMP *playerInstan
 	{
 		mAampcli.mEnableProgressLog = mAampcli.mEnableProgressLog ? false : true;
 	}
-	else if( isCommandMatch(cmd, "progress_one_line") )
-	{
-		mAampcli.mEnableProgressLogOneLine = mAampcli.mEnableProgressLogOneLine ? false : true;
-	}
 	else if( isCommandMatch(cmd, "stats") )
 	{
 		printf("[AAMPCLI] statistics:\n%s\n", playerInstanceAamp->GetPlaybackStats().c_str());
@@ -1056,7 +1052,6 @@ void PlaybackCommand::registerPlaybackCommands()
 	addCommand("bps <x>","lock abr to bitrate <x>");
 	addCommand("customheader <header>", "apply global http header on all outgoing requests" ); // TODO: move to 'set'?
 	addCommand("progress","Toggle progress event logging (default=false)");
-	addCommand("progress_one_line","Toggle progress event logging in single line(default=false)");
 	addCommand("auto <params", "stress test with defaults: startChan(500) endChan(1000) maxTuneTime(6) playTime(15) betweenTime(15)" );
 	addCommand("exit","Exit aampcli");
 	addCommand("advert <params>", "manage injected advert list - 'list', 'add <url or channel in virtual channel map>', 'rm <url or index into list>'");

@@ -36,7 +36,6 @@ static int mAdReservationIndex = 0;
 Aampcli :: Aampcli():
 	mInitialized(false),
 	mEnableProgressLog(false),
-	mEnableProgressLogOneLine(false),
 	mbAutoPlay(true),
 	mTuneFailureDescription(""),
 	mSingleton(NULL),
@@ -51,7 +50,6 @@ Aampcli :: Aampcli():
 Aampcli::Aampcli(const Aampcli& aampcli):
 	mInitialized(false),
 	mEnableProgressLog(false),
-	mEnableProgressLogOneLine(false),
 	mbAutoPlay(true),
 	mTuneFailureDescription(""),
 	mSingleton(NULL),
@@ -531,7 +529,7 @@ void MyAAMPEventListener::Event(const AAMPEventPtr& e)
 		case AAMP_EVENT_PROGRESS:
 			{
 				ProgressEventPtr ev = std::dynamic_pointer_cast<ProgressEvent>(e);
-				if( (mAampcli.mEnableProgressLog) || (mAampcli.mEnableProgressLogOneLine) )
+				if(mAampcli.mEnableProgressLog)
 				{
 					char seekableRange[48];
 					auto start = ev->getStart();
@@ -545,14 +543,7 @@ void MyAAMPEventListener::Event(const AAMPEventPtr& e)
 						snprintf( seekableRange, sizeof(seekableRange), "[start=%.3fs end=%.3fs]", start/1000.0, end/1000.0 );
 					}
 
-					if(mAampcli.mEnableProgressLog)
-					{
-						printf("[AAMPCLI] AAMP_EVENT_PROGRESS\n\tduration=%.3fs\n\tposition=%.3fs\n\tseekableRange%s\n\tcurrRate=%.3f\n\tbufferedDuration=%.3fs\n\tPTS=%lld\n\ttimecode='%s'\n\tlatency=%.3fs\n\tprofileBandwidth=%ld\n\tnetworkBandwidth=%ld\n\tcurrentPlayRate=%.3f\n\tsessionId='%s'\n", ev->getDuration()/1000.0, ev->getPosition()/1000.0, seekableRange, ev->getSpeed(), ev->getBufferedDuration()/1000.0, ev->getPTS(), ev->getSEITimeCode(), ev->getLiveLatency()/1000.0, ev->getProfileBandwidth(), ev->getNetworkBandwidth(), ev->getCurrentPlayRate(), ev->GetSessionId().c_str());
-					}
-					else
-					{
-						printf("[AAMPCLI] AAMP_EVENT_PROGRESS duration=%.3fs position=%.3fs seekableRange%s currRate=%.3f bufferedDuration=%.3fs PTS=%lld timecode='%s' latency=%.3fs profileBandwidth=%ld networkBandwidth=%ld currentPlayRate=%.3f sessionId='%s'\n", ev->getDuration()/1000.0, ev->getPosition()/1000.0, seekableRange, ev->getSpeed(), ev->getBufferedDuration()/1000.0, ev->getPTS(), ev->getSEITimeCode(), ev->getLiveLatency()/1000.0, ev->getProfileBandwidth(), ev->getNetworkBandwidth(), ev->getCurrentPlayRate(), ev->GetSessionId().c_str());
-					}
+					printf("[AAMPCLI] AAMP_EVENT_PROGRESS duration=%.3fs position=%.3fs seekableRange%s currRate=%.3f bufferedDuration=%.3fs PTS=%lld timecode='%s' latency=%.3fs profileBandwidth=%ld networkBandwidth=%ld currentPlayRate=%.3f sessionId='%s'\n", ev->getDuration()/1000.0, ev->getPosition()/1000.0, seekableRange, ev->getSpeed(), ev->getBufferedDuration()/1000.0, ev->getPTS(), ev->getSEITimeCode(), ev->getLiveLatency()/1000.0, ev->getProfileBandwidth(), ev->getNetworkBandwidth(), ev->getCurrentPlayRate(), ev->GetSessionId().c_str());
 				}
 			}
 			break;
