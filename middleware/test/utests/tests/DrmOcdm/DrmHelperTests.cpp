@@ -360,6 +360,14 @@ TEST_F(DrmHelperTests, TestCreatePlayReadyHelperNegative)
 	}
 }
 
+static uint32_t ConvertToDecimal(const char* text)
+{
+	return (static_cast<uint32_t>(text[0]) << 24) |
+		   (static_cast<uint32_t>(text[1]) << 16) |
+		   (static_cast<uint32_t>(text[2]) << 8) |
+		   (static_cast<uint32_t>(text[3]));
+}
+
 TEST_F(DrmHelperTests, TestWidevineHelperParsePsshDrmMetaData)
 {
 	struct
@@ -380,16 +388,16 @@ TEST_F(DrmHelperTests, TestWidevineHelperParsePsshDrmMetaData)
 		},
 		{ "AAAAJnBzc2gAAAAA7e+LqXnWSs6jyCfc1R0h7QAAAAZI89yVmwY=", // psshData
 			{},
-			'cens'
+			ConvertToDecimal("cens")//'cens'
 		},
 		{ "AAAAJnBzc2gAAAAA7e+LqXnWSs6jyCfc1R0h7QAAAAZIscaJmwY=", // psshData
 			{},
-			'cbc1'
+			ConvertToDecimal("cbc1")//'cbc1'
 		},
 		{ "AAAAPnBzc2gAAAAA7e+LqXnWSs6jyCfc1R0h7QAAAB4iFnNoYWthX2NlYzJmNjRhYTc4OTBhMTFI49yVmwY=", // psshData
 			{
 				"0x73,0x68,0x61,0x6B,0x61,0x5F,0x63,0x65,0x63,0x32,0x66,0x36,0x34,0x61,0x61,0x37,0x38,0x39,0x30,0x61,0x31,0x31"
-			}, 'cenc'
+			}, ConvertToDecimal("cenc")//'cenc'
 			// Version 0, AES-CTR full sample encryption
 			// no key ids!
 			// Content ID = shaka_cec2f64aa7890a11
@@ -403,13 +411,13 @@ TEST_F(DrmHelperTests, TestWidevineHelperParsePsshDrmMetaData)
 		{ "AAAAOHBzc2gAAAAA7e+LqXnWSs6jyCfc1R0h7QAAABgSEC22xI0wH0jqu3cbp6iskEJI49yVmwY=", // psshData
 			{
 				"0x2D,0xB6,0xC4,0x8D,0x30,0x1F,0x48,0xEA,0xBB,0x77,0x1B,0xA7,0xA8,0xAC,0x90,0x42"
-			},'cenc'
+			},ConvertToDecimal("cenc")//'cenc'
 			// Version 0, 'cenc'
 		},
 		{ "AAAAOHBzc2gAAAAA7e+LqXnWSs6jyCfc1R0h7QAAABgSEC22xI0wH0jqu3cbp6iskEJI88aJmwY=", // psshData
 			{
 				"0x2D,0xB6,0xC4,0x8D,0x30,0x1F,0x48,0xEA,0xBB,0x77,0x1B,0xA7,0xA8,0xAC,0x90,0x42"
-			},'cbcs'
+			},ConvertToDecimal("cbcs")//'cbcs'
 			// Version 0, 'cbcs'
 		},
 		{ "AAAARHBzc2gBAAAA7e+LqXnWSs6jyCfc1R0h7QAAAAIAAAAAAAAAAAAAAAAAAAAAEREREREREREREREREREREQAAAAA=", // psshData
@@ -422,7 +430,7 @@ TEST_F(DrmHelperTests, TestWidevineHelperParsePsshDrmMetaData)
 		{"AAAAP3Bzc2gAAAAA7e+LqXnWSs6jyCfc1R0h7QAAAB8SEFYWbwTmlTrikzbYc0PLv+IaBWV6ZHJtSPPGiZsG", // psshData
 			{
 				"0x56,0x16,0x6f,0x04,0xe6,0x95,0x3a,0xe2,0x93,0x36,0xd8,0x73,0x43,0xcb,0xbf,0xe2"
-			},'cbcs'
+			},ConvertToDecimal("cbcs")//'cbcs'
 			// Protection Scheme: 63 62 63 73 (cbcs)
 			// Provider: ezdrm
 		},
@@ -466,7 +474,7 @@ TEST_F(DrmHelperTests, TestWidevineHelperParsePsshDrmMetaData)
 		{"AAAAOHBzc2gAAAAA7e+LqXnWSs6jyCfc1R0h7QAAABgSEABFDiYaE6QUtKoKcLv0s6hI49yVmwY=", // psshData
 			{
 				"0x00,0x45,0x0e,0x26,0x1a,0x13,0xa4,0x14,0xb4,0xaa,0x0a,0x70,0xbb,0xf4,0xb3,0xa8"
-			},'cenc'
+			},ConvertToDecimal("cenc")//'cenc'
 			// Protection Scheme: 63 65 6E 63 (cenc)
 			// AES-CTR full sample encryption
 		}
