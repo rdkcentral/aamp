@@ -474,7 +474,10 @@ DrmSession* DrmSessionManager::createDrmSession(int &err, std::shared_ptr<DrmHel
 	{
 		MW_LOG_WARN(" Unable to initialize DrmSession : Key State %d ", code);
 		std::lock_guard<std::mutex> guard(cachedKeyMutex);
- 		cachedKeyIDs[selectedSlot].isFailedKeyId = true;
+		if (cachedKeyIDs)
+		{
+			cachedKeyIDs[selectedSlot].isFailedKeyId = true;
+		}
 		return nullptr;
 	}
 
@@ -482,7 +485,10 @@ DrmSession* DrmSessionManager::createDrmSession(int &err, std::shared_ptr<DrmHel
 	{
 		MW_LOG_MIL( "Exiting fake tune after DRM initialization.");
 		std::lock_guard<std::mutex> guard(cachedKeyMutex);
-		cachedKeyIDs[selectedSlot].isFailedKeyId = true;
+		if (cachedKeyIDs)
+		{
+			cachedKeyIDs[selectedSlot].isFailedKeyId = true;
+		}
 		return nullptr;
 	}
 	code =this->AcquireLicenseCb(drmHelper, selectedSlot, cdmError,  (GstMediaType)streamType, metaDataPtr, false);
@@ -490,7 +496,10 @@ DrmSession* DrmSessionManager::createDrmSession(int &err, std::shared_ptr<DrmHel
 	{
 		MW_LOG_WARN(" Unable to get Ready Status DrmSession : Key State %d ", code);
 		std::lock_guard<std::mutex> guard(cachedKeyMutex);
-		cachedKeyIDs[selectedSlot].isFailedKeyId = true;
+		if (cachedKeyIDs)
+		{
+			cachedKeyIDs[selectedSlot].isFailedKeyId = true;
+		}
 		return nullptr;
 	}
 
