@@ -1092,6 +1092,13 @@ void PlayerInstanceAAMP::SeekInternal(double secondsRelativeToTuneTime, bool kee
 	bool sentSpeedChangedEv = false;
 	bool isSeekToLiveOrEnd = false;
 	TuneType tuneType = eTUNETYPE_SEEK;
+
+	if( std::isnan(secondsRelativeToTuneTime) )
+	{
+		AAMPLOG_ERR("Seek value not in allowed range, exiting");
+		return;
+	}
+
 	if( aamp )
 	{
 		AAMPPlayerState state = GetState();
