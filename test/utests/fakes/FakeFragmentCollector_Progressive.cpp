@@ -49,3 +49,8 @@ bool StreamAbstractionAAMP_PROGRESSIVE::DoEarlyStreamSinkFlush(bool newTune, flo
 {
     return false;
 }
+
+void StreamAbstractionAAMP_PROGRESSIVE::FetcherLoop()
+{
+
+}

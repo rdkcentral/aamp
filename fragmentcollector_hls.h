@@ -243,7 +243,7 @@ class TrackState : public MediaTrack
 		 *
 		 * @return void
 		 ***************************************************************************/
-		void RunFetchLoop();
+		virtual void RunFetchLoop();
 
 		/***************************************************************************
 		 * @fn FragmentCollector

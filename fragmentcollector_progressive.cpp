@@ -231,7 +231,7 @@ void StreamAbstractionAAMP_PROGRESSIVE::Start(void)
 		}
 		else
 		{
-			AAMPLOG_ERR("FragmentCollector thread already running, not creating a new one");
+			AAMPLOG_WARN("FragmentCollector thread already running, not creating a new one");
 		}
     }
     catch(const std::exception& e)

@@ -10481,7 +10481,7 @@ void StreamAbstractionAAMP_MPD::StartFromOtherThanAampLocalTsb(void)
 		}
 		else
 		{
-			AAMPLOG_WARN("FetcherLoop thread already running, not creating a new one");
+			AAMPLOG_INFO("FetcherLoop thread already running, not creating a new one");
 		}
 	} 
 	catch (std::exception &e)

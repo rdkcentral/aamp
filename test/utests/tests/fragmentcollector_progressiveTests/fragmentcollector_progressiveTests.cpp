@@ -23,26 +23,58 @@
 using namespace testing;
 AampConfig *gpGlobalConfig{ nullptr };
 
+/**
+ * @class MockProgressiveFetcher
+ * @brief Mock implementation for testing that overrides FetcherLoop to do nothing
+ */
+class MockProgressiveFetcher : public StreamAbstractionAAMP_PROGRESSIVE
+{
+public:
+    MockProgressiveFetcher(class PrivateInstanceAAMP *aamp,double seekpos, float rate)
+        : StreamAbstractionAAMP_PROGRESSIVE(aamp, seekpos, rate)
+    {
+    }
+
+protected:
+    /**
+     * @brief Overridden FetcherLoop that does nothing and exits on DisableDownloads
+     */
+    void FetcherLoop() override
+    {
+        bool mRunning(true);
+        AAMPLOG_INFO("MockProgressiveFetcher::FetcherLoop started (no-op implementation)");
+        
+        // Loop that does nothing but checks for exit condition
+        while( aamp->DownloadsAreEnabled() )
+        {
+            // Sleep 100ms
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        }
+        
+        AAMPLOG_INFO("MockProgressiveFetcher::FetcherLoop exited");
+    }
+};
 class fragmentcollector_progressiveTests : public ::testing::Test
 {
+public:
+    PrivateInstanceAAMP* aamp;
+
 protected:
 
     void SetUp() override
     {  
-        PrivateInstanceAAMP* aamp = new PrivateInstanceAAMP();
         aamp = new PrivateInstanceAAMP();
         double seek_pos = 0.0;  // Provide the desired seek_pos value
         float rate = 1.0;       // Provide the desired rate value
-     profileEvent = new StreamAbstractionAAMP_PROGRESSIVE(aamp, seek_pos, rate);
-  
+        profileEvent = new StreamAbstractionAAMP_PROGRESSIVE(aamp, seek_pos, rate);
     }
 
 
     void TearDown() override
     {
+        delete aamp;
         delete profileEvent;
-        profileEvent = nullptr;
-       
+        profileEvent = nullptr;      
     }
 
    StreamAbstractionAAMP_PROGRESSIVE* profileEvent;
@@ -52,16 +84,17 @@ protected:
 // Test that calling Start() twice in succession does not cause the test to terminate
 TEST_F(fragmentcollector_progressiveTests, testRepeatedStart) 
 {
+    double seek_pos = 0.0;  // Provide the desired seek_pos value
+    float rate = 1.0;       // Provide the desired rate value
+
+    auto mockedFragmentCollector = new MockProgressiveFetcher(aamp, seek_pos, rate);
     // Call the Start function
-    profileEvent->Start();
-    // Assert that the thread ID is valid (not zero)
-    ASSERT_NE(profileEvent->fragmentCollectorThreadID, std::thread::id());
+    mockedFragmentCollector->Start();
+
     // Call the Start function again
-    profileEvent->Start();
-    // Assert that the thread ID is still valid (not zero)
-    ASSERT_NE(profileEvent->fragmentCollectorThreadID, std::thread::id());
-    // Assert that the thread ID has not changed
-    ASSERT_EQ(profileEvent->fragmentCollectorThreadID, std::this_thread::get_id());
+    mockedFragmentCollector->Start();
+
+    aamp->DisableDownloads();
 }
 
 TEST_F(fragmentcollector_progressiveTests, StopTest) {

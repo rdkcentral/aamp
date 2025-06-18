@@ -112,7 +112,7 @@ public:
      * @fn FetcherLoop
      * @return void
      */
-    void FetcherLoop();
+    virtual void FetcherLoop();
     /**
      * @fn FragmentCollector
      */
@@ -138,4 +138,4 @@ private:
 /**
  * @}
  */
- 
+

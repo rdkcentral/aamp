@@ -82,4 +82,3 @@ void StreamAbstractionAAMP_HLS::RefreshTrack(AampMediaType type) { }
 bool StreamAbstractionAAMP_HLS::SelectPreferredTextTrack(TextTrackInfo& selectedTextTrack) { return true; }
 
 bool StreamAbstractionAAMP_HLS::DoEarlyStreamSinkFlush(bool newTune, float rate){ return false; }
-
