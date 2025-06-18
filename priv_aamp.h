@@ -25,7 +25,6 @@
 #ifndef PRIVAAMP_H
 #define PRIVAAMP_H
 
-#include "AampMemoryUtils.h"
 #include "AampProfiler.h"
 #include "DrmHelper.h"
 #include "DrmMediaFormat.h"
@@ -2494,7 +2493,6 @@ public:
 	 */
 	void setCurrentDrm(DrmHelperPtr drm) { mCurrentDrm = drm; }
 
-#if defined(USE_SECCLIENT) || defined(USE_SECMANAGER)
 	/**
 	 * @fn GetMoneyTraceString
 	 * @param[out] customHeader - Generated moneytrace is stored
@@ -2502,7 +2500,6 @@ public:
 	 * @return void
 	 */
 	void GetMoneyTraceString(std::string &) const;
-#endif /* USE_SECCLIENT */
 
 	/**
 	 *   @fn NotifyFirstFragmentDecrypted

@@ -170,18 +170,18 @@ void DrmInterface::GetAccessKey(std::string &keyURI,  std::string& tempEffective
         {
                 if (AES_128_KEY_LEN_BYTES == mAesKeyBuf.GetLen() )
                 {
-                        MW_LOG_WARN("Key fetch success len = %d",  (int)mAesKeyBuf.GetLen());
+                        AAMPLOG_WARN("Key fetch success len = %d",  (int)mAesKeyBuf.GetLen());
 			keyAcquisitionStatus = true;
                 }
                 else
                 {
-                        MW_LOG_ERR("Error Key fetch - size %d",  (int)mAesKeyBuf.GetLen() );
+                        AAMPLOG_ERR("Error Key fetch - size %d",  (int)mAesKeyBuf.GetLen() );
                         failureReason = AAMP_TUNE_INVALID_DRM_KEY;
                 }
         }
         else
         {
-                MW_LOG_ERR("Key fetch failed");
+                AAMPLOG_ERR("Key fetch failed");
                 if (http_error == CURLE_OPERATION_TIMEDOUT)
                 {
                         failureReason = AAMP_TUNE_LICENCE_TIMEOUT;
@@ -250,7 +250,7 @@ void DrmInterface::getHlsDrmSession(std::shared_ptr <HlsDrmBase>&bridge, std::sh
         session = mpAamp->mDRMLicenseManager->createDrmSession( drmHelper, mpAamp, event , (int)streamType);
         if (!session)
         {
-                MW_LOG_WARN("Failed to create Drm Session ");
+                AAMPLOG_WARN("Failed to create Drm Session ");
 
                 if (mpAamp->DownloadsAreEnabled())
                 {
@@ -264,7 +264,7 @@ void DrmInterface::getHlsDrmSession(std::shared_ptr <HlsDrmBase>&bridge, std::sh
         }
         else
         {
-                MW_LOG_WARN("created Drm Session ");
+                AAMPLOG_WARN("created Drm Session ");
                 HlsDrmBase* tempBridge = HlsOcdmBridgeInterface::GetBridge(session);
                 bridge = std::shared_ptr<HlsDrmBase>(tempBridge);
         }

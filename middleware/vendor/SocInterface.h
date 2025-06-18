@@ -25,7 +25,7 @@
 #include <vector>
 #include <memory>
 #include <gst/base/gstbasesink.h>
-#include <middleware/PlayerLogManager.h>
+#include "PlayerLogManager.h"
 
 #define REQUIRED_QUEUED_FRAMES_DEFAULT (5+1)
 /**

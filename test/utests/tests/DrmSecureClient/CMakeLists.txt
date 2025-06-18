@@ -30,7 +30,7 @@ include_directories(${GTEST_INCLUDE_DIRS})
 include_directories(${GMOCK_INCLUDE_DIRS})
 include_directories(${UUID_INCLUDE_DIRS})
 
-include_directories(${AAMP_ROOT}/externals)
+include_directories(${AAMP_ROOT}/middleware/externals)
 include_directories(${AAMP_ROOT} ${AAMP_ROOT}/drm ${AAMP_ROOT}/drm/helper ${AAMP_ROOT}/subtitle ${AAMP_ROOT}/middleware/subtitle ${AAMP_ROOT}/downloader ${AAMP_ROOT}/isobmff ${AAMP_ROOT}/middleware/subtec/subtecparser ${AAMP_ROOT}/middleware/playerjsonobject ${AAMP_ROOT}/middleware/subtec/libsubtec)
 include_directories(${AAMP_ROOT}/tsb/api)
 include_directories(${AAMP_ROOT}/middleware)
@@ -42,17 +42,18 @@ include_directories(${DRM_ROOT}/ocdm)
 include_directories(${AAMP_ROOT}/../secclient)
 include_directories(${DRM_ROOT}/mocks)
 include_directories(${AAMP_ROOT}/middleware/vendor)
+include_directories(${AAMP_ROOT}/middleware/externals/playersecmanager)
+include_directories(${AAMP_ROOT}/middleware/drm)
 
 message(GSTREAMER_INCLUDE_DIRS=${GSTREAMER_INCLUDE_DIRS})
 
-set(TEST_SOURCES DrmTestsRun.cpp
-				DrmSessionTests.cpp)
+set(TEST_SOURCES DrmTestsRun.cpp)
 
 if(SEC_CLIENT_HEADERS)
 	message("Found Secure Client headers - building ${EXEC_NAME}")
 
 set(FAKE_SOURCES ${UTESTS_ROOT}/fakes/FakeAampRfc.cpp
-					 ${UTESTS_ROOT}/fakes/FakePlayerIarmRfcInterface.cpp
+					 ${UTESTS_ROOT}/fakes/FakePlayerExternalsInterface.cpp
 					 ${AAMP_ROOT}/middleware/test/utests/fakes/FakeSocUtils.cpp)
 
 set(MOCK_SOURCES ${DRM_ROOT}/mocks/aampMocks.cpp
@@ -83,7 +84,7 @@ set(AAMP_SOURCES ${AAMP_ROOT}/middleware/drm/base64.cpp
 					 ${AAMP_ROOT}/middleware/drm/DrmSessionFactory.cpp
 					 ${AAMP_ROOT}/middleware/drm/helper/DrmHelper.cpp
 					 ${AAMP_ROOT}/middleware/drm/helper/DrmHelperFactory.cpp
-					 ${AAMP_ROOT}/middleware/drm/DRMSessionManager.cpp
+					 ${AAMP_ROOT}/middleware/drm/DrmSessionManager.cpp
 					 ${AAMP_ROOT}/middleware/drm/DrmSession.cpp
 					 ${AAMP_ROOT}/middleware/drm/ocdm/opencdmsessionadapter.cpp
 					 ${AAMP_ROOT}/middleware/drm/ocdm/opencdmsessionadapter.cpp
@@ -99,7 +100,6 @@ set(AAMP_SOURCES ${AAMP_ROOT}/middleware/drm/base64.cpp
 	add_definitions(-DUSE_SHARED_MEMORY)
 	add_definitions(-DUSE_OPENCDM_ADAPTER)
 	add_definitions(-DUSE_THUNDER_OCDM_API_0_2)
-	add_definitions(-DUSE_SECCLIENT)
 
 add_executable(${EXEC_NAME}
 				${DRM_ROOT}/DrmTestUtils.cpp
