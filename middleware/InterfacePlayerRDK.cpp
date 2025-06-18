@@ -5023,7 +5023,30 @@ void InterfacePlayerRDK::InitializePlayerGstreamerPlugins()
 		}
 		pluginFeature = gst_registry_lookup_feature(registry, GstPluginNamePR);
 		if(pluginFeature == NULL)
-			MW_LOG_ERR("InterfacePlayerRDK: %s plugin feature not available", GstPluginNamePR);
+		{
+			MW_LOG_ERR("Nitz : InterfacePlayerRDK: %s plugin feature not available", GstPluginNamePR);
+#ifdef AAMP_TELEMETRY_SUPPORT
+    printf("[NITZ] Creating AAMPTelemetry2 object with player name\n");
+    AAMPTelemetry2 at2;
+
+    std::string telemetryName = "PluginFeatureNotAvailable";
+    printf("[NITZ] telemetryName set to: %s\n", telemetryName.c_str());
+
+    std::map<std::string, int> intData;
+    std::map<std::string, std::string> strData;
+
+    strData["PluginName"] = GstPluginNamePR;
+    printf("[NITZ] strData[\"PluginName\"] = %s\n", strData["PluginName"].c_str());
+
+    printf("[NITZ] Sending telemetry event: %s\n", telemetryName.c_str());
+    at2.send(telemetryName, intData, strData, {});
+    printf("[NITZ] Telemetry event sent\n");
+    MW_LOG_ERR("[NITZ] Telemetry is enabled");
+#else
+    printf("[NITZ] Telemetry not enabled\n");
+    MW_LOG_ERR("[NITZ] Telemetry not enabled");
+#endif
+    		}
 	}
 	if(pluginFeature)
 	{
