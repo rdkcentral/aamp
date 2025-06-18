@@ -274,7 +274,6 @@ public:
 	 */
 	void SeekPosUpdate(double secondsRelativeToTuneTime) override;
 	virtual void SetCDAIObject(CDAIObject *cdaiObj) override;
-
 	/**
 	 * @fn GetAvailableAudioTracks
 	 * @param[in] tracks - available audio tracks in period
@@ -551,15 +550,6 @@ public:
 	 * @return true if AAMP is using an iframe track, false otherwise
 	 */
 	bool UseIframeTrack(void) override;
-	/**
-	 * @fn DoEarlyStreamSinkFlush
-	 * @brief Checks if the stream need to be flushed or not
-	 *
-	 * @param newTune true if this is a new tune, false otherwise
-	 * @param rate playback rate
-	 * @return true if stream should be flushed, false otherwise
-	 */
-	bool DoEarlyStreamSinkFlush(bool newTune, float rate) override;
 
 protected:
 	/**
@@ -1147,7 +1137,6 @@ protected:
 	bool playlistDownloaderThreadStarted; // Playlist downloader thread start status
 	bool isVidDiscInitFragFail;
 	double mLivePeriodCulledSeconds;
-	bool mIsSegmentTimelineEnabled;   /**< Flag to indicate if segment timeline is enabled, to determine if PTS is available from manifest */
 
 	// In case of streams with multiple video Adaptation Sets, A profile
 	// is a combination of an Adaptation Set and Representation within
