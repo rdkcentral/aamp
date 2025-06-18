@@ -14,21 +14,32 @@
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
- * limitations under the License. 
- */
+ * limitations under the License.
+*/
 
 /**
- * @file Module.h
- * @brief Declaration of module name
+ * @file FakePlayerLogManager.cpp
+ * @brief Fake Interface Player logging mechanism source file
  */
 
-#pragma once
+#include "PlayerLogManager.h"
 
+MW_LogLevel PlayerLogManager::mwLoglevel = mLOGLEVEL_WARN;
+bool PlayerLogManager::locked = false;
+bool PlayerLogManager::disableLogRedirection = false;
+bool PlayerLogManager::enableEthanLogRedirection = false;
 
-#ifndef MODULE_NAME
-#define MODULE_NAME aamp
-#endif
+/**
+ * @brief Print logs to console / log file
+ */
+void logprintf(MW_LogLevel logLevelIndex, const char* file, int line, const char *format, ...)
+{
+}
 
-
-#undef EXTERNAL
-#define EXTERNAL
+/**
+ * @brief Compactly log blobs of binary data
+ *
+ */
+void DumpBinaryBlob(const unsigned char *ptr, size_t len)
+{
+}

@@ -25,7 +25,6 @@
 #ifndef PRIVAAMP_H
 #define PRIVAAMP_H
 
-#include "AampMemoryUtils.h"
 #include "AampProfiler.h"
 #include "DrmHelper.h"
 #include "DrmMediaFormat.h"
@@ -2495,7 +2494,6 @@ public:
 	 */
 	void setCurrentDrm(DrmHelperPtr drm) { mCurrentDrm = drm; }
 
-#if defined(USE_SECCLIENT) || defined(USE_SECMANAGER)
 	/**
 	 * @fn GetMoneyTraceString
 	 * @param[out] customHeader - Generated moneytrace is stored
@@ -2503,7 +2501,6 @@ public:
 	 * @return void
 	 */
 	void GetMoneyTraceString(std::string &) const;
-#endif /* USE_SECCLIENT */
 
 	/**
 	 *   @fn NotifyFirstFragmentDecrypted
@@ -3866,13 +3863,13 @@ public:
 	void SetPauseOnStartPlayback(bool enable);
 
 	/**
-	 * @brief Send MonitorAVEvent
+	 * @brief Send MonitorAvEvent
 	 * @param[in] status - Current MonitorAV status
 	 * @param[in] videoPositionMS - video position in milliseconds
 	 * @param[in] audioPositionMS - audio position in milliseconds
 	 * @param[in] timeInStateMS - time in state in milliseconds
 	 */
-	void SendMonitorAVEvent(const std::string &status, int64_t videoPositionMS, int64_t audioPositionMS, uint64_t timeInStateMS);
+	void SendMonitorAvEvent(const std::string &status, int64_t videoPositionMS, int64_t audioPositionMS, uint64_t timeInStateMS);
 
 	/**
 	 * @brief Determines if decrypt should be called on clear samples

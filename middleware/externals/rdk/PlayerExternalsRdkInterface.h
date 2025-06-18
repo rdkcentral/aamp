@@ -18,7 +18,7 @@
 */
 
 /**
- * @file PlayerIARMRDKInterface.h
+ * @file PlayerExternalsRdkInterface.h
  * @brief player interface with IARM specific to RDK
  */
 
@@ -38,10 +38,10 @@
 #include "audioOutputPort.hpp"
 #include "dsAudio.h"
 
-#include "PlayerIARMInterfaceBase.h"
+#include "PlayerExternalsInterfaceBase.h"
 
 //class representing IARM interface in rdk
-class PlayerIarmRdkInterface : public PlayerIarmInterfaceBase
+class PlayerExternalsRdkInterface : public PlayerExternalsInterfaceBase
 {
     
        dsHdcpProtocolVersion_t m_hdcpCurrentProtocol;
@@ -98,10 +98,10 @@ class PlayerIarmRdkInterface : public PlayerIarmInterfaceBase
         // Singleton for object creation
 	
         /**
-         * @fn GetPlayerIarmRdkInterfaceInstance
-         * @retval PlayerIarmRdkInterface object
+         * @fn GetPlayerExternalsRdkInterfaceInstance
+         * @retval PlayerExternalsRdkInterface object
          */	
-        static PlayerIarmRdkInterface * GetPlayerIarmRdkInterfaceInstance();
+        static PlayerExternalsRdkInterface * GetPlayerExternalsRdkInterfaceInstance();
 
         /**
          * @fn GetTR181Config
@@ -126,7 +126,7 @@ class PlayerIarmRdkInterface : public PlayerIarmInterfaceBase
          */
         bool GetActiveInterface();
 
-        ~PlayerIarmRdkInterface(){}
+        ~PlayerExternalsRdkInterface(){}
 };
 
 
