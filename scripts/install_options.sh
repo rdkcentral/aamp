@@ -91,7 +91,6 @@ function install_options_fn()
         OPTION_CLEAN_BUILD=true
         echo "Will remove .libs and build directories before build"
         ;;
-
       * )
         echo "'Usage: No flags/options specified - build AAMP with default options
         [-b] Specify aamp branch name (default: current sprint branch)
