@@ -902,7 +902,7 @@ bool StreamAbstractionAAMP_MPD::FetchFragment(MediaStreamContext *pMediaStreamCo
 		if(!fragmentSaved)
 		{
 			AAMPLOG_WARN("StreamAbstractionAAMP_MPD: failed. fragmentUrl %s fragmentTime %f %d %d", fragmentUrl.c_str(), pMediaStreamContext->fragmentTime,isInitializationSegment, pMediaStreamContext->type);
-					  //Added new check to avoid marking ad as failed if the http code is not worthy.
+			//Added new check to avoid marking ad as failed if the http code is not worthy.
 			if (isInitializationSegment && mCdaiObject->mAdState == AdState::IN_ADBREAK_AD_PLAYING &&
 				(pMediaStreamContext->httpErrorCode!=CURLE_WRITE_ERROR && pMediaStreamContext->httpErrorCode!= CURLE_ABORTED_BY_CALLBACK))
 			{
@@ -1408,18 +1408,18 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 							pMediaStreamContext->type,pMediaStreamContext->fragmentDescriptor.Time,pMediaStreamContext->fragmentDescriptor.Number,pMediaStreamContext->lastSegmentTime,duration,pMediaStreamContext->fragmentTime,endTime);
 #endif
 						retval = true;
-						if(mIsFcsRepresentation)
-												{
+						if (mIsFcsRepresentation)
+						{
 							fcsContent = false;
-							for(int i =0;i< mFcsSegments.size();i++)
-														{
+							for (int i = 0; i < mFcsSegments.size(); i++)
+							{
 								uint64_t starttime = mFcsSegments.at(i)->GetStartTime();
-								uint64_t duration  =  mFcsSegments.at(i)->GetDuration();
+								uint64_t duration = mFcsSegments.at(i)->GetDuration();
 								// Logic  to handle the duration option missing case
-								if(!duration)
+								if (!duration)
 								{
-									//If not present, the alternative content section lasts until the start of the next FCS _element_
-									if(i+1 < mFcsSegments.size())
+									// If not present, the alternative content section lasts until the start of the next FCS _element_
+									if (i + 1 < mFcsSegments.size())
 									{
 										duration =  mFcsSegments.at(i+1)->GetStartTime();
 									}
@@ -1589,7 +1589,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 							profileIdxForBandwidthNotification = GetProfileIdxForBandwidthNotification(pMediaStreamContext->fragmentDescriptor.Bandwidth);
 							FetchAndInjectInitialization(eMEDIATYPE_VIDEO);
 							UpdateRampUpOrDownProfileReason();
-														pMediaStreamContext->SetCurrentBandWidth(pMediaStreamContext->fragmentDescriptor.Bandwidth);
+							pMediaStreamContext->SetCurrentBandWidth(pMediaStreamContext->fragmentDescriptor.Bandwidth);
 							return false;
 						}
 					}
@@ -2022,13 +2022,13 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 					unsigned int nextReferencedSize;
 					float nextfragmentDuration;
 					uint64_t nextfragmentOffset;
-								if (ParseSegmentIndexBox(
-											 pMediaStreamContext->IDX.GetPtr(),
-											 pMediaStreamContext->IDX.GetLen(),
-											 pMediaStreamContext->fragmentIndex,
-											 &nextReferencedSize,
-											 &nextfragmentDuration,
-											 NULL))
+					if (ParseSegmentIndexBox(
+							pMediaStreamContext->IDX.GetPtr(),
+							pMediaStreamContext->IDX.GetLen(),
+							pMediaStreamContext->fragmentIndex,
+							&nextReferencedSize,
+							&nextfragmentDuration,
+							NULL))
 					{
 						char nextrange[MAX_RANGE_STRING_CHARS];
 						nextfragmentOffset = pMediaStreamContext->fragmentOffset+referenced_size;
@@ -3539,10 +3539,10 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 	aamp->IsTuneTypeNew = newTune;
 
 	bool pushEncInitFragment = newTune || (eTUNETYPE_RETUNE == tuneType) || aamp->mbDetached;
-		if(aamp->mbDetached){
-				/* No more needed reset it **/
-				aamp->mbDetached = false;
-		}
+	if(aamp->mbDetached){
+			/* No more needed reset it **/
+			aamp->mbDetached = false;
+	}
 
 	for (int i = 0; i < AAMP_TRACK_COUNT; i++)
 	{
@@ -8568,22 +8568,22 @@ void StreamAbstractionAAMP_MPD::FetchAndInjectInitialization(int trackIdx, bool 
 							char temp[MAX_RANGE_STRING_CHARS];
 							snprintf( temp, sizeof(temp), "0-%" PRIu64 , s1-1 );
 							range = temp;
-							if (pMediaStreamContext->IDX.GetPtr() )
+							if (pMediaStreamContext->IDX.GetPtr())
 							{
-												unsigned int referenced_size;
-												float fragmentDuration;
-												if (ParseSegmentIndexBox(
-																 pMediaStreamContext->IDX.GetPtr(),
-																 pMediaStreamContext->IDX.GetLen(),
-																 pMediaStreamContext->fragmentIndex,
-																 &referenced_size,
-																 &fragmentDuration,
-																 NULL))
+								unsigned int referenced_size;
+								float fragmentDuration;
+								if (ParseSegmentIndexBox(
+										pMediaStreamContext->IDX.GetPtr(),
+										pMediaStreamContext->IDX.GetLen(),
+										pMediaStreamContext->fragmentIndex,
+										&referenced_size,
+										&fragmentDuration,
+										NULL))
 								{
-													char temprange[MAX_RANGE_STRING_CHARS];
-													snprintf(temprange, sizeof(temprange), "%" PRIu64 "-%" PRIu64 "", pMediaStreamContext->fragmentOffset, pMediaStreamContext->fragmentOffset + referenced_size - 1);
-													nextrange = temprange;
-												 }
+									char temprange[MAX_RANGE_STRING_CHARS];
+									snprintf(temprange, sizeof(temprange), "%" PRIu64 "-%" PRIu64 "", pMediaStreamContext->fragmentOffset, pMediaStreamContext->fragmentOffset + referenced_size - 1);
+									nextrange = temprange;
+								}
 							}
 						}
 						std::string fragmentUrl;
@@ -13528,7 +13528,7 @@ bool StreamAbstractionAAMP_MPD::ParseMPDLLData(MPD* mpd, AampLLDashServiceData &
 		if(!mpd->GetServiceDescriptions().at(0)->GetScopes().size())
 		{
 			AAMPLOG_TRACE("Scope _element_ not available");
-		   }
+		}
 		//check if <Latency> _element_ is available in <ServiceDescription> _element_->raise error if not
 		if(!mpd->GetServiceDescriptions().at(0)->GetLatencys().size())
 		{
