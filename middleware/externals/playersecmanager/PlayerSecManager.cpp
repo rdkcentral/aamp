@@ -215,7 +215,7 @@ void PlayerSecManager::DestroyInstance()
 #ifdef USE_CPP_THUNDER_PLUGIN_ACCESS
 	if (Instance)
 	{
-		/* hide watermarking before secman shutdown */
+		/* hide watermarking before secmanager shutdown */
 		Instance->ShowWatermark(false);
 		delete Instance;
 		Instance = nullptr;

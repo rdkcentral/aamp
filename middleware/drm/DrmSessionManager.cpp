@@ -806,15 +806,15 @@ void DrmSessionManager::registerCallback() {
 
 /**
  * @brief To wrap the callback for watermark session update
- * @param[in] sessionHndle session handle
+ * @param[in] sessionHandle session handle
  * @param[in] status status of the session
  * @param[in] systemData system data
  * @retval void
  */
-void DrmSessionManager::watermarkSessionHandlerWrapper(uint32_t sessionHndle, uint32_t status, const std::string &systemData)
+void DrmSessionManager::watermarkSessionHandlerWrapper(uint32_t sessionHandle, uint32_t status, const std::string &systemData)
 {
 	if(NULL != mPlayerSendWatermarkSessionUpdateEventCB)
 	{
-		mPlayerSendWatermarkSessionUpdateEventCB( sessionHndle, status, systemData);
+		mPlayerSendWatermarkSessionUpdateEventCB( sessionHandle, status, systemData);
 	}
 }
