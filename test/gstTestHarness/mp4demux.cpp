@@ -41,6 +41,11 @@ static uint64_t ReadBytes( const uint8_t *ptr, int n )
 	return rc;
 }
 
+#define CONVERT_TO_DECIMAL(Text) \
+	( (static_cast<uint32_t>(Text[0]) << 24) | \
+		(static_cast<uint32_t>(Text[1]) << 16) | \
+		(static_cast<uint32_t>(Text[2]) << 8)  | \
+		(static_cast<uint32_t>(Text[3])) )
 #define READ_U16(buf) (unsigned int)ReadBytes( buf, 2 ); buf+=2;
 #define READ_U32(buf) (unsigned int)ReadBytes( buf, 4 ); buf+=4;
 #define READ_U64(buf) ReadBytes( buf, 8 ); buf+=8;
@@ -56,7 +61,7 @@ uint64_t mp4_AdjustMediaDecodeTime( uint8_t *ptr, size_t len, int64_t pts_restam
 	{
 		uint8_t *next = ptr + READ_U32(ptr);
 		uint32_t type = READ_U32(ptr);
-		if( type == 'tfdt' ) // Track Fragment Base Media Decode Time Box
+		if( type == CONVERT_TO_DECIMAL("tfdt")/*'tfdt'*/ ) // Track Fragment Base Media Decode Time Box
 		{
 			uint8_t version = READ_VERSION(ptr);
 			int sz = (version==1)?8:4;
@@ -72,15 +77,15 @@ uint64_t mp4_AdjustMediaDecodeTime( uint8_t *ptr, size_t len, int64_t pts_restam
 		{ // walk children
 			switch( type )
 			{
-				case 'traf': // Track Fragment Box
-				case 'moov': // Movie Box
-				case 'trak': // Track Box
-				case 'minf': // Media Information Box
-				case 'dinf': // Data Information Box
-				case 'stbl': // Sample Table Box
-				case 'mvex': // Movie Extends Box
-				case 'moof': // Movie Fragment Boxes
-				case 'mdia': // Media Box
+				case CONVERT_TO_DECIMAL("traf")://'traf': // Track Fragment Box
+				case CONVERT_TO_DECIMAL("moov")://'moov': // Movie Box
+				case CONVERT_TO_DECIMAL("trak")://'trak': // Track Box
+				case CONVERT_TO_DECIMAL("minf")://'minf': // Media Information Box
+				case CONVERT_TO_DECIMAL("dinf")://'dinf': // Data Information Box
+				case CONVERT_TO_DECIMAL("stbl")://'stbl': // Sample Table Box
+				case CONVERT_TO_DECIMAL("mvex")://'mvex': // Movie Extends Box
+				case CONVERT_TO_DECIMAL("moof")://'moof': // Movie Fragment Boxes
+				case CONVERT_TO_DECIMAL("mdia")://'mdia': // Media Box
 					baseMediaDecodeTime = mp4_AdjustMediaDecodeTime( ptr, next-ptr, pts_restamp_delta );
 					break;
 					
