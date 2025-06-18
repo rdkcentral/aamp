@@ -482,8 +482,8 @@ class TrackState : public MediaTrack
 		void ProcessPlaylist(AampGrowableBuffer& newPlaylist, int http_error) override;
 
 		/**
-				 * @brief Get byteRangeLength and byteRangeOffset from fragmentInfo.
-				 */
+		 * @brief Get byteRangeLength and byteRangeOffset from fragmentInfo.
+		 */
 		bool IsExtXByteRange(lstring fragmentInfo, size_t *byteRangeLength, size_t *byteRangeOffset);
 
 		/**
@@ -1006,10 +1006,10 @@ class StreamAbstractionAAMP_HLS : public StreamAbstractionAAMP
 		const std::unique_ptr<aamp::MetadataProcessorIntf> & GetMetadataProcessor(StreamOutputFormat fmt);
 
 		/***************************************************************************
-				 * @fn RefreshTrack
-				 *
-				 * @return void
-				 ***************************************************************************/
+		 * @fn RefreshTrack
+		 *
+		 * @return void
+		 ***************************************************************************/
 		void RefreshTrack(AampMediaType type) override;
 
 		/***************************************************************************
@@ -1025,10 +1025,10 @@ class StreamAbstractionAAMP_HLS : public StreamAbstractionAAMP
 		 ***************************************************************************/
 		void ConfigureAudioTrack();
 		/***************************************************************************
-				 * @fn SelectPreferredTextTrack
-				 * @param selectedTextTrack Current PreferredTextTrack Info
-				 * @return bool
-				 ***************************************************************************/
+		 * @fn SelectPreferredTextTrack
+		 * @param selectedTextTrack Current PreferredTextTrack Info
+		 * @return bool
+		 ***************************************************************************/
 		bool SelectPreferredTextTrack(TextTrackInfo& selectedTextTrack) override;
 
 	protected:

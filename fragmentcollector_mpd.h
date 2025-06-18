@@ -232,8 +232,8 @@ public:
 	 */
 	double GetFirstPTS() override;
 	/**
-		 * @fn GetMidSeekPosOffset
-		 */
+	 * @fn GetMidSeekPosOffset
+	 */
 	double GetMidSeekPosOffset() override;
 	/**
 	 * @fn GetStartTimeOfFirstPTS
@@ -277,7 +277,7 @@ public:
 	/**
 	 * @fn GetAvailableAudioTracks
 	 * @param[in] tracks - available audio tracks in period
-	  * @param[in] trackIndex - index of current audio track
+	 * @param[in] trackIndex - index of current audio track
 	 */
 	virtual std::vector<AudioTrackInfo> & GetAvailableAudioTracks(bool allTrack=false) override;
 	/**
@@ -295,11 +295,10 @@ public:
 	 */
 	virtual bool Is4KStream(int &height, BitsPerSecond &bandwidth) override;
 
-
 	/**
-		 * @fn GetProfileCount
-		 *
-		 */
+	 * @fn GetProfileCount
+	 *
+	 */
 	int GetProfileCount() override;
 	/**
 	 * @fn GetProfileIndexForBandwidth
@@ -368,7 +367,7 @@ public:
 	 * @param skipTime time to skip in seconds
 	 * @param updateFirstPTS true to update first pts state variable
 	 * @param skipToEnd true to skip to the end of content
-	  */
+	 */
 	double SkipFragments( class MediaStreamContext *pMediaStreamContext, double skipTime, bool updateFirstPTS = false, bool skipToEnd = false);
 	/**
 	 * @fn GetFirstPeriodStartTime
@@ -410,45 +409,45 @@ public:
 	//Apis for sidecar caption support
 
 	/**
-		 * @fn InitSubtitleParser
-		 * @param[in] data - subtitle data from application
-		 * @return void
-		 */
+	 * @fn InitSubtitleParser
+	 * @param[in] data - subtitle data from application
+	 * @return void
+	 */
 	void InitSubtitleParser(char *data) override;
 
 	/**
-		 * @fn ResetSubtitle
-		 * @return void
-		 */
+	 * @fn ResetSubtitle
+	 * @return void
+	 */
 	void ResetSubtitle() override;
 
 	/**
-		 * @fn MuteSubtitleOnPause
-		 * @return void
-		 */
+	 * @fn MuteSubtitleOnPause
+	 * @return void
+	 */
 	void MuteSubtitleOnPause() override;
 
 	/**
-		 * @fn ResumeSubtitleOnPlay
-		 * @param[in] mute - mute status
-		 * @param[in] data - subtitle data from application
-		 * @return void
-		 */
+	 * @fn ResumeSubtitleOnPlay
+	 * @param[in] mute - mute status
+	 * @param[in] data - subtitle data from application
+	 * @return void
+	 */
 	void ResumeSubtitleOnPlay(bool mute, char *data) override;
 
 	/**
-		 * @fn MuteSidecarSubtitles
-		 * @param[in] mute - mute/unmute
-		 * @return void
-		 */
+	 * @fn MuteSidecarSubtitles
+	 * @param[in] mute - mute/unmute
+	 * @return void
+	 */
 	void MuteSidecarSubtitles(bool mute) override;
 
 	/**
-		 * @fn ResumeSubtitleAfterSeek
-		 * @param[in] mute - mute status
-		 * @param[in] data - subtitle data from application
-		 * @return void
-		 */
+	 * @fn ResumeSubtitleAfterSeek
+	 * @param[in] mute - mute status
+	 * @param[in] data - subtitle data from application
+	 * @return void
+	 */
 	void ResumeSubtitleAfterSeek(bool mute, char *data) override;
 
 	/**
@@ -488,10 +487,10 @@ public:
 	 */
 	void NotifyFirstVideoPTS(unsigned long long pts, unsigned long timeScale) override;
 
-	 /**
+	/**
 	 * @fn GetAvailabilityStartTime
-	  * @brief  Returns AvailabilityStartTime from the manifest
-	  * @retval double . AvailabilityStartTime
+	 * @brief  Returns AvailabilityStartTime from the manifest
+	 * @retval double . AvailabilityStartTime
 	 */
 	double GetAvailabilityStartTime() override;
 
@@ -797,13 +796,13 @@ protected:
 	 * @param isInit true if its the first playlist download
 	 * @param reportBulkMeta true if bulk metadata is enabled
 	 */
-	void ProcessTrickModeRestriction(Node* node, const std::string& AdID, uint64_t startMS, bool isInit, bool reportBulkMeta);
-		/**
+	void ProcessTrickModeRestriction(Node *node, const std::string &AdID, uint64_t startMS, bool isInit, bool reportBulkMeta);
+	/**
 	 * @fn Fragment downloader thread
 	 * @param trackIdx track index
 	 * @param initialization Initialization string
 	 */
-		void TrackDownloader(int trackIdx, std::string initialization);
+	void TrackDownloader(int trackIdx, std::string initialization);
 	/**
 	 * @fn FetchAndInjectInitFragments
 	 * @param discontinuity number of tracks and discontinuity true if discontinuous fragment
@@ -869,11 +868,11 @@ protected:
 	/**
 	 * @fn UpdateTrackInfo
 	 */
-	AAMPStatusType UpdateTrackInfo(bool modifyDefaultBW, bool resetTimeLineIndex=false);
+	AAMPStatusType UpdateTrackInfo(bool modifyDefaultBW, bool resetTimeLineIndex = false);
 	/**
 	 * @fn SkipToEnd
 	 * @param pMediaStreamContext Track object pointer
-	  */
+	 */
 	void SkipToEnd( class MediaStreamContext *pMediaStreamContext); //Added to support rewind in multiperiod assets
 
 	/**
@@ -884,7 +883,7 @@ protected:
 	/**
 	 * @fn ApplyLiveOffsetWorkaroundForSAP
 	 * @param seekPositionSeconds seek position in seconds.
-	  */
+	 */
 	void ApplyLiveOffsetWorkaroundForSAP(double seekPositionSeconds);
 	/**
 	 * @fn GetFirstValidCurrMPDPeriod

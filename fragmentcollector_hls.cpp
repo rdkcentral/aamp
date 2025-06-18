@@ -1546,7 +1546,7 @@ void TrackState::setDiscontinuityState(bool isDiscontinuity)
 		if(playContext)
 		{
 			AAMPLOG_WARN(" %s abort waiting for video PTS arrival",name );
-			  playContext->abortWaitForVideoPTS();
+		playContext->abortWaitForVideoPTS();
 		}
 	}
  }
@@ -5077,7 +5077,7 @@ void TrackState::Start(void)
 		StartPlaylistDownloaderThread();
 	}
 
-	try 
+	try
 	{
     	// Attempting to assign to a running thread will cause std::terminate(), not an exception
 		if(!fragmentCollectorThreadID.joinable())
@@ -7060,8 +7060,8 @@ void TrackState::SwitchAudioTrack()
 		AAMPLOG_MIL("Updated gstSeek %lf to find new playTarget. Current Playtarget %lf , playlistPosition %lf", gstSeek.inSeconds(), playTarget.inSeconds(), oldPlaylistPosition);
 
 		AcquirePlaylistLock();
-				// Relative position in playlist
-				double oldPosInPlaylist = GetCompletionTimeForFragment(this, oldMediaSequenceNumber).inSeconds();
+		// Relative position in playlist
+		double oldPosInPlaylist = GetCompletionTimeForFragment(this, oldMediaSequenceNumber).inSeconds();
 
 		// Iterate from the beginning of the playlist again
 		playTarget = gstSeek;
