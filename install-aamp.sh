@@ -59,6 +59,11 @@ source scripts/install_aampcliKotlin.sh
 
 # VARIABLES
 
+if [ ${OPTION_CLEAN_BUILD} = true ] ; then
+    sudo rm -rf .libs
+    sudo rm -rf build
+fi
+
 # Elapsed time
 SECONDS=0
 
