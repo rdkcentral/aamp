@@ -2323,7 +2323,7 @@ void PrivateInstanceAAMP::ReportAdProgress(bool sync, double positionMs)
 			}
 			else
 			{
-				mEventManager->SendEvent(evt);
+				mEventManager->SendEvent(evt, AAMP_EVENT_ASYNC_MODE);
 			}
 			lastUintPct = uintPct;
 		}

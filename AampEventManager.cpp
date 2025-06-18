@@ -116,7 +116,7 @@ void AampEventManager::FlushPendingEvents()
 
 /**
  * @brief AddListenerForAllEvents - Register one listener for all events
- */ 
+ */
 void AampEventManager::AddListenerForAllEvents(EventListener* eventListener)
 {
 	if(eventListener != NULL)
@@ -146,7 +146,7 @@ void AampEventManager::RemoveListenerForAllEvents(EventListener* eventListener)
 
 /**
  * @brief AddEventListener - Register  listener for one eventtype
- */ 
+ */
 void AampEventManager::AddEventListener(AAMPEventType eventType, EventListener* eventListener)
 {
 	if ((eventListener != NULL) && (eventType >= AAMP_EVENT_ALL_EVENTS) && (eventType < AAMP_MAX_NUM_EVENTS))
@@ -194,9 +194,9 @@ void AampEventManager::RemoveEventListener(AAMPEventType eventType, EventListene
 
 /**
  * @brief IsSpecificEventListenerAvailable - Check if this particular listener present for this event
- */ 
+ */
 bool AampEventManager::IsSpecificEventListenerAvailable(AAMPEventType eventType)
-{	
+{
 	bool retVal=false;
 	std::lock_guard<std::mutex> guard(mMutexVar);
 	if(eventType > AAMP_EVENT_ALL_EVENTS &&  eventType < AAMP_MAX_NUM_EVENTS && mEventListeners[eventType])
@@ -208,7 +208,7 @@ bool AampEventManager::IsSpecificEventListenerAvailable(AAMPEventType eventType)
 
 /**
  * @brief IsEventListenerAvailable - Check if any listeners present for this event
- */ 
+ */
 bool AampEventManager::IsEventListenerAvailable(AAMPEventType eventType)
 {
 	bool retVal=false;
@@ -222,7 +222,7 @@ bool AampEventManager::IsEventListenerAvailable(AAMPEventType eventType)
 
 /**
  * @brief SetFakeTuneFlag - Some events are restricted for FakeTune
- */ 
+ */
 void AampEventManager::SetFakeTuneFlag(bool isFakeTuneSetting)
 {
 	std::lock_guard<std::mutex> guard(mMutexVar);
@@ -231,7 +231,7 @@ void AampEventManager::SetFakeTuneFlag(bool isFakeTuneSetting)
 
 /**
  * @brief SetAsyncTuneState - Flag for Async Tune
- */ 
+ */
 void AampEventManager::SetAsyncTuneState(bool isAsyncTuneSetting)
 {
 	std::lock_guard<std::mutex> guard(mMutexVar);
@@ -257,7 +257,7 @@ void AampEventManager::SetPlayerState(AAMPPlayerState state)
 
 /**
  * @brief SendEvent - Generic function to send events
- */ 
+ */
 void AampEventManager::SendEvent(const AAMPEventPtr &eventData, AAMPEventMode eventMode)
 {
 	// If some event wants to override  to send as Sync ,then override flag to be set
@@ -305,7 +305,7 @@ void AampEventManager::SendEvent(const AAMPEventPtr &eventData, AAMPEventMode ev
 // Worker thread for handling Async Events
 /**
  * @brief AsyncEvent - Task function for IdleEvent
- */ 
+ */
 void AampEventManager::AsyncEvent()
 {
 	AAMPEventPtr eventData=NULL;
@@ -327,7 +327,7 @@ void AampEventManager::AsyncEvent()
 
 /**
  * @brief SendEventAsync - Function to send events Async
- */ 
+ */
 void AampEventManager::SendEventAsync(const AAMPEventPtr &eventData)
 {
 	AAMPEventType eventType = eventData->getType();
@@ -350,7 +350,7 @@ void AampEventManager::SendEventAsync(const AAMPEventPtr &eventData)
 
 /**
  * @brief SendEventSync - Function to send events sync
- */ 
+ */
 void AampEventManager::SendEventSync(const AAMPEventPtr &eventData)
 {
 	AAMPEventType eventType = eventData->getType();
@@ -359,14 +359,14 @@ void AampEventManager::SendEventSync(const AAMPEventPtr &eventData)
 	long long startTime = NOW_STEADY_TS_MS;
 #endif
 	// Check if already player in release state , then no need to send any events
-	// Its checked again here ,as async events can come to sync mode after playback is stopped 
+	// Its checked again here ,as async events can come to sync mode after playback is stopped
 	if(mPlayerState == eSTATE_RELEASED)
 	{
 		return;
 	}
-	
+
 	mEventStats[eventType]++;
-	if (eventType != AAMP_EVENT_PROGRESS)
+	//if (eventType != AAMP_EVENT_PROGRESS)
 	{
 		if (eventType != AAMP_EVENT_STATE_CHANGED)
 		{
@@ -441,7 +441,7 @@ void AampEventManager::SetCallbackAsDispatched(guint id)
 
 /**
  * @brief SetCallbackAsPending - Set callbackId as Pending/to be done
- */ 
+ */
 void AampEventManager::SetCallbackAsPending(guint id)
 {
 	std::lock_guard<std::mutex> guard(mMutexVar);
