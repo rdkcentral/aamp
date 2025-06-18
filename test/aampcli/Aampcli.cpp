@@ -24,6 +24,17 @@
 
 #include "Aampcli.h"
 #include "scte35/AampSCTE35.h"
+
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <unistd.h>
+#include <cstring>
+#include <iostream>
+#include <cstdlib>
+
+#define PORT 8080
+#define BUFFER_SIZE 1024
+
 //#include "AampcliShader.h"
 
 Aampcli mAampcli;
@@ -146,56 +157,97 @@ void Aampcli::doAutomation( int startChannel, int stopChannel, int maxTuneTimeS,
 	}
 }
 
-void Aampcli::runCommand( std::string args )
-{
-	std::vector<std::string> cmdVec;
-	CommandHandler lCommandHandler;
-	lCommandHandler.registerAampcliCommands();
-	using_history();
-	if( !args.empty() )
-	{
-		lCommandHandler.dispatchAampcliCommands( args.c_str(), mAampcli.mSingleton);
-	}
-	printf("[AAMPCLI] type 'help' for list of available commands\n");
-	for(;;)
-	{
-		rl_attempted_completion_function = lCommandHandler.commandCompletion;
-		char *buffer = readline("[AAMPCLI] Enter cmd: ");
-		if(buffer == NULL)
-		{
-			break;
-		}
-		char *ptr = buffer;
-		while( ptr )
-		{
-			char *next = strchr(ptr,'\n');
-			char *fin = next;
-			if( next )
-			{
-				next++;
-			}
-			else
-			{
-				fin = ptr+strlen(ptr);
-			}
-			while( *ptr == ' ' ) ptr++; // skip leading whitespace
-			while( fin>ptr && fin[-1]==' ' ) fin--;
-			*fin = 0x00;
-			
-			if( *ptr )
-			{
-				add_history(ptr);
-				bool l_status = lCommandHandler.dispatchAampcliCommands(ptr,mAampcli.mSingleton);
-				if( !l_status )
-				{
-					exit(0);
-				}
-			}
-			ptr = next;
-		}
-		free(buffer);
-	} // for(;;)
-} // Aampcli::runCommand
+void Aampcli::runCommand(std::string args) {
+    std::vector<std::string> cmdVec;
+    CommandHandler lCommandHandler;
+    lCommandHandler.registerAampcliCommands();
+    using_history();
+
+    if (!args.empty()) {
+        lCommandHandler.dispatchAampcliCommands(args.c_str(), mAampcli.mSingleton);
+    }
+
+    printf("[AAMPCLI] type 'help' for list of available commands\n");
+
+    int server_fd;
+    struct sockaddr_in address;
+    int opt = 1;
+    int addrlen = sizeof(address);
+
+    server_fd = socket(AF_INET, SOCK_STREAM, 0);
+    if (server_fd == 0) {
+        perror("socket failed");
+        exit(EXIT_FAILURE);
+    }
+
+    setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT, &opt, sizeof(opt));
+
+    address.sin_family = AF_INET;
+    address.sin_addr.s_addr = INADDR_ANY;
+    address.sin_port = htons(8080);
+
+    if (bind(server_fd, (struct sockaddr *)&address, sizeof(address)) < 0) {
+        perror("bind failed");
+        exit(EXIT_FAILURE);
+    }
+
+    if (listen(server_fd, 3) < 0) {
+        perror("listen");
+        exit(EXIT_FAILURE);
+    }
+
+    std::cout << "[AAMPCLI] Listening on port 8080 for HTTP POST commands...\n";
+
+    while (true) {
+        int new_socket = accept(server_fd, (struct sockaddr *)&address, (socklen_t *)&addrlen);
+        if (new_socket < 0) {
+            perror("accept");
+            continue;
+        }
+
+        char buffer[8192];
+        int bytesRead = read(new_socket, buffer, sizeof(buffer) - 1);
+        if (bytesRead <= 0) {
+            close(new_socket);
+            continue;
+        }
+
+        buffer[bytesRead] = '\0';
+
+        const char *bodyStart = strstr(buffer, "\r\n\r\n");
+        if (!bodyStart) {
+            std::cerr << "[AAMPCLI] Malformed HTTP request\n";
+            close(new_socket);
+            continue;
+        }
+
+        std::string request(buffer);
+        std::string body = request.substr(bodyStart - buffer + 4);
+
+        std::cout << "[AAMPCLI] Received command: " << body << std::endl;
+
+        bool l_status = lCommandHandler.dispatchAampcliCommands(body.c_str(), mAampcli.mSingleton);
+
+        std::string response = 
+			"HTTP/1.1 200 OK\r\n"
+			"Access-Control-Allow-Origin: *\r\n"
+			"Access-Control-Allow-Methods: POST, OPTIONS\r\n"
+			"Access-Control-Allow-Headers: Content-Type\r\n"
+			"Content-Type: text/plain\r\n"
+			"Content-Length: " + std::to_string(body.size()) + "\r\n\r\n" + body;
+
+
+        send(new_socket, response.c_str(), response.size(), 0);
+        close(new_socket);
+
+        if (!l_status) {
+            std::cout << "[AAMPCLI] Exit command received. Stopping server.\n";
+            close(server_fd);
+            exit(0);
+        }
+    }
+}
+
 
 FILE * Aampcli::getConfigFile(const std::string& cfgFile)
 {
