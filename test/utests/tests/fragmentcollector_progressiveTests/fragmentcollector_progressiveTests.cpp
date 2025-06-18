@@ -35,23 +35,27 @@ public:
     {
     }
 
+    ~MockProgressiveFetcher() override
+    {
+        // Ensure the thread is stopped when the mock is destroyed
+        threadDone = true;
+    }
+
+    bool threadDone{false}; /**< Flag to indicate if the thread should exit */
+
 protected:
     /**
      * @brief Overridden FetcherLoop that does nothing and exits on DisableDownloads
      */
     void FetcherLoop() override
     {
-        bool mRunning(true);
-        AAMPLOG_INFO("MockProgressiveFetcher::FetcherLoop started (no-op implementation)");
-        
         // Loop that does nothing but checks for exit condition
-        while( aamp->DownloadsAreEnabled() )
+        while( !threadDone)
         {
             // Sleep 100ms
             std::this_thread::sleep_for(std::chrono::milliseconds(100));
         }
-        
-        AAMPLOG_INFO("MockProgressiveFetcher::FetcherLoop exited");
+
     }
 };
 class fragmentcollector_progressiveTests : public ::testing::Test
@@ -93,8 +97,6 @@ TEST_F(fragmentcollector_progressiveTests, testRepeatedStart)
 
     // Call the Start function again
     mockedFragmentCollector->Start();
-
-    aamp->DisableDownloads();
 }
 
 TEST_F(fragmentcollector_progressiveTests, StopTest) {
