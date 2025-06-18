@@ -1627,6 +1627,8 @@ void AampConfig::ReadAampCfgFromEnv()
 			free(strConfig); // free mem allocated by base64_Decode
 		}
 	}
+
+	DoCustomSetting(AAMP_DEV_CFG_SETTING);
 }
 
 /**
