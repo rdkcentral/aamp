@@ -2065,9 +2065,7 @@ void PrivateInstanceAAMP::ReportProgress(bool sync, bool beginningOfStream)
 			position = start;
 		}
 		DeliverAdEvents(false, position); // use progress reporting as trigger to belatedly deliver ad events
-		//AAMP_EVENT_AD_PLACEMENT_START is async so we need AAMP_EVENT_AD_PLACEMENT_PROGRESS to be async as well
-		//to keep them in order
-		ReportAdProgress(false, position);
+		ReportAdProgress(position);
 
 		if(ISCONFIGSET_PRIV(eAAMPConfig_ReportVideoPTS))
 		{
@@ -2268,7 +2266,7 @@ void PrivateInstanceAAMP::ReportProgress(bool sync, bool beginningOfStream)
  *   @brief Report Ad progress event to listeners
  *          Sending Ad progress percentage to JSPP
  */
-void PrivateInstanceAAMP::ReportAdProgress(bool sync, double positionMs)
+void PrivateInstanceAAMP::ReportAdProgress(double positionMs)
 {
 	// This API reports progress of Ad playback in percentage
 	double pct = -1;
@@ -2317,14 +2315,8 @@ void PrivateInstanceAAMP::ReportAdProgress(bool sync, double positionMs)
 		if ( uintPct != lastUintPct)
 		{
 			AdPlacementEventPtr evt = std::make_shared<AdPlacementEvent>(AAMP_EVENT_AD_PLACEMENT_PROGRESS, mAdProgressId, uintPct, 0, GetSessionId());
-			if (sync)
-			{
-				mEventManager->SendEvent(evt, AAMP_EVENT_SYNC_MODE);
-			}
-			else
-			{
-				mEventManager->SendEvent(evt, AAMP_EVENT_ASYNC_MODE);
-			}
+			//AAMP_EVENT_AD_PLACEMENT_START is async so we need AAMP_EVENT_AD_PLACEMENT_PROGRESS to be async as well to keep them in order
+			mEventManager->SendEvent(evt, AAMP_EVENT_ASYNC_MODE);
 			lastUintPct = uintPct;
 		}
 	}

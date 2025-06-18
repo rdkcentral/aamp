@@ -1621,11 +1621,10 @@ public:
 
 	/**
 	 *   @fn ReportAdProgress
-	 *   @param[in]  sync - Flag to indicate that event should be synchronous
 	 *   @param[in]  positionMs - Position value in milliseconds
 	 *   @return void
 	 */
-	void ReportAdProgress(bool sync = true, double positionMs = -1);
+	void ReportAdProgress(double positionMs = -1);
 
 	/**
 	 *   @fn GetDurationMs

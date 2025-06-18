@@ -366,7 +366,7 @@ void AampEventManager::SendEventSync(const AAMPEventPtr &eventData)
 	}
 
 	mEventStats[eventType]++;
-	//if (eventType != AAMP_EVENT_PROGRESS)
+	if (eventType != AAMP_EVENT_PROGRESS)
 	{
 		if (eventType != AAMP_EVENT_STATE_CHANGED)
 		{
