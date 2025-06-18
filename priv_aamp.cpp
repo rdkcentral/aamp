@@ -2064,7 +2064,7 @@ void PrivateInstanceAAMP::ReportProgress(bool sync, bool beginningOfStream)
 			position = start;
 		}
 		DeliverAdEvents(false, position); // use progress reporting as trigger to belatedly deliver ad events
-		ReportAdProgress(sync, position);
+		ReportAdProgress(position);
 
 		if(ISCONFIGSET_PRIV(eAAMPConfig_ReportVideoPTS))
 		{
@@ -2265,10 +2265,13 @@ void PrivateInstanceAAMP::ReportProgress(bool sync, bool beginningOfStream)
  *   @brief Report Ad progress event to listeners
  *          Sending Ad progress percentage to JSPP
  */
-void PrivateInstanceAAMP::ReportAdProgress(bool sync, double positionMs)
+void PrivateInstanceAAMP::ReportAdProgress(double positionMs)
 {
 	// This API reports progress of Ad playback in percentage
 	double pct = -1;
+	// Sometimes ReportAdProgress() called twice in <1sec. Avoid sending the same pct twice.
+	static uint32_t lastUintPct = 1000;
+
 	if (mDownloadsEnabled && !mAdProgressId.empty())
 	{
 		// Report Ad progress percentage to JSPP
@@ -2307,14 +2310,13 @@ void PrivateInstanceAAMP::ReportAdProgress(bool sync, double positionMs)
 			}
 		}
 
-		AdPlacementEventPtr evt = std::make_shared<AdPlacementEvent>(AAMP_EVENT_AD_PLACEMENT_PROGRESS, mAdProgressId, static_cast<uint32_t>(pct), 0, GetSessionId());
-		if(sync)
+		uint32_t uintPct = static_cast<uint32_t>(pct);
+		if ( uintPct != lastUintPct)
 		{
-			mEventManager->SendEvent(evt,AAMP_EVENT_SYNC_MODE);
-		}
-		else
-		{
-			mEventManager->SendEvent(evt);
+			AdPlacementEventPtr evt = std::make_shared<AdPlacementEvent>(AAMP_EVENT_AD_PLACEMENT_PROGRESS, mAdProgressId, uintPct, 0, GetSessionId());
+			//AAMP_EVENT_AD_PLACEMENT_START is async so we need AAMP_EVENT_AD_PLACEMENT_PROGRESS to be async as well to keep them in order
+			mEventManager->SendEvent(evt, AAMP_EVENT_ASYNC_MODE);
+			lastUintPct = uintPct;
 		}
 	}
 }
@@ -5841,7 +5843,7 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 		}
 
 	}
-	//temporary hack 
+	//temporary hack
 	if (strcasestr(mAppName.c_str(), "peacock"))
 	{
 		// Enable PTS Restamping
