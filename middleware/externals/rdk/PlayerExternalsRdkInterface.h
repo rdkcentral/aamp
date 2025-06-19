@@ -95,10 +95,10 @@ class PlayerExternalsRdkInterface : public PlayerExternalsInterfaceBase
          */
         static bool IsActiveStreamingInterfaceWifi();
 	
-	/**
+        /**
          * @fn GetPlayerExternalsRdkInterfaceInstance
          * @retval PlayerExternalsRdkInterface object
-         */
+         */	
         static PlayerExternalsRdkInterface * GetPlayerExternalsRdkInterfaceInstance();
 
         /**

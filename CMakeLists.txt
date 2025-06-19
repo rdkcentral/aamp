@@ -325,6 +325,7 @@ set(LIBAAMP_SOURCES iso639map.cpp
 					AampTsbReader.cpp
 					scte35/AampSCTE35.cpp
 					AampTrackWorker.cpp
+					test/gstTestHarness/mp4demux.cpp
 )
 
 if (CMAKE_PLATFORM_UBUNTU OR CMAKE_SYSTEM_NAME STREQUAL Darwin )
@@ -332,9 +333,11 @@ if (CMAKE_PLATFORM_UBUNTU OR CMAKE_SYSTEM_NAME STREQUAL Darwin )
   set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DAAMP_SIMULATOR_BUILD=1")
   set(CMAKE_TELEMETRY_2_0_REQUIRED TRUE)
   set(CMAKE_AAMP_SIMULATOR TRUE)
-  # uncomment below to build additional drm support in simulator
-  # set(CMAKE_USE_OPENCDM_ADAPTER TRUE)
-  # set(CMAKE_USE_OPENCDM_ADAPTER_MOCKS TRUE)
+endif()
+
+if(CMAKE_SOC_PLATFORM_RPI)
+    message("CMAKE_SOC_PLATFORM_RPI set")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DRPI=1")
 endif()
 
 execute_process(COMMAND bash "-c" "${CMAKE_SOURCE_DIR}/buildinfo.sh" WORKING_DIRECTORY ${CMAKE_SOURCE_DIR} OUTPUT_STRIP_TRAILING_WHITESPACE OUTPUT_VARIABLE buildinfo)

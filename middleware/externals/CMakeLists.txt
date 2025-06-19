@@ -82,15 +82,18 @@ if(NOT TARGET playerfbinterface)
     add_library(playerfbinterface SHARED ${EXT_SOURCES} ${SECMGR_SOURCES} ${THUNDER_INTERFACE_SRCS})
 endif()
 
-# Set public headers for the library
-set_target_properties(playerfbinterface PROPERTIES PUBLIC_HEADER "PlayerThunderInterface.h;PlayerThunderAccessBase.h;PlayerExternalsInterfaceBase.h;PlayerExternalsInterface.h;PlayerRfc.h;playersecmanager/PlayerSecManagerSession.h;playersecmanager/ThunderAccessPlayer.h;playersecmanager/PlayerSecInterface.h;playersecmanager/PlayerSecManager.h;playersecmanager/PlayerMemoryUtils.h;Module.h")
+# Set initial public headers for the library
+set_target_properties(playerfbinterface PROPERTIES PUBLIC_HEADER 
+  "PlayerThunderInterface.h;PlayerThunderAccessBase.h;PlayerExternalsInterfaceBase.h;PlayerExternalsInterface.h;PlayerRfc.h;playersecmanager/PlayerSecManagerSession.h;playersecmanager/ThunderAccessPlayer.h;playersecmanager/PlayerSecInterface.h;playersecmanager/PlayerSecManager.h;playersecmanager/PlayerMemoryUtils.h;Module.h")
 
 if(CMAKE_IARM_MGR)
-    set_target_properties(playerfbinterface PROPERTIES PUBLIC_HEADER "rdk/PlayerExternalsRdkInterface.h")
+    # Append additional header(s) for IARM_MGR
+    set_property(TARGET playerfbinterface APPEND PROPERTY PUBLIC_HEADER "rdk/PlayerExternalsRdkInterface.h")
 endif()
 
-if (CMAKE_WPEFRAMEWORK_REQUIRED)
-    set_target_properties(playerfbinterface PROPERTIES PUBLIC_HEADER "rdk/PlayerThunderAccess.h")
+if(CMAKE_WPEFRAMEWORK_REQUIRED)
+    # Append additional header(s) for WPEFramework usage
+    set_property(TARGET playerfbinterface APPEND PROPERTY PUBLIC_HEADER "rdk/PlayerThunderAccess.h")
 endif()
 
 set_target_properties(playerfbinterface PROPERTIES COMPILE_FLAGS "${LIB_EXT_DEFINES}")
@@ -99,8 +102,8 @@ string(STRIP "${LIB_EXT_DEPENDS}" LIB_EXT_DEPENDS)
 
 target_link_libraries(playerfbinterface ${LIB_EXT_DEPENDS})
 
-target_link_libraries(playerfbinterface PlayerLogManager)
-target_link_libraries(playerfbinterface BaseConversion)
+target_link_libraries(playerfbinterface playerlogmanager)
+target_link_libraries(playerfbinterface baseconversion)
 
 # Install the library and its headers
 install(TARGETS playerfbinterface

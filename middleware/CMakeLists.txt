@@ -305,7 +305,7 @@ if (CMAKE_SUBTITLE_SUPPORT)
 
 	add_library(subtec_connector SHARED ${LIBSUBTECCONNECTOR_SOURCES})
 	target_link_libraries(subtec_connector ${LIBSUBTECCONNECTOR_DEPENDS})
-	target_link_libraries(subtec_connector PlayerLogManager)
+	target_link_libraries(subtec_connector playerlogmanager)
 	install(TARGETS subtec_connector DESTINATION lib)
 
 	set(LIBMIDDLEWARE_SOURCES ${LIBMIDDLEWARE_SOURCES} closedcaptions/subtec/PlayerSubtecCCManager.cpp)
@@ -343,9 +343,9 @@ install(TARGETS middleware
     LIBRARY DESTINATION lib
     PUBLIC_HEADER DESTINATION lib/include
 )
-target_link_libraries(subtec PlayerLogManager)
+target_link_libraries(subtec playerlogmanager)
 target_link_libraries(middleware ${GSTVIDEO_LIBRARIES} ${LIBMIDDLEWARE_DEPENDS})
 target_link_libraries(middleware subtec)
-target_link_libraries(middleware BaseConversion)
+target_link_libraries(middleware baseconversion)
 target_link_libraries(middleware playerfbinterface)
 set(LIBMIDDLEWARE_SOURCES ${LIBMIDDLEWARE_SOURCES} {LIBMIDDLEWARE_MOCK_SOURCES})

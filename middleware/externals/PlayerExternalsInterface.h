@@ -133,7 +133,6 @@ private:
 
     static std::shared_ptr<PlayerExternalsInterface> s_pPlayerOP;
 
-
 public:
 
     /**
@@ -144,7 +143,7 @@ public:
      * @fn ~PlayerExternalsInterface
      */
     virtual ~PlayerExternalsInterface();
-    /**
+    /**     
      * @brief Copy constructor disabled
      *
      */
@@ -154,7 +153,6 @@ public:
      *
      */
     PlayerExternalsInterface& operator=(const PlayerExternalsInterface&) = delete;
-
     /**
      * @brief Routine to check ActiveStreamingInterface
      *

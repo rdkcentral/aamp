@@ -1627,8 +1627,8 @@ void MediaTrack::NotifyCachedSubtitleFragmentAvailable()
  */
 void MediaTrack::RunInjectLoop()
 {
-	AAMPLOG_WARN("fragment injector started. track %s", name);
 	UsingPlayerId playerId( aamp->mPlayerId );
+	AAMPLOG_WARN("fragment injector started. track %s", name);
 
 	bool notifyFirstFragment = true;
 	bool keepInjecting = true;
@@ -3942,9 +3942,9 @@ void StreamAbstractionAAMP::SetVideoPlaybackRate(float rate)
 /**
  * @brief Initialize ISOBMFF Media Processor
  *
- * @param[in] passThroughMode - true if processor should skip parsing PTS and flush
+ * @return void
  */
-void StreamAbstractionAAMP::InitializeMediaProcessor(bool passThroughMode)
+void StreamAbstractionAAMP::InitializeMediaProcessor()
 {
 	std::shared_ptr<IsoBmffProcessor> peerAudioProcessor = nullptr;
 	std::shared_ptr<IsoBmffProcessor> peerSubtitleProcessor = nullptr;
@@ -3962,7 +3962,7 @@ void StreamAbstractionAAMP::InitializeMediaProcessor(bool passThroughMode)
 			if(eMEDIATYPE_SUBTITLE != i)
 			{
 				std::shared_ptr<IsoBmffProcessor> processor = std::make_shared<IsoBmffProcessor>(aamp, mID3Handler, (IsoBmffProcessorType) i,
-																passThroughMode, peerAudioProcessor.get(), peerSubtitleProcessor.get());
+																peerAudioProcessor.get(), peerSubtitleProcessor.get());
 				track->SourceFormat(FORMAT_ISO_BMFF);
 				track->playContext = std::static_pointer_cast<MediaProcessor>(processor);
 				track->playContext->setRate(aamp->rate, PlayMode_normal);
@@ -3979,7 +3979,7 @@ void StreamAbstractionAAMP::InitializeMediaProcessor(bool passThroughMode)
 			{
 				if(FORMAT_SUBTITLE_MP4 == subtitleFormat)
 				{
-					peerSubtitleProcessor = std::make_shared<IsoBmffProcessor>(aamp, nullptr, (IsoBmffProcessorType) i, passThroughMode, nullptr, nullptr);
+					peerSubtitleProcessor = std::make_shared<IsoBmffProcessor>(aamp, nullptr, (IsoBmffProcessorType) i);
 					track->playContext = std::static_pointer_cast<MediaProcessor>(peerSubtitleProcessor);
 					track->playContext->setRate(aamp->rate, PlayMode_normal);
 				}
@@ -4451,7 +4451,7 @@ double MediaTrack::GetTotalInjectedDuration()
 {
 	std::lock_guard<std::mutex> lock(mTrackParamsMutex);
 	double ret = totalInjectedDuration;
-	if (IsInjectionFromCachedFragmentChunks())
+	if (aamp->GetLLDashChunkMode())
 	{
 		ret = totalInjectedChunksDuration;
 	}

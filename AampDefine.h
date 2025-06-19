@@ -30,7 +30,7 @@
 #define AAMP_CFG_PATH "/opt/aamp.cfg"
 #define AAMP_JSON_PATH "/opt/aampcfg.json"
 
-#define AAMP_VERSION "7.05"
+#define AAMP_VERSION "7.06"
 #define AAMP_TUNETIME_VERSION 5
 
 //Stringification of Macro : use two levels of macros
@@ -141,7 +141,7 @@
 #define MIN_MONITOR_AV_JUMP_THRESHOLD_MS 1 	/**< minimum  jump threshold to trigger MonitorAV reporting */
 #define MAX_MONITOR_AV_JUMP_THRESHOLD_MS 10000 	/**< maximum jump threshold to trigger MonitorAV reporting */
 #define DEFAULT_MONITOR_AV_JUMP_THRESHOLD_MS 100 	/**< default jump threshold to MonitorAV reporting */
-#define DEFAULT_MONITORAVREPORTING_INTERVAL 1000 /**< time interval in ms for MonitorAV reporting */
+#define DEFAULT_MONITOR_AV_REPORTING_INTERVAL 1000 /**< time interval in ms for MonitorAV reporting */
 
 // We can enable the following once we have a thread monitoring video PTS progress and triggering subtec clock fast update when we detect video freeze. Disabled it for now for brute force fast refresh..
 //#define SUBTEC_VARIABLE_CLOCK_UPDATE_RATE   /* enable this to make the clock update rate dynamic*/

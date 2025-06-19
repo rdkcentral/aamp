@@ -4263,7 +4263,7 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 								break;
 							}
 						}
-						AAMPLOG_WARN("Download failed due to curl timeout or isDownloadStalled:%d Retrying:%d Attempt:%d", isDownloadStalled, loopAgain && (downloadAttempt < maxDownloadAttempt), downloadAttempt);
+						AAMPLOG_WARN("Download failed due to curl timeout or isDownloadStalled:%d Retrying:%d Attempt:%d abortReason:%d", isDownloadStalled, loopAgain && (downloadAttempt < maxDownloadAttempt), downloadAttempt, abortReason);
 					}
 
 					/*
@@ -4276,9 +4276,9 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 					{
 						http_code = 404; // translate file not found to URL not found
 					}
-					else if(abortReason == eCURL_ABORT_REASON_LOW_BANDWIDTH_TIMEDOUT)
+					else if(abortReason > eCURL_ABORT_REASON_NONE)
 					{
-						http_code = CURLE_OPERATION_TIMEDOUT; // Timed out wrt configured low bandwidth timeout.
+						http_code = CURLE_OPERATION_TIMEDOUT; // Timed out wrt configured timeouts(start/lowBW/stall)
 					}
 					else
 					{
@@ -4679,7 +4679,7 @@ void PrivateInstanceAAMP::GetOnVideoEndSessionStatData(std::string &data)
 /**
  * @brief Terminate the stream
  */
-void PrivateInstanceAAMP::TeardownStream(bool newTune)
+void PrivateInstanceAAMP::TeardownStream(bool newTune, bool disableDownloads)
 {
 	std::unique_lock<std::recursive_mutex> lock(mLock);
 	//Have to perform this for trick and stop operations but avoid ad insertion related ones
@@ -4736,7 +4736,9 @@ void PrivateInstanceAAMP::TeardownStream(bool newTune)
 	lock.unlock();
 	if (mpStreamAbstractionAAMP)
 	{
-		mpStreamAbstractionAAMP->Stop(false);
+		// Using StreamLock to make sure this is not interfering with GetFile() from PreCachePlaylistDownloadTask
+		AcquireStreamLock();		
+		mpStreamAbstractionAAMP->Stop(disableDownloads);
 
 		if(mContentType == ContentType_HDMIIN)
 		{
@@ -4755,6 +4757,7 @@ void PrivateInstanceAAMP::TeardownStream(bool newTune)
 				SAFE_DELETE(mpStreamAbstractionAAMP);
 			}
 		}
+		ReleaseStreamLock();
 	}
 	m_lastSubClockSyncTime = std::chrono::system_clock::time_point();
 
@@ -5457,26 +5460,73 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 			mFirstVideoFrameDisplayedEnabled = true;
 			mPauseOnFirstVideoFrameDisp = true;
 		}
-		/* executing the flush earlier in order to avoid the tune delay while waiting for the first video and audio fragment to download
-		 * and retrieving the pts value, as in the segmenttimeline streams we get the pts value from manifest itself
-		 */
-		if (mpStreamAbstractionAAMP->DoEarlyStreamSinkFlush(newTune, rate))
+
+		if (mMediaFormat == eMEDIAFORMAT_HLS)
+		{
+			//Live adjust or syncTrack occurred, sent an updated flush event
+			if (!newTune)
+			{
+				StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
+				if (sink)
+				{
+					sink->Flush(mpStreamAbstractionAAMP->GetFirstPTS(), rate);
+				}
+			}
+		}
+		else if (mMediaFormat == eMEDIAFORMAT_DASH)
+		{
+			/*
+			   commenting the Flush call with updatedSeekPosition as a work around for
+			   Trick play freeze issues observed for partner cDVR content
+			   @TODO Need to investigate and identify proper way to send Flush and segment
+			   events to avoid the freeze
+			if (!(newTune || (eTUNETYPE_RETUNE == tuneType)) && !IsFogTSBSupported())
+			{
+				StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
+				if (sink)
+				{
+					sink->Flush(updatedSeekPosition, rate);
+				}
+			}
+			else
+			{
+				StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
+				if (sink)
+				{
+					sink->Flush(0, rate);
+				}
+			}
+				*/
+			StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
+			if (sink && (mAampLLDashServiceData.lowLatencyMode || !ISCONFIGSET_PRIV(eAAMPConfig_EnableMediaProcessor)))
+			{
+				/* Do flush to PTS position when:
+				*	Not PTS restamp
+				*	OR normal play
+				* This means we skip this flush when
+				*	trickplay and PTS restamp
+				*	and we are using the flush(0) that occurs else where
+				*/
+				if (!ISCONFIGSET_PRIV(eAAMPConfig_EnablePTSReStamp) || rate == AAMP_NORMAL_PLAY_RATE )
+				{
+					sink->Flush(mpStreamAbstractionAAMP->GetFirstPTS(), rate);
+				}
+			}
+		}
+		else if (mMediaFormat == eMEDIAFORMAT_PROGRESSIVE)
 		{
 			StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
 			if (sink)
 			{
-				double flushPosition = (mMediaFormat == eMEDIAFORMAT_PROGRESSIVE) ? updatedSeekPosition : mpStreamAbstractionAAMP->GetFirstPTS();
-				sink->Flush(flushPosition, rate);
+				sink->Flush(updatedSeekPosition, rate);
 			}
-		}
-		// Additional logic for progressive content
-		if (mMediaFormat == eMEDIAFORMAT_PROGRESSIVE)
-		{
+			// ff trick mode, mp4 content is single file and muted audio to avoid glitch
 			if (rate > AAMP_NORMAL_PLAY_RATE)
 			{
-				volume = 0; // Mute audio to avoid glitches
+				volume = 0;
 			}
-			seek_pos_seconds = 0; // Reset seek position
+			// reset seek_pos after updating playback start, since mp4 content provide absolute position value
+			seek_pos_seconds = 0;
 		}
 
 		// Increase Buffer value dynamically according to Max Profile Bandwidth to accommodate HiFi Content Buffers
@@ -6567,6 +6617,8 @@ bool PrivateInstanceAAMP::IsPlayEnabled()
  */
 void PrivateInstanceAAMP::detach()
 {
+	// Protect against StreamAbstraction being modified from a different thread
+	AcquireStreamLock();
 	if(mpStreamAbstractionAAMP && mbPlayEnabled) //Player is running
 	{
 		pipeline_paused = true;
@@ -6603,6 +6655,7 @@ void PrivateInstanceAAMP::detach()
 	{
 		AampStreamSinkManager::GetInstance().DeactivatePlayer(this, false);
 	}
+	ReleaseStreamLock();
 }
 
 /**
@@ -7464,47 +7517,29 @@ void PrivateInstanceAAMP::Stop( bool sendStateChangeEvent )
 	// so downloads are disabled among other things
 	SetLocalAAMPTsb(false);
 	SetLocalAAMPTsbInjection(false);
-	// Using StreamLock to make sure this is not interfering with GetFile() from PreCachePlaylistDownloadTask
-	// and protect against the StreamAbstraction object being accessed by a different thread
-	AcquireStreamLock();
 	// Stopping the playback, release all DRM context
 	if (mpStreamAbstractionAAMP)
 	{
+		AcquireStreamLock();
 		if (mDRMLicenseManager)
 		{
 			ReleaseDynamicDRMToUpdateWait();
 			mDRMLicenseManager->setLicenseRequestAbort(true);
 		}
-		mpStreamAbstractionAAMP->Stop(true);
 		if (HasSidecarData())
 		{ // has sidecar data
 			mpStreamAbstractionAAMP->ResetSubtitle();
 		}
-		//Deleting mpStreamAbstractionAAMP here will prevent the extra stop call in TeardownStream()
-		//and will avoid enableDownload() call being made unnecessarily
-		if(mContentType == ContentType_HDMIIN)
-		{
-			StreamAbstractionAAMP_HDMIIN::ResetInstance();
-			mpStreamAbstractionAAMP = NULL;
-		}
-		else if(mContentType == ContentType_COMPOSITEIN)
-		{
-			StreamAbstractionAAMP_COMPOSITEIN::ResetInstance();
-			mpStreamAbstractionAAMP = NULL;
-		}
-		else
-		{
-			SAFE_DELETE(mpStreamAbstractionAAMP);
-		}
+		ReleaseStreamLock();
 	}
-	ReleaseStreamLock();
+	TeardownStream(true,true); //disable download as well
+
 	// stop the mpd update immediately after Stream abstraction delete
 	if(mMPDDownloaderInstance != nullptr)
 	{
 		mMPDDownloaderInstance->Release();
 	}
-	TeardownStream(true);
-
+	
 	if(mTSBSessionManager)
 	{
 		// Clear all the local TSB data
@@ -13569,9 +13604,10 @@ void PrivateInstanceAAMP::SetLLDashChunkMode(bool enable)
 
 		if(stLLServiceData != NULL)
 		{
-			SETCONFIGVALUE_PRIV(AAMP_TUNE_SETTING,eAAMPConfig_CurlDownloadStartTimeout,stLLServiceData->fragmentDuration);
-			SETCONFIGVALUE_PRIV(AAMP_TUNE_SETTING,eAAMPConfig_CurlStallTimeout,stLLServiceData->fragmentDuration);
-			SETCONFIGVALUE_PRIV(AAMP_TUNE_SETTING,eAAMPConfig_CurlDownloadLowBWTimeout,stLLServiceData->fragmentDuration);
+			int timeout = ceil(stLLServiceData->fragmentDuration); // workaround: round up 1.92s(float) to 2(int)
+			SETCONFIGVALUE_PRIV(AAMP_TUNE_SETTING,eAAMPConfig_CurlDownloadStartTimeout,timeout);
+			SETCONFIGVALUE_PRIV(AAMP_TUNE_SETTING,eAAMPConfig_CurlStallTimeout,timeout);
+			SETCONFIGVALUE_PRIV(AAMP_TUNE_SETTING,eAAMPConfig_CurlDownloadLowBWTimeout,timeout);
 		}
 		else
 		{
@@ -13706,7 +13742,7 @@ double PrivateInstanceAAMP::GetStreamPositionMs()
 }
 
 /**
- * @brief Send MonitorAVEvent
+ * @brief Send MonitorAvEvent
  * @param[in] status - Current MonitorAV status
  * @param[in] videoPositionMS - video position in milliseconds
  * @param[in] audioPositionMS - audio position in milliseconds
@@ -13715,7 +13751,7 @@ double PrivateInstanceAAMP::GetStreamPositionMs()
  * It is used to monitor the audio and video status during playback.
  * It is called when the playback is enabled (mbPlayEnabled is true).
  */
-void PrivateInstanceAAMP::SendMonitorAVEvent(const std::string &status, int64_t videoPositionMS, int64_t audioPositionMS, uint64_t timeInStateMS)
+void PrivateInstanceAAMP::SendMonitorAvEvent(const std::string &status, int64_t videoPositionMS, int64_t audioPositionMS, uint64_t timeInStateMS)
 {
 	if(mbPlayEnabled)
 	{

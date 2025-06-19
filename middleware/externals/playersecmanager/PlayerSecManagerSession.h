@@ -36,7 +36,7 @@
 class PlayerSecManager;
 
 /**
- * @brief Represents an player sec manager session,
+ * @brief Represents an player sec manager session, 
  * Sessions are automatically closed there are no PlayerSecManagerSession objects that reference it*/
 class PlayerSecManagerSession
 {
@@ -76,7 +76,7 @@ private:
 	mutable std::mutex sessionIdMutex;
 
 	/**
-	* @brief constructor for valid objects
+ 	* @brief constructor for valid objects
 	* this will cause PlayerSecManager::ReleaseSession() to be called on sessionID
 	* when the last PlayerSecManagerSession, referencing is destroyed
 	* this is only intended to be used in PlayerSecManager::acquireLicence()

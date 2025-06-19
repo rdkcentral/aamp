@@ -138,11 +138,11 @@ private:
 	std::mutex cachedKeyMutex;
 	std::mutex mDrmSessionLock;
 	bool mEnableAccessAttributes;
-	int mMaxDrmSessions;
+	int mMaxDRMSessions;
 	std::atomic<bool> mIsVideoOnMute;
 	std::atomic<int> mCurrentSpeed;
 	std::atomic<bool> mFirstFrameSeen;
-
+	std::function<void(uint32_t, uint32_t, const std::string&)> mPlayerSendWatermarkSessionUpdateEventCB;
 	/**     
 	 * @brief Copy constructor disabled
 	 *
@@ -188,7 +188,7 @@ public:
 	/**
 	 *  @fn DrmSessionManager
 	 */
-	DrmSessionManager(int maxDrmSessions, void *player);
+	DrmSessionManager(int maxDrmSessions, void *player, std::function<void(uint32_t, uint32_t, const std::string&)> watermarkSessionUpdateCallback);
 
 	void initializeDrmSessions();
 

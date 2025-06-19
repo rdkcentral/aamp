@@ -37,7 +37,6 @@ set(TEST_SOURCES Base64Tests.cpp
 
 set(PLAYER_SOURCES ${PLAYER_ROOT}/baseConversion/_base64.cpp)
 
-
 add_executable(${EXEC_NAME}
                ${TEST_SOURCES}
                ${PLAYER_SOURCES} )

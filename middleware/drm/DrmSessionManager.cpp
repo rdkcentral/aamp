@@ -45,25 +45,28 @@ KeyID::KeyID() : creationTime(0), isFailedKeyId(false), isPrimaryKeyId(false), d
 /**
  *  @brief DrmSessionManager constructor.
  */
-DrmSessionManager::DrmSessionManager(int maxDrmSessions, void *player) : drmSessionContexts(NULL),
+DrmSessionManager::DrmSessionManager(int maxDrmSessions, void *player, std::function<void(uint32_t, uint32_t, const std::string&)> watermarkSessionUpdateCallback) : drmSessionContexts(NULL),
 		cachedKeyIDs(NULL), accessToken(NULL),
 		accessTokenLen(0), sessionMgrState(SessionMgrState::eSESSIONMGR_ACTIVE), accessTokenMutex(),
 		cachedKeyMutex()
 		,mEnableAccessAttributes(true)
 		,mDrmSessionLock()
-		,mMaxDrmSessions(maxDrmSessions)
+		,mMaxDRMSessions(maxDrmSessions)
 		,playerSecInstance(nullptr)
 		,mPlayerSecManagerSession()
 		,mIsVideoOnMute(false)
-		,mCurrentSpeed(0),
-		mFirstFrameSeen(false)
+ 		,mCurrentSpeed(0)
+		,mFirstFrameSeen(false)
+		,mPlayerSendWatermarkSessionUpdateEventCB(watermarkSessionUpdateCallback)
 {
-	drmSessionContexts	= new DrmSessionContext[mMaxDrmSessions];
-	cachedKeyIDs		= new KeyID[mMaxDrmSessions];
+	drmSessionContexts	= new DrmSessionContext[mMaxDRMSessions];
+	cachedKeyIDs		= new KeyID[mMaxDRMSessions];
 	m_drmConfigParam = new configs();
 	playerSecInstance = new PlayerSecInterface();
 
-	MW_LOG_INFO("DrmSessionManager MaxSession:%d",mMaxDrmSessions);
+	registerCallback();
+
+	MW_LOG_INFO("DrmSessionManager MaxSession:%d",mMaxDRMSessions);
 }
 
 /**
@@ -75,17 +78,17 @@ DrmSessionManager::~DrmSessionManager()
 	clearSessionData();
 	MW_SAFE_DELETE_ARRAY(drmSessionContexts);
 	MW_SAFE_DELETE_ARRAY(cachedKeyIDs);
-	SAFE_DELETE(playerSecInstance);
+	MW_SAFE_DELETE(playerSecInstance);
 	PlayerSecManager::setWatermarkSessionEvent_CB(nullptr);
 }
 void DrmSessionManager::UpdateDRMConfig(
-		bool useSecManager,
+                bool useSecManager,
 		bool enablePROutputProtection,
 		bool propagateURIParam,
 		bool isFakeTune,
 		bool wideVineKIDWorkaround)
 {
-	m_drmConfigParam->mUseSecManager = useSecManager;
+        m_drmConfigParam->mUseSecManager = useSecManager;
 	m_drmConfigParam->mEnablePROutputProtection = enablePROutputProtection;
 	m_drmConfigParam->mPropagateURIParam = propagateURIParam;
 	m_drmConfigParam->mIsFakeTune = isFakeTune;
@@ -98,7 +101,7 @@ void DrmSessionManager::UpdateDRMConfig(
 void DrmSessionManager::clearSessionData()
 {
 	MW_LOG_WARN(" DrmSessionManager:: Clearing session data");
-	for(int i = 0 ; i < mMaxDrmSessions; i++)
+	for(int i = 0 ; i < mMaxDRMSessions; i++)
 	{
 		if (drmSessionContexts != NULL && drmSessionContexts[i].drmSession != NULL)
 		{
@@ -138,7 +141,7 @@ SessionMgrState DrmSessionManager::getSessionMgrState()
 void DrmSessionManager::clearFailedKeyIds()
 {
 	std::lock_guard<std::mutex> guard(cachedKeyMutex);
-	for(int i = 0 ; i < mMaxDrmSessions; i++)
+	for(int i = 0 ; i < mMaxDRMSessions; i++)
 	{
 		if(cachedKeyIDs[i].isFailedKeyId)
 		{
@@ -171,7 +174,7 @@ void DrmSessionManager::clearAccessToken()
  */
 void DrmSessionManager::clearDrmSession(bool forceClearSession)
 {
-	for(int i = 0 ; i < mMaxDrmSessions; i++)
+	for(int i = 0 ; i < mMaxDRMSessions; i++)
 	{
 		// Clear the session data if license key acquisition failed or if forceClearSession is true in the case of LicenseCaching is false.
 		if((cachedKeyIDs[i].isFailedKeyId || forceClearSession) && drmSessionContexts != NULL)
@@ -190,7 +193,7 @@ void DrmSessionManager::clearDrmSession(bool forceClearSession)
 void DrmSessionManager::setVideoWindowSize(int width, int height)
 {
 	auto localSession = mPlayerSecManagerSession; //Remove potential isSessionValid(), getSessionID() race by using a local copy
-	MW_LOG_WARN("In DrmSessionManager:: setting video window size w:%d x h:%d mMaxDrmSessions=%d sessionID=[%" PRId64 "]",width,height,mMaxDrmSessions,localSession.getSessionID());
+	MW_LOG_WARN("In DrmSessionManager:: setting video window size w:%d x h:%d mMaxDRMSessions=%d sessionID=[%" PRId64 "]",width,height,mMaxDRMSessions,localSession.getSessionID());
 	if(localSession.isSessionValid())
 	{
 		MW_LOG_WARN("In DrmSessionManager:: valid session ID. Calling setVideoWindowSize().");
@@ -316,7 +319,7 @@ bool DrmSessionManager::IsKeyIdProcessed(std::vector<uint8_t> keyIdArray, bool &
 {
 	bool ret = false;
 	std::lock_guard<std::mutex> guard(cachedKeyMutex);
-	for (int sessionSlot = 0; sessionSlot < mMaxDrmSessions; sessionSlot++)
+	for (int sessionSlot = 0; sessionSlot < mMaxDRMSessions; sessionSlot++)
 	{
 		auto keyIDSlot = cachedKeyIDs[sessionSlot].data;
 		if (!keyIDSlot.empty() && keyIDSlot.end() != std::find(keyIDSlot.begin(), keyIDSlot.end(), keyIdArray))
@@ -339,7 +342,7 @@ int DrmSessionManager::getSlotIdForSession(DrmSession* session)
 
 	if (drmSessionContexts != NULL)
 	{
-		for (int i = 0; i < mMaxDrmSessions; i++)
+		for (int i = 0; i < mMaxDRMSessions; i++)
 		{
 			if (drmSessionContexts[i].drmSession == session)
 			{
@@ -360,7 +363,7 @@ int DrmSessionManager::getSlotIdForSession(DrmSession* session)
 
 /**
  *  @brief      Creates and/or returns the DRM session corresponding to keyId (Present in initDataPtr)
- *              DrmSession manager has two static DrmSession objects.
+ *              DRMSession manager has two static DrmSession objects.
  *              This method will return the existing DRM session pointer if any one of these static
  *              DRM session objects are created against requested keyId. Binds the oldest DRM Session
  *              with new keyId if no matching keyId is found in existing sessions.
@@ -445,30 +448,33 @@ DrmSession* DrmSessionManager::createDrmSession(int &err, std::shared_ptr<DrmHel
 	 * KEY_READY code indicates that a previously created session is being reused.
 	 */
 	int isContentProcess = -1;
-	if((code == KEY_READY) || ((code != KEY_INIT) || (selectedSlot == INVALID_SESSION_SLOT)))
-	{
-             isContentProcess =0;
-	}
-	std::vector<uint8_t> keyId;
-	drmHelper->getKey(keyId);
-	/* callback to initiate content protection data update */
-	mCustomData = ContentUpdateCb(drmHelper, streamType , keyId, isContentProcess);
 	if (code == KEY_READY)
 	{
+		isContentProcess =0;
 		return drmSessionContexts[selectedSlot].drmSession;
 	}
 
 	if ((code != KEY_INIT) || (selectedSlot == INVALID_SESSION_SLOT))
 	{
+                isContentProcess =0;
 		MW_LOG_WARN(" Unable to get DrmSession : Key State %d ", code);
 		return nullptr;
 	}
+
+	std::vector<uint8_t> keyId;
+	drmHelper->getKey(keyId);
+	/* callback to initiateContentProtection DataUpdate */
+	mCustomData = ContentUpdateCb(drmHelper, streamType , keyId, isContentProcess);
+	
 	code = initializeDrmSession(drmHelper, selectedSlot,  err);
 	if (code != KEY_INIT)
 	{
 		MW_LOG_WARN(" Unable to initialize DrmSession : Key State %d ", code);
 		std::lock_guard<std::mutex> guard(cachedKeyMutex);
- 		cachedKeyIDs[selectedSlot].isFailedKeyId = true;
+		if (cachedKeyIDs)
+		{
+			cachedKeyIDs[selectedSlot].isFailedKeyId = true;
+		}
 		return nullptr;
 	}
 
@@ -476,7 +482,10 @@ DrmSession* DrmSessionManager::createDrmSession(int &err, std::shared_ptr<DrmHel
 	{
 		MW_LOG_MIL( "Exiting fake tune after DRM initialization.");
 		std::lock_guard<std::mutex> guard(cachedKeyMutex);
-		cachedKeyIDs[selectedSlot].isFailedKeyId = true;
+		if (cachedKeyIDs)
+		{
+			cachedKeyIDs[selectedSlot].isFailedKeyId = true;
+		}
 		return nullptr;
 	}
 	code =this->AcquireLicenseCb(drmHelper, selectedSlot, cdmError,  (GstMediaType)streamType, metaDataPtr, false);
@@ -484,7 +493,10 @@ DrmSession* DrmSessionManager::createDrmSession(int &err, std::shared_ptr<DrmHel
 	{
 		MW_LOG_WARN(" Unable to get Ready Status DrmSession : Key State %d ", code);
 		std::lock_guard<std::mutex> guard(cachedKeyMutex);
-		cachedKeyIDs[selectedSlot].isFailedKeyId = true;
+		if (cachedKeyIDs)
+		{
+			cachedKeyIDs[selectedSlot].isFailedKeyId = true;
+		}
 		return nullptr;
 	}
 
@@ -539,7 +551,7 @@ KeyState DrmSessionManager::getDrmSession(int &err, std::shared_ptr<DrmHelper> d
 	{
 		std::lock_guard<std::mutex> guard(cachedKeyMutex);
 
-		for (; sessionSlot < mMaxDrmSessions; sessionSlot++)
+		for (; sessionSlot < mMaxDRMSessions; sessionSlot++)
 		{
 			auto keyIDSlot = cachedKeyIDs[sessionSlot].data;
 			if (!keyIDSlot.empty() && keyIDSlot.end() != std::find(keyIDSlot.begin(), keyIDSlot.end(), keyIdArray))
@@ -558,7 +570,7 @@ KeyState DrmSessionManager::getDrmSession(int &err, std::shared_ptr<DrmHelper> d
 			 * Avoid selecting that slot
 			 * */
 			/*select the first slot that is not primary*/
-			for (int index = 0; index < mMaxDrmSessions; index++)
+			for (int index = 0; index < mMaxDRMSessions; index++)
 			{
 				if (!cachedKeyIDs[index].isPrimaryKeyId)
 				{
@@ -575,7 +587,7 @@ KeyState DrmSessionManager::getDrmSession(int &err, std::shared_ptr<DrmHelper> d
 			}
 
 			/*Check if there's an older slot */
-			for (int index= sessionSlot + 1; index< mMaxDrmSessions; index++)
+			for (int index= sessionSlot + 1; index< mMaxDRMSessions; index++)
 			{
 				if (cachedKeyIDs[index].creationTime < cachedKeyIDs[sessionSlot].creationTime)
 				{
@@ -633,14 +645,12 @@ KeyState DrmSessionManager::getDrmSession(int &err, std::shared_ptr<DrmHelper> d
 			if (existingState == KEY_READY)
 			{
 				MW_LOG_INFO("Found drm session READY with same keyID %s - Reusing drm session", keyIdDebugStr.c_str());
-				// Cached session is re-used, set its session ID to active.
-				// State management will be done from getLicenseSec function in case of KEY_INIT
 				auto slotSession = drmSessionContexts[sessionSlot].drmSession->getSecManagerSession();
 				if (slotSession.isSessionValid() && (!mPlayerSecManagerSession.isSessionValid()) )
 				{
-					// Set the drmSession's ID as mPlayerSecManagerSession so that this code will not be repeated for multiple calls for createDrmSession
+					// Set the drmSession's ID as mPlayerSecManagerSession so that this code will not be repeated for multiple calls for createDrmSession					
 					mPlayerSecManagerSession = slotSession;
-					bool videoMuteState = mIsVideoOnMute;
+ 					bool videoMuteState = mIsVideoOnMute;
 					MW_LOG_WARN("Activating re-used DRM, sessionId[%" PRId64 "], with video mute = %d", slotSession.getSessionID(), videoMuteState);
 					PlayerSecManager::GetInstance()->UpdateSessionState(slotSession.getSessionID(), true);
 				}
@@ -765,7 +775,7 @@ void DrmSessionManager::notifyCleanup()
  */
 void DrmSessionManager::UpdateMaxDRMSessions(int maxSessions)
 {
-	if (mMaxDrmSessions != maxSessions)
+	if (mMaxDRMSessions != maxSessions)
 	{
 		// Clean up the current sessions
 		clearSessionData();
@@ -773,9 +783,37 @@ void DrmSessionManager::UpdateMaxDRMSessions(int maxSessions)
 		MW_SAFE_DELETE_ARRAY(cachedKeyIDs);
 
 		//Update to new session count
-		mMaxDrmSessions = maxSessions;
-		drmSessionContexts      = new DrmSessionContext[mMaxDrmSessions];
-		cachedKeyIDs            = new KeyID[mMaxDrmSessions];
-		MW_LOG_INFO("Updated DrmSessionManager MaxSession to:%d", mMaxDrmSessions);
+		mMaxDRMSessions = maxSessions;
+		drmSessionContexts      = new DrmSessionContext[mMaxDRMSessions];
+		cachedKeyIDs            = new KeyID[mMaxDRMSessions];
+		MW_LOG_INFO("Updated DrmSessionManager MaxSession to:%d", mMaxDRMSessions);
+	}
+}
+
+/**
+ * @brief To register the callback for watermark session update
+ */
+void DrmSessionManager::registerCallback() {
+	auto instance = this;
+	static std::function<void(uint32_t, uint32_t, const std::string&)> watermarkCallBack =
+	[instance](uint32_t sessionHandle, uint32_t status, const std::string& system) {
+		instance->watermarkSessionHandlerWrapper(sessionHandle, status, system);
+	};
+	PlayerSecManager::setWatermarkSessionEvent_CB(watermarkCallBack);
+	MW_LOG_INFO("WatermarkSessionEvent Callback registered");
+}
+
+/**
+ * @brief To wrap the callback for watermark session update
+ * @param[in] sessionHndle session handle
+ * @param[in] status status of the session
+ * @param[in] systemData system data
+ * @retval void
+ */
+void DrmSessionManager::watermarkSessionHandlerWrapper(uint32_t sessionHndle, uint32_t status, const std::string &systemData)
+{
+	if(NULL != mPlayerSendWatermarkSessionUpdateEventCB)
+	{
+		mPlayerSendWatermarkSessionUpdateEventCB( sessionHndle, status, systemData);
 	}
 }

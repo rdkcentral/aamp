@@ -34,6 +34,7 @@ include_directories(${AAMP_ROOT}/middleware/closedcaptions)
 include_directories(${AAMP_ROOT}/middleware/externals)
 include_directories(${AAMP_ROOT}/middleware/baseConversion)
 include_directories(${AAMP_ROOT}/middleware/vendor)
+
 include_directories(${GTEST_INCLUDE_DIRS})
 include_directories(${GMOCK_INCLUDE_DIRS})
 include_directories(${GLIB_INCLUDE_DIRS})

@@ -114,7 +114,9 @@ PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink
 
 	// sd_journal logging doesn't work with AAMP/Rialto running in Container, so route to Ethan Logger instead
 	AampLogManager::enableEthanLogRedirection = mConfig.IsConfigSet(eAAMPConfig_useRialtoSink);
+
 	PlayerLogManager::SetLoggerInfo(AampLogManager::disableLogRedirection, AampLogManager::enableEthanLogRedirection, AampLogManager::aampLoglevel, AampLogManager::locked);
+	
 	sp_aamp = std::make_shared<PrivateInstanceAAMP>(&mConfig);
 	aamp = sp_aamp.get();
 	UsingPlayerId playerId(aamp->mPlayerId);

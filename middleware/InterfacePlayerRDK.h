@@ -25,6 +25,7 @@
 #include <string.h>
 #include <vector>
 #include <mutex>
+#include "PlayerLogManager.h"
 #include "PlayerScheduler.h"
 #include <atomic>
 #include <set>

@@ -22,7 +22,7 @@
 #include "MockAampDRMSessionManager.h"
 MockDRMSessionManager *g_mockDRMSessionManager = nullptr;
 
-DrmSessionManager::DrmSessionManager(int, void*)
+DrmSessionManager::DrmSessionManager(int maxDrmSessions, void *player, std::function<void(uint32_t, uint32_t, const std::string&)> watermarkSessionUpdateCallback) 
 {
 }
 
@@ -31,7 +31,7 @@ DrmSessionManager::~DrmSessionManager()
 }
 
 
-void DrmSessionManager::setPlaybackSpeedState(bool , double , bool  , double ,int , double , bool )
+void DrmSessionManager::setPlaybackSpeedState(bool live, double currentLatency, bool livepoint , double liveOffsetMs, int speed, double positionMs, bool firstFrameSeen)
 {
 }
 
@@ -39,7 +39,7 @@ void DrmSessionManager::hideWatermarkOnDetach()
 {
 }
 
-void DrmSessionManager::setVideoMute(bool , double , bool , double ,bool , double )
+void DrmSessionManager::setVideoMute(bool live, double currentLatency, bool livepoint , double liveOffsetMs,bool isVideoOnMute, double positionMs)
 {
 }
 
@@ -51,7 +51,7 @@ void DrmSessionManager::setVideoWindowSize(int width, int height)
 	}
 }
 
-void DrmSessionManager::UpdateMaxDRMSessions(int)
+void DrmSessionManager::UpdateMaxDRMSessions(int maxSessions)
 {
 }
 
