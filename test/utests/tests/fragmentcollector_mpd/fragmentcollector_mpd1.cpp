@@ -371,7 +371,6 @@ TEST_F(MpdTests, FindPositionInTimeline2)
 
 TEST_F(MpdTests, testRepeatedStartLocalTSB)
 {
-	// InitializeMPD("");
 	// Set local TSB to true
 	mStreamAbstractionAAMP_MPD = new TestableStreamAbstractionAAMP_MPD(mPrivateInstanceAAMP);
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled()).WillRepeatedly(Return(true));
@@ -390,7 +389,6 @@ TEST_F(MpdTests, testRepeatedStartLocalTSB)
 
 TEST_F(MpdTests, testRepeatedStartNotLocalTSB)
 {
-	// InitializeMPD("");
 	// Set local TSB to true
 	mStreamAbstractionAAMP_MPD = new TestableStreamAbstractionAAMP_MPD(mPrivateInstanceAAMP);
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled()).WillRepeatedly(Return(false));

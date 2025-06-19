@@ -52,7 +52,6 @@ protected:
         // Loop that does nothing but checks for exit condition
         while( !threadDone)
         {
-            // Sleep 100ms
             std::this_thread::sleep_for(std::chrono::milliseconds(100));
         }
 
@@ -66,13 +65,12 @@ public:
 protected:
 
     void SetUp() override
-    {  
+    {
         aamp = new PrivateInstanceAAMP();
-        double seek_pos = 0.0;  // Provide the desired seek_pos value
-        float rate = 1.0;       // Provide the desired rate value
+        double seek_pos = 0.0; // Provide the desired seek_pos value
+        float rate = 1.0;      // Provide the desired rate value
         profileEvent = new StreamAbstractionAAMP_PROGRESSIVE(aamp, seek_pos, rate);
     }
-
 
     void TearDown() override
     {

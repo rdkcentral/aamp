@@ -223,7 +223,7 @@ void StreamAbstractionAAMP_PROGRESSIVE::Start(void)
 {
     try
     {
-    	// Attempting to assign to a running thread will cause std::terminate(), not an exception
+		// Attempting to assign to a running thread will cause std::terminate(), not an exception
 		if(!fragmentCollectorThreadID.joinable())
 		{
 			fragmentCollectorThreadID = std::thread(&StreamAbstractionAAMP_PROGRESSIVE::FetcherLoop, this);
@@ -245,7 +245,7 @@ void StreamAbstractionAAMP_PROGRESSIVE::Start(void)
  */
 void StreamAbstractionAAMP_PROGRESSIVE::Stop(bool clearChannelData)
 {
-    if(fragmentCollectorThreadID.joinable())
+	if(fragmentCollectorThreadID.joinable())
     {
         aamp->DisableDownloads();
         fragmentCollectorThreadID.join();
