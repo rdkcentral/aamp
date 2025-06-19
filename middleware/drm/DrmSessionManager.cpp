@@ -427,6 +427,8 @@ DrmSession* DrmSessionManager::createDrmSession(int &err, std::shared_ptr<DrmHel
 		return nullptr;
 	}
 
+	MW_LOG_WARN("StreamType :%d acquiring mDrmSessionLock", streamType);
+
 	// protect createDrmSession multi-thread calls; found during PR 4.0 DRM testing
 	std::lock_guard<std::mutex> guard(mDrmSessionLock);
 
@@ -461,6 +463,7 @@ DrmSession* DrmSessionManager::createDrmSession(int &err, std::shared_ptr<DrmHel
 	mCustomData = ContentUpdateCb(drmHelper, streamType , keyId, isContentProcess);
 	if (code == KEY_READY)
 	{
+		MW_LOG_WARN("StreamType :%d KEY READY", streamType);
 		return drmSessionContexts[selectedSlot].drmSession;
 	}
 
@@ -513,6 +516,7 @@ DrmSession* DrmSessionManager::createDrmSession(int &err, std::shared_ptr<DrmHel
 	}
 #endif
 
+	MW_LOG_WARN("StreamType :%d releasing mDrmSessionLock", streamType);
 	return drmSessionContexts[selectedSlot].drmSession;
 }
 

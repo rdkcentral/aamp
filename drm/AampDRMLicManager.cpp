@@ -956,6 +956,8 @@ DrmData * AampDRMLicenseManager::getLicense(LicenseRequest &licenseRequest,
 		inpData->eRequestType = eCURL_GET;	
 	}
 
+	AAMPLOG_WARN("streamType %d", streamType);
+	
 	// Initialize the downloader for above config settings 	
 	pLicenseDownloader->Initialize(inpData);
 	
@@ -969,11 +971,13 @@ DrmData * AampDRMLicenseManager::getLicense(LicenseRequest &licenseRequest,
 		bool loopAgain = false;
 		attemptCount++;
 
+		AAMPLOG_WARN("streamType %d going to download", streamType);
 		long long tStartTime = NOW_STEADY_TS_MS;
 		pLicenseDownloader->Download(licenseRequest.url, respData);		
 		res = (CURLcode)respData->curlRetValue;
 		long long tEndTime = NOW_STEADY_TS_MS;
 		long long downloadTimeMS = tEndTime - tStartTime;
+		AAMPLOG_WARN("streamType %d download status %d", streamType, res);
 		
 		/** Restrict further processing license if stop called in between  */
 		if(licenseRequestAbort)

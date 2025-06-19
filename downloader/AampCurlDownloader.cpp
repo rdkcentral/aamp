@@ -131,7 +131,7 @@ AampCurlDownloader::AampCurlDownloader() : mCurlMutex(),m_threadName(""),mDownlo
 
 {
 	// All download related configs are read here
-	AAMPLOG_INFO("Create Curl Downloader Instance ");
+	AAMPLOG_INFO("Create Curl Downloader Instance, mCurlMutex %p", &mCurlMutex);
 }
 
 
@@ -148,6 +148,7 @@ AampCurlDownloader::~AampCurlDownloader()
 		curl_slist_free_all(mHeaders);
 		mHeaders = NULL;
 	}
+	AAMPLOG_INFO("Deleted mCurlMutex %p", &mCurlMutex);
 }
 
 bool AampCurlDownloader::IsDownloadActive()
@@ -368,7 +369,18 @@ void AampCurlDownloader::Initialize(std::shared_ptr<DownloadConfig> dnldCfg)
 
 void AampCurlDownloader::Release()
 {
-	std::lock_guard<std::mutex> lock(mCurlMutex);
+	AAMPLOG_WARN("Acquiring mutex %p mHeaders %p", &mCurlMutex, mHeaders);
+	try
+	{
+		std::lock_guard<std::mutex> lock(mCurlMutex);
+	}
+	catch (const std::system_error& e) {
+        // Catch the specific std::system_error
+        std::cerr << "Caught system_error: " << e.what() << std::endl;
+        std::cerr << "Error code: " << e.code() << std::endl;
+        std::cerr << "Error category: " << e.code().category().name() << std::endl;
+    }
+
 	mDownloadActive = false;
 	mDownloadUpdatedTime = 0 ;
 	mDownloadStartTime =  0;
