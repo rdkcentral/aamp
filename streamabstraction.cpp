@@ -3334,7 +3334,6 @@ bool MediaTrack::CheckForFutureDiscontinuity(double &cachedDuration)
 
 	while (count > 0)
 	{
-		pCachedFragment[index];
 		if (!ret)
 		{
 			ret = ret || pCachedFragment[index].discontinuity;
