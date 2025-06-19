@@ -8992,7 +8992,7 @@ void StreamAbstractionAAMP_MPD::AdvanceTrack(int trackIdx, bool trickPlay, doubl
 			* Also aamp->IsLocalAAMPTsbInjection() || aamp->TrackDownloadsAreEnabled(static_cast<AampMediaType>(trackIdx) because a pause in playback
 			* should not stop the fetcher loop during TSB injection.
 			*/
-		//DJH comment needs updating ^
+
 			if(profileNotChanged && (isTsbInjection || (cacheNotFull && (!lowLatency || isTrackDownloadEnabled))))
 			{
 				// profile not changed and Cache not full scenario
@@ -10531,7 +10531,7 @@ void StreamAbstractionAAMP_MPD::StartFromAampLocalTsb(void)
 
 		// For seek to live, we will employ chunk cache and hence size has to be increased to max
 		// For other tune types, we don't need chunks so revert to max cache fragment size
-//DJH change comment ^ THe config values below have been read and stored in the context alread, should probably just use those instead of reading config again
+
 		if ((mTuneType == eTUNETYPE_SEEKTOLIVE) && (aamp->GetLLDashChunkMode()))
 		{
 			mMediaStreamContext[i]->SetCachedFragmentChunksSize(size_t(mMediaStreamContext[i]->maxCachedFragmentChunksPerTrack));
