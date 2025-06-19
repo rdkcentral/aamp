@@ -40,7 +40,6 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/drm/ocdm)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/drm/helper)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/subtec/subtecparser)
 
-
 if(APPLE)
     set(CMAKE_C_COMPILER "/usr/bin/cc")
     set(CMAKE_CXX_COMPILER "/usr/bin/c++")
@@ -254,6 +253,7 @@ set(LIBAAMP_HEADERS AampCacheHandler.h
 					Accessibility.hpp
 					AampTrackWorker.h
 					test/gstTestHarness/tsdemux.hpp
+					test/gstTestHarness/mp4demux.hpp
 )
 
 set(LIBAAMP_SOURCES iso639map.cpp
@@ -335,10 +335,6 @@ if (CMAKE_PLATFORM_UBUNTU OR CMAKE_SYSTEM_NAME STREQUAL Darwin )
   set(CMAKE_AAMP_SIMULATOR TRUE)
 endif()
 
-if(CMAKE_SOC_PLATFORM_RPI)
-    message("CMAKE_SOC_PLATFORM_RPI set")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DRPI=1")
-endif()
 
 execute_process(COMMAND bash "-c" "${CMAKE_SOURCE_DIR}/buildinfo.sh" WORKING_DIRECTORY ${CMAKE_SOURCE_DIR} OUTPUT_STRIP_TRAILING_WHITESPACE OUTPUT_VARIABLE buildinfo)
 string(REGEX REPLACE "\n" "-" buildinfo "${buildinfo}")
@@ -432,7 +428,7 @@ if (COVERAGE_ENABLED)
     set(LIBAAMP_DEPENDS "${LIBAAMP_DEPENDS} --coverage")
 endif()
 
-add_library(aamp SHARED ${LIBAAMP_HEADERS} ${LIBAAMP_SOURCES} ${LIBAAMP_HELP_SOURCES})
+add_library(aamp SHARED ${LIBAAMP_HEADERS} ${LIBAAMP_SOURCES})
 add_executable(aamp-cli ${AAMP_CLI_HEADERS} ${AAMP_CLI_SOURCES})
 target_link_libraries(aamp-cli "-lreadline")
 # XCode schema target
@@ -566,7 +562,6 @@ set(GSTTESTHARNESS_HEADERS test/gstTestHarness/gst-port.h
                            test/gstTestHarness/stream_utils.hpp
                            test/gstTestHarness/string_utils.hpp
                            test/gstTestHarness/turbo_xml.hpp)
-			   #test/gstTestHarness/initializationheaderinfo.hpp )
 set(GSTTESTHARNESS_SOURCES test/gstTestHarness/gst-port.cpp
                            test/gstTestHarness/gst-utils.cpp
                            test/gstTestHarness/gst-test.cpp
@@ -588,14 +583,12 @@ if (CMAKE_INBUILT_AAMP_DEPENDENCIES)
 	target_link_libraries(aamp abr metrics)
 endif()
 target_link_libraries(aamp middleware playerfbinterface)
-target_link_libraries(aamp-cli  middleware playerfbinterface)
-
+target_link_libraries(aamp-cli middleware playerfbinterface)
 install(TARGETS aamp-cli DESTINATION bin)
 
 install(TARGETS aamp DESTINATION lib PUBLIC_HEADER DESTINATION include PRIVATE_HEADER DESTINATION include)
-
 install(FILES Accessibility.hpp AampEvent.h AampConfig.h AampCMCDCollector.h AampEventManager.h AampDefine.h AampEventListener.h AampMediaType.h
-  AampLogManager.h subtitle/vttCue.h AampUtils.h
+	AampLogManager.h subtitle/vttCue.h AampUtils.h
   AampProfiler.h AampConstants.h iso639map.h AampGrowableBuffer.h
   AampScheduler.h
   downloader/AampCurlStore.h
@@ -614,12 +607,13 @@ install(FILES Accessibility.hpp AampEvent.h AampConfig.h AampCMCDCollector.h Aam
   tsb/api/TsbApi.h
   DESTINATION include)
 
+
 if (UTEST_ENABLED)
 	add_subdirectory(test/utests EXCLUDE_FROM_ALL)
 endif()
 
 if (CMAKE_PLATFORM_UBUNTU OR CMAKE_SYSTEM_NAME STREQUAL Darwin )
-    install(FILES build/aampcli-run-subtec.sh DESTINATION bin)
+	install(FILES build/aampcli-run-subtec.sh DESTINATION bin)
 endif()
 
 message("LIBAAMP_DEFINES is ${LIBAAMP_DEFINES}")

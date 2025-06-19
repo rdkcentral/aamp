@@ -119,34 +119,23 @@ PlayerThunderAccess::PlayerThunderAccess(PlayerThunderAccessPlugin callsign)
     uint32_t status = Core::ERROR_NONE;
 
     Core::SystemInfo::SetEnvironment(_T("THUNDER_ACCESS"), (_T(SERVER_DETAILS)));
-<<<<<<< HEAD
-
-=======
     string sToken = "";
 #ifdef DISABLE_SECURITY_TOKEN
      gPlayerSecurityData.securityToken = "token=" + sToken;
      gPlayerSecurityData.tokenQueried = true;
 #else
->>>>>>> origin/dev_sprint_25_2
     if(!gPlayerSecurityData.tokenQueried)
     {
         unsigned char buffer[MAX_LENGTH] = {0};
         gPlayerSecurityData.tokenStatus = GetSecurityToken(MAX_LENGTH,buffer);
         if(gPlayerSecurityData.tokenStatus > 0){
             // LOG_INFO( "[ThunderAccess] : GetSecurityToken success");
-<<<<<<< HEAD
-            string sToken = (char*)buffer;
-=======
             sToken = (char*)buffer;
->>>>>>> origin/dev_sprint_25_2
             gPlayerSecurityData.securityToken = "token=" + sToken;
         }
         gPlayerSecurityData.tokenQueried = true;
     }
-<<<<<<< HEAD
-=======
 #endif
->>>>>>> origin/dev_sprint_25_2
 
     if (NULL == controllerObject) {
         /*Passing empty string instead of Controller callsign.This is assumed as controller plugin.*/
@@ -355,11 +344,7 @@ bool PlayerThunderAccess::GetResolutionFromDS_VIDEOIN(int & widthFromDS, int & h
 	bool bRetVal = false;
 
 	JsonObject param;
-<<<<<<< HEAD
     JsonObject result;
-=======
-    JsonObject result;		
->>>>>>> origin/dev_sprint_25_2
 
     PlayerThunderAccess* thunderDsObj = new PlayerThunderAccess(PlayerThunderAccessPlugin::DS);
 
@@ -378,11 +363,7 @@ bool PlayerThunderAccess::GetScreenResolution(int & screenWidth, int & screenHei
 	bool bRetVal = false;
 
     JsonObject param;
-<<<<<<< HEAD
-    JsonObject result;
-=======
     JsonObject result;		
->>>>>>> origin/dev_sprint_25_2
 
     PlayerThunderAccess* thunderRDKShellObj = new PlayerThunderAccess(PlayerThunderAccessPlugin::RDKSHELL);
 
@@ -452,11 +433,7 @@ void PlayerThunderAccess::OnInputStatusChanged(const JsonObject& parameters)
     mOnInputStatusChangedCb(strStatus);
 }
 
-<<<<<<< HEAD
-/**
-=======
 /** 
->>>>>>> origin/dev_sprint_25_2
  *  @brief  Gets  onSignalChanged and translates into player events
  */
 void PlayerThunderAccess::OnSignalChanged (const JsonObject& parameters)
@@ -515,11 +492,6 @@ void PlayerThunderAccess::RegisterEventOnVideoStreamInfoUpdateHdmiin(std::functi
  */
 void PlayerThunderAccess::OnVideoStreamInfoUpdate(const JsonObject& parameters)
 {
-<<<<<<< HEAD
-
-=======
-	
->>>>>>> origin/dev_sprint_25_2
     std::string message;
     parameters.ToString(message);
     MW_LOG_WARN("%s",message.c_str());
@@ -532,11 +504,6 @@ void PlayerThunderAccess::OnVideoStreamInfoUpdate(const JsonObject& parameters)
     data.width = (int)videoInfoObj["width"].Number();
     data.height = (int)videoInfoObj["height"].Number();
     mVideoInfoUpdatedMethodCb(data);
-<<<<<<< HEAD
-
-=======
-    
->>>>>>> origin/dev_sprint_25_2
 }
 
 void PlayerThunderAccess::RegisterOnPlayerStatusOta(std::function<void(PlayerStatusData)> onPlayerStatusCb)
@@ -577,11 +544,6 @@ void PlayerThunderAccess::onPlayerStatusHandler_OTA(const JsonObject& parameters
     data.vid_codec = videoInfoObj["codec"].String();
     data.vid_hdrType = videoInfoObj["hdrType"].String();
     data.vid_bitrate = videoInfoObj["bitrate"].Number();
-<<<<<<< HEAD
-
-=======
-	
->>>>>>> origin/dev_sprint_25_2
 
     JsonObject audioInfoObj = playerData["audioInfo"].Object();
     data.aud_codec = audioInfoObj["codec"].String();
@@ -691,11 +653,6 @@ void PlayerThunderAccess::SetPreferredAudioLanguages_OTA(std::string preferredLa
     JsonObject properties;
     bool modifiedLang = false;
     bool modifiedRend = false;
-<<<<<<< HEAD
-
-=======
-   
->>>>>>> origin/dev_sprint_25_2
     if((0 != preferredLanguagesString.length()) && (preferredLanguagesString != atsc_preferredLanguagesString)){
         properties["preferredAudioLanguage"] = preferredLanguagesString.c_str();
         modifiedLang = true;
@@ -731,11 +688,6 @@ void PlayerThunderAccess::SetPreferredAudioLanguages_OTA(std::string preferredLa
                 std::string paramStr;
                 param.ToString(paramStr);
                 MW_LOG_WARN( "[OTA_SHIM] setProperties success with param:%s", paramStr.c_str());
-<<<<<<< HEAD
-
-=======
-                
->>>>>>> origin/dev_sprint_25_2
             }
         }
     }
@@ -887,11 +839,7 @@ bool PlayerThunderAccess::GetTextTracksOta(std::vector<PlayerTextData> txtData)
         txtData.push_back(temp);
 
         // txtTracks.push_back(TextTrackInfo(index, languageCode, true, empty, textData["name"].String(), serviceNo, empty, (int)textData["pk"].Number()));
-<<<<<<< HEAD
-
-=======
         
->>>>>>> origin/dev_sprint_25_2
     }
 
     if(!txtData.empty())
@@ -929,11 +877,6 @@ void PlayerThunderAccess::DisableContentRestrictionsOta(long grace, long time, b
     }
     InvokeJSONRPC("disableContentRestrictionsUntil", param, result);
 
-<<<<<<< HEAD
-
-=======
-	
->>>>>>> origin/dev_sprint_25_2
 }
 
 /**
