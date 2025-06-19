@@ -579,6 +579,11 @@ size_t PrivateInstanceAAMP::HandleSSLWriteCallback ( char *ptr, size_t size, siz
 	size_t ret = 0;
 	CurlCallbackContext *context = (CurlCallbackContext *)userdata;
 	if(!context) return ret;
+	printf( "xhttp write time=%llu type=%d size=%zu chunked=%d\n",
+					aamp_GetCurrentTimeMS(),
+					context->mediaType,
+					size*nmemb,
+					context->chunkedDownload );
 	// There is scope for rework here, mDownloadsEnabled can be queried with a lock, rather than acquiring lock here
 	std::unique_lock<std::recursive_mutex> lock(context->aamp->mLock);
 	if (context->aamp->mDownloadsEnabled && context->aamp->mMediaDownloadsEnabled[context->mediaType])
@@ -3861,6 +3866,7 @@ void PrivateInstanceAAMP::SetCMCDTrackData(AampMediaType mediaType)
  */
 bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaType, AampGrowableBuffer *buffer, std::string& effectiveUrl, int * http_error, double *downloadTimeS, const char *range, unsigned int curlInstance, bool resetBuffer, BitsPerSecond *bitrate, int * fogError, double fragmentDurationS, ProfilerBucketType bucketType, int maxInitDownloadTimeMS)
 {
+	printf( "xhttp begin time=%llu type=%d\n", aamp_GetCurrentTimeMS(), mediaType);
 	if( bucketType!=PROFILE_BUCKET_TYPE_COUNT)
 	{
 		profiler.ProfileBegin(bucketType);
@@ -4291,12 +4297,18 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 				{
 					reqEndLogLevel = eLOGLEVEL_MIL;
 				}
+				appConnect = aamp_CurlEasyGetinfoDouble(curl, CURLINFO_APPCONNECT_TIME);
+				preTransfer = aamp_CurlEasyGetinfoDouble(curl, CURLINFO_PRETRANSFER_TIME);
+				redirect = aamp_CurlEasyGetinfoDouble(curl, CURLINFO_REDIRECT_TIME);
+				printf( "xhttp end time=%lld type=%d appConnect=%f redirect=%f error=%d\n",
+					   aamp_GetCurrentTimeMS(),
+					   mediaType,
+					   appConnect,
+					   redirect,
+					   http_code );
 				if (AampLogManager::isLogLevelAllowed(reqEndLogLevel))
 				{
 					double totalPerformRequest = (double)(downloadTimeMS)/1000;
-					appConnect = aamp_CurlEasyGetinfoDouble(curl, CURLINFO_APPCONNECT_TIME);
-					preTransfer = aamp_CurlEasyGetinfoDouble(curl, CURLINFO_PRETRANSFER_TIME);
-					redirect = aamp_CurlEasyGetinfoDouble(curl, CURLINFO_REDIRECT_TIME);
 #if LIBCURL_VERSION_NUM >= 0x073700 // CURL version >= 7.55.0
 					dlSize = aamp_CurlEasyGetinfoOffset(curl, CURLINFO_SIZE_DOWNLOAD_T);
 #else
