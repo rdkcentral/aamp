@@ -2269,8 +2269,6 @@ void PrivateInstanceAAMP::ReportAdProgress(double positionMs)
 {
 	// This API reports progress of Ad playback in percentage
 	double pct = -1;
-	// Sometimes ReportAdProgress() called twice in <1sec. Avoid sending the same pct twice.
-	static uint32_t lastUintPct = 1000;
 
 	if (mDownloadsEnabled && !mAdProgressId.empty())
 	{
@@ -2310,14 +2308,9 @@ void PrivateInstanceAAMP::ReportAdProgress(double positionMs)
 			}
 		}
 
-		uint32_t uintPct = static_cast<uint32_t>(pct);
-		if ( uintPct != lastUintPct)
-		{
-			AdPlacementEventPtr evt = std::make_shared<AdPlacementEvent>(AAMP_EVENT_AD_PLACEMENT_PROGRESS, mAdProgressId, uintPct, 0, GetSessionId());
-			//AAMP_EVENT_AD_PLACEMENT_START is async so we need AAMP_EVENT_AD_PLACEMENT_PROGRESS to be async as well to keep them in order
-			mEventManager->SendEvent(evt, AAMP_EVENT_ASYNC_MODE);
-			lastUintPct = uintPct;
-		}
+		AdPlacementEventPtr evt = std::make_shared<AdPlacementEvent>(AAMP_EVENT_AD_PLACEMENT_PROGRESS, mAdProgressId, static_cast<uint32_t>(pct), 0, GetSessionId());
+		// AAMP_EVENT_AD_PLACEMENT_START is async so we need AAMP_EVENT_AD_PLACEMENT_PROGRESS to be async as well to keep them in order
+		mEventManager->SendEvent(evt, AAMP_EVENT_ASYNC_MODE);
 	}
 }
 
@@ -4739,7 +4732,7 @@ void PrivateInstanceAAMP::TeardownStream(bool newTune, bool disableDownloads)
 	if (mpStreamAbstractionAAMP)
 	{
 		// Using StreamLock to make sure this is not interfering with GetFile() from PreCachePlaylistDownloadTask
-		AcquireStreamLock();		
+		AcquireStreamLock();
 		mpStreamAbstractionAAMP->Stop(disableDownloads);
 
 		if(mContentType == ContentType_HDMIIN)
@@ -7541,7 +7534,7 @@ void PrivateInstanceAAMP::Stop( bool sendStateChangeEvent )
 	{
 		mMPDDownloaderInstance->Release();
 	}
-	
+
 	if(mTSBSessionManager)
 	{
 		// Clear all the local TSB data
