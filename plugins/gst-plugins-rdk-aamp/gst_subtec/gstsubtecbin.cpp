@@ -39,6 +39,7 @@ static void gst_subtecbin_set_property (GObject * object, guint prop_id,
     const GValue * value, GParamSpec * spec);
 static void gst_subtecbin_get_property (GObject * object,
     guint property_id, GValue * value, GParamSpec * pspec);
+static bool try_lock_element_state (GstSubtecBin * subtecbin);
 
 
 static GstStaticPadTemplate gst_subtecbin_sink_template =
@@ -212,6 +213,19 @@ gst_subtecbin_get_property (GObject * object, guint property_id,
   }
 }
 
+static bool
+try_lock_element_state (GstSubtecBin * subtecbin)
+{
+  guint count = 10;
+  bool locked = GST_STATE_TRYLOCK(GST_ELEMENT(subtecbin));
+  while (!locked && (--count > 0))
+  {
+    g_usleep(10000); //10ms wait
+    locked = GST_STATE_TRYLOCK(GST_ELEMENT(subtecbin));
+  }
+  return locked;
+}
+
 static void
 type_found (GstElement * typefind, guint probability,
     GstCaps * caps, GstSubtecBin * subtecbin)
@@ -278,6 +292,15 @@ type_found (GstElement * typefind, guint probability,
 
   tmp = chain;
 
+  // Try to acquire the element stream mutex before calling gst_element_sync_state_with_parent()
+  // If an attempt to set the pipeline state to NULL occurs dring startup, this can lead to
+  // a deadlock between pad and elemnt mutexes
+  if (!try_lock_element_state(subtecbin))
+  {
+    GST_WARNING("%s unable to acquire element state lock!", __func__);
+    goto lock_failed;
+  }
+
   gst_element_sync_state_with_parent(GST_ELEMENT(subtecbin));
   for(; tmp; tmp = tmp->next)
   {
@@ -296,6 +319,10 @@ type_found (GstElement * typefind, guint probability,
   {
     gst_element_sync_state_with_parent(GST_ELEMENT(tmp->data));
   }
+
+  GST_STATE_UNLOCK(GST_ELEMENT(subtecbin));
+lock_failed:
+
   if (chain)
   {
     g_list_free(chain);

@@ -18,14 +18,14 @@
 */
 
 /**
- * @file PlayerIARMRDKInterface.cpp
+ * @file PlayerExternalsRdkInterface.cpp
  * @brief player interface with IARM specific to RDK
  */
-#include "PlayerIarmRdkInterface.h"
+#include "PlayerExternalsRdkInterface.h"
 
 #include <hostIf_tr69ReqHandler.h>
 #include "tr181api.h"
-#include "PlayerBase64.h"
+#include "_base64.h"
 
 #define DISPLAY_WIDTH_UNKNOWN       -1  /**< Parsing failed for getResolution().getName(); */
 #define DISPLAY_HEIGHT_UNKNOWN      -1  /**< Parsing failed for getResolution().getName(); */
@@ -54,7 +54,7 @@ typedef struct _IARM_BUS_NetSrvMgr_Iface_EventData_t {
 	bool isInterfaceEnabled;
 } IARM_BUS_NetSrvMgr_Iface_EventData_t;
 
-PlayerIarmRdkInterface* s_pPlayerIarmRdkOP = NULL;
+PlayerExternalsRdkInterface* s_pPlayerIarmRdkOP = NULL;
 
 static bool isInterfaceWifi = false;
 
@@ -65,16 +65,16 @@ static void getActiveInterfaceEventHandler (const char *owner, IARM_EventId_t ev
 /**
  * @brief Singleton for object creation
  */
-PlayerIarmRdkInterface * PlayerIarmRdkInterface::GetPlayerIarmRdkInterfaceInstance()
+PlayerExternalsRdkInterface * PlayerExternalsRdkInterface::GetPlayerExternalsRdkInterfaceInstance()
 {
     if(s_pPlayerIarmRdkOP == NULL) {
-        s_pPlayerIarmRdkOP = new PlayerIarmRdkInterface();
+        s_pPlayerIarmRdkOP = new PlayerExternalsRdkInterface();
     }
 
     return s_pPlayerIarmRdkOP;
 }
 
-void PlayerIarmRdkInterface::IARMInit(const char* processName)
+void PlayerExternalsRdkInterface::IARMInit(const char* processName)
 {
     //char processName[20] = {0};
     IARM_Result_t result;
@@ -94,22 +94,22 @@ void PlayerIarmRdkInterface::IARMInit(const char* processName)
     }
 }
 
-void PlayerIarmRdkInterface::IARMRegisterDsMgrEventHandler()
+void PlayerExternalsRdkInterface::IARMRegisterDsMgrEventHandler()
 {
     IARM_Bus_RegisterEventHandler(IARM_BUS_DSMGR_NAME,IARM_BUS_DSMGR_EVENT_HDMI_HOTPLUG, HDMIEventHandler);
     IARM_Bus_RegisterEventHandler(IARM_BUS_DSMGR_NAME,IARM_BUS_DSMGR_EVENT_HDCP_STATUS, HDMIEventHandler);
     IARM_Bus_RegisterEventHandler(IARM_BUS_DSMGR_NAME,IARM_BUS_DSMGR_EVENT_RES_POSTCHANGE, ResolutionHandler);
 }
 
-void PlayerIarmRdkInterface::GetDisplayResolution(int &width, int &height)
+void PlayerExternalsRdkInterface::GetDisplayResolution(int &width, int &height)
 {
     width   = m_displayWidth;
     height  = m_displayHeight;
 }
 
-void PlayerIarmRdkInterface::SetResolution(int width, int height)
+void PlayerExternalsRdkInterface::SetResolution(int width, int height)
 {
-    AAMPLOG_WARN(" Resolution : width %d height:%d\n",width,height);
+    MW_LOG_WARN(" Resolution : width %d height:%d\n",width,height);
     m_displayWidth   = width;
     m_displayHeight  = height;
 }
@@ -117,7 +117,7 @@ void PlayerIarmRdkInterface::SetResolution(int width, int height)
 /**
  * @brief Set the HDCP status using data from DeviceSettings
  */
-void PlayerIarmRdkInterface::SetHDMIStatus()
+void PlayerExternalsRdkInterface::SetHDMIStatus()
 {
     bool                    isConnected              = false;
     bool                    isHDCPCompliant          = false;
@@ -179,7 +179,7 @@ void PlayerIarmRdkInterface::SetHDMIStatus()
                 width =  DISPLAY_WIDTH_UNKNOWN;
                 height = DISPLAY_HEIGHT_UNKNOWN;
                 std::string _res = vPort.getResolution().getName();
-                AAMPLOG_ERR(" ERR parse failed for getResolution().getName():%s id:%d\n",(_res.empty() ? "NULL" : _res.c_str()),iResID);
+                MW_LOG_ERR(" ERR parse failed for getResolution().getName():%s id:%d\n",(_res.empty() ? "NULL" : _res.c_str()),iResID);
             }
 
             SetResolution(width, height);
@@ -193,7 +193,7 @@ void PlayerIarmRdkInterface::SetHDMIStatus()
 	device::Manager::DeInitialize();
     }
     catch (...) {
-        AAMPLOG_WARN("DeviceSettings exception caught\n");
+        MW_LOG_WARN("DeviceSettings exception caught\n");
     }
 
     m_isHDCPEnabled = isHDCPEnabled;
@@ -205,15 +205,15 @@ void PlayerIarmRdkInterface::SetHDMIStatus()
         else {
             m_hdcpCurrentProtocol = dsHDCP_VERSION_1X;
         }
-        AAMPLOG_WARN(" detected HDCP version %s\n", m_hdcpCurrentProtocol == dsHDCP_VERSION_2X ? "2.x" : "1.4");
+        MW_LOG_WARN(" detected HDCP version %s\n", m_hdcpCurrentProtocol == dsHDCP_VERSION_2X ? "2.x" : "1.4");
     }
     else {
-        AAMPLOG_WARN("DeviceSettings HDCP is not enabled\n");
+        MW_LOG_WARN("DeviceSettings HDCP is not enabled\n");
     }
 
     if(!isConnected) {
         m_hdcpCurrentProtocol = dsHDCP_VERSION_1X;
-        AAMPLOG_WARN(" GetHDCPVersion: Did not detect HDCP version defaulting to 1.4 (%d)\n", m_hdcpCurrentProtocol);
+        MW_LOG_WARN(" GetHDCPVersion: Did not detect HDCP version defaulting to 1.4 (%d)\n", m_hdcpCurrentProtocol);
     }
 
 
@@ -225,7 +225,7 @@ void PlayerIarmRdkInterface::SetHDMIStatus()
  */
 static void HDMIEventHandler(const char *owner, IARM_EventId_t eventId, void *data, size_t len)
 {
-    PlayerIarmRdkInterface *pInstance = PlayerIarmRdkInterface::GetPlayerIarmRdkInterfaceInstance();
+    PlayerExternalsRdkInterface *pInstance = PlayerExternalsRdkInterface::GetPlayerExternalsRdkInterfaceInstance();
 
     switch (eventId) {
         case IARM_BUS_DSMGR_EVENT_HDMI_HOTPLUG :
@@ -234,7 +234,7 @@ static void HDMIEventHandler(const char *owner, IARM_EventId_t eventId, void *da
             int hdmi_hotplug_event = eventData->data.hdmi_hpd.event;
 
             const char *hdmihotplug = (hdmi_hotplug_event == dsDISPLAY_EVENT_CONNECTED) ? "connected" : "disconnected";
-            AAMPLOG_WARN(" Received IARM_BUS_DSMGR_EVENT_HDMI_HOTPLUG  event data:%d status: %s\n",
+            MW_LOG_WARN(" Received IARM_BUS_DSMGR_EVENT_HDMI_HOTPLUG  event data:%d status: %s\n",
                        hdmi_hotplug_event, hdmihotplug);
 
             pInstance->SetHDMIStatus();
@@ -246,14 +246,14 @@ static void HDMIEventHandler(const char *owner, IARM_EventId_t eventId, void *da
             IARM_Bus_DSMgr_EventData_t *eventData = (IARM_Bus_DSMgr_EventData_t *)data;
             int hdcpStatus = eventData->data.hdmi_hdcp.hdcpStatus;
             const char *hdcpStatusStr = (hdcpStatus == dsHDCP_STATUS_AUTHENTICATED) ? "authenticated" : "authentication failure";
-            AAMPLOG_WARN(" Received IARM_BUS_DSMGR_EVENT_HDCP_STATUS  event data:%d status:%s\n",
+            MW_LOG_WARN(" Received IARM_BUS_DSMGR_EVENT_HDCP_STATUS  event data:%d status:%s\n",
                       hdcpStatus, hdcpStatusStr);
 
             pInstance->SetHDMIStatus();
             break;
         }
         default:
-            AAMPLOG_WARN(" Received unknown IARM bus event:%d\n", eventId);
+            MW_LOG_WARN(" Received unknown IARM bus event:%d\n", eventId);
             break;
     }
 }
@@ -263,11 +263,11 @@ static void HDMIEventHandler(const char *owner, IARM_EventId_t eventId, void *da
  */
 static void ResolutionHandler(const char *owner, IARM_EventId_t eventId, void *data, size_t len)
 {
-    PlayerIarmRdkInterface *pInstance = PlayerIarmRdkInterface::GetPlayerIarmRdkInterfaceInstance();
+    PlayerExternalsRdkInterface *pInstance = PlayerExternalsRdkInterface::GetPlayerExternalsRdkInterfaceInstance();
 
     switch (eventId) {
         case IARM_BUS_DSMGR_EVENT_RES_PRECHANGE:
-            AAMPLOG_WARN(" Received IARM_BUS_DSMGR_EVENT_RES_PRECHANGE \n");
+            MW_LOG_WARN(" Received IARM_BUS_DSMGR_EVENT_RES_PRECHANGE \n");
             break;
         case IARM_BUS_DSMGR_EVENT_RES_POSTCHANGE:
         {
@@ -278,17 +278,17 @@ static void ResolutionHandler(const char *owner, IARM_EventId_t eventId, void *d
             width   = eventData->data.resn.width ;
             height  = eventData->data.resn.height ;
 
-            AAMPLOG_WARN(" Received IARM_BUS_DSMGR_EVENT_RES_POSTCHANGE event width : %d height : %d\n", width, height);
+            MW_LOG_WARN(" Received IARM_BUS_DSMGR_EVENT_RES_POSTCHANGE event width : %d height : %d\n", width, height);
             pInstance->SetResolution(width, height);
             break;
         }
         default:
-            AAMPLOG_WARN(" Received unknown resolution event %d\n", eventId);
+            MW_LOG_WARN(" Received unknown resolution event %d\n", eventId);
             break;
     }
 }
 
-void PlayerIarmRdkInterface::IARMRemoveDsMgrEventHandler()
+void PlayerExternalsRdkInterface::IARMRemoveDsMgrEventHandler()
 {
     IARM_Bus_RemoveEventHandler(IARM_BUS_DSMGR_NAME,IARM_BUS_DSMGR_EVENT_HDMI_HOTPLUG, HDMIEventHandler);
     IARM_Bus_RemoveEventHandler(IARM_BUS_DSMGR_NAME,IARM_BUS_DSMGR_EVENT_HDCP_STATUS, HDMIEventHandler);
@@ -300,7 +300,7 @@ void PlayerIarmRdkInterface::IARMRemoveDsMgrEventHandler()
  *
  * @return bool - true if wifi interface connected
  */
-bool PlayerIarmRdkInterface::IsActiveStreamingInterfaceWifi(void)
+bool PlayerExternalsRdkInterface::IsActiveStreamingInterfaceWifi(void)
 {
         bool wifiStatus = false;
         IARM_Result_t ret = IARM_RESULT_SUCCESS;
@@ -308,11 +308,11 @@ bool PlayerIarmRdkInterface::IsActiveStreamingInterfaceWifi(void)
 
         ret = IARM_Bus_Call("NET_SRV_MGR", "getActiveInterface", (void*)&param, sizeof(param));
         if (ret != IARM_RESULT_SUCCESS) {
-                AAMPLOG_ERR("NET_SRV_MGR getActiveInterface read failed : %d\n", ret);
+                MW_LOG_ERR("NET_SRV_MGR getActiveInterface read failed : %d\n", ret);
         }
         else
         {
-                AAMPLOG_WARN("NET_SRV_MGR getActiveInterface = %s\n", param.activeIface);
+                MW_LOG_WARN("NET_SRV_MGR getActiveInterface = %s\n", param.activeIface);
                 if (!strcmp(param.activeIface, "WIFI")){
                         wifiStatus = true;
                 }
@@ -322,7 +322,7 @@ bool PlayerIarmRdkInterface::IsActiveStreamingInterfaceWifi(void)
         return wifiStatus;
 }
 
-bool PlayerIarmRdkInterface::GetActiveInterface()
+bool PlayerExternalsRdkInterface::GetActiveInterface()
 {
     return isInterfaceWifi;
 }
@@ -341,7 +341,7 @@ static void getActiveInterfaceEventHandler (const char *owner, IARM_EventId_t ev
 	{
 		memset(previousInterface, 0, sizeof(previousInterface));
 		strncpy(previousInterface, param->activeIface, sizeof(previousInterface) - 1);
-		AAMPLOG_WARN("getActiveInterfaceEventHandler EventId %d activeinterface %s\n", eventId,  param->activeIface);
+		MW_LOG_WARN("getActiveInterfaceEventHandler EventId %d activeinterface %s\n", eventId,  param->activeIface);
 	}
 
 	if (NULL != strstr (param->activeIface, "wlan"))
@@ -356,7 +356,7 @@ static void getActiveInterfaceEventHandler (const char *owner, IARM_EventId_t ev
 	
 }
 
-char * PlayerIarmRdkInterface::GetTR181Config(const char * paramName, size_t & iConfigLen)
+char * PlayerExternalsRdkInterface::GetTR181Config(const char * paramName, size_t & iConfigLen)
 {
     
 	char *  strConfig = NULL;
@@ -378,19 +378,19 @@ char * PlayerIarmRdkInterface::GetTR181Config(const char * paramName, size_t & i
 
 				iConfigLen = param.paramLen;
 				const char *src = (const char*)(param.paramValue);
-				strConfig = (char * ) player_base64_Decode(src,&iConfigLen);
+				strConfig = (char * ) base64_Decode(src,&iConfigLen);
 
-				AAMPLOG_INFO("GetTR181PlayerConfig: Got:%s En-Len:%d Dec-len:%d\n",strforLog.c_str(),param.paramLen,iConfigLen);
+				MW_LOG_INFO("GetTR181PlayerConfig: Got:%s En-Len:%d Dec-len:%d\n",strforLog.c_str(),param.paramLen,iConfigLen);
 			}
 			else
 			{
-				AAMPLOG_ERR("GetTR181PlayerConfig: Not a string param type=%d or Invalid len:%d \n",param.paramtype, param.paramLen);
+				MW_LOG_ERR("GetTR181PlayerConfig: Not a string param type=%d or Invalid len:%d \n",param.paramtype, param.paramLen);
 			}
 		}
 	}
 	else
 	{
-		AAMPLOG_ERR("GetTR181PlayerConfig: Failed to retrieve value result=%d\n",result);
+		MW_LOG_ERR("GetTR181PlayerConfig: Failed to retrieve value result=%d\n",result);
 	}
 	return strConfig;
 

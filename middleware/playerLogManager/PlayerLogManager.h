@@ -24,15 +24,13 @@
  * @brief Log manager for Player Interface
  */
 
-#include <cstdint>
-#include <stdio.h>
-#include <iostream>
-#include <sys/time.h>
-#include <ctime>
-#include <iomanip>
+
+#include <string>
 #include <vector>
 #include <sstream>
+#include <iomanip>
 #include <algorithm>
+#include <cstdint>
 /**
  * @brief Log level's of Middleware
  */
@@ -65,7 +63,7 @@ public :
 	 * @param[in] ethanLogStatus Status of Ethan logging.
 	 * @param[in] level Log level.
 	 * @param[in] lock Lock status.
-	 */
+	 */	
 	static void SetLoggerInfo(bool logRedirectStatus, bool ethanLogStatus, int level, bool lock)
 	{
 		PlayerLogManager::disableLogRedirection = logRedirectStatus;
