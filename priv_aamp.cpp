@@ -4263,7 +4263,7 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 								break;
 							}
 						}
-						AAMPLOG_WARN("Download failed due to curl timeout or isDownloadStalled:%d Retrying:%d Attempt:%d", isDownloadStalled, loopAgain && (downloadAttempt < maxDownloadAttempt), downloadAttempt);
+						AAMPLOG_WARN("Download failed due to curl timeout or isDownloadStalled:%d Retrying:%d Attempt:%d abortReason:%d", isDownloadStalled, loopAgain && (downloadAttempt < maxDownloadAttempt), downloadAttempt, abortReason);
 					}
 
 					/*
@@ -4276,9 +4276,9 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 					{
 						http_code = 404; // translate file not found to URL not found
 					}
-					else if(abortReason == eCURL_ABORT_REASON_LOW_BANDWIDTH_TIMEDOUT)
+					else if(abortReason > eCURL_ABORT_REASON_NONE)
 					{
-						http_code = CURLE_OPERATION_TIMEDOUT; // Timed out wrt configured low bandwidth timeout.
+						http_code = CURLE_OPERATION_TIMEDOUT; // Timed out wrt configured timeouts(start/lowBW/stall)
 					}
 					else
 					{
@@ -4679,7 +4679,7 @@ void PrivateInstanceAAMP::GetOnVideoEndSessionStatData(std::string &data)
 /**
  * @brief Terminate the stream
  */
-void PrivateInstanceAAMP::TeardownStream(bool newTune)
+void PrivateInstanceAAMP::TeardownStream(bool newTune, bool disableDownloads)
 {
 	std::unique_lock<std::recursive_mutex> lock(mLock);
 	//Have to perform this for trick and stop operations but avoid ad insertion related ones
@@ -4736,7 +4736,9 @@ void PrivateInstanceAAMP::TeardownStream(bool newTune)
 	lock.unlock();
 	if (mpStreamAbstractionAAMP)
 	{
-		mpStreamAbstractionAAMP->Stop(false);
+		// Using StreamLock to make sure this is not interfering with GetFile() from PreCachePlaylistDownloadTask
+		AcquireStreamLock();		
+		mpStreamAbstractionAAMP->Stop(disableDownloads);
 
 		if(mContentType == ContentType_HDMIIN)
 		{
@@ -4755,6 +4757,7 @@ void PrivateInstanceAAMP::TeardownStream(bool newTune)
 				SAFE_DELETE(mpStreamAbstractionAAMP);
 			}
 		}
+		ReleaseStreamLock();
 	}
 	m_lastSubClockSyncTime = std::chrono::system_clock::time_point();
 
@@ -7514,47 +7517,29 @@ void PrivateInstanceAAMP::Stop( bool sendStateChangeEvent )
 	// so downloads are disabled among other things
 	SetLocalAAMPTsb(false);
 	SetLocalAAMPTsbInjection(false);
-	// Using StreamLock to make sure this is not interfering with GetFile() from PreCachePlaylistDownloadTask
-	// and protect against the StreamAbstraction object being accessed by a different thread
-	AcquireStreamLock();
 	// Stopping the playback, release all DRM context
 	if (mpStreamAbstractionAAMP)
 	{
+		AcquireStreamLock();
 		if (mDRMLicenseManager)
 		{
 			ReleaseDynamicDRMToUpdateWait();
 			mDRMLicenseManager->setLicenseRequestAbort(true);
 		}
-		mpStreamAbstractionAAMP->Stop(true);
 		if (HasSidecarData())
 		{ // has sidecar data
 			mpStreamAbstractionAAMP->ResetSubtitle();
 		}
-		//Deleting mpStreamAbstractionAAMP here will prevent the extra stop call in TeardownStream()
-		//and will avoid enableDownload() call being made unnecessarily
-		if(mContentType == ContentType_HDMIIN)
-		{
-			StreamAbstractionAAMP_HDMIIN::ResetInstance();
-			mpStreamAbstractionAAMP = NULL;
-		}
-		else if(mContentType == ContentType_COMPOSITEIN)
-		{
-			StreamAbstractionAAMP_COMPOSITEIN::ResetInstance();
-			mpStreamAbstractionAAMP = NULL;
-		}
-		else
-		{
-			SAFE_DELETE(mpStreamAbstractionAAMP);
-		}
+		ReleaseStreamLock();
 	}
-	ReleaseStreamLock();
+	TeardownStream(true,true); //disable download as well
+
 	// stop the mpd update immediately after Stream abstraction delete
 	if(mMPDDownloaderInstance != nullptr)
 	{
 		mMPDDownloaderInstance->Release();
 	}
-	TeardownStream(true);
-
+	
 	if(mTSBSessionManager)
 	{
 		// Clear all the local TSB data
