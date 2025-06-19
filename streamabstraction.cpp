@@ -901,6 +901,8 @@ bool MediaTrack::CheckForDiscontinuity(CachedFragment* cachedFragment, bool& fra
 	return (stopInjection);
 }
 
+extern std::string chunkyPath[2];
+
 /**
  *  @brief Process next cached fragment chunk
  */
@@ -1062,6 +1064,23 @@ bool MediaTrack::ProcessFragmentChunk()
 		}
 		if (type != eTRACK_SUBTITLE || (aamp->IsGstreamerSubsEnabled()))
 		{
+			// profiling: chunk injection
+			FILE *f = fopen( DEBUG_CURL_PATH,"ab");
+			assert( f );
+			switch( type )
+			{
+				case eTRACK_AUDIO:
+				case eTRACK_VIDEO:
+					fprintf( f, "%llu,%d,%d,%s\n",
+							aamp_GetCurrentTimeMS(),
+							-1,
+							type,
+							chunkyPath[type].c_str() );
+					break;
+				default:
+					break;
+			}
+			
 			AAMPLOG_INFO("Injecting chunk for %s br=%d,chunksize=%zu fpts=%f fduration=%f",name,bandwidthBitsPerSecond,parsedBufferChunk.GetLen(),fpts,fduration);
 			InjectFragmentChunkInternal((AampMediaType)type,&parsedBufferChunk , fpts, fpts, fduration, cachedFragment->PTSOffsetSec);
 			totalInjectedChunksDuration += fduration;

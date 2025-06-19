@@ -374,5 +374,7 @@ enum EOSInjectionModeCode
 	EOS_INJECTION_MODE_STOP_ONLY,
 };
 
+#define DEBUG_CURL_PATH "/Users/pstrof200/Desktop/outputChunks/HandleSSLWriteCallback.csv"
+
 #endif
 
