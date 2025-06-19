@@ -620,9 +620,10 @@ public:
 	 * @fn TeardownStream
 	 *
 	 * @param[in] newTune - true if operation is a new tune
+	 * @param[in] newTune - true if downwnload need to be disabled
 	 * @return void
 	 */
-	void TeardownStream(bool newTune);
+	void TeardownStream( bool newTune, bool disableDownloads = false );
 
 	/**
 	 * @fn SendMessageOverPipe
