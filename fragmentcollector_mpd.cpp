@@ -10644,11 +10644,8 @@ void StreamAbstractionAAMP_MPD::Stop(bool clearChannelData)
 	{
 		AAMPLOG_INFO("Abort TsbReader");
 		abortTsbReader = true;
-		if(tsbReaderThreadID.joinable())
-		{
-			tsbReaderThreadID.join();
-			AAMPLOG_INFO("Joined tsbReaderThreadID");
-		}
+		tsbReaderThreadID.join();
+		AAMPLOG_INFO("Joined tsbReaderThreadID");
 	}
 
 	for (int iTrack = 0; iTrack < mMaxTracks; iTrack++)

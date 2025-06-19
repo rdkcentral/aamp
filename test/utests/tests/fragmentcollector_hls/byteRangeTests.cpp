@@ -31,27 +31,27 @@
 AampConfig *gpGlobalConfig{nullptr};
 
 // Add this derived class definition
-class TestTrackState : public TrackState 
+class TestTrackState : public TrackState
 {
 public:
-    TestTrackState(TrackType type, class StreamAbstractionAAMP_HLS* parent,
-			PrivateInstanceAAMP* aamp, const char* name,
-			id3_callback_t id3Handler = nullptr,
-			ptsoffset_update_t ptsUpdate = nullptr)
-        : TrackState(type, parent, aamp, name, id3Handler, ptsUpdate) {}
+	TestTrackState(TrackType type, class StreamAbstractionAAMP_HLS *parent,
+				   PrivateInstanceAAMP *aamp, const char *name,
+				   id3_callback_t id3Handler = nullptr,
+				   ptsoffset_update_t ptsUpdate = nullptr)
+		: TrackState(type, parent, aamp, name, id3Handler, ptsUpdate) {}
 
 	~TestTrackState()
 	{
 		// Ensure the thread is stopped when the mock is destroyed
-        threadDone = true;
-    }
+		threadDone = true;
+	}
 
-    bool threadDone{false}; /**< Flag to indicate if the thread should exit */
+	bool threadDone{false}; /**< Flag to indicate if the thread should exit */
 
-// Override RunFetchLoop to allow testing
-	void RunFetchLoop() override 
+	// Override RunFetchLoop to allow testing
+	void RunFetchLoop() override
 	{
-		while (!threadDone) 
+		while (!threadDone)
 		{
 			std::this_thread::sleep_for(std::chrono::milliseconds(100));
 		}
