@@ -2968,7 +2968,7 @@ void PrivateInstanceAAMP::NotifySpeedChanged(float rate, bool changeState)
 	}
 	if(ISCONFIGSET_PRIV(eAAMPConfig_UseSecManager) || ISCONFIGSET_PRIV(eAAMPConfig_UseFireboltSDK))
 	{
-		mDRMLicenseManager->setPlaybackSpeedState(IsLive(), GetCurrentLatency(), IsAtLivePoint(), GetLiveOffsetMs(),rate, GetStreamPositionMs());
+	//	mDRMLicenseManager->setPlaybackSpeedState(IsLive(), GetCurrentLatency(), IsAtLivePoint(), GetLiveOffsetMs(),rate, GetStreamPositionMs());
 	}
 }
 
@@ -8811,7 +8811,7 @@ void PrivateInstanceAAMP::NotifyFirstBufferProcessed(const std::string& videoRec
 	{
 		double streamPositionMs = GetStreamPositionMs();
 		mDRMLicenseManager->setVideoMute(IsLive(), GetCurrentLatency(), IsAtLivePoint(), GetLiveOffsetMs(), video_muted, streamPositionMs);
-		mDRMLicenseManager->setPlaybackSpeedState(IsLive(), GetCurrentLatency(), IsAtLivePoint(), GetLiveOffsetMs(),rate, streamPositionMs, true);
+		//mDRMLicenseManager->setPlaybackSpeedState(IsLive(), GetCurrentLatency(), IsAtLivePoint(), GetLiveOffsetMs(),rate, streamPositionMs, true);
 		int x = 0,y = 0,w = 0,h = 0;
 		if (!videoRectangle.empty())
 		{

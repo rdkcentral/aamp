@@ -228,7 +228,7 @@ void DrmSessionManager::setVideoMute(bool live, double currentLatency, bool live
 			//this is required as secmanager waits for speed update to show wm once session is active
 			int speed=mCurrentSpeed;
 			MW_LOG_INFO("Setting speed after video unmute %d ", speed);
-			setPlaybackSpeedState(live, currentLatency, livepoint, liveOffsetMs,mCurrentSpeed, positionMs);
+			//setPlaybackSpeedState(live, currentLatency, livepoint, liveOffsetMs,mCurrentSpeed, positionMs);
 		}
 	}
 }
@@ -284,7 +284,7 @@ void DrmSessionManager::setPlaybackSpeedState(bool live, double currentLatency, 
 		}
 
 		MW_LOG_INFO("setPlaybackSpeedState pos=%fs speed=%d", adjustedPos/1000, speed );
-		PlayerSecManager::GetInstance()->setPlaybackSpeedState(localSession.getSessionID(), speed, adjustedPos);
+		//PlayerSecManager::GetInstance()->setPlaybackSpeedState(localSession.getSessionID(), speed, adjustedPos);
 	}
 	else
 	{

@@ -1356,7 +1356,7 @@ void AampDRMLicenseManager::QueueProtectionEvent(std::shared_ptr<DrmHelper> drmH
  */
 void AampDRMLicenseManager::setPlaybackSpeedState(bool live, double currentLatency, bool livepoint , double liveOffsetMs,int speed, double positionMs, bool firstFrameSeen)
 {
-	mDrmSessionManager->setPlaybackSpeedState(live, currentLatency, livepoint, liveOffsetMs, speed, positionMs, firstFrameSeen);
+	//mDrmSessionManager->setPlaybackSpeedState(live, currentLatency, livepoint, liveOffsetMs, speed, positionMs, firstFrameSeen);
 }
 
 /**
