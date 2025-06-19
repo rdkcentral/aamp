@@ -903,7 +903,7 @@ bool StreamAbstractionAAMP_MPD::FetchFragment(MediaStreamContext *pMediaStreamCo
 		if(!fragmentSaved)
 		{
 			AAMPLOG_WARN("StreamAbstractionAAMP_MPD: failed. fragmentUrl %s fragmentTime %f %d %d", fragmentUrl.c_str(), pMediaStreamContext->fragmentTime,isInitializationSegment, pMediaStreamContext->type);
-				  	//Added new check to avoid marking ad as failed if the http code is not worthy.
+			//Added new check to avoid marking ad as failed if the http code is not worthy.
 			if (isInitializationSegment && mCdaiObject->mAdState == AdState::IN_ADBREAK_AD_PLAYING &&
 				(pMediaStreamContext->httpErrorCode!=CURLE_WRITE_ERROR && pMediaStreamContext->httpErrorCode!= CURLE_ABORTED_BY_CALLBACK))
 			{
@@ -1410,10 +1410,10 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 #endif
 						retval = true;
 						if(mIsFcsRepresentation)
-												{
+						{
 							fcsContent = false;
 							for(int i =0;i< mFcsSegments.size();i++)
-														{
+							{
 								uint64_t starttime = mFcsSegments.at(i)->GetStartTime();
 								uint64_t duration  =  mFcsSegments.at(i)->GetDuration();
 								// Logic  to handle the duration option missing case
@@ -1432,7 +1432,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 									// or until the end of MPD duration
 									else
 									{
-										duration	=	mMPDParseHelper->GetMediaPresentationDuration();
+										duration = mMPDParseHelper->GetMediaPresentationDuration();
 									}
 								}
 								// the value of this attribute minus the value of the @presentationTimeOffset specifies the MPD start time,
@@ -1590,7 +1590,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 							profileIdxForBandwidthNotification = GetProfileIdxForBandwidthNotification(pMediaStreamContext->fragmentDescriptor.Bandwidth);
 							FetchAndInjectInitialization(eMEDIATYPE_VIDEO);
 							UpdateRampUpOrDownProfileReason();
-														pMediaStreamContext->SetCurrentBandWidth(pMediaStreamContext->fragmentDescriptor.Bandwidth);
+							pMediaStreamContext->SetCurrentBandWidth(pMediaStreamContext->fragmentDescriptor.Bandwidth);
 							return false;
 						}
 					}
@@ -1615,18 +1615,18 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 #endif
 						if(!pMediaStreamContext->freshManifest)
 						{
-							while(pMediaStreamContext->fragmentDescriptor.Time < pMediaStreamContext->lastSegmentTime &&
-									pMediaStreamContext->fragmentRepeatCount < repeatCount )
+							while (pMediaStreamContext->fragmentDescriptor.Time < pMediaStreamContext->lastSegmentTime &&
+								   pMediaStreamContext->fragmentRepeatCount < repeatCount)
+							{
+								if (rate > 0)
 								{
-									if(rate > 0)
-									{
-										pMediaStreamContext->fragmentDescriptor.Time += duration;
-										pMediaStreamContext->fragmentDescriptor.Number++;
-										pMediaStreamContext->fragmentRepeatCount++;
-										pMediaStreamContext->fragmentDescriptor.nextfragmentTime = pMediaStreamContext->fragmentDescriptor.Time+duration;
-										pMediaStreamContext->fragmentDescriptor.nextfragmentNum = pMediaStreamContext->fragmentDescriptor.Number+1;
-									}
+									pMediaStreamContext->fragmentDescriptor.Time += duration;
+									pMediaStreamContext->fragmentDescriptor.Number++;
+									pMediaStreamContext->fragmentRepeatCount++;
+									pMediaStreamContext->fragmentDescriptor.nextfragmentTime = pMediaStreamContext->fragmentDescriptor.Time + duration;
+									pMediaStreamContext->fragmentDescriptor.nextfragmentNum = pMediaStreamContext->fragmentDescriptor.Number + 1;
 								}
+							}
 						}
 #if defined(DEBUG_TIMELINE) || defined(AAMP_SIMULATOR_BUILD)
 						AAMPLOG_INFO("Type[%d] After skipping. fragmentDescriptor.Time %f lastSegmentTime %" PRIu64 " Index=%d Number=%" PRIu64, pMediaStreamContext->type,
@@ -1688,31 +1688,36 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 					std::vector<IFCS *>mFcsSegments;
 					if(mFcsRepresentationId != -1)
 					{
-						if(pMediaStreamContext->adaptationSet!=NULL){
-							const std::vector<IRepresentation *> representation = pMediaStreamContext->adaptationSet ->GetRepresentation();
-							if(mFcsRepresentationId < (representation.size()-1)){
+						if (pMediaStreamContext->adaptationSet != NULL)
+						{
+							const std::vector<IRepresentation *> representation = pMediaStreamContext->adaptationSet->GetRepresentation();
+							if (mFcsRepresentationId < (representation.size() - 1))
+							{
 								const dash::mpd::IRepresentation *rep = representation.at(mFcsRepresentationId);
-								if(rep){
+								if (rep)
+								{
 									ISegmentTemplate *segmentTemplate = rep->GetSegmentTemplate();
 									if (segmentTemplate)
 									{
 										const IFailoverContent *failoverContent = segmentTemplate->GetFailoverContent();
-										if(failoverContent)
+										if (failoverContent)
 										{
 											mFcsSegments = failoverContent->GetFCS();
 											bool valid = failoverContent->IsValid();
-											for(int i =0;i< mFcsSegments.size() && !valid;i++)
+											for (int i = 0; i < mFcsSegments.size() && !valid; i++)
 											{
 												uint64_t starttime = mFcsSegments.at(i)->GetStartTime();
-												uint64_t duration  =  mFcsSegments.at(i)->GetDuration();
-												uint64_t fcscontent_range = starttime + duration ;
-												if((starttime <= pMediaStreamContext->fragmentDescriptor.Time)&&(fcscontent_range > pMediaStreamContext->fragmentDescriptor.Time))
+												uint64_t duration = mFcsSegments.at(i)->GetDuration();
+												uint64_t fcscontent_range = starttime + duration;
+												if ((starttime <= pMediaStreamContext->fragmentDescriptor.Time) && (fcscontent_range > pMediaStreamContext->fragmentDescriptor.Time))
 													pMediaStreamContext->failAdjacentSegment = true;
 											}
 										}
 									}
-								}}
-						}}
+								}
+							}
+						}
+					}
 					if(!pMediaStreamContext->failAdjacentSegment)
 					{
 						mFcsRepresentationId = pMediaStreamContext->representationIndex;
@@ -2445,9 +2450,9 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 					pointing to the first entry in the timeLineIndex then the duration will come from the previous
 					timeLineIndex
 					<SegmentTimeline>
-		  				<S t="927972765613" d="336000" r="0" />     <-- the duration we want for rew
-		  				<S t="927973101613" d="326400" r="0" />     <------timeLineIndex
-		  				<S t="927973428013" d="460800" r="43" />
+						<S t="927972765613" d="336000" r="0" />     <-- the duration we want for rew
+						<S t="927973101613" d="326400" r="0" />     <------timeLineIndex
+						<S t="927973428013" d="460800" r="43" />
 					</SegmentTimeline>
 					*/
 					uint32_t duration = timeline->GetDuration();
@@ -3244,7 +3249,7 @@ DrmHelperPtr StreamAbstractionAAMP_MPD::CreateDrmHelper(const IAdaptationSet * a
 			{
 				contentMetadata = DrmUtils::extractWVContentMetadataFromPssh((const char*)data, (int)dataLength);
 				free(data);
-								data = NULL;
+				data = NULL;
 			}
 			else
 			{
@@ -3427,28 +3432,28 @@ void ParseCCStreamIDAndLang(std::string input, std::string &id, std::string &lan
 	// 			CC1=eng;CC2=deu
 	//			1=lang:eng;2=lang:deu
 	//			1=lang:eng;2=lang:eng,war:1,er:1
-		size_t delim = input.find('=');
+	size_t delim = input.find('=');
+	if (delim != std::string::npos)
+	{
+		id = input.substr(0, delim);
+		lang = input.substr(delim + 1);
+
+		// Parse for additional fields
+		delim = lang.find(':');
 		if (delim != std::string::npos)
 		{
-				id = input.substr(0, delim);
-				lang = input.substr(delim + 1);
-
-		//Parse for additional fields
-				delim = lang.find(':');
-				if (delim != std::string::npos)
-				{
-						size_t count = lang.find(',');
-						if (count != std::string::npos)
-						{
-								count = (count - delim - 1);
-						}
-						lang = lang.substr(delim + 1, count);
-				}
+			size_t count = lang.find(',');
+			if (count != std::string::npos)
+			{
+				count = (count - delim - 1);
+			}
+			lang = lang.substr(delim + 1, count);
 		}
-		else
-		{
-				lang = input;
-		}
+	}
+	else
+	{
+		lang = input;
+	}
 }
 
 /**
@@ -7902,9 +7907,9 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, 
 					pMediaStreamContext->representationIndex = 0; //Fog custom mpd has single representation
 				}
 			}
-				  	//The logic is added to avoid a crash in AAMP due to stream issue in HEVC stream.
-				  	//Player will be able to end the playback gracefully with the fix.
-			if(pMediaStreamContext->representationIndex < pMediaStreamContext->adaptationSet->GetRepresentation().size())
+			// The logic is added to avoid a crash in AAMP due to stream issue in HEVC stream.
+			// Player will be able to end the playback gracefully with the fix.
+			if (pMediaStreamContext->representationIndex < pMediaStreamContext->adaptationSet->GetRepresentation().size())
 			{
 				pMediaStreamContext->representation = pMediaStreamContext->adaptationSet->GetRepresentation().at(pMediaStreamContext->representationIndex);
 			}
@@ -8571,20 +8576,20 @@ void StreamAbstractionAAMP_MPD::FetchAndInjectInitialization(int trackIdx, bool 
 							range = temp;
 							if (pMediaStreamContext->IDX.GetPtr() )
 							{
-												unsigned int referenced_size;
-												float fragmentDuration;
-												if (ParseSegmentIndexBox(
-																 pMediaStreamContext->IDX.GetPtr(),
-																 pMediaStreamContext->IDX.GetLen(),
-																 pMediaStreamContext->fragmentIndex,
-																 &referenced_size,
-																 &fragmentDuration,
-																 NULL))
+								unsigned int referenced_size;
+								float fragmentDuration;
+								if (ParseSegmentIndexBox(
+										pMediaStreamContext->IDX.GetPtr(),
+										pMediaStreamContext->IDX.GetLen(),
+										pMediaStreamContext->fragmentIndex,
+										&referenced_size,
+										&fragmentDuration,
+										NULL))
 								{
-													char temprange[MAX_RANGE_STRING_CHARS];
-													snprintf(temprange, sizeof(temprange), "%" PRIu64 "-%" PRIu64 "", pMediaStreamContext->fragmentOffset, pMediaStreamContext->fragmentOffset + referenced_size - 1);
-													nextrange = temprange;
-												 }
+									char temprange[MAX_RANGE_STRING_CHARS];
+									snprintf(temprange, sizeof(temprange), "%" PRIu64 "-%" PRIu64 "", pMediaStreamContext->fragmentOffset, pMediaStreamContext->fragmentOffset + referenced_size - 1);
+									nextrange = temprange;
+								}
 							}
 						}
 						std::string fragmentUrl;
@@ -12579,44 +12584,44 @@ void StreamAbstractionAAMP_MPD::SetTextTrackInfo(const std::vector<TextTrackInfo
  */
 bool StreamAbstractionAAMP_MPD::IsMatchingLanguageAndMimeType(AampMediaType type, std::string lang, IAdaptationSet *adaptationSet, int &representationIndex)
 {
-	   bool ret = false;
-	   std::string adapLang = GetLanguageForAdaptationSet(adaptationSet);
-	   AAMPLOG_INFO("type %d inlang %s current lang %s", type, lang.c_str(), adapLang.c_str());
-	   if (adapLang == lang)
-	   {
-			   PeriodElement periodElement(adaptationSet, NULL);
-			   std::string adaptationMimeType = periodElement.GetMimeType();
-			   if (!adaptationMimeType.empty())
-			   {
-					   if (IsCompatibleMimeType(adaptationMimeType, type))
-					   {
-							   ret = true;
-							   representationIndex = 0;
-					   }
-			   }
-			   else
-			   {
-					   const std::vector<IRepresentation *> representation = adaptationSet->GetRepresentation();
-					   for (int repIndex = 0; repIndex < representation.size(); repIndex++)
-					   {
-							   const dash::mpd::IRepresentation *rep = representation.at(repIndex);
-							   PeriodElement periodElement(adaptationSet, rep);
-							   std::string mimeType = periodElement.GetMimeType();
-							   if (!mimeType.empty() && (IsCompatibleMimeType(mimeType, type)))
-							   {
-									   ret = true;
-									   representationIndex = repIndex;
-							   }
-					   }
-			   }
-			   if (ret != true)
-			   {
-					   //Even though language matched, mimeType is missing or not supported right now. Log for now
-					   AAMPLOG_WARN("StreamAbstractionAAMP_MPD: Found matching track[%d] with language:%s but not supported mimeType and thus disabled!!",
-											   type, lang.c_str());
-			   }
-	   }
-	   return ret;
+	bool ret = false;
+	std::string adapLang = GetLanguageForAdaptationSet(adaptationSet);
+	AAMPLOG_INFO("type %d inlang %s current lang %s", type, lang.c_str(), adapLang.c_str());
+	if (adapLang == lang)
+	{
+		PeriodElement periodElement(adaptationSet, NULL);
+		std::string adaptationMimeType = periodElement.GetMimeType();
+		if (!adaptationMimeType.empty())
+		{
+			if (IsCompatibleMimeType(adaptationMimeType, type))
+			{
+				ret = true;
+				representationIndex = 0;
+			}
+		}
+		else
+		{
+			const std::vector<IRepresentation *> representation = adaptationSet->GetRepresentation();
+			for (int repIndex = 0; repIndex < representation.size(); repIndex++)
+			{
+				const dash::mpd::IRepresentation *rep = representation.at(repIndex);
+				PeriodElement periodElement(adaptationSet, rep);
+				std::string mimeType = periodElement.GetMimeType();
+				if (!mimeType.empty() && (IsCompatibleMimeType(mimeType, type)))
+				{
+					ret = true;
+					representationIndex = repIndex;
+				}
+			}
+		}
+		if (ret != true)
+		{
+			// Even though language matched, mimeType is missing or not supported right now. Log for now
+			AAMPLOG_WARN("StreamAbstractionAAMP_MPD: Found matching track[%d] with language:%s but not supported mimeType and thus disabled!!",
+						 type, lang.c_str());
+		}
+	}
+	return ret;
 }
 
 double StreamAbstractionAAMP_MPD::GetEncoderDisplayLatency()
@@ -13925,7 +13930,7 @@ void StreamAbstractionAAMP_MPD::NotifyFirstVideoPTS(unsigned long long pts, unsi
  */
 double StreamAbstractionAAMP_MPD::GetAvailabilityStartTime()
 {
-		return mMPDParseHelper?mMPDParseHelper->GetAvailabilityStartTime():0;
+	return mMPDParseHelper?mMPDParseHelper->GetAvailabilityStartTime():0;
 }
 
 void StreamAbstractionAAMP_MPD::UpdateMPDPeriodDetails(std::vector<PeriodInfo>& currMPDPeriodDetails,uint64_t &durMs)
