@@ -40,13 +40,22 @@ public:
 			ptsoffset_update_t ptsUpdate = nullptr)
         : TrackState(type, parent, aamp, name, id3Handler, ptsUpdate) {}
 
-    void RunFetchLoop() override 
+	~TestTrackState()
 	{
-        while (aamp->DownloadsAreEnabled()) 
-		{
-            std::this_thread::sleep_for(std::chrono::milliseconds(100));
-        }
+		// Ensure the thread is stopped when the mock is destroyed
+        threadDone = true;
     }
+
+    bool threadDone{false}; /**< Flag to indicate if the thread should exit */
+
+// Override RunFetchLoop to allow testing
+	void RunFetchLoop() override 
+	{
+		while (!threadDone) 
+		{
+			std::this_thread::sleep_for(std::chrono::milliseconds(100));
+		}
+	};
 };
 class byteRangeTests : public ::testing::Test
 {
@@ -189,9 +198,4 @@ TEST_F(byteRangeTests, testThreadStart)
 
 	// And a second time - if the thread is already running, it should not cause any issues
 	trackState->Start();
-
-	mPrivateInstanceAAMP->DisableDownloads();
-
-	// Stop the thread after starting
-	trackState->Stop(true);
 }
