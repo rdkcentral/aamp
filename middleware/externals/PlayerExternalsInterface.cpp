@@ -18,28 +18,28 @@
 */
 
 /**
- * @file PlayerIarmRfcInterface.cpp
+ * @file PlayerExternalsInterface.cpp
  * @brief Output protection management for Player
  */
 
-#include "PlayerIarmRfcInterface.h"
+#include "PlayerExternalsInterface.h"
 #include "PlayerExternalUtils.h"
 #ifdef IARM_MGR
-#include "PlayerIarmRdkInterface.h"
+#include "PlayerExternalsRdkInterface.h"
 #endif
 
 /**< Static variable for singleton */
-std::shared_ptr<PlayerIarmRfcInterface> PlayerIarmRfcInterface::s_pPlayerOP = NULL;
+std::shared_ptr<PlayerExternalsInterface> PlayerExternalsInterface::s_pPlayerOP = NULL;
 
 /**
- * @brief PlayerIarmRfcInterface Constructor
+ * @brief PlayerExternalsInterface Constructor
  */
-PlayerIarmRfcInterface::PlayerIarmRfcInterface()
+PlayerExternalsInterface::PlayerExternalsInterface()
 {
 #ifdef IARM_MGR
     if(!IsContainerEnvironment())
     {
-        m_pIarmInterface = new PlayerIarmRdkInterface();
+        m_pIarmInterface = new PlayerExternalsRdkInterface();
     }
     else
     {
@@ -56,9 +56,9 @@ PlayerIarmRfcInterface::PlayerIarmRfcInterface()
 }
 
 /**
- * @brief PlayerIarmRfcInterface Destructor
+ * @brief PlayerExternalsInterface Destructor
  */
-PlayerIarmRfcInterface::~PlayerIarmRfcInterface()
+PlayerExternalsInterface::~PlayerExternalsInterface()
 {
     m_pIarmInterface->IARMRemoveDsMgrEventHandler();
     s_pPlayerOP = NULL;
@@ -67,7 +67,7 @@ PlayerIarmRfcInterface::~PlayerIarmRfcInterface()
 /**
  * @brief Check if source is UHD using video decoder dimensions
  */
-bool PlayerIarmRfcInterface::IsSourceUHD()
+bool PlayerExternalsInterface::IsSourceUHD()
 {
     return m_pIarmInterface->IsSourceUHD();
 }
@@ -75,7 +75,7 @@ bool PlayerIarmRfcInterface::IsSourceUHD()
 /**
  * @brief gets display resolution
  */
-void PlayerIarmRfcInterface::GetDisplayResolution(int &width, int &height)
+void PlayerExternalsInterface::GetDisplayResolution(int &width, int &height)
 {
     if(!IsContainerEnvironment())
     {
@@ -84,9 +84,9 @@ void PlayerIarmRfcInterface::GetDisplayResolution(int &width, int &height)
 }
 
 /**
- * @brief Check if  PlayerIarmRfcInterfaceInstance active
+ * @brief Check if  PlayerExternalsInterfaceInstance active
  */
-bool PlayerIarmRfcInterface::IsPlayerIarmRfcInterfaceInstanceActive()
+bool PlayerExternalsInterface::IsPlayerExternalsInterfaceInstanceActive()
 {
     bool retval = false;
 
@@ -99,10 +99,10 @@ bool PlayerIarmRfcInterface::IsPlayerIarmRfcInterfaceInstanceActive()
 /**
  * @brief Singleton for object creation
  */
-std::shared_ptr<PlayerIarmRfcInterface> PlayerIarmRfcInterface::GetPlayerIarmRfcInterfaceInstance()
+std::shared_ptr<PlayerExternalsInterface> PlayerExternalsInterface::GetPlayerExternalsInterfaceInstance()
 {
     if(s_pPlayerOP == NULL) {
-        s_pPlayerOP = std::shared_ptr<PlayerIarmRfcInterface>(new PlayerIarmRfcInterface());
+        s_pPlayerOP = std::shared_ptr<PlayerExternalsInterface>(new PlayerExternalsInterface());
     }
 
     return s_pPlayerOP;
@@ -111,7 +111,7 @@ std::shared_ptr<PlayerIarmRfcInterface> PlayerIarmRfcInterface::GetPlayerIarmRfc
 /**
  * @brief gets paramName TR181 config
  */
-char * PlayerIarmRfcInterface::GetTR181PlayerConfig(const char * paramName, size_t & iConfigLen)
+char * PlayerExternalsInterface::GetTR181PlayerConfig(const char * paramName, size_t & iConfigLen)
 {
     char * sRet = nullptr;
     if(!IsContainerEnvironment())
@@ -125,7 +125,7 @@ char * PlayerIarmRfcInterface::GetTR181PlayerConfig(const char * paramName, size
 /**
  * @brief gets current active interface
  */
-bool PlayerIarmRfcInterface::GetActiveInterface()
+bool PlayerExternalsInterface::GetActiveInterface()
 {
     bool bRet = false;
     if(!IsContainerEnvironment())
@@ -139,13 +139,13 @@ bool PlayerIarmRfcInterface::GetActiveInterface()
 /**
  * @brief sets up interfaces to retrieve current active interface
  */
-bool PlayerIarmRfcInterface::IsActiveStreamingInterfaceWifi(void)
+bool PlayerExternalsInterface::IsActiveStreamingInterfaceWifi(void)
 {
     bool bRet = false;
 #ifdef IARM_MGR
     if(!IsContainerEnvironment())
     {
-        bRet = PlayerIarmRdkInterface::IsActiveStreamingInterfaceWifi();
+        bRet = PlayerExternalsRdkInterface::IsActiveStreamingInterfaceWifi();
     }
 #else
     bRet = FakePlayerIarmInterface::IsActiveStreamingInterfaceWifi();
@@ -157,12 +157,12 @@ bool PlayerIarmRfcInterface::IsActiveStreamingInterfaceWifi(void)
 /**
  * @brief Initializes IARM
  */
-void PlayerIarmRfcInterface::IARMInit(const char* processName){
+void PlayerExternalsInterface::IARMInit(const char* processName){
 
 #ifdef IARM_MGR
     if(!IsContainerEnvironment())
     {
-        PlayerIarmRdkInterface::IARMInit(processName);
+        PlayerExternalsRdkInterface::IARMInit(processName);
     }
 #else
     FakePlayerIarmInterface::IARMInit(processName);
@@ -173,7 +173,7 @@ void PlayerIarmRfcInterface::IARMInit(const char* processName){
 /**
  * @brief checks if Wifi Curl Header ought to be configured
  */
-bool PlayerIarmRfcInterface::IsConfigWifiCurlHeader()
+bool PlayerExternalsInterface::IsConfigWifiCurlHeader()
 {
     bool bRet = false;
 #ifdef IARM_MGR

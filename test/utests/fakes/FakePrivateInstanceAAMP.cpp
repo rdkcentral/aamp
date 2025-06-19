@@ -339,7 +339,7 @@ bool PrivateInstanceAAMP::IsFragmentCachingRequired()
 	return false;
 }
 
-void PrivateInstanceAAMP::TeardownStream(bool newTune)
+void PrivateInstanceAAMP::TeardownStream(bool newTune, bool disableDownloads)
 {
 }
 
@@ -394,12 +394,26 @@ long long PrivateInstanceAAMP::GetDurationMs()
 	return 0;
 }
 
+long PrivateInstanceAAMP::GetCurrentLatency()
+{
+	return 0;
+}
+
+bool PrivateInstanceAAMP::IsAtLivePoint()
+{
+	return false;
+}
+
 ContentType PrivateInstanceAAMP::GetContentType() const
 {
 	return ContentType_UNKNOWN;
 }
 
 void PrivateInstanceAAMP::SetAlternateContents(const std::string &adBreakId, const std::string &adId, const std::string &url)
+{
+}
+
+void PrivateInstanceAAMP::GetMoneyTraceString(std::string &customHeader) const
 {
 }
 
@@ -551,6 +565,11 @@ void PrivateInstanceAAMP::SetEventPriorityAsyncTune(bool bValue)
 bool PrivateInstanceAAMP::IsTuneCompleted()
 {
 	return false;
+}
+
+void PrivateInstanceAAMP::SendWatermarkSessionUpdateEvent(uint32_t sessionHandle, uint32_t status, const std::string &system)
+{
+	return;
 }
 
 void PrivateInstanceAAMP::TuneFail(bool fail)
@@ -1665,4 +1684,8 @@ double PrivateInstanceAAMP::GetStreamPositionMs()
 
 void PrivateInstanceAAMP::SendMonitorAvEvent(const std::string &status, int64_t videoPositionMS, int64_t audioPositionMS, uint64_t timeInStateMS)
 {
+}
+double PrivateInstanceAAMP::GetFormatPositionOffsetInMSecs()
+{
+	return 0;
 }

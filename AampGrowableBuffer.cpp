@@ -24,7 +24,6 @@
 
 #include "AampGrowableBuffer.h"
 #include "AampConfig.h"
-#include "AampMemoryUtils.h"
 #include <assert.h>
 #include <glib.h>
 #include "priv_aamp.h"

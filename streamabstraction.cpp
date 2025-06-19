@@ -3942,9 +3942,9 @@ void StreamAbstractionAAMP::SetVideoPlaybackRate(float rate)
 /**
  * @brief Initialize ISOBMFF Media Processor
  *
- * @param[in] initBasePTSFromManifest - true if segment timeline is used
+ * @return void
  */
-void StreamAbstractionAAMP::InitializeMediaProcessor(bool initBasePTSFromManifest)
+void StreamAbstractionAAMP::InitializeMediaProcessor()
 {
 	std::shared_ptr<IsoBmffProcessor> peerAudioProcessor = nullptr;
 	std::shared_ptr<IsoBmffProcessor> peerSubtitleProcessor = nullptr;
@@ -3974,14 +3974,6 @@ void StreamAbstractionAAMP::InitializeMediaProcessor(bool initBasePTSFromManifes
 				{
 					processor->addPeerListener(subtitleESProcessor.get());
 				}
-				// If the segment timeline is used, set the base PTS in pass through mode.
-				if (initBasePTSFromManifest)
-				{
-					uint32_t tScale = GetVideoTimeScale();
-					uint64_t pts = GetFirstPTS() * tScale;
-					AAMPLOG_MIL("SetBasePTS for track %s pts %" PRIu64 " tscale %" PRIu32 "", track->name, pts, tScale);
-					processor->InitializeBasePTSFromManifest(pts, tScale);
-				}
 			}
 			else
 			{
@@ -3996,14 +3988,7 @@ void StreamAbstractionAAMP::InitializeMediaProcessor(bool initBasePTSFromManifes
 					subtitleESProcessor = std::make_shared<ElementaryProcessor>(aamp);
 					track->playContext = subtitleESProcessor;
 				}
-				// If the segment timeline is used, set the base PTS in pass through mode.
-				if (initBasePTSFromManifest)
-				{
-					uint32_t tScale = GetVideoTimeScale();
-					uint64_t pts = GetFirstPTS() * tScale;
-					AAMPLOG_MIL("SetBasePTS for track %s pts %" PRIu64 " tscale %" PRIu32 "", track->name, pts, tScale);
-					peerSubtitleProcessor->InitializeBasePTSFromManifest(pts, tScale);
-				}
+
 				// If video playcontext is already created, attach subtitle processor to it.
 				MediaTrack *videoTrack = GetMediaTrack(eTRACK_VIDEO);
 				if (videoTrack && videoTrack->enabled && videoTrack->playContext)

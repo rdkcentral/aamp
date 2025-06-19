@@ -18,19 +18,19 @@
 */
 
 /**
- * @file PlayerIarmRfcInterface.h
+ * @file PlayerExternalsInterface.h
  * @brief Output protection management for Player
  */
 
-#ifndef playerIarmRfcInterface_h
-#define playerIarmRfcInterface_h
+#ifndef PlayerExternalsInterface_h
+#define PlayerExternalsInterface_h
 
 #include <pthread.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <memory>
 
-#include "PlayerIARMInterfaceBase.h"
+#include "PlayerExternalsInterfaceBase.h"
 
 
 #undef __in
@@ -44,7 +44,7 @@
 #define PLAYER_dsHDCP_VERSION_1X 14
 typedef int playerDsHdcpProtocolVersion_t;
 
-class FakePlayerIarmInterface : public PlayerIarmInterfaceBase
+class FakePlayerIarmInterface : public PlayerExternalsInterfaceBase
 {
         playerDsHdcpProtocolVersion_t m_hdcpCurrentProtocol;
     public:
@@ -120,40 +120,40 @@ class FakePlayerIarmInterface : public PlayerIarmInterfaceBase
 };
 
 /**
- * @class PlayerIarmRfcInterface
+ * @class PlayerExternalsInterface
  * @brief Class to enforce HDCP authentication
  */
-class PlayerIarmRfcInterface
+class PlayerExternalsInterface
 {
 
 private:
 
 
-    PlayerIarmInterfaceBase* m_pIarmInterface;
+    PlayerExternalsInterfaceBase* m_pIarmInterface;
 
-    static std::shared_ptr<PlayerIarmRfcInterface> s_pPlayerOP;
+    static std::shared_ptr<PlayerExternalsInterface> s_pPlayerOP;
 
     
 public:
 
     /**
-     * @fn PlayerIarmRfcInterface
+     * @fn PlayerExternalsInterface
      */
-    PlayerIarmRfcInterface();
+    PlayerExternalsInterface();
     /**
-     * @fn ~PlayerIarmRfcInterface
+     * @fn ~PlayerExternalsInterface
      */
-    virtual ~PlayerIarmRfcInterface();
+    virtual ~PlayerExternalsInterface();
     /**     
      * @brief Copy constructor disabled
      *
      */
-    PlayerIarmRfcInterface(const PlayerIarmRfcInterface&) = delete;
+    PlayerExternalsInterface(const PlayerExternalsInterface&) = delete;
     /**
      * @brief assignment operator disabled
      *
      */
-    PlayerIarmRfcInterface& operator=(const PlayerIarmRfcInterface&) = delete;
+    PlayerExternalsInterface& operator=(const PlayerExternalsInterface&) = delete;
     
     /**
      * @brief Routine to check ActiveStreamingInterface
@@ -194,15 +194,15 @@ public:
     // Singleton for object creation
 	
     /**
-     * @fn GetPlayerIarmRfcInterfaceInstance
-     * @retval PlayerIarmRfcInterface object
+     * @fn GetPlayerExternalsInterfaceInstance
+     * @retval PlayerExternalsInterface object
      */	
-    static std::shared_ptr<PlayerIarmRfcInterface> GetPlayerIarmRfcInterfaceInstance();
+    static std::shared_ptr<PlayerExternalsInterface> GetPlayerExternalsInterfaceInstance();
     /**
-     * @fn IsPlayerIarmRfcInterfaceInstanceActive
+     * @fn IsPlayerExternalsInterfaceInstanceActive
      * @retval true or false
      */
-    static bool IsPlayerIarmRfcInterfaceInstanceActive();
+    static bool IsPlayerExternalsInterfaceInstanceActive();
 
     /**
      * @fn GetActiveInterface
@@ -226,4 +226,4 @@ public:
 
 };
 
-#endif // playerIarmRfcInterface_h
+#endif // PlayerExternalsInterface_h
