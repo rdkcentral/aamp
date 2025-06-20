@@ -30,10 +30,10 @@ set(LIB_EXT_DEPENDS ${LIB_EXT_DEPENDS} ${GSTREAMER_LINK_LIBRARIES} ${GSTREAMERBA
 # Library source files
 set(EXT_SOURCES PlayerExternalsInterface.cpp PlayerRfc.cpp PlayerExternalUtils.cpp)
 
-set(SECMGR_SOURCES playersecmanager/PlayerMemoryUtils.cpp
-    playersecmanager/PlayerSecInterface.cpp
-    playersecmanager/PlayerSecManager.cpp
-    playersecmanager/ThunderAccessPlayer.cpp
+set(SECMGR_SOURCES playerSecManager/PlayerMemoryUtils.cpp
+    playerSecManager/PlayerSecInterface.cpp
+    playerSecManager/PlayerSecManager.cpp
+    playerSecManager/ThunderAccessPlayer.cpp
     ${MW_ROOT}/PlayerScheduler.cpp)
 
 set(THUNDER_INTERFACE_SRCS PlayerThunderInterface.cpp)
@@ -91,7 +91,7 @@ endif()
 
 # Set initial public headers for the library
 set_target_properties(playerfbinterface PROPERTIES PUBLIC_HEADER 
-  "PlayerThunderInterface.h;PlayerThunderAccessBase.h;PlayerExternalsInterfaceBase.h;PlayerExternalsInterface.h;PlayerRfc.h;playersecmanager/PlayerSecManagerSession.h;playersecmanager/ThunderAccessPlayer.h;playersecmanager/PlayerSecInterface.h;playersecmanager/PlayerSecManager.h;playersecmanager/PlayerMemoryUtils.h;Module.h")
+  "PlayerThunderInterface.h;PlayerThunderAccessBase.h;PlayerExternalsInterfaceBase.h;PlayerExternalsInterface.h;PlayerRfc.h;playerSecManager/PlayerSecManagerSession.h;playerSecManager/ThunderAccessPlayer.h;playerSecManager/PlayerSecInterface.h;playerSecManager/PlayerSecManager.h;playerSecManager/PlayerMemoryUtils.h;Module.h")
 
 if(CMAKE_IARM_MGR)
     # Append additional header(s) for IARM_MGR
@@ -109,7 +109,7 @@ string(STRIP "${LIB_EXT_DEPENDS}" LIB_EXT_DEPENDS)
 
 target_link_libraries(playerfbinterface ${LIB_EXT_DEPENDS})
 
-target_link_libraries(playerfbinterface playerlogmanager)
+target_link_libraries(playerfbinterface playerLogManager)
 target_link_libraries(playerfbinterface baseconversion)
 
 # Install the library and its headers

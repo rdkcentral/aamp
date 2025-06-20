@@ -22,8 +22,8 @@
  * @brief Class to Represents an PLAYER sec manager session
  */
 
-#ifndef __PLAYER_SECMANAGERSESSION_H__
-#define __PLAYER_SECMANAGERSESSION_H__
+#ifndef __PLAYER_SEC_MANAGER_SESSION_H__
+#define __PLAYER_SEC_MANAGER_SESSION_H__
 
 #include <mutex>
 #include <sys/time.h>
@@ -144,4 +144,4 @@ public:
 	}
 };
 
-#endif /* __PLAYER_SECMANAGERSESSION_H__ */
+#endif /* __PLAYER_SEC_MANAGER_SESSION_H__ */

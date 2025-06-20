@@ -25,7 +25,7 @@ include_directories(${AAMP_ROOT} ${AAMP_ROOT}/drm ${AAMP_ROOT}/drm/helper ${AAMP
 include_directories(${AAMP_ROOT}/tsb/api)
 include_directories(${AAMP_ROOT}/middleware/externals)
 include_directories("fakes/.")
-include_directories(${AAMP_ROOT}/middleware/externals/playersecmanager)
+include_directories(${AAMP_ROOT}/middleware/externals/playerSecManager)
 include_directories(${AAMP_ROOT}/middleware/playerLogManager)
 
 if(CMAKE_SYSTEM_NAME STREQUAL Linux)
