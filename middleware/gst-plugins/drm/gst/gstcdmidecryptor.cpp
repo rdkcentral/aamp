@@ -428,6 +428,7 @@ gst_cdmidecryptor_transform_caps(GstBaseTransform * trans,
 		gst_cdmicapsappendifnotduplicate(transformedCaps, out);
 
 #if defined(AMLOGIC)
+	printf("PLUGIN: entering transform caps");
 	if (direction == GST_PAD_SINK && !gst_caps_is_empty(transformedCaps) && OCDMGstTransformCaps)
 		OCDMGstTransformCaps(&transformedCaps);
 #endif
@@ -504,6 +505,7 @@ static GstFlowReturn gst_cdmidecryptor_transform_ip(
 		GST_DEBUG_OBJECT(cdmidecryptor,
 				"Failed to get GstProtection metadata from buffer %p, could be clear buffer",buffer);
 #if defined(AMLOGIC)
+		printf("PLUGIN: entering transform ip");
 		// call decrypt even for clear samples in order to copy it to a secure buffer. If secure buffers are not supported
 		// decrypt() call will return without doing anything
 		if (cdmidecryptor->drmSession != NULL)
@@ -941,6 +943,8 @@ static gboolean gst_cdmidecryptor_sink_event(GstBaseTransform * trans,
 static GstStateChangeReturn gst_cdmidecryptor_changestate(
 		GstElement* element, GstStateChange transition)
 {
+	
+	printf("PLUGIN: entering changestate");
 	DEBUG_FUNC();
 
 	GstStateChangeReturn ret = GST_STATE_CHANGE_SUCCESS;
@@ -967,11 +971,13 @@ static GstStateChangeReturn gst_cdmidecryptor_changestate(
 		GST_DEBUG_OBJECT(cdmidecryptor, "NULL->READY");
 		if (cdmidecryptor->svpCtx == NULL)
 		 gst_svp_ext_get_context(&cdmidecryptor->svpCtx, (int)Server, 0);
+		 printf("PLUGIN: entering null to ready");
 		break;
 	case GST_STATE_CHANGE_READY_TO_NULL:
 		GST_DEBUG_OBJECT(cdmidecryptor, "READY->NULL");
 		if (cdmidecryptor->svpCtx) {
   		gst_svp_ext_free_context(cdmidecryptor->svpCtx);
+		 printf("PLUGIN: entering ready to null");
 		cdmidecryptor->svpCtx = NULL;	
 		}
 		break;
