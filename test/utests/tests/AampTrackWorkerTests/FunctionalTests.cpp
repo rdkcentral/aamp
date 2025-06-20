@@ -47,24 +47,27 @@ protected:
 		{
 		}
 
-		bool GetJobAvailableFlag()
-		{
-			return mJobAvailable;
-		}
-
 		bool GetStopFlag()
 		{
+			std::lock_guard<std::mutex> lock(mMutex);
 			return mStop;
+		}
+
+		bool HasPendingTasks()
+		{
+			std::lock_guard<std::mutex> lock(mMutex);
+			return !mJobQueue.empty();
 		}
 
 		void SetStopFlag(bool stop)
 		{
+			std::lock_guard<std::mutex> lock(mMutex);
 			mStop = stop;
-		}
-
-		void SetJobAvailableFlag(bool jobAvailable)
-		{
-			mJobAvailable = jobAvailable;
+			if (stop) {
+				// Clear queue and reject all pending tasks
+				std::queue<std::function<void()>> empty;
+				mJobQueue.swap(empty);
+			}
 		}
 
 		PrivateInstanceAAMP *GetAampInstance()
@@ -123,7 +126,7 @@ protected:
 TEST_F(FunctionalTests, ConstructorInitializesFields)
 {
 	EXPECT_FALSE(mTestableAampTrackWorker->GetStopFlag());
-	EXPECT_FALSE(mTestableAampTrackWorker->GetJobAvailableFlag());
+	EXPECT_FALSE(mTestableAampTrackWorker->HasPendingTasks());
 	EXPECT_EQ(mTestableAampTrackWorker->GetAampInstance(), mPrivateInstanceAAMP);
 	EXPECT_EQ(mTestableAampTrackWorker->GetMediaType(), mMediaType);
 }
@@ -155,13 +158,13 @@ TEST_F(FunctionalTests, DestructorCleansUpResources)
  *
  * The tests verify the job submission and completion of the worker thread
  */
-TEST_F(FunctionalTests, SubmitJobExecutesSuccessfully)
+TEST_F(FunctionalTests, SubmitTaskExecutesSuccessfully)
 {
-	bool jobExecuted = false;
-	mTestableAampTrackWorker->SubmitJob([&]()
-										{ jobExecuted = true; });
-	mTestableAampTrackWorker->WaitForCompletion();
-	EXPECT_TRUE(jobExecuted);
+	bool taskExecuted = false;
+	auto future = mTestableAampTrackWorker->Submit([&]()
+												{ taskExecuted = true; });
+	future.get(); // Wait for completion and check for exceptions
+	EXPECT_TRUE(taskExecuted);
 }
 
 /**
@@ -170,16 +173,16 @@ TEST_F(FunctionalTests, SubmitJobExecutesSuccessfully)
  *
  * The tests verify the job submission and completion of the worker thread
  */
-TEST_F(FunctionalTests, MultipleJobsExecution)
+TEST_F(FunctionalTests, MultipleTasksExecution)
 {
 	int counter = 0;
-	mTestableAampTrackWorker->SubmitJob([&]()
-										{ counter += 1; });
-	mTestableAampTrackWorker->WaitForCompletion();
-
-	mTestableAampTrackWorker->SubmitJob([&]()
-										{ counter += 2; });
-	mTestableAampTrackWorker->WaitForCompletion();
+	auto future1 = mTestableAampTrackWorker->Submit([&]()
+												{ counter += 1; });
+	auto future2 = mTestableAampTrackWorker->Submit([&]()
+												{ counter += 2; });
+	
+	future1.get(); // Wait for first task
+	future2.get(); // Wait for second task
 
 	EXPECT_EQ(counter, 3);
 }
@@ -190,20 +193,32 @@ TEST_F(FunctionalTests, MultipleJobsExecution)
  *
  * The tests verify the worker thread exits gracefully when stop signal is set
  */
-TEST_F(FunctionalTests, ProcessJobExitsGracefully)
+TEST_F(FunctionalTests, TaskWorkerExitsGracefully)
 {
-	mTestableAampTrackWorker->SubmitJob([&]() {}); // Dummy job
-	mTestableAampTrackWorker->WaitForCompletion();
+	// Submit a task and wait for it to complete
+	auto future1 = mTestableAampTrackWorker->Submit([]() {});
+	future1.get();
 
-	// Simulate stop signal
-	{
-		std::lock_guard<std::mutex> lock(mTestableAampTrackWorker->mMutex);
-		mTestableAampTrackWorker->SetStopFlag(true);
-		mTestableAampTrackWorker->SetJobAvailableFlag(true);
-	}
+	// Submit another task but stop before it executes
+	bool taskExecuted = false;
+	auto future2 = mTestableAampTrackWorker->Submit([&]() { taskExecuted = true; });
+
+	// Stop the worker
+	mTestableAampTrackWorker->SetStopFlag(true);
 	mTestableAampTrackWorker->NotifyConditionVariable();
 
-	// Wait for thread to join in destructor
+	try
+	{
+		future2.get();
+		FAIL() << "Task should not execute after stop";
+	}
+	catch (const std::runtime_error& e)
+	{
+		EXPECT_STREQ(e.what(), "Worker is stopped");
+		EXPECT_FALSE(taskExecuted);
+	}
+
+	// Clean up should succeed
 	try
 	{
 		delete mTestableAampTrackWorker;
@@ -212,7 +227,7 @@ TEST_F(FunctionalTests, ProcessJobExitsGracefully)
 	}
 	catch (const std::exception &e)
 	{
-		FAIL() << "Exception caught in AampTrackWorker destructor: " << e.what();
+		FAIL() << "Exception caught in destructor: " << e.what();
 	}
 }
 
@@ -244,17 +259,17 @@ TEST_F(FunctionalTests, ConstructorHandlesExceptionsGracefully)
  *
  * The tests verify the worker thread does not crash or behave unexpectedly with null job
  */
-TEST_F(FunctionalTests, ProcessJobHandlesNullJobs)
+TEST_F(FunctionalTests, ProcessTaskHandlesNullTask)
 {
 	try
 	{
-		mTestableAampTrackWorker->SubmitJob(nullptr); // Submit an invalid/null job
-		mTestableAampTrackWorker->WaitForCompletion();
-		SUCCEED(); // No crashes or unexpected behavior
+		auto future = mTestableAampTrackWorker->Submit(std::function<void()>(nullptr));
+		EXPECT_THROW(future.get(), std::exception); // Expect exception for null task
+		SUCCEED();
 	}
 	catch (const std::exception &e)
 	{
-		FAIL() << "Exception caught in AampTrackWorker ProcessJob: " << e.what();
+		FAIL() << "Unexpected exception: " << e.what();
 	}
 }
 /**
@@ -263,19 +278,24 @@ TEST_F(FunctionalTests, ProcessJobHandlesNullJobs)
  *
  * The tests verify the worker thread handles exceptions thrown by jobs gracefully
  */
-TEST_F(FunctionalTests, SubmitJobHandlesExceptions)
+TEST_F(FunctionalTests, SubmitTaskHandlesExceptions)
 {
-	std::exception ex;
+	std::runtime_error ex("test exception");
+	auto future = mTestableAampTrackWorker->Submit([&]()
+												{ throw ex; });
 	try
 	{
-		mTestableAampTrackWorker->SubmitJob([&]()
-											{ throw ex; });
-		mTestableAampTrackWorker->WaitForCompletion();
-		SUCCEED(); // No crashes or unexpected behavior
+		future.get();
+		FAIL() << "Expected exception not thrown";
 	}
-	catch (const std::exception &e)
+	catch (const std::runtime_error& e)
 	{
-		FAIL() << "Exception caught in AampTrackWorker job: " << e.what();
+		EXPECT_STREQ(e.what(), "test exception");
+		SUCCEED();
+	}
+	catch (...)
+	{
+		FAIL() << "Wrong exception type caught";
 	}
 }
 
@@ -295,5 +315,32 @@ TEST_F(FunctionalTests, ConstructorHandlesNullAamp)
 	catch (const std::exception &e)
 	{
 		FAIL() << "Exception caught in AampTrackWorker constructor with null aamp: " << e.what();
+	}
+}
+
+/**
+ * @test FunctionalTests::RejectsTasksWhenStopped
+ * @brief Functional tests for AampTrackWorker task rejection when stopped
+ *
+ * The tests verify that tasks are rejected with an exception when the worker is stopped
+ */
+TEST_F(FunctionalTests, RejectsTasksWhenStopped)
+{
+	// Stop the worker
+	mTestableAampTrackWorker->SetStopFlag(true);
+
+	// Try to submit a new task
+	bool taskExecuted = false;
+	auto future = mTestableAampTrackWorker->Submit([&]() { taskExecuted = true; });
+
+	try
+	{
+		future.get();
+		FAIL() << "Task should be rejected when worker is stopped";
+	}
+	catch (const std::runtime_error& e)
+	{
+		EXPECT_STREQ(e.what(), "Worker is stopped");
+		EXPECT_FALSE(taskExecuted);
 	}
 }

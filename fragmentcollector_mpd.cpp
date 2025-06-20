@@ -8483,13 +8483,15 @@ void StreamAbstractionAAMP_MPD::UpdateCulledAndDurationFromPeriodInfo(std::vecto
  */
 void StreamAbstractionAAMP_MPD::FetchAndInjectInitFragments(bool discontinuity)
 {
+	std::vector<std::future<void>> futures;
 	for( int i = 0; i < mNumberOfTracks; i++)
 	{
 		if (i < mTrackWorkers.size() && ISCONFIGSET(eAAMPConfig_DashParallelFragDownload) && mTrackWorkers[i])
 		{
 			// Download the video, audio & subtitle init fragments in a separate parallel thread.
 			AAMPLOG_DEBUG("Submitting init job for track %d", i);
-			mTrackWorkers[i]->SubmitJob([this, i, discontinuity]() { FetchAndInjectInitialization(i,discontinuity); });
+			std::future<void> future = mTrackWorkers[i]->Submit([this, i, discontinuity]() { FetchAndInjectInitialization(i,discontinuity); });
+			futures.push_back(std::move(future));
 		}
 		else
 		{
@@ -8498,11 +8500,10 @@ void StreamAbstractionAAMP_MPD::FetchAndInjectInitFragments(bool discontinuity)
 		}
 	}
 
-	for (int trackIdx = (mNumberOfTracks - 1); (ISCONFIGSET(eAAMPConfig_DashParallelFragDownload) && trackIdx >= 0); trackIdx--)
+	// Wait for all init fragment tasks to complete
+	for (auto& future : futures)
 	{
-		if(trackIdx < mTrackWorkers.size() && mTrackWorkers[trackIdx])
-		{
-			mTrackWorkers[trackIdx]->WaitForCompletion();
+		future.get();
 		}
 	}
 }
@@ -8761,13 +8762,15 @@ bool StreamAbstractionAAMP_MPD::CheckForInitalClearPeriod()
  */
 void StreamAbstractionAAMP_MPD::PushEncryptedHeaders(std::map<int, std::string>& mappedHeaders)
 {
+	std::vector<std::future<void>> futures;
 	for (std::map<int, std::string>::iterator it=mappedHeaders.begin(); it!=mappedHeaders.end(); ++it)
 	{
 		if (it->first < mTrackWorkers.size() && ISCONFIGSET(eAAMPConfig_DashParallelFragDownload) && mTrackWorkers[it->first])
 		{
 			// Download the video, audio & subtitle fragments in a separate parallel thread.
 			AAMPLOG_DEBUG("Submitting job for init encrypted header track %d", it->first);
-			mTrackWorkers[it->first]->SubmitJob([this, track = it->first, header = it->second]() { CacheEncryptedHeader(track, header); });
+			std::future<void> future = mTrackWorkers[it->first]->Submit([this, track = it->first, header = it->second]() { CacheEncryptedHeader(track, header); });
+			futures.push_back(std::move(future));
 		}
 		else
 		{
@@ -8776,11 +8779,10 @@ void StreamAbstractionAAMP_MPD::PushEncryptedHeaders(std::map<int, std::string>&
 		}
 	}
 
-	for (int trackIdx = (mNumberOfTracks - 1); (ISCONFIGSET(eAAMPConfig_DashParallelFragDownload) && trackIdx >= 0); trackIdx--)
+	// Wait for all encrypted header tasks to complete
+	for (auto& future : futures)
 	{
-		if(trackIdx < mTrackWorkers.size() && mTrackWorkers[trackIdx])
-		{
-			mTrackWorkers[trackIdx]->WaitForCompletion();
+		future.get();
 		}
 	}
 }
@@ -9809,6 +9811,7 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 			bool parallelDnld = ISCONFIGSET(eAAMPConfig_DashParallelFragDownload);
 			bool *cacheFullStatus = new bool[AAMP_TRACK_COUNT]{false};
 			bool throttleAudio = false;
+			std::vector<std::future<void>> futures;
 			while (!exitFetchLoop)
 			{
 				if (mIsLiveStream && !mIsLiveManifest && playlistDownloaderThreadStarted)
@@ -9829,6 +9832,7 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 					SwitchSubtitleTrack(true);
 					mMediaStreamContext[eTRACK_SUBTITLE]->refreshSubtitles = false;
 				}
+				futures.clear();
 				for (int trackIdx = (mNumberOfTracks - 1); trackIdx >= 0; trackIdx--)
 				{
 					// When injecting from TSB reader then fetcher should ignore the cache full status
@@ -9839,9 +9843,10 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 						{
 							// Download the video, audio & subtitle fragments in a separate parallel thread.
 							AAMPLOG_DEBUG("Submitting job for track %d", trackIdx);
-							mTrackWorkers[trackIdx]->SubmitJob([this, trackIdx, &delta, &waitForFreeFrag, &cacheFullStatus, trickPlay, throttleAudio]()
-															   { AdvanceTrack(trackIdx, trickPlay, &delta, waitForFreeFrag, cacheFullStatus[trackIdx],
-																			  (trackIdx == eMEDIATYPE_AUDIO) ? throttleAudio : false, false); });
+							std::future<void> future = mTrackWorkers[trackIdx]->Submit([this, trackIdx, &delta, &waitForFreeFrag, &cacheFullStatus, trickPlay, throttleAudio]()
+															{ AdvanceTrack(trackIdx, trickPlay, &delta, waitForFreeFrag, cacheFullStatus[trackIdx],
+																		  (trackIdx == eMEDIATYPE_AUDIO) ? throttleAudio : false, false); });
+							futures.push_back(std::move(future));
 						}
 						else
 						{
@@ -9850,12 +9855,21 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 					}
 				}
 
-				for (int trackIdx = (mNumberOfTracks - 1); (parallelDnld && trackIdx >= 0); trackIdx--)
+				// Wait for all track advancement tasks to complete
+				bool allTasksCompleted = true;
+				for (auto& future : futures)
 				{
-					if(trackIdx < mTrackWorkers.size() && mTrackWorkers[trackIdx])
-					{
-						mTrackWorkers[trackIdx]->WaitForCompletion();
+					try {
+						future.get();
 					}
+					catch (const std::exception& e) {
+						AAMPLOG_WARN("Task failed: %s", e.what());
+						allTasksCompleted = false;
+					}
+				}
+
+				if (!allTasksCompleted) {
+					AAMPLOG_WARN("Some tasks failed, checking if downloads are still enabled");
 				}
 
 				// If download status is disabled then need to exit from fetcher loop
