@@ -970,15 +970,15 @@ static GstStateChangeReturn gst_cdmidecryptor_changestate(
 	case GST_STATE_CHANGE_NULL_TO_READY:
 		GST_DEBUG_OBJECT(cdmidecryptor, "NULL->READY");
 		if (cdmidecryptor->svpCtx == NULL)
-		 gst_svp_ext_get_context(&cdmidecryptor->svpCtx, (int)Server, 0);
+		 gst_svp_ext_get_context(&cdmidecryptor->svpCtx, Server, 0);
 		 printf("PLUGIN: entering null to ready");
 		break;
 	case GST_STATE_CHANGE_READY_TO_NULL:
 		GST_DEBUG_OBJECT(cdmidecryptor, "READY->NULL");
 		if (cdmidecryptor->svpCtx) {
-  		gst_svp_ext_free_context(cdmidecryptor->svpCtx);
-		 printf("PLUGIN: entering ready to null");
-		cdmidecryptor->svpCtx = NULL;	
+  	        	gst_svp_ext_free_context(cdmidecryptor->svpCtx);
+		 	printf("PLUGIN: entering ready to null");
+			cdmidecryptor->svpCtx = NULL;	
 		}
 		break;
 #endif

@@ -65,7 +65,7 @@ struct _GstCDMIDecryptor
     gboolean                        ignoreSVP; //No need for svp for clearKey streams
     GstCaps*                        sinkCaps;
     //GstBuffer*                    initDataBuffer;
-    void**                           svpCtx;
+    void*                           svpCtx;
 };
 
 /**
