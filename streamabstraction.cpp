@@ -1062,7 +1062,10 @@ bool MediaTrack::ProcessFragmentChunk()
 		}
 		if (type != eTRACK_SUBTITLE || (aamp->IsGstreamerSubsEnabled()))
 		{
-			printf( "xhttp inject time=%llu type=%d\n", aamp_GetCurrentTimeMS(), type );
+			if( ISCONFIGSET(eAAMPConfig_CurlThroughput) )
+			{
+				printf( "xhttp inject time=%llu type=%d\n", aamp_GetCurrentTimeMS(), type );
+			}
 			AAMPLOG_INFO("Injecting chunk for %s br=%d,chunksize=%zu fpts=%f fduration=%f",name,bandwidthBitsPerSecond,parsedBufferChunk.GetLen(),fpts,fduration);
 			InjectFragmentChunkInternal((AampMediaType)type,&parsedBufferChunk , fpts, fpts, fduration, cachedFragment->PTSOffsetSec);
 			totalInjectedChunksDuration += fduration;

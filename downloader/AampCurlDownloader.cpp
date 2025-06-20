@@ -179,7 +179,10 @@ int AampCurlDownloader::Download(const std::string &urlStr, std::shared_ptr<Down
 			bool loopAgain = false;
 			do{
 				mDownloadStartTime = mDownloadUpdatedTime = NOW_STEADY_TS_MS;
-				printf( "xhttp begin time=%llu type=%d\n", aamp_GetCurrentTimeMS(), eMEDIATYPE_MANIFEST);
+				if( mDnldCfg && mDnldCfg->bCurlThroughput )
+				{
+					printf( "xhttp begin time=%llu type=%d\n", aamp_GetCurrentTimeMS(), eMEDIATYPE_MANIFEST);
+				}
 				curlRetVal = curl_easy_perform(mCurl);
 				loopAgain = false;
 				numDownloadAttempts++;
@@ -266,12 +269,15 @@ int AampCurlDownloader::Download(const std::string &urlStr, std::shared_ptr<Down
 			updateResponseParams();
 			mDownloadActive = false;		
 			mDownloadResponse->curlRetValue = curlRetVal;
-			printf( "xhttp end time=%lld type=%d appConnect=%f redirect=%f error=%d\n",
-				   aamp_GetCurrentTimeMS(),
-				   eMEDIATYPE_MANIFEST,
-				   mDownloadResponse->downloadCompleteMetrics.appConnect,
-				   mDownloadResponse->downloadCompleteMetrics.redirect,
-				   mDownloadResponse->iHttpRetValue );
+			if( mDnldCfg && mDnldCfg->bCurlThroughput )
+			{
+				printf( "xhttp end time=%lld type=%d appConnect=%f redirect=%f error=%d\n",
+					   aamp_GetCurrentTimeMS(),
+					   eMEDIATYPE_MANIFEST,
+					   mDownloadResponse->downloadCompleteMetrics.appConnect,
+					   mDownloadResponse->downloadCompleteMetrics.redirect,
+					   mDownloadResponse->iHttpRetValue );
+			}
 		}
 		else
 		{
@@ -493,11 +499,14 @@ size_t AampCurlDownloader::WriteCallback(void *buffer, size_t sz, size_t nmemb, 
 	AampCurlDownloader *context = static_cast<AampCurlDownloader *>(userdata);
 	if(context != NULL)
 	{
-		printf( "xhttp write time=%llu type=%d size=%zu chunked=%d\n",
-						aamp_GetCurrentTimeMS(),
-						eMEDIATYPE_MANIFEST,
-						sz*nmemb,
-						false );
+		if( context->mDnldCfg && context->mDnldCfg->bCurlThroughput )
+		{
+			printf( "xhttp write time=%llu type=%d size=%zu chunked=%d\n",
+				   aamp_GetCurrentTimeMS(),
+				   eMEDIATYPE_MANIFEST,
+				   sz*nmemb,
+				   false );
+		}
 		ret = context->write_callback(buffer, sz, nmemb);
 	}
 	return ret;
