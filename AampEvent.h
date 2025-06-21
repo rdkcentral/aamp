@@ -1511,7 +1511,6 @@ class DrmMetaDataEvent: public AAMPEventObject
 	std::vector<std::string> mHeaderResponses; /**< Header response strings */
 	std::string mResponseData;	/**< Response Data */
 	std::string mNetworkMetrics;	/**< Network metric Data */
-	std::string mBodyResponses; /**Body response strings */
 public:
 	DrmMetaDataEvent() = delete;
 	DrmMetaDataEvent(const DrmMetaDataEvent&) = delete;
@@ -1690,21 +1689,6 @@ public:
 	 * @return void
 	 */
 	void setHeaderResponses(const std::vector<std::string> &responses);
-
-	/**
-	 * @brief Get body responses
-	 *
-	 * @return Body response string
-	 */
-	const std::string &getBodyResponse() const;
-
-	/**
-	 * @brief Set Body response from license request
-	 *
-	 * @param[in] string of body response
-	 * @return void
-	 */
-	void setBodyResponse(const std::string &responses);
 };
 
 

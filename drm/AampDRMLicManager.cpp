@@ -1028,11 +1028,6 @@ DrmData * AampDRMLicenseManager::getLicense(LicenseRequest &licenseRequest,
 					//loopAgain = true;
 					//mLicenseDownloader.Clear();
 				}
-				if(responseData.empty() != true  && respData != NULL && bNeedResponseHeadersTobeShared )
-				{
-					AAMPLOG_WARN("Setting Body Response for  acquireLicense FAILED response %s:%zu", responseData.c_str(), responseData.length());
-					eventHandle->setBodyResponse(responseData);
-				}
 			}
 			else
 			{

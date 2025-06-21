@@ -643,11 +643,6 @@ TEST_F(DrmMetaDataEventTest, GetterSetterMethodsTest) {
     EXPECT_EQ(headerResponses.size(), 2);
     EXPECT_EQ(headerResponses[0], "Header1");
     EXPECT_EQ(headerResponses[1], "Header2");
-
-    drmMetaDataEvent->setBodyResponse("{\"errorCode\":\"Error1\",\"description\":\"Invalid parameter value: bt\"}");
-    const std::string bodyResponses = drmMetaDataEvent->getBodyResponse();
-    EXPECT_FALSE(bodyResponses.empty());
-    EXPECT_EQ(bodyResponses, "{\"errorCode\":\"Error1\",\"description\":\"Invalid parameter value: bt\"}");
 }
 // Test case for ConvertToVerboseErrorCode method
 TEST_F(DrmMetaDataEventTest, ConvertToVerboseErrorCodeTest) {

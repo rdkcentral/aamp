@@ -143,10 +143,6 @@ void DrmMetaDataEvent::setHeaderResponses(const std::vector<std::string> &respon
 {
 }
 
-void DrmMetaDataEvent::setBodyResponse(const std::string &responses)
-{
-}
-
 void DrmMetaDataEvent::setSecManagerReasonCode(int32_t code)
 {
 }
@@ -221,8 +217,6 @@ DrmMessageEvent::DrmMessageEvent(const std::string &msg, std::string sid):
 const std::string &DrmMessageEvent::getMessage() const { return mMessage; }
 
 const std::vector<std::string> &DrmMetaDataEvent::getHeaderResponses( void ) const { return mHeaderResponses; }
-
-const std::string &DrmMetaDataEvent::getBodyResponse( void ) const { return mBodyResponses; }
 
 AnomalyReportEvent::AnomalyReportEvent(int severity, const std::string &msg, std::string sid):
 		AAMPEventObject(AAMP_EVENT_REPORT_ANOMALY, std::move(sid))
