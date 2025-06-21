@@ -78,7 +78,7 @@
 #include "AampTSBSessionManager.h"
 #include "SocUtils.h"
 
-#define LEVERAGE_CHUNK_TRANSFER_MODE
+//#define LEVERAGE_CHUNK_TRANSFER_MODE
 
 #define LOCAL_HOST_IP       "127.0.0.1"
 #define AAMP_MAX_TIME_BW_UNDERFLOWS_TO_TRIGGER_RETUNE_MS (20*1000LL)
@@ -4480,7 +4480,6 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 				}
 				if(!loopAgain)
 					break;
-				printf( "curl retry\n" );
 				context.mTransferState.state = CurlCallbackContext::eTRANSFER_STATE_READING_CHUNK_SIZE;
 				context.mTransferState.remaining = 0;
 			}
