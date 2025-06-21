@@ -713,20 +713,6 @@ public:
 			JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, propValue, kJSPropertyAttributeReadOnly, NULL);
 			JSStringRelease(prop);
 		}
-
-		const char *pBodyResponse = evt->getBodyResponse().c_str();
-		if( NULL != pBodyResponse )
-		{
-			JSObjectRef bodyResponseObj = aamp_CreateBodyResponseJSObject(p_obj->_ctx, pBodyResponse);
-			if( bodyResponseObj )
-			{
-				JSValueProtect(p_obj->_ctx, bodyResponseObj);
-				prop = JSStringCreateWithUTF8CString("body");
-				JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, bodyResponseObj, kJSPropertyAttributeReadOnly, NULL);
-				JSStringRelease(prop);
-				JSValueUnprotect(p_obj->_ctx, bodyResponseObj);	
-			}
-		}
 	}
 
 };

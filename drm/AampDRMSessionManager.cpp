@@ -971,17 +971,12 @@ DrmData * AampDRMSessionManager::getLicense(LicenseRequest &licenseRequest,
 				AAMPLOG_ERR(" acquireLicense FAILED! license request attempt : %d; response code : http %d", attemptCount, *httpCode);
 				if(*httpCode >= 500 && *httpCode < 600
 					&& attemptCount < MAX_LICENSE_REQUEST_ATTEMPTS && licenseRetryWaitTime > 0)
-				{
+				{			
 					AAMPLOG_WARN("acquireLicense : Sleeping %d milliseconds before next retry.",licenseRetryWaitTime);
 					mssleep(licenseRetryWaitTime);
 					// TODO this is not enabled in old code ???? 
 					//loopAgain = true;
 					//mLicenseDownloader.Clear();
-				}
-				if(responseData.empty() != true  && respData != NULL && bNeedResponseHeadersTobeShared )
-				{
-					AAMPLOG_WARN("Setting Body Response for  acquireLicense FAILED response %s:%zu", responseData.c_str(), responseData.length());
-					eventHandle->setBodyResponse(responseData);
 				}
 			}
 			else
