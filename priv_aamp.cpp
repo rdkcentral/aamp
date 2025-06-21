@@ -579,7 +579,7 @@ void PrivateInstanceAAMP::chunked_write_callback(const char *ptr, size_t numByte
 	const char *fin = &ptr[numBytes];
 	while( ptr<fin )
 	{
-		const char *state_name = "?";
+		const char *state_name;
 		switch( context->mTransferState.state )
 		{
 			case CurlCallbackContext::eTRANSFER_STATE_READING_CHUNK_SIZE:
@@ -598,13 +598,13 @@ void PrivateInstanceAAMP::chunked_write_callback(const char *ptr, size_t numByte
 				state_name = "awaiting end LF";
 				break;
 			default:
+				assert(0);
 				break;
 		}
 		AAMPLOG_INFO("%s (%s)) remaining=%zu",
 				GetMediaTypeName(context->mediaType),
 				state_name,
 				context->mTransferState.remaining );
-		
 		switch( context->mTransferState.state )
 		{
 			case CurlCallbackContext::eTRANSFER_STATE_READING_CHUNK_SIZE:
@@ -642,7 +642,7 @@ void PrivateInstanceAAMP::chunked_write_callback(const char *ptr, size_t numByte
 				{
 					size_t n = fin - ptr;
 					if( n > context->mTransferState.remaining )
-					{ // clamp
+					{ // clamp - more bytes in write_callback than needed to complete current chunk
 						n = context->mTransferState.remaining;
 					}
 					context->buffer->AppendBytes( ptr, n );
@@ -3997,7 +3997,6 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 	struct curl_slist* httpHeaders = NULL;
 	CURLcode res = CURLE_OK;
 	int fragmentDurationMs = (int)(fragmentDurationS*1000);
-
 	int maxDownloadAttempt = 1;
 	switch( mediaType )
 	{
@@ -4165,6 +4164,7 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 
 			while(downloadAttempt < maxDownloadAttempt)
 			{
+				context.chunkedDownload = false;
 				progressCtx.downloadStartTime = NOW_STEADY_TS_MS;
 
 				if(this->mAampLLDashServiceData.lowLatencyMode)
@@ -4480,6 +4480,9 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 				}
 				if(!loopAgain)
 					break;
+				printf( "curl retry\n" );
+				context.mTransferState.state = CurlCallbackContext::eTRANSFER_STATE_READING_CHUNK_SIZE;
+				context.mTransferState.remaining = 0;
 			}
 		}
 
@@ -5065,7 +5068,7 @@ CURL * PrivateInstanceAAMP::GetCurlInstanceForURL(std::string &remoteUrl,unsigne
 			if( curlhost[curlInstance]->isRemotehost && (std::string::npos == mOrigManifestUrl.hostname.find(curlhost[curlInstance]->hostname)) )
 			{
 				CurlStore::GetCurlStoreInstance(this).CurlInit(this, (AampCurlInstance)curlInstance, 1, GetNetworkProxy(), curlhost[curlInstance]->hostname);
-				CURL_EASY_SETOPT_LONG(curlhost[curlInstance]->curl, CURLOPT_TIMEOUT_MS, curlDLTimeout[curlInstance]);
+				CURL_EASY_SETOPT_LONG(curlhost[curlInstance]->curl, CURLOPT_TIMEOUT_MS, curlDLTimeout[curlInstance] );
 			}
 		}
 
