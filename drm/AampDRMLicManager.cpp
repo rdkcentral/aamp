@@ -71,12 +71,6 @@ void getConfigs(DrmSessionManager *mDrmSessionManager , PrivateInstanceAAMP *aam
 {
 	mDrmSessionManager->UpdateDRMConfig(
         aampInstance->mConfig->IsConfigSet(eAAMPConfig_UseSecManager),
-        aampInstance->mConfig->GetConfigValue(eAAMPConfig_LicenseRetryWaitTime),
-        aampInstance->mConfig->GetConfigValue(eAAMPConfig_DrmNetworkTimeout),
-        aampInstance->mConfig->GetConfigValue(eAAMPConfig_Curl_ConnectTimeout),
-        aampInstance->mConfig->IsConfigSet(eAAMPConfig_CurlLicenseLogging),
-        aampInstance->mConfig->IsConfigSet(eAAMPConfig_RuntimeDRMConfig),
-        aampInstance->mConfig->GetConfigValue(eAAMPConfig_ContentProtectionDataUpdateTimeout),
         aampInstance->mConfig->IsConfigSet(eAAMPConfig_EnablePROutputProtection),
         aampInstance->mConfig->IsConfigSet(eAAMPConfig_PropagateURIParam),
         aampInstance->mIsFakeTune

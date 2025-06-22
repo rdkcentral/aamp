@@ -83,28 +83,16 @@ DrmSessionManager::~DrmSessionManager()
 }
 void DrmSessionManager::UpdateDRMConfig(
     bool useSecManager,
-    int licenseRetryWaitTime,
-    int drmNetworkTimeout,
-    int curlConnectTimeout,
-    bool curlLicenseLogging,
-    bool runtimeDRMConfig,
-    int contentProtectionDataUpdateTimeout,
     bool enablePROutputProtection,
     bool propagateURIParam,
     bool isFakeTune)
 {
     m_drmConfigParam->mUseSecManager = useSecManager;
-    m_drmConfigParam->mLicenseRetryWaitTime = licenseRetryWaitTime;
-    m_drmConfigParam->mDrmNetworkTimeout = drmNetworkTimeout;
-    m_drmConfigParam->mCurlConnectTimeout = curlConnectTimeout;
-    m_drmConfigParam->mCurlLicenseLogging = curlLicenseLogging;
-    m_drmConfigParam->mRuntimeDRMConfig = runtimeDRMConfig;
-    m_drmConfigParam->mContentProtectionDataUpdateTimeout = contentProtectionDataUpdateTimeout;
     m_drmConfigParam->mEnablePROutputProtection = enablePROutputProtection;
     m_drmConfigParam->mPropagateURIParam = propagateURIParam;
     m_drmConfigParam->mIsFakeTune = isFakeTune;
-
 }
+
 /**
  *  @brief  Clean up the memory used by session variables.
  */
@@ -458,9 +446,16 @@ DrmSession* DrmSessionManager::createDrmSession(int &err, std::shared_ptr<DrmHel
 	 * KEY_READY code indicates that a previously created session is being reused.
 	 */
 	int isContentProcess = -1;
-	if (code == KEY_READY)
+	if((code == KEY_READY) || ((code != KEY_INIT) || (selectedSlot == INVALID_SESSION_SLOT)))
 	{
 		isContentProcess =0;
+	}
+	std::vector<uint8_t> keyId;
+	drmHelper->getKey(keyId);
+	/* callback to initiatecontentProtection DataUpdate */
+	mCustomData = ContentUpdateCb(drmHelper, streamType , keyId, isContentProcess);
+	if (code == KEY_READY)
+	{
 		return drmSessionContexts[selectedSlot].drmSession;
 	}
 
@@ -470,12 +465,6 @@ DrmSession* DrmSessionManager::createDrmSession(int &err, std::shared_ptr<DrmHel
 		MW_LOG_WARN(" Unable to get DrmSession : Key State %d ", code);
 		return nullptr;
 	}
-
-	std::vector<uint8_t> keyId;
-	drmHelper->getKey(keyId);
-	/* callback to initiateContentProtection DataUpdate */
-	mCustomData = ContentUpdateCb(drmHelper, streamType , keyId, isContentProcess);
-	
 	code = initializeDrmSession(drmHelper, selectedSlot,  err);
 	if (code != KEY_INIT)
 	{
@@ -732,7 +721,7 @@ KeyState DrmSessionManager::getDrmSession(int &err, std::shared_ptr<DrmHelper> d
 /**
  * @brief Initialize the Drm System with InitData(PSSH)
  */
-KeyState DrmSessionManager::initializeDrmSession(std::shared_ptr<DrmHelper> drmHelper, int sessionSlot, int err )
+KeyState DrmSessionManager::initializeDrmSession(std::shared_ptr<DrmHelper> drmHelper, int sessionSlot, int &err )
 {
 	KeyState code = KEY_ERROR;
 
