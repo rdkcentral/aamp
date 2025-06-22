@@ -21,18 +21,12 @@
 #include <gmock/gmock.h>
 #include <chrono>
 
-#include "middleware/GstUtils.h"
+#include "GstUtils.h"
 #include "MockGStreamer.h"
-
-#include "main_aamp.h"
-
-
 
 using ::testing::_;
 using ::testing::Return;
 using ::testing::StrEq;
-
-AampConfig *gpGlobalConfig{nullptr};
 
 class GstUtilsTests : public ::testing::Test
 {

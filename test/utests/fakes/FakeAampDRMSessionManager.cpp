@@ -56,18 +56,88 @@ void DrmSessionManager::UpdateMaxDRMSessions(int maxSessions)
 {
 }
 
+void DrmSessionManager::clearSessionData(void)
+{
+}
+
+int DrmSessionManager::getSlotIdForSession(DrmSession* )
+{
+	return false;	
+}
+
+string DrmSession::getKeySystem(void)
+{
+	return NULL;
+}
+
 
 DrmSession * DrmSessionManager::createDrmSession(int& err,
 		const char* systemId, MediaFormat mediaFormat, const unsigned char * initDataPtr,
 		uint16_t initDataLen, int streamType, 
 		DrmCallbacks* aamp, void *ptr , const unsigned char* contentMetadataPtr,
 		bool isPrimarySession)
-		{
-			return nullptr;
-		}
+{
+	return nullptr;
+}
+
+DrmSession* DrmSessionManager::createDrmSession(int &err, std::shared_ptr<DrmHelper> drmHelper,  DrmCallbacks* Instance, int streamType,void* metaDataPtr)
+{
+	return nullptr;
+}
 		
 SessionMgrState DrmSessionManager::getSessionMgrState()
 {
 	return SessionMgrState::eSESSIONMGR_INACTIVE;
 }
 
+void DrmSessionManager::clearDrmSession(bool forceClearSession)
+{
+}
+
+void DrmSessionManager::clearFailedKeyIds()
+{
+}
+
+void DrmSessionManager::setSessionMgrState(SessionMgrState state)
+{
+}
+
+void DrmSessionManager::notifyCleanup()
+{
+}
+
+bool DrmSessionManager::IsKeyIdProcessed(std::vector<uint8_t> keyIdArray, bool &status)
+{
+	return false;
+}
+
+void DrmSessionManager::UpdateDRMConfig(
+                       bool useSecManager, int licenseRetryWaitTime, int drmNetworkTimeout, int curlConnectTimeout, bool curlLicenseLogging, bool runtimeDRMConfig,
+                       int contentProtectionDataUpdateTimeout, bool enablePROutputProtection, bool propagateURIParam, bool isFakeTune)
+{
+}
+#if 0
+void DrmSessionManager::SetLicenseFetcher(AampLicenseFetcher *fetcherInstance)
+{
+}
+
+bool DrmSessionManager::QueueContentProtection(DrmHelperPtr drmHelper, std::string periodId, uint32_t adapIdx, AampMediaType type, bool isVssPeriod)
+{
+	return false;
+}
+
+void DrmSessionManager::QueueProtectionEvent(DrmHelperPtr drmHelper, std::string periodId, uint32_t adapIdx, AampMediaType type)
+{
+}
+
+
+void DrmSessionManager::SetSendErrorOnFailure(bool sendErrorOnFailure)
+{
+}
+
+void DrmSessionManager::SetCommonKeyDuration(int keyDuration)
+{
+}
+
+
+#endif
