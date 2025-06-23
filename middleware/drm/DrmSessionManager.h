@@ -194,11 +194,11 @@ public:
 	/**
 	 *  @fn watermarkSessionHandlerWrapper
 	 *  @brief Wrapper function to handle session watermark.
-	 *  @param[in]	sessionHndle - Session handle.
+	 *  @param[in]	sessionHandle - Session handle.
 	 *  @param[in]	status - Status of the session.
 	 *  @param[in]	systemData - System data.
 	 */
-	void watermarkSessionHandlerWrapper(uint32_t sessionHndle, uint32_t status, const std::string &systemData);
+	void watermarkSessionHandlerWrapper(uint32_t sessionHandle, uint32_t status, const std::string &systemData);
 
 	/**
 	 *  @fn registerCallback
