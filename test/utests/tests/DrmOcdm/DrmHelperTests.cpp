@@ -393,10 +393,10 @@ TEST_F(DrmHelperTests, TestCreatePlayReadyHelperNegative)
 
 static uint32_t ConvertToDecimal(const char* text)
 {
-	return (static_cast<uint32_t>text[0] << 24) |
-		   (static_cast<uint32_t>text[1] << 16) |
-		   (static_cast<uint32_t>text[2] << 8) |
-		   (static_cast<uint32_t>text[3]);
+	return (static_cast<uint32_t>(text[0]) << 24) |
+		   (static_cast<uint32_t>(text[1]) << 16) |
+		   (static_cast<uint32_t>(text[2]) << 8) |
+		   (static_cast<uint32_t>(text[3]));
 }
 
 TEST_F(DrmHelperTests, TestWidevineHelperParsePsshDrmMetaData)
