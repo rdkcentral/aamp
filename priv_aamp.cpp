@@ -581,8 +581,7 @@ size_t PrivateInstanceAAMP::HandleSSLWriteCallback ( char *ptr, size_t size, siz
 	if(!context) return ret;
 	if( ISCONFIGSET_PRIV(eAAMPConfig_CurlThroughput) )
 	{
-		printf( "xhttp write time=%llu type=%d size=%zu chunked=%d\n",
-			   aamp_GetCurrentTimeMS(),
+		AAMPLOG_MIL( "curl-write type=%d size=%zu chunked=%d\n",
 			   context->mediaType,
 			   size*nmemb,
 			   context->chunkedDownload );
@@ -3871,7 +3870,7 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 {
 	if( ISCONFIGSET_PRIV(eAAMPConfig_CurlThroughput) )
 	{
-		printf( "xhttp begin time=%llu type=%d\n", aamp_GetCurrentTimeMS(), mediaType);
+		AAMPLOG_MIL( "curl-begin type=%d\n", mediaType);
 	}
 	if( bucketType!=PROFILE_BUCKET_TYPE_COUNT)
 	{
@@ -4308,8 +4307,7 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 				redirect = aamp_CurlEasyGetinfoDouble(curl, CURLINFO_REDIRECT_TIME);
 				if( ISCONFIGSET_PRIV(eAAMPConfig_CurlThroughput) )
 				{
-					printf( "xhttp end time=%lld type=%d appConnect=%f redirect=%f error=%d\n",
-						   aamp_GetCurrentTimeMS(),
+					AAMPLOG_MIL( "curl-end type=%d appConnect=%f redirect=%f error=%d\n",
 						   mediaType,
 						   appConnect,
 						   redirect,

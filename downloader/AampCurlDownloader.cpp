@@ -181,7 +181,7 @@ int AampCurlDownloader::Download(const std::string &urlStr, std::shared_ptr<Down
 				mDownloadStartTime = mDownloadUpdatedTime = NOW_STEADY_TS_MS;
 				if( mDnldCfg && mDnldCfg->bCurlThroughput )
 				{
-					printf( "xhttp begin time=%llu type=%d\n", aamp_GetCurrentTimeMS(), eMEDIATYPE_MANIFEST);
+					AAMPLOG_MIL( "curl-begin type=%d\n", eMEDIATYPE_MANIFEST);
 				}
 				curlRetVal = curl_easy_perform(mCurl);
 				loopAgain = false;
@@ -271,8 +271,7 @@ int AampCurlDownloader::Download(const std::string &urlStr, std::shared_ptr<Down
 			mDownloadResponse->curlRetValue = curlRetVal;
 			if( mDnldCfg && mDnldCfg->bCurlThroughput )
 			{
-				printf( "xhttp end time=%lld type=%d appConnect=%f redirect=%f error=%d\n",
-					   aamp_GetCurrentTimeMS(),
+				AAMPLOG_MIL( "curl-end type=%d appConnect=%f redirect=%f error=%d\n",
 					   eMEDIATYPE_MANIFEST,
 					   mDownloadResponse->downloadCompleteMetrics.appConnect,
 					   mDownloadResponse->downloadCompleteMetrics.redirect,
@@ -501,8 +500,7 @@ size_t AampCurlDownloader::WriteCallback(void *buffer, size_t sz, size_t nmemb, 
 	{
 		if( context->mDnldCfg && context->mDnldCfg->bCurlThroughput )
 		{
-			printf( "xhttp write time=%llu type=%d size=%zu chunked=%d\n",
-				   aamp_GetCurrentTimeMS(),
+			AAMPLOG_MIL( "curl-write type=%d size=%zu chunked=%d\n",
 				   eMEDIATYPE_MANIFEST,
 				   sz*nmemb,
 				   false );
