@@ -1823,7 +1823,7 @@ bool MediaTrack::IsFragmentCacheFull()
 {
 	if(IsInjectionFromCachedFragmentChunks())
 	{
-		AAMPLOG_DEBUG("[%s] numberOfFragmentChunksCached %d mCachedFragmentChunksSize %lu", name, numberOfFragmentChunksCached, mCachedFragmentChunksSize);
+		AAMPLOG_DEBUG("[%s] numberOfFragmentChunksCached %d mCachedFragmentChunksSize %zu", name, numberOfFragmentChunksCached, mCachedFragmentChunksSize);
 		return numberOfFragmentChunksCached == mCachedFragmentChunksSize;
 	}
 
