@@ -581,10 +581,10 @@ size_t PrivateInstanceAAMP::HandleSSLWriteCallback ( char *ptr, size_t size, siz
 	if(!context) return ret;
 	if( ISCONFIGSET_PRIV(eAAMPConfig_CurlThroughput) )
 	{
-		AAMPLOG_MIL( "curl-write type=%d size=%zu chunked=%d\n",
+		AAMPLOG_MIL( "curl-write type=%d size=%zu%s",
 			   context->mediaType,
 			   size*nmemb,
-			   context->chunkedDownload );
+			   (context->chunkedDownload?" chunked=1":"") );
 	}
 	// There is scope for rework here, mDownloadsEnabled can be queried with a lock, rather than acquiring lock here
 	std::unique_lock<std::recursive_mutex> lock(context->aamp->mLock);
@@ -3870,7 +3870,7 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 {
 	if( ISCONFIGSET_PRIV(eAAMPConfig_CurlThroughput) )
 	{
-		AAMPLOG_MIL( "curl-begin type=%d\n", mediaType);
+		AAMPLOG_MIL( "curl-begin type=%d", mediaType);
 	}
 	if( bucketType!=PROFILE_BUCKET_TYPE_COUNT)
 	{
@@ -4307,7 +4307,7 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 				redirect = aamp_CurlEasyGetinfoDouble(curl, CURLINFO_REDIRECT_TIME);
 				if( ISCONFIGSET_PRIV(eAAMPConfig_CurlThroughput) )
 				{
-					AAMPLOG_MIL( "curl-end type=%d appConnect=%f redirect=%f error=%d\n",
+					AAMPLOG_MIL( "curl-end type=%d appConnect=%f redirect=%f error=%d",
 						   mediaType,
 						   appConnect,
 						   redirect,
