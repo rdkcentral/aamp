@@ -106,7 +106,6 @@ void AesDec::AcquireKey()
         
        	ResolveURL(keyURI, mDrmInfo.manifestURL, mDrmInfo.keyURI.c_str(), mDrmInfo.bPropagateUriParams);
 	MW_LOG_WARN("Key acquisition start uri = %s",  keyURI.c_str());
-	bool fetched =0;
 	int failureReason = (int)failureReasonIn;
 	 
          char* ptr = NULL;

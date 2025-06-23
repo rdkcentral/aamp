@@ -329,7 +329,7 @@ static const ConfigLookupEntryBool mConfigLookupTableBool[AAMPCONFIG_BOOL_COUNT]
 	{false,"enablePTO", eAAMPConfig_EnablePTO,false},
 	{true,"enableFogConfig", eAAMPConfig_EnableAampConfigToFog, false},
 	{false,"xreSupportedTune",eAAMPConfig_XRESupportedTune,false},
-	{DEFAULT_VALUE_GST_SUBTEC_ENABLED,"gstSubtecEnabled",eAAMPConfig_GstSubtecEnabled,false},
+	{false,"gstSubtecEnabled",eAAMPConfig_GstSubtecEnabled,false},
 	{true,"allowPageHeaders",eAAMPConfig_AllowPageHeaders,false},
 	{false,"persistHighNetworkBandwidth",eAAMPConfig_PersistHighNetworkBandwidth,false},
 	{true,"persistLowNetworkBandwidth",eAAMPConfig_PersistLowNetworkBandwidth,false},
@@ -364,7 +364,8 @@ static const ConfigLookupEntryBool mConfigLookupTableBool[AAMPCONFIG_BOOL_COUNT]
 	{false, "forceLLDFlow", eAAMPConfig_ForceLLDFlow, false},
 	{false, "monitorAV", eAAMPConfig_MonitorAV, true},
 	{false, "enablePTSRestampForHlsTs", eAAMPConfig_HlsTsEnablePTSReStamp, true},
-	{false, "useMp4Demux", eAAMPConfig_UseMp4Demux,false }
+	{false, "useMp4Demux", eAAMPConfig_UseMp4Demux,false },
+	{false, "curlThroughput", eAAMPConfig_CurlThroughput, false }
 };
 
 #define CONFIG_INT_ALIAS_COUNT 2
@@ -860,6 +861,8 @@ void AampConfig::ApplyDeviceCapabilities()
 	bool isSecMgr = isSecManagerEnabled();
 	SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_UseSecManager, isSecMgr);
 
+	bool isGstSubtec = SocUtils::isGstSubtecEnabled();
+	SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_GstSubtecEnabled, isGstSubtec);
 }
 
 std::string AampConfig::GetUserAgentString()

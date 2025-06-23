@@ -22,7 +22,6 @@
 #include <string.h>
 #include <limits>
 
-#include "MockAampGstPlayer.h"
 #include "AampLogManager.h"
 #include "MockAampUtils.h"
 
@@ -51,7 +50,6 @@ protected:
 	void SetUp() override
 	{
 		mAampConfig = std::unique_ptr<AampConfig>(new AampConfig());
-		g_mockAampGstPlayer = new MockAAMPGstPlayer(nullptr);
 		g_mockAampUtils = new StrictMock<MockAampUtils>();
 		AampLogManager::lockLogLevel(false);
 		AampLogManager::setLogLevel(eLOGLEVEL_WARN);
@@ -59,9 +57,6 @@ protected:
 
 	void TearDown() override
 	{
-		delete g_mockAampGstPlayer;
-		g_mockAampGstPlayer = nullptr;
-
 		mAampConfig = nullptr;
 
 		delete g_mockAampUtils;

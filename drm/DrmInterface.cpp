@@ -31,8 +31,7 @@
  */
 void registerCallback(DrmInterface *_this ,std::shared_ptr<AesDec> instance )
 {
-    auto Instance = static_cast<DrmInterface*>(_this);
-    /** 
+    /**
      * @brief Register the callback for license data */
     instance->RegisterTerminateCurlInstanceCb([_this](int mCurlInstance) {
         return _this->TerminateCurlInstance(mCurlInstance);
