@@ -18,13 +18,6 @@ include_directories(${MW_ROOT})
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/rdk)
 
-# uncomment below to build additional drm support in simulator
-# set(CMAKE_USE_OPENCDM_ADAPTER TRUE)
-# set(CMAKE_USE_OPENCDM_ADAPTER_MOCKS TRUE)
-# set(CMAKE_USE_THUNDER_OCDM_API_0_2 TRUE)
-# set(CMAKE_USE_SECCLIENT TRUE)
-# set(CMAKE_USE_SECCLIENT_MOCKS TRUE)
-
 set(LIB_EXT_DEPENDS ${LIB_EXT_DEPENDS} ${GSTREAMER_LINK_LIBRARIES} ${GSTREAMERBASE_LINK_LIBRARIES})
 
 # Library source files

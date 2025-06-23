@@ -20,9 +20,9 @@ if(CMAKE_USE_ETHAN_LOG)
      set(LIBPLAYERLOGMANAGER_DEFINES "${LIBPLAYERLOGMANAGER_DEFINES} -DUSE_ETHAN_LOG=1")
 endif()
 
-set(PlayerLogManager_SRC PlayerLogManager.cpp)
+set(playerlogmanager_SRC PlayerLogManager.cpp)
 
-add_library(playerlogmanager SHARED ${PlayerLogManager_SRC})
+add_library(playerlogmanager SHARED ${playerlogmanager_SRC})
 
 set_target_properties(playerlogmanager PROPERTIES PUBLIC_HEADER "PlayerLogManager.h")
 

@@ -59,7 +59,6 @@ public:
 	std::atomic<bool> mIsVideoOnMute;
 	std::atomic<int> mCurrentSpeed;
 	std::atomic<bool> mFirstFrameSeen;
-
 	/**
 	 * @fn          setLicenseRequestAbort
 	 * @param       isAbort bool flag to curl abort
@@ -256,10 +255,10 @@ public:
 	 *
 	 */
 	DrmData * getLicense(LicenseRequest &licRequest, int32_t *httpError, AampMediaType streamType, void* aamp, DrmMetaDataEventPtr eventHandle,AampCurlDownloader *pLicenseDownloader,std::string licenseProxy="");
-	
+
 	DrmData * getLicenseSec(const LicenseRequest &licenseRequest, std::shared_ptr<DrmHelper> drmHelper,
 			const ChallengeInfo& challengeInfo, void* aampInstance, int32_t *httpCode, int32_t *httpExtStatusCode, DrmMetaDataEventPtr eventHandle);
-	
+
 	/**
 	 * @fn ProfilerUpdate 
 	 * @return void 
