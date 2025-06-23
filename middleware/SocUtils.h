@@ -109,5 +109,10 @@ namespace SocUtils
 	 * Manages segment event tracking for trickplay scenarios without disrupting seekplay or advertisements.
 	 */
 	bool ResetNewSegmentEvent();
+
+	/**
+	 *	@brief Check if GST Subtec is enabled
+	 */
+	bool isGstSubtecEnabled();
 }
 #endif // SOC_UTILS_H

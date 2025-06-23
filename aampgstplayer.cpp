@@ -35,7 +35,7 @@
 #include <atomic>
 #include <algorithm>
 
-#include "InterfacePlayerRDK.h"
+#include "InterfacePlayerPriv.h"
 #include "ID3Metadata.hpp"
 #include "AampSegmentInfo.hpp"
 #include "AampBufferControl.h"
@@ -293,7 +293,7 @@ void AAMPGstPlayer::RegisterFirstFrameCallbacks()
 	});
 	playerInstance->setupStreamCallbackMap[InterfaceCB::startNewSubtitleStream] = [this](int streamId)
 	{
-		if (eGST_MEDIATYPE_SUBTITLE == streamId)
+		if (eMEDIATYPE_SUBTITLE == streamId)
 		{
 			if(this->aamp->IsGstreamerSubsEnabled())
 			{
@@ -1095,11 +1095,11 @@ void AAMPGstPlayer::NotifyFragmentCachingComplete()
  */
 void AAMPGstPlayer::NotifyFragmentCachingOngoing()
 {
-	if(!playerInstance->gstPrivateContext->paused)
+	if(!playerInstance->IsPipelinePaused())
 	{
 		Pause(true, true);
 	}
-	playerInstance->gstPrivateContext->pendingPlayState = true;
+	playerInstance->EnablePendingPlayState();
 }
 
 /**
