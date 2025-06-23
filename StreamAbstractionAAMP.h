@@ -555,7 +555,13 @@ public:
 	 * @param[in] initialize true to initialize the fragment chunk
 	 * @retval Pointer to fragment chunk buffer.
 	 */
-	CachedFragment* GetFetchChunkBuffer(bool initialize);
+	CachedFragment *GetFetchChunkBuffer(bool initialize);
+
+	/**
+	 * @brief Check if the fragment cache buffer is full
+	 * @return true if the fragment cache buffer is full, false otherwise
+	 */
+	bool IsFragmentCacheFull();
 
 	/**
 	 * @fn SetCurrentBandWidth
