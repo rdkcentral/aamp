@@ -5743,7 +5743,7 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 	tmpVar = GETCONFIGVALUE_PRIV(eAAMPConfig_PlaylistTimeout);
 	mPlaylistTimeoutMs = CONVERT_SEC_TO_MS(tmpVar);
 	mTsbType = GETCONFIGVALUE_PRIV(eAAMPConfig_TsbType);
-	mLocalAAMPTsbFromConfig = ISCONFIGSET_PRIV(eAAMPConfig_LocalTSBEnabled) || (mTsbType == "local" && !IsFogUrl());
+	mLocalAAMPTsbFromConfig = ISCONFIGSET_PRIV(eAAMPConfig_LocalTSBEnabled) || (mTsbType == "local" && !IsFogUrl(mainManifestUrl));
 	if(mPlaylistTimeoutMs <= 0) mPlaylistTimeoutMs = mManifestTimeoutMs;
 	if(AAMP_DEFAULT_SETTING == GETCONFIGOWNER_PRIV(eAAMPConfig_PlaylistTimeout))
 	{
@@ -5801,7 +5801,7 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 
 	CreateTsbSessionManager();
 
-	mFogTSBEnabled = IsFogUrl();
+	mFogTSBEnabled = IsFogUrl(mainManifestUrl);
 
 	std::string sTraceId = (pTraceID?pTraceID:"unknown");
 	//CMCD to be enabled for player direct downloads, not for Fog . All downloads in Fog , CMCD response to be done in Fog.
@@ -9043,7 +9043,7 @@ std::vector<float> PrivateInstanceAAMP::getSupportedPlaybackSpeeds(void)
 	return supportedPlaybackSpeeds;
 }
 
-bool PrivateInstanceAAMP::IsFogUrl(void)
+bool PrivateInstanceAAMP::IsFogUrl(const char *mainManifestUrl)
 {
 	return strcasestr(mainManifestUrl, AAMP_FOG_TSB_URL_KEYWORD) && ISCONFIGSET_PRIV(eAAMPConfig_Fog);
 }
