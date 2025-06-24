@@ -281,6 +281,7 @@ private:
 	std::shared_ptr<DownloadResponse> mDownloadResponse;
 	CURL *mCurl;
 	struct curl_slist *mHeaders;
+	size_t contentLength;
 };
 
 #endif 

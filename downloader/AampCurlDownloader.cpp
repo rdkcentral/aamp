@@ -127,7 +127,7 @@ char *aamp_CurlEasyGetinfoString( CURL *handle, CURLINFO info )
 
 
 AampCurlDownloader::AampCurlDownloader() : mCurlMutex(),m_threadName(""),mDownloadActive(false),mCreatedNewFd(false),
-			mCurl(nullptr),mDownloadUpdatedTime(0),mDownloadStartTime(0),mDnldCfg(),mDownloadResponse(nullptr),mHeaders(NULL),mWriteCallbackBufferSize(0)
+			mCurl(nullptr),mDownloadUpdatedTime(0),mDownloadStartTime(0),mDnldCfg(),mDownloadResponse(nullptr),mHeaders(NULL),mWriteCallbackBufferSize(0),contentLength(0)
 
 {
 	// All download related configs are read here
@@ -500,7 +500,7 @@ size_t AampCurlDownloader::WriteCallback(void *buffer, size_t sz, size_t nmemb, 
 	{
 		if( context->mDnldCfg && context->mDnldCfg->bCurlThroughput )
 		{
-			AAMPLOG_MIL( "curl-write type=%d size=%zu", eMEDIATYPE_MANIFEST, sz*nmemb );
+			AAMPLOG_MIL( "curl-write type=%d size=%zu total=%zu", eMEDIATYPE_MANIFEST, sz*nmemb, context->contentLength );
 		}
 		ret = context->write_callback(buffer, sz, nmemb);
 	}
@@ -533,6 +533,12 @@ size_t AampCurlDownloader::HeaderCallback(void *buffer, size_t sz, size_t nmemb,
 	if(context != NULL)
 	{
 		ret = context->header_callback(buffer, sz, nmemb);
+		if (STARTS_WITH_IGNORE_CASE((char *)buffer, CONTENTLENGTH_STRING))
+		{
+			int contentLengthStartPosition = STRLEN_LITERAL(CONTENTLENGTH_STRING);
+			const char * contentLengthStr = (char *)buffer + contentLengthStartPosition;
+			context->contentLength = atoi(contentLengthStr);
+		}
 	}
 	return ret;
 }
