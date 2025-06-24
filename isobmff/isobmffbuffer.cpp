@@ -1167,3 +1167,48 @@ bool IsoBmffBuffer::setTrickmodeTimescale(uint32_t timescale)
 
 	return retval;
 }
+
+bool IsoBmffBuffer::setMediaHeaderDuration(uint64_t duration)
+{
+	bool retval{false};
+	size_t index{0};
+	auto moov{getBox(Box::MOOV, index)};
+
+	if (moov != nullptr)
+	{
+		index = 0;
+		auto trak{getChildBox(moov, Box::TRAK, index)};
+
+		if (trak != nullptr)
+		{
+			index = 0;
+			auto mdia {getChildBox(trak, Box::MDIA, index) };
+
+			if (mdia != nullptr)
+			{
+				index = 0;
+				auto mdhd{dynamic_cast<MdhdBox *>(getChildBox(mdia, Box::MDHD, index))};
+
+				if (mdhd != nullptr)
+				{
+					AAMPLOG_INFO("Setting mdhd duration from %" PRIu64 " to %" PRIu64, mdhd->getDuration(), duration);
+					mdhd->setDuration(duration);
+					retval = true;
+				}
+			}
+			else
+			{
+				AAMPLOG_WARN("mdia box not found in trak box");
+			}
+		}
+		else
+		{
+			AAMPLOG_WARN("trak box not found in moov box");
+		}
+	}
+	else
+	{
+		AAMPLOG_WARN("No MOOV box within buffer");
+	}
+	return retval;
+}
