@@ -620,7 +620,7 @@ public:
 	 * @fn TeardownStream
 	 *
 	 * @param[in] newTune - true if operation is a new tune
-	 * @param[in] newTune - true if downwnload need to be disabled
+	 * @param[in] newTune - true if downloads need to be disabled
 	 * @return void
 	 */
 	void TeardownStream( bool newTune, bool disableDownloads = false );
@@ -1621,11 +1621,10 @@ public:
 
 	/**
 	 *   @fn ReportAdProgress
-	 *   @param[in]  sync - Flag to indicate that event should be synchronous
 	 *   @param[in]  positionMs - Position value in milliseconds
 	 *   @return void
 	 */
-	void ReportAdProgress(bool sync = true, double positionMs = -1);
+	void ReportAdProgress(double positionMs = -1);
 
 	/**
 	 *   @fn GetDurationMs
@@ -3886,6 +3885,7 @@ public:
 	 * @return A constant character pointer to the error string corresponding to the provided error type.
 	 */
 	const char* getStringForPlaybackError(PlaybackErrorType errorType);
+
 	bool mPausePositionMonitoringThreadStarted; // Flag to indicate PausePositionMonitoring thread started
 
 	/**
@@ -3904,6 +3904,13 @@ public:
 	 * @retval current live play position of the stream in seconds.
 	 */
 	 double GetLivePlayPosition(void);
+	
+	/**
+	 * @fn GetFormatPositionOffsetInMSecs
+	 * @brief API to get the offset value in msecs for the position values to be reported.
+	 * @return Offset value in msecs
+	 */
+	double GetFormatPositionOffsetInMSecs();
 
 protected:
 

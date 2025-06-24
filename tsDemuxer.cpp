@@ -42,10 +42,6 @@
 
 #define MAX_FIRST_PTS_OFFSET (uint33_t{45000}) /*500 ms*/
 
-/** Maximum PTS value */
-// #define MAX_PTS (uint33_t::max_value().value)
-constexpr uint64_t max_pts_value = uint33_t::max_value().value;
-
 /**
  * @brief std::exchange for pre-c++14 compiler
  * @param obj	-	object whose value to replace

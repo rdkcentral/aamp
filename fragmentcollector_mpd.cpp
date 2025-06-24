@@ -12085,7 +12085,6 @@ bool StreamAbstractionAAMP_MPD::onAdEvent(AdEvent evt, double &adOffset)
 			uint64_t resPosMS = 0;
 			AampTime absReservationEventPosition;
 			AampTime absPlacementEventPosition;
-			int basePeriodIdx = mMPDParseHelper->getPeriodIdx(mBasePeriodId);
 			// Check if the adbreakId is valid
 			if (!adbreakId2Send.empty() && mCdaiObject->isAdBreakObjectExist(adbreakId2Send))
 			{

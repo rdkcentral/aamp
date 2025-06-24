@@ -1694,3 +1694,7 @@ double PrivateInstanceAAMP::GetStreamPositionMs()
 void PrivateInstanceAAMP::SendMonitorAvEvent(const std::string &status, int64_t videoPositionMS, int64_t audioPositionMS, uint64_t timeInStateMS)
 {
 }
+double PrivateInstanceAAMP::GetFormatPositionOffsetInMSecs()
+{
+	return 0;
+}
