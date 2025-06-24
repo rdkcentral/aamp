@@ -452,7 +452,7 @@ DrmSession* DrmSessionManager::createDrmSession(int &err, std::shared_ptr<DrmHel
 	}
 	std::vector<uint8_t> keyId;
 	drmHelper->getKey(keyId);
-	/* callback to initiate content protection data update */
+	/* callback to initiatecontentProtection DataUpdate */
 	mCustomData = ContentUpdateCb(drmHelper, streamType , keyId, isContentProcess);
 	if (code == KEY_READY)
 	{
@@ -803,15 +803,15 @@ void DrmSessionManager::registerCallback() {
 
 /**
  * @brief To wrap the callback for watermark session update
- * @param[in] sessionHandle session handle
+ * @param[in] sessionHndle session handle
  * @param[in] status status of the session
  * @param[in] systemData system data
  * @retval void
  */
-void DrmSessionManager::watermarkSessionHandlerWrapper(uint32_t sessionHandle, uint32_t status, const std::string &systemData)
+void DrmSessionManager::watermarkSessionHandlerWrapper(uint32_t sessionHndle, uint32_t status, const std::string &systemData)
 {
 	if(NULL != mPlayerSendWatermarkSessionUpdateEventCB)
 	{
-		mPlayerSendWatermarkSessionUpdateEventCB( sessionHandle, status, systemData);
+		mPlayerSendWatermarkSessionUpdateEventCB( sessionHndle, status, systemData);
 	}
 }
