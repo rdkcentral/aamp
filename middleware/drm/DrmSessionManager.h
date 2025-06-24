@@ -370,7 +370,7 @@ public:
 	/**
 	 * @fn initializeDrmSession
 	 */
-	KeyState initializeDrmSession(DrmHelperPtr drmHelper, int sessionSlot,  int &err );
+	KeyState initializeDrmSession(DrmHelperPtr drmHelper, int sessionSlot,  int err );
 	/**
 	 * @fn notifyCleanup
 	 */
@@ -425,6 +425,12 @@ public:
 	 */
         void UpdateDRMConfig(
                        bool useSecManager,
+                       int licenseRetryWaitTime,
+                       int drmNetworkTimeout,
+                       int curlConnectTimeout,
+                       bool curlLicenseLogging,
+                       bool runtimeDRMConfig,
+                       int contentProtectionDataUpdateTimeout,
                        bool enablePROutputProtection,
                        bool propagateURIParam,
                        bool isFakeTune);
