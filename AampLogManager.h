@@ -36,35 +36,6 @@
 
 extern const char* GetMediaTypeName( AampMediaType mediaType ); // from AampUtils.h; including that directly brings too many other dependencies
 
-#define AAMPCLI_TIMESTAMP_PREFIX_MAX_CHARS 20
-#define AAMPCLI_TIMESTAMP_PREFIX_FORMAT "%u.%03u: "
-
-/**
- * @brief convenience macro for logging framework
- *
- * @param level gives priority for the logging, which drives filtering of whether it should be presented.
- * This parameter also is used as indirection to get a human readable for log level name i.e. "INFO" "WARN"
- *
- * @param FORMAT is standard printf style format string followed by arguments
- */
-#define AAMPLOG( LEVEL, FORMAT, ... ) \
-do { \
-if( (LEVEL) >= AampLogManager::aampLoglevel ) \
-{ \
-logprintf( LEVEL, __FUNCTION__, __LINE__, FORMAT, ##__VA_ARGS__); \
-} \
-} while(0)
-
-/**
- * @brief AAMP logging defines, this can be enabled through setLogLevel() as per the need
- */
-#define AAMPLOG_TRACE(FORMAT, ...) AAMPLOG(eLOGLEVEL_TRACE, FORMAT, ##__VA_ARGS__)
-#define AAMPLOG_DEBUG(FORMAT, ...) AAMPLOG(eLOGLEVEL_DEBUG, FORMAT, ##__VA_ARGS__)
-#define AAMPLOG_INFO(FORMAT, ...)  AAMPLOG(eLOGLEVEL_INFO, FORMAT, ##__VA_ARGS__)
-#define AAMPLOG_WARN(FORMAT, ...)  AAMPLOG(eLOGLEVEL_WARN, FORMAT, ##__VA_ARGS__)
-#define AAMPLOG_MIL(FORMAT, ...)   AAMPLOG(eLOGLEVEL_MIL, FORMAT, ##__VA_ARGS__)
-#define AAMPLOG_ERR(FORMAT, ...)   AAMPLOG(eLOGLEVEL_ERROR, FORMAT, ##__VA_ARGS__)
-
 /**
  * @brief maximum supported mediatype for latency logging
  */
@@ -386,7 +357,6 @@ public:
 		if( !locked )
 		{
 			aampLoglevel = newLevel;
-			AAMPLOG_MIL("Log level set to %d", aampLoglevel);
 		}
 	}
 	
@@ -441,5 +411,33 @@ public:
  * @return void
  */
 void DumpBlob(const unsigned char *ptr, size_t len);
+
+#define AAMPCLI_TIMESTAMP_PREFIX_MAX_CHARS 20
+#define AAMPCLI_TIMESTAMP_PREFIX_FORMAT "%u.%03u: "
+
+/**
+ * @brief convenience macro for logging framework
+ *
+ * @param level gives priority for the logging, which drives filtering of whether it should be presented.  This parameter also is used as indirection to get a human readable for log level name i.e. "INFO" "WARN"
+ *
+ * @param FORMAT is standard printf style format string followed by arguments
+ */
+#define AAMPLOG( LEVEL, FORMAT, ... ) \
+do { \
+if( (LEVEL) >= AampLogManager::aampLoglevel ) \
+{ \
+logprintf( LEVEL, __FUNCTION__, __LINE__, FORMAT, ##__VA_ARGS__); \
+} \
+} while(0)
+
+/**
+ * @brief AAMP logging defines, this can be enabled through setLogLevel() as per the need
+ */
+#define AAMPLOG_TRACE(FORMAT, ...) AAMPLOG(eLOGLEVEL_TRACE, FORMAT, ##__VA_ARGS__)
+#define AAMPLOG_DEBUG(FORMAT, ...) AAMPLOG(eLOGLEVEL_DEBUG, FORMAT, ##__VA_ARGS__)
+#define AAMPLOG_INFO(FORMAT, ...)  AAMPLOG(eLOGLEVEL_INFO, FORMAT, ##__VA_ARGS__)
+#define AAMPLOG_WARN(FORMAT, ...)  AAMPLOG(eLOGLEVEL_WARN, FORMAT, ##__VA_ARGS__)
+#define AAMPLOG_MIL(FORMAT, ...)   AAMPLOG(eLOGLEVEL_MIL, FORMAT, ##__VA_ARGS__)
+#define AAMPLOG_ERR(FORMAT, ...)   AAMPLOG(eLOGLEVEL_ERROR, FORMAT, ##__VA_ARGS__)
 
 #endif /* AAMPLOGMANAGER_H */
