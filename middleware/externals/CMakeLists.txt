@@ -1,5 +1,8 @@
-cmake_minimum_required(VERSION 2.6)
+cmake_minimum_required(VERSION 3.5)
+
 project(playerfbinterface_LIB)
+set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 set(MW_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../")
 

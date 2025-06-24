@@ -23,6 +23,10 @@ if [[ -z "${MAKEFLAGS}" ]]; then
     export MAKEFLAGS=-j$(nproc)
 fi
 
+if [[ "$OSTYPE" == "darwin"* ]]; then
+    export CMAKE_POLICY_VERSION_MINIMUM=3.5
+fi
+
 # Fail the script should any step fail. To override this behavior use "|| true" on those statements
 set -eo pipefail
 

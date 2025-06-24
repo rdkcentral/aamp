@@ -17,6 +17,8 @@
 
 # XCode schema generation / flag setting
 # Other flags see here: https://cmake.org/cmake/help/latest/prop_tgt/XCODE_GENERATE_SCHEME.html
+cmake_minimum_required (VERSION 3.5)
+
 function(xcode_define_schema new_schema)
     message( "xcode_define_schema for ${new_schema}" )
     set_property(TARGET ${new_schema} PROPERTY XCODE_GENERATE_SCHEME TRUE)
@@ -60,7 +62,8 @@ if(APPLE)
     set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
 endif()
 project (AAMP)
-cmake_minimum_required (VERSION 2.6)
+set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 #find_package(GStreamer 1.4 REQUIRED)
 #add_subdirectory(jsbindings)
 find_package(PkgConfig REQUIRED)
@@ -365,7 +368,7 @@ else()
 	message("CMAKE_WPEWEBKIT_JSBINDINGS not set")
 endif()
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror=format -Wno-multichar -std=c++11 -Wno-non-virtual-dtor -Wno-psabi")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror=format -Wno-multichar -Wno-non-virtual-dtor -Wno-psabi")
 
 if(CMAKE_PLATFORM_UBUNTU)
     message("CMAKE_PLATFORM_UBUNTU set")
