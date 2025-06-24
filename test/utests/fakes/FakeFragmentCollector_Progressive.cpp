@@ -45,3 +45,7 @@ long StreamAbstractionAAMP_PROGRESSIVE::GetMaxBitrate()
 { 
     return 0;
 }
+bool StreamAbstractionAAMP_PROGRESSIVE::DoEarlyStreamSinkFlush(bool newTune, float rate)
+{
+    return false;
+}

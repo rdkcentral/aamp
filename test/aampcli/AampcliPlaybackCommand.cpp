@@ -32,6 +32,7 @@
 
 extern VirtualChannelMap mVirtualChannelMap;
 extern Aampcli mAampcli;
+extern void tsdemuxer_InduceRollover( bool enable );
 
 std::map<std::string,std::string> PlaybackCommand::playbackCommands = std::map<std::string,std::string>();
 std::vector<std::string> PlaybackCommand::commands(0);
@@ -725,6 +726,11 @@ bool PlaybackCommand::execute( const char *cmd, PlayerInstanceAAMP *playerInstan
 	{
 		showHelp();
 	}
+	else if( isCommandMatch(cmd,"rollover") )
+	{
+		printf( "enabling artificial pts rollover (10s after next tune)\n" );
+		tsdemuxer_InduceRollover( true );
+	}
 	else if( isCommandMatch(cmd, "list") )
 	{
 		HandleCommandList( cmd );
@@ -809,6 +815,7 @@ bool PlaybackCommand::execute( const char *cmd, PlayerInstanceAAMP *playerInstan
 	else if (isCommandMatch(cmd, "stop") )
 	{
 		playerInstanceAamp->Stop();
+		tsdemuxer_InduceRollover(false);
 	}
 	else if (isCommandMatch(cmd, "live") )
 	{

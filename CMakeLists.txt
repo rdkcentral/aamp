@@ -271,7 +271,6 @@ set(LIBAAMP_HEADERS middleware/drm/DrmSystems.h
 					Accessibility.hpp
 					AampTrackWorker.h
 					test/gstTestHarness/tsdemux.hpp
-					test/gstTestHarness/mp4demux.hpp
 )
 
 set(LIBAAMP_SOURCES iso639map.cpp
@@ -381,8 +380,6 @@ string(REGEX REPLACE "\n" "-" buildinfo "${buildinfo}")
 message("build: ${buildinfo}")
 set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DAAMP_VANILLA_AES_SUPPORT")
 set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DAAMP_BUILD_INFO='${buildinfo}'")
-
-set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DSUPPORTS_MP4DEMUX")
 
 if (CMAKE_PLATFORM_UBUNTU)
 	message("CMAKE_PLATFORM_UBUNTU set")
@@ -746,7 +743,8 @@ set(GSTTESTHARNESS_HEADERS test/gstTestHarness/gst-port.h
                            test/gstTestHarness/downloader.hpp
                            test/gstTestHarness/stream_utils.hpp
                            test/gstTestHarness/string_utils.hpp
-                           test/gstTestHarness/turbo_xml.hpp )
+                           test/gstTestHarness/turbo_xml.hpp
+                           test/gstTestHarness/initializationheaderinfo.hpp )
 set(GSTTESTHARNESS_SOURCES test/gstTestHarness/gst-port.cpp
                            test/gstTestHarness/gst-utils.cpp
                            test/gstTestHarness/gst-test.cpp

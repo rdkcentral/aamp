@@ -30,25 +30,24 @@ include_directories(${GSTREAMERBASE_INCLUDE_DIRS})
 include_directories(${GSTREAMER_INCLUDE_DIRS})
 include_directories(${LIBCJSON_INCLUDE_DIRS})
 include_directories(SYSTEM ${UTESTS_ROOT}/mocks)
-include_directories(${AAMP_ROOT}/tsb/api)
-include_directories(${AAMP_ROOT}/middleware/test/utests/mocks)
-include_directories(${AAMP_ROOT}/middleware)
-include_directories(${AAMP_ROOT}/middleware/externals)
-include_directories(${AAMP_ROOT}/middleware/vendor)
-include_directories(${AAMP_ROOT}/middleware/playerLogManager)
-include_directories(${AAMP_ROOT}/test/gstTestHarness)
+include_directories(${UTESTS_ROOT}/mocks)
+include_directories(${PLAYER_ROOT}/externals)
 
 message(GSTREAMER_INCLUDE_DIRS=${GSTREAMER_INCLUDE_DIRS})
 
-set(TEST_SOURCES FunctionalTests.cpp
-		 PauseOnPlaybackTests.cpp
-		 AampGstPlayerTests.cpp
-	)
+set(TEST_SOURCES PauseOnPlaybackTests.cpp
+              FunctionalTests.cpp
+              GstPlayerTests.cpp
+              )
+	      
+set(PLAYER_SOURCES ${PLAYER_ROOT}/InterfacePlayerRDK.cpp
+		${PLAYER_ROOT}/playerLogManager/PlayerLogManager.cpp
+		${PLAYER_ROOT}/externals/PlayerExternalsInterface.cpp
+		${PLAYER_ROOT}/externals/PlayerExternalUtils.cpp)
 
-set(AAMP_SOURCES ${AAMP_ROOT}/aampgstplayer.cpp
-		${AAMP_ROOT}/middleware/InterfacePlayerRDK.cpp
-		${AAMP_ROOT}/test/gstTestHarness/mp4demux.cpp
-	)
+set(FAKE_SOURCES ${UTESTS_ROOT}/fakes/FakeGStreamer.cpp
+	${UTESTS_ROOT}fakes/FakeGLib.cpp
+	${UTESTS_ROOT}/fakes/FakeGstUtils.cpp)
 
 add_executable(${EXEC_NAME}
                ${TEST_SOURCES}

@@ -16,7 +16,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "mp4demux.hpp"
+
 #include <iostream>
 #include "InterfacePlayerRDK.h"
 #include <string.h>
@@ -563,16 +563,12 @@ gboolean InterfacePlayerRDK::IdleCallbackOnEOS(gpointer user_data)
 	return G_SOURCE_REMOVE;
 }
 
-/**
- * @brief Updates the monitor AV status.
- *
- * @param[in] pInterfacePlayerRDK pointer to InterfacePlayerRDK instance
- */
 void MonitorAV( InterfacePlayerRDK *pInterfacePlayerRDK )
 {
 	const int AVSYNC_POSITIVE_THRESHOLD_MS = pInterfacePlayerRDK->m_gstConfigParam->monitorAvsyncThresholdPositiveMs;
 	const int AVSYNC_NEGATIVE_THRESHOLD_MS = pInterfacePlayerRDK->m_gstConfigParam->monitorAvsyncThresholdNegativeMs;
 	const int JUMP_THRESHOLD_MS = pInterfacePlayerRDK->m_gstConfigParam->monitorAvJumpThresholdMs;
+
 
 	GstState state = GST_STATE_VOID_PENDING;
 	GstState pending = GST_STATE_VOID_PENDING;
@@ -639,7 +635,7 @@ void MonitorAV( InterfacePlayerRDK *pInterfacePlayerRDK )
 					break;
 				case 2:
 				{
-					int delta = (int)(av_position[eGST_MEDIATYPE_VIDEO] - av_position[eGST_MEDIATYPE_AUDIO]);
+					int delta = av_position[eGST_MEDIATYPE_VIDEO] - av_position[eGST_MEDIATYPE_AUDIO];
 					if( delta > AVSYNC_POSITIVE_THRESHOLD_MS  || delta < AVSYNC_NEGATIVE_THRESHOLD_MS )
 					{
 						if( !description )
@@ -1733,10 +1729,8 @@ void InterfacePlayerRDK::InitializeSourceForPlayer(void *PlayerInstance, void * 
 	/* "format" can be used to perform seek or query/conversion operation*/
 	/* gstreamer.freedesktop.org recommends to use GST_FORMAT_TIME 'if you don't have a good reason to query for samples/frames' */
 	g_object_set(source, "format", GST_FORMAT_TIME, NULL);
-	if( stream->format!=GST_FORMAT_ISO_BMFF || !m_gstConfigParam->useMp4Demux )
-	{
-		caps = GetCaps(static_cast<GstStreamOutputFormat>(stream->format));
-	}
+	caps = GetCaps(static_cast<GstStreamOutputFormat>(stream->format));
+
 	if (caps != NULL)
 	{
 		gst_app_src_set_caps(GST_APP_SRC(source), caps);
@@ -2923,92 +2917,42 @@ bool InterfacePlayerRDK::SendHelper(int type, const void *ptr, size_t len, doubl
 			{
 				ForwardBuffersToAuxPipeline(buffer);
 			}
-#ifdef SUPPORTS_MP4DEMUX
-			if( m_gstConfigParam->useMp4Demux )
+
+			GstFlowReturn ret = gst_app_src_push_buffer(GST_APP_SRC(stream->source), buffer);
+
+			if (ret != GST_FLOW_OK)
 			{
-				static uint32_t timescale[2]; // FIXME!
-				// some lldash streams don't have timescale in media segments
-				Mp4Demux *mp4Demux = new Mp4Demux(ptr,len,timescale[mediaType]);
-				int count = mp4Demux->count();
-				if( count>0 )
-				{ // media segment
-					for( int i=0; i<count; i++ )
-					{
-						size_t len = mp4Demux->getLen(i);
-						double pts = mp4Demux->getPts(i);
-						double dts = mp4Demux->getDts(i);
-						double dur = mp4Demux->getDuration(i);
-						gpointer data = g_malloc(len);
-						if( data )
+				MW_LOG_ERR("gst_app_src_push_buffer error: %d[%s] mediaType %d", ret, gst_flow_get_name (ret), (int)mediaType);
+				if (ret != GST_FLOW_EOS && ret !=  GST_FLOW_FLUSHING)
+				{ // an unexpected error has occurred
+					if (mediaType == eGST_MEDIATYPE_SUBTITLE)
+					{ // occurs sometimes when injecting subtitle fragments
+						if (!stream->source)
 						{
-							memcpy( data, mp4Demux->getPtr(i), len );
-							GstBuffer *gstBuffer = gst_buffer_new_wrapped( data, len);
-							GST_BUFFER_PTS(gstBuffer) = (GstClockTime)(pts * GST_SECOND);
-							GST_BUFFER_DTS(gstBuffer) = (GstClockTime)(dts * GST_SECOND);
-							GST_BUFFER_DURATION(gstBuffer) = (GstClockTime)(dur * 1000000000LL);
-							GstFlowReturn ret = gst_app_src_push_buffer(GST_APP_SRC(stream->source),gstBuffer);
-							if( ret == GST_FLOW_OK )
-							{
-								stream->bufferUnderrun = false;
-								if( isFirstBuffer )
-								{
-									firstBufferPushed = true;
-									stream->firstBufferProcessed = true;
-								}
-							}
+							MW_LOG_ERR("subtitle appsrc is NULL");
+						}
+						else if (!GST_IS_APP_SRC(stream->source))
+						{
+							MW_LOG_ERR("subtitle appsrc is invalid");
 						}
 					}
-				}
-				else
-				{ // init header
-					timescale[mediaType] = mp4Demux->timescale;
-					mp4Demux->setCaps( GST_APP_SRC(stream->source) );
-				}
-				delete mp4Demux;
-				if( !copy )
-				{
-					g_free((gpointer)ptr);
+					else
+					{ // if we get here, something has gone terribly wrong
+						assert(0);
+					}
 				}
 			}
-			else
-#endif // SUPPORTS_MP4DEMUX
+			else if (stream->bufferUnderrun)
 			{
-				GstFlowReturn ret = gst_app_src_push_buffer(GST_APP_SRC(stream->source), buffer);
-				
-				if (ret != GST_FLOW_OK)
-				{
-					MW_LOG_ERR("gst_app_src_push_buffer error: %d[%s] mediaType %d", ret, gst_flow_get_name (ret), (int)mediaType);
-					if (ret != GST_FLOW_EOS && ret !=  GST_FLOW_FLUSHING)
-					{ // an unexpected error has occurred
-						if (mediaType == eGST_MEDIATYPE_SUBTITLE)
-						{ // occurs sometimes when injecting subtitle fragments
-							if (!stream->source)
-							{
-								MW_LOG_ERR("subtitle appsrc is NULL");
-							}
-							else if (!GST_IS_APP_SRC(stream->source))
-							{
-								MW_LOG_ERR("subtitle appsrc is invalid");
-							}
-						}
-						else
-						{ // if we get here, something has gone terribly wrong
-							assert(0);
-						}
-					}
-				}
-				else if (stream->bufferUnderrun)
-				{
-					stream->bufferUnderrun = false;
-				}
-				
-				// PROFILE_BUCKET_FIRST_BUFFER after successful push of first gst buffer
-				if (isFirstBuffer == true && ret == GST_FLOW_OK)
-					firstBufferPushed = true;
-				if (!stream->firstBufferProcessed && !initFragment)
-				{
-					stream->firstBufferProcessed = true;
-				}
+				stream->bufferUnderrun = false;
+			}
+
+			// PROFILE_BUCKET_FIRST_BUFFER after successful push of first gst buffer
+			if (isFirstBuffer == true && ret == GST_FLOW_OK)
+				firstBufferPushed = true;
+			if (!stream->firstBufferProcessed && !initFragment)
+			{
+				stream->firstBufferProcessed = true;
 			}
 		}
 	}

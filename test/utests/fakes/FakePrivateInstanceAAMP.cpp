@@ -339,7 +339,7 @@ bool PrivateInstanceAAMP::IsFragmentCachingRequired()
 	return false;
 }
 
-void PrivateInstanceAAMP::TeardownStream(bool newTune, bool disableDownloads)
+void PrivateInstanceAAMP::TeardownStream(bool newTune)
 {
 }
 
@@ -1680,8 +1680,4 @@ void PrivateInstanceAAMP::IncrementGaps()
 double PrivateInstanceAAMP::GetStreamPositionMs()
 {
 	return 0.0;
-}
-
-void PrivateInstanceAAMP::SendMonitorAvEvent(const std::string &status, int64_t videoPositionMS, int64_t audioPositionMS, uint64_t timeInStateMS)
-{
 }

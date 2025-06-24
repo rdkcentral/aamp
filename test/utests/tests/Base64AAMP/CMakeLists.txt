@@ -34,6 +34,7 @@ include_directories(${UTESTS_ROOT}/mocks)
 set(TEST_SOURCES Base64Tests.cpp
                  Base64AAMPTests.cpp)
 
+
 add_executable(${EXEC_NAME}
                ${TEST_SOURCES}
                ${AAMP_SOURCES})

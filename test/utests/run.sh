@@ -51,7 +51,7 @@ EOF
 }
 
 # "corrupt arc tag"
-find . -name "*.gcda" -print0 | xargs -0 --no-run-if-empty rm
+(find . -name "*.gcda" -print0 | xargs -0 rm) || true
 
 build_coverage=0
 halt_on_error=0

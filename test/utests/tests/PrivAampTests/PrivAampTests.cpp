@@ -1818,9 +1818,6 @@ TEST_F(PrivAampTests,TeardownStreamTest_1)
 {
 	p_aamp->TeardownStream(false);
 	EXPECT_EQ(0,p_aamp->mDiscontinuityTuneOperationId);
-	
-	p_aamp->TeardownStream(true,true);
-	EXPECT_EQ(0,p_aamp->mDiscontinuityTuneOperationId);
 }
 
 TEST_F(PrivAampTests,TeardownStreamTest_2)

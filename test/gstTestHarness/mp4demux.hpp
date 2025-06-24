@@ -19,17 +19,14 @@
 #ifndef parsemp4_hpp
 #define parsemp4_hpp
 
+#include "initializationheaderinfo.hpp"
 #include <cstdint>
 #include <stddef.h>
 #include <vector>
 #include <assert.h>
 #include <inttypes.h>
 #include <cstdio>
-#include <cstring> // for memcpy
-#include <gst/app/gstappsrc.h>
-
-#define PRINTF(...)
-//#define PRINTF printf
+#include <glib.h>
 
 struct Mp4Sample
 {
@@ -40,59 +37,12 @@ struct Mp4Sample
 	double duration;
 };
 
-class InitializationHeaderInfo
-{
-public:
-	// audio
-	uint16_t channel_count;
-	uint16_t samplesize;
-	uint16_t samplerate;
-	uint8_t object_type_id;
-	uint8_t stream_type;
-	uint8_t upStream;
-	uint16_t buffer_size;
-	uint32_t maxBitrate;
-	uint32_t avgBitrate;
-	
-	// video
-	uint16_t width;
-	uint16_t height;
-	uint16_t frame_count;
-	uint16_t depth;
-	uint32_t horizresolution;
-	uint32_t vertresolution;
-	
-	// common
-	uint32_t stream_format;
-	uint32_t data_reference_index;
-	uint32_t codec_type;
-	char *compressor_name;
-	size_t codec_data_len;
-	uint8_t *codec_data;
-	
-	InitializationHeaderInfo():
-	channel_count(), samplesize(), samplerate(),
-	width(), height(), frame_count(), depth(), horizresolution(), vertresolution(),
-	stream_format(), data_reference_index(), codec_type(), codec_data_len(), codec_data()
-	{
-	}
-	
-	~InitializationHeaderInfo()
-	{
-		if( codec_data )
-		{
-			free( codec_data );
-		}
-	}
-};
-
 class Mp4Demux
 {
 public:
-	uint32_t timescale;
-	
-private:
 	InitializationHeaderInfo info;
+
+private:
 	std::vector<Mp4Sample> samples;
 	const uint8_t *moof_ptr; // base address for sample data
 	const uint8_t *ptr; // parsing state
@@ -109,6 +59,7 @@ private:
 	uint32_t default_sample_flags;
 	uint64_t creation_time;
 	uint64_t modification_time;
+	uint32_t timescale;
 	uint32_t duration;
 	uint32_t rate;
 	uint32_t volume;
@@ -152,47 +103,50 @@ private:
 	}
 	void SkipBytes( size_t len )
 	{
-		PRINTF( "skipping %zu bytes\n", len );
-		ptr += len;
+		printf( "skipping %zu bytes\n", len );
+		while( len-- )
+		{
+			printf( " %02x", (unsigned char)*ptr++ );
+		}
+		printf( "\n" );
 	}
 
 	void parseMovieFragmentHeaderBox( void )
 	{
 		ReadHeader();
 		uint32_t sequence_number = ReadU32();
-		(void)sequence_number;
-		PRINTF( "sequence_number=%" PRIu32 "\n", sequence_number );
+		printf( "sequence_number=%" PRIu32 "\n", sequence_number );
 	}
 	
 	void parseTrackFragmentHeaderBox( void )
-	{
+	{ // TODO: use these defaults if not explicitly defined per sample
 		ReadHeader();
 		track_id = ReadU32();
-		PRINTF( "track_id=%" PRIu32 "\n", track_id );
+		printf( "track_id=%" PRIu32 "\n", track_id );
 		if (flags & 0x00001)
 		{
 			base_data_offset = ReadU64();
-			PRINTF( "base_data_offset=%" PRIu64 "\n", base_data_offset );
+			printf( "base_data_offset=%" PRIu64 "\n", base_data_offset );
 		}
 		if (flags & 0x00002)
 		{
 			default_sample_description_index = ReadU32();
-			PRINTF( "default_sample_description_index=%" PRIu32 "\n", default_sample_description_index );
+			printf( "default_sample_description_index=%" PRIu32 "\n", default_sample_description_index );
 		}
 		if (flags & 0x00008)
 		{
 			default_sample_duration = ReadU32();
-			PRINTF( "default_sample_duration=%" PRIu32 "\n", default_sample_duration );
+			printf( "default_sample_duration=%" PRIu32 "\n", default_sample_duration );
 		}
 		if (flags & 0x00010)
 		{
 			default_sample_size = ReadU32();
-			PRINTF( "default_sample_size=%" PRIu32 "\n", default_sample_size );
+			printf( "default_sample_size=%" PRIu32 "\n", default_sample_size );
 		}
 		if (flags & 0x00020)
 		{
 			default_sample_flags = ReadU32();
-			PRINTF( "default_sample_flags=%" PRIu32 "\n", default_sample_flags );
+			printf( "default_sample_flags=%" PRIu32 "\n", default_sample_flags );
 		}
 	}
 	
@@ -201,20 +155,19 @@ private:
 		ReadHeader();
 		int sz = (version==1)?8:4;
 		baseMediaDecodeTime  = ReadBytes(sz);
-		PRINTF( "baseMediaDecodeTime: %" PRIu64 "\n", baseMediaDecodeTime );
+		printf( "baseMediaDecodeTime: %" PRIu64 "\n", baseMediaDecodeTime );
 	}
 	
 	void parseTrackFragmentRunBox( void )
 	{
 		ReadHeader();
 		uint32_t sample_count = ReadU32();
-		PRINTF( "sample_number=%" PRIu32 "\n", sample_count );
+		printf( "sample_number=%" PRIu32 "\n", sample_count );
 		const unsigned char *data_ptr = moof_ptr;
-		//0xE01
 		if( flags & 0x0001 )
 		{ // offset from start of Moof box field
 			int32_t data_offset = ReadI32();
-			PRINTF( "data_offset=%" PRIu32 "\n", data_offset );
+			printf( "data_offset=%" PRIu32 "\n", data_offset );
 			data_ptr += data_offset;
 		}
 		else
@@ -225,48 +178,46 @@ private:
 		if(flags & 0x0004)
 		{
 			sample_flags = ReadU32();
-			(void)sample_flags;
-			PRINTF( "first_sample_flags=0x%" PRIx32 "\n", sample_flags );
+			printf( "first_sample_flags=0x%" PRIx32 "\n", sample_flags );
 		}
 		uint64_t dts = baseMediaDecodeTime;
 		for( unsigned int i=0; i<sample_count; i++ )
 		{
 			struct Mp4Sample sample;
 			sample.ptr = data_ptr;
-			sample.len = default_sample_size;
+			sample.len = 0;
 			sample.pts = 0.0;
 			sample.dts = 0.0;
 			sample.duration = 0.0;
-			PRINTF( "[FRAME] %d\n", i );
+			printf( "[FRAME] %d\n", i );
 			uint32_t sample_duration = default_sample_duration;
 			if (flags & 0x0100)
 			{
 				sample_duration = ReadU32();
-				PRINTF( "sample_duration=%" PRIu32 "\n", sample_duration );
+				printf( "sample_duration=%" PRIu32 "\n", sample_duration );
 				sample.duration = sample_duration / (double)timescale;
 			}
 			if (flags & 0x0200)
 			{
 				uint32_t sample_size = ReadU32();
-				PRINTF( "sample_size=%" PRIu32 "\n", sample_size );
+				printf( "sample_size=%" PRIu32 "\n", sample_size );
 				sample.len = sample_size;
+				data_ptr += sample_size;
 			}
-			data_ptr += sample.len;
 			if (flags & 0x0400)
 			{ // rarely present?
 				sample_flags = ReadU32();
-				(void)sample_flags;
-				PRINTF( "sample_flags=0x%" PRIx32 "\n", sample_flags );
+				printf( "sample_flags=0x%" PRIx32 "\n", sample_flags );
 			}
 			int32_t sample_composition_time_offset = 0;
 			if (flags & 0x0800)
 			{ // for samples where pts and dts differ (overriding 'trex')
 				sample_composition_time_offset = ReadI32();
-				PRINTF( "sample_composition_time_offset=%" PRIi32 "\n", sample_composition_time_offset );
+				printf( "sample_composition_time_offset=%" PRIi32 "\n", sample_composition_time_offset );
 			}
 			sample.dts = dts/(double)timescale;
 			sample.pts = (dts+sample_composition_time_offset)/(double)timescale;
-			PRINTF( "dts=%f pts=%f\n", sample.dts, sample.pts );
+			printf( "dts=%f pts=%f\n", sample.dts, sample.pts );
 			dts += sample_duration;
 			samples.push_back( sample );
 		}
@@ -332,6 +283,21 @@ private:
 		language = ReadU16();
 	}
 	
+	char *readPascalString( size_t numBytes )
+	{
+		auto next = ptr+numBytes;
+		int len = *ptr++;
+		assert( len<numBytes );
+		char *rc = (char *)malloc(len+1);
+		if( rc )
+		{
+			memcpy(rc, ptr, len );
+			rc[len] = 0x00;
+		}
+		ptr = next;
+		return rc;
+	}
+
 	void parseSampleDescriptionBox( const uint8_t *next, int indent )
 	{ // stsd
 		ReadHeader();
@@ -347,9 +313,9 @@ private:
 		info.stream_format = type;
 		switch( info.stream_format )
 		{
-			case 0x68657631: // 'hev1'
-			case 0x61766331: // 'avc1'
-			case 0x68766331: // 'hvc1'
+			case 'hev1':
+			case 'avc1':
+			case 'hvc1':
 				SkipBytes(4); // always zero?
 				info.data_reference_index = ReadU32();
 				SkipBytes(16); // always zero?
@@ -359,14 +325,14 @@ private:
 				info.vertresolution = ReadU32();
 				SkipBytes(4);
 				info.frame_count = ReadU16();
-				SkipBytes(32); // compressor_name
+				info.compressor_name = readPascalString(32);
 				info.depth = ReadU16();
 				pad = ReadU16();
 				assert( pad == 0xffff );
 				break;
 				
-			case 0x6D703461: // 'mp4a'
-			case 0x65632D33: // 'ec-3'
+			case 'mp4a':
+			case 'ec-3':
 				SkipBytes(4); // zero
 				info.data_reference_index = ReadU32();
 				SkipBytes(8); // zero
@@ -378,7 +344,7 @@ private:
 				break;
 				
 			default:
-				PRINTF( "unk stream_format\n" );
+				printf( "unk stream_format\n" );
 				assert(0);
 				break;
 		}
@@ -407,26 +373,26 @@ private:
 			switch( tag )
 			{
 				case 0x03:
-					PRINTF( "ES_Descriptor: ");
+					printf( "ES_Descriptor: ");
 					SkipBytes(3);
 					parseCodecConfigHelper( end );
 					break;
 					
 				case 0x04:
-					PRINTF( "DecoderConfigDescriptor:\n");
+					printf( "DecoderConfigDescriptor:\n");
 					info.object_type_id = *ptr++;
 					info.stream_type = *ptr++; // >>2
 					info.upStream = *ptr++;
 					info.buffer_size = ReadU16();
 					info.maxBitrate = ReadU32();
 					info.avgBitrate = ReadU32();
-					PRINTF( "\tmaxBitrate=%" PRIu32 "\n", info.maxBitrate );
-					PRINTF( "\tavgBitrate=%" PRIu32 "\n", info.avgBitrate );
+					printf( "\tmaxBitrate=%" PRIu32 "\n", info.maxBitrate );
+					printf( "\tavgBitrate=%" PRIu32 "\n", info.avgBitrate );
 					parseCodecConfigHelper( end );
 					break;
 					
 				case 0x05:
-					PRINTF( "DecodeSpecificInfo:\n") ;
+					printf( "DecodeSpecificInfo:\n") ;
 					info.codec_data_len = len;
 					info.codec_data = (uint8_t *)malloc( len );
 					if( info.codec_data )
@@ -437,7 +403,7 @@ private:
 					break;
 					
 				case 0x06:
-					PRINTF( "SlConfigDescriptor: ");
+					printf( "SlConfigDescriptor: ");
 					SkipBytes( len );
 					break;
 					
@@ -474,33 +440,33 @@ private:
 		while( ptr < fin )
 		{
 			uint32_t size = ReadU32();
-			PRINTF( "size=%" PRIu32 "\n", size );
+			//printf( "size=%" PRIu32 "\n", size );
 			const uint8_t *next = ptr+size-4;
 			uint32_t type = ReadU32();
 			for( int i=0; i<indent; i++ )
 			{
-				PRINTF( "\t" );
+				printf( "\t" );
 			}
-			PRINTF( "'%c%c%c%c'\n",
+			printf( "'%c%c%c%c'\n",
 				   (type>>24)&0xff, (type>>16)&0xff, (type>>8)&0xff, type&0xff );
 			switch( type )
 			{
-				case 0x68657631: // 'hev1'
-				case 0x68766331: // 'hvc1'
-				case 0x61766331: // 'avc1'
-				case 0x6D703461: // 'mp4a'
-				case 0x65632D33: // 'ec-3'
+				case 'hev1':
+				case 'hvc1':
+				case 'avc1':
+				case 'mp4a':
+				case 'ec-3':
 					parseStreamFormat( type, next, indent );
 					break;
 					
-				case 0x68766343: // 'hvcC'
-				case 0x64656333: // 'dec3'
-				case 0x61766343: // 'avcC'
-				case 0x65736473: // 'esds' Elementary Stream Descriptot Box
+				case 'hvcC':
+				case 'dec3':
+				case 'avcC':
+				case 'esds': // Elementary Stream Descriptot Box
 					parseCodecConfiguration( type, next );
 					break;
 					
-				case 0x66747970: // 'ftyp' FileType Box
+				case 'ftyp': // FileType Box
 					/*
 					 major_brand // 4 chars
 					 minor_version // 4 bytes
@@ -508,97 +474,93 @@ private:
 					 */
 					break;
 					
-				case 0x6D666864: // 'mfhd':
+				case 'mfhd':
 					parseMovieFragmentHeaderBox();
 					break;
 					
-				case 0x74666864: // 'tfhd'
+				case 'tfhd':
 					parseTrackFragmentHeaderBox();
 					break;
 					
-				case 0x7472756E: // 'trun'
+				case 'trun':
 					parseTrackFragmentRunBox();
 					break;
 					
-				case 0x74666474: // 'tfdt'
+				case 'tfdt':
 					parseTrackFragmentBaseMediaDecodeTimeBox();
 					break;
 					
-				case 0x6D766864: // 'mvhd'
+				case 'mvhd':
 					parseMovieHeaderBox();
 					break;
 					
-				case 0x6D656864: // 'mehd'
+				case 'mehd':
 					parseMovieExtendsHeader();
 					break;
 					
-				case 0x74726578: // 'trex'
+				case 'trex':
 					parseTrackExtendsBox();
 					break;
 					
-				case 0x746B6864: // 'tkhd'
+				case 'tkhd':
 					parseTrackHeader();
 					break;
 					
-				case 0x6D646864: // 'mdhd'
+				case 'mdhd':
 					parseMediaHeaderBox();
 					break;
 					
-				case 0x68646C72: // 'hdlr' Handler Reference Box
+				case 'hdlr': // Handler Reference Box
 					/*
 					 handler	vide
 					 name	Bento4 Video Handler
 					 */
 					break;
 					
-				case 0x766D6864: // 'vmhd' Video Media Header
+				case 'vmhd': // Video Media Header
 					/*
 					 graphicsmode	0
 					 opcolor	0,0,0
 					 */
 					break;
 					
-				case 0x736D6864: // 'smhd' Sound Media Header
+				case 'smhd': // Sound Media Header
 					/*
 					 balance	0
 					 */
 					break;
 					
-				case 0x64726566: // 'dref' Data Reference Box
+				case 'dref': // Data Reference Box
 					/*
 					 url
 					 */
 					break;
 					
-				case 0x73747364: // 'stsd' Sample Description Box
+				case 'stsd': // Sample Description Box
 					parseSampleDescriptionBox(next,indent);
 					break;
 					
-				case 0x73747473: // 'stts' DecodingTimeToSample
+				case 'stts': // DecodingTimeToSample
 					break;
-				case 0x73747363: // 'stsc' SampleToChunkBox
+				case 'stsc': // SampleToChunkBox
 					break;
-				case 0x7374737A: // 'stsz' SampleSizeBoxes
+				case 'stsz': // SampleSizeBoxes
 					break;
-				case 0x7374636F: // 'stco' ChunkOffsets
+				case 'stco': // ChunkOffsets
 					break;
-				case 0x73747373: // 'stss' Sync Sample
+				case 'edts': // Edit Box
 					break;
-				case 0x70726674: // 'prft' ProducerReferenceTime
+				case 'fiel':
 					break;
-				case 0x65647473: // 'edts' Edit Box
+				case 'colr': // Color Pattern Atom
 					break;
-				case 0x6669656C: // 'fiel'
-					break;
-				case 0x636F6C72: // 'colr' Color Pattern Atom
-					break;
-				case 0x70617370: // 'pasp': // Pixel Aspect Ratio
+				case 'pasp': // Pixel Aspect Ratio
 					/*
 					00 00 04 f0 // hSpacing
 					00 00 04 ef // vSpacing
 					*/
 					break;
-				case 0x62747274: // 'btrt' Buffer Time to Render Time
+				case 'btrt': // Buffer Time to Render Time
 					/*
 					00 02 49 f0 // bufferSizeDB
 					00 16 db 90 // maxBitrate
@@ -606,30 +568,30 @@ private:
 					*/
 					break;
 					
-				case 0x73747970: // 'styp' Segment Type Box
-				case 0x73696478: // 'sidx' Segment Index Box
-				case 0x75647461: // 'udta': // User Data Box
-				case 0x6D646174: // 'mdat': // Movie Data Box
+				case 'styp': // Segment Type Box
+				case 'sidx': // Segment Index Box
+				case 'udta': // User Data Box
+				case 'mdat': // Movie Data Box
 					break;
 
-				case 0x6D6F6F66: // 'moof': // Movie Fragment Box
+				case 'moof': // Movie Fragment Box
 					moof_ptr = ptr-8;
 					DemuxHelper(next, indent+1 ); // walk children
 					break;
 					
-				case 0x74726166: // 'traf' Track Fragment Boxes
-				case 0x6D6F6F76: // 'moov' Movie Boxes
-				case 0x7472616B: // 'trak' Track Box
-				case 0x6D696E66: // 'minf' Media Information Container
-				case 0x64696E66: // 'dinf' Data Information Box
-				case 0x6D766578: // 'mvex' Movie Extends Box
-				case 0x6D646961: // 'mdia' Media Box
-				case 0x7374626C: // 'stbl' Sample Table Box
+				case 'traf': // Track Fragment Boxes
+				case 'moov': // Movie Boxes
+				case 'trak': // Track Box
+				case 'minf': // Media Information Container
+				case 'dinf': // Data Information Box
+				case 'mvex': // Movie Extends Box
+				case 'mdia': // Media Box
+				case 'stbl': // Sample Table Box
 					DemuxHelper(next, indent+1 ); // walk children
 					break;
 										
 				default:
-					PRINTF( "unknown box type!\n" );
+					printf( "unknown box type!\n" );
 					break;
 			}
 			ptr = next;
@@ -637,7 +599,7 @@ private:
 	}
 
 public:
-	Mp4Demux( const void *ptr, size_t len, uint32_t timescale=0 )
+	Mp4Demux( gpointer ptr, size_t len, uint32_t timescale )
 	{
 		this->ptr = (const uint8_t *)ptr;
 		this->moof_ptr = NULL;
@@ -687,65 +649,6 @@ public:
 	Mp4Demux& operator=(const Mp4Demux & other)
 	{ // stub move constructor
 		assert(0);
-	}
-	
-	void setCaps( GstAppSrc *appsrc ) const
-	{
-		GstCaps * caps = NULL;
-		GstBuffer *buf = gst_buffer_new_and_alloc(info.codec_data_len);
-		gst_buffer_fill(buf, 0, info.codec_data, info.codec_data_len);
-		switch( info.codec_type )
-		{
-			case 0x68766343: // 'hvcC'
-				caps = gst_caps_new_simple(
-										   "video/x-h265",
-										   "stream-format", G_TYPE_STRING, "hvc1",
-										   "alignment", G_TYPE_STRING, "au",
-										   "codec_data", GST_TYPE_BUFFER, buf,
-										   "width", G_TYPE_INT, info.width,
-										   "height", G_TYPE_INT, info.height,
-										   "pixel-aspect-ratio", GST_TYPE_FRACTION, 1, 1,
-										   NULL );
-				break;
-				
-			case 0x61766343: // 'avcC'
-				caps = gst_caps_new_simple(
-										   "video/x-h264",
-										   "stream-format", G_TYPE_STRING, "avc",
-										   "alignment", G_TYPE_STRING, "au",
-										   "codec_data", GST_TYPE_BUFFER, buf,
-										   "width", G_TYPE_INT, info.width,
-										   "height", G_TYPE_INT, info.height,
-										   "pixel-aspect-ratio", GST_TYPE_FRACTION, 1, 1,
-										   NULL );
-				break;
-				
-			case 0x65736473: // 'esds'
-				caps = gst_caps_new_simple(
-										   "audio/mpeg",
-										   "mpegversion",G_TYPE_INT,4,
-										   "framed", G_TYPE_BOOLEAN, TRUE,
-										   "stream-format",G_TYPE_STRING,"raw", // FIXME
-										   "codec_data", GST_TYPE_BUFFER, buf,
-										   NULL );
-				break;
-				
-			case 0x64656333: // 'dec3'
-				caps = gst_caps_new_simple(
-										   "audio/x-eac3",
-										   "framed", G_TYPE_BOOLEAN, TRUE,
-										   "rate", G_TYPE_INT, info.samplerate,
-										   "channels", G_TYPE_INT, info.channel_count,
-										   NULL );
-				break;
-				
-			default:
-				g_print( "unk codec_type: %" PRIu32 "\n", info.codec_type );
-				return;
-		}
-		gst_app_src_set_caps(appsrc, caps);
-		gst_caps_unref(caps);
-		gst_buffer_unref (buf);
 	}
 };
 

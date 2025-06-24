@@ -1,45 +1,34 @@
-name: L1 tests
+name: Unit tests
 
 on:
   pull_request:
-    branches: [ develop, dev_sprint_25_2 ]
+    branches: [ develop, main ]
+
+env:
+  AUTOMATICS_UNAME: ${{ secrets.AUTOMATICS_UNAME }}
+  AUTOMATICS_PASSCODE: ${{ secrets.AUTOMATICS_PASSCODE }}
+  WORKSPACE: ${{ github.workspace }}
+  CI_CONTAINER: ${{ secrets.CI_CONTAINER }}
+  TEST_RESULTS_SERVER: ${{ secrets.TEST_RESULTS_SERVER }}
 
 jobs:
   execute-unit-tests-on-pr:
-    name: Runs all unit tests
+    name: Execute unit tests in gtest test suite
     runs-on: ubuntu-latest
-    
+    container:
+      image: ${{ env.CI_CONTAINER }}
+
     steps:
-      # Checkout the aamp repository
       - name: Checkout aamp code
         uses: actions/checkout@v3
-      
-      # Install AAMP
-      - name: Install AAMP
-        run: yes | ./install-aamp.sh -s -k file
-      
-      # Run L1 tests
+        with:
+            path: aamp
+
       - name: Run unit tests
-        working-directory: ./test/utests
-        run: ./run.sh
-      
-      # Publish test results
-      - name: Publish L1 test results
-        uses: dorny/test-reporter@v1
-        if: always()
-        with:
-          name: Unit Test Results
-          path: test/utests/build/ctest-results.xml
-          reporter: java-junit
-      
-      # Upload artifact (test/utests/build/ctest-results.xml)
-      - name: Upload test result file
-        uses: actions/upload-artifact@v4
-        with:
-          name: ctest-results
-          path: test/utests/build/ctest-results.xml
-      
-      # Show failure
-      - name: Show failure details (if any)
-        if: failure()
-        run: tail -n 50 test/utests/build/ctest-results.xml
+        if: env.CI_CONTAINER != ''
+        run: /bin/bash aamp/test/run_ut.sh
+
+      - name: Upload test results to automatic test result management system
+        if: env.CI_CONTAINER != ''
+        run: >
+          gtest-json-result-push.py /tmp/Gtest_Report ${{ env.TEST_RESULTS_SERVER }} `pwd`
