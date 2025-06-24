@@ -1062,6 +1062,10 @@ bool MediaTrack::ProcessFragmentChunk()
 		}
 		if (type != eTRACK_SUBTITLE || (aamp->IsGstreamerSubsEnabled()))
 		{
+			if( ISCONFIGSET(eAAMPConfig_CurlThroughput) )
+			{
+				AAMPLOG_MIL( "curl-inject type=%d", type );
+			}
 			AAMPLOG_INFO("Injecting chunk for %s br=%d,chunksize=%zu fpts=%f fduration=%f",name,bandwidthBitsPerSecond,parsedBufferChunk.GetLen(),fpts,fduration);
 			InjectFragmentChunkInternal((AampMediaType)type,&parsedBufferChunk , fpts, fpts, fduration, cachedFragment->PTSOffsetSec);
 			totalInjectedChunksDuration += fduration;

@@ -210,6 +210,7 @@ typedef enum
 	eAAMPConfig_MonitorAV,						/**< enable background monitoring of audio/video positions to infer video freeze, audio drop, or av sync issues */
 	eAAMPConfig_HlsTsEnablePTSReStamp,
 	eAAMPConfig_UseMp4Demux,
+	eAAMPConfig_CurlThroughput,
 	eAAMPConfig_BoolMaxValue						/**< Max value of bool config always last element */
 
 } AAMPConfigSettingBool;

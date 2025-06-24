@@ -3,9 +3,9 @@ project(baseconversion)
 
 include_directories(..)
 
-set(BaseConversion_SRC _base64.cpp base16.cpp)
+set(baseconversion_SRC _base64.cpp base16.cpp)
 
-add_library(baseconversion SHARED ${BaseConversion_SRC})
+add_library(baseconversion SHARED ${baseconversion_SRC})
 
 set_target_properties(baseconversion PROPERTIES PUBLIC_HEADER "_base64.h;base16.h")
 

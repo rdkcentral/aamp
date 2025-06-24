@@ -143,9 +143,9 @@ private:
 	std::atomic<bool> mFirstFrameSeen;
 	std::function<void(uint32_t, uint32_t, const std::string&)> mPlayerSendWatermarkSessionUpdateEventCB;
 	/**     
-     	 * @brief Copy constructor disabled
-     	 *
-     	 */
+	 * @brief Copy constructor disabled
+	 *
+	 */
 	DrmSessionManager(const DrmSessionManager &) = delete;
 	/**
  	 * @brief assignment operator disabled
@@ -207,11 +207,10 @@ public:
 
 	/**
 	 * @brief Set the Common Key Duration object
-	 * 
+	 *
 	 * @param keyDuration key duration
 	 */
 	void SetCommonKeyDuration(int keyDuration);
-
 
 	/**
 	 * @brief Set to true if error event to be sent to application if any license request fails
@@ -371,7 +370,7 @@ public:
 	/**
 	 * @fn initializeDrmSession
 	 */
-	KeyState initializeDrmSession(DrmHelperPtr drmHelper, int sessionSlot,  int err );
+	KeyState initializeDrmSession(DrmHelperPtr drmHelper, int sessionSlot,  int &err );
 	/**
 	 * @fn notifyCleanup
 	 */
@@ -426,12 +425,6 @@ public:
 	 */
         void UpdateDRMConfig(
                        bool useSecManager,
-                       int licenseRetryWaitTime,
-                       int drmNetworkTimeout,
-                       int curlConnectTimeout,
-                       bool curlLicenseLogging,
-                       bool runtimeDRMConfig,
-                       int contentProtectionDataUpdateTimeout,
                        bool enablePROutputProtection,
                        bool propagateURIParam,
                        bool isFakeTune);
