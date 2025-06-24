@@ -90,59 +90,6 @@ struct StreamInfo
 	StreamInfo():enabled(false),isIframeTrack(false),validity(false),codecs(),
 		bandwidthBitsPerSecond(0),resolution(),reason(),baseUrl(){};
 
-	// Copy constructor
-	StreamInfo(const StreamInfo& other) :
-		enabled(other.enabled),
-		isIframeTrack(other.isIframeTrack),
-		validity(other.validity),
-		codecs(other.codecs),
-		bandwidthBitsPerSecond(other.bandwidthBitsPerSecond),
-		resolution(other.resolution),
-		reason(other.reason),
-		baseUrl(other.baseUrl)
-	{}
-
-	// Copy assignment operator
-	StreamInfo& operator=(const StreamInfo& other) {
-		if (this != &other) {
-			enabled = other.enabled;
-			isIframeTrack = other.isIframeTrack;
-			validity = other.validity;
-			codecs = other.codecs;
-			bandwidthBitsPerSecond = other.bandwidthBitsPerSecond;
-			resolution = other.resolution;
-			reason = other.reason;
-			baseUrl = other.baseUrl;
-		}
-		return *this;
-	}
-
-	// Move constructor
-	StreamInfo(StreamInfo&& other) noexcept :
-		enabled(other.enabled),
-		isIframeTrack(other.isIframeTrack),
-		validity(other.validity),
-		codecs(std::move(other.codecs)),
-		bandwidthBitsPerSecond(other.bandwidthBitsPerSecond),
-		resolution(std::move(other.resolution)),
-		reason(other.reason),
-		baseUrl(std::move(other.baseUrl))
-	{}
-
-	// Move assignment operator
-	StreamInfo& operator=(StreamInfo&& other) noexcept {
-		if (this != &other) {
-			enabled = other.enabled;
-			isIframeTrack = other.isIframeTrack;
-			validity = other.validity;
-			codecs = std::move(other.codecs);
-			bandwidthBitsPerSecond = other.bandwidthBitsPerSecond;
-			resolution = std::move(other.resolution);
-			reason = other.reason;
-			baseUrl = std::move(other.baseUrl);
-		}
-		return *this;
-	}
 };
 
 
