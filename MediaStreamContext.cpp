@@ -63,7 +63,6 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 	double posInAbsTimeline = ((double)fragmentTime);
 	AAMPLOG_INFO("Type[%d] position(before restamp) %f discontinuity %d pto %f scale %u duration %f mPTSOffsetSec %f absTime %lf fragmentUrl %s", type, position, discontinuity, pto, scale, fragmentDurationS, GetContext()->mPTSOffset.inSeconds(), posInAbsTimeline, fragmentUrl.c_str());
 
-	fragmentDurationSeconds = fragmentDurationS;
 	ProfilerBucketType bucketType = aamp->GetProfilerBucketForMedia(mediaType, initSegment);
 	CachedFragment* cachedFragment = GetFetchBuffer(true);
 	BitsPerSecond bitrate = 0;
