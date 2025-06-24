@@ -86,8 +86,36 @@ struct StreamInfo
 	BitrateChangeReason reason;     /**< Reason for bitrate change*/
 	std::string baseUrl;
 	
+	// Default constructor
 	StreamInfo():enabled(false),isIframeTrack(false),validity(false),codecs(),
 		bandwidthBitsPerSecond(0),resolution(),reason(),baseUrl(){};
+
+	// Copy constructor
+	StreamInfo(const StreamInfo& other) :
+		enabled(other.enabled),
+		isIframeTrack(other.isIframeTrack),
+		validity(other.validity),
+		codecs(other.codecs),
+		bandwidthBitsPerSecond(other.bandwidthBitsPerSecond),
+		resolution(other.resolution),
+		reason(other.reason),
+		baseUrl(other.baseUrl)
+	{}
+
+	// Copy assignment operator
+	StreamInfo& operator=(const StreamInfo& other) {
+		if (this != &other) {
+			enabled = other.enabled;
+			isIframeTrack = other.isIframeTrack;
+			validity = other.validity;
+			codecs = other.codecs;
+			bandwidthBitsPerSecond = other.bandwidthBitsPerSecond;
+			resolution = other.resolution;
+			reason = other.reason;
+			baseUrl = other.baseUrl;
+		}
+		return *this;
+	}
 
 	// Move constructor
 	StreamInfo(StreamInfo&& other) noexcept :
