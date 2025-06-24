@@ -179,6 +179,10 @@ int AampCurlDownloader::Download(const std::string &urlStr, std::shared_ptr<Down
 			bool loopAgain = false;
 			do{
 				mDownloadStartTime = mDownloadUpdatedTime = NOW_STEADY_TS_MS;
+				if( mDnldCfg && mDnldCfg->bCurlThroughput )
+				{
+					AAMPLOG_MIL( "curl-begin type=%d", eMEDIATYPE_MANIFEST);
+				}
 				curlRetVal = curl_easy_perform(mCurl);
 				loopAgain = false;
 				numDownloadAttempts++;
@@ -265,6 +269,14 @@ int AampCurlDownloader::Download(const std::string &urlStr, std::shared_ptr<Down
 			updateResponseParams();
 			mDownloadActive = false;		
 			mDownloadResponse->curlRetValue = curlRetVal;
+			if( mDnldCfg && mDnldCfg->bCurlThroughput )
+			{
+				AAMPLOG_MIL( "curl-end type=%d appConnect=%f redirect=%f error=%d",
+					   eMEDIATYPE_MANIFEST,
+					   mDownloadResponse->downloadCompleteMetrics.appConnect,
+					   mDownloadResponse->downloadCompleteMetrics.redirect,
+					   mDownloadResponse->iHttpRetValue );
+			}
 		}
 		else
 		{
@@ -486,6 +498,10 @@ size_t AampCurlDownloader::WriteCallback(void *buffer, size_t sz, size_t nmemb, 
 	AampCurlDownloader *context = static_cast<AampCurlDownloader *>(userdata);
 	if(context != NULL)
 	{
+		if( context->mDnldCfg && context->mDnldCfg->bCurlThroughput )
+		{
+			AAMPLOG_MIL( "curl-write type=%d size=%zu", eMEDIATYPE_MANIFEST, sz*nmemb );
+		}
 		ret = context->write_callback(buffer, sz, nmemb);
 	}
 	return ret;

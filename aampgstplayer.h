@@ -105,7 +105,6 @@ private:
 	bool SendHelper(AampMediaType mediaType, const void *ptr, size_t len, double fpts, double fdts, double duration, bool copy, double fragmentPTSoffset, bool initFragment = false, bool discontinuity = false);
 
 public:
-
 	class PrivateInstanceAAMP *aamp;
 	class PrivateInstanceAAMP *mEncryptedAamp;
 	InterfacePlayerRDK* playerInterface;
@@ -415,15 +414,32 @@ public:
 	void RegisterFirstFrameCallbacks();
 	void NotifyFirstFrame(int mediatype, bool notifyFirstBuffer, bool initCC, bool &requireFirstVideoFrameDisplay, bool &audioOnly);
 	void UnregisterBusCb();
-		void UnregisterFirstFrameCallbacks();
+	void UnregisterFirstFrameCallbacks();
+
+	/**
+	 * @brief Start the MonitorAV timer to report AV status
+	 */
+	void StartMonitorAvTimer();
+
+	/**
+	 * @brief Start the MonitorAV timer to report AV status
+	 */
+	void StopMonitorAvTimer();
+
+	/**
+	 * @brief Get the monitor AV interval in milliseconds
+	 */
+	int GetMonitorAVInterval() const { return mMonitorAVInterval; }
 
 private:
 	std::mutex mBufferingLock;
 	id3_callback_t m_ID3MetadataHandler; /**< Function to call to generate the JS event for in ID3 packet */
+	guint monitorAvTimerId; /**< Timer ID for monitoring AV events */
+	int mMonitorAVInterval; /**< Interval in milliseconds for monitoring AV events */
 
 public:
 	AampLogManager *mLogObj;
-		InterfacePlayerRDK *playerInstance ;
+	InterfacePlayerRDK *playerInstance ;
 };
 
 #endif // AAMPGSTPLAYER_H

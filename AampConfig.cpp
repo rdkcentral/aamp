@@ -29,7 +29,8 @@
 #include "aampgstplayer.h"
 #include "SocUtils.h"
 #include "PlayerRfc.h"
-#include "PlayerIarmRfcInterface.h"
+#include "PlayerExternalsInterface.h"
+#include "PlayerSecInterface.h"
 #include <time.h>
 #include <map>
 //////////////// CAUTION !!!! STOP !!! Read this before you proceed !!!!!!! /////////////
@@ -186,12 +187,6 @@ struct ConfigLookupEntryString
 #define DEFAULT_VALUE_GST_SUBTEC_ENABLED false
 #endif
 
-#ifdef USE_SECMANAGER
-#define DEFAULT_VALUE_USE_SECMANAGER true
-#else
-#define DEFAULT_VALUE_USE_SECMANAGER false
-#endif
-
 #ifdef ENABLE_USE_SINGLE_PIPELINE
 #define DEFAULT_VALUE_USE_SINGLE_PIPELINE true
 #else
@@ -330,11 +325,11 @@ static const ConfigLookupEntryBool mConfigLookupTableBool[AAMPCONFIG_BOOL_COUNT]
 	{true,"enableLowLatencyOffsetMin",eAAMPConfig_EnableLowLatencyOffsetMin,false},
 	{false,"syncAudioFragments",eAAMPConfig_SyncAudioFragments,false},
 	{false,"enableEosSmallFragment", eAAMPConfig_EnableIgnoreEosSmallFragment, false},
-	{DEFAULT_VALUE_USE_SECMANAGER,"useSecManager",eAAMPConfig_UseSecManager, true},
+	{false,"useSecManager",eAAMPConfig_UseSecManager, true},
 	{false,"enablePTO", eAAMPConfig_EnablePTO,false},
 	{true,"enableFogConfig", eAAMPConfig_EnableAampConfigToFog, false},
 	{false,"xreSupportedTune",eAAMPConfig_XRESupportedTune,false},
-	{DEFAULT_VALUE_GST_SUBTEC_ENABLED,"gstSubtecEnabled",eAAMPConfig_GstSubtecEnabled,false},
+	{false,"gstSubtecEnabled",eAAMPConfig_GstSubtecEnabled,false},
 	{true,"allowPageHeaders",eAAMPConfig_AllowPageHeaders,false},
 	{false,"persistHighNetworkBandwidth",eAAMPConfig_PersistHighNetworkBandwidth,false},
 	{true,"persistLowNetworkBandwidth",eAAMPConfig_PersistLowNetworkBandwidth,false},
@@ -369,6 +364,8 @@ static const ConfigLookupEntryBool mConfigLookupTableBool[AAMPCONFIG_BOOL_COUNT]
 	{false, "forceLLDFlow", eAAMPConfig_ForceLLDFlow, false},
 	{false, "monitorAV", eAAMPConfig_MonitorAV, true},
 	{false, "enablePTSRestampForHlsTs", eAAMPConfig_HlsTsEnablePTSReStamp, true},
+	{false, "useMp4Demux", eAAMPConfig_UseMp4Demux,false },
+	{false, "curlThroughput", eAAMPConfig_CurlThroughput, false }
 };
 
 #define CONFIG_INT_ALIAS_COUNT 2
@@ -466,6 +463,7 @@ static const ConfigLookupEntryInt mConfigLookupTableInt[AAMPCONFIG_INT_COUNT+CON
 	{DEFAULT_MONITOR_AVSYNC_NEGATIVE_DELTA_MS,"monitorAVSyncThresholdNegative",eAAMPConfig_MonitorAVSyncThresholdNegative,true,eCONFIG_RANGE_MONITOR_AVSYNC_THRESHOLD_NEGATIVE },
 	{DEFAULT_MONITOR_AV_JUMP_THRESHOLD_MS,"monitorAVJumpThreshold",eAAMPConfig_MonitorAVJumpThreshold,true,eCONFIG_RANGE_MONITOR_AVSYNC_JUMP_THRESHOLD },
 	{DEFAULT_PROGRESS_LOGGING_DIVISOR,"progressLoggingDivisor",eAAMPConfig_ProgressLoggingDivisor,false},
+	{DEFAULT_MONITOR_AV_REPORTING_INTERVAL, "monitorAVReportingInterval", eAAMPConfig_MonitorAVReportingInterval, false},
 	// aliases, kept for backwards compatibility
 	{DEFAULT_INIT_BITRATE,"defaultBitrate",eAAMPConfig_DefaultBitrate,true },
 	{DEFAULT_INIT_BITRATE_4K,"defaultBitrate4K",eAAMPConfig_DefaultBitrate4K,true },
@@ -850,7 +848,7 @@ void AampConfig::Initialize()
 
 void AampConfig::ApplyDeviceCapabilities()
 {
-	std::shared_ptr<PlayerIarmRfcInterface> pInstance = PlayerIarmRfcInterface::GetPlayerIarmRfcInterfaceInstance();
+	std::shared_ptr<PlayerExternalsInterface> pInstance = PlayerExternalsInterface::GetPlayerExternalsInterfaceInstance();
 	bool IsWifiCurlHeader = pInstance->IsConfigWifiCurlHeader();	
 
 	configValueBool[eAAMPConfig_UseAppSrcForProgressivePlayback].value = SocUtils::UseAppSrcForProgressivePlayback();
@@ -859,6 +857,12 @@ void AampConfig::ApplyDeviceCapabilities()
 	configValueBool[eAAMPConfig_UseWesterosSink].value = SocUtils::UseWesterosSink();
 	configValueBool[eAAMPConfig_SyncAudioFragments].value = SocUtils::IsAudioFragmentSyncSupported();
 	SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_WifiCurlHeader, IsWifiCurlHeader);
+
+	bool isSecMgr = isSecManagerEnabled();
+	SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_UseSecManager, isSecMgr);
+
+	bool isGstSubtec = SocUtils::isGstSubtecEnabled();
+	SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_GstSubtecEnabled, isGstSubtec);
 }
 
 std::string AampConfig::GetUserAgentString()
@@ -1570,9 +1574,9 @@ bool AampConfig::ProcessBase64AampCfg(const char * base64Config, size_t configLe
 void AampConfig::ReadBase64TR181Param()
 {
 	size_t iConfigLen = 0;
-	if(PlayerIarmRfcInterface::IsPlayerIarmRfcInterfaceInstanceActive())
+	if(PlayerExternalsInterface::IsPlayerExternalsInterfaceInstanceActive())
 	{
-		std::shared_ptr<PlayerIarmRfcInterface> pInstance = PlayerIarmRfcInterface::GetPlayerIarmRfcInterfaceInstance();
+		std::shared_ptr<PlayerExternalsInterface> pInstance = PlayerExternalsInterface::GetPlayerExternalsInterfaceInstance();
 		char * cloudConf = pInstance->GetTR181PlayerConfig("Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.AAMP_CFG.b64Config", iConfigLen);
 		if(NULL != cloudConf)
 		{	
@@ -1626,6 +1630,8 @@ void AampConfig::ReadAampCfgFromEnv()
 			free(strConfig); // free mem allocated by base64_Decode
 		}
 	}
+
+	DoCustomSetting(AAMP_DEV_CFG_SETTING);
 }
 
 /**

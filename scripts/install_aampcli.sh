@@ -131,10 +131,9 @@ function aampcli_install_build_darwin_fn()
     if [  -f "./Debug/aamp-cli" ]; then
         echo "OSX AAMP Build PASSED"
         arr_install_status+=("OSX AAMP Build PASSED")
-        
-        subtec_install_run_script_fn   # after build/Debug directory created by xcodebuild
+	subtec_install_run_script_fn   # after build/Debug directory created by xcodebuild
     else
-        echo "OSX AAMP Build FAILED"
+	echo "OSX AAMP Build FAILED"
         arr_install_status+=("OSX AAMP Build FAILED")
         return 1
     fi

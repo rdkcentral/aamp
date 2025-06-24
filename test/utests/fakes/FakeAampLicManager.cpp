@@ -20,9 +20,9 @@
 
 #include "MockAampLicManager.h"
 #include "priv_aamp.h"
-#include "PlayerUtils.h"
 MockAampLicenseManager *g_mockAampLicenseManager = nullptr;
-AAMPTuneFailure MapDrmToAampTuneFailure(DrmTuneFailure drmError)
+
+AAMPTuneFailure MapDrmToPlayerTuneFailure(DrmTuneFailure drmError)
 {
     switch (drmError)
     {
@@ -53,6 +53,12 @@ AampDRMLicenseManager::~AampDRMLicenseManager()
 
 void AampDRMLicenseManager::renewLicense(std::shared_ptr<DrmHelper>, void*, PrivateInstanceAAMP*)
 {
+}
+
+DrmData * AampDRMLicenseManager::getLicenseSec(const LicenseRequest &licenseRequest, std::shared_ptr<DrmHelper> drmHelper,
+		const ChallengeInfo& challengeInfo, void* aampI, int32_t *httpCode, int32_t *httpExtStatusCode, DrmMetaDataEventPtr eventHandle)
+{
+	return nullptr;
 }
 
 void AampDRMLicenseManager::setPlaybackSpeedState(bool , double, bool, double, int, double, bool)
@@ -121,16 +127,15 @@ void AampDRMLicenseManager::SetSendErrorOnFailure(bool sendErrorOnFailure)
 void AampDRMLicenseManager::SetCommonKeyDuration(int keyDuration)
 {
 }
+
 void AampDRMLicenseManager::notifyCleanup()
 {
 }
-
 DrmSession* AampDRMLicenseManager::createDrmSession(char const*, MediaFormat, unsigned char const*, unsigned short, int, DrmCallbacks*, std::shared_ptr<DrmMetaDataEvent>, unsigned char const*, bool)
 {
 	return NULL;
 }
-
 SessionMgrState AampDRMLicenseManager::getSessionMgrState()
 {
-        return SessionMgrState::eSESSIONMGR_INACTIVE;
+ return SessionMgrState::eSESSIONMGR_INACTIVE;
 }

@@ -22,7 +22,7 @@
 #include "MockAampDRMSessionManager.h"
 MockDRMSessionManager *g_mockDRMSessionManager = nullptr;
 
-DrmSessionManager::DrmSessionManager(int, void*)
+DrmSessionManager::DrmSessionManager(int maxDrmSessions, void *player, std::function<void(uint32_t, uint32_t, const std::string&)> watermarkSessionUpdateCallback) 
 {
 }
 
@@ -31,7 +31,7 @@ DrmSessionManager::~DrmSessionManager()
 }
 
 
-void DrmSessionManager::setPlaybackSpeedState(bool , double , bool  , double ,int , double , bool )
+void DrmSessionManager::setPlaybackSpeedState(bool live, double currentLatency, bool livepoint , double liveOffsetMs, int speed, double positionMs, bool firstFrameSeen)
 {
 }
 
@@ -39,7 +39,7 @@ void DrmSessionManager::hideWatermarkOnDetach()
 {
 }
 
-void DrmSessionManager::setVideoMute(bool , double , bool , double ,bool , double )
+void DrmSessionManager::setVideoMute(bool live, double currentLatency, bool livepoint , double liveOffsetMs,bool isVideoOnMute, double positionMs)
 {
 }
 
@@ -52,8 +52,22 @@ void DrmSessionManager::setVideoWindowSize(int width, int height)
 }
 
 
-void DrmSessionManager::UpdateMaxDRMSessions(int)
+void DrmSessionManager::UpdateMaxDRMSessions(int maxSessions)
 {
+}
+
+void DrmSessionManager::clearSessionData(void)
+{
+}
+
+int DrmSessionManager::getSlotIdForSession(DrmSession* )
+{
+	return false;	
+}
+
+string DrmSession::getKeySystem(void)
+{
+	return NULL;
 }
 
 
@@ -62,13 +76,44 @@ DrmSession * DrmSessionManager::createDrmSession(int& err,
 		uint16_t initDataLen, int streamType, 
 		DrmCallbacks* aamp, void *ptr , const unsigned char* contentMetadataPtr,
 		bool isPrimarySession)
-		{
-			return nullptr;
-		}
+{
+	return nullptr;
+}
+
+DrmSession* DrmSessionManager::createDrmSession(int &err, std::shared_ptr<DrmHelper> drmHelper,  DrmCallbacks* Instance, int streamType,void* metaDataPtr)
+{
+	return nullptr;
+}
 		
 SessionMgrState DrmSessionManager::getSessionMgrState()
 {
 	return SessionMgrState::eSESSIONMGR_INACTIVE;
+}
+
+void DrmSessionManager::clearDrmSession(bool forceClearSession)
+{
+}
+
+void DrmSessionManager::clearFailedKeyIds()
+{
+}
+
+void DrmSessionManager::setSessionMgrState(SessionMgrState state)
+{
+}
+
+void DrmSessionManager::notifyCleanup()
+{
+}
+
+bool DrmSessionManager::IsKeyIdProcessed(std::vector<uint8_t> keyIdArray, bool &status)
+{
+	return false;
+}
+
+void DrmSessionManager::UpdateDRMConfig(
+                       bool useSecManager, bool enablePROutputProtection, bool propagateURIParam, bool isFakeTune)
+{
 }
 #if 0
 void DrmSessionManager::SetLicenseFetcher(AampLicenseFetcher *fetcherInstance)
@@ -84,17 +129,6 @@ void DrmSessionManager::QueueProtectionEvent(DrmHelperPtr drmHelper, std::string
 {
 }
 
-void DrmSessionManager::clearDrmSession(bool forceClearSession)
-{
-}
-
-void DrmSessionManager::clearFailedKeyIds()
-{
-}
-
-void DrmSessionManager::setSessionMgrState(SessionMgrState state)
-{
-}
 
 void DrmSessionManager::SetSendErrorOnFailure(bool sendErrorOnFailure)
 {
@@ -104,7 +138,5 @@ void DrmSessionManager::SetCommonKeyDuration(int keyDuration)
 {
 }
 
-void DrmSessionManager::notifyCleanup()
-{
-}
+
 #endif
