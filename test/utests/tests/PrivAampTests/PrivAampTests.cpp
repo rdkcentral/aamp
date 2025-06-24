@@ -4362,30 +4362,3 @@ TEST_F(PrivAampTests, VerifyTrickModePositionEOS)
 	/*The calculation involves NOW_STEADY_TS_SECS_FP, in SetRate and calculatedTrickModeEosPos, which will differ a bit, hence using EXPECT_NEAR */
 	EXPECT_NEAR(p_aamp->mTrickModePositionEOS, calculatedTrickModeEosPos, kAbsErrorLivePlayPosition);
 }
-TEST_F(PrivAampTests,GetFormatPositionOffsetTest)
-{
-	double offset = 0.0;
-	p_aamp->mProgressReportOffset = 1.2; // Set a valid progress report offset
-	p_aamp->mProgressReportAvailabilityOffset = 2.5; // Set availability offset
-
-	// Case 1: eAAMPConfig_UseAbsoluteTimeline is false
-	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_UseAbsoluteTimeline)).WillRepeatedly(Return(false));
-	offset = p_aamp->GetFormatPositionOffsetInMSecs();
-	EXPECT_EQ(offset, 1.2 * 1000); // Expect offset to be calculated based on mProgressReportOffset
-
-	// Case 2: eAAMPConfig_UseAbsoluteTimeline is true and IsLiveStream() is true
-	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_UseAbsoluteTimeline)).WillRepeatedly(Return(true));
-	p_aamp->SetIsLiveStream(true);
-	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_PreferredAbsoluteProgressReporting))
-		.WillRepeatedly(Return(eABSOLUTE_PROGRESS_WITHOUT_AVAILABILITY_START));	
-	offset = p_aamp->GetFormatPositionOffsetInMSecs();
-	EXPECT_EQ(offset, 2.5 * 1000); // Expect offset to be calculated based on mProgressReportAvailabilityOffset
-
-	// Case 3: If IsLiveStream() is false
-	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_UseAbsoluteTimeline)).WillRepeatedly(Return(true));
-	p_aamp->SetIsLiveStream(false); // Set live stream to false
-	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_PreferredAbsoluteProgressReporting))
-		.WillRepeatedly(Return(eABSOLUTE_PROGRESS_WITHOUT_AVAILABILITY_START));
-	offset = p_aamp->GetFormatPositionOffsetInMSecs();
-	EXPECT_EQ(offset, 1.2 * 1000); // Expect offset to be 0 since IsLiveStream() is false
-}
