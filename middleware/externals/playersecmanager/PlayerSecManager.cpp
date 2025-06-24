@@ -294,8 +294,6 @@ PlayerSecManager::~PlayerSecManager()
 
 	UnRegisterAllEvents();
 }
-
-#ifdef USE_CPP_THUNDER_PLUGIN_ACCESS
 static std::size_t getInputSummaryHash(const char* moneyTraceMetadata[][2], const char* contentMetadata,
 					size_t contMetaLen, const char* licenseRequest, const char* keySystemId,
 					const char* mediaUsage, const char* accessToken, bool isVideoMuted)
@@ -313,7 +311,6 @@ static std::size_t getInputSummaryHash(const char* moneyTraceMetadata[][2], cons
 
 	return returnHash;
 }
-#endif
 
 bool PlayerSecManager::AcquireLicense( const char* licenseUrl, const char* moneyTraceMetadata[][2],
 					const char* accessAttributes[][2], const char* contentMetadata, size_t contMetaLen,
@@ -373,15 +370,14 @@ bool PlayerSecManager::AcquireLicenseOpenOrUpdate( const char* licenseUrl, const
 	(void) licenseUrl;
 
 	bool ret = false;
+	bool rpcResult = false;
+	unsigned int retryCount = 0;
 	
 	//Initializing it with default error codes (which would be sent if there any jsonRPC
 	//call failures to thunder)
 	*statusCode = SECMANAGER_DRM_FAILURE;
 	*reasonCode = SECMANAGER_DRM_GEN_FAILURE;
 
-#ifdef USE_CPP_THUNDER_PLUGIN_ACCESS
-	bool rpcResult = false;
-	unsigned int retryCount = 0;
 	//Shared memory pointer, key declared here,
 	//Access token, content metadata and licence request will be passed to
 	//secmanager via shared memory
@@ -392,6 +388,7 @@ bool PlayerSecManager::AcquireLicenseOpenOrUpdate( const char* licenseUrl, const
 	void * shmPt_licReq = nullptr;
 	key_t shmKey_licReq = 0;
 	const char* apiName = "openPlaybackSession";
+#ifdef USE_CPP_THUNDER_PLUGIN_ACCESS
 	JsonObject param;
 	JsonObject response;
 	JsonObject sessionConfig;
@@ -588,8 +585,8 @@ bool PlayerSecManager::AcquireLicenseOpenOrUpdate( const char* licenseUrl, const
 bool PlayerSecManager::UpdateSessionState(int64_t sessionId, bool active)
 {
 	bool success = false;
-#ifdef USE_CPP_THUNDER_PLUGIN_ACCESS
 	bool rpcResult = false;
+#ifdef USE_CPP_THUNDER_PLUGIN_ACCESS
 	JsonObject result;
 	JsonObject param;
 	param["clientId"] = "player";
@@ -635,8 +632,8 @@ bool PlayerSecManager::UpdateSessionState(int64_t sessionId, bool active)
  */
 void PlayerSecManager::ReleaseSession(int64_t sessionId)
 {
-#ifdef USE_CPP_THUNDER_PLUGIN_ACCESS
 	bool rpcResult = false;
+#ifdef USE_CPP_THUNDER_PLUGIN_ACCESS
 	JsonObject result;
 	JsonObject param;
 	param["clientId"] = "player";

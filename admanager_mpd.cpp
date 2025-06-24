@@ -488,7 +488,7 @@ void PrivateCDAIObjectMPD::PlaceAds(AampMPDParseHelperPtr adMPDParseHelper)
 										{
 											// Next ad started placing
 											nextAd.basePeriodId = periodId;
-											nextAd.basePeriodOffset = (int)(p2AdData.duration - periodDelta);
+											nextAd.basePeriodOffset = p2AdData.duration - periodDelta;
 											AAMPLOG_INFO("[CDAI]nextAd.basePeriodId:%s, nextAd.basePeriodOffset:%d", nextAd.basePeriodId.c_str(), nextAd.basePeriodOffset);
 											int offsetKey = nextAd.basePeriodOffset;
 											offsetKey = offsetKey - (offsetKey%OFFSET_ALIGN_FACTOR);

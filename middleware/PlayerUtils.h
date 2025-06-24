@@ -98,6 +98,13 @@ long long GetCurrentTimeMS(void);
 void player_ResolveURL(std::string& dst, std::string base, const char *uri , bool bPropagateUriParams);
 
 /**
+ * @brief parse leading protocol from uri if present
+ * @param[in] uri manifest/ fragment uri
+ * @retval return pointer just past protocol (i.e. http://) if present (or) return NULL uri doesn't start with protcol
+ */
+static const char * ParseUriProtocol(const char *uri);
+
+/**
  * @fn trim
  * @param[in][out] src Buffer containing string
  */
