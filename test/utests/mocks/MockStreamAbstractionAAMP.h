@@ -45,6 +45,8 @@ public:
 	MOCK_METHOD(double, GetBufferedDuration, ());
 	MOCK_METHOD(class StreamAbstractionAAMP*, GetContext, ());
 	MOCK_METHOD(void, InjectFragmentInternal, (CachedFragment* cachedFragment, bool &fragmentDiscarded,bool isDiscontinuity));
+
+	MOCK_METHOD(double, GetTotalInjectedDuration, (), (override));
 };
 
 class MockStreamAbstractionAAMP : public StreamAbstractionAAMP
