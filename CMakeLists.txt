@@ -17,6 +17,17 @@
 
 # XCode schema generation / flag setting
 # Other flags see here: https://cmake.org/cmake/help/latest/prop_tgt/XCODE_GENERATE_SCHEME.html
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g")
+set(CMAKE_BUILD_TYPE "Debug" CACHE STRING "Build type" FORCE)
+
+
+set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} -g" CACHE STRING "Debug C flags" FORCE)
+set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g" CACHE STRING "Debug C++ flags" FORCE)
+set(CMAKE_BUILD_TYPE "Debug" CACHE STRING "Build type" FORCE)
+
+set(CMAKE_C_FLAGS_DEBUG "-g -O0" CACHE STRING "Debug C flags" FORCE)
+set(CMAKE_CXX_FLAGS_DEBUG "-g -O0" CACHE STRING "Debug C++ flags" FORCE)
 function(xcode_define_schema new_schema)
     message( "xcode_define_schema for ${new_schema}" )
     set_property(TARGET ${new_schema} PROPERTY XCODE_GENERATE_SCHEME TRUE)
