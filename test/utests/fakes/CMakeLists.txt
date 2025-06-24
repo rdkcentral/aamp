@@ -16,6 +16,7 @@
 # limitations under the License.
 
 file(GLOB fakes_SRC "*.cpp")
+file(GLOB middleware_fakes_SRC "../../../middleware/test/utests/fakes/*.cpp")
 
 set(AAMP_ROOT "../../../")
 set(UTESTS_ROOT "..")

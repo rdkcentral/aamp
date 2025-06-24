@@ -93,11 +93,6 @@ void ResolveURL(std::string& dst, std::string base, const char *uri , bool bProp
  */
 long long GetCurrentTimeMS(void);
 /**
- * @brief Resolve file URL from the base and file path
- */
-void player_ResolveURL(std::string& dst, std::string base, const char *uri , bool bPropagateUriParams);
-
-/**
  * @fn trim
  * @param[in][out] src Buffer containing string
  */

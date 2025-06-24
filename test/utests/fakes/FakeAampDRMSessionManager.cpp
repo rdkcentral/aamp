@@ -56,34 +56,15 @@ void DrmSessionManager::UpdateMaxDRMSessions(int maxSessions)
 {
 }
 
-void DrmSessionManager::clearSessionData(void)
-{
-}
-
-int DrmSessionManager::getSlotIdForSession(DrmSession* )
-{
-	return false;	
-}
-
-string DrmSession::getKeySystem(void)
-{
-	return NULL;
-}
-
 
 DrmSession * DrmSessionManager::createDrmSession(int& err,
 		const char* systemId, MediaFormat mediaFormat, const unsigned char * initDataPtr,
 		uint16_t initDataLen, int streamType, 
 		DrmCallbacks* aamp, void *ptr , const unsigned char* contentMetadataPtr,
 		bool isPrimarySession)
-{
-	return nullptr;
-}
-
-DrmSession* DrmSessionManager::createDrmSession(int &err, std::shared_ptr<DrmHelper> drmHelper,  DrmCallbacks* Instance, int streamType,void* metaDataPtr)
-{
-	return nullptr;
-}
+		{
+			return nullptr;
+		}
 		
 SessionMgrState DrmSessionManager::getSessionMgrState()
 {
