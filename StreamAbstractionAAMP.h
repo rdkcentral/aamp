@@ -85,7 +85,36 @@ struct StreamInfo
 	StreamResolution resolution;    /**< Resolution of the stream*/
 	BitrateChangeReason reason;     /**< Reason for bitrate change*/
 	std::string baseUrl;
-	StreamInfo():enabled(false),isIframeTrack(false),validity(false),codecs(),bandwidthBitsPerSecond(0),resolution(),reason(),baseUrl(){};
+	
+	StreamInfo():enabled(false),isIframeTrack(false),validity(false),codecs(),
+		bandwidthBitsPerSecond(0),resolution(),reason(),baseUrl(){};
+
+	// Move constructor
+	StreamInfo(StreamInfo&& other) noexcept :
+		enabled(other.enabled),
+		isIframeTrack(other.isIframeTrack),
+		validity(other.validity),
+		codecs(std::move(other.codecs)),
+		bandwidthBitsPerSecond(other.bandwidthBitsPerSecond),
+		resolution(std::move(other.resolution)),
+		reason(other.reason),
+		baseUrl(std::move(other.baseUrl))
+	{}
+
+	// Move assignment operator
+	StreamInfo& operator=(StreamInfo&& other) noexcept {
+		if (this != &other) {
+			enabled = other.enabled;
+			isIframeTrack = other.isIframeTrack;
+			validity = other.validity;
+			codecs = std::move(other.codecs);
+			bandwidthBitsPerSecond = other.bandwidthBitsPerSecond;
+			resolution = std::move(other.resolution);
+			reason = other.reason;
+			baseUrl = std::move(other.baseUrl);
+		}
+		return *this;
+	}
 };
 
 
