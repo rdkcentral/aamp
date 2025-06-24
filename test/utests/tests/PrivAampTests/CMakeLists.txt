@@ -33,7 +33,7 @@ include_directories(${AAMP_ROOT}/subtitle)
 include_directories(${AAMP_ROOT}/middleware/closedcaptions)
 include_directories(${AAMP_ROOT}/middleware/externals)
 include_directories(${AAMP_ROOT}/middleware/baseConversion)
-include_directories(${AAMP_ROOT}/middleware/vendor)
+
 include_directories(${GTEST_INCLUDE_DIRS})
 include_directories(${GMOCK_INCLUDE_DIRS})
 include_directories(${GLIB_INCLUDE_DIRS})
@@ -55,7 +55,7 @@ add_executable(	${EXEC_NAME}
 				${TEST_SOURCES}
 				${AAMP_SOURCES})
 set_target_properties(${EXEC_NAME} PROPERTIES FOLDER "utests")
-	
+
 if (CMAKE_XCODE_BUILD_SYSTEM)
 	# XCode schema target
 	xcode_define_schema(${EXEC_NAME})
