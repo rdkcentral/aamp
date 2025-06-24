@@ -46,14 +46,14 @@ Even after updating the CMake version if you still see the above error, then run
 
 ```
 	Product -> Scheme -> Choose Scheme
-	player-cli
+	playr-cli
 ```
 
 **4. Execute**
 
 While executing if you face the below MacOS warning then please follow the below steps to fix it.
-"Example warning: Machine runs macOS 10.15.7, which is lower than minimum deployment target of 11.1. Change your project's minimum deployment target or upgrade machine’s version of macOS."
-Click "Middleware" project and lower the "macOS Deployment Target" version. For example: Change it to 10.11 then run the player-cli, it will work.
+"Example warning: Machine runs macOS 10.15.7, which is lower than playr-cli's minimum deployment target of 11.1. Change your project's minimum deployment target or upgrade machine’s version of macOS."
+Click "Middleware" project and lower the "macOS Deployment Target" version. For example: Change it to 10.11 then run the playr-cli, it will work.
 
 
 ```

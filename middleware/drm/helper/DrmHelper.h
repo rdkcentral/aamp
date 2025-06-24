@@ -256,10 +256,10 @@ public:
 	void setOutputProtectionFlag(bool bValue) { bOutputProtectionEnabled = bValue;}
 
 	/**
-	 * @brief Get propagateUri Parameter
+	 * @brief Get propogateUri Parameter
 	 * @return Flag to get propagate Manifest uri params in DRM value
 	 */
-	virtual bool getPropagateUriParam() const { return mDrmInfo.bPropagateUriParams; }
+	virtual bool getPropogateUriParam() const { return mDrmInfo.bPropagateUriParams; }
 
 public:
 	virtual ~DrmHelper() {}
