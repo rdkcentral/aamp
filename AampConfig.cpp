@@ -476,6 +476,7 @@ static const ConfigLookupEntryInt mConfigLookupTableInt[AAMPCONFIG_INT_COUNT+CON
 static const ConfigLookupEntryFloat mConfigLookupTableFloat[AAMPCONFIG_FLOAT_COUNT] =
 {
 	{CURL_FRAGMENT_DL_TIMEOUT,"networkTimeout",eAAMPConfig_NetworkTimeout,true},
+	{TIMEOUT_FOR_LLD, "networkTimeoutLLD", eAAMPConfig_NetworkTimeoutLLD, true}, // used for low latency dash
 	{CURL_FRAGMENT_DL_TIMEOUT,"manifestTimeout",eAAMPConfig_ManifestTimeout,true},
 	{0.0,"playlistTimeout",eAAMPConfig_PlaylistTimeout,true},
 	{DEFAULT_REPORT_PROGRESS_INTERVAL,"progressReportingInterval",eAAMPConfig_ReportProgressInterval,false},

@@ -314,6 +314,7 @@ typedef enum
 typedef enum
 {
 	eAAMPConfig_NetworkTimeout,						/**< Fragment download timeout in sec*/
+	eAAMPConfig_NetworkTimeoutLLD,						/**< Fragment download timeout in sec for Low Latency Dash*/
 	eAAMPConfig_ManifestTimeout,						/**< Manifest download timeout in sec*/
 	eAAMPConfig_PlaylistTimeout,						/**< playlist download time out in sec*/
 	eAAMPConfig_ReportProgressInterval,					/**< Interval of progress reporting*/
