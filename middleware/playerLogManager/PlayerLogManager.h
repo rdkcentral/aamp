@@ -63,7 +63,7 @@ public :
 	 * @param[in] ethanLogStatus Status of Ethan logging.
 	 * @param[in] level Log level.
 	 * @param[in] lock Lock status.
-	 */	
+	 */
 	static void SetLoggerInfo(bool logRedirectStatus, bool ethanLogStatus, int level, bool lock)
 	{
 		PlayerLogManager::disableLogRedirection = logRedirectStatus;

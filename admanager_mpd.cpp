@@ -1030,7 +1030,6 @@ MPD* PrivateCDAIObjectMPD::GetAdMPD(std::string &manifestUrl, bool &finalManifes
  */
 bool PrivateCDAIObjectMPD::FulFillAdObject()
 {
-	UsingPlayerId playerId(mAamp->mPlayerId);
 	bool ret = true;
 	AampMPDParseHelper adMPDParseHelper;
 	bool adStatus = false;

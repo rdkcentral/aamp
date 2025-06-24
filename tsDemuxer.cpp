@@ -58,6 +58,10 @@ T exchange(T& obj, U&& new_value)
 
 
 namespace {
+
+	static unsigned long long mTimeAdjust;
+	static bool mbInduceRollover;
+
 	/**
 	 * @brief extract 33 bit timestamp from ts packet header
 	 * @param ptr pointer to first of five bytes encoding a 33 bit PTS timestamp
@@ -73,10 +77,25 @@ namespace {
 		timeStamp |= (v >> 3) & (0x0007ULL << 30); // top 3 bits, shifted left by 3, other bits zero
 		timeStamp |= (v >> 2) & (0x7fff << 15); // middle 15 bits
 		timeStamp |= (v >> 1) & (0x7fff << 0); // bottom 15 bits
+
+		if( mbInduceRollover )
+		{
+			mTimeAdjust = (max_pts_value-90000*10) - timeStamp;
+			mbInduceRollover = false;
+		}
+		timeStamp += mTimeAdjust;
 		return {timeStamp};
 	}
 
 }
+
+void tsdemuxer_InduceRollover( bool enable )
+{ // for use by aampcli.exe - allows induced PTS rollover to be triggered or (re)disabled
+	mTimeAdjust = 0;
+	mbInduceRollover = enable;
+}
+
+// using namespace aamp_ts;
 
 bool Demuxer::CheckForSteadyState()
 {
@@ -119,18 +138,6 @@ SegmentInfo_t Demuxer::UpdateSegmentInfo() const
 	if (!trickmode)
 	{
 		ret.dts_s = position + static_cast<double>(current_dts.value - base_pts.value) / 90000.;
-	}
-	if( rollover_pts )
-	{
-		const double max_pts_s =95443.71768889; // 2^33/90000 = 95443.71768889s
-		if( ret.pts_s < max_pts_s/2 )
-		{ // avoid applying to already huge pts while rollover in progress
-			ret.pts_s += max_pts_s;
-		}
-		if( ret.dts_s < max_pts_s/2 )
-		{ // and same for dts
-			ret.dts_s += max_pts_s;
-		}
 	}
 	if( aamp && ISCONFIGSET(eAAMPConfig_HlsTsEnablePTSReStamp))
 	{
@@ -288,7 +295,6 @@ void Demuxer::processPacket(const unsigned char * packetStart, bool &basePtsUpda
 						if(prev_pts > current_pts && prev_pts - current_pts > uint33_t::half_max())
 						{//pts may come out of order so prev>current is not sufficient to detect the rollover
 							AAMPLOG_WARN("PTS Rollover type:%d %" PRIu64 " -> %" PRIu64 , type, prev_pts.value, current_pts.value);
-							rollover_pts = true;
 						}
 						current_pts = timeStamp;
 						AAMPLOG_DEBUG("PTS updated %" PRIu64 , current_pts.value);

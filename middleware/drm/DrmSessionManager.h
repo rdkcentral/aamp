@@ -137,11 +137,11 @@ private:
 	std::mutex cachedKeyMutex;
 	std::mutex mDrmSessionLock;
 	bool mEnableAccessAttributes;
-	int mMaxDRMSessions;
+	int mMaxDrmSessions;
 	std::atomic<bool> mIsVideoOnMute;
 	std::atomic<int> mCurrentSpeed;
 	std::atomic<bool> mFirstFrameSeen;
-	std::function<void(uint32_t, uint32_t, const std::string&)> mPlayerSendWatermarkSessionUpdateEventCB;
+
 	/**     
      	 * @brief Copy constructor disabled
      	 *
@@ -187,7 +187,7 @@ public:
 	/**
 	 *  @fn DrmSessionManager
 	 */
-	DrmSessionManager(int maxDrmSessions, void *player, std::function<void(uint32_t, uint32_t, const std::string&)> watermarkSessionUpdateCallback);
+	DrmSessionManager(int maxDrmSessions, void *player);
 
 	void initializeDrmSessions();
 
@@ -371,7 +371,7 @@ public:
 	/**
 	 * @fn initializeDrmSession
 	 */
-	KeyState initializeDrmSession(DrmHelperPtr drmHelper, int sessionSlot,  int &err );
+	KeyState initializeDrmSession(DrmHelperPtr drmHelper, int sessionSlot,  int& err);
 	/**
 	 * @fn notifyCleanup
 	 */
@@ -403,7 +403,7 @@ public:
         using ProfileUpdateCallback =	std::function<void()>;
 	ProfileUpdateCallback ProfileUpdateCb;
 
-	void RegisterProfUpdate(const ProfileUpdateCallback callback)
+	void RegisterProfilingUpdateCb(const ProfileUpdateCallback callback)
         {
               ProfileUpdateCb = callback;
         };
@@ -412,7 +412,7 @@ public:
 	 */
 	using ContentUpdateCallback = std::function<std::string(DrmHelperPtr drmHelper, int streamType, std::vector<uint8_t> keyId, int contentProtectionUpd)>;
 	ContentUpdateCallback ContentUpdateCb;
-	void RegisterContentUpdateCallback(const ContentUpdateCallback callback)
+	void RegisterHandleContentProtectionCb(const ContentUpdateCallback callback)
 	{
 	    ContentUpdateCb = callback;
 	};
@@ -426,6 +426,12 @@ public:
 	 */
         void UpdateDRMConfig(
                        bool useSecManager,
+                //       int licenseRetryWaitTime,
+                //       int drmNetworkTimeout,
+                //       int curlConnectTimeout,
+                //       bool curlLicenseLogging,
+                //       bool runtimeDRMConfig,
+                //       int contentProtectionDataUpdateTimeout,
                        bool enablePROutputProtection,
                        bool propagateURIParam,
                        bool isFakeTune);

@@ -34,8 +34,6 @@
 #include "MockPrivateInstanceAAMP.h"
 
 using namespace testing;
-using ::testing::Values;
-using ::testing::ValuesIn;
 
 static constexpr const char* FRAGMENT_TEST_DATA{"Fragment test data"};
 static constexpr float FASTEST_TRICKPLAY_RATE{64};
@@ -49,8 +47,6 @@ static constexpr bool LLD_ENABLED{true};
 static constexpr bool LLD_DISABLED{false};
 static constexpr uint32_t PLAYBACK_TIMESCALE{90000};
 static constexpr double PTS_OFFSET_SEC{123.4};
-static constexpr bool AAMP_TSB_ENABLED{true};
-static constexpr bool AAMP_TSB_DISABLED{false};
 
 AampConfig* gpGlobalConfig{nullptr};
 
@@ -153,30 +149,30 @@ protected:
 	}
 
 	CachedFragment* AddFragmentToBuffer(MediaTrack& mediaTrack, CachedFragment& testFragment,
-										bool lowLatencyMode, bool aampTsb = false)
+										bool lowLatencyMode)
 	{
 		// A pointer to the test fragment in the cache buffer
 		CachedFragment* bufferedFragment{nullptr};
 
-		// Chunk buffer is used for low-latency or for all content if AAMP TSB is enabled
-		if (lowLatencyMode || aampTsb)
+		if (lowLatencyMode)
 		{
 			bufferedFragment = mediaTrack.GetFetchChunkBuffer(true);
+			bufferedFragment->Copy(&testFragment, testFragment.fragment.GetLen());
 			mediaTrack.numberOfFragmentChunksCached = 1;
+
+			if (!bufferedFragment->initFragment)
+			{
+				// Make the buffer parser return the correct position and duration
+				EXPECT_CALL(*g_mockIsoBmffBuffer, ParseChunkData(_, _, _, _, _, _, _))
+					.WillOnce(DoAll(SetArgReferee<5>(bufferedFragment->position),
+									SetArgReferee<6>(bufferedFragment->duration), Return(true)));
+			}
 		}
-		// Standard buffer is used for SLD when AAMP TSB is disabled
-		else
+		else // Standard latency mode
 		{
 			bufferedFragment = mediaTrack.GetFetchBuffer(true);
+			bufferedFragment->Copy(&testFragment, testFragment.fragment.GetLen());
 			mediaTrack.numberOfFragmentsCached = 1;
-		}
-		bufferedFragment->Copy(&testFragment, testFragment.fragment.GetLen());
-		if (lowLatencyMode && !bufferedFragment->initFragment)
-		{
-			// Make the buffer parser return the correct position and duration
-			EXPECT_CALL(*g_mockIsoBmffBuffer, ParseChunkData(_, _, _, _, _, _, _))
-				.WillOnce(DoAll(SetArgReferee<5>(bufferedFragment->position),
-								SetArgReferee<6>(bufferedFragment->duration), Return(true)));
 		}
 
 		return bufferedFragment;
@@ -196,12 +192,6 @@ struct PlayRateTestData
 {
 	bool lowLatencyMode;
 	float playRate;
-};
-
-struct AampTsbTestData
-{
-	bool lowLatencyMode;
-	bool aampTsb;
 };
 
 class MediaTrackDashPtsRestampNotConfiguredTests
@@ -257,7 +247,7 @@ PlayRateTestData ptsRestampNotConfiguredPlayRateTestData[] = {
 };
 
 INSTANTIATE_TEST_SUITE_P(MediaTrackTests, MediaTrackDashPtsRestampNotConfiguredTests,
-						 ValuesIn(ptsRestampNotConfiguredPlayRateTestData));
+						 ::testing::ValuesIn(ptsRestampNotConfiguredPlayRateTestData));
 
 class MediaTrackDashQtDemuxOverrideConfiguredTests
 	: public MediaTrackTests,
@@ -312,7 +302,7 @@ PlayRateTestData qtDemuxOverrideConfiguredPlayRateTestData[] = {
 };
 
 INSTANTIATE_TEST_SUITE_P(MediaTrackTests, MediaTrackDashQtDemuxOverrideConfiguredTests,
-						 ValuesIn(qtDemuxOverrideConfiguredPlayRateTestData));
+						 ::testing::ValuesIn(qtDemuxOverrideConfiguredPlayRateTestData));
 
 class MediaTrackDashTrickModePtsRestampValidPlayRateTests
 	: public MediaTrackTests,
@@ -472,10 +462,10 @@ PlayRateTestData validPlayRateTestData[] = {
 };
 
 INSTANTIATE_TEST_SUITE_P(MediaTrackTests, MediaTrackDashTrickModePtsRestampValidPlayRateTests,
-						 ValuesIn(validPlayRateTestData));
+						 ::testing::ValuesIn(validPlayRateTestData));
 
 class MediaTrackDashPlaybackPtsRestampTests : public MediaTrackTests,
-											  public testing::WithParamInterface<AampTsbTestData>
+											  public testing::WithParamInterface<bool>
 {
 };
 
@@ -489,14 +479,10 @@ TEST_P(MediaTrackDashPlaybackPtsRestampTests, PlaybackTest)
 	testFragment.PTSOffsetSec = PTS_OFFSET_SEC;
 	testFragment.timeScale = PLAYBACK_TIMESCALE;
 	testFragment.uri = expectedUri;
-	AampTsbTestData aampTsbTestData = GetParam(); // Test parameter injected here
-	bool lowLatencyMode = aampTsbTestData.lowLatencyMode;
-	bool aampTsb = aampTsbTestData.aampTsb;
-	AAMPLOG_MIL("PlaybackTest lowLatencyMode %d aampTsb %d", lowLatencyMode, aampTsb);
+	bool lowLatencyMode = GetParam(); // Test parameter injected here
 	SetLowLatencyMode(lowLatencyMode);
 	mPrivateInstanceAAMP->rate = AAMP_NORMAL_PLAY_RATE;
 	mPrivateInstanceAAMP->mMediaFormat = eMEDIAFORMAT_DASH;
-	mPrivateInstanceAAMP->SetLocalAAMPTsb(aampTsb);
 	mStreamAbstractionAAMP_MPD->trickplayMode = false;
 
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_CurlThroughput))
@@ -514,7 +500,7 @@ TEST_P(MediaTrackDashPlaybackPtsRestampTests, PlaybackTest)
 
 	// Init segment
 	testFragment.initFragment = true;
-	bufferedFragment = AddFragmentToBuffer(videoTrack, testFragment, lowLatencyMode, aampTsb);
+	bufferedFragment = AddFragmentToBuffer(videoTrack, testFragment, lowLatencyMode);
 	EXPECT_CALL(*g_mockIsoBmffHelper, RestampPts(_, _, _, _, _)).Times(0);
 	EXPECT_CALL(*g_mockIsoBmffHelper, SetTimescale(_, _)).Times(0);
 
@@ -522,8 +508,7 @@ TEST_P(MediaTrackDashPlaybackPtsRestampTests, PlaybackTest)
 
 	// Media segment
 	testFragment.initFragment = false;
-	testFragment.duration = FRAGMENT_DURATION.inSeconds();
-	bufferedFragment = AddFragmentToBuffer(videoTrack, testFragment, lowLatencyMode, aampTsb);
+	bufferedFragment = AddFragmentToBuffer(videoTrack, testFragment, lowLatencyMode);
 	EXPECT_CALL(*g_mockIsoBmffHelper,
 				RestampPts(AampGrowableBufferRefEq(std::cref(testFragment.fragment)),
 								  (PTS_OFFSET_SEC * PLAYBACK_TIMESCALE), expectedUri, "video", PLAYBACK_TIMESCALE));
@@ -539,18 +524,10 @@ TEST_P(MediaTrackDashPlaybackPtsRestampTests, PlaybackTest)
 	}
 
 	ASSERT_TRUE(videoTrack.InjectFragment());
-	ASSERT_DOUBLE_EQ(videoTrack.GetTotalInjectedDuration(), FRAGMENT_DURATION.inSeconds());
 }
 
-AampTsbTestData aampTsbTestData[] =
-{
-	{LLD_DISABLED, AAMP_TSB_DISABLED},
-	{LLD_DISABLED, AAMP_TSB_ENABLED},
-	{LLD_ENABLED, AAMP_TSB_DISABLED},
-	{LLD_ENABLED, AAMP_TSB_ENABLED}
-};
-
-INSTANTIATE_TEST_SUITE_P(MediaTrackTests, MediaTrackDashPlaybackPtsRestampTests, ValuesIn(aampTsbTestData));
+INSTANTIATE_TEST_SUITE_P(MediaTrackTests, MediaTrackDashPlaybackPtsRestampTests,
+						 ::testing::Values(LLD_DISABLED, LLD_ENABLED));
 
 class MediaTrackDashTrickModePtsRestampInvalidPlayRateTests
 	: public MediaTrackTests,
@@ -598,7 +575,7 @@ TEST_P(MediaTrackDashTrickModePtsRestampInvalidPlayRateTests, InvalidPlayRateTes
 }
 
 INSTANTIATE_TEST_SUITE_P(MediaTrackTests, MediaTrackDashTrickModePtsRestampInvalidPlayRateTests,
-						 Values(AAMP_RATE_PAUSE, AAMP_SLOWMOTION_RATE));
+						 ::testing::Values(AAMP_RATE_PAUSE, AAMP_SLOWMOTION_RATE));
 
 TEST_F(MediaTrackTests, DashTrickModePtsRestampDiscontinuityTest)
 {

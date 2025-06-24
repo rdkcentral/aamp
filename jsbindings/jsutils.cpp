@@ -131,7 +131,6 @@ static EventTypeMap aamp_eventTypes[] =
 	{ AAMP_EVENT_MANIFEST_REFRESH_NOTIFY, "manifestRefresh"},
 	{ AAMP_EVENT_TUNE_TIME_METRICS, "tuneMetricsData" },
 	{ AAMP_EVENT_NEED_MANIFEST_DATA, "needManifest" },
-	{ AAMP_EVENT_MONITORAV_STATUS, "monitorAVStatus"},
 	{ (AAMPEventType)0, "" }
 };
 
@@ -188,7 +187,6 @@ static EventTypeMap aampPlayer_eventTypes[] =
 	{ AAMP_EVENT_MANIFEST_REFRESH_NOTIFY, "manifestRefresh"},
 	{ AAMP_EVENT_TUNE_TIME_METRICS, "tuneMetricsData" },
 	{ AAMP_EVENT_NEED_MANIFEST_DATA, "needManifest" },
-	{ AAMP_EVENT_MONITORAV_STATUS, "monitorAVStatus" },
 	{ (AAMPEventType)0, "" }
 };
 
