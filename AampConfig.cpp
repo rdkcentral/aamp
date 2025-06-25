@@ -364,7 +364,8 @@ static const ConfigLookupEntryBool mConfigLookupTableBool[AAMPCONFIG_BOOL_COUNT]
 	{false, "forceLLDFlow", eAAMPConfig_ForceLLDFlow, false},
 	{false, "monitorAV", eAAMPConfig_MonitorAV, true},
 	{false, "enablePTSRestampForHlsTs", eAAMPConfig_HlsTsEnablePTSReStamp, true},
-	{false, "useMp4Demux", eAAMPConfig_UseMp4Demux,false }
+	{false, "useMp4Demux", eAAMPConfig_UseMp4Demux,false },
+	{false, "curlThroughput", eAAMPConfig_CurlThroughput, false }
 };
 
 #define CONFIG_INT_ALIAS_COUNT 2
@@ -1629,6 +1630,8 @@ void AampConfig::ReadAampCfgFromEnv()
 			free(strConfig); // free mem allocated by base64_Decode
 		}
 	}
+
+	DoCustomSetting(AAMP_DEV_CFG_SETTING);
 }
 
 /**
