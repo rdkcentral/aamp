@@ -21,7 +21,7 @@
  * @file SocUtils.cpp
  */
 #include "SocUtils.h"
-#include "SocInterface.h"
+#include "AampLogManager.h"
 #include "InterfacePlayerRDK.h"
 #include <assert.h>
 
@@ -138,17 +138,6 @@ namespace SocUtils
 	bool ResetNewSegmentEvent()
 	{
 		return socInterface->ResetNewSegmentEvent();
-	}
-	/**
-	 *	@brief Check if GST Subtec is enabled
-	 */
-	bool isGstSubtecEnabled()
-	{
-#ifdef GST_SUBTEC_ENABLED
-		return true;
-#else
-		return false;
-#endif
 	}
 
 }

@@ -32,8 +32,8 @@
 #include "AampStreamSinkManager.h"
 #include "AampJsonObject.h"
 #include "AampConfig.h"
-#include "PlayerUtils.h"
-#include "PlayerSecInterface.h"
+
+
 
 
 #define SESSION_TOKEN_URL "http://localhost:50050/authService/getSessionToken"
@@ -369,35 +369,32 @@ KeyState AampDRMLicenseManager::handleLicenseResponse(std::shared_ptr<DrmHelper>
 			{
 				aampInstance->profiler.ProfileEnd(PROFILE_BUCKET_LA_NETWORK);
 			}
-			if(!isSecFeatureEnabled())
+			if (!drmHelper->getDrmMetaData().empty() || aampInstance->mConfig->IsConfigSet(eAAMPConfig_Base64LicenseWrapping))
 			{
-				if (!drmHelper->getDrmMetaData().empty() || aampInstance->mConfig->IsConfigSet(eAAMPConfig_Base64LicenseWrapping))
+				/*
+					Licence response from MDS server is in JSON form
+					Licence to decrypt the data can be found by extracting the contents for JSON key licence
+					Format : {"licence":"b64encoded licence","accessAttributes":"0"}
+				*/
+				string jsonStr(licenseResponse->getData().c_str(), licenseResponse->getDataLength());
+
+				try
 				{
-					/*
-						Licence response from MDS server is in JSON form
-						Licence to decrypt the data can be found by extracting the contents for JSON key licence
-						Format : {"licence":"b64encoded licence","accessAttributes":"0"}
-					*/
-					string jsonStr(licenseResponse->getData().c_str(), licenseResponse->getDataLength());
+					AampJsonObject jsonObj(jsonStr);
 
-					try
+					std::vector<uint8_t> keyData;
+					if (!jsonObj.get(LICENCE_RESPONSE_JSON_LICENCE_KEY, keyData, AampJsonObject::ENCODING_BASE64))
 					{
-						AampJsonObject jsonObj(jsonStr);
-
-						std::vector<uint8_t> keyData;
-						if (!jsonObj.get(LICENCE_RESPONSE_JSON_LICENCE_KEY, keyData, AampJsonObject::ENCODING_BASE64))
-						{
-							AAMPLOG_WARN("Unable to retrieve license from JSON response (%s)", jsonStr.c_str());
-						}
-						else
-						{
-							licenseResponse = make_shared<DrmData>((char *)keyData.data(), keyData.size());
-						}
+						AAMPLOG_WARN("Unable to retrieve license from JSON response (%s)", jsonStr.c_str());
 					}
-					catch (AampJsonParseException& e)
+					else
 					{
-						AAMPLOG_WARN("Failed to parse JSON response (%s)", jsonStr.c_str());
+						licenseResponse = make_shared<DrmData>((char *)keyData.data(), keyData.size());
 					}
+				}
+				catch (AampJsonParseException& e)
+				{
+					AAMPLOG_WARN("Failed to parse JSON response (%s)", jsonStr.c_str());
 				}
 			}
 			AAMPLOG_INFO("license acquisition completed");
@@ -706,7 +703,7 @@ bool AampDRMLicenseManager::configureLicenseServerParameters(std::shared_ptr<Drm
 			if( isSecFeatureEnabled() )
 			{
 				licenseRequest.url = getFormattedLicenseServerURL(licenseRequest.url);
-			}
+			}			
 		}
 	}
 
@@ -1119,6 +1116,7 @@ DrmData * AampDRMLicenseManager::getLicenseSec(const LicenseRequest &licenseRequ
 	const char *accessAttributes[2][2] = {NULL, NULL, NULL, NULL};
 	long long tStartTime = 0, tEndTime = 0, downloadTimeMS=0;
 	std::string serviceZone, streamID;
+
 	int sleepTime = aampInstance->mConfig->GetConfigValue(eAAMPConfig_LicenseRetryWaitTime);
 	if(sleepTime<=0) sleepTime = 100;
 
@@ -1227,8 +1225,8 @@ DrmData * AampDRMLicenseManager::getLicenseSec(const LicenseRequest &licenseRequ
 														 secclientSessionToken,
 														 &licenseResponseStr, &licenseResponseLength, &refreshDuration, &statusInfo);
 			if (((sec_client_result >= 500 && sec_client_result < 600)||
-
-			( mDrmSessionManager->playerSecInstance->isSecResultInRange(sec_client_result))) && attemptCount < MAX_LICENSE_REQUEST_ATTEMPTS)
+				 ( mDrmSessionManager->playerSecInstance->isSecResultInRange(sec_client_result)))
+				&& attemptCount < MAX_LICENSE_REQUEST_ATTEMPTS)
 			{
 				AAMPLOG_ERR(" acquireLicense FAILED! license request attempt : %d; response code : sec_client %d", attemptCount, sec_client_result);
 				if (licenseResponseStr)
@@ -1278,7 +1276,7 @@ DrmData * AampDRMLicenseManager::getLicenseSec(const LicenseRequest &licenseRequ
 		}
 		if (licenseResponseStr) mDrmSessionManager->playerSecInstance->PlayerSec_FreeResource(licenseResponseStr);
 	}
-        UpdateLicenseMetrics(DRM_GET_LICENSE_SEC, *httpCode, licenseRequest.url.c_str(), downloadTimeMS, eventHandle, nullptr );
+	UpdateLicenseMetrics(DRM_GET_LICENSE_SEC, *httpCode, licenseRequest.url.c_str(), downloadTimeMS, eventHandle, nullptr );
 
 	free(encodedData);
 	free(encodedChallengeData);

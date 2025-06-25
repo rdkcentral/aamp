@@ -118,7 +118,6 @@ function install_pkgs_linux_fn()
     install_package_fn libcurl4-openssl-dev
     install_package_fn libgstreamer1.0-dev
     install_package_fn libgstreamer-plugins-bad1.0-dev
-    install_package_fn gstreamer1.0-plugins-bad
     install_package_fn libssl-dev
     install_package_fn libxml2-dev
     install_package_fn pkg-config
