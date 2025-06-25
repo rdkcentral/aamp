@@ -106,11 +106,7 @@ AampDRMLicenseManager::~AampDRMLicenseManager()
 
              mLicenseDownloader[i].Release();
 	}
-	if (mLicenseDownloader)
-        {
-                delete[] mLicenseDownloader;
-                mLicenseDownloader = nullptr;
-        }
+	SAFE_DELETE_ARRAY( mLicenseDownloader );
 }
 
 /**
@@ -1377,12 +1373,7 @@ void AampDRMLicenseManager::setVideoWindowSize(int width, int height)
 void AampDRMLicenseManager::UpdateMaxDRMSessions(int maxSessions)
 {
 	mDrmSessionManager->UpdateMaxDRMSessions(maxSessions);
-	if (mLicenseDownloader)
-        {
-               delete[] mLicenseDownloader;
-               mLicenseDownloader = nullptr;
-        }
-
+	SAFE_DELETE_ARRAY( mLicenseDownloader );
         mLicenseDownloader = new AampCurlDownloader[maxSessions];
         mLicenseRenewalThreads.resize(maxSessions);
 }
