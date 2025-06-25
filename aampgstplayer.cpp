@@ -385,6 +385,14 @@ void AAMPGstPlayer::NotifyFirstFrame(int mediatype, bool notifyFirstBuffer, bool
 	}
 };
 
+void AAMPGstPlayer::SetGstDebug(void)
+{
+		std::string debugLevel = GETCONFIGVALUE(eAAMPConfig_GstDebugLevel);
+		if(!debugLevel.empty())
+		{
+			playerInstance->EnableGstDebugLogging(debugLevel);
+		}
+}
 /*AAMPGstPlayer constructor*/
 
 AAMPGstPlayer::AAMPGstPlayer(PrivateInstanceAAMP *aamp, id3_callback_t id3HandlerCallback, std::function<void(const unsigned char *, int, int, int) > exportFrames):
@@ -404,11 +412,8 @@ AAMPGstPlayer::AAMPGstPlayer(PrivateInstanceAAMP *aamp, id3_callback_t id3Handle
 
 		this->cbExportYUVFrame = exportFrames;
 		playerInstance->gstCbExportYUVFrame = exportFrames;
-		std::string debugLevel = GETCONFIGVALUE(eAAMPConfig_GstDebugLevel);
-		if(!debugLevel.empty())
-		{
-			playerInstance->EnableGstDebugLogging(debugLevel);
-		}
+
+		SetGstDebug();
 		InitializePlayerConfigs(this,playerInstance);
 		playerInstance->SetPlayerName(PLAYER_NAME);
 		playerInstance->setEncryption((void*)aamp);
@@ -788,8 +793,15 @@ void AAMPGstPlayer::Configure(StreamOutputFormat format, StreamOutputFormat audi
 	int32_t trackId = aamp->GetCurrentAudioTrackId();
 	int PipelinePriority;
 	gint rate = INVALID_RATE;
+	static bool didSetGstDebug= false;
 
 	AAMPLOG_MIL("videoFormat %d audioFormat %d auxFormat %d subFormat %d",format, audioFormat, auxFormat, subFormat);
+
+	if(!didSetGstDebug)
+	{
+		SetGstDebug();
+		didSetGstDebug = true;
+	}
 
 	playerInstance->SetPreferredDRM(GetDrmSystemID(aamp->GetPreferredDRM())); // pass the preferred DRM to Interface
 	InitializePlayerConfigs(this, playerInstance);

@@ -104,6 +104,11 @@ private:
 		 */
 	bool SendHelper(AampMediaType mediaType, const void *ptr, size_t len, double fpts, double fdts, double duration, bool copy, double fragmentPTSoffset, bool initFragment = false, bool discontinuity = false);
 
+	/**
+		* @fn SetGstDebug
+		*/
+	void SetGstDebug(void);
+
 public:
 	class PrivateInstanceAAMP *aamp;
 	class PrivateInstanceAAMP *mEncryptedAamp;
