@@ -17,8 +17,10 @@
 # Boston, MA 02110-1301, USA.
 #########################################################################
 
-cmake_minimum_required (VERSION 2.6)
+cmake_minimum_required (VERSION 3.5)
 project (AAMP)
+set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 #find_package(GStreamer 1.4 REQUIRED)
 #add_subdirectory(jsbindings)
 find_package(PkgConfig REQUIRED)
@@ -49,7 +51,7 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../../middleware/closedcaptions)
 
 set(AAMP_COMMON_DEPENDENCIES ${OS_LD_FLAGS} ${GSTREAMERBASE_LIBRARIES} ${GSTREAMER_LIBRARIES} ${CURL_LIBRARIES}  ${AAMP_CLI_LD_FLAGS} -ldl -luuid ${SEC_CLIENT_LIB})
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-multichar -std=c++11")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-multichar")
 
 if(CMAKE_IARM_MGR)
 	message("CMAKE_IARM_MGR set")

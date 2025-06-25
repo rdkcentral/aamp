@@ -14,8 +14,10 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-cmake_minimum_required (VERSION 3.13)
+cmake_minimum_required (VERSION 3.5)
 project (Metrics)
+set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(LIBCJSON REQUIRED libcjson)
@@ -38,7 +40,7 @@ set(LIB_SOURCES IPHTTPStatistics.cpp
 
 add_library(metrics SHARED ${LIB_SOURCES})
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC -std=c++11 -Wno-multichar")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC -Wno-multichar")
 
 if(CMAKE_SYSTEM_NAME STREQUAL Darwin)
         execute_process (

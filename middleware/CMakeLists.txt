@@ -2,14 +2,19 @@
 # LibPlayerGstInterface CMakeLists.txt
 
 cmake_minimum_required(VERSION 3.5)
+
 project(Playergstinterface)
+set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(GST REQUIRED gstreamer-plugins-base-1.0)
 pkg_check_modules(GSTREAMER REQUIRED gstreamer-1.0)
 pkg_check_modules(GSTREAMERBASE REQUIRED gstreamer-app-1.0)
 pkg_check_modules(GSTREAMERVIDEO REQUIRED gstreamer-video-1.0)
+pkg_check_modules(LIBCJSON REQUIRED libcjson)
 
-include_directories(${GST_INCLUDE_DIRS} ${GSTREAMER_INCLUDE_DIRS} ${GSTREAMERBASE_INCLUDE_DIRS} ${GSTREAMERVIDEO_INCLUDE_DIRS})
+include_directories(${GST_INCLUDE_DIRS} ${GSTREAMER_INCLUDE_DIRS} ${GSTREAMERBASE_INCLUDE_DIRS} ${GSTREAMERVIDEO_INCLUDE_DIRS} ${LIBCJSON_INCLUDE_DIRS})
 include_directories(${CMAKE_CURRENT_SOURCE_DIR} subtitle playerisobmff isobmff 
 	closedcaptions 
 	closedcaptions/subtec 
