@@ -16,19 +16,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
 */
+
+
 #include "SocInterface.h"
-#include "vendor/default/DefaultSocInterface.h"
-#include "vendor/amlogic/AmlogicSocInterface.h"
-#include "vendor/brcm/BrcmSocInterface.h"
-#include "vendor/realtek/RealtekSocInterface.h"
+#include "middleware/vendor/default/DefaultSocInterface.h"
+#include "middleware/vendor/amlogic/AmlogicSocInterface.h"
+#include "middleware/vendor/brcm/BrcmSocInterface.h"
+#include "middleware/vendor/realtek/RealtekSocInterface.h"
+
+
 DefaultSocInterface::DefaultSocInterface()
 {
 }
+
 std::shared_ptr<SocInterface> SocInterface::CreateSocInterface()
 {
         std::shared_ptr<SocInterface> obj = std::make_shared<DefaultSocInterface>();
         return obj;
 }
+
 bool DefaultSocInterface::UseAppSrc()
 {
 #if defined (__APPLE__)
@@ -46,6 +52,8 @@ void DefaultSocInterface::SetAudioProperty(const char * &volume, const char * &m
 	isSinkBinVolume = true;
 #endif
 }
+
+
 /**
  * @brief Set AC4 tracks.
  * @param src Source element.
@@ -55,12 +63,15 @@ void DefaultSocInterface::SetAC4Tracks(GstElement *src, int trackId)
 {
 	g_object_set(src, "ac4-presentation-group-index", trackId, NULL);
 }
+
 bool DefaultSocInterface::IsVideoSink(const char* name, bool isRialto)
 {
 	return  (!mUsingWesterosSink && StartsWith(name, "brcmvideosink") == true) || // brcmvideosink0, brcmvideosink1, ...
         ( mUsingWesterosSink && StartsWith(name, "westerossink") == true) ||
         (isRialto && StartsWith(name, "rialtomsevideosink") == true);
+
 }
+
 /**
  * @brief Check if the given name is a video decoder.
  * @param name Element name.
@@ -80,6 +91,7 @@ bool DefaultSocInterface::IsVideoDecoder(const char* name, bool isRialto)
 	}
 	return false;
 }
+
 /**
  * @brief Check if the given name is an audio or video decoder.
  * @param name Element name.
@@ -99,6 +111,7 @@ bool DefaultSocInterface::IsAudioOrVideoDecoder(const char* name, bool isRialto)
 	}
 	return AudioOrVideoDecoder;
 }
+
 /**
  * @brief Set playback flags.
  *
@@ -119,6 +132,7 @@ void DefaultSocInterface::SetPlaybackFlags(gint &flags,  bool isSub)
 		flags = PLAY_FLAG_TEXT;
 	}
 }
+
 bool DefaultSocInterface::IsSimulatorFirstFrame()
 {
 #if (defined(RPI) || defined(__APPLE__) || defined(UBUNTU))
@@ -126,6 +140,7 @@ bool DefaultSocInterface::IsSimulatorFirstFrame()
 #endif
 	return false;
 }
+
 bool DefaultSocInterface::IsSimulatorSink()
 {
 #if !defined(UBUNTU)
@@ -133,6 +148,7 @@ bool DefaultSocInterface::IsSimulatorSink()
 #endif
 	return true;
 }
+
 void DefaultSocInterface::ConfigurePluginPriority()
 {
 #ifdef UBUNTU
@@ -144,6 +160,7 @@ void DefaultSocInterface::ConfigurePluginPriority()
 	}
 #endif
 }
+
 bool DefaultSocInterface::ShouldTearDownForTrickplay()
 {
 #if defined(__APPLE__) || defined(UBUNTU)
@@ -151,6 +168,7 @@ bool DefaultSocInterface::ShouldTearDownForTrickplay()
 #endif
 	return false;
 }
+
 bool DefaultSocInterface::IsSimulatorVideoSample()
 {
 #if defined(__APPLE__)
@@ -158,6 +176,7 @@ bool DefaultSocInterface::IsSimulatorVideoSample()
 #endif
 	return true;
 }
+
 void DefaultSocInterface::SetH264Caps(GstCaps *caps)
 {
 #ifdef UBUNTU
@@ -168,6 +187,7 @@ void DefaultSocInterface::SetH264Caps(GstCaps *caps)
 			NULL);
 #endif
 }
+
 void DefaultSocInterface::SetHevcCaps(GstCaps *caps)
 {
 #ifdef UBUNTU
@@ -178,18 +198,22 @@ gst_caps_set_simple(caps,
                                         NULL);
 #endif
 }
+
 void SocInterface::SetDecodeError(GstObject* src)
 {
         g_object_set(src, "report_decode_errors", TRUE, NULL);
 }
+
 void SocInterface::SetWesterosSinkState(bool status)
 {
 	mUsingWesterosSink = true;
 }
+
 long long SocInterface::GetVideoPts(GstElement *video_sink, GstElement *video_dec, bool isWesteros)
 {
         gint64 currentPTS = 0;
         GstElement *element;
+
         element = video_dec;
         if(element)
         {
@@ -201,6 +225,7 @@ long long SocInterface::GetVideoPts(GstElement *video_sink, GstElement *video_de
         }
         return (long long)currentPTS;
 }
+
 bool SocInterface::StartsWith( const char *inputStr, const char *prefix )
 {
         bool rc = true;
@@ -214,6 +239,7 @@ bool SocInterface::StartsWith( const char *inputStr, const char *prefix )
         }
         return rc;
 }
+
 bool DefaultSocInterface::ConfigureAudioSink(GstElement **audio_sink, GstObject *src, bool decStreamSync)
 {
         bool status = false;
@@ -225,3 +251,4 @@ bool DefaultSocInterface::ConfigureAudioSink(GstElement **audio_sink, GstObject 
         }
         return status;
 }
+
