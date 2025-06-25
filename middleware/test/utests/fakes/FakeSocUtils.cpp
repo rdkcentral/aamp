@@ -17,7 +17,7 @@
  * limitations under the License.
  */
 
-#include "SocUtils.h"
+#include "middleware/SocUtils.h"
 
 namespace SocUtils
 {
@@ -64,11 +64,6 @@ namespace SocUtils
 	}
 
 	bool ResetNewSegmentEvent()
-	{
-		return false;
-	}
-
-	bool isGstSubtecEnabled()
 	{
 		return false;
 	}
