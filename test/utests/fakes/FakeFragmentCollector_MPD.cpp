@@ -275,3 +275,11 @@ bool StreamAbstractionAAMP_MPD::UseIframeTrack(void)
 {
 	return true;
 }
+
+void StreamAbstractionAAMP_MPD::TsbReader()
+{
+    
+}
+
+bool StreamAbstractionAAMP_MPD::DoEarlyStreamSinkFlush(bool newTune, float rate) { return false; }
+bool StreamAbstractionAAMP_MPD::DoStreamSinkFlushOnDiscontinuity() { return false; }
