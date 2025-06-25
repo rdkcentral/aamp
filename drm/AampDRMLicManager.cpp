@@ -98,14 +98,14 @@ AampDRMLicenseManager::AampDRMLicenseManager(int maxDrmSessions, PrivateInstance
  */
 AampDRMLicenseManager::~AampDRMLicenseManager()
 {
+	SAFE_DELETE(mLicensePrefetcher);
 	SAFE_DELETE(mDRMSessionManager);
-        SAFE_DELETE(mLicensePrefetcher);
 	releaseLicenseRenewalThreads();
 	for(int i = 0 ; i < mMaxDRMSessions;i++)  
-        {
-
-             mLicenseDownloader[i].Release();
+	{
+		mLicenseDownloader[i].Release();
 	}
+	SAFE_DELETE_ARRAY( mLicenseDownloader );
 }
 
 /**
@@ -1380,12 +1380,18 @@ void AampDRMLicenseManager::setVideoWindowSize(int width, int height)
 void AampDRMLicenseManager::UpdateMaxDRMSessions(int maxSessions)
 {
 	mDRMSessionManager->UpdateMaxDRMSessions(maxSessions);
+	SAFE_DELETE_ARRAY( mLicenseDownloader );
+	mLicenseDownloader = new AampCurlDownloader[maxSessions];
         mLicenseRenewalThreads.resize(maxSessions);
 }
 
 void AampDRMLicenseManager::clearDrmSession(bool forceClearSession)
 {
 	mDRMSessionManager->clearDrmSession(forceClearSession);
+	for(int i = 0 ; i < mMaxDRMSessions;i++)
+	{
+		mLicenseDownloader[i].Clear();
+	}
 }
 
 /**
