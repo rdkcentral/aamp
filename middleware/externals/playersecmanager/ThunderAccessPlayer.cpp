@@ -38,6 +38,9 @@ using namespace WPEFramework;
 
 #define MAX_LENGTH 1024
 
+//Delete non-array object
+#define SAFE_DELETE(ptr) { delete(ptr); ptr = NULL; }
+
 /**
  * @brief Structure to save the Thunder security token details
  **/

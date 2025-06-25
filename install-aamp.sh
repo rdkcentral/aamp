@@ -46,6 +46,8 @@ source scripts/install_glib.sh
 source scripts/install_libdash.sh
 # libcjson install and build
 source scripts/install_libcjson.sh
+# gstreamer install
+source scripts/install_gstreamer.sh
 # subtec install and build
 source scripts/install_subtec.sh
 # rialto install and build
@@ -132,6 +134,15 @@ fi
 echo ""
 echo "*** Check/Install source packages"
 
+# Install gstreamer
+#
+install_gstreamer_fn 
+INSTALL_STATUS_ARR+=("install_gstreamer_fn check passed.")
+
+# Build gst-plugins-good. install_gstreamer_fn must have been called first
+install_gstpluginsgoodfn $OPTION_CLEAN
+INSTALL_STATUS_ARR+=("install_gstplugingood_fn check passed.")
+
 # Build googletest
 #
 install_build_googletest_fn "${OPTION_CLEAN}" 
@@ -159,6 +170,7 @@ fi
 if [ ${OPTION_SUBTEC_CLEAN} = true ] ; then
     CLEAN=true
 fi
+
 if [ ${OPTION_SUBTEC_SKIP} = false ] ; then 
     subtec_install_build_fn "${CLEAN}"
     INSTALL_STATUS_ARR+=("subtec_install_build check passed.")
