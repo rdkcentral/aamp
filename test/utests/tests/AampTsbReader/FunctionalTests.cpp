@@ -151,7 +151,7 @@ TEST_F(FunctionalTests, TsbFragmentData_Constructor)
 	EXPECT_EQ(fragment->IsDiscontinuous(), discont);
 	EXPECT_EQ(fragment->GetInitFragData(), initFragment);
 	EXPECT_EQ(fragment->GetTimeScale(), timeScale);
-	EXPECT_EQ(fragment->GetPTSOffsetSec(), PTSOffsetSec);
+	EXPECT_EQ(fragment->GetPTSOffset(), PTSOffsetSec);
 }
 
 /**

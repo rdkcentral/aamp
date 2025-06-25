@@ -8948,6 +8948,9 @@ void StreamAbstractionAAMP_MPD::AdvanceTrack(int trackIdx, bool trickPlay, doubl
 	int  maxCachedFragmentsPerTrack = GETCONFIGVALUE(eAAMPConfig_MaxFragmentCached);
 	int  vodTrickplayFPS = GETCONFIGVALUE(eAAMPConfig_VODTrickPlayFPS);
 
+	AAMPLOG_TRACE("StreamAbstractionAAMP_MPD::AdvanceTrack: trackIdx %d, trickPlay %d, delta %p, waitForFreeFrag %d, bCacheFullState %d, throttleAudioDownload %d, isDiscontinuity %d",
+			trackIdx, trickPlay, delta, waitForFreeFrag, bCacheFullState, throttleAudioDownload, isDiscontinuity);
+
 	if (waitForFreeFrag && !trickPlay)
 	{
 		AAMPPlayerState state = aamp->GetState();
@@ -9051,6 +9054,10 @@ void StreamAbstractionAAMP_MPD::AdvanceTrack(int trackIdx, bool trickPlay, doubl
 						pMediaStreamContext->eos = true;
 					}
 				}
+				else
+				{
+					AAMPLOG_TRACE("Track %s is EOS, not pushing next fragment", GetMediaTypeName((AampMediaType) trackIdx));
+				}
 			}
 			// Fetch init header for both audio and video ,after mpd refresh(stream selection) , profileChanged = true for both tracks .
 			// Need to reset profileChanged flag which is done inside FetchAndInjectInitialization
@@ -9066,6 +9073,10 @@ void StreamAbstractionAAMP_MPD::AdvanceTrack(int trackIdx, bool trickPlay, doubl
 				bCacheFullState = false;
 			}
 
+		}
+		else
+		{
+			AAMPLOG_ERR("AdaptationSet is NULL for %s", GetMediaTypeName((AampMediaType) trackIdx));
 		}
 	}
 	else
@@ -10909,21 +10920,45 @@ StreamInfo* StreamAbstractionAAMP_MPD::GetStreamInfo(int idx)
 double StreamAbstractionAAMP_MPD::GetFirstPTS()
 {
 	AampTSBSessionManager* tsbSessionManager = aamp->GetTSBSessionManager();
-	double firstPTS = mFirstPTS;
-	MediaTrack *video = GetMediaTrack(eTRACK_VIDEO);
-	if (tsbSessionManager && video && video->IsLocalTSBInjection())
+	std::shared_ptr<AampTsbReader> reader = nullptr;
+	double firstPTS = 0;
+	double restampedPTS = 0;
+	AampTime ptsOffset = 0;
+
+	if (tsbSessionManager)
 	{
-		firstPTS = tsbSessionManager->GetTsbReader(eMEDIATYPE_VIDEO)->GetFirstPTS();
-	}
-	if (ISCONFIGSET(eAAMPConfig_EnablePTSReStamp))
-	{
-		// If the new PTS restamping logic is in play, update the new firstPTS
-		AAMPLOG_INFO("New restamping logic in place, firstPTS:%lf, mPTSOffsetSec:%lf", firstPTS, mPTSOffset.inSeconds());
-		firstPTS += mPTSOffset.inSeconds();
+		MediaTrack *video = GetMediaTrack(eTRACK_VIDEO);
+		if (!video)
+		{
+			AAMPLOG_WARN("Video track unavailable, cannot determine if local tsb injection");
+		}
+		else if (video->IsLocalTSBInjection())
+		{
+			reader = tsbSessionManager->GetTsbReader(eMEDIATYPE_VIDEO);
+		}
 	}
 
-	return firstPTS;
+	if (reader)
+	{
+		firstPTS = reader->GetFirstPTS();
+		// PTS restamping is always enabled for TSB
+		ptsOffset = reader->GetFirstPTSOffset();
+	}
+	else
+	{
+		firstPTS = mFirstPTS;
+		if (ISCONFIGSET(eAAMPConfig_EnablePTSReStamp))
+		{
+			ptsOffset = mPTSOffset;
+		}
+	}
+
+	restampedPTS = firstPTS + ptsOffset.inSeconds();
+	AAMPLOG_INFO("Restamped first pts:%lf, firstPTS:%lf, ptsOffsetSec:%lf", restampedPTS, firstPTS, ptsOffset.inSeconds());
+
+	return restampedPTS;
 }
+
 /**
  *   @brief  Get PTS offset for MidFragment Seek
  *
