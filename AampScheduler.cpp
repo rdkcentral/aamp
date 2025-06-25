@@ -159,7 +159,7 @@ void AampScheduler::ExecuteAsyncTask()
 			}
 		}
 	}
-	AAMPLOG_INFO("Exited Async Worker Thread");
+	AAMPLOG_WARN("Exited Async Worker Thread");
 }
 
 /**

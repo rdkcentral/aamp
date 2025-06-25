@@ -147,7 +147,7 @@ void PlayerScheduler::ExecuteAsyncTask()
 			}
 		}
 	}
-	MW_LOG_INFO("Exited Async Worker Thread");
+	MW_LOG_WARN("Exited Async Worker Thread");
 }
 
 /**
