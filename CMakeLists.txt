@@ -40,7 +40,7 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/drm/aes)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/drm/ocdm)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/drm/helper)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/subtec/subtecparser)
-
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/tsb/api)
 
 if(APPLE)
     set(CMAKE_C_COMPILER "/usr/bin/cc")
@@ -64,8 +64,7 @@ endif()
 project (AAMP)
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-#find_package(GStreamer 1.4 REQUIRED)
-#add_subdirectory(jsbindings)
+
 find_package(PkgConfig REQUIRED)
 
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
@@ -76,7 +75,7 @@ else()
 	message("using gstreamer-1.0")
 	pkg_check_modules(GSTREAMER REQUIRED gstreamer-1.0)
 	pkg_check_modules(GSTREAMERBASE REQUIRED gstreamer-app-1.0)
-        pkg_check_modules(GSTREAMERVIDEO REQUIRED gstreamer-video-1.0)
+	pkg_check_modules(GSTREAMERVIDEO REQUIRED gstreamer-video-1.0)
 endif()
 
 if(APPLE)
@@ -86,12 +85,11 @@ else()
 	pkg_check_modules(CURL REQUIRED libcurl)
 endif()
 
-pkg_check_modules(LibXml2 REQUIRED libxml-2.0)
+pkg_check_modules(LIBXML2 REQUIRED libxml-2.0)
 pkg_check_modules(LIBDASH REQUIRED libdash)
 pkg_check_modules(OPENSSL REQUIRED openssl)
 pkg_check_modules(LIBCJSON REQUIRED libcjson)
 pkg_check_modules(UUID REQUIRED uuid)
-
 
 # TDB needs to bring back for UT. 
 #include(test/mocks/mocks.cmake NO_POLICY_SCOPE)
@@ -100,9 +98,13 @@ add_subdirectory(middleware)
 
 if (CMAKE_INBUILT_AAMP_DEPENDENCIES)
 	message("Building aamp support libraries")
+	include_directories(support/aampabr)
+	include_directories(support/aampmetrics)
+
 	add_subdirectory(support/aampabr)
 	add_subdirectory(support/aampmetrics)
 	add_subdirectory(plugins/gst-plugins-rdk-aamp)
+	set(LIBAAMP_DEPENDS ${LIBAAMP_DEPENDS} -labr -lmetrics)
 endif()
 
 message("Adding tsb folder")
@@ -120,10 +122,51 @@ if(DISABLE_SECURITY_TOKEN)
 endif()
 
 if(CMAKE_WPEWEBKIT_JSBINDINGS)
-	message("CMAKE_WPEWEBKIT_JSBINDINGS is set, Finding JavaScriptCore")
-	pkg_search_module(PC_WPE_WEBKIT wpe-webkit-deprecated-0.1 wpe-webkit-1.0 wpe-webkit-1.1)
-        find_path (JSC_INCDIR JavaScriptCore/JavaScript.h HINTS ${PC_WPE_WEBKIT_INCLUDEDIR} ${PC_WPE_WEBKIT_INCLUDE_DIRS})
-        include_directories(${JSC_INCDIR})
+	message("CMAKE_WPEWEBKIT_JSBINDINGS is set, building jsbindings library")
+	# Search for WPE WebKit libraries
+	pkg_check_modules(WPE_WEBKIT wpe-webkit-1.1)
+	if(NOT WPE_WEBKIT_FOUND)
+		pkg_check_modules(WPE_WEBKIT wpe-webkit-1.0)
+	endif()
+	# Check if any WPE WebKit library was found, if not, throw an error
+	if(NOT WPE_WEBKIT_FOUND)
+		message(FATAL_ERROR "WPE WebKit library not found. Please install wpe-webkit-1.1 or wpe-webkit-1.0.")
+	endif()
+
+	find_path(JSC_INCDIR JavaScriptCore/JavaScript.h HINTS ${WPE_WEBKIT_INCLUDEDIR} ${WPE_WEBKIT_INCLUDE_DIRS})
+	message("JSC_INCDIR is ${JSC_INCDIR}")
+	include_directories(${JSC_INCDIR})
+
+	message("The WPE WebKit library found is ${WPE_WEBKIT_LINK_LIBRARIES}")
+	# Link WPE WebKit package to aampjsbindings
+	set(LIBAAMPJSBINDINGS_DEPENDS "${LIBAAMPJSBINDINGS_DEPENDS} ${WPE_WEBKIT_LINK_LIBRARIES}")
+	set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DSUPPORT_JS_EVENTS -DAAMP_WPEWEBKIT_JSBINDINGS")
+
+	include_directories(jsbindings jsbindings/PersistentWatermark)
+	set(LIBJSBINDINGS_SOURCES
+			jsbindings/jscontroller-jsbindings.cpp
+			jsbindings/jsbindings.cpp
+			jsbindings/jsutils.cpp
+			jsbindings/jsmediaplayer.cpp
+			jsbindings/jseventlistener.cpp
+			jsbindings/jsevent.cpp
+			jsbindings/PersistentWatermark/PersistentWatermark.cpp)
+	if(CMAKE_WPEWEBKIT_WATERMARK_JSBINDINGS)
+		message("CMAKE_WPEWEBKIT_WATERMARK_JSBINDINGS set, adding PersistentWatermark sources")
+		set(LIBAAMPJSBINDINGS_DEFINES "${LIBAAMPJSBINDINGS_DEFINES} -DUSE_WATERMARK_JSBINDINGS")
+		set(LIBAAMPJSBINDINGS_DEPENDS "${LIBAAMPJSBINDINGS_DEPENDS} ${WPEFRAMEWORK_LIBRARIES}")
+		set(LIBJSBINDINGS_SOURCES
+				${LIBJSBINDINGS_SOURCES}
+				jsbindings/PersistentWatermark/PersistentWatermarkDisplaySequencer.cpp
+				jsbindings/PersistentWatermark/PersistentWatermarkEventHandler.cpp
+				jsbindings/PersistentWatermark/PersistentWatermarkPluginAccess.cpp
+				jsbindings/PersistentWatermark/PersistentWatermarkStorage.cpp)
+	endif()
+
+	add_library(aampjsbindings SHARED ${LIBJSBINDINGS_SOURCES})
+	target_link_libraries(aampjsbindings PUBLIC aamp ${LIBAAMPJSBINDINGS_DEPENDS})
+	set_target_properties(aampjsbindings PROPERTIES COMPILE_FLAGS "${LIBAAMPJSBINDINGS_DEFINES}")
+	install(TARGETS aampjsbindings DESTINATION lib)
 else()
 	message("CMAKE_WPEWEBKIT_JSBINDINGS not set")
 endif()
@@ -131,13 +174,13 @@ endif()
 #update XCode scheme flags, harmless for non Darwin builds
 set (CMAKE_CODE_GENERATE_SCHEME TRUE)
 if (CMAKE_PLATFORM_UBUNTU OR CMAKE_SYSTEM_NAME STREQUAL Darwin)
-if(CMAKE_SYSTEM_NAME STREQUAL Darwin)
-        set(OPENGL_LIBRARIES "-framework OpenGL -framework GLUT")
-else()
-       pkg_check_modules(OPENGL REQUIRED gl)
-       set(OPENGL_LIBRARIES "${OPENGL_LIBRARIES} -lglut")
-       pkg_check_modules(GLEW REQUIRED glew)
-endif(CMAKE_SYSTEM_NAME STREQUAL Darwin)
+	if(CMAKE_SYSTEM_NAME STREQUAL Darwin)
+		set(OPENGL_LIBRARIES "-framework OpenGL -framework GLUT")
+	else()
+		pkg_check_modules(OPENGL REQUIRED gl)
+		set(OPENGL_LIBRARIES "${OPENGL_LIBRARIES} -lglut")
+		pkg_check_modules(GLEW REQUIRED glew)
+	endif(CMAKE_SYSTEM_NAME STREQUAL Darwin)
 endif()
 
 # Mac OS X
@@ -145,7 +188,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL Darwin)
     execute_process (
         COMMAND bash -c "xcrun --show-sdk-path" OUTPUT_VARIABLE osxSdkPath OUTPUT_STRIP_TRAILING_WHITESPACE
     )
-    set(OS_CXX_FLAGS "${OS_CXX_FLAGS}  -std=c++14 -g -x objective-c++ -Wno-inconsistent-missing-override -F${osxSdkPath}/System/Library/Frameworks")
+    set(OS_CXX_FLAGS "${OS_CXX_FLAGS} -g -x objective-c++ -Wno-inconsistent-missing-override -F${osxSdkPath}/System/Library/Frameworks")
     set(OS_LD_FLAGS "${OS_LD_FLAGS} -F${osxSdkPath}/System/Library/Frameworks -framework Cocoa -L${osxSdkPath}/../MacOSX.sdk/usr/lib -L.libs/lib -L/usr/local/lib/")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -isysroot ${osxSdkPath}/../MacOSX.sdk -I/usr/local/include")
     string(STRIP ${OS_LD_FLAGS} OS_LD_FLAGS)
@@ -165,11 +208,12 @@ endif(CMAKE_SYSTEM_NAME STREQUAL Darwin)
 find_package (Threads REQUIRED)
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR} drm downloader subtitle isobmff dash/xml dash/mpd dash/utils)
+include_directories(subtec/subtecparser)
 include_directories(${GSTREAMER_INCLUDE_DIRS})
 include_directories(${CURL_INCLUDE_DIRS})
 include_directories(${GSTREAMERBASE_INCLUDE_DIRS})
 include_directories(${LIBDASH_INCLUDE_DIRS})
-include_directories(${LibXml2_INCLUDE_DIRS})
+include_directories(${LIBXML2_INCLUDE_DIRS})
 include_directories(${OPENSSL_INCLUDE_DIRS})
 include_directories(${OPENGL_INCLUDE_DIRS})
 include_directories(${GLEW_INCLUDE_DIRS})
@@ -329,29 +373,28 @@ set(LIBAAMP_SOURCES iso639map.cpp
 					AampTsbReader.cpp
 					scte35/AampSCTE35.cpp
 					AampTrackWorker.cpp
+					subtec/subtecparser/WebvttSubtecDevParser.cpp
 )
 
 if (CMAKE_PLATFORM_UBUNTU OR CMAKE_SYSTEM_NAME STREQUAL Darwin )
-  message("AAMP_SIMULATOR_BUILD set")
-  set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DAAMP_SIMULATOR_BUILD=1")
-  set(CMAKE_TELEMETRY_2_0_REQUIRED TRUE)
-  set(CMAKE_AAMP_SIMULATOR TRUE)
-  # uncomment below to build additional drm support in simulator
-  # set(CMAKE_USE_OPENCDM_ADAPTER TRUE)
-  # set(CMAKE_USE_OPENCDM_ADAPTER_MOCKS TRUE)
+	message("AAMP_SIMULATOR_BUILD set")
+	set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DAAMP_SIMULATOR_BUILD=1")
+	set(CMAKE_TELEMETRY_2_0_REQUIRED TRUE)
+	set(CMAKE_AAMP_SIMULATOR TRUE)
+	# uncomment below to build additional drm support in simulator
+	# set(CMAKE_USE_OPENCDM_ADAPTER TRUE)
+	# set(CMAKE_USE_OPENCDM_ADAPTER_MOCKS TRUE)
 endif()
 
 execute_process(COMMAND bash "-c" "${CMAKE_SOURCE_DIR}/buildinfo.sh" WORKING_DIRECTORY ${CMAKE_SOURCE_DIR} OUTPUT_STRIP_TRAILING_WHITESPACE OUTPUT_VARIABLE buildinfo)
 string(REGEX REPLACE "\n" "-" buildinfo "${buildinfo}")
 message("build: ${buildinfo}")
-set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DAAMP_VANILLA_AES_SUPPORT")
-set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DAAMP_BUILD_INFO='${buildinfo}'")
-
-set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DSUPPORTS_MP4DEMUX")
+set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DAAMP_VANILLA_AES_SUPPORT -DAAMP_BUILD_INFO='${buildinfo}' -DSUPPORTS_MP4DEMUX")
 
 if (CMAKE_PLATFORM_UBUNTU)
 	message("CMAKE_PLATFORM_UBUNTU set")
 	set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DUBUNTU=1")
+	link_directories(${CMAKE_LIBRARY_PATH})
 endif()
 
 if(CMAKE_USE_RDK_PLUGINS)
@@ -359,21 +402,11 @@ if(CMAKE_USE_RDK_PLUGINS)
 	set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DCREATE_PIPE_SESSION_TO_XRE")
 endif()
 
-set(LIBAAMP_DEPENDS ${OS_LD_FLAGS} ${UUID_LINK_LIBRARIES} ${LIBCJSON_LINK_LIBRARIES} ${GSTREAMERBASE_LINK_LIBRARIES} ${GSTREAMER_LINK_LIBRARIES} ${CURL_LINK_LIBRARIES} ${LIBDASH_LINK_LIBRARIES} ${LibXml2_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT} ${OPENSSL_LIBRARIES} ${OPENGL_LIBRARIES} ${GLEW_LIBRARIES} ${AAMP_CLI_LD_FLAGS} -ldl ${SEC_CLIENT_LIB})
-
-if(CMAKE_WPEWEBKIT_JSBINDINGS)
-	message("CMAKE_WPEWEBKIT_JSBINDINGS set, just setting flags")
-	set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DSUPPORT_JS_EVENTS")
-else()
-	message("CMAKE_WPEWEBKIT_JSBINDINGS not set")
-endif()
+set(LIBAAMP_DEPENDS ${LIBAAMP_DEPENDS} ${OS_LD_FLAGS} ${UUID_LINK_LIBRARIES} ${LIBCJSON_LINK_LIBRARIES} ${GSTREAMERBASE_LINK_LIBRARIES})
+set(LIBAAMP_DEPENDS ${LIBAAMP_DEPENDS} ${GSTREAMER_LINK_LIBRARIES} ${CURL_LINK_LIBRARIES} ${LIBDASH_LINK_LIBRARIES} ${LIBXML2_LIBRARIES})
+set(LIBAAMP_DEPENDS ${LIBAAMP_DEPENDS} ${CMAKE_THREAD_LIBS_INIT} ${OPENSSL_LIBRARIES} ${OPENGL_LIBRARIES} ${GLEW_LIBRARIES} ${AAMP_CLI_LD_FLAGS} -ldl)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror=format -Wno-multichar -Wno-non-virtual-dtor -Wno-psabi")
-
-if(CMAKE_PLATFORM_UBUNTU)
-    message("CMAKE_PLATFORM_UBUNTU set")
-    link_directories(${CMAKE_LIBRARY_PATH})
-endif()
 
 set(AAMP_CLI_HEADERS test/aampcli/Aampcli.h
 			test/aampcli/AampcliPlaybackCommand.h
@@ -395,17 +428,13 @@ set(AAMP_CLI_SOURCES test/aampcli/Aampcli.cpp
 			test/aampcli/AampcliSubtecSimulator.cpp
 			${AAMP_OS_SOURCES})
 
-if (NOT CMAKE_INBUILT_AAMP_DEPENDENCIES)
-	set(LIBAAMP_DEPENDS "${LIBAAMP_DEPENDS} -labr -lmetrics")
-endif()
-
 if(CMAKE_USE_OPENCDM_ADAPTER)
 	message("Using OPEN CDM ADAPTER")
 	# Add necessary preprocessor definitions
 	set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DUSE_OPENCDM_ADAPTER")
 	set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DDRM_BUILD_PROFILE=DRM_BUILD_PROFILE_OEM -DTARGET_LITTLE_ENDIAN=1 -DTARGET_SUPPORTS_UNALIGNED_DWORD_POINTERS=0")
 else()
-    message("No OpenCDM support enabled")
+	message("No OpenCDM support enabled")
 endif()
 
 # AAMP Telemetry 2.0 support
@@ -420,20 +449,14 @@ if (CMAKE_TELEMETRY_2_0_REQUIRED)
 	endif()
 endif()
 
-set(AAMP_SUBTEC_CLASS_SOURCES subtec/subtecparser/WebvttSubtecDevParser.cpp)
-set(LIBAAMP_SOURCES ${LIBAAMP_SOURCES} ${AAMP_SUBTEC_CLASS_SOURCES})
-include_directories(subtec/subtecparser)
-
 set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} ${SEC_CONTENT_METADATA_ENABLED}")
-
-set(LIBAAMP_SOURCES "${LIBAAMP_SOURCES}" "${LIBAAMP_MOCK_SOURCES}")
 
 if (COVERAGE_ENABLED)
     set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} --coverage")
     set(LIBAAMP_DEPENDS "${LIBAAMP_DEPENDS} --coverage")
 endif()
 
-add_library(aamp SHARED ${LIBAAMP_HEADERS} ${LIBAAMP_SOURCES} ${LIBAAMP_HELP_SOURCES})
+add_library(aamp SHARED ${LIBAAMP_HEADERS} ${LIBAAMP_SOURCES})
 add_executable(aamp-cli ${AAMP_CLI_HEADERS} ${AAMP_CLI_SOURCES})
 target_link_libraries(aamp-cli "-lreadline")
 # XCode schema target
@@ -453,78 +476,29 @@ install (TARGETS aampKotlin
 		PUBLIC_HEADER DESTINATION include
 )
 
-target_link_libraries(aampKotlin aamp subtec tsb )
-target_link_libraries(aampKotlin aamp ${AAMP_CLI_LD_FLAGS})
-target_link_libraries(aampKotlin "-lreadline")
+target_link_libraries(aampKotlin aamp subtec tsb ${AAMP_CLI_LD_FLAGS} "-lreadline")
 
 set_target_properties(aampKotlin PROPERTIES COMPILE_FLAGS "${LIBAAMP_DEFINES} ${AAMP_CLI_EXTRA_DEFINES} ${OS_CXX_FLAGS}")
 xcode_define_schema(aampKotlin)
 
 if(CMAKE_SYSTEMD_JOURNAL)
-    message("CMAKE_SYSTEMD_JOURNAL set")
-    set(LIBAAMP_DEPENDS "${LIBAAMP_DEPENDS} -lsystemd")
-    set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DUSE_SYSTEMD_JOURNAL_PRINT=1 -DSD_JOURNAL_SUPPRESS_LOCATION=1")
-    set(LIBAAMPJSBINDINGS_DEFINES "${LIBAAMPJSBINDINGS_DEFINES} -DUSE_SYSTEMD_JOURNAL_PRINT=1 -DSD_JOURNAL_SUPPRESS_LOCATION=1")
-
+	message("CMAKE_SYSTEMD_JOURNAL set")
+	set(LIBAAMP_DEPENDS "${LIBAAMP_DEPENDS} -lsystemd")
+	set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DUSE_SYSTEMD_JOURNAL_PRINT=1 -DSD_JOURNAL_SUPPRESS_LOCATION=1")
+	set(LIBAAMPJSBINDINGS_DEPENDS "${LIBAAMPJSBINDINGS_DEPENDS} -lsystemd")
+	set(LIBAAMPJSBINDINGS_DEFINES "${LIBAAMPJSBINDINGS_DEFINES} -DUSE_SYSTEMD_JOURNAL_PRINT=1 -DSD_JOURNAL_SUPPRESS_LOCATION=1")
 endif()
 
 if(CMAKE_USE_ETHAN_LOG)
-     message("DCMAKE_USE_ETHAN_LOG set")
- # Find the ethanlog library for container logger
-     find_package( EthanLog REQUIRED )
-# Add the include directories for EthanLog
-     include_directories(${ETHANLOG_INCLUDE_DIRS})
+	message("DCMAKE_USE_ETHAN_LOG set")
+	# Find the ethanlog library for container logger
+	find_package( EthanLog REQUIRED )
+	# Add the include directories for EthanLog
+	include_directories(${ETHANLOG_INCLUDE_DIRS})
 
-     set(LIBAAMP_DEPENDS "${LIBAAMP_DEPENDS} -lethanlog")
-     set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DUSE_ETHAN_LOG=1")
-     set(LIBAAMPJSBINDINGS_DEFINES "${LIBAAMPJSBINDINGS_DEFINES} -DUSE_ETHAN_LOG=1")
-endif()
-
-
-if(CMAKE_WPEWEBKIT_JSBINDINGS)
-	message("CMAKE_WPEWEBKIT_JSBINDINGS set, creating jsbinding library")
-    include_directories(${CMAKE_CURRENT_SOURCE_DIR} jsbindings jsbindings/PersistentWatermark)
-    set(JSBINDINGS_STD_SOURCES jsbindings/jscontroller-jsbindings.cpp jsbindings/jsbindings.cpp jsbindings/jsutils.cpp jsbindings/jsmediaplayer.cpp jsbindings/jseventlistener.cpp jsbindings/jsevent.cpp jsbindings/PersistentWatermark/PersistentWatermark.cpp)
-    if(CMAKE_WPEWEBKIT_WATERMARK_JSBINDINGS)
-        add_library(aampjsbindings SHARED ${JSBINDINGS_STD_SOURCES} jsbindings/PersistentWatermark/PersistentWatermarkDisplaySequencer.cpp  jsbindings/PersistentWatermark/PersistentWatermarkEventHandler.cpp jsbindings/PersistentWatermark/PersistentWatermarkPluginAccess.cpp jsbindings/PersistentWatermark/PersistentWatermarkStorage.cpp)
-    else()
-	    add_library(aampjsbindings SHARED ${JSBINDINGS_STD_SOURCES})
-    endif()
-    target_link_libraries(aampjsbindings PUBLIC aamp systemd)
-
-    if(CMAKE_WPEWEBKIT_WATERMARK_JSBINDINGS)
-        set(LIBAAMPJSBINDINGS_DEFINES "${LIBAAMPJSBINDINGS_DEFINES} -DUSE_WATERMARK_JSBINDINGS")
-        target_link_libraries(aampjsbindings PUBLIC ${WPEFRAMEWORK_LIBRARIES})
-    endif()
-# Check if CMAKE_WPEWEBKIT_JSBINDINGS is enabled
-if(CMAKE_WPEWEBKIT_JSBINDINGS)
-    message("CMAKE_WPEWEBKIT_JSBINDINGS is set, searching for WPE WebKit libraries")
-
-    # Search for WPE WebKit libraries
-    pkg_check_modules(WPE_WEBKIT wpe-webkit-1.1)
-    if(NOT WPE_WEBKIT_FOUND)
-        pkg_check_modules(WPE_WEBKIT wpe-webkit-1.0)
-    endif()
-
-    # Check if any WPE WebKit library was found
-    if(NOT WPE_WEBKIT_FOUND)
-        message(FATAL_ERROR "WPE WebKit library not found. Please install wpe-webkit-1.1 or wpe-webkit-1.0.")
-    else()
-        message("The WPE WebKit library found is ${WPE_WEBKIT_LINK_LIBRARIES}")
-
-        # Link WPE WebKit package to aampjsbindings
-        target_link_libraries(aampjsbindings PUBLIC ${WPE_WEBKIT_LINK_LIBRARIES})
-    endif()
-else()
-    message("CMAKE_WPEWEBKIT_JSBINDINGS is not set, skipping WPE WebKit library linking")
-endif()
-
-    set_target_properties(aampjsbindings PROPERTIES COMPILE_FLAGS "${LIBAAMPJSBINDINGS_DEFINES}")
-
-	install(TARGETS aampjsbindings DESTINATION lib)
-	set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DAAMP_WPEWEBKIT_JSBINDINGS")
-else()
-    message("CMAKE_WPEWEBKIT_JSBINDINGS not set, not creating jsbinding library")
+	set(LIBAAMP_DEPENDS "${LIBAAMP_DEPENDS} -lethanlog")
+	set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DUSE_ETHAN_LOG=1")
+	set(LIBAAMPJSBINDINGS_DEFINES "${LIBAAMPJSBINDINGS_DEFINES} -DUSE_ETHAN_LOG=1")
 endif()
 
 if(CMAKE_AUXILIARY_AUDIO_ENABLED)
@@ -532,15 +506,16 @@ if(CMAKE_AUXILIARY_AUDIO_ENABLED)
 	set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DAAMP_AUXILIARY_AUDIO_ENABLED")
 endif()
 
+string(STRIP "${LIBAAMP_DEPENDS}" LIBAAMP_DEPENDS)
 message("LIB_AAMP_DEPENDS is ${LIBAAMP_DEPENDS}")
-target_link_libraries(aamp ${LIBAAMP_DEPENDS} ${LIBAAMP_MOCK_DEPENDS})
+target_link_libraries(aamp tsb playergstinterface playerfbinterface ${LIBAAMP_DEPENDS})
 
 if(CMAKE_ENABLE_PTS_RESTAMP)
 	message("ENABLE_PTS_RESTAMP set")
 	set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DENABLE_PTS_RESTAMP")
 endif()
 
-target_link_libraries(aamp-cli aamp ${AAMP_CLI_LD_FLAGS})
+target_link_libraries(aamp-cli aamp tsb playergstinterface playerfbinterface ${AAMP_CLI_LD_FLAGS})
 
 set_target_properties(aamp PROPERTIES COMPILE_FLAGS "${LIBAAMP_DEFINES} ${OS_CXX_FLAGS}")
 #aamp-cli is not an ideal standalone app. It uses private aamp instance for debugging purposes
@@ -548,12 +523,6 @@ set_target_properties(aamp-cli PROPERTIES COMPILE_FLAGS "${LIBAAMP_DEFINES} ${AA
 
 set_target_properties(aamp PROPERTIES PUBLIC_HEADER "main_aamp.h")
 set_target_properties(aamp PROPERTIES PRIVATE_HEADER "priv_aamp.h")
-
-if (CMAKE_INBUILT_AAMP_DEPENDENCIES)
-	include_directories(support/aampabr)
-	include_directories(support/aampmetrics)
-endif()
-include_directories(tsb/api)
 
 set(GSTTESTHARNESS_DEPENDS ${OS_LD_FLAGS} ${CMAKE_THREAD_LIBS_INIT} ${GSTREAMER_LINK_LIBRARIES} ${GSTREAMERBASE_LINK_LIBRARIES} ${LIBDASH_LIBRARIES} ${CURL_LINK_LIBRARIES})
 set(GSTTESTHARNESS_HEADERS test/gstTestHarness/gst-port.h
@@ -581,13 +550,6 @@ target_link_libraries(gstTestHarness ${GSTTESTHARNESS_DEPENDS} "-lreadline")
 xcode_define_schema(gstTestHarness)
 
 install(TARGETS gstTestHarness DESTINATION bin)
-target_link_libraries(aamp-cli tsb)
-target_link_libraries(aamp tsb)
-if (CMAKE_INBUILT_AAMP_DEPENDENCIES)
-	target_link_libraries(aamp abr metrics)
-endif()
-target_link_libraries(aamp playergstinterface playerfbinterface)
-target_link_libraries(aamp-cli playergstinterface playerfbinterface)
 
 install(TARGETS aamp-cli DESTINATION bin)
 
