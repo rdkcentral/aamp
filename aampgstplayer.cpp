@@ -424,6 +424,7 @@ AAMPGstPlayer::~AAMPGstPlayer()
 	UnregisterBusCb();
 	UnregisterFirstFrameCallbacks();
 	playerInstance->DestroyPipeline();
+	SAFE_DELETE(playerInstance);
 	SAFE_DELETE(privateContext);
 }
 
