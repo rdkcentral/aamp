@@ -31,21 +31,21 @@ public:
 	MOCK_METHOD(void, SetConfigValue, (AAMPConfigSettingFloat cfg, const double &value));
 	MOCK_METHOD(void, SetConfigValue, (AAMPConfigSettingString cfg, const std::string &value));
 
-	MOCK_METHOD(bool, IsConfigSet, (AAMPConfigSettingBool cfg));
-	MOCK_METHOD(bool, GetConfigValue, (AAMPConfigSettingBool cfg));
+    MOCK_METHOD(bool, IsConfigSet, (AAMPConfigSettingBool cfg));
 	MOCK_METHOD(int, GetConfigValue, (AAMPConfigSettingInt cfg));
-	MOCK_METHOD(double, GetConfigValue, (AAMPConfigSettingFloat cfg));
+    MOCK_METHOD(double, GetConfigValue, (AAMPConfigSettingFloat cfg));
 	MOCK_METHOD(std::string, GetConfigValue, (AAMPConfigSettingString cfg));
 
 	MOCK_METHOD(ConfigPriority, GetConfigOwner, (AAMPConfigSettingBool cfg));
 	MOCK_METHOD(ConfigPriority, GetConfigOwner, (AAMPConfigSettingInt cfg));
-	MOCK_METHOD(ConfigPriority, GetConfigOwner, (AAMPConfigSettingFloat cfg));
+    MOCK_METHOD(ConfigPriority, GetConfigOwner, (AAMPConfigSettingFloat cfg));
 	MOCK_METHOD(ConfigPriority, GetConfigOwner, (AAMPConfigSettingString cfg));
 
 	MOCK_METHOD(void, RestoreConfiguration, (ConfigPriority owner, AAMPConfigSettingBool cfg));
 	MOCK_METHOD(void, RestoreConfiguration, (ConfigPriority owner, AAMPConfigSettingInt cfg));
 	MOCK_METHOD(void, RestoreConfiguration, (ConfigPriority owner, AAMPConfigSettingFloat cfg));
 	MOCK_METHOD(void, RestoreConfiguration, (ConfigPriority owner, AAMPConfigSettingString cfg));
+
 };
 
 extern MockAampConfig *g_mockAampConfig;

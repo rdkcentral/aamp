@@ -65,16 +65,6 @@ bool AampConfig::IsConfigSet(AAMPConfigSettingBool cfg)
     }
 }
 
-bool AampConfig::GetConfigValue(AAMPConfigSettingBool cfg)
-{
-	bool ret = false;
-	if (g_mockAampConfig != nullptr)
-	{
-		ret = g_mockAampConfig->GetConfigValue(cfg);
-	}
-	return ret;
-}
-
 int AampConfig::GetConfigValue(AAMPConfigSettingInt cfg)
 {
     if (g_mockAampConfig != nullptr)
