@@ -3094,18 +3094,6 @@ bool PrivateInstanceAAMP::ProcessPendingDiscontinuity()
 			mpStreamAbstractionAAMP->StopInjection();
 
 			mpStreamAbstractionAAMP->GetStreamFormat(mVideoFormat, mAudioFormat, mAuxFormat, mSubtitleFormat);
-			StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
-			if (sink)
-			{
-				sink->Configure(
-					mVideoFormat,
-					mAudioFormat,
-					mAuxFormat,
-					mSubtitleFormat,
-					mpStreamAbstractionAAMP->GetESChangeStatus(),
-					mpStreamAbstractionAAMP->GetAudioFwdToAuxStatus(),
-					mIsTrackIdMismatch /*setReadyAfterPipelineCreation*/);
-			}
 			mpStreamAbstractionAAMP->ResetESChangeStatus();
 
 			/*
@@ -3138,6 +3126,19 @@ bool PrivateInstanceAAMP::ProcessPendingDiscontinuity()
 						profiler.ProfileEnd(PROFILE_BUCKET_DISCO_FLUSH);
 					}
 				}
+			}
+			/* Configure the sink after it gets flushed */
+			StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
+			if (sink)
+			{
+				sink->Configure(
+					mVideoFormat,
+					mAudioFormat,
+					mAuxFormat,
+					mSubtitleFormat,
+					mpStreamAbstractionAAMP->GetESChangeStatus(),
+					mpStreamAbstractionAAMP->GetAudioFwdToAuxStatus(),
+					mIsTrackIdMismatch /*setReadyAfterPipelineCreation*/);
 			}
 
 			bool isRateCorrectionEnabled = ISCONFIGSET_PRIV(eAAMPConfig_EnableLiveLatencyCorrection);
