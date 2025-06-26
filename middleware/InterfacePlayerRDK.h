@@ -38,6 +38,7 @@
 #include "GstUtils.h"
 
 class InterfacePlayerPriv;
+struct MonitorAVState;
 
 /**
  * @brief Function pointer for the idle task
@@ -130,21 +131,6 @@ enum class InterfaceCB
 	firstVideoFrameReceived,
 	notifyEOS,
 	startNewSubtitleStream // Add more events here if needed
-};
-
-struct MonitorAVState
-{
-	long long tLastReported;
-	long long tLastSampled;
-	const char *description;
-	gint64 av_position[2];
-	bool happy;
-
-	MonitorAVState() : tLastReported(0), tLastSampled(0), description(nullptr), happy(false)
-	{
-		av_position[0] = 0; // Video position
-		av_position[1] = 0; // Audio position
-	}
 };
 
 // Class to encapsulate GStreamer-related functionality

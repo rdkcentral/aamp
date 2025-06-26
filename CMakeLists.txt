@@ -582,8 +582,9 @@ target_link_libraries(aamp tsb)
 if (CMAKE_INBUILT_AAMP_DEPENDENCIES)
 	target_link_libraries(aamp abr metrics)
 endif()
-target_link_libraries(aamp middleware playerfbinterface)
-target_link_libraries(aamp-cli middleware playerfbinterface)
+target_link_libraries(aamp playergstinterface playerfbinterface)
+target_link_libraries(aamp-cli playergstinterface playerfbinterface)
+
 install(TARGETS aamp-cli DESTINATION bin)
 
 install(TARGETS aamp DESTINATION lib PUBLIC_HEADER DESTINATION include PRIVATE_HEADER DESTINATION include)

@@ -113,25 +113,3 @@ void DrmSessionManager::setSessionMgrState(SessionMgrState state)
 {
 }
 
-#if 0
-void DrmSessionManager::SetLicenseFetcher(AampLicenseFetcher *fetcherInstance)
-{
-}
-
-bool DrmSessionManager::QueueContentProtection(DrmHelperPtr drmHelper, std::string periodId, uint32_t adapIdx, AampMediaType type, bool isVssPeriod)
-{
-	return false;
-}
-
-void DrmSessionManager::QueueProtectionEvent(DrmHelperPtr drmHelper, std::string periodId, uint32_t adapIdx, AampMediaType type)
-{
-}
-
-void DrmSessionManager::SetSendErrorOnFailure(bool sendErrorOnFailure)
-{
-}
-
-void DrmSessionManager::SetCommonKeyDuration(int keyDuration)
-{
-}
-#endif

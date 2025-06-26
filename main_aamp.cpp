@@ -32,6 +32,7 @@
 #include "StreamAbstractionAAMP.h"
 #include "AampStreamSinkManager.h"
 #include "PlayerExternalsInterface.h"
+#include "PlayerLogManager.h"
 #include "PlayerMetadata.hpp"
 #include "PlayerLogManager.h"
 

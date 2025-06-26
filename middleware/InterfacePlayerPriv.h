@@ -132,16 +132,9 @@ static std::map<std::string, std::vector<std::string>> gstMapDecoderLookUptable 
 {
 	{"ac-3", {"omxac3dec", "avdec_ac3", "avdec_ac3_fixed"}},
 	{"ac-4", {"omxac4dec"}}};
-/**
-struct MonitorAVState
-{
-	long long tLastReported;
-	long long tLastSampled;
-	const char *description;
-	gint64 av_position[2];
-	bool happy;
-};
-**/
+
+
+
 struct gst_media_stream
 {
 	GstElement *sinkbin;              /**< Sink element to consume data */
@@ -174,6 +167,21 @@ struct gst_media_stream
 	gst_media_stream(const gst_media_stream &) = delete;
 
 	gst_media_stream &operator=(const gst_media_stream &) = delete;
+};
+
+struct MonitorAVState
+{
+	long long tLastReported;
+	long long tLastSampled;
+	const char *description;
+	gint64 av_position[2];
+	bool happy;
+
+	MonitorAVState() : tLastReported(0), tLastSampled(0), description(nullptr), happy(false)
+	{
+		av_position[0] = 0; // Video position
+		av_position[1] = 0; // Audio position
+	}
 };
 
 /**
