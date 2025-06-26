@@ -32,7 +32,6 @@
 
 extern VirtualChannelMap mVirtualChannelMap;
 extern Aampcli mAampcli;
-extern void tsdemuxer_InduceRollover( bool enable );
 
 std::map<std::string,std::string> PlaybackCommand::playbackCommands = std::map<std::string,std::string>();
 std::vector<std::string> PlaybackCommand::commands(0);
@@ -622,7 +621,7 @@ void PlaybackCommand::HandleCommandFF( const char *cmd, PlayerInstanceAAMP *play
 	int rate;
 	if (sscanf(cmd, "ff%d", &rate) == 1)
 	{
-		playerInstanceAamp->SetRate((float)rate);
+		playerInstanceAamp->SetRate(rate);
 	}
 }
 void PlaybackCommand::HandleCommandREW( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp )
@@ -630,7 +629,7 @@ void PlaybackCommand::HandleCommandREW( const char *cmd, PlayerInstanceAAMP *pla
 	int rate;
 	if (sscanf(cmd, "rew%d", &rate) == 1)
 	{
-		playerInstanceAamp->SetRate((float)(-rate));
+		playerInstanceAamp->SetRate(-rate);
 	}
 }
 
@@ -726,11 +725,6 @@ bool PlaybackCommand::execute( const char *cmd, PlayerInstanceAAMP *playerInstan
 	{
 		showHelp();
 	}
-	else if( isCommandMatch(cmd,"rollover") )
-	{
-		printf( "enabling artificial pts rollover (10s after next tune)\n" );
-		tsdemuxer_InduceRollover( true );
-	}
 	else if( isCommandMatch(cmd, "list") )
 	{
 		HandleCommandList( cmd );
@@ -815,7 +809,6 @@ bool PlaybackCommand::execute( const char *cmd, PlayerInstanceAAMP *playerInstan
 	else if (isCommandMatch(cmd, "stop") )
 	{
 		playerInstanceAamp->Stop();
-		tsdemuxer_InduceRollover(false);
 	}
 	else if (isCommandMatch(cmd, "live") )
 	{
@@ -914,6 +907,14 @@ bool PlaybackCommand::execute( const char *cmd, PlayerInstanceAAMP *playerInstan
 	else if (isCommandMatch(cmd, "batch"))
 	{
 		HandleCommandBatch();
+	}
+	else if (isCommandMatch(cmd, "set"))
+	{
+		mAampcli.doHandleAampCliCommands( cmd );
+	}
+	else if (isCommandMatch(cmd, "get"))
+	{
+		mAampcli.doHandleAampCliCommands( cmd );
 	}
 	else
 	{
@@ -1019,8 +1020,8 @@ void PlaybackCommand::registerPlaybackCommands()
 	// trickplay
 	addCommand("play","Continue existing playback");
 	addCommand("slow","Slow Motion playback");
-	addCommand("ff <x>","Fast <speed>; up to 128x");
-	addCommand("rew <x>","Rewind <speed>; up to 128x");
+	addCommand("ff <x>","Fast <speed>");
+	addCommand("rew <x>","Rewind <speed>");
 	addCommand("pause","Pause playerback");
 	addCommand("pause <s>","Schedule pause at position<s>; pass -1 to cancel");
 	addCommand("seek <s> <p>","Seek to position<s>; optionally pass 1 for <p> to remain paused");

@@ -1,0 +1,12 @@
+# Files created as part of building/running tests:
+CMakeCache.txt
+CMakeFiles/
+CTestTestfile.cmake
+DartConfiguration.tcl
+Makefile
+Test_Coverage/
+Testing/
+_deps/
+build/
+cmake_install.cmake
+lib/

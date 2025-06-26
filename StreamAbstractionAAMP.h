@@ -25,7 +25,6 @@
 #ifndef STREAMABSTRACTIONAAMP_H
 #define STREAMABSTRACTIONAAMP_H
 
-#include "AampMemoryUtils.h"
 #include "priv_aamp.h"
 #include "AampJsonObject.h"
 #include "mediaprocessor.h"
@@ -648,7 +647,7 @@ public:
 	 *
 	 * @return true if injection is from local AAMP TSB, false otherwise
 	 */
-	bool IsLocalTSBInjection() {return mIsLocalTSBInjection.load();}
+	bool IsLocalTSBInjection();
 
 	/**
 	 * @brief Returns if the end of track reached.
@@ -765,6 +764,15 @@ public:
 	 */
 	void ResetTrickModePtsRestamping(void);
 
+	/**
+	 * @fn IsInjectionFromCachedFragmentChunks
+	 *
+	 * @brief Are fragments to inject coming from mCachedFragmentChunks
+	 *
+	 * @return True if fragments to inject are coming from mCachedFragmentChunks
+	 */
+	bool IsInjectionFromCachedFragmentChunks();
+
 protected:
 	/**
 	 * @fn UpdateTSAfterInject
@@ -837,16 +845,11 @@ protected:
 
 	double GetLastInjectedFragmentPosition() { return lastInjectedPosition; }
 
-	/**
-	 * @fn IsInjectionFromCachedFragmentChunks
-	 *
-	 * @brief Are fragments to inject coming from mCachedFragmentChunks
-	 *
-	 * @return True if fragments to inject are coming from mCachedFragmentChunks
-	 */
-	bool IsInjectionFromCachedFragmentChunks();
-
 private:
+	bool gotLocalTime;
+	bool ptsRollover;
+	long long currentLocalTimeMs;
+	
 	/**
 	 * @fn GetBufferHealthStatusString
 	 *
@@ -862,7 +865,7 @@ private:
 	 * @param[in] cachedFragment - fragment to be restamped for trickmodes
 	 */
 	void TrickModePtsRestamp(CachedFragment* cachedFragment);
-	
+
 	std::string RestampSubtitle( const char* buffer, size_t bufferLen, double position, double duration, double pts_offset );
 
 	/**
@@ -890,6 +893,14 @@ private:
 	 * @param cachedFragment pointer to the cached fragment.
 	 */
 	void HandleFragmentPositionJump(CachedFragment* cachedFragment);
+
+	/**
+	 * @brief Clear the media header duration in init fragment
+	 *
+	 * @param[in,out] cachedFragment - fragment whose media header duration to be cleared
+	 * @return void
+	 */
+	void ClearMediaHeaderDuration(CachedFragment* cachedFragment);
 
 public:
 	bool eosReached;                    /**< set to true when a vod asset has been played to completion */
@@ -926,7 +937,6 @@ protected:
 	std::mutex mutex;                   /**< protection of track variables accessed from multiple threads */
 	bool ptsError;                      /**< flag to indicate if last injected fragment has ptsError */
 	bool abortInject;                   /**< Abort inject operations if flag is set*/
-	bool abortInjectChunk;              /**< Abort inject operations if flag is set*/
 	std::mutex audioMutex;              /**< protection of audio track reconfiguration */
 	bool loadNewAudio;                  /**< Flag to indicate new audio loading started on seamless audio switch */
 	std::mutex subtitleMutex;
@@ -944,6 +954,8 @@ private:
 	};
 	std::condition_variable fragmentFetched;     	/**< Signaled after a fragment is fetched*/
 	std::condition_variable fragmentInjected;    	/**< Signaled after a fragment is injected*/
+
+	std::mutex injectorStartMutex;  		/**< Mutex to protect injector start */
 	std::thread fragmentInjectorThreadID;  	/**< Fragment injector thread id*/
 	std::condition_variable fragmentChunkInjected;	/**< Signaled after a fragment is injected*/
 	std::thread bufferMonitorThreadID;    	/**< Buffer Monitor thread id */
@@ -1133,6 +1145,14 @@ public:
 	{
 		return 0.0;
 	}
+	/**
+	*   @brief Should flush the stream Sink on new tune or not.  
+	*
+	*   @param[in] newTune - true if this is a new tune, false if it is a seek
+	*   @param[in] rate - playback rate
+	*   @return true if stream should be flushed, false otherwise
+	*/
+	virtual bool DoEarlyStreamSinkFlush(bool newTune, float rate) { return false; }
 
 	/**
 	 * @brief Sets the minimum buffer for ABR (Adaptive Bit Rate).
@@ -2041,11 +2061,10 @@ protected:
 	}
 
 	/**
-	 * @brief Initialize ISOBMFF Media Processor
-	 *
-	 * @return void
+	 * @brief This function is used to initialize the media processor for ISOBMFF streams.
+	 * @param[in] passThroughMode - true if processor should skip parsing PTS and flush
 	 */
-	void InitializeMediaProcessor();
+	void InitializeMediaProcessor(bool passThroughMode = false);
 
 //private:
 protected:

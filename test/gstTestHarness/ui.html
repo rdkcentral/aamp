@@ -110,15 +110,13 @@
 		<br/>
 		<button onclick="sendCommand('load ' + locator.value)">Load</button>
 		<select id="locators" onchange="locator.value=this.value">
-			<option value="https://example.com/VideoTestStream/public/aamptest/streams/generated/main.mpd">segment timeline</option>
-			<option value="https://example.com/VideoTestStream/public/aamptest/streams/misc/main-segmentlist.mpd">segment list</option>
-			<option value="https://example.com/VideoTestStream/public/aamptest/streams/misc/main_notimeline.mpd">segment template</option>
-			<option value="https://example.com/VideoTestStream/public/aamptest/streams/misc/main-segmentbase.mpd">segment base</option>
-			<option value="https://example.com/dashif/ad-insertion-testcase1/batch5/real/a/ad-insertion-testcase1.mpd">multi-period dai</option>
-			<option value="https://example.com/VideoTestStream/public/aamptest/streams/ads/stitched/manifest.mpd">multi-period ads</option>
-			<option value="https://example.com/VideoTestStream/public/aamptest/streams/generated/main-multi.mpd">multi-period pts restamping-test</option>
-			<option value="https://example.com/manifest.mpd">live</option>
-			<option value="https://example.com/VideoTestStream/public/aamptest/streams/4k/h265/SegmentTimeline.mpd">hevc</option>
+			<option value="https://example.com/main.mpd">segment timeline</option>
+			<option value="https://example.com/main_seglist.mpd">segment list</option>
+			<option value="https://example.com/main_notimeline.mpd">segment template</option>
+			<option value="https:/cexample.com/main-segmentbase.mpd">segment base</option>
+			<option value="https://example.com/manifest.mpd">multi-period ads</option>
+			<option value="https://example.com/main-multi.mpd">multi-period pts restamping-test</option>
+			<option value="https://example.com/SegmentTimeline.mpd">hevc</option>
 		</select>
 		<br/>
 		<textarea id="locator" cols="80" rows="1"></textarea>

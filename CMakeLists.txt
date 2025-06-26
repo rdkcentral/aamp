@@ -26,9 +26,12 @@ endfunction()
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/test/gstTestHarness)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/externals)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/externals/playersecmanager)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/externals/rdk)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/vendor)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/externals)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/externals/rdk)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/baseConversion)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/playerLogManager)
 
 if(APPLE)
     set(CMAKE_C_COMPILER "/usr/bin/cc")
@@ -83,6 +86,8 @@ pkg_check_modules(UUID REQUIRED uuid)
 # TDB needs to bring back for UT. 
 #include(test/mocks/mocks.cmake NO_POLICY_SCOPE)
 
+add_subdirectory(middleware)
+
 if (CMAKE_INBUILT_AAMP_DEPENDENCIES)
 	message("Building aamp support libraries")
 	add_subdirectory(support/aampabr)
@@ -97,25 +102,6 @@ install(TARGETS tsb
         DESTINATION lib
         PUBLIC_HEADER DESTINATION include
 )
-
-
-if (CMAKE_WPEFRAMEWORK_REQUIRED)
-    message("CMAKE_WPEFRAMEWORK_REQUIRED set")
-list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/")
-find_package(WPEFramework REQUIRED)
-if (WPEFRAMEWORK_FOUND)
-    message("WPEFRAMEWORK_FOUND = ${WPEFRAMEWORK_FOUND}")
-    #include_directories(${CMAKE_CURRENT_SOURCE_DIR} PRIVATE ${WPEFRAMEWORK_INCLUDE_DIRS})
-    # Sets the include paths to Linux/includem. By making it a system include the headers won't report any errors ( effc++ )
-    include_directories(SYSTEM ${WPEFRAMEWORK_INCLUDE_DIRS})
-else()
-if (USE_THUNDER_R4)
-       message(FATAL_ERROR "WPEFrameworkCOM not found")
-else()
-    message(FATAL_ERROR "WPEFrameworkProtocols not found")
-endif()
-endif()
-endif()
 
 option(DISABLE_SECURITY_TOKEN "Disable security token" OFF)
 
@@ -155,7 +141,6 @@ if(CMAKE_SYSTEM_NAME STREQUAL Darwin)
     string(STRIP ${OS_LD_FLAGS} OS_LD_FLAGS)
     set(AAMP_CLI_LD_FLAGS "${AAMP_CLI_LD_FLAGS} ${GSTREAMERVIDEO_LINK_LIBRARIES}")
     string(STRIP "${AAMP_CLI_LD_FLAGS}" AAMP_CLI_LD_FLAGS)
-    set(AAMP_OS_SOURCES cocoa_window.mm)
     link_directories(${OPENSSL_LIBRARY_DIRS})
     set(CMAKE_THREAD_LIBS_INIT "-lpthread")
     set(CMAKE_HAVE_THREADS_LIBRARY 1)
@@ -165,14 +150,12 @@ if(CMAKE_SYSTEM_NAME STREQUAL Darwin)
     # XCode build flags. Even when using CLANG, the GCC name is required to enable the check
     set(CMAKE_XCODE_ATTRIBUTE_GCC_WARN_UNUSED_FUNCTION "YES")
     set(CMAKE_XCODE_ATTRIBUTE_GCC_WARN_UNUSED_VARIABLE "YES")
-else()
-    set(USE_MAC_FOR_RANDOM_GEN "-DUSE_MAC_FOR_RANDOM_GEN")
 endif(CMAKE_SYSTEM_NAME STREQUAL Darwin)
 
 find_package (Threads REQUIRED)
 
-include_directories(${CMAKE_CURRENT_SOURCE_DIR} drm downloader drm/aes drm/helper subtitle subtec middleware/playerisobmff middleware/subtitle isobmff dash/xml dash/mpd dash/utils middleware middleware/closedcaptions middleware/closedcaptions/subtec middleware/drm/ocdm middleware/drm/helper middleware/drm)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR} drm downloader drm/aes subtitle isobmff dash/xml dash/mpd dash/utils middleware middleware/drm/ocdm middleware/drm/helper middleware/drm)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR} drm downloader middleware/drm/aes drm/helper subtitle subtec middleware/playerisobmff middleware/subtitle isobmff dash/xml dash/mpd dash/utils middleware middleware/closedcaptions middleware/closedcaptions/subtec middleware/drm/ocdm middleware/drm/helper middleware/drm)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR} drm downloader middleware/drm/aes subtitle isobmff dash/xml dash/mpd dash/utils middleware middleware/drm/ocdm middleware/drm/helper middleware/drm)
 include_directories(${GSTREAMER_INCLUDE_DIRS})
 include_directories(${CURL_INCLUDE_DIRS})
 include_directories(${GSTREAMERBASE_INCLUDE_DIRS})
@@ -204,9 +187,7 @@ set(LIBAAMP_HEADERS middleware/drm/DrmSystems.h
 					middleware/drm/DrmJsonObject.h
 					AampLogManager.h
 					AampMediaType.h
-					AampMemoryUtils.h
 					AampProfiler.h
-					externals/PlayerRfc.h
 					AampScheduler.h
 					AampUtils.h
 					middleware/PlayerUtils.h
@@ -215,7 +196,6 @@ set(LIBAAMP_HEADERS middleware/drm/DrmSystems.h
 					AdManagerBase.h
 					MediaStreamContext.h
 					StreamAbstractionAAMP.h
-					_base64.h
 					middleware/vendor/SocInterface.h
 					middleware/vendor/amlogic/AmlogicSocInterface.h
 					middleware/vendor/realtek/RealtekSocInterface.h
@@ -223,19 +203,17 @@ set(LIBAAMP_HEADERS middleware/drm/DrmSystems.h
 					middleware/vendor/default/DefaultSocInterface.h
 					middleware/drm/base64.h
 					middleware/PlayerUtils.h
-					middleware/PlayerLogManager.h
 					middleware/PlayerScheduler.h
 					middleware/gstplayertaskpool.h
 					middleware/GstHandlerControl.h
 					middleware/GstUtils.h
 					middleware/InterfacePlayerRDK.h
 					middleware/SocUtils.h
-					externals/PlayerIarmRfcInterface.h
+
+					drm/AampDRMLicManager.h
 					aampgstplayer.h
 					AampBufferControl.h
 					admanager_mpd.h
-					base16.h
-					cocoa_window.h
 					compositein_shim.h
 					fragmentcollector_hls.h
 					fragmentcollector_mpd.h
@@ -293,14 +271,12 @@ set(LIBAAMP_HEADERS middleware/drm/DrmSystems.h
 					Accessibility.hpp
 					AampTrackWorker.h
 					test/gstTestHarness/tsdemux.hpp
+					test/gstTestHarness/mp4demux.hpp
 )
 
 set(LIBAAMP_SOURCES iso639map.cpp
-					base16.cpp
-					_base64.cpp
 					middleware/PlayerUtils.cpp
 					middleware/drm/base64.cpp
-					AampMemoryUtils.cpp
 					AampCacheHandler.cpp
 					AampGrowableBuffer.cpp
 					AampScheduler.cpp
@@ -327,17 +303,18 @@ set(LIBAAMP_SOURCES iso639map.cpp
 					middleware/vendor/realtek/RealtekSocInterface.cpp
 					middleware/vendor/brcm/BrcmSocInterface.cpp
 					middleware/vendor/default/DefaultSocInterface.cpp
-					middleware/PlayerLogManager.cpp
 					middleware/PlayerScheduler.cpp
 					middleware/gstplayertaskpool.cpp
 					middleware/GstHandlerControl.cpp
 					middleware/GstUtils.cpp
-                                        middleware/InterfacePlayerRDK.cpp
-                                        middleware/SocUtils.cpp
+					middleware/InterfacePlayerRDK.cpp
+					middleware/SocUtils.cpp
+					drm/AampDRMLicManager.cpp
 					aampgstplayer.cpp
 					AampBufferControl.cpp
 					tsprocessor.cpp
-					drm/aes/aamp_aes.cpp
+					middleware/drm/aes/Aes.cpp
+					drm/DrmInterface.cpp
 					aamplogging.cpp
 					AampConfig.cpp
 					AampEventManager.cpp
@@ -384,24 +361,14 @@ set(LIBAAMP_SOURCES iso639map.cpp
 					AampTsbReader.cpp
 					scte35/AampSCTE35.cpp
 					AampTrackWorker.cpp
-					externals/PlayerThunderInterface.cpp
+					test/gstTestHarness/mp4demux.cpp
 )
-
-if (CMAKE_WPEFRAMEWORK_REQUIRED)
-	set(LIBAAMP_SOURCES ${LIBAAMP_SOURCES} externals/rdk/PlayerThunderAccess.cpp ThunderAccess.cpp externals/Module.cpp)
-endif()
 
 if (CMAKE_PLATFORM_UBUNTU OR CMAKE_SYSTEM_NAME STREQUAL Darwin )
   message("AAMP_SIMULATOR_BUILD set")
   set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DAAMP_SIMULATOR_BUILD=1")
   set(CMAKE_TELEMETRY_2_0_REQUIRED TRUE)
   set(CMAKE_AAMP_SIMULATOR TRUE)
-  # uncomment below to build additional drm support in simulator
-  # set(CMAKE_USE_OPENCDM_ADAPTER TRUE)
-  # set(CMAKE_USE_OPENCDM_ADAPTER_MOCKS TRUE)
-  # set(CMAKE_USE_THUNDER_OCDM_API_0_2 TRUE)
-  # set(CMAKE_USE_SECCLIENT TRUE)
-  # set(CMAKE_USE_SECCLIENT_MOCKS TRUE)
 endif()
 
 if(CMAKE_SOC_PLATFORM_RPI)
@@ -409,39 +376,22 @@ if(CMAKE_SOC_PLATFORM_RPI)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DRPI=1")
 endif()
 
-if(CMAKE_USE_SECCLIENT)
-	if (CMAKE_USE_SECCLIENT_MOCKS)
-		set(LIBAAMP_HEADERS ${LIBAAMP_HEADERS} sec_client.h sec_security_datatype.h)
-		# copy_staging_header_file(sec_client.h)
-		# copy_staging_header_file(sec_security_datatype.h)
-		set(LIBAAMP_MOCK_SOURCES ${LIBAAMP_MOCK_SOURCES} test/mocks/secClientMocks.cpp)
-		set(LIBAAMP_MOCK_DEPENDS -lgmock -lgtest)
-	else()
-		set(SEC_CLIENT_LIB -lSecClient )
-	endif()
-endif()
-if(CMAKE_USE_SECMANAGER)
-	if (NOT CMAKE_WPEFRAMEWORK_REQUIRED)
-		message(FATAL_ERROR "CMAKE_USE_SECMANAGER set but CMAKE_WPEFRAMEWORK_REQUIRED not set")
-	else()
-		set(LIBAAMP_SOURCES ${LIBAAMP_SOURCES} drm/AampSecManager.cpp)
-	endif()
-endif()
-
 execute_process(COMMAND bash "-c" "${CMAKE_SOURCE_DIR}/buildinfo.sh" WORKING_DIRECTORY ${CMAKE_SOURCE_DIR} OUTPUT_STRIP_TRAILING_WHITESPACE OUTPUT_VARIABLE buildinfo)
 string(REGEX REPLACE "\n" "-" buildinfo "${buildinfo}")
 message("build: ${buildinfo}")
-set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DAAMP_VANILLA_AES_SUPPORT ${USE_MAC_FOR_RANDOM_GEN}")
+set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DAAMP_VANILLA_AES_SUPPORT")
 set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DAAMP_BUILD_INFO='${buildinfo}'")
+
+set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DSUPPORTS_MP4DEMUX")
 
 if (CMAKE_PLATFORM_UBUNTU)
 	message("CMAKE_PLATFORM_UBUNTU set")
-	set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DUBUNTU=1 -DNO_NATIVE_AV=1")
+	set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DUBUNTU=1")
 endif()
 
 if(CMAKE_USE_RDK_PLUGINS)
 	message("CMAKE_USE_RDK_PLUGINS set")
-	set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DREAD_ESTB_IFACE_FROM_DEVICE_PROPERTIES -DCREATE_PIPE_SESSION_TO_XRE")
+	set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DCREATE_PIPE_SESSION_TO_XRE")
 endif()
 
 set(LIBAAMP_DEPENDS ${OS_LD_FLAGS} ${UUID_LINK_LIBRARIES} ${LIBCJSON_LINK_LIBRARIES} ${GSTREAMERBASE_LINK_LIBRARIES} ${GSTREAMER_LINK_LIBRARIES} ${CURL_LINK_LIBRARIES} ${LIBDASH_LINK_LIBRARIES} ${LibXml2_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT} ${OPENSSL_LIBRARIES} ${OPENGL_LIBRARIES} ${GLEW_LIBRARIES} ${AAMP_CLI_LD_FLAGS} -ldl ${SEC_CLIENT_LIB})
@@ -458,7 +408,6 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror=format -Wno-multichar -std=c++11
 
 if(CMAKE_IARM_MGR)
 	message("CMAKE_IARM_MGR set")
-	set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DIARM_MGR=1")
 
 	if (CMAKE_IARM_MGR_MOCKS)
 		message("CMAKE_IARM_MGR_MOCKS set, building IARM stubs")
@@ -491,6 +440,7 @@ set(AAMP_CLI_HEADERS test/aampcli/Aampcli.h
 			test/aampcli/AampcliShader.h
 			test/aampcli/AampcliSubtecSimulator.h
 			${AAMP_OS_SOURCES})
+
 set(AAMP_CLI_SOURCES test/aampcli/Aampcli.cpp
 			test/aampcli/AampcliPlaybackCommand.cpp
 			test/aampcli/AampcliCommandHandler.cpp
@@ -506,20 +456,17 @@ if (NOT CMAKE_INBUILT_AAMP_DEPENDENCIES)
 endif()
 
 # Sources common to all forms of OpenCDM and CDM
-set(LIBAAMP_DRM_SOURCES drm/AampDRMSessionManager.cpp
-						externals/PlayerIarmRfcInterface.cpp
-						externals/PlayerExternalUtils.cpp
+set(LIBAAMP_DRM_SOURCES middleware/drm/DrmSessionManager.cpp
+                		middleware/drm/PlayerHlsDrmSessionInterface.cpp
+						middleware/drm/processProtectionHls.cpp
 						middleware/drm/DrmSession.cpp
-						middleware/drm/drmsessionfactory.cpp
+						middleware/drm/DrmSessionFactory.cpp
 						middleware/drm/helper/DrmHelperFactory.cpp
 						middleware/drm/DrmUtils.cpp
 						middleware/drm/DrmSystems.h
-						drm/processProtectionHls.cpp
+						middleware/drm/HlsOcdmBridgeInterface.cpp
 )
 
-if(CMAKE_IARM_MGR)
-	set(LIBAAMP_DRM_SOURCES "${LIBAAMP_DRM_SOURCES}" externals/rdk/PlayerIarmRdkInterface.cpp externals/PlayerBase64.cpp)
-endif()
 if(CMAKE_USE_THUNDER_OCDM_API_0_2)
 	set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DUSE_THUNDER_OCDM_API_0_2")
 endif()
@@ -527,13 +474,10 @@ endif()
 if(CMAKE_USE_OPENCDM_ADAPTER)
     message("OpenCDM support enabled")
     set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DUSE_OPENCDM_ADAPTER")
-    set(LIBAAMP_DRM_SOURCES "${LIBAAMP_DRM_SOURCES}" drm/AampHlsDrmSessionManager.cpp
-                                                     drm/AampHlsOcdmBridge.cpp)
+    set(LIBAAMP_DRM_SOURCES "${LIBAAMP_DRM_SOURCES}" middleware/drm/HlsDrmSessionManager.cpp
+                                                     middleware/drm/HlsOcdmBridge.cpp
+						     middleware/drm/processProtectionHls.cpp)
     set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DTARGET_LITTLE_ENDIAN=1 -DTARGET_SUPPORTS_UNALIGNED_DWORD_POINTERS=0")
-
-    if(CMAKE_IARM_MGR AND NOT CMAKE_IARM_MGR_MOCKS)
-        set(LIBAAMP_DEPENDS "${LIBAAMP_DEPENDS} -lIARMBus -lds -ldshalcli")
-    endif()
 
     # DRM Helpers
     if(CMAKE_USE_WIDEVINE)
@@ -602,30 +546,23 @@ endif()
 
 set(LIBAAMP_SOURCES ${LIBAAMP_SOURCES} middleware/closedcaptions/PlayerCCManager.cpp middleware/PlayerUtils.cpp)
 
-
-set(LIBAAMP_SOURCES ${LIBAAMP_SOURCES} externals/PlayerRfc.cpp 
-externals/PlayerExternalUtils.cpp)
-
 if (CMAKE_AAMP_RFC_REQUIRED)
         message("AAMP RFC set")
-        set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DAAMP_RFC_ENABLED")
         if(CMAKE_USE_RFC_MOCKS)
             copy_staging_header_file(tr181api.h)
             set(LIBAAMP_MOCK_SOURCES ${LIBAAMP_MOCK_SOURCES} test/mocks/rfcMocks.cpp)
             set(LIBAAMP_MOCK_DEPENDS -lgmock -lgtest)
-        else()
-            set(LIBAAMP_DEPENDS "${LIBAAMP_DEPENDS} -ltr181api")
         endif()
 endif()
 
-set(AAMP_SUBTEC_CLASS_SOURCES middleware/playerisobmff/playerisobmffbox.cpp middleware/playerisobmff/playerisobmffbuffer.cpp middleware/subtec/subtecparser/WebVttSubtecParser.cpp middleware/subtec/subtecparser/TtmlSubtecParser.cpp middleware/subtec/subtecparser/WebvttSubtecDevInterface.cpp subtec/subtecparser/WebvttSubtecDevParser.cpp middleware/subtec/subtecparser/TextStyleAttributes.cpp middleware/playerjsonobject/PlayerJsonObject.cpp)
+set(AAMP_SUBTEC_CLASS_SOURCES middleware/playerLogManager/PlayerLogManager.cpp middleware/playerisobmff/playerisobmffbox.cpp middleware/playerisobmff/playerisobmffbuffer.cpp middleware/subtec/subtecparser/WebVttSubtecParser.cpp middleware/subtec/subtecparser/TtmlSubtecParser.cpp middleware/subtec/subtecparser/WebvttSubtecDevInterface.cpp subtec/subtecparser/WebvttSubtecDevParser.cpp middleware/subtec/subtecparser/TextStyleAttributes.cpp middleware/playerJsonObject/PlayerJsonObject.cpp)
 set(LIBAAMP_SOURCES ${LIBAAMP_SOURCES} ${AAMP_SUBTEC_CLASS_SOURCES})
 include_directories(middleware/subtec/subtecparser)
 include_directories(subtec/subtecparser)
-include_directories(middleware/playerjsonobject)
+include_directories(middleware/playerJsonObject)
 
-add_library(subtec SHARED middleware/subtec/libsubtec/PacketSender.cpp middleware/subtec/libsubtec/SubtecChannel.cpp middleware/PlayerLogManager.cpp)
-set(AAMP_SUBTEC_PUBLIC_HEADERS middleware/subtec/libsubtec/SubtecChannel.hpp middleware/subtec/libsubtec/SubtecAttribute.hpp middleware/PlayerMetadata.hpp middleware/PlayerLogManager.h)
+add_library(subtec SHARED middleware/playerLogManager/PlayerLogManager.cpp middleware/subtec/libsubtec/PacketSender.cpp middleware/subtec/libsubtec/SubtecChannel.cpp)
+set(AAMP_SUBTEC_PUBLIC_HEADERS middleware/subtec/libsubtec/SubtecChannel.hpp middleware/subtec/libsubtec/SubtecAttribute.hpp middleware/PlayerMetadata.hpp)
 set_target_properties(subtec PROPERTIES PUBLIC_HEADER "${AAMP_SUBTEC_PUBLIC_HEADERS}")
 set(AAMP_SUBTEC_COMPILE_FLAGS "${CMAKE_CXX_FLAGS} -DSUBTEC_PACKET_DEBUG=1")
 if(CMAKE_PLATFORM_UBUNTU)
@@ -658,8 +595,7 @@ if (CMAKE_SUBTITLE_SUPPORT)
 
     set(LIBSUBTECCONNECTOR_SOURCES  ${AAMP_SUBTEC_SOURCES}
         middleware/closedcaptions/subtec/SubtecConnector.cpp
-        middleware/closedcaptions/subtec/CCDataController.cpp
-        middleware/PlayerLogManager.cpp)
+        middleware/closedcaptions/subtec/CCDataController.cpp)
 
     add_library(subtec_connector SHARED ${LIBSUBTECCONNECTOR_SOURCES})
     target_link_libraries(subtec_connector ${LIBSUBTECCONNECTOR_DEPENDS})
@@ -683,6 +619,27 @@ target_link_libraries(aamp-cli "-lreadline")
 # XCode schema target
 xcode_define_schema(aamp-cli)
 
+set(AAMP_LIB_SRC
+${AAMP_CLI_HEADERS}
+test/aampcli/aampcli_kmp.h
+
+${AAMP_CLI_SOURCES}
+test/aampcli/aampcli_kmp.cpp
+)
+
+add_library(aampKotlin SHARED ${AAMP_LIB_SRC})
+install (TARGETS aampKotlin
+		DESTINATION lib
+		PUBLIC_HEADER DESTINATION include
+)
+
+target_link_libraries(aampKotlin aamp subtec tsb )
+target_link_libraries(aampKotlin aamp ${AAMP_CLI_LD_FLAGS})
+target_link_libraries(aampKotlin "-lreadline")
+
+set_target_properties(aampKotlin PROPERTIES COMPILE_FLAGS "${LIBAAMP_DEFINES} ${AAMP_CLI_EXTRA_DEFINES} ${OS_CXX_FLAGS}")
+xcode_define_schema(aampKotlin)
+
 if(CMAKE_SYSTEMD_JOURNAL)
     message("CMAKE_SYSTEMD_JOURNAL set")
     set(LIBAAMP_DEPENDS "${LIBAAMP_DEPENDS} -lsystemd")
@@ -704,15 +661,6 @@ if(CMAKE_USE_ETHAN_LOG)
 endif()
 
 
-if(CMAKE_USE_SECCLIENT)
-	message("CMAKE_USE_SECCLIENT set")
-	set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DUSE_SECCLIENT")
-endif()
-if(CMAKE_USE_SECMANAGER)
-	message("CMAKE_USE_SECMANAGER set")
-	set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DUSE_SECMANAGER")
-endif()
-
 if(CMAKE_WPEWEBKIT_JSBINDINGS)
 	message("CMAKE_WPEWEBKIT_JSBINDINGS set, creating jsbinding library")
     include_directories(${CMAKE_CURRENT_SOURCE_DIR} jsbindings jsbindings/PersistentWatermark)
@@ -726,7 +674,7 @@ if(CMAKE_WPEWEBKIT_JSBINDINGS)
     target_link_libraries(aampjsbindings aamp systemd)
 
     if(CMAKE_WPEWEBKIT_WATERMARK_JSBINDINGS)
-        set(LIBAAMPJSBINDINGS_DEFINES "${LIBAAMPJSBINDINGS_DEFINES} -DUSE_WATERMARK_JSBINDINGS -DUSE_CPP_THUNDER_PLUGIN_ACCESS")
+        set(LIBAAMPJSBINDINGS_DEFINES "${LIBAAMPJSBINDINGS_DEFINES} -DUSE_WATERMARK_JSBINDINGS")
         target_link_libraries(aampjsbindings ${WPEFRAMEWORK_LIBRARIES})
     endif()
 # Check if CMAKE_WPEWEBKIT_JSBINDINGS is enabled
@@ -768,11 +716,6 @@ endif()
 message("LIB_AAMP_DEPENDS is ${LIBAAMP_DEPENDS}")
 target_link_libraries(aamp ${LIBAAMP_DEPENDS} ${LIBAAMP_MOCK_DEPENDS})
 
-if (CMAKE_WPEFRAMEWORK_REQUIRED)
-	set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DUSE_CPP_THUNDER_PLUGIN_ACCESS")
-	target_link_libraries(aamp ${WPEFRAMEWORK_LIBRARIES})
-endif()
-
 if(CMAKE_ENABLE_PTS_RESTAMP)
 	message("ENABLE_PTS_RESTAMP set")
 	set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DENABLE_PTS_RESTAMP")
@@ -796,15 +739,16 @@ include_directories(tsb/api)
 set(GSTTESTHARNESS_DEPENDS ${OS_LD_FLAGS} ${CMAKE_THREAD_LIBS_INIT} ${GSTREAMER_LINK_LIBRARIES} ${GSTREAMERBASE_LINK_LIBRARIES} ${LIBDASH_LIBRARIES} ${CURL_LINK_LIBRARIES})
 set(GSTTESTHARNESS_HEADERS test/gstTestHarness/gst-port.h
                            test/gstTestHarness/gst-test.h
+                           test/gstTestHarness/gst-utils.h
                            test/gstTestHarness/mp4demux.hpp
                            test/gstTestHarness/tsdemux.hpp
                            test/gstTestHarness/dash_adapter.hpp
                            test/gstTestHarness/downloader.hpp
                            test/gstTestHarness/stream_utils.hpp
                            test/gstTestHarness/string_utils.hpp
-                           test/gstTestHarness/turbo_xml.hpp
-                           test/gstTestHarness/initializationheaderinfo.hpp )
+                           test/gstTestHarness/turbo_xml.hpp )
 set(GSTTESTHARNESS_SOURCES test/gstTestHarness/gst-port.cpp
+                           test/gstTestHarness/gst-utils.cpp
                            test/gstTestHarness/gst-test.cpp
                            test/gstTestHarness/mp4demux.cpp
                            test/gstTestHarness/dash_adapter.cpp
@@ -820,6 +764,10 @@ xcode_define_schema(gstTestHarness)
 install(TARGETS gstTestHarness DESTINATION bin)
 target_link_libraries(aamp-cli subtec tsb)
 target_link_libraries(aamp subtec tsb)
+
+target_link_libraries(aamp playerfbinterface)
+target_link_libraries(aamp-cli playerfbinterface)
+
 if (CMAKE_INBUILT_AAMP_DEPENDENCIES)
 	target_link_libraries(aamp abr metrics)
 endif()
@@ -831,13 +779,13 @@ install(TARGETS aamp-cli DESTINATION bin)
 install(TARGETS aamp DESTINATION lib PUBLIC_HEADER DESTINATION include PRIVATE_HEADER DESTINATION include)
 
 
-install(FILES   Accessibility.hpp AampEvent.h AampConfig.h AampCMCDCollector.h AampEventManager.h AampDefine.h AampEventListener.h middleware/drm/DrmMemorySystem.h drm/AampDRMSessionManager.h middleware/drm/DrmSystems.h AampMediaType.h
+
+install(FILES Accessibility.hpp AampEvent.h AampConfig.h AampCMCDCollector.h AampEventManager.h AampDefine.h AampEventListener.h middleware/drm/DrmMemorySystem.h middleware/drm/DrmSessionManager.h middleware/drm/DrmSystems.h AampMediaType.h
 	middleware/drm/DrmData.h middleware/drm/DrmInfo.h middleware/drm/DrmMediaFormat.h middleware/drm/DrmCallbacks.h AampLogManager.h
-	middleware/drm/DrmSession.h middleware/drm/ClearKeyDrmSession.h middleware/drm/DrmUtils.h middleware/drm/drmsessionfactory.h middleware/drm/ocdm/opencdmsessionadapter.h middleware/PlayerUtils.h
+	middleware/drm/DrmSession.h middleware/drm/ClearKeyDrmSession.h middleware/drm/DrmUtils.h middleware/drm/DrmSessionFactory.h middleware/drm/ocdm/opencdmsessionadapter.h middleware/PlayerUtils.h
 	middleware/drm/helper/DrmHelper.h subtitle/vttCue.h AampUtils.h
-	AampMemoryUtils.h AampProfiler.h AampConstants.h middleware/drm/DrmConstants.h iso639map.h externals/PlayerRfc.h externals/PlayerBase64.h middleware/GstUtils.h AampGrowableBuffer.h
+	AampProfiler.h AampConstants.h middleware/drm/DrmConstants.h iso639map.h middleware/GstUtils.h AampGrowableBuffer.h
   AampScheduler.h
-  drm/AampSecManager.h
   downloader/AampCurlStore.h
   downloader/AampCurlDownloader.h
   downloader/AampCurlDefine.h
@@ -853,7 +801,6 @@ install(FILES   Accessibility.hpp AampEvent.h AampConfig.h AampCMCDCollector.h A
   AampTsbReader.h
   tsb/api/TsbApi.h
   middleware/closedcaptions/CCTrackInfo.h
-  middleware/PlayerLogManager.h
   middleware/PlayerScheduler.h
   middleware/gstplayertaskpool.h
   middleware/GstHandlerControl.h
@@ -864,11 +811,9 @@ install(FILES   Accessibility.hpp AampEvent.h AampConfig.h AampCMCDCollector.h A
   middleware/PlayerUtils.h
   DESTINATION include)
 
-
-# Might need to bring back later. 
-#if (UTEST_ENABLED)
-#	add_subdirectory(test/utests EXCLUDE_FROM_ALL)
-#endif()
+if (UTEST_ENABLED)
+	add_subdirectory(test/utests EXCLUDE_FROM_ALL)
+endif()
 
 if (CMAKE_PLATFORM_UBUNTU OR CMAKE_SYSTEM_NAME STREQUAL Darwin )
     install(FILES build/aampcli-run-subtec.sh DESTINATION bin)

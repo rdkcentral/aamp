@@ -29,7 +29,7 @@
 #include <signal.h>
 #include <assert.h>
 #include "AampCurlStore.h"
-
+#include "AampUtils.h"
 /**
  * @struct StreamWriteCallbackContext
  * @brief Write call back functions for streamer
@@ -165,10 +165,7 @@ void StreamAbstractionAAMP_PROGRESSIVE::FetcherLoop()
  */
 void StreamAbstractionAAMP_PROGRESSIVE::FragmentCollector(void)
 {
-    if(aamp_pthread_setname(pthread_self(), "aampPSFetcher"))
-    {
-        AAMPLOG_WARN("aamp_pthread_setname failed");
-    }
+    aamp_setThreadName("aampPSFetcher");
     FetcherLoop();
     return;
 }
@@ -294,4 +291,16 @@ BitsPerSecond StreamAbstractionAAMP_PROGRESSIVE::GetMaxBitrate()
 { // STUB
     return 0;
 }
-
+/**
+ * @fn DoEarlyStreamSinkFlush
+ * @brief Checks if the stream need to be flushed or not
+ *
+ * @param newTune true if this is a new tune, false otherwise
+ * @param rate playback rate
+ * @return true if stream should be flushed, false otherwise
+ */
+bool StreamAbstractionAAMP_PROGRESSIVE::DoEarlyStreamSinkFlush(bool newTune, float rate)
+{
+    // Always flush for progressive content
+    return true;
+}

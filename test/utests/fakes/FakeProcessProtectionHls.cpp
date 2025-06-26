@@ -25,9 +25,9 @@
 #include "fragmentcollector_hls.h"
 #include <memory>
 
-std::shared_ptr<DrmHelper> ProcessContentProtection(PrivateInstanceAAMP *aamp, std::string attrName);
+std::shared_ptr<DrmHelper> ProcessContentProtection(std::string attrName, bool propagateURIParam , bool isSamplesRequired); 
 
-std::shared_ptr<DrmHelper> ProcessContentProtection(PrivateInstanceAAMP *aamp, std::string attrName)
+std::shared_ptr<DrmHelper> ProcessContentProtection(std::string attrName, bool propagateURIParam , bool isSamplesRequired)
 {
     return nullptr;
 }

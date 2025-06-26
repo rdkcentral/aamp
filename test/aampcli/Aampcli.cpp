@@ -24,13 +24,11 @@
 
 #include "Aampcli.h"
 #include "scte35/AampSCTE35.h"
-#include "AampcliShader.h"
-
+//#include "AampcliShader.h"
 
 Aampcli mAampcli;
 const char *gApplicationPath = NULL;
 extern VirtualChannelMap mVirtualChannelMap;
-extern void tsdemuxer_InduceRollover( bool enable );
 
 extern std::vector<AdvertInfo> mAdvertList;
 static int mAdReservationIndex = 0;
@@ -349,13 +347,22 @@ std::string Aampcli::GetSessionId(size_t index) const
 	return {};
 }
 
+void Aampcli::doHandleAampCliCommands(std::string args)
+{
+	CommandHandler lCommandHandler;
+	if( !args.empty() )
+	{
+		lCommandHandler.dispatchAampcliCommands( args.c_str(), mAampcli.mSingleton);
+	}
+}
+
 /**
  * @brief
  * @param argc
  * @param argv
  * @retval
  */
-int main(int argc, char **argv)
+static int main_func(int argc, char **argv)
 {
 	AampLogManager::disableLogRedirection = true;
 	ABRManager mAbrManager;
@@ -401,6 +408,15 @@ int main(int argc, char **argv)
 	createAppWindow(argc,argv);
 	cmdThreadId.join();
 	printf( "[AAMPCLI] done\n" );
+}
+
+int main( int argc, char **argv )
+{
+#if defined(__APPLE__) && !defined(USE_OPENGL)
+	return gst_macos_main((GstMainFunc)main_func, argc, argv, NULL);
+#else
+	return main_func(argc,argv);
+#endif
 }
 
 const char *MyAAMPEventListener::stringifyPlayerState(AAMPPlayerState state)
@@ -462,7 +478,7 @@ void MyAAMPEventListener::Event(const AAMPEventPtr& e)
 				{
 					printf("[AAMPCLI] language: %s\n", languages[i].c_str());
 				}
-				printf("[AAMPCLI] AAMP_EVENT_MEDIA_METADATA\n\tDuration=%ld\n\twidth=%d\n\tHeight=%d\n\tHasDRM=%d\n\tProgreamStartTime=%f\n\tTsbDepthMs=%d\n", ev->getDuration(), ev->getWidth(), ev->getHeight(), ev->hasDrm(), ev->getProgramStartTime(), ev->getTsbDepth());
+				printf("[AAMPCLI] AAMP_EVENT_MEDIA_METADATA\n\tDuration=%ld\n\twidth=%d\n\tHeight=%d\n\tHasDRM=%d\n\tProgreamStartTime=%f\n\tTsbDepthMs=%d\n\tUrl=%s\n", ev->getDuration(), ev->getWidth(), ev->getHeight(), ev->hasDrm(), ev->getProgramStartTime(), ev->getTsbDepth(), ev->getUrl().c_str());
 				int bitrateCount = ev->getBitratesCount();
 				std::vector<BitsPerSecond> bitrates = ev->getBitrates();
 				printf("[AAMPCLI] Bitrates:\n");
@@ -647,7 +663,7 @@ void MyAAMPEventListener::Event(const AAMPEventPtr& e)
 		{
 			std::string manifest;
 			ManifestRefreshEventPtr ev = std::dynamic_pointer_cast<ManifestRefreshEvent>(e);
-			printf("\n[AAMPCLI] AAMP_EVENT_MANIFEST_REFRESH_NOTIFY received Dur[%u]:NoPeriods[%u]:PubTime[%u]\nmanifestType[%s]\n",ev->getManifestDuration(),ev->getNoOfPeriods(),ev->getManifestPublishedTime(),ev->getManifestType());
+			printf("\n[AAMPCLI] AAMP_EVENT_MANIFEST_REFRESH_NOTIFY received Dur[%u]:NoPeriods[%u]:PubTime[%u] manifestType[%s]\n",ev->getManifestDuration(),ev->getNoOfPeriods(),ev->getManifestPublishedTime(),ev->getManifestType().c_str());
 			manifest = mAampcli.mSingleton->GetManifest();
 			printf("\n [AAMPCLI] Dash  Manifest length [%zu]\n",manifest.length());
 			break;
@@ -714,6 +730,11 @@ void MyAAMPEventListener::Event(const AAMPEventPtr& e)
 			printf("[AAMPCLI] updateManifest\n");
 			mAampcli.mSingleton->updateManifest(manifestData.c_str());
 			break;
+		}
+		case AAMP_EVENT_MONITORAV_STATUS:
+		{
+			MonitorAVStatusEventPtr ev = std::dynamic_pointer_cast<MonitorAVStatusEvent>(e);
+			printf("[AAMPCLI] AAMP_EVENT_MONITORAV_STATUS\tstatus=%s\tvposition =%" PRId64 "\taposition=%" PRId64 "\ttimeInStateMS= %" PRIu64 "\n", ev->getMonitorAVStatus().c_str(), ev->getVideoPositionMS(), ev->getAudioPositionMS(), ev->getTimeInStateMS());
 		}
 		case AAMP_EVENT_REPORT_ANOMALY:
 		{

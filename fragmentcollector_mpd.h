@@ -274,6 +274,7 @@ public:
 	 */
 	void SeekPosUpdate(double secondsRelativeToTuneTime) override;
 	virtual void SetCDAIObject(CDAIObject *cdaiObj) override;
+
 	/**
 	 * @fn GetAvailableAudioTracks
 	 * @param[in] tracks - available audio tracks in period
@@ -550,6 +551,15 @@ public:
 	 * @return true if AAMP is using an iframe track, false otherwise
 	 */
 	bool UseIframeTrack(void) override;
+	/**
+	 * @fn DoEarlyStreamSinkFlush
+	 * @brief Checks if the stream need to be flushed or not
+	 *
+	 * @param newTune true if this is a new tune, false otherwise
+	 * @param rate playback rate
+	 * @return true if stream should be flushed, false otherwise
+	 */
+	bool DoEarlyStreamSinkFlush(bool newTune, float rate) override;
 
 protected:
 	/**
@@ -622,7 +632,7 @@ protected:
 	 *
 	 * @return void
 	 */
-	void AdvanceTsbFetch(int trackIdx, bool trickPlay, double delta, bool *waitForFreeFrag, bool *bCacheFullState);
+	void AdvanceTsbFetch(int trackIdx, bool trickPlay, double delta, bool &waitForFreeFrag, bool &bCacheFullState);
 
 	/**
 	 * @fn FetcherLoop
@@ -1073,13 +1083,13 @@ protected:
 	 * @param[in] type Event type
 	 * @param[in] adId Identifier of the ad
 	 * @param[in] position Position relative to the start of the reservation
-	 * @param[in] positionMs Absolute position in milliseconds
+	 * @param[in] absolutePosition Absolute position
 	 * @param[in] offset Offset from the start of the ad
 	 * @param[in] duration Duration of the ad in milliseconds
 	 * @param[in] immediate Flag to indicate if event(s) should be sent immediately
 	 */
 	void SendAdPlacementEvent(AAMPEventType type, const std::string& adId,
-                             uint32_t position, uint64_t positionMs, uint32_t offset,
+                             uint32_t position, AampTime absolutePosition, uint32_t offset,
                              uint32_t duration, bool immediate);
 
 	/**
@@ -1088,11 +1098,11 @@ protected:
 	 * @param[in] type Event type
 	 * @param[in] adBreakId Identifier of the ad break
 	 * @param[in] position Period position of the ad break
-	 * @param[in] positionMs Absolute position in milliseconds
+	 * @param[in] absolutePosition Absolute position
 	 * @param[in] immediate Flag to indicate if event(s) should be sent immediately
 	 */
 	void SendAdReservationEvent(AAMPEventType type, const std::string& adBreakId,
-                               uint64_t position, uint64_t positionMs, bool immediate);
+                               uint64_t position, AampTime absolutePosition, bool immediate);
 
 	std::mutex mStreamLock;
 	bool fragmentCollectorThreadStarted;
@@ -1117,6 +1127,7 @@ protected:
 	double mEndPosition;
 	bool mIsLiveStream;    	    	   /**< Stream is live or not; won't change during runtime. */
 	bool mIsLiveManifest;   	   /**< Current manifest is dynamic or static; may change during runtime. eg: Hot DVR. */
+	bool mUpdateManifestState;
 	StreamInfo* mStreamInfo;
 	bool mUpdateStreamInfo;		   /**< Indicates mStreamInfo needs to be updated */
 	double mPrevStartTimeSeconds;
@@ -1138,6 +1149,7 @@ protected:
 	bool playlistDownloaderThreadStarted; // Playlist downloader thread start status
 	bool isVidDiscInitFragFail;
 	double mLivePeriodCulledSeconds;
+	bool mIsSegmentTimelineEnabled;   /**< Flag to indicate if segment timeline is enabled, to determine if PTS is available from manifest */
 
 	// In case of streams with multiple video Adaptation Sets, A profile
 	// is a combination of an Adaptation Set and Representation within

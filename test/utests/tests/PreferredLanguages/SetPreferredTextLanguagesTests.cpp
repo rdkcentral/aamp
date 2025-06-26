@@ -418,7 +418,7 @@ TEST_F(SetPreferredTextLanguagesTests, RenditionTest1)
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_))
 		.Times(1);
 	EXPECT_CALL(*g_mockAampGstPlayer, Flush(_,_,_))
-		.Times(2);
+		.Times(1);
 	mPrivateInstanceAAMP->SetPreferredTextLanguages("{\"rendition\":\"rend0\"}");
 
 	/* Verify the preferred rendition list. */
@@ -526,16 +526,6 @@ TEST_F(SetPreferredTextLanguagesTests, RenditionTest4)
 
 	/* Verify the preferred rendition list. */
 	EXPECT_STREQ(mPrivateInstanceAAMP->preferredTextRenditionString.c_str(), "rend1");
-}
-
-TEST_F(SetPreferredTextLanguagesTests, TextTrackNameTest1)
-{
-	mPrivateInstanceAAMP->preferredTextNameString = "English";
-	//when Local TSB playback is in progress!!. SetPreferredTextLanguages() will be ignored
-	mPrivateInstanceAAMP->SetLocalAAMPTsb(true);
-	mPrivateInstanceAAMP->SetPreferredTextLanguages("{\"name\":\"Spanish\"}");
-	EXPECT_STREQ(mPrivateInstanceAAMP->preferredTextNameString.c_str(), "English");
-
 }
 
 TEST_F(SetPreferredTextLanguagesTests, TextTrackNameTest2)

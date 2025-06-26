@@ -84,6 +84,18 @@ class IsoBmffHelper
 		 * @retval false - Setting failed
 		 */
 		bool SetPtsAndDuration(AampGrowableBuffer &buffer, uint64_t pts, uint64_t duration);
+
+		/**
+		 * @fn ClearMediaHeaderDuration
+		 *
+		 * @brief Clear the sample duration in the mdhd box
+		 *
+		 * @param[in,out] buffer - buffer containing ISOBMFF initialization header
+		 *
+		 * @retval true  - Sample duration was cleared in the ISO BMFF box
+		 * @retval false - Failed to parse the buffer or clear the sample duration
+		 */
+		bool ClearMediaHeaderDuration(AampGrowableBuffer &buffer);
 };
 
 #endif /* __ISOBMFFHELPER_H__ */

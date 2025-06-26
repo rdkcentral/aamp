@@ -38,6 +38,7 @@
 #include "MockStreamAbstractionAAMP_MPD.h"
 #include "MockAampStreamSinkManager.h"
 #include "MockAampEventManager.h"
+#include "MockAampLicManager.h"
 #include "MockAampDRMSessionManager.h"
 #include "MockAampConfig.h"
 #include "MockCurl.h"
@@ -48,6 +49,7 @@
 
 #include "fragmentcollector_mpd.h"
 
+using ::testing::An;
 using ::testing::DoAll;
 using ::testing::InvokeWithoutArgs;
 using ::testing::NiceMock;
@@ -62,12 +64,13 @@ const std::string session_id {"0259343c-cffc-4659-bcd8-97f9dd36f6b1"};
 
 class PrivAampTests : public ::testing::Test
 {
-	public:
+public:
+	static constexpr double kAbsErrorLivePlayPosition = 0.1;
 	PrivateInstanceAAMP *p_aamp{nullptr};
 	AampConfig *config{nullptr};
 	CURL *mCurlEasyHandle{nullptr};
 
-	protected:
+protected:
 	void SetUp() override
 	{
 		config=new AampConfig();
@@ -76,7 +79,8 @@ class PrivAampTests : public ::testing::Test
 		g_mockAampGstPlayer = new NiceMock<MockAAMPGstPlayer>(p_aamp);
 		g_mockAampStreamSinkManager = new NiceMock<MockAampStreamSinkManager>();
 		g_mockAampEventManager = new NiceMock<MockAampEventManager>();
-		g_mockAampDRMSessionManager = new NiceMock<MockAampDRMSessionManager>();
+		g_mockAampLicenseManager = new NiceMock<MockAampLicenseManager>();
+		g_mockDRMSessionManager = new NiceMock<MockDRMSessionManager>();
 		g_mockAampConfig = new NiceMock<MockAampConfig>();
 		g_mockStreamAbstractionAAMP_MPD = new NiceMock<MockStreamAbstractionAAMP_MPD>(p_aamp, 0, 0);
 		g_mockStreamAbstractionAAMP = new NiceMock<MockStreamAbstractionAAMP>(p_aamp);
@@ -101,11 +105,14 @@ class PrivAampTests : public ::testing::Test
 		delete g_mockAampConfig;
 		g_mockAampConfig = nullptr;
 
-		delete g_mockAampDRMSessionManager;
-		g_mockAampDRMSessionManager = nullptr;
+		delete g_mockDRMSessionManager;
+		g_mockDRMSessionManager = nullptr;
 
 		delete g_mockAampEventManager;
 		g_mockAampEventManager = nullptr;
+
+		delete g_mockAampLicenseManager;
+		g_mockAampLicenseManager = nullptr;
 
 		delete g_mockAampStreamSinkManager;
 		g_mockAampStreamSinkManager = nullptr;
@@ -121,7 +128,6 @@ class PrivAampTests : public ::testing::Test
 
 		delete config;
 		config = nullptr;
-
 	}
 };
 
@@ -343,7 +349,10 @@ public:
 		// This call creates the TSB Store if it doesn't exist.
 		(void)GetTSBStore(config, AampLogManager::aampLogger, TSB::LogLevel::TRACE);
 	}
-
+	void SetLocalAAMPTsbFromConfig(bool value)
+	{
+		mLocalAAMPTsbFromConfig = value;
+	}
 	};
 	TestablePrivAamp *testp_aamp{nullptr};
 };
@@ -371,9 +380,9 @@ TEST_F(PrivAampPrivTests, NotifyEOSReachedFastForwardAampTsbTest)
 	// StreamAbstractionAAMP_MPD, so the method from base class StreamAbstractionAAMP is called.
 	// The fake implementation is called, which calls the method in StreamAbstractionAAMP mock class.
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, IsEOSReached()).WillOnce(Return(true));
-	// NotifyEOSReached() calls TuneHelper(), which calls StreamAbstractionAAMP_MPD::InitTsbReader().
+	// NotifyEOSReached() calls TuneHelper(), which calls StreamAbstractionAAMP_MPD::Init().
 	// The fake implementation is called, which calls the method in StreamAbstractionAAMP_MPD mock class.
-	EXPECT_CALL(*g_mockStreamAbstractionAAMP_MPD, InitTsbReader(_)).WillOnce(Return(eAAMPSTATUS_OK));
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP_MPD, Init(eTUNETYPE_SEEKTOLIVE)).WillOnce(Return(eAAMPSTATUS_OK));
 	EXPECT_CALL(*g_mockAampEventManager, SendEvent(SpeedChanged(AAMP_NORMAL_PLAY_RATE), _)).Times(1);
 
 	testp_aamp->NotifyEOSReached();
@@ -389,6 +398,7 @@ TEST_F(PrivAampPrivTests, SetPreferredLanguagesPlayingLiveAampTsbTest)
 	tracks.push_back(AudioTrackInfo("idx0", "lang0", "rend0", "trackName0", "codec0", 0, "type0", false, "label0", "type0", true));
 	tracks.push_back(AudioTrackInfo("idx1", "lang1", "rend1", "trackName1", "codec1", 0, "type1", false, "label1", "type1", true));
 	testp_aamp->SetLocalAAMPTsb(true);
+	testp_aamp->SetLocalAAMPTsbFromConfig(true);
 	testp_aamp->SetTsbSessionManager();
 	testp_aamp->SetTsbStore();
 	testp_aamp->preferredLanguagesString = "lang0";
@@ -401,13 +411,12 @@ TEST_F(PrivAampPrivTests, SetPreferredLanguagesPlayingLiveAampTsbTest)
 	testp_aamp->SetState(eSTATE_PLAYING);
 
 	EXPECT_CALL(*g_mockAampJsonObject, isString(_)).WillRepeatedly(Return(true));
-	EXPECT_CALL(*g_mockAampJsonObject, get_string("languages", _)).WillOnce(DoAll(testing::SetArgReferee<1>("lang1"), Return(true)));
-	EXPECT_CALL(*g_mockAampJsonObject, get_string("rendition", _)).WillOnce(Return(false));
-	EXPECT_CALL(*g_mockAampJsonObject, get_string("codec", _)).WillOnce(Return(false));
-	EXPECT_CALL(*g_mockAampJsonObject, get_string("name", _)).WillOnce(Return(false));
-	EXPECT_CALL(*g_mockAampJsonObject, get_string("label", _)).WillOnce(Return(false));
+	EXPECT_CALL(*g_mockAampJsonObject, get("languages", An<std::string&>())).WillOnce(DoAll(testing::SetArgReferee<1>("lang1"), Return(true)));
+	EXPECT_CALL(*g_mockAampJsonObject, get("rendition", An<std::string&>())).WillOnce(Return(false));
+	EXPECT_CALL(*g_mockAampJsonObject, get("codec", An<std::string&>())).WillOnce(Return(false));
+	EXPECT_CALL(*g_mockAampJsonObject, get("name", An<std::string&>())).WillOnce(Return(false));
+	EXPECT_CALL(*g_mockAampJsonObject, get("label", An<std::string&>())).WillOnce(Return(false));
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(_)).WillRepeatedly(Return(false));
-	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_LocalTSBEnabled)).WillRepeatedly(Return(true));
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnablePTSReStamp)).WillRepeatedly(Return(true));
 
 	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer));
@@ -446,6 +455,7 @@ TEST_F(PrivAampPrivTests, SetPreferredLanguagesPlayingFromAampTsbTest)
 	testp_aamp->SetLocalAAMPTsb(true);
 	/* Simulate playing from AAMP TSB by setting the injection flag to true */
 	testp_aamp->SetLocalAAMPTsbInjection(true);
+	testp_aamp->SetLocalAAMPTsbFromConfig(true);
 	testp_aamp->SetTsbSessionManager();
 	testp_aamp->SetTsbStore();
 	testp_aamp->preferredLanguagesString = "lang0";
@@ -458,13 +468,12 @@ TEST_F(PrivAampPrivTests, SetPreferredLanguagesPlayingFromAampTsbTest)
 	testp_aamp->SetState(eSTATE_PLAYING);
 
 	EXPECT_CALL(*g_mockAampJsonObject, isString(_)).WillRepeatedly(Return(true));
-	EXPECT_CALL(*g_mockAampJsonObject, get_string("languages", _)).WillOnce(DoAll(testing::SetArgReferee<1>("lang1"), Return(true)));
-	EXPECT_CALL(*g_mockAampJsonObject, get_string("rendition", _)).WillOnce(Return(false));
-	EXPECT_CALL(*g_mockAampJsonObject, get_string("codec", _)).WillOnce(Return(false));
-	EXPECT_CALL(*g_mockAampJsonObject, get_string("name", _)).WillOnce(Return(false));
-	EXPECT_CALL(*g_mockAampJsonObject, get_string("label", _)).WillOnce(Return(false));
+	EXPECT_CALL(*g_mockAampJsonObject, get("languages", An<std::string&>())).WillOnce(DoAll(testing::SetArgReferee<1>("lang1"), Return(true)));
+	EXPECT_CALL(*g_mockAampJsonObject, get("rendition", An<std::string&>())).WillOnce(Return(false));
+	EXPECT_CALL(*g_mockAampJsonObject, get("codec", An<std::string&>())).WillOnce(Return(false));
+	EXPECT_CALL(*g_mockAampJsonObject, get("name", An<std::string&>())).WillOnce(Return(false));
+	EXPECT_CALL(*g_mockAampJsonObject, get("label", An<std::string&>())).WillOnce(Return(false));
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(_)).WillRepeatedly(Return(false));
-	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_LocalTSBEnabled)).WillRepeatedly(Return(true));
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnablePTSReStamp)).WillRepeatedly(Return(true));
 
 	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer));
@@ -2354,11 +2363,16 @@ TEST_F(PrivAampTests,IsAudioPlayContextCreationSkippedTest)
 TEST_F(PrivAampTests,stopTest)
 {
 	constexpr long long POS = 1234;
+	p_aamp->rate = AAMP_NORMAL_PLAY_RATE;
 	p_aamp->StartPausePositionMonitoring(POS);
+	// Give some time for the PausePositionMonitoring thread to start
+	std::this_thread::sleep_for(std::chrono::milliseconds(10));
 	EXPECT_EQ(POS, p_aamp->mPausePositionMilliseconds);
 	EXPECT_TRUE(p_aamp->mPausePositionMonitoringThreadStarted);
 
 	p_aamp->Stop(false);
+	// Give some time for the PausePositionMonitoring thread to be destroyed
+	std::this_thread::sleep_for(std::chrono::milliseconds(10));
 	EXPECT_FALSE(p_aamp->mAutoResumeTaskPending);
 
 	// StopPausePositionMonitoring() should have been called
@@ -2702,7 +2716,8 @@ TEST_F(PrivAampTests, NotifyFirstBufferProcessedTest)
 
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnableGstPositionQuery)).WillOnce(Return(false));
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_UseSecManager)).WillOnce(Return(true));
-	EXPECT_CALL(*g_mockAampDRMSessionManager, setVideoWindowSize(1024, 768));
+	EXPECT_CALL(*g_mockAampLicenseManager, setVideoWindowSize(1024, 768));
+//PECT_CALL(*g_mockDRMSessionManager, setVideoWindowSize(1024, 768));
 	p_aamp->NotifyFirstBufferProcessed(std::string("0,0,1024,768"));
 }
 
@@ -2714,7 +2729,8 @@ TEST_F(PrivAampTests, NotifyFirstBufferProcessedTest_VideoRectangleEmpty)
 
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnableGstPositionQuery)).WillOnce(Return(false));
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_UseSecManager)).WillOnce(Return(true));
-	EXPECT_CALL(*g_mockAampDRMSessionManager, setVideoWindowSize(0, 0));
+	EXPECT_CALL(*g_mockAampLicenseManager, setVideoWindowSize(0, 0));
+//	EXPECT_CALL(*g_mockDRMSessionManager, setVideoWindowSize(0, 0));
 	p_aamp->NotifyFirstBufferProcessed(std::string());
 }
 
@@ -4198,14 +4214,14 @@ TEST_F(PrivAampTests, GetStringForPlaybackErrorTest)
 }
 
 /**
- * @test PrivAampTests::TuneHelperWithAampTsb
- * @brief Test the method TuneHelper with AAMP TSB enabled
+ * @test PrivAampTests::TuneHelperWithAampTsbInjection
+ * @brief Test the method TuneHelper with AAMP TSB and Tsb injection enabled
  *
  * When AAMP TSB is enabled, the StreamAbstraction object is only created when tuning to a new channel, and not every
  * time TuneHelper is called (i.e. not when called due to seek or set rate). This test verifies that the trickplayMode
  * flag is updated when the StreamAbstraction object had been created.
  */
-TEST_F(PrivAampTests, TuneHelperWithAampTsb)
+TEST_F(PrivAampTests, TuneHelperWithAampTsbInjection)
 {
 	constexpr double SEEK_POS = 123.0;
 	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP_MPD;
@@ -4230,4 +4246,116 @@ TEST_F(PrivAampTests, TuneHelperWithAampTsb)
 	p_aamp->seek_pos_seconds = SEEK_POS;
 	p_aamp->SetLLDashChunkMode(true);
 	p_aamp->TuneHelper(eTUNETYPE_SEEK);
+}
+
+/**
+ * @test PrivAampTests::TuneHelperWithAampTsbLive
+ * @brief Test the method TuneHelper with AAMP TSB enabled and Tsb injection disabled
+ *
+ * This test verifies that the 'durationSeconds' value set by  TuneHelper function
+ * is correct when AAMP TSB is enabled and Tsb injection disabled.
+ */
+TEST_F(PrivAampTests, TuneHelperWithAampTsbLive)
+{
+	constexpr double SEEK_POS = 123;
+	constexpr double ABS_END_POS = 150.0;
+	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP_MPD;
+	p_aamp->mMediaFormat = eMEDIAFORMAT_DASH;
+	p_aamp->rate = AAMP_RATE_PAUSE;
+	p_aamp->seek_pos_seconds = SEEK_POS;
+	p_aamp->SetLLDashChunkMode(false);
+	p_aamp->SetLocalAAMPTsb(true);
+	p_aamp->SetLocalAAMPTsbInjection(false);
+	p_aamp->mAbsoluteEndPosition = ABS_END_POS;
+	p_aamp->culledSeconds = SEEK_POS;
+
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP_MPD, GetStreamPosition()).WillOnce(Return(SEEK_POS));
+	p_aamp->TuneHelper(eTUNETYPE_SEEKTOLIVE);
+
+	EXPECT_DOUBLE_EQ(p_aamp->durationSeconds, (ABS_END_POS - SEEK_POS));
+}
+
+
+/**
+ * @test PrivAampTests::NotifyEOSReached
+ * @brief Test the method NotifyEOSReached with AAMP TSB enabled, Rate a negative value and SetIsLive true.
+ *
+ * Verifies that the seek position is calculated correctly when BOS is reached while performing REW.
+*/
+TEST_F(PrivAampTests, NotifyBOSReachedREWSeekPositionCalculation)
+{
+	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP;
+	p_aamp->SetIsLive(true);
+	p_aamp->SetLLDashChunkMode(false);
+	p_aamp->SetLocalAAMPTsb(true);
+	constexpr double kLiveEdgeDeltaFromCurrentTime = 10.0;
+	constexpr double kLiveOffset = 15.0;
+	p_aamp->mLiveEdgeDeltaFromCurrentTime = kLiveEdgeDeltaFromCurrentTime;
+	p_aamp->mLiveOffset= kLiveOffset;
+	p_aamp->rate = -2;
+
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, IsEOSReached()).WillOnce(Return(true));
+	p_aamp->NotifyEOSReached();
+	EXPECT_EQ(p_aamp->GetTuneType(), eTUNETYPE_SEEK);
+}
+
+/**
+ * @test PrivAampTests::NotifyEOSReached
+ * @brief Test the method NotifyEOSReached with AAMP TSB enabled, Rate > 1 and SetIsLive true.
+ *
+ * Verifies that the seek position is calculated correctly when EOS is reached while performing FF.
+ */
+TEST_F(PrivAampTests, NotifyEOSReachedFFSeekPositionCalculation)
+{
+	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP;
+	p_aamp->SetIsLive(true);
+	p_aamp->SetLLDashChunkMode(false);
+	p_aamp->SetLocalAAMPTsb(true);
+	constexpr double kLiveEdgeDeltaFromCurrentTime = 10.0;
+	constexpr double kLiveOffset = 15.0;
+	p_aamp->mLiveEdgeDeltaFromCurrentTime = kLiveEdgeDeltaFromCurrentTime;
+	p_aamp->mLiveOffset= kLiveOffset;
+	p_aamp->rate = 2;
+
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, IsEOSReached()).WillOnce(Return(true));
+	p_aamp->NotifyEOSReached();
+	EXPECT_EQ(p_aamp->GetTuneType(), eTUNETYPE_SEEKTOLIVE);
+}
+
+TEST_F(PrivAampTests, GetLivePlayPositionTest)
+{
+	constexpr double kLiveEdgeDeltaFromCurrentTime = 10.0;
+	constexpr double kLiveOffset = 15.0;
+	p_aamp->mLiveEdgeDeltaFromCurrentTime = kLiveEdgeDeltaFromCurrentTime;
+	p_aamp->mLiveOffset= kLiveOffset;
+
+	/* The calculation uses the current system time, not mocked, so the value from GetLivePlayPostion() and the
+	calculated value will differ slightly hence using EXPECT_NEAR */
+	EXPECT_NEAR(p_aamp->GetLivePlayPosition(), NOW_STEADY_TS_SECS_FP - kLiveEdgeDeltaFromCurrentTime - kLiveOffset, kAbsErrorLivePlayPosition);
+}
+
+TEST_F(PrivAampTests, VerifyTrickModePositionEOS)
+{
+	constexpr double kPositionNow = 100.00;
+	constexpr double kLiveEdgeDeltaFromCurrentTime = 10.0;
+	constexpr double kLiveOffset = 15.0;
+	constexpr double kRate = 6.0;
+	p_aamp->rate = kRate;
+	p_aamp->mLiveEdgeDeltaFromCurrentTime = kLiveEdgeDeltaFromCurrentTime;
+	p_aamp->mLiveOffset= kLiveOffset;
+	p_aamp->mAudioOnlyPb = false;
+	p_aamp->trickStartUTCMS = 1;
+
+	// Setup mock objects and expectations
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnableGstPositionQuery)).WillRepeatedly(Return(true));
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_AudioOnlyPlayback)).WillRepeatedly(Return(false));
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer));
+	EXPECT_CALL(*g_mockAampGstPlayer, GetPositionMilliseconds()).WillRepeatedly(Return(kPositionNow*1000.00));
+
+	p_aamp->CalculateTrickModePositionEOS();
+
+	double livePlayPosition =  NOW_STEADY_TS_SECS_FP - kLiveEdgeDeltaFromCurrentTime - kLiveOffset;
+	double calculatedTrickModeEosPos = livePlayPosition + (livePlayPosition - kPositionNow)/(kRate-1);
+	/*The calculation involves NOW_STEADY_TS_SECS_FP, in SetRate and calculatedTrickModeEosPos, which will differ a bit, hence using EXPECT_NEAR */
+	EXPECT_NEAR(p_aamp->mTrickModePositionEOS, calculatedTrickModeEosPos, kAbsErrorLivePlayPosition);
 }

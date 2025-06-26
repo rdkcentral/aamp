@@ -36,6 +36,7 @@ public:
 	MOCK_METHOD(void, ShiftFutureAdEvents, ());
 	MOCK_METHOD(void, Flush, ());
 	MOCK_METHOD(bool, PushNextTsbFragment, (MediaStreamContext*, uint32_t));
+	MOCK_METHOD(AAMPStatusType, InvokeTsbReaders, (double &, float, TuneType));
 };
 
 extern MockTSBSessionManager *g_mockTSBSessionManager;

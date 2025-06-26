@@ -164,6 +164,14 @@ const char* aampPlayer_getNameFromEventType(AAMPEventType type);
  */
 JSObjectRef aamp_CreateTimedMetadataJSObject(JSContextRef context, long long timeMS, const char* szName, const char* szContent, const char* id, double durationMS);
 
+/**
+ * @fn aamp_CreateBodyResponseJSObject
+ * @param[in] context JS execution context
+ * @param[in] body response string
+ * @retval JSObject of body response generated
+ */
+JSObjectRef aamp_CreateBodyResponseJSObject(JSContextRef context, const char *pBodyResponse);
+
 
 void jsBindingLogprintf(int playerId, const char* functionName, int line, int logLevel, const char *format, ...)  __attribute__ ((format (printf, 5, 6)));
 

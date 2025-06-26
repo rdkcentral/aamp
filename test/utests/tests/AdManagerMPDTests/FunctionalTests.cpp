@@ -789,6 +789,19 @@ TEST_F(AdManagerMPDTests, CheckForAdStartTests_2)
     EXPECT_EQ("testPeriodId", breakId);
     // 35 - 30
     EXPECT_EQ(5, adOffset);
+
+
+    // reset
+    breakId = "";
+    adOffset = -1;
+    mPrivateCDAIObjectMPD->mAdBreaks["testPeriodId"].invalid = true;
+    // Make the adBreak invalid
+    result = mPrivateCDAIObjectMPD->CheckForAdStart(rate, init, periodId, offSet, breakId, adOffset);
+
+    // Verify the result
+    // There are ads in the adBreak, but entire adBreadk is marked as invalid, so the result should be -1
+    EXPECT_EQ(-1, result);
+    EXPECT_EQ("", breakId);
 }
 
 /**

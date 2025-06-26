@@ -28,7 +28,7 @@
 #include "PlayerUtils.h"
 
 #include "ProcessHandler.h"
-#include "PlayerIarmRfcInterface.h"
+#include "PlayerExternalsInterface.h"
 
 #include <assert.h>
 #include <iostream>
@@ -79,7 +79,7 @@ OCDMSessionAdapter::OCDMSessionAdapter(DrmHelperPtr drmHelper, DrmCallbacks *cal
 	initDRMSystem();
 
 	// Get output protection pointer
-	m_pOutputProtection = PlayerIarmRfcInterface::GetPlayerIarmRfcInterfaceInstance();
+	m_pOutputProtection = PlayerExternalsInterface::GetPlayerExternalsInterfaceInstance();
 	MW_LOG_WARN("OCDMSessionAdapter :: exit ");
 }
 
@@ -327,7 +327,7 @@ int OCDMSessionAdapter::processDRMKey(DrmData* key, uint32_t timeout)
 			}
 			else 
 			{
-				if(processHandler.KillProcess("WPEcdmi")) /** Backword compatability **/
+				if(processHandler.KillProcess("WPEcdmi")) /** Backword compatibility **/
 				{
 					MW_LOG_WARN("OCDM HWError reported.. Killed the process WPEcdmi for recovery..");
 				}
