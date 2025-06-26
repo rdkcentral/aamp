@@ -94,6 +94,7 @@ typedef enum
 	AAMP_EVENT_MANIFEST_REFRESH_NOTIFY,	/**< 43, DASH Manifest refresh notification*/
 	AAMP_EVENT_TUNE_TIME_METRICS,	/**< 44, Event when Tune time metric data sends*/
 	AAMP_EVENT_NEED_MANIFEST_DATA, /**< 45, DASH need preprocessed manifest notification */
+	AAMP_EVENT_MONITORAV_STATUS,	/**< 46, MonitorAV status notification */
 	AAMP_MAX_NUM_EVENTS
 } AAMPEventType;
 
@@ -498,6 +499,17 @@ struct AAMPEvent
 		{
 			const char *mTuneMetricData;	/**< Tune timemetric data */
 		} tuneMetricData;
+
+		/**
+		 * @brief Structure of the monitorAV status event
+		 */
+		struct
+		{
+			const char *mMonitorAVStatus;	/**< MonitorAV status */
+			int64_t mVideoPositionMS;	/**< Video position in milliseconds */
+			int64_t mAudioPositionMS;	/**< Audio position in milliseconds */
+			uint64_t mTimeInStateMS;	/**< Time in the current state in milliseconds */
+		} monitorAVStatus;
 	} data;
 
 	/**
@@ -543,19 +555,19 @@ public:
 
 	AAMPEventObject() = delete;
 	/**
-         * @brief Copy constructor disabled
-         *
-         */
+	 * @brief Copy constructor disabled
+	 */
 	AAMPEventObject(const AAMPEventObject&) = delete;
 	/**
-         * @brief assignment operator disabled
-         *
-         */
+	 * @brief assignment operator disabled
+	 */
 	AAMPEventObject& operator=(const AAMPEventObject&) = delete;
 
 	/**
 	 * @fn AAMPEventObject
-	 */ 	 
+	 * @param[in] type - Event type
+	 * @param[in] sid - Session ID
+	 */
 	AAMPEventObject(AAMPEventType type, std::string sid);
 
 	/**
@@ -568,7 +580,9 @@ public:
 	 */
 	AAMPEventType getType() const;
 
-
+	/**
+	 * @fn getSessionId
+	 */
 	const std::string & GetSessionId() const { return mSessionID; }
 	
 };
@@ -859,6 +873,7 @@ class MediaMetadataEvent: public AAMPEventObject
 	std::string mAudioMixType; 		  /**<  AudioMixType(- E.g STEREO. */
 	bool  isAtmos;  	 		  /**<  Is Atmos : 1 - True if audio playing is Dolby Atmos, 0 false ,  -1 indicates data not available */
 	int mTsbDepthMs;                /**<  TsbDepth in Milliseconds*/
+	std::string mUrl;          /**< effectiveUrl */
 
 public:
 	MediaMetadataEvent() = delete;
@@ -874,9 +889,10 @@ public:
 	 * @param[in] hasDrm   - Drm enablement status
 	 * @param[in] isLive   - Is Live
 	 * @param[in] DrmType  - DRM Type
+	 * @param[in] Url    - EffectiveUrl
 	 * @param[in] programStartTime  - Program/Availability start time
 	 */
-	MediaMetadataEvent(long duration, int width, int height, bool hasDrm, bool isLive, const std::string &DrmType, double programStartTime, int tsbDepthMs, std::string sid);
+	MediaMetadataEvent(long duration, int width, int height, bool hasDrm, bool isLive, const std::string &DrmType, double programStartTime, int tsbDepthMs, std::string sid, const std::string &url);
 
 	/**
 	 * @brief MediaMetadataEvent Destructor
@@ -953,6 +969,11 @@ public:
 	 * @fn isLive
 	 */
 	bool isLive() const;
+
+	/**
+	 * @fn getUrl
+	 */
+	const std::string &getUrl() const;
 
 	/**
 	 * @fn getDrmType
@@ -1497,6 +1518,7 @@ class DrmMetaDataEvent: public AAMPEventObject
 	std::vector<std::string> mHeaderResponses; /**< Header response strings */
 	std::string mResponseData;	/**< Response Data */
 	std::string mNetworkMetrics;	/**< Network metric Data */
+	std::string mBodyResponses; /**Body response strings */
 public:
 	DrmMetaDataEvent() = delete;
 	DrmMetaDataEvent(const DrmMetaDataEvent&) = delete;
@@ -1675,6 +1697,21 @@ public:
 	 * @return void
 	 */
 	void setHeaderResponses(const std::vector<std::string> &responses);
+
+	/**
+	 * @brief Get body responses
+	 *
+	 * @return Body response string
+	 */
+	const std::string &getBodyResponse() const;
+
+	/**
+	 * @brief Set Body response from license request
+	 *
+	 * @param[in] string of body response
+	 * @return void
+	 */
+	void setBodyResponse(const std::string &responses);
 };
 
 
@@ -2193,39 +2230,39 @@ class WatermarkSessionUpdateEvent: public AAMPEventObject
 {
 	uint32_t mSessionHandle; /**< Playback session handle used to track and manage sessions  */
 	uint32_t mStatus; 	 /**< Provides the status of the watermark session.  */
-        std::string mSystem; 	 /**< Describes content watermarking protection provider  */
+	std::string mSystem; 	 /**< Describes content watermarking protection provider  */
 public:
-        WatermarkSessionUpdateEvent() = delete;
-        WatermarkSessionUpdateEvent(const WatermarkSessionUpdateEvent&) = delete;
-        WatermarkSessionUpdateEvent& operator=(const WatermarkSessionUpdateEvent&) = delete;
+	WatermarkSessionUpdateEvent() = delete;
+	WatermarkSessionUpdateEvent(const WatermarkSessionUpdateEvent&) = delete;
+	WatermarkSessionUpdateEvent& operator=(const WatermarkSessionUpdateEvent&) = delete;
 
-        /**
-         * @brief WatermarkSessionUpdateEvent Constructor
-         * @param[in]  sessionHandle - Handle used to track and manage session
-         * @param[in]  status - Status of the watermark session
-         * @param[in]  system - Watermarking protection provider
-         */
-        WatermarkSessionUpdateEvent(uint32_t sessionHandle, uint32_t status, const std::string &system, std::string sid) : AAMPEventObject(AAMP_EVENT_WATERMARK_SESSION_UPDATE, std::move(sid = {})) , mSessionHandle(sessionHandle), mStatus(status), mSystem(system)
-        {}
+	/**
+	 * @brief WatermarkSessionUpdateEvent Constructor
+	 * @param[in]  sessionHandle - Handle used to track and manage session
+	 * @param[in]  status - Status of the watermark session
+	 * @param[in]  system - Watermarking protection provider
+	 */
+	WatermarkSessionUpdateEvent(uint32_t sessionHandle, uint32_t status, const std::string &system, std::string sid) : AAMPEventObject(AAMP_EVENT_WATERMARK_SESSION_UPDATE, std::move(sid = {})) , mSessionHandle(sessionHandle), mStatus(status), mSystem(system)
+	{}
 
-        /**
-         * @brief WatermarkSessionUpdateEvent Destructor
-         */
-        virtual ~WatermarkSessionUpdateEvent() { }
+	/**
+	 * @brief WatermarkSessionUpdateEvent Destructor
+	 */
+	virtual ~WatermarkSessionUpdateEvent() { }
 
-        /**
-         * @brief Get session handle
-         *
-         * @return session handle
-         */
-        uint32_t getSessionHandle() const { return mSessionHandle; }
+	/**
+	 * @brief Get session handle
+	 *
+	 * @return session handle
+	 */
+	uint32_t getSessionHandle() const { return mSessionHandle; }
 
-	    /**
-         * @brief Get session status 
-         *
-         * @return status
-         */
-        uint32_t getStatus() const { return mStatus; }
+	/**
+	 * @brief Get session status 
+	 *
+	 * @return status
+	 */
+	uint32_t getStatus() const { return mStatus; }
 
 	/**
 	 * @brief Get System
@@ -2283,7 +2320,7 @@ class ManifestRefreshEvent: public AAMPEventObject
 	uint32_t mManifestDuration;	/**< Manifest duration  */
 	uint32_t mManifestPublishedTime;	/** mpd published time data from the download manifest */
 	int mNoOfPeriods;	/**< No of periods count */
-	const char * mManifestType; /**<Manifest type */
+	std::string mManifestType; /**<Manifest type */
 public:
 	ManifestRefreshEvent() = delete;
 	ManifestRefreshEvent(const ManifestRefreshEvent&) = delete;
@@ -2292,7 +2329,7 @@ public:
 	/**
 	 * @fn ManifestRefreshEvent
 	 */
-	ManifestRefreshEvent(uint32_t manifestDuration, int noOfPeriods, uint32_t manifestPublishedTime, std::string sid,const char *manifestType);
+	ManifestRefreshEvent(uint32_t manifestDuration, int noOfPeriods, uint32_t manifestPublishedTime, const std::string &manifestType, std::string sid);
 
 	/**
 	 * @brief ManifestRefreshEvent Destructor
@@ -2317,7 +2354,7 @@ public:
 	/**
 	 * @fn getManifestType
 	 */
-	const char *getManifestType() const;
+	const std::string &getManifestType() const;
 
 };
 
@@ -2352,6 +2389,59 @@ public:
 	const std::string &getTuneMetricsData() const;
 };
 
+/**
+ * @class MonitorAVStatusEvent
+ * @brief Class for the MonitorAV Status Event
+ */
+class MonitorAVStatusEvent: public AAMPEventObject
+{
+	std::string mMonitorAVStatus;	/**< MonitorAV status */
+	int64_t mVideoPositionMS;	/**< Video position in milliseconds */
+	int64_t mAudioPositionMS;	/**< Audio position in milliseconds */
+	uint64_t mTimeInStateMS;	/**< Time in the current state in milliseconds */
+
+public:
+	MonitorAVStatusEvent() = delete;
+	MonitorAVStatusEvent(const MonitorAVStatusEvent&) = delete;
+	MonitorAVStatusEvent& operator=(const MonitorAVStatusEvent&) = delete;
+
+	/**
+	 * @fn MonitorAVStatusEvent
+	 *
+	 * @param[in] status - MonitorAV status
+	 * @param[in] videoPositionMS - Video position in milliseconds
+	 * @param[in] audioPositionMS - Audio position in milliseconds
+	 * @param[in] timeInStateMS - Time in the current state in milliseconds
+	 * @param[in] sid - Session Identifier
+	 */
+	MonitorAVStatusEvent(const std::string &status, int64_t videoPositionMS, int64_t audioPositionMS, uint64_t timeInStateMS, std::string sid);
+
+	/**
+	 * @brief MonitorAVStatusEvent Destructor
+	 */
+	virtual ~MonitorAVStatusEvent() { }
+
+	/**
+	 * @fn getMonitorAVStatus
+	 */
+	const std::string &getMonitorAVStatus() const;
+
+	/**
+	 * @fn getVideoPositionMS
+	 */
+	int64_t getVideoPositionMS() const;
+
+	/**
+	 * @fn getAudioPositionMS
+	 */
+	int64_t getAudioPositionMS() const;
+
+	/**
+	 * @fn getTimeInStateMS
+	 */
+	uint64_t getTimeInStateMS() const;
+};
+
 
 using AAMPEventPtr = std::shared_ptr<AAMPEventObject>;
 using MediaErrorEventPtr = std::shared_ptr<MediaErrorEvent>;
@@ -2383,5 +2473,7 @@ using WatermarkSessionUpdateEventPtr = std::shared_ptr<WatermarkSessionUpdateEve
 using ContentProtectionDataEventPtr = std::shared_ptr<ContentProtectionDataEvent>;
 using ManifestRefreshEventPtr = std::shared_ptr<ManifestRefreshEvent>;
 using TuneTimeMetricsEventPtr = std::shared_ptr<TuneTimeMetricsEvent>;
+using MonitorAVStatusEventPtr = std::shared_ptr<MonitorAVStatusEvent>;
+
 #endif /* __AAMP_EVENTS_H__ */
 

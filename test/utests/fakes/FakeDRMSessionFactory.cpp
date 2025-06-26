@@ -17,7 +17,7 @@
 * limitations under the License.
 */
 
-#include <drmsessionfactory.h>
+#include "DrmSessionFactory.h"
 
 DrmSession* DrmSessionFactory::GetDrmSession(DrmHelperPtr drmHelper, DrmCallbacks *drmCallbacks)
 {

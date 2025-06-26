@@ -134,8 +134,9 @@ public:
 	 * @param subSamplesBuffer : sub Samples Buffer.
 	 * @retval Returns 0 on success.
 	 */
+
 	int decrypt(GstBuffer* keyIDBuffer, GstBuffer* ivBuffer, GstBuffer* buffer, unsigned subSampleCount,
-				GstBuffer* subSamplesBuffer, GstCaps* caps);
+                               GstBuffer* subSamplesBuffer, GstCaps* caps);
 
 	/**
 	 * @fn getState

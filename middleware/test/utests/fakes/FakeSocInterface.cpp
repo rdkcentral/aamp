@@ -43,11 +43,11 @@ bool DefaultSocInterface::UseAppSrc()
 	return false;
 }
 
-void DefaultSocInterface::SetAudioProperty(const char **volume, const char **mute, bool& isSinkBinVolume)
+void DefaultSocInterface::SetAudioProperty(const char * &volume, const char * &mute, bool& isSinkBinVolume)
 {
 	isSinkBinVolume = false;
-	*volume = "volume";
-	*mute = "mute";
+	volume = "volume";
+	mute = "mute";
 #if defined(__APPLE__)
 	isSinkBinVolume = true;
 #endif

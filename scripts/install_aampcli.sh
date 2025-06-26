@@ -29,11 +29,6 @@ function aampcli_install_postbuild_fn()
         else
             echo "To use Xcode, open aamp/build/AAMP.xcodeproj project file"
         fi      
-    else
-        if [ $OPTION_DONT_RUN_AAMPCLI = false ];then
-            echo "Opening VSCode Workspace..."
-            code ../ubuntu-aamp-cli.code-workspace
-        fi
     fi
 }
 
@@ -128,6 +123,11 @@ function aampcli_install_build_darwin_fn()
     echo "Now Building aamp-cli"
     xcodebuild -scheme aamp-cli  build
 
+    if [ ${OPTION_AAMPCLIKOTLIN_SKIP}=false ]; then
+        echo "Making aamp-cli on kotlin..."
+        xcodebuild -scheme aampKotlin  build
+    fi
+
     if [  -f "./Debug/aamp-cli" ]; then
         echo "OSX AAMP Build PASSED"
         arr_install_status+=("OSX AAMP Build PASSED")
@@ -155,7 +155,13 @@ function aampcli_install_build_linux_fn
    echo "Making aamp-cli..."
    cd build
    make aamp-cli
+
+    if [ ${OPTION_AAMPCLIKOTLIN_SKIP}=false ]; then
+        echo "Making aamp-cli on kotlin..."
+        make aampKotlin
+    fi
    make install
+
    if [  -f "./aamp-cli" ]; then
         echo "****Linux AAMP Build PASSED****"
         ldd ./aamp-cli

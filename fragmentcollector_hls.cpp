@@ -52,11 +52,9 @@
 #include <string>
 #include "HlsDrmBase.h"
 #include "AampCacheHandler.h"
-#ifdef USE_OPENCDM_ADAPTER
-#include "AampHlsDrmSessionManager.h"
-#endif
+#include "PlayerHlsDrmSessionInterface.h"
 #ifdef AAMP_VANILLA_AES_SUPPORT
-#include "aamp_aes.h"
+#include "Aes.h"
 #endif
 #include "webvttParser.h"
 #include "SubtecFactory.hpp"
@@ -65,10 +63,10 @@
 #include "MetadataProcessor.hpp"
 #include "AampUtils.h"
 #include "AampStreamSinkManager.h"
-#include "AampDRMSessionManager.h"
 #include "PlayerCCManager.h"
-#include "VanillaDrmHelper.h"
 
+#include "VanillaDrmHelper.h"
+#include "AampDRMLicManager.h"
 static const int DEFAULT_STREAM_WIDTH = 720;
 static const int DEFAULT_STREAM_HEIGHT = 576;
 static const double  DEFAULT_STREAM_FRAMERATE = 25.0;
@@ -76,7 +74,7 @@ static const double  DEFAULT_STREAM_FRAMERATE = 25.0;
 // checks if current state is going to use IFRAME ( Fragment/Playlist )
 #define IS_FOR_IFRAME(rate, type) ((type == eTRACK_VIDEO) && (rate != AAMP_NORMAL_PLAY_RATE))
 
-extern DrmHelperPtr ProcessContentProtection(PrivateInstanceAAMP *aamp, std::string attrName);
+extern DrmHelperPtr ProcessContentProtection(std::string attrName, bool propagateURIParam , bool isSamplesRequired);
 
 #define UseProgramDateTimeIfAvailable() (ISCONFIGSET(eAAMPConfig_HLSAVTrackSyncUsingStartTime) || aamp->mIsVSS)
 
@@ -459,7 +457,7 @@ void StreamAbstractionAAMP_HLS::InitiateDrmProcess()
 			if (!aamp->aesCtrAttrDataList.at(i).isProcessed)
 			{
 				aamp->aesCtrAttrDataList.at(i).isProcessed = true;
-				DrmHelperPtr drmHelper = ProcessContentProtection(aamp, aamp->aesCtrAttrDataList.at(i).attrName);
+				DrmHelperPtr drmHelper = ProcessContentProtection( aamp->aesCtrAttrDataList.at(i).attrName, ISCONFIGSET(eAAMPConfig_PropagateURIParam),  aamp->isDecryptClearSamplesRequired());
 				if (nullptr != drmHelper)
 				{
 					/* This needs effort from MSO as to what they want to do viz-a-viz preferred DRM, */
@@ -467,13 +465,13 @@ void StreamAbstractionAAMP_HLS::InitiateDrmProcess()
 				}
 			}
 		}
-		if ((drmHelperToUse != nullptr) && (aamp->mDRMSessionManager))
+		if ((drmHelperToUse != nullptr) && (aamp->mDRMLicenseManager))
 		{
-			AampDRMSessionManager *sessionMgr = aamp->mDRMSessionManager;
+			AampDRMLicenseManager *licenseManager = aamp->mDRMLicenseManager;
 			/** Queue protection event to the pipeline **/
-			sessionMgr->QueueProtectionEvent(drmHelperToUse, "1", 0, eMEDIATYPE_VIDEO);
+			licenseManager->QueueProtectionEvent(drmHelperToUse, "1", 0, eMEDIATYPE_VIDEO);
 			/** Queue content protection in DRM license fetcher **/
-			sessionMgr->QueueContentProtection(drmHelperToUse, "1", 0, eMEDIATYPE_VIDEO);
+			licenseManager->QueueContentProtection(drmHelperToUse, "1", 0, eMEDIATYPE_VIDEO);
 		}
 	}
 }
@@ -1515,12 +1513,12 @@ bool TrackState::FetchFragmentHelper(int &http_error, bool &decryption_error, bo
 void TrackState::updateSkipPoint(double position, double duration )
 {
 	if(ISCONFIGSET(eAAMPConfig_EnablePTSReStamp) && (aamp->mVideoFormat == FORMAT_ISO_BMFF ))
-    {
-    	if(playContext)
+	{
+		if(playContext)
 		{
 			playContext->updateSkipPoint( position,duration );
 		}
-    }
+	}
 }
 
 /**
@@ -1528,13 +1526,13 @@ void TrackState::updateSkipPoint(double position, double duration )
  */
 void TrackState::setDiscontinuityState(bool isDiscontinuity)
 {
-    if(ISCONFIGSET(eAAMPConfig_EnablePTSReStamp) && (aamp->mVideoFormat == FORMAT_ISO_BMFF ))
-    {
-    	if(playContext)
+	if(ISCONFIGSET(eAAMPConfig_EnablePTSReStamp) && (aamp->mVideoFormat == FORMAT_ISO_BMFF ))
+	{
+		if(playContext)
 		{
 			playContext->setDiscontinuityState(isDiscontinuity);
 		}
-    }
+	}
  }
 
 /**
@@ -1542,14 +1540,14 @@ void TrackState::setDiscontinuityState(bool isDiscontinuity)
  */
  void TrackState::abortWaitForVideoPTS()
  {
-    if(ISCONFIGSET(eAAMPConfig_EnablePTSReStamp) && (aamp->mVideoFormat == FORMAT_ISO_BMFF ))
-    {
-    	if(playContext)
+	if(ISCONFIGSET(eAAMPConfig_EnablePTSReStamp) && (aamp->mVideoFormat == FORMAT_ISO_BMFF ))
+	{
+		if(playContext)
 		{
 			AAMPLOG_WARN(" %s abort waiting for video PTS arrival",name );
-          	playContext->abortWaitForVideoPTS();
+		playContext->abortWaitForVideoPTS();
 		}
-    }
+	}
  }
 /**
  * @brief Function to Fetch the fragment and inject for playback
@@ -1877,24 +1875,25 @@ void TrackState::SetDrmContext()
 
 	//CID:93939 - Removed the drmContextUpdated variable which is initialized but not used
 	mDrmInfo.bPropagateUriParams = ISCONFIGSET(eAAMPConfig_PropagateURIParam);
-#ifdef USE_OPENCDM_ADAPTER
-	if (AampHlsDrmSessionManager::getInstance().isDrmSupported(mDrmInfo))
+	if (PlayerHlsDrmSessionInterface::getInstance()->isDrmSupported(mDrmInfo))
 	{
 		// OCDM-based DRM decryption is available via the HLS OCDM bridge
 		AAMPLOG_INFO("Drm support available");
-		mDrm = AampHlsDrmSessionManager::getInstance().createSession(aamp, mDrmInfo,(AampMediaType)(type));
+		mDrmInterface->RegisterHlsInterfaceCb( PlayerHlsDrmSessionInterface::getInstance());
+		mDrm = PlayerHlsDrmSessionInterface::getInstance()->createSession( mDrmInfo,(int)(type));
 		if (!mDrm)
 		{
 			AAMPLOG_WARN("Failed to create Drm Session");
 		}
 	}
 	else
-#endif
 	{
 		// No DRM helper located, assuming standard AES encryption
 #ifdef AAMP_VANILLA_AES_SUPPORT
 		AAMPLOG_INFO("StreamAbstractionAAMP_HLS::Get AesDec");
 		mDrm = AesDec::GetInstance();
+		mDrmInterface->RegisterAesInterfaceCb((std::shared_ptr <HlsDrmBase>) mDrm);
+
 		aamp->setCurrentDrm(std::make_shared<VanillaDrmHelper>());
 
 #else
@@ -1904,7 +1903,8 @@ void TrackState::SetDrmContext()
 
 	if(mDrm)
 	{
-		mDrm->SetDecryptInfo(aamp, &mDrmInfo);
+		mDrmInterface->UpdateAamp(aamp);
+		mDrm->SetDecryptInfo( &mDrmInfo,  aamp->mConfig->GetConfigValue(eAAMPConfig_LicenseKeyAcquireWaitTime) );
 	}
 }
 
@@ -2216,9 +2216,7 @@ void TrackState::IndexPlaylist(bool IsRefresh, AampTime &culledSec)
 	// IF already stored , AveDrmManager will ignore it
 	// ProcessDrmMetadata -> to be called only from one place , after playlist indexing. Not to call from other places
 	if(mDrmMethod != eDRM_KEY_METHOD_SAMPLE_AES_CTR
-#ifdef USE_OPENCDM_ADAPTER
-		&& !AampHlsDrmSessionManager::getInstance().isDrmSupported(mDrmInfo)
-#endif
+		&& !PlayerHlsDrmSessionInterface::getInstance()->isDrmSupported(mDrmInfo)
 	  )
 	{
 		aamp->profiler.ProfileBegin(PROFILE_BUCKET_LA_TOTAL);
@@ -3368,12 +3366,12 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 			printf("***Main Manifest***:\n\n%s\n************\n", this->mainManifest.GetPtr());
 		}
 
-		AampDRMSessionManager *sessionMgr = aamp->mDRMSessionManager;
+		AampDRMLicenseManager *licenseManager = aamp->mDRMLicenseManager;
 		bool forceClearSession = (!ISCONFIGSET(eAAMPConfig_SetLicenseCaching) && (tuneType == eTUNETYPE_NEW_NORMAL));
-		sessionMgr->clearDrmSession(forceClearSession);
-		sessionMgr->clearFailedKeyIds();
-		sessionMgr->setSessionMgrState(SessionMgrState::eSESSIONMGR_ACTIVE);
-		sessionMgr->setLicenseRequestAbort(false);
+		licenseManager->clearDrmSession(forceClearSession);
+		licenseManager->clearFailedKeyIds();
+		licenseManager->setSessionMgrState(SessionMgrState::eSESSIONMGR_ACTIVE);
+		licenseManager->setLicenseRequestAbort(false);
 		// Parse the Main manifest ( As Parse function modifies the original data,InsertCache had to be called before it .
 		long long tStartTime = NOW_STEADY_TS_MS;
 		AAMPStatusType mainManifestResult = ParseMainManifest();
@@ -4902,10 +4900,7 @@ void TrackState::RunFetchLoop()
 ***************************************************************************/
 void TrackState::FragmentCollector(void)
 {
-	if(aamp_pthread_setname(pthread_self(), "aampHLSFetcher"))
-	{
-		AAMPLOG_WARN("aamp_pthread_setname failed");
-	}
+	aamp_setThreadName("aampHLSFetcher");
 	UsingPlayerId player(aamp->mPlayerId);
 	RunFetchLoop();
 	return;
@@ -4924,12 +4919,13 @@ StreamAbstractionAAMP_HLS::StreamAbstractionAAMP_HLS(class PrivateInstanceAAMP *
 	mLangList(),mIframeAvailable(false), thumbnailManifest("thumbnailManifest"), indexedTileInfo(),
 	mFirstPTS(0),mDiscoCheckMutex(),
 	mPtsOffsetUpdate{ptsUpdate},
+	mDrmInterface(aamp),
 	mMetadataProcessor{nullptr}
 {
-	if (aamp->mDRMSessionManager)
+	if (aamp->mDRMLicenseManager)
 	{
-		AampDRMSessionManager *sessionMgr = aamp->mDRMSessionManager;
-		sessionMgr->SetLicenseFetcher(this);
+		AampDRMLicenseManager *licenseManager = aamp->mDRMLicenseManager;
+		licenseManager->SetLicenseFetcher(this);
 	}
 	trickplayMode = false;
 	enableThrottle = ISCONFIGSET(eAAMPConfig_Throttle);
@@ -4966,7 +4962,6 @@ TrackState::TrackState(TrackType type, StreamAbstractionAAMP_HLS* parent, Privat
 		playTargetOffset(0),
 		discontinuity(false),
 		refreshPlaylist(false), fragmentCollectorThreadID(), isFirstFragmentAfterABR(false),
-		fragmentCollectorThreadStarted(false),
 		manifestDLFailCount(0),
 		mCMSha1Hash(), mDrmTimeStamp(0), firstIndexDone(false), mDrm(NULL), mDrmLicenseRequestPending(false),
 		mInjectInitFragment(false), mInitFragmentInfo(), mDrmKeyTagCount(0), mIndexingInProgress(false), mForceProcessDrmMetadata(false),
@@ -4995,6 +4990,7 @@ TrackState::TrackState(TrackType type, StreamAbstractionAAMP_HLS* parent, Privat
 	mProgramDateTime = aamp->mProgramDateTime;
 	AAMPLOG_INFO("Restore PDT (%f) ",mProgramDateTime.inSeconds());
 	playlistMediaType = GetPlaylistMediaTypeFromTrack(type, IS_FOR_IFRAME(aamp->rate,type));
+	mDrmInterface  = DrmInterface::GetInstance(aamp);
 }
 
 
@@ -5030,10 +5026,9 @@ void TrackState::Stop(bool clearDRM)
 	{
 		StopPlaylistDownloaderThread();
 	}
-	if (fragmentCollectorThreadStarted)
+	if (fragmentCollectorThreadID.joinable())
 	{
 		fragmentCollectorThreadID.join();
-		fragmentCollectorThreadStarted = false;
 	}
 
 	aamp->StopTrackInjection((AampMediaType) type);
@@ -5086,7 +5081,7 @@ void TrackState::Start(void)
 	{
 		playContext->reset();
 	}
-	assert(!fragmentCollectorThreadStarted);
+
 	if(aamp->IsLive())
 	{
 		StartPlaylistDownloaderThread();
@@ -5094,9 +5089,16 @@ void TrackState::Start(void)
 
 	try
 	{
-		fragmentCollectorThreadID =  std::thread(&TrackState::FragmentCollector, this);
-		fragmentCollectorThreadStarted = true;
-		AAMPLOG_INFO("Thread created for FragmentCollector [%zx]", GetPrintableThreadID(fragmentCollectorThreadID));
+    	// Attempting to assign to a running thread will cause std::terminate(), not an exception
+		if(!fragmentCollectorThreadID.joinable())
+		{
+			fragmentCollectorThreadID = std::thread(&TrackState::FragmentCollector, this);
+			AAMPLOG_INFO("Thread created for FragmentCollector [%zx]", GetPrintableThreadID(fragmentCollectorThreadID));
+		}
+		else
+		{
+			AAMPLOG_WARN("FragmentCollector thread already running, not creating a new one");
+		}
 	}
 	catch(const std::exception& e)
 	{
@@ -5116,7 +5118,7 @@ void TrackState::Start(void)
  */
 void StreamAbstractionAAMP_HLS::Start(void)
 {
-	aamp->mDRMSessionManager->setSessionMgrState(SessionMgrState::eSESSIONMGR_ACTIVE);
+	aamp->mDRMLicenseManager->setSessionMgrState(SessionMgrState::eSESSIONMGR_ACTIVE);
 	for (int iTrack = 0; iTrack < AAMP_TRACK_COUNT; iTrack++)
 	{
 		TrackState *track = trackState[iTrack];
@@ -5188,9 +5190,9 @@ void StreamAbstractionAAMP_HLS::Stop(bool clearChannelData)
 		}
 		if(ISCONFIGSET(eAAMPConfig_UseSecManager))
 		{
-			aamp->mDRMSessionManager->notifyCleanup();
+			aamp->mDRMLicenseManager->notifyCleanup();
 		}
-		aamp->mDRMSessionManager->setSessionMgrState(SessionMgrState::eSESSIONMGR_INACTIVE);
+		aamp->mDRMLicenseManager->setSessionMgrState(SessionMgrState::eSESSIONMGR_INACTIVE);
 	}
 	if(!clearChannelData)
 	{
@@ -5267,12 +5269,16 @@ std::vector<StreamInfo*> StreamAbstractionAAMP_HLS::GetAvailableThumbnailTracks(
 * @param *ptr pointer to thumbnail manifest
 * @return Updated vector of available thumbnail tracks.
 ***************************************************************************/
-/*static*/std::vector<TileInfo> IndexThumbnails( lstring iter )
+std::vector<TileInfo> IndexThumbnails( lstring iter , double stTime=0 )
 {
 	std::vector<TileInfo> rc;
-	AampTime startTime{};
+	AampTime startTime = stTime;
 	TileLayout layout;
 	memset( &layout, 0, sizeof(layout) );
+
+	layout.numRows = DEFAULT_THUMBNAIL_TILE_ROWS;
+	layout.numCols = DEFAULT_THUMBNAIL_TILE_COLUMNS;
+
 	while(!iter.empty())
 	{
 		lstring ptr = iter.mystrpbrk();
@@ -5292,6 +5298,17 @@ std::vector<StreamInfo*> StreamAbstractionAAMP_HLS::GetAvailableThumbnailTracks(
 			else if( !ptr.startswith('#') )
 			{
 				TileInfo tileInfo;
+				if( 0.0f == layout.posterDuration )
+				{
+					if( layout.tileSetDuration )
+					{
+						layout.posterDuration = layout.tileSetDuration;
+					}
+					else
+					{
+						layout.posterDuration = DEFAULT_THUMBNAIL_TILE_DURATION;
+					}
+				}
 				tileInfo.layout = layout;
 				tileInfo.url = ptr.tostring();
 				tileInfo.startTime = startTime.inSeconds();
@@ -5299,6 +5316,10 @@ std::vector<StreamInfo*> StreamAbstractionAAMP_HLS::GetAvailableThumbnailTracks(
 				rc.push_back( tileInfo );
 			}
 		}
+	}
+	if(rc.empty() )
+	{
+		AAMPLOG_WARN("IndexThumbnails failed");
 	}
 	return rc;
 }
@@ -5337,10 +5358,26 @@ bool StreamAbstractionAAMP_HLS::SetThumbnailTrack( int thumbIndex )
 					downloadTime = tempDownloadTime;
 					AAMPLOG_WARN("In StreamAbstractionAAMP_HLS: Configured Thumbnail");
 					thumbnailManifest.AppendNulTerminator();
+					ContentType type = aamp->GetContentType();
+					if( ContentType_LINEAR == type  || ContentType_SLE == type )
+					{
+						if( aamp->getAampCacheHandler()->IsPlaylistUrlCached(streamInfo.uri) )
+						{
+							aamp->getAampCacheHandler()->RemoveFromPlaylistCache(streamInfo.uri);
+						}
+						rc=true;
+					}
 					aamp->getAampCacheHandler()->InsertToPlaylistCache(streamInfo.uri, &thumbnailManifest, tempEffectiveUrl,false,eMEDIATYPE_PLAYLIST_IFRAME);
-					lstring iter = lstring(thumbnailManifest.GetPtr(), thumbnailManifest.GetLen());
-					indexedTileInfo = IndexThumbnails( iter );
-					rc = true;
+					if( ContentType_SLE != type && ContentType_LINEAR != type )
+					{
+						lstring iter = lstring(thumbnailManifest.GetPtr(), thumbnailManifest.GetLen());
+						indexedTileInfo = IndexThumbnails( iter );
+						rc = !indexedTileInfo.empty();
+					}
+					if( !rc )
+					{
+						AAMPLOG_WARN("Thumbnail index failed");
+					}
 				}
 				else
 				{
@@ -5362,13 +5399,15 @@ std::vector<ThumbnailData> StreamAbstractionAAMP_HLS::GetThumbnailRangeData(doub
 {
 	std::vector<ThumbnailData> data{};
 	HlsStreamInfo &streamInfo = streamInfoStore[aamp->mthumbIndexValue];
-	if(!thumbnailManifest.GetPtr())
+	ContentType type = aamp->GetContentType();
+	if(!thumbnailManifest.GetPtr() || ( type == ContentType_SLE || type == ContentType_LINEAR ) )
 	{
+		thumbnailManifest.Free();
 		std::string tmpurl;
-		if(aamp->getAampCacheHandler()->RetrieveFromPlaylistCache(streamInfo.uri, &thumbnailManifest, tmpurl, eMEDIATYPE_PLAYLIST_IFRAME))
+		if(aamp->getAampCacheHandler()->RetrieveFromPlaylistCache(streamInfo.uri, &thumbnailManifest, tmpurl,eMEDIATYPE_PLAYLIST_IFRAME))
 		{
 			lstring iter = lstring(thumbnailManifest.GetPtr(),thumbnailManifest.GetLen());
-			indexedTileInfo = IndexThumbnails( iter );
+			indexedTileInfo = IndexThumbnails( iter, tStart );
 		}
 		else
 		{
@@ -5419,9 +5458,9 @@ std::vector<ThumbnailData> StreamAbstractionAAMP_HLS::GetThumbnailRangeData(doub
 		std::string url;
 		aamp_ResolveURL(url, aamp->GetManifestUrl(), streamInfo.uri.c_str(), ISCONFIGSET(eAAMPConfig_PropagateURIParam));
 		*baseurl = url.substr(0,url.find_last_of("/\\")+1);
-		*width = streamInfo.resolution.width;
-		*height = streamInfo.resolution.height;
 	}
+	*width = streamInfo.resolution.width;
+	*height = streamInfo.resolution.height;
 	return data;
 }
 
@@ -5436,7 +5475,7 @@ void StreamAbstractionAAMP_HLS::NotifyFirstVideoPTS(unsigned long long pts, unsi
 	if (sink)
 	{
 		// The pts_offset is expected to be in seconds for RialtoSink, so we convert it to GstClockTime (nanoseconds).
-                // For non-Rialto sinks, we need to convert the pts_offset to milliseconds to maintain consistency.
+				// For non-Rialto sinks, we need to convert the pts_offset to milliseconds to maintain consistency.
 		sink->SetSubtitlePtsOffset(mFirstPTS.inSeconds());
 	}
 }
@@ -6031,9 +6070,9 @@ void TrackState::FetchInitFragment()
 		aamp->profiler.ProfileBegin(bucketType);
 
 		if(discontinuity )
-    	{
+		{
 			setDiscontinuityState(true);
-    	}
+		}
 
 		if(FetchInitFragmentHelper(http_code, forcePushEncryptedHeader))
 		{
@@ -7031,8 +7070,8 @@ void TrackState::SwitchAudioTrack()
 		AAMPLOG_MIL("Updated gstSeek %lf to find new playTarget. Current Playtarget %lf , playlistPosition %lf", gstSeek.inSeconds(), playTarget.inSeconds(), oldPlaylistPosition);
 
 		AcquirePlaylistLock();
-                // Relative position in playlist
-                double oldPosInPlaylist = GetCompletionTimeForFragment(this, oldMediaSequenceNumber).inSeconds();
+		// Relative position in playlist
+		double oldPosInPlaylist = GetCompletionTimeForFragment(this, oldMediaSequenceNumber).inSeconds();
 
 		// Iterate from the beginning of the playlist again
 		playTarget = gstSeek;
@@ -7339,26 +7378,26 @@ bool TrackState::IsExtXByteRange( lstring fragmentInfo, size_t *byteRangeLength,
 //Enable default text track for Rialto
 void StreamAbstractionAAMP_HLS::SelectSubtitleTrack()
 {
-    if( currentTextTrackProfileIndex  == -1)
-    {
-        TextTrackInfo *firstAvailTextTrack = nullptr;
-        for (int j = 0; j < mTextTracks.size(); j++)
-        {
-            if (!mTextTracks[j].isCC)
-            {
+	if( currentTextTrackProfileIndex  == -1)
+	{
+		TextTrackInfo *firstAvailTextTrack = nullptr;
+		for (int j = 0; j < mTextTracks.size(); j++)
+		{
+			if (!mTextTracks[j].isCC)
+			{
 		firstAvailTextTrack = &mTextTracks[j];
-                break;
-            }
-        }
-        if(firstAvailTextTrack != nullptr)
-        {
-            currentTextTrackProfileIndex = std::stoi(firstAvailTextTrack->index);
-            aamp->mIsInbandCC = false;
-            aamp->SetCCStatus(false); //mute the subtitle track
-            aamp->SetPreferredTextTrack(*firstAvailTextTrack);
-        }
-    }
-    AAMPLOG_INFO("using RialtoSink TextTrack Selected :%d", currentTextTrackProfileIndex);
+				break;
+			}
+		}
+		if(firstAvailTextTrack != nullptr)
+		{
+			currentTextTrackProfileIndex = std::stoi(firstAvailTextTrack->index);
+			aamp->mIsInbandCC = false;
+			aamp->SetCCStatus(false); //mute the subtitle track
+			aamp->SetPreferredTextTrack(*firstAvailTextTrack);
+		}
+	}
+	AAMPLOG_INFO("using RialtoSink TextTrack Selected :%d", currentTextTrackProfileIndex);
 }
 
 bool StreamAbstractionAAMP_HLS::SelectPreferredTextTrack(TextTrackInfo& selectedTextTrack)

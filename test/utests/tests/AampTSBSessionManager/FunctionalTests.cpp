@@ -82,7 +82,7 @@ protected:
 		aamp = new PrivateInstanceAAMP(gpGlobalConfig);
 		mAampTSBSessionManager = new AampTSBSessionManager(aamp);
 		TSB::Store::Config config;
-		mTSBStore = std::make_shared<TSB::Store>(config, AampLogManager::aampLogger, TSB::LogLevel::TRACE);
+		mTSBStore = std::make_shared<TSB::Store>(config, AampLogManager::aampLogger, aamp->mPlayerId, TSB::LogLevel::TRACE);
 		g_mockTSBStore = new MockTSBStore();
 		g_mockMediaStreamContext = new StrictMock<MockMediaStreamContext>();
 		g_mockPrivateInstanceAAMP = new StrictMock<MockPrivateInstanceAAMP>();

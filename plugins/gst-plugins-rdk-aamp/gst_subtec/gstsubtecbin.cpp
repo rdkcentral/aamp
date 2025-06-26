@@ -293,8 +293,8 @@ type_found (GstElement * typefind, guint probability,
   tmp = chain;
 
   // Try to acquire the element stream mutex before calling gst_element_sync_state_with_parent()
-  // If an attempt to set the pipeline state to NULL occurs dring startup, this can lead to
-  // a deadlock between pad and elemnt mutexes
+  // If an attempt to set the pipeline state to NULL occurs during startup, this can lead to
+  // a deadlock between pad and element mutexes
   if (!try_lock_element_state(subtecbin))
   {
     GST_WARNING("%s unable to acquire element state lock!", __func__);

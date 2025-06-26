@@ -50,33 +50,34 @@ TestUtilJsonWrapper::~TestUtilJsonWrapper()
 TestUtilDrm::TestUtilDrm(PrivateInstanceAAMP* privAamp)
 	: mAamp(privAamp)
 {
-	mSessionManager = aamp_utils::make_unique<AampDRMSessionManager>(2 /* maxDrmSessions */, mAamp);
+	mLicenseManager = aamp_utils::make_unique<AampDRMLicenseManager>(2, mAamp);
 }
 
 TestUtilDrm::~TestUtilDrm()
 {
-	mSessionManager->clearSessionData();
+	mLicenseManager->mDrmSessionManager->clearSessionData();
 }
 
-AampDRMSessionManager* TestUtilDrm::getSessionManager()
+AampDRMLicenseManager* TestUtilDrm::getSessionManager()
 {
-	return mSessionManager.get();
+	return mLicenseManager.get();
 }
 
 #ifdef USE_OPENCDM_ADAPTER
 DrmSession* TestUtilDrm::createDrmSessionForHelper(DrmHelperPtr drmHelper,
 													   const char* keySystem)
 {
-	AampDRMSessionManager* sessionManager = getSessionManager();
+	AampDRMLicenseManager* sessionManager = getSessionManager();
 	DrmMetaDataEventPtr event = createDrmMetaDataEvent();
 
 	EXPECT_CALL(*g_mockopencdm, opencdm_create_system(StrEq(keySystem)))
 		.WillOnce(Return(OCDM_SYSTEM));
 	EXPECT_CALL(*g_mockopencdm, opencdm_construct_session)
 		.WillOnce(DoAll(SetArgPointee<9>(OCDM_SESSION), Return(ERROR_NONE)));
-
+        
+	int err = -1;
 	DrmSession* drmSession =
-		sessionManager->createDrmSession(drmHelper, event, mAamp, eMEDIATYPE_VIDEO);
+		sessionManager->createDrmSession(drmHelper,  mAamp, event,(int)eMEDIATYPE_VIDEO);
 	return drmSession;
 }
 
@@ -92,7 +93,7 @@ DrmSession* TestUtilDrm::createDashDrmSession(const std::vector<uint8_t> testKey
 												  const std::string psshStr,
 												  DrmMetaDataEventPtr& event)
 {
-	AampDRMSessionManager* sessionManager = getSessionManager();
+	AampDRMLicenseManager* sessionManager = getSessionManager();
 
 	EXPECT_CALL(*g_mockopencdm, opencdm_create_system(StrEq("com.microsoft.playready")))
 		.WillOnce(Return(OCDM_SYSTEM));
@@ -103,9 +104,10 @@ DrmSession* TestUtilDrm::createDashDrmSession(const std::vector<uint8_t> testKey
 									testKeyData.size()))
 		.WillOnce(Return(ERROR_NONE));
 
-	DrmSession* drmSession = sessionManager->createDrmSession(
+	DrmSession* drmSession = sessionManager->createDrmSession( 
 		"9a04f079-9840-4286-ab92-e65be0885f95", eMEDIAFORMAT_DASH,
-		(const unsigned char*)psshStr.c_str(), psshStr.length(), eMEDIATYPE_VIDEO, mAamp, event);
+		(const unsigned char*)psshStr.c_str(), psshStr.length(), (int)eMEDIATYPE_VIDEO, mAamp, event);
+
 
 	return drmSession;
 }
@@ -155,7 +157,7 @@ void TestUtilDrm::setupChallengeCallbacksForExternalLicense()
 			(OpenCDMSession*)mockSessionInfo->session, mockSessionInfo->userData, url, challenge,
 			1);
 
-		// For DRM's which perform license acquisition outside the AampDRMSessionManager
+		// For DRM's which perform license acquisition outside the DRMSessionManager
 		// context(PlayerLicenseRequest::DRM_RETRIEVE) there wont be an opencdm_session_update
 		// call,hence trigger the keys_updated_callback as well within this callback
 		mockSessionInfo->callbacks.key_update_callback((OpenCDMSession*)mockSessionInfo->session,

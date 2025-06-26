@@ -52,10 +52,10 @@ void RealtekSocInterface::SetSinkAsync(GstElement *sink, gboolean status)
  * @brief Get SoC volume property name.
  * @return Volume property name.
  */
-void RealtekSocInterface::SetAudioProperty(const char **volume, const char **mute, bool& isSinkBinVolume)
+void RealtekSocInterface::SetAudioProperty(const char * &volume, const char * &mute, bool& isSinkBinVolume)
 {
-	*volume = "volume";
-	*mute = "mute";
+	volume = "volume";
+	mute = "mute";
 	isSinkBinVolume = true;		/*volume/mute property should be applied on sinkbin*/
 }
 

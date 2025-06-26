@@ -31,7 +31,8 @@ include_directories(${AAMP_ROOT}/middleware/playerjsonobject)
 include_directories(${AAMP_ROOT}/subtec/subtecparser)
 include_directories(${AAMP_ROOT}/subtitle)
 include_directories(${AAMP_ROOT}/middleware/closedcaptions)
-include_directories(${AAMP_ROOT}/externals)
+include_directories(${AAMP_ROOT}/middleware/externals)
+include_directories(${AAMP_ROOT}/middleware/baseConversion)
 
 include_directories(${GTEST_INCLUDE_DIRS})
 include_directories(${GMOCK_INCLUDE_DIRS})
@@ -43,24 +44,26 @@ include_directories(SYSTEM ${UTESTS_ROOT}/mocks)
 include_directories(${LIBCJSON_INCLUDE_DIRS})
 include_directories(${AAMP_ROOT}/tsb/api)
 include_directories(${AAMP_ROOT}/middleware)
+include_directories(${AAMP_ROOT}/middleware/externals/playersecmanager)
+include_directories(${AAMP_ROOT}/middleware/playerLogManager)
 
-set(TEST_SOURCES    PrivAampTests.cpp
-                    PrivAampAAMPTests.cpp)
+set(TEST_SOURCES	PrivAampTests.cpp
+					PrivAampAAMPTests.cpp
+					PrivAampTests_TsbInjection.cpp)
 set(AAMP_SOURCES ${AAMP_ROOT}/priv_aamp.cpp)
-add_executable(${EXEC_NAME}
-               ${TEST_SOURCES}
-               ${AAMP_SOURCES})
+add_executable(	${EXEC_NAME}
+				${TEST_SOURCES}
+				${AAMP_SOURCES})
 set_target_properties(${EXEC_NAME} PROPERTIES FOLDER "utests")
-target_compile_definitions(${EXEC_NAME} PRIVATE USE_SECMANAGER)
 
 if (CMAKE_XCODE_BUILD_SYSTEM)
-  # XCode schema target
-  xcode_define_schema(${EXEC_NAME})
+	# XCode schema target
+	xcode_define_schema(${EXEC_NAME})
 endif()
 
 if (COVERAGE_ENABLED)
-    include(CodeCoverage)
-    APPEND_COVERAGE_COMPILER_FLAGS()
+		include(CodeCoverage)
+		APPEND_COVERAGE_COMPILER_FLAGS()
 endif()
 target_link_libraries(${EXEC_NAME} fakes -pthread ${GLIB_LINK_LIBRARIES} ${OS_LD_FLAGS} ${GMOCK_LINK_LIBRARIES} ${GTEST_LINK_LIBRARIES} ${UUID_LINK_LIBRARIES})
 aamp_utest_run_add(${EXEC_NAME})

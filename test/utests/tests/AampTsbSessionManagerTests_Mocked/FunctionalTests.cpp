@@ -72,7 +72,7 @@ protected:
 		expectedTSBConfig.maxCapacity = 1024 * 1024 * 100;
 		expectedTSBConfig.minFreePercentage = 10;
 
-		mTsbStore = std::make_shared<TSB::Store>(expectedTSBConfig, TSB::LogFunction(), TSB::LogLevel::TRACE);
+		mTsbStore = std::make_shared<TSB::Store>(expectedTSBConfig, TSB::LogFunction(), mAamp->mPlayerId, TSB::LogLevel::TRACE);
 
 		EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetTSBStore(_, _, _)).WillRepeatedly(Return(mTsbStore));
 		mAampTSBSessionManager = std::make_shared<AampTSBSessionManager>(mAamp.get());

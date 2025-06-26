@@ -242,6 +242,7 @@ private:
 	std::mutex mQVssMutex;                              /** Mutex for accessing the mVssFetchQueue*/
 	std::condition_variable mQVssCond;                  /** Conditional variable to notify addition of an obj to mVssFetchQueue*/
 	bool mVssPreFetchThreadStarted;                     /** Flag denotes if Vss thread started*/
+	bool mIsSecClientError;
 };
 
 #endif /* _AAMP_LICENSE_PREFETCHER_HPP */

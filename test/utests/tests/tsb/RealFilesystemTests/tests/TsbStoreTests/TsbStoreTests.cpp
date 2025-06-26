@@ -39,10 +39,20 @@ const uint32_t kMaxCapacity{UINT32_MAX};
 const std::string kUrl{"https://lin017-gb-s8-prd-ak.cdn01.skycdp.com/v1/frag/bmff/enc/cenc/t/file.mp4"};
 const std::string kFile{"lin017-gb-s8-prd-ak.cdn01.skycdp.com/v1/frag/bmff/enc/cenc/t/file.mp4"};
 const char kFileContent[] {"content of the file"};
+const int kTestLoggerData{54321};
 
+// Directly called internally by the tests.
 void Logger(std::string&& tsbMessage)
 {
 	std::cout << "[RFT]" << std::move(tsbMessage) << std::endl;
+}
+
+// Registered with the TSB::Store constructor as the logging callback. Hence,
+// we also verify that the 'loggerData' value is correctly being passed back.
+void TsbLogger(std::string&& tsbMessage, int loggerData)
+{
+	Logger(std::move(tsbMessage));
+	EXPECT_EQ(loggerData, kTestLoggerData);
 }
 
 TEST(TsbStoreCreateDestroyTests, Negative_Unwriteable_Clean_Create_Destroy)
@@ -50,7 +60,7 @@ TEST(TsbStoreCreateDestroyTests, Negative_Unwriteable_Clean_Create_Destroy)
 	// Set a readonly path.
 	TSB::Store::Config tsbConfig{"/", kMinFreePercent, kMaxCapacity};
 
-	EXPECT_THROW(auto store = std::make_unique<TSB::Store>(tsbConfig, Logger, TSB::LogLevel::TRACE),
+	EXPECT_THROW(auto store = std::make_unique<TSB::Store>(tsbConfig, TsbLogger, kTestLoggerData, TSB::LogLevel::TRACE),
 				 std::invalid_argument);
 }
 
@@ -59,7 +69,7 @@ TEST(TsbStoreCreateDestroyTests, Negative_Relative_Clean_Create_Destroy)
 	// Set a Relative path.
 	TSB::Store::Config tsbConfig{"../", kMinFreePercent, kMaxCapacity};
 
-	EXPECT_THROW(auto store = std::make_unique<TSB::Store>(tsbConfig, Logger, TSB::LogLevel::TRACE),
+	EXPECT_THROW(auto store = std::make_unique<TSB::Store>(tsbConfig, TsbLogger, kTestLoggerData, TSB::LogLevel::TRACE),
 				 std::invalid_argument);
 }
 
@@ -79,7 +89,7 @@ protected:
 		const std::string kFlushDir{mTsbLocation + "/0"};
 
 		TSB::Store::Config tsbConfig{mTsbLocation, kMinFreePercent, kMaxCapacity};
-		mTsbStore = new TSB::Store(tsbConfig, Logger, TSB::LogLevel::TRACE);
+		mTsbStore = new TSB::Store(tsbConfig, TsbLogger, kTestLoggerData, TSB::LogLevel::TRACE);
 
 		// Wait for the initial flush to complete, so that the Store is in a consistent state
 		// before the test runs
@@ -215,7 +225,7 @@ TEST_F(TsbStoreTests, SecondConcurrentInstanceSameLocationFailure)
 	TSB::Store::Config tsbConfig{mTsbLocation, kMinFreePercent, kMaxCapacity};
 
 	// Create a second concurrent store instance for the *same* TSB Location
-	EXPECT_THROW(auto store = std::make_unique<TSB::Store>(tsbConfig, Logger, TSB::LogLevel::TRACE),
+	EXPECT_THROW(auto store = std::make_unique<TSB::Store>(tsbConfig, TsbLogger, kTestLoggerData, TSB::LogLevel::TRACE),
 				 std::invalid_argument);
 }
 
@@ -227,7 +237,7 @@ TEST_F(TsbStoreTests, SecondConcurrentInstanceDifferentLocationSuccess)
 
 	// Create a second concurrent store instance for a *different* TSB Location
 	TSB::Store* secondStore = nullptr;
-	EXPECT_NO_THROW(secondStore = new TSB::Store(tsbConfig, Logger, TSB::LogLevel::TRACE));
+	EXPECT_NO_THROW(secondStore = new TSB::Store(tsbConfig, TsbLogger, kTestLoggerData, TSB::LogLevel::TRACE));
 
 	// Second Store must be destroyed before its temporary location directory is removed
 	delete secondStore;
@@ -244,5 +254,5 @@ TEST_F(TsbStoreTests, SecondSequentialInstanceSameLocationSuccess)
 
 	// Create a second sequential store instance for the *same* TSB Location. This verifies
 	// that the Store location was unlocked when the first instance was destructed, above.
-	EXPECT_NO_THROW(mTsbStore = new TSB::Store(tsbConfig, Logger, TSB::LogLevel::TRACE));
+	EXPECT_NO_THROW(mTsbStore = new TSB::Store(tsbConfig, TsbLogger, kTestLoggerData, TSB::LogLevel::TRACE));
 }

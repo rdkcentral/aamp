@@ -72,11 +72,3 @@ void TSProcessor::SetAudioGroupId(std::string& id)
 void TSProcessor::setApplyOffsetFlag(bool enable)
 {
 }
-
-static unsigned long long mTimeAdjust;
-static bool mbInduceRollover;
-void tsdemuxer_InduceRollover( bool enable )
-{ // for use by aampcli.exe - allows induced PTS rollover to be triggered or (re)disabled
-	mTimeAdjust = 0;
-	mbInduceRollover = enable;
-}

@@ -41,6 +41,9 @@
 #define NOW_SYSTEM_TS_MS std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count()     /**< Getting current system clock in milliseconds */
 #define NOW_STEADY_TS_MS std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now().time_since_epoch()).count()     /**< Getting current steady clock in milliseconds */
 
+#define NOW_SYSTEM_TS_SECS_FP std::chrono::duration_cast<std::chrono::duration<double>>(std::chrono::system_clock::now().time_since_epoch()).count()     /**< Getting current system clock in floating point seconds */
+#define NOW_STEADY_TS_SECS_FP std::chrono::duration_cast<std::chrono::duration<double>>(std::chrono::steady_clock::now().time_since_epoch()).count()     /**< Getting current steady clock in floating point seconds */
+
 #define ARRAY_SIZE(A) (sizeof(A)/sizeof(A[0]))
 
 //Delete non-array object
@@ -399,5 +402,21 @@ std::string convertTimeToHHMMSS( long long t );
  * @retval NULL if needle not present within haystack
  */
 const char *mystrstr(const char *haystack_ptr, const char *haystack_fin, const char *needle_ptr);
+
+/**
+ * @brief wrapper for pthread_setname_np (pthreads used under the hood for std::thread)
+ * @param[in] name human readable thread name
+ */
+void aamp_setThreadName(const char *name);
+
+/**
+ * @brief wrapper for pthread_setschedparam (pthreads used under the hood for std::thread)
+ * @param[in] policy scheduling policy
+ * @param[in] priority scheduling priority
+ * @retval 0 on success
+ * @retval -1 on failure
+ */
+int aamp_SetThreadSchedulingParameters(int policy, int priority);
+
 
 #endif  /* __AAMP_UTILS_H__ */

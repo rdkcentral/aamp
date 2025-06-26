@@ -1062,3 +1062,114 @@ TEST_F(IsoBmffBufferTests, truncateMultipleTruns)
 	auto trun2{dynamic_cast<TrunBox *>(mIsoBmffBuffer->getChildBox(traf, Box::SKIP, ++index))};
 	EXPECT_NE(trun2, nullptr);
 }
+
+TEST_F(IsoBmffBufferTests, setMediaHeaderDuration_ver0)
+{
+	// Use for version == 0 case
+	std::vector<uint8_t>localBuffer(setTimescaleTestData, std::end(setTimescaleTestData));
+
+	mIsoBmffBuffer->setBuffer(localBuffer.data(), localBuffer.size());
+	mIsoBmffBuffer->parseBuffer();
+
+	{
+		// Find mdhd box
+		size_t index{0};
+		auto root{mIsoBmffBuffer->getBox(Box::MOOV, index)};
+		EXPECT_NE(root, nullptr);
+		index = 0;
+		auto trak{mIsoBmffBuffer->getChildBox(root, Box::TRAK, index)};
+		EXPECT_NE(trak, nullptr);
+		index = 0;
+		auto mdia{mIsoBmffBuffer->getChildBox(trak, Box::MDIA, index)};
+		EXPECT_NE(mdia, nullptr);
+		index = 0;
+		auto mdhd{dynamic_cast<MdhdBox *>(mIsoBmffBuffer->getChildBox(mdia, Box::MDHD, index))};
+		EXPECT_NE(mdhd, nullptr);
+
+		EXPECT_EQ(mdhd->getDuration(), 10000);
+	}
+
+	EXPECT_TRUE(mIsoBmffBuffer->setMediaHeaderDuration(20000));
+	// Destroy the boxes
+	mIsoBmffBuffer->destroyBoxes();
+	// Read the buffer again
+	mIsoBmffBuffer->parseBuffer();
+
+	{
+		// Find mdhd box
+		size_t index{0};
+		auto root{mIsoBmffBuffer->getBox(Box::MOOV, index)};
+		EXPECT_NE(root, nullptr);
+		index = 0;
+		auto trak{mIsoBmffBuffer->getChildBox(root, Box::TRAK, index)};
+		EXPECT_NE(trak, nullptr);
+		index = 0;
+		auto mdia{mIsoBmffBuffer->getChildBox(trak, Box::MDIA, index)};
+		EXPECT_NE(mdia, nullptr);
+		index = 0;
+		auto mdhd{dynamic_cast<MdhdBox *>(mIsoBmffBuffer->getChildBox(mdia, Box::MDHD, index))};
+		EXPECT_NE(mdhd, nullptr);
+
+		EXPECT_EQ(mdhd->getDuration(), 20000);
+	}
+}
+
+TEST_F(IsoBmffBufferTests, setMediaHeaderDuration_ver1)
+{
+	// Use for version == 1 case
+	std::vector<uint8_t>localBuffer(setMediaHeaderDurationTestData, std::end(setMediaHeaderDurationTestData));
+
+	mIsoBmffBuffer->setBuffer(localBuffer.data(), localBuffer.size());
+	mIsoBmffBuffer->parseBuffer();
+
+	{
+		// Find mdhd box
+		size_t index{0};
+		auto root{mIsoBmffBuffer->getBox(Box::MOOV, index)};
+		EXPECT_NE(root, nullptr);
+		index = 0;
+		auto trak{mIsoBmffBuffer->getChildBox(root, Box::TRAK, index)};
+		EXPECT_NE(trak, nullptr);
+		index = 0;
+		auto mdia{mIsoBmffBuffer->getChildBox(trak, Box::MDIA, index)};
+		EXPECT_NE(mdia, nullptr);
+		index = 0;
+		auto mdhd{dynamic_cast<MdhdBox *>(mIsoBmffBuffer->getChildBox(mdia, Box::MDHD, index))};
+		EXPECT_NE(mdhd, nullptr);
+
+		EXPECT_EQ(mdhd->getDuration(), 900000);
+	}
+
+	EXPECT_TRUE(mIsoBmffBuffer->setMediaHeaderDuration(0));
+	// Destroy and read the buffer again
+	mIsoBmffBuffer->destroyBoxes();
+	mIsoBmffBuffer->parseBuffer();
+
+	{
+		// Find mdhd box
+		size_t index{0};
+		auto root{mIsoBmffBuffer->getBox(Box::MOOV, index)};
+		EXPECT_NE(root, nullptr);
+		index = 0;
+		auto trak{mIsoBmffBuffer->getChildBox(root, Box::TRAK, index)};
+		EXPECT_NE(trak, nullptr);
+		index = 0;
+		auto mdia{mIsoBmffBuffer->getChildBox(trak, Box::MDIA, index)};
+		EXPECT_NE(mdia, nullptr);
+		index = 0;
+		auto mdhd{dynamic_cast<MdhdBox *>(mIsoBmffBuffer->getChildBox(mdia, Box::MDHD, index))};
+		EXPECT_NE(mdhd, nullptr);
+		// Check duration
+		EXPECT_EQ(mdhd->getDuration(), 0);
+	}
+}
+
+
+TEST_F(IsoBmffBufferTests, setMediaHeaderDurationNegative)
+{
+	mIsoBmffBuffer->setBuffer((uint8_t *)childBoxTestData, sizeof(childBoxTestData));
+	mIsoBmffBuffer->parseBuffer();
+
+	// No MDHD box
+	EXPECT_EQ(mIsoBmffBuffer->setMediaHeaderDuration(0), false);
+}

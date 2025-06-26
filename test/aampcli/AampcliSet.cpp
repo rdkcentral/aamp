@@ -585,21 +585,6 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 						break;
 					}
 
-				case 31:
-					{
-						int parallelPlaylistDL;
-						printf("[AAMPCLI] Matched Command ParallelPlaylistDL - %s\n", cmd);
-						if (sscanf(cmd, "set %s %d", command, &parallelPlaylistDL) == 2){
-							playerInstanceAamp->SetParallelPlaylistDL( (parallelPlaylistDL == 1)? true:false );
-						}
-						else
-						{
-							printf("[AAMPCLI] ERROR: Mismatch in arguments\n");
-							printf("[AAMPCLI] Expected: set %s <value 0 or 1>\n", command);
-						}
-						break;
-					}
-
 				case 32:
 					{
 						char preferredLanguages[128];
@@ -1358,7 +1343,7 @@ void Set::registerSetCommands()
 	addCommand(28,"downloadStartTimeout"," <x>","Set Download Start timeout (long x=timeout)");
 	addCommand(29,"downloadLowBWTimeout"," <x>","Set Download Low Bandwidth timeout (long x=timeout)");
 	addCommand(30,"preferredSubtitleLang"," <x>","Set Preferred Subtitle language (string x = lang)");
-	addCommand(31,"parallelPlaylistDL"," <x>","Set Parallel Playlist download (x=0/1)");
+	// deprecated command 31
 	addCommand(32,"preferredLanguages"," <x>","Set Preferred Languages(string lang1,lang2,... rendition type codec1,codec2.. ); use null to skip arguments");
 	addCommand(33,"preferredTextLanguages"," <x>","Set Preferred languages (string lang1,lang2,... ) , or path json file");
 	addCommand(34,"rampDownLimit"," <x>","Set number of Ramp Down limit during the playback (x = number)");

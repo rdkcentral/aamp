@@ -256,3 +256,15 @@ Box* IsoBmffBuffer::getBox(const char *name, size_t &index)
 void IsoBmffBuffer::truncate(void)
 {
 }
+
+bool IsoBmffBuffer::setMediaHeaderDuration(uint64_t duration)
+{
+    if (g_mockIsoBmffBuffer)
+    {
+        return g_mockIsoBmffBuffer->setMediaHeaderDuration(duration);
+    }
+    else
+    {
+        return false;
+    }
+}

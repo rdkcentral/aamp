@@ -60,8 +60,6 @@ STRING(REPLACE " -Werror=effc++" "" CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS}) #disabli
 #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}  -Wsuggest-override")
 #endif()
 
-add_definitions(-DENABLE_LOGGING)
-
 add_subdirectory(fakes)
 if (CMAKE_XCODE_BUILD_SYSTEM)
   # ARM64 will fail to build utest schemes in XCode unless this is set

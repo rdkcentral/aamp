@@ -35,6 +35,8 @@ include_directories(SYSTEM ${UTESTS_ROOT}/mocks)
 include_directories(${LIBCJSON_INCLUDE_DIRS})
 include_directories(${AAMP_ROOT}/tsb/api)
 include_directories(${AAMP_ROOT}/middleware)
+include_directories(${AAMP_ROOT}/middleware/baseConversion)
+include_directories(${AAMP_ROOT}/middleware/playerLogManager)
 
 set (DASH_PARSER_SOURCES ${AAMP_ROOT}/dash/xml/DomDocument.cpp
                 ${AAMP_ROOT}/dash/xml/DomElement.cpp
@@ -52,7 +54,7 @@ set(TEST_SOURCES FunctionalTests.cpp
 	AampMPDParseHelper.cpp)
 
 
-set(AAMP_SOURCES ${AAMP_ROOT}/downloader/AampCurlDownloader.cpp ${AAMP_ROOT}/AampUtils.cpp ${AAMP_ROOT}/_base64.cpp
+set(AAMP_SOURCES ${AAMP_ROOT}/downloader/AampCurlDownloader.cpp ${AAMP_ROOT}/AampUtils.cpp
                 ${AAMP_ROOT}/iso639map.cpp
 		${AAMP_ROOT}/AampMPDParseHelper.cpp
 		${AAMP_ROOT}/AampMPDDownloader.cpp

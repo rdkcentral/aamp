@@ -608,9 +608,14 @@ const char *mystrstr(const char *haystack_ptr, const char *haystack_fin, const c
 	return NULL;
 }
 
-extern "C"
-{
-void aamp_ApplyPageHttpHeaders(PlayerInstanceAAMP *aamp)
+void aamp_setThreadName(const char *name)
 {
 }
+
+int aamp_SetThreadSchedulingParameters(int policy, int priority)
+{
+	return 0;
 }
+
+// aamp_ApplyPageHttpHeaders not actually part of AampUtils.cpp, but fake declared here for convenience
+extern "C" void aamp_ApplyPageHttpHeaders(PlayerInstanceAAMP *aamp){}

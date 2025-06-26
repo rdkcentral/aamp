@@ -24,6 +24,7 @@ set(EXEC_NAME AampUtilsTests)
 include_directories(${AAMP_ROOT} ${AAMP_ROOT}/drm ${AAMP_ROOT}/downloader ${AAMP_ROOT}/drm/helper ${AAMP_ROOT}/subtitle ${AAMP_ROOT}/middleware/subtitle)
 include_directories(${AAMP_ROOT}/tsb/api)
 include_directories(${AAMP_ROOT}/middleware)
+include_directories(${AAMP_ROOT}/middleware/baseConversion)
 
 include_directories(${GTEST_INCLUDE_DIRS})
 include_directories(${GMOCK_INCLUDE_DIRS})
@@ -35,8 +36,7 @@ include_directories(${UTESTS_ROOT}/mocks)
 set(TEST_SOURCES AampUtilsTests.cpp
                  AampUtilsAAMPTests.cpp)
 
-set(AAMP_SOURCES ${AAMP_ROOT}/_base64.cpp
-                 ${AAMP_ROOT}/iso639map.cpp
+set(AAMP_SOURCES ${AAMP_ROOT}/iso639map.cpp
                  ${AAMP_ROOT}/scte35/AampSCTE35.cpp)
 
 add_executable(${EXEC_NAME}

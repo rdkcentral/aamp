@@ -162,7 +162,10 @@ protected:
 		{
 			mBasePeriodId = basePeriodId;
 		}
-
+		void SetBasePeriodoffset(double baseperiodoffset)
+		{
+			mBasePeriodOffset = baseperiodoffset;
+		}
 	};
 
 	PrivateInstanceAAMP *mPrivateInstanceAAMP;
@@ -175,31 +178,72 @@ protected:
 	static constexpr const char *TEST_AD_MANIFEST_URL = "http://host/ad/manifest.mpd";
 	MPD* mAdMPD;
 	static constexpr const char *mVodManifest = R"(<?xml version="1.0" encoding="utf-8"?>
-			<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" availabilityStartTime="2023-01-01T00:00:00Z" maxSegmentDuration="PT2S" minBufferTime="PT4.000S" minimumUpdatePeriod="P100Y" profiles="urn:dvb:dash:profile:dvb-dash:2014,urn:dvb:dash:profile:dvb-dash:isoff-ext-live:2014" publishTime="2023-01-01T00:01:00Z" timeShiftBufferDepth="PT5M" type="static">
-					<Period id="p0" start="PT0S">
-							<AdaptationSet id="0" contentType="video">
-									<Representation id="0" mimeType="video/mp4" codecs="avc1.640028" bandwidth="800000" width="640" height="360" frameRate="25">
-											<SegmentTemplate timescale="2500" initialization="video_p0_init.mp4" media="video_p0_$Number$.m4s" startNumber="1">
-													<SegmentTimeline>
-															<S t="0" d="5000" r="14" />
-													</SegmentTimeline>
-											</SegmentTemplate>
-									</Representation>
-							</AdaptationSet>
-					</Period>
-					<Period id="p1" start="PT30S">
-							<AdaptationSet id="1" contentType="video">
-									<Representation id="0" mimeType="video/mp4" codecs="avc1.640028" bandwidth="800000" width="640" height="360" frameRate="25">
-											<SegmentTemplate timescale="2500" initialization="video_p1_init.mp4" media="video_p1_$Number$.m4s" startNumber="16">
-													<SegmentTimeline>
-															<S t="0" d="5000" r="14" />
-													</SegmentTimeline>
-											</SegmentTemplate>
-									</Representation>
-							</AdaptationSet>
-					</Period>
-			</MPD>
-			)";
+<MPD xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="urn:mpeg:dash:schema:mpd:2011" xmlns:xlink="http://www.w3.org/1999/xlink" xsi:schemaLocation="urn:mpeg:DASH:schema:MPD:2011 http://standards.iso.org/ittf/PubliclyAvailableStandards/MPEG-DASH_schema_files/DASH-MPD.xsd" profiles="urn:mpeg:dash:profile:isoff-live:2011" type="static" mediaPresentationDuration="PT15M0.0S" minBufferTime="PT4.0S">
+	<Period id="p0" start="PT0S">
+		<AdaptationSet id="0" contentType="video">
+			<Representation id="0" mimeType="video/mp4" codecs="avc1.640028" bandwidth="800000" width="640" height="360" frameRate="25">
+				<SegmentTemplate timescale="2500" initialization="video_p0_init.mp4" media="video_p0_$Number$.m4s" startNumber="1">
+					<SegmentTimeline>
+						<S t="0" d="5000" r="14" />
+					</SegmentTimeline>
+				</SegmentTemplate>
+			</Representation>
+		</AdaptationSet>
+		<AdaptationSet id="1" contentType="video" segmentAlignment="true" bitstreamSwitching="true" lang="und">
+		<EssentialProperty schemeIdUri="http://dashif.org/guidelines/trickmode" value="1"/>
+			<Representation id="4" mimeType="video/mp4" codecs="avc1.4d4016" bandwidth="800000" width="640" height="360" frameRate="1/1">
+				<SegmentTemplate timescale="10" initialization="dash/iframe_init.m4s" media="dash/iframe_$Time$.m4s" startNumber="1">
+					<SegmentTimeline>
+						<S t="0" d="9" r="4" />
+					</SegmentTimeline>
+				</SegmentTemplate>
+			</Representation>
+		</AdaptationSet>
+	</Period>
+	<Period id="p1" start="PT30.0S">
+		<AdaptationSet id="0" contentType="video">
+			<Representation id="0" mimeType="video/mp4" codecs="avc1.640028" bandwidth="800000" width="640" height="360" frameRate="25">
+				<SegmentTemplate timescale="2500" initialization="video_p0_init.mp4" media="video_p0_$Number$.m4s" startNumber="1">
+					<SegmentTimeline>
+						<S t="0" d="5000" r="14" />
+					</SegmentTimeline>
+				</SegmentTemplate>
+			</Representation>
+		</AdaptationSet>
+		<AdaptationSet id="1" contentType="video" segmentAlignment="true" bitstreamSwitching="true" lang="und">
+		<EssentialProperty schemeIdUri="http://dashif.org/guidelines/trickmode" value="1"/>
+			<Representation id="4" mimeType="video/mp4" codecs="avc1.4d4016" bandwidth="800000" width="640" height="360" frameRate="1/1">
+				<SegmentTemplate timescale="10" initialization="dash/iframe_init.m4s" media="dash/iframe_$Time$.m4s" startNumber="1">
+ 					<SegmentTimeline>
+						<S t="0" d="9" r="4" />
+					</SegmentTimeline>
+				</SegmentTemplate>
+			</Representation>
+		</AdaptationSet>
+	</Period>
+	<Period id="p2" start="PT60.0S">
+		<AdaptationSet id="0" contentType="video">
+			<Representation id="0" mimeType="video/mp4" codecs="avc1.640028" bandwidth="800000" width="640" height="360" frameRate="25">
+				<SegmentTemplate timescale="2500" initialization="video_p0_init.mp4" media="video_p0_$Number$.m4s" startNumber="1">
+					<SegmentTimeline>
+						<S t="0" d="5000" r="14" />
+					</SegmentTimeline>
+				</SegmentTemplate>
+			</Representation>
+		</AdaptationSet>
+		<AdaptationSet id="1" contentType="video" segmentAlignment="true" bitstreamSwitching="true" lang="und">
+		<EssentialProperty schemeIdUri="http://dashif.org/guidelines/trickmode" value="1"/>
+			<Representation id="4" mimeType="video/mp4" codecs="avc1.4d4016" bandwidth="800000" width="640" height="360" frameRate="1/1">
+				<SegmentTemplate timescale="10" initialization="dash/iframe_init.m4s" media="dash/iframe_$Time$.m4s" startNumber="1">
+					<SegmentTimeline>
+						<S t="0" d="9" r="4" />
+					</SegmentTimeline>
+				</SegmentTemplate>
+			</Representation>
+		</AdaptationSet>
+	</Period>
+</MPD>
+)";
 
 	static constexpr const char *mLiveManifest = R"(<?xml version="1.0" encoding="utf-8"?>
 				<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" availabilityStartTime="2023-01-01T00:00:00Z" maxSegmentDuration="PT2S" minBufferTime="PT4.000S" minimumUpdatePeriod="P100Y" profiles="urn:dvb:dash:profile:dvb-dash:2014,urn:dvb:dash:profile:dvb-dash:isoff-ext-live:2014" publishTime="2023-01-01T00:01:00Z" timeShiftBufferDepth="PT5M" type="dynamic">
@@ -218,6 +262,17 @@ protected:
 								<AdaptationSet id="1" contentType="video">
 										<Representation id="0" mimeType="video/mp4" codecs="avc1.640028" bandwidth="800000" width="640" height="360" frameRate="25">
 												<SegmentTemplate timescale="2500" initialization="video_p1_init.mp4" media="video_p1_$Number$.m4s" startNumber="1">
+														<SegmentTimeline>
+																<S t="0" d="5000" r="14" />
+														</SegmentTimeline>
+												</SegmentTemplate>
+										</Representation>
+								</AdaptationSet>
+						</Period>
+						<Period id="p2" start="PT60S">
+								<AdaptationSet id="1" contentType="video">
+										<Representation id="0" mimeType="video/mp4" codecs="avc1.640028" bandwidth="800000" width="640" height="360" frameRate="25">
+												<SegmentTemplate timescale="2500" initialization="video_p2_init.mp4" media="video_p2_$Number$.m4s" startNumber="1">
 														<SegmentTimeline>
 																<S t="0" d="5000" r="14" />
 														</SegmentTimeline>
@@ -586,27 +641,24 @@ TEST_F(AdSelectionTests, WaitForAdFallbackTest)
 }
 /**
  * @brief onAdEventTest tests.
- * The tests verify the onAdEvent method of StreamAbstractionAAMP_MPD with a period having adbreak having ad
+ * The tests verify the onAdEvent method of StreamAbstractionAAMP_MPD with starting state OUTSIDE_ADBREAK and then moves to a 
+ * period having adbreak and starts playing ad, with state changing to IN_ADBREAK_AD_PLAYING
  */
 
 TEST_F(AdSelectionTests, onAdEventTest_1)
 {
-
 	static const char *adManifest = R"(<?xml version="1.0" encoding="UTF-8"?>
-<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" type="static" profiles="urn:mpeg:dash:profile:isoff-on-demand:2011" minBufferTime="PT1.5S" mediaPresentationDuration="PT0M15S">
-  <Period id="ad1" start="PT0H0M0.000S">
-    <AdaptationSet contentType="video" mimeType="video/mp4" segmentAlignment="true" startWithSAP="1">
-      <SegmentTemplate timescale="90000" initialization="video_init.mp4" media="video$Number$.mp4" duration="900000">
-        <SegmentTimeline>
-          <S t="0" d="1350000"/>
-          <S t="1350000" d="1350000"/>
-          <S t="2700000" d="1350000"/>
-          <S t="4050000" d="1350000"/>
-        </SegmentTimeline>
-      </SegmentTemplate>
-      <Representation id="1" bandwidth="3000000" codecs="avc1.4d401f" width="1280" height="720" frameRate="30"/>
-    </AdaptationSet>
-  </Period>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" type="static" profiles="urn:mpeg:dash:profile:isoff-on-demand:2011" minBufferTime="PT1.5S" mediaPresentationDuration="PT0M30S">
+<Period id="ad1" start="PT0H0M0.000S">
+	<AdaptationSet contentType="video" mimeType="video/mp4" segmentAlignment="true" startWithSAP="1">
+	<SegmentTemplate timescale="90000" initialization="video_init.mp4" media="video$Number$.mp4" duration="900000">
+		<SegmentTimeline>
+		<S t="0" d="2700000"/>
+		</SegmentTimeline>
+	</SegmentTemplate>
+	<Representation id="1" bandwidth="3000000" codecs="avc1.4d401f" width="1280" height="720" frameRate="30"/>
+	</AdaptationSet>
+</Period>
 </MPD>
 )";
 	InitializeAdMPDObject(adManifest);
@@ -623,12 +675,13 @@ TEST_F(AdSelectionTests, onAdEventTest_1)
 
 	auto cdaiObj = mStreamAbstractionAAMP_MPD->GetCDAIObject();
 	cdaiObj->mAdState = AdState::OUTSIDE_ADBREAK;
-	std::string adPeriodId = "p1"; // landing in p1
+	std::string adPeriodId = "p1";
+	std::string endPeriodId = "p2"; // landing in p2
 	std::string adUrl = TEST_AD_MANIFEST_URL;
 
 	// Add ads to the adBreak
 	cdaiObj->mAdBreaks = {
-	    { adPeriodId, AdBreakObject(30000, std::make_shared<std::vector<AdNode>>(), adPeriodId, 0, 30000) }
+	    { adPeriodId, AdBreakObject(30000, std::make_shared<std::vector<AdNode>>(), endPeriodId, 0, 30000) }
 	};
 	// ad is currently placed
 	// This test is for the scenario where ad is placed and we are transitioning to ad period
@@ -650,7 +703,8 @@ TEST_F(AdSelectionTests, onAdEventTest_1)
 
 /**
  * @brief onAdEventTest tests.
- * The tests verify the onAdEvent method of StreamAbstractionAAMP_MPD when baseperiodId is in adbreak, but ad is not available
+ * The tests verify the onAdEvent method of StreamAbstractionAAMP_MPD with starting state OUTSIDE_ADBREAK. Then moves to adbreak,
+ * Since ad is not downloaded,it enters the IN_ADBREAK_AD_NOT_PLAYING state
  */
 TEST_F(AdSelectionTests, onAdEventTest_2)
 {
@@ -666,11 +720,12 @@ TEST_F(AdSelectionTests, onAdEventTest_2)
 	EXPECT_EQ(status, eAAMPSTATUS_OK);
 	auto cdaiObj = mStreamAbstractionAAMP_MPD->GetCDAIObject();
 	cdaiObj->mAdState = AdState::OUTSIDE_ADBREAK;
-	std::string adPeriodId = "p1"; // landing in p1
+	std::string adPeriodId = "p1";
+	std::string endPeriodId = "p2"; // landing in p2
 
 	// Add ads to the adBreak
 	cdaiObj->mAdBreaks = {
-	    { adPeriodId, AdBreakObject(30000, std::make_shared<std::vector<AdNode>>(), adPeriodId, 0, 30000) }
+	    { adPeriodId, AdBreakObject(30000, std::make_shared<std::vector<AdNode>>(), endPeriodId, 0, 30000) }
 	};
 	cdaiObj->mAdBreaks[adPeriodId].ads->emplace_back(false /*invalid*/, false /*placed*/, false /*resolved*/,
 		"adId1" /*adId*/, "" /*url*/, 30000 /*duration*/, adPeriodId /*basePeriodId*/, 0 /*basePeriodOffset*/, nullptr /*mpd*/);
@@ -690,7 +745,8 @@ TEST_F(AdSelectionTests, onAdEventTest_2)
 
 /**
  * @brief onAdEventTest tests.
- * The tests verify the onAdEvent method of StreamAbstractionAAMP_MPD with adbreak not validated, wait for ads to be added
+ * The tests verify the onAdEvent method of StreamAbstractionAAMP_MPD with adbreak not validated, wait for ads to be added.
+ * Remains in OUTSIDE_ADBREAK state
  */
 TEST_F(AdSelectionTests, onAdEventTest_3)
 {
@@ -729,7 +785,7 @@ TEST_F(AdSelectionTests, onAdEventTest_3)
 /**
  * @brief onAdEventTest tests.
  * The tests verify the onAdEvent method of StreamAbstractionAAMP_MPD where the ad is invalid, so switching to
- * source content
+ * source content. State transition happens from OUTSIDE_ADBREAK to IN_ADBREAK_AD_NOT_PLAYING 
  */
 TEST_F(AdSelectionTests, onAdEventTest_4)
 {
@@ -746,13 +802,13 @@ TEST_F(AdSelectionTests, onAdEventTest_4)
 
 	auto cdaiObj = mStreamAbstractionAAMP_MPD->GetCDAIObject();
 	cdaiObj->mAdState = AdState::OUTSIDE_ADBREAK;
-	std::string adPeriodId = "p1"; // landing in p1
+	std::string adPeriodId = "p1";
+	std::string endPeriodId = "p2"; // landing in p2
 	std::string adUrl = TEST_AD_MANIFEST_URL;
 
-	// cdaiObj->mPeriodMap[adPeriodId] = Period2AdData();
-	// cdaiObj->mPeriodMap[adPeriodId].adBreakId = adPeriodId;
+	// Add ads to the adBreak
 	cdaiObj->mAdBreaks = {
-		{ adPeriodId, AdBreakObject(30000, std::make_shared<std::vector<AdNode>>(), adPeriodId, 0, 30000) }
+		{ adPeriodId, AdBreakObject(30000, std::make_shared<std::vector<AdNode>>(), endPeriodId, 0, 30000) }
 	};
 
 	cdaiObj->mAdBreaks[adPeriodId].ads = std::make_shared<std::vector<AdNode>>();
@@ -774,25 +830,23 @@ TEST_F(AdSelectionTests, onAdEventTest_4)
 
 /**
  * @brief onAdEventTest tests.
- * The tests verify the onAdEvent method of StreamAbstractionAAMP_MPD where ad download finished and waitig to catch up baseperiod
+ * The tests verify the onAdEvent method of StreamAbstractionAAMP_MPD where ad playback occurs with state IN_ADBREAK_AD_PLAYING.
+ * Once ad download finished and waiting to catch up baseperiod, state changes to IN_ADBREAK_WAIT2CATCHUP
  */
 TEST_F(AdSelectionTests, onAdEventTest_5)
 {
 	static const char *adManifest = R"(<?xml version="1.0" encoding="UTF-8"?>
-<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" type="static" profiles="urn:mpeg:dash:profile:isoff-on-demand:2011" minBufferTime="PT1.5S" mediaPresentationDuration="PT0M15S">
-  <Period id="ad1" start="PT0H0M0.000S">
-    <AdaptationSet contentType="video" mimeType="video/mp4" segmentAlignment="true" startWithSAP="1">
-      <SegmentTemplate timescale="90000" initialization="video_init.mp4" media="video$Number$.mp4" duration="900000">
-        <SegmentTimeline>
-          <S t="0" d="1350000"/>
-          <S t="1350000" d="1350000"/>
-          <S t="2700000" d="1350000"/>
-          <S t="4050000" d="1350000"/>
-        </SegmentTimeline>
-      </SegmentTemplate>
-      <Representation id="1" bandwidth="3000000" codecs="avc1.4d401f" width="1280" height="720" frameRate="30"/>
-    </AdaptationSet>
-  </Period>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" type="static" profiles="urn:mpeg:dash:profile:isoff-on-demand:2011" minBufferTime="PT1.5S" mediaPresentationDuration="PT0M30S">
+<Period id="ad1" start="PT0H0M0.000S">
+	<AdaptationSet contentType="video" mimeType="video/mp4" segmentAlignment="true" startWithSAP="1">
+	<SegmentTemplate timescale="90000" initialization="video_init.mp4" media="video$Number$.mp4" duration="900000">
+		<SegmentTimeline>
+		<S t="0" d="2700000"/>
+		</SegmentTimeline>
+	</SegmentTemplate>
+	<Representation id="1" bandwidth="3000000" codecs="avc1.4d401f" width="1280" height="720" frameRate="30"/>
+	</AdaptationSet>
+</Period>
 </MPD>
 )";
 	InitializeAdMPDObject(adManifest);
@@ -809,12 +863,13 @@ TEST_F(AdSelectionTests, onAdEventTest_5)
 
 	auto cdaiObj = mStreamAbstractionAAMP_MPD->GetCDAIObject();
 	cdaiObj->mAdState = AdState::IN_ADBREAK_AD_PLAYING;
-	std::string adPeriodId = "p1"; // landing in p1
+	std::string adPeriodId = "p1";
+	std::string endPeriodId = "p2"; // landing in p2
 	std::string adUrl = TEST_AD_MANIFEST_URL;
 
 	// Add ads to the adBreak
 	cdaiObj->mAdBreaks = {
-		{ adPeriodId, AdBreakObject(30000, std::make_shared<std::vector<AdNode>>(), adPeriodId, 0, 30000) }
+		{ adPeriodId, AdBreakObject(30000, std::make_shared<std::vector<AdNode>>(), endPeriodId, 0, 30000) }
 	};
 	// ad is currently placed
 	// This test is for the scenario where ad is placed and we are transitioning to ad period
@@ -839,25 +894,23 @@ TEST_F(AdSelectionTests, onAdEventTest_5)
 
 /**
  * @brief onAdEventTest tests.
- * The tests verify the onAdEvent method of StreamAbstractionAAMP_MPD where ad playback failed 
+ * The tests verify the onAdEvent method of StreamAbstractionAAMP_MPD where period is in adbreak and ad starts playing with state
+ * IN_ADBREAK_AD_PLAYING. while playing an ad failure happens and state changes to IN_ADBREAK_AD_NOT_PLAYING 
  */
 TEST_F(AdSelectionTests, onAdEventTest_6)
 {
 	static const char *adManifest = R"(<?xml version="1.0" encoding="UTF-8"?>
-<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" type="static" profiles="urn:mpeg:dash:profile:isoff-on-demand:2011" minBufferTime="PT1.5S" mediaPresentationDuration="PT0M15S">
-  <Period id="ad1" start="PT0H0M0.000S">
-    <AdaptationSet contentType="video" mimeType="video/mp4" segmentAlignment="true" startWithSAP="1">
-      <SegmentTemplate timescale="90000" initialization="video_init.mp4" media="video$Number$.mp4" duration="900000">
-        <SegmentTimeline>
-          <S t="0" d="1350000"/>
-          <S t="1350000" d="1350000"/>
-          <S t="2700000" d="1350000"/>
-          <S t="4050000" d="1350000"/>
-        </SegmentTimeline>
-      </SegmentTemplate>
-      <Representation id="1" bandwidth="3000000" codecs="avc1.4d401f" width="1280" height="720" frameRate="30"/>
-    </AdaptationSet>
-  </Period>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" type="static" profiles="urn:mpeg:dash:profile:isoff-on-demand:2011" minBufferTime="PT1.5S" mediaPresentationDuration="PT0M30S">
+<Period id="ad1" start="PT0H0M0.000S">
+	<AdaptationSet contentType="video" mimeType="video/mp4" segmentAlignment="true" startWithSAP="1">
+	<SegmentTemplate timescale="90000" initialization="video_init.mp4" media="video$Number$.mp4" duration="900000">
+		<SegmentTimeline>
+		<S t="0" d="2700000"/>
+		</SegmentTimeline>
+	</SegmentTemplate>
+	<Representation id="1" bandwidth="3000000" codecs="avc1.4d401f" width="1280" height="720" frameRate="30"/>
+	</AdaptationSet>
+</Period>
 </MPD>
 )";
 	InitializeAdMPDObject(adManifest);
@@ -874,12 +927,13 @@ TEST_F(AdSelectionTests, onAdEventTest_6)
 
 	auto cdaiObj = mStreamAbstractionAAMP_MPD->GetCDAIObject();
 	cdaiObj->mAdState = AdState::IN_ADBREAK_AD_PLAYING;
-	std::string adPeriodId = "p1"; // landing in p1
+	std::string adPeriodId = "p1";
+	std::string endPeriodId = "p2"; // landing in p2
 	std::string adUrl = TEST_AD_MANIFEST_URL;
 
 	// Add ads to the adBreak
 	cdaiObj->mAdBreaks = {
-	    { adPeriodId, AdBreakObject(30000, std::make_shared<std::vector<AdNode>>(), adPeriodId, 0, 30000) }
+	    { adPeriodId, AdBreakObject(30000, std::make_shared<std::vector<AdNode>>(), endPeriodId, 0, 30000) }
 	};
 	// ad is currently placed
 	// This test is for the scenario where ad is placed and we are transitioning to ad period
@@ -903,29 +957,26 @@ TEST_F(AdSelectionTests, onAdEventTest_6)
 	EXPECT_EQ( cdaiObj->mAdState, AdState::IN_ADBREAK_AD_NOT_PLAYING);
 }
 
-
 /**
  * @brief onAdEventTest tests.
  * The tests verify the onAdEvent method of StreamAbstractionAAMP_MPD where current source period is in adbreak,
- * but no ad opportunities are present. Its a bug case.
+ * but no ad opportunities are present. Its a bug case. State transition happens from IN_ADBREAK_WAIT2CATCHUP
+ * to OUTSIDE_ADBREAK
  */
 TEST_F(AdSelectionTests, onAdEventTest_7)
 {
 	static const char *adManifest = R"(<?xml version="1.0" encoding="UTF-8"?>
-<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" type="static" profiles="urn:mpeg:dash:profile:isoff-on-demand:2011" minBufferTime="PT1.5S" mediaPresentationDuration="PT0M15S">
-  <Period id="ad1" start="PT0H0M0.000S">
-    <AdaptationSet contentType="video" mimeType="video/mp4" segmentAlignment="true" startWithSAP="1">
-      <SegmentTemplate timescale="90000" initialization="video_init.mp4" media="video$Number$.mp4" duration="900000">
-        <SegmentTimeline>
-          <S t="0" d="1350000"/>
-          <S t="1350000" d="1350000"/>
-          <S t="2700000" d="1350000"/>
-          <S t="4050000" d="1350000"/>
-        </SegmentTimeline>
-      </SegmentTemplate>
-      <Representation id="1" bandwidth="3000000" codecs="avc1.4d401f" width="1280" height="720" frameRate="30"/>
-    </AdaptationSet>
-  </Period>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" type="static" profiles="urn:mpeg:dash:profile:isoff-on-demand:2011" minBufferTime="PT1.5S" mediaPresentationDuration="PT0M30S">
+<Period id="ad1" start="PT0H0M0.000S">
+	<AdaptationSet contentType="video" mimeType="video/mp4" segmentAlignment="true" startWithSAP="1">
+	<SegmentTemplate timescale="90000" initialization="video_init.mp4" media="video$Number$.mp4" duration="900000">
+		<SegmentTimeline>
+		<S t="0" d="2700000"/>
+		</SegmentTimeline>
+	</SegmentTemplate>
+	<Representation id="1" bandwidth="3000000" codecs="avc1.4d401f" width="1280" height="720" frameRate="30"/>
+	</AdaptationSet>
+</Period>
 </MPD>
 )";
 	InitializeAdMPDObject(adManifest);
@@ -942,12 +993,13 @@ TEST_F(AdSelectionTests, onAdEventTest_7)
 
 	auto cdaiObj = mStreamAbstractionAAMP_MPD->GetCDAIObject();
 	cdaiObj->mAdState = AdState::IN_ADBREAK_WAIT2CATCHUP;
-	std::string adPeriodId = "p1"; // landing in p1
+	std::string adPeriodId = "p1";
+	std::string endPeriodId = "p2"; // landing in p2
 	std::string adUrl = TEST_AD_MANIFEST_URL;
 
 	// Add ads to the adBreak
 	cdaiObj->mAdBreaks = {
-		{ adPeriodId, AdBreakObject(30000, std::make_shared<std::vector<AdNode>>(), adPeriodId, 0, 30000) }
+		{ adPeriodId, AdBreakObject(30000, std::make_shared<std::vector<AdNode>>(), endPeriodId, 0, 30000) }
 	};
 	// ad is currently placed
 	// This test is for the scenario where ad is placed and we are transitioning to ad period
@@ -966,32 +1018,28 @@ TEST_F(AdSelectionTests, onAdEventTest_7)
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdPlacementEvent(_, _, _, _, _, _, _, _)).Times(0);
 	mStreamAbstractionAAMP_MPD->CallOnAdEvent(AdEvent::DEFAULT);
 	EXPECT_EQ( cdaiObj->mAdState, AdState::OUTSIDE_ADBREAK);
-
 }
-
 
 /**
  * @brief onAdEventTest tests.
  * The tests verify the onAdEvent method of StreamAbstractionAAMP_MPD where all ads in adbreak finished 
- * and waiting for adbreak to place
+ * and waiting for adbreak to place with state IN_ADBREAK_WAIT2CATCHUP. Once adbreak is placed , state moves
+ * to OUTSIDE_ADBREAK 
  */
 TEST_F(AdSelectionTests, onAdEventTest_8)
 {
 	static const char *adManifest = R"(<?xml version="1.0" encoding="UTF-8"?>
-<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" type="static" profiles="urn:mpeg:dash:profile:isoff-on-demand:2011" minBufferTime="PT1.5S" mediaPresentationDuration="PT0M15S">
-  <Period id="ad1" start="PT0H0M0.000S">
-    <AdaptationSet contentType="video" mimeType="video/mp4" segmentAlignment="true" startWithSAP="1">
-      <SegmentTemplate timescale="90000" initialization="video_init.mp4" media="video$Number$.mp4" duration="900000">
-        <SegmentTimeline>
-          <S t="0" d="1350000"/>
-          <S t="1350000" d="1350000"/>
-          <S t="2700000" d="1350000"/>
-          <S t="4050000" d="1350000"/>
-        </SegmentTimeline>
-      </SegmentTemplate>
-      <Representation id="1" bandwidth="3000000" codecs="avc1.4d401f" width="1280" height="720" frameRate="30"/>
-    </AdaptationSet>
-  </Period>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" type="static" profiles="urn:mpeg:dash:profile:isoff-on-demand:2011" minBufferTime="PT1.5S" mediaPresentationDuration="PT0M30S">
+<Period id="ad1" start="PT0H0M0.000S">
+	<AdaptationSet contentType="video" mimeType="video/mp4" segmentAlignment="true" startWithSAP="1">
+	<SegmentTemplate timescale="90000" initialization="video_init.mp4" media="video$Number$.mp4" duration="900000">
+		<SegmentTimeline>
+		<S t="0" d="2700000"/>
+		</SegmentTimeline>
+	</SegmentTemplate>
+	<Representation id="1" bandwidth="3000000" codecs="avc1.4d401f" width="1280" height="720" frameRate="30"/>
+	</AdaptationSet>
+</Period>
 </MPD>
 )";
 	InitializeAdMPDObject(adManifest);
@@ -1008,12 +1056,13 @@ TEST_F(AdSelectionTests, onAdEventTest_8)
 
 	auto cdaiObj = mStreamAbstractionAAMP_MPD->GetCDAIObject();
 	cdaiObj->mAdState = AdState::IN_ADBREAK_WAIT2CATCHUP;
-	std::string adPeriodId = "p1"; // landing in p1
+	std::string adPeriodId = "p1";
+	std::string endPeriodId = "p2"; // landing in p2
 	std::string adUrl = TEST_AD_MANIFEST_URL;
 
 	// Add ads to the adBreak
 	cdaiObj->mAdBreaks = {
-		{ adPeriodId, AdBreakObject(30000, std::make_shared<std::vector<AdNode>>(), adPeriodId, 0, 30000) }
+		{ adPeriodId, AdBreakObject(30000, std::make_shared<std::vector<AdNode>>(), endPeriodId, 0, 30000) }
 	};
 	// ad is currently placed
 	// This test is for the scenario where ad is placed and we are transitioning to ad period
@@ -1045,25 +1094,25 @@ TEST_F(AdSelectionTests, onAdEventTest_8)
 
 /**
  * @brief onAdEventTest tests.
- * The tests verify the onAdEvent method of StreamAbstractionAAMP_MPD where next ad available and downloaded
+ * The tests verify the onAdEvent method of StreamAbstractionAAMP_MPD where period 
+ * is in adbreak with multiple ads and state is IN_ADBREAK_WAIT2CATCHUP
+ * and when ad is available and starts playing, state changes to IN_ADBREAK_AD_PLAYING
  */
 TEST_F(AdSelectionTests, onAdEventTest_9)
 {
 	static const char *adManifest = R"(<?xml version="1.0" encoding="UTF-8"?>
 <MPD xmlns="urn:mpeg:dash:schema:mpd:2011" type="static" profiles="urn:mpeg:dash:profile:isoff-on-demand:2011" minBufferTime="PT1.5S" mediaPresentationDuration="PT0M15S">
-  <Period id="ad1" start="PT0H0M0.000S">
-    <AdaptationSet contentType="video" mimeType="video/mp4" segmentAlignment="true" startWithSAP="1">
-      <SegmentTemplate timescale="90000" initialization="video_init.mp4" media="video$Number$.mp4" duration="900000">
-        <SegmentTimeline>
-          <S t="0" d="1350000"/>
-          <S t="1350000" d="1350000"/>
-          <S t="2700000" d="1350000"/>
-          <S t="4050000" d="1350000"/>
-        </SegmentTimeline>
-      </SegmentTemplate>
-      <Representation id="1" bandwidth="3000000" codecs="avc1.4d401f" width="1280" height="720" frameRate="30"/>
-    </AdaptationSet>
-  </Period>
+<Period id="ad1" start="PT0H0M0.000S">
+	<AdaptationSet contentType="video" mimeType="video/mp4" segmentAlignment="true" startWithSAP="1">
+	<SegmentTemplate timescale="90000" initialization="video_init.mp4" media="video$Number$.mp4" duration="900000">
+		<SegmentTimeline>
+		<S t="0" d="900000"/>
+		<S d="450000"/>
+		</SegmentTimeline>
+	</SegmentTemplate>
+	<Representation id="1" bandwidth="3000000" codecs="avc1.4d401f" width="1280" height="720" frameRate="30"/>
+	</AdaptationSet>
+</Period>
 </MPD>
 )";
 	InitializeAdMPDObject(adManifest);
@@ -1080,12 +1129,13 @@ TEST_F(AdSelectionTests, onAdEventTest_9)
 
 	auto cdaiObj = mStreamAbstractionAAMP_MPD->GetCDAIObject();
 	cdaiObj->mAdState = AdState::IN_ADBREAK_WAIT2CATCHUP;
-	std::string adPeriodId = "p1"; // landing in p1
+	std::string adPeriodId = "p1";
+	std::string endPeriodId = "p2"; // landing in p2
 	std::string adUrl = TEST_AD_MANIFEST_URL;
 
 	// Add ads to the adBreak
 	cdaiObj->mAdBreaks = {
-		{ adPeriodId, AdBreakObject(30000, std::make_shared<std::vector<AdNode>>(), adPeriodId, 0, 30000) }
+		{ adPeriodId, AdBreakObject(30000, std::make_shared<std::vector<AdNode>>(), endPeriodId, 0, 30000) }
 	};
 	// ad is currently placed
 	// This test is for the scenario where ad is placed and we are transitioning to ad period
@@ -1113,25 +1163,25 @@ TEST_F(AdSelectionTests, onAdEventTest_9)
 
 /**
  * @brief onAdEventTest tests.
- * The tests verify the onAdEvent method of StreamAbstractionAAMP_MPD where next ad available and download
+ * The tests verify the onAdEvent method of StreamAbstractionAAMP_MPD where period is in adbreak and first ad is not able to 
+ * download with state IN_ADBREAK_AD_NOT_PLAYING and moving to next ad which is available and able to download and state 
+ * changes to IN_ADBREAK_AD_PLAYING 
  */
 TEST_F(AdSelectionTests, onAdEventTest_10)
 {
 	static const char *adManifest = R"(<?xml version="1.0" encoding="UTF-8"?>
 <MPD xmlns="urn:mpeg:dash:schema:mpd:2011" type="static" profiles="urn:mpeg:dash:profile:isoff-on-demand:2011" minBufferTime="PT1.5S" mediaPresentationDuration="PT0M15S">
-  <Period id="ad1" start="PT0H0M0.000S">
-    <AdaptationSet contentType="video" mimeType="video/mp4" segmentAlignment="true" startWithSAP="1">
-      <SegmentTemplate timescale="90000" initialization="video_init.mp4" media="video$Number$.mp4" duration="900000">
-        <SegmentTimeline>
-          <S t="0" d="1350000"/>
-          <S t="1350000" d="1350000"/>
-          <S t="2700000" d="1350000"/>
-          <S t="4050000" d="1350000"/>
-        </SegmentTimeline>
-      </SegmentTemplate>
-      <Representation id="1" bandwidth="3000000" codecs="avc1.4d401f" width="1280" height="720" frameRate="30"/>
-    </AdaptationSet>
-  </Period>
+<Period id="ad1" start="PT0H0M0.000S">
+	<AdaptationSet contentType="video" mimeType="video/mp4" segmentAlignment="true" startWithSAP="1">
+	<SegmentTemplate timescale="90000" initialization="video_init.mp4" media="video$Number$.mp4" duration="900000">
+		<SegmentTimeline>
+		<S t="0" d="900000"/>
+		<S d="450000"/>
+		</SegmentTimeline>
+	</SegmentTemplate>
+	<Representation id="1" bandwidth="3000000" codecs="avc1.4d401f" width="1280" height="720" frameRate="30"/>
+	</AdaptationSet>
+</Period>
 </MPD>
 )";
 	InitializeAdMPDObject(adManifest);
@@ -1148,27 +1198,29 @@ TEST_F(AdSelectionTests, onAdEventTest_10)
 
 	auto cdaiObj = mStreamAbstractionAAMP_MPD->GetCDAIObject();
 	cdaiObj->mAdState = AdState::IN_ADBREAK_AD_NOT_PLAYING;
-	std::string adPeriodId = "p1"; // landing in p1
+	std::string adPeriodId = "p1";
+	std::string endPeriodId = "p2"; // landing in p2
 	std::string adUrl = TEST_AD_MANIFEST_URL;
 	// Add ads to the adBreak
 	cdaiObj->mAdBreaks = {
-		{ adPeriodId, AdBreakObject(30000, std::make_shared<std::vector<AdNode>>(), adPeriodId, 0, 30000) }
+		{ adPeriodId, AdBreakObject(30000, std::make_shared<std::vector<AdNode>>(), endPeriodId, 0, 30000) }
 	};
 	// ad is currently placed
 	// This test is for the scenario where ad is placed and we are transitioning to ad period
 	// So, add the ad to the adBreak
 	cdaiObj->mAdBreaks[adPeriodId].ads->emplace_back(false /*invalid*/, true /*placed*/, true /*resolved*/,
-		"adId1" /*adId*/, adUrl /*url*/, 30000 /*duration*/, adPeriodId /*basePeriodId*/, 0 /*basePeriodOffset*/, mAdMPD /*mpd*/);
+		"adId1" /*adId*/, adUrl /*url*/, 15000 /*duration*/, adPeriodId /*basePeriodId*/, 0 /*basePeriodOffset*/, mAdMPD /*mpd*/);
+	cdaiObj->mAdBreaks[adPeriodId].ads->emplace_back(false /*invalid*/, true /*placed*/, true /*resolved*/,
+		"adId1" /*adId*/, adUrl /*url*/, 15000 /*duration*/, adPeriodId /*basePeriodId*/, 15000 /*basePeriodOffset*/, mAdMPD /*mpd*/);
 	cdaiObj->mPeriodMap[adPeriodId] = Period2AdData(false, adPeriodId, 30000 /*in ms*/,
 	{
 		std::make_pair (0, AdOnPeriod(0, 0)), // for adId1 idx=0, offset=0s
+		std::make_pair (15000, AdOnPeriod(1, 0)),
 	});
 	mStreamAbstractionAAMP_MPD->SetBasePeriodId(adPeriodId);
 
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetTSBSessionManager()).WillRepeatedly(Return(nullptr));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection()).WillRepeatedly(Return(false));
-	// TODO: See if AAMP_EVENT_AD_RESERVATION_START is expected
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdReservationEvent(AAMP_EVENT_AD_RESERVATION_START, adPeriodId, _, _, _)).Times(1);
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdPlacementEvent(AAMP_EVENT_AD_PLACEMENT_START, "adId1", _, _, _, _, _, _)).Times(1);
 	EXPECT_TRUE(mStreamAbstractionAAMP_MPD->CallOnAdEvent(AdEvent::BASE_OFFSET_CHANGE));
 	EXPECT_EQ( cdaiObj->mAdState, AdState::IN_ADBREAK_AD_PLAYING);
@@ -1176,28 +1228,11 @@ TEST_F(AdSelectionTests, onAdEventTest_10)
 
 /**
  * @brief onAdEventTest tests.
- * The tests verify the onAdEvent method of StreamAbstractionAAMP_MPD where adbreak ended, playing baseperiod
+ * The tests verify the onAdEvent method of StreamAbstractionAAMP_MPD where state transition happens from 
+ * IN_ADBREAK_AD_NOT_PLAYING to OUTSIDE_ADBREAK since adbreak ended with ad not playing
  */
 TEST_F(AdSelectionTests, onAdEventTest_11)
 {
-	static const char *adManifest = R"(<?xml version="1.0" encoding="UTF-8"?>
-<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" type="static" profiles="urn:mpeg:dash:profile:isoff-on-demand:2011" minBufferTime="PT1.5S" mediaPresentationDuration="PT0M15S">
-  <Period id="ad1" start="PT0H0M0.000S">
-    <AdaptationSet contentType="video" mimeType="video/mp4" segmentAlignment="true" startWithSAP="1">
-      <SegmentTemplate timescale="90000" initialization="video_init.mp4" media="video$Number$.mp4" duration="900000">
-        <SegmentTimeline>
-          <S t="0" d="1350000"/>
-          <S t="1350000" d="1350000"/>
-          <S t="2700000" d="1350000"/>
-          <S t="4050000" d="1350000"/>
-        </SegmentTimeline>
-      </SegmentTemplate>
-      <Representation id="1" bandwidth="3000000" codecs="avc1.4d401f" width="1280" height="720" frameRate="30"/>
-    </AdaptationSet>
-  </Period>
-</MPD>
-)";
-	InitializeAdMPDObject(adManifest);
 	std::string fragmentUrl;
 	AAMPStatusType status;
 	/* Initialize MPD. The video initialization segment is cached. */
@@ -1211,48 +1246,34 @@ TEST_F(AdSelectionTests, onAdEventTest_11)
 
 	auto cdaiObj = mStreamAbstractionAAMP_MPD->GetCDAIObject();
 	cdaiObj->mAdState = AdState::IN_ADBREAK_AD_NOT_PLAYING;
-	std::string adPeriodId = "p1"; // landing in p1
-	std::string adUrl = TEST_AD_MANIFEST_URL;
-	// Add ads to the adBreak
-	cdaiObj->mAdBreaks = {
-		{ adPeriodId, AdBreakObject(30000, std::make_shared<std::vector<AdNode>>(), adPeriodId, 0, 30000) }
-	};
-	// ad is currently placed
-	// This test is for the scenario where ad is placed and we are transitioning to ad period
-	// So, add the ad to the adBreak
-	cdaiObj->mAdBreaks[adPeriodId].ads->emplace_back(false /*invalid*/, true /*placed*/, true /*resolved*/,
-		"adId1" /*adId*/, adUrl /*url*/, 30000 /*duration*/, adPeriodId /*basePeriodId*/, 0 /*basePeriodOffset*/, mAdMPD /*mpd*/);
-	cdaiObj->mPeriodMap[adPeriodId] = Period2AdData(false, adPeriodId, 30000 /*in ms*/,
-	{
-		std::make_pair (0, AdOnPeriod(-1, 0)), // for adId1 idx=0, offset=0s
-	});
-	mStreamAbstractionAAMP_MPD->SetBasePeriodId(adPeriodId);
 
-	EXPECT_TRUE(mStreamAbstractionAAMP_MPD->CallOnAdEvent(AdEvent::BASE_OFFSET_CHANGE));
+	std::string basePeriodId = "p2";//After adbreak p1, player moves to baseperiod p2 with period change event
+	mStreamAbstractionAAMP_MPD->SetBasePeriodId(basePeriodId);
+
+	EXPECT_TRUE(mStreamAbstractionAAMP_MPD->CallOnAdEvent(AdEvent::PERIOD_CHANGE));
 	EXPECT_EQ( cdaiObj->mAdState, AdState::OUTSIDE_ADBREAK);
 }
 
 /**
  * @brief onAdEventTest tests.
- * The tests verify the onAdEvent method of StreamAbstractionAAMP_MPD where ad is available, but invalid
+ * The tests verify the onAdEvent method of StreamAbstractionAAMP_MPD where ads are there,
+ * but one ad is yet to be placed. So adbreak is not placed. State remains in IN_ADBREAK_WAIT2CATCHUP state. 
  */
 TEST_F(AdSelectionTests, onAdEventTest_12)
 {
 	static const char *adManifest = R"(<?xml version="1.0" encoding="UTF-8"?>
 <MPD xmlns="urn:mpeg:dash:schema:mpd:2011" type="static" profiles="urn:mpeg:dash:profile:isoff-on-demand:2011" minBufferTime="PT1.5S" mediaPresentationDuration="PT0M15S">
-  <Period id="ad1" start="PT0H0M0.000S">
-    <AdaptationSet contentType="video" mimeType="video/mp4" segmentAlignment="true" startWithSAP="1">
-      <SegmentTemplate timescale="90000" initialization="video_init.mp4" media="video$Number$.mp4" duration="900000">
-        <SegmentTimeline>
-          <S t="0" d="1350000"/>
-          <S t="1350000" d="1350000"/>
-          <S t="2700000" d="1350000"/>
-          <S t="4050000" d="1350000"/>
-        </SegmentTimeline>
-      </SegmentTemplate>
-      <Representation id="1" bandwidth="3000000" codecs="avc1.4d401f" width="1280" height="720" frameRate="30"/>
-    </AdaptationSet>
-  </Period>
+<Period id="ad1" start="PT0H0M0.000S">
+	<AdaptationSet contentType="video" mimeType="video/mp4" segmentAlignment="true" startWithSAP="1">
+	<SegmentTemplate timescale="90000" initialization="video_init.mp4" media="video$Number$.mp4" duration="900000">
+		<SegmentTimeline>
+		<S t="0" d="900000"/>
+		<S d="450000"/>
+		</SegmentTimeline>
+	</SegmentTemplate>
+	<Representation id="1" bandwidth="3000000" codecs="avc1.4d401f" width="1280" height="720" frameRate="30"/>
+	</AdaptationSet>
+</Period>
 </MPD>
 )";
 	InitializeAdMPDObject(adManifest);
@@ -1269,12 +1290,13 @@ TEST_F(AdSelectionTests, onAdEventTest_12)
 
 	auto cdaiObj = mStreamAbstractionAAMP_MPD->GetCDAIObject();
 	cdaiObj->mAdState = AdState::IN_ADBREAK_WAIT2CATCHUP;
-	std::string adPeriodId = "p1"; // landing in p1
+	std::string adPeriodId = "p1";
+	std::string endPeriodId = "p2"; // landing in p2
 	std::string adUrl = TEST_AD_MANIFEST_URL;
 
 	// Add ads to the adBreak
 	cdaiObj->mAdBreaks = {
-		{ adPeriodId, AdBreakObject(30000, std::make_shared<std::vector<AdNode>>(), adPeriodId, 0, 30000) }
+		{ adPeriodId, AdBreakObject(30000, std::make_shared<std::vector<AdNode>>(), endPeriodId, 0, 30000) }
 	};
 	// ad is currently placed
 	// This test is for the scenario where ad is placed and we are transitioning to ad period
@@ -1295,33 +1317,240 @@ TEST_F(AdSelectionTests, onAdEventTest_12)
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdReservationEvent(_, _, _, _, _)).Times(0);
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdPlacementEvent(_, _, _, _, _, _, _, _)).Times(0);
 	EXPECT_FALSE(mStreamAbstractionAAMP_MPD->CallOnAdEvent(AdEvent::DEFAULT));
-	// TODO: This is a bug that should be fixed
 	EXPECT_EQ(cdaiObj->mAdState, AdState::IN_ADBREAK_WAIT2CATCHUP);
+	EXPECT_FALSE(cdaiObj->mAdBreaks[adPeriodId].mAdBreakPlaced);
+}
+
+/**
+ * @brief onAdEventTest tests.
+ * The tests verify the onAdEvent method of StreamAbstractionAAMP_MPD where period p1 contains adbreak. At first player is in
+ * OUTSIDE_ADBREAK state. Upon rewind, valid ad is not found at the offset, its a partial ad, so state moved to 
+ * IN_ADBREAK_AD_NOT_PLAYING. After reaching the offset,ad is found and starts playing and changing state to IN_ADBREAK_AD_PLAYING.
+ * Once ad finishes state moves to IN_ADBREAK_WAIT2CATCHUP. 
+ * All ads in adbreak finished and state moves to OUTSIDE_ADBREAK.
+ */
+TEST_F(AdSelectionTests, onAdEventTest_13)
+{
+	static const char *adManifest = R"(<?xml version="1.0" encoding="UTF-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" type="static" profiles="urn:mpeg:dash:profile:isoff-on-demand:2011" minBufferTime="PT1.5S" mediaPresentationDuration="PT0M10S">
+<Period id="ad1" start="PT0H0M0.000S">
+	<AdaptationSet contentType="video" mimeType="video/mp4" segmentAlignment="true" startWithSAP="1">
+	<SegmentTemplate timescale="90000" initialization="video_init.mp4" media="video$Number$.mp4" duration="900000">
+		<SegmentTimeline>
+		<S t="0" d="900000"/>
+		</SegmentTimeline>
+	</SegmentTemplate>
+	<Representation id="1" bandwidth="3000000" codecs="avc1.4d401f" width="1280" height="720" frameRate="30"/>
+	</AdaptationSet>
+</Period>
+</MPD>
+)";
+	InitializeAdMPDObject(adManifest);
+	std::string fragmentUrl;
+	AAMPStatusType status;
+	// Initialize MPD. The video initialization segment is cached.
+	fragmentUrl = std::string(TEST_BASE_URL) + std::string("dash/iframe_init.m4s");
+
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _, _, _))
+		.Times(1)
+		.WillOnce(Return(true));
+	status = InitializeMPD(mVodManifest, eTUNETYPE_NEW_NORMAL, 0.0, -1.0);
+	EXPECT_EQ(status, eAAMPSTATUS_OK);
+	auto cdaiObj = mStreamAbstractionAAMP_MPD->GetCDAIObject();
+	cdaiObj->mAdState = AdState::OUTSIDE_ADBREAK;
+	std::string adPeriodId = "p1"; // landing in p1
+	std::string adUrl = TEST_AD_MANIFEST_URL;
+
+	// Add ads to the adBreak
+	cdaiObj->mAdBreaks = {
+		{ adPeriodId, AdBreakObject(10000, std::make_shared<std::vector<AdNode>>(), adPeriodId, 5000, 5000) }
+	};
+	cdaiObj->mAdBreaks[adPeriodId].ads->emplace_back(false /*invalid*/, true /*placed*/, true /*resolved*/,
+		"adId1" /*adId*/, adUrl /*url*/, 5000 /*duration*/, adPeriodId /*basePeriodId*/, 0 /*basePeriodOffset*/, mAdMPD /*mpd*/);
+	cdaiObj->mPeriodMap[adPeriodId] = Period2AdData(false, adPeriodId, 30000 /*in ms*/,
+	{
+		std::make_pair (0, AdOnPeriod(0,0)), // for adId1 idx=0, offset=0s
+	});
+
+	mStreamAbstractionAAMP_MPD->SetBasePeriodoffset(30);
+	mStreamAbstractionAAMP_MPD->SetBasePeriodId(adPeriodId);
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetTSBSessionManager()).WillRepeatedly(Return(nullptr));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection()).WillRepeatedly(Return(false));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdPlacementEvent(_, _, _, _, _, _, _, _)).Times(0);
+	EXPECT_TRUE(mStreamAbstractionAAMP_MPD->CallOnAdEvent(AdEvent::DEFAULT));
+	EXPECT_EQ(cdaiObj->mAdState, AdState::IN_ADBREAK_AD_NOT_PLAYING);
+
+	mStreamAbstractionAAMP_MPD->SetBasePeriodoffset(5);
+
+	EXPECT_TRUE(mStreamAbstractionAAMP_MPD->CallOnAdEvent(AdEvent::BASE_OFFSET_CHANGE));
+	EXPECT_EQ( cdaiObj->mAdState, AdState::IN_ADBREAK_AD_PLAYING);
+
+	EXPECT_TRUE(mStreamAbstractionAAMP_MPD->CallOnAdEvent(AdEvent::AD_FINISHED));
+	EXPECT_EQ( cdaiObj->mAdState, AdState::IN_ADBREAK_WAIT2CATCHUP);
+
+	cdaiObj->mCurPlayingBreakId = adPeriodId;
+	EXPECT_TRUE(mStreamAbstractionAAMP_MPD->CallOnAdEvent(AdEvent::DEFAULT));
+	EXPECT_EQ(cdaiObj->mAdState, AdState::OUTSIDE_ADBREAK);
+}
+
+/**
+ * @brief onAdEventTest tests.
+ * The tests verify the onAdEvent method of StreamAbstractionAAMP_MPD where p1 is the period where ad is present.At first
+ * state is OUTSIDE_ADBREAK.  After rewind, position reaches to adbreak in Period p1 . In that adbreak, ad is valid 
+ * and it gets played and moving to state IN_ADBREAK_AD_PLAYING. Once ad finishes state moves to IN_ADBREAK_WAIT2CATCHUP.
+ * Since its an adbreak with one ad, and when ad finishes playing state moves to OUTSIDE_ADBREAK 
+ */
+TEST_F(AdSelectionTests, onAdEventTest_14)
+{
+	static const char *adManifest = R"(<?xml version="1.0" encoding="UTF-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" type="static" profiles="urn:mpeg:dash:profile:isoff-on-demand:2011" minBufferTime="PT1.5S" mediaPresentationDuration="PT0M30S">
+<Period id="ad1" start="PT0H0M0.000S">
+	<AdaptationSet contentType="video" mimeType="video/mp4" segmentAlignment="true" startWithSAP="1">
+	<SegmentTemplate timescale="90000" initialization="video_init.mp4" media="video$Number$.mp4" duration="900000">
+		<SegmentTimeline>
+		<S t="0" d="2700000"/>
+		</SegmentTimeline>
+	</SegmentTemplate>
+	<Representation id="1" bandwidth="3000000" codecs="avc1.4d401f" width="1280" height="720" frameRate="30"/>
+	</AdaptationSet>
+</Period>
+</MPD>
+)";
+	InitializeAdMPDObject(adManifest);
+	std::string fragmentUrl;
+	AAMPStatusType status;
+	/* Initialize MPD. The video initialization segment is cached. */
+	fragmentUrl = std::string(TEST_BASE_URL) + std::string("dash/iframe_init.m4s");
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _, _, _))
+		.Times(1)
+		.WillOnce(Return(true));
+	status = InitializeMPD(mVodManifest, eTUNETYPE_NEW_NORMAL, 0.0, -1.0);
+	EXPECT_EQ(status, eAAMPSTATUS_OK);
+
+	auto cdaiObj = mStreamAbstractionAAMP_MPD->GetCDAIObject();
+	cdaiObj->mAdState = AdState::OUTSIDE_ADBREAK;
+	std::string adPeriodId = "p1";
+	std::string endPeriodId = "p2";
+	std::string adUrl = TEST_AD_MANIFEST_URL;
+
+	//Add ads to the adBreak
+	cdaiObj->mAdBreaks = {
+		{ adPeriodId, AdBreakObject(30000, std::make_shared<std::vector<AdNode>>(), endPeriodId, 0, 30000) }
+	};
+	// ad is currently placed
+	cdaiObj->mAdBreaks[adPeriodId].ads->emplace_back(false /*invalid*/, true /*placed*/, true /*resolved*/,
+		"adId1" /*adId*/, adUrl /*url*/, 30000 /*duration*/, adPeriodId /*basePeriodId*/, 0 /*basePeriodOffset*/, mAdMPD /*mpd*/);
+	cdaiObj->mPeriodMap[adPeriodId] = Period2AdData(false, adPeriodId, 30000 /*in ms*/,
+	{
+		std::make_pair (0, AdOnPeriod(0, 0)),
+	});
+	mStreamAbstractionAAMP_MPD->SetBasePeriodId(adPeriodId);
+	mStreamAbstractionAAMP_MPD->SetBasePeriodoffset(30);
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetTSBSessionManager()).WillRepeatedly(Return(nullptr));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection()).WillRepeatedly(Return(false));
+	EXPECT_TRUE(mStreamAbstractionAAMP_MPD->CallOnAdEvent(AdEvent::DEFAULT));
+	EXPECT_EQ( cdaiObj->mAdState, AdState::IN_ADBREAK_AD_PLAYING);
+
+	EXPECT_TRUE(mStreamAbstractionAAMP_MPD->CallOnAdEvent(AdEvent::AD_FINISHED));
+	EXPECT_EQ( cdaiObj->mAdState, AdState::IN_ADBREAK_WAIT2CATCHUP);
+
+	cdaiObj->mCurPlayingBreakId = adPeriodId;
+	EXPECT_TRUE(mStreamAbstractionAAMP_MPD->CallOnAdEvent(AdEvent::DEFAULT));
+	EXPECT_EQ(cdaiObj->mAdState, AdState::OUTSIDE_ADBREAK);
+	EXPECT_EQ(cdaiObj->mContentSeekOffset, 0); // Make sure content seek offset is set to adbreak offset
+}
+
+/**
+ * @brief onAdEventTest tests.
+ * The tests verify the onAdEvent method of StreamAbstractionAAMP_MPD where p1 is the period where ad is present.At first
+ * state is OUTSIDE_ADBREAK.  After forward, position reaches to adbreak in Period p1 . In that adbreak, ad is valid
+ * and it gets played and moving to state IN_ADBREAK_AD_PLAYING. Once ad finishes state moves to IN_ADBREAK_WAIT2CATCHUP.
+ * Since its an adbreak with one ad, adbreak is placed and state moves to OUTSIDE_ADBREAK
+ */
+TEST_F(AdSelectionTests, onAdEventTest_15)
+{
+	static const char *adManifest = R"(<?xml version="1.0" encoding="UTF-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" type="static" profiles="urn:mpeg:dash:profile:isoff-on-demand:2011" minBufferTime="PT1.5S" mediaPresentationDuration="PT0M5S">
+<Period id="ad1" start="PT0H0M0.000S">
+	<AdaptationSet contentType="video" mimeType="video/mp4" segmentAlignment="true" startWithSAP="1">
+	<SegmentTemplate timescale="90000" initialization="video_init.mp4" media="video$Number$.mp4" duration="900000">
+		<SegmentTimeline>
+		<S t="0" d="450000"/>
+		</SegmentTimeline>
+	</SegmentTemplate>
+	<Representation id="1" bandwidth="3000000" codecs="avc1.4d401f" width="1280" height="720" frameRate="30"/>
+	</AdaptationSet>
+</Period>
+</MPD>
+)";
+	InitializeAdMPDObject(adManifest);
+	std::string fragmentUrl;
+	AAMPStatusType status;
+	/* Initialize MPD. The video initialization segment is cached. */
+	fragmentUrl = std::string(TEST_BASE_URL) + std::string("dash/iframe_init.m4s");
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _, _, _))
+		.Times(1)
+		.WillOnce(Return(true));
+	status = InitializeMPD(mVodManifest, eTUNETYPE_NEW_NORMAL, 0.0, 2);
+	EXPECT_EQ(status, eAAMPSTATUS_OK);
+
+	auto cdaiObj = mStreamAbstractionAAMP_MPD->GetCDAIObject();
+	cdaiObj->mAdState = AdState::OUTSIDE_ADBREAK;
+	std::string adPeriodId = "p1";
+	std::string adUrl = TEST_AD_MANIFEST_URL;
+
+	cdaiObj->mAdBreaks = {
+		{ adPeriodId, AdBreakObject(5000, std::make_shared<std::vector<AdNode>>(), adPeriodId, 5000, 5000) }
+	};
+	// ad is currently placed
+	// This test is for the scenario where ad is placed and we are transitioning to ad period
+	// So, add the ad to the adBreak
+	cdaiObj->mAdBreaks[adPeriodId].ads->emplace_back(false /*invalid*/, true /*placed*/, true /*resolved*/,
+		"adId1" /*adId*/, adUrl /*url*/, 5000 /*duration*/, adPeriodId /*basePeriodId*/, 0 /*basePeriodOffset*/, mAdMPD /*mpd*/);
+	cdaiObj->mPeriodMap[adPeriodId] = Period2AdData(false, adPeriodId, 30000 /*in ms*/,
+	{
+		std::make_pair (0, AdOnPeriod(0, 0)), // for adId1 idx=0, offset=0s
+	});
+
+	mStreamAbstractionAAMP_MPD->SetBasePeriodId(adPeriodId);
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetTSBSessionManager()).WillRepeatedly(Return(nullptr));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection()).WillRepeatedly(Return(false));
+	EXPECT_TRUE(mStreamAbstractionAAMP_MPD->CallOnAdEvent(AdEvent::INIT));
+	EXPECT_EQ( cdaiObj->mAdState, AdState::IN_ADBREAK_AD_PLAYING);
+
+	EXPECT_TRUE(mStreamAbstractionAAMP_MPD->CallOnAdEvent(AdEvent::AD_FINISHED));
+	EXPECT_EQ( cdaiObj->mAdState, AdState::IN_ADBREAK_WAIT2CATCHUP);
+
+	cdaiObj->mCurPlayingBreakId = adPeriodId;
+	cdaiObj->mAdBreaks[cdaiObj->mCurPlayingBreakId].mAdBreakPlaced = true;
+	EXPECT_TRUE(mStreamAbstractionAAMP_MPD->CallOnAdEvent(AdEvent::DEFAULT));
+	EXPECT_EQ(cdaiObj->mAdState, AdState::OUTSIDE_ADBREAK);
+	EXPECT_EQ(cdaiObj->mContentSeekOffset, 5); // Make sure content seek offset is set to adbreak offset
 }
 
 /**
  * @brief AdTransitionTest tests.
  *
  * The tests verify the SelectSourceOrAdPeriod method of StreamAbstractionAAMP_MPD when transitioning
- * from a regular period to an ad period
+ * from a regular period to an ad period, and back to a regular period.
  */
 TEST_F(AdSelectionTests, AdTransitionTest)
 {
 	static const char *adManifest = R"(<?xml version="1.0" encoding="UTF-8"?>
 <MPD xmlns="urn:mpeg:dash:schema:mpd:2011" type="static" profiles="urn:mpeg:dash:profile:isoff-on-demand:2011" minBufferTime="PT1.5S" mediaPresentationDuration="PT0M15S">
-  <Period id="ad1" start="PT0H0M0.000S">
-    <AdaptationSet contentType="video" mimeType="video/mp4" segmentAlignment="true" startWithSAP="1">
-      <SegmentTemplate timescale="90000" initialization="video_init.mp4" media="video$Number$.mp4" duration="900000">
-        <SegmentTimeline>
-          <S t="0" d="1350000"/>
-          <S t="1350000" d="1350000"/>
-          <S t="2700000" d="1350000"/>
-          <S t="4050000" d="1350000"/>
-        </SegmentTimeline>
-      </SegmentTemplate>
-      <Representation id="1" bandwidth="3000000" codecs="avc1.4d401f" width="1280" height="720" frameRate="30"/>
-    </AdaptationSet>
-  </Period>
+<Period id="ad1" start="PT0H0M0.000S">
+	<AdaptationSet contentType="video" mimeType="video/mp4" segmentAlignment="true" startWithSAP="1">
+	<SegmentTemplate timescale="90000" initialization="video_init.mp4" media="video$Number$.mp4" duration="900000">
+		<SegmentTimeline>
+		<S t="0" d="1350000"/>
+		<S t="1350000" d="1350000"/>
+		<S t="2700000" d="1350000"/>
+		<S t="4050000" d="1350000"/>
+		</SegmentTimeline>
+	</SegmentTemplate>
+	<Representation id="1" bandwidth="3000000" codecs="avc1.4d401f" width="1280" height="720" frameRate="30"/>
+	</AdaptationSet>
+</Period>
 </MPD>
 )";
 	InitializeAdMPDObject(adManifest);
@@ -1346,18 +1575,21 @@ TEST_F(AdSelectionTests, AdTransitionTest)
 	// Set the ad variables, we have finished ad playback and waiting for base period to catchup
 	auto cdaiObj = mStreamAbstractionAAMP_MPD->GetCDAIObject();
 	cdaiObj->mAdState = AdState::OUTSIDE_ADBREAK;
-	std::string periodId = "p0";
-	std::string endPeriodId = "p1"; // landing in p1
+	std::string periodId = "p1";
+	std::string endPeriodId = "p2"; // landing in p1
 	std::string adUrl = TEST_AD_MANIFEST_URL;
 	// Add ads to the adBreak
 	cdaiObj->mAdBreaks = {
-		{endPeriodId, AdBreakObject(30000, std::make_shared<std::vector<AdNode>>(), endPeriodId, 0, 30000)}};
+		{periodId, AdBreakObject(30000, std::make_shared<std::vector<AdNode>>(), endPeriodId, 0, 30000)}};
 	// ad is currently placed
 	// This test is for the scenario where ad is placed and we are transitioning to ad period
 	// So, add the ad to the adBreak
-	cdaiObj->mAdBreaks[endPeriodId].ads->emplace_back(false /*invalid*/, true /*placed*/, true /*resolved*/,
-													  "adId1" /*adId*/, adUrl /*url*/, 30000 /*duration*/, endPeriodId /*basePeriodId*/, 0 /*basePeriodOffset*/, mAdMPD /*mpd*/);
-	cdaiObj->mPeriodMap[endPeriodId] = Period2AdData(false, endPeriodId, 30000 /*in ms*/,
+	cdaiObj->mAdBreaks[periodId].ads->emplace_back(false /*invalid*/, true /*placed*/, true /*resolved*/,
+													  "adId1" /*adId*/, adUrl /*url*/, 30000 /*duration*/, periodId /*basePeriodId*/, 0 /*basePeriodOffset*/, mAdMPD /*mpd*/);
+
+	// Marking adbreak as placed as well
+	cdaiObj->mAdBreaks[periodId].mAdBreakPlaced = true;
+	cdaiObj->mPeriodMap[periodId] = Period2AdData(false, periodId, 30000 /*in ms*/,
 	{
 	  std::make_pair (0, AdOnPeriod(0, 0)), // for adId1 idx=0, offset=0s
 	});
@@ -1376,13 +1608,138 @@ TEST_F(AdSelectionTests, AdTransitionTest)
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdPlacementEvent(_, _, _, _, _, _, _, _)).Times(AnyNumber());
 
 	/*
-	 * Test the scenario where ad is not placed and we are waiting for base period to catchup
+	 * Test the scenario where ad is placed
 	 */
 	ret = mStreamAbstractionAAMP_MPD->InvokeSelectSourceOrAdPeriod(periodChanged, mpdChanged, adStateChanged, waitForAdBreakCatchup, requireStreamSelection, currentPeriodId);
 	EXPECT_TRUE(ret);
 	EXPECT_EQ(cdaiObj->mAdState, AdState::IN_ADBREAK_AD_PLAYING);
+
+	// Reset function arguments
+	periodChanged = false;
+	// Finished ad playback in P0
+	adStateChanged = true;
+	cdaiObj->mAdState = AdState::IN_ADBREAK_WAIT2CATCHUP;
+	waitForAdBreakCatchup = false;
+	requireStreamSelection = false;
+	mpdChanged = false;
+
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, WaitForDiscontinuityProcessToComplete()).Times(1);
+
+	ret = mStreamAbstractionAAMP_MPD->InvokeSelectSourceOrAdPeriod(periodChanged, mpdChanged, adStateChanged, waitForAdBreakCatchup, requireStreamSelection, currentPeriodId);
+	EXPECT_EQ(mStreamAbstractionAAMP_MPD->GetCurrentPeriodIdx(), mStreamAbstractionAAMP_MPD->GetIteratorPeriodIdx());
+	EXPECT_EQ(cdaiObj->mAdState, AdState::OUTSIDE_ADBREAK);
+	EXPECT_EQ(currentPeriodId, "p2");
+	EXPECT_EQ(periodChanged, true);
 }
 
+/**
+ * @brief AdTransitionTest tests.
+ *
+ * The tests verify the SelectSourceOrAdPeriod method of StreamAbstractionAAMP_MPD when transitioning
+ * from a regular period to an ad period, and back to a regular period.
+ * Aamp TSB enabled, and paused
+ */
+TEST_F(AdSelectionTests, AdTransitionTest_PausedWithAampTSB)
+{
+	static const char *adManifest = R"(<?xml version="1.0" encoding="UTF-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" type="static" profiles="urn:mpeg:dash:profile:isoff-on-demand:2011" minBufferTime="PT1.5S" mediaPresentationDuration="PT0M15S">
+<Period id="ad1" start="PT0H0M0.000S">
+	<AdaptationSet contentType="video" mimeType="video/mp4" segmentAlignment="true" startWithSAP="1">
+	<SegmentTemplate timescale="90000" initialization="video_init.mp4" media="video$Number$.mp4" duration="900000">
+		<SegmentTimeline>
+		<S t="0" d="1350000"/>
+		<S t="1350000" d="1350000"/>
+		<S t="2700000" d="1350000"/>
+		<S t="4050000" d="1350000"/>
+		</SegmentTimeline>
+	</SegmentTemplate>
+	<Representation id="1" bandwidth="3000000" codecs="avc1.4d401f" width="1280" height="720" frameRate="30"/>
+	</AdaptationSet>
+</Period>
+</MPD>
+)";
+	InitializeAdMPDObject(adManifest);
+	std::string fragmentUrl;
+	AAMPStatusType status;
+	mPrivateInstanceAAMP->rate = 1.0;
+	mPrivateInstanceAAMP->pipeline_paused = true;
+	mPrivateInstanceAAMP->SetLocalAAMPTsb(true);
+
+	bool ret = false;
+	/* Initialize MPD. The video initialization segment is cached. */
+	fragmentUrl = std::string(TEST_BASE_URL) + std::string("video_p0_init.mp4");
+
+
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _, _, _))
+		.Times(1)
+		.WillOnce(Return(true));
+	status = InitializeMPD(mLiveManifest, eTUNETYPE_SEEK, 10);
+	EXPECT_EQ(status, eAAMPSTATUS_OK);
+
+	// Index the initial values
+	status = mStreamAbstractionAAMP_MPD->InvokeIndexNewMPDDocument(false);
+	EXPECT_EQ(mStreamAbstractionAAMP_MPD->GetCurrentPeriodIdx(), 0);
+
+	// Index the next period, wait for the selection
+	// Set the ad variables, we have finished ad playback and waiting for base period to catchup
+	auto cdaiObj = mStreamAbstractionAAMP_MPD->GetCDAIObject();
+	cdaiObj->mAdState = AdState::OUTSIDE_ADBREAK;
+	std::string periodId = "p1";
+	std::string endPeriodId = "p2"; // landing in p1
+	std::string adUrl = TEST_AD_MANIFEST_URL;
+	// Add ads to the adBreak
+	cdaiObj->mAdBreaks = {
+		{periodId, AdBreakObject(30000, std::make_shared<std::vector<AdNode>>(), endPeriodId, 0, 30000)}};
+	// ad is currently placed
+	// This test is for the scenario where ad is placed and we are transitioning to ad period
+	// So, add the ad to the adBreak
+	cdaiObj->mAdBreaks[periodId].ads->emplace_back(false /*invalid*/, true /*placed*/, true /*resolved*/,
+													  "adId1" /*adId*/, adUrl /*url*/, 30000 /*duration*/, periodId /*basePeriodId*/, 0 /*basePeriodOffset*/, mAdMPD /*mpd*/);
+
+	// Marking adbreak as placed as well
+	cdaiObj->mAdBreaks[periodId].mAdBreakPlaced = true;
+	cdaiObj->mPeriodMap[periodId] = Period2AdData(false, periodId, 30000 /*in ms*/,
+	{
+	  std::make_pair (0, AdOnPeriod(0, 0)), // for adId1 idx=0, offset=0s
+	});
+
+	bool periodChanged = false;
+	bool adStateChanged = false; // since we finished playing an ad
+	bool waitForAdBreakCatchup = false;
+	bool requireStreamSelection = false;
+	bool mpdChanged = false;
+	std::string currentPeriodId = "p0";
+	mStreamAbstractionAAMP_MPD->IncrementIteratorPeriodIdx();
+
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetTSBSessionManager()).WillRepeatedly(Return(nullptr));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection()).WillRepeatedly(Return(false));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdReservationEvent(_, _, _, _, _)).Times(AnyNumber());
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdPlacementEvent(_, _, _, _, _, _, _, _)).Times(AnyNumber());
+
+	/*
+	 * Test the scenario where ad is placed
+	 */
+	ret = mStreamAbstractionAAMP_MPD->InvokeSelectSourceOrAdPeriod(periodChanged, mpdChanged, adStateChanged, waitForAdBreakCatchup, requireStreamSelection, currentPeriodId);
+	EXPECT_TRUE(ret);
+	EXPECT_EQ(cdaiObj->mAdState, AdState::IN_ADBREAK_AD_PLAYING);
+
+	// Reset function arguments
+	periodChanged = false;
+	// Finished ad playback in P0
+	adStateChanged = true;
+	cdaiObj->mAdState = AdState::IN_ADBREAK_WAIT2CATCHUP;
+	waitForAdBreakCatchup = false;
+	requireStreamSelection = false;
+	mpdChanged = false;
+
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, WaitForDiscontinuityProcessToComplete()).Times(0);
+
+	ret = mStreamAbstractionAAMP_MPD->InvokeSelectSourceOrAdPeriod(periodChanged, mpdChanged, adStateChanged, waitForAdBreakCatchup, requireStreamSelection, currentPeriodId);
+	EXPECT_EQ(mStreamAbstractionAAMP_MPD->GetCurrentPeriodIdx(), mStreamAbstractionAAMP_MPD->GetIteratorPeriodIdx());
+	EXPECT_EQ(cdaiObj->mAdState, AdState::OUTSIDE_ADBREAK);
+	EXPECT_EQ(currentPeriodId, "p2");
+	EXPECT_EQ(periodChanged, true);
+}
 
 /**
  * @brief AdTransitionTest tests.
@@ -1595,6 +1952,8 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 	waitForAdBreakCatchup = false;
 	requireStreamSelection = false;
 	mpdChanged = false;
+
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, WaitForDiscontinuityProcessToComplete()).Times(1);
 
 	ret = mStreamAbstractionAAMP_MPD->InvokeSelectSourceOrAdPeriod(periodChanged, mpdChanged, adStateChanged, waitForAdBreakCatchup, requireStreamSelection, currentPeriodId);
 	EXPECT_EQ(mStreamAbstractionAAMP_MPD->GetCurrentPeriodIdx(), mStreamAbstractionAAMP_MPD->GetIteratorPeriodIdx());

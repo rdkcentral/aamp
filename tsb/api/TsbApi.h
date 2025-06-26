@@ -58,6 +58,7 @@ enum class LogLevel
  *         The function supplied by the client must not throw exceptions.
  *
  *  @param[in] message - message string to print. The client takes ownership of this.
+ *  @param[in] data - opaque value passed to the TSB library with the logging callback.
  *
  *  NOTE: The message will contain human-readable message text, and may contain related
  *        context-dependent data. The message will also contain some logging metadata.
@@ -71,7 +72,7 @@ enum class LogLevel
  *
  *        The client must not make assumptions regarding format or content of TSB log messages.
  */
-using LogFunction = std::function<void(std::string&& message)>;
+using LogFunction = std::function<void(std::string&& message, int data)>;
 
 /**
  * @brief Time-Shifted Buffer (TSB) Store API for storing segment data.
@@ -116,7 +117,7 @@ public:
 	/**
 	 *  @fn Store (constructor)
 	 *
-	 *  @brief Creates and initialises a new, empty Store instance for segment data.
+	 *  @brief Creates and initializes a new, empty Store instance for segment data.
 	 *         This includes doing a Flush to delete any stale files at the Store's location.
 	 *
 	 *         In normal usage, the Store's location should be empty on construction,
@@ -129,13 +130,14 @@ public:
 	 *
 	 *  @param[in] config - configuration parameters. See Config struct above for details.
 	 *  @param[in] logger - logging function that the Store can use to send log messages to client
+	 *  @param[in] loggerData - opaque value that must be passed back to the logging function.
 	 *  @param[in] level - lowest log level to output, for example LogLevel::WARN will output WARN,
 	 *                     MIL and ERROR
 	 *
 	 *  @throw std::invalid_argument if the config is invalid.
 	 * 		   The exception message will detail the exact failure.
 	 */
-	explicit Store(const Config& config, LogFunction logger, LogLevel level);
+	explicit Store(const Config& config, LogFunction logger, int loggerData, LogLevel level);
 
 	/**
 	 *  @fn ~Store (destructor)

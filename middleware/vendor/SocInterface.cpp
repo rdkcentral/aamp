@@ -49,8 +49,9 @@ bool SocInterface::StartsWith( const char *inputStr, const char *prefix )
 /**
  *  @brief To enable certain player configs based upon platform check
  */
-SocPlatformType InferPlatformsFromPluginScan()
+SocPlatformType InferPlatformFromPluginScan()
 {
+	SocPlatformType platform = SOC_PLATFORM_DEFAULT;
 	// Ensure GST is initialized
 	if (!gst_init_check(nullptr, nullptr, nullptr)) {
 		MW_LOG_ERR("gst_init_check() failed");
@@ -60,9 +61,9 @@ SocPlatformType InferPlatformsFromPluginScan()
 		{"omxeac3dec", SOC_PLATFORM_REALTEK},
 		{"brcmaudiodecoder", SOC_PLATFORM_BROADCOM},
 	};
-
+	
 	GstRegistry* registry = gst_registry_get();
-
+	
 	for (const auto& plugin : plugins)
 	{
 		GstPluginFeature* pluginFeature = gst_registry_lookup_feature(registry, plugin.first);
@@ -70,19 +71,23 @@ SocPlatformType InferPlatformsFromPluginScan()
 		{
 			gst_object_unref(pluginFeature);
 			MW_LOG_MIL("InterfacePlayerRDK: %s plugin found in registry", plugin.first);
-			return plugin.second;
+			platform = plugin.second;
+			break;
 		}
 	}
-
-	MW_LOG_WARN("InterfacePlayerRDK: None of the plugins found in registry");
-	return SOC_PLATFORM_DEFAULT;
+	
+	if( platform == SOC_PLATFORM_DEFAULT )
+	{
+		MW_LOG_WARN("InterfacePlayerRDK: None of the plugins found in registry");
+	}
+	return platform;
 }
 
 /**
  * @brief Infers SoC platform type from device.properties.
  * @return Inferred SoC platform type.
  */
-SocPlatformType SocInterface::InferPlatformsFromDeviceProperties( void )
+SocPlatformType SocInterface::InferPlatformFromDeviceProperties( void )
 {
 	SocPlatformType platform = SOC_PLATFORM_DEFAULT;
 	FILE* fp = fopen("/etc/device.properties", "rb");
@@ -145,35 +150,30 @@ SocPlatformType SocInterface::InferPlatformsFromDeviceProperties( void )
  */
 std::shared_ptr<SocInterface> SocInterface::CreateSocInterface()
 {
-	SocPlatformType platformType = InferPlatformsFromDeviceProperties();
-
-	if(platformType == SOC_PLATFORM_DEFAULT)
-	{
-		platformType = InferPlatformsFromPluginScan();
-	}
 	static std::shared_ptr<SocInterface> socInterface;
-	if(socInterface)
+	if( !socInterface)
 	{
-		return socInterface;
+		SocPlatformType platformType = InferPlatformFromDeviceProperties();
+		if(platformType == SOC_PLATFORM_DEFAULT)
+		{
+			platformType = InferPlatformFromPluginScan();
+		}
+		switch (platformType)
+		{
+			case SOC_PLATFORM_AMLOGIC:
+				socInterface = std::make_shared<AmlogicSocInterface>();
+				break;
+			case SOC_PLATFORM_BROADCOM:
+				socInterface = std::make_shared<BrcmSocInterface>();
+				break;
+			case SOC_PLATFORM_REALTEK:
+				socInterface = std::make_shared<RealtekSocInterface>();
+				break;
+			default:
+				socInterface = std::make_shared<DefaultSocInterface>();
+				break;
+		}
 	}
-	switch (platformType)
-	{
-		case SOC_PLATFORM_AMLOGIC:
-			socInterface = std::make_shared<AmlogicSocInterface>();
-			break;
-		case SOC_PLATFORM_BROADCOM:
-			socInterface = std::make_shared<BrcmSocInterface>();
-			break;
-		case SOC_PLATFORM_REALTEK:
-			socInterface = std::make_shared<RealtekSocInterface>();
-			break;
-		default:
-			socInterface = std::make_shared<DefaultSocInterface>();
-			break;
-	}
-	if(!socInterface)
-		MW_LOG_ERR("failed to create soc interface");
-
 	return socInterface;
 }
 
@@ -231,28 +231,3 @@ void SocInterface::SetWesterosSinkState(bool status)
 {
 	mUsingWesterosSink = status;
 }
-/**
- *  @brief Dump a file to log
- */
-void SocInterface::DumpFile(const char* fileName)
-{
-	int c;
-	FILE *fp = fopen(fileName, "r");
-	if (fp)
-	{
-		printf("\n************************Dump %s **************************\n", fileName);
-		c = getc(fp);
-		while (c != EOF)
-		{
-			printf("%c", c);
-			c = getc(fp);
-		}
-		fclose(fp);
-		printf("\n**********************Dump %s end *************************\n", fileName);
-	}
-	else
-	{
-		MW_LOG_WARN("Could not open %s", fileName);
-	}
-}
-
