@@ -7644,7 +7644,7 @@ void PrivateInstanceAAMP::Stop( bool sendStateChangeEvent )
 	EnableDownloads();
 
 	AampStreamSinkManager::GetInstance().DeactivatePlayer(this, true);
-	SetState( eSTATE_RELEASED, sendStateChangeEvent );
+	SetState( eSTATE_IDLE, sendStateChangeEvent );
 
 	// Revert all custom specific setting, tune specific setting and stream specific setting , back to App/default setting
 	mConfig->RestoreConfiguration(AAMP_CUSTOM_DEV_CFG_SETTING);
