@@ -750,12 +750,12 @@ TsbConfigurationData tsbConfigData[] =
 	{ SAMPLE_FOG_URL, false, true, "", false, true },
 	{ SAMPLE_URL, true, true, "", true, false },
 	{ SAMPLE_FOG_URL, true, true, "", true, false },
-	{ SAMPLE_URL, false, false, "local", true, false },
+	{ SAMPLE_URL, false, false, "local", true, false },		// Expected configuration when AAMP TSB is used
 	{ SAMPLE_FOG_URL, false, false, "local", true, false },
 	{ SAMPLE_URL, true, false, "local", true, false },		// Expected configuration when AAMP TSB is used
 	{ SAMPLE_FOG_URL, true, false, "local", true, false },
 	{ SAMPLE_URL, false, true, "local", true, false },
-	{ SAMPLE_FOG_URL, false, true, "local", false, true },	// Expected configuration wwhen FOG is used
+	{ SAMPLE_FOG_URL, false, true, "local", false, true },	// Expected configuration when FOG is used
 	{ SAMPLE_URL, true, true, "local", true, false },
 	{ SAMPLE_FOG_URL, true, true, "local", true, false }	// Both AAMP and FOG enabled: AAMP takes precedence over FOG
 };
