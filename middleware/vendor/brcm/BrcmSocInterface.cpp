@@ -27,10 +27,10 @@ BrcmSocInterface::BrcmSocInterface()
  * @brief Get SoC volume property name.
  * @return Volume property name.
  */
-void BrcmSocInterface::SetAudioProperty(const char **volume, const char **mute, bool& isSinkBinVolume)
+void BrcmSocInterface::SetAudioProperty(const char * &volume, const char * &mute, bool& isSinkBinVolume)
 {
-	*volume = "volume";
-	*mute = "mute";
+	volume = "volume";
+	mute = "mute";
 	isSinkBinVolume = false;	/*volume/mute property should be applied on audio_sink*/
 }
 
@@ -254,11 +254,4 @@ void BrcmSocInterface::SetPlaybackFlags(gint &flags, bool isSub)
 	{
 		flags = PLAY_FLAG_TEXT;
 	}
-}
-
-void BrcmSocInterface::DumpDiagnosis()
-{
-	DumpFile("/proc/brcm/transport");
-	DumpFile("/proc/brcm/video_decoder");
-	DumpFile("/proc/brcm/audio");
 }

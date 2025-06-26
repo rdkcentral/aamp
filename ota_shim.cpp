@@ -116,7 +116,8 @@ void StreamAbstractionAAMP_OTA::onPlayerStatusHandler(PlayerStatusData data) {
 		aamp->SetState(state);
 	}
 
-	if((0 == data.currState.compare("PLAYING")) || (0 == data.currState.compare("BLOCKED")) &&  0 == data.reasonString.compare("SERVICE_PIN_LOCKED"))
+	if( 0 == data.currState.compare("PLAYING") ||
+	   (0 == data.currState.compare("BLOCKED") && 0 == data.reasonString.compare("SERVICE_PIN_LOCKED")) )
 	{
 		if(PopulateMetaData(data))
 		{
@@ -286,11 +287,6 @@ AAMPStatusType StreamAbstractionAAMP_OTA::Init(TuneType tuneType)
 		thunderAccessObj.ActivatePlugin();
 		std::function<void(PlayerStatusData)> actualMethod = std::bind(&StreamAbstractionAAMP_OTA::onPlayerStatusHandler, this, std::placeholders::_1);
 		thunderAccessObj.RegisterOnPlayerStatusOta(actualMethod);
-		AAMPStatusType retval = eAAMPSTATUS_OK;
-
-		//activate RDK Shell - not required as this plugin is already activated
-		// thunderRDKShellObj.ActivatePlugin();
-
 	}
     return retval;
 }
@@ -584,7 +580,7 @@ void StreamAbstractionAAMP_OTA::SetAudioTrackByLanguage(const char* lang)
 		{
 			if(0 == strcmp(lang, itr->language.c_str()))
 			{
-				index = std::distance(mAudioTracks.begin(), itr);
+				index = (int)std::distance(mAudioTracks.begin(), itr);
 				break;
 			}
 		}

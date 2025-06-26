@@ -327,29 +327,6 @@ bool PlayerIarmRdkInterface::GetActiveInterface()
     return isInterfaceWifi;
 }
 
-bool PlayerIarmRdkInterface::IsLiveLatencyCorrectionSupported()
-{
-    bool IsMS12V2 = true;
-    try {
-		//Get the HDMI port
-		device::Manager::Initialize();
-        	std::string strVideoPort = device::Host::getInstance().getDefaultVideoPortName();
-		::device::VideoOutputPort &vPort = ::device::Host::getInstance().getVideoOutputPort(strVideoPort);
-		int caps;
-		vPort.getAudioOutputPort().getAudioCapabilities(&caps);
-		if(((caps & dsAUDIOSUPPORT_MS12V2) != dsAUDIOSUPPORT_MS12V2))
-		{
-			IsMS12V2 = false;
-        		AAMPLOG_INFO("MS12V2 Audio not supported in this device\n");
-		}
-		device::Manager::DeInitialize();
-	}
-	catch (...) {
-		AAMPLOG_WARN("DeviceSettings exception caught\n");
-	}
-	return IsMS12V2 ;
-}
-
 static void getActiveInterfaceEventHandler (const char *owner, IARM_EventId_t eventId, void *data, size_t len)
 {
 	static char previousInterface[20] = {'\0'};

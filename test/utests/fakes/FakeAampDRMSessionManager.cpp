@@ -17,103 +17,94 @@
 * limitations under the License.
 */
 
+#include "DrmSessionManager.h"
 #include "DrmHelper.h"
-#include "AampDRMSessionManager.h"
 #include "MockAampDRMSessionManager.h"
+MockDRMSessionManager *g_mockDRMSessionManager = nullptr;
 
-MockAampDRMSessionManager *g_mockAampDRMSessionManager = nullptr;
-
-AampDRMSessionManager::AampDRMSessionManager(int, PrivateInstanceAAMP*)
+DrmSessionManager::DrmSessionManager(int, void*)
 {
 }
 
-AampDRMSessionManager::~AampDRMSessionManager()
+DrmSessionManager::~DrmSessionManager()
 {
 }
 
-void AampDRMSessionManager::renewLicense(DrmHelperPtr, void*, PrivateInstanceAAMP*)
+
+void DrmSessionManager::setPlaybackSpeedState(bool , double , bool  , double ,int , double , bool )
 {
 }
 
-void AampDRMSessionManager::setPlaybackSpeedState(int, double, bool)
+void DrmSessionManager::hideWatermarkOnDetach()
 {
 }
 
-void AampDRMSessionManager::hideWatermarkOnDetach()
+void DrmSessionManager::setVideoMute(bool , double , bool , double ,bool , double )
 {
 }
 
-void AampDRMSessionManager::setVideoMute(bool, double)
+void DrmSessionManager::setVideoWindowSize(int width, int height)
 {
-}
-
-void AampDRMSessionManager::setVideoWindowSize(int width, int height)
-{
-	if (g_mockAampDRMSessionManager)
+	if (g_mockDRMSessionManager)
 	{
-		g_mockAampDRMSessionManager->setVideoWindowSize(width, height);
+		g_mockDRMSessionManager->setVideoWindowSize(width, height);
 	}
 }
 
-void AampDRMSessionManager::Stop()
+
+void DrmSessionManager::UpdateMaxDRMSessions(int)
 {
 }
 
-void AampDRMSessionManager::UpdateMaxDRMSessions(int)
-{
-}
 
-void AampDRMSessionManager::setLicenseRequestAbort(bool)
-{
-}
-
-DrmSession * AampDRMSessionManager::createDrmSession(
+DrmSession * DrmSessionManager::createDrmSession(int& err,
 		const char* systemId, MediaFormat mediaFormat, const unsigned char * initDataPtr,
-		uint16_t initDataLen, AampMediaType streamType,
-		PrivateInstanceAAMP* aamp, DrmMetaDataEventPtr e, const unsigned char* contentMetadataPtr,
+		uint16_t initDataLen, int streamType, 
+		DrmCallbacks* aamp, void *ptr , const unsigned char* contentMetadataPtr,
 		bool isPrimarySession)
 		{
 			return nullptr;
 		}
 		
-SessionMgrState AampDRMSessionManager::getSessionMgrState()
+SessionMgrState DrmSessionManager::getSessionMgrState()
 {
 	return SessionMgrState::eSESSIONMGR_INACTIVE;
 }
-
-void AampDRMSessionManager::SetLicenseFetcher(AampLicenseFetcher *fetcherInstance)
+#if 0
+void DrmSessionManager::SetLicenseFetcher(AampLicenseFetcher *fetcherInstance)
 {
 }
 
-bool AampDRMSessionManager::QueueContentProtection(DrmHelperPtr drmHelper, std::string periodId, uint32_t adapIdx, AampMediaType type, bool isVssPeriod)
+bool DrmSessionManager::QueueContentProtection(DrmHelperPtr drmHelper, std::string periodId, uint32_t adapIdx, AampMediaType type, bool isVssPeriod)
 {
 	return false;
 }
 
-void AampDRMSessionManager::QueueProtectionEvent(DrmHelperPtr drmHelper, std::string periodId, uint32_t adapIdx, AampMediaType type)
+void DrmSessionManager::QueueProtectionEvent(DrmHelperPtr drmHelper, std::string periodId, uint32_t adapIdx, AampMediaType type)
 {
 }
 
-void AampDRMSessionManager::clearDrmSession(bool forceClearSession)
+void DrmSessionManager::clearDrmSession(bool forceClearSession)
 {
 }
 
-void AampDRMSessionManager::clearFailedKeyIds()
+void DrmSessionManager::clearFailedKeyIds()
 {
 }
 
-void AampDRMSessionManager::setSessionMgrState(SessionMgrState state)
+void DrmSessionManager::setSessionMgrState(SessionMgrState state)
 {
 }
 
-void AampDRMSessionManager::SetSendErrorOnFailure(bool sendErrorOnFailure)
+void DrmSessionManager::SetSendErrorOnFailure(bool sendErrorOnFailure)
 {
 }
 
-void AampDRMSessionManager::SetCommonKeyDuration(int keyDuration)
+void DrmSessionManager::SetCommonKeyDuration(int keyDuration)
 {
 }
 
-void AampDRMSessionManager::notifyCleanup()
+void DrmSessionManager::notifyCleanup()
 {
 }
+#endif

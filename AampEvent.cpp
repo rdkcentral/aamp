@@ -926,7 +926,7 @@ bool BufferingChangedEvent::buffering() const
 DrmMetaDataEvent::DrmMetaDataEvent(AAMPTuneFailure failure, const std::string &accessStatus, int statusValue, int responseCode, bool secclientErr, std::string sid):
 	AAMPEventObject(AAMP_EVENT_DRM_METADATA, std::move(sid)), mFailure(failure), mAccessStatus(accessStatus),
 	mAccessStatusValue(statusValue), mResponseCode(responseCode), mSecclientError(secclientErr), mSecManagerReasonCode(-1), mSecManagerClass(-1),
-	mBusinessStatus(-1), mHeaderResponses(),mResponseData(),mNetworkMetrics()
+	mBusinessStatus(-1), mHeaderResponses(),mResponseData(),mNetworkMetrics(), mBodyResponses()
 {
 	
 }
@@ -1149,6 +1149,22 @@ const std::vector<std::string> &DrmMetaDataEvent::getHeaderResponses() const
 void DrmMetaDataEvent::setHeaderResponses(const std::vector<std::string> &responses)
 {
 	mHeaderResponses = responses;
+}
+
+/**
+ * @brief Get Body response
+ */
+const std::string &DrmMetaDataEvent::getBodyResponse() const
+{
+	return mBodyResponses;
+}
+
+/**
+ * @brief Set body response from license request
+ */
+void DrmMetaDataEvent::setBodyResponse(const std::string &responses)
+{
+	mBodyResponses = responses;
 }
 
 /**
@@ -1612,9 +1628,9 @@ const std::string &ContentProtectionDataEvent::getStreamType() const
 /*
  * @brief ManifestRefreshEvent Constructor
  */
-ManifestRefreshEvent::ManifestRefreshEvent(uint32_t manifestDuration,int noOfPeriods, uint32_t manifestPublishedTime, std::string sid,const char * manifestType):
+ManifestRefreshEvent::ManifestRefreshEvent(uint32_t manifestDuration,int noOfPeriods, uint32_t manifestPublishedTime, const std::string &manifestType, std::string sid):
 	AAMPEventObject(AAMP_EVENT_MANIFEST_REFRESH_NOTIFY, std::move(sid))
-	, mManifestDuration(manifestDuration),mNoOfPeriods(noOfPeriods),mManifestPublishedTime(manifestPublishedTime),mManifestType(manifestType)
+	, mManifestDuration(manifestDuration), mNoOfPeriods(noOfPeriods), mManifestPublishedTime(manifestPublishedTime), mManifestType(manifestType)
 {
 
 }
@@ -1630,13 +1646,12 @@ uint32_t ManifestRefreshEvent::getManifestDuration() const
 }
 
 /**
- * @brief Get ManifestFile Duration for Linear DASH
+ * @brief Get ManifestFile type for Linear DASH
  *
- * @return ManifestFile Duration
+ * @return ManifestFile type
  */
-const char * ManifestRefreshEvent::getManifestType() const
+const std::string& ManifestRefreshEvent::getManifestType() const
 {
-
    return mManifestType;
 }
 
@@ -1677,4 +1692,54 @@ TuneTimeMetricsEvent::TuneTimeMetricsEvent(const std::string &timeMetricData, st
 const std::string &TuneTimeMetricsEvent::getTuneMetricsData() const
 {
 	return mTuneMetricsData;
+}
+
+/**
+ * @fn MonitorAVStatusEvent Constructor
+ */
+MonitorAVStatusEvent::MonitorAVStatusEvent(const std::string &state, int64_t videoPosMs, int64_t audioPosMs, uint64_t timeInStateMs, std::string sid):
+		AAMPEventObject(AAMP_EVENT_MONITORAV_STATUS, std::move(sid)), mMonitorAVStatus(state), mVideoPositionMS(videoPosMs),
+		mAudioPositionMS(audioPosMs), mTimeInStateMS(timeInStateMs)
+{
+
+}
+
+/**
+ * @brief getMonitorAVStatus
+ *
+ * @return MonitorAVStatus
+ */
+const std::string &MonitorAVStatusEvent::getMonitorAVStatus() const
+{
+	return mMonitorAVStatus;
+}
+
+/**
+ * @brief getVideoPositionMS
+ *
+ * @return Video Position in MS
+ */
+int64_t MonitorAVStatusEvent::getVideoPositionMS() const
+{
+	return mVideoPositionMS;
+}
+
+/**
+ * @brief getAudioPositionMS
+ *
+ * @return Audio Position in MS
+ */
+int64_t MonitorAVStatusEvent::getAudioPositionMS() const
+{
+	return mAudioPositionMS;
+}
+
+/**
+ * @brief getTimeInStateMS
+ *
+ * @return Time in the current state in MS
+ */
+uint64_t MonitorAVStatusEvent::getTimeInStateMS() const
+{
+	return mTimeInStateMS;
 }

@@ -274,7 +274,7 @@ void PrivateCDAIObjectMPD::PlaceAds(AampMPDParseHelperPtr adMPDParseHelper)
 				if(openPrdFound && -1 != mPlacementObj.curAdIdx && (mPlacementObj.openPeriodId == periodId))
 				{
 					double periodDelta = adMPDParseHelper->GetPeriodNewContentDurationMs(period, mPlacementObj.curEndNumber);
-					double currPeriodDur = adMPDParseHelper->aamp_GetPeriodDuration(iter, 0); 
+					double currPeriodDur = adMPDParseHelper->aamp_GetPeriodDuration(iter, 0);
 					double nextPeriodDur = -1;
 					int nextPeriodIter = iter+1;
 					// Find the next non-empty period if available
@@ -577,12 +577,12 @@ void PrivateCDAIObjectMPD::PlaceAds(AampMPDParseHelperPtr adMPDParseHelper)
 							abObj.endPeriodOffset = 0;
 							abObj.endPeriodId = nextPeriod->GetId();
 							abObj.mAdBreakPlaced = true;
-							AAMPLOG_INFO("[CDAI] diff [%d] close to period end [%" PRIu64 "],Aligning to next-period:%s", 
+							AAMPLOG_INFO("[CDAI] diff [%d] close to period end [%" PRIu64 "],Aligning to next-period:%s",
 											diff, currPeriodDuration, abObj.endPeriodId.c_str());
 						}
 						else
 						{
-							AAMPLOG_INFO("[CDAI] diff [%d] close to period end [%" PRIu64 "], but next period not available, waiting", 
+							AAMPLOG_INFO("[CDAI] diff [%d] close to period end [%" PRIu64 "], but next period not available, waiting",
 											diff, currPeriodDuration);
 						}
 					}
@@ -731,7 +731,7 @@ int PrivateCDAIObjectMPD::CheckForAdStart(const float &rate, bool init, const st
 {
 	int adIdx = -1;
 	auto pit = mPeriodMap.find(periodId);
-	if(mPeriodMap.end() != pit && !(pit->second.adBreakId.empty()))
+	if(mPeriodMap.end() != pit && !(pit->second.adBreakId.empty()) && !mAdBreaks[periodId].invalid)
 	{
 		Period2AdData &curP2Ad = pit->second;
 		if(isAdBreakObjectExist(curP2Ad.adBreakId))
@@ -1277,7 +1277,7 @@ PlacementObj PrivateCDAIObjectMPD::setPlacementObj(std::string adBrkId,std::stri
 			if( mAdtoInsertInNextBreakVec[i].pendingAdbrkId ==  endPeriodId)
 			{
 				//DAI Ad available,point nxtPlacementObj to the endPeriod
-				nxtPlacementObj = mAdtoInsertInNextBreakVec[i]; 
+				nxtPlacementObj = mAdtoInsertInNextBreakVec[i];
 				AAMPLOG_INFO("[CDAI] Placed AdBrkId = %s ",nxtPlacementObj.pendingAdbrkId.c_str());
 				break;
 			}

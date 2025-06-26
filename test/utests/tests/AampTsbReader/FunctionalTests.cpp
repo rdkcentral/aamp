@@ -50,6 +50,11 @@ protected:
 		{
 			CheckPeriodBoundary(currFragment);
 		}
+
+		void SetUpcomingFragmentPosition(double upcomingFragmentPosition)
+		{
+			mUpcomingFragmentPosition = upcomingFragmentPosition;
+		}
 	};
 
 	TestableAampTsbReader *mTestableTsbReader;
@@ -832,6 +837,67 @@ TEST_F(FunctionalTests, FindAndReadNext_EOSReached)
 }
 
 /**
+ * @test FunctionalTests::FindAndReadNext_EOSReachedNegativeRate
+ * @brief Tests the FindNext/ReadNext methods when the end of stream (EOS) is reached when rate is negative.
+ *
+ * This test case verifies that the FindNext/ReadNext methods of AampTsbReader handles the case where the end of stream is reached when rate is negative.
+ *
+ * @expect The IsEos method should return true when EOS is reached when rate is negative.
+ */
+TEST_F(FunctionalTests, FindAndReadNext_EOSReachedNegativeRate)
+{
+	float rate = -1.0f;
+	TuneType tuneType = eTUNETYPE_NEW_NORMAL;
+
+	// Mock valid fragment data
+	std::string url = "http://example.com";
+	AampMediaType media = eMEDIATYPE_VIDEO;
+	double position = 1000.0;
+	double duration = 5.0;
+	double last_position = 1010.0;
+	double pts = 0.0;
+	bool discont = false;
+	std::string periodId = "testPeriodId";
+	StreamInfo streamInfo;
+	int profileIdx = 0;
+	uint32_t timeScale = 240000;
+	double PTSOffsetSec = 0.0;
+
+	// Create init data and fragments
+	TsbInitDataPtr initFragment = std::make_shared<TsbInitData>(url, media, position, streamInfo, periodId, profileIdx);
+
+	// Mock data manager
+	TsbFragmentDataPtr firstFragment = std::make_shared<TsbFragmentData>(url, media, position, duration, pts, discont, periodId, initFragment, timeScale, PTSOffsetSec);
+	TsbFragmentDataPtr secondFragment = std::make_shared<TsbFragmentData>(url, media, position + duration, duration, pts + duration, discont, periodId, initFragment, timeScale, PTSOffsetSec);
+	secondFragment->prev = firstFragment;
+	firstFragment->next = secondFragment;
+	TsbFragmentDataPtr lastFragment = std::make_shared<TsbFragmentData>(url, media, position + 2 * duration, duration, pts + 2 * duration, discont, periodId, initFragment, timeScale, PTSOffsetSec);
+	secondFragment->next = lastFragment;
+	lastFragment->prev = secondFragment;
+
+	// Mock data manager
+	EXPECT_CALL(*g_mockTSBDataManager, GetFirstFragment()).WillOnce(Return(firstFragment));
+	EXPECT_CALL(*g_mockTSBDataManager, GetLastFragment()).WillOnce(Return(lastFragment));
+	EXPECT_CALL(*g_mockTSBDataManager, GetNearestFragment(_)).WillOnce(Return(lastFragment));
+	EXPECT_CALL(*g_mockTSBDataManager, GetFragment(_, _))
+		.WillOnce(Return(lastFragment))
+		.WillOnce(Return(secondFragment))
+		.WillOnce(Return(firstFragment));
+
+	EXPECT_EQ(mTestableTsbReader->Init(last_position, rate, tuneType, nullptr), eAAMPSTATUS_OK);
+	EXPECT_EQ(mTestableTsbReader->FindNext(), lastFragment);
+	mTestableTsbReader->ReadNext(lastFragment);
+
+	EXPECT_EQ(mTestableTsbReader->FindNext(), secondFragment);
+	mTestableTsbReader->ReadNext(secondFragment);
+
+	EXPECT_EQ(mTestableTsbReader->FindNext(), firstFragment);
+	mTestableTsbReader->ReadNext(firstFragment);
+
+	EXPECT_TRUE(mTestableTsbReader->IsEos());
+}
+
+/**
  * @test FunctionalTests::FindAndReadNext_CorrectedPosition
  * @brief Tests the FindNext/ReadNext methods with a corrected position.
  *
@@ -875,6 +941,8 @@ TEST_F(FunctionalTests, FindAndReadNext_CorrectedPosition)
 	EXPECT_EQ(mTestableTsbReader->Init(position, rate, tuneType, nullptr), eAAMPSTATUS_OK);
 	EXPECT_EQ(mTestableTsbReader->FindNext(), fragment);
 	mTestableTsbReader->ReadNext(fragment);
+	//Now Overwrite mUpcomingFragmentPosition with a position which is not the absolte position of a segment to test that FindNext is able to find the nearest segment.
+	mTestableTsbReader->SetUpcomingFragmentPosition(position + duration);
 	EXPECT_EQ(mTestableTsbReader->FindNext(), correctedFragment); // Corrected position
 	mTestableTsbReader->ReadNext(correctedFragment);
 	EXPECT_TRUE(mTestableTsbReader->IsEos());
@@ -925,9 +993,251 @@ TEST_F(FunctionalTests, FindAndReadNext_CorrectedPositionNegativeRate)
 	EXPECT_EQ(mTestableTsbReader->FindNext(), fragment);
 	mTestableTsbReader->ReadNext(fragment);
 
+	//Now Overwrite mUpcomingFragmentPosition with a position which is not the absolte position of a segment to test that FindNext is able to find the nearest segment.
+	mTestableTsbReader->SetUpcomingFragmentPosition(position - duration);
 	EXPECT_EQ(mTestableTsbReader->FindNext(), correctedFragment); // Corrected position
 	mTestableTsbReader->ReadNext(correctedFragment);
 
+	EXPECT_TRUE(mTestableTsbReader->IsEos());
+}
+
+/**
+ * @test FunctionalTests::FindAndReadNext_WithFragmentSkip
+ * @brief Tests the FindNext/ReadNext methods by skipping a fragment
+ *
+ * This test case verifies that the FindNext/ReadNext methods of AampTsbReader is able to find and read the proper fragment even if we skip one.
+ *
+ * @expect The FindNext method should return the expected fragment.
+ */
+TEST_F(FunctionalTests, FindAndReadNext_WithFragmentSkip)
+{
+	float rate = 1.0f;
+	TuneType tuneType = eTUNETYPE_NEW_NORMAL;
+
+	// Mock valid fragment data
+	std::string url = "http://example.com";
+	AampMediaType media = eMEDIATYPE_VIDEO;
+	double position = 1000.0;
+	double duration = 2.0;
+	double pts = 0.0;
+	std::string periodId = "testPeriodId";
+	StreamInfo streamInfo;
+	int profileIdx = 0;
+	uint32_t timeScale = 240000;
+	double PTSOffsetSec = 0.0;
+
+	// Create init data and fragments
+	TsbInitDataPtr initFragment = std::make_shared<TsbInitData>(url, media, position, streamInfo, periodId, profileIdx);
+	TsbFragmentDataPtr fragment1 = std::make_shared<TsbFragmentData>(url, media, position, duration, pts, false, periodId, initFragment, timeScale, PTSOffsetSec);
+	//Simulating a fragment skip by not having fragment2
+	TsbFragmentDataPtr fragment3 = std::make_shared<TsbFragmentData>(url, media, position + (2 * duration), duration, pts + (2 * duration), false, periodId, initFragment, timeScale, PTSOffsetSec);
+	TsbFragmentDataPtr fragment4 = std::make_shared<TsbFragmentData>(url, media, position + (3 * duration), duration, pts + (3 * duration), false, periodId, initFragment, timeScale, PTSOffsetSec);
+	fragment3->next = fragment4;
+
+	// Mock data manager
+	EXPECT_CALL(*g_mockTSBDataManager, GetFirstFragment()).WillOnce(Return(fragment1));
+	EXPECT_CALL(*g_mockTSBDataManager, GetLastFragment()).WillOnce(Return(fragment4));
+	EXPECT_CALL(*g_mockTSBDataManager, GetNearestFragment(position)).WillOnce(Return(fragment1));
+
+	EXPECT_CALL(*g_mockTSBDataManager, GetFragment(position + (3 * duration), _)).WillOnce(Return(fragment4));
+
+	EXPECT_EQ(mTestableTsbReader->Init(position, rate, tuneType, nullptr), eAAMPSTATUS_OK);
+
+	mTestableTsbReader->ReadNext(fragment1);
+	mTestableTsbReader->ReadNext(fragment3);
+	EXPECT_EQ(mTestableTsbReader->FindNext(), fragment4);
+}
+
+/**
+ * @test FunctionalTests::FindAndReadNext_WithFragmentSkipNegativeRate
+ * @brief Tests the FindNext/ReadNext methods with a negative rate by skipping a fragment.
+ *
+ * This test case verifies that the FindNext/ReadNext methods of AampTsbReader is able to find and read the appropriate fragment even if we skip one when rate is negative.
+ *
+ * @expect The FindNext method should return the expected fragment when the rate is negative.
+ */
+TEST_F(FunctionalTests, FindAndReadNext_WithFragmentSkipNegativeRate)
+{
+	float rate = -1.0f;
+	TuneType tuneType = eTUNETYPE_NEW_NORMAL;
+
+	// Mock valid fragment data
+	std::string url = "http://example.com";
+	AampMediaType media = eMEDIATYPE_VIDEO;
+	double position = 1000.0;
+	double duration = 2.0;
+	double last_fragment_position = 1006.0;
+	double pts = 0.0;
+	std::string periodId = "testPeriodId";
+	StreamInfo streamInfo;
+	int profileIdx = 0;
+	uint32_t timeScale = 240000;
+	double PTSOffsetSec = 0.0;
+
+	// Create init data and fragments
+	TsbInitDataPtr initFragment = std::make_shared<TsbInitData>(url, media, position, streamInfo, periodId, profileIdx);
+	TsbFragmentDataPtr fragment1 = std::make_shared<TsbFragmentData>(url, media, position, duration, pts, false, periodId, initFragment, timeScale, PTSOffsetSec);
+	TsbFragmentDataPtr fragment2 = std::make_shared<TsbFragmentData>(url, media, position + duration, duration, pts + duration, false, periodId, initFragment, timeScale, PTSOffsetSec);
+	//Simulating a fragment skip by not having fragment3
+	TsbFragmentDataPtr fragment4 = std::make_shared<TsbFragmentData>(url, media, position + (3 * duration), duration, pts + (3 * duration), false, periodId, initFragment, timeScale, PTSOffsetSec);
+	fragment2->prev = fragment1;
+
+	// Mock data manager
+	EXPECT_CALL(*g_mockTSBDataManager, GetFirstFragment()).WillOnce(Return(fragment1));
+	EXPECT_CALL(*g_mockTSBDataManager, GetLastFragment()).WillOnce(Return(fragment4));
+	EXPECT_CALL(*g_mockTSBDataManager, GetNearestFragment(last_fragment_position)).WillOnce(Return(fragment4));
+
+	EXPECT_CALL(*g_mockTSBDataManager, GetFragment(position, _)).WillOnce(Return(fragment1));
+
+	EXPECT_EQ(mTestableTsbReader->Init(last_fragment_position, rate, tuneType, nullptr), eAAMPSTATUS_OK);
+
+	mTestableTsbReader->ReadNext(fragment4);
+	mTestableTsbReader->ReadNext(fragment2);
+	EXPECT_EQ(mTestableTsbReader->FindNext(), fragment1);
+}
+
+/**
+ * @test FunctionalTests::FindAndReadNext_WithFragmentSkipEOSReached
+ * @brief Tests the FindNext/ReadNext methods EOS by skipping a fragment
+ *
+ * This test case verifies that the FindNext/ReadNext methods of AampTsbReader is able to find and read the proper fragment even if we skip one.
+ *
+ * @expect The FindNext method should return the expected fragment in the forward direction.
+ */
+TEST_F(FunctionalTests, FindAndReadNext_WithFragmentSkipEOSReached)
+{
+	float rate = 1.0f;
+	TuneType tuneType = eTUNETYPE_NEW_NORMAL;
+
+	// Mock valid fragment data
+	std::string url = "http://example.com";
+	AampMediaType media = eMEDIATYPE_VIDEO;
+	double position = 1000.0;
+	double duration = 2.0;
+	double pts = 0.0;
+	std::string periodId = "testPeriodId";
+	StreamInfo streamInfo;
+	int profileIdx = 0;
+	uint32_t timeScale = 240000;
+	double PTSOffsetSec = 0.0;
+
+	// Create init data and fragments
+	TsbInitDataPtr initFragment = std::make_shared<TsbInitData>(url, media, position, streamInfo, periodId, profileIdx);
+	TsbFragmentDataPtr fragment1 = std::make_shared<TsbFragmentData>(url, media, position, duration, pts, false, periodId, initFragment, timeScale, PTSOffsetSec);
+	TsbFragmentDataPtr fragment3 = std::make_shared<TsbFragmentData>(url, media, position + (2 * duration), duration, pts + (2 * duration), false, periodId, initFragment, timeScale, PTSOffsetSec);
+
+	// Mock data manager
+	EXPECT_CALL(*g_mockTSBDataManager, GetFirstFragment()).WillOnce(Return(fragment1));
+	EXPECT_CALL(*g_mockTSBDataManager, GetLastFragment()).WillOnce(Return(fragment3));
+	EXPECT_CALL(*g_mockTSBDataManager, GetNearestFragment(position)).WillOnce(Return(fragment1));
+
+	EXPECT_CALL(*g_mockTSBDataManager, GetFragment(position + duration, _)).WillOnce(Return(nullptr));
+	EXPECT_CALL(*g_mockTSBDataManager, GetNearestFragment(position + duration - FLOATING_POINT_EPSILON)).WillOnce(Return(fragment3));
+
+	EXPECT_CALL(*g_mockTSBDataManager, GetFragment(position + (3 * duration), _)).WillOnce(Return(nullptr));
+	EXPECT_CALL(*g_mockTSBDataManager, GetNearestFragment((position + (3 * duration)) - FLOATING_POINT_EPSILON)).WillOnce(Return(nullptr));
+
+	EXPECT_EQ(mTestableTsbReader->Init(position, rate, tuneType, nullptr), eAAMPSTATUS_OK);
+
+	mTestableTsbReader->ReadNext(fragment1);
+	EXPECT_EQ(mTestableTsbReader->FindNext(), fragment3);
+	mTestableTsbReader->ReadNext(fragment3);
+	EXPECT_EQ(mTestableTsbReader->FindNext(), nullptr);
+	EXPECT_TRUE(mTestableTsbReader->IsEos());
+}
+
+/**
+ * @test FunctionalTests::FindAndReadNext_WithFragmentSkipEOSReachedNegativeRate
+ * @brief Tests the FindNext/ReadNext methods EOS by skipping a fragment when rate is negative
+ *
+ * This test case verifies that the FindNext/ReadNext methods of AampTsbReader is able to find and read the proper fragment and set EOS even if we skip one fragment one when rate is negative.
+ *
+ * @expect The FindNext method should return the expected fragment when the rate is negative.
+ */
+TEST_F(FunctionalTests, FindAndReadNext_WithFragmentSkipEOSReachedNegativeRate)
+{
+	float rate = -1.0f;
+	TuneType tuneType = eTUNETYPE_NEW_NORMAL;
+
+	// Mock valid fragment data
+	std::string url = "http://example.com";
+	AampMediaType media = eMEDIATYPE_VIDEO;
+	double position = 1000.0;
+	double duration = 2.0;
+	double last_fragment_position = 1004.0;
+	double pts = 0.0;
+	std::string periodId = "testPeriodId";
+	StreamInfo streamInfo;
+	int profileIdx = 0;
+	uint32_t timeScale = 240000;
+	double PTSOffsetSec = 0.0;
+
+	// Create init data and fragments
+	TsbInitDataPtr initFragment = std::make_shared<TsbInitData>(url, media, position, streamInfo, periodId, profileIdx);
+	TsbFragmentDataPtr fragment1 = std::make_shared<TsbFragmentData>(url, media, position, duration, pts, false, periodId, initFragment, timeScale, PTSOffsetSec);
+	TsbFragmentDataPtr fragment3 = std::make_shared<TsbFragmentData>(url, media, position + (2 * duration), duration, pts + (2 * duration), false, periodId, initFragment, timeScale, PTSOffsetSec);
+	fragment3->prev = fragment1;
+
+	// Mock data manager
+	EXPECT_CALL(*g_mockTSBDataManager, GetFirstFragment()).WillOnce(Return(fragment1));
+	EXPECT_CALL(*g_mockTSBDataManager, GetLastFragment()).WillOnce(Return(fragment3));
+	EXPECT_CALL(*g_mockTSBDataManager, GetNearestFragment(last_fragment_position)).WillOnce(Return(fragment3));
+
+	EXPECT_CALL(*g_mockTSBDataManager, GetFragment(position, _)).Times(2).WillRepeatedly(Return(fragment1));
+
+	EXPECT_EQ(mTestableTsbReader->Init(last_fragment_position, rate, tuneType, nullptr), eAAMPSTATUS_OK);
+
+	mTestableTsbReader->ReadNext(fragment3);
+	EXPECT_EQ(mTestableTsbReader->FindNext(), fragment1);
+	mTestableTsbReader->ReadNext(fragment1);
+	EXPECT_EQ(mTestableTsbReader->FindNext(), fragment1);
+	EXPECT_TRUE(mTestableTsbReader->IsEos());
+}
+
+/**
+ * @test FunctionalTests::FindAndReadNext_WithFragmentAddition
+ * @brief Tests the FindNext/ReadNext methods with addition of new fragments
+ *
+ * This test case verifies that the FindNext/ReadNext methods of AampTsbReader is able to find and read the proper fragment even if new fragments gets added at the end of tsb.
+ *
+ * @expect The FindNext method should return the expected fragment in the forward direction.
+ */
+TEST_F(FunctionalTests, FindAndReadNext_WithFragmentAddition)
+{
+	float rate = 1.0f;
+	TuneType tuneType = eTUNETYPE_NEW_NORMAL;
+
+	// Mock valid fragment data
+	std::string url = "http://example.com";
+	AampMediaType media = eMEDIATYPE_VIDEO;
+	double position = 1000.0;
+	double duration = 2.0;
+	double pts = 0.0;
+	std::string periodId = "testPeriodId";
+	StreamInfo streamInfo;
+	int profileIdx = 0;
+	uint32_t timeScale = 240000;
+	double PTSOffsetSec = 0.0;
+
+	// Create init data and fragments
+	TsbInitDataPtr initFragment = std::make_shared<TsbInitData>(url, media, position, streamInfo, periodId, profileIdx);
+	TsbFragmentDataPtr fragment1 = std::make_shared<TsbFragmentData>(url, media, position, duration, pts, false, periodId, initFragment, timeScale, PTSOffsetSec);
+	TsbFragmentDataPtr fragment2 = std::make_shared<TsbFragmentData>(url, media, position + duration, duration, pts + duration, false, periodId, initFragment, timeScale, PTSOffsetSec);
+
+	// Mock data manager
+	EXPECT_CALL(*g_mockTSBDataManager, GetFirstFragment()).WillOnce(Return(fragment1));
+	EXPECT_CALL(*g_mockTSBDataManager, GetLastFragment()).WillOnce(Return(fragment1));
+	EXPECT_CALL(*g_mockTSBDataManager, GetNearestFragment(position)).WillOnce(Return(fragment1));
+
+	EXPECT_CALL(*g_mockTSBDataManager, GetFragment(position + duration, _)).WillOnce(Return(fragment2));
+
+	EXPECT_EQ(mTestableTsbReader->Init(position, rate, tuneType, nullptr), eAAMPSTATUS_OK);
+
+	mTestableTsbReader->ReadNext(fragment1);
+	EXPECT_TRUE(mTestableTsbReader->IsEos());
+	fragment1->next = fragment2;
+	EXPECT_EQ(mTestableTsbReader->FindNext(), fragment2);
+	mTestableTsbReader->ReadNext(fragment2);
 	EXPECT_TRUE(mTestableTsbReader->IsEos());
 }
 
@@ -1069,3 +1379,284 @@ TEST_F(FunctionalTests, CheckForWaitIfReaderDone_AbortCheckForWaitIfReaderDone)
 	EXPECT_TRUE(mTestableTsbReader->IsEndFragmentInjected());
 }
 
+/**
+ * @test FunctionalTests::ReadNextFF2EOSTrue
+ * @brief Tests that the Eos is true in ReadNext with Speed FF2.
+ */
+TEST_F(FunctionalTests, ReadNextFF2EOSTrue)
+{
+	float rate = 2.0f;
+	TuneType tuneType = eTUNETYPE_NEW_NORMAL;
+
+	// Mock valid fragment data
+	std::string url = "http://example.com";
+	AampMediaType media = eMEDIATYPE_VIDEO;
+	double position = 1000.0;
+	double duration = 5.0;
+	double pts = 0.0;
+	bool discont = true;
+	std::string periodId = "testPeriodId";
+	StreamInfo streamInfo;
+	int profileIdx = 0;
+	uint32_t timeScale = 240000;
+	double PTSOffsetSec = 0.0;
+	mPrivateInstanceAAMP->mTrickModePositionEOS = 0.0;
+
+	// Create init data and fragments
+	TsbInitDataPtr initFragment = std::make_shared<TsbInitData>(url, media, position, streamInfo, periodId, profileIdx);
+	TsbFragmentDataPtr fragment = std::make_shared<TsbFragmentData>(url, media, position, duration, pts, false, periodId, initFragment, timeScale, PTSOffsetSec);
+	TsbFragmentDataPtr nextFragment = std::make_shared<TsbFragmentData>(url, media, position + duration, duration, pts + duration, discont, periodId, initFragment, timeScale, PTSOffsetSec);
+	fragment->next = nextFragment;
+
+	// Mock data manager
+	EXPECT_CALL(*g_mockTSBDataManager, GetFirstFragment()).WillOnce(Return(fragment));
+	EXPECT_CALL(*g_mockTSBDataManager, GetLastFragment()).WillOnce(Return(fragment));
+	EXPECT_CALL(*g_mockTSBDataManager, GetNearestFragment(_)).WillOnce(Return(fragment));
+
+	/* Needed to set the rate (rate is private member) */
+	EXPECT_EQ(mTestableTsbReader->Init(position, rate, tuneType, nullptr), eAAMPSTATUS_OK);
+
+	mTestableTsbReader->ReadNext(fragment);
+	EXPECT_EQ(mTestableTsbReader->mEosReached, true);
+}
+
+/**
+ * @test FunctionalTests::ReadNextFF2EOSTruePosEqEOSPos
+ * @brief Tests that the Eos is true in ReadNext with Speed FF2 when fragment position equals mTrickModePositionEOS.
+ */
+TEST_F(FunctionalTests, ReadNextFF2EOSTruePosEqEOSPos)
+{
+	float rate = 2.0f;
+	TuneType tuneType = eTUNETYPE_NEW_NORMAL;
+
+	// Mock valid fragment data
+	std::string url = "http://example.com";
+	AampMediaType media = eMEDIATYPE_VIDEO;
+	double position = 1000.0;
+	double duration = 5.0;
+	double pts = 0.0;
+	bool discont = true;
+	std::string periodId = "testPeriodId";
+	StreamInfo streamInfo;
+	int profileIdx = 0;
+	uint32_t timeScale = 240000;
+	double PTSOffsetSec = 0.0;
+	mPrivateInstanceAAMP->mTrickModePositionEOS = 1000.0;
+
+	// Create init data and fragments
+	TsbInitDataPtr initFragment = std::make_shared<TsbInitData>(url, media, position, streamInfo, periodId, profileIdx);
+	TsbFragmentDataPtr fragment = std::make_shared<TsbFragmentData>(url, media, position, duration, pts, false, periodId, initFragment, timeScale, PTSOffsetSec);
+	TsbFragmentDataPtr nextFragment = std::make_shared<TsbFragmentData>(url, media, position + duration, duration, pts + duration, discont, periodId, initFragment, timeScale, PTSOffsetSec);
+	fragment->next = nextFragment;
+
+	// Mock data manager
+	EXPECT_CALL(*g_mockTSBDataManager, GetFirstFragment()).WillOnce(Return(fragment));
+	EXPECT_CALL(*g_mockTSBDataManager, GetLastFragment()).WillOnce(Return(fragment));
+	EXPECT_CALL(*g_mockTSBDataManager, GetNearestFragment(_)).WillOnce(Return(fragment));
+
+	/* Needed to set the rate (rate is private member) */
+	EXPECT_EQ(mTestableTsbReader->Init(position, rate, tuneType, nullptr), eAAMPSTATUS_OK);
+
+	mTestableTsbReader->ReadNext(fragment);
+	EXPECT_EQ(mTestableTsbReader->mEosReached, true);
+}
+
+/**
+ * @test FunctionalTests::ReadNextFF2EOSFalse
+ * @brief Tests that the Eos is False in ReadNext with Speed FF2.
+ */
+TEST_F(FunctionalTests, ReadNextFF2EOSFalse)
+{
+	float rate = 2.0f;
+	TuneType tuneType = eTUNETYPE_NEW_NORMAL;
+
+	// Mock valid fragment data
+	std::string url = "http://example.com";
+	AampMediaType media = eMEDIATYPE_VIDEO;
+	double position = 1000.0;
+	double duration = 5.0;
+	double pts = 0.0;
+	bool discont = true;
+	std::string periodId = "testPeriodId";
+	StreamInfo streamInfo;
+	int profileIdx = 0;
+	uint32_t timeScale = 240000;
+	double PTSOffsetSec = 0.0;
+	mPrivateInstanceAAMP->mTrickModePositionEOS = 1001.0;
+
+	// Create init data and fragments
+	TsbInitDataPtr initFragment = std::make_shared<TsbInitData>(url, media, position, streamInfo, periodId, profileIdx);
+	TsbFragmentDataPtr fragment = std::make_shared<TsbFragmentData>(url, media, position, duration, pts, false, periodId, initFragment, timeScale, PTSOffsetSec);
+	TsbFragmentDataPtr nextFragment = std::make_shared<TsbFragmentData>(url, media, position + duration, duration, pts + duration, discont, periodId, initFragment, timeScale, PTSOffsetSec);
+	fragment->next = nextFragment;
+
+	// Mock data manager
+	EXPECT_CALL(*g_mockTSBDataManager, GetFirstFragment()).WillOnce(Return(fragment));
+	EXPECT_CALL(*g_mockTSBDataManager, GetLastFragment()).WillOnce(Return(fragment));
+	EXPECT_CALL(*g_mockTSBDataManager, GetNearestFragment(_)).WillOnce(Return(fragment));
+
+	/* Needed to set the rate (rate is private member) */
+	EXPECT_EQ(mTestableTsbReader->Init(position, rate, tuneType, nullptr), eAAMPSTATUS_OK);
+
+	mTestableTsbReader->ReadNext(fragment);
+	EXPECT_EQ(mTestableTsbReader->mEosReached, false);
+}
+
+/**
+ * @test FunctionalTests::ReadNextRW2EOSTrue
+ * @brief Tests that the Eos is true in ReadNext with Speed of -2.
+ */
+TEST_F(FunctionalTests, ReadNextRW2EOSTrue)
+{
+	float rate = -2.0f;
+	TuneType tuneType = eTUNETYPE_NEW_NORMAL;
+
+	// Mock valid fragment data
+	std::string url = "http://example.com";
+	AampMediaType media = eMEDIATYPE_VIDEO;
+	double position = 1000.0;
+	double duration = 5.0;
+	double pts = 0.0;
+	bool discont = true;
+	std::string periodId = "testPeriodId";
+	StreamInfo streamInfo;
+	int profileIdx = 0;
+	uint32_t timeScale = 240000;
+	double PTSOffsetSec = 0.0;
+
+	// Create init data and fragments
+	TsbInitDataPtr initFragment = std::make_shared<TsbInitData>(url, media, position, streamInfo, periodId, profileIdx);
+	TsbFragmentDataPtr fragment = std::make_shared<TsbFragmentData>(url, media, position, duration, pts, false, periodId, initFragment, timeScale, PTSOffsetSec);
+	fragment->prev = nullptr;
+
+	// Mock data manager
+	EXPECT_CALL(*g_mockTSBDataManager, GetFirstFragment()).WillOnce(Return(fragment));
+	EXPECT_CALL(*g_mockTSBDataManager, GetLastFragment()).WillOnce(Return(fragment));
+	EXPECT_CALL(*g_mockTSBDataManager, GetNearestFragment(_)).WillOnce(Return(fragment));
+
+	/* Needed to set the rate (rate is private member) */
+	EXPECT_EQ(mTestableTsbReader->Init(position, rate, tuneType, nullptr), eAAMPSTATUS_OK);
+
+	mTestableTsbReader->ReadNext(fragment);
+	EXPECT_EQ(mTestableTsbReader->mEosReached, true);
+}
+
+/**
+ * @test FunctionalTests::ReadNextRW2EOSFalse
+ * @brief Tests that the Eos is False in ReadNext with Speed of -2.
+ */
+TEST_F(FunctionalTests, ReadNextRW2EOSFalse)
+{
+	float rate = -2.0f;
+	TuneType tuneType = eTUNETYPE_NEW_NORMAL;
+
+	// Mock valid fragment data
+	std::string url = "http://example.com";
+	AampMediaType media = eMEDIATYPE_VIDEO;
+	double position = 1000.0;
+	double duration = 5.0;
+	double pts = 0.0;
+	bool discont = true;
+	std::string periodId = "testPeriodId";
+	StreamInfo streamInfo;
+	int profileIdx = 0;
+	uint32_t timeScale = 240000;
+	double PTSOffsetSec = 0.0;
+
+	// Create init data and fragments
+	TsbInitDataPtr initFragment = std::make_shared<TsbInitData>(url, media, position, streamInfo, periodId, profileIdx);
+	TsbFragmentDataPtr fragment = std::make_shared<TsbFragmentData>(url, media, position, duration, pts, false, periodId, initFragment, timeScale, PTSOffsetSec);
+	TsbFragmentDataPtr nextFragment = std::make_shared<TsbFragmentData>(url, media, position + duration, duration, pts + duration, discont, periodId, initFragment, timeScale, PTSOffsetSec);
+	nextFragment->prev = fragment;
+
+	// Mock data manager
+	EXPECT_CALL(*g_mockTSBDataManager, GetFirstFragment()).WillOnce(Return(fragment));
+	EXPECT_CALL(*g_mockTSBDataManager, GetLastFragment()).WillOnce(Return(fragment));
+	EXPECT_CALL(*g_mockTSBDataManager, GetNearestFragment(_)).WillOnce(Return(fragment));
+
+	/* Needed to set the rate (rate is private member) */
+	EXPECT_EQ(mTestableTsbReader->Init(position, rate, tuneType, nullptr), eAAMPSTATUS_OK);
+
+	mTestableTsbReader->ReadNext(nextFragment);
+	EXPECT_EQ(mTestableTsbReader->mEosReached, false);
+}
+
+/**
+ * @test FunctionalTests::ReadNextPlayEOSTrue
+ * @brief Tests that the Eos is true in ReadNext with Speed of 1 i.e play
+ */
+TEST_F(FunctionalTests, ReadNextPlayEOSTrue)
+{
+	float rate = 1.0f;
+	TuneType tuneType = eTUNETYPE_NEW_NORMAL;
+
+	// Mock valid fragment data
+	std::string url = "http://example.com";
+	AampMediaType media = eMEDIATYPE_VIDEO;
+	double position = 1000.0;
+	double duration = 5.0;
+	double pts = 0.0;
+	bool discont = true;
+	std::string periodId = "testPeriodId";
+	StreamInfo streamInfo;
+	int profileIdx = 0;
+	uint32_t timeScale = 240000;
+	double PTSOffsetSec = 0.0;
+
+	// Create init data and fragments
+	TsbInitDataPtr initFragment = std::make_shared<TsbInitData>(url, media, position, streamInfo, periodId, profileIdx);
+	TsbFragmentDataPtr fragment = std::make_shared<TsbFragmentData>(url, media, position, duration, pts, false, periodId, initFragment, timeScale, PTSOffsetSec);
+	TsbFragmentDataPtr nextFragment = std::make_shared<TsbFragmentData>(url, media, position + duration, duration, pts + duration, discont, periodId, initFragment, timeScale, PTSOffsetSec);
+	nextFragment->next = nullptr;
+
+	// Mock data manager
+	EXPECT_CALL(*g_mockTSBDataManager, GetFirstFragment()).WillOnce(Return(fragment));
+	EXPECT_CALL(*g_mockTSBDataManager, GetLastFragment()).WillOnce(Return(fragment));
+	EXPECT_CALL(*g_mockTSBDataManager, GetNearestFragment(_)).WillOnce(Return(fragment));
+
+	/* Needed to set the rate (rate is private member) */
+	EXPECT_EQ(mTestableTsbReader->Init(position, rate, tuneType, nullptr), eAAMPSTATUS_OK);
+
+	mTestableTsbReader->ReadNext(nextFragment);
+	EXPECT_EQ(mTestableTsbReader->mEosReached, true);
+}
+
+/**
+ * @test FunctionalTests::ReadNextPlayEOSFalse
+ * @brief Tests that the Eos is False in ReadNext with Speed of 1 i.e play.
+ */
+TEST_F(FunctionalTests, ReadNextPlayEOSFalse)
+{
+	float rate = 1.0f;
+	TuneType tuneType = eTUNETYPE_NEW_NORMAL;
+
+	// Mock valid fragment data
+	std::string url = "http://example.com";
+	AampMediaType media = eMEDIATYPE_VIDEO;
+	double position = 1000.0;
+	double duration = 5.0;
+	double pts = 0.0;
+	bool discont = true;
+	std::string periodId = "testPeriodId";
+	StreamInfo streamInfo;
+	int profileIdx = 0;
+	uint32_t timeScale = 240000;
+	double PTSOffsetSec = 0.0;
+
+	// Create init data and fragments
+	TsbInitDataPtr initFragment = std::make_shared<TsbInitData>(url, media, position, streamInfo, periodId, profileIdx);
+	TsbFragmentDataPtr fragment = std::make_shared<TsbFragmentData>(url, media, position, duration, pts, false, periodId, initFragment, timeScale, PTSOffsetSec);
+	TsbFragmentDataPtr nextFragment = std::make_shared<TsbFragmentData>(url, media, position + duration, duration, pts + duration, discont, periodId, initFragment, timeScale, PTSOffsetSec);
+	fragment->next = nextFragment;
+
+	// Mock data manager
+	EXPECT_CALL(*g_mockTSBDataManager, GetFirstFragment()).WillOnce(Return(fragment));
+	EXPECT_CALL(*g_mockTSBDataManager, GetLastFragment()).WillOnce(Return(fragment));
+	EXPECT_CALL(*g_mockTSBDataManager, GetNearestFragment(_)).WillOnce(Return(fragment));
+
+	/* Needed to set the rate (rate is private member) */
+	EXPECT_EQ(mTestableTsbReader->Init(position, rate, tuneType, nullptr), eAAMPSTATUS_OK);
+
+	mTestableTsbReader->ReadNext(fragment);
+	EXPECT_EQ(mTestableTsbReader->mEosReached, false);
+}

@@ -59,31 +59,32 @@ set(FAKE_SOURCES ${UTESTS_ROOT}/fakes/FakeAampRfc.cpp
 			 	 ${AAMP_ROOT}/middleware/test/utests/fakes/FakeSocUtils.cpp)
 
 set(AAMP_SOURCES ${AAMP_ROOT}/middleware/drm/base64.cpp
-				 ${AAMP_ROOT}/_base64.cpp			 
-				 ${AAMP_ROOT}/AampConfig.cpp
-				 ${AAMP_ROOT}/middleware/PlayerLogManager.cpp
-				 ${AAMP_ROOT}/middleware/drm/DrmUtils.cpp
-				 ${AAMP_ROOT}/middleware/PlayerUtils.cpp
-				 ${AAMP_ROOT}/downloader/AampCurlStore.cpp
-				 ${AAMP_ROOT}/downloader/AampCurlDownloader.cpp
-				 ${AAMP_ROOT}/AampDRMLicPreFetcher.cpp
-				 ${AAMP_ROOT}/AampEvent.cpp
-				 ${AAMP_ROOT}/AampJsonObject.cpp
-				 ${AAMP_ROOT}/middleware/drm/DrmJsonObject.cpp
-				 ${AAMP_ROOT}/AampProfiler.cpp
-				 ${AAMP_ROOT}/scte35/AampSCTE35.cpp
-				 ${AAMP_ROOT}/AampUtils.cpp
-				 ${AAMP_ROOT}/iso639map.cpp
-				 ${AAMP_ROOT}/middleware/drm/DrmUtils.cpp
-				 ${AAMP_ROOT}/middleware/PlayerUtils.cpp
-				 ${AAMP_ROOT}/middleware/drm/drmsessionfactory.cpp
-				 ${AAMP_ROOT}/middleware/drm/helper/DrmHelper.cpp
-				 ${AAMP_ROOT}/middleware/drm/helper/DrmHelperFactory.cpp
-				 ${AAMP_ROOT}/drm/AampDRMSessionManager.cpp
-				 ${AAMP_ROOT}/middleware/drm/DrmSession.cpp
-				 ${AAMP_ROOT}/middleware/drm/ClearKeyDrmSession.cpp
-				 ${AAMP_ROOT}/middleware/drm/helper/ClearKeyHelper.cpp
-				 ${AAMP_ROOT}/isobmff/isobmffbox.h ${AAMP_ROOT}/isobmff/isobmffbox.cpp ${AAMP_ROOT}/isobmff/isobmffbuffer.h ${AAMP_ROOT}/isobmff/isobmffbuffer.cpp)
+		 ${AAMP_ROOT}/AampConfig.cpp
+		 ${AAMP_ROOT}/_base64.cpp
+		 ${AAMP_ROOT}/drm/AampDRMLicManager.cpp
+		 ${AAMP_ROOT}/middleware/PlayerLogManager.cpp
+		 ${AAMP_ROOT}/middleware/drm/DrmUtils.cpp
+		 ${AAMP_ROOT}/middleware/PlayerUtils.cpp
+		 ${AAMP_ROOT}/downloader/AampCurlStore.cpp
+		 ${AAMP_ROOT}/downloader/AampCurlDownloader.cpp
+		 ${AAMP_ROOT}/AampDRMLicPreFetcher.cpp
+		 ${AAMP_ROOT}/AampEvent.cpp
+		 ${AAMP_ROOT}/AampJsonObject.cpp
+		 ${AAMP_ROOT}/middleware/drm/DrmJsonObject.cpp
+		 ${AAMP_ROOT}/AampProfiler.cpp
+		 ${AAMP_ROOT}/scte35/AampSCTE35.cpp
+		 ${AAMP_ROOT}/AampUtils.cpp
+		 ${AAMP_ROOT}/iso639map.cpp
+		 ${AAMP_ROOT}/middleware/drm/DrmUtils.cpp
+		 ${AAMP_ROOT}/middleware/PlayerUtils.cpp
+		 ${AAMP_ROOT}/middleware/drm/DrmSessionFactory.cpp
+		 ${AAMP_ROOT}/middleware/drm/helper/DrmHelper.cpp
+		 ${AAMP_ROOT}/middleware/drm/helper/DrmHelperFactory.cpp
+		 ${AAMP_ROOT}/middleware/drm/DrmSessionManager.cpp
+		 ${AAMP_ROOT}/middleware/drm/DrmSession.cpp
+		 ${AAMP_ROOT}/middleware/drm/ClearKeyDrmSession.cpp
+		 ${AAMP_ROOT}/middleware/drm/helper/ClearKeyHelper.cpp
+		 ${AAMP_ROOT}/isobmff/isobmffbox.h ${AAMP_ROOT}/isobmff/isobmffbox.cpp ${AAMP_ROOT}/isobmff/isobmffbuffer.h ${AAMP_ROOT}/isobmff/isobmffbuffer.cpp)
 
 add_definitions(-DUSE_CLEARKEY)
 

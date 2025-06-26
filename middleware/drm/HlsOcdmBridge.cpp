@@ -18,38 +18,35 @@
 */
 
 /**
- * @file AampHlsOcdmBridge.cpp
+ * @file HlsOcdmBridge.cpp
  * @brief Handles OCDM bridge to validate DRM License
  */
 
-#include "AampHlsOcdmBridge.h"
+#include "HlsOcdmBridge.h"
 
+#include "PlayerLogManager.h"
 #define DRM_IV_LEN 16
 
-using namespace std;
 
-
-AampHlsOcdmBridge::AampHlsOcdmBridge(DrmSession * aampDrmSession) :
+HlsOcdmBridge::HlsOcdmBridge(DrmSession * drmSession) :
 	m_drmInfo(nullptr),
-	m_aampInstance(nullptr),
-	m_drmSession(aampDrmSession),
+	m_drmSession(drmSession),
 	m_drmState(eDRM_INITIALIZED),
 	m_Mutex()
 {
 }
 
 
-AampHlsOcdmBridge::~AampHlsOcdmBridge()
+HlsOcdmBridge::~HlsOcdmBridge()
 {
 }
 
 
-DrmReturn AampHlsOcdmBridge::SetDecryptInfo( PrivateInstanceAAMP *aamp, const struct DrmInfo *drmInfo)
+DrmReturn HlsOcdmBridge::SetDecryptInfo( const struct DrmInfo *drmInfo,  int acquireKeyWaitTime)
 {
 	DrmReturn result  = eDRM_ERROR;
 
 	std::lock_guard<std::mutex> guard(m_Mutex);
-	m_aampInstance = aamp;
 	m_drmInfo = drmInfo;
 	KeyState eKeyState = m_drmSession->getState();
 	if (eKeyState == KEY_READY)
@@ -57,47 +54,49 @@ DrmReturn AampHlsOcdmBridge::SetDecryptInfo( PrivateInstanceAAMP *aamp, const st
 		m_drmState = eDRM_KEY_ACQUIRED;
 		result = eDRM_SUCCESS; //frag_collector ignores the return
 	}
-	AAMPLOG_TRACE("DecryptInfo Set");
+	MW_LOG_TRACE("DecryptInfo Set");
 
 	return result;
 }
 
 
-DrmReturn AampHlsOcdmBridge::Decrypt( ProfilerBucketType bucketType, void *encryptedDataPtr, size_t encryptedDataLen,int timeInMs)
+DrmReturn HlsOcdmBridge::Decrypt( int bucketTypeIn, void *encryptedDataPtr, size_t encryptedDataLen,int timeInMs)
 {
+        //dn808DrmProfilerBucketType bucketType = (DrmProfilerBucketType)bucketTypeIn;
+
 	DrmReturn result = eDRM_ERROR;
 
 	std::lock_guard<std::mutex> guard(m_Mutex);
 	if (m_drmState == eDRM_KEY_ACQUIRED)
 	{
-		 AAMPLOG_TRACE("Starting decrypt");
+		 MW_LOG_TRACE("Starting decrypt");
 		 int retVal = m_drmSession->decrypt(m_drmInfo->iv, DRM_IV_LEN, (const uint8_t *)encryptedDataPtr , (uint32_t)encryptedDataLen, NULL);
 		 if (retVal)
 		 {
-			AAMPLOG_WARN("Decrypt failed err = %d", retVal);
+			MW_LOG_WARN("Decrypt failed err = %d", retVal);
 		 }
 		 else
 		 {
-			AAMPLOG_TRACE("Decrypt success");
+			MW_LOG_TRACE("Decrypt success");
 			result = eDRM_SUCCESS;
 		 }
 	}
 	else
 	{
-		AAMPLOG_WARN("Decrypt Called in Incorrect State! DrmState = %d", (int)m_drmState);
+		MW_LOG_WARN("Decrypt Called in Incorrect State! DrmState = %d", (int)m_drmState);
 	}
 	return result;
 }
 
 
-void AampHlsOcdmBridge::Release(void)
+void HlsOcdmBridge::Release(void)
 {
-	AAMPLOG_WARN("Releasing the Opencdm Session");
+	MW_LOG_WARN("Releasing the Opencdm Session");
 	m_drmSession->clearDecryptContext();
 }
 
 
-void AampHlsOcdmBridge::CancelKeyWait(void)
+void HlsOcdmBridge::CancelKeyWait(void)
 {
 	//TBD:Unimplemented
 }

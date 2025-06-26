@@ -25,7 +25,7 @@
 #define LATENCY_WINDOW_BUCKET_DURATION 250
 
 extern bool g_ForPartnerApps;
-//if the stats are for partner apps like peacock, then tags are set to be descriptive
+//if the stats are for partner apps then tags are set to be descriptive
 #define TAG_VERSION 				(g_ForPartnerApps ?"version":"vr" )	 		/**< time to reach top profile */
 #define TAG_TIME_TO_TOP 			(g_ForPartnerApps ?"timeToTopProfile":"tt" ) 		/**< time to reach top profile */
 #define TAG_TIME_AT_TOP                         (g_ForPartnerApps ?"timeInTopProfile":"ta" ) 		/**< time for which video remain on top profile */

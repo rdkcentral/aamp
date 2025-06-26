@@ -187,7 +187,6 @@ private:
 	bool mInitialized_;
 
 	double mStartPosition;
-	double mUpcomingFragmentPosition;
 	float mCurrentRate;
 	std::string mTsbSessionId;
 	AampMediaType mMediaType;
@@ -201,6 +200,7 @@ private:
 	std::condition_variable mEosCVWait;	/**< Conditional variable for signaling wait*/
 
 protected:
+	double mUpcomingFragmentPosition;
 	/**
 	 * @fn CheckPeriodBoundary
 	 * 

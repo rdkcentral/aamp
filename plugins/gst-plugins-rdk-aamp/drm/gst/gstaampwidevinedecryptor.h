@@ -28,7 +28,7 @@
 
 #include <gst/gst.h>
 #include <gst/base/gstbasetransform.h>
-#include "AampDRMSessionManager.h"
+#include "DrmSessionManager.h"
 #include "priv_aamp.h"
 
 #include "gstaampcdmidecryptor.h"  // For base gobject

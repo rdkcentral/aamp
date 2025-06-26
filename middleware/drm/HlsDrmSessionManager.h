@@ -2,7 +2,7 @@
  * If not stated otherwise in this file or this component's license file the
  * following copyright and licenses apply:
  *
- * Copyright 2020 RDK Management
+ * Copyright 2025 RDK Management
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,48 +17,46 @@
  * limitations under the License.
 */
 
-#ifndef _AAMP_HLS_DRM_SESSION_MGR_H
-#define _AAMP_HLS_DRM_SESSION_MGR_H
+#ifndef _HLS_DRM_SESSION_MGR_H
+#define _HLS_DRM_SESSION_MGR_H
 
 /**
- * @file AampHlsDrmSessionManager.h
+ * @file HlsDrmSessionManager.h
  * @brief Operations for HLS DRM
  */
 
 
-#include "HlsDrmBase.h"
-#include "DrmSession.h"
-
+#include "PlayerHlsDrmSessionInterfaceBase.h"
 
 /**
- * @class AampHlsDrmSessionManager
+ * @class HlsDrmSessionManager
  * @brief DRM Session manager for HLS stream operations
  */
 
-class AampHlsDrmSessionManager
+class HlsDrmSessionManager : public PlayerHlsDrmSessionInterfaceBase
 {
 	DrmSession* mDrmSession;
 public:
 	/**
 	 * @fn getInstance 
-	 * @return Aamp Hls Drm Session Manager instance
+	 * @return Hls Drm Session Manager instance
 	 */
-	static AampHlsDrmSessionManager& getInstance();
+	static HlsDrmSessionManager& getInstance();
 
 	/**
 	 * @fn isDrmSupported
 	 * @param drmInfo DrmInfo built by the HLS manifest parser
 	 * @return true if a DRM support available, false otherwise
 	 */
-	 bool isDrmSupported(const struct DrmInfo& drmInfo) const;
+	 bool isDrmSupported(const struct DrmInfo& drmInfo) const override;
 
 	/**
 	 * @fn createSession
-	 * @param aampInstance aampContext
 	 * @param drmInfo DrmInfo built by the HLS manifest parser
 	 * @return true if a DRM support available, false otherwise
 	 */
-	std::shared_ptr<HlsDrmBase> createSession(PrivateInstanceAAMP* aampInstance, const struct DrmInfo& drmInfo, AampMediaType streamType);
+	std::shared_ptr<HlsDrmBase> createSession( const struct DrmInfo& drmInfo, int  streamType) override;
+
 };
 
-#endif //_AAMP_HLS_DRM_SESSION_MGR_H
+#endif //_HLS_DRM_SESSION_MGR_H

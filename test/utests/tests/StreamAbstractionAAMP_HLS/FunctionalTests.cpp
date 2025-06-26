@@ -2752,7 +2752,7 @@ TEST_F(StreamAbstractionAAMP_HLSTest, RefreshAudioTest)
     EXPECT_EQ(1,mStreamAbstractionAAMP_HLS->currentAudioProfileIndex);
 }
 
-extern std::vector<TileInfo> IndexThumbnails( lstring iter );
+extern std::vector<TileInfo> IndexThumbnails( lstring iter, double stTime=0 );
 
 TEST_F(StreamAbstractionAAMP_HLSTest, ThumbnailIndexing)
 {

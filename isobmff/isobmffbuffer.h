@@ -480,5 +480,14 @@ public:
 	 * @return bool - found the correct boxes
 	 */
 	bool setTrickmodeTimescale(uint32_t timescale);
+
+	/**
+	 * @fn setMediaHeaderDuration
+	 *
+	 * @brief Set the sample duration in the mdhd box
+	 * @param[in] duration - sample duration value
+	 * @return true if sample duration set. false otherwise
+	 */
+	bool setMediaHeaderDuration(uint64_t duration);
 };
 #endif /* __ISOBMFFBUFFER_H__ */

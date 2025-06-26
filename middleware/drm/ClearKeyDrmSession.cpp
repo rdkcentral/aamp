@@ -2,7 +2,7 @@
  * If not stated otherwise in this file or this component's license file the
  * following copyright and licenses apply:
  *
- * Copyright 2018 RDK Management
+ * Copyright 2025 RDK Management
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -344,6 +344,12 @@ int ClearKeySession::processDRMKey(DrmData* key, uint32_t timeout)
 int ClearKeySession::decrypt(GstBuffer* keyIDBuffer, GstBuffer* ivBuffer, GstBuffer* buffer, unsigned subSampleCount,
                 GstBuffer* subSamplesBuffer, GstCaps* caps)
 {
+#if 0
+	GstBuffer* KeyIdBuffer = (GstBuffer*)keyIDBufferIn;
+	GstBuffer* ivBuffer = (GstBuffer*)ivBufferIn;
+	GstBuffer* buffer = (GstBuffer*)bufferIn;
+	GstCaps* caps = (GstCaps*)capsIn;
+#endif
 	int retVal = 1;
 	uint8_t *pbData = NULL;
 	uint32_t cbData = 0;

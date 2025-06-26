@@ -289,8 +289,11 @@ TEST_F(TrackInjectTests, RunInjectLoopTestNonLLD)
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled())
 		.WillOnce(Return(true))
 		.WillOnce(Return(false));
-
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection()).WillRepeatedly(Return(true));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendStreamTransfer(eMEDIATYPE_VIDEO, _, _, _, _, _, false, false));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, BlockUntilGstreamerWantsData( _, _, _));
+	EXPECT_EQ(mPrivateInstanceAAMP->GetLLDashChunkMode(),false); //Check setup
+
 	mMediaTrack->RunInjectLoop();
 }
 
@@ -302,6 +305,7 @@ TEST_F(TrackInjectTests, RunInjectLoopTestNonLLDInit)
 	mPrivateInstanceAAMP->rate = AAMP_NORMAL_PLAY_RATE;
 
 	this->mPrivateInstanceAAMP->SetLLDashServiceData(llDashData);
+	this->mPrivateInstanceAAMP->SetLLDashChunkMode(false);
 	// Initialize after mock has been setup
 	Initialize();
 
@@ -310,8 +314,11 @@ TEST_F(TrackInjectTests, RunInjectLoopTestNonLLDInit)
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled())
 		.WillOnce(Return(true))
 		.WillOnce(Return(false));
-
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection()).WillRepeatedly(Return(false));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendStreamTransfer(_, _, _, _, _, _, true, false));
+	EXPECT_EQ(mPrivateInstanceAAMP->GetLLDashChunkMode(),false); //Check setup
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, BlockUntilGstreamerWantsData( _, _, _));
+
 	mMediaTrack->RunInjectLoop();
 }
 
@@ -335,6 +342,7 @@ TEST_F(TrackInjectTests, RunInjectLoopTestLLD)
 
 	EXPECT_CALL(*g_mockIsoBmffBuffer, parseBuffer(_, _))
 		.WillOnce(Return(true));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection()).WillRepeatedly(Return(false));
 
 	char unParsedBuffer[] = "AAAAAAAAAAAAAAAAAA";
 	int parsedBufferSize = 12, unParsedBufferSize = sizeof(unParsedBuffer);
@@ -349,7 +357,7 @@ TEST_F(TrackInjectTests, RunInjectLoopTestLLD)
 
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetVidTimeScale())
 		.WillRepeatedly(Return(1));
-
+	EXPECT_CALL(*g_mockIsoBmffBuffer, setBuffer(_,_));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendStreamTransfer((AampMediaType)eMEDIATYPE_VIDEO, _, pts, pts, duration, 0.0, false, false));
 	mMediaTrack->RunInjectLoop();
 }
@@ -374,5 +382,7 @@ TEST_F(TrackInjectTests, RunInjectLoopTestLLDInit)
 		.WillOnce(Return(false));
 
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendStreamTransfer(_, _, _, _, _, _, true, false));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection()).WillRepeatedly(Return(false));
+
 	mMediaTrack->RunInjectLoop();
 }

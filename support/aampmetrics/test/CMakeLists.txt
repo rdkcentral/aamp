@@ -39,8 +39,6 @@ set(CMAKE_CXX_STANDARD 14)
 
 STRING(REPLACE " -Werror=effc++" "" CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS}) #disabling effc++ compiler warnings for utest directory
 
-add_definitions(-DENABLE_LOGGING)
-
 add_subdirectory(Fake)
 
 enable_testing()

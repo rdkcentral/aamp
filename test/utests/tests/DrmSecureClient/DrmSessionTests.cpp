@@ -28,10 +28,9 @@
 #include <memory>
 
 #ifdef USE_SECCLIENT
-#include "aampdrmsessionfactory.h"
-#include "AampDRMSessionManager.h"
+#include "aampDrmSessionFactory.h"
+#include "DRMSessionManager.h"
 #include "AampClearKeyHelper.h"
-#include "AampHlsOcdmBridge.h"
 #include "open_cdm.h"
 
 #include "aampMocks.h"

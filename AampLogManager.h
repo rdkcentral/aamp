@@ -99,6 +99,23 @@ struct AAMPAbrInfo
  */
 extern void logprintf(AAMP_LogLevel level, const char* file, int line,const char *format, ...)  __attribute__ ((format (printf, 4, 5)));
 
+extern thread_local int gPlayerId;
+
+class UsingPlayerId
+{
+private:
+	int oldPlayerId;
+public:
+	UsingPlayerId( int playerId ): oldPlayerId(gPlayerId)
+	{
+		gPlayerId = playerId;
+	}
+	~UsingPlayerId()
+	{
+		gPlayerId = oldPlayerId;
+	}
+};
+
 /**
  * @class AampLogManager
  * @brief AampLogManager Class
@@ -115,11 +132,15 @@ public:
 	 * @fn aampLogger
 	 *
 	 * @param[in] tsbMessage - Message to print
+	 * @param[in] loggerData - Token previously given to caller when this callback was registered
 	 * @return void
 	 */
-	static void aampLogger(std::string &&tsbMessage)
+	static void aampLogger(std::string &&tsbMessage, int loggerData)
 	{
-		logprintf(eLOGLEVEL_WARN , __FUNCTION__, __LINE__, "%s", tsbMessage.c_str());
+		/* loggerData is the playerId ... set it in case we are in a helper thread that the
+		** caller has spawned. */
+		UsingPlayerId playerId(loggerData);
+		logprintf(eLOGLEVEL_MIL , __FUNCTION__, __LINE__, "%s", tsbMessage.c_str());
 	}
 	
 	/**
@@ -376,23 +397,6 @@ public:
 		hexSs << std::hex << std::uppercase << std::setfill('0');
 		std::for_each(data.cbegin(), data.cend(), [&](int c) { hexSs << std::setw(2) << c; });
 		return hexSs.str();
-	}
-};
-
-extern thread_local int gPlayerId;
-
-class UsingPlayerId
-{
-private:
-	int oldPlayerId;
-public:
-	UsingPlayerId( int playerId ): oldPlayerId(gPlayerId)
-	{
-		gPlayerId = playerId;
-	}
-	~UsingPlayerId()
-	{
-		gPlayerId = oldPlayerId;
 	}
 };
 

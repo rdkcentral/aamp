@@ -95,13 +95,6 @@ class PlayerIarmRdkInterface : public PlayerIarmInterfaceBase
          */
         static bool IsActiveStreamingInterfaceWifi();
 
-        /**
-         * @fn IsLiveLatencyCorrectionSupported
-         * @brief Checks if Live Latency Correction is supported
-         * @return True if supported. False if not.
-         */
-        bool IsLiveLatencyCorrectionSupported() override;
-
         // Singleton for object creation
 	
         /**

@@ -164,7 +164,14 @@ void MediaTrack::AbortWaitForPlaylistDownload()
 
 bool MediaTrack::Enabled()
 {
-	return true;
+	bool enabled = true;
+
+	// When using mock, delegate to mock implementation
+	if (auto* mock = dynamic_cast<MockMediaTrack*>(this)) {
+		enabled = mock->Enabled();
+	}
+
+	return enabled;
 }
 
 void MediaTrack::FlushFragments()
@@ -257,6 +264,18 @@ bool MediaTrack::SignalIfEOSReached()
 
 void MediaTrack::SetLocalTSBInjection(bool value)
 {
+}
+
+bool MediaTrack::IsLocalTSBInjection()
+{
+	bool localTsbInjection = false;
+
+	// When using mock, delegate to mock implementation
+	if (auto* mock = dynamic_cast<MockMediaTrack*>(this)) {
+		localTsbInjection = mock->IsLocalTSBInjection();
+	}
+
+	return localTsbInjection;
 }
 
 bool StreamAbstractionAAMP::CheckForRampDownLimitReached()
@@ -406,4 +425,8 @@ bool MediaTrack::IsInjectionFromCachedFragmentChunks()
 {
 	bool ret = false;
 	return ret;
+}
+
+void MediaTrack::ClearMediaHeaderDuration(CachedFragment* cachedFragment)
+{
 }

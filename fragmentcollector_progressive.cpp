@@ -29,7 +29,7 @@
 #include <signal.h>
 #include <assert.h>
 #include "AampCurlStore.h"
-
+#include "AampUtils.h"
 /**
  * @struct StreamWriteCallbackContext
  * @brief Write call back functions for streamer
@@ -165,10 +165,7 @@ void StreamAbstractionAAMP_PROGRESSIVE::FetcherLoop()
  */
 void StreamAbstractionAAMP_PROGRESSIVE::FragmentCollector(void)
 {
-    if(aamp_pthread_setname(pthread_self(), "aampPSFetcher"))
-    {
-        AAMPLOG_WARN("aamp_pthread_setname failed");
-    }
+    aamp_setThreadName("aampPSFetcher");
     FetcherLoop();
     return;
 }
