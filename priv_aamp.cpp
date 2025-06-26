@@ -5764,6 +5764,11 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 	mFogTSBEnabled = IsFogUrl(mainManifestUrl);
 	mTsbType = GETCONFIGVALUE_PRIV(eAAMPConfig_TsbType);
 	mLocalAAMPTsbFromConfig = ISCONFIGSET_PRIV(eAAMPConfig_LocalTSBEnabled) || (mTsbType == "local" && !mFogTSBEnabled);
+	if (mLocalAAMPTsbFromConfig && mFogTSBEnabled)
+	{
+		AAMPLOG_WARN("AAMP TSB and FOG both enabled, using AAMP TSB");
+		mFogTSBEnabled = false;
+	}
 	if(mPlaylistTimeoutMs <= 0) mPlaylistTimeoutMs = mManifestTimeoutMs;
 	if(AAMP_DEFAULT_SETTING == GETCONFIGOWNER_PRIV(eAAMPConfig_PlaylistTimeout))
 	{
@@ -6051,7 +6056,9 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 		//Removed variable gpGlobalConfig->fogSupportsDash as it has similar usage
 		if(!ISCONFIGSET_PRIV(eAAMPConfig_Fog))
 		{
+			AAMPLOG_INFO("Defog URL '%s'", mManifestUrl.c_str());
 			DeFog(mManifestUrl);
+			AAMPLOG_INFO("Defogged URL '%s'", mManifestUrl.c_str());
 		}
 
 		if(ISCONFIGSET_PRIV(eAAMPConfig_ForceHttp))

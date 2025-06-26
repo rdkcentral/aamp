@@ -731,23 +731,30 @@ TEST_F(PrivAampPrivTests,RemoveCustomHTTPHeaderTest)
 struct TsbConfigurationData
 {
 	const char *url;		// Foggy URL contains "tsb?"
-	bool isAampTsbEnabled;
-	bool isFogEnabled;
-	std::string tsbType;
-	bool aampTsbExpected;
-	bool fogExpected;
+	bool isAampTsbEnabled;	// Is AAMP TSB enabled in the configuration
+	bool isFogEnabled;		// Is FOG enabled in the configuration
+	std::string tsbType;	// Should be set to "local" for local TSB configuration
+	bool aampTsbExpected;	// Is AAMP TSB expected to be enabled after Tune
+	bool fogExpected;		// Is FOG expected to be enabled after Tune
 };
 TsbConfigurationData tsbConfigData[] =
 {
-	{ "sampleUrl", true, false, "", true, false },			// AAMP TSB enabled
-	{ "tsb?sampleUrl", false, true, "", false, true }, 		// FOG enabled
-	{ "tsb?sampleUrl", true, false, "", true, false },		// AAMP TSB enabled with foggy URL
-	{ "sampleUrl", false, false, "", false, false },		// No TSB configuration
-	{ "tsb?sampleUrl", false, false, "", false, false },	// No TSB configuration with foggy URL
-	{ "sampleUrl", false, true, "", false, false },			// FOG enabled with non-foggy URL, no TSB will be used
-	{ "sampleUrl", false, false, "local", true, false },	// Local TSB type, AAMP TSB will be used
-	{ "sampleUrl", true, false, "local", true, false },		// AAMP TSB enabled with local TSB type
-	{ "sampleUrl", false, true, "local", true, false }		// FOG enabled with local TSB type and non-foggy URL, AAMP TSB will be used
+	{ "sampleUrl", false, false, "", false, false },		// No local TSB configuration
+	{ "tsb?sampleUrl", false, false, "", false, false },
+	{ "sampleUrl", true, false, "", true, false },
+	{ "tsb?sampleUrl", true, false, "", true, false },
+	{ "sampleUrl", false, true, "", false, false },
+	{ "tsb?sampleUrl", false, true, "", false, true },
+	{ "sampleUrl", true, true, "", true, false },
+	{ "tsb?sampleUrl", true, true, "", true, false },
+	{ "sampleUrl", false, false, "local", true, false },
+	{ "tsb?sampleUrl", false, false, "local", true, false },
+	{ "sampleUrl", true, false, "local", true, false },		// AAMP TSB enabled
+	{ "tsb?sampleUrl", true, false, "local", true, false },
+	{ "sampleUrl", false, true, "local", true, false },
+	{ "tsb?sampleUrl", false, true, "local", false, true },	// FOG enabled
+	{ "sampleUrl", true, true, "local", true, false },
+	{ "tsb?sampleUrl", true, true, "local", true, false }
 };
 
 class TsbConfigurationTest : public PrivAampPrivTests,
