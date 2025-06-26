@@ -55,8 +55,6 @@ source scripts/install_aampcli.sh
 # aampcli on Kotlin install and build
 source scripts/install_aampcliKotlin.sh
 
-# VARIABLES
-
 # Elapsed time
 SECONDS=0
 
@@ -74,6 +72,13 @@ declare LOCAL_DEPS_BUILD_DIR
 
 # Get and process install options
 install_options_fn "$@" 
+
+if [ ${OPTION_CLEAN_BUILD} = true ] ; then
+    echo "Clean build selected - removing build and libs directories"
+    sudo rm -rf .libs
+    sudo rm -rf build
+fi
+
 INSTALL_STATUS_ARR+=("install_options_fn check passed.")
 
 tools_banner_fn

@@ -1392,9 +1392,8 @@ bool TrackState::FetchFragmentHelper(int &http_error, bool &decryption_error, bo
 			}
 			else
 			{
-				// Track the end of buffer from the last downloaded fragment
-				// Use the playlistPosition instead of a rolling count in case segments are dropped
-				playTargetBufferCalc = playlistPosition + fragmentDurationSeconds;
+				// increment the buffer value after download
+				playTargetBufferCalc += fragmentDurationSeconds;
 			}
 
 			if((eTRACK_VIDEO == type)  && (aamp->IsFogTSBSupported()))
@@ -1514,12 +1513,12 @@ bool TrackState::FetchFragmentHelper(int &http_error, bool &decryption_error, bo
 void TrackState::updateSkipPoint(double position, double duration )
 {
 	if(ISCONFIGSET(eAAMPConfig_EnablePTSReStamp) && (aamp->mVideoFormat == FORMAT_ISO_BMFF ))
-    {
-    	if(playContext)
+	{
+		if(playContext)
 		{
 			playContext->updateSkipPoint( position,duration );
 		}
-    }
+	}
 }
 
 /**
@@ -1527,13 +1526,13 @@ void TrackState::updateSkipPoint(double position, double duration )
  */
 void TrackState::setDiscontinuityState(bool isDiscontinuity)
 {
-    if(ISCONFIGSET(eAAMPConfig_EnablePTSReStamp) && (aamp->mVideoFormat == FORMAT_ISO_BMFF ))
-    {
-    	if(playContext)
+	if(ISCONFIGSET(eAAMPConfig_EnablePTSReStamp) && (aamp->mVideoFormat == FORMAT_ISO_BMFF ))
+	{
+		if(playContext)
 		{
 			playContext->setDiscontinuityState(isDiscontinuity);
 		}
-    }
+	}
  }
 
 /**
@@ -1541,14 +1540,14 @@ void TrackState::setDiscontinuityState(bool isDiscontinuity)
  */
  void TrackState::abortWaitForVideoPTS()
  {
-    if(ISCONFIGSET(eAAMPConfig_EnablePTSReStamp) && (aamp->mVideoFormat == FORMAT_ISO_BMFF ))
-    {
-    	if(playContext)
+	if(ISCONFIGSET(eAAMPConfig_EnablePTSReStamp) && (aamp->mVideoFormat == FORMAT_ISO_BMFF ))
+	{
+		if(playContext)
 		{
 			AAMPLOG_WARN(" %s abort waiting for video PTS arrival",name );
-          	playContext->abortWaitForVideoPTS();
+		playContext->abortWaitForVideoPTS();
 		}
-    }
+	}
  }
 /**
  * @brief Function to Fetch the fragment and inject for playback
@@ -1586,6 +1585,7 @@ void TrackState::FetchFragment()
 				// should continue with next fragment,no retry needed .
 				if (eTRACK_VIDEO == type && http_error != 0 && aamp->CheckABREnabled())
 				{
+					context->lastSelectedProfileIndex = context->currentProfileIndex;
 					// Check whether player reached rampdown limit, then rampdown
 					if(!context->CheckForRampDownLimitReached())
 					{
@@ -2380,6 +2380,15 @@ void TrackState::ProcessPlaylist(AampGrowableBuffer& newPlaylist, int http_error
 		if (newPlaylist.GetPtr() )
 		{
 			newPlaylist.Free();
+		}
+		//Refresh happened due to ABR switching, we need to reset the profileIndex
+		//so that ABR can be attempted later
+		if (playlist.GetPtr() )
+		{
+			if (refreshPlaylist)
+			{
+				context->currentProfileIndex = context->lastSelectedProfileIndex;
+			}
 		}
 
 		if (aamp->DownloadsAreEnabled())
@@ -3468,6 +3477,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 			currentProfileIndex = GetDesiredProfile(false);
 			HlsStreamInfo *streamInfo = (HlsStreamInfo*)GetStreamInfo(currentProfileIndex);
 			long bandwidthBitsPerSecond = streamInfo->bandwidthBitsPerSecond;
+			lastSelectedProfileIndex = currentProfileIndex;
 			aamp->ResetCurrentlyAvailableBandwidth(bandwidthBitsPerSecond, trickplayMode, currentProfileIndex);
 			aamp->profiler.SetBandwidthBitsPerSecondVideo(bandwidthBitsPerSecond);
 			AAMPLOG_INFO("Selected BitRate: %ld, Max BitRate: %ld", bandwidthBitsPerSecond, GetStreamInfo(GetMaxBWProfile())->bandwidthBitsPerSecond);
@@ -3525,7 +3535,6 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 			}
 			if(!video->playlist.GetLen() )
 			{
-				int lastSelectedProfileIndex = currentProfileIndex;
 				int limitCount = 0;
 				int numberOfLimit = GETCONFIGVALUE(eAAMPConfig_InitRampDownLimit);
 				do{
@@ -4787,6 +4796,7 @@ void TrackState::RunFetchLoop()
 			// Avoid ABR if we have seen or just pushed an init fragment
 			if((eTRACK_VIDEO == type) && (!context->trickplayMode) && !(mInjectInitFragment || mSkipAbr))
 			{
+				context->lastSelectedProfileIndex = context->currentProfileIndex;
 				// if rampdown is attempted to any failure , no abr change to be attempted .
 				// else profile be reset to top one leading to looping of bad fragment
 				if(!mCheckForRampdown)
@@ -4905,7 +4915,7 @@ StreamAbstractionAAMP_HLS::StreamAbstractionAAMP_HLS(class PrivateInstanceAAMP *
 : StreamAbstractionAAMP(aamp, id3Handler),
 	rate(rate), maxIntervalBtwPlaylistUpdateMs(DEFAULT_INTERVAL_BETWEEN_PLAYLIST_UPDATES_MS), mainManifest("mainManifest"), allowsCache(false), seekPosition(seekpos), mTrickPlayFPS(),
 	enableThrottle(false), firstFragmentDecrypted(false), mStartTimestampZero(false), mNumberOfTracks(0), midSeekPtsOffset(0),
-	segDLFailCount(0), segDrmDecryptFailCount(0), mMediaCount(0),mProfileCount(0),
+	lastSelectedProfileIndex(0), segDLFailCount(0), segDrmDecryptFailCount(0), mMediaCount(0),mProfileCount(0),
 	mLangList(),mIframeAvailable(false), thumbnailManifest("thumbnailManifest"), indexedTileInfo(),
 	mFirstPTS(0),mDiscoCheckMutex(),
 	mPtsOffsetUpdate{ptsUpdate},
@@ -4952,7 +4962,6 @@ TrackState::TrackState(TrackType type, StreamAbstractionAAMP_HLS* parent, Privat
 		playTargetOffset(0),
 		discontinuity(false),
 		refreshPlaylist(false), fragmentCollectorThreadID(), isFirstFragmentAfterABR(false),
-		fragmentCollectorThreadStarted(false),
 		manifestDLFailCount(0),
 		mCMSha1Hash(), mDrmTimeStamp(0), firstIndexDone(false), mDrm(NULL), mDrmLicenseRequestPending(false),
 		mInjectInitFragment(false), mInitFragmentInfo(), mDrmKeyTagCount(0), mIndexingInProgress(false), mForceProcessDrmMetadata(false),
@@ -5017,10 +5026,9 @@ void TrackState::Stop(bool clearDRM)
 	{
 		StopPlaylistDownloaderThread();
 	}
-	if (fragmentCollectorThreadStarted)
+	if (fragmentCollectorThreadID.joinable())
 	{
 		fragmentCollectorThreadID.join();
-		fragmentCollectorThreadStarted = false;
 	}
 
 	aamp->StopTrackInjection((AampMediaType) type);
@@ -5073,7 +5081,7 @@ void TrackState::Start(void)
 	{
 		playContext->reset();
 	}
-	assert(!fragmentCollectorThreadStarted);
+
 	if(aamp->IsLive())
 	{
 		StartPlaylistDownloaderThread();
@@ -5081,9 +5089,16 @@ void TrackState::Start(void)
 
 	try
 	{
-		fragmentCollectorThreadID =  std::thread(&TrackState::FragmentCollector, this);
-		fragmentCollectorThreadStarted = true;
-		AAMPLOG_INFO("Thread created for FragmentCollector [%zx]", GetPrintableThreadID(fragmentCollectorThreadID));
+    	// Attempting to assign to a running thread will cause std::terminate(), not an exception
+		if(!fragmentCollectorThreadID.joinable())
+		{
+			fragmentCollectorThreadID = std::thread(&TrackState::FragmentCollector, this);
+			AAMPLOG_INFO("Thread created for FragmentCollector [%zx]", GetPrintableThreadID(fragmentCollectorThreadID));
+		}
+		else
+		{
+			AAMPLOG_WARN("FragmentCollector thread already running, not creating a new one");
+		}
 	}
 	catch(const std::exception& e)
 	{
@@ -5460,7 +5475,7 @@ void StreamAbstractionAAMP_HLS::NotifyFirstVideoPTS(unsigned long long pts, unsi
 	if (sink)
 	{
 		// The pts_offset is expected to be in seconds for RialtoSink, so we convert it to GstClockTime (nanoseconds).
-                // For non-Rialto sinks, we need to convert the pts_offset to milliseconds to maintain consistency.
+				// For non-Rialto sinks, we need to convert the pts_offset to milliseconds to maintain consistency.
 		sink->SetSubtitlePtsOffset(mFirstPTS.inSeconds());
 	}
 }
@@ -6055,9 +6070,9 @@ void TrackState::FetchInitFragment()
 		aamp->profiler.ProfileBegin(bucketType);
 
 		if(discontinuity )
-    	{
+		{
 			setDiscontinuityState(true);
-    	}
+		}
 
 		if(FetchInitFragmentHelper(http_code, forcePushEncryptedHeader))
 		{
@@ -7055,8 +7070,8 @@ void TrackState::SwitchAudioTrack()
 		AAMPLOG_MIL("Updated gstSeek %lf to find new playTarget. Current Playtarget %lf , playlistPosition %lf", gstSeek.inSeconds(), playTarget.inSeconds(), oldPlaylistPosition);
 
 		AcquirePlaylistLock();
-                // Relative position in playlist
-                double oldPosInPlaylist = GetCompletionTimeForFragment(this, oldMediaSequenceNumber).inSeconds();
+		// Relative position in playlist
+		double oldPosInPlaylist = GetCompletionTimeForFragment(this, oldMediaSequenceNumber).inSeconds();
 
 		// Iterate from the beginning of the playlist again
 		playTarget = gstSeek;
@@ -7363,26 +7378,26 @@ bool TrackState::IsExtXByteRange( lstring fragmentInfo, size_t *byteRangeLength,
 //Enable default text track for Rialto
 void StreamAbstractionAAMP_HLS::SelectSubtitleTrack()
 {
-    if( currentTextTrackProfileIndex  == -1)
-    {
-        TextTrackInfo *firstAvailTextTrack = nullptr;
-        for (int j = 0; j < mTextTracks.size(); j++)
-        {
-            if (!mTextTracks[j].isCC)
-            {
+	if( currentTextTrackProfileIndex  == -1)
+	{
+		TextTrackInfo *firstAvailTextTrack = nullptr;
+		for (int j = 0; j < mTextTracks.size(); j++)
+		{
+			if (!mTextTracks[j].isCC)
+			{
 		firstAvailTextTrack = &mTextTracks[j];
-                break;
-            }
-        }
-        if(firstAvailTextTrack != nullptr)
-        {
-            currentTextTrackProfileIndex = std::stoi(firstAvailTextTrack->index);
-            aamp->mIsInbandCC = false;
-            aamp->SetCCStatus(false); //mute the subtitle track
-            aamp->SetPreferredTextTrack(*firstAvailTextTrack);
-        }
-    }
-    AAMPLOG_INFO("using RialtoSink TextTrack Selected :%d", currentTextTrackProfileIndex);
+				break;
+			}
+		}
+		if(firstAvailTextTrack != nullptr)
+		{
+			currentTextTrackProfileIndex = std::stoi(firstAvailTextTrack->index);
+			aamp->mIsInbandCC = false;
+			aamp->SetCCStatus(false); //mute the subtitle track
+			aamp->SetPreferredTextTrack(*firstAvailTextTrack);
+		}
+	}
+	AAMPLOG_INFO("using RialtoSink TextTrack Selected :%d", currentTextTrackProfileIndex);
 }
 
 bool StreamAbstractionAAMP_HLS::SelectPreferredTextTrack(TextTrackInfo& selectedTextTrack)

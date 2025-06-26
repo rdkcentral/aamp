@@ -95,6 +95,7 @@ void DrmSessionManager::UpdateDRMConfig(
 	m_drmConfigParam->mIsWVKIDWorkaround = wideVineKIDWorkaround;
 
 }
+
 /**
  *  @brief  Clean up the memory used by session variables.
  */
@@ -448,24 +449,24 @@ DrmSession* DrmSessionManager::createDrmSession(int &err, std::shared_ptr<DrmHel
 	 * KEY_READY code indicates that a previously created session is being reused.
 	 */
 	int isContentProcess = -1;
-	if (code == KEY_READY)
+	if((code == KEY_READY) || ((code != KEY_INIT) || (selectedSlot == INVALID_SESSION_SLOT)))
 	{
 		isContentProcess =0;
+	}
+	std::vector<uint8_t> keyId;
+	drmHelper->getKey(keyId);
+	/* callback to initiate content protection data update */
+	mCustomData = ContentUpdateCb(drmHelper, streamType , keyId, isContentProcess);
+	if (code == KEY_READY)
+	{
 		return drmSessionContexts[selectedSlot].drmSession;
 	}
 
 	if ((code != KEY_INIT) || (selectedSlot == INVALID_SESSION_SLOT))
 	{
-                isContentProcess =0;
 		MW_LOG_WARN(" Unable to get DrmSession : Key State %d ", code);
 		return nullptr;
 	}
-
-	std::vector<uint8_t> keyId;
-	drmHelper->getKey(keyId);
-	/* callback to initiateContentProtection DataUpdate */
-	mCustomData = ContentUpdateCb(drmHelper, streamType , keyId, isContentProcess);
-	
 	code = initializeDrmSession(drmHelper, selectedSlot,  err);
 	if (code != KEY_INIT)
 	{
@@ -722,7 +723,7 @@ KeyState DrmSessionManager::getDrmSession(int &err, std::shared_ptr<DrmHelper> d
 /**
  * @brief Initialize the Drm System with InitData(PSSH)
  */
-KeyState DrmSessionManager::initializeDrmSession(std::shared_ptr<DrmHelper> drmHelper, int sessionSlot, int& err )
+KeyState DrmSessionManager::initializeDrmSession(std::shared_ptr<DrmHelper> drmHelper, int sessionSlot, int &err )
 {
 	KeyState code = KEY_ERROR;
 
@@ -805,15 +806,15 @@ void DrmSessionManager::registerCallback() {
 
 /**
  * @brief To wrap the callback for watermark session update
- * @param[in] sessionHndle session handle
+ * @param[in] sessionHandle session handle
  * @param[in] status status of the session
  * @param[in] systemData system data
  * @retval void
  */
-void DrmSessionManager::watermarkSessionHandlerWrapper(uint32_t sessionHndle, uint32_t status, const std::string &systemData)
+void DrmSessionManager::watermarkSessionHandlerWrapper(uint32_t sessionHandle, uint32_t status, const std::string &systemData)
 {
 	if(NULL != mPlayerSendWatermarkSessionUpdateEventCB)
 	{
-		mPlayerSendWatermarkSessionUpdateEventCB( sessionHndle, status, systemData);
+		mPlayerSendWatermarkSessionUpdateEventCB( sessionHandle, status, systemData);
 	}
 }

@@ -928,6 +928,22 @@ TEST_F(AampConfigTests, ReadAampCfgTxtFile)
 	EXPECT_EQ( AampLogManager::aampLoglevel, eLOGLEVEL_TRACE );
 }
 
+TEST_F(AampConfigTests, ReadAampCfgFromEnv)
+{
+	AampConfig aampConfig;
+	aampConfig.Initialize();
+	// Confirm the default values to verify they are modified when reading the env variable
+	ASSERT_EQ( AampLogManager::locked, false );
+	ASSERT_EQ( AampLogManager::aampLoglevel, eLOGLEVEL_WARN );
+
+	const char *envConf = "trace=true";
+	EXPECT_EQ(setenv("AAMP_CFG_TEXT", envConf, 1), 0) << "Failed to set env variable AAMP_CFG_TEXT";
+
+	aampConfig.ReadAampCfgFromEnv();
+	EXPECT_EQ( AampLogManager::locked, true );
+	EXPECT_EQ( AampLogManager::aampLoglevel, eLOGLEVEL_TRACE );
+}
+
 TEST_F(AampConfigTests, ProcessConfigText)
 {
 	AampConfig aampConfig;
