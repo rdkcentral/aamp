@@ -1868,8 +1868,7 @@ void MediaTrack::FlushFetchedFragments()
 		while (numberOfFragmentChunksCached)
 		{
 			AAMPLOG_DEBUG("[%s] Free mCachedFragmentChunks[%d] numberOfFragmentChunksCached %d", name, fragmentChunkIdxToInject, numberOfFragmentChunksCached);
-			mCachedFragmentChunks[fragmentChunkIdxToInject].fragment.Free();
-			memset(&mCachedFragmentChunks[fragmentChunkIdxToInject], 0, sizeof(CachedFragment));
+			mCachedFragmentChunks[fragmentChunkIdxToInject].Clear();
 
 			fragmentChunkIdxToInject++;
 			if (fragmentChunkIdxToInject == maxCachedFragmentChunksPerTrack)
@@ -1885,8 +1884,7 @@ void MediaTrack::FlushFetchedFragments()
 		while (numberOfFragmentsCached)
 		{
 			AAMPLOG_DEBUG("[%s] Free cachedFragment[%d] numberOfFragmentsCached %d", name, fragmentIdxToInject, numberOfFragmentsCached);
-			mCachedFragment[fragmentIdxToInject].fragment.Free();
-			memset(&mCachedFragment[fragmentIdxToInject], 0, sizeof(CachedFragment));
+			mCachedFragment[fragmentIdxToInject].Clear();
 
 			fragmentIdxToInject++;
 			if (fragmentIdxToInject == maxCachedFragmentsPerTrack)
