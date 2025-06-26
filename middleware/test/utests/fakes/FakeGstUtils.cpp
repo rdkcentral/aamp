@@ -16,13 +16,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "GstUtils.h"
-#include "InterfacePlayerPriv.h"
+
+#include "middleware/GstUtils.h"
 
 GstCaps *GetCaps(GstStreamOutputFormat format)
 {
 	return nullptr;
 }
-
 
 
