@@ -19,6 +19,31 @@
 #include <JavaScriptCore/JavaScript.h>
 #include <string>
 
+#include <vector>
+#include <map>
+
+typedef enum { eJSON_TYPE_NULL, eJSON_TYPE_INT, eJSON_TYPE_STR, eJSON_TYPE_ARRAY, eJSON_TYPE_OBJ } JsonType;
+
+class JsonValueInternal
+{
+private:
+	JsonType type;
+public:
+	int iVal;
+	std::string sVal;
+	std::vector<class JsonValueInternal *> aVal;
+	std::map<std::string,class JsonValueInternal *> oVal;
+	
+public:
+	JsonValueInternal( JsonType type ) : type(type)
+	{
+	}
+	
+	~JsonValueInternal()
+	{
+	}
+};
+
 JSClassRef JSClassCreate(const JSClassDefinition* definition)
 {
 	return NULL;
@@ -78,12 +103,14 @@ bool JSObjectIsFunction(JSContextRef ctx, JSObjectRef object)
 
 JSObjectRef JSObjectMake(JSContextRef ctx, JSClassRef jsClass, void* data)
 {
-	return NULL;
+	return (JSObjectRef)new JsonValueInternal(eJSON_TYPE_OBJ);
+	//return NULL;
 }
 
 JSObjectRef JSObjectMakeArray(JSContextRef ctx, size_t argumentCount, const JSValueRef arguments[], JSValueRef* exception)
 {
-	return NULL;
+	return (JSObjectRef)new JsonValueInternal(eJSON_TYPE_ARRAY);
+//	return NULL;
 }
 
 JSObjectRef JSObjectMakeConstructor(JSContextRef ctx, JSClassRef jsClass, JSObjectCallAsConstructorCallback callAsConstructor)
@@ -131,7 +158,10 @@ void JSObjectSetProperty(JSContextRef ctx, JSObjectRef object, JSStringRef prope
 
 JSStringRef JSStringCreateWithUTF8CString(const char* string)
 {
-	return NULL;
+	auto obj = new JsonValueInternal(eJSON_TYPE_STR);
+	obj->sVal = string;
+	return (JSStringRef)obj;
+//	return NULL;
 }
 
 size_t JSStringGetMaximumUTF8CStringSize(JSStringRef string)

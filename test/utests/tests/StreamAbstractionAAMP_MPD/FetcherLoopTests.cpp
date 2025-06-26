@@ -61,7 +61,7 @@ protected:
 			: StreamAbstractionAAMP_MPD(aamp, seekpos, rate)
 		{
 		}
-		
+
 		AAMPStatusType InvokeUpdateTrackInfo(bool modifyDefaultBW, bool resetTimeLineIndex)
 		{
 			return UpdateTrackInfo(modifyDefaultBW, resetTimeLineIndex);
@@ -162,6 +162,9 @@ protected:
 	TestableStreamAbstractionAAMP_MPD *mTestableStreamAbstractionAAMP_MPD;
 	CDAIObject *mCdaiObj;
 	const char *mManifest;
+	MPD *mAdMPD;
+	const char *mAdManifest;
+	static constexpr const char *TEST_AD_MANIFEST_URL = "http://host/ad/manifest.mpd";
 	static constexpr const char *TEST_BASE_URL = "http://host/asset/";
 	static constexpr const char *TEST_MANIFEST_URL = "http://host/asset/manifest.mpd";
 	static constexpr const char *mVodManifest = R"(<?xml version="1.0" encoding="utf-8"?>
@@ -304,6 +307,8 @@ protected:
 		mIntConfigSettings = mDefaultIntConfigSettings;
 		mResponse = MakeSharedManifestDownloadResponsePtr();
 		mCdaiObj = NULL;
+		mAdManifest = nullptr;
+		mAdMPD = nullptr;
 		assert( mCdaiObj == NULL );
 	}
 
@@ -353,6 +358,11 @@ protected:
 
 		mManifest = nullptr;
 		mResponse = nullptr;
+		if(mAdMPD)
+		{
+			delete mAdMPD;
+			mAdMPD = nullptr;
+		}
 	}
 
 public:
@@ -465,6 +475,42 @@ public:
 			.WillRepeatedly(WithoutArgs(Invoke(this, &FetcherLoopTests::GetManifestForMPDDownloader)));
 		status = mTestableStreamAbstractionAAMP_MPD->Init(tuneType);
 		return status;
+	}
+
+	/**
+	 * @brief Initialize the Ad MPD instance
+	 *
+	 * This will:
+	 *  - Parse the manifest.
+	 *
+	 * @param[in] manifest Manifest data
+	 */
+	void InitializeAdMPDObject(const char *manifest)
+	{
+		if (manifest)
+		{
+			mAdManifest = manifest;
+			std::string manifestStr = mAdManifest;
+			xmlTextReaderPtr reader = xmlReaderForMemory((char *)manifestStr.c_str(), (int)manifestStr.length(), NULL, NULL, 0);
+			if (reader != NULL)
+			{
+				if (xmlTextReaderRead(reader))
+				{
+					Node *rootNode = MPDProcessNode(&reader, TEST_AD_MANIFEST_URL);
+					if (rootNode != NULL)
+					{
+						if (mAdMPD)
+						{
+							delete mAdMPD;
+							mAdMPD = nullptr;
+						}
+						mAdMPD = rootNode->ToMPD();
+						delete rootNode;
+					}
+				}
+			}
+			xmlFreeTextReader(reader);
+		}
 	}
 
 	/**
@@ -762,7 +808,7 @@ TEST_F(FetcherLoopTests, BasicFetcherLoop)
 		.WillOnce(Return(true));
 	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, false, _, _, _, _, _))
 		.WillRepeatedly(Return(true));
-
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection()).WillRepeatedly(Return(false));
 	status = InitializeMPD(mVodManifest);
 	EXPECT_EQ(status, eAAMPSTATUS_OK);
 
@@ -801,6 +847,8 @@ TEST_F(FetcherLoopTests, BasicFetcherLoopLive)
 	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _, _, _))
 		.Times(1)
 		.WillOnce(Return(true));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection()).WillRepeatedly(Return(false));
+
 	status = InitializeMPD(mLiveManifest, eTUNETYPE_SEEK, 27.0);
 	EXPECT_EQ(status, eAAMPSTATUS_OK);
 
@@ -810,7 +858,7 @@ TEST_F(FetcherLoopTests, BasicFetcherLoopLive)
 	// Add the new EXPECT_CALL for DownloadsAreEnabled
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled())
 		.Times(AnyNumber())
-		.WillRepeatedly([]() 
+		.WillRepeatedly([]()
 						{
 							static int counter = 0;
 							return (++counter < 20); });
@@ -1056,6 +1104,7 @@ TEST_F(FetcherLoopTests, BasicFetcherLoopLiveWithParallelDownload)
 	audioFragmentUrl = std::string(TEST_BASE_URL) + std::string("audio_p0_init.mp4");
 	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(videoFragmentUrl, _, _, _, _, true, _, _, _, _, _)).Times(1).WillOnce(Return(true));
 	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(audioFragmentUrl, _, _, _, _, true, _, _, _, _, _)).Times(1).WillOnce(Return(true));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection()).WillRepeatedly(Return(false));
 
 	status = InitializeMPD(multiTrackManifest, eTUNETYPE_SEEK, 24.0);
 
@@ -1222,4 +1271,140 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 	EXPECT_EQ(periodChanged, true);
 	EXPECT_EQ(mTestableStreamAbstractionAAMP_MPD->GetCurrentPeriodIdx(), mTestableStreamAbstractionAAMP_MPD->GetIteratorPeriodIdx());
 	EXPECT_EQ(currentPeriodId, "p3");
+}
+
+/**
+ * @brief SelectSourceOrAdPeriod tests.
+ *
+ * The test verifies the scenario where the player transitions from an ad break (waiting to catch up)
+ * to the next ad before the placement of that landing ad, validating state transitions and source selection logic.
+ */
+TEST_F(FetcherLoopTests, SelectSourceOrAdPeriodTests5)
+{
+	static const char *adManifest =
+		R"(<?xml version="1.0" encoding="UTF-8"?>
+<!-- A simple DASH manifest with a single ad period -->
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" type="static" profiles="urn:mpeg:dash:profile:isoff-on-demand:2011" minBufferTime="PT1.5S" mediaPresentationDuration="PT0M30S">
+	<Period id="ad1" start="PT0H0M0.000S">
+		<AdaptationSet id="0" contentType="video" mimeType="video/mp4" segmentAlignment="true" startWithSAP="1">
+			<SegmentTemplate timescale="48000" initialization="video_init.mp4" media="video_$Number$.mp4" startNumber="1">
+				<SegmentTimeline>
+					<S t="0" d="96000" r="14"/>
+				</SegmentTimeline>
+			</SegmentTemplate>
+			<Representation id="0" bandwidth="3000000" codecs="avc1.4d401f" width="1280" height="720" frameRate="30"/>
+		</AdaptationSet>
+		<AdaptationSet id="1" contentType="audio" lang="eng">
+			<Representation id="1" mimeType="audio/mp4" codecs="ec-3" bandwidth="800000" width="640" height="360" frameRate="25"/>
+			<SegmentTemplate timescale="48000" initialization="audio_init.mp4" media="audio_$Number$.m4s" startNumber="1">
+				<SegmentTimeline>
+					<S t="0" d="96000" r="14"/>
+				</SegmentTimeline>
+			</SegmentTemplate>
+		</AdaptationSet>
+	</Period>
+</MPD>
+)";
+
+	std::string fragmentUrl;
+	AAMPStatusType status;
+	mPrivateInstanceAAMP->rate = 1.0;
+	bool ret = false;
+
+	// Expect initialization fragment to be cached
+	fragmentUrl = std::string(TEST_BASE_URL) + std::string("video_p0_init.mp4");
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _, _, _))
+		.Times(1)
+		.WillOnce(Return(true));
+
+	// Initialize with live manifest and check status
+	status = InitializeMPD(mLiveManifest, eTUNETYPE_SEEK, 0);
+	EXPECT_EQ(status, eAAMPSTATUS_OK);
+
+	// Initial indexing of MPD document
+	status = mTestableStreamAbstractionAAMP_MPD->InvokeIndexNewMPDDocument(false);
+	(void)status;
+	EXPECT_EQ(mTestableStreamAbstractionAAMP_MPD->GetCurrentPeriodIdx(), 0);
+
+	// Set the iterator to the current period
+	mTestableStreamAbstractionAAMP_MPD->SetIteratorPeriodIdx(mTestableStreamAbstractionAAMP_MPD->GetCurrentPeriodIdx());
+
+	// Prepare CDAI object to simulate the end of an ad break
+	auto cdaiObj = mTestableStreamAbstractionAAMP_MPD->GetCDAIObject();
+	cdaiObj->mAdState = AdState::IN_ADBREAK_WAIT2CATCHUP; // simulate waiting for base content after ad
+
+	std::string periodId = "p0"; // ad period ID
+	std::string endPeriodId = "p1"; // next period after the ad
+
+	// Load ad manifest into a mock MPD object
+	InitializeAdMPDObject(adManifest);
+
+	// Set up ad breaks and ad metadata
+	cdaiObj->mPeriodMap = {
+		{periodId, Period2AdData()},
+		{endPeriodId, Period2AdData()}};
+
+	cdaiObj->mAdBreaks = {
+		{periodId, AdBreakObject(30000, std::make_shared<std::vector<AdNode>>(), endPeriodId, 0, 30000)},
+		{endPeriodId, AdBreakObject(30000, std::make_shared<std::vector<AdNode>>(), "", 0, 30000)}};
+
+	// First ad is already placed and resolved; second is pending
+	cdaiObj->mAdBreaks[periodId].ads->emplace_back(false, true, true, "adId1", "url", 30000, periodId, 0, nullptr);
+	cdaiObj->mAdBreaks[endPeriodId].ads->emplace_back(false, false, false, "adId2", "url", 30000, endPeriodId, 0, mAdMPD);
+
+	cdaiObj->mCurAdIdx = 0;
+	cdaiObj->mCurAds = cdaiObj->mAdBreaks[periodId].ads;
+	cdaiObj->mCurPlayingBreakId = periodId;
+	cdaiObj->mAdBreaks[periodId].mAdBreakPlaced = true;
+
+	// Move to next period for evaluation
+	mTestableStreamAbstractionAAMP_MPD->IncrementIteratorPeriodIdx();
+
+	// Track changes post invocation
+	bool periodChanged = false;
+	bool adStateChanged = false;
+	bool waitForAdBreakCatchup = false;
+	bool requireStreamSelection = false;
+	bool mpdChanged = false;
+	std::string currentPeriodId = "p0";
+
+	// Set expectations for various AAMP and CDAI method calls
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetTSBSessionManager()).WillRepeatedly(Return(nullptr));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection()).WillRepeatedly(Return(false));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdPlacementEvent(_, _, _, _, _, _, _, _)).Times(1);
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdReservationEvent(_, _, _, _, _)).Times(2);
+
+	EXPECT_CALL(*g_MockPrivateCDAIObjectMPD, CheckForAdStart(_, _, _, _, _, _))
+		.Times(AnyNumber())
+		.WillOnce(Invoke([](const float &rate, bool init, const std::string &periodId, double offSet, std::string &breakId, double &adOffset)
+		{
+			breakId = "p1";
+			return -1; // no ad triggered on first check
+		}))
+		.WillOnce(Invoke([](const float &rate, bool init, const std::string &periodId, double offSet, std::string &breakId, double &adOffset)
+		{
+			breakId = "p1";
+			return 0; // ad triggered on second check
+		}));
+
+	EXPECT_CALL(*g_MockPrivateCDAIObjectMPD, isAdBreakObjectExist(_)).WillRepeatedly(Return(true));
+
+	EXPECT_CALL(*g_MockPrivateCDAIObjectMPD, WaitForNextAdResolved(_)).Times(1).WillRepeatedly(Invoke([cdaiObj, endPeriodId](int timeout)
+		{
+			// Simulate resolution of next ad
+			cdaiObj->mAdBreaks[endPeriodId].ads->at(0).placed = true;
+			cdaiObj->mAdBreaks[endPeriodId].ads->at(0).resolved = true;
+			cdaiObj->mAdBreaks[endPeriodId].invalid = false;
+			return true;
+		}));
+	/*
+	 * Now test the scenario where the player transitions from an ad break (waiting to catch up)
+	 * to the next ad, validating state transitions and source selection logic
+	 */
+	ret = mTestableStreamAbstractionAAMP_MPD->InvokeSelectSourceOrAdPeriod(
+		periodChanged, mpdChanged, adStateChanged, waitForAdBreakCatchup,
+		requireStreamSelection, currentPeriodId);
+
+	EXPECT_TRUE(ret);
+	EXPECT_EQ(cdaiObj->mAdState, AdState::IN_ADBREAK_AD_PLAYING); // Validate expected state transition
 }

@@ -17,10 +17,16 @@
 * limitations under the License.
 */
 
-#include "AampGrowableBuffer.h"
+#include "MockAampGrowableBuffer.h"
+
+MockAampGrowableBuffer *g_mockAampGrowableBuffer;
 
 AampGrowableBuffer::~AampGrowableBuffer( void )
 {
+	if (g_mockAampGrowableBuffer)
+	{
+		g_mockAampGrowableBuffer->dtor();
+	}
 }
 
 /**
@@ -42,7 +48,7 @@ void AampGrowableBuffer::AppendBytes( const void *srcPtr, size_t srcLen )
 }
 
 void AampGrowableBuffer::MoveBytes( const void *ptr, size_t len )
-{    
+{
 }
 
 void AampGrowableBuffer::AppendNulTerminator(void)

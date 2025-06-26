@@ -19,7 +19,9 @@
 
 #include <string>
 #include <gtest/gtest.h>
-#include "AampDRMSessionManager.cpp"
+#include "AampDRMLicManager.cpp"
+#include "PlayerLogManager.cpp"
+#include "DrmSessionManager.cpp"
 #include "DrmJsonObject.h"
 #include "AampJsonObject.h"
 class DrmSessionTests : public ::testing::Test {

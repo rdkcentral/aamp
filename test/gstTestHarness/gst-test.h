@@ -36,7 +36,6 @@ class Track
 {
 public:
 	uint32_t timeScale;
-	int injectCount;
 	bool needsData;
 	bool gstreamerReadyForInjection;
 	std::queue<class TrackEvent *> *queue; // sequential segments/commands, not yet injected
@@ -60,7 +59,6 @@ class MyPipelineContext : PipelineContext
 public:
 	class Pipeline *pipeline;
 	double seekPos;
-	int numPendingEOS;
 	double nextPTS;
 	double nextTime;
 	Track track[NUM_MEDIA_TYPES];

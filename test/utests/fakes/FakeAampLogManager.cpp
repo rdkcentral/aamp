@@ -54,17 +54,24 @@ thread_local int gPlayerId = -1;
 
 void logprintf(AAMP_LogLevel level, const char* file, int line, const char *format, ...)
 {
-// ENABLE_LOGGING is defined in L1 utests CMakeLists.txt
-#ifdef ENABLE_LOGGING
+	char timestamp[AAMPCLI_TIMESTAMP_PREFIX_MAX_CHARS];
+	timestamp[0] = 0x00;
+	struct timeval t;
+	gettimeofday(&t, NULL);
+	snprintf(timestamp, sizeof(timestamp), AAMPCLI_TIMESTAMP_PREFIX_FORMAT, (unsigned int)t.tv_sec, (unsigned int)t.tv_usec / 1000 );
+
+	std::hash<std::thread::id> std_thread_hasher;
+
 	char *format_ptr = NULL;
 	int format_bytes = 0;
 	for( int pass=0; pass<2; pass++ )
 	{ // two pass: measure required bytes then populate format string
 		format_bytes = snprintf(format_ptr, format_bytes,
-							   "[AAMP-PLAYER][%d][%s][%zx][%s][%d]%s\n",
+							   "%s[AAMP-PLAYER][%d][%s][%zx][%s][%d]%s\n",
+							   timestamp,
 							   gPlayerId,
 							   mLogLevelStr[level],
-							   GetPrintableThreadID(),
+							   std_thread_hasher( std::this_thread::get_id() ),
 							   file, line,
 							   format );
 		assert( format_bytes>0 );
@@ -81,45 +88,8 @@ void logprintf(AAMP_LogLevel level, const char* file, int line, const char *form
 			va_end(args);
 		}
 	}
-#endif
 }
 
 void DumpBlob(const unsigned char *ptr, size_t len)
 {
 }
-
-#if 0
-/**
- *  @brief Print the network error level logging for triage purpose
- */
-void AampLogManager::LogNetworkError(const char* url, AAMPNetworkErrorType errorType, int errorCode, AampMediaType type)
-{
-}
-
-/**
- *  @brief Print the network latency level logging for triage purpose
- */
-void AampLogManager::LogNetworkLatency(const char* url, int downloadTime, int downloadThresholdTimeoutMs, AampMediaType type)
-{
-}
-
-/**
- *  @brief Check curl error before log on console
- */
-bool AampLogManager::isLogworthyErrorCode(int errorCode)
-{
-	if(g_mockAampLogManager)
-	{
-		return (g_mockAampLogManager->isLogworthyErrorCode(errorCode));
-	}
-	return false;
-}
-
-void AampLogManager::LogABRInfo(AAMPAbrInfo *pstAbrInfo)
-{
-}
-
-void AampLogManager::aampLogger(std::string &&tsbMessage)
-{
-}
-#endif

@@ -26,78 +26,7 @@
 #include "AampDefine.h"
 #include "vttCue.h"
 #include <map>
-#ifdef USE_SECCLIENT
-#include "sec_client.h"
-#endif
-
-#ifdef USE_SECCLIENT
-//Lookup table to convert secclient error to secmanager error
-std::map<const int32_t, std::pair<const int32_t, const int32_t>> secClientSeManagerErrorLookUp =
-{
-	{SEC_CLIENT_RESULT_SUCCESS,                                {SECMANAGER_CLASS_RESULT_SUCCESS,        SECMANAGER_SUCCESS}},
-	{SEC_CLIENT_RESULT_FAILURE,                                {SECMANAGER_CLASS_RESULT_DRM_FAIL,       SECMANAGER_REASON_DRM_GENERAL_FAILURE}},
-	{SEC_CLIENT_RESULT_INVALID_PARAMETERS,                     {SECMANAGER_CLASS_RESULT_SECCLIENT_FAIL, 0}},
-	{SEC_CLIENT_RESULT_HTTP_RESULT_FAILURE_GENERIC,            {SECMANAGER_CLASS_RESULT_DRM_FAIL,       SECMANAGER_REASON_DRM_LICENSE_NETWORK_FAIL}},
-	{SEC_CLIENT_RESULT_HTTP_RESULT_FAILURE_TOO_MANY_REDIRECTS, {SECMANAGER_CLASS_RESULT_DRM_FAIL,       SECMANAGER_REASON_DRM_LICENSE_NETWORK_FAIL}},
-	{SEC_CLIENT_RESULT_HTTP_RESULT_FAILURE_CONNECTIVITY,       {SECMANAGER_CLASS_RESULT_DRM_FAIL,       SECMANAGER_REASON_DRM_LICENSE_NETWORK_FAIL}},
-	{SEC_CLIENT_RESULT_HTTP_RESULT_FAILURE_HOST_RESOLUTION,    {SECMANAGER_CLASS_RESULT_DRM_FAIL,       SECMANAGER_REASON_DRM_LICENSE_NETWORK_FAIL}},
-	{SEC_CLIENT_RESULT_HTTP_RESULT_FAILURE_TIMEOUT,            {SECMANAGER_CLASS_RESULT_DRM_FAIL,       SECMANAGER_REASON_DRM_LICENSE_NETWORK_FAIL}},
-	{SEC_CLIENT_RESULT_HTTP_RESULT_FAILURE_TLS,                {SECMANAGER_CLASS_RESULT_DRM_FAIL,       SECMANAGER_REASON_DRM_LICENSE_NETWORK_FAIL}},
-	{SEC_CLIENT_RESULT_MAC_AUTH_NOT_PROVISIONED,               {SECMANAGER_CLASS_RESULT_DRM_FAIL,       SECMANAGER_REASON_DRM_MAC_TOKEN_NO_PROV}},
-	{SEC_CLIENT_RESULT_MONEYTRACE_MISSING_OR_MALFORMED,        {SECMANAGER_CLASS_RESULT_SECCLIENT_FAIL, 0}},
-	{SEC_CLIENT_RESULT_REQUEST_CREATION_ERROR,                 {SECMANAGER_CLASS_RESULT_DRM_FAIL,       SECMANAGER_REASON_DRM_GENERAL_FAILURE}},
-	{SEC_CLIENT_RESULT_MALFORMED_RESPONSE_ERROR,               {SECMANAGER_CLASS_RESULT_DRM_FAIL,       SECMANAGER_REASON_DRM_GENERAL_FAILURE}},
-	{SEC_CLIENT_RESULT_MALFORMED_CONFIGURATION_PARAMETER_ERROR,{SECMANAGER_CLASS_RESULT_DRM_FAIL,       SECMANAGER_REASON_DRM_GENERAL_FAILURE}},
-	{SEC_CLIENT_RESULT_MEMORY_ERROR,                           {SECMANAGER_CLASS_RESULT_DRM_FAIL,       SECMANAGER_REASON_DRM_MEMORY_ALLOCATION_ERROR}},
-	{SEC_CLIENT_RESULT_FAILED_TO_LOAD_SEC_LIBRARY_ERROR,       {SECMANAGER_CLASS_RESULT_SECCLIENT_FAIL, 0}},
-	{SEC_CLIENT_RESULT_INVALID_LOAD_CONFIGURATION_ERROR,       {SECMANAGER_CLASS_RESULT_SECCLIENT_FAIL, 0}},
-	{SEC_CLIENT_RESULT_INVALID_LOAD_CRYPTO_TYPE_ERROR,         {SECMANAGER_CLASS_RESULT_SECCLIENT_FAIL, 0}},
-	{SEC_CLIENT_RESULT_INVALID_LOAD_TIMEOUT_ERROR,             {SECMANAGER_CLASS_RESULT_SECCLIENT_FAIL, 0}},
-	{SEC_CLIENT_RESULT_JSON_ENCODING_ERROR,                    {SECMANAGER_CLASS_RESULT_DRM_FAIL,       SECMANAGER_REASON_DRM_GENERAL_FAILURE}},
-	{SEC_CLIENT_RESULT_UNSUPPORTED_FEATURE,                    {SECMANAGER_CLASS_RESULT_SECCLIENT_FAIL, 0}},
-	{SEC_CLIENT_RESULT_WATERMARKING_NOT_REQUIRED,              {SECMANAGER_CLASS_RESULT_DRM_FAIL,       SECMANAGER_REASON_DRM_GENERAL_FAILURE}},
-	{SEC_CLIENT_RESULT_WATERMARKING_SESSION_DENIED,            {SECMANAGER_CLASS_RESULT_DRM_FAIL,       SECMANAGER_REASON_DRM_GENERAL_FAILURE}},
-	{SEC_CLIENT_RESULT_GENERAL_CRYPTOGRAPHIC_ERROR,            {SECMANAGER_CLASS_RESULT_DRM_FAIL,       SECMANAGER_REASON_DRM_GENERAL_FAILURE}},
-	{SEC_CLIENT_RESULT_UNKNOWN_CRYPTO_ENGINE,                  {SECMANAGER_CLASS_RESULT_DRM_FAIL,       SECMANAGER_REASON_DRM_GENERAL_FAILURE}},
-	{SEC_CLIENT_RESULT_UNKNOWN_KEY_AGREEMENT_ALGO,             {SECMANAGER_CLASS_RESULT_DRM_FAIL,       SECMANAGER_REASON_DRM_GENERAL_FAILURE}},
-	{SEC_CLIENT_RESULT_INTERNAL_ERROR_EXPONENT,                {SECMANAGER_CLASS_RESULT_DRM_FAIL,       SECMANAGER_REASON_DRM_GENERAL_FAILURE}},
-	{SEC_CLIENT_RESULT_INTERNAL_ERROR_RANDOM,                  {SECMANAGER_CLASS_RESULT_DRM_FAIL,       SECMANAGER_REASON_DRM_GENERAL_FAILURE}},
-	{SEC_CLIENT_RESULT_UNSUPPORTED_HASH_ALGORITHM,             {SECMANAGER_CLASS_RESULT_DRM_FAIL,       SECMANAGER_REASON_DRM_GENERAL_FAILURE}},
-	{SEC_CLIENT_RESULT_ERROR_CREATING_MAC_AUTH_HEADER,         {SECMANAGER_CLASS_RESULT_DRM_FAIL,       SECMANAGER_REASON_DRM_GENERAL_FAILURE}},
-	{SEC_CLIENT_RESULT_ERROR_GENERATING_KEY_PAIR,              {SECMANAGER_CLASS_RESULT_DRM_FAIL,       SECMANAGER_REASON_DRM_GENERAL_FAILURE}},
-	{SEC_CLIENT_RESULT_ERROR_GENERATING_DERIVED_KEYS,          {SECMANAGER_CLASS_RESULT_DRM_FAIL,       SECMANAGER_REASON_DRM_GENERAL_FAILURE}},
-	{SEC_CLIENT_RESULT_ERROR_GENERATING_MAC_VALUE,             {SECMANAGER_CLASS_RESULT_DRM_FAIL,       SECMANAGER_REASON_DRM_GENERAL_FAILURE}},
-	{SEC_CLIENT_RESULT_CLIENT_VERIFICATION_ERROR,               {SECMANAGER_CLASS_RESULT_DRM_FAIL,       SECMANAGER_REASON_DRM_GENERAL_FAILURE}},
-	{SEC_CLIENT_RESULT_MISSING_SESSION_CREDENTIALS,            {SECMANAGER_CLASS_RESULT_DRM_FAIL,       SECMANAGER_REASON_DRM_GENERAL_FAILURE}},
-	{SEC_CLIENT_RESULT_ENCRYPTION_KEY_MISMATCH,                {SECMANAGER_CLASS_RESULT_DRM_FAIL,       SECMANAGER_REASON_DRM_GENERAL_FAILURE}},
-	{SEC_CLIENT_RESULT_PKCS7_SIGNATURE_ERROR,                  {SECMANAGER_CLASS_RESULT_API_FAIL,       SECMANAGER_REASON_API_UNDEFINED_ERROR}},  // Undefined
-	{SEC_CLIENT_RESULT_CLIENT_AUTH_TOKEN_FAILURE,              {SECMANAGER_CLASS_RESULT_API_FAIL,       SECMANAGER_REASON_API_UNDEFINED_ERROR}},  // Undefined
-	{SEC_CLIENT_RESULT_MISSING_KEY_PROVISIONING_DATA,          {SECMANAGER_CLASS_RESULT_API_FAIL,       SECMANAGER_REASON_API_UNDEFINED_ERROR}},  // Undefined
-	{SEC_CLIENT_RESULT_MISSING_DEVICE_AUTH_DATA,               {SECMANAGER_CLASS_RESULT_API_FAIL,       SECMANAGER_REASON_API_UNDEFINED_ERROR}},  // Undefined
-	{SEC_CLIENT_RESULT_INVALID_CONFIGURATION_PARAMETER,        {SECMANAGER_CLASS_RESULT_DRM_FAIL,       SECMANAGER_REASON_DRM_GENERAL_FAILURE}},
-	{SEC_CLIENT_RESULT_INVALID_DEVICE_TOKEN_PARAMETER,         {SECMANAGER_CLASS_RESULT_API_FAIL,       SECMANAGER_REASON_API_UNDEFINED_ERROR}},  // Undefined
-	{SEC_CLIENT_RESULT_INVALID_KEY_PROVISION_RESULT_PARAMETER, {SECMANAGER_CLASS_RESULT_API_FAIL,       SECMANAGER_REASON_API_UNDEFINED_ERROR}},  // Undefined
-	{SEC_CLIENT_RESULT_INVALID_DEVICE_AUTHENTICATION_RESULT_PARAMETER, {SECMANAGER_CLASS_RESULT_API_FAIL, SECMANAGER_REASON_API_UNDEFINED_ERROR}},  // Undefined
-	{SEC_CLIENT_RESULT_INVALID_DEVICE_ATTRIBUTES_PARAMETER,    {SECMANAGER_CLASS_RESULT_API_FAIL,       SECMANAGER_REASON_API_UNDEFINED_ERROR}},  // Undefined
-	{SEC_CLIENT_RESULT_INVALID_ACCESS_TOKEN_PARAMETER,         {SECMANAGER_CLASS_RESULT_API_FAIL,       SECMANAGER_REASON_API_INVALID_ACCESS_TOKEN}},
-	{SEC_CLIENT_RESULT_INVALID_ACCESS_ATTRIBUTES_PARAMETER,    {SECMANAGER_CLASS_RESULT_API_FAIL,       SECMANAGER_REASON_API_INVALID_ACCESS_ATTRIBUTE}},
-	{SEC_CLIENT_RESULT_INVALID_KEY_SYSTEM_PARAMETER,           {SECMANAGER_CLASS_RESULT_API_FAIL,       SECMANAGER_REASON_API_INVALID_KEY_SYSTEM_PARAM}},
-	{SEC_CLIENT_RESULT_INVALID_LICENSE_REQUEST_PARAMETER,      {SECMANAGER_CLASS_RESULT_API_FAIL,       SECMANAGER_REASON_API_INVALID_DRM_LICENSE_PARAM}},
-	{SEC_CLIENT_RESULT_INVALID_CONTENT_METADATA_PARAMETER,     {SECMANAGER_CLASS_RESULT_API_FAIL,       SECMANAGER_REASON_API_INVALID_CONTENT_METADATA}},
-	{SEC_CLIENT_RESULT_INVALID_MEDIA_USAGE_PARAMETER,          {SECMANAGER_CLASS_RESULT_API_FAIL,       SECMANAGER_REASON_API_INVALID_MEDIA_USAGE}},
-	{SEC_CLIENT_RESULT_INVALID_LICENSE_IDENTIFIER,             {SECMANAGER_CLASS_RESULT_API_FAIL,       SECMANAGER_REASON_API_UNDEFINED_ERROR}},  // Undefined
-	{SEC_CLIENT_RESULT_INVALID_REQUEST_BODY,                   {SECMANAGER_CLASS_RESULT_DRM_FAIL,       SECMANAGER_REASON_DRM_ENTITLEMENT_ERROR}},  // Undefined
-	{SEC_CLIENT_RESULT_INVALID_ACCOUNT_TOKEN_PARAMETER,        {SECMANAGER_CLASS_RESULT_API_FAIL,       SECMANAGER_REASON_API_UNDEFINED_ERROR}},  // Undefined
-	{SEC_CLIENT_RESULT_INVALID_REQUEST_METADATA_PARAMETER,     {SECMANAGER_CLASS_RESULT_SECCLIENT_FAIL, 0}},
-	{SEC_CLIENT_RESULT_INVALID_CONTENT_IDENTIFIER_PARAMETER,   {SECMANAGER_CLASS_RESULT_API_FAIL,       SECMANAGER_REASON_API_UNDEFINED_ERROR}},  // Undefined
-	{SEC_CLIENT_RESULT_INVALID_DOWNLOADS_LIST_PARAMETER,       {SECMANAGER_CLASS_RESULT_API_FAIL,       SECMANAGER_REASON_API_UNDEFINED_ERROR}},  // Undefined
-	{SEC_CLIENT_RESULT_INVALID_ACQUIRE_SAT_FUNCTION_PARAMETER, {SECMANAGER_CLASS_RESULT_API_FAIL,       SECMANAGER_REASON_API_UNDEFINED_ERROR}},  // Undefined
-	{SEC_CLIENT_RESULT_INVALID_WATERMARKING_SYSTEM_PARAMETER,  {SECMANAGER_CLASS_RESULT_API_FAIL,       SECMANAGER_REASON_API_INVALID_WATERMARK_PARAMETER}},
-	{SEC_CLIENT_RESULT_INVALID_CONTENT_ATTRIBUTES_PARAMETER,   {SECMANAGER_CLASS_RESULT_API_FAIL,       SECMANAGER_REASON_API_INVALID_CONTENT_PARAMETER}},
-	{SEC_CLIENT_RESULT_UNSUPPORTED_OR_INVALID_WATERMARK_FEATURE, {SECMANAGER_CLASS_RESULT_DRM_FAIL,     SECMANAGER_REASON_DRM_GENERAL_FAILURE}},
-	{SEC_CLIENT_RESULT_INVALID_WATERMARK_SESSION_RESPONSE,     {SECMANAGER_CLASS_RESULT_DRM_FAIL,       SECMANAGER_REASON_DRM_GENERAL_FAILURE}}
-};
-#endif
+#include "PlayerSecInterface.h"
 
 /**
  * @brief AAMPEventObject Constructor
@@ -383,12 +312,12 @@ unsigned long CCHandleEvent::getCCHandle() const
 /**
  * @brief MediaMetadataEvent Constructor
  */
-MediaMetadataEvent::MediaMetadataEvent(long duration, int width, int height, bool hasDrm, bool isLive, const std::string &DrmType, double programStartTime, int tsbDepthMs, std::string sid):
+MediaMetadataEvent::MediaMetadataEvent(long duration, int width, int height, bool hasDrm, bool isLive, const std::string &DrmType, double programStartTime, int tsbDepthMs, std::string sid,const std::string &url):
 		AAMPEventObject(AAMP_EVENT_MEDIA_METADATA, std::move(sid)), mDuration(duration),
 		mLanguages(), mBitrates(), mWidth(width), mHeight(height),
 		mHasDrm(hasDrm), mSupportedSpeeds(), mIsLive(isLive), mDrmType(DrmType), mProgramStartTime(programStartTime),
 		mPCRating(),mSsi(-1),mFrameRate(0),mVideoScanType(eVIDEOSCAN_UNKNOWN),mAspectRatioWidth(0),mAspectRatioHeight(0),
-		mVideoCodec(),mHdrType(),mAudioBitrates(),mAudioCodec(),mAudioMixType(),isAtmos(false),mMediaFormatName(), mTsbDepthMs(tsbDepthMs)
+		mVideoCodec(),mHdrType(),mAudioBitrates(),mAudioCodec(),mAudioMixType(),isAtmos(false),mMediaFormatName(), mTsbDepthMs(tsbDepthMs), mUrl(url)
 {
 
 }
@@ -556,6 +485,16 @@ bool MediaMetadataEvent::isLive() const
 const std::string &MediaMetadataEvent::getDrmType() const
 {
 	return mDrmType;
+}
+
+/**
+ * @brief Get Effective Url
+ *
+ * @return Url
+ */
+const std::string &MediaMetadataEvent::getUrl() const
+{
+	return mUrl;
 }
 
 /**
@@ -926,7 +865,7 @@ bool BufferingChangedEvent::buffering() const
 DrmMetaDataEvent::DrmMetaDataEvent(AAMPTuneFailure failure, const std::string &accessStatus, int statusValue, int responseCode, bool secclientErr, std::string sid):
 	AAMPEventObject(AAMP_EVENT_DRM_METADATA, std::move(sid)), mFailure(failure), mAccessStatus(accessStatus),
 	mAccessStatusValue(statusValue), mResponseCode(responseCode), mSecclientError(secclientErr), mSecManagerReasonCode(-1), mSecManagerClass(-1),
-	mBusinessStatus(-1), mHeaderResponses(),mResponseData(),mNetworkMetrics()
+	mBusinessStatus(-1), mHeaderResponses(),mResponseData(),mNetworkMetrics(), mBodyResponses()
 {
 	
 }
@@ -1084,12 +1023,9 @@ void DrmMetaDataEvent::ConvertToVerboseErrorCode(int32_t httpCode, int32_t httpE
 {
 	mSecManagerClass = SECMANAGER_CLASS_RESULT_DRM_FAIL;
 	mSecManagerReasonCode = SECMANAGER_REASON_DRM_GENERAL_FAILURE;
-#ifdef USE_SECCLIENT
 	//look for the correct code from the lookup
-	auto it = secClientSeManagerErrorLookUp.find(-httpCode); //Secclient error codes are -ve
-	if (it != secClientSeManagerErrorLookUp.end()) {
-		mSecManagerClass = it->second.first;
-		mSecManagerReasonCode = it->second.second;
+	if (getAsVerboseErrorCode(httpCode, mSecManagerClass, mSecManagerReasonCode)) 
+	{
 		if(412 == httpCode && 401 == httpExtStatusCode) 
 		{
 			mSecManagerReasonCode = SECMANAGER_REASON_DRM_ACCESS_TOKEN_EXPIRED;
@@ -1097,9 +1033,8 @@ void DrmMetaDataEvent::ConvertToVerboseErrorCode(int32_t httpCode, int32_t httpE
 		if (mSecManagerClass == SECMANAGER_CLASS_RESULT_SECCLIENT_FAIL) {
 			mSecManagerReasonCode = httpCode;
 		}
+		mBusinessStatus = httpExtStatusCode;
 	}
-	mBusinessStatus = httpExtStatusCode;
-#endif
 }
 
 /**
@@ -1149,6 +1084,22 @@ const std::vector<std::string> &DrmMetaDataEvent::getHeaderResponses() const
 void DrmMetaDataEvent::setHeaderResponses(const std::vector<std::string> &responses)
 {
 	mHeaderResponses = responses;
+}
+
+/**
+ * @brief Get Body response
+ */
+const std::string &DrmMetaDataEvent::getBodyResponse() const
+{
+	return mBodyResponses;
+}
+
+/**
+ * @brief Set body response from license request
+ */
+void DrmMetaDataEvent::setBodyResponse(const std::string &responses)
+{
+	mBodyResponses = responses;
 }
 
 /**
@@ -1612,9 +1563,9 @@ const std::string &ContentProtectionDataEvent::getStreamType() const
 /*
  * @brief ManifestRefreshEvent Constructor
  */
-ManifestRefreshEvent::ManifestRefreshEvent(uint32_t manifestDuration,int noOfPeriods, uint32_t manifestPublishedTime, std::string sid,const char * manifestType):
+ManifestRefreshEvent::ManifestRefreshEvent(uint32_t manifestDuration,int noOfPeriods, uint32_t manifestPublishedTime, const std::string &manifestType, std::string sid):
 	AAMPEventObject(AAMP_EVENT_MANIFEST_REFRESH_NOTIFY, std::move(sid))
-	, mManifestDuration(manifestDuration),mNoOfPeriods(noOfPeriods),mManifestPublishedTime(manifestPublishedTime),mManifestType(manifestType)
+	, mManifestDuration(manifestDuration), mNoOfPeriods(noOfPeriods), mManifestPublishedTime(manifestPublishedTime), mManifestType(manifestType)
 {
 
 }
@@ -1630,13 +1581,12 @@ uint32_t ManifestRefreshEvent::getManifestDuration() const
 }
 
 /**
- * @brief Get ManifestFile Duration for Linear DASH
+ * @brief Get ManifestFile type for Linear DASH
  *
- * @return ManifestFile Duration
+ * @return ManifestFile type
  */
-const char * ManifestRefreshEvent::getManifestType() const
+const std::string& ManifestRefreshEvent::getManifestType() const
 {
-
    return mManifestType;
 }
 
@@ -1677,4 +1627,54 @@ TuneTimeMetricsEvent::TuneTimeMetricsEvent(const std::string &timeMetricData, st
 const std::string &TuneTimeMetricsEvent::getTuneMetricsData() const
 {
 	return mTuneMetricsData;
+}
+
+/**
+ * @fn MonitorAVStatusEvent Constructor
+ */
+MonitorAVStatusEvent::MonitorAVStatusEvent(const std::string &state, int64_t videoPosMs, int64_t audioPosMs, uint64_t timeInStateMs, std::string sid):
+		AAMPEventObject(AAMP_EVENT_MONITORAV_STATUS, std::move(sid)), mMonitorAVStatus(state), mVideoPositionMS(videoPosMs),
+		mAudioPositionMS(audioPosMs), mTimeInStateMS(timeInStateMs)
+{
+
+}
+
+/**
+ * @brief getMonitorAVStatus
+ *
+ * @return MonitorAVStatus
+ */
+const std::string &MonitorAVStatusEvent::getMonitorAVStatus() const
+{
+	return mMonitorAVStatus;
+}
+
+/**
+ * @brief getVideoPositionMS
+ *
+ * @return Video Position in MS
+ */
+int64_t MonitorAVStatusEvent::getVideoPositionMS() const
+{
+	return mVideoPositionMS;
+}
+
+/**
+ * @brief getAudioPositionMS
+ *
+ * @return Audio Position in MS
+ */
+int64_t MonitorAVStatusEvent::getAudioPositionMS() const
+{
+	return mAudioPositionMS;
+}
+
+/**
+ * @brief getTimeInStateMS
+ *
+ * @return Time in the current state in MS
+ */
+uint64_t MonitorAVStatusEvent::getTimeInStateMS() const
+{
+	return mTimeInStateMS;
 }

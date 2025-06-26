@@ -294,7 +294,7 @@ static void GenerateLegacyAAMPEvent(const AAMPEventPtr &e, AAMPEvent &event)
 			event.data.manifestRefreshData.manifestDuration = ev->getManifestDuration();
 			event.data.manifestRefreshData.noOfPeriods = ev->getNoOfPeriods();
 			event.data.manifestRefreshData.manifestPublishedTime = ev->getManifestPublishedTime();
-			event.data.manifestRefreshData.manifestType = ev->getManifestType();
+			event.data.manifestRefreshData.manifestType = ev->getManifestType().c_str();
 			break;
 		}
 		case AAMP_EVENT_TUNE_TIME_METRICS:
@@ -302,6 +302,14 @@ static void GenerateLegacyAAMPEvent(const AAMPEventPtr &e, AAMPEvent &event)
 			TuneTimeMetricsEventPtr ev = std::dynamic_pointer_cast<TuneTimeMetricsEvent>(e);
 			event.data.tuneMetricData.mTuneMetricData = ev->getTuneMetricsData().c_str();
 			break;
+		}
+		case AAMP_EVENT_MONITORAV_STATUS:
+		{
+			MonitorAVStatusEventPtr ev = std::dynamic_pointer_cast<MonitorAVStatusEvent>(e);
+			event.data.monitorAVStatus.mMonitorAVStatus = ev->getMonitorAVStatus().c_str();
+			event.data.monitorAVStatus.mVideoPositionMS = ev->getVideoPositionMS();
+			event.data.monitorAVStatus.mAudioPositionMS = ev->getAudioPositionMS();
+			event.data.monitorAVStatus.mTimeInStateMS = ev->getTimeInStateMS();
 		}
 		default:
 			// Some events without payload also falls here, for now

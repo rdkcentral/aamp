@@ -36,35 +36,26 @@ struct ParseAttrListExpected
 
 #define CONTEXT_NAME "My Context"
 #define CONTEXT_COUNT 8
-struct ParseAttrListExpected mParseAttrListExpected[CONTEXT_COUNT]
-{
-	{"#EXT-X-MEDIA:TYPE","AUDIO"},
-	{"URI","\"playlist_a-eng-0384k-aac-6c.mp4.m3u8\""},
-	{"GROUP-ID","\"default-audio-group\""},
-	{"LANGUAGE","\"en\""},
-	{"NAME","\"stream_6\""},
-	{"DEFAULT","YES"},
-	{"AUTOSELECT","YES"},
-	{"CHANNELS","\"6\""}
-};
 
 struct ParseAttrListContext
 {
 	const char *name;
 	int count;
+	const ParseAttrListExpected *expected;
 };
 
 static void ParseAttrListCb( lstring attr, lstring value, void *context )
 {
 	ParseAttrListContext *ctx = (ParseAttrListContext *)context;
+	const ParseAttrListExpected *expected = ctx->expected;
 	assert( strcmp(ctx->name,CONTEXT_NAME)==0 );
 	assert( ctx->count < CONTEXT_COUNT );
 	std::string attrString = attr.tostring();
 	std::string valueString = value.tostring();
 	std::cout << "\t" << attrString << "\n";
 	std::cout << "\t\t" << valueString << "\n";
-	ASSERT_TRUE( attrString == mParseAttrListExpected[ctx->count].attr );
-	ASSERT_TRUE( valueString == mParseAttrListExpected[ctx->count].value );
+	ASSERT_TRUE( attrString == expected[ctx->count].attr );
+	ASSERT_TRUE( valueString == expected[ctx->count].value );
 	ctx->count++;
 	std::cout << "\t\t\t" << value.GetAttributeValueString() << "\n";
 }
@@ -133,12 +124,48 @@ TEST(lstring, test1)
 	
 	std::cout << string1.tostring() << "\n";
 	
-	const char *attrString = "#EXT-X-MEDIA:TYPE=AUDIO,URI=\"playlist_a-eng-0384k-aac-6c.mp4.m3u8\",GROUP-ID=\"default-audio-group\",LANGUAGE=\"en\",NAME=\"stream_6\",DEFAULT=YES,AUTOSELECT=YES,CHANNELS=\"6\"";
-	lstring attrList( attrString,strlen(attrString) );
-	struct ParseAttrListContext context;
-	context.name = CONTEXT_NAME;
-	context.count = 0;
-	attrList.ParseAttrList( ParseAttrListCb, &context );
+	{
+		const char *attrString = "#EXT-X-MEDIA:TYPE=AUDIO,URI=\"playlist_a-eng-0384k-aac-6c.mp4.m3u8\",GROUP-ID=\"default-audio-group\",LANGUAGE=\"en\",NAME=\"stream_6\",DEFAULT=YES,AUTOSELECT=YES,CHANNELS=\"6\"";
+		const struct ParseAttrListExpected expected[CONTEXT_COUNT]
+		{
+			{"#EXT-X-MEDIA:TYPE","AUDIO"},
+			{"URI","\"playlist_a-eng-0384k-aac-6c.mp4.m3u8\""},
+			{"GROUP-ID","\"default-audio-group\""},
+			{"LANGUAGE","\"en\""},
+			{"NAME","\"stream_6\""},
+			{"DEFAULT","YES"},
+			{"AUTOSELECT","YES"},
+			{"CHANNELS","\"6\""}
+		};
+		lstring attrList( attrString,strlen(attrString) );
+		struct ParseAttrListContext context;
+		context.name = CONTEXT_NAME;
+		context.count = 0;
+		context.expected = expected;
+		attrList.ParseAttrList( ParseAttrListCb, &context );
+	}
+	
+	
+	{
+		const char *attrString = "#EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID=\"captions\",NAME=\"ENG\",DEFAULT=YES,AUTOSELECT=YES,FORCED=NO,LANGUAGE=\"eng\",URI=\"vtt/playlist.m3u8\"\0\0";
+		const struct ParseAttrListExpected expected[CONTEXT_COUNT]
+		{
+			{"#EXT-X-MEDIA:TYPE","SUBTITLES"},
+			{"GROUP-ID","\"captions\""},
+			{"NAME","\"ENG\""},
+			{"DEFAULT","YES"},
+			{"AUTOSELECT","YES"},
+			{"FORCED","NO"},
+			{"LANGUAGE","\"eng\""},
+			{"URI","\"vtt/playlist.m3u8\""},
+		};
+		lstring attrList( attrString,strlen(attrString)+2 );
+		struct ParseAttrListContext context;
+		context.name = CONTEXT_NAME;
+		context.count = 0;
+		context.expected = expected;
+		attrList.ParseAttrList( ParseAttrListCb, &context );
+	}
 }
 
 

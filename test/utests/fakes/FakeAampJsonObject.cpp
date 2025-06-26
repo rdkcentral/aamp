@@ -159,7 +159,7 @@ bool AampJsonObject::get(const std::string& name, std::string& value)
 {
 	if (g_mockAampJsonObject != nullptr)
 	{
-		return g_mockAampJsonObject->get_string(name, value);
+		return g_mockAampJsonObject->get(name, value);
 	}
 	return false;
 }

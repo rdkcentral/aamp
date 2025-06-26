@@ -40,7 +40,7 @@ function install_build_glib_fn()
         PIP_BREAK_SYSTEM_PACKAGES=1 pip3 install setuptools
 
         echo "Installing glib..."
-        do_clone_fn  https://github.com/GNOME/glib.git -b 2.78.0
+        do_clone_fn  https://github.com/GNOME/glib.git -b 2.83.1
         pushd glib
         meson build && cd build
         meson compile

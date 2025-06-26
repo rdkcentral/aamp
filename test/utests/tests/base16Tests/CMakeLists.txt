@@ -25,6 +25,7 @@ include_directories(${AAMP_ROOT} ${AAMP_ROOT}/isobmff ${AAMP_ROOT}/drm ${AAMP_RO
 include_directories(${AAMP_ROOT}/middleware/subtec/libsubtec)
 include_directories(${AAMP_ROOT}/middleware/subtec/subtecparser)
 include_directories(${AAMP_ROOT}/middleware/playerjsonobject)
+include_directories(${AAMP_ROOT}/middleware/baseConversion)
 
 include_directories(${GTEST_INCLUDE_DIRS})
 include_directories(${GMOCK_INCLUDE_DIRS})
@@ -40,8 +41,6 @@ include_directories(${AAMP_ROOT}/middleware)
 set(TEST_SOURCES base16Tests.cpp
 	         base16aampTests.cpp)
 
-
-set(AAMP_SOURCES ${AAMP_ROOT}/base16.cpp)
 
 add_executable(${EXEC_NAME}
                ${TEST_SOURCES}

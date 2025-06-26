@@ -21,14 +21,14 @@
 #define AAMP_MOCK_AAMP_DRM_SESSION_MANAGER_H
 
 #include <gmock/gmock.h>
-#include "AampDRMSessionManager.h"
+#include "DrmSessionManager.h"
 
-class MockAampDRMSessionManager
+class MockDRMSessionManager
 {
 public:
     MOCK_METHOD(void, setVideoWindowSize, (int width, int height));
 };
 
-extern MockAampDRMSessionManager *g_mockAampDRMSessionManager;
+extern MockDRMSessionManager *g_mockDRMSessionManager;
 
 #endif /* AAMP_MOCK_AAMP_DRM_SESSION_MANAGER_H */

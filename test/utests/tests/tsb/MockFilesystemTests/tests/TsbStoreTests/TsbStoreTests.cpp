@@ -68,10 +68,20 @@ const std::string kFileIncPath{kActiveDir + "/" + kDir + "/" + kFile};
 const std::string kDirIncPath{kActiveDir + "/" + kDir};
 const char kFileContent[]{"content of the file"};
 const int kTsbLocationFd{1};
+const int kTestLoggerData{54321};
 
+// Directly called internally by the tests.
 void Logger(std::string&& tsbMessage)
 {
 	std::cout << "[MFT]" << std::move(tsbMessage) << std::endl;
+}
+
+// Registered with the TSB::Store constructor as the logging callback. Hence,
+// we also verify that the 'loggerData' value is correctly being passed back.
+void TsbLogger(std::string&& tsbMessage, int loggerData)
+{
+	Logger(std::move(tsbMessage));
+	EXPECT_EQ(loggerData, kTestLoggerData);
 }
 
 class TsbStoreTests : public ::testing::Test
@@ -175,7 +185,7 @@ protected:
 											uint32_t maxCapacity)
 	{
 		TSB::Store::Config tsbConfig = {location, minFreePercent, maxCapacity};
-		auto store = std::make_unique<TSB::Store>(tsbConfig, Logger, TSB::LogLevel::TRACE);
+		auto store = std::make_unique<TSB::Store>(tsbConfig, TsbLogger, kTestLoggerData, TSB::LogLevel::TRACE);
 
 		waitForFlushCompletion();
 		return store;

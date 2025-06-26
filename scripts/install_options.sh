@@ -29,8 +29,10 @@ OPTION_QUICK=false
 OPTION_RIALTO_REFERENCE="v0.2.2"
 OPTION_RIALTO_BUILD=false
 OPTION_SUBTEC_SKIP=false
+OPTION_AAMPCLIKOTLIN_SKIP=false
 OPTION_SUBTEC_BUILD=true
 OPTION_SUBTEC_CLEAN=false
+OPTION_CLEAN_BUILD=false
 OPTION_GOOGLETEST_REFERENCE="tags/release-1.11.0"
 
 
@@ -38,7 +40,7 @@ OPTION_GOOGLETEST_REFERENCE="tags/release-1.11.0"
 function install_options_fn()
 {
   # Parse optional command line parameters
-  while getopts ":d:b:cf:np:r:g:qs" OPT; do
+  while getopts ":d:b:cf:np:r:g:qskt" OPT; do
     case ${OPT} in
       d ) # process option d install base directory name
         OPTION_BUILD_DIR=${OPTARG}
@@ -77,10 +79,18 @@ function install_options_fn()
         # overrides any subtec or subtec clean setting
         echo "Skip subtec: ${OPTION_SKIP_SUBTEC}"
         ;;
+      k ) 
+        OPTION_AAMPCLIKOTLIN_SKIP=true
+        echo "Skip aamp-cli on Kotlin: ${OPTION_AAMPCLIKOTLIN_SKIP}"
+        ;;
       p )     
         OPTION_PROTOBUF_REFERENCE=${OPTARG}
         echo "protobuf branch : ${PROTOBUF_REFERENCE}"
-        ;;  
+        ;; 
+      t )     
+        OPTION_CLEAN_BUILD=true
+        echo "Will remove .libs and build directories before build"
+        ;;
       * )
         echo "'Usage: No flags/options specified - build AAMP with default options
         [-b] Specify aamp branch name (default: current sprint branch)
@@ -91,7 +101,9 @@ function install_options_fn()
         [-q] Quick build, skips installed (not built) dependency checks
 
         [-s] Skip subtec build and installation]"
-        echo "        Note:  Subtec is built by default but can be rebuilt separately with the subtec"
+        echo "        Note:  Subtec is built by default but can be rebuilt separately with the subtec
+        [-k] Skip aamp-cli Kotlin build and installation]
+        [-t] Remove .libs and build directories before build (full rebuild)"
         
         echo "
         [-r] Specify rialto to be built

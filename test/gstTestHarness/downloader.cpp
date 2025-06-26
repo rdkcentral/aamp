@@ -107,7 +107,6 @@ public:
  */
 gpointer LoadUrl( const std::string &url, gsize *pLen )
 {
-	printf( "LoadUrl(%s)\n", url.c_str() );
 	gpointer ptr = NULL;
 	gsize len = 0;
 	
@@ -150,14 +149,20 @@ gpointer LoadUrl( const std::string &url, gsize *pLen )
 					len = context.size;
 					break;
 				default:
-					// http error
+					printf( "LoadUrl(%s)\n", url.c_str() );
+					printf( "->http error: %ld\n", response_code );
+					
 					g_free(context.buffer);
+					context.buffer = NULL;
 					break;
 			}
 		}
 		else
 		{ // curl failure
+			printf( "LoadUrl(%s)\n", url.c_str() );
+			printf( "->curl error: %d\n", rc );
 			g_free(context.buffer);
+			context.buffer = NULL;
 		}
 	}
 	else

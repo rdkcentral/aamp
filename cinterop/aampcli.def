@@ -1,0 +1,3 @@
+headers = aampcli_kmp.h
+package = aamp
+compilerOpts = -Itest/aampcli

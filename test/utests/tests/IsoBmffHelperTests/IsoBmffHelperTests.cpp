@@ -166,3 +166,55 @@ TEST_F(IsoBmffHelperTests, setTimescaleTestNegativeTest)
 	EXPECT_CALL(*g_mockIsoBmffBuffer, setTrickmodeTimescale(1000)).WillOnce(Return(false));
 	EXPECT_FALSE(helper->SetTimescale(buffer, 1000));
 }
+
+/**
+ * @brief Test the ClearMediaHeaderDuration function
+ *        Verify that IsoBmffBuffer::clearMediaHeaderDuration() is called
+ */
+TEST_F(IsoBmffHelperTests, clearMediaHeaderDurationTest)
+{
+	AampGrowableBuffer buffer{"IsoBmffHelperTests-clearMediaHeaderDuration"};
+	uint8_t bufferContent[]{"IsoBmff buffer content"};
+	// Set the pointer and length in the AampGrowableBuffer fake
+	buffer.AppendBytes(bufferContent, sizeof(bufferContent));
+	EXPECT_CALL(*g_mockIsoBmffBuffer, setBuffer(bufferContent, sizeof(bufferContent)));
+	EXPECT_CALL(*g_mockIsoBmffBuffer, parseBuffer(false, -1)).WillOnce(Return(true));
+	EXPECT_CALL(*g_mockIsoBmffBuffer, isInitSegment()).WillOnce(Return(true));
+	EXPECT_CALL(*g_mockIsoBmffBuffer, setMediaHeaderDuration(0)).WillOnce(Return(true));
+	EXPECT_TRUE(helper->ClearMediaHeaderDuration(buffer));
+}
+
+/**
+ * @brief Test the ClearMediaHeaderDuration function (negative case)
+ *        Verify that ClearMediaHeaderDuration returns false if
+ *        IsoBmffBuffer::isInitSegment() fails
+ */
+TEST_F(IsoBmffHelperTests, clearMediaHeaderDurationNegativeTest_1)
+{
+	AampGrowableBuffer buffer{"IsoBmffHelperTests-clearMediaHeaderDuration"};
+	uint8_t bufferContent[]{"IsoBmff buffer content"};
+	// Set the pointer and length in the AampGrowableBuffer fake
+	buffer.AppendBytes(bufferContent, sizeof(bufferContent));
+	EXPECT_CALL(*g_mockIsoBmffBuffer, setBuffer(bufferContent, sizeof(bufferContent)));
+	EXPECT_CALL(*g_mockIsoBmffBuffer, parseBuffer(false, -1)).WillOnce(Return(true));
+	EXPECT_CALL(*g_mockIsoBmffBuffer, isInitSegment()).WillOnce(Return(false));
+	EXPECT_FALSE(helper->ClearMediaHeaderDuration(buffer));
+}
+
+/**
+ * @brief Test the ClearMediaHeaderDuration function (negative case)
+ *        Verify that ClearMediaHeaderDuration returns false if
+ *        IsoBmffBuffer::clearMediaHeaderDuration() fails
+ */
+TEST_F(IsoBmffHelperTests, clearMediaHeaderDurationNegativeTest_2)
+{
+	AampGrowableBuffer buffer{"IsoBmffHelperTests-clearMediaHeaderDuration"};
+	uint8_t bufferContent[]{"IsoBmff buffer content"};
+	// Set the pointer and length in the AampGrowableBuffer fake
+	buffer.AppendBytes(bufferContent, sizeof(bufferContent));
+	EXPECT_CALL(*g_mockIsoBmffBuffer, setBuffer(bufferContent, sizeof(bufferContent)));
+	EXPECT_CALL(*g_mockIsoBmffBuffer, parseBuffer(false, -1)).WillOnce(Return(true));
+	EXPECT_CALL(*g_mockIsoBmffBuffer, isInitSegment()).WillOnce(Return(true));
+	EXPECT_CALL(*g_mockIsoBmffBuffer, setMediaHeaderDuration(0)).WillOnce(Return(false));
+	EXPECT_FALSE(helper->ClearMediaHeaderDuration(buffer));
+}

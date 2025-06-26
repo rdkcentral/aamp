@@ -45,3 +45,8 @@ long StreamAbstractionAAMP_PROGRESSIVE::GetMaxBitrate()
 { 
     return 0;
 }
+
+void StreamAbstractionAAMP_PROGRESSIVE::FetcherLoop()
+{
+
+}

@@ -417,7 +417,9 @@ MvhdBox* MvhdBox::constructMvhdBox(uint32_t sz, uint8_t *ptr)
 /**
  *  @brief MdhdBox constructor
  */
-MdhdBox::MdhdBox(uint32_t sz, uint32_t tScale, uint8_t* tScale_loc) : FullBox(sz, Box::MDHD, 0, 0), timeScale(tScale), timeScale_loc(tScale_loc)
+MdhdBox::MdhdBox(uint32_t sz, uint32_t tScale, uint8_t* tScale_loc, uint64_t dur, uint8_t* dur_loc) : FullBox(sz, Box::MDHD, 0, 0)
+	, timeScale(tScale), timeScale_loc(tScale_loc)
+	, duration(dur), duration_loc(dur_loc)
 {
 
 }
@@ -425,7 +427,9 @@ MdhdBox::MdhdBox(uint32_t sz, uint32_t tScale, uint8_t* tScale_loc) : FullBox(sz
 /**
  *  @brief MdhdBox constructor
  */
-MdhdBox::MdhdBox(FullBox &fbox, uint32_t tScale, uint8_t* tScale_loc) : FullBox(fbox), timeScale(tScale), timeScale_loc(tScale_loc)
+MdhdBox::MdhdBox(FullBox &fbox, uint32_t tScale, uint8_t* tScale_loc, uint64_t dur, uint8_t* dur_loc) : FullBox(fbox)
+	, timeScale(tScale), timeScale_loc(tScale_loc)
+	, duration(dur), duration_loc(dur_loc)
 {
 
 }
@@ -451,6 +455,38 @@ uint32_t MdhdBox::getTimeScale()
 }
 
 /**
+ * @fn setDuration
+ *
+ * @param[in] dur - duration value
+ * @return void
+ */
+void MdhdBox::setDuration(uint64_t dur)
+{
+	duration = dur;
+	if (nullptr != duration_loc)
+	{
+		if (1 == version)
+		{
+			WriteUint64(duration_loc, dur);
+		}
+		else
+		{
+			WRITE_U32(duration_loc, static_cast<uint32_t>(dur));
+		}
+	}
+}
+
+/**
+ * @fn getDuration
+ *
+ * @return duration value
+ */
+uint64_t MdhdBox::getDuration()
+{
+	return duration;
+}
+
+/**
  *  @brief Static function to construct a MdhdBox object
  */
 MdhdBox* MdhdBox::constructMdhdBox(uint32_t sz, uint8_t *ptr)
@@ -459,6 +495,7 @@ MdhdBox* MdhdBox::constructMdhdBox(uint32_t sz, uint8_t *ptr)
 	uint8_t version = READ_VERSION(ptr);
 	uint32_t flags  = READ_FLAGS(ptr);
 	uint32_t tScale;
+	uint64_t duration = 0;
 
 	uint32_t skip = sizeof(uint32_t)*2;
 	if (1 == version)
@@ -471,9 +508,20 @@ MdhdBox* MdhdBox::constructMdhdBox(uint32_t sz, uint8_t *ptr)
 	uint8_t* tScale_loc{ptr};
 	tScale = READ_U32(ptr);
 
+	uint8_t* duration_loc{ptr};
+
+	if (1 == version)
+	{
+		duration = READ_U64(ptr);
+	}
+	else
+	{
+		duration = READ_U32(ptr);
+	}
+
 	FullBox fbox(sz, Box::MDHD, version, flags);
 	fbox.setBase(start);
-	return new MdhdBox(fbox, tScale, tScale_loc);
+	return new MdhdBox(fbox, tScale, tScale_loc, duration, duration_loc);
 }
 
 /**
@@ -531,7 +579,7 @@ TfdtBox* TfdtBox::constructTfdtBox(uint32_t sz, uint8_t *ptr)
 
 	if (1 == version)
 	{
-		mdt = READ_BMDT64(ptr);
+		mdt = READ_U64(ptr);
 	}
 	else
 	{
@@ -751,7 +799,7 @@ EmsgBox* EmsgBox::constructEmsgBox(uint32_t sz, uint8_t *ptr)
 	{
 		tScale = READ_U32(ptr);
 		// Read 64 bit value
-		presTime = READ_64(ptr);
+		presTime = READ_U64(ptr);
 		evtDur = READ_U32(ptr);
 		boxId = READ_U32(ptr);
 		remainingSize -=  ((sizeof(uint32_t)*3) + sizeof(uint64_t));
@@ -1204,9 +1252,9 @@ PrftBox* PrftBox::constructPrftBox(uint32_t sz, uint8_t *ptr)
 	uint32_t track_id = 0; // reference track ID
 	track_id = READ_U32(ptr);
 	uint64_t ntp_ts = 0; // NTP time stamp
-	ntp_ts = READ_64(ptr);
+	ntp_ts = READ_U64(ptr);
 	uint64_t pts = 0; //media time
-	pts = READ_64(ptr);
+	pts = READ_U64(ptr);
 
 	FullBox fbox(sz, Box::PRFT, version, flags);
 
@@ -1315,8 +1363,8 @@ SidxBox* SidxBox::constructSidxBox(uint32_t sz, uint8_t *ptr)
 	}
 	else
 	{
-		READ_64(ptr); // earliest_presentation_time;
-		READ_64(ptr); // first_offset;
+		READ_U64(ptr); // earliest_presentation_time;
+		READ_U64(ptr); // first_offset;
 	}
 	READ_U16(ptr);  //unused
 	uint16_t refCount = READ_U16(ptr);

@@ -54,10 +54,8 @@ source scripts/install_subtec.sh
 source scripts/install_rialto.sh
 # aamp-cli install and build
 source scripts/install_aampcli.sh
-#
-
-
-# VARIABLES
+# aampcli on Kotlin install and build
+source scripts/install_aampcliKotlin.sh
 
 # Elapsed time
 SECONDS=0
@@ -76,6 +74,13 @@ declare LOCAL_DEPS_BUILD_DIR
 
 # Get and process install options
 install_options_fn "$@" 
+
+if [ ${OPTION_CLEAN_BUILD} = true ] ; then
+    echo "Clean build selected - removing build and libs directories"
+    sudo rm -rf .libs
+    sudo rm -rf build
+fi
+
 INSTALL_STATUS_ARR+=("install_options_fn check passed.")
 
 tools_banner_fn
@@ -187,6 +192,17 @@ INSTALL_STATUS_ARR+=("subtec_install_run_script check passed.")
 #
 aampcli_install_build_fn "${CLEAN}"
 INSTALL_STATUS_ARR+=("aampcli_install_build check passed.")
+
+if [ ${OPTION_AAMPCLIKOTLIN_SKIP} = false ] ; then
+    cd ${AAMP_DIR}
+    build_kotlin_libraries_fn
+    build_aampcli_kotlin_bindings_fn
+    create_aampcli_kotlin_executable_fn
+
+    INSTALL_STATUS_ARR+=("aampcli_install_build_kotlin check passed.")
+else
+    INSTALL_STATUS_ARR+=("aampcli_install_build_kotlin check SKIPPED.")
+fi
 
 # Post build aamp-cli
 #

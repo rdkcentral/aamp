@@ -103,10 +103,8 @@ MockPlayerInstanceAAMP *g_mockPlayerInstanceAAMP = nullptr;
 	void PlayerInstanceAAMP::SetDownloadLowBWTimeout(int lowBWTimeout) {  }
 	void PlayerInstanceAAMP::SetPreferredSubtitleLanguage(const char*  language) {  }
 	void PlayerInstanceAAMP::SetAlternateContents(const std::string &adBreakId, const std::string &adId, const std::string &url) {  }
-	void PlayerInstanceAAMP::SetParallelPlaylistDL(bool bValue) {  }
     void PlayerInstanceAAMP::ManageAsyncTuneConfig(const char*  url) {  }
 	void PlayerInstanceAAMP::SetAsyncTuneConfig(bool bValue) {  }
-	void PlayerInstanceAAMP::SetParallelPlaylistRefresh(bool bValue) {  }
 	void PlayerInstanceAAMP::SetWesterosSinkConfig(bool bValue) {  }
 	void PlayerInstanceAAMP::SetLicenseCaching(bool bValue) {  }
 	void PlayerInstanceAAMP::SetOutputResolutionCheck(bool bValue) {  }

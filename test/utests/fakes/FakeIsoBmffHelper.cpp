@@ -54,3 +54,12 @@ bool IsoBmffHelper::SetPtsAndDuration(AampGrowableBuffer &buffer, uint64_t pts, 
 
     return true;
 }
+
+bool IsoBmffHelper::ClearMediaHeaderDuration(AampGrowableBuffer &buffer)
+{
+	if (g_mockIsoBmffHelper)
+	{
+		return g_mockIsoBmffHelper->ClearMediaHeaderDuration(buffer);
+	}
+	return true;
+}
