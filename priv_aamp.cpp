@@ -6054,7 +6054,7 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 	{
 		//Fog can be disable by  having option fog=0 option in aamp.cfg,based on  that gpGlobalConfig->noFog is updated
 		//Removed variable gpGlobalConfig->fogSupportsDash as it has similar usage
-		if(!ISCONFIGSET_PRIV(eAAMPConfig_Fog))
+		if(!mFogTSBEnabled)
 		{
 			AAMPLOG_INFO("Defog URL '%s'", mManifestUrl.c_str());
 			DeFog(mManifestUrl);

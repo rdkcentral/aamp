@@ -64,6 +64,9 @@ using ::testing::_;
 AampConfig *gpGlobalConfig{nullptr};
 
 const std::string session_id {"0259343c-cffc-4659-bcd8-97f9dd36f6b1"};
+const char SAMPLE_URL[] = "https://sampleUrl";
+const char SAMPLE_DEFOGGED_URL[] = "https://sampleDeFoggedUrl";
+const char SAMPLE_FOG_URL[] = "http://127.0.0.1:9080/tsb?clientId=\"FOG_AAMP\"&recordedUrl=https://sampleDeFoggedUrl";
 
 // Class to test class PrivateInstanceAAMP public interface
 class PrivAampTests : public ::testing::Test
@@ -739,22 +742,22 @@ struct TsbConfigurationData
 };
 TsbConfigurationData tsbConfigData[] =
 {
-	{ "sampleUrl", false, false, "", false, false },		// No local TSB configuration
-	{ "tsb?sampleUrl", false, false, "", false, false },
-	{ "sampleUrl", true, false, "", true, false },
-	{ "tsb?sampleUrl", true, false, "", true, false },
-	{ "sampleUrl", false, true, "", false, false },
-	{ "tsb?sampleUrl", false, true, "", false, true },
-	{ "sampleUrl", true, true, "", true, false },
-	{ "tsb?sampleUrl", true, true, "", true, false },
-	{ "sampleUrl", false, false, "local", true, false },
-	{ "tsb?sampleUrl", false, false, "local", true, false },
-	{ "sampleUrl", true, false, "local", true, false },		// AAMP TSB enabled
-	{ "tsb?sampleUrl", true, false, "local", true, false },
-	{ "sampleUrl", false, true, "local", true, false },
-	{ "tsb?sampleUrl", false, true, "local", false, true },	// FOG enabled
-	{ "sampleUrl", true, true, "local", true, false },
-	{ "tsb?sampleUrl", true, true, "local", true, false }
+	{ SAMPLE_URL, false, false, "", false, false },			// Expected configuration when local TSB is not used
+	{ SAMPLE_FOG_URL, false, false, "", false, false },
+	{ SAMPLE_URL, true, false, "", true, false },
+	{ SAMPLE_FOG_URL, true, false, "", true, false },
+	{ SAMPLE_URL, false, true, "", false, false },
+	{ SAMPLE_FOG_URL, false, true, "", false, true },
+	{ SAMPLE_URL, true, true, "", true, false },
+	{ SAMPLE_FOG_URL, true, true, "", true, false },
+	{ SAMPLE_URL, false, false, "local", true, false },
+	{ SAMPLE_FOG_URL, false, false, "local", true, false },
+	{ SAMPLE_URL, true, false, "local", true, false },		// Expected configuration when AAMP TSB is used
+	{ SAMPLE_FOG_URL, true, false, "local", true, false },
+	{ SAMPLE_URL, false, true, "local", true, false },
+	{ SAMPLE_FOG_URL, false, true, "local", false, true },	// Expected configuration wwhen FOG is used
+	{ SAMPLE_URL, true, true, "local", true, false },
+	{ SAMPLE_FOG_URL, true, true, "local", true, false }	// Both AAMP and FOG enabled: AAMP takes precedence over FOG
 };
 
 class TsbConfigurationTest : public PrivAampPrivTests,
@@ -777,10 +780,17 @@ TEST_P(TsbConfigurationTest, TuneTests)
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_LocalTSBEnabled)).WillOnce(Return(testParam.isAampTsbEnabled));
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_Fog)).WillRepeatedly(Return(testParam.isFogEnabled));
 	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_TsbType)).WillOnce(Return(testParam.tsbType));
+	std::string urlExpected {testParam.url};
+	// If FOG is not enabled, AAMP will 'defog' the URL
+	if (!testParam.fogExpected && (testParam.url == SAMPLE_FOG_URL))
+	{
+		urlExpected = SAMPLE_DEFOGGED_URL;
+	}
 
 	testp_aamp->Tune(testParam.url, false);
 	EXPECT_EQ(testp_aamp->GetLocalAAMPTsbFromConfig(), testParam.aampTsbExpected);
 	EXPECT_EQ(testp_aamp->mFogTSBEnabled, testParam.fogExpected);
+	EXPECT_EQ(testp_aamp->mManifestUrl, urlExpected);
 }
 
 INSTANTIATE_TEST_SUITE_P(PrivAampPrivTests, TsbConfigurationTest,
