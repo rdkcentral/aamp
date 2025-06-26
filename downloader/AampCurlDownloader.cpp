@@ -525,44 +525,43 @@ size_t AampCurlDownloader::write_callback(void *buffer, size_t sz, size_t nmemb)
 	return retSize;
 }
 
-size_t AampCurlDownloader::HeaderCallback(void *buffer, size_t sz, size_t nmemb, void *userdata)
-{
-	// Call non-static member function.
-	size_t ret = 0;
+size_t AampCurlDownloader::HeaderCallback(char *ptr, size_t size, size_t nmemb, void *userdata)
+{ // Call non-static member function.
+	size_t len = nmemb * size;
 	AampCurlDownloader *context = static_cast<AampCurlDownloader *>(userdata);
 	if(context != NULL)
 	{
-		ret = context->header_callback(buffer, sz, nmemb);
-		if (STARTS_WITH_IGNORE_CASE((char *)buffer, CONTENTLENGTH_STRING))
-		{
-			int contentLengthStartPosition = STRLEN_LITERAL(CONTENTLENGTH_STRING);
-			const char * contentLengthStr = (char *)buffer + contentLengthStartPosition;
-			context->contentLength = atoi(contentLengthStr);
+		context->header_callback(ptr, len);
+		if( len>=2 && ptr[len-2]=='\r' && ptr[len-1]=='\n' )
+		{ // CRLF terminated curl header as expected
+			if( STARTS_WITH_IGNORE_CASE(ptr, CONTENTLENGTH_STRING) )
+			{
+				int contentLengthStartPosition = STRLEN_LITERAL(CONTENTLENGTH_STRING);
+				const char * contentLengthStr = ptr + contentLengthStartPosition;
+				context->contentLength = atoi(contentLengthStr);
+			}
 		}
 	}
-	return ret;
+	return len;
 }
 
-size_t AampCurlDownloader::header_callback(void *buffer, size_t sz, size_t nmemb)
+void AampCurlDownloader::header_callback(char *ptr, size_t len )
 {
-	size_t retSize = sz * nmemb;
-	
-	if(retSize)
+	if(len)
 	{
 		std::lock_guard<std::mutex> lock(mCurlMutex);
-		std::uint8_t *bufferS = static_cast<std::uint8_t*>( buffer );
-		std::uint8_t *bufferE = bufferS + retSize;
 		std::string str;
-		size_t pos;
-		str.assign(bufferS, bufferE);
-		if((pos = str.find('\n')) != std::string::npos)
+		str.assign(ptr, ptr+len);
+		size_t pos = str.find('\n');
+		if( pos != std::string::npos)
 		{
 			str.erase(pos);
 		}
 		if(str.size())
+		{
 			this->mDownloadResponse->mResponseHeader.push_back(str);
+		}
 	}
-	return retSize;
 }
 
 int AampCurlDownloader::ProgressCallback(
