@@ -109,11 +109,12 @@ static void  registerCb(AampDRMLicenseManager* _this, DrmSessionManager* instanc
 void getConfigs(DrmSessionManager *mDrmSessionManager , PrivateInstanceAAMP *aampInstance)
 {
 	mDrmSessionManager->UpdateDRMConfig(
-        aampInstance->mConfig->IsConfigSet(eAAMPConfig_UseSecManager),
-        aampInstance->mConfig->IsConfigSet(eAAMPConfig_EnablePROutputProtection),
-        aampInstance->mConfig->IsConfigSet(eAAMPConfig_PropagateURIParam),
-        aampInstance->mIsFakeTune
-    );
+        			aampInstance->mConfig->IsConfigSet(eAAMPConfig_UseSecManager),
+			aampInstance->mConfig->IsConfigSet(eAAMPConfig_EnablePROutputProtection),
+			aampInstance->mConfig->IsConfigSet(eAAMPConfig_PropagateURIParam),
+			aampInstance->mIsFakeTune,
+			aampInstance->mConfig->IsConfigSet(eAAMPConfig_WideVineKIDWorkaround));
+			
 }
 /**
  *  @brief AampDRMLicenseManager constructor.
