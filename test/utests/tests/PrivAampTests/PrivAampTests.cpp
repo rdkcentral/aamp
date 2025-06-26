@@ -767,14 +767,8 @@ TEST_P(TsbConfigurationTest, TuneTests)
 				testParam.fogExpected);
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(_)).WillRepeatedly(Return(false));
 	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(Matcher<AAMPConfigSettingString>(_))).WillRepeatedly(Return(""));
-	if (testParam.isAampTsbEnabled)
-	{
-		EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_LocalTSBEnabled)).WillOnce(Return(true));
-	}
-	if (testParam.isFogEnabled)
-	{
-		EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_Fog)).WillRepeatedly(Return(true));
-	}
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_LocalTSBEnabled)).WillOnce(Return(testParam.isAampTsbEnabled));
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_Fog)).WillRepeatedly(Return(testParam.isFogEnabled));
 	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_TsbType)).WillOnce(Return(testParam.tsbType));
 
 	testp_aamp->Tune(testParam.url, false);
