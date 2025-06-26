@@ -195,11 +195,10 @@ void AampMPDParseHelper::parseMPD()
 	if(mpdAttributes.find("publishTime") != mpdAttributes.end())
 	{
 		publishTimeStr = mpdAttributes["publishTime"];
-	}
-
-	if(!publishTimeStr.empty())
-	{
-		mPublishTime = ISO8601DateTimeToUTCSeconds(publishTimeStr.c_str());
+		if(!publishTimeStr.empty())
+		{
+			mPublishTime = ISO8601DateTimeToUTCSeconds(publishTimeStr.c_str());
+		}
 	}
 
 	mNumberOfPeriods = (int)mMPDInstance->GetPeriods().size();
