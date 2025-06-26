@@ -27,10 +27,9 @@
 #include <iterator>
 #include <memory>
 
-#include "drmsessionfactory.h"
-#include "AampDRMSessionManager.h"
+#include "DrmSessionFactory.h"
+#include "DrmSessionManager.h"
 #include "ClearKeyHelper.h"
-#include "AampHlsOcdmBridge.h"
 #include "open_cdm.h"
 
 #include "aampMocks.h"
@@ -42,7 +41,7 @@
 
 #include "MockOpenCdm.h"
 #include "MockPrivateInstanceAAMP.h"
-
+#include "PlayerUtils.h"
 using ::testing::_;
 using ::testing::DoAll;
 using ::testing::NiceMock;
@@ -169,18 +168,19 @@ TEST_F(DrmSessionTests, TestMultipleSessionsSameKey)
 	ASSERT_STREQ("org.w3.clearkey", drmSession1->getKeySystem().c_str());
 
 	// 2nd time around - expecting the existing session will be shared, so no OCDM session created
-	AampDRMSessionManager *sessionManager = mUtils->getSessionManager();
+	AampDRMLicenseManager *sessionManager = mUtils->getSessionManager();
 	DrmMetaDataEventPtr event = mUtils->createDrmMetaDataEvent();
 
 	EXPECT_CALL(*g_mockopencdm, opencdm_create_system).Times(0);
 	EXPECT_CALL(*g_mockopencdm, opencdm_construct_session).Times(0);
 
+	int err =-1;
 	DrmSession *drmSession2 =
-		sessionManager->createDrmSession(drmHelper, event, mAamp, eMEDIATYPE_VIDEO);
+		sessionManager->createDrmSession(drmHelper,  mAamp, event , (int)eMEDIATYPE_VIDEO);
 	ASSERT_EQ(drmSession1, drmSession2);
 
 	// Clear out the sessions. Now a new OCDM session is expected again
-	sessionManager->clearSessionData();
+	sessionManager->mDRMSessionManager->clearSessionData();
 
 	EXPECT_CALL(*g_mockopencdm, opencdm_session_update(OCDM_SESSION,
 													   MemBufEq(expectedDrmData->getData().c_str(),
@@ -289,9 +289,10 @@ TEST_F(DrmSessionTests, TestSessionBadChallenge)
 	EXPECT_CALL(*g_mockopencdm, opencdm_construct_session)
 		.WillOnce(DoAll(SetArgPointee<9>(OCDM_SESSION), Return(ERROR_NONE)));
 
+	int err = -1;
 	DrmMetaDataEventPtr event = mUtils->createDrmMetaDataEvent();
 	DrmSession *drmSession =
-		mUtils->getSessionManager()->createDrmSession(drmHelper, event, mAamp, eMEDIATYPE_VIDEO);
+		mUtils->getSessionManager()->createDrmSession(drmHelper,  mAamp,event,  (int)eMEDIATYPE_VIDEO);
 	ASSERT_EQ(nullptr, drmSession);
 	ASSERT_EQ(AAMP_TUNE_DRM_CHALLENGE_FAILED, event->getFailure());
 }
@@ -316,8 +317,9 @@ TEST_F(DrmSessionTests, TestSessionBadLicenseResponse)
 	mUtils->setupChallengeCallbacks();
 
 	DrmMetaDataEventPtr event = mUtils->createDrmMetaDataEvent();
+	int err = -1;
 	DrmSession *drmSession =
-		mUtils->getSessionManager()->createDrmSession(drmHelper, event, mAamp, eMEDIATYPE_VIDEO);
+		mUtils->getSessionManager()->createDrmSession( drmHelper,  mAamp,event , (int)eMEDIATYPE_VIDEO);
 	ASSERT_EQ(nullptr, drmSession);
 	ASSERT_EQ(AAMP_TUNE_LICENCE_REQUEST_FAILED, event->getFailure());
 }
@@ -330,9 +332,18 @@ TEST_F(DrmSessionTests, TestDashSessionBadPssh)
 	const std::string psshStr = "bad data with no KID";
 
 	DrmMetaDataEventPtr event = mUtils->createDrmMetaDataEvent();
-	DrmSession *drmSession = mUtils->getSessionManager()->createDrmSession(
+        void *ptr= static_cast<void*>(&event);
+	int err =-1;
+	DrmSession *drmSession = mUtils->getSessionManager()->mDRMSessionManager->createDrmSession(err,
 		"9a04f079-9840-4286-ab92-e65be0885f95", eMEDIAFORMAT_DASH,
-		(const unsigned char *)psshStr.c_str(), psshStr.length(), eMEDIATYPE_VIDEO, mAamp, event);
+		(const unsigned char *)psshStr.c_str(), psshStr.length(), eMEDIATYPE_VIDEO, mAamp, ptr);
 	ASSERT_EQ(nullptr, drmSession);
+	AAMPTuneFailure val = mUtils->getSessionManager()->MapDrmToAampTuneFailure((DrmTuneFailure)err);
+printf("val = %d", val);
+         if(err != -1)
+         {
+                 event->setFailure(val);
+         }
+
 	ASSERT_EQ(AAMP_TUNE_CORRUPT_DRM_METADATA, event->getFailure());
 }

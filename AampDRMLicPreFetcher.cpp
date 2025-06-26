@@ -19,10 +19,9 @@
 
 #include "AampDRMLicPreFetcher.h"
 #include "DrmSession.h"
-#include "AampDRMSessionManager.h"
 #include "AampUtils.h"	// for aamp_GetDeferTimeMs
 #include "priv_aamp.h"
-
+#include "AampDRMLicManager.h"
 /**
  * @brief For generating IDs for LicensePreFetchObject
  * 
@@ -230,10 +229,7 @@ bool AampLicensePreFetcher::Term()
  */
 void AampLicensePreFetcher::PreFetchThread()
 {
-	if(aamp_pthread_setname(pthread_self(), "aampfMP4DRM"))
-	{
-		AAMPLOG_ERR("aamp_pthread_setname failed");
-	}
+	aamp_setThreadName("aampfMP4DRM");
 	std::unique_lock<std::mutex>queueLock(mQMutex);
 	while (!mExitLoop)
 	{
@@ -253,7 +249,7 @@ void AampLicensePreFetcher::PreFetchThread()
 				bool keyStatus = false;
 				std::vector<uint8_t> keyIdArray;
 				obj->mHelper->getKey(keyIdArray);
-				if (!keyIdArray.empty() && mPrivAAMP->mDRMSessionManager->IsKeyIdProcessed(keyIdArray, keyStatus))
+				if (!keyIdArray.empty() && mPrivAAMP->mDRMLicenseManager->mDRMSessionManager->IsKeyIdProcessed(keyIdArray, keyStatus))
 				{
 					AAMPLOG_WARN("Key already processed [status:%s] for type:%d adaptationSetIdx:%u !", keyStatus ? "SUCCESS" : "FAIL", obj->mType, obj->mAdaptationIdx);
 					mPrivAAMP->setCurrentDrm(obj->mHelper);
@@ -302,10 +298,7 @@ void AampLicensePreFetcher::PreFetchThread()
  */
 void AampLicensePreFetcher::VssPreFetchThread()
 {
-	if(aamp_pthread_setname(pthread_self(), "aampfMP4DRM"))
-	{
-		AAMPLOG_ERR("aamp_pthread_setname failed");
-	}
+	aamp_setThreadName("aampfMP4VSSDRM");
 	std::unique_lock<std::mutex>queueLock(mQVssMutex);
 	while (!mExitLoop)
 	{
@@ -326,7 +319,7 @@ void AampLicensePreFetcher::VssPreFetchThread()
 				bool keyStatus = false;
 				std::vector<uint8_t> keyIdArray;
 				obj->mHelper->getKey(keyIdArray);
-				if (!keyIdArray.empty() && mPrivAAMP->mDRMSessionManager->IsKeyIdProcessed(keyIdArray, keyStatus))
+				if (!keyIdArray.empty() && mPrivAAMP->mDRMLicenseManager->mDRMSessionManager->IsKeyIdProcessed(keyIdArray, keyStatus))
 				{
 					AAMPLOG_WARN("Key already processed [status:%s] for type:%d adaptationSetIdx:%u !", keyStatus ? "SUCCESS" : "FAIL", obj->mType, obj->mAdaptationIdx);
 					skip = true;
@@ -446,6 +439,8 @@ void AampLicensePreFetcher::NotifyDrmFailure(LicensePreFetchObjectPtr fetchObj, 
 				      && (failure != AAMP_TUNE_DEVICE_NOT_PROVISIONED)
 				      && (failure != AAMP_TUNE_HDCP_COMPLIANCE_ERROR));
 			AAMPLOG_WARN("Drm failure:%d response: %d isRetryEnabled:%d ",(int)failure,event->getResponseCode(),isRetryEnabled);
+			mPrivAAMP->SendDRMMetaData(event);	//Send Header response first for failure case.
+			AAMPLOG_ERR("Failed DRM Session sending error event");
 			mPrivAAMP->SendDrmErrorEvent(event, isRetryEnabled);
 			mPrivAAMP->profiler.SetDrmErrorCode((int)failure);
 			mPrivAAMP->profiler.ProfileError(PROFILE_BUCKET_LA_TOTAL, (int)failure);
@@ -481,9 +476,9 @@ bool AampLicensePreFetcher::CreateDRMSession(LicensePreFetchObjectPtr fetchObj)
 		NotifyDrmFailure(fetchObj, e);
 		return ret;
 	}
-	AampDRMSessionManager* sessionManger = mPrivAAMP->mDRMSessionManager;
+	AampDRMLicenseManager* licenseManger= mPrivAAMP->mDRMLicenseManager;
 
-	if (sessionManger == nullptr)
+	if (licenseManger == nullptr)
 	{
 		AAMPLOG_ERR("no mPrivAAMP->mDrmSessionManager available");
 		return ret;
@@ -491,8 +486,10 @@ bool AampLicensePreFetcher::CreateDRMSession(LicensePreFetchObjectPtr fetchObj)
 	mPrivAAMP->setCurrentDrm(fetchObj->mHelper);
 
 	mPrivAAMP->profiler.ProfileBegin(PROFILE_BUCKET_LA_TOTAL);
-	DrmSession *drmSession = sessionManger->createDrmSession(fetchObj->mHelper, e, mPrivAAMP, fetchObj->mType);
+	DrmSession *drmSession = licenseManger->createDrmSession( fetchObj->mHelper, mPrivAAMP, e, (int)fetchObj->mType);
 
+
+	//set failures here 
 	if(NULL == drmSession)
 	{
 		AAMPLOG_ERR("Failed DRM Session Creation for systemId = %s", fetchObj->mHelper->getUuid().c_str());

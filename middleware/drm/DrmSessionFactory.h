@@ -18,7 +18,7 @@
 */
 
 /**
-* @file drmsessionfactory.h
+* @file DrmSessionFactory.h
 * @brief Header file for DrmSessionFactory
 */
 

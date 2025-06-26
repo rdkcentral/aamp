@@ -43,7 +43,7 @@ class AmlogicSocInterface : public SocInterface
 		 * @brief Get SoC volume property name.
 		 * @return Volume property name.
 		 */
-		void SetAudioProperty(const char **volume, const char **mute, bool& isSinkBinVolume)override;
+		void SetAudioProperty(const char * &volume, const char * &mute, bool& isSinkBinVolume)override;
 
 		/**
 		 * @brief enables the seamless switch property

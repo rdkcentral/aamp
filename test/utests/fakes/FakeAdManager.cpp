@@ -67,6 +67,10 @@ bool PrivateCDAIObjectMPD::CheckForAdTerminate(double fragmentTime)
 
 int PrivateCDAIObjectMPD::CheckForAdStart(const float &rate, bool init, const std::string &periodId, double offSet, std::string &breakId, double &adOffset)
 {
+	if(g_MockPrivateCDAIObjectMPD != nullptr)
+	{
+		return g_MockPrivateCDAIObjectMPD->CheckForAdStart(rate, init, periodId, offSet, breakId, adOffset);
+	}
 	return 0;
 }
 

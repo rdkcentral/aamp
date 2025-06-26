@@ -28,7 +28,7 @@ class TSB::StoreImpl
 {
 };
 
-Store::Store(const Config& config, LogFunction logger, LogLevel level)
+Store::Store(const Config& config, LogFunction logger, int loggerData, LogLevel level)
 {
 }
 

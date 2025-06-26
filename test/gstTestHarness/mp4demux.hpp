@@ -1,17 +1,20 @@
 /*
- *   Copyright 2024 RDK Management
+ * If not stated otherwise in this file or this component's license file the
+ * following copyright and licenses apply:
  *
- *   Licensed under the Apache License, Version 2.0 (the "License");
- *   you may not use this file except in compliance with the License.
- *   You may obtain a copy of the License at
+ * Copyright 2024 RDK Management
  *
- *       http://www.apache.org/licenses/LICENSE-2.0
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- *   Unless required by applicable law or agreed to in writing, software
- *   distributed under the License is distributed on an "AS IS" BASIS,
- *   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *   See the License for the specific language governing permissions and
- *   limitations under the License.
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 #ifndef parsemp4_hpp
 #define parsemp4_hpp
@@ -187,7 +190,7 @@ private:
 			sample.dts = 0.0;
 			sample.duration = 0.0;
 			printf( "[FRAME] %d\n", i );
-			uint32_t sample_duration = 0;
+			uint32_t sample_duration = default_sample_duration;
 			if (flags & 0x0100)
 			{
 				sample_duration = ReadU32();
@@ -208,7 +211,7 @@ private:
 			}
 			int32_t sample_composition_time_offset = 0;
 			if (flags & 0x0800)
-			{ // for samples were pts and dts differ (overriding 'trex')
+			{ // for samples where pts and dts differ (overriding 'trex')
 				sample_composition_time_offset = ReadI32();
 				printf( "sample_composition_time_offset=%" PRIi32 "\n", sample_composition_time_offset );
 			}
@@ -280,16 +283,18 @@ private:
 		language = ReadU16();
 	}
 	
-	char *readPascalString( void )
+	char *readPascalString( size_t numBytes )
 	{
+		auto next = ptr+numBytes;
 		int len = *ptr++;
+		assert( len<numBytes );
 		char *rc = (char *)malloc(len+1);
 		if( rc )
 		{
 			memcpy(rc, ptr, len );
 			rc[len] = 0x00;
 		}
-		ptr += len;
+		ptr = next;
 		return rc;
 	}
 
@@ -303,6 +308,8 @@ private:
 		
 	void parseStreamFormat( uint32_t type, const uint8_t *next, int indent )
 	{
+		int pad;
+		
 		info.stream_format = type;
 		switch( info.stream_format )
 		{
@@ -318,35 +325,22 @@ private:
 				info.vertresolution = ReadU32();
 				SkipBytes(4);
 				info.frame_count = ReadU16();
-				info.compressor_name = readPascalString();
-				switch( info.stream_format )
-				{
-					case 'avc1':
-						SkipBytes(31); // ?
-						break;
-					case 'hvc1':
-						SkipBytes(9); // ?
-						break;
-					case 'hev1': // ?
-						SkipBytes(31); // ?
-						break;
-					default:
-						break;
-				}
+				info.compressor_name = readPascalString(32);
 				info.depth = ReadU16();
-				SkipBytes(2);
+				pad = ReadU16();
+				assert( pad == 0xffff );
 				break;
 				
 			case 'mp4a':
 			case 'ec-3':
-				SkipBytes(4);
+				SkipBytes(4); // zero
 				info.data_reference_index = ReadU32();
-				SkipBytes(8);
+				SkipBytes(8); // zero
 				info.channel_count = ReadU16();
 				info.samplesize = ReadU16();
-				SkipBytes(4);
+				SkipBytes(4); // zero
 				info.samplerate = ReadU16();
-				SkipBytes(2);
+				SkipBytes(2); // zero
 				break;
 				
 			default:
@@ -385,21 +379,20 @@ private:
 					break;
 					
 				case 0x04:
-					printf( "DecoderConfigDescriptor: ");
+					printf( "DecoderConfigDescriptor:\n");
 					info.object_type_id = *ptr++;
 					info.stream_type = *ptr++; // >>2
 					info.upStream = *ptr++;
 					info.buffer_size = ReadU16();
 					info.maxBitrate = ReadU32();
 					info.avgBitrate = ReadU32();
-					printf( "maxBitrate=%" PRIu32 "\n", info.maxBitrate );
-					printf( "avgBitrate=%" PRIu32 "\n", info.avgBitrate );
-					
+					printf( "\tmaxBitrate=%" PRIu32 "\n", info.maxBitrate );
+					printf( "\tavgBitrate=%" PRIu32 "\n", info.avgBitrate );
 					parseCodecConfigHelper( end );
 					break;
 					
 				case 0x05:
-					printf( "DecodeSpecificInfo: ") ;
+					printf( "DecodeSpecificInfo:\n") ;
 					info.codec_data_len = len;
 					info.codec_data = (uint8_t *)malloc( len );
 					if( info.codec_data )
@@ -422,6 +415,7 @@ private:
 			ptr = end;
 		}
 	}
+	
 	void parseCodecConfiguration( uint32_t type, const uint8_t *next )
 	{
 		info.codec_type = type;
@@ -468,7 +462,7 @@ private:
 				case 'hvcC':
 				case 'dec3':
 				case 'avcC':
-				case 'esds':
+				case 'esds': // Elementary Stream Descriptot Box
 					parseCodecConfiguration( type, next );
 					break;
 					
@@ -557,12 +551,26 @@ private:
 				case 'edts': // Edit Box
 					break;
 				case 'fiel':
-				case 'colr':
-				case 'pasp':
-				case 'btrt':
+					break;
+				case 'colr': // Color Pattern Atom
+					break;
+				case 'pasp': // Pixel Aspect Ratio
+					/*
+					00 00 04 f0 // hSpacing
+					00 00 04 ef // vSpacing
+					*/
+					break;
+				case 'btrt': // Buffer Time to Render Time
+					/*
+					00 02 49 f0 // bufferSizeDB
+					00 16 db 90 // maxBitrate
+					00 15 5c c0 // avgBitrate
+					*/
 					break;
 					
-					
+				case 'styp': // Segment Type Box
+				case 'sidx': // Segment Index Box
+				case 'udta': // User Data Box
 				case 'mdat': // Movie Data Box
 					break;
 

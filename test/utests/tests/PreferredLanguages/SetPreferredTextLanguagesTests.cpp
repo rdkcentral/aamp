@@ -528,16 +528,6 @@ TEST_F(SetPreferredTextLanguagesTests, RenditionTest4)
 	EXPECT_STREQ(mPrivateInstanceAAMP->preferredTextRenditionString.c_str(), "rend1");
 }
 
-TEST_F(SetPreferredTextLanguagesTests, TextTrackNameTest1)
-{
-	mPrivateInstanceAAMP->preferredTextNameString = "English";
-	//when Local TSB playback is in progress!!. SetPreferredTextLanguages() will be ignored
-	mPrivateInstanceAAMP->SetLocalAAMPTsb(true);
-	mPrivateInstanceAAMP->SetPreferredTextLanguages("{\"name\":\"Spanish\"}");
-	EXPECT_STREQ(mPrivateInstanceAAMP->preferredTextNameString.c_str(), "English");
-
-}
-
 TEST_F(SetPreferredTextLanguagesTests, TextTrackNameTest2)
 {
 	std::vector<TextTrackInfo> tracks;

@@ -34,6 +34,12 @@
 #include <iostream>
 #include <cstring>
 
+//Delete non-array object
+#define MW_SAFE_DELETE(ptr) { delete(ptr); ptr = NULL; }
+//Delete Array object
+#define MW_SAFE_DELETE_ARRAY(ptr) { delete [] ptr; ptr = NULL; }
+
+
 #define WRITE_HASCII( DST, BYTE ) \
 { \
 	*DST++ = "0123456789abcdef"[BYTE>>4]; \
@@ -69,6 +75,16 @@ std::size_t GetThreadID( const pthread_t &t );
 
 std::size_t GetPrintableThreadID( const pthread_t &t );
 std::size_t GetPrintableThreadID();
+/**
+ * @fn ResolveURL
+ *
+ * @param[out] dst - Created URL
+ * @param[in] base - Base URL
+ * @param[in] uri - File path
+ * @param[in] bPropagateUriParams - flag to use base uri params
+ * @retval void
+ */
+void ResolveURL(std::string& dst, std::string base, const char *uri , bool bPropagateUriParams);
 /**
  * @fn GetCurrentTimeMS
  * @brief Get the current time in milliseconds

@@ -49,7 +49,7 @@
 #include <deque>
 #include <tuple>
 #include "lstring.hpp"
-
+#include "DrmInterface.h"
 #define FOG_FRAG_BW_IDENTIFIER "bandwidth-"
 #define FOG_FRAG_BW_IDENTIFIER_LEN 10
 #define FOG_FRAG_BW_DELIMITER "-"
@@ -650,6 +650,7 @@ class TrackState : public MediaTrack
 		int manifestDLFailCount;		/**< Manifest Download fail count for retry*/
 		bool firstIndexDone;					/**< Indicates if first indexing is done*/
 		std::shared_ptr<HlsDrmBase> mDrm;		/**< DRM decrypt context*/
+		std::shared_ptr<DrmInterface> mDrmInterface;		/**< Interface bw drm and application */
 		bool mDrmLicenseRequestPending;			/**< Indicates if DRM License Request is Pending*/
 		bool mInjectInitFragment;				/**< Indicates if init fragment injection is required*/
 		lstring mInitFragmentInfo;			/**< Holds init fragment Information index*/
@@ -911,6 +912,7 @@ class StreamAbstractionAAMP_HLS : public StreamAbstractionAAMP
 		bool mStartTimestampZero;			/**< Flag indicating if timestamp to start is zero or not (No audio stream) */
 		int mNumberOfTracks;				/**< Number of media tracks.*/
 		std::mutex mDiscoCheckMutex;               	/**< protect playlist discontinuity check */
+		DrmInterface mDrmInterface;
 
 		/***************************************************************************
 		 * @fn ParseMainManifest
@@ -1096,7 +1098,7 @@ class StreamAbstractionAAMP_HLS : public StreamAbstractionAAMP
 
 		std::mutex mMP_mutex;  // protects mMetadataProcessor
  		std::unique_ptr<aamp::MetadataProcessorIntf> mMetadataProcessor;
-
+             
 };
 
 #endif // FRAGMENTCOLLECTOR_HLS_H

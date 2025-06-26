@@ -27,10 +27,15 @@
 #include "../priv_aamp.h"
 #include "isobmff/isobmffbuffer.h"
 #include "AampConfig.h"
+#include "AampTSBSessionManager.h"
 #include "MockAampConfig.h"
 #include "StreamAbstractionAAMP.h"
+#include "MockPrivateInstanceAAMP.h"
+#include "MockStreamAbstractionAAMP_MPD.h"
+#include "MockTSBSessionManager.h"
 
 using ::testing::_;
+using ::testing::NiceMock;;
 using ::testing::Return;
 using ::testing::StrictMock;
 using ::testing::SetArgReferee;
@@ -39,21 +44,62 @@ using ::testing::AtLeast;
 AampConfig *gpGlobalConfig{nullptr};
 struct TestParams
 {
-	bool lowlatencyMode;
-	bool chunkMode;
-	bool initFragment;
-	int expectedFragmentChunksCached;
-	int expectedFragmentCached;
+	bool lowlatency;                   // true for low-latency mode, false for standard mode
+	bool chunk;                        // true for chunk mode, false for standard mode
+	bool tsb;                          // true if AAMP TSB is enabled, false otherwise
+	bool eos;                          // true if simulating EOS, false otherwise; EOS tests inject from the TSB, the rest from live
+	bool paused;                       // true if pipeline is paused, false otherwise
+	bool underflow;                    // true if underflow occurred, false otherwise
+	bool init;                         // true if init fragment, false if media fragment
+	int expectedFragmentChunksCached;  // expected number of fragments added to chunk cache
+	int expectedFragmentCached;        // expected number of fragments added to regular cache
 };
 
-// Test cases 
-TestParams testCases[] = {
-	{true, true, false, 0, 1},  // Low-latency, chunk mode, non-init fragment
-	{true, true, true, 1, 0},   // Low-latency, chunk mode, init fragment
-	{true, false, true, 0, 0},  // Low-latency, non-chunk mode, init fragment
-	{true, false, false, 0, 1}, // Low-latency, non-chunk mode, non-init fragment
-	{false, false, true, 0, 0}, // Non-low-latency, non-chunk mode, init fragment
-	{false, false, false, 0, 1} // Non-low-latency, non-chunk mode, non-init fragment
+// Test cases
+TestParams testCases[] =
+{
+	{.lowlatency = true, .chunk = true, .tsb = false, .eos = false, .paused = false, .underflow = false, .init = false, .expectedFragmentChunksCached = 0, .expectedFragmentCached = 0},
+	{.lowlatency = true, .chunk = true, .tsb = false, .eos = false, .paused = false, .underflow = false, .init = true, .expectedFragmentChunksCached = 1, .expectedFragmentCached = 0},
+	{.lowlatency = true, .chunk = false, .tsb = false, .eos = false, .paused = false, .underflow = false, .init = true, .expectedFragmentChunksCached = 0, .expectedFragmentCached = 1},
+	{.lowlatency = true, .chunk = false, .tsb = false, .eos = false, .paused = false, .underflow = false, .init = false, .expectedFragmentChunksCached = 0, .expectedFragmentCached = 1},
+	{.lowlatency = false, .chunk = false, .tsb = false, .eos = false, .paused = false, .underflow = false, .init = true, .expectedFragmentChunksCached = 0, .expectedFragmentCached = 1},
+	{.lowlatency = false, .chunk = false, .tsb = false, .eos = false, .paused = false, .underflow = false, .init = false, .expectedFragmentChunksCached = 0, .expectedFragmentCached = 1},
+
+	// Test with AAMP TSB enabled, chunk cache is used for non-chunked fragments
+	{.lowlatency = true, .chunk = true, .tsb = true, .eos = false, .paused = false, .underflow = false, .init = false, .expectedFragmentChunksCached = 0, .expectedFragmentCached = 0},
+	{.lowlatency = true, .chunk = true, .tsb = true, .eos = false, .paused = false, .underflow = false, .init = true, .expectedFragmentChunksCached = 1, .expectedFragmentCached = 0},
+	{.lowlatency = true, .chunk = false, .tsb = true, .eos = false, .paused = false, .underflow = false, .init = true, .expectedFragmentChunksCached = 1, .expectedFragmentCached = 0},
+	{.lowlatency = true, .chunk = false, .tsb = true, .eos = false, .paused = false, .underflow = false, .init = false, .expectedFragmentChunksCached = 1, .expectedFragmentCached = 0},
+	{.lowlatency = false, .chunk = false, .tsb = true, .eos = false, .paused = false, .underflow = false, .init = true, .expectedFragmentChunksCached = 1, .expectedFragmentCached = 0},
+	{.lowlatency = false, .chunk = false, .tsb = true, .eos = false, .paused = false, .underflow = false, .init = false, .expectedFragmentChunksCached = 1, .expectedFragmentCached = 0},
+
+	// Test EOS with AAMP TSB enabled
+	{.lowlatency = true, .chunk = true, .tsb = true, .eos = true, .paused = false, .underflow = false, .init = false, .expectedFragmentChunksCached = 1, .expectedFragmentCached = 0},
+	{.lowlatency = true, .chunk = true, .tsb = true, .eos = true, .paused = false, .underflow = false, .init = true, .expectedFragmentChunksCached = 1, .expectedFragmentCached = 0},
+	{.lowlatency = true, .chunk = false, .tsb = true, .eos = true, .paused = false, .underflow = false, .init = true, .expectedFragmentChunksCached = 1, .expectedFragmentCached = 0},
+	{.lowlatency = true, .chunk = false, .tsb = true, .eos = true, .paused = false, .underflow = false, .init = false, .expectedFragmentChunksCached = 1, .expectedFragmentCached = 0},
+	{.lowlatency = false, .chunk = false, .tsb = true, .eos = true, .paused = false, .underflow = false, .init = true, .expectedFragmentChunksCached = 1, .expectedFragmentCached = 0},
+	{.lowlatency = false, .chunk = false, .tsb = true, .eos = true, .paused = false, .underflow = false, .init = false, .expectedFragmentChunksCached = 1, .expectedFragmentCached = 0},
+
+	// Test with pipeline paused
+	{.lowlatency = true, .chunk = true, .tsb = false, .eos = false, .paused = true, .underflow = false, .init = false, .expectedFragmentChunksCached = 0, .expectedFragmentCached = 0},
+	{.lowlatency = true, .chunk = true, .tsb = false, .eos = false, .paused = true, .underflow = false, .init = true, .expectedFragmentChunksCached = 1, .expectedFragmentCached = 0},
+	{.lowlatency = true, .chunk = false, .tsb = false, .eos = false, .paused = true, .underflow = false, .init = true, .expectedFragmentChunksCached = 0, .expectedFragmentCached = 1},
+	{.lowlatency = true, .chunk = false, .tsb = false, .eos = false, .paused = true, .underflow = false, .init = false, .expectedFragmentChunksCached = 0, .expectedFragmentCached = 1},
+	{.lowlatency = false, .chunk = false, .tsb = false, .eos = false, .paused = true, .underflow = false, .init = true, .expectedFragmentChunksCached = 0, .expectedFragmentCached = 1},
+	{.lowlatency = false, .chunk = false, .tsb = false, .eos = false, .paused = true, .underflow = false, .init = false, .expectedFragmentChunksCached = 0, .expectedFragmentCached = 1},
+
+	// Test with AAMP TSB enabled and pipeline paused
+	{.lowlatency = true, .chunk = true, .tsb = true, .eos = false, .paused = true, .underflow = false, .init = false, .expectedFragmentChunksCached = 0, .expectedFragmentCached = 0},
+	{.lowlatency = true, .chunk = true, .tsb = true, .eos = false, .paused = true, .underflow = false, .init = true, .expectedFragmentChunksCached = 0, .expectedFragmentCached = 0},
+	{.lowlatency = true, .chunk = false, .tsb = true, .eos = false, .paused = true, .underflow = false, .init = true, .expectedFragmentChunksCached = 0, .expectedFragmentCached = 0},
+	{.lowlatency = true, .chunk = false, .tsb = true, .eos = false, .paused = true, .underflow = false, .init = false, .expectedFragmentChunksCached = 0, .expectedFragmentCached = 0},
+	{.lowlatency = false, .chunk = false, .tsb = true, .eos = false, .paused = true, .underflow = false, .init = true, .expectedFragmentChunksCached = 0, .expectedFragmentCached = 0},
+	{.lowlatency = false, .chunk = false, .tsb = true, .eos = false, .paused = true, .underflow = false, .init = false, .expectedFragmentChunksCached = 0, .expectedFragmentCached = 0},
+
+	// Test with pipeline paused and underflow
+	{.lowlatency = false, .chunk = false, .tsb = true, .eos = false, .paused = true, .underflow = true, .init = false, .expectedFragmentChunksCached = 1, .expectedFragmentCached = 0},
+	{.lowlatency = false, .chunk = false, .tsb = true, .eos = true, .paused = true, .underflow = true, .init = false, .expectedFragmentChunksCached = 0, .expectedFragmentCached = 0}
 };
 
 
@@ -63,6 +109,9 @@ class MediaStreamContextTest : public ::testing::TestWithParam<TestParams>
 		PrivateInstanceAAMP *mPrivateInstanceAAMP;
 		StreamAbstractionAAMP_MPD *mStreamAbstractionAAMP_MPD;
 		MediaStreamContext *mMediaStreamContext;
+		AampTSBSessionManager *mTsbSessionManager;
+		IPeriod *mPeriod;
+		std::shared_ptr<AampTsbReader> mTsbReader;
 
 	protected:
 		using BoolConfigSettings = std::map<AAMPConfigSettingBool, bool>;
@@ -117,6 +166,7 @@ class MediaStreamContextTest : public ::testing::TestWithParam<TestParams>
 		IntConfigSettings mIntConfigSettings;
 		void SetUp() override
 		{
+			mPeriod = nullptr;
 			if (gpGlobalConfig == nullptr)
 			{
 				gpGlobalConfig = new AampConfig();
@@ -139,16 +189,39 @@ class MediaStreamContextTest : public ::testing::TestWithParam<TestParams>
 			}
 			mPrivateInstanceAAMP = new PrivateInstanceAAMP(gpGlobalConfig);
 			mStreamAbstractionAAMP_MPD = new StreamAbstractionAAMP_MPD(mPrivateInstanceAAMP, 123.45, 1);
+			mTsbSessionManager = new AampTSBSessionManager(mPrivateInstanceAAMP);
+			g_mockPrivateInstanceAAMP = new NiceMock<MockPrivateInstanceAAMP>();
+			g_mockStreamAbstractionAAMP_MPD = new NiceMock<MockStreamAbstractionAAMP_MPD>(mPrivateInstanceAAMP, 0, 0);
+			g_mockTSBSessionManager = new NiceMock<MockTSBSessionManager>(mPrivateInstanceAAMP);
+			mTsbReader = std::make_shared<AampTsbReader>(mPrivateInstanceAAMP, nullptr, eMEDIATYPE_VIDEO, "sessionId");
 		}
 
 		void TearDown() override
 		{
+			delete g_mockTSBSessionManager;
+			g_mockTSBSessionManager = nullptr;
+
+			delete g_mockStreamAbstractionAAMP_MPD;
+			g_mockStreamAbstractionAAMP_MPD = nullptr;
+
+			if (mPeriod)
+			{
+				delete mPeriod;
+				mPeriod = nullptr;
+			}
+
+			delete g_mockPrivateInstanceAAMP;
+			g_mockPrivateInstanceAAMP = nullptr;
+
+			delete mTsbSessionManager;
+			mTsbSessionManager  =  nullptr;
+
 			delete mMediaStreamContext;
 			mMediaStreamContext = nullptr;
-                  
+
 			delete mStreamAbstractionAAMP_MPD;
 			mStreamAbstractionAAMP_MPD = nullptr;
-                  
+
 			delete mPrivateInstanceAAMP;
 			mPrivateInstanceAAMP = nullptr;
 
@@ -156,17 +229,82 @@ class MediaStreamContextTest : public ::testing::TestWithParam<TestParams>
 			g_mockAampConfig = nullptr;
 		}
 
-		void Initialize(bool lowlatencyMode, bool chunkMode)
+		// Create a set a dummy period due to the following parameter passed to EnqueueWrite(): context->GetPeriod()->GetId()
+		void CreateAndSetDummyPeriod()
+		{
+			class DummyPeriod : public IPeriod
+			{
+			public:
+				DummyPeriod() = default;
+				virtual ~DummyPeriod() = default;
+
+				// Implement all pure virtuals from IPeriod
+				const std::string& GetId() const override { return mId; }
+				const std::vector<IAdaptationSet*>& GetAdaptationSets() const override { return mAdaptationSets; }
+				const std::string& GetStart() const override { return mStart; }
+				const std::string& GetDuration() const override { return mDuration; }
+				bool GetBitstreamSwitching() const override { return mBitstreamSwitching; }
+				const std::vector<IBaseUrl *>& GetBaseURLs() const override { static std::vector<IBaseUrl *> vec; return vec; }
+				ISegmentBase* GetSegmentBase() const override { return nullptr; }
+				ISegmentList* GetSegmentList() const override { return nullptr; }
+				ISegmentTemplate* GetSegmentTemplate() const override { return nullptr; }
+				const std::vector<ISubset *>& GetSubsets() const override { static std::vector<ISubset *> vec; return vec; }
+				const std::vector<IEventStream *>& GetEventStreams() const override { static std::vector<IEventStream *> vec; return vec; }
+				const std::string& GetXlinkHref() const override { static std::string val; return val; }
+				const std::vector<dash::xml::INode*> GetAdditionalSubNodes() const override { static std::vector<dash::xml::INode*> vec; return vec; }
+				const std::string& GetXlinkActuate() const override { static std::string val; return val; }
+
+				const std::map<std::string, std::string, std::less<std::string>, std::allocator<std::pair<const std::string, std::string>>> GetRawAttributes() const override
+				{
+					static std::map<std::string, std::string, std::less<std::string>, std::allocator<std::pair<const std::string, std::string>>> rawAttributes;
+                    return rawAttributes;
+                }
+
+			private:
+				std::string mId {"dummyPeriodId"};
+				std::vector<IAdaptationSet*> mAdaptationSets;
+				std::string mStart{"0.0"};
+				std::string mDuration{"0.0"};
+				bool mBitstreamSwitching{false};
+			};
+			mPeriod = new DummyPeriod();
+		}
+
+		void Initialize(bool lowlatency, bool chunk, bool tsb, bool eos, bool paused, bool underflow)
 		{
 			unsigned char data[] = {0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA};
 			AampLLDashServiceData llDashData;
 			llDashData.availabilityTimeOffset = 1.2;
-			llDashData.lowLatencyMode = lowlatencyMode;
+			llDashData.lowLatencyMode = lowlatency;
 			mPrivateInstanceAAMP->rate = AAMP_NORMAL_PLAY_RATE;
 			mPrivateInstanceAAMP->SetLLDashServiceData(llDashData);
+			mPrivateInstanceAAMP->SetLocalAAMPTsb(tsb);
+			mPrivateInstanceAAMP->pipeline_paused = paused;
+			mPrivateInstanceAAMP->SetBufUnderFlowStatus(underflow);
 			mMediaStreamContext = new MediaStreamContext(eTRACK_VIDEO, mStreamAbstractionAAMP_MPD, mPrivateInstanceAAMP, "SAMPLETEXT");
 			mMediaStreamContext->mTempFragment->AppendBytes(data, 12);
-			mPrivateInstanceAAMP->SetLLDashChunkMode(chunkMode);
+			// The tests simulating EOS inject from the TSB, the rest of the tests inject from live
+			mMediaStreamContext->SetLocalTSBInjection(eos);
+			mPrivateInstanceAAMP->SetLLDashChunkMode(chunk);
+			AampTSBSessionManager *tsbSessionManager = nullptr;
+			if (tsb)
+			{
+				tsbSessionManager = mTsbSessionManager;
+				CreateAndSetDummyPeriod();
+				EXPECT_CALL(*g_mockStreamAbstractionAAMP_MPD, GetPeriod()).WillOnce(Return(mPeriod));
+			}
+			if (eos)
+			{
+				mStreamAbstractionAAMP_MPD->mTuneType = eTUNETYPE_SEEKTOLIVE;
+				EXPECT_CALL(*g_mockTSBSessionManager, GetTsbReader(_)).WillRepeatedly(Return(mTsbReader));
+				mTsbReader->mEosReached = true;
+				if (!paused)
+				{
+					EXPECT_CALL(*g_mockPrivateInstanceAAMP, UpdateLocalAAMPTsbInjection());
+				}
+			}
+			EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetTSBSessionManager()).WillOnce(Return(tsbSessionManager));
+			EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile(_, _, _, _, _, _, _, _, _, _, _, _, _, _)).WillOnce(Return(true));
 		}
 };
 
@@ -178,13 +316,34 @@ class MediaStreamContextTest : public ::testing::TestWithParam<TestParams>
 TEST_P(MediaStreamContextTest, CacheFragment)
 {
 	TestParams testParam = GetParam();
-	Initialize(testParam.lowlatencyMode, testParam.chunkMode);
+	AAMPLOG_INFO("Test with lowlatency: %d, chunk: %d, AAMP TSB: %d, eos: %d, paused: %d, underflow: %d, init: %d, expectedFragmentChunksCached: %d, expectedFragmentCached: %d",
+		testParam.lowlatency,
+		testParam.chunk,
+		testParam.tsb,
+		testParam.eos,
+		testParam.paused,
+		testParam.underflow,
+		testParam.init,
+		testParam.expectedFragmentChunksCached,
+		testParam.expectedFragmentCached);
+	Initialize(testParam.lowlatency, testParam.chunk, testParam.tsb, testParam.eos, testParam.paused, testParam.underflow);
 
-	bool retResult = mMediaStreamContext->CacheFragment("remoteUrl", 0, 10, 0, NULL, testParam.initFragment, false, false, 0, 0, false);
+	bool retResult = mMediaStreamContext->CacheFragment("remoteUrl", 0, 10, 0, NULL, testParam.init, false, false, 0, 0, false);
+
+	if (testParam.eos && !testParam.paused)
+	{
+		// Check that  TSB injection flag is cleared after TSB Reader EoS if the pipeline is not paused
+		EXPECT_EQ(mMediaStreamContext->IsLocalTSBInjection(), false);
+	}
+	else
+	{
+		// Check that TSB injection flag is not modified in any other case (initially set to eos)
+		EXPECT_EQ(mMediaStreamContext->IsLocalTSBInjection(), testParam.eos);
+	}
 
 	// Check expected results for fragment chunks cached and fragments cached
 	EXPECT_EQ(mMediaStreamContext->numberOfFragmentChunksCached, testParam.expectedFragmentChunksCached);
-	EXPECT_EQ(mMediaStreamContext->GetTotalFragmentsFetched(), testParam.expectedFragmentCached);
+	EXPECT_EQ(mMediaStreamContext->numberOfFragmentsCached, testParam.expectedFragmentCached);
 }
 
 INSTANTIATE_TEST_SUITE_P(
@@ -192,4 +351,3 @@ INSTANTIATE_TEST_SUITE_P(
 		MediaStreamContextTest,
 		::testing::ValuesIn(testCases)
 		);
-

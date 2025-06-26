@@ -2,7 +2,7 @@
  * If not stated otherwise in this file or this component's license file the
  * following copyright and licenses apply:
  *
- * Copyright 2018 RDK Management
+ * Copyright 2025 RDK Management
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,15 +16,26 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
 */
+
 /**
- * @file cocoa_window.h
- * Advanced Adaptive Media Player (AAMP)
+ * @file HlsOcdmBridgeInterface.cpp
+ * @brief Handles OCDM bridge interface to validate DRM License
  */
 
-#ifndef __AAMP_COCOA_WINDOW_H
-#define __AAMP_COCOA_WINDOW_H
+#include "HlsOcdmBridgeInterface.h"
 
-void osx_createAppWindow( int argc, char **argv );
-void osx_destroyAppWindow( void );
+#ifdef USE_OPENCDM_ADAPTER
+#include "HlsOcdmBridge.h"
+#endif
 
-#endif //__AAMP_COCOA_WINDOW_H
+
+HlsDrmBase* HlsOcdmBridgeInterface::GetBridge(DrmSession * playerDrmSession)
+{
+   
+#ifdef USE_OPENCDM_ADAPTER
+    return new HlsOcdmBridge(playerDrmSession);
+#else
+   return new FakeHlsOcdmBridge(playerDrmSession);
+#endif
+
+}

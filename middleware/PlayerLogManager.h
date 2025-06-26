@@ -24,12 +24,15 @@
  * @brief Log manager for Player Interface
  */
 
+#include <cstdint>
 #include <stdio.h>
 #include <iostream>
 #include <sys/time.h>
 #include <ctime>
 #include <iomanip>
-
+#include <vector>
+#include <sstream>
+#include <algorithm>
 /**
  * @brief Log level's of Middleware
  */
@@ -54,6 +57,22 @@ public :
 	static bool locked;
 	static bool disableLogRedirection;		/**<  disables log re-direction to journal or ethan log apis and uses vprintf - used by simulators */
 	static bool enableEthanLogRedirection;  /**<  Enables Ethan log redirection which uses Ethan lib for logging */
+
+	/**
+	 * @brief Sets the externals logger information.
+	 *
+	 * @param[in] logRedirectStatus Status of log redirection.
+	 * @param[in] ethanLogStatus Status of Ethan logging.
+	 * @param[in] level Log level.
+	 * @param[in] lock Lock status.
+	 */
+	static void SetLoggerInfo(bool logRedirectStatus, bool ethanLogStatus, int level, bool lock)
+	{
+		PlayerLogManager::disableLogRedirection = logRedirectStatus;
+		PlayerLogManager::enableEthanLogRedirection = ethanLogStatus;
+		PlayerLogManager::setLogLevel(MW_LogLevel(level));
+		PlayerLogManager::lockLogLevel(lock);
+	}
 
 	/**
 	 * @fn isLogLevelAllowed
@@ -89,6 +108,17 @@ public :
 	{
 		locked = lock;
 	}
+/**     
+         * @fn getHexDebugStr
+         */     
+        static std::string getHexDebugStr(const std::vector<uint8_t>& data)
+        {  
+                std::ostringstream hexSs;
+                hexSs << "0x";
+                hexSs << std::hex << std::uppercase << std::setfill('0');
+                std::for_each(data.cbegin(), data.cend(), [&](int c) { hexSs << std::setw(2) << c; });
+                return hexSs.str();
+        }
 
 };
 /**
@@ -117,6 +147,16 @@ if( (LEVEL) >= PlayerLogManager::mwLoglevel ) \
  logprintf( LEVEL, __FUNCTION__, __LINE__, FORMAT, ##__VA_ARGS__); \
 }\
 }while(0)
+
+#ifdef MW_LOG_TRACE
+// avoid compile time macro redefinition warnings due to defines in SubtecChannel.cpp
+#undef MW_LOG_TRACE
+#undef MW_LOG_DEBUG
+#undef MW_LOG_INFO
+#undef MW_LOG_WARN
+#undef MW_LOG_MIL
+#undef MW_LOG_ERR
+#endif
 
 /**
  * @brief Middleware logging defines, this can be enabled through setLogLevel() as per the need

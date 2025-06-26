@@ -94,8 +94,9 @@ static void InitializePlayerConfigs(AAMPGstPlayer *_this, void *playerInstance)
 	interfacePlayer->m_gstConfigParam->useRialtoSink = config->IsConfigSet(eAAMPConfig_useRialtoSink);
 	interfacePlayer->m_gstConfigParam->monitorAV = config->IsConfigSet(eAAMPConfig_MonitorAV);
 	interfacePlayer->m_gstConfigParam->disableUnderflow = config->IsConfigSet(eAAMPConfig_DisableUnderflow);
-	interfacePlayer->m_gstConfigParam->monitorAvsyncThresholdMs = config->GetConfigValue(eAAMPConfig_MonitorAVSyncThreshold);
-	interfacePlayer->m_gstConfigParam->monitorJumpThresholdMs =  config->GetConfigValue(eAAMPConfig_MonitorAVJumpThreshold);
+	interfacePlayer->m_gstConfigParam->monitorAvsyncThresholdPositiveMs = config->GetConfigValue(eAAMPConfig_MonitorAVSyncThresholdPositive);
+	interfacePlayer->m_gstConfigParam->monitorAvsyncThresholdNegativeMs = config->GetConfigValue(eAAMPConfig_MonitorAVSyncThresholdNegative);
+	interfacePlayer->m_gstConfigParam->monitorAvJumpThresholdMs =  config->GetConfigValue(eAAMPConfig_MonitorAVJumpThreshold);
 	interfacePlayer->m_gstConfigParam->audioDecoderStreamSync = _this->aamp->mAudioDecoderStreamSync;
 	interfacePlayer->m_gstConfigParam->audioOnlyMode = _this->aamp->mAudioOnlyPb;
 	interfacePlayer->m_gstConfigParam->gstreamerSubsEnabled = _this->aamp->IsGstreamerSubsEnabled();
@@ -379,7 +380,10 @@ void AAMPGstPlayer::NotifyFirstFrame(int mediatype, bool notifyFirstBuffer, bool
 
 /*AAMPGstPlayer constructor*/
 
-AAMPGstPlayer::AAMPGstPlayer(PrivateInstanceAAMP *aamp, id3_callback_t id3HandlerCallback, std::function<void(const unsigned char *, int, int, int) > exportFrames) : aamp(NULL), mEncryptedAamp(NULL), privateContext(NULL), mBufferingLock(), trickTeardown(false), m_ID3MetadataHandler{id3HandlerCallback}, cbExportYUVFrame(NULL)
+AAMPGstPlayer::AAMPGstPlayer(PrivateInstanceAAMP *aamp, id3_callback_t id3HandlerCallback, std::function<void(const unsigned char *, int, int, int) > exportFrames):
+	aamp(NULL), mEncryptedAamp(NULL), privateContext(NULL),
+	mBufferingLock(), trickTeardown(false), m_ID3MetadataHandler{id3HandlerCallback},
+	cbExportYUVFrame(NULL), monitorAVTimerId(0), mMonitorAVInterval(0)
 
 {
 	privateContext = new AAMPGstPlayerPriv();
@@ -399,14 +403,14 @@ AAMPGstPlayer::AAMPGstPlayer(PrivateInstanceAAMP *aamp, id3_callback_t id3Handle
 			playerInstance->EnableGstDebugLogging(debugLevel);
 		}
 		InitializePlayerConfigs(this,playerInstance);
-		playerInstance->SetLoggerInfo(AampLogManager::disableLogRedirection, AampLogManager::enableEthanLogRedirection, AampLogManager::aampLoglevel, AampLogManager::locked);
 		playerInstance->SetPlayerName(PLAYER_NAME);
 		playerInstance->setEncryption((void*)aamp);
 		RegisterFirstFrameCallbacks();
+		mMonitorAVInterval = GETCONFIGVALUE(eAAMPConfig_MonitorAVReportingInterval);
 	}
 	else
 	{
-		AAMPLOG_WARN("privateContext  is null");  //CID:85372 - Null Returns
+		AAMPLOG_WARN("privateContext is null");  //CID:85372 - Null Returns
 	}
 }
 
@@ -785,17 +789,14 @@ void AAMPGstPlayer::Configure(StreamOutputFormat format, StreamOutputFormat audi
 
 	const char *envVal = getenv("AAMP_AV_PIPELINE_PRIORITY");
 	PipelinePriority = envVal ? atoi(envVal) : -1;
-#ifdef AAMP_STOP_SINK_ON_SEEK
-	rate = aamp->rate;
-#endif
+
 	bool FirstFrameFlag = aamp->IsFirstVideoFrameDisplayedRequired();
 	/*Configure and create the pipeline*/
 	playerInstance->ConfigurePipeline(static_cast<int>(format),static_cast<int>(audioFormat),static_cast<int>(auxFormat),static_cast<int>(subFormat),
 									  bESChangeStatus,forwardAudioToAux,setReadyAfterPipelineCreation,
 									  isSubEnable, trackId, rate, PIPELINE_NAME, PipelinePriority, FirstFrameFlag, aamp->GetManifestUrl().c_str());
-#ifdef TRACE
-	AAMPLOG_MIL("exiting AAMPGstPlayer");
-#endif
+	AAMPLOG_TRACE("exiting AAMPGstPlayer");
+	StartMonitorAVTimer();
 }
 
 /**
@@ -831,7 +832,7 @@ void AAMPGstPlayer::EndOfStreamReached(AampMediaType type)
 void AAMPGstPlayer::Stop(bool keepLastFrame)
 {
 	AAMPLOG_MIL("entering AAMPGstPlayer_Stop keepLastFrame %d", keepLastFrame);
-
+	StopMonitorAVTimer();
 	playerInstance->Stop(keepLastFrame);
 
 	aamp->seiTimecode.assign("");
@@ -1239,4 +1240,77 @@ void AAMPGstPlayer::SetPauseOnStartPlayback(bool enable)
 bool AAMPGstPlayer::CheckForPTSChangeWithTimeout(long timeout)
 {
 	return playerInstance->CheckForPTSChangeWithTimeout(timeout);
+}
+
+/**
+ * @brief Callback function to monitor AV status and report it periodically
+ * @param user_data Pointer to the AAMPGstPlayer instance
+ * @return TRUE to continue the timer, FALSE to stop it
+ */
+static gboolean MonitorAVTimerCallback(gpointer user_data)
+{
+	AAMPGstPlayer *player  = static_cast<AAMPGstPlayer*>(user_data);
+	if (player && player->playerInstance != nullptr)
+	{
+		// No mutex is employed for MonitorAVState as this callback and ProgressTimerCallback are called from the main thread
+		const MonitorAVState monitorAVState = player->playerInstance->GetMonitorAVState();
+		if (player->aamp != nullptr)
+		{
+			if(monitorAVState.tLastSampled == 0 || monitorAVState.description == nullptr)
+			{
+				MW_LOG_INFO("MonitorAVTimerCallback: tLastSampled(%lld) or description(%p) not available, skipping report",
+						monitorAVState.tLastSampled, monitorAVState.description);
+			}
+			else
+			{
+				long long timeInState = (monitorAVState.tLastSampled - monitorAVState.tLastReported);
+				if (timeInState < 0)
+				{
+					timeInState = 0; // Avoid negative time
+				}
+				else if (timeInState > player->GetMonitorAVInterval())
+				{
+					timeInState = player->GetMonitorAVInterval(); // Cap to reporting interval
+				}
+				player->aamp->SendMonitorAVEvent(monitorAVState.description,
+						monitorAVState.av_position[eMEDIATYPE_VIDEO],
+						monitorAVState.av_position[eMEDIATYPE_AUDIO],
+						timeInState);
+			}
+		}
+	}
+	return TRUE;
+}
+
+/**
+ * @brief Start the MonitorAV timer to report AV status
+ */
+void AAMPGstPlayer::StartMonitorAVTimer()
+{
+	if (aamp->mConfig->IsConfigSet(eAAMPConfig_MonitorAV) && monitorAVTimerId == 0)
+	{
+		// mMonitorAVInterval is in milliseconds
+		monitorAVTimerId = g_timeout_add(mMonitorAVInterval, MonitorAVTimerCallback, this);
+		if (monitorAVTimerId == 0)
+		{
+			AAMPLOG_WARN("Failed to start MonitorAVTimer");
+		}
+		else
+		{
+			AAMPLOG_MIL("MonitorAVTimer started with interval %d ms", mMonitorAVInterval);
+		}
+	}
+}
+
+/**
+ * @brief Stop the MonitorAV timer
+ */
+void AAMPGstPlayer::StopMonitorAVTimer()
+{
+	if (monitorAVTimerId != 0)
+	{
+		g_source_remove(monitorAVTimerId);
+		monitorAVTimerId = 0;
+		AAMPLOG_MIL("MonitorAVTimer stopped");
+	}
 }

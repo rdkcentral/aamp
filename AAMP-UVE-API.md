@@ -197,16 +197,18 @@ Configuration options are passed to AAMP using the UVE initConfig method. This a
 | drmStartTimeout | Number | 0 | Optional optimization - Allow fast-failure for class of curl-detectable stall at start of DRM license request download (in seconds) |
 | connectTimeout | Number | 3 | Curl socket connection timeout for fragment/playlist/manifest downloads (in seconds) |
 | dnsCacheTimeout | Number | 180 | life-time for DNS cache entries ,Name resolve results are cached for manifest and used for this number of seconds |
-| tsbtype | String |  | Use the "tsbtype" configuration for each playback session, where "local" retains existing FOG streaming logic, "cloud" enables direct CDN streaming, and if "tsbtype" is not provided, default to "none," disabling TSB playback |
+| tsbtype | String |  | Use the "tsbtype" configuration for each playback session, where "local" enables local time shift buffer (FOG or AAMP TSB), "cloud" enables direct CDN streaming, and if "tsbtype" is not provided, default to "none," disabling TSB playback |
 | telemetryInterval | Number | 300 | telemetry log interval . Default of 300 seconds . 0 to disable telemetry logging |
 | sendUserAgentInLicense | Boolean | False | Optional field to enable sending User Agent string in license request also |
 | useSinglePipeline | Boolean | False | Optional field to enable single pipeline while switching between multiple player instances( Ad & Content) to avoid delay in flush operations. Used primarily for Client Side Ad-Insertion with multi-player usage |
 | mpdStichingSupport | Boolean | True | Optional field to enable/disable DASH MPD stitching functionality with dual manifest ( one manifest used during tune and another manifest during refresh ) |
-| enablePTSReStamp | Boolean | False | Optional field to enable/disable PTS Re-stamping functionality across discontinuity while moving from Content to Ads or vice-versa |
+| enablePTSReStamp | Boolean | False | Optional field to enable/disable PTS Re-stamping functionality across discontinuity while moving from Content to Ads or vice-versa. Currently only applicable to DASH content. |
 | subtitleClockSyncInterval | Number | 30 | Time interval for synchronizing the clock with subtitle module . Default of 30 seconds |
-| showDiagnosticsOverlay | Number | 0 (None) | Configures the diagnostics overlay: 0 (None), 1 (Minimal), 2 (Extended). Controls the visibility and level of detail for diagnostics displayed during playback.
+| showDiagnosticsOverlay | Number | 0 (None) | Configures the diagnostics overlay: 0 (None), 1 (Minimal), 2 (Extended). Controls the visibility and level of detail for diagnostics displayed during playback. Refer [Diagnostics Overlay Configuration](#diagnostics-overlay-configuration)
 | localTSBEnabled | Boolean | False | Enable use of time shift buffer (TSB) for live playback, leveraging local storage.  Use of a TSB allows pause, seek, fast forward/rewind operations beyond the size of the default manifest live window supported by the CDN |
 | tsbLength | Number | 3600 (1 hour) or 1500 (25 min) | Max duration (seconds) of Local TSB to build up before culling  (not recommended for apps to change) |
+| monitorAV | Boolean | False | Enable background monitoring of audio/video positions to infer video freeze, audio drop, or av sync issues |
+| monitorAVReportingInterval | Number | 1000 | Timeout in milliseconds for reporting MonitorAV events |
 
 Example:
 ```js
@@ -2265,6 +2267,22 @@ Example:
 ```
 ---
 
+### monitorAVStatus
+
+**Event Payload:**
+- sessionId: string Refer to [load](#load-uri_autoplay_tuneparams) API for details
+- currentState: string
+- videoPosMs : number
+- audioPosMs : number
+- timeInStateMs : number
+
+**Description:**
+- Player periodically reports the video and audio position to the application which could be used to infer video freeze, audio drop, or av sync issues.
+- Reporting interval can be configured using monitorAVReportingInterval which ranges from 1s to 60s.
+- Player also sends a currentState which is identified by the player based on the continuous a/v positions.
+
+---
+
 <div style="page-break-after: always;"></div>
 
 ## Client DAI Feature Support
@@ -3040,6 +3058,217 @@ HLS Linear:
       "version":"2.0","creationTime":"2023-05-18.23:07:08"}
 ```
 
+### Diagnostics Overlay Configuration
+
+Sample code utilizing showDiagnosticsOverlay configuration to display additional data on UI.
+
+```js
+<!DOCTYPE html>
+<head>
+<meta content="text/html" charset="utf-8" http-equiv="content-type">
+<style>
+    .urlModal {
+        display: none;
+        position: absolute;
+        background-color: rgba(0,0,0,0.8);
+        border: 1.2px solid lightgrey;
+        box-shadow: 0 4px 8px 0 rgba(0,0,0,0.2),0 6px 20px 0 rgba(0,0,0,0.19);
+        width: 90%;
+        top: 5%;
+        left: 5%;
+        padding: 5px;
+        word-break: break-all;
+        font: 13px arial, sans-serif;
+        color: white
+    }
+    .overlayModal {
+        display: none;
+        position: absolute;
+        background-color: rgba(0,0,0,0.8);
+        border: 1.2px solid lightgrey;
+        box-shadow: 0 4px 8px 0 rgba(0,0,0,0.2),0 6px 20px 0 rgba(0,0,0,0.19);
+        top: 12%;
+        left: 5%;
+        padding: 7px;
+        font: 14px arial, sans-serif;
+        color: white
+    }
+    ul#bitrateList {
+        padding-inline-start: 0;
+    }
+    ul#bitrateList li {
+        display: inline;
+        margin-left: 5px;
+    }
+    .current-bitrate-style {
+        border: 2px solid #FFFB55;
+        border-radius: 5px;
+        display: inline;
+        padding: 5px;
+        margin-left: 5px;
+    }
+    .anomalyModal {
+        display: none;
+        position: absolute;
+        background-color: rgba(0,0,0,0.9);
+        border: 1.2px solid lightgrey;
+        box-shadow: 0 4px 8px 0 rgba(0,0,0,0.2),0 6px 20px 0 rgba(0,0,0,0.19);
+        width: 90%;
+        top: 25%;
+        left: 5%;
+        padding: 5px;
+        word-break: break-all;
+        font: 14px arial, sans-serif;
+        color: white
+    }
+    .red-style {
+        color: #FF5953;
+    }
+    .orange-style {
+        color: #ffaf0e;
+    }
+    .white-style {
+        color: #f7f7f7;
+    }
+</style>
+</head>
+
+<body>
+    <!-- The URL Modal -->
+    <div id="urlModal" class="urlModal">
+        <p id="url"></p>
+    </div>
+    <!-- The Overlay Modal -->
+    <div id="overlayModal" class="overlayModal">
+        <p id="type"></p>
+        <div>
+            <ul id="bitrateList">
+                <li>Bitrates(Mbps): </li>
+            </ul>
+        </div>
+    </div>
+    <!-- The Anomaly Modal -->
+    <div id="anomalyModal" class="anomalyModal">
+        <ul id="anomalyList"></ul>
+    </div>
+<script>
+    // Sample data for testing
+    var anomalyDescriptionList = [];
+    var anomalySeverityList = [];
+    var overlayConfig;
+    var overlayObject = {
+        contentURL: "http://localhost:50050/content/main.m3u8",
+        appVersion: "1.0",
+        appURL: "http://localhost:50050/app",
+        manifestType: "HLS",
+        drmType: "PlayReady",
+        contentType: "VOD",
+        bitrates: "1000000,2000000,3000000",
+        currentBitrate: "2000000"
+    };
+
+    function renderOverlay(paramsString) {
+        // If OFF, do not render overlay
+        if (overlayConfig === 0) {
+            return;
+        }
+        document.getElementById('overlayModal').style.display = 'block';
+        document.getElementById('urlModal').style.display = 'block';
+
+        document.getElementById("url").innerHTML = "APP " + paramsString.appVersion + " | " +  paramsString.appURL + " | CONTENT: " +  paramsString.contentURL;
+        document.getElementById("type").innerHTML = "AAMP | " + paramsString.contentType + " | " +  paramsString.manifestType + " | " +  paramsString.drmType;
+
+        //parse the available bitrates
+        var availableBitrates =  paramsString.bitrates.split(',');
+        availableBitrates.forEach(function(bitrate,index) {
+            availableBitrates[index] = convertToMbps(bitrate);
+        });
+
+        document.getElementById('bitrateList').innerHTML = "";
+        // Add the available bitrates to the list
+        var ul = document.getElementById('bitrateList');
+        availableBitrates.forEach(function(bitrate) {
+            // Create a new list item and attach it to ul
+            li = document.createElement('li');
+            li.appendChild(document.createTextNode(bitrate));
+            if (bitrate === convertToMbps(paramsString.currentBitrate)) {
+                // Highlight the currentbitrate
+                li.classList.add("current-bitrate-style");
+            }
+            ul.appendChild(li);
+        });
+    }
+
+    // Function to convert bitrate into Mbps
+    function convertToMbps(bitrate) {
+        return (bitrate / 1000000).toFixed(1);
+    }
+
+    function renderAnomaly(anomalyDescriptionList, anomalySeverityList) {
+        // If not ALL, do not render anomaly overlay
+        if (overlayConfig === 0 || overlayConfig === 1) {
+            return;
+        }
+        document.getElementById('anomalyModal').style.display = 'block';
+        var ul = document.getElementById('anomalyList');
+        ul.innerHTML = "";
+        // Add the anomaly strings to the list
+        anomalyDescriptionList.forEach(function(description,index) {
+            // Create a new list item and attach it to ul
+            li = document.createElement('li');
+            li.appendChild(document.createTextNode(description));
+            // attach text color according to severity
+            console.log("anomalySeverityList[index] = " + anomalySeverityList[index]);
+            switch(Number(anomalySeverityList[index])) {
+                case 0: li.classList.add("red-style");
+                    break;
+                case 1: li.classList.add("orange-style");
+                    break;
+                case 2: li.classList.add("white-style");
+                    break;
+            }
+            ul.appendChild(li);
+        });
+    }
+
+    function onAnomalyReport(event) {
+        const tuneRegExp = /Tune attempt#[0-9]+.\s(\w+):\w+=\w+:(\w+)\/(\w+)\sURL:(.*)/;
+        const tuneAttempt = tuneRegExp.exec(event.description);
+        if (tuneAttempt) {
+            overlayObject.contentType = tuneAttempt[1];
+            overlayObject.manifestType = tuneAttempt[2];
+            overlayObject.drmType = tuneAttempt[3];
+            overlayObject.contentURL = tuneAttempt[4];
+        }
+        renderOverlay(overlayObject);
+        anomalyDescriptionList.push(event.description);
+        anomalySeverityList.push(event.severity);
+        renderAnomaly(anomalyDescriptionList, anomalySeverityList);
+    }
+
+    function onMediaMetadata(event) {
+        overlayObject.bitrates = event.bitrates;
+        overlayObject.drmType = event.DRM;
+        renderOverlay(overlayObject);
+    }
+
+    window.onload = function() {
+        overlayObject.appURL = window.location.href;
+        var player = new AAMPMediaPlayer();
+        overlayConfig = JSON.parse(player.getConfiguration()).showDiagnosticsOverlay;
+        player.addEventListener("anomalyReport", onAnomalyReport);
+        player.addEventListener("mediaMetadata", onMediaMetadata);
+        renderOverlay(overlayObject);
+        onAnomalyReport({
+            description: "Tune attempt#1. LINEAR:TSB=false:DASH/Widevine URL:https://localhost:50050/content/main.mpd",
+            severity: 0
+        });
+    }
+</script>
+</body>
+<html>
+```
+---
 
 ## Release Versions
 
@@ -3358,3 +3587,17 @@ Aug 2024
 **Release Notes:**
 - Configuration:
     - bulkTimedMetadataLive
+
+**Version:** 7.05
+**Release Notes:**
+- Configuration:
+    - lldUrlKeyword ( deprecated )
+    - wifiCurlHeader ( default value changed to false )
+    - enableMediaProcessor ( default value changed to true )
+    - enablePTSRestampForHlsTs
+    - monitorAV
+    - monitorAVSyncThreshold
+    - monitorAVJumpThreshold
+    - progressLoggingDivisor
+    - showDiagnosticsOverlay ( added example in Appendix )
+    - monitorAVReportingInterval

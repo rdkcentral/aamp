@@ -23,6 +23,30 @@
 #include <gmock/gmock.h>
 #include "StreamAbstractionAAMP.h"
 
+class MockMediaTrack : public MediaTrack
+{
+public:
+	MockMediaTrack(TrackType type, PrivateInstanceAAMP *aamp, const char *name)
+		: MediaTrack(type, aamp, name) {}
+	MOCK_METHOD(bool, IsLocalTSBInjection, ());
+	MOCK_METHOD(bool, Enabled, ());
+	MOCK_METHOD(void, ProcessPlaylist, (AampGrowableBuffer& newPlaylist, int http_error));
+	MOCK_METHOD(std::string&, GetPlaylistUrl, ());
+	MOCK_METHOD(std::string&, GetEffectivePlaylistUrl, ());
+	MOCK_METHOD(void, SetEffectivePlaylistUrl, (std::string url));
+	MOCK_METHOD(long long, GetLastPlaylistDownloadTime, ());
+	MOCK_METHOD(void, SetLastPlaylistDownloadTime, (long long time));
+	MOCK_METHOD(long, GetMinUpdateDuration, ());
+	MOCK_METHOD(int, GetDefaultDurationBetweenPlaylistUpdates, ());
+	MOCK_METHOD(void, ABRProfileChanged, ());
+	MOCK_METHOD(void, updateSkipPoint, (double position, double duration ));
+	MOCK_METHOD(void, setDiscontinuityState, (bool isDiscontinuity));
+	MOCK_METHOD(void, abortWaitForVideoPTS, ());
+	MOCK_METHOD(double, GetBufferedDuration, ());
+	MOCK_METHOD(class StreamAbstractionAAMP*, GetContext, ());
+	MOCK_METHOD(void, InjectFragmentInternal, (CachedFragment* cachedFragment, bool &fragmentDiscarded,bool isDiscontinuity));
+};
+
 class MockStreamAbstractionAAMP : public StreamAbstractionAAMP
 {
 public:

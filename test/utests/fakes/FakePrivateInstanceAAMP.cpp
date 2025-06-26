@@ -25,13 +25,11 @@
 #include "ID3Metadata.hpp"
 #include "AampSegmentInfo.hpp"
 
-//Enable the define below to get AAMP logging out when running tests
-//#define ENABLE_LOGGING
-#define TEST_LOG_LEVEL eLOGLEVEL_TRACE
-
 MockPrivateInstanceAAMP *g_mockPrivateInstanceAAMP = nullptr;
 
 bool PrivateInstanceAAMP::mTrackGrowableBufMem;
+
+static int PLAYERID_CNTR = 0;
 
 PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) :
 	profiler(),
@@ -73,7 +71,7 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) :
 	waitforplaystart(),
 	mMutexPlaystart(),
 	drmParserMutex(),
-	mDRMSessionManager(NULL),
+	mDRMLicenseManager(NULL),
 	mDrmInitData(),
 	mPreferredTextTrack(),
 	midFragmentSeekCache(false),
@@ -97,6 +95,7 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) :
 	mScheduler(NULL),
 	mConfig(config),
 	mSubLanguage(),
+	mPlayerId(PLAYERID_CNTR++),
 	mIsWVKIDWorkaround(false),
 	mAuxAudioLanguage(),
 	mAbsoluteEndPosition(0),
@@ -340,7 +339,7 @@ bool PrivateInstanceAAMP::IsFragmentCachingRequired()
 	return false;
 }
 
-void PrivateInstanceAAMP::TeardownStream(bool newTune)
+void PrivateInstanceAAMP::TeardownStream(bool newTune, bool disableDownloads)
 {
 }
 
@@ -941,6 +940,9 @@ AampCurlInstance PrivateInstanceAAMP::GetPlaylistCurlInstance(AampMediaType type
 
 void PrivateInstanceAAMP::BlockUntilGstreamerWantsData(void(*cb)(void), int periodMs, int track)
 {
+	if (g_mockPrivateInstanceAAMP != nullptr) {
+		return g_mockPrivateInstanceAAMP->BlockUntilGstreamerWantsData(cb, periodMs, track);
+	}
 }
 
 void PrivateInstanceAAMP::CheckForDiscontinuityStall(AampMediaType mediaType)
@@ -1155,6 +1157,10 @@ bool PrivateInstanceAAMP::IsLiveStream(void)
 
 void PrivateInstanceAAMP::WaitForDiscontinuityProcessToComplete(void)
 {
+	if (g_mockPrivateInstanceAAMP != nullptr)
+	{
+		g_mockPrivateInstanceAAMP->WaitForDiscontinuityProcessToComplete();
+	}
 }
 
 void PrivateInstanceAAMP::SendSupportedSpeedsChangedEvent(bool isIframeTrackPresent)
@@ -1485,6 +1491,14 @@ bool PrivateInstanceAAMP::IsLocalAAMPTsbInjection()
 	return false;
 }
 
+void PrivateInstanceAAMP::UpdateLocalAAMPTsbInjection()
+{
+	if (g_mockPrivateInstanceAAMP)
+	{
+		g_mockPrivateInstanceAAMP->UpdateLocalAAMPTsbInjection();
+	}
+}
+
 bool PrivateInstanceAAMP::GetLLDashAdjustSpeed(void)
 {
 	if (g_mockPrivateInstanceAAMP)
@@ -1608,7 +1622,7 @@ unsigned char* PrivateInstanceAAMP::ReplaceKeyIDPsshData(const unsigned char *In
 
 void PrivateInstanceAAMP::SendBlockedEvent(const std::string & reason, const std::string currentLocator)
 {
-	
+
 }
 void PrivateInstanceAAMP::GetPlayerVideoSize(int &width, int &height)
 {
@@ -1619,5 +1633,36 @@ void PrivateInstanceAAMP::SendVTTCueDataAsEvent(VTTCue* cue)
 }
 
 void PrivateInstanceAAMP::UpdateCCTrackInfo(const std::vector<TextTrackInfo>& textTracksCopy, std::vector<CCTrackInfo>& updatedTextTracks)
+{
+}
+
+void PrivateInstanceAAMP::CalculateTrickModePositionEOS(void)
+{
+	if (g_mockPrivateInstanceAAMP)
+	{
+		g_mockPrivateInstanceAAMP->CalculateTrickModePositionEOS();
+	}
+}
+
+double PrivateInstanceAAMP::GetLivePlayPosition(void)
+{
+	double livePlayPosition = 0.0;
+	if (g_mockPrivateInstanceAAMP)
+	{
+		livePlayPosition = g_mockPrivateInstanceAAMP->GetLivePlayPosition();
+	}
+	return livePlayPosition;
+}
+
+void PrivateInstanceAAMP::IncrementGaps()
+{
+}
+
+double PrivateInstanceAAMP::GetStreamPositionMs()
+{
+	return 0.0;
+}
+
+void PrivateInstanceAAMP::SendMonitorAVEvent(const std::string &status, int64_t videoPositionMS, int64_t audioPositionMS, uint64_t timeInStateMS)
 {
 }
