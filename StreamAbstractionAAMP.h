@@ -166,18 +166,20 @@ public:
 	void Clear()
 	{
 		fragment.Free();
-		type = eMEDIATYPE_DEFAULT;
-		downloadStartTime = 0;
-		initFragment = false;
 		position = 0.0;
 		duration = 0.0;
+		initFragment = false;
 		discontinuity = false;
+		isDummy = false;
 		profileIndex = 0;
-		cacheFragStreamInfo = StreamInfo();
 		timeScale = 0;
+		uri = "";
+		cacheFragStreamInfo = StreamInfo();
+		type = eMEDIATYPE_DEFAULT;
+		downloadStartTime = 0;
+		discontinuityIndex = 0;
 		PTSOffsetSec = 0;
 		absPosition = 0.0;
-		isDummy = false;
 	}
 };
 
