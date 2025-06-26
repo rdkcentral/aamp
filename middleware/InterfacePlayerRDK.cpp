@@ -1744,37 +1744,6 @@ void InterfacePlayerRDK::InitializeSourceForPlayer(void *PlayerInstance, void * 
 	stream->sourceConfigured = true;
 }
 
-static GstPadProbeReturn InterfacePlayerRDK_DemuxPadProbeCallbackEvent(GstPad *pad, GstPadProbeInfo *info, void* _this)
-{
-	if (_this)
-	{
-		if ((pad == ((InterfacePlayerRDK*)(_this))->gstPrivateContext->stream[eGST_MEDIATYPE_VIDEO].demuxPad) && (((InterfacePlayerRDK*)_this)->gstPrivateContext->rate == GST_NORMAL_PLAY_RATE))
-		{
-			GstEvent *event = GST_PAD_PROBE_INFO_EVENT(info);
-			if (GST_EVENT_TYPE(event) == GST_EVENT_SEGMENT)
-			{
-				GstSegment segment;
-				gst_event_copy_segment(event, &segment);
-				MW_LOG_TRACE("duration  %" G_GUINT64_FORMAT " start %" G_GUINT64_FORMAT " stop %" G_GUINT64_FORMAT,
-							 segment.duration, segment.start, segment.stop);
-
-				// Reset the stop value
-				segment.stop = GST_CLOCK_TIME_NONE;
-
-				// Replace the event with a new one
-				GstEvent *new_event = gst_event_new_segment(&segment);
-				gst_event_replace(&event, new_event);
-				gst_event_unref(new_event);
-
-				// Update the probe info with the new event
-				info->data = event;
-			}
-		}
-	}
-	return GST_PAD_PROBE_OK;
-}
-
-
 static GstPadProbeReturn InterfacePlayerRDK_DemuxPadProbeCallback(GstPad * pad, GstPadProbeInfo * info, void* _this)
 {
 	GstBuffer *buffer = GST_PAD_PROBE_INFO_BUFFER(info);
@@ -1807,10 +1776,6 @@ static GstPadProbeReturn InterfacePlayerRDK_DemuxPadProbeCallbackAny(GstPad *pad
 	if (info->type & GST_PAD_PROBE_TYPE_BUFFER)
 	{
 		rtn = InterfacePlayerRDK_DemuxPadProbeCallback(pad, info, _this);
-	}
-	else if (info->type & GST_PAD_PROBE_TYPE_EVENT_DOWNSTREAM)
-	{
-		rtn = InterfacePlayerRDK_DemuxPadProbeCallbackEvent(pad, info, _this);
 	}
 	return rtn;
 }
