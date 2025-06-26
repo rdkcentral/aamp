@@ -933,6 +933,13 @@ bool MediaTrack::ProcessFragmentChunk()
 			// If in trick mode, do trick mode PTS restamp
 			TrickModePtsRestamp(cachedFragment);
 		}
+		else if (pContext && ISCONFIGSET(eAAMPConfig_OverrideMediaHeaderDuration))
+		{
+			if (!pContext->trickplayMode)
+			{
+				ClearMediaHeaderDuration(cachedFragment);
+			}
+		}
 		if (mSubtitleParser && type == eTRACK_SUBTITLE)
 		{
 			mSubtitleParser->processData(cachedFragment->fragment.GetPtr(), cachedFragment->fragment.GetLen(), cachedFragment->position, cachedFragment->duration);
@@ -1303,6 +1310,13 @@ void MediaTrack::ProcessAndInjectFragment(CachedFragment *cachedFragment, bool f
 													 cachedFragment->timeScale);
 				}
 			}
+		}
+		else if (ISCONFIGSET(eAAMPConfig_OverrideMediaHeaderDuration) &&
+			(eMEDIAFORMAT_DASH == aamp->mMediaFormat) &&
+			(aamp->IsLive()))
+		{
+			// Only for Live and DASH streams
+			ClearMediaHeaderDuration(cachedFragment);
 		}
 		if ((mSubtitleParser || (aamp->IsGstreamerSubsEnabled())) && type == eTRACK_SUBTITLE)
 		{
