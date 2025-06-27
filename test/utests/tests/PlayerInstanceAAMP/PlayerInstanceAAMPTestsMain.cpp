@@ -135,6 +135,7 @@ TEST_F(PlayerInstanceAAMPTests,SeekInternalTest2)
     double secondsRelativeToTuneTime = 0.0 / 0.0;
     bool keepPaused = true;
     EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_INITIALIZED));
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, StopPausePositionMonitoring("Seek() called")).Times(0);
     mplayer->Seek_Internal(secondsRelativeToTuneTime,keepPaused);
 }
 TEST_F(PlayerInstanceAAMPTests,SetRateInternalTest)
