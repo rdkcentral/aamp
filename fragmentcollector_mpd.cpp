@@ -9073,12 +9073,11 @@ void StreamAbstractionAAMP_MPD::AdvanceTrack(int trackIdx, bool trickPlay, doubl
 				FetchAndInjectInitialization(trackIdx,isDiscontinuity);
 			}
 
-			if((isTsbInjection || (!pMediaStreamContext->IsFragmentCacheFull())) && 
-			    bCacheFullState && ( !lowLatency || aamp->TrackDownloadsAreEnabled(static_cast<AampMediaType>(trackIdx))))
+			if ((isTsbInjection || (!pMediaStreamContext->IsFragmentCacheFull())) &&
+				bCacheFullState && (!lowLatency || aamp->TrackDownloadsAreEnabled(static_cast<AampMediaType>(trackIdx))))
 			{
 				bCacheFullState = false;
 			}
-
 		}
 	}
 	else
