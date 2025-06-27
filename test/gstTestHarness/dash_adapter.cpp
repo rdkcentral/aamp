@@ -424,7 +424,7 @@ void parseRepresentation( Representation &representation, const XmlNode &Represe
 	for( const auto pChild : Representation.children )
 	{
 		const XmlNode &child = *pChild; // hack for . syntax
-		cosnt auto& tagName = child.tagName;
+		const auto& tagName = child.tagName;
 		if( tagName == "SegmentList" )
 		{
 			parseSegmentList( representation.data, child );
@@ -516,7 +516,7 @@ bool parseAdaptationSet( AdaptationSet &adaptationSet, const XmlNode &Adaptation
 	for( const auto pChild : AdaptationSet.children )
 	{
 		const XmlNode &child = *pChild; // hack for . syntax
-		cosnt auto& tagName = child.tagName;
+		const auto& tagName = child.tagName;
 		if( tagName == "Representation" )
 		{
 			Representation representation;
