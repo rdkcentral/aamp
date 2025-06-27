@@ -60,11 +60,12 @@ protected:
 		g_mockGstHandlerControl = new MockGstHandlerControl();
 		g_mockPlayerScheduler = new MockPlayerScheduler();
 		g_mockPrivateInstanceAAMP = new MockPrivateInstanceAAMP();
-		mPrivateInstanceAAMP = new PrivateInstanceAAMP{};
+		
+		auto config = new AampConfig();
+		mPrivateInstanceAAMP = new PrivateInstanceAAMP(config);
 
     	mAAMPGstPlayer = new AAMPGstPlayer{mPrivateInstanceAAMP, nullptr};
-	mplayer = mAAMPGstPlayer->playerInstance;
-
+		mplayer = mAAMPGstPlayer->playerInstance;
 	}
 
 	void TearDown() override
