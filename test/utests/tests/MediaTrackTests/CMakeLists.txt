@@ -28,6 +28,7 @@ include_directories(${AAMP_ROOT}/middleware/subtec/libsubtec)
 include_directories(${AAMP_ROOT}/middleware/subtec/subtecparser)
 include_directories(${AAMP_ROOT}/subtec/subtecparser)
 include_directories(${AAMP_ROOT}/middleware/playerLogManager)
+include_directories(${AAMP_ROOT}/middleware/vendor)
 
 include_directories(${GTEST_INCLUDE_DIRS})
 include_directories(${GMOCK_INCLUDE_DIRS})

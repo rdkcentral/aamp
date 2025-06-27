@@ -92,6 +92,23 @@ void ResolveURL(std::string& dst, std::string base, const char *uri , bool bProp
  * @return The current time in milliseconds
  */
 long long GetCurrentTimeMS(void);
+/**
+ * @brief Resolve file URL from the base and file path
+ */
+void player_ResolveURL(std::string& dst, std::string base, const char *uri , bool bPropagateUriParams);
+
+/**
+ * @brief parse leading protocol from uri if present
+ * @param[in] uri manifest/ fragment uri
+ * @retval return pointer just past protocol (i.e. http://) if present (or) return NULL uri doesn't start with protcol
+ */
+static const char * ParseUriProtocol(const char *uri);
+
+/**
+ * @fn trim
+ * @param[in][out] src Buffer containing string
+ */
+void trim(std::string& src);
 
 #endif  /* __PLAYER_UTILS_H__ */
 
