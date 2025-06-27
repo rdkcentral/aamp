@@ -3773,6 +3773,7 @@ bool InterfacePlayerRDK::CreatePipeline(const char *pipelineName, int PipelinePr
 				 The time base specified is in nanoseconds */
 			}
 			/* Use to enable the timing synchronization with gstreamer */
+			MW_LOG_ERR("HariPriya InterfacePlayerRDK - m_gstConfigParam->seiTimeCode");	
 			gstPrivateContext->enableSEITimeCode = m_gstConfigParam->seiTimeCode;
 			ret = true;
 		}
@@ -4535,6 +4536,7 @@ static void GstPlayer_redButtonCallback(GstElement* object, guint hours, guint m
 		HANDLER_CONTROL_HELPER_CALLBACK_VOID();
 		char buffer[16];
 		snprintf(buffer,16,"%d:%d:%d",hours,minutes,seconds);
+		MW_LOG_ERR("InterfacePlayerRDK HariPriya buffer .. :");
 		if(pInterfacePlayerRDK->OnHandleRedButtonCallback)
 		{
 			pInterfacePlayerRDK->OnHandleRedButtonCallback(buffer);
@@ -4655,10 +4657,12 @@ static GstBusSyncReply bus_sync_handler(GstBus * bus, GstMessage * msg, Interfac
 
 					}
 				}
-				if ((NULL != msg->src) && GstPlayer_isVideoSink(GST_OBJECT_NAME(msg->src), pInterfacePlayerRDK) && (!pInterfacePlayerRDK->gstPrivateContext->usingRialtoSink))
+				if ((NULL != msg->src) && GstPlayer_isVideoSink(GST_OBJECT_NAME(msg->src), pInterfacePlayerRDK))
 				{
+					MW_LOG_ERR("InterfacePlayerRDK HariPriya removed useRialtoSink check for enableSEITimeCode");
 					if(pInterfacePlayerRDK->gstPrivateContext->enableSEITimeCode)
 					{
+						MW_LOG_ERR("InterfacePlayerRDK HariPriya enable-timecode set");
 						g_object_set(msg->src, "enable-timecode", 1, NULL);
 						pInterfacePlayerRDK->SignalConnect(msg->src, "timecode-callback",
 														   G_CALLBACK(GstPlayer_redButtonCallback), pInterfacePlayerRDK);

@@ -529,6 +529,7 @@ static void HandleRedButtonCallback(const char *data, AAMPGstPlayer * _this)
 {
 	if (_this)
 	{
+		AAMPLOG_INFO("Haripriya ... in Gst RedButtinCb for seiTimeCode");	
 		_this->aamp->seiTimecode.assign(data);
 	}
 }
