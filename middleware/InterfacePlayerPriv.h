@@ -338,12 +338,6 @@ class InterfacePlayerPriv
 		 * @param[in] buffer - input buffer to be forwarded
 		 */
 		void ForwardBuffersToAuxPipeline(GstBuffer *buffer, bool pauseInjector, void *user_data);
-		/**
-                 * @brief Gets the monitor AV state.
-                 * @return A pointer to the MonitorAVState structure containing the AV status or nullptr.
-                 */
-                const MonitorAVState& GetMonitorAVState() const { return gstPrivateContext->monitorAVstate; }
-
 
 };
 #endif

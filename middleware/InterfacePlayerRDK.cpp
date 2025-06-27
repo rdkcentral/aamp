@@ -564,6 +564,15 @@ static void GstPlayer_OnFirstVideoFrameCallback(GstElement* object, guint arg0, 
 
 }
 
+/**Add commentMore actions
+ * @brief Gets the monitor AV state.
+ * @return A pointer to the MonitorAVState structure containing the AV status or nullptr.
+ */
+const MonitorAVState& InterfacePlayerRDK::GetMonitorAVState()
+{
+	return interfacePlayerPriv->gstPrivateContext->monitorAVstate;
+}
+
 /**
  * @brief Callback invoked after first audio buffer decoded
  * @param[in] object pointer to element raising the callback
@@ -5199,13 +5208,4 @@ double InterfacePlayerRDK::FlushTrack(int mediaType, double pos, double audioDel
 	MW_LOG_MIL("Exiting InterfacePlayerRDK::FlushTrack() type[%d] pipeline state: %s startPosition: %lf Delta %lf",(int)type, gst_element_state_get_name(GST_STATE(interfacePlayerPriv->gstPrivateContext->pipeline)), startPosition, (int)type==eGST_MEDIATYPE_AUDIO?audioDelta:subDelta);
 
 	return rate;
-}
-
-const MonitorAVState& InterfacePlayerRDK::GetMonitorAVState() const {
-    static MonitorAVState dummy;
-    if (!interfacePlayerPriv) {
-        // log warning as needed
-        return dummy;
-    }
-    return interfacePlayerPriv->GetMonitorAVState();
 }
