@@ -17,16 +17,16 @@
 
 include(GoogleTest)
 
-set(AAMP_ROOT "../../../../")
+set(PLAYER_ROOT "../../../../")
 set(UTESTS_ROOT "../../")
 set(EXEC_NAME OCDMSessionAdapterTests)
 
-include_directories(${AAMP_ROOT} ${AAMP_ROOT}/drm ${AAMP_ROOT}/drm/helper ${AAMP_ROOT} ${AAMP_ROOT}/middleware/drm/ocdm ${AAMP_ROOT}/drm/ ${AAMP_ROOT}/subtitle ${AAMP_ROOT}/subtitle ${AAMP_ROOT}/downloader ${AAMP_ROOT}/isobmff ${AAMP_ROOT}/subtec/subtecparser ${AAMP_ROOT}/subtec/playerjsonobject ${AAMP_ROOT}/subtec/libsubtec ${AAMP_ROOT}/externals/playersecmanager)
-include_directories(${AAMP_ROOT}/tsb/api)
+include_directories(${PLAYER_ROOT} ${PLAYER_ROOT}/drm ${PLAYER_ROOT}/drm/helper ${PLAYER_ROOT} ${PLAYER_ROOT}/middleware/drm/ocdm ${PLAYER_ROOT}/drm/ ${PLAYER_ROOT}/subtitle ${PLAYER_ROOT}/subtitle ${PLAYER_ROOT}/downloader ${PLAYER_ROOT}/isobmff ${PLAYER_ROOT}/subtec/subtecparser ${PLAYER_ROOT}/subtec/playerjsonobject ${PLAYER_ROOT}/subtec/libsubtec ${PLAYER_ROOT}/externals/playersecmanager)
+include_directories(${PLAYER_ROOT}/tsb/api)
 include_directories("fakes/.")
 
 if(CMAKE_SYSTEM_NAME STREQUAL Linux)
-    include_directories(${AAMP_ROOT}/Linux/include)
+    include_directories(${PLAYER_ROOT}/Linux/include)
 endif(CMAKE_SYSTEM_NAME STREQUAL Linux)
 
 
@@ -36,28 +36,27 @@ include_directories(${GLIB_INCLUDE_DIRS})
 include_directories(${GSTREAMER_INCLUDE_DIRS})
 include_directories(SYSTEM ${UTESTS_ROOT}/mocks)
 include_directories(${UTESTS_ROOT}/ocdm)
-include_directories(${AAMP_ROOT}/drm)
-include_directories(${AAMP_ROOT}/drm/ocdm)
-include_directories(${AAMP_ROOT}/drm/helper)
-include_directories(${AAMP_ROOT}/externals)
-include_directories(${AAMP_ROOT}/playerLogManager)
-include_directories(${AAMP_ROOT}/externals/playersecmanager)
-include_directories(${AAMP_ROOT}/baseConversion)
+include_directories(${PLAYER_ROOT}/drm)
+include_directories(${PLAYER_ROOT}/drm/ocdm)
+include_directories(${PLAYER_ROOT}/drm/helper)
+include_directories(${PLAYER_ROOT}/externals)
+include_directories(${PLAYER_ROOT}/playerLogManager)
+include_directories(${PLAYER_ROOT}/externals/playersecmanager)
+include_directories(${PLAYER_ROOT}/baseConversion)
 
 set(TEST_SOURCES FunctionalTests.cpp
 		 OCDMSessionAdapterTests.cpp)
 
-set(PLAYER_SOURCES ${AAMP_ROOT}/drm/ocdm/opencdmsessionadapter.cpp
-                 ${AAMP_ROOT}/drm/helper/DrmHelper.cpp
-                 ${AAMP_ROOT}/drm/DrmSession.cpp
-                 ${AAMP_ROOT}/drm/DrmUtils.cpp
-		 ${AAMP_ROOT}/externals/PlayerExternalsInterface.cpp
-		 ${AAMP_ROOT}/externals/PlayerExternalUtils.cpp
-		 ${AAMP_ROOT}/playerLogManager/PlayerLogManager.cpp
+set(PLAYER_SOURCES ${PLAYER_ROOT}/drm/ocdm/opencdmsessionadapter.cpp
+                 ${PLAYER_ROOT}/drm/helper/DrmHelper.cpp
+                 ${PLAYER_ROOT}/drm/DrmSession.cpp
+                 ${PLAYER_ROOT}/drm/DrmUtils.cpp
+    		${PLAYER_ROOT}/externals/PlayerExternalsInterface.cpp
+		${PLAYER_ROOT}/externals/PlayerExternalUtils.cpp
 		 ${PLAYER_ROOT}/playerLogManager/PlayerLogManager.cpp
-                 ${PLAYER_ROOT}/ProcessHandler.cpp
-                 ${PLAYER_ROOT}/PlayerUtils.cpp
-                 ${PLAYER_ROOT}/baseConversion/_base64.cpp)
+     ${PLAYER_ROOT}/ProcessHandler.cpp
+     ${PLAYER_ROOT}/PlayerUtils.cpp
+     ${PLAYER_ROOT}/baseConversion/_base64.cpp)
 
 add_definitions(-DUSE_THUNDER_OCDM_API_0_2)
 add_definitions(-DUSE_OPENCDM_ADAPTER)

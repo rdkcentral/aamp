@@ -574,7 +574,7 @@ void PlayerThunderAccess::ReleaseOta()
         MW_LOG_WARN("[OTA_SHIM]OTA Destructor finds Player Status Event not Subscribed !! ");
     }
 
-    MW_LOG_INFO("[OTA_SHIM]StreamAbstractionAAMP_OTA Destructor called !! ");
+    MW_LOG_INFO("[OTA_SHIM]StreamAbstraction_OTA Destructor called !! ");
 }
 
 void PlayerThunderAccess::StartOta(std::string url, std::string waylandDisplay, std::string preferredLanguagesString, std::string atsc_preferredLanguagesString, std::string preferredRenditionString, std::string atsc_preferredRenditionString)

@@ -329,6 +329,8 @@ if (CMAKE_SUBTITLE_SUPPORT)
 endif()
 
 string(STRIP "${LIBPLAYERGSTINTERFACE_DEPENDS}" LIBPLAYERGSTINTERFACE_DEPENDS)
+message("Building middleware support libraries")
+add_subdirectory(gst-plugins)
 
 target_link_libraries(playergstinterface ${LIBPLAYERGSTINTERFACE_DEPENDS})
 

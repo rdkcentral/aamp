@@ -363,24 +363,6 @@ TEST_F(PauseOnPlaybackTests, bus_message_FrameStepPropertyNotAvailable)
 			SetArgPointee<2>(GST_STATE_PAUSED),
 			SetArgPointee<3>(GST_STATE_NULL)));
 
-    // Property not available
-	//EXPECT_CALL(*g_mockGLib, g_object_class_find_property(_,StrEq("frame-step-on-preroll")))
-	//	.WillOnce(Return(nullptr));
-
-    // No simple solution to mock variadic functions, so cannot check calls to g_object_set
-
-   // EXPECT_CALL(*g_mockGStreamer, gst_event_new_step(_,_,_,_,_))
-	//	.Times(0);
-
-    //EXPECT_CALL(*g_mockGStreamer, gst_element_send_event(_,_))
-	//	.Times(0);
-
-    //Note: Need to address once bus_message is migrated to interfacePlayer
-	//EXPECT_CALL(*g_mockPlayerScheduler, ScheduleTask(PlayerAsyncTaskObj((void *)mAAMPGstPlayer)))//ScheduleTask(_))//,mAAMPGstPlayer,_))
-	//	.WillRepeatedly(Return(1));
-
-	//EXPECT_CALL(*g_mockPlayerScheduler, ScheduleTask(PlayerAsyncTaskObj(_,mAAMPGstPlayer,StrEq("FirstFrameCallback"))))
-	//	.WillOnce(Return(1));
 
 	// Call the bus_message function
 	bus_message_func(&bus, &pipeline_message, mInterfaceGstPlayer);
