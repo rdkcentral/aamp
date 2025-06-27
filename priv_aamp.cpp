@@ -2040,7 +2040,8 @@ void PrivateInstanceAAMP::ReportProgress(bool sync, bool beginningOfStream)
 		double start = -1;
 		double end = -1;
 		long long videoPTS = -1;
-		double bufferedDuration = 0.0;
+		double videoBufferedDuration = 0.0;
+		double audioBufferedDuration = 0.0;
 		bool bProcessEvent = true;
 		double latency = 0;
 
@@ -2088,8 +2089,10 @@ void PrivateInstanceAAMP::ReportProgress(bool sync, bool beginningOfStream)
 			std::lock_guard<std::recursive_mutex> guard(mStreamLock);
 			if (mpStreamAbstractionAAMP)
 			{
-				bufferedDuration = mpStreamAbstractionAAMP->GetBufferedVideoDurationSec() * 1000.0;
+				videoBufferedDuration = mpStreamAbstractionAAMP->GetBufferedVideoDurationSec() * 1000.0;
+				audioBufferedDuration = mpStreamAbstractionAAMP->GetBufferedAudioDurationSec() * 1000.0;
 			}
+
 		}
 		if ((mReportProgressPosn == position) && !pipeline_paused && beginningOfStream != true)
 		{
@@ -2142,7 +2145,7 @@ void PrivateInstanceAAMP::ReportProgress(bool sync, bool beginningOfStream)
 			// update available buffer to Manifest refresh cycle .
 			if(mMPDDownloaderInstance != nullptr)
 			{
-				mMPDDownloaderInstance->SetBufferAvailability((int)bufferedDuration);
+				mMPDDownloaderInstance->SetBufferAvailability((int)videoBufferedDuration);
 				mMPDDownloaderInstance->SetCurrentPositionDeltaToManifestEnd(CurrentPositionDeltaToManifestEnd);
 			}
 		}
@@ -2184,7 +2187,7 @@ void PrivateInstanceAAMP::ReportProgress(bool sync, bool beginningOfStream)
 			bps = mpStreamAbstractionAAMP->GetVideoBitrate();
 		}
 
-		ProgressEventPtr evt = std::make_shared<ProgressEvent>(duration, reportFormattedCurrPos, start, end, speed, videoPTS, bufferedDuration, seiTimecode.c_str(), latency, bps, mNetworkBandwidth, currentRate, GetSessionId());
+		ProgressEventPtr evt = std::make_shared<ProgressEvent>(duration, reportFormattedCurrPos, start, end, speed, videoPTS, videoBufferedDuration, audioBufferedDuration, seiTimecode.c_str(), latency, bps, mNetworkBandwidth, currentRate, GetSessionId());
 
 		if (trickStartUTCMS >= 0 && (bProcessEvent || mFirstProgress))
 		{
@@ -2198,7 +2201,7 @@ void PrivateInstanceAAMP::ReportProgress(bool sync, bool beginningOfStream)
 			if(mAampLLDashServiceData.lowLatencyMode && mConfig->GetConfigOwner(eAAMPConfig_InfoLogging) == AAMP_DEFAULT_SETTING)
 			{
 				int abrMinBuffer = AAMP_BUFFER_MONITOR_GREEN_THRESHOLD_LLD;
-				bool bufferBelowMin = bufferedDuration < (abrMinBuffer * 1000);
+				bool bufferBelowMin = videoBufferedDuration < (abrMinBuffer * 1000);
 
 				if (bufferBelowMin && !mIsLoggingNeeded)
 				{
@@ -2219,12 +2222,13 @@ void PrivateInstanceAAMP::ReportProgress(bool sync, bool beginningOfStream)
 				int divisor = GETCONFIGVALUE_PRIV(eAAMPConfig_ProgressLoggingDivisor);
 				if( divisor==0 || (tick++ % divisor) == 0 )
 				{
-					AAMPLOG_MIL("aamp pos: [%ld..%ld..%ld..%lld..%.2f..%.2f..%s..%ld..%ld..%.2f]",
+					AAMPLOG_MIL("aamp pos: [%ld..%ld..%ld..%lld..%.2f..%.2f..%.2f..%s..%ld..%ld..%.2f]",
 						(long)(start / 1000),
 						(long)(reportFormattedCurrPos / 1000),
 						(long)(end / 1000),
 						(long long) videoPTS,
-						(double)(bufferedDuration / 1000.0),
+						(double)(videoBufferedDuration / 1000.0),
+						(double)(audioBufferedDuration /1000.0),
 						(latency / 1000),
 						seiTimecode.c_str(),
 						bps,
@@ -2238,7 +2242,7 @@ void PrivateInstanceAAMP::ReportProgress(bool sync, bool beginningOfStream)
 			if(mTelemetryInterval > 0 && (diff > mTelemetryInterval))
 			{
 				mLastTelemetryTimeMS = currTimeMS;
-				profiler.SetLatencyParam(latency, (double)(bufferedDuration/1000.0), currentRate, mNetworkBandwidth);
+				profiler.SetLatencyParam(latency, (double)(videoBufferedDuration/1000.0), currentRate, mNetworkBandwidth);
 				profiler.GetTelemetryParam();
 			}
 
@@ -13780,15 +13784,16 @@ double PrivateInstanceAAMP::GetStreamPositionMs()
  * @param[in] videoPositionMS - video position in milliseconds
  * @param[in] audioPositionMS - audio position in milliseconds
  * @param[in] timeInStateMS - time in state in milliseconds
+ * @param[in] droppedFrames - dropped frames count
  * @details This function sends a MonitorAVStatusEvent to the event manager.
  * It is used to monitor the audio and video status during playback.
  * It is called when the playback is enabled (mbPlayEnabled is true).
  */
-void PrivateInstanceAAMP::SendMonitorAvEvent(const std::string &status, int64_t videoPositionMS, int64_t audioPositionMS, uint64_t timeInStateMS)
+void PrivateInstanceAAMP::SendMonitorAvEvent(const std::string &status, int64_t videoPositionMS, int64_t audioPositionMS, uint64_t timeInStateMS, uint64_t droppedFrames)
 {
 	if(mbPlayEnabled)
 	{
-		MonitorAVStatusEventPtr evt = std::make_shared<MonitorAVStatusEvent>(status, videoPositionMS, audioPositionMS, timeInStateMS, GetSessionId());
+		MonitorAVStatusEventPtr evt = std::make_shared<MonitorAVStatusEvent>(status, videoPositionMS, audioPositionMS, timeInStateMS, GetSessionId(), droppedFrames);
 		mEventManager->SendEvent(evt, AAMP_EVENT_SYNC_MODE);
 	}
 }
