@@ -25,14 +25,15 @@
  * @brief Implementation of the AampTrackWorker class.
  *
  * This file contains the implementation of the AampTrackWorker class, which is responsible for
- * managing a worker thread that processes jobs submitted to it. The worker thread waits for jobs
- * to be submitted, processes them, and signals their completion.
+ * managing a worker thread that processes tasks submitted to it. Tasks can return values and
+ * propagate exceptions through futures.
  */
 
 #include <thread>
 #include <condition_variable>
 #include <functional>
-#include <vector>
+#include <future>
+#include <queue>
 #include <mutex>
 #include "AampUtils.h"
 #include "AampLogManager.h"
@@ -41,38 +42,64 @@
 
 namespace aamp
 {
-
 	/**
 	 * @class AampTrackWorker
-	 * @brief A class that manages a worker thread for processing jobs.
+	 * @brief A class that manages a worker thread for processing asynchronous tasks.
 	 *
-	 * The AampTrackWorker class creates a worker thread that waits for jobs to be submitted,
-	 * processes them, and signals their completion. The class provides methods to submit jobs,
-	 * wait for job completion, and clean up the worker thread.
+	 * The AampTrackWorker class creates a worker thread that processes tasks submitted to it.
+	 * Tasks are submitted with promises and can return values or throw exceptions which are
+	 * propagated back to the caller via futures. Tasks can be cancelled when the worker is stopped.
 	 */
-
 	class AampTrackWorker
 	{
 	public:
 		AampTrackWorker(PrivateInstanceAAMP *_aamp, AampMediaType _mediaType);
 		~AampTrackWorker();
 
-		void SubmitJob(std::function<void()> job);
-		void WaitForCompletion();
+		/**
+		 * @brief Submit a task to be executed asynchronously
+		 * 
+		 * @tparam F Type of the callable task
+		 * @param task The task to execute
+		 * @return std::future<void> A future that can be used to wait for task completion
+		 * @throws std::runtime_error if the worker is stopped
+		 */
+		template<typename F>
+		std::future<void> Submit(F task)
+		{
+			auto promise = std::make_shared<std::promise<void>>();
+			auto future = promise->get_future();
 
-	protected:
+			{
+				std::lock_guard<std::mutex> lock(mMutex);
+				if (mStop) {
+					promise->set_exception(std::make_exception_ptr(
+						std::runtime_error("Worker is stopped")));
+				} else {
+					mJobQueue.push([promise, task]() {
+						try {
+							task();
+							promise->set_value();
+						} catch (...) {
+							promise->set_exception(std::current_exception());
+						}
+					});
+					mCondVar.notify_one();
+				}
+			}
+			return future;
+		}
+
+	private:
+		void ProcessJob();
+
 		AampMediaType mMediaType;
 		std::thread mWorkerThread;
 		std::mutex mMutex;
 		std::condition_variable mCondVar;
-		std::condition_variable mCompletionVar;
-		std::function<void()> mJob;
+		std::queue<std::function<void()>> mJobQueue;
 		PrivateInstanceAAMP *aamp;
-		bool mJobAvailable;
 		bool mStop;
-
-	private:
-		void ProcessJob();
 	};
 
 } // namespace aamp

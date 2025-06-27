@@ -18,11 +18,9 @@
  */
 
 #include "AampTrackWorker.h"
-#include <iostream>
 
 namespace aamp
 {
-
 	/**
 	 * @brief Constructs an AampTrackWorker object.
 	 *
@@ -30,10 +28,9 @@ namespace aamp
 	 *
 	 * @param[in] _aamp The PrivateInstanceAAMP instance.
 	 * @param[in] _mediaType The media type of the track.
-	 *
 	 */
 	AampTrackWorker::AampTrackWorker(PrivateInstanceAAMP *_aamp, AampMediaType _mediaType)
-		: aamp(_aamp), mMediaType(_mediaType), mJobAvailable(false), mStop(false), mWorkerThread(), mJob(), mMutex(), mCondVar(), mCompletionVar()
+		: aamp(_aamp), mMediaType(_mediaType), mStop(false), mWorkerThread(), mMutex(), mCondVar()
 	{
 		if (_aamp == nullptr)
 		{
@@ -61,111 +58,67 @@ namespace aamp
 	/**
 	 * @brief Destructs the AampTrackWorker object.
 	 *
-	 * Signals the worker thread to stop, waits for it to finish, and cleans up resources.
-	 *
-	 * @return void
+	 * Signals the worker thread to stop and cleans up resources.
+	 * Any pending tasks will be cancelled.
 	 */
 	AampTrackWorker::~AampTrackWorker()
 	{
 		{
 			std::lock_guard<std::mutex> lock(mMutex);
 			mStop = true;
-			mJobAvailable = true; // Wake up thread to exit
+			// Clear queue and reject all pending tasks
+			std::queue<std::function<void()>> empty;
+			mJobQueue.swap(empty);
 		}
 		mCondVar.notify_one();
 		if (mWorkerThread.joinable())
 		{
 			mWorkerThread.join();
 		}
-		mCompletionVar.notify_one();
-	}
-
-	/**
-	 * @brief Submits a job to the worker thread.
-	 *
-	 * The job is a function that will be executed by the worker thread.
-	 *
-	 * @param[in] job The job to be executed by the worker thread.
-	 *
-	 * @return void
-	 */
-	void AampTrackWorker::SubmitJob(std::function<void()> job)
-	{
-		{
-			std::lock_guard<std::mutex> lock(mMutex);
-			this->mJob = job;
-			mJobAvailable = true;
-		}
-		AAMPLOG_DEBUG("Job submitted for media type %s", GetMediaTypeName(mMediaType));
-		mCondVar.notify_one();
-	}
-
-	/**
-	 * @brief Waits for the current job to complete.
-	 *
-	 * Blocks the calling thread until the current job has been processed by the worker thread.
-	 *
-	 * @return void
-	 */
-	void AampTrackWorker::WaitForCompletion()
-	{
-		std::unique_lock<std::mutex> lock(mMutex);
-		mCompletionVar.wait(lock, [this]() { return !mJobAvailable; });
-		AAMPLOG_DEBUG("Job wait completed for media type %s", GetMediaTypeName(mMediaType));
 	}
 
 	/**
 	 * @brief The main function executed by the worker thread.
 	 *
-	 * Waits for jobs to be submitted, processes them, and signals their completion.
-	 * The function runs in a loop until the worker is signaled to stop.
-	 *
-	 * @return void
+	 * Waits for jobs to be submitted and processes them until stopped.
+	 * Tasks are executed in order of submission.
 	 */
 	void AampTrackWorker::ProcessJob()
 	{
 		UsingPlayerId playerId(aamp->mPlayerId);
 		AAMPLOG_INFO("Process Job for media type %s", GetMediaTypeName(mMediaType));
 
-		// Main loop
-		while (true)
+		while (!mStop)
 		{
-			std::function<void()> currentJob;
+			std::function<void()> job;
 			{
 				std::unique_lock<std::mutex> lock(mMutex);
-				mCondVar.wait(lock, [this]() { return mJobAvailable || mStop; });
-				if (mStop)
-				{
+				mCondVar.wait(lock, [this]() { return !mJobQueue.empty() || mStop; });
+
+				if (mStop) {
 					break;
 				}
-				currentJob = mJob;
 
-				// Execute the job
-				if (!mStop && currentJob)
-				{
-					AAMPLOG_DEBUG("Executing Job for media type %s Job: %p", GetMediaTypeName(mMediaType), &currentJob);
-					lock.unlock();
-					try
-					{
-						currentJob();
-					}
-					catch (const std::exception &e)
-					{
-						AAMPLOG_ERR("Exception caught while executing job for media type %s: %s", GetMediaTypeName(mMediaType), e.what());
-					}
-					catch (...)
-					{
-						AAMPLOG_ERR("Unknown exception caught while executing job for media type %s", GetMediaTypeName(mMediaType));
-					}
-					lock.lock();
+				if (!mJobQueue.empty()) {
+					job = std::move(mJobQueue.front());
+					mJobQueue.pop();
 				}
+			}
 
-				AAMPLOG_DEBUG("Job completed for media type %s", GetMediaTypeName(mMediaType));
-				mJobAvailable = false;
-				mCompletionVar.notify_one();
+			if (job) {
+				try {
+					job();
+				}
+				catch (const std::exception& e) {
+					AAMPLOG_ERR("Exception in worker thread: %s", e.what());
+				}
+				catch (...) {
+					AAMPLOG_ERR("Unknown exception in worker thread");
+				}
 			}
 		}
 
-		AAMPLOG_INFO("Exiting Process Job for media type %s", GetMediaTypeName(mMediaType));
+		AAMPLOG_INFO("Worker thread exiting for media type %s", GetMediaTypeName(mMediaType));
 	}
+
 } // namespace aamp
