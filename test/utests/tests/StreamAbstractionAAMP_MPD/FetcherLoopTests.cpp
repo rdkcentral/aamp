@@ -33,6 +33,7 @@
 #include "MockMediaStreamContext.h"
 #include "MockAampMPDDownloader.h"
 #include "MockAampStreamSinkManager.h"
+#include "MockTSBSessionManager.h"
 #include "MockAdManager.h"
 #include "AampTrackWorker.h"
 
@@ -830,6 +831,15 @@ TEST_F(FetcherLoopTests, BasicFetcherLoop)
 	mTestableStreamAbstractionAAMP_MPD->InvokeFetcherLoop();
 	EXPECT_EQ(mTestableStreamAbstractionAAMP_MPD->GetCurrentPeriodIdx(), 1);
 	EXPECT_EQ(mTestableStreamAbstractionAAMP_MPD->GetIteratorPeriodIdx(), 2);
+
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetTSBSessionManager()).WillRepeatedly(Return(nullptr));
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnablePTSReStamp)).WillOnce(Return(false));
+	// GetFirstPTS should return the first PTS value if EnablePTSReStamp is not set */
+	EXPECT_EQ(0.0, mTestableStreamAbstractionAAMP_MPD->GetFirstPTS());
+
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnablePTSReStamp)).WillOnce(Return(true));
+	// GetFirstPTS should return the restamped first PTS value if EnablePTSReStamp is set */
+	EXPECT_EQ(30.0, mTestableStreamAbstractionAAMP_MPD->GetFirstPTS());
 }
 
 /**

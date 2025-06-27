@@ -380,20 +380,43 @@ void AampTsbReader::AbortCheckForWaitIfReaderDone()
 	}
 }
 
-	/**
-	 * @fn IsFirstDownload
-	 * @return True if first download
-	 */
-	bool AampTsbReader::IsFirstDownload()
-	{
-		return (mStartPosition == mUpcomingFragmentPosition);
-	}
+/**
+ * @fn IsFirstDownload
+ * @return True if first download
+ */
+bool AampTsbReader::IsFirstDownload()
+{
+	return (mStartPosition == mUpcomingFragmentPosition);
+}
 
-	/**
-	 * @fn GetPlaybackRate
-	 * @return Playback rate
-	 */
-	float AampTsbReader::GetPlaybackRate()
-	{
-		return mCurrentRate;
-	}
+/**
+ * @fn GetPlaybackRate
+ * @return Playback rate
+ */
+float AampTsbReader::GetPlaybackRate()
+{
+	return mCurrentRate;
+}
+
+/**
+ * @fn GetFirstPTS
+ *
+ * @return double - First PTS
+ */
+double AampTsbReader::GetFirstPTS()
+{
+	return mFirstPTS;
+}
+
+/**
+ * @fn GetFirstPTSOffset
+ *
+ * @return AampTime - First PTS Offset
+ */
+AampTime AampTsbReader::GetFirstPTSOffset()
+{
+	return mFirstPTSOffset;
+}
+
+
+

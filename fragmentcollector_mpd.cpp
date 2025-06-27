@@ -2926,6 +2926,10 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 			{
 				//Updating fragmentTime and fragmentDescriptor.Time with fisrtPTS
 				//CacheFragment is called with both fragmentTime and fragmentDescriptor.Time
+				
+				// Should this be using the values from GetFirstPTS(), 
+				// if local tsb it will return (restamped) PTS of the playback position?
+				// also should it be using a restamped value?
 				pMediaStreamContext->fragmentTime = GetFirstPTS();
 				pMediaStreamContext->fragmentDescriptor.Time = GetFirstPTS();
 
@@ -3487,8 +3491,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::InitTsbReader(TuneType tuneType)
 		if(eAAMPSTATUS_OK == retVal)
 		{
 			seekPosition = position;
-			mFirstPTS = tsbSessionManager->GetTsbReader(eMEDIATYPE_VIDEO)->GetFirstPTS();
-			AAMPLOG_MIL("Updated position: %lfs, pts:%lfs", seekPosition, mFirstPTS);
+			AAMPLOG_MIL("Updated position: %lfs", seekPosition);
 		}
 		else
 		{
@@ -8037,7 +8040,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, 
 					aamp->mFirstFragmentTimeOffset = liveSync? (((double)(pMediaStreamContext->fragmentDescriptor.Number - startNumber)  * fragmentDuration) + mAvailabilityStartTime)  : mFirstPeriodStartTime;
 					AAMPLOG_INFO("mFirstFragmentTimeOffset:%lf mProgressReportOffset:%lf", aamp->mFirstFragmentTimeOffset, aamp->mProgressReportOffset);
 				}
-				AAMPLOG_INFO("StreamAbstractionAAMP_MPD: Track %d timeLineIndex %d fragmentDescriptor.Number %" PRIu64 " mFirstPTS:%lf", i, pMediaStreamContext->timeLineIndex, pMediaStreamContext->fragmentDescriptor.Number, mFirstPTS);
+				AAMPLOG_INFO("StreamAbstractionAAMP_MPD: Track %d timeLineIndex %d fragmentDescriptor.Number %" PRIu64 " mFirstPTS:%lf mPTSOffset:%lf", i, pMediaStreamContext->timeLineIndex, pMediaStreamContext->fragmentDescriptor.Number, mFirstPTS, mPTSOffset.inSeconds());
 			}
 			else
 			{
@@ -10935,6 +10938,10 @@ double StreamAbstractionAAMP_MPD::GetFirstPTS()
 		else if (video->IsLocalTSBInjection())
 		{
 			reader = tsbSessionManager->GetTsbReader(eMEDIATYPE_VIDEO);
+		}
+		else
+		{
+			AAMPLOG_TRACE("Not local TSB injection");
 		}
 	}
 
@@ -13936,7 +13943,15 @@ void StreamAbstractionAAMP_MPD::SeekPosUpdate(double secondsRelativeToTuneTime)
  */
 void StreamAbstractionAAMP_MPD::NotifyFirstVideoPTS(unsigned long long pts, unsigned long timeScale)
 {
-	mFirstPTS = ((double)pts / (double)timeScale);
+	if (!aamp->IsLocalAAMPTsbInjection())
+	{
+		mFirstPTS = ((double)pts / (double)timeScale);
+		if (ISCONFIGSET(eAAMPConfig_EnablePTSReStamp))
+		{
+			mFirstPTS -= mPTSOffset.inSeconds();
+		}
+		AAMPLOG_INFO("Updated mFirstPTS:%f mPTSOffset:%f", mFirstPTS, mPTSOffset.inSeconds());
+	}
 }
 
 /**

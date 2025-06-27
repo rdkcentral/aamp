@@ -131,14 +131,14 @@ public:
 	 *
 	 * @return double - First PTS
 	 */
-	double GetFirstPTS() { return mFirstPTS; }
+	double GetFirstPTS();
 
 	/**
 	 * @fn GetFirstPTSOffset
 	 *
 	 * @return AampTime - First PTS Offset
 	 */
-	AampTime GetFirstPTSOffset() { return mFirstPTSOffset; }
+	AampTime GetFirstPTSOffset();
 
 	/**
 	 * @fn GetMediaType
