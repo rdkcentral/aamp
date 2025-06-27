@@ -49,6 +49,11 @@ double StreamAbstractionAAMP::GetBufferedVideoDurationSec()
 	return 0.0;
 }
 
+double StreamAbstractionAAMP::GetBufferedAudioDurationSec()
+{
+	return 0.0;
+}
+
 void StreamAbstractionAAMP::MuteSubtitles(bool mute)
 {
 	if (g_mockStreamAbstractionAAMP != nullptr)
@@ -371,7 +376,7 @@ void MediaTrack::AbortWaitForCachedFragmentChunk()
 {
 }
 
-double StreamAbstractionAAMP::GetBufferValue(MediaTrack *video)
+double StreamAbstractionAAMP::GetBufferValue(MediaTrack *track)
 {
 	return 0;
 }

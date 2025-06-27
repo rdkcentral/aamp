@@ -67,7 +67,8 @@ static void GenerateLegacyAAMPEvent(const AAMPEventPtr &e, AAMPEvent &event)
 			event.data.progress.startMilliseconds = ev->getStart();
 			event.data.progress.endMilliseconds = ev->getEnd();
 			event.data.progress.videoPTS = ev->getPTS();
-			event.data.progress.videoBufferedMilliseconds = ev->getBufferedDuration();
+			event.data.progress.videoBufferedMilliseconds = ev->getVideoBufferedDuration();
+			event.data.progress.audioBufferedMilliseconds = ev->getAudioBufferedDuration();
 			event.data.progress.timecode = ev->getSEITimeCode();
 			event.data.progress.liveLatency = ev->getLiveLatency();
 			event.data.progress.profileBandwidth = ev->getProfileBandwidth();
@@ -310,6 +311,7 @@ static void GenerateLegacyAAMPEvent(const AAMPEventPtr &e, AAMPEvent &event)
 			event.data.monitorAVStatus.mVideoPositionMS = ev->getVideoPositionMS();
 			event.data.monitorAVStatus.mAudioPositionMS = ev->getAudioPositionMS();
 			event.data.monitorAVStatus.mTimeInStateMS = ev->getTimeInStateMS();
+			event.data.monitorAVStatus.mDroppedFrames = ev->getDroppedFrames();
 		}
 		default:
 			// Some events without payload also falls here, for now
