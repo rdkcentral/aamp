@@ -44,7 +44,7 @@ include_directories(${AAMP_ROOT}/middleware/subtec/libsubtec)
 include_directories(${AAMP_ROOT}/middleware/subtec/subtecparser)
 include_directories(${AAMP_ROOT}/tsb/api)
 include_directories(${AAMP_ROOT}/middleware)
-include_directories(${AAMP_ROOT}/middleware/vendor)
+
 set(TEST_SOURCES    TrackInjectTests.cpp
                     TrackInjectAampTests.cpp)
 set(AAMP_SOURCES ${AAMP_ROOT}/streamabstraction.cpp)
