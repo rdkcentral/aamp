@@ -734,3 +734,32 @@ TEST(_AampUtils, strstr )
 	EXPECT_TRUE( mystrstr(haystack_ptr,&haystack_ptr[9],"is") == &haystack_ptr[4] );
 }
 
+TEST(_AampUtils, hascii_char_to_number )
+{
+	EXPECT_EQ( aamp_hascii_char_to_number('0'),0);
+	EXPECT_EQ( aamp_hascii_char_to_number('1'),1);
+	EXPECT_EQ( aamp_hascii_char_to_number('2'),2);
+	EXPECT_EQ( aamp_hascii_char_to_number('3'),3);
+	EXPECT_EQ( aamp_hascii_char_to_number('4'),4);
+	EXPECT_EQ( aamp_hascii_char_to_number('5'),5);
+	EXPECT_EQ( aamp_hascii_char_to_number('6'),6);
+	EXPECT_EQ( aamp_hascii_char_to_number('7'),7);
+	EXPECT_EQ( aamp_hascii_char_to_number('8'),8);
+	EXPECT_EQ( aamp_hascii_char_to_number('9'),9);
+	EXPECT_EQ( aamp_hascii_char_to_number('a'),10);
+	EXPECT_EQ( aamp_hascii_char_to_number('b'),11);
+	EXPECT_EQ( aamp_hascii_char_to_number('c'),12);
+	EXPECT_EQ( aamp_hascii_char_to_number('d'),13);
+	EXPECT_EQ( aamp_hascii_char_to_number('e'),14);
+	EXPECT_EQ( aamp_hascii_char_to_number('f'),15);
+	EXPECT_EQ( aamp_hascii_char_to_number('A'),10);
+	EXPECT_EQ( aamp_hascii_char_to_number('B'),11);
+	EXPECT_EQ( aamp_hascii_char_to_number('C'),12);
+	EXPECT_EQ( aamp_hascii_char_to_number('D'),13);
+	EXPECT_EQ( aamp_hascii_char_to_number('E'),14);
+	EXPECT_EQ( aamp_hascii_char_to_number('F'),15);
+	EXPECT_EQ( aamp_hascii_char_to_number(' '),-1);
+	EXPECT_EQ( aamp_hascii_char_to_number('x'),-1);
+	EXPECT_EQ( aamp_hascii_char_to_number((char)0x00),-1);
+	EXPECT_EQ( aamp_hascii_char_to_number((char)0xff),-1);
+}
