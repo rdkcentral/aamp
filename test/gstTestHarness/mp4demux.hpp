@@ -31,6 +31,13 @@
 #define PRINTF(...)
 //#define PRINTF printf
 
+#define MultiChar_Constant(Text) \
+	( (static_cast<uint32_t>(Text[0]) << 24) | \
+		(static_cast<uint32_t>(Text[1]) << 16) | \
+		(static_cast<uint32_t>(Text[2]) << 8)  | \
+		(static_cast<uint32_t>(Text[3])) )
+//#Conversion of text in to decimal value
+
 struct Mp4Sample
 {
 	const uint8_t *ptr;
@@ -347,9 +354,9 @@ private:
 		info.stream_format = type;
 		switch( info.stream_format )
 		{
-			case 0x68657631: // 'hev1'
-			case 0x61766331: // 'avc1'
-			case 0x68766331: // 'hvc1'
+			case MultiChar_Constant("hev1"):
+			case MultiChar_Constant("avc1"): 
+			case MultiChar_Constant("hvc1"): 
 				SkipBytes(4); // always zero?
 				info.data_reference_index = ReadU32();
 				SkipBytes(16); // always zero?
@@ -365,8 +372,8 @@ private:
 				assert( pad == 0xffff );
 				break;
 				
-			case 0x6D703461: // 'mp4a'
-			case 0x65632D33: // 'ec-3'
+			case MultiChar_Constant("mp4a"):
+			case MultiChar_Constant("ec-3"):
 				SkipBytes(4); // zero
 				info.data_reference_index = ReadU32();
 				SkipBytes(8); // zero
@@ -485,22 +492,22 @@ private:
 				   (type>>24)&0xff, (type>>16)&0xff, (type>>8)&0xff, type&0xff );
 			switch( type )
 			{
-				case 0x68657631: // 'hev1'
-				case 0x68766331: // 'hvc1'
-				case 0x61766331: // 'avc1'
-				case 0x6D703461: // 'mp4a'
-				case 0x65632D33: // 'ec-3'
+				case MultiChar_Constant("hev1"):
+				case MultiChar_Constant("hvc1"):
+				case MultiChar_Constant("avc1"):
+				case MultiChar_Constant("mp4a"):
+				case MultiChar_Constant("ec-3"):
 					parseStreamFormat( type, next, indent );
 					break;
 					
-				case 0x68766343: // 'hvcC'
-				case 0x64656333: // 'dec3'
-				case 0x61766343: // 'avcC'
-				case 0x65736473: // 'esds' Elementary Stream Descriptot Box
+				case MultiChar_Constant("hvcC"): 
+				case MultiChar_Constant("dec3"): 
+				case MultiChar_Constant("avcC"): 
+				case MultiChar_Constant("esds"): // Elementary Stream Descriptot Box
 					parseCodecConfiguration( type, next );
 					break;
 					
-				case 0x66747970: // 'ftyp' FileType Box
+				case MultiChar_Constant("ftyp"): // FileType Box
 					/*
 					 major_brand // 4 chars
 					 minor_version // 4 bytes
@@ -508,97 +515,97 @@ private:
 					 */
 					break;
 					
-				case 0x6D666864: // 'mfhd':
+				case MultiChar_Constant("mfhd"):
 					parseMovieFragmentHeaderBox();
 					break;
 					
-				case 0x74666864: // 'tfhd'
+				case MultiChar_Constant("tfhd"):
 					parseTrackFragmentHeaderBox();
 					break;
 					
-				case 0x7472756E: // 'trun'
+				case MultiChar_Constant("trun"):
 					parseTrackFragmentRunBox();
 					break;
 					
-				case 0x74666474: // 'tfdt'
+				case MultiChar_Constant("tfdt"):
 					parseTrackFragmentBaseMediaDecodeTimeBox();
 					break;
 					
-				case 0x6D766864: // 'mvhd'
+				case MultiChar_Constant("mvhd"):
 					parseMovieHeaderBox();
 					break;
 					
-				case 0x6D656864: // 'mehd'
+				case MultiChar_Constant("mehd"):
 					parseMovieExtendsHeader();
 					break;
 					
-				case 0x74726578: // 'trex'
+				case MultiChar_Constant("trex"):
 					parseTrackExtendsBox();
 					break;
 					
-				case 0x746B6864: // 'tkhd'
+				case MultiChar_Constant("tkhd"):
 					parseTrackHeader();
 					break;
 					
-				case 0x6D646864: // 'mdhd'
+				case MultiChar_Constant("mdhd"):
 					parseMediaHeaderBox();
 					break;
 					
-				case 0x68646C72: // 'hdlr' Handler Reference Box
+				case MultiChar_Constant("hdlr"): // Handler Reference Box
 					/*
 					 handler	vide
 					 name	Bento4 Video Handler
 					 */
 					break;
 					
-				case 0x766D6864: // 'vmhd' Video Media Header
+				case MultiChar_Constant("vmhd"): //Video Media Header
 					/*
 					 graphicsmode	0
 					 opcolor	0,0,0
 					 */
 					break;
 					
-				case 0x736D6864: // 'smhd' Sound Media Header
+				case MultiChar_Constant("smhd"): // Sound Media Header
 					/*
 					 balance	0
 					 */
 					break;
 					
-				case 0x64726566: // 'dref' Data Reference Box
+				case MultiChar_Constant("dref"): // Data Reference Box
 					/*
 					 url
 					 */
 					break;
 					
-				case 0x73747364: // 'stsd' Sample Description Box
+				case MultiChar_Constant("stsd"): // Sample Description Box
 					parseSampleDescriptionBox(next,indent);
 					break;
 					
-				case 0x73747473: // 'stts' DecodingTimeToSample
+				case MultiChar_Constant("stts"): //  DecodingTimeToSample
 					break;
-				case 0x73747363: // 'stsc' SampleToChunkBox
+				case MultiChar_Constant("stsc"): //  SampleToChunkBox
 					break;
-				case 0x7374737A: // 'stsz' SampleSizeBoxes
+				case MultiChar_Constant("stsz"): //  SampleSizeBoxes
 					break;
-				case 0x7374636F: // 'stco' ChunkOffsets
+				case MultiChar_Constant("stco"): //  ChunkOffsets
 					break;
-				case 0x73747373: // 'stss' Sync Sample
+				case MultiChar_Constant("stss"): //  Sync Sample
 					break;
-				case 0x70726674: // 'prft' ProducerReferenceTime
+				case MultiChar_Constant("prft"): //  ProducerReferenceTime
 					break;
-				case 0x65647473: // 'edts' Edit Box
+				case MultiChar_Constant("edts"): //  Edit Box
 					break;
-				case 0x6669656C: // 'fiel'
+				case MultiChar_Constant("fiel"): //  Field Information box
 					break;
-				case 0x636F6C72: // 'colr' Color Pattern Atom
+				case MultiChar_Constant("colr"): //  Color Pattern Atom
 					break;
-				case 0x70617370: // 'pasp': // Pixel Aspect Ratio
+				case MultiChar_Constant("pasp"): //  Pixel Aspect Ratio
 					/*
 					00 00 04 f0 // hSpacing
 					00 00 04 ef // vSpacing
 					*/
 					break;
-				case 0x62747274: // 'btrt' Buffer Time to Render Time
+				case MultiChar_Constant("btrt"): // Buffer Time to Render Time
 					/*
 					00 02 49 f0 // bufferSizeDB
 					00 16 db 90 // maxBitrate
@@ -606,25 +613,25 @@ private:
 					*/
 					break;
 					
-				case 0x73747970: // 'styp' Segment Type Box
-				case 0x73696478: // 'sidx' Segment Index Box
-				case 0x75647461: // 'udta': // User Data Box
-				case 0x6D646174: // 'mdat': // Movie Data Box
+				case MultiChar_Constant("styp"): //  Segment Type Box
+				case MultiChar_Constant("sidx"): //  Segment Index Box
+				case MultiChar_Constant("udta"): //  User Data Box
+				case MultiChar_Constant("mdat"): //  Movie Data Box
 					break;
 
-				case 0x6D6F6F66: // 'moof': // Movie Fragment Box
+				case MultiChar_Constant("moof"):  // Movie Fragment Box
 					moof_ptr = ptr-8;
 					DemuxHelper(next, indent+1 ); // walk children
 					break;
 					
-				case 0x74726166: // 'traf' Track Fragment Boxes
-				case 0x6D6F6F76: // 'moov' Movie Boxes
-				case 0x7472616B: // 'trak' Track Box
-				case 0x6D696E66: // 'minf' Media Information Container
-				case 0x64696E66: // 'dinf' Data Information Box
-				case 0x6D766578: // 'mvex' Movie Extends Box
-				case 0x6D646961: // 'mdia' Media Box
-				case 0x7374626C: // 'stbl' Sample Table Box
+				case MultiChar_Constant("traf"): //  Track Fragment Boxes
+				case MultiChar_Constant("moov"): //  Movie Boxes
+				case MultiChar_Constant("trak"): //  Track Box
+				case MultiChar_Constant("minf"): //  Media Information Container
+				case MultiChar_Constant("dinf"): //  Data Information Box
+				case MultiChar_Constant("mvex"): //  Movie Extends Box
+				case MultiChar_Constant("mdia"): //  Media Box
+				case MultiChar_Constant("stbl"): //  Sample Table Box
 					DemuxHelper(next, indent+1 ); // walk children
 					break;
 										
@@ -696,7 +703,7 @@ public:
 		gst_buffer_fill(buf, 0, info.codec_data, info.codec_data_len);
 		switch( info.codec_type )
 		{
-			case 0x68766343: // 'hvcC'
+			case MultiChar_Constant("hvcC"): 
 				caps = gst_caps_new_simple(
 										   "video/x-h265",
 										   "stream-format", G_TYPE_STRING, "hvc1",
@@ -708,7 +715,7 @@ public:
 										   NULL );
 				break;
 				
-			case 0x61766343: // 'avcC'
+			case MultiChar_Constant("avcC"): 
 				caps = gst_caps_new_simple(
 										   "video/x-h264",
 										   "stream-format", G_TYPE_STRING, "avc",
@@ -720,7 +727,7 @@ public:
 										   NULL );
 				break;
 				
-			case 0x65736473: // 'esds'
+			case MultiChar_Constant("esds"): 
 				caps = gst_caps_new_simple(
 										   "audio/mpeg",
 										   "mpegversion",G_TYPE_INT,4,
@@ -730,7 +737,7 @@ public:
 										   NULL );
 				break;
 				
-			case 0x64656333: // 'dec3'
+			case MultiChar_Constant("dec3"):
 				caps = gst_caps_new_simple(
 										   "audio/x-eac3",
 										   "framed", G_TYPE_BOOLEAN, TRUE,
