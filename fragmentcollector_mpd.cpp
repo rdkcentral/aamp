@@ -8472,6 +8472,15 @@ void StreamAbstractionAAMP_MPD::UpdateCulledAndDurationFromPeriodInfo(std::vecto
 			}
 			aamp->mAbsoluteEndPosition += aamp->culledSeconds;
 		}
+		if(mLowLatencyMode)
+		{
+			// Logging the stream issue if the latency adjusted end position is less than publish time.
+			double latencyAdjustedEndPosition = aamp->mAbsoluteEndPosition + GETCONFIGVALUE(eAAMPConfig_LLTargetLatency);
+			if(latencyAdjustedEndPosition < mMPDParseHelper->GetPublishTime())
+			{
+				AAMPLOG_ERR("latencyAdjustedEnd %lf < publishTime %lf, Bug in the stream!!", aamp->mAbsoluteEndPosition, mMPDParseHelper->GetPublishTime());
+			}
+		}
 
 		mPrevFirstPeriodStart = firstPeriodStart;
 		AAMPLOG_INFO("Culled seconds: %f, Updated culledSeconds: %lf AbsoluteEndPosition: %lf PrevFirstPeriodStart: %lf", culled, mCulledSeconds, aamp->mAbsoluteEndPosition, mPrevFirstPeriodStart);
