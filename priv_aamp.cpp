@@ -581,10 +581,10 @@ size_t PrivateInstanceAAMP::HandleSSLWriteCallback ( char *ptr, size_t size, siz
 	if(!context) return ret;
 	if( ISCONFIGSET_PRIV(eAAMPConfig_CurlThroughput) )
 	{
-		AAMPLOG_MIL( "curl-write type=%d size=%zu%s",
-			   context->mediaType,
-			   size*nmemb,
-			   (context->chunkedDownload?" chunked=1":"") );
+		AAMPLOG_MIL( "curl-write type=%d size=%zu total=%zu",
+					context->mediaType,
+					size*nmemb,
+					context->contentLength );
 	}
 	// There is scope for rework here, mDownloadsEnabled can be queried with a lock, rather than acquiring lock here
 	std::unique_lock<std::recursive_mutex> lock(context->aamp->mLock);
@@ -7644,7 +7644,7 @@ void PrivateInstanceAAMP::Stop( bool sendStateChangeEvent )
 	EnableDownloads();
 
 	AampStreamSinkManager::GetInstance().DeactivatePlayer(this, true);
-	SetState( eSTATE_RELEASED, sendStateChangeEvent );
+	SetState( eSTATE_IDLE, sendStateChangeEvent );
 
 	// Revert all custom specific setting, tune specific setting and stream specific setting , back to App/default setting
 	mConfig->RestoreConfiguration(AAMP_CUSTOM_DEV_CFG_SETTING);
