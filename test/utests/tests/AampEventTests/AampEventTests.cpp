@@ -158,7 +158,8 @@ protected:
             2000.0,   // end
             1.0,      // speed
             1234567,  // pts
-            800.0,    // buffered duration
+            800.0,    // video buffered duration
+            800.0,    // audio buffered duration
             "00:00:00:00",  // sei timecode
             5.0,      // live latency
             500,   // profile bandwidth
@@ -183,7 +184,8 @@ TEST_F(ProgressEventTest, GetFunctionsTest) {
     EXPECT_DOUBLE_EQ(progressEvent->getEnd(), 2000.0);
     EXPECT_FLOAT_EQ(progressEvent->getSpeed(), 1.0);
     EXPECT_EQ(progressEvent->getPTS(), 1234567);
-    EXPECT_DOUBLE_EQ(progressEvent->getBufferedDuration(), 800.0);
+    EXPECT_DOUBLE_EQ(progressEvent->getVideoBufferedDuration(), 800.0);
+    EXPECT_DOUBLE_EQ(progressEvent->getAudioBufferedDuration(), 800.0);
     EXPECT_STREQ(progressEvent->getSEITimeCode(), "00:00:00:00");
     EXPECT_DOUBLE_EQ(progressEvent->getLiveLatency(), 5.0);
     EXPECT_EQ(progressEvent->getProfileBandwidth(), 500);
@@ -1092,7 +1094,8 @@ protected:
 		videoPositionMS = 3717;
 		audioPositionMS = 3717;
 		timeInStateMS = 1748499898430;
-		monitorEvent = new MonitorAVStatusEvent(status,videoPositionMS,audioPositionMS,timeInStateMS,session_id);
+		droppedFrames = 0;
+		monitorEvent = new MonitorAVStatusEvent(status,videoPositionMS,audioPositionMS,timeInStateMS,session_id,droppedFrames);
 	}
 
 	void TearDown() override {
@@ -1104,6 +1107,7 @@ protected:
 	int64_t videoPositionMS;
 	int64_t audioPositionMS;
 	uint64_t timeInStateMS;
+	uint64_t droppedFrames;
 };
 
 TEST_F(MonitorAVStatusEventTest, ConstructorTest){
@@ -1111,4 +1115,5 @@ TEST_F(MonitorAVStatusEventTest, ConstructorTest){
 	EXPECT_EQ(monitorEvent->getVideoPositionMS(), videoPositionMS);
 	EXPECT_EQ(monitorEvent->getAudioPositionMS(), audioPositionMS);
 	EXPECT_EQ(monitorEvent->getTimeInStateMS(), timeInStateMS);
+	EXPECT_EQ(monitorEvent->getDroppedFrames(), droppedFrames);
 }
