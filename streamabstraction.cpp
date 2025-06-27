@@ -2440,22 +2440,22 @@ void StreamAbstractionAAMP::ConfigureTimeoutOnBuffer()
 /**
  *  @brief Update rampdown profile on network failure
  */
-double StreamAbstractionAAMP::GetBufferValue(MediaTrack *video)
+double StreamAbstractionAAMP::GetBufferValue(MediaTrack *track)
 {
 	double bufferValue = 0.0;
-	if (video)
+	if (track)
 	{
-		bufferValue = video->GetBufferedDuration();
-		if (aamp->IsLocalAAMPTsb() && video->IsLocalTSBInjection()) /**< Update buffer value based on manifest endDelta if it is LOCAL TSB LLD playback*/
+		bufferValue = track->GetBufferedDuration();
+		if (aamp->IsLocalAAMPTsb() && track->IsLocalTSBInjection()) /**< Update buffer value based on manifest endDelta if it is LOCAL TSB LLD playback*/
 		{
 			AampTSBSessionManager *tsbSessionManager = aamp->GetTSBSessionManager();
 			if(tsbSessionManager)
 			{
 				double manifestEndDelta = tsbSessionManager->GetManifestEndDelta();
 				bufferValue = (manifestEndDelta + aamp->mLiveOffset); /**< Buffer should be calculated from live offset*/
-				bufferValue += video->fragmentDurationSeconds; /**< Adjust with last fragment; One fragment may be downloading and not yet completed*/
+				bufferValue += track->fragmentDurationSeconds; /**< Adjust with last fragment; One fragment may be downloading and not yet completed*/
 				AAMPLOG_INFO("Inverse Buffer (%.02lf)sec based on TSB end point delta (%.02lf)sec and live offset (%.02lf)sec and fragmentDuration for adjust (%.02lf)sec !!",
-							 bufferValue, manifestEndDelta, aamp->mLiveOffset, video->fragmentDurationSeconds);
+							 bufferValue, manifestEndDelta, aamp->mLiveOffset, track->fragmentDurationSeconds);
 				if(bufferValue < 0) /** Correct the inverse buffer; it may become -ve*/
 				{
 					bufferValue = 0;
@@ -3651,6 +3651,25 @@ double StreamAbstractionAAMP::GetBufferedVideoDurationSec()
 	if(video)
 	{
 		bufferValue = GetBufferValue(video);
+	}
+	return bufferValue;
+}
+
+/**
+ *  @brief Get buffered audio duration in seconds
+ */
+double StreamAbstractionAAMP::GetBufferedAudioDurationSec()
+{
+	double bufferValue = -1.0;
+	// do not support trickplay track
+	if(AAMP_NORMAL_PLAY_RATE != aamp->rate)
+	{
+		return bufferValue;
+	}
+	MediaTrack *audio = GetMediaTrack(eTRACK_AUDIO);
+	if(audio)
+	{
+		bufferValue = GetBufferValue(audio);
 	}
 	return bufferValue;
 }

@@ -246,6 +246,7 @@ struct AAMPEvent
 			double endMilliseconds;      		/**< time shift buffer end position (relative to tune time - starts at zero) */
 			long long videoPTS; 			/**< Video Presentation 90 Khz time-stamp  */
 			double videoBufferedMilliseconds;	/**< current duration of buffered video ready to playback */
+			double audioBufferedMilliseconds;	/**< current duration of buffered audio ready to playback */
 			const char* timecode;			/**< SEI Timecode information */
 			double liveLatency;			/**< Live latency */
 			long profileBandwidth;      /**< Profile Bandwidth */
@@ -509,6 +510,7 @@ struct AAMPEvent
 			int64_t mVideoPositionMS;	/**< Video position in milliseconds */
 			int64_t mAudioPositionMS;	/**< Audio position in milliseconds */
 			uint64_t mTimeInStateMS;	/**< Time in the current state in milliseconds */
+			uint64_t mDroppedFrames;   /**< Dropped Frames Count */
 		} monitorAVStatus;
 	} data;
 
@@ -707,7 +709,8 @@ class ProgressEvent: public AAMPEventObject
 	double mEnd;			/**< time shift buffer end position (relative to tune time - starts at zero) in MS */
 	float mSpeed;			/**< current trick speed (1.0 for normal play rate) */
 	long long mPTS;			/**< Video Presentation 90 Khz time-stamp  */
-	double mBufferedDuration;	/**< current duration of buffered video ready to playback */
+	double mVideoBufferedDurationMs; /**< current duration of buffered video ready to playback */
+	double mAudioBufferedDurationMs; /**< current duration of buffered audio ready to playback */
 	std::string mSEITimecode;   	/**< SEI Timecode information */
 	double mLiveLatency;		/**< Live latency */
 	long mProfileBandwidth;     /**<Profile Bandwidth */
@@ -728,7 +731,8 @@ public:
 	 * @param[in]  end      - End Position
 	 * @param[in]  speed    - Current Speed
 	 * @param[in]  pts      - Video PTS
-	 * @param[in]  bufferedDuration - buffered duration
+	 * @param[in]  videobufferedDuration - video buffered duration in milliseconds
+	 * @param[in]  audiobufferedDuration - audio buffered duration in milliseconds
 	 * @param[in]  seiTimecode      - Time code
 	 * @param[in]  liveLatency      - Live latency
 	 * @param[in]  profileBandwidth - profile Bandwidth
@@ -736,7 +740,7 @@ public:
 	 * @param[in]  currentPlayRate - currentPlayRate
 
 	 */
-	ProgressEvent(double duration, double position, double start, double end, float speed, long long pts, double bufferedDuration, std::string seiTimecode, double liveLatency, long profileBandwidth, long networkBandwidth, double currentPlayRate, std::string sid);
+	ProgressEvent(double duration, double position, double start, double end, float speed, long long pts, double videoBufferedDuration, double AudioBufferedDuration, std::string seiTimecode, double liveLatency, long profileBandwidth, long networkBandwidth, double currentPlayRate, std::string sid);
 
 	/**
 	 * @brief ProgressEvent Destructor
@@ -777,12 +781,17 @@ public:
 	long long getPTS() const;
 
 	/**
-	 * @fn getBufferedDuration
+	 * @fn getVideoBufferedDuration in milliseconds
 	 */
-	double getBufferedDuration() const;
+	double getVideoBufferedDuration() const;
 
 	/**
-	 * @fn getSEITimeCode
+	 * @fn getAudioBufferedDuration in milliseconds
+	 */
+	double getAudioBufferedDuration() const;
+
+	/**
+	 * @fn getSEITimeCode in Milli Seconds
 	 */
 	const char* getSEITimeCode() const;
 
@@ -2399,6 +2408,7 @@ class MonitorAVStatusEvent: public AAMPEventObject
 	int64_t mVideoPositionMS;	/**< Video position in milliseconds */
 	int64_t mAudioPositionMS;	/**< Audio position in milliseconds */
 	uint64_t mTimeInStateMS;	/**< Time in the current state in milliseconds */
+	uint64_t mDroppedFrames;   /**< Dropped Frames Count */
 
 public:
 	MonitorAVStatusEvent() = delete;
@@ -2414,7 +2424,7 @@ public:
 	 * @param[in] timeInStateMS - Time in the current state in milliseconds
 	 * @param[in] sid - Session Identifier
 	 */
-	MonitorAVStatusEvent(const std::string &status, int64_t videoPositionMS, int64_t audioPositionMS, uint64_t timeInStateMS, std::string sid);
+	MonitorAVStatusEvent(const std::string &status, int64_t videoPositionMS, int64_t audioPositionMS, uint64_t timeInStateMS, std::string sid, uint64_t droppedFrames);
 
 	/**
 	 * @brief MonitorAVStatusEvent Destructor
@@ -2440,6 +2450,11 @@ public:
 	 * @fn getTimeInStateMS
 	 */
 	uint64_t getTimeInStateMS() const;
+
+	/**
+	 * @fn getDroppedFrames
+	 */
+	uint64_t getDroppedFrames() const;
 };
 
 

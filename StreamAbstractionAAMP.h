@@ -1764,6 +1764,13 @@ public:
 	double GetBufferedVideoDurationSec();
 
 	/**
+	 *   @fn GetBufferedAudioDurationSec
+	 *
+	 *   @return duration of currently buffered audio in seconds
+	 */
+	double GetBufferedAudioDurationSec();
+
+	/**
 	 *   @fn UpdateStreamInfoBitrateData
 	 *
 	 *   @param[in]  profileIndex - profile index of current fetched fragment
@@ -2067,7 +2074,7 @@ protected:
 	 *
 	 *   @return buffer value based on Local TSB
 	 */
-	double GetBufferValue(MediaTrack *video);
+	double GetBufferValue(MediaTrack *track);
 
 	/**
 	 *   @fn GetDesiredProfileBasedOnCache

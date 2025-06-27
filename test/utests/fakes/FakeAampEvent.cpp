@@ -257,7 +257,7 @@ bool BufferingChangedEvent::buffering() const
 	return false;
 }
 
-ProgressEvent::ProgressEvent(double duration, double position, double start, double end, float speed, long long pts, double bufferedDuration, std::string seiTimecode,double liveLatency, long profileBandwidth, long networkBandwidth, double currentPlayRate, std::string sid):
+ProgressEvent::ProgressEvent(double duration, double position, double start, double end, float speed, long long pts, double videoBufferedDuration, double audioBufferedDuration, std::string seiTimecode,double liveLatency, long profileBandwidth, long networkBandwidth, double currentPlayRate, std::string sid):
 		AAMPEventObject(AAMP_EVENT_PROGRESS, std::move(sid))
 {
 }
@@ -267,7 +267,8 @@ double ProgressEvent::getPosition(void) const{ return 0.0; }
 double ProgressEvent::getLiveLatency(void) const{ return 0.0; }
 const char* ProgressEvent::getSEITimeCode(void) const{ return NULL; }
 double ProgressEvent::getCurrentPlayRate(void) const{ return 0.0; }
-double ProgressEvent::getBufferedDuration(void) const{ return 0.0; }
+double ProgressEvent::getVideoBufferedDuration(void) const{ return 0.0; }
+double ProgressEvent::getAudioBufferedDuration(void) const{ return 0.0; }
 long ProgressEvent::getNetworkBandwidth(void) const{ return 0; }
 long ProgressEvent::getProfileBandwidth(void) const{ return 0; }
 double ProgressEvent::getEnd(void) const{ return 0.0; }
@@ -544,9 +545,9 @@ const std::string &MetricsDataEvent::getMetricsData() const { return mMetricsDat
 
 /**
  * @fn MonitorAVStatusEvent Constructor                                                                                               */
-MonitorAVStatusEvent::MonitorAVStatusEvent(const std::string &status, int64_t videoPositionMS, int64_t audioPositionMS, uint64_t timeInStateMS, std::string sid):
+MonitorAVStatusEvent::MonitorAVStatusEvent(const std::string &status, int64_t videoPositionMS, int64_t audioPositionMS, uint64_t timeInStateMS, std::string sid, uint64_t droppedFrames):
 		AAMPEventObject(AAMP_EVENT_MONITORAV_STATUS, std::move(sid)), mMonitorAVStatus(status), mVideoPositionMS(videoPositionMS),
-		mAudioPositionMS(audioPositionMS), mTimeInStateMS(timeInStateMS)
+		mAudioPositionMS(audioPositionMS), mTimeInStateMS(timeInStateMS), mDroppedFrames(droppedFrames)
 {
 }
 
@@ -588,4 +589,14 @@ int64_t MonitorAVStatusEvent::getAudioPositionMS() const
 uint64_t MonitorAVStatusEvent::getTimeInStateMS() const
 {
 	return mTimeInStateMS;
+}
+
+/**
+ * @brief getDroppedFrames
+ *
+ * @return Dropped Frames Count
+ */
+uint64_t MonitorAVStatusEvent::getDroppedFrames() const
+{
+	return mDroppedFrames;
 }
