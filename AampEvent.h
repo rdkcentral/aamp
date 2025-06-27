@@ -246,6 +246,7 @@ struct AAMPEvent
 			double endMilliseconds;      		/**< time shift buffer end position (relative to tune time - starts at zero) */
 			long long videoPTS; 			/**< Video Presentation 90 Khz time-stamp  */
 			double videoBufferedMilliseconds;	/**< current duration of buffered video ready to playback */
+			double audioBufferedMilliseconds;	/**< current duration of buffered audio ready to playback */
 			const char* timecode;			/**< SEI Timecode information */
 			double liveLatency;			/**< Live latency */
 			long profileBandwidth;      /**< Profile Bandwidth */
@@ -707,7 +708,8 @@ class ProgressEvent: public AAMPEventObject
 	double mEnd;			/**< time shift buffer end position (relative to tune time - starts at zero) in MS */
 	float mSpeed;			/**< current trick speed (1.0 for normal play rate) */
 	long long mPTS;			/**< Video Presentation 90 Khz time-stamp  */
-	double mBufferedDuration;	/**< current duration of buffered video ready to playback */
+	double mVideoBufferedDuration; /**< current duration of buffered video ready to playback */
+	double mAudioBufferedDuration; /**< current duration of buffered audio ready to playback */
 	std::string mSEITimecode;   	/**< SEI Timecode information */
 	double mLiveLatency;		/**< Live latency */
 	long mProfileBandwidth;     /**<Profile Bandwidth */
@@ -728,7 +730,8 @@ public:
 	 * @param[in]  end      - End Position
 	 * @param[in]  speed    - Current Speed
 	 * @param[in]  pts      - Video PTS
-	 * @param[in]  bufferedDuration - buffered duration
+	 * @param[in]  videobufferedDuration - video buffered duration
+	 * @param[in]  audiobufferedDuration - audio buffered duration
 	 * @param[in]  seiTimecode      - Time code
 	 * @param[in]  liveLatency      - Live latency
 	 * @param[in]  profileBandwidth - profile Bandwidth
@@ -736,7 +739,7 @@ public:
 	 * @param[in]  currentPlayRate - currentPlayRate
 
 	 */
-	ProgressEvent(double duration, double position, double start, double end, float speed, long long pts, double bufferedDuration, std::string seiTimecode, double liveLatency, long profileBandwidth, long networkBandwidth, double currentPlayRate, std::string sid);
+	ProgressEvent(double duration, double position, double start, double end, float speed, long long pts, double videoBufferedDuration, double AudioBufferedDuration, std::string seiTimecode, double liveLatency, long profileBandwidth, long networkBandwidth, double currentPlayRate, std::string sid);
 
 	/**
 	 * @brief ProgressEvent Destructor
@@ -777,9 +780,14 @@ public:
 	long long getPTS() const;
 
 	/**
-	 * @fn getBufferedDuration
+	 * @fn getVideoBufferedDuration
 	 */
-	double getBufferedDuration() const;
+	double getVideoBufferedDuration() const;
+
+	/**
+	 * @fn getAudioBufferedDuration
+	 */
+	double getAudioBufferedDuration() const;
 
 	/**
 	 * @fn getSEITimeCode

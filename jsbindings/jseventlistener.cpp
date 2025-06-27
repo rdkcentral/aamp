@@ -120,7 +120,11 @@ public:
 		JSStringRelease(prop);
 
 		prop = JSStringCreateWithUTF8CString("videoBufferedMiliseconds");
-		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, JSValueMakeNumber(p_obj->_ctx, evt->getBufferedDuration()), kJSPropertyAttributeReadOnly, NULL);
+		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, JSValueMakeNumber(p_obj->_ctx, evt->getVideoBufferedDuration()), kJSPropertyAttributeReadOnly, NULL);
+		JSStringRelease(prop);
+
+		prop = JSStringCreateWithUTF8CString("audioBufferedMiliseconds");
+		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, JSValueMakeNumber(p_obj->_ctx, evt->getAudioBufferedDuration()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
 
 		prop = JSStringCreateWithUTF8CString("timecode");

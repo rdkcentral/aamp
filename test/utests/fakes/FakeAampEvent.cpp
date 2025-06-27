@@ -267,7 +267,8 @@ double ProgressEvent::getPosition(void) const{ return 0.0; }
 double ProgressEvent::getLiveLatency(void) const{ return 0.0; }
 const char* ProgressEvent::getSEITimeCode(void) const{ return NULL; }
 double ProgressEvent::getCurrentPlayRate(void) const{ return 0.0; }
-double ProgressEvent::getBufferedDuration(void) const{ return 0.0; }
+double ProgressEvent::getVideoBufferedDuration(void) const{ return 0.0; }
+double ProgressEvent::getAudioBufferedDuration(void) const{ return 0.0; }
 long ProgressEvent::getNetworkBandwidth(void) const{ return 0; }
 long ProgressEvent::getProfileBandwidth(void) const{ return 0; }
 double ProgressEvent::getEnd(void) const{ return 0.0; }

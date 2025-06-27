@@ -764,7 +764,11 @@ public:
 		JSStringRelease(name);
 
 		name = JSStringCreateWithUTF8CString("videoBufferedMiliseconds"); // FIXME
-		JSObjectSetProperty(context, eventObj, name, JSValueMakeNumber(context, evt->getBufferedDuration()), kJSPropertyAttributeReadOnly, NULL);
+		JSObjectSetProperty(context, eventObj, name, JSValueMakeNumber(context, evt->getVideoBufferedDuration()), kJSPropertyAttributeReadOnly, NULL);
+		JSStringRelease(name);
+
+		name = JSStringCreateWithUTF8CString("audioBufferedMiliseconds"); // FIXME
+		JSObjectSetProperty(context, eventObj, name, JSValueMakeNumber(context, evt->getAudioBufferedDuration()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(name);
 
 		name = JSStringCreateWithUTF8CString("timecode");

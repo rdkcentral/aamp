@@ -606,6 +606,7 @@ void MediaStreamContext::ABRProfileChanged(void)
  */
 double MediaStreamContext::GetBufferedDuration()
 {
+	AAMPLOG_INFO("GET BUFFER MEDIASTREAMCONTE");
 	double bufferedDuration=0;
 	double position = aamp->GetPositionMs() / 1000.00;
 	AAMPLOG_INFO("[%s] lastDownloadedPosition %lfs position %lfs prevFirstPeriodStartTime %llds",

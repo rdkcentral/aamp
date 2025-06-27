@@ -183,7 +183,7 @@ TEST_F(ProgressEventTest, GetFunctionsTest) {
     EXPECT_DOUBLE_EQ(progressEvent->getEnd(), 2000.0);
     EXPECT_FLOAT_EQ(progressEvent->getSpeed(), 1.0);
     EXPECT_EQ(progressEvent->getPTS(), 1234567);
-    EXPECT_DOUBLE_EQ(progressEvent->getBufferedDuration(), 800.0);
+    EXPECT_DOUBLE_EQ(progressEvent->getVideoBufferedDuration(), 800.0);
     EXPECT_STREQ(progressEvent->getSEITimeCode(), "00:00:00:00");
     EXPECT_DOUBLE_EQ(progressEvent->getLiveLatency(), 5.0);
     EXPECT_EQ(progressEvent->getProfileBandwidth(), 500);

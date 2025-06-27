@@ -1763,6 +1763,8 @@ public:
 	 */
 	double GetBufferedVideoDurationSec();
 
+	double GetBufferedAudioDurationSec();
+
 	/**
 	 *   @fn UpdateStreamInfoBitrateData
 	 *
@@ -2067,7 +2069,7 @@ protected:
 	 *
 	 *   @return buffer value based on Local TSB
 	 */
-	double GetBufferValue(MediaTrack *video);
+	double GetBufferValue(MediaTrack *track);
 
 	/**
 	 *   @fn GetDesiredProfileBasedOnCache

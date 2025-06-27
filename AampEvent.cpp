@@ -152,12 +152,13 @@ float SpeedChangedEvent::getRate() const
  * @brief ProgressEvent Constructor
  *
  */
-ProgressEvent::ProgressEvent(double duration, double position, double start, double end, float speed, long long pts, double bufferedDuration, std::string seiTimecode, double liveLatency, long profileBandwidth, long networkBandwidth, double currentPlayRate, 
+ProgressEvent::ProgressEvent(double duration, double position, double start, double end, float speed, long long pts, double videoBufferedDuration, double audioBufferedDuration, std::string seiTimecode, double liveLatency, long profileBandwidth, long networkBandwidth, double currentPlayRate, 
 	std::string sid):
 		AAMPEventObject(AAMP_EVENT_PROGRESS, std::move(sid)), mDuration(duration),
 		mPosition(position), mStart(start),
 		mEnd(end), mSpeed(speed), mPTS(pts),
-		mBufferedDuration(bufferedDuration),
+		mVideoBufferedDuration(videoBufferedDuration),
+		mAudioBufferedDuration(audioBufferedDuration),
 		mSEITimecode(seiTimecode),
 		mLiveLatency(liveLatency),
 		mProfileBandwidth(profileBandwidth),
@@ -228,13 +229,23 @@ long long ProgressEvent::getPTS() const
 }
 
 /**
- * @brief Get Buffered Duration
+ * @brief Get Video Buffered Duration
  *
- * @return Buffered duration
+ * @return Video Buffered duration
  */
-double ProgressEvent::getBufferedDuration() const
+double ProgressEvent::getVideoBufferedDuration() const
 {
-	return mBufferedDuration;
+	return mVideoBufferedDuration;
+}
+
+/**
+ * @brief Get Audio Buffered Duration
+ *
+ * @return Audio Buffered duration
+ */
+double ProgressEvent::getAudioBufferedDuration() const
+{
+	return mAudioBufferedDuration;
 }
 
 /**
