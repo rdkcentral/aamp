@@ -5761,8 +5761,14 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 	}
 	tmpVar = GETCONFIGVALUE_PRIV(eAAMPConfig_PlaylistTimeout);
 	mPlaylistTimeoutMs = CONVERT_SEC_TO_MS(tmpVar);
+	mFogTSBEnabled = IsFogUrl(mainManifestUrl);
 	mTsbType = GETCONFIGVALUE_PRIV(eAAMPConfig_TsbType);
-	mLocalAAMPTsbFromConfig = ISCONFIGSET_PRIV(eAAMPConfig_LocalTSBEnabled) || mTsbType == "local";
+	mLocalAAMPTsbFromConfig = ISCONFIGSET_PRIV(eAAMPConfig_LocalTSBEnabled) || (mTsbType == "local" && !mFogTSBEnabled);
+	if (mLocalAAMPTsbFromConfig && mFogTSBEnabled)
+	{
+		AAMPLOG_WARN("AAMP TSB and FOG both enabled, using AAMP TSB");
+		mFogTSBEnabled = false;
+	}
 	if(mPlaylistTimeoutMs <= 0) mPlaylistTimeoutMs = mManifestTimeoutMs;
 	if(AAMP_DEFAULT_SETTING == GETCONFIGOWNER_PRIV(eAAMPConfig_PlaylistTimeout))
 	{
@@ -5819,8 +5825,6 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 #endif
 
 	CreateTsbSessionManager();
-
-	mFogTSBEnabled = strcasestr(mainManifestUrl, AAMP_FOG_TSB_URL_KEYWORD) && ISCONFIGSET_PRIV(eAAMPConfig_Fog);
 
 	std::string sTraceId = (pTraceID?pTraceID:"unknown");
 	//CMCD to be enabled for player direct downloads, not for Fog . All downloads in Fog , CMCD response to be done in Fog.
@@ -6050,9 +6054,11 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 	{
 		//Fog can be disable by  having option fog=0 option in aamp.cfg,based on  that gpGlobalConfig->noFog is updated
 		//Removed variable gpGlobalConfig->fogSupportsDash as it has similar usage
-		if(!ISCONFIGSET_PRIV(eAAMPConfig_Fog))
+		if(!mFogTSBEnabled)
 		{
+			AAMPLOG_INFO("Defog URL '%s'", mManifestUrl.c_str());
 			DeFog(mManifestUrl);
+			AAMPLOG_INFO("Defogged URL '%s'", mManifestUrl.c_str());
 		}
 
 		if(ISCONFIGSET_PRIV(eAAMPConfig_ForceHttp))
@@ -9061,6 +9067,12 @@ std::vector<float> PrivateInstanceAAMP::getSupportedPlaybackSpeeds(void)
 	}
 	return supportedPlaybackSpeeds;
 }
+
+bool PrivateInstanceAAMP::IsFogUrl(const char *mainManifestUrl)
+{
+	return strcasestr(mainManifestUrl, AAMP_FOG_TSB_URL_KEYWORD) && ISCONFIGSET_PRIV(eAAMPConfig_Fog);
+}
+
 /**
  * @brief  Generate media metadata event based on parsed attribute values.
  *
