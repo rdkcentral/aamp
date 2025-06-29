@@ -31,7 +31,6 @@
 
 #include "DrmHelper.h"
 #include "mp4demux.hpp"
-
 #include "DrmTestUtils.h"
 #include "aampMocks.h"
 
