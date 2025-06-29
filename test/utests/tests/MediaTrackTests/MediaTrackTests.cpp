@@ -220,6 +220,8 @@ TEST_P(MediaTrackDashPtsRestampNotConfiguredTests, PtsRestampNotConfiguredTest)
 	mPrivateInstanceAAMP->rate = testParam.playRate;
 	mStreamAbstractionAAMP_MPD->trickplayMode = true;
 
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_OverrideMediaHeaderDuration))
+		.WillRepeatedly(Return(false));
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_CurlThroughput))
 		.WillRepeatedly(Return(false));
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnablePTSReStamp))
@@ -275,6 +277,8 @@ TEST_P(MediaTrackDashQtDemuxOverrideConfiguredTests, QtDemuxOverrideConfiguredTe
 	mPrivateInstanceAAMP->rate = testParam.playRate;
 	mStreamAbstractionAAMP_MPD->trickplayMode = true;
 
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_OverrideMediaHeaderDuration))
+		.WillRepeatedly(Return(false));
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_CurlThroughput))
 		.WillRepeatedly(Return(false));
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnablePTSReStamp))
@@ -499,6 +503,8 @@ TEST_P(MediaTrackDashPlaybackPtsRestampTests, PlaybackTest)
 	mPrivateInstanceAAMP->SetLocalAAMPTsb(aampTsb);
 	mStreamAbstractionAAMP_MPD->trickplayMode = false;
 
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_OverrideMediaHeaderDuration))
+		.WillRepeatedly(Return(false));
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_CurlThroughput))
 		.WillRepeatedly(Return(false));
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnablePTSReStamp))
