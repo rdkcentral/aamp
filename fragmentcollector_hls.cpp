@@ -7436,3 +7436,42 @@ bool StreamAbstractionAAMP_HLS::SelectPreferredTextTrack(TextTrackInfo& selected
 	}
 	return bestTrackFound;
 }
+/*
+ * @fn DoEarlyStreamSinkFlush
+ * @brief Checks if the stream need to be flushed or not
+ *
+ * @param newTune true if this is a new tune, false otherwise
+ * @param rate playback rate
+ * @return true if stream should be flushed, false otherwise
+ */
+bool StreamAbstractionAAMP_HLS::DoEarlyStreamSinkFlush(bool newTune, float rate)
+{
+	// Live adjust or syncTrack occurred, send an updated flush event
+	bool doFlush = !newTune;
+	TrackState *video = trackState[eMEDIATYPE_VIDEO];
+	if (video && video->streamOutputFormat == FORMAT_ISO_BMFF)
+	{
+		// doFlush for non mp4 formats. HLS MP4 uses media processor to handle flushes
+		doFlush = false;
+	}
+	AAMPLOG_INFO("doFlush=%d, newTune=%d, rate=%f", doFlush, newTune, rate);
+	return doFlush;
+}
+/*
+ * @brief Should flush the stream sink on discontinuity or not.
+ *
+ * @return true if stream should be flushed, false otherwise
+ */
+bool StreamAbstractionAAMP_HLS::DoStreamSinkFlushOnDiscontinuity()
+{
+	// doFlush for non mp4 formats.
+	bool doFlush = true;
+	TrackState *video = trackState[eMEDIATYPE_VIDEO];
+	if (video && video->streamOutputFormat == FORMAT_ISO_BMFF)
+	{
+		// HLS MP4 uses media processor to handle flushes
+		doFlush = false;
+	}
+	AAMPLOG_INFO("doFlush=%d", doFlush);
+	return doFlush;
+}
