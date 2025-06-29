@@ -20,10 +20,11 @@
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
 #include <cstring>
-#include "MockGLib.h"
 #include <functional>
+
 #include "isobmff/isobmffhelper.h"
 #include "AampConfig.h"
+#include "MockGLib.h"
 #include "testdata/testdata.h"
 
 using ::testing::NiceMock;

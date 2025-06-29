@@ -32,8 +32,15 @@ CMAKE_USE_OPENCDM_ADAPTER_MOCKS
 Use with CMAKE_USE_OPENCDM_ADAPTER and CMAKE_USE_THUNDER_OCDM_API_0_2 for mock
 WPEFramework/Thunder Open CDM DRM support.
 
+CMAKE_IARM_MGR_MOCKS
+
 Use with CMAKE_CDM_DRM or CMAKE_USE_OPENCDM_ADAPTER along with CMAKE_IARM_MGR
 for mock IARM Bus and related support.
+
+CMAKE_USE_RFC_MOCKS
+
+Use with CMAKE_CDM_DRM or CMAKE_USE_OPENCDM_ADAPTER along with
+CMAKE_AAMP_RFC_REQUIRED for mock TR-181 device data model support.
 
 CMAKE_USE_SECCLIENT_MOCKS
 
@@ -69,6 +76,8 @@ PKG_CONFIG_PATH=$PWD/Linux/lib/pkgconfig /usr/bin/cmake \
  --no-warn-unused-cli \
  -DSTAGING_INCDIR=~/rdk/build-skyxione/tmp/sysroots/skyxione/usr/include \
  -DCMAKE_INSTALL_PREFIX=$PWD/Linux \
+ -DCMAKE_IARM_MGR=1 \
+ -DCMAKE_IARM_MGR_MOCKS=1 \
  -DCMAKE_USE_OPENCDM_ADAPTER=1 \
  -DCMAKE_USE_OPENCDM_ADAPTER_MOCKS=1 \
  -DCMAKE_USE_THUNDER_OCDM_API_0_2=1 \
