@@ -128,7 +128,7 @@ void StreamAbstractionAAMP_RMF::Stop(bool clearChannelData)
 		return;
 
 	thunderAccessObj.StopRmf();
-	aamp->SetState(eSTATE_STOPPED);
+	aamp->SetState(eSTATE_STOPPING);
 }
 
 /**

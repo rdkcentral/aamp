@@ -122,7 +122,7 @@ void StreamAbstractionAAMP_HDMIIN::ResetInstance()
 	{
 		if(mHdmiinInstance->aamp != NULL)
 		{
-			mHdmiinInstance->aamp->SetState(eSTATE_STOPPED);
+			mHdmiinInstance->aamp->SetState(eSTATE_STOPPING);
 		}
 		//clear aamp
 		mHdmiinInstance->aamp = NULL;
