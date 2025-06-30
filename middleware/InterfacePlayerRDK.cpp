@@ -3773,7 +3773,7 @@ bool InterfacePlayerRDK::CreatePipeline(const char *pipelineName, int PipelinePr
 				 The time base specified is in nanoseconds */
 			}
 			/* Use to enable the timing synchronization with gstreamer */
-			MW_LOG_ERR("HariPriya InterfacePlayerRDK - m_gstConfigParam->seiTimeCode");	
+			MW_LOG_ERR("HariPriya InterfacePlayerRDK - m_gstConfigParam->seiTimeCode : %d",m_gstConfigParam->seiTimeCode);	
 			gstPrivateContext->enableSEITimeCode = m_gstConfigParam->seiTimeCode;
 			ret = true;
 		}
@@ -4657,7 +4657,9 @@ static GstBusSyncReply bus_sync_handler(GstBus * bus, GstMessage * msg, Interfac
 
 					}
 				}
-				if ((NULL != msg->src) && GstPlayer_isVideoSink(GST_OBJECT_NAME(msg->src), pInterfacePlayerRDK))
+				if ((NULL != msg->src) && (GstPlayer_isVideoSink(GST_OBJECT_NAME(msg->src), pInterfacePlayerRDK)) || ((gst_StartsWith(GST_OBJECT_NAME(msg->src), "rialtomsevideosink") == true) ||
+                                (gst_StartsWith(GST_OBJECT_NAME(msg->src), "rialtomseaudiosink") == true)))
+                       
 				{
 					MW_LOG_ERR("InterfacePlayerRDK HariPriya removed useRialtoSink check for enableSEITimeCode");
 					if(pInterfacePlayerRDK->gstPrivateContext->enableSEITimeCode)
