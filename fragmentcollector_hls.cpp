@@ -1662,10 +1662,6 @@ void TrackState::FetchFragment()
 		{
 			AampTime duration{fragmentDurationSeconds};
 			AampTime position{playTarget - playTargetOffset};
-			if (type == eTRACK_SUBTITLE)
-			{
-				cachedFragment->fragment.AppendNulTerminator();
-			}
 			if (context->rate == AAMP_NORMAL_PLAY_RATE)
 			{
 				position -= fragmentDurationSeconds;
@@ -2334,8 +2330,6 @@ void TrackState::ProcessPlaylist(AampGrowableBuffer& newPlaylist, int http_error
 		// Free previous playlist buffer and load with new one
 		playlist.Free();
 		playlist.Replace( &newPlaylist );
-		playlist.AppendNulTerminator(); // make safe for cstring operations
-
 		AampTime culled{};
 		IndexPlaylist(true, culled);
 		// Update culled seconds if playlist download was successful
@@ -3360,10 +3354,9 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 	}
 	if (this->mainManifest.GetLen() )
 	{
-		this->mainManifest.AppendNulTerminator(); // make safe for cstring operations
 		if( AampLogManager::isLogLevelAllowed(eLOGLEVEL_TRACE) )
 		{ // use printf to avoid 2048 char syslog limitation
-			printf("***Main Manifest***:\n\n%s\n************\n", this->mainManifest.GetPtr());
+			printf("***Main Manifest***:\n\n%.*s\n************\n", (int)this->mainManifest.GetLen(), this->mainManifest.GetPtr());
 		}
 
 		AampDRMLicenseManager *licenseManager = aamp->mDRMLicenseManager;
@@ -3402,8 +3395,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 			if(mainManifestResult == eAAMPSTATUS_MANIFEST_CONTENT_ERROR || mainManifestResult == eAAMPSTATUS_MANIFEST_PARSE_ERROR)
 			{ // use printf to avoid 2048 char syslog limitation
 				// Dump the invalid manifest content before reporting error
-				this->mainManifest.AppendNulTerminator();
-				printf("ERROR: Invalid Main Manifest : %s \n", this->mainManifest.GetPtr() );
+				printf("ERROR: Invalid Main Manifest : %.*s\n", (int)this->mainManifest.GetLen(), this->mainManifest.GetPtr() );
 				return mainManifestResult;
 			}
 		}
@@ -3658,10 +3650,9 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 			{
 				AampTime culled{};
 				bool playContextConfigured = false;
-				ts->playlist.AppendNulTerminator(); // make safe for cstring operations
 				if( AampLogManager::isLogLevelAllowed(eLOGLEVEL_TRACE) )
 				{ // use printf to avoid 2048 char syslog limitation
-					printf("***Initial Playlist:******\n\n%s\n*****************\n", ts->playlist.GetPtr() );
+					printf("***Initial Playlist:******\n\n%.*s\n*****************\n", (int)ts->playlist.GetLen(), ts->playlist.GetPtr() );
 				}
 				// Flag also denotes if first encrypted init fragment was pushed or not
 				ts->mCheckForInitialFragEnc = true; //force encrypted header at the start
@@ -5357,7 +5348,6 @@ bool StreamAbstractionAAMP_HLS::SetThumbnailTrack( int thumbIndex )
 				{
 					downloadTime = tempDownloadTime;
 					AAMPLOG_WARN("In StreamAbstractionAAMP_HLS: Configured Thumbnail");
-					thumbnailManifest.AppendNulTerminator();
 					ContentType type = aamp->GetContentType();
 					if( ContentType_LINEAR == type  || ContentType_SLE == type )
 					{
@@ -5684,9 +5674,8 @@ void TrackState::UpdateDrmCMSha1Hash( const std::string &newSha1Hash )
 				DrmMetadataNode &drmMetadataNode = mDrmMetaDataIndex[j];
 				AAMPLOG_MIL("drmMetadataNode[%d].sha1Hash = %s", j, drmMetadataNode.sha1Hash.c_str() );
 			}
-			playlist.AppendNulTerminator(); // make safe for cstring operations
 			// use printf to avoid 2048 char syslog limitation
-			printf("***playlist***:\n\n%s\n************\n", playlist.GetPtr());
+			printf("***playlist***:\n\n%.*s\n************\n", (int)playlist.GetLen(), playlist.GetPtr());
 			assert(false);
 		}
 	}
