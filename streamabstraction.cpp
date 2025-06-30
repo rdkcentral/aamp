@@ -942,10 +942,7 @@ bool MediaTrack::ProcessFragmentChunk()
 		}
 		else if (pContext && ISCONFIGSET(eAAMPConfig_OverrideMediaHeaderDuration))
 		{
-			if (!pContext->trickplayMode)
-			{
-				ClearMediaHeaderDuration(cachedFragment);
-			}
+			ClearMediaHeaderDuration(cachedFragment);
 		}
 		if (mSubtitleParser && type == eTRACK_SUBTITLE)
 		{
@@ -1329,6 +1326,7 @@ void MediaTrack::ProcessAndInjectFragment(CachedFragment *cachedFragment, bool f
 			}
 		}
 		else if (ISCONFIGSET(eAAMPConfig_OverrideMediaHeaderDuration) &&
+			(cachedFragment->initFragment) &&
 			(eMEDIAFORMAT_DASH == aamp->mMediaFormat) &&
 			(aamp->IsLive()))
 		{
