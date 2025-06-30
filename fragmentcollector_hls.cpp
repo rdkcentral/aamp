@@ -1556,6 +1556,7 @@ void TrackState::setDiscontinuityState(bool isDiscontinuity)
  */
 void TrackState::FetchFragment()
 {
+	AAMPLOG_WARN("RDKEMW-4846-->Inside FetchFragment()");
 	int timeoutMs = -1;
 	int http_error = 0;
 	double downloadTime = 0;
@@ -1568,6 +1569,7 @@ void TrackState::FetchFragment()
 			timeoutMs = 0;
 		}
 	}
+	AAMPLOG_WARN("RDKEMW-4846-->Calling WaitForFreeFragmentAvailable()");
 	if (!WaitForFreeFragmentAvailable(timeoutMs))
 	{
 		return;
@@ -4739,6 +4741,7 @@ void TrackState::SwitchSubtitleTrack()
  */
 void TrackState::RunFetchLoop()
 {
+	AAMPLOG_WARN("RDKEMW-4846-->In RunFetchLoop()");
 	bool skipFetchFragment = false;
 	bool abortedDownload = false;
 
@@ -4766,6 +4769,7 @@ void TrackState::RunFetchLoop()
 				// which also sets mInjectInitFragment to true, so below reset will not have an impact
 				if (!mInitFragmentInfo.empty())
 				{
+					AAMPLOG_WARN("RDKEMW-4846-->Calling FetchInitFragment()");
 					FetchInitFragment();
 					//Inject init fragment failed due to no free cache
 					if (mInjectInitFragment)
@@ -4785,6 +4789,7 @@ void TrackState::RunFetchLoop()
 
 			if (!skipFetchFragment)
 			{
+				AAMPLOG_WARN("RDKEMW-4846-->Calling FetchFragment()");
 				FetchFragment();
 			}
 
@@ -4902,6 +4907,7 @@ void TrackState::RunFetchLoop()
 ***************************************************************************/
 void TrackState::FragmentCollector(void)
 {
+	AAMPLOG_WARN("RDKEMW-4846-->Inside FragmentCollector in fragmentcollector_hls");
 	if(aamp_pthread_setname(pthread_self(), "aampHLSFetcher"))
 	{
 		AAMPLOG_WARN("aamp_pthread_setname failed");
@@ -5020,6 +5026,7 @@ TrackState::~TrackState()
  */
 void TrackState::Stop(bool clearDRM)
 {
+	AAMPLOG_WARN("RDKEMW-4846-->Entering Stop() in fragmentcollector_hls");
 	AbortWaitForCachedAndFreeFragment(true);
 
 	if (playContext)
@@ -6001,6 +6008,7 @@ bool TrackState::HasDiscontinuityAroundPosition(AampTime position, bool useDisco
  */
 void TrackState::FetchInitFragment()
 {
+	AAMPLOG_WARN("RDKEMW-4846-->Inside FetchInitFragment()");
 	int timeoutMs = -1;
 
 	if (IsLive())

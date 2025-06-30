@@ -10530,6 +10530,7 @@ void StreamAbstractionAAMP_MPD::Start(void)
 void StreamAbstractionAAMP_MPD::Stop(bool clearChannelData)
 {
 
+	AAMPLOG_WARN("RDKEMW-4846-->Entering Stop() of StreamAbstractionAAMP_MPD class");
 	if (!aamp->IsLocalAAMPTsb() || aamp->mAampTsbLanguageChangeInProgress)
 	{
 		aamp->DisableDownloads();
@@ -10605,6 +10606,7 @@ void StreamAbstractionAAMP_MPD::Stop(bool clearChannelData)
 		{
 			aamp->StopTrackInjection((AampMediaType) iTrack);
 			track->StopInjectLoop();
+			AAMPLOG_WARN("RDKEMW-4846-->Stopping Inject loop");
 			if(!ISCONFIGSET(eAAMPConfig_GstSubtecEnabled))
 			{
 				if (iTrack == eMEDIATYPE_SUBTITLE && track->mSubtitleParser)

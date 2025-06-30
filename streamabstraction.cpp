@@ -583,6 +583,7 @@ void MediaTrack::UpdateTSAfterChunkFetch()
  */
 bool MediaTrack::WaitForFreeFragmentAvailable( int timeoutMs)
 {
+	AAMPLOG_WARN("RDKEMW-4846-->Entering WaitForFreeFragmentAvailable");
 	bool ret = true;
 	AAMPPlayerState state;
 	int preplaybuffercount = GETCONFIGVALUE(eAAMPConfig_PrePlayBufferCount);
@@ -596,6 +597,7 @@ bool MediaTrack::WaitForFreeFragmentAvailable( int timeoutMs)
 		// Still in preparation mode , not to inject any more fragments beyond capacity
 		// Wait for 100ms
 		std::unique_lock<std::mutex> lock(aamp->mMutexPlaystart);
+		AAMPLOG_WARN("RDKEMW-4846-->mMutexPlayStart lock created");
 		state = aamp->GetState();
 		if(state == eSTATE_PREPARED && totalFragmentsDownloaded > preplaybuffercount && !aamp->IsFragmentCachingRequired())
 		{
@@ -603,12 +605,14 @@ bool MediaTrack::WaitForFreeFragmentAvailable( int timeoutMs)
 			if (std::cv_status::timeout == aamp->waitforplaystart.wait_for(lock,std::chrono::milliseconds(timeoutMs)))
 			{
 				AAMPLOG_TRACE("Timed out waiting for waitforplaystart");
+				AAMPLOG_WARN("RDKEMW-4846-->Timed out waiting for waitforplaystart 1");
 				ret = false;
 			}
 		}
 	}
 
 	std::unique_lock<std::mutex> lock(mutex);
+	AAMPLOG_WARN("RDKEMW-4846-->lock created with mutex");
 	if ( ret && (numberOfFragmentsCached == maxCachedFragmentsPerTrack) )
 	{
 		if (timeoutMs >= 0)
@@ -616,6 +620,7 @@ bool MediaTrack::WaitForFreeFragmentAvailable( int timeoutMs)
 			if (std::cv_status::timeout == fragmentInjected.wait_for(lock,std::chrono::milliseconds(timeoutMs)))
 			{
 				AAMPLOG_TRACE("Timed out waiting for fragmentInjected");
+				AAMPLOG_WARN("RDKEMW-4846-->Timed out waiting for waitforplaystart 2");
 				ret = false;
 			}
 		}
@@ -721,6 +726,7 @@ bool MediaTrack::WaitForCachedFragmentChunkAvailable()
 void MediaTrack::AbortWaitForCachedAndFreeFragment(bool immediate)
 {
 	std::unique_lock<std::mutex> lock(mutex);
+	AAMPLOG_WARN("RDKEMW-4846-->mutex locked");
 	if (immediate)
 	{
 		abort = true;
@@ -1396,6 +1402,7 @@ void MediaTrack::ProcessAndInjectFragment(CachedFragment *cachedFragment, bool f
  */
 bool MediaTrack::InjectFragment()
 {
+	AAMPLOG_WARN("RDKEMW-4846-->Inside InjectFragment()");
 	bool ret = true;
 	bool isChunkMode = aamp->GetLLDashChunkMode();
 	bool isChunkBuffer = IsInjectionFromCachedFragmentChunks();
@@ -1631,6 +1638,7 @@ void MediaTrack::RunInjectLoop()
 		{
 			WaitForCachedSubtitleFragmentAvailable();
 		}
+		AAMPLOG_WARN("RDKEMW-4846-->Calling  InjectFragment()");
 		if (!InjectFragment())
 		{
 			if(!(loadNewAudio || refreshAudio ||loadNewSubtitle || refreshSubtitles ))
@@ -3994,6 +4002,7 @@ AampMediaType MediaTrack::GetPlaylistMediaTypeFromTrack(TrackType type, bool isI
  */
 void StreamAbstractionAAMP::DisablePlaylistDownloads()
 {
+	AAMPLOG_WARN("RDKEMW-4846-->Entering DisablePlaylistDownloads in streamabstraction.cpp");
 	for (int i = 0 ; i < AAMP_TRACK_COUNT; i++)
 	{
 		MediaTrack *track = GetMediaTrack((TrackType) i);
@@ -4010,7 +4019,9 @@ void StreamAbstractionAAMP::DisablePlaylistDownloads()
  */
 void MediaTrack::AbortWaitForPlaylistDownload()
 {
+	AAMPLOG_WARN("RDKEMW-4846-->Entering AbortForPlyalistDownload");
 	std::unique_lock<std::mutex> lock(dwnldMutex);
+	AAMPLOG_WARN("RDKEMW-4846-->dwnnldMutex locked via unique_lock");
 	if(playlistDownloaderThreadStarted)
 	{
 		plDownloadWait.notify_one();

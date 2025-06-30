@@ -230,11 +230,13 @@ bool AampLicensePreFetcher::Term()
  */
 void AampLicensePreFetcher::PreFetchThread()
 {
+	AAMPLOG_WARN("RDKEMW-4846-->Entering PreFetchThread");
 	if(aamp_pthread_setname(pthread_self(), "aampfMP4DRM"))
 	{
 		AAMPLOG_ERR("aamp_pthread_setname failed");
 	}
 	std::unique_lock<std::mutex>queueLock(mQMutex);
+	AAMPLOG_WARN("RDKEMW-4846-->Lock created mQMutex");
 	while (!mExitLoop)
 	{
 		if (mFetchQueue.empty())
@@ -246,6 +248,7 @@ void AampLicensePreFetcher::PreFetchThread()
 		{
 			LicensePreFetchObjectPtr obj = mFetchQueue.front(); // Leave the request on the queue
 			queueLock.unlock();
+			AAMPLOG_WARN("RDKEMW-4846-->queueLock unlocked");
 
 			if (!mExitLoop)
 			{
@@ -285,6 +288,7 @@ void AampLicensePreFetcher::PreFetchThread()
 				}
 			}
 			queueLock.lock();
+			AAMPLOG_WARN("RDKEMW-4846-->queueLock locked");
 
 			// Remove the request now we have processed it
 			if (!mFetchQueue.empty())

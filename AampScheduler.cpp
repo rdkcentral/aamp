@@ -51,9 +51,11 @@ AampScheduler::~AampScheduler()
  */
 void AampScheduler::StartScheduler( int playerId )
 {
+	AAMPLOG_WARN("RDKEMW-4846-->Entering StartScheduler");
 	 mPlayerId = playerId;
 	//Turn on thread for processing async operations
 	std::lock_guard<std::mutex>lock(mQMutex);
+	AAMPLOG_WARN("RDKEMW-4846-->mQMutex locked");
 	mSchedulerThread = std::thread(std::bind(&AampScheduler::ExecuteAsyncTask, this));
 	mSchedulerRunning = true;
 	AAMPLOG_INFO("Thread created Async Worker [%zx]", GetPrintableThreadID(mSchedulerThread));
@@ -112,12 +114,17 @@ int AampScheduler::ScheduleTask(AsyncTaskObj obj)
  */
 void AampScheduler::ExecuteAsyncTask()
 {
+	AAMPLOG_WARN("RDKEMW-4846-->Entering ExecuteAsyncTask");
 	UsingPlayerId playerId( mPlayerId );
+	AAMPLOG_WARN("RDKEMW-4846-->mPlayerId =%d",mPlayerId);
 	std::unique_lock<std::mutex>queueLock(mQMutex);
+	AAMPLOG_WARN("RDKEMW-4846-->queueLock created with mQMutex");
+	AAMPLOG_WARN("RDKEMW-4846-->mschedulerRnning =%d",mSchedulerRunning);
 	while (mSchedulerRunning)
 	{
 		if (mTaskQueue.empty())
 		{
+			AAMPLOG_WARN("RDKEMW-4846-->queueLock in cond wait");
 			mQCond.wait(queueLock);
 		}
 		else
@@ -128,8 +135,11 @@ void AampScheduler::ExecuteAsyncTask()
 			that cannot be deleted by RemoveAllTasks()!
 			Allow the queue to be modified while waiting.*/
 			queueLock.unlock();
+			AAMPLOG_WARN("RDKEMW-4846-->queueLock unlocked");
 			std::lock_guard<std::mutex>executionLock(mExMutex);
+			AAMPLOG_WARN("RDKEMW-4846-->executionLock created with mExMutex");
 			queueLock.lock();
+			AAMPLOG_WARN("RDKEMW-4846-->queueLock locked");
 
 			//mTaskQueue could have been modified while waiting for execute permission
 			if (!mTaskQueue.empty())
@@ -144,12 +154,14 @@ void AampScheduler::ExecuteAsyncTask()
 					{
 						//Unlock so that new entries can be added to queue while function executes
 						queueLock.unlock();
+						AAMPLOG_WARN("RDKEMW-4846-->queueLock unlocked");
 
 						AAMPLOG_WARN("SchedulerTask Execution:%s taskId:%d",obj.mTaskName.c_str(),obj.mId);
 						//Execute function
 						obj.mTask(obj.mData);
 						//May be used in a wait() in future loops, it needs to be locked
 						queueLock.lock();
+						AAMPLOG_WARN("RDKEMW-4846-->queueLock locked");
 					}
 				}
 				else
@@ -209,8 +221,11 @@ void AampScheduler::StopScheduler()
  */
 void AampScheduler::SuspendScheduler()
 {
+	AAMPLOG_WARN("RDKEMW-4846-->Entering SuspendScchduler");
 	mExLock.lock();
+	AAMPLOG_WARN("RDKEMW-4846-->mExLock() locked");
 	std::lock_guard<std::mutex>lock(mQMutex);
+	AAMPLOG_WARN("RDKEMW-4846-->mQMUtexLocked");
 	mLockOut = true;
 }
 
@@ -219,8 +234,11 @@ void AampScheduler::SuspendScheduler()
  */
 void AampScheduler::ResumeScheduler()
 {
+	AAMPLOG_WARN("RDKEMW-4846-->Entering ResumeScheduler");
 	mExLock.unlock();
+	AAMPLOG_WARN("RDKEMW-4846-->mExLock() unlocked");
 	std::lock_guard<std::mutex>lock(mQMutex);
+	AAMPLOG_WARN("RDKEMW-4846-->mQMutex locked");
 	mLockOut = false;
 }
 

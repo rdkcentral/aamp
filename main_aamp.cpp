@@ -237,6 +237,7 @@ void PlayerInstanceAAMP::ResetConfiguration()
  */
 void PlayerInstanceAAMP::Stop(void)
 {
+	AAMPLOG_WARN("RDKEMW-4846-->Entering Stop() in main.cpp");
 	if (aamp)
 	{
 		UsingPlayerId playerId(aamp->mPlayerId);

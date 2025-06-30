@@ -321,11 +321,14 @@ protected:
 	 */
 	void AsyncCacheCleanUpTask( void )
 	{
+		AAMPLOG_WARN("RDKEMW-4846-->Entering AsyncCacheCleanUpTask");
 		UsingPlayerId playerId(mPlayerId);
 		std::unique_lock<std::mutex> lock(mCondVarMutex);
+		AAMPLOG_WARN("RDKEMW-4846-->Lock created using mCOndVarMutex");
 
 		while( mAsyncCacheCleanUpThread )
 		{
+			AAMPLOG_WARN("RDKEMW-4846-->mCondVar in wait");
 			mCondVar.wait(lock);
 			if(!mCacheActive)
 			{
@@ -352,6 +355,7 @@ protected:
 				mAsyncCleanUpTaskThreadId = std::thread(&AampCacheHandler::AsyncCacheCleanUpTask, this);
 				{
 					std::lock_guard<std::mutex> guard(mCondVarMutex);
+					AAMPLOG_WARN("RDKEMW-4846-->mCondVarMutex guard");
 					mAsyncCacheCleanUpThread = true;
 				}
 				AAMPLOG_INFO("Thread created AsyncCacheCleanUpTask[%zx]", GetPrintableThreadID(mAsyncCleanUpTaskThreadId));

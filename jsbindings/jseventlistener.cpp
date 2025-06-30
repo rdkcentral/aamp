@@ -1686,20 +1686,32 @@ AAMP_JSEventListener::~AAMP_JSEventListener()
  */
 void AAMP_JSEventListener::Event(const AAMPEventPtr& e)
 {
+	LOG_WARN_EX("RDKEMW-4846-->Entering Event of jseventlistner");
 	AAMPEventType evtType = e->getType();
         LOG_TRACE("type=%d, jsCallback=%p", evtType, p_jsCallback);
+		LOG_WARN_EX("RDKEMW-4846-->type=%d, jsCallback=%p", evtType, p_jsCallback);
 
 	if (evtType < 0 || evtType >= AAMP_MAX_NUM_EVENTS)
 	{
 		return;
 	}
+		LOG_WARN_EX("RDKEMW-4846-->createNewAAMPJSEvent params: ctx=%p, eventName=%s, arg1=%d, arg2=%d",
+    p_obj->_ctx,
+    aampPlayer_getNameFromEventType(evtType),
+    0, // replace with actual value if not hardcoded
+    0  // replace with actual value if not hardcoded
+);
 	JSObjectRef event = createNewAAMPJSEvent(p_obj->_ctx, aampPlayer_getNameFromEventType(evtType), false, false);
 	if (event)
 	{
 		JSGlobalContextRef ctx = p_obj->_ctx;
 		JSValueProtect(ctx, event);
 
-		AAMP_JSEventListener::SetEventProperties(e, event);
+		LOG_WARN_EX("RDKEMW-4846-->SetEventProperties params: e=%p (type=%d), event=%p",
+    e.get(),
+    e ? e->getType() : -1,
+    event);
+		AAMP_JSEventListener::SetEventProperties(e,event); 
 		SetEventProperties(e, event);
 
 		//send this event through promise callback if an event listener is not registered

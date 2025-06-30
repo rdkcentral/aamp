@@ -1726,6 +1726,7 @@ void PrivateInstanceAAMP::SetIsPeriodChangeMarked(bool value)
 {
 	// CID:306170 - Data race condition
 	std::lock_guard<std::mutex>lock(mDiscoCompleteLock);
+	AAMPLOG_WARN("RDKEMW-4846-->mDiscoCompleteLock locked");
 	mIsPeriodChangeMarked = value;
 	AAMPLOG_TRACE("isPeriodChangeMarked %d", mIsPeriodChangeMarked);
 
@@ -1813,6 +1814,7 @@ void PrivateInstanceAAMP::StopRateCorrectionWorkerThread(void)
 			mAbortRateCorrection = true;
 			WakeupLatencyCheck();
 			mRateCorrectionThread.join();
+			AAMPLOG_WARN("RDKEMW-4846-->Rate Correction thread joined");
 			mCorrectionRate = AAMP_NORMAL_PLAY_RATE;
 		}
 		catch (exception& exp)
@@ -7129,7 +7131,9 @@ void PrivateInstanceAAMP::SetAudioVolume(int volume)
 void PrivateInstanceAAMP::DisableDownloads(void)
 {
 	{
+		AAMPLOG_WARN("RDKEMW-4846-->Entering DisableDownlaods of priv_aamp");
 		std::lock_guard<std::recursive_mutex> guard(mLock);
+		AAMPLOG_WARN("RDKEMW-4846-->mLock locked via gurad");
 		AAMPLOG_MIL("Disable downloads");
 		mDownloadsEnabled = false;
 		mDownloadsDisabled.notify_all();
@@ -7178,9 +7182,11 @@ void PrivateInstanceAAMP::EnableDownloads()
  */
 void PrivateInstanceAAMP::interruptibleMsSleep(int timeInMs)
 {
+	AAMPLOG_WARN("RDKEMW-4846-->TimeinMs =%d",timeInMs);
 	if (timeInMs > 0)
 	{
 		std::unique_lock<std::recursive_mutex> lock(mLock);
+		AAMPLOG_WARN("RDKEMW-4846-->Lock created for mLock mutex via unique_lock");
 		if (mDownloadsEnabled)
 		{
 			(void)mDownloadsDisabled.wait_for(lock,std::chrono::milliseconds(timeInMs));
@@ -7478,6 +7484,7 @@ bool PrivateInstanceAAMP::IsLiveStream()
  */
 void PrivateInstanceAAMP::Stop( bool sendStateChangeEvent )
 {
+	AAMPLOG_WARN("RDKEMW-4846-->Entering Stop() of priv_aamp");
 	StopPausePositionMonitoring("Stop() called");
 	AAMPPlayerState state = GetState();
 	if(!IsTuneCompleted())
@@ -7489,6 +7496,7 @@ void PrivateInstanceAAMP::Stop( bool sendStateChangeEvent )
 	mEventManager->FlushPendingEvents();
 	{
 		std::unique_lock<std::mutex> lock(gMutex);
+		AAMPLOG_WARN("RDKEMW-4846-->gMutex locked");
 		auto iter = std::find_if(std::begin(gActivePrivAAMPs), std::end(gActivePrivAAMPs), [this](const gActivePrivAAMP_t& el)
 		{
 			return el.pAAMP == this;
@@ -7499,6 +7507,7 @@ void PrivateInstanceAAMP::Stop( bool sendStateChangeEvent )
 			{
 				// Wait for any ongoing re-tune operation to complete
 				gCond.wait(lock);
+				AAMPLOG_WARN("RDKEMW-4846-->gCond wait");
 			}
 			iter->reTune = false;
 		}
@@ -7550,6 +7559,7 @@ void PrivateInstanceAAMP::Stop( bool sendStateChangeEvent )
 			ReleaseDynamicDRMToUpdateWait();
 			mDRMSessionManager->setLicenseRequestAbort(true);
 		}
+		AAMPLOG_WARN("RDKEMW-4846-->Calling Stop() of StreamAbstraction class");
 		mpStreamAbstractionAAMP->Stop(true);
 		if (HasSidecarData())
 		{ // has sidecar data

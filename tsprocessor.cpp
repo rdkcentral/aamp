@@ -2773,7 +2773,9 @@ void TSProcessor::abortUnlocked(std::unique_lock<std::mutex>& lock)
  */
 void TSProcessor::abort()
 {
+	AAMPLOG_WARN("RDKEMW-4846-->Entering abort() for TSProcessor");
 	std::unique_lock<std::mutex> lock(m_mutex);
+	AAMPLOG_WARN("RDKEMW-4846-->m_mutex locked");
 	abortUnlocked(lock);
 }
 

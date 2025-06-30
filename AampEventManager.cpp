@@ -82,7 +82,10 @@ AampEventManager::~AampEventManager()
  */
 void AampEventManager::FlushPendingEvents()
 {
+	AAMPLOG_WARN("RDKEMW-4846-->Entering FlushPendingEvents");
 	std::lock_guard<std::mutex> guard(mMutexVar);
+	AAMPLOG_WARN("RDKEMW-4846-->mMutexVar locked by gurad");
+	
 	while(!mEventWorkerDataQue.empty())
 	{
 		// Remove each AampEventPtr from the queue , not deleting the Shard_ptr
@@ -330,14 +333,18 @@ void AampEventManager::AsyncEvent()
  */ 
 void AampEventManager::SendEventAsync(const AAMPEventPtr &eventData)
 {
+    AAMPLOG_WARN("RDKEMW-4846-->Entering SendEventAsync");
+
 	AAMPEventType eventType = eventData->getType();
 	std::unique_lock<std::mutex> lock(mMutexVar);
+	AAMPLOG_WARN("RDKEMW-4846-->mMutexVar locked via unique lock");
 	// Check if already player in release state , then no need to send any events
 	if(mPlayerState != eSTATE_RELEASED)
 	{
 		AAMPLOG_INFO("Sending event %d to AsyncQ", eventType);
 		mEventWorkerDataQue.push(eventData);
 		lock.unlock();
+		AAMPLOG_WARN("RDKEMW-4846-->mMutexVar unlocked");
 		// Every event need a idle task to execute it
 		guint callbackID = g_idle_add_full(mEventPriority, EventManagerThreadFunction, this, NULL);
 		if(callbackID != 0)
@@ -353,8 +360,10 @@ void AampEventManager::SendEventAsync(const AAMPEventPtr &eventData)
  */ 
 void AampEventManager::SendEventSync(const AAMPEventPtr &eventData)
 {
+	AAMPLOG_WARN("RDKEMW-4846-->Entering SendEventSync()");
 	AAMPEventType eventType = eventData->getType();
 	std::unique_lock<std::mutex> lock(mMutexVar);
+	AAMPLOG_WARN("RDKEMW-4846-->mMutexVar locked");
 #ifdef EVENT_DEBUGGING
 	long long startTime = NOW_STEADY_TS_MS;
 #endif
@@ -382,6 +391,7 @@ void AampEventManager::SendEventSync(const AAMPEventPtr &eventData)
 	// Build list of registered event listeners.
 	ListenerData* pList = NULL;
 	ListenerData* pListener = mEventListeners[eventType];
+	AAMPLOG_WARN("RDKEMW-4846-->pListner for particular event");
 	while (pListener != NULL)
 	{
 		ListenerData* pNew = new ListenerData;
@@ -389,8 +399,10 @@ void AampEventManager::SendEventSync(const AAMPEventPtr &eventData)
 		pNew->pNext = pList;
 		pList = pNew;
 		pListener = pListener->pNext;
+		AAMPLOG_WARN("RDKEMW-4846-->Filling up plistener for particular event case");
 	}
 	pListener = mEventListeners[AAMP_EVENT_ALL_EVENTS];  // listeners registered for "all" event types
+	AAMPLOG_WARN("RDKEMW-4846-->pListener for all events");
 	while (pListener != NULL)
 	{
 		ListenerData* pNew = new ListenerData;
@@ -398,6 +410,7 @@ void AampEventManager::SendEventSync(const AAMPEventPtr &eventData)
 		pNew->pNext = pList;
 		pList = pNew;
 		pListener = pListener->pNext;
+		AAMPLOG_WARN("RDKEMW-4846-->Filling up eventListener for particular event for all events case");
 	}
 	lock.unlock();
 
@@ -408,6 +421,7 @@ void AampEventManager::SendEventSync(const AAMPEventPtr &eventData)
 		ListenerData* pCurrent = pList;
 		if (pCurrent->eventListener != NULL)
 		{
+			AAMPLOG_WARN("RDKEMW-4846-->SendEvent() called");
 			pCurrent->eventListener->SendEvent(eventData);
 		}
 		pList = pCurrent->pNext;
