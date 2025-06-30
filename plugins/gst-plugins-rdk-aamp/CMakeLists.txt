@@ -21,27 +21,15 @@ cmake_minimum_required (VERSION 3.5)
 project (AAMP)
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-#find_package(GStreamer 1.4 REQUIRED)
-#add_subdirectory(jsbindings)
+
 find_package(PkgConfig REQUIRED)
+find_package (Threads REQUIRED)
 
 message("using gstreamer-1.0")
 pkg_check_modules(GSTREAMER REQUIRED gstreamer-1.0)
 pkg_check_modules(GSTREAMERBASE REQUIRED gstreamer-app-1.0)
 
 pkg_check_modules(CURL REQUIRED libcurl)
-
-# Mac OS X
-if(CMAKE_SYSTEM_NAME STREQUAL Darwin)
-    set(OS_CXX_FLAGS "${OS_CXX_FLAGS} -g -x objective-c++")
-    set(OS_LD_FLAGS "${OS_LD_FLAGS} -framework Cocoa")
-    string(STRIP ${OS_LD_FLAGS} OS_LD_FLAGS)
-    set(AAMP_CLI_LD_FLAGS "${AAMP_CLI_LD_FLAGS} -lgstvideo-1.0")
-    string(STRIP ${AAMP_CLI_LD_FLAGS} AAMP_CLI_LD_FLAGS)
-    set(AAMP_OS_SOURCES cocoa_window.mm)
-endif(CMAKE_SYSTEM_NAME STREQUAL Darwin)
-
-find_package (Threads REQUIRED)
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 include_directories(${GSTREAMER_INCLUDE_DIRS})
@@ -99,7 +87,7 @@ if(CMAKE_CDM_DRM)
 	else() 
 		message("CMAKE_USE_OPENCDM_ADAPTER not set")
 	endif()
-	set(AAMP_DEFINES "${AAMP_DEFINES} -DDRM_BUILD_PROFILE=DRM_BUILD_PROFILE_OEM -DTARGET_LITTLE_ENDIAN=1 -DTARGET_SUPPORTS_UNALIGNED_DWORD_POINTERS=0 ${SEC_CONTENT_METADATA_ENABLED}")
+	set(AAMP_DEFINES "${AAMP_DEFINES} -DDRM_BUILD_PROFILE=DRM_BUILD_PROFILE_OEM -DTARGET_LITTLE_ENDIAN=1 -DTARGET_SUPPORTS_UNALIGNED_DWORD_POINTERS=0")
 else()
     message("CMAKE_CDM_DRM not set")
 endif()
