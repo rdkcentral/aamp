@@ -168,7 +168,7 @@ struct gst_media_stream
 
 	gst_media_stream &operator=(const gst_media_stream &) = delete;
 };
-
+#if 0
 struct MonitorAVState
 {
 	long long tLastReported;
@@ -183,7 +183,7 @@ struct MonitorAVState
 		av_position[1] = 0; // Audio position
 	}
 };
-
+#endif
 /**
  * @struct GstPlayerPriv
  * @brief Holds private variables of InterfacePlayerRDK

@@ -35,7 +35,7 @@
 #include <atomic>
 #include <algorithm>
 #include "AampDRMLicManager.h"
-#include "InterfacePlayerPriv.h"
+#include "InterfacePlayerRDK.h"
 #include "ID3Metadata.hpp"
 #include "AampSegmentInfo.hpp"
 #include "AampBufferControl.h"

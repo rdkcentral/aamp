@@ -38,8 +38,21 @@
 #include "GstUtils.h"
 
 class InterfacePlayerPriv;
-struct MonitorAVState;
 
+struct MonitorAVState
+{
+	long long tLastReported;
+	long long tLastSampled;
+	const char *description;
+	gint64 av_position[2];
+	bool happy;
+
+	MonitorAVState() : tLastReported(0), tLastSampled(0), description(nullptr), happy(false)
+	{
+		av_position[0] = 0; // Video position
+		av_position[1] = 0; // Audio position
+	}
+};
 /**
  * @brief Function pointer for the idle task
  * @param[in] arg - Arguments
