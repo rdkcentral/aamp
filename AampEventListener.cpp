@@ -327,6 +327,5 @@ void AAMPEventListener::SendEvent(const AAMPEventPtr &event)
  */
 void AAMPEventObjectListener::SendEvent(const AAMPEventPtr &event)
 {
-	AAMPLOG_WARN("RDKEMW-4846-->Calling Event");
 	Event(event);
 }
