@@ -2895,10 +2895,12 @@ TEST_F(StreamAbstractionAAMP_MPDTest, InitTsbReaderTest)
 	double livePlayPosition = 123.456;
 	AampTSBSessionManager *tsbSessionManager = new AampTSBSessionManager(mPrivateInstanceAAMP);
 	std::shared_ptr<AampTsbDataManager> dataMgr;
+	std::shared_ptr<AampTsbReader> tsbReader = std::make_shared<AampTsbReader>(mPrivateInstanceAAMP, dataMgr, eMEDIATYPE_VIDEO, "sessionId");
 	mPrivateInstanceAAMP->rate = AAMP_NORMAL_PLAY_RATE;
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetLivePlayPosition()).WillOnce(Return(livePlayPosition));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetTSBSessionManager()).WillOnce(Return(tsbSessionManager));
 	EXPECT_CALL(*g_mockTSBSessionManager, InvokeTsbReaders(livePlayPosition, AAMP_NORMAL_PLAY_RATE, eTUNETYPE_SEEKTOLIVE)).WillOnce(Return(eAAMPSTATUS_OK));
+	EXPECT_CALL(*g_mockTSBSessionManager, GetTsbReader(eMEDIATYPE_VIDEO)).WillOnce(Return(tsbReader));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, NotifyOnEnteringLive()).Times(1);
 	mStreamAbstractionAAMP_MPD->InitTsbReader(eTUNETYPE_SEEKTOLIVE);
 	EXPECT_FLOAT_EQ(mStreamAbstractionAAMP_MPD->GetStreamPosition(), livePlayPosition);
