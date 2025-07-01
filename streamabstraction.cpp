@@ -2515,7 +2515,7 @@ int StreamAbstractionAAMP::GetDesiredProfileBasedOnCache(void)
 				logLevel = eLOGLEVEL_MIL;
 			}
 
-			AAMPLOG(logLevel,"currBW:%ld NwBW=%ld currProf:%d desiredProf:%d ,Buffer  %lf",currentBandwidth,networkBandwidth,currentProfileIndex,desiredProfileIndex,bufferValue/1000);
+			AAMPLOG(logLevel,"currBW:%ld NwBW=%ld currProf:%d desiredProf:%d ,Buffer:%lf",currentBandwidth,networkBandwidth,currentProfileIndex,desiredProfileIndex,bufferValue);
 
 			if (currentProfileIndex != desiredProfileIndex)
 			{
