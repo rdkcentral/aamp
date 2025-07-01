@@ -316,8 +316,8 @@ void PrivateInstanceAAMP::ResumeDownloads()
 
 void PrivateInstanceAAMP::EnableDownloads()
 {
-	mDownloadsEnabled = true;
-	mDownloadsDisabled.notify_all(); // Signal the condition variable
+//	mDownloadsEnabled = true;
+//	mDownloadsDisabled.notify_all(); // Signal the condition variable
 }
 
 void PrivateInstanceAAMP::AcquireStreamLock()
@@ -643,7 +643,7 @@ void PrivateInstanceAAMP::StoreLanguageList(const std::set<std::string> &langlis
 
 bool PrivateInstanceAAMP::DownloadsAreEnabled(void)
 {
-	bool retVal = mDownloadsEnabled;
+	bool retVal = false;//mDownloadsEnabled;
 	if (g_mockPrivateInstanceAAMP != nullptr)
 	{
 		retVal = g_mockPrivateInstanceAAMP->DownloadsAreEnabled();
@@ -794,12 +794,12 @@ void PrivateInstanceAAMP::CurlTerm(AampCurlInstance startIdx, unsigned int insta
 void PrivateInstanceAAMP::DisableDownloads(void)
 {
 	std::lock_guard<std::recursive_mutex> guard(mLock);
-	mDownloadsEnabled = true;
+//	mDownloadsEnabled = true;
 	if (g_mockPrivateInstanceAAMP != nullptr)
 	{
 		g_mockPrivateInstanceAAMP->DisableDownloads();
 	}
-	mDownloadsDisabled.notify_all(); // Signal the condition variable
+//	mDownloadsDisabled.notify_all(); // Signal the condition variable
 }
 
 int PrivateInstanceAAMP::GetInitialBufferDuration()
@@ -1631,7 +1631,6 @@ bool PrivateInstanceAAMP::isDecryptClearSamplesRequired()
 void PrivateInstanceAAMP::ResetTrickStartUTCTime()
 {
 }
-
 
 void PrivateInstanceAAMP::SetLLDashChunkMode(bool enable)
 {
