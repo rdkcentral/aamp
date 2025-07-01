@@ -1100,4 +1100,6 @@ class StreamAbstractionAAMP_HLS : public StreamAbstractionAAMP
 			 
 };
 
+StreamOutputFormat GetFormatFromFragmentExtension( const AampGrowableBuffer &playlist );
+
 #endif // FRAGMENTCOLLECTOR_HLS_H

@@ -2612,83 +2612,67 @@ std::string StreamAbstractionAAMP_HLS::GetPlaylistURI(TrackType trackType, Strea
 * @fn GetFormatFromFragmentExtension
 * @brief Function to get media format based on fragment extension
 *
-* @param trackState[in] TrackState structure pointer
+* @param playlist[in] playlist to scan to infer stream format
 * @return StreamOutputFormat stream format
 ***************************************************************************/
-static StreamOutputFormat GetFormatFromFragmentExtension(TrackState *trackState)
+StreamOutputFormat GetFormatFromFragmentExtension( const AampGrowableBuffer &playlist )
 {
 	StreamOutputFormat format = FORMAT_INVALID;
-	std::istringstream playlistStream(trackState->playlist.GetPtr() );
-	for (std::string line; std::getline(playlistStream, line); )
+	lstring iter(playlist.GetPtr(),playlist.GetLen());
+	while( !iter.empty() )
 	{
-		if( line.empty() )
+		lstring ptr = iter.mystrpbrk();
+		if( ptr.SubStringMatch("#EXT-X-MAP") )
+		{
+			format = FORMAT_ISO_BMFF;
+		}
+		else if( ptr.startswith('#') )
 		{
 			continue;
 		}
-		if( line[0]=='#' )
-		{
-			if( line.rfind("#EXT-X-MAP",0) == 0)
-			{ // starts-with
-				format = FORMAT_ISO_BMFF;
-				break;
-			}
-		}
 		else
 		{
-			while(isspace(line.back()))
+			auto len = ptr.find('?'); // strip any URI paratmeters
+			ptr = lstring( ptr.getPtr(), len );
+			size_t delim = ptr.find('.');
+			if( delim < ptr.length() )
 			{
-				line.pop_back();
-				if (line.empty())
+				for(;;)
 				{
-					break;
+					ptr = ptr.substr((int)delim+1);
+					delim = ptr.find('.');
+					if( delim == ptr.length() )
+					{
+						break;
+					}
 				}
-			}
-			if (line.empty())
-			{
-				continue;
-			}
-			AAMPLOG_TRACE("line === %s ====",   line.c_str());
-			size_t end = line.find("?");
-			if (end != std::string::npos)
-			{ // strip any URI paratmeters
-				line = line.substr(0, end);
-			}
-			size_t extensionStart = line.find_last_of('.');
-			if (extensionStart != std::string::npos)
-			{
-				std::string extension = line.substr(extensionStart);
-				// parsed extension of first advertised fragment, now compare
-				if ( extension == ".ts" )
+				if( ptr.equal("ts") )
 				{
 					format = FORMAT_MPEGTS;
 				}
-				else if ( extension == ".aac" )
+				else if ( ptr.equal("aac") )
 				{
 					format = FORMAT_AUDIO_ES_AAC;
 				}
-				else if ( extension == ".ac3" )
+				else if ( ptr.equal("ac3") )
 				{
 					format = FORMAT_AUDIO_ES_AC3;
 				}
-				else if ( extension == ".ec3" )
+				else if ( ptr.equal("ec3") )
 				{
 					format = FORMAT_AUDIO_ES_EC3;
 				}
-				else if ( extension == ".vtt" || extension == ".webvtt" )
+				else if( ptr.equal("vtt") || ptr.equal("webvtt") )
 				{
 					format = FORMAT_SUBTITLE_WEBVTT;
 				}
 				else
 				{
-					AAMPLOG_WARN("Not TS or MP4 extension, probably ES. fragment extension %s len %zu", extension.c_str(), strlen(extension.c_str()));
+					AAMPLOG_WARN("Not TS or MP4 extension, probably ES. fragment extension %.*s", ptr.getLen(), ptr.getPtr() );
 				}
 			}
-			else
-			{
-				AAMPLOG_WARN("Could not find extension from line %s", line.c_str());
-			}
-			break;
 		}
+		break;
 	}
 	return format;
 }
@@ -3715,7 +3699,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 
 				lstring iter = lstring(ts->playlist.GetPtr(),ts->playlist.GetLen());
 				ts->fragmentURI = iter.mystrpbrk();
-				StreamOutputFormat format = GetFormatFromFragmentExtension(ts);
+				StreamOutputFormat format = GetFormatFromFragmentExtension(ts->playlist);
 				if (FORMAT_ISO_BMFF == format)
 				{
 					//Disable subtitle in mp4 format, as we don't support it for now
