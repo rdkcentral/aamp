@@ -1701,7 +1701,9 @@ void AAMP_JSEventListener::Event(const AAMPEventPtr& e)
     0, // replace with actual value if not hardcoded
     0  // replace with actual value if not hardcoded
 );
+	LOG_WARN_EX("RDKEMW-4846-->creating event objct");
 	JSObjectRef event = createNewAAMPJSEvent(p_obj->_ctx, aampPlayer_getNameFromEventType(evtType), false, false);
+	LOG_WARN_EX("RDKEMW-4846-->Created event objct event=%p", event);
 	if (event)
 	{
 		JSGlobalContextRef ctx = p_obj->_ctx;

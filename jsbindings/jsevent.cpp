@@ -117,7 +117,7 @@ static void initEvent(JSContextRef context, JSObjectRef thisObj, size_t argument
 	char* evType;
 	bool bubbles = false;
 	bool cancelable = false;
-
+	LOG_WARN_EX("RDKEMW-4846-->start initEvent");
 	if (argumentCount >= 1 && JSValueIsString(context, arguments[0]))
 	{
 		evType = aamp_JSValueToCString(context, arguments[0], NULL);
@@ -132,8 +132,9 @@ static void initEvent(JSContextRef context, JSObjectRef thisObj, size_t argument
 			{
 				bubbles = JSValueToBoolean(context, bubblesValue);
 			}
+			LOG_WARN_EX("RDKEMW-4846-->test log 2");
 			JSStringRelease(bubblesProp);
-
+			LOG_WARN_EX("RDKEMW-4846-->test log 3");
 			JSStringRef cancelableProp = JSStringCreateWithUTF8CString("cancelable");
 			JSValueRef cancelableValue = JSObjectGetProperty(context, eventParams, cancelableProp, NULL);
 			if (JSValueIsBoolean(context, cancelableValue))
@@ -144,12 +145,20 @@ static void initEvent(JSContextRef context, JSObjectRef thisObj, size_t argument
 		}
 
 		AAMPJSEvent* ev = (AAMPJSEvent*) JSObjectGetPrivate(thisObj);
+		if(ev == NULL)
+		{
+			LOG_WARN_EX("RDKEMW-4846-->event is null");
+		}
 
 		if (ev && evType != NULL)
 		{
+			LOG_WARN_EX("RDKEMW-4846-->test log 1");
 			ev->initEvent(evType, bubbles, cancelable);
+			LOG_WARN_EX("RDKEMW-4846-->executed initEvent after null check");
 		}
+		LOG_WARN_EX("RDKEMW-4846-->executed initEvent");
 		SAFE_DELETE_ARRAY(evType);
+		LOG_WARN_EX("RDKEMW-4846-->eventtype deleted");
 	}
 }
 
@@ -518,10 +527,21 @@ static const JSClassDefinition AAMPJSEvent_object_def =
 
 JSObjectRef createNewAAMPJSEvent(JSGlobalContextRef ctx, const char *type, bool bubbles, bool cancelable)
 {
+	LOG_WARN_EX("RDKEMW-4846-->createNewAAMPJSEvent params: ctx=%p, type=%s, bubbles=%d, cancelable=%d",
+	            ctx, type, bubbles, cancelable);
         JSObjectRef eventObj = JSObjectMake(ctx, AAMPJSEvent_class_ref(), NULL);
+		LOG_WARN_EX("RDKEMW-4846-->created event object: %p", eventObj);
 #ifdef JSEVENT_WITH_NATIVE_MEMORY
 	AAMPJSEvent *eventPriv = (AAMPJSEvent *) JSObjectGetPrivate(eventObj);
+	if (eventPriv == NULL)
+	{
+		LOG_ERROR_EX("RDKEMW-4846-->Failed to get private data for event object: %p", eventObj);
+		return NULL;
+	}
+
+	LOG_WARN_EX("RDKEMW-4846-->calling initEvent");
 	eventPriv->initEvent(type, bubbles, cancelable);
+	LOG_WARN_EX("RDKEMW-4846-->executed initEvent");
 #endif
 
 	return eventObj;
