@@ -545,6 +545,8 @@ TEST_P(MediaTrackDashTrickModePtsRestampInvalidPlayRateTests, InvalidPlayRateTes
 	// There should be no PTS restamping for normal play rate media fragments in this test
 	EXPECT_CALL(*g_mockIsoBmffHelper, RestampPts(_, _, _, _, _)).Times(0);
 
+		EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_OverrideMediaHeaderDuration))
+		.WillRepeatedly(Return(false));
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnablePTSReStamp))
 		.WillRepeatedly(Return(true));
 	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_MaxFragmentCached))
