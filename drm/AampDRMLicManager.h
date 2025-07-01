@@ -19,7 +19,7 @@
 
 
 /**
-* @file AampDRMLicManager.h
+* @file AampLicManager.h
 * @brief Header file for DRM License manager
 */
 
@@ -30,7 +30,7 @@
 #include "DrmSession.h"
 #include "AampCurlDownloader.h"
 #include "DrmSessionManager.h"
-#include "DrmUtils.h"
+
 class AampDRMLicenseManager
 {
 public:
@@ -43,7 +43,7 @@ public:
 	 *  @fn ~AampDRMLicenseManager
 	 */
 	~AampDRMLicenseManager();
-	DrmSessionManager *mDRMSessionManager;
+	DrmSessionManager *mDrmSessionManager;
 	AampCurlDownloader* mLicenseDownloader;
 
 	char* accessToken;
@@ -78,37 +78,37 @@ public:
 	 * @fn acquireLicense
 	 */
 	KeyState acquireLicense(std::shared_ptr<DrmHelper> drmHelper, int sessionSlot, int &cdmError,  
-			AampMediaType streamType, void *metaDataPtr,  bool isLicenseRenewal = false);
+					AampMediaType streamType, void *metaDataPtr,  bool isLicenseRenewal = false);
 
 
 	/**
 	 * @fn handleLicenseResponse
 	 */
 	KeyState handleLicenseResponse(std::shared_ptr<DrmHelper> drmHelper, int sessionSlot, int &cdmError,
-			int32_t httpResponseCode, int32_t httpExtResponseCode, shared_ptr<DrmData> licenseResponse, DrmMetaDataEventPtr eventHandle,  bool isLicenseRenewal = false);
+					int32_t httpResponseCode, int32_t httpExtResponseCode, shared_ptr<DrmData> licenseResponse, DrmMetaDataEventPtr eventHandle,  bool isLicenseRenewal = false);
 
 	/**
 	 * @fn processLicenseResponse
 	 */
 	KeyState processLicenseResponse(std::shared_ptr<DrmHelper> drmHelper, int sessionSlot, int &cdmError,
-			shared_ptr<DrmData> licenseResponse, DrmMetaDataEventPtr eventHandle, bool isLicenseRenewal = false);
+					shared_ptr<DrmData> licenseResponse, DrmMetaDataEventPtr eventHandle, bool isLicenseRenewal = false);
 	/**
 	 * @fn configureLicenseServerParameters
 	 */
 	bool configureLicenseServerParameters(std::shared_ptr<DrmHelper> drmHelper, LicenseRequest& licRequest,
-			std::string &licenseServerProxy, const ChallengeInfo& challengeInfo, PrivateInstanceAAMP* aampInstance);
+					std::string &licenseServerProxy, const ChallengeInfo& challengeInfo, PrivateInstanceAAMP* aampInstance);
 
 	/**
-	 * @fn 	Update tracking of speed status and send watermarking requests as required. This is based on video presence, video mute state, and speed
-	 * @param	speed playback speed
-	 * @param	position indicates the playback position at which most recent playback activity began
-	 * @param   firstFrameSeen set to true the first time we see a video frame after tune
-	 * @return	void.
-	 */
+	* @fn 	Update tracking of speed status and send watermarking requests as required. This is based on video presence, video mute state, and speed
+	* @param	speed playback speed
+	* @param	position indicates the playback position at which most recent playback activity began
+	* @param   firstFrameSeen set to true the first time we see a video frame after tune
+	* @return	void.
+	*/
 	void setPlaybackSpeedState(bool live, double currentLatency, bool livepoint , double liveOffsetMs,int speed, double positionMs, bool firstFrameSeen = false);
 
 	/**
-	 * @fn 	De-activate watermark and prevent it from being re-enabled until we get a new first video frame at normal play speed
+	* @fn 	De-activate watermark and prevent it from being re-enabled until we get a new first video frame at normal play speed
 	* @return	void.
 	*/
 	void hideWatermarkOnDetach();
@@ -160,28 +160,28 @@ public:
 	void notifyCleanup();
 
 	/**
-         * @fn renewLicense
-         *
-         * @param[in] drmHelper - Current drm helper
-         * @param[in] userData - Data holds the current drm Session
-         * @param[in] aampInstance - Aamp instance
-         * @return void
-         */
+	 * @fn renewLicense
+	 *
+	 * @param[in] drmHelper - Current drm helper
+	 * @param[in] userData - Data holds the current drm Session
+	 * @param[in] aampInstance - Aamp instance
+	 * @return void
+	 */
 
-        void renewLicense(std::shared_ptr<DrmHelper> drmHelper, void* userData, PrivateInstanceAAMP* aampInstance);
-        /**
-         * @fn licenseRenewalThread
-         *
-         * @param[in] drmHelper - Current drm helper
-         * @param[in] sessionSlot - Session slot that holds the current drm Session
-         * @param[in] aampInstance - Aamp instance
-         * @return void
-         */
-        void licenseRenewalThread(std::shared_ptr<DrmHelper> drmHelper, int sessionSlot);
-         /**
-         * @fn releaseLicenseRenewalThreads
-         */
-        void releaseLicenseRenewalThreads();
+	void renewLicense(std::shared_ptr<DrmHelper> drmHelper, void* userData, PrivateInstanceAAMP* aampInstance);
+	/**
+	 * @fn licenseRenewalThread
+	 *
+	 * @param[in] drmHelper - Current drm helper
+	 * @param[in] sessionSlot - Session slot that holds the current drm Session
+	 * @param[in] aampInstance - Aamp instance
+	 * @return void
+	 */
+	void licenseRenewalThread(std::shared_ptr<DrmHelper> drmHelper, int sessionSlot, PrivateInstanceAAMP* aampInstance);
+		/**
+	 * @fn releaseLicenseRenewalThreads
+	 */
+	void releaseLicenseRenewalThreads();
 
 	/**
 	 * @brief To update the max DRM sessions supported
@@ -258,44 +258,52 @@ public:
 
 	DrmData * getLicenseSec(const LicenseRequest &licenseRequest, std::shared_ptr<DrmHelper> drmHelper,
 			const ChallengeInfo& challengeInfo, void* aampInstance, int32_t *httpCode, int32_t *httpExtStatusCode, DrmMetaDataEventPtr eventHandle);
+        void TriggerProfileBeginCb(int streamType);
+        void TriggerProfileEndCb(int streamType);
+        void TriggerProfileErrorCb(int streamType, int result);
+        void TriggerLAProfileBeginCb(int streamType);
+        void TriggerLAProfileEndCb(int streamType);
+        void TriggerLAProfileErrorCb(void *ptr);
+        void TriggerSetFailure(void *ptr, int err);
+        std::shared_ptr<void> TriggerDrmMetaDataEvent();
 
 	/**
 	 * @fn ProfilerUpdate 
 	 * @return void 
 	 * */
-        void ProfilerUpdate();
+	void ProfilerUpdate();
+
 	/** 
 	 * @fn HandleContentProtectionData
-	 * @return string 
+	 * @return string
 	 */
 	std::string HandleContentProtectionData(std::shared_ptr<DrmHelper> drmHelper, int streamType, std::vector<uint8_t> keyId, int contentProtectionUpd);
 
 	/** @fn 	Create the DRM session with DRM helper.
-	 * @param[in]   drmHelper Pointer 
-	 * @param[in]   instance of aamp
+	 * @param[in]   drmHelper shared ptr to drmhelper 
+	 * @param[in]   DrmCallbacks drm associated callbacks
 	 * @param[in]   event handle for capturing errors
 	 * @param[in]   input stream type
 	 */
 	DrmSession* createDrmSession(std::shared_ptr<DrmHelper> drmHelper, DrmCallbacks* aampInstance,  DrmMetaDataEventPtr eventHandle, int streamTypeIn);
-         /**
-         *  @fn         createDrmSession
-         *  @param[in]  systemId - UUID of the DRM system.
-         *  @param[in]  initDataPtr - Pointer to PSSH data.
-         *  @param[in]  dataLength - Length of PSSH data.
-         *  @param[in]  streamType - Whether audio or video.
-         *  @param[in]  contentMetadata - Pointer to content meta data, when content meta data
-         *                      is already extracted during manifest parsing. Used when content meta data
-         *                      is available as part of another PSSH header, like DRM Agnostic PSSH
-         *                      header.
-         *  @param[in]  aamp - Pointer to PrivateInstanceAAMP, for DRM related profiling.
-         *  @retval     error_code - Gets updated with proper error code, if session creation fails.
-         *                      No NULL checks are done for error_code, caller should pass a valid pointer.
-         */
-	DrmSession * createDrmSession(
-		 const char* systemId, MediaFormat mediaFormat, const unsigned char * initDataPtr,
-		uint16_t initDataLen, int streamType,
-		DrmCallbacks* aamp, DrmMetaDataEventPtr eventHandle, const unsigned char* contentMetadataPtr = nullptr,
-		 bool isPrimarySession = false);
-	AAMPTuneFailure MapDrmToAampTuneFailure(DrmTuneFailure drmError);
+	
+	/**
+	 *  @fn         createDrmSession
+	 *  @param[in]  systemId - UUID of the DRM system.
+	 *  @param[in]  initDataPtr - Pointer to PSSH data.
+	 *  @param[in]  dataLength - Length of PSSH data.
+	 *  @param[in]  streamType - Whether audio or video.
+	 *  @param[in]  contentMetadata - Pointer to content meta data, when content meta data
+	 *                      is already extracted during manifest parsing. Used when content meta data
+	 *                      is available as part of another PSSH header, like DRM Agnostic PSSH
+	 *                      header.
+	 *  @param[in]  aamp - Pointer to PrivateInstanceAAMP, for DRM related profiling.
+	 *  @retval     error_code - Gets updated with proper error code, if session creation fails.
+	 *                      No NULL checks are done for error_code, caller should pass a valid pointer.
+	 */
+	DrmSession * createDrmSession(const char* systemId, MediaFormat mediaFormat, const unsigned char * initDataPtr,
+		uint16_t initDataLen, int streamType, DrmCallbacks* aamp, DrmMetaDataEventPtr eventHandle,
+		const unsigned char* contentMetadataPtr = nullptr, bool isPrimarySession = false);
 
+	AAMPTuneFailure MapDrmToAampTuneFailure(DrmTuneFailure drmError);
 };

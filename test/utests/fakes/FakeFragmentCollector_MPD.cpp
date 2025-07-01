@@ -275,7 +275,8 @@ bool StreamAbstractionAAMP_MPD::UseIframeTrack(void)
 {
 	return true;
 }
-bool StreamAbstractionAAMP_MPD::DoEarlyStreamSinkFlush(bool newTune, float rate)
+
+void StreamAbstractionAAMP_MPD::TsbReader()
 {
-    return false;
+    
 }

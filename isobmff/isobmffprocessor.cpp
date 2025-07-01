@@ -37,17 +37,15 @@ static const char *IsoBmffProcessorTypeName[] =
 /**
  *  @brief IsoBmffProcessor constructor
  */
-IsoBmffProcessor::IsoBmffProcessor(class PrivateInstanceAAMP *aamp, id3_callback_t id3_hdl, IsoBmffProcessorType trackType,
-	bool passThrough, IsoBmffProcessor* peerBmffProcessor, IsoBmffProcessor* peerSubProcessor) :
-	p_aamp(aamp), type(trackType), peerProcessor(peerBmffProcessor), peerSubtitleProcessor(peerSubProcessor), basePTS(0),
+IsoBmffProcessor::IsoBmffProcessor(class PrivateInstanceAAMP *aamp, id3_callback_t id3_hdl, IsoBmffProcessorType trackType, IsoBmffProcessor* peerBmffProcessor, IsoBmffProcessor* peerSubProcessor)
+	: p_aamp(aamp), type(trackType), peerProcessor(peerBmffProcessor), peerSubtitleProcessor(peerSubProcessor), basePTS(0),
 	processPTSComplete(false), timeScale(0), initSegment(), resetPTSInitSegment(),
 	playRate(1.0f), aborted(false), m_mutex(), m_cond(),initSegmentProcessComplete(false),
 	isRestampConfigEnabled(false),
 	sumPTS(0),prevPTS(UINT64_MAX),currTimeScale(0), startPos(DEFAULT_DURATION),
 	prevPosition(-1), prevDuration(0.0), scalingOfPTSComplete(false),timeScaleChangeState(eBMFFPROCESSOR_INIT_TIMESCALE),
 	mediaFormat(eMEDIAFORMAT_UNKNOWN), enabled(true), trackOffsetInSecs(DEFAULT_DURATION), peerListeners(),
-	initSegmentTransferMutex(), skipMutex(), skipPointMap(),ptsDiscontinuity(false), nextPos(-1),
-	passThroughMode(passThrough)
+	initSegmentTransferMutex(), skipMutex(), skipPointMap(),ptsDiscontinuity(false), nextPos(-1)
 {
 	AAMPLOG_WARN("IsoBmffProcessor:: Created IsoBmffProcessor(%p) for type:%d and peerProcessor(%p)", this, type, peerBmffProcessor);
 	if (peerProcessor)
@@ -68,14 +66,6 @@ IsoBmffProcessor::IsoBmffProcessor(class PrivateInstanceAAMP *aamp, id3_callback
 	{
 		isRestampConfigEnabled = true;
 		AAMPLOG_WARN("IsoBmffProcessor:: %s mediaFormat=%d old PTS RE-STAMP ENABLED", IsoBmffProcessorTypeName[type],mediaFormat);
-	}
-	if (passThroughMode && isRestampConfigEnabled)
-	{
-		// If restamp is enabled, we cannot set pass through mode as basePTS and timeScale values are required
-		// This is a warning as this is not an expected scenario
-		AAMPLOG_WARN("IsoBmffProcessor %s Failed to set passThrough mode(%d) as restamp enabled(%d)",
-				IsoBmffProcessorTypeName[type], passThroughMode, isRestampConfigEnabled);
-		passThroughMode = false;
 	}
 }
 
@@ -98,19 +88,9 @@ bool IsoBmffProcessor::sendSegment(AampGrowableBuffer* pBuffer,double position,d
 	AAMPLOG_INFO("IsoBmffProcessor %s sending segment at pos:%f dur:%f fragmentPTSoffset: %.3f", IsoBmffProcessorTypeName[type], position, duration, fragmentPTSoffset);
 	bool ret = true;
 	ptsError = false;
-
 	if (!initSegmentProcessComplete)
 	{
-		if (passThroughMode)
-		{
-			// Populate the PTS and timeScale values for the first time without caching or syncing
-			// Its required for resetPTSOnSubtitleSwitch and resetPTSOnAudioSwitch
-			ret = updatePTSAndTimeScaleFromBuffer(pBuffer);
-		}
-		else
-		{
-			ret = setTuneTimePTS(pBuffer,position,duration,discontinuous,isInit);
-		}
+		ret = setTuneTimePTS(pBuffer,position,duration,discontinuous,isInit);
 	}
 	if (ret)
 	{
@@ -246,6 +226,7 @@ bool IsoBmffProcessor::setTuneTimePTS(AampGrowableBuffer *fragBuffer, double pos
 				uint32_t tScale = 0;
 				if (buffer.getTimeScale(tScale))
 				{
+
 					currTimeScale = tScale;
 					AAMPLOG_INFO("IsoBmffProcessor %s TimeScale %u (%u)", IsoBmffProcessorTypeName[type], currTimeScale,currTimeScale);
 				}
@@ -1327,50 +1308,4 @@ void IsoBmffProcessor::initProcessorForRestamp()
 	// We need to get the sumPTS from video to start restamping subtitles
 	// Hence setting timeScale changed state to complete
 	timeScaleChangeState = eBMFFPROCESSOR_TIMESCALE_COMPLETE;
-}
-
-/**
- * @fn updatePTSAndTimeScaleFromBuffer
- *
- * @param[in] pBuffer - Pointer to the AampGrowableBuffer
- * @return true if PTS and time scale read successfully, false otherwise
- */
-bool IsoBmffProcessor::updatePTSAndTimeScaleFromBuffer(AampGrowableBuffer *pBuffer)
-{
-	bool ret = false;
-	std::unique_lock<std::mutex> lock(m_mutex);
-	if (pBuffer && pBuffer->GetPtr() && pBuffer->GetLen() > 0)
-	{
-		IsoBmffBuffer buffer;
-		buffer.setBuffer((uint8_t *)pBuffer->GetPtr(), pBuffer->GetLen());
-		buffer.parseBuffer();
-		if(buffer.isInitSegment())
-		{
-			uint32_t tScale = 0;
-			if (buffer.getTimeScale(tScale))
-			{
-				currTimeScale = tScale;
-				timeScale = tScale;
-				AAMPLOG_INFO("IsoBmffProcessor %s TimeScale %" PRIu32 "", IsoBmffProcessorTypeName[type], currTimeScale);
-			}
-		}
-		else
-		{
-			// Init segment was parsed and stored previously. Find the base PTS now
-			uint64_t fPts = 0;
-			if (buffer.getFirstPTS(fPts))
-			{
-				basePTS = fPts;
-				processPTSComplete = true;
-				AAMPLOG_WARN("IsoBmffProcessor %s Base PTS (%" PRIu64 ") set", IsoBmffProcessorTypeName[type], basePTS);
-				initSegmentProcessComplete = true;
-			}
-		}
-		ret = true;
-	}
-	else
-	{
-		AAMPLOG_WARN("IsoBmffProcessor %s readPTSAndTimeScaleFromBuffer: Buffer(%p) is empty or null", IsoBmffProcessorTypeName[type], pBuffer);
-	}
-	return ret;
 }
