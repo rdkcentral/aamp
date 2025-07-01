@@ -370,7 +370,7 @@ KeyState AampDRMLicenseManager::handleLicenseResponse(std::shared_ptr<DrmHelper>
 			{
 				aampInstance->profiler.ProfileEnd(PROFILE_BUCKET_LA_NETWORK);
 			}
-			if (!drmHelper->getDrmMetaData().empty() || aampInstance->mConfig->IsConfigSet(eAAMPConfig_Base64LicenseWrapping))
+			if (!isSecFeatureEnabled() && (!drmHelper->getDrmMetaData().empty() || aampInstance->mConfig->IsConfigSet(eAAMPConfig_Base64LicenseWrapping)))
 			{
 				/*
 					Licence response from MDS server is in JSON form
