@@ -2926,10 +2926,6 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 			{
 				//Updating fragmentTime and fragmentDescriptor.Time with fisrtPTS
 				//CacheFragment is called with both fragmentTime and fragmentDescriptor.Time
-				
-				// Should this be using the values from GetFirstPTS(), 
-				// if local tsb it will return (restamped) PTS of the playback position?
-				// also should it be using a restamped value?
 				pMediaStreamContext->fragmentTime = GetFirstPTS();
 				pMediaStreamContext->fragmentDescriptor.Time = GetFirstPTS();
 
@@ -3491,8 +3487,8 @@ AAMPStatusType StreamAbstractionAAMP_MPD::InitTsbReader(TuneType tuneType)
 		if(eAAMPSTATUS_OK == retVal)
 		{
 			seekPosition = position;
-			AAMPLOG_MIL("Updated position: %lfs", seekPosition);
-		}
+			mFirstPTS = tsbSessionManager->GetTsbReader(eMEDIATYPE_VIDEO)->GetFirstPTS();
+			AAMPLOG_MIL("Updated position: %lfs, pts:%lfs", seekPosition, mFirstPTS);		}
 		else
 		{
 			retVal = eAAMPSTATUS_SEEK_RANGE_ERROR;
@@ -13943,15 +13939,7 @@ void StreamAbstractionAAMP_MPD::SeekPosUpdate(double secondsRelativeToTuneTime)
  */
 void StreamAbstractionAAMP_MPD::NotifyFirstVideoPTS(unsigned long long pts, unsigned long timeScale)
 {
-	if (!aamp->IsLocalAAMPTsbInjection())
-	{
-		mFirstPTS = ((double)pts / (double)timeScale);
-		if (ISCONFIGSET(eAAMPConfig_EnablePTSReStamp))
-		{
-			mFirstPTS -= mPTSOffset.inSeconds();
-		}
-		AAMPLOG_INFO("Updated mFirstPTS:%f mPTSOffset:%f", mFirstPTS, mPTSOffset.inSeconds());
-	}
+	mFirstPTS = ((double)pts / (double)timeScale);
 }
 
 /**
