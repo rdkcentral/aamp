@@ -31,7 +31,6 @@ message("SAMIIII")
 message({FIREBOLT_AAMP_LIB})
 message(STATUS "FIREBOLT_LIB = ${FIREBOLT_NAMESPACE}")
 set(LIB_EXT_DEPENDS ${LIB_EXT_DEPENDS} ${GSTREAMER_LINK_LIBRARIES} ${GSTREAMERBASE_LINK_LIBRARIES})
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror=format -Wno-multichar -std=c++17 -Wno-non-virtual-dtor -Wno-psabi") #TODO SAMII NEEDED?
 
 # Library source files
 set(EXT_SOURCES PlayerExternalsInterface.cpp PlayerRfc.cpp PlayerExternalUtils.cpp)

@@ -87,17 +87,6 @@ else
 {
 	MW_LOG_ERR("Failed to Unsubscribe to watermark events: %d", static_cast<int>(result.error()));
 	}
-
-/*if (mEventHandler)
-	{
-		auto result = Firebolt::IFireboltAampAccessor::Instance().ContentProtectionInterface().unsubscribe(*mEventHandler);
-		if (result.error() != Firebolt::Error::None)
-		{
-			MW_LOG_ERR("Failed to unsubscribe from watermark events: %d", static_cast<int>(result.error()));
-		}
-		mEventHandler.reset();
-	}
-*/
 }
 
 void ContentProtectionFirebolt::HandleWatermarkEvent(const std::string& sessionId, const std::string& statusStr, const std::string& appId)
@@ -131,7 +120,6 @@ void ContentProtectionFirebolt::Initialize()
 	}
 	/*Wait Time is 500 millisecond*/
 	std::unique_lock<std::mutex> mLock(mConnectionMutex);
-	mIsConnected = true;
 	if (!mConnectionCV.wait_for(mLock, std::chrono::milliseconds(500), [this] { return mIsConnected; })) {
 		MW_LOG_ERR("Firebolt Core To Be Initiailized URL: [%s] Failed(Timeout) after 500ms", url.c_str());
 		return;
