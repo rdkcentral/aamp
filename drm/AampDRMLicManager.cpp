@@ -63,41 +63,41 @@ static void  registerCb(AampDRMLicenseManager* _this, DrmSessionManager* instanc
     instance->RegisterHandleContentProtectionCb([_this](std::shared_ptr<DrmHelper> drmHelper, int streamType, std::vector<uint8_t> keyId, int contentProtectionUpd)->std::string    {
 		    return _this->HandleContentProtectionData(drmHelper, streamType, keyId, contentProtectionUpd);
      });
-    // Register the profiler update callback for TriggerProfileBeginCb
+    /**  Register the profiler update callback for TriggerProfileBeginCb */
      instance->RegisterProfBegin([_this](int streamType){
          _this->TriggerProfileBeginCb(streamType);
      });
 
-     // Register the profiler end callback for TriggerProfileEndCb
+     /** Register the profiler end callback for TriggerProfileEndCb */
      instance->RegisterProfEnd([_this](int streamType){
 		     _this->TriggerProfileEndCb(streamType);
 		     });
 
-     // Register the profiler Error callback for TriggerProfileErrorCb
+     /** Register the profiler Error callback for TriggerProfileErrorCb */
      instance->RegisterProfError([_this](int streamType,int result){
                   _this->TriggerProfileErrorCb(streamType,result);
                         });
 
-     // Register the profiler update callback for TriggerLAProfileBeginCb
+     /** Register the profiler update callback for TriggerLAProfileBeginCb */
      instance->RegisterLAProfBegin([_this](int streamType){
 	    _this->TriggerLAProfileBeginCb(streamType);
      });
 
-     // Register the profiler end callback for TriggerLAProfileEndCb
+     /**  Register the profiler end callback for TriggerLAProfileEndCb */
      instance->RegisterLAProfEnd([_this](int streamType){
 		_this->TriggerLAProfileEndCb(streamType);
      });
      
-     // Register the profiler error callback for TriggerLAProfileErrorCb
+     /** Register the profiler error callback for TriggerLAProfileErrorCb */
       instance->RegisterLAProfError([_this](void* ptr){
 	     _this->TriggerLAProfileErrorCb(ptr);
      });
 
-     // Register the SetFailure callback for TriggerSetFailureCb
+     /**  Register the SetFailure callback for TriggerSetFailureCb */
       instance->RegisterSetFailure([_this](void* ptr, int err){
 		      _this->TriggerSetFailure(ptr,err);
 		      });
-     // Register the MetaData callback for TriggerDrmMetaDataEvent
+     /** Register the MetaData callback for TriggerDrmMetaDataEvent */
        instance->RegisterMetaDataCb([_this]() -> std::shared_ptr<void> {
 
              return _this->TriggerDrmMetaDataEvent();
@@ -1332,6 +1332,9 @@ void AampDRMLicenseManager::ProfilerUpdate()
 
   aampInstance->profiler.ProfileBegin(PROFILE_BUCKET_LA_PREPROC);
 }
+/*
+ * @brief callback to do profiling from gst-plugins to application 
+ */
 void AampDRMLicenseManager::TriggerProfileBeginCb(int streamType)
 {
 	if(eMEDIATYPE_AUDIO == (AampMediaType)streamType)

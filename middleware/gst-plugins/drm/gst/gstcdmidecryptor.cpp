@@ -753,7 +753,6 @@ static gboolean gst_cdmidecryptor_sink_event(GstBaseTransform * trans,
 		GstPad * sinkpad = gst_element_get_static_pad(
 				reinterpret_cast<GstElement*>(cdmidecryptor), "sink");
 
-		//if (cdmidecryptor->player == NULL) //cdmidecryptor->sessionManager
 		if(cdmidecryptor->sessionManager == NULL)
 		{
 			const GValue *val;
@@ -770,7 +769,6 @@ static gboolean gst_cdmidecryptor_sink_event(GstBaseTransform * trans,
 			}
 			gst_query_unref(query);
 		}
-		//if(cdmidecryptor->player == NULL)
 		if(cdmidecryptor->sessionManager == NULL)
 		{
 		GST_ERROR_OBJECT(cdmidecryptor,
@@ -861,8 +859,6 @@ static gboolean gst_cdmidecryptor_sink_event(GstBaseTransform * trans,
 		cdmidecryptor->sessionManager->laprofileBeginCb(cdmidecryptor->mediaType);
 		g_mutex_lock(&cdmidecryptor->mutex);
 		GST_DEBUG_OBJECT(cdmidecryptor, "\n acquired lock for mutex\n");
-		//cdmidecryptor->sessionManager  = cdmidecryptor->mDRMLicenseManager;
-		//void *e = cdmidecryptor->sessionManager->DrmMetaDataCb();
 		std::shared_ptr<void> e = cdmidecryptor->sessionManager->DrmMetaDataCb();
                 int err = -1;
 		if (cdmidecryptor->sessionManager->m_drmConfigParam->mIsWVKIDWorkaround){
