@@ -13799,6 +13799,21 @@ double PrivateInstanceAAMP::GetFormatPositionOffsetInMSecs()
 }
 
 /**
+ * @brief This is function is invoked when mid-fragment rampdown occurs. It will send
+ * SendNewSegmentEvent to pipeline
+ */
+void PrivateInstanceAAMP::SendNewSegmentEvent( AampMediaType mediaType, double startPts, double stopPts)
+{
+	AAMPLOG_WARN("RESHMA-->> CALLING GSTREAMER SENDNEWSEGMENTEVENT");
+	StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
+	if(sink)
+	{
+		AAMPLOG_WARN("RESHMA-->> CALLING GSTREAMER SENDNEWSEGMENTEVENT INSIDE");
+		sink->SendNewSegmentEvent(mediaType, startPts, stopPts);
+	}
+}
+
+/**
  *   @brief Get output format of stream.
  *
  *   @param[out]  primaryOutputFormat - format of primary track

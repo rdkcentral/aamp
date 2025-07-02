@@ -933,6 +933,7 @@ public:
 	bool seamlessAudioSwitchInProgress; /**< Flag to indicate seamless audio track switch in progress */
 	bool seamlessSubtitleSwitchInProgress;
 	bool mCheckForRampdown;		        /**< flag to indicate if the track is undergoing rampdown or not */
+	bool shouldSendSegmentEvent;	/**<flag to indicate whether SendNewSegmentEvent should be triggered or not */
 
 protected:
 	PrivateInstanceAAMP* aamp;          /**< Pointer to the PrivateInstanceAAMP*/
@@ -1008,6 +1009,7 @@ private:
 	AampTime mRestampedDuration;			/**< Restamped segment duration, used in trick modes */
 	TrickmodeState mTrickmodeState;			/**< Current trick mode state */
 	std::mutex mTrackParamsMutex;			/**< Mutex for track parameters */
+	double mLastChunkPTS;					/**< PTS of the last chunk injected */
 };
 
 /**

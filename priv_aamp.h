@@ -801,6 +801,12 @@ public:
 	 */
 	void updateManifest(const char *manifestData);
 
+	/**
+	 * @brief This is function is invoked when mid-fragment rampdown occurs. It will send
+	 * SendNewSegmentEvent to pipeline
+	 */
+	void SendNewSegmentEvent( AampMediaType mediaType, double startPts, double stopPts);
+
 	bool mDiscontinuityFound;
 	int mTelemetryInterval;
 	std::vector< std::pair<long long,long> > mAbrBitrateData;

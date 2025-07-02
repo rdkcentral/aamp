@@ -1323,3 +1323,14 @@ void AAMPGstPlayer::StopMonitorAvTimer()
 		AAMPLOG_MIL("MonitorAvTimer stopped");
 	}
 }
+
+/**
+ * @brief Send the SendNewSegmentEvent to pipeline
+ */
+void AAMPGstPlayer::SendNewSegmentEvent(AampMediaType mediaType, double startPts, double stopPts)
+{
+	AAMPLOG_WARN("RESHMA-> INSIDE AAMPGSTPLAYER SENDNEWSEGMENT");
+	GstMediaType type = static_cast<GstMediaType>(mediaType);
+	GstClockTime sendingPts = (GstClockTime)(startPts*GST_SECOND);
+	playerInstance->SendNewSegmentEvent(type, sendingPts, 0 );
+}

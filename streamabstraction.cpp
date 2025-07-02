@@ -962,6 +962,7 @@ bool MediaTrack::ProcessFragmentChunk()
 				pContext->NotifyBitRateUpdate(cachedFragment->profileIndex, cachedFragment->cacheFragStreamInfo, cachedFragment->position);
 			}
 		}
+		shouldSendSegmentEvent = true;
 		cachedFragment->initFragment = false;
 		return true;
 	}
@@ -1078,6 +1079,12 @@ bool MediaTrack::ProcessFragmentChunk()
 		{
 			mSubtitleParser->processData(parsedBufferChunk.GetPtr(), parsedBufferChunk.GetLen(), fpts, fduration);
 		}
+		if((mLastChunkPTS > (fpts + FLOATING_POINT_EPSILON) ) &&  (type == eTRACK_VIDEO) && (aamp->rate == AAMP_NORMAL_PLAY_RATE) && (!cachedFragment->initFragment) && (shouldSendSegmentEvent == true))
+		{
+			AAMPLOG_WARN("RESHMA --> Saved PTS %.15f is greater than current PTS %.15f for %s", mLastChunkPTS, fpts, name);
+			aamp->SendNewSegmentEvent((AampMediaType)type, mLastChunkPTS, 0);
+			shouldSendSegmentEvent = false;
+		}
 		if (type != eTRACK_SUBTITLE || (aamp->IsGstreamerSubsEnabled()))
 		{
 			if( ISCONFIGSET(eAAMPConfig_CurlThroughput) )
@@ -1086,6 +1093,10 @@ bool MediaTrack::ProcessFragmentChunk()
 			}
 			AAMPLOG_INFO("Injecting chunk for %s br=%d,chunksize=%zu fpts=%f fduration=%f",name,bandwidthBitsPerSecond,parsedBufferChunk.GetLen(),fpts,fduration);
 			InjectFragmentChunkInternal((AampMediaType)type,&parsedBufferChunk , fpts, fpts, fduration, cachedFragment->PTSOffsetSec);
+			if(type == eTRACK_VIDEO && (!cachedFragment->initFragment))
+			{
+				mLastChunkPTS = fpts + fduration;
+			}
 			totalInjectedChunksDuration += fduration;
 		}
 	}
@@ -1996,8 +2007,8 @@ MediaTrack::MediaTrack(TrackType type, PrivateInstanceAAMP* aamp, const char* na
 		,mIsLocalTSBInjection(false), mCachedFragmentChunksSize(0)
 		,mIsoBmffHelper(std::make_shared<IsoBmffHelper>())
 		,mLastFragmentPts(0), mRestampedPts(0), mRestampedDuration(0), mTrickmodeState(TrickmodeState::UNDEF)
-		,mTrackParamsMutex(), mCheckForRampdown(false)
-		,gotLocalTime(false),ptsRollover(false),currentLocalTimeMs(0)
+		,mTrackParamsMutex(), mCheckForRampdown(false), shouldSendSegmentEvent(false)
+		,gotLocalTime(false),ptsRollover(false),currentLocalTimeMs(0), mLastChunkPTS(0)
 {
 	maxCachedFragmentsPerTrack = GETCONFIGVALUE(eAAMPConfig_MaxFragmentCached);
 	mCachedFragment = new CachedFragment[(maxCachedFragmentsPerTrack) ? maxCachedFragmentsPerTrack : 1];

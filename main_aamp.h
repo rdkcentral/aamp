@@ -749,6 +749,11 @@ public:
  	* @brief Notifies the injector to pause buffer pushing.
  	*/
 	virtual void NotifyInjectorToPause() {};
+	
+	/**
+	 * @brief API to send SendNewSegmentEvent during mid-fragment rampdown
+	 */
+	virtual void SendNewSegmentEvent( AampMediaType mediaType, double startPts, double stopPts) {};
 
 };
 
