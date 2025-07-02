@@ -23,7 +23,6 @@
 #include "priv_aamp.h"
 #include "AampDRMLicManager.h"
 #include "PlayerSecInterface.h"
-
 /**
  * @brief For generating IDs for LicensePreFetchObject
  * 
@@ -54,6 +53,7 @@ AampLicensePreFetcher::AampLicensePreFetcher(PrivateInstanceAAMP *aamp) : mPreFe
 		mVssPreFetchThreadStarted(false)
 {
 	mTrackStatus.fill(false);
+	mIsSecClientError = isSecFeatureEnabled();
 }
 
 /**
@@ -251,7 +251,7 @@ void AampLicensePreFetcher::PreFetchThread()
 				bool keyStatus = false;
 				std::vector<uint8_t> keyIdArray;
 				obj->mHelper->getKey(keyIdArray);
-				if (!keyIdArray.empty() && mPrivAAMP->mDRMLicenseManager->mDRMSessionManager->IsKeyIdProcessed(keyIdArray, keyStatus))
+				if (!keyIdArray.empty() && mPrivAAMP->mDRMLicenseManager->mDrmSessionManager->IsKeyIdProcessed(keyIdArray, keyStatus))
 				{
 					AAMPLOG_WARN("Key already processed [status:%s] for type:%d adaptationSetIdx:%u !", keyStatus ? "SUCCESS" : "FAIL", obj->mType, obj->mAdaptationIdx);
 					mPrivAAMP->setCurrentDrm(obj->mHelper);
@@ -321,7 +321,7 @@ void AampLicensePreFetcher::VssPreFetchThread()
 				bool keyStatus = false;
 				std::vector<uint8_t> keyIdArray;
 				obj->mHelper->getKey(keyIdArray);
-				if (!keyIdArray.empty() && mPrivAAMP->mDRMLicenseManager->mDRMSessionManager->IsKeyIdProcessed(keyIdArray, keyStatus))
+				if (!keyIdArray.empty() && mPrivAAMP->mDRMLicenseManager->mDrmSessionManager->IsKeyIdProcessed(keyIdArray, keyStatus))
 				{
 					AAMPLOG_WARN("Key already processed [status:%s] for type:%d adaptationSetIdx:%u !", keyStatus ? "SUCCESS" : "FAIL", obj->mType, obj->mAdaptationIdx);
 					skip = true;

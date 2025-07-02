@@ -178,74 +178,9 @@ public:
 	 * @param pipeline AV pipeline to update
 	 * @param info contains metadata extracted from mp4 initialization fragment
 	 */
-	void SetCaps( GstElement *pipeline, InitializationHeaderInfo *info )
+	void SetCaps( const Mp4Demux *mp4Demux )
 	{
-		GstCaps * caps = NULL;
-		GstBuffer *buf = gst_buffer_new_and_alloc(info->codec_data_len);
-		gst_buffer_fill(buf, 0, info->codec_data, info->codec_data_len);
-		if( mediaType == eMEDIATYPE_VIDEO )
-		{
-			const char *media_type = NULL;
-			const char *stream_format = NULL;
-			switch( info->codec_type )
-			{
-				case 'hvcC':
-					media_type = "video/x-h265";
-					stream_format = "hvc1";
-					// TODO: leverage gst_codec_utils_h265_caps_set_level_tier_and_profile
-					//level = "4.1";
-					break;
-				case 'avcC':
-					media_type = "video/x-h264";
-					stream_format = "avc";
-					// TODO: leverage gst_codec_utils_h264_caps_set_level_and_profile
-					//level = "1";
-					break;
-				default:
-					g_print( "unk codec_type: %" PRIu32 "\n", info->codec_type );
-					return;
-			}
-			caps = gst_caps_new_simple(
-									   media_type,
-									   "stream-format", G_TYPE_STRING, stream_format,
-									   "alignment", G_TYPE_STRING, "au",
-									   "codec_data", GST_TYPE_BUFFER, buf,
-									   "width", G_TYPE_INT, info->width,
-									   "height", G_TYPE_INT, info->height,
-									   "pixel-aspect-ratio", GST_TYPE_FRACTION, 1, 1,
-									   NULL );
-		}
-		else
-		{
-			switch( info->codec_type )
-			{
-				case 'esds':
-					caps = gst_caps_new_simple(
-											   "audio/mpeg",
-											   "mpegversion",G_TYPE_INT,4,
-											   "framed", G_TYPE_BOOLEAN, TRUE,
-											   "stream-format",G_TYPE_STRING,"raw", // FIXME
-											   "codec_data", GST_TYPE_BUFFER, buf,
-											   NULL );
-					break;
-					
-				case 'dec3':
-					caps = gst_caps_new_simple(
-											   "audio/x-eac3",
-											   "framed", G_TYPE_BOOLEAN, TRUE,
-											   "rate", G_TYPE_INT, info->samplerate,
-											   "channels", G_TYPE_INT, info->channel_count,
-											   NULL );
-					break;
-					
-				default:
-					assert(0);
-					break;
-			}
-		}
-		gst_app_src_set_caps(GST_APP_SRC(appsrc), caps);
-		gst_caps_unref(caps);
-		gst_buffer_unref (buf);
+		mp4Demux->setCaps( GST_APP_SRC(appsrc) );
 	}
 	
 	void Seek( const SeekParam &param )
@@ -400,9 +335,9 @@ void Pipeline::Configure( MediaType mediaType )
 	mediaStream[mediaType]->Configure(pipeline);
 }
 
-void Pipeline::SetCaps( MediaType mediaType, InitializationHeaderInfo *info )
+void Pipeline::SetCaps( MediaType mediaType, const Mp4Demux *mp4Demux )
 {
-	mediaStream[mediaType]->SetCaps(pipeline, info);
+	mediaStream[mediaType]->SetCaps(mp4Demux);
 }
 
 Pipeline::~Pipeline()

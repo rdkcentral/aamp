@@ -17,7 +17,7 @@
  * limitations under the License.
  */
 
-#include "gstaampclearkeydecryptor.h"
+#include "gstclearkeydecryptor.h"
 #include <gmock/gmock.h>
 #include <gst/gst.h>
 #include <gtest/gtest.h>

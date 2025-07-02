@@ -339,7 +339,7 @@ bool PrivateInstanceAAMP::IsFragmentCachingRequired()
 	return false;
 }
 
-void PrivateInstanceAAMP::TeardownStream(bool newTune)
+void PrivateInstanceAAMP::TeardownStream(bool newTune, bool disableDownloads)
 {
 }
 
@@ -481,12 +481,11 @@ std::string PrivateInstanceAAMP::GetAvailableAudioTracks(bool allTrack)
 	}else {
 		return "";
 	}
-
 }
 
 std::string PrivateInstanceAAMP::GetVideoRectangle()
 {
-	std::string video = "videorectangel";
+	std::string video = "VideoRectangle";
 	return video;
 }
 
@@ -496,7 +495,7 @@ void PrivateInstanceAAMP::SetAppName(std::string name)
 
 std::string PrivateInstanceAAMP::GetAppName()
 {
-	std::string name = "appName";
+	std::string name = "AppName";
 	return name;
 }
 
@@ -520,7 +519,7 @@ void PrivateInstanceAAMP::SetTextStyle(const std::string &options)
 
 std::string PrivateInstanceAAMP::GetTextStyle()
 {
-	std::string result = "sampleStyle";
+	std::string result = "TextStyle";
 	return result;
 }
 
@@ -641,7 +640,7 @@ void PrivateInstanceAAMP::StoreLanguageList(const std::set<std::string> &langlis
 
 bool PrivateInstanceAAMP::DownloadsAreEnabled(void)
 {
-	bool retVal = true;
+	bool retVal = false;
 	if (g_mockPrivateInstanceAAMP != nullptr)
 	{
 		retVal = g_mockPrivateInstanceAAMP->DownloadsAreEnabled();
@@ -791,6 +790,10 @@ void PrivateInstanceAAMP::CurlTerm(AampCurlInstance startIdx, unsigned int insta
 
 void PrivateInstanceAAMP::DisableDownloads(void)
 {
+	if (g_mockPrivateInstanceAAMP != nullptr)
+	{
+		g_mockPrivateInstanceAAMP->DisableDownloads();
+	}
 }
 
 int PrivateInstanceAAMP::GetInitialBufferDuration()
@@ -1623,7 +1626,6 @@ void PrivateInstanceAAMP::ResetTrickStartUTCTime()
 {
 }
 
-
 void PrivateInstanceAAMP::SetLLDashChunkMode(bool enable)
 {
 	mIsChunkMode = enable;
@@ -1680,4 +1682,12 @@ void PrivateInstanceAAMP::IncrementGaps()
 double PrivateInstanceAAMP::GetStreamPositionMs()
 {
 	return 0.0;
+}
+
+void PrivateInstanceAAMP::SendMonitorAvEvent(const std::string &status, int64_t videoPositionMS, int64_t audioPositionMS, uint64_t timeInStateMS)
+{
+}
+double PrivateInstanceAAMP::GetFormatPositionOffsetInMSecs()
+{
+	return 0;
 }
