@@ -23,7 +23,7 @@ function install_build_middleware_interface_fn()
         do_clone_fn  https://github.com/rdkcentral/middleware-player-interface.git
 
         cd middleware-player-interface
-        git checkout feature/RDKEMW-4040
+        git checkout feature/RDKEMW-5744
         mkdir -p build
         cd build
         cmake .. -DCMAKE_INSTALL_PREFIX=${LOCAL_DEPS_BUILD_DIR}
