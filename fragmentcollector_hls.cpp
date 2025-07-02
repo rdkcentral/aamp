@@ -1317,7 +1317,7 @@ bool TrackState::FetchFragmentHelper(int &http_error, bool &decryption_error, bo
 			std::string tempEffectiveUrl;
 			AAMPLOG_TRACE(" Calling Getfile . buffer %p avail %d", &cachedFragment->fragment, (int)cachedFragment->fragment.GetAvail());
 			double downloadTime = 0;
-			
+
 			cachedFragment->discontinuityIndex = 0;
 			if( ISCONFIGSET(eAAMPConfig_HlsTsEnablePTSReStamp) )
 			{ // TODO: optimize me
@@ -1346,7 +1346,7 @@ bool TrackState::FetchFragmentHelper(int &http_error, bool &decryption_error, bo
 					}
 				}
 			}
-			
+
 			bool fetched = aamp->GetFile(fragmentUrl, (AampMediaType)(type), &cachedFragment->fragment,
 			 tempEffectiveUrl, &http_error, &downloadTime, range, type, false, NULL, NULL, fragmentDurationSeconds);
 			//Workaround for 404 of subtitle fragments
@@ -1762,7 +1762,7 @@ void TrackState::InjectFragmentInternal(CachedFragment* cachedFragment, bool &fr
 				aamp->SendStreamCopy(type, buf.data(), buf.size(), info.pts_s, info.dts_s, info.duration);
 			}
 		};
-		
+
 		if( demuxOp == eStreamOp_DEMUX_ALL && ISCONFIGSET(eAAMPConfig_HlsTsEnablePTSReStamp) )
 		{
 			if( context->mPtsOffsetMap.count(cachedFragment->discontinuityIndex)==0 )
@@ -1775,7 +1775,7 @@ void TrackState::InjectFragmentInternal(CachedFragment* cachedFragment, bool &fr
 			}
 			m_totalDurationForPtsRestamping += cachedFragment->duration;
 		}
-		
+
 		fragmentDiscarded = !playContext->sendSegment( &cachedFragment->fragment,
 			position.inSeconds(),
 			cachedFragment->duration,
@@ -4588,7 +4588,7 @@ void StreamAbstractionAAMP_HLS::InitTracks()
 void StreamAbstractionAAMP_HLS::CachePlaylistThreadFunction(void)
 {
 	// required to work around Adobe SSAI session lifecycle problem
-	// Temporary workaround code 
+	// Temporary workaround code
 	aamp->PreCachePlaylistDownloadTask();
 	return;
 }
@@ -4686,6 +4686,8 @@ double StreamAbstractionAAMP_HLS::GetBufferedDuration()
  */
 double TrackState::GetBufferedDuration()
 {
+		AAMPLOG_ERR("DJH playTargetBufferCalc %f, GetPositionMs %lld",
+			playTargetBufferCalc.inSeconds(), aamp->GetPositionMs());
 	return (playTargetBufferCalc.inSeconds() - (aamp->GetPositionMs() / 1000));
 }
 
