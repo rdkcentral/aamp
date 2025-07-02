@@ -4354,6 +4354,65 @@ TEST_F(PrivAampTests, TuneHelperWithAampTsbLive)
 	EXPECT_DOUBLE_EQ(p_aamp->durationSeconds, (ABS_END_POS - SEEK_POS));
 }
 
+/**
+ * @test PrivAampTests::TuneHelperWithAampTsbSeekToLiveWhenTsbIsEmpty
+ * @brief Test the method TuneHelper with AAMP TSB enabled, Tsb injection disabled
+ * not newTune with TuneType eTUNETYPE_SEEKTOLIVE when TSB is empty.
+ *
+ * This test verifies that when TuneHelper function is called with
+ * above parameters, it is not setting LocalAAMPTsbInjection flag.
+ */
+TEST_F(PrivAampTests, TuneHelperWithAampTsbSeekToLiveWhenTsbIsEmpty)
+{
+	constexpr double SEEK_POS = 123;
+	constexpr double ABS_END_POS = 150.0;
+	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP_MPD;
+	p_aamp->mMediaFormat = eMEDIAFORMAT_DASH;
+	p_aamp->rate = AAMP_RATE_PAUSE;
+	p_aamp->seek_pos_seconds = SEEK_POS;
+	p_aamp->SetLLDashChunkMode(false);
+	p_aamp->SetLocalAAMPTsb(true);
+	p_aamp->SetLocalAAMPTsbInjection(false);
+	p_aamp->mAbsoluteEndPosition = ABS_END_POS;
+	p_aamp->culledSeconds = SEEK_POS;
+
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP_MPD, GetStreamPosition()).WillOnce(Return(SEEK_POS));
+
+	EXPECT_DOUBLE_EQ(p_aamp->GetTSBSessionManager()->GetTotalStoreDuration(eMEDIATYPE_VIDEO), 0);
+	p_aamp->TuneHelper(eTUNETYPE_SEEKTOLIVE);
+
+	EXPECT_FALSE(p_aamp->IsLocalAAMPTsbInjection());
+}
+
+/**
+ * @test PrivAampTests::TuneHelperWithAampTsbSeekToLiveWhenTsbIsNotEmpty
+ * @brief Test the method TuneHelper with AAMP TSB enabled, Tsb injection disabled
+ * not newTune with TuneType eTUNETYPE_SEEKTOLIVE when TSB has data.
+ *
+ * This test verifies that when TuneHelper function is called with
+ * above parameters, it is able to initiaize TsbReader is TSB has data.
+ */
+TEST_F(PrivAampPrivTests, TuneHelperWithAampTsbSeekToLiveWhenTsbIsNotEmpty)
+{
+	constexpr double SEEK_POS = 123;
+	constexpr double ABS_END_POS = 150.0;
+	testp_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP_MPD;
+	testp_aamp->mMediaFormat = eMEDIAFORMAT_DASH;
+	testp_aamp->rate = AAMP_RATE_PAUSE;
+	testp_aamp->seek_pos_seconds = SEEK_POS;
+	testp_aamp->SetLLDashChunkMode(false);
+	testp_aamp->SetLocalAAMPTsb(true);
+	testp_aamp->SetLocalAAMPTsbInjection(false);
+	testp_aamp->mAbsoluteEndPosition = ABS_END_POS;
+	testp_aamp->culledSeconds = SEEK_POS;
+	testp_aamp->SetTsbSessionManager();
+	testp_aamp->SetTsbStore();
+
+	EXPECT_CALL(*g_mockTSBSessionManager, GetTotalStoreDuration(eMEDIATYPE_VIDEO)).WillRepeatedly(Return(ABS_END_POS));
+	testp_aamp->TuneHelper(eTUNETYPE_SEEKTOLIVE);
+
+	EXPECT_TRUE(testp_aamp->IsLocalAAMPTsbInjection());
+}
 
 /**
  * @test PrivAampTests::NotifyEOSReached
