@@ -258,6 +258,11 @@ public:
 
 	DrmData * getLicenseSec(const LicenseRequest &licenseRequest, std::shared_ptr<DrmHelper> drmHelper,
 			const ChallengeInfo& challengeInfo, void* aampInstance, int32_t *httpCode, int32_t *httpExtStatusCode, DrmMetaDataEventPtr eventHandle);
+        
+        /** 
+	 * @fn Registration of callbacks to application from gst-plugins
+	 * @param[in] StreamType
+	 * @return void */
         void TriggerProfileBeginCb(int streamType);
         void TriggerProfileEndCb(int streamType);
         void TriggerProfileErrorCb(int streamType, int result);
