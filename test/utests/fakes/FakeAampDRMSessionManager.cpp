@@ -22,7 +22,7 @@
 #include "MockAampDRMSessionManager.h"
 MockDRMSessionManager *g_mockDRMSessionManager = nullptr;
 
-DrmSessionManager::DrmSessionManager(int maxDrmSessions, void *player, std::function<void(uint32_t, uint32_t, const std::string&)> watermarkSessionUpdateCallback) 
+DrmSessionManager::DrmSessionManager(int, void*)
 {
 }
 
@@ -31,7 +31,7 @@ DrmSessionManager::~DrmSessionManager()
 }
 
 
-void DrmSessionManager::setPlaybackSpeedState(bool live, double currentLatency, bool livepoint , double liveOffsetMs, int speed, double positionMs, bool firstFrameSeen)
+void DrmSessionManager::setPlaybackSpeedState(bool , double , bool  , double ,int , double , bool )
 {
 }
 
@@ -39,7 +39,7 @@ void DrmSessionManager::hideWatermarkOnDetach()
 {
 }
 
-void DrmSessionManager::setVideoMute(bool live, double currentLatency, bool livepoint , double liveOffsetMs,bool isVideoOnMute, double positionMs)
+void DrmSessionManager::setVideoMute(bool , double , bool , double ,bool , double )
 {
 }
 
@@ -51,7 +51,12 @@ void DrmSessionManager::setVideoWindowSize(int width, int height)
 	}
 }
 
-void DrmSessionManager::UpdateMaxDRMSessions(int maxSessions)
+
+void DrmSessionManager::UpdateMaxDRMSessions(int)
+{
+}
+
+void DrmSessionManager::UpdateDRMConfig(bool , bool , bool , bool )
 {
 }
 
@@ -69,9 +74,6 @@ string DrmSession::getKeySystem(void)
 	return NULL;
 }
 
-void DrmSessionManager::UpdateDRMConfig( bool useSecManager, bool enablePROutputProtection, bool propagateURIParam, bool isFakeTune, bool wideVineKIDWorkaround)
-{
-}
 
 DrmSession * DrmSessionManager::createDrmSession(int& err,
 		const char* systemId, MediaFormat mediaFormat, const unsigned char * initDataPtr,
@@ -92,15 +94,6 @@ SessionMgrState DrmSessionManager::getSessionMgrState()
 	return SessionMgrState::eSESSIONMGR_INACTIVE;
 }
 
-void DrmSessionManager::notifyCleanup()
-{
-}
-
-bool DrmSessionManager::IsKeyIdProcessed(std::vector<uint8_t> keyIdArray, bool &status)
-{
-	return false;
-}
-
 void DrmSessionManager::clearDrmSession(bool forceClearSession)
 {
 }
@@ -113,3 +106,37 @@ void DrmSessionManager::setSessionMgrState(SessionMgrState state)
 {
 }
 
+void DrmSessionManager::notifyCleanup()
+{
+}
+
+bool DrmSessionManager::IsKeyIdProcessed(std::vector<uint8_t> keyIdArray, bool &status)
+{
+	return false;
+}
+
+#if 0
+void DrmSessionManager::SetLicenseFetcher(AampLicenseFetcher *fetcherInstance)
+{
+}
+
+bool DrmSessionManager::QueueContentProtection(DrmHelperPtr drmHelper, std::string periodId, uint32_t adapIdx, AampMediaType type, bool isVssPeriod)
+{
+	return false;
+}
+
+void DrmSessionManager::QueueProtectionEvent(DrmHelperPtr drmHelper, std::string periodId, uint32_t adapIdx, AampMediaType type)
+{
+}
+
+
+void DrmSessionManager::SetSendErrorOnFailure(bool sendErrorOnFailure)
+{
+}
+
+void DrmSessionManager::SetCommonKeyDuration(int keyDuration)
+{
+}
+
+
+#endif

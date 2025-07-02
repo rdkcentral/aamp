@@ -22,7 +22,6 @@
 #include <string.h>
 #include <limits>
 
-#include "MockAampGstPlayer.h"
 #include "AampLogManager.h"
 #include "MockAampUtils.h"
 
@@ -51,7 +50,6 @@ protected:
 	void SetUp() override
 	{
 		mAampConfig = std::unique_ptr<AampConfig>(new AampConfig());
-		g_mockAampGstPlayer = new MockAAMPGstPlayer(nullptr);
 		g_mockAampUtils = new StrictMock<MockAampUtils>();
 		AampLogManager::lockLogLevel(false);
 		AampLogManager::setLogLevel(eLOGLEVEL_WARN);
@@ -59,9 +57,6 @@ protected:
 
 	void TearDown() override
 	{
-		delete g_mockAampGstPlayer;
-		g_mockAampGstPlayer = nullptr;
-
 		mAampConfig = nullptr;
 
 		delete g_mockAampUtils;
@@ -929,22 +924,6 @@ TEST_F(AampConfigTests, ReadAampCfgTxtFile)
 	EXPECT_CALL(*g_mockAampUtils, aamp_GetConfigPath("/opt/aamp.cfg")).WillOnce(Return("aamp.cfg"));
 	bool retVal = aampConfig.ReadAampCfgTxtFile();
 	EXPECT_EQ(retVal, true);
-	EXPECT_EQ( AampLogManager::locked, true );
-	EXPECT_EQ( AampLogManager::aampLoglevel, eLOGLEVEL_TRACE );
-}
-
-TEST_F(AampConfigTests, ReadAampCfgFromEnv)
-{
-	AampConfig aampConfig;
-	aampConfig.Initialize();
-	// Confirm the default values to verify they are modified when reading the env variable
-	ASSERT_EQ( AampLogManager::locked, false );
-	ASSERT_EQ( AampLogManager::aampLoglevel, eLOGLEVEL_WARN );
-
-	const char *envConf = "trace=true";
-	EXPECT_EQ(setenv("AAMP_CFG_TEXT", envConf, 1), 0) << "Failed to set env variable AAMP_CFG_TEXT";
-
-	aampConfig.ReadAampCfgFromEnv();
 	EXPECT_EQ( AampLogManager::locked, true );
 	EXPECT_EQ( AampLogManager::aampLoglevel, eLOGLEVEL_TRACE );
 }

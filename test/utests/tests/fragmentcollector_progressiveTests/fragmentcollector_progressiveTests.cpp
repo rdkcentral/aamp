@@ -23,79 +23,31 @@
 using namespace testing;
 AampConfig *gpGlobalConfig{ nullptr };
 
-/**
- * @class MockProgressiveFetcher
- * @brief Mock implementation for testing that overrides FetcherLoop to do nothing
- */
-class MockProgressiveFetcher : public StreamAbstractionAAMP_PROGRESSIVE
-{
-public:
-    MockProgressiveFetcher(class PrivateInstanceAAMP *aamp,double seekpos, float rate)
-        : StreamAbstractionAAMP_PROGRESSIVE(aamp, seekpos, rate)
-    {
-    }
-
-    ~MockProgressiveFetcher() override
-    {
-        // Ensure the thread is stopped when the mock is destroyed
-        threadDone = true;
-    }
-
-    bool threadDone{false}; /**< Flag to indicate if the thread should exit */
-
-protected:
-    /**
-     * @brief Overridden FetcherLoop that does nothing and exits on DisableDownloads
-     */
-    void FetcherLoop() override
-    {
-        // Loop that does nothing but checks for exit condition
-        while( !threadDone)
-        {
-            std::this_thread::sleep_for(std::chrono::milliseconds(100));
-        }
-
-    }
-};
 class fragmentcollector_progressiveTests : public ::testing::Test
 {
-public:
-    PrivateInstanceAAMP* aamp;
-
 protected:
 
     void SetUp() override
-    {
+    {  
+        PrivateInstanceAAMP* aamp = new PrivateInstanceAAMP();
         aamp = new PrivateInstanceAAMP();
-        double seek_pos = 0.0; // Provide the desired seek_pos value
-        float rate = 1.0;      // Provide the desired rate value
-        profileEvent = new StreamAbstractionAAMP_PROGRESSIVE(aamp, seek_pos, rate);
+        double seek_pos = 0.0;  // Provide the desired seek_pos value
+        float rate = 1.0;       // Provide the desired rate value
+     profileEvent = new StreamAbstractionAAMP_PROGRESSIVE(aamp, seek_pos, rate);
+  
     }
+
 
     void TearDown() override
     {
-        delete aamp;
         delete profileEvent;
-        profileEvent = nullptr;      
+        profileEvent = nullptr;
+       
     }
 
    StreamAbstractionAAMP_PROGRESSIVE* profileEvent;
    
 };
-
-// Test that calling Start() twice in succession does not cause the test to terminate
-TEST_F(fragmentcollector_progressiveTests, testRepeatedStart) 
-{
-    double seek_pos = 0.0;  // Provide the desired seek_pos value
-    float rate = 1.0;       // Provide the desired rate value
-
-    auto mockedFragmentCollector = new MockProgressiveFetcher(aamp, seek_pos, rate);
-    // Call the Start function
-    mockedFragmentCollector->Start();
-
-    // Call the Start function again
-    mockedFragmentCollector->Start();
-}
 
 TEST_F(fragmentcollector_progressiveTests, StopTest) {
     // Call the Start function

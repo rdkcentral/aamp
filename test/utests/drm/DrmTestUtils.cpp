@@ -55,7 +55,7 @@ TestUtilDrm::TestUtilDrm(PrivateInstanceAAMP* privAamp)
 
 TestUtilDrm::~TestUtilDrm()
 {
-	mLicenseManager->mDrmSessionManager->clearSessionData();
+	mLicenseManager->mDRMSessionManager->clearSessionData();
 }
 
 AampDRMLicenseManager* TestUtilDrm::getSessionManager()

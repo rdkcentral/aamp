@@ -30,33 +30,6 @@
 
 AampConfig *gpGlobalConfig{nullptr};
 
-// Add this derived class definition
-class TestTrackState : public TrackState
-{
-public:
-	TestTrackState(TrackType type, class StreamAbstractionAAMP_HLS *parent,
-				   PrivateInstanceAAMP *aamp, const char *name,
-				   id3_callback_t id3Handler = nullptr,
-				   ptsoffset_update_t ptsUpdate = nullptr)
-		: TrackState(type, parent, aamp, name, id3Handler, ptsUpdate) {}
-
-	~TestTrackState()
-	{
-		// Ensure the thread is stopped when the mock is destroyed
-		threadDone = true;
-	}
-
-	bool threadDone{false}; /**< Flag to indicate if the thread should exit */
-
-	// Override RunFetchLoop to allow testing
-	void RunFetchLoop() override
-	{
-		while (!threadDone)
-		{
-			std::this_thread::sleep_for(std::chrono::milliseconds(100));
-		}
-	};
-};
 class byteRangeTests : public ::testing::Test
 {
 protected:
@@ -184,18 +157,3 @@ TEST_F(byteRangeTests, withmanifestvalue) {
 	EXPECT_EQ(byteRangeOffset,274920);
 }
 
-TEST_F(byteRangeTests, testThreadStart) 
-{
-
-	// Create a Trackstate object for the test
-
-	// This is necessary to ensure that the StreamAbstractionAAMP_HLS object is properly initialized
-	// and can handle the Start and Stop calls correctly.
-	TrackState *trackState = new TestTrackState(eTRACK_VIDEO, mStreamAbstractionAAMP_HLS, mPrivateInstanceAAMP, "TestTrack");
-
-	// Call the Start function
-	trackState->Start();
-
-	// And a second time - if the thread is already running, it should not cause any issues
-	trackState->Start();
-}

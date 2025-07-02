@@ -37,46 +37,46 @@ using namespace std;
 class StreamAbstractionAAMP_PROGRESSIVE : public StreamAbstractionAAMP
 {
 public:
-	/**
-	 * @fn StreamAbstractionAAMP_PROGRESSIVE
-	 * @param aamp pointer to PrivateInstanceAAMP object associated with player
-	 * @param seekpos Seek position
-	 * @param rate playback rate
-	 */
-	StreamAbstractionAAMP_PROGRESSIVE(class PrivateInstanceAAMP *aamp,double seekpos, float rate);
-	/**
-	 * @fn ~StreamAbstractionAAMP_PROGRESSIVE
-	 */
-	~StreamAbstractionAAMP_PROGRESSIVE();
-	/**
-	 * @brief Copy constructor disabled
-	 *
-	 */
-	StreamAbstractionAAMP_PROGRESSIVE(const StreamAbstractionAAMP_PROGRESSIVE&) = delete;
-	/**
-	 * @brief assignment operator disabled
-	 *
-	 */
-	StreamAbstractionAAMP_PROGRESSIVE& operator=(const StreamAbstractionAAMP_PROGRESSIVE&) = delete;
-	double seekPosition;
+    /**
+     * @fn StreamAbstractionAAMP_PROGRESSIVE
+     * @param aamp pointer to PrivateInstanceAAMP object associated with player
+     * @param seekpos Seek position
+     * @param rate playback rate
+     */
+    StreamAbstractionAAMP_PROGRESSIVE(class PrivateInstanceAAMP *aamp,double seekpos, float rate);
+    /**
+     * @fn ~StreamAbstractionAAMP_PROGRESSIVE
+     */
+    ~StreamAbstractionAAMP_PROGRESSIVE();
+    /**
+     * @brief Copy constructor disabled
+     *
+     */
+    StreamAbstractionAAMP_PROGRESSIVE(const StreamAbstractionAAMP_PROGRESSIVE&) = delete;
+    /**
+     * @brief assignment operator disabled
+     *
+     */
+    StreamAbstractionAAMP_PROGRESSIVE& operator=(const StreamAbstractionAAMP_PROGRESSIVE&) = delete;
+    double seekPosition;
 	/**
 	 *   @fn Start
 	 *   @return void
 	 */
-	void Start() override;
-	/**
-	 *   @fn Stop
-	 *   @return void
-	 */
-	void Stop(bool clearChannelData) override;
-	/**
-	 *   @fn Init
-	 *   @note   To be implemented by sub classes
-	 *   @param  tuneType to set type of object.
-	 *   @retval true on success
-	 *   @retval false on failure
-	 */
-	AAMPStatusType Init(TuneType tuneType) override;
+    void Start() override;
+    /**
+     *   @fn Stop
+     *   @return void
+     */
+    void Stop(bool clearChannelData) override;
+    /**
+     *   @fn Init
+     *   @note   To be implemented by sub classes
+     *   @param  tuneType to set type of object.
+     *   @retval true on success
+     *   @retval false on failure
+     */
+    AAMPStatusType Init(TuneType tuneType) override;
 	/**
 	 * @fn GetStreamFormat
 	 * @param[out]  primaryOutputFormat - format of primary track
@@ -112,15 +112,27 @@ public:
      * @fn FetcherLoop
      * @return void
      */
-    virtual void FetcherLoop();
+    void FetcherLoop();
     /**
      * @fn FragmentCollector
      * @retval void
      */
     void FragmentCollector();
 
+    /**
+     * @fn DoEarlyStreamSinkFlush
+     * @brief Checks if the stream need to be flushed or not
+     *
+     * @param newTune true if this is a new tune, false otherwise
+     * @param rate playback rate
+     * @return true if stream should be flushed, false otherwise
+     */
+    bool DoEarlyStreamSinkFlush(bool newTune, float rate) override;
+
+
 private:
     void StreamFile( const char *uri, int *http_error );
+    bool fragmentCollectorThreadStarted;
     std::thread fragmentCollectorThreadID;
 };
 
@@ -128,4 +140,6 @@ private:
 /**
  * @}
  */
+ 
+
 

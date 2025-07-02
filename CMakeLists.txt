@@ -17,7 +17,6 @@
 
 # XCode schema generation / flag setting
 # Other flags see here: https://cmake.org/cmake/help/latest/prop_tgt/XCODE_GENERATE_SCHEME.html
-
 function(xcode_define_schema new_schema)
     message( "xcode_define_schema for ${new_schema}" )
     set_property(TARGET ${new_schema} PROPERTY XCODE_GENERATE_SCHEME TRUE)
@@ -25,20 +24,7 @@ function(xcode_define_schema new_schema)
     set_property(TARGET ${new_schema} PROPERTY XCODE_SCHEME_ADDRESS_SANITIZER_USE_AFTER_RETURN TRUE)
 endfunction()
 
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/test/gstTestHarness)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/externals)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/externals/playersecmanager)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/externals/rdk)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/vendor)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/baseConversion)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/playerLogManager)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/subtitle)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/drm)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/drm/aes)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/drm/ocdm)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/drm/helper)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/subtec/subtecparser)
 
 if(APPLE)
     set(CMAKE_C_COMPILER "/usr/bin/cc")
@@ -88,17 +74,22 @@ pkg_check_modules(LIBDASH REQUIRED libdash)
 pkg_check_modules(OPENSSL REQUIRED openssl)
 pkg_check_modules(LIBCJSON REQUIRED libcjson)
 pkg_check_modules(UUID REQUIRED uuid)
+pkg_check_modules(BASECONVERSION REQUIRED libbaseconversion)
+pkg_check_modules(PLAYERLOGMANAGER REQUIRED libplayerlogmanager)
+pkg_check_modules(PLAYERFBINTERFACE REQUIRED libplayerfbinterface)
+pkg_check_modules(PLAYERGSTINTERFACE REQUIRED libplayergstinterface)
 
 
 # TDB needs to bring back for UT. 
 #include(test/mocks/mocks.cmake NO_POLICY_SCOPE)
 
-add_subdirectory(middleware)
+# add_subdirectory(middleware)
 
 if (CMAKE_INBUILT_AAMP_DEPENDENCIES)
 	message("Building aamp support libraries")
 	add_subdirectory(support/aampabr)
 	add_subdirectory(support/aampmetrics)
+	add_subdirectory(plugins/gst-plugins-rdk-aamp)
 endif()
 
 message("Adding tsb folder")
@@ -169,6 +160,10 @@ include_directories(${LibXml2_INCLUDE_DIRS})
 include_directories(${OPENSSL_INCLUDE_DIRS})
 include_directories(${OPENGL_INCLUDE_DIRS})
 include_directories(${GLEW_INCLUDE_DIRS})
+include_directories(${PLAYERFBINTERFACE_INCLUDE_DIRS})
+include_directories(${BASECONVERSION_INCLUDE_DIRS})
+include_directories(${PLAYERLOGMANAGER_INCLUDE_DIRS})
+include_directories(${PLAYERGSTINTERFACE_INCLUDE_DIRS})
 # Locally built/installed dependencies are here
 include_directories(.libs/include)
 
@@ -253,7 +248,6 @@ set(LIBAAMP_HEADERS AampCacheHandler.h
 					Accessibility.hpp
 					AampTrackWorker.h
 					test/gstTestHarness/tsdemux.hpp
-					test/gstTestHarness/mp4demux.hpp
 )
 
 set(LIBAAMP_SOURCES iso639map.cpp
@@ -325,7 +319,6 @@ set(LIBAAMP_SOURCES iso639map.cpp
 					AampTsbReader.cpp
 					scte35/AampSCTE35.cpp
 					AampTrackWorker.cpp
-					test/gstTestHarness/mp4demux.cpp
 )
 
 if (CMAKE_PLATFORM_UBUNTU OR CMAKE_SYSTEM_NAME STREQUAL Darwin )
@@ -333,16 +326,16 @@ if (CMAKE_PLATFORM_UBUNTU OR CMAKE_SYSTEM_NAME STREQUAL Darwin )
   set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DAAMP_SIMULATOR_BUILD=1")
   set(CMAKE_TELEMETRY_2_0_REQUIRED TRUE)
   set(CMAKE_AAMP_SIMULATOR TRUE)
+  # uncomment below to build additional drm support in simulator
+  # set(CMAKE_USE_OPENCDM_ADAPTER TRUE)
+  # set(CMAKE_USE_OPENCDM_ADAPTER_MOCKS TRUE)
 endif()
-
 
 execute_process(COMMAND bash "-c" "${CMAKE_SOURCE_DIR}/buildinfo.sh" WORKING_DIRECTORY ${CMAKE_SOURCE_DIR} OUTPUT_STRIP_TRAILING_WHITESPACE OUTPUT_VARIABLE buildinfo)
 string(REGEX REPLACE "\n" "-" buildinfo "${buildinfo}")
 message("build: ${buildinfo}")
 set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DAAMP_VANILLA_AES_SUPPORT")
 set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DAAMP_BUILD_INFO='${buildinfo}'")
-
-set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DSUPPORTS_MP4DEMUX")
 
 if (CMAKE_PLATFORM_UBUNTU)
 	message("CMAKE_PLATFORM_UBUNTU set")
@@ -354,7 +347,7 @@ if(CMAKE_USE_RDK_PLUGINS)
 	set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DCREATE_PIPE_SESSION_TO_XRE")
 endif()
 
-set(LIBAAMP_DEPENDS ${OS_LD_FLAGS} ${UUID_LINK_LIBRARIES} ${LIBCJSON_LINK_LIBRARIES} ${GSTREAMERBASE_LINK_LIBRARIES} ${GSTREAMER_LINK_LIBRARIES} ${CURL_LINK_LIBRARIES} ${LIBDASH_LINK_LIBRARIES} ${LibXml2_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT} ${OPENSSL_LIBRARIES} ${OPENGL_LIBRARIES} ${GLEW_LIBRARIES} ${AAMP_CLI_LD_FLAGS} -ldl ${SEC_CLIENT_LIB})
+set(LIBAAMP_DEPENDS ${OS_LD_FLAGS} ${UUID_LINK_LIBRARIES} ${LIBCJSON_LINK_LIBRARIES} ${GSTREAMERBASE_LINK_LIBRARIES} ${GSTREAMER_LINK_LIBRARIES} ${CURL_LINK_LIBRARIES} ${LIBDASH_LINK_LIBRARIES} ${PLAYERFBINTERFACE_LINK_LIBRARIES} ${BASECONVERSION_LINK_LIBRARIES} ${PLAYERLOGMANAGER_LINK_LIBRARIES} ${PLAYERGSTINTERFACE_LINK_LIBRARIES} ${LibXml2_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT} ${OPENSSL_LIBRARIES} ${OPENGL_LIBRARIES} ${GLEW_LIBRARIES} ${AAMP_CLI_LD_FLAGS} -ldl ${SEC_CLIENT_LIB})
 
 if(CMAKE_WPEWEBKIT_JSBINDINGS)
 	message("CMAKE_WPEWEBKIT_JSBINDINGS set, just setting flags")
@@ -428,7 +421,7 @@ if (COVERAGE_ENABLED)
     set(LIBAAMP_DEPENDS "${LIBAAMP_DEPENDS} --coverage")
 endif()
 
-add_library(aamp SHARED ${LIBAAMP_HEADERS} ${LIBAAMP_SOURCES})
+add_library(aamp SHARED ${LIBAAMP_HEADERS} ${LIBAAMP_SOURCES} ${LIBAAMP_HELP_SOURCES})
 add_executable(aamp-cli ${AAMP_CLI_HEADERS} ${AAMP_CLI_SOURCES})
 target_link_libraries(aamp-cli "-lreadline")
 # XCode schema target
@@ -536,7 +529,7 @@ if(CMAKE_ENABLE_PTS_RESTAMP)
 	set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DENABLE_PTS_RESTAMP")
 endif()
 
-target_link_libraries(aamp-cli aamp ${AAMP_CLI_LD_FLAGS})
+target_link_libraries(aamp-cli aamp ${AAMP_CLI_LD_FLAGS} ${PLAYERFBINTERFACE_LINK_LIBRARIES} ${BASECONVERSION_LINK_LIBRARIES} ${PLAYERLOGMANAGER_LINK_LIBRARIES} ${PLAYERGSTINTERFACE_LINK_LIBRARIES})
 
 set_target_properties(aamp PROPERTIES COMPILE_FLAGS "${LIBAAMP_DEFINES} ${OS_CXX_FLAGS}")
 #aamp-cli is not an ideal standalone app. It uses private aamp instance for debugging purposes
@@ -561,7 +554,8 @@ set(GSTTESTHARNESS_HEADERS test/gstTestHarness/gst-port.h
                            test/gstTestHarness/downloader.hpp
                            test/gstTestHarness/stream_utils.hpp
                            test/gstTestHarness/string_utils.hpp
-                           test/gstTestHarness/turbo_xml.hpp)
+                           test/gstTestHarness/turbo_xml.hpp
+                           test/gstTestHarness/initializationheaderinfo.hpp )
 set(GSTTESTHARNESS_SOURCES test/gstTestHarness/gst-port.cpp
                            test/gstTestHarness/gst-utils.cpp
                            test/gstTestHarness/gst-test.cpp
@@ -569,7 +563,7 @@ set(GSTTESTHARNESS_SOURCES test/gstTestHarness/gst-port.cpp
                            test/gstTestHarness/dash_adapter.cpp
                            test/gstTestHarness/downloader.cpp
                            test/gstTestHarness/stream_utils.cpp
-		           test/gstTestHarness/string_utils.cpp)
+						   test/gstTestHarness/string_utils.cpp)
 
 add_executable(gstTestHarness ${GSTTESTHARNESS_HEADERS} ${GSTTESTHARNESS_SOURCES})
 target_link_libraries(gstTestHarness ${GSTTESTHARNESS_DEPENDS} "-lreadline")
@@ -582,14 +576,15 @@ target_link_libraries(aamp tsb)
 if (CMAKE_INBUILT_AAMP_DEPENDENCIES)
 	target_link_libraries(aamp abr metrics)
 endif()
-target_link_libraries(aamp playergstinterface playerfbinterface)
-target_link_libraries(aamp-cli playergstinterface playerfbinterface)
+# target_link_libraries(aamp playergstinterface playerfbinterface)
+# target_link_libraries(aamp-cli playergstinterface playerfbinterface)
 
 install(TARGETS aamp-cli DESTINATION bin)
 
 install(TARGETS aamp DESTINATION lib PUBLIC_HEADER DESTINATION include PRIVATE_HEADER DESTINATION include)
+
 install(FILES Accessibility.hpp AampEvent.h AampConfig.h AampCMCDCollector.h AampEventManager.h AampDefine.h AampEventListener.h AampMediaType.h
-	AampLogManager.h subtitle/vttCue.h AampUtils.h
+  AampLogManager.h subtitle/vttCue.h AampUtils.h
   AampProfiler.h AampConstants.h iso639map.h AampGrowableBuffer.h
   AampScheduler.h
   downloader/AampCurlStore.h
@@ -608,13 +603,12 @@ install(FILES Accessibility.hpp AampEvent.h AampConfig.h AampCMCDCollector.h Aam
   tsb/api/TsbApi.h
   DESTINATION include)
 
-
 if (UTEST_ENABLED)
 	add_subdirectory(test/utests EXCLUDE_FROM_ALL)
 endif()
 
 if (CMAKE_PLATFORM_UBUNTU OR CMAKE_SYSTEM_NAME STREQUAL Darwin )
-	install(FILES build/aampcli-run-subtec.sh DESTINATION bin)
+    install(FILES build/aampcli-run-subtec.sh DESTINATION bin)
 endif()
 
 message("LIBAAMP_DEFINES is ${LIBAAMP_DEFINES}")

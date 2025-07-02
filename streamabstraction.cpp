@@ -1062,10 +1062,6 @@ bool MediaTrack::ProcessFragmentChunk()
 		}
 		if (type != eTRACK_SUBTITLE || (aamp->IsGstreamerSubsEnabled()))
 		{
-			if( ISCONFIGSET(eAAMPConfig_CurlThroughput) )
-			{
-				AAMPLOG_MIL( "curl-inject type=%d", type );
-			}
 			AAMPLOG_INFO("Injecting chunk for %s br=%d,chunksize=%zu fpts=%f fduration=%f",name,bandwidthBitsPerSecond,parsedBufferChunk.GetLen(),fpts,fduration);
 			InjectFragmentChunkInternal((AampMediaType)type,&parsedBufferChunk , fpts, fpts, fduration, cachedFragment->PTSOffsetSec);
 			totalInjectedChunksDuration += fduration;
@@ -1225,48 +1221,17 @@ std::string MediaTrack::RestampSubtitle( const char* buffer, size_t bufferLen, d
 {
 	long long pts_offset_ms = pts_offset_s*1000;
 	std::string str;
-	if( ISCONFIGSET(eAAMPConfig_HlsTsEnablePTSReStamp) && isWebVttSegment(buffer,bufferLen) )
+	if( ISCONFIGSET(eAAMPConfig_HlsTsEnablePTSReStamp) && pts_offset_ms && isWebVttSegment(buffer,bufferLen) )
 	{
 		const char *fin = &buffer[bufferLen];
 		const char *prev = buffer;
-		bool processedHeader = false;
 		while( prev<fin )
 		{
 			const char *line_start = mystrstr( prev, fin, "\n\n" );
 			if( line_start )
 			{
-				if( !processedHeader )
-				{
-					const char *localTimePtr = mystrstr(prev,line_start,"LOCAL:");
-					long long localTimeMs = localTimePtr?convertHHMMSSToTime(localTimePtr+6):0;
-					const char *mpegtsPtr = mystrstr(prev,line_start,"MPEGTS:");
-					long long mpegts = mpegtsPtr?atoll(mpegtsPtr+7):0;
-					pts_offset_ms -= localTimeMs;
-					if( localTimeMs != currentLocalTimeMs  )
-					{
-						if( gotLocalTime )
-						{
-							AAMPLOG_MIL( "webvtt pts rollover" );
-							ptsRollover = true;
-						}
-						currentLocalTimeMs = localTimeMs;
-						gotLocalTime = true;
-					}
-					line_start += 2; // advance past \n\n
-					str += "WEBVTT\nX-TIMESTAMP-MAP=LOCAL:00:00:00.000,MPEGTS:";
-					str += std::to_string(mpegts);
-					str += "\n\n";
-					processedHeader = true;
-					if( ptsRollover )
-					{ // adjust by max pts ms
-						pts_offset_ms += 95443717; // 0x1ffffffff/90
-					}
-				}
-				else
-				{
-					line_start += 2; // advance past \n\n
-					str += std::string(prev,line_start-prev);
-				}
+				line_start += 2; // advance past \n\n
+				str += std::string(prev,line_start-prev);
 				prev = line_start;
 				const char *line_end = mystrstr(line_start, fin, "\n" );
 				if( line_end )
@@ -1292,7 +1257,6 @@ std::string MediaTrack::RestampSubtitle( const char* buffer, size_t bufferLen, d
 	{
 		str = std::string(buffer,bufferLen);
 	}
-	printf( "***restamped caption: %s\n", str.c_str() );
 	return str;
 }
 
@@ -1631,8 +1595,8 @@ void MediaTrack::NotifyCachedSubtitleFragmentAvailable()
  */
 void MediaTrack::RunInjectLoop()
 {
-	UsingPlayerId playerId( aamp->mPlayerId );
 	AAMPLOG_WARN("fragment injector started. track %s", name);
+	UsingPlayerId playerId( aamp->mPlayerId );
 
 	bool notifyFirstFragment = true;
 	bool keepInjecting = true;
@@ -1938,7 +1902,6 @@ MediaTrack::MediaTrack(TrackType type, PrivateInstanceAAMP* aamp, const char* na
 		,mIsoBmffHelper(std::make_shared<IsoBmffHelper>())
 		,mLastFragmentPts(0), mRestampedPts(0), mRestampedDuration(0), mTrickmodeState(TrickmodeState::UNDEF)
 		,mTrackParamsMutex(), mCheckForRampdown(false)
-		,gotLocalTime(false),ptsRollover(false),currentLocalTimeMs(0)
 {
 	maxCachedFragmentsPerTrack = GETCONFIGVALUE(eAAMPConfig_MaxFragmentCached);
 	if( !maxCachedFragmentsPerTrack )
@@ -3946,9 +3909,9 @@ void StreamAbstractionAAMP::SetVideoPlaybackRate(float rate)
 /**
  * @brief Initialize ISOBMFF Media Processor
  *
- * @return void
+ * @param[in] passThroughMode - true if processor should skip parsing PTS and flush
  */
-void StreamAbstractionAAMP::InitializeMediaProcessor()
+void StreamAbstractionAAMP::InitializeMediaProcessor(bool passThroughMode)
 {
 	std::shared_ptr<IsoBmffProcessor> peerAudioProcessor = nullptr;
 	std::shared_ptr<IsoBmffProcessor> peerSubtitleProcessor = nullptr;
@@ -3966,7 +3929,7 @@ void StreamAbstractionAAMP::InitializeMediaProcessor()
 			if(eMEDIATYPE_SUBTITLE != i)
 			{
 				std::shared_ptr<IsoBmffProcessor> processor = std::make_shared<IsoBmffProcessor>(aamp, mID3Handler, (IsoBmffProcessorType) i,
-																peerAudioProcessor.get(), peerSubtitleProcessor.get());
+																passThroughMode, peerAudioProcessor.get(), peerSubtitleProcessor.get());
 				track->SourceFormat(FORMAT_ISO_BMFF);
 				track->playContext = std::static_pointer_cast<MediaProcessor>(processor);
 				track->playContext->setRate(aamp->rate, PlayMode_normal);
@@ -3983,7 +3946,7 @@ void StreamAbstractionAAMP::InitializeMediaProcessor()
 			{
 				if(FORMAT_SUBTITLE_MP4 == subtitleFormat)
 				{
-					peerSubtitleProcessor = std::make_shared<IsoBmffProcessor>(aamp, nullptr, (IsoBmffProcessorType) i);
+					peerSubtitleProcessor = std::make_shared<IsoBmffProcessor>(aamp, nullptr, (IsoBmffProcessorType) i, passThroughMode, nullptr, nullptr);
 					track->playContext = std::static_pointer_cast<MediaProcessor>(peerSubtitleProcessor);
 					track->playContext->setRate(aamp->rate, PlayMode_normal);
 				}
@@ -4455,7 +4418,7 @@ double MediaTrack::GetTotalInjectedDuration()
 {
 	std::lock_guard<std::mutex> lock(mTrackParamsMutex);
 	double ret = totalInjectedDuration;
-	if (aamp->GetLLDashChunkMode())
+	if (IsInjectionFromCachedFragmentChunks())
 	{
 		ret = totalInjectedChunksDuration;
 	}

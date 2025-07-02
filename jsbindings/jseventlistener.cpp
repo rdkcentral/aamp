@@ -389,10 +389,6 @@ public:
 		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, aamp_CStringToJSValue(p_obj->_ctx, evt->getDrmType().c_str()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
 
-		prop = JSStringCreateWithUTF8CString("url");
-		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, aamp_CStringToJSValue(p_obj->_ctx, evt->getUrl().c_str()), kJSPropertyAttributeReadOnly, NULL);
-		JSStringRelease(prop);
-
 		//ratings
 		if(!evt->getRatings().empty())
 		{
@@ -1603,7 +1599,7 @@ public:
         JSStringRelease(prop);
 
 		prop = JSStringCreateWithUTF8CString("manifestType");
-		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, aamp_CStringToJSValue(p_obj->_ctx, evt->getManifestType().c_str()), kJSPropertyAttributeReadOnly, NULL);
+		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, aamp_CStringToJSValue(p_obj->_ctx, evt->getManifestType()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
 	}
 
@@ -1642,41 +1638,8 @@ public:
 		LOG_TRACE("AAMP_Listener_TuneMetricData Tunemetric data %s", tuneMetricData);
 		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, aamp_CStringToJSValue(p_obj->_ctx, tuneMetricData), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
-	}
+    }
 
-};
-
-class AAMP_Listener_MonitorAVStatus : public AAMP_JSEventListener
-{
-public:
-	AAMP_Listener_MonitorAVStatus(PrivAAMPStruct_JS *obj, AAMPEventType type, JSObjectRef jsCallback)
-		: AAMP_JSEventListener(obj, type, jsCallback)
-	{
-	}
-
-	void SetEventProperties(const AAMPEventPtr& ev, JSObjectRef jsEventObj)
-	{
-		MonitorAVStatusEventPtr evt = std::dynamic_pointer_cast<MonitorAVStatusEvent>(ev);
-		JSStringRef prop;
-		const char* monitorAVStatus = evt->getMonitorAVStatus().c_str();
-
-		prop = JSStringCreateWithUTF8CString("currentState");
-		LOG_TRACE("AAMP_Listener_MonitorAVStatus MonitorAVStatus data %s", monitorAVStatus);
-		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, aamp_CStringToJSValue(p_obj->_ctx, monitorAVStatus), kJSPropertyAttributeReadOnly, NULL);
-		JSStringRelease(prop);
-
-		prop = JSStringCreateWithUTF8CString("videoPosMs");
-		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, JSValueMakeNumber(p_obj->_ctx, evt->getVideoPositionMS()), kJSPropertyAttributeReadOnly, NULL);
-		JSStringRelease(prop);
-
-		prop = JSStringCreateWithUTF8CString("audioPosMs");
-		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, JSValueMakeNumber(p_obj->_ctx, evt->getAudioPositionMS()), kJSPropertyAttributeReadOnly, NULL);
-		JSStringRelease(prop);
-
-		prop = JSStringCreateWithUTF8CString("timeInStateMs");
-		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, JSValueMakeNumber(p_obj->_ctx, evt->getTimeInStateMS()), kJSPropertyAttributeReadOnly, NULL);
-		JSStringRelease(prop);
-	}
 };
 
 /// -----------------------------------------------------------------------------------------
@@ -1893,9 +1856,6 @@ void AAMP_JSEventListener::AddEventListener(PrivAAMPStruct_JS* obj, AAMPEventTyp
 			break;
 		case AAMP_EVENT_TUNE_TIME_METRICS:
 			pListener = new AAMP_Listener_TuneMetricData(obj, type, jsCallback);
-			break;
-		case AAMP_EVENT_MONITORAV_STATUS:
-			pListener = new AAMP_Listener_MonitorAVStatus(obj, type, jsCallback);
 			break;
 		// Following events are not having payload and hence falls under default case
 		// AAMP_EVENT_EOS, AAMP_EVENT_TUNED, AAMP_EVENT_ENTERING_LIVE,

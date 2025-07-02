@@ -102,7 +102,7 @@ const std::string& ID3MetadataEvent::getSchemeIdUri() const
 	return mSchemeIdUri;
 }
 
-MediaMetadataEvent::MediaMetadataEvent(long duration, int width, int height, bool hasDrm, bool isLive, const std::string &DrmType, double programStartTime, int tsbDepthMs, std::string sid, const std::string &url):
+MediaMetadataEvent::MediaMetadataEvent(long duration, int width, int height, bool hasDrm, bool isLive, const std::string &DrmType, double programStartTime, int tsbDepthMs, std::string sid):
 		AAMPEventObject(AAMP_EVENT_MEDIA_METADATA, std::move(sid))
 {
 }
@@ -120,7 +120,6 @@ void MediaMetadataEvent::addLanguage(const std::string &lang)
 }
 
 const std::string &MediaMetadataEvent::getDrmType(void) const{return mDrmType;}
-const std::string &MediaMetadataEvent::getUrl(void) const{return mUrl;}
 const std::vector<BitsPerSecond> &MediaMetadataEvent::getBitrates(void) const{ return mBitrates; }
 long MediaMetadataEvent::getDuration(void) const{ return 0; }
 int MediaMetadataEvent::getTsbDepth(void) const{ return 0; }
@@ -462,7 +461,7 @@ const std::vector<uint8_t> &ContentProtectionDataEvent::getKeyID() const { retur
 /*
  * @brief ManifestRefreshEvent Constructor
  */
-ManifestRefreshEvent::ManifestRefreshEvent(uint32_t manifestDuration,int noOfPeriods, uint32_t manifestPublishedTime, const std::string &manifestType, std::string sid):
+ManifestRefreshEvent::ManifestRefreshEvent(uint32_t manifestDuration,int noOfPeriods, uint32_t manifestPublishedTime, std::string sid, const char *manifestType):
 	AAMPEventObject(AAMP_EVENT_MANIFEST_REFRESH_NOTIFY, std::move(sid))
 	, mManifestDuration(manifestDuration),mNoOfPeriods(noOfPeriods),mManifestPublishedTime(manifestPublishedTime)
 {
@@ -484,8 +483,9 @@ uint32_t ManifestRefreshEvent::getManifestDuration() const
  *
  * @return ManifestType
  */
-const std::string& ManifestRefreshEvent::getManifestType() const
+const char * ManifestRefreshEvent::getManifestType() const
 {
+
    return mManifestType;
 }
 
@@ -541,51 +541,3 @@ MetricsDataEvent::MetricsDataEvent(MetricsDataType dataType, const std::string &
 MetricsDataType MetricsDataEvent::getMetricsDataType() const { return mMetricsDataType; }
 const std::string &MetricsDataEvent::getMetricUUID() const { return mMetricUUID; }
 const std::string &MetricsDataEvent::getMetricsData() const { return mMetricsData; }
-
-/**
- * @fn MonitorAVStatusEvent Constructor                                                                                               */
-MonitorAVStatusEvent::MonitorAVStatusEvent(const std::string &status, int64_t videoPositionMS, int64_t audioPositionMS, uint64_t timeInStateMS, std::string sid):
-		AAMPEventObject(AAMP_EVENT_MONITORAV_STATUS, std::move(sid)), mMonitorAVStatus(status), mVideoPositionMS(videoPositionMS),
-		mAudioPositionMS(audioPositionMS), mTimeInStateMS(timeInStateMS)
-{
-}
-
-/**
- * @brief getMonitorAVStatus
- *
- * @return MonitorAVStatus
- */
-const std::string &MonitorAVStatusEvent::getMonitorAVStatus() const
-{
-	return mMonitorAVStatus;
-}
-
-/**
- * @brief getVideoPositionMS
- *
- * @return Video Position in MS
- */
-int64_t MonitorAVStatusEvent::getVideoPositionMS() const
-{
-	return mVideoPositionMS;
-}
-
-/**
- * @brief getAudioPositionMS
- *
- * @return Audio Position in MS
- */
-int64_t MonitorAVStatusEvent::getAudioPositionMS() const
-{
-	return mAudioPositionMS;
-}
-
-/**
- * @brief getTimeInStateMS
- *
- * @return Time in the current state in MS
- */
-uint64_t MonitorAVStatusEvent::getTimeInStateMS() const
-{
-	return mTimeInStateMS;
-}

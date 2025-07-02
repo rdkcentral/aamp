@@ -17,7 +17,7 @@
  * limitations under the License.
  */
 
-#include "gstwidevinedecryptor.h"
+#include "gstaampwidevinedecryptor.h"
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>

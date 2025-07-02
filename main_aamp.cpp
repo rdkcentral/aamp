@@ -115,9 +115,7 @@ PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink
 
 	// sd_journal logging doesn't work with AAMP/Rialto running in Container, so route to Ethan Logger instead
 	AampLogManager::enableEthanLogRedirection = mConfig.IsConfigSet(eAAMPConfig_useRialtoSink);
-
 	PlayerLogManager::SetLoggerInfo(AampLogManager::disableLogRedirection, AampLogManager::enableEthanLogRedirection, AampLogManager::aampLoglevel, AampLogManager::locked);
-	
 	sp_aamp = std::make_shared<PrivateInstanceAAMP>(&mConfig);
 	aamp = sp_aamp.get();
 	UsingPlayerId playerId(aamp->mPlayerId);
@@ -789,15 +787,10 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 				aamp->NotifySpeedChanged(rate, false);
 				return;
 			}
-			// Adjusting the play/pause position value
-			double offset = aamp->GetFormatPositionOffsetInMSecs();
-			double formattedCurrPos = aamp->GetPositionMilliseconds() - offset;
-			double formattedSeekPos = (aamp->seek_pos_seconds * 1000.0) - offset;
 
-			AAMPLOG_WARN("aamp_SetRate (%f)overshoot(%d) ProgressReportDelta:(%d) ", rate, overshootcorrection, timeDeltaFromProgReport);
-			AAMPLOG_WARN("aamp_SetRate rate(%f)->(%f) cur pipeline: %s. Adj position: %f Play/Pause Position:%lld",
-					aamp->rate, rate,aamp->pipeline_paused ? "paused" : "playing", formattedSeekPos, (static_cast<long long int>(formattedCurrPos)));
-			
+			AAMPLOG_WARN("aamp_SetRate (%f)overshoot(%d) ProgressReportDelta:(%d) ", rate,overshootcorrection,timeDeltaFromProgReport);
+			AAMPLOG_WARN("aamp_SetRate rate(%f)->(%f) cur pipeline: %s. Adj position: %f Play/Pause Position:%lld", aamp->rate,rate,aamp->pipeline_paused ? "paused" : "playing",aamp->seek_pos_seconds,aamp->GetPositionMilliseconds()); // current position relative to tune time
+
 			if (!aamp->mSeekFromPausedState && (rate == aamp->rate) && !aamp->mbDetached)
 			{ // no change in desired play rate
 				// no deferring for playback resume
@@ -2660,15 +2653,7 @@ std::string PlayerInstanceAAMP::GetAvailableAudioTracks(bool allTrack)
 	std::string ret;
 	if( aamp )
 	{
-		AAMPPlayerState state = aamp->GetState();
-		if (state != eSTATE_IDLE && state != eSTATE_ERROR)
-		{
-			ret = aamp->GetAvailableAudioTracks(allTrack);
-		}
-		else
-		{
-			AAMPLOG_WARN("operation is not allowed when player in %d state !", state);
-		}
+		ret = aamp->GetAvailableAudioTracks(allTrack);
 	}
 	return ret;
 }

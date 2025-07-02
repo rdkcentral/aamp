@@ -73,7 +73,6 @@ public:
 	MOCK_METHOD(double, GetLLDashCurrentPlayBackRate, ());
 	MOCK_METHOD(void, StopDownloads, ());
 	MOCK_METHOD(void, ResumeDownloads, ());
-	MOCK_METHOD(void, DisableDownloads, ());
 	MOCK_METHOD(void, TuneHelper, (TuneType tuneType, bool seekWhilePaused));
 	MOCK_METHOD(AampTSBSessionManager*, GetTSBSessionManager, ());
 	MOCK_METHOD(void, NotifyOnEnteringLive, ());

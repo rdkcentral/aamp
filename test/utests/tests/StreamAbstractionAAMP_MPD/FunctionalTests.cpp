@@ -1027,7 +1027,6 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 	mStreamAbstractionAAMP_MPD->ReassessAndResumeAudioTrack(true);
 	mStreamAbstractionAAMP_MPD->AbortWaitForAudioTrackCatchup(false);
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(_)).WillRepeatedly(Return(false));
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, DisableDownloads());
 	mStreamAbstractionAAMP_MPD->Stop(false);
 	/**
 	* PTS of first sample

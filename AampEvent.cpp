@@ -312,12 +312,12 @@ unsigned long CCHandleEvent::getCCHandle() const
 /**
  * @brief MediaMetadataEvent Constructor
  */
-MediaMetadataEvent::MediaMetadataEvent(long duration, int width, int height, bool hasDrm, bool isLive, const std::string &DrmType, double programStartTime, int tsbDepthMs, std::string sid,const std::string &url):
+MediaMetadataEvent::MediaMetadataEvent(long duration, int width, int height, bool hasDrm, bool isLive, const std::string &DrmType, double programStartTime, int tsbDepthMs, std::string sid):
 		AAMPEventObject(AAMP_EVENT_MEDIA_METADATA, std::move(sid)), mDuration(duration),
 		mLanguages(), mBitrates(), mWidth(width), mHeight(height),
 		mHasDrm(hasDrm), mSupportedSpeeds(), mIsLive(isLive), mDrmType(DrmType), mProgramStartTime(programStartTime),
 		mPCRating(),mSsi(-1),mFrameRate(0),mVideoScanType(eVIDEOSCAN_UNKNOWN),mAspectRatioWidth(0),mAspectRatioHeight(0),
-		mVideoCodec(),mHdrType(),mAudioBitrates(),mAudioCodec(),mAudioMixType(),isAtmos(false),mMediaFormatName(), mTsbDepthMs(tsbDepthMs), mUrl(url)
+		mVideoCodec(),mHdrType(),mAudioBitrates(),mAudioCodec(),mAudioMixType(),isAtmos(false),mMediaFormatName(), mTsbDepthMs(tsbDepthMs)
 {
 
 }
@@ -485,16 +485,6 @@ bool MediaMetadataEvent::isLive() const
 const std::string &MediaMetadataEvent::getDrmType() const
 {
 	return mDrmType;
-}
-
-/**
- * @brief Get Effective Url
- *
- * @return Url
- */
-const std::string &MediaMetadataEvent::getUrl() const
-{
-	return mUrl;
 }
 
 /**
@@ -1024,7 +1014,7 @@ void DrmMetaDataEvent::ConvertToVerboseErrorCode(int32_t httpCode, int32_t httpE
 	mSecManagerClass = SECMANAGER_CLASS_RESULT_DRM_FAIL;
 	mSecManagerReasonCode = SECMANAGER_REASON_DRM_GENERAL_FAILURE;
 	//look for the correct code from the lookup
-	if (getAsVerboseErrorCode(httpCode, mSecManagerClass, mSecManagerReasonCode))
+	if (getAsVerboseErrorCode(httpCode, mSecManagerClass, mSecManagerReasonCode)) 
 	{
 		if(412 == httpCode && 401 == httpExtStatusCode) 
 		{
@@ -1563,9 +1553,9 @@ const std::string &ContentProtectionDataEvent::getStreamType() const
 /*
  * @brief ManifestRefreshEvent Constructor
  */
-ManifestRefreshEvent::ManifestRefreshEvent(uint32_t manifestDuration,int noOfPeriods, uint32_t manifestPublishedTime, const std::string &manifestType, std::string sid):
+ManifestRefreshEvent::ManifestRefreshEvent(uint32_t manifestDuration,int noOfPeriods, uint32_t manifestPublishedTime, std::string sid,const char * manifestType):
 	AAMPEventObject(AAMP_EVENT_MANIFEST_REFRESH_NOTIFY, std::move(sid))
-	, mManifestDuration(manifestDuration), mNoOfPeriods(noOfPeriods), mManifestPublishedTime(manifestPublishedTime), mManifestType(manifestType)
+	, mManifestDuration(manifestDuration),mNoOfPeriods(noOfPeriods),mManifestPublishedTime(manifestPublishedTime),mManifestType(manifestType)
 {
 
 }
@@ -1581,12 +1571,13 @@ uint32_t ManifestRefreshEvent::getManifestDuration() const
 }
 
 /**
- * @brief Get ManifestFile type for Linear DASH
+ * @brief Get ManifestFile Duration for Linear DASH
  *
- * @return ManifestFile type
+ * @return ManifestFile Duration
  */
-const std::string& ManifestRefreshEvent::getManifestType() const
+const char * ManifestRefreshEvent::getManifestType() const
 {
+
    return mManifestType;
 }
 
@@ -1627,54 +1618,4 @@ TuneTimeMetricsEvent::TuneTimeMetricsEvent(const std::string &timeMetricData, st
 const std::string &TuneTimeMetricsEvent::getTuneMetricsData() const
 {
 	return mTuneMetricsData;
-}
-
-/**
- * @fn MonitorAVStatusEvent Constructor
- */
-MonitorAVStatusEvent::MonitorAVStatusEvent(const std::string &state, int64_t videoPosMs, int64_t audioPosMs, uint64_t timeInStateMs, std::string sid):
-		AAMPEventObject(AAMP_EVENT_MONITORAV_STATUS, std::move(sid)), mMonitorAVStatus(state), mVideoPositionMS(videoPosMs),
-		mAudioPositionMS(audioPosMs), mTimeInStateMS(timeInStateMs)
-{
-
-}
-
-/**
- * @brief getMonitorAVStatus
- *
- * @return MonitorAVStatus
- */
-const std::string &MonitorAVStatusEvent::getMonitorAVStatus() const
-{
-	return mMonitorAVStatus;
-}
-
-/**
- * @brief getVideoPositionMS
- *
- * @return Video Position in MS
- */
-int64_t MonitorAVStatusEvent::getVideoPositionMS() const
-{
-	return mVideoPositionMS;
-}
-
-/**
- * @brief getAudioPositionMS
- *
- * @return Audio Position in MS
- */
-int64_t MonitorAVStatusEvent::getAudioPositionMS() const
-{
-	return mAudioPositionMS;
-}
-
-/**
- * @brief getTimeInStateMS
- *
- * @return Time in the current state in MS
- */
-uint64_t MonitorAVStatusEvent::getTimeInStateMS() const
-{
-	return mTimeInStateMS;
 }

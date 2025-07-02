@@ -50,7 +50,8 @@ include_directories(${AAMP_ROOT}/middleware/externals/playersecmanager)
 
 message(GSTREAMER_INCLUDE_DIRS=${GSTREAMER_INCLUDE_DIRS})
 
-set(TEST_SOURCES DrmTestsRun.cpp)
+set(TEST_SOURCES DrmTestsRun.cpp
+				DrmSessionTests.cpp)
 
 if(SEC_CLIENT_HEADERS)
 	message("Found Secure Client headers - building ${EXEC_NAME}")
@@ -85,6 +86,7 @@ set(AAMP_SOURCES ${AAMP_ROOT}/drm/AampDRMLicManager.cpp
 	add_definitions(-DUSE_SHARED_MEMORY)
 	add_definitions(-DUSE_OPENCDM -DUSE_OPENCDM_ADAPTER)
 	add_definitions(-DUSE_THUNDER_OCDM_API_0_2)
+	add_definitions(-DUSE_SECCLIENT)
 
 	add_executable(${EXEC_NAME}
 				${DRM_ROOT}/DrmTestUtils.cpp

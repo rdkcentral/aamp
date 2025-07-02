@@ -37,11 +37,11 @@
 
 struct StreamWriteCallbackContext
 {
-	bool sentTunedEvent;
-	PrivateInstanceAAMP *aamp;
-	StreamWriteCallbackContext() : aamp(NULL), sentTunedEvent(false)
-	{
-	}
+    bool sentTunedEvent;
+    PrivateInstanceAAMP *aamp;
+    StreamWriteCallbackContext() : aamp(NULL), sentTunedEvent(false)
+    {
+    }
 };
 
 /**
@@ -76,31 +76,31 @@ struct StreamWriteCallbackContext
  */
 static size_t StreamWriteCallback( void *ptr, size_t size, size_t nmemb, void *userdata )
 {
-	StreamWriteCallbackContext *context = (StreamWriteCallbackContext *)userdata;
-	struct PrivateInstanceAAMP *aamp = context->aamp;
-	if( context->aamp->mDownloadsEnabled)
-	{
-	   // TODO: info logging is normally only done up until first frame rendered, but even so is too noisy for below, since CURL write callback yields many small chunks
+    StreamWriteCallbackContext *context = (StreamWriteCallbackContext *)userdata;
+    struct PrivateInstanceAAMP *aamp = context->aamp;
+    if( context->aamp->mDownloadsEnabled)
+    {
+       // TODO: info logging is normally only done up until first frame rendered, but even so is too noisy for below, since CURL write callback yields many small chunks
 		AAMPLOG_INFO("StreamWriteCallback(%zu bytes)", nmemb);
-		// throttle download speed if gstreamer isn't hungry
-		aamp->BlockUntilGstreamerWantsData( NULL/*CB*/, 0.0/*periodMs*/, eMEDIATYPE_VIDEO );
-		double fpts = 0.0;
-		double fdts = 0.0;
-		double fDuration = 2.0; // HACK!  //CID:113073 - Position variable initialized but not used
-		if( nmemb>0 )
-		{
-		   aamp->SendStreamCopy( eMEDIATYPE_VIDEO, ptr, nmemb, fpts, fdts, fDuration);
-		   if( !context->sentTunedEvent )
-		   { // send TunedEvent after first chunk injected - this is hint for XRE to hide the "tuning overcard"
-			   aamp->SendTunedEvent(false);
-			   context->sentTunedEvent = true;
-		   }
-	   }
+        // throttle download speed if gstreamer isn't hungry
+        aamp->BlockUntilGstreamerWantsData( NULL/*CB*/, 0.0/*periodMs*/, eMEDIATYPE_VIDEO );
+        double fpts = 0.0;
+        double fdts = 0.0;
+        double fDuration = 2.0; // HACK!  //CID:113073 - Position variable initialized but not used
+        if( nmemb>0 )
+        {
+           aamp->SendStreamCopy( eMEDIATYPE_VIDEO, ptr, nmemb, fpts, fdts, fDuration);
+           if( !context->sentTunedEvent )
+           { // send TunedEvent after first chunk injected - this is hint for XRE to hide the "tuning overcard"
+               aamp->SendTunedEvent(false);
+               context->sentTunedEvent = true;
+           }
+       }
    }
    else
    {
-	   AAMPLOG_WARN("write_callback - interrupted");
-	   nmemb = 0;
+       AAMPLOG_WARN("write_callback - interrupted");
+       nmemb = 0;
    }
    return nmemb;
 }
@@ -138,24 +138,24 @@ void StreamAbstractionAAMP_PROGRESSIVE::StreamFile( const char *uri, int *http_e
  */
 void StreamAbstractionAAMP_PROGRESSIVE::FetcherLoop()
 {
-	std::string contentUrl = aamp->GetManifestUrl();
-	std::string effectiveUrl;
-	int http_error;
-	
-	if(ISCONFIGSET(eAAMPConfig_UseAppSrcForProgressivePlayback))
-	{
-		StreamFile( contentUrl.c_str(), &http_error );
-	}
-	else
-	{
-		// send TunedEvent after first chunk injected - this is hint for XRE to hide the "tuning overcard"
-		aamp->SendTunedEvent(false);
-	}
+    std::string contentUrl = aamp->GetManifestUrl();
+    std::string effectiveUrl;
+    int http_error;
+    
+    if(ISCONFIGSET(eAAMPConfig_UseAppSrcForProgressivePlayback))
+    {
+	    StreamFile( contentUrl.c_str(), &http_error );
+    }
+    else
+    {
+	    // send TunedEvent after first chunk injected - this is hint for XRE to hide the "tuning overcard"
+	    aamp->SendTunedEvent(false);
+    }
 
-	while( aamp->DownloadsAreEnabled() )
-	{
-		aamp->interruptibleMsSleep( 1000 );
-	}
+    while( aamp->DownloadsAreEnabled() )
+    {
+        aamp->interruptibleMsSleep( 1000 );
+    }
 }
 
 /**
@@ -165,9 +165,9 @@ void StreamAbstractionAAMP_PROGRESSIVE::FetcherLoop()
  */
 void StreamAbstractionAAMP_PROGRESSIVE::FragmentCollector(void)
 {
-	aamp_setThreadName("aampPSFetcher");
-	FetcherLoop();
-	return;
+    aamp_setThreadName("aampPSFetcher");
+    FetcherLoop();
+    return;
 }
 
 
@@ -176,27 +176,27 @@ void StreamAbstractionAAMP_PROGRESSIVE::FragmentCollector(void)
  */
 AAMPStatusType StreamAbstractionAAMP_PROGRESSIVE::Init(TuneType tuneType)
 {
-	AAMPStatusType retval = eAAMPSTATUS_OK;
-	aamp->CurlInit(eCURLINSTANCE_VIDEO, AAMP_TRACK_COUNT,aamp->GetNetworkProxy());  //CID:110904 - newTune bool variable  initialized not used
-	aamp->IsTuneTypeNew = false;
-	std::set<std::string> mLangList; /**< empty language list */
-	std::vector<BitsPerSecond> bitrates; /**< empty bitrates */
-	for (int i = 0; i < AAMP_TRACK_COUNT; i++)
-	{
-		aamp->SetCurlTimeout(aamp->mNetworkTimeoutMs, (AampCurlInstance) i);
-	}
-	aamp->SendMediaMetadataEvent();
-	return retval;
+    AAMPStatusType retval = eAAMPSTATUS_OK;
+    aamp->CurlInit(eCURLINSTANCE_VIDEO, AAMP_TRACK_COUNT,aamp->GetNetworkProxy());  //CID:110904 - newTune bool variable  initialized not used
+    aamp->IsTuneTypeNew = false;
+    std::set<std::string> mLangList; /**< empty language list */
+    std::vector<BitsPerSecond> bitrates; /**< empty bitrates */
+    for (int i = 0; i < AAMP_TRACK_COUNT; i++)
+    {
+        aamp->SetCurlTimeout(aamp->mNetworkTimeoutMs, (AampCurlInstance) i);
+    }
+    aamp->SendMediaMetadataEvent();
+    return retval;
 }
 
 
 /*
 AAMPStatusType StreamAbstractionAAMP_PROGRESSIVE::Init(TuneType tuneType)
 {
-	AAMPStatusType retval = eAAMPSTATUS_OK;
-	bool newTune = aamp->IsNewTune();
-	aamp->IsTuneTypeNew = false;
-	return retval;
+    AAMPStatusType retval = eAAMPSTATUS_OK;
+    bool newTune = aamp->IsNewTune();
+    aamp->IsTuneTypeNew = false;
+    return retval;
 }
  */
 
@@ -204,9 +204,9 @@ AAMPStatusType StreamAbstractionAAMP_PROGRESSIVE::Init(TuneType tuneType)
  * @brief StreamAbstractionAAMP_PROGRESSIVE Constructor
  */
 StreamAbstractionAAMP_PROGRESSIVE::StreamAbstractionAAMP_PROGRESSIVE(class PrivateInstanceAAMP *aamp,double seek_pos, float rate): StreamAbstractionAAMP(aamp),
-fragmentCollectorThreadID(), seekPosition(seek_pos)
+fragmentCollectorThreadStarted(false), fragmentCollectorThreadID(), seekPosition(seek_pos)
 {
-	trickplayMode = (rate != AAMP_NORMAL_PLAY_RATE);
+    trickplayMode = (rate != AAMP_NORMAL_PLAY_RATE);
 }
 
 /**
@@ -223,21 +223,15 @@ void StreamAbstractionAAMP_PROGRESSIVE::Start(void)
 {
     try
     {
-		// Attempting to assign to a running thread will cause std::terminate(), not an exception
-		if(!fragmentCollectorThreadID.joinable())
-		{
-			fragmentCollectorThreadID = std::thread(&StreamAbstractionAAMP_PROGRESSIVE::FetcherLoop, this);
-			AAMPLOG_INFO("Thread created for FragmentCollector [%zx]", GetPrintableThreadID(fragmentCollectorThreadID));
-		}
-		else
-		{
-			AAMPLOG_WARN("FragmentCollector thread already running, not creating a new one");
-		}
+        fragmentCollectorThreadID = std::thread(&StreamAbstractionAAMP_PROGRESSIVE::FragmentCollector, this);
+        fragmentCollectorThreadStarted = true;
+        AAMPLOG_INFO("Thread created for FragmentCollector [%zx]", GetPrintableThreadID(fragmentCollectorThreadID));
     }
     catch(const std::exception& e)
     {
         AAMPLOG_ERR("Failed to create FragmentCollector thread : %s", e.what());
     }
+    
 }
 
 /**
@@ -245,10 +239,11 @@ void StreamAbstractionAAMP_PROGRESSIVE::Start(void)
  */
 void StreamAbstractionAAMP_PROGRESSIVE::Stop(bool clearChannelData)
 {
-	if(fragmentCollectorThreadID.joinable())
+    if(fragmentCollectorThreadStarted)
     {
         aamp->DisableDownloads();
         fragmentCollectorThreadID.join();
+        fragmentCollectorThreadStarted = false;
         aamp->EnableDownloads();
     }
  }
@@ -258,10 +253,10 @@ void StreamAbstractionAAMP_PROGRESSIVE::Stop(bool clearChannelData)
  */
 void StreamAbstractionAAMP_PROGRESSIVE::GetStreamFormat(StreamOutputFormat &primaryOutputFormat, StreamOutputFormat &audioOutputFormat, StreamOutputFormat &auxAudioOutputFormat, StreamOutputFormat &subtitleOutputFormat)
 {
-	primaryOutputFormat = FORMAT_ISO_BMFF;
-	audioOutputFormat = FORMAT_INVALID;
-	auxAudioOutputFormat = FORMAT_INVALID;
-	subtitleOutputFormat = FORMAT_INVALID;
+    primaryOutputFormat = FORMAT_ISO_BMFF;
+    audioOutputFormat = FORMAT_INVALID;
+    auxAudioOutputFormat = FORMAT_INVALID;
+    subtitleOutputFormat = FORMAT_INVALID;
 }
 
 /**
@@ -269,7 +264,7 @@ void StreamAbstractionAAMP_PROGRESSIVE::GetStreamFormat(StreamOutputFormat &prim
  */
 double StreamAbstractionAAMP_PROGRESSIVE::GetStreamPosition()
 {
-	return seekPosition;
+    return seekPosition;
 }
 
 /**
@@ -277,7 +272,7 @@ double StreamAbstractionAAMP_PROGRESSIVE::GetStreamPosition()
  */
 double StreamAbstractionAAMP_PROGRESSIVE::GetFirstPTS()
 {
-	return 0.0;
+    return 0.0;
 }
 
 /**
@@ -294,5 +289,18 @@ bool StreamAbstractionAAMP_PROGRESSIVE::IsInitialCachingSupported()
  */
 BitsPerSecond StreamAbstractionAAMP_PROGRESSIVE::GetMaxBitrate()
 { // STUB
-	return 0;
+    return 0;
+}
+/**
+ * @fn DoEarlyStreamSinkFlush
+ * @brief Checks if the stream need to be flushed or not
+ *
+ * @param newTune true if this is a new tune, false otherwise
+ * @param rate playback rate
+ * @return true if stream should be flushed, false otherwise
+ */
+bool StreamAbstractionAAMP_PROGRESSIVE::DoEarlyStreamSinkFlush(bool newTune, float rate)
+{
+    // Always flush for progressive content
+    return true;
 }
