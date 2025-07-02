@@ -8472,6 +8472,15 @@ void StreamAbstractionAAMP_MPD::UpdateCulledAndDurationFromPeriodInfo(std::vecto
 			}
 			aamp->mAbsoluteEndPosition += aamp->culledSeconds;
 		}
+		if(mLowLatencyMode)
+		{
+			// Logging the stream issue if the latency adjusted end position is less than publish time.
+			double latencyAdjustedEndPosition = aamp->mAbsoluteEndPosition + GETCONFIGVALUE(eAAMPConfig_LLTargetLatency);
+			if(latencyAdjustedEndPosition < mMPDParseHelper->GetPublishTime())
+			{
+				AAMPLOG_ERR("latencyAdjustedEnd %lf < publishTime %lf, Bug in the stream!!", aamp->mAbsoluteEndPosition, mMPDParseHelper->GetPublishTime());
+			}
+		}
 
 		mPrevFirstPeriodStart = firstPeriodStart;
 		AAMPLOG_INFO("Culled seconds: %f, Updated culledSeconds: %lf AbsoluteEndPosition: %lf PrevFirstPeriodStart: %lf", culled, mCulledSeconds, aamp->mAbsoluteEndPosition, mPrevFirstPeriodStart);
@@ -8767,7 +8776,9 @@ void StreamAbstractionAAMP_MPD::PushEncryptedHeaders(std::map<int, std::string>&
 		{
 			// Download the video, audio & subtitle fragments in a separate parallel thread.
 			AAMPLOG_DEBUG("Submitting job for init encrypted header track %d", it->first);
-			mTrackWorkers[it->first]->SubmitJob([this, track = it->first, header = it->second]() { CacheEncryptedHeader(track, header); });
+			auto track = it->first;
+			auto header = it->second;
+			mTrackWorkers[it->first]->SubmitJob([this, track, header]() { CacheEncryptedHeader(track, header); });
 		}
 		else
 		{

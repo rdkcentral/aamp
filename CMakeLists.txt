@@ -442,18 +442,20 @@ ${AAMP_CLI_SOURCES}
 test/aampcli/aampcli_kmp.cpp
 )
 
-add_library(aampKotlin SHARED ${AAMP_LIB_SRC})
-install (TARGETS aampKotlin
-		DESTINATION lib
-		PUBLIC_HEADER DESTINATION include
-)
+if (CMAKE_PLATFORM_UBUNTU OR CMAKE_SYSTEM_NAME STREQUAL Darwin )
+	add_library(aampKotlin SHARED ${AAMP_LIB_SRC})
+	install (TARGETS aampKotlin
+			DESTINATION lib
+			PUBLIC_HEADER DESTINATION include
+	)
 
-target_link_libraries(aampKotlin aamp subtec tsb )
-target_link_libraries(aampKotlin aamp ${AAMP_CLI_LD_FLAGS})
-target_link_libraries(aampKotlin "-lreadline")
+	target_link_libraries(aampKotlin aamp subtec tsb )
+	target_link_libraries(aampKotlin aamp ${AAMP_CLI_LD_FLAGS})
+	target_link_libraries(aampKotlin "-lreadline")
 
-set_target_properties(aampKotlin PROPERTIES COMPILE_FLAGS "${LIBAAMP_DEFINES} ${AAMP_CLI_EXTRA_DEFINES} ${OS_CXX_FLAGS}")
-xcode_define_schema(aampKotlin)
+	set_target_properties(aampKotlin PROPERTIES COMPILE_FLAGS "${LIBAAMP_DEFINES} ${AAMP_CLI_EXTRA_DEFINES} ${OS_CXX_FLAGS}")
+	xcode_define_schema(aampKotlin)
+endif()
 
 if(CMAKE_SYSTEMD_JOURNAL)
     message("CMAKE_SYSTEMD_JOURNAL set")

@@ -123,17 +123,15 @@ size_t AampCurlDownloader::write_callback(void *buffer, size_t sz, size_t nmemb)
 	return retSize;
 }
 
-size_t AampCurlDownloader::HeaderCallback(void *buffer, size_t sz, size_t nmemb, void *userdata)
+size_t AampCurlDownloader::HeaderCallback(char *ptr, size_t size, size_t nmemb, void *userdata)
 {
 	// Call non-static member function.
 	size_t ret = 0;
 	return ret;
 }
 
-size_t AampCurlDownloader::header_callback(void *buffer, size_t sz, size_t nmemb)
+void AampCurlDownloader::header_callback(char *ptr, size_t len)
 {
-	size_t retSize = sz * nmemb;
-	return retSize;
 }
 
 int AampCurlDownloader::ProgressCallback(

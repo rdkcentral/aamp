@@ -251,8 +251,8 @@ private:
 	void updateResponseParams();
 	static size_t WriteCallback( void *contents, size_t size, size_t nmemb, void *userp );
 	size_t write_callback(void *buffer, size_t sz, size_t n);
-	static size_t HeaderCallback( void *contents, size_t size, size_t nmemb, void *userp );
-	size_t header_callback(void *buffer, size_t sz, size_t n);
+	static size_t HeaderCallback( char *ptr, size_t size, size_t nmemb, void *userp );
+	void header_callback( char *ptr, size_t len );
 	static int ProgressCallback(
 								 void *clientp, // app-specific as optionally set with CURLOPT_PROGRESSDATA
 								 double dltotal, // total bytes expected to download
@@ -281,6 +281,7 @@ private:
 	std::shared_ptr<DownloadResponse> mDownloadResponse;
 	CURL *mCurl;
 	struct curl_slist *mHeaders;
+	size_t contentLength;
 };
 
 #endif 
