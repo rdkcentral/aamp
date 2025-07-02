@@ -549,11 +549,23 @@ JSObjectRef createNewAAMPJSEvent(JSGlobalContextRef ctx, const char *type, bool 
 
 static JSClassRef AAMPJSEvent_class_ref()
 {
+	LOG_WARN_EX("RDKEMW-4846--> AAMPJSEvent_class_ref called");
+
         static JSClassRef classDef = NULL;
+		static int createCount = 0; // Counter for creations
         if (!classDef)
         {
+			LOG_WARN_EX("RDKEMW-4846-->calling jsclass create");
+			createCount++;
+			LOG_WARN_EX("RDKEMW-4846-->createCount: %d", createCount);
+			// Create the class definition only once
                 classDef = JSClassCreate(&AAMPJSEvent_object_def);
-        }
+				LOG_WARN_EX("RDKEMW-4846-->jsclass created: %p", classDef);
+		}
+		else
+		{
+			LOG_WARN_EX("RDKEMW-4846-->jsclass already created: %p", classDef);
+		}
 
         return classDef;
 }
