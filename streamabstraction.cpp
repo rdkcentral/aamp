@@ -906,6 +906,7 @@ bool MediaTrack::CheckForDiscontinuity(CachedFragment* cachedFragment, bool& fra
  */
 bool MediaTrack::ProcessFragmentChunk()
 {
+	static double savedPTS;
 	class StreamAbstractionAAMP* pContext = GetContext();
 	//Get Cache buffer
 	CachedFragment* cachedFragment = &this->mCachedFragmentChunks[fragmentChunkIdxToInject];
@@ -944,6 +945,7 @@ bool MediaTrack::ProcessFragmentChunk()
 				pContext->NotifyBitRateUpdate(cachedFragment->profileIndex, cachedFragment->cacheFragStreamInfo, cachedFragment->position);
 			}
 		}
+		shouldSendSegmentEvent = false;
 		cachedFragment->initFragment = false;
 		return true;
 	}
@@ -1060,6 +1062,12 @@ bool MediaTrack::ProcessFragmentChunk()
 		{
 			mSubtitleParser->processData(parsedBufferChunk.GetPtr(), parsedBufferChunk.GetLen(), fpts, fduration);
 		}
+		if((savedPTS >= fpts ) &&  (type == eTRACK_VIDEO) && (aamp->rate == AAMP_NORMAL_PLAY_RATE) && (!cachedFragment->initFragment) && (shouldSendSegmentEvent == false))
+		{
+			AAMPLOG_WARN("RESHMA-->> CALLING PRIV AAMP SENDNEWSEGMENTEVENT");
+			aamp->SendNewSegmentEvent((AampMediaType)type,savedPTS,0);
+			shouldSendSegmentEvent = true;
+		}
 		if (type != eTRACK_SUBTITLE || (aamp->IsGstreamerSubsEnabled()))
 		{
 			if( ISCONFIGSET(eAAMPConfig_CurlThroughput) )
@@ -1068,6 +1076,8 @@ bool MediaTrack::ProcessFragmentChunk()
 			}
 			AAMPLOG_INFO("Injecting chunk for %s br=%d,chunksize=%zu fpts=%f fduration=%f",name,bandwidthBitsPerSecond,parsedBufferChunk.GetLen(),fpts,fduration);
 			InjectFragmentChunkInternal((AampMediaType)type,&parsedBufferChunk , fpts, fpts, fduration, cachedFragment->PTSOffsetSec);
+			if(type == eTRACK_VIDEO){
+			savedPTS = fpts;}
 			totalInjectedChunksDuration += fduration;
 		}
 	}
@@ -1937,7 +1947,7 @@ MediaTrack::MediaTrack(TrackType type, PrivateInstanceAAMP* aamp, const char* na
 		,mIsLocalTSBInjection(false), mCachedFragmentChunksSize(0)
 		,mIsoBmffHelper(std::make_shared<IsoBmffHelper>())
 		,mLastFragmentPts(0), mRestampedPts(0), mRestampedDuration(0), mTrickmodeState(TrickmodeState::UNDEF)
-		,mTrackParamsMutex(), mCheckForRampdown(false)
+		,mTrackParamsMutex(), mCheckForRampdown(false), shouldSendSegmentEvent(false)
 		,gotLocalTime(false),ptsRollover(false),currentLocalTimeMs(0)
 {
 	maxCachedFragmentsPerTrack = GETCONFIGVALUE(eAAMPConfig_MaxFragmentCached);

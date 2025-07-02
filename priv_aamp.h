@@ -800,6 +800,7 @@ public:
 	 * This function is invoked continuously when ever there is an update in manifest
 	 */
 	void updateManifest(const char *manifestData);
+	void SendNewSegmentEvent( AampMediaType mediaType, double startPts, double stopPts);
 
 	bool mDiscontinuityFound;
 	int mTelemetryInterval;

@@ -1322,3 +1322,10 @@ void AAMPGstPlayer::StopMonitorAvTimer()
 		AAMPLOG_MIL("MonitorAvTimer stopped");
 	}
 }
+
+void AAMPGstPlayer::SendNewSegmentEvent(AampMediaType mediaType, double startPts, double stopPts)
+{
+	GstMediaType type = static_cast<GstMediaType>(mediaType);
+	GstClockTime sendingPts = (GstClockTime)(startPts*GST_SECOND);
+	playerInstance->SendNewSegmentEvent(type, sendingPts, 0 );
+}

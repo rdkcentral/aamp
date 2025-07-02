@@ -925,6 +925,7 @@ public:
 	bool seamlessAudioSwitchInProgress; /**< Flag to indicate seamless audio track switch in progress */
 	bool seamlessSubtitleSwitchInProgress;
 	bool mCheckForRampdown;		        /**< flag to indicate if the track is undergoing rampdown or not */
+	bool shouldSendSegmentEvent;
 
 protected:
 	PrivateInstanceAAMP* aamp;          /**< Pointer to the PrivateInstanceAAMP*/
