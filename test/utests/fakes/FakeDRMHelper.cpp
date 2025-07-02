@@ -17,9 +17,7 @@
 * limitations under the License.
 */
 
-#include "MockDrmHelper.h"
-
-MockDrmHelper *g_mockDrmHelper = nullptr;
+#include "DrmHelper.h"
 
 DrmHelperEngine& DrmHelperEngine::getInstance()
 {

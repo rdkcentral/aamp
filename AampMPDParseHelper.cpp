@@ -32,7 +32,7 @@
 */
 AampMPDParseHelper::AampMPDParseHelper() 	: mMPDInstance(NULL),mIsLiveManifest(false),mMinUpdateDurationMs(0),
 				mIsFogMPD(false),
-				mAvailabilityStartTime(0.0),mSegmentDurationSeconds(0),mTSBDepth(0.0),
+				mAvailabilityStartTime(0.0),mPublishTime(0.0),mSegmentDurationSeconds(0),mTSBDepth(0.0),
 				mPresentationOffsetDelay(0.0),mMediaPresentationDuration(0),
 				mMyObjectMutex(),mPeriodEncryptionMap(),mNumberOfPeriods(0),mPeriodEmptyMap(),mLiveTimeFragmentSync(false),mHasServerUtcTime(false),mUpperBoundaryPeriod(0),mLowerBoundaryPeriod(0),mMPDPeriodDetails(),mDeltaTime(0.0)
 {
@@ -88,6 +88,7 @@ void AampMPDParseHelper::Clear()
 	mIsFogMPD       =   false;
 	mMinUpdateDurationMs    =   0;
 	mAvailabilityStartTime  =   0.0;
+	mPublishTime = 0.0;
 	mSegmentDurationSeconds =   0;
 	mTSBDepth       =   0.0;
 	mPresentationOffsetDelay    =   0.0;
@@ -189,6 +190,15 @@ void AampMPDParseHelper::parseMPD()
 	if(mpdAttributes.find("fogtsb") != mpdAttributes.end())
 	{
 		mIsFogMPD = true;
+	}
+	std::string publishTimeStr;
+	if(mpdAttributes.find("publishTime") != mpdAttributes.end())
+	{
+		publishTimeStr = mpdAttributes["publishTime"];
+		if(!publishTimeStr.empty())
+		{
+			mPublishTime = ISO8601DateTimeToUTCSeconds(publishTimeStr.c_str());
+		}
 	}
 
 	mNumberOfPeriods = (int)mMPDInstance->GetPeriods().size();

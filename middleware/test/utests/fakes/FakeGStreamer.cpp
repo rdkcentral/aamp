@@ -499,6 +499,7 @@ gboolean gst_element_send_event(GstElement *element, GstEvent *event)
 {
 	TRACE_FUNC();
 	gboolean rtn = FALSE;
+
 	if (g_mockGStreamer != nullptr)
 	{
 		rtn = g_mockGStreamer->gst_element_send_event(element, event);
