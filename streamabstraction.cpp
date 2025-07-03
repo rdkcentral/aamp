@@ -945,7 +945,7 @@ bool MediaTrack::ProcessFragmentChunk()
 				pContext->NotifyBitRateUpdate(cachedFragment->profileIndex, cachedFragment->cacheFragStreamInfo, cachedFragment->position);
 			}
 		}
-		shouldSendSegmentEvent = false;
+		shouldSendSegmentEvent = true;
 		cachedFragment->initFragment = false;
 		return true;
 	}
@@ -1062,11 +1062,11 @@ bool MediaTrack::ProcessFragmentChunk()
 		{
 			mSubtitleParser->processData(parsedBufferChunk.GetPtr(), parsedBufferChunk.GetLen(), fpts, fduration);
 		}
-		if((savedPTS >= fpts ) &&  (type == eTRACK_VIDEO) && (aamp->rate == AAMP_NORMAL_PLAY_RATE) && (!cachedFragment->initFragment) && (shouldSendSegmentEvent == false))
+		if((savedPTS >= fpts ) &&  (type == eTRACK_VIDEO) && (aamp->rate == AAMP_NORMAL_PLAY_RATE) && (!cachedFragment->initFragment) && (shouldSendSegmentEvent == true))
 		{
 			AAMPLOG_WARN("RESHMA-->> CALLING PRIV AAMP SENDNEWSEGMENTEVENT");
 			aamp->SendNewSegmentEvent((AampMediaType)type,savedPTS,0);
-			shouldSendSegmentEvent = true;
+			shouldSendSegmentEvent = false;
 		}
 		if (type != eTRACK_SUBTITLE || (aamp->IsGstreamerSubsEnabled()))
 		{
@@ -1076,8 +1076,10 @@ bool MediaTrack::ProcessFragmentChunk()
 			}
 			AAMPLOG_INFO("Injecting chunk for %s br=%d,chunksize=%zu fpts=%f fduration=%f",name,bandwidthBitsPerSecond,parsedBufferChunk.GetLen(),fpts,fduration);
 			InjectFragmentChunkInternal((AampMediaType)type,&parsedBufferChunk , fpts, fpts, fduration, cachedFragment->PTSOffsetSec);
-			if(type == eTRACK_VIDEO){
-			savedPTS = fpts;}
+			if(type == eTRACK_VIDEO)
+			{
+				savedPTS = fpts;
+			}
 			totalInjectedChunksDuration += fduration;
 		}
 	}

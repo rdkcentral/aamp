@@ -1323,6 +1323,9 @@ void AAMPGstPlayer::StopMonitorAvTimer()
 	}
 }
 
+/**
+ * @brief Send the SendNewSegmentEvent to pipeline
+ */
 void AAMPGstPlayer::SendNewSegmentEvent(AampMediaType mediaType, double startPts, double stopPts)
 {
 	GstMediaType type = static_cast<GstMediaType>(mediaType);

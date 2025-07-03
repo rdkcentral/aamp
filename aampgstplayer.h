@@ -430,7 +430,10 @@ public:
 	 * @brief Get the monitor AV interval in milliseconds
 	 */
 	int GetMonitorAVInterval() const { return mMonitorAVInterval; }
-
+	
+	/**
+	 * @brief Send the SendNewSegmentEvent to pipeline
+	 */
 	void SendNewSegmentEvent(AampMediaType mediaType, double sendingPts, double stopPts);
 
 private:

@@ -13797,6 +13797,10 @@ double PrivateInstanceAAMP::GetFormatPositionOffsetInMSecs()
 	return offset;
 }
 
+/**
+ * @brief This is function is invoked when mid-fragment rampdown occurs. It will send
+ * SendNewSegmentEvent to pipeline
+ */
 void PrivateInstanceAAMP::SendNewSegmentEvent( AampMediaType mediaType, double startPts, double stopPts)
 {
 	AAMPLOG_WARN("RESHMA-->> CALLING GSTREAMER SENDNEWSEGMENTEVENT");
