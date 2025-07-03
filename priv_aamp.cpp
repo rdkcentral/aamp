@@ -5277,17 +5277,13 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 	}
 	// Local AAMP TSB injection is true if Local AAMP TSB is enabled and TuneHelper() is called for
 	// any reason other than a new tune or seek to live (set rate, seek...).
-	// Also, set LocalAAMPTsbInjection to true if tuneType is SEEKTOLIVE, and Tsb is not empty
+	// Also, set LocalAAMPTsbInjection to true when tuneType is SEEKTOLIVE and AAMP TSB is not empty
 	// to avoid video freeze in live-pause-live scenario.
 	if (!newTune && IsLocalAAMPTsb() )
 	{
 		AampTSBSessionManager *tsbSessionManager = GetTSBSessionManager();
 
-		if(tuneType != eTUNETYPE_SEEKTOLIVE)
-		{
-			SetLocalAAMPTsbInjection(true);
-		}
-		else if( (NULL != tsbSessionManager) && (tsbSessionManager->GetTotalStoreDuration(eMEDIATYPE_VIDEO) > 0 ))
+		if( (tuneType != eTUNETYPE_SEEKTOLIVE) || ((tuneType == eTUNETYPE_SEEKTOLIVE) && (NULL != tsbSessionManager) && (tsbSessionManager->GetTotalStoreDuration(eMEDIATYPE_VIDEO) > 0 ) ) )
 		{
 			SetLocalAAMPTsbInjection(true);
 		}

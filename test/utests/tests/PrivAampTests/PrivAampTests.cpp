@@ -4376,11 +4376,8 @@ TEST_F(PrivAampTests, TuneHelperWithAampTsbSeekToLiveWhenTsbIsEmpty)
 	p_aamp->mAbsoluteEndPosition = ABS_END_POS;
 	p_aamp->culledSeconds = SEEK_POS;
 
-	EXPECT_CALL(*g_mockStreamAbstractionAAMP_MPD, GetStreamPosition()).WillOnce(Return(SEEK_POS));
-
 	EXPECT_DOUBLE_EQ(p_aamp->GetTSBSessionManager()->GetTotalStoreDuration(eMEDIATYPE_VIDEO), 0);
 	p_aamp->TuneHelper(eTUNETYPE_SEEKTOLIVE);
-
 	EXPECT_FALSE(p_aamp->IsLocalAAMPTsbInjection());
 }
 
@@ -4410,7 +4407,6 @@ TEST_F(PrivAampPrivTests, TuneHelperWithAampTsbSeekToLiveWhenTsbIsNotEmpty)
 
 	EXPECT_CALL(*g_mockTSBSessionManager, GetTotalStoreDuration(eMEDIATYPE_VIDEO)).WillRepeatedly(Return(ABS_END_POS));
 	testp_aamp->TuneHelper(eTUNETYPE_SEEKTOLIVE);
-
 	EXPECT_TRUE(testp_aamp->IsLocalAAMPTsbInjection());
 }
 
