@@ -22,7 +22,6 @@
  * @brief Gstreamer based player impl for AAMP
  */
 
-#include "AampMemoryUtils.h"
 #include "aampgstplayer.h"
 #include "isobmffbuffer.h"
 #include "AampUtils.h"
@@ -71,6 +70,7 @@ static void InitializePlayerConfigs(AAMPGstPlayer *_this, void *playerInstance)
 {
 	auto interfacePlayer = static_cast<InterfacePlayerRDK*>(playerInstance);
 	auto& config = _this->aamp->mConfig;
+//	assert( config );
 	interfacePlayer->m_gstConfigParam->media = _this->aamp->GetMediaFormatTypeEnum();
 	interfacePlayer->m_gstConfigParam->networkProxy =_this->aamp->GetNetworkProxy();
 	interfacePlayer->m_gstConfigParam->tcpServerSink = config->IsConfigSet(eAAMPConfig_useTCPServerSink);
@@ -101,6 +101,7 @@ static void InitializePlayerConfigs(AAMPGstPlayer *_this, void *playerInstance)
 	interfacePlayer->m_gstConfigParam->audioOnlyMode = _this->aamp->mAudioOnlyPb;
 	interfacePlayer->m_gstConfigParam->gstreamerSubsEnabled = _this->aamp->IsGstreamerSubsEnabled();
 	interfacePlayer->m_gstConfigParam->media = _this->aamp->GetMediaFormatTypeEnum();
+	interfacePlayer->m_gstConfigParam->useMp4Demux = config->IsConfigSet(eAAMPConfig_UseMp4Demux);
 }
 
 /*
@@ -258,6 +259,7 @@ void AAMPGstPlayer::RegisterFirstFrameCallbacks()
 {
 	playerInstance->callbackMap[InterfaceCB::firstVideoFrameDisplayed] = [this]()
 	{
+		UsingPlayerId playerId(aamp->mPlayerId);
 		aamp->NotifyFirstVideoFrameDisplayed();
 	};
 	playerInstance->callbackMap[InterfaceCB::idleCb] = [this]()
@@ -268,6 +270,7 @@ void AAMPGstPlayer::RegisterFirstFrameCallbacks()
 	};
 	playerInstance->callbackMap[InterfaceCB::progressCb] = [this]()
 	{
+		UsingPlayerId playerId(aamp->mPlayerId);
 		for (int i = 0; i < AAMP_TRACK_COUNT; i++)
 		{
 			privateContext->mBufferControl[i].update(this, static_cast<AampMediaType>(i));
@@ -276,13 +279,16 @@ void AAMPGstPlayer::RegisterFirstFrameCallbacks()
 	};
 	playerInstance->callbackMap[InterfaceCB::firstVideoFrameReceived] = [this]()
 	{
+		UsingPlayerId playerId(aamp->mPlayerId);
 		aamp->NotifyFirstFrameReceived(this->playerInstance->GetCCDecoderHandle());
 	};
 	playerInstance->callbackMap[InterfaceCB::notifyEOS] = [this]()
 	{
+		UsingPlayerId playerId(aamp->mPlayerId);
 		aamp->NotifyEOSReached();
 	};
 	playerInstance->FirstFrameCallback([this](int mediatype, bool notifyFirstBuffer, bool initCC, bool& requireFirstVideoFrameDisplay, bool &audioOnly) {
+		UsingPlayerId playerId(aamp->mPlayerId);
 		this->NotifyFirstFrame((AampMediaType)mediatype, notifyFirstBuffer, initCC, requireFirstVideoFrameDisplay, audioOnly);
 	});
 	playerInstance->setupStreamCallbackMap[InterfaceCB::startNewSubtitleStream] = [this](int streamId)
@@ -303,6 +309,7 @@ void AAMPGstPlayer::RegisterFirstFrameCallbacks()
 	});
 	playerInstance->TearDownCallback([this](bool status, int mediaType)
 									 {
+		UsingPlayerId playerId(aamp->mPlayerId);
 		if(status)
 		{
 			privateContext->mBufferControl[(AampMediaType)mediaType].teardownStart();
@@ -383,7 +390,7 @@ void AAMPGstPlayer::NotifyFirstFrame(int mediatype, bool notifyFirstBuffer, bool
 AAMPGstPlayer::AAMPGstPlayer(PrivateInstanceAAMP *aamp, id3_callback_t id3HandlerCallback, std::function<void(const unsigned char *, int, int, int) > exportFrames):
 	aamp(NULL), mEncryptedAamp(NULL), privateContext(NULL),
 	mBufferingLock(), trickTeardown(false), m_ID3MetadataHandler{id3HandlerCallback},
-	cbExportYUVFrame(NULL), monitorAVTimerId(0), mMonitorAVInterval(0)
+	cbExportYUVFrame(NULL), monitorAvTimerId(0), mMonitorAVInterval(0)
 
 {
 	privateContext = new AAMPGstPlayerPriv();
@@ -424,6 +431,7 @@ AAMPGstPlayer::~AAMPGstPlayer()
 	UnregisterBusCb();
 	UnregisterFirstFrameCallbacks();
 	playerInstance->DestroyPipeline();
+	SAFE_DELETE(playerInstance);
 	SAFE_DELETE(privateContext);
 }
 
@@ -533,6 +541,7 @@ static void HandleRedButtonCallback(const char *data, AAMPGstPlayer * _this)
  */
 static void HandleBusMessage(const BusEventData busEvent, AAMPGstPlayer * _this)
 {
+	UsingPlayerId playerId( _this->aamp->mPlayerId );
 	switch(busEvent.msgType)
 	{
 		case MESSAGE_ERROR:
@@ -796,7 +805,7 @@ void AAMPGstPlayer::Configure(StreamOutputFormat format, StreamOutputFormat audi
 									  bESChangeStatus,forwardAudioToAux,setReadyAfterPipelineCreation,
 									  isSubEnable, trackId, rate, PIPELINE_NAME, PipelinePriority, FirstFrameFlag, aamp->GetManifestUrl().c_str());
 	AAMPLOG_TRACE("exiting AAMPGstPlayer");
-	StartMonitorAVTimer();
+	StartMonitorAvTimer();
 }
 
 /**
@@ -832,7 +841,7 @@ void AAMPGstPlayer::EndOfStreamReached(AampMediaType type)
 void AAMPGstPlayer::Stop(bool keepLastFrame)
 {
 	AAMPLOG_MIL("entering AAMPGstPlayer_Stop keepLastFrame %d", keepLastFrame);
-	StopMonitorAVTimer();
+	StopMonitorAvTimer();
 	playerInstance->Stop(keepLastFrame);
 
 	aamp->seiTimecode.assign("");
@@ -1247,7 +1256,7 @@ bool AAMPGstPlayer::CheckForPTSChangeWithTimeout(long timeout)
  * @param user_data Pointer to the AAMPGstPlayer instance
  * @return TRUE to continue the timer, FALSE to stop it
  */
-static gboolean MonitorAVTimerCallback(gpointer user_data)
+static gboolean MonitorAvTimerCallback(gpointer user_data)
 {
 	AAMPGstPlayer *player  = static_cast<AAMPGstPlayer*>(user_data);
 	if (player && player->playerInstance != nullptr)
@@ -1258,7 +1267,7 @@ static gboolean MonitorAVTimerCallback(gpointer user_data)
 		{
 			if(monitorAVState.tLastSampled == 0 || monitorAVState.description == nullptr)
 			{
-				MW_LOG_INFO("MonitorAVTimerCallback: tLastSampled(%lld) or description(%p) not available, skipping report",
+				MW_LOG_INFO("MonitorAvTimerCallback: tLastSampled(%lld) or description(%p) not available, skipping report",
 						monitorAVState.tLastSampled, monitorAVState.description);
 			}
 			else
@@ -1272,7 +1281,7 @@ static gboolean MonitorAVTimerCallback(gpointer user_data)
 				{
 					timeInState = player->GetMonitorAVInterval(); // Cap to reporting interval
 				}
-				player->aamp->SendMonitorAVEvent(monitorAVState.description,
+				player->aamp->SendMonitorAvEvent(monitorAVState.description,
 						monitorAVState.av_position[eMEDIATYPE_VIDEO],
 						monitorAVState.av_position[eMEDIATYPE_AUDIO],
 						timeInState);
@@ -1285,19 +1294,19 @@ static gboolean MonitorAVTimerCallback(gpointer user_data)
 /**
  * @brief Start the MonitorAV timer to report AV status
  */
-void AAMPGstPlayer::StartMonitorAVTimer()
+void AAMPGstPlayer::StartMonitorAvTimer()
 {
-	if (aamp->mConfig->IsConfigSet(eAAMPConfig_MonitorAV) && monitorAVTimerId == 0)
+	if (aamp->mConfig->IsConfigSet(eAAMPConfig_MonitorAV) && monitorAvTimerId == 0)
 	{
 		// mMonitorAVInterval is in milliseconds
-		monitorAVTimerId = g_timeout_add(mMonitorAVInterval, MonitorAVTimerCallback, this);
-		if (monitorAVTimerId == 0)
+		monitorAvTimerId = g_timeout_add(mMonitorAVInterval, MonitorAvTimerCallback, this);
+		if (monitorAvTimerId == 0)
 		{
-			AAMPLOG_WARN("Failed to start MonitorAVTimer");
+			AAMPLOG_WARN("Failed to start MonitorAvTimer");
 		}
 		else
 		{
-			AAMPLOG_MIL("MonitorAVTimer started with interval %d ms", mMonitorAVInterval);
+			AAMPLOG_MIL("MonitorAvTimer started with interval %d ms", mMonitorAVInterval);
 		}
 	}
 }
@@ -1305,12 +1314,12 @@ void AAMPGstPlayer::StartMonitorAVTimer()
 /**
  * @brief Stop the MonitorAV timer
  */
-void AAMPGstPlayer::StopMonitorAVTimer()
+void AAMPGstPlayer::StopMonitorAvTimer()
 {
-	if (monitorAVTimerId != 0)
+	if (monitorAvTimerId != 0)
 	{
-		g_source_remove(monitorAVTimerId);
-		monitorAVTimerId = 0;
-		AAMPLOG_MIL("MonitorAVTimer stopped");
+		g_source_remove(monitorAvTimerId);
+		monitorAvTimerId = 0;
+		AAMPLOG_MIL("MonitorAvTimer stopped");
 	}
 }

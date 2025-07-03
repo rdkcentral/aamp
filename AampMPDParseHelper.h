@@ -249,6 +249,13 @@ public :
 	*/	
 	double GetAvailabilityStartTime() { return mAvailabilityStartTime;}
 	/**
+	*
+	*   @fn GetPublishTime
+	*   @brief  Returns PublishTime from the manifest
+	* 	@retval double . PublishTime
+	*/
+	double GetPublishTime() { return mPublishTime; }
+	/**
 	*   @fn GetSegmentDurationSeconds
 	*   @brief  Returns SegmentDuration from the manifest  
  	* 	@retval uint64_t . SegmentDuration
@@ -488,6 +495,8 @@ private:
 	uint64_t mMinUpdateDurationMs;
 	/* storage for Availability Start Time */
 	double mAvailabilityStartTime;
+	/* storage for Publish Time in seconds*/
+	double mPublishTime;
 	/* storage for Segment Duration in seconds */
 	uint64_t mSegmentDurationSeconds;
 	/* storage of TSB Depth */

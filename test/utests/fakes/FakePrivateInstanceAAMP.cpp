@@ -394,12 +394,26 @@ long long PrivateInstanceAAMP::GetDurationMs()
 	return 0;
 }
 
+long PrivateInstanceAAMP::GetCurrentLatency()
+{
+	return 0;
+}
+
+bool PrivateInstanceAAMP::IsAtLivePoint()
+{
+	return false;
+}
+
 ContentType PrivateInstanceAAMP::GetContentType() const
 {
 	return ContentType_UNKNOWN;
 }
 
 void PrivateInstanceAAMP::SetAlternateContents(const std::string &adBreakId, const std::string &adId, const std::string &url)
+{
+}
+
+void PrivateInstanceAAMP::GetMoneyTraceString(std::string &customHeader) const
 {
 }
 
@@ -467,12 +481,11 @@ std::string PrivateInstanceAAMP::GetAvailableAudioTracks(bool allTrack)
 	}else {
 		return "";
 	}
-
 }
 
 std::string PrivateInstanceAAMP::GetVideoRectangle()
 {
-	std::string video = "videorectangel";
+	std::string video = "VideoRectangle";
 	return video;
 }
 
@@ -482,7 +495,7 @@ void PrivateInstanceAAMP::SetAppName(std::string name)
 
 std::string PrivateInstanceAAMP::GetAppName()
 {
-	std::string name = "appName";
+	std::string name = "AppName";
 	return name;
 }
 
@@ -506,7 +519,7 @@ void PrivateInstanceAAMP::SetTextStyle(const std::string &options)
 
 std::string PrivateInstanceAAMP::GetTextStyle()
 {
-	std::string result = "sampleStyle";
+	std::string result = "TextStyle";
 	return result;
 }
 
@@ -551,6 +564,11 @@ void PrivateInstanceAAMP::SetEventPriorityAsyncTune(bool bValue)
 bool PrivateInstanceAAMP::IsTuneCompleted()
 {
 	return false;
+}
+
+void PrivateInstanceAAMP::SendWatermarkSessionUpdateEvent(uint32_t sessionHandle, uint32_t status, const std::string &system)
+{
+	return;
 }
 
 void PrivateInstanceAAMP::TuneFail(bool fail)
@@ -772,6 +790,10 @@ void PrivateInstanceAAMP::CurlTerm(AampCurlInstance startIdx, unsigned int insta
 
 void PrivateInstanceAAMP::DisableDownloads(void)
 {
+	if (g_mockPrivateInstanceAAMP != nullptr)
+	{
+		g_mockPrivateInstanceAAMP->DisableDownloads();
+	}
 }
 
 int PrivateInstanceAAMP::GetInitialBufferDuration()
@@ -1604,7 +1626,6 @@ void PrivateInstanceAAMP::ResetTrickStartUTCTime()
 {
 }
 
-
 void PrivateInstanceAAMP::SetLLDashChunkMode(bool enable)
 {
 	mIsChunkMode = enable;
@@ -1663,6 +1684,10 @@ double PrivateInstanceAAMP::GetStreamPositionMs()
 	return 0.0;
 }
 
-void PrivateInstanceAAMP::SendMonitorAVEvent(const std::string &status, int64_t videoPositionMS, int64_t audioPositionMS, uint64_t timeInStateMS)
+void PrivateInstanceAAMP::SendMonitorAvEvent(const std::string &status, int64_t videoPositionMS, int64_t audioPositionMS, uint64_t timeInStateMS)
 {
+}
+double PrivateInstanceAAMP::GetFormatPositionOffsetInMSecs()
+{
+	return 0;
 }

@@ -17,7 +17,7 @@
 * limitations under the License.
 */
 
-#include "AampMemoryUtils.h"
+#include "AampUtils.h"
 
 /**
  * @brief adds to memory count

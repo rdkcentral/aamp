@@ -69,6 +69,7 @@ typedef struct _downloadConfig
 	bool 	bIgnoreResponseHeader;
 	bool	bNeedDownloadMetrics;
 	long 	iDnsCacheTimeOut;
+	bool 	bCurlThroughput;
 
 	//AampMediaType mediaType;
 	std::unordered_map<std::string, std::vector<std::string>> sCustomHeaders;
@@ -80,7 +81,7 @@ typedef struct _downloadConfig
 	_downloadConfig() : pCurl(nullptr),iDownloadTimeout(DEFAULT_CURL_TIMEOUT),iLowBWTimeout(0),iCurlConnectionTimeout(DEFAULT_CURL_CONNECTTIMEOUT),
 			iStallTimeout(0),iStartTimeout(0),bSSLVerifyPeer(false),lSupportedTLSVersion(CURL_SSLVERSION_TLSv1_2),proxyName(""),userAgentString(""),sCustomHeaders(),
 			bVerbose(false),bIgnoreResponseHeader(false),bNeedDownloadMetrics(false),eRequestType(eCURL_GET),postData(""),iDownloadRetryCount(0),iDownload502RetryCount(0),
-			iDownloadRetryWaitMs(50),iDnsCacheTimeOut(DEFAULT_DNS_CACHE_TIMEOUT)
+			iDownloadRetryWaitMs(50),iDnsCacheTimeOut(DEFAULT_DNS_CACHE_TIMEOUT), bCurlThroughput(false)
 	{
 	}
 	
@@ -250,8 +251,8 @@ private:
 	void updateResponseParams();
 	static size_t WriteCallback( void *contents, size_t size, size_t nmemb, void *userp );
 	size_t write_callback(void *buffer, size_t sz, size_t n);
-	static size_t HeaderCallback( void *contents, size_t size, size_t nmemb, void *userp );
-	size_t header_callback(void *buffer, size_t sz, size_t n);
+	static size_t HeaderCallback( char *ptr, size_t size, size_t nmemb, void *userp );
+	void header_callback( char *ptr, size_t len );
 	static int ProgressCallback(
 								 void *clientp, // app-specific as optionally set with CURLOPT_PROGRESSDATA
 								 double dltotal, // total bytes expected to download
@@ -280,6 +281,7 @@ private:
 	std::shared_ptr<DownloadResponse> mDownloadResponse;
 	CURL *mCurl;
 	struct curl_slist *mHeaders;
+	size_t contentLength;
 };
 
 #endif 

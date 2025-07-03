@@ -83,8 +83,8 @@ typedef struct HlsStreamInfo: public StreamInfo
 	HlsStreamInfo():program_id(),audio(),uri(),averageBandwidth(),closedCaptions(),subtitles(),audioFormat(){};
 
 	// Copy constructor
-    HlsStreamInfo(const HlsStreamInfo& other)
-        :
+	HlsStreamInfo(const HlsStreamInfo& other)
+		:
 		StreamInfo(other), // Initialize base class members
 		program_id(other.program_id),
 		audio(other.audio),
@@ -243,7 +243,7 @@ class TrackState : public MediaTrack
 		 *
 		 * @return void
 		 ***************************************************************************/
-		void RunFetchLoop();
+		virtual void RunFetchLoop();
 
 		/***************************************************************************
 		 * @fn FragmentCollector
@@ -482,8 +482,8 @@ class TrackState : public MediaTrack
 		void ProcessPlaylist(AampGrowableBuffer& newPlaylist, int http_error) override;
 
 		/**
-                 * @brief Get byteRangeLength and byteRangeOffset from fragmentInfo.
-                 */
+		 * @brief Get byteRangeLength and byteRangeOffset from fragmentInfo.
+		 */
 		bool IsExtXByteRange(lstring fragmentInfo, size_t *byteRangeLength, size_t *byteRangeOffset);
 
 		/**
@@ -646,7 +646,6 @@ class TrackState : public MediaTrack
 		bool refreshPlaylist;					/**< bool flag to indicate if playlist refresh required or not */
 		bool isFirstFragmentAfterABR;			/**< bool flag to indicate whether the fragment is first fragment after ABR */
 		std::thread fragmentCollectorThreadID;	/**< Thread Id for Fragment  collector Thread */
-		bool fragmentCollectorThreadStarted;	/**< Flag indicating if fragment collector thread started or not*/
 		int manifestDLFailCount;		/**< Manifest Download fail count for retry*/
 		bool firstIndexDone;					/**< Indicates if first indexing is done*/
 		std::shared_ptr<HlsDrmBase> mDrm;		/**< DRM decrypt context*/
@@ -1008,10 +1007,10 @@ class StreamAbstractionAAMP_HLS : public StreamAbstractionAAMP
 		const std::unique_ptr<aamp::MetadataProcessorIntf> & GetMetadataProcessor(StreamOutputFormat fmt);
 
 		/***************************************************************************
-                 * @fn RefreshTrack
-                 *
-                 * @return void
-                 ***************************************************************************/
+		 * @fn RefreshTrack
+		 *
+		 * @return void
+		 ***************************************************************************/
 		void RefreshTrack(AampMediaType type) override;
 
 		/***************************************************************************
@@ -1027,10 +1026,10 @@ class StreamAbstractionAAMP_HLS : public StreamAbstractionAAMP
 		 ***************************************************************************/
 		void ConfigureAudioTrack();
 		/***************************************************************************
-                 * @fn SelectPreferredTextTrack
-                 * @param selectedTextTrack Current PreferredTextTrack Info
-                 * @return bool
-                 ***************************************************************************/
+		 * @fn SelectPreferredTextTrack
+		 * @param selectedTextTrack Current PreferredTextTrack Info
+		 * @return bool
+		 ***************************************************************************/
 		bool SelectPreferredTextTrack(TextTrackInfo& selectedTextTrack) override;
 
 	protected:
@@ -1097,8 +1096,8 @@ class StreamAbstractionAAMP_HLS : public StreamAbstractionAAMP
 		ptsoffset_update_t mPtsOffsetUpdate;	/**< Function to use to update the PTS offset */
 
 		std::mutex mMP_mutex;  // protects mMetadataProcessor
- 		std::unique_ptr<aamp::MetadataProcessorIntf> mMetadataProcessor;
-             
+		 std::unique_ptr<aamp::MetadataProcessorIntf> mMetadataProcessor;
+			 
 };
 
 #endif // FRAGMENTCOLLECTOR_HLS_H

@@ -23,7 +23,10 @@ set(EXEC_NAME OcdmBasicSessionAdapterTests)
 
 include_directories(${AAMP_ROOT} ${AAMP_ROOT}/drm ${AAMP_ROOT}/drm/helper ${AAMP_ROOT}/subtitle ${AAMP_ROOT}/middleware/subtitle ${AAMP_ROOT}/downloader ${AAMP_ROOT}/isobmff ${AAMP_ROOT}/middleware/subtec/subtecparser ${AAMP_ROOT}/middleware/subtec/playerjsonobject ${AAMP_ROOT}/middleware/subtec/libsubtec ${AAMP_ROOT}/middleware/drm/helper ${AAMP_ROOT}/middleware ${AAMP_ROOT}/middleware/drm ${AAMP_ROOT}/middleware/drm/ocdm)
 include_directories(${AAMP_ROOT}/tsb/api)
-include_directories(${AAMP_ROOT}/externals)
+include_directories(${AAMP_ROOT}/middleware/externals)
+include_directories(${AAMP_ROOT}/middleware/externals/playersecmanager)
+include_directories(${AAMP_ROOT}/middleware/playerLogManager)
+include_directories(${LIBCJSON_INCLUDE_DIRS})
 
 if(CMAKE_SYSTEM_NAME STREQUAL Linux)
     include_directories(${AAMP_ROOT}/Linux/include)
@@ -41,8 +44,7 @@ set(TEST_SOURCES FunctionalTests.cpp
 
 set(AAMP_SOURCES ${AAMP_ROOT}/middleware/drm/ocdm/OcdmBasicSessionAdapter.cpp
                  ${AAMP_ROOT}/middleware/drm/helper/DrmHelper.cpp
-                 ${AAMP_ROOT}/middleware/drm/DrmSession.cpp
-		 ${AAMP_ROOT}/middleware/PlayerLogManager.cpp)
+                 ${AAMP_ROOT}/middleware/drm/DrmSession.cpp)
 
 
 #[[class OCDMBasicSessionAdapter inherits from class OCDMSessionAdapter,
@@ -71,6 +73,6 @@ if (COVERAGE_ENABLED)
                               DEPENDENCIES ${EXEC_NAME})
 endif()
 
-target_link_libraries(${EXEC_NAME} fakes -lpthread ${OS_LD_FLAGS} ${GMOCK_LINK_LIBRARIES} ${GTEST_LINK_LIBRARIES})
+target_link_libraries(${EXEC_NAME} fakes -lpthread ${OS_LD_FLAGS} ${GMOCK_LINK_LIBRARIES} ${GTEST_LINK_LIBRARIES} ${LIBCJSON_LINK_LIBRARIES})
 
 aamp_utest_run_add(${EXEC_NAME})

@@ -533,7 +533,7 @@ public:
 	 * @param[in] p2AdDataduration Duration of the ad break
 	 * @param[in] periodDelta Period delta
 	 */
-	void setAdMarkers(uint64_t p2AdDataduration, double periodDelta);
+	void setAdMarkers(uint64_t p2AdDataduration, int64_t periodDelta);
 
 	/**
 	 * @fn FulfillAdLoop

@@ -389,6 +389,10 @@ public:
 		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, aamp_CStringToJSValue(p_obj->_ctx, evt->getDrmType().c_str()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
 
+		prop = JSStringCreateWithUTF8CString("url");
+		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, aamp_CStringToJSValue(p_obj->_ctx, evt->getUrl().c_str()), kJSPropertyAttributeReadOnly, NULL);
+		JSStringRelease(prop);
+
 		//ratings
 		if(!evt->getRatings().empty())
 		{

@@ -33,6 +33,7 @@ include_directories(${UTESTS_ROOT}/mocks)
 include_directories(${LIBCJSON_INCLUDE_DIRS})
 include_directories(${AAMP_ROOT}/tsb/api)
 include_directories(${AAMP_ROOT}/middleware)
+include_directories(${AAMP_ROOT}/middleware/playerLogManager)
 
 include_directories(${TEST_FILES_DIR})
 
