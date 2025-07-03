@@ -325,7 +325,7 @@ static const ConfigLookupEntryBool mConfigLookupTableBool[AAMPCONFIG_BOOL_COUNT]
 	{true,"enableLowLatencyOffsetMin",eAAMPConfig_EnableLowLatencyOffsetMin,false},
 	{false,"syncAudioFragments",eAAMPConfig_SyncAudioFragments,false},
 	{false,"enableEosSmallFragment", eAAMPConfig_EnableIgnoreEosSmallFragment, false},
-	{false,"useSecManager",eAAMPConfig_UseSecManager, true},
+	{true,"useSecManager",eAAMPConfig_UseSecManager, true},
 	{false,"enablePTO", eAAMPConfig_EnablePTO,false},
 	{true,"enableFogConfig", eAAMPConfig_EnableAampConfigToFog, false},
 	{false,"xreSupportedTune",eAAMPConfig_XRESupportedTune,false},
