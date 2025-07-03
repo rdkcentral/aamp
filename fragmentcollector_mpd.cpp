@@ -9996,7 +9996,7 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 				{
 					// This sleep will hit when there is no content to download and cache is not full
 					// and refresh interval timeout not reached . To Avoid tight loop adding a min delay
-					aamp->interruptibleMsSleep(50);
+					aamp->interruptibleMsSleep(200);
 				}
 			} // Loop 2: end of while loop (!exitFetchLoop)
 			SAFE_DELETE_ARRAY(cacheFullStatus);
@@ -10492,7 +10492,7 @@ void StreamAbstractionAAMP_MPD::StartFromOtherThanAampLocalTsb(void)
 		{
 			AAMPLOG_INFO("FetcherLoop thread already running, not creating a new one");
 		}
-	} 
+	}
 	catch (std::exception &e)
 	{
 		AAMPLOG_ERR("Thread allocation failed for FetcherLoop : %s ", e.what());
