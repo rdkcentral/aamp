@@ -5283,7 +5283,8 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 	{
 		AampTSBSessionManager *tsbSessionManager = GetTSBSessionManager();
 
-		if( (tuneType != eTUNETYPE_SEEKTOLIVE) || ((tuneType == eTUNETYPE_SEEKTOLIVE) && (NULL != tsbSessionManager) && (tsbSessionManager->GetTotalStoreDuration(eMEDIATYPE_VIDEO) > 0 ) ) )
+		if( (tuneType != eTUNETYPE_SEEKTOLIVE) || ( (NULL != tsbSessionManager)
+			&& (tsbSessionManager->GetTotalStoreDuration(eMEDIATYPE_VIDEO) > 0)))
 		{
 			SetLocalAAMPTsbInjection(true);
 		}
