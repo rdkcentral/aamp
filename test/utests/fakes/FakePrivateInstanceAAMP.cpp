@@ -640,7 +640,7 @@ void PrivateInstanceAAMP::StoreLanguageList(const std::set<std::string> &langlis
 
 bool PrivateInstanceAAMP::DownloadsAreEnabled(void)
 {
-	bool retVal = false;
+	bool retVal = false;//mDownloadsEnabled;
 	if (g_mockPrivateInstanceAAMP != nullptr)
 	{
 		retVal = g_mockPrivateInstanceAAMP->DownloadsAreEnabled();
