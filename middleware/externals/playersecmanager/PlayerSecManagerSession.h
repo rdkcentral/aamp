@@ -75,6 +75,7 @@ private:
 	std::shared_ptr<PlayerSecManagerSession::SessionManager> mpSessionManager;
 	mutable std::mutex sessionIdMutex;
 
+public:
 	/**
  	* @brief constructor for valid objects
 	* this will cause PlayerSecManager::ReleaseSession() to be called on sessionID
@@ -83,7 +84,7 @@ private:
 	* it is the responsibility of PlayerSecManager::acquireLicence() to ensure sessionID is valid
 	*/
 	PlayerSecManagerSession(int64_t sessionID, std::size_t inputSummaryHash);
-public:
+
 	/**
  	* @brief constructor for an invalid object*/
 	PlayerSecManagerSession(): mpSessionManager(), sessionIdMutex() {};

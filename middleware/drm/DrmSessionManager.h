@@ -428,9 +428,8 @@ public:
                        bool useSecManager,
                        bool enablePROutputProtection,
                        bool propagateURIParam,
-                       bool isFakeTune);
-
-
+                       bool isFakeTune,
+		       bool useFireboltSDK);
 };
 
 /**

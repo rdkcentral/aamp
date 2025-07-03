@@ -555,11 +555,11 @@ if (CMAKE_AAMP_RFC_REQUIRED)
         endif()
 endif()
 
-set(AAMP_SUBTEC_CLASS_SOURCES middleware/playerLogManager/PlayerLogManager.cpp middleware/playerisobmff/playerisobmffbox.cpp middleware/playerisobmff/playerisobmffbuffer.cpp middleware/subtec/subtecparser/WebVttSubtecParser.cpp middleware/subtec/subtecparser/TtmlSubtecParser.cpp middleware/subtec/subtecparser/WebvttSubtecDevInterface.cpp subtec/subtecparser/WebvttSubtecDevParser.cpp middleware/subtec/subtecparser/TextStyleAttributes.cpp middleware/playerjsonobject/PlayerJsonObject.cpp)
+set(AAMP_SUBTEC_CLASS_SOURCES middleware/playerLogManager/PlayerLogManager.cpp middleware/playerisobmff/playerisobmffbox.cpp middleware/playerisobmff/playerisobmffbuffer.cpp middleware/subtec/subtecparser/WebVttSubtecParser.cpp middleware/subtec/subtecparser/TtmlSubtecParser.cpp middleware/subtec/subtecparser/WebvttSubtecDevInterface.cpp subtec/subtecparser/WebvttSubtecDevParser.cpp middleware/subtec/subtecparser/TextStyleAttributes.cpp middleware/playerJsonObject/PlayerJsonObject.cpp)
 set(LIBAAMP_SOURCES ${LIBAAMP_SOURCES} ${AAMP_SUBTEC_CLASS_SOURCES})
 include_directories(middleware/subtec/subtecparser)
 include_directories(subtec/subtecparser)
-include_directories(middleware/playerjsonobject)
+include_directories(middleware/playerJsonObject)
 
 add_library(subtec SHARED middleware/playerLogManager/PlayerLogManager.cpp middleware/subtec/libsubtec/PacketSender.cpp middleware/subtec/libsubtec/SubtecChannel.cpp)
 set(AAMP_SUBTEC_PUBLIC_HEADERS middleware/subtec/libsubtec/SubtecChannel.hpp middleware/subtec/libsubtec/SubtecAttribute.hpp middleware/PlayerMetadata.hpp)

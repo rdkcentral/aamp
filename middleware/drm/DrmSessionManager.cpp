@@ -85,12 +85,14 @@ void DrmSessionManager::UpdateDRMConfig(
     bool useSecManager,
     bool enablePROutputProtection,
     bool propagateURIParam,
-    bool isFakeTune)
+    bool isFakeTune,
+    bool useFireboltSDK)
 {
     m_drmConfigParam->mUseSecManager = useSecManager;
     m_drmConfigParam->mEnablePROutputProtection = enablePROutputProtection;
     m_drmConfigParam->mPropagateURIParam = propagateURIParam;
     m_drmConfigParam->mIsFakeTune = isFakeTune;
+    PlayerSecManager::UseFireboltSDK(useFireboltSDK);
 }
 
 /**

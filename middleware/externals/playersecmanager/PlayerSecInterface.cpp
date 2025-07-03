@@ -100,7 +100,8 @@ std::map<const int32_t, std::pair<const int32_t, const int32_t>> secClientSeMana
 /**
  *	@brief Check if sec feature is enabled
  */
-bool isSecFeatureEnabled() {
+bool isSecFeatureEnabled()
+{
 #if defined(USE_SECMANAGER) || defined(USE_SECCLIENT)
     return true;
 #else
@@ -111,7 +112,8 @@ bool isSecFeatureEnabled() {
 /**
  *	@brief Check if Sec Manager is enabled
  */
-bool isSecManagerEnabled() {
+bool isSecManagerEnabled()
+{
 #if defined(USE_SECMANAGER)
     return true;
 #else
