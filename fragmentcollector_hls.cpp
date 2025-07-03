@@ -866,6 +866,8 @@ lstring TrackState::GetNextFragmentUriFromPlaylist(bool& reloadUri, bool ignoreD
 		playTarget = 0;
 		//return fragmentURI; // leads to buffer overrun/crash
 	}
+AAMPLOG_WARN("DJH playTarget %f, playlistPosition %f, fragmentURI %s",
+				playTarget.inSeconds(), playlistPosition.inSeconds(), fragmentURI.tostring().c_str());	
 	if ((playlistPosition == playTarget)
 			|| (isFirstFragmentAfterABR && (type == eTRACK_VIDEO) && (-1.0 != playlistPosition) && (playlistPosition.seconds() == playTarget.seconds())))
 			// Check the playposition and playtarget matches in case of fragment duration mismatch after changing profile in ABR.
