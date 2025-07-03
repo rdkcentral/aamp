@@ -155,7 +155,21 @@ function install_pkgs_linux_fn()
 
     if [ ${VER:0:2} -ge 22 ]; then
         install_package_fn libjavascriptcoregtk-4.1-dev
-        install_package_fn meson-1.5
+        # Install and verify the version of meson
+        install_package_fn python3-pip
+        pip_install_package_fn meson
+
+        MESON_VERSION=$(meson --version)
+        if $(dpkg --compare-versions "${MESON_VERSION}" lt "1.4.0"); then
+            echo ">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>"
+            echo "Meson version ${MESON_VERSION} is not supported"
+            echo "Please uninstall and use version 1.4.0 or later"
+            echo " sudo apt remove meson"
+            echo " sudo pip3 install meson"
+            echo " hash -r"
+            echo ">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>"
+            return 1
+        fi
     elif [ ${VER:0:2} -eq 20 ]; then
         install_package_fn libjavascriptcoregtk-4.0-dev
         install_package_fn python3-pip
@@ -217,7 +231,7 @@ function install_pkgs_fn()
               read -p "Found ASIO, remove ASIO package (Y/N)" remove_asio
               case $remove_asio in
                 [Yy]* ) brew remove -f --ignore-dependencies asio
-                    echo "Installing asio 1.18.2"
+                    echo "Installing asio 1.18.2 after removal"
                     install_asio_fn
                     ;;
                 * ) echo "Exiting without removal ..."
@@ -225,7 +239,7 @@ function install_pkgs_fn()
                     ;;
               esac
           else
-              echo "Installing asio 1.18.2"
+              echo "Installing asio 1.18.2, as no asio found"
               install_asio_fn
           fi
       else

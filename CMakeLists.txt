@@ -29,6 +29,7 @@ endfunction()
 project (AAMP)
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror=format -Wno-multichar -Wno-non-virtual-dtor -Wno-psabi")
 
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
@@ -213,7 +214,7 @@ install(TARGETS tsb
 option(DISABLE_SECURITY_TOKEN "Disable security token" OFF)
 
 if(DISABLE_SECURITY_TOKEN)
-  add_definitions(-DDISABLE_SECURITY_TOKEN)
+	add_definitions(-DDISABLE_SECURITY_TOKEN)
 endif()
 
 # Building jsbindings
@@ -372,8 +373,8 @@ set(LIBAAMP_SOURCES
 )
 
 if(CMAKE_SOC_PLATFORM_RPI)
-    message("CMAKE_SOC_PLATFORM_RPI set")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DRPI=1")
+	message("CMAKE_SOC_PLATFORM_RPI set")
+	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DRPI=1")
 endif()
 
 set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DAAMP_VANILLA_AES_SUPPORT -DAAMP_BUILD_INFO='${buildinfo}' -DSUPPORTS_MP4DEMUX")
@@ -517,9 +518,9 @@ install (TARGETS subtec
 )
 
 if (CMAKE_GST_SUBTEC_ENABLED)
-    set(CMAKE_SUBTITLE_SUPPORT TRUE)
-    message("CMAKE_GST_SUBTEC_ENABLED set")
-    set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DGST_SUBTEC_ENABLED")
+	set(CMAKE_SUBTITLE_SUPPORT TRUE)
+	message("CMAKE_GST_SUBTEC_ENABLED set")
+	set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DGST_SUBTEC_ENABLED")
 endif()
 
 if (CMAKE_SUBTITLE_SUPPORT)
@@ -544,13 +545,13 @@ if (CMAKE_SUBTITLE_SUPPORT)
 	install(TARGETS subtec_connector
 			DESTINATION lib
 	)
-    set(LIBAAMP_SOURCES "${LIBAAMP_SOURCES}" middleware/closedcaptions/subtec/PlayerSubtecCCManager.cpp)
+	set(LIBAAMP_SOURCES "${LIBAAMP_SOURCES}" middleware/closedcaptions/subtec/PlayerSubtecCCManager.cpp)
 	set(LIBAAMP_DEPENDS ${LIBAAMP_DEPENDS} subtec_connector)
 endif()
 
 if (COVERAGE_ENABLED)
-    set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} --coverage")
-    set(LIBAAMP_DEPENDS ${LIBAAMP_DEPENDS} "--coverage")
+	set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} --coverage")
+	set(LIBAAMP_DEPENDS ${LIBAAMP_DEPENDS} "--coverage")
 endif()
 
 if(CMAKE_SYSTEMD_JOURNAL)
@@ -594,7 +595,6 @@ install(TARGETS aamp
 		PUBLIC_HEADER DESTINATION include
 		PRIVATE_HEADER DESTINATION include
 )
-
 
 set(AAMP_CLI_SOURCES
 	test/aampcli/Aampcli.cpp
@@ -702,7 +702,7 @@ if (UTEST_ENABLED)
 endif()
 
 if (CMAKE_PLATFORM_UBUNTU OR CMAKE_SYSTEM_NAME STREQUAL Darwin )
-    install(FILES build/aampcli-run-subtec.sh DESTINATION bin)
+	install(FILES build/aampcli-run-subtec.sh DESTINATION bin)
 endif()
 
 message("LIBAAMP_DEFINES is ${LIBAAMP_DEFINES}")
