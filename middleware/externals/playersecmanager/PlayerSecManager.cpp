@@ -27,6 +27,9 @@
 #include <string.h>
 #include "_base64.h"
 #include <inttypes.h> // For PRId64
+#include <fstream>
+#include <sstream>
+#include <string>
 
 static PlayerSecManager *Instance = nullptr; /**< singleton instance*/
 
@@ -385,12 +388,15 @@ bool PlayerSecManager::AcquireLicenseOpenOrUpdate( const char* licenseUrl, const
 	//Shared memory pointer, key declared here,
 	//Access token, content metadata and licence request will be passed to
 	//secmanager via shared memory
-	void * shmPt_accToken = nullptr;
-	key_t shmKey_accToken = 0;
-	void * shmPt_contMeta = nullptr;
-	key_t shmKey_contMeta = 0;
-	void * shmPt_licReq = nullptr;
-	key_t shmKey_licReq = 0;
+	std::string accessTokenData = accessToken
+		? std::string(accessToken, accTokenLen)
+		: std::string();
+	std::string contentMetdataData = contentMetadata
+		? std::string(contentMetadata, contMetaLen)
+		: std::string();
+	std::string licenseRequestData = licenseRequest
+		? std::string(licenseRequest, licReqLen)
+		: std::string();		
 	const char* apiName = "openPlaybackSession";
 	JsonObject param;
 	JsonObject response;
@@ -427,39 +433,39 @@ bool PlayerSecManager::AcquireLicenseOpenOrUpdate( const char* licenseUrl, const
 	
 	{
 		std::lock_guard<std::mutex> lock(mSecMutex);
-		if(accTokenLen > 0 && contMetaLen > 0 && licReqLen > 0)
-		{
-			shmPt_accToken = player_CreateSharedMem(accTokenLen, shmKey_accToken);
-			shmPt_contMeta = player_CreateSharedMem(contMetaLen, shmKey_contMeta);
-			shmPt_licReq = player_CreateSharedMem(licReqLen, shmKey_licReq);
-		}
-		
-		//Set shared memory with the buffer
-		//Set shared memory with the buffer
-		if(nullptr != shmPt_accToken && nullptr != accessToken &&
-			nullptr != shmPt_contMeta && nullptr != contentMetadata &&
-		   nullptr != shmPt_licReq && nullptr != licenseRequest)
-		{			
-			//copy buffer to shm
-			memcpy(shmPt_accToken, accessToken, accTokenLen);
-			memcpy(shmPt_contMeta, contentMetadata, contMetaLen);
-			memcpy(shmPt_licReq, licenseRequest, licReqLen);
+               if(NULL != accessToken &&
+                  NULL != contentMetadata &&
+                  NULL != licenseRequest)
+               {
+                       MW_LOG_INFO("Access token, Content metadata and license request are copied successfully, passing details with SecManager");
 
-			MW_LOG_INFO("Access token, Content metadata and license request are copied successfully, passing details with SecManager");
-			
-			//Set json params to be used by sec manager
-			param["accessTokenBufferKey"] = shmKey_accToken;
-			param["accessTokenLength"] = accTokenLen;
+                        //Set json params to be used by sec manager
+                       param["accessToken"] = accessTokenData;
+                       param["contentMetadata"] = contentMetdataData;
+                       param["licenseRequest"] = licenseRequestData;
+        std::string params;
+        param.ToString(params);
 
-			param["contentMetadataBufferKey"] = shmKey_contMeta;
-			param["contentMetadataLength"] = contMetaLen;
+        MW_LOG_WARN("SecManager %s param: %s",apiName, params.c_str());
+	//Retry delay
+	std::stringstream logMsg;
+	logMsg << "SecManager " << apiName << " param: " << params;
+	std::string fullLogMessage = logMsg.str();
+	std::cout<<"SecManager::::"<<fullLogMessage;
+	//MW_LOG_WARN("SAMIIIII123333333:::: %s",fullLogMessage.c_str());			//It truncates the log lines, not printing entire log
+	std::ofstream logFile("/opt/sectestlog.txt", std::ios::app);
+	if (logFile.is_open()) {
+		// Write to the file
+		logFile << "SecManager INPUT:::" << fullLogMessage << std::endl;
+//		logFile << "SAMIIIII123333333:::: " << fullLogMessage << std::endl;
+		logFile.close();
+	}
 
-			param["licenseRequestBufferKey"] = shmKey_licReq;
-			param["licenseRequestLength"] = licReqLen;
-
-			//invoke "openPlaybackSession" or "updatePlaybackSession" with retries for specific error cases
-			do
-			{
+	//Retry delay
+	int sleepTime = 500;//GETCONFIGVALUE(eAAMPConfig_LicenseRetryWaitTime);
+	if(sleepTime<=0) sleepTime = 100;
+	//invoke "openPlaybackSession" or "updatePlaybackSession" with retries for specific error cases
+			do{
 				rpcResult = mSecManagerObj.InvokeJSONRPC(apiName, param, response, 10000);
 				if (rpcResult)
 				{
@@ -568,9 +574,6 @@ bool PlayerSecManager::AcquireLicenseOpenOrUpdate( const char* licenseUrl, const
 			while(retryCount < MAX_LICENSE_REQUEST_ATTEMPT);
 
 			//Cleanup the shared memory after sharing it with secmanager
-			player_CleanUpSharedMem( shmPt_accToken, shmKey_accToken, accTokenLen);
-			player_CleanUpSharedMem( shmPt_contMeta, shmKey_contMeta, contMetaLen);
-			player_CleanUpSharedMem( shmPt_licReq, shmKey_licReq, licReqLen);
 
 		}
 		else
