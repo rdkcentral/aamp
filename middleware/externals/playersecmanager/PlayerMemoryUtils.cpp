@@ -40,7 +40,7 @@ void * player_CreateSharedMem( size_t shmLen, key_t & shmKey)
 		{
 			// generate pseudo-random value to use as a unique key
 			shmKey = rand() + 1; // must be non-zero to allow access to non-child processes
-			
+
 			// allocate memory segment and identifier
 			int shmId = shmget(shmKey, shmLen,
 							   IPC_CREAT | // create new segment
@@ -104,4 +104,3 @@ void player_CleanUpSharedMem(void* shmPointer, key_t shmKey, size_t shmLen)
 		MW_LOG_ERR("bad shmPointer=%p", shmPointer );
 	}
 }
-

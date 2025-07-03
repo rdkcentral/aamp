@@ -26,7 +26,7 @@
 
 #include "DrmJsonObject.h"
 #include "PlayerUtils.h"
-#include "base64.h"
+#include "_base64.h"
 
 
 
@@ -173,7 +173,7 @@ bool DrmJsonObject::add(const std::string& name, const std::vector<uint8_t>& val
 
 		case ENCODING_BASE64:
 		{
-			const char *encodedResponse = Base64Utils::base64Encode( reinterpret_cast<const unsigned char*>(values.data()), values.size());
+			const char *encodedResponse = base64_Encode( reinterpret_cast<const unsigned char*>(values.data()), values.size());
 			if (encodedResponse != NULL)
 			{
 				res = add(name, cJSON_CreateString(encodedResponse));
@@ -533,7 +533,7 @@ bool DrmJsonObject::get(const std::string& name, std::vector<uint8_t>& values, c
 			case ENCODING_BASE64:
 			{
 				size_t decodedSize = 0;
-				const unsigned char *decodedResponse = Base64Utils::base64Decode(strValue.c_str(), &decodedSize, strValue.length());
+				const unsigned char *decodedResponse = base64_Decode(strValue.c_str(), &decodedSize, strValue.length());
 				if (decodedResponse != NULL)
 				{
 					values.insert(values.begin(), decodedResponse, decodedResponse + decodedSize);

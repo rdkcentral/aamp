@@ -19,7 +19,6 @@
 
 #include "GstUtils.h"
 #include <inttypes.h>
-#include "SocUtils.h"
 #include "PlayerUtils.h"
 
 /**

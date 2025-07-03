@@ -1,0 +1,38 @@
+Source: COMCAST
+Upstream-Status: Pending
+Notice: Code in patch files takes the license of the source which is being patched.
+--- a/JsonHelper.cpp	2024-03-07 16:33:38.158962188 +0000
++++ b/JsonHelper.cpp	2024-03-07 17:03:08.693947151 +0000
+@@ -400,17 +400,17 @@
+
+ template void JsonHelper::put<std::string>(std::string const&, std::string const&);
+ template void JsonHelper::put<std::uint32_t>(std::string const&, std::uint32_t const&);
+-template void JsonHelper::put<std::uint64_t>(std::string const&, std::uint64_t const&);
++template <> void JsonHelper::put<std::uint64_t>(std::string const&, std::uint64_t const&);
+ template void JsonHelper::put<std::int32_t>(std::string const&, std::int32_t const&);
+-template void JsonHelper::put<std::int64_t>(std::string const&, std::int64_t const&);
++template <> void JsonHelper::put<std::int64_t>(std::string const&, std::int64_t const&);
+ template void JsonHelper::put<double>(std::string const&, double const&);
+ template void JsonHelper::put<bool>(std::string const&, bool const&);
+
+ template void JsonHelper::appendArrayElem<std::string>(std::string const&);
+ template void JsonHelper::appendArrayElem<std::uint32_t>(std::uint32_t const&);
+-template void JsonHelper::appendArrayElem<std::uint64_t>(std::uint64_t const&);
++template <> void JsonHelper::appendArrayElem<std::uint64_t>(std::uint64_t const&);
+ template void JsonHelper::appendArrayElem<std::int32_t>(std::int32_t const&);
+-template void JsonHelper::appendArrayElem<std::int64_t>(std::int64_t const&);
++template <> void JsonHelper::appendArrayElem<std::int64_t>(std::int64_t const&);
+ template void JsonHelper::appendArrayElem<double>(double const&);
+ template void JsonHelper::appendArrayElem<bool>(bool const&);
+
+@@ -431,8 +431,8 @@
+ template bool JsonHelper::getArrayElem<bool>(JsonPath const&, int) const;
+
+ template void JsonHelper::putArray<std::string>(std::string const&, std::vector<std::string> const&);
+-template void JsonHelper::putArray<std::uint64_t>(std::string const&, std::vector<std::uint64_t> const&);
+-template void JsonHelper::putArray<std::int64_t>(std::string const&, std::vector<std::int64_t> const&);
++template <> void JsonHelper::putArray<std::uint64_t>(std::string const&, std::vector<std::uint64_t> const&);
++template <> void JsonHelper::putArray<std::int64_t>(std::string const&, std::vector<std::int64_t> const&);
+ template void JsonHelper::putArray<std::uint32_t>(std::string const&, std::vector<std::uint32_t> const&);
+ template void JsonHelper::putArray<std::int32_t>(std::string const&, std::vector<std::int32_t> const&);
+ template void JsonHelper::putArray<double>(std::string const&, std::vector<double> const&);

@@ -230,7 +230,7 @@ PlayerSecManager::PlayerSecManager() : mSecManagerObj(SECMANAGER_CALL_SIGN), mSe
 				   mRegisteredEvents(), mWatermarkPluginObj(WATERMARK_PLUGIN_CALLSIGN), mWatMutex(), mSpeedStateMutex()
 {
 	std::lock_guard<std::mutex> lock(mSecMutex);
-	mSecManagerObj.ActivatePlugin();	
+	mSecManagerObj.ActivatePlugin();
 	{
 		std::lock_guard<std::mutex> lock(mWatMutex);
 		mWatermarkPluginObj.ActivatePlugin();
@@ -239,7 +239,7 @@ PlayerSecManager::PlayerSecManager() : mSecManagerObj(SECMANAGER_CALL_SIGN), mSe
 	/* hide watermarking at startup */
 	ShowWatermark(false);
 
-	/*Start Scheduler for handling RDKShell API invocation*/    
+	/*Start Scheduler for handling RDKShell API invocation*/
 	if(false == mSchedulerStarted)
 	{
 		StartScheduler(); // pass dummy required playerId parameter; note that we don't yet have a valid player instance to derive it from
@@ -285,7 +285,7 @@ PlayerSecManager::~PlayerSecManager()
 {
 	std::lock_guard<std::mutex> lock(mSecMutex);
 
-	/*Stop Scheduler used for handling RDKShell API invocation*/    
+	/*Stop Scheduler used for handling RDKShell API invocation*/
 	if(true == mSchedulerStarted)
 	{
 		StopScheduler();
@@ -373,7 +373,6 @@ bool PlayerSecManager::AcquireLicenseOpenOrUpdate( const char* licenseUrl, const
 	(void) licenseUrl;
 
 	bool ret = false;
-	
 	//Initializing it with default error codes (which would be sent if there any jsonRPC
 	//call failures to thunder)
 	*statusCode = SECMANAGER_DRM_FAILURE;
@@ -411,7 +410,7 @@ bool PlayerSecManager::AcquireLicenseOpenOrUpdate( const char* licenseUrl, const
 
 	param["keySystem"] = keySystemId;
 	param["mediaUsage"] = mediaUsage;
-	
+
 	// If sessionId is present, we are trying to acquire a new license within the same session
 	if (session.isSessionValid())
 	{
@@ -424,7 +423,7 @@ bool PlayerSecManager::AcquireLicenseOpenOrUpdate( const char* licenseUrl, const
 	param.ToString(params);
 	MW_LOG_WARN("SecManager %s param: %s",apiName, params.c_str());
 #endif
-	
+
 	{
 		std::lock_guard<std::mutex> lock(mSecMutex);
 		if(accTokenLen > 0 && contMetaLen > 0 && licReqLen > 0)
@@ -433,7 +432,7 @@ bool PlayerSecManager::AcquireLicenseOpenOrUpdate( const char* licenseUrl, const
 			shmPt_contMeta = player_CreateSharedMem(contMetaLen, shmKey_contMeta);
 			shmPt_licReq = player_CreateSharedMem(licReqLen, shmKey_licReq);
 		}
-		
+
 		//Set shared memory with the buffer
 		//Set shared memory with the buffer
 		if(nullptr != shmPt_accToken && nullptr != accessToken &&
@@ -446,7 +445,6 @@ bool PlayerSecManager::AcquireLicenseOpenOrUpdate( const char* licenseUrl, const
 			memcpy(shmPt_licReq, licenseRequest, licReqLen);
 
 			MW_LOG_INFO("Access token, Content metadata and license request are copied successfully, passing details with SecManager");
-			
 			//Set json params to be used by sec manager
 			param["accessTokenBufferKey"] = shmKey_accToken;
 			param["accessTokenLength"] = accTokenLen;
@@ -520,13 +518,13 @@ bool PlayerSecManager::AcquireLicenseOpenOrUpdate( const char* licenseUrl, const
 					{
 						session = newSession;
 					}
-					
+
 				}
 				// TODO: Sort these values out for backward compatibility
 				if(response.HasLabel("secManagerResultContext"))
 				{
 					JsonObject resultContext = response["secManagerResultContext"].Object();
-					
+
 					if(resultContext.HasLabel("class"))
 						*statusCode = resultContext["class"].Number();
 					if(resultContext.HasLabel("reason"))
@@ -534,7 +532,7 @@ bool PlayerSecManager::AcquireLicenseOpenOrUpdate( const char* licenseUrl, const
 					if(resultContext.HasLabel("businessStatus"))
 						*businessStatus = resultContext["businessStatus"].Number();
 				}
-				
+
 				if(!ret)
 				{
 					//As per Secmanager retry is meaningful only for
@@ -725,7 +723,7 @@ bool PlayerSecManager::setPlaybackSpeedState(int64_t sessionId, int64_t playback
                std::lock_guard<std::mutex> lock(mSecMutex);
                rpcResult = mSecManagerObj.InvokeJSONRPC("setPlaybackSpeedState", param, result);
        }
-	   
+
        if (rpcResult)
        {
                if (!result["success"].Boolean())
@@ -911,7 +909,6 @@ void addWatermarkHandler(const JsonObject& parameters)
 						PlayerSecManager *instance = static_cast<PlayerSecManager *>(data);
 						instance->UpdateWatermark(graphicId, smKey, smSize);
 					  }, (void *)PlayerSecManager::GetInstance()));
-		
 		if (parameters["adjustVisibilityRequired"].Boolean())
 		{
 			int sessionId = parameters["sessionId"].Number();
