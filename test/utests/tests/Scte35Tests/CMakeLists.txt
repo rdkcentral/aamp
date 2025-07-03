@@ -38,6 +38,7 @@ include_directories(${AAMP_ROOT}/drm)
 include_directories(${AAMP_ROOT}/drm/helper)
 include_directories(${AAMP_ROOT}/tsb/api)
 include_directories(${AAMP_ROOT}/middleware)
+include_directories(${AAMP_ROOT}/middleware/baseConversion)
 
 set(TEST_SOURCES Scte35Tests.cpp
                  Scte35SectionTests.cpp
@@ -45,8 +46,7 @@ set(TEST_SOURCES Scte35Tests.cpp
 
 set(AAMP_SOURCES ${AAMP_ROOT}/scte35/AampSCTE35.cpp
                  ${AAMP_ROOT}/AampJsonObject.cpp
-                 ${AAMP_ROOT}/AampUtils.cpp
-                 ${AAMP_ROOT}/_base64.cpp)
+                 ${AAMP_ROOT}/AampUtils.cpp)
 
 add_executable(${EXEC_NAME}
                ${TEST_SOURCES}

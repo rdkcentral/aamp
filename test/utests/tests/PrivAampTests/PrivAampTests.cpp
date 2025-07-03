@@ -52,15 +52,21 @@
 using ::testing::An;
 using ::testing::DoAll;
 using ::testing::InvokeWithoutArgs;
+using ::testing::Matcher;
 using ::testing::NiceMock;
 using ::testing::Return;
 using ::testing::ReturnRef;
 using ::testing::SetArgPointee;
+using ::testing::ValuesIn;
+using ::testing::WithParamInterface;
 using ::testing::_;
 
 AampConfig *gpGlobalConfig{nullptr};
 
 const std::string session_id {"0259343c-cffc-4659-bcd8-97f9dd36f6b1"};
+const char SAMPLE_URL[] = "https://sampleUrl";
+const char SAMPLE_DEFOGGED_URL[] = "https://sampleDeFoggedUrl";
+const char SAMPLE_FOG_URL[] = "http://127.0.0.1:9080/tsb?clientId=\"FOG_AAMP\"&recordedUrl=https://sampleDeFoggedUrl";
 
 // Class to test class PrivateInstanceAAMP public interface
 class PrivAampTests : public ::testing::Test
@@ -725,110 +731,70 @@ TEST_F(PrivAampPrivTests,RemoveCustomHTTPHeaderTest)
 	EXPECT_TRUE (result.find("string:") == result.end());
 }
 
-// Verify AAMP TSB standard configuration
-TEST_F(PrivAampPrivTests, TuneTest_AampTsb)
+struct TsbConfigurationData
 {
-	const char *url = "sampleUrl";
-	// IsConfigSet() will return false by default except for settings explicitly set to true
-	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(_)).WillRepeatedly(Return(false));
-	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_LocalTSBEnabled)).WillOnce(Return(true));
+	const char *url;		// Foggy URL contains "tsb?"
+	bool isAampTsbEnabled;	// Is AAMP TSB enabled in the configuration
+	bool isFogEnabled;		// Is FOG enabled in the configuration
+	std::string tsbType;	// Should be set to "local" for local TSB configuration
+	bool aampTsbExpected;	// Is AAMP TSB expected to be enabled after Tune
+	bool fogExpected;		// Is FOG expected to be enabled after Tune
+};
+TsbConfigurationData tsbConfigData[] =
+{
+	{ SAMPLE_URL, false, false, "", false, false },			// Expected configuration when local TSB is not used
+	{ SAMPLE_FOG_URL, false, false, "", false, false },
+	{ SAMPLE_URL, true, false, "", true, false },
+	{ SAMPLE_FOG_URL, true, false, "", true, false },
+	{ SAMPLE_URL, false, true, "", false, false },
+	{ SAMPLE_FOG_URL, false, true, "", false, true },
+	{ SAMPLE_URL, true, true, "", true, false },
+	{ SAMPLE_FOG_URL, true, true, "", true, false },
+	{ SAMPLE_URL, false, false, "local", true, false },		// Expected configuration when AAMP TSB is used
+	{ SAMPLE_FOG_URL, false, false, "local", true, false },
+	{ SAMPLE_URL, true, false, "local", true, false },		// Expected configuration when AAMP TSB is used
+	{ SAMPLE_FOG_URL, true, false, "local", true, false },
+	{ SAMPLE_URL, false, true, "local", true, false },
+	{ SAMPLE_FOG_URL, false, true, "local", false, true },	// Expected configuration when FOG is used
+	{ SAMPLE_URL, true, true, "local", true, false },
+	{ SAMPLE_FOG_URL, true, true, "local", true, false }	// Both AAMP and FOG enabled: AAMP takes precedence over FOG
+};
 
-	testp_aamp->Tune(url, false);
-	EXPECT_EQ(testp_aamp->GetLocalAAMPTsbFromConfig(), true);
-	EXPECT_EQ(testp_aamp->mFogTSBEnabled, false);
+class TsbConfigurationTest : public PrivAampPrivTests,
+							public WithParamInterface<TsbConfigurationData>
+{
+};
+
+TEST_P(TsbConfigurationTest, TuneTests)
+{
+	TsbConfigurationData testParam = GetParam();
+	AAMPLOG_MIL("TuneTests url '%s' isAampTsbEnabled %d isFogEnabled %d tsbType '%s' aampTsbExpected %d fogExpected %d",
+				testParam.url,
+				testParam.isAampTsbEnabled,
+				testParam.isFogEnabled,
+				testParam.tsbType.c_str(),
+				testParam.aampTsbExpected,
+				testParam.fogExpected);
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(_)).WillRepeatedly(Return(false));
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(Matcher<AAMPConfigSettingString>(_))).WillRepeatedly(Return(""));
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_LocalTSBEnabled)).WillOnce(Return(testParam.isAampTsbEnabled));
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_Fog)).WillRepeatedly(Return(testParam.isFogEnabled));
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_TsbType)).WillOnce(Return(testParam.tsbType));
+	std::string urlExpected {testParam.url};
+	// If FOG is not enabled, AAMP will 'defog' the URL
+	if (!testParam.fogExpected && (testParam.url == SAMPLE_FOG_URL))
+	{
+		urlExpected = SAMPLE_DEFOGGED_URL;
+	}
+
+	testp_aamp->Tune(testParam.url, false);
+	EXPECT_EQ(testp_aamp->GetLocalAAMPTsbFromConfig(), testParam.aampTsbExpected);
+	EXPECT_EQ(testp_aamp->mFogTSBEnabled, testParam.fogExpected);
+	EXPECT_EQ(testp_aamp->mManifestUrl, urlExpected);
 }
 
-// Verify no local TSB configuration
-TEST_F(PrivAampPrivTests, TuneTest_NoTsb)
-{
-	const char *url = "sampleUrl";
-	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(_)).WillRepeatedly(Return(false));
-
-	testp_aamp->Tune(url, false);
-	EXPECT_EQ(testp_aamp->GetLocalAAMPTsbFromConfig(), false);
-	EXPECT_EQ(testp_aamp->mFogTSBEnabled, false);
-}
-
-// Verify FOG TSB standard configuration
-TEST_F(PrivAampPrivTests, TuneTest_FogTsb)
-{
-	// Foggy URL contains "tsb?"
-	const char *foggyUrl = "sampleUrltsb?";
-	// IsConfigSet() will return false by default except for settings explicitly set to true
-	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(_)).WillRepeatedly(Return(false));
-	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_Fog)).WillRepeatedly(Return(true));
-
-	testp_aamp->Tune(foggyUrl, false);
-	EXPECT_EQ(testp_aamp->GetLocalAAMPTsbFromConfig(), false);
-	EXPECT_EQ(testp_aamp->mFogTSBEnabled, true);
-}
-
-// Verify AAMP TSB will be used, even if a foggy URL is provided
-TEST_F(PrivAampPrivTests, TuneTest_FoggyUrlAampTsb)
-{
-	// Foggy URL contains "tsb?"
-	const char *foggyUrl = "sampleUrltsb?";
-	// IsConfigSet() will return false by default except for settings explicitly set to true
-	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(_)).WillRepeatedly(Return(false));
-	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_LocalTSBEnabled)).WillOnce(Return(true));
-
-	testp_aamp->Tune(foggyUrl, false);
-	EXPECT_EQ(testp_aamp->GetLocalAAMPTsbFromConfig(), true);
-	EXPECT_EQ(testp_aamp->mFogTSBEnabled, false);
-}
-
-// Verify no local TSB will be used, even if a foggy URL is provided
-TEST_F(PrivAampPrivTests, TuneTest_FoggyUrlNoTsb)
-{
-	// Foggy URL contains "tsb?"
-	const char *foggyUrl = "sampleUrltsb?";
-	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(_)).WillRepeatedly(Return(false));
-
-	testp_aamp->Tune(foggyUrl, false);
-	EXPECT_EQ(testp_aamp->GetLocalAAMPTsbFromConfig(), false);
-	EXPECT_EQ(testp_aamp->mFogTSBEnabled, false);
-}
-
-// Verify that AAMP will not use FOG if the URL provided is not 'foggy', even if FOG configuration is enabled
-TEST_F(PrivAampPrivTests, TuneTest_StandardUrlFogTsb)
-{
-	const char *url = "sampleUrl";
-	// IsConfigSet() will return false by default except for settings explicitly set to true
-	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(_)).WillRepeatedly(Return(false));
-	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_Fog)).WillRepeatedly(Return(true));
-
-	testp_aamp->Tune(url, false);
-	EXPECT_EQ(testp_aamp->GetLocalAAMPTsbFromConfig(), false);
-	EXPECT_EQ(testp_aamp->mFogTSBEnabled, false);
-}
-
-// Verify that AAMP TSB will be used if TSB type is set to 'local', even if AAMP TSB configuration is disabled
-TEST_F(PrivAampPrivTests, TuneTest_LocalTsb)
-{
-	const char *url = "sampleUrl";
-	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(_)).WillRepeatedly(Return(false));
-	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(testing::Matcher<AAMPConfigSettingString>(_))).WillRepeatedly(Return(""));
-	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_TsbType)).WillOnce(Return("local"));
-
-	testp_aamp->Tune(url, false);
-	EXPECT_EQ(testp_aamp->GetLocalAAMPTsbFromConfig(), true);
-	EXPECT_EQ(testp_aamp->mFogTSBEnabled, false);
-}
-
-// Verify that FOG will be used, and not AAMP TSB, if FOG is enabled and a foggy URL is used with TSB type set to 'local'
-TEST_F(PrivAampPrivTests, TuneTest_LocalFogTsb)
-{
-	// Foggy URL contains "tsb?"
-	const char *foggyUrl = "sampleUrltsb?";
-	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(_)).WillRepeatedly(Return(false));
-	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_Fog)).WillRepeatedly(Return(true));
-	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(testing::Matcher<AAMPConfigSettingString>(_))).WillRepeatedly(Return(""));
-	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_TsbType)).WillOnce(Return("local"));
-
-	testp_aamp->Tune(foggyUrl, false);
-	EXPECT_EQ(testp_aamp->GetLocalAAMPTsbFromConfig(), false);
-	EXPECT_EQ(testp_aamp->mFogTSBEnabled, true);
-}
+INSTANTIATE_TEST_SUITE_P(PrivAampPrivTests, TsbConfigurationTest,
+						 ValuesIn(tsbConfigData));
 
 TEST_F(PrivAampTests, HandleSSLWriteCallbackTest)
 {
@@ -1739,7 +1705,7 @@ TEST_F(PrivAampTests,GetFileTest_4)
 }
 
 class PrivAampInitMediaTypeTest : public PrivAampTests,
-								  public ::testing::WithParamInterface<AampMediaType> {
+								  public WithParamInterface<AampMediaType> {
 };
 
 TEST_P(PrivAampInitMediaTypeTest, GetFileTest_RetryInitWhilstBufferDepthTest)
@@ -1760,9 +1726,9 @@ TEST_P(PrivAampInitMediaTypeTest, GetFileTest_RetryInitWhilstBufferDepthTest)
 	p_aamp->curl[eCURLINSTANCE_MANIFEST_MAIN] = mCurlEasyHandle;
 	p_aamp->curlDLTimeout[eCURLINSTANCE_MANIFEST_MAIN] = 2000; // 2000ms timeout
 
-	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(testing::Matcher<AAMPConfigSettingInt>(_))).WillRepeatedly(Return(0));
-	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(testing::Matcher<AAMPConfigSettingFloat>(_))).WillRepeatedly(Return(0.0));
-	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(testing::Matcher<AAMPConfigSettingString>(_))).WillRepeatedly(Return(""));
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(Matcher<AAMPConfigSettingInt>(_))).WillRepeatedly(Return(0));
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(Matcher<AAMPConfigSettingFloat>(_))).WillRepeatedly(Return(0.0));
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(Matcher<AAMPConfigSettingString>(_))).WillRepeatedly(Return(""));
 
 	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_InitFragmentRetryCount))
 		.WillOnce(Return(initFragmentRetryCount));
@@ -1834,9 +1800,9 @@ TEST_F(PrivAampTests, GetFileTest_RetryInitWhilstBufferDepthTsbTest)
 	p_aamp->curl[eCURLINSTANCE_MANIFEST_MAIN] = mCurlEasyHandle;
 	p_aamp->curlDLTimeout[eCURLINSTANCE_MANIFEST_MAIN] = curlTimeout;
 
-	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(testing::Matcher<AAMPConfigSettingInt>(_))).WillRepeatedly(Return(0));
-	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(testing::Matcher<AAMPConfigSettingFloat>(_))).WillRepeatedly(Return(0.0));
-	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(testing::Matcher<AAMPConfigSettingString>(_))).WillRepeatedly(Return(""));
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(Matcher<AAMPConfigSettingInt>(_))).WillRepeatedly(Return(0));
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(Matcher<AAMPConfigSettingFloat>(_))).WillRepeatedly(Return(0.0));
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(Matcher<AAMPConfigSettingString>(_))).WillRepeatedly(Return(""));
 
 	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_InitFragmentRetryCount))
 		.WillOnce(Return(initFragmentRetryCount));
@@ -1878,9 +1844,9 @@ TEST_F(PrivAampTests,GetFileTest_RetryInitWhilstBufferDepthBeforeSuccessTest)
 	p_aamp->curl[eCURLINSTANCE_MANIFEST_MAIN] = mCurlEasyHandle;
 	p_aamp->curlDLTimeout[eCURLINSTANCE_MANIFEST_MAIN] = 2000; // 2000ms timeout
 
-	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(testing::Matcher<AAMPConfigSettingInt>(_))).WillRepeatedly(Return(0));
-	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(testing::Matcher<AAMPConfigSettingFloat>(_))).WillRepeatedly(Return(0.0));
-	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(testing::Matcher<AAMPConfigSettingString>(_))).WillRepeatedly(Return(""));
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(Matcher<AAMPConfigSettingInt>(_))).WillRepeatedly(Return(0));
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(Matcher<AAMPConfigSettingFloat>(_))).WillRepeatedly(Return(0.0));
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(Matcher<AAMPConfigSettingString>(_))).WillRepeatedly(Return(""));
 
 	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_InitFragmentRetryCount))
 		.WillOnce(Return(initFragmentRetryCount));
@@ -4471,4 +4437,31 @@ TEST_F(PrivAampTests, VerifyTrickModePositionEOS)
 	double calculatedTrickModeEosPos = livePlayPosition + (livePlayPosition - kPositionNow)/(kRate-1);
 	/*The calculation involves NOW_STEADY_TS_SECS_FP, in SetRate and calculatedTrickModeEosPos, which will differ a bit, hence using EXPECT_NEAR */
 	EXPECT_NEAR(p_aamp->mTrickModePositionEOS, calculatedTrickModeEosPos, kAbsErrorLivePlayPosition);
+}
+TEST_F(PrivAampTests,GetFormatPositionOffsetTest)
+{
+	double offset = 0.0;
+	p_aamp->mProgressReportOffset = 1.2; // Set a valid progress report offset
+	p_aamp->mProgressReportAvailabilityOffset = 2.5; // Set availability offset
+
+	// Case 1: eAAMPConfig_UseAbsoluteTimeline is false
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_UseAbsoluteTimeline)).WillRepeatedly(Return(false));
+	offset = p_aamp->GetFormatPositionOffsetInMSecs();
+	EXPECT_EQ(offset, 1.2 * 1000); // Expect offset to be calculated based on mProgressReportOffset
+
+	// Case 2: eAAMPConfig_UseAbsoluteTimeline is true and IsLiveStream() is true
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_UseAbsoluteTimeline)).WillRepeatedly(Return(true));
+	p_aamp->SetIsLiveStream(true);
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_PreferredAbsoluteProgressReporting))
+		.WillRepeatedly(Return(eABSOLUTE_PROGRESS_WITHOUT_AVAILABILITY_START));	
+	offset = p_aamp->GetFormatPositionOffsetInMSecs();
+	EXPECT_EQ(offset, 2.5 * 1000); // Expect offset to be calculated based on mProgressReportAvailabilityOffset
+
+	// Case 3: If IsLiveStream() is false
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_UseAbsoluteTimeline)).WillRepeatedly(Return(true));
+	p_aamp->SetIsLiveStream(false); // Set live stream to false
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_PreferredAbsoluteProgressReporting))
+		.WillRepeatedly(Return(eABSOLUTE_PROGRESS_WITHOUT_AVAILABILITY_START));
+	offset = p_aamp->GetFormatPositionOffsetInMSecs();
+	EXPECT_EQ(offset, 1.2 * 1000); // Expect offset to be 0 since IsLiveStream() is false
 }

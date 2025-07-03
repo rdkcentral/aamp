@@ -26,6 +26,7 @@ include_directories(${AAMP_ROOT}/middleware/subtitle)
 include_directories(${AAMP_ROOT}/middleware/subtec/libsubtec)
 include_directories(${AAMP_ROOT}/middleware/subtec/subtecparser)
 include_directories(${AAMP_ROOT}/middleware/playerjsonobject)
+include_directories(${AAMP_ROOT}/middleware/playerLogManager)
 
 include_directories(${GTEST_INCLUDE_DIRS})
 include_directories(${GMOCK_INCLUDE_DIRS})
@@ -38,7 +39,7 @@ include_directories(${LIBCJSON_INCLUDE_DIRS})
 set(TEST_SOURCES    GetTextStyleAttributesTests.cpp
                     TextStyleAttributesTests.cpp)
 
-set(AAMP_SOURCES ${AAMP_ROOT}/middleware/PlayerLogManager.cpp ${AAMP_ROOT}/middleware/subtec/subtecparser/TextStyleAttributes.cpp)
+set(AAMP_SOURCES ${AAMP_ROOT}/middleware/subtec/subtecparser/TextStyleAttributes.cpp)
 
 add_executable(${EXEC_NAME}
                ${TEST_SOURCES}

@@ -20,7 +20,6 @@
 #include <gtest/gtest.h>
 #include "MediaStreamContext.h"
 #include "fragmentcollector_mpd.h"
-#include "AampMemoryUtils.h"
 #include "isobmff/isobmffbuffer.h"
 #include "AampCacheHandler.h"
 #include "../priv_aamp.h"
@@ -153,6 +152,7 @@ public:
 	/** @brief Boolean AAMP configuration settings. */
 	const BoolConfigSettings mDefaultBoolConfigSettings =
 		{
+			{eAAMPConfig_CurlThroughput, false},
 			{eAAMPConfig_EnableMediaProcessor, true},
 			{eAAMPConfig_EnableCMCD, false},
 			{eAAMPConfig_BulkTimedMetaReport, false},
