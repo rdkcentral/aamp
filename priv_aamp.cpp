@@ -11305,7 +11305,7 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 		{
 			if (jsObject->get("languages", inputLanguagesList))
 			{
-				for (auto preferredLanguage : inputLanguagesList)
+				for (const auto& preferredLanguage : inputLanguagesList)
 				{
 					if (!inputLanguagesString.empty())
 					{
@@ -11361,7 +11361,7 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 		{
 			if (jsObject->get("codec", inputCodecList))
 			{
-				for (auto preferredCodec : inputCodecList)
+				for (const auto& preferredCodec : inputCodecList)
 				{
 					if (!inputCodecString.empty())
 					{

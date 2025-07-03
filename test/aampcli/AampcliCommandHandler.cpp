@@ -42,7 +42,7 @@ void CommandHandler::registerAampcliCommands()
 
 bool CommandHandler::dispatchAampcliCommands( const char *cmdBuf, PlayerInstanceAAMP *playerInstanceAamp )
 {
-	for( auto commandInfo : mCommandMap )
+	for( const auto& commandInfo : mCommandMap )
 	{
 		if( PlaybackCommand::isCommandMatch(cmdBuf, commandInfo.first.c_str() ) )
 		{
