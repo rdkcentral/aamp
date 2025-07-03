@@ -113,12 +113,6 @@ install(TARGETS tsb
         PUBLIC_HEADER DESTINATION include
 )
 
-option(DISABLE_SECURITY_TOKEN "Disable security token" OFF)
-
-if(DISABLE_SECURITY_TOKEN)
-  add_definitions(-DDISABLE_SECURITY_TOKEN)
-endif()
-
 if(CMAKE_WPEWEBKIT_JSBINDINGS)
 	message("CMAKE_WPEWEBKIT_JSBINDINGS is set, Finding JavaScriptCore")
 	pkg_search_module(PC_WPE_WEBKIT wpe-webkit-deprecated-0.1 wpe-webkit-1.0 wpe-webkit-1.1)
