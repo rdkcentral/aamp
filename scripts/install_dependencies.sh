@@ -150,10 +150,14 @@ function install_pkgs_linux_fn()
     install_package_fn jq
     install_package_fn libtinyxml2-dev
     install_package_fn openjdk-21-jre-headless
+    install_package_fn libglib2.0-dev
 
     VER=$(grep -oP 'VERSION_ID="\K[\d.]+' /etc/os-release)
 
-    if [ ${VER:0:2} -ge 22 ]; then
+    if [ ${VER:0:2} -ge 24 ]; then
+        install_package_fn libjavascriptcoregtk-4.1-dev
+        install_package_fn meson-1.5
+    elif [ ${VER:0:2} -ge 22 ]; then
         install_package_fn libjavascriptcoregtk-4.1-dev
         # Install and verify the version of meson
         install_package_fn python3-pip
@@ -219,7 +223,7 @@ function install_pkgs_fn()
           brew update
       fi
 
-      install_pkgs_darwin_fn git json-glib cmake "openssl@3" libxml2 ossp-uuid cjson gnu-sed meson ninja pkg-config jsoncpp lcov gcovr jq curl
+      install_pkgs_darwin_fn git glib json-glib cmake "openssl@3" libxml2 ossp-uuid cjson gnu-sed meson ninja pkg-config jsoncpp lcov gcovr jq curl
       install_pkgs_darwin_fn coreutils websocketpp "boost@1.85" jansson libxkbcommon cppunit gnu-sed fontconfig doxygen graphviz tinyxml2 openldap krb5 "openjdk@21"
 
       if [[ "$ARCH" == "arm64" && "$CUR_MACOS_VER" == "15.5" ]]; then

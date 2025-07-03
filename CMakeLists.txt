@@ -452,8 +452,6 @@ if(CMAKE_USE_OPENCDM_ADAPTER)
 	endif()
 
 	if(CMAKE_USE_OPENCDM_ADAPTER_MOCKS)
-		# copy_staging_header_file(open_cdm.h)
-		# copy_staging_header_file(opencdmMocks.cpp)
 		set(LIBAAMP_MOCK_SOURCES ${LIBAAMP_MOCK_SOURCES} test/mocks/opencdmMocks.cpp)
 		set(LIBAAMP_MOCK_DEPENDS -lgmock -lgtest)
 	else()

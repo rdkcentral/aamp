@@ -49,16 +49,7 @@ function subtec_install_fn() {
     git apply -p1 ${1}/OSX/patches/subttxrend-app-ubuntu_24_04_build.patch
     git apply -p1 ${1}/OSX/patches/websocket-ipplayer2-ubuntu_24_04_build.patch --directory websocket-ipplayer2-utils
     git apply -p1 ${1}/OSX/patches/websocket-ipplayer2-mac_sequoia_build.patch --directory websocket-ipplayer2-utils
-
-
-    echo "Patching subtec-app CMakeLists.txt with '$2'"
-    if [[ "$OSTYPE" == "darwin"* ]] ; then
-        SED_ARG="''"     # MacOS -i has different -i argument
-    fi
-    sed -i ${SED_ARG} 's:COMMAND gdbus-codegen --interface-prefix com.libertyglobal.rdk --generate-c-code SubtitleDbusInterface ${CMAKE_CURRENT_SOURCE_DIR}/api/dbus/SubtitleDbusInterface.xml:COMMAND '"${2}"'/glib/build/gio/gdbus-2.0/codegen/gdbus-codegen --interface-prefix com.libertyglobal.rdk --generate-c-code SubtitleDbusInterface ${CMAKE_CURRENT_SOURCE_DIR}/api/dbus/SubtitleDbusInterface.xml:g' subttxrend-dbus/CMakeLists.txt
-    
-    sed -i ${SED_ARG} 's:COMMAND gdbus-codegen --interface-prefix com.libertyglobal.rdk --generate-c-code TeletextDbusInterface ${CMAKE_CURRENT_SOURCE_DIR}/api/dbus/TeletextDbusInterface.xml:COMMAND '"${2}"'/glib/build/gio/gdbus-2.0/codegen/gdbus-codegen --interface-prefix com.libertyglobal.rdk --generate-c-code TeletextDbusInterface ${CMAKE_CURRENT_SOURCE_DIR}/api/dbus/TeletextDbusInterface.xml:g' subttxrend-dbus/CMakeLists.txt
-    
+ 
     echo "subtec-app source prepared"
     popd
 }

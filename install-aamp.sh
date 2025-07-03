@@ -23,9 +23,9 @@ if [[ -z "${MAKEFLAGS}" ]]; then
     export MAKEFLAGS=-j$(nproc)
 fi
 
-if [[ "$OSTYPE" == "darwin"* ]]; then
-    export CMAKE_POLICY_VERSION_MINIMUM=3.5
-fi
+# Set the CMAKE_POLICY_VERSION_MINIMUM to 3.5
+# Mostly required for OSX builds
+export CMAKE_POLICY_VERSION_MINIMUM=3.5
 
 # Fail the script should any step fail. To override this behavior use "|| true" on those statements
 set -eo pipefail
@@ -44,8 +44,6 @@ source scripts/install_options.sh
 source scripts/install_dependencies.sh
 # gtest install and build
 source scripts/install_gtest.sh
-# glib install and build
-source scripts/install_glib.sh
 # libdash install and build
 source scripts/install_libdash.sh
 # gstreamer install
@@ -149,11 +147,6 @@ INSTALL_STATUS_ARR+=("install_gstplugingood_fn check passed.")
 #
 install_build_googletest_fn "${OPTION_CLEAN}" 
 INSTALL_STATUS_ARR+=("install_build_googletest check passed.")
-
-# Build glib
-#
-install_build_glib_fn "${OPTION_CLEAN}" 
-INSTALL_STATUS_ARR+=("install_build_glib check passed.")
 
 # Build libdash
 install_build_libdash_fn "${OPTION_CLEAN}" 
