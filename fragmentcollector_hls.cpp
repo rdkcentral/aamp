@@ -1138,6 +1138,8 @@ AAMPLOG_WARN("DJH playTarget %f, playlistPosition %f, fragmentURI %s",
 		ptr = iter.mystrpbrk();
 
 	}
+AAMPLOG_WARN("DJH playTarget %f, playlistPosition %f, fragmentURI %s",
+				playTarget.inSeconds(), playlistPosition.inSeconds(), fragmentURI.tostring().c_str());		
 	return rc;
 }
 
