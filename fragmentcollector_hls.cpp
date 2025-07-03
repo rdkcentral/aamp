@@ -2005,6 +2005,7 @@ void TrackState::IndexPlaylist(bool IsRefresh, AampTime &culledSec)
 				}
 				else if(ptr.removePrefix("-X-MEDIA-SEQUENCE:"))
 				{
+					AAMPLOG_WARN("DJH aamp: EXT-X-MEDIA-SEQUENCE = %s", ptr.getPtr());
 					indexFirstMediaSequenceNumber = ptr.atoll();
 					mediaSequence = true;
 					node.mediaSequenceNumber = indexFirstMediaSequenceNumber;
