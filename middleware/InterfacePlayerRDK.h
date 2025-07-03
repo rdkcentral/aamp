@@ -223,7 +223,8 @@ struct gst_media_stream
 
 	gst_media_stream() : sinkbin(NULL), source(NULL), format(GST_FORMAT_INVALID),
 						 pendingSeek(false), resetPosition(false),
-						 bufferUnderrun(false), eosReached(false), sourceConfigured(false), sourceLock(PTHREAD_MUTEX_INITIALIZER), timeScale(1), trackId(-1), firstBufferProcessed(false), demuxPad(NULL), demuxProbeId(0)
+						 bufferUnderrun(false), eosReached(false), sourceConfigured(false), sourceLock(PTHREAD_MUTEX_INITIALIZER),
+						 timeScale(1), trackId(-1), firstBufferProcessed(false), demuxPad(NULL), demuxProbeId(0)
 	{
 	}
 
@@ -694,12 +695,11 @@ public:
 	 * @param[in] initFragment True if this is an initialization fragment.
 	 * @param[out] discontinuity Indicates whether there is a discontinuity.
 	 * @param[out] notifyFirstBufferProcessed Indicates whether the first buffer was processed.
-	 * @param[out] sendNewSegmentEvent Indicates whether to send a new segment event.
 	 * @param[out] resetTrickUTC Indicates whether to reset the trick UTC.
 	 * @param[out] firstBufferPushed Indicates whether the first buffer was pushed.
 	 * @return True if the event was sent successfully, false otherwise.
 	 */
-	bool SendHelper(int type, const void *ptr, size_t len, double fpts, double fdts, double fDuration, double fragmentPTSoffset, bool copy, bool initFragment, bool &discontinuity, bool &notifyFirstBufferProcessed, bool &sendNewSegmentEvent, bool &resetTrickUTC, bool &firstBufferPushed);
+	bool SendHelper(int type, const void *ptr, size_t len, double fpts, double fdts, double fDuration, bool copy, double fragmentPTSoffset, bool initFragment, bool &discontinuity, bool &notifyFirstBufferProcessed, bool &resetTrickUTC, bool &firstBufferPushed);
 
 	/**
 	 * @brief Pauses the injector.
@@ -710,14 +710,6 @@ public:
 	 * @brief Resumes the injector.
 	 */
 	void ResumeInjector();
-
-	/**
-	 * @brief Sends a new segment event.
-	 * @param[in] mediaType The type of media stream.
-	 * @param[in] startPts The start PTS value.
-	 * @param[in] stopPts The stop PTS value.
-	 */
-	void SendNewSegmentEvent(GstMediaType mediaType, GstClockTime startPts, GstClockTime stopPts);
 
 	/**
 	 * @brief Handles the video buffer sent event.

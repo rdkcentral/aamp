@@ -156,20 +156,6 @@ class AmlogicSocInterface : public SocInterface
 		void SetPlaybackFlags(gint &flags,  bool isSub)override;
 
 		/**
-		 * @brief Resets segment event flags during trickplay transitions.
-		 *
-		 * Manages segment event tracking for trickplay scenarios without disrupting seekplay or advertisements.
-		 */
-		virtual bool ResetNewSegmentEvent()override{return true;}
-
-		/**
-		 *@brief check if platform segment is ready
-		 *
-		 *it is used in scenarios where AV synchronization and trick mode speed adjustments are necessary.
-		 */
-		bool IsPlatformSegmentReady()override{return true;}
-
-		/**
 		 * @brief Check if the video is the master stream.
 		 *
 		 * This function always returns false, indicating that the video is not the master stream.

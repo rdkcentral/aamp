@@ -966,7 +966,6 @@ public:
 	float playerrate;
 	bool mSetPlayerRateAfterFirstframe;
 	bool pipeline_paused; 					/**< true if pipeline is paused */
-	bool mbNewSegmentEvtSent[AAMP_TRACK_COUNT];
 
 	char mLanguageList[MAX_LANGUAGE_COUNT][MAX_LANGUAGE_TAG_LENGTH]; /**< list of languages in stream */
 	int mCurrentLanguageIndex; 				/**< Index of current selected lang in mLanguageList, this is used for VideoStat event data collection */

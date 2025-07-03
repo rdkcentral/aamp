@@ -103,11 +103,5 @@ namespace SocUtils
 	 * @return true if PTS re-stamping is enabled, false otherwise.
 	 */
 	bool EnablePTSRestamp(void);
-	/**
-	 * @brief Resets segment event flags during trickplay transitions.
-	 *
-	 * Manages segment event tracking for trickplay scenarios without disrupting seekplay or advertisements.
-	 */
-	bool ResetNewSegmentEvent();
 }
 #endif // SOC_UTILS_H

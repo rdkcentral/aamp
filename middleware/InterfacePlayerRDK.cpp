@@ -204,6 +204,10 @@ const char *gstGetMediaTypeName(GstMediaType mediaType)
 	}
 }
 
+static gboolean has_property(GstElement *element, const gchar *property_name) {
+    GObjectClass *klass = G_OBJECT_GET_CLASS(element);
+    return g_object_class_find_property(klass, property_name) != NULL;
+}
 
 static GstStateChangeReturn SetStateWithWarnings(GstElement *element, GstState targetState);
 /**
@@ -424,6 +428,31 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int auxF
 		else
 		{
 			MW_LOG_WARN("Couldn't get video-sink");
+		}
+	}
+	if (gstPrivateContext->using_westerossink && !socInterface->IsVideoMaster())
+	{
+		// With westerossink, we need to set the avsync-mode to switch to video master mode in trickplay and audio master mode in normal play
+		// Vmaster(0) Amaster(1)
+		GstElement* vidsink = NULL;
+		g_object_get(gstPrivateContext->stream[eGST_MEDIATYPE_VIDEO].sinkbin, "video-sink", &vidsink, NULL);
+		if (vidsink != NULL && has_property(vidsink, "avsync-mode"))
+		{
+			if (gstPrivateContext->rate < 0 || gstPrivateContext->rate > 1)
+			{
+				g_object_set(vidsink, "avsync-mode", 0, NULL);
+				MW_LOG_INFO("Setting avsync-mode to Vmaster");
+			}
+			else
+			{
+				g_object_set(vidsink, "avsync-mode", 1, NULL);
+				MW_LOG_INFO("Setting avsync-mode to Amaster");
+			}
+		}
+		else
+		{
+			// This is not expected in an audio as master clock
+			MW_LOG_ERR("Couldn't get video-sink(%p) or avsync-mode property not available", vidsink);
 		}
 	}
 	if (gstPrivateContext->pauseOnStartPlayback && GST_NORMAL_PLAY_RATE == gstPrivateContext->rate)
@@ -1752,6 +1781,37 @@ void InterfacePlayerRDK::InitializeSourceForPlayer(void *PlayerInstance, void * 
 	stream->sourceConfigured = true;
 }
 
+static GstPadProbeReturn InterfacePlayerRDK_DemuxPadProbeCallbackEvent(GstPad *pad, GstPadProbeInfo *info, void* _this)
+{
+	if (_this)
+	{
+		InterfacePlayerRDK* pInterfacePlayerRDK = (InterfacePlayerRDK*)_this;
+		if ((pad == pInterfacePlayerRDK->gstPrivateContext->stream[eGST_MEDIATYPE_VIDEO].demuxPad) && (pInterfacePlayerRDK->gstPrivateContext->rate == GST_NORMAL_PLAY_RATE))
+		{
+			GstEvent *event = GST_PAD_PROBE_INFO_EVENT(info);
+			if (GST_EVENT_TYPE(event) == GST_EVENT_SEGMENT)
+			{
+				GstSegment segment;
+				gst_event_copy_segment(event, &segment);
+				MW_LOG_TRACE("duration  %" G_GUINT64_FORMAT " start %" G_GUINT64_FORMAT " stop %" G_GUINT64_FORMAT,
+							 segment.duration, segment.start, segment.stop);
+
+				// Reset the stop value
+				segment.stop = GST_CLOCK_TIME_NONE;
+
+				// Replace the event with a new one
+				GstEvent *new_event = gst_event_new_segment(&segment);
+				gst_event_replace(&event, new_event);
+				gst_event_unref(new_event);
+
+				// Update the probe info with the new event
+				info->data = event;
+			}
+		}
+	}
+	return GST_PAD_PROBE_OK;
+}
+
 static GstPadProbeReturn InterfacePlayerRDK_DemuxPadProbeCallback(GstPad * pad, GstPadProbeInfo * info, void* _this)
 {
 	GstBuffer *buffer = GST_PAD_PROBE_INFO_BUFFER(info);
@@ -2176,15 +2236,15 @@ int InterfacePlayerRDK::SetupStream(int streamId,  void *playerInstance, std::st
 		if (eGST_MEDIATYPE_AUX_AUDIO == streamId)
 		{
 			// We need to route audio through audsrvsink
-			GstElement *audiosink = gst_element_factory_make("audsrvsink", NULL); /* Creates a new element of "audsrvsink" type and returns a new GstElement */
-			g_object_set(audiosink, "session-type", 2, NULL);
-			g_object_set(audiosink, "session-name", "btSAP", NULL);
-			g_object_set(audiosink, "session-private", TRUE, NULL);
+			GstElement *audiosink = gst_element_factory_make("audsrvsink", NULL);		/* Creates a new element of "audsrvsink" type and returns a new GstElement */
+			g_object_set(audiosink, "session-type", 2, NULL );
+			g_object_set(audiosink, "session-name", "btSAP", NULL );
+			g_object_set(audiosink, "session-private", TRUE, NULL );
 
-			g_object_set(stream->sinkbin, "audio-sink", audiosink, NULL); /* In the stream->sinkbin, set the audio-sink property to audiosink */
-			if (pInterfacePlayerRDK->socInterface->RequiredElementSetup())
+			g_object_set(stream->sinkbin, "audio-sink", audiosink, NULL);				/* In the stream->sinkbin, set the audio-sink property to audiosink */
+			if(pInterfacePlayerRDK->socInterface->RequiredElementSetup())
 			{
-				pInterfacePlayerRDK->SignalConnect(stream->sinkbin, "element-setup", G_CALLBACK(callback_element_added), this);
+				pInterfacePlayerRDK->SignalConnect(stream->sinkbin, "element-setup", G_CALLBACK (callback_element_added), this);
 			}
 
 			MW_LOG_MIL("using audsrvsink");
@@ -2225,9 +2285,11 @@ int InterfacePlayerRDK::SetupStream(int streamId,  void *playerInstance, std::st
 
 	if (( ((mediaFormat == eGST_MEDIAFORMAT_DASH || mediaFormat == eGST_MEDIAFORMAT_HLS_MP4) &&
 		   m_gstConfigParam->seamlessAudioSwitch))
+		// Seamless audio switch implemented only for DASH and HLS/MP4
 		||
 		(mediaFormat == eGST_MEDIAFORMAT_DASH && eGST_MEDIATYPE_VIDEO == streamId &&
-		 m_gstConfigParam->enablePTSReStamp))
+		   m_gstConfigParam->enablePTSReStamp))
+		// Its not known if HLS/MP4 with restamp require segment.stop override. Issue was originally reported in DASH
 	{
 		// Send the media_stream object so that qtdemux can be instantly mapped to media type without caps/parent check
 		g_signal_connect(stream->sinkbin, "element_setup", G_CALLBACK(element_setup_cb), pInterfacePlayerRDK);
@@ -2796,7 +2858,7 @@ void InterfacePlayerRDK::SetPlayerName(std::string name)
 /**
  *  @brief Inject stream buffer to gstreamer pipeline
  */
-bool InterfacePlayerRDK::SendHelper(int type, const void *ptr, size_t len, double fpts, double fdts, double fDuration, double fragmentPTSoffset, bool copy, bool initFragment, bool &discontinuity, bool &notifyFirstBufferProcessed, bool &sendNewSegmentEvent, bool &resetTrickUTC, bool &firstBufferPushed)
+bool InterfacePlayerRDK::SendHelper(int type, const void *ptr, size_t len, double fpts, double fdts, double fDuration, bool copy, double fragmentPTSoffset, bool initFragment, bool &discontinuity, bool &notifyFirstBufferProcessed, bool &resetTrickUTC, bool &firstBufferPushed)
 {
 	GstMediaType mediaType = static_cast<GstMediaType>(type);
 	GstClockTime pts = (GstClockTime)(fpts * GST_SECOND);
@@ -2840,19 +2902,10 @@ bool InterfacePlayerRDK::SendHelper(int type, const void *ptr, size_t len, doubl
 		{
 			SendGstEvents((GstMediaType)eGST_MEDIATYPE_AUX_AUDIO, pts);
 		}
-
-		// included to fix av sync / trickmode speed issues
-		// Also add check for trick-play on 1st frame.
-		if (socInterface->IsPlatformSegmentReady() && sendNewSegmentEvent == true)
-		{
-			SendNewSegmentEvent(mediaType, pts, 0);
-			segmentEventSent = true;
-		}
 		MW_LOG_DEBUG("mediaType[%d] SendGstEvents - first buffer received !!! initFragment: %d, pts: %" G_GUINT64_FORMAT, mediaType, initFragment, pts);
 
 	}
 
-	sendNewSegmentEvent = segmentEventSent;
 	bool bPushBuffer = !mPauseInjector;
 	if(bPushBuffer)
 	{
@@ -3040,40 +3093,6 @@ void InterfacePlayerRDK::ResumeInjector()
 	std::unique_lock<std::mutex> lock(mSourceSetupMutex);
 	mPauseInjector = false;
 	mSourceSetupCV.notify_all();
-}
-
-/**
- *  @brief Send new segment event to pipeline
- */
-void InterfacePlayerRDK::SendNewSegmentEvent(GstMediaType mediaType, GstClockTime startPts ,GstClockTime stopPts)
-{
-	gst_media_stream* stream = &gstPrivateContext->stream[mediaType];
-	GstPad* sourceEleSrcPad = gst_element_get_static_pad(GST_ELEMENT(stream->source), "src");
-	if (stream->format == GST_FORMAT_ISO_BMFF)
-	{
-		GstSegment segment;
-		gst_segment_init(&segment, GST_FORMAT_TIME);
-
-		segment.start = startPts;
-		segment.position = 0;
-		segment.rate = GST_NORMAL_PLAY_RATE;
-		segment.applied_rate = GST_NORMAL_PLAY_RATE;
-		if(stopPts) segment.stop = stopPts;
-		if(!socInterface->IsVideoMaster())
-		{
-			//  notify westerossink of rate to run in Vmaster mode
-			if ((GstMediaType)mediaType == eGST_MEDIATYPE_VIDEO)
-				segment.applied_rate = gstPrivateContext->rate;
-
-		}
-		MW_LOG_INFO("Sending segment event for mediaType[%d]. start %" G_GUINT64_FORMAT " stop %" G_GUINT64_FORMAT" rate %f applied_rate %f", mediaType, segment.start, segment.stop, segment.rate, segment.applied_rate);
-		GstEvent* event = gst_event_new_segment (&segment);
-		if (!gst_pad_push_event(sourceEleSrcPad, event))
-		{
-			MW_LOG_ERR("gst_pad_push_event segment error");
-		}
-	}
-	gst_object_unref(sourceEleSrcPad);
 }
 
 /**
@@ -3667,7 +3686,6 @@ bool GstPlayer_isVideoDecoder(const char* name, InterfacePlayerRDK * pInterfaceP
 	return pInterfacePlayerRDK->socInterface->IsVideoDecoder(name, isRialto);
 }
 
-#if GST_CHECK_VERSION(1,18,0)
 /**
  * @brief GstPlayer_HandleInstantRateChangeSeekProbe
  * @param[in] pad pad element
@@ -3690,6 +3708,7 @@ static GstPadProbeReturn GstPlayer_HandleInstantRateChangeSeekProbe(GstPad* pad,
 			return GST_PAD_PROBE_OK;
 	};
 
+#if GST_CHECK_VERSION(1,18,0)
 	gdouble rate = 1.0;
 	GstSeekFlags flags = GST_SEEK_FLAG_NONE;
 	gst_event_parse_seek (event, &rate, nullptr, &flags, nullptr, nullptr, nullptr, nullptr);
@@ -3711,9 +3730,9 @@ static GstPadProbeReturn GstPlayer_HandleInstantRateChangeSeekProbe(GstPad* pad,
 		gst_event_unref(event);
 		return GST_PAD_PROBE_HANDLED;
 	}
+#endif
 	return GST_PAD_PROBE_OK;
 }
-#endif
 
 /**
  * @brief Check if gstreamer element is video sink

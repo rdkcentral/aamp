@@ -130,14 +130,4 @@ namespace SocUtils
 	{
 		return socInterface->EnablePTSRestamp();
 	}
-	/**
-	 * @brief Resets segment event flags during trickplay transitions.
-	 *
-	 * Manages segment event tracking for trickplay scenarios without disrupting seekplay or advertisements.
-	 */
-	bool ResetNewSegmentEvent()
-	{
-		return socInterface->ResetNewSegmentEvent();
-	}
-
 }
