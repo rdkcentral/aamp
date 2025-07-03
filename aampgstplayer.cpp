@@ -70,7 +70,7 @@ static void InitializePlayerConfigs(AAMPGstPlayer *_this, void *playerInstance)
 {
 	auto interfacePlayer = static_cast<InterfacePlayerRDK*>(playerInstance);
 	auto& config = _this->aamp->mConfig;
-//	assert( config );
+	assert( config );
 	interfacePlayer->m_gstConfigParam->media = _this->aamp->GetMediaFormatTypeEnum();
 	interfacePlayer->m_gstConfigParam->networkProxy =_this->aamp->GetNetworkProxy();
 	interfacePlayer->m_gstConfigParam->tcpServerSink = config->IsConfigSet(eAAMPConfig_useTCPServerSink);
