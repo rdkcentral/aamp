@@ -1620,7 +1620,7 @@ void TrackState::FetchFragment()
 							double position = (double)(playTarget - playTargetOffset);
 							AAMPLOG_WARN("%s Already at the lowest profile, skipping segment at pos = %lf duration=%lf",name,position,duration);
 							updateSkipPoint(position, duration);
-							playTargetBufferCalc += fragmentDurationSeconds
+							playTargetBufferCalc += fragmentDurationSeconds;
 							AAMPLOG_WARN("DJH fetch failed playTargetBufferCalc set to %f (fragmentDurationSeconds %f)", 
 									playTargetBufferCalc.inSeconds(), fragmentDurationSeconds);
 							context->mRampDownCount = 0;
