@@ -163,6 +163,26 @@ private:
 		ptr += len;
 	}
 
+	void parseProtectionSystemSpecificHeader( void )
+	{
+		ReadHeader();
+		gchar *sysid_string = qtdemux_uuid_bytes_to_string ((const guint8 *) node->data + 12);
+		gst_qtdemux_append_protection_system_id( qtdemux, sysid_string );
+		GstBuffer *pssh = gst_buffer_new_memdup (node->data, pssh_size);
+		uint32_t parent_box_type = QT_FOURCC ((const guint8 *) node->parent->data + 4);
+		GstEvent *event = gst_event_new_protection (sysid_string, pssh,
+			(parent_box_type == FOURCC_moov) ? "isobmff/moov" : "isobmff/moof");
+		for( int i = 0; i < QTDEMUX_N_STREAMS (qtdemux); i++ )
+		{
+			QtDemuxStream *stream = QTDEMUX_NTH_STREAM (qtdemux, i);
+			g_queue_push_tail( &stream->protection_scheme_event_queue, gst_event_ref(event) );
+		}
+		g_free (sysid_string);
+		gst_event_unref (event);
+		gst_buffer_unref (pssh);
+		return TRUE;
+	}
+	
 	void parseMovieFragmentHeaderBox( void )
 	{
 		ReadHeader();
@@ -515,7 +535,11 @@ private:
 					 */
 					break;
 					
-				case MultiChar_Constant("mfhd"): 
+				case MultiChar_Constant("pssh"):
+					parseProtectionSystemSpecificHeader();
+					break;
+					
+				case MultiChar_Constant("mfhd"):
 					parseMovieFragmentHeaderBox();
 					break;
 					
