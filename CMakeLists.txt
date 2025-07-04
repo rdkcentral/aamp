@@ -211,12 +211,6 @@ install(TARGETS tsb
 		PUBLIC_HEADER DESTINATION include
 )
 
-option(DISABLE_SECURITY_TOKEN "Disable security token" OFF)
-
-if(DISABLE_SECURITY_TOKEN)
-	add_definitions(-DDISABLE_SECURITY_TOKEN)
-endif()
-
 # Building jsbindings
 if(CMAKE_WPEWEBKIT_JSBINDINGS)
 	message("CMAKE_WPEWEBKIT_JSBINDINGS is set, building jsbindings library")
