@@ -3,6 +3,13 @@
 
 cmake_minimum_required(VERSION 3.5)
 project(Playergstinterface)
+
+option(DISABLE_SECURITY_TOKEN "Disable security token" OFF)
+
+if(DISABLE_SECURITY_TOKEN)
+  add_definitions(-DDISABLE_SECURITY_TOKEN)
+endif()
+
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(GST REQUIRED gstreamer-plugins-base-1.0)
 pkg_check_modules(GSTREAMER REQUIRED gstreamer-1.0)

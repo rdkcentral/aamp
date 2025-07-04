@@ -1,6 +1,12 @@
 cmake_minimum_required(VERSION 2.6)
 project(playerfbinterface_LIB)
 
+option(DISABLE_SECURITY_TOKEN "Disable security token" OFF)
+
+if(DISABLE_SECURITY_TOKEN)
+  add_definitions(-DDISABLE_SECURITY_TOKEN)
+endif()
+
 set(MW_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../")
 
 find_package(PkgConfig REQUIRED)
