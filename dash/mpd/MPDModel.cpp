@@ -179,6 +179,97 @@ string findBaseUrl(DomElement &element, const string &current, bool isFile) {
     }
 }
 
+
+/**
+ * Extracts all Base URLs from the element.
+ * @param element Element to extract Base URLs from
+ * @return Vector of Base URL texts
+ */
+std::vector<std::string> extractBaseUrlTexts(DomElement &element)
+{
+    vector<string> baseUrlTexts;
+    for (DomElement eUrl = element.firstChildElement("BaseURL"); !eUrl.isNull(); eUrl = eUrl.nextSiblingElement("BaseURL"))
+    {
+        string text = eUrl.text();
+        if (!text.empty())
+        {
+            baseUrlTexts.push_back(text);
+        }
+    }
+    return baseUrlTexts;
+}
+
+/**
+ * @brief   Finds all Base URLs for an element
+ * @param   element Element
+ * @param   current Parent Base URLs
+ * @param   isFile Flag to indicate File
+ * @retval  Vector of Base URLs
+ */
+std::vector<std::string> findAllBaseUrls(DomElement &element, const std::vector<std::string> &current, bool isFile)
+{
+    vector<string> baseUrls;
+    vector<string> baseUrlTexts = extractBaseUrlTexts(element);
+    string slash = isFile ? "" : "/";
+
+    if (!baseUrlTexts.empty())
+    {
+        for (const auto &urlText : baseUrlTexts)
+        {
+            Url newbase(urlText);
+            if (newbase.isRelative())
+            {
+                if (current.empty())
+                {
+                    baseUrls.push_back(newbase.format(Url::StripTrailingSlash).append(slash));
+                }
+                else
+                {
+                    for (const auto &base : current)
+                    {
+                        auto out = Url(base).resolve(newbase).format(Url::StripTrailingSlash).append(slash);
+                        baseUrls.push_back(out);
+                    }
+                }
+            }
+            else
+            {
+                baseUrls.push_back(newbase.format(Url::StripTrailingSlash).append(slash));
+            }
+        }
+    }
+    else if (!current.empty())
+    {
+        for (const auto &base : current)
+        {
+            if (!base.empty())
+            {
+                if (isFile)
+                {
+                    baseUrls.push_back(base);
+                }
+                else
+                {
+                    if (base.back() == '/')
+                    {
+                        baseUrls.push_back(base);
+                    }
+                    else
+                    {
+                        auto i = base.find_last_of('/');
+                        if (i != string::npos)
+                            baseUrls.push_back(base.substr(0, i + 1));
+                        else
+                            baseUrls.push_back(base + "/");
+                    }
+                }
+            }
+        }
+    }
+
+    return baseUrls;
+}
+
 /**
  * @brief   Get Dash MPD Segment Template
  * @param   fromChildren Flag to get from children
@@ -209,6 +300,19 @@ std::string DashMPDRepresentation::getBaseUrl() {
         baseurl = findBaseUrl(elem, parent->getBaseUrl());
     }
     return baseurl;
+}
+
+/**
+ * @brief   Get Base URL from Parent
+ * @retval  Base URL
+ */
+std::vector<std::string> DashMPDRepresentation::getBaseUrls() {
+    vector<string> baseurls;
+    auto parent = this->parent.lock();
+    if(parent) {
+        baseurls = findAllBaseUrls(elem, parent->getBaseUrls());
+    }
+    return baseurls;
 }
 
 /**
@@ -342,6 +446,29 @@ std::string DashMPDAdaptationSet::getInitUrl()
         initUrl = segmentTemplate->getInitializationAttr();
     }
     return initUrl;
+}
+
+/**
+ * @brief   Get mediaType by checking contentType, then mimeType, then representations
+ * @retval  mediaType string
+ */
+std::string DashMPDAdaptationSet::getMediaType() {
+    std::string mediaType = getContentType();
+    if (!mediaType.empty() && mediaType != MPD_UNSET_STRING) {
+        return mediaType;
+    }
+    mediaType = getMimeType();
+    if (!mediaType.empty() && mediaType != MPD_UNSET_STRING) {
+        return mediaType;
+    }
+    auto reps = getRepresentations();
+    for (const auto& rep : reps) {
+        mediaType = rep->getMimeType();
+        if (!mediaType.empty() && mediaType != MPD_UNSET_STRING) {
+            return mediaType;
+        }
+    }
+    return "";
 }
 
 /**
@@ -541,6 +668,18 @@ std::string DashMPDRoot::getBaseUrlValue() {
     Url location = getLocation();
     location = location.parent();
     return findBaseUrl(elem, location.str());
+}
+
+
+/**
+ * @brief   Gets Base URL
+ * @retval  Base URLs
+ */
+std::vector<std::string> DashMPDRoot::getAllBaseUrls() {
+    Url location = getLocation();
+    location = location.parent();
+    vector<string> baseUrls = {location.str()};
+    return findAllBaseUrls(elem, baseUrls);
 }
 
 /**
@@ -854,6 +993,19 @@ std::string DashMPDPeriod::getBaseUrl() {
         baseUrl = findBaseUrl(elem, parent->getBaseUrlValue());
     }
     return baseUrl;
+}
+
+/**
+ * @brief   Get Base URL from Parent
+ * @retval  Base URL
+ */
+std::vector<std::string> DashMPDPeriod::getBaseUrls() {
+    vector<string> baseurls;
+    auto parent = this->parent.lock();
+    if(parent) {
+        baseurls = findAllBaseUrls(elem, parent->getAllBaseUrls());
+    }
+    return baseurls;
 }
 
 /**
@@ -1676,6 +1828,19 @@ std::string DashMPDAdaptationSet::getBaseUrl() {
         baseUrl = findBaseUrl(elem, parent->getBaseUrl());
     }
     return baseUrl;
+}
+
+/**
+ * @brief   Get Base URL from Parent
+ * @retval  Base URL
+ */
+std::vector<std::string> DashMPDAdaptationSet::getBaseUrls() {
+    vector<string> baseurls;
+    auto parent = this->parent.lock();
+    if(parent) {
+        baseurls = findAllBaseUrls(elem, parent->getBaseUrls());
+    }
+    return baseurls;
 }
 
 

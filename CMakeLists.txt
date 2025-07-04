@@ -337,6 +337,9 @@ set(LIBAAMP_SOURCES
 	subtec/subtecparser/WebvttSubtecDevParser.cpp
 	AampTrackWorker.cpp
 	test/gstTestHarness/mp4demux.hpp
+	AampTrackWorkerManager.cpp
+	AampFragmentDescriptor.cpp
+	AampTimeBasedBufferManager.cpp
 	middleware/drm/aes/Aes.cpp
 	middleware/drm/helper/DrmHelper.cpp
 	middleware/gstplayertaskpool.cpp
@@ -686,6 +689,12 @@ install(FILES
 	AampLLDASHData.h
 	AampTSBSessionManager.h
 	AampTsbReader.h
+	AampTrackWorker.hpp
+	AampTrackWorkerManager.hpp
+	AampDownloadInfo.hpp
+	AampFragmentDescriptor.hpp
+	AampTimeBasedBufferManager.hpp
+	MediaSegmentDownloadJob.hpp
 	tsb/api/TsbApi.h
 	middleware/closedcaptions/CCTrackInfo.h
 	middleware/PlayerScheduler.h

@@ -27,7 +27,7 @@
 #include "MockAampConfig.h"
 #include "MockAampUtils.h"
 #include "MockPrivateInstanceAAMP.h"
-#include "MockStreamAbstractionAAMP.h"
+#include "MockMediaTrack.h"
 
 using ::testing::_;
 using ::testing::An;
