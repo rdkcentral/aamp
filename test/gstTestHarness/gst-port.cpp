@@ -242,9 +242,12 @@ public:
 		pad = gst_element_get_static_pad(appsrc, "src");
 		
 		// seek here avoids freeze at start for non-zero first_pts
-		SeekParam param = context->mSegmentEndSeekQueue.front();
-		context->mSegmentEndSeekQueue.pop();
-		Seek( param );
+		if( context->mSegmentEndSeekQueue.size()>0 )
+		{
+			SeekParam param = context->mSegmentEndSeekQueue.front();
+			context->mSegmentEndSeekQueue.pop();
+			Seek( param );
+		}
 	}
 	
 	MediaStream(const MediaStream&)=delete; // copy constructor

@@ -166,6 +166,15 @@ private:
 	void parseProtectionSystemSpecificHeader( void )
 	{
 		ReadHeader();
+		printf( "pssh system id:" );
+		for( int i=0; i<16; i++ )
+		{
+			printf( " %02x", ptr[i] );
+		}
+		printf( "\n" );
+		ptr += 16;
+
+		/*
 		gchar *sysid_string = qtdemux_uuid_bytes_to_string ((const guint8 *) node->data + 12);
 		gst_qtdemux_append_protection_system_id( qtdemux, sysid_string );
 		GstBuffer *pssh = gst_buffer_new_memdup (node->data, pssh_size);
@@ -180,7 +189,20 @@ private:
 		g_free (sysid_string);
 		gst_event_unref (event);
 		gst_buffer_unref (pssh);
-		return TRUE;
+		 */
+	}
+
+	void parseSampleAuxiliaryInformationSizes( void )
+	{
+	}
+
+	void parseSampleAuxiliaryInformationOffsets( void )
+	{
+	}
+
+	void parseSampleEncryption( void )
+	{
+		// key ID, IV, and details about the encrypted runs within each sample.
 	}
 	
 	void parseMovieFragmentHeaderBox( void )
@@ -538,7 +560,16 @@ private:
 				case MultiChar_Constant("pssh"):
 					parseProtectionSystemSpecificHeader();
 					break;
-					
+				case MultiChar_Constant("saiz"):
+					parseSampleAuxiliaryInformationSizes();
+					break;
+				case MultiChar_Constant("saio"):
+					parseSampleAuxiliaryInformationOffsets();
+					break;
+				case MultiChar_Constant("senc"):
+					parseSampleEncryption();
+					break;
+
 				case MultiChar_Constant("mfhd"):
 					parseMovieFragmentHeaderBox();
 					break;
@@ -727,7 +758,7 @@ public:
 		gst_buffer_fill(buf, 0, info.codec_data, info.codec_data_len);
 		switch( info.codec_type )
 		{
-			case 0x68766343: // 'hvcC'
+			case MultiChar_Constant("hvcC"):
 				caps = gst_caps_new_simple(
 										   "video/x-h265",
 										   "stream-format", G_TYPE_STRING, "hvc1",
@@ -739,7 +770,7 @@ public:
 										   NULL );
 				break;
 				
-			case 0x61766343: // 'avcC'
+			case MultiChar_Constant("avcC"):
 				caps = gst_caps_new_simple(
 										   "video/x-h264",
 										   "stream-format", G_TYPE_STRING, "avc",
@@ -751,7 +782,7 @@ public:
 										   NULL );
 				break;
 				
-			case 0x65736473: // 'esds'
+			case MultiChar_Constant("esds"):
 				caps = gst_caps_new_simple(
 										   "audio/mpeg",
 										   "mpegversion",G_TYPE_INT,4,
@@ -761,7 +792,7 @@ public:
 										   NULL );
 				break;
 				
-			case 0x64656333: // 'dec3'
+			case MultiChar_Constant("dec3"):
 				caps = gst_caps_new_simple(
 										   "audio/x-eac3",
 										   "framed", G_TYPE_BOOLEAN, TRUE,
