@@ -1404,9 +1404,9 @@ bool TrackState::FetchFragmentHelper(int &http_error, bool &decryption_error, bo
 			{
 				// Track the end of buffer from the last downloaded fragment
 				// Use the playlistPosition instead of a rolling count in case segments are dropped
-// DJH				playTargetBufferCalc = playlistPosition + fragmentDurationSeconds;
+				playTargetBufferCalc = playlistPosition + fragmentDurationSeconds;
 				//  increment the buffer value after download (only for video track)
-				playTargetBufferCalc += fragmentDurationSeconds;
+//DJH			playTargetBufferCalc += fragmentDurationSeconds;
 				AAMPLOG_MIL("DJH playTargetBufferCalc set to %f (fragmentDurationSeconds %f)", 
 						playTargetBufferCalc.inSeconds(), fragmentDurationSeconds);
 			}
@@ -1626,7 +1626,7 @@ void TrackState::FetchFragment()
 							double position = (double)(playTarget - playTargetOffset);
 							AAMPLOG_WARN("%s Already at the lowest profile, skipping segment at pos = %lf duration=%lf",name,position,duration);
 							updateSkipPoint(position, duration);
-							playTargetBufferCalc += fragmentDurationSeconds
+//DJH						playTargetBufferCalc += fragmentDurationSeconds;
 							AAMPLOG_WARN("DJH fetch failed playTargetBufferCalc set to %f (fragmentDurationSeconds %f)", 
 									playTargetBufferCalc.inSeconds(), fragmentDurationSeconds);
 							context->mRampDownCount = 0;
