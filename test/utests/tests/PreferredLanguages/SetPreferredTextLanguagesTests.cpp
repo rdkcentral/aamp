@@ -59,7 +59,7 @@ protected:
 		g_mockAampGstPlayer = new MockAAMPGstPlayer( mPrivateInstanceAAMP);
 		g_mockStreamAbstractionAAMP = new StrictMock<MockStreamAbstractionAAMP>(mPrivateInstanceAAMP);
 		g_mockAampStreamSinkManager = new NiceMock<MockAampStreamSinkManager>();
-		
+
 		mPrivateInstanceAAMP->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP;
 		mPrivateInstanceAAMP->SetState(eSTATE_PLAYING);
 
