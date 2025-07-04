@@ -1398,9 +1398,11 @@ bool TrackState::FetchFragmentHelper(int &http_error, bool &decryption_error, bo
 			{
 				// Track the end of buffer from the last downloaded fragment
 				// Use the playlistPosition instead of a rolling count in case segments are dropped
-				playTargetBufferCalc = playlistPosition + fragmentDurationSeconds;
-				AAMPLOG_MIL("DJH playTargetBufferCalc set to %f (playlistPosition %f + fragmentDurationSeconds %f)", 
-						playTargetBufferCalc.inSeconds(), playlistPosition.inSeconds(), fragmentDurationSeconds);
+// DJH				playTargetBufferCalc = playlistPosition + fragmentDurationSeconds;
+				//  increment the buffer value after download (only for video track)
+				playTargetBufferCalc += fragmentDurationSeconds;
+				AAMPLOG_MIL("DJH playTargetBufferCalc set to %f (fragmentDurationSeconds %f)", 
+						playTargetBufferCalc.inSeconds(), fragmentDurationSeconds);
 			}
 
 			if((eTRACK_VIDEO == type)  && (aamp->IsFogTSBSupported()))
@@ -3072,6 +3074,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::SyncTracks(void)
 				{
 					laggingTS->playTarget += laggingTS->fragmentDurationSeconds;
 					laggingTS->playTargetOffset += laggingTS->fragmentDurationSeconds;
+
 					if( !laggingTS->fragmentURI.empty() )
 					{
 						bool reloadUri = false;
