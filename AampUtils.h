@@ -69,7 +69,6 @@ struct FormatMap
 	StreamOutputFormat format;
 };
 
-
 /*
 * @fn GetAudioFormatStringForCodec
 * @brief Function to get audio codec string from the map.
@@ -380,6 +379,52 @@ std::string aamp_GetConfigPath( const std::string &filename );
  */
 bool parseAndValidateSCTE35(const std::string &scte35Data);
 
+/**
+ * @brief Replace matching token with given number
+ * @param str String in which operation to be performed
+ * @param from token
+ * @param toNumber number to replace token
+ * @retval position
+ */
+int replace(std::string& str, const std::string& from, uint64_t toNumber );
+
+/**
+ * @brief Replace matching token with given string
+ * @param str String in which operation to be performed
+ * @param from token
+ * @param toString string to replace token
+ * @retval position
+ */
+int replace(std::string& str, const std::string& from, const std::string& toString );
+
+/**
+ * @brief Read 16 word helper function
+ * @param pptr pointer to read from
+ * @retval word value
+ */
+unsigned int Read16( const char **pptr);
+
+/**
+ * @brief Read 32 word helper function
+ * @param pptr pointer to read from
+ * @retval word value
+ */
+unsigned int Read32( const char **pptr);
+
+/**
+ * @brief Read 64 word helper function
+ * @param pptr pointer to read from
+ * @retval word value
+ */
+uint64_t Read64( const char **pptr);
+
+/**
+ * @brief read unsigned multi-byte value and update buffer pointer
+ * @param[in] pptr buffer
+ * @param[in] n word size in bytes
+ * @retval 32 bit value
+ */
+uint64_t ReadWordHelper( const char **pptr, int n );
 
 /**
  * @brief convert time in HH:SS:MM.ms format to milliseconds

@@ -544,7 +544,7 @@ double AampMPDParseHelper::GetPeriodStartTime(int periodIndex,uint64_t mLastPlay
 					if(mNumberOfPeriods == 1 && periodIndex == 0 && mIsLiveManifest && !mIsFogMPD && (periodStart == mAvailabilityStartTime) && deltaInStartTime == 0)
 					{
 						// Temp hack to avoid running below if condition code for segment timeline , Due to this periodStart is getting changed for Cloud TSB or Hot Cloud DVR with segment timeline, which is not required.
-						bool bHasSegmentTimeline = aamp_HasSegmentTimeline(mMPDInstance->GetPeriods().at(periodIndex));
+						bool bHasSegmentTimeline = aamp_HasSegmentTime(mMPDInstance->GetPeriods().at(periodIndex));
 						if( false == bHasSegmentTimeline ) // only for segment template
 						{
 							// segmentTemplate without timeline having period start "PT0S".
@@ -759,52 +759,64 @@ double AampMPDParseHelper::aamp_GetPeriodStartTimeDeltaRelativeToPTSOffset(IPeri
 }
 
 /**
- * @brief  A helper function to  check if period has segment timeline for video track
+ * @brief  A helper function to check if period has segment timeline for video track
  * @param period period of segment
  * @return True if period has segment timeline for video otherwise false
  */
-bool AampMPDParseHelper::aamp_HasSegmentTimeline(IPeriod * period)
+bool AampMPDParseHelper::aamp_HasSegmentTime(IPeriod * period)
 {
-    bool bRetValue = false;
+	auto segmentTemplates = GetSegmentTemplateForVideo(period);
+	if (segmentTemplates && segmentTemplates->HasSegmentTemplate())
+	{
+		const ISegmentTimeline *segmentTimeline = segmentTemplates->GetSegmentTimeline();
+		return (segmentTimeline != nullptr);
+	}
+	return false;
+}
 
-    const std::vector<IAdaptationSet *> adaptationSets = period->GetAdaptationSets();
-    const ISegmentTemplate *representation = NULL;
-    const ISegmentTemplate *adaptationSet = NULL;
-    if( adaptationSets.size() > 0 )
-    {
-        IAdaptationSet * firstAdaptation = NULL;
-        for (auto &adaptationSet : period->GetAdaptationSets())
-        {
-            //Check for video adaptation
-            if (!IsContentType(adaptationSet, eMEDIATYPE_VIDEO))
-            {
-                continue;
-            }
-            firstAdaptation = adaptationSet;
-        }
+/**
+ * @brief  A helper function to check if period has segment template for video track
+ * @param period period of segment
+ * @return True if period has segment template for video otherwise false
+ */
+bool AampMPDParseHelper::aamp_HasSegmentTemplate(IPeriod * period)
+{
+	auto segmentTemplates = GetSegmentTemplateForVideo(period);
+	return (segmentTemplates && segmentTemplates->HasSegmentTemplate());
+}
 
-        if(firstAdaptation != NULL)
-        {
-            adaptationSet = firstAdaptation->GetSegmentTemplate();
-            const std::vector<IRepresentation *> representations = firstAdaptation->GetRepresentation();
-            if (representations.size() > 0)
-            {
-                representation = representations.at(0)->GetSegmentTemplate();
-            }
-        }
+/**
+ * @brief  A helper function to get segment template for video track
+ * @param period period of segment
+ * @return SegmentTemplates structure for video track if present, otherwise empty SegmentTemplates
+ */
+std::shared_ptr<SegmentTemplates> AampMPDParseHelper::GetSegmentTemplateForVideo(IPeriod * period)
+{
+	std::shared_ptr<SegmentTemplates> segmentTemplates = nullptr;
+	const std::vector<IAdaptationSet *> adaptationSets = period->GetAdaptationSets();
+	if (adaptationSets.empty())
+	{
+		return segmentTemplates;
+	}
 
-        SegmentTemplates segmentTemplates(representation,adaptationSet);
-
-        if (segmentTemplates.HasSegmentTemplate())
-        {
-            const ISegmentTimeline *segmentTimeline = segmentTemplates.GetSegmentTimeline();
-            if (segmentTimeline)
-            {
-                bRetValue = true;
-            }
-        }
-    }
-    return bRetValue;
+	for (auto &adaptationSet : adaptationSets)
+	{
+		if (IsContentType(adaptationSet, eMEDIATYPE_VIDEO))
+		{
+			const ISegmentTemplate *adaptationSetTemplate = adaptationSet->GetSegmentTemplate();
+			const std::vector<IRepresentation *> representations = adaptationSet->GetRepresentation();
+			if (!representations.empty())
+			{
+				const ISegmentTemplate *representationTemplate = representations.at(0)->GetSegmentTemplate();
+				if (adaptationSetTemplate || representationTemplate)
+				{
+					segmentTemplates = std::make_shared<SegmentTemplates>(representationTemplate, adaptationSetTemplate);
+					break;
+				}
+			}
+		}
+	}
+	return segmentTemplates;
 }
 
 /**

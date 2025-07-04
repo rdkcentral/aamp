@@ -321,6 +321,8 @@ TEST_F(FunctionalTests, TSBReadTests)
 	constexpr double FRAG_FIRST_PTS = 69.0;
 	constexpr double FRAG_PTS_OFFSET = -50.0;
 	size_t TEST_DATA_LEN = strlen(TEST_DATA);
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_MaxDownloadBuffer))
+		.WillOnce(Return(DEFAULT_MAX_DOWNLOAD_BUFFER));
 	class MediaStreamContext videoCtx(eTRACK_VIDEO, NULL, aamp, "video");
 
 	std::shared_ptr<CachedFragment> cachedFragment = std::make_shared<CachedFragment>();
