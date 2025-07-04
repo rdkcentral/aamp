@@ -33,6 +33,7 @@
 #include "MockMediaStreamContext.h"
 #include "MockAampMPDDownloader.h"
 #include "MockAampStreamSinkManager.h"
+#include "MockAampTrackWorker.h"
 
 using ::testing::_;
 using ::testing::SetArgReferee;
@@ -129,6 +130,7 @@ protected:
                 {eAAMPConfig_PrePlayBufferCount, DEFAULT_PREBUFFER_COUNT},
                 {eAAMPConfig_VODTrickPlayFPS, TRICKPLAY_VOD_PLAYBACK_FPS},
                 {eAAMPConfig_ABRBufferCounter, DEFAULT_ABR_BUFFER_COUNTER},
+                {eAAMPConfig_MaxDownloadBuffer, DEFAULT_MAX_DOWNLOAD_BUFFER},
                 {eAAMPConfig_MaxFragmentChunkCached, DEFAULT_CACHED_FRAGMENT_CHUNKS_PER_TRACK}
         };
 
@@ -158,6 +160,8 @@ protected:
 
                 g_mockAampMPDDownloader = new StrictMock<MockAampMPDDownloader>();
 
+                g_mockAampTrackWorker = new StrictMock<MockAampTrackWorker>();
+
                 g_mockAampStreamSinkManager = new NiceMock<MockAampStreamSinkManager>();
 
                 mStreamAbstractionAAMP_MPD = nullptr;
@@ -172,6 +176,7 @@ protected:
         {
                 if (mStreamAbstractionAAMP_MPD)
                 {
+                        mPrivateInstanceAAMP->GetAampTrackWorkerManager()->RemoveWorkers();
                         delete mStreamAbstractionAAMP_MPD;
                         mStreamAbstractionAAMP_MPD = nullptr;
                 }
@@ -202,6 +207,9 @@ protected:
 
                 delete g_mockMediaStreamContext;
                 g_mockMediaStreamContext = nullptr;
+
+                delete g_mockAampTrackWorker;
+                g_mockAampTrackWorker = nullptr;
 
                 delete g_mockAampMPDDownloader;
                 g_mockAampMPDDownloader = nullptr;
@@ -364,8 +372,9 @@ R"(<?xml version="1.0" encoding="utf-8"?>
         bool ret = false;
         /* Initialize MPD. The video initialization segment is cached. */
         fragmentUrl = std::string(TEST_BASE_URL) + std::string("video_init.mp4");
-        EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _, _, _))
-                .WillOnce(Return(true));
+        EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _))
+                .Times(2)
+                .WillRepeatedly(Return(true));
 
         status = InitializeMPD(manifest, eTUNETYPE_NEW_SEEK, seekPos, 1.0, true);
         EXPECT_EQ(status, eAAMPSTATUS_OK);
@@ -378,32 +387,18 @@ R"(<?xml version="1.0" encoding="utf-8"?>
          * The segment starts at time 40.0s and has a duration of 2.0s.
          */
         fragmentUrl = std::string(TEST_BASE_URL) + std::string("video_") + std::to_string(fragNum) + std::string(".mp4");
-        EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, seekPos, 2.0, _, false, _, _, _, _, _))
+        EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, seekPos, 2.0, _, false, _, _, _))
                 .WillOnce([pMediaStreamContext]() {
                         pMediaStreamContext->mDownloadedFragment.AppendBytes("0x0a", 2);
                         return false;
                 });
-
-        ret = PushNextFragment(eTRACK_VIDEO);
-        EXPECT_EQ(ret, false);
-
-        // Invoke UpdateMPD to mimic a playlist refresh, it will internally call UpdateTrackInfo and reset all variables
-        mStreamAbstractionAAMP_MPD->InvokeUpdateMPD(false);
-
-        // The same fragment should be attempted again
-        EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, seekPos, 2.0, _, false, _, _, _, _, _))
+        EXPECT_CALL(*g_mockAampTrackWorker, RescheduleActiveJob())
+                .Times(1)
                 .WillOnce([pMediaStreamContext]() {
                         pMediaStreamContext->mDownloadedFragment.Free();
-                        return true;
                 });
 
-        // This seeks in the current playlist and reaches the lastSegmentTime
         ret = PushNextFragment(eTRACK_VIDEO);
-        if (seekPos != 0)
-        {
-                // Downloads the segment this time
-                ret = PushNextFragment(eTRACK_VIDEO);
-        }
         EXPECT_EQ(ret, true);
 }
 
