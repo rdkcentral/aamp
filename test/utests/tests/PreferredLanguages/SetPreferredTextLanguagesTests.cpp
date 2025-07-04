@@ -686,6 +686,9 @@ TEST_F(SetPreferredTextLanguagesTests, SetTsbSessionManagerNull)
 	/* Call SetPreferredTextLanguages() changing the preferred languages list.
 	 * There should be a retune.
 	 */
+	// Expect that session manager is nullptr
+	EXPECT_EQ(g_mockTSBSessionManager, nullptr);
+
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetAvailableTextTracks(_))
 		.Times(2).WillRepeatedly(ReturnRef(tracks));
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, SelectPreferredTextTrack(_))
