@@ -32,6 +32,7 @@
 #include "libdash/IDASHManager.h"
 #include "libdash/xml/Node.h"
 #include "libdash/IMPD.h"
+#include "dash/mpd/MPDModel.h"
 #include "AampMPDParseHelper.h"
 
 using namespace dash;
@@ -597,6 +598,14 @@ public:
 	 * @return true if the next ad is available, false otherwise
 	 */
 	bool GetNextAdInBreakToPlace();
+
+	/**
+	 * @brief Getting all init headers for the Ad
+	 * @param[in] manifestStr - Manifest string
+	 * @param[in] mainfestUrl - Mainfest URL
+	 * @return true if all init headers are fetched and cached successfully, false otherwise
+	 */
+	bool FetchAndCacheInitHeaders(std::string& manifestStr, std::string& mainfestUrl);
 };
 
 #endif /* ADMANAGER_MPD_H_ */

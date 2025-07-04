@@ -63,11 +63,18 @@
 #include "AampLLDASHData.h"
 #include "AampMPDPeriodInfo.h"
 #include "TsbApi.h"
+#include "AampTrackWorkerManager.hpp"
 
 class AampMPDDownloader;
 typedef struct _manifestDownloadConfig ManifestDownloadConfig;
 
 class AampTSBSessionManager;
+
+namespace aamp
+{
+	// Other declarations
+	class AampTrackWorkerManager; // Forward declaration
+}
 #include "ID3Metadata.hpp"
 #define AAMP_SEEK_TO_LIVE_POSITION (-1)
 
@@ -3896,6 +3903,15 @@ public:
 	void CalculateTrickModePositionEOS(void);
 
 	/**
+	 * @fn GetAampTrackWorkerManager
+	 * @brief Get the AampTrackWorkerManager instance
+	 *
+	 * @return AampTrackWorkerManager instance
+	 */
+	std::shared_ptr<aamp::AampTrackWorkerManager> GetAampTrackWorkerManager() { return mAampTrackWorkerManager; }
+
+
+	/**
 	 * @fn GetLivePlayPosition
 	 *
 	 * @brief Get current live play stream position.
@@ -4138,6 +4154,7 @@ protected:
 
 	std::mutex mPreProcessLock;
 	bool mIsChunkMode;		/** LLD ChunkMode */
+	std::shared_ptr<aamp::AampTrackWorkerManager> mAampTrackWorkerManager;
 	bool mLocalAAMPTsbFromConfig;						/**< AAMP TSB enabled in the configuration, regardless of the current channel */
 
 private:

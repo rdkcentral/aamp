@@ -19,6 +19,7 @@
 
 #include "AampUtils.h"
 #include "MockAampUtils.h"
+#include <cinttypes>
 
 MockAampUtils *g_mockAampUtils = nullptr;
 
@@ -619,3 +620,179 @@ int aamp_SetThreadSchedulingParameters(int policy, int priority)
 
 // aamp_ApplyPageHttpHeaders not actually part of AampUtils.cpp, but fake declared here for convenience
 extern "C" void aamp_ApplyPageHttpHeaders(PlayerInstanceAAMP *aamp){}
+
+/**
+ * @brief read unsigned multi-byte value and update buffer pointer
+ * @param[in] pptr buffer
+ * @param[in] n word size in bytes
+ * @retval 32 bit value
+ */
+uint64_t ReadWordHelper( const char **pptr, int n )
+{
+	const char *ptr = *pptr;
+	uint64_t rc = 0;
+	while( n-- )
+	{
+		rc <<= 8;
+		rc |= (unsigned char)*ptr++;
+	}
+	*pptr = ptr;
+	return rc;
+}
+
+/**
+ * @brief Read 16 word helper function
+ * @param pptr pointer to read from
+ * @retval word value
+ */
+unsigned int Read16( const char **pptr)
+{
+	return (unsigned int)ReadWordHelper(pptr,2);
+}
+
+/**
+ * @brief Read 32 word helper function
+ * @param pptr pointer to read from
+ * @retval word value
+ */
+unsigned int Read32( const char **pptr)
+{
+	return (unsigned int)ReadWordHelper(pptr,4);
+}
+
+/**
+ * @brief Read 64 word helper function
+ * @param pptr pointer to read from
+ * @retval word value
+ */
+uint64_t Read64( const char **pptr)
+{
+	return ReadWordHelper(pptr,8);
+}
+
+/**
+ * @brief Replace matching token with given number
+ * @param str String in which operation to be performed
+ * @param from token
+ * @param toNumber number to replace token
+ * @retval position
+ */
+int replace(std::string &str, const std::string &from, uint64_t toNumber)
+{
+	int rc = 0;
+	size_t tokenLength = from.length();
+
+	for (;;)
+	{
+		bool done = true;
+		size_t pos = 0;
+		for (;;)
+		{
+			pos = str.find('$', pos);
+			if (pos == std::string::npos)
+			{
+				break;
+			}
+			size_t next = str.find('$', pos + 1);
+			if (next != 0)
+			{
+				if (str.substr(pos + 1, tokenLength) == from)
+				{
+					size_t formatLen = next - pos - tokenLength - 1;
+					char buf[256];
+					if (formatLen > 0)
+					{
+						std::string format = str.substr(pos + tokenLength + 1, formatLen - 1);
+						char type = str[pos + tokenLength + formatLen];
+						switch (type)
+						{ // don't use the number-formatting string from dash manifest as-is; map to uint64_t equivalent
+						case 'd':
+							format += PRIu64;
+							break;
+						case 'x':
+							format += PRIx64;
+							break;
+						case 'X':
+							format += PRIX64;
+							break;
+						default:
+							AAMPLOG_WARN("unsupported template format: %s%c", format.c_str(), type);
+							format += type;
+							break;
+						}
+
+						snprintf(buf, sizeof(buf), format.c_str(), toNumber);
+						tokenLength += formatLen;
+					}
+					else
+					{
+						snprintf(buf, sizeof(buf), "%" PRIu64 "", toNumber);
+					}
+					str.replace(pos, tokenLength + 2, buf);
+					done = false;
+					rc++;
+					break;
+				}
+				pos = next + 1;
+			}
+			else
+			{
+				AAMPLOG_WARN("next is not found "); // CID:81252 - checked return
+				break;
+			}
+		}
+		if (done)
+			break;
+	}
+
+	return rc;
+}
+
+/**
+ * @brief Replace matching token with given string
+ * @param str String in which operation to be performed
+ * @param from token
+ * @param toString string to replace token
+ * @retval position
+ */
+int replace(std::string &str, const std::string &from, const std::string &toString)
+{
+	int rc = 0;
+	size_t tokenLength = from.length();
+
+	for (;;)
+	{
+		bool done = true;
+		size_t pos = 0;
+		for (;;)
+		{
+			pos = str.find('$', pos);
+			if (pos == std::string::npos)
+			{
+				break;
+			}
+			size_t next = str.find('$', pos + 1);
+			if (next != 0)
+			{
+				if (str.substr(pos + 1, tokenLength) == from)
+				{
+					str.replace(pos, tokenLength + 2, toString);
+					done = false;
+					rc++;
+					break;
+				}
+				pos = next + 1;
+			}
+			else
+			{
+				AAMPLOG_ERR("Error at  next"); // CID:81346 - checked return
+				break;
+			}
+		}
+
+		if (done)
+			break;
+	}
+
+	return rc;
+}

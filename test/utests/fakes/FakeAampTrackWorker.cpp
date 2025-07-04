@@ -2,7 +2,7 @@
  * If not stated otherwise in this file or this component's license file the
  * following copyright and licenses apply:
  *
- * Copyright 2022 RDK Management
+ * Copyright 2025 RDK Management
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,7 +17,10 @@
  * limitations under the License.
  */
 
-#include "AampTrackWorker.h"
+#include "AampTrackWorker.hpp"
+#include "MockAampTrackWorker.h"
+
+MockAampTrackWorker *g_mockAampTrackWorker = nullptr;
 
 namespace aamp
 {
@@ -32,7 +35,7 @@ namespace aamp
 	 *
 	 */
 	AampTrackWorker::AampTrackWorker(PrivateInstanceAAMP *_aamp, AampMediaType _mediaType)
-		: aamp(_aamp), mMediaType(_mediaType), mJobAvailable(false), mStop(false), mWorkerThread(), mJob(), mMutex(), mCondVar(), mCompletionVar()
+		: aamp(_aamp), mMediaType(_mediaType), mStop(false), mWorkerThread(), mJobQueue(), mQueueMutex(), mCondVar()
 	{
 	}
 
@@ -53,33 +56,101 @@ namespace aamp
 	 * The job is a function that will be executed by the worker thread.
 	 *
 	 * @param[in] job The job to be executed by the worker thread.
+	 * @param[in] highPriority Indicates whether the job is high priority.
 	 *
 	 * @return void
 	 */
-	void AampTrackWorker::SubmitJob(std::function<void()> job)
+	std::shared_future<void> AampTrackWorker::SubmitJob(AampTrackWorkerJobSharedPtr job, bool highPriority)
 	{
-	}
-
-	/**
-	 * @brief Waits for the current job to complete.
-	 *
-	 * Blocks the calling thread until the current job has been processed by the worker thread.
-	 *
-	 * @return void
-	 */
-	void AampTrackWorker::WaitForCompletion()
-	{
+		if(job)
+		{
+			job->Run(); // Execute the job immediately for testing purposes
+			return job->GetFuture(); // Return the future representing the job completion
+		}
+		return std::shared_future<void>(); // Return an empty future if job is null
 	}
 
 	/**
 	 * @brief The main function executed by the worker thread.
+	 *
+	 * @param[in] weakSelf A weak pointer to the AampTrackWorker instance.
 	 *
 	 * Waits for jobs to be submitted, processes them, and signals their completion.
 	 * The function runs in a loop until the worker is signaled to stop.
 	 *
 	 * @return void
 	 */
-	void AampTrackWorker::ProcessJob()
+	void AampTrackWorker::ProcessJob(AampTrackWorkerWeakPtr weakSelf)
+	{
+	}
+
+	/**
+	 * @brief Pauses the worker thread.
+	 *
+	 * Blocks the worker thread until Resume() is called.
+	 *
+	 * @return void
+	 */
+	void AampTrackWorker::Pause()
+	{
+	}
+
+	/**
+	 * @brief Resumes the worker thread.
+	 *
+	 * Unblocks the worker thread if it is paused.
+	 *
+	 * @return void
+	 */
+	void AampTrackWorker::Resume()
+	{
+	}
+
+	/**
+	 * @brief Clears the job queue.
+	 *
+	 * Removes all jobs from the queue.
+	 *
+	 * @return void
+	 */
+	void AampTrackWorker::ClearJobs()
+	{
+	}
+
+	/**
+	 * @brief Reschedules the active job.
+	 *
+	 * Moves the active job to the front of the queue.
+	 *
+	 * @return void
+	 */
+	void AampTrackWorker::RescheduleActiveJob()
+	{
+		if(g_mockAampTrackWorker)
+		{
+			g_mockAampTrackWorker->RescheduleActiveJob();
+		}
+	}
+
+	/**
+	 * @brief Starts the worker thread.
+	 *
+	 * Creates the worker thread and starts processing jobs.
+	 *
+	 * @return void
+	 */
+	void AampTrackWorker::StartWorker()
+	{
+	}
+
+	/**
+	 * @brief Stops the worker thread.
+	 *
+	 * Signals the worker thread to stop and waits for it to finish.
+	 *
+	 * @return void
+	 */
+	void AampTrackWorker::StopWorker()
 	{
 	}
 
