@@ -114,6 +114,10 @@ void PrivateCDAIObjectMPD::NotifyAdLoopWait()
 {
 }
 
+void PrivateCDAIObjectMPD::StopFulfillAdLoop()
+{
+}
+
 bool PrivateCDAIObjectMPD::WaitForNextAdResolved(int timeoutMs)
 {
 	if(g_MockPrivateCDAIObjectMPD != nullptr)
