@@ -355,7 +355,6 @@ void RealtekSocInterface::SetH264Caps(GstCaps *caps)
 	gst_caps_set_simple (caps, "enable-fastplayback", G_TYPE_STRING, "true", NULL);
 }
 
-
 /**
  * @brief Get video sink from sinkbin.
  * @param sinkbin The GStreamer sinkbin.

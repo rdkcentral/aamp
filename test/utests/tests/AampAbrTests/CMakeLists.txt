@@ -43,7 +43,7 @@ include_directories(${LIBDASH_INCLUDE_DIRS})
 include_directories(${LibXml2_INCLUDE_DIRS})
 include_directories(SYSTEM ${UTESTS_ROOT}/mocks)
 include_directories(${LIBCJSON_INCLUDE_DIRS})
-
+include_directories(${AAMP_ROOT}/middleware/vendor)
 set(TEST_SOURCES    AbrTests.cpp
 	AAMPAbrTests.cpp)
 set(AAMP_SOURCES ${AAMP_ROOT}/priv_aamp.cpp ${AAMP_ROOT}/support/aampabr/ABRManager.cpp ${AAMP_ROOT}/support/aampabr/HybridABRManager.cpp)

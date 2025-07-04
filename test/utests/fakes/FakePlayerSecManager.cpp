@@ -166,7 +166,7 @@ void PlayerSecManager::setWatermarkSessionEvent_CB(const std::function<void(uint
  */
 std::function<void(uint32_t, uint32_t, const std::string&)>& PlayerSecManager::getWatermarkSessionEvent_CB( )
 {
-	std::function<void(uint32_t, uint32_t, const std::string&)> callback = nullptr;
+	static std::function<void(uint32_t, uint32_t, const std::string&)> callback = nullptr;
 	return callback;
 }
 

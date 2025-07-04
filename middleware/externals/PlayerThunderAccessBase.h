@@ -109,7 +109,7 @@ struct PlayerAudioData{
     int pk;
     std::string mixType;
 
-    PlayerAudioData(std::string lang, std::string content_Type, std::string nm, std::string t, int pk_int, std::string mix_Type) 
+    PlayerAudioData(std::string lang, std::string content_Type, std::string nm, std::string t, int pk_int, std::string mix_Type)
     : language(lang),
     contentType(content_Type),
     name(nm),
@@ -170,13 +170,13 @@ public:
      *   @param   callsign plugin callsign
      */
     PlayerThunderAccessBase(PlayerThunderAccessPlugin callsign) {}
-	
+
     /**
      *   @fn ~PlayerThunderAccessBase
      *   @note   clean up
      */
     virtual ~PlayerThunderAccessBase(){}
-   
+
     /**
      *   @brief  PlayerThunderAccessBase copy constructor disabled
      */
@@ -195,7 +195,7 @@ public:
      *   @retval false on failure
      */
     virtual bool ActivatePlugin() = 0;
-	
+
     /**
      *   @fn UnSubscribeEvent
      *   @note   unSubscribe event data for the specific plugin

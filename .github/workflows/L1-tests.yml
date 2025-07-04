@@ -38,6 +38,32 @@ jobs:
         with:
           name: ctest-results
           path: test/utests/build/ctest-results.xml
+
+      
+      # Install AAMP
+      - name: Install AAMP
+        run: yes | ./install-middleware.sh -s -k file
+      
+      # Run L1 tests
+      - name: Run unit tests
+        working-directory: ./middleware/test/utests
+        run: ./run.sh
+      
+      # Publish test results
+      - name: Publish L1 test results
+        uses: dorny/test-reporter@v1
+        if: always()
+        with:
+          name: Unit Test Results
+          path: middleware/test/utests/build/ctest-results.xml
+          reporter: java-junit
+      
+      # Upload artifact (middleware/test/utests/build/ctest-results.xml)
+      - name: Upload test result file
+        uses: actions/upload-artifact@v4
+        with:
+          name: ctest-results
+          path: middleware/test/utests/build/ctest-results.xml
       
       # Show failure
       - name: Show failure details (if any)
