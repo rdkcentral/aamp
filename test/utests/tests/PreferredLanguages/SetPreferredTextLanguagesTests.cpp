@@ -23,7 +23,9 @@
 
 #include "priv_aamp.h"
 #include "AampConfig.h"
+#include "AampTSBSessionManager.h"
 
+#include "MockTSBSessionManager.h"
 #include "MockAampConfig.h"
 #include "MockAampGstPlayer.h"
 #include "MockStreamAbstractionAAMP.h"
@@ -124,6 +126,28 @@ protected:
 
 		delete g_mockAampUtils;
 		g_mockAampUtils = nullptr;
+	}
+};
+
+class SetPreferredTextLanguagesTsbSessionManager : public PrivateInstanceAAMP
+	{
+public:
+	SetPreferredTextLanguagesTsbSessionManager(AampConfig *config):PrivateInstanceAAMP(config)
+	{
+	}
+
+	void SetTsbSessionManager()
+	{
+		AampTSBSessionManager *aampTsbSessionManager = new AampTSBSessionManager(this);
+		mTSBSessionManager = aampTsbSessionManager;
+	}
+	~SetPreferredTextLanguagesTsbSessionManager()
+	{
+    	if (mTSBSessionManager)
+    	{
+        	delete mTSBSessionManager;
+        	mTSBSessionManager = nullptr;    
+    	}
 	}
 };
 
@@ -641,4 +665,104 @@ TEST_F(SetPreferredTextLanguagesTests, TextTrackNameTest5)
 
 	/* Verify the preferred name list. */
 	EXPECT_STREQ(mPrivateInstanceAAMP->preferredTextNameString.c_str(), "Spanish");
+}
+
+TEST_F(SetPreferredTextLanguagesTests, SetTsbSessionManagerNull)
+{
+	std::vector<TextTrackInfo> tracks;
+	std::unique_ptr<SetPreferredTextLanguagesTsbSessionManager> testp_aamp(new SetPreferredTextLanguagesTsbSessionManager(gpGlobalConfig));
+
+	tracks.push_back(TextTrackInfo("idx0", "lang0", false, "rend0", "trackName0", "codecStr0", "cha0", "typ0", "lab0", "type0", Accessibility(), true));
+	tracks.push_back(TextTrackInfo("idx1", "lang1", false, "rend1", "trackName1", "codecStr1", "cha1", "typ1", "lab1", "type1", Accessibility(), true));
+
+	testp_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP;
+	testp_aamp->preferredTextLanguagesString = "lang0";
+	testp_aamp->preferredTextLanguagesList.clear();
+	testp_aamp->preferredTextLanguagesList.push_back("lang0");
+	testp_aamp->subtitles_muted = false;
+	testp_aamp->SetLocalAAMPTsb(true);
+	testp_aamp->SetState(eSTATE_PLAYING);
+
+	/* Call SetPreferredTextLanguages() changing the preferred languages list.
+	 * There should be a retune.
+	 */
+	// Expect that session manager is nullptr
+	EXPECT_EQ(g_mockTSBSessionManager, nullptr);
+
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetAvailableTextTracks(_))
+		.Times(2).WillRepeatedly(ReturnRef(tracks));
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, SelectPreferredTextTrack(_))
+		.WillOnce(::testing::DoAll(::testing::SetArgReferee<0>(tracks[0]),Return(true)));
+
+	// This test sets IsLocalAAMPTsb=true, so the mock is not deleted by the code-under-test.
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_)).WillRepeatedly(Return());
+
+	testp_aamp->SetPreferredTextLanguages("{\"languages\":\"lang1\"}");
+
+	/* Verify the preferred languages list. */
+	EXPECT_STREQ(testp_aamp->preferredTextLanguagesString.c_str(), "lang1");
+	EXPECT_EQ(testp_aamp->preferredTextLanguagesList.size(), 1);
+	EXPECT_STREQ(testp_aamp->preferredTextLanguagesList.at(0).c_str(), "lang1");
+
+	// Expect that session manager is nullptr
+	EXPECT_EQ(g_mockTSBSessionManager, nullptr);
+
+	// The test must manually clean up the mock. Nullify all pointers to it BEFORE deleting
+	// to prevent re-entrant calls from the mock's destructor, then delete the mock.
+	auto mockToDelete = g_mockStreamAbstractionAAMP;
+	g_mockStreamAbstractionAAMP = nullptr;
+	mPrivateInstanceAAMP->mpStreamAbstractionAAMP = nullptr;
+	testp_aamp->mpStreamAbstractionAAMP = nullptr;
+	delete mockToDelete;
+}
+
+
+/**
+ * @brief TSB related test to change the preferred text languages list to a track
+ *        which is not enabled.
+*/
+
+TEST_F(SetPreferredTextLanguagesTests, ChangePrefTextLangWithTSB)
+{
+	std::vector<TextTrackInfo> tracks;
+	std::unique_ptr<SetPreferredTextLanguagesTsbSessionManager> testp_aamp(new SetPreferredTextLanguagesTsbSessionManager(gpGlobalConfig));
+
+	tracks.push_back(TextTrackInfo("idx0", "lang0", false, "rend0", "trackName0", "codecStr0", "cha0", "typ0", "lab0", "type0", Accessibility(), true));
+	tracks.push_back(TextTrackInfo("idx1", "lang1", false, "rend1", "trackName1", "codecStr1", "cha1", "typ1", "lab1", "type1", Accessibility(), true));
+
+	testp_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP;
+	testp_aamp->preferredTextLanguagesString = "lang0";
+	testp_aamp->preferredTextLanguagesList.clear();
+	testp_aamp->preferredTextLanguagesList.push_back("lang0");
+	testp_aamp->subtitles_muted = false;
+	testp_aamp->SetLocalAAMPTsb(true);
+	testp_aamp->SetTsbSessionManager();
+	testp_aamp->SetState(eSTATE_PLAYING);
+	g_mockTSBSessionManager = new NiceMock<MockTSBSessionManager>(testp_aamp.get());
+
+	/* Call SetPreferredTextLanguages() changing the preferred languages list.
+	 * There should be a retune.
+	 */
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetAvailableTextTracks(_))
+		.WillOnce(ReturnRef(tracks));
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, SelectPreferredTextTrack(_))
+		.WillOnce(::testing::DoAll(::testing::SetArgReferee<0>(tracks[0]),Return(true)));
+	// This test sets IsLocalAAMPTsb=true, so the mock is not deleted by the code-under-test.
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_)).Times(2).WillRepeatedly(Return());
+
+	testp_aamp->SetPreferredTextLanguages("{\"languages\":\"lang1\"}");
+
+	/* Verify the preferred languages list. */
+	EXPECT_STREQ(testp_aamp->preferredTextLanguagesString.c_str(), "lang1");
+	EXPECT_EQ(testp_aamp->preferredTextLanguagesList.size(), 1);
+	EXPECT_STREQ(testp_aamp->preferredTextLanguagesList.at(0).c_str(), "lang1");
+
+	// The test must manually clean up the mock. Nullify all pointers to it BEFORE deleting
+	// to prevent re-entrant calls from the mock's destructor, then delete the mock.
+	auto mockToDelete = g_mockStreamAbstractionAAMP;
+	g_mockStreamAbstractionAAMP = nullptr;
+	mPrivateInstanceAAMP->mpStreamAbstractionAAMP = nullptr;
+	testp_aamp->mpStreamAbstractionAAMP = nullptr;
+	delete mockToDelete;
+	delete (g_mockTSBSessionManager);
 }
