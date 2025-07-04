@@ -74,8 +74,8 @@ ThunderAccessPlayer::ThunderAccessPlayer(std::string callsign)
     Core::SystemInfo::SetEnvironment(_T("THUNDER_ACCESS"), (_T(SERVER_DETAILS)));
     string sToken = "";
 #ifdef DISABLE_SECURITY_TOKEN
-     gSecurityData.securityToken = "token=" + sToken;
-     gSecurityData.tokenQueried = true;
+     gSecurityPlayerData.securityToken = "token=" + sToken;
+     gSecurityPlayerData.tokenQueried = true;
 #else
     if(!gSecurityPlayerData.tokenQueried)
     {
