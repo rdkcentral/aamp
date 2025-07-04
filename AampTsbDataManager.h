@@ -175,7 +175,7 @@ private:
 	bool isDiscontinuous;  /**< the current fragment is discontinuous*/
 	std::shared_ptr<TsbInitData> initFragData; /**< init Fragment of the current fragment*/
 	uint32_t timeScale; /**< timescale of the current fragment */
-	AampTime PTSOffsetSec; /**< PTS offset of the current fragment */
+	AampTime PTSOffset; /**< PTS offset of the current fragment */
 
 	/* data */
 public:
@@ -192,12 +192,12 @@ public:
 	 *   @param[in] prId - Period Id of the fragment
 	 *   @param[in] initData - Pointer to initData
 	 *   @param[in] timeScale - timescale of the current fragment
-	 *   @param[in] PTSOffsetSec - PTS offset of the current fragment
+	 *   @param[in] PTSOffset - PTS offset of the current fragment
 	 */
 	TsbFragmentData(std::string url, AampMediaType media, AampTime absolutePositionS, AampTime duration, AampTime pts, bool disc,
-		std::string prId, std::shared_ptr<TsbInitData> initData, uint32_t timeScale, AampTime PTSOffsetSec)
+		std::string prId, std::shared_ptr<TsbInitData> initData, uint32_t timeScale, AampTime PTSOffset)
 		: TsbSegment(std::move(url), media, absolutePositionS, std::move(prId)), duration(duration), mPTS(pts), isDiscontinuous(disc), initFragData(std::move(initData)),
-		timeScale(timeScale), PTSOffsetSec(PTSOffsetSec)
+		timeScale(timeScale), PTSOffset(PTSOffset)
 	{
 	}
 
@@ -243,11 +243,11 @@ public:
 	uint32_t GetTimeScale() const { return timeScale; }
 
 	/**
-	 * @fn GetPTSOffsetSec
+	 * @fn GetPTSOffset
 	 *
 	 * @return PTS offset of the fragment
 	 */
-	AampTime GetPTSOffsetSec() const { return PTSOffsetSec; }
+	AampTime GetPTSOffset() const { return PTSOffset; }
 };
 
 typedef std::shared_ptr<TsbFragmentData> TsbFragmentDataPtr;
