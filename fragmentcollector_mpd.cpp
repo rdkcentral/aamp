@@ -52,7 +52,7 @@
 #include "AampMPDUtils.h"
 #include <chrono>
 #include "AampTSBSessionManager.h"
-//#define DEBUG_TIMELINE
+#define DEBUG_TIMELINE
 #include "PlayerCCManager.h"
 
 /**
@@ -1021,12 +1021,24 @@ uint64_t StreamAbstractionAAMP_MPD::FindPositionInTimeline(class MediaStreamCont
 	uint64_t startTime = 0;
 	int index = pMediaStreamContext->timeLineIndex;
 	ITimeline *timeline = NULL;
+	uint64_t presentationTimeOffset = 0;
 
 #if defined(DEBUG_TIMELINE) || defined(AAMP_SIMULATOR_BUILD)
 	AAMPLOG_INFO("Type[%d] timeLineIndex %d timelines.size %zu fragmentRepeatCount %d Number %" PRIu64 "lastSegmentTime %" PRIu64 " lastSegmentDuration %" PRIu64, pMediaStreamContext->type,
 	pMediaStreamContext->timeLineIndex, timelines.size(), pMediaStreamContext->fragmentRepeatCount, pMediaStreamContext->fragmentDescriptor.Number,
 	pMediaStreamContext->lastSegmentTime, pMediaStreamContext->lastSegmentDuration);
 #endif
+	SegmentTemplates segmentTemplates(pMediaStreamContext->representation->GetSegmentTemplate(),
+									  pMediaStreamContext->adaptationSet->GetSegmentTemplate());
+
+	if (segmentTemplates.HasSegmentTemplate())
+	{
+		const ISegmentTimeline *segmentTimeline = segmentTemplates.GetSegmentTimeline();
+		if (segmentTimeline)
+		{
+			presentationTimeOffset = segmentTemplates.GetPresentationTimeOffset();
+		}
+	}
 
 	for(;index<timelines.size();index++)
 	{
@@ -1034,7 +1046,8 @@ uint64_t StreamAbstractionAAMP_MPD::FindPositionInTimeline(class MediaStreamCont
 		map<string, string> attributeMap = timeline->GetRawAttributes();
 		if(attributeMap.find("t") != attributeMap.end())
 		{
-			startTime = timeline->GetStartTime();
+			startTime = AdjustStartTimeWithPTO(static_cast<const Timeline*>(timeline),presentationTimeOffset);
+
 		}
 		else
 		{
@@ -1183,7 +1196,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 					uint32_t tScale = segmentTemplates.GetTimescale();
 					uint64_t periodStart = 0;
 					string startTimeStr = mpd->GetPeriods().at(mCurrentPeriodIdx)->GetStart();
-
+					
 					pMediaStreamContext->timeStampOffset = 0;
 
 					if ((!startTimeStr.empty()) && (tScale != 0))
@@ -1231,8 +1244,10 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 						map<string, string> attributeMap = timeline->GetRawAttributes();
 						if(attributeMap.find("t") != attributeMap.end())
 						{
-							segmentStartTime = timeline->GetStartTime();
+							presentationTimeOffset = segmentTemplates.GetPresentationTimeOffset();
+							segmentStartTime = AdjustStartTimeWithPTO(static_cast<const Timeline*>(timeline),presentationTimeOffset);
 							startTime = segmentStartTime;
+
 						}
 						else
 						{
@@ -1266,7 +1281,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 									map<string, string> attributeMap = timeline->GetRawAttributes();
 									if(attributeMap.find("t") != attributeMap.end())
 									{
-										segmentStartTime = timeline->GetStartTime();
+										segmentStartTime  = AdjustStartTimeWithPTO(static_cast<const Timeline*>(timeline),segmentTemplates.GetPresentationTimeOffset());
 										startTime = segmentStartTime;
 									}
 									else
@@ -1317,6 +1332,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 						}
 						// Modify the descriptor time to start download
 						pMediaStreamContext->fragmentDescriptor.Time = segmentStartTime;
+						AAMPLOG_INFO("Type[%d] Setting startTime to %" PRIu64 " based on PTSOffset", pMediaStreamContext->type, segmentStartTime);
 #if defined(DEBUG_TIMELINE) || defined(AAMP_SIMULATOR_BUILD)
 						AAMPLOG_INFO("Type[%d] timelineCnt %zu timeLineIndex %d FDTime %f fragmentTime %f mLiveEndPosition %f",
 						pMediaStreamContext->type ,timelines.size(), pMediaStreamContext->timeLineIndex, pMediaStreamContext->fragmentDescriptor.Time,
@@ -1334,7 +1350,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 						if(attributeMap.find("t") != attributeMap.end())
 						{
 							// If there is a presentation offset time, update start time to that value.
-							startTime = timeline->GetStartTime();
+							startTime = AdjustStartTimeWithPTO(static_cast<const Timeline*>(timeline),presentationTimeOffset);
 						}
 						else
 						{
@@ -1353,6 +1369,8 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 							AAMPLOG_INFO("Type[%d] update startTime to %" PRIu64 ,pMediaStreamContext->type, startTime);
 						}
 						pMediaStreamContext->fragmentDescriptor.Time = startTime;
+						AAMPLOG_INFO("Type[%d] Setting startTime to %" PRIu64 " based on PTSOffset", pMediaStreamContext->type, startTime);
+
 						//Some partner streams have timeline start variation(~1) under diff representation but on same adaptation with same startNumber. Reset lastSegmentTime, as FDT>lastSegmentTime, it leads to Fetch duplicate fragment, as fragment number remains same.
 						if (pMediaStreamContext->mediaType == eMEDIATYPE_VIDEO &&
 							(prevTimeScale != 0 && prevTimeScale != timeScale) && (pMediaStreamContext->lastSegmentTime != 0 && pMediaStreamContext->lastSegmentTime < pMediaStreamContext->fragmentDescriptor.Time) &&
@@ -1360,6 +1378,8 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 						{
 							pMediaStreamContext->lastSegmentTime = pMediaStreamContext->fragmentDescriptor.Time;
 						}
+						AAMPLOG_INFO("Type[%d] Setting startTime to %" PRIu64, pMediaStreamContext->type, startTime);
+
 
 #if defined(DEBUG_TIMELINE) || defined(AAMP_SIMULATOR_BUILD)
 						AAMPLOG_INFO("Type[%d] Setting startTime to %" PRIu64, pMediaStreamContext->type, startTime);
@@ -1459,7 +1479,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 							// Otherwise, there is a chance to skip the last few fragments from the period if there is a large delta between the  start time available in the manifest and the PTO.
 							endTime = (firstSegStartTime + (mPeriodDuration / 1000));
 
-							AAMPLOG_INFO(" PTO ::(startTime < PTO) firstStartTime %" PRIu64 " tScale : %d presentationTimeOffset[%" PRIu64 "] positionInPeriod = %f  startTime = %f  endTime : %f mPeriodStartTime = %f mPeriodDuration = %f ",
+							AAMPLOG_INFO("PTO ::(startTime < PTO) firstStartTime %" PRIu64 " tScale : %d presentationTimeOffset[%" PRIu64 "] positionInPeriod = %f  startTime = %f  endTime : %f mPeriodStartTime = %f mPeriodDuration = %f ",
 										 firstStartTime, tScale, presentationTimeOffset, positionInPeriod, firstSegStartTime, endTime, mPeriodStartTime, mPeriodDuration);
 						}
 
@@ -2430,7 +2450,9 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 						map<string, string> attributeMap = timeline->GetRawAttributes();
 						if(attributeMap.find("t") != attributeMap.end())
 						{
-							uint64_t startTime = timeline->GetStartTime();
+							uint64_t presentationTimeOffset = segmentTemplates.GetPresentationTimeOffset();
+							uint64_t startTime = AdjustStartTimeWithPTO(static_cast<const Timeline*>(timeline),presentationTimeOffset);
+							AAMPLOG_INFO("Setting startTime %" PRIu64 " for track type %d", startTime, pMediaStreamContext->type);
 							pMediaStreamContext->fragmentDescriptor.Time = startTime;
 						}
 					}
@@ -2463,7 +2485,7 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 					double fragmentDuration = ComputeFragmentDuration(duration,timeScale);
 					double nextPTS = (double)(pMediaStreamContext->fragmentDescriptor.Time + duration)/timeScale;
 					double firstPTS = (double)pMediaStreamContext->fragmentDescriptor.Time/timeScale;
-//					AAMPLOG_TRACE("[%s] firstPTS %f nextPTS %f duration %f skipTime %f", pMediaStreamContext->name, firstPTS, nextPTS, fragmentDuration, skipTime);
+					AAMPLOG_TRACE("[%s] firstPTS %f nextPTS %f duration %f skipTime %f", pMediaStreamContext->name, firstPTS, nextPTS, fragmentDuration, skipTime);
 					if (firstFrag && updateFirstPTS)
 					{
 						if (skipToEnd)
@@ -2523,7 +2545,7 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 								pMediaStreamContext->fragmentRepeatCount= 0;
 								pMediaStreamContext->timeLineIndex++;
 							}
-
+							AAMPLOG_INFO("[Pto] [%s] [pto] firstPTS %lf, nextPTS %lf  skipTime %lf  fragmentDuration %lf Fdt %lf duration %u", pMediaStreamContext->name, firstPTS, nextPTS, skipTime, fragmentDuration, pMediaStreamContext->fragmentDescriptor.Time, duration);
 							continue;  /* continue to next fragment */
 						}
 					}
@@ -2549,6 +2571,8 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 							pMediaStreamContext->fragmentRepeatCount= 0;
 							pMediaStreamContext->timeLineIndex++;
 						}
+						AAMPLOG_INFO("[Pto] [%s] [pto] firstPTS %lf, nextPTS %lf  skipTime %lf  fragmentDuration %lf Fdt %lf duration %u", pMediaStreamContext->name, firstPTS, nextPTS, skipTime, fragmentDuration, pMediaStreamContext->fragmentDescriptor.Time, duration);
+
 						continue;  /* continue to next fragment */
 					}
 					else if (-(skipTime) >= fragmentDuration)
@@ -9598,19 +9622,17 @@ void StreamAbstractionAAMP_MPD::DetectDiscontinuityAndFetchInit(bool periodChang
 				// Trying to maintain parity with GetFirstSegmentStartTime() logic, and get video start time
 				uint64_t segmentStartTime = 0;
 				const ISegmentTimeline *segmentTimeline = segmentTemplates.GetSegmentTimeline();
+				ITimeline *timeline = NULL;
 				if (segmentTimeline)
 				{
 					std::vector<ITimeline *> &timelines = segmentTimeline->GetTimelines();
 					if (timelines.size() > 0)
 					{
-						segmentStartTime = timelines.at(0)->GetStartTime();
+						timeline = timelines.at(0);
 					}
 					uint64_t presentationTimeOffset = segmentTemplates.GetPresentationTimeOffset();
-					if (presentationTimeOffset > segmentStartTime)
-					{
-						AAMPLOG_WARN("StreamAbstractionAAMP_MPD: Presentation Time Offset %" PRIu64 " ahead of segment start Time %" PRIu64 ", Set PTO as segment start", presentationTimeOffset, segmentStartTime);
-						segmentStartTime = presentationTimeOffset;
-					}
+					segmentStartTime = AdjustStartTimeWithPTO(static_cast<const Timeline*>(timeline),presentationTimeOffset);
+
 				}
 
 
@@ -14114,4 +14136,14 @@ void StreamAbstractionAAMP_MPD::GetNextAdInBreak(int direction)
 	{
 		AAMPLOG_ERR("Invalid value[%d] for direction, not expected!", direction);
 	}
+}
+uint64_t StreamAbstractionAAMP_MPD::AdjustStartTimeWithPTO(const Timeline* timeline, uint64_t presentationTimeOffset)
+{
+	uint64_t startTime = timeline->GetStartTime();
+    if (presentationTimeOffset > startTime)
+    {
+        AAMPLOG_WARN("[PTO] StreamAbstractionAAMP_MPD: Presentation Time Offset %" PRIu64 " ahead of segment start Time %" PRIu64 ", Set PTO as segment start", presentationTimeOffset, startTime);
+        startTime = presentationTimeOffset;
+    }
+    return startTime;
 }
