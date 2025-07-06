@@ -18,8 +18,8 @@ include_directories(${MW_ROOT}/playerJsonObject)
 include_directories(${MW_ROOT})
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/rdk)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/playersecmanager)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/playersecmanager/IFirebolt)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/contentsecuritymanager)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/contentsecuritymanager/IFirebolt)
 
 # uncomment below to build additional drm support in simulator
 # set(CMAKE_USE_OPENCDM_ADAPTER TRUE)
@@ -31,7 +31,7 @@ set(LIB_EXT_DEPENDS ${LIB_EXT_DEPENDS} ${GSTREAMER_LINK_LIBRARIES} ${GSTREAMERBA
 
 # Library source files
 set(EXT_SOURCES PlayerExternalsInterface.cpp PlayerRfc.cpp PlayerExternalUtils.cpp)
-set(SECMGR_HEADERS playersecmanager/PlayerSecManager.h )
+set(SECMGR_HEADERS contentsecuritymanager/ContentSecurityManager.h )
 
 set(THUNDER_INTERFACE_SRCS PlayerThunderInterface.cpp)
 
@@ -56,16 +56,16 @@ if (CMAKE_WPEFRAMEWORK_REQUIRED)
     endif()
 endif()
 
-set(SECMGR_SOURCES playersecmanager/PlayerMemoryUtils.cpp
-    playersecmanager/PlayerSecInterface.cpp
-    playersecmanager/PlayerSecManager.cpp
-    playersecmanager/PlayerSecManagerSession.cpp
+set(SECMGR_SOURCES contentsecuritymanager/PlayerMemoryUtils.cpp
+    contentsecuritymanager/PlayerSecInterface.cpp
+    contentsecuritymanager/ContentSecurityManager.cpp
+    contentsecuritymanager/ContentSecurityManagerSession.cpp
     ${MW_ROOT}/PlayerScheduler.cpp)
 
 if(CMAKE_USE_SECCLIENT OR CMAKE_USE_SECMANAGER)
-	set(SECMGR_SOURCES ${SECMGR_SOURCES}  playersecmanager/IFirebolt/ContentProtectionFirebolt.cpp)
+	set(SECMGR_SOURCES ${SECMGR_SOURCES}  contentsecuritymanager/IFirebolt/ContentProtectionFirebolt.cpp)
 	if(CMAKE_USE_SECMANAGER)
-		set(SECMGR_SOURCES ${SECMGR_SOURCES} playersecmanager/ThunderAccessPlayer.cpp playersecmanager/SecManagerThunder.cpp)
+		set(SECMGR_SOURCES ${SECMGR_SOURCES} contentsecuritymanager/ThunderAccessPlayer.cpp contentsecuritymanager/SecManagerThunder.cpp)
 	endif()
 endif()
 
@@ -103,7 +103,7 @@ endif()
 
 # Set initial public headers for the library
 set_target_properties(playerfbinterface PROPERTIES PUBLIC_HEADER 
-  "PlayerThunderInterface.h;PlayerThunderAccessBase.h;PlayerExternalsInterfaceBase.h;PlayerExternalsInterface.h;PlayerRfc.h;playersecmanager/PlayerSecManagerSession.h;playersecmanager/PlayerSecInterface.h;playersecmanager/PlayerSecManager.h;playersecmanager/PlayerMemoryUtils.h;Module.h")
+  "PlayerThunderInterface.h;PlayerThunderAccessBase.h;PlayerExternalsInterfaceBase.h;PlayerExternalsInterface.h;PlayerRfc.h;contentsecuritymanager/ContentSecurityManagerSession.h;contentsecuritymanager/PlayerSecInterface.h;contentsecuritymanager/ContentSecurityManager.h;contentsecuritymanager/PlayerMemoryUtils.h;Module.h")
 
 if(CMAKE_IARM_MGR)
     # Append additional header(s) for IARM_MGR

@@ -18,12 +18,12 @@
  */
 
 /**
- * @file PlayerSecManager.cpp
- * @brief Class impl for PlayerSecManager
+ * @file ContentSecurityManager.cpp
+ * @brief Class impl for ContentSecurityManager
  */
 
 #include "ContentProtectionFirebolt.h"
-#include "PlayerSecManager.h"
+#include "ContentSecurityManager.h"
 #include "PlayerLogManager.h"
 #include <string.h>
 #include "_base64.h"
@@ -35,9 +35,13 @@
 #include "SecManagerThunder.h"
 #endif
 
-static PlayerSecManager *Instance = nullptr; /**< singleton instance*/
+#define SECMANAGER_CALL_SIGN "org.rdk.SecManager.1"
+#define WATERMARK_PLUGIN_CALLSIGN "org.rdk.Watermark.1"
+//#define RDKSHELL_CALLSIGN "org.rdk.RDKShell.1"   //need to be used instead of WATERMARK_PLUGIN_CALLSIGN if RDK Shell is used for rendering watermark
 
-std::function<void(uint32_t, uint32_t, const std::string&)> PlayerSecManager::SendWatermarkSessionEvent_CB;
+static ContentSecurityManager *Instance = nullptr; /**< singleton instance*/
+
+std::function<void(uint32_t, uint32_t, const std::string&)> ContentSecurityManager::SendWatermarkSessionEvent_CB;
 
 /* mutex GetInstance() & DestroyInstance() to improve thread safety
  * There is still a race between using the pointer returned from GetInstance() and calling DestroyInstance()*/
@@ -45,9 +49,9 @@ static std::mutex InstanceMutex;
 static bool mUseFireboltSDK = false;
 
 /**
- * @brief To get PlayerSecManager instance
+ * @brief To get ContentSecurityManager instance
  */
-PlayerSecManager* PlayerSecManager::GetInstance()
+ContentSecurityManager* ContentSecurityManager::GetInstance()
 {
 	std::lock_guard<std::mutex> lock{InstanceMutex};
 	if(Instance == nullptr)
@@ -72,9 +76,9 @@ PlayerSecManager* PlayerSecManager::GetInstance()
 }
 
 /**
- * @brief To release PlayerSecManager singelton instance
+ * @brief To release ContentSecurityManager singelton instance
  */
-void PlayerSecManager::DestroyInstance()
+void ContentSecurityManager::DestroyInstance()
 {
 	std::lock_guard<std::mutex> lock{InstanceMutex};
 	if (Instance)
@@ -87,12 +91,13 @@ void PlayerSecManager::DestroyInstance()
 /**
  * @brief To indicate whether application support firebolt capability
  */
-void PlayerSecManager::UseFireboltSDK(bool status)
+void ContentSecurityManager::UseFireboltSDK(bool status)
 {
+	MW_LOG_WARN("SAMII SET USEFIREBOLT SDK as %d",status);
 	mUseFireboltSDK = status;
 }
 
-std::size_t PlayerSecManager::getInputSummaryHash(const char* moneyTraceMetadata[][2], const char* contentMetadata,
+std::size_t ContentSecurityManager::getInputSummaryHash(const char* moneyTraceMetadata[][2], const char* contentMetadata,
 		size_t contMetaLen, const char* licenseRequest, const char* keySystemId,
 		const char* mediaUsage, const char* accessToken, bool isVideoMuted)
 {
@@ -110,11 +115,11 @@ std::size_t PlayerSecManager::getInputSummaryHash(const char* moneyTraceMetadata
 	return returnHash;
 }
 
-bool PlayerSecManager::AcquireLicense(std::string clientId, std::string appId, const char* licenseUrl, const char* moneyTraceMetadata[][2],
+bool ContentSecurityManager::AcquireLicense(std::string clientId, std::string appId, const char* licenseUrl, const char* moneyTraceMetadata[][2],
 		const char* accessAttributes[][2], const char* contentMetadata, size_t contMetaLen,
 		const char* licenseRequest, size_t licReqLen, const char* keySystemId,
 		const char* mediaUsage, const char* accessToken, size_t accTokenLen,
-		PlayerSecManagerSession &session,
+		ContentSecurityManagerSession &session,
 		char** licenseResponse, size_t* licenseResponseLength, int32_t* statusCode, int32_t* reasonCode, int32_t* businessStatus, bool isVideoMuted, int sleepTime)
 {
 	bool success = false;
@@ -154,7 +159,7 @@ bool PlayerSecManager::AcquireLicense(std::string clientId, std::string appId, c
 /**
  * @brief To update session state to SecManager
  */
-bool PlayerSecManager::UpdateSessionState(int64_t sessionId, bool active)
+bool ContentSecurityManager::UpdateSessionState(int64_t sessionId, bool active)
 {
 	bool success = false;
 	success = SetDrmSessionState(sessionId, active);
@@ -164,7 +169,7 @@ bool PlayerSecManager::UpdateSessionState(int64_t sessionId, bool active)
 /**
  * @brief To notify SecManager to release a session
  */
-void PlayerSecManager::ReleaseSession(int64_t sessionId)
+void ContentSecurityManager::ReleaseSession(int64_t sessionId)
 {
 	CloseDrmSession(sessionId);
 }
@@ -172,7 +177,7 @@ void PlayerSecManager::ReleaseSession(int64_t sessionId)
 /**
  * @brief To update session state to SecManager
  */
-bool PlayerSecManager::setVideoWindowSize(int64_t sessionId, int64_t video_width, int64_t video_height)
+bool ContentSecurityManager::setVideoWindowSize(int64_t sessionId, int64_t video_width, int64_t video_height)
 {
 	bool rpcResult = false;
 	rpcResult = setWindowSize(sessionId, video_width, video_height);
@@ -182,7 +187,7 @@ bool PlayerSecManager::setVideoWindowSize(int64_t sessionId, int64_t video_width
 /**
  * @brief To set Playback Speed State to SecManager
  */
-bool PlayerSecManager::setPlaybackSpeedState(int64_t sessionId, int64_t playback_speed, int64_t playback_position)
+bool ContentSecurityManager::setPlaybackSpeedState(int64_t sessionId, int64_t playback_speed, int64_t playback_position)
 {
 	bool rpcResult = false;
 	rpcResult = SetPlaybackPosition(sessionId, playback_speed, playback_position);
@@ -192,7 +197,7 @@ bool PlayerSecManager::setPlaybackSpeedState(int64_t sessionId, int64_t playback
 /**
  * @brief To set Watermark Session callback
  */
-void PlayerSecManager::setWatermarkSessionEvent_CB(const std::function<void(uint32_t, uint32_t, const std::string&)>& callback)
+void ContentSecurityManager::setWatermarkSessionEvent_CB(const std::function<void(uint32_t, uint32_t, const std::string&)>& callback)
 {
 	SendWatermarkSessionEvent_CB = callback;
 	return;
@@ -201,7 +206,7 @@ void PlayerSecManager::setWatermarkSessionEvent_CB(const std::function<void(uint
 /**
  * @brief To set Watermark Session callback
  */
-std::function<void(uint32_t, uint32_t, const std::string&)>& PlayerSecManager::getWatermarkSessionEvent_CB( )
+std::function<void(uint32_t, uint32_t, const std::string&)>& ContentSecurityManager::getWatermarkSessionEvent_CB( )
 {
 	return SendWatermarkSessionEvent_CB;
 }

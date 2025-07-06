@@ -16,7 +16,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.m
  */
-#include "PlayerSecManager.h"
+#include "ContentSecurityManager.h"
 #include "_base64.h"
 #include <unistd.h>
 #include <iomanip>
@@ -35,7 +35,7 @@ std::mutex mConnectionMutex;
 using namespace Firebolt;
 uint64_t ContentProtectionFirebolt::mSubscriptionId = 0; 
 
-ContentProtectionFirebolt::ContentProtectionFirebolt() : mInitialized(false), mIsConnected(false), mSpeedStateMutex(), mCPFMutex(), mFMutex(), mListenerId(0)
+ContentProtectionFirebolt::ContentProtectionFirebolt() : mInitialized(false), mIsConnected(false), mSpeedStateMutex(), mContentProtectionMutex(), mFireboltInitMutex(), mListenerId(0)
 {
 	Initialize();	
 }
@@ -55,18 +55,16 @@ static int MapFireboltStatus(const std::string& statusStr) {
 void ContentProtectionFirebolt::SubscribeEvents()
 {
 	MW_LOG_INFO("Subscribing to Firebolt Content Protection events");
-      auto result =  Firebolt::IFireboltAampAccessor::Instance().ContentProtectionInterface().subscribeOnWatermarkStatusChanged(
-[this](const auto& status)
-{
+	auto result =  Firebolt::IFireboltAampAccessor::Instance().ContentProtectionInterface().subscribeOnWatermarkStatusChanged(
+			[this](const auto& status)
+			{
+				HandleWatermarkEvent(status.sessionId, status.status, status.appId);
 
-HandleWatermarkEvent(status.sessionId, status.status, status.appId);
-//		mEventHandler = std::make_unique<WatermarkEventHandler>(this);
-
-});
-            if(result)
-	    {
-				    mSubscriptionId = result.value();
-	    }
+			});
+	if(result)
+	{
+		mSubscriptionId = result.value();
+	}
 	else
 	{
 		MW_LOG_ERR("Failed to subscribe to watermark events: %d", static_cast<int>(result.error()));
@@ -76,16 +74,16 @@ HandleWatermarkEvent(status.sessionId, status.status, status.appId);
 void ContentProtectionFirebolt::UnSubscribeEvents()
 {
 	MW_LOG_INFO("Unsubscribing from Firebolt Content Protection events %d",mSubscriptionId);
-    auto result =
-        Firebolt::IFireboltAampAccessor::Instance().ContentProtectionInterface().unsubscribe(mSubscriptionId);
-    if (result.error() == Firebolt::Error::None)
-    {
-        mSubscriptionId = 0; ///TODO is it ok to set 0??
-    }
+	auto result =
+		Firebolt::IFireboltAampAccessor::Instance().ContentProtectionInterface().unsubscribe(mSubscriptionId);
+	if (result.error() == Firebolt::Error::None)
+	{
+		mSubscriptionId = 0; ///TODO is it ok to set 0??
+	}
 
-else
-{
-	MW_LOG_ERR("Failed to Unsubscribe to watermark events: %d", static_cast<int>(result.error()));
+	else
+	{
+		MW_LOG_ERR("Failed to Unsubscribe to watermark events: %d", static_cast<int>(result.error()));
 	}
 }
 
@@ -95,17 +93,17 @@ void ContentProtectionFirebolt::HandleWatermarkEvent(const std::string& sessionI
 	{
 		//TODO
 		int mappedCode = MapFireboltStatus(statusStr);
-		std::lock_guard<std::mutex> lock(mFMutex);
-		if (PlayerSecManager::SendWatermarkSessionEvent_CB)
+		std::lock_guard<std::mutex> lock(mFireboltInitMutex);
+		if (ContentSecurityManager::SendWatermarkSessionEvent_CB)
 		{
-			PlayerSecManager::SendWatermarkSessionEvent_CB(std::stoi(sessionId), mappedCode, appId);
+			ContentSecurityManager::SendWatermarkSessionEvent_CB(std::stoi(sessionId), mappedCode, appId);
 		}
 	}
 }
 
 void ContentProtectionFirebolt::Initialize()
 {
-	std::lock_guard<std::mutex> lock(mFMutex);
+	std::lock_guard<std::mutex> lock(mFireboltInitMutex);
 	if (mInitialized) return;
 	const char* firebolt_endpoint = std::getenv("FIREBOLT_ENDPOINT");
 	if (!firebolt_endpoint) {
@@ -206,7 +204,7 @@ bool ContentProtectionFirebolt::AcquireLicenseOpenOrUpdate( std::string clientId
 		const char* accessAttributes[][2], const char* contentMetadata, size_t contMetaLen,
 		const char* licenseRequest, size_t licReqLen, const char* keySystemId,
 		const char* mediaUsage, const char* accessToken, size_t accTokenLen,
-		PlayerSecManagerSession &session,
+		ContentSecurityManagerSession &session,
 		char** licenseResponse, size_t* licenseResponseLength, int32_t* statusCode, int32_t* reasonCode, int32_t* businessStatus, bool isVideoMuted, int sleepTime)
 {
 	// licenseUrl un-used now
@@ -225,8 +223,8 @@ bool ContentProtectionFirebolt::AcquireLicenseOpenOrUpdate( std::string clientId
 
 	//Initializing it with default error codes (which would be sent if there any jsonRPC
 	//call failures to thunder)
-	*statusCode = SECMANAGER_DRM_FAILURE;
-	*reasonCode = SECMANAGER_DRM_GEN_FAILURE;
+	*statusCode = CONTENT_SECURITY_MANAGER_DRM_FAILURE;
+	*reasonCode = CONTENT_SECURITY_MANAGER_DRM_GEN_FAILURE;
 
 
 	PlayerJsonObject param;
@@ -272,7 +270,7 @@ bool ContentProtectionFirebolt::AcquireLicenseOpenOrUpdate( std::string clientId
 	}
 
 	{
-		std::lock_guard<std::mutex> lock(mCPFMutex);
+		std::lock_guard<std::mutex> lock(mContentProtectionMutex);
 		if (!accessTokenStr.empty() &&
 				!contentMetaDataStr.empty() &&
 				!licenseRequestStr.empty())
@@ -309,7 +307,7 @@ bool ContentProtectionFirebolt::AcquireLicenseOpenOrUpdate( std::string clientId
 				}
 				if (result) 
 				{
-					PlayerSecManagerSession newSession;
+					ContentSecurityManagerSession newSession;
 					PlayerJsonObject sessionObj(drmSession);
 
 					if(!drmSession.empty())
@@ -321,8 +319,8 @@ bool ContentProtectionFirebolt::AcquireLicenseOpenOrUpdate( std::string clientId
 						 * the input data to the shared session is updated here
 						 */
 
-						newSession = PlayerSecManagerSession(sessionId, 
-								PlayerSecManager::getInputSummaryHash(moneyTraceMetadata, contentMetadata,
+						newSession = ContentSecurityManagerSession(sessionId, 
+								ContentSecurityManager::getInputSummaryHash(moneyTraceMetadata, contentMetadata,
 									contMetaLen, licenseRequest, keySystemId,
 									mediaUsage, accessToken, isVideoMuted));
 
@@ -413,10 +411,10 @@ bool ContentProtectionFirebolt::AcquireLicenseOpenOrUpdate( std::string clientId
 					//DRM license service network timeout / Request/network time out (3).
 					//DRM license network connection failure/Watermark vendor-access service connection failure (4)
 					//DRM license server busy/Watermark service busy (5)
-					if((*statusCode == SECMANAGER_DRM_FAILURE || *statusCode == SECMANAGER_WM_FAILURE) &&
-							(*reasonCode == SECMANAGER_SERVICE_TIMEOUT ||
-							 *reasonCode == SECMANAGER_SERVICE_CON_FAILURE ||
-							 *reasonCode == SECMANAGER_SERVICE_BUSY ) && retryCount < MAX_LICENSE_REQUEST_ATTEMPT)
+					if((*statusCode == CONTENT_SECURITY_MANAGER_DRM_FAILURE || *statusCode == CONTENT_SECURITY_MANAGER_WM_FAILURE) &&
+							(*reasonCode == CONTENT_SECURITY_MANAGER_SERVICE_TIMEOUT ||
+							 *reasonCode == CONTENT_SECURITY_MANAGER_SERVICE_CON_FAILURE ||
+							 *reasonCode == CONTENT_SECURITY_MANAGER_SERVICE_BUSY ) && retryCount < MAX_LICENSE_REQUEST_ATTEMPT)
 					{
 						++retryCount;
 						MW_LOG_WARN("ContentProtection license request failed, response for %s : statusCode: %d, reasonCode: %d, so retrying with delay %d, retry count : %u", apiName, *statusCode, *reasonCode, sleepTime, retryCount );
@@ -452,7 +450,7 @@ void ContentProtectionFirebolt::CloseDrmSession(int64_t sessionId)
 		MW_LOG_ERR("Firebolt is not active (or) channel couldn't be opened");
 		return;
 	}
-	std::lock_guard<std::mutex> lock(mCPFMutex);
+	std::lock_guard<std::mutex> lock(mContentProtectionMutex);
 	// Call the closeDrmSession method from the interface
 	auto result = Firebolt::IFireboltAampAccessor::Instance().ContentProtectionInterface().closeDrmSession(std::to_string(sessionId));
 	// Check for errors
@@ -486,7 +484,7 @@ bool ContentProtectionFirebolt::SetDrmSessionState(int64_t sessionId, bool activ
 	{
 		sessionState = Firebolt::ContentProtection::SessionState::INACTIVE;
 	}
-	std::lock_guard<std::mutex> lock(mCPFMutex);
+	std::lock_guard<std::mutex> lock(mContentProtectionMutex);
 	// Call the setDrmSessionState method from the interface
 	auto result = Firebolt::IFireboltAampAccessor::Instance().ContentProtectionInterface().setDrmSessionState(std::to_string(sessionId), sessionState);
 	// Check for errors
@@ -515,7 +513,7 @@ bool ContentProtectionFirebolt::SetPlaybackPosition(int64_t sessionId, float spe
 		MW_LOG_ERR("Firebolt is not active (or) channel couldn't be opened");
 		return ret;
 	}
-	std::lock_guard<std::mutex> lock(mCPFMutex);
+	std::lock_guard<std::mutex> lock(mContentProtectionMutex);
 	// Call the setPlaybackPosition method from the interface
 	auto result = Firebolt::IFireboltAampAccessor::Instance().ContentProtectionInterface().setPlaybackPosition(std::to_string(sessionId), speed, position);
 	// Check for errors
@@ -543,7 +541,7 @@ void ContentProtectionFirebolt::ShowWatermark(bool show, int64_t sessionId)
 		return;
 	}
 
-	std::lock_guard<std::mutex> lock(mCPFMutex);
+	std::lock_guard<std::mutex> lock(mContentProtectionMutex);
 	// Call the showWatermark method from the interface
 	auto result = Firebolt::IFireboltAampAccessor::Instance().ContentProtectionInterface().showWatermark(std::to_string(sessionId), show, 0);
 	// Check for errors

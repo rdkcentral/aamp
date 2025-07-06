@@ -28,7 +28,7 @@
 #include <pthread.h>
 #include "downloader/AampCurlStore.h"
 #include "_base64.h"
-#include "PlayerSecManager.h"
+#include "ContentSecurityManager.h"
 #include "AampStreamSinkManager.h"
 #include "AampJsonObject.h"
 #include "AampConfig.h"
@@ -73,9 +73,8 @@ void getConfigs(DrmSessionManager *mDrmSessionManager , PrivateInstanceAAMP *aam
         aampInstance->mConfig->IsConfigSet(eAAMPConfig_UseSecManager),
         aampInstance->mConfig->IsConfigSet(eAAMPConfig_EnablePROutputProtection),
         aampInstance->mConfig->IsConfigSet(eAAMPConfig_PropagateURIParam),
-        aampInstance->mIsFakeTune,
-	aampInstance->mConfig->IsConfigSet(eAAMPConfig_UseFireboltSDK)
-    );
+        aampInstance->mIsFakeTune
+	);
 }
 /**
  *  @brief AampDRMLicenseManager constructor.
@@ -88,9 +87,9 @@ AampDRMLicenseManager::AampDRMLicenseManager(int maxDrmSessions, PrivateInstance
     mDrmSessionManager = new DrmSessionManager(maxDrmSessions ,aampInstance, waterMarkSessionUpdateCB);
     registerCb(this, mDrmSessionManager);
     getConfigs(mDrmSessionManager, aampInstance);
-    
     mLicenseDownloader = new AampCurlDownloader[mMaxDRMSessions];
     mLicensePrefetcher = new AampLicensePreFetcher(aampInstance);
+    ContentSecurityManager::UseFireboltSDK(aampInstance->mConfig->IsConfigSet(eAAMPConfig_UseFireboltSDK));
     mLicensePrefetcher->Init();
 }
 
@@ -315,7 +314,7 @@ KeyState AampDRMLicenseManager::acquireLicense(std::shared_ptr<DrmHelper> drmHel
 					eventHandle->setSecclientError(true);
 					licenseResponse.reset(getLicenseSec(licenseRequest, drmHelper, challengeInfo, aampInstance, &httpResponseCode, &httpExtendedStatusCode, eventHandle));
 
-					bool sec_accessTokenExpired = (aampInstance->mConfig->IsConfigSet(eAAMPConfig_UseSecManager) || aampInstance->mConfig->IsConfigSet(eAAMPConfig_UseFireboltSDK)) && SECMANAGER_DRM_FAILURE == httpResponseCode && SECMANAGER_ACCTOKEN_EXPIRED == httpExtendedStatusCode;
+					bool sec_accessTokenExpired = (aampInstance->mConfig->IsConfigSet(eAAMPConfig_UseSecManager) || aampInstance->mConfig->IsConfigSet(eAAMPConfig_UseFireboltSDK)) && CONTENT_SECURITY_MANAGER_DRM_FAILURE == httpResponseCode && CONTENT_SECURITY_MANAGER_ACCTOKEN_EXPIRED == httpExtendedStatusCode;
 					// Reload Expired access token only on http error code 412 with status code 401
 					if (((412 == httpResponseCode && 401 == httpExtendedStatusCode) || sec_accessTokenExpired) && !usingAppDefinedAuthToken)
 					{
@@ -415,7 +414,7 @@ KeyState AampDRMLicenseManager::handleLicenseResponse(std::shared_ptr<DrmHelper>
 			{
 				eventHandle->setResponseCode(httpResponseCode);
 				eventHandle->setSecManagerReasonCode(httpExtendedStatusCode);
-				if(SECMANAGER_DRM_FAILURE == httpResponseCode && SECMANAGER_ENTITLEMENT_FAILURE == httpExtendedStatusCode)
+				if(CONTENT_SECURITY_MANAGER_DRM_FAILURE == httpResponseCode && CONTENT_SECURITY_MANAGER_ENTITLEMENT_FAILURE == httpExtendedStatusCode)
 				{
 					if (eventHandle->getFailure() != AAMP_TUNE_FAILED_TO_GET_ACCESS_TOKEN)
 					{
@@ -423,7 +422,7 @@ KeyState AampDRMLicenseManager::handleLicenseResponse(std::shared_ptr<DrmHelper>
 					}
 					AAMPLOG_WARN("DRM session for %s, Authorization failed", mDrmSessionManager->drmSessionContexts[sessionSlot].drmSession->getKeySystem().c_str());
 				}
-				else if(SECMANAGER_DRM_FAILURE == httpResponseCode && SECMANAGER_SERVICE_TIMEOUT == httpExtendedStatusCode)
+				else if(CONTENT_SECURITY_MANAGER_DRM_FAILURE == httpResponseCode && CONTENT_SECURITY_MANAGER_SERVICE_TIMEOUT == httpExtendedStatusCode)
 				{
 					eventHandle->setFailure(AAMP_TUNE_LICENCE_TIMEOUT);
 				}
@@ -963,7 +962,7 @@ DrmData * AampDRMLicenseManager::getLicense(LicenseRequest &licenseRequest,
 	unsigned int attemptCount = 0;
 	long long tStartTimeWithRetry = NOW_STEADY_TS_MS;
 	/* Check whether stopped or not before looping - download will be disabled */
-	while(attemptCount < MAX_LICENSE_REQUEST_ATTEMPTS && !licenseRequestAbort)
+	while(attemptCount < MAX_LICENSE_REQUEST_ATTEMPT && !licenseRequestAbort)
 	{
 		bool loopAgain = false;
 		attemptCount++;
@@ -1019,7 +1018,7 @@ DrmData * AampDRMLicenseManager::getLicense(LicenseRequest &licenseRequest,
 				int  licenseRetryWaitTime = aampInstance->mConfig->GetConfigValue(eAAMPConfig_LicenseRetryWaitTime) ;
 				AAMPLOG_ERR(" acquireLicense FAILED! license request attempt : %d; response code : http %d", attemptCount, *httpCode);
 				if(*httpCode >= 500 && *httpCode < 600
-					&& attemptCount < MAX_LICENSE_REQUEST_ATTEMPTS && licenseRetryWaitTime > 0)
+					&& attemptCount < MAX_LICENSE_REQUEST_ATTEMPT && licenseRetryWaitTime > 0)
 				{			
 					AAMPLOG_WARN("acquireLicense : Sleeping %d milliseconds before next retry.",licenseRetryWaitTime);
 					mssleep(licenseRetryWaitTime);
@@ -1158,7 +1157,7 @@ DrmData * AampDRMLicenseManager::getLicenseSec(const LicenseRequest &licenseRequ
 		int32_t reasonCode;
 		int32_t businessStatus;
 
-		if (!mDrmSessionManager->mPlayerSecManagerSession.isSessionValid())
+		if (!mDrmSessionManager->mContentSecurityManagerSession.isSessionValid())
 		{
 			// if we're about to get a licence and are not re-using a session, then we have not seen the first video frame yet. Do not allow watermarking to get enabled yet.
 			bool videoMuteState = mIsVideoOnMute;
@@ -1178,7 +1177,7 @@ DrmData * AampDRMLicenseManager::getLicenseSec(const LicenseRequest &licenseRequ
 		}
 		AAMPLOG_INFO("Client ID %s App ID %s", clientId.c_str(), appId.c_str());
 		tStartTime = NOW_STEADY_TS_MS;
-		bool res = PlayerSecManager::GetInstance()->AcquireLicense(clientId, appId, licenseRequest.url.c_str(),
+		bool res = ContentSecurityManager::GetInstance()->AcquireLicense(clientId, appId, licenseRequest.url.c_str(),
 																 requestMetadata,
 																 ((numberOfAccessAttributes == 0) ? NULL : accessAttributes),
 																 encodedData, encodedDataLen,
@@ -1186,7 +1185,7 @@ DrmData * AampDRMLicenseManager::getLicenseSec(const LicenseRequest &licenseRequ
 																 keySystem,
 																 mediaUsage,
 																 secclientSessionToken, challengeInfo.accessToken.length(),
-																 mDrmSessionManager->mPlayerSecManagerSession,
+																 mDrmSessionManager->mContentSecurityManagerSession,
 																 &licenseResponseStr, &licenseResponseLength,
 																 &statusCode, &reasonCode, &businessStatus, mIsVideoOnMute, sleepTime);
 		tEndTime = NOW_STEADY_TS_MS;
@@ -1225,7 +1224,7 @@ DrmData * AampDRMLicenseManager::getLicenseSec(const LicenseRequest &licenseRequ
 		PlayerSecExtendedStatus statusInfo;
 		unsigned int attemptCount = 0;
 		tStartTime = NOW_STEADY_TS_MS;
-		while (attemptCount < MAX_LICENSE_REQUEST_ATTEMPTS)
+		while (attemptCount < MAX_LICENSE_REQUEST_ATTEMPT)
 		{
 			attemptCount++;
 			sec_client_result = mDrmSessionManager->playerSecInstance->PlayerSec_AcquireLicense(licenseRequest.url.c_str(), 1,
@@ -1238,7 +1237,7 @@ DrmData * AampDRMLicenseManager::getLicenseSec(const LicenseRequest &licenseRequ
 														 &licenseResponseStr, &licenseResponseLength, &refreshDuration, &statusInfo);
 			if (((sec_client_result >= 500 && sec_client_result < 600)||
 				 ( mDrmSessionManager->playerSecInstance->isSecResultInRange(sec_client_result)))
-				&& attemptCount < MAX_LICENSE_REQUEST_ATTEMPTS)
+				&& attemptCount < MAX_LICENSE_REQUEST_ATTEMPT)
 			{
 				AAMPLOG_ERR(" acquireLicense FAILED! license request attempt : %d; response code : sec_client %d", attemptCount, sec_client_result);
 				if (licenseResponseStr)

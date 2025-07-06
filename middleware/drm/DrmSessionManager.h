@@ -34,7 +34,7 @@
 #include "DrmHelper.h"
 
 #include "PlayerSecInterface.h"
-#include "PlayerSecManagerSession.h"
+#include "ContentSecurityManagerSession.h"
 
 #include <functional>
 
@@ -127,7 +127,7 @@ class DrmSessionManager
 	DrmSessionContext *drmSessionContexts;
 	configs *m_drmConfigParam;
 	PlayerSecInterface *playerSecInstance;/** PlayerSecInterface instance **/
-	PlayerSecManagerSession mPlayerSecManagerSession;
+	ContentSecurityManagerSession mContentSecurityManagerSession;
 private:
 	KeyID *cachedKeyIDs;
 	char* accessToken;
@@ -428,8 +428,7 @@ public:
                        bool useSecManager,
                        bool enablePROutputProtection,
                        bool propagateURIParam,
-                       bool isFakeTune,
-		       bool useFireboltSDK);
+                       bool isFakeTune);
 };
 
 /**
