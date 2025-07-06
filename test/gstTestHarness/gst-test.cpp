@@ -39,6 +39,9 @@
 
 static std::mutex mCommandMutex;
 
+static uint32_t m_timeScale[2];
+static uint8_t m_iv_size[2];
+
 #define TIME_BASED_BUFFERING_THRESHOLD 4.0
 
 static enum ContentFormat
@@ -175,14 +178,12 @@ void GetVideoSegmentPath( char path[MAX_PATH_SIZE], int segmentNumber, VideoReso
 class TrackFragment: public TrackEvent
 {
 private:
-	uint32_t timeScale;
 	gsize len;
 	gpointer ptr;
 	double duration;
 	double pts_offset;
 	MediaType mediaType;
 	
-	// for demuxed ts segment
 	TsDemux *tsDemux;
 	Mp4Demux *mp4Demux;
 	
@@ -194,8 +195,13 @@ private:
 		switch( mContentFormat )
 		{
 			case eCONTENTFORMAT_MP4_ES:
-				mp4Demux = new Mp4Demux(ptr,len,timeScale);
+				mp4Demux = new Mp4Demux(ptr,len,m_timeScale[mediaType],m_iv_size[mediaType]);
 				assert( mp4Demux );
+				if( duration==0 )
+				{
+					m_timeScale[mediaType] = mp4Demux->getTimeScale();
+					m_iv_size[mediaType] = mp4Demux->getIvSize();
+				}
 				break;
 				
 			case eCONTENTFORMAT_QTDEMUX:
@@ -210,7 +216,7 @@ private:
 	}
 	
 public:
-	TrackFragment( MediaType mediaType, uint32_t timeScale, const char *path, double duration, double pts_offset=0 ):len(), ptr(), tsDemux(), mp4Demux(),  pts_offset(pts_offset), duration(duration), timeScale(timeScale), url(path), mediaType(mediaType)
+	TrackFragment( MediaType mediaType, const char *path, double duration, double pts_offset=0 ):len(), ptr(), tsDemux(), mp4Demux(),  pts_offset(pts_offset), duration(duration), url(path), mediaType(mediaType)
 	{
 	}
 	
@@ -279,7 +285,7 @@ public:
 			{
 				if( duration>0 )
 				{ // audio or video segment (not an initialization header)
-					mp4_AdjustMediaDecodeTime( (uint8_t *)ptr, len, (int64_t)(pts_offset*timeScale) );
+					mp4_AdjustMediaDecodeTime( (uint8_t *)ptr, len, (int64_t)(pts_offset*m_timeScale[mediaType]) );
 				}
 			}
 			context->pipeline->SendBufferMP4( mediaType, ptr, len, duration, url.c_str() );
@@ -567,20 +573,20 @@ void Track::QueueVideoHeader( VideoResolution resolution )
 	{
 		char path[MAX_PATH_SIZE];
 		GetVideoHeaderPath(path, resolution );
-		EnqueueSegment( new TrackFragment( eMEDIATYPE_VIDEO, 0, path, 0 ) );
+		EnqueueSegment( new TrackFragment( eMEDIATYPE_VIDEO, path, 0 ) );
 	}
 }
 
 void Track::QueueVideoSegment( VideoResolution resolution, int startIndex, int count, double pts_offset )
 {
-	uint32_t timescale = 12800;
+	//uint32_t timescale = 12800;
 	char path[MAX_PATH_SIZE];
 	if( count>0 )
 	{
 		while( count>0 )
 		{
 			GetVideoSegmentPath(path, startIndex, resolution );
-			EnqueueSegment( new TrackFragment( eMEDIATYPE_VIDEO, timescale, path, SEGMENT_DURATION_SECONDS, pts_offset ) );
+			EnqueueSegment( new TrackFragment( eMEDIATYPE_VIDEO, path, SEGMENT_DURATION_SECONDS, pts_offset ) );
 			startIndex++;
 			count--;
 		}
@@ -590,7 +596,7 @@ void Track::QueueVideoSegment( VideoResolution resolution, int startIndex, int c
 		while( count<0 )
 		{
 			GetVideoSegmentPath(path, startIndex, resolution );
-			EnqueueSegment( new TrackFragment( eMEDIATYPE_VIDEO, timescale, path, SEGMENT_DURATION_SECONDS, pts_offset ) );
+			EnqueueSegment( new TrackFragment( eMEDIATYPE_VIDEO, path, SEGMENT_DURATION_SECONDS, pts_offset ) );
 			startIndex--;
 			count++;
 		}
@@ -606,19 +612,19 @@ void Track::QueueAudioHeader( const char *language )
 	{
 		char path[MAX_PATH_SIZE];
 		GetAudioHeaderPath( path, language );
-		EnqueueSegment( new TrackFragment( eMEDIATYPE_AUDIO, 0, path, 0 ) );
+		EnqueueSegment( new TrackFragment( eMEDIATYPE_AUDIO, path, 0 ) );
 	}
 }
 
 void Track::QueueAudioSegment( const char *language, int startIndex, int count, double pts_offset )
 {
-	uint32_t timescale = 48000;
+	//uint32_t timescale = 48000;
 	char path[MAX_PATH_SIZE];
 	for( int i=0; i<count; i++ )
 	{
 		int segmentNumber = startIndex + i;
 		GetAudioSegmentPath( path, segmentNumber, language );
-		EnqueueSegment( new TrackFragment( eMEDIATYPE_AUDIO, timescale, path, SEGMENT_DURATION_SECONDS, pts_offset ) );
+		EnqueueSegment( new TrackFragment( eMEDIATYPE_AUDIO, path, SEGMENT_DURATION_SECONDS, pts_offset ) );
 	}
 }
 
@@ -1068,7 +1074,8 @@ public:
 				std::cout << initHeaderUrl << "\n";
 				if( !inventory )
 				{
-					pipelineContext.track[mediaType].EnqueueSegment(new TrackFragment( mediaType, representation.data.timescale, initHeaderUrl.c_str(), 0 ) );
+					m_timeScale[mediaType] = representation.data.timescale;
+					pipelineContext.track[mediaType].EnqueueSegment(new TrackFragment( mediaType, initHeaderUrl.c_str(), 0 ) );
 				}
 				
 				double skip = secondsToSkip;
@@ -1154,10 +1161,13 @@ public:
 						}
 						continue;
 					}
-					pipelineContext.track[mediaType].EnqueueSegment( new TrackFragment(
-																					   mediaType,
-																					   representation.data.timescale,
-																					   mediaUrl.c_str(), segmentDurationS, pts_offset ) );
+					m_timeScale[mediaType] = representation.data.timescale;
+					pipelineContext.track[mediaType].EnqueueSegment(
+																	new TrackFragment(
+																					  mediaType,
+																					  mediaUrl.c_str(),
+																					  segmentDurationS,
+																					  pts_offset ) );
 				}
 			} // next adaptationSet
 			secondsToSkip = 0.0;
@@ -1259,8 +1269,8 @@ public:
 			}
 			total_duration += segmentInfo.duration;
 			
-			video.EnqueueSegment( new TrackFragment( eMEDIATYPE_VIDEO, timescale, fullpath.c_str(), segmentInfo.duration, pts_offset ) );
-			audio.EnqueueSegment( new TrackFragment( eMEDIATYPE_AUDIO, timescale, fullpath.c_str(), segmentInfo.duration, pts_offset ) );
+			video.EnqueueSegment( new TrackFragment( eMEDIATYPE_VIDEO, fullpath.c_str(), segmentInfo.duration, pts_offset ) );
+			audio.EnqueueSegment( new TrackFragment( eMEDIATYPE_AUDIO, fullpath.c_str(), segmentInfo.duration, pts_offset ) );
 		}
 		
 		video.EnqueueControl( new TrackEOS() );
@@ -1571,7 +1581,7 @@ static void NetworkCommandServer( struct AppContext *appContext )
 
 int my_main(int argc, char **argv)
 {
-	//setenv( "GST_DEBUG", "*:4", 1 ); // programatically override gstreamer log level:
+	// setenv( "GST_DEBUG", "*:4", 1 ); // programatically override gstreamer log level:
 	// refer https://gstreamer.freedesktop.org/documentation/tutorials/basic/debugging-tools.html?gi-language=c
 	gst_init(&argc, &argv);
 	g_print( "gstreamer test harness\n" );
