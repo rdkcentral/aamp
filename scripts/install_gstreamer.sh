@@ -107,19 +107,6 @@ function install_gstpluginsgoodfn()
             patch -p1 < ../../OSx/patches/0021-qtdemux-aamp-tm-multiperiod_gst-1.16.patch
             sed -in 's/gstglproto_dep\x27], required: true/gstglproto_dep\x27], required: false/g' meson.build
 
-
-            #
-            # NOTE: Don't casually change the order of PKG_CONFIG assignment otherwise the build will fail, or it will build OK, but fail at runtime
-            # with a gstreamer error. Is this a problem with pkg-config or meson, don't know.
-            #
-            # These particular packages are not found with the default search path for some reason, have to look them up.
-            PKG_CONFIG="$(install_pkgs_pkgconfig_darwin_fn orc)"
-            PKG_CONFIG+=":$(install_pkgs_pkgconfig_darwin_fn flac)"
-            PKG_CONFIG+=":$(install_pkgs_pkgconfig_darwin_fn mpg123)"
-            PKG_CONFIG+=":$(install_pkgs_pkgconfig_darwin_fn speex)"
-            PKG_CONFIG+=":$(install_pkgs_pkgconfig_darwin_fn taglib)"
-            PKG_CONFIG+=":$(install_pkgs_pkgconfig_darwin_fn jpeg-turbo)"
-
             PKG_CONFIG+=":/Library/Frameworks/GStreamer.framework/Versions/1.0/lib/pkgconfig"
             if [[ $ARCH == "x86_64" ]]; then
                 PKG_CONFIG+=":/usr/local/lib/pkgconfig"
@@ -128,7 +115,7 @@ function install_gstpluginsgoodfn()
             fi
 
             echo "Building gst-plugins-good with --pkg-config path $PKG_CONFIG..."
-            meson --pkg-config-path="${PKG_CONFIG}" build
+            meson --pkg-config-path="${PKG_CONFIG}" -Dauto_features=disabled -Disomp4=enabled build
             ninja -C build
             sudo ninja -C build install
 
