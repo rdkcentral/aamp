@@ -27,7 +27,7 @@
 
 #include <mutex>
 #include <sys/time.h>
-#include "PlayerSecManagerSession.h"
+#include "ContentSecurityManagerSession.h"
 #include "PlayerScheduler.h"
 #include "PlayerMemoryUtils.h"
 #include "ThunderAccessPlayer.h"
@@ -45,7 +45,7 @@
  * @class SecManagerThunder
  * @brief Class to get License from Sec Manager Thunder
  */
-class SecManagerThunder : public PlayerSecManager
+class SecManagerThunder : public ContentSecurityManager
 {
 public:
         /**
@@ -67,7 +67,7 @@ public:
                                                 const char* accessAttributes[][2], const char* contentMetadata, size_t contentMetadataLen,
                                                 const char* licenseRequest, size_t licenseRequestLen, const char* keySystemId,
                                                 const char* mediaUsage, const char* accessToken, size_t accessTokenLen,
-                                                PlayerSecManagerSession &session,
+                                                ContentSecurityManagerSession &session,
                                                 char** licenseResponse, size_t* licenseResponseLength,
                                                 int32_t* statusCode, int32_t* reasonCode, int32_t*  businessStatus, bool isVideoMuted, int sleepTime) override;
         /**

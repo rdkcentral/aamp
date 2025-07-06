@@ -30,14 +30,14 @@
 #include <cassert>
 #include <string>
 #include <memory>
-#include "PlayerSecManager.h"
-#include "PlayerSecManagerSession.h"
+#include "ContentSecurityManager.h"
+#include "ContentSecurityManagerSession.h"
 
 /**
  * @class ContentProtectionFirebolt
  * @brief Provides integration with Firebolt DRM SDK for content protection
  */
-class ContentProtectionFirebolt : public PlayerSecManager
+class ContentProtectionFirebolt : public ContentSecurityManager
 {
 public:
 	/**
@@ -83,7 +83,7 @@ public:
                                                 const char* accessAttributes[][2], const char* contentMetadata, size_t contentMetadataLen,
                                                 const char* licenseRequest, size_t licenseRequestLen, const char* keySystemId,
                                                 const char* mediaUsage, const char* accessToken, size_t accessTokenLen,
-                                                PlayerSecManagerSession &session,
+                                                ContentSecurityManagerSession &session,
                                                 char** licenseResponse, size_t* licenseResponseLength,
                                                 int32_t* statusCode, int32_t* reasonCode, int32_t*  businessStatus, bool isVideoMuted, int sleepTime) override;
 	/**
@@ -163,8 +163,8 @@ private:
 	void UnSubscribeEvents();
 	bool mIsConnected;
 	std::mutex mCallbackMutex;
-	std::mutex mFMutex;
-	std::mutex mCPFMutex;
+	std::mutex mFireboltInitMutex;
+	std::mutex mContentProtectionMutex;
 	std::mutex mSpeedStateMutex;
 	bool mInitialized;
 	unsigned mListenerId;

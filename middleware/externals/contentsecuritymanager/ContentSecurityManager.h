@@ -18,7 +18,7 @@
 */
 
 /**
- * @file PlayerSecManager.h
+ * @file ContentSecurityManager.h
  * @brief Class to communicate with SecManager Thunder plugin
  */
 
@@ -27,7 +27,7 @@
 
 #include <mutex>
 #include <sys/time.h>
-#include "PlayerSecManagerSession.h"
+#include "ContentSecurityManagerSession.h"
 #include "PlayerScheduler.h"
 #include "PlayerMemoryUtils.h"
 #include "PlayerExternalUtils.h"
@@ -37,39 +37,35 @@
 #include <map>
 #include <vector>
 
-//Secmanager error class codes
-#define SECMANAGER_DRM_FAILURE 200
-#define SECMANAGER_WM_FAILURE 300 	/**< If secmanager couldn't initialize watermark service */
+//Secmanager/Content Protection error class codes
+#define CONTENT_SECURITY_MANAGER_DRM_FAILURE 200
+#define CONTENT_SECURITY_MANAGER_WM_FAILURE 300 	/**< If secmanager couldn't initialize watermark service */
 
-//Secmanager error reason codes
-#define SECMANAGER_DRM_GEN_FAILURE 1	/**< General or internal failure */
-#define SECMANAGER_SERVICE_TIMEOUT 3
-#define SECMANAGER_SERVICE_CON_FAILURE 4
-#define SECMANAGER_SERVICE_BUSY 5
-#define SECMANAGER_ACCTOKEN_EXPIRED 8
-#define SECMANAGER_ENTITLEMENT_FAILURE 102
-
-#define SECMANAGER_CALL_SIGN "org.rdk.SecManager.1"
-#define WATERMARK_PLUGIN_CALLSIGN "org.rdk.Watermark.1"
-//#define RDKSHELL_CALLSIGN "org.rdk.RDKShell.1"   //need to be used instead of WATERMARK_PLUGIN_CALLSIGN if RDK Shell is used for rendering watermark
+//Secmanager/Content Protection error reason codes
+#define CONTENT_SECURITY_MANAGER_DRM_GEN_FAILURE 1	/**< General or internal failure */
+#define CONTENT_SECURITY_MANAGER_SERVICE_TIMEOUT 3
+#define CONTENT_SECURITY_MANAGER_SERVICE_CON_FAILURE 4
+#define CONTENT_SECURITY_MANAGER_SERVICE_BUSY 5
+#define CONTENT_SECURITY_MANAGER_ACCTOKEN_EXPIRED 8
+#define CONTENT_SECURITY_MANAGER_ENTITLEMENT_FAILURE 102
 
 #define MAX_LICENSE_REQUEST_ATTEMPT 2
 
 /**
- * @class PlayerSecManager
+ * @class ContentSecurityManager
  * @brief Class to get License from Sec Manager
  */
-class PlayerSecManager : public PlayerScheduler
+class ContentSecurityManager : public PlayerScheduler
 {
 public:
-	//allow access to PlayerSecManager::ReleaseSession()
-	friend PlayerSecManagerSession::SessionManager::~SessionManager();
+	//allow access to ContentSecurityManager::ReleaseSession()
+	friend ContentSecurityManagerSession::SessionManager::~SessionManager();
 	/**
 	 * @fn GetInstance
 	 *
-	 * @return PlayerSecManager instance
+	 * @return ContentSecurityManager instance
 	 */
-	static PlayerSecManager* GetInstance();
+	static ContentSecurityManager* GetInstance();
 
 	/**
 	 * @fn DestroyInstance
@@ -98,7 +94,7 @@ public:
 						const char* accessAttributes[][2], const char* contentMetadata, size_t contentMetadataLen,
 						const char* licenseRequest, size_t licenseRequestLen, const char* keySystemId,
 						const char* mediaUsage, const char* accessToken, size_t accessTokenLen,
-						PlayerSecManagerSession &session,
+						ContentSecurityManagerSession &session,
 						char** licenseResponse, size_t* licenseResponseLength,
 						int32_t* statusCode, int32_t* reasonCode, int32_t*  businessStatus, bool isVideoMuted, int sleepTime);
 
@@ -129,7 +125,7 @@ public:
 	virtual bool setPlaybackSpeedState(int64_t sessionId, int64_t playback_speed, int64_t playback_position);
 	
         /**
-         * @fn ReleaseSession - this should only be used by PlayerSecManagerSession::SessionManager::~SessionManager();
+         * @fn ReleaseSession - this should only be used by ContentSecurityManagerSession::SessionManager::~SessionManager();
          *
          * @param[in] sessionId - session id
          */
@@ -172,7 +168,7 @@ protected:
 						const char* accessAttributes[][2], const char* contentMetadata, size_t contentMetadataLen,
 						const char* licenseRequest, size_t licenseRequestLen, const char* keySystemId,
 						const char* mediaUsage, const char* accessToken, size_t accessTokenLen,
-						PlayerSecManagerSession &session,
+						ContentSecurityManagerSession &session,
 						char** licenseResponse, size_t* licenseResponseLength,
 						int32_t* statusCode, int32_t* reasonCode, int32_t*  businessStatus, bool isVideoMuted, int sleepTime) { return false; }
         /**
@@ -206,31 +202,31 @@ protected:
         virtual bool setWindowSize(int64_t sessionId, int64_t video_width, int64_t video_height) { return false; };
 
 	/**
-	 * @fn PlayerSecManager
+	 * @fn ContentSecurityManager
 	 */
-	PlayerSecManager(){};
+	ContentSecurityManager(){};
 
 	/**
-	 * @fn ~PlayerSecManager
+	 * @fn ~ContentSecurityManager
 	 */
-	~PlayerSecManager(){};
+	~ContentSecurityManager(){};
 	/**     
      	 * @brief Copy constructor disabled
     	 *
      	 */
-	PlayerSecManager(const PlayerSecManager&) = delete;
+	ContentSecurityManager(const ContentSecurityManager&) = delete;
 	/**
  	 * @brief assignment operator disabled
          *
          */
-	PlayerSecManager* operator=(const PlayerSecManager&) = delete;
+	ContentSecurityManager* operator=(const ContentSecurityManager&) = delete;
 };
 
 /**
  * @class FakeSecManager
  * @brief Dummy no-op fallback implementation for unsupported platforms
  */
-class FakeSecManager : public PlayerSecManager 
+class FakeSecManager : public ContentSecurityManager 
 {
 public:
 	/**
@@ -249,7 +245,7 @@ public:
                                                 const char* accessAttributes[][2], const char* contentMetadata, size_t contentMetadataLen,
                                                 const char* licenseRequest, size_t licenseRequestLen, const char* keySystemId,
                                                 const char* mediaUsage, const char* accessToken, size_t accessTokenLen,
-                                                PlayerSecManagerSession &session,
+                                                ContentSecurityManagerSession &session,
                                                 char** licenseResponse, size_t* licenseResponseLength,
                                                 int32_t* statusCode, int32_t* reasonCode, int32_t*  businessStatus, bool isVideoMuted, int sleepTime) override
 	{

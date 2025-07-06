@@ -18,13 +18,13 @@
 */
 
 /**
- * @file PlayerSecManagerSession.cpp
- * @brief Class impl for PlayerSecManagerSession
+ * @file ContentSecurityManagerSession.cpp
+ * @brief Class impl for ContentSecurityManagerSession
  */
 
-#include "PlayerSecManager.h"
+#include "ContentSecurityManager.h"
 #include "PlayerLogManager.h"
-std::shared_ptr<PlayerSecManagerSession::SessionManager> PlayerSecManagerSession::SessionManager::getInstance(int64_t sessionID, std::size_t inputSummaryHash)
+std::shared_ptr<ContentSecurityManagerSession::SessionManager> ContentSecurityManagerSession::SessionManager::getInstance(int64_t sessionID, std::size_t inputSummaryHash)
 {
         std::shared_ptr<SessionManager> returnValue;
 
@@ -45,7 +45,7 @@ std::shared_ptr<PlayerSecManagerSession::SessionManager> PlayerSecManagerSession
                 if(keysToRemove.size())
                 {
                         std::stringstream ss;
-                        ss<<"PlayerSecManagerSession: "<<keysToRemove.size()<<" expired (";
+                        ss<<"ContentSecurityManagerSession: "<<keysToRemove.size()<<" expired (";
                         for(auto key:keysToRemove)
                         {
                                 ss<<key<<",";
@@ -70,7 +70,7 @@ std::shared_ptr<PlayerSecManagerSession::SessionManager> PlayerSecManagerSession
                         if(!returnValue)
                         {
                                 //unexpected
-                                MW_LOG_WARN("PlayerSecManagerSession: session ID %" PRId64 " reused or session closed too early.",
+                                MW_LOG_WARN("ContentSecurityManagerSession: session ID %" PRId64 " reused or session closed too early.",
                                 sessionID);
                         }
                 }
@@ -80,7 +80,7 @@ std::shared_ptr<PlayerSecManagerSession::SessionManager> PlayerSecManagerSession
                         if(returnValue->getInputSummaryHash()!=inputSummaryHash)
                         {
                                 //this should only occur after a successful updatePlaybackSession
-                                MW_LOG_MIL("PlayerSecManagerSession: session ID %" PRId64 " input data changed.", sessionID);
+                                MW_LOG_MIL("ContentSecurityManagerSession: session ID %" PRId64 " input data changed.", sessionID);
                                 returnValue->setInputSummaryHash(inputSummaryHash);
                         }
                 }
@@ -90,27 +90,27 @@ std::shared_ptr<PlayerSecManagerSession::SessionManager> PlayerSecManagerSession
                         * create a new instance & save a pointer to it for possible future reuse*/
                         returnValue.reset(new SessionManager{sessionID, inputSummaryHash});
                         instances[sessionID] = returnValue;
-                        MW_LOG_WARN("PlayerSecManagerSession: new instance created for ID:%" PRId64 ", %zu instances total.",
+                        MW_LOG_WARN("ContentSecurityManagerSession: new instance created for ID:%" PRId64 ", %zu instances total.",
                         sessionID,
                         instances.size());
                 }
         }
         else
         {
-                MW_LOG_WARN("PlayerSecManagerSession: invalid ID:%" PRId64 ".", sessionID);
+                MW_LOG_WARN("ContentSecurityManagerSession: invalid ID:%" PRId64 ".", sessionID);
         }
 
         return returnValue;
 }
 
-PlayerSecManagerSession::SessionManager::~SessionManager()
+ContentSecurityManagerSession::SessionManager::~SessionManager()
 {
         if(mID>0)
         {
-                PlayerSecManager::GetInstance()->ReleaseSession(mID);
+                ContentSecurityManager::GetInstance()->ReleaseSession(mID);
         }
 }
-void PlayerSecManagerSession::SessionManager::setInputSummaryHash(std::size_t inputSummaryHash)
+void ContentSecurityManagerSession::SessionManager::setInputSummaryHash(std::size_t inputSummaryHash)
 {
         mInputSummaryHash=inputSummaryHash;
         std::stringstream ss;
@@ -119,17 +119,17 @@ void PlayerSecManagerSession::SessionManager::setInputSummaryHash(std::size_t in
 }
 
 
-PlayerSecManagerSession::SessionManager::SessionManager(int64_t sessionID, std::size_t inputSummaryHash):
+ContentSecurityManagerSession::SessionManager::SessionManager(int64_t sessionID, std::size_t inputSummaryHash):
 mID(sessionID),
 mInputSummaryHash(inputSummaryHash)
 {};
 
-PlayerSecManagerSession::PlayerSecManagerSession(int64_t sessionID, std::size_t inputSummaryHash):
-mpSessionManager(PlayerSecManagerSession::SessionManager::getInstance(sessionID, inputSummaryHash)),
+ContentSecurityManagerSession::ContentSecurityManagerSession(int64_t sessionID, std::size_t inputSummaryHash):
+mpSessionManager(ContentSecurityManagerSession::SessionManager::getInstance(sessionID, inputSummaryHash)),
 sessionIdMutex()
 {};
 
-int64_t PlayerSecManagerSession::getSessionID(void) const
+int64_t ContentSecurityManagerSession::getSessionID(void) const
 {
         std::lock_guard<std::mutex>lock(sessionIdMutex);
         int64_t ID = PLAYER_SECMGR_INVALID_SESSION_ID;
@@ -141,7 +141,7 @@ int64_t PlayerSecManagerSession::getSessionID(void) const
         return ID;
 }
 
-std::size_t PlayerSecManagerSession::getInputSummaryHash()
+std::size_t ContentSecurityManagerSession::getInputSummaryHash()
 {
         std::lock_guard<std::mutex>lock(sessionIdMutex);
         std::size_t hash=0;

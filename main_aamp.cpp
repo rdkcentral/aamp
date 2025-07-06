@@ -43,7 +43,7 @@
 
 AampConfig *gpGlobalConfig=NULL;
 
-#include "PlayerSecManager.h"
+#include "ContentSecurityManager.h"
 
 std::mutex PlayerInstanceAAMP::mPrvAampMtx;
 
@@ -208,7 +208,7 @@ PlayerInstanceAAMP::~PlayerInstanceAAMP()
 #endif
 	if (isLastPlayerInstance)
 	{
-		PlayerSecManager::DestroyInstance();
+		ContentSecurityManager::DestroyInstance();
 	}
 	if (isLastPlayerInstance && gpGlobalConfig)
 	{
