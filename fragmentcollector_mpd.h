@@ -550,6 +550,9 @@ public:
 	 */
 	bool UseIframeTrack(void) override;
 
+	uint64_t AdjustStartTimeWithPTO(const Timeline* timeline, uint64_t presentationTimeOffset);
+
+
 protected:
 	/**
 	 * @fn StartFromAampLocalTsb

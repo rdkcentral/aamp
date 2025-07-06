@@ -734,7 +734,7 @@ double AampMPDParseHelper::aamp_GetPeriodStartTimeDeltaRelativeToPTSOffset(IPeri
 			{
 				uint32_t timeScale = segmentTemplates.GetTimescale();
 				uint64_t presentationTimeOffset = segmentTemplates.GetPresentationTimeOffset();
-				//AAMPLOG_TRACE("tscale: %" PRIu32 " offset : %" PRIu64 "", timeScale, presentationTimeOffset);
+				AAMPLOG_TRACE("tscale: %" PRIu32 " offset : %" PRIu64 "", timeScale, presentationTimeOffset);
 				std::vector<ITimeline *>&timelines = segmentTimeline->GetTimelines();
 				if(timelines.size() > 0)
 				{
@@ -748,7 +748,7 @@ double AampMPDParseHelper::aamp_GetPeriodStartTimeDeltaRelativeToPTSOffset(IPeri
 							deltaBwFirstSegmentAndOffset = timelineStart - presentationTimeOffset;
 						}
 						duration = (double) deltaBwFirstSegmentAndOffset / timeScale;
-						//AAMPLOG_TRACE("timeline start : %" PRIu64 " offset delta : %lf", timelineStart,duration);
+						AAMPLOG_TRACE("timeline start : %" PRIu64 " offset delta : %lf", timelineStart,duration);
 					}
 					AAMPLOG_TRACE("offset delta : %lf",  duration);
 				}
@@ -1024,7 +1024,7 @@ double AampMPDParseHelper::aamp_GetPeriodDuration(int periodIndex, uint64_t mpdD
 							if (presentationTimeOffset > timelineStartTime)
 							{
 								durationMs -= ((double)((presentationTimeOffset - timelineStartTime) * 1000) / (double) timeScale);
-								AAMPLOG_TRACE("presentationTimeOffset:%" PRIu64 " timelineStartTime:%" PRIu64 " updated durationMs[%lf]", presentationTimeOffset, timelineStartTime, durationMs);
+								AAMPLOG_INFO("presentationTimeOffset:%" PRIu64 " timelineStartTime:%" PRIu64 " updated durationMs[%lf]", presentationTimeOffset, timelineStartTime, durationMs);
 							}
 						}
 					}
