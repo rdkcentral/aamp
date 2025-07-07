@@ -86,6 +86,8 @@
 //Description size
 #define MAX_DESCRIPTION_SIZE 128
 
+//Global variable to store prev.tune url
+string prevTuneUrl="";
 //Stringification of Macro :  use two levels of macros
 #define MACRO_TO_STRING(s) X_STR(s)
 #define X_STR(s) #s
@@ -6086,6 +6088,14 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 			snprintf(tuneStrPrefix, sizeof(tuneStrPrefix), "%s PLAYER[%d]", (mbPlayEnabled?STRFGPLAYER:STRBGPLAYER), mPlayerId);
 		}
 		AAMPLOG_MIL("%s aamp_tune: attempt: %d format: %s URL: %s", tuneStrPrefix, mTuneAttempts, mMediaFormatName[mMediaFormat], mManifestUrl.c_str());
+		               
+               StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
+               if(prevTuneUrl==mManifestUrl.c_str())
+			   {
+                      AAMPLOG_WARN("Hack-->URLs are same hence calling stop()");
+                     sink->Stop(true);
+              }
+			  prevTuneUrl=mManifestUrl.c_str();
 		if(!mMPDStichRefreshUrl.empty())
 		{
 			AAMPLOG_WARN("%s aamp_stich: Option[%d] URL: %s", tuneStrPrefix, mMPDStichOption, mMPDStichRefreshUrl.c_str());
@@ -6132,7 +6142,7 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 		}
 		else
 		{
-			StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
+//			StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
 			if (sink)
 			{
 				sink->SetVideoRectangle(mVideoRect.horizontalPos, mVideoRect.verticalPos, mVideoRect.width, mVideoRect.height);
