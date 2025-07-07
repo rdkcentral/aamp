@@ -23,6 +23,8 @@
 
 using namespace testing;
 
+#define EFFECTIVE_URL "http://manifest.mpd"
+
 class AAMPEventTests : public ::testing::Test {
 protected:
     AAMPEvent *handler = nullptr;
@@ -211,7 +213,7 @@ TEST_F(CCHandleEventTest, GetCCHandleTest) {
 class MediaMetadataEventTest : public testing::Test {
 protected:
     void SetUp() override {
-        event = new MediaMetadataEvent(1000, 1920, 1080, true, true, "DRM Type", 123456.789, 123, session_id);
+        event = new MediaMetadataEvent(1000, 1920, 1080, true, true, "DRM Type", 123456.789, 123, session_id, EFFECTIVE_URL);
     }
 
     void TearDown() override {
@@ -232,7 +234,7 @@ TEST_F(MediaMetadataEventTest, ConstructorAndGetterTest) {
     double programStartTime = 123456.789;
     int tsbDepthMs = 123;
 
-    MediaMetadataEvent event(duration, width, height, hasDrm, isLive, drmType, programStartTime, tsbDepthMs, session_id);
+    MediaMetadataEvent event(duration, width, height, hasDrm, isLive, drmType, programStartTime, tsbDepthMs, session_id, EFFECTIVE_URL);
 
     EXPECT_EQ(event.getDuration(), duration);
     EXPECT_EQ(event.getWidth(), width);
@@ -241,17 +243,18 @@ TEST_F(MediaMetadataEventTest, ConstructorAndGetterTest) {
     EXPECT_EQ(event.isLive(), isLive);
     EXPECT_EQ(event.getDrmType(), drmType);
     EXPECT_EQ(event.getProgramStartTime(), programStartTime);
+    EXPECT_EQ(event.getUrl(), EFFECTIVE_URL);
 }
 
 TEST_F(MediaMetadataEventTest, EmptyLanguageListTest) {
-    MediaMetadataEvent event(1000, 1920, 1080, true, true, "DRM Type", 123456.789, 123, session_id);
+    MediaMetadataEvent event(1000, 1920, 1080, true, true, "DRM Type", 123456.789, 123, session_id, EFFECTIVE_URL);
 
     const std::vector<std::string> &languages = event.getLanguages();
     EXPECT_EQ(languages.size(), 0);
 }
 
 TEST_F(MediaMetadataEventTest, AddSingleLanguageTest) {
-    MediaMetadataEvent event(1000, 1920, 1080, true, true, "DRM Type", 123456.789, 123, session_id);
+    MediaMetadataEvent event(1000, 1920, 1080, true, true, "DRM Type", 123456.789, 123, session_id, EFFECTIVE_URL);
 
     event.addLanguage("Spanish");
 
@@ -261,7 +264,7 @@ TEST_F(MediaMetadataEventTest, AddSingleLanguageTest) {
 }
 
 TEST_F(MediaMetadataEventTest, AddMultipleLanguagesTest) {
-    MediaMetadataEvent event(1000, 1920, 1080, true, true, "DRM Type", 123456.789, 123, session_id);
+    MediaMetadataEvent event(1000, 1920, 1080, true, true, "DRM Type", 123456.789, 123, session_id, EFFECTIVE_URL);
 
     event.addLanguage("French");
     event.addLanguage("German");
@@ -281,7 +284,7 @@ TEST_F(MediaMetadataEventTest, AddMultipleLanguagesTest) {
 // Test case for addBitrate, getBitrates, and getBitratesCount methods
 TEST_F(MediaMetadataEventTest, BitrateMethodsBoundaryTest) {
     // Create a MediaMetadataEvent instance
-    MediaMetadataEvent event(1000, 1920, 1080, true, true, "DRM Type", 123456.789, 123, session_id);
+    MediaMetadataEvent event(1000, 1920, 1080, true, true, "DRM Type", 123456.789, 123, session_id, EFFECTIVE_URL);
 
     // Add bitrates with maximum and minimum values
     event.addBitrate(1); // Minimum bitrate
@@ -304,7 +307,7 @@ TEST_F(MediaMetadataEventTest, BitrateMethodsBoundaryTest) {
 
 TEST_F(MediaMetadataEventTest, BitrateMethodsNegativeTest) {
     // Create a MediaMetadataEvent instance
-    MediaMetadataEvent event(1000, 1920, 1080, true, true, "DRM Type", 123456.789, 123, session_id);
+    MediaMetadataEvent event(1000, 1920, 1080, true, true, "DRM Type", 123456.789, 123, session_id, EFFECTIVE_URL);
 
     // Add negative bitrates
     event.addBitrate(-100); // Negative bitrate
@@ -322,7 +325,7 @@ TEST_F(MediaMetadataEventTest, BitrateMethodsNegativeTest) {
 }
 
 TEST_F(MediaMetadataEventTest, BitrateMethodsTest) {
-    MediaMetadataEvent event(1000, 1920, 1080, true, true, "DRM Type", 123456.789, 123, session_id);
+    MediaMetadataEvent event(1000, 1920, 1080, true, true, "DRM Type", 123456.789, 123, session_id, EFFECTIVE_URL);
 
     event.addBitrate(1000000); // 1 Mbps
     event.addBitrate(2000000); // 2 Mbps
@@ -343,7 +346,7 @@ TEST_F(MediaMetadataEventTest, BitrateMethodsTest) {
     EXPECT_EQ(audioBitrates[1], 256000);
 }
 TEST_F(MediaMetadataEventTest, SupportedSpeedMethodsTest) {
-    MediaMetadataEvent event(1000, 1920, 1080, true, true, "DRM Type", 123456.789, 123, session_id);
+    MediaMetadataEvent event(1000, 1920, 1080, true, true, "DRM Type", 123456.789, 123, session_id, EFFECTIVE_URL);
 
     event.addSupportedSpeed(1.0);
     event.addSupportedSpeed(1.5);
@@ -358,7 +361,7 @@ TEST_F(MediaMetadataEventTest, SupportedSpeedMethodsTest) {
 
 // Test case for SetVideoMetaData method and related getter methods
 TEST_F(MediaMetadataEventTest, VideoMetaDataMethodsTest) {
-    MediaMetadataEvent event(1000, 1920, 1080, true, true, "DRM Type", 123456.789, 123, session_id);
+    MediaMetadataEvent event(1000, 1920, 1080, true, true, "DRM Type", 123456.789, 123, session_id, EFFECTIVE_URL);
 
     event.SetVideoMetaData(30.0, VideoScanType::eVIDEOSCAN_PROGRESSIVE, 16, 9, "MPEG2", "DOLBY_VISION", "PG", 123);
 
@@ -373,7 +376,7 @@ TEST_F(MediaMetadataEventTest, VideoMetaDataMethodsTest) {
 }
 // Test case for SetAudioMetaData method and related getter methods
 TEST_F(MediaMetadataEventTest, AudioMetaDataMethodsTest) {
-    MediaMetadataEvent event(1000, 1920, 1080, true, true, "DRM Type", 123456.789, 123, session_id);
+    MediaMetadataEvent event(1000, 1920, 1080, true, true, "DRM Type", 123456.789, 123, session_id, EFFECTIVE_URL);
 
     event.SetAudioMetaData("AA3", "STEREO", true);
 
@@ -383,7 +386,7 @@ TEST_F(MediaMetadataEventTest, AudioMetaDataMethodsTest) {
 }
 // Test case for getMediaFormat and setMediaFormat methods
 TEST_F(MediaMetadataEventTest, MediaFormatMethodsTest) {
-    MediaMetadataEvent event(1000, 1920, 1080, true, true, "DRM Type", 123456.789, 123, session_id);
+    MediaMetadataEvent event(1000, 1920, 1080, true, true, "DRM Type", 123456.789, 123, session_id, EFFECTIVE_URL);
 
     // Test setMediaFormat and then getMediaFormat
     event.setMediaFormat("HLS");

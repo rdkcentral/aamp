@@ -145,7 +145,7 @@ bool ProcessHandler::SelfKill()
 bool ProcessHandler::KillProcess(long pid)
 {
     bool ret = true;
-    if(kill(pid, SIGKILL) < 0)
+    if(kill((pid_t)pid, SIGKILL) < 0)
     {
         AAMPLOG_WARN("Kill Failed = %d", errno);
         ret = false;

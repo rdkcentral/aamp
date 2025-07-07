@@ -100,7 +100,7 @@ TEST_F(AampLegacyDrmSessionTests, TestCreateClearkeySession)
 								   ckLicenseServerURL);
         void *ptr= static_cast<void*>(&aampEvent);
 	int err = -1;
-	DrmSession *drmSession = sessionManager->mDRMSessionManager->createDrmSession(err, 
+	DrmSession *drmSession = sessionManager->mDrmSessionManager->createDrmSession(err, 
 		"1077efec-c0b2-4d02-ace3-3c1e52e2fb4b", eMEDIAFORMAT_DASH, initData, sizeof(initData),
 		(int)eMEDIATYPE_VIDEO, mAamp, ptr, NULL, true);
 	ASSERT_TRUE(drmSession != NULL);

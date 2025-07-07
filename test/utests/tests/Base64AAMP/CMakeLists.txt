@@ -22,6 +22,7 @@ set(UTESTS_ROOT "../../")
 set(EXEC_NAME Base64AAMP)
 
 include_directories(${AAMP_ROOT}/middleware)
+include_directories(${AAMP_ROOT}/middleware/baseConversion)
 include_directories(${AAMP_ROOT} ${AAMP_ROOT}/drm ${AAMP_ROOT}/drm/helper ${AAMP_ROOT}/subtitle ${AAMP_ROOT}/middleware/subtitle)
 
 include_directories(${GTEST_INCLUDE_DIRS})
@@ -32,8 +33,6 @@ include_directories(${UTESTS_ROOT}/mocks)
 
 set(TEST_SOURCES Base64Tests.cpp
                  Base64AAMPTests.cpp)
-
-set(AAMP_SOURCES ${AAMP_ROOT}/_base64.cpp)
 
 add_executable(${EXEC_NAME}
                ${TEST_SOURCES}

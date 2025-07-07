@@ -26,6 +26,8 @@ include_directories(${AAMP_ROOT}/middleware/subtec/libsubtec)
 include_directories(${AAMP_ROOT}/middleware/subtec/subtecparser)
 include_directories(${AAMP_ROOT}/middleware/playerjsonobject)
 include_directories(${AAMP_ROOT}/middleware)
+include_directories(${AAMP_ROOT}/middleware/baseConversion)
+include_directories(${AAMP_ROOT}/middleware/playerLogManager)
 include_directories(${AAMP_ROOT}/tsb/api)
 
 include_directories(${GTEST_INCLUDE_DIRS})

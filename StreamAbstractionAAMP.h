@@ -25,7 +25,6 @@
 #ifndef STREAMABSTRACTIONAAMP_H
 #define STREAMABSTRACTIONAAMP_H
 
-#include "AampMemoryUtils.h"
 #include "priv_aamp.h"
 #include "AampJsonObject.h"
 #include "mediaprocessor.h"

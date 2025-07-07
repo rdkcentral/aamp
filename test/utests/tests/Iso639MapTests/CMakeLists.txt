@@ -23,7 +23,7 @@ set(EXEC_NAME Iso639MapTests)
 
 include_directories(${AAMP_ROOT} ${AAMP_ROOT}/downloader ${AAMP_ROOT}/drm ${AAMP_ROOT}/drm/helper ${AAMP_ROOT}/subtitle ${AAMP_ROOT}/middleware/subtitle) # ${AAMP_ROOT}/isobmff ${AAMP_ROOT}/middleware/subtec/subtecparser ${AAMP_ROOT}/middleware/playerjsonobject)
 include_directories(${AAMP_ROOT}/middleware)
-include_directories(${AAMP_ROOT}/externals)
+include_directories(${AAMP_ROOT}/middleware/externals)
 include_directories(${AAMP_ROOT}/middleware/subtec/libsubtec)
 
 include_directories(${GTEST_INCLUDE_DIRS})

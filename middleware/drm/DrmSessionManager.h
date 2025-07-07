@@ -33,9 +33,8 @@
 #include <atomic>
 #include "DrmHelper.h"
 
-#ifdef USE_SECCLIENT
-#include "sec_client.h"
-#endif
+#include "PlayerSecInterface.h"
+#include "PlayerSecManagerSession.h"
 
 #include <functional>
 
@@ -127,6 +126,8 @@ class DrmSessionManager
 
 	DrmSessionContext *drmSessionContexts;
 	configs *m_drmConfigParam;
+	PlayerSecInterface *playerSecInstance;/** PlayerSecInterface instance **/
+	PlayerSecManagerSession mPlayerSecManagerSession;
 private:
 	KeyID *cachedKeyIDs;
 	char* accessToken;
@@ -136,13 +137,11 @@ private:
 	std::mutex cachedKeyMutex;
 	std::mutex mDrmSessionLock;
 	bool mEnableAccessAttributes;
-	int mMaxDrmSessions;
-#ifdef USE_SECMANAGER
-	AampSecManagerSession mAampSecManagerSession;
+	int mMaxDRMSessions;
 	std::atomic<bool> mIsVideoOnMute;
 	std::atomic<int> mCurrentSpeed;
 	std::atomic<bool> mFirstFrameSeen;
-#endif
+	std::function<void(uint32_t, uint32_t, const std::string&)> mPlayerSendWatermarkSessionUpdateEventCB;
 	/**     
      	 * @brief Copy constructor disabled
      	 *
@@ -188,10 +187,30 @@ public:
 	/**
 	 *  @fn DrmSessionManager
 	 */
-	DrmSessionManager(int maxDrmSessions, void *player);
+	DrmSessionManager(int maxDrmSessions, void *player, std::function<void(uint32_t, uint32_t, const std::string&)> watermarkSessionUpdateCallback);
 
 	void initializeDrmSessions();
 
+	/**
+	 *  @fn watermarkSessionHandlerWrapper
+	 *  @brief Wrapper function to handle session watermark.
+	 *  @param[in]	sessionHandle - Session handle.
+	 *  @param[in]	status - Status of the session.
+	 *  @param[in]	systemData - System data.
+	 */
+	void watermarkSessionHandlerWrapper(uint32_t sessionHandle, uint32_t status, const std::string &systemData);
+
+	/**
+	 *  @fn registerCallback
+	 */
+	void registerCallback( );
+
+	/**
+	 * @brief Set the Common Key Duration object
+	 * 
+	 * @param keyDuration key duration
+	 */
+	void SetCommonKeyDuration(int keyDuration);
 
 
 	/**
@@ -352,7 +371,7 @@ public:
 	/**
 	 * @fn initializeDrmSession
 	 */
-	KeyState initializeDrmSession(DrmHelperPtr drmHelper, int sessionSlot,  int& err);
+	KeyState initializeDrmSession(DrmHelperPtr drmHelper, int sessionSlot,  int &err );
 	/**
 	 * @fn notifyCleanup
 	 */
@@ -384,7 +403,7 @@ public:
         using ProfileUpdateCallback =	std::function<void()>;
 	ProfileUpdateCallback ProfileUpdateCb;
 
-	void RegisterProfilingUpdateCb(const ProfileUpdateCallback callback)
+	void RegisterProfUpdate(const ProfileUpdateCallback callback)
         {
               ProfileUpdateCb = callback;
         };
@@ -393,7 +412,7 @@ public:
 	 */
 	using ContentUpdateCallback = std::function<std::string(DrmHelperPtr drmHelper, int streamType, std::vector<uint8_t> keyId, int contentProtectionUpd)>;
 	ContentUpdateCallback ContentUpdateCb;
-	void RegisterHandleContentProtectionCb(const ContentUpdateCallback callback)
+	void RegisterContentUpdateCallback(const ContentUpdateCallback callback)
 	{
 	    ContentUpdateCb = callback;
 	};
@@ -407,12 +426,6 @@ public:
 	 */
         void UpdateDRMConfig(
                        bool useSecManager,
-                //       int licenseRetryWaitTime,
-                //       int drmNetworkTimeout,
-                //       int curlConnectTimeout,
-                //       bool curlLicenseLogging,
-                //       bool runtimeDRMConfig,
-                //       int contentProtectionDataUpdateTimeout,
                        bool enablePROutputProtection,
                        bool propagateURIParam,
                        bool isFakeTune);

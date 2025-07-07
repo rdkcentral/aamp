@@ -26,6 +26,8 @@ include_directories(${AAMP_ROOT}/middleware/playerjsonobject)
 include_directories(${AAMP_ROOT}/dash/xml ${AAMP_ROOT}/dash/utils ${AAMP_ROOT}/dash/mpd)
 include_directories(${AAMP_ROOT}/tsb/api)
 include_directories(${AAMP_ROOT}/middleware)
+include_directories(${AAMP_ROOT}/middleware/baseConversion)
+include_directories(${AAMP_ROOT}/middleware/playerLogManager)
 
 include_directories(${GTEST_INCLUDE_DIRS})
 include_directories(${GMOCK_INCLUDE_DIRS})
@@ -52,7 +54,7 @@ set(TEST_SOURCES FunctionalTests.cpp
                  AampMPDDownloaderTest.cpp)
 
 
-set(AAMP_SOURCES ${AAMP_ROOT}/downloader/AampCurlDownloader.cpp ${AAMP_ROOT}/AampUtils.cpp ${AAMP_ROOT}/_base64.cpp
+set(AAMP_SOURCES ${AAMP_ROOT}/downloader/AampCurlDownloader.cpp ${AAMP_ROOT}/AampUtils.cpp
                 ${AAMP_ROOT}/iso639map.cpp
 		${AAMP_ROOT}/AampMPDParseHelper.cpp
 		${AAMP_ROOT}/AampMPDDownloader.cpp

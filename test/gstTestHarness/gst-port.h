@@ -25,8 +25,8 @@
 #include "unistd.h"
 #include <assert.h>
 #include <gst/gst.h>
-#include "initializationheaderinfo.hpp"
 #include <queue>
+#include "mp4demux.hpp"
 
 // refer gstreamer pipeline unexpected behaviors when attempting to render single iframe
 // #define REALTEK_HACK
@@ -74,7 +74,7 @@ public:
 	void SetPipelineState( PipelineState );
 	PipelineState GetPipelineState( void );
 	void Configure( MediaType mediaType );
-	void SetCaps( MediaType mediaType, InitializationHeaderInfo * );
+	void SetCaps( MediaType mediaType, const Mp4Demux *mp4Demux );
 	void InstantaneousRateChange( double newRate );
 	void DumpDOT( void );
 	void SendBufferMP4( MediaType mediaType, gpointer ptr, gsize len, double duration, const char *url=NULL );

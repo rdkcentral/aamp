@@ -25,7 +25,9 @@ include_directories(${AAMP_ROOT} ${AAMP_ROOT}/downloader ${AAMP_ROOT}/drm ${AAMP
 include_directories(${AAMP_ROOT}/tsb/api)
 include_directories(${AAMP_ROOT}/middleware)
 include_directories(${AAMP_ROOT}/middleware/subtec/libsubtec)
-include_directories(${AAMP_ROOT}/externals)
+include_directories(${AAMP_ROOT}/middleware/externals)
+include_directories(${AAMP_ROOT}/middleware/baseConversion)
+include_directories(${AAMP_ROOT}/middleware/playerLogManager)
 include_directories(${LIBCJSON_INCLUDE_DIRS})
 include_directories(${GTEST_INCLUDE_DIRS})
 include_directories(${GMOCK_INCLUDE_DIRS})
@@ -36,8 +38,7 @@ include_directories(${UTESTS_ROOT}/mocks)
 set(TEST_SOURCES JsonObjectTests.cpp
                  JsonObjectRun.cpp)
 
-set(AAMP_SOURCES ${AAMP_ROOT}/_base64.cpp
-                 ${AAMP_ROOT}/iso639map.cpp
+set(AAMP_SOURCES ${AAMP_ROOT}/iso639map.cpp
                  ${AAMP_ROOT}/AampUtils.cpp)
 
 add_executable(${EXEC_NAME}

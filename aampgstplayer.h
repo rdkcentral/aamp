@@ -419,12 +419,12 @@ public:
 	/**
 	 * @brief Start the MonitorAV timer to report AV status
 	 */
-	void StartMonitorAVTimer();
+	void StartMonitorAvTimer();
 
 	/**
 	 * @brief Start the MonitorAV timer to report AV status
 	 */
-	void StopMonitorAVTimer();
+	void StopMonitorAvTimer();
 
 	/**
 	 * @brief Get the monitor AV interval in milliseconds
@@ -434,7 +434,7 @@ public:
 private:
 	std::mutex mBufferingLock;
 	id3_callback_t m_ID3MetadataHandler; /**< Function to call to generate the JS event for in ID3 packet */
-	guint monitorAVTimerId; /**< Timer ID for monitoring AV events */
+	guint monitorAvTimerId; /**< Timer ID for monitoring AV events */
 	int mMonitorAVInterval; /**< Interval in milliseconds for monitoring AV events */
 
 public:

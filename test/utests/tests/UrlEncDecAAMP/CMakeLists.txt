@@ -24,6 +24,7 @@ set(EXEC_NAME UrlEncDecAAMP)
 include_directories(${AAMP_ROOT} ${AAMP_ROOT}/drm ${AAMP_ROOT}/downloader ${AAMP_ROOT}/drm/helper ${AAMP_ROOT}/subtitle ${AAMP_ROOT}/middleware/subtitle)
 include_directories(${AAMP_ROOT}/tsb/api)
 include_directories(${AAMP_ROOT}/middleware)
+include_directories(${AAMP_ROOT}/middleware/baseConversion)
 include_directories(${AAMP_ROOT}/middleware/subtec/libsubtec)
 
 include_directories(${GTEST_INCLUDE_DIRS})
@@ -38,8 +39,7 @@ set(TEST_SOURCES UrlEncDecTests.cpp
 
 # AampUtils.cpp is omitted, it is #include in the test file to allow testing of static function
 set(AAMP_SOURCES
-		${AAMP_ROOT}/iso639map.cpp
-		${AAMP_ROOT}/_base64.cpp)
+		${AAMP_ROOT}/iso639map.cpp)
 
 add_executable(${EXEC_NAME}
                ${TEST_SOURCES}
