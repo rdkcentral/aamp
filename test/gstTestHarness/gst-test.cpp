@@ -50,7 +50,7 @@ static enum ContentFormat
 	eCONTENTFORMAT_QTDEMUX,
 	eCONTENTFORMAT_TS_ES,
 	eCONTENTFORMAT_TSDEMUX,
-} mContentFormat = eCONTENTFORMAT_QTDEMUX;
+} mContentFormat = eCONTENTFORMAT_MP4_ES;
 
 static const char *mContentFormatDescription[] =
 {

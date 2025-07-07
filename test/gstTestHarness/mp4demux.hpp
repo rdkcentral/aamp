@@ -26,6 +26,7 @@
 #include <inttypes.h>
 #include <cstdio>
 #include <cstring> // for memcpy
+#include <string>
 #include <gst/app/gstappsrc.h>
 
 //#define PRINTF(...)
@@ -36,7 +37,7 @@
 (static_cast<uint32_t>(TEXT[0]) << 0x18) | \
 (static_cast<uint32_t>(TEXT[1]) << 0x10) | \
 (static_cast<uint32_t>(TEXT[2]) << 0x08) | \
-(static_cast<uint32_t>(TEXT[3])) )
+(static_cast<uint32_t>(TEXT[3]) << 0x00) )
 
 struct Mp4Sample
 {
@@ -77,23 +78,17 @@ public:
 	uint32_t stream_format;
 	uint32_t data_reference_index;
 	uint32_t codec_type;
-	char *compressor_name;
-	size_t codec_data_len;
-	uint8_t *codec_data;
+	std::string codec_data;
 	uint8_t is_encrypted;
 	uint8_t iv_size;
 	
 	InitializationHeaderInfo():
-	channel_count(), samplesize(), samplerate(), width(), height(), frame_count(), depth(), horizresolution(), vertresolution(), stream_format(), data_reference_index(), codec_type(), codec_data_len(), codec_data(), is_encrypted(), iv_size()
+	channel_count(), samplesize(), samplerate(), width(), height(), frame_count(), depth(), horizresolution(), vertresolution(), stream_format(), data_reference_index(), codec_type(), codec_data(), is_encrypted(), iv_size()
 	{
 	}
 	
 	~InitializationHeaderInfo()
 	{
-		if( codec_data )
-		{
-			free( codec_data );
-		}
 	}
 };
 
@@ -115,7 +110,7 @@ private:
 	std::vector<GstEvent *> protectionEvents;
 	
 	const uint8_t *moof_ptr; // base address for sample data
-	const uint8_t *ptr; // parsing state
+	const uint8_t *ptr; // parser state
 	
 	uint8_t version;
 	uint32_t flags;
@@ -172,7 +167,7 @@ private:
 	}
 	void SkipBytes( size_t len )
 	{
-		PRINTF( "skipping %zu bytes\n", len );
+		//PRINTF( "skipping %zu bytes\n", len );
 		ptr += len;
 	}
 	
@@ -184,11 +179,8 @@ private:
 	
 	void parseSchemeManagementBox( void )
 	{
-		// 00 00 00 00
-		// 63 65 6e 63 'cenc'
-		// 00 01 00 00
 		ReadHeader();
-		scheme_type = ReadU32();
+		scheme_type = ReadU32(); // 'cenc' or 'cbcs'
 		scheme_version = ReadU32();
 		PRINTF( "scheme_version=0x%x\n", scheme_version );
 	}
@@ -546,10 +538,37 @@ private:
 		DemuxHelper(next, indent+1);
 	}
 	
+	void parseVideoInformation( void )
+	{
+		SkipBytes(4); // always zero?
+		info.data_reference_index = ReadU32();
+		SkipBytes(16); // always zero?
+		info.width = ReadU16();
+		info.height = ReadU16();
+		info.horizresolution = ReadU32();
+		info.vertresolution = ReadU32();
+		SkipBytes(4);
+		info.frame_count = ReadU16();
+		SkipBytes(32); // compressor_name
+		info.depth = ReadU16();
+		int pad = ReadU16();
+		assert( pad == 0xffff );
+	}
+	
+	void parseAudioInformation( void )
+	{
+		SkipBytes(4); // zero
+		info.data_reference_index = ReadU32();
+		SkipBytes(8); // zero
+		info.channel_count = ReadU16();
+		info.samplesize = ReadU16();
+		SkipBytes(4); // zero
+		info.samplerate = ReadU16();
+		SkipBytes(2); // zero
+	}
+	
 	void parseStreamFormatBox( uint32_t type, const uint8_t *next, int indent )
 	{
-		int pad;
-		
 		info.stream_format = type;
 		switch( info.stream_format )
 		{
@@ -557,36 +576,17 @@ private:
 			case MultiChar_Constant("avc1"):
 			case MultiChar_Constant("hvc1"):
 			case MultiChar_Constant("encv"):
-				SkipBytes(4); // always zero?
-				info.data_reference_index = ReadU32();
-				SkipBytes(16); // always zero?
-				info.width = ReadU16();
-				info.height = ReadU16();
-				info.horizresolution = ReadU32();
-				info.vertresolution = ReadU32();
-				SkipBytes(4);
-				info.frame_count = ReadU16();
-				SkipBytes(32); // compressor_name
-				info.depth = ReadU16();
-				pad = ReadU16();
-				assert( pad == 0xffff );
+				parseVideoInformation();
 				break;
 				
 			case MultiChar_Constant("mp4a"):
 			case MultiChar_Constant("ec-3"):
 			case MultiChar_Constant("enca"):
-				SkipBytes(4); // zero
-				info.data_reference_index = ReadU32();
-				SkipBytes(8); // zero
-				info.channel_count = ReadU16();
-				info.samplesize = ReadU16();
-				SkipBytes(4); // zero
-				info.samplerate = ReadU16();
-				SkipBytes(2); // zero
+				parseAudioInformation();
 				break;
 				
 			default:
-				PRINTF( "unk stream_format\n" );
+				PRINTF( "unknown stream_format\n" );
 				assert(0);
 				break;
 		}
@@ -635,13 +635,8 @@ private:
 					
 				case 0x05:
 					PRINTF( "DecodeSpecificInfo:\n") ;
-					info.codec_data_len = len;
-					info.codec_data = (uint8_t *)malloc( len );
-					if( info.codec_data )
-					{
-						memcpy( info.codec_data, ptr, len );
-						ptr += len;
-					}
+					info.codec_data = std::string((char *)ptr,len);
+					ptr += len;
 					break;
 					
 				case 0x06:
@@ -668,12 +663,8 @@ private:
 		}
 		else
 		{
-			info.codec_data_len = next - ptr;
-			info.codec_data = (uint8_t *)malloc( info.codec_data_len );
-			if( info.codec_data )
-			{
-				memcpy( info.codec_data, ptr, info.codec_data_len );
-			}
+			size_t codec_data_len = next - ptr;
+			info.codec_data = std::string( (char *)ptr,codec_data_len );
 		}
 	}
 	
@@ -682,15 +673,14 @@ private:
 		while( ptr < fin )
 		{
 			uint32_t size = ReadU32();
-			PRINTF( "size=%" PRIu32 ":", size );
 			const uint8_t *next = ptr+size-4;
 			uint32_t type = ReadU32();
 			for( int i=0; i<indent; i++ )
 			{
 				PRINTF( "\t" );
 			}
-			PRINTF( "'%c%c%c%c'\n",
-				   (type>>24)&0xff, (type>>16)&0xff, (type>>8)&0xff, type&0xff );
+			PRINTF( "'%c%c%c%c' (%" PRIu32 ")\n",
+				   (type>>24)&0xff, (type>>16)&0xff, (type>>8)&0xff, type&0xff, size );
 			switch( type )
 			{
 				case MultiChar_Constant("hev1"):
@@ -840,7 +830,7 @@ private:
 				case MultiChar_Constant("mdat"): // Movie Data
 					break;
 					
-				case MultiChar_Constant("schm"): // Scheme Management
+				case MultiChar_Constant("schm"):
 					parseSchemeManagementBox();
 					break;
 					
@@ -950,8 +940,9 @@ public:
 	void setCaps( GstAppSrc *appsrc ) const
 	{
 		GstCaps * caps = NULL;
-		GstBuffer *buf = gst_buffer_new_and_alloc(info.codec_data_len);
-		gst_buffer_fill(buf, 0, info.codec_data, info.codec_data_len);
+		size_t codec_data_len = info.codec_data.size();
+		GstBuffer *buf = gst_buffer_new_and_alloc(codec_data_len);
+		gst_buffer_fill(buf, 0, info.codec_data.c_str(), codec_data_len );
 		switch( info.codec_type )
 		{
 			case MultiChar_Constant("hvcC"):
@@ -1025,9 +1016,9 @@ public:
 											NULL);
 		
 		const auto sample = samples[sampleIndex];
-		if( sample.iv.size() )
+		size_t iv_size = sample.iv.size();
+		if( iv_size )
 		{
-			size_t iv_size = sample.iv.size();
 			GstBuffer *iv_buf = gst_buffer_new_wrapped( (gpointer)sample.iv.c_str(), (gsize)iv_size );
 			gst_structure_set (s,
 							   "iv_size", G_TYPE_UINT, iv_size,
@@ -1036,9 +1027,9 @@ public:
 			gst_buffer_unref(iv_buf);
 		}
 		
-		if( sample.subsamples.size() )
+		size_t subsamples_size = sample.subsamples.size();
+		if( subsamples_size )
 		{
-			size_t subsamples_size = sample.subsamples.size();
 			GstBuffer *subsamples_buf = gst_buffer_new_wrapped( (gpointer)sample.subsamples.c_str(), (gsize)subsamples_size);
 			gst_structure_set (s,
 							   "subsample_count", G_TYPE_UINT, subsamples_size/6,
