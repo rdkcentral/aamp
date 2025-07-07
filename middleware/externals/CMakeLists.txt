@@ -144,7 +144,6 @@ target_link_libraries(playerfbinterface playerjsonobject)
 target_link_libraries(playerfbinterface playerlogmanager)
 target_link_libraries(playerfbinterface baseconversion)
 if(CMAKE_USE_SECCLIENT OR CMAKE_USE_SECMANAGER)
-    find_package(FireboltAamp CONFIG REQUIRED)
     target_link_libraries(playerfbinterface FireboltAamp::FireboltAamp)
 endif()
 
