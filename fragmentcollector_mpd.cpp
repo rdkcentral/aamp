@@ -8990,99 +8990,96 @@ void StreamAbstractionAAMP_MPD::AdvanceTrack(int trackIdx, bool trickPlay, doubl
 	{
 		AAMPLOG_WARN("[%s] No adaptation set", GetMediaTypeName(static_cast<AampMediaType>(trackIdx)));
 	}
-	// When injecting from TSBReader we do not want to stop the fetcher loop because of injector cache full. TSB injection
-	// uses numberOfFragmentChunksCached so assuming (pMediaStreamContext->numberOfFragmentsCached < maxCachedFragmentsPerTrack) == true
-	else if (pMediaStreamContext->numberOfFragmentsCached >= maxCachedFragmentsPerTrack)
-	{
-		AAMPLOG_INFO("[%s] Number of fragments cached %d has reached the maximum %d",
-			GetMediaTypeName(static_cast<AampMediaType>(trackIdx)), pMediaStreamContext->numberOfFragmentsCached, maxCachedFragmentsPerTrack);
-	}
-	else if (pMediaStreamContext->profileChanged)
-	{
-		AAMPLOG_INFO("[%s] Profile changed, not pushing next fragment", GetMediaTypeName(static_cast<AampMediaType>(trackIdx)));
-	}
-	// A pause in playback should not stop the fetcher loop during TSB injection.
-	else if (!aamp->IsLocalAAMPTsbInjection() && lowLatency && !aamp->TrackDownloadsAreEnabled(static_cast<AampMediaType>(trackIdx)))
-	{
-		AAMPLOG_INFO("[%s] Track disabled when watching live in low latency mode", GetMediaTypeName(static_cast<AampMediaType>(trackIdx)));
-	}
-	else if (pMediaStreamContext->eos)
-	{
-		AAMPLOG_INFO("[%s] EOS, not pushing next fragment", GetMediaTypeName(static_cast<AampMediaType>(trackIdx)));
-	}
 	else
 	{
-		if(trickPlay && pMediaStreamContext->mDownloadedFragment.GetPtr() == NULL && !pMediaStreamContext->freshManifest)
-		{
-			double skipTime = 0;
-			if (delta)
-			{
-				skipTime = *delta;
-			}
-			//When player started in trickplay rate during player switching, make sure that we are showing at least one frame (mainly to avoid cases where trickplay rate is so high that an ad could get skipped completely)
-			//TODO: Check for this condition?? delta is always zero from FetcherLoop
-			if(aamp->playerStartedWithTrickPlay)
-			{
-				AAMPLOG_WARN("Played switched in trickplay, delta set to zero");
-				skipTime = 0;
-				aamp->playerStartedWithTrickPlay = false;
-			}
-			else if((rate > 0 && skipTime <= 0) || (rate < 0 && skipTime >= 0))
-			{
-				skipTime = rate / vodTrickplayFPS;
-			}
-			double currFragTime = pMediaStreamContext->fragmentTime;
-			skipTime = SkipFragments(pMediaStreamContext, skipTime);
-			if (pMediaStreamContext->eos)
-			{
-				// If we reached end of period, only the remaining delta should be skipped in new period
-				// Otherwise we should skip based on formula rate/fps. This will also avoid any issues due to floating precision
-				*delta = skipTime;
-			}
-			else
-			{
-				*delta = 0;
-			}
-			mBasePeriodOffset += (pMediaStreamContext->fragmentTime - currFragTime);
-		}
-
-		if (PushNextFragment(pMediaStreamContext, getCurlInstanceByMediaType(static_cast<AampMediaType>(trackIdx))))
-		{
-			if (mIsLiveManifest)
-			{
-				pMediaStreamContext->GetContext()->CheckForPlaybackStall(true);
-			}
-			if((!pMediaStreamContext->GetContext()->trickplayMode) && (eMEDIATYPE_VIDEO == trackIdx)&& !pMediaStreamContext->failAdjacentSegment)
-			{
-				if (aamp->CheckABREnabled())
-				{
-					pMediaStreamContext->GetContext()->CheckForProfileChange();
-				}
-			}
-		}
-		else if (pMediaStreamContext->eos == true && mIsLiveManifest && trackIdx == eMEDIATYPE_VIDEO && !(ISCONFIGSET(eAAMPConfig_InterruptHandling) && mIsFogTSB))
-		{
-			pMediaStreamContext->GetContext()->CheckForPlaybackStall(false);
-		}
-
-		//Determining the current position within the period by calculating the difference between
-		//the fragmentTime and the periodStartOffset (both in absolute terms).
-		//If this difference exceeds the total duration of the ad, the period is considered to have ended.
-		if (AdState::IN_ADBREAK_AD_PLAYING == mCdaiObject->mAdState && rate > 0 && !(pMediaStreamContext->eos)&& mCdaiObject->CheckForAdTerminate(pMediaStreamContext->fragmentTime - pMediaStreamContext->periodStartOffset))
-		{
-			//Ensuring that Ad playback doesn't go beyond Adbreak
-			AAMPLOG_WARN("[CDAI] Track[%d] Adbreak ended early. Terminating Ad playback. fragmentTime[%lf] periodStartOffset[%lf]",
-								trackIdx, pMediaStreamContext->fragmentTime, pMediaStreamContext->periodStartOffset);
-			pMediaStreamContext->eos = true;
-		}
-		// Fetch init header for both audio and video ,after mpd refresh(stream selection) , profileChanged = true for both tracks .
+		// Fetch init header for both audio and video ,after mpd refresh(stream selection) , profileChanged = true for both tracks.
 		// Need to reset profileChanged flag which is done inside FetchAndInjectInitialization
-		// Without resetting profileChanged flag , fetch of audio was stopped causing audio drop
-		else if(pMediaStreamContext->profileChanged)
-		{	// Profile changed case
+		// Without resetting profileChanged flag, fetch of audio was stopped causing audio drop
+		if(pMediaStreamContext->profileChanged)
+		{
+			AAMPLOG_INFO("[%s] Profile changed, not pushing next fragment", GetMediaTypeName(static_cast<AampMediaType>(trackIdx)));
 			FetchAndInjectInitialization(trackIdx,isDiscontinuity);
 		}
-
+		// When injecting from TSBReader we do not want to stop the fetcher loop because of injector cache full. TSB injection
+		// uses numberOfFragmentChunksCached so assuming (pMediaStreamContext->numberOfFragmentsCached < maxCachedFragmentsPerTrack) == true
+		else if (pMediaStreamContext->numberOfFragmentsCached >= maxCachedFragmentsPerTrack)
+		{
+			AAMPLOG_INFO("[%s] Number of fragments cached %d has reached the maximum %d",
+				GetMediaTypeName(static_cast<AampMediaType>(trackIdx)), pMediaStreamContext->numberOfFragmentsCached, maxCachedFragmentsPerTrack);
+		}
+		// A pause in playback should not stop the fetcher loop during TSB injection.
+		else if (!aamp->IsLocalAAMPTsbInjection() && lowLatency && !aamp->TrackDownloadsAreEnabled(static_cast<AampMediaType>(trackIdx)))
+		{
+			AAMPLOG_INFO("[%s] Track disabled when watching live in low latency mode", GetMediaTypeName(static_cast<AampMediaType>(trackIdx)));
+		}
+		else if (pMediaStreamContext->eos)
+		{
+			AAMPLOG_INFO("[%s] EOS, not pushing next fragment", GetMediaTypeName(static_cast<AampMediaType>(trackIdx)));
+		}
+		else
+		{
+			if(trickPlay && pMediaStreamContext->mDownloadedFragment.GetPtr() == NULL && !pMediaStreamContext->freshManifest)
+			{
+				double skipTime = 0;
+				if (delta)
+				{
+					skipTime = *delta;
+				}
+				//When player started in trickplay rate during player switching, make sure that we are showing at least one frame (mainly to avoid cases where trickplay rate is so high that an ad could get skipped completely)
+				//TODO: Check for this condition?? delta is always zero from FetcherLoop
+				if(aamp->playerStartedWithTrickPlay)
+				{
+					AAMPLOG_WARN("Played switched in trickplay, delta set to zero");
+					skipTime = 0;
+					aamp->playerStartedWithTrickPlay = false;
+				}
+				else if((rate > 0 && skipTime <= 0) || (rate < 0 && skipTime >= 0))
+				{
+					skipTime = rate / vodTrickplayFPS;
+				}
+				double currFragTime = pMediaStreamContext->fragmentTime;
+				skipTime = SkipFragments(pMediaStreamContext, skipTime);
+				if (pMediaStreamContext->eos)
+				{
+					// If we reached end of period, only the remaining delta should be skipped in new period
+					// Otherwise we should skip based on formula rate/fps. This will also avoid any issues due to floating precision
+					*delta = skipTime;
+				}
+				else
+				{
+					*delta = 0;
+				}
+				mBasePeriodOffset += (pMediaStreamContext->fragmentTime - currFragTime);
+			}
+			if (PushNextFragment(pMediaStreamContext, getCurlInstanceByMediaType(static_cast<AampMediaType>(trackIdx))))
+			{
+				if (mIsLiveManifest)
+				{
+					pMediaStreamContext->GetContext()->CheckForPlaybackStall(true);
+				}
+				if((!pMediaStreamContext->GetContext()->trickplayMode) && (eMEDIATYPE_VIDEO == trackIdx)&& !pMediaStreamContext->failAdjacentSegment)
+				{
+					if (aamp->CheckABREnabled())
+					{
+						pMediaStreamContext->GetContext()->CheckForProfileChange();
+					}
+				}
+			}
+			else if (pMediaStreamContext->eos == true && mIsLiveManifest && trackIdx == eMEDIATYPE_VIDEO && !(ISCONFIGSET(eAAMPConfig_InterruptHandling) && mIsFogTSB))
+			{
+				pMediaStreamContext->GetContext()->CheckForPlaybackStall(false);
+			}
+			//Determining the current position within the period by calculating the difference between
+			//the fragmentTime and the periodStartOffset (both in absolute terms).
+			//If this difference exceeds the total duration of the ad, the period is considered to have ended.
+			if (AdState::IN_ADBREAK_AD_PLAYING == mCdaiObject->mAdState && rate > 0 && !(pMediaStreamContext->eos)&& mCdaiObject->CheckForAdTerminate(pMediaStreamContext->fragmentTime - pMediaStreamContext->periodStartOffset))
+			{
+				//Ensuring that Ad playback doesn't go beyond Adbreak
+				AAMPLOG_WARN("[CDAI] Track[%d] Adbreak ended early. Terminating Ad playback. fragmentTime[%lf] periodStartOffset[%lf]",
+									trackIdx, pMediaStreamContext->fragmentTime, pMediaStreamContext->periodStartOffset);
+				pMediaStreamContext->eos = true;
+			}
+		}
 		if((pMediaStreamContext->numberOfFragmentsCached != maxCachedFragmentsPerTrack) && bCacheFullState &&
 			( !lowLatency || aamp->TrackDownloadsAreEnabled(static_cast<AampMediaType>(trackIdx))))
 		{
