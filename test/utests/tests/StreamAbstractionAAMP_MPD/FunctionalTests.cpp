@@ -2795,26 +2795,26 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 	AAMPStatusType status = InitializeMPD(manifest);
 	EXPECT_EQ(status, eAAMPSTATUS_OK);
 
-    std::shared_ptr<AampTsbDataManager> dataMgr = std::make_shared<AampTsbDataManager>();
-    std::shared_ptr<AampTsbReader> tsbReader = std::make_shared<AampTsbReader>(mPrivateInstanceAAMP, dataMgr, eMEDIATYPE_VIDEO, "");
+	std::shared_ptr<AampTsbDataManager> dataMgr = std::make_shared<AampTsbDataManager>();
+	std::shared_ptr<AampTsbReader> tsbReader = std::make_shared<AampTsbReader>(mPrivateInstanceAAMP, dataMgr, eMEDIATYPE_VIDEO, "");
 
 	g_mockTSBSessionManager = new MockTSBSessionManager(mPrivateInstanceAAMP);
-   	g_mockTSBReader = std::make_shared<MockTSBReader>();
+	g_mockTSBReader = std::make_shared<MockTSBReader>();
 
 	ASSERT_NE(g_mockTSBSessionManager, nullptr);
 	ASSERT_NE(g_mockTSBReader, nullptr);
 
 	MediaTrack *videoTrack = mStreamAbstractionAAMP_MPD->GetMediaTrack(eTRACK_VIDEO);
-    ASSERT_NE(videoTrack, nullptr);
-    videoTrack->SetLocalTSBInjection(true);
+	ASSERT_NE(videoTrack, nullptr);
+	videoTrack->SetLocalTSBInjection(true);
 
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetTSBSessionManager()).WillRepeatedly(Return(g_mockTSBSessionManager));
-    EXPECT_CALL(*g_mockTSBSessionManager, GetTsbReader(eMEDIATYPE_VIDEO)).WillRepeatedly(Return(tsbReader));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetTSBSessionManager()).WillRepeatedly(Return(g_mockTSBSessionManager));
+	EXPECT_CALL(*g_mockTSBSessionManager, GetTsbReader(eMEDIATYPE_VIDEO)).WillRepeatedly(Return(tsbReader));
 
-    EXPECT_CALL(*g_mockTSBReader, GetFirstPTS()).WillOnce(Return(5.0));
-    EXPECT_CALL(*g_mockTSBReader, GetFirstPTSOffset()).WillOnce(Return(10.0));
-    
-    EXPECT_EQ(15.0, mStreamAbstractionAAMP_MPD->GetFirstPTS());
+	EXPECT_CALL(*g_mockTSBReader, GetFirstPTS()).WillOnce(Return(5.0));
+	EXPECT_CALL(*g_mockTSBReader, GetFirstPTSOffset()).WillOnce(Return(10.0));
+
+	EXPECT_EQ(15.0, mStreamAbstractionAAMP_MPD->GetFirstPTS());
 
 	delete g_mockTSBSessionManager;
 	g_mockTSBReader.reset();

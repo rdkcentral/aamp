@@ -801,6 +801,9 @@ TEST_F(FetcherLoopTests, DetectDiscotinuityAndFetchInitTests2)
 TEST_F(FetcherLoopTests, BasicFetcherLoop)
 {
 	std::string fragmentUrl;
+	const double expectedFirstPTS = 0.0;
+	const AampTime expectedFirstPTSOffset = 30.0;
+
 	AAMPStatusType status;
 	mPrivateInstanceAAMP->rate = AAMP_NORMAL_PLAY_RATE;
 	/* Initialize MPD. The video initialization segment is cached. */
@@ -835,11 +838,11 @@ TEST_F(FetcherLoopTests, BasicFetcherLoop)
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetTSBSessionManager()).WillRepeatedly(Return(nullptr));
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnablePTSReStamp)).WillOnce(Return(false));
 	// GetFirstPTS should return the first PTS value if EnablePTSReStamp is not set */
-	EXPECT_EQ(0.0, mTestableStreamAbstractionAAMP_MPD->GetFirstPTS());
+	EXPECT_EQ(expectedFirstPTS, mTestableStreamAbstractionAAMP_MPD->GetFirstPTS());
 
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnablePTSReStamp)).WillOnce(Return(true));
 	// GetFirstPTS should return the restamped first PTS value if EnablePTSReStamp is set */
-	EXPECT_EQ(30.0, mTestableStreamAbstractionAAMP_MPD->GetFirstPTS());
+	EXPECT_EQ(expectedFirstPTS + expectedFirstPTSOffset.inSeconds(), mTestableStreamAbstractionAAMP_MPD->GetFirstPTS());
 }
 
 /**

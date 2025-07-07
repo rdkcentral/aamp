@@ -8959,7 +8959,7 @@ void StreamAbstractionAAMP_MPD::AdvanceTrack(int trackIdx, bool trickPlay, doubl
 	int  maxCachedFragmentsPerTrack = GETCONFIGVALUE(eAAMPConfig_MaxFragmentCached);
 	int  vodTrickplayFPS = GETCONFIGVALUE(eAAMPConfig_VODTrickPlayFPS);
 
-	AAMPLOG_TRACE("StreamAbstractionAAMP_MPD::AdvanceTrack: trackIdx %d, trickPlay %d, delta %p, waitForFreeFrag %d, bCacheFullState %d, throttleAudioDownload %d, isDiscontinuity %d",
+	AAMPLOG_TRACE("trackIdx %d, trickPlay %d, delta %p, waitForFreeFrag %d, bCacheFullState %d, throttleAudioDownload %d, isDiscontinuity %d",
 			trackIdx, trickPlay, delta, waitForFreeFrag, bCacheFullState, throttleAudioDownload, isDiscontinuity);
 
 	if (waitForFreeFrag && !trickPlay)
@@ -10928,9 +10928,9 @@ StreamInfo* StreamAbstractionAAMP_MPD::GetStreamInfo(int idx)
 
 
 /**
- *   @brief  Get PTS of first sample.
+ *   @brief  Get (restamped) PTS of first sample.
  *
- *   @retval PTS of first sample
+ *   @retval PTS of first sample, restamped if PTS restamping is enabled.
  */
 double StreamAbstractionAAMP_MPD::GetFirstPTS()
 {
