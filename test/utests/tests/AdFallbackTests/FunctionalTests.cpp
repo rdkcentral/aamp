@@ -166,12 +166,11 @@ class AdFallbackTests : public ::testing::Test
 				mStreamAbstractionAAMP_MPD = nullptr;
 			}
 
-			delete mPrivateInstanceAAMP;
-			mPrivateInstanceAAMP = nullptr;
-
-
 			delete mCdaiObj;
 			mCdaiObj = nullptr;
+
+			delete mPrivateInstanceAAMP;
+			mPrivateInstanceAAMP = nullptr;
 
 			delete gpGlobalConfig;
 			gpGlobalConfig = nullptr;
