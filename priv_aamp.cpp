@@ -13807,6 +13807,7 @@ void PrivateInstanceAAMP::SendNewSegmentEvent( AampMediaType mediaType, double s
 	StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
 	if(sink)
 	{
+		AAMPLOG_WARN("RESHMA-->> CALLING GSTREAMER SENDNEWSEGMENTEVENT INSIDE");
 		sink->SendNewSegmentEvent(mediaType, startPts, stopPts);
 	}
 }

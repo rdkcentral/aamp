@@ -1328,6 +1328,7 @@ void AAMPGstPlayer::StopMonitorAvTimer()
  */
 void AAMPGstPlayer::SendNewSegmentEvent(AampMediaType mediaType, double startPts, double stopPts)
 {
+	AAMPLOG_WARN("RESHMA-> INSIDE AAMPGSTPLAYER SENDNEWSEGMENT");
 	GstMediaType type = static_cast<GstMediaType>(mediaType);
 	GstClockTime sendingPts = (GstClockTime)(startPts*GST_SECOND);
 	playerInstance->SendNewSegmentEvent(type, sendingPts, 0 );
