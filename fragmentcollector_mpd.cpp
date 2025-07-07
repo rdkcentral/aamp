@@ -5474,7 +5474,6 @@ void StreamAbstractionAAMP_MPD::TrackDownloader(int trackIdx, std::string initia
 	double fragmentDuration = 0.0;
 	class MediaStreamContext *pMediaStreamContext = mMediaStreamContext[trackIdx];
 
-
 	//Calling WaitForFreeFragmentAvailable timeout as 0 since waiting for one tracks
 	//init header fetch can slow down fragment downloads for other track
 	if(pMediaStreamContext->WaitForFreeFragmentAvailable(0))
@@ -8695,6 +8694,7 @@ void StreamAbstractionAAMP_MPD::FetchAndInjectInitialization(int trackIdx, bool 
 
 									AAMPLOG_INFO("%s [%s]", GetMediaTypeName(pMediaStreamContext->mediaType),
 											range.c_str());
+
 									if(pMediaStreamContext->WaitForFreeFragmentAvailable(0))
 									{
 										pMediaStreamContext->profileChanged = false;
@@ -8956,7 +8956,6 @@ void StreamAbstractionAAMP_MPD::AdvanceTrack(int trackIdx, bool trickPlay, doubl
 	class MediaStreamContext *pMediaStreamContext = mMediaStreamContext[trackIdx];
 	bool lowLatency = aamp->GetLLDashServiceData()->lowLatencyMode;
 	bool isAllowNextFrag = true;
-	int  maxCachedFragmentsPerTrack = GETCONFIGVALUE(eAAMPConfig_MaxFragmentCached);
 	int  vodTrickplayFPS = GETCONFIGVALUE(eAAMPConfig_VODTrickPlayFPS);
 
 	if (waitForFreeFrag && !trickPlay)
@@ -8973,7 +8972,7 @@ void StreamAbstractionAAMP_MPD::AdvanceTrack(int trackIdx, bool trickPlay, doubl
 		else
 		{
 			int timeoutMs = -1;
-			if(bCacheFullState && (pMediaStreamContext->numberOfFragmentsCached == maxCachedFragmentsPerTrack))
+			if (bCacheFullState && pMediaStreamContext->IsFragmentCacheFull())
 			{
 				timeoutMs = MAX_WAIT_TIMEOUT_MS;
 			}
@@ -8984,7 +8983,14 @@ void StreamAbstractionAAMP_MPD::AdvanceTrack(int trackIdx, bool trickPlay, doubl
 	if (!isAllowNextFrag)
 	{
 		// Important DEBUG area, live downloader is delayed due to some external factors (Injector or Gstreamer)
-		AAMPLOG_ERR("%s Live downloader is not advancing at the moment cache (%d / %d)", GetMediaTypeName((AampMediaType) trackIdx), pMediaStreamContext->numberOfFragmentsCached, maxCachedFragmentsPerTrack);
+		if (pMediaStreamContext->IsInjectionFromCachedFragmentChunks())
+		{
+			AAMPLOG_ERR("%s Live downloader is not advancing at the moment cache (%d / %d)", GetMediaTypeName((AampMediaType)trackIdx), pMediaStreamContext->numberOfFragmentChunksCached, pMediaStreamContext->maxCachedFragmentChunksPerTrack);
+		}
+		else
+		{
+			AAMPLOG_ERR("%s Live downloader is not advancing at the moment cache (%d / %d)", GetMediaTypeName((AampMediaType)trackIdx), pMediaStreamContext->numberOfFragmentsCached, pMediaStreamContext->maxCachedFragmentsPerTrack);
+		}
 	}
 	else if (!pMediaStreamContext->adaptationSet)
 	{
@@ -10531,14 +10537,16 @@ void StreamAbstractionAAMP_MPD::StartFromAampLocalTsb(void)
 
 		// For seek to live, we will employ chunk cache and hence size has to be increased to max
 		// For other tune types, we don't need chunks so revert to max cache fragment size
-		if (mTuneType == eTUNETYPE_SEEKTOLIVE)
+
+		if ((mTuneType == eTUNETYPE_SEEKTOLIVE) && (aamp->GetLLDashChunkMode()))
 		{
-			mMediaStreamContext[i]->SetCachedFragmentChunksSize(size_t(GETCONFIGVALUE(eAAMPConfig_MaxFragmentChunkCached)));
+			mMediaStreamContext[i]->SetCachedFragmentChunksSize(size_t(mMediaStreamContext[i]->maxCachedFragmentChunksPerTrack));
 		}
 		else
 		{
-			mMediaStreamContext[i]->SetCachedFragmentChunksSize(size_t(GETCONFIGVALUE(eAAMPConfig_MaxFragmentCached)));
+			mMediaStreamContext[i]->SetCachedFragmentChunksSize(size_t(mMediaStreamContext[i]->maxCachedFragmentsPerTrack));
 		}
+
 		mMediaStreamContext[i]->eosReached = false;
 		if(aamp->IsPlayEnabled())
 		{
