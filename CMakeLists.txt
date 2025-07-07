@@ -638,13 +638,23 @@ set(GSTTESTHARNESS_DEPENDS
 )
 set(GSTTESTHARNESS_SOURCES
 	test/gstTestHarness/gst-port.cpp
+	test/gstTestHarness/gst-port.h
 	test/gstTestHarness/gst-utils.cpp
+	test/gstTestHarness/gst-utils.h
 	test/gstTestHarness/gst-test.cpp
+	test/gstTestHarness/gst-test.h
 	test/gstTestHarness/mp4demux.cpp
+	test/gstTestHarness/mp4demux.hpp
 	test/gstTestHarness/dash_adapter.cpp
+	test/gstTestHarness/dash_adapter.hpp
 	test/gstTestHarness/downloader.cpp
+	test/gstTestHarness/downloader.hpp
 	test/gstTestHarness/stream_utils.cpp
+	test/gstTestHarness/stream_utils.hpp
 	test/gstTestHarness/string_utils.cpp
+	test/gstTestHarness/string_utils.hpp
+	test/gstTestHarness/tsdemux.hpp
+	test/gstTestHarness/turbo_xml.hpp
 )
 add_executable(gstTestHarness ${GSTTESTHARNESS_SOURCES})
 target_link_libraries(gstTestHarness ${GSTTESTHARNESS_DEPENDS} "-lreadline")

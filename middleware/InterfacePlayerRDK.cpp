@@ -2961,7 +2961,7 @@ bool InterfacePlayerRDK::SendHelper(int type, const void *ptr, size_t len, doubl
 				}
 				else
 				{ // init header
-					timescale[mediaType] = mp4Demux->timescale;
+					timescale[mediaType] = mp4Demux->getTimeScale();
 					mp4Demux->setCaps( GST_APP_SRC(stream->source) );
 				}
 				delete mp4Demux;

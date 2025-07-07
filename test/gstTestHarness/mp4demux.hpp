@@ -45,6 +45,10 @@ struct Mp4Sample
 	double pts;
 	double dts;
 	double duration;
+	
+	// encryption-specific
+	std::string subsamples;
+	std::string iv;
 };
 
 class InitializationHeaderInfo
@@ -95,10 +99,8 @@ public:
 
 class Mp4Demux
 {
-public:
-	uint32_t timescale;
-	
 private:
+	uint32_t timescale;
 	InitializationHeaderInfo info;
 	std::vector<Mp4Sample> samples;
 	
@@ -110,8 +112,6 @@ private:
 	uint32_t scheme_version;
 	std::string originalMediaType;
 	std::vector<uint8_t> cenc_aux_info_sizes;
-	std::vector<std::string> iv;
-	std::vector<std::string> subsamples;
 	std::vector<GstEvent *> protectionEvents;
 	
 	const uint8_t *moof_ptr; // base address for sample data
@@ -200,6 +200,8 @@ private:
 		// 00 00 01 08
 		uint8_t reserved = *ptr++; (void)reserved;
 		uint8_t possible_pattern_info = *ptr++;
+		
+		// below needed for cbcs?
 		int crypt_byte_block = (possible_pattern_info >> 4) & 0x0f; (void)crypt_byte_block;
 		int skip_byte_block = possible_pattern_info & 0x0f; (void)skip_byte_block;
 		// "crypt_byte_block", G_TYPE_UINT, crypt_byte_block,
@@ -224,12 +226,14 @@ private:
 		gchar *system_id = g_strdup_printf( "%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x",
 										   ptr[0x0], ptr[0x1], ptr[0x2], ptr[0x3], ptr[0x4], ptr[0x5], ptr[0x6], ptr[0x7],
 										   ptr[0x8], ptr[0x9], ptr[0xa], ptr[0xb], ptr[0xc], ptr[0xd], ptr[0xe], ptr[0xf] );
-		PRINTF( "system_id: '%s'\n", system_id );
 		ptr += 16;
+		PRINTF( "system_id: '%s'\n", system_id );
+		
 		size_t pssh_size = next - ptr;
 		GstBuffer *pssh = gst_buffer_new_memdup(ptr, pssh_size);
 		GstEvent *event = gst_event_new_protection(system_id, pssh, "isobmff/moov" ); // or isobmff/moof
 		//g_queue_push_tail (&stream->protection_scheme_event_queue, gst_event_ref (event));
+		//gst_pad_push_event (pad, gst_event_ref (event));
 		protectionEvents.push_back(event);
 		g_free (system_id);
 		//gst_event_unref(event);
@@ -330,10 +334,11 @@ private:
 	{
 		ReadHeader();
 		uint32_t sampleCount = ReadU32();
+		assert( samples.size() == sampleCount );
 		for( auto iSample=0; iSample<sampleCount; iSample++ )
 		{
 			assert( info.iv_size );
-			iv.push_back(std::string((char *)ptr,info.iv_size));
+			samples[iSample].iv = std::string((char *)ptr,info.iv_size);
 			PRINTF( "\t" );
 			for( int i=0; i<info.iv_size; i++ )
 			{
@@ -346,7 +351,7 @@ private:
 			{ // sub sample encryption
 				uint16_t n_subsamples = ReadU16();
 				size_t subsamples_size = n_subsamples * 6;
-				subsamples.push_back(std::string((char *)ptr,subsamples_size));
+				samples[iSample].subsamples = std::string((char *)ptr,subsamples_size);
 				for( int i=0; i<subsamples_size; i++ )
 				{
 					PRINTF( " %02x", ptr[i] );
@@ -1019,14 +1024,11 @@ public:
 											"cipher-mode", G_TYPE_STRING, "cenc",
 											NULL);
 		
-		if( iv.size() )
+		const auto sample = samples[sampleIndex];
+		if( sample.iv.size() )
 		{
-			const std::string &iv_string = iv[sampleIndex];
-			size_t iv_size = iv_string.size();
-			
-			GstBuffer *iv_buf = gst_buffer_new_wrapped(
-													   (gpointer)iv_string.c_str(),
-													   (gsize)iv_size);
+			size_t iv_size = sample.iv.size();
+			GstBuffer *iv_buf = gst_buffer_new_wrapped( (gpointer)sample.iv.c_str(), (gsize)iv_size );
 			gst_structure_set (s,
 							   "iv_size", G_TYPE_UINT, iv_size,
 							   "iv", GST_TYPE_BUFFER, iv_buf,
@@ -1034,13 +1036,10 @@ public:
 			gst_buffer_unref(iv_buf);
 		}
 		
-		if( subsamples.size() )
+		if( sample.subsamples.size() )
 		{
-			const std::string &subsamples_string = subsamples[sampleIndex];
-			size_t subsamples_size = subsamples_string.size();
-			GstBuffer *subsamples_buf = gst_buffer_new_wrapped(
-															   (gpointer)subsamples_string.c_str(),
-															   (gsize)subsamples_size);
+			size_t subsamples_size = sample.subsamples.size();
+			GstBuffer *subsamples_buf = gst_buffer_new_wrapped( (gpointer)sample.subsamples.c_str(), (gsize)subsamples_size);
 			gst_structure_set (s,
 							   "subsample_count", G_TYPE_UINT, subsamples_size/6,
 							   "subsamples", GST_TYPE_BUFFER, subsamples_buf,
