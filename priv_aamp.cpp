@@ -6092,8 +6092,8 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
                StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
                if(prevTuneUrl==mManifestUrl.c_str())
 			   {
-                      AAMPLOG_WARN("Hack-->URLs are same hence calling stop()");
-                     sink->Stop(true);
+                     AAMPLOG_WARN("Hack-->URLs are same hence calling stop()");
+                     return;
               }
 			  prevTuneUrl=mManifestUrl.c_str();
 		if(!mMPDStichRefreshUrl.empty())
