@@ -543,7 +543,7 @@ void ContentProtectionFirebolt::ShowWatermark(bool show, int64_t sessionId)
 
 	std::lock_guard<std::mutex> lock(mContentProtectionMutex);
 	// Call the showWatermark method from the interface
-	auto result = Firebolt::IFireboltAampAccessor::Instance().ContentProtectionInterface().showWatermark(std::to_string(sessionId), show);
+	auto result = Firebolt::IFireboltAampAccessor::Instance().ContentProtectionInterface().showWatermark(std::to_string(sessionId), show, 0);
 	// Check for errors
 	if (result.error() == Firebolt::Error::None) {
 		// No error, watermark visibility was successfully set
