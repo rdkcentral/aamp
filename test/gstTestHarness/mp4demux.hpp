@@ -49,6 +49,8 @@ struct Mp4Sample
 	
 	std::string subsamples;
 	std::string iv;
+	//GstStructure *default_properties
+	//GPtrArray *crypto_info
 };
 
 class Mp4Demux
@@ -86,13 +88,13 @@ private:
 	uint8_t crypt_byte_block;
 	uint8_t skip_byte_block;
 	uint8_t constant_iv_size;
-	const uint8_t *constant_iv;
+	std::string constant_iv;
 	
 	uint32_t timescale;
 	std::vector<Mp4Sample> samples;
 	
 	// encryption-specific data
-	std::string kid;
+	std::string default_kid;
 	bool got_auxiliary_information_offset;
 	uint64_t auxiliary_information_offset;
 	uint32_t scheme_type; // 'cenc' or 'cbcs'
@@ -137,30 +139,35 @@ private:
 		}
 		return rc;
 	}
+	
 	uint16_t ReadU16()
 	{
 		return (uint16_t)ReadBytes(2);
 	}
+	
 	uint32_t ReadU32()
 	{
 		return (uint32_t)ReadBytes(4);
 	}
+	
 	int32_t ReadI32()
 	{
 		return (int32_t)ReadBytes(4);
 	}
+	
 	uint64_t ReadU64()
 	{
 		return ReadBytes(8);
 	}
+	
 	void ReadHeader( void )
 	{
 		version = *ptr++;
 		flags = (uint32_t)ReadBytes(3);
 	}
+	
 	void SkipBytes( size_t len )
 	{
-		//PRINTF( "skipping %zu bytes\n", len );
 		ptr += len;
 	}
 	
@@ -180,26 +187,28 @@ private:
 	void parseTrackEncryptionBox( void )
 	{
 		ReadHeader();
-		
-		// 00 00 01 08
-		uint8_t reserved = *ptr++; (void)reserved;
-		uint8_t possible_pattern_info = *ptr++;
-		crypt_byte_block = (possible_pattern_info >> 4) & 0x0f;
-		skip_byte_block = possible_pattern_info & 0x0f;
+
+		ptr++; // skip
+		uint8_t pattern = *ptr++;
+		if( scheme_type == MultiChar_Constant("cbcs") )
+		{
+			crypt_byte_block = (pattern>>4) & 0xf;
+			skip_byte_block = pattern & 0xf;
+		}
 		is_encrypted = *ptr++;
 		iv_size = *ptr++;
-		
-		// 8d e6 24 2e 66 01 52 18 88 41 ac e2 76 1b 41 3f // kid: 8de6242e-6601-5218-8841-ace2761b413f
-		kid = std::string((char *)ptr,16);
+
+		default_kid = std::string((char *)ptr,16);
 		ptr += 16;
-		
 		if( scheme_type == MultiChar_Constant("cbcs") )
 		{
 			constant_iv_size = *ptr++;
-			constant_iv = ptr;
+			assert( constant_iv_size==8 || constant_iv_size==16 );
+			constant_iv = std::string((char *)ptr,constant_iv_size);
 			ptr += constant_iv_size;
 		}
 	}
+	
 	/*
 	 12 24 "8de6242e-6601-5218-8841-ace2761b413f"	// kid
 	 12 24 "2e9b8068-fa3a-c50f-4781-550aae5986ad"	// kid
@@ -335,7 +344,6 @@ private:
 				}
 				ptr += iv_size;
 			}
-			PRINTF( ":" );
 			
 			if( flags&2 )
 			{ // sub sample encryption
@@ -347,8 +355,12 @@ private:
 					PRINTF( " %02x", ptr[i] );
 				}
 				ptr += subsamples_size;
+				PRINTF("\n");
 			}
-			PRINTF("\n");
+			else if( iv_size )
+			{
+				PRINTF("\n");
+			}
 		}
 	}
 	
@@ -700,17 +712,17 @@ private:
 					parseProtectionSystemSpecificHeaderBox(next);
 					break;
 					
-				case MultiChar_Constant("saio"):
+				case MultiChar_Constant("saio"): // points to first IV in senc box
 					parseSampleAuxiliaryInformationOffsets();
 					assert( ptr == next );
 					break;
 					
-				case MultiChar_Constant("saiz"):
+				case MultiChar_Constant("saiz"): // defines size of senc entries
 					parseSampleAuxiliaryInformationSizes();
 					assert( ptr == next );
 					break;
 					
-				case MultiChar_Constant("senc"):
+				case MultiChar_Constant("senc"): // modern, optional
 					parseSampleEncryptionBox();
 					break;
 					
@@ -824,13 +836,15 @@ public:
 		cenc_aux_info_sizes.clear();
 		got_auxiliary_information_offset = false;
 		moof_ptr = NULL;
-		
-		this->ptr = (const uint8_t *)ptr;
-		indent = 16+1;
-		DemuxHelper( &this->ptr[len] );
+		if( ptr )
+		{
+			this->ptr = (const uint8_t *)ptr;
+			indent = 16+1;
+			DemuxHelper( &this->ptr[len] );
+		}
 	}
 	
-	Mp4Demux() : audio{}, video{}, stream_format(), data_reference_index(), codec_type(), codec_data(), is_encrypted(), iv_size(), crypt_byte_block(), skip_byte_block(), constant_iv_size(), constant_iv(), timescale(), samples(), kid(), got_auxiliary_information_offset(), auxiliary_information_offset(), scheme_type(), scheme_version(), original_media_type(), cenc_aux_info_sizes(), protectionEvents(), moof_ptr(), ptr(), indent(), version(), flags(), baseMediaDecodeTime(), fragment_duration(), track_id(), base_data_offset(), default_sample_description_index(), default_sample_duration(), default_sample_size(), default_sample_flags(), creation_time(), modification_time(), duration(), rate(), volume(), matrix{}, layer(), alternate_group(), width_fixed(), height_fixed(), language()
+	Mp4Demux() : audio{}, video{}, stream_format(), data_reference_index(), codec_type(), codec_data(), is_encrypted(), iv_size(), crypt_byte_block(), skip_byte_block(), constant_iv_size(), constant_iv(), timescale(), samples(), default_kid(), got_auxiliary_information_offset(), auxiliary_information_offset(), scheme_type(), scheme_version(), original_media_type(), cenc_aux_info_sizes(), protectionEvents(), moof_ptr(), ptr(), indent(), version(), flags(), baseMediaDecodeTime(), fragment_duration(), track_id(), base_data_offset(), default_sample_description_index(), default_sample_duration(), default_sample_size(), default_sample_flags(), creation_time(), modification_time(), duration(), rate(), volume(), matrix{}, layer(), alternate_group(), width_fixed(), height_fixed(), language()
 	{
 	}
 	
@@ -979,19 +993,21 @@ public:
 				0x00
 			};
 			
+			GstBuffer *kid_buf = gst_buffer_new_memdup( (gpointer)default_kid.c_str(), (gsize)default_kid.size() );
 			metadata = gst_structure_new(
 										 "application/x-cenc",
 										 "encrypted", G_TYPE_BOOLEAN, TRUE,
-										 "kid", GST_TYPE_BUFFER, kid.c_str(),
+										 "kid", GST_TYPE_BUFFER, kid_buf,
 										 "original-media-type", G_TYPE_STRING, original_media_type_string,
 										 "cipher-mode", G_TYPE_STRING, cipher_mode_string,
 										 NULL);
+			gst_buffer_unref( kid_buf );
 			
 			const Mp4Sample &sample = samples[sampleIndex];
 			size_t iv_size = sample.iv.size();
 			if( iv_size )
 			{
-				GstBuffer *iv_buf = gst_buffer_new_wrapped( (gpointer)sample.iv.c_str(), (gsize)iv_size );
+				GstBuffer *iv_buf = gst_buffer_new_memdup( (gpointer)sample.iv.c_str(), (gsize)iv_size );
 				gst_structure_set(metadata,
 								  "iv_size", G_TYPE_UINT, iv_size,
 								  "iv", GST_TYPE_BUFFER, iv_buf,
@@ -1002,7 +1018,7 @@ public:
 			size_t subsamples_size = sample.subsamples.size();
 			if( subsamples_size )
 			{
-				GstBuffer *subsamples_buf = gst_buffer_new_wrapped( (gpointer)sample.subsamples.c_str(), (gsize)subsamples_size);
+				GstBuffer *subsamples_buf = gst_buffer_new_memdup( (gpointer)sample.subsamples.c_str(), (gsize)subsamples_size);
 				gst_structure_set(metadata,
 								  "subsample_count", G_TYPE_UINT, subsamples_size/6,
 								  "subsamples", GST_TYPE_BUFFER, subsamples_buf,
@@ -1012,8 +1028,7 @@ public:
 			
 			if( scheme_type == MultiChar_Constant("cbcs") )
 			{
-				GstBuffer *constant_iv_buf = gst_buffer_new_allocate (NULL, constant_iv_size, NULL);
-				gst_buffer_fill( constant_iv_buf, 0, constant_iv, constant_iv_size );
+				GstBuffer *constant_iv_buf = gst_buffer_new_memdup( (gpointer)constant_iv.c_str(), (gsize)constant_iv_size);
 				gst_structure_set(metadata,
 								  "iv", GST_TYPE_BUFFER, constant_iv_buf,
 								  "constant_iv_size", G_TYPE_UINT, constant_iv_size,
@@ -1023,6 +1038,17 @@ public:
 				gst_buffer_unref( constant_iv_buf );
 			}
 		}
+		
+		if( metadata )
+		{ // serialize and print the metadata
+			gchar *structure_string = gst_structure_to_string( metadata );
+			g_print("metadata: %s\n", structure_string);
+			g_free(structure_string);
+
+			// gst_structure_free( metadata );
+			// metadata = NULL;
+		}
+		
 		return metadata;
 	}
 	
