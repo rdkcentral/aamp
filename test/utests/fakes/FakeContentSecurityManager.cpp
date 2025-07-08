@@ -60,7 +60,7 @@ bool ContentSecurityManager::AcquireLicense( std::string clientId, std::string a
 					const char* accessAttributes[][2], const char* contentMetdata, size_t contMetaLen,
 					const char* licenseRequest, size_t licReqLen, const char* keySystemId,
 					const char* mediaUsage, const char* accessToken, size_t accTokenLen,
-					SecureContentSession &session,
+					ContentSecurityManagerSession &session,
 					char** licenseResponse, size_t* licenseResponseLength, int32_t* statusCode, int32_t* reasonCode, int32_t* businessStatus, bool isVideoMuted, int sleepTime)
 {
 	return false;

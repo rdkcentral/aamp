@@ -18,39 +18,39 @@
 */
 
 /**
- * @file SecureContentSession.cpp
- * @brief Class impl for SecureContentSession
+ * @file ContentSecurityManagerSession.cpp
+ * @brief Class impl for ContentSecurityManagerSession
  */
 
-#include "SecureContentSession.h"
+#include "ContentSecurityManagerSession.h"
 
-std::shared_ptr<SecureContentSession::SessionManager> SecureContentSession::SessionManager::getInstance(int64_t sessionID, std::size_t inputSummaryHash)
+std::shared_ptr<ContentSecurityManagerSession::SessionManager> ContentSecurityManagerSession::SessionManager::getInstance(int64_t sessionID, std::size_t inputSummaryHash)
 {
 	std::shared_ptr<SessionManager> returnValue = nullptr;
 	return returnValue;
 }
 
-SecureContentSession::SessionManager::~SessionManager()
+ContentSecurityManagerSession::SessionManager::~SessionManager()
 {
 }
-void SecureContentSession::SessionManager::setInputSummaryHash(std::size_t inputSummaryHash)
+void ContentSecurityManagerSession::SessionManager::setInputSummaryHash(std::size_t inputSummaryHash)
 {
 }
 
 
-SecureContentSession::SessionManager::SessionManager(int64_t sessionID, std::size_t inputSummaryHash)
+ContentSecurityManagerSession::SessionManager::SessionManager(int64_t sessionID, std::size_t inputSummaryHash)
 {};
 
-SecureContentSession::SecureContentSession(int64_t sessionID, std::size_t inputSummaryHash)
+ContentSecurityManagerSession::ContentSecurityManagerSession(int64_t sessionID, std::size_t inputSummaryHash)
 {};
 
-int64_t SecureContentSession::getSessionID(void) const
+int64_t ContentSecurityManagerSession::getSessionID(void) const
 {
 	int64_t ID = PLAYER_SECMGR_INVALID_SESSION_ID;
 	return ID;
 }
 
-std::size_t SecureContentSession::getInputSummaryHash()
+std::size_t ContentSecurityManagerSession::getInputSummaryHash()
 {
 	std::size_t hash=0;
 	return hash;
