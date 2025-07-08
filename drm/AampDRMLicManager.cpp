@@ -1177,7 +1177,7 @@ DrmData * AampDRMLicenseManager::getLicenseSec(const LicenseRequest &licenseRequ
 		}
 		AAMPLOG_INFO("Client ID %s App ID %s", clientId.c_str(), appId.c_str());
 		tStartTime = NOW_STEADY_TS_MS;
-		bool res = ContentSecurityManager::GetInstance()->AcquireLicense(clientId, appId, licenseRequest.url.c_str(),
+		bool res = ContentSecurityManager::GetInstance()->AcquireLicense(std::move(clientId), std::move(appId), licenseRequest.url.c_str(),
 																 requestMetadata,
 																 ((numberOfAccessAttributes == 0) ? NULL : accessAttributes),
 																 encodedData, encodedDataLen,
