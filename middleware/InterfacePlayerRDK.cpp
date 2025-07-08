@@ -2926,9 +2926,14 @@ bool InterfacePlayerRDK::SendHelper(int type, const void *ptr, size_t len, doubl
 #ifdef SUPPORTS_MP4DEMUX
 			if( m_gstConfigParam->useMp4Demux )
 			{
-				static uint32_t timescale[2]; // FIXME!
-				// some lldash streams don't have timescale in media segments
-				Mp4Demux *mp4Demux = new Mp4Demux(ptr,len,timescale[mediaType]);
+				static Mp4Demux *m_mp4Demux[2];
+				Mp4Demux *mp4Demux = m_mp4Demux[mediaType];
+				if( !mp4Demux )
+				{
+					mp4Demux = new Mp4Demux();
+					m_mp4Demux[mediaType] = mp4Demux;
+				}
+				mp4Demux->Parse(ptr,len);
 				int count = mp4Demux->count();
 				if( count>0 )
 				{ // media segment
@@ -2961,10 +2966,8 @@ bool InterfacePlayerRDK::SendHelper(int type, const void *ptr, size_t len, doubl
 				}
 				else
 				{ // init header
-					timescale[mediaType] = mp4Demux->getTimeScale();
 					mp4Demux->setCaps( GST_APP_SRC(stream->source) );
 				}
-				delete mp4Demux;
 				if( !copy )
 				{
 					g_free((gpointer)ptr);

@@ -47,32 +47,35 @@ struct Mp4Sample
 	double dts;
 	double duration;
 	
-	// encryption-specific
 	std::string subsamples;
 	std::string iv;
 };
 
-class InitializationHeaderInfo
+class Mp4Demux
 {
-public:
-	// audio-specific
-	uint16_t channel_count;
-	uint16_t samplesize;
-	uint16_t samplerate;
-	uint8_t object_type_id;
-	uint8_t stream_type;
-	uint8_t upStream;
-	uint16_t buffer_size;
-	uint32_t maxBitrate;
-	uint32_t avgBitrate;
+private:
+	struct
+	{
+		uint16_t channel_count;
+		uint16_t samplesize;
+		uint16_t samplerate;
+		uint8_t object_type_id;
+		uint8_t stream_type;
+		uint8_t upStream;
+		uint16_t buffer_size;
+		uint32_t maxBitrate;
+		uint32_t avgBitrate;
+	} audio;
 	
-	// video-specific
-	uint16_t width;
-	uint16_t height;
-	uint16_t frame_count;
-	uint16_t depth;
-	uint32_t horizresolution;
-	uint32_t vertresolution;
+	struct
+	{
+		uint16_t width;
+		uint16_t height;
+		uint16_t frame_count;
+		uint16_t depth;
+		uint32_t horizresolution;
+		uint32_t vertresolution;
+	} video;
 	
 	// codec-independent
 	uint32_t stream_format;
@@ -81,22 +84,12 @@ public:
 	std::string codec_data;
 	uint8_t is_encrypted;
 	uint8_t iv_size;
+	uint8_t crypt_byte_block;
+	uint8_t skip_byte_block;
+	uint8_t constant_iv_size;
+	const uint8_t *constant_iv;
 	
-	InitializationHeaderInfo():
-	channel_count(), samplesize(), samplerate(), width(), height(), frame_count(), depth(), horizresolution(), vertresolution(), stream_format(), data_reference_index(), codec_type(), codec_data(), is_encrypted(), iv_size()
-	{
-	}
-	
-	~InitializationHeaderInfo()
-	{
-	}
-};
-
-class Mp4Demux
-{
-private:
 	uint32_t timescale;
-	InitializationHeaderInfo info;
 	std::vector<Mp4Sample> samples;
 	
 	// encryption-specific data
@@ -105,12 +98,13 @@ private:
 	uint64_t auxiliary_information_offset;
 	uint32_t scheme_type; // 'cenc' or 'cbcs'
 	uint32_t scheme_version;
-	std::string originalMediaType;
+	uint32_t original_media_type;
 	std::vector<uint8_t> cenc_aux_info_sizes;
 	std::vector<GstEvent *> protectionEvents;
 	
 	const uint8_t *moof_ptr; // base address for sample data
 	const uint8_t *ptr; // parser state
+	int indent;
 	
 	uint8_t version;
 	uint32_t flags;
@@ -130,8 +124,8 @@ private:
 	int32_t matrix[9];
 	uint16_t layer;
 	uint16_t alternate_group;
-	uint32_t width;
-	uint32_t height;
+	uint32_t width_fixed;
+	uint32_t height_fixed;
 	uint16_t language;
 	
 	uint64_t ReadBytes( int n )
@@ -173,8 +167,7 @@ private:
 	
 	void parseOriginalFormat( void )
 	{
-		originalMediaType = std::string((char *)ptr,4);
-		ptr+=4;
+		original_media_type = ReadU32();
 	}
 	
 	void parseSchemeManagementBox( void )
@@ -192,21 +185,22 @@ private:
 		// 00 00 01 08
 		uint8_t reserved = *ptr++; (void)reserved;
 		uint8_t possible_pattern_info = *ptr++;
-		
-		// below needed for cbcs?
-		int crypt_byte_block = (possible_pattern_info >> 4) & 0x0f; (void)crypt_byte_block;
-		int skip_byte_block = possible_pattern_info & 0x0f; (void)skip_byte_block;
-		// "crypt_byte_block", G_TYPE_UINT, crypt_byte_block,
-		// "skip_byte_block", G_TYPE_UINT, skip_byte_block,
-		
-		info.is_encrypted = *ptr++;
-		info.iv_size = *ptr++;
-		
+		crypt_byte_block = (possible_pattern_info >> 4) & 0x0f;
+		skip_byte_block = possible_pattern_info & 0x0f;
+		is_encrypted = *ptr++;
+		iv_size = *ptr++;
+
 		// 8d e6 24 2e 66 01 52 18 88 41 ac e2 76 1b 41 3f // kid: 8de6242e-6601-5218-8841-ace2761b413f
 		kid = std::string((char *)ptr,16);
 		ptr += 16;
+		
+		if( scheme_type == MultiChar_Constant("cbcs") )
+		{
+			constant_iv_size = *ptr++;
+			constant_iv = ptr;
+			ptr += constant_iv_size;
+		}
 	}
-	
 	/*
 	 12 24 "8de6242e-6601-5218-8841-ace2761b413f"	// kid
 	 12 24 "2e9b8068-fa3a-c50f-4781-550aae5986ad"	// kid
@@ -264,10 +258,7 @@ private:
 		// 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 10 ...
 		if( flags&1 )
 		{
-			uint32_t aux_info_type = ReadU32();
-			assert( aux_info_type == MultiChar_Constant("cenc") );
-			uint32_t aux_info_type_parameter = ReadU32();
-			(void)aux_info_type_parameter;
+			parseAuxInfo();
 		}
 		uint8_t default_info_size = *ptr++;
 		uint32_t sampleCount  = ReadU32();
@@ -291,6 +282,15 @@ private:
 		process_auxiliary_information();
 	}
 	
+	void parseAuxInfo( void )
+	{
+		uint32_t aux_info_type = ReadU32(); // cenc or cbcs
+		assert( aux_info_type == MultiChar_Constant("cenc") || aux_info_type == MultiChar_Constant("cbcs") );
+		
+		uint32_t aux_info_type_parameter = ReadU32();
+		(void)aux_info_type_parameter;
+	}
+	
 	// ISO/IEC 23001-7
 	void parseSampleAuxiliaryInformationOffsets( void )
 	{ // offsets to auxilliary information for samples or groups of samples
@@ -302,10 +302,7 @@ private:
 		ReadHeader();
 		if( flags&1 )
 		{
-			uint32_t aux_info_type = ReadU32();
-			assert( aux_info_type == MultiChar_Constant("cenc") );
-			uint32_t aux_info_type_parameter = ReadU32();
-			(void)aux_info_type_parameter;
+			parseAuxInfo();
 		}
 		uint32_t entry_count = ReadU32();
 		assert( entry_count == 1 );
@@ -329,15 +326,17 @@ private:
 		assert( samples.size() == sampleCount );
 		for( auto iSample=0; iSample<sampleCount; iSample++ )
 		{
-			assert( info.iv_size );
-			samples[iSample].iv = std::string((char *)ptr,info.iv_size);
-			PRINTF( "\t" );
-			for( int i=0; i<info.iv_size; i++ )
+			if( iv_size )
 			{
-				PRINTF( " %02x", ptr[i] );
+				samples[iSample].iv = std::string((char *)ptr,iv_size);
+				PRINTF( "\t" );
+				for( int i=0; i<iv_size; i++ )
+				{
+					PRINTF( " %02x", ptr[i] );
+				}
+				ptr += iv_size;
 			}
 			PRINTF( ":" );
-			ptr += info.iv_size;
 
 			if( flags&2 )
 			{ // sub sample encryption
@@ -515,8 +514,8 @@ private:
 		{
 			matrix[i] = ReadI32();
 		}
-		width = ReadU32(); // fixed point
-		height = ReadU32(); // fixed point
+		width_fixed = ReadU32();
+		height_fixed = ReadU32();
 	}
 	
 	void parseMediaHeaderBox( void )
@@ -530,27 +529,27 @@ private:
 		language = ReadU16();
 	}
 	
-	void parseSampleDescriptionBox( const uint8_t *next, int indent )
+	void parseSampleDescriptionBox( const uint8_t *next )
 	{ // stsd
 		ReadHeader();
 		uint32_t count = ReadU32();
 		assert( count == 1 );
-		DemuxHelper(next, indent+1);
+		DemuxHelper(next);
 	}
 	
 	void parseVideoInformation( void )
 	{
 		SkipBytes(4); // always zero?
-		info.data_reference_index = ReadU32();
+		data_reference_index = ReadU32();
 		SkipBytes(16); // always zero?
-		info.width = ReadU16();
-		info.height = ReadU16();
-		info.horizresolution = ReadU32();
-		info.vertresolution = ReadU32();
+		video.width = ReadU16();
+		video.height = ReadU16();
+		video.horizresolution = ReadU32();
+		video.vertresolution = ReadU32();
 		SkipBytes(4);
-		info.frame_count = ReadU16();
+		video.frame_count = ReadU16();
 		SkipBytes(32); // compressor_name
-		info.depth = ReadU16();
+		video.depth = ReadU16();
 		int pad = ReadU16();
 		assert( pad == 0xffff );
 	}
@@ -558,19 +557,19 @@ private:
 	void parseAudioInformation( void )
 	{
 		SkipBytes(4); // zero
-		info.data_reference_index = ReadU32();
+		data_reference_index = ReadU32();
 		SkipBytes(8); // zero
-		info.channel_count = ReadU16();
-		info.samplesize = ReadU16();
+		audio.channel_count = ReadU16();
+		audio.samplesize = ReadU16();
 		SkipBytes(4); // zero
-		info.samplerate = ReadU16();
+		audio.samplerate = ReadU16();
 		SkipBytes(2); // zero
 	}
 	
-	void parseStreamFormatBox( uint32_t type, const uint8_t *next, int indent )
+	void parseStreamFormatBox( uint32_t type, const uint8_t *next )
 	{
-		info.stream_format = type;
-		switch( info.stream_format )
+		stream_format = type;
+		switch( stream_format )
 		{
 			case MultiChar_Constant("hev1"):
 			case MultiChar_Constant("avc1"):
@@ -590,7 +589,7 @@ private:
 				assert(0);
 				break;
 		}
-		DemuxHelper( next, indent+1 );
+		DemuxHelper( next );
 	}
 	
 	int readLen( void )
@@ -622,20 +621,20 @@ private:
 					
 				case 0x04:
 					PRINTF( "DecoderConfigDescriptor:\n");
-					info.object_type_id = *ptr++;
-					info.stream_type = *ptr++; // >>2
-					info.upStream = *ptr++;
-					info.buffer_size = ReadU16();
-					info.maxBitrate = ReadU32();
-					info.avgBitrate = ReadU32();
-					PRINTF( "\tmaxBitrate=%" PRIu32 "\n", info.maxBitrate );
-					PRINTF( "\tavgBitrate=%" PRIu32 "\n", info.avgBitrate );
+					audio.object_type_id = *ptr++;
+					audio.stream_type = *ptr++; // >>2
+					audio.upStream = *ptr++;
+					audio.buffer_size = ReadU16();
+					audio.maxBitrate = ReadU32();
+					audio.avgBitrate = ReadU32();
+					PRINTF( "\tmaxBitrate=%" PRIu32 "\n", audio.maxBitrate );
+					PRINTF( "\tavgBitrate=%" PRIu32 "\n", audio.avgBitrate );
 					parseCodecConfigHelper( end );
 					break;
 					
 				case 0x05:
 					PRINTF( "DecodeSpecificInfo:\n") ;
-					info.codec_data = std::string((char *)ptr,len);
+					codec_data = std::string((char *)ptr,len);
 					ptr += len;
 					break;
 					
@@ -655,7 +654,7 @@ private:
 	
 	void parseCodecConfigurationBox( uint32_t type, const uint8_t *next )
 	{
-		info.codec_type = type;
+		codec_type = type;
 		if( type == MultiChar_Constant("esds") )
 		{
 			SkipBytes(4);
@@ -664,22 +663,20 @@ private:
 		else
 		{
 			size_t codec_data_len = next - ptr;
-			info.codec_data = std::string( (char *)ptr,codec_data_len );
+			codec_data = std::string( (char *)ptr,codec_data_len );
 		}
 	}
 	
-	void DemuxHelper( const uint8_t *fin, int indent )
+	void DemuxHelper( const uint8_t *fin )
 	{
+		indent--;
 		while( ptr < fin )
 		{
 			uint32_t size = ReadU32();
 			const uint8_t *next = ptr+size-4;
 			uint32_t type = ReadU32();
-			for( int i=0; i<indent; i++ )
-			{
-				PRINTF( "\t" );
-			}
-			PRINTF( "'%c%c%c%c' (%" PRIu32 ")\n",
+			PRINTF( "%s'%c%c%c%c' (%" PRIu32 ")\n",
+				   &"\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t"[indent],
 				   (type>>24)&0xff, (type>>16)&0xff, (type>>8)&0xff, type&0xff, size );
 			switch( type )
 			{
@@ -690,7 +687,7 @@ private:
 				case MultiChar_Constant("ec-3"):
 				case MultiChar_Constant("enca"):
 				case MultiChar_Constant("encv"):
-					parseStreamFormatBox( type, next, indent );
+					parseStreamFormatBox( type, next );
 					break;
 					
 				case MultiChar_Constant("hvcC"):
@@ -699,15 +696,7 @@ private:
 				case MultiChar_Constant("esds"): // Elementary Stream Descriptor
 					parseCodecConfigurationBox( type, next );
 					break;
-					
-				case MultiChar_Constant("ftyp"): //  FileType
-					/*
-					 major_brand // 4 chars
-					 minor_version // 4 bytes
-					 compatible_brands // 16 bytes, uint32 big endian
-					 */
-					break;
-					
+										
 				case MultiChar_Constant("pssh"):
 					parseProtectionSystemSpecificHeaderBox(next);
 					break;
@@ -762,68 +751,26 @@ private:
 					parseMediaHeaderBox();
 					break;
 					
-				case MultiChar_Constant("hdlr"): // Handler Reference
-					/*
-					 handler	vide
-					 name	Bento4 Video Handler
-					 */
-					break;
-					
-				case MultiChar_Constant("vmhd"): // Video Media Header
-					/*
-					 graphicsmode	0
-					 opcolor	0,0,0
-					 */
-					break;
-					
-				case MultiChar_Constant("smhd"): // Sound Media Header
-					/*
-					 balance	0
-					 */
-					break;
-					
-				case MultiChar_Constant("dref"): // Data Reference
-					/*
-					 url
-					 */
-					break;
-					
 				case MultiChar_Constant("stsd"): // Sample Description
-					parseSampleDescriptionBox(next,indent);
+					parseSampleDescriptionBox(next);
 					break;
-					
+
+				case MultiChar_Constant("ftyp"): //  FileType (major_brand, minor_version, compatible_brands)
+				case MultiChar_Constant("hdlr"): // Handler Reference (handler, name)
+				case MultiChar_Constant("vmhd"): // Video Media Header (graphicsmode, opcolor)
+				case MultiChar_Constant("smhd"): // Sound Media Header (balance)
+				case MultiChar_Constant("dref"): // Data Reference (url)
 				case MultiChar_Constant("stts"): // Decoding Time To Sample
-					break;
 				case MultiChar_Constant("stsc"): // Sample To Chunk
-					break;
 				case MultiChar_Constant("stsz"): // Sample Size Boxes
-					break;
 				case MultiChar_Constant("stco"): // Chunk Offsets
-					break;
 				case MultiChar_Constant("stss"): // Sync Sample
-					break;
 				case MultiChar_Constant("prft"): // Producer Reference Time
-					break;
 				case MultiChar_Constant("edts"): // Edit
-					break;
 				case MultiChar_Constant("fiel"): // Field
-					break;
 				case MultiChar_Constant("colr"): // Color Pattern Atom
-					break;
-				case MultiChar_Constant("pasp"): // Pixel Aspect Ratio
-					/*
-					 00 00 04 f0 // hSpacing
-					 00 00 04 ef // vSpacing
-					 */
-					break;
-				case MultiChar_Constant("btrt"): // Buffer Time to Render Time
-					/*
-					 00 02 49 f0 // bufferSizeDB
-					 00 16 db 90 // maxBitrate
-					 00 15 5c c0 // avgBitrate
-					 */
-					break;
-					
+				case MultiChar_Constant("pasp"): // Pixel Aspect Ratio (hSpacing, vSpacing)
+				case MultiChar_Constant("btrt"): // Buffer Time to Render Time (bufferSizeDB, maxBitrate, avgBitrate)
 				case MultiChar_Constant("styp"): // Segment Type
 				case MultiChar_Constant("sidx"): // Segment Index
 				case MultiChar_Constant("udta"): // User Data
@@ -833,24 +780,22 @@ private:
 				case MultiChar_Constant("schm"):
 					parseSchemeManagementBox();
 					break;
-					
-				case MultiChar_Constant("schi"): // Scheme Information
-					DemuxHelper(next, indent+1 );
-					break;
-					
+										
 				case MultiChar_Constant("frma"):
 					parseOriginalFormat();
 					break;
 					
 				case MultiChar_Constant("tenc"):
 					parseTrackEncryptionBox();
+					assert( ptr == next );
 					break;
 					
 				case MultiChar_Constant("moof"):  // Movie Fragment
 					moof_ptr = ptr-8;
-					DemuxHelper(next, indent+1 );
+					DemuxHelper(next );
 					break;
 					
+				case MultiChar_Constant("schi"): // Scheme Information
 				case MultiChar_Constant("traf"): // Track Fragment
 				case MultiChar_Constant("moov"): // Movie
 				case MultiChar_Constant("trak"): // Track
@@ -860,7 +805,7 @@ private:
 				case MultiChar_Constant("mdia"): // Media
 				case MultiChar_Constant("stbl"): // Sample Table
 				case MultiChar_Constant("sinf"): // Protection Scheme Information
-					DemuxHelper(next, indent+1 );
+					DemuxHelper(next );
 					break;
 					
 				default:
@@ -869,24 +814,32 @@ private:
 			}
 			ptr = next;
 		}
+		indent++;
 	}
 	
 public:
-	Mp4Demux( const void *ptr, size_t len, uint32_t timescale=0, uint8_t iv_size=0 ) : moof_ptr(), got_auxiliary_information_offset()
+	void Parse( const void *ptr, size_t len )
 	{
+		printf( "samples size: %zu\n", samples.size() );
+		samples.clear();
+		printf( "samples size: %zu\n", samples.size() );
+		cenc_aux_info_sizes.clear();
+		got_auxiliary_information_offset = false;
+		moof_ptr = NULL;
+		
 		this->ptr = (const uint8_t *)ptr;
-		this->timescale = timescale;
-		this->info.iv_size = iv_size;
-		DemuxHelper( &this->ptr[len], 0 );
+		indent = 16+1;
+		DemuxHelper( &this->ptr[len] );
+	}
+	
+	Mp4Demux() : audio{}, video{}, stream_format(), data_reference_index(), codec_type(), codec_data(), is_encrypted(), iv_size(), crypt_byte_block(), skip_byte_block(), constant_iv_size(), constant_iv(), timescale(), samples(), kid(), got_auxiliary_information_offset(), auxiliary_information_offset(), scheme_type(), scheme_version(), original_media_type(), cenc_aux_info_sizes(), protectionEvents(), moof_ptr(), ptr(), indent(), version(), flags(), baseMediaDecodeTime(), fragment_duration(), track_id(), base_data_offset(), default_sample_description_index(), default_sample_duration(), default_sample_size(), default_sample_flags(), creation_time(), modification_time(), duration(), rate(), volume(), matrix{}, layer(), alternate_group(), width_fixed(), height_fixed(), language()
+	{
+		PRINTF( "constructing mp4demux\n" );
 	}
 	
 	uint32_t getTimeScale( void )
 	{
 		return timescale;
-	}
-	uint32_t getIvSize( void )
-	{
-		return info.iv_size;
 	}
 	
 	int count( void )
@@ -940,10 +893,10 @@ public:
 	void setCaps( GstAppSrc *appsrc ) const
 	{
 		GstCaps * caps = NULL;
-		size_t codec_data_len = info.codec_data.size();
+		size_t codec_data_len = codec_data.size();
 		GstBuffer *buf = gst_buffer_new_and_alloc(codec_data_len);
-		gst_buffer_fill(buf, 0, info.codec_data.c_str(), codec_data_len );
-		switch( info.codec_type )
+		gst_buffer_fill(buf, 0, codec_data.c_str(), codec_data_len );
+		switch( codec_type )
 		{
 			case MultiChar_Constant("hvcC"):
 				caps = gst_caps_new_simple(
@@ -951,8 +904,8 @@ public:
 										   "stream-format", G_TYPE_STRING, "hvc1",
 										   "alignment", G_TYPE_STRING, "au",
 										   "codec_data", GST_TYPE_BUFFER, buf,
-										   "width", G_TYPE_INT, info.width,
-										   "height", G_TYPE_INT, info.height,
+										   "width", G_TYPE_INT, video.width,
+										   "height", G_TYPE_INT, video.height,
 										   "pixel-aspect-ratio", GST_TYPE_FRACTION, 1, 1,
 										   NULL );
 				break;
@@ -963,8 +916,8 @@ public:
 										   "stream-format", G_TYPE_STRING, "avc",
 										   "alignment", G_TYPE_STRING, "au",
 										   "codec_data", GST_TYPE_BUFFER, buf,
-										   "width", G_TYPE_INT, info.width,
-										   "height", G_TYPE_INT, info.height,
+										   "width", G_TYPE_INT, video.width,
+										   "height", G_TYPE_INT, video.height,
 										   "pixel-aspect-ratio", GST_TYPE_FRACTION, 1, 1,
 										   NULL );
 				break;
@@ -983,13 +936,13 @@ public:
 				caps = gst_caps_new_simple(
 										   "audio/x-eac3",
 										   "framed", G_TYPE_BOOLEAN, TRUE,
-										   "rate", G_TYPE_INT, info.samplerate,
-										   "channels", G_TYPE_INT, info.channel_count,
+										   "rate", G_TYPE_INT, audio.samplerate,
+										   "channels", G_TYPE_INT, audio.channel_count,
 										   NULL );
 				break;
 				
 			default:
-				g_print( "unk codec_type: %" PRIu32 "\n", info.codec_type );
+				g_print( "unk codec_type: %" PRIu32 "\n", codec_type );
 				return;
 		}
 		gst_app_src_set_caps(appsrc, caps);
@@ -1001,44 +954,79 @@ public:
 	{
 		return protectionEvents.size();
 	}
+	
 	GstEvent *getProtectionEvent( int which )
 	{
 		return protectionEvents[which];
 	}
-	void attachDrmMetaData( GstBuffer *buffer, int sampleIndex )
+	
+	GstStructure *getDrmMetadata( int sampleIndex )
 	{
-		GstStructure *s = gst_structure_new(
-											"application/x-cenc",
-											"encrypted", G_TYPE_BOOLEAN, TRUE,
-											"kid", GST_TYPE_BUFFER, kid.c_str(),
-											"original-media-type", G_TYPE_STRING, originalMediaType.c_str(),
-											"cipher-mode", G_TYPE_STRING, "cenc",
-											NULL);
-		
-		const auto sample = samples[sampleIndex];
-		size_t iv_size = sample.iv.size();
-		if( iv_size )
+		GstStructure *metadata = NULL;
+		if( is_encrypted )
 		{
-			GstBuffer *iv_buf = gst_buffer_new_wrapped( (gpointer)sample.iv.c_str(), (gsize)iv_size );
-			gst_structure_set (s,
-							   "iv_size", G_TYPE_UINT, iv_size,
-							   "iv", GST_TYPE_BUFFER, iv_buf,
-							   NULL);
-			gst_buffer_unref(iv_buf);
+			char original_media_type_string[5] =
+			{
+				(char)(original_media_type>>0x18),
+				(char)(original_media_type>>0x10),
+				(char)(original_media_type>>0x08),
+				(char)(original_media_type>>0x00),
+				0x00
+			};
+			char cipher_mode_string[5] =
+			{
+				(char)(scheme_type>>0x18),
+				(char)(scheme_type>>0x10),
+				(char)(scheme_type>>0x08),
+				(char)(scheme_type>>0x00),
+				0x00
+			};
+
+			metadata = gst_structure_new(
+								  "application/x-cenc",
+								  "encrypted", G_TYPE_BOOLEAN, TRUE,
+								  "kid", GST_TYPE_BUFFER, kid.c_str(),
+								  "original-media-type", G_TYPE_STRING, original_media_type_string,
+								  "cipher-mode", G_TYPE_STRING, cipher_mode_string,
+								  NULL);
+			
+			const Mp4Sample &sample = samples[sampleIndex];
+			size_t iv_size = sample.iv.size();
+			if( iv_size )
+			{
+				GstBuffer *iv_buf = gst_buffer_new_wrapped( (gpointer)sample.iv.c_str(), (gsize)iv_size );
+				gst_structure_set(metadata,
+								  "iv_size", G_TYPE_UINT, iv_size,
+								  "iv", GST_TYPE_BUFFER, iv_buf,
+								  NULL);
+				gst_buffer_unref(iv_buf);
+			}
+			
+			size_t subsamples_size = sample.subsamples.size();
+			if( subsamples_size )
+			{
+				GstBuffer *subsamples_buf = gst_buffer_new_wrapped( (gpointer)sample.subsamples.c_str(), (gsize)subsamples_size);
+				gst_structure_set(metadata,
+								  "subsample_count", G_TYPE_UINT, subsamples_size/6,
+								  "subsamples", GST_TYPE_BUFFER, subsamples_buf,
+								  NULL);
+				gst_buffer_unref(subsamples_buf);
+			}
+			
+			if( scheme_type == MultiChar_Constant("cbcs") )
+			{
+				GstBuffer *constant_iv_buf = gst_buffer_new_allocate (NULL, constant_iv_size, NULL);
+				gst_buffer_fill( constant_iv_buf, 0, constant_iv, constant_iv_size );
+				gst_structure_set(metadata,
+								  "iv", GST_TYPE_BUFFER, constant_iv_buf,
+								  "constant_iv_size", G_TYPE_UINT, constant_iv_size,
+								  "crypt_byte_block", G_TYPE_UINT, crypt_byte_block,
+								  "skip_byte_block", G_TYPE_UINT, skip_byte_block,
+								  NULL );
+				gst_buffer_unref( constant_iv_buf );
+			}
 		}
-		
-		size_t subsamples_size = sample.subsamples.size();
-		if( subsamples_size )
-		{
-			GstBuffer *subsamples_buf = gst_buffer_new_wrapped( (gpointer)sample.subsamples.c_str(), (gsize)subsamples_size);
-			gst_structure_set (s,
-							   "subsample_count", G_TYPE_UINT, subsamples_size/6,
-							   "subsamples", GST_TYPE_BUFFER, subsamples_buf,
-							   NULL);
-			gst_buffer_unref(subsamples_buf);
-		}
-		
-		gst_buffer_add_protection_meta(buffer, s);
+		return metadata;
 	}
 };
 

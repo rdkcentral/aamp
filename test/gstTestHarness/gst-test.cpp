@@ -39,10 +39,9 @@
 
 static std::mutex mCommandMutex;
 
-static uint32_t m_timeScale[2];
-static uint8_t m_iv_size[2];
-
 #define TIME_BASED_BUFFERING_THRESHOLD 4.0
+
+static uint32_t m_timeScale[2]; // HACK!
 
 static enum ContentFormat
 {
@@ -52,6 +51,8 @@ static enum ContentFormat
 	eCONTENTFORMAT_TSDEMUX,
 } mContentFormat = eCONTENTFORMAT_MP4_ES;
 
+static Mp4Demux *gMp4Demux[2]; // TODO: move these mp4demux instances inside classes
+
 static const char *mContentFormatDescription[] =
 {
 	"inject elementary stream frames extracted from mp4",
@@ -59,13 +60,6 @@ static const char *mContentFormatDescription[] =
 	"inject elementary stream frames extracted from ts",
 	"inject ts (demuxed by gstreamer tsdemux element, if available)",
 };
-
-/*
- todo: automated tests with pass/fail
- todo: audio codec test (stereo); video codec test (h.265)
- todo: support 1x to/from FF/REW transition (needs to suppress or drop audio track)
- todo: underflow/rebuffering detection
- */
 
 #define DEFAULT_BASE_PATH "../../test/VideoTestStream"
 #define MAX_BASE_PATH_SIZE 200
@@ -185,7 +179,6 @@ private:
 	MediaType mediaType;
 	
 	TsDemux *tsDemux;
-	Mp4Demux *mp4Demux;
 	
 	std::string url;
 	
@@ -195,13 +188,11 @@ private:
 		switch( mContentFormat )
 		{
 			case eCONTENTFORMAT_MP4_ES:
-				mp4Demux = new Mp4Demux(ptr,len,m_timeScale[mediaType],m_iv_size[mediaType]);
-				assert( mp4Demux );
-				if( duration==0 )
+				if( !gMp4Demux[mediaType] )
 				{
-					m_timeScale[mediaType] = mp4Demux->getTimeScale();
-					m_iv_size[mediaType] = mp4Demux->getIvSize();
+					gMp4Demux[mediaType] = new Mp4Demux();
 				}
+				gMp4Demux[mediaType]->Parse(ptr,len);
 				break;
 				
 			case eCONTENTFORMAT_QTDEMUX:
@@ -216,13 +207,12 @@ private:
 	}
 	
 public:
-	TrackFragment( MediaType mediaType, const char *path, double duration, double pts_offset=0 ):len(), ptr(), tsDemux(), mp4Demux(),  pts_offset(pts_offset), duration(duration), url(path), mediaType(mediaType)
+	TrackFragment( MediaType mediaType, const char *path, double duration, double pts_offset=0 ):len(), ptr(), tsDemux(),  pts_offset(pts_offset), duration(duration), url(path), mediaType(mediaType)
 	{
 	}
 	
 	~TrackFragment()
 	{
-		delete mp4Demux;
 		delete tsDemux;
 		g_free(ptr);
 	}
@@ -230,7 +220,8 @@ public:
 	bool Inject( MyPipelineContext *context, MediaType mediaType )
 	{
 		Load(); // lazily load segment data
-		// TODO: use common baseclass for tsDemux and mp4Demux
+		Mp4Demux *mp4Demux = gMp4Demux[mediaType]; // HACK
+		
 		if( tsDemux )
 		{
 			int count = tsDemux->count();
@@ -267,10 +258,12 @@ public:
 					if( ptr )
 					{
 						memcpy( ptr, mp4Demux->getPtr(i), len );
+						GstStructure *metadata = mp4Demux->getDrmMetadata( i );
 						context->pipeline->SendBufferES( mediaType, ptr, len,
 														dur,
 														pts+pts_offset,
-														dts+pts_offset );
+														dts+pts_offset,
+														metadata );
 					}
 				}
 			}
@@ -1241,7 +1234,6 @@ public:
 		Track &audio = pipelineContext.track[eMEDIATYPE_AUDIO];
 		double pts_offset = 0.0;
 		double total_duration = 0.0;
-		uint32_t timescale = 0; // n/a
 		
 		mContentFormat = eCONTENTFORMAT_TS_ES; // use tsdemux.hpp
 		
