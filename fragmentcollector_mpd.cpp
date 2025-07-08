@@ -9008,10 +9008,10 @@ void StreamAbstractionAAMP_MPD::AdvanceTrack(int trackIdx, bool trickPlay, doubl
 		}
 		// When injecting from TSBReader we do not want to stop the fetcher loop because of injector cache full. TSB injection
 		// uses numberOfFragmentChunksCached so assuming (pMediaStreamContext->numberOfFragmentsCached < maxCachedFragmentsPerTrack) == true
-		else if (pMediaStreamContext->numberOfFragmentsCached >= maxCachedFragmentsPerTrack)
+		else if (pMediaStreamContext->IsFragmentCacheFull())
 		{
-			AAMPLOG_INFO("[%s] Number of fragments cached %d has reached the maximum %d",
-				GetMediaTypeName(static_cast<AampMediaType>(trackIdx)), pMediaStreamContext->numberOfFragmentsCached, maxCachedFragmentsPerTrack);
+			AAMPLOG_INFO("[%s] Fragments cache is full %d",
+				GetMediaTypeName(static_cast<AampMediaType>(trackIdx)), pMediaStreamContext->numberOfFragmentsCached);
 		}
 		// A pause in playback should not stop the fetcher loop during TSB injection.
 		else if (!aamp->IsLocalAAMPTsbInjection() && lowLatency && !aamp->TrackDownloadsAreEnabled(static_cast<AampMediaType>(trackIdx)))
@@ -9086,8 +9086,8 @@ void StreamAbstractionAAMP_MPD::AdvanceTrack(int trackIdx, bool trickPlay, doubl
 				pMediaStreamContext->eos = true;
 			}
 		}
-		if((pMediaStreamContext->numberOfFragmentsCached != maxCachedFragmentsPerTrack) && bCacheFullState &&
-			( !lowLatency || aamp->TrackDownloadsAreEnabled(static_cast<AampMediaType>(trackIdx))))
+		if ((aamp->IsLocalAAMPTsbInjection() || (!pMediaStreamContext->IsFragmentCacheFull())) &&
+			bCacheFullState && (!lowLatency || aamp->TrackDownloadsAreEnabled(static_cast<AampMediaType>(trackIdx))))
 		{
 			bCacheFullState = false;
 		}
