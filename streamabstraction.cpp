@@ -1078,7 +1078,7 @@ bool MediaTrack::ProcessFragmentChunk()
 			InjectFragmentChunkInternal((AampMediaType)type,&parsedBufferChunk , fpts, fpts, fduration, cachedFragment->PTSOffsetSec);
 			if(type == eTRACK_VIDEO)
 			{
-				savedPTS = fpts;
+				savedPTS = fpts + fduration;
 			}
 			totalInjectedChunksDuration += fduration;
 		}
