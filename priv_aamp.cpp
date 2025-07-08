@@ -5853,11 +5853,13 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 	//temporary hack
 	if (strcasestr(mAppName.c_str(), "peacock"))
 	{
-		// Enable PTS Restamping
+		// Enable Live Latency Correction
 		if(SocUtils::EnableLiveLatencyCorrection())
 		{
+			AAMPLOG_DEBUG("Enabling Live Latency Correction");
 			SETCONFIGVALUE_PRIV(AAMP_DEFAULT_SETTING, eAAMPConfig_EnableLiveLatencyCorrection, true);
 		}
+		// Enable PTSRestamping
 		SETCONFIGVALUE_PRIV(AAMP_DEFAULT_SETTING, eAAMPConfig_EnablePTSReStamp, SocUtils::EnablePTSRestamp());
 	}
 
