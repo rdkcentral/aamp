@@ -61,7 +61,7 @@ static const char *mContentFormatDescription[] =
 	"inject ts (demuxed by gstreamer tsdemux element, if available)",
 };
 
-#define DEFAULT_BASE_PATH "../../test/VideoTestStream"
+#define DEFAULT_BASE_PATH "../../../aamp_test_internal/test/VideoTestStream"
 #define MAX_BASE_PATH_SIZE 200
 #define MAX_PATH_SIZE 256
 #define RATE_NORMAL 1.0
@@ -278,7 +278,7 @@ public:
 			{
 				if( duration>0 )
 				{ // audio or video segment (not an initialization header)
-					mp4_AdjustMediaDecodeTime( (uint8_t *)ptr, len, (int64_t)(pts_offset*m_timeScale[mediaType]) );
+					Mp4Demux::AdjustMediaDecodeTime( (uint8_t *)ptr, len, (int64_t)(pts_offset*m_timeScale[mediaType]) );
 				}
 			}
 			context->pipeline->SendBufferMP4( mediaType, ptr, len, duration, url.c_str() );
@@ -731,6 +731,9 @@ public:
 	 */
 	void TestDAI2( void )
 	{
+		m_timeScale[eMEDIATYPE_VIDEO] = 12800; // hack
+		m_timeScale[eMEDIATYPE_AUDIO] = 48000; // hack
+		
 		pipelineContext.pipeline->Reset();
 		Track &video = pipelineContext.track[eMEDIATYPE_VIDEO];
 		Track &audio = pipelineContext.track[eMEDIATYPE_AUDIO];
@@ -1115,7 +1118,7 @@ public:
 							gpointer ptr = LoadUrl( mediaUrl, &len );
 							if( ptr )
 							{ // here we peek inside original segment (if available) to extract media decode time, expected to match time from manifest
-								uint64_t extractedTime = mp4_AdjustMediaDecodeTime( (uint8_t *)ptr, (size_t)len, 0 );
+								uint64_t extractedTime = Mp4Demux::AdjustMediaDecodeTime( (uint8_t *)ptr, (size_t)len, 0 );
 								if( extractedTime != baseMediaDecodeTime )
 								{
 									printf( "WARNING! extractedTime(%" PRIu64 ") !=baseMediaDecodeTime(%" PRIu64 ")\n",

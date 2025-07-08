@@ -342,7 +342,7 @@ set(LIBAAMP_SOURCES
 	scte35/AampSCTE35.cpp
 	subtec/subtecparser/WebvttSubtecDevParser.cpp
 	AampTrackWorker.cpp
-	test/gstTestHarness/mp4demux.cpp
+	test/gstTestHarness/mp4demux.hpp
 	middleware/drm/aes/Aes.cpp
 	middleware/drm/helper/DrmHelper.cpp
 	middleware/gstplayertaskpool.cpp
@@ -643,7 +643,6 @@ set(GSTTESTHARNESS_SOURCES
 	test/gstTestHarness/gst-utils.h
 	test/gstTestHarness/gst-test.cpp
 	test/gstTestHarness/gst-test.h
-	test/gstTestHarness/mp4demux.cpp
 	test/gstTestHarness/mp4demux.hpp
 	test/gstTestHarness/dash_adapter.cpp
 	test/gstTestHarness/dash_adapter.hpp

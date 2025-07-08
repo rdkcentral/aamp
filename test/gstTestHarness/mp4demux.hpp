@@ -77,7 +77,6 @@ private:
 		uint32_t vertresolution;
 	} video;
 	
-	// codec-independent
 	uint32_t stream_format;
 	uint32_t data_reference_index;
 	uint32_t codec_type;
@@ -189,7 +188,7 @@ private:
 		skip_byte_block = possible_pattern_info & 0x0f;
 		is_encrypted = *ptr++;
 		iv_size = *ptr++;
-
+		
 		// 8d e6 24 2e 66 01 52 18 88 41 ac e2 76 1b 41 3f // kid: 8de6242e-6601-5218-8841-ace2761b413f
 		kid = std::string((char *)ptr,16);
 		ptr += 16;
@@ -245,7 +244,7 @@ private:
 		}
 		// above redundant with parseSampleEncryptionBox?
 	}
-
+	
 	
 	void parseSampleAuxiliaryInformationSizes( void )
 	{
@@ -337,7 +336,7 @@ private:
 				ptr += iv_size;
 			}
 			PRINTF( ":" );
-
+			
 			if( flags&2 )
 			{ // sub sample encryption
 				uint16_t n_subsamples = ReadU16();
@@ -696,7 +695,7 @@ private:
 				case MultiChar_Constant("esds"): // Elementary Stream Descriptor
 					parseCodecConfigurationBox( type, next );
 					break;
-										
+					
 				case MultiChar_Constant("pssh"):
 					parseProtectionSystemSpecificHeaderBox(next);
 					break;
@@ -754,7 +753,7 @@ private:
 				case MultiChar_Constant("stsd"): // Sample Description
 					parseSampleDescriptionBox(next);
 					break;
-
+					
 				case MultiChar_Constant("ftyp"): //  FileType (major_brand, minor_version, compatible_brands)
 				case MultiChar_Constant("hdlr"): // Handler Reference (handler, name)
 				case MultiChar_Constant("vmhd"): // Video Media Header (graphicsmode, opcolor)
@@ -780,7 +779,7 @@ private:
 				case MultiChar_Constant("schm"):
 					parseSchemeManagementBox();
 					break;
-										
+					
 				case MultiChar_Constant("frma"):
 					parseOriginalFormat();
 					break;
@@ -834,7 +833,6 @@ public:
 	
 	Mp4Demux() : audio{}, video{}, stream_format(), data_reference_index(), codec_type(), codec_data(), is_encrypted(), iv_size(), crypt_byte_block(), skip_byte_block(), constant_iv_size(), constant_iv(), timescale(), samples(), kid(), got_auxiliary_information_offset(), auxiliary_information_offset(), scheme_type(), scheme_version(), original_media_type(), cenc_aux_info_sizes(), protectionEvents(), moof_ptr(), ptr(), indent(), version(), flags(), baseMediaDecodeTime(), fragment_duration(), track_id(), base_data_offset(), default_sample_description_index(), default_sample_duration(), default_sample_size(), default_sample_flags(), creation_time(), modification_time(), duration(), rate(), volume(), matrix{}, layer(), alternate_group(), width_fixed(), height_fixed(), language()
 	{
-		PRINTF( "constructing mp4demux\n" );
 	}
 	
 	uint32_t getTimeScale( void )
@@ -981,14 +979,14 @@ public:
 				(char)(scheme_type>>0x00),
 				0x00
 			};
-
+			
 			metadata = gst_structure_new(
-								  "application/x-cenc",
-								  "encrypted", G_TYPE_BOOLEAN, TRUE,
-								  "kid", GST_TYPE_BUFFER, kid.c_str(),
-								  "original-media-type", G_TYPE_STRING, original_media_type_string,
-								  "cipher-mode", G_TYPE_STRING, cipher_mode_string,
-								  NULL);
+										 "application/x-cenc",
+										 "encrypted", G_TYPE_BOOLEAN, TRUE,
+										 "kid", GST_TYPE_BUFFER, kid.c_str(),
+										 "original-media-type", G_TYPE_STRING, original_media_type_string,
+										 "cipher-mode", G_TYPE_STRING, cipher_mode_string,
+										 NULL);
 			
 			const Mp4Sample &sample = samples[sampleIndex];
 			size_t iv_size = sample.iv.size();
@@ -1028,11 +1026,75 @@ public:
 		}
 		return metadata;
 	}
-};
+	
+	static void WriteBytes( uint8_t *ptr, int n, uint64_t value )
+	{
+		while( n>0 )
+		{
+			ptr[--n] = value&0xff;
+			value>>=8;
+		}
+	}
 
-/**
- * @brief apply adjustment for pts restamping
- */
-uint64_t mp4_AdjustMediaDecodeTime( uint8_t *ptr, size_t len, int64_t pts_restamp_delta );
+	static uint64_t ReadBytes( const uint8_t *ptr, int n )
+	{
+		uint64_t rc = 0;
+		for( int i=0; i<n; i++ )
+		{
+			rc <<= 8;
+			rc |= *ptr++;
+		}
+		return rc;
+	}
+
+	#define READ_U16(buf) ((buf[0]<<8)|buf[1]); buf+=2;
+	#define READ_U32(buf) ((buf[0]<<24)|(buf[1]<<16)|(buf[2]<<8)|buf[3]); buf+=4;
+
+	/**
+	 * @brief apply adjustment for pts restamping
+     */
+	static uint64_t AdjustMediaDecodeTime( uint8_t *ptr, size_t len, int64_t pts_restamp_delta )
+	{
+		uint64_t baseMediaDecodeTime = 0;
+		const uint8_t *fin = &ptr[len];
+		while( ptr < fin && !baseMediaDecodeTime )
+		{
+			uint8_t *next = ptr + READ_U32(ptr);
+			uint32_t type = READ_U32(ptr);
+			if( type == MultiChar_Constant("tfdt") ) // Track Fragment Base Media Decode Time Box
+			{
+				uint8_t version = *ptr++;
+				int sz = (version==1)?8:4;
+				ptr += 3; // skip flags
+				baseMediaDecodeTime = ReadBytes( ptr, sz );
+				baseMediaDecodeTime += pts_restamp_delta;
+				WriteBytes( (uint8_t *)ptr, sz, baseMediaDecodeTime );
+				break;
+			}
+			else
+			{ // walk children
+				switch( type )
+				{
+					case MultiChar_Constant("traf"): // Track Fragment Box
+					case MultiChar_Constant("moov"): // Movie Box
+					case MultiChar_Constant("trak"): // Track Box
+					case MultiChar_Constant("minf"): // Media Information Box
+					case MultiChar_Constant("dinf"): // Data Information Box
+					case MultiChar_Constant("stbl"): // Sample Table Box
+					case MultiChar_Constant("mvex"): // Movie Extends Box
+					case MultiChar_Constant("moof"): // Movie Fragment Boxes
+					case MultiChar_Constant("mdia"): // Media Box
+						baseMediaDecodeTime = AdjustMediaDecodeTime( ptr, next-ptr, pts_restamp_delta );
+						break;
+						
+					default:
+						break;
+				}
+			}
+			ptr = next;
+		}
+		return baseMediaDecodeTime;
+	}
+};
 
 #endif /* parsemp4_hpp */
