@@ -16,8 +16,10 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 #
 
-cmake_minimum_required (VERSION 2.6)
+cmake_minimum_required (VERSION 3.5)
 project (gst_subtec)
+set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 find_package(PkgConfig REQUIRED)
 
 pkg_check_modules(GSTREAMER REQUIRED gstreamer-1.0)
@@ -33,16 +35,15 @@ if(CMAKE_SYSTEM_NAME STREQUAL Darwin)
     link_directories(${CMAKE_INSTALL_PREFIX})
 endif(CMAKE_SYSTEM_NAME STREQUAL Darwin)
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-multichar -std=c++11 -DSUBTEC_PACKET_DEBUG")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-multichar -DSUBTEC_PACKET_DEBUG")
 
 set(GSTSUBTEC_DEPENDENCIES ${GSTREAMERBASE_LIBRARIES} ${GSTREAMER_LIBRARIES})
 
 add_library(gstsubtecsink SHARED gstsubtecsink.cpp)
 
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../../subtec/libsubtec)
-target_link_libraries(gstsubtecsink PRIVATE subtec)
-target_link_libraries(gstsubtecsink ${GSTSUBTEC_DEPENDENCIES})
-#target_link_libraries(gstsubtecsink ${GSTSUBTEC_DEPENDENCIES} "-lsubtec")
+message(STATUS "GSTSUBTEC_DEPENDENCIES: ${GSTSUBTEC_DEPENDENCIES}")
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../../../middleware/subtec/libsubtec)
+target_link_libraries(gstsubtecsink PRIVATE subtec ${GSTSUBTEC_DEPENDENCIES})
 
 add_library(gstsubtecbin SHARED gstsubtecbin.cpp)
 

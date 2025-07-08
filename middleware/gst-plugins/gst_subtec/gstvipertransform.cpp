@@ -381,7 +381,7 @@ static void gst_vipertransform_before_transform (GstBaseTransform * trans,
 		GstMapInfo inmap;
 		if (gst_buffer_map(buf, &inmap, (GstMapFlags)GST_MAP_READ))
 		{
-			GST_DEBUG_OBJECT (vipertransform, "map.size %lu", inmap.size);
+			GST_DEBUG_OBJECT (vipertransform, "map.size %" G_GSIZE_FORMAT, inmap.size);
 			ttml.assign(reinterpret_cast<const char*>(inmap.data), inmap.size);
 			gst_buffer_unmap(buf, &inmap);
 		}

@@ -151,10 +151,14 @@ function install_pkgs_linux_fn()
     install_package_fn jq
     install_package_fn libtinyxml2-dev
     install_package_fn openjdk-21-jre-headless
+    install_package_fn libglib2.0-dev
 
     VER=$(grep -oP 'VERSION_ID="\K[\d.]+' /etc/os-release)
 
-    if [ ${VER:0:2} -ge 22 ]; then
+    if [ ${VER:0:2} -ge 24 ]; then
+        install_package_fn libjavascriptcoregtk-4.1-dev
+        install_package_fn meson-1.5
+    elif [ ${VER:0:2} -ge 22 ]; then
         install_package_fn libjavascriptcoregtk-4.1-dev
         # Install and verify the version of meson
         install_package_fn python3-pip
@@ -185,6 +189,26 @@ function install_pkgs_linux_fn()
     fi
 }
 
+function install_asio_fn()
+{
+    cd ${LOCAL_DEPS_BUILD_DIR}
+    if [ ! -d asio-1.18.2 ]; then
+        echo "Installing asio"
+        curl -o asio-1.18.2.tar.gz "https://excellmedia.dl.sourceforge.net/project/asio/asio/1.18.2%20%28Stable%29/asio-1.18.2.tar.bz2?viasf=1"
+        tar -xf asio-1.18.2.tar.gz
+        pushd asio-1.18.2
+        mkdir build && cd build
+        ../configure
+        make -j$(nproc)
+        sudo make install
+        popd
+        INSTALL_STATUS_ARR+=("asio was successfully installed.")
+    else
+        echo "asio is already installed."
+        INSTALL_STATUS_ARR+=("asio was already installed.")
+    fi
+}
+
 function install_pkgs_fn()
 {
   if [[ "$OSTYPE" == "darwin"* ]]; then
@@ -200,42 +224,32 @@ function install_pkgs_fn()
           brew update
       fi
 
-      install_pkgs_darwin_fn git json-glib cmake "openssl@3" libxml2 ossp-uuid cjson gnu-sed jpeg-turbo taglib speex mpg123 meson ninja pkg-config flac asio jsoncpp lcov gcovr jq curl
+      install_pkgs_darwin_fn git glib json-glib cmake "openssl@3" libxml2 ossp-uuid cjson gnu-sed meson ninja pkg-config jsoncpp lcov gcovr jq curl
       install_pkgs_darwin_fn coreutils websocketpp "boost@1.85" jansson libxkbcommon cppunit gnu-sed fontconfig doxygen graphviz tinyxml2 openldap krb5 "openjdk@21"
 
-      # ORC causes compile errors on x86_64 Mac, but not on ARM64
-      if [[ $ARCH == "x86_64" ]]; then
-          
-          # Workaround for making boost compatible with websocketpp (used for subtec)
-
-          export BOOST_ROOT="/usr/local/opt/boost@1.85"
-          export CMAKE_PREFIX_PATH="/usr/local/opt/boost@1.85"
-          export LDFLAGS="-L/usr/local/opt/boost@1.85/lib -L/usr/local/lib -lwavpack"
-          export CPPFLAGS="-I/usr/local/opt/boost@1.85/include"
-
-          echo "Checking/removing ORC package which cause compile errors with gst-plugins-good"
-
+      if [[ "$ARCH" == "arm64" && "$CUR_MACOS_VER" == "15.5" ]]; then
+          # Install downgraded version of asio for arm64.
+          # This is to fix compatibility issues with websocketpp and subtec
           # "|| true" prevents the script from exiting if orc is not found, that is not an error
-          ORC_FOUND=`brew list | grep -i orc | wc -l` || true
-          if [ "${ORC_FOUND}" -gt 0 ]; then
-              read -p "Found ORC, remove ORC package (Y/N)" remove_orc
-              case $remove_orc in
-                [Yy]* ) brew remove -f --ignore-dependencies orc
+          ASIO_FOUND=`brew list | grep -i asio | wc -l` || true
+          if [ "${ASIO_FOUND}" -gt 0 ]; then
+              read -p "Found ASIO, remove ASIO package (Y/N)" remove_asio
+              case $remove_asio in
+                [Yy]* ) brew remove -f --ignore-dependencies asio
+                    echo "Installing asio 1.18.2 after removal"
+                    install_asio_fn
                     ;;
                 * ) echo "Exiting without removal ..."
                     return 1
                     ;;
               esac
+          else
+              echo "Installing asio 1.18.2, as no asio found"
+              install_asio_fn
           fi
-      elif [[ $ARCH == "arm64" ]]; then
-          
-          # Workaround for making boost compatible with websocketpp (used for subtec)
-          export BOOST_ROOT="/opt/homebrew/opt/boost@1.85"
-          export CMAKE_PREFIX_PATH="/opt/homebrew/opt/boost@1.85"
-          export LDFLAGS="-L/opt/homebrew/opt/boost@1.85/lib -L/opt/homebrew/lib -lwavpack"
-          export CPPFLAGS="-I/opt/homebrew/opt/boost@1.85/include"
-
-          install_pkgs_darwin_fn orc
+      else
+          # Install asio standalone on other platforms
+          install_pkgs_darwin_fn asio
       fi
 
       #L1 dependency, we don't build this so treat like an installed pkg
