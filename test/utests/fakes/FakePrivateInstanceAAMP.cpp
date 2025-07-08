@@ -187,7 +187,7 @@ AAMPPlayerState PrivateInstanceAAMP::GetState()
 	return state;
 }
 
-void PrivateInstanceAAMP::SetState(AAMPPlayerState state, bool generateEvent)
+void PrivateInstanceAAMP::SetState(AAMPPlayerState state)
 {
 	if (g_mockPrivateInstanceAAMP != nullptr)
 	{
@@ -195,7 +195,7 @@ void PrivateInstanceAAMP::SetState(AAMPPlayerState state, bool generateEvent)
 	}
 }
 
-void PrivateInstanceAAMP::Stop( bool sendStateChangeEvents )
+void PrivateInstanceAAMP::Stop()
 {
 }
 
@@ -622,7 +622,7 @@ void PrivateInstanceAAMP::StoreLanguageList(const std::set<std::string> &langlis
 
 bool PrivateInstanceAAMP::DownloadsAreEnabled(void)
 {
-	bool retVal = true;
+	bool retVal = false;//mDownloadsEnabled;
 	if (g_mockPrivateInstanceAAMP != nullptr)
 	{
 		retVal = g_mockPrivateInstanceAAMP->DownloadsAreEnabled();
