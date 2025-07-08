@@ -181,8 +181,9 @@ PlayerInstanceAAMP::~PlayerInstanceAAMP()
 		// Remove all the tasks
 		mScheduler.RemoveAllTasks();
 		if (state != eSTATE_IDLE && state != eSTATE_RELEASED)
-		{ // release resources if actively streaming
-			aamp->Stop( false );
+		{
+			//Avoid stop call since already stopped
+			aamp->Stop();
 		}
 
 		std::lock_guard<std::mutex> lock (mPrvAampMtx);
@@ -235,7 +236,7 @@ void PlayerInstanceAAMP::ResetConfiguration()
 /**
  *  @brief Stop playback and release resources.
  */
-void PlayerInstanceAAMP::Stop(void)
+void PlayerInstanceAAMP::Stop(bool sendStateChangeEvent)
 {
 	if (aamp)
 	{
@@ -251,8 +252,8 @@ void PlayerInstanceAAMP::Stop(void)
 
 		//state will be eSTATE_IDLE or eSTATE_RELEASED, right after an init or post-processing of a Stop call
 		if (state != eSTATE_IDLE && state != eSTATE_RELEASED)
-		{ // stop in-progress tune and generate state change events
-			aamp->Stop(true);
+		{
+			StopInternal(sendStateChangeEvent);
 		}
 
 		//Release lock
@@ -284,10 +285,6 @@ void PlayerInstanceAAMP::Tune(const char *mainManifestUrl,
 								const char *manifestData
 								)
 {
-	// If already released instance is reused for New Tune
-	aamp->SetState(eSTATE_IDLE, false);
-	AAMPLOG_DEBUG("New Tune, STATE set to %d", aamp->GetState());
-
 	ManageAsyncTuneConfig(mainManifestUrl);
 	if(mAsyncTuneEnabled)
 	{
@@ -353,7 +350,7 @@ void PlayerInstanceAAMP::TuneInternal(const char *mainManifestUrl,
 		if ((state != eSTATE_IDLE) && (state != eSTATE_RELEASED) && (!IsOTAtoOTA))
 		{
 			//Calling tune without closing previous tune
-			aamp->Stop(false);
+			StopInternal(false);
 		}
 		aamp->getAampCacheHandler()->StartPlaylistCache();
 		aamp->Tune(mainManifestUrl, autoPlay, contentType, bFirstAttempt, bFinalAttempt, traceUUID, audioDecoderStreamSync, refreshManifestUrl, mpdStitchingMode, std::move(sid),manifestData);
@@ -3102,6 +3099,37 @@ void PlayerInstanceAAMP::AsyncStartStop()
 void PlayerInstanceAAMP::PersistBitRateOverSeek(bool bValue)
 {
 	SETCONFIGVALUE(AAMP_APPLICATION_SETTING,eAAMPConfig_PersistentBitRateOverSeek,bValue);
+}
+
+
+/**
+ *  @brief Stop playback and release resources.
+ */
+void PlayerInstanceAAMP::StopInternal(bool sendStateChangeEvent)
+{
+	aamp->StopPausePositionMonitoring("Stop() called");
+
+	AAMPPlayerState state = aamp->GetState();
+	if(!aamp->IsTuneCompleted())
+	{
+		aamp->TuneFail(true);
+
+	}
+
+	AAMPLOG_WARN("aamp_stop PlayerState=%d",state);
+
+	if (sendStateChangeEvent)
+	{
+		aamp->SetState(eSTATE_IDLE);
+	}
+
+	AAMPLOG_WARN("%s PLAYER[%d] Stopping Playback at Position %lld", (aamp->mbPlayEnabled?STRFGPLAYER:STRBGPLAYER), aamp->mPlayerId, aamp->GetPositionMilliseconds());
+	aamp->Stop();
+	// Revert all custom specific setting, tune specific setting and stream specific setting , back to App/default setting
+	mConfig.RestoreConfiguration(AAMP_CUSTOM_DEV_CFG_SETTING);
+	mConfig.RestoreConfiguration(AAMP_TUNE_SETTING);
+	mConfig.RestoreConfiguration(AAMP_STREAM_SETTING);
+	aamp->mIsStream4K = false;
 }
 
 /**
