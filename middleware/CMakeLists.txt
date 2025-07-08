@@ -18,6 +18,12 @@
 cmake_minimum_required(VERSION 3.5)
 project(Middleware)
 
+option(DISABLE_SECURITY_TOKEN "Disable security token" OFF)
+
+if(DISABLE_SECURITY_TOKEN)
+  add_definitions(-DDISABLE_SECURITY_TOKEN)
+endif()
+
 add_subdirectory(baseConversion)
 add_subdirectory(playerLogManager)
 add_subdirectory(externals)

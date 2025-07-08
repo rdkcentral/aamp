@@ -27,7 +27,9 @@
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Weffc++"
 #ifdef USE_CPP_THUNDER_PLUGIN_ACCESS
+#ifndef DISABLE_SECURITY_TOKEN
 #include <securityagent/SecurityTokenUtil.h>
+#endif
 #pragma GCC diagnostic pop
 
 using namespace std;
@@ -70,7 +72,11 @@ ThunderAccessPlayer::ThunderAccessPlayer(std::string callsign)
     uint32_t status = Core::ERROR_NONE;
 
     Core::SystemInfo::SetEnvironment(_T("THUNDER_ACCESS"), (_T(SERVER_DETAILS)));
-
+    string sToken = "";
+#ifdef DISABLE_SECURITY_TOKEN
+     gSecurityPlayerData.securityToken = "token=" + sToken;
+     gSecurityPlayerData.tokenQueried = true;
+#else
     if(!gSecurityPlayerData.tokenQueried)
     {
         unsigned char buffer[MAX_LENGTH] = {0};
@@ -84,6 +90,7 @@ ThunderAccessPlayer::ThunderAccessPlayer(std::string callsign)
 
         //MW_LOG_WARN( "[ThunderAccessPlayer] securityToken : %s tokenStatus : %d tokenQueried : %s", gSecurityPlayerData.securityToken.c_str(), gSecurityPlayerData.tokenStatus, ((gSecurityPlayerData.tokenQueried)?"true":"false"));
     }
+#endif
 
     if (NULL == controllerObject) {
         /*Passing empty string instead of Controller callsign.This is assumed as controller plugin.*/
