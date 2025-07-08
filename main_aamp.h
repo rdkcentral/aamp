@@ -855,9 +855,10 @@ public:
 
 	/**
 	 *   @brief Stop playback and release resources.
+	 *   @param[in]  sendStateChangeEvent - true to send state change event, false to not send
 	 *   @return void
 	 */
-	void Stop(void);
+	void Stop(bool sendStateChangeEvent = true);
 
 	/**
 	 *   @fn ResetConfiguration

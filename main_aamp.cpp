@@ -253,7 +253,7 @@ void PlayerInstanceAAMP::Stop(void)
 		//state will be eSTATE_IDLE or eSTATE_RELEASED, right after an init or post-processing of a Stop call
 		if (state != eSTATE_IDLE && state != eSTATE_RELEASED)
 		{ // stop in-progress tune and generate state change events
-			aamp->Stop(true);
+			aamp->Stop(sendStateChangeEvent);
 		}
 
 		//Release lock
