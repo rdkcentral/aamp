@@ -72,20 +72,18 @@ ThunderAccessPlayer::ThunderAccessPlayer(std::string callsign)
     uint32_t status = Core::ERROR_NONE;
 
     Core::SystemInfo::SetEnvironment(_T("THUNDER_ACCESS"), (_T(SERVER_DETAILS)));
-
     string sToken = "";
 #ifdef DISABLE_SECURITY_TOKEN
-    gSecurityPlayerData.securityToken = "token=" + sToken;
-    gSecurityPlayerData.tokenQueried = true;
+     gSecurityPlayerData.securityToken = "token=" + sToken;
+     gSecurityPlayerData.tokenQueried = true;
 #else
-
     if(!gSecurityPlayerData.tokenQueried)
     {
         unsigned char buffer[MAX_LENGTH] = {0};
         gSecurityPlayerData.tokenStatus = GetSecurityToken(MAX_LENGTH,buffer);
         if(gSecurityPlayerData.tokenStatus > 0){
             MW_LOG_INFO( "[ThunderAccessPlayer] : GetSecurityToken success");
-            string sToken = (char*)buffer;
+            sToken = (char*)buffer;
             gSecurityPlayerData.securityToken = "token=" + sToken;
         }
         gSecurityPlayerData.tokenQueried = true;

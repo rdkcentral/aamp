@@ -859,8 +859,7 @@ void AampConfig::ApplyDeviceCapabilities()
 	configValueBool[eAAMPConfig_SyncAudioFragments].value = SocUtils::IsAudioFragmentSyncSupported();
 	SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_WifiCurlHeader, IsWifiCurlHeader);
 
-	bool isSecMgr = isSecManagerEnabled();
-	SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_UseSecManager, isSecMgr);
+	SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_UseSecManager, false); //Note: Workaround for DTM-4118 changes to be merged independently and no impact on secmanager license acquistion while playback testing. Will be reverted once RDK-56194 changes merged
 
 	bool isGstSubtec = SocUtils::isGstSubtecEnabled();
 	SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_GstSubtecEnabled, isGstSubtec);

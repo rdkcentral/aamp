@@ -131,7 +131,14 @@ public:
 	 *
 	 * @return double - First PTS
 	 */
-	double GetFirstPTS() { return mFirstPTS; }
+	double GetFirstPTS();
+
+	/**
+	 * @fn GetFirstPTSOffset
+	 *
+	 * @return AampTime - First PTS Offset
+	 */
+	AampTime GetFirstPTSOffset();
 
 	/**
 	 * @fn GetMediaType
@@ -191,6 +198,7 @@ private:
 	std::string mTsbSessionId;
 	AampMediaType mMediaType;
 	double mFirstPTS;
+	AampTime mFirstPTSOffset;
 	bool mNewInitWaiting;
 	TuneType mActiveTuneType;
 	bool mIsNextFragmentDisc;
