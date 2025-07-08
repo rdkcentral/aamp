@@ -145,7 +145,7 @@ bool ContentSecurityManager::AcquireLicense(std::string clientId, std::string ap
 	{
 		/*old AcquireLicense() code used for open & update (expected operation) and
 		 * if setPlaybackSessionState doesn't have the expected result*/
-		success = AcquireLicenseOpenOrUpdate( clientId, appId, licenseUrl, moneyTraceMetadata,
+		success = AcquireLicenseOpenOrUpdate( std::move(clientId), std::move(appId), licenseUrl, moneyTraceMetadata,
 				accessAttributes, contentMetadata, contMetaLen,
 				licenseRequest, licReqLen, keySystemId,
 				mediaUsage, accessToken, accTokenLen,

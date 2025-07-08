@@ -84,7 +84,7 @@ AampDRMLicenseManager::AampDRMLicenseManager(int maxDrmSessions, PrivateInstance
 {
     aampInstance = aamp; 
 	std::function<void(uint32_t,uint32_t,const std::string&)> waterMarkSessionUpdateCB = std::bind(&PrivateInstanceAAMP::SendWatermarkSessionUpdateEvent, aampInstance, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3);
-    mDrmSessionManager = new DrmSessionManager(maxDrmSessions ,aampInstance, waterMarkSessionUpdateCB);
+    mDrmSessionManager = new DrmSessionManager(maxDrmSessions ,aampInstance, std::move(waterMarkSessionUpdateCB));
     registerCb(this, mDrmSessionManager);
     getConfigs(mDrmSessionManager, aampInstance);
     mLicenseDownloader = new AampCurlDownloader[mMaxDRMSessions];
@@ -1231,8 +1231,9 @@ DrmData * AampDRMLicenseManager::getLicenseSec(const LicenseRequest &licenseRequ
 														 requestMetadata, numberOfAccessAttributes,
 														 ((numberOfAccessAttributes == 0) ? NULL : accessAttributes),
 														 encodedData,
-														 strlen(encodedData),
-														 encodedChallengeData, strlen(encodedChallengeData), keySystem, mediaUsage,
+														 (encodedData ? strlen(encodedData) : 0),
+														 encodedChallengeData, 
+														 (encodedChallengeData ? strlen(encodedChallengeData) : 0), keySystem, mediaUsage,
 														 secclientSessionToken,
 														 &licenseResponseStr, &licenseResponseLength, &refreshDuration, &statusInfo);
 			if (((sec_client_result >= 500 && sec_client_result < 600)||
