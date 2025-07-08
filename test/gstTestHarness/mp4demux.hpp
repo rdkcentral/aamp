@@ -819,9 +819,8 @@ private:
 public:
 	void Parse( const void *ptr, size_t len )
 	{
-		printf( "samples size: %zu\n", samples.size() );
+		// scrub sample data from previous segment, but leave other metadata intact
 		samples.clear();
-		printf( "samples size: %zu\n", samples.size() );
 		cenc_aux_info_sizes.clear();
 		got_auxiliary_information_offset = false;
 		moof_ptr = NULL;
@@ -1027,31 +1026,8 @@ public:
 		return metadata;
 	}
 	
-	static void WriteBytes( uint8_t *ptr, int n, uint64_t value )
-	{
-		while( n>0 )
-		{
-			ptr[--n] = value&0xff;
-			value>>=8;
-		}
-	}
-
-	static uint64_t ReadBytes( const uint8_t *ptr, int n )
-	{
-		uint64_t rc = 0;
-		for( int i=0; i<n; i++ )
-		{
-			rc <<= 8;
-			rc |= *ptr++;
-		}
-		return rc;
-	}
-
-	#define READ_U16(buf) ((buf[0]<<8)|buf[1]); buf+=2;
-	#define READ_U32(buf) ((buf[0]<<24)|(buf[1]<<16)|(buf[2]<<8)|buf[3]); buf+=4;
-
 	/**
-	 * @brief apply adjustment for pts restamping
+	 * @brief apply adjustment for pts restamping - used for invasive pts restamping (gst test harness dai2 test)
      */
 	static uint64_t AdjustMediaDecodeTime( uint8_t *ptr, size_t len, int64_t pts_restamp_delta )
 	{
@@ -1059,16 +1035,27 @@ public:
 		const uint8_t *fin = &ptr[len];
 		while( ptr < fin && !baseMediaDecodeTime )
 		{
-			uint8_t *next = ptr + READ_U32(ptr);
-			uint32_t type = READ_U32(ptr);
+			size_t size = (ptr[0]<<24)|(ptr[1]<<16)|(ptr[2]<<8)|ptr[3];
+			uint8_t *next = ptr + size;
+			ptr += 4;
+			uint32_t type = (ptr[0]<<24)|(ptr[1]<<16)|(ptr[2]<<8)|ptr[3];
+			ptr += 4;
 			if( type == MultiChar_Constant("tfdt") ) // Track Fragment Base Media Decode Time Box
 			{
 				uint8_t version = *ptr++;
 				int sz = (version==1)?8:4;
 				ptr += 3; // skip flags
-				baseMediaDecodeTime = ReadBytes( ptr, sz );
+				baseMediaDecodeTime = 0;
+				for( int i=0; i<sz; i++ )
+				{
+					baseMediaDecodeTime <<= 8;
+					baseMediaDecodeTime |= ptr[i];
+				}
 				baseMediaDecodeTime += pts_restamp_delta;
-				WriteBytes( (uint8_t *)ptr, sz, baseMediaDecodeTime );
+				for( int i=0; i<sz; i++ )
+				{
+					ptr[i] = (baseMediaDecodeTime>>((sz-1-i)*8))&0xff;
+				}
 				break;
 			}
 			else
