@@ -284,13 +284,10 @@ void PlayerInstanceAAMP::Tune(const char *mainManifestUrl,
 								const char *manifestData
 								)
 {
-	AAMPPlayerState state = aamp->GetState();
-	if (state == eSTATE_RELEASED)
-	{
-		// If already released instance is reused for fresh Tune, set it to IDLE to avoid scheduling issue.
-		aamp->SetState(eSTATE_IDLE, false);
-		AAMPLOG_DEBUG("Reusing released player instance for fresh Tune, STATE set to %d", aamp->GetState());
-	}
+	// If already released instance is reused for New Tune
+	aamp->SetState(eSTATE_IDLE, false);
+	AAMPLOG_DEBUG("New Tune, STATE set to %d", aamp->GetState());
+
 	ManageAsyncTuneConfig(mainManifestUrl);
 	if(mAsyncTuneEnabled)
 	{
