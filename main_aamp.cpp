@@ -236,7 +236,7 @@ void PlayerInstanceAAMP::ResetConfiguration()
 /**
  *  @brief Stop playback and release resources.
  */
-void PlayerInstanceAAMP::Stop(void)
+void PlayerInstanceAAMP::Stop(bool sendStateChangeEvent)
 {
 	if (aamp)
 	{
