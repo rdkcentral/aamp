@@ -64,14 +64,7 @@ ThunderAccessPlayer::ThunderAccessPlayer(std::string callsign)
     MW_LOG_INFO( "[ThunderAccessPlayer]Inside");
     uint32_t status = Core::ERROR_NONE;
 
-     const char* serverDetails = getenv("THUNDER_ACCESS_VIPA");
-    if (serverDetails != nullptr && strlen(serverDetails) > 0) {
-        MW_LOG_WARN("[ThunderAccessAAMP] Environment variable THUNDER_ACCESS is set from ENV as :%s",serverDetails);
-        Core::SystemInfo::SetEnvironment(_T("THUNDER_ACCESS"), _T(serverDetails));
-    } else {
-       MW_LOG_WARN("[ThunderAccessAAMP] Environment variable THUNDER_ACCESS not set. Using default value.");
-       Core::SystemInfo::SetEnvironment(_T("THUNDER_ACCESS"), (_T(SERVER_DETAILS)));//default value
-    }
+    Core::SystemInfo::SetEnvironment(_T("THUNDER_ACCESS"), (_T(SERVER_DETAILS)));
 
     if(!gSecurityPlayerData.tokenQueried)
     {
