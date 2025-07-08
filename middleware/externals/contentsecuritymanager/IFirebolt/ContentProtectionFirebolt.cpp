@@ -73,7 +73,7 @@ void ContentProtectionFirebolt::SubscribeEvents()
 
 void ContentProtectionFirebolt::UnSubscribeEvents()
 {
-	MW_LOG_INFO("Unsubscribing from Firebolt Content Protection events %d",mSubscriptionId);
+	MW_LOG_INFO("Unsubscribing from Firebolt Content Protection events %lld",mSubscriptionId);
 	auto result =
 		Firebolt::IFireboltAampAccessor::Instance().ContentProtectionInterface().unsubscribe(mSubscriptionId);
 	if (result.error() == Firebolt::Error::None)

@@ -18,7 +18,7 @@
 cmake_minimum_required(VERSION 3.5)
 
 project(playerfbinterface_LIB)
-set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 set(MW_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../")
@@ -144,7 +144,8 @@ target_link_libraries(playerfbinterface playerjsonobject)
 target_link_libraries(playerfbinterface playerlogmanager)
 target_link_libraries(playerfbinterface baseconversion)
 if(CMAKE_USE_SECCLIENT OR CMAKE_USE_SECMANAGER)
-    target_link_libraries(playerfbinterface FireboltAamp::FireboltAamp)
+   find_package(FireboltAamp CONFIG REQUIRED)
+   target_link_libraries(playerfbinterface FireboltAamp::FireboltAamp)
 endif()
 
 # Install the library and its headers
