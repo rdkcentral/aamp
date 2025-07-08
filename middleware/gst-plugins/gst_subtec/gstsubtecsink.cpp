@@ -303,7 +303,7 @@ gst_subtecsink_set_property (GObject * object, guint property_id,
     case PROP_PTS_OFFSET:
     {
       auto pts_offset = g_value_get_uint64(value);
-      GST_TRACE_OBJECT(subtecsink, "%s setting pts_offset to %lu", __func__, pts_offset);
+      GST_TRACE_OBJECT(subtecsink, "%s setting pts_offset to %" G_GUINT64_FORMAT, __func__, pts_offset);
       subtecsink->m_pts_offset = pts_offset;
       subtecsink->m_send_timestamp = true;
     }
