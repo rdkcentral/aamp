@@ -29,6 +29,8 @@ public:
 	MOCK_METHOD(void, ReadNext, (TsbFragmentDataPtr));
 	MOCK_METHOD(bool, IsFirstDownload, ());
 	MOCK_METHOD(float, GetPlaybackRate, ());
+	MOCK_METHOD(double, GetFirstPTS, ());
+	MOCK_METHOD(AampTime, GetFirstPTSOffset, ());
 };
 
 extern std::shared_ptr<MockTSBReader> g_mockTSBReader;

@@ -52,16 +52,23 @@
 using ::testing::An;
 using ::testing::DoAll;
 using ::testing::InvokeWithoutArgs;
+using ::testing::Matcher;
 using ::testing::NiceMock;
 using ::testing::Return;
 using ::testing::ReturnRef;
 using ::testing::SetArgPointee;
+using ::testing::ValuesIn;
+using ::testing::WithParamInterface;
 using ::testing::_;
 
 AampConfig *gpGlobalConfig{nullptr};
 
 const std::string session_id {"0259343c-cffc-4659-bcd8-97f9dd36f6b1"};
+const char SAMPLE_URL[] = "https://sampleUrl";
+const char SAMPLE_DEFOGGED_URL[] = "https://sampleDeFoggedUrl";
+const char SAMPLE_FOG_URL[] = "http://127.0.0.1:9080/tsb?clientId=\"FOG_AAMP\"&recordedUrl=https://sampleDeFoggedUrl";
 
+// Class to test class PrivateInstanceAAMP public interface
 class PrivAampTests : public ::testing::Test
 {
 public:
@@ -131,6 +138,7 @@ protected:
 	}
 };
 
+// Class to test class PrivateInstanceAAMP protected members and variables
 class PrivAampPrivTests : public ::testing::Test
 {
 	public:
@@ -352,6 +360,10 @@ public:
 	void SetLocalAAMPTsbFromConfig(bool value)
 	{
 		mLocalAAMPTsbFromConfig = value;
+	}
+	bool GetLocalAAMPTsbFromConfig(void)
+	{
+		return mLocalAAMPTsbFromConfig;
 	}
 	};
 	TestablePrivAamp *testp_aamp{nullptr};
@@ -719,6 +731,70 @@ TEST_F(PrivAampPrivTests,RemoveCustomHTTPHeaderTest)
 	EXPECT_TRUE (result.find("string:") == result.end());
 }
 
+struct TsbConfigurationData
+{
+	const char *url;		// Foggy URL contains "tsb?"
+	bool isAampTsbEnabled;	// Is AAMP TSB enabled in the configuration
+	bool isFogEnabled;		// Is FOG enabled in the configuration
+	std::string tsbType;	// Should be set to "local" for local TSB configuration
+	bool aampTsbExpected;	// Is AAMP TSB expected to be enabled after Tune
+	bool fogExpected;		// Is FOG expected to be enabled after Tune
+};
+TsbConfigurationData tsbConfigData[] =
+{
+	{ SAMPLE_URL, false, false, "", false, false },			// Expected configuration when local TSB is not used
+	{ SAMPLE_FOG_URL, false, false, "", false, false },
+	{ SAMPLE_URL, true, false, "", true, false },
+	{ SAMPLE_FOG_URL, true, false, "", true, false },
+	{ SAMPLE_URL, false, true, "", false, false },
+	{ SAMPLE_FOG_URL, false, true, "", false, true },
+	{ SAMPLE_URL, true, true, "", true, false },
+	{ SAMPLE_FOG_URL, true, true, "", true, false },
+	{ SAMPLE_URL, false, false, "local", true, false },		// Expected configuration when AAMP TSB is used
+	{ SAMPLE_FOG_URL, false, false, "local", true, false },
+	{ SAMPLE_URL, true, false, "local", true, false },		// Expected configuration when AAMP TSB is used
+	{ SAMPLE_FOG_URL, true, false, "local", true, false },
+	{ SAMPLE_URL, false, true, "local", true, false },
+	{ SAMPLE_FOG_URL, false, true, "local", false, true },	// Expected configuration when FOG is used
+	{ SAMPLE_URL, true, true, "local", true, false },
+	{ SAMPLE_FOG_URL, true, true, "local", true, false }	// Both AAMP and FOG enabled: AAMP takes precedence over FOG
+};
+
+class TsbConfigurationTest : public PrivAampPrivTests,
+							public WithParamInterface<TsbConfigurationData>
+{
+};
+
+TEST_P(TsbConfigurationTest, TuneTests)
+{
+	TsbConfigurationData testParam = GetParam();
+	AAMPLOG_MIL("TuneTests url '%s' isAampTsbEnabled %d isFogEnabled %d tsbType '%s' aampTsbExpected %d fogExpected %d",
+				testParam.url,
+				testParam.isAampTsbEnabled,
+				testParam.isFogEnabled,
+				testParam.tsbType.c_str(),
+				testParam.aampTsbExpected,
+				testParam.fogExpected);
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(_)).WillRepeatedly(Return(false));
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(Matcher<AAMPConfigSettingString>(_))).WillRepeatedly(Return(""));
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_LocalTSBEnabled)).WillOnce(Return(testParam.isAampTsbEnabled));
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_Fog)).WillRepeatedly(Return(testParam.isFogEnabled));
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_TsbType)).WillOnce(Return(testParam.tsbType));
+	std::string urlExpected {testParam.url};
+	// If FOG is not enabled, AAMP will 'defog' the URL
+	if (!testParam.fogExpected && (testParam.url == SAMPLE_FOG_URL))
+	{
+		urlExpected = SAMPLE_DEFOGGED_URL;
+	}
+
+	testp_aamp->Tune(testParam.url, false);
+	EXPECT_EQ(testp_aamp->GetLocalAAMPTsbFromConfig(), testParam.aampTsbExpected);
+	EXPECT_EQ(testp_aamp->mFogTSBEnabled, testParam.fogExpected);
+	EXPECT_EQ(testp_aamp->mManifestUrl, urlExpected);
+}
+
+INSTANTIATE_TEST_SUITE_P(PrivAampPrivTests, TsbConfigurationTest,
+						 ValuesIn(tsbConfigData));
 
 TEST_F(PrivAampTests, HandleSSLWriteCallbackTest)
 {
@@ -1629,7 +1705,7 @@ TEST_F(PrivAampTests,GetFileTest_4)
 }
 
 class PrivAampInitMediaTypeTest : public PrivAampTests,
-								  public ::testing::WithParamInterface<AampMediaType> {
+								  public WithParamInterface<AampMediaType> {
 };
 
 TEST_P(PrivAampInitMediaTypeTest, GetFileTest_RetryInitWhilstBufferDepthTest)
@@ -1650,9 +1726,9 @@ TEST_P(PrivAampInitMediaTypeTest, GetFileTest_RetryInitWhilstBufferDepthTest)
 	p_aamp->curl[eCURLINSTANCE_MANIFEST_MAIN] = mCurlEasyHandle;
 	p_aamp->curlDLTimeout[eCURLINSTANCE_MANIFEST_MAIN] = 2000; // 2000ms timeout
 
-	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(testing::Matcher<AAMPConfigSettingInt>(_))).WillRepeatedly(Return(0));
-	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(testing::Matcher<AAMPConfigSettingFloat>(_))).WillRepeatedly(Return(0.0));
-	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(testing::Matcher<AAMPConfigSettingString>(_))).WillRepeatedly(Return(""));
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(Matcher<AAMPConfigSettingInt>(_))).WillRepeatedly(Return(0));
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(Matcher<AAMPConfigSettingFloat>(_))).WillRepeatedly(Return(0.0));
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(Matcher<AAMPConfigSettingString>(_))).WillRepeatedly(Return(""));
 
 	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_InitFragmentRetryCount))
 		.WillOnce(Return(initFragmentRetryCount));
@@ -1724,9 +1800,9 @@ TEST_F(PrivAampTests, GetFileTest_RetryInitWhilstBufferDepthTsbTest)
 	p_aamp->curl[eCURLINSTANCE_MANIFEST_MAIN] = mCurlEasyHandle;
 	p_aamp->curlDLTimeout[eCURLINSTANCE_MANIFEST_MAIN] = curlTimeout;
 
-	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(testing::Matcher<AAMPConfigSettingInt>(_))).WillRepeatedly(Return(0));
-	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(testing::Matcher<AAMPConfigSettingFloat>(_))).WillRepeatedly(Return(0.0));
-	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(testing::Matcher<AAMPConfigSettingString>(_))).WillRepeatedly(Return(""));
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(Matcher<AAMPConfigSettingInt>(_))).WillRepeatedly(Return(0));
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(Matcher<AAMPConfigSettingFloat>(_))).WillRepeatedly(Return(0.0));
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(Matcher<AAMPConfigSettingString>(_))).WillRepeatedly(Return(""));
 
 	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_InitFragmentRetryCount))
 		.WillOnce(Return(initFragmentRetryCount));
@@ -1768,9 +1844,9 @@ TEST_F(PrivAampTests,GetFileTest_RetryInitWhilstBufferDepthBeforeSuccessTest)
 	p_aamp->curl[eCURLINSTANCE_MANIFEST_MAIN] = mCurlEasyHandle;
 	p_aamp->curlDLTimeout[eCURLINSTANCE_MANIFEST_MAIN] = 2000; // 2000ms timeout
 
-	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(testing::Matcher<AAMPConfigSettingInt>(_))).WillRepeatedly(Return(0));
-	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(testing::Matcher<AAMPConfigSettingFloat>(_))).WillRepeatedly(Return(0.0));
-	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(testing::Matcher<AAMPConfigSettingString>(_))).WillRepeatedly(Return(""));
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(Matcher<AAMPConfigSettingInt>(_))).WillRepeatedly(Return(0));
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(Matcher<AAMPConfigSettingFloat>(_))).WillRepeatedly(Return(0.0));
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(Matcher<AAMPConfigSettingString>(_))).WillRepeatedly(Return(""));
 
 	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_InitFragmentRetryCount))
 		.WillOnce(Return(initFragmentRetryCount));
@@ -4278,6 +4354,61 @@ TEST_F(PrivAampTests, TuneHelperWithAampTsbLive)
 	EXPECT_DOUBLE_EQ(p_aamp->durationSeconds, (ABS_END_POS - SEEK_POS));
 }
 
+/**
+ * @test PrivAampTests::TuneHelperWithAampTsbSeekToLiveWhenTsbIsEmpty
+ * @brief Test the method TuneHelper with AAMP TSB enabled, Tsb injection disabled
+ * not newTune with TuneType eTUNETYPE_SEEKTOLIVE when TSB is empty.
+ *
+ * This test verifies that when TuneHelper function is called with
+ * above parameters, it is not setting LocalAAMPTsbInjection flag.
+ */
+TEST_F(PrivAampTests, TuneHelperWithAampTsbSeekToLiveWhenTsbIsEmpty)
+{
+	constexpr double SEEK_POS = 123;
+	constexpr double ABS_END_POS = 150.0;
+	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP_MPD;
+	p_aamp->mMediaFormat = eMEDIAFORMAT_DASH;
+	p_aamp->rate = AAMP_RATE_PAUSE;
+	p_aamp->seek_pos_seconds = SEEK_POS;
+	p_aamp->SetLLDashChunkMode(false);
+	p_aamp->SetLocalAAMPTsb(true);
+	p_aamp->SetLocalAAMPTsbInjection(false);
+	p_aamp->mAbsoluteEndPosition = ABS_END_POS;
+	p_aamp->culledSeconds = SEEK_POS;
+
+	EXPECT_DOUBLE_EQ(p_aamp->GetTSBSessionManager()->GetTotalStoreDuration(eMEDIATYPE_VIDEO), 0);
+	p_aamp->TuneHelper(eTUNETYPE_SEEKTOLIVE);
+	EXPECT_FALSE(p_aamp->IsLocalAAMPTsbInjection());
+}
+
+/**
+ * @test PrivAampTests::TuneHelperWithAampTsbSeekToLiveWhenTsbIsNotEmpty
+ * @brief Test the method TuneHelper with AAMP TSB enabled, Tsb injection disabled
+ * not newTune with TuneType eTUNETYPE_SEEKTOLIVE when TSB has data.
+ *
+ * This test verifies that when TuneHelper function is called with
+ * above parameters, it is able to initiaize TsbReader is TSB has data.
+ */
+TEST_F(PrivAampPrivTests, TuneHelperWithAampTsbSeekToLiveWhenTsbIsNotEmpty)
+{
+	constexpr double SEEK_POS = 123;
+	constexpr double ABS_END_POS = 150.0;
+	testp_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP_MPD;
+	testp_aamp->mMediaFormat = eMEDIAFORMAT_DASH;
+	testp_aamp->rate = AAMP_RATE_PAUSE;
+	testp_aamp->seek_pos_seconds = SEEK_POS;
+	testp_aamp->SetLLDashChunkMode(false);
+	testp_aamp->SetLocalAAMPTsb(true);
+	testp_aamp->SetLocalAAMPTsbInjection(false);
+	testp_aamp->mAbsoluteEndPosition = ABS_END_POS;
+	testp_aamp->culledSeconds = SEEK_POS;
+	testp_aamp->SetTsbSessionManager();
+	testp_aamp->SetTsbStore();
+
+	EXPECT_CALL(*g_mockTSBSessionManager, GetTotalStoreDuration(eMEDIATYPE_VIDEO)).WillRepeatedly(Return(ABS_END_POS));
+	testp_aamp->TuneHelper(eTUNETYPE_SEEKTOLIVE);
+	EXPECT_TRUE(testp_aamp->IsLocalAAMPTsbInjection());
+}
 
 /**
  * @test PrivAampTests::NotifyEOSReached
