@@ -4417,8 +4417,9 @@ static void AAMP_finalize(JSObjectRef thisObject)
 		std::lock_guard<std::mutex> guard(jsMutex);
 		if (NULL != _allocated_aamp)
 		{
-			LOG_WARN(pAAMP,"aamp->Stop()");
-			_allocated_aamp->Stop();
+			//when finalizing JS object, don't generate state change events
+			LOG_WARN(pAAMP," aamp->Stop(false)");
+			_allocated_aamp->Stop(false);
 			LOG_WARN(pAAMP,"delete aamp %p",_allocated_aamp);
 			SAFE_DELETE(_allocated_aamp);
 		}
@@ -4809,7 +4810,8 @@ void __attribute__ ((destructor(101))) _aamp_term()
 	if (NULL != _allocated_aamp)
 	{
 		LOG_WARN_EX("stopping aamp");
-		_allocated_aamp->Stop();
+		//when finalizing JS object, don't generate state change events
+		_allocated_aamp->Stop(false);
 		LOG_WARN_EX("stopped aamp");
 		delete _allocated_aamp;
 		_allocated_aamp = NULL;
