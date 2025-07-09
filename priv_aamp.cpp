@@ -5115,6 +5115,9 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 		mLastTelemetryTimeMS = aamp_GetCurrentTimeMS();
 	}
 
+	AAMPLOG_INFO("patrick delay");
+	interruptibleMsSleep(100);
+
 	if (newTune)
 	{
 
