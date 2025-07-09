@@ -2691,7 +2691,7 @@ void PrivateInstanceAAMP::SendTuneMetricsEvent(std::string &timeMetricData)
 	// Providing the Tune Timemetric info as an event
 	TuneTimeMetricsEventPtr e = std::make_shared<TuneTimeMetricsEvent>(timeMetricData, GetSessionId());
 
-	AAMPLOG_INFO("PrivateInstanceAAMP: Sending Tune Timemetric info event: %s", e->getTuneMetricsData().c_str());
+	AAMPLOG_INFO("PrivateInstanceAAMP: Sending TuneTimeMetric event: %s", e->getTuneMetricsData().c_str());
 	SendEvent(e,AAMP_EVENT_ASYNC_MODE);
 }
 
@@ -10175,8 +10175,13 @@ std::string PrivateInstanceAAMP::GetAvailableTextTracks(bool allTrack)
 			cJSON *root;
 			cJSON *item;
 			root = cJSON_CreateArray();
+			TextTrackInfo currentTrackInfo;
 			if(root)
 			{
+				if (IsLocalAAMPTsb())
+				{
+					mpStreamAbstractionAAMP->GetCurrentTextTrack(currentTrackInfo);
+				}
 				for (auto iter = trackInfo.begin(); iter != trackInfo.end(); iter++)
 				{
 					cJSON_AddItemToArray(root, item = cJSON_CreateObject());
@@ -10224,7 +10229,21 @@ std::string PrivateInstanceAAMP::GetAvailableTextTracks(bool allTrack)
 					{
 						cJSON_AddStringToObject(item, "codec", iter->codec.c_str());
 					}
-					cJSON_AddBoolToObject(item, "availability", iter->isAvailable);
+					bool isAvailable = iter->isAvailable;
+					if (IsLocalAAMPTsb())
+					{
+						if (iter->index == currentTrackInfo.index)
+						{
+							//Only the current selected text track is available in AAMP TSB.
+							isAvailable = true;
+						}
+						else
+						{
+							isAvailable = false;
+						}
+						AAMPLOG_INFO("Setting text track %s isAvailable to %d", iter->index.c_str(), isAvailable);
+					}
+					cJSON_AddBoolToObject(item, "availability", isAvailable);
 					if (!iter->accessibilityItem.getSchemeId().empty())
 					{
 						cJSON *accessibility = cJSON_AddObjectToObject(item, "accessibility");
