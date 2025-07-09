@@ -4143,10 +4143,6 @@ static gboolean bus_message(GstBus * bus, GstMessage * msg, InterfacePlayerRDK *
 
 				}
 			}
-			else
-			{
-				MW_LOG_MIL("patrick isPlaybinStateChangeEvent %d gstLogging %d",isPlaybinStateChangeEvent,pInterfacePlayerRDK->m_gstConfigParam->gstLogging);
-			}
 			//this code should be handled as part of IARM modification
 			if ((NULL != msg->src) && GstPlayer_isVideoOrAudioDecoder(GST_OBJECT_NAME(msg->src), pInterfacePlayerRDK))
 			{
