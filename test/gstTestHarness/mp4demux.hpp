@@ -680,15 +680,18 @@ private:
 	
 	void DemuxHelper( const uint8_t *fin )
 	{
-		indent--;
+		indent--; // back up to include one more tab
 		while( ptr < fin )
 		{
 			uint32_t size = ReadU32();
 			const uint8_t *next = ptr+size-4;
 			uint32_t type = ReadU32();
-			PRINTF( "%s'%c%c%c%c' (%" PRIu32 ")\n",
-				   &"\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t"[indent],
-				   (type>>24)&0xff, (type>>16)&0xff, (type>>8)&0xff, type&0xff, size );
+			if( indent>=0 )
+			{
+				PRINTF( "%s'%c%c%c%c' (%" PRIu32 ")\n",
+					   &"\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t"[indent], // variable indent avoiding need for for loop
+					   (type>>24)&0xff, (type>>16)&0xff, (type>>8)&0xff, type&0xff, size );
+			}
 			switch( type )
 			{
 				case MultiChar_Constant("hev1"):
@@ -766,26 +769,27 @@ private:
 					parseSampleDescriptionBox(next);
 					break;
 					
-				case MultiChar_Constant("ftyp"): //  FileType (major_brand, minor_version, compatible_brands)
+				case MultiChar_Constant("ftyp"): // FileType (major_brand, minor_version, compatible_brands)
 				case MultiChar_Constant("hdlr"): // Handler Reference (handler, name)
 				case MultiChar_Constant("vmhd"): // Video Media Header (graphicsmode, opcolor)
 				case MultiChar_Constant("smhd"): // Sound Media Header (balance)
-				case MultiChar_Constant("dref"): // Data Reference (url)
-				case MultiChar_Constant("stts"): // Decoding Time To Sample
-				case MultiChar_Constant("stsc"): // Sample To Chunk
-				case MultiChar_Constant("stsz"): // Sample Size Boxes
-				case MultiChar_Constant("stco"): // Chunk Offsets
-				case MultiChar_Constant("stss"): // Sync Sample
+				case MultiChar_Constant("dref"): // Data Reference (url) (under dinf box)
+				case MultiChar_Constant("stts"): // Decoding Time To Sample (under stb boxl)
+				case MultiChar_Constant("stsc"): // Sample To Chunk (under stbl box)
+				case MultiChar_Constant("stsz"): // Sample Size Boxes (under stbl box)
+				case MultiChar_Constant("stco"): // Chunk Offsets (under stbl box)
+				case MultiChar_Constant("stss"): // Sync Sample (under stbl box)
 				case MultiChar_Constant("prft"): // Producer Reference Time
-				case MultiChar_Constant("edts"): // Edit
-				case MultiChar_Constant("fiel"): // Field
+				case MultiChar_Constant("edts"): // Edit (under trak box)
+				case MultiChar_Constant("fiel"): // Field (progressive or interlaced)
 				case MultiChar_Constant("colr"): // Color Pattern Atom
 				case MultiChar_Constant("pasp"): // Pixel Aspect Ratio (hSpacing, vSpacing)
 				case MultiChar_Constant("btrt"): // Buffer Time to Render Time (bufferSizeDB, maxBitrate, avgBitrate)
-				case MultiChar_Constant("styp"): // Segment Type
+				case MultiChar_Constant("styp"): // Segment Type (under file box)
 				case MultiChar_Constant("sidx"): // Segment Index
-				case MultiChar_Constant("udta"): // User Data
-				case MultiChar_Constant("mdat"): // Movie Data
+				case MultiChar_Constant("udta"): // User Data (can appear under moov, trak, moof, traf)
+				case MultiChar_Constant("mdat"): // Movie Data (under file box)
+					// TODO - parse if needed
 					break;
 					
 				case MultiChar_Constant("schm"):
