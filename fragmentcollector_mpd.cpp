@@ -9007,8 +9007,8 @@ void StreamAbstractionAAMP_MPD::AdvanceTrack(int trackIdx, bool trickPlay, doubl
 			FetchAndInjectInitialization(trackIdx,isDiscontinuity);
 		}
 		// When injecting from TSBReader we do not want to stop the fetcher loop because of injector cache full. TSB injection
-		// uses numberOfFragmentChunksCached so assuming (pMediaStreamContext->numberOfFragmentsCached < maxCachedFragmentsPerTrack) == true
-		else if (pMediaStreamContext->IsFragmentCacheFull())
+		// uses numberOfFragmentChunksCached so assuming (pMediaStreamContext->IsFragmentCacheFull()) == false
+		else if (!aamp->IsLocalAAMPTsbInjection() && pMediaStreamContext->IsFragmentCacheFull())
 		{
 			AAMPLOG_INFO("[%s] Fragments cache is full %d",
 				GetMediaTypeName(static_cast<AampMediaType>(trackIdx)), pMediaStreamContext->numberOfFragmentsCached);
