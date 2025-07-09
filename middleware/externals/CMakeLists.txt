@@ -140,9 +140,9 @@ set_target_properties(playerfbinterface PROPERTIES COMPILE_FLAGS "${LIB_EXT_DEFI
 string(STRIP "${LIB_EXT_DEPENDS}" LIB_EXT_DEPENDS)
 
 target_link_libraries(playerfbinterface ${LIB_EXT_DEPENDS})
-target_link_libraries(playerfbinterface playerjsonobject)
 target_link_libraries(playerfbinterface playerlogmanager)
 target_link_libraries(playerfbinterface baseconversion)
+target_link_libraries(playerfbinterface playerjsonobject)
 if(CMAKE_USE_SECCLIENT OR CMAKE_USE_SECMANAGER)
    find_package(FireboltAamp CONFIG REQUIRED)
    target_link_libraries(playerfbinterface FireboltAamp::FireboltAamp)
