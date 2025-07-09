@@ -13642,9 +13642,9 @@ bool PrivateInstanceAAMP::isDecryptClearSamplesRequired()
 
 void PrivateInstanceAAMP::SetLLDashChunkMode(bool enable)
 {
-	mIsChunkMode = enable;
+	mIsChunkMode = false; // Disable chunk mode by default
 	AampLLDashServiceData* stLLServiceData = GetLLDashServiceData();
-	if(mIsChunkMode)
+	if(enable)
 	{
 		mMPDDownloaderInstance->SetNetworkTimeout(MANIFEST_TIMEOUT_FOR_LLD);
 		SETCONFIGVALUE_PRIV(AAMP_TUNE_SETTING,eAAMPConfig_ManifestTimeout,MANIFEST_TIMEOUT_FOR_LLD);
