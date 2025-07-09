@@ -39,11 +39,18 @@ jobs:
           name: ctest-results
           path: test/utests/build/ctest-results.xml
 
+      # Make install-middleware.sh executable
+      - name: Make install-middleware.sh executable
+        run: chmod +x ./aamp/middleware/install-middleware.sh
       
-      # Install AAMP
-      - name: Install AAMP
-        run: yes | ./install-middleware.sh -s -k file
-      
+      # Install Middleware
+      - name: Install Middleware Player Interface
+        run: yes | ./aamp/middleware/install-middleware.sh -s -k file
+
+      # Make run.sh executable
+      - name: Make run.sh executable
+        run: chmod +x ./aamp/middleware/test/utests/run.sh
+        
       # Run L1 tests
       - name: Run unit tests
         working-directory: ./middleware/test/utests
