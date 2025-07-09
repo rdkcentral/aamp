@@ -3851,8 +3851,8 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 					//Chunk mode is applied when the seek position is between the live edge and the maximum allowed latency from it
 					if (seekPosition > (duration - maxLatency))
 					{
-						aamp->SetLLDashChunkMode(true);
-						AAMPLOG_MIL("Chunk mode set: seekPosition (%f) not exceeded maxLatency (%d) threshold, enabling LLDashChunkMode", seekPosition, maxLatency);
+						aamp->SetLLDashChunkMode(false);
+						AAMPLOG_MIL("Chunk mode unset: seekPosition (%f) not exceeded maxLatency (%d) threshold, enabling LLDashChunkMode", seekPosition, maxLatency);
 					}
 				}
 			}
@@ -3861,8 +3861,8 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 			{
 				if(mLowLatencyMode)
 				{
-					aamp->SetLLDashChunkMode(true);
-					AAMPLOG_MIL("Chunk mode set: Enabling LLDashChunkMode due to liveadjust");
+					aamp->SetLLDashChunkMode(false);
+					AAMPLOG_MIL("Chunk mode unset: Enabling LLDashChunkMode due to liveadjust");
 				}
 				// After live adjust ( for Live or CDVR) , possibility of picking an empty last period exists.
 				// Though its ignored in Period selection earlier , live adjust will end up picking last added empty period
