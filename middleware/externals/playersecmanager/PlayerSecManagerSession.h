@@ -85,7 +85,7 @@ private:
 	PlayerSecManagerSession(int64_t sessionID, std::size_t inputSummaryHash);
 public:
 	/**
- 	* @brief constructor for an invalid object*/
+	* @brief constructor for an invalid object*/
 	PlayerSecManagerSession(): mpSessionManager(), sessionIdMutex() {};
 
 	//allow copying, the secManager session will only be closed when all copies have gone out of scope

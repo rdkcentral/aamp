@@ -22,7 +22,7 @@
 
 #include <gmock/gmock.h>
 #include "main_aamp.h"
-#include "middleware/InterfacePlayerRDK.h"
+#include "InterfacePlayerRDK.h"
 class MockAampUtils
 {
 public:

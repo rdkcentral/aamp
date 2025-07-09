@@ -21,6 +21,12 @@ project(playerfbinterface_LIB)
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+option(DISABLE_SECURITY_TOKEN "Disable security token" OFF)
+
+if(DISABLE_SECURITY_TOKEN)
+  add_definitions(-DDISABLE_SECURITY_TOKEN)
+endif()
+
 set(MW_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../")
 
 find_package(PkgConfig REQUIRED)
@@ -43,13 +49,6 @@ option(DISABLE_SECURITY_TOKEN "Disable security token" OFF)
 if(DISABLE_SECURITY_TOKEN)
 	add_definitions(-DDISABLE_SECURITY_TOKEN)
 endif()
-
-# uncomment below to build additional drm support in simulator
-# set(CMAKE_USE_OPENCDM_ADAPTER TRUE)
-# set(CMAKE_USE_OPENCDM_ADAPTER_MOCKS TRUE)
-# set(CMAKE_USE_THUNDER_OCDM_API_0_2 TRUE)
-# set(CMAKE_USE_SECCLIENT TRUE)
-# set(CMAKE_USE_SECCLIENT_MOCKS TRUE)
 
 set(LIB_EXT_DEPENDS ${LIB_EXT_DEPENDS} ${GSTREAMER_LINK_LIBRARIES} ${GSTREAMERBASE_LINK_LIBRARIES})
 
