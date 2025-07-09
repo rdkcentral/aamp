@@ -6118,12 +6118,8 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 		mfirstTuneFmt = (int)mMediaFormat;
 	}
 
-	if(mCdaiObject != NULL)
-	{
-		SAFE_DELETE(mCdaiObject);
-		mCdaiObject = NULL;
-	}
-
+	SAFE_DELETE(mCdaiObject);
+	
 	AcquireStreamLock();
 	TuneHelper(tuneType);
 
