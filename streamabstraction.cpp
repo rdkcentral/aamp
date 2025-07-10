@@ -1366,10 +1366,9 @@ void MediaTrack::ProcessAndInjectFragment(CachedFragment *cachedFragment, bool f
 			}
 		}
 		else if (ISCONFIGSET(eAAMPConfig_OverrideMediaHeaderDuration) &&
-			(eMEDIAFORMAT_DASH == aamp->mMediaFormat) &&
-			(aamp->IsLive()))
+			(eMEDIAFORMAT_DASH == aamp->mMediaFormat))
 		{
-			// Only for Live and DASH streams
+			// Only for DASH streams
 			ClearMediaHeaderDuration(cachedFragment);
 		}
 		if ((mSubtitleParser || (aamp->IsGstreamerSubsEnabled())) && type == eTRACK_SUBTITLE)
