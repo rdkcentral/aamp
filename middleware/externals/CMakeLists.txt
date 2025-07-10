@@ -41,6 +41,12 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/rdk)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/contentsecuritymanager)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/contentsecuritymanager/IFirebolt)
 
+option(DISABLE_SECURITY_TOKEN "Disable security token" OFF)
+
+if(DISABLE_SECURITY_TOKEN)
+	add_definitions(-DDISABLE_SECURITY_TOKEN)
+endif()
+
 # uncomment below to build additional drm support in simulator
 # set(CMAKE_USE_OPENCDM_ADAPTER TRUE)
 # set(CMAKE_USE_OPENCDM_ADAPTER_MOCKS TRUE)

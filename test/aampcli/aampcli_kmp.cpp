@@ -15,6 +15,9 @@ static gboolean tuneFunc( gpointer arg )
 		{ // lazily allocate player instance
 			g_kmp_player = new PlayerInstanceAAMP();
 		}
+		else {
+			g_kmp_player->Stop();
+		}
 		g_kmp_player->Tune(url);
 		free( url );
 	}

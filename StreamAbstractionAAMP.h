@@ -437,7 +437,7 @@ public:
 	 *
 	 * @return Total duration in seconds
 	 */
-	double GetTotalInjectedDuration();
+	virtual double GetTotalInjectedDuration();
 
 	/**
  	* @brief update total fragment injected duration
