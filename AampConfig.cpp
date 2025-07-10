@@ -364,6 +364,7 @@ static const ConfigLookupEntryBool mConfigLookupTableBool[AAMPCONFIG_BOOL_COUNT]
 	{false, "forceLLDFlow", eAAMPConfig_ForceLLDFlow, false},
 	{false, "monitorAV", eAAMPConfig_MonitorAV, true},
 	{false, "enablePTSRestampForHlsTs", eAAMPConfig_HlsTsEnablePTSReStamp, true},
+	{true, "overrideMediaHeaderDuration", eAAMPConfig_OverrideMediaHeaderDuration, true},
 	{false, "useMp4Demux", eAAMPConfig_UseMp4Demux,false },
 	{false, "curlThroughput", eAAMPConfig_CurlThroughput, false }
 };
@@ -859,8 +860,7 @@ void AampConfig::ApplyDeviceCapabilities()
 	SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_WifiCurlHeader, IsWifiCurlHeader);
 
 	bool isSecMgr = isSecManagerEnabled();
-	SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_UseSecManager, isSecMgr);
-
+	SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_UseSecManager, false); //Note: Workaround for DTM-4118 changes to be merged independently and no impact on secmanager license acquisition while playback testing. Will be reverted once RDK-56194 changes merged
 }
 
 std::string AampConfig::GetUserAgentString()
