@@ -212,6 +212,7 @@ typedef enum
 	eAAMPConfig_OverrideMediaHeaderDuration, /**< enable overriding media header duration for live streams to 0 */
 	eAAMPConfig_UseMp4Demux,
 	eAAMPConfig_CurlThroughput,
+	eAAMPConfig_OverrideMediaHeaderDuration, /**< enable overriding media header duration for live streams to 0 */
 	eAAMPConfig_BoolMaxValue						/**< Max value of bool config always last element */
 
 } AAMPConfigSettingBool;

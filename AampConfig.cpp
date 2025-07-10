@@ -366,7 +366,8 @@ static const ConfigLookupEntryBool mConfigLookupTableBool[AAMPCONFIG_BOOL_COUNT]
 	{false, "enablePTSRestampForHlsTs", eAAMPConfig_HlsTsEnablePTSReStamp, true},
 	{true, "overrideMediaHeaderDuration", eAAMPConfig_OverrideMediaHeaderDuration, true},
 	{false, "useMp4Demux", eAAMPConfig_UseMp4Demux,false },
-	{false, "curlThroughput", eAAMPConfig_CurlThroughput, false }
+	{false, "curlThroughput", eAAMPConfig_CurlThroughput, false },
+	{true, "overrideMediaHeaderDuration", eAAMPConfig_OverrideMediaHeaderDuration, true}
 };
 
 #define CONFIG_INT_ALIAS_COUNT 2
