@@ -93,7 +93,7 @@ void ContentSecurityManager::DestroyInstance()
  */
 void ContentSecurityManager::UseFireboltSDK(bool status)
 {
-	MW_LOG_WARN("SAMII SET USEFIREBOLT SDK as %d",status);
+	MW_LOG_INFO("Set Use Firebolt SDK as %d",status);
 	mUseFireboltSDK = status;
 }
 
