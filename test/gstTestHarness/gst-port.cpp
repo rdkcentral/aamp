@@ -64,7 +64,7 @@ public:
 		}
 	}
 	
-	void SendBuffer( gpointer ptr, gsize len, double duration, double pts, double dts )
+	void SendBuffer( gpointer ptr, gsize len, double duration, double pts, double dts, GstStructure *metadata=NULL )
 	{
 		if( ptr )
 		{
@@ -72,6 +72,10 @@ public:
 			GST_BUFFER_PTS(gstBuffer) = (GstClockTime)(pts * GST_SECOND);
 			GST_BUFFER_DTS(gstBuffer) = (GstClockTime)(dts * GST_SECOND);
 			GST_BUFFER_DURATION(gstBuffer) = (GstClockTime)(duration * 1000000000LL);
+			if( metadata )
+			{
+				gst_buffer_add_protection_meta(gstBuffer, metadata);
+			}
 			GstFlowReturn ret = gst_app_src_push_buffer(GST_APP_SRC(appsrc), gstBuffer );
 			switch( ret )
 			{
@@ -242,6 +246,7 @@ public:
 		pad = gst_element_get_static_pad(appsrc, "src");
 		
 		// seek here avoids freeze at start for non-zero first_pts
+		assert( context->mSegmentEndSeekQueue.size()>0 );
 		SeekParam param = context->mSegmentEndSeekQueue.front();
 		context->mSegmentEndSeekQueue.pop();
 		Seek( param );
@@ -373,10 +378,10 @@ void Pipeline::SendBufferMP4( MediaType mediaType, gpointer ptr, gsize len, doub
 	}
 	mediaStream[mediaType]->SendBuffer(ptr,len,duration);
 }
-void Pipeline::SendBufferES( MediaType mediaType, gpointer ptr, gsize len, double duration, double pts, double dts )
+void Pipeline::SendBufferES( MediaType mediaType, gpointer ptr, gsize len, double duration, double pts, double dts, GstStructure *metadata )
 {
 	//g_print( "Pipeline::SendBuffer %s, len=%zu\n", gstutils_GetMediaTypeName(mediaType), len );
-	mediaStream[mediaType]->SendBuffer(ptr,len,duration,pts,dts);
+	mediaStream[mediaType]->SendBuffer(ptr,len,duration,pts,dts,metadata);
 }
 
 void Pipeline::SendGap( MediaType mediaType, double pts, double durationSeconds )
