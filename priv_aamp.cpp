@@ -6283,7 +6283,7 @@ MediaFormat PrivateInstanceAAMP::GetMediaFormatType(const char *url)
 	}
 #endif // TRUST_LOCATOR_EXTENSION_IF_PRESENT
 
-	if( rc == eMEDIAFORMAT_UNKNOWN)
+	if(rc == eMEDIAFORMAT_UNKNOWN)
 	{
 		// no extension - sniff first few bytes of file to disambiguate
 		AampGrowableBuffer sniffedBytes("sniffedBytes");
