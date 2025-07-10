@@ -1192,7 +1192,7 @@ DrmData * AampDRMLicenseManager::getLicenseSec(const LicenseRequest &licenseRequ
 		downloadTimeMS = tEndTime - tStartTime;
 		if (res)
 		{
-			AAMPLOG_WARN("acquireLicense via SecManager SUCCESS!");
+			AAMPLOG_WARN("acquireLicense via ContentSecurityManager SUCCESS!");
 			//TODO: Sort this out for backward compatibility
 			*httpCode = 200;
 			*httpExtStatusCode = 0;
@@ -1214,7 +1214,7 @@ DrmData * AampDRMLicenseManager::getLicenseSec(const LicenseRequest &licenseRequ
 				std::string responseData(licenseResponseStr);
 				eventHandle->setResponseData(responseData);
 			}
-			AAMPLOG_ERR("acquireLicense via SecManager FAILED!, httpCode %d, httpExtStatusCode %d", *httpCode, *httpExtStatusCode);
+			AAMPLOG_ERR("acquireLicense via ContentSecurityManager FAILED!, httpCode %d, httpExtStatusCode %d", *httpCode, *httpExtStatusCode);
 			//TODO: Sort this out for backward compatibility
 		}
 	}

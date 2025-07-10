@@ -52,6 +52,7 @@ static int MapFireboltStatus(const std::string& statusStr) {
 	return -1;
 }
 
+// TODO- Yet to test Watermark Events as ContentProtection Thunder Plugin have issues.
 void ContentProtectionFirebolt::SubscribeEvents()
 {
 	MW_LOG_INFO("Subscribing to Firebolt Content Protection events");
@@ -78,7 +79,7 @@ void ContentProtectionFirebolt::UnSubscribeEvents()
 		Firebolt::IFireboltAampAccessor::Instance().ContentProtectionInterface().unsubscribe(mSubscriptionId);
 	if (result.error() == Firebolt::Error::None)
 	{
-		mSubscriptionId = 0; ///TODO is it ok to set 0??
+		mSubscriptionId = 0; 
 	}
 
 	else
