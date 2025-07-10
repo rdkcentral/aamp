@@ -178,7 +178,7 @@ void StreamAbstractionAAMP_VIDEOIN::OnInputStatusChanged(std::string strStatus)
 		}
 		else if(0 == strStatus.compare("stopped"))
 		{
-			aamp->SetState(eSTATE_STOPPED);
+			aamp->SetState(eSTATE_STOPPING);
 		}
 	}
 }
