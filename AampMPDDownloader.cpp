@@ -45,7 +45,7 @@ void _manifestDownloadResponse::show()
 			 AAMPLOG_INFO("location: %s", mMPDInstance->GetLocations()[0].c_str());
 		}
 		AAMPLOG_INFO("type: %s", mMPDInstance->GetType().c_str());
-		auto periods = mMPDInstance->GetPeriods();
+		const auto& periods = mMPDInstance->GetPeriods();
 		AAMPLOG_INFO("Size of 'periods': %zu", periods.size());
 		AAMPLOG_INFO("Minimum Update Period:  %s", mMPDInstance->GetMinimumUpdatePeriod().c_str());
 	}
@@ -908,7 +908,7 @@ uint32_t AampMPDDownloader::getMeNextManifestDownloadWaitTime(ManifestDownloadRe
 		for (int iter = 0; iter < periods.size(); iter++)
 		{
 			auto period = periods.at(iter);
-			auto eventStream = period->GetEventStreams();
+			const auto& eventStream = period->GetEventStreams();
 			if(!(eventStream.empty()))
 			{
 				eventStreamFound = true;
