@@ -598,7 +598,7 @@ public:
 		// Verify any of ConfigLookupEntryBool item matched with given custom json
 		for (auto it = lookupBool.begin(); it != lookupBool.end(); ++it)
 		{
-			auto keyname =  it->first;
+			const auto& keyname =  it->first;
 			auto searchVal = cJSON_GetObjectItem(customVal,keyname.c_str());
 			if(searchVal)
 			{
@@ -618,7 +618,7 @@ public:
 		// Verify any of ConfigLookupEntryInt item matched with given custom json
 		for (auto it = lookupInt.begin(); it != lookupInt.end(); ++it)
 		{
-			auto keyname =  it->first;
+			const auto& keyname =  it->first;
 			auto searchVal = cJSON_GetObjectItem(customVal,keyname.c_str());
 			if(searchVal)
 			{
@@ -639,7 +639,7 @@ public:
 		//Verify any of ConfigLookupEntryFloat item matched with given custom json
 		for (auto it = lookupFloat.begin(); it != lookupFloat.end(); ++it)
 		{
-			auto keyname =  it->first;
+			const auto& keyname =  it->first;
 			auto searchVal = cJSON_GetObjectItem(customVal,keyname.c_str());
 			if(searchVal)
 			{
@@ -660,7 +660,7 @@ public:
 		// Verify any of ConfigLookupEntryString item matched with given custom json
 		for (auto it = lookupString.begin(); it != lookupString.end(); ++it)
 		{
-			auto keyname =  it->first;
+			const auto& keyname =  it->first;
 			auto searchVal = cJSON_GetObjectItem(customVal,keyname.c_str());
 			if(searchVal)
 			{
