@@ -34,7 +34,7 @@
 
 using namespace std;
 using namespace WPEFramework;
-
+#endif
 #define SERVER_DETAILS  "127.0.0.1:9998"
 
 #define MAX_LENGTH 1024
