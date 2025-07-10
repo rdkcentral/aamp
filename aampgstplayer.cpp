@@ -587,6 +587,7 @@ static void HandleBusMessage(const BusEventData busEvent, AAMPGstPlayer * _this)
 		case MESSAGE_STATE_CHANGE:
 
 		{
+			AAMPLOG_MIL("firstBufferProcessed %d receivedFirstFrame %d",busEvent.firstBufferProcessed,busEvent.receivedFirstFrame);
 			if(busEvent.firstBufferProcessed)
 			{
 				_this->aamp->NotifyFirstBufferProcessed(_this->GetVideoRectangle());
