@@ -44,7 +44,7 @@ struct MonitorAVState
 	long long tLastReported;
 	long long tLastSampled;
 	const char *description;
-	gint64 av_position[2];
+	signed long av_position[2];
 	bool happy;
 
 	MonitorAVState() : tLastReported(0), tLastSampled(0), description(nullptr), happy(false)
@@ -53,6 +53,7 @@ struct MonitorAVState
 		av_position[1] = 0; // Audio position
 	}
 };
+
 /**
  * @brief Function pointer for the idle task
  * @param[in] arg - Arguments
