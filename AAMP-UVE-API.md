@@ -197,7 +197,7 @@ Configuration options are passed to AAMP using the UVE initConfig method. This a
 | drmStartTimeout | Number | 0 | Optional optimization - Allow fast-failure for class of curl-detectable stall at start of DRM license request download (in seconds) |
 | connectTimeout | Number | 3 | Curl socket connection timeout for fragment/playlist/manifest downloads (in seconds) |
 | dnsCacheTimeout | Number | 180 | life-time for DNS cache entries ,Name resolve results are cached for manifest and used for this number of seconds |
-| tsbtype | String |  | Use the "tsbtype" configuration for each playback session, where "local" retains existing FOG streaming logic, "cloud" enables direct CDN streaming, and if "tsbtype" is not provided, default to "none," disabling TSB playback |
+| tsbtype | String |  | Use the "tsbtype" configuration for each playback session, where "local" enables local time shift buffer (FOG or AAMP TSB), "cloud" enables direct CDN streaming, and if "tsbtype" is not provided, default to "none," disabling TSB playback |
 | telemetryInterval | Number | 300 | telemetry log interval . Default of 300 seconds . 0 to disable telemetry logging |
 | sendUserAgentInLicense | Boolean | False | Optional field to enable sending User Agent string in license request also |
 | useSinglePipeline | Boolean | False | Optional field to enable single pipeline while switching between multiple player instances( Ad & Content) to avoid delay in flush operations. Used primarily for Client Side Ad-Insertion with multi-player usage |
@@ -828,7 +828,7 @@ Examples:
 |||audio_native — Primary dialogue and soundtrack with dialogue that was recorded along with the video;
 |||audio_descriptions — Audio track meant to assist the vision impaired in the enjoyment of the video asset |
 | Channels | String | Indicates the maximum number of audio channels; 1 = mono, 2=stereo, up to 8 for DD+ |
-| availability  | Boolean | Availability of the audio track in current TSB buffer (FOG) |
+| availability  | Boolean | Availability of the audio track in current TSB buffer (FOG or AAMP TSB) |
 | accessibility  | Object | DASH shall signal a new object accessibility to notify a track as hearing impaired |
 | scheme  | String | The SchemeId to indicate the type of Accessibility Example:- "urn:mpeg:dash:role:2011" |
 | string_value  | String | The string value of Accessibility object; Example:-  "description" |

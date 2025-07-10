@@ -36,6 +36,7 @@
 #include "MockAdManager.h"
 #include "MockIsoBmffProcessor.h"
 #include "MockTSBSessionManager.h"
+#include "MockTSBReader.h"
 
 using ::testing::_;
 using ::testing::An;
@@ -2763,6 +2764,62 @@ TEST_F(FunctionalTests, FindServerUTCTimeTest)
 	AAMPStatusType status = InitializeMPD(manifest);
 	EXPECT_EQ(status, eAAMPSTATUS_OK);
 }
+
+TEST_F(FunctionalTests, GetFirstPTS)
+{
+	static const char *manifest =
+R"(<?xml version="1.0" encoding="utf-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" profiles="urn:mpeg:dash:profile:isoff-live:2011" type="static" mediaPresentationDuration="PT2M0.0S" minBufferTime="PT4.0S">
+	<Period id="0" start="PT0.0S">
+		<AdaptationSet id="3" contentType="audio">
+			<Representation id="0" mimeType="audio/mp4" codecs="opus" bandwidth="64000" audioSamplingRate="48000">
+				<SegmentTemplate timescale="48000" initialization="opus/audio_init.mp4" media="opus/audio_$Number$.mp3" startNumber="1">
+					<SegmentTimeline>
+						<S t="0" d="96000" r="59" />
+					</SegmentTimeline>
+				</SegmentTemplate>
+			</Representation>
+		</AdaptationSet>
+	</Period>
+</MPD>
+)";
+
+	// The manifest URL contains parameters
+	mManifestUrl = "http://host/asset/manifest.mpd?chunked";
+
+	g_mockAampUtils = new NiceMock<MockAampUtils>();
+
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, _, _, _, _, _, _))
+	.WillRepeatedly(Return(true));
+
+	AAMPStatusType status = InitializeMPD(manifest);
+	EXPECT_EQ(status, eAAMPSTATUS_OK);
+
+	std::shared_ptr<AampTsbDataManager> dataMgr = std::make_shared<AampTsbDataManager>();
+	std::shared_ptr<AampTsbReader> tsbReader = std::make_shared<AampTsbReader>(mPrivateInstanceAAMP, dataMgr, eMEDIATYPE_VIDEO, "");
+
+	g_mockTSBSessionManager = new MockTSBSessionManager(mPrivateInstanceAAMP);
+	g_mockTSBReader = std::make_shared<MockTSBReader>();
+
+	ASSERT_NE(g_mockTSBSessionManager, nullptr);
+	ASSERT_NE(g_mockTSBReader, nullptr);
+
+	MediaTrack *videoTrack = mStreamAbstractionAAMP_MPD->GetMediaTrack(eTRACK_VIDEO);
+	ASSERT_NE(videoTrack, nullptr);
+	videoTrack->SetLocalTSBInjection(true);
+
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetTSBSessionManager()).WillRepeatedly(Return(g_mockTSBSessionManager));
+	EXPECT_CALL(*g_mockTSBSessionManager, GetTsbReader(eMEDIATYPE_VIDEO)).WillRepeatedly(Return(tsbReader));
+
+	EXPECT_CALL(*g_mockTSBReader, GetFirstPTS()).WillOnce(Return(5.0));
+	EXPECT_CALL(*g_mockTSBReader, GetFirstPTSOffset()).WillOnce(Return(10.0));
+
+	EXPECT_EQ(15.0, mStreamAbstractionAAMP_MPD->GetFirstPTS());
+
+	delete g_mockTSBSessionManager;
+	g_mockTSBReader.reset();
+}
+
 
 TEST_F(StreamAbstractionAAMP_MPDTest, CheckAdResolvedStatus_FirstTryAdBreakNotResolved)
 {

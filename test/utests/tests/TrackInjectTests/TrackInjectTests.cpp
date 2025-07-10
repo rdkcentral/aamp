@@ -183,7 +183,8 @@ public:
 			{eAAMPConfig_MPDDiscontinuityHandlingCdvr, true},
 			{eAAMPConfig_ForceMultiPeriodDiscontinuity, false},
 			{eAAMPConfig_SuppressDecode, false},
-			{eAAMPConfig_InterruptHandling, false}};
+			{eAAMPConfig_InterruptHandling, false},
+			{eAAMPConfig_OverrideMediaHeaderDuration, false}};
 
 	BoolConfigSettings mBoolConfigSettings;
 

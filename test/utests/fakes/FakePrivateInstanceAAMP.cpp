@@ -316,8 +316,6 @@ void PrivateInstanceAAMP::ResumeDownloads()
 
 void PrivateInstanceAAMP::EnableDownloads()
 {
-	mDownloadsEnabled = true;
-	mDownloadsDisabled.notify_all(); // Signal the condition variable
 }
 
 void PrivateInstanceAAMP::AcquireStreamLock()
@@ -483,12 +481,11 @@ std::string PrivateInstanceAAMP::GetAvailableAudioTracks(bool allTrack)
 	}else {
 		return "";
 	}
-
 }
 
 std::string PrivateInstanceAAMP::GetVideoRectangle()
 {
-	std::string video = "videorectangel";
+	std::string video = "VideoRectangle";
 	return video;
 }
 
@@ -498,7 +495,7 @@ void PrivateInstanceAAMP::SetAppName(std::string name)
 
 std::string PrivateInstanceAAMP::GetAppName()
 {
-	std::string name = "appName";
+	std::string name = "AppName";
 	return name;
 }
 
@@ -522,7 +519,7 @@ void PrivateInstanceAAMP::SetTextStyle(const std::string &options)
 
 std::string PrivateInstanceAAMP::GetTextStyle()
 {
-	std::string result = "sampleStyle";
+	std::string result = "TextStyle";
 	return result;
 }
 
@@ -643,7 +640,7 @@ void PrivateInstanceAAMP::StoreLanguageList(const std::set<std::string> &langlis
 
 bool PrivateInstanceAAMP::DownloadsAreEnabled(void)
 {
-	bool retVal = mDownloadsEnabled;
+	bool retVal = false;//mDownloadsEnabled;
 	if (g_mockPrivateInstanceAAMP != nullptr)
 	{
 		retVal = g_mockPrivateInstanceAAMP->DownloadsAreEnabled();
@@ -793,13 +790,10 @@ void PrivateInstanceAAMP::CurlTerm(AampCurlInstance startIdx, unsigned int insta
 
 void PrivateInstanceAAMP::DisableDownloads(void)
 {
-	std::lock_guard<std::recursive_mutex> guard(mLock);
-	mDownloadsEnabled = true;
 	if (g_mockPrivateInstanceAAMP != nullptr)
 	{
 		g_mockPrivateInstanceAAMP->DisableDownloads();
 	}
-	mDownloadsDisabled.notify_all(); // Signal the condition variable
 }
 
 int PrivateInstanceAAMP::GetInitialBufferDuration()
@@ -1631,7 +1625,6 @@ bool PrivateInstanceAAMP::isDecryptClearSamplesRequired()
 void PrivateInstanceAAMP::ResetTrickStartUTCTime()
 {
 }
-
 
 void PrivateInstanceAAMP::SetLLDashChunkMode(bool enable)
 {

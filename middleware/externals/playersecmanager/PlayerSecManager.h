@@ -113,22 +113,22 @@ public:
 	 * @fn setVideoWindowSize
 	 *
 	 * @param[in] sessionId - session id
-	 * @param[in] video_width - video width 
-	 * @param[in] video_height - video height 
+	 * @param[in] video_width - video width
+	 * @param[in] video_height - video height
 	 */
 	bool setVideoWindowSize(int64_t sessionId, int64_t video_width, int64_t video_height);
 	/**
 	 * @fn setPlaybackSpeedState
 	 *
 	 * @param[in] sessionId - session id
-	 * @param[in] playback_speed - playback speed 
-	 * @param[in] playback_position - playback position	 
+	 * @param[in] playback_speed - playback speed
+	 * @param[in] playback_position - playback position
 	 */
 	bool setPlaybackSpeedState(int64_t sessionId, int64_t playback_speed, int64_t playback_position);
 	/**
 	 * @fn loadClutWatermark
 	 * @param[in] sessionId - session id
-	 *  
+	 *
 	 */
 	bool loadClutWatermark(int64_t sessionId, int64_t graphicId, int64_t watermarkClutBufferKey, int64_t watermarkImageBufferKey, int64_t clutPaletteSize, const char* clutPaletteFormat, int64_t watermarkWidth, int64_t watermarkHeight, float aspectRatio);
 	/**
@@ -214,13 +214,13 @@ private:
 	 * @fn ~PlayerSecManager
 	 */
 	~PlayerSecManager();
-	/**     
-     	 * @brief Copy constructor disabled
-    	 *
-     	 */
+	/**
+	 * @brief Copy constructor disabled
+	 *
+	 */
 	PlayerSecManager(const PlayerSecManager&) = delete;
 	/**
- 	 * @brief assignment operator disabled
+	 * @brief assignment operator disabled
          *
          */
 	PlayerSecManager* operator=(const PlayerSecManager&) = delete;

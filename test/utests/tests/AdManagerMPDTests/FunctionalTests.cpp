@@ -91,15 +91,15 @@ protected:
 
   void TearDown()
   {
-    delete mPrivateInstanceAAMP;
-    mPrivateInstanceAAMP = nullptr;
-
     delete mCdaiObj;
     mCdaiObj = nullptr;
     mPrivateCDAIObjectMPD = nullptr;
 
     delete g_mockPrivateInstanceAAMP;
     g_mockPrivateInstanceAAMP = nullptr;
+
+    delete mPrivateInstanceAAMP;
+    mPrivateInstanceAAMP = nullptr;
 
     delete gpGlobalConfig;
     gpGlobalConfig = nullptr;

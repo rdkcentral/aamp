@@ -85,7 +85,7 @@ struct StreamInfo
 	StreamResolution resolution;    /**< Resolution of the stream*/
 	BitrateChangeReason reason;     /**< Reason for bitrate change*/
 	std::string baseUrl;
-	StreamInfo():enabled(false),isIframeTrack(false),validity(false),codecs(),bandwidthBitsPerSecond(0),resolution(),reason(){};
+	StreamInfo():enabled(false),isIframeTrack(false),validity(false),codecs(),bandwidthBitsPerSecond(0),resolution(),reason(),baseUrl(){};
 };
 
 
@@ -166,18 +166,20 @@ public:
 	void Clear()
 	{
 		fragment.Free();
-		type = eMEDIATYPE_DEFAULT;
-		downloadStartTime = 0;
-		initFragment = false;
 		position = 0.0;
 		duration = 0.0;
+		initFragment = false;
 		discontinuity = false;
+		isDummy = false;
 		profileIndex = 0;
-		cacheFragStreamInfo = StreamInfo();
 		timeScale = 0;
+		uri = "";
+		cacheFragStreamInfo = StreamInfo();
+		type = eMEDIATYPE_DEFAULT;
+		downloadStartTime = 0;
+		discontinuityIndex = 0;
 		PTSOffsetSec = 0;
 		absPosition = 0.0;
-		isDummy = false;
 	}
 };
 
@@ -555,7 +557,13 @@ public:
 	 * @param[in] initialize true to initialize the fragment chunk
 	 * @retval Pointer to fragment chunk buffer.
 	 */
-	CachedFragment* GetFetchChunkBuffer(bool initialize);
+	CachedFragment *GetFetchChunkBuffer(bool initialize);
+
+	/**
+	 * @brief Check if the fragment cache buffer is full
+	 * @return true if the fragment cache buffer is full, false otherwise
+	 */
+	bool IsFragmentCacheFull();
 
 	/**
 	 * @fn SetCurrentBandWidth

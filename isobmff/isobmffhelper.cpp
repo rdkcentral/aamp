@@ -126,7 +126,7 @@ bool IsoBmffHelper::ClearMediaHeaderDuration(AampGrowableBuffer &buffer)
 	}
 	else if (!isoBmffBuffer.isInitSegment())
 	{
-		AAMPLOG_WARN("Buffer is not an initialization segment");
+		AAMPLOG_DEBUG("Buffer is not an initialization segment");
 	}
 	else
 	{
