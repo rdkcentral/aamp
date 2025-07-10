@@ -1472,6 +1472,25 @@ int aamp_SetThreadSchedulingParameters(int policy, int priority)
 	AAMPLOG_INFO("Thread scheduling parameters set successfully.");
 	return result; // Success
 }
+
+int aamp_hascii_char_to_number( char c )
+{
+	int rc = -1;
+	if( isdigit(c) )
+	{
+		rc = (c-'0');
+	}
+	else
+	{
+		c = toupper(c);
+		if( c>='A' && c<='F' )
+		{
+			rc = 10 + (c-'A');
+		}
+	}
+	return rc;
+}
+
 /*
  * EOF
  */
