@@ -22,8 +22,8 @@
  * @brief Class to communicate with SecManager Thunder plugin
  */
 
-#ifndef __PLAYER_SECMANAGER_H__
-#define __PLAYER_SECMANAGER_H__
+#ifndef __CONTENT_SECURITY_MANAGER_H__
+#define __CONTENT_SECURITY_MANAGER_H__
 
 #include <mutex>
 #include <sys/time.h>
@@ -270,4 +270,4 @@ public:
 		
 	}
 };
-#endif /* __PLAYER_SECMANAGER_H__ */
+#endif /* __CONTENT_SECURITY_MANAGER_H__ */

@@ -162,7 +162,6 @@ private:
 	 */
 	void UnSubscribeEvents();
 	bool mIsConnected;
-	std::mutex mCallbackMutex;
 	std::mutex mFireboltInitMutex;
 	std::mutex mContentProtectionMutex;
 	std::mutex mSpeedStateMutex;

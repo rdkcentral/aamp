@@ -58,7 +58,7 @@ std::shared_ptr<ContentSecurityManagerSession::SessionManager> ContentSecurityMa
         }
 
         /* Only create or retrieve instances for valid sessionIDs.
-         * <0 is used as an invalid value e.g. PLAYER_SECMGR_INVALID_SESSION_ID
+         * <0 is used as an invalid value e.g. CONTENT_SECURITY_MGR_INVALID_SESSION_ID
          * 0 removes all sessions which is not the intended behaviour here*/
         if(sessionID>0)
         {
@@ -132,7 +132,7 @@ sessionIdMutex()
 int64_t ContentSecurityManagerSession::getSessionID(void) const
 {
         std::lock_guard<std::mutex>lock(sessionIdMutex);
-        int64_t ID = PLAYER_SECMGR_INVALID_SESSION_ID;
+        int64_t ID = CONTENT_SECURITY_MGR_INVALID_SESSION_ID;
         if(mpSessionManager)
         {
                 ID = mpSessionManager->getID();

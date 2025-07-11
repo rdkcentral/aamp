@@ -170,7 +170,7 @@ bool ContentProtectionFirebolt::CreateFireboltInstance(const std::string &url)
 		return false;
 	}
 	auto errorConnect = Firebolt::IFireboltAampAccessor::Instance().Connect(callback);
-	if (!errorConnect) //TODO: Does it always returns positive value? if its an int, does ! check requ?
+	if (!errorConnect)
 	{
 		MW_LOG_ERR("Failed to create FireboltInstance ConnectError:\"%d\"",  static_cast<int>(errorConnect.error()));
 		return false;

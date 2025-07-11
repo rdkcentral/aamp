@@ -19,11 +19,11 @@
 
 /**
  * @file ContentSecurityManagerSession.h
- * @brief Class to Represents an PLAYER sec manager session
+ * @brief Class to Represents an contentsecurity manager session
  */
 
-#ifndef __PLAYER_SECMANAGERSESSION_H__
-#define __PLAYER_SECMANAGERSESSION_H__
+#ifndef __CONTENT_SECURITY_MANAGER_SESSION_H__
+#define __CONTENT_SECURITY_MANAGER_SESSION_H__
 
 #include <mutex>
 #include <sys/time.h>
@@ -31,7 +31,7 @@
 #include <memory>
 #include <sstream>
 
-#define PLAYER_SECMGR_INVALID_SESSION_ID (-1)
+#define CONTENT_SECURITY_MGR_INVALID_SESSION_ID (-1)
 
 class ContentSecurityManager;
 
@@ -133,7 +133,7 @@ public:
 		std::stringstream ss;
 		ss<<"Session ";
 		auto id = getSessionID();	//ID retrieved under mutex
-		if(id != PLAYER_SECMGR_INVALID_SESSION_ID)
+		if(id != CONTENT_SECURITY_MGR_INVALID_SESSION_ID)
 		{
 			ss<<id<<" valid";
 		}
@@ -145,4 +145,4 @@ public:
 	}
 };
 
-#endif /* __PLAYER_SECMANAGERSESSION_H__ */
+#endif /* __CONTENT_SECURITY_MANAGER_SESSION_H__ */
