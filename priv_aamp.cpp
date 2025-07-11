@@ -3079,73 +3079,80 @@ bool PrivateInstanceAAMP::ProcessPendingDiscontinuity()
 
 		if (continueDiscontProcessing)
 		{
-			// mStreamLock is not exactly required here, this will be called from Scheduler/GMainLoop based on AAMP config
-			// The same thread will be executing operations involving TeardownStream.
-			mpStreamAbstractionAAMP->StopInjection();
-
-			// TODO: There is a possible issue hiding in the bushes. The audio codec switching use-case, Flush is done first and the Configure()
-			// So the new audio playbin will miss the Flush() and might not sync with video (which received the Flush) properly
-			if (((mMediaFormat != eMEDIAFORMAT_HLS_MP4) && (!ISCONFIGSET_PRIV(eAAMPConfig_EnablePTSReStamp))) ||  mVideoFormat != FORMAT_ISO_BMFF )
+			AcquireStreamLock();
+			if (mpStreamAbstractionAAMP)
 			{
- 				StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
+				mpStreamAbstractionAAMP->StopInjection();
+
+				// TODO: There is a possible issue hiding in the bushes. The audio codec switching use-case, Flush is done first and the Configure()
+				// So the new audio playbin will miss the Flush() and might not sync with video (which received the Flush) properly
+				if (((mMediaFormat != eMEDIAFORMAT_HLS_MP4) && (!ISCONFIGSET_PRIV(eAAMPConfig_EnablePTSReStamp))) ||  mVideoFormat != FORMAT_ISO_BMFF )
+				{
+					StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
+					if (sink)
+					{
+						if(mDiscontinuityFound)
+						{
+							profiler.ProfileBegin(PROFILE_BUCKET_DISCO_FLUSH);
+						}
+						if (!ISCONFIGSET_PRIV(eAAMPConfig_EnablePTSReStamp))
+						{
+							sink->Flush(mpStreamAbstractionAAMP->GetFirstPTS(), rate);
+						}
+						if(mDiscontinuityFound)
+						{
+							profiler.ProfileEnd(PROFILE_BUCKET_DISCO_FLUSH);
+						}
+					}
+				}
+
+				mpStreamAbstractionAAMP->GetStreamFormat(mVideoFormat, mAudioFormat, mAuxFormat, mSubtitleFormat);
+				StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
 				if (sink)
 				{
-					if(mDiscontinuityFound)
-					{
-						profiler.ProfileBegin(PROFILE_BUCKET_DISCO_FLUSH);
-					}
-					if (!ISCONFIGSET_PRIV(eAAMPConfig_EnablePTSReStamp))
-					{
- 						sink->Flush(mpStreamAbstractionAAMP->GetFirstPTS(), rate);
-					}
-					if(mDiscontinuityFound)
-					{
-						profiler.ProfileEnd(PROFILE_BUCKET_DISCO_FLUSH);
-					}
- 				}
-			}
+					sink->Configure(
+						mVideoFormat,
+						mAudioFormat,
+						mAuxFormat,
+						mSubtitleFormat,
+						mpStreamAbstractionAAMP->GetESChangeStatus(),
+						mpStreamAbstractionAAMP->GetAudioFwdToAuxStatus(),
+						mIsTrackIdMismatch /*setReadyAfterPipelineCreation*/);
+				}
+				mpStreamAbstractionAAMP->ResetESChangeStatus();
 
-			mpStreamAbstractionAAMP->GetStreamFormat(mVideoFormat, mAudioFormat, mAuxFormat, mSubtitleFormat);
-			StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
-			if (sink)
-			{
-				sink->Configure(
-					mVideoFormat,
-					mAudioFormat,
-					mAuxFormat,
-					mSubtitleFormat,
-					mpStreamAbstractionAAMP->GetESChangeStatus(),
-					mpStreamAbstractionAAMP->GetAudioFwdToAuxStatus(),
-					mIsTrackIdMismatch /*setReadyAfterPipelineCreation*/);
-			}
-			mpStreamAbstractionAAMP->ResetESChangeStatus();
+				bool isRateCorrectionEnabled = ISCONFIGSET_PRIV(eAAMPConfig_EnableLiveLatencyCorrection);
+				int  disableRateCorrectionTimeInSeconds = GETCONFIGVALUE_PRIV(eAAMPConfig_RateCorrectionDelay);
+				if( disableRateCorrectionTimeInSeconds > 0  && isRateCorrectionEnabled )
+				{
+					mRateCorrectionDelay = true;
+					mDiscStartTime = NOW_STEADY_TS_SECS;
+					AAMPLOG_WARN("Rate correction is disabled on discontinuity processing : %ld", mDiscStartTime);
+				}
+				else
+				{
+					AAMPLOG_WARN("DisableRateCorrectionTimeInSeconds : %d isRateCorrectionEnabled : %d", disableRateCorrectionTimeInSeconds, isRateCorrectionEnabled);
+				}
 
-			bool isRateCorrectionEnabled = ISCONFIGSET_PRIV(eAAMPConfig_EnableLiveLatencyCorrection);
-			int  disableRateCorrectionTimeInSeconds = GETCONFIGVALUE_PRIV(eAAMPConfig_RateCorrectionDelay);
-			if( disableRateCorrectionTimeInSeconds > 0  && isRateCorrectionEnabled )
-			{
-				mRateCorrectionDelay = true;
-				mDiscStartTime = NOW_STEADY_TS_SECS;
-				AAMPLOG_WARN("Rate correction is disabled on discontinuity processing : %ld", mDiscStartTime);
+				if(mDiscontinuityFound)
+				{
+					profiler.ProfileBegin(PROFILE_BUCKET_DISCO_FIRST_FRAME);
+				}
+
+				// Reset clock sync on discontinuity processing. Segment event as part of flush will send a new timestamp packet to subtec.
+				m_lastSubClockSyncTime = std::chrono::system_clock::now();
+				mpStreamAbstractionAAMP->StartInjection();
+				if (sink)
+				{
+					sink->Stream();
+				}
+				mIsTrackIdMismatch = false;
 			}
 			else
 			{
-				AAMPLOG_WARN("DisableRateCorrectionTimeInSeconds : %d isRateCorrectionEnabled : %d", disableRateCorrectionTimeInSeconds, isRateCorrectionEnabled);
+				AAMPLOG_WARN("Cannot process discontinuity as mpStreamAbstractionAAMP is null");
 			}
-
-			if(mDiscontinuityFound)
-			{
-				profiler.ProfileBegin(PROFILE_BUCKET_DISCO_FIRST_FRAME);
-			}
-
-			// Reset clock sync on discontinuity processing. Segment event as part of flush will send a new timestamp packet to subtec.
-			m_lastSubClockSyncTime = std::chrono::system_clock::now();
-			mpStreamAbstractionAAMP->StartInjection();
-			if (sink)
-			{
-				sink->Stream();
-			}
-			mIsTrackIdMismatch = false;
+			ReleaseStreamLock();
 		}
 		else
 		{
