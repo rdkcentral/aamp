@@ -11859,8 +11859,13 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 							ReloadTSB();
 						}
 
-						/* If AAMP TSB is enabled, flush the TSB before seeking to live */
-						if(IsLocalAAMPTsb())
+						/* If AAMP TSB is enabled and Language etc is present, flush the TSB before seeking to live */
+						if(IsLocalAAMPTsb() &&
+								((languagePresent && !languageAvailabilityInManifest) ||
+								 (renditionPresent && !renditionAvailabilityInManifest) ||
+								 (accessibilityTypePresent && !accessibilityAvailabilityInManifest) ||
+								 (labelPresent && !labelAvailabilityInManifest) ||
+								 (namePresent && !nameAvailabilityInManifest)))
 						{
 							if(mTSBSessionManager)
 							{
@@ -11880,7 +11885,10 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 						}
 						else
 						{
-							TuneHelper(eTUNETYPE_SEEKTOLIVE);
+							if(!IsLocalAAMPTsb())
+							{
+								TuneHelper(eTUNETYPE_SEEKTOLIVE);
+							}
 						}
 					}
 					discardEnteringLiveEvt = false;
@@ -12259,7 +12267,12 @@ void PrivateInstanceAAMP::SetPreferredTextLanguages(const char *param )
 						ReloadTSB();
 					}
 
-					if(IsLocalAAMPTsb())
+					if(IsLocalAAMPTsb() &&
+				 	((languagePresent && !languageAvailabilityInManifest) ||
+				 	(renditionPresent && !renditionAvailabilityInManifest) ||
+				 	(accessibilityTypePresent && !accessibilityAvailabilityInManifest) ||
+					(labelPresent && !labelAvailabilityInManifest) ||
+					(namePresent && !nameAvailabilityInManifest)))
 					{
 						AAMPLOG_WARN("Flush the TSB before seeking to live");
 
@@ -12278,7 +12291,10 @@ void PrivateInstanceAAMP::SetPreferredTextLanguages(const char *param )
 					}
 					else
 					{
-						TuneHelper(eTUNETYPE_SEEK);
+						if(!IsLocalAAMPTsb())
+						{
+							TuneHelper(eTUNETYPE_SEEK);
+						}
 					}
 
 					discardEnteringLiveEvt = false;
