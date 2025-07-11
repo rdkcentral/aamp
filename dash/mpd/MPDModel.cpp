@@ -180,6 +180,68 @@ string findBaseUrl(DomElement &element, const string &current, bool isFile) {
 }
 
 /**
+ * @brief   Finds all Base URLs for an element
+ * @param   element Element
+ * @param   current Parent Base URLs
+ * @param   isFile Flag to indicate File
+ * @retval  Vector of Base URLs
+ */
+vector<string> findAllBaseUrls(DomElement &element, const vector<string> &current, bool isFile)
+{
+    vector<string> baseUrls;
+    DomElement eUrl = element.firstChildElement("BaseURL");
+
+    while (!eUrl.isNull())
+    {
+        string slash = isFile ? "" : "/";
+
+        for (const auto &base : current)
+        {
+            Url newbase(eUrl.text());
+            if (newbase.isRelative())
+            {
+                auto out = Url(base).resolve(newbase).format(Url::StripTrailingSlash).append(slash);
+                baseUrls.push_back(out);
+            }
+            else
+            {
+                baseUrls.push_back(newbase.format(Url::StripTrailingSlash).append(slash));
+            }
+        }
+
+        eUrl = eUrl.nextSiblingElement("BaseURL");
+    }
+
+    if (baseUrls.empty() && !current.empty())
+    {
+        for (const auto &base : current)
+        {
+            if (!base.empty())
+            {
+                if (isFile)
+                {
+                    baseUrls.push_back(base);
+                }
+                else
+                {
+                    if (base.back() == '/')
+                    {
+                        baseUrls.push_back(base);
+                    }
+                    else
+                    {
+                        auto i = base.find_last_of('/');
+                        baseUrls.push_back(base.substr(0, i + 1));
+                    }
+                }
+            }
+        }
+    }
+
+    return baseUrls;
+}
+
+/**
  * @brief   Get Dash MPD Segment Template
  * @param   fromChildren Flag to get from children
  * @param   cached Flag to get from cached
@@ -209,6 +271,19 @@ std::string DashMPDRepresentation::getBaseUrl() {
         baseurl = findBaseUrl(elem, parent->getBaseUrl());
     }
     return baseurl;
+}
+
+/**
+ * @brief   Get Base URL from Parent
+ * @retval  Base URL
+ */
+std::vector<std::string> DashMPDRepresentation::getBaseUrls() {
+    vector<string> baseurls;
+    auto parent = this->parent.lock();
+    if(parent) {
+        baseurls = findAllBaseUrls(elem, parent->getBaseUrls());
+    }
+    return baseurls;
 }
 
 /**
@@ -342,6 +417,29 @@ std::string DashMPDAdaptationSet::getInitUrl()
         initUrl = segmentTemplate->getInitializationAttr();
     }
     return initUrl;
+}
+
+/**
+ * @brief   Get mediaType by checking contentType, then mimeType, then representations
+ * @retval  mediaType string
+ */
+std::string DashMPDAdaptationSet::getMediaType() {
+    std::string mediaType = getContentType();
+    if (!mediaType.empty() && mediaType != MPD_UNSET_STRING) {
+        return mediaType;
+    }
+    mediaType = getMimeType();
+    if (!mediaType.empty() && mediaType != MPD_UNSET_STRING) {
+        return mediaType;
+    }
+    auto reps = getRepresentations();
+    for (const auto& rep : reps) {
+        mediaType = rep->getMimeType();
+        if (!mediaType.empty() && mediaType != MPD_UNSET_STRING) {
+            return mediaType;
+        }
+    }
+    return "";
 }
 
 /**
@@ -541,6 +639,18 @@ std::string DashMPDRoot::getBaseUrlValue() {
     Url location = getLocation();
     location = location.parent();
     return findBaseUrl(elem, location.str());
+}
+
+
+/**
+ * @brief   Gets Base URL
+ * @retval  Base URLs
+ */
+std::vector<std::string> DashMPDRoot::getAllBaseUrls() {
+    Url location = getLocation();
+    location = location.parent();
+    vector<string> baseUrls = {location.str()};
+    return findAllBaseUrls(elem, baseUrls);
 }
 
 /**
@@ -854,6 +964,19 @@ std::string DashMPDPeriod::getBaseUrl() {
         baseUrl = findBaseUrl(elem, parent->getBaseUrlValue());
     }
     return baseUrl;
+}
+
+/**
+ * @brief   Get Base URL from Parent
+ * @retval  Base URL
+ */
+std::vector<std::string> DashMPDPeriod::getBaseUrls() {
+    vector<string> baseurls;
+    auto parent = this->parent.lock();
+    if(parent) {
+        baseurls = findAllBaseUrls(elem, parent->getAllBaseUrls());
+    }
+    return baseurls;
 }
 
 /**
@@ -1676,6 +1799,19 @@ std::string DashMPDAdaptationSet::getBaseUrl() {
         baseUrl = findBaseUrl(elem, parent->getBaseUrl());
     }
     return baseUrl;
+}
+
+/**
+ * @brief   Get Base URL from Parent
+ * @retval  Base URL
+ */
+std::vector<std::string> DashMPDAdaptationSet::getBaseUrls() {
+    vector<string> baseurls;
+    auto parent = this->parent.lock();
+    if(parent) {
+        baseurls = findAllBaseUrls(elem, parent->getBaseUrls());
+    }
+    return baseurls;
 }
 
 

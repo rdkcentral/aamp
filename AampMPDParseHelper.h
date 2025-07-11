@@ -466,12 +466,28 @@ public :
 	 */
 	void GetStartAndDurationFromTimeline(IPeriod * period, int representationIdx, int adaptationSetIdx, AampTime &scaledStartTime, AampTime &duration);
 
-    /**
-     * @brief  A helper function to  check if period has segment timeline for video track
-     * @param period period of segment
-     * @return True if period has segment timeline for video otherwise false
-     */
-    bool aamp_HasSegmentTimeline(IPeriod * period);
+	/**
+	 * @brief  A helper function to  check if period has segment timeline for video track
+	 * @param period period of segment
+	 * @return True if period has segment timeline for video otherwise false
+	 */
+	bool aamp_HasSegmentTime(IPeriod *period);
+
+	/**
+	 * @brief  A helper function to  check if period has segment template for video track
+	 * @param period period of segment
+	 * @return True if period has segment template for video otherwise false
+	 */
+	bool aamp_HasSegmentTemplate(IPeriod *period);
+
+	/**
+	 * @brief A helper function to get segment template for video
+	 * @param[in] period for current period
+	 *
+	 * @return segment template for video track
+	 */
+	std::shared_ptr<SegmentTemplates> GetSegmentTemplateForVideo(IPeriod *period);
+
 
 	/**
 	 * @brief Get the MPD instance.
