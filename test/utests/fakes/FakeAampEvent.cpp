@@ -383,7 +383,7 @@ TuneProfilingEvent::TuneProfilingEvent(std::string &profilingData, std::string s
 {
 }
 
-AdResolvedEvent::AdResolvedEvent(bool resolveStatus, const std::string &adId, uint64_t startMS, uint64_t durationMs, std::string sid):
+AdResolvedEvent::AdResolvedEvent(bool resolveStatus, const std::string &adId, uint64_t startMS, uint64_t durationMs, std::string sid, uint64_t errorCode, const std::string &errorDescription):
 		AAMPEventObject(AAMP_EVENT_AD_RESOLVED, std::move(sid))
 {
 }
