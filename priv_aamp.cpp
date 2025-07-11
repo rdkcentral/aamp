@@ -11887,7 +11887,10 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 						}
 						else
 						{
-							TuneHelper(eTUNETYPE_SEEKTOLIVE);
+							if(!IsLocalAAMPTsb())
+							{
+								TuneHelper(eTUNETYPE_SEEKTOLIVE);
+							}
 						}
 					}
 					discardEnteringLiveEvt = false;
@@ -12290,7 +12293,10 @@ void PrivateInstanceAAMP::SetPreferredTextLanguages(const char *param )
 					}
 					else
 					{
-						TuneHelper(eTUNETYPE_SEEK);
+						if(!IsLocalAAMPTsb())
+						{
+							TuneHelper(eTUNETYPE_SEEK);
+						}
 					}
 
 					discardEnteringLiveEvt = false;
