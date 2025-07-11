@@ -28,6 +28,9 @@
 #include <map>
 #include "PlayerSecInterface.h"
 
+
+
+
 /**
  * @brief AAMPEventObject Constructor
  */
@@ -1153,9 +1156,9 @@ VTTCue* WebVttCueEvent::getCueData() const
 /**
  * @brief AdResolvedEvent Constructor
  */
-AdResolvedEvent::AdResolvedEvent(bool resolveStatus, const std::string &adId, uint64_t startMS, uint64_t durationMs, std::string sid):
+AdResolvedEvent::AdResolvedEvent(bool resolveStatus, const std::string &adId, uint64_t startMS, uint64_t durationMs, std::string sid, uint64_t errorCode, const std::string &errorDescription):
 		AAMPEventObject(AAMP_EVENT_AD_RESOLVED, std::move(sid)), mResolveStatus(resolveStatus), mAdId(adId),
-		mStartMS(startMS), mDurationMs(durationMs)
+		mStartMS(startMS), mDurationMs(durationMs), mErrorCode(errorCode), mErrorDescription(errorDescription)
 {
 
 }
@@ -1198,6 +1201,26 @@ uint64_t AdResolvedEvent::getStart() const
 uint64_t AdResolvedEvent::getDuration() const
 {
 	return mDurationMs;
+}
+
+/**
+ * @brief GetErrorCOde
+ *
+ * @return Error Code
+ */
+uint64_t AdResolvedEvent::getErrorCode() const
+{
+    return mErrorCode;
+}
+
+/**
+ * @brief GetErrorDescription
+ *
+ * @return Error Description
+ */
+const std::string &AdResolvedEvent::getErrorDescription() const
+{
+    return mErrorDescription;
 }
 
 /**

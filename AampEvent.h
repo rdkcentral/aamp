@@ -182,6 +182,26 @@ typedef enum
 } AAMPPlayerState;
 
 /**
+ * @enum CDAIAdErrorCode
+ * @brief CDAI Ad Error Codes for analytics and AdResolvedEvent
+ */
+typedef enum
+{
+    CDAI_AD_ERROR_NONE = 0,                    
+    CDAI_AD_ERROR_ADS_MISCONFIGURED				=1,
+    CDAI_AD_ERROR_ZERO_AD_DECISIONS     		=2,
+    CDAI_AD_ERROR_INVALID_MANIFEST         		=3,
+    CDAI_AD_ERROR_INVALID_MEDIA           		=4,
+    CDAI_AD_ERROR_INVALID_SPECIFICATION   		=5,
+    CDAI_AD_ERROR_DECISIONING_TIMEOUT     		=6,
+    CDAI_AD_ERROR_DELIVERY_TIMEOUT      		=7,
+    CDAI_AD_ERROR_DELIVERY_HTTP_ERROR     		=8,
+    CDAI_AD_ERROR_DELIVERY_ERROR          		=9,
+    CDAI_AD_ERROR_UNKNOWN                 		=10,
+} CDAIAdErrorCode;
+
+
+/**
  * @enum MetricsDataType
  * @brief AAMP metric data types
  */
@@ -1794,6 +1814,8 @@ class AdResolvedEvent: public AAMPEventObject
 	std::string mAdId;	/**<Ad identifier */
 	uint64_t mStartMS;	/**<Ad's start position in MS */
 	uint64_t mDurationMs;	/**<Ad's duration in MS */
+	uint64_t mErrorCode;      /**< Error code for ad resolve failure */
+    std::string mErrorDescription; /**< Error description for ad resolve failure */
 
 public:
 	AdResolvedEvent() = delete;
@@ -1808,7 +1830,7 @@ public:
 	 * @param[in] startMS       - Start position of Ad (relative to reservation start)
 	 * @param[in] durationMs    - Duration of the Ad in MS
 	 */
-	AdResolvedEvent(bool resolveStatus, const std::string &adId, uint64_t startMS, uint64_t durationMs, std::string sid);
+	AdResolvedEvent(bool resolveStatus, const std::string &adId, uint64_t startMS, uint64_t durationMs, std::string sid,uint64_t errorCode = 0, const std::string &errorDescription = "");
 
 	/**
 	 * @brief AdResolvedEvent Destructor
@@ -1834,6 +1856,16 @@ public:
 	 * @fn getDuration
 	 */
 	uint64_t getDuration() const;
+
+	/**
+	 * @fn getErrorCode
+	 */
+	uint64_t getErrorCode() const;
+
+	/**
+	 * @fn getErrorDescription
+	 */
+	const std::string &getErrorDescription() const;
 
 };
 

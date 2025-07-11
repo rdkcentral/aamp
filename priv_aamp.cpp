@@ -9240,7 +9240,24 @@ void PrivateInstanceAAMP::SetAlternateContents(const std::string &adBreakId, con
 /**
  * @brief Send status of Ad manifest downloading & parsing
  */
-void PrivateInstanceAAMP::SendAdResolvedEvent(const std::string &adId, bool status, uint64_t startMS, uint64_t durationMs)
+void PrivateInstanceAAMP::SendAdResolvedEvent(const std::string &adId, bool status, uint64_t startMS, uint64_t durationMs,uint64_t mErrorcode,const std::string &errorDescription)
+{
+{
+	if (mDownloadsEnabled)	//Send it, only if Stop not called
+	{
+		AdResolvedEventPtr e = std::make_shared<AdResolvedEvent>(status, adId, startMS, durationMs, GetSessionId(), mErrorcode, errorDescription);
+		AAMPLOG_WARN("PrivateInstanceAAMP: [CDAI] Sent resolved status=%d for adId[%s]", status, adId.c_str());
+		SendEvent(e,AAMP_EVENT_ASYNC_MODE);
+	}
+}
+{
+	if (mDownloadsEnabled)	//Send it, only if Stop not called
+	{
+		AdResolvedEventPtr e = std::make_shared<AdResolvedEvent>(status, adId, startMS, durationMs, GetSessionId(), mErrorcode, errorDescription);
+		AAMPLOG_WARN("PrivateInstanceAAMP: [CDAI] Sent resolved status=%d for adId[%s] errorCode=%" PRIu64 " errorDescription=%s", status, adId.c_str(), mErrorcode, errorDescription.c_str());
+		SendEvent(e,AAMP_EVENT_ASYNC_MODE);
+	}
+}
 {
 	if (mDownloadsEnabled)	//Send it, only if Stop not called
 	{
@@ -9250,6 +9267,7 @@ void PrivateInstanceAAMP::SendAdResolvedEvent(const std::string &adId, bool stat
 	}
 }
 
+}
 /**
  * @brief Deliver all pending Ad events to JSPP
  *

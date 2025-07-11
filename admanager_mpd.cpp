@@ -1052,6 +1052,7 @@ bool PrivateCDAIObjectMPD::FulFillAdObject()
 	UsingPlayerId playerId(mAamp->mPlayerId);
 	bool ret = true;
 	AampMPDParseHelper adMPDParseHelper;
+	CDAIAdErrorCode adErrorCode;
 	bool adStatus = false;
 	uint64_t startMS = 0;
 	uint32_t durationMs = 0;
@@ -1162,6 +1163,7 @@ bool PrivateCDAIObjectMPD::FulFillAdObject()
 		if(CURLE_ABORTED_BY_CALLBACK == http_error)
 		{
 			AAMPLOG_ERR("Ad MPD[%s] download aborted.", mAdFulfillObj.url.c_str());
+			adErrorCode=CDAI_AD_ERROR_DELIVERY_HTTP_ERROR;
 			ret = false;
 		}
 		else
@@ -1189,6 +1191,7 @@ bool PrivateCDAIObjectMPD::FulFillAdObject()
 				}
 			}
 			AAMPLOG_ERR("Failed to get Ad MPD[%s].", mAdFulfillObj.url.c_str());
+			adErrorCode=CDAI_AD_ERROR_DELIVERY_ERROR;
 		}
 	}
 	// Send the resolved event
@@ -1196,7 +1199,7 @@ bool PrivateCDAIObjectMPD::FulFillAdObject()
 	{
 		// Send the resolved event to the player
 		AbortWaitForNextAdResolved();
-		mAamp->SendAdResolvedEvent(mAdFulfillObj.adId, adStatus, startMS, durationMs);
+		mAamp->SendAdResolvedEvent(mAdFulfillObj.adId, adStatus, startMS, durationMs,0,"");
 	}
 	return ret;
 }
@@ -1212,6 +1215,8 @@ bool PrivateCDAIObjectMPD::FulFillAdObject()
  */
 void PrivateCDAIObjectMPD::SetAlternateContents(const std::string &periodId, const std::string &adId, const std::string &url,  uint64_t startMS, uint32_t breakdur)
 {
+	AAMPLOG_INFO("SETALTERNATE");
+	CDAIAdErrorCode adErrorCode;
 	if("" == adId || "" == url)
 	{
 		std::lock_guard<std::mutex> lock(mDaiMtx);
@@ -1244,7 +1249,8 @@ void PrivateCDAIObjectMPD::SetAlternateContents(const std::string &periodId, con
 		// Reject the promise as ad couldn't be resolved
 		if(!adCached)
 		{
-			mAamp->SendAdResolvedEvent(adId, false, 0, 0);
+			adErrorCode=CDAI_AD_ERROR_INVALID_SPECIFICATION;
+			mAamp->SendAdResolvedEvent(adId, false, 0, 0,adErrorCode,"");
 		}
 	}
 }
