@@ -55,7 +55,6 @@ static int MapFireboltStatus(const std::string& statusStr) {
 // TODO- Yet to test Watermark Events as ContentProtection Thunder Plugin have issues.
 void ContentProtectionFirebolt::SubscribeEvents()
 {
-	MW_LOG_INFO("Subscribing to Firebolt Content Protection events");
 	auto result =  Firebolt::IFireboltAampAccessor::Instance().ContentProtectionInterface().subscribeOnWatermarkStatusChanged(
 			[this](const auto& status)
 			{
@@ -65,6 +64,7 @@ void ContentProtectionFirebolt::SubscribeEvents()
 	if(result)
 	{
 		mSubscriptionId = result.value();
+		MW_LOG_INFO("Subscribed to Firebolt Content Protection events. mSubscriptionId = %lld", mSubscriptionId);
 	}
 	else
 	{
@@ -74,15 +74,10 @@ void ContentProtectionFirebolt::SubscribeEvents()
 
 void ContentProtectionFirebolt::UnSubscribeEvents()
 {
-	MW_LOG_INFO("Unsubscribing from Firebolt Content Protection events %lld",mSubscriptionId);
+	MW_LOG_INFO("Unsubscribing from Firebolt Content Protection events %lld", mSubscriptionId);
 	auto result =
 		Firebolt::IFireboltAampAccessor::Instance().ContentProtectionInterface().unsubscribe(mSubscriptionId);
-	if (result.error() == Firebolt::Error::None)
-	{
-		mSubscriptionId = 0; 
-	}
-
-	else
+	if (result.error() != Firebolt::Error::None)
 	{
 		MW_LOG_ERR("Failed to Unsubscribe to watermark events: %d", static_cast<int>(result.error()));
 	}
@@ -92,7 +87,7 @@ void ContentProtectionFirebolt::HandleWatermarkEvent(const std::string& sessionI
 {
 	if(mInitialized)
 	{
-		//TODO
+		//TODO Testing Watermark
 		int mappedCode = MapFireboltStatus(statusStr);
 		std::lock_guard<std::mutex> lock(mFireboltInitMutex);
 		if (ContentSecurityManager::SendWatermarkSessionEvent_CB)
