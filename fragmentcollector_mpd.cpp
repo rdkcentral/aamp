@@ -4408,7 +4408,6 @@ AAMPStatusType StreamAbstractionAAMP_MPD::IndexNewMPDDocument(bool updateTrackIn
 					}
 				}
 				// To store period duration in local reference to avoid duplicate mpd parsing to reduce processing delay
-				//const auto& periods = mpd->GetPeriods();
 				std::vector<PeriodInfo> currMPDPeriodDetails;
 				uint64_t durMs = 0;
 				UpdateMPDPeriodDetails(currMPDPeriodDetails,durMs);
