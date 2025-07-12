@@ -4408,7 +4408,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::IndexNewMPDDocument(bool updateTrackIn
 					}
 				}
 				// To store period duration in local reference to avoid duplicate mpd parsing to reduce processing delay
-				const auto& periods = mpd->GetPeriods();
+				//const auto& periods = mpd->GetPeriods();
 				std::vector<PeriodInfo> currMPDPeriodDetails;
 				uint64_t durMs = 0;
 				UpdateMPDPeriodDetails(currMPDPeriodDetails,durMs);
@@ -9026,15 +9026,18 @@ void StreamAbstractionAAMP_MPD::AdvanceTrack(int trackIdx, bool trickPlay, doubl
 						}
 						double currFragTime = pMediaStreamContext->fragmentTime;
 						skipTime = SkipFragments(pMediaStreamContext, skipTime);
-						if (pMediaStreamContext->eos)
+						if( delta )
 						{
-							// If we reached end of period, only the remaining delta should be skipped in new period
-							// Otherwise we should skip based on formula rate/fps. This will also avoid any issues due to floating precision
-							*delta = skipTime;
-						}
-						else
-						{
-							*delta = 0;
+							if (pMediaStreamContext->eos)
+							{
+								// If we reached end of period, only the remaining delta should be skipped in new period
+								// Otherwise we should skip based on formula rate/fps. This will also avoid any issues due to floating precision
+								*delta = skipTime;
+							}
+							else
+							{
+								*delta = 0;
+							}
 						}
 						mBasePeriodOffset += (pMediaStreamContext->fragmentTime - currFragTime);
 					}
