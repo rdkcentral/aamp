@@ -35,7 +35,6 @@
 using namespace std;
 using namespace WPEFramework;
 #endif
-
 #define SERVER_DETAILS  "127.0.0.1:9998"
 
 #define MAX_LENGTH 1024
@@ -61,14 +60,11 @@ ThunderSecurityPlayerData gSecurityPlayerData;
  * @brief  ThunderAccessPlayer constructor
  */
 ThunderAccessPlayer::ThunderAccessPlayer(std::string callsign)
-#ifdef USE_CPP_THUNDER_PLUGIN_ACCESS
                  : remoteObject(NULL)
                    ,controllerObject(NULL)
                    ,pluginCallsign(callsign)
-#endif
 {
     MW_LOG_INFO( "[ThunderAccessPlayer]Inside");
-#ifdef USE_CPP_THUNDER_PLUGIN_ACCESS
     uint32_t status = Core::ERROR_NONE;
 
     Core::SystemInfo::SetEnvironment(_T("THUNDER_ACCESS"), (_T(SERVER_DETAILS)));
@@ -119,7 +115,6 @@ ThunderAccessPlayer::ThunderAccessPlayer(std::string callsign)
     } else {
         MW_LOG_INFO( "[ThunderAccessPlayer] %s Client initialization success", pluginCallsign.c_str());
     }
-#endif
 }
 
 /**
@@ -127,10 +122,8 @@ ThunderAccessPlayer::ThunderAccessPlayer(std::string callsign)
  */
 ThunderAccessPlayer::~ThunderAccessPlayer()
 {
-#ifdef USE_CPP_THUNDER_PLUGIN_ACCESS
     SAFE_DELETE(controllerObject);
     SAFE_DELETE(remoteObject);
-#endif
 }
 
 /**
@@ -139,7 +132,6 @@ ThunderAccessPlayer::~ThunderAccessPlayer()
 bool ThunderAccessPlayer::ActivatePlugin()
 {
     bool ret = true;
-#ifdef USE_CPP_THUNDER_PLUGIN_ACCESS
     JsonObject result;
     JsonObject controlParam;
     std::string response;
@@ -161,11 +153,9 @@ bool ThunderAccessPlayer::ActivatePlugin()
         MW_LOG_WARN( "[ThunderAccessPlayer] Controller Object NULL ");
         ret = false;
     }
-#endif
     return ret;
 }
 
-#ifdef USE_CPP_THUNDER_PLUGIN_ACCESS
 /*To Do: Only JSON Object can be used as parameter now*/
 /**
  * @brief  subscribeEvent
@@ -173,7 +163,6 @@ bool ThunderAccessPlayer::ActivatePlugin()
 bool ThunderAccessPlayer::SubscribeEvent (string eventName, std::function<void(const WPEFramework::Core::JSON::VariantContainer&)> functionHandler)
 {
     bool ret = true;
-#ifdef USE_CPP_THUNDER_PLUGIN_ACCESS
     uint32_t status = Core::ERROR_NONE;
     if (NULL != remoteObject) {
         status = remoteObject->Subscribe<JsonObject>(THUNDER_RPC_TIMEOUT, _T(eventName), functionHandler);
@@ -187,10 +176,8 @@ bool ThunderAccessPlayer::SubscribeEvent (string eventName, std::function<void(c
         MW_LOG_WARN( "[ThunderAccessPlayer] remoteObject not created for the plugin!");
         ret = false;
     }
-#endif
     return ret;
 }
-#endif
 
 /*To Do: Only JSON Object can be used as parameter now*/
 
@@ -200,7 +187,6 @@ bool ThunderAccessPlayer::SubscribeEvent (string eventName, std::function<void(c
 bool ThunderAccessPlayer::UnSubscribeEvent (std::string eventName)
 {
     bool ret = true;
-#ifdef USE_CPP_THUNDER_PLUGIN_ACCESS
     if (NULL != remoteObject) {
         remoteObject->Unsubscribe(THUNDER_RPC_TIMEOUT, _T(eventName));
         MW_LOG_INFO( "[ThunderAccessPlayer] UnSubscribed : %s event", eventName.c_str());
@@ -208,11 +194,9 @@ bool ThunderAccessPlayer::UnSubscribeEvent (std::string eventName)
         MW_LOG_WARN( "[ThunderAccessPlayer] remoteObject not created for the plugin!");
         ret = false;
     }
-#endif
     return ret;
 }
 
-#ifdef USE_CPP_THUNDER_PLUGIN_ACCESS
 /**
  *  @brief  invokeJSONRPC
  *  @note   Invoke JSONRPC call for the plugin
@@ -249,4 +233,3 @@ bool ThunderAccessPlayer::InvokeJSONRPC(std::string method, const JsonObject &pa
     result = result_internal;
     return ret;
 }
-#endif

@@ -20,4 +20,5 @@ project(Middleware)
 
 add_subdirectory(baseConversion)
 add_subdirectory(playerLogManager)
+add_subdirectory(playerJsonObject)
 add_subdirectory(externals)

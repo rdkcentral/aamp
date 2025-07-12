@@ -48,7 +48,7 @@ include_directories(${AAMP_ROOT}/middleware/externals)
 include_directories(${AAMP_ROOT}/middleware/vendor)
 include_directories(${AAMP_ROOT}/middleware/playerLogManager)
 include_directories(${AAMP_ROOT}/middleware/baseConversion)
-include_directories(${AAMP_ROOT}/middleware/externals/playersecmanager)
+include_directories(${AAMP_ROOT}/middleware/externals/contentsecuritymanager)
 
 if (JSC_INCDIR)
     include_directories(${JSC_INCDIR})
