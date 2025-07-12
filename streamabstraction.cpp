@@ -823,6 +823,7 @@ bool MediaTrack::CheckForDiscontinuity(CachedFragment* cachedFragment, bool& fra
 				}
 				else
 				{
+					AAMPLOG_WARN("discontinuity ignored for other AV track, no need to process %s track", name);
 					// reset the flag when both the paired discontinuities ignored; since no buffer pushed before.
 					aamp->ResetTrackDiscontinuityIgnoredStatus();
 					aamp->UnblockWaitForDiscontinuityProcessToComplete();
@@ -1432,6 +1433,8 @@ void MediaTrack::ProcessAndInjectFragment(CachedFragment *cachedFragment, bool f
 			lastInjectedPosition = cachedFragment->absPosition;
 			lastInjectedDuration = cachedFragment->absPosition + cachedFragment->duration;
 			mSegInjectFailCount = 0;
+			AAMPLOG_WARN("[%s] - Updated totalInjectedDuration to %f, lastInjectedPosition %f, lastInjectedDuration %f",
+				 name, totalInjectedDuration, lastInjectedPosition, lastInjectedDuration);
 		}
 		else
 		{
@@ -4002,8 +4005,10 @@ void StreamAbstractionAAMP::SetVideoPlaybackRate(float rate)
  * @brief Initialize ISOBMFF Media Processor
  *
  * @return void
+ * 
+ * @param[in] passThroughMode - true if processor should skip parsing PTS and flush
  */
-void StreamAbstractionAAMP::InitializeMediaProcessor()
+void StreamAbstractionAAMP::InitializeMediaProcessor(bool passThroughMode)
 {
 	std::shared_ptr<IsoBmffProcessor> peerAudioProcessor = nullptr;
 	std::shared_ptr<IsoBmffProcessor> peerSubtitleProcessor = nullptr;
@@ -4021,7 +4026,7 @@ void StreamAbstractionAAMP::InitializeMediaProcessor()
 			if(eMEDIATYPE_SUBTITLE != i)
 			{
 				std::shared_ptr<IsoBmffProcessor> processor = std::make_shared<IsoBmffProcessor>(aamp, mID3Handler, (IsoBmffProcessorType) i,
-																peerAudioProcessor.get(), peerSubtitleProcessor.get());
+																passThroughMode,peerAudioProcessor.get(), peerSubtitleProcessor.get());
 				track->SourceFormat(FORMAT_ISO_BMFF);
 				track->playContext = std::static_pointer_cast<MediaProcessor>(processor);
 				track->playContext->setRate(aamp->rate, PlayMode_normal);
@@ -4038,7 +4043,7 @@ void StreamAbstractionAAMP::InitializeMediaProcessor()
 			{
 				if(FORMAT_SUBTITLE_MP4 == subtitleFormat)
 				{
-					peerSubtitleProcessor = std::make_shared<IsoBmffProcessor>(aamp, nullptr, (IsoBmffProcessorType) i);
+					peerSubtitleProcessor = std::make_shared<IsoBmffProcessor>(aamp, nullptr, (IsoBmffProcessorType) i, passThroughMode, nullptr, nullptr);
 					track->playContext = std::static_pointer_cast<MediaProcessor>(peerSubtitleProcessor);
 					track->playContext->setRate(aamp->rate, PlayMode_normal);
 				}
@@ -4514,6 +4519,8 @@ double MediaTrack::GetTotalInjectedDuration()
 	{
 		ret = totalInjectedChunksDuration;
 	}
+	AAMPLOG_WARN("totalInjectedDuration[%lf] totalInjectedChunksDuration[%lf] ret[%lf]",
+				 totalInjectedDuration, totalInjectedChunksDuration, ret);
 	return ret;
 }
 
