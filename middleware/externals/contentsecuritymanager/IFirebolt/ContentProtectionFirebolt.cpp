@@ -216,17 +216,10 @@ bool ContentProtectionFirebolt::AcquireLicenseOpenOrUpdate( std::string clientId
 	unsigned int retryCount = 0;
 	bool update = false;
 
-	if (!IsActive())
-	{
-		MW_LOG_ERR("Firebolt is not active (or) channel couldn't be opened");
-		return false;
-	}
-
 	//Initializing it with default error codes (which would be sent if there any jsonRPC
 	//call failures to thunder)
 	*statusCode = CONTENT_SECURITY_MANAGER_DRM_FAILURE;
 	*reasonCode = CONTENT_SECURITY_MANAGER_DRM_GEN_FAILURE;
-
 
 	PlayerJsonObject param;
 	PlayerJsonObject response;
@@ -290,6 +283,12 @@ bool ContentProtectionFirebolt::AcquireLicenseOpenOrUpdate( std::string clientId
 			do
 			{
 				std::string drmSession;
+				if (!IsActive())
+				{
+					MW_LOG_ERR("Firebolt is not active (or) channel couldn't be opened");
+					return false;
+				}
+
 				// Call the openDrmSession method from the interface
 				if(!update)
 				{

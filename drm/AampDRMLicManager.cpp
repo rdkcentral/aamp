@@ -1162,7 +1162,7 @@ DrmData * AampDRMLicenseManager::getLicenseSec(const LicenseRequest &licenseRequ
 			// if we're about to get a licence and are not re-using a session, then we have not seen the first video frame yet. Do not allow watermarking to get enabled yet.
 			bool videoMuteState = mIsVideoOnMute;
 			AAMPLOG_WARN("First frame flag cleared before AcquireLicense, with mIsVideoOnMute=%d", videoMuteState);
-			mFirstFrameSeen = false;
+			mDrmSessionManager->mFirstFrameSeen = false;
 		}
 
 		std::string clientId = "aamp";
