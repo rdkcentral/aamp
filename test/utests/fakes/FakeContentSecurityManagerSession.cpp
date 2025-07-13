@@ -46,7 +46,7 @@ ContentSecurityManagerSession::ContentSecurityManagerSession(int64_t sessionID, 
 
 int64_t ContentSecurityManagerSession::getSessionID(void) const
 {
-	int64_t ID = PLAYER_SECMGR_INVALID_SESSION_ID;
+	int64_t ID = CONTENT_SECURITY_MGR_INVALID_SESSION_ID;
 	return ID;
 }
 

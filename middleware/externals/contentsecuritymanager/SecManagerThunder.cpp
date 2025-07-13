@@ -281,7 +281,7 @@ bool SecManagerThunder::AcquireLicenseOpenOrUpdate( std::string clientId, std::s
 					if((*statusCode == CONTENT_SECURITY_MANAGER_DRM_FAILURE || *statusCode == CONTENT_SECURITY_MANAGER_WM_FAILURE) &&
 							(*reasonCode == CONTENT_SECURITY_MANAGER_SERVICE_TIMEOUT ||
 							 *reasonCode == CONTENT_SECURITY_MANAGER_SERVICE_CON_FAILURE ||
-							 *reasonCode == CONTENT_SECURITY_MANAGER_SERVICE_BUSY ) && retryCount < MAX_LICENSE_REQUEST_ATTEMPT)
+							 *reasonCode == CONTENT_SECURITY_MANAGER_SERVICE_BUSY ) && retryCount < MAX_LICENSE_REQUEST_ATTEMPTS)
 					{
 						++retryCount;
 						MW_LOG_WARN("SecManager license request failed, response for %s : statusCode: %d, reasonCode: %d, so retrying with delay %d, retry count : %u", apiName, *statusCode, *reasonCode, sleepTime, retryCount );
@@ -299,7 +299,7 @@ bool SecManagerThunder::AcquireLicenseOpenOrUpdate( std::string clientId, std::s
 					break;
 				}
 			}
-			while(retryCount < MAX_LICENSE_REQUEST_ATTEMPT);
+			while(retryCount < MAX_LICENSE_REQUEST_ATTEMPTS);
 
 		}
 		else

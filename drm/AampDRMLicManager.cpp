@@ -962,7 +962,7 @@ DrmData * AampDRMLicenseManager::getLicense(LicenseRequest &licenseRequest,
 	unsigned int attemptCount = 0;
 	long long tStartTimeWithRetry = NOW_STEADY_TS_MS;
 	/* Check whether stopped or not before looping - download will be disabled */
-	while(attemptCount < MAX_LICENSE_REQUEST_ATTEMPT && !licenseRequestAbort)
+	while(attemptCount < MAX_LICENSE_REQUEST_ATTEMPTS && !licenseRequestAbort)
 	{
 		bool loopAgain = false;
 		attemptCount++;
@@ -1018,7 +1018,7 @@ DrmData * AampDRMLicenseManager::getLicense(LicenseRequest &licenseRequest,
 				int  licenseRetryWaitTime = aampInstance->mConfig->GetConfigValue(eAAMPConfig_LicenseRetryWaitTime) ;
 				AAMPLOG_ERR(" acquireLicense FAILED! license request attempt : %d; response code : http %d", attemptCount, *httpCode);
 				if(*httpCode >= 500 && *httpCode < 600
-					&& attemptCount < MAX_LICENSE_REQUEST_ATTEMPT && licenseRetryWaitTime > 0)
+					&& attemptCount < MAX_LICENSE_REQUEST_ATTEMPTS && licenseRetryWaitTime > 0)
 				{			
 					AAMPLOG_WARN("acquireLicense : Sleeping %d milliseconds before next retry.",licenseRetryWaitTime);
 					mssleep(licenseRetryWaitTime);
@@ -1166,14 +1166,11 @@ DrmData * AampDRMLicenseManager::getLicenseSec(const LicenseRequest &licenseRequ
 		}
 
 		std::string clientId = "aamp";
-		std::string appId;
-		if (!aampInstance->GetAppName().empty())
-		{
-			appId = aampInstance->GetAppName();
-		}
-		else
+		std::string appId = aampInstance->GetAppName();
+		if(appId.empty()) 
 		{
 			appId = clientId;
+
 		}
 		AAMPLOG_INFO("Client ID %s App ID %s", clientId.c_str(), appId.c_str());
 		tStartTime = NOW_STEADY_TS_MS;
@@ -1224,7 +1221,7 @@ DrmData * AampDRMLicenseManager::getLicenseSec(const LicenseRequest &licenseRequ
 		PlayerSecExtendedStatus statusInfo;
 		unsigned int attemptCount = 0;
 		tStartTime = NOW_STEADY_TS_MS;
-		while (attemptCount < MAX_LICENSE_REQUEST_ATTEMPT)
+		while (attemptCount < MAX_LICENSE_REQUEST_ATTEMPTS)
 		{
 			attemptCount++;
 			sec_client_result = mDrmSessionManager->playerSecInstance->PlayerSec_AcquireLicense(licenseRequest.url.c_str(), 1,
@@ -1238,7 +1235,7 @@ DrmData * AampDRMLicenseManager::getLicenseSec(const LicenseRequest &licenseRequ
 														 &licenseResponseStr, &licenseResponseLength, &refreshDuration, &statusInfo);
 			if (((sec_client_result >= 500 && sec_client_result < 600)||
 				 ( mDrmSessionManager->playerSecInstance->isSecResultInRange(sec_client_result)))
-				&& attemptCount < MAX_LICENSE_REQUEST_ATTEMPT)
+				&& attemptCount < MAX_LICENSE_REQUEST_ATTEMPTS)
 			{
 				AAMPLOG_ERR(" acquireLicense FAILED! license request attempt : %d; response code : sec_client %d", attemptCount, sec_client_result);
 				if (licenseResponseStr)
