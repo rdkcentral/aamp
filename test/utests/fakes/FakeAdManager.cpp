@@ -33,6 +33,10 @@ CDAIObjectMPD::~CDAIObjectMPD()
 
 void CDAIObjectMPD::SetAlternateContents(const std::string &adBreakId, const std::string &adId, const std::string &url, uint64_t startMS, uint32_t breakdur)
 {
+	if(g_MockPrivateCDAIObjectMPD)
+    {
+		g_MockPrivateCDAIObjectMPD->SetAlternateContents(adBreakId, adId, url);
+    }
 }
 
 PrivateCDAIObjectMPD::PrivateCDAIObjectMPD(PrivateInstanceAAMP* aamp) : mAamp(aamp),mDaiMtx(), mIsFogTSB(false), mAdBreaks(), mPeriodMap(), mCurPlayingBreakId(), mAdObjThreadID(), mCurAds(nullptr),
@@ -47,7 +51,7 @@ PrivateCDAIObjectMPD::~PrivateCDAIObjectMPD()
 {
 }
 
-MPD* PrivateCDAIObjectMPD::GetAdMPD(std::string &url, bool &finalManifest, int &http_error, double &downloadTime, bool tryFog)
+MPD* PrivateCDAIObjectMPD::GetAdMPD(std::string &url, bool &finalManifest, int &http_error, double &downloadTime, AAMPCDAIAdErrorCode &errorCode, bool tryFog)
 {
 	return NULL;
 }
