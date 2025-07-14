@@ -383,7 +383,7 @@ TuneProfilingEvent::TuneProfilingEvent(std::string &profilingData, std::string s
 {
 }
 
-AdResolvedEvent::AdResolvedEvent(bool resolveStatus, const std::string &adId, uint64_t startMS, uint64_t durationMs, std::string sid):
+AdResolvedEvent::AdResolvedEvent(bool resolveStatus, const std::string &adId, uint64_t startMS, uint64_t durationMs, const std::string &errorCode, const std::string &errorDescription, std::string sid):
 		AAMPEventObject(AAMP_EVENT_AD_RESOLVED, std::move(sid))
 {
 }
@@ -404,6 +404,8 @@ bool AdResolvedEvent::getResolveStatus() const { return false; }
 const std::string &AdResolvedEvent::getAdId() const { return mAdId; }
 uint64_t AdResolvedEvent::getStart() const { return 0; }
 uint64_t AdResolvedEvent::getDuration(void) const { return 0; }
+const std::string &AdResolvedEvent::getErrorCode() const { return mErrorCode; }
+const std::string &AdResolvedEvent::getErrorDescription() const { return mErrorDescription; }
 
 AdPlacementEvent::AdPlacementEvent(AAMPEventType evtType, const std::string &adId, uint32_t position, uint64_t absolutePositionMs, std::string sid, uint32_t offset, uint32_t duration, int errorCode):
 		AAMPEventObject(evtType, std::move(sid))

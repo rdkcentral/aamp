@@ -47,7 +47,7 @@ PrivateCDAIObjectMPD::~PrivateCDAIObjectMPD()
 {
 }
 
-MPD* PrivateCDAIObjectMPD::GetAdMPD(std::string &url, bool &finalManifest, int &http_error, double &downloadTime, bool tryFog)
+MPD* PrivateCDAIObjectMPD::GetAdMPD(std::string &url, bool &finalManifest, int &http_error, double &downloadTime, AAMPCDAIAdErrorCode &errorCode, bool tryFog)
 {
 	return NULL;
 }

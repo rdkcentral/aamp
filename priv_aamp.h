@@ -2373,7 +2373,7 @@ public:
 	 *   @param[in] startMS Ad playback start time in milliseconds
 	 *   @param[in] durationMs Ad's duration in milliseconds
 	 */
-	void SendAdResolvedEvent(const std::string &adId, bool status, uint64_t startMS=0, uint64_t durationMs=0);
+	void SendAdResolvedEvent(const std::string &adId, bool status, uint64_t startMS=0, uint64_t durationMs=0,AAMPCDAIAdErrorCode errorCode=eCDAI_ERROR_NONE);
 
 	/**
 	 *   @fn SendAdReservationEvent

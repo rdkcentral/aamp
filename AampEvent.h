@@ -182,6 +182,24 @@ typedef enum
 } AAMPPlayerState;
 
 /**
+ * @enum AAMPCDAIAdErrorCode
+ * @brief CDAI  failure error code
+ */
+typedef enum
+{
+	eCDAI_ERROR_ADS_MISCONFIGURED,		/*adsMisconfigured*/
+	eCDAI_ERROR_INVALID_MANIFEST,		/*adWasUnplayableDueToInvalidManifest*/
+	eCDAI_ERROR_INVALID_MEDIA,			/*adWasUnplayableDueToInvalidMedia*/
+	eCDAI_ERROR_INVALID_SPECIFICATION,	/*adWasUnplayableDueToInvalidSpecification*/
+	eCDAI_ERROR_DECISIONING_TIMEOUT,	/*adDecisioningServiceTimeout*/
+	eCDAI_ERROR_DELIVERY_TIMEOUT,		/*adDeliveryServiceTimeout*/
+	eCDAI_ERROR_DELIVERY_HTTP_ERROR,	/*adDeliveryServiceHTTPError*/
+	eCDAI_ERROR_DELIVERY_ERROR,			/*adDeliveryServiceError*/
+	eCDAI_ERROR_UNKNOWN,				/*unknownAdError*/
+	eCDAI_ERROR_NONE					/**< No Error found */
+} AAMPCDAIAdErrorCode;
+
+/**
  * @enum MetricsDataType
  * @brief AAMP metric data types
  */
@@ -421,6 +439,8 @@ struct AAMPEvent
 			const char *adId;
 			uint64_t startMS;
 			uint64_t durationMs;
+			const char* errorCode;
+			const char* errorDescription;
 		} adResolved;
 
 		/**
@@ -1794,6 +1814,9 @@ class AdResolvedEvent: public AAMPEventObject
 	std::string mAdId;	/**<Ad identifier */
 	uint64_t mStartMS;	/**<Ad's start position in MS */
 	uint64_t mDurationMs;	/**<Ad's duration in MS */
+	std::string mErrorCode;	/**<Ad's error code, if any */
+	std::string mErrorDescription; /**<Ad's error description, if any */
+
 
 public:
 	AdResolvedEvent() = delete;
@@ -1808,7 +1831,7 @@ public:
 	 * @param[in] startMS       - Start position of Ad (relative to reservation start)
 	 * @param[in] durationMs    - Duration of the Ad in MS
 	 */
-	AdResolvedEvent(bool resolveStatus, const std::string &adId, uint64_t startMS, uint64_t durationMs, std::string sid);
+	AdResolvedEvent(bool resolveStatus, const std::string &adId, uint64_t startMS, uint64_t durationMs,const std::string &errorCode, const std::string &errorDescription, std::string sid);
 
 	/**
 	 * @brief AdResolvedEvent Destructor
@@ -1834,6 +1857,16 @@ public:
 	 * @fn getDuration
 	 */
 	uint64_t getDuration() const;
+
+	/**
+	 * @fn getErrorCode
+	 */
+	const std::string &getErrorCode() const;
+
+	/**
+	 * @fn getErrorDescription
+	 */
+	const std::string &getErrorDescription() const;
 
 };
 

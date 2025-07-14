@@ -44,6 +44,7 @@ using ::testing::StrictMock;
 using ::testing::WithArgs;
 using ::testing::Invoke;
 using ::testing::StrEq;
+using ::testing::DoAll;
 
 using namespace dash::xml;
 using namespace dash::mpd;
@@ -332,7 +333,7 @@ TEST_F(AdManagerMPDTests, SetAlternateContentsTests_1)
   std::string url = "";
   uint64_t startMS = 0;
   uint32_t breakdur = 0;
-
+  AAMPCDAIAdErrorCode adErrorCode = eCDAI_ERROR_DELIVERY_ERROR;
   // Call the function to test
   mPrivateCDAIObjectMPD->SetAlternateContents(periodId, adId, url, startMS, breakdur);
 
@@ -343,8 +344,7 @@ TEST_F(AdManagerMPDTests, SetAlternateContentsTests_1)
   periodId = "testPeriodId1";
   adId = "testAdId1";
   url = "testAdUrl1";
-
-  EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdResolvedEvent(adId, false, 0, 0)).Times(1);
+  EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdResolvedEvent(adId, false, 0, 0, adErrorCode)).Times(1);
   // Call the function to test when adbreak object doesn't exist and adId and url not empty
   mPrivateCDAIObjectMPD->SetAlternateContents(periodId, adId, url, startMS, breakdur);
 
@@ -358,7 +358,7 @@ TEST_F(AdManagerMPDTests, SetAlternateContentsTests_1)
  */
 TEST_F(AdManagerMPDTests, SetAlternateContentsTests_2)
 {
-    static const char *manifest =
+  static const char *manifest =
 R"(<?xml version="1.0" encoding="UTF-8"?>
 <MPD xmlns="urn:mpeg:dash:schema:mpd:2011" xmlns:scte35="urn:scte:scte35:2014:xml+bin" xmlns:scte214="scte214" xmlns:cenc="urn:mpeg:cenc:2013" xmlns:mspr="mspr" type="static" id="TSS_ICEJ010_010-LIN_c4_HD" profiles="urn:mpeg:dash:profile:isoff-on-demand:2011" minBufferTime="PT0H0M1.000S" maxSegmentDuration="PT0H0M1S" mediaPresentationDuration="PT0H0M10.027S">
   <Period id="1" start="PT0H0M0.000S">
@@ -395,6 +395,7 @@ R"(<?xml version="1.0" encoding="UTF-8"?>
   uint32_t breakdur = 10000;
   bool timedout = false;
   bool threadStarted = false;
+  AAMPCDAIAdErrorCode adErrorCode = eCDAI_ERROR_NONE;
 
   // To create an empty ad break object
   mPrivateCDAIObjectMPD->SetAlternateContents(periodId, "", "", startMS, breakdur);
@@ -403,7 +404,7 @@ R"(<?xml version="1.0" encoding="UTF-8"?>
   InitializeAdMPD(manifest);
 
   // mIsFogTSB is false, so downloaded from CDN and ad resolved event is sent
-  EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdResolvedEvent(adId, true, startMS, 10000)).Times(1);
+  EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdResolvedEvent(adId, true, startMS, 10000, adErrorCode)).Times(1);
 
   // We would like to also validate that AbortWaitForNextAdResolved is invoked
   std::thread t([this, &timedout, &threadStarted]{
@@ -476,6 +477,7 @@ R"(<?xml version="1.0" encoding="UTF-8"?>
   std::string url = "";
   uint64_t startMS = 0;
   uint32_t breakdur = 10000;
+  AAMPCDAIAdErrorCode adErrorCode = eCDAI_ERROR_NONE;
 
   // To create an empty ad break object
   mPrivateCDAIObjectMPD->SetAlternateContents(periodId, "", "", startMS, breakdur);
@@ -486,7 +488,7 @@ R"(<?xml version="1.0" encoding="UTF-8"?>
   InitializeAdMPD(manifest, true);
 
   // mIsFogTSB is true, so downloaded from CDN and redirected to FOG and ad resolved event is sent
-  EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdResolvedEvent(adId, true, startMS, 10000)).Times(1);
+  EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdResolvedEvent(adId, true, startMS, 10000, adErrorCode)).Times(1);
   mPrivateCDAIObjectMPD->SetAlternateContents(periodId, adId, url, startMS, breakdur);
   std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
@@ -516,6 +518,7 @@ TEST_F(AdManagerMPDTests, SetAlternateContentsTests_4)
   const char *manifest = nullptr;
   bool timedout = false;
   bool threadStarted = false;
+  AAMPCDAIAdErrorCode adErrorCode = eCDAI_ERROR_DELIVERY_ERROR;
 
   // To create an empty ad break object
   mPrivateCDAIObjectMPD->SetAlternateContents(periodId, "", "", startMS, breakdur);
@@ -524,7 +527,7 @@ TEST_F(AdManagerMPDTests, SetAlternateContentsTests_4)
   InitializeAdMPD(manifest);
 
   // mIsFogTSB is false, so downloaded from CDN and ad resolved event status should be false
-  EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdResolvedEvent(adId, false, 0, 0)).Times(1);
+  EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdResolvedEvent(adId, false, 0, 0, adErrorCode)).Times(1);
 
   // We would like to also validate that AbortWaitForNextAdResolved is invoked
   std::thread t([this, &timedout, &threadStarted]{
@@ -597,6 +600,7 @@ R"(<?xml version="1.0" encoding="UTF-8"?>
   std::string url = "";
   uint64_t startMS = 0;
   uint32_t breakdur = 10000;
+  AAMPCDAIAdErrorCode adErrorCode = eCDAI_ERROR_NONE;
 
   // To create an empty ad break object
   mPrivateCDAIObjectMPD->SetAlternateContents(periodId, "", "", startMS, breakdur);
@@ -608,7 +612,7 @@ R"(<?xml version="1.0" encoding="UTF-8"?>
 
   // mIsFogTSB is true, so downloaded from CDN and redirected to FOG which fails.
   // Here, ad resolved event is sent with true and CDN url is cached
-  EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdResolvedEvent(adId, true, startMS, 10000)).Times(1);
+  EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdResolvedEvent(adId, true, startMS, 10000, adErrorCode)).Times(1);
   mPrivateCDAIObjectMPD->SetAlternateContents(periodId, adId, url, startMS, breakdur);
   std::this_thread::sleep_for(std::chrono::milliseconds(50));
 
@@ -666,6 +670,7 @@ R"(<?xml version="1.0" encoding="UTF-8"?>
   uint64_t startMS = 0;
   uint32_t breakdur = 20000;
   uint32_t adDuration = 10000;
+  AAMPCDAIAdErrorCode adErrorCode = eCDAI_ERROR_NONE;
 
   // To create an empty ad break object
   mPrivateCDAIObjectMPD->SetAlternateContents(periodId, "", "", startMS, breakdur);
@@ -677,8 +682,8 @@ R"(<?xml version="1.0" encoding="UTF-8"?>
 
   // mIsFogTSB is true, so downloaded from CDN and redirected to FOG which fails.
   // Here, ad resolved event is sent with true and CDN url is cached
-  EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdResolvedEvent(adId1, true, startMS, 10000)).Times(1);
-  EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdResolvedEvent(adId2, true, startMS + adDuration, 10000)).Times(1);
+  EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdResolvedEvent(adId1, true, startMS, 10000,adErrorCode)).Times(1);
+  EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdResolvedEvent(adId2, true, startMS + adDuration, 10000,adErrorCode)).Times(1);
   mPrivateCDAIObjectMPD->SetAlternateContents(periodId, adId1, url, startMS, adDuration);
   mPrivateCDAIObjectMPD->SetAlternateContents(periodId, adId2, url, startMS, adDuration);
   std::this_thread::sleep_for(std::chrono::milliseconds(50));
@@ -699,6 +704,314 @@ R"(<?xml version="1.0" encoding="UTF-8"?>
   EXPECT_FALSE(mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads->at(0).invalid);
   EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads->at(1).resolved);
   EXPECT_FALSE(mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads->at(1).invalid);
+}
+
+/**
+ * @brief Test error scenario for SetAlternateContents when ad break is invalid.
+ *
+ * This test ensures that if an ad break is marked invalid, SetAlternateContents
+ * triggers SendAdResolvedEvent with eCDAI_ERROR_DECISIONING_TIMEOUT.
+ */
+TEST_F(AdManagerMPDTests, SetAlternateContentsTests_7)
+{
+    std::string periodId = "testPeriodId";
+    std::string adId = "testAdId";
+    std::string url = "http://test.url/ad.mpd";
+    uint64_t startMS = 0;
+    uint32_t breakdur = 1000;
+    AAMPCDAIAdErrorCode adErrorCode = eCDAI_ERROR_DECISIONING_TIMEOUT;
+    // Create an ad break object and mark it invalid
+    mPrivateCDAIObjectMPD->SetAlternateContents(periodId, "", "", startMS, breakdur);
+    mPrivateCDAIObjectMPD->mAdBreaks[periodId].invalid = true;
+
+    // Expect SendAdResolvedEvent to be called with the timeout error
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdResolvedEvent(adId, false, 0, 0, adErrorCode)).Times(1);
+
+    // Try to set alternate contents for the invalid ad break
+    mPrivateCDAIObjectMPD->SetAlternateContents(periodId, adId, url, startMS, breakdur);
+
+    // Optionally, verify that the ad was not cached
+    EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads->size(), 0);
+}
+
+/**
+ * @brief Test error scenario for SetAlternateContents when ad break has no space left.
+ *
+ * This test ensures that if the ad break is full (adsDuration equals break duration),
+ * SetAlternateContents triggers SendAdResolvedEvent with eCDAI_ERROR_UNKNOWN.
+ */
+TEST_F(AdManagerMPDTests, SetAlternateContentsTests_8)
+{
+    std::string periodId = "testPeriodId";
+    std::string adId = "testAdId";
+    std::string url = "http://test.url/ad.mpd";
+    uint64_t startMS = 0;
+    uint32_t breakdur = 10000;
+    AAMPCDAIAdErrorCode errorCode = eCDAI_ERROR_UNKNOWN;
+
+    mPrivateCDAIObjectMPD->SetAlternateContents(periodId, "", "", startMS, breakdur);
+    mPrivateCDAIObjectMPD->mAdBreaks[periodId].adsDuration = 10000; // Fill up the ad break
+
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdResolvedEvent(adId, false, 0, 0, errorCode)).Times(1);
+
+    mPrivateCDAIObjectMPD->SetAlternateContents(periodId, adId, url, startMS, breakdur);
+
+    // Ad should not be cached
+    EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads->size(), 0);
+}
+
+/**
+ * @brief Test error scenario for SetAlternateContents when ad break does not exist.
+ *
+ * This test ensures that if SetAlternateContents is called for a non-existent ad break,
+ * it triggers SendAdResolvedEvent with eCDAI_ERROR_DELIVERY_ERROR.
+ */
+TEST_F(AdManagerMPDTests, SetAlternateContentsTests_9)
+{
+    std::string periodId = "nonexistentPeriod";
+    std::string adId = "testAdId";
+    std::string url = "http://test.url/ad.mpd";
+    uint64_t startMS = 0;
+    uint32_t breakdur = 1000;
+    AAMPCDAIAdErrorCode adErrorCode = eCDAI_ERROR_DELIVERY_ERROR;
+
+    // Do NOT create the ad break object
+
+    // Expect SendAdResolvedEvent to be called with the delivery error
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdResolvedEvent(adId, false, 0, 0, adErrorCode)).Times(1);
+
+    // Try to set alternate contents for a non-existent ad break
+    mPrivateCDAIObjectMPD->SetAlternateContents(periodId, adId, url, startMS, breakdur);
+
+    // Optionally, verify that the ad break was not created
+    EXPECT_FALSE(mPrivateCDAIObjectMPD->isAdBreakObjectExist(periodId));
+}
+
+/**
+ * @brief Test error scenario for FulFillAdObject with invalid ad manifest.
+ *
+ * This test ensures that when FulFillAdObject is called and the ad manifest is invalid,
+ * SendAdResolvedEvent is triggered with eCDAI_ERROR_INVALID_MANIFEST.
+ */
+TEST_F(AdManagerMPDTests, SetAlternateContentsTests_10)
+{
+    std::string periodId = "testPeriodId";
+    std::string adId = "testAdId";
+    std::string url = TEST_AD_MANIFEST_URL;
+    uint64_t startMS = 0;
+    uint32_t breakdur = 10000;
+    AAMPCDAIAdErrorCode expectedError = eCDAI_ERROR_INVALID_MANIFEST;
+
+    mPrivateCDAIObjectMPD->SetAlternateContents(periodId, "", "", startMS, breakdur);
+    mPrivateCDAIObjectMPD->mAdFulfillObj.periodId = periodId;
+    mPrivateCDAIObjectMPD->mAdFulfillObj.adId = adId;
+    mPrivateCDAIObjectMPD->mAdFulfillObj.url = url;
+
+    const char* invalidManifest = "<MPD><Invalid></MPD>";
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile(
+        url, _, _, _, _, _, _, _, _, _, _, _, _, _))
+        .WillOnce(DoAll(
+            WithArgs<2>([&invalidManifest](AampGrowableBuffer* buf){ buf->Clear(); buf->AppendBytes((char*)invalidManifest, strlen(invalidManifest)); }),
+            Return(true)
+        ));
+
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdResolvedEvent(adId, false, 0, 0, expectedError)).Times(1);
+    mPrivateCDAIObjectMPD->FulFillAdObject();
+}
+
+/**
+ * @brief Test error scenario for FulFillAdObject when manifest fetch fails and http_error < 100.
+ *
+ * This test ensures that if GetFile fails and http_error is less than 100,
+ * FulFillAdObject triggers SendAdResolvedEvent with eCDAI_ERROR_DELIVERY_ERROR.
+ */
+TEST_F(AdManagerMPDTests, SetAlternateContentsTests_11)
+{
+    std::string periodId = "testPeriodId";
+    std::string adId = "testAdId";
+    std::string url = TEST_AD_MANIFEST_URL;
+    uint64_t startMS = 0;
+    uint32_t breakdur = 10000;
+    AAMPCDAIAdErrorCode expectedError = eCDAI_ERROR_DELIVERY_ERROR;
+
+    mPrivateCDAIObjectMPD->SetAlternateContents(periodId, "", "", startMS, breakdur);
+    mPrivateCDAIObjectMPD->mAdFulfillObj.periodId = periodId;
+    mPrivateCDAIObjectMPD->mAdFulfillObj.adId = adId;
+    mPrivateCDAIObjectMPD->mAdFulfillObj.url = url;
+
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile(
+        url, _, _, _, _, _, _, _, _, _, _, _, _, _))
+        .WillOnce(DoAll(
+            WithArgs<4>([](int* err){ *err = 50; }), // < 100
+            Return(false)
+        ));
+
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdResolvedEvent(adId, false, 0, 0, expectedError)).Times(1);
+    mPrivateCDAIObjectMPD->FulFillAdObject();
+}
+
+/**
+ * @brief Test error scenario for FulFillAdObject when manifest fetch fails and http_error >= 100.
+ *
+ * This test ensures that if GetFile fails and http_error is greater than or equal to 100,
+ * FulFillAdObject triggers SendAdResolvedEvent with eCDAI_ERROR_DELIVERY_HTTP_ERROR.
+ */
+TEST_F(AdManagerMPDTests, SetAlternateContentsTests_12)
+{
+    std::string periodId = "testPeriodId";
+    std::string adId = "testAdId";
+    std::string url = TEST_AD_MANIFEST_URL;
+    uint64_t startMS = 0;
+    uint32_t breakdur = 10000;
+    AAMPCDAIAdErrorCode expectedError = eCDAI_ERROR_DELIVERY_HTTP_ERROR;
+
+    mPrivateCDAIObjectMPD->SetAlternateContents(periodId, "", "", startMS, breakdur);
+    mPrivateCDAIObjectMPD->mAdFulfillObj.periodId = periodId;
+    mPrivateCDAIObjectMPD->mAdFulfillObj.adId = adId;
+    mPrivateCDAIObjectMPD->mAdFulfillObj.url = url;
+
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile(url, _, _, _, _, _, _, _, _, _, _, _, _, _))
+        .WillOnce(DoAll(
+            WithArgs<4>([](int* err){ *err = 404; }), // >= 100
+            Return(false)
+        ));
+
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdResolvedEvent(adId, false, 0, 0, expectedError)).Times(1);
+    mPrivateCDAIObjectMPD->FulFillAdObject();
+}
+
+
+/**
+ * @brief Test error scenario for FulFillAdObject when AdNode is marked invalid.
+ *
+ * This test ensures that if an AdNode in the ad break is marked invalid,
+ * FulFillAdObject triggers SendAdResolvedEvent with eCDAI_ERROR_DELIVERY_TIMEOUT.
+ */
+TEST_F(AdManagerMPDTests, SetAlternateContentsTests_13)
+{
+    std::string periodId = "testPeriodId";
+    std::string adId = "testAdId";
+    std::string url = TEST_AD_MANIFEST_URL;
+    uint64_t startMS = 0;
+    uint32_t breakdur = 10000;
+    AAMPCDAIAdErrorCode expectedError = eCDAI_ERROR_DELIVERY_TIMEOUT;
+
+    mPrivateCDAIObjectMPD->SetAlternateContents(periodId, "", "", startMS, breakdur);
+    mPrivateCDAIObjectMPD->mAdFulfillObj.periodId = periodId;
+    mPrivateCDAIObjectMPD->mAdFulfillObj.adId = adId;
+    mPrivateCDAIObjectMPD->mAdFulfillObj.url = url;
+    // Simulate valid manifest
+    const char *manifest =
+        "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
+        "<MPD><Period id=\"1\"><AdaptationSet contentType=\"video\"></AdaptationSet>"
+        "<AdaptationSet contentType=\"audio\"></AdaptationSet></Period></MPD>";
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile(
+        url, _, _, _, _, _, _, _, _, _, _, _, _, _))
+        .WillOnce(DoAll(
+            WithArgs<2>([manifest](AampGrowableBuffer* buf){ buf->Clear(); buf->AppendBytes((char*)manifest, strlen(manifest)); }),
+            Return(true)
+        ));
+    // Add an invalid AdNode to the adBreak
+    auto adVec = std::make_shared<std::vector<AdNode>>();
+    AdNode invalidNode;
+    invalidNode.adId = adId;
+    invalidNode.invalid = true;
+    adVec->push_back(invalidNode);
+    mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads = adVec;
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdResolvedEvent(adId, false, startMS, 0, expectedError)).Times(1);
+    mPrivateCDAIObjectMPD->FulFillAdObject();
+}
+
+/**
+ * @brief Test error scenario for FulFillAdObject when ad manifest contains multiple periods.
+ *
+ * This test ensures that if the ad manifest contains more than one period,
+ * FulFillAdObject triggers SendAdResolvedEvent with eCDAI_ERROR_INVALID_MEDIA and returns true.
+ */
+TEST_F(AdManagerMPDTests, SetAlternateContentsTests_14)
+{
+    // Arrange
+
+    uint64_t startMS = 0;
+    uint32_t breakdur = 10000;
+    mPrivateCDAIObjectMPD->mAdFulfillObj.adId = "testAd";
+    mPrivateCDAIObjectMPD->mAdFulfillObj.periodId = "testPeriod";
+    mPrivateCDAIObjectMPD->mAdFulfillObj.url = "http://example.com/ad.mpd";
+    AAMPCDAIAdErrorCode adErrorCode = eCDAI_ERROR_INVALID_MEDIA;
+
+    // Prepare a manifest with two periods
+    const char *manifest =
+        "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
+        "<MPD type=\"static\" xmlns=\"urn:mpeg:dash:schema:mpd:2011\" minBufferTime=\"PT1.5S\">"
+        "<Period id=\"1\"></Period>"
+        "<Period id=\"2\"></Period>"
+        "</MPD>";
+
+    // Mock GetFile to return the manifest
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile("http://example.com/ad.mpd", _, _, _, _, _, _, _, _, _, _, _, _, _))
+        .WillOnce(WithArgs<2>([manifest](AampGrowableBuffer* buf){ buf->Clear(); buf->AppendBytes((char*)manifest, strlen(manifest)); return true; }));
+
+    // Expect SendAdResolvedEvent to be called with adStatus=false and errorCode=eCDAI_ERROR_INVALID_MEDIA
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdResolvedEvent("testAd", false, 0, 0, adErrorCode)).Times(1);
+
+    // Act
+    bool result = mPrivateCDAIObjectMPD->FulFillAdObject();
+
+    // Assert
+    EXPECT_TRUE(result);
+}
+
+/**
+ * @brief Test error scenario for FulFillAdObject when ad break has no available space for the ad.
+ *
+ * This test ensures that if the ad break is already filled (adsDuration equals brkDuration),
+ * FulFillAdObject triggers SendAdResolvedEvent with eCDAI_ERROR_INVALID_SPECIFICATION and returns true.
+ */
+TEST_F(AdManagerMPDTests, SetAlternateContentsTests_15)
+{
+    mPrivateCDAIObjectMPD->mAdFulfillObj.adId = "testAd";
+    mPrivateCDAIObjectMPD->mAdFulfillObj.periodId = "testPeriod";
+    mPrivateCDAIObjectMPD->mAdFulfillObj.url = "http://example.com/ad.mpd";
+    AAMPCDAIAdErrorCode adErrorCode = eCDAI_ERROR_INVALID_SPECIFICATION;
+
+    // Prepare a manifest with one period and both audio/video
+    static const char *manifest =
+        "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
+        "<MPD type=\"static\" xmlns=\"urn:mpeg:dash:schema:mpd:2011\" minBufferTime=\"PT1.5S\">"
+        "<Period id=\"1\">"
+        "<AdaptationSet contentType=\"video\"></AdaptationSet>"
+        "<AdaptationSet contentType=\"audio\"></AdaptationSet>"
+        "</Period>"
+        "</MPD>";
+
+    // Mock GetFile to return the manifest
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile("http://example.com/ad.mpd", _, _, _, _, _, _, _, _, _, _, _, _, _))
+        .WillOnce(WithArgs<2>([](AampGrowableBuffer* buf){
+            buf->Clear();
+            buf->AppendBytes((char*)manifest, strlen(manifest));
+            return true;
+        }));
+
+    // Set up ad break with no available space
+    AdBreakObject adBreakObj;
+    adBreakObj.adsDuration = 10000; // Already filled
+    adBreakObj.brkDuration = 10000; // No space left
+    auto adVec = std::make_shared<std::vector<AdNode>>();
+    AdNode node;
+    node.adId = "testAd";
+    node.invalid = false;
+    adVec->push_back(node);
+    adBreakObj.ads = adVec;
+    mPrivateCDAIObjectMPD->mAdBreaks["testPeriod"] = adBreakObj;
+
+    // Expect SendAdResolvedEvent to be called with eCDAI_ERROR_INVALID_SPECIFICATION
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdResolvedEvent("testAd", false, _, _, adErrorCode)).Times(1);
+
+    // Act
+    bool result = mPrivateCDAIObjectMPD->FulFillAdObject();
+
+    // Assert
+    EXPECT_TRUE(result);
 }
 
 /**

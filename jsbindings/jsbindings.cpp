@@ -1499,6 +1499,14 @@ public:
 		prop = JSStringCreateWithUTF8CString("placementDuration");
 		JSObjectSetProperty(context, eventObj, prop, JSValueMakeNumber(context, evt->getDuration()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
+
+		prop = JSStringCreateWithUTF8CString("errorCode");
+		JSObjectSetProperty(context, eventObj, prop, aamp_CStringToJSValue(context, evt->getErrorCode().c_str()), kJSPropertyAttributeReadOnly, NULL);
+		JSStringRelease(prop);
+
+		prop = JSStringCreateWithUTF8CString("errorDescription");
+		JSObjectSetProperty(context, eventObj, prop, aamp_CStringToJSValue(context, evt->getErrorDescription().c_str()), kJSPropertyAttributeReadOnly, NULL);
+		JSStringRelease(prop);
 	}
 };
 

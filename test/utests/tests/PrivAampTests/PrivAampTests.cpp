@@ -46,7 +46,6 @@
 #include "MockAampJsonObject.h"
 #include "MockTSBSessionManager.h"
 #include "MockTSBStore.h"
-
 #include "fragmentcollector_mpd.h"
 
 using ::testing::An;
@@ -2942,11 +2941,12 @@ TEST_F(PrivAampTests,SetAlternateContentsTest)
 }
 
 
-TEST_F(PrivAampTests,SendAdResolvedEventTest)
+TEST_F(PrivAampTests,SendAdResolvedEventTest_1)
 {
 	p_aamp->SendAdResolvedEvent("adBraeakId",true,10,123445);
 	EXPECT_TRUE(p_aamp->mDownloadsEnabled);
 }
+
 
 TEST_F(PrivAampTests,SendAdReservationEventTest)
 {
