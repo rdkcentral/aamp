@@ -3134,7 +3134,7 @@ std::string StreamAbstractionAAMP_MPD::GetPreferredDrmUUID()
 {
 	int selectedPref = 0;
 	std::string selectedUuid = "";
-	for (auto iter : mDrmPrefs)
+	for (const auto& iter : mDrmPrefs)
 	{
 		if( iter.second > selectedPref){
 			selectedPref = iter.second;
@@ -4408,7 +4408,6 @@ AAMPStatusType StreamAbstractionAAMP_MPD::IndexNewMPDDocument(bool updateTrackIn
 					}
 				}
 				// To store period duration in local reference to avoid duplicate mpd parsing to reduce processing delay
-				auto periods = mpd->GetPeriods();
 				std::vector<PeriodInfo> currMPDPeriodDetails;
 				uint64_t durMs = 0;
 				UpdateMPDPeriodDetails(currMPDPeriodDetails,durMs);
@@ -5673,7 +5672,7 @@ std::vector<AudioTrackInfo> &ac4Tracks, std::string &audioTrackIndex)
 				auto rendition = role.at(iRole);
 				if (rendition->GetSchemeIdUri().find("urn:mpeg:dash:role:2011") != std::string::npos)
 				{
-					auto trackRendition = rendition->GetValue();
+					const auto& trackRendition = rendition->GetValue();
 					if (!aamp->preferredRenditionString.empty())
 					{
 						if (aamp->preferredRenditionString.compare(trackRendition) == 0)
@@ -5783,7 +5782,7 @@ std::vector<AudioTrackInfo> &ac4Tracks, std::string &audioTrackIndex)
 				unsigned long long ac4SelectedScore = 0;
 
 
-				for(auto ac4Track:ac4Tracks)
+				for(const auto& ac4Track:ac4Tracks)
 				{
 					if (ac4Track.codec.find("ac-4") != std::string::npos)
 					{
@@ -6458,7 +6457,7 @@ void StreamAbstractionAAMP_MPD::SelectSubtitleTrack(bool newTune, std::vector<Te
 					{
 						if (IsMatchingLanguageAndMimeType(eMEDIATYPE_SUBTITLE, selectedTextTrack.language, adaptationSet, selRepresentationIndex))
 						{
-							auto adapSetName = (adaptationSet->GetRepresentation().at(selRepresentationIndex))->GetId();
+							const auto& adapSetName = (adaptationSet->GetRepresentation().at(selRepresentationIndex))->GetId();
 							AAMPLOG_INFO("adapSet Id %s selName %s", adapSetName.c_str(), selectedTextTrack.name.c_str());
 							if (adapSetName.empty() || adapSetName == selectedTextTrack.name)
 							{
@@ -8117,7 +8116,7 @@ PeriodInfo StreamAbstractionAAMP_MPD::GetFirstValidCurrMPDPeriod(std::vector<Per
 	else
 	{
 		validPeriod = currMPDPeriodDetails[0];
-		for(auto iter : currMPDPeriodDetails)
+		for(const auto& iter : currMPDPeriodDetails)
 		{
 			if(iter.duration > 0)
 			{
@@ -9026,15 +9025,18 @@ void StreamAbstractionAAMP_MPD::AdvanceTrack(int trackIdx, bool trickPlay, doubl
 						}
 						double currFragTime = pMediaStreamContext->fragmentTime;
 						skipTime = SkipFragments(pMediaStreamContext, skipTime);
-						if (pMediaStreamContext->eos)
+						if( delta )
 						{
-							// If we reached end of period, only the remaining delta should be skipped in new period
-							// Otherwise we should skip based on formula rate/fps. This will also avoid any issues due to floating precision
-							*delta = skipTime;
-						}
-						else
-						{
-							*delta = 0;
+							if (pMediaStreamContext->eos)
+							{
+								// If we reached end of period, only the remaining delta should be skipped in new period
+								// Otherwise we should skip based on formula rate/fps. This will also avoid any issues due to floating precision
+								*delta = skipTime;
+							}
+							else
+							{
+								*delta = 0;
+							}
 						}
 						mBasePeriodOffset += (pMediaStreamContext->fragmentTime - currFragTime);
 					}
@@ -10716,7 +10718,7 @@ void StreamAbstractionAAMP_MPD::Stop(bool clearChannelData)
 		}
 		if (clearChannelData)
 		{
-			if(ISCONFIGSET(eAAMPConfig_UseSecManager))
+			if(ISCONFIGSET(eAAMPConfig_UseSecManager) || ISCONFIGSET(eAAMPConfig_UseFireboltSDK))
 			{
 				aamp->mDRMLicenseManager->notifyCleanup();
 			}

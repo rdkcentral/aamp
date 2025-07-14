@@ -366,7 +366,8 @@ static const ConfigLookupEntryBool mConfigLookupTableBool[AAMPCONFIG_BOOL_COUNT]
 	{false, "enablePTSRestampForHlsTs", eAAMPConfig_HlsTsEnablePTSReStamp, true},
 	{true, "overrideMediaHeaderDuration", eAAMPConfig_OverrideMediaHeaderDuration, true},
 	{false, "useMp4Demux", eAAMPConfig_UseMp4Demux,false },
-	{false, "curlThroughput", eAAMPConfig_CurlThroughput, false }
+	{false, "curlThroughput", eAAMPConfig_CurlThroughput, false },
+	{false, "useFireboltSDK", eAAMPConfig_UseFireboltSDK, false}
 };
 
 #define CONFIG_INT_ALIAS_COUNT 2
@@ -598,7 +599,7 @@ public:
 		// Verify any of ConfigLookupEntryBool item matched with given custom json
 		for (auto it = lookupBool.begin(); it != lookupBool.end(); ++it)
 		{
-			auto keyname =  it->first;
+			const auto& keyname =  it->first;
 			auto searchVal = cJSON_GetObjectItem(customVal,keyname.c_str());
 			if(searchVal)
 			{
@@ -618,7 +619,7 @@ public:
 		// Verify any of ConfigLookupEntryInt item matched with given custom json
 		for (auto it = lookupInt.begin(); it != lookupInt.end(); ++it)
 		{
-			auto keyname =  it->first;
+			const auto& keyname =  it->first;
 			auto searchVal = cJSON_GetObjectItem(customVal,keyname.c_str());
 			if(searchVal)
 			{
@@ -639,7 +640,7 @@ public:
 		//Verify any of ConfigLookupEntryFloat item matched with given custom json
 		for (auto it = lookupFloat.begin(); it != lookupFloat.end(); ++it)
 		{
-			auto keyname =  it->first;
+			const auto& keyname =  it->first;
 			auto searchVal = cJSON_GetObjectItem(customVal,keyname.c_str());
 			if(searchVal)
 			{
@@ -660,7 +661,7 @@ public:
 		// Verify any of ConfigLookupEntryString item matched with given custom json
 		for (auto it = lookupString.begin(); it != lookupString.end(); ++it)
 		{
-			auto keyname =  it->first;
+			const auto& keyname =  it->first;
 			auto searchVal = cJSON_GetObjectItem(customVal,keyname.c_str());
 			if(searchVal)
 			{
@@ -860,7 +861,7 @@ void AampConfig::ApplyDeviceCapabilities()
 	SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_WifiCurlHeader, IsWifiCurlHeader);
 
 	bool isSecMgr = isSecManagerEnabled();
-	SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_UseSecManager, false); //Note: Workaround for DTM-4118 changes to be merged independently and no impact on secmanager license acquisition while playback testing. Will be reverted once RDK-56194 changes merged
+	SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_UseSecManager, isSecMgr);
 }
 
 std::string AampConfig::GetUserAgentString()

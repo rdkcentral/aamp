@@ -364,7 +364,7 @@ void Get::ShowHelpGet(){
 
 	if(!commands.empty())
 	{
-		for(auto itr:commands)
+		for(const auto& itr:commands)
 		{
 			auto getCmdItr = getCommands.find(itr);
 			if(getCmdItr != getCommands.end())
