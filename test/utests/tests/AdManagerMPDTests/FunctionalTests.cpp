@@ -332,6 +332,7 @@ TEST_F(AdManagerMPDTests, SetAlternateContentsTests_1)
   std::string url = "";
   uint64_t startMS = 0;
   uint32_t breakdur = 0;
+  uint64_t errorCode = 0;
 
   // Call the function to test
   mPrivateCDAIObjectMPD->SetAlternateContents(periodId, adId, url, startMS, breakdur);
@@ -344,7 +345,7 @@ TEST_F(AdManagerMPDTests, SetAlternateContentsTests_1)
   adId = "testAdId1";
   url = "testAdUrl1";
 
-  EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdResolvedEvent(adId, false, 0, 0)).Times(1);
+  EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdResolvedEvent(adId, false, 0, 0, errorCode,CDAI_ErrorsPair[errorCode])).Times(1);
   // Call the function to test when adbreak object doesn't exist and adId and url not empty
   mPrivateCDAIObjectMPD->SetAlternateContents(periodId, adId, url, startMS, breakdur);
 
@@ -393,6 +394,7 @@ R"(<?xml version="1.0" encoding="UTF-8"?>
   std::string url = "";
   uint64_t startMS = 0;
   uint32_t breakdur = 10000;
+  uint64_t errorCode = 0;
   bool timedout = false;
   bool threadStarted = false;
 
@@ -403,7 +405,7 @@ R"(<?xml version="1.0" encoding="UTF-8"?>
   InitializeAdMPD(manifest);
 
   // mIsFogTSB is false, so downloaded from CDN and ad resolved event is sent
-  EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdResolvedEvent(adId, true, startMS, 10000)).Times(1);
+  EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdResolvedEvent(adId, true, startMS, 10000,errorCode,CDAI_ErrorsPair[errorCode])).Times(1);
 
   // We would like to also validate that AbortWaitForNextAdResolved is invoked
   std::thread t([this, &timedout, &threadStarted]{
@@ -476,6 +478,7 @@ R"(<?xml version="1.0" encoding="UTF-8"?>
   std::string url = "";
   uint64_t startMS = 0;
   uint32_t breakdur = 10000;
+  uint64_t errorCode = 0;
 
   // To create an empty ad break object
   mPrivateCDAIObjectMPD->SetAlternateContents(periodId, "", "", startMS, breakdur);
@@ -486,7 +489,7 @@ R"(<?xml version="1.0" encoding="UTF-8"?>
   InitializeAdMPD(manifest, true);
 
   // mIsFogTSB is true, so downloaded from CDN and redirected to FOG and ad resolved event is sent
-  EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdResolvedEvent(adId, true, startMS, 10000)).Times(1);
+  EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdResolvedEvent(adId, true, startMS, 10000,errorCode,CDAI_ErrorsPair[errorCode])).Times(1);
   mPrivateCDAIObjectMPD->SetAlternateContents(periodId, adId, url, startMS, breakdur);
   std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
@@ -512,6 +515,7 @@ TEST_F(AdManagerMPDTests, SetAlternateContentsTests_4)
   std::string url = "";
   uint64_t startMS = 0;
   uint32_t breakdur = 10000;
+  uint64_t errorCode = 0;
   // Empty manifest for failure
   const char *manifest = nullptr;
   bool timedout = false;
@@ -524,7 +528,7 @@ TEST_F(AdManagerMPDTests, SetAlternateContentsTests_4)
   InitializeAdMPD(manifest);
 
   // mIsFogTSB is false, so downloaded from CDN and ad resolved event status should be false
-  EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdResolvedEvent(adId, false, 0, 0)).Times(1);
+  EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdResolvedEvent(adId, false, 0, 0,errorCode,CDAI_ErrorsPair[errorCode])).Times(1);
 
   // We would like to also validate that AbortWaitForNextAdResolved is invoked
   std::thread t([this, &timedout, &threadStarted]{
@@ -597,9 +601,10 @@ R"(<?xml version="1.0" encoding="UTF-8"?>
   std::string url = "";
   uint64_t startMS = 0;
   uint32_t breakdur = 10000;
+  uint64_t errorCode = 0;
 
   // To create an empty ad break object
-  mPrivateCDAIObjectMPD->SetAlternateContents(periodId, "", "", startMS, breakdur);
+  mPrivateCDAIObjectMPD->SetAlternateContents(periodId, "", "", startMS, breakdur,0,{"",""});
 
   url = TEST_AD_MANIFEST_URL;
   mPrivateCDAIObjectMPD->mIsFogTSB = true;
@@ -608,7 +613,7 @@ R"(<?xml version="1.0" encoding="UTF-8"?>
 
   // mIsFogTSB is true, so downloaded from CDN and redirected to FOG which fails.
   // Here, ad resolved event is sent with true and CDN url is cached
-  EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdResolvedEvent(adId, true, startMS, 10000)).Times(1);
+  EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdResolvedEvent(adId, true, startMS, 10000,errorCode,CDAI_ErrorsPair[errorCode])).Times(1);
   mPrivateCDAIObjectMPD->SetAlternateContents(periodId, adId, url, startMS, breakdur);
   std::this_thread::sleep_for(std::chrono::milliseconds(50));
 
@@ -666,6 +671,7 @@ R"(<?xml version="1.0" encoding="UTF-8"?>
   uint64_t startMS = 0;
   uint32_t breakdur = 20000;
   uint32_t adDuration = 10000;
+  uint64_t errorCode = 0;
 
   // To create an empty ad break object
   mPrivateCDAIObjectMPD->SetAlternateContents(periodId, "", "", startMS, breakdur);
@@ -677,8 +683,8 @@ R"(<?xml version="1.0" encoding="UTF-8"?>
 
   // mIsFogTSB is true, so downloaded from CDN and redirected to FOG which fails.
   // Here, ad resolved event is sent with true and CDN url is cached
-  EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdResolvedEvent(adId1, true, startMS, 10000)).Times(1);
-  EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdResolvedEvent(adId2, true, startMS + adDuration, 10000)).Times(1);
+  EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdResolvedEvent(adId1, true, startMS, 10000,errorCode,CDAI_ErrorsPair[errorCode])).Times(1);
+  EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdResolvedEvent(adId2, true, startMS + adDuration, 10000,errorCode,CDAI_ErrorsPair[errorCode])).Times(1);
   mPrivateCDAIObjectMPD->SetAlternateContents(periodId, adId1, url, startMS, adDuration);
   mPrivateCDAIObjectMPD->SetAlternateContents(periodId, adId2, url, startMS, adDuration);
   std::this_thread::sleep_for(std::chrono::milliseconds(50));

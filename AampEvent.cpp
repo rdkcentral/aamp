@@ -1153,9 +1153,9 @@ VTTCue* WebVttCueEvent::getCueData() const
 /**
  * @brief AdResolvedEvent Constructor
  */
-AdResolvedEvent::AdResolvedEvent(bool resolveStatus, const std::string &adId, uint64_t startMS, uint64_t durationMs, std::string sid):
+AdResolvedEvent::AdResolvedEvent(bool resolveStatus, const std::string &adId, uint64_t startMS, uint64_t durationMs, std::string sid,uint64_t errorCode,const std::pair<std::string, std::string> &errorDescription):
 		AAMPEventObject(AAMP_EVENT_AD_RESOLVED, std::move(sid)), mResolveStatus(resolveStatus), mAdId(adId),
-		mStartMS(startMS), mDurationMs(durationMs)
+		mStartMS(startMS), mDurationMs(durationMs),mErrorCode(errorCode), mErrorDescription(errorDescription)
 {
 
 }
@@ -1200,6 +1200,25 @@ uint64_t AdResolvedEvent::getDuration() const
 	return mDurationMs;
 }
 
+/**
+ * @brief Get Error Code
+ *
+ * @return Error code
+ */
+uint64_t AdResolvedEvent::getErrorCode() const
+{
+	return mErrorCode;
+}
+
+/**
+ * @brief Get Error Description
+ *
+ * @return Error description pair (key, value)
+ */
+const std::pair<std::string, std::string> &AdResolvedEvent::getErrorDescription() const
+{
+	return mErrorDescription;
+}
 /**
  * @brief AdReservationEvent Constructor
  */

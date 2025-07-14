@@ -397,7 +397,7 @@ public:
 	 * @param[in] startMS - Ad start time in milliseconds
 	 * @param[in] breakdur - Adbreak's duration in MS
 	 */
-	void SetAlternateContents(const std::string &periodId, const std::string &adId, const std::string &url,  uint64_t startMS, uint32_t breakdur=0);
+	void SetAlternateContents(const std::string &periodId, const std::string &adId, const std::string &url,  uint64_t startMS, uint32_t breakdur=0,uint64_t errorCode=0,const std::pair<std::string, std::string> &errorDescription = {"", ""});
 
 	/**
 	 * @fn FulFillAdObject

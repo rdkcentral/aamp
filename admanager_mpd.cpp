@@ -1052,6 +1052,7 @@ bool PrivateCDAIObjectMPD::FulFillAdObject()
 	UsingPlayerId playerId(mAamp->mPlayerId);
 	bool ret = true;
 	AampMPDParseHelper adMPDParseHelper;
+	CDAIAdErrorCode adErrorCode = CDAI_ERROR_NONE;
 	bool adStatus = false;
 	uint64_t startMS = 0;
 	uint32_t durationMs = 0;
@@ -1162,6 +1163,7 @@ bool PrivateCDAIObjectMPD::FulFillAdObject()
 		if(CURLE_ABORTED_BY_CALLBACK == http_error)
 		{
 			AAMPLOG_ERR("Ad MPD[%s] download aborted.", mAdFulfillObj.url.c_str());
+			adErrorCode = CDAI_ERROR_DELIVERY_TIMEOUT;
 			ret = false;
 		}
 		else
@@ -1189,6 +1191,7 @@ bool PrivateCDAIObjectMPD::FulFillAdObject()
 				}
 			}
 			AAMPLOG_ERR("Failed to get Ad MPD[%s].", mAdFulfillObj.url.c_str());
+			adErrorCode = CDAI_ERROR_DELIVERY_ERROR;
 		}
 	}
 	// Send the resolved event
@@ -1196,7 +1199,8 @@ bool PrivateCDAIObjectMPD::FulFillAdObject()
 	{
 		// Send the resolved event to the player
 		AbortWaitForNextAdResolved();
-		mAamp->SendAdResolvedEvent(mAdFulfillObj.adId, adStatus, startMS, durationMs);
+		adErrorCode = CDAI_ERROR_NONE;
+		mAamp->SendAdResolvedEvent(mAdFulfillObj.adId, adStatus, startMS, durationMs,adErrorCode,{"",""});
 	}
 	return ret;
 }
@@ -1210,8 +1214,9 @@ bool PrivateCDAIObjectMPD::FulFillAdObject()
  * @param[in] startMS - Ad start time in milliseconds
  * @param[in] breakdur - Adbreak's duration in MS
  */
-void PrivateCDAIObjectMPD::SetAlternateContents(const std::string &periodId, const std::string &adId, const std::string &url,  uint64_t startMS, uint32_t breakdur)
+void PrivateCDAIObjectMPD::SetAlternateContents(const std::string &periodId, const std::string &adId, const std::string &url,  uint64_t startMS, uint32_t breakdur,uint64_t errorCode,const std::pair<std::string, std::string> &errorDescription)
 {
+	CDAIAdErrorCode adErrorCode = CDAI_ERROR_NONE;
 	if("" == adId || "" == url)
 	{
 		std::lock_guard<std::mutex> lock(mDaiMtx);
@@ -1244,7 +1249,7 @@ void PrivateCDAIObjectMPD::SetAlternateContents(const std::string &periodId, con
 		// Reject the promise as ad couldn't be resolved
 		if(!adCached)
 		{
-			mAamp->SendAdResolvedEvent(adId, false, 0, 0);
+			mAamp->SendAdResolvedEvent(adId, false, 0, 0,adErrorCode,{"",""});
 		}
 	}
 }
