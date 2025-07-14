@@ -1366,10 +1366,9 @@ void MediaTrack::ProcessAndInjectFragment(CachedFragment *cachedFragment, bool f
 			}
 		}
 		else if (ISCONFIGSET(eAAMPConfig_OverrideMediaHeaderDuration) &&
-			(eMEDIAFORMAT_DASH == aamp->mMediaFormat) &&
-			(aamp->IsLive()))
+			(eMEDIAFORMAT_DASH == aamp->mMediaFormat))
 		{
-			// Only for Live and DASH streams
+			// Only for DASH streams
 			ClearMediaHeaderDuration(cachedFragment);
 		}
 		if ((mSubtitleParser || (aamp->IsGstreamerSubsEnabled())) && type == eTRACK_SUBTITLE)
@@ -2080,6 +2079,12 @@ void StreamAbstractionAAMP::WaitForVideoTrackCatchup()
 		double videoDuration = video->GetTotalInjectedDuration();
 		while ((audioDuration > (videoDuration + video->fragmentDurationSeconds)) && aamp->DownloadsAreEnabled() && !audio->IsDiscontinuityProcessed() && !video->IsInjectionAborted() && !(video->IsAtEndOfTrack()))
 		{
+			if (mTrackState == eDISCONTINUITY_IN_VIDEO)
+			{
+				AAMPLOG_WARN("Skipping WaitForVideoTrackCatchup as video is processing a discontinuity");
+				break;
+			}
+
 			if (std::cv_status::no_timeout == mCond.wait_for(lock, std::chrono::milliseconds(100)))
 			{
 				break;
@@ -3810,6 +3815,12 @@ void StreamAbstractionAAMP::WaitForVideoTrackCatchupForAux()
 
 		while ((auxDuration > (videoDuration + video->fragmentDurationSeconds)) && aamp->DownloadsAreEnabled() && !aux->IsDiscontinuityProcessed() && !video->IsInjectionAborted() && !(video->IsAtEndOfTrack()))
 		{
+			if (mTrackState == eDISCONTINUITY_IN_VIDEO)
+			{
+				AAMPLOG_WARN("Skipping WaitForVideoTrackCatchupForAux as video is processing a discontinuity");
+				break;
+			}
+
 			if (std::cv_status::no_timeout == mAuxCond.wait_for(lock, std::chrono::milliseconds(100)))
 			{
 				break;
