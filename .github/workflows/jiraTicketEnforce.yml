@@ -3,9 +3,11 @@ on:
   push:
     branches:
       - dev_sprint_25_2
+      - feature/VPLAY-10292_temp
   pull_request:
     branches:
       - dev_sprint_25_2
+      - feature/VPLAY-10292_temp
 jobs:
   jira-ticket-check:
     runs-on: ubuntu-latest
