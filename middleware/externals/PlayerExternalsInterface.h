@@ -203,7 +203,7 @@ public:
      * @retval true or false
      */
     static bool IsPlayerExternalsInterfaceInstanceActive();
-	
+
     /**
      * @fn GetActiveInterface
      * @brief Is current active interface wifi? 

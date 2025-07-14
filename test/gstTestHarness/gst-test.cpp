@@ -911,7 +911,7 @@ public:
 				printf( " " );
 			}
 			printf( "%s", node->tagName.c_str() );
-			for( auto it : node->attributes )
+			for( const auto& it : node->attributes )
 			{
 				printf( " %s=%s", it.first.c_str(), it.second.c_str() );
 			}
@@ -1020,7 +1020,7 @@ public:
 				processingFirstPeriod = false;
 			}
 			
-			for( auto it : period.adaptationSet )
+			for( const auto& it : period.adaptationSet )
 			{
 				const AdaptationSet &adaptationSet = it.second;
 				MediaType mediaType;
@@ -1237,7 +1237,7 @@ public:
 		
 		//Seek( 1.0/*rate*/, 0/*start*/, -1/*stop*/, 0/*baseTime*/ );
 		
-		for( auto segmentInfo : segmentList )
+		for( const auto& segmentInfo : segmentList )
 		{
 			std::string fullpath = url;
 			auto delim = fullpath.find_last_of("/");

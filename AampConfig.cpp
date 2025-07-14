@@ -329,7 +329,7 @@ static const ConfigLookupEntryBool mConfigLookupTableBool[AAMPCONFIG_BOOL_COUNT]
 	{false,"enablePTO", eAAMPConfig_EnablePTO,false},
 	{true,"enableFogConfig", eAAMPConfig_EnableAampConfigToFog, false},
 	{false,"xreSupportedTune",eAAMPConfig_XRESupportedTune,false},
-	{false,"gstSubtecEnabled",eAAMPConfig_GstSubtecEnabled,false},
+	{DEFAULT_VALUE_GST_SUBTEC_ENABLED,"gstSubtecEnabled",eAAMPConfig_GstSubtecEnabled,false},
 	{true,"allowPageHeaders",eAAMPConfig_AllowPageHeaders,false},
 	{false,"persistHighNetworkBandwidth",eAAMPConfig_PersistHighNetworkBandwidth,false},
 	{true,"persistLowNetworkBandwidth",eAAMPConfig_PersistLowNetworkBandwidth,false},
@@ -364,6 +364,7 @@ static const ConfigLookupEntryBool mConfigLookupTableBool[AAMPCONFIG_BOOL_COUNT]
 	{false, "forceLLDFlow", eAAMPConfig_ForceLLDFlow, false},
 	{false, "monitorAV", eAAMPConfig_MonitorAV, true},
 	{false, "enablePTSRestampForHlsTs", eAAMPConfig_HlsTsEnablePTSReStamp, true},
+	{true, "overrideMediaHeaderDuration", eAAMPConfig_OverrideMediaHeaderDuration, true},
 	{false, "useMp4Demux", eAAMPConfig_UseMp4Demux,false },
 	{false, "curlThroughput", eAAMPConfig_CurlThroughput, false }
 };
@@ -597,7 +598,7 @@ public:
 		// Verify any of ConfigLookupEntryBool item matched with given custom json
 		for (auto it = lookupBool.begin(); it != lookupBool.end(); ++it)
 		{
-			auto keyname =  it->first;
+			const auto& keyname =  it->first;
 			auto searchVal = cJSON_GetObjectItem(customVal,keyname.c_str());
 			if(searchVal)
 			{
@@ -617,7 +618,7 @@ public:
 		// Verify any of ConfigLookupEntryInt item matched with given custom json
 		for (auto it = lookupInt.begin(); it != lookupInt.end(); ++it)
 		{
-			auto keyname =  it->first;
+			const auto& keyname =  it->first;
 			auto searchVal = cJSON_GetObjectItem(customVal,keyname.c_str());
 			if(searchVal)
 			{
@@ -638,7 +639,7 @@ public:
 		//Verify any of ConfigLookupEntryFloat item matched with given custom json
 		for (auto it = lookupFloat.begin(); it != lookupFloat.end(); ++it)
 		{
-			auto keyname =  it->first;
+			const auto& keyname =  it->first;
 			auto searchVal = cJSON_GetObjectItem(customVal,keyname.c_str());
 			if(searchVal)
 			{
@@ -659,7 +660,7 @@ public:
 		// Verify any of ConfigLookupEntryString item matched with given custom json
 		for (auto it = lookupString.begin(); it != lookupString.end(); ++it)
 		{
-			auto keyname =  it->first;
+			const auto& keyname =  it->first;
 			auto searchVal = cJSON_GetObjectItem(customVal,keyname.c_str());
 			if(searchVal)
 			{
@@ -859,10 +860,7 @@ void AampConfig::ApplyDeviceCapabilities()
 	SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_WifiCurlHeader, IsWifiCurlHeader);
 
 	bool isSecMgr = isSecManagerEnabled();
-	SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_UseSecManager, isSecMgr);
-
-	bool isGstSubtec = SocUtils::isGstSubtecEnabled();
-	SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_GstSubtecEnabled, isGstSubtec);
+	SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_UseSecManager, false); //Note: Workaround for DTM-4118 changes to be merged independently and no impact on secmanager license acquisition while playback testing. Will be reverted once RDK-56194 changes merged
 }
 
 std::string AampConfig::GetUserAgentString()
