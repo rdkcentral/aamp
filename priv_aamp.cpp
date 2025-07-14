@@ -4783,6 +4783,7 @@ void PrivateInstanceAAMP::TeardownStream(bool newTune, bool disableDownloads)
 				StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
 				if (sink)
 				{
+					AAMPLOG_INFO("patrick flush 0");
 					sink->Flush(0, rate);
 				}
 			}
@@ -6119,7 +6120,7 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 	}
 
 	SAFE_DELETE(mCdaiObject);
-	
+
 	AcquireStreamLock();
 	TuneHelper(tuneType);
 

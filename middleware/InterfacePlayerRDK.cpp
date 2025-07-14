@@ -349,7 +349,7 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int auxF
 			MW_LOG_MIL("AudioType Changed. Force configure pipeline");
 			configureStream[i] = true;
 		}
-
+MW_LOG_MIL("patrick stream %d resetPosition", i);
 		stream->resetPosition = true;
 		stream->eosReached = false;
 		stream->firstBufferProcessed = false;
@@ -2284,6 +2284,7 @@ void InterfacePlayerRDK::SendGstEvents(GstMediaType mediaType, GstClockTime pts)
 		// Player's change in qtdemux so we don't need to query segment.start
 		// Enabling position query based progress reporting for non-westerossink configurations.
 		// Player will send a segment.start query if segmentStart is -1.
+		MW_LOG_MIL("patrick mediaType %d enableGstPosQuery %d enableOverride %d",mediaType, m_gstConfigParam->enableGstPosQuery, enableOverride);
 		if (m_gstConfigParam->enableGstPosQuery && (enableOverride == FALSE))
 		{
 			gstPrivateContext->segmentStart = -1;
