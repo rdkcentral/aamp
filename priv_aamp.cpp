@@ -216,6 +216,19 @@ static TuneFailureMap tuneFailureMap[] =
 	{AAMP_TUNE_FAILURE_UNKNOWN, 100, "AAMP: Unknown Failure"}
 };
 
+static const std::pair<std::string , std::string> gCDAIErrorDetails[] = {
+	{"1051-2", "A configuration issue prevents player from handling ads"},
+	{"1051-6", "An ad was unplayable due to invalid manifest/playlist formatting."},
+	{"1051-7", "An ad was unplayable due to invalid media."},
+	{"1051-8", "An ad was unplayable due to the content being out of spec and unInsertable."},
+	{"1051-11", "The ad decisioning service took too long to respond."},
+	{"1051-12", "The ad delivery service took too long to respond."},
+	{"1051-13", "The ad delivery service returned a HTTP error."},
+	{"1051-14", "The ad delivery service returned a error."},
+	{"1051-15", "An unknown error occurred when trying to insert an ad."},
+	{"", ""}
+};
+
 static constexpr const char *BITRATECHANGE_STR[] =
 {
 	(const char *)"BitrateChanged - Network adaptation",				// eAAMP_BITRATE_CHANGE_BY_ABR
@@ -9291,19 +9304,24 @@ void PrivateInstanceAAMP::SetAlternateContents(const std::string &adBreakId, con
 	else
 	{
 		AAMPLOG_WARN("is called! CDAI not enabled!! Rejecting the promise.");
-		SendAdResolvedEvent(adId, false, 0, 0);
+		SendAdResolvedEvent(adId, false, 0, 0, eCDAI_ERROR_ADS_MISCONFIGURED);
 	}
 }
 
 /**
  * @brief Send status of Ad manifest downloading & parsing
  */
-void PrivateInstanceAAMP::SendAdResolvedEvent(const std::string &adId, bool status, uint64_t startMS, uint64_t durationMs)
+void PrivateInstanceAAMP::SendAdResolvedEvent(const std::string &adId, bool status, uint64_t startMS, uint64_t durationMs, AAMPCDAIError errorCode)
 {
+	if (errorCode < eCDAI_ERROR_ADS_MISCONFIGURED || errorCode > eCDAI_ERROR_NONE)
+	{
+		errorCode = eCDAI_ERROR_UNKNOWN;
+	}
 	if (mDownloadsEnabled)	//Send it, only if Stop not called
 	{
-		AdResolvedEventPtr e = std::make_shared<AdResolvedEvent>(status, adId, startMS, durationMs, GetSessionId());
-		AAMPLOG_WARN("PrivateInstanceAAMP: [CDAI] Sent resolved status=%d for adId[%s]", status, adId.c_str());
+		AdResolvedEventPtr e = std::make_shared<AdResolvedEvent>(status, adId, startMS, durationMs, gCDAIErrorDetails[errorCode].first, gCDAIErrorDetails[errorCode].second, GetSessionId());
+		AAMPLOG_WARN("PrivateInstanceAAMP: [CDAI] Sent resolved status=%d for adId[%s] with errorCode[%s] and errorDescription[%s]", status, adId.c_str(),
+			gCDAIErrorDetails[errorCode].first.c_str(), gCDAIErrorDetails[errorCode].second.c_str());
 		SendEvent(e,AAMP_EVENT_ASYNC_MODE);
 	}
 }

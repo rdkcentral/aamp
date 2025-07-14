@@ -679,7 +679,7 @@ void MyAAMPEventListener::Event(const AAMPEventPtr& e)
 		case AAMP_EVENT_AD_RESOLVED:
 		{
 			AdResolvedEventPtr ev = std::dynamic_pointer_cast<AdResolvedEvent>(e);
-			AAMPCLI_PRINTF("[AAMPCLI] AAMP_EVENT_AD_RESOLVED\tresolveStatus=%d\tadId=%s\tstart=%" PRIu64 "\tduration=%" PRIu64 "\n", ev->getResolveStatus(), ev->getAdId().c_str(), ev->getStart(), ev->getDuration());
+			AAMPCLI_PRINTF("[AAMPCLI] AAMP_EVENT_AD_RESOLVED\tresolveStatus=%d\tadId=%s\tstart=%" PRIu64 "\tduration=%" PRIu64 "\terrorCode=%s\terrorDescription=%s\n", ev->getResolveStatus(), ev->getAdId().c_str(), ev->getStart(), ev->getDuration(), ev->getErrorCode().c_str(), ev->getErrorDescription().c_str());
 			break;
 		}
 
