@@ -46,8 +46,8 @@
 #include "MockAampJsonObject.h"
 #include "MockTSBSessionManager.h"
 #include "MockTSBStore.h"
-
 #include "fragmentcollector_mpd.h"
+#include "MockAdManager.h"
 
 using ::testing::An;
 using ::testing::DoAll;
@@ -94,10 +94,14 @@ protected:
 		g_mockStreamAbstractionAAMP = new NiceMock<MockStreamAbstractionAAMP>(p_aamp);
 		g_mockCurl = new NiceMock<MockCurl>();
 		g_mockAampCurlStore = new NiceMock<MockAampCurlStore>();
+		g_MockPrivateCDAIObjectMPD = new MockPrivateCDAIObjectMPD();
 	}
 
 	void TearDown() override
 	{
+		delete g_MockPrivateCDAIObjectMPD;
+		g_MockPrivateCDAIObjectMPD = nullptr;
+		
 		delete g_mockAampCurlStore;
 		g_mockAampCurlStore = nullptr;
 
@@ -2948,10 +2952,16 @@ TEST_F(PrivAampTests,SetAlternateContentsTest)
 }
 
 
-TEST_F(PrivAampTests,SendAdResolvedEventTest)
+TEST_F(PrivAampTests,SendAdResolvedEventTest_1)
 {
 	p_aamp->SendAdResolvedEvent("adBraeakId",true,10,123445);
 	EXPECT_TRUE(p_aamp->mDownloadsEnabled);
+}
+
+TEST_F(PrivAampTests,SendAdResolvedEventTest_2)
+{
+	p_aamp->SetAlternateContents("adBraeakId", "adstringId", "http://sampleurl.com");
+	EXPECT_CALL(*g_MockPrivateCDAIObjectMPD, SetAlternateContents(_, _, _)).Times(0);
 }
 
 TEST_F(PrivAampTests,SendAdReservationEventTest)
