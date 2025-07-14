@@ -41,7 +41,7 @@ ContentProtectionFirebolt::ContentProtectionFirebolt() : mInitialized(false), mI
 }
 ContentProtectionFirebolt::~ContentProtectionFirebolt()
 {
-	Deinitialize();
+	DeInitialize();
 }
 
 static int MapFireboltStatus(const std::string& statusStr) {
@@ -115,10 +115,10 @@ void ContentProtectionFirebolt::Initialize()
 	/*Wait Time is 500 millisecond*/
 	std::unique_lock<std::mutex> mLock(mConnectionMutex);
 	if (!mConnectionCV.wait_for(mLock, std::chrono::milliseconds(500), [this] { return mIsConnected; })) {
-		MW_LOG_ERR("Firebolt Core To Be Initiailized URL: [%s] Failed(Timeout) after 500ms", url.c_str());
+		MW_LOG_ERR("Firebolt Core To Be Initialized URL: [%s] Failed(Timeout) after 500ms", url.c_str());
 		return;
 	}
-	MW_LOG_WARN("Firebolt Core Initiailized URL: [%s]", url.c_str());
+	MW_LOG_WARN("Firebolt Core Initialized URL: [%s]", url.c_str());
 	mInitialized = true;
 	/* hide watermarking at startup */
 	int64_t sessionId = 0;
@@ -129,7 +129,7 @@ void ContentProtectionFirebolt::Initialize()
 	MW_LOG_WARN("Firebolt ContentProtection initialized with URL: [%s]", url.c_str());
 }
 
-void ContentProtectionFirebolt::Deinitialize()
+void ContentProtectionFirebolt::DeInitialize()
 {
 	/* SessionID is not used internally in CP Thunder Plugin for ShowWatermark.
 	   However Native SDK requires it to be sent. Keeping it dummy*/
@@ -138,7 +138,7 @@ void ContentProtectionFirebolt::Deinitialize()
 	DestroyFireboltInstance();
 	mIsConnected = false;
 	mInitialized = false;
-	MW_LOG_INFO("Firebolt Core deinitialized");
+	MW_LOG_INFO("Firebolt Core de-initialized");
 }
 
 bool ContentProtectionFirebolt::CreateFireboltInstance(const std::string &url)

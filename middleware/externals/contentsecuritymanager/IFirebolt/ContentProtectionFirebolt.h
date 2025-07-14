@@ -55,9 +55,9 @@ public:
 	 */
 	void Initialize();
 	/**
-	 * @brief Deinitializes and tears down connection
+	 * @brief De-initializes and tears down connection
 	 */
-	void Deinitialize();
+	void DeInitialize();
 	/**
 	 * @brief Checks if Firebolt is active
 	 * @param force
@@ -157,7 +157,7 @@ private:
 	 */
 	void SubscribeEvents();
 	/**
-	 * @brief Unsubscribes from Firebolt events (currently stub)
+	 * @brief Unsubscribe from Firebolt events (currently stub)
 	 * @return true if stub accepted
 	 */
 	void UnSubscribeEvents();
