@@ -1052,7 +1052,7 @@ bool PrivateCDAIObjectMPD::FulFillAdObject()
 	UsingPlayerId playerId(mAamp->mPlayerId);
 	bool ret = true;
 	AampMPDParseHelper adMPDParseHelper;
-	CDAIAdErrorCode adErrorCode;
+	CDAIAdErrorCode adErrorCode = CDAI_AD_ERROR_NONE;
 	bool adStatus = false;
 	uint64_t startMS = 0;
 	uint32_t durationMs = 0;
@@ -1155,6 +1155,7 @@ bool PrivateCDAIObjectMPD::FulFillAdObject()
 		else
 		{
 			AAMPLOG_ERR("AdBreakId[%s] not existing. Dropping the Ad.", periodId.c_str());
+			adErrorCode=CDAI_AD_ERROR_ZERO_AD_DECISIONS;
 			SAFE_DELETE(ad);
 		}
 	}
@@ -1250,7 +1251,7 @@ void PrivateCDAIObjectMPD::SetAlternateContents(const std::string &periodId, con
 		if(!adCached)
 		{
 			adErrorCode=CDAI_AD_ERROR_INVALID_SPECIFICATION;
-			mAamp->SendAdResolvedEvent(adId, false, 0, 0,adErrorCode,"");
+			mAamp->SendAdResolvedEvent(adId, false, 0, 0,adErrorCode,CDAI_Errors[adErrorCode]);
 		}
 	}
 }

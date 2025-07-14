@@ -344,7 +344,7 @@ TEST_F(AdManagerMPDTests, SetAlternateContentsTests_1)
   adId = "testAdId1";
   url = "testAdUrl1";
 
-  EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdResolvedEvent(adId, false, 0, 0,0,"")).Times(1);
+  EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdResolvedEvent(adId, false, 0, 0,CDAI_AD_ERROR_INVALID_SPECIFICATION,CDAI_Errors[CDAI_AD_ERROR_INVALID_SPECIFICATION])).Times(1);
   // Call the function to test when adbreak object doesn't exist and adId and url not empty
   mPrivateCDAIObjectMPD->SetAlternateContents(periodId, adId, url, startMS, breakdur);
 

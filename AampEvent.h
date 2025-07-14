@@ -200,6 +200,19 @@ typedef enum
     CDAI_AD_ERROR_UNKNOWN                 		=10,
 } CDAIAdErrorCode;
 
+const std::string CDAI_Errors[] = {
+	"No Error found",
+    "A configuration issue prevents player from handling ads",
+	"Ad decisioning success but no ads were received",
+	"An ad was unplayable due to invalid manifest/playlist formatting.",
+	"An ad was unplayable due to invalid media.",
+	"An ad was unplayable due to the content being out of spec and uninsertable.",
+	"The ad decisioning service took too long to respond.",
+	"The ad delivery service took too long to respond.",
+	"The ad delivery service returned a HTTP error.",
+	"The ad delivery service returned a error.",
+	"An unknown error occurred when trying to insert an ad."
+};
 
 /**
  * @enum MetricsDataType
