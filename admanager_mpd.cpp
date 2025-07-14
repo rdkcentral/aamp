@@ -1052,6 +1052,7 @@ bool PrivateCDAIObjectMPD::FulFillAdObject()
 	UsingPlayerId playerId(mAamp->mPlayerId);
 	bool ret = true;
 	AampMPDParseHelper adMPDParseHelper;
+	CDAIAdErrorCode adErrorCode = CDAI_ERROR_NONE;
 	bool adStatus = false;
 	uint64_t startMS = 0;
 	uint32_t durationMs = 0;
@@ -1113,6 +1114,7 @@ bool PrivateCDAIObjectMPD::FulFillAdObject()
 			{
 				AAMPLOG_INFO("Final manifest to be downloaded from the FOG later. Deleting the manifest got from CDN.");
 				SAFE_DELETE(ad);
+				adErrorCode = CDAI_ERROR_ADS_MISCONFIGURED;
 			}
 			if (!adBreakAssets->empty())
 			{
@@ -1147,6 +1149,7 @@ bool PrivateCDAIObjectMPD::FulFillAdObject()
 				// For example, you might want to push the new node if the vector is empty
 				AAMPLOG_WARN("AdBreakAssets is empty. Adding new Ad, May be a BUG in fulfill queue.");
 				adBreakAssets->emplace_back(AdNode{false, false, true, mAdFulfillObj.adId, mAdFulfillObj.url, durationMs, periodId, 0, ad});
+				adErrorCode = CDAI_ERROR_ADS_MISCONFIGURED;
 			}
 			AAMPLOG_MIL("New Ad successfully for periodId : %s added[Id=%s, url=%s, durationMs=%" PRIu32 "].",periodId.c_str(),mAdFulfillObj.adId.c_str(),mAdFulfillObj.url.c_str(), durationMs);
 			adStatus = true;
@@ -1162,6 +1165,7 @@ bool PrivateCDAIObjectMPD::FulFillAdObject()
 		if(CURLE_ABORTED_BY_CALLBACK == http_error)
 		{
 			AAMPLOG_ERR("Ad MPD[%s] download aborted.", mAdFulfillObj.url.c_str());
+			adErrorCode=CDAI_ERROR_DELIVERY_HTTP_ERROR;
 			ret = false;
 		}
 		else
@@ -1183,12 +1187,14 @@ bool PrivateCDAIObjectMPD::FulFillAdObject()
 							// Mark the ad node as resolved and invalid
 							node.resolved = true;
 							node.invalid = true;
+							adErrorCode=CDAI_ERROR_INVALID_MEDIA;
 							break;
 						}
 					}
 				}
 			}
 			AAMPLOG_ERR("Failed to get Ad MPD[%s].", mAdFulfillObj.url.c_str());
+			adErrorCode = CDAI_ERROR_INVALID_MANIFEST;
 		}
 	}
 	// Send the resolved event
@@ -1196,7 +1202,7 @@ bool PrivateCDAIObjectMPD::FulFillAdObject()
 	{
 		// Send the resolved event to the player
 		AbortWaitForNextAdResolved();
-		mAamp->SendAdResolvedEvent(mAdFulfillObj.adId, adStatus, startMS, durationMs);
+		mAamp->SendAdResolvedEvent(mAdFulfillObj.adId, adStatus, startMS, durationMs,adErrorCode);
 	}
 	return ret;
 }
