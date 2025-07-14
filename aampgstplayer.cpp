@@ -406,6 +406,7 @@ AAMPGstPlayer::AAMPGstPlayer(PrivateInstanceAAMP *aamp, id3_callback_t id3Handle
 		playerInstance->gstCbExportYUVFrame = exportFrames;
 		//std::string debugLevel = GETCONFIGVALUE(eAAMPConfig_GstDebugLevel);
 		std::string debugLevel = "basesink=6,GST_ELEMENT_PADS:6";
+		AAMPLOG_WARN("debugLevel %s", debugLevel.c_str());
 		if(!debugLevel.empty())
 		{
 			playerInstance->EnableGstDebugLogging(debugLevel);

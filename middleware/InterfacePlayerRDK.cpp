@@ -2480,24 +2480,29 @@ long long InterfacePlayerRDK::GetPositionMilliseconds(void)
 	}
 	gst_media_stream* video = &gstPrivateContext->stream[eGST_MEDIATYPE_VIDEO];
 	// segment.start needs to be queried
-	if (gstPrivateContext->segmentStart == -1)
+
 	{
+		gint64 start;
 		GstQuery *segmentQuery = gst_query_new_segment(GST_FORMAT_TIME);
 		// Send query to video playbin in pipeline.
 		// Special case include trickplay, where only video playbin is active
 		// This is to get the actual start position from video decoder/sink. If these element doesn't support the query appsrc should respond
 		if (gst_element_query(video->source, segmentQuery) == TRUE)
 		{
-			gint64 start;
+
 			gst_query_parse_segment(segmentQuery, NULL, NULL, &start, NULL);
-			gstPrivateContext->segmentStart = GST_TIME_AS_MSECONDS(start);
-			MW_LOG_MIL("InterfacePlayerRDK: Segment start: %" G_GINT64_FORMAT, gstPrivateContext->segmentStart);
+			MW_LOG_MIL("start %" G_GINT64_FORMAT, GST_TIME_AS_MSECONDS(start));
 		}
 		else
 		{
 			MW_LOG_ERR("InterfacePlayerRDK: segment query failed");
 		}
 		gst_query_unref(segmentQuery);
+		if (gstPrivateContext->segmentStart == -1)
+		{
+			gstPrivateContext->segmentStart = GST_TIME_AS_MSECONDS(start);
+			MW_LOG_MIL("InterfacePlayerRDK: Segment start: %" G_GINT64_FORMAT, gstPrivateContext->segmentStart);
+		}
 	}
 	if (gst_element_query(video->sinkbin,gstPrivateContext->positionQuery) == TRUE)
 	{
@@ -2519,7 +2524,7 @@ long long InterfacePlayerRDK::GetPositionMilliseconds(void)
 			rc = GST_TIME_AS_MSECONDS(pos) * rate;
 			MW_LOG_DEBUG("positionQuery pos - %" G_GINT64_FORMAT " rc - %lld" , GST_TIME_AS_MSECONDS(pos), rc);
 		}
-		//MW_LOG_MIL("InterfacePlayerRDK: with positionQuery pos - %" G_GINT64_FORMAT " rc - %lld", GST_TIME_AS_MSECONDS(pos), rc);
+		MW_LOG_MIL("InterfacePlayerRDK: with positionQuery pos - %" G_GINT64_FORMAT " rc - %lld", GST_TIME_AS_MSECONDS(pos), rc);
 		//positionQuery is not unref-ed here, because it could be reused for future position queries
 	}
 	return rc;
@@ -2974,7 +2979,7 @@ bool InterfacePlayerRDK::SendHelper(int type, const void *ptr, size_t len, doubl
 #endif // SUPPORTS_MP4DEMUX
 			{
 				GstFlowReturn ret = gst_app_src_push_buffer(GST_APP_SRC(stream->source), buffer);
-				
+
 				if (ret != GST_FLOW_OK)
 				{
 					MW_LOG_ERR("gst_app_src_push_buffer error: %d[%s] mediaType %d", ret, gst_flow_get_name (ret), (int)mediaType);
@@ -3001,7 +3006,7 @@ bool InterfacePlayerRDK::SendHelper(int type, const void *ptr, size_t len, doubl
 				{
 					stream->bufferUnderrun = false;
 				}
-				
+
 				// PROFILE_BUCKET_FIRST_BUFFER after successful push of first gst buffer
 				if (isFirstBuffer == true && ret == GST_FLOW_OK)
 					firstBufferPushed = true;
