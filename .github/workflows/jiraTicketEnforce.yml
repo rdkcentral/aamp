@@ -1,5 +1,4 @@
 name: Jira Ticket Enforcement
-
 on:
   push:
     branches:
@@ -7,29 +6,24 @@ on:
   pull_request:
     branches:
       - dev_sprint_25_2
-
 jobs:
   jira-ticket-check:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
-- name: Check commit messages for Jira ticket
-  run: |
-    # Get all commit hashes in the push
-    git log ${{ github.event.before }}..${{ github.sha }} --pretty=%H > commit_hashes.txt
-
-    error_found=0
-
-    while read commit_hash; do
-      commit_msg=$(git log -1 --pretty=%B $commit_hash)
-      if ! echo "$commit_msg" | grep -Eq '(VPLAY-[0-9]+|RDKEMW-[0-9]+)'; then
-        echo "ERROR: Commit $commit_hash does not reference a Jira ticket (VPLAY-xxxx or RDKEMW-xxxx)."
-        error_found=1
-      fi
-    done < commit_hashes.txt
-
-    if [ $error_found -eq 1 ]; then
-      exit 1
-    fi
+      - name: Check commit messages for Jira ticket
+        run: |
+          # Get all commit hashes in the push
+          git log ${{ github.event.before }}..${{ github.sha }} --pretty=%H > commit_hashes.txt
+          error_found=0
+          while read commit_hash; do
+            commit_msg=$(git log -1 --pretty=%B $commit_hash)
+            if ! echo "$commit_msg" | grep -Eq '(VPLAY-[0-9]+|RDKEMW-[0-9]+)'; then
+              echo "ERROR: Commit $commit_hash does not reference a Jira ticket (VPLAY-xxxx or RDKEMW-xxxx)."
+              error_found=1
+            fi
+          done < commit_hashes.txt
+          if [ $error_found -eq 1 ]; then
+            exit 1
+          fi
