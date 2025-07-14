@@ -13852,7 +13852,10 @@ void PrivateInstanceAAMP::GetStreamFormat(StreamOutputFormat &primaryOutputForma
 {
 	mpStreamAbstractionAAMP->GetStreamFormat(primaryOutputFormat, audioOutputFormat, auxAudioOutputFormat, subtitleOutputFormat);
 
-	if (IsLocalAAMPTsbInjection() && (rate != AAMP_NORMAL_PLAY_RATE))
+	// Limiting the change to just Rialto, until the change has been tested on non-Rialto
+	if (ISCONFIGSET_PRIV(eAAMPConfig_useRialtoSink) &&
+	    IsLocalAAMPTsbInjection() &&
+		(rate != AAMP_NORMAL_PLAY_RATE))
 	{
 		audioOutputFormat = FORMAT_INVALID;
 		auxAudioOutputFormat = FORMAT_INVALID;
