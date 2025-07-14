@@ -1,5 +1,5 @@
 /*
- * If not stated otherwise111 in this file or this component's license file the
+ * If not stated otherwise22 in this file or this component's license file the
  * following copyright and licenses apply:
  *
  * Copyright 2020 RDK Management
