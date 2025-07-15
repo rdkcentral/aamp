@@ -3134,7 +3134,7 @@ std::string StreamAbstractionAAMP_MPD::GetPreferredDrmUUID()
 {
 	int selectedPref = 0;
 	std::string selectedUuid = "";
-	for (auto iter : mDrmPrefs)
+	for (const auto& iter : mDrmPrefs)
 	{
 		if( iter.second > selectedPref){
 			selectedPref = iter.second;
@@ -4408,7 +4408,6 @@ AAMPStatusType StreamAbstractionAAMP_MPD::IndexNewMPDDocument(bool updateTrackIn
 					}
 				}
 				// To store period duration in local reference to avoid duplicate mpd parsing to reduce processing delay
-				auto periods = mpd->GetPeriods();
 				std::vector<PeriodInfo> currMPDPeriodDetails;
 				uint64_t durMs = 0;
 				UpdateMPDPeriodDetails(currMPDPeriodDetails,durMs);
@@ -5673,7 +5672,7 @@ std::vector<AudioTrackInfo> &ac4Tracks, std::string &audioTrackIndex)
 				auto rendition = role.at(iRole);
 				if (rendition->GetSchemeIdUri().find("urn:mpeg:dash:role:2011") != std::string::npos)
 				{
-					auto trackRendition = rendition->GetValue();
+					const auto& trackRendition = rendition->GetValue();
 					if (!aamp->preferredRenditionString.empty())
 					{
 						if (aamp->preferredRenditionString.compare(trackRendition) == 0)
@@ -5783,7 +5782,7 @@ std::vector<AudioTrackInfo> &ac4Tracks, std::string &audioTrackIndex)
 				unsigned long long ac4SelectedScore = 0;
 
 
-				for(auto ac4Track:ac4Tracks)
+				for(const auto& ac4Track:ac4Tracks)
 				{
 					if (ac4Track.codec.find("ac-4") != std::string::npos)
 					{
@@ -6458,7 +6457,7 @@ void StreamAbstractionAAMP_MPD::SelectSubtitleTrack(bool newTune, std::vector<Te
 					{
 						if (IsMatchingLanguageAndMimeType(eMEDIATYPE_SUBTITLE, selectedTextTrack.language, adaptationSet, selRepresentationIndex))
 						{
-							auto adapSetName = (adaptationSet->GetRepresentation().at(selRepresentationIndex))->GetId();
+							const auto& adapSetName = (adaptationSet->GetRepresentation().at(selRepresentationIndex))->GetId();
 							AAMPLOG_INFO("adapSet Id %s selName %s", adapSetName.c_str(), selectedTextTrack.name.c_str());
 							if (adapSetName.empty() || adapSetName == selectedTextTrack.name)
 							{
@@ -8036,7 +8035,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, 
 					aamp->mFirstFragmentTimeOffset = liveSync? (((double)(pMediaStreamContext->fragmentDescriptor.Number - startNumber)  * fragmentDuration) + mAvailabilityStartTime)  : mFirstPeriodStartTime;
 					AAMPLOG_INFO("mFirstFragmentTimeOffset:%lf mProgressReportOffset:%lf", aamp->mFirstFragmentTimeOffset, aamp->mProgressReportOffset);
 				}
-				AAMPLOG_INFO("StreamAbstractionAAMP_MPD: Track %d timeLineIndex %d fragmentDescriptor.Number %" PRIu64 " mFirstPTS:%lf", i, pMediaStreamContext->timeLineIndex, pMediaStreamContext->fragmentDescriptor.Number, mFirstPTS);
+				AAMPLOG_INFO("StreamAbstractionAAMP_MPD: Track %d timeLineIndex %d fragmentDescriptor.Number %" PRIu64 " mFirstPTS:%lf mPTSOffset:%lf", i, pMediaStreamContext->timeLineIndex, pMediaStreamContext->fragmentDescriptor.Number, mFirstPTS, mPTSOffset.inSeconds());
 			}
 			else
 			{
@@ -8117,7 +8116,7 @@ PeriodInfo StreamAbstractionAAMP_MPD::GetFirstValidCurrMPDPeriod(std::vector<Per
 	else
 	{
 		validPeriod = currMPDPeriodDetails[0];
-		for(auto iter : currMPDPeriodDetails)
+		for(const auto& iter : currMPDPeriodDetails)
 		{
 			if(iter.duration > 0)
 			{
@@ -8958,6 +8957,9 @@ void StreamAbstractionAAMP_MPD::AdvanceTrack(int trackIdx, bool trickPlay, doubl
 	bool isAllowNextFrag = true;
 	int  vodTrickplayFPS = GETCONFIGVALUE(eAAMPConfig_VODTrickPlayFPS);
 
+	AAMPLOG_TRACE("trackIdx %d, trickPlay %d, delta %p, waitForFreeFrag %d, bCacheFullState %d, throttleAudioDownload %d, isDiscontinuity %d",
+			trackIdx, trickPlay, delta, waitForFreeFrag, bCacheFullState, throttleAudioDownload, isDiscontinuity);
+
 	if (waitForFreeFrag && !trickPlay)
 	{
 		AAMPPlayerState state = aamp->GetState();
@@ -9023,15 +9025,18 @@ void StreamAbstractionAAMP_MPD::AdvanceTrack(int trackIdx, bool trickPlay, doubl
 						}
 						double currFragTime = pMediaStreamContext->fragmentTime;
 						skipTime = SkipFragments(pMediaStreamContext, skipTime);
-						if (pMediaStreamContext->eos)
+						if( delta )
 						{
-							// If we reached end of period, only the remaining delta should be skipped in new period
-							// Otherwise we should skip based on formula rate/fps. This will also avoid any issues due to floating precision
-							*delta = skipTime;
-						}
-						else
-						{
-							*delta = 0;
+							if (pMediaStreamContext->eos)
+							{
+								// If we reached end of period, only the remaining delta should be skipped in new period
+								// Otherwise we should skip based on formula rate/fps. This will also avoid any issues due to floating precision
+								*delta = skipTime;
+							}
+							else
+							{
+								*delta = 0;
+							}
 						}
 						mBasePeriodOffset += (pMediaStreamContext->fragmentTime - currFragTime);
 					}
@@ -9066,6 +9071,10 @@ void StreamAbstractionAAMP_MPD::AdvanceTrack(int trackIdx, bool trickPlay, doubl
 						pMediaStreamContext->eos = true;
 					}
 				}
+				else
+				{
+					AAMPLOG_TRACE("Track %s is EOS, not pushing next fragment", GetMediaTypeName((AampMediaType) trackIdx));
+				}
 			}
 			// Fetch init header for both audio and video ,after mpd refresh(stream selection) , profileChanged = true for both tracks .
 			// Need to reset profileChanged flag which is done inside FetchAndInjectInitialization
@@ -9080,6 +9089,10 @@ void StreamAbstractionAAMP_MPD::AdvanceTrack(int trackIdx, bool trickPlay, doubl
 			{
 				bCacheFullState = false;
 			}
+		}
+		else
+		{
+			AAMPLOG_ERR("AdaptationSet is NULL for %s", GetMediaTypeName((AampMediaType) trackIdx));
 		}
 	}
 	else
@@ -10705,7 +10718,7 @@ void StreamAbstractionAAMP_MPD::Stop(bool clearChannelData)
 		}
 		if (clearChannelData)
 		{
-			if(ISCONFIGSET(eAAMPConfig_UseSecManager))
+			if(ISCONFIGSET(eAAMPConfig_UseSecManager) || ISCONFIGSET(eAAMPConfig_UseFireboltSDK))
 			{
 				aamp->mDRMLicenseManager->notifyCleanup();
 			}
@@ -10929,28 +10942,56 @@ StreamInfo* StreamAbstractionAAMP_MPD::GetStreamInfo(int idx)
 
 
 /**
- *   @brief  Get PTS of first sample.
+ *   @brief  Get (restamped) PTS of first sample.
  *
- *   @retval PTS of first sample
+ *   @retval PTS of first sample, restamped if PTS restamping is enabled.
  */
 double StreamAbstractionAAMP_MPD::GetFirstPTS()
 {
 	AampTSBSessionManager* tsbSessionManager = aamp->GetTSBSessionManager();
-	double firstPTS = mFirstPTS;
-	MediaTrack *video = GetMediaTrack(eTRACK_VIDEO);
-	if (tsbSessionManager && video && video->IsLocalTSBInjection())
+	std::shared_ptr<AampTsbReader> reader = nullptr;
+	double firstPTS = 0;
+	double restampedPTS = 0;
+	AampTime ptsOffset = 0;
+
+	if (tsbSessionManager)
 	{
-		firstPTS = tsbSessionManager->GetTsbReader(eMEDIATYPE_VIDEO)->GetFirstPTS();
-	}
-	if (ISCONFIGSET(eAAMPConfig_EnablePTSReStamp))
-	{
-		// If the new PTS restamping logic is in play, update the new firstPTS
-		AAMPLOG_INFO("New restamping logic in place, firstPTS:%lf, mPTSOffsetSec:%lf", firstPTS, mPTSOffset.inSeconds());
-		firstPTS += mPTSOffset.inSeconds();
+		MediaTrack *video = GetMediaTrack(eTRACK_VIDEO);
+		if (!video)
+		{
+			AAMPLOG_WARN("Video track unavailable, cannot determine if local tsb injection");
+		}
+		else if (video->IsLocalTSBInjection())
+		{
+			reader = tsbSessionManager->GetTsbReader(eMEDIATYPE_VIDEO);
+		}
+		else
+		{
+			AAMPLOG_TRACE("Not local TSB injection");
+		}
 	}
 
-	return firstPTS;
+	if (reader)
+	{
+		firstPTS = reader->GetFirstPTS();
+		// PTS restamping is always enabled for TSB
+		ptsOffset = reader->GetFirstPTSOffset();
+	}
+	else
+	{
+		firstPTS = mFirstPTS;
+		if (ISCONFIGSET(eAAMPConfig_EnablePTSReStamp))
+		{
+			ptsOffset = mPTSOffset;
+		}
+	}
+
+	restampedPTS = firstPTS + ptsOffset.inSeconds();
+	AAMPLOG_INFO("Restamped first pts:%lf, firstPTS:%lf, ptsOffsetSec:%lf", restampedPTS, firstPTS, ptsOffset.inSeconds());
+
+	return restampedPTS;
 }
+
 /**
  *   @brief  Get PTS offset for MidFragment Seek
  *

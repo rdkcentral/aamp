@@ -28,7 +28,7 @@
 #include <pthread.h>
 #include "downloader/AampCurlStore.h"
 #include "_base64.h"
-#include "PlayerSecManager.h"
+#include "ContentSecurityManager.h"
 #include "AampStreamSinkManager.h"
 #include "AampJsonObject.h"
 #include "AampConfig.h"
@@ -74,7 +74,7 @@ void getConfigs(DrmSessionManager *mDrmSessionManager , PrivateInstanceAAMP *aam
         aampInstance->mConfig->IsConfigSet(eAAMPConfig_EnablePROutputProtection),
         aampInstance->mConfig->IsConfigSet(eAAMPConfig_PropagateURIParam),
         aampInstance->mIsFakeTune
-    );
+	);
 }
 /**
  *  @brief AampDRMLicenseManager constructor.
@@ -84,12 +84,12 @@ AampDRMLicenseManager::AampDRMLicenseManager(int maxDrmSessions, PrivateInstance
 {
     aampInstance = aamp; 
 	std::function<void(uint32_t,uint32_t,const std::string&)> waterMarkSessionUpdateCB = std::bind(&PrivateInstanceAAMP::SendWatermarkSessionUpdateEvent, aampInstance, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3);
-    mDrmSessionManager = new DrmSessionManager(maxDrmSessions ,aampInstance, waterMarkSessionUpdateCB);
+    mDrmSessionManager = new DrmSessionManager(maxDrmSessions ,aampInstance, std::move(waterMarkSessionUpdateCB));
     registerCb(this, mDrmSessionManager);
     getConfigs(mDrmSessionManager, aampInstance);
-    
     mLicenseDownloader = new AampCurlDownloader[mMaxDRMSessions];
     mLicensePrefetcher = new AampLicensePreFetcher(aampInstance);
+    ContentSecurityManager::UseFireboltSDK(aampInstance->mConfig->IsConfigSet(eAAMPConfig_UseFireboltSDK));
     mLicensePrefetcher->Init();
 }
 
@@ -314,7 +314,7 @@ KeyState AampDRMLicenseManager::acquireLicense(std::shared_ptr<DrmHelper> drmHel
 					eventHandle->setSecclientError(true);
 					licenseResponse.reset(getLicenseSec(licenseRequest, drmHelper, challengeInfo, aampInstance, &httpResponseCode, &httpExtendedStatusCode, eventHandle));
 
-					bool sec_accessTokenExpired = aampInstance->mConfig->IsConfigSet(eAAMPConfig_UseSecManager) && SECMANAGER_DRM_FAILURE == httpResponseCode && SECMANAGER_ACCTOKEN_EXPIRED == httpExtendedStatusCode;
+					bool sec_accessTokenExpired = (aampInstance->mConfig->IsConfigSet(eAAMPConfig_UseSecManager) || aampInstance->mConfig->IsConfigSet(eAAMPConfig_UseFireboltSDK)) && CONTENT_SECURITY_MANAGER_DRM_FAILURE == httpResponseCode && CONTENT_SECURITY_MANAGER_ACCTOKEN_EXPIRED == httpExtendedStatusCode;
 					// Reload Expired access token only on http error code 412 with status code 401
 					if (((412 == httpResponseCode && 401 == httpExtendedStatusCode) || sec_accessTokenExpired) && !usingAppDefinedAuthToken)
 					{
@@ -369,7 +369,7 @@ KeyState AampDRMLicenseManager::handleLicenseResponse(std::shared_ptr<DrmHelper>
 			{
 				aampInstance->profiler.ProfileEnd(PROFILE_BUCKET_LA_NETWORK);
 			}
-			if (!drmHelper->getDrmMetaData().empty() || aampInstance->mConfig->IsConfigSet(eAAMPConfig_Base64LicenseWrapping))
+			if (!isSecFeatureEnabled() && (!drmHelper->getDrmMetaData().empty() || aampInstance->mConfig->IsConfigSet(eAAMPConfig_Base64LicenseWrapping)))
 			{
 				/*
 					Licence response from MDS server is in JSON form
@@ -410,11 +410,11 @@ KeyState AampDRMLicenseManager::handleLicenseResponse(std::shared_ptr<DrmHelper>
 			AAMPLOG_ERR("Error!! Invalid License Response was provided by the Server");
 			
 			//Handle secmanager specific error codes here
-			if( aampInstance->mConfig->IsConfigSet(eAAMPConfig_UseSecManager))
+			if( aampInstance->mConfig->IsConfigSet(eAAMPConfig_UseSecManager) || aampInstance->mConfig->IsConfigSet(eAAMPConfig_UseFireboltSDK))
 			{
 				eventHandle->setResponseCode(httpResponseCode);
 				eventHandle->setSecManagerReasonCode(httpExtendedStatusCode);
-				if(SECMANAGER_DRM_FAILURE == httpResponseCode && SECMANAGER_ENTITLEMENT_FAILURE == httpExtendedStatusCode)
+				if(CONTENT_SECURITY_MANAGER_DRM_FAILURE == httpResponseCode && CONTENT_SECURITY_MANAGER_ENTITLEMENT_FAILURE == httpExtendedStatusCode)
 				{
 					if (eventHandle->getFailure() != AAMP_TUNE_FAILED_TO_GET_ACCESS_TOKEN)
 					{
@@ -422,7 +422,7 @@ KeyState AampDRMLicenseManager::handleLicenseResponse(std::shared_ptr<DrmHelper>
 					}
 					AAMPLOG_WARN("DRM session for %s, Authorization failed", mDrmSessionManager->drmSessionContexts[sessionSlot].drmSession->getKeySystem().c_str());
 				}
-				else if(SECMANAGER_DRM_FAILURE == httpResponseCode && SECMANAGER_SERVICE_TIMEOUT == httpExtendedStatusCode)
+				else if(CONTENT_SECURITY_MANAGER_DRM_FAILURE == httpResponseCode && CONTENT_SECURITY_MANAGER_SERVICE_TIMEOUT == httpExtendedStatusCode)
 				{
 					eventHandle->setFailure(AAMP_TUNE_LICENCE_TIMEOUT);
 				}
@@ -1149,7 +1149,7 @@ DrmData * AampDRMLicenseManager::getLicenseSec(const LicenseRequest &licenseRequ
 	AAMPLOG_WARN("[HHH] Before calling SecClient_AcquireLicense-----------");
 	AAMPLOG_WARN("destinationURL is %s (drm server now used)", licenseRequest.url.c_str());
 	AAMPLOG_WARN("MoneyTrace[%s]", requestMetadata[0][1]);
-	if(aampInstance->mConfig->IsConfigSet(eAAMPConfig_UseSecManager))
+	if(aampInstance->mConfig->IsConfigSet(eAAMPConfig_UseSecManager) || aampInstance->mConfig->IsConfigSet(eAAMPConfig_UseFireboltSDK))
 	{
 		size_t encodedDataLen = ((contentMetaData.length() + 2) /3) * 4;
 		size_t encodedChallengeDataLen = ((challengeInfo.data->getDataLength() + 2) /3) * 4;
@@ -1157,16 +1157,24 @@ DrmData * AampDRMLicenseManager::getLicenseSec(const LicenseRequest &licenseRequ
 		int32_t reasonCode;
 		int32_t businessStatus;
 
-		if (!mDrmSessionManager->mPlayerSecManagerSession.isSessionValid())
+		if (!mDrmSessionManager->mContentSecurityManagerSession.isSessionValid())
 		{
 			// if we're about to get a licence and are not re-using a session, then we have not seen the first video frame yet. Do not allow watermarking to get enabled yet.
 			bool videoMuteState = mIsVideoOnMute;
 			AAMPLOG_WARN("First frame flag cleared before AcquireLicense, with mIsVideoOnMute=%d", videoMuteState);
-			mFirstFrameSeen = false;
+			mDrmSessionManager->mFirstFrameSeen = false;
 		}
 
+		std::string clientId = "aamp";
+		std::string appId = aampInstance->GetAppName();
+		if(appId.empty()) 
+		{
+			appId = clientId;
+
+		}
+		AAMPLOG_INFO("Client ID %s App ID %s", clientId.c_str(), appId.c_str());
 		tStartTime = NOW_STEADY_TS_MS;
-		bool res = PlayerSecManager::GetInstance()->AcquireLicense(licenseRequest.url.c_str(),
+		bool res = ContentSecurityManager::GetInstance()->AcquireLicense(std::move(clientId), std::move(appId), licenseRequest.url.c_str(),
 																 requestMetadata,
 																 ((numberOfAccessAttributes == 0) ? NULL : accessAttributes),
 																 encodedData, encodedDataLen,
@@ -1174,14 +1182,14 @@ DrmData * AampDRMLicenseManager::getLicenseSec(const LicenseRequest &licenseRequ
 																 keySystem,
 																 mediaUsage,
 																 secclientSessionToken, challengeInfo.accessToken.length(),
-																 mDrmSessionManager->mPlayerSecManagerSession,
+																 mDrmSessionManager->mContentSecurityManagerSession,
 																 &licenseResponseStr, &licenseResponseLength,
 																 &statusCode, &reasonCode, &businessStatus, mIsVideoOnMute, sleepTime);
 		tEndTime = NOW_STEADY_TS_MS;
 		downloadTimeMS = tEndTime - tStartTime;
 		if (res)
 		{
-			AAMPLOG_WARN("acquireLicense via SecManager SUCCESS!");
+			AAMPLOG_WARN("acquireLicense via ContentSecurityManager SUCCESS!");
 			//TODO: Sort this out for backward compatibility
 			*httpCode = 200;
 			*httpExtStatusCode = 0;
@@ -1203,7 +1211,7 @@ DrmData * AampDRMLicenseManager::getLicenseSec(const LicenseRequest &licenseRequ
 				std::string responseData(licenseResponseStr);
 				eventHandle->setResponseData(responseData);
 			}
-			AAMPLOG_ERR("acquireLicense via SecManager FAILED!, httpCode %d, httpExtStatusCode %d", *httpCode, *httpExtStatusCode);
+			AAMPLOG_ERR("acquireLicense via ContentSecurityManager FAILED!, httpCode %d, httpExtStatusCode %d", *httpCode, *httpExtStatusCode);
 			//TODO: Sort this out for backward compatibility
 		}
 	}
@@ -1220,8 +1228,9 @@ DrmData * AampDRMLicenseManager::getLicenseSec(const LicenseRequest &licenseRequ
 														 requestMetadata, numberOfAccessAttributes,
 														 ((numberOfAccessAttributes == 0) ? NULL : accessAttributes),
 														 encodedData,
-														 strlen(encodedData),
-														 encodedChallengeData, strlen(encodedChallengeData), keySystem, mediaUsage,
+														 (encodedData ? strlen(encodedData) : 0),
+														 encodedChallengeData, 
+														 (encodedChallengeData ? strlen(encodedChallengeData) : 0), keySystem, mediaUsage,
 														 secclientSessionToken,
 														 &licenseResponseStr, &licenseResponseLength, &refreshDuration, &statusInfo);
 			if (((sec_client_result >= 500 && sec_client_result < 600)||

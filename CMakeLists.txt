@@ -157,10 +157,10 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/drm/aes)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/drm/helper)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/drm/ocdm)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/externals)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/externals/playersecmanager)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/externals/contentsecuritymanager)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/externals/rdk)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/playerisobmff)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/playerjsonobject)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/playerJsonObject)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/playerLogManager)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/subtec/libsubtec)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/subtec/subtecparser)
@@ -210,12 +210,6 @@ install(TARGETS tsb
 		DESTINATION lib
 		PUBLIC_HEADER DESTINATION include
 )
-
-option(DISABLE_SECURITY_TOKEN "Disable security token" OFF)
-
-if(DISABLE_SECURITY_TOKEN)
-	add_definitions(-DDISABLE_SECURITY_TOKEN)
-endif()
 
 # Building jsbindings
 if(CMAKE_WPEWEBKIT_JSBINDINGS)
@@ -369,7 +363,7 @@ set(LIBAAMP_SOURCES
 	middleware/subtec/subtecparser/TtmlSubtecParser.cpp
 	middleware/subtec/subtecparser/WebvttSubtecDevInterface.cpp
 	middleware/subtec/subtecparser/TextStyleAttributes.cpp
-	middleware/playerjsonobject/PlayerJsonObject.cpp
+	middleware/playerJsonObject/PlayerJsonObject.cpp
 )
 
 if(CMAKE_SOC_PLATFORM_RPI)
