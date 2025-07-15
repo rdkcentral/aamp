@@ -5603,8 +5603,12 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 				*/
 				if (!ISCONFIGSET_PRIV(eAAMPConfig_EnablePTSReStamp) || rate == AAMP_NORMAL_PLAY_RATE )
 				{
+					double pts = mpStreamAbstractionAAMP->GetFirstPTS();
+					if (pts >0 && pts<10.0)
+					{
 					AAMPLOG_INFO("patrick");
-					sink->Flush(mpStreamAbstractionAAMP->GetFirstPTS(), rate);
+					sink->Flush(pts, rate);
+					}
 				}
 			}
 		/*************************************************************** */
