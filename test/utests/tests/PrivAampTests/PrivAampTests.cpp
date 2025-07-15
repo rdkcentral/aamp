@@ -56,6 +56,7 @@ using ::testing::NiceMock;
 using ::testing::Return;
 using ::testing::ReturnRef;
 using ::testing::SetArgPointee;
+using ::testing::SetArgReferee;
 using ::testing::_;
 
 AampConfig *gpGlobalConfig{nullptr};
@@ -318,6 +319,10 @@ public:
 
 		IsDiscontinuityProcessPending();
 		NotifyEOSReached();
+	}
+	void CallGetStreamFormat(StreamOutputFormat &primaryOutputFormat, StreamOutputFormat &audioOutputFormat, StreamOutputFormat &auxAudioOutputFormat, StreamOutputFormat &subtitleOutputFormat)
+	{
+		GetStreamFormat(primaryOutputFormat, audioOutputFormat, auxAudioOutputFormat, subtitleOutputFormat);
 	}
 	void GetAvailableTracks_obj()
 	{
@@ -4472,3 +4477,157 @@ TEST_F(PrivAampTests, VerifyTrickModePositionEOS)
 	/*The calculation involves NOW_STEADY_TS_SECS_FP, in SetRate and calculatedTrickModeEosPos, which will differ a bit, hence using EXPECT_NEAR */
 	EXPECT_NEAR(p_aamp->mTrickModePositionEOS, calculatedTrickModeEosPos, kAbsErrorLivePlayPosition);
 }
+<<<<<<< HEAD
+=======
+TEST_F(PrivAampTests,GetFormatPositionOffsetTest)
+{
+	double offset = 0.0;
+	p_aamp->mProgressReportOffset = 1.2; // Set a valid progress report offset
+	p_aamp->mProgressReportAvailabilityOffset = 2.5; // Set availability offset
+
+	// Case 1: eAAMPConfig_UseAbsoluteTimeline is false
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_UseAbsoluteTimeline)).WillRepeatedly(Return(false));
+	offset = p_aamp->GetFormatPositionOffsetInMSecs();
+	EXPECT_EQ(offset, 1.2 * 1000); // Expect offset to be calculated based on mProgressReportOffset
+
+	// Case 2: eAAMPConfig_UseAbsoluteTimeline is true and IsLiveStream() is true
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_UseAbsoluteTimeline)).WillRepeatedly(Return(true));
+	p_aamp->SetIsLiveStream(true);
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_PreferredAbsoluteProgressReporting))
+		.WillRepeatedly(Return(eABSOLUTE_PROGRESS_WITHOUT_AVAILABILITY_START));	
+	offset = p_aamp->GetFormatPositionOffsetInMSecs();
+	EXPECT_EQ(offset, 2.5 * 1000); // Expect offset to be calculated based on mProgressReportAvailabilityOffset
+
+	// Case 3: If IsLiveStream() is false
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_UseAbsoluteTimeline)).WillRepeatedly(Return(true));
+	p_aamp->SetIsLiveStream(false); // Set live stream to false
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_PreferredAbsoluteProgressReporting))
+		.WillRepeatedly(Return(eABSOLUTE_PROGRESS_WITHOUT_AVAILABILITY_START));
+	offset = p_aamp->GetFormatPositionOffsetInMSecs();
+	EXPECT_EQ(offset, 1.2 * 1000); // Expect offset to be 0 since IsLiveStream() is false
+}
+
+
+// Test parameters structure for GetStreamFormat tests
+struct GetStreamFormatTestParams {
+	double rate;
+	bool hasTsbInjection;
+	bool useRialtoSink;
+	StreamOutputFormat mockPrimary;
+	StreamOutputFormat mockAudio;
+	StreamOutputFormat mockAuxAudio;
+	StreamOutputFormat mockSubtitle;
+	StreamOutputFormat expectedPrimary;
+	StreamOutputFormat expectedAudio;
+	StreamOutputFormat expectedAuxAudio;
+	StreamOutputFormat expectedSubtitle;
+
+	// For test name generation
+	std::string ToString() const
+	{
+		std::stringstream ss;
+		ss << "Rate" << rate
+		   << "_HasTsbInjection" << hasTsbInjection
+		   << "_UseRialtoSink" << useRialtoSink;
+		return ss.str();
+	}
+};
+
+// This function is used by Google Test to print the parameter value.
+void PrintTo(const GetStreamFormatTestParams& params, ::std::ostream* os)
+{
+	*os << params.ToString();
+}
+
+class GetStreamFormatTests : public PrivAampPrivTests,
+							 public ::testing::WithParamInterface<GetStreamFormatTestParams> {
+};
+
+TEST_P(GetStreamFormatTests, GetStreamFormatParameterizedTest)
+{
+	auto params = GetParam();
+
+	StreamOutputFormat primaryOutputFormat, audioOutputFormat, auxAudioOutputFormat, subtitleOutputFormat;
+	testp_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP_MPD;
+	testp_aamp->rate = params.rate;
+
+	testp_aamp->SetLocalAAMPTsbInjection(params.hasTsbInjection);
+
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP_MPD, GetStreamFormat(_,_,_,_))
+		.Times(1)
+		.WillOnce(DoAll(
+			SetArgReferee<0>(params.mockPrimary),
+			SetArgReferee<1>(params.mockAudio),
+			SetArgReferee<2>(params.mockAuxAudio),
+			SetArgReferee<3>(params.mockSubtitle)
+		));
+
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_useRialtoSink)).WillOnce(Return(params.useRialtoSink));
+
+	testp_aamp->CallGetStreamFormat(primaryOutputFormat, audioOutputFormat, auxAudioOutputFormat, subtitleOutputFormat);
+
+	EXPECT_EQ(primaryOutputFormat, params.expectedPrimary);
+	EXPECT_EQ(audioOutputFormat, params.expectedAudio);
+	EXPECT_EQ(auxAudioOutputFormat, params.expectedAuxAudio);
+	EXPECT_EQ(subtitleOutputFormat, params.expectedSubtitle);
+}
+
+INSTANTIATE_TEST_SUITE_P(
+	GetStreamFormatVariations,
+	GetStreamFormatTests,
+	::testing::Values(
+		GetStreamFormatTestParams{
+			AAMP_NORMAL_PLAY_RATE,          // rate
+			false,                          // hasTsbInjection
+			false,                          // useRialtoSink
+			FORMAT_VIDEO_ES_H264,           // mockPrimary
+			FORMAT_AUDIO_ES_AC3,            // mockAudio
+			FORMAT_INVALID,                 // mockAuxAudio
+			FORMAT_SUBTITLE_WEBVTT,         // mockSubtitle
+			FORMAT_VIDEO_ES_H264,           // expectedPrimary
+			FORMAT_AUDIO_ES_AC3,            // expectedAudio
+			FORMAT_INVALID,                 // expectedAuxAudio
+			FORMAT_SUBTITLE_WEBVTT          // expectedSubtitle
+		},
+		GetStreamFormatTestParams{
+			AAMP_NORMAL_PLAY_RATE,          // rate
+			false,                          // hasTsbInjection
+			true,                           // useRialtoSink
+			FORMAT_VIDEO_ES_H264,           // mockPrimary
+			FORMAT_AUDIO_ES_AC3,            // mockAudio
+			FORMAT_INVALID,                 // mockAuxAudio
+			FORMAT_SUBTITLE_WEBVTT,         // mockSubtitle
+			FORMAT_VIDEO_ES_H264,           // expectedPrimary
+			FORMAT_AUDIO_ES_AC3,            // expectedAudio
+			FORMAT_INVALID,                 // expectedAuxAudio
+			FORMAT_SUBTITLE_WEBVTT          // expectedSubtitle
+		},
+		GetStreamFormatTestParams{
+			AAMP_NORMAL_PLAY_RATE,          // rate
+			true,                           // hasTsbInjection
+			true,                           // useRialtoSink
+			FORMAT_VIDEO_ES_H264,           // mockPrimary
+			FORMAT_AUDIO_ES_AC3,            // mockAudio
+			FORMAT_INVALID,                 // mockAuxAudio
+			FORMAT_SUBTITLE_WEBVTT,         // mockSubtitle
+			FORMAT_VIDEO_ES_H264,           // expectedPrimary
+			FORMAT_AUDIO_ES_AC3,            // expectedAudio
+			FORMAT_INVALID,                 // expectedAuxAudio
+			FORMAT_SUBTITLE_WEBVTT          // expectedSubtitle
+		},
+		GetStreamFormatTestParams{
+			2.0,                            // rate
+			true,                           // hasTsbInjection
+			true,                           // useRialtoSink
+			FORMAT_VIDEO_ES_H264,           // mockPrimary
+			FORMAT_AUDIO_ES_AC3,            // mockAudio
+			FORMAT_INVALID,                 // mockAuxAudio
+			FORMAT_SUBTITLE_WEBVTT,         // mockSubtitle
+			FORMAT_VIDEO_ES_H264,           // expectedPrimary
+			FORMAT_INVALID,                 // expectedAudio
+			FORMAT_INVALID,                 // expectedAuxAudio
+			FORMAT_INVALID                  // expectedSubtitle
+		}
+	)
+);
+>>>>>>> f2f164a (VPLAY-10108: [VIPA][RIALTO] Trick Play Freezes (#276))

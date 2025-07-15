@@ -5423,7 +5423,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 		*/
 		AAMPLOG_MIL("Updated seek_pos_seconds %f culledSeconds/start %f culledOffset %f", seek_pos_seconds, culledSeconds, culledOffset);
 
-		mpStreamAbstractionAAMP->GetStreamFormat(mVideoFormat, mAudioFormat, mAuxFormat, mSubtitleFormat);
+		GetStreamFormat(mVideoFormat, mAudioFormat, mAuxFormat, mSubtitleFormat);
 		AAMPLOG_INFO("TuneHelper : mVideoFormat %d, mAudioFormat %d mAuxFormat %d", mVideoFormat, mAudioFormat, mAuxFormat);
 
 		//Identify if HLS with mp4 fragments, to change media format
@@ -13718,5 +13718,52 @@ void PrivateInstanceAAMP::SendMonitorAVEvent(const std::string &status, int64_t 
 	{
 		MonitorAVStatusEventPtr evt = std::make_shared<MonitorAVStatusEvent>(status, videoPositionMS, audioPositionMS, timeInStateMS, GetSessionId());
 		mEventManager->SendEvent(evt, AAMP_EVENT_SYNC_MODE);
+	}
+}
+/**
+ * @fn GetFormatPositionOffsetInMSecs
+ * @brief API to get the offset value in msecs for the position values to be reported.
+ * @return Offset value in msecs
+ */
+double PrivateInstanceAAMP::GetFormatPositionOffsetInMSecs()
+{
+	double offset = 0;
+	if ((!ISCONFIGSET_PRIV(eAAMPConfig_UseAbsoluteTimeline) || !IsLiveStream()) && mProgressReportOffset > 0)
+	{
+		// Adjust progress positions for VOD, Linear without absolute timeline
+		offset = mProgressReportOffset * 1000;
+	}
+	else if(ISCONFIGSET_PRIV(eAAMPConfig_UseAbsoluteTimeline) &&
+		mProgressReportOffset > 0 && IsLiveStream() &&
+		eABSOLUTE_PROGRESS_WITHOUT_AVAILABILITY_START == GETCONFIGVALUE_PRIV(eAAMPConfig_PreferredAbsoluteProgressReporting))
+	{
+		// Adjust progress positions for linear stream with absolute timeline config from AST
+		offset = mProgressReportAvailabilityOffset * 1000;
+	}
+	return offset;
+}
+
+/**
+ *   @brief Get output format of stream.
+ *
+ *   @param[out]  primaryOutputFormat - format of primary track
+ *   @param[out]  audioOutputFormat - format of audio track
+ *   @param[out]  auxAudioOutputFormat - format of aux audio track
+ *   @param[out]  subtitleOutputFormat - format of subtitle  track
+ *   @return void
+ */
+void PrivateInstanceAAMP::GetStreamFormat(StreamOutputFormat &primaryOutputFormat, StreamOutputFormat &audioOutputFormat, StreamOutputFormat &auxAudioOutputFormat, StreamOutputFormat &subtitleOutputFormat)
+{
+	mpStreamAbstractionAAMP->GetStreamFormat(primaryOutputFormat, audioOutputFormat, auxAudioOutputFormat, subtitleOutputFormat);
+
+	// Limiting the change to just Rialto, until the change has been tested on non-Rialto
+	if (ISCONFIGSET_PRIV(eAAMPConfig_useRialtoSink) &&
+	    IsLocalAAMPTsbInjection() &&
+		(rate != AAMP_NORMAL_PLAY_RATE))
+	{
+		audioOutputFormat = FORMAT_INVALID;
+		auxAudioOutputFormat = FORMAT_INVALID;
+		subtitleOutputFormat = FORMAT_INVALID;
+		AAMPLOG_TRACE("aamp->rate %f videoFormat %d audioFormat %d auxFormat %d subFormat %d", rate, primaryOutputFormat, audioOutputFormat, auxAudioOutputFormat, subtitleOutputFormat);
 	}
 }
