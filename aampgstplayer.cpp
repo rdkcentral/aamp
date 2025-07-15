@@ -405,7 +405,7 @@ AAMPGstPlayer::AAMPGstPlayer(PrivateInstanceAAMP *aamp, id3_callback_t id3Handle
 		this->cbExportYUVFrame = exportFrames;
 		playerInstance->gstCbExportYUVFrame = exportFrames;
 		//std::string debugLevel = GETCONFIGVALUE(eAAMPConfig_GstDebugLevel);
-		std::string debugLevel = "2,basesink:6,GST_ELEMENT_PADS:6,rialto*:6";
+		std::string debugLevel = "2,basesink:6,GST_ELEMENT_PADS:6,rialtogstreamer*:6";
 		AAMPLOG_WARN("debugLevel %s", debugLevel.c_str());
 		if(!debugLevel.empty())
 		{
@@ -1152,6 +1152,7 @@ void AAMPGstPlayer::SeekStreamSink(double position, double rate)
 	// shouldTearDown is set to false, because in case of a new tune pipeline
 	// might not be in a playing/paused state which causes Flush() to destroy
 	// pipeline. This has to be avoided.
+	AAMPLOG_INFO("patrick");
 	Flush(position, rate, false);
 
 }
