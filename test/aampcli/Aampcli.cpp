@@ -22,9 +22,21 @@
  * @brief Stand alone AAMP player with command line interface.
  */
 
+#include <uWebSockets/App.h>
+#include <thread>
+#include <atomic>
+#include <iostream>
+#include <sstream>
+#include <chrono>
+#include <unistd.h>
+#include <fcntl.h>
+#include <cstring>
+
 #include "Aampcli.h"
 #include "scte35/AampSCTE35.h"
 //#include "AampcliShader.h"
+
+std::atomic<bool> ws_running{true};
 
 Aampcli mAampcli;
 const char *gApplicationPath = NULL;
@@ -146,56 +158,97 @@ void Aampcli::doAutomation( int startChannel, int stopChannel, int maxTuneTimeS,
 	}
 }
 
-void Aampcli::runCommand( std::string args )
-{
-	std::vector<std::string> cmdVec;
-	CommandHandler lCommandHandler;
-	lCommandHandler.registerAampcliCommands();
-	using_history();
-	if( !args.empty() )
-	{
-		lCommandHandler.dispatchAampcliCommands( args.c_str(), mAampcli.mSingleton);
-	}
-	printf("[AAMPCLI] type 'help' for list of available commands\n");
-	for(;;)
-	{
-		rl_attempted_completion_function = lCommandHandler.commandCompletion;
-		char *buffer = readline("[AAMPCLI] Enter cmd: ");
-		if(buffer == NULL)
-		{
-			break;
-		}
-		char *ptr = buffer;
-		while( ptr )
-		{
-			char *next = strchr(ptr,'\n');
-			char *fin = next;
-			if( next )
-			{
-				next++;
-			}
-			else
-			{
-				fin = ptr+strlen(ptr);
-			}
-			while( *ptr == ' ' ) ptr++; // skip leading whitespace
-			while( fin>ptr && fin[-1]==' ' ) fin--;
-			*fin = 0x00;
-			
-			if( *ptr )
-			{
-				add_history(ptr);
-				bool l_status = lCommandHandler.dispatchAampcliCommands(ptr,mAampcli.mSingleton);
-				if( !l_status )
-				{
-					exit(0);
-				}
-			}
-			ptr = next;
-		}
-		free(buffer);
-	} // for(;;)
-} // Aampcli::runCommand
+class StdoutCapture {
+    int stdout_fd;
+    int pipe_fd[2];
+    std::ostringstream buffer;
+    std::thread readerThread;
+    std::atomic<bool> capturing{false};
+
+public:
+    StdoutCapture() {
+        pipe(pipe_fd);
+        stdout_fd = dup(STDOUT_FILENO);
+        dup2(pipe_fd[1], STDOUT_FILENO);
+        fcntl(pipe_fd[0], F_SETFL, O_NONBLOCK);
+        capturing = true;
+        readerThread = std::thread([this]() {
+            char temp[1024];
+            while (capturing) {
+                ssize_t n = read(pipe_fd[0], temp, sizeof(temp));
+
+                if (n > 0) buffer.write(temp, n);
+
+                std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            }
+        });
+    }
+
+    ~StdoutCapture() {
+        capturing = false;
+        if (readerThread.joinable()) readerThread.join();
+        dup2(stdout_fd, STDOUT_FILENO);
+        close(pipe_fd[0]);
+        close(pipe_fd[1]);
+        close(stdout_fd);
+    }
+
+    std::string getOutput() {
+        return buffer.str();
+    }
+
+    void clear() {
+        buffer.str("");
+		buffer.clear();
+		buffer.seekp(0);
+
+    }
+};
+
+void Aampcli::runCommand(std::string args) {
+    CommandHandler handler;
+    handler.registerAampcliCommands();
+
+    printf("[AAMPCLI] uWebSockets WebSocket server starting on ws://localhost:8080\n");
+
+    // Flag to control the server loop
+    ws_running = true;
+
+    std::thread wsThread([this, &handler]() {
+        uWS::App()
+            .ws<std::string>("/*", uWS::App::template WebSocketBehavior<std::string>{
+                .message = [this, &handler](auto *ws, std::string_view message, uWS::OpCode opCode) {
+                    std::string cmd(message);
+                    StdoutCapture capture;
+                    bool result = handler.dispatchAampcliCommands(cmd.c_str(), this->mSingleton);
+                    std::string output = capture.getOutput();
+                    capture.clear();
+
+                    ws->send(output, opCode);
+
+                    if (!result || cmd == "exit") {
+                        ws_running = false;
+                        ws->close();
+                    }
+                }
+            })
+            .listen(8080, [](auto *listenSocket) {
+                if (listenSocket) {
+                    std::cout << "[WS] Listening on port 8080\n";
+                } else {
+                    std::cerr << "[WS] Failed to listen on port 8080\n";
+                }
+            })
+            .run();
+    });
+
+    // Wait for WebSocket server thread to finish
+    while (ws_running) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(500));
+    }
+
+    wsThread.join();
+}
 
 FILE * Aampcli::getConfigFile(const std::string& cfgFile)
 {
@@ -404,7 +457,8 @@ static int main_func(int argc, char **argv)
 		}
 		args += std::string(argv[i]);
 	}
-	std::thread cmdThreadId = std::thread(&mAampcli.runCommand, args);
+	std::thread cmdThreadId = std::thread(&Aampcli::runCommand, &mAampcli, args);
+
 	createAppWindow(argc,argv);
 	cmdThreadId.join();
 	printf( "[AAMPCLI] done\n" );

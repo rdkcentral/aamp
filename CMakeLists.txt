@@ -27,7 +27,7 @@ function(xcode_define_schema new_schema)
 endfunction()
 
 project (AAMP)
-set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror=format -Wno-multichar -Wno-non-virtual-dtor -Wno-psabi")
@@ -50,6 +50,7 @@ pkg_check_modules(LIBDASH REQUIRED libdash)
 pkg_check_modules(OPENSSL REQUIRED openssl)
 pkg_check_modules(LIBCJSON REQUIRED libcjson)
 pkg_check_modules(UUID REQUIRED uuid)
+set(CMAKE_TOOLCHAIN_FILE "/Users/ryadav819@cable.comcast.com/Documents/vcpkg/scripts/buildsystems/vcpkg.cmake")
 
 if(APPLE)
 	# libcurl < 8.5 exhibits memory leaks. On Ubuntu 22.04 can't update beyond 7.81.0-1ubuntu1.16 without building from source
@@ -79,6 +80,10 @@ if(APPLE)
 	set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
 endif()
 
+include_directories(/usr/local/include)
+link_directories(/usr/local/lib)
+
+
 #update XCode scheme flags, harmless for non Darwin builds
 set (CMAKE_CODE_GENERATE_SCHEME TRUE)
 if(CMAKE_PLATFORM_UBUNTU OR CMAKE_SYSTEM_NAME STREQUAL Darwin)
@@ -86,6 +91,7 @@ if(CMAKE_PLATFORM_UBUNTU OR CMAKE_SYSTEM_NAME STREQUAL Darwin)
 	set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DAAMP_SIMULATOR_BUILD=1")
 	set(CMAKE_TELEMETRY_2_0_REQUIRED TRUE)
 	set(CMAKE_AAMP_SIMULATOR TRUE)
+
 
 	if(CMAKE_SYSTEM_NAME STREQUAL Darwin)
 		execute_process (
@@ -410,6 +416,9 @@ set(LIBAAMP_DRM_SOURCES
 	middleware/drm/HlsOcdmBridgeInterface.cpp
 )
 
+set(USOCKETS_ROOT /Users/ryadav819@cable.comcast.com/Documents/uSockets) # Temporary hack
+include_directories(${USOCKETS_ROOT}/include)
+
 if(CMAKE_USE_THUNDER_OCDM_API_0_2)
 	set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DUSE_THUNDER_OCDM_API_0_2")
 endif()
@@ -598,8 +607,30 @@ set(AAMP_CLI_SOURCES
 	test/aampcli/AampcliShader.cpp
 	test/aampcli/AampcliSubtecSimulator.cpp
 )
+
+
+
 add_executable(aamp-cli ${AAMP_CLI_SOURCES})
-target_link_libraries(aamp-cli aamp subtec tsb playerfbinterface ${AAMP_CLI_LD_FLAGS} "-lreadline")
+target_include_directories( aamp-cli PRIVATE
+    /Users/ryadav819@cable.comcast.com/Documents/uWebSockets/src
+    /Users/ryadav819@cable.comcast.com/Documents/uWebSockets/uSockets/src
+)
+target_link_libraries(aamp-cli
+    aamp
+    subtec
+    tsb
+    playerfbinterface
+    ${AAMP_CLI_LD_FLAGS}
+    readline
+    boost_system
+    pthread
+    ssl
+    crypto
+    z
+    /Users/ryadav819@cable.comcast.com/Documents/uWebSockets/uSockets/uSockets.a # Temporary hack
+)
+
+
 #aamp-cli is not an ideal standalone app. It uses private aamp instance for debugging purposes
 set_target_properties(aamp-cli PROPERTIES COMPILE_FLAGS "${LIBAAMP_DEFINES} ${OS_CXX_FLAGS}")
 install(TARGETS aamp-cli
