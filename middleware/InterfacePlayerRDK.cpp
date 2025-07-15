@@ -2920,7 +2920,7 @@ bool InterfacePlayerRDK::SendHelper(int type, const void *ptr, size_t len, doubl
 				ForwardBuffersToAuxPipeline(buffer);
 			}
 #ifdef SUPPORTS_MP4DEMUX
-			if( m_gstConfigParam->useMp4Demux )
+			if( mediaType<2 && m_gstConfigParam->useMp4Demux  )
 			{
 				static Mp4Demux *m_mp4Demux[2];
 				Mp4Demux *mp4Demux = m_mp4Demux[mediaType];
