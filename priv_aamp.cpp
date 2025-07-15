@@ -13860,6 +13860,6 @@ void PrivateInstanceAAMP::GetStreamFormat(StreamOutputFormat &primaryOutputForma
 		audioOutputFormat = FORMAT_INVALID;
 		auxAudioOutputFormat = FORMAT_INVALID;
 		subtitleOutputFormat = FORMAT_INVALID;
-		AAMPLOG_MIL("aamp->rate %f videoFormat %d audioFormat %d auxFormat %d subFormat %d", rate, primaryOutputFormat, audioOutputFormat, auxAudioOutputFormat, subtitleOutputFormat);
+		AAMPLOG_TRACE("aamp->rate %f videoFormat %d audioFormat %d auxFormat %d subFormat %d", rate, primaryOutputFormat, audioOutputFormat, auxAudioOutputFormat, subtitleOutputFormat);
 	}
 }
