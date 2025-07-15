@@ -11843,12 +11843,8 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 					else
 					{
 						seek_pos_seconds = GetPositionSeconds();
-						AAMPLOG_MIL("Retune to change the audio track at pos %fs", seek_pos_seconds);
-						if (IsLocalAAMPTsb())
-						{
-							mAampTsbLanguageChangeInProgress = true;
-						}
-						TeardownStream(false);
+						AAMPLOG_MIL("NEIL Retune to change the audio track at pos %fs", seek_pos_seconds);
+
 						if(IsFogTSBSupported() &&
 								((languagePresent && !languageAvailabilityInManifest) ||
 								 (renditionPresent && !renditionAvailabilityInManifest) ||
@@ -11856,6 +11852,7 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 								 (labelPresent && !labelAvailabilityInManifest) ||
 								 (namePresent && !nameAvailabilityInManifest)))
 						{
+							TeardownStream(false);
 							ReloadTSB();
 						}
 
@@ -11867,6 +11864,9 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 								 (labelPresent && !labelAvailabilityInManifest) ||
 								 (namePresent && !nameAvailabilityInManifest)))
 						{
+							mAampTsbLanguageChangeInProgress = true;
+							TeardownStream(false);
+
 							if(mTSBSessionManager)
 							{
 								AAMPLOG_INFO("Recreate the TSB Session Manager");
@@ -11881,12 +11881,14 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 						}
 						else if(mDisableRateCorrection)
 						{
+							TeardownStream(false);
 							TuneHelper(eTUNETYPE_SEEK);
 						}
 						else
 						{
 							if(!IsLocalAAMPTsb())
 							{
+								TeardownStream(false);
 								TuneHelper(eTUNETYPE_SEEKTOLIVE);
 							}
 						}
