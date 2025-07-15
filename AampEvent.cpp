@@ -1644,7 +1644,7 @@ const std::string &TuneTimeMetricsEvent::getTuneMetricsData() const
 /**
  * @fn MonitorAVStatusEvent Constructor
  */
-MonitorAVStatusEvent::MonitorAVStatusEvent(const std::string &state, int64_t videoPosMs, int64_t audioPosMs, uint64_t timeInStateMs, std::string sid, uint64_t droppedFrames):
+MonitorAVStatusEvent::MonitorAVStatusEvent(const std::string &state, int64_t videoPosMs, int64_t audioPosMs, uint64_t timeInStateMs, uint64_t droppedFrames, std::string sid):
 		AAMPEventObject(AAMP_EVENT_MONITORAV_STATUS, std::move(sid)), mMonitorAVStatus(state), mVideoPositionMS(videoPosMs),
 		mAudioPositionMS(audioPosMs), mTimeInStateMS(timeInStateMs), mDroppedFrames(droppedFrames)
 {

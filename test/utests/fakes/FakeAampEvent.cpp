@@ -545,7 +545,7 @@ const std::string &MetricsDataEvent::getMetricsData() const { return mMetricsDat
 
 /**
  * @fn MonitorAVStatusEvent Constructor                                                                                               */
-MonitorAVStatusEvent::MonitorAVStatusEvent(const std::string &status, int64_t videoPositionMS, int64_t audioPositionMS, uint64_t timeInStateMS, std::string sid, uint64_t droppedFrames):
+MonitorAVStatusEvent::MonitorAVStatusEvent(const std::string &status, int64_t videoPositionMS, int64_t audioPositionMS, uint64_t timeInStateMS, uint64_t droppedFrames,  std::string sid):
 		AAMPEventObject(AAMP_EVENT_MONITORAV_STATUS, std::move(sid)), mMonitorAVStatus(status), mVideoPositionMS(videoPositionMS),
 		mAudioPositionMS(audioPositionMS), mTimeInStateMS(timeInStateMS), mDroppedFrames(droppedFrames)
 {

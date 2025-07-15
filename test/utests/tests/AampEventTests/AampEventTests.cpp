@@ -1095,7 +1095,7 @@ protected:
 		audioPositionMS = 3717;
 		timeInStateMS = 1748499898430;
 		droppedFrames = 0;
-		monitorEvent = new MonitorAVStatusEvent(status,videoPositionMS,audioPositionMS,timeInStateMS,session_id,droppedFrames);
+		monitorEvent = new MonitorAVStatusEvent(status,videoPositionMS,audioPositionMS,timeInStateMS,droppedFrames,session_id);
 	}
 
 	void TearDown() override {

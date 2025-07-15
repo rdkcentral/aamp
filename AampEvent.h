@@ -2425,7 +2425,7 @@ public:
 	 * @param[in] sid - Session Identifier
 	 * @param[in] droppedFrames - Dropped Frames Count
 	 */
-	MonitorAVStatusEvent(const std::string &status, int64_t videoPositionMS, int64_t audioPositionMS, uint64_t timeInStateMS, std::string sid, uint64_t droppedFrames);
+	MonitorAVStatusEvent(const std::string &status, int64_t videoPositionMS, int64_t audioPositionMS, uint64_t timeInStateMS, uint64_t droppedFrames, std::string sid);
 
 	/**
 	 * @brief MonitorAVStatusEvent Destructor
