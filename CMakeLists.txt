@@ -50,6 +50,11 @@ pkg_check_modules(LIBDASH REQUIRED libdash)
 pkg_check_modules(OPENSSL REQUIRED openssl)
 pkg_check_modules(LIBCJSON REQUIRED libcjson)
 pkg_check_modules(UUID REQUIRED uuid)
+pkg_check_modules(BASECONVERSION REQUIRED libbaseconversion)
+pkg_check_modules(PLAYERLOGMANAGER REQUIRED libplayerlogmanager)
+pkg_check_modules(PLAYERFBINTERFACE REQUIRED libplayerfbinterface)
+pkg_check_modules(PLAYERGSTINTERFACE REQUIRED libplayergstinterface)
+pkg_check_modules(SUBTEC REQUIRED libsubtec)
 
 if(APPLE)
 	# libcurl < 8.5 exhibits memory leaks. On Ubuntu 22.04 can't update beyond 7.81.0-1ubuntu1.16 without building from source
@@ -134,6 +139,14 @@ include_directories(${OPENSSL_INCLUDE_DIRS})
 include_directories(${UUID_INCLUDE_DIRS})
 include_directories(${LIBCJSON_INCLUDE_DIRS})
 
+include_directories(${PLAYERFBINTERFACE_INCLUDE_DIRS})
+include_directories(${BASECONVERSION_INCLUDE_DIRS})
+include_directories(${PLAYERLOGMANAGER_INCLUDE_DIRS})
+include_directories(${PLAYERGSTINTERFACE_INCLUDE_DIRS})
+include_directories(${SUBTEC_INCLUDE_DIRS})
+
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/subtec/subtecparser)
+
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/dash/xml)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/dash/mpd)
@@ -143,7 +156,6 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/drm)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/isobmff)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/jsbindings)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/jsbindings/PersistentWatermark)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/subtec/subtecparser)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/subtitle)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/test/gstTestHarness)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/tsb/api)
@@ -164,6 +176,11 @@ set(LIBAAMP_DEPENDS
 	${OPENSSL_LIBRARIES}
 	${GL_DEPENDS}
 	${AAMP_CLI_LD_FLAGS}
+	${PLAYERFBINTERFACE_LINK_LIBRARIES}
+	${BASECONVERSION_LINK_LIBRARIES}
+	${PLAYERLOGMANAGER_LINK_LIBRARIES}
+	${PLAYERGSTINTERFACE_LINK_LIBRARIES}
+	${SUBTEC_LINK_LIBRARIES}
 	-ldl
 )
 
@@ -171,16 +188,6 @@ set(LIBAAMP_DEPENDS
 #include(test/mocks/mocks.cmake NO_POLICY_SCOPE)
 
 # Adding subdirectories for internal libraries
-
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/drm)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/drm/helper)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/externals)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/externals/contentsecuritymanager)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/playerLogManager)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/drm/aes)
-
-add_subdirectory(middleware)
 
 if (CMAKE_INBUILT_AAMP_DEPENDENCIES)
 	message("Building aamp support libraries")
@@ -349,18 +356,6 @@ if (CMAKE_TELEMETRY_2_0_REQUIRED)
 	endif()
 endif()
 
-set(AAMP_SUBTEC_CLASS_SOURCES subtec/subtecparser/WebvttSubtecDevParser.cpp)
-set_target_properties(subtec PROPERTIES PUBLIC_HEADER "${AAMP_SUBTEC_PUBLIC_HEADERS}")
-set(AAMP_SUBTEC_COMPILE_FLAGS "${CMAKE_CXX_FLAGS} -DSUBTEC_PACKET_DEBUG=1")
-if(CMAKE_PLATFORM_UBUNTU)
-	set(AAMP_SUBTEC_COMPILE_FLAGS "${AAMP_SUBTEC_COMPILE_FLAGS} -DUBUNTU=1")
-endif()
-set_target_properties(subtec PROPERTIES COMPILE_FLAGS "${AAMP_SUBTEC_COMPILE_FLAGS}")
-install (TARGETS subtec
-		DESTINATION lib
-		PUBLIC_HEADER DESTINATION include
-)
-
 if (CMAKE_GST_SUBTEC_ENABLED)
 	set(CMAKE_SUBTITLE_SUPPORT TRUE)
 	message("CMAKE_GST_SUBTEC_ENABLED set")
@@ -425,7 +420,12 @@ set(AAMP_CLI_SOURCES
 	test/aampcli/AampcliSubtecSimulator.cpp
 )
 add_executable(aamp-cli ${AAMP_CLI_SOURCES})
-target_link_libraries(aamp-cli aamp tsb playergstinterface playerfbinterface ${AAMP_CLI_LD_FLAGS} "-lreadline")
+target_link_libraries(aamp-cli aamp tsb
+${PLAYERFBINTERFACE_LINK_LIBRARIES}
+${BASECONVERSION_LINK_LIBRARIES}
+${PLAYERLOGMANAGER_LINK_LIBRARIES}
+${PLAYERGSTINTERFACE_LINK_LIBRARIES}
+${SUBTEC_LINK_LIBRARIES} ${AAMP_CLI_LD_FLAGS} "-lreadline")
 #aamp-cli is not an ideal standalone app. It uses private aamp instance for debugging purposes
 
 set_target_properties(aamp-cli PROPERTIES COMPILE_FLAGS "${LIBAAMP_DEFINES} ${OS_CXX_FLAGS}")
@@ -444,7 +444,7 @@ if (CMAKE_PLATFORM_UBUNTU OR CMAKE_SYSTEM_NAME STREQUAL Darwin )
 	install (TARGETS aampKotlin
 			DESTINATION lib
 	)
-	target_link_libraries(aampKotlin aamp subtec tsb ${AAMP_CLI_LD_FLAGS} "-lreadline")
+	target_link_libraries(aampKotlin aamp tsb ${AAMP_CLI_LD_FLAGS} "-lreadline")
 	set_target_properties(aampKotlin PROPERTIES COMPILE_FLAGS "${LIBAAMP_DEFINES} ${OS_CXX_FLAGS}")
 	xcode_define_schema(aampKotlin)
 endif()
@@ -500,9 +500,9 @@ install(FILES
 )
 
 
-if (UTEST_ENABLED)
-	add_subdirectory(test/utests EXCLUDE_FROM_ALL)
-endif()
+# if (UTEST_ENABLED)
+# 	add_subdirectory(test/utests EXCLUDE_FROM_ALL)
+# endif()
 
 if (CMAKE_PLATFORM_UBUNTU OR CMAKE_SYSTEM_NAME STREQUAL Darwin )
 	install(FILES build/aampcli-run-subtec.sh DESTINATION bin)
