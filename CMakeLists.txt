@@ -148,25 +148,6 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/subtitle)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/test/gstTestHarness)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/tsb/api)
 
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/baseConversion)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/closedcaptions)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/closedcaptions/subtec)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/drm)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/drm/aes)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/drm/helper)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/drm/ocdm)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/externals)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/externals/playersecmanager)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/externals/rdk)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/playerisobmff)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/playerjsonobject)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/playerLogManager)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/subtec/libsubtec)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/subtec/subtecparser)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/subtitle)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/vendor)
-
 # Locally built/installed dependencies are here
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/.libs/include)
 
@@ -190,6 +171,15 @@ set(LIBAAMP_DEPENDS
 #include(test/mocks/mocks.cmake NO_POLICY_SCOPE)
 
 # Adding subdirectories for internal libraries
+
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/drm)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/drm/helper)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/externals)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/externals/contentsecuritymanager)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/playerLogManager)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/drm/aes)
+
 add_subdirectory(middleware)
 
 if (CMAKE_INBUILT_AAMP_DEPENDENCIES)

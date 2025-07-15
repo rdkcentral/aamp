@@ -42,7 +42,7 @@ include_directories(${DRM_ROOT})
 include_directories(${DRM_ROOT}/ocdm)
 include_directories(${PLAYER_ROOT}/../secclient)
 include_directories(${DRM_ROOT}/mocks)
-include_directories(${PLAYER_ROOT}/externals/playersecmanager)
+include_directories(${PLAYER_ROOT}/externals/contentsecuritymanager)
 include_directories(${PLAYER_ROOT}/playerLogManager)
 
 message(GSTREAMER_INCLUDE_DIRS=${GSTREAMER_INCLUDE_DIRS})
@@ -60,8 +60,8 @@ if(SEC_CLIENT_HEADERS)
 					 ${DRM_ROOT}/mocks/Fakeopencdm.cpp
 					 ${DRM_ROOT}/mocks/Fakesecclient.cpp)
 
-	set(PLAYER_SOURCES ${PLAYER_ROOT}/externals/playersecmanager/ThunderAccessPlayer.cpp
-		${PLAYER_ROOT}/externals/playersecmanager/PlayerSecManager.cpp
+	set(PLAYER_SOURCES ${PLAYER_ROOT}/externals/contentsecuritymanager/ThunderAccessPlayer.cpp
+		${PLAYER_ROOT}/externals/contentsecuritymanager/ContentSecurityManager.cpp
 					 ${PLAYER_ROOT}/drm/DrmSessionFactory.cpp
 					 ${PLAYER_ROOT}/drm/helper/DrmHelper.cpp
 					 ${PLAYER_ROOT}/drm/helper/DrmHelperFactory.cpp

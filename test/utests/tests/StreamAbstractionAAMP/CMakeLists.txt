@@ -29,7 +29,6 @@ include_directories(${AAMP_ROOT}/middleware)
 include_directories(${AAMP_ROOT}/middleware/closedcaptions)
 include_directories(${AAMP_ROOT}/middleware/vendor)
 include_directories(${AAMP_ROOT}/middleware/baseConversion)
-include_directories(${AAMP_ROOT}/middleware/externals/playersecmanager)
 include_directories(${AAMP_ROOT}/middleware/playerLogManager)
 
 

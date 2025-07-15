@@ -36,13 +36,13 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR} subtitle playerisobmff isobmff
 	closedcaptions
 	closedcaptions/subtec
 	drm drm/helper
-	drm/ocdm
-	externals/playersecmanager)
+	drm/ocdm)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/externals)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/externals/playersecmanager)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/externals/contentsecuritymanager)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/externals/rdk)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/baseConversion)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/playerLogManager)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/playerJsonObject)
 
 
 set(LIBPLAYERGSTINTERFACE_DEPENDS ${OS_LD_FLAGS} ${UUID_LINK_LIBRARIES} ${LIBCJSON_LINK_LIBRARIES} ${GSTREAMERBASE_LINK_LIBRARIES} ${GSTREAMER_LINK_LIBRARIES} ${CURL_LINK_LIBRARIES} ${LIBDASH_LINK_LIBRARIES} ${LibXml2_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT} ${OPENSSL_LIBRARIES} ${OPENGL_LIBRARIES} ${GLEW_LIBRARIES} -ldl)
@@ -50,6 +50,7 @@ set(LIBPLAYERGSTINTERFACE_DEPENDS ${OS_LD_FLAGS} ${UUID_LINK_LIBRARIES} ${LIBCJS
 #shoud be made part of PLAYERGSTINTERFACE cmakelists
 add_subdirectory(baseConversion)
 add_subdirectory(playerLogManager)
+add_subdirectory(playerJsonObject)
 add_subdirectory(externals)
 
 set(LIBPLAYERGSTINTERFACE_SOURCES ${LIBPLAYERGSTINTERFACE_SOURCES} closedcaptions/PlayerCCManager.cpp PlayerUtils.cpp)
@@ -60,7 +61,7 @@ set(SUBTEC_CLASS_SOURCES playerisobmff/playerisobmffbox.cpp
 	subtec/subtecparser/TtmlSubtecParser.cpp
 	subtec/subtecparser/TextStyleAttributes.cpp
 	subtec/subtecparser/WebvttSubtecDevInterface.cpp
-	playerjsonobject/PlayerJsonObject.cpp
+	playerJsonObject/PlayerJsonObject.cpp
 	)
 
 if(CMAKE_PLATFORM_UBUNTU)
@@ -148,7 +149,8 @@ install(FILES closedcaptions/CCTrackInfo.h
 	drm/DrmMemorySystem.h drm/DrmSessionManager.h drm/DrmSystems.h
 	drm/DrmData.h drm/DrmInfo.h drm/DrmMediaFormat.h drm/DrmCallbacks.h
 	drm/DrmSession.h drm/ClearKeyDrmSession.h drm/DrmSessionFactory.h drm/ocdm/opencdmsessionadapter.h
-	drm/helper/DrmHelper.h drm/HlsDrmBase.h
+	drm/helper/DrmHelper.h
+	drm/HlsDrmBase.h
 	drm/DrmConstants.h
 	drm/PlayerHlsDrmSessionInterface.h
 	drm/PlayerHlsDrmSessionInterfaceBase.h

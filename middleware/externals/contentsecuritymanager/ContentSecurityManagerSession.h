@@ -18,12 +18,12 @@
 */
 
 /**
- * @file PlayerSecManagerSession.h
- * @brief Class to Represents an PLAYER sec manager session
+ * @file ContentSecurityManagerSession.h
+ * @brief Class to Represents an contentsecurity manager session
  */
 
-#ifndef __PLAYER_SECMANAGERSESSION_H__
-#define __PLAYER_SECMANAGERSESSION_H__
+#ifndef __CONTENT_SECURITY_MANAGER_SESSION_H__
+#define __CONTENT_SECURITY_MANAGER_SESSION_H__
 
 #include <mutex>
 #include <sys/time.h>
@@ -31,20 +31,20 @@
 #include <memory>
 #include <sstream>
 
-#define PLAYER_SECMGR_INVALID_SESSION_ID (-1)
+#define CONTENT_SECURITY_MGR_INVALID_SESSION_ID (-1)
 
-class PlayerSecManager;
+class ContentSecurityManager;
 
 /**
  * @brief Represents an player sec manager session, 
- * Sessions are automatically closed there are no PlayerSecManagerSession objects that reference it*/
-class PlayerSecManagerSession
+ * Sessions are automatically closed there are no ContentSecurityManagerSession objects that reference it*/
+class ContentSecurityManagerSession
 {
-	/* The coupling between PlayerSecManager & PlayerSecManagerSession is not ideal from an architecture standpoint but
-	 * it minimises changes to existing PlayerSecManager code:
-	 * ~SessionManager() calls PlayerSecManager::ReleaseSession()
-	 * PlayerSecManager::acquireLicence() creates instances of PlayerSecManagerSession*/
-	friend PlayerSecManager;
+	/* The coupling between ContentSecurityManager & ContentSecurityManagerSession is not ideal from an architecture standpoint but
+	 * it minimises changes to existing ContentSecurityManager code:
+	 * ~SessionManager() calls ContentSecurityManager::ReleaseSession()
+	 * ContentSecurityManager::acquireLicence() creates instances of ContentSecurityManagerSession*/
+	friend ContentSecurityManager;
 private:
 	/**
 	 * @brief Responsible for closing the corresponding sec manager sessions when it is no longer used
@@ -62,41 +62,42 @@ private:
 		 * @brief
 		 * Get a shared pointer to an object corresponding to the sessionID, creating a new one if required
 		*/
-		static std::shared_ptr<PlayerSecManagerSession::SessionManager> getInstance(int64_t sessionID, std::size_t inputSummaryHash);
+		static std::shared_ptr<ContentSecurityManagerSession::SessionManager> getInstance(int64_t sessionID, std::size_t inputSummaryHash);
 
 		int64_t getID(){return mID;}
 		std::size_t getInputSummaryHash(){return mInputSummaryHash.load();}
 		void setInputSummaryHash(std::size_t inputSummaryHash);
 
-		//calls PlayerSecManager::ReleaseSession() on mID
+		//calls ContentSecurityManager::ReleaseSession() on mID
 		~SessionManager();
 	};
 
-	std::shared_ptr<PlayerSecManagerSession::SessionManager> mpSessionManager;
+	std::shared_ptr<ContentSecurityManagerSession::SessionManager> mpSessionManager;
 	mutable std::mutex sessionIdMutex;
 
-	/**
- 	* @brief constructor for valid objects
-	* this will cause PlayerSecManager::ReleaseSession() to be called on sessionID
-	* when the last PlayerSecManagerSession, referencing is destroyed
-	* this is only intended to be used in PlayerSecManager::acquireLicence()
-	* it is the responsibility of PlayerSecManager::acquireLicence() to ensure sessionID is valid
-	*/
-	PlayerSecManagerSession(int64_t sessionID, std::size_t inputSummaryHash);
 public:
 	/**
-	* @brief constructor for an invalid object*/
-	PlayerSecManagerSession(): mpSessionManager(), sessionIdMutex() {};
+ 	* @brief constructor for valid objects
+	* this will cause ContentSecurityManager::ReleaseSession() to be called on sessionID
+	* when the last ContentSecurityManagerSession, referencing is destroyed
+	* this is only intended to be used in ContentSecurityManager::acquireLicence()
+	* it is the responsibility of ContentSecurityManager::acquireLicence() to ensure sessionID is valid
+	*/
+	ContentSecurityManagerSession(int64_t sessionID, std::size_t inputSummaryHash);
+
+	/**
+ 	* @brief constructor for an invalid object*/
+	ContentSecurityManagerSession(): mpSessionManager(), sessionIdMutex() {};
 
 	//allow copying, the secManager session will only be closed when all copies have gone out of scope
-	PlayerSecManagerSession(const PlayerSecManagerSession& other): mpSessionManager(), sessionIdMutex()
+	ContentSecurityManagerSession(const ContentSecurityManagerSession& other): mpSessionManager(), sessionIdMutex()
 	{
 		std::lock(sessionIdMutex, other.sessionIdMutex);
 		std::lock_guard<std::mutex> thisLock(sessionIdMutex, std::adopt_lock);
 		std::lock_guard<std::mutex> otherLock(other.sessionIdMutex, std::adopt_lock);
 		mpSessionManager=other.mpSessionManager;
 	}
-	PlayerSecManagerSession& operator=(const PlayerSecManagerSession& other)
+	ContentSecurityManagerSession& operator=(const ContentSecurityManagerSession& other)
 	{
 		std::lock(sessionIdMutex, other.sessionIdMutex);
 		std::lock_guard<std::mutex> thisLock(sessionIdMutex, std::adopt_lock);
@@ -110,7 +111,7 @@ public:
 	 * @brief
 	 * returns the session ID value for use with JSON API
 	 * The returned value should not be used outside the lifetime of
-	 * the PlayerSecManagerSession on which this method is called
+	 * the ContentSecurityManagerSession on which this method is called
 	 * otherwise the session may be closed before the ID can be used
 	 */
 	int64_t getSessionID(void) const;
@@ -132,7 +133,7 @@ public:
 		std::stringstream ss;
 		ss<<"Session ";
 		auto id = getSessionID();	//ID retrieved under mutex
-		if(id != PLAYER_SECMGR_INVALID_SESSION_ID)
+		if(id != CONTENT_SECURITY_MGR_INVALID_SESSION_ID)
 		{
 			ss<<id<<" valid";
 		}
@@ -144,4 +145,4 @@ public:
 	}
 };
 
-#endif /* __PLAYER_SECMANAGERSESSION_H__ */
+#endif /* __CONTENT_SECURITY_MANAGER_SESSION_H__ */
