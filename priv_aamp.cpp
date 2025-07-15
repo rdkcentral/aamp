@@ -2091,7 +2091,6 @@ void PrivateInstanceAAMP::ReportProgress(bool sync, bool beginningOfStream)
 			{
 				videoBufferedDuration = mpStreamAbstractionAAMP->GetBufferedVideoDurationSec() * 1000.0;
 				audioBufferedDuration = mpStreamAbstractionAAMP->GetBufferedAudioDurationSec() * 1000.0;
-				AAMPLOG_INFO("videoBufferedDuration %lf audioBufferedDuration %lf",videoBufferedDuration, audioBufferedDuration);
 			}
 
 		}
