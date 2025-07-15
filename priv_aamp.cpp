@@ -5473,27 +5473,6 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 			mPauseOnFirstVideoFrameDisp = true;
 		}
 
-		if (!mbUsingExternalPlayer)
-		{
-			StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
-			if (sink)
-			{
-				sink->SetVideoZoom(zoom_mode);
-				sink->SetVideoMute(video_muted);
-				if (mApplyCachedVideoMute)
-				{
-					mApplyCachedVideoMute = false;
-					CacheAndApplySubtitleMute(video_muted);
-				}
-				sink->SetAudioVolume(volume);
-				if (mbPlayEnabled)
-				{
-					AAMPLOG_INFO("patrick");
-					sink->Configure(mVideoFormat, mAudioFormat, mAuxFormat, mSubtitleFormat, mpStreamAbstractionAAMP->GetESChangeStatus(), mpStreamAbstractionAAMP->GetAudioFwdToAuxStatus());
-				}
-			}
-		}
-
 		if (mMediaFormat == eMEDIAFORMAT_HLS)
 		{
 			//Live adjust or syncTrack occurred, sent an updated flush event
@@ -5569,7 +5548,26 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 			IncreaseGSTBufferSize();
 		}
 
-
+		if (!mbUsingExternalPlayer)
+		{
+			StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
+			if (sink)
+			{
+				sink->SetVideoZoom(zoom_mode);
+				sink->SetVideoMute(video_muted);
+				if (mApplyCachedVideoMute)
+				{
+					mApplyCachedVideoMute = false;
+					CacheAndApplySubtitleMute(video_muted);
+				}
+				sink->SetAudioVolume(volume);
+				if (mbPlayEnabled)
+				{
+					AAMPLOG_INFO("patrick");
+					sink->Configure(mVideoFormat, mAudioFormat, mAuxFormat, mSubtitleFormat, mpStreamAbstractionAAMP->GetESChangeStatus(), mpStreamAbstractionAAMP->GetAudioFwdToAuxStatus());
+				}
+			}
+		}
 
 		if (newTune && IsLocalAAMPTsb() && !GetTSBSessionManager())
 		{
