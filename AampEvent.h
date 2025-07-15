@@ -183,20 +183,20 @@ typedef enum
 
 typedef enum
 {
-    CDAI_ERROR_NONE = 0,                    
-CDAI_ERROR_ADS_MISCONFIGURED				=1,
-    CDAI_ERROR_ZERO_AD_DECISIONS     		=2,
-CDAI_ERROR_INVALID_MANIFEST         		=3,
-    CDAI_ERROR_INVALID_MEDIA           		=4,
-    CDAI_ERROR_INVALID_SPECIFICATION   		=5,
-    CDAI_ERROR_DECISIONING_TIMEOUT     		=6,
-    CDAI_ERROR_DELIVERY_TIMEOUT      		=7,
-    CDAI_ERROR_DELIVERY_HTTP_ERROR     		=8,
-    CDAI_ERROR_DELIVERY_ERROR          		=9,
-    CDAI_ERROR_UNKNOWN                 		=10,
-} CDAIAdErrorCode;
+	eCDAI_ERROR_NONE,					/**< No Error found */
+	eCDAI_ERROR_ADS_MISCONFIGURED,		/*adsMisconfigured*/
+	eCDAI_ERROR_ZERO_AD_DECISIONS,		/*zeroAdDecisions*/
+	eCDAI_ERROR_INVALID_MANIFEST,		/*adWasUnplayableDueToInvalidManifest*/
+	eCDAI_ERROR_INVALID_MEDIA,			/*adWasUnplayableDueToInvalidMedia*/
+	eCDAI_ERROR_INVALID_SPECIFICATION,	/*adWasUnplayableDueToInvalidSpecification*/
+	eCDAI_ERROR_DECISIONING_TIMEOUT,	/*adDecisioningServiceTimeout*/
+	eCDAI_ERROR_DELIVERY_TIMEOUT,		/*adDeliveryServiceTimeout*/
+	eCDAI_ERROR_DELIVERY_HTTP_ERROR,	/*adDeliveryServiceHTTPError*/
+	eCDAI_ERROR_DELIVERY_ERROR,			/*adDeliveryServiceError*/
+	eCDAI_ERROR_UNKNOWN					/*unknownAdError*/
+} AAMPCDAIAdErrorCode;
 
-const std::pair<std::string , std::string> CDAI_ErrorsPair[] = {
+const std::pair<std::string , std::string> cdaiErrorPairs[] = {
 	{"0", "No Error found"},
 	{"1051-2", "A configuration issue prevents player from handling ads"},
 	{"1051-5", "Ad decisioning success but no ads were received"},
@@ -1823,8 +1823,8 @@ class AdResolvedEvent: public AAMPEventObject
 	std::string mAdId;	/**<Ad identifier */
 	uint64_t mStartMS;	/**<Ad's start position in MS */
 	uint64_t mDurationMs;	/**<Ad's duration in MS */
-	uint64_t mErrorCode;	/**<Ad's error code, if any */
-	std::pair<std::string, std::string> mErrorDescription; /**<Ad's error description, if any */
+	std::string mErrorCode;	/**<Ad's error code, if any */
+	std::string mErrorDescription; /**<Ad's error description, if any */
 
 
 public:
@@ -1840,7 +1840,7 @@ public:
 	 * @param[in] startMS       - Start position of Ad (relative to reservation start)
 	 * @param[in] durationMs    - Duration of the Ad in MS
 	 */
-	AdResolvedEvent(bool resolveStatus, const std::string &adId, uint64_t startMS, uint64_t durationMs, std::string sid,const std::pair<std::string, std::string> &errorDescription = std::make_pair("", ""));
+	AdResolvedEvent(bool resolveStatus, const std::string &adId, uint64_t startMS, uint64_t durationMs, std::string sid,const std::string &errorCode="", const std::string &errorDescription="");
 
 	/**
 	 * @brief AdResolvedEvent Destructor
@@ -1870,12 +1870,12 @@ public:
 	/**
 	 * @fn getErrorCode
 	 */
-	uint64_t getErrorCode() const;
+	const std::string &getErrorCode() const;
 
 	/**
 	 * @fn getErrorDescription
 	 */
-	const std::pair<std::string, std::string> &getErrorDescription() const;
+	const std::string &getErrorDescription() const;
 
 };
 

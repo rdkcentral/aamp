@@ -1153,9 +1153,9 @@ VTTCue* WebVttCueEvent::getCueData() const
 /**
  * @brief AdResolvedEvent Constructor
  */
-AdResolvedEvent::AdResolvedEvent(bool resolveStatus, const std::string &adId, uint64_t startMS, uint64_t durationMs, std::string sid,const std::pair<std::string, std::string> &errorDescription):
+AdResolvedEvent::AdResolvedEvent(bool resolveStatus, const std::string &adId, uint64_t startMS, uint64_t durationMs, std::string sid,const std::string &errorCode, const std::string &errorDescription):
 		AAMPEventObject(AAMP_EVENT_AD_RESOLVED, std::move(sid)), mResolveStatus(resolveStatus), mAdId(adId),
-		mStartMS(startMS), mDurationMs(durationMs),mErrorDescription(errorDescription)
+		mStartMS(startMS), mDurationMs(durationMs),mErrorCode(errorCode),mErrorDescription(errorDescription)
 {
 
 }
@@ -1203,7 +1203,7 @@ uint64_t AdResolvedEvent::getDuration() const
 /**
  * @brief Get Ad's ErrorCode
  */
-uint64_t AdResolvedEvent::getErrorCode() const
+const std::string &AdResolvedEvent::getErrorCode() const
 {
 	return mErrorCode;
 }
@@ -1213,7 +1213,7 @@ uint64_t AdResolvedEvent::getErrorCode() const
  *
  * @return Error description pair (error code, error message)
  */
-const std::pair<std::string, std::string> &AdResolvedEvent::getErrorDescription() const
+const std::string &AdResolvedEvent::getErrorDescription() const
 {
 	return mErrorDescription;
 }

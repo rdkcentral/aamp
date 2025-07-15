@@ -9250,7 +9250,7 @@ void PrivateInstanceAAMP::SendAdResolvedEvent(const std::string &adId, bool stat
 {
 	if (mDownloadsEnabled)	//Send it, only if Stop not called
 	{
-		AdResolvedEventPtr e = std::make_shared<AdResolvedEvent>(status, adId, startMS, durationMs, GetSessionId(),CDAI_ErrorsPair[errorCode]);
+		AdResolvedEventPtr e = std::make_shared<AdResolvedEvent>(status, adId, startMS, durationMs, GetSessionId(),cdaiErrorPairs[errorCode].first, cdaiErrorPairs[errorCode].second);
 		AAMPLOG_WARN("PrivateInstanceAAMP: [CDAI] Sent resolved status=%d for adId[%s]", status, adId.c_str());
 		SendEvent(e,AAMP_EVENT_ASYNC_MODE);
 	}
