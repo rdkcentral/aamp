@@ -5607,7 +5607,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 					if (pts >0 && pts<10.0)
 					{
 					AAMPLOG_INFO("patrick");
-					sink->Flush(pts, rate);
+					sink->Flush(pts, rate, false);
 					}
 				}
 			}
