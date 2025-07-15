@@ -43,7 +43,7 @@ find_package(PkgConfig REQUIRED)
 
 # Resolve dependent modules
 message("using gstreamer-1.0")
-pkg_check_modules(GSTREAMER REQUIRED gstreamer-1.0)
+pkg_check_modules(GSTREAMER REQUIRED gstreamer-1.0>=1.18.0)
 pkg_check_modules(GSTREAMERBASE REQUIRED gstreamer-app-1.0)
 pkg_check_modules(LIBXML2 REQUIRED libxml-2.0)
 pkg_check_modules(LIBDASH REQUIRED libdash)
