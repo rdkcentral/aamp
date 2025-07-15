@@ -2481,29 +2481,24 @@ long long InterfacePlayerRDK::GetPositionMilliseconds(void)
 	}
 	gst_media_stream* video = &gstPrivateContext->stream[eGST_MEDIATYPE_VIDEO];
 	// segment.start needs to be queried
-
+	if (gstPrivateContext->segmentStart == -1)
 	{
-		gint64 start;
 		GstQuery *segmentQuery = gst_query_new_segment(GST_FORMAT_TIME);
 		// Send query to video playbin in pipeline.
 		// Special case include trickplay, where only video playbin is active
 		// This is to get the actual start position from video decoder/sink. If these element doesn't support the query appsrc should respond
 		if (gst_element_query(video->source, segmentQuery) == TRUE)
 		{
-
+			gint64 start;
 			gst_query_parse_segment(segmentQuery, NULL, NULL, &start, NULL);
-			MW_LOG_MIL("start %" G_GINT64_FORMAT, GST_TIME_AS_MSECONDS(start));
+			gstPrivateContext->segmentStart = GST_TIME_AS_MSECONDS(start);
+			MW_LOG_MIL("InterfacePlayerRDK: Segment start: %" G_GINT64_FORMAT, gstPrivateContext->segmentStart);
 		}
 		else
 		{
 			MW_LOG_ERR("InterfacePlayerRDK: segment query failed");
 		}
 		gst_query_unref(segmentQuery);
-		if (gstPrivateContext->segmentStart == -1)
-		{
-			gstPrivateContext->segmentStart = GST_TIME_AS_MSECONDS(start);
-			MW_LOG_MIL("InterfacePlayerRDK: Segment start: %" G_GINT64_FORMAT, gstPrivateContext->segmentStart);
-		}
 	}
 	if (gst_element_query(video->sinkbin,gstPrivateContext->positionQuery) == TRUE)
 	{
