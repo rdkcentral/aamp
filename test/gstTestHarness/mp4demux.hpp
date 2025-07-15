@@ -29,8 +29,7 @@
 #include <string>
 #include <gst/app/gstappsrc.h>
 
-//#define PRINTF(...)
-#define PRINTF printf
+#define PRINTF(fmt,...) if( verbose ) printf(fmt,##__VA_ARGS__)
 
 // convert multi-character constants like 'cenc' to equivalent 32 bit integer - pass as four character string
 #define MultiChar_Constant(TEXT) ( \
@@ -49,8 +48,6 @@ struct Mp4Sample
 	
 	std::string subsamples;
 	std::string iv;
-	//GstStructure *default_properties
-	//GPtrArray *crypto_info
 };
 
 class Mp4Demux
@@ -128,6 +125,7 @@ private:
 	uint32_t width_fixed;
 	uint32_t height_fixed;
 	uint16_t language;
+	bool verbose;
 	
 	uint64_t ReadBytes( int n )
 	{
@@ -235,7 +233,7 @@ private:
 	}
 	
 	void process_auxiliary_information( void )
-	{
+	{ // redundant with parseSampleEncryptionBox?
 		size_t sample_count = cenc_aux_info_sizes.size();
 		if( sample_count && got_auxiliary_information_offset )
 		{
@@ -246,14 +244,12 @@ private:
 				int sz = cenc_aux_info_sizes[i];
 				for( int j=0; j<sz; j++ )
 				{
-					printf( " %02x", *src++ );
+					PRINTF( " %02x", *src++ );
 				}
-				printf( "\n" );
+				PRINTF( "\n" );
 			}
 		}
-		// above redundant with parseSampleEncryptionBox?
 	}
-	
 	
 	void parseSampleAuxiliaryInformationSizes( void )
 	{
@@ -848,7 +844,7 @@ public:
 		}
 	}
 	
-	Mp4Demux() : audio{}, video{}, stream_format(), data_reference_index(), codec_type(), codec_data(), is_encrypted(), iv_size(), crypt_byte_block(), skip_byte_block(), constant_iv_size(), constant_iv(), timescale(), samples(), default_kid(), got_auxiliary_information_offset(), auxiliary_information_offset(), scheme_type(), scheme_version(), original_media_type(), cenc_aux_info_sizes(), protectionEvents(), moof_ptr(), ptr(), indent(), version(), flags(), baseMediaDecodeTime(), fragment_duration(), track_id(), base_data_offset(), default_sample_description_index(), default_sample_duration(), default_sample_size(), default_sample_flags(), creation_time(), modification_time(), duration(), rate(), volume(), matrix{}, layer(), alternate_group(), width_fixed(), height_fixed(), language()
+	Mp4Demux( bool verbose=false ) : audio{}, video{}, stream_format(), data_reference_index(), codec_type(), codec_data(), is_encrypted(), iv_size(), crypt_byte_block(), skip_byte_block(), constant_iv_size(), constant_iv(), timescale(), samples(), default_kid(), got_auxiliary_information_offset(), auxiliary_information_offset(), scheme_type(), scheme_version(), original_media_type(), cenc_aux_info_sizes(), protectionEvents(), moof_ptr(), ptr(), indent(), version(), flags(), baseMediaDecodeTime(), fragment_duration(), track_id(), base_data_offset(), default_sample_description_index(), default_sample_duration(), default_sample_size(), default_sample_flags(), creation_time(), modification_time(), duration(), rate(), volume(), matrix{}, layer(), alternate_group(), width_fixed(), height_fixed(), language(), verbose(verbose)
 	{
 	}
 	
