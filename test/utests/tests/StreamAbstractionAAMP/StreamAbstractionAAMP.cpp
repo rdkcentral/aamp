@@ -2,7 +2,7 @@
 * If not stated otherwise in this file or this component's license file the
 * following copyright and licenses apply:
 *
-* Copyright 2024 RDK Management
+* Copyright 2023 RDK Management
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -16,23 +16,11 @@
 * See the License for the specific language governing permissions and
 * limitations under the License.
 */
-#ifndef AAMP_MOCK_TSB_READER_H
-#define AAMP_MOCK_TSB_READER_H
-#include <gmock/gmock.h>
-#include "AampTsbReader.h"
-using namespace TSB;
-class MockTSBReader
+
+#include <gtest/gtest.h>
+
+int main(int argc, char** argv)
 {
-public:
-	MOCK_METHOD(AAMPStatusType, Init, (double, float, TuneType));
-	MOCK_METHOD(TsbFragmentDataPtr, FindNext, (AampTime));
-	MOCK_METHOD(void, ReadNext, (TsbFragmentDataPtr));
-	MOCK_METHOD(bool, IsFirstDownload, ());
-	MOCK_METHOD(float, GetPlaybackRate, ());
-	MOCK_METHOD(double, GetFirstPTS, ());
-	MOCK_METHOD(AampTime, GetFirstPTSOffset, ());
-};
-
-extern std::shared_ptr<MockTSBReader> g_mockTSBReader;
-
-#endif /* AAMP_MOCK_TSB_READER_H */
+	testing::InitGoogleTest(&argc, argv);
+	return RUN_ALL_TESTS();
+}
