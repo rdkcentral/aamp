@@ -3103,6 +3103,14 @@ bool PrivateInstanceAAMP::ProcessPendingDiscontinuity()
 			 *  Only in DASH, PTS values will be known from manifest. If that is the case, flush from here.
 			 *  Content types other than HLS and DASH are not expected to have discontinuity.
 			 */
+				sink->Configure(
+					mVideoFormat,
+					mAudioFormat,
+					mAuxFormat,
+					mSubtitleFormat,
+					mpStreamAbstractionAAMP->GetESChangeStatus(),
+					mpStreamAbstractionAAMP->GetAudioFwdToAuxStatus(),
+					mIsTrackIdMismatch /*setReadyAfterPipelineCreation*/);
 				if (mpStreamAbstractionAAMP->DoStreamSinkFlushOnDiscontinuity())
 				{
 					if(mDiscontinuityFound)
@@ -3115,15 +3123,7 @@ bool PrivateInstanceAAMP::ProcessPendingDiscontinuity()
 						profiler.ProfileEnd(PROFILE_BUCKET_DISCO_FLUSH);
 					}
 				}
-				sink->Configure(
-					mVideoFormat,
-					mAudioFormat,
-					mAuxFormat,
-					mSubtitleFormat,
-					mpStreamAbstractionAAMP->GetESChangeStatus(),
-					mpStreamAbstractionAAMP->GetAudioFwdToAuxStatus(),
-					mIsTrackIdMismatch /*setReadyAfterPipelineCreation*/);
-			}		
+			}
 			mpStreamAbstractionAAMP->ResetESChangeStatus();
 
 			bool isRateCorrectionEnabled = ISCONFIGSET_PRIV(eAAMPConfig_EnableLiveLatencyCorrection);

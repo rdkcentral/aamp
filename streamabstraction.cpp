@@ -4030,7 +4030,7 @@ void StreamAbstractionAAMP::InitializeMediaProcessor(bool passThroughMode)
 				track->playContext->setRate(aamp->rate, PlayMode_normal);
 				if(eMEDIATYPE_AUDIO == i)
 				{
-					peerAudioProcessor = processor;
+					peerAudioProcessor = std::move(processor);
 				}
 				else if (eMEDIATYPE_VIDEO == i && subtitleESProcessor)
 				{
