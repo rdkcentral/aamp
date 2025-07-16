@@ -472,7 +472,7 @@ private:
 			sample.pts = (dts+sample_composition_time_offset)/(double)timescale;
 			PRINTF( "dts=%f pts=%f\n", sample.dts, sample.pts );
 			dts += sample_duration;
-			samples.push_back( sample );
+			samples.push_back( std::move(sample) );
 		}
 	}
 	
@@ -1061,7 +1061,7 @@ public:
 		const uint8_t *fin = &ptr[len];
 		while( ptr < fin && !baseMediaDecodeTime )
 		{
-			size_t size = (ptr[0]<<24)|(ptr[1]<<16)|(ptr[2]<<8)|ptr[3];
+			uint32_t size = (uint32_t)(ptr[0]<<24)|(ptr[1]<<16)|(ptr[2]<<8)|ptr[3];
 			uint8_t *next = ptr + size;
 			ptr += 4;
 			uint32_t type = (ptr[0]<<24)|(ptr[1]<<16)|(ptr[2]<<8)|ptr[3];

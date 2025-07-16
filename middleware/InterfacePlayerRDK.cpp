@@ -2936,15 +2936,15 @@ bool InterfacePlayerRDK::SendHelper(int type, const void *ptr, size_t len, doubl
 				{ // media segment
 					for( int i=0; i<count; i++ )
 					{
-						size_t len = mp4Demux->getLen(i);
+						size_t sampleLen = mp4Demux->getLen(i);
 						double pts = mp4Demux->getPts(i);
 						double dts = mp4Demux->getDts(i);
 						double dur = mp4Demux->getDuration(i);
-						gpointer data = g_malloc(len);
+						gpointer data = g_malloc(sampleLen);
 						if( data )
 						{
-							memcpy( data, mp4Demux->getPtr(i), len );
-							GstBuffer *gstBuffer = gst_buffer_new_wrapped( data, len);
+							memcpy( data, mp4Demux->getPtr(i), sampleLen );
+							GstBuffer *gstBuffer = gst_buffer_new_wrapped( data, sampleLen);
 							GST_BUFFER_PTS(gstBuffer) = (GstClockTime)(pts * GST_SECOND);
 							GST_BUFFER_DTS(gstBuffer) = (GstClockTime)(dts * GST_SECOND);
 							GST_BUFFER_DURATION(gstBuffer) = (GstClockTime)(dur * 1000000000LL);

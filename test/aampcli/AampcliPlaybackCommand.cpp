@@ -1085,16 +1085,23 @@ void PlaybackCommand::parse( const char *path )
 		if( f )
 		{
 			fseek(f,0,SEEK_END);
-			size_t len = ftell(f);
-			void *ptr = malloc(len);
-			if( ptr )
+			long pos = ftell(f);
+			if( pos>=0 )
 			{
-				fseek(f,0,SEEK_SET);
-				fread(ptr,1,len,f);
-				auto mp4Demux = new Mp4Demux(true);
-				mp4Demux->Parse(ptr,len);
-				delete mp4Demux;
-				free( ptr );
+				size_t len = (size_t)pos;
+				void *ptr = malloc(len);
+				if( ptr )
+				{
+					fseek(f,0,SEEK_SET);
+					size_t rc = fread(ptr,1,len,f);
+					if( rc == len )
+					{
+						auto mp4Demux = new Mp4Demux(true);
+						mp4Demux->Parse(ptr,len);
+						delete mp4Demux;
+					}
+					free( ptr );
+				}
 			}
 			fclose( f );
 		}

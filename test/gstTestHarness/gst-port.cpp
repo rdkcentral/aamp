@@ -374,7 +374,7 @@ void Pipeline::SendBufferMP4( MediaType mediaType, gpointer ptr, gsize len, doub
 {
 	if( url )
 	{
-		g_print( "Pipeline::SendBuffer %s len=%zu %s\n", gstutils_GetMediaTypeName(mediaType), len, url?url:"" );
+		g_print( "Pipeline::SendBuffer %s len=%zu %s\n", gstutils_GetMediaTypeName(mediaType), len, url );
 	}
 	mediaStream[mediaType]->SendBuffer(ptr,len,duration);
 }
@@ -407,13 +407,14 @@ void Pipeline::Seek( const SeekParam &param )
 	gint64 stop = (gint64)(param.stop_s*GST_SECOND);
 	g_print( "Pipeline::Seek flags=%d start=%" GST_TIME_FORMAT " stop=%" GST_TIME_FORMAT "\n",
 				param.flags, GST_TIME_ARGS(start), GST_TIME_ARGS(stop) );
-	gst_element_seek(
+	gboolean success = gst_element_seek(
 					 pipeline,
 					 1.0, //rate
 					 GST_FORMAT_TIME,
 					 param.flags,
 					 GST_SEEK_TYPE_SET, start,
 					 GST_SEEK_TYPE_SET, stop );
+	assert( success );
 	if( param.flags & GST_SEEK_FLAG_FLUSH )
 	{
 		mediaStream[eMEDIATYPE_AUDIO]->ClearInjectedSeconds();

@@ -185,24 +185,27 @@ private:
 	void Load( void )
 	{
 		ptr = LoadUrl(url,&len);
-		switch( mContentFormat )
+		if( ptr )
 		{
-			case eCONTENTFORMAT_MP4_ES:
-				if( !gMp4Demux[mediaType] )
-				{
-					gMp4Demux[mediaType] = new Mp4Demux();
-				}
-				gMp4Demux[mediaType]->Parse(ptr,len);
-				break;
-				
-			case eCONTENTFORMAT_QTDEMUX:
-			case eCONTENTFORMAT_TSDEMUX:
-				break;
-				
-			case eCONTENTFORMAT_TS_ES:
-				tsDemux = new TsDemux( mediaType, ptr, len );
-				assert( tsDemux );
-				break;
+			switch( mContentFormat )
+			{
+				case eCONTENTFORMAT_MP4_ES:
+					if( !gMp4Demux[mediaType] )
+					{
+						gMp4Demux[mediaType] = new Mp4Demux();
+					}
+					gMp4Demux[mediaType]->Parse(ptr,len);
+					break;
+					
+				case eCONTENTFORMAT_QTDEMUX:
+				case eCONTENTFORMAT_TSDEMUX:
+					break;
+					
+				case eCONTENTFORMAT_TS_ES:
+					tsDemux = new TsDemux( mediaType, ptr, len );
+					assert( tsDemux );
+					break;
+			}
 		}
 	}
 	
