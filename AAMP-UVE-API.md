@@ -492,11 +492,11 @@ Example:
 | paused | 6 | eSTATE_PAUSED | Indicates player is paused |
 | seeking | 7 | eSTATE_SEEKING | Indicates player is seeking |
 | playing | 8 | eSTATE_PLAYING | Indicates player is in playing state  |
-| stopping | 9 | eSTATE_STOPPING | Deprecated  |
-| stopped | 10 | eSTATE_STOPPED | Not supported for all stream types. To be deprecated |
+| stopping | 9 | eSTATE_STOPPING | Stop in progress |
+| stopped | 10 | eSTATE_STOPPED | Deprecated |
 | complete | 11 | eSTATE_COMPLETE | Indicates the end of media |
 | error | 12 | eSTATE_ERROR | Indicates error in playback |
-| released | 13 | eSTATE_RELEASED | To be deprecated |
+| released | 13 | eSTATE_RELEASED | Indicates all Player resources released (equivalent to eSTATE_IDLE) |
 
 ---
 
