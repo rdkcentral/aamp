@@ -2821,6 +2821,13 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 }
 
 
+
+TEST_F(FunctionalTests, ReinitializeInjectionTest)
+{
+	mStreamAbstractionAAMP_MPD->ReinitializeInjection(1);
+	EXPECT_EQ(mFirstPTS,0);
+}
+
 TEST_F(StreamAbstractionAAMP_MPDTest, CheckAdResolvedStatus_FirstTryAdBreakNotResolved)
 {
 	std::string periodId = "periodId1";

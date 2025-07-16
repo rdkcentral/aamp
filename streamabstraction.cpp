@@ -4593,3 +4593,18 @@ bool MediaTrack::IsInjectionFromCachedFragmentChunks()
 				  name, isLLDashChunkMode, aampTsbEnabled, isInjectionFromCachedFragmentChunks);
 	return isInjectionFromCachedFragmentChunks;
 }
+
+/**
+ *   @brief Reintializes the injection
+ *   @param[in] rate - play rate
+ */	
+void StreamAbstractionAAMP::ReinitializeInjection(double rate) 
+{
+	clearFirstPTS();							//Clears the Flag mFirstPTS to trigger update of first PTS
+	SetTrickplayMode(rate);
+	ResetTrickModePtsRestamping();
+	if (!aamp->GetLLDashChunkMode())
+	{
+		SetVideoPlaybackRate(rate);
+	}
+}

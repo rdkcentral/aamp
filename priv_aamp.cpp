@@ -5202,12 +5202,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 		}
 		else
 		{
-			mpStreamAbstractionAAMP->SetTrickplayMode(rate);
-			mpStreamAbstractionAAMP->ResetTrickModePtsRestamping();
-			if (!GetLLDashChunkMode())
-			{
-				mpStreamAbstractionAAMP->SetVideoPlaybackRate(rate);
-			}
+			mpStreamAbstractionAAMP->ReinitializeInjection(rate);
 		}
 	}
 	else if (mMediaFormat == eMEDIAFORMAT_HLS || mMediaFormat == eMEDIAFORMAT_HLS_MP4)

@@ -567,6 +567,12 @@ public:
 	 */
 	virtual bool DoStreamSinkFlushOnDiscontinuity() override;
 
+	/**
+	 * @fn clearFirstPTS
+	 * @brief Clears the Flag mFirstPTS to trigger update of first PTS
+	 */
+	void clearFirstPTS(void) override;
+
 protected:
 	/**
 	 * @fn StartFromAampLocalTsb

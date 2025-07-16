@@ -2062,6 +2062,19 @@ public:
 
 	virtual bool SelectPreferredTextTrack(TextTrackInfo &selectedTextTrack) { return false; };
 
+	/**
+	 * @fn clearFirstPTS
+	 * @brief Clears the Flag mFirstPTS to trigger update of first PTS
+	 */
+	virtual void clearFirstPTS(void) {};
+
+	/**
+	 *   @fn ReinitializeInjection
+	 *   @brief Reintializes the injection
+	 *   @param[in] rate - play rate
+	 */	
+	void ReinitializeInjection(double rate);
+
 protected:
 	/**
 	 *   @brief Get stream information of a profile from subclass.

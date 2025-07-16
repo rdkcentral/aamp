@@ -14129,6 +14129,15 @@ void StreamAbstractionAAMP_MPD::GetNextAdInBreak(int direction)
 		AAMPLOG_ERR("Invalid value[%d] for direction, not expected!", direction);
 	}
 }
+
+/**
+ * @fn clearFirstPTS
+ * @brief Clears the Flag mFirstPTS to trigger update of first PTS
+ */
+void StreamAbstractionAAMP_MPD::clearFirstPTS(void)
+{
+	mFirstPTS = 0.0;
+}
 /*
  * @fn DoEarlyStreamSinkFlush
  * @brief Checks if the stream need to be flushed or not
