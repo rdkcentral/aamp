@@ -36,14 +36,12 @@
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Weffc++"
-#ifdef USE_CPP_THUNDER_PLUGIN_ACCESS
 #include <core/core.h>
 #include <websocket/websocket.h>
 #pragma GCC diagnostic pop
 
 using namespace std;
 using namespace WPEFramework;
-#endif
 
 #define THUNDER_RPC_TIMEOUT 5000
 
@@ -86,7 +84,6 @@ public:
      *   @retval false on failure
      */
     bool ActivatePlugin();
-#ifdef USE_CPP_THUNDER_PLUGIN_ACCESS	
     /**
      *   @fn InvokeJSONRPC
      *   @note   Invoke JSONRPC call for the plugin
@@ -104,7 +101,6 @@ public:
      *   @retval false on failure
      */
     bool SubscribeEvent (std::string eventName, std::function<void(const WPEFramework::Core::JSON::VariantContainer&)> functionHandler);
-#endif	
     /**
      *   @fn UnSubscribeEvent
      *   @note   unSubscribe event data for the specific plugin
@@ -115,12 +111,10 @@ public:
     bool UnSubscribeEvent (std::string eventName);
 
 private:
-#ifdef USE_CPP_THUNDER_PLUGIN_ACCESS
     /**< The Remote object connected to specific Plugin*/
     JSONRPC::LinkType<Core::JSON::IElement> *remoteObject;
     /**< The Remote object connected to controller Plugin*/
     JSONRPC::LinkType<Core::JSON::IElement> *controllerObject;
-#endif
     std::string pluginCallsign;
 };
 #endif // THUNDERACCESSPLAYER_H_

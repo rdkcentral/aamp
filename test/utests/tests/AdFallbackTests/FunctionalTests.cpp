@@ -350,7 +350,7 @@ TEST_F(AdFallbackTests, AdInitFailureTest)
 	AAMPStatusType status;
 	mPrivateInstanceAAMP->rate = 1.0;
 
-	//For this test case we need ptsrestamp - false and cdai - true 
+	//For this test case we need ptsrestamp - false and cdai - true
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(_))
 		.WillRepeatedly(Invoke([](AAMPConfigSettingBool config) {
 					return config == eAAMPConfig_EnableClientDai;

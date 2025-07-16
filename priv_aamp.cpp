@@ -434,15 +434,15 @@ static MediaTypeTelemetry aamp_GetMediaTypeForTelemetry(AampMediaType type)
  */
 void PrivateInstanceAAMP::UpdateCCTrackInfo(const std::vector<TextTrackInfo>& textTracksCopy, std::vector<CCTrackInfo>& updatedTextTracks)
 {
-    updatedTextTracks.clear(); // Clear the vector to ensure no stale data remains.
+	updatedTextTracks.clear(); // Clear the vector to ensure no stale data remains.
 
-    for (const auto& track : textTracksCopy)
-    {
-        CCTrackInfo ccTrack;
-        ccTrack.language = track.language;
-        ccTrack.instreamId = track.instreamId;
-        updatedTextTracks.push_back(ccTrack);
-    }
+	for (const auto& track : textTracksCopy)
+	{
+		CCTrackInfo ccTrack;
+		ccTrack.language = track.language;
+		ccTrack.instreamId = track.instreamId;
+		updatedTextTracks.push_back(ccTrack);
+	}
 }
 
 /**
@@ -2048,7 +2048,7 @@ void PrivateInstanceAAMP::ReportProgress(bool sync, bool beginningOfStream)
 		//Report Progress report position based on Availability Start Time
 		start = (culledSeconds*1000.0);
 		AAMPLOG_TRACE("position = %fms, start = %fms, ProgressReportOffset = %fms, ReportProgressPosn = %fms",
-                        position, start , (mProgressReportOffset * 1000), mReportProgressPosn);
+						position, start , (mProgressReportOffset * 1000), mReportProgressPosn);
 		if((mProgressReportOffset >= 0) && !IsUninterruptedTSB())
 		{
 			end = (mAbsoluteEndPosition * 1000);
@@ -2499,12 +2499,12 @@ void PrivateInstanceAAMP::SendDrmErrorEvent(DrmMetaDataEventPtr event, bool isRe
 		{
 			char description[128] = {};
 			//When using secmanager the erro_code would not be less than 100
-			if(AAMP_TUNE_LICENCE_REQUEST_FAILED == tuneFailure && (error_code < 100 || ISCONFIGSET_PRIV(eAAMPConfig_UseSecManager)))
+			if(AAMP_TUNE_LICENCE_REQUEST_FAILED == tuneFailure && (error_code < 100 || (ISCONFIGSET_PRIV(eAAMPConfig_UseSecManager) || ISCONFIGSET_PRIV(eAAMPConfig_UseFireboltSDK))))
 			{
 
 				if (isSecClientError)
 				{
-					if(ISCONFIGSET_PRIV(eAAMPConfig_UseSecManager))
+					if(ISCONFIGSET_PRIV(eAAMPConfig_UseSecManager) || ISCONFIGSET_PRIV(eAAMPConfig_UseFireboltSDK))
 					{
 						snprintf(description, MAX_ERROR_DESCRIPTION_LENGTH - 1, "%s : SecManager Error Code %d:%d", tuneFailureMap[tuneFailure].description,error_code, secManagerReasonCode);
 					}
@@ -2691,7 +2691,7 @@ void PrivateInstanceAAMP::SendTuneMetricsEvent(std::string &timeMetricData)
 	// Providing the Tune Timemetric info as an event
 	TuneTimeMetricsEventPtr e = std::make_shared<TuneTimeMetricsEvent>(timeMetricData, GetSessionId());
 
-	AAMPLOG_INFO("PrivateInstanceAAMP: Sending Tune Timemetric info event: %s", e->getTuneMetricsData().c_str());
+	AAMPLOG_INFO("PrivateInstanceAAMP: Sending TuneTimeMetric event: %s", e->getTuneMetricsData().c_str());
 	SendEvent(e,AAMP_EVENT_ASYNC_MODE);
 }
 
@@ -2817,7 +2817,7 @@ void PrivateInstanceAAMP::LicenseRenewal(DrmHelperPtr drmHelper, void* userData)
 	{
 		SendAnomalyEvent(ANOMALY_WARNING, "Failed to renew license as mDrmSessionManager not available");
 		AAMPLOG_ERR("Failed to renew License as no mDrmSessionManager available");
-	        AAMPLOG_ERR("DRM is not supported");
+			AAMPLOG_ERR("DRM is not supported");
 		return;
 	}
 	mDRMLicenseManager->renewLicense(drmHelper, userData, this);
@@ -2956,7 +2956,7 @@ void PrivateInstanceAAMP::NotifySpeedChanged(float rate, bool changeState)
 	{
 		SendEvent(std::make_shared<SpeedChangedEvent>(rate, GetSessionId()),AAMP_EVENT_ASYNC_MODE);
 	}
-	if(ISCONFIGSET_PRIV(eAAMPConfig_UseSecManager))
+	if(ISCONFIGSET_PRIV(eAAMPConfig_UseSecManager) || ISCONFIGSET_PRIV(eAAMPConfig_UseFireboltSDK))
 	{
 		mDRMLicenseManager->setPlaybackSpeedState(IsLive(), GetCurrentLatency(), IsAtLivePoint(), GetLiveOffsetMs(),rate, GetStreamPositionMs());
 	}
@@ -3105,7 +3105,7 @@ bool PrivateInstanceAAMP::ProcessPendingDiscontinuity()
  				}
 			}
 
-			mpStreamAbstractionAAMP->GetStreamFormat(mVideoFormat, mAudioFormat, mAuxFormat, mSubtitleFormat);
+			GetStreamFormat(mVideoFormat, mAudioFormat, mAuxFormat, mSubtitleFormat);
 			StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
 			if (sink)
 			{
@@ -5276,10 +5276,18 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 		SetLocalAAMPTsb(true);
 	}
 	// Local AAMP TSB injection is true if Local AAMP TSB is enabled and TuneHelper() is called for
-	// any reason other than a new tune or seek to live (set rate, seek...)
-	if (!newTune && IsLocalAAMPTsb() && (tuneType != eTUNETYPE_SEEKTOLIVE))
+	// any reason other than a new tune or seek to live (set rate, seek...).
+	// Also, set LocalAAMPTsbInjection to true when tuneType is SEEKTOLIVE and AAMP TSB is not empty
+	// to avoid video freeze in live-pause-live scenario.
+	if (!newTune && IsLocalAAMPTsb() )
 	{
-		SetLocalAAMPTsbInjection(true);
+		AampTSBSessionManager *tsbSessionManager = GetTSBSessionManager();
+
+		if( (tuneType != eTUNETYPE_SEEKTOLIVE) || ( (NULL != tsbSessionManager)
+			&& (tsbSessionManager->GetTotalStoreDuration(eMEDIATYPE_VIDEO) > 0)))
+		{
+			SetLocalAAMPTsbInjection(true);
+		}
 	}
 
 	if (mpStreamAbstractionAAMP)
@@ -5415,7 +5423,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 		*/
 		AAMPLOG_MIL("Updated seek_pos_seconds %f culledSeconds/start %f culledOffset %f", seek_pos_seconds, culledSeconds, culledOffset);
 
-		mpStreamAbstractionAAMP->GetStreamFormat(mVideoFormat, mAudioFormat, mAuxFormat, mSubtitleFormat);
+		GetStreamFormat(mVideoFormat, mAudioFormat, mAuxFormat, mSubtitleFormat);
 		AAMPLOG_INFO("TuneHelper : mVideoFormat %d, mAudioFormat %d mAuxFormat %d", mVideoFormat, mAudioFormat, mAuxFormat);
 
 		//Identify if HLS with mp4 fragments, to change media format
@@ -6109,7 +6117,9 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 	{ // TODO: make mFirstTuneFormat of type MediaFormat
 		mfirstTuneFmt = (int)mMediaFormat;
 	}
-	mCdaiObject = NULL;
+
+	SAFE_DELETE(mCdaiObject);
+	
 	AcquireStreamLock();
 	TuneHelper(tuneType);
 
@@ -7066,7 +7076,7 @@ void PrivateInstanceAAMP::SetVideoMute(bool muted)
 	{
 		sink->SetVideoMute(muted);
 	}
-	if(ISCONFIGSET_PRIV(eAAMPConfig_UseSecManager))
+	if(ISCONFIGSET_PRIV(eAAMPConfig_UseSecManager) || ISCONFIGSET_PRIV(eAAMPConfig_UseFireboltSDK))
 	{
 		mDRMLicenseManager->setVideoMute(IsLive(), GetCurrentLatency(), IsAtLivePoint(), GetLiveOffsetMs(),muted, GetStreamPositionMs());
 	}
@@ -8845,7 +8855,7 @@ void PrivateInstanceAAMP::NotifyFirstBufferProcessed(const std::string& videoRec
 	AAMPLOG_WARN("seek pos %.3f", seek_pos_seconds);
 
 
-	if(ISCONFIGSET_PRIV(eAAMPConfig_UseSecManager))
+	if(ISCONFIGSET_PRIV(eAAMPConfig_UseSecManager) || ISCONFIGSET_PRIV(eAAMPConfig_UseFireboltSDK))
 	{
 		double streamPositionMs = GetStreamPositionMs();
 		mDRMLicenseManager->setVideoMute(IsLive(), GetCurrentLatency(), IsAtLivePoint(), GetLiveOffsetMs(), video_muted, streamPositionMs);
@@ -10040,8 +10050,13 @@ std::string PrivateInstanceAAMP::GetAvailableAudioTracks(bool allTrack)
 			cJSON *root;
 			cJSON *item;
 			root = cJSON_CreateArray();
+			AudioTrackInfo currentTrackInfo;
 			if(root)
 			{
+				if (IsLocalAAMPTsb())
+				{
+					mpStreamAbstractionAAMP->GetCurrentAudioTrack(currentTrackInfo);
+				}
 				for (auto iter = trackInfo.begin(); iter != trackInfo.end(); iter++)
 				{
 					cJSON_AddItemToArray(root, item = cJSON_CreateObject());
@@ -10093,10 +10108,22 @@ std::string PrivateInstanceAAMP::GetAvailableAudioTracks(bool allTrack)
 					{
 						cJSON_AddStringToObject(item, "Type", iter->mType.c_str());
 					}
-
 					cJSON_AddBoolToObject(item, "default", iter->isDefault);
-
-					cJSON_AddBoolToObject(item, "availability", iter->isAvailable);
+					bool isAvailable = iter->isAvailable;
+					if (IsLocalAAMPTsb())
+					{
+						if (iter->index == currentTrackInfo.index)
+						{
+							//Only the current selected audio track is available in AAMP TSB.
+							isAvailable = true;
+						}
+						else
+						{
+							isAvailable = false;
+						}
+						AAMPLOG_INFO("Setting audio track %s isAvailable to %d", iter->index.c_str(), isAvailable);
+					}
+					cJSON_AddBoolToObject(item, "availability", isAvailable);
 					if (!iter->accessibilityItem.getSchemeId().empty())
 					{
 						cJSON *accessibility = cJSON_AddObjectToObject(item, "accessibility");
@@ -10134,17 +10161,22 @@ std::string PrivateInstanceAAMP::GetAvailableTextTracks(bool allTrack)
 
 		std::vector<TextTrackInfo> textTracksCopy;
 		std::copy_if(begin(trackInfo), end(trackInfo), back_inserter(textTracksCopy), [](const TextTrackInfo& e){return e.isCC;});
-        std::vector<CCTrackInfo> updatedTextTracks;
+		std::vector<CCTrackInfo> updatedTextTracks;
 		UpdateCCTrackInfo(textTracksCopy,updatedTextTracks);
-        PlayerCCManager::GetInstance()->updateLastTextTracks(updatedTextTracks);
+		PlayerCCManager::GetInstance()->updateLastTextTracks(updatedTextTracks);
 		if (!trackInfo.empty())
 		{
 			//Convert to JSON format
 			cJSON *root;
 			cJSON *item;
 			root = cJSON_CreateArray();
+			TextTrackInfo currentTrackInfo;
 			if(root)
 			{
+				if (IsLocalAAMPTsb())
+				{
+					mpStreamAbstractionAAMP->GetCurrentTextTrack(currentTrackInfo);
+				}
 				for (auto iter = trackInfo.begin(); iter != trackInfo.end(); iter++)
 				{
 					cJSON_AddItemToArray(root, item = cJSON_CreateObject());
@@ -10192,7 +10224,21 @@ std::string PrivateInstanceAAMP::GetAvailableTextTracks(bool allTrack)
 					{
 						cJSON_AddStringToObject(item, "codec", iter->codec.c_str());
 					}
-					cJSON_AddBoolToObject(item, "availability", iter->isAvailable);
+					bool isAvailable = iter->isAvailable;
+					if (IsLocalAAMPTsb())
+					{
+						if (iter->index == currentTrackInfo.index)
+						{
+							//Only the current selected text track is available in AAMP TSB.
+							isAvailable = true;
+						}
+						else
+						{
+							isAvailable = false;
+						}
+						AAMPLOG_INFO("Setting text track %s isAvailable to %d", iter->index.c_str(), isAvailable);
+					}
+					cJSON_AddBoolToObject(item, "availability", isAvailable);
 					if (!iter->accessibilityItem.getSchemeId().empty())
 					{
 						cJSON *accessibility = cJSON_AddObjectToObject(item, "accessibility");
@@ -11300,7 +11346,7 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 		{
 			if (jsObject->get("languages", inputLanguagesList))
 			{
-				for (auto preferredLanguage : inputLanguagesList)
+				for (const auto& preferredLanguage : inputLanguagesList)
 				{
 					if (!inputLanguagesString.empty())
 					{
@@ -11356,7 +11402,7 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 		{
 			if (jsObject->get("codec", inputCodecList))
 			{
-				for (auto preferredCodec : inputCodecList)
+				for (const auto& preferredCodec : inputCodecList)
 				{
 					if (!inputCodecString.empty())
 					{
@@ -13790,4 +13836,29 @@ double PrivateInstanceAAMP::GetFormatPositionOffsetInMSecs()
 		offset = mProgressReportAvailabilityOffset * 1000;
 	}
 	return offset;
+}
+
+/**
+ *   @brief Get output format of stream.
+ *
+ *   @param[out]  primaryOutputFormat - format of primary track
+ *   @param[out]  audioOutputFormat - format of audio track
+ *   @param[out]  auxAudioOutputFormat - format of aux audio track
+ *   @param[out]  subtitleOutputFormat - format of subtitle  track
+ *   @return void
+ */
+void PrivateInstanceAAMP::GetStreamFormat(StreamOutputFormat &primaryOutputFormat, StreamOutputFormat &audioOutputFormat, StreamOutputFormat &auxAudioOutputFormat, StreamOutputFormat &subtitleOutputFormat)
+{
+	mpStreamAbstractionAAMP->GetStreamFormat(primaryOutputFormat, audioOutputFormat, auxAudioOutputFormat, subtitleOutputFormat);
+
+	// Limiting the change to just Rialto, until the change has been tested on non-Rialto
+	if (ISCONFIGSET_PRIV(eAAMPConfig_useRialtoSink) &&
+	    IsLocalAAMPTsbInjection() &&
+		(rate != AAMP_NORMAL_PLAY_RATE))
+	{
+		audioOutputFormat = FORMAT_INVALID;
+		auxAudioOutputFormat = FORMAT_INVALID;
+		subtitleOutputFormat = FORMAT_INVALID;
+		AAMPLOG_TRACE("aamp->rate %f videoFormat %d audioFormat %d auxFormat %d subFormat %d", rate, primaryOutputFormat, audioOutputFormat, auxAudioOutputFormat, subtitleOutputFormat);
+	}
 }
