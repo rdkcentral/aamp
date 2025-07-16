@@ -11672,8 +11672,13 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 					// CID:280504 - Using invalid iterator
 					for (auto &temp : trackInfo)
 					{
+
+						AAMPLOG_WARN("Neil if (temp.language='%s' == firstLanguage='%s'), && (temp.language='%s' != currentPrefLanguage='%s')", temp.language.c_str(), firstLanguage.c_str(), temp.language.c_str(), currentPrefLanguage.c_str());
+
 						if ((temp.language == firstLanguage) && (temp.language != currentPrefLanguage))
 						{
+							AAMPLOG_WARN("Neil languagePresent = true (1)");
+
 							languagePresent = true;
 							if (trackIndexStr.empty())
 							{
@@ -11687,9 +11692,13 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 							}
 						}
 					}
+						AAMPLOG_WARN("Neil referredLanguagesList.size(%zu) > 1 ", preferredLanguagesList.size());
+
 
 					if (preferredLanguagesList.size() > 1)
 					{
+							AAMPLOG_WARN("Neil languagePresent = true (2)");
+
 						/* If multiple value of language is present then retune */
 						languagePresent = true;
 					}
@@ -11829,7 +11838,7 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 			}
 			else if (languagePresent || renditionPresent || accessibilityTypePresent || codecPresent || labelPresent || accessibilityPresent || namePresent || clearPreference) // call the tune only if there is a change in the language, rendition or accessibility.
 			{
-				AAMPLOG_WARN("NEIL Retuning on pref change: lang=%d, rend=%d, accessType=%d, codec=%d, label=%d, access=%d, name=%d, clear=%d",
+				AAMPLOG_WARN("NEIL Whats true?: lang=%d, rend=%d, accessType=%d, codec=%d, label=%d, access=%d, name=%d, clear=%d",
     languagePresent, renditionPresent, accessibilityTypePresent, codecPresent, labelPresent, accessibilityPresent, namePresent, clearPreference);
 				
 		if(!ISCONFIGSET_PRIV(eAAMPConfig_ChangeTrackWithoutRetune))
