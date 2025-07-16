@@ -50,7 +50,6 @@ pkg_check_modules(LIBDASH REQUIRED libdash)
 pkg_check_modules(OPENSSL REQUIRED openssl)
 pkg_check_modules(LIBCJSON REQUIRED libcjson)
 pkg_check_modules(UUID REQUIRED uuid)
-set(CMAKE_TOOLCHAIN_FILE "/Users/ryadav819@cable.comcast.com/Documents/vcpkg/scripts/buildsystems/vcpkg.cmake")
 
 if(APPLE)
 	# libcurl < 8.5 exhibits memory leaks. On Ubuntu 22.04 can't update beyond 7.81.0-1ubuntu1.16 without building from source
@@ -79,10 +78,6 @@ if(APPLE)
 	# which point to directories outside the build tree to the install RPATH
 	set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
 endif()
-
-include_directories(/usr/local/include)
-link_directories(/usr/local/lib)
-
 
 #update XCode scheme flags, harmless for non Darwin builds
 set (CMAKE_CODE_GENERATE_SCHEME TRUE)
@@ -202,11 +197,13 @@ if (CMAKE_INBUILT_AAMP_DEPENDENCIES)
 	message("Building aamp support libraries")
 	include_directories(support/aampabr)
 	include_directories(support/aampmetrics)
+	include_directories(support/uWebSockets)
 
 	add_subdirectory(support/aampabr)
 	add_subdirectory(support/aampmetrics)
+	add_subdirectory(support/uWebSockets)
 	add_subdirectory(plugins/gst-plugins-rdk-aamp)
-	set(LIBAAMP_DEPENDS ${LIBAAMP_DEPENDS} abr metrics)
+	set(LIBAAMP_DEPENDS ${LIBAAMP_DEPENDS} abr metrics uWebSockets)
 endif()
 
 message("Adding tsb folder")
@@ -416,9 +413,6 @@ set(LIBAAMP_DRM_SOURCES
 	middleware/drm/HlsOcdmBridgeInterface.cpp
 )
 
-set(USOCKETS_ROOT /Users/ryadav819@cable.comcast.com/Documents/uSockets) # Temporary hack
-include_directories(${USOCKETS_ROOT}/include)
-
 if(CMAKE_USE_THUNDER_OCDM_API_0_2)
 	set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DUSE_THUNDER_OCDM_API_0_2")
 endif()
@@ -611,10 +605,7 @@ set(AAMP_CLI_SOURCES
 
 
 add_executable(aamp-cli ${AAMP_CLI_SOURCES})
-target_include_directories( aamp-cli PRIVATE
-    /Users/ryadav819@cable.comcast.com/Documents/uWebSockets/src
-    /Users/ryadav819@cable.comcast.com/Documents/uWebSockets/uSockets/src
-)
+
 target_link_libraries(aamp-cli
     aamp
     subtec
@@ -627,7 +618,6 @@ target_link_libraries(aamp-cli
     ssl
     crypto
     z
-    /Users/ryadav819@cable.comcast.com/Documents/uWebSockets/uSockets/uSockets.a # Temporary hack
 )
 
 

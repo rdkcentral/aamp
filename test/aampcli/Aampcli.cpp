@@ -22,7 +22,7 @@
  * @brief Stand alone AAMP player with command line interface.
  */
 
-#include <uWebSockets/App.h>
+#include <App.h>
 #include <thread>
 #include <atomic>
 #include <iostream>
