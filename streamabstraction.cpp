@@ -1069,6 +1069,10 @@ bool MediaTrack::ProcessFragmentChunk()
 		}
 		if (type != eTRACK_SUBTITLE || (aamp->IsGstreamerSubsEnabled()))
 		{
+			if( ISCONFIGSET(eAAMPConfig_CurlThroughput) )
+			{
+				AAMPLOG_MIL( "curl-inject type=%d", type );
+			}
 			AAMPLOG_INFO("Injecting chunk for %s br=%d,chunksize=%zu fpts=%f fduration=%f",name,bandwidthBitsPerSecond,parsedBufferChunk.GetLen(),fpts,fduration);
 			InjectFragmentChunkInternal((AampMediaType)type,&parsedBufferChunk , fpts, fpts, fduration, cachedFragment->PTSOffsetSec);
 			totalInjectedChunksDuration += fduration;
@@ -1295,6 +1299,7 @@ std::string MediaTrack::RestampSubtitle( const char* buffer, size_t bufferLen, d
 	{
 		str = std::string(buffer,bufferLen);
 	}
+	printf( "***restamped caption: %s\n", str.c_str() );
 	return str;
 }
 
@@ -1351,10 +1356,9 @@ void MediaTrack::ProcessAndInjectFragment(CachedFragment *cachedFragment, bool f
 			}
 		}
 		else if (ISCONFIGSET(eAAMPConfig_OverrideMediaHeaderDuration) &&
-			(eMEDIAFORMAT_DASH == aamp->mMediaFormat) &&
-			(aamp->IsLive()))
+			(eMEDIAFORMAT_DASH == aamp->mMediaFormat))
 		{
-			// Only for Live and DASH streams
+			// Only for DASH streams
 			ClearMediaHeaderDuration(cachedFragment);
 		}
 		if ((mSubtitleParser || (aamp->IsGstreamerSubsEnabled())) && type == eTRACK_SUBTITLE)
@@ -1640,8 +1644,8 @@ void MediaTrack::NotifyCachedSubtitleFragmentAvailable()
  */
 void MediaTrack::RunInjectLoop()
 {
-	AAMPLOG_WARN("fragment injector started. track %s", name);
 	UsingPlayerId playerId( aamp->mPlayerId );
+	AAMPLOG_WARN("fragment injector started. track %s", name);
 
 	bool notifyFirstFragment = true;
 	bool keepInjecting = true;
@@ -4464,7 +4468,7 @@ double MediaTrack::GetTotalInjectedDuration()
 {
 	std::lock_guard<std::mutex> lock(mTrackParamsMutex);
 	double ret = totalInjectedDuration;
-	if (IsInjectionFromCachedFragmentChunks())
+	if (aamp->GetLLDashChunkMode())
 	{
 		ret = totalInjectedChunksDuration;
 	}

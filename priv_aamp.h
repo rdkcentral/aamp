@@ -25,7 +25,6 @@
 #ifndef PRIVAAMP_H
 #define PRIVAAMP_H
 
-#include "AampMemoryUtils.h"
 #include "AampProfiler.h"
 #include "DrmHelper.h"
 #include "DrmMediaFormat.h"
@@ -621,7 +620,7 @@ public:
 	 * @fn TeardownStream
 	 *
 	 * @param[in] newTune - true if operation is a new tune
-	 * @param[in] newTune - true if downwnload need to be disabled
+	 * @param[in] newTune - true if downloads need to be disabled
 	 * @return void
 	 */
 	void TeardownStream( bool newTune, bool disableDownloads = false );
@@ -1622,11 +1621,10 @@ public:
 
 	/**
 	 *   @fn ReportAdProgress
-	 *   @param[in]  sync - Flag to indicate that event should be synchronous
 	 *   @param[in]  positionMs - Position value in milliseconds
 	 *   @return void
 	 */
-	void ReportAdProgress(bool sync = true, double positionMs = -1);
+	void ReportAdProgress(double positionMs = -1);
 
 	/**
 	 *   @fn GetDurationMs
@@ -1731,10 +1729,10 @@ public:
 
 	/**
 	 * @fn Stop
-	 * @param pass sendStateChangeEvents if state change events should be generated during transition
+	 *
 	 * @return void
 	 */
-	void Stop( bool sendStateChangeEvents );
+	void Stop(void);
 
 	/**
 	 * @brief Checking whether TSB enabled or not
@@ -2229,7 +2227,7 @@ public:
 	 *   @param[in] state - New state
 	 *   @return void
 	 */
-	void SetState( AAMPPlayerState state, bool generateEvent=true );
+	void SetState(AAMPPlayerState state);
 
 	/**
 	 *   @fn GetState
@@ -2496,7 +2494,6 @@ public:
 	 */
 	void setCurrentDrm(DrmHelperPtr drm) { mCurrentDrm = drm; }
 
-#if defined(USE_SECCLIENT) || defined(USE_SECMANAGER)
 	/**
 	 * @fn GetMoneyTraceString
 	 * @param[out] customHeader - Generated moneytrace is stored
@@ -2504,7 +2501,6 @@ public:
 	 * @return void
 	 */
 	void GetMoneyTraceString(std::string &) const;
-#endif /* USE_SECCLIENT */
 
 	/**
 	 *   @fn NotifyFirstFragmentDecrypted
@@ -3867,13 +3863,13 @@ public:
 	void SetPauseOnStartPlayback(bool enable);
 
 	/**
-	 * @brief Send MonitorAVEvent
+	 * @brief Send MonitorAvEvent
 	 * @param[in] status - Current MonitorAV status
 	 * @param[in] videoPositionMS - video position in milliseconds
 	 * @param[in] audioPositionMS - audio position in milliseconds
 	 * @param[in] timeInStateMS - time in state in milliseconds
 	 */
-	void SendMonitorAVEvent(const std::string &status, int64_t videoPositionMS, int64_t audioPositionMS, uint64_t timeInStateMS);
+	void SendMonitorAvEvent(const std::string &status, int64_t videoPositionMS, int64_t audioPositionMS, uint64_t timeInStateMS);
 
 	/**
 	 * @brief Determines if decrypt should be called on clear samples
@@ -3889,7 +3885,6 @@ public:
 	 * @return A constant character pointer to the error string corresponding to the provided error type.
 	 */
 	const char* getStringForPlaybackError(PlaybackErrorType errorType);
-	bool mPausePositionMonitoringThreadStarted; // Flag to indicate PausePositionMonitoring thread started
 
 	/**
 	 *	@fn CalculateTrickModePositionEOS
@@ -3907,6 +3902,13 @@ public:
 	 * @retval current live play position of the stream in seconds.
 	 */
 	 double GetLivePlayPosition(void);
+	
+	/**
+	 * @fn GetFormatPositionOffsetInMSecs
+	 * @brief API to get the offset value in msecs for the position values to be reported.
+	 * @return Offset value in msecs
+	 */
+	double GetFormatPositionOffsetInMSecs();
 
 protected:
 
@@ -4034,6 +4036,7 @@ protected:
 	std::mutex mPausePositionMonitorMutex;				// Mutex lock for PausePosition condition variable
 	std::condition_variable mPausePositionMonitorCV;	// Condition Variable to signal to stop PausePosition monitoring
     std::thread mPausePositionMonitoringThreadID;			// Thread Id of the PausePositionMonitoring thread
+	bool mPausePositionMonitoringThreadStarted;			// Flag to indicate PausePositionMonitoring thread started
 	TuneType mTuneType;
 	int m_fd;
 	bool mIsLive;				// Flag to indicate manifest type.

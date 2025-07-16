@@ -55,7 +55,7 @@ TestUtilDrm::TestUtilDrm(PrivateInstanceAAMP* privAamp)
 
 TestUtilDrm::~TestUtilDrm()
 {
-	mLicenseManager->mDRMSessionManager->clearSessionData();
+	mLicenseManager->mDrmSessionManager->clearSessionData();
 }
 
 AampDRMLicenseManager* TestUtilDrm::getSessionManager()
@@ -63,7 +63,7 @@ AampDRMLicenseManager* TestUtilDrm::getSessionManager()
 	return mLicenseManager.get();
 }
 
-#ifdef USE_OPENCDM
+#ifdef USE_OPENCDM_ADAPTER
 DrmSession* TestUtilDrm::createDrmSessionForHelper(DrmHelperPtr drmHelper,
 													   const char* keySystem)
 {
@@ -168,7 +168,7 @@ void TestUtilDrm::setupChallengeCallbacksForExternalLicense()
 
 	MockOpenCdmSetCallbacks(callbacks, nullptr);
 }
-#endif /* USE_OPENCDM */
+#endif /* USE_OPENCDM_ADAPTER */
 
 DrmMetaDataEventPtr TestUtilDrm::createDrmMetaDataEvent()
 {

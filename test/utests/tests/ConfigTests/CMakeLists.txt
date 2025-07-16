@@ -26,8 +26,11 @@ include_directories(${AAMP_ROOT} ${AAMP_ROOT}/downloader ${AAMP_ROOT}/drm ${AAMP
 include_directories(${AAMP_ROOT}/tsb/api)
 include_directories(${AAMP_ROOT}/middleware)
 include_directories(${AAMP_ROOT}/middleware/subtec/libsubtec)
-include_directories(${AAMP_ROOT}/externals)
+include_directories(${AAMP_ROOT}/middleware/externals)
 include_directories(${AAMP_ROOT}/tsb/api ${AAMP_ROOT}/middleware)
+include_directories(${AAMP_ROOT}/middleware/baseConversion)
+include_directories(${AAMP_ROOT}/middleware/externals/playersecmanager)
+include_directories(${AAMP_ROOT}/middleware/playerLogManager)
 
 include_directories(${LIBCJSON_INCLUDE_DIRS})
 include_directories(${GTEST_INCLUDE_DIRS})

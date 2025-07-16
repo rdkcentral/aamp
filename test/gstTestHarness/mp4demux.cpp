@@ -56,7 +56,7 @@ uint64_t mp4_AdjustMediaDecodeTime( uint8_t *ptr, size_t len, int64_t pts_restam
 	{
 		uint8_t *next = ptr + READ_U32(ptr);
 		uint32_t type = READ_U32(ptr);
-		if( type == 'tfdt' ) // Track Fragment Base Media Decode Time Box
+		if( type == MultiChar_Constant("tfdt") ) // Track Fragment Base Media Decode Time Box
 		{
 			uint8_t version = READ_VERSION(ptr);
 			int sz = (version==1)?8:4;
@@ -72,15 +72,15 @@ uint64_t mp4_AdjustMediaDecodeTime( uint8_t *ptr, size_t len, int64_t pts_restam
 		{ // walk children
 			switch( type )
 			{
-				case 'traf': // Track Fragment Box
-				case 'moov': // Movie Box
-				case 'trak': // Track Box
-				case 'minf': // Media Information Box
-				case 'dinf': // Data Information Box
-				case 'stbl': // Sample Table Box
-				case 'mvex': // Movie Extends Box
-				case 'moof': // Movie Fragment Boxes
-				case 'mdia': // Media Box
+				case MultiChar_Constant("traf"): // Track Fragment Box
+				case MultiChar_Constant("moov"): // Movie Box
+				case MultiChar_Constant("trak"): // Track Box
+				case MultiChar_Constant("minf"): // Media Information Box
+				case MultiChar_Constant("dinf"): // Data Information Box
+				case MultiChar_Constant("stbl"): // Sample Table Box
+				case MultiChar_Constant("mvex"):// Movie Extends Box
+				case MultiChar_Constant("moof"): // Movie Fragment Boxes
+				case MultiChar_Constant("mdia"): // Media Box
 					baseMediaDecodeTime = mp4_AdjustMediaDecodeTime( ptr, next-ptr, pts_restamp_delta );
 					break;
 					

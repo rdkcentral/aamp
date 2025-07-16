@@ -31,7 +31,8 @@
 #include "DrmHelper.h"
 #include "StreamAbstractionAAMP.h"
 #include "AampStreamSinkManager.h"
-#include "PlayerIarmRfcInterface.h"
+#include "PlayerExternalsInterface.h"
+#include "PlayerLogManager.h"
 #include "PlayerMetadata.hpp"
 #include "PlayerLogManager.h"
 
@@ -42,9 +43,7 @@
 
 AampConfig *gpGlobalConfig=NULL;
 
-#ifdef USE_SECMANAGER
-#include "AampSecManager.h"
-#endif
+#include "PlayerSecManager.h"
 
 std::mutex PlayerInstanceAAMP::mPrvAampMtx;
 
@@ -64,7 +63,7 @@ PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink
 
 			snprintf(processName, sizeof(processName), "PLAYER-%u", getpid());
 
-			PlayerIarmRfcInterface::IARMInit(processName);
+			PlayerExternalsInterface::IARMInit(processName);
 
 
 			iarmInitialized = true;
@@ -116,7 +115,9 @@ PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink
 
 	// sd_journal logging doesn't work with AAMP/Rialto running in Container, so route to Ethan Logger instead
 	AampLogManager::enableEthanLogRedirection = mConfig.IsConfigSet(eAAMPConfig_useRialtoSink);
+
 	PlayerLogManager::SetLoggerInfo(AampLogManager::disableLogRedirection, AampLogManager::enableEthanLogRedirection, AampLogManager::aampLoglevel, AampLogManager::locked);
+	
 	sp_aamp = std::make_shared<PrivateInstanceAAMP>(&mConfig);
 	aamp = sp_aamp.get();
 	UsingPlayerId playerId(aamp->mPlayerId);
@@ -180,8 +181,9 @@ PlayerInstanceAAMP::~PlayerInstanceAAMP()
 		// Remove all the tasks
 		mScheduler.RemoveAllTasks();
 		if (state != eSTATE_IDLE && state != eSTATE_RELEASED)
-		{ // release resources if actively streaming
-			aamp->Stop( false );
+		{
+			//Avoid stop call since already stopped
+			aamp->Stop();
 		}
 
 		std::lock_guard<std::mutex> lock (mPrvAampMtx);
@@ -205,12 +207,10 @@ PlayerInstanceAAMP::~PlayerInstanceAAMP()
 		dlclose(mJSBinding_DL);
 	}
 #endif
-#ifdef USE_SECMANAGER
 	if (isLastPlayerInstance)
 	{
-		AampSecManager::DestroyInstance();
+		PlayerSecManager::DestroyInstance();
 	}
-#endif
 	if (isLastPlayerInstance && gpGlobalConfig)
 	{
 		AAMPLOG_WARN("[%p] Release GlobalConfig(%p)",this,gpGlobalConfig);
@@ -236,7 +236,7 @@ void PlayerInstanceAAMP::ResetConfiguration()
 /**
  *  @brief Stop playback and release resources.
  */
-void PlayerInstanceAAMP::Stop(void)
+void PlayerInstanceAAMP::Stop(bool sendStateChangeEvent)
 {
 	if (aamp)
 	{
@@ -252,8 +252,8 @@ void PlayerInstanceAAMP::Stop(void)
 
 		//state will be eSTATE_IDLE or eSTATE_RELEASED, right after an init or post-processing of a Stop call
 		if (state != eSTATE_IDLE && state != eSTATE_RELEASED)
-		{ // stop in-progress tune and generate state change events
-			aamp->Stop(true);
+		{
+			StopInternal(sendStateChangeEvent);
 		}
 
 		//Release lock
@@ -285,13 +285,6 @@ void PlayerInstanceAAMP::Tune(const char *mainManifestUrl,
 								const char *manifestData
 								)
 {
-	AAMPPlayerState state = aamp->GetState();
-	if (state == eSTATE_RELEASED)
-	{
-		// If already released instance is reused for fresh Tune, set it to IDLE to avoid scheduling issue.
-		aamp->SetState(eSTATE_IDLE, false);
-		AAMPLOG_DEBUG("Reusing released player instance for fresh Tune, STATE set to %d", aamp->GetState());
-	}
 	ManageAsyncTuneConfig(mainManifestUrl);
 	if(mAsyncTuneEnabled)
 	{
@@ -357,7 +350,7 @@ void PlayerInstanceAAMP::TuneInternal(const char *mainManifestUrl,
 		if ((state != eSTATE_IDLE) && (state != eSTATE_RELEASED) && (!IsOTAtoOTA))
 		{
 			//Calling tune without closing previous tune
-			aamp->Stop(false);
+			StopInternal(false);
 		}
 		aamp->getAampCacheHandler()->StartPlaylistCache();
 		aamp->Tune(mainManifestUrl, autoPlay, contentType, bFirstAttempt, bFinalAttempt, traceUUID, audioDecoderStreamSync, refreshManifestUrl, mpdStitchingMode, std::move(sid),manifestData);
@@ -790,10 +783,15 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 				aamp->NotifySpeedChanged(rate, false);
 				return;
 			}
+			// Adjusting the play/pause position value
+			double offset = aamp->GetFormatPositionOffsetInMSecs();
+			double formattedCurrPos = aamp->GetPositionMilliseconds() - offset;
+			double formattedSeekPos = (aamp->seek_pos_seconds * 1000.0) - offset;
 
-			AAMPLOG_WARN("aamp_SetRate (%f)overshoot(%d) ProgressReportDelta:(%d) ", rate,overshootcorrection,timeDeltaFromProgReport);
-			AAMPLOG_WARN("aamp_SetRate rate(%f)->(%f) cur pipeline: %s. Adj position: %f Play/Pause Position:%lld", aamp->rate,rate,aamp->pipeline_paused ? "paused" : "playing",aamp->seek_pos_seconds,aamp->GetPositionMilliseconds()); // current position relative to tune time
-
+			AAMPLOG_WARN("aamp_SetRate (%f)overshoot(%d) ProgressReportDelta:(%d) ", rate, overshootcorrection, timeDeltaFromProgReport);
+			AAMPLOG_WARN("aamp_SetRate rate(%f)->(%f) cur pipeline: %s. Adj position: %f Play/Pause Position:%lld",
+					aamp->rate, rate,aamp->pipeline_paused ? "paused" : "playing", formattedSeekPos, (static_cast<long long int>(formattedCurrPos)));
+			
 			if (!aamp->mSeekFromPausedState && (rate == aamp->rate) && !aamp->mbDetached)
 			{ // no change in desired play rate
 				// no deferring for playback resume
@@ -3101,6 +3099,37 @@ void PlayerInstanceAAMP::AsyncStartStop()
 void PlayerInstanceAAMP::PersistBitRateOverSeek(bool bValue)
 {
 	SETCONFIGVALUE(AAMP_APPLICATION_SETTING,eAAMPConfig_PersistentBitRateOverSeek,bValue);
+}
+
+
+/**
+ *  @brief Stop playback and release resources.
+ */
+void PlayerInstanceAAMP::StopInternal(bool sendStateChangeEvent)
+{
+	aamp->StopPausePositionMonitoring("Stop() called");
+
+	AAMPPlayerState state = aamp->GetState();
+	if(!aamp->IsTuneCompleted())
+	{
+		aamp->TuneFail(true);
+
+	}
+
+	AAMPLOG_WARN("aamp_stop PlayerState=%d",state);
+
+	if (sendStateChangeEvent)
+	{
+		aamp->SetState(eSTATE_IDLE);
+	}
+
+	AAMPLOG_WARN("%s PLAYER[%d] Stopping Playback at Position %lld", (aamp->mbPlayEnabled?STRFGPLAYER:STRBGPLAYER), aamp->mPlayerId, aamp->GetPositionMilliseconds());
+	aamp->Stop();
+	// Revert all custom specific setting, tune specific setting and stream specific setting , back to App/default setting
+	mConfig.RestoreConfiguration(AAMP_CUSTOM_DEV_CFG_SETTING);
+	mConfig.RestoreConfiguration(AAMP_TUNE_SETTING);
+	mConfig.RestoreConfiguration(AAMP_STREAM_SETTING);
+	aamp->mIsStream4K = false;
 }
 
 /**
