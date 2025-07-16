@@ -157,6 +157,11 @@ protected:
 		{
 			InitializeWorkers();
 		}
+
+		MediaStreamContext *GetMediaStreamContext(AampMediaType type)
+		{
+			return mMediaStreamContext[type];
+		}
 	};
 
 	PrivateInstanceAAMP *mPrivateInstanceAAMP;
@@ -529,6 +534,58 @@ public:
 		return mTestableStreamAbstractionAAMP_MPD->PushNextFragment(pMediaStreamContext, 0);
 	}
 };
+
+/**
+ * @brief Test manifest refresh behavior after a fragment skip.
+ *
+ * The test verifies that after a fragment download is skipped (fails), and the manifest is refreshed,
+ * the next fragment is still fetched as expected.
+ */
+TEST_F(FetcherLoopTests, ManifestRefreshAfterFragmentSkip)
+{
+	std::string fragmentUrl;
+	AAMPStatusType status;
+	mPrivateInstanceAAMP->rate = AAMP_NORMAL_PLAY_RATE;
+	bool ret = false;
+	/* Initialize MPD. The video initialization segment is cached. */
+	fragmentUrl = std::string(TEST_BASE_URL) + std::string("video_p1_init.mp4");
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _, _, _))
+		.Times(1)
+		.WillOnce(Return(true));
+	status = InitializeMPD(mLiveManifest);
+	EXPECT_EQ(status, eAAMPSTATUS_OK);
+
+	// Download the first segment
+	fragmentUrl = std::string(TEST_BASE_URL) + std::string("video_p1_8.m4s");
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, false, _, _, _, _, _))
+		.WillOnce(Return(true));
+	ret = PushNextFragment(eTRACK_VIDEO);
+	EXPECT_EQ(ret, true);
+
+	// Error in the next segment
+	fragmentUrl = std::string(TEST_BASE_URL) + std::string("video_p1_9.m4s");
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, false, _, _, _, _, _))
+		.WillOnce(Return(false));
+	ret = PushNextFragment(eTRACK_VIDEO);
+	EXPECT_EQ(ret, false);
+
+	// Invoke UpdateMPD to mimic a playlist refresh, it will internally call UpdateTrackInfo and reset all variables
+	mResponse->mMPDInstance.reset();
+	mTestableStreamAbstractionAAMP_MPD->InvokeUpdateMPD(false);
+
+	// Now even after resetting the variables, the next segment should be fetched
+	fragmentUrl = std::string(TEST_BASE_URL) + std::string("video_p1_10.m4s");
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, false, _, _, _, _, _))
+		.WillOnce(Return(true));
+	// Call PushNextFragment to update variables back to the next segment
+	ret = PushNextFragment(eTRACK_VIDEO);
+	// Now go for the next segment, it should return false
+	ret = PushNextFragment(eTRACK_VIDEO);
+	EXPECT_EQ(ret, true);
+
+	MediaStreamContext *pMediaStreamContext = mTestableStreamAbstractionAAMP_MPD->GetMediaStreamContext(eMEDIATYPE_VIDEO);
+	EXPECT_EQ(pMediaStreamContext->fragmentTime, pMediaStreamContext->lastDownloadedPosition.load());
+}
 
 /**
  * @brief SelectSourceOrAdPeriod tests.
