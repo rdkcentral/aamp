@@ -1097,6 +1097,7 @@ void PlaybackCommand::parse( const char *path )
 					if( rc == len )
 					{
 						auto mp4Demux = new Mp4Demux(true);
+						// coverity[TAINTED_SCALAR]:SUPPRESS
 						mp4Demux->Parse(ptr,len);
 						delete mp4Demux;
 					}
