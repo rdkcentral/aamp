@@ -29,6 +29,7 @@
 #include <string>
 #include <gst/app/gstappsrc.h>
 
+#define INDENT() &"\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t"[indent]
 #define PRINTF(fmt,...) if( verbose ) printf(fmt,##__VA_ARGS__)
 
 // convert multi-character constants like 'cenc' to equivalent 32 bit integer - pass as four character string
@@ -179,7 +180,7 @@ private:
 		ReadHeader();
 		scheme_type = ReadU32(); // 'cenc' or 'cbcs'
 		scheme_version = ReadU32();
-		PRINTF( "scheme_version=0x%x\n", scheme_version );
+		PRINTF( "%sscheme_version=0x%x\n", INDENT(), scheme_version );
 	}
 	
 	void parseTrackEncryptionBox( void )
@@ -219,7 +220,7 @@ private:
 										   ptr[0x0], ptr[0x1], ptr[0x2], ptr[0x3], ptr[0x4], ptr[0x5], ptr[0x6], ptr[0x7],
 										   ptr[0x8], ptr[0x9], ptr[0xa], ptr[0xb], ptr[0xc], ptr[0xd], ptr[0xe], ptr[0xf] );
 		ptr += 16;
-		PRINTF( "system_id: '%s'\n", system_id );
+		PRINTF( "%ssystem_id: '%s'\n", INDENT(), system_id );
 		
 		size_t pssh_size = next - ptr;
 		GstBuffer *pssh = gst_buffer_new_memdup(ptr, pssh_size);
@@ -237,16 +238,21 @@ private:
 		size_t sample_count = cenc_aux_info_sizes.size();
 		if( sample_count && got_auxiliary_information_offset )
 		{
-			PRINTF( "auxiliary_information:\n" );
+			PRINTF( "%sauxiliary_information\n", INDENT() );
 			const uint8_t *src = moof_ptr + auxiliary_information_offset;
 			for( int i=0; i<cenc_aux_info_sizes.size(); i++ )
 			{
 				int sz = cenc_aux_info_sizes[i];
-				for( int j=0; j<sz; j++ )
+				if( verbose )
 				{
-					PRINTF( " %02x", *src++ );
+					PRINTF( "%s", INDENT() );
+					for( int j=0; j<sz; j++ )
+					{
+						PRINTF( "%02x", src[j] );
+					}
+					PRINTF( "\n" );
 				}
-				PRINTF( "\n" );
+				src += sz;
 			}
 		}
 	}
@@ -277,11 +283,18 @@ private:
 		{
 			for( int i=0; i<sampleCount; i++ )
 			{
-				uint8_t sz = *ptr++;
-				cenc_aux_info_sizes.push_back(sz);
-				PRINTF( " %02x", sz );
+				cenc_aux_info_sizes.push_back(ptr[i]);
 			}
-			PRINTF( "\n" );
+			ptr += sampleCount;
+			if( verbose )
+			{
+				PRINTF( "%s", INDENT() );
+				for( int i=0; i<sampleCount; i++ )
+				{
+					PRINTF( " %02x", cenc_aux_info_sizes[i] );
+				}
+				PRINTF( "\n" );
+			}
 		}
 		process_auxiliary_information();
 	}
@@ -318,7 +331,7 @@ private:
 		{
 			auxiliary_information_offset = ReadU64();
 		}
-		printf( "auxiliary_information_offset = 0x%" PRIu64 "\n", auxiliary_information_offset );
+		PRINTF( "%sauxiliary_information_offset = 0x%" PRIu64 "\n", INDENT(), auxiliary_information_offset );
 		got_auxiliary_information_offset = true;
 		process_auxiliary_information();
 	}
@@ -333,10 +346,14 @@ private:
 			if( iv_size )
 			{
 				samples[iSample].iv = std::string((char *)ptr,iv_size);
-				PRINTF( "\t" );
-				for( int i=0; i<iv_size; i++ )
+				if( verbose )
 				{
-					PRINTF( " %02x", ptr[i] );
+					PRINTF( "%s", INDENT() );
+					for( int i=0; i<iv_size; i++ )
+					{
+						PRINTF( " %02x", ptr[i] );
+					}
+					PRINTF("\n");
 				}
 				ptr += iv_size;
 			}
@@ -346,16 +363,16 @@ private:
 				uint16_t n_subsamples = ReadU16();
 				size_t subsamples_size = n_subsamples * 6;
 				samples[iSample].subsamples = std::string((char *)ptr,subsamples_size);
-				for( int i=0; i<subsamples_size; i++ )
+				if( verbose )
 				{
-					PRINTF( " %02x", ptr[i] );
+					PRINTF( "%s", INDENT() );
+					for( int i=0; i<subsamples_size; i++ )
+					{
+						PRINTF( " %02x", ptr[i] );
+					}
+					PRINTF("\n");
 				}
 				ptr += subsamples_size;
-				PRINTF("\n");
-			}
-			else if( iv_size )
-			{
-				PRINTF("\n");
 			}
 		}
 	}
@@ -364,39 +381,40 @@ private:
 	{
 		ReadHeader();
 		uint32_t sequence_number = ReadU32();
-		(void)sequence_number;
-		PRINTF( "sequence_number=%" PRIu32 "\n", sequence_number );
+		PRINTF( "%ssequence_number=%" PRIu32 "\n", INDENT(), sequence_number );
 	}
 	
 	void parseTrackFragmentHeaderBox( void )
 	{
 		ReadHeader();
 		track_id = ReadU32();
-		PRINTF( "track_id=%" PRIu32 "\n", track_id );
+		PRINTF( "%strack_id=%" PRIu32 "\n", INDENT(), track_id );
 		if (flags & 0x00001)
 		{
 			base_data_offset = ReadU64();
-			PRINTF( "base_data_offset=%" PRIu64 "\n", base_data_offset );
+			PRINTF( "%sbase_data_offset=%" PRIu64 "\n", INDENT(), base_data_offset );
 		}
 		if (flags & 0x00002)
 		{
 			default_sample_description_index = ReadU32();
-			PRINTF( "default_sample_description_index=%" PRIu32 "\n", default_sample_description_index );
+			PRINTF( "%sdefault_sample_description_index=%" PRIu32 "\n", INDENT(), default_sample_description_index );
 		}
 		if (flags & 0x00008)
 		{
 			default_sample_duration = ReadU32();
-			PRINTF( "default_sample_duration=%" PRIu32 "\n", default_sample_duration );
+			INDENT();
+			PRINTF( "%sdefault_sample_duration=%" PRIu32 "\n", INDENT(), default_sample_duration );
 		}
 		if (flags & 0x00010)
 		{
 			default_sample_size = ReadU32();
-			PRINTF( "default_sample_size=%" PRIu32 "\n", default_sample_size );
+			PRINTF( "%sdefault_sample_size=%" PRIu32 "\n", INDENT(), default_sample_size );
 		}
 		if (flags & 0x00020)
 		{
 			default_sample_flags = ReadU32();
-			PRINTF( "default_sample_flags=%" PRIu32 "\n", default_sample_flags );
+			INDENT();
+			PRINTF( "%sdefault_sample_flags=%" PRIu32 "\n", INDENT(), default_sample_flags );
 		}
 	}
 	
@@ -405,20 +423,20 @@ private:
 		ReadHeader();
 		int sz = (version==1)?8:4;
 		baseMediaDecodeTime  = ReadBytes(sz);
-		PRINTF( "baseMediaDecodeTime: %" PRIu64 "\n", baseMediaDecodeTime );
+		PRINTF( "%sbaseMediaDecodeTime: %" PRIu64 "\n", INDENT(), baseMediaDecodeTime );
 	}
 	
 	void parseTrackFragmentRunBox( void )
 	{
 		ReadHeader();
 		uint32_t sample_count = ReadU32();
-		PRINTF( "sample_number=%" PRIu32 "\n", sample_count );
+		PRINTF( "%ssample_number=%" PRIu32 "\n", INDENT(), sample_count );
 		const unsigned char *data_ptr = moof_ptr;
 		//0xE01
 		if( flags & 0x0001 )
 		{ // offset from start of Moof box field
 			int32_t data_offset = ReadI32();
-			PRINTF( "data_offset=%" PRIu32 "\n", data_offset );
+			PRINTF( "%sdata_offset=%" PRIu32 "\n", INDENT(), data_offset );
 			data_ptr += data_offset;
 		}
 		else
@@ -429,8 +447,7 @@ private:
 		if(flags & 0x0004)
 		{
 			sample_flags = ReadU32();
-			(void)sample_flags;
-			PRINTF( "first_sample_flags=0x%" PRIx32 "\n", sample_flags );
+			PRINTF( "%sfirst_sample_flags=0x%" PRIx32 "\n", INDENT(), sample_flags );
 		}
 		uint64_t dts = baseMediaDecodeTime;
 		for( unsigned int i=0; i<sample_count; i++ )
@@ -441,38 +458,38 @@ private:
 			sample.pts = 0.0;
 			sample.dts = 0.0;
 			sample.duration = 0.0;
-			PRINTF( "[FRAME] %d\n", i );
+			PRINTF( "%sframe#%03d", INDENT(), i );
 			uint32_t sample_duration = default_sample_duration;
 			if (flags & 0x0100)
 			{
 				sample_duration = ReadU32();
-				PRINTF( "sample_duration=%" PRIu32 "\n", sample_duration );
+				PRINTF( " duration=%" PRIu32, sample_duration );
 				sample.duration = sample_duration / (double)timescale;
 			}
 			if (flags & 0x0200)
 			{
 				uint32_t sample_size = ReadU32();
-				PRINTF( "sample_size=%" PRIu32 "\n", sample_size );
+				PRINTF( " size=%" PRIu32, sample_size );
 				sample.len = sample_size;
 			}
 			data_ptr += sample.len;
 			if (flags & 0x0400)
 			{ // rarely present?
 				sample_flags = ReadU32();
-				(void)sample_flags;
-				PRINTF( "sample_flags=0x%" PRIx32 "\n", sample_flags );
+				PRINTF( " flags=0x%" PRIx32, sample_flags );
 			}
 			int32_t sample_composition_time_offset = 0;
 			if (flags & 0x0800)
 			{ // for samples where pts and dts differ (overriding 'trex')
 				sample_composition_time_offset = ReadI32();
-				PRINTF( "sample_composition_time_offset=%" PRIi32 "\n", sample_composition_time_offset );
+				PRINTF( " composition_time_offset=%" PRIi32, sample_composition_time_offset );
 			}
 			sample.dts = dts/(double)timescale;
 			sample.pts = (dts+sample_composition_time_offset)/(double)timescale;
-			PRINTF( "dts=%f pts=%f\n", sample.dts, sample.pts );
+			PRINTF( " dts=%f pts=%f", sample.dts, sample.pts );
 			dts += sample_duration;
 			samples.push_back( std::move(sample) );
+			PRINTF( "\n" );
 		}
 	}
 	
@@ -592,7 +609,7 @@ private:
 				break;
 				
 			default:
-				PRINTF( "unknown stream_format\n" );
+				PRINTF( "%sunknown stream_format\n", INDENT()  );
 				assert(0);
 				break;
 		}
@@ -621,32 +638,32 @@ private:
 			switch( tag )
 			{
 				case 0x03:
-					PRINTF( "ES_Descriptor: ");
+					PRINTF( "%sES_Descriptor\n", INDENT() );
 					SkipBytes(3);
 					parseCodecConfigHelper( end );
 					break;
 					
 				case 0x04:
-					PRINTF( "DecoderConfigDescriptor:\n");
+					PRINTF( "%sDecoderConfigDescriptor\n", INDENT() );
 					audio.object_type_id = *ptr++;
 					audio.stream_type = *ptr++; // >>2
 					audio.upStream = *ptr++;
 					audio.buffer_size = ReadU16();
 					audio.maxBitrate = ReadU32();
 					audio.avgBitrate = ReadU32();
-					PRINTF( "\tmaxBitrate=%" PRIu32 "\n", audio.maxBitrate );
-					PRINTF( "\tavgBitrate=%" PRIu32 "\n", audio.avgBitrate );
+					PRINTF( "%smaxBitrate=%" PRIu32 "\n", INDENT(), audio.maxBitrate );
+					PRINTF( "%savgBitrate=%" PRIu32 "\n", INDENT(), audio.avgBitrate );
 					parseCodecConfigHelper( end );
 					break;
 					
 				case 0x05:
-					PRINTF( "DecodeSpecificInfo:\n") ;
+					PRINTF( "%sDecodeSpecificInfo\n", INDENT() ) ;
 					codec_data = std::string((char *)ptr,len);
 					ptr += len;
 					break;
 					
 				case 0x06:
-					PRINTF( "SlConfigDescriptor: ");
+					PRINTF( "%sSlConfigDescriptor\n", INDENT());
 					SkipBytes( len );
 					break;
 					
@@ -682,12 +699,7 @@ private:
 			uint32_t size = ReadU32();
 			const uint8_t *next = ptr+size-4;
 			uint32_t type = ReadU32();
-			if( indent>=0 )
-			{
-				PRINTF( "%s'%c%c%c%c' (%" PRIu32 ")\n",
-					   &"\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t\t"[indent], // variable indent avoiding need for for loop
-					   (type>>24)&0xff, (type>>16)&0xff, (type>>8)&0xff, type&0xff, size );
-			}
+			PRINTF( "%s '%c%c%c%c' (%" PRIu32 ")\n", INDENT(), (type>>24)&0xff, (type>>16)&0xff, (type>>8)&0xff, type&0xff, size );
 			switch( type )
 			{
 				case MultiChar_Constant("hev1"):
