@@ -11323,6 +11323,8 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 	bool isRetuneNeeded = false;
 	bool accessibilityPresent = false;
 
+	AAMPLOG_WARN("Neil entering SetPreferredLanguages ()");
+
 	try
 	{
 		jsObject = new AampJsonObject(languageList);
@@ -11682,11 +11684,14 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 							languagePresent = true;
 							if (trackIndexStr.empty())
 							{
+								AAMPLOG_WARN("Neil trackIndexStr.empty()");
 								trackIndexStr = temp.index;
 							}
 
 							if (temp.isAvailable)
 							{
+								AAMPLOG_WARN("languageAvailabilityInManifest = true");
+
 								languageAvailabilityInManifest = true;
 								break;
 							}
@@ -11916,6 +11921,7 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 			}
 		}
 	}
+	AAMPLOG_WARN("Neil leaving SetPreferredLanguages ()");
 }
 
 /**
