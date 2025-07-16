@@ -3885,7 +3885,7 @@ public:
 	 * @return A constant character pointer to the error string corresponding to the provided error type.
 	 */
 	const char* getStringForPlaybackError(PlaybackErrorType errorType);
-	
+
 	/**
 	 *	@fn CalculateTrickModePositionEOS
 	 *		- this function only works for (rate > 1) - see priv_aamp.cpp
