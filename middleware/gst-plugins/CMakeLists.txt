@@ -19,6 +19,9 @@
 
 cmake_minimum_required (VERSION 2.6)
 project (GST-PLUGINS)
+
+set(MW_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../")
+
 #find_package(GStreamer 1.4 REQUIRED)
 #add_subdirectory(jsbindings)
 find_package(PkgConfig REQUIRED)
@@ -45,8 +48,8 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 include_directories(${GSTREAMER_INCLUDE_DIRS})
 include_directories(${CURL_INCLUDE_DIRS})
 include_directories(${GSTREAMERBASE_INCLUDE_DIRS})
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../../middleware/closedcaptions)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../../middleware)
+include_directories(${MW_ROOT}/closedcaptions)
+include_directories(${MW_ROOT}/)
 
 set(GST_COMMON_DEPENDENCIES ${OS_LD_FLAGS} ${GSTREAMERBASE_LIBRARIES} ${GSTREAMER_LIBRARIES} ${CURL_LIBRARIES} ${CLI_LD_FLAGS} -ldl -luuid ${SEC_CLIENT_LIB})
 
@@ -58,7 +61,7 @@ if(CMAKE_IARM_MGR)
 endif()
 
 set(GST_MIDDLEWARE_SOURCES gstinit.cpp
-	../../middleware/playerLogManager/PlayerLogManager.cpp)
+	${MW_ROOT}/playerLogManager/PlayerLogManager.cpp)
 
 if(CMAKE_CDM_DRM)
         message("CMAKE_CDM_DRM set")
