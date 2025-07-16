@@ -43,6 +43,7 @@ using ::testing::NiceMock;
 using ::testing::Return;
 using ::testing::StrEq;
 using ::testing::StrictMock;
+using ::testing::AnyNumber;
 
 using namespace dash::xml;
 using namespace dash::mpd;
@@ -204,7 +205,7 @@ public:
 		/* Create MPD instance. */
 		mStreamAbstractionAAMP_MPD = new TestableStreamAbstractionAAMP_MPD(mPrivateInstanceAAMP);
 		EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled()).WillRepeatedly(Return(true));
-
+		EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetLLDashChunkMode()).Times(AnyNumber());
 		mPrivateInstanceAAMP->SetManifestUrl(TEST_MANIFEST_URL);
 		GetMPDFromManifest();
 	}

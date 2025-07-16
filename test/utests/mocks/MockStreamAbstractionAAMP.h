@@ -47,6 +47,7 @@ public:
 	MOCK_METHOD(void, InjectFragmentInternal, (CachedFragment* cachedFragment, bool &fragmentDiscarded,bool isDiscontinuity), (override));
 
 	MOCK_METHOD(double, GetTotalInjectedDuration, (), (override));
+	MOCK_METHOD(void, ResetTrickModePtsRestamping, (), (override));
 };
 
 class MockStreamAbstractionAAMP : public StreamAbstractionAAMP

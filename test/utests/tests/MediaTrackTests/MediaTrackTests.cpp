@@ -231,6 +231,7 @@ TEST_P(MediaTrackDashPtsRestampNotConfiguredTests, PtsRestampNotConfiguredTest)
 	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_MaxFragmentChunkCached))
 		.WillRepeatedly(Return(1));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, parseBuffer(_, _)).WillRepeatedly(Return(true));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetLLDashChunkMode()).Times(AnyNumber()).WillRepeatedly(Return(testParam.lowLatencyMode));
 
 	TestableMediaTrack mediaTrack{eTRACK_VIDEO, mPrivateInstanceAAMP, "media",
 								  mStreamAbstractionAAMP_MPD};
@@ -288,6 +289,7 @@ TEST_P(MediaTrackDashQtDemuxOverrideConfiguredTests, QtDemuxOverrideConfiguredTe
 	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_MaxFragmentChunkCached))
 		.WillRepeatedly(Return(1));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, parseBuffer(_, _)).WillRepeatedly(Return(true));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetLLDashChunkMode()).Times(AnyNumber()).WillRepeatedly(Return(testParam.lowLatencyMode));
 
 	TestableMediaTrack mediaTrack{eTRACK_VIDEO, mPrivateInstanceAAMP, "media",
 								  mStreamAbstractionAAMP_MPD};
@@ -348,6 +350,7 @@ TEST_P(MediaTrackDashTrickModePtsRestampValidPlayRateTests, ValidPlayRateTest)
 	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_MaxFragmentChunkCached))
 		.WillRepeatedly(Return(1));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, parseBuffer(_, _)).WillRepeatedly(Return(true));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetLLDashChunkMode()).Times(AnyNumber()).WillRepeatedly(Return(testParam.lowLatencyMode));
 
 	TestableMediaTrack iframeTrack{eTRACK_VIDEO, mPrivateInstanceAAMP, "iframe",
 								   mStreamAbstractionAAMP_MPD};
@@ -514,6 +517,7 @@ TEST_P(MediaTrackDashPlaybackPtsRestampTests, PlaybackTest)
 	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_MaxFragmentChunkCached))
 		.WillRepeatedly(Return(1));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, parseBuffer(_, _)).WillRepeatedly(Return(true));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetLLDashChunkMode()).Times(AnyNumber()).WillRepeatedly(Return(lowLatencyMode));
 
 	TestableMediaTrack videoTrack{eTRACK_VIDEO, mPrivateInstanceAAMP, "video",
 								  mStreamAbstractionAAMP_MPD};
@@ -816,7 +820,7 @@ TEST_F(MediaTrackTests, MediaTrackConstructorChunkModeTest)
 		.WillRepeatedly(Return(kMaxFragmentCached));
 	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_MaxFragmentChunkCached))
 		.WillRepeatedly(Return(kMaxFragmentChunkCached));
-
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetLLDashChunkMode()).Times(1).WillOnce(Return(true));
 	TestableMediaTrack videoTrack{eTRACK_VIDEO, mPrivateInstanceAAMP, "video", mStreamAbstractionAAMP_MPD};
 	EXPECT_EQ(videoTrack.GetCachedFragmentChunksSize(), kMaxFragmentChunkCached);
 }

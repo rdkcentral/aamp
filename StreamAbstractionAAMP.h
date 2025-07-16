@@ -770,7 +770,7 @@ public:
 	 * @fn ResetTrickModePtsRestamping
 	 * @brief Reset trick mode PTS restamping
 	 */
-	void ResetTrickModePtsRestamping(void);
+	virtual void ResetTrickModePtsRestamping(void);
 
 	/**
 	 * @fn IsInjectionFromCachedFragmentChunks
@@ -2070,7 +2070,7 @@ public:
 
 	/**
 	 *   @fn ReinitializeInjection
-	 *   @brief Reintializes the injection
+	 *   @brief Reintializes the injection logic
 	 *   @param[in] rate - play rate
 	 */	
 	void ReinitializeInjection(double rate);

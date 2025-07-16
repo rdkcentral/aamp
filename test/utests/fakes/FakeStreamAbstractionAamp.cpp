@@ -431,6 +431,10 @@ void MediaTrack::ClearMediaHeaderDuration(CachedFragment* cachedFragment)
 {
 }
 
+void MediaTrack::ResetTrickModePtsRestamping()
+{
+}
+
 void StreamAbstractionAAMP::ReinitializeInjection(double rate)
 {
 	if (g_mockStreamAbstractionAAMP != nullptr)

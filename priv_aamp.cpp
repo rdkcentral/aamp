@@ -13655,6 +13655,11 @@ void PrivateInstanceAAMP::SetLLDashChunkMode(bool enable)
 	}
 }
 
+bool PrivateInstanceAAMP::GetLLDashChunkMode()
+{
+	return mIsChunkMode;
+}
+
 bool PrivateInstanceAAMP::GetLLDashAdjustSpeed(void)
 {
 	return bLLDashAdjustPlayerSpeed;
