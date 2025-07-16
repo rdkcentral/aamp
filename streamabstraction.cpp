@@ -4600,7 +4600,7 @@ bool MediaTrack::IsInjectionFromCachedFragmentChunks()
  */	
 void StreamAbstractionAAMP::ReinitializeInjection(double rate) 
 {
-	clearFirstPTS();							//Clears the Flag mFirstPTS to trigger update of first PTS
+	clearFirstPTS();							//Clears the mFirstPTS value to trigger update of first PTS
 	SetTrickplayMode(rate);
 	ResetTrickModePtsRestamping();
 	if (!aamp->GetLLDashChunkMode())

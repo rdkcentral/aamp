@@ -1644,7 +1644,6 @@ bool PrivateInstanceAAMP::GetLLDashChunkMode()
 	return bIsChunkMode;
 }
 
-
 const char* PrivateInstanceAAMP::getStringForPlaybackError(PlaybackErrorType errorType)
 {
 	return "";

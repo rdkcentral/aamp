@@ -2064,7 +2064,7 @@ public:
 
 	/**
 	 * @fn clearFirstPTS
-	 * @brief Clears the Flag mFirstPTS to trigger update of first PTS
+	 * @brief Clears the mFirstPTS value to trigger update of first PTS
 	 */
 	virtual void clearFirstPTS(void) {};
 
