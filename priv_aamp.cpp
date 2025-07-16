@@ -11829,7 +11829,10 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 			}
 			else if (languagePresent || renditionPresent || accessibilityTypePresent || codecPresent || labelPresent || accessibilityPresent || namePresent || clearPreference) // call the tune only if there is a change in the language, rendition or accessibility.
 			{
-				if(!ISCONFIGSET_PRIV(eAAMPConfig_ChangeTrackWithoutRetune))
+				AAMPLOG_WARN("NEIL Retuning on pref change: lang=%d, rend=%d, accessType=%d, codec=%d, label=%d, access=%d, name=%d, clear=%d",
+    languagePresent, renditionPresent, accessibilityTypePresent, codecPresent, labelPresent, accessibilityPresent, namePresent, clearPreference);
+				
+		if(!ISCONFIGSET_PRIV(eAAMPConfig_ChangeTrackWithoutRetune))
 				{
 					discardEnteringLiveEvt = true;
 					mOffsetFromTunetimeForSAPWorkaround = (double)(aamp_GetCurrentTimeMS() / 1000) - mLiveOffset;
@@ -11843,7 +11846,8 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 					else
 					{
 						seek_pos_seconds = GetPositionSeconds();
-						AAMPLOG_MIL("NEIL Retune to change the audio track at pos %fs", seek_pos_seconds);
+						AAMPLOG_MIL("Retune to change the audio track at pos %fs", seek_pos_seconds);
+
 
 						if(IsFogTSBSupported() &&
 								((languagePresent && !languageAvailabilityInManifest) ||
