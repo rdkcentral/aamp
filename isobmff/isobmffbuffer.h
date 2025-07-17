@@ -200,7 +200,7 @@ public:
 	/**
 	*  	@fn parseBuffer
 	*  	@param[in] name - name of the track
-	*  	@param[in/out] unParsedBuffer - Total unparsedbuffer
+	*  	@param[in/out] unParsedBuffer - Total unparsedBuffer
 	*  	@param[in] timeScale - timescale of the track
 	*	@param[out] parsedBufferSize - parsed buffer size
 	*  	@param[in/out] unParsedBufferSize -uunparsed or remaining buffer size
@@ -241,7 +241,7 @@ public:
 	 * @brief Set the PTS (base media decode time) and sample duration.
 	 *        This method assumes that the buffer contains an I-frame media segment,
 	 *        consisting of a single sample, so is suitable for trick mode re-stamping.
-	 *        If the buffer contains multiple samples or truns, only the first sample
+	 *        If the buffer contains multiple samples or trun, only the first sample
 	 *        duration will be set (if flagged as present).
 	 *
 	 * @param[in] pts - Base media decode time to set

@@ -1432,7 +1432,7 @@ void DashMPDRoot::setLocation(string location) {
 }
 
 /**
- * @briefa  Set fetchTime
+ * @brief  Set fetchTime
  * @param   FetchTime
  */
 void DashMPDRoot::setFetchTime(double fetchTime) {

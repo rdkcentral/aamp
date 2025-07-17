@@ -322,7 +322,7 @@ void AampTSBSessionManager::EnqueueWrite(std::string url, std::shared_ptr<Cached
 		{
 			// TBD : Is there any possibility for TSBData add fragment failure ????
 			TSBWriteData writeData = {url, cachedFragment, pts, std::move(periodId)};
-			AAMPLOG_TRACE("Enqueueing Write Data discontinuity %d for URL: %s",cachedFragment->discontinuity, url.c_str());
+			AAMPLOG_TRACE("Enqueue Write Data discontinuity %d for URL: %s",cachedFragment->discontinuity, url.c_str());
 
 			mCurrentWritePosition = cachedFragment->absPosition;
 			// TODO :Need to add the same data on Addfragment and AddInitfragment of AampTsbDataManager

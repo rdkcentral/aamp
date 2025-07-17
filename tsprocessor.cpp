@@ -2394,7 +2394,7 @@ void TSProcessor::reTimestamp(unsigned char *&packet, int length)
 			m_isInterlacedKnown ? "true" : "false", m_isInterlaced ? "true" : "false");
 	}
 
-	// For MPEG2 use twice the desired frame rate for IOnly re-timestamping since
+	// For MPEG2 use twice the desired frame rate for IOnly restamping since
 	// we insert a null P-frame after every I-frame.
 	float rm = ((m_isH264 && !m_isInterlaced) ? 1.0 : 2.0);
 

@@ -490,7 +490,7 @@ void AampMPDDownloader::downloadMPDThread1()
 			cachedBackupData = mCachedMPDData->clone();
 			AAMPLOG_TRACE("Created copy of cached:%p backup:%p", mCachedMPDData.get(), cachedBackupData.get());
 			AAMPLOG_TRACE("Created copy of cachedMPD:%p backupMPD:%p", mCachedMPDData->mDashMpdDoc.get(), cachedBackupData->mDashMpdDoc.get());
-			AAMPLOG_TRACE("Created copy of cachedDwnResp:%p backupDwnldResp:%p", mCachedMPDData->mMPDDownloadResponse.get(), cachedBackupData->mMPDDownloadResponse.get());
+			AAMPLOG_TRACE("Created copy of cachedDwnResp:%p backupDownloadResp:%p", mCachedMPDData->mMPDDownloadResponse.get(), cachedBackupData->mMPDDownloadResponse.get());
 			AAMPLOG_TRACE("Created copy of cachedMPDInst:%p backupMPDInst:%p", mCachedMPDData->mMPDInstance.get(), cachedBackupData->mMPDInstance.get());
 		}
 		//Wait for duration before refresh

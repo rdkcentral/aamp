@@ -279,12 +279,12 @@ TEST_F(AdManagerMPDTests, SetPlacementObjTest)
   // Call the function to test
   PlacementObj nextPlacementObj = mPrivateCDAIObjectMPD->setPlacementObj("testAdBrkId1", "testAdBrkId1");
   // Verify the result
-  EXPECT_EQ(nextPlacementObj.pendingAdbrkId, "");
+  EXPECT_EQ(nextPlacementObj.pendingAdBrkId, "");
 
   // Call the function to test
   nextPlacementObj = mPrivateCDAIObjectMPD->setPlacementObj("testAdBrkId1", "testAdBrkId2");
   // Verify the result
-  EXPECT_EQ(nextPlacementObj.pendingAdbrkId, "");
+  EXPECT_EQ(nextPlacementObj.pendingAdBrkId, "");
 
   // Initialize mAdtoInsertInNextBreakVec
   mPrivateCDAIObjectMPD->mAdtoInsertInNextBreakVec = {
@@ -296,28 +296,28 @@ TEST_F(AdManagerMPDTests, SetPlacementObjTest)
   // Call the function to test when adBrkId equals endPeriodId
   nextPlacementObj = mPrivateCDAIObjectMPD->setPlacementObj("testAdBrkId1", "testAdBrkId1");
   // Verify the result
-  EXPECT_EQ(nextPlacementObj.pendingAdbrkId, "testAdBrkId2");
+  EXPECT_EQ(nextPlacementObj.pendingAdBrkId, "testAdBrkId2");
 
 
   // Call the function to test when adBrkId not equals to endPeriodId
   nextPlacementObj = mPrivateCDAIObjectMPD->setPlacementObj("testAdBrkId2", "testAdBrkId3");
   // Verify the result
-  EXPECT_EQ(nextPlacementObj.pendingAdbrkId, "testAdBrkId3");
+  EXPECT_EQ(nextPlacementObj.pendingAdBrkId, "testAdBrkId3");
 
   // Call the function to test endPeriodId not available in mAdtoInsertInNextBreakVec
   nextPlacementObj = mPrivateCDAIObjectMPD->setPlacementObj("testAdBrkId2", "testAdBrkId4");
   // Verify the result
-  EXPECT_EQ(nextPlacementObj.pendingAdbrkId, "testAdBrkId3");
+  EXPECT_EQ(nextPlacementObj.pendingAdBrkId, "testAdBrkId3");
 
   // Call the function to test endPeriodId not available and end of mAdtoInsertInNextBreakVec
   nextPlacementObj = mPrivateCDAIObjectMPD->setPlacementObj("testAdBrkId3", "testAdBrkId4");
   // Verify the result
-  EXPECT_EQ(nextPlacementObj.pendingAdbrkId, "");
+  EXPECT_EQ(nextPlacementObj.pendingAdBrkId, "");
 
   // Call the function to test adBrkId equals endPeriodId and end of mAdtoInsertInNextBreakVec
   nextPlacementObj = mPrivateCDAIObjectMPD->setPlacementObj("testAdBrkId3", "testAdBrkId3");
   // Verify the result
-  EXPECT_EQ(nextPlacementObj.pendingAdbrkId, "");
+  EXPECT_EQ(nextPlacementObj.pendingAdBrkId, "");
 }
 
 /**
@@ -424,7 +424,7 @@ R"(<?xml version="1.0" encoding="UTF-8"?>
   // Verify the result
   // mAdBreak updated and placementObj created
   EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdObjThreadStarted);
-  EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.pendingAdbrkId, periodId);
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.pendingAdBrkId, periodId);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mAdtoInsertInNextBreakVec.size(), 1);
   EXPECT_EQ((mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads)->size(), 1);
   EXPECT_TRUE((mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads)->at(0).resolved);
@@ -493,7 +493,7 @@ R"(<?xml version="1.0" encoding="UTF-8"?>
   // Verify the result
   // mAdBreak updated and placementObj created
   EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdObjThreadStarted);
-  EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.pendingAdbrkId, periodId);
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.pendingAdBrkId, periodId);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mAdtoInsertInNextBreakVec.size(), 1);
   EXPECT_EQ((mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads)->size(), 1);
   EXPECT_STREQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads->at(0).url.c_str(), TEST_FOG_AD_MANIFEST_URL);
@@ -545,7 +545,7 @@ TEST_F(AdManagerMPDTests, SetAlternateContentsTests_4)
   // Verify the result
   // mAdBreak updated and placementObj not created
   EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdObjThreadStarted);
-  EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.pendingAdbrkId, "");
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.pendingAdBrkId, "");
   EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdtoInsertInNextBreakVec.empty());
   EXPECT_EQ((mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads)->size(), 1);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads->at(0).adId, adId);
@@ -615,7 +615,7 @@ R"(<?xml version="1.0" encoding="UTF-8"?>
   // Verify the result
   // mAdBreak updated and placementObj created
   EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdObjThreadStarted);
-  EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.pendingAdbrkId, periodId);
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.pendingAdBrkId, periodId);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mAdtoInsertInNextBreakVec.size(), 1);
   EXPECT_EQ((mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads)->size(), 1);
   EXPECT_STREQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads->at(0).url.c_str(), TEST_AD_MANIFEST_URL);
@@ -686,7 +686,7 @@ R"(<?xml version="1.0" encoding="UTF-8"?>
   // Verify the result
   // mAdBreak updated and placementObj created
   EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdObjThreadStarted);
-  EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.pendingAdbrkId, periodId);
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.pendingAdBrkId, periodId);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mAdtoInsertInNextBreakVec.size(), 1);
   EXPECT_EQ((mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads)->size(), 2);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId].offset2Ad.size(), 1);
@@ -1070,7 +1070,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId2].adBreakId, periodId2);
 
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.curAdIdx, 0);
-  EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.pendingAdbrkId, periodId2);
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.pendingAdBrkId, periodId2);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId1].duration, 30000); // in ms
   // periodId2 is not updated in the current logic
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId2].duration, 0); // in ms
@@ -1162,7 +1162,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
   EXPECT_FALSE(mPrivateCDAIObjectMPD->mAdBreaks[periodId1].mSplitPeriod); // should not be marked as split period
 
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.curAdIdx, 0);
-  EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.pendingAdbrkId, periodId2);
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.pendingAdBrkId, periodId2);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId1].duration, 30000); // in ms
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId1].adBreakId, "testPeriodId1");
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId1].offset2Ad[0].adIdx, 0);
@@ -1283,7 +1283,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
   EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId1].ads->at(0).basePeriodOffset, 0);
 
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.curAdIdx, 1);
-  EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.pendingAdbrkId, periodId1);
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.pendingAdBrkId, periodId1);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId1].duration, 34000); // in ms
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId1].offset2Ad[0].adIdx, 0);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId1].offset2Ad[30000].adIdx, 1);
@@ -1361,7 +1361,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
   mPrivateCDAIObjectMPD->PlaceAds(mAdMPDParseHelper);
   // The current adbreak is filled and placementObj should now be reset
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.curEndNumber, 0);
-  EXPECT_NE(mPrivateCDAIObjectMPD->mPlacementObj.pendingAdbrkId, periodId);
+  EXPECT_NE(mPrivateCDAIObjectMPD->mPlacementObj.pendingAdBrkId, periodId);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.curAdIdx, -1);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId].endPeriodId, periodId); // placement completed and ending in same period ID
   EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId].endPeriodOffset, 30000); // placement completed and ending in same period ID
@@ -1379,7 +1379,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
   // Update with same mpd again, and the params should not change
   mPrivateCDAIObjectMPD->PlaceAds(mAdMPDParseHelper);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.curEndNumber, 0);
-  EXPECT_NE(mPrivateCDAIObjectMPD->mPlacementObj.pendingAdbrkId, periodId);
+  EXPECT_NE(mPrivateCDAIObjectMPD->mPlacementObj.pendingAdBrkId, periodId);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.curAdIdx, -1);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId].endPeriodId, periodId); // placement completed and ending in same period ID
   EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId].endPeriodOffset, 30000); // placement completed and ending in same period ID
@@ -1466,7 +1466,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
     });
   mPrivateCDAIObjectMPD->PlaceAds(mAdMPDParseHelper);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.curEndNumber, 11);
-  EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.pendingAdbrkId, periodId);
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.pendingAdBrkId, periodId);
   // This is because ad is placed, and hence we will increment curAdIdx
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.curAdIdx, 1);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId].duration, 21000); // in ms
@@ -1479,7 +1479,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
   EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId].endPeriodOffset, 20000); // placement completed and offset updated
   EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdBreaks[periodId].mAdBreakPlaced); // adBreak placed
   // The current adbreak is filled and placementObj should now be reset
-  EXPECT_NE(mPrivateCDAIObjectMPD->mPlacementObj.pendingAdbrkId, periodId);
+  EXPECT_NE(mPrivateCDAIObjectMPD->mPlacementObj.pendingAdBrkId, periodId);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.curAdIdx, -1);
   // This is because ad is placed in previous iteration with adjustEndPeriodOffset set to true. This needs to be revisited
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId].duration, 21000); // in ms
@@ -1654,7 +1654,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
       std::make_pair (0, AdOnPeriod(0, 0)), // for adId1 idx=0, offset=0s
     });
   mPrivateCDAIObjectMPD->PlaceAds(mAdMPDParseHelper);
-  EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.pendingAdbrkId, periodId);
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.pendingAdBrkId, periodId);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.curEndNumber, 1);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.adNextOffset, 2000);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId].duration, 2000); // in ms
@@ -1662,7 +1662,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
   // Update with manifest2, and the duration in mPeriodMap should be updated correctly
   InitializeAdMPDObject(manifest2);
   mPrivateCDAIObjectMPD->PlaceAds(mAdMPDParseHelper);
-  EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.pendingAdbrkId, periodId);
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.pendingAdBrkId, periodId);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.curEndNumber, 2);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.adNextOffset, 5000);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId].duration, 5000); // in ms
@@ -1808,7 +1808,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
       std::make_pair (0, AdOnPeriod(0, 0)), // for adId1 idx=0, offset=0s
     });
   mPrivateCDAIObjectMPD->PlaceAds(mAdMPDParseHelper);
-  EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.pendingAdbrkId, periodId);
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.pendingAdBrkId, periodId);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.curEndNumber, 1);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.adNextOffset, 2000);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId].duration, 2000); // in ms
@@ -1816,7 +1816,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
   // Update with manifest2, and the duration in mPeriodMap should be updated correctly
   InitializeAdMPDObject(manifest2);
   mPrivateCDAIObjectMPD->PlaceAds(mAdMPDParseHelper);
-  EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.pendingAdbrkId, periodId);
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.pendingAdBrkId, periodId);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.curEndNumber, 5);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.adNextOffset, 10000);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId].duration, 10000); // in ms
@@ -2966,7 +2966,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
   EXPECT_FALSE(mPrivateCDAIObjectMPD->mAdBreaks[periodId1].mSplitPeriod); // should not be marked as split period
 
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.curAdIdx, 0);
-  EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.pendingAdbrkId, periodId2);
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.pendingAdBrkId, periodId2);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId1].duration, 30000); // in ms
   // periodId2 is not updated in the current logic
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId2].duration, 0); // in ms
@@ -3172,7 +3172,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId2].duration, 3000);
 
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.curAdIdx, 1); // moved to second ad
-  EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.pendingAdbrkId, periodId1);
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.pendingAdBrkId, periodId1);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.openPeriodId, periodId2);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.adStartOffset, 0); // ad starts from 0sec in periodId2
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.adNextOffset, 2500); // 0.5sec from periodId2 placed
@@ -3359,7 +3359,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId1].offset2Ad.empty(), true);
 
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.curAdIdx, 0); // moved to second period
-  EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.pendingAdbrkId, periodId2);
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.pendingAdBrkId, periodId2);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.openPeriodId, periodId2);
 
   // Call with the same manifest again to place ads in testPeriodId2
@@ -3464,7 +3464,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
     });
   mPrivateCDAIObjectMPD->PlaceAds(mAdMPDParseHelper);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.curEndNumber, 15);
-  EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.pendingAdbrkId, periodId);
+  EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.pendingAdBrkId, periodId);
   // Ad is not placed in first iteration. Only when next non-zero period is visible ad is placed
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.curAdIdx, 0);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId].duration, 30000); // in ms
@@ -3477,7 +3477,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
   EXPECT_EQ(mPrivateCDAIObjectMPD->mAdBreaks[periodId].endPeriodOffset, 0); // placement completed and offset updated
   EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdBreaks[periodId].mAdBreakPlaced); // adBreak placed
   // The current adbreak is filled and placementObj should now be reset
-  EXPECT_NE(mPrivateCDAIObjectMPD->mPlacementObj.pendingAdbrkId, periodId);
+  EXPECT_NE(mPrivateCDAIObjectMPD->mPlacementObj.pendingAdBrkId, periodId);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPlacementObj.curAdIdx, -1);
   // This is because ad is placed in previous iteration with adjustEndPeriodOffset set to true. This needs to be revisited
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId].duration, 30000); // in ms

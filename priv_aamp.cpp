@@ -8201,9 +8201,9 @@ AAMPPlayerState PrivateInstanceAAMP::GetState(void)
  *  @brief Add high priority idle task to the gstreamer
  *  @note task shall return 0 to be removed, 1 to be repeated
  */
-gint PrivateInstanceAAMP::AddHighIdleTask(IdleTask task, void* arg,DestroyTask dtask)
+gint PrivateInstanceAAMP::AddHighIdleTask(IdleTask task, void* arg,DestroyTask destroyTask)
 {
-	gint callbackID = g_idle_add_full(G_PRIORITY_HIGH_IDLE, task, (gpointer)arg, dtask);
+	gint callbackID = g_idle_add_full(G_PRIORITY_HIGH_IDLE, task, (gpointer)arg, destroyTask);
 	return callbackID;
 }
 

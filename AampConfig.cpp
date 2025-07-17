@@ -1258,19 +1258,18 @@ void AampConfig::CustomArrayRead( cJSON *customArray,ConfigPriority owner )
  * @brief (re)apply configuration for specified player instance at tune time
  * @param url: locator being tuned
  * @param playerId identifer for player instance
- * @param appname
+ * @param appName
  */
-bool AampConfig::CustomSearch( std::string url, int playerId , std::string appname)
+bool AampConfig::CustomSearch( std::string url, int playerId , std::string appName_custom)
 {
 	if(customFound == false)
 	{
 		return false;
 	}
 	bool found = false;
-	AAMPLOG_INFO("url %s playerid %d appname %s ",url.c_str(),playerId,appname.c_str());
+	AAMPLOG_INFO("url %s playerId %d appName %s ",url.c_str(),playerId,appName_custom.c_str());
 	std::string url_custom = url;
 	std::string playerId_custom = std::to_string(playerId);
-	std::string appName_custom = appname;
 	std::string keyname;
 	std::string urlName = "url";
 	std::string player = "playerId";
@@ -1299,7 +1298,7 @@ bool AampConfig::CustomSearch( std::string url, int playerId , std::string appna
 			if( foundurl != std::string::npos)
 			{
 				index = distance;
-				AAMPLOG_INFO("FOUND PLAYERID %s", vCustom[index].configValue.c_str());
+				AAMPLOG_INFO("found PlayerId %s", vCustom[index].configValue.c_str());
 				found = true;
 				break;
 			}
@@ -1312,7 +1311,7 @@ bool AampConfig::CustomSearch( std::string url, int playerId , std::string appna
 			if( foundurl != std::string::npos)
 			{
 				index = distance;
-				AAMPLOG_INFO("FOUND AAPNAME %s",vCustom[index].configValue.c_str());
+				AAMPLOG_INFO("found AppName %s",vCustom[index].configValue.c_str());
 				found = true;
 				break;
 			}

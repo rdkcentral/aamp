@@ -54,7 +54,7 @@ void IsoBmffBuffer::setBuffer(uint8_t *buf, size_t sz)
 /**
 *  	@fn ParseChunkData
 *  	@param[in] name - name of the track
-*  	@param[in,out] unParsedBuffer - Total unparsedbuffer
+*  	@param[in,out] unParsedBuffer - Total unparsedBuffer
 *  	@param[in] timeScale - timescale of the track
 *	@param[out] parsedBufferSize - parsed buffer size
 *  	@param[in,out] unParsedBufferSize -uunparsed or remaining buffer size
@@ -1034,7 +1034,7 @@ void IsoBmffBuffer::truncate(void)
 				if(setToSkip)
 				{
 					// Replace TRUN box buffer data with a SKIP box
-					// NOTE THAT THIS WILL NOT REMOVE THE TRUNBOX OBJECT, IT'S JUST THE BUFFER DATA THAT IS REPLACED
+					// NOTE THAT THIS WILL NOT REMOVE THE TRUN BOX OBJECT, IT'S JUST THE BUFFER DATA THAT IS REPLACED
 					// (and the type)
 					trun->rewriteAsSkipBox();
 				}

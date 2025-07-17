@@ -1990,7 +1990,7 @@ MediaTrack::MediaTrack(TrackType type, PrivateInstanceAAMP* aamp, const char* na
 		mCachedFragmentChunks{}, unparsedBufferChunk{"unparsedBufferChunk"}, parsedBufferChunk{"parsedBufferChunk"}, fragmentChunkFetched(), fragmentChunkInjected(), maxCachedFragmentChunksPerTrack(0),
 		noMDATCount(0), loadNewAudio(false), audioFragmentCached(), audioMutex(), loadNewSubtitle(false), subtitleFragmentCached(), subtitleMutex(),
 		abortPlaylistDownloader(true), playlistDownloaderThreadStarted(false), plDownloadWait()
-		,dwnldMutex(), playlistDownloaderThread(NULL), fragmentCollectorWaitingForPlaylistUpdate(false)
+		,downloadMutex(), playlistDownloaderThread(NULL), fragmentCollectorWaitingForPlaylistUpdate(false)
 		,frDownloadWait(),prevDownloadStartTime(-1)
 		,playContext(nullptr), seamlessAudioSwitchInProgress(false), lastInjectedPosition(0), lastInjectedDuration(0), seamlessSubtitleSwitchInProgress(false)
 		,mIsLocalTSBInjection(false), mCachedFragmentChunksSize(0)
@@ -4117,7 +4117,7 @@ void StreamAbstractionAAMP::DisablePlaylistDownloads()
  */
 void MediaTrack::AbortWaitForPlaylistDownload()
 {
-	std::unique_lock<std::mutex> lock(dwnldMutex);
+	std::unique_lock<std::mutex> lock(downloadMutex);
 	if(playlistDownloaderThreadStarted)
 	{
 		plDownloadWait.notify_one();
@@ -4135,7 +4135,7 @@ void MediaTrack::EnterTimedWaitForPlaylistRefresh(int timeInMs)
 {
 	if(timeInMs > 0 && aamp->DownloadsAreEnabled())
 	{
-		std::unique_lock<std::mutex> lock(dwnldMutex);
+		std::unique_lock<std::mutex> lock(downloadMutex);
 		if(plDownloadWait.wait_for(lock, std::chrono::milliseconds(timeInMs)) == std::cv_status::timeout)
 		{
 			AAMPLOG_TRACE("[%s] timeout exceeded %d", name, timeInMs); // make it trace
@@ -4152,7 +4152,7 @@ void MediaTrack::EnterTimedWaitForPlaylistRefresh(int timeInMs)
  */
 void MediaTrack::AbortFragmentDownloaderWait()
 {
-	std::unique_lock<std::mutex> lock(dwnldMutex);
+	std::unique_lock<std::mutex> lock(downloadMutex);
 	if(fragmentCollectorWaitingForPlaylistUpdate)
 	{
 		frDownloadWait.notify_one();
@@ -4166,7 +4166,7 @@ void MediaTrack::WaitForManifestUpdate()
 {
 	if(aamp->DownloadsAreEnabled() && fragmentCollectorWaitingForPlaylistUpdate)
 	{
-		std::unique_lock<std::mutex> lock(dwnldMutex);
+		std::unique_lock<std::mutex> lock(downloadMutex);
 		AAMPLOG_INFO("[%s] Waiting for manifest update", name);
 		frDownloadWait.wait(lock);
 	}

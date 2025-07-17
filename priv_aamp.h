@@ -2243,7 +2243,7 @@ public:
 	 *
 	 *   @return void
 	 */
-	static gint AddHighIdleTask(IdleTask task, void* arg,DestroyTask dtask=NULL);
+	static gint AddHighIdleTask(IdleTask task, void* arg,DestroyTask destroyTask=NULL);
 
 	/**
 	 *   @fn IsSinkCacheEmpty

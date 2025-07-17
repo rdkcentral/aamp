@@ -73,7 +73,7 @@ class IsoBmffHelper
 		 * @brief Set the PTS (base media decode time) and sample duration.
 		 *        This function assumes that the buffer contains an I-frame media segment,
 		 *        consisting of a single sample, so is suitable for trick mode re-stamping.
-		 *        If the buffer contains multiple samples or truns, only the first sample
+		 *        If the buffer contains multiple samples or trun, only the first sample
 		 *        duration will be set (if flagged as present).
 		 *
 		 * @param[in,out] buffer - buffer containing ISOBMFF I-frame media segment

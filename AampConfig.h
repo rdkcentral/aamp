@@ -688,9 +688,9 @@ public:
      	 * @fn CustomSearch
      	 * @param[in] url  - input string where url name will be stored
      	 * @param[in] playerId  - input int variable where playerId will be stored
-     	 * @param[in] appname  - input string where appname will be stored
+     	 * @param[in] appName  - input string where appName will be stored
      	 */
-	bool CustomSearch( std::string url, int playerId , std::string appname);
+	bool CustomSearch( std::string url, int playerId , std::string appName);
 
 	std::string GetUserAgentString();
 private:

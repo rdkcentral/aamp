@@ -341,7 +341,7 @@ static void getActiveInterfaceEventHandler (const char *owner, IARM_EventId_t ev
 	{
 		memset(previousInterface, 0, sizeof(previousInterface));
 		strncpy(previousInterface, param->activeIface, sizeof(previousInterface) - 1);
-		MW_LOG_WARN("getActiveInterfaceEventHandler EventId %d activeinterface %s\n", eventId,  param->activeIface);
+		MW_LOG_WARN("getActiveInterfaceEventHandler EventId %d ActiveInterface %s\n", eventId,  param->activeIface);
 	}
 
 	if (NULL != strstr (param->activeIface, "wlan"))

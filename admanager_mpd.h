@@ -299,7 +299,7 @@ struct AdFulfillObj {
  * @brief Currently placing Ad's object
  */
 struct PlacementObj {
-	std::string pendingAdbrkId;         /**< Only one Adbreak will be pending for replacement */
+	std::string pendingAdBrkId;         /**< Only one Adbreak will be pending for replacement */
 	std::string openPeriodId;           /**< The period in the adbreak that is progressing */
 	uint64_t    curEndNumber;           /**< Current periods last fragment number */
 	int         curAdIdx;               /**< Currently placing ad, during MPD progression */
@@ -310,23 +310,23 @@ struct PlacementObj {
 	/**
 	* @brief PlacementObj constructor
 	*/
-	PlacementObj() : pendingAdbrkId(), openPeriodId(), curEndNumber(0), curAdIdx(-1), adNextOffset(0), adStartOffset(0), waitForNextPeriod(false)
+	PlacementObj() : pendingAdBrkId(), openPeriodId(), curEndNumber(0), curAdIdx(-1), adNextOffset(0), adStartOffset(0), waitForNextPeriod(false)
 	{
 
 	}
 
 	/**
 	* @brief PlacementObj parameterized constructor
-	* @param pendingAdbrkId The pending adbreak ID
+	* @param pendingAdBrkId The pending adbreak ID
 	* @param openPeriodId The open period ID
 	* @param curEndNumber The current period's last fragment number
 	* @param curAdIdx The index of the currently placing ad during MPD progression
 	* @param adNextOffset The current ad's offset to be placed in the next iteration of PlaceAds in milliseconds
 	* @param adStartOffset The current ad's start offset in milliseconds
 	*/
-	PlacementObj(const std::string& pendingAdbrkId, const std::string& openPeriodId, uint64_t curEndNumber,
+	PlacementObj(const std::string& pendingAdBrkId, const std::string& openPeriodId, uint64_t curEndNumber,
 		int curAdIdx, uint32_t adNextOffset, uint32_t adStartOffset, bool waitForNextPeriod)
-			: pendingAdbrkId(pendingAdbrkId), openPeriodId(openPeriodId), curEndNumber(curEndNumber),
+			: pendingAdBrkId(pendingAdBrkId), openPeriodId(openPeriodId), curEndNumber(curEndNumber),
 			curAdIdx(curAdIdx), adNextOffset(adNextOffset), adStartOffset(adStartOffset), waitForNextPeriod(waitForNextPeriod)
 	{
 

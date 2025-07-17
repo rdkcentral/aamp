@@ -12302,7 +12302,7 @@ void StreamAbstractionAAMP_MPD::SendAdPlacementEvent(AAMPEventType type, const s
 		}
 		else
 		{
-			AAMPLOG_ERR("[CDAI]: Unrecognised type %d", type);
+			AAMPLOG_ERR("[CDAI]: Unrecognized type %d", type);
 		}
 		if (sendImmediate)
 		{
@@ -13074,7 +13074,7 @@ void StreamAbstractionAAMP_MPD::MonitorLatency()
 							bufferLowHitCount = 0;
 						}
 
-						AAMPLOG_INFO("currentLatency = %.02lf  AvailableBuffer = %.02lf minbuffer = %.02lf targetBuffer=%.02lf currentPlaybackRate = %.02lf bufferLowHitted = %d isEnoughBuffer = %d latencyCorrected = %d bufferCorrectionStarted = %d",
+						AAMPLOG_INFO("currentLatency = %.02lf  AvailableBuffer = %.02lf minbuffer = %.02lf targetBuffer=%.02lf currentPlaybackRate = %.02lf bufferLowHit = %d isEnoughBuffer = %d latencyCorrected = %d bufferCorrectionStarted = %d",
 							currentLatency, bufferValue, minbuffer, targetBuffer, currPlaybackRate, bufferLowHit, isEnoughBuffer, latencyCorrected, bufferCorrectionStarted);
 
 						if ((currentLatency > ((double) pAampLLDashServiceData->maxLatency )) && isEnoughBuffer)
