@@ -283,6 +283,7 @@ TEST_F(TrackInjectTests, RunInjectLoopTestNonLLD)
 
 	this->mPrivateInstanceAAMP->SetLLDashServiceData(llDashData);
 	// Initialize after mock has been setup
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetLLDashChunkMode()).Times(AnyNumber()).WillRepeatedly(Return(false));
 	Initialize();
 
 	mMediaTrack->fillCachedFragment(false, false, llDashData.lowLatencyMode);
@@ -306,7 +307,9 @@ TEST_F(TrackInjectTests, RunInjectLoopTestNonLLDInit)
 	mPrivateInstanceAAMP->rate = AAMP_NORMAL_PLAY_RATE;
 
 	this->mPrivateInstanceAAMP->SetLLDashServiceData(llDashData);
-	this->mPrivateInstanceAAMP->SetLLDashChunkMode(false);
+
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetLLDashChunkMode()).Times(AnyNumber()).WillRepeatedly(Return(false));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetLLDashChunkMode(false)).Times(AnyNumber());
 	// Initialize after mock has been setup
 	Initialize();
 
@@ -331,8 +334,9 @@ TEST_F(TrackInjectTests, RunInjectLoopTestLLD)
 	mPrivateInstanceAAMP->rate = AAMP_NORMAL_PLAY_RATE;
 	this->mPrivateInstanceAAMP->SetLLDashServiceData(llDashData);
 	this->mPrivateInstanceAAMP->mpStreamAbstractionAAMP = new StreamAbstractionAAMP_MPD(this->mPrivateInstanceAAMP, 0, 1);
-	this-> mPrivateInstanceAAMP->SetLLDashChunkMode(true);
 
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetLLDashChunkMode()).Times(AnyNumber()).WillRepeatedly(Return(true));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetLLDashChunkMode(_)).Times(AnyNumber());
 	// Initialize after mock has been setup
 	Initialize();
 
@@ -371,8 +375,9 @@ TEST_F(TrackInjectTests, RunInjectLoopTestLLDInit)
 	mPrivateInstanceAAMP->rate = AAMP_NORMAL_PLAY_RATE;
 	this->mPrivateInstanceAAMP->SetLLDashServiceData(llDashData);
 	this->mPrivateInstanceAAMP->mpStreamAbstractionAAMP = new StreamAbstractionAAMP_MPD(this->mPrivateInstanceAAMP, 0, 1);
-	this->mPrivateInstanceAAMP->SetLLDashChunkMode(true);
 
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetLLDashChunkMode()).Times(AnyNumber()).WillRepeatedly(Return(true));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetLLDashChunkMode(_)).Times(AnyNumber());
 	// Initialize after mock has been setup
 	Initialize();
 

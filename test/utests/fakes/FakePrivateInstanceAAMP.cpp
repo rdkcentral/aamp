@@ -1628,7 +1628,20 @@ void PrivateInstanceAAMP::ResetTrickStartUTCTime()
 
 void PrivateInstanceAAMP::SetLLDashChunkMode(bool enable)
 {
-	mIsChunkMode = enable;
+	if (g_mockPrivateInstanceAAMP)
+	{
+		g_mockPrivateInstanceAAMP->SetLLDashChunkMode(enable);
+	}
+}
+
+bool PrivateInstanceAAMP::GetLLDashChunkMode()
+{
+	bool bIsChunkMode = false;
+	if (g_mockPrivateInstanceAAMP)
+	{
+		bIsChunkMode = g_mockPrivateInstanceAAMP->GetLLDashChunkMode();
+	}
+	return bIsChunkMode;
 }
 
 const char* PrivateInstanceAAMP::getStringForPlaybackError(PlaybackErrorType errorType)

@@ -39,6 +39,7 @@ using ::testing::Return;
 using ::testing::StrictMock;
 using ::testing::SetArgReferee;
 using ::testing::AtLeast;
+using ::testing::AnyNumber;
 
 AampConfig *gpGlobalConfig{nullptr};
 struct TestParams
@@ -304,6 +305,7 @@ class MediaStreamContextTest : public ::testing::TestWithParam<TestParams>
 			}
 			EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetTSBSessionManager()).WillOnce(Return(tsbSessionManager));
 			EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile(_, _, _, _, _, _, _, _, _, _, _, _, _, _)).WillOnce(Return(true));
+			EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetLLDashChunkMode()).Times(AnyNumber()).WillRepeatedly(Return(chunk));
 		}
 };
 

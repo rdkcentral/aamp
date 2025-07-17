@@ -57,7 +57,7 @@ set (DASH_PARSER_SOURCES ${AAMP_ROOT}/dash/xml/DomDocument.cpp
 set(TEST_SOURCES FunctionalTests.cpp
                  StreamAbstractionAAMP.cpp)
 
-	 set(AAMP_SOURCES ${AAMP_ROOT}/streamabstraction.cpp ${AAMP_ROOT}/fragmentcollector_mpd.cpp ${AAMP_ROOT}/AampMPDParseHelper.cpp ${AAMP_ROOT}/AampMPDUtils.cpp ${AAMP_ROOT}/AampTrackWorker.cpp ${DASH_PARSER_SOURCES})
+set(AAMP_SOURCES ${AAMP_ROOT}/streamabstraction.cpp )
 
 add_executable(${EXEC_NAME}
                ${TEST_SOURCES}

@@ -47,6 +47,7 @@ public:
 	MOCK_METHOD(void, InjectFragmentInternal, (CachedFragment* cachedFragment, bool &fragmentDiscarded,bool isDiscontinuity), (override));
 
 	MOCK_METHOD(double, GetTotalInjectedDuration, (), (override));
+	MOCK_METHOD(void, ResetTrickModePtsRestamping, (), (override));
 };
 
 class MockStreamAbstractionAAMP : public StreamAbstractionAAMP
@@ -114,6 +115,8 @@ public:
 	MOCK_METHOD(bool, SelectPreferredTextTrack, (TextTrackInfo& selectedTextTrack), (override));
 
 	MOCK_METHOD(bool, IsEOSReached, (), (override));
+
+	MOCK_METHOD(void, ReinitializeInjection, (double rate));
 };
 
 extern MockStreamAbstractionAAMP *g_mockStreamAbstractionAAMP;

@@ -4319,11 +4319,10 @@ TEST_F(PrivAampTests, TuneHelperWithAampTsbInjection)
 	EXPECT_FALSE(p_aamp->mpStreamAbstractionAAMP->trickplayMode);
 	// Verify that the StreamAbstraction seek position is updated to the expected value
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP_MPD, SeekPosUpdate(SEEK_POS)).Times(2);
-	/* We only expect SetVideoPlaybackRate() to be called when not in LLD mode, so only one of the TuneHelper() calls
-	   will trigger the call*/
-	EXPECT_CALL(*g_mockStreamAbstractionAAMP, SetVideoPlaybackRate(AAMP_RATE_PAUSE)).Times(1);
+
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, ReinitializeInjection(AAMP_RATE_PAUSE)).Times(2);
 	p_aamp->TuneHelper(eTUNETYPE_SEEK);
-	EXPECT_TRUE(p_aamp->mpStreamAbstractionAAMP->trickplayMode);
+
 	// Verify that the StreamAbstraction object is not recreated
 	EXPECT_EQ(savedStreamAbstractionAAMP, p_aamp->mpStreamAbstractionAAMP);
 
