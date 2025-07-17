@@ -1260,20 +1260,19 @@ void AampConfig::CustomArrayRead( cJSON *customArray,ConfigPriority owner )
  * @param playerId identifer for player instance
  * @param appName
  */
-bool AampConfig::CustomSearch( std::string url, int playerId , std::string appName_custom)
+bool AampConfig::CustomSearch( std::string url, int playerId, std::string appName )
 {
 	if(customFound == false)
 	{
 		return false;
 	}
 	bool found = false;
-	AAMPLOG_INFO("url %s playerId %d appName %s ",url.c_str(),playerId,appName_custom.c_str());
+	AAMPLOG_INFO("url %s playerId %d appName %s ",url.c_str(),playerId,appName.c_str());
 	std::string url_custom = url;
 	std::string playerId_custom = std::to_string(playerId);
 	std::string keyname;
 	std::string urlName = "url";
 	std::string player = "playerId";
-	std::string appName = "appName";
 	size_t foundurl;
 	int index = 0;
 	do{
@@ -1307,7 +1306,7 @@ bool AampConfig::CustomSearch( std::string url, int playerId , std::string appNa
 		if (it2 != vCustom.end())
 		{
 			int distance = (int)std::distance(vCustom.begin(),it2);
-			foundurl = appName_custom.find(vCustom[distance].configValue);
+			foundurl = appName.find(vCustom[distance].configValue);
 			if( foundurl != std::string::npos)
 			{
 				index = distance;
