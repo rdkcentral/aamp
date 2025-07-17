@@ -34,7 +34,7 @@
 #include "DrmHelper.h"
 
 #include "PlayerSecInterface.h"
-#include "PlayerSecManagerSession.h"
+#include "ContentSecurityManagerSession.h"
 
 #include <functional>
 
@@ -123,12 +123,13 @@ struct configs{
  */
 class DrmSessionManager
 {
-	public:
+public:
 
 	DrmSessionContext *drmSessionContexts;
 	configs *m_drmConfigParam;
 	PlayerSecInterface *playerSecInstance;/** PlayerSecInterface instance **/
-	PlayerSecManagerSession mPlayerSecManagerSession;
+	ContentSecurityManagerSession mContentSecurityManagerSession;
+        std::atomic<bool> mFirstFrameSeen;
 private:
 	KeyID *cachedKeyIDs;
 	char* accessToken;
@@ -141,7 +142,6 @@ private:
 	int mMaxDRMSessions;
 	std::atomic<bool> mIsVideoOnMute;
 	std::atomic<int> mCurrentSpeed;
-	std::atomic<bool> mFirstFrameSeen;
 	std::function<void(uint32_t, uint32_t, const std::string&)> mPlayerSendWatermarkSessionUpdateEventCB;
 	/**     
 	 * @brief Copy constructor disabled

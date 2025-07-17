@@ -28,6 +28,7 @@
 //TODO: Fix cyclic dependency btw GlobalConfig and PlayerLogManager
 
 #include "PlayerJsonObject.h" // For JSON parsing
+
 #include "PlayerUtils.h" // For player_StartsWith
 
 #include "PlayerCCManager.h"
@@ -734,7 +735,7 @@ void PlayerCCManagerBase::RestoreCC()
 
 	std::string trackId = GetTrack();
 
-	const auto textTracks = getLastTextTracks();
+	const auto& textTracks = getLastTextTracks();
 	bool matchFound = false;
 
 	if(!textTracks.empty())

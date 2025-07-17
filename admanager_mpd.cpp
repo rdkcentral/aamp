@@ -828,7 +828,7 @@ int PrivateCDAIObjectMPD::CheckForAdStart(const float &rate, bool init, const st
 			AdNode &curAd = abObj.ads->at(adIdx);
 			if(!curAd.placed)
 			{
-				for(auto placementObj: mAdtoInsertInNextBreakVec)
+				for(const auto& placementObj: mAdtoInsertInNextBreakVec)
 				{
 					if(curP2Ad.adBreakId == placementObj.pendingAdbrkId)
 					{

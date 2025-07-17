@@ -170,8 +170,8 @@ string findBaseUrl(DomElement &element, const string &current, bool isFile) {
 
         Url newbase(eUrl.text());
         if (newbase.isRelative()) {
-            auto out = Url(_current).resolve(newbase).format(Url::StripTrailingSlash).append(
-                    slash);
+            auto out = std::move(Url(_current).resolve(newbase).format(Url::StripTrailingSlash).append(
+                    slash));
             return out;
         } else {
             return newbase.format(Url::StripTrailingSlash).append(slash);

@@ -27,7 +27,7 @@ set(RFC_ROOT ${UTESTS_ROOT}/rfc)
 set(EXEC_NAME DrmOcdm)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DREALTEKCE=1")
 
-include_directories(${PLAYER_ROOT} ${PLAYER_ROOT}/drm  ${PLAYER_ROOT}/subtitle ${PLAYER_ROOT}/drm/helper ${PLAYER_ROOT}/drm/ocdm ${PLAYER_ROOT}/drm/ ${PLAYER_ROOT}/subtitle ${PLAYER_ROOT}/downloader ${PLAYER_ROOT}/isobmff ${PLAYER_ROOT}/subtec/subtecparser ${PLAYER_ROOT}/playerjsonobject ${PLAYER_ROOT}/subtec/libsubtec ${PLAYER_ROOT}/externals/playersecmanager)
+include_directories(${PLAYER_ROOT} ${PLAYER_ROOT}/drm  ${PLAYER_ROOT}/subtitle ${PLAYER_ROOT}/drm/helper ${PLAYER_ROOT}/drm/ocdm ${PLAYER_ROOT}/drm/ ${PLAYER_ROOT}/subtitle ${PLAYER_ROOT}/downloader ${PLAYER_ROOT}/isobmff ${PLAYER_ROOT}/subtec/subtecparser ${PLAYER_ROOT}/playerjsonobject ${PLAYER_ROOT}/subtec/libsubtec ${PLAYER_ROOT}/externals/contentsecuritymanager)
 include_directories(${PLAYER_ROOT}/tsb/api)
 include_directories(${PLAYER_ROOT}/externals)
 include_directories(${GTEST_INCLUDE_DIRS})
@@ -46,7 +46,7 @@ include_directories(${PLAYER_ROOT}/drm)
 include_directories(${PLAYER_ROOT}/drm/helper)
 include_directories(${PLAYER_ROOT}/drm/ocdm)
 include_directories(${PLAYER_ROOT}/externals)
-include_directories(${PLAYER_ROOT}/externals/playersecmanager)
+include_directories(${PLAYER_ROOT}/externals/contentsecuritymanager)
 include_directories(${PLAYER_ROOT}/playerLogManager)
 include_directories(${PLAYER_ROOT}/baseConversion)
 
@@ -63,7 +63,7 @@ set(FAKE_SOURCES ${PLAYER_ROOT}/test/utests/fakes/FakeSocUtils.cpp)
 set(PLAYER_SOURCES ${PLAYER_ROOT}/drm/DrmUtils.cpp
 	${PLAYER_ROOT}/baseConversion/_base64.cpp
 	${PLAYER_ROOT}/externals/PlayerExternalsInterface.cpp
-	${PLAYER_ROOT}/externals/playersecmanager/PlayerSecManager.cpp
+	${PLAYER_ROOT}/externals/contentsecuritymanager/ContentSecurityManager.cpp
 	${PLAYER_ROOT}/externals/PlayerExternalUtils.cpp
 	${PLAYER_ROOT}/baseConversion/_base64.cpp
 				${PLAYER_ROOT}/PlayerUtils.cpp

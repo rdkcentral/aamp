@@ -31,6 +31,8 @@ include_directories(${AAMP_ROOT}/middleware/closedcaptions)
 include_directories(${AAMP_ROOT}/middleware/drm)
 include_directories(${AAMP_ROOT}/middleware/drm/helper)
 include_directories(${AAMP_ROOT}/middleware/drm/ocdm)
+include_directories(${AAMP_ROOT}/middleware/playerJsonObject)
+include_directories(${AAMP_ROOT}/middleware/externals/contentsecuritymanager)
 
 find_package(PkgConfig REQUIRED)
 
