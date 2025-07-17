@@ -597,6 +597,7 @@ set(AAMP_CLI_SOURCES
 	test/aampcli/AampcliVirtualChannelMap.cpp
 	test/aampcli/AampcliShader.cpp
 	test/aampcli/AampcliSubtecSimulator.cpp
+	test/aampcli/AampcliPrintf.cpp
 )
 add_executable(aamp-cli ${AAMP_CLI_SOURCES})
 target_link_libraries(aamp-cli aamp subtec tsb playerfbinterface ${AAMP_CLI_LD_FLAGS} "-lreadline")
