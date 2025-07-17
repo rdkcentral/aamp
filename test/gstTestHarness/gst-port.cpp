@@ -548,7 +548,6 @@ void Pipeline::Step( void )
 void Pipeline::InstantaneousRateChange( double newRate )
 {
 	g_print( "Pipeline::InstantaneousRateChange(%lf)\n", newRate );
-#if GST_CHECK_VERSION(1,18,0)
 	auto rc = gst_element_seek(
 							   GST_ELEMENT(pipeline),
 							   newRate,
@@ -557,9 +556,4 @@ void Pipeline::InstantaneousRateChange( double newRate )
 							   GST_SEEK_TYPE_NONE, 0,
 							   GST_SEEK_TYPE_NONE, 0 );
 	assert( rc );
-#else
-	g_print( "Instantaneous Rate Change not supported in gstreamer version %d.%d.%d, requires version 1.18\n",
-			GST_VERSION_MAJOR, GST_VERSION_MINOR, GST_VERSION_MICRO );
-	assert( false );
-#endif
 }
