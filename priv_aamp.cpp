@@ -5473,66 +5473,8 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 			mPauseOnFirstVideoFrameDisp = true;
 		}
 
-		if (mMediaFormat == eMEDIAFORMAT_HLS)
+		if (mMediaFormat == eMEDIAFORMAT_PROGRESSIVE)
 		{
-			//Live adjust or syncTrack occurred, sent an updated flush event
-			if (!newTune)
-			{
-				StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
-				if (sink)
-				{
-					sink->Flush(mpStreamAbstractionAAMP->GetFirstPTS(), rate);
-				}
-			}
-		}
-		else if (mMediaFormat == eMEDIAFORMAT_DASH)
-		{
-			/*
-			   commenting the Flush call with updatedSeekPosition as a work around for
-			   Trick play freeze issues observed for partner cDVR content
-			   @TODO Need to investigate and identify proper way to send Flush and segment
-			   events to avoid the freeze
-			if (!(newTune || (eTUNETYPE_RETUNE == tuneType)) && !IsFogTSBSupported())
-			{
-				StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
-				if (sink)
-				{
-					sink->Flush(updatedSeekPosition, rate);
-				}
-			}
-			else
-			{
-				StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
-				if (sink)
-				{
-					sink->Flush(0, rate);
-				}
-			}
-				*/
-			StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
-			if (sink && (mAampLLDashServiceData.lowLatencyMode || !ISCONFIGSET_PRIV(eAAMPConfig_EnableMediaProcessor)))
-			{
-				/* Do flush to PTS position when:
-				*	Not PTS restamp
-				*	OR normal play
-				* This means we skip this flush when
-				*	trickplay and PTS restamp
-				*	and we are using the flush(0) that occurs else where
-				*/
-				if (!ISCONFIGSET_PRIV(eAAMPConfig_EnablePTSReStamp) || rate == AAMP_NORMAL_PLAY_RATE )
-				{
-					AAMPLOG_INFO("patrick");
-					sink->Flush(mpStreamAbstractionAAMP->GetFirstPTS(), rate);
-				}
-			}
-		}
-		else if (mMediaFormat == eMEDIAFORMAT_PROGRESSIVE)
-		{
-			StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
-			if (sink)
-			{
-				sink->Flush(updatedSeekPosition, rate);
-			}
 			// ff trick mode, mp4 content is single file and muted audio to avoid glitch
 			if (rate > AAMP_NORMAL_PLAY_RATE)
 			{
@@ -5591,26 +5533,45 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 		}
 
 		/*************************************************************** */
-			StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
-			if (sink && (mAampLLDashServiceData.lowLatencyMode || !ISCONFIGSET_PRIV(eAAMPConfig_EnableMediaProcessor)))
+		StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
+		if (sink)
+		{
+			if (mMediaFormat == eMEDIAFORMAT_HLS)
 			{
-				/* Do flush to PTS position when:
-				*	Not PTS restamp
-				*	OR normal play
-				* This means we skip this flush when
-				*	trickplay and PTS restamp
-				*	and we are using the flush(0) that occurs else where
-				*/
-				if (!ISCONFIGSET_PRIV(eAAMPConfig_EnablePTSReStamp) || rate == AAMP_NORMAL_PLAY_RATE )
+				// Live adjust or syncTrack occurred, sent an updated flush event
+				if (!newTune)
 				{
-					double pts = mpStreamAbstractionAAMP->GetFirstPTS();
-					if (pts >0 && pts<10.0)
+					sink->Flush(mpStreamAbstractionAAMP->GetFirstPTS(), rate);
+				}
+			}
+			else if (mMediaFormat == eMEDIAFORMAT_DASH)
+			{
+				if ((mAampLLDashServiceData.lowLatencyMode || !ISCONFIGSET_PRIV(eAAMPConfig_EnableMediaProcessor)))
+				{
+					/* Do flush to PTS position when:
+					 *	Not PTS restamp
+					 *	OR normal play
+					 * This means we skip this flush when
+					 *	trickplay and PTS restamp
+					 *	and we are using the flush(0) that occurs else where
+					 */
+					if (!ISCONFIGSET_PRIV(eAAMPConfig_EnablePTSReStamp) || rate == AAMP_NORMAL_PLAY_RATE)
 					{
-					AAMPLOG_INFO("patrick");
-					sink->Flush(pts, rate, false);
+						AAMPLOG_INFO("patrick");
+						sink->Flush(mpStreamAbstractionAAMP->GetFirstPTS(), rate, false);
 					}
 				}
 			}
+			else if (mMediaFormat == eMEDIAFORMAT_PROGRESSIVE)
+			{
+				sink->Flush(updatedSeekPosition, rate);
+			}
+		}
+		else
+		{
+			AAMPLOG_WARN("StreamSink is NULL");
+		}
+
 		/*************************************************************** */
 		if (tuneType == eTUNETYPE_SEEK || tuneType == eTUNETYPE_SEEKTOLIVE || tuneType == eTUNETYPE_SEEKTOEND)
 		{
