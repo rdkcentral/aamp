@@ -157,10 +157,10 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/drm/aes)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/drm/helper)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/drm/ocdm)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/externals)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/externals/playersecmanager)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/externals/contentsecuritymanager)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/externals/rdk)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/playerisobmff)
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/playerjsonobject)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/playerJsonObject)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/playerLogManager)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/subtec/libsubtec)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/middleware/subtec/subtecparser)
@@ -336,7 +336,7 @@ set(LIBAAMP_SOURCES
 	scte35/AampSCTE35.cpp
 	subtec/subtecparser/WebvttSubtecDevParser.cpp
 	AampTrackWorker.cpp
-	test/gstTestHarness/mp4demux.cpp
+	test/gstTestHarness/mp4demux.hpp
 	middleware/drm/aes/Aes.cpp
 	middleware/drm/helper/DrmHelper.cpp
 	middleware/gstplayertaskpool.cpp
@@ -363,7 +363,7 @@ set(LIBAAMP_SOURCES
 	middleware/subtec/subtecparser/TtmlSubtecParser.cpp
 	middleware/subtec/subtecparser/WebvttSubtecDevInterface.cpp
 	middleware/subtec/subtecparser/TextStyleAttributes.cpp
-	middleware/playerjsonobject/PlayerJsonObject.cpp
+	middleware/playerJsonObject/PlayerJsonObject.cpp
 )
 
 if(CMAKE_SOC_PLATFORM_RPI)
@@ -632,13 +632,22 @@ set(GSTTESTHARNESS_DEPENDS
 )
 set(GSTTESTHARNESS_SOURCES
 	test/gstTestHarness/gst-port.cpp
+	test/gstTestHarness/gst-port.h
 	test/gstTestHarness/gst-utils.cpp
+	test/gstTestHarness/gst-utils.h
 	test/gstTestHarness/gst-test.cpp
-	test/gstTestHarness/mp4demux.cpp
+	test/gstTestHarness/gst-test.h
+	test/gstTestHarness/mp4demux.hpp
 	test/gstTestHarness/dash_adapter.cpp
+	test/gstTestHarness/dash_adapter.hpp
 	test/gstTestHarness/downloader.cpp
+	test/gstTestHarness/downloader.hpp
 	test/gstTestHarness/stream_utils.cpp
+	test/gstTestHarness/stream_utils.hpp
 	test/gstTestHarness/string_utils.cpp
+	test/gstTestHarness/string_utils.hpp
+	test/gstTestHarness/tsdemux.hpp
+	test/gstTestHarness/turbo_xml.hpp
 )
 add_executable(gstTestHarness ${GSTTESTHARNESS_SOURCES})
 target_link_libraries(gstTestHarness ${GSTTESTHARNESS_DEPENDS} "-lreadline")

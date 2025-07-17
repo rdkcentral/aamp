@@ -47,7 +47,7 @@ set(TEST_SOURCES FunctionalTests.cpp
 
 set(AAMP_SOURCES ${AAMP_ROOT}/aampgstplayer.cpp
 		${AAMP_ROOT}/middleware/InterfacePlayerRDK.cpp
-		${AAMP_ROOT}/test/gstTestHarness/mp4demux.cpp
+		${AAMP_ROOT}/test/gstTestHarness/mp4demux.hpp
 	)
 
 add_executable(${EXEC_NAME}

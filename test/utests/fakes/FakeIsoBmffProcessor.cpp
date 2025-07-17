@@ -22,7 +22,7 @@
 
 MockIsoBmffProcessor* g_mockIsoBmffProcessor = nullptr;
 
-IsoBmffProcessor::IsoBmffProcessor(class PrivateInstanceAAMP *aamp, id3_callback_t id3_hdl, IsoBmffProcessorType trackType, IsoBmffProcessor* peerBmffProcessor, IsoBmffProcessor* peerSubProcessor)
+IsoBmffProcessor::IsoBmffProcessor(class PrivateInstanceAAMP *aamp, id3_callback_t id3_hdl, IsoBmffProcessorType trackType, bool passThrough,IsoBmffProcessor* peerBmffProcessor, IsoBmffProcessor* peerSubProcessor)
 {
 }
 
@@ -85,4 +85,8 @@ void IsoBmffProcessor::abortWaitForVideoPTS()
 }
 void IsoBmffProcessor::resetPTSOnSubtitleSwitch(AampGrowableBuffer *pBuffer, double position)
 {
+}
+bool IsoBmffProcessor::updatePTSAndTimeScaleFromBuffer(AampGrowableBuffer *pBuffer)
+{
+    return true;
 }

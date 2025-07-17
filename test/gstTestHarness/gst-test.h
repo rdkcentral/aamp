@@ -35,7 +35,7 @@ typedef enum
 class Track
 {
 public:
-	uint32_t timeScale;
+	uint32_t timeScale; // needed here?
 	bool needsData;
 	bool gstreamerReadyForInjection;
 	std::queue<class TrackEvent *> *queue; // sequential segments/commands, not yet injected
