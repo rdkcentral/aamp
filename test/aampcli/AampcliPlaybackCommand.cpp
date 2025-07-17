@@ -721,6 +721,10 @@ bool PlaybackCommand::execute( const char *cmd, PlayerInstanceAAMP *playerInstan
 	{ // comment - ignore
 		printf( "%s\n", cmd );
 	}
+	else if( isCommandMatch(cmd,"parse") )
+	{
+		parse(&cmd[5]);
+	}
 	else if( isCommandMatch(cmd, "help") )
 	{
 		showHelp();
@@ -1004,6 +1008,7 @@ void PlaybackCommand::registerPlaybackCommands()
 	addCommand("history","Show user-entered aampcli command history" );
 	addCommand("batch","Execute commands line by line as batch as defined in #Home/aampcli.bat (~/aampcli.bat)" );
 	addCommand("help","Show this list of available commands");
+	addCommand("parse <mp4file>","mp4 box parser tool" );
 
 	// tuning
 	addCommand("autoplay","Toggle whether to autoplay (default=true)");
@@ -1065,6 +1070,51 @@ void PlaybackCommand::addCommand(std::string command,std::string description)
 {
 	playbackCommands.insert(make_pair(command,description));
 	commands.push_back(command);
+}
+
+#include "mp4demux.hpp"
+void PlaybackCommand::parse( const char *path )
+{
+	while( *path == ' ' )
+	{
+		path++;
+	}
+	if( *path )
+	{
+		FILE *f = fopen(path,"rb");
+		if( f )
+		{
+			fseek(f,0,SEEK_END);
+			long pos = ftell(f);
+			if( pos>=0 )
+			{
+				size_t len = (size_t)pos;
+				void *ptr = malloc(len);
+				if( ptr )
+				{
+					fseek(f,0,SEEK_SET);
+					size_t rc = fread(ptr,1,len,f);
+					if( rc == len )
+					{
+						auto mp4Demux = new Mp4Demux(true);
+						// coverity[TAINTED_SCALAR]:SUPPRESS
+						mp4Demux->Parse(ptr,len);
+						delete mp4Demux;
+					}
+					free( ptr );
+				}
+			}
+			fclose( f );
+		}
+		else
+		{
+			printf( "unable to open file '%s'\n", path );
+		}
+	}
+	else
+	{
+		printf( "usage: parse <path>\n" );
+	}
 }
 
 /**
