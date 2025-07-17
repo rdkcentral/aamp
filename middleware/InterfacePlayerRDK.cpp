@@ -1402,6 +1402,7 @@ void InterfacePlayerRDK::Stop(bool keepLastFrame)
 	DestroyPipeline();
 	gstPrivateContext->rate = GST_NORMAL_PLAY_RATE;
 	gstPrivateContext->lastKnownPTS = 0;
+	MW_LOG_MIL("patrick segmentStart = 0");
 	gstPrivateContext->segmentStart = 0;
 	gstPrivateContext->paused = false;
 	gstPrivateContext->pipelineState = GST_STATE_NULL;
