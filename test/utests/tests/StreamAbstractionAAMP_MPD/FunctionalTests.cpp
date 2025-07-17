@@ -326,7 +326,7 @@ public:
 		{
 			/*	NOW_STEADY_TS_MS used in calulation will have different between calling Init and used in comparison as under. Hence EXPECT_NEAR is used
 				Assumption here is that it takes less than a second to excute Init and then perform comparison here */
-			EXPECT_NEAR(mPrivateInstanceAAMP->mLiveEdgeDeltaFromCurrentTime, NOW_STEADY_TS_SECS_FP - mPrivateInstanceAAMP->mAbsoluteEndPosition, 1);
+			EXPECT_NEAR(mPrivateInstanceAAMP->mLiveEdgeDeltaFromCurrentTime, NOW_SYSTEM_TS_SECS_FP - mPrivateInstanceAAMP->mAbsoluteEndPosition, 1);
 		}
 		return status;
 	}
