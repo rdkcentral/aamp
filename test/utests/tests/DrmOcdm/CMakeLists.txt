@@ -90,7 +90,6 @@ set(AAMP_SOURCES ${AAMP_ROOT}/AampConfig.cpp
 				 ${AAMP_ROOT}/AampUtils.cpp
 				 ${AAMP_ROOT}/iso639map.cpp
 				 ${AAMP_ROOT}/middleware/drm/DrmUtils.cpp
-				 ${AAMP_ROOT}/middleware/drm/base64.cpp
 				 ${AAMP_ROOT}/middleware/PlayerUtils.cpp
 				 ${AAMP_ROOT}/middleware/drm/DrmSessionFactory.cpp
 				 ${AAMP_ROOT}/middleware/drm/helper/DrmHelper.cpp

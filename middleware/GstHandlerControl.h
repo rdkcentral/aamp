@@ -30,7 +30,7 @@
 #define HANDLER_CONTROL_HELPER(HANDLER_CONTROL, RTN) auto scopeHelper = HANDLER_CONTROL.getScopeHelper(); \
 								if(scopeHelper.returnStraightAway()) return RTN;
 
-#define HANDLER_CONTROL_HELPER_CALLBACK_VOID() auto scopeHelper = pInterfacePlayerRDK->gstPrivateContext->callbackControl.getScopeHelper();
+#define HANDLER_CONTROL_HELPER_CALLBACK_VOID() auto scopeHelper = privatePlayer->gstPrivateContext->callbackControl.getScopeHelper();
 
 /**
  * @class HandlerControl

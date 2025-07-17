@@ -193,7 +193,7 @@ bool BrcmSocInterface::ConfigureAudioSink(GstElement **audio_sink, GstObject *sr
 		g_object_set(src, "limit_buffering", 1, NULL);
 		MW_LOG_MIL("Found audiodecoder, limiting audio decoder buffering");
 
-		/* if aamp->mAudioDecoderStreamSync==false, tell decoder not to look for 2nd/next frame sync, decode if it finds a single frame sync */
+		/* if mAudioDecoderStreamSync==false, tell decoder not to look for 2nd/next frame sync, decode if it finds a single frame sync */
 		g_object_set(src, "stream_sync_mode", (decStreamSync)? 1 : 0, NULL);
 		MW_LOG_MIL("For audiodecoder set 'stream_sync_mode': %d", decStreamSync);
 
