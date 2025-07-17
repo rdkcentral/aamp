@@ -5,6 +5,7 @@ on:
     branches: [ develop, dev_sprint_25_2 ]
 
 jobs:
+
   execute-unit-tests-on-pr:
     name: Runs all unit tests
     runs-on: ubuntu-latest
@@ -13,11 +14,24 @@ jobs:
       # Checkout the aamp repository
       - name: Checkout aamp code
         uses: actions/checkout@v3
+
+      - name: Set up .netrc for RDK Gerrit
+        run: |
+          echo "machine code.rdkcentral.com\n" >> ~/.netrc
+          echo "login ${{ secrets.RDK_USER }}\n" >> ~/.netrc
+          echo "password ${{ secrets.RDK_PASS }}\n" >> ~/.netrc
+          chmod 600 ~/.netrc
       
       # Install AAMP
-      - name: Install AAMP
-        run: yes | ./install-aamp.sh -s -k file
-      
+      - name: Install AAMP (with apt fix)
+        run: |
+          sudo apt-get update --fix-missing
+          sudo apt-get install -y software-properties-common
+          yes | ./install-aamp.sh -s -k file
+
+      # - name: Run unit tests
+      #   run:  tail -f /dev/null
+
       # Run L1 tests
       - name: Run unit tests
         working-directory: ./test/utests
@@ -25,8 +39,8 @@ jobs:
       
       # Publish test results
       - name: Publish L1 test results
+        if: ${{ !env.ACT }}
         uses: dorny/test-reporter@v1
-        if: always()
         with:
           name: Unit Test Results
           path: test/utests/build/ctest-results.xml
@@ -34,50 +48,51 @@ jobs:
       
       # Upload artifact (test/utests/build/ctest-results.xml)
       - name: Upload test result file
+        if: ${{ !env.ACT }}
         uses: actions/upload-artifact@v4
         with:
           name: ctest-results
           path: test/utests/build/ctest-results.xml
       
-            # Make install-middleware.sh executable
-      - name: Make install-middleware.sh executable
-        run: chmod +x ./aamp/middleware/install-middleware.sh
-      
-      # Install Middleware
-      - name: Install Middleware Player Interface
-        run: yes | ./aamp/middleware/install-middleware.sh -s -k file
+      # Show failure
+      - name: Show failure details (if any)
+        # if: failure()
+        run: tail -n 50 test/utests/build/ctest-results.xml || true
 
-      # Make run.sh executable
-      - name: Make run.sh executable
-        run: chmod +x ./aamp/middleware/test/utests/run.sh
-        
+      # Install Middleware
+      - name: Install Middleware PlayerInterface (with apt fix)
+        working-directory: ./middleware
+        run: |
+          sudo apt-get update --fix-missing
+          sudo apt-get install -y software-properties-common
+          yes | ./install-middleware.sh -s subtec
+
+      # - name: Run unit tests
+      #   run:  tail -f /dev/null
+
       # Run L1 tests
       - name: Run unit tests
-        working-directory: ./aamp/middleware/test/utests
+        working-directory: ./middleware/test/utests
         run: ./run.sh
       
       # Publish test results
       - name: Publish L1 test results
+        if: ${{ !env.ACT }}
         uses: dorny/test-reporter@v1
-        if: always()
         with:
           name: Unit Test Results
-          path: aamp/middleware/test/utests/build/ctest-results.xml
+          path: middleware/test/utests/build/ctest-results.xml
           reporter: java-junit
       
-      # Upload artifact (middleware/test/utests/build/ctest-results.xml)
+      # Upload artifact (test/utests/build/ctest-results.xml)
       - name: Upload test result file
+        if: ${{ !env.ACT }}
         uses: actions/upload-artifact@v4
         with:
           name: ctest-results
-          path: aamp/middleware/test/utests/build/ctest-results.xml
-            
+          path: middleware/test/utests/build/ctest-results.xml
+      
       # Show failure
       - name: Show failure details (if any)
-        if: failure()
-        run: tail -n 50 test/utests/build/ctest-results.xml
-
-      # Show failure
-      - name: Show failure details (if any)
-        if: failure()
-        run: tail -n 50 aamp/middleware/test/utests/build/ctest-results.xml
+        # if: failure()
+        run: tail -n 50 middleware/test/utests/build/ctest-results.xml || true
