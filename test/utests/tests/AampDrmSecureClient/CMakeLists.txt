@@ -43,11 +43,10 @@ include_directories(${DRM_ROOT})
 include_directories(${DRM_ROOT}/ocdm)
 include_directories(${AAMP_ROOT}/../secclient)
 include_directories(${DRM_ROOT}/mocks)
-include_directories(${AAMP_ROOT}/middleware/vendor)
-include_directories(${AAMP_ROOT}/middleware/externals/contentsecuritymanager)
 include_directories(${AAMP_ROOT}/middleware/drm)
 include_directories(${AAMP_ROOT}/middleware/ocdm)
 include_directories(${AAMP_ROOT}/middleware/drm/helper)
+include_directories(${AAMP_ROOT}/middleware/externals/playersecmanager)
 
 message(GSTREAMER_INCLUDE_DIRS=${GSTREAMER_INCLUDE_DIRS})
 

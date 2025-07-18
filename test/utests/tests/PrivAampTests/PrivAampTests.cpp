@@ -1902,7 +1902,7 @@ TEST_F(PrivAampTests,TeardownStreamTest_1)
 TEST_F(PrivAampTests,TeardownStreamTest_2)
 {
 	EXPECT_EQ(0,p_aamp->rate);
-	p_aamp->Stop();
+	p_aamp->Stop(false);
 	EXPECT_EQ(1,p_aamp->rate);
 	bool flag = p_aamp->IsDiscontinuityProcessPending();
 	EXPECT_FALSE(flag);
@@ -2439,7 +2439,7 @@ TEST_F(PrivAampTests,IsAudioPlayContextCreationSkippedTest)
 	EXPECT_FALSE(p_aamp->IsAudioPlayContextCreationSkipped());
 }
 
-TEST_F(PrivAampTests,DISABLED_stopTest)
+TEST_F(PrivAampTests,stopTest)
 {
 	constexpr long long POS = 1234;
 	p_aamp->rate = AAMP_NORMAL_PLAY_RATE;
@@ -2447,21 +2447,21 @@ TEST_F(PrivAampTests,DISABLED_stopTest)
 	// Give some time for the PausePositionMonitoring thread to start
 	std::this_thread::sleep_for(std::chrono::milliseconds(10));
 	EXPECT_EQ(POS, p_aamp->mPausePositionMilliseconds);
-	//EXPECT_TRUE(p_aamp->mPausePositionMonitoringThreadStarted);
+	EXPECT_TRUE(p_aamp->mPausePositionMonitoringThreadStarted);
 
-	p_aamp->Stop();
+	p_aamp->Stop(false);
 	// Give some time for the PausePositionMonitoring thread to be destroyed
 	std::this_thread::sleep_for(std::chrono::milliseconds(10));
 	EXPECT_FALSE(p_aamp->mAutoResumeTaskPending);
 
 	// StopPausePositionMonitoring() should have been called
 	EXPECT_EQ(-1, p_aamp->mPausePositionMilliseconds);
-	//EXPECT_FALSE(p_aamp->mPausePositionMonitoringThreadStarted);
+	EXPECT_FALSE(p_aamp->mPausePositionMonitoringThreadStarted);
 }
 
 TEST_F(PrivAampTests,stopTest_1)
 {
-	p_aamp->Stop();
+	p_aamp->Stop(false);
 	EXPECT_FALSE(p_aamp->mAutoResumeTaskPending);
 	EXPECT_FALSE(p_aamp->IsFogTSBSupported());
 }
@@ -4147,7 +4147,7 @@ TEST_F(PrivAampTests,stopTest_11)
 {
 	p_aamp->mFogTSBEnabled = true;
 	p_aamp->IsFogTSBSupported();
-	p_aamp->Stop();
+	p_aamp->Stop(false);
 }
 
 TEST_F(PrivAampTests,GetLastDownloadedManifestTest1)
@@ -4354,61 +4354,6 @@ TEST_F(PrivAampTests, TuneHelperWithAampTsbLive)
 	EXPECT_DOUBLE_EQ(p_aamp->durationSeconds, (ABS_END_POS - SEEK_POS));
 }
 
-/**
- * @test PrivAampTests::TuneHelperWithAampTsbSeekToLiveWhenTsbIsEmpty
- * @brief Test the method TuneHelper with AAMP TSB enabled, Tsb injection disabled
- * not newTune with TuneType eTUNETYPE_SEEKTOLIVE when TSB is empty.
- *
- * This test verifies that when TuneHelper function is called with
- * above parameters, it is not setting LocalAAMPTsbInjection flag.
- */
-TEST_F(PrivAampTests, TuneHelperWithAampTsbSeekToLiveWhenTsbIsEmpty)
-{
-	constexpr double SEEK_POS = 123;
-	constexpr double ABS_END_POS = 150.0;
-	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP_MPD;
-	p_aamp->mMediaFormat = eMEDIAFORMAT_DASH;
-	p_aamp->rate = AAMP_RATE_PAUSE;
-	p_aamp->seek_pos_seconds = SEEK_POS;
-	p_aamp->SetLLDashChunkMode(false);
-	p_aamp->SetLocalAAMPTsb(true);
-	p_aamp->SetLocalAAMPTsbInjection(false);
-	p_aamp->mAbsoluteEndPosition = ABS_END_POS;
-	p_aamp->culledSeconds = SEEK_POS;
-
-	EXPECT_DOUBLE_EQ(p_aamp->GetTSBSessionManager()->GetTotalStoreDuration(eMEDIATYPE_VIDEO), 0);
-	p_aamp->TuneHelper(eTUNETYPE_SEEKTOLIVE);
-	EXPECT_FALSE(p_aamp->IsLocalAAMPTsbInjection());
-}
-
-/**
- * @test PrivAampTests::TuneHelperWithAampTsbSeekToLiveWhenTsbIsNotEmpty
- * @brief Test the method TuneHelper with AAMP TSB enabled, Tsb injection disabled
- * not newTune with TuneType eTUNETYPE_SEEKTOLIVE when TSB has data.
- *
- * This test verifies that when TuneHelper function is called with
- * above parameters, it is able to initiaize TsbReader is TSB has data.
- */
-TEST_F(PrivAampPrivTests, TuneHelperWithAampTsbSeekToLiveWhenTsbIsNotEmpty)
-{
-	constexpr double SEEK_POS = 123;
-	constexpr double ABS_END_POS = 150.0;
-	testp_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP_MPD;
-	testp_aamp->mMediaFormat = eMEDIAFORMAT_DASH;
-	testp_aamp->rate = AAMP_RATE_PAUSE;
-	testp_aamp->seek_pos_seconds = SEEK_POS;
-	testp_aamp->SetLLDashChunkMode(false);
-	testp_aamp->SetLocalAAMPTsb(true);
-	testp_aamp->SetLocalAAMPTsbInjection(false);
-	testp_aamp->mAbsoluteEndPosition = ABS_END_POS;
-	testp_aamp->culledSeconds = SEEK_POS;
-	testp_aamp->SetTsbSessionManager();
-	testp_aamp->SetTsbStore();
-
-	EXPECT_CALL(*g_mockTSBSessionManager, GetTotalStoreDuration(eMEDIATYPE_VIDEO)).WillRepeatedly(Return(ABS_END_POS));
-	testp_aamp->TuneHelper(eTUNETYPE_SEEKTOLIVE);
-	EXPECT_TRUE(testp_aamp->IsLocalAAMPTsbInjection());
-}
 
 /**
  * @test PrivAampTests::NotifyEOSReached

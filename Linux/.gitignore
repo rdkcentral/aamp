@@ -1,0 +1,9 @@
+aampabr
+aampmetrics
+cJSON
+gst-plugins-rdk-aamp
+include
+lib
+libdash
+*.tar.*
+bin

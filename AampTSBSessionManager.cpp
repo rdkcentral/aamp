@@ -238,12 +238,12 @@ std::shared_ptr<CachedFragment> AampTSBSessionManager::Read(TsbFragmentDataPtr f
 		// PTS restamping must be enabled to use AAMP Local TSB.
 		// 'position' has the restamped PTS value, however, the PTS value in the ISO BMFF boxes
 		// (baseMediaDecodeTime) will be restamped later, in the injector thread.
-		cachedFragment->position = (fragment->GetPTS() + fragment->GetPTSOffset()).inSeconds();
+		cachedFragment->position = (fragment->GetPTS() + fragment->GetPTSOffsetSec()).inSeconds();
 		cachedFragment->absPosition = fragment->GetAbsolutePosition().inSeconds();
 		cachedFragment->duration = fragment->GetDuration().inSeconds();
 		cachedFragment->discontinuity = fragment->IsDiscontinuous();
 		cachedFragment->type = fragment->GetInitFragData()->GetMediaType();
-		cachedFragment->PTSOffsetSec = fragment->GetPTSOffset().inSeconds();
+		cachedFragment->PTSOffsetSec = fragment->GetPTSOffsetSec().inSeconds();
 		cachedFragment->timeScale = fragment->GetTimeScale();
 		cachedFragment->uri = std::move(url);
 		pts = fragment->GetPTS().inSeconds();

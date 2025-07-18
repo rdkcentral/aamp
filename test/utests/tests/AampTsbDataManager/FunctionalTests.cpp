@@ -181,7 +181,7 @@ TEST_F(FunctionalTests, TestAddFragment_WithDiscontinuity)
     EXPECT_TRUE(mDataManager->GetLastFragment()->IsDiscontinuous());
     EXPECT_EQ(mDataManager->GetLastFragment()->GetPeriodId(), periodId);
     EXPECT_EQ(mDataManager->GetLastFragment()->GetTimeScale(), timeScale);
-    EXPECT_EQ(mDataManager->GetLastFragment()->GetPTSOffset(), PTSOffsetSec);
+    EXPECT_EQ(mDataManager->GetLastFragment()->GetPTSOffsetSec(), PTSOffsetSec);
 }
 
 TEST_F(FunctionalTests, GetLastFragmentPosition_EmptyList)

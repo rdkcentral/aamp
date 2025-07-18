@@ -210,6 +210,20 @@
 #define AAMP_MAX_EVENT_PRIORITY (-70) 	/**< Maximum allowed priority value for events */
 #define AAMP_TASK_ID_INVALID 0
 
+//License acquisition related configuration
+#define MAX_LICENSE_REQUEST_ATTEMPTS 2
+//Secmanager error class codes
+#define SECMANAGER_DRM_FAILURE 200
+#define SECMANAGER_WM_FAILURE 300 	/**< If secmanager couldn't initialize watermark service */
+
+//Secmanager error reason codes
+#define SECMANAGER_DRM_GEN_FAILURE 1	/**< General or internal failure */
+#define SECMANAGER_SERVICE_TIMEOUT 3
+#define SECMANAGER_SERVICE_CON_FAILURE 4
+#define SECMANAGER_SERVICE_BUSY 5
+#define SECMANAGER_ACCTOKEN_EXPIRED 8
+#define SECMANAGER_ENTITLEMENT_FAILURE 102
+
 // weights used for audio/subtitle track-selection heuristic
 #define AAMP_LANGUAGE_SCORE 1000000000ULL  /**< Top priority:  matching language **/
 #define AAMP_SCHEME_ID_SCORE 100000000ULL  /**< 2nd priority to scheme id matching **/

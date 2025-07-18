@@ -1080,7 +1080,7 @@ void PlaybackCommand::showHelp(void)
 	printf("*   Usage of Commands, and arguments expected\n");
 	printf("******************************************************************************************\n");
 
-	for(const auto& itr:commands)
+	for(auto itr:commands)
 	{
 		playbackCmdItr = playbackCommands.find(itr);
 

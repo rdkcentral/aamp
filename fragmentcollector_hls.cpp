@@ -5188,7 +5188,7 @@ void StreamAbstractionAAMP_HLS::Stop(bool clearChannelData)
 				sink->ClearProtectionEvent();
 			}
 		}
-		if(ISCONFIGSET(eAAMPConfig_UseSecManager) || ISCONFIGSET(eAAMPConfig_UseFireboltSDK))
+		if(ISCONFIGSET(eAAMPConfig_UseSecManager))
 		{
 			aamp->mDRMLicenseManager->notifyCleanup();
 		}
@@ -7436,4 +7436,3 @@ bool StreamAbstractionAAMP_HLS::SelectPreferredTextTrack(TextTrackInfo& selected
 	}
 	return bestTrackFound;
 }
-

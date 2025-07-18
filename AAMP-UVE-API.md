@@ -828,7 +828,7 @@ Examples:
 |||audio_native — Primary dialogue and soundtrack with dialogue that was recorded along with the video;
 |||audio_descriptions — Audio track meant to assist the vision impaired in the enjoyment of the video asset |
 | Channels | String | Indicates the maximum number of audio channels; 1 = mono, 2=stereo, up to 8 for DD+ |
-| availability  | Boolean | Availability of the audio track in current TSB buffer (FOG or AAMP TSB) |
+| availability  | Boolean | Availability of the audio track in current TSB buffer (FOG) |
 | accessibility  | Object | DASH shall signal a new object accessibility to notify a track as hearing impaired |
 | scheme  | String | The SchemeId to indicate the type of Accessibility Example:- "urn:mpeg:dash:role:2011" |
 | string_value  | String | The string value of Accessibility object; Example:-  "description" |

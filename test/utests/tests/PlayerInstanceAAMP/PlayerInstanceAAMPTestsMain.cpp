@@ -238,7 +238,7 @@ TEST_F(PlayerInstanceAAMPTests, PauseAtAsync)
 // Testing calling Tune cancels any pause position monitoring
 // Expect StopPausePositionMonitoring to be called at least once 
 // (internally Tune can call Stop ao possible for multiple calls)
-TEST_F(PlayerInstanceAAMPTests, DISABLED_PauseAt_Tune)
+TEST_F(PlayerInstanceAAMPTests, PauseAt_Tune)
 {
     char mainManifestUrl[] = "";
 

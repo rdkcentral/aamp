@@ -47,7 +47,7 @@ public:
 		stream << "initialization: " << initialization << "\n";
 		
 		stream << "media:";
-		for( const auto& it : media ) stream << " " << it;
+		for( auto it : media ) stream << " " << it;
 		stream << "\n";
 		
 		stream << "duration:";
@@ -126,7 +126,7 @@ public:
 		stream << "audioSamplingRate=" << audioSamplingRate << "\n";
 		puts( stream.str().c_str() );
 		data.Debug();
-		for( const auto& it : representation )
+		for( auto it : representation )
 		{
 			it.Debug();
 		}
@@ -147,7 +147,7 @@ public:
 	void Debug( void ) const
 	{
 		printf( "\tPeriodObj\n" );
-		for( const auto& it : adaptationSet )
+		for( auto it : adaptationSet )
 		{
 			it.second.Debug();
 		}
@@ -186,7 +186,7 @@ public:
 	void Debug( void ) const
 	{
 		printf( "Timeline:\n" );
-		for(const  auto& p : period )
+		for( auto p : period )
 		{
 			p.Debug();
 		}

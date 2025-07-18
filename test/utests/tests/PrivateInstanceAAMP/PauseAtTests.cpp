@@ -382,7 +382,6 @@ TEST_F(PauseAtTests, PausePosition_Playback)
     EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_NativeCCRendering)).WillRepeatedly(Return(false));
     EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_RepairIframes)).WillRepeatedly(Return(false));
     EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_UseSecManager)).WillRepeatedly(Return(false));
-    EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_UseFireboltSDK)).WillRepeatedly(Return(false));
     EXPECT_CALL(*g_mockAampScheduler, SetState(eSTATE_PAUSED)).Times(1);
 
     // Expected calls from PrivateInstanceAAMP::SetState
@@ -457,7 +456,6 @@ TEST_F(PauseAtTests, PausePosition_Trickmode)
     EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_NativeCCRendering)).WillRepeatedly(Return(false));
     EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_RepairIframes)).WillRepeatedly(Return(false));
     EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_UseSecManager)).WillRepeatedly(Return(false));
-    EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_UseFireboltSDK)).WillRepeatedly(Return(false));
     EXPECT_CALL(*g_mockAampScheduler, SetState(eSTATE_PAUSED)).Times(1);
 
     // Expected calls from PrivateInstanceAAMP::SetState

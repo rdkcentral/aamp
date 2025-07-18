@@ -155,13 +155,7 @@ double AampTSBSessionManager::GetManifestEndDelta()
 
 double AampTSBSessionManager::GetTotalStoreDuration(AampMediaType mediaType)
 {
-	double ret = 0.0;
-	if (g_mockTSBSessionManager)
-	{
-		ret = g_mockTSBSessionManager->GetTotalStoreDuration(mediaType);
-	}
-
-	return ret;
+	return 0.0;
 }
 
 std::shared_ptr<AampTsbDataManager> AampTSBSessionManager::GetTsbDataManager(AampMediaType mediaType)

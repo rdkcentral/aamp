@@ -151,7 +151,7 @@ TEST_F(FunctionalTests, TsbFragmentData_Constructor)
 	EXPECT_EQ(fragment->IsDiscontinuous(), discont);
 	EXPECT_EQ(fragment->GetInitFragData(), initFragment);
 	EXPECT_EQ(fragment->GetTimeScale(), timeScale);
-	EXPECT_EQ(fragment->GetPTSOffset(), PTSOffsetSec);
+	EXPECT_EQ(fragment->GetPTSOffsetSec(), PTSOffsetSec);
 }
 
 /**
@@ -394,15 +394,15 @@ TEST_F(FunctionalTests, Init_SeekWithAudioTrack)
 	StreamInfo streamInfo;
 	int profileIdx = 0;
 	uint32_t timeScale = 240000;
-	AampTime PTSOffset = 0.0;
+	AampTime PTSOffsetSec = 0.0;
 
 	// Create init data and fragments
 	TsbInitDataPtr videoInitFragment = std::make_shared<TsbInitData>(url, eMEDIATYPE_VIDEO, position, streamInfo, periodId, profileIdx);
 	TsbInitDataPtr audioInitFragment = std::make_shared<TsbInitData>(url, eMEDIATYPE_AUDIO, position, streamInfo, periodId, profileIdx);
 
 	// Create video fragments
-	TsbFragmentDataPtr firstVideoFragment = std::make_shared<TsbFragmentData>(url, eMEDIATYPE_VIDEO, position, duration, pts, discont, periodId, videoInitFragment, timeScale, PTSOffset);
-	TsbFragmentDataPtr lastVideoFragment = std::make_shared<TsbFragmentData>(url, eMEDIATYPE_VIDEO, position + duration, duration, pts + duration, discont, periodId, videoInitFragment, timeScale, PTSOffset);
+	TsbFragmentDataPtr firstVideoFragment = std::make_shared<TsbFragmentData>(url, eMEDIATYPE_VIDEO, position, duration, pts, discont, periodId, videoInitFragment, timeScale, PTSOffsetSec);
+	TsbFragmentDataPtr lastVideoFragment = std::make_shared<TsbFragmentData>(url, eMEDIATYPE_VIDEO, position + duration, duration, pts + duration, discont, periodId, videoInitFragment, timeScale, PTSOffsetSec);
 
 	// Mock data manager
 	EXPECT_CALL(*g_mockTSBDataManager, GetFirstFragment())
@@ -415,13 +415,12 @@ TEST_F(FunctionalTests, Init_SeekWithAudioTrack)
 	EXPECT_EQ(mTestableTsbReader->Init(seekPos, rate, tuneType, nullptr), eAAMPSTATUS_OK);
 	EXPECT_DOUBLE_EQ(seekPos, lastVideoFragment->GetAbsolutePosition().inSeconds());
 	EXPECT_EQ(mTestableTsbReader->GetFirstPTS(), lastVideoFragment->GetPTS());
-	EXPECT_EQ(mTestableTsbReader->GetFirstPTSOffset(), lastVideoFragment->GetPTSOffset());
 
 	// Initialize secondary reader
 	InitializeSecondaryReader();
 	// Create audio fragments
-	TsbFragmentDataPtr firstAudioFragment = std::make_shared<TsbFragmentData>(url, eMEDIATYPE_AUDIO, 1000.0, 5.0, 250.0, discont, periodId, audioInitFragment, timeScale, PTSOffset);
-	TsbFragmentDataPtr lastAudioFragment = std::make_shared<TsbFragmentData>(url, eMEDIATYPE_AUDIO, 1005.0, 5.0, 255.0, discont, periodId, audioInitFragment, timeScale, PTSOffset);
+	TsbFragmentDataPtr firstAudioFragment = std::make_shared<TsbFragmentData>(url, eMEDIATYPE_AUDIO, 1000.0, 5.0, 250.0, discont, periodId, audioInitFragment, timeScale, PTSOffsetSec);
+	TsbFragmentDataPtr lastAudioFragment = std::make_shared<TsbFragmentData>(url, eMEDIATYPE_AUDIO, 1005.0, 5.0, 255.0, discont, periodId, audioInitFragment, timeScale, PTSOffsetSec);
 
 	EXPECT_CALL(*g_mockTSBDataManager, GetFirstFragment())
 		.WillOnce(Return(firstAudioFragment));
@@ -435,7 +434,6 @@ TEST_F(FunctionalTests, Init_SeekWithAudioTrack)
 	EXPECT_EQ(mTestableSecondaryTsbReader->Init(seekPos, rate, tuneType, primaryReaderPtr), eAAMPSTATUS_OK);
 	EXPECT_DOUBLE_EQ(seekPos, lastVideoFragment->GetAbsolutePosition().inSeconds());
 	EXPECT_EQ(mTestableSecondaryTsbReader->GetFirstPTS(), lastAudioFragment->GetPTS());
-	EXPECT_EQ(mTestableSecondaryTsbReader->GetFirstPTSOffset(), lastAudioFragment->GetPTSOffset());
 }
 
 /**
@@ -483,7 +481,6 @@ TEST_F(FunctionalTests, Init_SeekWithAudioTrackDiffInPTS)
 	EXPECT_EQ(mTestableTsbReader->Init(seekPos, rate, tuneType, nullptr), eAAMPSTATUS_OK);
 	EXPECT_EQ(seekPos, lastVideoFragment->GetAbsolutePosition());
 	EXPECT_EQ(mTestableTsbReader->GetFirstPTS(), lastVideoFragment->GetPTS());
-	EXPECT_EQ(mTestableTsbReader->GetFirstPTSOffset(), lastVideoFragment->GetPTSOffset());
 
 	// Initialize secondary reader
 	InitializeSecondaryReader();
@@ -508,7 +505,6 @@ TEST_F(FunctionalTests, Init_SeekWithAudioTrackDiffInPTS)
 
 	// Even though last fragment is nearest, the second fragment should be returned as it has lower PTS compared to video
 	EXPECT_EQ(mTestableSecondaryTsbReader->GetFirstPTS(), secondAudioFragment->GetPTS());
-	EXPECT_EQ(mTestableSecondaryTsbReader->GetFirstPTSOffset(), secondAudioFragment->GetPTSOffset());
 }
 
 /**

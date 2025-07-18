@@ -388,11 +388,11 @@ protected:
 			mStreamAbstractionAAMP_MPD = nullptr;
 		}
 
-		delete mCdaiObj;
-		mCdaiObj = nullptr;
-
 		delete mPrivateInstanceAAMP;
 		mPrivateInstanceAAMP = nullptr;
+
+		delete mCdaiObj;
+		mCdaiObj = nullptr;
 
 		delete gpGlobalConfig;
 		gpGlobalConfig = nullptr;

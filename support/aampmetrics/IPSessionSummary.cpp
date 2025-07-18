@@ -39,7 +39,7 @@ cJSON * CSessionSummary::ToJson() const
 		if(monitor)
 		{
 			cJSON * jsonObj = NULL;
-			for(const auto& it : mSessionSummaryMap)
+			for(auto it : mSessionSummaryMap)
 			{
 				jsonObj =  cJSON_CreateNumber(it.second);
 				cJSON_AddItemToObject(monitor, it.first.c_str(), jsonObj);

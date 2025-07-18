@@ -114,28 +114,3 @@ float AampTsbReader::GetPlaybackRate()
 		return 0.0;
 	}
 }
-
-double AampTsbReader::GetFirstPTS() 
-{
-	if (g_mockTSBReader)
-	{
-		return g_mockTSBReader->GetFirstPTS();
-	}
-	else
-	{
-		return 0.0;
-	}
-}
-
-AampTime AampTsbReader::GetFirstPTSOffset()
-{
-	if (g_mockTSBReader)
-	{
-		return g_mockTSBReader->GetFirstPTSOffset();
-	}
-	else
-	{
-		return 0.0;
-	}
-}
-
