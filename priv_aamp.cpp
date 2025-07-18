@@ -11676,7 +11676,7 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 					for (auto &temp : trackInfo)
 					{
 
-						AAMPLOG_WARN("Neil if (temp.language='%s' == firstLanguage='%s'), && (temp.language='%s' != currentPrefLanguage='%s')", temp.language.c_str(), firstLanguage.c_str(), temp.language.c_str(), currentPrefLanguage);
+						AAMPLOG_WARN("Neil if ( temp.isAvailable = %d temp.language='%s' == firstLanguage='%s'), && (temp.language='%s' != currentPrefLanguage='%s')", temp.isAvailable,  temp.language.c_str(), firstLanguage.c_str(), temp.language.c_str(), currentPrefLanguage);
 
 						if ((temp.language == firstLanguage) && (temp.language != currentPrefLanguage))
 						{
