@@ -7968,7 +7968,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, 
 						{
 							pMediaStreamContext->fragmentTime -= mLivePeriodCulledSeconds;
 						}
-						AAMPLOG_INFO("StreamAbstractionAAMP_MPD: Track %d Period changed, but within an adbreak, mPeriodStartTime:%lf basePeriodOffset:%d FragmentTime: %lf PeriodCulled:%f",
+						AAMPLOG_INFO("StreamAbstractionAAMP_MPD: Track %d Period changed, but within an adBreak, mPeriodStartTime:%lf basePeriodOffset:%d FragmentTime: %lf PeriodCulled:%f",
 							i, mPeriodStartTime, mCdaiObject->mCurAds->at(mCdaiObject->mCurAdIdx).basePeriodOffset, pMediaStreamContext->fragmentTime, mLivePeriodCulledSeconds);
 					}
 				}
@@ -9373,7 +9373,7 @@ bool StreamAbstractionAAMP_MPD::SelectSourceOrAdPeriod(bool &periodChanged, bool
 				mBasePeriodOffset = (rate > AAMP_RATE_PAUSE) ? 0 : (mMPDParseHelper->GetPeriodDuration(mIterPeriodIndex, mLastPlaylistDownloadTimeMs, (rate != AAMP_NORMAL_PLAY_RATE), aamp->IsUninterruptedTSB()) / 1000.00);
 
 				{
-					std::lock_guard<std::mutex> lock(mCdaiObject->mDaiMtx);
+					std::lock_guard<std::mutex> lock(mCdaiObject->mDaiMutex);
 					if (mCdaiObject->mContentSeekOffset > 0)
 					{
 						// Set mBasePeriodOffset as mContentSeekOffset to handle cases of partial ads.
@@ -9550,7 +9550,7 @@ bool StreamAbstractionAAMP_MPD::IndexSelectedPeriod(bool periodChanged, bool adS
 
 		// CID:190371 - Data race condition
 		// Get and clear mContentSeekOffset atomically.
-		std::lock_guard<std::mutex> lock(mCdaiObject->mDaiMtx);
+		std::lock_guard<std::mutex> lock(mCdaiObject->mDaiMutex);
 		seekPositionSeconds = mCdaiObject->mContentSeekOffset;
 		mCdaiObject->mContentSeekOffset = 0;
 
@@ -9997,7 +9997,7 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 					}
 					else if (lastPrdOffset != mBasePeriodOffset && AdState::IN_ADBREAK_AD_NOT_PLAYING == mCdaiObject->mAdState)
 					{
-						// In adbreak, but somehow Ad is not playing. Need to check whether the position reached the next Ad start.
+						// In adBreak, but somehow Ad is not playing. Need to check whether the position reached the next Ad start.
 						adStateChanged = onAdEvent(AdEvent::BASE_OFFSET_CHANGE);
 						if (adStateChanged)
 							break;
@@ -11770,12 +11770,12 @@ bool StreamAbstractionAAMP_MPD::onAdEvent(AdEvent evt, double &adOffset)
 			return false;
 		}
 	}
-	std::unique_lock<std::mutex> lock(mCdaiObject->mDaiMtx);
+	std::unique_lock<std::mutex> lock(mCdaiObject->mDaiMutex);
 	bool stateChanged = false;
 	AdState oldState = mCdaiObject->mAdState;
 	AAMPEventType reservationEvt2Send = AAMP_MAX_NUM_EVENTS; //None
 	/* Caching the currently playing breakId */
-	std::string adbreakId2Send = mCdaiObject->mCurPlayingBreakId;
+	std::string adBreakId2Send = mCdaiObject->mCurPlayingBreakId;
 	AAMPEventType placementEvt2Send = AAMP_MAX_NUM_EVENTS; //None
 	std::string adId2Send("");
 	uint32_t adPos2Send = 0;
@@ -11790,7 +11790,7 @@ bool StreamAbstractionAAMP_MPD::onAdEvent(AdEvent evt, double &adOffset)
 				// Getting called from StreamAbstractionAAMP_MPD::Init or from FetcherLoop
 				std::string brkId = "";
 				int adIdx = mCdaiObject->CheckForAdStart(rate, (AdEvent::INIT == evt), mBasePeriodId, mBasePeriodOffset, brkId, adOffset);
-				// If an adbreak is found for period
+				// If an adBreak is found for period
 				if(!brkId.empty())
 				{
 					AAMPLOG_INFO("[CDAI] CheckForAdStart found Adbreak[%s] adIdx[%d] mBasePeriodOffset[%lf] adOffset[%lf] SeekOffset:%f.", brkId.c_str(), adIdx, mBasePeriodOffset, adOffset,mCdaiObject->mContentSeekOffset);
@@ -11828,7 +11828,7 @@ bool StreamAbstractionAAMP_MPD::onAdEvent(AdEvent evt, double &adOffset)
 							AAMPLOG_WARN("[CDAI]: AdIdx[%d] in the AdBreak[%s] is invalid. Skipping.", adIdx, brkId.c_str());
 						}
 						reservationEvt2Send = AAMP_EVENT_AD_RESERVATION_START;
-						adbreakId2Send = brkId;
+						adBreakId2Send = brkId;
 						if(AdEvent::INIT == evt)
 						{
 							sendImmediate = true;
@@ -11849,12 +11849,12 @@ bool StreamAbstractionAAMP_MPD::onAdEvent(AdEvent evt, double &adOffset)
 							mCdaiObject->mAdState = AdState::IN_ADBREAK_AD_NOT_PLAYING;
 							stateChanged = true;
 						}
-						// If an adbreak exists for this basePeriodId, then ads might be available.
+						// If an adBreak exists for this basePeriodId, then ads might be available.
 						// Only for scenarios where mBasePeriodOffset is zero, we have to wait for the ads to be added by application.
 						// Otherwise for partial ad fill, once the ads are played, we will wait as adIdx will be -1 from CheckForAdStart().
 						else if (mBasePeriodOffset == 0)
 						{
-							// If the adbreak is not invalidated, wait for ads to be added and resolved
+							// If the adBreak is not invalidated, wait for ads to be added and resolved
 							if ((mCdaiObject->mAdState != AdState::OUTSIDE_ADBREAK_WAIT4ADS) && !mCdaiObject->mAdBreaks[mBasePeriodId].invalid)
 							{
 								mCdaiObject->mAdState = AdState::OUTSIDE_ADBREAK_WAIT4ADS;
@@ -11878,7 +11878,7 @@ bool StreamAbstractionAAMP_MPD::onAdEvent(AdEvent evt, double &adOffset)
 							}
 							else
 							{
-								// Ads are not added or ads failed to resolve, invalidate the adbreak
+								// Ads are not added or ads failed to resolve, invalidate the adBreak
 								AAMPLOG_WARN("[CDAI] AdBreak[%s] is invalidated. Skipping.", mBasePeriodId.c_str());
 								if(AdState::OUTSIDE_ADBREAK_WAIT4ADS == mCdaiObject->mAdState)
 								{
@@ -11931,7 +11931,7 @@ bool StreamAbstractionAAMP_MPD::onAdEvent(AdEvent evt, double &adOffset)
 					if(adIdx == (mCdaiObject->mAdBreaks[brkId].ads->size() -1))	//Rewind case only.
 					{
 						reservationEvt2Send = AAMP_EVENT_AD_RESERVATION_START;
-						adbreakId2Send = brkId;
+						adBreakId2Send = brkId;
 					}
 				}
 				else if(brkId.empty())
@@ -12046,12 +12046,12 @@ bool StreamAbstractionAAMP_MPD::onAdEvent(AdEvent evt, double &adOffset)
 				{
 					if(rate > 0)
 					{
-						// For forward playback, we need to wait till the adbreak is placed. Then only we will know which period to change to
+						// For forward playback, we need to wait till the adBreak is placed. Then only we will know which period to change to
 						if (!mCdaiObject->mAdBreaks[mCdaiObject->mCurPlayingBreakId].mAdBreakPlaced)
 						{
 							// This log might cause log flooding, hence changed to trace
 							AAMPLOG_TRACE("[CDAI]: All Ads in the ADBREAK[%s] FINISHED. Waiting for the ADBREAK to place.", mCdaiObject->mCurPlayingBreakId.c_str());
-							// Moving the state back to IN_ADBREAK_WAIT2CATCHUP, so that we can further wait till adbreak is placed
+							// Moving the state back to IN_ADBREAK_WAIT2CATCHUP, so that we can further wait till adBreak is placed
 							mCdaiObject->mAdState = AdState::IN_ADBREAK_WAIT2CATCHUP;
 							if (mCdaiObject->mCurAdIdx >= mCdaiObject->mCurAds->size())
 							{
@@ -12161,11 +12161,11 @@ bool StreamAbstractionAAMP_MPD::onAdEvent(AdEvent evt, double &adOffset)
 			uint64_t resPosMS = 0;
 			AampTime absReservationEventPosition;
 			AampTime absPlacementEventPosition;
-			// Check if the adbreakId is valid
-			if (!adbreakId2Send.empty() && mCdaiObject->isAdBreakObjectExist(adbreakId2Send))
+			// Check if the adBreakId is valid
+			if (!adBreakId2Send.empty() && mCdaiObject->isAdBreakObjectExist(adBreakId2Send))
 			{
-				AdBreakObject *abObj = &mCdaiObject->mAdBreaks[adbreakId2Send];
-				// Updating the adbreak start time for the first time when the adbreak starts in the current period
+				AdBreakObject *abObj = &mCdaiObject->mAdBreaks[adBreakId2Send];
+				// Updating the adBreak start time for the first time when the adBreak starts in the current period
 				if (abObj)
 				{
 					if (abObj->mAbsoluteAdBreakStartTime == 0.0)
@@ -12189,7 +12189,7 @@ bool StreamAbstractionAAMP_MPD::onAdEvent(AdEvent evt, double &adOffset)
 
 			if(AAMP_EVENT_AD_RESERVATION_START == reservationEvt2Send)
 			{
-				SendAdReservationEvent(reservationEvt2Send, adbreakId2Send, resPosMS, absReservationEventPosition, sendImmediate);
+				SendAdReservationEvent(reservationEvt2Send, adBreakId2Send, resPosMS, absReservationEventPosition, sendImmediate);
 				aamp->SendAnomalyEvent(ANOMALY_TRACE, "[CDAI] Adbreak of duration=%u sec starts.", (mCdaiObject->mAdBreaks[mCdaiObject->mCurPlayingBreakId].brkDuration)/1000);
 			}
 
@@ -12220,7 +12220,7 @@ bool StreamAbstractionAAMP_MPD::onAdEvent(AdEvent evt, double &adOffset)
 
 			if(AAMP_EVENT_AD_RESERVATION_END == reservationEvt2Send)
 			{
-				SendAdReservationEvent(reservationEvt2Send, adbreakId2Send, resPosMS, absReservationEventPosition, sendImmediate);
+				SendAdReservationEvent(reservationEvt2Send, adBreakId2Send, resPosMS, absReservationEventPosition, sendImmediate);
 				aamp->SendAnomalyEvent(ANOMALY_TRACE, "%s", "[CDAI] Adbreak ends.");
 			}
 

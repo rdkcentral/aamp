@@ -812,7 +812,7 @@ public:
 	class StreamAbstractionAAMP *mpStreamAbstractionAAMP; /**< HLS or MPD collector */
 	class CDAIObject *mCdaiObject;      		/**< Client Side DAI Object */
 	std::queue<AAMPEventPtr> mAdEventsQ;   		/**< A Queue of Ad events */
-	std::mutex mAdEventQMtx;            		/**< Add events' queue protector */
+	std::mutex mAdEventQMutex;            		/**< Add events' queue protector */
 	bool mInitSuccess;				/**< TODO: Need to replace with player state */
 	StreamOutputFormat mVideoFormat;
 	StreamOutputFormat mAudioFormat;

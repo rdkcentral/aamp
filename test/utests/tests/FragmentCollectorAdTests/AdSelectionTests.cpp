@@ -612,7 +612,7 @@ TEST_F(AdSelectionTests, WaitForAdFallbackTest)
 	// Set the ad variables, we have finished ad playback and waiting for base period to catchup
 	auto cdaiObj = mStreamAbstractionAAMP_MPD->GetCDAIObject();
 	cdaiObj->mAdState = AdState::OUTSIDE_ADBREAK;
-	std::string periodId = "p1"; // empty adbreak in p1
+	std::string periodId = "p1"; // empty adBreak in p1
 	// Add ads to the adBreak
 	cdaiObj->mAdBreaks = {
 		{periodId, AdBreakObject(30000, std::make_shared<std::vector<AdNode>>(), "", 0, 0)}
@@ -642,7 +642,7 @@ TEST_F(AdSelectionTests, WaitForAdFallbackTest)
 /**
  * @brief onAdEventTest tests.
  * The tests verify the onAdEvent method of StreamAbstractionAAMP_MPD with starting state OUTSIDE_ADBREAK and then moves to a 
- * period having adbreak and starts playing ad, with state changing to IN_ADBREAK_AD_PLAYING
+ * period having adBreak and starts playing ad, with state changing to IN_ADBREAK_AD_PLAYING
  */
 
 TEST_F(AdSelectionTests, onAdEventTest_1)
@@ -703,7 +703,7 @@ TEST_F(AdSelectionTests, onAdEventTest_1)
 
 /**
  * @brief onAdEventTest tests.
- * The tests verify the onAdEvent method of StreamAbstractionAAMP_MPD with starting state OUTSIDE_ADBREAK. Then moves to adbreak,
+ * The tests verify the onAdEvent method of StreamAbstractionAAMP_MPD with starting state OUTSIDE_ADBREAK. Then moves to adBreak,
  * Since ad is not downloaded,it enters the IN_ADBREAK_AD_NOT_PLAYING state
  */
 TEST_F(AdSelectionTests, onAdEventTest_2)
@@ -745,7 +745,7 @@ TEST_F(AdSelectionTests, onAdEventTest_2)
 
 /**
  * @brief onAdEventTest tests.
- * The tests verify the onAdEvent method of StreamAbstractionAAMP_MPD with adbreak not validated, wait for ads to be added.
+ * The tests verify the onAdEvent method of StreamAbstractionAAMP_MPD with adBreak not validated, wait for ads to be added.
  * Remains in OUTSIDE_ADBREAK state
  */
 TEST_F(AdSelectionTests, onAdEventTest_3)
@@ -894,7 +894,7 @@ TEST_F(AdSelectionTests, onAdEventTest_5)
 
 /**
  * @brief onAdEventTest tests.
- * The tests verify the onAdEvent method of StreamAbstractionAAMP_MPD where period is in adbreak and ad starts playing with state
+ * The tests verify the onAdEvent method of StreamAbstractionAAMP_MPD where period is in adBreak and ad starts playing with state
  * IN_ADBREAK_AD_PLAYING. while playing an ad failure happens and state changes to IN_ADBREAK_AD_NOT_PLAYING 
  */
 TEST_F(AdSelectionTests, onAdEventTest_6)
@@ -959,7 +959,7 @@ TEST_F(AdSelectionTests, onAdEventTest_6)
 
 /**
  * @brief onAdEventTest tests.
- * The tests verify the onAdEvent method of StreamAbstractionAAMP_MPD where current source period is in adbreak,
+ * The tests verify the onAdEvent method of StreamAbstractionAAMP_MPD where current source period is in adBreak,
  * but no ad opportunities are present. Its a bug case. State transition happens from IN_ADBREAK_WAIT2CATCHUP
  * to OUTSIDE_ADBREAK
  */
@@ -1022,8 +1022,8 @@ TEST_F(AdSelectionTests, onAdEventTest_7)
 
 /**
  * @brief onAdEventTest tests.
- * The tests verify the onAdEvent method of StreamAbstractionAAMP_MPD where all ads in adbreak finished 
- * and waiting for adbreak to place with state IN_ADBREAK_WAIT2CATCHUP. Once adbreak is placed , state moves
+ * The tests verify the onAdEvent method of StreamAbstractionAAMP_MPD where all ads in adBreak finished 
+ * and waiting for adBreak to place with state IN_ADBREAK_WAIT2CATCHUP. Once adBreak is placed , state moves
  * to OUTSIDE_ADBREAK 
  */
 TEST_F(AdSelectionTests, onAdEventTest_8)
@@ -1095,7 +1095,7 @@ TEST_F(AdSelectionTests, onAdEventTest_8)
 /**
  * @brief onAdEventTest tests.
  * The tests verify the onAdEvent method of StreamAbstractionAAMP_MPD where period 
- * is in adbreak with multiple ads and state is IN_ADBREAK_WAIT2CATCHUP
+ * is in adBreak with multiple ads and state is IN_ADBREAK_WAIT2CATCHUP
  * and when ad is available and starts playing, state changes to IN_ADBREAK_AD_PLAYING
  */
 TEST_F(AdSelectionTests, onAdEventTest_9)
@@ -1163,7 +1163,7 @@ TEST_F(AdSelectionTests, onAdEventTest_9)
 
 /**
  * @brief onAdEventTest tests.
- * The tests verify the onAdEvent method of StreamAbstractionAAMP_MPD where period is in adbreak and first ad is not able to 
+ * The tests verify the onAdEvent method of StreamAbstractionAAMP_MPD where period is in adBreak and first ad is not able to 
  * download with state IN_ADBREAK_AD_NOT_PLAYING and moving to next ad which is available and able to download and state 
  * changes to IN_ADBREAK_AD_PLAYING 
  */
@@ -1229,7 +1229,7 @@ TEST_F(AdSelectionTests, onAdEventTest_10)
 /**
  * @brief onAdEventTest tests.
  * The tests verify the onAdEvent method of StreamAbstractionAAMP_MPD where state transition happens from 
- * IN_ADBREAK_AD_NOT_PLAYING to OUTSIDE_ADBREAK since adbreak ended with ad not playing
+ * IN_ADBREAK_AD_NOT_PLAYING to OUTSIDE_ADBREAK since adBreak ended with ad not playing
  */
 TEST_F(AdSelectionTests, onAdEventTest_11)
 {
@@ -1247,7 +1247,7 @@ TEST_F(AdSelectionTests, onAdEventTest_11)
 	auto cdaiObj = mStreamAbstractionAAMP_MPD->GetCDAIObject();
 	cdaiObj->mAdState = AdState::IN_ADBREAK_AD_NOT_PLAYING;
 
-	std::string basePeriodId = "p2";//After adbreak p1, player moves to baseperiod p2 with period change event
+	std::string basePeriodId = "p2";//After adBreak p1, player moves to baseperiod p2 with period change event
 	mStreamAbstractionAAMP_MPD->SetBasePeriodId(basePeriodId);
 
 	EXPECT_TRUE(mStreamAbstractionAAMP_MPD->CallOnAdEvent(AdEvent::PERIOD_CHANGE));
@@ -1257,7 +1257,7 @@ TEST_F(AdSelectionTests, onAdEventTest_11)
 /**
  * @brief onAdEventTest tests.
  * The tests verify the onAdEvent method of StreamAbstractionAAMP_MPD where ads are there,
- * but one ad is yet to be placed. So adbreak is not placed. State remains in IN_ADBREAK_WAIT2CATCHUP state. 
+ * but one ad is yet to be placed. So adBreak is not placed. State remains in IN_ADBREAK_WAIT2CATCHUP state. 
  */
 TEST_F(AdSelectionTests, onAdEventTest_12)
 {
@@ -1323,11 +1323,11 @@ TEST_F(AdSelectionTests, onAdEventTest_12)
 
 /**
  * @brief onAdEventTest tests.
- * The tests verify the onAdEvent method of StreamAbstractionAAMP_MPD where period p1 contains adbreak. At first player is in
+ * The tests verify the onAdEvent method of StreamAbstractionAAMP_MPD where period p1 contains adBreak. At first player is in
  * OUTSIDE_ADBREAK state. Upon rewind, valid ad is not found at the offset, its a partial ad, so state moved to 
  * IN_ADBREAK_AD_NOT_PLAYING. After reaching the offset,ad is found and starts playing and changing state to IN_ADBREAK_AD_PLAYING.
  * Once ad finishes state moves to IN_ADBREAK_WAIT2CATCHUP. 
- * All ads in adbreak finished and state moves to OUTSIDE_ADBREAK.
+ * All ads in adBreak finished and state moves to OUTSIDE_ADBREAK.
  */
 TEST_F(AdSelectionTests, onAdEventTest_13)
 {
@@ -1396,9 +1396,9 @@ TEST_F(AdSelectionTests, onAdEventTest_13)
 /**
  * @brief onAdEventTest tests.
  * The tests verify the onAdEvent method of StreamAbstractionAAMP_MPD where p1 is the period where ad is present.At first
- * state is OUTSIDE_ADBREAK.  After rewind, position reaches to adbreak in Period p1 . In that adbreak, ad is valid 
+ * state is OUTSIDE_ADBREAK.  After rewind, position reaches to adBreak in Period p1 . In that adBreak, ad is valid 
  * and it gets played and moving to state IN_ADBREAK_AD_PLAYING. Once ad finishes state moves to IN_ADBREAK_WAIT2CATCHUP.
- * Since its an adbreak with one ad, and when ad finishes playing state moves to OUTSIDE_ADBREAK 
+ * Since its an adBreak with one ad, and when ad finishes playing state moves to OUTSIDE_ADBREAK 
  */
 TEST_F(AdSelectionTests, onAdEventTest_14)
 {
@@ -1457,15 +1457,15 @@ TEST_F(AdSelectionTests, onAdEventTest_14)
 	cdaiObj->mCurPlayingBreakId = adPeriodId;
 	EXPECT_TRUE(mStreamAbstractionAAMP_MPD->CallOnAdEvent(AdEvent::DEFAULT));
 	EXPECT_EQ(cdaiObj->mAdState, AdState::OUTSIDE_ADBREAK);
-	EXPECT_EQ(cdaiObj->mContentSeekOffset, 0); // Make sure content seek offset is set to adbreak offset
+	EXPECT_EQ(cdaiObj->mContentSeekOffset, 0); // Make sure content seek offset is set to adBreak offset
 }
 
 /**
  * @brief onAdEventTest tests.
  * The tests verify the onAdEvent method of StreamAbstractionAAMP_MPD where p1 is the period where ad is present.At first
- * state is OUTSIDE_ADBREAK.  After forward, position reaches to adbreak in Period p1 . In that adbreak, ad is valid
+ * state is OUTSIDE_ADBREAK.  After forward, position reaches to adBreak in Period p1 . In that adBreak, ad is valid
  * and it gets played and moving to state IN_ADBREAK_AD_PLAYING. Once ad finishes state moves to IN_ADBREAK_WAIT2CATCHUP.
- * Since its an adbreak with one ad, adbreak is placed and state moves to OUTSIDE_ADBREAK
+ * Since its an adBreak with one ad, adBreak is placed and state moves to OUTSIDE_ADBREAK
  */
 TEST_F(AdSelectionTests, onAdEventTest_15)
 {
@@ -1525,7 +1525,7 @@ TEST_F(AdSelectionTests, onAdEventTest_15)
 	cdaiObj->mAdBreaks[cdaiObj->mCurPlayingBreakId].mAdBreakPlaced = true;
 	EXPECT_TRUE(mStreamAbstractionAAMP_MPD->CallOnAdEvent(AdEvent::DEFAULT));
 	EXPECT_EQ(cdaiObj->mAdState, AdState::OUTSIDE_ADBREAK);
-	EXPECT_EQ(cdaiObj->mContentSeekOffset, 5); // Make sure content seek offset is set to adbreak offset
+	EXPECT_EQ(cdaiObj->mContentSeekOffset, 5); // Make sure content seek offset is set to adBreak offset
 }
 
 /**
@@ -1587,7 +1587,7 @@ TEST_F(AdSelectionTests, AdTransitionTest)
 	cdaiObj->mAdBreaks[periodId].ads->emplace_back(false /*invalid*/, true /*placed*/, true /*resolved*/,
 													  "adId1" /*adId*/, adUrl /*url*/, 30000 /*duration*/, periodId /*basePeriodId*/, 0 /*basePeriodOffset*/, mAdMPD /*mpd*/);
 
-	// Marking adbreak as placed as well
+	// Marking adBreak as placed as well
 	cdaiObj->mAdBreaks[periodId].mAdBreakPlaced = true;
 	cdaiObj->mPeriodMap[periodId] = Period2AdData(false, periodId, 30000 /*in ms*/,
 	{
@@ -1696,7 +1696,7 @@ TEST_F(AdSelectionTests, AdTransitionTest_PausedWithAampTSB)
 	cdaiObj->mAdBreaks[periodId].ads->emplace_back(false /*invalid*/, true /*placed*/, true /*resolved*/,
 													  "adId1" /*adId*/, adUrl /*url*/, 30000 /*duration*/, periodId /*basePeriodId*/, 0 /*basePeriodOffset*/, mAdMPD /*mpd*/);
 
-	// Marking adbreak as placed as well
+	// Marking adBreak as placed as well
 	cdaiObj->mAdBreaks[periodId].mAdBreakPlaced = true;
 	cdaiObj->mPeriodMap[periodId] = Period2AdData(false, periodId, 30000 /*in ms*/,
 	{
@@ -1917,7 +1917,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 	};
 	// Ad is marked as placed since we are not calling any explicit PlaceAds()
 	mPrivateCDAIObject->mAdBreaks[periodId].ads->emplace_back(false, true, true, "adId1", adUrl, 30000, periodId, 0, mAdMPD);
-	// Marking adbreak as placed as well
+	// Marking adBreak as placed as well
 	mPrivateCDAIObject->mAdBreaks[periodId].mAdBreakPlaced = true;
 	mPrivateCDAIObject->mPeriodMap[periodId] = Period2AdData(false, periodId, 30000 /*in ms*/,
     {

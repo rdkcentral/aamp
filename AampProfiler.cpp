@@ -40,7 +40,7 @@
 ProfileEventAAMP::ProfileEventAAMP():
 	tuneStartMonotonicBase(0), tuneStartBaseUTCMS(0), bandwidthBitsPerSecondVideo(0),
         bandwidthBitsPerSecondAudio(0), buckets(), drmErrorCode(0), enabled(false), xreTimeBuckets(), tuneEventList(),
-	tuneEventListMtx(), mTuneFailBucketType(PROFILE_BUCKET_MANIFEST), mTuneFailErrorCode(0), rateCorrection(0), bitrateChange(0), bufferChange(0), telemetryParam(NULL), mLldLowBuffObject(NULL),discontinuityParamMutex()
+	tuneEventListMutex(), mTuneFailBucketType(PROFILE_BUCKET_MANIFEST), mTuneFailErrorCode(0), rateCorrection(0), bitrateChange(0), bufferChange(0), telemetryParam(NULL), mLldLowBuffObject(NULL),discontinuityParamMutex()
 {
 }
 
@@ -167,7 +167,7 @@ void ProfileEventAAMP::getTuneEventsJSON(std::string &outStr, const std::string 
 
 	outStr.append(outPtr);
 
-	std::lock_guard<std::mutex> lock(tuneEventListMtx);
+	std::lock_guard<std::mutex> lock(tuneEventListMutex);
 	for(auto &te:tuneEventList)
 	{
 		if(siblingEvent)

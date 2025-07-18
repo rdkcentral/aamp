@@ -374,7 +374,7 @@ TEST_F(AdFallbackTests, AdInitFailureTest)
 		.Times(AnyNumber())
 		.WillRepeatedly(Return(true));
 
-	// To create an empty ad break object, at init the adbreak objects are not created
+	// To create an empty ad break object, at init the adBreak objects are not created
 	mStreamAbstractionAAMP_MPD->mCdaiObject->SetAlternateContents(periodId, adId, "", startMS, breakdur);
 
 	adurl = TEST_AD_MANIFEST_URL;

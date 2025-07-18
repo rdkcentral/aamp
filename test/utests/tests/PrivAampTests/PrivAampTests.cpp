@@ -2956,9 +2956,9 @@ TEST_F(PrivAampTests,SendAdResolvedEventTest)
 TEST_F(PrivAampTests,SendAdReservationEventTest)
 {
 	uint64_t absolutePositionMs = 123456789;
-	p_aamp->SendAdReservationEvent(AAMP_EVENT_AD_RESERVATION_START, "adbreakId", 123445, absolutePositionMs, true);
-	p_aamp->SendAdReservationEvent(AAMP_EVENT_AD_RESERVATION_START, "adbreakId", 123445, absolutePositionMs, false);
-	p_aamp->SendAdReservationEvent(AAMP_EVENT_AD_RESERVATION_END, "adbreakId", 123445, absolutePositionMs, true);
+	p_aamp->SendAdReservationEvent(AAMP_EVENT_AD_RESERVATION_START, "adBreakId", 123445, absolutePositionMs, true);
+	p_aamp->SendAdReservationEvent(AAMP_EVENT_AD_RESERVATION_START, "adBreakId", 123445, absolutePositionMs, false);
+	p_aamp->SendAdReservationEvent(AAMP_EVENT_AD_RESERVATION_END, "adBreakId", 123445, absolutePositionMs, true);
 	EXPECT_EQ(p_aamp->mAdEventsQ.size(),0);
 }
 

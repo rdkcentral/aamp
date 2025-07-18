@@ -45,7 +45,7 @@ AampConfig *gpGlobalConfig=NULL;
 
 #include "ContentSecurityManager.h"
 
-std::mutex PlayerInstanceAAMP::mPrvAampMtx;
+std::mutex PlayerInstanceAAMP::mPrvAampMutex;
 
 /**
  *  @brief PlayerInstanceAAMP Constructor.
@@ -186,7 +186,7 @@ PlayerInstanceAAMP::~PlayerInstanceAAMP()
 			aamp->Stop();
 		}
 
-		std::lock_guard<std::mutex> lock (mPrvAampMtx);
+		std::lock_guard<std::mutex> lock (mPrvAampMutex);
 		aamp = NULL;
 	}
 
@@ -1964,7 +1964,7 @@ AAMPPlayerState PlayerInstanceAAMP::GetState(void)
 	AAMPPlayerState currentState = eSTATE_RELEASED;
 	try
 	{
-		std::lock_guard<std::mutex> lock (mPrvAampMtx);
+		std::lock_guard<std::mutex> lock (mPrvAampMutex);
 		if(NULL == aamp)
 		{
 			throw std::invalid_argument("NULL reference");

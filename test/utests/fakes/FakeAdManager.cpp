@@ -35,8 +35,8 @@ void CDAIObjectMPD::SetAlternateContents(const std::string &adBreakId, const std
 {
 }
 
-PrivateCDAIObjectMPD::PrivateCDAIObjectMPD(PrivateInstanceAAMP* aamp) : mAamp(aamp),mDaiMtx(), mIsFogTSB(false), mAdBreaks(), mPeriodMap(), mCurPlayingBreakId(), mAdObjThreadID(), mCurAds(nullptr),
-					mCurAdIdx(-1), mContentSeekOffset(0), mAdState(AdState::OUTSIDE_ADBREAK),mPlacementObj(), mAdFulfillObj(),mAdObjThreadStarted(false),mAdtoInsertInNextBreakVec(),mAdBrkVecMtx()
+PrivateCDAIObjectMPD::PrivateCDAIObjectMPD(PrivateInstanceAAMP* aamp) : mAamp(aamp),mDaiMutex(), mIsFogTSB(false), mAdBreaks(), mPeriodMap(), mCurPlayingBreakId(), mAdObjThreadID(), mCurAds(nullptr),
+					mCurAdIdx(-1), mContentSeekOffset(0), mAdState(AdState::OUTSIDE_ADBREAK),mPlacementObj(), mAdFulfillObj(),mAdObjThreadStarted(false),mAdtoInsertInNextBreakVec(),mAdBreakVecMutex()
 {
 }
 
@@ -79,11 +79,11 @@ bool PrivateCDAIObjectMPD::isPeriodExist(const std::string &periodId)
 	return false;
 }
 
-bool PrivateCDAIObjectMPD::isAdBreakObjectExist(const std::string &adBrkId)
+bool PrivateCDAIObjectMPD::isAdBreakObjectExist(const std::string &adBreakId)
 {
 	if(g_MockPrivateCDAIObjectMPD != nullptr)
 	{
-		return g_MockPrivateCDAIObjectMPD->isAdBreakObjectExist(adBrkId);
+		return g_MockPrivateCDAIObjectMPD->isAdBreakObjectExist(adBreakId);
 	}
 	return false;
 }
@@ -96,7 +96,7 @@ void PrivateCDAIObjectMPD::ResetState()
 {
 }
 
-void PrivateCDAIObjectMPD::RemovePlacementObj(const std::string adBrkId)
+void PrivateCDAIObjectMPD::RemovePlacementObj(const std::string adBreakId)
 {
 
 }

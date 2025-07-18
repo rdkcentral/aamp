@@ -2182,7 +2182,7 @@ private:
 	void StopInternal(bool sendStateChangeEvent);
 
 	void* mJSBinding_DL;                /**< Handle to AAMP plugin dynamic lib.  */
-	static std::mutex mPrvAampMtx;      /**< Mutex to protect aamp instance in GetState() */
+	static std::mutex mPrvAampMutex;      /**< Mutex to protect aamp instance in GetState() */
 	bool mAsyncRunning;                 /**< Flag denotes if async mode is on or not */
 	bool mAsyncTuneEnabled;		    /**< Flag indicating async tune status */
 	AampScheduler mScheduler;

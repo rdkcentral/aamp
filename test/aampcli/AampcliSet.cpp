@@ -471,7 +471,7 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 
 				case 24:
 					{
-						std::string adBrkId;
+						std::string adBreakId;
 						std::string adId;
 						std::string adUrl;
 						printf("[AAMPCLI] Matched Command AlternateContents - %s\n", cmd);
@@ -482,10 +482,10 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 							tokens.push_back(token);
 						}
 						if (tokens.size() == 5) {
-							adBrkId = tokens[2];
+							adBreakId = tokens[2];
 							adId = tokens[3];
 							adUrl = tokens[4];
-							playerInstanceAamp->SetAlternateContents(adBrkId, adId, adUrl);
+							playerInstanceAamp->SetAlternateContents(adBreakId, adId, adUrl);
 						}
 						else
 						{

@@ -415,13 +415,13 @@ private:
 	AampCurlDownloader mDownloader1;
 	AampCurlDownloader mDownloader2;
 
-	std::mutex mRefreshMtx;
+	std::mutex mRefreshMutex;
 	std::condition_variable mRefreshCondVar;
 
-	std::mutex mMPDDnldDataMtx;
+	std::mutex mMPDDnldDataMutex;
 	std::condition_variable mMPDDnldDataCondVar;
 
-	std::mutex mMPDNotifierMtx;
+	std::mutex mMPDNotifierMutex;
 	std::condition_variable mMPDNotifierCondVar;
 
 	bool mReleaseCalled;

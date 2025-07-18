@@ -161,12 +161,12 @@ void _manifestDownloadResponse::parseMPD()
 *   @fn AampMPDDownloader
 *   @brief Default Constructor
 */
-AampMPDDownloader::AampMPDDownloader() :  mMPDBufferQ(),mMPDBufferSize(1),mMPDBufferMutex(),mRefreshMtx(),mRefreshCondVar(),
+AampMPDDownloader::AampMPDDownloader() :  mMPDBufferQ(),mMPDBufferSize(1),mMPDBufferMutex(),mRefreshMutex(),mRefreshCondVar(),
 	mMPDDnldMutex(),mRefreshInterval(DEFAULT_INTERVAL_BETWEEN_PLAYLIST_UPDATES_MS),mLatencyValue(-1),mReleaseCalled(true),
 	mMPDDnldCfg(NULL),mDownloaderThread_t1(),mDownloaderThread_t2(),mDownloader1(),mDownloader2(),mMPDData(nullptr),mAppName(""),
 	mManifestUpdateCb(NULL),mManifestUpdateCbArg(NULL),mDownloadNotifierThread(),mCachedMPDData(nullptr),
-	mCheckedLLDData(false),mMPDNotifierMtx(),mMPDNotifierCondVar(),mManifestRefreshCount(0),mIsLowLatency(false),
-	mMPDDnldDataMtx(),mMPDDnldDataCondVar()
+	mCheckedLLDData(false),mMPDNotifierMutex(),mMPDNotifierCondVar(),mManifestRefreshCount(0),mIsLowLatency(false),
+	mMPDDnldDataMutex(),mMPDDnldDataCondVar()
 	,mLLDashData(),mCurrentposDeltaToManifestEnd(-1),mPublishTime(0),mMinimalRefreshRetryCount(0),mMPDNotifyPending(false)
 {
 }
@@ -677,7 +677,7 @@ ManifestDownloadResponsePtr AampMPDDownloader::GetManifest(bool bWait, int iWait
 		// if Q is not available with any data ( for very first tune )
 		if(bWait)
 		{
-			std::unique_lock<std::mutex> lck2(mMPDDnldDataMtx);
+			std::unique_lock<std::mutex> lck2(mMPDDnldDataMutex);
 			if (mMPDDnldDataCondVar.wait_for(lck2, std::chrono::milliseconds(iWaitDurationMs)) == std::cv_status::timeout)
 			{
 				// Timed out
@@ -728,7 +728,7 @@ bool AampMPDDownloader::waitForRefreshInterval()
 {
 	bool refreshNeeded = false;
 
-	std::unique_lock<std::mutex> lck(mRefreshMtx);
+	std::unique_lock<std::mutex> lck(mRefreshMutex);
 	if(mRefreshCondVar.wait_for(lck,std::chrono::milliseconds(mRefreshInterval))==std::cv_status::timeout) {
 		refreshNeeded = true;
 	}
@@ -1039,7 +1039,7 @@ uint32_t AampMPDDownloader::getMeNextManifestDownloadWaitTime(ManifestDownloadRe
 */
 void AampMPDDownloader::RegisterCallback(ManifestUpdateCallbackFunc fnPtr, void *cbArg)
 {
-	std::unique_lock<std::mutex> lck2(mMPDNotifierMtx);
+	std::unique_lock<std::mutex> lck2(mMPDNotifierMutex);
 	AAMPLOG_INFO("Register for Callback ");
 	if(fnPtr !=NULL && mManifestUpdateCb == NULL)
 	{	
@@ -1065,7 +1065,7 @@ void AampMPDDownloader::RegisterCallback(ManifestUpdateCallbackFunc fnPtr, void 
 */
 void AampMPDDownloader::UnRegisterCallback()
 {
-	std::unique_lock<std::mutex> lck2(mMPDNotifierMtx);
+	std::unique_lock<std::mutex> lck2(mMPDNotifierMutex);
 	AAMPLOG_INFO("UnRegister for Callback ");
 	if(mManifestUpdateCb)
 	{
@@ -1087,7 +1087,7 @@ void AampMPDDownloader::UnRegisterCallback()
 void AampMPDDownloader::downloadNotifierThread()
 {
 	UsingPlayerId playerId(mMPDDnldCfg->mPlayerId);
-	std::unique_lock<std::mutex> lck2(mMPDNotifierMtx);
+	std::unique_lock<std::mutex> lck2(mMPDNotifierMutex);
 
 	// infinite wait for download notification
 	while (!mReleaseCalled && mManifestUpdateCb)

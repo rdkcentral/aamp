@@ -241,7 +241,7 @@ public:
 	/**
 	 * @brief Start an ad placement
 	 * @param[in] adId - ID of the ad
-	 * @param[in] relativePosition - event position wrt to the corresponding adbreak start
+	 * @param[in] relativePosition - event position wrt to the corresponding adBreak start
 	 * @param[in] absPosition - event absolute position
 	 * @param[in] duration - duration of the current ad
 	 * @param[in] offset - offset point of the current ad
@@ -252,7 +252,7 @@ public:
 	/**
 	 * @brief End an ad placement
 	 * @param[in] adId - ID of the ad
-	 * @param[in] relativePosition - event position wrt to the corresponding adbreak start
+	 * @param[in] relativePosition - event position wrt to the corresponding adBreak start
 	 * @param[in] absPosition - event absolute position
 	 * @param[in] duration - duration of the current ad
 	 * @param[in] offset - offset point of the current ad
@@ -263,7 +263,7 @@ public:
 	/**
 	 * @brief End an ad placement with error
 	 * @param[in] adId - ID of the ad
-	 * @param[in] relativePosition - event position wrt to the corresponding adbreak start
+	 * @param[in] relativePosition - event position wrt to the corresponding adBreak start
 	 * @param[in] absPosition - event absolute position
 	 * @param[in] duration - duration of the current ad
 	 * @param[in] offset - offset point of the current ad

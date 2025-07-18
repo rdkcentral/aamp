@@ -222,7 +222,7 @@ private:
 	int drmErrorCode;                       /**< DRM error code */
 	bool enabled;                           /**< Profiler started or not */
 	std::list<TuneEvent> tuneEventList;     /**< List of events happened during tuning */
-	std::mutex tuneEventListMtx;            /**< Mutex protecting tuneEventList */
+	std::mutex tuneEventListMutex;            /**< Mutex protecting tuneEventList */
 
 	ProfilerBucketType mTuneFailBucketType; /**< ProfilerBucketType in case of error */
 	int mTuneFailErrorCode;			/**< tune Fail Error Code */

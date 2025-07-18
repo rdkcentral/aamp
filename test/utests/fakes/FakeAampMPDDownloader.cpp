@@ -63,11 +63,11 @@ void _manifestDownloadResponse::parseMPD()
  *   @fn AampMPDDownloader
  *   @brief Default Constructor
  */
-AampMPDDownloader::AampMPDDownloader() :  mMPDBufferQ(),mMPDBufferSize(1),mMPDBufferMutex(),mRefreshMtx(),mRefreshCondVar(),
+AampMPDDownloader::AampMPDDownloader() :  mMPDBufferQ(),mMPDBufferSize(1),mMPDBufferMutex(),mRefreshMutex(),mRefreshCondVar(),
 	mMPDDnldMutex(),mRefreshInterval(DEFAULT_INTERVAL_BETWEEN_PLAYLIST_UPDATES_MS),mLatencyValue(-1),mReleaseCalled(false),
 	mMPDDnldCfg(NULL),mDownloaderThread_t1(),mDownloaderThread_t2(),mDownloader1(),mDownloader2(),mMPDData(nullptr),mAppName(""),
 	mManifestUpdateCb(NULL),mManifestUpdateCbArg(NULL),mDownloadNotifierThread(),mCachedMPDData(nullptr),
-	mCheckedLLDData(false),mMPDNotifierMtx(),mMPDNotifierCondVar(),mManifestRefreshCount(0)
+	mCheckedLLDData(false),mMPDNotifierMutex(),mMPDNotifierCondVar(),mManifestRefreshCount(0)
 {
 }
 

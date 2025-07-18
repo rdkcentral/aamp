@@ -83,13 +83,13 @@ bool SubtecChannel::InitComms(const char* socket_path)
 template<typename PacketType, typename ...Args>
 void SubtecChannel::sendPacket(Args && ...args)
 {
-    std::unique_lock<std::mutex> lock(mChannelMtx);
+    std::unique_lock<std::mutex> lock(mChannelMutex);
     PacketSender::Instance()->SendPacket(player_utils::make_unique<PacketType>(m_channelId, m_counter++, std::forward<Args>(args)...));
 }
 
 void SubtecChannel::SendResetAllPacket()
 {
-    std::unique_lock<std::mutex> lock(mChannelMtx);
+    std::unique_lock<std::mutex> lock(mChannelMutex);
     m_counter = 1;
     PacketSender::Instance()->SendPacket(player_utils::make_unique<ResetAllPacket>());
 }

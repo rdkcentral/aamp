@@ -35,9 +35,9 @@
  */
 enum class AdState
 {
-	OUTSIDE_ADBREAK,             /**< Not in adbreak, wait for period change */
-	OUTSIDE_ADBREAK_WAIT4ADS,     /**< Not in adbreak, waiting for adbreak */
-	IN_ADBREAK_AD_NOT_PLAYING,   /**< Base period in adbreak: But Ad not found/playing */
+	OUTSIDE_ADBREAK,             /**< Not in adBreak, wait for period change */
+	OUTSIDE_ADBREAK_WAIT4ADS,     /**< Not in adBreak, waiting for adBreak */
+	IN_ADBREAK_AD_NOT_PLAYING,   /**< Base period in adBreak: But Ad not found/playing */
 	IN_ADBREAK_AD_PLAYING,       /**< Ad playing */
 	IN_ADBREAK_AD_READY2PLAY,    /**< Ready to play next Ad */
 	IN_ADBREAK_WAIT2CATCHUP      /**< Waiting for base period to catchup */

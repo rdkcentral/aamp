@@ -1067,7 +1067,7 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 	mIsFirstRequestToFOG(false),
 	mPausePositionMonitorMutex(), mPausePositionMonitorCV(), mPausePositionMonitoringThreadID(), mPausePositionMonitoringThreadStarted(false),
 	mTuneType(eTUNETYPE_NEW_NORMAL)
-	,mCdaiObject(NULL), mAdEventsQ(),mAdEventQMtx(), mAdPrevProgressTime(0), mAdCurOffset(0), mAdDuration(0), mAdProgressId(""), mAdAbsoluteStartTime(0)
+	,mCdaiObject(NULL), mAdEventsQ(),mAdEventQMutex(), mAdPrevProgressTime(0), mAdCurOffset(0), mAdDuration(0), mAdProgressId(""), mAdAbsoluteStartTime(0)
 	,mBufUnderFlowStatus(false), mVideoBasePTS(0)
 	,mCustomLicenseHeaders(), mIsIframeTrackPresent(false), mManifestTimeoutMs(-1), mNetworkTimeoutMs(-1)
 	,mbPlayEnabled(true), mPlayerPreBuffered(false), mPlayerId(PLAYERID_CNTR++),mAampCacheHandler(NULL)
@@ -4826,7 +4826,7 @@ void PrivateInstanceAAMP::TeardownStream(bool newTune, bool disableDownloads)
 	mAdProgressId = "";
 	std::queue<AAMPEventPtr> emptyEvQ;
 	{
-		std::lock_guard<std::mutex> lock(mAdEventQMtx);
+		std::lock_guard<std::mutex> lock(mAdEventQMutex);
 		std::swap( mAdEventsQ, emptyEvQ );
 	}
 }
@@ -9169,7 +9169,7 @@ void PrivateInstanceAAMP::FoundEventBreak(const std::string &adBreakId, uint64_t
 		{
 			std::string adId("");
 			std::string url("");
-			mCdaiObject->SetAlternateContents(adBreakId, adId, url, startMS, brInfo.duration);	//A placeholder to avoid multiple scte35 event firing for the same adbreak
+			mCdaiObject->SetAlternateContents(adBreakId, adId, url, startMS, brInfo.duration);	//A placeholder to avoid multiple scte35 event firing for the same adBreak
 		}
 		//Ignoring past SCTE events.
 		//mFogTSBEnabled check is added to ensure the change won't effect IPVOD
@@ -9222,7 +9222,7 @@ void PrivateInstanceAAMP::SendAdResolvedEvent(const std::string &adId, bool stat
  */
 void PrivateInstanceAAMP::DeliverAdEvents(bool immediate, double position)
 {
-	std::lock_guard<std::mutex> lock(mAdEventQMtx);
+	std::lock_guard<std::mutex> lock(mAdEventQMutex);
 	while (!mAdEventsQ.empty())
 	{
 		AAMPEventPtr e = mAdEventsQ.front();
@@ -9295,7 +9295,7 @@ void PrivateInstanceAAMP::SendAdReservationEvent(AAMPEventType type, const std::
 
 		{
 			{
-				std::lock_guard<std::mutex> lock(mAdEventQMtx);
+				std::lock_guard<std::mutex> lock(mAdEventQMutex);
 				mAdEventsQ.push(e);
 			}
 			if(immediate)
@@ -9320,7 +9320,7 @@ void PrivateInstanceAAMP::SendAdPlacementEvent(AAMPEventType type, const std::st
 
 		{
 			{
-				std::lock_guard<std::mutex> lock(mAdEventQMtx);
+				std::lock_guard<std::mutex> lock(mAdEventQMutex);
 				mAdEventsQ.push(e);
 			}
 			if(immediate)

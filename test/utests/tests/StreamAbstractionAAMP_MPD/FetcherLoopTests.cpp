@@ -965,7 +965,7 @@ TEST_F(FetcherLoopTests, SelectSourceOrAdPeriodTests3)
 	EXPECT_EQ(cdaiObj->mAdState, AdState::IN_ADBREAK_WAIT2CATCHUP);
 
 	/*
-	 * Test the scenario where the manifest is refreshed, ad is placed but the next period is empty and hence adbreak is not placed
+	 * Test the scenario where the manifest is refreshed, ad is placed but the next period is empty and hence adBreak is not placed
 	 */
 	mpdChanged = true;
 	cdaiObj->mAdBreaks[periodId].ads->at(cdaiObj->mCurAdIdx).placed = true;
@@ -978,7 +978,7 @@ TEST_F(FetcherLoopTests, SelectSourceOrAdPeriodTests3)
 	EXPECT_EQ(cdaiObj->mAdState, AdState::IN_ADBREAK_WAIT2CATCHUP);
 
 	/*
-	 * Test the scenario where the manifest is refreshed, ad and adbreak are placed
+	 * Test the scenario where the manifest is refreshed, ad and adBreak are placed
 	 */
 	mpdChanged = true;
 	cdaiObj->mAdBreaks[periodId].ads->at(cdaiObj->mCurAdIdx).placed = true;

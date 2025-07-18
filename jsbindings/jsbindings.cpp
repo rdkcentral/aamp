@@ -1532,7 +1532,7 @@ public:
 
 		JSStringRef prop;
 
-		prop = JSStringCreateWithUTF8CString("adbreakId");
+		prop = JSStringCreateWithUTF8CString("adBreakId");
 		JSObjectSetProperty(context, eventObj, prop, aamp_CStringToJSValue(context, evt->getAdBreakId().c_str()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
 
@@ -1572,7 +1572,7 @@ public:
 
 		JSStringRef prop;
 
-		prop = JSStringCreateWithUTF8CString("adbreakId");
+		prop = JSStringCreateWithUTF8CString("adBreakId");
 		JSObjectSetProperty(context, eventObj, prop, aamp_CStringToJSValue(context, evt->getAdBreakId().c_str()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
 
