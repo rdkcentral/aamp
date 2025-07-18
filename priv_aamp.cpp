@@ -11330,7 +11330,7 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 		jsObject = new AampJsonObject(languageList);
 		if (jsObject)
 		{
-			AAMPLOG_INFO("Preferred Language Properties received as json : %s", languageList);
+			AAMPLOG_INFO("NEIL Preferred Language Properties received as json : %s", languageList);
 			isJson = true;
 		}
 	}
@@ -11371,8 +11371,8 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 			AAMPLOG_ERR("Preferred Audio Language Field Only support String or String Array");
 		}
 
-		AAMPLOG_INFO("Number of preferred languages received: %zu", inputLanguagesList.size());
-		AAMPLOG_INFO("Preferred language string received: %s", inputLanguagesString.c_str());
+		AAMPLOG_INFO("NEIL Number of preferred languages received: %zu", inputLanguagesList.size());
+		AAMPLOG_INFO("NEIL Preferred language string received: %s", inputLanguagesString.c_str());
 
 		std::vector<std::string> inputLabelList;
 		std::string inputLabelsString;
@@ -11462,6 +11462,7 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 		if ((preferredAudioAccessibilityNode != inputAudioAccessibilityNode ) || (preferredRenditionString != inputRenditionString ) ||
 		(preferredLabelsString != inputLabelsString) || (inputLanguagesList != preferredLanguagesList ) || (preferredNameString != inputNameString))
 		{
+			AAMPLOG_INFO("NEIL isRetuneNeeded = true");
 			isRetuneNeeded = true;
 		}
 
@@ -11513,12 +11514,12 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 				while(std::getline(ss, lng, ','))
 				{
 					preferredLanguagesList.push_back(lng);
-					AAMPLOG_INFO("Parsed preferred lang: %s", lng.c_str());
+					AAMPLOG_INFO("NEIL Parsed preferred lang: %s", lng.c_str());
 				}
 				SETCONFIGVALUE_PRIV(AAMP_APPLICATION_SETTING,eAAMPConfig_PreferredAudioLanguage,preferredLanguagesString);
 			}
 
-			AAMPLOG_INFO("Number of preferred languages: %zu", preferredLanguagesList.size());
+			AAMPLOG_INFO("NEIL Number of preferred languages: %zu", preferredLanguagesList.size());
 
 			if(labelList != NULL)
 			{
@@ -11623,7 +11624,7 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 	}
 
 	AAMPPlayerState state = GetState();
-	AAMPLOG_INFO("state %d, isRetuneNeeded %d", state, isRetuneNeeded);
+	AAMPLOG_INFO("NEIL state %d, isRetuneNeeded %d", state, isRetuneNeeded);
 	if (state != eSTATE_IDLE && state != eSTATE_RELEASED && state != eSTATE_ERROR && isRetuneNeeded)
 	{ // active playback session; apply immediately
 		if (mpStreamAbstractionAAMP)
