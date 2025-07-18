@@ -1432,8 +1432,8 @@ void DashMPDRoot::setLocation(string location) {
 }
 
 /**
- * @briefa  Set fetchTime
- * @param   FetchTime
+ * @brief Set fetchTime
+ * @param FetchTime
  */
 void DashMPDRoot::setFetchTime(double fetchTime) {
     elem.addNamespace(FOG_EXTRA_NS, FOG_EXTRA_NS_URI);
