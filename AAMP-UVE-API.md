@@ -2083,7 +2083,7 @@ Example:
 
 **Event Payload:**
 - sessionId: string Refer to [load](#load-uri_autoplay_tuneparams) API for details
-- adBreakId: string
+- adbreakId: string
 - time: number
 
 **Description:**
@@ -2096,7 +2096,7 @@ Example:
 
 **Event Payload:**
 - sessionId: string Refer to [load](#load-uri_autoplay_tuneparams) API for details
-- adBreakId: string
+- adbreakId: string
 - time: number
 
 **Description:**
