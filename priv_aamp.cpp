@@ -11618,7 +11618,7 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 		}
 		else
 		{
-			AAMPLOG_INFO("Discarding Retune set language(s) (%s) , rendition (%s) and accessibility (%s) since already set",
+			AAMPLOG_INFO("NEIL Discarding Retune set language(s) (%s) , rendition (%s) and accessibility (%s) since already set",
 				languageList?languageList:"", preferredRendition?preferredRendition:"", preferredType?preferredType:"");
 		}
 	}
@@ -11680,9 +11680,8 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 
 						if ((temp.language == firstLanguage) && (temp.language != currentPrefLanguage))
 						{
-							AAMPLOG_WARN("Neil languagePresent = true (1)");
+							AAMPLOG_WARN("Neil Potentially change lang");
 
-							languagePresent = true;
 							if (trackIndexStr.empty())
 							{
 								AAMPLOG_WARN("Neil trackIndexStr.empty()");
@@ -11691,8 +11690,8 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 
 							if (temp.isAvailable)
 							{
-								AAMPLOG_WARN("languageAvailabilityInManifest = true");
-
+								AAMPLOG_WARN("NEIL  languageAvailabilityInManifest = true");
+								languagePresent = true;
 								languageAvailabilityInManifest = true;
 								break;
 							}
