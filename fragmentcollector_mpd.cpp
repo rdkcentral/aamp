@@ -14147,7 +14147,7 @@ bool StreamAbstractionAAMP_MPD::DoEarlyStreamSinkFlush(bool newTune, float rate)
 	bool enableMediaProcessor = ISCONFIGSET(eAAMPConfig_EnableMediaProcessor);
 	bool enablePTSReStamp = ISCONFIGSET(eAAMPConfig_EnablePTSReStamp);
 	bool doFlush = ((!enableMediaProcessor || mIsSegmentTimelineEnabled) &&
-					(!enablePTSReStamp || (newTune && (rate == AAMP_NORMAL_PLAY_RATE) ) ));
+					(!enablePTSReStamp || rate == AAMP_NORMAL_PLAY_RATE));
 	AAMPLOG_INFO("doFlush=%d, newTune=%d, rate=%f", doFlush, newTune, rate);
 	return doFlush;
 }

@@ -5030,7 +5030,6 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 {
 	bool newTune;
 
-
 	aampApplyThreadPrioFromEnv("AAMP_AV_PIPELINE_PRIORITY", SCHED_OTHER, 0);
 	for (int i = 0; i < AAMP_TRACK_COUNT; i++)
 	{
@@ -5402,10 +5401,6 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 	}
 	else
 	{
-		bool bPerformFlush = false;
-		double performFlushPosition = 0;
-		float performFlushRate = 0;
-
 		//explicitly invalidate previous position for consistency with previous code
 		mPrevPositionMilliseconds.Invalidate();
 
@@ -5481,28 +5476,6 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 			mFirstVideoFrameDisplayedEnabled = true;
 			mPauseOnFirstVideoFrameDisp = true;
 		}
-		/* executing the flush earlier in order to avoid the tune delay while waiting for the first video and audio fragment to download
-		 * and retrieving the pts value, as in the segmenttimeline streams we get the pts value from manifest itself
-		 */
-		if (mpStreamAbstractionAAMP->DoEarlyStreamSinkFlush(newTune, rate))
-		{
-			AAMPLOG_MIL("===== ANJ: mpStreamAbstractionAAMP->DoEarlyStreamSinkFlush TRUE ====");
-			StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
-			if (sink)
-			{
-				double flushPosition = (mMediaFormat == eMEDIAFORMAT_PROGRESSIVE) ? updatedSeekPosition : mpStreamAbstractionAAMP->GetFirstPTS();
-				AAMPLOG_MIL("===== ANJ: Calling sink->Flush()=====");
-				sink->Flush(flushPosition, rate);
-			}
-		}
-		//else if(!newTune && (rate == AAMP_NORMAL_PLAY_RATE) )
-		else if( (mMediaFormat == eMEDIAFORMAT_DASH) && (!newTune) && (rate == AAMP_NORMAL_PLAY_RATE) )
-		{
-			bPerformFlush = true;
-			performFlushPosition = mpStreamAbstractionAAMP->GetFirstPTS();
-			//performFlushPosition = (mMediaFormat == eMEDIAFORMAT_PROGRESSIVE) ? updatedSeekPosition : mpStreamAbstractionAAMP->GetFirstPTS();
-			performFlushRate = rate;
-		}
 
 		if (mMediaFormat == eMEDIAFORMAT_PROGRESSIVE)
 		{
@@ -5539,13 +5512,23 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 			}
 		}
 
-		if (bPerformFlush)
+		/* executing the flush earlier in order to avoid the tune delay while waiting for the first video and audio fragment to download
+		 * and retrieving the pts value, as in the segmenttimeline streams we get the pts value from manifest itself
+		 */
+		if (mpStreamAbstractionAAMP->DoEarlyStreamSinkFlush(newTune, rate))
 		{
 			StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
-			if(sink)
+			if (sink)
 			{
-				AAMPLOG_MIL("===========ANJ: FLUSH after Configure ===============");
-				sink->Flush(performFlushPosition, performFlushRate);
+				double flushPosition = (mMediaFormat == eMEDIAFORMAT_PROGRESSIVE) ? updatedSeekPosition : mpStreamAbstractionAAMP->GetFirstPTS();
+				if (mMediaFormat == eMEDIAFORMAT_DASH)
+				{
+					sink->Flush(flushPosition, rate, false);
+				}
+				else
+				{
+					sink->Flush(flushPosition, rate);
+				}
 			}
 		}
 
