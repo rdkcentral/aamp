@@ -46,7 +46,7 @@ void StreamAbstractionAAMP_OTA::onPlayerStatusHandler(PlayerStatusData data) {
 	{
 		// Check if event is for current aamp instance,
 		// sometimes blocked events are delayed and in fast channel change
-		// senario , it is delivered late.
+		// scenario it is delivered late.
 		currentLocator =  aamp->GetManifestUrl();
 
 		if( 0 != currentLocator.compare(data.eventUrl))

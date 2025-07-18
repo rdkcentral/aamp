@@ -717,7 +717,7 @@ public:
 	 * @brief API to set track Id to audio sync property in case of AC4 audio
 	 *
 	 * @param[in] trackId - AC4 track Id parsed by aamp based of preference
-	 * @return bol sttaus of API
+	 * @return bool status of API
 	 */
 
 	/**
