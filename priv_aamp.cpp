@@ -5030,6 +5030,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 {
 	bool newTune;
 
+
 	aampApplyThreadPrioFromEnv("AAMP_AV_PIPELINE_PRIORITY", SCHED_OTHER, 0);
 	for (int i = 0; i < AAMP_TRACK_COUNT; i++)
 	{
@@ -5401,6 +5402,10 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 	}
 	else
 	{
+		bool bPerformFlush = false;
+		double performFlushPosition = 0;
+		float performFlushRate = 0;
+
 		//explicitly invalidate previous position for consistency with previous code
 		mPrevPositionMilliseconds.Invalidate();
 
@@ -5481,13 +5486,24 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 		 */
 		if (mpStreamAbstractionAAMP->DoEarlyStreamSinkFlush(newTune, rate))
 		{
+			AAMPLOG_MIL("===== ANJ: mpStreamAbstractionAAMP->DoEarlyStreamSinkFlush TRUE ====");
 			StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
 			if (sink)
 			{
 				double flushPosition = (mMediaFormat == eMEDIAFORMAT_PROGRESSIVE) ? updatedSeekPosition : mpStreamAbstractionAAMP->GetFirstPTS();
+				AAMPLOG_MIL("===== ANJ: Calling sink->Flush()=====");
 				sink->Flush(flushPosition, rate);
 			}
 		}
+		//else if(!newTune && (rate == AAMP_NORMAL_PLAY_RATE) )
+		else if( (mMediaFormat == eMEDIAFORMAT_DASH) && (!newTune) && (rate == AAMP_NORMAL_PLAY_RATE) )
+		{
+			bPerformFlush = true;
+			performFlushPosition = mpStreamAbstractionAAMP->GetFirstPTS();
+			//performFlushPosition = (mMediaFormat == eMEDIAFORMAT_PROGRESSIVE) ? updatedSeekPosition : mpStreamAbstractionAAMP->GetFirstPTS();
+			performFlushRate = rate;
+		}
+
 		if (mMediaFormat == eMEDIAFORMAT_PROGRESSIVE)
 		{
 			if (rate > AAMP_NORMAL_PLAY_RATE)
@@ -5520,6 +5536,16 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 				{
 					sink->Configure(mVideoFormat, mAudioFormat, mAuxFormat, mSubtitleFormat, mpStreamAbstractionAAMP->GetESChangeStatus(), mpStreamAbstractionAAMP->GetAudioFwdToAuxStatus());
 				}
+			}
+		}
+
+		if (bPerformFlush)
+		{
+			StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
+			if(sink)
+			{
+				AAMPLOG_MIL("===========ANJ: FLUSH after Configure ===============");
+				sink->Flush(performFlushPosition, performFlushRate);
 			}
 		}
 
