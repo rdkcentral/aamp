@@ -208,6 +208,7 @@ private:
 	std::atomic<bool> mIsEndFragmentInjected;
 	std::mutex mEosMutex;					/**< EOS mutex for conditional, used for syncing live downloader and reader*/
 	std::condition_variable mEosCVWait;	/**< Conditional variable for signaling wait*/
+	TsbFragmentDataPtr mCurrentFragment;	/**< Current fragment pointer for list navigation*/
 
 protected:
 	AampTime mUpcomingFragmentPosition;

@@ -36,7 +36,8 @@ AampTsbReader::AampTsbReader(PrivateInstanceAAMP *aamp, std::shared_ptr<AampTsbD
 	: mAamp(aamp), mDataMgr(std::move(dataMgr)), mMediaType(mediaType), mInitialized_(false), mStartPosition(0.0),
 	  mUpcomingFragmentPosition(0.0), mCurrentRate(AAMP_NORMAL_PLAY_RATE), mTsbSessionId(std::move(sessionId)), mEosReached(false), mTrackEnabled(false),
 	  mFirstPTS(0.0), mFirstPTSOffset(0), mCurrentBandwidth(0.0), mNewInitWaiting(false), mActiveTuneType(eTUNETYPE_NEW_NORMAL),
-	  mEosCVWait(), mEosMutex(), mIsEndFragmentInjected(false), mLastInitFragmentData(nullptr), mIsNextFragmentDisc(false), mIsPeriodBoundary(false)
+	  mEosCVWait(), mEosMutex(), mIsEndFragmentInjected(false), mIsNextFragmentDisc(false), mIsPeriodBoundary(false),
+	  mCurrentFragment(), mLastInitFragmentData()
 {
 	AAMPLOG_INFO("[%s] Constructor - mCurrentRate initialized to: %f", GetMediaTypeName(mMediaType), mCurrentRate);
 }
@@ -125,6 +126,7 @@ AAMPStatusType AampTsbReader::Init(double &startPosSec, float rate, TuneType tun
 						mStartPosition = firstFragmentToFetch->GetAbsolutePosition();
 						// Assign upcoming position as start position
 						mUpcomingFragmentPosition = mStartPosition;
+						mCurrentFragment = firstFragmentToFetch;
 						// mCurrentRate already set at beginning of Init
 						AAMPLOG_INFO("[%s] mCurrentRate confirmed as: %f in successful Init", GetMediaTypeName(mMediaType), mCurrentRate);
 						if (rate != AAMP_NORMAL_PLAY_RATE && eMEDIATYPE_VIDEO != mMediaType)
@@ -140,7 +142,7 @@ AAMPStatusType AampTsbReader::Init(double &startPosSec, float rate, TuneType tun
 
 						mFirstPTS = firstFragmentToFetch->GetPTS();
 						mFirstPTSOffset = firstFragmentToFetch->GetPTSOffset();
-						AAMPLOG_INFO("[%s] startPosition:%lfs rate:%f pts:%lfs ptsOffset:%lfs firstFragmentRange:(%lfs-%lfs)", 
+						AAMPLOG_INFO("[%s] startPosition:%lfs rate:%f pts:%lfs ptsOffset:%lfs firstFragmentRange:(%lfs-%lfs) ", 
 							GetMediaTypeName(mMediaType), mStartPosition.inSeconds(), mCurrentRate, mFirstPTS.inSeconds(), mFirstPTSOffset.inSeconds(),
 							firstFragment->GetAbsolutePosition().inSeconds(), lastFragment->GetAbsolutePosition().inSeconds());
 
@@ -185,62 +187,41 @@ TsbFragmentDataPtr AampTsbReader::FindNext(AampTime offset)
 	if (!mInitialized_)
 	{
 		AAMPLOG_ERR("TsbReader[%s] not initialized", GetMediaTypeName(mMediaType));
-		return nullptr;
+		return {};
 	}
 
-	AampTime position = mUpcomingFragmentPosition;
-	if (mCurrentRate >= 0)
+	TsbFragmentDataPtr ret;
+	
+	if (IsFirstDownload())
 	{
-		position += offset;
+		ret = mCurrentFragment;
 	}
 	else
 	{
-		position -= offset;
+		// Navigate using linked list pointers
+		if (mCurrentRate >= 0)
+		{
+			// Forward direction
+			ret = mCurrentFragment ? mCurrentFragment->next : TsbFragmentDataPtr{};
+		}
+		else
+		{
+			// Reverse direction
+			ret = mCurrentFragment ? mCurrentFragment->prev : TsbFragmentDataPtr{};
+		}
 	}
 
-	bool eos;
-	TsbFragmentDataPtr ret = mDataMgr->GetFragment(position.inSeconds(), eos);
 	if (!ret)
 	{
-		AAMPLOG_TRACE("[%s]Retrying fragment to fetch at position: %lf", GetMediaTypeName(mMediaType), position.inSeconds());
-		AampTime correctedPosition = position - FLOATING_POINT_EPSILON;
-		ret = mDataMgr->GetNearestFragment(correctedPosition.inSeconds());
-		if (!ret)
+		AAMPLOG_INFO("[%s] No next fragment available, mCurrentRate %f", GetMediaTypeName(mMediaType), mCurrentRate);
+		if (mCurrentRate < AAMP_NORMAL_PLAY_RATE)
 		{
-			// Return a nullptr if fragment not found
-			AAMPLOG_ERR("[%s]Fragment null", GetMediaTypeName(mMediaType));
-			return ret;
+			// Culling segment, but EOS never marked
+			mEosReached = true;
 		}
-		// Error Handling
-		// We are skipping one fragment if not found based on the rate
-		if (mCurrentRate > 0 && (ret->GetAbsolutePosition() + FLOATING_POINT_EPSILON) < position)
-		{
-			// Forward rate
-			// Nearest fragment behind position calculated based of last fragment info
-			// The fragment currently active in 'ret' should be the last injected fragment.
-			// Therefore, retrieve the next fragment from the linked list if it exists, otherwise, return nullptr.
-			ret = ret->next;
-		}
-		else if (mCurrentRate < 0 && (ret->GetAbsolutePosition() - FLOATING_POINT_EPSILON) > position)
-		{
-			// Rewinding
-			// Nearest fragment ahead of position calculated based of last fragment info
-			// The fragment currently active in 'ret' should be the last injected fragment.
-			// Therefore, retrieve the previous fragment from the linked list if it exists, otherwise, return nullptr.
-			ret = ret->prev;
-		}
-		if (!ret)
-		{
-			AAMPLOG_INFO("[%s] Retry is also failing mCurrentRate %f, returning nullptr ", GetMediaTypeName(mMediaType), mCurrentRate);
-			// The EOS in Forward Trick Play is set in AampTsbReader::ReadNext based on calculated mAamp->mTrickModePositionEOS
-			if (mCurrentRate < AAMP_NORMAL_PLAY_RATE )
-			{
-				// Culling segment, but EOS never marked
-				mEosReached = true;
-			}
-			return ret;
-		}
+		return {};
 	}
+
 	AAMPLOG_INFO("[%s] Returning fragment: absPos %lfs pts %lfs period %s timeScale %u ptsOffset %fs url %s",
 		GetMediaTypeName(mMediaType), ret->GetAbsolutePosition().inSeconds(), ret->GetPTS().inSeconds(), ret->GetPeriodId().c_str(), ret->GetTimeScale(), ret->GetPTSOffset().inSeconds(), ret->GetUrl().c_str());
 
@@ -254,19 +235,22 @@ TsbFragmentDataPtr AampTsbReader::FindNext(AampTime offset)
  */
 void AampTsbReader::ReadNext(TsbFragmentDataPtr nextFragmentData)
 {
-	if (nextFragmentData != nullptr)
+	if (nextFragmentData)
 	{
+		// Update current fragment pointer
+		mCurrentFragment = nextFragmentData;
+		
 		if (mCurrentRate > AAMP_NORMAL_PLAY_RATE)
 		{
 			mEosReached = nextFragmentData->GetAbsolutePosition().inSeconds() >= mAamp->mTrickModePositionEOS;
 		}
 		else if (mCurrentRate < 0)
 		{
-			mEosReached = (nextFragmentData->prev == nullptr);
+			mEosReached = !nextFragmentData->prev;
 		}
 		else
 		{
-			mEosReached = (nextFragmentData->next == nullptr);
+			mEosReached = !nextFragmentData->next;
 		}
 
 		// Compliment this state with last init header push status
@@ -356,7 +340,8 @@ void AampTsbReader::Term()
 	mActiveTuneType = eTUNETYPE_NEW_NORMAL;
 	mIsPeriodBoundary = false;
 	mIsEndFragmentInjected.store(false);
-	mLastInitFragmentData = nullptr;
+	mLastInitFragmentData.reset();
+	mCurrentFragment.reset();
 	AAMPLOG_INFO("mediaType : %s", GetMediaTypeName(mMediaType));
 }
 
@@ -394,7 +379,7 @@ void AampTsbReader::AbortCheckForWaitIfReaderDone()
  */
 bool AampTsbReader::IsFirstDownload()
 {
-	return (mStartPosition == mUpcomingFragmentPosition);
+	return (!mCurrentFragment || mStartPosition == mUpcomingFragmentPosition);
 }
 
 /**
@@ -425,3 +410,4 @@ AampTime AampTsbReader::GetFirstPTSOffset()
 {
 	return mFirstPTSOffset;
 }
+
