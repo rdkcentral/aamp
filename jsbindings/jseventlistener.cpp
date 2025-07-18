@@ -974,7 +974,7 @@ public:
 		AdReservationEventPtr evt = std::dynamic_pointer_cast<AdReservationEvent>(ev);
 		JSStringRef prop;
 
-		prop = JSStringCreateWithUTF8CString("adBreakId");
+		prop = JSStringCreateWithUTF8CString("adbreakId");
 		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, aamp_CStringToJSValue(p_obj->_ctx, evt->getAdBreakId().c_str()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
 
@@ -1014,7 +1014,7 @@ public:
 		AdReservationEventPtr evt = std::dynamic_pointer_cast<AdReservationEvent>(ev);
 		JSStringRef prop;
 
-		prop = JSStringCreateWithUTF8CString("adBreakId");
+		prop = JSStringCreateWithUTF8CString("adbreakId");
 		JSObjectSetProperty(p_obj->_ctx, jsEventObj, prop, aamp_CStringToJSValue(p_obj->_ctx, evt->getAdBreakId().c_str()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
 
