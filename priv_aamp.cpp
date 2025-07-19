@@ -11647,6 +11647,8 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 
 			if (trackIndex >= 0)
 			{
+				AAMPLOG_INFO("NEIL trackIndex %d", trackIndex);
+
 				std::vector<AudioTrackInfo> trackInfo = mpStreamAbstractionAAMP->GetAvailableAudioTracks();
 				char *currentPrefLanguage = const_cast<char*>(trackInfo[trackIndex].language.c_str());
 				char *currentPrefRendition = const_cast<char*>(trackInfo[trackIndex].rendition.c_str());
@@ -11675,8 +11677,9 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 					// CID:280504 - Using invalid iterator
 					for (auto &temp : trackInfo)
 					{
+						AAMPLOG_WARN("Neil  Temp Values temp.isAvailable = %d temp.language='%s'", temp.isAvailable,  temp.language.c_str());
 
-						AAMPLOG_WARN("Neil if ( temp.isAvailable = %d temp.language='%s' == firstLanguage='%s'), && (temp.language='%s' != currentPrefLanguage='%s')", temp.isAvailable,  temp.language.c_str(), firstLanguage.c_str(), temp.language.c_str(), currentPrefLanguage);
+						AAMPLOG_WARN("Neil if ( temp.language='%s' == firstLanguage='%s'), && (temp.language='%s' != currentPrefLanguage='%s')",  temp.language.c_str(), firstLanguage.c_str(), temp.language.c_str(), currentPrefLanguage);
 
 						if ((temp.language == firstLanguage) && (temp.language != currentPrefLanguage))
 						{
@@ -11695,7 +11698,7 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 								languageAvailabilityInManifest = true;
 								break;
 							}
-						}
+						}y
 					}
 						AAMPLOG_WARN("Neil referredLanguagesList.size(%zu) > 1 ", preferredLanguagesList.size());
 
