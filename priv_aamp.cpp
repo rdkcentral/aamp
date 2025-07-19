@@ -11698,7 +11698,7 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 								languageAvailabilityInManifest = true;
 								break;
 							}
-						}y
+						}
 					}
 						AAMPLOG_WARN("Neil referredLanguagesList.size(%zu) > 1 ", preferredLanguagesList.size());
 
