@@ -1038,6 +1038,19 @@ MPD* PrivateCDAIObjectMPD::GetAdMPD(std::string &manifestUrl, bool &finalManifes
 	else
 	{
 		AAMPLOG_ERR("[CDAI]: Error on manifest fetch");
+		AAMPCDAIAdErrorCode adErrorCode = eCDAI_ERROR_NONE;
+		if (http_error != 0)
+		{
+			adErrorCode = eCDAI_ERROR_DELIVERY_HTTP_ERROR;
+		}
+		else
+		{
+			adErrorCode = eCDAI_ERROR_INVALID_MEDIA;
+		}
+		std::string adId = "";
+		uint64_t startMS = 0;
+		uint32_t durationMs = 0;
+		mAamp->SendAdResolvedEvent(adId, false, startMS, durationMs, adErrorCode);
 	}
 	return adMpd;
 }
@@ -1114,7 +1127,6 @@ bool PrivateCDAIObjectMPD::FulFillAdObject()
 			{
 				AAMPLOG_INFO("Final manifest to be downloaded from the FOG later. Deleting the manifest got from CDN.");
 				SAFE_DELETE(ad);
-				adErrorCode = eCDAI_ERROR_ADS_MISCONFIGURED;
 			}
 			if (!adBreakAssets->empty())
 			{
@@ -1149,7 +1161,6 @@ bool PrivateCDAIObjectMPD::FulFillAdObject()
 				// For example, you might want to push the new node if the vector is empty
 				AAMPLOG_WARN("AdBreakAssets is empty. Adding new Ad, May be a BUG in fulfill queue.");
 				adBreakAssets->emplace_back(AdNode{false, false, true, mAdFulfillObj.adId, mAdFulfillObj.url, durationMs, periodId, 0, ad});
-				adErrorCode = eCDAI_ERROR_ADS_MISCONFIGURED;
 			}
 			AAMPLOG_MIL("New Ad successfully for periodId : %s added[Id=%s, url=%s, durationMs=%" PRIu32 "].",periodId.c_str(),mAdFulfillObj.adId.c_str(),mAdFulfillObj.url.c_str(), durationMs);
 			adStatus = true;
@@ -1165,7 +1176,6 @@ bool PrivateCDAIObjectMPD::FulFillAdObject()
 		if(CURLE_ABORTED_BY_CALLBACK == http_error)
 		{
 			AAMPLOG_ERR("Ad MPD[%s] download aborted.", mAdFulfillObj.url.c_str());
-			adErrorCode=eCDAI_ERROR_DELIVERY_HTTP_ERROR;
 			ret = false;
 		}
 		else
@@ -1187,7 +1197,6 @@ bool PrivateCDAIObjectMPD::FulFillAdObject()
 							// Mark the ad node as resolved and invalid
 							node.resolved = true;
 							node.invalid = true;
-							adErrorCode=eCDAI_ERROR_INVALID_MEDIA;
 							break;
 						}
 					}
@@ -1250,7 +1259,32 @@ void PrivateCDAIObjectMPD::SetAlternateContents(const std::string &periodId, con
 		// Reject the promise as ad couldn't be resolved
 		if(!adCached)
 		{
-			mAamp->SendAdResolvedEvent(adId, false, 0, 0);
+			if(isAdBreakObjectExist(periodId))
+			{
+				auto &adbreakObj = mAdBreaks[periodId];
+				bool found = false;
+				for(auto &ad : *(adbreakObj.ads))
+				{
+					if(ad.adId == adId)
+					{
+						ad.resolved = true;
+						ad.invalid = true;
+						found = true;
+						break;
+					}
+				}
+				if(!found)
+				{
+					AdNode failedAd;
+					failedAd.adId = adId;
+					failedAd.resolved = true;
+					failedAd.invalid = true;
+					failedAd.url = url;
+					adbreakObj.ads->push_back(failedAd);
+				}
+			}
+			AAMPCDAIAdErrorCode adErrorCode = eCDAI_ERROR_INVALID_MEDIA;
+			mAamp->SendAdResolvedEvent(adId, false, 0, 0, 0); 
 		}
 	}
 }
