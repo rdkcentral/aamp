@@ -7469,10 +7469,12 @@ bool PrivateInstanceAAMP::IsLiveStream()
  *
  */
 void PrivateInstanceAAMP::Stop()
-{
-	// Clear all the player events in the queue and sets its state to RELEASED as everything is done
+{	
+	// Clear all the player events in the queue and sets its state to IDLE -> RELEASED
 	mEventManager->SetPlayerState(eSTATE_RELEASED);
 	mEventManager->FlushPendingEvents();
+
+	// Release rest of the resources
 	{
 		std::unique_lock<std::mutex> lock(gMutex);
 		auto iter = std::find_if(std::begin(gActivePrivAAMPs), std::end(gActivePrivAAMPs), [this](const gActivePrivAAMP_t& el)

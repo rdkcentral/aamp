@@ -93,9 +93,11 @@ void AampEventManager::FlushPendingEvents()
 	{
 		AAMPLOG_WARN("mPendingAsyncEvents.size - %zu", mPendingAsyncEvents.size());
 		for (AsyncEventListIter it = mPendingAsyncEvents.begin(); it != mPendingAsyncEvents.end(); it++)
-		{
+		{	
+			
 			if ((it->first != 0) && (it->second))
 			{
+				printf("test 1006, mPendingAsyncEvents[%d] = %d\n", (int) it->first, (int) it->second);	
 				AAMPLOG_WARN("remove id - %d", (int) it->first);
 				g_source_remove(it->first);
 

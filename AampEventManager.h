@@ -35,6 +35,7 @@
 #include <mutex>
 #include <queue>
 #include <glib.h>
+#include <atomic>
 
 
 /**
@@ -119,7 +120,6 @@ protected:
 	void SendEventSync(const AAMPEventPtr &eventData);
 
 public:
-
 	/**
 	 * @fn AampEventManager
 	 * @return void

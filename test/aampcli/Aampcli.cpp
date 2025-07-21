@@ -408,6 +408,7 @@ static int main_func(int argc, char **argv)
 	createAppWindow(argc,argv);
 	cmdThreadId.join();
 	printf( "[AAMPCLI] done\n" );
+	return 0;
 }
 
 int main( int argc, char **argv )

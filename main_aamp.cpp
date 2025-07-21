@@ -3118,13 +3118,13 @@ void PlayerInstanceAAMP::StopInternal(bool sendStateChangeEvent)
 
 	AAMPLOG_WARN("aamp_stop PlayerState=%d",state);
 
+	AAMPLOG_WARN("%s PLAYER[%d] Stopping Playback at Position %lld", (aamp->mbPlayEnabled?STRFGPLAYER:STRBGPLAYER), aamp->mPlayerId, aamp->GetPositionMilliseconds());
+	aamp->Stop();
 	if (sendStateChangeEvent)
 	{
 		aamp->SetState(eSTATE_IDLE);
 	}
 
-	AAMPLOG_WARN("%s PLAYER[%d] Stopping Playback at Position %lld", (aamp->mbPlayEnabled?STRFGPLAYER:STRBGPLAYER), aamp->mPlayerId, aamp->GetPositionMilliseconds());
-	aamp->Stop();
 	// Revert all custom specific setting, tune specific setting and stream specific setting , back to App/default setting
 	mConfig.RestoreConfiguration(AAMP_CUSTOM_DEV_CFG_SETTING);
 	mConfig.RestoreConfiguration(AAMP_TUNE_SETTING);
