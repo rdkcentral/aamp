@@ -118,7 +118,6 @@ void ContentProtectionFirebolt::Initialize()
 		MW_LOG_ERR("Firebolt Core To Be Initialized URL: [%s] Failed(Timeout) after 500ms", url.c_str());
 		return;
 	}
-	MW_LOG_WARN("Firebolt Core Initialized URL: [%s]", url.c_str());
 	mInitialized = true;
 	/* hide watermarking at startup */
 	int64_t sessionId = 0;
