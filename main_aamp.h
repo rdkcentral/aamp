@@ -2179,7 +2179,7 @@ private:
 	 *   @param[in]  sendStateChangeEvent - true if state change events need to be sent for Stop operation
 	 *   @return void
 	 */
-	void StopInternal(bool sendStateChangeEvent);
+	void StopInternal(bool sendStateChangeEvent = true);
 
 	void* mJSBinding_DL;                /**< Handle to AAMP plugin dynamic lib.  */
 	static std::mutex mPrvAampMtx;      /**< Mutex to protect aamp instance in GetState() */

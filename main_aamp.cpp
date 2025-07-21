@@ -253,6 +253,7 @@ void PlayerInstanceAAMP::Stop(bool sendStateChangeEvent)
 		//state will be eSTATE_IDLE or eSTATE_RELEASED, right after an init or post-processing of a Stop call
 		if (state != eSTATE_IDLE && state != eSTATE_RELEASED)
 		{
+			printf("1006 Test: Sending StopInternal for PlayerId %d, CurrentState %d", aamp->mPlayerId, state);
 			StopInternal(sendStateChangeEvent);
 		}
 
