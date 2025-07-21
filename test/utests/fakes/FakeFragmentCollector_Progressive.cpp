@@ -45,3 +45,12 @@ long StreamAbstractionAAMP_PROGRESSIVE::GetMaxBitrate()
 { 
     return 0;
 }
+<<<<<<< HEAD
+=======
+
+void StreamAbstractionAAMP_PROGRESSIVE::FetcherLoop()
+{
+
+}
+bool StreamAbstractionAAMP_PROGRESSIVE::DoEarlyStreamSinkFlush(bool newTune, float rate) { return false; }
+>>>>>>> df09ef7 (VPLAY-9299: Address 200ms tune delay when using enableMediaProcessor as true.)
