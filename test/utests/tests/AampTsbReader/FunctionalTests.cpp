@@ -625,8 +625,6 @@ TEST_F(FunctionalTests, FindAndReadNext_ForwardRate)
 	EXPECT_CALL(*g_mockTSBDataManager, GetFirstFragment()).WillOnce(Return(fragment));
 	EXPECT_CALL(*g_mockTSBDataManager, GetLastFragment()).WillOnce(Return(nextFragment));
 	EXPECT_CALL(*g_mockTSBDataManager, GetNearestFragment(_)).WillOnce(Return(fragment));
-	// EXPECT_CALL(*g_mockTSBDataManager, GetFragment(_, _)).WillOnce(Return(fragment));
-	// EXPECT_CALL(*g_mockTSBDataManager, GetFragment(position + duration, _)).WillOnce(Return(nextFragment));
 
 	EXPECT_EQ(mTestableTsbReader->Init(position, rate, tuneType, nullptr), eAAMPSTATUS_OK);
 	EXPECT_EQ(mTestableTsbReader->FindNext(), fragment);
@@ -670,8 +668,6 @@ TEST_F(FunctionalTests, FindAndReadNext_RewindRate)
 	EXPECT_CALL(*g_mockTSBDataManager, GetFirstFragment()).WillOnce(Return(fragment));
 	EXPECT_CALL(*g_mockTSBDataManager, GetLastFragment()).WillOnce(Return(fragment));
 	EXPECT_CALL(*g_mockTSBDataManager, GetNearestFragment(_)).WillOnce(Return(fragment));
-	// EXPECT_CALL(*g_mockTSBDataManager, GetFragment(_, _)).WillOnce(Return(fragment));
-	// EXPECT_CALL(*g_mockTSBDataManager, GetFragment(position - duration, _)).WillOnce(Return(prevFragment));
 
 	EXPECT_EQ(mTestableTsbReader->Init(position, rate, tuneType, nullptr), eAAMPSTATUS_OK);
 	EXPECT_EQ(mTestableTsbReader->FindNext(), fragment);
@@ -715,8 +711,6 @@ TEST_F(FunctionalTests, FindAndReadNext_DiscontinuityForwardRate)
 	EXPECT_CALL(*g_mockTSBDataManager, GetFirstFragment()).WillOnce(Return(fragment));
 	EXPECT_CALL(*g_mockTSBDataManager, GetLastFragment()).WillOnce(Return(fragment));
 	EXPECT_CALL(*g_mockTSBDataManager, GetNearestFragment(_)).WillOnce(Return(fragment));
-	// EXPECT_CALL(*g_mockTSBDataManager, GetFragment(_, _)).WillOnce(Return(fragment));
-	// EXPECT_CALL(*g_mockTSBDataManager, GetFragment(position + duration, _)).WillOnce(Return(nextFragment));
 
 	EXPECT_EQ(mTestableTsbReader->Init(position, rate, tuneType, nullptr), eAAMPSTATUS_OK);
 	EXPECT_EQ(mTestableTsbReader->FindNext(), fragment);
@@ -766,8 +760,6 @@ TEST_F(FunctionalTests, FindAndReadNext_DiscontinuityRewindRate)
 	EXPECT_CALL(*g_mockTSBDataManager, GetFirstFragment()).WillOnce(Return(fragment));
 	EXPECT_CALL(*g_mockTSBDataManager, GetLastFragment()).WillOnce(Return(fragment));
 	EXPECT_CALL(*g_mockTSBDataManager, GetNearestFragment(_)).WillOnce(Return(fragment));
-	// EXPECT_CALL(*g_mockTSBDataManager, GetFragment(_, _)).WillOnce(Return(fragment));
-	// EXPECT_CALL(*g_mockTSBDataManager, GetFragment(position - duration, _)).WillOnce(Return(prevFragment));
 
 	EXPECT_EQ(mTestableTsbReader->Init(position, rate, tuneType, nullptr), eAAMPSTATUS_OK);
 	EXPECT_EQ(mTestableTsbReader->FindNext(isDiscontinuous), fragment);
@@ -820,10 +812,6 @@ TEST_F(FunctionalTests, FindAndReadNext_EOSReached)
 	EXPECT_CALL(*g_mockTSBDataManager, GetFirstFragment()).WillOnce(Return(firstFragment));
 	EXPECT_CALL(*g_mockTSBDataManager, GetLastFragment()).WillOnce(Return(lastFragment));
 	EXPECT_CALL(*g_mockTSBDataManager, GetNearestFragment(_)).WillOnce(Return(firstFragment));
-	// EXPECT_CALL(*g_mockTSBDataManager, GetFragment(_, _))
-	// 	.WillOnce(Return(firstFragment))
-	// 	.WillOnce(Return(secondFragment))
-	// 	.WillOnce(Return(lastFragment));
 
 	EXPECT_EQ(mTestableTsbReader->Init(position, rate, tuneType, nullptr), eAAMPSTATUS_OK);
 	EXPECT_EQ(mTestableTsbReader->FindNext(), firstFragment);
@@ -880,10 +868,6 @@ TEST_F(FunctionalTests, FindAndReadNext_EOSReachedNegativeRate)
 	EXPECT_CALL(*g_mockTSBDataManager, GetFirstFragment()).WillOnce(Return(firstFragment));
 	EXPECT_CALL(*g_mockTSBDataManager, GetLastFragment()).WillOnce(Return(lastFragment));
 	EXPECT_CALL(*g_mockTSBDataManager, GetNearestFragment(_)).WillOnce(Return(lastFragment));
-	// EXPECT_CALL(*g_mockTSBDataManager, GetFragment(_, _))
-	// 	.WillOnce(Return(lastFragment))
-	// 	.WillOnce(Return(secondFragment))
-	// 	.WillOnce(Return(firstFragment));
 
 	EXPECT_EQ(mTestableTsbReader->Init(last_position, rate, tuneType, nullptr), eAAMPSTATUS_OK);
 	EXPECT_EQ(mTestableTsbReader->FindNext(), lastFragment);
@@ -935,7 +919,6 @@ TEST_F(FunctionalTests, FindAndReadNext_CorrectedPosition)
 	EXPECT_CALL(*g_mockTSBDataManager, GetFirstFragment()).WillOnce(Return(fragment));
 	EXPECT_CALL(*g_mockTSBDataManager, GetLastFragment()).WillOnce(Return(correctedFragment));
 	EXPECT_CALL(*g_mockTSBDataManager, GetNearestFragment(_)).WillOnce(Return(fragment));
-	// EXPECT_CALL(*g_mockTSBDataManager, GetFragment(_, _)).WillOnce(Return(fragment));
 
 	EXPECT_EQ(mTestableTsbReader->Init(position, rate, tuneType, nullptr), eAAMPSTATUS_OK);
 	EXPECT_EQ(mTestableTsbReader->FindNext(), fragment);
@@ -984,7 +967,6 @@ TEST_F(FunctionalTests, FindAndReadNext_CorrectedPositionNegativeRate)
 	EXPECT_CALL(*g_mockTSBDataManager, GetFirstFragment()).WillOnce(Return(correctedFragment));
 	EXPECT_CALL(*g_mockTSBDataManager, GetLastFragment()).WillOnce(Return(fragment));
 	EXPECT_CALL(*g_mockTSBDataManager, GetNearestFragment(_)).WillOnce(Return(fragment));
-	// EXPECT_CALL(*g_mockTSBDataManager, GetFragment(_, _)).WillOnce(Return(fragment));
 
 	EXPECT_EQ(mTestableTsbReader->Init(position, rate, tuneType, nullptr), eAAMPSTATUS_OK);
 	EXPECT_EQ(mTestableTsbReader->FindNext(), fragment);
@@ -1035,8 +1017,6 @@ TEST_F(FunctionalTests, FindAndReadNext_WithFragmentSkip)
 	EXPECT_CALL(*g_mockTSBDataManager, GetLastFragment()).WillOnce(Return(fragment4));
 	EXPECT_CALL(*g_mockTSBDataManager, GetNearestFragment(position)).WillOnce(Return(fragment1));
 
-	// EXPECT_CALL(*g_mockTSBDataManager, GetFragment(position + (3 * duration), _)).WillOnce(Return(fragment4));
-
 	EXPECT_EQ(mTestableTsbReader->Init(position, rate, tuneType, nullptr), eAAMPSTATUS_OK);
 
 	mTestableTsbReader->ReadNext(fragment1);
@@ -1083,8 +1063,6 @@ TEST_F(FunctionalTests, FindAndReadNext_WithFragmentSkipNegativeRate)
 	EXPECT_CALL(*g_mockTSBDataManager, GetLastFragment()).WillOnce(Return(fragment4));
 	EXPECT_CALL(*g_mockTSBDataManager, GetNearestFragment(last_fragment_position)).WillOnce(Return(fragment4));
 
-	// EXPECT_CALL(*g_mockTSBDataManager, GetFragment(position, _)).WillOnce(Return(fragment1));
-
 	EXPECT_EQ(mTestableTsbReader->Init(last_fragment_position, rate, tuneType, nullptr), eAAMPSTATUS_OK);
 
 	mTestableTsbReader->ReadNext(fragment4);
@@ -1127,12 +1105,6 @@ TEST_F(FunctionalTests, FindAndReadNext_WithFragmentSkipEOSReached)
 	EXPECT_CALL(*g_mockTSBDataManager, GetFirstFragment()).WillOnce(Return(fragment1));
 	EXPECT_CALL(*g_mockTSBDataManager, GetLastFragment()).WillOnce(Return(fragment3));
 	EXPECT_CALL(*g_mockTSBDataManager, GetNearestFragment(position)).WillOnce(Return(fragment1));
-
-	// EXPECT_CALL(*g_mockTSBDataManager, GetFragment(position + duration, _)).WillOnce(Return(nullptr));
-	// EXPECT_CALL(*g_mockTSBDataManager, GetNearestFragment(position + duration - FLOATING_POINT_EPSILON)).WillOnce(Return(fragment3));
-
-	// EXPECT_CALL(*g_mockTSBDataManager, GetFragment(position + (3 * duration), _)).WillOnce(Return(nullptr));
-	// EXPECT_CALL(*g_mockTSBDataManager, GetNearestFragment((position + (3 * duration)) - FLOATING_POINT_EPSILON)).WillOnce(Return(nullptr));
 
 	EXPECT_EQ(mTestableTsbReader->Init(position, rate, tuneType, nullptr), eAAMPSTATUS_OK);
 
@@ -1181,8 +1153,6 @@ TEST_F(FunctionalTests, FindAndReadNext_WithFragmentSkipEOSReachedNegativeRate)
 	EXPECT_CALL(*g_mockTSBDataManager, GetLastFragment()).WillOnce(Return(fragment3));
 	EXPECT_CALL(*g_mockTSBDataManager, GetNearestFragment(last_fragment_position)).WillOnce(Return(fragment3));
 
-	// EXPECT_CALL(*g_mockTSBDataManager, GetFragment(position, _)).WillOnce(Return(fragment1));
-
 	EXPECT_EQ(mTestableTsbReader->Init(last_fragment_position, rate, tuneType, nullptr), eAAMPSTATUS_OK);
 
 	mTestableTsbReader->ReadNext(fragment3);
@@ -1226,8 +1196,6 @@ TEST_F(FunctionalTests, FindAndReadNext_WithFragmentAddition)
 	EXPECT_CALL(*g_mockTSBDataManager, GetFirstFragment()).WillOnce(Return(fragment1));
 	EXPECT_CALL(*g_mockTSBDataManager, GetLastFragment()).WillOnce(Return(fragment1));
 	EXPECT_CALL(*g_mockTSBDataManager, GetNearestFragment(position)).WillOnce(Return(fragment1));
-
-	// EXPECT_CALL(*g_mockTSBDataManager, GetFragment(position + duration, _)).WillOnce(Return(fragment2));
 
 	EXPECT_EQ(mTestableTsbReader->Init(position, rate, tuneType, nullptr), eAAMPSTATUS_OK);
 
@@ -1280,8 +1248,6 @@ TEST_F(FunctionalTests, FindAndReadNext_PeriodBoundary)
 	EXPECT_CALL(*g_mockTSBDataManager, GetFirstFragment()).WillOnce(Return(fragment1));
 	EXPECT_CALL(*g_mockTSBDataManager, GetLastFragment()).WillOnce(Return(fragment2));
 	EXPECT_CALL(*g_mockTSBDataManager, GetNearestFragment(_)).WillOnce(Return(fragment1));
-	// EXPECT_CALL(*g_mockTSBDataManager, GetFragment(_, _)).WillOnce(Return(fragment1));
-	// EXPECT_CALL(*g_mockTSBDataManager, GetFragment(position + duration, _)).WillOnce(Return(fragment2));
 
 	// Initialize reader with fragment1
 	EXPECT_EQ(mTestableTsbReader->Init(position, rate, tuneType, nullptr), eAAMPSTATUS_OK);
@@ -1336,8 +1302,6 @@ TEST_F(FunctionalTests, FindAndReadNext_PeriodBoundaryTrickPlay)
 	EXPECT_CALL(*g_mockTSBDataManager, GetFirstFragment()).WillOnce(Return(fragment1));
 	EXPECT_CALL(*g_mockTSBDataManager, GetLastFragment()).WillOnce(Return(fragment2));
 	EXPECT_CALL(*g_mockTSBDataManager, GetNearestFragment(_)).WillOnce(Return(fragment2));
-	// EXPECT_CALL(*g_mockTSBDataManager, GetFragment(_, _)).WillOnce(Return(fragment2));
-	// EXPECT_CALL(*g_mockTSBDataManager, GetFragment(position, _)).WillOnce(Return(fragment1));
 
 	// Initialize reader with fragment2
 	double initPosition = position + duration;
@@ -1579,12 +1543,6 @@ TEST_F(FunctionalTests, ReadNextPlay2EOSFalse)
 	mTestableTsbReader->ReadNext(fragment);
 	EXPECT_EQ(mTestableTsbReader->mEosReached, false);
 }
-// 	/* Needed to set the rate (rate is private member) */
-// 	EXPECT_EQ(mTestableTsbReader->Init(position, rate, tuneType, nullptr), eAAMPSTATUS_OK);
-
-// 	mTestableTsbReader->ReadNext(nextFragment);
-// 	EXPECT_EQ(mTestableTsbReader->mEosReached, false);
-// }
 
 /**
  * @test FunctionalTests::ReadNextPlayEOSTrue
