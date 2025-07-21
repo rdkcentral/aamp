@@ -14129,6 +14129,7 @@ void StreamAbstractionAAMP_MPD::GetNextAdInBreak(int direction)
 		AAMPLOG_ERR("Invalid value[%d] for direction, not expected!", direction);
 	}
 }
+
 /*
  * @fn DoEarlyStreamSinkFlush
  * @brief Checks if the stream need to be flushed or not

@@ -296,6 +296,7 @@ BitsPerSecond StreamAbstractionAAMP_PROGRESSIVE::GetMaxBitrate()
 { // STUB
 	return 0;
 }
+
 /*
  * @fn DoEarlyStreamSinkFlush
  * @brief Checks if the stream need to be flushed or not

@@ -117,7 +117,7 @@ public:
      * @fn FragmentCollector
      */
     void FragmentCollector();
-	/*
+    /*
      * @fn DoEarlyStreamSinkFlush
      * @brief Checks if the stream need to be flushed or not
      *
@@ -125,7 +125,7 @@ public:
      * @param rate playback rate
      * @return true if stream should be flushed, false otherwise
      */
-    bool DoEarlyStreamSinkFlush(bool newTune, float rate) override;
+    virtual bool DoEarlyStreamSinkFlush(bool newTune, float rate) override;
 
 private:
     void StreamFile( const char *uri, int *http_error );
