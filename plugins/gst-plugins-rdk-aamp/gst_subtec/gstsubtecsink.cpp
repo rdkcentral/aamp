@@ -589,8 +589,17 @@ gst_subtecsink_render (GstBaseSink * sink, GstBuffer * buffer)
       auto inputSize = static_cast<uint32_t>(map.size);
       std::string instr(const_cast<const char*>(reinterpret_cast<char *>(map.data)), map.size);
 
-      GST_TRACE("%s unpacking GstBuffer size: %d\n", __func__, inputSize);
-
+      GST_WARNING("DUMMY-->%s unpacking GstBuffer size: %d\n", __func__, inputSize);
+        // Print first 32 bytes as hex for debug
+    uint32_t printLen = inputSize < 32 ? inputSize : 32;
+    std::string hexStr;
+    for (uint32_t i = 0; i < printLen; ++i)
+    {
+        char buf[4];
+        snprintf(buf, sizeof(buf), "%02X ", inputData[i]);
+        hexStr += buf;
+    }
+    GST_WARNING("DUMMY-->%s GstBuffer data (hex): %s", __func__, hexStr.c_str());
       for (std::uint32_t i = 0; i < inputSize; i++)
       {
           dataBuffer.push_back(inputData[i]);

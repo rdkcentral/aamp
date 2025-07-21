@@ -2974,6 +2974,42 @@ bool InterfacePlayerRDK::SendHelper(int type, const void *ptr, size_t len, doubl
 #endif // SUPPORTS_MP4DEMUX
 			{
 				GstFlowReturn ret = gst_app_src_push_buffer(GST_APP_SRC(stream->source), buffer);
+
+
+if (buffer)
+{
+    GstMapInfo map;
+    if (gst_buffer_map(buffer, &map, GST_MAP_READ))
+    {
+        // Print buffer size
+        MW_LOG_INFO("DUMMY-->Buffer size: %zu", map.size);
+
+        // Print buffer data as hex (first 64 bytes for brevity)
+        size_t print_len = map.size < 64 ? map.size : 64;
+        printf("DUMMY-->Buffer data (hex): ");
+        for (size_t i = 0; i < print_len; ++i)
+        {
+            printf("%02X ", map.data[i]);
+        }
+        printf("\n");
+
+        // Optionally, print as ASCII (if printable)
+        printf("DUMMY-->Buffer data (ASCII): ");
+        for (size_t i = 0; i < print_len; ++i)
+        {
+            char c = map.data[i];
+            printf("%c", (c >= 32 && c <= 126) ? c : '.');
+        }
+        printf("\n");
+
+        gst_buffer_unmap(buffer, &map);
+    }
+
+    // Print buffer metadata
+    MW_LOG_INFO("PTS: %" G_GUINT64_FORMAT ", DTS: %" G_GUINT64_FORMAT ", Duration: %" G_GUINT64_FORMAT,
+        GST_BUFFER_PTS(buffer), GST_BUFFER_DTS(buffer), GST_BUFFER_DURATION(buffer));
+}
+
 				
 				if (ret != GST_FLOW_OK)
 				{
