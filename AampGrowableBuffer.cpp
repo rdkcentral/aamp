@@ -123,6 +123,7 @@ void AampGrowableBuffer::AppendNulTerminator(void)
 { // ensure that AampGrowableBuffer used for ASCII data looks like a C String
 	static const char zeros[2] = { 0, 0 };
 	AppendBytes( zeros, sizeof(zeros) );
+	AAMPLOG_WARN("DUMMY-10248-->Inside AppendNulTerminator");
 }
 
 /**
