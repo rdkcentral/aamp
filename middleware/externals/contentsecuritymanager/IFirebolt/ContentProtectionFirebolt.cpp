@@ -118,7 +118,6 @@ void ContentProtectionFirebolt::Initialize()
 		MW_LOG_ERR("Firebolt Core To Be Initialized URL: [%s] Failed(Timeout) after 500ms", url.c_str());
 		return;
 	}
-	MW_LOG_WARN("Firebolt Core Initialized URL: [%s]", url.c_str());
 	mInitialized = true;
 	/* hide watermarking at startup */
 	int64_t sessionId = 0;
@@ -486,7 +485,7 @@ bool ContentProtectionFirebolt::SetDrmSessionState(int64_t sessionId, bool activ
 	if (result.error() == Firebolt::Error::None)
 	{
 		// No error, state was set successfully
-		MW_LOG_INFO("DRM session state set to %d for sessionId: %" PRId64 "", static_cast<int>(sessionState), sessionId);
+		MW_LOG_INFO("DRM session state set to %d for sessionId: %" PRId64 "", active, sessionId);
 		ret = true;
 	}
 	else
@@ -568,7 +567,7 @@ static Firebolt::ContentProtection::KeySystem convertStringToKeySystem(const std
 		return Firebolt::ContentProtection::KeySystem::WIDEVINE; // safest fallback default
 	}
 }
-bool ContentProtectionFirebolt::OpenDrmSession(std::string& clientId, std::string appId, std::string keySystem, std::string licenseRequest, std::string initData, int64_t sessionId, std::string &response)
+bool ContentProtectionFirebolt::OpenDrmSession(std::string& clientId, std::string appId, std::string keySystem, std::string licenseRequest, std::string initData, int64_t &sessionId, std::string &response)
 {
 	bool ret = false;
 	// Check if the system is active before proceeding
@@ -577,21 +576,21 @@ bool ContentProtectionFirebolt::OpenDrmSession(std::string& clientId, std::strin
 		return false; // Return false if system is not active
 	}
 //	Firebolt::ContentProtection::DRMSession drmSession;
-auto	drmSession = Firebolt::IFireboltAampAccessor::Instance()
+	auto drmSession = Firebolt::IFireboltAampAccessor::Instance()
 		.ContentProtectionInterface()
 		.openDrmSession(clientId, appId, convertStringToKeySystem(keySystem),
 				licenseRequest, initData);
 	if (drmSession)
 	{
-		MW_LOG_INFO("DRM session opened successfully with sessionId: '%s' with Response %s", drmSession->sessionId.c_str(), drmSession->openSessionResponse.c_str());
+		MW_LOG_WARN("DRM session opened successfully with sessionId: '%s' with Response %s", drmSession->sessionId.c_str(), drmSession->openSessionResponse.c_str());
 		response = drmSession->openSessionResponse;
-		sessionId = std::stoi(drmSession->sessionId);
+		sessionId = std::stoll(drmSession->sessionId);
 		ret = true;
 	}
 	else
-	  {
+	{
 		  MW_LOG_ERR("openDrmSession: Firebolt Error: \"%d\"", static_cast<int>(drmSession.error()));
-	  }
+	}
 	return ret;
 }
 bool ContentProtectionFirebolt::UpdateDrmSession(int64_t sessionId, std::string licenseRequest, std::string initData, std::string &response)

@@ -71,7 +71,7 @@ class IsoBmffProcessorBaseTests : public ::testing::Test
 			EXPECT_CALL(*g_mockIsoBmffBuffer, setBuffer(_,_)).Times(AnyNumber());
 
 			id3_callback_t id3Handler = nullptr;
-			
+
 			mAudIsoBmffProcessor = new IsoBmffProcessor(mPrivateInstanceAAMP, id3Handler, eBMFFPROCESSOR_TYPE_AUDIO, IsPTMEnabled(),nullptr, nullptr);
 			mSubIsoBmffProcessor = new IsoBmffProcessor(mPrivateInstanceAAMP, id3Handler, eBMFFPROCESSOR_TYPE_SUBTITLE, IsPTMEnabled(),nullptr, nullptr);
 			mIsoBmffProcessor = new IsoBmffProcessor(mPrivateInstanceAAMP, id3Handler, eBMFFPROCESSOR_TYPE_VIDEO, IsPTMEnabled(),mAudIsoBmffProcessor, mSubIsoBmffProcessor);
