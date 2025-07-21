@@ -485,7 +485,7 @@ bool ContentProtectionFirebolt::SetDrmSessionState(int64_t sessionId, bool activ
 	if (result.error() == Firebolt::Error::None)
 	{
 		// No error, state was set successfully
-		MW_LOG_INFO("DRM session state set to %d for sessionId: %" PRId64 "", static_cast<int>(sessionState), sessionId);
+		MW_LOG_INFO("DRM session state set to %d for sessionId: %" PRId64 "", active, sessionId);
 		ret = true;
 	}
 	else
