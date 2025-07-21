@@ -3083,38 +3083,32 @@ bool PrivateInstanceAAMP::ProcessPendingDiscontinuity()
 			// The same thread will be executing operations involving TeardownStream.
 			mpStreamAbstractionAAMP->StopInjection();
 
-			mpStreamAbstractionAAMP->GetStreamFormat(mVideoFormat, mAudioFormat, mAuxFormat, mSubtitleFormat);
-			
-			StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
-			if (sink)
+			// TODO: There is a possible issue hiding in the bushes. The audio codec switching use-case, Flush is done first and the Configure()
+			// So the new audio playbin will miss the Flush() and might not sync with video (which received the Flush) properly
+			if (((mMediaFormat != eMEDIAFORMAT_HLS_MP4) && (!ISCONFIGSET_PRIV(eAAMPConfig_EnablePTSReStamp))) ||  mVideoFormat != FORMAT_ISO_BMFF )
 			{
-			/*
-			 *  Truth table for Flush call as per previous impl for reference
-			 *  ContentType   | PTS ReStamp | Video Format | DoStreamSinkFlushOnDiscontinuity | Flush
-			 *  --------------|-------------|--------------|----------------------------------|--------
-			 *  HLS MP4       | NO          | ISO BMFF     | NO                               | NO
-			 *  HLS MP4       | YES         | ISO BMFF     | NO                               | NO
-			 *  HLS TS        | NO          | MPEGTS       | NO                               | YES
-			 *  HLS TS        | YES         | MPEGTS       | NO                               | YES
-			 *  DASH MP4      | NO          | ISO BMFF     | NO                               | YES
-			 *  DASH MP4      | YES         | ISO BMFF     | NO                               | NO
-			 *  DASH MP4      | YES         | ISO BMFF     | YES                              | YES
-			 *  In HLS MP4, DASH, mediaProcessor will be doing a delayed flush
-			 *  Only in DASH, PTS values will be known from manifest. If that is the case, flush from here.
-			 *  Content types other than HLS and DASH are not expected to have discontinuity.
-			 */
-				if (mpStreamAbstractionAAMP->DoStreamSinkFlushOnDiscontinuity())
+ 				StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
+				if (sink)
 				{
 					if(mDiscontinuityFound)
 					{
 						profiler.ProfileBegin(PROFILE_BUCKET_DISCO_FLUSH);
 					}
-					sink->Flush(mpStreamAbstractionAAMP->GetFirstPTS(), rate);
+					if (!ISCONFIGSET_PRIV(eAAMPConfig_EnablePTSReStamp))
+					{
+ 						sink->Flush(mpStreamAbstractionAAMP->GetFirstPTS(), rate);
+					}
 					if(mDiscontinuityFound)
 					{
 						profiler.ProfileEnd(PROFILE_BUCKET_DISCO_FLUSH);
 					}
-				}
+ 				}
+			}
+
+			GetStreamFormat(mVideoFormat, mAudioFormat, mAuxFormat, mSubtitleFormat);
+			StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
+			if (sink)
+			{
 				sink->Configure(
 					mVideoFormat,
 					mAudioFormat,
@@ -3123,7 +3117,7 @@ bool PrivateInstanceAAMP::ProcessPendingDiscontinuity()
 					mpStreamAbstractionAAMP->GetESChangeStatus(),
 					mpStreamAbstractionAAMP->GetAudioFwdToAuxStatus(),
 					mIsTrackIdMismatch /*setReadyAfterPipelineCreation*/);
-			}		
+			}
 			mpStreamAbstractionAAMP->ResetESChangeStatus();
 
 			bool isRateCorrectionEnabled = ISCONFIGSET_PRIV(eAAMPConfig_EnableLiveLatencyCorrection);
@@ -5471,25 +5465,73 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 			mFirstVideoFrameDisplayedEnabled = true;
 			mPauseOnFirstVideoFrameDisp = true;
 		}
-		/* executing the flush earlier in order to avoid the tune delay while waiting for the first video and audio fragment to download
-		 * and retrieving the pts value, as in the segmenttimeline streams we get the pts value from manifest itself
-		 */
-		if (mpStreamAbstractionAAMP->DoEarlyStreamSinkFlush(newTune, rate))
+
+		if (mMediaFormat == eMEDIAFORMAT_HLS)
+		{
+			//Live adjust or syncTrack occurred, sent an updated flush event
+			if (!newTune)
+			{
+				StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
+				if (sink)
+				{
+					sink->Flush(mpStreamAbstractionAAMP->GetFirstPTS(), rate);
+				}
+			}
+		}
+		else if (mMediaFormat == eMEDIAFORMAT_DASH)
+		{
+			/*
+			   commenting the Flush call with updatedSeekPosition as a work around for
+			   Trick play freeze issues observed for partner cDVR content
+			   @TODO Need to investigate and identify proper way to send Flush and segment
+			   events to avoid the freeze
+			if (!(newTune || (eTUNETYPE_RETUNE == tuneType)) && !IsFogTSBSupported())
+			{
+				StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
+				if (sink)
+				{
+					sink->Flush(updatedSeekPosition, rate);
+				}
+			}
+			else
+			{
+				StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
+				if (sink)
+				{
+					sink->Flush(0, rate);
+				}
+			}
+				*/
+			StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
+			if (sink && (mAampLLDashServiceData.lowLatencyMode || !ISCONFIGSET_PRIV(eAAMPConfig_EnableMediaProcessor)))
+			{
+				/* Do flush to PTS position when:
+				*	Not PTS restamp
+				*	OR normal play
+				* This means we skip this flush when
+				*	trickplay and PTS restamp
+				*	and we are using the flush(0) that occurs else where
+				*/
+				if (!ISCONFIGSET_PRIV(eAAMPConfig_EnablePTSReStamp) || rate == AAMP_NORMAL_PLAY_RATE )
+				{
+					sink->Flush(mpStreamAbstractionAAMP->GetFirstPTS(), rate);
+				}
+			}
+		}
+		else if (mMediaFormat == eMEDIAFORMAT_PROGRESSIVE)
 		{
 			StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
 			if (sink)
 			{
-				double flushPosition = (mMediaFormat == eMEDIAFORMAT_PROGRESSIVE) ? updatedSeekPosition : mpStreamAbstractionAAMP->GetFirstPTS();
-				sink->Flush(flushPosition, rate);
+				sink->Flush(updatedSeekPosition, rate);
 			}
-		}
-		if (mMediaFormat == eMEDIAFORMAT_PROGRESSIVE)
-		{
+			// ff trick mode, mp4 content is single file and muted audio to avoid glitch
 			if (rate > AAMP_NORMAL_PLAY_RATE)
 			{
-				volume = 0; // Mute audio to avoid glitches
+				volume = 0;
 			}
-			seek_pos_seconds = 0; // Reset seek position
+			// reset seek_pos after updating playback start, since mp4 content provide absolute position value
+			seek_pos_seconds = 0;
 		}
 
 		// Increase Buffer value dynamically according to Max Profile Bandwidth to accommodate HiFi Content Buffers
