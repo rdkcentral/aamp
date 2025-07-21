@@ -38,7 +38,8 @@ set(TEST_SOURCES ExecuteTests.cpp
 
                  AampCliSetTests.cpp)
 
-set(AAMP_SOURCES ${AAMP_ROOT}/test/aampcli/AampcliSet.cpp)
+set(AAMP_SOURCES ${AAMP_ROOT}/test/aampcli/AampcliSet.cpp
+                 ${AAMP_ROOT}/test/aampcli/AampcliPrintf.cpp)
 
 add_executable(${EXEC_NAME}
                ${TEST_SOURCES}
