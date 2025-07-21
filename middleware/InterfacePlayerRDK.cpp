@@ -1573,13 +1573,13 @@ bool InterfacePlayerRDK::Flush(double position, int rate, bool shouldTearDown, b
 
 	if ((gstPrivateContext->usingRialtoSink) &&
 		(gstPrivateContext->audio_sink) &&
-		(gstPrivateContext->stream[eGST_MEDIATYPE_AUDIO].format == GST_FORMAT_INVALID))
+		(rate != GST_NORMAL_PLAY_RATE))
 	{
-		/* If the audio stream is not configured, send EOS to the audio sink.
-		 * This is used for trickplay to avoid tearing down the pipeline,
+		/* 
+		 * If trickplay, avoid tearing down the pipeline in ConfigurePipeline(),
 		 * by bringing the audio pipeline out of pre-roll which would block streaming.
 		 */
-		MW_LOG_INFO("No audio stream - send eos to audio sink");
+		MW_LOG_INFO("Trickplay rate %d - send eos to audio sink", rate);
 		GstPlayer_SignalEOS(gstPrivateContext->stream[eGST_MEDIATYPE_AUDIO]);
 	}
 
