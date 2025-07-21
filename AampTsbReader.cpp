@@ -132,10 +132,6 @@ AAMPStatusType AampTsbReader::Init(double &startPosSec, float rate, TuneType tun
 						// Assign upcoming position as start position
 						mUpcomingFragmentPosition = mStartPosition;
 						mCurrentFragment = firstFragmentToFetch;
-						if (mCurrentFragment && mCurrentFragment->GetInitFragData())
-						{
-							mLastInitFragmentData = mCurrentFragment->GetInitFragData();
-						}
 						// mCurrentRate already set at beginning of Init
 						AAMPLOG_INFO("[%s] mCurrentRate confirmed as: %f in successful Init", GetMediaTypeName(mMediaType), mCurrentRate);
 						if (rate != AAMP_NORMAL_PLAY_RATE && eMEDIATYPE_VIDEO != mMediaType)
