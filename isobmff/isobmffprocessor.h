@@ -115,8 +115,7 @@ public:
 	 * @param[in] trackType - track type (A/V)
 	 * @param[in] peerBmffProcessor - peer instance of IsoBmffProcessor
 	 */
-	// IsoBmffProcessor(class PrivateInstanceAAMP *aamp, IsoBmffProcessorType trackType = eBMFFPROCESSOR_TYPE_VIDEO, IsoBmffProcessor* peerBmffProcessor = NULL, MediaProcessor* peerSubProcessor = NULL);
-	IsoBmffProcessor(class PrivateInstanceAAMP *aamp, id3_callback_t id3_hdl, IsoBmffProcessorType trackType = eBMFFPROCESSOR_TYPE_VIDEO, bool passThrough = false, 
+	IsoBmffProcessor(class PrivateInstanceAAMP *aamp, id3_callback_t id3_hdl, IsoBmffProcessorType trackType = eBMFFPROCESSOR_TYPE_VIDEO, bool passThrough = false,
 		IsoBmffProcessor* peerBmffProcessor = NULL, IsoBmffProcessor* peerSubProcessor = NULL);
 
 	/**

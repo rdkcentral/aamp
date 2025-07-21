@@ -3667,7 +3667,6 @@ bool GstPlayer_isVideoDecoder(const char* name, InterfacePlayerRDK * pInterfaceP
 	return pInterfacePlayerRDK->socInterface->IsVideoDecoder(name, isRialto);
 }
 
-#if GST_CHECK_VERSION(1,18,0)
 /**
  * @brief GstPlayer_HandleInstantRateChangeSeekProbe
  * @param[in] pad pad element
@@ -3713,7 +3712,6 @@ static GstPadProbeReturn GstPlayer_HandleInstantRateChangeSeekProbe(GstPad* pad,
 	}
 	return GST_PAD_PROBE_OK;
 }
-#endif
 
 /**
  * @brief Check if gstreamer element is video sink

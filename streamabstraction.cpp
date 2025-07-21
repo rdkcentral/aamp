@@ -4001,9 +4001,6 @@ void StreamAbstractionAAMP::SetVideoPlaybackRate(float rate)
 
 /**
  * @brief Initialize ISOBMFF Media Processor
- *
- * @return void
- * 
  * @param[in] passThroughMode - true if processor should skip parsing PTS and flush
  */
 void StreamAbstractionAAMP::InitializeMediaProcessor(bool passThroughMode)
@@ -4041,7 +4038,7 @@ void StreamAbstractionAAMP::InitializeMediaProcessor(bool passThroughMode)
 			{
 				if(FORMAT_SUBTITLE_MP4 == subtitleFormat)
 				{
-					peerSubtitleProcessor = std::make_shared<IsoBmffProcessor>(aamp, nullptr, (IsoBmffProcessorType) i, passThroughMode, nullptr,nullptr);
+					peerSubtitleProcessor = std::make_shared<IsoBmffProcessor>(aamp, nullptr, (IsoBmffProcessorType) i, passThroughMode, nullptr, nullptr);
 					track->playContext = std::static_pointer_cast<MediaProcessor>(peerSubtitleProcessor);
 					track->playContext->setRate(aamp->rate, PlayMode_normal);
 				}

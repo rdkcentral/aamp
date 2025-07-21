@@ -37,7 +37,7 @@ static const char *IsoBmffProcessorTypeName[] =
 /**
  *  @brief IsoBmffProcessor constructor
  */
-IsoBmffProcessor::IsoBmffProcessor(class PrivateInstanceAAMP *aamp, id3_callback_t id3_hdl, IsoBmffProcessorType trackType, bool passThrough, 
+IsoBmffProcessor::IsoBmffProcessor(class PrivateInstanceAAMP *aamp, id3_callback_t id3_hdl, IsoBmffProcessorType trackType, bool passThrough,
 	IsoBmffProcessor* peerBmffProcessor, IsoBmffProcessor* peerSubProcessor)
 	: p_aamp(aamp), type(trackType), peerProcessor(peerBmffProcessor), peerSubtitleProcessor(peerSubProcessor), basePTS(0),
 	processPTSComplete(false), timeScale(0), initSegment(), resetPTSInitSegment(),
