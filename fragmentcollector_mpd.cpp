@@ -161,6 +161,9 @@ StreamAbstractionAAMP_MPD::StreamAbstractionAAMP_MPD(class PrivateInstanceAAMP *
 	,mIsSegmentTimelineEnabled(false)
 	,mSeekedInPeriod(false)
 	,mIsFinalFirstPTS(false)
+	,mLivePeriodCulledSeconds(0)
+	,mIsSegmentTimelineEnabled(false)
+	,mSeekedInPeriod(false)
 {
 	this->aamp = aamp;
 	if (aamp->mDRMLicenseManager)
@@ -4023,6 +4026,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 		if(mCurrentPeriod != NULL)
 		{
 			mBasePeriodId = mCurrentPeriod->GetId();
+			mIsSegmentTimelineEnabled = mMPDParseHelper->aamp_HasSegmentTimeline(mCurrentPeriod);
 		}
 		else
 		{
@@ -4214,7 +4218,8 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 			}
 			if(ISCONFIGSET(eAAMPConfig_EnableMediaProcessor))
 			{
-				InitializeMediaProcessor();
+				// For segment timeline based streams, media processor is initialized in passthrough mode
+				InitializeMediaProcessor(mIsSegmentTimelineEnabled);
 			}
 		}
 		else
@@ -6023,7 +6028,7 @@ bool StreamAbstractionAAMP_MPD::GetBestTextTrackByLanguage( TextTrackInfo &selec
 
 void StreamAbstractionAAMP_MPD::StartSubtitleParser()
 {
-	struct MediaStreamContext *subtitle = mMediaStreamContext[eMEDIATYPE_SUBTITLE];
+	class MediaStreamContext *subtitle = mMediaStreamContext[eMEDIATYPE_SUBTITLE];
 	if (subtitle && subtitle->enabled && subtitle->mSubtitleParser)
 	{
 		auto seekPoint = aamp->seek_pos_seconds;
@@ -6061,7 +6066,7 @@ void StreamAbstractionAAMP_MPD::StartSubtitleParser()
 
 void StreamAbstractionAAMP_MPD::PauseSubtitleParser(bool pause)
 {
-	struct MediaStreamContext *subtitle = mMediaStreamContext[eMEDIATYPE_SUBTITLE];
+	class MediaStreamContext *subtitle = mMediaStreamContext[eMEDIATYPE_SUBTITLE];
 	if (subtitle && subtitle->enabled && subtitle->mSubtitleParser)
 	{
 		AAMPLOG_INFO("setting subtitles pause state = %d", pause);
@@ -9527,7 +9532,8 @@ bool StreamAbstractionAAMP_MPD::IndexSelectedPeriod(bool periodChanged, bool adS
 		}
 		if (ISCONFIGSET(eAAMPConfig_EnableMediaProcessor))
 		{
-			InitializeMediaProcessor();
+			// For segment timeline based streams, media processor is initialized in passthrough mode
+			InitializeMediaProcessor(mIsSegmentTimelineEnabled);
 		}
 		if (ISCONFIGSET(eAAMPConfig_EnablePTSReStamp) && (rate == AAMP_NORMAL_PLAY_RATE) && mMediaStreamContext[eMEDIATYPE_SUBTITLE]->enabled)
 		{
@@ -9553,6 +9559,7 @@ bool StreamAbstractionAAMP_MPD::IndexSelectedPeriod(bool periodChanged, bool adS
 				SeekInPeriod(seekPositionSeconds);
 				// Ad shorter than base period, set flag to adjust calculation on next call to UpdatePtsOffset()
 				mShortAdOffsetCalc = true;
+				mSeekedInPeriod = true;
 			}
 		}
 	}
@@ -9621,10 +9628,14 @@ void StreamAbstractionAAMP_MPD::DetectDiscontinuityAndFetchInit(bool periodChang
 				{
 					AAMPLOG_WARN("StreamAbstractionAAMP_MPD: discontinuity detected nextSegmentTime %" PRIu64 " FirstSegmentStartTime %" PRIu64 " ", nextSegmentTime, segmentStartTime);
 					discontinuity = true;
-					if (segmentTemplates.GetTimescale() != 0)
+					// mFirstPTS should not be updated if we are coming out of partial ad playback mSeekedInPeriod = true
+					if (segmentTemplates.GetTimescale() != 0 && !mSeekedInPeriod)
 					{
 						mFirstPTS = (double)segmentStartTime / (double)segmentTemplates.GetTimescale();
 						mIsFinalFirstPTS = true;
+					}
+					else
+					{
 						AAMPLOG_WARN("StreamAbstractionAAMP_MPD: Not updating mFirstPTS TimeScale(0) or mSeekedInPeriod(%d)", mSeekedInPeriod);
 					}
 					mSeekedInPeriod = false;
@@ -14091,4 +14102,49 @@ void StreamAbstractionAAMP_MPD::GetNextAdInBreak(int direction)
 	{
 		AAMPLOG_ERR("Invalid value[%d] for direction, not expected!", direction);
 	}
+}
+
+/*
+ * @fn DoEarlyStreamSinkFlush
+ * @brief Checks if the stream need to be flushed or not
+ *
+ * @param newTune true if this is a new tune, false otherwise
+ * @param rate playback rate
+ * @return true if stream should be flushed, false otherwise
+ */
+bool StreamAbstractionAAMP_MPD::DoEarlyStreamSinkFlush(bool newTune, float rate)
+{
+	/* Determine if early stream sink flush is needed based on configuration and playback state
+	 * Do flush to PTS position from manifest when:
+	 * 1. EnableMediaProcessor is disabled or EnableMediaProcessor enabled but segment timeline enabled (media processor will not flush in this case), OR
+	 * 2. EnablePTSReStamp is disabled, or play rate is normal (AAMP_NORMAL_PLAY_RATE). Here, we are using the flush(0) that occurs else where
+	 */
+	bool enableMediaProcessor = ISCONFIGSET(eAAMPConfig_EnableMediaProcessor);
+	bool enablePTSReStamp = ISCONFIGSET(eAAMPConfig_EnablePTSReStamp);
+	bool doFlush = ((!enableMediaProcessor || mIsSegmentTimelineEnabled) &&
+					(!enablePTSReStamp || rate == AAMP_NORMAL_PLAY_RATE));
+	AAMPLOG_INFO("doFlush=%d, newTune=%d, rate=%f", doFlush, newTune, rate);
+	return doFlush;
+}
+
+/**
+ * @brief Should flush the stream sink on discontinuity or not.
+ * When segment timeline is enabled, media processor will be in pass-through mode
+ * and will not do delayed flush.
+ * @return true if stream should be flushed, false otherwise
+ */
+bool StreamAbstractionAAMP_MPD::DoStreamSinkFlushOnDiscontinuity()
+{
+	/*
+	 * Truth table for DoStreamSinkFlushOnDiscontinuity:
+	 * | enableMediaProcessor | mIsSegmentTimelineEnabled | Result |
+	 * |----------------------|---------------------------|--------|
+	 * | false                | false                     | true   | (there will be no delayed flush)
+	 * | false                | true                      | true   |
+	 * | true                 | false                     | false  | (media processor will do delayed flush)
+	 * | true                 | true                      | true   | (media processor will not flush)
+	 */
+	bool doFlush = (!ISCONFIGSET(eAAMPConfig_EnableMediaProcessor) || mIsSegmentTimelineEnabled);
+	AAMPLOG_INFO("doFlush=%d", doFlush);
+	return doFlush;
 }

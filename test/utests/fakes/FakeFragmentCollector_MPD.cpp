@@ -275,3 +275,13 @@ bool StreamAbstractionAAMP_MPD::UseIframeTrack(void)
 {
 	return true;
 }
+<<<<<<< HEAD
+=======
+
+void StreamAbstractionAAMP_MPD::TsbReader()
+{
+    
+}
+bool StreamAbstractionAAMP_MPD::DoEarlyStreamSinkFlush(bool newTune, float rate) { return false; }
+bool StreamAbstractionAAMP_MPD::DoStreamSinkFlushOnDiscontinuity() { return false; }
+>>>>>>> 0ad1c62 (VPLAY-9299: Address 200ms tune delay when using enableMediaProcessor as true. (#298))
