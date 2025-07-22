@@ -213,6 +213,8 @@ typedef enum
 	eAAMPConfig_UseMp4Demux,
 	eAAMPConfig_CurlThroughput,
 	eAAMPConfig_UseFireboltSDK,						/**< Config to use Firebolt SDK for license Acquisition */
+	eAAMPConfig_EnableChunkInjection,					/**< Config to enable chunk injection for low latency DASH */
+	eAAMPConfig_RetryOnEmptyBuffer,						/**< Config to retry on empty buffer for low latency DASH */
 	eAAMPConfig_BoolMaxValue						/**< Max value of bool config always last element */
 
 } AAMPConfigSettingBool;
