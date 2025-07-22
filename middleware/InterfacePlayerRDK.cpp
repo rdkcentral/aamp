@@ -391,7 +391,7 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int auxF
 			gboolean videoOnly = (gstPrivateContext->NumberOfTracks == 1) &&
 								 (gstPrivateContext->stream[eGST_MEDIATYPE_VIDEO].format != GST_FORMAT_INVALID);
 
-			 MW_LOG_INFO("Setting single-path-stream to %d", videoOnly);
+			MW_LOG_INFO("Setting single-path-stream to %d", videoOnly);
 			g_object_set(vidsink, "single-path-stream", videoOnly, NULL);
 		}
 		else
