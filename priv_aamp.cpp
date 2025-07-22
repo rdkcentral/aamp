@@ -49,7 +49,8 @@
 #include "PlayerCCManager.h"
 #include "AampDRMLicPreFetcher.h"
 #include "AampDRMLicManager.h"
-
+#include <fstream>
+#include <iostream>
 #ifdef AAMP_TELEMETRY_SUPPORT
 #include <AampTelemetry2.hpp>
 #endif //AAMP_TELEMETRY_SUPPORT
@@ -3862,6 +3863,11 @@ void PrivateInstanceAAMP::SetCMCDTrackData(AampMediaType mediaType)
 		mCMCDCollector->SetTrackData( mediaType, bufferRedStatus, bufferedDurationMs, kBitsPerSecond, IsMuxedStream() );
 	}
 }
+size_t WriteCallback(void* contents, size_t size, size_t nmemb, std::string* output) {
+    size_t totalSize = size * nmemb;
+    output->append((char*)contents, totalSize);
+    return totalSize;
+}
 
 /**
  * @brief Download a file from the CDN
@@ -3930,6 +3936,10 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 		CURL* curl = GetCurlInstanceForURL(remoteUrl,curlInstance);
 
 		AAMPLOG_INFO("aamp url:%d,%d,%d,%f,%s", mediaTypeTelemetry, mediaType, curlInstance, fragmentDurationS, remoteUrl.c_str());
+
+    AAMPLOG_INFO("DUMMY-->aamp url:%d,%d,%d,%f,%s", mediaTypeTelemetry, mediaType, curlInstance, fragmentDurationS, remoteUrl.c_str());
+
+
 		CurlCallbackContext context;
 		if (curl)
 		{
@@ -3939,6 +3949,23 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 				CURL_EASY_SETOPT_LONG(curl, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_1);
 				context.remoteUrl = remoteUrl;
 			}
+			std::string content;
+	        if (mediaType == 2)
+    {
+        curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
+        curl_easy_setopt(curl, CURLOPT_WRITEDATA, &content);
+        res = curl_easy_perform(curl);
+        curl_easy_cleanup(curl);
+        if (res == CURLE_OK) {
+            std::ofstream outFile("output.txt");
+            outFile << content;
+            outFile.close();
+            std::cout << "DUMMY-->Content written to output.txt\n";
+        } else {
+            std::cerr << "DUMMY-->Error: " << curl_easy_strerror(res) << "\n";
+        }
+	}
+
 			context.aamp = this;
 			context.buffer = buffer;
 			context.responseHeaderData = &httpRespHeaders[curlInstance];
