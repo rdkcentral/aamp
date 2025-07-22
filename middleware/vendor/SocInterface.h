@@ -465,7 +465,7 @@ public:
 	 *
 	 * @return `true` if the platform segment is ready, `false` otherwise.
 	 */
-	virtual bool IsPlatformSegmentReady(){return true;}
+	virtual bool IsPlatformSegmentReady(){return false;}
 	
 	/**
 	 *@brief Checks if the platform is video master.
