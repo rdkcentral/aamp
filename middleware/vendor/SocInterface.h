@@ -471,6 +471,6 @@ public:
 	 *@brief Checks if the platform is video master.
 	 *@return 'true' if video master otherwise false.
 	 */
-	virtual bool IsVideoMaster(){return false;}
+	virtual bool IsVideoMaster(){return true;}
 };
 #endif
