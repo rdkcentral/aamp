@@ -446,7 +446,7 @@ void AampTsbDataManager::Flush()
  *   @fn GetNextDiscFragment
  *   @brief API to get next discontinuous fragment in the list. If not found, will return nullptr.
  *   @param[in] position - Absolute position, in seconds since 1970, for querying the discontinuous fragment
- *   @param[in] backwordSerach - Search direction from the position to discontinuous fragment, default forward
+ *   @param[in] backwordSearch - Search direction from the position to discontinuous fragment, default forward
  *   @return TsbFragmentData shared object to fragment data
  */
 TsbFragmentDataPtr AampTsbDataManager::GetNextDiscFragment(double position, bool backwardSearch)

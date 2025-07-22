@@ -33,10 +33,6 @@ DrmInterface::DrmInterface(PrivateInstanceAAMP* aamp):mAesKeyBuf("aesKeyBuf")
 DrmInterface::~DrmInterface()
 {
 }
-
-void DrmInterface::UpdateAamp(PrivateInstanceAAMP*)
-{
-}
 void DrmInterface::TerminateCurlInstance(int mCurlInstance)
 {
 }
@@ -78,4 +74,7 @@ void DrmInterface::GetCurlInit(int &curlInstance)
 void DrmInterface::getHlsDrmSession(std::shared_ptr <HlsDrmBase>&bridge, std::shared_ptr<DrmHelper> &drmHelper ,  DrmSession* &session , int streamType)
 {
 
+}
+void DrmInterface::UpdateAamp(PrivateInstanceAAMP* aamp)
+{
 }

@@ -397,8 +397,7 @@ void StreamAbstractionAAMP::SetVideoPlaybackRate(float rate)
 		g_mockStreamAbstractionAAMP->SetVideoPlaybackRate(rate);
 	}
 }
-
-void StreamAbstractionAAMP::InitializeMediaProcessor()
+void StreamAbstractionAAMP::InitializeMediaProcessor(bool passThroughMode)
 {
 }
 
