@@ -7457,6 +7457,7 @@ bool StreamAbstractionAAMP_HLS::DoEarlyStreamSinkFlush(bool newTune, float rate)
 	AAMPLOG_INFO("doFlush=%d, newTune=%d, rate=%f", doFlush, newTune, rate);
 	return doFlush;
 }
+
 /*
  * @brief Should flush the stream sink on discontinuity or not.
  *

@@ -1031,6 +1031,7 @@ class StreamAbstractionAAMP_HLS : public StreamAbstractionAAMP
 		 * @return bool
 		 ***************************************************************************/
 		bool SelectPreferredTextTrack(TextTrackInfo& selectedTextTrack) override;
+
 		/***************************************************************************
 		 * @fn DoEarlyStreamSinkFlush
 		 *
@@ -1038,7 +1039,7 @@ class StreamAbstractionAAMP_HLS : public StreamAbstractionAAMP
 		 * @param[in] rate playback rate
 		 * @return bool true if stream should be flushed
 		 ***************************************************************************/
-		bool DoEarlyStreamSinkFlush(bool newTune, float rate) override;
+		virtual bool DoEarlyStreamSinkFlush(bool newTune, float rate) override;
 
 		/***************************************************************************
 		 * @brief Should flush the stream sink on discontinuity or not.
