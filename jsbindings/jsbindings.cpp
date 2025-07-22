@@ -764,7 +764,11 @@ public:
 		JSStringRelease(name);
 
 		name = JSStringCreateWithUTF8CString("videoBufferedMiliseconds"); // FIXME
-		JSObjectSetProperty(context, eventObj, name, JSValueMakeNumber(context, evt->getBufferedDuration()), kJSPropertyAttributeReadOnly, NULL);
+		JSObjectSetProperty(context, eventObj, name, JSValueMakeNumber(context, evt->getVideoBufferedDuration()), kJSPropertyAttributeReadOnly, NULL);
+		JSStringRelease(name);
+
+		name = JSStringCreateWithUTF8CString("audioBufferedMiliseconds"); // FIXME
+		JSObjectSetProperty(context, eventObj, name, JSValueMakeNumber(context, evt->getAudioBufferedDuration()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(name);
 
 		name = JSStringCreateWithUTF8CString("timecode");
@@ -2037,6 +2041,11 @@ public:
 		prop = JSStringCreateWithUTF8CString("timeInStateMs");
 		JSObjectSetProperty(context, eventObj, prop, JSValueMakeNumber(context, evt->getTimeInStateMS()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
+
+		prop = JSStringCreateWithUTF8CString("droppedFrames");
+		JSObjectSetProperty(context, eventObj, prop, JSValueMakeNumber(context, evt->getDroppedFrames()), kJSPropertyAttributeReadOnly, NULL);
+		JSStringRelease(prop);
+
 	}
 };
 /**
