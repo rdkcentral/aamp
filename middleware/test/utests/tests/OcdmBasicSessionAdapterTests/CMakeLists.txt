@@ -19,13 +19,9 @@ include(GoogleTest)
 
 set(PLAYER_ROOT "../../../../")
 set(UTESTS_ROOT "../../")
-set(EXEC_NAME PlayerOcdmBasicSessionAdapterTests)
+set(EXEC_NAME OcdmBasicSessionAdapterTests)
 
-include_directories(${AAMP_ROOT} ${AAMP_ROOT}/drm ${AAMP_ROOT}/drm/helper ${AAMP_ROOT}/subtitle ${AAMP_ROOT}/middleware/subtitle ${AAMP_ROOT}/downloader ${AAMP_ROOT}/isobmff ${AAMP_ROOT}/middleware/subtec/subtecparser ${AAMP_ROOT}/middleware/subtec/playerjsonobject ${AAMP_ROOT}/middleware/subtec/libsubtec ${AAMP_ROOT}/middleware/drm/helper ${AAMP_ROOT}/middleware ${AAMP_ROOT}/middleware/drm ${AAMP_ROOT}/middleware/drm/ocdm)
-include_directories(${AAMP_ROOT}/tsb/api)
-include_directories(${AAMP_ROOT}/middleware/externals)
-include_directories(${AAMP_ROOT}/middleware/externals/contentsecuritymanager)
-include_directories(${AAMP_ROOT}/middleware/playerLogManager)
+include_directories(${PLAYER_ROOT})
 include_directories(${LIBCJSON_INCLUDE_DIRS})
 
 if(CMAKE_SYSTEM_NAME STREQUAL Linux)
@@ -37,6 +33,7 @@ include_directories(${GMOCK_INCLUDE_DIRS})
 include_directories(${GLIB_INCLUDE_DIRS})
 include_directories(${GSTREAMER_INCLUDE_DIRS})
 include_directories(SYSTEM ${UTESTS_ROOT}/mocks)
+include_directories(${PLAYER_ROOT}/drm)
 include_directories(${UTESTS_ROOT}/ocdm)
 include_directories(${UTESTS_ROOT}/mocks)
 include_directories(${PLAYER_ROOT}/externals)
@@ -44,6 +41,8 @@ include_directories(${PLAYER_ROOT}/drm/ocdm)
 include_directories(${PLAYER_ROOT}/drm/helper)
 include_directories(${PLAYER_ROOT}/playerLogManager)
 include_directories(${PLAYER_ROOT}/baseConversion)
+include_directories(${PLAYER_ROOT}/externals/contentsecuritymanager)
+
 set(TEST_SOURCES FunctionalTests.cpp
 		 OcdmBasicSessionAdapterTests.cpp)
 
