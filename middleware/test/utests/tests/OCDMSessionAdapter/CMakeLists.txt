@@ -21,7 +21,7 @@ set(PLAYER_ROOT "../../../../")
 set(UTESTS_ROOT "../../")
 set(EXEC_NAME OCDMSessionAdapterTests)
 
-include_directories(${PLAYER_ROOT} ${PLAYER_ROOT}/drm ${PLAYER_ROOT}/drm/helper ${PLAYER_ROOT} ${PLAYER_ROOT}/middleware/drm/ocdm ${PLAYER_ROOT}/drm/ ${PLAYER_ROOT}/subtitle ${PLAYER_ROOT}/subtitle ${PLAYER_ROOT}/downloader ${PLAYER_ROOT}/isobmff ${PLAYER_ROOT}/subtec/subtecparser ${PLAYER_ROOT}/subtec/playerjsonobject ${PLAYER_ROOT}/subtec/libsubtec)
+include_directories(${PLAYER_ROOT} ${PLAYER_ROOT}/drm ${PLAYER_ROOT}/drm/helper ${PLAYER_ROOT} ${PLAYER_ROOT}/middleware/drm/ocdm ${PLAYER_ROOT}/drm/ ${PLAYER_ROOT}/subtitle ${PLAYER_ROOT}/subtitle ${PLAYER_ROOT}/downloader ${PLAYER_ROOT}/isobmff ${PLAYER_ROOT}/subtec/subtecparser ${PLAYER_ROOT}/subtec/playerJsonObject ${PLAYER_ROOT}/subtec/libsubtec)
 include_directories(${PLAYER_ROOT}/tsb/api)
 include_directories("fakes/.")
 
@@ -42,6 +42,7 @@ include_directories(${PLAYER_ROOT}/drm/helper)
 include_directories(${PLAYER_ROOT}/externals)
 include_directories(${PLAYER_ROOT}/playerLogManager)
 include_directories(${PLAYER_ROOT}/baseConversion)
+include_directories(${PLAYER_ROOT}/externals/contentsecuritymanager)
 
 set(TEST_SOURCES FunctionalTests.cpp
 		 OCDMSessionAdapterTests.cpp)
@@ -52,10 +53,10 @@ set(PLAYER_SOURCES ${PLAYER_ROOT}/drm/ocdm/opencdmsessionadapter.cpp
                  ${PLAYER_ROOT}/drm/DrmUtils.cpp
     		${PLAYER_ROOT}/externals/PlayerExternalsInterface.cpp
 		${PLAYER_ROOT}/externals/PlayerExternalUtils.cpp
-		 ${PLAYER_ROOT}/playerLogManager/PlayerLogManager.cpp
-     ${PLAYER_ROOT}/ProcessHandler.cpp
-     ${PLAYER_ROOT}/PlayerUtils.cpp
-     ${PLAYER_ROOT}/baseConversion/_base64.cpp)
+		${PLAYER_ROOT}/playerLogManager/PlayerLogManager.cpp
+     		${PLAYER_ROOT}/PlayerUtils.cpp
+		${PLAYER_ROOT}/ProcessHandler.cpp
+		${PLAYER_ROOT}/baseConversion/_base64.cpp)
 
 add_definitions(-DUSE_THUNDER_OCDM_API_0_2)
 add_definitions(-DUSE_OPENCDM_ADAPTER)

@@ -27,7 +27,7 @@ set(RFC_ROOT ${UTESTS_ROOT}/rfc)
 set(EXEC_NAME DrmOcdm)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DREALTEKCE=1")
 
-include_directories(${PLAYER_ROOT} ${PLAYER_ROOT}/drm  ${PLAYER_ROOT}/subtitle ${PLAYER_ROOT}/drm/helper ${PLAYER_ROOT}/drm/ocdm ${PLAYER_ROOT}/drm/ ${PLAYER_ROOT}/subtitle ${PLAYER_ROOT}/downloader ${PLAYER_ROOT}/isobmff ${PLAYER_ROOT}/subtec/subtecparser ${PLAYER_ROOT}/playerjsonobject ${PLAYER_ROOT}/subtec/libsubtec ${PLAYER_ROOT}/externals/contentsecuritymanager)
+include_directories(${PLAYER_ROOT} ${PLAYER_ROOT}/drm  ${PLAYER_ROOT}/subtitle ${PLAYER_ROOT}/drm/helper ${PLAYER_ROOT}/drm/ocdm ${PLAYER_ROOT}/drm/ ${PLAYER_ROOT}/subtitle ${PLAYER_ROOT}/downloader ${PLAYER_ROOT}/isobmff ${PLAYER_ROOT}/subtec/subtecparser ${PLAYER_ROOT}/playerJsonObject ${PLAYER_ROOT}/subtec/libsubtec ${PLAYER_ROOT}/externals/contentsecuritymanager ${PLAYER_ROOT}/externals/contentsecuritymanager/IFirebolt)
 include_directories(${PLAYER_ROOT}/tsb/api)
 include_directories(${PLAYER_ROOT}/externals)
 include_directories(${GTEST_INCLUDE_DIRS})
@@ -46,7 +46,6 @@ include_directories(${PLAYER_ROOT}/drm)
 include_directories(${PLAYER_ROOT}/drm/helper)
 include_directories(${PLAYER_ROOT}/drm/ocdm)
 include_directories(${PLAYER_ROOT}/externals)
-include_directories(${PLAYER_ROOT}/externals/contentsecuritymanager)
 include_directories(${PLAYER_ROOT}/playerLogManager)
 include_directories(${PLAYER_ROOT}/baseConversion)
 
@@ -61,30 +60,30 @@ set(TEST_SOURCES DrmTestsRun.cpp
 set(FAKE_SOURCES ${PLAYER_ROOT}/test/utests/fakes/FakeSocUtils.cpp)
 
 set(PLAYER_SOURCES ${PLAYER_ROOT}/drm/DrmUtils.cpp
-	${PLAYER_ROOT}/baseConversion/_base64.cpp
-	${PLAYER_ROOT}/externals/PlayerExternalsInterface.cpp
-	${PLAYER_ROOT}/externals/contentsecuritymanager/ContentSecurityManager.cpp
-	${PLAYER_ROOT}/externals/PlayerExternalUtils.cpp
-	${PLAYER_ROOT}/baseConversion/_base64.cpp
-				${PLAYER_ROOT}/PlayerUtils.cpp
-				 ${PLAYER_ROOT}/drm/DrmSessionFactory.cpp
-				 ${PLAYER_ROOT}/drm/helper/DrmHelper.cpp
-				 ${PLAYER_ROOT}/drm/helper/DrmHelperFactory.cpp
-				 ${PLAYER_ROOT}/drm/DrmSessionManager.cpp
-				 ${PLAYER_ROOT}/drm/DrmSession.cpp
-				 ${PLAYER_ROOT}/drm/DrmJsonObject.cpp
-				 ${PLAYER_ROOT}/drm/ocdm/opencdmsessionadapter.cpp
-				 ${PLAYER_ROOT}/drm/ocdm/OcdmBasicSessionAdapter.cpp
-				 ${PLAYER_ROOT}/drm/ocdm/OcdmGstSessionAdapter.cpp
-				 ${PLAYER_ROOT}/drm/HlsOcdmBridge.cpp
-				 ${PLAYER_ROOT}/drm/HlsDrmSessionManager.cpp
-				 ${PLAYER_ROOT}/drm/processProtectionHls.cpp
-				 ${PLAYER_ROOT}/drm/helper/ClearKeyHelper.cpp
-				 ${PLAYER_ROOT}/drm/helper/WidevineDrmHelper.cpp
-				 ${PLAYER_ROOT}/drm/helper/PlayReadyHelper.cpp
-				 ${PLAYER_ROOT}/playerLogManager/PlayerLogManager.cpp
-				 ${UTESTS_ROOT}/drm/mocks/gstMocks.c
-				 ${PLAYER_ROOT}/ProcessHandler.cpp)
+					${PLAYER_ROOT}/baseConversion/_base64.cpp
+					${PLAYER_ROOT}/PlayerUtils.cpp
+					${PLAYER_ROOT}/drm/DrmSessionFactory.cpp
+					${PLAYER_ROOT}/drm/helper/DrmHelper.cpp
+					${PLAYER_ROOT}/drm/helper/DrmHelperFactory.cpp
+					${PLAYER_ROOT}/drm/DrmSessionManager.cpp
+					${PLAYER_ROOT}/drm/DrmSession.cpp
+					${PLAYER_ROOT}/drm/DrmJsonObject.cpp
+					${PLAYER_ROOT}/drm/ocdm/opencdmsessionadapter.cpp
+					${PLAYER_ROOT}/drm/ocdm/OcdmBasicSessionAdapter.cpp
+					${PLAYER_ROOT}/drm/ocdm/OcdmGstSessionAdapter.cpp
+					${PLAYER_ROOT}/drm/HlsOcdmBridge.cpp
+					${PLAYER_ROOT}/drm/HlsDrmSessionManager.cpp
+					${PLAYER_ROOT}/drm/processProtectionHls.cpp
+					${PLAYER_ROOT}/drm/helper/ClearKeyHelper.cpp
+					${PLAYER_ROOT}/drm/helper/WidevineDrmHelper.cpp
+					${PLAYER_ROOT}/drm/helper/PlayReadyHelper.cpp
+					${PLAYER_ROOT}/playerLogManager/PlayerLogManager.cpp
+					${UTESTS_ROOT}/drm/mocks/gstMocks.c
+					${PLAYER_ROOT}/ProcessHandler.cpp
+					${PLAYER_ROOT}/externals/PlayerExternalsInterface.cpp
+					${PLAYER_ROOT}/externals/contentsecuritymanager/ContentSecurityManager.cpp
+					${PLAYER_ROOT}/externals/contentsecuritymanager/ContentSecurityManagerSession.cpp
+					${PLAYER_ROOT}/externals/PlayerExternalUtils.cpp)
 
 
 add_definitions(-DAAMP_HLS_DRM)
