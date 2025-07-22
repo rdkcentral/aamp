@@ -77,7 +77,7 @@ BufferControlData AampBufferControl::BufferControlExternalData::getExtraDataCach
 AampBufferControl::BufferControlByteBased::BufferControlByteBased(BufferControlMaster& context):
 BufferControlStrategyBase(context)
 {
-	AAMPLOG_MIL("[%s] BufferControlByteBased strategy activated, %s", getThisMediaTypeName(), getStateName());
+	AAMPLOG_MIL("[%s] BufferControlByteBased strategy activated %s", getThisMediaTypeName(), getStateName());
 }
 
 
@@ -88,7 +88,7 @@ const char* AampBufferControl::BufferControlStrategyBase::getThisMediaTypeName()
 
 AampBufferControl::BufferControlByteBased::~BufferControlByteBased()
 {
-	AAMPLOG_MIL("[%s] BufferControlByteBased strategy deactivated, %s", getThisMediaTypeName(), getStateName());
+	AAMPLOG_MIL("[%s] BufferControlByteBased strategy deactivated %s", getThisMediaTypeName(), getStateName());
 }
 
 
