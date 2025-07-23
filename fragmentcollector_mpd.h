@@ -549,6 +549,7 @@ public:
 	 * @return true if AAMP is using an iframe track, false otherwise
 	 */
 	bool UseIframeTrack(void) override;
+
 	/*
 	 * @fn DoEarlyStreamSinkFlush
 	 * @brief Checks if the stream need to be flushed or not
@@ -557,7 +558,7 @@ public:
 	 * @param rate playback rate
 	 * @return true if stream should be flushed, false otherwise
 	 */
-	bool DoEarlyStreamSinkFlush(bool newTune, float rate) override;
+	virtual bool DoEarlyStreamSinkFlush(bool newTune, float rate) override;
 
 	/**
 	 * @brief Should flush the stream sink on discontinuity or not.

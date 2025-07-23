@@ -128,6 +128,21 @@ private:
 	uint16_t language;
 	bool verbose;
 	
+	GstBuffer * _gst_buffer_new_memdup(gconstpointer data, gsize size)
+	{
+		//return gst_buffer_new_memdup( data, size ); // requires gstreamer 1.20
+		
+		GstBuffer *buffer = gst_buffer_new_and_alloc( size );
+		if( buffer)
+		{
+			GstMapInfo map;
+			gst_buffer_map(buffer, &map, GST_MAP_WRITE);
+			memcpy(map.data, data, size );
+			gst_buffer_unmap(buffer, &map);
+		}
+		return buffer;
+	}
+
 	uint64_t ReadBytes( int n )
 	{
 		uint64_t rc = 0;
@@ -223,7 +238,7 @@ private:
 		PRINTF( "%ssystem_id: '%s'\n", INDENT(), system_id );
 		
 		size_t pssh_size = next - ptr;
-		GstBuffer *pssh = gst_buffer_new_memdup(ptr, pssh_size);
+		GstBuffer *pssh = _gst_buffer_new_memdup(ptr, pssh_size);
 		GstEvent *event = gst_event_new_protection(system_id, pssh, "isobmff/moov" ); // or isobmff/moof
 		//g_queue_push_tail (&stream->protection_scheme_event_queue, gst_event_ref (event));
 		//gst_pad_push_event (pad, gst_event_ref (event));
@@ -1005,7 +1020,7 @@ public:
 				0x00
 			};
 			
-			GstBuffer *kid_buf = gst_buffer_new_memdup( (gpointer)default_kid.c_str(), (gsize)default_kid.size() );
+			GstBuffer *kid_buf = _gst_buffer_new_memdup( (gpointer)default_kid.c_str(), (gsize)default_kid.size() );
 			metadata = gst_structure_new(
 										 "application/x-cenc",
 										 "encrypted", G_TYPE_BOOLEAN, TRUE,
@@ -1019,7 +1034,7 @@ public:
 			size_t iv_size = sample.iv.size();
 			if( iv_size )
 			{
-				GstBuffer *iv_buf = gst_buffer_new_memdup( (gpointer)sample.iv.c_str(), (gsize)iv_size );
+				GstBuffer *iv_buf = _gst_buffer_new_memdup( (gpointer)sample.iv.c_str(), (gsize)iv_size );
 				gst_structure_set(metadata,
 								  "iv_size", G_TYPE_UINT, iv_size,
 								  "iv", GST_TYPE_BUFFER, iv_buf,
@@ -1030,7 +1045,7 @@ public:
 			size_t subsamples_size = sample.subsamples.size();
 			if( subsamples_size )
 			{
-				GstBuffer *subsamples_buf = gst_buffer_new_memdup( (gpointer)sample.subsamples.c_str(), (gsize)subsamples_size);
+				GstBuffer *subsamples_buf = _gst_buffer_new_memdup( (gpointer)sample.subsamples.c_str(), (gsize)subsamples_size);
 				gst_structure_set(metadata,
 								  "subsample_count", G_TYPE_UINT, subsamples_size/6,
 								  "subsamples", GST_TYPE_BUFFER, subsamples_buf,
@@ -1040,7 +1055,7 @@ public:
 			
 			if( scheme_type == MultiChar_Constant("cbcs") )
 			{
-				GstBuffer *constant_iv_buf = gst_buffer_new_memdup( (gpointer)constant_iv.c_str(), (gsize)constant_iv_size);
+				GstBuffer *constant_iv_buf = _gst_buffer_new_memdup( (gpointer)constant_iv.c_str(), (gsize)constant_iv_size);
 				gst_structure_set(metadata,
 								  "iv", GST_TYPE_BUFFER, constant_iv_buf,
 								  "constant_iv_size", G_TYPE_UINT, constant_iv_size,

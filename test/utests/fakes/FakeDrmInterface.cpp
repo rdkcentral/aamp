@@ -77,5 +77,4 @@ void DrmInterface::getHlsDrmSession(std::shared_ptr <HlsDrmBase>&bridge, std::sh
 }
 void DrmInterface::UpdateAamp(PrivateInstanceAAMP* aamp)
 {
-    
 }

@@ -2077,11 +2077,8 @@ protected:
 
 	/**
 	 * @brief Initialize ISOBMFF Media Processor
-	 *
-	 * @return void
-	 * 
 	 * @brief This function is used to initialize the media processor for ISOBMFF streams.
-	 * 
+	 *
 	 * @param[in] passThroughMode - true if processor should skip parsing PTS and flush
 	 */
 	void InitializeMediaProcessor(bool passThroughMode = false);
