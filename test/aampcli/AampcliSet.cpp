@@ -64,7 +64,7 @@ std::string Set::getItem(std::stringstream &command)
 
 bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 {
-	printf("cmd %s\n",cmd);
+	AAMPCLI_PRINTF("cmd %s\n",cmd);
 	char command[100];
 	int setCmd = 0;
 	int rate = 0;
@@ -89,7 +89,7 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 
 		if(0 == strncmp("help", command, 4))
 		{
-			printf("in help %s\n",cmd);
+			AAMPCLI_PRINTF("in help %s\n",cmd);
 			ShowHelpSet();
 		}
 		else
@@ -100,14 +100,14 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 					{
 						int rate;
 						double relativeTuneTime;
-						printf("[AAMPCLI] Matched Command RateAndSeek - %s\n", cmd);
+						AAMPCLI_PRINTF("[AAMPCLI] Matched Command RateAndSeek - %s\n", cmd);
 						if (sscanf(cmd, "set %s %d %lf", command, &rate, &relativeTuneTime ) == 3){
 							playerInstanceAamp->SetRateAndSeek(rate, relativeTuneTime);
 						}
 						else
 						{
-							printf("[AAMPCLI] ERROR: Mismatch in arguments\n");
-							printf("[AAMPCLI] Expected: set %s <rate=0,1 etc> <seek time in sec>\n", command);
+							AAMPCLI_PRINTF("[AAMPCLI] ERROR: Mismatch in arguments\n");
+							AAMPCLI_PRINTF("[AAMPCLI] Expected: set %s <rate=0,1 etc> <seek time in sec>\n", command);
 						}
 						break;
 					}
@@ -115,14 +115,14 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 				case 2:
 					{
 						int x,y,w,h;
-						printf("[AAMPCLI] Matched Command VideoRectangle - %s\n", cmd);
+						AAMPCLI_PRINTF("[AAMPCLI] Matched Command VideoRectangle - %s\n", cmd);
 						if (sscanf(cmd, "set %s %d %d %d %d", command, &x, &y, &w, &h) == 5){
 							playerInstanceAamp->SetVideoRectangle(x,y,w,h);
 						}
 						else
 						{
-							printf("[AAMPCLI] ERROR: Mismatch in arguments\n");
-							printf("[AAMPCLI] Expected: set %s <x> <y> <w> <h>\n", command);
+							AAMPCLI_PRINTF("[AAMPCLI] ERROR: Mismatch in arguments\n");
+							AAMPCLI_PRINTF("[AAMPCLI] Expected: set %s <x> <y> <w> <h>\n", command);
 						}
 						break;
 					}
@@ -130,7 +130,7 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 				case 3:
 					{
 						int videoZoom;
-						printf("[AAMPCLI] Matched Command VideoZoom - %s\n", cmd);
+						AAMPCLI_PRINTF("[AAMPCLI] Matched Command VideoZoom - %s\n", cmd);
 						if (sscanf(cmd, "set %s %d", command, &videoZoom) == 2){
 							if( videoZoom>=0 && videoZoom<=VIDEO_ZOOM_GLOBAL )
 							{
@@ -138,13 +138,13 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 							}
 							else
 							{
-								printf( "[AAMPCLI] invalid range (expected=%d..%d)\n", 0, (int)VIDEO_ZOOM_GLOBAL );
+								AAMPCLI_PRINTF( "[AAMPCLI] invalid range (expected=%d..%d)\n", 0, (int)VIDEO_ZOOM_GLOBAL );
 							}
 						}
 						else
 						{
-							printf("[AAMPCLI] ERROR: Mismatch in arguments\n");
-							printf("[AAMPCLI] Expected: set %s <value value>0? ZOOM_FULL : ZOOM_NONE>\n", command);
+							AAMPCLI_PRINTF("[AAMPCLI] ERROR: Mismatch in arguments\n");
+							AAMPCLI_PRINTF("[AAMPCLI] Expected: set %s <value value>0? ZOOM_FULL : ZOOM_NONE>\n", command);
 						}
 						break;
 					}
@@ -152,14 +152,14 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 				case 4:
 					{
 						int videoMute;
-						printf("[AAMPCLI] Matched Command VideoMute - %s\n", cmd);
+						AAMPCLI_PRINTF("[AAMPCLI] Matched Command VideoMute - %s\n", cmd);
 						if (sscanf(cmd, "set %s %d", command, &videoMute) == 2){
 							playerInstanceAamp->SetVideoMute((videoMute == 1 )? true : false );
 						}
 						else
 						{
-							printf("[AAMPCLI] ERROR: Mismatch in arguments\n");
-							printf("[AAMPCLI] Expected: set %s <value 0 or 1>\n", command);
+							AAMPCLI_PRINTF("[AAMPCLI] ERROR: Mismatch in arguments\n");
+							AAMPCLI_PRINTF("[AAMPCLI] Expected: set %s <value 0 or 1>\n", command);
 						}
 						break;
 					}
@@ -167,14 +167,14 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 				case 5:
 					{
 						int vol;
-						printf("[AAMPCLI] Matched Command AudioVolume - %s\n", cmd);
+						AAMPCLI_PRINTF("[AAMPCLI] Matched Command AudioVolume - %s\n", cmd);
 						if (sscanf(cmd, "set %s %d", command, &vol) == 2){
 							playerInstanceAamp->SetAudioVolume(vol);
 						}
 						else
 						{
-							printf("[AAMPCLI] ERROR: Mismatch in arguments\n");
-							printf("[AAMPCLI] Expected: set %s <value to set audio volume>\n", command);
+							AAMPCLI_PRINTF("[AAMPCLI] ERROR: Mismatch in arguments\n");
+							AAMPCLI_PRINTF("[AAMPCLI] Expected: set %s <value to set audio volume>\n", command);
 						}
 						break;
 					}
@@ -182,14 +182,14 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 				case 6:
 					{
 						char lang[12];
-						printf("[AAMPCLI] Matched Command Language - %s\n", cmd);
+						AAMPCLI_PRINTF("[AAMPCLI] Matched Command Language - %s\n", cmd);
 						if (sscanf(cmd, "set %s %s", command, lang) == 2){
 							playerInstanceAamp->SetLanguage(lang);
 						}
 						else
 						{
-							printf("[AAMPCLI] ERROR: Mismatch in arguments\n");
-							printf("[AAMPCLI] Expected: set %s <lang in string>\n", command);
+							AAMPCLI_PRINTF("[AAMPCLI] ERROR: Mismatch in arguments\n");
+							AAMPCLI_PRINTF("[AAMPCLI] Expected: set %s <lang in string>\n", command);
 						}
 						break;
 					}
@@ -198,14 +198,14 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 					{
 						//Dummy implimentation
 						std::vector<std::string> subscribedTags;
-						printf("[AAMPCLI] Matched Command SubscribedTags - %s\n", cmd);
+						AAMPCLI_PRINTF("[AAMPCLI] Matched Command SubscribedTags - %s\n", cmd);
 						playerInstanceAamp->SetSubscribedTags(subscribedTags);
 						break;
 					}
 
 				case 8:
 					{
-						printf("[AAMPCLI] Matched Command LicenseServerUrl - %s\n", cmd);
+						AAMPCLI_PRINTF("[AAMPCLI] Matched Command LicenseServerUrl - %s\n", cmd);
 						std::istringstream iss(cmd);
 						std::vector<std::string> tokens;
 						// split input into space-delimited tokens
@@ -223,13 +223,13 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 							}
 							else
 							{
-								printf( "[AAMPCLI] unsupported drmType; pass 1(eDRM_WideVine) or 2(eDRM_PlayReady)\n" );
+								AAMPCLI_PRINTF( "[AAMPCLI] unsupported drmType; pass 1(eDRM_WideVine) or 2(eDRM_PlayReady)\n" );
 							}
 						} 
 						else 
 						{
-							printf("[AAMPCLI] ERROR: Mismatch in arguments\n");
-							printf("[AAMPCLI] Expected: set %s <licenseUrl> <drmType>\n", command);
+							AAMPCLI_PRINTF("[AAMPCLI] ERROR: Mismatch in arguments\n");
+							AAMPCLI_PRINTF("[AAMPCLI] Expected: set %s <licenseUrl> <drmType>\n", command);
 						}
 						break;
 					}
@@ -237,14 +237,14 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 				case 9:
 					{
 						int isAnonym;
-						printf("[AAMPCLI] Matched Command AnonymousRequest - %s\n", cmd);
+						AAMPCLI_PRINTF("[AAMPCLI] Matched Command AnonymousRequest - %s\n", cmd);
 						if (sscanf(cmd, "set %s %d", command, &isAnonym) == 2){
 							playerInstanceAamp->SetAnonymousRequest((isAnonym == 1)?true:false);
 						}
 						else
 						{
-							printf("[AAMPCLI] ERROR: Mismatch in arguments\n");
-							printf("[AAMPCLI] Expected: set %s <value 0 or 1>\n", command);
+							AAMPCLI_PRINTF("[AAMPCLI] ERROR: Mismatch in arguments\n");
+							AAMPCLI_PRINTF("[AAMPCLI] Expected: set %s <value 0 or 1>\n", command);
 						}
 						break;
 					}
@@ -252,14 +252,14 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 				case 10:
 					{
 						int vodTFps;
-						printf("[AAMPCLI] Matched Command VodTrickplayFps - %s\n", cmd);
+						AAMPCLI_PRINTF("[AAMPCLI] Matched Command VodTrickplayFps - %s\n", cmd);
 						if (sscanf(cmd, "set %s %d", command, &vodTFps) == 2){
 							playerInstanceAamp->SetVODTrickplayFPS(vodTFps);
 						}
 						else
 						{
-							printf("[AAMPCLI] ERROR: Mismatch in arguments\n");
-							printf("[AAMPCLI] Expected: set %s <value>\n", command);
+							AAMPCLI_PRINTF("[AAMPCLI] ERROR: Mismatch in arguments\n");
+							AAMPCLI_PRINTF("[AAMPCLI] Expected: set %s <value>\n", command);
 						}
 						break;
 					}
@@ -267,14 +267,14 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 				case 11:
 					{
 						int linearTFps;
-						printf("[AAMPCLI] Matched Command LinearTrickplayFps - %s\n", cmd);
+						AAMPCLI_PRINTF("[AAMPCLI] Matched Command LinearTrickplayFps - %s\n", cmd);
 						if (sscanf(cmd, "set %s %d", command, &linearTFps) == 2){
 							playerInstanceAamp->SetLinearTrickplayFPS(linearTFps);
 						}
 						else
 						{
-							printf("[AAMPCLI] ERROR: Mismatch in arguments\n");
-							printf("[AAMPCLI] Expected: set %s <value>\n", command);
+							AAMPCLI_PRINTF("[AAMPCLI] ERROR: Mismatch in arguments\n");
+							AAMPCLI_PRINTF("[AAMPCLI] Expected: set %s <value>\n", command);
 						}
 						break;
 					}
@@ -282,28 +282,28 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 				case 12:
 					{
 						double liveOffset;
-						printf("[AAMPCLI] Matched Command LiveOffset - %s\n", cmd);
+						AAMPCLI_PRINTF("[AAMPCLI] Matched Command LiveOffset - %s\n", cmd);
 						if (sscanf(cmd, "set %s %lf", command, &liveOffset) == 2){
 							playerInstanceAamp->SetLiveOffset(liveOffset);
 						}
 						else
 						{
-							printf("[AAMPCLI] ERROR: Mismatch in arguments\n");
-							printf("[AAMPCLI] Expected: set %s <value>\n", command);
+							AAMPCLI_PRINTF("[AAMPCLI] ERROR: Mismatch in arguments\n");
+							AAMPCLI_PRINTF("[AAMPCLI] Expected: set %s <value>\n", command);
 						}
 						break;
 					}
 				case 56:
 					{
 						double liveOffset;
-						printf("[AAMPCLI] Matched Command LiveOffset4K - %s\n", cmd);
+						AAMPCLI_PRINTF("[AAMPCLI] Matched Command LiveOffset4K - %s\n", cmd);
 						if (sscanf(cmd, "set %s %lf", command, &liveOffset) == 2){
 							playerInstanceAamp->SetLiveOffset4K(liveOffset);
 						}
 						else
 						{
-							printf("[AAMPCLI] ERROR: Mismatch in arguments\n");
-							printf("[AAMPCLI] Expected: set %s <value>\n", command);
+							AAMPCLI_PRINTF("[AAMPCLI] ERROR: Mismatch in arguments\n");
+							AAMPCLI_PRINTF("[AAMPCLI] Expected: set %s <value>\n", command);
 						}
 						break;
 					}
@@ -311,14 +311,14 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 				case 13:
 					{
 						int stallErrorCode;
-						printf("[AAMPCLI] Matched Command StallErrorCode - %s\n", cmd);
+						AAMPCLI_PRINTF("[AAMPCLI] Matched Command StallErrorCode - %s\n", cmd);
 						if (sscanf(cmd, "set %s %d", command, &stallErrorCode) == 2){
 							playerInstanceAamp->SetStallErrorCode(stallErrorCode);
 						}
 						else
 						{
-							printf("[AAMPCLI] ERROR: Mismatch in arguments\n");
-							printf("[AAMPCLI] Expected: set %s <value>\n", command);
+							AAMPCLI_PRINTF("[AAMPCLI] ERROR: Mismatch in arguments\n");
+							AAMPCLI_PRINTF("[AAMPCLI] Expected: set %s <value>\n", command);
 						}
 						break;
 					}
@@ -326,7 +326,7 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 				case 14:
 					{
 						int stallTimeout;
-						printf("[AAMPCLI] Matched Command StallTimeout - %s\n", cmd);
+						AAMPCLI_PRINTF("[AAMPCLI] Matched Command StallTimeout - %s\n", cmd);
 						if (sscanf(cmd, "set %s %d", command, &stallTimeout) == 2){
 							playerInstanceAamp->SetStallTimeout(stallTimeout);
 						}
@@ -336,14 +336,14 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 				case 15:
 					{
 						int reportInterval;
-						printf("[AAMPCLI] Matched Command ReportInterval - %s\n", cmd);
+						AAMPCLI_PRINTF("[AAMPCLI] Matched Command ReportInterval - %s\n", cmd);
 						if (sscanf(cmd, "set %s %d", command, &reportInterval) == 2){
 							playerInstanceAamp->SetReportInterval(reportInterval);
 						}
 						else
 						{
-							printf("[AAMPCLI] ERROR: Mismatch in arguments\n");
-							printf("[AAMPCLI] Expected: set %s <value>\n", command);
+							AAMPCLI_PRINTF("[AAMPCLI] ERROR: Mismatch in arguments\n");
+							AAMPCLI_PRINTF("[AAMPCLI] Expected: set %s <value>\n", command);
 						}
 						break;
 					}
@@ -351,14 +351,14 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 				case 16:
 					{
 						long videoBitrate;
-						printf("[AAMPCLI] Matched Command VideoBitarate - %s\n", cmd);
+						AAMPCLI_PRINTF("[AAMPCLI] Matched Command VideoBitarate - %s\n", cmd);
 						if (sscanf(cmd, "set %s %ld", command, &videoBitrate) == 2){
 							playerInstanceAamp->SetVideoBitrate(videoBitrate);
 						}
 						else
 						{
-							printf("[AAMPCLI] ERROR: Mismatch in arguments\n");
-							printf("[AAMPCLI] Expected: set %s <value>\n", command);
+							AAMPCLI_PRINTF("[AAMPCLI] ERROR: Mismatch in arguments\n");
+							AAMPCLI_PRINTF("[AAMPCLI] Expected: set %s <value>\n", command);
 						}
 						break;
 					}
@@ -366,14 +366,14 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 				case 17:
 					{
 						long initialBitrate;
-						printf("[AAMPCLI] Matched Command InitialBitrate - %s\n", cmd);
+						AAMPCLI_PRINTF("[AAMPCLI] Matched Command InitialBitrate - %s\n", cmd);
 						if (sscanf(cmd, "set %s %ld", command, &initialBitrate) == 2){
 							playerInstanceAamp->SetInitialBitrate(initialBitrate);
 						}
 						else
 						{
-							printf("[AAMPCLI] ERROR: Mismatch in arguments\n");
-							printf("[AAMPCLI] Expected: set %s <value>\n", command);
+							AAMPCLI_PRINTF("[AAMPCLI] ERROR: Mismatch in arguments\n");
+							AAMPCLI_PRINTF("[AAMPCLI] Expected: set %s <value>\n", command);
 						}
 						break;
 					}
@@ -381,14 +381,14 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 				case 18:
 					{
 						long initialBitrate4k;
-						printf("[AAMPCLI] Matched Command InitialBitrate4k - %s\n", cmd);
+						AAMPCLI_PRINTF("[AAMPCLI] Matched Command InitialBitrate4k - %s\n", cmd);
 						if (sscanf(cmd, "set %s %ld", command, &initialBitrate4k) == 2){
 							playerInstanceAamp->SetInitialBitrate4K(initialBitrate4k);
 						}
 						else
 						{
-							printf("[AAMPCLI] ERROR: Mismatch in arguments\n");
-							printf("[AAMPCLI] Expected: set %s <value>\n", command);
+							AAMPCLI_PRINTF("[AAMPCLI] ERROR: Mismatch in arguments\n");
+							AAMPCLI_PRINTF("[AAMPCLI] Expected: set %s <value>\n", command);
 						}
 						break;
 					}
@@ -396,14 +396,14 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 				case 19:
 					{
 						double networkTimeout;
-						printf("[AAMPCLI] Matched Command NetworkTimeout - %s\n", cmd);
+						AAMPCLI_PRINTF("[AAMPCLI] Matched Command NetworkTimeout - %s\n", cmd);
 						if (sscanf(cmd, "set %s %lf", command, &networkTimeout) == 2){
 							playerInstanceAamp->SetNetworkTimeout(networkTimeout);
 						}
 						else
 						{
-							printf("[AAMPCLI] ERROR: Mismatch in arguments\n");
-							printf("[AAMPCLI] Expected: set %s <value>\n", command);
+							AAMPCLI_PRINTF("[AAMPCLI] ERROR: Mismatch in arguments\n");
+							AAMPCLI_PRINTF("[AAMPCLI] Expected: set %s <value>\n", command);
 						}
 						break;
 					}
@@ -411,14 +411,14 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 				case 20:
 					{
 						double manifestTimeout;
-						printf("[AAMPCLI] Matched Command ManifestTimeout - %s\n", cmd);
+						AAMPCLI_PRINTF("[AAMPCLI] Matched Command ManifestTimeout - %s\n", cmd);
 						if (sscanf(cmd, "set %s %lf", command, &manifestTimeout) == 2){
 							playerInstanceAamp->SetManifestTimeout(manifestTimeout);
 						}
 						else
 						{
-							printf("[AAMPCLI] ERROR: Mismatch in arguments\n");
-							printf("[AAMPCLI] Expected: set %s <value>\n", command);
+							AAMPCLI_PRINTF("[AAMPCLI] ERROR: Mismatch in arguments\n");
+							AAMPCLI_PRINTF("[AAMPCLI] Expected: set %s <value>\n", command);
 						}
 						break;
 					}
@@ -426,14 +426,14 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 				case 21:
 					{
 						int downloadBufferSize;
-						printf("[AAMPCLI] Matched Command DownloadBufferSize - %s\n", cmd);
+						AAMPCLI_PRINTF("[AAMPCLI] Matched Command DownloadBufferSize - %s\n", cmd);
 						if (sscanf(cmd, "set %s %d", command, &downloadBufferSize) == 2){
 							playerInstanceAamp->SetDownloadBufferSize(downloadBufferSize);
 						}
 						else
 						{
-							printf("[AAMPCLI] ERROR: Mismatch in arguments\n");
-							printf("[AAMPCLI] Expected: set %s <value>\n", command);
+							AAMPCLI_PRINTF("[AAMPCLI] ERROR: Mismatch in arguments\n");
+							AAMPCLI_PRINTF("[AAMPCLI] Expected: set %s <value>\n", command);
 						}
 						break;
 					}
@@ -441,14 +441,14 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 				case 22:
 					{
 						int preferredDrm;
-						printf("[AAMPCLI] Matched Command PreferredDrm - %s\n", cmd);
+						AAMPCLI_PRINTF("[AAMPCLI] Matched Command PreferredDrm - %s\n", cmd);
 						if (sscanf(cmd, "set %s %d", command, &preferredDrm) == 2){
 							playerInstanceAamp->SetPreferredDRM((DRMSystems)preferredDrm);
 						}
 						else
 						{
-							printf("[AAMPCLI] ERROR: Mismatch in arguments\n");
-							printf("[AAMPCLI] Expected: set %s <value>\n", command);
+							AAMPCLI_PRINTF("[AAMPCLI] ERROR: Mismatch in arguments\n");
+							AAMPCLI_PRINTF("[AAMPCLI] Expected: set %s <value>\n", command);
 						}
 						break;
 					}
@@ -456,15 +456,15 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 				case 23:
 					{
 						int stereoOnlyPlayback;
-						printf("[AAMPCLI] Matched Command StereoOnlyPlayback - %s\n", cmd);
+						AAMPCLI_PRINTF("[AAMPCLI] Matched Command StereoOnlyPlayback - %s\n", cmd);
 						if (sscanf(cmd, "set %s %d", command, &stereoOnlyPlayback) == 2){
 							playerInstanceAamp->SetStereoOnlyPlayback(
 									(stereoOnlyPlayback == 1 )? true:false);
 						}
 						else
 						{
-							printf("[AAMPCLI] ERROR: Mismatch in arguments\n");
-							printf("[AAMPCLI] Expected: set %s <value 0 or 1>\n", command);
+							AAMPCLI_PRINTF("[AAMPCLI] ERROR: Mismatch in arguments\n");
+							AAMPCLI_PRINTF("[AAMPCLI] Expected: set %s <value 0 or 1>\n", command);
 						}
 						break;
 					}
@@ -474,7 +474,7 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 						std::string adBrkId;
 						std::string adId;
 						std::string adUrl;
-						printf("[AAMPCLI] Matched Command AlternateContents - %s\n", cmd);
+						AAMPCLI_PRINTF("[AAMPCLI] Matched Command AlternateContents - %s\n", cmd);
 						std::istringstream iss(cmd);
 						std::vector<std::string> tokens;
 						std::string token;
@@ -489,8 +489,8 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 						}
 						else
 						{
-							printf("[AAMPCLI] ERROR: Mismatch in arguments\n");
-							printf("[AAMPCLI] Expected: set %s <adBreakId> <adId> <adUrl>\n", command);
+							AAMPCLI_PRINTF("[AAMPCLI] ERROR: Mismatch in arguments\n");
+							AAMPCLI_PRINTF("[AAMPCLI] Expected: set %s <adBreakId> <adId> <adUrl>\n", command);
 						}
 						break;
 					}
@@ -498,14 +498,14 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 				case 25:
 					{
 						char networkProxy[128];
-						printf("[AAMPCLI] Matched Command NetworkProxy - %s\n", cmd);
+						AAMPCLI_PRINTF("[AAMPCLI] Matched Command NetworkProxy - %s\n", cmd);
 						if (sscanf(cmd, "set %s %s", command, networkProxy) == 2){
 							playerInstanceAamp->SetNetworkProxy(networkProxy);
 						}
 						else
 						{
-							printf("[AAMPCLI] ERROR: Mismatch in arguments\n");
-							printf("[AAMPCLI] Expected: set %s <value in string>\n", command);
+							AAMPCLI_PRINTF("[AAMPCLI] ERROR: Mismatch in arguments\n");
+							AAMPCLI_PRINTF("[AAMPCLI] Expected: set %s <value in string>\n", command);
 						}
 						break;
 					}
@@ -513,14 +513,14 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 				case 26:
 					{
 						char licenseReqProxy[128];
-						printf("[AAMPCLI] Matched Command LicenseReqProxy - %s\n", cmd);
+						AAMPCLI_PRINTF("[AAMPCLI] Matched Command LicenseReqProxy - %s\n", cmd);
 						if (sscanf(cmd, "set %s %s", command, licenseReqProxy) == 2){
 							playerInstanceAamp->SetLicenseReqProxy(licenseReqProxy);
 						}
 						else
 						{
-							printf("[AAMPCLI] ERROR: Mismatch in arguments\n");
-							printf("[AAMPCLI] Expected: set %s <value in string>\n", command);
+							AAMPCLI_PRINTF("[AAMPCLI] ERROR: Mismatch in arguments\n");
+							AAMPCLI_PRINTF("[AAMPCLI] Expected: set %s <value in string>\n", command);
 						}
 						break;
 					}
@@ -528,14 +528,14 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 				case 27:
 					{
 						long downloadStallTimeout;
-						printf("[AAMPCLI] Matched Command DownloadStallTimeout - %s\n", cmd);
+						AAMPCLI_PRINTF("[AAMPCLI] Matched Command DownloadStallTimeout - %s\n", cmd);
 						if (sscanf(cmd, "set %s %ld", command, &downloadStallTimeout) == 2){
 							playerInstanceAamp->SetDownloadStallTimeout((int)downloadStallTimeout);
 						}
 						else
 						{
-							printf("[AAMPCLI] ERROR: Mismatch in arguments\n");
-							printf("[AAMPCLI] Expected: set %s <value>\n", command);
+							AAMPCLI_PRINTF("[AAMPCLI] ERROR: Mismatch in arguments\n");
+							AAMPCLI_PRINTF("[AAMPCLI] Expected: set %s <value>\n", command);
 						}
 						break;
 					}
@@ -543,14 +543,14 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 				case 28:
 					{
 						long downloadStartTimeout;
-						printf("[AAMPCLI] Matched Command DownloadStartTimeout - %s\n", cmd);
+						AAMPCLI_PRINTF("[AAMPCLI] Matched Command DownloadStartTimeout - %s\n", cmd);
 						if (sscanf(cmd, "set %s %ld", command, &downloadStartTimeout) == 2){
 							playerInstanceAamp->SetDownloadStartTimeout((int)downloadStartTimeout);
 						}
 						else
 						{
-							printf("[AAMPCLI] ERROR: Mismatch in arguments\n");
-							printf("[AAMPCLI] Expected: set %s <value>\n", command);
+							AAMPCLI_PRINTF("[AAMPCLI] ERROR: Mismatch in arguments\n");
+							AAMPCLI_PRINTF("[AAMPCLI] Expected: set %s <value>\n", command);
 						}
 						break;
 					}
@@ -558,14 +558,14 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 				case 29:
 					{
 						long downloadLowBWTimeout;
-						printf("[AAMPCLI] Matched Command DownloadLowBWTimeout - %s\n", cmd);
+						AAMPCLI_PRINTF("[AAMPCLI] Matched Command DownloadLowBWTimeout - %s\n", cmd);
 						if (sscanf(cmd, "set %s %ld", command, &downloadLowBWTimeout) == 2){
 							playerInstanceAamp->SetDownloadLowBWTimeout((int)downloadLowBWTimeout);
 						}
 						else
 						{
-							printf("[AAMPCLI] ERROR: Mismatch in arguments\n");
-							printf("[AAMPCLI] Expected: set %s <value>\n", command);
+							AAMPCLI_PRINTF("[AAMPCLI] ERROR: Mismatch in arguments\n");
+							AAMPCLI_PRINTF("[AAMPCLI] Expected: set %s <value>\n", command);
 						}
 						break;
 					}
@@ -573,14 +573,14 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 				case 30:
 					{
 						char preferredSubtitleLang[12];
-						printf("[AAMPCLI] Matched Command PreferredSubtitleLang - %s\n", cmd);
+						AAMPCLI_PRINTF("[AAMPCLI] Matched Command PreferredSubtitleLang - %s\n", cmd);
 						if (sscanf(cmd, "set %s %s", command, preferredSubtitleLang) == 2){
 							playerInstanceAamp->SetPreferredSubtitleLanguage(preferredSubtitleLang);
 						}
 						else
 						{
-							printf("[AAMPCLI] ERROR: Mismatch in arguments\n");
-							printf("[AAMPCLI] Expected: set %s <value in string>\n", command);
+							AAMPCLI_PRINTF("[AAMPCLI] ERROR: Mismatch in arguments\n");
+							AAMPCLI_PRINTF("[AAMPCLI] Expected: set %s <value in string>\n", command);
 						}
 						break;
 					}
@@ -602,11 +602,11 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 						bool prefTypePresent = false;
 						bool prefCodecPresent = false;
 						bool prefLabelPresent = false;
-						printf("[AAMPCLI] Matched Command PreferredLanguages - %s\n", cmd);
+						AAMPCLI_PRINTF("[AAMPCLI] Matched Command PreferredLanguages - %s\n", cmd);
 
 						if (sscanf(cmd, "set %s %s %s %s %s %s", command, preferredLanguages, rendition, type, preferredCodec, preferredLabel) == 6)
 						{
-							printf("[AAMPCLI] setting Preferred Languages (%s), rendition (%s), type (%s) , codec (%s) and label (%s)\n" ,
+							AAMPCLI_PRINTF("[AAMPCLI] setting Preferred Languages (%s), rendition (%s), type (%s) , codec (%s) and label (%s)\n" ,
 									preferredLanguages, rendition, type, preferredCodec, preferredLabel);
 							if (0 != strcasecmp(preferredLanguages, "null"))
 							{
@@ -637,7 +637,7 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 						}
 						else if (sscanf(cmd, "set %s %s %s %s %s", command, preferredLanguages, rendition, type, preferredCodec) == 5)
 						{
-							printf("[AAMPCLI] setting Preferred Languages (%s), rendition (%s), type (%s) and codec (%s)\n" ,
+							AAMPCLI_PRINTF("[AAMPCLI] setting Preferred Languages (%s), rendition (%s), type (%s) and codec (%s)\n" ,
 									preferredLanguages, rendition, type, preferredCodec);
 							if (0 != strcasecmp(preferredLanguages, "null"))
 							{
@@ -663,7 +663,7 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 						}
 						else if (sscanf(cmd, "set %s %s %s %s", command, preferredLanguages, rendition, type) == 4)
 						{
-							printf("[AAMPCLI] setting PreferredLanguages (%s) with rendition (%s) and type (%s)\n" ,
+							AAMPCLI_PRINTF("[AAMPCLI] setting PreferredLanguages (%s) with rendition (%s) and type (%s)\n" ,
 									preferredLanguages, rendition, type);
 							if (0 != strcasecmp(preferredLanguages, "null"))
 							{
@@ -683,7 +683,7 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 						}
 						else if (sscanf(cmd, "set %s %s %s", command, preferredLanguages, rendition) == 3)
 						{
-							printf("[AAMPCLI] setting PreferredLanguages (%s) with rendition (%s)\n" ,
+							AAMPCLI_PRINTF("[AAMPCLI] setting PreferredLanguages (%s) with rendition (%s)\n" ,
 									preferredLanguages, rendition);
 							if (0 != strcasecmp(preferredLanguages, "null"))
 							{
@@ -698,7 +698,7 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 						}
 						else if (sscanf(cmd, "set %s %s", command, preferredLanguages) == 2)
 						{
-							printf("[AAMPCLI] setting PreferredLanguages (%s)\n",preferredLanguages );
+							AAMPCLI_PRINTF("[AAMPCLI] setting PreferredLanguages (%s)\n",preferredLanguages );
 							if (0 != strcasecmp(preferredLanguages, "null"))
 							{
 								std::ifstream infile(preferredLanguages);
@@ -707,7 +707,7 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 								if(infile.good())
 								{
 									/**< If it is file get the data **/
-									printf("[AAMPCLI] File Path for Json Data (%s)\n",preferredLanguages );
+									AAMPCLI_PRINTF("[AAMPCLI] File Path for Json Data (%s)\n",preferredLanguages );
 									while ( getline (infile,line) )
 									{
 										if (!data.empty())
@@ -723,20 +723,20 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 									data = std::string(preferredLanguages);
 								}
 
-								printf("[AAMPCLI] setting PreferredLanguages (%s)\n",data.c_str());
+								AAMPCLI_PRINTF("[AAMPCLI] setting PreferredLanguages (%s)\n",data.c_str());
 								playerInstanceAamp->SetPreferredLanguages(data.c_str());
 							}
 							else
 							{
-								printf("[AAMPCLI] ERROR: Invalid arguments- %s\n", cmd);
-								printf("[AAMPCLI] set preferred languages must be set at least a language\n");
+								AAMPCLI_PRINTF("[AAMPCLI] ERROR: Invalid arguments- %s\n", cmd);
+								AAMPCLI_PRINTF("[AAMPCLI] set preferred languages must be set at least a language\n");
 							}
 
 						}
 						else
 						{
-							printf("[AAMPCLI] ERROR: Mismatch in arguments- %s\n", cmd);
-							printf("[AAMPCLI] set preferred languages must be run with at least 2 argument\n");
+							AAMPCLI_PRINTF("[AAMPCLI] ERROR: Mismatch in arguments- %s\n", cmd);
+							AAMPCLI_PRINTF("[AAMPCLI] set preferred languages must be run with at least 2 argument\n");
 						}
 						break;
 					}
@@ -746,7 +746,7 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 						char preferredLanguages[128];
 						if (sscanf(cmd, "set %s %s", command, preferredLanguages) == 2)
 						{
-							printf("[AAMPCLI] setting PreferredText  (%s)\n",preferredLanguages );
+							AAMPCLI_PRINTF("[AAMPCLI] setting PreferredText  (%s)\n",preferredLanguages );
 							if (0 != strcasecmp(preferredLanguages, "null"))
 							{
 								std::ifstream infile(preferredLanguages);
@@ -769,19 +769,19 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 									/**Nomal case */
 									data = std::string(preferredLanguages);
 								}
-								printf("[AAMPCLI] JSON Argument Received- %s\n", data.c_str());
+								AAMPCLI_PRINTF("[AAMPCLI] JSON Argument Received- %s\n", data.c_str());
 								playerInstanceAamp->SetPreferredTextLanguages(data.c_str());
 							}
 							else
 							{
-								printf("[AAMPCLI] ERROR: Invalid arguments- %s\n", cmd);
-								printf("[AAMPCLI] set preferred text languages must be set at least a language or json data\n");
+								AAMPCLI_PRINTF("[AAMPCLI] ERROR: Invalid arguments- %s\n", cmd);
+								AAMPCLI_PRINTF("[AAMPCLI] set preferred text languages must be set at least a language or json data\n");
 							}
 						}
 						else
 						{
-							printf("[AAMPCLI] ERROR: Mismatch in arguments- %s\n", cmd);
-							printf("[AAMPCLI] set preferred languages must be run with 2 argument\n");
+							AAMPCLI_PRINTF("[AAMPCLI] ERROR: Mismatch in arguments- %s\n", cmd);
+							AAMPCLI_PRINTF("[AAMPCLI] set preferred languages must be run with 2 argument\n");
 						}
 						break;
 					}
@@ -789,14 +789,14 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 				case 34:
 					{
 						int rampDownLimit;
-						printf("[AAMPCLI] Matched Command InitRampdownLimit - %s\n", cmd);
+						AAMPCLI_PRINTF("[AAMPCLI] Matched Command InitRampdownLimit - %s\n", cmd);
 						if (sscanf(cmd, "set %s %d", command, &rampDownLimit) == 2){
 							playerInstanceAamp->SetInitRampdownLimit(rampDownLimit);
 						}
 						else
 						{
-							printf("[AAMPCLI] ERROR: Mismatch in arguments\n");
-							printf("[AAMPCLI] Expected: set %s <value>\n", command);
+							AAMPCLI_PRINTF("[AAMPCLI] ERROR: Mismatch in arguments\n");
+							AAMPCLI_PRINTF("[AAMPCLI] Expected: set %s <value>\n", command);
 						}
 						break;
 					}
@@ -804,14 +804,14 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 				case 35:
 					{
 						int rampDownLimit;
-						printf("[AAMPCLI] Matched Command RampDownLimit - %s\n", cmd);
+						AAMPCLI_PRINTF("[AAMPCLI] Matched Command RampDownLimit - %s\n", cmd);
 						if (sscanf(cmd, "set %s %d", command, &rampDownLimit) == 2){
 							playerInstanceAamp->SetRampDownLimit(rampDownLimit);
 						}
 						else
 						{
-							printf("[AAMPCLI] ERROR: Mismatch in arguments\n");
-							printf("[AAMPCLI] Expected: set %s <value>\n", command);
+							AAMPCLI_PRINTF("[AAMPCLI] ERROR: Mismatch in arguments\n");
+							AAMPCLI_PRINTF("[AAMPCLI] Expected: set %s <value>\n", command);
 						}
 						break;
 					}
@@ -819,14 +819,14 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 				case 36:
 					{
 						long minBitrate;
-						printf("[AAMPCLI] Matched Command MinimumBitrate - %s\n", cmd);
+						AAMPCLI_PRINTF("[AAMPCLI] Matched Command MinimumBitrate - %s\n", cmd);
 						if (sscanf(cmd, "set %s %ld", command, &minBitrate) == 2){
 							playerInstanceAamp->SetMinimumBitrate(minBitrate);
 						}
 						else
 						{
-							printf("[AAMPCLI] ERROR: Mismatch in arguments\n");
-							printf("[AAMPCLI] Expected: set %s <value>\n", command);
+							AAMPCLI_PRINTF("[AAMPCLI] ERROR: Mismatch in arguments\n");
+							AAMPCLI_PRINTF("[AAMPCLI] Expected: set %s <value>\n", command);
 						}
 						break;
 					}
@@ -834,14 +834,14 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 				case 37:
 					{
 						long maxBitrate;
-						printf("[AAMPCLI] Matched Command MaximumBitrate - %s\n", cmd);
+						AAMPCLI_PRINTF("[AAMPCLI] Matched Command MaximumBitrate - %s\n", cmd);
 						if (sscanf(cmd, "set %s %ld", command, &maxBitrate) == 2){
 							playerInstanceAamp->SetMaximumBitrate(maxBitrate);
 						}
 						else
 						{
-							printf("[AAMPCLI] ERROR: Mismatch in arguments\n");
-							printf("[AAMPCLI] Expected: set %s <value>\n", command);
+							AAMPCLI_PRINTF("[AAMPCLI] ERROR: Mismatch in arguments\n");
+							AAMPCLI_PRINTF("[AAMPCLI] Expected: set %s <value>\n", command);
 						}
 						break;
 					}
@@ -849,7 +849,7 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 					{
 						BitsPerSecond bitrate1, bitrate2, bitrate3;
 						std::vector<BitsPerSecond>bitrateList;
-						printf("[AAMPCLI] Matched Command VideoTrack - %s\n", cmd);
+						AAMPCLI_PRINTF("[AAMPCLI] Matched Command VideoTrack - %s\n", cmd);
 						if (sscanf(cmd, "set %s %ld %ld %ld", command, &bitrate1, &bitrate2, &bitrate3) == 4){
 							bitrateList.push_back(bitrate1);
 							bitrateList.push_back(bitrate2);
@@ -858,22 +858,22 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 						}
 						else
 						{
-							printf("[AAMPCLI] ERROR: Mismatch in arguments\n");
-							printf("[AAMPCLI] Expected: set %s <value1> <value2> <value3>\n", command);
+							AAMPCLI_PRINTF("[AAMPCLI] ERROR: Mismatch in arguments\n");
+							AAMPCLI_PRINTF("[AAMPCLI] Expected: set %s <value1> <value2> <value3>\n", command);
 						}
 						break;
 					}
 				case 38:
 					{
 						int failCount;
-						printf("[AAMPCLI] Matched Command MaximumSegmentInjFailCount - %s\n", cmd);
+						AAMPCLI_PRINTF("[AAMPCLI] Matched Command MaximumSegmentInjFailCount - %s\n", cmd);
 						if (sscanf(cmd, "set %s %d", command, &failCount) == 2){
 							playerInstanceAamp->SetSegmentInjectFailCount(failCount);
 						}
 						else
 						{
-							printf("[AAMPCLI] ERROR: Mismatch in arguments\n");
-							printf("[AAMPCLI] Expected: set %s <value>\n", command);
+							AAMPCLI_PRINTF("[AAMPCLI] ERROR: Mismatch in arguments\n");
+							AAMPCLI_PRINTF("[AAMPCLI] Expected: set %s <value>\n", command);
 						}
 						break;
 					}
@@ -881,14 +881,14 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 				case 49:
 					{
 						int value;
-						printf("[AAMPCLI] Matched Command SslVerifyPeer - %s\n", cmd);
+						AAMPCLI_PRINTF("[AAMPCLI] Matched Command SslVerifyPeer - %s\n", cmd);
 						if (sscanf(cmd, "set %s %d", command, &value) == 2){
 							playerInstanceAamp->SetSslVerifyPeerConfig(value == 1);
 						}
 						else
 						{
-							printf("[AAMPCLI] ERROR: Mismatch in arguments\n");
-							printf("[AAMPCLI] Expected: set %s <value 0 or 1>\n", command);
+							AAMPCLI_PRINTF("[AAMPCLI] ERROR: Mismatch in arguments\n");
+							AAMPCLI_PRINTF("[AAMPCLI] Expected: set %s <value 0 or 1>\n", command);
 						}
 						break;
 					}
@@ -896,14 +896,14 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 				case 39:
 					{
 						int failCount;
-						printf("[AAMPCLI] Matched Command MaximumDrmDecryptFailCount - %s\n", cmd);
+						AAMPCLI_PRINTF("[AAMPCLI] Matched Command MaximumDrmDecryptFailCount - %s\n", cmd);
 						if (sscanf(cmd, "set %s %d", command, &failCount) == 2){
 							playerInstanceAamp->SetSegmentDecryptFailCount(failCount);
 						}
 						else
 						{
-							printf("[AAMPCLI] ERROR: Mismatch in arguments\n");
-							printf("[AAMPCLI] Expected: set %s <value>\n", command);
+							AAMPCLI_PRINTF("[AAMPCLI] ERROR: Mismatch in arguments\n");
+							AAMPCLI_PRINTF("[AAMPCLI] Expected: set %s <value>\n", command);
 						}
 						break;
 					}
@@ -911,7 +911,7 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 				case 40:
 					{
 						int id3MetadataEventsEnabled;
-						printf("[AAMPCLI] Matched Command RegisterForID3MetadataEvents - %s\n", cmd);
+						AAMPCLI_PRINTF("[AAMPCLI] Matched Command RegisterForID3MetadataEvents - %s\n", cmd);
 						if (sscanf(cmd, "set %s %d", command, &id3MetadataEventsEnabled) == 2){
 							if (id3MetadataEventsEnabled)
 							{
@@ -925,8 +925,8 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 						}
 						else
 						{
-							printf("[AAMPCLI] ERROR: Mismatch in arguments\n");
-							printf("[AAMPCLI] Expected: set %s <value 0 or 1>\n", command);
+							AAMPCLI_PRINTF("[AAMPCLI] ERROR: Mismatch in arguments\n");
+							AAMPCLI_PRINTF("[AAMPCLI] Expected: set %s <value 0 or 1>\n", command);
 						}
 						break;
 					}
@@ -934,7 +934,7 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 				case 53:
 					{
 						int mediaMetadataEventsEnabled;
-						printf("[AAMPCLI] Matched Command RegisterForMediaMetadata - %s\n", cmd);
+						AAMPCLI_PRINTF("[AAMPCLI] Matched Command RegisterForMediaMetadata - %s\n", cmd);
 						if (sscanf(cmd, "set %s %d", command, &mediaMetadataEventsEnabled) == 2){
 							if (mediaMetadataEventsEnabled)
 							{
@@ -947,8 +947,8 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 						}
 						else
 						{
-							printf("[AAMPCLI] ERROR: Mismatch in arguments\n");
-							printf("[AAMPCLI] Expected: set %s <value 0 or 1>\n", command);
+							AAMPCLI_PRINTF("[AAMPCLI] ERROR: Mismatch in arguments\n");
+							AAMPCLI_PRINTF("[AAMPCLI] Expected: set %s <value 0 or 1>\n", command);
 						}
 						break;
 					}
@@ -965,8 +965,8 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 						}
 						else
 						{
-							printf("[AAMPCLI] ERROR: Mismatch in arguments\n");
-							printf("[AAMPCLI] Expected: set %s <value for preference> <value for track number>\n", command);
+							AAMPCLI_PRINTF("[AAMPCLI] ERROR: Mismatch in arguments\n");
+							AAMPCLI_PRINTF("[AAMPCLI] Expected: set %s <value for preference> <value for track number>\n", command);
 						}
 						break;
 					}
@@ -974,15 +974,15 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 				case 41:
 					{
 						int duration;
-						printf("[AAMPCLI] Matched Command InitialBufferDuration - %s\n", cmd);
+						AAMPCLI_PRINTF("[AAMPCLI] Matched Command InitialBufferDuration - %s\n", cmd);
 						if (sscanf(cmd, "set %s %d", command, &duration) == 2)
 						{
 							playerInstanceAamp->SetInitialBufferDuration(duration);
 						}
 						else
 						{
-							printf("[AAMPCLI] ERROR: Mismatch in arguments\n");
-							printf("[AAMPCLI] Expected: set %s <value>\n", command);
+							AAMPCLI_PRINTF("[AAMPCLI] ERROR: Mismatch in arguments\n");
+							AAMPCLI_PRINTF("[AAMPCLI] Expected: set %s <value>\n", command);
 						}
 						break;
 					}
@@ -992,7 +992,7 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 						int track;
 						char strTrackInfo[512];
 						memset(strTrackInfo, '\0', sizeof(strTrackInfo));
-						printf("[AAMPCLI] Matched Command AudioTrack - %s\n", cmd);
+						AAMPCLI_PRINTF("[AAMPCLI] Matched Command AudioTrack - %s\n", cmd);
 						if (sscanf(cmd, "set %s %d", command, &track) == 2)
 						{
 							playerInstanceAamp->SetAudioTrack(track);
@@ -1018,7 +1018,7 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 							}
 							label = getItem(ss);
 
-							printf("[AAMPCLI] Selecting audio track based on language  - %s rendition - %s type = %s codec = %s channel = %d label = %s\n",
+							AAMPCLI_PRINTF("[AAMPCLI] Selecting audio track based on language  - %s rendition - %s type = %s codec = %s channel = %d label = %s\n",
 									language.c_str(), rendition.c_str(), type.c_str(), codec.c_str(), channel, label.c_str());
 							playerInstanceAamp->SetAudioTrack(language, rendition, type, codec, channel,label);
 
@@ -1031,7 +1031,7 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 						int track = 0;
 						char sidecar[128];
 
-						printf("[AAMPCLI] Matched Command TextTrack - %s\n", cmd);
+						AAMPCLI_PRINTF("[AAMPCLI] Matched Command TextTrack - %s\n", cmd);
 						if (sscanf(cmd, "set %s %127s", command, sidecar) == 2)
 						{
 							std::ifstream inFile(sidecar);
@@ -1044,7 +1044,7 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 								size_t subt_size = str.size();
 								if (subt_size > AAMPCLI_MAX_WEBVTT_SIZE)
 								{
-									printf("[AAMPCLI] ERROR: WebVTT sidecar subtitles file too big (%zu > max=%u)\n",
+									AAMPCLI_PRINTF("[AAMPCLI] ERROR: WebVTT sidecar subtitles file too big (%zu > max=%u)\n",
 										subt_size, AAMPCLI_MAX_WEBVTT_SIZE);
 								}
 								else
@@ -1064,14 +1064,14 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 							}
 							else
 							{
-								printf("[AAMPCLI] ERROR: Mismatch in arguments\n");
-								printf("[AAMPCLI] Expected: set %s <value> OR set %s <file>\n", command, command);
+								AAMPCLI_PRINTF("[AAMPCLI] ERROR: Mismatch in arguments\n");
+								AAMPCLI_PRINTF("[AAMPCLI] Expected: set %s <value> OR set %s <file>\n", command, command);
 							}
 						}
 						else
 						{
-							printf("[AAMPCLI] ERROR: Mismatch in arguments\n");
-							printf("[AAMPCLI] set %s must be run with 1 argument\n", command);
+							AAMPCLI_PRINTF("[AAMPCLI] ERROR: Mismatch in arguments\n");
+							AAMPCLI_PRINTF("[AAMPCLI] set %s must be run with 1 argument\n", command);
 						}
 						break;
 					}
@@ -1079,15 +1079,15 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 				case 44:
 					{
 						int status;
-						printf("[AAMPCLI] Matched Command CCStatus - %s\n", cmd);
+						AAMPCLI_PRINTF("[AAMPCLI] Matched Command CCStatus - %s\n", cmd);
 						if (sscanf(cmd, "set %s %d", command, &status) == 2)
 						{
 							playerInstanceAamp->SetCCStatus(status == 1);
 						}
 						else
 						{
-							printf("[AAMPCLI] ERROR: Mismatch in arguments\n");
-							printf("[AAMPCLI] Expected: set %s <value>\n", command);
+							AAMPCLI_PRINTF("[AAMPCLI] ERROR: Mismatch in arguments\n");
+							AAMPCLI_PRINTF("[AAMPCLI] Expected: set %s <value>\n", command);
 						}
 						break;
 					}
@@ -1099,7 +1099,7 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 						char jsonFile[128];
 						char tempChar;
 
-						printf("[AAMPCLI] Matched Command CCStyle - %s\n", cmd);
+						AAMPCLI_PRINTF("[AAMPCLI] Matched Command CCStyle - %s\n", cmd);
 						if (sscanf(cmd, "set %s %d %c", command, &value, &tempChar) == 2)
 						{
 							switch (value)
@@ -1114,7 +1114,7 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 									options = std::string(CC_OPTION_3);
 									break;
 								default:
-									printf("[AAMPCLI] Invalid option passed %d. skipping!\n", value);
+									AAMPCLI_PRINTF("[AAMPCLI] Invalid option passed %d. skipping!\n", value);
 									break;
 							}
 						}
@@ -1136,7 +1136,7 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 							}
 							else
 							{
-								printf("[AAMPCLI] Invalid filename passed %s. skipping!\n", jsonFile);
+								AAMPCLI_PRINTF("[AAMPCLI] Invalid filename passed %s. skipping!\n", jsonFile);
 							}
 						}
 
@@ -1146,8 +1146,8 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 						}
 						else
 						{
-							printf("[AAMPCLI] ERROR: Mismatch in arguments\n");
-							printf("[AAMPCLI] Expected: set %s <value 1,2 or 3> or json file\n", command);
+							AAMPCLI_PRINTF("[AAMPCLI] ERROR: Mismatch in arguments\n");
+							AAMPCLI_PRINTF("[AAMPCLI] Expected: set %s <value 1,2 or 3> or json file\n", command);
 						}
 						break;
 					}
@@ -1155,14 +1155,14 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 				case 47:
 					{
 						int propagateUriParam;
-						printf("[AAMPCLI] Matched Command PropagateUriParam - %s\n", cmd);
+						AAMPCLI_PRINTF("[AAMPCLI] Matched Command PropagateUriParam - %s\n", cmd);
 						if (sscanf(cmd, "set %s %d", command, &propagateUriParam) == 2){
 							playerInstanceAamp->SetPropagateUriParameters((bool) propagateUriParam);
 						}
 						else
 						{
-							printf("[AAMPCLI] ERROR: Mismatch in arguments\n");
-							printf("[AAMPCLI] Expected: set %s <value>\n", command);
+							AAMPCLI_PRINTF("[AAMPCLI] ERROR: Mismatch in arguments\n");
+							AAMPCLI_PRINTF("[AAMPCLI] Expected: set %s <value>\n", command);
 						}
 						break;
 					}
@@ -1170,21 +1170,21 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 				case 48:
 					{
 						int thumbnailTrack;
-						printf("[AAMPCLI] Matched Command ThumbnailTrack - %s\n",cmd);
+						AAMPCLI_PRINTF("[AAMPCLI] Matched Command ThumbnailTrack - %s\n",cmd);
 						if (sscanf(cmd, "set %s %d", command, &thumbnailTrack) == 2) {
-							printf("[AAMPCLI] Setting ThumbnailTrack : %s\n",playerInstanceAamp->SetThumbnailTrack(thumbnailTrack)?"Success":"Failure");
+							AAMPCLI_PRINTF("[AAMPCLI] Setting ThumbnailTrack : %s\n",playerInstanceAamp->SetThumbnailTrack(thumbnailTrack)?"Success":"Failure");
 						}
 						else
-						{	printf("[AAMPCLI] Setting ThumbnailTrack : %s\n",playerInstanceAamp->SetThumbnailTrack(-1)?"Success":"Failure");  //SetThumbnailTrack to -1 to ensure failure
-							printf("[AAMPCLI] ERROR: Mismatch in arguments\n");
-							printf("[AAMPCLI] Expected: set %s <track index>\n", command);
+						{	AAMPCLI_PRINTF("[AAMPCLI] Setting ThumbnailTrack : %s\n",playerInstanceAamp->SetThumbnailTrack(-1)?"Success":"Failure");  //SetThumbnailTrack to -1 to ensure failure
+							AAMPCLI_PRINTF("[AAMPCLI] ERROR: Mismatch in arguments\n");
+							AAMPCLI_PRINTF("[AAMPCLI] Expected: set %s <track index>\n", command);
 						}
 						
 						break;
 					}
 				case 50:
 					{
-						printf("[AAMPCLI] Matched Command DownloadDelayOnFetch - %s\n",cmd);
+						AAMPCLI_PRINTF("[AAMPCLI] Matched Command DownloadDelayOnFetch - %s\n",cmd);
 						sscanf(cmd, "set %s %d", command, &DownloadDelayInMs);
 						playerInstanceAamp->ApplyArtificialDownloadDelay(DownloadDelayInMs);
 						break;
@@ -1193,15 +1193,15 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 
 				case 51:
 					{
-						printf("[AAMPCLI] Matched Command PausedBehavior - %s\n", cmd);
+						AAMPCLI_PRINTF("[AAMPCLI] Matched Command PausedBehavior - %s\n", cmd);
 						if(sscanf(cmd, "set %s %d", command, &rate) == 2)
 						{
 							playerInstanceAamp->SetPausedBehavior(rate);
 						}
 						else
 						{
-							printf("[AAMPCLI] ERROR: Mismatch in arguments\n");
-							printf("[AAMPCLI] Expected: set %s <value 0,1,2 or 3>\n", command);
+							AAMPCLI_PRINTF("[AAMPCLI] ERROR: Mismatch in arguments\n");
+							AAMPCLI_PRINTF("[AAMPCLI] Expected: set %s <value 0,1,2 or 3>\n", command);
 						}
 						break;
 					}
@@ -1209,15 +1209,15 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 				case 52:
 					{
 						char lang[12];
-						printf("[AAMPCLI] Matched Command AuxiliaryAudio - %s\n", cmd);
+						AAMPCLI_PRINTF("[AAMPCLI] Matched Command AuxiliaryAudio - %s\n", cmd);
 						if (sscanf(cmd, "set %s %s", command, lang) == 2)
 						{
 							playerInstanceAamp->SetAuxiliaryLanguage(lang);
 						}
 						else
 						{
-							printf("[AAMPCLI] ERROR: Mismatch in arguments\n");
-							printf("[AAMPCLI] Expected: set %s <value in string>\n", command);
+							AAMPCLI_PRINTF("[AAMPCLI] ERROR: Mismatch in arguments\n");
+							AAMPCLI_PRINTF("[AAMPCLI] Expected: set %s <value in string>\n", command);
 						}
 						break;
 					}
@@ -1227,14 +1227,14 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 						int timeout;
 						if (sscanf(cmd, "set %s %d", command, &timeout) == 2)
 						{
-							printf("[AAMPCLI] Enabling AAMP_EVENT_CONTENT_PROTECTION_DATA_UPDATE event registration");
+							AAMPCLI_PRINTF("[AAMPCLI] Enabling AAMP_EVENT_CONTENT_PROTECTION_DATA_UPDATE event registration");
 							playerInstanceAamp->AddEventListener(AAMP_EVENT_CONTENT_PROTECTION_DATA_UPDATE, lAampcli.mEventListener);
 							playerInstanceAamp->SetContentProtectionDataUpdateTimeout(timeout);
 						}
 						else
 						{
-							printf("[AAMPCLI] ERROR: Mismatch in arguments\n");
-							printf("[AAMPCLI] Expected: set %s <value in Milliseconds>\n", command);
+							AAMPCLI_PRINTF("[AAMPCLI] ERROR: Mismatch in arguments\n");
+							AAMPCLI_PRINTF("[AAMPCLI] Expected: set %s <value in Milliseconds>\n", command);
 						}
 						break;
 					}
@@ -1242,21 +1242,21 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 				case 57:
 					{
 						int enable;
-						printf("[AAMPCLI] Matched Command SubtecSimulator - %s\n", cmd);
+						AAMPCLI_PRINTF("[AAMPCLI] Matched Command SubtecSimulator - %s\n", cmd);
 						if (sscanf(cmd, "set %s %d", command, &enable) != 2)
 						{
-							printf("[AAMPCLI] ERROR: Unexpected number of arguments\n");
-							printf("[AAMPCLI] Expected: set %s <0/1>\n", command);
+							AAMPCLI_PRINTF("[AAMPCLI] ERROR: Unexpected number of arguments\n");
+							AAMPCLI_PRINTF("[AAMPCLI] Expected: set %s <0/1>\n", command);
 						}
 						else if (enable == 0)
 						{
 							if (!StopSubtecSimulator())
 							{
-								printf("Subtec Simulator did not stop");
+								AAMPCLI_PRINTF("Subtec Simulator did not stop");
 							}
 							else
 							{
-								printf("Subtec Simulator stopped");
+								AAMPCLI_PRINTF("Subtec Simulator stopped");
 							}
 						}
 						else if (enable == 1)
@@ -1264,23 +1264,23 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 							// The socket path used here has to match the one used in SubtecChannel::InitComms()
 							if (!StartSubtecSimulator("/tmp/pes_data_main"))
 							{
-								printf("Subtec Simulator did not start");
+								AAMPCLI_PRINTF("Subtec Simulator did not start");
 							}
 							else
 							{
-								printf("Subtec Simulator started");
+								AAMPCLI_PRINTF("Subtec Simulator started");
 							}
 						}
 						else
 						{
-							printf("[AAMPCLI] ERROR: Mismatch in arguments\n");
-							printf("[AAMPCLI] Expected: set %s <0/1>\n", command);
+							AAMPCLI_PRINTF("[AAMPCLI] ERROR: Mismatch in arguments\n");
+							AAMPCLI_PRINTF("[AAMPCLI] Expected: set %s <0/1>\n", command);
 						}
 						break;
 					}
 
 				default:
-					printf("[AAMPCLI] Invalid set command %s\n", command);
+					AAMPCLI_PRINTF("[AAMPCLI] Invalid set command %s\n", command);
 					break;
 			}
 
@@ -1288,7 +1288,7 @@ bool Set::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 	}
 	else
 	{
-		printf("[AAMPCLI] Invalid set command = %s\n", cmd);
+		AAMPCLI_PRINTF("[AAMPCLI] Invalid set command = %s\n", cmd);
 	}
 
 	return true;
@@ -1392,10 +1392,10 @@ void Set::addCommand(int value,std::string command,std::string param,std::string
  */
 void Set::ShowHelpSet()
 {
-	printf("******************************************************************************************\n");
-	printf("*   set <command> [<arguments>]\n");
-	printf("*   Usage of Commands with arguemnts expected in ()\n");
-	printf("******************************************************************************************\n");
+	AAMPCLI_PRINTF("******************************************************************************************\n");
+	AAMPCLI_PRINTF("*   set <command> [<arguments>]\n");
+	AAMPCLI_PRINTF("*   Usage of Commands with arguemnts expected in ()\n");
+	AAMPCLI_PRINTF("******************************************************************************************\n");
 
 	if(!commands.empty())
 	{
@@ -1414,7 +1414,7 @@ void Set::ShowHelpSet()
 		}
 	}
 
-	printf("******************************************************************************************\n");
+	AAMPCLI_PRINTF("******************************************************************************************\n");
 }
 
 char * Set::setCommandRecommender(const char *text, int state)
