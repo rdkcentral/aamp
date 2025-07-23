@@ -4188,9 +4188,8 @@ void AAMPPlayer_LoadJS(void* context)
 
 	privObj->_aamp = new PlayerInstanceAAMP(NULL, NULL);
 	const char * mainManifestUrl = "http://127.0.0.1:50050/initialize_player.mpd?fakeTune=true";
-			 bool autoPlay = false;
-AAMPLOG_WARN("SAMIII CONSTRUCTOR");
-const char *contentType = "VOD";
+	bool autoPlay = false;
+	const char *contentType = "VOD";
 	privObj->_aamp->Tune(mainManifestUrl, autoPlay, contentType);
 }
 	LOG_TRACE("Exit");

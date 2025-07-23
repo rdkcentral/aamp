@@ -1423,7 +1423,6 @@ void AampDRMLicenseManager::notifyCleanup()
  */
 DrmSession* AampDRMLicenseManager::createDrmSession( std::shared_ptr<DrmHelper> drmHelper, DrmCallbacks* aampInstance, DrmMetaDataEventPtr eventHandle, int streamTypeIn, bool isFakeTune)
 {
-	AAMPLOG_WARN("SAMIIII isFakeTune %d" , isFakeTune);
 	int err = -1;
 	void *ptr= static_cast<void*>(&eventHandle);
 	DrmSession* session = mDrmSessionManager->createDrmSession(err , drmHelper, aampInstance, streamTypeIn,ptr, isFakeTune );

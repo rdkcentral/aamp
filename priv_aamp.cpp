@@ -5793,7 +5793,6 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 	mEventManager->SetAsyncTuneState(mAsyncTuneEnabled);
 
 	mIsFakeTune = strcasestr(mainManifestUrl, "fakeTune=true");
-	AAMPLOG_WARN("SAMIII %d mIsFakeTune PRIV AAMP",mIsFakeTune);
 	if(mIsFakeTune)
 	{
 		AampLogManager::setLogLevel(eLOGLEVEL_ERROR);
