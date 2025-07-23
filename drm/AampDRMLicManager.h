@@ -278,8 +278,7 @@ public:
 	 * @param[in]   event handle for capturing errors
 	 * @param[in]   input stream type
 	 */
-	DrmSession* createDrmSession(std::shared_ptr<DrmHelper> drmHelper, DrmCallbacks* aampInstance,  DrmMetaDataEventPtr eventHandle, int streamTypeIn);
-	
+	DrmSession* createDrmSession(std::shared_ptr<DrmHelper> drmHelper, DrmCallbacks* aampInstance,  DrmMetaDataEventPtr eventHandle, int streamTypeIn, bool mIsFakeTune=false);	
 	/**
 	 *  @fn         createDrmSession
 	 *  @param[in]  systemId - UUID of the DRM system.

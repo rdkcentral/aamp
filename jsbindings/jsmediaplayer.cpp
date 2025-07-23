@@ -3854,7 +3854,6 @@ JSObjectRef AAMPMediaPlayer_JS_class_constructor(JSContextRef ctx, JSObjectRef c
 	privObj->iPlayerId = privObj->_aamp->GetId();
 	//Get jsinfo config for INFO logging
 	privObj->bInfoEnabled = privObj->_aamp->IsJsInfoLoggingEnabled();
-
 	// NOTE : Association of JSObject and AAMPMediaPlayer_JS native object will be deleted only in
 	// AAMPMediaPlayerJS_release ( APP initiated )  or AAMPMediaPlayer_JS_finalize ( GC initiated)
 	// There is chance that aamp_UnloadJS is called then functions on aamp object is called from JS script.
@@ -4184,6 +4183,16 @@ void AAMPPlayer_LoadJS(void* context)
 
 	PersistentWatermark_LoadJS(context);
 	LoadXREReceiverStub(context);
+{
+		AAMPMediaPlayer_JS* privObj = new AAMPMediaPlayer_JS();
+
+	privObj->_aamp = new PlayerInstanceAAMP(NULL, NULL);
+	const char * mainManifestUrl = "http://127.0.0.1:50050/initialize_player.mpd?fakeTune=true";
+			 bool autoPlay = false;
+AAMPLOG_WARN("SAMIII CONSTRUCTOR");
+const char *contentType = "VOD";
+	privObj->_aamp->Tune(mainManifestUrl, autoPlay, contentType);
+}
 	LOG_TRACE("Exit");
 }
 
