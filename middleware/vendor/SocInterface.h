@@ -463,14 +463,19 @@ public:
 	 * is ready. If the function returns `true`, it means the segment is ready;
 	 * otherwise, it is not.
 	 *
+	 * @param videoSink The video sink element.
+	 * @param isRialto Flag indicating whether Rialto sink is being used.
 	 * @return `true` if the platform segment is ready, `false` otherwise.
 	 */
-	virtual bool IsPlatformSegmentReady(){return false;}
+	virtual bool IsPlatformSegmentReady(GstElement *videoSink, bool isRialto){return false;}
 	
 	/**
 	 *@brief Checks if the platform is video master.
+	 *
+	 * @param videoSink The video sink element.
+	 * @param isRialto Flag indicating whether Rialto sink is being used.
 	 *@return 'true' if video master otherwise false.
 	 */
-	virtual bool IsVideoMaster(){return true;}
+	virtual bool IsVideoMaster(GstElement *videoSink, bool isRialto){return true;}
 };
 #endif

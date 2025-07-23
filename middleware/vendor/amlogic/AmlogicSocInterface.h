@@ -163,20 +163,25 @@ class AmlogicSocInterface : public SocInterface
 		virtual bool ResetNewSegmentEvent()override{return true;}
 
 		/**
-		 *@brief check if platform segment is ready
+		 * @brief check if platform segment is ready
 		 *
-		 *it is used in scenarios where AV synchronization and trick mode speed adjustments are necessary.
+		 * it is used in scenarios where AV synchronization and trick mode speed adjustments are necessary.
+		 * 
+		 * @param videoSink The video sink element.
+		 * @param isRialto Flag indicating whether Rialto sink is being used.
 		 */
-		bool IsPlatformSegmentReady()override{return true;}
+		bool IsPlatformSegmentReady(GstElement *videoSink, bool isRialto)override{return true;}
 
 		/**
 		 * @brief Check if the video is the master stream.
 		 *
 		 * This function always returns false, indicating that the video is not the master stream.
 		 *
+		 * @param videoSink The video sink element.
+		 * @param isRialto Flag indicating whether Rialto sink is being used.
 		 * @return false indicating the video is not the master stream.
 		 */
-		bool IsVideoMaster()override{return false;}
+		bool IsVideoMaster(GstElement *videoSink, bool isRialto)override{return false;}
 
 };
 
