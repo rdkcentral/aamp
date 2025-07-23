@@ -308,10 +308,7 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int auxF
 			PipelineSetToReady = true;
 		}
 	}
-
-	bool configureStream[GST_TRACK_COUNT];
-	memset(configureStream, 0, sizeof(configureStream));
-
+	bool configureStream[GST_TRACK_COUNT] = {};
 	for (int i = 0; i < GST_TRACK_COUNT; i++)
 	{
 		gst_media_stream *stream = &gstPrivateContext->stream[i];
