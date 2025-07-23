@@ -1321,7 +1321,7 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 
  	mTrackGrowableBufMem = ISCONFIGSET_PRIV(eAAMPConfig_TrackMemory);
 	mLastTelemetryTimeMS = aamp_GetCurrentTimeMS();
-
+	mEventManager->SetStateLock(&mStateLock);
 }
 
 /**
@@ -7429,9 +7429,17 @@ bool PrivateInstanceAAMP::IsLiveStream()
  */
 void PrivateInstanceAAMP::Stop()
 {
-	// Clear all the player events in the queue and sets its state to RELEASED as everything is done
-	mEventManager->SetPlayerState(eSTATE_RELEASED);
-	mEventManager->FlushPendingEvents();
+	// Set State as IDLE -> Clear all the player events in the queue and sets its state to RELEASED as everything is done
+	g_idle_add([](gpointer data) -> gboolean {
+		auto aamp = static_cast<PrivateInstanceAAMP*>(data);
+		aamp->SetState(eSTATE_IDLE);
+
+		// Flush after setting state
+		aamp->mEventManager->FlushPendingEvents();
+		aamp->mEventManager->SetPlayerState(eSTATE_RELEASED);
+		return G_SOURCE_REMOVE;
+	}, this);
+	
 	{
 		std::unique_lock<std::mutex> lock(gMutex);
 		auto iter = std::find_if(std::begin(gActivePrivAAMPs), std::end(gActivePrivAAMPs), [this](const gActivePrivAAMP_t& el)
@@ -8171,6 +8179,7 @@ void PrivateInstanceAAMP::SetState(AAMPPlayerState state)
 		mEventManager->SendEvent(event,AAMP_EVENT_SYNC_MODE);
 	}
 	{
+		std::lock_guard<std::mutex> stateGuard(mStateLock);
 		std::lock_guard<std::recursive_mutex> guard(mLock);
 		mState = state;
 	}

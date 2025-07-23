@@ -253,7 +253,6 @@ void PlayerInstanceAAMP::Stop(bool sendStateChangeEvent)
 		//state will be eSTATE_IDLE or eSTATE_RELEASED, right after an init or post-processing of a Stop call
 		if (state != eSTATE_IDLE && state != eSTATE_RELEASED)
 		{
-			printf("1006 Test: Sending StopInternal for PlayerId %d, CurrentState %d", aamp->mPlayerId, state);
 			StopInternal(sendStateChangeEvent);
 		}
 
@@ -3118,11 +3117,6 @@ void PlayerInstanceAAMP::StopInternal(bool sendStateChangeEvent)
 	}
 
 	AAMPLOG_WARN("aamp_stop PlayerState=%d",state);
-
-	if (sendStateChangeEvent)
-	{
-		aamp->SetState(eSTATE_IDLE);
-	}
 
 	AAMPLOG_WARN("%s PLAYER[%d] Stopping Playback at Position %lld", (aamp->mbPlayEnabled?STRFGPLAYER:STRBGPLAYER), aamp->mPlayerId, aamp->GetPositionMilliseconds());
 	aamp->Stop();
