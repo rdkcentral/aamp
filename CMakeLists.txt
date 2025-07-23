@@ -324,7 +324,7 @@ set(LIBAAMP_SOURCES
 	scte35/AampSCTE35.cpp
 	subtec/subtecparser/WebvttSubtecDevParser.cpp
 	AampTrackWorker.cpp
-	test/gstTestHarness/mp4demux.cpp)
+	test/gstTestHarness/mp4demux.hpp)
 
 if(CMAKE_SOC_PLATFORM_RPI)
 	message("CMAKE_SOC_PLATFORM_RPI set")
