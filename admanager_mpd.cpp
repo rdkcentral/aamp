@@ -1037,20 +1037,20 @@ MPD* PrivateCDAIObjectMPD::GetAdMPD(std::string &manifestUrl, bool &finalManifes
 	}
 	else
 	{
-		AAMPLOG_ERR("[CDAI]: Error on manifest fetch");
-		AAMPCDAIAdErrorCode adErrorCode = eCDAI_ERROR_NONE;
-		if (http_error != 0)
-		{
-			adErrorCode = eCDAI_ERROR_DELIVERY_HTTP_ERROR;
-		}
-		else
-		{
-			adErrorCode = eCDAI_ERROR_INVALID_MEDIA;
-		}
-		std::string adId = "";
-		uint64_t startMS = 0;
-		uint32_t durationMs = 0;
-		mAamp->SendAdResolvedEvent(adId, false, startMS, durationMs, adErrorCode);
+		// AAMPLOG_ERR("[CDAI]: Error on manifest fetch");
+		// AAMPCDAIAdErrorCode adErrorCode = eCDAI_ERROR_NONE;
+		// if (http_error != 0)
+		// {
+		// 	adErrorCode = eCDAI_ERROR_DELIVERY_HTTP_ERROR;
+		// }
+		// else
+		// {
+		// 	adErrorCode = eCDAI_ERROR_INVALID_MEDIA;
+		// }
+		// std::string adId = "testAdId";
+		// uint64_t startMS = 0;
+		// uint32_t durationMs = 0;
+		// mAamp->SendAdResolvedEvent(adId, false, startMS, durationMs, adErrorCode);
 	}
 	return adMpd;
 }
@@ -1203,7 +1203,7 @@ bool PrivateCDAIObjectMPD::FulFillAdObject()
 				}
 			}
 			AAMPLOG_ERR("Failed to get Ad MPD[%s].", mAdFulfillObj.url.c_str());
-			adErrorCode = eCDAI_ERROR_INVALID_MANIFEST;
+			//adErrorCode = eCDAI_ERROR_INVALID_MANIFEST;
 		}
 	}
 	// Send the resolved event
@@ -1227,6 +1227,8 @@ bool PrivateCDAIObjectMPD::FulFillAdObject()
  */
 void PrivateCDAIObjectMPD::SetAlternateContents(const std::string &periodId, const std::string &adId, const std::string &url,  uint64_t startMS, uint32_t breakdur)
 {
+	AAMPCDAIAdErrorCode adErrorCode = eCDAI_ERROR_NONE;
+
 	if("" == adId || "" == url)
 	{
 		std::lock_guard<std::mutex> lock(mDaiMtx);
@@ -1259,32 +1261,7 @@ void PrivateCDAIObjectMPD::SetAlternateContents(const std::string &periodId, con
 		// Reject the promise as ad couldn't be resolved
 		if(!adCached)
 		{
-			if(isAdBreakObjectExist(periodId))
-			{
-				auto &adbreakObj = mAdBreaks[periodId];
-				bool found = false;
-				for(auto &ad : *(adbreakObj.ads))
-				{
-					if(ad.adId == adId)
-					{
-						ad.resolved = true;
-						ad.invalid = true;
-						found = true;
-						break;
-					}
-				}
-				if(!found)
-				{
-					AdNode failedAd;
-					failedAd.adId = adId;
-					failedAd.resolved = true;
-					failedAd.invalid = true;
-					failedAd.url = url;
-					adbreakObj.ads->push_back(failedAd);
-				}
-			}
-			AAMPCDAIAdErrorCode adErrorCode = eCDAI_ERROR_INVALID_MEDIA;
-			mAamp->SendAdResolvedEvent(adId, false, 0, 0, 0); 
+			mAamp->SendAdResolvedEvent(adId, false, 0, 0, adErrorCode); 
 		}
 	}
 }

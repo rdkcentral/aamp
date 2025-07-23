@@ -450,6 +450,8 @@ struct AAMPEvent
 			const char *adId;
 			uint64_t startMS;
 			uint64_t durationMs;
+			const char* errorCode;
+			const char* errorDescription;
 		} adResolved;
 
 		/**
@@ -1840,7 +1842,7 @@ public:
 	 * @param[in] startMS       - Start position of Ad (relative to reservation start)
 	 * @param[in] durationMs    - Duration of the Ad in MS
 	 */
-	AdResolvedEvent(bool resolveStatus, const std::string &adId, uint64_t startMS, uint64_t durationMs, std::string sid,const std::string &errorCode="", const std::string &errorDescription="");
+	AdResolvedEvent(bool resolveStatus, const std::string &adId, uint64_t startMS, uint64_t durationMs, std::string sid,const std::string &errorCode, const std::string &errorDescription);
 
 	/**
 	 * @brief AdResolvedEvent Destructor
