@@ -608,6 +608,11 @@ const char *mystrstr(const char *haystack_ptr, const char *haystack_fin, const c
 	return NULL;
 }
 
+int aamp_hascii_char_to_number( char c )
+{
+	return -1;
+}
+
 void aamp_setThreadName(const char *name)
 {
 }
