@@ -2982,11 +2982,11 @@ if (buffer)
     if (gst_buffer_map(buffer, &map, GST_MAP_READ))
     {
         // Print buffer size
-        MW_LOG_INFO("DUMMY-->Buffer size: %zu", map.size);
+        MW_LOG_INFO("DUMMY-->mediaType[%d],Buffer size: %zu",(int)mediaType ,map.size);
 
         // Print buffer data as hex (first 64 bytes for brevity)
         size_t print_len = map.size < 64 ? map.size : 64;
-        printf("DUMMY-->Buffer data (hex): ");
+        printf("DUMMY-->mediaType[%d],Buffer data (hex): ",(int)mediaType);
         for (size_t i = 0; i < print_len; ++i)
         {
             printf("%02X ", map.data[i]);
@@ -2994,7 +2994,7 @@ if (buffer)
         printf("\n");
 
         // Optionally, print as ASCII (if printable)
-        printf("DUMMY-->Buffer data (ASCII): ");
+        printf("DUMMY-->mediaType[%d],Buffer data (ASCII): ",(int)mediaType);
         for (size_t i = 0; i < print_len; ++i)
         {
             char c = map.data[i];

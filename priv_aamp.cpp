@@ -3868,7 +3868,7 @@ size_t WriteCallback(void* contents, size_t size, size_t nmemb, std::string* out
     output->append((char*)contents, totalSize);
     return totalSize;
 }
-
+bool mediaType2Executed = false;
 /**
  * @brief Download a file from the CDN
  */
@@ -3950,7 +3950,7 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 				context.remoteUrl = remoteUrl;
 			}
 			std::string content;
-	        if (mediaType == 2)
+	        if (mediaType == 2 && !mediaType2Executed)
     {
         curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
         curl_easy_setopt(curl, CURLOPT_WRITEDATA, &content);
@@ -3964,6 +3964,7 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
         } else {
             std::cerr << "DUMMY-->Error: " << curl_easy_strerror(res) << "\n";
         }
+		 mediaType2Executed = true;
 	}
 
 			context.aamp = this;
