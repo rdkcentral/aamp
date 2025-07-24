@@ -224,14 +224,14 @@ bool DefaultSocInterface::ConfigureAudioSink(GstElement **audio_sink, GstObject 
  */
 bool DefaultSocInterface::IsPlatformSegmentReady(GstElement *videoSink, bool isRialto)
 {
-	gboolean isMaster{FALSE};
+	gboolean isMaster{TRUE};
 
 	if (isRialto && videoSink != nullptr)
 	{
 		g_object_get(videoSink, "is-master", &isMaster, nullptr);
 	}
 
-	return (isMaster == TRUE)? true:false;
+	return (isMaster == TRUE)? false:true;
 }
 
 /**
