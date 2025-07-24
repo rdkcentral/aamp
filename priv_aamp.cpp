@@ -5669,6 +5669,7 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 	{
 		const char *remapLicenseUrl = NULL;
 		mainManifestUrl = remapUrl;
+		AAMPLOG_MIL("Did remap %s",mainManifestUrl);
 		remapLicenseUrl = mConfig->GetChannelLicenseOverride(mainManifestUrl);
 		if (remapLicenseUrl )
 		{
@@ -6078,7 +6079,7 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 	}
 
 	SAFE_DELETE(mCdaiObject);
-	
+
 	AcquireStreamLock();
 	TuneHelper(tuneType);
 

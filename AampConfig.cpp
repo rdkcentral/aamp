@@ -851,7 +851,7 @@ void AampConfig::Initialize()
 void AampConfig::ApplyDeviceCapabilities()
 {
 	std::shared_ptr<PlayerExternalsInterface> pInstance = PlayerExternalsInterface::GetPlayerExternalsInterfaceInstance();
-	bool IsWifiCurlHeader = pInstance->IsConfigWifiCurlHeader();	
+	bool IsWifiCurlHeader = pInstance->IsConfigWifiCurlHeader();
 
 	configValueBool[eAAMPConfig_UseAppSrcForProgressivePlayback].value = SocUtils::UseAppSrcForProgressivePlayback();
 	configValueBool[eAAMPConfig_DisableAC4].value = SocUtils::IsSupportedAC4();
@@ -960,6 +960,7 @@ const char * AampConfig::GetChannelOverride(const std::string manifestUrl)
 		for (auto it = mChannelOverrideMap.begin(); it != mChannelOverrideMap.end(); ++it)
 		{
 			ConfigChannelInfo &pChannelInfo = *it;
+			AAMPLOG_MIL("Checking channel override for %s in manifest %s", pChannelInfo.name.c_str(), manifestUrl.c_str());
 			if (manifestUrl.find(pChannelInfo.name) != std::string::npos)
 			{
 				return pChannelInfo.uri.c_str();
@@ -1578,7 +1579,7 @@ void AampConfig::ReadBase64TR181Param()
 		std::shared_ptr<PlayerExternalsInterface> pInstance = PlayerExternalsInterface::GetPlayerExternalsInterfaceInstance();
 		char * cloudConf = pInstance->GetTR181PlayerConfig("Device.DeviceInfo.X_RDKCENTRAL-COM_RFC.Feature.AAMP_CFG.b64Config", iConfigLen);
 		if(NULL != cloudConf)
-		{	
+		{
 			ProcessBase64AampCfg(cloudConf, iConfigLen,AAMP_OPERATOR_SETTING);
 			free(cloudConf); // allocated by base64_Decode in GetTR181PlayerConfig
 			ConfigureLogSettings();
@@ -1713,7 +1714,7 @@ void AampConfig::ReadOperatorConfiguration()
 {
 	// Tr181 doesn't work in container environment hence ignore it if it is container
 	// this will improve load time of aamp in container environment
-	
+
 	// Not all parameters are supported as  individual  tr181 parameter hence keeping base64 version.
 	ReadBase64TR181Param();
 
@@ -1722,7 +1723,7 @@ void AampConfig::ReadOperatorConfiguration()
 	ReadAllTR181Params();
 
 	// this required to set log settings based on configs either default or read from Tr181
-	ConfigureLogSettings();   
+	ConfigureLogSettings();
 	///////////// Read environment variables set specific to Operator ///////////////////
 	const char *env_aamp_force_aac = getenv("AAMP_FORCE_AAC");
 	if(env_aamp_force_aac)
