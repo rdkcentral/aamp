@@ -81,7 +81,8 @@ AampEventManager::~AampEventManager()
  * @brief FlushPendingEvents - Clear all pending events from EventManager
  */
 void AampEventManager::FlushPendingEvents()
-{
+{	
+	std::lock_guard<std::mutex> stateGuard(*mStateLock);
 	std::lock_guard<std::mutex> guard(mMutexVar);
 	while(!mEventWorkerDataQue.empty())
 	{
@@ -250,7 +251,8 @@ void AampEventManager::SetAsyncTuneState(bool isAsyncTuneSetting)
  * @brief SetPlayerState - Flag to update player state
  */
 void AampEventManager::SetPlayerState(AAMPPlayerState state)
-{
+{	
+	std::lock_guard<std::mutex> stateGuard(*mStateLock);
 	std::lock_guard<std::mutex> guard(mMutexVar);
 	mPlayerState = state;
 }
@@ -332,13 +334,13 @@ void AampEventManager::SendEventAsync(const AAMPEventPtr &eventData)
 {
 	AAMPEventType eventType = eventData->getType();
 	std::unique_lock<std::mutex> lock(mMutexVar);
-	// Check if already player in release state , then no need to send any events
+	// Check if the player is already in released state, if yes - then no need to send any events
 	if(mPlayerState != eSTATE_RELEASED)
 	{
 		AAMPLOG_INFO("Sending event %d to AsyncQ", eventType);
 		mEventWorkerDataQue.push(eventData);
 		lock.unlock();
-		// Every event need a idle task to execute it
+		// Every event needs an idle task to execute it
 		guint callbackID = g_idle_add_full(mEventPriority, EventManagerThreadFunction, this, NULL);
 		if(callbackID != 0)
 		{
