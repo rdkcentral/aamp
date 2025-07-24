@@ -862,6 +862,10 @@ void AampConfig::ApplyDeviceCapabilities()
 
 	bool isSecMgr = isSecManagerEnabled();
 	SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_UseSecManager, isSecMgr);
+	
+	bool isGstSubtec = SocUtils::isGstSubtecEnabled();
+	SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_GstSubtecEnabled, isGstSubtec);
+	
 }
 
 std::string AampConfig::GetUserAgentString()
