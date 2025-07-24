@@ -77,7 +77,7 @@ BufferControlData AampBufferControl::BufferControlExternalData::getExtraDataCach
 AampBufferControl::BufferControlByteBased::BufferControlByteBased(BufferControlMaster& context):
 BufferControlStrategyBase(context)
 {
-	AAMPLOG_WARN("BufferControlByteBased %s strategy activated", getThisMediaTypeName());
+	AAMPLOG_MIL("[%s] BufferControlByteBased strategy activated %s", getThisMediaTypeName(), getStateName());
 }
 
 
@@ -88,7 +88,7 @@ const char* AampBufferControl::BufferControlStrategyBase::getThisMediaTypeName()
 
 AampBufferControl::BufferControlByteBased::~BufferControlByteBased()
 {
-	AAMPLOG_TRACE("BufferControlByteBased strategy deactivated");
+	AAMPLOG_MIL("[%s] BufferControlByteBased strategy deactivated %s", getThisMediaTypeName(), getStateName());
 }
 
 
@@ -96,7 +96,7 @@ void AampBufferControl::BufferControlByteBased::enoughData()
 {
 	if(mState != eBUFFER_NEEDS_DATA_SIGNAL)
 	{
-		AAMPLOG_TRACE("BufferControlStrategyBase ENOUGH_DATA, %s, %s->eBUFFER_NEEDS_DATA_SIGNAL.", getThisMediaTypeName(), getStateName());
+		AAMPLOG_MIL("[%s] BufferControlByteBased %s->eBUFFER_NEEDS_DATA_SIGNAL", getThisMediaTypeName(), getStateName());
 		mState = eBUFFER_NEEDS_DATA_SIGNAL;
 		mContext.StopDownloads();
 	}
@@ -106,7 +106,7 @@ void AampBufferControl::BufferControlByteBased::needData()
 {
 	if(mState == eBUFFER_NEEDS_DATA_SIGNAL)
 	{
-		AAMPLOG_WARN("%s eBUFFER_NEEDS_DATA_SIGNAL->eBUFFER_FILLING.", getThisMediaTypeName());
+		AAMPLOG_MIL("[%s] BufferControlByteBased eBUFFER_NEEDS_DATA_SIGNAL->eBUFFER_FILLING", getThisMediaTypeName());
 		mState = eBUFFER_FILLING;
 		mContext.ResumeDownloads();
 	}
@@ -186,7 +186,7 @@ void AampBufferControl::BufferControlTimeBased::updateInternal(const BufferContr
 
 		if(originalState != mState)
 		{
-			AAMPLOG_WARN("BufferControlTimeBased %s %s->%s %.2fs buffered. (buffer target = %.2fs, %.2fs injected, %.2fs elapsed).",
+			AAMPLOG_MIL("[%s] BufferControlTimeBased %s->%s %.2fs buffered. (buffer target = %.2fs, %.2fs injected, %.2fs elapsed).",
 						getThisMediaTypeName(),
 						getStateName(originalState),
 						getStateName(),
@@ -243,8 +243,8 @@ void AampBufferControl::BufferControlTimeBased::enoughData()
 
 void AampBufferControl::BufferControlTimeBased::underflow()
 {
-	AAMPLOG_WARN("BufferControlTimeBased underflow, %s, %s -> eBUFFER_FILLING.",
-	getThisMediaTypeName(), getStateName());
+	AAMPLOG_MIL("[%s] BufferControlTimeBased underflow %s -> eBUFFER_FILLING.",
+		getThisMediaTypeName(), getStateName());
 	mState = eBUFFER_FILLING;
 	RestartInjectedSecondsCount();
 	mContext.ResumeDownloads();
