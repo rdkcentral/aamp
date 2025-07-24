@@ -503,10 +503,12 @@ bool AampLicensePreFetcher::CreateDRMSession(LicensePreFetchObjectPtr fetchObj)
 		}
 	}
 	mPrivAAMP->profiler.ProfileEnd(PROFILE_BUCKET_LA_TOTAL);
-	if(mPrivAAMP->mIsFakeTune)
+/*	if(mPrivAAMP->mIsFakeTune)
 	{
 		mPrivAAMP->SetState(eSTATE_COMPLETE);
 		mPrivAAMP->SendEvent(std::make_shared<AAMPEventObject>(AAMP_EVENT_EOS, mPrivAAMP->GetSessionId()));
-	}
+[
+[
+	}*/
 	return ret;
 }

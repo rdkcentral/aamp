@@ -2726,7 +2726,9 @@ void PrivateInstanceAAMP::SendErrorEvent(AAMPTuneFailure tuneFailure, const char
 	{
 		int code;
 		const char *errorDescription = NULL;
-		DisableDownloads();
+
+AAMPLOG_WARN("SAMIII DisableDownloads222");		
+if(!mIsFakeTune)DisableDownloads();
 		if(tuneFailure >= 0 && tuneFailure < AAMP_TUNE_FAILURE_UNKNOWN)
 		{
 			if (tuneFailure == AAMP_TUNE_PLAYBACK_STALLED)
@@ -5536,9 +5538,10 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 		{
 			IncreaseGSTBufferSize();
 		}
-
+AAMPLOG_WARN("SAMIII HIT !!!");
 		if (!mbUsingExternalPlayer)
 		{
+AAMPLOG_WARN("SAMIII HIT 222 %d", mbPlayEnabled);
 			StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
 			if (sink)
 			{
@@ -5550,7 +5553,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 					CacheAndApplySubtitleMute(video_muted);
 				}
 				sink->SetAudioVolume(volume);
-				if (mbPlayEnabled)
+				if (mbPlayEnabled || mIsFakeTune)
 				{
 					sink->Configure(mVideoFormat, mAudioFormat, mAuxFormat, mSubtitleFormat, mpStreamAbstractionAAMP->GetESChangeStatus(), mpStreamAbstractionAAMP->GetAudioFwdToAuxStatus());
 				}
@@ -5568,7 +5571,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 		mpStreamAbstractionAAMP->Start();
 		if (!mbUsingExternalPlayer)
 		{
-			if (mbPlayEnabled)
+			if (mbPlayEnabled || mIsFakeTune)
 			{
 				StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
 				if (sink)
@@ -5604,7 +5607,8 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 	if (tuneType == eTUNETYPE_SEEK || tuneType == eTUNETYPE_SEEKTOLIVE || tuneType == eTUNETYPE_SEEKTOEND)
 	{
 		mSeekOperationInProgress = false;
-		// Pipeline is not configured if mbPlayEnabled is false, so not required
+AAMPLOG_WARN("SAMII HIT333");	
+	// Pipeline is not configured if mbPlayEnabled is false, so not required
 		if (mbPlayEnabled && seekWhilePaused == false && pipeline_paused == true)
 		{
 			StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
@@ -5641,6 +5645,19 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 			SendMediaMetadataEvent();
 		}
 	}
+if(mIsFakeTune)
+                {
+                        if(retVal == eAAMPSTATUS_FAKE_TUNE_COMPLETE)
+                        {
+                                AAMPLOG_MIL( "Fake tune completed");
+                        }
+                        else
+                        {
+                                SetState(eSTATE_COMPLETE);
+                                mEventManager->SendEvent(std::make_shared<AAMPEventObject>(AAMP_EVENT_EOS, GetSessionId()));
+                                AAMPLOG_MIL( "Stopping fake tune playback");
+                        }
+                }
 }
 
 /**
@@ -7487,6 +7504,8 @@ void PrivateInstanceAAMP::Stop()
 		mAutoResumeTaskPending = false;
 	}
 
+
+AAMPLOG_WARN("SAMIII DisableDownloads 111");
 	DisableDownloads();
 	//Moved the tsb delete request from XRE to AAMP to avoid the HTTP-404 erros
 	if(IsFogTSBSupported())
