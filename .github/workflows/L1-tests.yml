@@ -45,15 +45,15 @@ jobs:
           name: Unit Test Results
           path: test/utests/build/ctest-results.xml
           reporter: java-junit
-      
+          
       # Upload artifact (test/utests/build/ctest-results.xml)
-      - name: Upload test result file
+      - name: Upload test result file (test/utests)
         if: ${{ !env.ACT }}
         uses: actions/upload-artifact@v4
         with:
-          name: ctest-results
+          name: ctest-results-test-utests-${{ github.run_id }}
           path: test/utests/build/ctest-results.xml
-      
+          
       # Show failure
       - name: Show failure details (if any)
         # if: failure()
@@ -83,13 +83,13 @@ jobs:
           name: Unit Test Results
           path: middleware/test/utests/build/ctest-results.xml
           reporter: java-junit
-      
+          
       # Upload artifact (middleware/test/utests/build/ctest-results.xml)
-      - name: Upload test result file
+      - name: Upload test result file (middleware/test/utests)
         if: ${{ !env.ACT }}
         uses: actions/upload-artifact@v4
         with:
-          name: ctest-results
+          name: ctest-results-middleware-utests-${{ github.run_id }}
           path: middleware/test/utests/build/ctest-results.xml
       
       # Show failure
