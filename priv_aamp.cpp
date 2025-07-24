@@ -7430,8 +7430,9 @@ bool PrivateInstanceAAMP::IsLiveStream()
 void PrivateInstanceAAMP::Stop()
 {
 	// Clear all the player events in the queue and sets its state to RELEASED as everything is done
-	mEventManager->SetPlayerState(eSTATE_RELEASED);
 	mEventManager->FlushPendingEvents();
+	SetState(eSTATE_STOPPING);
+//	mEventManager->SetPlayerState(eSTATE_STOPPING);
 	{
 		std::unique_lock<std::mutex> lock(gMutex);
 		auto iter = std::find_if(std::begin(gActivePrivAAMPs), std::end(gActivePrivAAMPs), [this](const gActivePrivAAMP_t& el)
@@ -7560,9 +7561,8 @@ void PrivateInstanceAAMP::Stop()
 	mFirstFragmentTimeOffset = -1;
 	mProgressReportAvailabilityOffset = -1;
 	rate = 1;
-	// Set the state to eSTATE_IDLE
-	// directly setting state variable . Calling SetState will trigger event :(
-	mState = eSTATE_IDLE;
+		
+	SetState(eSTATE_IDLE);
 
 	SetPauseOnStartPlayback(false);
 	mSeekOperationInProgress = false;

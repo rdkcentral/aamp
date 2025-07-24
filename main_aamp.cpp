@@ -3108,22 +3108,14 @@ void PlayerInstanceAAMP::PersistBitRateOverSeek(bool bValue)
 void PlayerInstanceAAMP::StopInternal(bool sendStateChangeEvent)
 {
 	aamp->StopPausePositionMonitoring("Stop() called");
-
 	AAMPPlayerState state = aamp->GetState();
 	if(!aamp->IsTuneCompleted())
 	{
 		aamp->TuneFail(true);
 
 	}
-
-	AAMPLOG_WARN("aamp_stop PlayerState=%d",state);
-
-	if (sendStateChangeEvent)
-	{
-		aamp->SetState(eSTATE_IDLE);
-	}
-
-	AAMPLOG_WARN("%s PLAYER[%d] Stopping Playback at Position %lld", (aamp->mbPlayEnabled?STRFGPLAYER:STRBGPLAYER), aamp->mPlayerId, aamp->GetPositionMilliseconds());
+	AAMPLOG_MIL("aamp_stop PlayerState=%d",state);
+	AAMPLOG_MIL("%s PLAYER[%d] Stopping Playback at Position %lld", (aamp->mbPlayEnabled?STRFGPLAYER:STRBGPLAYER), aamp->mPlayerId, aamp->GetPositionMilliseconds());
 	aamp->Stop();
 	// Revert all custom specific setting, tune specific setting and stream specific setting , back to App/default setting
 	mConfig.RestoreConfiguration(AAMP_CUSTOM_DEV_CFG_SETTING);
