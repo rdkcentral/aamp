@@ -23,6 +23,7 @@
  */
 
 #include "AampcliVirtualChannelMap.h"
+#include "AampcliPrintf.h"
 
 VirtualChannelMap mVirtualChannelMap;
 
@@ -76,14 +77,14 @@ bool VirtualChannelMap::isPresent(const VirtualChannelInfo& channelInfo)
 		const VirtualChannelInfo &existingChannelInfo = *it;
 		if(channelInfo.channelNumber == existingChannelInfo.channelNumber)
 		{ // forbid repeated virtual channel number!
-			printf("[AAMPCLI] duplicate channel number: %d: '%s'\n", channelInfo.channelNumber, channelInfo.uri.c_str() );
+			AAMPCLI_PRINTF("[AAMPCLI] duplicate channel number: %d: '%s'\n", channelInfo.channelNumber, channelInfo.uri.c_str() );
 			return true;
 		}
 		if(channelInfo.uri == existingChannelInfo.uri )
 		{
 			if( !didWarn )
 			{ // warn for same url appearing more than once
-				printf("[AAMPCLI] duplicate URL: %d: '%s'\n", channelInfo.channelNumber, channelInfo.uri.c_str() );
+				AAMPCLI_PRINTF("[AAMPCLI] duplicate URL: %d: '%s'\n", channelInfo.channelNumber, channelInfo.uri.c_str() );
 				didWarn = true;
 			}
 		}
@@ -179,7 +180,7 @@ void VirtualChannelMap::print(unsigned long start, unsigned long end, unsigned l
 		return;
 	}
 
-	printf("[AAMPCLI] aampcli.cfg virtual channel map:\n");
+	AAMPCLI_PRINTF("[AAMPCLI] aampcli.cfg virtual channel map:\n");
 
 	int numCols = 0;
 	unsigned long lineCount = 0;
@@ -225,9 +226,9 @@ void VirtualChannelMap::print(unsigned long start, unsigned long end, unsigned l
 		{
 			if( numCols!=0 )
 			{
-				printf( "\n" );
+				AAMPCLI_PRINTF( "\n" );
 			}
-			printf( "%s\n", channelName.c_str() );
+			AAMPCLI_PRINTF( "%s\n", channelName.c_str() );
 			numCols = 0;
 			//Increment displayed lines here & check, as the "continue" bypasses the normal check.
 			lineCount++;
@@ -237,17 +238,17 @@ void VirtualChannelMap::print(unsigned long start, unsigned long end, unsigned l
 			}			
 			continue;
 		}
-		printf("%4d: %s", pChannelInfo.channelNumber, channelName.c_str() );
+		AAMPCLI_PRINTF("%4d: %s", pChannelInfo.channelNumber, channelName.c_str() );
 		if( numCols>=4 )
 		{ // four virtual channels per row
-			printf("\n");
+			AAMPCLI_PRINTF("\n");
 			numCols = 0;
 		}
 		else
 		{
 			while( len<maxNameLen )
 			{ // pad each column to 20 characters, for clean layout
-				printf( " " );
+				AAMPCLI_PRINTF( " " );
 				len++;
 			}
 			numCols++;
@@ -259,7 +260,7 @@ void VirtualChannelMap::print(unsigned long start, unsigned long end, unsigned l
 			break;
 		}
 	}
-	printf("\n\n");
+	AAMPCLI_PRINTF("\n\n");
 }
 
 void VirtualChannelMap::setCurrentlyTunedChannel(int value)
@@ -269,9 +270,9 @@ void VirtualChannelMap::setCurrentlyTunedChannel(int value)
 
 void VirtualChannelMap::showList(unsigned long start, unsigned long end, unsigned long tail)
 {
-	printf("******************************************************************************************\n");
-	printf("*   Virtual Channel Map\n");
-	printf("******************************************************************************************\n");
+	AAMPCLI_PRINTF("******************************************************************************************\n");
+	AAMPCLI_PRINTF("*   Virtual Channel Map\n");
+	AAMPCLI_PRINTF("******************************************************************************************\n");
 	print(start, end, tail);
 }
 
@@ -280,7 +281,7 @@ void VirtualChannelMap::tuneToChannel( VirtualChannelInfo &channel, PlayerInstan
 	setCurrentlyTunedChannel(channel.channelNumber);
 	const char *name = channel.name.c_str();
 	const char *locator = channel.uri.c_str();
-	printf( "TUNING to '%s' %s\n", name, locator );
+	AAMPCLI_PRINTF( "TUNING to '%s' %s\n", name, locator );
 	playerInstanceAamp->Tune(locator,bAutoPlay);
 }
 
@@ -348,7 +349,7 @@ void VirtualChannelMap::loadVirtualChannelMapFromCSV( FILE *f )
 			}
 			else
 			{ // no name, no uri, no service
-				//printf("[AAMPCLI] can not parse virtual channel '%s'\n", buf);
+				//AAMPCLI_PRINTF("[AAMPCLI] can not parse virtual channel '%s'\n", buf);
 			}
 		}
 	}
