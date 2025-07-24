@@ -147,7 +147,7 @@ AAMPStatusType AampTsbReader::Init(double &startPosSec, float rate, TuneType tun
 
 						mFirstPTS = firstFragmentToFetch->GetPTS();
 						mFirstPTSOffset = firstFragmentToFetch->GetPTSOffset();
-						AAMPLOG_INFO("[%s] startPosition:%lfs rate:%f pts:%lfs ptsOffset:%lfs firstFragmentRange:(%lfs-%lfs) ", 
+						AAMPLOG_INFO("[%s] startPosition:%lfs rate:%f pts:%lfs ptsOffset:%lfs firstFragmentRange:(%lfs-%lfs)", 
 							GetMediaTypeName(mMediaType), mStartPosition.inSeconds(), mCurrentRate, mFirstPTS.inSeconds(), mFirstPTSOffset.inSeconds(),
 							firstFragment->GetAbsolutePosition().inSeconds(), lastFragment->GetAbsolutePosition().inSeconds());
 
@@ -212,8 +212,11 @@ TsbFragmentDataPtr AampTsbReader::FindNext(AampTime offset)
 	else
 	{
 		// Navigate using linked list pointers
-		if (mCurrentRate >= 0)
+		if (mCurrentRate >= AAMP_RATE_PAUSE) // Handles normal playback, trick-play forward, and paused states.
 		{
+			// When paused (mCurrentRate == 0), we continue to fetch the next fragment.
+			// This is intentional to keep the buffer primed for a smooth resume. The
+			// injector loop is responsible for actually pausing the data flow to the pipeline.
 			// Forward direction
 			ret = mCurrentFragment ? mCurrentFragment->next : TsbFragmentDataPtr();
 		}
@@ -262,7 +265,7 @@ void AampTsbReader::ReadNext(TsbFragmentDataPtr nextFragmentData)
 			mEosReached = !nextFragmentData->next;
 		}
 
-		// Compliment this state with last init header push status
+		// Complement this state with last init header push status
 		if (mActiveTuneType == eTUNETYPE_SEEKTOLIVE)
 		{
 			mEosReached &= !mNewInitWaiting;

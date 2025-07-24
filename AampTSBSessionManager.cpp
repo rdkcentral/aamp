@@ -60,7 +60,7 @@ AampTSBSessionManager::AampTSBSessionManager(PrivateInstanceAAMP *aamp)
 		, mIsoBmffHelper(std::make_shared<IsoBmffHelper>())
 		, mTsbLength(0)
 		, mCurrentWritePosition(0)
-		, mLastAdMetaDataProcessed()  // Remove nullptr initialization
+		, mLastAdMetaDataProcessed()
 {
 }
 
