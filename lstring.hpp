@@ -248,6 +248,7 @@ public:
 			}
 			else
 			{
+				AAMPLOG_WARN("lstring::atof: unexpected character '%c' in string '%.*s'", c, (int)len, ptr);
 				assert(0);
 			}
 		}
