@@ -712,8 +712,8 @@ void MonitorAV( InterfacePlayerRDK *pInterfacePlayerRDK )
 				{ // avoid logging for initial NULL description
 					MW_LOG_MIL( "MonitorAV_%s: %" G_GINT64_FORMAT ",%" G_GINT64_FORMAT ",%d,%lld",
 							   monitorAVState->description,
-							   monitorAVState->av_position[eGST_MEDIATYPE_VIDEO],
-							   monitorAVState->av_position[eGST_MEDIATYPE_AUDIO],
+							   (gint64)monitorAVState->av_position[eGST_MEDIATYPE_VIDEO],
+							   (gint64)monitorAVState->av_position[eGST_MEDIATYPE_AUDIO],
 							   (int)(monitorAVState->av_position[eGST_MEDIATYPE_VIDEO] - monitorAVState->av_position[eGST_MEDIATYPE_AUDIO]),
 							   monitorAVState->tLastSampled - monitorAVState->tLastReported );
 				}
