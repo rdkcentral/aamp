@@ -321,30 +321,52 @@ void AampTsbReader::ReadNext(TsbFragmentDataPtr nextFragmentData)
 
 /**
  * @fn CheckPeriodBoundary
+ * @brief Checks if the current fragment represents a new period and if there's a PTS discontinuity.
  *
- * @param[in] currFragment - Current fragment
+ * This function is called when a new fragment is read. It compares the period ID of the
+ * current fragment with the last known period ID to detect a boundary. If a boundary is
+ * detected during normal playback, it also checks for a Presentation Timestamp (PTS)
+ * discontinuity between the previous and current fragments. A discontinuity in PTS
+ * can occur at period boundaries, and this function updates the reader's state,
+ * such as mFirstPTS, to handle the new timeline.
+ *
+ * @param[in] currFragment A shared pointer to the current fragment being processed.
  */
 void AampTsbReader::CheckPeriodBoundary(TsbFragmentDataPtr currFragment)
 {
 	mIsPeriodBoundary = false;
+	// Ensure all necessary fragment data is available before proceeding.
 	if (!currFragment || !currFragment->GetInitFragData() || !mLastInitFragmentData)
 	{
 		return;
 	}
 
+	// A period boundary is detected if the period ID of the current fragment's
+	// initialization data differs from the last processed one.
 	if (mLastInitFragmentData->GetPeriodId() != currFragment->GetInitFragData()->GetPeriodId())
 	{
 		mIsPeriodBoundary = true;
 	}
 
+	// Check for PTS discontinuity only when crossing a period boundary during normal playback.
+	// Trick-play modes (fast-forward, rewind) handle PTS differently and are excluded.
 	if (mIsPeriodBoundary && (AAMP_NORMAL_PLAY_RATE == mCurrentRate))
 	{
-		TsbFragmentDataPtr adjFragment = (mCurrentRate >= 0) ? currFragment->prev : currFragment->next;
+		// Get the fragment immediately preceding the current one to check for continuity.
+		TsbFragmentDataPtr adjFragment = currFragment->prev;
 		if (adjFragment)
 		{
-			AampTime nextPTSCal = (adjFragment->GetPTS()) + ((mCurrentRate >= 0) ? adjFragment->GetDuration() : -adjFragment->GetDuration());
+			// Calculate the expected PTS of the current fragment by adding the
+			// duration of the previous fragment to its PTS.
+			AampTime nextPTSCal = adjFragment->GetPTS() + adjFragment->GetDuration();
+
+			// If the calculated next PTS does not match the actual PTS of the current fragment,
+			// a discontinuity is detected.
 			if (nextPTSCal != currFragment->GetPTS())
 			{
+				// When a discontinuity is found, reset the reference PTS and its offset
+				// to the values from the new period's first fragment. This ensures
+				// subsequent fragments are processed relative to the new timeline.
 				mFirstPTS = currFragment->GetPTS();
 				mFirstPTSOffset = currFragment->GetPTSOffset();
 				AAMPLOG_INFO("Discontinuity detected at PTS position %lf pts offset %lf", mFirstPTS.inSeconds(), mFirstPTSOffset.inSeconds());
