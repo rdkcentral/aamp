@@ -273,7 +273,7 @@ public:
 	 * @fn createDrmSession
 	 * @return drmSession
 	 */
-	DrmSession* createDrmSession( int &err, DrmHelperPtr drmHelper,  DrmCallbacks* Instance, int streamType, void *metaDataPtr);
+	DrmSession* createDrmSession( int &err, DrmHelperPtr drmHelper,  DrmCallbacks* Instance, int streamType, void *metaDataPtr, bool mIsFakeTune=false);
 
 	/**
 	 *  @fn		IsKeyIdProcessed

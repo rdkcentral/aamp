@@ -484,7 +484,7 @@ bool AampLicensePreFetcher::CreateDRMSession(LicensePreFetchObjectPtr fetchObj)
 	mPrivAAMP->setCurrentDrm(fetchObj->mHelper);
 
 	mPrivAAMP->profiler.ProfileBegin(PROFILE_BUCKET_LA_TOTAL);
-	DrmSession *drmSession = licenseManger->createDrmSession( fetchObj->mHelper, mPrivAAMP, e, (int)fetchObj->mType);
+	DrmSession *drmSession = licenseManger->createDrmSession( fetchObj->mHelper, mPrivAAMP, e, (int)fetchObj->mType, mPrivAAMP->mIsFakeTune);
 
 
 	//set failures here 

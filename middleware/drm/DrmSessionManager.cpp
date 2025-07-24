@@ -412,9 +412,8 @@ DrmSession * DrmSessionManager::createDrmSession(
 /**
  *  @brief Create DrmSession by using the DrmHelper object
  */
-DrmSession* DrmSessionManager::createDrmSession(int &err, std::shared_ptr<DrmHelper> drmHelper,  DrmCallbacks* Instance, int streamType,void* metaDataPtr)
-{
-	if (!drmHelper || !Instance)
+DrmSession* DrmSessionManager::createDrmSession(int &err, std::shared_ptr<DrmHelper> drmHelper,  DrmCallbacks* Instance, int streamType,void* metaDataPtr, bool mIsFakeTune)
+{	if (!drmHelper || !Instance)
 	{
 		/* This should never happen, since the caller should have already
 		ensure the provided DRMInfo is supported using hasDRM */
@@ -476,7 +475,7 @@ DrmSession* DrmSessionManager::createDrmSession(int &err, std::shared_ptr<DrmHel
 		return nullptr;
 	}
 
-	if(m_drmConfigParam->mIsFakeTune)
+	if(m_drmConfigParam->mIsFakeTune || mIsFakeTune)
 	{
 		MW_LOG_MIL( "Exiting fake tune after DRM initialization.");
 		std::lock_guard<std::mutex> guard(cachedKeyMutex);
