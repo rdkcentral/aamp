@@ -3949,23 +3949,6 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 				CURL_EASY_SETOPT_LONG(curl, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_1);
 				context.remoteUrl = remoteUrl;
 			}
-			std::string content;
-	        if (mediaType == 2 && !mediaType2Executed)
-    {
-        curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
-        curl_easy_setopt(curl, CURLOPT_WRITEDATA, &content);
-        res = curl_easy_perform(curl);
-        curl_easy_cleanup(curl);
-        if (res == CURLE_OK) {
-            std::ofstream outFile("output.txt");
-            outFile << content;
-            outFile.close();
-            std::cout << "DUMMY-->Content written to output.txt\n";
-        } else {
-            std::cerr << "DUMMY-->Error: " << curl_easy_strerror(res) << "\n";
-        }
-		 mediaType2Executed = true;
-	}
 
 			context.aamp = this;
 			context.buffer = buffer;
