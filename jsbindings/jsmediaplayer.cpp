@@ -3873,7 +3873,7 @@ JSObjectRef AAMPMediaPlayer_JS_class_constructor(JSContextRef ctx, JSObjectRef c
 	// or individually as part of setAlternateContent call. NULL checks added in eventlistener to avoid undesired behaviour
 	AAMP_JSEventListener::AddEventListener(privObj, AAMP_EVENT_AD_RESOLVED, NULL);
 
-	// Required for viper-player
+	// Required for -player
 	JSStringRef fName = JSStringCreateWithUTF8CString("toString");
 	JSStringRef fString = JSStringCreateWithUTF8CString("return \"[object __AAMPMediaPlayer]\";");
 	JSObjectRef toStringFunc = JSObjectMakeFunction(ctx, NULL, 0, NULL, fString, NULL, 0, NULL);
@@ -4188,6 +4188,16 @@ void AAMPPlayer_LoadJS(void* context)
 
 	PersistentWatermark_LoadJS(context);
 	LoadXREReceiverStub(context);
+
+{
+	AAMPMediaPlayer_JS* privObj = new AAMPMediaPlayer_JS();
+
+	privObj->_aamp = new PlayerInstanceAAMP(NULL, NULL);
+	const char * mainManifestUrl = "http://127.0.0.1:50050/initialize_player.mpd?fakeTune=true";
+	bool autoPlay = false;
+	const char *contentType = "VOD";
+	privObj->_aamp->Tune(mainManifestUrl, autoPlay, contentType);
+}
 	LOG_TRACE("Exit");
 }
 
