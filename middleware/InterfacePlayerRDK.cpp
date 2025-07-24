@@ -344,11 +344,7 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int auxF
 			PipelineSetToReady = true;
 		}
 	}
-
-	bool configureStream[GST_TRACK_COUNT];
-	bool configurationChanged = false;
-	memset(configureStream, 0, sizeof(configureStream));
-
+	bool configureStream[GST_TRACK_COUNT] = {};
 	for (int i = 0; i < GST_TRACK_COUNT; i++)
 	{
 		gst_media_stream *stream = &interfacePlayerPriv->gstPrivateContext->stream[i];
@@ -360,7 +356,6 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int auxF
 				configureStream[i] = true;
 				interfacePlayerPriv->gstPrivateContext->NumberOfTracks++;
 			}
-			configurationChanged = true;
 		}
 		if(interfacePlayerPriv->socInterface->ShouldTearDownForTrickplay())
 		{
@@ -386,7 +381,7 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int auxF
 		stream->eosReached = false;
 		stream->firstBufferProcessed = false;
 	}
-
+#if 0
 	/* For Rialto, teardown and rebuild the gstreamer streams if the
 	 * configuration changes. This allows the "single-path-stream" property to
 	 * be set correctly.
@@ -409,7 +404,7 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int auxF
 			}
 		}
 	}
-
+#endif
 	for (int i = 0; i < GST_TRACK_COUNT; i++)
 	{
 		gst_media_stream *stream = &interfacePlayerPriv->gstPrivateContext->stream[i];
@@ -1650,6 +1645,19 @@ bool InterfacePlayerRDK::Flush(double position, int rate, bool shouldTearDown, b
 		MW_LOG_ERR("Seek failed");
 		SetPendingSeek(true);
 	}
+
+	if ((interfacePlayerPriv->gstPrivateContext->usingRialtoSink) &&
+		(interfacePlayerPriv->gstPrivateContext->audio_sink) &&
+		(rate != GST_NORMAL_PLAY_RATE))
+	{
+		/* 
+		 * If trickplay, avoid tearing down the pipeline in ConfigurePipeline(),
+		 * by bringing the audio pipeline out of pre-roll which would block streaming.
+		 */
+		MW_LOG_INFO("Trickplay rate %d - send eos to audio sink", rate);
+		GstPlayer_SignalEOS(interfacePlayerPriv->gstPrivateContext->stream[eGST_MEDIATYPE_AUDIO]);
+	}
+
 	if(bAsyncModify)
 	{
 		interfacePlayerPriv->socInterface->SetSinkAsync(interfacePlayerPriv->gstPrivateContext->audio_sink, (gboolean)TRUE);
