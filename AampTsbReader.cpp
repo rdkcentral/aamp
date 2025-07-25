@@ -313,8 +313,6 @@ void AampTsbReader::ReadNext(TsbFragmentDataPtr nextFragmentData)
 	else
 	{
 		// Handle null fragment case
-		mEosReached = true;
-		mCurrentFragment = nullptr;
 		AAMPLOG_INFO("[%s] Null fragment read, setting EOS.", GetMediaTypeName(mMediaType));
 	}
 }
@@ -431,7 +429,7 @@ void AampTsbReader::AbortCheckForWaitIfReaderDone()
  */
 bool AampTsbReader::IsFirstDownload()
 {
-	return (mNewInitWaiting || (mCurrentFragment && mStartPosition == mUpcomingFragmentPosition));
+	return (mStartPosition == mUpcomingFragmentPosition);
 }
 
 /**
