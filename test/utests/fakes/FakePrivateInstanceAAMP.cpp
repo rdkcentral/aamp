@@ -195,7 +195,7 @@ void PrivateInstanceAAMP::SetState(AAMPPlayerState state)
 	}
 }
 
-void PrivateInstanceAAMP::Stop()
+void PrivateInstanceAAMP::Stop( bool isDestructing )
 {
 }
 

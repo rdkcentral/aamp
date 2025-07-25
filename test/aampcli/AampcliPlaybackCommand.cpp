@@ -357,7 +357,6 @@ void PlaybackCommand::HandleCommandExit( void )
 {
 	for( auto player: mAampcli.mPlayerInstances )
 	{
-		player->Stop();
 		SAFE_DELETE( player );
 	}
 	termPlayerLoop();

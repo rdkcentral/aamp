@@ -1732,7 +1732,7 @@ public:
 	 *
 	 * @return void
 	 */
-	void Stop(void);
+	void Stop( bool isDestructing = false );
 
 	/**
 	 * @brief Checking whether TSB enabled or not
