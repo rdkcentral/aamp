@@ -12997,6 +12997,9 @@ long PrivateInstanceAAMP::LoadFogConfig()
 	//info
 	jsondata.add("info", ISCONFIGSET_PRIV(eAAMPConfig_InfoLogging));
 
+	//warn
+	jsondata.add("warn",ISCONFIGSET_PRIV(eAAMPConfig_WarnLogging));
+
 	//tsbInterruptHandling
 	jsondata.add("tsbInterruptHandling", ISCONFIGSET_PRIV(eAAMPConfig_InterruptHandling));
 
