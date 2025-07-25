@@ -182,10 +182,8 @@ PlayerInstanceAAMP::~PlayerInstanceAAMP()
 		mScheduler.RemoveAllTasks();
 		if (state != eSTATE_IDLE && state != eSTATE_RELEASED)
 		{
-			//Avoid stop call since already stopped
-			aamp->Stop();
+			aamp->Stop( true );
 		}
-
 		std::lock_guard<std::mutex> lock (mPrvAampMtx);
 		aamp = NULL;
 	}
