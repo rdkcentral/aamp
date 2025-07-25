@@ -938,7 +938,7 @@ bool StreamAbstractionAAMP_MPD::FetchFragment(MediaStreamContext *pMediaStreamCo
 						cachedFragment = pMediaStreamContext->GetFetchBuffer(true);
 					}
 				}
-				if(cachedFragment)
+				if(cachedFragment && !(aamp->GetTSBSessionManager() && pMediaStreamContext->IsLocalTSBInjection()))
 				{
 					// The pointer is loaded to bypass null check in InjectFragment thread
 					cachedFragment->fragment.AppendBytes("0x0a", 2);
