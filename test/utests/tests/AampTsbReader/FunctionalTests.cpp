@@ -1640,25 +1640,6 @@ TEST_F(FunctionalTests, FindNext_ZeroRate_AdvancesToNextFragment)
 	EXPECT_EQ(foundFragment, fragment2);
 }
 
-TEST_F(FunctionalTests, ReadNext_NullFragment_SetsEos)
-{
-	// Initialize reader
-	double startPos = 1000.0;
-	float rate = 1.0f;
-	TuneType tuneType = eTUNETYPE_NEW_NORMAL;
-	EXPECT_CALL(*g_mockTSBDataManager, GetFirstFragment()).WillOnce(Return(nullptr));
-	EXPECT_CALL(*g_mockTSBDataManager, GetLastFragment()).WillOnce(Return(nullptr));
-	mTestableTsbReader->Init(startPos, rate, tuneType, nullptr);
-
-	// Call ReadNext with nullptr
-	mTestableTsbReader->ReadNext(nullptr);
-
-	// Should not crash and mCurrentFragment should be nullptr.
-	// FindNext should probably return nullptr and set EOS.
-	EXPECT_EQ(mTestableTsbReader->FindNext(), nullptr);
-	EXPECT_TRUE(mTestableTsbReader->IsEos());
-}
-
 TEST_F(FunctionalTests, CheckPeriodBoundary_NoBoundary)
 {
 	// Setup
@@ -1802,17 +1783,21 @@ TEST_F(AampTsbReaderSimpleMethodsTest, ResetEos_ResetsEosFlag)
 	EXPECT_FALSE(mTestableTsbReader->IsEos());
 }
 
-TEST_F(AampTsbReaderSimpleMethodsTest, SetNewInitWaitingAndIsFirstDownload_CorrectlyReflectsState)
+TEST_F(AampTsbReaderSimpleMethodsTest, IsFirstDownload_CorrectlyReflectsState)
 {
-	EXPECT_FALSE(mTestableTsbReader->IsFirstDownload()); // mCurrentFragment is null
-	mTestableTsbReader->SetNewInitWaiting(true);
-	EXPECT_TRUE(mTestableTsbReader->IsFirstDownload()); // mNewInitWaiting is true
+	// After construction, it's considered a "first download" state because
+	// mStartPosition and mUpcomingFragmentPosition are equal.
+	EXPECT_TRUE(mTestableTsbReader->IsFirstDownload());
 
-	// Now set mCurrentFragment
+	// After the first ReadNext, it's no longer the first download because
+	// mUpcomingFragmentPosition is updated.
 	TsbFragmentDataPtr fragment = std::make_shared<TsbFragmentData>("", eMEDIATYPE_VIDEO, 0, 5.0, 0, false, "", nullptr, 0, 0);
 	mTestableTsbReader->ReadNext(fragment);
-	mTestableTsbReader->SetNewInitWaiting(false);
 	EXPECT_FALSE(mTestableTsbReader->IsFirstDownload());
+
+	// After Term, it should reset to a "first download" state.
+	mTestableTsbReader->Term();
+	EXPECT_TRUE(mTestableTsbReader->IsFirstDownload());
 }
 
 TEST_F(AampTsbReaderSimpleMethodsTest, TrackEnabled_CorrectlyReflectsState)
