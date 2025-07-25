@@ -2816,8 +2816,7 @@ void PrivateInstanceAAMP::SendErrorEvent(AAMPTuneFailure tuneFailure, const char
 	{
 		int code;
 		const char *errorDescription = NULL;
-		if(!mIsFakeTune)
-			DisableDownloads();
+		DisableDownloads();
 		if(tuneFailure >= 0 && tuneFailure < AAMP_TUNE_FAILURE_UNKNOWN)
 		{
 			if (tuneFailure == AAMP_TUNE_PLAYBACK_STALLED)
@@ -5384,7 +5383,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 		}
 	}
 
-	if (retVal != eAAMPSTATUS_OK && !mIsFakeTune)
+	if (retVal != eAAMPSTATUS_OK)
 	{
 		// Check if the seek position is beyond the duration
 		if(retVal == eAAMPSTATUS_SEEK_RANGE_ERROR)
@@ -5608,7 +5607,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 					CacheAndApplySubtitleMute(video_muted);
 				}
 				sink->SetAudioVolume(volume);
-				if (mbPlayEnabled || mIsFakeTune)
+				if (mbPlayEnabled)
 				{
 					sink->Configure(mVideoFormat, mAudioFormat, mAuxFormat, mSubtitleFormat, mpStreamAbstractionAAMP->GetESChangeStatus(), mpStreamAbstractionAAMP->GetAudioFwdToAuxStatus());
 				}
@@ -5627,7 +5626,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 		mpStreamAbstractionAAMP->Start();
 		if (!mbUsingExternalPlayer)
 		{
-			if (mbPlayEnabled  || mIsFakeTune)
+			if (mbPlayEnabled)
 			{
 				StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
 				if (sink)
