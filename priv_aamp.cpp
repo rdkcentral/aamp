@@ -8036,12 +8036,21 @@ void PrivateInstanceAAMP::ScheduleRetune(PlaybackErrorType errorType, AampMediaT
 		)
 		{
 			SendBufferChangeEvent(true);  // Buffer state changed, buffer Under flow started
-			if (!pipeline_paused &&  !PausePipeline(true, true))
+			if (!pipeline_paused)
 			{
-					AAMPLOG_ERR("Failed to pause the Pipeline");
+				if(!PausePipeline(true, true))
+				{
+						AAMPLOG_ERR("Failed to pause the Pipeline");
+				}
+				else
+				{
+					if (mpStreamAbstractionAAMP)
+					{
+						mpStreamAbstractionAAMP->NotifyPlaybackPaused(true);
+					}
+				}
 			}
 		}
-
 
 		SendAnomalyEvent(ANOMALY_WARNING, "%s %s", GetMediaTypeName(trackType), getStringForPlaybackError(errorType));
 		bool activeAAMPFound = false;

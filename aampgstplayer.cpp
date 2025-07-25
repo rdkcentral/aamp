@@ -1175,7 +1175,11 @@ void AAMPGstPlayer::StopBuffering(bool forceStop)
 		bool sendEndEvent = playerInstance->StopBuffering(forceStop, isPlaying);
 		if(!sendEndEvent && isPlaying)
 		{
-			sendEndEvent = aamp->PausePipeline(false, false);
+			if (aamp->PausePipeline(false, false))
+			{
+				aamp->NotifyPlaybackPaused(false); 		/* Notify that playback has resumed (unpaused) */
+				sendEndEvent = true;
+			}
 			aamp->UpdateSubtitleTimestamp();
 		}
 
