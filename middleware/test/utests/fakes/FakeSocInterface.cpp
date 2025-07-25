@@ -23,7 +23,9 @@
 #include "middleware/vendor/amlogic/AmlogicSocInterface.h"
 #include "middleware/vendor/brcm/BrcmSocInterface.h"
 #include "middleware/vendor/realtek/RealtekSocInterface.h"
+#include "MockDefaultSocInterface.h"
 
+MockDefaultSocInterface *g_mockDefaultSocInterface = nullptr;
 
 DefaultSocInterface::DefaultSocInterface()
 {
@@ -31,8 +33,8 @@ DefaultSocInterface::DefaultSocInterface()
 
 std::shared_ptr<SocInterface> SocInterface::CreateSocInterface()
 {
-        std::shared_ptr<SocInterface> obj = std::make_shared<DefaultSocInterface>();
-        return obj;
+		std::shared_ptr<SocInterface> obj = std::make_shared<DefaultSocInterface>();
+		return obj;
 }
 
 bool DefaultSocInterface::UseAppSrc()
@@ -67,8 +69,8 @@ void DefaultSocInterface::SetAC4Tracks(GstElement *src, int trackId)
 bool DefaultSocInterface::IsVideoSink(const char* name, bool isRialto)
 {
 	return  (!mUsingWesterosSink && StartsWith(name, "brcmvideosink") == true) || // brcmvideosink0, brcmvideosink1, ...
-        ( mUsingWesterosSink && StartsWith(name, "westerossink") == true) ||
-        (isRialto && StartsWith(name, "rialtomsevideosink") == true);
+			( mUsingWesterosSink && StartsWith(name, "westerossink") == true) ||
+			(isRialto && StartsWith(name, "rialtomsevideosink") == true);
 
 }
 
@@ -182,9 +184,9 @@ void DefaultSocInterface::SetH264Caps(GstCaps *caps)
 #ifdef UBUNTU
 	// below required on Ubuntu - harmless on OSX, but breaks RPI
 	gst_caps_set_simple (caps,
-			"alignment", G_TYPE_STRING, "au",
-			"stream-format", G_TYPE_STRING, "avc",
-			NULL);
+						 "alignment", G_TYPE_STRING, "au",
+						 "stream-format", G_TYPE_STRING, "avc",
+						 NULL);
 #endif
 }
 
@@ -193,15 +195,15 @@ void DefaultSocInterface::SetHevcCaps(GstCaps *caps)
 #ifdef UBUNTU
 	// below required on Ubuntu - harmless on OSX, but breaks RPI
 gst_caps_set_simple(caps,
-                                        "alignment", G_TYPE_STRING, "au",
-                                        "stream-format", G_TYPE_STRING, "hev1",
-                                        NULL);
+					"alignment", G_TYPE_STRING, "au",
+					"stream-format", G_TYPE_STRING, "hev1",
+					NULL);
 #endif
 }
 
 void SocInterface::SetDecodeError(GstObject* src)
 {
-        g_object_set(src, "report_decode_errors", TRUE, NULL);
+	g_object_set(src, "report_decode_errors", TRUE, NULL);
 }
 
 void SocInterface::SetWesterosSinkState(bool status)
@@ -211,44 +213,65 @@ void SocInterface::SetWesterosSinkState(bool status)
 
 long long SocInterface::GetVideoPts(GstElement *video_sink, GstElement *video_dec, bool isWesteros)
 {
-        gint64 currentPTS = 0;
-        GstElement *element;
+	gint64 currentPTS = 0;
+	GstElement *element;
 
-        element = video_dec;
-        if(element)
-        {
-                g_object_get(element, "video-pts", &currentPTS, NULL);/* Gets the 'video-pts' from the element into the currentPTS */
-                if(!isWesteros)
-                {
-                        currentPTS = currentPTS * 2;
-                }
-        }
-        return (long long)currentPTS;
+	element = video_dec;
+	if (element)
+	{
+		g_object_get(element, "video-pts", &currentPTS, NULL); /* Gets the 'video-pts' from the element into the currentPTS */
+		if (!isWesteros)
+		{
+			currentPTS = currentPTS * 2;
+		}
+	}
+	return (long long)currentPTS;
 }
 
-bool SocInterface::StartsWith( const char *inputStr, const char *prefix )
+bool SocInterface::StartsWith(const char *inputStr, const char *prefix)
 {
-        bool rc = true;
-        while( *prefix )
-        {
-                if( *inputStr++ != *prefix++ )
-                {
-                        rc = false;
-                        break;
-                }
-        }
-        return rc;
+	bool rc = true;
+	while (*prefix)
+	{
+		if (*inputStr++ != *prefix++)
+		{
+			rc = false;
+			break;
+		}
+	}
+	return rc;
 }
 
 bool DefaultSocInterface::ConfigureAudioSink(GstElement **audio_sink, GstObject *src, bool decStreamSync)
 {
-        bool status = false;
-        if (StartsWith(GST_OBJECT_NAME(src), "amlhalasink") == true)
-        {
-                gst_object_replace((GstObject **)audio_sink, src);
-                g_object_set(audio_sink, "disable-xrun", TRUE, NULL);
-                status = true;
-        }
-        return status;
+	bool status = false;
+	if (StartsWith(GST_OBJECT_NAME(src), "amlhalasink") == true)
+	{
+		gst_object_replace((GstObject **)audio_sink, src);
+		g_object_set(audio_sink, "disable-xrun", TRUE, NULL);
+		status = true;
+	}
+	return status;
+}
+
+bool DefaultSocInterface::IsPlatformSegmentReady(GstElement *videoSink, bool isRialto)
+{
+	bool result = false; // Default return value
+
+	if (g_mockDefaultSocInterface != nullptr)
+	{
+		result = g_mockDefaultSocInterface->IsPlatformSegmentReady(videoSink, isRialto);
+	}
+	return result;
+}
+
+bool DefaultSocInterface::IsVideoMaster(GstElement *videoSink, bool isRialto)
+{
+	bool result = true; // Default return value matching base class
+	if (g_mockDefaultSocInterface != nullptr)
+	{
+		result = g_mockDefaultSocInterface->IsVideoMaster(videoSink, isRialto);
+	}
+	return result;
 }
 
