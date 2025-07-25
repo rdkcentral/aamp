@@ -34,7 +34,7 @@ include_directories(${UTESTS_ROOT}/mocks)
 
 set(TEST_SOURCES
 	DefaultSocInterfaceTests.cpp
-	../tests.cpp)
+	DefaultSocInterfaceMainTests.cpp)
 
 set(AAMP_SOURCES
 	${AAMP_ROOT}/middleware/vendor/default/DefaultSocInterface.cpp)
