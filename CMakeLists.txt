@@ -356,24 +356,6 @@ if (CMAKE_TELEMETRY_2_0_REQUIRED)
 	endif()
 endif()
 
-set(AAMP_SUBTEC_CLASS_SOURCES subtec/subtecparser/WebvttSubtecDevParser.cpp)
-set_target_properties(subtec PROPERTIES PUBLIC_HEADER "${AAMP_SUBTEC_PUBLIC_HEADERS}")
-set(AAMP_SUBTEC_COMPILE_FLAGS "${CMAKE_CXX_FLAGS} -DSUBTEC_PACKET_DEBUG=1")
-if(CMAKE_PLATFORM_UBUNTU)
-	set(AAMP_SUBTEC_COMPILE_FLAGS "${AAMP_SUBTEC_COMPILE_FLAGS} -DUBUNTU=1")
-endif()
-set_target_properties(subtec PROPERTIES COMPILE_FLAGS "${AAMP_SUBTEC_COMPILE_FLAGS}")
-install (TARGETS subtec
-		DESTINATION lib
-		PUBLIC_HEADER DESTINATION include
-)
-
-if (CMAKE_GST_SUBTEC_ENABLED)
-	set(CMAKE_SUBTITLE_SUPPORT TRUE)
-	message("CMAKE_GST_SUBTEC_ENABLED set")
-	set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DGST_SUBTEC_ENABLED")
-endif()
-
 if (COVERAGE_ENABLED)
 	set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} --coverage")
 	set(LIBAAMP_DEPENDS ${LIBAAMP_DEPENDS} "--coverage")
@@ -459,7 +441,7 @@ if (CMAKE_PLATFORM_UBUNTU OR CMAKE_SYSTEM_NAME STREQUAL Darwin )
 	install (TARGETS aampKotlin
 			DESTINATION lib
 	)
-	target_link_libraries(aampKotlin aamp subtec tsb ${AAMP_CLI_LD_FLAGS} "-lreadline")
+	target_link_libraries(aampKotlin aamp tsb ${AAMP_CLI_LD_FLAGS} "-lreadline")
 	set_target_properties(aampKotlin PROPERTIES COMPILE_FLAGS "${LIBAAMP_DEFINES} ${OS_CXX_FLAGS}")
 	xcode_define_schema(aampKotlin)
 endif()
