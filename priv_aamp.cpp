@@ -3411,7 +3411,15 @@ void PrivateInstanceAAMP::TuneFail(bool fail)
 	bool eventAvailStatus = IsEventListenerAvailable(AAMP_EVENT_TUNE_TIME_METRICS);
 	std::string tuneData("");
 	activeInterfaceWifi =  pPlayerExternalsInterface->GetActiveInterface();
-	profiler.TuneEnd(mTuneMetrics, mAppName,(mbPlayEnabled?STRFGPLAYER:STRBGPLAYER), mPlayerId, mPlayerPreBuffered, durationSeconds, activeInterfaceWifi, mFailureReason, eventAvailStatus ? &tuneData : NULL);
+	if (mManifestUrl.length() >= strlen("catr_54109.mpd") &&
+			mManifestUrl.compare(mManifestUrl.length() - strlen("catr_54109.mpd"), strlen("catr_54109.mpd"), "catr_54109.mpd") == 0)
+	{
+		AAMPLOG_WARN("mManifestUrl ends with catr_54109.mpd: %s\n", mManifestUrl.c_str());
+	}
+	else
+	{
+		profiler.TuneEnd(mTuneMetrics, mAppName,(mbPlayEnabled?STRFGPLAYER:STRBGPLAYER), mPlayerId, mPlayerPreBuffered, durationSeconds, activeInterfaceWifi, mFailureReason, eventAvailStatus ? &tuneData : NULL);
+	}
 	if(eventAvailStatus)
 	{
 		SendTuneMetricsEvent(tuneData);
@@ -3439,8 +3447,17 @@ void PrivateInstanceAAMP::LogTuneComplete(void)
 	bool eventAvailStatus = IsEventListenerAvailable(AAMP_EVENT_TUNE_TIME_METRICS);
 	std::string tuneData("");
 	activeInterfaceWifi =  pPlayerExternalsInterface->GetActiveInterface();
+	if (mManifestUrl.length() >= strlen("catr_54109.mpd") &&
+    mManifestUrl.compare(mManifestUrl.length() - strlen("catr_54109.mpd"), strlen("catr_54109.mpd"), "catr_54109.mpd") == 0)
+{
+    AAMPLOG_WARN("mManifestUrl ends with catr_54109.mpd: %s\n", mManifestUrl.c_str());
+}
+else
+{
+
 	profiler.TuneEnd(mTuneMetrics,mAppName,(mbPlayEnabled?STRFGPLAYER:STRBGPLAYER), mPlayerId, mPlayerPreBuffered, durationSeconds, activeInterfaceWifi, mFailureReason, eventAvailStatus ? &tuneData : NULL);
-	if(eventAvailStatus)
+}
+if(eventAvailStatus)
 	{
 		SendTuneMetricsEvent(tuneData);
 	}
