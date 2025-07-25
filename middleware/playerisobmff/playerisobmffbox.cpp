@@ -27,10 +27,10 @@
 #include <inttypes.h>
 
 #define READ_BMDT64(buf) \
-		ReadUint64(buf); buf+=8;
+		ReadUint64FromBuffer(buf); buf+=8;
 
 #define READ_64(buf) \
-		ReadUint64(buf); buf+=8;
+		ReadUint64FromBuffer(buf); buf+=8;
 
 #define IS_TYPE(value, type) \
 		(value[0]==type[0] && value[1]==type[1] && value[2]==type[2] && value[3]==type[3])
