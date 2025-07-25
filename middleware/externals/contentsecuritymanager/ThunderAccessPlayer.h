@@ -45,7 +45,7 @@ using namespace WPEFramework;
 
 #define THUNDER_RPC_TIMEOUT 5000
 
-#define ARRAY_SIZE(A) (sizeof(A)/sizeof(A[0]))
+#define MW_ARRAY_SIZE(A) (sizeof(A)/sizeof(A[0]))
 
 //Delete non-array object
 #define SAFE_DELETE(ptr) { delete(ptr); ptr = NULL; }

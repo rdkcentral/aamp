@@ -62,7 +62,6 @@ typedef enum
 	eGST_MEDIAFORMAT_RMF,                              /**< RMF media */
 	eGST_MEDIAFORMAT_UNKNOWN                           /**< Unknown media format */
 } GstMediaFormat;
-
 typedef enum
 {
 	eGST_PLAY_FLAG_VIDEO = (1 << 0),                         /**< value is 0x001 */
