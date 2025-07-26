@@ -45,6 +45,9 @@ extern "C"
 	JS_EXPORT JSGlobalContextRef JSContextGetGlobalContext(JSContextRef);
 	void aamp_ApplyPageHttpHeaders(PlayerInstanceAAMP *);
 }
+
+PlayerInstanceAAMP* gAampPlayerGlobal = nullptr;
+
 const char* g_initialize_player_mpd =
 "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
 "<MPD xmlns=\"urn:mpeg:dash:schema:mpd:2011\" xmlns:scte35=\"urn:scte:scte35:2014:xml+bin\" xmlns:scte214=\"scte214\" xmlns:cenc=\"urn:mpeg:cenc:2013\" xmlns:mspr=\"mspr\" type=\"static\" minBufferTime=\"PT2.000S\" maxSegmentDuration=\"PT0H0M2.016S\" minimumUpdatePeriod=\"PT0H0M2.002S\" timeShiftBufferDepth=\"PT0H0M30.000S\" publishTime=\"1970-01-01T12:00:00.000Z\" mediaPresentationDuration=\"PT2.00S\">\n"
@@ -3862,6 +3865,14 @@ JSObjectRef AAMPMediaPlayer_JS_class_constructor(JSContextRef ctx, JSObjectRef c
 		}
 	}
 
+	if (gAampPlayerGlobal) {
+    gAampPlayerGlobal->Stop();
+	LOG_WARN_EX(" fake :: after  _aamp->stop  ");
+    delete gAampPlayerGlobal;
+	LOG_WARN_EX(" fake :: after  delete gAampPlayerGlobal ");
+    gAampPlayerGlobal = nullptr;
+}
+
 	AAMPMediaPlayer_JS* privObj = new AAMPMediaPlayer_JS();
 
 	privObj->_ctx = JSContextGetGlobalContext(ctx);
@@ -4213,24 +4224,23 @@ void AAMPPlayer_LoadJS(void* context)
 	PersistentWatermark_LoadJS(context);
 	LoadXREReceiverStub(context);
 {
-	AAMPMediaPlayer_JS* privObj = new AAMPMediaPlayer_JS();
-
-	privObj->_aamp = new PlayerInstanceAAMP(NULL, NULL);
-	const char * mainManifestUrl = "catr_54109.mpd";
-	bool autoPlay = false;
-	const char *contentType = "VOD";
-	privObj->_aamp->Tune(
-    mainManifestUrl,                // mainManifestUrl
-    true,                   // autoPlay
-    "VOD", // contentType
-    true,                   // bFirstAttempt
-    false,                  // bFinalAttempt
-    "trace-id-123",         // traceUUID
-    false,                  // audioDecoderStreamSync
-    nullptr,                // refreshManifestUrl
-    0,                      // mpdStichingMode
-    "session-id",           // sid
-    g_initialize_player_mpd); // manifestData
+		gAampPlayerGlobal = new PlayerInstanceAAMP(NULL, NULL);
+		const char * mainManifestUrl = "catr_54109.mpd";
+		bool autoPlay = false;
+		const char *contentType = "VOD";
+		gAampPlayerGlobal->Tune(
+			mainManifestUrl,         // mainManifestUrl
+			true,                    // autoPlay
+			"VOD",                   // contentType
+			true,                    // bFirstAttempt
+			false,                   // bFinalAttempt
+			"trace-id-123",          // traceUUID
+			false,                   // audioDecoderStreamSync
+			nullptr,                 // refreshManifestUrl
+			0,                       // mpdStichingMode
+			"session-id",            // sid
+			g_initialize_player_mpd  // manifestData
+		);
 
 }
 LOG_TRACE("Exit");
