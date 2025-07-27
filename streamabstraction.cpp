@@ -1696,6 +1696,7 @@ void MediaTrack::RunInjectLoop()
 		totalInjectedDuration = 0;
 		totalInjectedChunksDuration = 0;
 		lastInjectedPosition = 0;
+		lastInjectedDuration = 0;
 	}
 	while (aamp->DownloadsAreEnabled() && keepInjecting)
 	{
