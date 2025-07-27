@@ -23,6 +23,7 @@
  */
 #include "AampcliShader.h"
 #include "AampUtils.h"
+#include "AampcliPrintf.h"
 
 std::string aamp_GetLocalPath( const char *filename )
 { // TODO: move to AampUtils
@@ -120,7 +121,7 @@ void createAppWindow( int argc, char **argv )
 	glutInitWindowPosition(80, 80);
 	glutInitWindowSize(640, 480);
 	glutCreateWindow("AAMP");
-	printf("[AAMPCLI] OpenGL Version[%s] GLSL Version[%s]\n", glGetString(GL_VERSION), glGetString(GL_SHADING_LANGUAGE_VERSION));
+	AAMPCLI_PRINTF("[AAMPCLI] OpenGL Version[%s] GLSL Version[%s]\n", glGetString(GL_VERSION), glGetString(GL_SHADING_LANGUAGE_VERSION));
 #ifndef __APPLE__
 	glewInit();
 #endif
@@ -193,7 +194,7 @@ GLuint Shader::LoadShader( GLenum shader, const char *code )
 		{
 			GLchar msg[1024];
 			glGetShaderInfoLog(shaderHandle, sizeof(msg), 0, &msg[0]);
-			printf("[AAMPCLI] %s\n", msg );
+			AAMPCLI_PRINTF("[AAMPCLI] %s\n", msg );
 		}
 	}
 	return shaderHandle;
@@ -215,7 +216,7 @@ void Shader::InitShaders()
 			FILE *f = fopen( path.c_str(), "rb" );
 			if( !f )
 			{ // no more frames
-				printf( "DONE! processed %d frames\n", frameNumber-1 );
+				AAMPCLI_PRINTF( "DONE! processed %d frames\n", frameNumber-1 );
 				exit(0);
 			}
 			else
@@ -288,7 +289,7 @@ void Shader::InitShaders()
 		glGetProgramiv(mProgramID, GL_INFO_LOG_LENGTH, &logLen);
 		GLchar *msg = (GLchar *)malloc(sizeof(GLchar)*logLen);
 		glGetProgramInfoLog(mProgramID, logLen, &logLen, msg );
-		printf( "%s\n", msg );
+		AAMPCLI_PRINTF( "%s\n", msg );
 		free( msg );
 	}
 	glUseProgram(mProgramID);
