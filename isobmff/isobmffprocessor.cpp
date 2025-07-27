@@ -352,15 +352,18 @@ bool IsoBmffProcessor::setTuneTimePTS(AampGrowableBuffer *fragBuffer, double pos
 				if (ret)
 				{
 					double pos = ((double)basePTS / (double)timeScale);
+					AAMPLOG_INFO("[pto] IsoBmffProcessor %s Base PTS (%" PRIu64 ") pos (%f) TS (%u)", IsoBmffProcessorTypeName[type], basePTS, pos, timeScale);
 					// For post processing, release mutex
 					// If AAMP override hack is enabled for this platform, then we need to pass the basePTS value to
 					// PrivateInstanceAAMP since PTS will be restamped in qtdemux. This ensures proper pts value is sent in progress event.
 					lock.unlock();
+					AAMPLOG_INFO("[pto] IsoBmffProcessor %s NotifyFirstVideoPTS basePTS=%" PRIu64 " timeScale=%u", IsoBmffProcessorTypeName[type], basePTS, timeScale);
 					p_aamp->NotifyFirstVideoPTS(basePTS, timeScale);
 					if (type == eBMFFPROCESSOR_TYPE_VIDEO)
 					{
 						// Send flushing seek to gstreamer pipeline.
 						// For new tune, this will not work, so send pts as fragment position
+						AAMPLOG_INFO("[pto] IsoBmffProcessor %s FlushStreamSink pos=%f playRate=%f", IsoBmffProcessorTypeName[type], pos, playRate);
 						p_aamp->FlushStreamSink(pos, playRate);
 					}
 

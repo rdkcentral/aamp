@@ -892,6 +892,7 @@ void AAMPGstPlayer::FlushTrack(AampMediaType type,double pos)
 	int mediaType = static_cast<int>(type);
 	double audioDelta = aamp->mAudioDelta;
 	double subDelta = aamp->mSubtitleDelta;
+	AAMPLOG_INFO("[pto] FlushTrack: mediaType %d pos %f audioDelta %f subDelta %f", mediaType, pos, audioDelta, subDelta);
 	double rate = playerInstance->FlushTrack(mediaType, pos, audioDelta, subDelta);
 
 	if(aamp->mCorrectionRate != rate)

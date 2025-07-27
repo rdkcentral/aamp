@@ -9683,6 +9683,7 @@ void  PrivateInstanceAAMP::FlushTrack(AampMediaType type,double pos)
 	StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
 	if (sink)
 	{
+		AAMPLOG_INFO("[pto] PrivateInstanceAAMP::FlushTrack type:%s pos:%lf", GetMediaTypeName(type), pos);
 		sink->FlushTrack(type, pos);
 	}
 }
