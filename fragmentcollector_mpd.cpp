@@ -6543,6 +6543,11 @@ void StreamAbstractionAAMP_MPD::SelectSubtitleTrack(bool newTune, std::vector<Te
 		{
 			AAMPLOG_WARN("Subtitle track enabled, but fragmentInjection loop not yet started! Starting now..");
 			aamp->ResumeTrackInjection(eMEDIATYPE_SUBTITLE);
+			// TODO: This could be moved to StartInjectLoop, but due to lack of testing will keep it here for now
+			if(pMediaStreamContext->playContext)
+			{
+				pMediaStreamContext->playContext->reset();
+			}
 			pMediaStreamContext->StartInjectLoop();
 		}
 	}
@@ -11479,10 +11484,10 @@ void StreamAbstractionAAMP_MPD::StopInjection(void)
 {
 	//invoked at times of discontinuity. Audio injection loop might have already exited here
 	ReassessAndResumeAudioTrack(true);
-	for (int iTrack = 0; iTrack < mNumberOfTracks; iTrack++)
+	for (int iTrack = 0; iTrack < mMaxTracks; iTrack++)
 	{
 		MediaStreamContext *track = mMediaStreamContext[iTrack];
-		if(track && track->Enabled())
+		if(track)
 		{
 			if(track->playContext)
 			{
