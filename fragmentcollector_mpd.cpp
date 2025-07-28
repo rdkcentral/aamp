@@ -3516,6 +3516,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 	bool forceSpeedsChangedEvent = false;
 	AAMPStatusType retval = eAAMPSTATUS_OK;
 	aamp->CurlInit(eCURLINSTANCE_VIDEO, DEFAULT_CURL_INSTANCE_COUNT, aamp->GetNetworkProxy());
+        AAMPLOG_WARN("VPLAY-10152 - Calling mCdaiObject->ResetState(), with mCdaiObject=%p", mCdaiObject);
 	mCdaiObject->ResetState();
 	aamp->SetLLDashChunkMode(false); //Reset ChunkMode
 	StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(aamp);
@@ -5066,6 +5067,7 @@ void StreamAbstractionAAMP_MPD::FindTimedMetadata(MPD* mpd, Node* root, bool ini
 				continue;
 			}
 		}
+                AAMPLOG_WARN("VPLAY-10152 - Calling mCdaiObject->PrunePeriodMaps, with mCdaiObject=%p", mCdaiObject);
 		mCdaiObject->PrunePeriodMaps(newPeriods);
 	}
 	else
@@ -12110,48 +12112,58 @@ bool StreamAbstractionAAMP_MPD::onAdEvent(AdEvent evt, double &adOffset)
 		mAdPlayingFromCDN = false;
 		bool fogManifestFailed = false;
 		if(AdState::IN_ADBREAK_AD_PLAYING == mCdaiObject->mAdState)
-		{
-			AdNode &adNode = mCdaiObject->mCurAds->at(mCdaiObject->mCurAdIdx);
-			if(NULL == adNode.mpd)
+		{                        
+                        try
 			{
-				//Need to ensure that mpd is available, if not available, download it (mostly from FOG)
-				bool finalManifest = false;
-				int http_error = 0;
-				double downloadTime = 0;
-				adNode.mpd = mCdaiObject->GetAdMPD(adNode.url, finalManifest, http_error, downloadTime, false);
-				if(CURLE_ABORTED_BY_CALLBACK == http_error)
-				{
-					AAMPLOG_WARN("[CDAI]: Ad playback failed. Not able to download Ad manifest. Aborted by callback.");
-				}
-				if(NULL == adNode.mpd)
-				{
-					AAMPLOG_WARN("[CDAI]: Ad playback failed. Not able to download Ad manifest from FOG.");
-					mCdaiObject->mAdState = AdState::IN_ADBREAK_AD_NOT_PLAYING;
-					fogManifestFailed = true;
-					if(AdState::IN_ADBREAK_AD_NOT_PLAYING == oldState)
-					{
-						stateChanged = false;
-					}
-				}
+                                int curAdIdx1=mCdaiObject->mCurAdIdx;
+                                AdNode &adNode = mCdaiObject->mCurAds->at(mCdaiObject->mCurAdIdx);
+                                if(NULL == adNode.mpd)
+                                {
+                                        //Need to ensure that mpd is available, if not available, download it (mostly from FOG)
+                                        bool finalManifest = false;
+                                        int http_error = 0;
+                                        double downloadTime = 0;
+                                        AAMPLOG_WARN("VPLAY-10152 - Calling GetAdMPD() with mCdaiObject=%p adNode=%p", mCdaiObject, &adNode);
+                                        adNode.mpd = mCdaiObject->GetAdMPD(adNode.url, finalManifest, http_error, downloadTime, curAdIdx1, false);
+                                        if(CURLE_ABORTED_BY_CALLBACK == http_error)
+                                        {
+                                                AAMPLOG_WARN("[CDAI]: Ad playback failed. Not able to download Ad manifest. Aborted by callback.");
+                                        }
+                                        if(NULL == adNode.mpd)
+                                        {
+                                                AAMPLOG_WARN("[CDAI]: Ad playback failed. Not able to download Ad manifest from FOG.");
+                                                mCdaiObject->mAdState = AdState::IN_ADBREAK_AD_NOT_PLAYING;
+                                                fogManifestFailed = true;
+                                                if(AdState::IN_ADBREAK_AD_NOT_PLAYING == oldState)
+                                                {
+                                                        stateChanged = false;
+                                                }
+                                        }
+                                }
+                                if(adNode.mpd)
+                                {
+                                        mCurrentPeriod = adNode.mpd->GetPeriods().at(0);
+                                        /* TODO: Fix redundancy from UpdateTrackInfo */
+                                        for (int i = 0; i < mNumberOfTracks; i++)
+                                        {
+                                                mMediaStreamContext[i]->fragmentDescriptor.manifestUrl = adNode.url.c_str();
+                                        }
+
+                                        placementEvt2Send = AAMP_EVENT_AD_PLACEMENT_START;
+                                        adId2Send = adNode.adId;
+
+                                        map<string, string> mpdAttributes = adNode.mpd->GetRawAttributes();
+                                        if(mpdAttributes.find("fogtsb") == mpdAttributes.end())
+                                        {
+                                                //No attribute 'fogtsb' in MPD. Hence, current ad is from CDN
+                                                mAdPlayingFromCDN = true;
+                                        }
+                                }
 			}
-			if(adNode.mpd)
+			catch(const std::exception& e)
 			{
-				mCurrentPeriod = adNode.mpd->GetPeriods().at(0);
-				/* TODO: Fix redundancy from UpdateTrackInfo */
-				for (int i = 0; i < mNumberOfTracks; i++)
-				{
-					mMediaStreamContext[i]->fragmentDescriptor.manifestUrl = adNode.url.c_str();
-				}
-
-				placementEvt2Send = AAMP_EVENT_AD_PLACEMENT_START;
-				adId2Send = adNode.adId;
-
-				map<string, string> mpdAttributes = adNode.mpd->GetRawAttributes();
-				if(mpdAttributes.find("fogtsb") == mpdAttributes.end())
-				{
-					//No attribute 'fogtsb' in MPD. Hence, current ad is from CDN
-					mAdPlayingFromCDN = true;
-				}
+				AAMPLOG_WARN("VPLAY-10152 - Failed to get adNode reference: %s", e.what());
+                                throw;
 			}
 		}
 
