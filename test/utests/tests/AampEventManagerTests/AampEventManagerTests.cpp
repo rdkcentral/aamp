@@ -61,15 +61,19 @@ protected:
                 AsyncEvent();
             }
     };
+
+    std::mutex testStateLock;
+
     void SetUp() override {
         handler = new TestableAampEventManager();
+        handler->SetStateLock(&testStateLock);
     }
     void TearDown() override {
     delete handler;
     handler = nullptr;
     }
 public:
-	EventListener* eventListener;
+    EventListener* eventListener;
 
     TestableAampEventManager *handler;
 

@@ -4153,5 +4153,6 @@ private:
 	void SetCMCDTrackData(AampMediaType mediaType);
 	std::vector<float> getSupportedPlaybackSpeeds(void);
 	bool IsFogUrl(const char *mainManifestUrl);
+	std::mutex mStateLock; 								/**< Mutex for accessing mState */
 };
 #endif // PRIVAAMP_H
