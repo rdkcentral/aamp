@@ -2975,7 +2975,7 @@ bool InterfacePlayerRDK::SendHelper(int type, const void *ptr, size_t len, doubl
 			{
 				GstFlowReturn ret = gst_app_src_push_buffer(GST_APP_SRC(stream->source), buffer);
 
-
+MW_LOG_INFO("Abhijith-->stream->source = %p", stream->source);
 if (buffer)
 {
     GstMapInfo map;
@@ -4961,6 +4961,7 @@ bool InterfacePlayerRDK::SignalSubtitleClock(gint64 vPTS, bool state)
 	bool underflowState = state;
 	gint64 videoPTS = vPTS;
 	gst_media_stream* stream = &gstPrivateContext->stream[eGST_MEDIATYPE_SUBTITLE];
+	MW_LOG_INFO("Abhijith-->SSC stream->source = %p", stream->source);
 	if ( stream && (stream->format != GST_FORMAT_INVALID) )
 	{
 		if (!stream->source)
