@@ -46,14 +46,14 @@ static int _local_printf(int buf_size, const char *format, va_list ap)
 			if (required_size <= buf_size)
 			{
 				/* Successfully formatted the buffer - output it. */
-				printf(TIMESTAMP_FMT "%s", tv.tv_sec, tv.tv_usec / 1000, buf);
+				printf(TIMESTAMP_FMT "%s", tv.tv_sec, (unsigned long)(tv.tv_usec / 1000), buf);
 			}
 			else
 			{
 				printf(
 					TIMESTAMP_FMT
 					"ERROR: vsnprintf() required %d bytes, but only had %d\n",
-					tv.tv_sec, tv.tv_usec / 1000, required_size, buf_size);
+					tv.tv_sec, (unsigned long)(tv.tv_usec / 1000), required_size, buf_size);
 			}
 		}
 	}

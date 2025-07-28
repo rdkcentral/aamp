@@ -21,7 +21,15 @@ jobs:
       # Run L1 tests
       - name: Run unit tests
         working-directory: ./test/utests
-        run: ./run.sh
+        run: |
+          ./run.sh 2>&1 | tee utest_run.log
+
+      # Generate pretty test run output
+      - name: Pretty test run output
+        if: always()
+        working-directory: ./test/utests
+        run: |
+          python3 parse_gtest_log.py utest_run.log
       
       # Publish test results
       - name: Publish L1 test results
