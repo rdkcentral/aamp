@@ -4095,6 +4095,7 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 				downloadTimeMS = (int)(tEndTime - tStartTime);
 				bool loopAgain = false;
 				if (res == CURLE_OK)
+				 AAMPLOG_INFO("DUMMY-->aamp url:%d,%d,%d,%f,%s and bufferLength=%u", mediaTypeTelemetry, mediaType, curlInstance, fragmentDurationS, remoteUrl.c_str(),buffer->GetLen());
 				{ // all data collected
 					if( memcmp(remoteUrl.c_str(), "file:", 5) == 0 )
 					{ // file uri scheme
