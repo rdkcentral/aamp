@@ -45,7 +45,7 @@ jobs:
         run: tail -n 50 test/utests/build/ctest-results.xml || true
 
       # Install Middleware
-      - name: Install Middleware PlayerInterface (with apt fix)
+      - name: Install Middleware PlayerInterface
         working-directory: ./middleware
         run: yes | ./install-middleware.sh -s subtec
         
