@@ -14,24 +14,11 @@ jobs:
       # Checkout the aamp repository
       - name: Checkout aamp code
         uses: actions/checkout@v3
-
-      - name: Set up .netrc for RDK Gerrit
-        run: |
-          echo "machine code.rdkcentral.com\n" >> ~/.netrc
-          echo "login ${{ secrets.RDK_USER }}\n" >> ~/.netrc
-          echo "password ${{ secrets.RDK_PASS }}\n" >> ~/.netrc
-          chmod 600 ~/.netrc
-      
+        
       # Install AAMP
       - name: Install AAMP (with apt fix)
-        run: |
-          sudo apt-get update --fix-missing
-          sudo apt-get install -y software-properties-common
-          yes | ./install-aamp.sh -s -k file
-
-      # - name: Run unit tests
-      #   run:  tail -f /dev/null
-
+        run: yes | ./install-aamp.sh -s -k file
+        
       # Run L1 tests
       - name: Run unit tests
         working-directory: ./test/utests
@@ -39,7 +26,6 @@ jobs:
       
       # Publish test results
       - name: Publish L1 test results
-        if: ${{ !env.ACT }}
         uses: dorny/test-reporter@v1
         with:
           name: Unit Test Results
@@ -48,7 +34,6 @@ jobs:
           
       # Upload artifact (test/utests/build/ctest-results.xml)
       - name: Upload test result file (test/utests)
-        if: ${{ !env.ACT }}
         uses: actions/upload-artifact@v4
         with:
           name: ctest-results-test-utests-${{ github.run_id }}
@@ -62,14 +47,8 @@ jobs:
       # Install Middleware
       - name: Install Middleware PlayerInterface (with apt fix)
         working-directory: ./middleware
-        run: |
-          sudo apt-get update --fix-missing
-          sudo apt-get install -y software-properties-common
-          yes | ./install-middleware.sh -s subtec
-
-      # - name: Run unit tests
-      #   run:  tail -f /dev/null
-
+        run: yes | ./install-middleware.sh -s subtec
+        
       # Run L1 tests
       - name: Run unit tests
         working-directory: ./middleware/test/utests
@@ -77,7 +56,6 @@ jobs:
       
       # Publish test results
       - name: Publish L1 test results
-        if: ${{ !env.ACT }}
         uses: dorny/test-reporter@v1
         with:
           name: Unit Test Results
@@ -86,7 +64,6 @@ jobs:
           
       # Upload artifact (middleware/test/utests/build/ctest-results.xml)
       - name: Upload test result file (middleware/test/utests)
-        if: ${{ !env.ACT }}
         uses: actions/upload-artifact@v4
         with:
           name: ctest-results-middleware-utests-${{ github.run_id }}
