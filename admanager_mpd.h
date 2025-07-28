@@ -416,7 +416,7 @@ public:
 	 * @param[in]  tryFog - Attempt to download from FOG or not
 	 * @return MPD* MPD instance
 	 */
-	MPD* GetAdMPD(std::string &url, bool &finalManifest, int &http_error, double &downloadTime, bool tryFog = false);
+	MPD* GetAdMPD(std::string &url, bool &finalManifest, int &http_error, double &downloadTime, int curAdIdx, bool tryFog = false);
 
 	/**
 	 * @fn InsertToPeriodMap

@@ -71,6 +71,7 @@ PrivateCDAIObjectMPD::PrivateCDAIObjectMPD(PrivateInstanceAAMP* aamp) : mAamp(aa
  */
 PrivateCDAIObjectMPD::~PrivateCDAIObjectMPD()
 {
+        AAMPLOG_WARN("VPLAY-10152 - destructor");
 	AbortWaitForNextAdResolved();
 	StopFulfillAdLoop();
 	mAamp->CurlTerm(eCURLINSTANCE_DAI);
@@ -159,10 +160,12 @@ void PrivateCDAIObjectMPD::PrunePeriodMaps(std::vector<std::string> &newPeriodId
 void PrivateCDAIObjectMPD::ResetState()
 {
 	 //TODO: Vinod, maybe we can move these playback state variables to PrivateStreamAbstractionMPD
+         AAMPLOG_WARN("VPLAY-10152 - ResetState(), mCurAds will be set to nullptr (no mutex yet)");
 	 mIsFogTSB = false;
 	 mCurPlayingBreakId = "";
 	 mCurAds = nullptr;
 	 std::lock_guard<std::mutex> lock(mDaiMtx);
+	 AAMPLOG_WARN("VPLAY-10152 - ResetState(), mutex taken");
 	 mCurAdIdx = -1;
 	 mContentSeekOffset = 0;
 	 mAdState = AdState::OUTSIDE_ADBREAK;
@@ -862,20 +865,21 @@ bool PrivateCDAIObjectMPD::isPeriodInAdbreak(const std::string &periodId)
  * @param[in]  tryFog - Attempt to download from FOG or not
  * @return MPD* MPD instance
  */
-MPD* PrivateCDAIObjectMPD::GetAdMPD(std::string &manifestUrl, bool &finalManifest, int &http_error, double &downloadTime, bool tryFog)
+MPD* PrivateCDAIObjectMPD::GetAdMPD(std::string &manifestUrl, bool &finalManifest, int &http_error, double &downloadTime, int curAdIdx, bool tryFog)
 {
 	MPD* adMpd = NULL;
 	AampGrowableBuffer manifest("adMPD_CDN");
 	bool gotManifest = false;
 	std::string effectiveUrl;
+	bool manifestUrlAssignedFromFog=false;	
 	gotManifest = mAamp->GetFile(manifestUrl, eMEDIATYPE_MANIFEST, &manifest, effectiveUrl, &http_error, &downloadTime, NULL, eCURLINSTANCE_DAI);
 	if (gotManifest)
 	{
-		AAMPLOG_TRACE("PrivateCDAIObjectMPD:: manifest download success");
+		AAMPLOG_WARN("PrivateCDAIObjectMPD:: manifest download success. curAdIdx=%d, effectiveUrl=%.512s, http_error=%d", curAdIdx, effectiveUrl.c_str(), http_error);
 	}
 	else if (mAamp->DownloadsAreEnabled())
 	{
-		AAMPLOG_ERR("PrivateCDAIObjectMPD:: manifest download failed");
+		AAMPLOG_ERR("PrivateCDAIObjectMPD:: manifest download failed. curAdIdx=%d", curAdIdx);
 	}
 
 	if (gotManifest)
@@ -912,10 +916,13 @@ MPD* PrivateCDAIObjectMPD::GetAdMPD(std::string &manifestUrl, bool &finalManifes
 			effectiveUrl.append(encodedUrl.c_str());
 
 			AampGrowableBuffer fogManifest("adMPD_FOG");
+			AAMPLOG_WARN("VPLAY-10152 - Getting manifest from fog");
 			http_error = 0;
 			mAamp->GetFile(effectiveUrl, eMEDIATYPE_MANIFEST, &fogManifest, effectiveUrl, &http_error, &downloadTime, NULL, eCURLINSTANCE_DAI);
+			AAMPLOG_WARN("VPLAY-10152 -effectiveUrl=%.512s, http_error=%d", effectiveUrl.c_str(), http_error);
 			if(200 == http_error || 204 == http_error)
 			{
+				manifestUrlAssignedFromFog=true;
 				manifestUrl = effectiveUrl;
 				if(200 == http_error)
 				{
@@ -940,6 +947,25 @@ MPD* PrivateCDAIObjectMPD::GetAdMPD(std::string &manifestUrl, bool &finalManifes
 		{
 			if (xmlTextReaderRead(reader))
 			{
+                                if (curAdIdx>=0)
+                                {
+                                        try
+                                        {                                  
+                                                // check the adnode is still valid and hasn't been altered by another thread
+                                                AdNode &adNode2 = mCurAds->at(curAdIdx);
+                                                if (adNode2.url != manifestUrl)
+                                                {
+                                                        AAMPLOG_WARN("VPLAY-10152 - Adnode url was changed for curAdIdx=%d, manifestUrlAssignedFromFog=%d", curAdIdx, manifestUrlAssignedFromFog);
+                                                }
+
+                                        }
+                                        catch(const std::exception& e)
+                                        {
+                                                AAMPLOG_WARN("VPLAY-10152 - Failed to get adNode reference: %s", e.what());
+                                                throw;
+                                        }
+                                }
+
 				Node* root = MPDProcessNode(&reader, manifestUrl, true);
 				if (NULL != root)
 				{
@@ -1020,6 +1046,26 @@ MPD* PrivateCDAIObjectMPD::GetAdMPD(std::string &manifestUrl, bool &finalManifes
 	{
 		AAMPLOG_ERR("[CDAI]: Error on manifest fetch");
 	}
+        // check the adnode is still valid before returning since we write the return value to it
+	if (curAdIdx>=0)
+	{
+		try
+		{                                  
+			// check the adnode is still valid
+			AdNode &adNode2 = mCurAds->at(curAdIdx);
+			if (adNode2.url != manifestUrl)
+			{
+				AAMPLOG_WARN("VPLAY-10152 - Adnode url has changed for curAdIdx=%d", curAdIdx);
+			}
+
+		}
+		catch(const std::exception& e)
+		{
+			AAMPLOG_WARN("VPLAY-10152 - Failed to get adNode reference: %s", e.what());
+			throw;
+		}
+	}
+
 	return adMpd;
 }
 
@@ -1039,7 +1085,7 @@ bool PrivateCDAIObjectMPD::FulFillAdObject()
 	std::lock_guard<std::mutex> lock( mDaiMtx );
 	int http_error = 0;
 	double downloadTime = 0;
-	MPD *ad = GetAdMPD(mAdFulfillObj.url, finalManifest, http_error, downloadTime, true);
+	MPD *ad = GetAdMPD(mAdFulfillObj.url, finalManifest, http_error, downloadTime, -1, true);
 	if(ad)
 	{
 		adMPDParseHelper.Initialize(ad);
