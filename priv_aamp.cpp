@@ -4384,7 +4384,7 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 					break;
 			}
 		}
-		    AAMPLOG_INFO("DUMMY-->aamp url:%d,%d,%d,%f,%s and bufferLength=%lu", mediaTypeTelemetry, mediaType, curlInstance, fragmentDurationS, remoteUrl.c_str(),buffer->GetLen());
+		    AAMPLOG_INFO("DUMMY-->aamp url:%d,%d,%d,%f,%s and bufferLength=%u", mediaTypeTelemetry, mediaType, curlInstance, fragmentDurationS, remoteUrl.c_str(),buffer->GetLen());
 
 		if (http_code == 200 || http_code == 206 || http_code == CURLE_OPERATION_TIMEDOUT)
 		{
