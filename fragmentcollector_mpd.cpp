@@ -9725,6 +9725,7 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 	 */
 	do
 	{
+		AAMPLOG_INFO("inner loop start");
 		bool waitForAdBreakCatchup = false;
 		bool periodChanged = false;
 		if (mpd)
@@ -10279,19 +10280,14 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateMPD(bool init)
 			if(tmpManifestDnldRespPtr->mMPDInstance != mManifestDnldRespPtr->mMPDInstance)
 			{
 				mManifestDnldRespPtr    =       tmpManifestDnldRespPtr;
-				//bool gotManifest              =       (mManifestDnldRespPtr->mMPDStatus == AAMPStatusType::eAAMPSTATUS_OK);
-				//if (gotManifest)
+				ret = GetMPDFromManifest(mManifestDnldRespPtr , false);
+				// if no parse error
+				if(ret == AAMPStatusType::eAAMPSTATUS_OK)
 				{
-					ret = GetMPDFromManifest(mManifestDnldRespPtr , false);
-					// if no parse error
-					if(ret == AAMPStatusType::eAAMPSTATUS_OK)
-					{
-						AAMPLOG_INFO("Got Manifest Updated . Continue with Fetcherloop");
-						// mCurrentPeriodIdx, mNumberOfPeriods based on mBasePeriodId
-						ret = IndexNewMPDDocument();
-					}
+					AAMPLOG_INFO("Got Manifest Updated . Continue with Fetcherloop");
+					// mCurrentPeriodIdx, mNumberOfPeriods based on mBasePeriodId
+					ret = IndexNewMPDDocument();
 				}
-
 			}
 		}
 	}
