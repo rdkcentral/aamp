@@ -2831,9 +2831,12 @@ bool InterfacePlayerRDK::SendHelper(int type, const void *ptr, size_t len, doubl
 		{
 			SendNewSegmentEvent(mediaType, pts, 0);
 			segmentEventSent = true;
+			MW_LOG_INFO("mediaType[%d] SendGstEvents - first buffer received !!! initFragment: %d, pts: %" G_GUINT64_FORMAT, mediaType, initFragment, pts);
 		}
-		MW_LOG_DEBUG("mediaType[%d] SendGstEvents - first buffer received !!! initFragment: %d, pts: %" G_GUINT64_FORMAT, mediaType, initFragment, pts);
-
+		else
+		{
+			MW_LOG_INFO("mediaType[%d] SendGstEvents - first buffer received !!! initFragment: %d, pts: %" G_GUINT64_FORMAT, mediaType, initFragment, pts);
+		}
 	}
 
 	sendNewSegmentEvent = segmentEventSent;
