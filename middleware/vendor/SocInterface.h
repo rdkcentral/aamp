@@ -457,20 +457,24 @@ public:
 	virtual bool ResetNewSegmentEvent(){return false;}
 	
 	/**
-	 * @brief Checks if the platform segment is ready for processing new segment.
+	 * @brief check if platform segment is ready
 	 *
-	 * This function returns a boolean value indicating whether the platform segment
-	 * is ready. If the function returns `true`, it means the segment is ready;
-	 * otherwise, it is not.
+	 * it is used in scenarios where AV synchronization and trick mode speed adjustments are necessary.
 	 *
+	 * @param videoSink The video sink element.
+	 * @param isRialto Flag indicating whether Rialto sink is being used.
 	 * @return `true` if the platform segment is ready, `false` otherwise.
 	 */
-	virtual bool IsPlatformSegmentReady(){return false;}
-	
+	virtual bool IsPlatformSegmentReady(GstElement *videoSink, bool isRialto){return false;}
+
 	/**
-	 *@brief Checks if the platform is video master.
-	 *@return 'true' if video master otherwise false.
+	 * @brief Checks if the platform is video master.
+	 *
+	 * @param videoSink The video sink element.
+	 * @param isRialto Flag indicating whether Rialto sink is being used.
+	 * @return 'true' if video master otherwise false.
 	 */
-	virtual bool IsVideoMaster(){return true;}
+	virtual bool IsVideoMaster(GstElement *videoSink, bool isRialto){return true;}
+
 };
 #endif
