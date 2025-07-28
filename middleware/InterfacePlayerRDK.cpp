@@ -308,11 +308,7 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int auxF
 			PipelineSetToReady = true;
 		}
 	}
-
-	bool configureStream[GST_TRACK_COUNT];
-	bool configurationChanged = false;
-	memset(configureStream, 0, sizeof(configureStream));
-
+	bool configureStream[GST_TRACK_COUNT] = {};
 	for (int i = 0; i < GST_TRACK_COUNT; i++)
 	{
 		gst_media_stream *stream = &gstPrivateContext->stream[i];
@@ -324,7 +320,6 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int auxF
 				configureStream[i] = true;
 				gstPrivateContext->NumberOfTracks++;
 			}
-			configurationChanged = true;
 		}
 		if(socInterface->ShouldTearDownForTrickplay())
 		{
@@ -349,29 +344,6 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int auxF
 		stream->resetPosition = true;
 		stream->eosReached = false;
 		stream->firstBufferProcessed = false;
-	}
-
-	/* For Rialto, teardown and rebuild the gstreamer streams if the
-	 * configuration changes. This allows the "single-path-stream" property to
-	 * be set correctly.
-	 */
-	if((gstPrivateContext->usingRialtoSink) && (configurationChanged))
-	{
-		MW_LOG_INFO("Teardown and rebuild the pipeline for Rialto");
-
-		for (int i = 0; i < GST_TRACK_COUNT; i++)
-		{
-			gst_media_stream *stream = &gstPrivateContext->stream[i];
-			if (stream->format != GST_FORMAT_INVALID)
-			{
-				TearDownStream((GstMediaType)i);
-			}
-
-			if(newFormat[i] != GST_FORMAT_INVALID)
-			{
-				configureStream[i] = true;
-			}
-		}
 	}
 
 	for (int i = 0; i < GST_TRACK_COUNT; i++)
@@ -1592,7 +1564,22 @@ bool InterfacePlayerRDK::Flush(double position, int rate, bool shouldTearDown, b
 	{
 		MW_LOG_ERR("Seek failed");
 		SetPendingSeek(true);
+		//Save the updated seek position
+		SetSeekPosition(position);
 	}
+
+	if ((gstPrivateContext->usingRialtoSink) &&
+		(gstPrivateContext->audio_sink) &&
+		(rate != GST_NORMAL_PLAY_RATE))
+	{
+		/* 
+		 * If trickplay, avoid tearing down the pipeline in ConfigurePipeline(),
+		 * by bringing the audio pipeline out of pre-roll which would block streaming.
+		 */
+		MW_LOG_INFO("Trickplay rate %d - send eos to audio sink", rate);
+		GstPlayer_SignalEOS(gstPrivateContext->stream[eGST_MEDIATYPE_AUDIO]);
+	}
+
 	if(bAsyncModify)
 	{
 		socInterface->SetSinkAsync(gstPrivateContext->audio_sink, (gboolean)TRUE);
