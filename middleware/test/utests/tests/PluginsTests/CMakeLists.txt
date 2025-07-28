@@ -20,25 +20,23 @@ include(GoogleTest)
 pkg_check_modules(UUID REQUIRED uuid)
 pkg_check_modules(GOBJECT REQUIRED gobject-2.0)
 
-set(AAMP_ROOT "../../../..")
+set(MW_ROOT "../../../..")
 set(UTESTS_ROOT "../..")
 set(DRM_ROOT ${UTESTS_ROOT}/drm)
 set(EXEC_NAME PluginsTests)
-set(SEC_CLIENT_ROOT ${AAMP_ROOT}/../secclient)
 
 file(GLOB SEC_CLIENT_HEADERS "${SEC_CLIENT_ROOT}/*")
 
-include_directories(${AAMP_ROOT} ${AAMP_ROOT}/middleware/gst-plugins/drm/gst)
-include_directories(${AAMP_ROOT}/drm)
-include_directories(${AAMP_ROOT}/drm/helper)
-include_directories(${AAMP_ROOT}/subtitle)
-include_directories(${AAMP_ROOT}/middleware/closedcaptions)
-include_directories(${AAMP_ROOT}/downloader)
-include_directories(${AAMP_ROOT}/tsb/api)
-include_directories(${AAMP_ROOT}/middleware)
-include_directories(${AAMP_ROOT}/middleware/externals/contentsecuritymanager)
-include_directories(${AAMP_ROOT}/middleware/playerLogManager)
-include_directories(${AAMP_ROOT}/middleware/vendor)
+include_directories(${MW_ROOT} ${MW_ROOT}/gst-plugins/drm/gst)
+include_directories(${MW_ROOT}/drm)
+include_directories(${MW_ROOT}/drm/helper)
+include_directories(${MW_ROOT}/subtitle)
+include_directories(${MW_ROOT}/closedcaptions)
+include_directories(${MW_ROOT}/downloader)
+include_directories(${MW_ROOT}/tsb/api)
+include_directories(${MW_ROOT}/externals/contentsecuritymanager)
+include_directories(${MW_ROOT}/playerLogManager)
+include_directories(${MW_ROOT}/vendor)
 include_directories(${GTEST_INCLUDE_DIRS})
 include_directories(${GMOCK_INCLUDE_DIRS})
 include_directories(${GLIB_INCLUDE_DIRS})
@@ -55,10 +53,10 @@ if (JSC_INCDIR)
 endif()
 message(GSTREAMER_INCLUDE_DIRS=${GSTREAMER_INCLUDE_DIRS})
 
-set(TEST_SOURCES AampClearKeyDecryptorTests.cpp
-				AampPlayReadyDecryptorTests.cpp
-				AampVeriMatrixDecryptorTests.cpp
-				AampWidevineDecryptorTests.cpp
+set(TEST_SOURCES PlayerClearKeyDecryptorTests.cpp
+				PlayerPlayReadyDecryptorTests.cpp
+				PlayerVeriMatrixDecryptorTests.cpp
+				PlayerWidevineDecryptorTests.cpp
 				PluginsRun.cpp)
 				
 add_definitions(-DUSE_OPENCDM_ADAPTER)
@@ -67,18 +65,18 @@ if (CMAKE_PLATFORM_UBUNTU)
 	add_definitions(-DUBUNTU)
 endif()
 
-set(AAMP_SOURCES
-				${AAMP_ROOT}/middleware/gst-plugins/drm/gst/gstcdmidecryptor.cpp
-				${AAMP_ROOT}/middleware/gst-plugins/drm/gst/gstclearkeydecryptor.cpp
-				${AAMP_ROOT}/middleware/gst-plugins/drm/gst/gstplayreadydecryptor.cpp
-				${AAMP_ROOT}/middleware/gst-plugins/drm/gst/gstverimatrixdecryptor.cpp
-				${AAMP_ROOT}/middleware/gst-plugins/drm/gst/gstwidevinedecryptor.cpp
-				${AAMP_ROOT}/middleware/playerLogManager/PlayerLogManager.cpp)
+set(MW_SOURCES
+				${MW_ROOT}/gst-plugins/drm/gst/gstcdmidecryptor.cpp
+				${MW_ROOT}/gst-plugins/drm/gst/gstclearkeydecryptor.cpp
+				${MW_ROOT}/gst-plugins/drm/gst/gstplayreadydecryptor.cpp
+				${MW_ROOT}/gst-plugins/drm/gst/gstverimatrixdecryptor.cpp
+				${MW_ROOT}/gst-plugins/drm/gst/gstwidevinedecryptor.cpp
+				${MW_ROOT}/playerLogManager/PlayerLogManager.cpp)
 
 add_executable(${EXEC_NAME}
 			   ${TEST_SOURCES}
 			   ${MOCK_SOURCES}
-			   ${AAMP_SOURCES})
+			   ${MW_SOURCES})
 
 set_target_properties(${EXEC_NAME} PROPERTIES FOLDER "utests")
 
