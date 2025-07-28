@@ -2976,7 +2976,7 @@ bool InterfacePlayerRDK::SendHelper(int type, const void *ptr, size_t len, doubl
 				GstFlowReturn ret = gst_app_src_push_buffer(GST_APP_SRC(stream->source), buffer);
 
 MW_LOG_INFO("Abhijith-->stream->source = %p", stream->source);
-if (buffer)
+if (buffer && (int)mediaType ==2)
 {
     GstMapInfo map;
     if (gst_buffer_map(buffer, &map, GST_MAP_READ))
@@ -2984,8 +2984,8 @@ if (buffer)
         // Print buffer size
         MW_LOG_INFO("DUMMY-->mediaType[%d],Buffer size: %zu",(int)mediaType ,map.size);
 
-        // Print buffer data as hex (first 64 bytes for brevity)
-        size_t print_len = map.size < 64 ? map.size : 64;
+        // Print buffer data as hex 
+        size_t print_len = map.size;
         printf("DUMMY-->mediaType[%d],Buffer data (hex): ",(int)mediaType);
         for (size_t i = 0; i < print_len; ++i)
         {
