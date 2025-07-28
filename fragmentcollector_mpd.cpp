@@ -1,6 +1,6 @@
 /*
  * If not stated otherwise in this file or this component's license file the
- * following copyright and licenses apply:
+ *ddsad following copyright and licenses apply:
  *
  * Copyright 2018 RDK Management
  *
