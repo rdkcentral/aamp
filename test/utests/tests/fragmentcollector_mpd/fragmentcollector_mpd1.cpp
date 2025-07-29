@@ -205,7 +205,7 @@ public:
 		/* Create MPD instance. */
 		mStreamAbstractionAAMP_MPD = new TestableStreamAbstractionAAMP_MPD(mPrivateInstanceAAMP);
 		EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled()).WillRepeatedly(Return(true));
-		EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetLLDashChunkMode()).Times(AnyNumber());
+		EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetLLDashChunkMode()).WillRepeatedly(Return(false));
 		mPrivateInstanceAAMP->SetManifestUrl(TEST_MANIFEST_URL);
 		GetMPDFromManifest();
 	}

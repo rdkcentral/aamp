@@ -283,7 +283,7 @@ TEST_F(TrackInjectTests, RunInjectLoopTestNonLLD)
 
 	this->mPrivateInstanceAAMP->SetLLDashServiceData(llDashData);
 	// Initialize after mock has been setup
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetLLDashChunkMode()).Times(AnyNumber()).WillRepeatedly(Return(false));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetLLDashChunkMode()).WillRepeatedly(Return(false));
 	Initialize();
 
 	mMediaTrack->fillCachedFragment(false, false, llDashData.lowLatencyMode);
@@ -308,8 +308,7 @@ TEST_F(TrackInjectTests, RunInjectLoopTestNonLLDInit)
 
 	this->mPrivateInstanceAAMP->SetLLDashServiceData(llDashData);
 
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetLLDashChunkMode()).Times(AnyNumber()).WillRepeatedly(Return(false));
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetLLDashChunkMode(false)).Times(AnyNumber());
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetLLDashChunkMode()).WillRepeatedly(Return(false));
 	// Initialize after mock has been setup
 	Initialize();
 
@@ -335,8 +334,7 @@ TEST_F(TrackInjectTests, RunInjectLoopTestLLD)
 	this->mPrivateInstanceAAMP->SetLLDashServiceData(llDashData);
 	this->mPrivateInstanceAAMP->mpStreamAbstractionAAMP = new StreamAbstractionAAMP_MPD(this->mPrivateInstanceAAMP, 0, 1);
 
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetLLDashChunkMode()).Times(AnyNumber()).WillRepeatedly(Return(true));
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetLLDashChunkMode(_)).Times(AnyNumber());
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetLLDashChunkMode()).WillRepeatedly(Return(true));
 	// Initialize after mock has been setup
 	Initialize();
 
@@ -376,8 +374,7 @@ TEST_F(TrackInjectTests, RunInjectLoopTestLLDInit)
 	this->mPrivateInstanceAAMP->SetLLDashServiceData(llDashData);
 	this->mPrivateInstanceAAMP->mpStreamAbstractionAAMP = new StreamAbstractionAAMP_MPD(this->mPrivateInstanceAAMP, 0, 1);
 
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetLLDashChunkMode()).Times(AnyNumber()).WillRepeatedly(Return(true));
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetLLDashChunkMode(_)).Times(AnyNumber());
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetLLDashChunkMode()).WillRepeatedly(Return(true));
 	// Initialize after mock has been setup
 	Initialize();
 

@@ -214,7 +214,7 @@ TEST_F(StreamAbstractionAAMP_Test, ReinitializeInjection_LLDashChunkModeEnabled)
 	EXPECT_CALL(*mStreamAbstractionAAMP, clearFirstPTS());
 	EXPECT_CALL(*mStreamAbstractionAAMP->mMockAudioTrack, ResetTrickModePtsRestamping()).Times(1);
 	EXPECT_CALL(*mStreamAbstractionAAMP->mMockVideoTrack, ResetTrickModePtsRestamping()).Times(1);
-	EXPECT_CALL(*mMockMediaProcessor, setRate(_, _)).Times(0);
+	EXPECT_CALL(*mMockMediaProcessor, setRate(test_rate, PlayMode_normal)).Times(0);
 	EXPECT_EQ(mStreamAbstractionAAMP->trickplayMode, false);
 
 	mStreamAbstractionAAMP->ReinitializeInjection(test_rate);
@@ -228,7 +228,7 @@ TEST_F(StreamAbstractionAAMP_Test, ReinitializeInjection_LLDashChunkModeDisabled
 	EXPECT_CALL(*mStreamAbstractionAAMP, clearFirstPTS());
 	EXPECT_CALL(*mStreamAbstractionAAMP->mMockAudioTrack, ResetTrickModePtsRestamping()).Times(1);
 	EXPECT_CALL(*mStreamAbstractionAAMP->mMockVideoTrack, ResetTrickModePtsRestamping()).Times(1);
-	EXPECT_CALL(*mMockMediaProcessor, setRate(_, _)).Times(1);
+	EXPECT_CALL(*mMockMediaProcessor, setRate(test_rate, PlayMode_normal)).Times(1);
 	EXPECT_EQ(mStreamAbstractionAAMP->trickplayMode, false);
 
 	mStreamAbstractionAAMP->ReinitializeInjection(test_rate);
