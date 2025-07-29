@@ -10851,6 +10851,7 @@ int PrivateInstanceAAMP::GetTextTrack()
 		std::string trackId = PlayerCCManager::GetInstance()->GetTrack();
 		if (!trackId.empty())
 		{
+			AAMPLOG_WARN("trackId %s", trackId.c_str());
 			std::vector<TextTrackInfo> tracks = mpStreamAbstractionAAMP->GetAvailableTextTracks();
 			for (auto it = tracks.begin(); it != tracks.end(); it++)
 			{
@@ -10861,6 +10862,7 @@ int PrivateInstanceAAMP::GetTextTrack()
 			}
 		}
 	}
+	AAMPLOG_WARN("subtitles_muted %d idx %d", subtitles_muted, idx);
 	if (mpStreamAbstractionAAMP && idx == -1 && !subtitles_muted)
 	{
 		idx = mpStreamAbstractionAAMP->GetTextTrack();
@@ -12093,7 +12095,7 @@ void PrivateInstanceAAMP::SetPreferredTextLanguages(const char *param )
 			bool labelAvailabilityInManifest = false;
 			bool nameAvailabilityInManifest = false;
 			bool trackNotEnabled = false;
-
+			AAMPLOG_WARN("trackIndex %d", trackIndex);
 			if (trackIndex >= 0)
 			{
 				std::vector<TextTrackInfo> trackInfo = mpStreamAbstractionAAMP->GetAvailableTextTracks();
@@ -12118,6 +12120,7 @@ void PrivateInstanceAAMP::SetPreferredTextLanguages(const char *param )
 						if ((trackLanguage == firstLanguage) &&
 							(trackLanguage != currentPrefLanguage))
 						{
+							AAMPLOG_WARN("firstLanguage %s, trackLanugage %s", firstLanguage.c_str(), trackLanguage.c_str());
 							languagePresent = true;
 							if (track.isAvailable)
 							{
@@ -12144,6 +12147,7 @@ void PrivateInstanceAAMP::SetPreferredTextLanguages(const char *param )
 					{
 						if ((temp.rendition == preferredTextRenditionString) && (temp.rendition != currentPrefRendition))
 						{
+							AAMPLOG_WARN("temp.rendition %s preferredTextRendition %s", temp.rendition.c_str(), preferredRenditionString.c_str());
 							renditionPresent = true;
 							if (temp.isAvailable)
 							{
@@ -12190,7 +12194,7 @@ void PrivateInstanceAAMP::SetPreferredTextLanguages(const char *param )
 			{
 				trackNotEnabled = true;
 			}
-
+			AAMPLOG_WARN("languagePresent %d renditionPresent %d accessibilityPresent %d trackNotEnabled %d instreamIdPresent %d namePresent %d",languagePresent, renditionPresent ,accessibilityPresent, trackNotEnabled,instreamIdPresent,namePresent);
 			if((mMediaFormat == eMEDIAFORMAT_HDMI) || (mMediaFormat == eMEDIAFORMAT_COMPOSITE) || (mMediaFormat == eMEDIAFORMAT_OTA) || \
 				(mMediaFormat == eMEDIAFORMAT_RMF))
 			{
@@ -12254,9 +12258,12 @@ void PrivateInstanceAAMP::SetPreferredTextLanguages(const char *param )
 							AAMPLOG_ERR("TSB Session Manager is NULL");
 						}
 					}
-					else
+					else if(mDisableRateCorrection)
 					{
 						TuneHelper(eTUNETYPE_SEEK);
+					}else
+					{
+						TuneHelper(eTUNETYPE_SEEKTOLIVE);
 					}
 
 					discardEnteringLiveEvt = false;
@@ -12302,6 +12309,7 @@ void PrivateInstanceAAMP::SetPreferredTextLanguages(const char *param )
 								format = eCLOSEDCAPTION_FORMAT_708;
 							}
 						}
+						AAMPLOG_WARN("trackId %ld", trackId);
 						PlayerCCManager::GetInstance()->SetTrack(track.instreamId, format);
 					}
 				}

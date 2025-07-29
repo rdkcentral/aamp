@@ -641,6 +641,7 @@ int PlayerCCManagerBase::SetTrack(const std::string &track, const CCFormat forma
 	unsigned int trackNum = 0;
 	CCFormat finalFormat = eCLOSEDCAPTION_FORMAT_DEFAULT;
 	mTrack = track;
+	MW_LOG_WARN("PlayerCCManagerBase:: mTrack %s", mTrack.c_str());
 
 	// Check if track is CCx or SERVICEx or track number
 	// Could be from 1 -> 63
