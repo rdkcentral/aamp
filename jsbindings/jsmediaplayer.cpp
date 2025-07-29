@@ -39,7 +39,12 @@
 #include <vector>
 
 #include "AampCCManager.h"
+#include <sys/stat.h>
 
+bool isDevicePropertiesPresent() {
+    struct stat buffer;
+    return (stat("/etc/device.properties", &buffer) == 0);
+}
 extern "C"
 {
 	JS_EXPORT JSGlobalContextRef JSContextGetGlobalContext(JSContextRef);
@@ -4217,7 +4222,9 @@ void AAMPPlayer_LoadJS(void* context)
 
 	PersistentWatermark_LoadJS(context);
 	LoadXREReceiverStub(context);
-{
+	if(isDevicePropertiesPresent())
+	{
+		LOG_WARN_EX("[FAKETUNE] Starts...");
 		gAampPlayerGlobal = new PlayerInstanceAAMP(NULL, NULL);
 		const char * mainManifestUrl = "catr_54109.mpd";
 		bool autoPlay = false;
