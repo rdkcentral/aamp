@@ -786,7 +786,7 @@ void AampTSBSessionManager::SkipFragment(std::shared_ptr<AampTsbReader>& reader,
 		if(eMEDIATYPE_VIDEO == reader->GetMediaType())
 		{
 			AampTime startPos = nextFragmentData->GetAbsolutePosition();
-			int vodTrickplayFPS = mAamp->mConfig->GetConfigValue(eAAMPConfig_VODTrickPlayFPS);
+			const int vodTrickplayFPS = mAamp->mConfig->GetConfigValue(eAAMPConfig_VODTrickPlayFPS);
 			float rate = reader->GetPlaybackRate();
 			AampTime delta = 0.0;
 			if(mAamp->playerStartedWithTrickPlay)
@@ -803,18 +803,30 @@ void AampTSBSessionManager::SkipFragment(std::shared_ptr<AampTsbReader>& reader,
 			{
 				delta = static_cast<AampTime>(std::abs(static_cast<double>(rate))) / static_cast<double>(vodTrickplayFPS);
 			}
-			while(delta > nextFragmentData->GetDuration())
+			// Fix: Always skip in the correct direction based on rate sign
+			while (delta > 0.0)
 			{
-				delta -= nextFragmentData->GetDuration();
-				skippedDuration += nextFragmentData->GetDuration();
-				TsbFragmentDataPtr tmp = reader->FindNext(skippedDuration);
+				AampTime fragDuration = nextFragmentData->GetDuration();
+				if (delta <= fragDuration)
+					break;
+
+				delta -= fragDuration;
+				skippedDuration += fragDuration;
+
+				TsbFragmentDataPtr tmp = nullptr;
+				if (rate > 0)
+				{
+					tmp = nextFragmentData->next;
+				}
+				else if (rate < 0)
+				{
+					tmp = nextFragmentData->prev;
+				}
 				if (!tmp)
 				{
-					// At end of stream, break out of loop
 					break;
 				}
 				nextFragmentData = tmp;
-
 			}
 			AAMPLOG_INFO("Skipped frames [rate=%.02f] from %.02lf to %.02lf total duration = %.02lf",
 					rate, startPos.inSeconds(), nextFragmentData->GetAbsolutePosition().inSeconds(), skippedDuration.inSeconds());

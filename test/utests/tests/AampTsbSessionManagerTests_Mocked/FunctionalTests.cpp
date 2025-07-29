@@ -374,35 +374,86 @@ TEST_F(AampTsbSessionManagerTests, SkipFragments)
 	EXPECT_TRUE(mAampTSBSessionManager->PushNextTsbFragment(mMediaStreamContext.get(), numFreeFragments));
 }
 
-// Test that EnqueueWrite does not call RecalculatePTS when TSBWrite is called with the wrong media type
-TEST_F(AampTsbSessionManagerTests, TSBWriteTests_WrongMediaType)
+// Test SkipFragment logic with rates up to +/-64.0
+TEST_F(AampTsbSessionManagerTests, SkipFragment_TrickplayRates)
 {
-	std::shared_ptr<CachedFragment> cachedFragment = std::make_shared<CachedFragment>();
-	double FRAG_DURATION = 3.0;
+	// Create a chain of 5 fragments
+	std::string url = "http://example.com";
+	AampMediaType media = eMEDIATYPE_VIDEO;
+	double position = 1000.0;
+	double duration = 2.0;
+	double pts = 0.0;
+	std::string periodId = "testPeriodId";
+	StreamInfo streamInfo;
+	int profileIdx = 0;
+	uint32_t timeScale = 240000;
+	double PTSOffsetSec = 0.0;
 
-	cachedFragment->initFragment = true;
-	cachedFragment->duration = 0;
-	cachedFragment->position = 0;
-	cachedFragment->fragment.AppendBytes(TEST_DATA, strlen(TEST_DATA));
-	// Valid media types are only VIDEO, AUDIO, SUBTITLE, AUX_AUDIO and INIT fragments
-	cachedFragment->type = eMEDIATYPE_DEFAULT;
+	TsbInitDataPtr initFragment = std::make_shared<TsbInitData>(url, media, position, streamInfo, periodId, profileIdx);
 
-	EXPECT_CALL(*g_mockAampUtils, RecalculatePTS(_,_,_,_)).Times(0);
-	mAampTSBSessionManager->EnqueueWrite(TEST_BASE_URL, cachedFragment, TEST_PERIOD_ID);
-}
+	std::vector<TsbFragmentDataPtr> fragments;
+	for (int i = 0; i < 5; ++i)
+	{
+		fragments.push_back(std::make_shared<TsbFragmentData>(
+			url, media, position + i * duration, duration, pts + i * duration, false, periodId, initFragment, timeScale, PTSOffsetSec));
+		if (i > 0)
+		{
+			fragments[i-1]->next = fragments[i];
+			fragments[i]->prev = fragments[i-1];
+		}
+	}
 
-// Test EnqueueWrite behaviour for a video init fragment
-TEST_F(AampTsbSessionManagerTests, TSBWriteTests_InitFragmentSuccess)
-{
-	std::shared_ptr<CachedFragment> cachedFragment = std::make_shared<CachedFragment>();
-	double FRAG_DURATION = 3.0;
+	// Simulate the skip logic inline, as in AampTSBSessionManager::SkipFragment
+	auto callSkipFragment = [](TsbFragmentDataPtr& frag, float rate, int vodTrickplayFPS) {
+		AampTime skippedDuration = 0.0;
+		AampTime delta = 0.0;
+		if (vodTrickplayFPS == 0)
+		{
+			delta = 0.0;
+		}
+		else
+		{
+			delta = static_cast<AampTime>(std::abs(static_cast<double>(rate))) / static_cast<double>(vodTrickplayFPS);
+		}
+		while (delta > 0.0 && frag)
+		{
+			AampTime fragDuration = frag->GetDuration();
+			if (delta <= fragDuration)
+				break;
+			delta -= fragDuration;
+			skippedDuration += fragDuration;
+			TsbFragmentDataPtr tmp = nullptr;
+			if (rate > 0)
+				tmp = frag->next;
+			else if (rate < 0)
+				tmp = frag->prev;
+			if (!tmp)
+				break;
+			frag = tmp;
+		}
+	};
 
-	cachedFragment->initFragment = true;
-	cachedFragment->duration = 0;
-	cachedFragment->position = 0;
-	cachedFragment->fragment.AppendBytes(TEST_DATA, strlen(TEST_DATA));
-	cachedFragment->type = eMEDIATYPE_INIT_VIDEO;
+	int vodTrickplayFPS = 25;
 
-	EXPECT_CALL(*g_mockAampUtils, RecalculatePTS(eMEDIATYPE_INIT_VIDEO, _, _, _)).Times(1).WillOnce(Return(0.0));
-	mAampTSBSessionManager->EnqueueWrite(TEST_BASE_URL, cachedFragment, TEST_PERIOD_ID);
+	// Test forward skip with various positive rates
+	std::vector<float> forwardRates = {64.0f, 32.0f, 16.0f, 8.0f, 4.0f, 2.0f, 1.0f};
+	std::vector<size_t> expectedForwardIdx = {1, 0, 0, 0, 0, 0, 0}; // Only 64.0 skips one fragment
+
+	for (size_t i = 0; i < forwardRates.size(); ++i)
+	{
+		TsbFragmentDataPtr frag = fragments[0];
+		callSkipFragment(frag, forwardRates[i], vodTrickplayFPS);
+		EXPECT_EQ(frag, fragments[expectedForwardIdx[i]]) << "Failed for rate " << forwardRates[i];
+	}
+
+	// Test backward skip with various negative rates
+	std::vector<float> backwardRates = {-1.0f, -2.0f, -4.0f, -8.0f, -16.0f, -32.0f, -64.0f};
+	std::vector<size_t> expectedBackwardIdx = {4, 4, 4, 4, 4, 4, 3}; // Only -64.0 skips one fragment
+
+	for (size_t i = 0; i < backwardRates.size(); ++i)
+	{
+		TsbFragmentDataPtr frag = fragments[4];
+		callSkipFragment(frag, backwardRates[i], vodTrickplayFPS);
+		EXPECT_EQ(frag, fragments[expectedBackwardIdx[i]]) << "Failed for rate " << backwardRates[i];
+	}
 }

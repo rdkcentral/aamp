@@ -156,6 +156,13 @@ public:
 	 */
 	float GetPlaybackRate();
 
+        /**
+         * @brief GetPlaybackRate
+         *
+         * @return float - returns the mCurrentRate_ variable
+         */
+        float getRate() const { return mCurrentRate; }
+
 	/**
 	 * @fn IsDiscontinuous
 	 *
