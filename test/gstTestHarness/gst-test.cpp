@@ -22,6 +22,7 @@
 #include "turbo_xml.hpp"
 #include "downloader.hpp"
 #include "stream_utils.hpp"
+#include "custom_xml_adapter.hpp"
 #include "dash_adapter.hpp"
 #include "turbo_xml.hpp"
 #include "mp4demux.hpp"
@@ -181,6 +182,7 @@ private:
 	TsDemux *tsDemux;
 	
 	std::string url;
+	int chunkInjectionLimit; // number of chunks to be injected, used for testing purposes
 	
 	void Load( void )
 	{
@@ -210,7 +212,7 @@ private:
 	}
 	
 public:
-	TrackFragment( MediaType mediaType, const char *path, double duration, double pts_offset=0 ):len(), ptr(), tsDemux(),  pts_offset(pts_offset), duration(duration), url(path), mediaType(mediaType)
+	TrackFragment( MediaType mediaType, const char *path, double duration, double pts_offset=0, int chunkInjectionLimit=std::numeric_limits<int>::max() ):len(0), ptr(nullptr), tsDemux(nullptr),  pts_offset(pts_offset), duration(duration), url(path), mediaType(mediaType), chunkInjectionLimit(chunkInjectionLimit)
 	{
 	}
 	
@@ -249,6 +251,11 @@ public:
 		else if( mp4Demux )
 		{
 			int count = mp4Demux->count();
+			if( count > chunkInjectionLimit )
+			{
+				printf( "TrackFragment::Inject: limiting chunk injection to %d count: %d\n", chunkInjectionLimit, count );
+				count = chunkInjectionLimit; // for testing purposes
+			}
 			if( count>0 )
 			{ // media segment
 				for( int i=0; i<count; i++ )
@@ -258,6 +265,8 @@ public:
 					double dts = mp4Demux->getDts(i);
 					double dur = mp4Demux->getDuration(i);
 					gpointer ptr = g_malloc(len);
+					printf( "Injecting %s segment %d, len=%zu, pts=%.2f, dts=%.2f, dur=%.2f\n",
+						   (mediaType==eMEDIATYPE_VIDEO)?"video":"audio", i, len, pts+pts_offset, dts+pts_offset, dur );
 					if( ptr )
 					{
 						memcpy( ptr, mp4Demux->getPtr(i), len );
@@ -990,7 +999,50 @@ public:
 		}
 		return url;
 	}
-	
+
+	void InjectSegments(const CustomTimeline &timelineObj)
+	{
+		// Enqueue segments for each entry in the custom timeline
+		SeekParam seekParam;
+		seekParam.flags = GST_SEEK_FLAG_FLUSH;
+		seekParam.start_s = pipelineContext.seekPos;
+		seekParam.stop_s = STOP_NEVER;
+		pipelineContext.pipeline->ScheduleSeek(seekParam);
+		double pts_offset = 0.0 - timelineObj.start; // adjust pts offset based on timeline start
+		for (const auto &entry : timelineObj.entries)
+		{
+			// Only handle audio/video
+			if (entry.mediaType != eMEDIATYPE_AUDIO && entry.mediaType != eMEDIATYPE_VIDEO)
+				continue;
+
+			// Enqueue initialization segment or media segment
+			if (entry.isInitialization)
+			{
+				pipelineContext.track[entry.mediaType].EnqueueSegment(
+					new TrackFragment(entry.mediaType, entry.filename.c_str(), 0));
+			}
+			else
+			{
+				// Duration and pts can be adjusted based on the entry
+				pipelineContext.track[entry.mediaType].EnqueueSegment(
+					new TrackFragment(entry.mediaType, entry.filename.c_str(), 0, pts_offset, entry.chunkSize));
+			}
+		}
+
+		// Enqueue EOS for both tracks
+		for (int mediaType = 0; mediaType < 2; mediaType++)
+		{
+			pipelineContext.track[mediaType].EnqueueControl(new TrackEOS());
+		}
+
+		// Configure pipelines and begin streaming
+		pipelineContext.pipeline->Configure(eMEDIATYPE_VIDEO);
+		pipelineContext.pipeline->Configure(eMEDIATYPE_AUDIO);
+
+		// Start in paused state (or change to PLAYING if desired)
+		pipelineContext.pipeline->SetPipelineState(ePIPELINE_STATE_PAUSED);
+	}
+
 	void InjectSegments( const Timeline &timelineObj, bool inventory )
 	{
 		FILE *fInventory = NULL;
@@ -1021,6 +1073,7 @@ public:
 				if( !inventory )
 				{
 					pipelineContext.pipeline->ScheduleSeek(seekParam);
+					printf( "Seek to %.2f seconds\n", pipelineContext.seekPos );
 				}
 				processingFirstPeriod = false;
 			}
@@ -1293,6 +1346,14 @@ public:
 		InjectSegments( timeline, inventory );
 		delete xml;
 	}
+
+// Refactored: Use CustomTimeline and parseCustomXml from custom_xml_adapter
+void LoadMediaListXML(const char* ptr, size_t size, const std::string &url)
+{
+	CustomTimeline timeline = parseCustomXml(ptr, size, url);
+	timeline.Debug();
+	InjectSegments(timeline);
+}
 	
 	void Load( const std::string &url, bool inventory )
 	{
@@ -1300,7 +1361,11 @@ public:
 		auto ptr = LoadUrl( url, &size );
 		if( ptr )
 		{
-			if( size>=7 && memcmp(ptr,"#EXTM3U",7)==0 )
+			if (size >= 5 && memcmp(ptr, "<?xml", 5) == 0)
+			{
+				LoadMediaListXML((const char *)ptr, size, url);
+			}
+			else if( size>=7 && memcmp(ptr,"#EXTM3U",7)==0 )
 			{
 				LoadHLS( (const char *)ptr, size, url );
 			}

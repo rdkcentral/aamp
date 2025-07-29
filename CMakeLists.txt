@@ -649,6 +649,8 @@ set(GSTTESTHARNESS_SOURCES
 	test/gstTestHarness/string_utils.hpp
 	test/gstTestHarness/tsdemux.hpp
 	test/gstTestHarness/turbo_xml.hpp
+	test/gstTestHarness/custom_xml_adapter.cpp
+	test/gstTestHarness/custom_xml_adapter.hpp
 )
 add_executable(gstTestHarness ${GSTTESTHARNESS_SOURCES})
 target_link_libraries(gstTestHarness ${GSTTESTHARNESS_DEPENDS} "-lreadline")
