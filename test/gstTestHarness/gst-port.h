@@ -86,6 +86,8 @@ public:
 	size_t GetNumPendingSeek(void);
 	void Seek( const SeekParam &param );
 	void Reset( void );
+	void SendSegmentEndEvent( MediaType mediaType, double stop );
+	void SendSegmentEvent( MediaType mediaType, double start, double stop = 0 );
 
 private:
 	void Seek( MediaType mediaType, const SeekParam &param );	

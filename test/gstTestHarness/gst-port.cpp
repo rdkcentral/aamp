@@ -107,7 +107,50 @@ public:
 		g_print( "MediaStream::SendEOS %s\n", GetMediaTypeAsString() );
 		gst_app_src_end_of_stream(GST_APP_SRC(appsrc));
 	}
-	
+
+	void SendSegmentEndEvent(double stop )
+	{
+		g_print("[NANDU]MediaStream::SendSegmentEndEvent %s stop=%.15lf\n",
+				GetMediaTypeAsString(), stop);
+		gint64 stopTime = (gint64)(stop * GST_SECOND);
+		GstEvent *segment_done_event = gst_event_new_segment_done(GST_FORMAT_TIME, stopTime);
+		if (!gst_element_send_event(GST_ELEMENT(appsrc), segment_done_event))
+		{
+			g_print("Failed to send segment done event\n");
+		}
+		else
+		{
+			g_print("[NANDU]Sent segment done event for %s, stop=%" GST_TIME_FORMAT "\n",
+					gstutils_GetMediaTypeName(mediaType), GST_TIME_ARGS(stopTime));
+		}
+	}
+
+	void SendSegmentEvent(double start, double stop)
+	{
+		GstSegment segment;
+		gst_segment_init(&segment, GST_FORMAT_TIME);
+
+		segment.start = (GstClockTime)(start * GST_SECOND);
+		segment.position = 0;
+		segment.rate = 1;
+		segment.applied_rate = 1;
+		segment.stop = (GstClockTime) (9999 * GST_SECOND);
+		if (stop > 0)
+		{
+			segment.stop = (GstClockTime)(stop * GST_SECOND);
+		}
+		GstEvent *event = gst_event_new_segment(&segment);
+		if (!gst_element_send_event(GST_ELEMENT(appsrc), event))
+		{
+			g_print("Failed to send segment event\n");
+		}
+		else
+		{
+			g_print("[NANDU]Sent segment event: start=%" GST_TIME_FORMAT ", stop=%" GST_TIME_FORMAT "\n",
+					GST_TIME_ARGS((segment.start)), GST_TIME_ARGS((segment.stop)));
+		}
+	}
+
 	/**
 	 * @brief create, link, and confiugre a playbin element for specified media track
 	 * @param mediaType tracktype, i.e. eMEDIATYPE_AUDIO or eMEDIATYPE_VIDEO
@@ -384,6 +427,21 @@ void Pipeline::SendBufferMP4( MediaType mediaType, gpointer ptr, gsize len, doub
 	}
 	mediaStream[mediaType]->SendBuffer(ptr,len,duration);
 }
+
+void Pipeline::SendSegmentEvent( MediaType mediaType, double start, double stop )
+{
+	g_print( "Pipeline::SendSegmentEvent %s start=%.15lf stop=%.15lf\n",
+			gstutils_GetMediaTypeName(mediaType), start, stop);
+	mediaStream[mediaType]->SendSegmentEvent(start, stop);
+}
+
+void Pipeline::SendSegmentEndEvent( MediaType mediaType, double stop )
+{
+	g_print( "Pipeline::SendSegmentEndEvent %s stop=%.15lf\n",
+			gstutils_GetMediaTypeName(mediaType), stop);
+	mediaStream[mediaType]->SendSegmentEndEvent(stop);
+}
+
 void Pipeline::SendBufferES( MediaType mediaType, gpointer ptr, gsize len, double duration, double pts, double dts, GstStructure *metadata )
 {
 	//g_print( "Pipeline::SendBuffer %s, len=%zu\n", gstutils_GetMediaTypeName(mediaType), len );

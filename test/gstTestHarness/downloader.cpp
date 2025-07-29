@@ -192,7 +192,8 @@ gpointer LoadUrl( const std::string &url, gsize *pLen )
 			f = fopen( prefix.c_str(), "rb" );
 			if( !f )
 			{ // file not found
-				printf( "file not found!\n" );
+				printf( "LoadUrl(%s)\n", url.c_str() );
+				printf( "->file not found\n" );
 				return NULL;
 			}
 			//assert( f );
