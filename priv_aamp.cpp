@@ -3118,7 +3118,7 @@ bool PrivateInstanceAAMP::ProcessPendingDiscontinuity()
 					{
 						profiler.ProfileBegin(PROFILE_BUCKET_DISCO_FLUSH);
 					}
-					sink->Flush(mpStreamAbstractionAAMP->GetFirstPTS(), rate);
+					sink->Flush(mpStreamAbstractionAAMP->GetFirstPTS(), rate, false);
 					if(mDiscontinuityFound)
 					{
 						profiler.ProfileEnd(PROFILE_BUCKET_DISCO_FLUSH);
@@ -4173,7 +4173,8 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 						print_headerResponse(context.allResponseHeaders, mediaType);
 					}
 
-					if (buffer->GetPtr() == NULL || buffer->GetLen() == 0)
+					// Do the empty buffer check only for successful downloads
+					if ((http_code == 200 || http_code == 204 || http_code == 206) && (buffer->GetPtr() == NULL || buffer->GetLen() == 0))
 					{
 #if LIBCURL_VERSION_NUM >= 0x073700 // CURL version >= 7.55.0
 						double dlSize = aamp_CurlEasyGetinfoOffset(curl, CURLINFO_SIZE_DOWNLOAD_T);
