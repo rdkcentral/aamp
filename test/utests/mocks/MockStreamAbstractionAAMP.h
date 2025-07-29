@@ -116,6 +116,8 @@ public:
 
 	MOCK_METHOD(bool, IsEOSReached, (), (override));
 
+	MOCK_METHOD(bool, DoEarlyStreamSinkFlush, (bool newTune, float rate), (override));
+
 	MOCK_METHOD(void, ReinitializeInjection, (double rate));
 };
 

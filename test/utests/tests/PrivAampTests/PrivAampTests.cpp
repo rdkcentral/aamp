@@ -1867,7 +1867,8 @@ TEST_F(PrivAampTests,GetFileTest_RetryInitWhilstBufferDepthBeforeSuccessTest)
 		.WillOnce(Return(CURLE_OPERATION_TIMEDOUT))
 		.WillOnce(Return(CURLE_OPERATION_TIMEDOUT))
 		.WillOnce(Return(CURLE_OPERATION_TIMEDOUT))
-		.WillOnce(Return(CURLE_OK));
+		// add dummy buffer in gBuff to simulate a successful request
+		.WillOnce([&gBuff] () -> CURLcode { gBuff.AppendBytes("0x0a", 4); return CURLE_OK; });
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetBufferedDuration())
 		.WillOnce(Return(10.0))
 		.WillOnce(Return(8.0));
@@ -4310,6 +4311,8 @@ TEST_F(PrivAampTests, TuneHelperWithAampTsbInjection)
 	constexpr double SEEK_POS = 123.0;
 	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP_MPD;
 	StreamAbstractionAAMP *savedStreamAbstractionAAMP = p_aamp->mpStreamAbstractionAAMP;
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(_)).WillRepeatedly(Return(false));
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnableChunkInjection)).WillRepeatedly(Return(true));
 	p_aamp->mMediaFormat = eMEDIAFORMAT_DASH;
 	p_aamp->rate = AAMP_RATE_PAUSE;
 	p_aamp->seek_pos_seconds = SEEK_POS;
@@ -4412,6 +4415,53 @@ TEST_F(PrivAampPrivTests, TuneHelperWithAampTsbSeekToLiveWhenTsbIsNotEmpty)
 	EXPECT_CALL(*g_mockTSBSessionManager, GetTotalStoreDuration(eMEDIATYPE_VIDEO)).WillRepeatedly(Return(ABS_END_POS));
 	testp_aamp->TuneHelper(eTUNETYPE_SEEKTOLIVE);
 	EXPECT_TRUE(testp_aamp->IsLocalAAMPTsbInjection());
+}
+
+/**
+ * @test PrivAampTests::TuneHelperWithAampTsbConfigureFlushSequence
+ * @brief Test the method TuneHelper for the order of Configure and Flush calls.
+ *
+ * This test verifies that Flush is called after Configure in TuneHelper
+ * function.
+ */
+TEST_F(PrivAampPrivTests, TuneHelperWithAampTsbConfigureFlushSequence)
+{
+	constexpr double SEEK_POS = 123;
+	constexpr double ABS_END_POS = 150.0;
+	testp_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP_MPD;
+	testp_aamp->mMediaFormat = eMEDIAFORMAT_DASH;
+	testp_aamp->rate = AAMP_NORMAL_PLAY_RATE;
+	testp_aamp->seek_pos_seconds = SEEK_POS;
+	testp_aamp->SetLLDashChunkMode(true);
+	testp_aamp->SetLocalAAMPTsb(true);
+	testp_aamp->SetLocalAAMPTsbInjection(true);
+	testp_aamp->mAbsoluteEndPosition = ABS_END_POS;
+	testp_aamp->culledSeconds = SEEK_POS;
+	testp_aamp->SetState(eSTATE_PLAYING);
+	::testing::Sequence s;
+	AampLLDashServiceData stAampLLDashServiceData;
+	stAampLLDashServiceData.lowLatencyMode = true;
+	testp_aamp->SetLLDashServiceData(stAampLLDashServiceData);
+
+	//Verify the sequence for SeekToLive
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer));
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP_MPD, DoEarlyStreamSinkFlush(false, AAMP_NORMAL_PLAY_RATE)).WillRepeatedly(Return(true));
+	EXPECT_CALL(*g_mockAampGstPlayer, Configure(_,_,_,_,_,_,_)).InSequence(s);
+	EXPECT_CALL(*g_mockAampGstPlayer, Flush(_,_,_)).InSequence(s);
+	testp_aamp->TuneHelper(eTUNETYPE_SEEKTOLIVE);
+
+	//Verify the sequence for newTune
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP_MPD, DoEarlyStreamSinkFlush(true, AAMP_NORMAL_PLAY_RATE)).WillRepeatedly(Return(true));
+	EXPECT_CALL(*g_mockAampGstPlayer, Configure(_,_,_,_,_,_,_)).InSequence(s);
+	EXPECT_CALL(*g_mockAampGstPlayer, Flush(_,_,_)).InSequence(s);
+	testp_aamp->TuneHelper(eTUNETYPE_NEW_NORMAL);
+
+	//Verify the sequence for eTUNETYPE_SEEK
+	testp_aamp->SetLocalAAMPTsb(true);
+	EXPECT_CALL(*g_mockAampGstPlayer, Flush(_,_,_)).InSequence(s);
+	EXPECT_CALL(*g_mockAampGstPlayer, Configure(_,_,_,_,_,_,_)).InSequence(s);
+	EXPECT_CALL(*g_mockAampGstPlayer, Flush(_,_,_)).InSequence(s);
+	testp_aamp->TuneHelper(eTUNETYPE_SEEK);
 }
 
 /**
