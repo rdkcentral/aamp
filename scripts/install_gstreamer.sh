@@ -81,54 +81,53 @@ function install_gstpluginsgoodfn()
 {
     cd $LOCAL_DEPS_BUILD_DIR
 
-    if [[ "$OSTYPE" == "darwin"* ]]; then    
-        # homebrew versions are not equivalent to the install package so we don't use it.  In the future that may change.
-
-        # $OPTION_CLEAN == true
-        if [ $1 = true ] ; then
-            echo "gst-plugins-good clean"
-            if [ -d gst-plugins-good-$DEFAULT_GSTVERSION ] ; then
-                rm -rf gst-plugins-good-$DEFAULT_GSTVERSION
-            fi
+    if [ $1 = true ] ; then
+        echo "gst-plugins-good clean"
+        if [ -d gst-plugins-good-$DEFAULT_GSTVERSION ] ; then
+            rm -rf gst-plugins-good-$DEFAULT_GSTVERSION
         fi
+    fi
 
-        if [ -d "gst-plugins-good-$DEFAULT_GSTVERSION" ]; then
-            echo "gst-plugins-good-$DEFAULT_GSTVERSION is already installed"
-            INSTALL_STATUS_ARR+=("gst-plugins-good-$DEFAULT_GSTVERSION was already installed.")
-        else
+    if [ -d "gst-plugins-good-$DEFAULT_GSTVERSION" ]; then
+        echo "gst-plugins-good-$DEFAULT_GSTVERSION is already installed"
+        INSTALL_STATUS_ARR+=("gst-plugins-good-$DEFAULT_GSTVERSION was already installed.")
+    else
 
-            curl -o gst-plugins-good-$DEFAULT_GSTVERSION.tar.xz https://gstreamer.freedesktop.org/src/gst-plugins-good/gst-plugins-good-$DEFAULT_GSTVERSION.tar.xz
-            tar -xvzf gst-plugins-good-$DEFAULT_GSTVERSION.tar.xz
-            cd gst-plugins-good-$DEFAULT_GSTVERSION
- 
-            patch -p1 < ../../OSx/patches/0009-qtdemux-aamp-tm_gst-1.16.patch
-            patch -p1 < ../../OSx/patches/0013-qtdemux-remove-override-segment-event_gst-1.16.patch
-            patch -p1 < ../../OSx/patches/0014-qtdemux-clear-crypto-info-on-trak-switch_gst-1.16.patch
-            patch -p1 < ../../OSx/patches/0021-qtdemux-aamp-tm-multiperiod_gst-1.16.patch
-            sed -in 's/gstglproto_dep\x27], required: true/gstglproto_dep\x27], required: false/g' meson.build
+        curl -o gst-plugins-good-$DEFAULT_GSTVERSION.tar.xz https://gstreamer.freedesktop.org/src/gst-plugins-good/gst-plugins-good-$DEFAULT_GSTVERSION.tar.xz
+        tar -xvf gst-plugins-good-$DEFAULT_GSTVERSION.tar.xz
+        cd gst-plugins-good-$DEFAULT_GSTVERSION
 
+        patch -p1 < ../../OSX/patches/0009-qtdemux-aamp-tm_gst-1.16.patch
+        patch -p1 < ../../OSX/patches/0013-qtdemux-remove-override-segment-event_gst-1.16.patch
+        patch -p1 < ../../OSX/patches/0014-qtdemux-clear-crypto-info-on-trak-switch_gst-1.16.patch
+        patch -p1 < ../../OSX/patches/0021-qtdemux-aamp-tm-multiperiod_gst-1.16.patch
+
+        if [[ "$OSTYPE" == "darwin"* ]]; then
             PKG_CONFIG+=":/Library/Frameworks/GStreamer.framework/Versions/1.0/lib/pkgconfig"
             if [[ $ARCH == "x86_64" ]]; then
                 PKG_CONFIG+=":/usr/local/lib/pkgconfig"
             elif [[ $ARCH == "arm64" ]]; then
                 PKG_CONFIG+=":/opt/homebrew/lib/pkgconfig"
             fi
+            PREFIX=""
+        elif [[ "$OSTYPE" == "linux"* ]]; then
+            PKG_CONFIG="${LOCAL_DEPS_BUILD_DIR}/lib/pkgconfig"
+            PREFIX="--prefix=/usr"
+        fi
 
-            echo "Building gst-plugins-good with --pkg-config path $PKG_CONFIG..."
-            meson --pkg-config-path="${PKG_CONFIG}" -Dauto_features=disabled -Disomp4=enabled build
-            ninja -C build
-            sudo ninja -C build install
+        echo "Building gst-plugins-good with --pkg-config path $PKG_CONFIG..."
+        meson ${PREFIX} --pkg-config-path="${PKG_CONFIG}" -Dauto_features=disabled -Disomp4=enabled build
+        ninja -C build
+        sudo ninja -C build install
 
+        if [[ "$OSTYPE" == "darwin"* ]]; then
             # ARM vs x86 have different installation directories
             if [ -d /usr/local/lib/gstreamer-1.0 ]; then
                 sudo cp  /usr/local/lib/gstreamer-1.0/libgstisomp4.dylib /Library/Frameworks/GStreamer.framework/Versions/1.0/lib/gstreamer-1.0/libgstisomp4.dylib
             else
                 sudo cp  /opt/homebrew/lib/gstreamer-1.0/libgstisomp4.dylib /Library/Frameworks/GStreamer.framework/Versions/1.0/lib/gstreamer-1.0/libgstisomp4.dylib
             fi
-            INSTALL_STATUS_ARR+=("gst-plugins-good-$DEFAULT_GSTVERSION was successfully installed.")
         fi
-
-    elif [[ "$OSTYPE" == "linux"* ]]; then
-        echo "gst-plugins-good-$DEFAULT_GSTVERSION is installed via apt on Linux targets."
+        INSTALL_STATUS_ARR+=("gst-plugins-good-$DEFAULT_GSTVERSION was successfully installed.")
     fi
 }
