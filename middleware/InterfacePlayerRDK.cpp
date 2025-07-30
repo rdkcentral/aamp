@@ -1453,6 +1453,9 @@ bool InterfacePlayerRDK::Flush(double position, int rate, bool shouldTearDown, b
 	GstState current;
 	GstState pending;
 
+	MW_LOG_MIL("InterfacePlayerRDK: Entering Flush called with position %f, rate %d, shouldTearDown %d, isAppSeek %d",
+			   position, rate, shouldTearDown, isAppSeek);
+
 	gst_media_stream *stream = &gstPrivateContext->stream[eGST_MEDIATYPE_VIDEO];
 	gstPrivateContext->rate = rate;
 	gstPrivateContext->stream[eGST_MEDIATYPE_VIDEO].bufferUnderrun = false;
@@ -1586,6 +1589,8 @@ bool InterfacePlayerRDK::Flush(double position, int rate, bool shouldTearDown, b
 	}
 	gstPrivateContext->eosSignalled = false;
 	gstPrivateContext->numberOfVideoBuffersSent = 0;
+
+	MW_LOG_MIL("InterfacePlayerRDK: Exiting Flush");
 	return true;
 }
 void InterfacePlayerRDK::SignalConnect(gpointer instance, const gchar *detailed_signal, GCallback c_handler, gpointer data)

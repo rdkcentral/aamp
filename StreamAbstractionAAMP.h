@@ -1682,6 +1682,8 @@ public:
 	 */
 	virtual void NotifyFirstVideoPTS(unsigned long long pts, unsigned long timeScale) { };
 
+	virtual double GetPTOoffset( void ){ };
+
 	/**
 	 * @brief Kicks off subtitle display - sent at start of video presentation
 	 *

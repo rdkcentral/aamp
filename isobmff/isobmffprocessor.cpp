@@ -359,6 +359,13 @@ bool IsoBmffProcessor::setTuneTimePTS(AampGrowableBuffer *fragBuffer, double pos
 					lock.unlock();
 					AAMPLOG_INFO("[pto] IsoBmffProcessor %s NotifyFirstVideoPTS basePTS=%" PRIu64 " timeScale=%u", IsoBmffProcessorTypeName[type], basePTS, timeScale);
 					p_aamp->NotifyFirstVideoPTS(basePTS, timeScale);
+
+					double offset = p_aamp->GetPTOoffset();
+					AAMPLOG_INFO("[pto] IsoBmffProcessor %s pos before offset=%f playRate=%f", IsoBmffProcessorTypeName[type], pos, playRate);
+
+					pos = pos - offset;
+					AAMPLOG_INFO("[pto] IsoBmffProcessor %s pos after offset=%f playRate=%f", IsoBmffProcessorTypeName[type], pos, playRate);
+
 					if (type == eBMFFPROCESSOR_TYPE_VIDEO)
 					{
 						// Send flushing seek to gstreamer pipeline.

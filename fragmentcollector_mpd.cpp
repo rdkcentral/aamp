@@ -9442,6 +9442,9 @@ bool StreamAbstractionAAMP_MPD::SelectSourceOrAdPeriod(bool &periodChanged, bool
 					AAMPLOG_MIL("Period ID changed from \'%s\' to \'%s\' [BasePeriodId=\'%s\']", currentPeriodId.c_str(), mCurrentPeriod->GetId().c_str(), mBasePeriodId.c_str());
 					currentPeriodId = mCurrentPeriod->GetId();
 					mPrevAdaptationSetCount = adaptationSetCount;
+					AAMPLOG_INFO("[pto] Resetting mVideoPosRemainder");
+					mVideoPosRemainder = 0;
+
 					periodChanged = true;
 					if ((rate == AAMP_NORMAL_PLAY_RATE) &&
 						!mMediaStreamContext[eMEDIATYPE_VIDEO]->IsLocalTSBInjection() &&
@@ -14007,7 +14010,16 @@ void StreamAbstractionAAMP_MPD::SeekPosUpdate(double secondsRelativeToTuneTime)
  */
 void StreamAbstractionAAMP_MPD::NotifyFirstVideoPTS(unsigned long long pts, unsigned long timeScale)
 {
-	mFirstPTS = ((double)pts / (double)timeScale);
+	//mFirstPTS = ((double)pts / (double)timeScale);
+	double incomingPTS = ((double)pts / (double)timeScale);
+	if( incomingPTS > mFirstPTS )
+	{
+		mPTOoffset = incomingPTS - mFirstPTS;
+	}
+}
+double StreamAbstractionAAMP_MPD::GetPTOoffset( void )
+{
+	return mPTOoffset;
 }
 
 /**

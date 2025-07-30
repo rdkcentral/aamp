@@ -1151,6 +1151,7 @@ void AAMPGstPlayer::SeekStreamSink(double position, double rate)
 	// shouldTearDown is set to false, because in case of a new tune pipeline
 	// might not be in a playing/paused state which causes Flush() to destroy
 	// pipeline. This has to be avoided.
+	AAMPLOG_INFO("[pto] SeekStreamSink: position %f rate %f", position, rate);
 	Flush(position, rate, false);
 
 }

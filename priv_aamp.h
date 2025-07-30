@@ -2711,6 +2711,8 @@ public:
 	 */
 	void NotifyFirstVideoPTS(unsigned long long pts, unsigned long timeScale = 90000);
 
+	double GetPTOoffset( void );
+
 	/**
 	 *   @fn SendVTTCueDataAsEvent
 	 *

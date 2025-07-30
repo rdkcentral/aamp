@@ -487,6 +487,8 @@ public:
 	 */
 	void NotifyFirstVideoPTS(unsigned long long pts, unsigned long timeScale) override;
 
+	double GetPTOoffset( void );
+
 	/**
 	 * @fn GetAvailabilityStartTime
 	 * @brief  Returns AvailabilityStartTime from the manifest
@@ -1145,6 +1147,7 @@ protected:
 	double mTSBDepth;
 	double mPresentationOffsetDelay;
 	double mFirstPTS;
+	double mPTOoffset;
 	double mStartTimeOfFirstPTS;
 	double mVideoPosRemainder;
 	double mFirstVideoFragPTS;

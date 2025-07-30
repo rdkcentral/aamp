@@ -9518,6 +9518,13 @@ void PrivateInstanceAAMP::NotifyFirstVideoPTS(unsigned long long pts, unsigned l
 		mpStreamAbstractionAAMP->NotifyFirstVideoPTS(pts, timeScale);
 	}
 }
+double PrivateInstanceAAMP::GetPTOoffset( void )
+{
+	if (mpStreamAbstractionAAMP)
+	{
+		return mpStreamAbstractionAAMP->GetPTOoffset();
+	}
+}
 
 /**
  * @brief Notifies base PTS of the HLS video playback
@@ -9700,10 +9707,12 @@ void PrivateInstanceAAMP::FlushStreamSink(double position, double rate)
 		{
 			//Adding midSeekPtsOffset to position value.
 			//Enables us to seek to the desired position in the mp4 fragment.
+			AAMPLOG_INFO("[pto] PrivateInstanceAAMP::FlushStreamSink position:%lf rate:%lf", position, rate);
 			sink->SeekStreamSink(position + GetMidSeekPosOffset(), rate);
 		}
 		else
 		{
+			AAMPLOG_INFO("[pto] PrivateInstanceAAMP::FlushStreamSink position:%lf rate:%lf", position, rate);
 			sink->SeekStreamSink(position, rate);
 		}
 	}
