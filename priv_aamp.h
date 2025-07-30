@@ -4032,16 +4032,6 @@ protected:
 	 */
 	void NotifyPauseOnStartPlayback(void);
 
-	/**
-	 *   @brief Get output format of stream.
-	 *
-	 *   @param[out]  primaryOutputFormat - format of primary track
-	 *   @param[out]  audioOutputFormat - format of audio track
-	 *   @param[out]  auxAudioOutputFormat - format of aux audio track
-	 *   @param[out]  subtitleOutputFormat - format of subtitle  track
-	 *   @return void
-	 */
-	void GetStreamFormat(StreamOutputFormat &primaryOutputFormat, StreamOutputFormat &audioOutputFormat, StreamOutputFormat &auxAudioOutputFormat, StreamOutputFormat &subtitleOutputFormat);
 
 	std::mutex mPausePositionMonitorMutex;				// Mutex lock for PausePosition condition variable
 	std::condition_variable mPausePositionMonitorCV;	// Condition Variable to signal to stop PausePosition monitoring
