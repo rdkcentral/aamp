@@ -1836,14 +1836,19 @@ CachedFragment* MediaTrack::GetFetchChunkBuffer(bool initialize)
  */
 bool MediaTrack::IsFragmentCacheFull()
 {
+	bool rc = false;
+	std::lock_guard<std::mutex> guard(mutex);
 	if(IsInjectionFromCachedFragmentChunks())
 	{
 		AAMPLOG_DEBUG("[%s] numberOfFragmentChunksCached %d mCachedFragmentChunksSize %zu", name, numberOfFragmentChunksCached, mCachedFragmentChunksSize);
-		return numberOfFragmentChunksCached == mCachedFragmentChunksSize;
+		rc = (numberOfFragmentChunksCached == mCachedFragmentChunksSize);
 	}
-
-	AAMPLOG_DEBUG("[%s] numberOfFragmentsCached %d maxCachedFragmentsPerTrack %d", name, numberOfFragmentsCached, maxCachedFragmentsPerTrack);
-	return numberOfFragmentsCached == maxCachedFragmentsPerTrack;
+	else
+	{
+		AAMPLOG_DEBUG("[%s] numberOfFragmentsCached %d maxCachedFragmentsPerTrack %d", name, numberOfFragmentsCached, maxCachedFragmentsPerTrack);
+		rc = numberOfFragmentsCached == maxCachedFragmentsPerTrack;
+	}
+	return rc;
 }
 
 /**
@@ -4047,7 +4052,7 @@ void StreamAbstractionAAMP::InitializeMediaProcessor(bool passThroughMode)
 				track->playContext->setRate(aamp->rate, PlayMode_normal);
 				if(eMEDIATYPE_AUDIO == i)
 				{
-					peerAudioProcessor = processor;
+					peerAudioProcessor = std::move(processor);
 				}
 				else if (eMEDIATYPE_VIDEO == i && subtitleESProcessor)
 				{
