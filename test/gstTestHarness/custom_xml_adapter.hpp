@@ -7,6 +7,7 @@
 #include <string>
 #include <vector>
 #include <cstdint>
+#include <limits>
 #include "turbo_xml.hpp"
 #include "gst-utils.h" // Assuming this contains MediaType enum and other necessary definitions
 
