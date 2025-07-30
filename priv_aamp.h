@@ -1732,7 +1732,7 @@ public:
 	 *
 	 * @return void
 	 */
-	void Stop(void);
+	void Stop( bool isDestructing = false );
 
 	/**
 	 * @brief Checking whether TSB enabled or not
@@ -3868,8 +3868,9 @@ public:
 	 * @param[in] videoPositionMS - video position in milliseconds
 	 * @param[in] audioPositionMS - audio position in milliseconds
 	 * @param[in] timeInStateMS - time in state in milliseconds
+	 * @param[in] droppedFrames - dropped frames count
 	 */
-	void SendMonitorAvEvent(const std::string &status, int64_t videoPositionMS, int64_t audioPositionMS, uint64_t timeInStateMS);
+	void SendMonitorAvEvent(const std::string &status, int64_t videoPositionMS, int64_t audioPositionMS, uint64_t timeInStateMS, uint64_t droppedFrames);
 
 	/**
 	 * @brief Determines if decrypt should be called on clear samples
@@ -4032,6 +4033,16 @@ protected:
 	 */
 	void NotifyPauseOnStartPlayback(void);
 
+	/**
+	 *   @brief Get output format of stream.
+	 *
+	 *   @param[out]  primaryOutputFormat - format of primary track
+	 *   @param[out]  audioOutputFormat - format of audio track
+	 *   @param[out]  auxAudioOutputFormat - format of aux audio track
+	 *   @param[out]  subtitleOutputFormat - format of subtitle  track
+	 *   @return void
+	 */
+	void GetStreamFormat(StreamOutputFormat &primaryOutputFormat, StreamOutputFormat &audioOutputFormat, StreamOutputFormat &auxAudioOutputFormat, StreamOutputFormat &subtitleOutputFormat);
 
 	std::mutex mPausePositionMonitorMutex;				// Mutex lock for PausePosition condition variable
 	std::condition_variable mPausePositionMonitorCV;	// Condition Variable to signal to stop PausePosition monitoring

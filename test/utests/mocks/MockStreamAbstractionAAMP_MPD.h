@@ -36,6 +36,8 @@ public:
 	MOCK_METHOD(double, GetMidSeekPosOffset, (), (override));
 	MOCK_METHOD(IPeriod *, GetPeriod, ());
 	MOCK_METHOD(double, GetStreamPosition, (), (override));
+	MOCK_METHOD(void, GetStreamFormat, (StreamOutputFormat &primaryOutputFormat, StreamOutputFormat &audioOutputFormat, StreamOutputFormat &auxAudioOutputFormat, StreamOutputFormat &subtitleOutputFormat), (override));
+	MOCK_METHOD(bool, DoEarlyStreamSinkFlush, (bool newTune, float rate), (override));
   };
 
 extern MockStreamAbstractionAAMP_MPD *g_mockStreamAbstractionAAMP_MPD;

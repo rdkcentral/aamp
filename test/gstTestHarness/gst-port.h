@@ -78,7 +78,7 @@ public:
 	void InstantaneousRateChange( double newRate );
 	void DumpDOT( void );
 	void SendBufferMP4( MediaType mediaType, gpointer ptr, gsize len, double duration, const char *url=NULL );
-	void SendBufferES( MediaType mediaType, gpointer ptr, gsize len, double duration, double pts, double dts );
+	void SendBufferES( MediaType mediaType, gpointer ptr, gsize len, double duration, double pts, double dts, GstStructure *metadata = NULL );
 	void SendGap( MediaType mediaType, double pts, double base_time );
 	void SendEOS( MediaType mediaType );
 	void Step( void );

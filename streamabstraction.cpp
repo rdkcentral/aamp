@@ -823,6 +823,7 @@ bool MediaTrack::CheckForDiscontinuity(CachedFragment* cachedFragment, bool& fra
 				}
 				else
 				{
+					AAMPLOG_WARN("discontinuity ignored for other AV track, no need to process %s track", name);
 					// reset the flag when both the paired discontinuities ignored; since no buffer pushed before.
 					aamp->ResetTrackDiscontinuityIgnoredStatus();
 					aamp->UnblockWaitForDiscontinuityProcessToComplete();
@@ -1695,6 +1696,7 @@ void MediaTrack::RunInjectLoop()
 		totalInjectedDuration = 0;
 		totalInjectedChunksDuration = 0;
 		lastInjectedPosition = 0;
+		lastInjectedDuration = 0;
 	}
 	while (aamp->DownloadsAreEnabled() && keepInjecting)
 	{
@@ -2459,22 +2461,22 @@ void StreamAbstractionAAMP::ConfigureTimeoutOnBuffer()
 /**
  *  @brief Update rampdown profile on network failure
  */
-double StreamAbstractionAAMP::GetBufferValue(MediaTrack *video)
+double StreamAbstractionAAMP::GetBufferValue(MediaTrack *track)
 {
 	double bufferValue = 0.0;
-	if (video)
+	if (track)
 	{
-		bufferValue = video->GetBufferedDuration();
-		if (aamp->IsLocalAAMPTsb() && video->IsLocalTSBInjection()) /**< Update buffer value based on manifest endDelta if it is LOCAL TSB LLD playback*/
+		bufferValue = track->GetBufferedDuration();
+		if (aamp->IsLocalAAMPTsb() && track->IsLocalTSBInjection()) /**< Update buffer value based on manifest endDelta if it is LOCAL TSB LLD playback*/
 		{
 			AampTSBSessionManager *tsbSessionManager = aamp->GetTSBSessionManager();
 			if(tsbSessionManager)
 			{
 				double manifestEndDelta = tsbSessionManager->GetManifestEndDelta();
 				bufferValue = (manifestEndDelta + aamp->mLiveOffset); /**< Buffer should be calculated from live offset*/
-				bufferValue += video->fragmentDurationSeconds; /**< Adjust with last fragment; One fragment may be downloading and not yet completed*/
+				bufferValue += track->fragmentDurationSeconds; /**< Adjust with last fragment; One fragment may be downloading and not yet completed*/
 				AAMPLOG_INFO("Inverse Buffer (%.02lf)sec based on TSB end point delta (%.02lf)sec and live offset (%.02lf)sec and fragmentDuration for adjust (%.02lf)sec !!",
-							 bufferValue, manifestEndDelta, aamp->mLiveOffset, video->fragmentDurationSeconds);
+							 bufferValue, manifestEndDelta, aamp->mLiveOffset, track->fragmentDurationSeconds);
 				if(bufferValue < 0) /** Correct the inverse buffer; it may become -ve*/
 				{
 					bufferValue = 0;
@@ -3691,6 +3693,25 @@ double StreamAbstractionAAMP::GetBufferedVideoDurationSec()
 }
 
 /**
+ *  @brief Get buffered audio duration in seconds
+ */
+double StreamAbstractionAAMP::GetBufferedAudioDurationSec()
+{
+	double bufferValue = -1.0;
+	// do not support trickplay track
+	if(AAMP_NORMAL_PLAY_RATE != aamp->rate)
+	{
+		return bufferValue;
+	}
+	MediaTrack *audio = GetMediaTrack(eTRACK_AUDIO);
+	if(audio)
+	{
+		bufferValue = GetBufferValue(audio);
+	}
+	return bufferValue;
+}
+
+/**
  *  @brief Get current audio track information
  */
 bool StreamAbstractionAAMP::GetCurrentAudioTrack(AudioTrackInfo &audioTrack)
@@ -4000,10 +4021,9 @@ void StreamAbstractionAAMP::SetVideoPlaybackRate(float rate)
 
 /**
  * @brief Initialize ISOBMFF Media Processor
- *
- * @return void
+ * @param[in] passThroughMode - true if processor should skip parsing PTS and flush
  */
-void StreamAbstractionAAMP::InitializeMediaProcessor()
+void StreamAbstractionAAMP::InitializeMediaProcessor(bool passThroughMode)
 {
 	std::shared_ptr<IsoBmffProcessor> peerAudioProcessor = nullptr;
 	std::shared_ptr<IsoBmffProcessor> peerSubtitleProcessor = nullptr;
@@ -4021,7 +4041,7 @@ void StreamAbstractionAAMP::InitializeMediaProcessor()
 			if(eMEDIATYPE_SUBTITLE != i)
 			{
 				std::shared_ptr<IsoBmffProcessor> processor = std::make_shared<IsoBmffProcessor>(aamp, mID3Handler, (IsoBmffProcessorType) i,
-																peerAudioProcessor.get(), peerSubtitleProcessor.get());
+																passThroughMode, peerAudioProcessor.get(), peerSubtitleProcessor.get());
 				track->SourceFormat(FORMAT_ISO_BMFF);
 				track->playContext = std::static_pointer_cast<MediaProcessor>(processor);
 				track->playContext->setRate(aamp->rate, PlayMode_normal);
@@ -4038,7 +4058,7 @@ void StreamAbstractionAAMP::InitializeMediaProcessor()
 			{
 				if(FORMAT_SUBTITLE_MP4 == subtitleFormat)
 				{
-					peerSubtitleProcessor = std::make_shared<IsoBmffProcessor>(aamp, nullptr, (IsoBmffProcessorType) i);
+					peerSubtitleProcessor = std::make_shared<IsoBmffProcessor>(aamp, nullptr, (IsoBmffProcessorType) i, passThroughMode, nullptr, nullptr);
 					track->playContext = std::static_pointer_cast<MediaProcessor>(peerSubtitleProcessor);
 					track->playContext->setRate(aamp->rate, PlayMode_normal);
 				}

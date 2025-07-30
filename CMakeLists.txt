@@ -43,7 +43,7 @@ find_package(PkgConfig REQUIRED)
 
 # Resolve dependent modules
 message("using gstreamer-1.0")
-pkg_check_modules(GSTREAMER REQUIRED gstreamer-1.0)
+pkg_check_modules(GSTREAMER REQUIRED gstreamer-1.0>=1.18.0)
 pkg_check_modules(GSTREAMERBASE REQUIRED gstreamer-app-1.0)
 pkg_check_modules(LIBXML2 REQUIRED libxml-2.0)
 pkg_check_modules(LIBDASH REQUIRED libdash)
@@ -336,7 +336,7 @@ set(LIBAAMP_SOURCES
 	scte35/AampSCTE35.cpp
 	subtec/subtecparser/WebvttSubtecDevParser.cpp
 	AampTrackWorker.cpp
-	test/gstTestHarness/mp4demux.cpp
+	test/gstTestHarness/mp4demux.hpp
 	middleware/drm/aes/Aes.cpp
 	middleware/drm/helper/DrmHelper.cpp
 	middleware/gstplayertaskpool.cpp
@@ -597,6 +597,7 @@ set(AAMP_CLI_SOURCES
 	test/aampcli/AampcliVirtualChannelMap.cpp
 	test/aampcli/AampcliShader.cpp
 	test/aampcli/AampcliSubtecSimulator.cpp
+	test/aampcli/AampcliPrintf.cpp
 )
 add_executable(aamp-cli ${AAMP_CLI_SOURCES})
 target_link_libraries(aamp-cli aamp subtec tsb playerfbinterface ${AAMP_CLI_LD_FLAGS} "-lreadline")
@@ -632,13 +633,22 @@ set(GSTTESTHARNESS_DEPENDS
 )
 set(GSTTESTHARNESS_SOURCES
 	test/gstTestHarness/gst-port.cpp
+	test/gstTestHarness/gst-port.h
 	test/gstTestHarness/gst-utils.cpp
+	test/gstTestHarness/gst-utils.h
 	test/gstTestHarness/gst-test.cpp
-	test/gstTestHarness/mp4demux.cpp
+	test/gstTestHarness/gst-test.h
+	test/gstTestHarness/mp4demux.hpp
 	test/gstTestHarness/dash_adapter.cpp
+	test/gstTestHarness/dash_adapter.hpp
 	test/gstTestHarness/downloader.cpp
+	test/gstTestHarness/downloader.hpp
 	test/gstTestHarness/stream_utils.cpp
+	test/gstTestHarness/stream_utils.hpp
 	test/gstTestHarness/string_utils.cpp
+	test/gstTestHarness/string_utils.hpp
+	test/gstTestHarness/tsdemux.hpp
+	test/gstTestHarness/turbo_xml.hpp
 )
 add_executable(gstTestHarness ${GSTTESTHARNESS_SOURCES})
 target_link_libraries(gstTestHarness ${GSTTESTHARNESS_DEPENDS} "-lreadline")

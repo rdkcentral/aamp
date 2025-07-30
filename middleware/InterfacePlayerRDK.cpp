@@ -308,11 +308,7 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int auxF
 			PipelineSetToReady = true;
 		}
 	}
-
-	bool configureStream[GST_TRACK_COUNT];
-	bool configurationChanged = false;
-	memset(configureStream, 0, sizeof(configureStream));
-
+	bool configureStream[GST_TRACK_COUNT] = {};
 	for (int i = 0; i < GST_TRACK_COUNT; i++)
 	{
 		gst_media_stream *stream = &gstPrivateContext->stream[i];
@@ -324,7 +320,6 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int auxF
 				configureStream[i] = true;
 				gstPrivateContext->NumberOfTracks++;
 			}
-			configurationChanged = true;
 		}
 		if(socInterface->ShouldTearDownForTrickplay())
 		{
@@ -349,29 +344,6 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int auxF
 		stream->resetPosition = true;
 		stream->eosReached = false;
 		stream->firstBufferProcessed = false;
-	}
-
-	/* For Rialto, teardown and rebuild the gstreamer streams if the
-	 * configuration changes. This allows the "single-path-stream" property to
-	 * be set correctly.
-	 */
-	if((gstPrivateContext->usingRialtoSink) && (configurationChanged))
-	{
-		MW_LOG_INFO("Teardown and rebuild the pipeline for Rialto");
-
-		for (int i = 0; i < GST_TRACK_COUNT; i++)
-		{
-			gst_media_stream *stream = &gstPrivateContext->stream[i];
-			if (stream->format != GST_FORMAT_INVALID)
-			{
-				TearDownStream((GstMediaType)i);
-			}
-
-			if(newFormat[i] != GST_FORMAT_INVALID)
-			{
-				configureStream[i] = true;
-			}
-		}
 	}
 
 	for (int i = 0; i < GST_TRACK_COUNT; i++)
@@ -1592,7 +1564,22 @@ bool InterfacePlayerRDK::Flush(double position, int rate, bool shouldTearDown, b
 	{
 		MW_LOG_ERR("Seek failed");
 		SetPendingSeek(true);
+		//Save the updated seek position
+		SetSeekPosition(position);
 	}
+
+	if ((gstPrivateContext->usingRialtoSink) &&
+		(gstPrivateContext->audio_sink) &&
+		(rate != GST_NORMAL_PLAY_RATE))
+	{
+		/* 
+		 * If trickplay, avoid tearing down the pipeline in ConfigurePipeline(),
+		 * by bringing the audio pipeline out of pre-roll which would block streaming.
+		 */
+		MW_LOG_INFO("Trickplay rate %d - send eos to audio sink", rate);
+		GstPlayer_SignalEOS(gstPrivateContext->stream[eGST_MEDIATYPE_AUDIO]);
+	}
+
 	if(bAsyncModify)
 	{
 		socInterface->SetSinkAsync(gstPrivateContext->audio_sink, (gboolean)TRUE);
@@ -2920,25 +2907,31 @@ bool InterfacePlayerRDK::SendHelper(int type, const void *ptr, size_t len, doubl
 				ForwardBuffersToAuxPipeline(buffer);
 			}
 #ifdef SUPPORTS_MP4DEMUX
-			if( m_gstConfigParam->useMp4Demux )
+			if( mediaType<2 && m_gstConfigParam->useMp4Demux &&
+			   !copy /* avoid using this path for hls/ts */ )
 			{
-				static uint32_t timescale[2]; // FIXME!
-				// some lldash streams don't have timescale in media segments
-				Mp4Demux *mp4Demux = new Mp4Demux(ptr,len,timescale[mediaType]);
+				static Mp4Demux *m_mp4Demux[2];
+				Mp4Demux *mp4Demux = m_mp4Demux[mediaType];
+				if( !mp4Demux )
+				{
+					mp4Demux = new Mp4Demux();
+					m_mp4Demux[mediaType] = mp4Demux;
+				}
+				mp4Demux->Parse(ptr,len);
 				int count = mp4Demux->count();
 				if( count>0 )
 				{ // media segment
 					for( int i=0; i<count; i++ )
 					{
-						size_t len = mp4Demux->getLen(i);
+						size_t sampleLen = mp4Demux->getLen(i);
 						double pts = mp4Demux->getPts(i);
 						double dts = mp4Demux->getDts(i);
 						double dur = mp4Demux->getDuration(i);
-						gpointer data = g_malloc(len);
+						gpointer data = g_malloc(sampleLen);
 						if( data )
 						{
-							memcpy( data, mp4Demux->getPtr(i), len );
-							GstBuffer *gstBuffer = gst_buffer_new_wrapped( data, len);
+							memcpy( data, mp4Demux->getPtr(i), sampleLen );
+							GstBuffer *gstBuffer = gst_buffer_new_wrapped( data, sampleLen);
 							GST_BUFFER_PTS(gstBuffer) = (GstClockTime)(pts * GST_SECOND);
 							GST_BUFFER_DTS(gstBuffer) = (GstClockTime)(dts * GST_SECOND);
 							GST_BUFFER_DURATION(gstBuffer) = (GstClockTime)(dur * 1000000000LL);
@@ -2957,10 +2950,8 @@ bool InterfacePlayerRDK::SendHelper(int type, const void *ptr, size_t len, doubl
 				}
 				else
 				{ // init header
-					timescale[mediaType] = mp4Demux->timescale;
 					mp4Demux->setCaps( GST_APP_SRC(stream->source) );
 				}
-				delete mp4Demux;
 				if( !copy )
 				{
 					g_free((gpointer)ptr);
@@ -3663,7 +3654,6 @@ bool GstPlayer_isVideoDecoder(const char* name, InterfacePlayerRDK * pInterfaceP
 	return pInterfacePlayerRDK->socInterface->IsVideoDecoder(name, isRialto);
 }
 
-#if GST_CHECK_VERSION(1,18,0)
 /**
  * @brief GstPlayer_HandleInstantRateChangeSeekProbe
  * @param[in] pad pad element
@@ -3709,7 +3699,6 @@ static GstPadProbeReturn GstPlayer_HandleInstantRateChangeSeekProbe(GstPad* pad,
 	}
 	return GST_PAD_PROBE_OK;
 }
-#endif
 
 /**
  * @brief Check if gstreamer element is video sink
