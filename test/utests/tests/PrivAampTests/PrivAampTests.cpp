@@ -57,6 +57,7 @@ using ::testing::NiceMock;
 using ::testing::Return;
 using ::testing::ReturnRef;
 using ::testing::SetArgPointee;
+using ::testing::SetArgReferee;
 using ::testing::ValuesIn;
 using ::testing::WithParamInterface;
 using ::testing::_;
@@ -324,6 +325,10 @@ public:
 
 		IsDiscontinuityProcessPending();
 		NotifyEOSReached();
+	}
+	void CallGetStreamFormat(StreamOutputFormat &primaryOutputFormat, StreamOutputFormat &audioOutputFormat, StreamOutputFormat &auxAudioOutputFormat, StreamOutputFormat &subtitleOutputFormat)
+	{
+		GetStreamFormat(primaryOutputFormat, audioOutputFormat, auxAudioOutputFormat, subtitleOutputFormat);
 	}
 	void GetAvailableTracks_obj()
 	{
@@ -4354,6 +4359,108 @@ TEST_F(PrivAampTests, TuneHelperWithAampTsbLive)
 	EXPECT_DOUBLE_EQ(p_aamp->durationSeconds, (ABS_END_POS - SEEK_POS));
 }
 
+/**
+ * @test PrivAampTests::TuneHelperWithAampTsbSeekToLiveWhenTsbIsEmpty
+ * @brief Test the method TuneHelper with AAMP TSB enabled, Tsb injection disabled
+ * not newTune with TuneType eTUNETYPE_SEEKTOLIVE when TSB is empty.
+ *
+ * This test verifies that when TuneHelper function is called with
+ * above parameters, it is not setting LocalAAMPTsbInjection flag.
+ */
+TEST_F(PrivAampTests, TuneHelperWithAampTsbSeekToLiveWhenTsbIsEmpty)
+{
+	constexpr double SEEK_POS = 123;
+	constexpr double ABS_END_POS = 150.0;
+	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP_MPD;
+	p_aamp->mMediaFormat = eMEDIAFORMAT_DASH;
+	p_aamp->rate = AAMP_RATE_PAUSE;
+	p_aamp->seek_pos_seconds = SEEK_POS;
+	p_aamp->SetLLDashChunkMode(false);
+	p_aamp->SetLocalAAMPTsb(true);
+	p_aamp->SetLocalAAMPTsbInjection(false);
+	p_aamp->mAbsoluteEndPosition = ABS_END_POS;
+	p_aamp->culledSeconds = SEEK_POS;
+
+	EXPECT_DOUBLE_EQ(p_aamp->GetTSBSessionManager()->GetTotalStoreDuration(eMEDIATYPE_VIDEO), 0);
+	p_aamp->TuneHelper(eTUNETYPE_SEEKTOLIVE);
+	EXPECT_FALSE(p_aamp->IsLocalAAMPTsbInjection());
+}
+
+/**
+ * @test PrivAampTests::TuneHelperWithAampTsbSeekToLiveWhenTsbIsNotEmpty
+ * @brief Test the method TuneHelper with AAMP TSB enabled, Tsb injection disabled
+ * not newTune with TuneType eTUNETYPE_SEEKTOLIVE when TSB has data.
+ *
+ * This test verifies that when TuneHelper function is called with
+ * above parameters, it is able to initiaize TsbReader is TSB has data.
+ */
+TEST_F(PrivAampPrivTests, TuneHelperWithAampTsbSeekToLiveWhenTsbIsNotEmpty)
+{
+	constexpr double SEEK_POS = 123;
+	constexpr double ABS_END_POS = 150.0;
+	testp_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP_MPD;
+	testp_aamp->mMediaFormat = eMEDIAFORMAT_DASH;
+	testp_aamp->rate = AAMP_RATE_PAUSE;
+	testp_aamp->seek_pos_seconds = SEEK_POS;
+	testp_aamp->SetLLDashChunkMode(false);
+	testp_aamp->SetLocalAAMPTsb(true);
+	testp_aamp->SetLocalAAMPTsbInjection(false);
+	testp_aamp->mAbsoluteEndPosition = ABS_END_POS;
+	testp_aamp->culledSeconds = SEEK_POS;
+	testp_aamp->SetTsbSessionManager();
+	testp_aamp->SetTsbStore();
+
+	EXPECT_CALL(*g_mockTSBSessionManager, GetTotalStoreDuration(eMEDIATYPE_VIDEO)).WillRepeatedly(Return(ABS_END_POS));
+	testp_aamp->TuneHelper(eTUNETYPE_SEEKTOLIVE);
+	EXPECT_TRUE(testp_aamp->IsLocalAAMPTsbInjection());
+}
+
+/**
+ * @test PrivAampTests::TuneHelperWithAampTsbConfigureFlushSequence
+ * @brief Test the method TuneHelper for the order of Configure and Flush calls.
+ *
+ * This test verifies that Flush is called after Configure in TuneHelper
+ * function.
+ */
+TEST_F(PrivAampPrivTests, TuneHelperWithAampTsbConfigureFlushSequence)
+{
+	constexpr double SEEK_POS = 123;
+	constexpr double ABS_END_POS = 150.0;
+	testp_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP_MPD;
+	testp_aamp->mMediaFormat = eMEDIAFORMAT_DASH;
+	testp_aamp->rate = AAMP_NORMAL_PLAY_RATE;
+	testp_aamp->seek_pos_seconds = SEEK_POS;
+	testp_aamp->SetLLDashChunkMode(true);
+	testp_aamp->SetLocalAAMPTsb(true);
+	testp_aamp->SetLocalAAMPTsbInjection(true);
+	testp_aamp->mAbsoluteEndPosition = ABS_END_POS;
+	testp_aamp->culledSeconds = SEEK_POS;
+	testp_aamp->SetState(eSTATE_PLAYING);
+	::testing::Sequence s;
+	AampLLDashServiceData stAampLLDashServiceData;
+	stAampLLDashServiceData.lowLatencyMode = true;
+	testp_aamp->SetLLDashServiceData(stAampLLDashServiceData);
+
+	//Verify the sequence for SeekToLive
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer));
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP_MPD, DoEarlyStreamSinkFlush(false, AAMP_NORMAL_PLAY_RATE)).WillRepeatedly(Return(true));
+	EXPECT_CALL(*g_mockAampGstPlayer, Configure(_,_,_,_,_,_,_)).InSequence(s);
+	EXPECT_CALL(*g_mockAampGstPlayer, Flush(_,_,_)).InSequence(s);
+	testp_aamp->TuneHelper(eTUNETYPE_SEEKTOLIVE);
+
+	//Verify the sequence for newTune
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP_MPD, DoEarlyStreamSinkFlush(true, AAMP_NORMAL_PLAY_RATE)).WillRepeatedly(Return(true));
+	EXPECT_CALL(*g_mockAampGstPlayer, Configure(_,_,_,_,_,_,_)).InSequence(s);
+	EXPECT_CALL(*g_mockAampGstPlayer, Flush(_,_,_)).InSequence(s);
+	testp_aamp->TuneHelper(eTUNETYPE_NEW_NORMAL);
+
+	//Verify the sequence for eTUNETYPE_SEEK
+	testp_aamp->SetLocalAAMPTsb(true);
+	EXPECT_CALL(*g_mockAampGstPlayer, Flush(_,_,_)).InSequence(s);
+	EXPECT_CALL(*g_mockAampGstPlayer, Configure(_,_,_,_,_,_,_)).InSequence(s);
+	EXPECT_CALL(*g_mockAampGstPlayer, Flush(_,_,_)).InSequence(s);
+	testp_aamp->TuneHelper(eTUNETYPE_SEEK);
+}
 
 /**
  * @test PrivAampTests::NotifyEOSReached
@@ -4465,3 +4572,127 @@ TEST_F(PrivAampTests,GetFormatPositionOffsetTest)
 	offset = p_aamp->GetFormatPositionOffsetInMSecs();
 	EXPECT_EQ(offset, 1.2 * 1000); // Expect offset to be 0 since IsLiveStream() is false
 }
+
+
+// Test parameters structure for GetStreamFormat tests
+struct GetStreamFormatTestParams {
+	double rate;
+	bool hasTsbInjection;
+	bool useRialtoSink;
+	StreamOutputFormat mockPrimary;
+	StreamOutputFormat mockAudio;
+	StreamOutputFormat mockAuxAudio;
+	StreamOutputFormat mockSubtitle;
+	StreamOutputFormat expectedPrimary;
+	StreamOutputFormat expectedAudio;
+	StreamOutputFormat expectedAuxAudio;
+	StreamOutputFormat expectedSubtitle;
+
+	// For test name generation
+	std::string ToString() const
+	{
+		std::stringstream ss;
+		ss << "Rate" << rate
+		   << "_HasTsbInjection" << hasTsbInjection
+		   << "_UseRialtoSink" << useRialtoSink;
+		return ss.str();
+	}
+};
+
+// This function is used by Google Test to print the parameter value.
+void PrintTo(const GetStreamFormatTestParams& params, ::std::ostream* os)
+{
+	*os << params.ToString();
+}
+
+class GetStreamFormatTests : public PrivAampPrivTests,
+							 public ::testing::WithParamInterface<GetStreamFormatTestParams> {
+};
+
+TEST_P(GetStreamFormatTests, GetStreamFormatParameterizedTest)
+{
+	auto params = GetParam();
+
+	StreamOutputFormat primaryOutputFormat, audioOutputFormat, auxAudioOutputFormat, subtitleOutputFormat;
+	testp_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP_MPD;
+	testp_aamp->rate = params.rate;
+
+	testp_aamp->SetLocalAAMPTsbInjection(params.hasTsbInjection);
+
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP_MPD, GetStreamFormat(_,_,_,_))
+		.Times(1)
+		.WillOnce(DoAll(
+			SetArgReferee<0>(params.mockPrimary),
+			SetArgReferee<1>(params.mockAudio),
+			SetArgReferee<2>(params.mockAuxAudio),
+			SetArgReferee<3>(params.mockSubtitle)
+		));
+
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_useRialtoSink)).WillOnce(Return(params.useRialtoSink));
+
+	testp_aamp->CallGetStreamFormat(primaryOutputFormat, audioOutputFormat, auxAudioOutputFormat, subtitleOutputFormat);
+
+	EXPECT_EQ(primaryOutputFormat, params.expectedPrimary);
+	EXPECT_EQ(audioOutputFormat, params.expectedAudio);
+	EXPECT_EQ(auxAudioOutputFormat, params.expectedAuxAudio);
+	EXPECT_EQ(subtitleOutputFormat, params.expectedSubtitle);
+}
+
+INSTANTIATE_TEST_SUITE_P(
+	GetStreamFormatVariations,
+	GetStreamFormatTests,
+	::testing::Values(
+		GetStreamFormatTestParams{
+			AAMP_NORMAL_PLAY_RATE,          // rate
+			false,                          // hasTsbInjection
+			false,                          // useRialtoSink
+			FORMAT_VIDEO_ES_H264,           // mockPrimary
+			FORMAT_AUDIO_ES_AC3,            // mockAudio
+			FORMAT_INVALID,                 // mockAuxAudio
+			FORMAT_SUBTITLE_WEBVTT,         // mockSubtitle
+			FORMAT_VIDEO_ES_H264,           // expectedPrimary
+			FORMAT_AUDIO_ES_AC3,            // expectedAudio
+			FORMAT_INVALID,                 // expectedAuxAudio
+			FORMAT_SUBTITLE_WEBVTT          // expectedSubtitle
+		},
+		GetStreamFormatTestParams{
+			AAMP_NORMAL_PLAY_RATE,          // rate
+			false,                          // hasTsbInjection
+			true,                           // useRialtoSink
+			FORMAT_VIDEO_ES_H264,           // mockPrimary
+			FORMAT_AUDIO_ES_AC3,            // mockAudio
+			FORMAT_INVALID,                 // mockAuxAudio
+			FORMAT_SUBTITLE_WEBVTT,         // mockSubtitle
+			FORMAT_VIDEO_ES_H264,           // expectedPrimary
+			FORMAT_AUDIO_ES_AC3,            // expectedAudio
+			FORMAT_INVALID,                 // expectedAuxAudio
+			FORMAT_SUBTITLE_WEBVTT          // expectedSubtitle
+		},
+		GetStreamFormatTestParams{
+			AAMP_NORMAL_PLAY_RATE,          // rate
+			true,                           // hasTsbInjection
+			true,                           // useRialtoSink
+			FORMAT_VIDEO_ES_H264,           // mockPrimary
+			FORMAT_AUDIO_ES_AC3,            // mockAudio
+			FORMAT_INVALID,                 // mockAuxAudio
+			FORMAT_SUBTITLE_WEBVTT,         // mockSubtitle
+			FORMAT_VIDEO_ES_H264,           // expectedPrimary
+			FORMAT_AUDIO_ES_AC3,            // expectedAudio
+			FORMAT_INVALID,                 // expectedAuxAudio
+			FORMAT_SUBTITLE_WEBVTT          // expectedSubtitle
+		},
+		GetStreamFormatTestParams{
+			2.0,                            // rate
+			true,                           // hasTsbInjection
+			true,                           // useRialtoSink
+			FORMAT_VIDEO_ES_H264,           // mockPrimary
+			FORMAT_AUDIO_ES_AC3,            // mockAudio
+			FORMAT_INVALID,                 // mockAuxAudio
+			FORMAT_SUBTITLE_WEBVTT,         // mockSubtitle
+			FORMAT_VIDEO_ES_H264,           // expectedPrimary
+			FORMAT_INVALID,                 // expectedAudio
+			FORMAT_INVALID,                 // expectedAuxAudio
+			FORMAT_INVALID                  // expectedSubtitle
+		}
+	)
+);

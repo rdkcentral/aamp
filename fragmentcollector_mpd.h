@@ -550,6 +550,24 @@ public:
 	 */
 	bool UseIframeTrack(void) override;
 
+	/*
+	 * @fn DoEarlyStreamSinkFlush
+	 * @brief Checks if the stream need to be flushed or not
+	 *
+	 * @param newTune true if this is a new tune, false otherwise
+	 * @param rate playback rate
+	 * @return true if stream should be flushed, false otherwise
+	 */
+	virtual bool DoEarlyStreamSinkFlush(bool newTune, float rate) override;
+
+	/**
+	 * @brief Should flush the stream sink on discontinuity or not.
+	 * When segment timeline is enabled, media processor will be in pass-through mode
+	 * and will not do delayed flush.
+	 * @return true if stream should be flushed, false otherwise
+	 */
+	virtual bool DoStreamSinkFlushOnDiscontinuity() override;
+
 protected:
 	/**
 	 * @fn StartFromAampLocalTsb
@@ -1136,6 +1154,7 @@ protected:
 	bool playlistDownloaderThreadStarted; // Playlist downloader thread start status
 	bool isVidDiscInitFragFail;
 	double mLivePeriodCulledSeconds;
+	bool mIsSegmentTimelineEnabled;   /**< Flag to indicate if segment timeline is enabled, to determine if PTS is available from manifest */
 
 	// In case of streams with multiple video Adaptation Sets, A profile
 	// is a combination of an Adaptation Set and Representation within
@@ -1171,6 +1190,7 @@ protected:
 	std::vector<IFCS *>mFcsSegments;
 	AampTime mAudioSurplus;
 	AampTime mVideoSurplus;
+	bool mSeekedInPeriod; /*< Flag to indicate if seeked in period */
 	/**
 	 * @fn isAdbreakStart
 	 * @param[in] period instance.

@@ -18,7 +18,7 @@
 cmake_minimum_required(VERSION 3.5)
 
 project(playerfbinterface_LIB)
-set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 set(MW_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../")
@@ -34,9 +34,18 @@ pkg_check_modules(GSTREAMERVIDEO REQUIRED gstreamer-video-1.0)
 include_directories(${GSTREAMER_INCLUDE_DIRS})
 include_directories(${MW_ROOT}/playerLogManager)
 include_directories(${MW_ROOT}/baseConversion)
+include_directories(${MW_ROOT}/playerJsonObject)
 include_directories(${MW_ROOT})
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/rdk)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/contentsecuritymanager)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/contentsecuritymanager/IFirebolt)
+
+option(DISABLE_SECURITY_TOKEN "Disable security token" OFF)
+
+if(DISABLE_SECURITY_TOKEN)
+	add_definitions(-DDISABLE_SECURITY_TOKEN)
+endif()
 
 option(DISABLE_SECURITY_TOKEN "Disable security token" OFF)
 
@@ -50,17 +59,11 @@ endif()
 # set(CMAKE_USE_THUNDER_OCDM_API_0_2 TRUE)
 # set(CMAKE_USE_SECCLIENT TRUE)
 # set(CMAKE_USE_SECCLIENT_MOCKS TRUE)
-
 set(LIB_EXT_DEPENDS ${LIB_EXT_DEPENDS} ${GSTREAMER_LINK_LIBRARIES} ${GSTREAMERBASE_LINK_LIBRARIES})
 
 # Library source files
 set(EXT_SOURCES PlayerExternalsInterface.cpp PlayerRfc.cpp PlayerExternalUtils.cpp)
-
-set(SECMGR_SOURCES playersecmanager/PlayerMemoryUtils.cpp
-    playersecmanager/PlayerSecInterface.cpp
-    playersecmanager/PlayerSecManager.cpp
-    playersecmanager/ThunderAccessPlayer.cpp
-    ${MW_ROOT}/PlayerScheduler.cpp)
+set(SECMGR_HEADERS contentsecuritymanager/ContentSecurityManager.h )
 
 set(THUNDER_INTERFACE_SRCS PlayerThunderInterface.cpp)
 
@@ -85,6 +88,19 @@ if (CMAKE_WPEFRAMEWORK_REQUIRED)
     endif()
 endif()
 
+set(SECMGR_SOURCES contentsecuritymanager/PlayerMemoryUtils.cpp
+    contentsecuritymanager/PlayerSecInterface.cpp
+    contentsecuritymanager/ContentSecurityManager.cpp
+    contentsecuritymanager/ContentSecurityManagerSession.cpp
+    ${MW_ROOT}/PlayerScheduler.cpp)
+
+if(CMAKE_USE_SECCLIENT OR CMAKE_USE_SECMANAGER)
+	set(SECMGR_SOURCES ${SECMGR_SOURCES}  contentsecuritymanager/IFirebolt/ContentProtectionFirebolt.cpp)
+	if(CMAKE_USE_SECMANAGER)
+		set(SECMGR_SOURCES ${SECMGR_SOURCES} contentsecuritymanager/ThunderAccessPlayer.cpp contentsecuritymanager/SecManagerThunder.cpp)
+	endif()
+endif()
+
 #IARM/RFC
 if(CMAKE_IARM_MGR)
     message("PLAYER IARM_MGR set")
@@ -102,11 +118,13 @@ endif()
 #secmanager/client macros
 if(CMAKE_USE_SECCLIENT)
 	message("CMAKE_USE_SECCLIENT set")
+	set(LIB_EXT_DEPENDS "${LIB_EXT_DEPENDS}  -lFireboltSDK")
 	set(LIB_EXT_DEFINES "${LIB_EXT_DEFINES} -DUSE_SECCLIENT")
     list(APPEND LIB_EXT_DEPENDS -lSecClient )
 endif()
 if(CMAKE_USE_SECMANAGER)
 	message("CMAKE_USE_SECMANAGER set")
+	set(LIB_EXT_DEPENDS "${LIB_EXT_DEPENDS}  -lFireboltSDK")
 	set(LIB_EXT_DEFINES "${LIB_EXT_DEFINES} -DUSE_SECMANAGER")
 endif()
 
@@ -117,7 +135,7 @@ endif()
 
 # Set initial public headers for the library
 set_target_properties(playerfbinterface PROPERTIES PUBLIC_HEADER 
-  "PlayerThunderInterface.h;PlayerThunderAccessBase.h;PlayerExternalsInterfaceBase.h;PlayerExternalsInterface.h;PlayerRfc.h;playersecmanager/PlayerSecManagerSession.h;playersecmanager/ThunderAccessPlayer.h;playersecmanager/PlayerSecInterface.h;playersecmanager/PlayerSecManager.h;playersecmanager/PlayerMemoryUtils.h;Module.h")
+  "PlayerThunderInterface.h;PlayerThunderAccessBase.h;PlayerExternalsInterfaceBase.h;PlayerExternalsInterface.h;PlayerRfc.h;contentsecuritymanager/ContentSecurityManagerSession.h;contentsecuritymanager/PlayerSecInterface.h;contentsecuritymanager/ContentSecurityManager.h;contentsecuritymanager/PlayerMemoryUtils.h;Module.h")
 
 if(CMAKE_IARM_MGR)
     # Append additional header(s) for IARM_MGR
@@ -134,9 +152,13 @@ set_target_properties(playerfbinterface PROPERTIES COMPILE_FLAGS "${LIB_EXT_DEFI
 string(STRIP "${LIB_EXT_DEPENDS}" LIB_EXT_DEPENDS)
 
 target_link_libraries(playerfbinterface ${LIB_EXT_DEPENDS})
-
 target_link_libraries(playerfbinterface playerlogmanager)
 target_link_libraries(playerfbinterface baseconversion)
+target_link_libraries(playerfbinterface playerjsonobject)
+if(CMAKE_USE_SECCLIENT OR CMAKE_USE_SECMANAGER)
+   find_package(FireboltAamp CONFIG REQUIRED)
+   target_link_libraries(playerfbinterface FireboltAamp::FireboltAamp)
+endif()
 
 # Install the library and its headers
 install(TARGETS playerfbinterface
