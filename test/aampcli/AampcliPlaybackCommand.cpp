@@ -138,7 +138,7 @@ void PlaybackCommand::HandleCommandBatch()
 
 	if (!batchFile.is_open())
 	{
-		printf("[AAMPCLI] ERROR - unable to open batch file\n");
+		AAMPCLI_PRINTF("[AAMPCLI] ERROR - unable to open batch file\n");
 		return;
 	}
 
@@ -147,13 +147,13 @@ void PlaybackCommand::HandleCommandBatch()
 	{
 		if (line.compare("batch") == 0)
 		{
-			printf("[AAMPCLI] ERROR - nested batch command not allowed\n");
+			AAMPCLI_PRINTF("[AAMPCLI] ERROR - nested batch command not allowed\n");
 			continue;
 		}
 		
 		else if (!line.empty() && line[0] != '#')
 		{
-			printf("[AAMPCLI] Executing command: %s\n", line.c_str());
+			AAMPCLI_PRINTF("[AAMPCLI] Executing command: %s\n", line.c_str());
 			execute(line.c_str(), mAampcli.mSingleton);
 		}
 	}
@@ -165,12 +165,12 @@ void PlaybackCommand::HandleCommandContentType( const char *cmd )
 	if (strlen(cmd) > strlen("contentType "))
 	{
 		mAampcli.mContentType = std::string(&cmd[strlen("contentType ")]);
-		printf("[AAMPCLI] contentType set to %s\n", mAampcli.mContentType.c_str());
+		AAMPCLI_PRINTF("[AAMPCLI] contentType set to %s\n", mAampcli.mContentType.c_str());
 	}
 	else
 	{
 		mAampcli.mContentType.clear();
-		printf("[AAMPCLI] contentType not set\n");
+		AAMPCLI_PRINTF("[AAMPCLI] contentType not set\n");
 	}
 }
 
@@ -196,8 +196,8 @@ void PlaybackCommand::HandleCommandSelect( const char *cmd, PlayerInstanceAAMP *
 		if( found )
 		{
 			//if( found->aamp )
-			{ //Do not edit or remove this following printf - it is used in L2 test
-				printf( "selected player %d (at %p) %s\n",
+			{ //Do not edit or remove this following AAMPCLI_PRINTF - it is used in L2 test
+				AAMPCLI_PRINTF( "selected player %d (at %p) %s\n",
 					   found->GetId(),
 					   found,
 					   found->GetAppName().c_str() );
@@ -206,25 +206,25 @@ void PlaybackCommand::HandleCommandSelect( const char *cmd, PlayerInstanceAAMP *
 			}
 			//else
 			///{
-			//	printf( "error - player exists but is not valid/ready, playerInstanceAamp->aamp is not a valid ptr\n");
+			//	AAMPCLI_PRINTF( "error - player exists but is not valid/ready, playerInstanceAamp->aamp is not a valid ptr\n");
 			//}
 		}
 		else
 		{
-			printf( "No player with ID or name '%s'\n", playerRef);
+			AAMPCLI_PRINTF( "No player with ID or name '%s'\n", playerRef);
 		}
 	}
 	else
 	{
-		printf( "player instances:\n" );
+		AAMPCLI_PRINTF( "player instances:\n" );
 		for( auto player : mAampcli.mPlayerInstances )
 		{ // list available player instances
-			printf( "\t%d %s", player->GetId(), player->GetAppName().c_str() );
+			AAMPCLI_PRINTF( "\t%d %s", player->GetId(), player->GetAppName().c_str() );
 			if( player == playerInstanceAamp )
 			{
-				printf( " (selected)");
+				AAMPCLI_PRINTF( " (selected)");
 			}
-			printf( "\n");
+			AAMPCLI_PRINTF( "\n");
 		}
 	}
 }
@@ -239,7 +239,7 @@ void PlaybackCommand::HandleCommandRelease( const char *cmd, PlayerInstanceAAMP 
 		{
 			if( found == playerInstanceAamp)
 			{
-				printf( "Can not release the active player.\n");
+				AAMPCLI_PRINTF( "Can not release the active player.\n");
 			}
 			else
 			{
@@ -260,10 +260,10 @@ void PlaybackCommand::HandleCommandSleep( const char *cmd )
 	int ms = 0;
 	if( sscanf(cmd, "sleep %d", &ms ) == 1 && ms>0 )
 	{
-		printf( "sleeping for %f seconds\n", ms/1000.0 );
+		AAMPCLI_PRINTF( "sleeping for %f seconds\n", ms/1000.0 );
 		g_usleep (ms * 1000);
-		//Do not edit or remove this following printf - it is used in L2 test
-		printf( "sleep complete\n" );
+		//Do not edit or remove this following AAMPCLI_PRINTF - it is used in L2 test
+		AAMPCLI_PRINTF( "sleep complete\n" );
 	}
 }
 
@@ -288,12 +288,12 @@ void PlaybackCommand::HandleCommandNext( const char *cmd, PlayerInstanceAAMP *pl
 	VirtualChannelInfo *pNextChannel = mVirtualChannelMap.next();
 	if (pNextChannel)
 	{
-		printf("[AAMPCLI] next %d: %s\n", pNextChannel->channelNumber, pNextChannel->name.c_str());
+		AAMPCLI_PRINTF("[AAMPCLI] next %d: %s\n", pNextChannel->channelNumber, pNextChannel->name.c_str());
 		mVirtualChannelMap.tuneToChannel( *pNextChannel, playerInstanceAamp, mAampcli.mbAutoPlay );
 	}
 	else
 	{
-		printf("[AAMPCLI] can not fetch 'next' channel, empty virtual channel map\n");
+		AAMPCLI_PRINTF("[AAMPCLI] can not fetch 'next' channel, empty virtual channel map\n");
 	}
 }
 
@@ -302,12 +302,12 @@ void PlaybackCommand::HandleCommandPrev( const char *cmd, PlayerInstanceAAMP *pl
 	VirtualChannelInfo *pPrevChannel = mVirtualChannelMap.prev();
 	if (pPrevChannel)
 	{
-		printf("[AAMPCLI] next %d: %s\n", pPrevChannel->channelNumber, pPrevChannel->name.c_str());
+		AAMPCLI_PRINTF("[AAMPCLI] next %d: %s\n", pPrevChannel->channelNumber, pPrevChannel->name.c_str());
 		mVirtualChannelMap.tuneToChannel( *pPrevChannel, playerInstanceAamp, mAampcli.mbAutoPlay );
 	}
 	else
 	{
-		printf("[AAMPCLI] can not fetch 'prev' channel, empty virtual channel map\n");
+		AAMPCLI_PRINTF("[AAMPCLI] can not fetch 'prev' channel, empty virtual channel map\n");
 	}
 }
 
@@ -318,12 +318,12 @@ void PlaybackCommand::HandleCommandTuneIndex( const char *cmd, PlayerInstanceAAM
 	VirtualChannelInfo *pChannelInfo = mVirtualChannelMap.find(channelNumber);
 	if (pChannelInfo != NULL)
 	{
-		printf("[AAMPCLI] channel number: %d\n", channelNumber);
+		AAMPCLI_PRINTF("[AAMPCLI] channel number: %d\n", channelNumber);
 		mVirtualChannelMap.tuneToChannel( *pChannelInfo, playerInstanceAamp, mAampcli.mbAutoPlay );
 	}
 	else
 	{
-		printf("[AAMPCLI] channel number: %d was not found\n", channelNumber);
+		AAMPCLI_PRINTF("[AAMPCLI] channel number: %d was not found\n", channelNumber);
 	}
 }
 
@@ -337,7 +337,7 @@ void PlaybackCommand::HandleCommandSetConfig( const char *cmd, PlayerInstanceAAM
 			return;
 		}
 	}
-	printf("Invalid json, note the use of dbl quotes. E.G\nsetconfig {\"info\":true}\n");
+	AAMPCLI_PRINTF("Invalid json, note the use of dbl quotes. E.G\nsetconfig {\"info\":true}\n");
 }
 
 void PlaybackCommand::HandleCommandGetConfig( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp )
@@ -345,11 +345,11 @@ void PlaybackCommand::HandleCommandGetConfig( const char *cmd, PlayerInstanceAAM
 	std::string cfgstring=playerInstanceAamp->GetAAMPConfig();
 	if(!cfgstring.empty())
 	{
-		printf("config:  \n%s\n",cfgstring.c_str());
+		AAMPCLI_PRINTF("config:  \n%s\n",cfgstring.c_str());
 	}
 	else
 	{
-		printf("Error : Config is Empty ");
+		AAMPCLI_PRINTF("Error : Config is Empty ");
 	}
 }
 
@@ -357,7 +357,6 @@ void PlaybackCommand::HandleCommandExit( void )
 {
 	for( auto player: mAampcli.mPlayerInstances )
 	{
-		player->Stop();
 		SAFE_DELETE( player );
 	}
 	termPlayerLoop();
@@ -372,7 +371,7 @@ void PlaybackCommand::HandleCommandCustomHeader( const char *cmd, PlayerInstance
 	bool isLicenceHeader=false;
 	cmdptr = strtok (const_cast<char*>(cmd)," ,");
 
-	printf("[AAMPCLI] customheader Command is %s\n" , cmd);
+	AAMPCLI_PRINTF("[AAMPCLI] customheader Command is %s\n" , cmd);
 
 	std::string subString;
 
@@ -381,42 +380,42 @@ void PlaybackCommand::HandleCommandCustomHeader( const char *cmd, PlayerInstance
 	while (cmdptr)
 	{
 		subString.assign(cmdptr);
-		printf("parameter %d, value %.80s\n", parameter, subString.c_str());
+		AAMPCLI_PRINTF("parameter %d, value %.80s\n", parameter, subString.c_str());
 		if ( 3==parameter )
 		{
 			if ((0 == subString.compare(0,4,"true") ))
 			{
-				printf("isLicenceHeader=true\n");
+				AAMPCLI_PRINTF("isLicenceHeader=true\n");
 				isLicenceHeader=true;
 			}
 			else
 			{
-				printf("isLicenceHeader=false\n");
+				AAMPCLI_PRINTF("isLicenceHeader=false\n");
 				isLicenceHeader=false;
 			}
 		}
 		else if ( 1==parameter )
 		{
 			headerName.assign(subString);
-			printf("headerName=%.80s\n", headerName.c_str());
+			AAMPCLI_PRINTF("headerName=%.80s\n", headerName.c_str());
 		}
 		else if ( 2==parameter )
 		{
 			// pass "." to as value to remove the header instead
 			if (0==subString.compare("."))
 			{
-				printf("headerValue empty. Header to be removed.\n");
+				AAMPCLI_PRINTF("headerValue empty. Header to be removed.\n");
 			}
 			else
 			{
 				headerValue.push_back(subString);
-				printf("headerValue=%.80s\n", headerValue.back().c_str());
+				AAMPCLI_PRINTF("headerValue=%.80s\n", headerValue.back().c_str());
 			}
 		}
 		parameter++;
 		cmdptr = strtok (NULL, " ,");
 	}
-	printf("isLicenceHeader=%d\n", isLicenceHeader);
+	AAMPCLI_PRINTF("isLicenceHeader=%d\n", isLicenceHeader);
 	playerInstanceAamp->AddCustomHTTPHeader(headerName, headerValue, isLicenceHeader);
 }
 
@@ -438,12 +437,12 @@ void PlaybackCommand::HandleCommandSubtec( void )
 		snprintf( subtecCommand, MAX_SUBTEC_PATH_LEN, "gnome-terminal -- bash %s/aampcli-run-subtec.sh\n", scriptPath);
 		system(subtecCommand);
 #else
-		printf("[AAMPCLI] WARNING - subtec command not supported on platform\n");
+		AAMPCLI_PRINTF("[AAMPCLI] WARNING - subtec command not supported on platform\n");
 #endif
 	}
 	else
 	{
-		printf("[AAMPCLI] ERROR - unable to get path to subtec run script\n");
+		AAMPCLI_PRINTF("[AAMPCLI] ERROR - unable to get path to subtec run script\n");
 	}
 }
 
@@ -455,7 +454,7 @@ void PlaybackCommand::HandleCommandUnlock( const char *cmd, PlayerInstanceAAMP *
 	long time = -1;
 	if( sscanf(cmd, "unlock %ld", &unlockSeconds) >= 1 )
 	{
-		printf("[AAMPCLI] unlocking for %ld seconds\n" , unlockSeconds);
+		AAMPCLI_PRINTF("[AAMPCLI] unlocking for %ld seconds\n" , unlockSeconds);
 		if(-1 == unlockSeconds)
 		{
 			grace = -1;
@@ -467,7 +466,7 @@ void PlaybackCommand::HandleCommandUnlock( const char *cmd, PlayerInstanceAAMP *
 	}
 	else
 	{
-		printf("[AAMPCLI] unlocking till next program change\n");
+		AAMPCLI_PRINTF("[AAMPCLI] unlocking till next program change\n");
 		eventChange = true;
 	}
 	playerInstanceAamp->DisableContentRestrictions(grace, time, eventChange);
@@ -487,7 +486,7 @@ void PlaybackCommand::HandleCommandFog( const char *cmd, PlayerInstanceAAMP *pla
 {
 	if(!strcmp(cmd, "fog"))
 	{
-		printf("host: %s\n", mFogHostPrefix.c_str());
+		AAMPCLI_PRINTF("host: %s\n", mFogHostPrefix.c_str());
 	}
 	else if(!strncmp(cmd, "fog host=", 9))
 	{
@@ -497,11 +496,11 @@ void PlaybackCommand::HandleCommandFog( const char *cmd, PlayerInstanceAAMP *pla
 		if (std::regex_match(tmpIpv4, ipv4))
 		{
 			mFogHostPrefix = tmpIpv4;
-			printf("host: %s\n", mFogHostPrefix.c_str());
+			AAMPCLI_PRINTF("host: %s\n", mFogHostPrefix.c_str());
 		}
 		else
 		{
-			printf("Invalid ip:port\n");
+			AAMPCLI_PRINTF("Invalid ip:port\n");
 		}
 	}
 	else
@@ -511,12 +510,12 @@ void PlaybackCommand::HandleCommandFog( const char *cmd, PlayerInstanceAAMP *pla
 		{
 			std::string fogUrl;
 			buildFogUrl(mFogHostPrefix, &cmd[4], fogUrl);
-			printf("Tune to: %s\n", fogUrl.c_str());
+			AAMPCLI_PRINTF("Tune to: %s\n", fogUrl.c_str());
 			playerInstanceAamp->Tune(fogUrl.c_str(), mAampcli.mbAutoPlay);
 		}
 		else
 		{
-			printf("Invalid URL\n");
+			AAMPCLI_PRINTF("Invalid URL\n");
 		}
 	}
 }
@@ -534,16 +533,16 @@ void PlaybackCommand::HandleCommandAdvert( const char *cmd, PlayerInstanceAAMP *
 	{
 		if( token == "list" )
 		{
-			printf("[AAMP-CLI] Ad Map:\n");
+			AAMPCLI_PRINTF("[AAMP-CLI] Ad Map:\n");
 			for( const AdvertInfo &advertInfo : mAdvertList )
 			{
-				printf("[AAMP-CLI] advert %s -> %s\n", advertInfo.adBreakId.c_str(), advertInfo.url.c_str() );
+				AAMPCLI_PRINTF("[AAMP-CLI] advert %s -> %s\n", advertInfo.adBreakId.c_str(), advertInfo.url.c_str() );
 			}
 		}
 		else if( token == "clear" )
 		{
 			mAdvertList.clear();
-			printf("[AAMP-CLI] Cleared Ad List\n");
+			AAMPCLI_PRINTF("[AAMP-CLI] Cleared Ad List\n");
 		}
 		else if( token == "map" )
 		{
@@ -551,12 +550,12 @@ void PlaybackCommand::HandleCommandAdvert( const char *cmd, PlayerInstanceAAMP *
 			std::getline( input, advertInfo.adBreakId, ' ' );
 			std::getline( input, advertInfo.url, ' ' );
 			mAdvertList.push_back(advertInfo);
-			printf("[AAMP-CLI] mapped adBreakId %s\n", advertInfo.adBreakId.c_str() );
+			AAMPCLI_PRINTF("[AAMP-CLI] mapped adBreakId %s\n", advertInfo.adBreakId.c_str() );
 		}
 	}
 	else
 	{
-		printf("[AAMP-CLI] ERROR - expected 'advert [list, add, rm]'\n");
+		AAMPCLI_PRINTF("[AAMP-CLI] ERROR - expected 'advert [list, add, rm]'\n");
 	}
 }
 
@@ -572,11 +571,11 @@ void PlaybackCommand::HandleCommandScte35( const char *cmd )
 	if (std::getline(input, token, ' '))
 	{
 		SCTE35SpliceInfo spliceInfo(token);
-		printf("%s\n", spliceInfo.getJsonString(true).c_str());
+		AAMPCLI_PRINTF("%s\n", spliceInfo.getJsonString(true).c_str());
 	}
 	else
 	{
-		printf("[AAMP-CLI] ERROR - expected 'scte35 <base64>'\n");
+		AAMPCLI_PRINTF("[AAMP-CLI] ERROR - expected 'scte35 <base64>'\n");
 	}
 }
 
@@ -584,7 +583,7 @@ void PlaybackCommand::HandleCommandSessionId( const char *cmd )
 {
 	char sid[128] = {'\0'};
 
-	printf("[AAMPCLI] Matched Command SessionID - %s\n", cmd);
+	AAMPCLI_PRINTF("[AAMPCLI] Matched Command SessionID - %s\n", cmd);
 	const auto res = sscanf(cmd, "sessionid %127s", sid);
 
 	if (res == 1)
@@ -598,7 +597,7 @@ void PlaybackCommand::HandleCommandSessionId( const char *cmd )
 			if (inst)
 			{
 				const auto index = inst->GetId();
-				printf("[AAMPCLI] Player: %d - %s | %s\n", index,
+				AAMPCLI_PRINTF("[AAMPCLI] Player: %d - %s | %s\n", index,
 					   mAampcli.GetSessionId(index).c_str(), inst->GetSessionId().c_str());
 			}
 		}
@@ -660,7 +659,7 @@ void PlaybackCommand::HandleCommandBPS( const char *cmd, PlayerInstanceAAMP *pla
 	int rate = 0;
 	if (sscanf(cmd, "bps %d", &rate) == 1)
 	{
-		printf("[AAMPCLI] Set video bitrate %d.\n", rate);
+		AAMPCLI_PRINTF("[AAMPCLI] Set video bitrate %d.\n", rate);
 		playerInstanceAamp->SetVideoBitrate(rate);
 	}
 }
@@ -678,12 +677,12 @@ void PlaybackCommand::HandleCommandTuneData( const char *cmd, PlayerInstanceAAMP
 		mAampcli.mManifestDataUrl = url;
 		if (playerInstanceAamp->isTuneScheme(url.c_str()))
 		{
-			printf("[AAMPCLI] Player: url : %s \n",url.c_str());
+			AAMPCLI_PRINTF("[AAMPCLI] Player: url : %s \n",url.c_str());
 			manifestData = getManifestData(url);
 			playerInstanceAamp->Tune(url.c_str(),mAampcli.mbAutoPlay,nullptr, true, false, nullptr, true, nullptr, 0,"0259343c-cffc-4659-bcd8-97f9dd36f6b1",manifestData.c_str());
 			std::string minimumUpdatePeriod = getMinimumUpdatePeriod(manifestData);
 			double updateVal = ParseISO8601Duration(minimumUpdatePeriod.c_str());
-			printf("[AAMPCLI] Manifest minimumUpdatePeriod = %f \n",updateVal);
+			AAMPCLI_PRINTF("[AAMPCLI] Manifest minimumUpdatePeriod = %f \n",updateVal);
 			int count = 4; //for testing - limit the updates to 4
 			if ( updateVal != 0) //live manifest updates
 			{
@@ -697,17 +696,17 @@ void PlaybackCommand::HandleCommandTuneData( const char *cmd, PlayerInstanceAAMP
 		}
 		else
 		{
-			printf("[AAMP-CLI] ERROR - param '%s'\n",url.c_str());
+			AAMPCLI_PRINTF("[AAMP-CLI] ERROR - param '%s'\n",url.c_str());
 		}
 	}
 	else
 	{
-		printf("[AAMP-CLI] ERROR - expected 'tunedata <url>'\n");
+		AAMPCLI_PRINTF("[AAMP-CLI] ERROR - expected 'tunedata <url>'\n");
 	}
 }void PlaybackCommand::HandleAdTesting()
 {
     mAampcli.mIndexedAds = !mAampcli.mIndexedAds;
-	printf("[AAMPCLI] Ad Testing: %s\n", mAampcli.mIndexedAds ? "Enabled" : "Disabled");
+	AAMPCLI_PRINTF("[AAMPCLI] Ad Testing: %s\n", mAampcli.mIndexedAds ? "Enabled" : "Disabled");
 
 }
 
@@ -719,7 +718,7 @@ bool PlaybackCommand::execute( const char *cmd, PlayerInstanceAAMP *playerInstan
 {
 	if( cmd[0]=='#' )
 	{ // comment - ignore
-		printf( "%s\n", cmd );
+		AAMPCLI_PRINTF( "%s\n", cmd );
 	}
 	else if( isCommandMatch(cmd,"parse") )
 	{
@@ -736,7 +735,7 @@ bool PlaybackCommand::execute( const char *cmd, PlayerInstanceAAMP *playerInstan
 	else if( isCommandMatch(cmd,"autoplay") )
 	{
 		mAampcli.mbAutoPlay = !mAampcli.mbAutoPlay;
-		printf( "autoplay = %s\n", mAampcli.mbAutoPlay?"true":"false" );
+		AAMPCLI_PRINTF( "autoplay = %s\n", mAampcli.mbAutoPlay?"true":"false" );
 	}
 	else if( isCommandMatch(cmd,"contentType") )
 	{
@@ -834,14 +833,14 @@ bool PlaybackCommand::execute( const char *cmd, PlayerInstanceAAMP *playerInstan
 	{
 		AampLogManager::lockLogLevel(false);
 		AampLogManager::setLogLevel(eLOGLEVEL_INFO);
-		printf( "[AAMPCLI] core logging noisy\n" );
+		AAMPCLI_PRINTF( "[AAMPCLI] core logging noisy\n" );
 	}
 	else if( isCommandMatch(cmd,"quiet") )
 	{
 		AampLogManager::lockLogLevel(false);
 		AampLogManager::setLogLevel(eLOGLEVEL_ERROR);
 		AampLogManager::lockLogLevel(true);
-		printf( "[AAMPCLI] core logging quiet\n" );
+		AAMPCLI_PRINTF( "[AAMPCLI] core logging quiet\n" );
 	}
 	else if (isCommandMatch(cmd, "exit") )
 	{
@@ -866,7 +865,7 @@ bool PlaybackCommand::execute( const char *cmd, PlayerInstanceAAMP *playerInstan
 	}
 	else if( isCommandMatch(cmd, "stats") )
 	{
-		printf("[AAMPCLI] statistics:\n%s\n", playerInstanceAamp->GetPlaybackStats().c_str());
+		AAMPCLI_PRINTF("[AAMPCLI] statistics:\n%s\n", playerInstanceAamp->GetPlaybackStats().c_str());
 	}
 	else if( isCommandMatch(cmd,"subtec") )
 	{
@@ -877,7 +876,7 @@ bool PlaybackCommand::execute( const char *cmd, PlayerInstanceAAMP *playerInstan
 		// history_length is defined in the header file history.h
 		for (int i = 0; i < history_length; i++)
 		{
-			printf ("%s\n", history_get(i) ? history_get(i)->line : "NULL");
+			AAMPCLI_PRINTF ("%s\n", history_get(i) ? history_get(i)->line : "NULL");
 		}
 	}
 	else if( isCommandMatch(cmd,"auto") )
@@ -922,7 +921,7 @@ bool PlaybackCommand::execute( const char *cmd, PlayerInstanceAAMP *playerInstan
 	}
 	else
 	{
-		printf( "[AAMP-CLI] unmatched command: %s\n", cmd );
+		AAMPCLI_PRINTF( "[AAMP-CLI] unmatched command: %s\n", cmd );
 	}
 	return true;
 }
@@ -984,7 +983,7 @@ void PlaybackCommand::termPlayerLoop()
 		g_main_loop_quit(mAampcli.mAampGstPlayerMainLoop);
 		g_thread_join(mAampcli.mAampMainLoopThread);
 		PlayerCliGstTerm();
-		printf("[AAMPCLI] Exit\n");
+		AAMPCLI_PRINTF("[AAMPCLI] Exit\n");
 	}
 }
 
@@ -1108,12 +1107,12 @@ void PlaybackCommand::parse( const char *path )
 		}
 		else
 		{
-			printf( "unable to open file '%s'\n", path );
+			AAMPCLI_PRINTF( "unable to open file '%s'\n", path );
 		}
 	}
 	else
 	{
-		printf( "usage: parse <path>\n" );
+		AAMPCLI_PRINTF( "usage: parse <path>\n" );
 	}
 }
 
@@ -1125,10 +1124,10 @@ void PlaybackCommand::showHelp(void)
 
 	std::map<std::string,std::string>::iterator playbackCmdItr;
 
-	printf("******************************************************************************************\n");
-	printf("*   <command> [<arguments>]\n");
-	printf("*   Usage of Commands, and arguments expected\n");
-	printf("******************************************************************************************\n");
+	AAMPCLI_PRINTF("******************************************************************************************\n");
+	AAMPCLI_PRINTF("*   <command> [<arguments>]\n");
+	AAMPCLI_PRINTF("*   Usage of Commands, and arguments expected\n");
+	AAMPCLI_PRINTF("******************************************************************************************\n");
 
 	for(const auto& itr:commands)
 	{
@@ -1143,7 +1142,7 @@ void PlaybackCommand::showHelp(void)
 		}
 	}
 
-	printf("******************************************************************************************\n");
+	AAMPCLI_PRINTF("******************************************************************************************\n");
 }
 
 char * PlaybackCommand::commandRecommender(const char *text, int state)
@@ -1215,7 +1214,7 @@ std::string PlaybackCommand::getManifestData(std::string& url)
 						break;
 					default:
 						// http error
-						printf("[AAMPCLI] %s curl error code : %ld",__FUNCTION__,response_code);
+						AAMPCLI_PRINTF("[AAMPCLI] %s curl error code : %ld",__FUNCTION__,response_code);
 						break;
 				}
 			}
