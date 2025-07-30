@@ -85,7 +85,7 @@ struct StreamInfo
 	StreamResolution resolution;    /**< Resolution of the stream*/
 	BitrateChangeReason reason;     /**< Reason for bitrate change*/
 	std::string baseUrl;
-	StreamInfo():enabled(false),isIframeTrack(false),validity(false),codecs(),bandwidthBitsPerSecond(0),resolution(),reason(){};
+	StreamInfo():enabled(false),isIframeTrack(false),validity(false),codecs(),bandwidthBitsPerSecond(0),resolution(),reason(),baseUrl(){};
 };
 
 
@@ -166,18 +166,20 @@ public:
 	void Clear()
 	{
 		fragment.Free();
-		type = eMEDIATYPE_DEFAULT;
-		downloadStartTime = 0;
-		initFragment = false;
 		position = 0.0;
 		duration = 0.0;
+		initFragment = false;
 		discontinuity = false;
+		isDummy = false;
 		profileIndex = 0;
-		cacheFragStreamInfo = StreamInfo();
 		timeScale = 0;
+		uri = "";
+		cacheFragStreamInfo = StreamInfo();
+		type = eMEDIATYPE_DEFAULT;
+		downloadStartTime = 0;
+		discontinuityIndex = 0;
 		PTSOffsetSec = 0;
 		absPosition = 0.0;
-		isDummy = false;
 	}
 };
 
@@ -435,7 +437,7 @@ public:
 	 *
 	 * @return Total duration in seconds
 	 */
-	double GetTotalInjectedDuration();
+	virtual double GetTotalInjectedDuration();
 
 	/**
  	* @brief update total fragment injected duration
@@ -555,7 +557,13 @@ public:
 	 * @param[in] initialize true to initialize the fragment chunk
 	 * @retval Pointer to fragment chunk buffer.
 	 */
-	CachedFragment* GetFetchChunkBuffer(bool initialize);
+	CachedFragment *GetFetchChunkBuffer(bool initialize);
+
+	/**
+	 * @brief Check if the fragment cache buffer is full
+	 * @return true if the fragment cache buffer is full, false otherwise
+	 */
+	bool IsFragmentCacheFull();
 
 	/**
 	 * @fn SetCurrentBandWidth
@@ -1145,6 +1153,21 @@ public:
 	{
 		return 0.0;
 	}
+	/*
+	*   @brief Should flush the stream sink on new tune or not.
+	*
+	*   @param[in] newTune - true if this is a new tune, false if it is a seek
+	*   @param[in] rate - playback rate
+	*   @return true if stream should be flushed, false otherwise
+	*/
+	virtual bool DoEarlyStreamSinkFlush(bool newTune, float rate) { return false; }
+
+	/**
+	 * @brief Should flush the stream sink on discontinuity or not.
+	 *
+	 * @return true if stream should be flushed, false otherwise
+	 */
+	virtual bool DoStreamSinkFlushOnDiscontinuity() { return false; }
 
 	/**
 	 * @brief Sets the minimum buffer for ABR (Adaptive Bit Rate).
@@ -2054,10 +2077,11 @@ protected:
 
 	/**
 	 * @brief Initialize ISOBMFF Media Processor
+	 * @brief This function is used to initialize the media processor for ISOBMFF streams.
 	 *
-	 * @return void
+	 * @param[in] passThroughMode - true if processor should skip parsing PTS and flush
 	 */
-	void InitializeMediaProcessor();
+	void InitializeMediaProcessor(bool passThroughMode = false);
 
 //private:
 protected:

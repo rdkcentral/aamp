@@ -296,3 +296,17 @@ BitsPerSecond StreamAbstractionAAMP_PROGRESSIVE::GetMaxBitrate()
 { // STUB
 	return 0;
 }
+
+/*
+ * @fn DoEarlyStreamSinkFlush
+ * @brief Checks if the stream need to be flushed or not
+ *
+ * @param newTune true if this is a new tune, false otherwise
+ * @param rate playback rate
+ * @return true if stream should be flushed, false otherwise
+ */
+bool StreamAbstractionAAMP_PROGRESSIVE::DoEarlyStreamSinkFlush(bool newTune, float rate)
+{
+    // Always flush for progressive content
+    return true;
+}

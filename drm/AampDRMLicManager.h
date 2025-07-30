@@ -58,7 +58,6 @@ public:
 	PrivateInstanceAAMP *aampInstance; /** AAMP instance **/
 	std::atomic<bool> mIsVideoOnMute;
 	std::atomic<int> mCurrentSpeed;
-	std::atomic<bool> mFirstFrameSeen;
 
 	/**
 	 * @fn          setLicenseRequestAbort
