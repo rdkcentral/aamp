@@ -731,8 +731,8 @@ public:
 	 * @param[in]  end      - End Position
 	 * @param[in]  speed    - Current Speed
 	 * @param[in]  pts      - Video PTS
-	 * @param[in]  videobufferedDuration - video buffered duration in milliseconds
-	 * @param[in]  audiobufferedDuration - audio buffered duration in milliseconds
+	 * @param[in]  videoBufferedDuration - video buffered duration in milliseconds
+	 * @param[in]  audioBufferedDuration - audio buffered duration in milliseconds
 	 * @param[in]  seiTimecode      - Time code
 	 * @param[in]  liveLatency      - Live latency
 	 * @param[in]  profileBandwidth - profile Bandwidth
