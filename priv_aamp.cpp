@@ -3118,7 +3118,7 @@ bool PrivateInstanceAAMP::ProcessPendingDiscontinuity()
 					{
 						profiler.ProfileBegin(PROFILE_BUCKET_DISCO_FLUSH);
 					}
-					sink->Flush(mpStreamAbstractionAAMP->GetFirstPTS(), rate);
+					sink->Flush(mpStreamAbstractionAAMP->GetFirstPTS(), rate, false);
 					if(mDiscontinuityFound)
 					{
 						profiler.ProfileEnd(PROFILE_BUCKET_DISCO_FLUSH);
@@ -4173,7 +4173,8 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 						print_headerResponse(context.allResponseHeaders, mediaType);
 					}
 
-					if (buffer->GetPtr() == NULL || buffer->GetLen() == 0)
+					// Do the empty buffer check only for successful downloads
+					if ((http_code == 200 || http_code == 204 || http_code == 206) && (buffer->GetPtr() == NULL || buffer->GetLen() == 0))
 					{
 #if LIBCURL_VERSION_NUM >= 0x073700 // CURL version >= 7.55.0
 						double dlSize = aamp_CurlEasyGetinfoOffset(curl, CURLINFO_SIZE_DOWNLOAD_T);
@@ -7434,11 +7435,15 @@ bool PrivateInstanceAAMP::IsLiveStream()
  * @brief Stop playback and release resources.
  *
  */
-void PrivateInstanceAAMP::Stop()
+void PrivateInstanceAAMP::Stop( bool isDestructing )
 {
 	// Clear all the player events in the queue and sets its state to RELEASED as everything is done
-	mEventManager->SetPlayerState(eSTATE_RELEASED);
 	mEventManager->FlushPendingEvents();
+	if( !isDestructing )
+	{
+		SetState(eSTATE_STOPPING);
+	}
+	
 	{
 		std::unique_lock<std::mutex> lock(gMutex);
 		auto iter = std::find_if(std::begin(gActivePrivAAMPs), std::end(gActivePrivAAMPs), [this](const gActivePrivAAMP_t& el)
@@ -7567,10 +7572,12 @@ void PrivateInstanceAAMP::Stop()
 	mFirstFragmentTimeOffset = -1;
 	mProgressReportAvailabilityOffset = -1;
 	rate = 1;
-	// Set the state to eSTATE_IDLE
-	// directly setting state variable . Calling SetState will trigger event :(
-	mState = eSTATE_IDLE;
-
+	
+	if( !isDestructing )
+	{
+		SetState(eSTATE_IDLE);
+	}
+	
 	SetPauseOnStartPlayback(false);
 	mSeekOperationInProgress = false;
 	mTrickplayInProgress = false;
