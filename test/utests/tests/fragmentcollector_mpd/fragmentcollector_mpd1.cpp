@@ -43,7 +43,6 @@ using ::testing::NiceMock;
 using ::testing::Return;
 using ::testing::StrEq;
 using ::testing::StrictMock;
-using ::testing::AnyNumber;
 
 using namespace dash::xml;
 using namespace dash::mpd;

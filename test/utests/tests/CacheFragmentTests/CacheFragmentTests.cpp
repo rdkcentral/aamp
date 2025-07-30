@@ -39,7 +39,6 @@ using ::testing::Return;
 using ::testing::StrictMock;
 using ::testing::SetArgReferee;
 using ::testing::AtLeast;
-using ::testing::AnyNumber;
 
 AampConfig *gpGlobalConfig{nullptr};
 struct TestParams
