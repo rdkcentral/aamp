@@ -56,7 +56,7 @@ public:
 	AampCurlDownloader mAccessTokenConnector;
 	AampLicensePreFetcher* mLicensePrefetcher; /**< DRM license prefetcher instance */
 	PrivateInstanceAAMP *aampInstance; /** AAMP instance **/
-#ifdef 0
+#if 0
 	AampSecManagerSession mAampSecManagerSession;
 	std::atomic<bool> mIsVideoOnMute;
 	std::atomic<int> mCurrentSpeed;
