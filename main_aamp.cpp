@@ -26,6 +26,8 @@
 #include "manager.hpp"
 #include "libIBus.h"
 #include "libIBusDaemon.h"
+#include "power_controller.h"
+#include <thread>
 #endif
 
 #include "main_aamp.h"
@@ -93,6 +95,131 @@ AampConfig *gpGlobalConfig=NULL;
 	}
 
 std::mutex PlayerInstanceAAMP::mPrvAampMtx;
+static void FogIARM_PowerPreChangeHandler (const PowerController_PowerState_t currentState,
+                                      const PowerController_PowerState_t newState,
+                                      const int transactionId, const int stateChangeAfter, void* userdata);
+typedef struct Controller{
+    char clientName[256];
+    uint32_t clientId;
+    volatile int transactionId;
+} Controller_t;
+Controller_t controller = {};
+
+void getPwrContInterface()
+{
+    AAMPLOG_INFO("\nEnter ... getPwrContInterface()");
+        PowerController_Init();
+
+    while (!PowerController_IsOperational()) {
+        uint32_t status = PowerController_Connect();
+
+        if (POWER_CONTROLLER_ERROR_NONE == status) {
+            AAMPLOG_INFO("\nSuccess :: Connect\n");
+            break;
+        } else if (POWER_CONTROLLER_ERROR_UNAVAILABLE == status) {
+            AAMPLOG_ERR("\nFailed :: Connect :: Thunder is UNAVAILABLE\n");
+        } else if (POWER_CONTROLLER_ERROR_NOT_EXIST == status) {
+            AAMPLOG_ERR("\nFailed :: Connect :: PowerManager is UNAVAILABLE\n");
+        } else {
+            // Do nothing
+        }
+        usleep(100 * 1000); // 100ms
+    }
+    strncpy(controller.clientName, "AAMP", strlen("AAMP"));
+    controller.clientId = 0;
+    controller.transactionId = 0;
+    AAMPLOG_INFO("\ninit controller struct... controller.transactionId=%d, controller.clientId =%d,controller.clientName=%s ", controller.transactionId, controller.clientId, controller.clientName);
+
+    PowerController_RegisterPowerModePreChangeCallback(FogIARM_PowerPreChangeHandler, &controller);
+
+    if (strlen(controller.clientName) > 0) {
+        PowerController_AddPowerModePreChangeClient(controller.clientName, &(controller.clientId));
+    }
+        AAMPLOG_INFO("\nExit ... getPwrContInterface() controller.clientId =%d,controller.clientName=%s ", controller.clientId, controller.clientName);
+}
+
+void initPowerController()
+{
+    AAMPLOG_INFO("\nEnter ... initPowerController()");
+    // Get powercontroller thunder client interface in separate thread
+    std::thread pwrThread(getPwrContInterface);
+    if(pwrThread.joinable())
+    {
+        AAMPLOG_INFO("[%s:%d]: created getPwrContInterface thread.. \n", __FUNCTION__, __LINE__);
+        pwrThread.detach();  // Detach the thread to run independently
+    }
+    else
+    {
+        AAMPLOG_INFO("[%s:%d]: Failed to create getPwrContInterface thread.. \n", __FUNCTION__, __LINE__);
+    }
+    AAMPLOG_INFO("\nExit ... initPowerController()");
+}
+typedef enum
+{
+        IARM_BUS_AAMP_POWER_STATE_CHANGE=200,
+        IARM_BUS_AAMP_EVENT_MAX
+} AAMP_EventId_t;
+
+
+void terminatePowerController()
+{
+    AAMPLOG_INFO("\nEnter ... terminatePowerController() controller.clientId=%d", controller.clientId);
+    if (strlen(controller.clientName) > 0) {
+        PowerController_RemovePowerModePreChangeClient(controller.clientId);
+    }
+
+    PowerController_UnRegisterPowerModePreChangeCallback(FogIARM_PowerPreChangeHandler);
+
+    PowerController_Term();
+        AAMPLOG_INFO("\nExit ... terminatePowerController()");
+}
+static void FogIARM_PowerPreChangeHandler (const PowerController_PowerState_t currentState,
+                                      const PowerController_PowerState_t newState,
+                                      const int transactionId, const int stateChangeAfter, void* userdata)
+{
+  int safec_rc = -1;
+	//Controller* controller = (Controller*)userdata;
+    //AAMPLOG_INFO("FogIARM_PowerPreChangeHandler:State Changed %d -- > %d", param->curState, param->newState);
+	AAMPLOG_INFO("FogIARM_PowerPreChangeHandler:State Changed currentState: %d, newState: %d, clientId: %d, transactionId: %d, stateChangeAfter: %d\n",
+           currentState, newState, controller.clientId, transactionId, stateChangeAfter);
+	
+	controller.transactionId = transactionId;
+
+    switch (newState)
+    {
+        case POWER_STATE_OFF:
+        case POWER_STATE_STANDBY:
+        case POWER_STATE_STANDBY_LIGHT_SLEEP:
+        case POWER_STATE_STANDBY_DEEP_SLEEP :
+        {
+            AAMPLOG_INFO("FogIARM_PowerPreChangeHandler power down \n");
+        }
+        break;
+       case POWER_STATE_ON:
+        {
+            AAMPLOG_INFO("FogIARM_PowerPreChangeHandler power up \n");
+        }
+            break;
+	}
+
+	IARM_Bus_PowerPreChange_Param_t *pData = (IARM_Bus_PowerPreChange_Param_t *)malloc ( sizeof(IARM_Bus_PowerPreChange_Param_t));
+	if (pData)
+	{
+		pData->curState = (IARM_Bus_PWRMgr_PowerState_t)currentState;
+		pData->newState = (IARM_Bus_PWRMgr_PowerState_t)newState;
+		//safec_rc = strcpy_s(pData->owner, sizeof(pData->owner), "AAMP");
+		//ERR_CHK(safec_rc);
+
+		AAMPLOG_INFO("pData->owner -%s \n", pData->owner);
+		IARM_Bus_BroadcastEvent("rSTMgrBus", (IARM_EventId_t) IARM_BUS_AAMP_POWER_STATE_CHANGE ,pData , sizeof(IARM_Bus_PowerPreChange_Param_t));
+		free( pData );
+	}
+    AAMPLOG_INFO("Calling  PowerController_PowerModePreChangeComplete() with clientId: %d, controller.transactionId=%d, transactionId: %d\n",
+           controller.clientId, controller.transactionId, transactionId);
+	PowerController_PowerModePreChangeComplete(controller.clientId, transactionId);
+}
+
+
 
 /**
  *  @brief PlayerInstanceAAMP Constructor.
@@ -124,7 +251,8 @@ PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink
 		printf("IARM Interface Connected Externally :%d", result);
 	}
 	iarmInitialized = true;
-}
+	}
+	initPowerController();
 #endif // IARM_MGR
 	// Create very first instance of Aamp Config to read the cfg & Operator file .This is needed for very first
 	// tune only . After that every tune will use the same config parameters
@@ -245,7 +373,7 @@ PlayerInstanceAAMP::~PlayerInstanceAAMP()
 			//Avoid stop call since already stopped
 			aamp->Stop();
 		}
-
+		terminatePowerController();
 		std::lock_guard<std::mutex> lock (mPrvAampMtx);
 		aamp = NULL;
 	}
