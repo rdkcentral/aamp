@@ -35,6 +35,12 @@
 #include <vector>
 #include "CCTrackInfo.h"
 #include "PlayerCCManager.h"
+#include <sys/stat.h>
+ 
+bool isDevicePropertiesPresent() {
+    struct stat buffer;
+    return (stat("/etc/device.properties", &buffer) == 0);
+}
 
 
 extern "C"
@@ -42,29 +48,25 @@ extern "C"
 	JS_EXPORT JSGlobalContextRef JSContextGetGlobalContext(JSContextRef);
 	void aamp_ApplyPageHttpHeaders(PlayerInstanceAAMP *);
 }
-const char* g_initialize_player_mpd =
-"<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
-"<MPD xmlns=\"urn:mpeg:dash:schema:mpd:2011\" xmlns:scte35=\"urn:scte:scte35:2014:xml+bin\" xmlns:scte214=\"scte214\" xmlns:cenc=\"urn:mpeg:cenc:2013\" xmlns:mspr=\"mspr\" type=\"static\" minBufferTime=\"PT2.000S\" maxSegmentDuration=\"PT0H0M2.016S\" minimumUpdatePeriod=\"PT0H0M2.002S\" timeShiftBufferDepth=\"PT0H0M30.000S\" publishTime=\"1970-01-01T12:00:00.000Z\" mediaPresentationDuration=\"PT2.00S\">\n"
-"<BaseURL>https://cpetestutility.stb.r53.xcal.tv/VideoTestStream/</BaseURL>\n"
-"  <Period id=\"sample\" start=\"PT0.000S\" duration=\"PT0H1M1.000S\">\n"
-"    <AdaptationSet id=\"2\" contentType=\"video\" mimeType=\"video/mp4\" segmentAlignment=\"true\" startWithSAP=\"1\">\n"
-"      <ContentProtection schemeIdUri=\"urn:mpeg:dash:mp4protection:2011\" value=\"cenc\" cenc:default_KID=\"25664974-7e4e-58f9-94e9-44f0d1721baa\"/>\n"
-"      <ContentProtection schemeIdUri=\"urn:uuid:afbcb50e-bf74-3d13-be8f-13930c783962\">\n"
-"        <cenc:pssh>AAAGzHBzc2gAAAAAr7y1Dr90PRO+jxOTDHg5YgAABqxleUo0TlhRalV6STFOaUk2SWxsU1MxSkJaRmxRVjBRMlQyNXpTRnBDV0UwMFQwb3RURWxUWDA1TGNUZ3hSbGg2V0RjdFpUZFBjV2NpTENKaGJHY2lPaUpTVXpJMU5pSjkuZXlKamEyMU5aWFJoWkdGMFlTSTZJbEZxUTBOQlZWbE5RVlJKV0VSVVNYaE5SR3Q0VGtSRk5FNVVZM3BOUm05TlFWUlJSVVZHY1ZNeVJWTlVNM2RRUzBOTVMxTm1hVXBQTVdOclRVRlVWVVZHVEVWYWJuUldOVFo2VkZVMmRUQTVVRk54VDFaNGRHODVURlpWUkVGRk1rSkpTRnBOU1VoWFJFRndhbUV5TURaalJ6bHpZVmRPTlVSQ1RtcGlNakZxV1ZoT01FeFhUbXhpYlUxMFpFaGFjR0pIYUd0RVFYaHFZVEl3Tm1OSE9YTmhWMDQxVTFkUlRVVXlUblppVjA1b1l6TlJkRmt5Vm5WWmVURXdaRzFzYzJGSFVVMURiVTUyWW01U2JHSnVVVFpoVjFGTlJYcFZlVTVxVVRWT2FtZDZUMVJyZVU1RVkzZE5WRlY0VG1wTlRVTlhVbmxpVkhCeVdsaHNTbHBCZDJ0TmFsVXlUbXBSTlU1NlVYUk9NbFV3V2xNd01VOUhXVFZNVkdzd1dsUnJkRTVFVW0xTlIxRjRUbnBKZUZsdFJtaEVRbkJxWWpJMU1GcFhOVEJQYlhSc1pWVlNiR050YkRKWldGSndZakkxVEZwWWJFcGFRWGRwV1RJNWRGa3lSbnBrUXpGM1RVUkpkRmt5ZEhSTVdFSnFXbGMxYW1SSVduQmlRekIzVFVSRmRGa3lkR3RoZDNkQ1RuZDNhVmt5T1hSWk1rWjZaRU14ZDAxRVNYUlpNblIwVEZoQ2FscFhOV3BrU0Zwd1lrTXdkMDFFU1hSaVYxSjBZWGNpTENKa2NtMVVlWEJsSWpvaVkyVnVZeUlzSW1SeWJVNWhiV1VpT2lKalpXNWpJaXdpWkhKdFVISnZabWxzWlNJNklrTlBUVU5CVTFRdFEwVk9ReTFVVmtsTVNFUWlMQ0pqYjI1MFpXNTBWSGx3WlNJNkluUjJhV3hvWkNJc0ltTnZiblJsYm5SRGJHRnpjMmxtYVdOaGRHbHZiaUk2SW5RMlRHbHVaV0Z5SWl3aVpISnRTMlY1U1dRaU9pSXlOVFkyTkRrM05DMDNaVFJsTFRVNFpqa3RPVFJsT1MwME5HWXdaREUzTWpGaVlXRWlMQ0pqYTIxUWIyeHBZM2tpT2lKRFQwMURRVk5VTFVORlRrTXRWRlpKVEVoRUlpd2lZMjl1ZEdWdWRFbGtJam9pTlRJMk5EazJPRE01T1RJME56QXhOVEUyTXlJc0ltbHpjeUk2SWtOT1BWQXdNakF3TURBd01Ea3dMQ0JQVlQxMWNtNDZZMjl0WTJGemREcGpZM0E2Y0d0cExXTnpMV2x1ZERwamEyMHNJRTg5UTI5dFkyRnpkQ0JEYjI1MlpYSm5aV1FnVUhKdlpIVmpkSE1nVEV4RExDQk1QVkJvYVd4aFpHVnNjR2hwWVN3Z1UxUTlVRUVzSUVNOVZWTWlMQ0p1WW1ZaU9qRTJNekUyTkRVNE5UQXNJbWxoZENJNk1UWXpNVFkwTlRnMU1Dd2lkbVZ5YzJsdmJpSTZJakVpTENKdFpYTnpZV2RsVkhsd1pTSTZJbU52Ym5SbGJuUk5aWFJoWkdGMFlTSXNJbUYxWkNJNkltUnNjeUlzSW1wMGFTSTZJa1phV1dKa01qQTFhMmsxYmxsUWNuSndRVXBsYzNjOVBTSjkuUVRDNkJOR3VZQWJaVVVSTUlMYV9UTXFEYThqbi00WGxRLXU3RWF2T3pneWFyNm94YjF5M3J3Q2p0Sl91d0djd25aazIxMnFlckdLQ0V3a29vT3A2LTgzZXJ0T0lWUEJQeFZwTklpQS1xZ1BlR1pic0JaWFBjaWtvT2pKWXQ3eXhDMklBT2FsTVBkVGhiOXZvdmFPZ0NkR1o5ZTU3MjVjdVFmbGgzTEZ5OXp4NjNoNGxKUWpFdjVBMTBkZ3dXcHlmeXdNZjRta055TnBDbGdMRm0xajNWdnJZWWhGMFRxYTd4THMzazFlMXFqWDR2Yk40SW9IRThGSmdma2xUWV9hLVI0Y2FYdnZXRjhEMHRoRm5rMG91MFZCOTByZ2Z5SzYycXhfWXJlY1loTVNvaV9yYzFSTEQtZkFoNnhKSDROUG9UQ0VIc1lxVjd6OGJ5RkxadXVzNUlB</cenc:pssh>\n"
-"      </ContentProtection>\n"
-"      <ContentProtection schemeIdUri=\"urn:uuid:9a04f079-9840-4286-ab92-e65be0885f95\" value=\"MSPR 2.0\">\n"
-"        <cenc:pssh>AAARunBzc2gAAAAAmgTweZhAQoarkuZb4IhflQAAEZqaEQAAAQABAJARPABXAFIATQBIAEUAQQBEAEUAUgAgAHgAbQBsAG4AcwA9ACIAaAB0AHQAcAA6AC8ALwBzAGMAaABlAG0AYQBzAC4AbQBpAGMAcgBvAHMAbwBmAHQALgBjAG8AbQAvAEQAUgBNAC8AMgAwADAANwAvADAAMwAvAFAAbABhAHkAUgBlAGEAZAB5AEgAZQBhAGQAZQByACIAIAB2AGUAcgBzAGkAbwBuAD0AIgA0AC4AMAAuADAALgAwACIAPgA8AEQAQQBUAEEAPgA8AFAAUgBPAFQARQBDAFQASQBOAEYATwA+ADwASwBFAFkATABFAE4APgAxADYAPAAvAEsARQBZAEwARQBOAD4APABBAEwARwBJAEQAPgBBAEUAUwBDAFQAUgA8AC8AQQBMAEcASQBEAD4APAAvAFAAUgBPAFQARQBDAFQASQBOAEYATwA+ADwASwBJAEQAPgBkAEUAbABtAEoAVQA1ACsAKwBWAGkAVQA2AFUAVAB3ADAAWABJAGIAcQBnAD0APQA8AC8ASwBJAEQAPgA8AEwAQQBfAFUAUgBMAD4AaAB0AHQAcABzADoALwAvAHAAZABzAC4AYwBjAHAALgB4AGMAYQBsAC4AdAB2AC8AcABsAGEAeQByAGUAYQBkAHkAcwB0AHIAZQBhAG0ALwByAGkAZwBoAHQAcwBtAGEAbgBhAGcAZQByAC4AYQBzAG0AeAA8AC8ATABBAF8AVQBSAEwAPgA8AEwAVQBJAF8AVQBSAEwAPgBoAHQAdABwAHMAOgAvAC8AcABkAHMALgBjAGMAcAAuAHgAYwBhAGwALgB0AHYALwBwAGwAYQB5AHIAZQBhAGQAeQBzAHQAcgBlAGEAbQAvAHIAaQBnAGgAdABzAG0AYQBuAGEAZwBlAHIALgBhAHMAbQB4ADwALwBMAFUASQBfAFUAUgBMAD4APABEAFMAXwBJAEQAPgBKAEkAeQBKAFIAcABnAGcASAAwAE8AbQBlAHQARQArAFgAYQArAHcAaABnAD0APQA8AC8ARABTAF8ASQBEAD4APABDAEgARQBDAEsAUwBVAE0APgBtADEARgBGADcATQBTAHcAUQBaADAAPQA8AC8AQwBIAEUAQwBLAFMAVQBNAD4APABDAFUAUwBUAE8ATQBBAFQAVABSAIkAPgA8AGMAbwBsAGkAYwB5ACAAeABtAGwAbgBzADoAYwBrAG0APQAiAHUAcgBuADoAYwBjAHAAOgBjAGsAbQAiAD4AZQB5AEoANABOAFgAUQBqAFUAegBJADEATgBpAEkANgBJAGwAbABTAFMAMQBKAEIAWgBGAGwAUQBWADAAUQAyAFQAMgA1AHoAUwBGAHAAQwBXAEUAMAAwAFQAMABvAHQAVABFAGwAVFgAMDUATABjAFQAZ3hSbGg2V0RjdFpUZFBjV2NpTENKaGJHY2lPaUpTVXpJMU5pSjkuZXlKamEyMU5aWFJoWkdGMFlTSTZJbEZxUTBOQlZWbE5RVlJKV0VSVVNYaE5SR3Q0VGtSRk5FNVVZM3BOUm05TlFWUlJSVVZHY1ZNeVJWTlVNM2RRUzBOTVMxTm1hVXBQTVdOclRVRlVWVVZHVEVWYWJuUldOVFo2VkZVMmRUQTVVRk54VDFaNGRHODVURlpWUkVGRk1rSkpTRnBOU1VoWFJFRndhbUV5TURaalJ6bHpZVmRPTlVSQ1RtcGlNakZxV1ZoT01FeFhUbXhpYlUxMFpFaGFjR0pIYUd0RVFYaHFZVEl3Tm1OSE9YTmhWMDQxVTFkUlRVVXlUblppVjA1b1l6TlJkRmt5Vm5WWmVURXdaRzFzYzJGSFVVMURiVTUyWW01U2JHSnVVVFpoVjFGTlJYcFZlVTVxVVRWT2FtZDZUMVJyZVU1RVkzZE5WRlY0VG1wTlRVTlhVbmxpVkhCeVdsaHNTbHBCZDJ0TmFsVXlUbXBSTlU1NlVYUk9NbFV3V2xNd01VOUhXVFZNVkdzd1dsUnJkRTVFVW0xTlIxRjRUbnBKZUZsdFJtaEVRbkJxWWpJMU1GcFhOVEJQYlhSc1pWVlNiR050YkRKWldGSndZakkxVEZwWWJFcGFRWGRwV1RJNWRGa3lSbnBrUXpGM1RVUkpkRmt5ZEhSTVdFSnFXbGMxYW1SSVduQmlRekIzVFVSRmRGa3lkR3RoZDNkQ1RuZDNhVmt5T1hSWk1rWjZaRU14ZDAxRVNYUlpNblIwVEZoQ2FscFhOV3BrU0Zwd1lrTXdkMDFFU1hSaVYxSjBZWGNpTENKa2NtMVVlWEJsSWpvaVkyVnVZeUlzSW1SeWJVNWhiV1VpT2lKalpXNWpJaXdpWkhKdFVISnZabWxzWlNJNklrTlBUVU5CVTFRdFEwVk9ReTFVVmtsTVNFUWlMQ0pqYjI1MFpXNTBWSGx3WlNJNkluUjJhV3hvWkNJc0ltTnZiblJsYm5SRGJHRnpjMmxtYVdOaGRHbHZiaUk2SW5RMlRHbHVaV0Z5SWl3aVpISnRTMlY1U1dRaU9pSXlOVFkyTkRrM05DMDNaVFJsTFRVNFpqa3RPVFJsT1MwME5HWXdaREUzTWpGaVlXRWlMQ0pqYTIxUWIyeHBZM2tpT2lKRFQwMURRVk5VTFVORlRrTXRWRlpKVEVoRUlpd2lZMjl1ZEdWdWRFbGtJam9pTlRJMk5EazJPRE01T1RJME56QXhOVEUyTXlJc0ltbHpjeUk2SWtOT1BWQXdNakF3TURBd01Ea3dMQ0JQVlQxMWNtNDZZMjl0WTJGemREcGpZM0E2Y0d0cExXTnpMV2x1ZERwamEyMHNJRTg5UTI5dFkyRnpkQ0JEYjI1MlpYSm5aV1FnVUhKdlpIVmpkSE1nVEV4RExDQk1QVkJvYVd4aFpHVnNjR2hwWVN3Z1UxUTlVRUVzSUVNOVZWTWlMQ0p1WW1ZaU9qRTJNekUyTkRVNE5UQXNJbWxoZENJNk1UWXpNVFkwTlRnMU1Dd2lkbVZ5YzJsdmJpSTZJakVpTENKdFpYTnpZV2RsVkhsd1pTSTZJbU52Ym5SbGJuUk5aWFJoWkdGMFlTSXNJbUYxWkNJNkltUnNjeUlzSW1wMGFTSTZJa1phV1dKa01qQTFhMmsxYmxsUWNuSndRVXBsYzNjOVBTSjkuUVRDNkJOR3VZQWJaVVVSTUlMYV9UTXFEYThqbi00WGxRLXU3RWF2T3pneWFyNm94YjF5M3J3Q2p0Sl91d0djd25aazIxMnFlckdLQ0V3a29vT3A2LTgzZXJ0T0lWUEJQeFZwTklpQS1xZ1BlR1pic0JaWFBjaWtvT2pKWXQ3eXhDMklBT2FsTVBkVGhiOXZvdmFPZ0NkR1o5ZTU3MjVjdVFmbGgzTEZ5OXp4NjNoNGxKUWpFdjVBMTBkZ3dXcHlmeXdNZjRta055TnBDbGdMRm0xajNWdnJZWWhGMFRxYTd4THMzazFlMXFqWDR2Yk40SW9IRThGSmdma2xUWV9hLVI0Y2FYdnZXRjhEMHRoRm5rMG91MFZCOTByZ2Z5SzYycXhfWXJlY1loTVNvaV9yYzFSTEQtZkFoNnhKSDROUG9UQ0VIc1lxVjd6OGJ5RkxadXVzNUlB</cenc:pssh>\n"
-"      </ContentProtection>\n"
-"      <ContentProtection schemeIdUri=\"urn:uuid:edef8ba9-79d6-4ace-a3c8-27dcd51d21ed\">\n"
-"        <cenc:pssh>AAAAW3Bzc2gAAAAA7e+LqXnWSs6jyCfc1R0h7QAAADsSJDI1NjY0OTc0LTdlNGUtNThmOS05NGU5LTQ0ZjBkMTcyMWJhYSITNTI2NDk2ODM5OTI0NzAxNTE2Mw==</cenc:pssh>\n"
-"      </ContentProtection>\n"
-"      <Role schemeIdUri=\"urn:mpeg:dash:role:2011\" value=\"main\"/>\n"
-"      <SegmentTemplate timescale=\"12800\" initialization=\"dash/720p_init.m4s\" media=\"dash/720p_$Number%03d$.m4s\" duration=\"25600\" startNumber=\"1\" presentationTimeOffset=\"0\"/>\n"
-"      <Representation id=\"1\" bandwidth=\"2800000\" codecs=\"avc1.4d401f\" width=\"1280\" height=\"720\" frameRate=\"25/1\"/>\n"
-"    </AdaptationSet>\n"
-"  </Period>\n"
-"</MPD>\n";
 
+PlayerInstanceAAMP* gAampPlayerGlobal = nullptr;
+
+const char* g_initialize_player_mpd =R"(<?xml version="1.0" encoding="UTF-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="urn:mpeg:dash:schema:mpd:2011 DASH-MPD.xsd" profiles="urn:mpeg:dash:profile:isoff-live:2011" minBufferTime="PT2S" type="static" mediaPresentationDuration="PT702.1666870117188S">
+<BaseURL>https://media.axprod.net/TestVectors/H265/clear_dash_1080p_h265/</BaseURL>
+  <Period id="0">
+    <AdaptationSet id="6" contentType="video" maxWidth="1920" maxHeight="1080" frameRate="12288/512" par="16:9">
+       <Role schemeIdUri="urn:mpeg:dash:role:2011" value="main" />
+      <Representation id="6" bandwidth="3838936" codecs="hvc1.1.6.L120.90" mimeType="video/mp4" sar="1:1" width="1920" height="1080">
+        <SegmentTemplate timescale="12288" initialization="video-H265-1080-3000k_init.mp4" media="video-H265-1080-3000k_$Number$.m4s" startNumber="1">
+          <SegmentTimeline>
+            <S t="0" d="49152" />
+          </SegmentTimeline>
+        </SegmentTemplate>
+      </Representation>
+    </AdaptationSet>
+  </Period>
+</MPD>)";
 
 
 /**
@@ -4208,28 +4210,30 @@ void AAMPPlayer_LoadJS(void* context)
 
 	PersistentWatermark_LoadJS(context);
 	LoadXREReceiverStub(context);
-{
-	AAMPMediaPlayer_JS* privObj = new AAMPMediaPlayer_JS();
+	if(isDevicePropertiesPresent())
+	{
+		LOG_WARN_EX("[FAKETUNE] Starts...");
+		AAMPMediaPlayer_JS* privObj = new AAMPMediaPlayer_JS();
 
-	privObj->_aamp = new PlayerInstanceAAMP(NULL, NULL);
-	const char * mainManifestUrl = "catr_54109.mpd";
-	bool autoPlay = false;
-	const char *contentType = "VOD";
-	privObj->_aamp->Tune(
-    mainManifestUrl,                // mainManifestUrl
-    true,                   // autoPlay
-    "VOD", // contentType
-    true,                   // bFirstAttempt
-    false,                  // bFinalAttempt
-    "trace-id-123",         // traceUUID
-    false,                  // audioDecoderStreamSync
-    nullptr,                // refreshManifestUrl
-    0,                      // mpdStichingMode
-    "session-id",           // sid
-    g_initialize_player_mpd); // manifestData
+		privObj->_aamp = new PlayerInstanceAAMP(NULL, NULL);
+		const char * mainManifestUrl = "catr_54109.mpd";
+		bool autoPlay = false;
+		const char *contentType = "VOD";
+		privObj->_aamp->Tune(
+				mainManifestUrl,                // mainManifestUrl
+				true,                   // autoPlay
+				"VOD", // contentType
+				true,                   // bFirstAttempt
+				false,                  // bFinalAttempt
+				"trace-id-123",         // traceUUID
+				false,                  // audioDecoderStreamSync
+				nullptr,                // refreshManifestUrl
+				0,                      // mpdStichingMode
+				"session-id",           // sid
+				g_initialize_player_mpd); // manifestData
 
-}
-LOG_TRACE("Exit");
+	}
+	LOG_TRACE("Exit");
 }
 
 /**
