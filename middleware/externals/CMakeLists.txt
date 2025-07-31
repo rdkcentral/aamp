@@ -90,7 +90,7 @@ if(CMAKE_IARM_MGR)
     message("PLAYER IARM_MGR set")
     set(LIB_EXT_DEFINES "${LIB_EXT_DEFINES} -DIARM_MGR=1")
     set(EXT_SOURCES "${EXT_SOURCES}" rdk/PlayerExternalsRdkInterface.cpp)
-    list(APPEND LIB_EXT_DEPENDS -lIARMBus -lds -ldshalcli)
+    list(APPEND LIB_EXT_DEPENDS -lsafec -lIARMBus -lds -ldshalcli)
 endif()
 
 if(CMAKE_AAMP_RFC_REQUIRED)

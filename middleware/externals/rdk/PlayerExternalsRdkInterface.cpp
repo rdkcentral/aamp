@@ -24,12 +24,141 @@
 #include "PlayerExternalsRdkInterface.h"
 
 #include <hostIf_tr69ReqHandler.h>
+//rinclude "safec_lib.h"
 #include "tr181api.h"
 #include "_base64.h"
-
+#include "power_controller.h"
+#include <thread>
+#include<mutex>
+#include <pwrMgr.h>
 #define DISPLAY_WIDTH_UNKNOWN       -1  /**< Parsing failed for getResolution().getName(); */
 #define DISPLAY_HEIGHT_UNKNOWN      -1  /**< Parsing failed for getResolution().getName(); */
 #define DISPLAY_RESOLUTION_NA        0  /**< Resolution not available yet or not connected to HDMI */
+
+static void FogIARM_PowerPreChangeHandler (const PowerController_PowerState_t currentState,
+                                      const PowerController_PowerState_t newState,
+                                      const int transactionId, const int stateChangeAfter, void* userdata);
+typedef struct Controller{
+    char clientName[256];
+    uint32_t clientId;
+    volatile int transactionId;
+} Controller_t;
+Controller_t controller = {};
+
+void getPwrContInterface()
+{
+    MW_LOG_INFO("\nEnter ... getPwrContInterface()");
+        PowerController_Init();
+
+    while (!PowerController_IsOperational()) {
+        uint32_t status = PowerController_Connect();
+
+        if (POWER_CONTROLLER_ERROR_NONE == status) {
+            MW_LOG_INFO("\nSuccess :: Connect\n");
+            break;
+        } else if (POWER_CONTROLLER_ERROR_UNAVAILABLE == status) {
+            MW_LOG_ERR("\nFailed :: Connect :: Thunder is UNAVAILABLE\n");
+        } else if (POWER_CONTROLLER_ERROR_NOT_EXIST == status) {
+            MW_LOG_ERR("\nFailed :: Connect :: PowerManager is UNAVAILABLE\n");
+        } else {
+            // Do nothing
+        }
+        usleep(100 * 1000); // 100ms
+    }
+    strncpy(controller.clientName, "AAMP", strlen("AAMP"));
+    controller.clientId = 0;
+    controller.transactionId = 0;
+    MW_LOG_INFO("\ninit controller struct... controller.transactionId=%d, controller.clientId =%d,controller.clientName=%s ", controller.transactionId, controller.clientId, controller.clientName);
+
+    PowerController_RegisterPowerModePreChangeCallback(FogIARM_PowerPreChangeHandler, &controller);
+
+    if (strlen(controller.clientName) > 0) {
+        PowerController_AddPowerModePreChangeClient(controller.clientName, &(controller.clientId));
+    }
+        MW_LOG_INFO("\nExit ... getPwrContInterface() controller.clientId =%d,controller.clientName=%s ", controller.clientId, controller.clientName);
+}
+
+void initPowerController()
+{
+    MW_LOG_INFO("\nEnter ... initPowerController()");
+    // Get powercontroller thunder client interface in separate thread
+    std::thread pwrThread(getPwrContInterface);
+    if(pwrThread.joinable())
+    {
+        MW_LOG_INFO("[%s:%d]: created getPwrContInterface thread.. \n", __FUNCTION__, __LINE__);
+        pwrThread.detach();  // Detach the thread to run independently
+    }
+    else
+    {
+        MW_LOG_INFO("[%s:%d]: Failed to create getPwrContInterface thread.. \n", __FUNCTION__, __LINE__);
+    }
+    MW_LOG_INFO("\nExit ... initPowerController()");
+}
+typedef enum
+{
+        IARM_BUS_AAMP_POWER_STATE_CHANGE=200,
+        IARM_BUS_AAMP_EVENT_MAX
+} AAMP_EventId_t;
+
+
+void terminatePowerController()
+{
+    MW_LOG_INFO("\nEnter ... terminatePowerController() controller.clientId=%d", controller.clientId);
+    if (strlen(controller.clientName) > 0) {
+        PowerController_RemovePowerModePreChangeClient(controller.clientId);
+    }
+
+    PowerController_UnRegisterPowerModePreChangeCallback(FogIARM_PowerPreChangeHandler);
+
+    PowerController_Term();
+        MW_LOG_INFO("\nExit ... terminatePowerController()");
+}
+static void FogIARM_PowerPreChangeHandler (const PowerController_PowerState_t currentState,
+                                      const PowerController_PowerState_t newState,
+                                      const int transactionId, const int stateChangeAfter, void* userdata)
+{
+  int safec_rc = -1;
+	//Controller* controller = (Controller*)userdata;
+    //MW_LOG_INFO("FogIARM_PowerPreChangeHandler:State Changed %d -- > %d", param->curState, param->newState);
+	MW_LOG_INFO("FogIARM_PowerPreChangeHandler:State Changed currentState: %d, newState: %d, clientId: %d, transactionId: %d, stateChangeAfter: %d\n",
+           currentState, newState, controller.clientId, transactionId, stateChangeAfter);
+	
+	controller.transactionId = transactionId;
+
+    switch (newState)
+    {
+        case POWER_STATE_OFF:
+        case POWER_STATE_STANDBY:
+        case POWER_STATE_STANDBY_LIGHT_SLEEP:
+        case POWER_STATE_STANDBY_DEEP_SLEEP :
+        {
+            MW_LOG_INFO("FogIARM_PowerPreChangeHandler power down \n");
+        }
+        break;
+       case POWER_STATE_ON:
+        {
+            MW_LOG_INFO("FogIARM_PowerPreChangeHandler power up \n");
+        }
+            break;
+	}
+
+	IARM_Bus_PowerPreChange_Param_t *pData = (IARM_Bus_PowerPreChange_Param_t *)malloc ( sizeof(IARM_Bus_PowerPreChange_Param_t));
+	if (pData)
+	{
+		pData->curState = (IARM_Bus_PWRMgr_PowerState_t)currentState;
+		pData->newState = (IARM_Bus_PWRMgr_PowerState_t)newState;
+		//safec_rc = strcpy_s(pData->owner, sizeof(pData->owner), "AAMP");
+		//ERR_CHK(safec_rc);
+
+		MW_LOG_INFO("pData->owner -%s \n", pData->owner);
+		IARM_Bus_BroadcastEvent("rSTMgrBus", (IARM_EventId_t) IARM_BUS_AAMP_POWER_STATE_CHANGE ,pData , sizeof(IARM_Bus_PowerPreChange_Param_t));
+		free( pData );
+	}
+    MW_LOG_INFO("Calling  PowerController_PowerModePreChangeComplete() with clientId: %d, controller.transactionId=%d, transactionId: %d\n",
+           controller.clientId, controller.transactionId, transactionId);
+	PowerController_PowerModePreChangeComplete(controller.clientId, transactionId);
+}
+
 
 /**
  * @brief Enumeration for net_srv_mgr active interface event callback
