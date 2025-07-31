@@ -217,6 +217,7 @@ void PlayerExternalsRdkInterface::IARMInit(const char* processName)
 
     if (IARM_RESULT_SUCCESS == (result = IARM_Bus_Connect())) {
             printf("IARM Interface Connected in Player\n");
+	    initPowerController();
     }
     else {
             printf("IARM Interface Connected Externally :%d\n", result);
@@ -419,6 +420,8 @@ static void ResolutionHandler(const char *owner, IARM_EventId_t eventId, void *d
 
 void PlayerExternalsRdkInterface::IARMRemoveDsMgrEventHandler()
 {
+	MW_LOG_INFO("\nCalling terminatePowerController()");
+    terminatePowerController();
     IARM_Bus_RemoveEventHandler(IARM_BUS_DSMGR_NAME,IARM_BUS_DSMGR_EVENT_HDMI_HOTPLUG, HDMIEventHandler);
     IARM_Bus_RemoveEventHandler(IARM_BUS_DSMGR_NAME,IARM_BUS_DSMGR_EVENT_HDCP_STATUS, HDMIEventHandler);
     IARM_Bus_RemoveEventHandler(IARM_BUS_DSMGR_NAME,IARM_BUS_DSMGR_EVENT_RES_POSTCHANGE, ResolutionHandler);
