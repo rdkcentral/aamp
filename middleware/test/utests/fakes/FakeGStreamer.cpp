@@ -75,16 +75,28 @@ GType gst_app_src_get_type(void)
 void gst_app_src_set_caps(GstAppSrc *appsrc, const GstCaps *caps)
 {
 	TRACE_FUNC();
+	if (g_mockGStreamer != nullptr)
+	{
+		g_mockGStreamer->gst_app_src_set_caps(appsrc, caps);
+	}
 }
 
 void gst_app_src_set_stream_type(GstAppSrc *appsrc, GstAppStreamType type)
 {
 	TRACE_FUNC();
+	if(g_mockGStreamer != nullptr)
+	{
+		g_mockGStreamer->gst_app_src_set_stream_type(appsrc,type);
+	}
 }
 
 GstFlowReturn gst_app_src_push_buffer(GstAppSrc *appsrc, GstBuffer *buffer)
 {
 	TRACE_FUNC();
+	if (g_mockGStreamer != nullptr)
+	{
+		return g_mockGStreamer->gst_app_src_push_buffer(appsrc, buffer);
+	}
 	return GST_FLOW_OK;
 }
 
@@ -92,6 +104,10 @@ GstBuffer *gst_buffer_new(void)
 {
 
 	TRACE_FUNC();
+	if(g_mockGStreamer != nullptr)
+	{
+		return g_mockGStreamer->gst_buffer_new();
+	}
 	return NULL;
 }
 
@@ -105,6 +121,10 @@ GstBuffer *gst_buffer_new_allocate(GstAllocator *allocator, gsize size, GstAlloc
 GstBuffer *gst_buffer_new_wrapped(gpointer data, gsize size)
 {
 	TRACE_FUNC();
+	if (g_mockGStreamer != nullptr)
+	{
+		return g_mockGStreamer->gst_buffer_new_wrapped(data, size);
+	}
 	return NULL;
 }
 
@@ -137,7 +157,6 @@ const gchar *gst_element_state_get_name(GstState state)
 	else
 	{
 		ptr = "error";
-		printf("GstState %d\n",state);
 	}
 	TRACE_FUNC_ARG("%s \n",ptr);
 
@@ -325,7 +344,12 @@ gboolean gst_element_seek_simple(GstElement *element, GstFormat format, GstSeekF
 								 gint64 seek_pos)
 {
 	TRACE_FUNC();
-	return FALSE;
+	gboolean rtn = FALSE;
+	if (g_mockGStreamer != nullptr)
+	{
+		rtn = g_mockGStreamer->gst_element_seek_simple(element, format, seek_flags, seek_pos);
+	}
+	return rtn;
 }
 
 gboolean gst_bin_add(GstBin *bin, GstElement *element)
@@ -463,7 +487,13 @@ GstMessage *gst_bus_timed_pop_filtered(GstBus *bus, GstClockTime timeout, GstMes
 gboolean gst_bus_remove_watch(GstBus *bus)
 {
 	TRACE_FUNC();
-	return FALSE;
+	gboolean retval = FALSE;
+
+	if (g_mockGStreamer != nullptr)
+	{
+		retval = g_mockGStreamer->gst_bus_remove_watch(bus);
+	}
+	return retval;
 }
 
 gchar *gst_object_get_name(GstObject *object)
@@ -509,18 +539,32 @@ gboolean gst_element_send_event(GstElement *element, GstEvent *event)
 GstQuery *gst_query_new_duration(GstFormat format)
 {
 	TRACE_FUNC();
+	if(g_mockGStreamer != nullptr)
+	{
+		return g_mockGStreamer->gst_query_new_duration(format);
+	}
 	return NULL;
 }
 
 gboolean gst_element_query(GstElement *element, GstQuery *query)
 {
 	TRACE_FUNC();
-	return FALSE;
+	gboolean rtn = FALSE;
+
+	if (g_mockGStreamer != nullptr)
+	{
+		rtn = g_mockGStreamer->gst_element_query(element, query);
+	}
+	return rtn;
 }
 
 void gst_query_parse_duration(GstQuery *query, GstFormat *format, gint64 *duration)
 {
 	TRACE_FUNC();
+	if(g_mockGStreamer != nullptr)
+	{
+		g_mockGStreamer->gst_query_parse_duration(query, format, duration);
+	}
 }
 
 GstQuery *gst_query_new_segment(GstFormat format)
@@ -534,23 +578,41 @@ void gst_query_parse_segment(GstQuery *query, gdouble *rate, GstFormat *format, 
 {
 
 	TRACE_FUNC();
+	if(g_mockGStreamer != nullptr)
+	{
+		g_mockGStreamer->gst_query_parse_segment(query, rate, format, start_value, stop_value);
+	}
 }
 
 void gst_query_parse_position(GstQuery *query, GstFormat *format, gint64 *cur)
 {
 	TRACE_FUNC();
+	if(g_mockGStreamer != nullptr)
+	{
+		g_mockGStreamer->gst_query_parse_position(query, format, cur);
+	}
 }
 
 gboolean gst_element_seek(GstElement *element, gdouble rate, GstFormat format, GstSeekFlags flags,
 						  GstSeekType start_type, gint64 start, GstSeekType stop_type, gint64 stop)
 {
 	TRACE_FUNC();
-	return FALSE;
+	gboolean retval = FALSE;
+
+	if (g_mockGStreamer != nullptr)
+	{
+		retval = g_mockGStreamer->gst_element_seek(element, rate, format, flags, start_type, start, stop_type, stop);
+	}
+	return retval;
 }
 
 guint64 gst_app_src_get_current_level_bytes(GstAppSrc *appsrc)
 {
 	TRACE_FUNC();
+	if (g_mockGStreamer != nullptr)
+	{
+		return g_mockGStreamer->gst_app_src_get_current_level_bytes(appsrc);
+	}
 	return 0;
 }
 
@@ -571,12 +633,20 @@ GstPluginFeature *gst_registry_lookup_feature(GstRegistry *registry, const char 
 {
 
 	TRACE_FUNC();
+	if (g_mockGStreamer != nullptr)
+	{
+		return g_mockGStreamer->gst_registry_lookup_feature(registry, name);
+	}
 	return NULL;
 }
 
 GstStructure *gst_structure_new(const gchar *name, const gchar *firstfield, ...)
 {
 	TRACE_FUNC();
+	if(g_mockGStreamer != nullptr)
+	{
+		return g_mockGStreamer->gst_structure_new();
+	}
 	return NULL;
 }
 
@@ -591,6 +661,10 @@ gboolean gst_buffer_copy_into(GstBuffer *dest, GstBuffer *src, GstBufferCopyFlag
 {
 
 	TRACE_FUNC();
+	if(g_mockGStreamer != nullptr)
+	{
+		return g_mockGStreamer->gst_buffer_copy_into(dest, src, flags, offset, size);
+	}
 	return FALSE;
 }
 
@@ -642,12 +716,20 @@ gpointer gst_object_ref_sink(gpointer object)
 const GValue *gst_structure_get_value(const GstStructure *structure, const gchar *fieldname)
 {
 	TRACE_FUNC();
+	if(g_mockGStreamer != nullptr)
+	{
+		return g_mockGStreamer->gst_structure_get_value(structure,fieldname);
+	}
 	return NULL;
 }
 
 guint64 g_value_get_uint64(const GValue *value)
 {
 	TRACE_FUNC();
+	if(g_mockGStreamer != nullptr)
+	{
+		return g_mockGStreamer->g_value_get_uint64(value);
+	}
 	return 0;
 }
 
@@ -719,6 +801,10 @@ gchar *gst_caps_to_string (const GstCaps * caps)
 void gst_pad_remove_probe (GstPad * pad, gulong id)
 {
 	TRACE_FUNC();
+	if (g_mockGStreamer != nullptr)
+	{
+		g_mockGStreamer->gst_pad_remove_probe(pad, id);
+	}
 }
 
 gboolean gst_mini_object_replace (GstMiniObject **olddata, GstMiniObject *newdata)
@@ -783,13 +869,23 @@ guint32 gst_event_get_seqnum(GstEvent *event)
 
 gboolean gst_base_sink_is_async_enabled (GstBaseSink * sink)
 {
-        TRACE_FUNC();
-        return false;
+	TRACE_FUNC();
+	gboolean retval = FALSE;
+
+	if (g_mockGStreamer != nullptr)
+	{
+		retval = g_mockGStreamer->gst_base_sink_is_async_enabled(sink);
+	}
+	return retval;
 }
 
 void gst_base_sink_set_async_enabled (GstBaseSink * sink, gboolean enabled)
 {
 	TRACE_FUNC();
+	if (g_mockGStreamer != nullptr)
+	{
+		g_mockGStreamer->gst_base_sink_set_async_enabled(sink, enabled);
+	}
 }
 
 GstEvent* gst_event_new_seek(gdouble rate, GstFormat format, GstSeekFlags flags,
@@ -820,6 +916,10 @@ gboolean gst_element_add_pad (GstElement * element, GstPad * pad)
 GstEvent* gst_event_new_protection(const gchar * system_id, GstBuffer * data, const gchar * origin)
 {
         TRACE_FUNC();
+		if (g_mockGStreamer != nullptr)
+		{
+			return g_mockGStreamer->gst_event_new_protection(system_id, data, origin);
+		}
         return NULL;
 }
 
