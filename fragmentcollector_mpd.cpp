@@ -3496,6 +3496,17 @@ AAMPStatusType StreamAbstractionAAMP_MPD::InitTsbReader(TuneType tuneType)
 		{
 			retVal = eAAMPSTATUS_SEEK_RANGE_ERROR;
 		}
+
+		if (retVal == eAAMPSTATUS_OK && aamp->IsLocalAAMPTsbInjection())
+		{
+			for (int i = 0; i < mNumberOfTracks; i++)
+			{
+				if (mMediaStreamContext[i] != NULL)
+				{
+					mMediaStreamContext[i]->SetLocalTSBInjection(true);
+				}
+			}
+		}
 	}
 	else
 	{
@@ -10557,11 +10568,7 @@ void StreamAbstractionAAMP_MPD::StartFromAampLocalTsb(void)
 	for (int i = 0; i < mNumberOfTracks; i++)
 	{
 		// Flush fragments from mCachedFragment, potentially cached during Live SLD
-		if (!mMediaStreamContext[i]->IsLocalTSBInjection())
-		{
-			mMediaStreamContext[i]->FlushFetchedFragments();
-		}
-		mMediaStreamContext[i]->SetLocalTSBInjection(true);
+		mMediaStreamContext[i]->FlushFetchedFragments();
 
 		// Flush fragments from mCachedFragmentChunks
 		mMediaStreamContext[i]->FlushFragments();
