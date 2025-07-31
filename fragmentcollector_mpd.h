@@ -42,7 +42,9 @@
 #include "AampMPDDownloader.h"
 #include "AampDRMLicPreFetcher.h"
 #include "AampMPDParseHelper.h"
-#include "AampTrackWorker.h"
+#include "AampTrackWorker.hpp"
+#include "AampTrackWorkerManager.hpp"
+#include "AampDownloadInfo.hpp"
 
 using namespace dash;
 using namespace std;
@@ -65,94 +67,36 @@ struct ProfileInfo
 	int representationIndex;
 };
 
-/**
- * @struct FragmentDescriptor
- * @brief Stores information of dash fragment
- */
-struct FragmentDescriptor
+class AampDashWorkerJob : public aamp::AampTrackWorkerJob
 {
-private :
-	std::string matchingBaseURL;
-public :
-	std::string manifestUrl;
-	uint32_t Bandwidth;
-	std::string RepresentationID;
-	uint64_t Number;
-	double Time;				//In units of timescale
-	bool bUseMatchingBaseUrl;
-	int64_t nextfragmentNum;
-	double nextfragmentTime;
-	uint32_t TimeScale;
-	FragmentDescriptor() : manifestUrl(""), Bandwidth(0), Number(0), Time(0), RepresentationID(""),matchingBaseURL(""),bUseMatchingBaseUrl(false),nextfragmentNum(-1),nextfragmentTime(0), TimeScale(1)
-	{
-	}
+private:
+	std::function<void()> mJobFunction;
 
-	FragmentDescriptor(const FragmentDescriptor& p) : manifestUrl(p.manifestUrl), Bandwidth(p.Bandwidth), RepresentationID(p.RepresentationID), Number(p.Number), Time(p.Time),matchingBaseURL(p.matchingBaseURL),bUseMatchingBaseUrl(p.bUseMatchingBaseUrl),nextfragmentNum(p.nextfragmentNum),nextfragmentTime(p.nextfragmentTime), TimeScale(p.TimeScale)
+public:
+	AampDashWorkerJob(std::function<void()> jobFunction) : mJobFunction(std::move(jobFunction)) {}
+	/**
+	 * @fn Execute
+	 * @brief Execute the job function
+	 */
+	void Execute() override
 	{
-	}
-
-	FragmentDescriptor& operator=(const FragmentDescriptor &p)
-	{
-		manifestUrl = p.manifestUrl;
-		RepresentationID.assign(p.RepresentationID);
-		Bandwidth = p.Bandwidth;
-		Number = p.Number;
-		Time = p.Time;
-		matchingBaseURL = p.matchingBaseURL;
-		nextfragmentNum = p.nextfragmentNum;
-		nextfragmentTime = p.nextfragmentTime;
-		TimeScale = p.TimeScale;
-		return *this;
-	}
-	std::string GetMatchingBaseUrl() const
-	{
-		return matchingBaseURL;
-	}
-
-	void ClearMatchingBaseUrl()
-	{
-		matchingBaseURL.clear();
-	}
-	void AppendMatchingBaseUrl( const std::vector<IBaseUrl *>*baseUrls )
-	{
-		if( baseUrls && baseUrls->size()>0 )
+		if (mJobFunction)
 		{
-			const std::string &url = baseUrls->at(0)->GetUrl();
-			if( url.empty() )
-			{
-			}
-			else if( aamp_IsAbsoluteURL(url) )
-			{
-				if(bUseMatchingBaseUrl)
-				{
-					std::string prefHost = aamp_getHostFromURL(manifestUrl);
-					for (auto & item : *baseUrls) {
-						std::string itemUrl = item->GetUrl();
-						std::string host  = aamp_getHostFromURL(itemUrl);
-						if(0 == prefHost.compare(host))
-						{
-							matchingBaseURL = item->GetUrl();
-							return;
-						}
-					}
-				}
-				matchingBaseURL = url;
-			}
-			else if( url.rfind("/",0)==0 )
-			{
-				matchingBaseURL = aamp_getHostFromURL(matchingBaseURL);
-				matchingBaseURL += url;
-				AAMPLOG_WARN( "baseURL with leading /" );
-			}
-			else
-			{
-				if( !matchingBaseURL.empty() && matchingBaseURL.back() != '/' )
-				{ // add '/' delimiter only if parent baseUrl doesn't already end with one
-					matchingBaseURL += "/";
-				}
-				matchingBaseURL += url;
-			}
+			mJobFunction(); // Call the provided job function
 		}
+		else
+		{
+			AAMPLOG_WARN("AampDashWorkerJob::Execute called with empty job function");
+		}
+	}
+	/**
+	 * @fn Clone
+	 * @brief Clone the job for worker pool
+	 * @return shared_ptr to cloned job
+	 */
+	aamp::AampTrackWorkerJobUniquePtr Clone() const override
+	{
+		return aamp_utils::make_unique<AampDashWorkerJob>(mJobFunction);
 	}
 };
 
@@ -349,11 +293,12 @@ public:
 	 * @param fragmentDuration duration of fragment in seconds
 	 * @param isInitializationSegment true if fragment is init fragment
 	 * @param curlInstance curl instance to be used to fetch
+	 * @param fcsContent true if content is inside FailOver tag
 	 * @param discontinuity true if fragment is discontinuous
 	 * @param pto presentation time offset in seconds
 	 * @param timeScale  denominator for fixed point math
 	 */
-	bool FetchFragment( class MediaStreamContext *pMediaStreamContext, std::string media, double fragmentDuration, bool isInitializationSegment, unsigned int curlInstance, bool discontinuity = false, double pto = 0 , uint32_t timeScale = 0);
+	bool FetchFragment( class MediaStreamContext *pMediaStreamContext, std::string media, double fragmentDuration, bool isInitializationSegment, unsigned int curlInstance, bool fscContent = false, bool discontinuity = false, double pto = 0 , uint32_t timeScale = 0, std::string range = "");
 	/**
 	 * @fn PushNextFragment
 	 * @param pMediaStreamContext Track object
@@ -495,6 +440,15 @@ public:
 	double GetAvailabilityStartTime() override;
 
 	/**
+	 * @fn GenerateFragmentURLList
+	 * @param[out] urlList fragment url list, bitrate as key and url as value
+	 * @param[in] pMediaStreamContext MediaStreamContext object
+	 * @param[in] isInit true if init fragment
+	 * @return fragment url list
+	 */
+	void GenerateFragmentURLList(URLBitrateMap& urlList, MediaStreamContext *pMediaStreamContext, bool isInit);
+
+	/**
 	 * @brief Selects the audio track based on the available audio tracks and updates the desired representation index.
 	 *
 	 * This function selects the audio track from the given vector of AC4 audio tracks based on audio track selection logic
@@ -622,13 +576,10 @@ protected:
 	 * @fn AdvanceTrack
 	 * @param[in] trackIdx - track index
 	 * @param[in] trickPlay - flag indicates if its trickplay
-	 * @param[in/out] waitForFreeFrag - flag is updated if we are waiting for free fragment
-	 * @param[in/out] bCacheFullState - flag is updated if the cache is full for this track
-	 * @param[in] throttleAudio - flag indicates if we should throttle audio download
-	 * @param[in] isDiscontinuity - flag indicates if its a discontinuity
+	 * @param[in, out] delta - delta for skipping fragments
 	 * @return void
 	 */
-	void AdvanceTrack(int trackIdx, bool trickPlay, double *delta, bool &waitForFreeFrag, bool &bCacheFullState,bool throttleAudio,bool isDiscontinuity = false);
+	void AdvanceTrack(int trackIdx, bool trickPlay, double &delta);
 	/**
 	 * @fn AdvanceTsbFetch
 	 * @param[in] trackIdx - trackIndex
@@ -816,12 +767,6 @@ protected:
 	 */
 	void ProcessTrickModeRestriction(Node *node, const std::string &AdID, uint64_t startMS, bool isInit, bool reportBulkMeta);
 	/**
-	 * @fn Fragment downloader thread
-	 * @param trackIdx track index
-	 * @param initialization Initialization string
-	 */
-	void TrackDownloader(int trackIdx, std::string initialization);
-	/**
 	 * @fn FetchAndInjectInitFragments
 	 * @param discontinuity number of tracks and discontinuity true if discontinuous fragment
 	 */
@@ -979,13 +924,7 @@ protected:
 	 * @param[out] representationIndex - representation within adaptation with matching params
 	 */
 	bool IsMatchingLanguageAndMimeType(AampMediaType type, std::string lang, IAdaptationSet *adaptationSet, int &representationIndex);
-	/**
-	 * @fn ConstructFragmentURL
-	 * @param[out] fragmentUrl fragment url
-	 * @param fragmentDescriptor descriptor
-	 * @param media media information string
-	 */
-	void ConstructFragmentURL( std::string& fragmentUrl, const FragmentDescriptor *fragmentDescriptor, std::string media);
+
 	double GetEncoderDisplayLatency();
 	/**
 	 * @fn StartLatencyMonitorThread
@@ -1082,6 +1021,29 @@ protected:
 	 */
 	void InitializeWorkers();
 
+	/**
+	 * @fn ClearWorkers
+	 * @brief Remove each worker threads
+	 *
+	 * @return void
+	 */
+	void ClearWorkers();
+
+	/**
+	 * @fn OnFragmentDownloadComplete
+	 * @brief Callback function to be called after fragment download is complete
+	 * @param[in] status - download status, true if success
+	 * @param[in] downloadInfo - download information
+	 */
+	void OnFragmentDownloadComplete(bool status, DownloadInfoPtr downloadInfo);
+
+	/**
+	 * @fn OnFragmentDownloadFailed
+	 * @brief Callback function to be called after fragment download is failed
+	 * @param[in] downloadInfo - download information
+	 */
+	void OnFragmentDownloadFailed(DownloadInfoPtr downloadInfo);
+
 	uint64_t FindPositionInTimeline(class MediaStreamContext *pMediaStreamContext, const std::vector<ITimeline *>&timelines);
 
 	/**
@@ -1152,7 +1114,6 @@ protected:
 	int mPrevAdaptationSetCount;
 	std::vector<BitsPerSecond> mBitrateIndexVector;
 	bool playlistDownloaderThreadStarted; // Playlist downloader thread start status
-	bool isVidDiscInitFragFail;
 	double mLivePeriodCulledSeconds;
 	bool mIsSegmentTimelineEnabled;   /**< Flag to indicate if segment timeline is enabled, to determine if PTS is available from manifest */
 
@@ -1270,7 +1231,6 @@ protected:
 	double mFragmentTimeOffset;     /**< denotes the offset added to fragment time when absolute timeline is disabled, holds currentPeriodOffset*/
 	bool mShortAdOffsetCalc;
 	AampTime mNextPts;					/*For PTS restamping*/
-	std::vector<std::unique_ptr<aamp::AampTrackWorker>> mTrackWorkers;	/**< Track workers for fetching fragments*/
 };
 
 #endif //FRAGMENTCOLLECTOR_MPD_H_

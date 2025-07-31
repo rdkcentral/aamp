@@ -211,3 +211,132 @@ double ComputeFragmentDuration( uint32_t duration, uint32_t timeScale )
 	return newduration;
 }
 
+/**
+ * @brief Parse segment index box
+ * @note The SegmentBase indexRange attribute points to Segment Index Box location with segments and random access points.
+ * @param start start of box
+ * @param size size of box
+ * @param segmentIndex segment index
+ * @param[out] referenced_size referenced size
+ * @param[out] referenced_duration referenced duration
+ * @retval true on success
+ */
+bool ParseSegmentIndexBox( const char *start, size_t size, int segmentIndex, unsigned int *referenced_size, float *referenced_duration, unsigned int *firstOffset)
+{
+	if (!start)
+	{
+		// If the fragment pointer is NULL then return from here, no need to process it further.
+		return false;
+	}
+
+	const char **f = &start;
+
+	unsigned int len = Read32(f);
+	if (len != size)
+	{
+		AAMPLOG_WARN("Wrong size in ParseSegmentIndexBox %d found, %zu expected", len, size);
+		if (firstOffset) *firstOffset = 0;
+		return false;
+	}
+
+	unsigned int type = Read32(f);
+	if (type != 'sidx')
+	{
+		AAMPLOG_WARN("Wrong type in ParseSegmentIndexBox %c%c%c%c found, %zu expected",
+					 (type >> 24) % 0xff, (type >> 16) & 0xff, (type >> 8) & 0xff, type & 0xff, size);
+		if (firstOffset) *firstOffset = 0;
+		return false;
+	}
+
+	unsigned int version = Read32(f); (void) version;
+	unsigned int reference_ID = Read32(f); (void)reference_ID;
+	unsigned int timescale = Read32(f);
+	uint64_t earliest_presentation_time;
+	uint64_t first_offset;
+	if( version==0 )
+	{
+		earliest_presentation_time = Read32(f);
+		(void)earliest_presentation_time; // unused
+		first_offset = Read32(f);
+	}
+	else
+	{
+		earliest_presentation_time = Read64(f);
+		(void)earliest_presentation_time; // unused
+		first_offset = Read64(f);
+	}
+	unsigned int reserved = Read16(f); (void)reserved;
+	unsigned int reference_count = Read16(f);
+	if (firstOffset)
+	{
+		*firstOffset = (unsigned int)first_offset;
+		return true;
+	}
+	if( segmentIndex<reference_count )
+	{
+		start += 12*segmentIndex;
+		*referenced_size = Read32(f)&0x7fffffff;
+		// top bit is "reference_type"
+
+		*referenced_duration = Read32(f)/(float)timescale;
+
+		unsigned int flags = Read32(f);
+		(void)flags;
+		// starts_with_SAP (1 bit)
+		// SAP_type (3 bits)
+		// SAP_delta_time (28 bits)
+
+		return true;
+	}
+	return false;
+}
+
+/**
+ * @fn ConstructFragmentURL
+ * @param[out] fragmentUrl fragment url
+ * @param[in] fragmentDescriptor descriptor
+ * @param[in] media media information string
+ * @param[in] config Aamp configuration
+ */
+void ConstructFragmentURL(std::string &fragmentUrl, const FragmentDescriptor *fragmentDescriptor, std::string media, AampConfig *config)
+{
+	std::string constructedUri = fragmentDescriptor->GetMatchingBaseUrl();
+	if (media.empty())
+	{
+	}
+	else if (aamp_IsAbsoluteURL(media))
+	{ // don't pre-pend baseurl if media starts with http:// or https://
+		constructedUri.clear();
+	}
+	else if (!constructedUri.empty())
+	{
+		if (config->IsConfigSet(eAAMPConfig_DASHIgnoreBaseURLIfSlash))
+		{
+			if (constructedUri == "/")
+			{
+				AAMPLOG_WARN("ignoring baseurl /");
+				constructedUri.clear();
+			}
+		}
+		// append '/' suffix to BaseURL if not already present
+		if (aamp_IsAbsoluteURL(constructedUri))
+		{
+			if (constructedUri.back() != '/')
+			{
+				constructedUri += '/';
+			}
+		}
+	}
+	else
+	{
+		AAMPLOG_TRACE("BaseURL not available");
+	}
+	constructedUri += media;
+	replace(constructedUri, "Bandwidth", fragmentDescriptor->Bandwidth);
+	replace(constructedUri, "RepresentationID", fragmentDescriptor->RepresentationID);
+	replace(constructedUri, "Number", fragmentDescriptor->Number);
+	replace(constructedUri, "Time", (uint64_t)fragmentDescriptor->Time );
+	aamp_ResolveURL(fragmentUrl, fragmentDescriptor->manifestUrl, constructedUri.c_str(), config->IsConfigSet(eAAMPConfig_PropagateURIParam));
+}
+
+
