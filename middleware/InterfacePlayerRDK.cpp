@@ -710,18 +710,18 @@ void MonitorAV( InterfacePlayerRDK *pInterfacePlayerRDK )
 			{ // log only when interpretation of AV state has changed
 				if( monitorAVState->description )
 				{ // avoid logging for initial NULL description
-					MW_LOG_MIL( "MonitorAV_%s: %ld,%ld,%d,%lld",
-							   monitorAVState->description,
-							   monitorAVState->av_position[eGST_MEDIATYPE_VIDEO],
-							   monitorAVState->av_position[eGST_MEDIATYPE_AUDIO],
-							   (int)(monitorAVState->av_position[eGST_MEDIATYPE_VIDEO] - monitorAVState->av_position[eGST_MEDIATYPE_AUDIO]),
-							   monitorAVState->tLastSampled - monitorAVState->tLastReported );
+					// MW_LOG_MIL( "MonitorAV_%s: %ld,%ld,%d,%lld",
+					// 		   monitorAVState->description,
+					// 		   monitorAVState->av_position[eGST_MEDIATYPE_VIDEO],
+					// 		   monitorAVState->av_position[eGST_MEDIATYPE_AUDIO],
+					// 		   (int)(monitorAVState->av_position[eGST_MEDIATYPE_VIDEO] - monitorAVState->av_position[eGST_MEDIATYPE_AUDIO]),
+					// 		   monitorAVState->tLastSampled - monitorAVState->tLastReported );
 				}
-				MW_LOG_MIL( "MonitorAV_%s: %ld,%ld,%d,0",
-							   description,
-								av_position[eGST_MEDIATYPE_VIDEO],
-								av_position[eGST_MEDIATYPE_AUDIO],
-								(int)(av_position[eGST_MEDIATYPE_VIDEO] - av_position[eGST_MEDIATYPE_AUDIO]) );
+				// MW_LOG_MIL( "MonitorAV_%s: %ld,%ld,%d,0",
+				// 			   description,
+				// 				av_position[eGST_MEDIATYPE_VIDEO],
+				// 				av_position[eGST_MEDIATYPE_AUDIO],
+				// 				(int)(av_position[eGST_MEDIATYPE_VIDEO] - av_position[eGST_MEDIATYPE_AUDIO]) );
 				monitorAVState->tLastReported = monitorAVState->tLastSampled;
 				monitorAVState->description = description;
 			}
