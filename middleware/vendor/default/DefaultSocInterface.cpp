@@ -201,12 +201,54 @@ void DefaultSocInterface::SetHevcCaps(GstCaps *caps)
  */
 bool DefaultSocInterface::ConfigureAudioSink(GstElement **audio_sink, GstObject *src, bool decStreamSync)
 {
-        bool status = false;
-        if (StartsWith(GST_OBJECT_NAME(src), "amlhalasink") == true)
-        {
-                gst_object_replace((GstObject **)audio_sink, src);
-                g_object_set(audio_sink, "disable-xrun", TRUE, NULL);
-                status = true;
-        }
-        return status;
+	bool status = false;
+	if (StartsWith(GST_OBJECT_NAME(src), "amlhalasink") == true)
+	{
+		gst_object_replace((GstObject **)audio_sink, src);
+		g_object_set(audio_sink, "disable-xrun", TRUE, NULL);
+		status = true;
+	}
+	return status;
+}
+
+/**
+ * @brief Checks if the platform segment is ready for processing new segment.
+ *
+ * This function returns a boolean value indicating whether the platform segment
+ * is ready. If the function returns `true`, it means the segment is ready;
+ * otherwise, it is not.
+ *
+ * @param videoSink The video sink element.
+ * @param isRialto Flag indicating whether Rialto sink is being used.
+ * @return `true` if the platform segment is ready, `false` otherwise.
+ */
+bool DefaultSocInterface::IsPlatformSegmentReady(GstElement *videoSink, bool isRialto)
+{
+	gboolean isMaster{TRUE};
+
+	if (isRialto && videoSink != nullptr)
+	{
+		g_object_get(videoSink, "is-master", &isMaster, nullptr);
+	}
+
+	return (isMaster == TRUE)? false:true;
+}
+
+/**
+ * @brief Checks if the platform is video master.
+ *
+ * @param videoSink The video sink element.
+ * @param isRialto Flag indicating whether Rialto sink is being used.
+ * @return 'true' if video master otherwise false.
+ */
+bool DefaultSocInterface::IsVideoMaster(GstElement *videoSink, bool isRialto)
+{
+	gboolean isMaster{TRUE};
+
+	if (isRialto && videoSink != nullptr)
+	{
+		g_object_get(videoSink, "is-master", &isMaster, nullptr);
+	}
+
+	return (isMaster == TRUE)? true:false;
 }

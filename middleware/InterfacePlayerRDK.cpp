@@ -2826,7 +2826,8 @@ bool InterfacePlayerRDK::SendHelper(int type, const void *ptr, size_t len, doubl
 
 		// included to fix av sync / trickmode speed issues
 		// Also add check for trick-play on 1st frame.
-		if (socInterface->IsPlatformSegmentReady() && sendNewSegmentEvent == true)
+		if (socInterface->IsPlatformSegmentReady(gstPrivateContext->video_sink, gstPrivateContext->usingRialtoSink) &&
+			sendNewSegmentEvent == true)
 		{
 			SendNewSegmentEvent(mediaType, pts, 0);
 			segmentEventSent = true;
@@ -2961,7 +2962,7 @@ bool InterfacePlayerRDK::SendHelper(int type, const void *ptr, size_t len, doubl
 #endif // SUPPORTS_MP4DEMUX
 			{
 				GstFlowReturn ret = gst_app_src_push_buffer(GST_APP_SRC(stream->source), buffer);
-				
+
 				if (ret != GST_FLOW_OK)
 				{
 					MW_LOG_ERR("gst_app_src_push_buffer error: %d[%s] mediaType %d", ret, gst_flow_get_name (ret), (int)mediaType);
@@ -2988,7 +2989,7 @@ bool InterfacePlayerRDK::SendHelper(int type, const void *ptr, size_t len, doubl
 				{
 					stream->bufferUnderrun = false;
 				}
-				
+
 				// PROFILE_BUCKET_FIRST_BUFFER after successful push of first gst buffer
 				if (isFirstBuffer == true && ret == GST_FLOW_OK)
 					firstBufferPushed = true;
@@ -3046,7 +3047,7 @@ void InterfacePlayerRDK::SendNewSegmentEvent(GstMediaType mediaType, GstClockTim
 		segment.rate = GST_NORMAL_PLAY_RATE;
 		segment.applied_rate = GST_NORMAL_PLAY_RATE;
 		if(stopPts) segment.stop = stopPts;
-		if(!socInterface->IsVideoMaster())
+		if(!socInterface->IsVideoMaster(gstPrivateContext->video_sink, gstPrivateContext->usingRialtoSink))
 		{
 			//  notify westerossink of rate to run in Vmaster mode
 			if ((GstMediaType)mediaType == eGST_MEDIATYPE_VIDEO)
