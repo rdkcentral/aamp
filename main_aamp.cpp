@@ -2136,7 +2136,7 @@ std::string PlayerInstanceAAMP::GetManifest(void)
 			case eSTATE_ERROR:
 			case eSTATE_IDLE:
 			case eSTATE_RELEASED:
-			case eSTATE_STOPPED:
+			case eSTATE_STOPPING:
 				AAMPLOG_WARN( "PlayerState=%d",state );
 				break;
 			default:
