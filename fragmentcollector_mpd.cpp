@@ -3491,6 +3491,16 @@ AAMPStatusType StreamAbstractionAAMP_MPD::InitTsbReader(TuneType tuneType)
 			seekPosition = position;
 			mFirstPTS = tsbSessionManager->GetTsbReader(eMEDIATYPE_VIDEO)->GetFirstPTS();
 			AAMPLOG_MIL("Updated position: %lfs, pts:%lfs", seekPosition, mFirstPTS);
+			if (aamp->IsLocalAAMPTsbInjection())
+			{
+				for (int i = 0; i < mNumberOfTracks; i++)
+				{
+					if (mMediaStreamContext[i] != NULL)
+					{
+						mMediaStreamContext[i]->SetLocalTSBInjection(true);
+					}
+				}
+			}
 		}
 		else
 		{
@@ -10558,11 +10568,7 @@ void StreamAbstractionAAMP_MPD::StartFromAampLocalTsb(void)
 	for (int i = 0; i < mNumberOfTracks; i++)
 	{
 		// Flush fragments from mCachedFragment, potentially cached during Live SLD
-		if (!mMediaStreamContext[i]->IsLocalTSBInjection())
-		{
-			mMediaStreamContext[i]->FlushFetchedFragments();
-		}
-		mMediaStreamContext[i]->SetLocalTSBInjection(true);
+		mMediaStreamContext[i]->FlushFetchedFragments();
 
 		// Flush fragments from mCachedFragmentChunks
 		mMediaStreamContext[i]->FlushFragments();
