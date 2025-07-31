@@ -28,7 +28,7 @@ set(SEC_CLIENT_ROOT ${AAMP_ROOT}/../secclient)
 
 file(GLOB SEC_CLIENT_HEADERS "${SEC_CLIENT_ROOT}/*")
 
-include_directories(${AAMP_ROOT} ${AAMP_ROOT}/plugins/gst-plugins-rdk-aamp/drm/gst)
+include_directories(${AAMP_ROOT} ${AAMP_ROOT}/middleware/gst-plugins/drm/gst)
 include_directories(${AAMP_ROOT}/drm)
 include_directories(${AAMP_ROOT}/drm/helper)
 include_directories(${AAMP_ROOT}/subtitle)
@@ -38,6 +38,7 @@ include_directories(${AAMP_ROOT}/tsb/api)
 include_directories(${AAMP_ROOT}/middleware)
 include_directories(${AAMP_ROOT}/middleware/externals/contentsecuritymanager)
 include_directories(${AAMP_ROOT}/middleware/playerLogManager)
+include_directories(${AAMP_ROOT}/middleware/vendor)
 include_directories(${GTEST_INCLUDE_DIRS})
 include_directories(${GMOCK_INCLUDE_DIRS})
 include_directories(${GLIB_INCLUDE_DIRS})
@@ -67,11 +68,12 @@ if (CMAKE_PLATFORM_UBUNTU)
 endif()
 
 set(AAMP_SOURCES
-				${AAMP_ROOT}/plugins/gst-plugins-rdk-aamp/drm/gst/gstaampcdmidecryptor.cpp
-				${AAMP_ROOT}/plugins/gst-plugins-rdk-aamp/drm/gst/gstaampclearkeydecryptor.cpp
-				${AAMP_ROOT}/plugins/gst-plugins-rdk-aamp/drm/gst/gstaampplayreadydecryptor.cpp
-				${AAMP_ROOT}/plugins/gst-plugins-rdk-aamp/drm/gst/gstaampverimatrixdecryptor.cpp
-				${AAMP_ROOT}/plugins/gst-plugins-rdk-aamp/drm/gst/gstaampwidevinedecryptor.cpp )
+				${AAMP_ROOT}/middleware/gst-plugins/drm/gst/gstcdmidecryptor.cpp
+				${AAMP_ROOT}/middleware/gst-plugins/drm/gst/gstclearkeydecryptor.cpp
+				${AAMP_ROOT}/middleware/gst-plugins/drm/gst/gstplayreadydecryptor.cpp
+				${AAMP_ROOT}/middleware/gst-plugins/drm/gst/gstverimatrixdecryptor.cpp
+				${AAMP_ROOT}/middleware/gst-plugins/drm/gst/gstwidevinedecryptor.cpp
+				${AAMP_ROOT}/middleware/playerLogManager/PlayerLogManager.cpp)
 
 add_executable(${EXEC_NAME}
 			   ${TEST_SOURCES}

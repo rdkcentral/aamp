@@ -87,7 +87,6 @@ ThunderAccessPlayer::ThunderAccessPlayer(std::string callsign)
         //MW_LOG_WARN( "[ThunderAccessPlayer] securityToken : %s tokenStatus : %d tokenQueried : %s", gSecurityPlayerData.securityToken.c_str(), gSecurityPlayerData.tokenStatus, ((gSecurityPlayerData.tokenQueried)?"true":"false"));
     }
 #endif
-
     if (NULL == controllerObject) {
         /*Passing empty string instead of Controller callsign.This is assumed as controller plugin.*/
         if(gSecurityPlayerData.tokenStatus > 0){

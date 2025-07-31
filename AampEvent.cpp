@@ -1036,7 +1036,7 @@ void DrmMetaDataEvent::ConvertToVerboseErrorCode(int32_t httpCode, int32_t httpE
 	mSecManagerClass = CONTENT_SECURITY_MANAGER_CLASS_RESULT_DRM_FAIL;
 	mSecManagerReasonCode = CONTENT_SECURITY_MANAGER_REASON_DRM_GENERAL_FAILURE;
 	//look for the correct code from the lookup
-	if (getAsVerboseErrorCode(httpCode, mSecManagerClass, mSecManagerReasonCode)) 
+	if (getAsVerboseErrorCode(httpCode, mSecManagerClass, mSecManagerReasonCode))
 	{
 		if(412 == httpCode && 401 == httpExtStatusCode) 
 		{
