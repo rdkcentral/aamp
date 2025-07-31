@@ -1837,7 +1837,11 @@ CachedFragment* MediaTrack::GetFetchChunkBuffer(bool initialize)
 bool MediaTrack::IsFragmentCacheFull()
 {
 	bool rc = false;
-	std::lock_guard<std::mutex> guard(mutex);
+	// below lock_guard deadlocks when called from MediaTrack::OnSinkBufferFull
+	// options to address:
+	// 1. switch to std::recursive_mutex (big change)
+	// 2. refactor MediaTrack::OnSinkBufferFull to avoid calling IsFragmentCacheFull while having lock
+	// std::lock_guard<std::mutex> guard(mutex);
 	if(IsInjectionFromCachedFragmentChunks())
 	{
 		AAMPLOG_DEBUG("[%s] numberOfFragmentChunksCached %d mCachedFragmentChunksSize %zu", name, numberOfFragmentChunksCached, mCachedFragmentChunksSize);
