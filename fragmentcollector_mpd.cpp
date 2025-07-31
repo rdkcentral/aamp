@@ -1528,7 +1528,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 
 							// pMediaStreamContext->lastDownloadedPosition is introduced to calculate the buffered duration value.
 							// Update position in period after fragment download
-							pMediaStreamContext->lastDownloadedPosition = pMediaStreamContext->fragmentTime + fragmentDuration;
+							pMediaStreamContext->lastDownloadedPosition = pMediaStreamContext->fragmentTime;
 							AAMPLOG_INFO("[%s] lastDownloadedPosition %lfs fragmentTime %lfs fragmentDuration %fs",
 								GetMediaTypeName(pMediaStreamContext->mediaType),
 								pMediaStreamContext->lastDownloadedPosition.load(),
