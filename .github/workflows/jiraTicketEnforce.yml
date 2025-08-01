@@ -25,5 +25,6 @@ jobs:
             fi
           done < commit_hashes.txt
           if [ $error_found -eq 1 ]; then
+            echo "Jira ticket enforcement failed: At least one commit does not reference a valid Jira ticket. Push or PR merge is blocked."
             exit 1
           fi
