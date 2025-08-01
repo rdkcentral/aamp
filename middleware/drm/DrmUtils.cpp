@@ -35,85 +35,91 @@
 
 std::shared_ptr<AampSecManagerSession::SessionManager> AampSecManagerSession::SessionManager::getInstance(int64_t sessionID, std::size_t inputSummaryHash)
 {
-	std::shared_ptr<SessionManager> returnValue;
+    MW_LOG_INFO("Nitz : getInstance called for sessionID: %lld, inputSummaryHash: %zu", sessionID, inputSummaryHash);
 
-	static std::mutex instancesMutex;
-	std::lock_guard<std::mutex> lock{instancesMutex};
-	static std::map<int64_t, std::weak_ptr<SessionManager>> instances;
+    std::shared_ptr<SessionManager> returnValue;
 
-	//Remove pointers to expired instances
-	{
-		std::vector<int64_t> keysToRemove;
-		for (auto i : instances)
-		{
-			if(i.second.expired())
-			{
-				keysToRemove.push_back(i.first);
-			}
-		}
-		if(keysToRemove.size())
-		{
-			std::stringstream ss;
-			ss<<"AampSecManagerSession: "<<keysToRemove.size()<<" expired (";
-			for(auto key:keysToRemove)
-			{
-				ss<<key<<",";
-				instances.erase(key);
-			}
+    static std::mutex instancesMutex;
+    std::lock_guard<std::mutex> lock{instancesMutex};
+    static std::map<int64_t, std::weak_ptr<SessionManager>> instances;
 
-			ss<<"), instances remaining."<< instances.size();
-			MW_LOG_MIL("%s",ss.str().c_str());
-		}
-	}
+    //Remove pointers to expired instances
+    {
+        std::vector<int64_t> keysToRemove;
+        for (auto i : instances)
+        {
+            if(i.second.expired())
+            {
+                MW_LOG_INFO("Nitz : Expired instance found for sessionID: %lld", i.first);
+                keysToRemove.push_back(i.first);
+            }
+        }
+        if(keysToRemove.size())
+        {
+            std::stringstream ss;
+            ss<<"Nitz : AampSecManagerSession: "<<keysToRemove.size()<<" expired (";
+            for(auto key:keysToRemove)
+            {
+                ss<<key<<",";
+                instances.erase(key);
+            }
 
-	/* Only create or retrieve instances for valid sessionIDs.
-	 * <0 is used as an invalid value e.g. PLAYER_SECMGR_INVALID_SESSION_ID
-	 * 0 removes all sessions which is not the intended behavior here*/
-	if(sessionID>0)
-	{
-		if(instances.count(sessionID)>0)
-		{
-			//get an existing pointer which may be no longer valid
-			returnValue = instances[sessionID].lock();
+            ss<<"), instances remaining."<< instances.size();
+            MW_LOG_MIL("%s",ss.str().c_str());
+        }
+    }
 
-			if(!returnValue)
-			{
-				//unexpected
-				MW_LOG_WARN("AampSecManagerSession: session ID %lld reused or session closed too early.",
-				sessionID);
-			}
-		}
+    /* Only create or retrieve instances for valid sessionIDs.
+     * <0 is used as an invalid value e.g. PLAYER_SECMGR_INVALID_SESSION_ID
+     * 0 removes all sessions which is not the intended behavior here*/
+    if(sessionID>0)
+    {
+        if(instances.count(sessionID)>0)
+        {
+            //get an existing pointer which may be no longer valid
+            MW_LOG_INFO("Nitz : Existing instance found for sessionID: %lld", sessionID);
+            returnValue = instances[sessionID].lock();
 
-		if(returnValue)
-		{
-			if(returnValue->getInputSummaryHash()!=inputSummaryHash)
-			{
-				//this should only occur after a successful updatePlaybackSession
-				MW_LOG_MIL("AampSecManagerSession: session ID %lld input data changed.", sessionID);
-				returnValue->setInputSummaryHash(inputSummaryHash);
-			}
-		}
-		else
-		{
-			/* where an existing, valid instance is not available for sessionID
-			* create a new instance & save a pointer to it for possible future reuse*/
-			returnValue.reset(new SessionManager{sessionID, inputSummaryHash});
-			instances[sessionID] = returnValue;
-			MW_LOG_WARN("AampSecManagerSession: new instance created for ID:%lld, %d instances total.",
-			sessionID,
-			instances.size());
-		}
-	}
-	else
-	{
-		MW_LOG_WARN("AampSecManagerSession: invalid ID:%lld.", sessionID);
-	}
+            if(!returnValue)
+            {
+                //unexpected
+                MW_LOG_WARN("Nitz : AampSecManagerSession: session ID %lld reused or session closed too early.",
+                sessionID);
+            }
+        }
 
-	return returnValue;
+        if(returnValue)
+        {
+            if(returnValue->getInputSummaryHash()!=inputSummaryHash)
+            {
+                //this should only occur after a successful updatePlaybackSession
+                MW_LOG_MIL("Nitz : AampSecManagerSession: session ID %lld input data changed.", sessionID);
+                returnValue->setInputSummaryHash(inputSummaryHash);
+            }
+        }
+        else
+        {
+            /* where an existing, valid instance is not available for sessionID
+            * create a new instance & save a pointer to it for possible future reuse*/
+            MW_LOG_INFO("Nitz : Creating new SessionManager instance for sessionID: %lld", sessionID);
+            returnValue.reset(new SessionManager{sessionID, inputSummaryHash});
+            instances[sessionID] = returnValue;
+            MW_LOG_WARN("Nitz : AampSecManagerSession: new instance created for ID:%lld, %d instances total.",
+            sessionID,
+            instances.size());
+        }
+    }
+    else
+    {
+        MW_LOG_WARN("Nitz : AampSecManagerSession: invalid ID:%lld.", sessionID);
+    }
+
+    return returnValue;
 }
 
 AampSecManagerSession::SessionManager::~SessionManager()
 {
+	MW_LOG_INFO("Nitz : SessionManager destructor called for session ID: %lld", mID);
 	if(mID>0)
 	{
 		AampSecManager::GetInstance()->ReleaseSession(mID);

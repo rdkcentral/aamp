@@ -180,6 +180,7 @@ bool AampSecManager::AcquireLicense(PrivateInstanceAAMP* aamp, const char* licen
 	}
 	else
 	{
+		AAMPLOG_WARN("Nitz : %s, input data changed for new tune but previous session (ID: %" PRId64 ") not destroyed!", session.ToString().c_str(), session.getSessionID());
 		AAMPLOG_MIL("%s but the input data has changed, update session.", session.ToString().c_str());
 	}
 
@@ -492,12 +493,16 @@ void AampSecManager::ReleaseSession(int64_t sessionId)
 
 	if (rpcResult)
 	{
-		if (!result["success"].Boolean())
-		{
-			std::string responseStr;
-			result.ToString(responseStr);
-			AAMPLOG_ERR("%s:%d SecManager closePlaybackSession failed for ID: %" PRId64 " and result: %s", __FUNCTION__, __LINE__, sessionId, responseStr.c_str());
-		}
+		if (result["success"].Boolean())
+        {
+            AAMPLOG_INFO("Nitz %s:%d SecManager successfully closed session ID: %" PRId64, __FUNCTION__, __LINE__, sessionId);
+        }
+        else
+        {
+            std::string responseStr;
+            result.ToString(responseStr);
+            AAMPLOG_ERR("%s:%d SecManager closePlaybackSession failed for ID: %" PRId64 " and result: %s", __FUNCTION__, __LINE__, sessionId, responseStr.c_str());
+        }
 	}
 	else
 	{

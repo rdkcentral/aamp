@@ -1323,6 +1323,7 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
  */
 PrivateInstanceAAMP::~PrivateInstanceAAMP()
 {
+	AAMPLOG_WARN("Nitz: PrivateInstanceAAMP::~PrivateInstanceAAMP() called for playerId %d", mPlayerId);
 	StopPausePositionMonitoring("AAMP destroyed");
 	PlayerCCManager::GetInstance()->Release(mCCId);
 	mCCId = 0;
@@ -1344,8 +1345,9 @@ PrivateInstanceAAMP::~PrivateInstanceAAMP()
 	}
 	aesCtrAttrDataList.clear();
 	SAFE_DELETE(mAampCacheHandler);
-
+	AAMPLOG_WARN("Nitz : About to delete mDRMLicenseManager");
 	SAFE_DELETE(mDRMLicenseManager);
+	AAMPLOG_WARN("Nitz : mDRMLicenseManager deleted");
 	if( ISCONFIGSET_PRIV(eAAMPConfig_EnableCurlStore) )
 	{
 		for (int i = 0; i < eCURLINSTANCE_MAX; i++)
