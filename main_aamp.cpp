@@ -1499,16 +1499,18 @@ void PlayerInstanceAAMP::SetSubtitleMute(bool muted)
 	if( aamp )
 	{
 		UsingPlayerId playerId(aamp->mPlayerId);
-		AAMPLOG_WARN(" mute == %s", muted?"true":"false");
+		AAMPLOG_WARN(" Neil mute == %s", muted?"true":"false");
 		aamp->subtitles_muted = muted;
 		aamp->AcquireStreamLock();
 		if (aamp->mpStreamAbstractionAAMP)
 		{
+			AAMPLOG_WARN("Neil calling aamp->SetSubtitleMute(%s)", muted?"true":"false");
+
 			aamp->SetSubtitleMute(muted);
 		}
 		else
 		{
-			AAMPLOG_WARN("Player is in state eSTATE_IDLE, value has been cached");
+			AAMPLOG_WARN("Neil Player is in state eSTATE_IDLE, value has been cached");
 		}
 		aamp->ReleaseStreamLock();
 	}
