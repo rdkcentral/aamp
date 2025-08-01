@@ -2,10 +2,10 @@ name: Jira Ticket Enforcement
 on:
   push:
     branches:
-      - [ dev_sprint_25_2 , feature/VPLAY-10292_temp ]
+      - [ dev_sprint_25_2 , feature/VPLAY-10292 ]
   pull_request:
     branches:
-      - [ dev_sprint_25_2 , feature/VPLAY-10292_temp ]
+      - [ dev_sprint_25_2 , feature/VPLAY-10292 ]
 jobs:
   jira-ticket-check:
     runs-on: ubuntu-latest
