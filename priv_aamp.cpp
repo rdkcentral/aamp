@@ -1,5 +1,5 @@
 /*
- * If not stated otherwise111 in this file or this component's license file the
+ * If not stated otherwise in this file or this component's license file the
  * following copyright and licenses apply:
  *
  * Copyright 2020 RDK Management
@@ -16,7 +16,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
 */
-
+//hello world
 /**
  * @file priv_aamp.cpp
  * @brief Advanced Adaptive Media Player (AAMP) PrivateInstanceAAMP impl
