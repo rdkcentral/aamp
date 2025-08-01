@@ -9106,6 +9106,7 @@ void StreamAbstractionAAMP_MPD::AdvanceTrack(int trackIdx, bool trickPlay, doubl
 	}
 	else
 	{
+		std::lock_guard<std::mutex> lock(mutex);
 		// Important DEBUG area, live downloader is delayed due to some external factors (Injector or Gstreamer)
 		if (pMediaStreamContext->IsInjectionFromCachedFragmentChunks())
 		{
