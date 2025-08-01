@@ -59,11 +59,11 @@ AAMPStatusType AampTsbReader::Init(double &startPosSec, float rate, TuneType tun
 	return eAAMPSTATUS_OK;
 }
 
-TsbFragmentDataPtr AampTsbReader::FindNext(AampTime offset)
+TsbFragmentDataPtr AampTsbReader::FindNext()
 {
 	if (g_mockTSBReader)
 	{
-		return g_mockTSBReader->FindNext(offset);
+		return g_mockTSBReader->FindNext();
 	}
 	else
 	{
@@ -138,4 +138,5 @@ AampTime AampTsbReader::GetFirstPTSOffset()
 		return 0.0;
 	}
 }
+
 

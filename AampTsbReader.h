@@ -71,7 +71,7 @@ public:
 	 *
 	 * @return Pointer to the next fragment data
 	 */
-	TsbFragmentDataPtr FindNext(AampTime offset = 0.0);
+	TsbFragmentDataPtr FindNext();
 
 	/**
 	 * @fn ReadNext - function to update the last read file from TSB

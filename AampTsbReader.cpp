@@ -187,7 +187,7 @@ AAMPStatusType AampTsbReader::Init(double &startPosSec, float rate, TuneType tun
  *
  * @return Pointer to the next fragment data
  */
-TsbFragmentDataPtr AampTsbReader::FindNext(AampTime offset)
+TsbFragmentDataPtr AampTsbReader::FindNext()
 {
 	if (!mInitialized_)
 	{
@@ -201,30 +201,11 @@ TsbFragmentDataPtr AampTsbReader::FindNext(AampTime offset)
 	{
 		ret = mCurrentFragment;
 	}
-	else if (offset > 0.0)
+
+	if (mCurrentFragment)
 	{
-		if (mCurrentFragment)
-		{
-			AampTime nextPos = mCurrentFragment->GetAbsolutePosition() + mCurrentFragment->GetDuration() + offset;
-			ret = mDataMgr->GetNearestFragment(nextPos.inSeconds());
-		}
-	}
-	else
-	{
-		// Navigate using linked list pointers
-		if (mCurrentRate >= AAMP_RATE_PAUSE) // Handles normal playback, trick-play forward, and paused states.
-		{
-			// When paused (mCurrentRate == 0), we continue to fetch the next fragment.
-			// This is intentional to keep the buffer primed for a smooth resume. The
-			// injector loop is responsible for actually pausing the data flow to the pipeline.
-			// Forward direction
-			ret = mCurrentFragment ? mCurrentFragment->next : TsbFragmentDataPtr();
-		}
-		else
-		{
-			// Reverse direction
-			ret = mCurrentFragment ? mCurrentFragment->prev : TsbFragmentDataPtr();
-		}
+		AampTime nextPos = mCurrentFragment->GetAbsolutePosition() + mCurrentFragment->GetDuration();
+		ret = mDataMgr->GetNearestFragment(nextPos.inSeconds());
 	}
 
 	if (!ret)
