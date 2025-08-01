@@ -442,7 +442,7 @@ TEST_F(SetPreferredTextLanguagesTests, RenditionTest1)
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_))
 		.Times(1);
 	EXPECT_CALL(*g_mockAampGstPlayer, Flush(_,_,_))
-		.Times(2);
+		.Times(1);
 	mPrivateInstanceAAMP->SetPreferredTextLanguages("{\"rendition\":\"rend0\"}");
 
 	/* Verify the preferred rendition list. */

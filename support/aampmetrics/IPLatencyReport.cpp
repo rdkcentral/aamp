@@ -39,7 +39,7 @@ cJSON * CLatencyReport::ToJson() const
 		if(monitor)
 		{
 			cJSON * jsonObj = NULL;
-			for(auto it : mLatencyReportMap)
+			for(const auto& it : mLatencyReportMap)
 			{
 				jsonObj =  cJSON_CreateNumber(it.second);
 				cJSON_AddItemToObject(monitor, (TAG_TIME_WINDOW_PREFIX + it.first).c_str(), jsonObj);

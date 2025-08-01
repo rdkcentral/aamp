@@ -150,14 +150,16 @@ float SpeedChangedEvent::getRate() const
 
 /**
  * @brief ProgressEvent Constructor
+
  *
  */
-ProgressEvent::ProgressEvent(double duration, double position, double start, double end, float speed, long long pts, double bufferedDuration, std::string seiTimecode, double liveLatency, long profileBandwidth, long networkBandwidth, double currentPlayRate, 
+ProgressEvent::ProgressEvent(double duration, double position, double start, double end, float speed, long long pts, double videoBufferedDuration, double audioBufferedDuration, std::string seiTimecode, double liveLatency, long profileBandwidth, long networkBandwidth, double currentPlayRate, 
 	std::string sid):
 		AAMPEventObject(AAMP_EVENT_PROGRESS, std::move(sid)), mDuration(duration),
 		mPosition(position), mStart(start),
 		mEnd(end), mSpeed(speed), mPTS(pts),
-		mBufferedDuration(bufferedDuration),
+		mVideoBufferedDurationMs(videoBufferedDuration),
+		mAudioBufferedDurationMs(audioBufferedDuration),
 		mSEITimecode(seiTimecode),
 		mLiveLatency(liveLatency),
 		mProfileBandwidth(profileBandwidth),
@@ -228,13 +230,23 @@ long long ProgressEvent::getPTS() const
 }
 
 /**
- * @brief Get Buffered Duration
+ * @brief Get Video Buffered Duration in milliseconds
  *
- * @return Buffered duration
+ * @return Video Buffered Duration
  */
-double ProgressEvent::getBufferedDuration() const
+double ProgressEvent::getVideoBufferedDuration() const
 {
-	return mBufferedDuration;
+	return mVideoBufferedDurationMs;
+}
+
+/**
+ * @brief Get Audio Buffered Duration in milliseconds
+ *
+ * @return Audio Buffered Duration
+ */
+double ProgressEvent::getAudioBufferedDuration() const
+{
+	return mAudioBufferedDurationMs;
 }
 
 /**
@@ -1021,16 +1033,16 @@ void DrmMetaDataEvent::setSecManagerReasonCode(int32_t code)
  */
 void DrmMetaDataEvent::ConvertToVerboseErrorCode(int32_t httpCode, int32_t httpExtStatusCode )
 {
-	mSecManagerClass = SECMANAGER_CLASS_RESULT_DRM_FAIL;
-	mSecManagerReasonCode = SECMANAGER_REASON_DRM_GENERAL_FAILURE;
+	mSecManagerClass = CONTENT_SECURITY_MANAGER_CLASS_RESULT_DRM_FAIL;
+	mSecManagerReasonCode = CONTENT_SECURITY_MANAGER_REASON_DRM_GENERAL_FAILURE;
 	//look for the correct code from the lookup
 	if (getAsVerboseErrorCode(httpCode, mSecManagerClass, mSecManagerReasonCode)) 
 	{
 		if(412 == httpCode && 401 == httpExtStatusCode) 
 		{
-			mSecManagerReasonCode = SECMANAGER_REASON_DRM_ACCESS_TOKEN_EXPIRED;
+			mSecManagerReasonCode = CONTENT_SECURITY_MANAGER_REASON_DRM_ACCESS_TOKEN_EXPIRED;
 		}
-		if (mSecManagerClass == SECMANAGER_CLASS_RESULT_SECCLIENT_FAIL) {
+		if (mSecManagerClass == CONTENT_SECURITY_MANAGER_CLASS_RESULT_SECCLIENT_FAIL) {
 			mSecManagerReasonCode = httpCode;
 		}
 		mBusinessStatus = httpExtStatusCode;
@@ -1632,9 +1644,9 @@ const std::string &TuneTimeMetricsEvent::getTuneMetricsData() const
 /**
  * @fn MonitorAVStatusEvent Constructor
  */
-MonitorAVStatusEvent::MonitorAVStatusEvent(const std::string &state, int64_t videoPosMs, int64_t audioPosMs, uint64_t timeInStateMs, std::string sid):
+MonitorAVStatusEvent::MonitorAVStatusEvent(const std::string &state, int64_t videoPosMs, int64_t audioPosMs, uint64_t timeInStateMs, std::string sid, uint64_t droppedFrames):
 		AAMPEventObject(AAMP_EVENT_MONITORAV_STATUS, std::move(sid)), mMonitorAVStatus(state), mVideoPositionMS(videoPosMs),
-		mAudioPositionMS(audioPosMs), mTimeInStateMS(timeInStateMs)
+		mAudioPositionMS(audioPosMs), mTimeInStateMS(timeInStateMs), mDroppedFrames(droppedFrames)
 {
 
 }
@@ -1677,4 +1689,14 @@ int64_t MonitorAVStatusEvent::getAudioPositionMS() const
 uint64_t MonitorAVStatusEvent::getTimeInStateMS() const
 {
 	return mTimeInStateMS;
+}
+
+/**
+ * @brief getDroppedFrames
+ *
+ * @return Dropped Frames Count
+ */
+uint64_t MonitorAVStatusEvent::getDroppedFrames() const
+{
+	return mDroppedFrames;
 }

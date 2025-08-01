@@ -3,6 +3,8 @@
 #include <gst/gst.h>
 #include <queue>
 
+#include "AampcliPrintf.h"
+
 static PlayerInstanceAAMP *g_kmp_player;
 static GMainLoop *main_loop;
 
@@ -10,10 +12,13 @@ static gboolean tuneFunc( gpointer arg )
 {	char *url = (char *)arg;
 	if( url )
 	{
-		printf( "tuneFunc(\"%s\")\n", url );
+		AAMPCLI_PRINTF( "tuneFunc(\"%s\")\n", url );
 		if( !g_kmp_player )
 		{ // lazily allocate player instance
 			g_kmp_player = new PlayerInstanceAAMP();
+		}
+		else {
+			g_kmp_player->Stop();
 		}
 		g_kmp_player->Tune(url);
 		free( url );
