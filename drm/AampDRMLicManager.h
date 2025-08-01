@@ -62,6 +62,7 @@ public:
 	std::atomic<int> mCurrentSpeed;
 	std::atomic<bool> mFirstFrameSeen;
 #endif
+
 	/**
 	 * @fn          setLicenseRequestAbort
 	 * @param       isAbort bool flag to curl abort

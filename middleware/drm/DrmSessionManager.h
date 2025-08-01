@@ -127,6 +127,12 @@ class DrmSessionManager
 
 	DrmSessionContext *drmSessionContexts;
 	configs *m_drmConfigParam;
+#ifdef USE_SECMANAGER
+	AampSecManagerSession mAampSecManagerSession;
+	std::atomic<bool> mIsVideoOnMute;
+	std::atomic<int> mCurrentSpeed;
+	std::atomic<bool> mFirstFrameSeen;
+#endif
 private:
 	KeyID *cachedKeyIDs;
 	char* accessToken;
@@ -137,12 +143,7 @@ private:
 	std::mutex mDrmSessionLock;
 	bool mEnableAccessAttributes;
 	int mMaxDrmSessions;
-#ifdef USE_SECMANAGER
-	AampSecManagerSession mAampSecManagerSession;
-	std::atomic<bool> mIsVideoOnMute;
-	std::atomic<int> mCurrentSpeed;
-	std::atomic<bool> mFirstFrameSeen;
-#endif
+
 	/**     
      	 * @brief Copy constructor disabled
      	 *
