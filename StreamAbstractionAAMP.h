@@ -770,7 +770,7 @@ public:
 	 * @fn ResetTrickModePtsRestamping
 	 * @brief Reset trick mode PTS restamping
 	 */
-	void ResetTrickModePtsRestamping(void);
+	virtual void ResetTrickModePtsRestamping(void);
 
 	/**
 	 * @fn IsInjectionFromCachedFragmentChunks
@@ -2068,6 +2068,19 @@ public:
 	virtual ABRMode GetABRMode() { return ABRMode::UNDEF; };
 
 	virtual bool SelectPreferredTextTrack(TextTrackInfo &selectedTextTrack) { return false; };
+
+	/**
+	 * @fn clearFirstPTS
+	 * @brief Clears the mFirstPTS value to trigger update of first PTS
+	 */
+	virtual void clearFirstPTS(void) {};
+
+	/**
+	 *   @fn ReinitializeInjection
+	 *   @brief Reintializes the injection logic
+	 *   @param[in] rate - play rate
+	 */	
+	void ReinitializeInjection(double rate);
 
 protected:
 	/**

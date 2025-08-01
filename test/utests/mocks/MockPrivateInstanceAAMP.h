@@ -84,6 +84,8 @@ public:
 	MOCK_METHOD(void, BlockUntilGstreamerWantsData, (void(*cb)(void), int , int ));
 	MOCK_METHOD(void, WaitForDiscontinuityProcessToComplete, ());
 	MOCK_METHOD(double, GetLivePlayPosition, ());
+	MOCK_METHOD(bool, GetLLDashChunkMode, ());
+	MOCK_METHOD(void, SetLLDashChunkMode, (bool enable));
 };
 
 extern MockPrivateInstanceAAMP *g_mockPrivateInstanceAAMP;

@@ -14175,3 +14175,11 @@ bool StreamAbstractionAAMP_MPD::DoStreamSinkFlushOnDiscontinuity()
 	AAMPLOG_INFO("doFlush=%d", doFlush);
 	return doFlush;
 }
+/**
+ * @fn clearFirstPTS
+ * @brief Clears the mFirstPTS value to trigger update of first PTS
+ */
+void StreamAbstractionAAMP_MPD::clearFirstPTS(void)
+{
+	mFirstPTS = 0.0;
+}

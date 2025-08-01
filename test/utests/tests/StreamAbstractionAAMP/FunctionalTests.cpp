@@ -28,6 +28,7 @@
 #include "MockAampUtils.h"
 #include "MockPrivateInstanceAAMP.h"
 #include "MockStreamAbstractionAAMP.h"
+#include "MockMediaProcessor.h"
 
 using ::testing::_;
 using ::testing::An;
@@ -85,19 +86,25 @@ protected:
 		{
 			if (type == eTRACK_AUDIO)
 				return mMockAudioTrack;
-			else
+			else if  (type == eTRACK_VIDEO)
 				return mMockVideoTrack;
+			else
+				return nullptr;
 		}
 
 		void testSetTrackState(MediaTrackDiscontinuityState state)
 		{
 			mTrackState = state;
 		}
+
+		MOCK_METHOD(void, clearFirstPTS, (), (override));
+
 	};
 
 	PrivateInstanceAAMP *mPrivateInstanceAAMP;
 	TestableStreamAbstractionAAMP *mStreamAbstractionAAMP;
 	AampConfig *mConfig;
+	std::shared_ptr<MockMediaProcessor> mMockMediaProcessor;
 
 	void SetUp() override
 	{
@@ -126,8 +133,14 @@ protected:
 		mStreamAbstractionAAMP->mMockAudioTrack = new MockMediaTrack(eTRACK_AUDIO, mPrivateInstanceAAMP, "audio");
 		mStreamAbstractionAAMP->mMockVideoTrack = new MockMediaTrack(eTRACK_VIDEO, mPrivateInstanceAAMP, "video");
 
+		mMockMediaProcessor = std::make_shared<NiceMock<MockMediaProcessor>>();
+		mStreamAbstractionAAMP->mMockVideoTrack->playContext = mMockMediaProcessor;
+		mStreamAbstractionAAMP->mMockVideoTrack->enabled = true;
+
+
 		mStreamAbstractionAAMP->mMockAudioTrack->fragmentDurationSeconds = 1.92;
 		mStreamAbstractionAAMP->mMockVideoTrack->fragmentDurationSeconds = 1.92;
+
 	}
 
 	void TearDown() override
@@ -146,6 +159,8 @@ protected:
 
 		delete g_mockAampConfig;
 		g_mockAampConfig = nullptr;
+
+		mMockMediaProcessor.reset();
 	}
 };
 
@@ -191,3 +206,30 @@ TEST_F(StreamAbstractionAAMP_Test, WaitFor_VideoTrackCatchup_discontinuity)
 	mStreamAbstractionAAMP->WaitForVideoTrackCatchup();
 }
 
+TEST_F(StreamAbstractionAAMP_Test, ReinitializeInjection_LLDashChunkModeEnabled)
+{
+	const double test_rate = 2.0;
+
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetLLDashChunkMode()).WillOnce(Return(true));
+	EXPECT_CALL(*mStreamAbstractionAAMP, clearFirstPTS());
+	EXPECT_CALL(*mStreamAbstractionAAMP->mMockAudioTrack, ResetTrickModePtsRestamping()).Times(1);
+	EXPECT_CALL(*mStreamAbstractionAAMP->mMockVideoTrack, ResetTrickModePtsRestamping()).Times(1);
+	EXPECT_CALL(*mMockMediaProcessor, setRate(_, _)).Times(0);
+	EXPECT_EQ(mStreamAbstractionAAMP->trickplayMode, false);
+
+	mStreamAbstractionAAMP->ReinitializeInjection(test_rate);
+}
+
+TEST_F(StreamAbstractionAAMP_Test, ReinitializeInjection_LLDashChunkModeDisabled)
+{
+	const double test_rate = 2.0;
+
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetLLDashChunkMode()).WillOnce(Return(false));
+	EXPECT_CALL(*mStreamAbstractionAAMP, clearFirstPTS());
+	EXPECT_CALL(*mStreamAbstractionAAMP->mMockAudioTrack, ResetTrickModePtsRestamping()).Times(1);
+	EXPECT_CALL(*mStreamAbstractionAAMP->mMockVideoTrack, ResetTrickModePtsRestamping()).Times(1);
+	EXPECT_CALL(*mMockMediaProcessor, setRate(test_rate, PlayMode_normal)).Times(1);
+	EXPECT_EQ(mStreamAbstractionAAMP->trickplayMode, false);
+
+	mStreamAbstractionAAMP->ReinitializeInjection(test_rate);
+}
