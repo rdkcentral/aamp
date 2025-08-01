@@ -1837,7 +1837,7 @@ CachedFragment* MediaTrack::GetFetchChunkBuffer(bool initialize)
 bool MediaTrack::IsFragmentCacheFull()
 {
 	bool rc = false;
-	// std::lock_guard<std::mutex> guard(mutex); // deadlocks due to double lock when called from MediaTrack::OnSinkBufferFull()
+	std::lock_guard<std::mutex> guard(mutex);
 	if(IsInjectionFromCachedFragmentChunks())
 	{
 		AAMPLOG_DEBUG("[%s] numberOfFragmentChunksCached %d mCachedFragmentChunksSize %zu", name, numberOfFragmentChunksCached, mCachedFragmentChunksSize);
@@ -3395,12 +3395,16 @@ void MediaTrack::OnSinkBufferFull()
 
 	bool notifyCacheCompleted = false;
 	{
-		std::lock_guard<std::mutex> guard(mutex);
-		sinkBufferIsFull = true;
+		{
+			std::lock_guard<std::mutex> guard(mutex);
+			sinkBufferIsFull = true;
+		}
+		
 		// check if cache buffer is full and caching was needed
 		if (IsFragmentCacheFull() && (eTRACK_VIDEO == type) &&
 			aamp->IsFragmentCachingRequired() && !cachingCompleted)
 		{
+			std::lock_guard<std::mutex> guard(mutex);
 			AAMPLOG_WARN("## [%s] Cache is Full cacheDuration %d minInitialCacheSeconds %d, aborting caching!##",
 						name, currentInitialCacheDurationSeconds, aamp->GetInitialBufferDuration());
 			notifyCacheCompleted = true;
