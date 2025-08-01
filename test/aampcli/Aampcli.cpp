@@ -72,6 +72,23 @@ Aampcli& Aampcli::operator=(const Aampcli& aampcli)
 Aampcli :: ~Aampcli()
 {
 };
+PlayerInstanceAAMP* _gAampPlayerGlobal = nullptr;
+const char* g_initialize_player_mpd =R"(<?xml version="1.0" encoding="UTF-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="urn:mpeg:dash:schema:mpd:2011 DASH-MPD.xsd" profiles="urn:mpeg:dash:profile:isoff-live:2011" minBufferTime="PT2S" type="static" mediaPresentationDuration="PT702.1666870117188S">
+<BaseURL>https://media.axprod.net/TestVectors/H265/clear_dash_1080p_h265/</BaseURL>
+  <Period id="0">
+    <AdaptationSet id="6" contentType="video" maxWidth="1920" maxHeight="1080" frameRate="12288/512" par="16:9">
+       <Role schemeIdUri="urn:mpeg:dash:role:2011" value="main" />
+      <Representation id="6" bandwidth="3838936" codecs="hvc1.1.6.L120.90" mimeType="video/mp4" sar="1:1" width="1920" height="1080">
+        <SegmentTemplate timescale="12288" initialization="video-H265-1080-3000k_init.mp4" media="video-H265-1080-3000k_$Number$.m4s" startNumber="1">
+          <SegmentTimeline>
+            <S t="0" d="49152" />
+          </SegmentTimeline>
+        </SegmentTemplate>
+      </Representation>
+    </AdaptationSet>
+  </Period>
+</MPD>)";
 
 void Aampcli::doAutomation( int startChannel, int stopChannel, int maxTuneTimeS, int playTimeS, int betweenTimeS )
 {
@@ -394,7 +411,27 @@ int main(int argc, char **argv)
 		}
 		args += std::string(argv[i]);
 	}
+                _gAampPlayerGlobal = new PlayerInstanceAAMP(NULL, NULL);
+                const char * mainManifestUrl = "catr_54109.mpd";
+                bool autoPlay = false;
+                const char *contentType = "VOD";
+                _gAampPlayerGlobal->Tune(
+                        mainManifestUrl,         // mainManifestUrl
+                        true,                    // autoPlay
+                        "VOD",                   // contentType
+                        true,                    // bFirstAttempt
+                        false,                   // bFinalAttempt
+                        "trace-id-123",          // traceUUID
+                        false,                   // audioDecoderStreamSync
+                        nullptr,                 // refreshManifestUrl
+                        0,                       // mpdStichingMode
+                        "session-id",            // sid
+                        g_initialize_player_mpd  // manifestData
+                );
+		printf( "[AAMPCLI]FAKETUNEEEE");
+
 	std::thread cmdThreadId = std::thread(&mAampcli.runCommand, args);
+
 	createAppWindow(argc,argv);
 	cmdThreadId.join();
 	printf( "[AAMPCLI] done\n" );
