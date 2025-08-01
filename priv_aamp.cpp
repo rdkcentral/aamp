@@ -7067,10 +7067,15 @@ void PrivateInstanceAAMP::SetVideoMute(bool muted)
 void PrivateInstanceAAMP::SetSubtitleMute(bool muted)
 {
 	StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
+	AAMPLOG_WARN(" Neil PrivateInstanceAAMP::SetSubtitleMute(mute == %s)", muted?"true":"false");
+
 	if (sink)
 	{
+		AAMPLOG_WARN(" Neil sink = True");
 		sink->SetSubtitleMute(muted);
 	}
+	else
+		AAMPLOG_WARN(" Neil sink = false");
 }
 
 /**
@@ -10879,6 +10884,8 @@ int PrivateInstanceAAMP::GetTextTrack()
 void PrivateInstanceAAMP::SetCCStatus(bool enabled)
 {
 	PlayerCCManager::GetInstance()->SetStatus(enabled);
+	AAMPLOG_WARN(" Neil entering SetCCStatus(mute == %s)", enabled?"true":"false");
+
 	AcquireStreamLock();
 	subtitles_muted = !enabled;
 	if (mpStreamAbstractionAAMP)

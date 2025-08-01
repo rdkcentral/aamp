@@ -2015,6 +2015,8 @@ int InterfacePlayerRDK::SetupStream(int streamId,  void *playerInstance, std::st
 {
 	InterfacePlayerRDK* pInterfacePlayerRDK = (InterfacePlayerRDK*)playerInstance;
 	gst_media_stream* stream = &pInterfacePlayerRDK->gstPrivateContext->stream[streamId];
+MW_LOG_INFO("Neil entering SetupStream()");
+
 	if (eGST_MEDIATYPE_SUBTITLE == streamId)
 	{
 		if(m_gstConfigParam->gstreamerSubsEnabled)
@@ -2022,15 +2024,15 @@ int InterfacePlayerRDK::SetupStream(int streamId,  void *playerInstance, std::st
 			if (pInterfacePlayerRDK->gstPrivateContext->usingRialtoSink)
 			{
 				stream->sinkbin = GST_ELEMENT(gst_object_ref_sink(gst_element_factory_make("playbin", NULL)));
-				MW_LOG_INFO("subs using rialto subtitle sink");
+				MW_LOG_INFO("Neil subs using rialto subtitle sink");
 				GstElement* textsink = gst_element_factory_make("rialtomsesubtitlesink", NULL);
 				if (textsink)
 				{
-					MW_LOG_INFO("Created rialtomsesubtitlesink: %s", GST_ELEMENT_NAME(textsink));
+					MW_LOG_INFO("Neil Created rialtomsesubtitlesink: %s", GST_ELEMENT_NAME(textsink));
 				}
 				else
 				{
-					MW_LOG_WARN("Failed to create rialtomsesubtitlesink");
+					MW_LOG_WARN("Neil Failed to create rialtomsesubtitlesink");
 				}
 				auto subtitlebin = gst_bin_new("subtitlebin");
 				auto vipertransform = gst_element_factory_make("vipertransform", NULL);
@@ -2040,16 +2042,16 @@ int InterfacePlayerRDK::SetupStream(int streamId,  void *playerInstance, std::st
 
 				g_object_set(stream->sinkbin, "text-sink", subtitlebin, NULL);
 				pInterfacePlayerRDK->gstPrivateContext->subtitle_sink = textsink;
-				MW_LOG_MIL("using rialtomsesubtitlesink muted=%d sink=%p", pInterfacePlayerRDK->gstPrivateContext->subtitleMuted, pInterfacePlayerRDK->gstPrivateContext->subtitle_sink);
+				MW_LOG_MIL("Neil using rialtomsesubtitlesink muted=%d sink=%p", pInterfacePlayerRDK->gstPrivateContext->subtitleMuted, pInterfacePlayerRDK->gstPrivateContext->subtitle_sink);
 				g_object_set(textsink, "mute", pInterfacePlayerRDK->gstPrivateContext->subtitleMuted ? TRUE : FALSE, NULL);
 			}
 			else
 			{
-				MW_LOG_INFO("subs using subtecbin");
+				MW_LOG_INFO("Neil subs using subtecbin");
 				stream->sinkbin = gst_element_factory_make("subtecbin", NULL);			/* Creates a new element of "subtecbin" type and returns a new GstElement */
 				if (!stream->sinkbin)													/* When a new element can not be created a NULL is returned */
 				{
-					MW_LOG_WARN("Cannot set up subtitle subtecbin");
+					MW_LOG_WARN("Neil Cannot set up subtitle subtecbin");
 					return -1;
 				}
 				stream->sinkbin = GST_ELEMENT(gst_object_ref_sink(stream->sinkbin));	/* Retain a counted reference to sinkbin. */
@@ -2060,7 +2062,7 @@ int InterfacePlayerRDK::SetupStream(int streamId,  void *playerInstance, std::st
 
 				if (!gst_element_link_many(stream->source, stream->sinkbin, NULL))			/* forms a GstElement link chain; linking stream->source to stream->sinkbin */
 				{
-					MW_LOG_ERR("Failed to link subtitle elements");
+					MW_LOG_ERR("NEIL Failed to link subtitle elements");
 					return -1;
 				}
 
@@ -2074,7 +2076,7 @@ int InterfacePlayerRDK::SetupStream(int streamId,  void *playerInstance, std::st
 	}
 	else
 	{
-		MW_LOG_INFO("using playbin");						/* Media is not subtitle, use the generic playbin */
+		MW_LOG_INFO("NEIL using playbin");						/* Media is not subtitle, use the generic playbin */
 		stream->sinkbin = GST_ELEMENT(gst_object_ref_sink(gst_element_factory_make("playbin", NULL)));	/* Creates a new element of "playbin" type and returns a new GstElement */
 
 		if (m_gstConfigParam->tcpServerSink)
