@@ -3494,6 +3494,7 @@ void PrivateInstanceAAMP::LogTuneComplete(void)
 
 		SendAnomalyEvent(eMsgType, "Tune attempt#%d. %s:%s URL:%s", mTuneAttempts,playbackType.c_str(),getStreamTypeString().c_str(),GetTunedManifestUrl());
 	}
+	AAMPLOG_WARN("Siva setting WARN log level, progess enabled %d", GETCONFIGVALUE_PRIV(eAAMPConfig_ProgressLogging));
 	AampLogManager::setLogLevel(eLOGLEVEL_WARN);
 }
 
@@ -5074,6 +5075,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 		//Logging should be deactivated if the buffer exceeds the minimum buffer size or if seeking occurs
 		if(mIsLoggingNeeded && mConfig->GetConfigOwner(eAAMPConfig_InfoLogging) == AAMP_DEFAULT_SETTING)
 		{
+			AAMPLOG_WARN("Siva setting WARN log level");
 			AampLogManager::setLogLevel((eLOGLEVEL_WARN));
 			SETCONFIGVALUE_PRIV(AAMP_STREAM_SETTING, eAAMPConfig_ProgressLogging, false);
 			mIsLoggingNeeded = false;

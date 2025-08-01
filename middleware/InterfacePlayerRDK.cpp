@@ -3523,6 +3523,7 @@ void InterfacePlayerRDK::NotifyFirstFrame(int mediaType)
 	{
 		gstPrivateContext->firstFrameReceived = true;
 		notifyFirstBuffer = true;
+		MW_LOG_WARN("Siva setting WARN log level");
 		PlayerLogManager::setLogLevel(mLOGLEVEL_WARN);				//Align with player LogTuneComplete once the first frame starts, required for prod builds
 	}
 	if(notifyFirstFrameCallback)
