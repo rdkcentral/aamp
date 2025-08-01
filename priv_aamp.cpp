@@ -5367,6 +5367,11 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 			if(retVal == eAAMPSTATUS_FAKE_TUNE_COMPLETE)
 			{
 				AAMPLOG_MIL( "Fake tune completed");
+				StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
+				if (sink)
+				{
+					sink->Configure(mVideoFormat, mAudioFormat, mAuxFormat, mSubtitleFormat, mpStreamAbstractionAAMP->GetESChangeStatus(), mpStreamAbstractionAAMP->GetAudioFwdToAuxStatus());
+				}
 			}
 			else
 			{
