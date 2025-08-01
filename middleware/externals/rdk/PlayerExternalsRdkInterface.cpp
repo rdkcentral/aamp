@@ -126,7 +126,7 @@ void PlayerExternalsRdkInterface::SetHDMIStatus()
     dsHdcpProtocolVersion_t hdcpReceiverProtocol     = dsHDCP_VERSION_MAX;
     dsHdcpProtocolVersion_t hdcpCurrentProtocol      = dsHDCP_VERSION_MAX;
 
-    
+
 
 
     try {
@@ -330,7 +330,7 @@ bool PlayerExternalsRdkInterface::GetActiveInterface()
 static void getActiveInterfaceEventHandler (const char *owner, IARM_EventId_t eventId, void *data, size_t len)
 {
 	static char previousInterface[20] = {'\0'};
-	
+
 
 	if (strcmp (owner, "NET_SRV_MGR") != 0)
 		return;
@@ -352,13 +352,13 @@ static void getActiveInterfaceEventHandler (const char *owner, IARM_EventId_t ev
 	{
 		isInterfaceWifi = false;
 	}
-    
-	
+
+
 }
 
 char * PlayerExternalsRdkInterface::GetTR181Config(const char * paramName, size_t & iConfigLen)
 {
-    
+
 	char *  strConfig = NULL;
 	IARM_Result_t result;
 	HOSTIF_MsgData_t param;

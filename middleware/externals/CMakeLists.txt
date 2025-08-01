@@ -21,6 +21,12 @@ project(playerfbinterface_LIB)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+option(DISABLE_SECURITY_TOKEN "Disable security token" OFF)
+
+if(DISABLE_SECURITY_TOKEN)
+  add_definitions(-DDISABLE_SECURITY_TOKEN)
+endif()
+
 set(MW_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../")
 
 find_package(PkgConfig REQUIRED)

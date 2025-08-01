@@ -45,6 +45,13 @@ using namespace WPEFramework;
 
 #define THUNDER_RPC_TIMEOUT 5000
 
+#define MW_ARRAY_SIZE(A) (sizeof(A)/sizeof(A[0]))
+
+//Delete non-array object
+#define SAFE_DELETE(ptr) { delete(ptr); ptr = NULL; }
+//Delete Array object
+#define SAFE_DELETE_ARRAY(ptr) { delete [] ptr; ptr = NULL; }
+
 class  PlayerLogManager;
 
 /**
@@ -92,7 +99,7 @@ public:
      *   @retval false on failure
      */
     bool InvokeJSONRPC(std::string method, const JsonObject &param, JsonObject &result, const uint32_t waitTime = THUNDER_RPC_TIMEOUT);
-	
+
     /**
      *   @fn SubscribeEvent
      *   @note   Subscribe event data for the specific plugin

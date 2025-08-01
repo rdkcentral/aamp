@@ -21,7 +21,6 @@
  * @file opencdmsessionadapter.cpp
  * @brief Handles operation with OCDM session to handle DRM License data
  */
-#include "config.h"
 #include "opencdmsessionadapter.h"
 
 #include "DrmHelper.h"
@@ -29,7 +28,6 @@
 
 #include "ProcessHandler.h"
 #include "PlayerExternalsInterface.h"
-
 #include <assert.h>
 #include <iostream>
 #include <sstream>
@@ -401,7 +399,6 @@ void OCDMSessionAdapter:: clearDecryptContext()
 	}
 	m_eKeyState = KEY_INIT;
 }
-
 
 void OCDMSessionAdapter::setKeyId(const std::vector<uint8_t>& keyId)
 {
