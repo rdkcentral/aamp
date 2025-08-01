@@ -71,7 +71,7 @@ public:
 	 *
 	 * @return Pointer to the next fragment data
 	 */
-	TsbFragmentDataPtr FindNext(AampTime offset = 0.0);
+	TsbFragmentDataPtr FindNext();
 
 	/**
 	 * @fn ReadNext - function to update the last read file from TSB
@@ -156,6 +156,13 @@ public:
 	 */
 	float GetPlaybackRate();
 
+        /**
+         * @brief GetPlaybackRate
+         *
+         * @return float - returns the mCurrentRate_ variable
+         */
+        float getRate() const { return mCurrentRate; }
+
 	/**
 	 * @fn IsDiscontinuous
 	 *
@@ -208,6 +215,7 @@ private:
 	std::atomic<bool> mIsEndFragmentInjected;
 	std::mutex mEosMutex;					/**< EOS mutex for conditional, used for syncing live downloader and reader*/
 	std::condition_variable mEosCVWait;	/**< Conditional variable for signaling wait*/
+	TsbFragmentDataPtr mCurrentFragment;	/**< Current fragment pointer for list navigation*/
 
 protected:
 	AampTime mUpcomingFragmentPosition;
