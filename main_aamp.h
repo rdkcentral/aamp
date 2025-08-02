@@ -761,7 +761,7 @@ public:
 	 *   @param  streamSink - custom stream sink, NULL for default.
 	 *   @param  exportFrames - callback function to export video frames
 	 */
-	PlayerInstanceAAMP( StreamSink* streamSink = NULL, std::function< void(const unsigned char *, int, int, int) > exportFrames = nullptr );
+	PlayerInstanceAAMP( StreamSink* streamSink = NULL, std::function< void(const unsigned char *, int, int, int) > exportFrames = nullptr, bool powerEvt = false );
 
 	/**
 	 *   @fn ~PlayerInstanceAAMP

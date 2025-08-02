@@ -183,7 +183,7 @@ void powerModeChangeHandler(const char *owner, IARM_EventId_t eventId, void *dat
  */
 PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink
 	, std::function< void(const unsigned char *, int, int, int) > exportFrames
-	) : aamp(NULL), sp_aamp(nullptr), mJSBinding_DL(),mAsyncRunning(false),mConfig(),mAsyncTuneEnabled(false),mScheduler()
+	, bool powerEvt) : aamp(NULL), sp_aamp(nullptr), mJSBinding_DL(),mAsyncRunning(false),mConfig(),mAsyncTuneEnabled(false),mScheduler()
 {
 //Need to do iarm initialization process before reading the tr181 aamp parameters.
 //Using printf here since AAMP logs can only use after creating the global object
@@ -204,11 +204,14 @@ PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink
 	if (IARM_RESULT_SUCCESS == (result = IARM_Bus_Connect())) {
 		printf("IARM Interface Connected  in AAMP\n");
 		// Register for power mode change event
-		printf("******** Registering **************\n");
-		if(isDevicePropertiesPresent())
+		if (powerEvt)
 		{
-			AAMPLOG_WARN("Registering power manager mode change in AAMP");
-			IARM_Bus_RegisterEventHandler(IARM_BUS_PWRMGR_NAME, IARM_BUS_PWRMGR_EVENT_MODECHANGED, powerModeChangeHandler);
+			printf("******** AAMP Registering **************\n");
+			if(isDevicePropertiesPresent())
+			{
+				AAMPLOG_WARN("Registering power manager mode change in AAMP");
+				IARM_Bus_RegisterEventHandler(IARM_BUS_PWRMGR_NAME, IARM_BUS_PWRMGR_EVENT_MODECHANGED, powerModeChangeHandler);
+			}
 		}
 	}
 	else {
