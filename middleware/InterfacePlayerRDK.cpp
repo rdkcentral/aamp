@@ -2572,14 +2572,28 @@ void InterfacePlayerRDK::GetVideoSize(int &width, int &height)
 
 void InterfacePlayerRDK::SetSubtitleMute(bool muted)
 {
+	MW_LOG_INFO("NEIL entering InterfacePlayerRDK::SetSubtitleMute(mute = %s", muted?"true":"false");
+	MW_LOG_INFO("NEIL entering InterfacePlayerRDK::SetSubtitleMute(mute = %s", muted?"true":"false");
+	MW_LOG_INFO("NEIL entering InterfacePlayerRDK::SetSubtitleMute(mute = %s", muted?"true":"false");
+	MW_LOG_INFO("NEIL entering InterfacePlayerRDK::SetSubtitleMute(mute = %s", muted?"true":"false");
+
 	gstPrivateContext->subtitleMuted = muted;
 	if (gstPrivateContext->subtitle_sink)
 	{
-		MW_LOG_INFO("muted %d, subtitle_sink =%p", muted, gstPrivateContext->subtitle_sink);
+		MW_LOG_INFO("NEIL muted %d, subtitle_sink =%p", muted, gstPrivateContext->subtitle_sink);
+		MW_LOG_INFO("NEIL muted %d, subtitle_sink =%p", muted, gstPrivateContext->subtitle_sink);
+		MW_LOG_INFO("NEIL muted %d, subtitle_sink =%p", muted, gstPrivateContext->subtitle_sink);
+		MW_LOG_INFO("NEIL muted %d, subtitle_sink =%p", muted, gstPrivateContext->subtitle_sink);
 		g_object_set(gstPrivateContext->subtitle_sink, "mute", gstPrivateContext->subtitleMuted ? TRUE : FALSE, NULL);		/* Update the 'mute' property of the sink */
 	}
 	else
-		MW_LOG_INFO("subtitle_sink is NULL");
+	{
+		MW_LOG_INFO("NEIL subtitle_sink is NULL");
+		MW_LOG_INFO("NEIL subtitle_sink is NULL");
+		MW_LOG_INFO("NEIL subtitle_sink is NULL");
+		MW_LOG_INFO("NEIL subtitle_sink is NULL");
+
+	}
 }
 
 /**
