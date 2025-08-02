@@ -62,6 +62,8 @@
  *
  */
 
+void doFakeTune();
+
 /**
  * @enum AAMPAnomalyMessageType
  * @brief AAMP anomaly message types
