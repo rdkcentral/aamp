@@ -2060,7 +2060,7 @@ static GstElement* InterfacePlayerRDK_GetAppSrc(void *_this, GstMediaType mediaT
 /**
  *  @brief Callback function to get video frames
  */
-GstFlowReturn InterfacePlayerRDK_OnVideoSample(GstElement* object, void *_this)
+GstFlowReturn InterfacePlayerRDK::InterfacePlayerRDK_OnVideoSample(GstElement* object, void *_this)
 {
 	InterfacePlayerRDK *pInterfacePlayerRDK = (InterfacePlayerRDK*)_this;
     InterfacePlayerPriv* privatePlayer = pInterfacePlayerRDK->GetPrivatePlayer();

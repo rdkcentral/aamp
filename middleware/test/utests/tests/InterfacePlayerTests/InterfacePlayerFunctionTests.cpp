@@ -26,6 +26,7 @@
 #include "MockGLib.h"
 #include "MockGstHandlerControl.h"
 #include "MockPlayerScheduler.h"
+#include "MockGstUtils.h"
 #include <gst/gstplugin.h>
 #include <gst/gstpluginfeature.h>
 
@@ -748,3 +749,138 @@ TEST_F(InterfacePlayerTests, GstFlush_ProgressiveMediaFormat)
 
 	EXPECT_TRUE(mInterfaceGstPlayer->Flush(position, rate, shouldTearDown, isAppSeek));
 }
+
+TEST_F(InterfacePlayerTests, GstFlush_ISOBMFFMediaPositionReset)
+{
+	double position = 10.0;
+	int rate = 2; // Trickplay rate
+	bool shouldTearDown = false;
+	bool isAppSeek = false;
+
+	GstElement gst_element_pipeline = {.object = {.name = (gchar *)"testpipeline"}};
+	GstElement gst_element_audio_sink = {.object = {.name = (gchar *)"testaudiosink"}};
+	mPlayerContext->pipeline = &gst_element_pipeline;
+	mPlayerContext->audio_sink = &gst_element_audio_sink;
+	mPlayerContext->stream[eGST_MEDIATYPE_VIDEO].format = GST_FORMAT_ISO_BMFF;
+	mPlayerContext->rate = rate;
+	mPlayerConfigParams->media = eGST_MEDIAFORMAT_DASH;
+	mPlayerContext->usingRialtoSink = true;
+
+	EXPECT_CALL(*g_mockGStreamer, gst_element_get_state(&gst_element_pipeline, _, _, _))
+		.WillOnce(DoAll(
+			SetArgPointee<1>(GST_STATE_PLAYING),
+			SetArgPointee<2>(GST_STATE_PAUSED),
+			Return(GST_STATE_CHANGE_SUCCESS)));
+
+	EXPECT_CALL(*g_mockGStreamer, gst_element_seek(&gst_element_pipeline, 1.0, GST_FORMAT_TIME, GST_SEEK_FLAG_FLUSH, GST_SEEK_TYPE_SET, 0 * GST_SECOND, GST_SEEK_TYPE_NONE, GST_CLOCK_TIME_NONE))
+		.WillOnce(Return(TRUE)); //position reset to zero
+
+	EXPECT_TRUE(mInterfaceGstPlayer->Flush(position, rate, shouldTearDown, isAppSeek));
+}
+
+TEST_F(InterfacePlayerTests, SignalConnect_Success)
+{
+	g_mockGstHandlerControl= new StrictMock<MockGstHandlerControl>();
+	g_mockGLib = new StrictMock<MockGLib>();
+
+	gpointer instance = reinterpret_cast<gpointer>(0x1234);
+	const gchar *detailed_signal = "test-signal";
+	GCallback c_handler = reinterpret_cast<GCallback>(0x5678);
+	gpointer data = reinterpret_cast<gpointer>(0x9ABC);
+
+	EXPECT_CALL(*g_mockGLib, g_signal_connect(instance, StrEq(detailed_signal), c_handler, data))
+		.WillOnce(Return(1));
+
+	mInterfacePrivatePlayer->SignalConnect(instance, detailed_signal, c_handler, data);
+
+	EXPECT_EQ(mPlayerContext->mCallBackIdentifiers.size(), 1);
+	EXPECT_EQ(mPlayerContext->mCallBackIdentifiers[0].instance, instance);
+}
+
+TEST_F(InterfacePlayerTests, SignalConnect_Failure)
+{
+	g_mockGLib = new StrictMock<MockGLib>();
+	gpointer instance = reinterpret_cast<gpointer>(0x1234);
+	const gchar *detailed_signal = "test-signal";
+	GCallback c_handler = reinterpret_cast<GCallback>(0x5678);
+	gpointer data = reinterpret_cast<gpointer>(0x9ABC);
+
+	EXPECT_CALL(*g_mockGLib, g_signal_connect(instance, StrEq(detailed_signal), c_handler, data))
+		.WillOnce(Return(0));
+
+	mInterfacePrivatePlayer->SignalConnect(instance, detailed_signal, c_handler, data);
+
+	EXPECT_EQ(mPlayerContext->mCallBackIdentifiers.size(), 0);
+}
+
+TEST_F(InterfacePlayerTests, InitializeSourceForPlayer_Video)
+{
+	g_mockGstUtils = new StrictMock<MockGstUtils>();
+
+	void* playerInstance = mInterfaceGstPlayer;
+	void* source = reinterpret_cast<void*>(0x1234);
+	GstMediaType mediaType = eGST_MEDIATYPE_VIDEO;
+	bool isFogEnabled = true;
+
+	GstCaps caps = {};
+	gst_media_stream* stream = &mPlayerContext->stream[mediaType];
+	stream->format = GST_FORMAT_ISO_BMFF;
+	mPlayerConfigParams->videoBufBytes = 500;
+	mPlayerConfigParams->useMp4Demux = false;
+
+	EXPECT_CALL(*g_mockGLib, g_signal_connect(source, StrEq("need-data"), _, playerInstance)).WillOnce(Return(1));
+	EXPECT_CALL(*g_mockGLib, g_signal_connect(source, StrEq("enough-data"), _, playerInstance)).WillOnce(Return(1));
+	EXPECT_CALL(*g_mockGLib, g_signal_connect(source, StrEq("seek-data"), _, playerInstance)).WillOnce(Return(1));
+
+	EXPECT_CALL(*g_mockGStreamer, gst_app_src_set_caps(_, _));
+	EXPECT_CALL(*g_mockGStreamer, gst_mini_object_unref(_));
+
+	EXPECT_CALL(*g_mockGstUtils, GetCaps(_)).WillOnce(Return(&caps));
+
+	mInterfaceGstPlayer->InitializeSourceForPlayer(playerInstance, source, mediaType);
+
+	EXPECT_TRUE(stream->sourceConfigured);
+
+	delete g_mockGstUtils;
+}
+
+TEST_F(InterfacePlayerTests, InitializeSourceForPlayer_Audio_CapsNull)
+{
+
+	g_mockGstUtils = new StrictMock<MockGstUtils>();
+
+	void* playerInstance = mInterfaceGstPlayer;
+	void* source = reinterpret_cast<void*>(0x1234);
+	GstMediaType mediaType = eGST_MEDIATYPE_AUDIO;
+	bool isFogEnabled = true;
+
+	// GstCaps caps = {};
+	gst_media_stream* stream = &mPlayerContext->stream[mediaType];
+	stream->format = GST_FORMAT_ISO_BMFF;
+	mPlayerConfigParams->audioBufBytes = 500;
+
+	EXPECT_CALL(*g_mockGLib, g_signal_connect(source, StrEq("need-data"), _, playerInstance)).WillOnce(Return(1));
+	EXPECT_CALL(*g_mockGLib, g_signal_connect(source, StrEq("enough-data"), _, playerInstance)).WillOnce(Return(1));
+	EXPECT_CALL(*g_mockGLib, g_signal_connect(source, StrEq("seek-data"), _, playerInstance)).WillOnce(Return(1));
+	EXPECT_CALL(*g_mockGStreamer, gst_app_src_set_stream_type(GST_APP_SRC(source), GST_APP_STREAM_TYPE_SEEKABLE));
+
+	EXPECT_CALL(*g_mockGstUtils, GetCaps(_)).WillOnce(Return(nullptr));
+
+	mInterfaceGstPlayer->InitializeSourceForPlayer(playerInstance, source, mediaType);
+
+	EXPECT_TRUE(stream->sourceConfigured);
+
+	delete g_mockGstUtils;
+}
+
+
+TEST_F(InterfacePlayerTests, InterfacePlayerRDK_OnVideoSample_Success)
+{
+	//ifdef apple not tested
+	GstElement object = {};
+	InterfacePlayerRDK* _this = mInterfaceGstPlayer;
+	GstFlowReturn result = mInterfaceGstPlayer->InterfacePlayerRDK_OnVideoSample(&object, _this);
+
+	EXPECT_EQ(result, GST_FLOW_OK);
+}
+

@@ -16,12 +16,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include "MockGstUtils.h"
 #include "GstUtils.h"
-#include "InterfacePlayerPriv.h"
-
+MockGstUtils *g_mockGstUtils = nullptr;
 GstCaps *GetCaps(GstStreamOutputFormat format)
 {
+	if(g_mockGstUtils)
+	{
+		return g_mockGstUtils->GetCaps(format);
+	}
 	return nullptr;
 }
-
-
+long long GetCurrentTimeMS(void)
+{
+	long long timeMS = 0;
+	if (g_mockGstUtils)
+	{
+		timeMS = g_mockGstUtils->GetCurrentTimeMS();
+	}
+	return timeMS;
+}

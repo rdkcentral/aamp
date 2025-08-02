@@ -97,7 +97,7 @@ struct Configs
 	std::string networkProxyValue;
 	bool gstreamerSubsEnabled;
 	bool tcpServerSink;
-	int tcpPort;
+	int  tcpPort;
 	bool appSrcForProgressivePlayback;
 	bool seamlessAudioSwitch;
 	bool enablePTSReStamp;
@@ -768,6 +768,8 @@ class InterfacePlayerRDK
 		 * @return A pointer to the MonitorAVState structure containing the AV status or nullptr.
 		 */
 		const MonitorAVState& GetMonitorAVState();
+
+		GstFlowReturn InterfacePlayerRDK_OnVideoSample(GstElement* object, void *_thisp);
 
 	private:
 		InterfacePlayerPriv *interfacePlayerPriv;
