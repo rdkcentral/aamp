@@ -112,7 +112,7 @@ void doFakeTune()
 			AAMPLOG_WARN("Triggering fake tune to wake up AAMP from deep sleep");
 			std::shared_ptr<PlayerInstanceAAMP> fakeTuneInstance = std::make_shared<PlayerInstanceAAMP>(nullptr, nullptr);
 		fakeTuneInstance->Tune(
-			"file:///opt/faketunemanifest.mpd", // mainManifestUrl
+			"file:///opt/manifest.mpd", // mainManifestUrl
 			true,						  // autoPlay
 			"VOD",						  // contentType
 			true,						  // bFirstAttempt
