@@ -390,6 +390,10 @@ void AampLicensePreFetcher::NotifyDrmFailure(LicensePreFetchObjectPtr fetchObj, 
 	bool isRetryEnabled = false;
 	bool selfAbort = (failure == AAMP_TUNE_DRM_SELF_ABORT);
 	bool skipErrorEvent = false;
+	if(mPrivAAMP->mIsFakeTune)
+	{
+		skipErrorEvent = true;
+	}
 	// Skip these additional checks and send error event if mSendErrorOnFailure is set
 	// For a non-intra asset playback with KR, if a future license fails, we should send the error
 	// and skip below check. Maybe introduce a better data structure for mTrackStatus based on periodId

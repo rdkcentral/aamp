@@ -40,6 +40,7 @@
 
 #include "AampCCManager.h"
 
+
 extern "C"
 {
 	JS_EXPORT JSGlobalContextRef JSContextGetGlobalContext(JSContextRef);
@@ -4149,7 +4150,6 @@ static JSClassDefinition XREReceiver_JS_class_def {
 
 void LoadXREReceiverStub(void* context)
 {
-
         LOG_TRACE(" context = %p", context);
 
 	JSGlobalContextRef jsContext = (JSGlobalContextRef)context;
@@ -4188,6 +4188,7 @@ void AAMPPlayer_LoadJS(void* context)
 
 	PersistentWatermark_LoadJS(context);
 	LoadXREReceiverStub(context);
+	doFakeTune();
 	LOG_TRACE("Exit");
 }
 
