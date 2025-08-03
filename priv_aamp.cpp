@@ -3496,7 +3496,7 @@ void PrivateInstanceAAMP::TuneFail(bool fail)
 	}
 	bool eventAvailStatus = IsEventListenerAvailable(AAMP_EVENT_TUNE_TIME_METRICS);
 	std::string tuneData("");
-	if(mManifestUrl != "file:///opt/manifest.mpd")
+	if(mManifestUrl != FAKE_TUNE_URL)
 	{
 		profiler.TuneEnd(mTuneMetrics, mAppName,(mbPlayEnabled?STRFGPLAYER:STRBGPLAYER), mPlayerId, mPlayerPreBuffered, durationSeconds, activeInterfaceWifi, mFailureReason, eventAvailStatus ? &tuneData : NULL);
 	}
@@ -3527,7 +3527,7 @@ void PrivateInstanceAAMP::LogTuneComplete(void)
 	mTuneMetrics.mFirstTune                  = mFirstTune;
 	bool eventAvailStatus = IsEventListenerAvailable(AAMP_EVENT_TUNE_TIME_METRICS);
 	std::string tuneData("");
-	if(mManifestUrl != "file:///opt/manifest.mpd")
+	if(mManifestUrl != FAKE_TUNE_URL)
 	{
 		profiler.TuneEnd(mTuneMetrics,mAppName,(mbPlayEnabled?STRFGPLAYER:STRBGPLAYER), mPlayerId, mPlayerPreBuffered, durationSeconds, activeInterfaceWifi, mFailureReason, eventAvailStatus ? &tuneData : NULL);
 	}

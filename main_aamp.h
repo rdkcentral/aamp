@@ -63,6 +63,7 @@
  */
 
 void doFakeTune();
+#define FAKE_TUNE_URL "file:///opt/manifest.mpd" /**< Fake tune URL for testing purposes */
 
 /**
  * @enum AAMPAnomalyMessageType
