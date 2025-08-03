@@ -38,7 +38,6 @@ bool isDevicePropertiesPresent() {
 }
 #endif
 
-
 #include "main_aamp.h"
 #include "AampConfig.h"
 #include "AampCacheHandler.h"

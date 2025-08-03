@@ -5403,7 +5403,6 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 			if(retVal == eAAMPSTATUS_FAKE_TUNE_COMPLETE)
 			{
 				AAMPLOG_MIL( "Fake tune completed");
-
 			}
 			else
 			{
