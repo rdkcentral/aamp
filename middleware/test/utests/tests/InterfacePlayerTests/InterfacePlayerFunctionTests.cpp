@@ -884,3 +884,191 @@ TEST_F(InterfacePlayerTests, InterfacePlayerRDK_OnVideoSample_Success)
 	EXPECT_EQ(result, GST_FLOW_OK);
 }
 
+TEST_F(InterfacePlayerTests, SendGstEvents_PendingSeek)
+{
+	GstMediaType mediaType = eGST_MEDIATYPE_VIDEO;
+	GstClockTime pts = 1000;
+
+	gst_media_stream* stream = &mPlayerContext->stream[mediaType];
+	stream->pendingSeek = true;
+	stream->source = &gst_element_pipeline;
+	mPlayerConfigParams->enableGstPosQuery = TRUE;
+	mPlayerConfigParams->enablePTSReStamp = TRUE;
+	mPlayerConfigParams->vodTrickModeFPS = 24;
+
+	mPlayerContext->seekPosition = 10;
+
+	EXPECT_CALL(*g_mockGStreamer, gst_element_seek_simple(GST_ELEMENT(stream->source), GST_FORMAT_TIME, GST_SEEK_FLAG_FLUSH, mPlayerContext->seekPosition * GST_SECOND))
+		.WillOnce(Return(TRUE));
+
+	mInterfacePrivatePlayer->SendGstEvents(mediaType, pts,mPlayerConfigParams->enableGstPosQuery , mPlayerConfigParams->enablePTSReStamp, mPlayerConfigParams->vodTrickModeFPS);
+
+	EXPECT_FALSE(stream->pendingSeek);
+}
+
+TEST_F(InterfacePlayerTests, SendGstEvents_NoPendingSeek)
+{
+	GstMediaType mediaType = eGST_MEDIATYPE_VIDEO;
+	GstClockTime pts = 1000;
+	mPlayerConfigParams->enablePTSReStamp = TRUE;
+	mPlayerConfigParams->vodTrickModeFPS = 24;
+
+	gst_media_stream* stream = &mPlayerContext->stream[mediaType];
+	stream->pendingSeek = false;
+	stream->source = &gst_element_pipeline;
+
+	mInterfacePrivatePlayer->SendGstEvents(mediaType, pts,mPlayerConfigParams->enableGstPosQuery , mPlayerConfigParams->enablePTSReStamp, mPlayerConfigParams->vodTrickModeFPS);
+
+	EXPECT_FALSE(stream->pendingSeek);
+}
+
+TEST_F(InterfacePlayerTests, SendGstEvents_ProtectionEventOtherTrack)
+{
+	GstMediaType mediaType = eGST_MEDIATYPE_VIDEO;
+	GstClockTime pts = 1000;
+	mPlayerConfigParams->enablePTSReStamp = TRUE;
+	mPlayerConfigParams->vodTrickModeFPS = 24;
+
+
+	gst_media_stream* stream = &mPlayerContext->stream[mediaType];
+	stream->format = GST_FORMAT_ISO_BMFF;
+	stream->source = &gst_element_pipeline;
+	mPlayerContext->protectionEvent[mediaType] = nullptr;
+	mPlayerContext->protectionEvent[eGST_MEDIATYPE_AUDIO] = reinterpret_cast<GstEvent*>(0x1234);
+
+	GstPad pad = {};
+	EXPECT_CALL(*g_mockGStreamer, gst_element_get_static_pad(GST_ELEMENT(stream->source), StrEq("src")))
+		.WillRepeatedly(Return(&pad));
+	EXPECT_CALL(*g_mockGStreamer, gst_pad_push_event(_,_))
+		.WillRepeatedly(Return(TRUE));
+	EXPECT_CALL(*g_mockGStreamer, gst_object_unref(_)).Times(2);
+
+	mInterfacePrivatePlayer->SendGstEvents(mediaType, pts,mPlayerConfigParams->enableGstPosQuery , mPlayerConfigParams->enablePTSReStamp, mPlayerConfigParams->vodTrickModeFPS);
+
+	EXPECT_FALSE(stream->resetPosition);
+}
+
+TEST_F(InterfacePlayerTests, SendGstEvents_ProtectionEventSameTrack)
+{
+	GstMediaType mediaType = eGST_MEDIATYPE_VIDEO;
+	GstClockTime pts = 1000;
+	mPlayerConfigParams->enablePTSReStamp = TRUE;
+	mPlayerConfigParams->vodTrickModeFPS = 24;
+
+	gst_media_stream* stream = &mPlayerContext->stream[mediaType];
+	stream->format = GST_FORMAT_ISO_BMFF;
+	stream->source = &gst_element_pipeline;
+	mPlayerContext->protectionEvent[mediaType] = reinterpret_cast<GstEvent*>(0x1234);
+
+	GstPad pad = {};
+	EXPECT_CALL(*g_mockGStreamer, gst_element_get_static_pad(GST_ELEMENT(stream->source), StrEq("src")))
+		.WillRepeatedly(Return(&pad));
+	EXPECT_CALL(*g_mockGStreamer, gst_pad_push_event(_,_))
+		.WillRepeatedly(Return(FALSE));
+	EXPECT_CALL(*g_mockGStreamer, gst_object_unref(_)).Times(2);
+
+	mInterfacePrivatePlayer->SendGstEvents(mediaType, pts,mPlayerConfigParams->enableGstPosQuery , mPlayerConfigParams->enablePTSReStamp, mPlayerConfigParams->vodTrickModeFPS);
+
+	EXPECT_FALSE(stream->resetPosition);
+}
+
+TEST_F(InterfacePlayerTests, SendQtDemuxOverrideEvent_EnablePTSReStampFalse)
+{
+	GstMediaType mediaType = eGST_MEDIATYPE_VIDEO;
+	GstClockTime pts = 1000;
+	const void *ptr = nullptr;
+	size_t len = 0;
+
+	gst_media_stream* stream = &mPlayerContext->stream[mediaType];
+	stream->format = GST_FORMAT_ISO_BMFF;
+	stream->source = &gst_element_pipeline;
+	mPlayerConfigParams->enablePTSReStamp = false;
+	mPlayerContext->rate = 2.0;
+	mPlayerConfigParams->vodTrickModeFPS = 30;
+	mInterfacePrivatePlayer->mPlayerName = "testPlayer";
+
+	GstPad pad = {};
+	EXPECT_CALL(*g_mockGStreamer, gst_element_get_static_pad(GST_ELEMENT(stream->source), StrEq("src")))
+		.WillRepeatedly(Return(&pad));
+	EXPECT_CALL(*g_mockGStreamer, gst_pad_push_event(_, _))
+		.WillRepeatedly(Return(TRUE));
+	EXPECT_CALL(*g_mockGStreamer, gst_object_unref(_)).Times(1);
+
+	gboolean result = mInterfacePrivatePlayer->SendQtDemuxOverrideEvent(mediaType, pts, mPlayerConfigParams->enablePTSReStamp , mPlayerConfigParams->vodTrickModeFPS , ptr, len);
+
+	EXPECT_TRUE(result);
+}
+
+TEST_F(InterfacePlayerTests, SendQtDemuxOverrideEvent_EnablePTSReStampTrue)
+{
+	GstMediaType mediaType = eGST_MEDIATYPE_VIDEO;
+	GstClockTime pts = 1000;
+	const void *ptr = nullptr;
+	size_t len = 0;
+
+	gst_media_stream* stream = &mPlayerContext->stream[mediaType];
+	stream->format = GST_FORMAT_ISO_BMFF;
+	stream->source = &gst_element_pipeline;
+	mPlayerConfigParams->enablePTSReStamp = true;
+	mPlayerContext->rate = 1.0;
+	mPlayerConfigParams->vodTrickModeFPS = 30;
+	mInterfacePrivatePlayer->mPlayerName = "testPlayer";
+
+	GstPad pad = {};
+	EXPECT_CALL(*g_mockGStreamer, gst_element_get_static_pad(GST_ELEMENT(stream->source), StrEq("src")))
+		.WillRepeatedly(Return(&pad));
+	EXPECT_CALL(*g_mockGStreamer, gst_pad_push_event(_, _))
+		.WillRepeatedly(Return(FALSE));
+	EXPECT_CALL(*g_mockGStreamer, gst_object_unref(_)).Times(1);
+
+	gboolean result = mInterfacePrivatePlayer->SendQtDemuxOverrideEvent(mediaType, pts, mPlayerConfigParams->enablePTSReStamp , mPlayerConfigParams->vodTrickModeFPS , ptr, len);
+
+	EXPECT_FALSE(result);
+}
+
+TEST_F(InterfacePlayerTests, ForwardAudioBuffersToAux_True)
+{
+	mPlayerContext->forwardAudioBuffers = true;
+	mPlayerContext->stream[eGST_MEDIATYPE_AUX_AUDIO].format = GST_FORMAT_ISO_BMFF;
+
+	EXPECT_TRUE(mInterfaceGstPlayer->ForwardAudioBuffersToAux());
+
+	mPlayerContext->forwardAudioBuffers = false;
+	mPlayerContext->stream[eGST_MEDIATYPE_AUX_AUDIO].format = GST_FORMAT_ISO_BMFF;
+
+	EXPECT_FALSE(mInterfaceGstPlayer->ForwardAudioBuffersToAux());
+
+	mPlayerContext->forwardAudioBuffers = true;
+	mPlayerContext->stream[eGST_MEDIATYPE_AUX_AUDIO].format = GST_FORMAT_INVALID;
+
+	EXPECT_FALSE(mInterfaceGstPlayer->ForwardAudioBuffersToAux());
+}
+
+TEST_F(InterfacePlayerTests, GetVideoRectangle)
+{
+	std::string expectedRectangle = "0,0,1920,1080";
+	strncpy(mPlayerContext->videoRectangle, expectedRectangle.c_str(), sizeof(mPlayerContext->videoRectangle) - 1);
+
+	EXPECT_EQ(mInterfaceGstPlayer->GetVideoRectangle(), expectedRectangle);
+}
+
+TEST_F(InterfacePlayerTests, GstSetSubtitlePtsOffset_WithSubtitleSink)
+{
+	GstElement subtitle_sink = {};
+	mPlayerContext->subtitle_sink = &subtitle_sink;
+	std::uint64_t pts_offset = 1000;
+	mInterfaceGstPlayer->SetSubtitlePtsOffset(pts_offset);
+}
+
+TEST_F(InterfacePlayerTests, GstSetSubtitlePtsOffset_WithoutSubtitleSink)
+{
+	mPlayerContext->subtitle_sink = nullptr;
+	mInterfaceGstPlayer->SetSubtitlePtsOffset(1000);
+}
+
+TEST_F(InterfacePlayerTests, GstResetFirstFrame)
+{
+	mPlayerContext->firstFrameReceived = true;
+	mInterfaceGstPlayer->ResetFirstFrame();
+	EXPECT_FALSE(mPlayerContext->firstFrameReceived);
+}

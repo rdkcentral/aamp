@@ -79,6 +79,8 @@ public:
 	MOCK_METHOD(guint64, gst_app_src_get_current_level_bytes, (GstAppSrc *appsrc));
 	MOCK_METHOD(GstStructure *, gst_structure_new, ());
 	MOCK_METHOD(GstPluginFeature *, gst_registry_lookup_feature, (GstRegistry *registry, const char *name));
+	MOCK_METHOD(GstPad*, gst_element_get_static_pad, (GstElement *element, const gchar *name));
+	MOCK_METHOD(gboolean, gst_pad_push_event, (GstPad* pad, GstEvent* event), ());
 
 	/*
 gst_app_sink_get_type

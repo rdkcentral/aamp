@@ -396,6 +396,10 @@ gboolean gst_element_sync_state_with_parent(GstElement *element)
 GstPad *gst_element_get_static_pad(GstElement *element, const gchar *name)
 {
 	TRACE_FUNC();
+	if (g_mockGStreamer)
+    {
+        return g_mockGStreamer->gst_element_get_static_pad(element, name);
+    }
 	return NULL;
 }
 
