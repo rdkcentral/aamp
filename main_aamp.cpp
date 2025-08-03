@@ -111,6 +111,11 @@ void doFakeTune()
 	{
 			AAMPLOG_WARN("Triggering fake tune to wake up AAMP from deep sleep");
 			std::shared_ptr<PlayerInstanceAAMP> fakeTuneInstance = std::make_shared<PlayerInstanceAAMP>(nullptr, nullptr);
+			std::string jsonStr = R"({
+		    "preferredDrm": 1,
+		    "licenseServerUrl": "https://dummy.com"
+		})";
+		fakeTuneInstance->InitAAMPConfig(jsonStr.c_str());
 		fakeTuneInstance->Tune(
 			FAKE_TUNE_URL, // mainManifestUrl
 			true,						  // autoPlay
@@ -126,7 +131,7 @@ void doFakeTune()
 		AAMPLOG_WARN("After Fake tune call ...");
 		std::thread([fakeTuneInstance]() {
 			AAMPLOG_WARN("Sleeping before calling stop");
-        	std::this_thread::sleep_for(std::chrono::seconds(10)); // or your desired duration
+        	std::this_thread::sleep_for(std::chrono::seconds(7)); // or your desired duration
         	fakeTuneInstance->Stop();
 			AAMPLOG_WARN("Fake tune instance stopped..");
     	}).detach();
