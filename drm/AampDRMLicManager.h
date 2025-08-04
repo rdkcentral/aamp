@@ -31,6 +31,12 @@
 #include "AampCurlDownloader.h"
 #include "DrmSessionManager.h"
 
+enum ProfilerAction
+{
+    PROFILE_ACTION_BEGIN,
+    PROFILE_ACTION_END,
+    PROFILE_ACTION_ERROR
+};
 class AampDRMLicenseManager
 {
 public:
@@ -77,14 +83,14 @@ public:
 	/**
 	 * @fn acquireLicense
 	 */
-	KeyState acquireLicense(std::shared_ptr<DrmHelper> drmHelper, int sessionSlot, int &cdmError,  
+	KeyState acquireLicense(int& responseCode, std::shared_ptr<DrmHelper> drmHelper, int sessionSlot, int &cdmError,  
 					AampMediaType streamType, void *metaDataPtr,  bool isLicenseRenewal = false);
 
 
 	/**
 	 * @fn handleLicenseResponse
 	 */
-	KeyState handleLicenseResponse(std::shared_ptr<DrmHelper> drmHelper, int sessionSlot, int &cdmError,
+	KeyState handleLicenseResponse(int &responseCode, std::shared_ptr<DrmHelper> drmHelper, int sessionSlot, int &cdmError,
 					int32_t httpResponseCode, int32_t httpExtResponseCode, shared_ptr<DrmData> licenseResponse, DrmMetaDataEventPtr eventHandle,  bool isLicenseRenewal = false);
 
 	/**
@@ -268,16 +274,21 @@ public:
         void TriggerProfileErrorCb(int streamType, int result);
         void TriggerLAProfileBeginCb(int streamType);
         void TriggerLAProfileEndCb(int streamType);
-        void TriggerLAProfileErrorCb(void *ptr);
-        void TriggerSetFailure(void *ptr, int err);
-        std::shared_ptr<void> TriggerDrmMetaDataEvent();
+        void TriggerLAProfileErrorCb(int err, int responseCode);
+        void TriggerSetFailure(int err);
 
+        void TriggerDecryptProfile(int streamType, int action, int result /* = 0 */);
 	/**
 	 * @fn ProfilerUpdate 
 	 * @return void 
 	 * */
 	void ProfilerUpdate();
 
+	/**
+	 * @fn GetDecryptProfileBucket
+	 * return streamType
+	 */
+	ProfilerBucketType  GetDecryptProfileBucket(int streamType);
 	/** 
 	 * @fn HandleContentProtectionData
 	 * @return string

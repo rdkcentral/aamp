@@ -218,7 +218,7 @@ static void gst_cdmidecryptor_init(
 	g_mutex_lock(&cdmidecryptor->mutex);
 	cdmidecryptor->canWait = false;
 	g_mutex_unlock(&cdmidecryptor->mutex);
-	cdmidecryptor->protectionEvent = NULL;
+	cdmidecryptor->protectionvent = NULL;
 	cdmidecryptor->sessionManager = NULL;
 	cdmidecryptor->drmSession = NULL;
 	cdmidecryptor->player = NULL;
@@ -861,20 +861,22 @@ static gboolean gst_cdmidecryptor_sink_event(GstBaseTransform * trans,
 		GST_DEBUG_OBJECT(cdmidecryptor, "\n acquired lock for mutex\n");
 		std::shared_ptr<void> e = cdmidecryptor->sessionManager->DrmMetaDataCb();
                 int err = -1;
+		int resposneCode =-1;
 		if (cdmidecryptor->sessionManager->m_drmConfigParam->mIsWVKIDWorkaround){
-			cdmidecryptor->drmSession =	cdmidecryptor->sessionManager->createDrmSession(err,
+			cdmidecryptor->drmSession =	cdmidecryptor->sessionManager->createDrmSession(resposneCode, err,
 						reinterpret_cast<const char *>(systemId), eMEDIAFORMAT_DASH,
-						outData, outDataLen, (int)cdmidecryptor->mediaType, cdmidecryptor->player, e.get(), nullptr, false);
+						outData, outDataLen, (int)cdmidecryptor->mediaType, cdmidecryptor->player, NULL, nullptr, false);
 		}else{
 			cdmidecryptor->drmSession =
-				cdmidecryptor->sessionManager->createDrmSession(err,
+				cdmidecryptor->sessionManager->createDrmSession(responseCode, err,
 						reinterpret_cast<const char *>(systemId), eMEDIAFORMAT_DASH,
 						reinterpret_cast<const unsigned char *>(mapInfo.data),
-						mapInfo.size, (int)cdmidecryptor->mediaType, cdmidecryptor->player, e.get(), nullptr, false);
+						mapInfo.size, (int)cdmidecryptor->mediaType, cdmidecryptor->player, NULL, nullptr, false);
 		}
 		if(err != -1)
                 {
-                       cdmidecryptor->sessionManager->setfailureCb(e.get(),err);
+			//TODO RDK-56050 setting failures and not triggering event
+                       cdmidecryptor->sessionManager->setfailureCb(err);
                 }
 		if (NULL == cdmidecryptor->drmSession)
 		{
@@ -894,8 +896,8 @@ static gboolean gst_cdmidecryptor_sink_event(GstBaseTransform * trans,
 		 */
 		if(SessionMgrState::eSESSIONMGR_ACTIVE == cdmidecryptor->sessionManager->getSessionMgrState())
 		{
-			cdmidecryptor->sessionManager->laprofileErrorCb(e.get());
-			GST_ERROR_OBJECT(cdmidecryptor,"Failed to create DRM Session\n");
+			cdmidecryptor->sessionManager->laprofileErrorCb(err, responseCode);
+		GST_ERROR_OBJECT(cdmidecryptor,"Failed to create DRM Session\n");
 		}
 			result = TRUE;
 		}
