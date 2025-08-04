@@ -2059,7 +2059,7 @@ int InterfacePlayerRDK::SetupStream(int streamId,  void *playerInstance, std::st
 			}
 			else
 			{
-					printf("Neil subs using subtecbin"\n");	
+					printf("Neil subs using subtecbin \n");	
 
 				MW_LOG_INFO("Neil subs using subtecbin");
 				stream->sinkbin = gst_element_factory_make("subtecbin", NULL);			/* Creates a new element of "subtecbin" type and returns a new GstElement */
