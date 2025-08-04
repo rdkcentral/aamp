@@ -13724,3 +13724,28 @@ void PrivateInstanceAAMP::SendMonitorAVEvent(const std::string &status, int64_t 
 		mEventManager->SendEvent(evt, AAMP_EVENT_SYNC_MODE);
 	}
 }
+
+/**
+ *   @brief Get output format of stream.
+ *
+ *   @param[out]  primaryOutputFormat - format of primary track
+ *   @param[out]  audioOutputFormat - format of audio track
+ *   @param[out]  auxAudioOutputFormat - format of aux audio track
+ *   @param[out]  subtitleOutputFormat - format of subtitle  track
+ *   @return void
+ */
+void PrivateInstanceAAMP::GetStreamFormat(StreamOutputFormat &primaryOutputFormat, StreamOutputFormat &audioOutputFormat, StreamOutputFormat &auxAudioOutputFormat, StreamOutputFormat &subtitleOutputFormat)
+{
+	mpStreamAbstractionAAMP->GetStreamFormat(primaryOutputFormat, audioOutputFormat, auxAudioOutputFormat, subtitleOutputFormat);
+
+	// Limiting the change to just Rialto, until the change has been tested on non-Rialto
+	if (ISCONFIGSET_PRIV(eAAMPConfig_useRialtoSink) &&
+	    IsLocalAAMPTsbInjection() &&
+		(rate != AAMP_NORMAL_PLAY_RATE))
+	{
+		audioOutputFormat = FORMAT_INVALID;
+		auxAudioOutputFormat = FORMAT_INVALID;
+		subtitleOutputFormat = FORMAT_INVALID;
+		AAMPLOG_TRACE("aamp->rate %f videoFormat %d audioFormat %d auxFormat %d subFormat %d", rate, primaryOutputFormat, audioOutputFormat, auxAudioOutputFormat, subtitleOutputFormat);
+	}
+}
