@@ -29,6 +29,7 @@
 #include "isobmffhelper.h"
 #include "AampTsbAdPlacementMetaData.h"
 #include "AampTsbAdReservationMetaData.h"
+#include "AampTime.h"
 #include <iostream>
 #include <cmath>
 #include <utility>
@@ -618,7 +619,7 @@ double AampTSBSessionManager::CullSegments()
 	{
 		mLastVideoPos = lastVideoPos;
 	}
-	if(culledduration > 0)
+	if(culledduration > 0.0)
 	{
 		mCulledDuration += culledduration;
 	}
@@ -813,12 +814,12 @@ void AampTSBSessionManager::SkipFragment(std::shared_ptr<AampTsbReader>& reader,
 				delta -= fragDuration;
 				skippedDuration += fragDuration;
 
-				TsbFragmentDataPtr tmp = nullptr;
-				if (rate > 0)
+				TsbFragmentDataPtr tmp{};
+				if (rate > 0.0)
 				{
 					tmp = nextFragmentData->next;
 				}
-				else if (rate < 0)
+				else if (rate < 0.0)
 				{
 					tmp = nextFragmentData->prev;
 				}
@@ -859,7 +860,7 @@ bool AampTSBSessionManager::PushNextTsbFragment(MediaStreamContext *pMediaStream
 		if (numFreeFragments)
 		{
 			TsbFragmentDataPtr nextFragmentData = reader->FindNext();
-			float rate = reader->GetPlaybackRate();
+			AampTime rate = reader->GetPlaybackRate();
 			// Slow motion is handled in GST layer with SetPlaybackRate
 			if(AAMP_NORMAL_PLAY_RATE !=  rate && AAMP_RATE_PAUSE != rate && AAMP_SLOWMOTION_RATE != rate && eMEDIATYPE_VIDEO == mediaType)
 			{
@@ -936,7 +937,7 @@ bool AampTSBSessionManager::PushNextTsbFragment(MediaStreamContext *pMediaStream
 							}
 							UnlockReadMutex();
 
-							ProcessAdMetadata(mediaType, nextFragmentData, rate);
+							ProcessAdMetadata(mediaType, nextFragmentData, rate.inSeconds());
 
 							if (pMediaStreamContext->CacheTsbFragment(std::move(nextFragment)))
 							{
@@ -997,9 +998,9 @@ double AampTSBSessionManager::GetManifestEndDelta()
 {
 	double manifestEndDelta = 0.0;
 	LockReadMutex();
-	if(mStoreEndPosition > 0 && mAamp->mAbsoluteEndPosition > 0  )
+	if(mStoreEndPosition > 0.0 && mAamp->mAbsoluteEndPosition > 0.0  )
 	{
-		manifestEndDelta = mStoreEndPosition - mAamp->mAbsoluteEndPosition > 0;
+		manifestEndDelta = mStoreEndPosition - mAamp->mAbsoluteEndPosition > 0.0;
 	}
 	else
 	{
@@ -1022,7 +1023,7 @@ void AampTSBSessionManager::UpdateProgress(double manifestDuration, double manif
 
 	double culledSeconds = 0.0;
 	culledSeconds = CullSegments();
-	if (culledSeconds > 0)
+	if (culledSeconds > 0.0)
 	{
 		// Update culled seconds based on seconds culled in store
 		AAMPLOG_TRACE("Updating culled seconds: %lf", culledSeconds);

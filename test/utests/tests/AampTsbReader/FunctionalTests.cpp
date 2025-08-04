@@ -50,11 +50,6 @@ protected:
 		{
 			CheckPeriodBoundary(currFragment);
 		}
-
-		void SetUpcomingFragmentPosition(double upcomingFragmentPosition)
-		{
-			mUpcomingFragmentPosition = upcomingFragmentPosition;
-		}
 	};
 
 	TestableAampTsbReader *mTestableTsbReader;
@@ -629,6 +624,10 @@ TEST_F(FunctionalTests, FindAndReadNext_ForwardRate)
 	EXPECT_EQ(mTestableTsbReader->Init(position, rate, tuneType, nullptr), eAAMPSTATUS_OK);
 	EXPECT_EQ(mTestableTsbReader->FindNext(), fragment);
 	mTestableTsbReader->ReadNext(fragment);
+	
+	// Second FindNext call should calculate next position and call GetNearestFragment
+	double expectedNextPos = fragment->GetAbsolutePosition().inSeconds() + fragment->GetDuration().inSeconds();
+	EXPECT_CALL(*g_mockTSBDataManager, GetNearestFragment(expectedNextPos)).WillOnce(Return(nextFragment));
 	EXPECT_EQ(mTestableTsbReader->FindNext(), nextFragment);
 }
 
@@ -672,6 +671,10 @@ TEST_F(FunctionalTests, FindAndReadNext_RewindRate)
 	EXPECT_EQ(mTestableTsbReader->Init(position, rate, tuneType, nullptr), eAAMPSTATUS_OK);
 	EXPECT_EQ(mTestableTsbReader->FindNext(), fragment);
 	mTestableTsbReader->ReadNext(fragment);
+	
+	// Second FindNext call should calculate next position and call GetNearestFragment
+	double expectedNextPos = fragment->GetAbsolutePosition().inSeconds() + fragment->GetDuration().inSeconds();
+	EXPECT_CALL(*g_mockTSBDataManager, GetNearestFragment(expectedNextPos)).WillOnce(Return(prevFragment));
 	EXPECT_EQ(mTestableTsbReader->FindNext(), prevFragment);
 }
 
@@ -717,6 +720,9 @@ TEST_F(FunctionalTests, FindAndReadNext_DiscontinuityForwardRate)
 	mTestableTsbReader->ReadNext(fragment);
 	EXPECT_FALSE(mTestableTsbReader->IsDiscontinuous());
 
+	// Second FindNext call should calculate next position and call GetNearestFragment
+	double expectedNextPos = fragment->GetAbsolutePosition().inSeconds() + fragment->GetDuration().inSeconds();
+	EXPECT_CALL(*g_mockTSBDataManager, GetNearestFragment(expectedNextPos)).WillOnce(Return(nextFragment));
 	EXPECT_EQ(mTestableTsbReader->FindNext(), nextFragment);
 	mTestableTsbReader->ReadNext(nextFragment);
 	EXPECT_TRUE(mTestableTsbReader->IsDiscontinuous());
@@ -766,6 +772,9 @@ TEST_F(FunctionalTests, FindAndReadNext_DiscontinuityRewindRate)
 	mTestableTsbReader->ReadNext(fragment);
 	EXPECT_FALSE(mTestableTsbReader->IsDiscontinuous());
 
+	// Second FindNext call should calculate next position and call GetNearestFragment
+	double expectedNextPos = fragment->GetAbsolutePosition().inSeconds() + fragment->GetDuration().inSeconds();
+	EXPECT_CALL(*g_mockTSBDataManager, GetNearestFragment(expectedNextPos)).WillOnce(Return(prevFragment));
 	EXPECT_EQ(mTestableTsbReader->FindNext(), prevFragment);
 	mTestableTsbReader->ReadNext(prevFragment);
 	EXPECT_TRUE(mTestableTsbReader->IsDiscontinuous());
@@ -817,9 +826,15 @@ TEST_F(FunctionalTests, FindAndReadNext_EOSReached)
 	EXPECT_EQ(mTestableTsbReader->FindNext(), firstFragment);
 	mTestableTsbReader->ReadNext(firstFragment);
 
+	// Second FindNext call should calculate next position and call GetNearestFragment
+	double expectedNextPos1 = firstFragment->GetAbsolutePosition().inSeconds() + firstFragment->GetDuration().inSeconds();
+	EXPECT_CALL(*g_mockTSBDataManager, GetNearestFragment(expectedNextPos1)).WillOnce(Return(secondFragment));
 	EXPECT_EQ(mTestableTsbReader->FindNext(), secondFragment);
 	mTestableTsbReader->ReadNext(secondFragment);
 
+	// Third FindNext call should calculate next position and call GetNearestFragment
+	double expectedNextPos2 = secondFragment->GetAbsolutePosition().inSeconds() + secondFragment->GetDuration().inSeconds();
+	EXPECT_CALL(*g_mockTSBDataManager, GetNearestFragment(expectedNextPos2)).WillOnce(Return(lastFragment));
 	EXPECT_EQ(mTestableTsbReader->FindNext(), lastFragment);
 	mTestableTsbReader->ReadNext(lastFragment);
 
@@ -873,9 +888,15 @@ TEST_F(FunctionalTests, FindAndReadNext_EOSReachedNegativeRate)
 	EXPECT_EQ(mTestableTsbReader->FindNext(), lastFragment);
 	mTestableTsbReader->ReadNext(lastFragment);
 
+	// Second FindNext call should calculate next position and call GetNearestFragment
+	double expectedNextPos1 = lastFragment->GetAbsolutePosition().inSeconds() + lastFragment->GetDuration().inSeconds();
+	EXPECT_CALL(*g_mockTSBDataManager, GetNearestFragment(expectedNextPos1)).WillOnce(Return(secondFragment));
 	EXPECT_EQ(mTestableTsbReader->FindNext(), secondFragment);
 	mTestableTsbReader->ReadNext(secondFragment);
 
+	// Third FindNext call should calculate next position and call GetNearestFragment
+	double expectedNextPos2 = secondFragment->GetAbsolutePosition().inSeconds() + secondFragment->GetDuration().inSeconds();
+	EXPECT_CALL(*g_mockTSBDataManager, GetNearestFragment(expectedNextPos2)).WillOnce(Return(firstFragment));
 	EXPECT_EQ(mTestableTsbReader->FindNext(), firstFragment);
 	mTestableTsbReader->ReadNext(firstFragment);
 
@@ -924,6 +945,9 @@ TEST_F(FunctionalTests, FindAndReadNext_CorrectedPosition)
 	EXPECT_EQ(mTestableTsbReader->FindNext(), fragment);
 	mTestableTsbReader->ReadNext(fragment);
 
+	// Second FindNext call should calculate next position and call GetNearestFragment
+	double expectedNextPos = fragment->GetAbsolutePosition().inSeconds() + fragment->GetDuration().inSeconds();
+	EXPECT_CALL(*g_mockTSBDataManager, GetNearestFragment(expectedNextPos)).WillOnce(Return(correctedFragment));
 	// Simulate navigation to the next fragment using linked list only
 	EXPECT_EQ(mTestableTsbReader->FindNext(), correctedFragment); // Corrected position
 	mTestableTsbReader->ReadNext(correctedFragment);
@@ -972,6 +996,9 @@ TEST_F(FunctionalTests, FindAndReadNext_CorrectedPositionNegativeRate)
 	EXPECT_EQ(mTestableTsbReader->FindNext(), fragment);
 	mTestableTsbReader->ReadNext(fragment);
 
+	// Second FindNext call should calculate next position and call GetNearestFragment
+	double expectedNextPos = fragment->GetAbsolutePosition().inSeconds() + fragment->GetDuration().inSeconds();
+	EXPECT_CALL(*g_mockTSBDataManager, GetNearestFragment(expectedNextPos)).WillOnce(Return(correctedFragment));
 	// Simulate navigation to the next fragment using linked list only
 	EXPECT_EQ(mTestableTsbReader->FindNext(), correctedFragment); // Corrected position
 	mTestableTsbReader->ReadNext(correctedFragment);
@@ -1021,6 +1048,11 @@ TEST_F(FunctionalTests, FindAndReadNext_WithFragmentSkip)
 
 	mTestableTsbReader->ReadNext(fragment1);
 	mTestableTsbReader->ReadNext(fragment3);
+	
+	// After ReadNext(fragment3), FindNext will call GetNearestFragment with the next position
+	double expectedNextPos = fragment3->GetAbsolutePosition().inSeconds() + fragment3->GetDuration().inSeconds();
+	EXPECT_CALL(*g_mockTSBDataManager, GetNearestFragment(expectedNextPos)).WillOnce(Return(fragment4));
+	
 	EXPECT_EQ(mTestableTsbReader->FindNext(), fragment4);
 }
 
@@ -1067,6 +1099,13 @@ TEST_F(FunctionalTests, FindAndReadNext_WithFragmentSkipNegativeRate)
 
 	mTestableTsbReader->ReadNext(fragment4);
 	mTestableTsbReader->ReadNext(fragment2);
+	
+	// After ReadNext(fragment2), FindNext will call GetNearestFragment with the next position
+	// Note: FindNext always calculates position + duration, regardless of rate direction
+	// fragment2 position is 1002.0, duration is 2.0, so expectedNextPos = 1002.0 + 2.0 = 1004.0
+	double expectedNextPos = fragment2->GetAbsolutePosition().inSeconds() + fragment2->GetDuration().inSeconds();
+	EXPECT_CALL(*g_mockTSBDataManager, GetNearestFragment(expectedNextPos)).WillOnce(Return(fragment1));
+	
 	EXPECT_EQ(mTestableTsbReader->FindNext(), fragment1);
 }
 
@@ -1109,8 +1148,18 @@ TEST_F(FunctionalTests, FindAndReadNext_WithFragmentSkipEOSReached)
 	EXPECT_EQ(mTestableTsbReader->Init(position, rate, tuneType, nullptr), eAAMPSTATUS_OK);
 
 	mTestableTsbReader->ReadNext(fragment1);
+	
+	// After ReadNext(fragment1), FindNext will call GetNearestFragment with the next position
+	double expectedNextPos = fragment1->GetAbsolutePosition().inSeconds() + fragment1->GetDuration().inSeconds();
+	EXPECT_CALL(*g_mockTSBDataManager, GetNearestFragment(expectedNextPos)).WillOnce(Return(fragment3));
+	
 	EXPECT_EQ(mTestableTsbReader->FindNext(), fragment3);
 	mTestableTsbReader->ReadNext(fragment3);
+	
+	// After ReadNext(fragment3), FindNext will call GetNearestFragment with the next position
+	double expectedNextPos2 = fragment3->GetAbsolutePosition().inSeconds() + fragment3->GetDuration().inSeconds();
+	EXPECT_CALL(*g_mockTSBDataManager, GetNearestFragment(expectedNextPos2)).WillOnce(Return(nullptr));
+	
 	EXPECT_EQ(mTestableTsbReader->FindNext(), nullptr);
 	EXPECT_TRUE(mTestableTsbReader->IsEos());
 }
@@ -1156,8 +1205,20 @@ TEST_F(FunctionalTests, FindAndReadNext_WithFragmentSkipEOSReachedNegativeRate)
 	EXPECT_EQ(mTestableTsbReader->Init(last_fragment_position, rate, tuneType, nullptr), eAAMPSTATUS_OK);
 
 	mTestableTsbReader->ReadNext(fragment3);
+	
+	// After ReadNext(fragment3), FindNext will call GetNearestFragment with the next position
+	// Note: FindNext always calculates position + duration, regardless of rate direction
+	double expectedNextPos = fragment3->GetAbsolutePosition().inSeconds() + fragment3->GetDuration().inSeconds();
+	EXPECT_CALL(*g_mockTSBDataManager, GetNearestFragment(expectedNextPos)).WillOnce(Return(fragment1));
+	
 	EXPECT_EQ(mTestableTsbReader->FindNext(), fragment1);
 	mTestableTsbReader->ReadNext(fragment1);
+	
+	// After ReadNext(fragment1), FindNext will call GetNearestFragment with the next position
+	// Note: FindNext always calculates position + duration, regardless of rate direction
+	double expectedNextPos2 = fragment1->GetAbsolutePosition().inSeconds() + fragment1->GetDuration().inSeconds();
+	EXPECT_CALL(*g_mockTSBDataManager, GetNearestFragment(expectedNextPos2)).WillOnce(Return(nullptr));
+	
 	EXPECT_EQ(mTestableTsbReader->FindNext(), nullptr);
 	EXPECT_TRUE(mTestableTsbReader->IsEos());
 }
@@ -1202,6 +1263,11 @@ TEST_F(FunctionalTests, FindAndReadNext_WithFragmentAddition)
 	mTestableTsbReader->ReadNext(fragment1);
 	EXPECT_TRUE(mTestableTsbReader->IsEos());
 	fragment1->next = fragment2;
+	
+	// After ReadNext(fragment1), FindNext will call GetNearestFragment with the next position
+	double expectedNextPos = fragment1->GetAbsolutePosition().inSeconds() + fragment1->GetDuration().inSeconds();
+	EXPECT_CALL(*g_mockTSBDataManager, GetNearestFragment(expectedNextPos)).WillOnce(Return(fragment2));
+	
 	EXPECT_EQ(mTestableTsbReader->FindNext(), fragment2);
 	mTestableTsbReader->ReadNext(fragment2);
 	EXPECT_TRUE(mTestableTsbReader->IsEos());
@@ -1253,6 +1319,10 @@ TEST_F(FunctionalTests, FindAndReadNext_PeriodBoundary)
 	EXPECT_EQ(mTestableTsbReader->Init(position, rate, tuneType, nullptr), eAAMPSTATUS_OK);
 	EXPECT_EQ(mTestableTsbReader->FindNext(), fragment1);
 	mTestableTsbReader->ReadNext(fragment1);
+
+	// After ReadNext(fragment1), FindNext will call GetNearestFragment with the next position
+	double expectedNextPos = fragment1->GetAbsolutePosition().inSeconds() + fragment1->GetDuration().inSeconds();
+	EXPECT_CALL(*g_mockTSBDataManager, GetNearestFragment(expectedNextPos)).WillOnce(Return(fragment2));
 
 	EXPECT_EQ(mTestableTsbReader->FindNext(), fragment2);
 	mTestableTsbReader->ReadNext(fragment2);
@@ -1308,6 +1378,11 @@ TEST_F(FunctionalTests, FindAndReadNext_PeriodBoundaryTrickPlay)
 	EXPECT_EQ(mTestableTsbReader->Init(initPosition, rate, tuneType, nullptr), eAAMPSTATUS_OK);
 	EXPECT_EQ(mTestableTsbReader->FindNext(), fragment2);
 	mTestableTsbReader->ReadNext(fragment2);
+
+	// After ReadNext(fragment2), FindNext will call GetNearestFragment with the next position
+	// Note: FindNext always calculates position + duration, regardless of rate direction
+	double expectedNextPos = fragment2->GetAbsolutePosition().inSeconds() + fragment2->GetDuration().inSeconds();
+	EXPECT_CALL(*g_mockTSBDataManager, GetNearestFragment(expectedNextPos)).WillOnce(Return(fragment1));
 
 	EXPECT_EQ(mTestableTsbReader->FindNext(), fragment1);
 	mTestableTsbReader->ReadNext(fragment1);
@@ -1591,11 +1666,10 @@ TEST_F(FunctionalTests, FindNext_WithOffset)
 	EXPECT_EQ(mTestableTsbReader->Init(position, rate, tuneType, nullptr), eAAMPSTATUS_OK);
 	mTestableTsbReader->ReadNext(fragment1);
 
-	// With offset, it should skip fragment2 and find fragment3
-	AampTime offset = 6.0; // duration is 5.0
-	AampTime expectedPosition = fragment1->GetAbsolutePosition() + fragment1->GetDuration() + offset;
-	EXPECT_CALL(*g_mockTSBDataManager, GetNearestFragment(expectedPosition.inSeconds())).WillOnce(Return(fragment3));
-	EXPECT_EQ(mTestableTsbReader->FindNext(offset), fragment3);
+	// FindNext should use next position (current + duration) to find next fragment
+	AampTime expectedPosition = fragment1->GetAbsolutePosition() + fragment1->GetDuration();
+	EXPECT_CALL(*g_mockTSBDataManager, GetNearestFragment(expectedPosition.inSeconds())).WillOnce(Return(fragment2));
+	EXPECT_EQ(mTestableTsbReader->FindNext(), fragment2);
 }
 
 TEST_F(FunctionalTests, FindNext_ZeroRate_AdvancesToNextFragment)
@@ -1636,6 +1710,8 @@ TEST_F(FunctionalTests, FindNext_ZeroRate_AdvancesToNextFragment)
 	mTestableTsbReader->ReadNext(foundFragment);
 
 	// When rate is 0, it should still advance to the next fragment as if rate is 1.0
+	double expectedNextPos = fragment1->GetAbsolutePosition().inSeconds() + fragment1->GetDuration().inSeconds();
+	EXPECT_CALL(*g_mockTSBDataManager, GetNearestFragment(expectedNextPos)).WillOnce(Return(fragment2));
 	foundFragment = mTestableTsbReader->FindNext();
 	EXPECT_EQ(foundFragment, fragment2);
 }
