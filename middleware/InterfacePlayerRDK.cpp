@@ -3039,7 +3039,6 @@ void InterfacePlayerRDK::ResumeInjector()
 void InterfacePlayerRDK::SendNewSegmentEvent(GstMediaType mediaType, GstClockTime startPts ,GstClockTime stopPts)
 {
 	gst_media_stream* stream = &gstPrivateContext->stream[mediaType];
-	GstPad* sourceEleSrcPad = gst_element_get_static_pad(GST_ELEMENT(stream->source), "src");
 	if (stream->format == GST_FORMAT_ISO_BMFF)
 	{
 		GstSegment segment;
@@ -3049,22 +3048,44 @@ void InterfacePlayerRDK::SendNewSegmentEvent(GstMediaType mediaType, GstClockTim
 		segment.position = 0;
 		segment.rate = GST_NORMAL_PLAY_RATE;
 		segment.applied_rate = GST_NORMAL_PLAY_RATE;
-		if(stopPts) segment.stop = stopPts;
-		if(!socInterface->IsVideoMaster(gstPrivateContext->video_sink, gstPrivateContext->usingRialtoSink))
+
+		if(stopPts)
+		{
+			segment.stop = stopPts;
+		} 
+
+		if (((GstMediaType)mediaType == eGST_MEDIATYPE_VIDEO) &&
+			(!socInterface->IsVideoMaster(gstPrivateContext->video_sink, gstPrivateContext->usingRialtoSink)))
 		{
 			//  notify westerossink of rate to run in Vmaster mode
-			if ((GstMediaType)mediaType == eGST_MEDIATYPE_VIDEO)
-				segment.applied_rate = gstPrivateContext->rate;
-
+			segment.applied_rate = gstPrivateContext->rate;
 		}
+
+#if 0
 		MW_LOG_INFO("Sending segment event for mediaType[%d]. start %" G_GUINT64_FORMAT " stop %" G_GUINT64_FORMAT" rate %f applied_rate %f", mediaType, segment.start, segment.stop, segment.rate, segment.applied_rate);
-		GstEvent* event = gst_event_new_segment (&segment);
-		if (!gst_pad_push_event(sourceEleSrcPad, event))
+		GstEvent* event1 = gst_event_new_segment (&segment);
+		GstPad* sourceEleSrcPad = gst_element_get_static_pad(GST_ELEMENT(stream->source), "src");
+		if (!gst_pad_push_event(sourceEleSrcPad, event1))
 		{
 			MW_LOG_ERR("gst_pad_push_event segment error");
 		}
+		gst_object_unref(sourceEleSrcPad);
+#else        
+		GstCaps *currentCaps = gst_app_src_get_caps(GST_APP_SRC(stream->source));
+        GstSample *sample = gst_sample_new (nullptr, currentCaps, &segment, nullptr);
+
+		MW_LOG_INFO("Set property handle-segment-change");
+		GValue val = { 0, };
+		g_value_init(&val, G_TYPE_BOOLEAN);
+		g_value_set_boolean(&val, TRUE);
+		g_object_set_property(G_OBJECT(stream->source), "handle-segment-change", &val);
+
+		MW_LOG_INFO("Pushing sample for mediaType[%d]. start %" G_GUINT64_FORMAT " stop %" G_GUINT64_FORMAT" rate %f applied_rate %f", mediaType, segment.start, segment.stop, segment.rate, segment.applied_rate);
+		gst_app_src_push_sample(GST_APP_SRC(stream->source), sample);
+        gst_sample_unref(sample);
+        gst_caps_unref(currentCaps);
+#endif
 	}
-	gst_object_unref(sourceEleSrcPad);
 }
 
 /**
