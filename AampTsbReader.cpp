@@ -201,33 +201,35 @@ AAMPStatusType AampTsbReader::Init(double &startPosSec, float rate, TuneType tun
  */
 TsbFragmentDataPtr AampTsbReader::FindNext()
 {
+	TsbFragmentDataPtr ret{};
+
 	if (!mInitialized_)
 	{
 		AAMPLOG_ERR("TsbReader[%s] not initialized", GetMediaTypeName(mMediaType));
-		return {};
 	}
- 
-	TsbFragmentDataPtr ret;
-
-	if (IsFirstDownload())
+	else
 	{
-		ret = mCurrentFragment;
-	}
-	else if (mCurrentFragment)
-	{
-		AampTime nextPos = mCurrentFragment->GetAbsolutePosition() + mCurrentFragment->GetDuration();
-		ret = mDataMgr->GetNearestFragment(nextPos.inSeconds());
-	}
+		if (IsFirstDownload())
+		{
+			ret = mCurrentFragment;
+		}
+		else if (mCurrentFragment)
+		{
+			AampTime nextPos = mCurrentFragment->GetAbsolutePosition() + mCurrentFragment->GetDuration();
+			ret = mDataMgr->GetNearestFragment(nextPos.inSeconds());
+		}
 
-	if (!ret)
-	{
-		AAMPLOG_INFO("[%s] No next fragment available, mCurrentRate %f", GetMediaTypeName(mMediaType), mCurrentRate);
-		mEosReached = true;
-		return {};
+		if (!ret)
+		{
+			AAMPLOG_INFO("[%s] No next fragment available, mCurrentRate %f", GetMediaTypeName(mMediaType), mCurrentRate);
+			mEosReached = true;
+		}
+		else
+		{
+			AAMPLOG_INFO("[%s] Returning fragment: absPos %lfs pts %lfs period %s timeScale %u ptsOffset %fs url %s",
+				GetMediaTypeName(mMediaType), ret->GetAbsolutePosition().inSeconds(), ret->GetPTS().inSeconds(), ret->GetPeriodId().c_str(), ret->GetTimeScale(), ret->GetPTSOffset().inSeconds(), ret->GetUrl().c_str());
+		}
 	}
-
-	AAMPLOG_INFO("[%s] Returning fragment: absPos %lfs pts %lfs period %s timeScale %u ptsOffset %fs url %s",
-		GetMediaTypeName(mMediaType), ret->GetAbsolutePosition().inSeconds(), ret->GetPTS().inSeconds(), ret->GetPeriodId().c_str(), ret->GetTimeScale(), ret->GetPTSOffset().inSeconds(), ret->GetUrl().c_str());
 
 	return ret;
 }
