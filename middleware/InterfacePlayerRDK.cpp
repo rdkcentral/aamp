@@ -16,6 +16,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include <cstdio>
 #include "mp4demux.hpp"
 #include <iostream>
 #include "InterfacePlayerRDK.h"
@@ -2015,7 +2016,12 @@ int InterfacePlayerRDK::SetupStream(int streamId,  void *playerInstance, std::st
 {
 	InterfacePlayerRDK* pInterfacePlayerRDK = (InterfacePlayerRDK*)playerInstance;
 	gst_media_stream* stream = &pInterfacePlayerRDK->gstPrivateContext->stream[streamId];
-MW_LOG_INFO("Neil entering SetupStream()");
+
+	MW_LOG_INFO("Neil entering SetupStream()");
+	printf("Neil entering SetupStream()");
+	printf("Neil entering SetupStream()");
+	printf("Neil entering SetupStream()");
+
 
 	if (eGST_MEDIATYPE_SUBTITLE == streamId)
 	{
