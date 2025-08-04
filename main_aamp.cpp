@@ -108,7 +108,7 @@ void doFakeTune()
 #ifdef IARM_MGR
 	if(isDevicePropertiesPresent())
 	{
-			AAMPLOG_WARN("Triggering fake tune to wake up AAMP from deep sleep");
+			AAMPLOG_WARN("doFakeTune : Triggering fake tune");
 			std::shared_ptr<PlayerInstanceAAMP> fakeTuneInstance = std::make_shared<PlayerInstanceAAMP>(nullptr, nullptr);
 			std::string jsonStr = R"({
 		    "preferredDrm": 1,
@@ -155,6 +155,7 @@ void powerModeChangeHandler(const char *owner, IARM_EventId_t eventId, void *dat
                 param->data.state.curState, param->data.state.newState);
         if(param->data.state.curState == IARM_BUS_PWRMGR_POWERSTATE_STANDBY_DEEP_SLEEP && param->data.state.newState != IARM_BUS_PWRMGR_POWERSTATE_STANDBY_DEEP_SLEEP )
         {
+			printf(" DEEPSLEEP : calling triggerFakeTune  \n");
             triggerFakeTune();
         }
     }
