@@ -2018,9 +2018,9 @@ int InterfacePlayerRDK::SetupStream(int streamId,  void *playerInstance, std::st
 	gst_media_stream* stream = &pInterfacePlayerRDK->gstPrivateContext->stream[streamId];
 
 	MW_LOG_INFO("Neil entering SetupStream()");
-	printf("Neil entering SetupStream()");
-	printf("Neil entering SetupStream()");
-	printf("Neil entering SetupStream()");
+	printf("Neil entering SetupStream()\n");
+	printf("Neil entering SetupStream()\n");
+	printf("Neil entering SetupStream()\n");
 
 
 	if (eGST_MEDIATYPE_SUBTITLE == streamId)
