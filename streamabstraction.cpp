@@ -992,7 +992,7 @@ bool MediaTrack::ProcessFragmentChunk()
 		cachedFragment->initFragment = false;
 		return true;
 	}
-	if((cachedFragment->downloadStartTime != prevDownloadStartTime) && (unparsedBufferChunk.GetPtr() != NULL))
+	if((cachedFragment->downloadStartTime != prevDownloadStartTime) && (unparsedBufferChunk.GetPtr() != NULL) && cachedFragment->injectionBehaviour == eINJECTION_BEHAVIOUR_COMPLETED_CHUNK)
 	{
 		AAMPLOG_WARN("[%s] clean up curl chunk buffer, since  prevDownloadStartTime[%lld] != currentdownloadtime[%lld]", name,prevDownloadStartTime,cachedFragment->downloadStartTime);
 		unparsedBufferChunk.Free();
@@ -1001,7 +1001,23 @@ bool MediaTrack::ProcessFragmentChunk()
 	AAMPLOG_DEBUG("[%s] cachedFragment->fragment.len [%zu] to unparsedBufferChunk.len [%zu] Required Len [%zu]", name, cachedFragment->fragment.GetLen(), unparsedBufferChunk.GetLen(), requiredLength);
 
 	//Append Cache buffer to unparsed buffer for processing
-	unparsedBufferChunk.AppendBytes( cachedFragment->fragment.GetPtr(), cachedFragment->fragment.GetLen() );
+	if (cachedFragment->injectionBehaviour < eINJECTION_BEHAVIOUR_COMPLETED_FRAGMENT)
+	{
+		unparsedBufferChunk.AppendBytes( cachedFragment->fragment.GetPtr(), cachedFragment->fragment.GetLen() );
+	}
+	switch (cachedFragment->injectionBehaviour)
+	{
+		case eINJECTION_BEHAVIOUR_INPROGRESS_FRAGMENT:
+			AAMPLOG_INFO("[%s][NANDU] InProgress Chunk, saved in unparsed buffer, fragmentChunkIdxToInject %d", name, fragmentChunkIdxToInject);
+			return true;
+		case eINJECTION_BEHAVIOUR_FAILED_FRAGMENT:
+			unparsedBufferChunk.Free();
+			AAMPLOG_WARN("[%s][NANDU] Failed Chunk, free unparsed buffer, fragmentChunkIdxToInject %d", name, fragmentChunkIdxToInject);
+			return true;
+		default:
+			AAMPLOG_INFO("[%s][NANDU] Completed Chunk, mode: %d", name, cachedFragment->injectionBehaviour);
+			break;
+	}
 
 	//Parse Chunk Data
 	IsoBmffBuffer isobuf;                   /**< Fragment Chunk buffer box parser*/

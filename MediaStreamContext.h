@@ -29,6 +29,15 @@
 #include "fragmentcollector_mpd.h"
 
 /**
+ * @brief Structure holding the information of a fragment
+ */
+typedef enum
+{
+    eINJECTION_MODE_INJECT_FULL_FRAGMENT, /**< Full Fragment Injection Mode */
+    eINJECTION_MODE_INJECT_CHUNKS,        /**< Partial Fragment Injection Mode */
+} InjectionMode;
+
+/**
  * @class MediaStreamContext
  * @brief MPD media track
  */
@@ -54,7 +63,7 @@ public:
 		   , scaledPTO(0)
 		   , failAdjacentSegment(false),httpErrorCode(0)
 	       , mPlaylistUrl(""), mEffectiveUrl(""),freshManifest(false),nextfragmentIndex(-1)
-	       , mReachedFirstFragOnRewind(false),fetchChunkBufferMutex()
+	       , mReachedFirstFragOnRewind(false),fetchChunkBufferMutex(), injectionMode(eINJECTION_MODE_INJECT_FULL_FRAGMENT)
     {
         AAMPLOG_INFO("[%s] Create new MediaStreamContext",
             GetMediaTypeName(mediaType));
@@ -130,8 +139,11 @@ public:
      * @param size CURL provided chunk data size
      * @param remoteUrl url of fragment
      * @param dnldStartTime of the download
+     * @param injectionBehaviour Injection Behaviour
+     *
+     * @retval true on success
      */
-    bool CacheFragmentChunk(AampMediaType actualType, const char *ptr, size_t size, std::string remoteUrl,long long dnldStartTime);
+     bool CacheFragmentChunk(AampMediaType actualType, const char *ptr, size_t size, std::string remoteUrl, long long dnldStartTime, InjectionBehaviour injectionBehaviour = eINJECTION_BEHAVIOUR_COMPLETED_CHUNK);
 
     /**
      * @fn ABRProfileChanged
@@ -281,6 +293,7 @@ public:
     int nextfragmentIndex; //CMCD get next index to fetch url from Segment List
     bool mReachedFirstFragOnRewind; /**< flag denotes if we reached the first fragment in a period on rewind */
     std::mutex fetchChunkBufferMutex;
+    InjectionMode injectionMode; /**< Injection Mode */
 }; // MediaStreamContext
 
 #endif /* MEDIASTREAMCONTEXT_H */
