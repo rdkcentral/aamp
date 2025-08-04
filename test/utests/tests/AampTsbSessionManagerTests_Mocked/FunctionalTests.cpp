@@ -135,7 +135,7 @@ TEST_F(AampTsbSessionManagerTests, FindNextNull)
 
 	mAampTSBSessionManager->GetTsbReader(eMEDIATYPE_VIDEO)->mTrackEnabled = true;
 
-	EXPECT_CALL(*g_mockTSBReader, FindNext(_Return(nullptr)));
+	EXPECT_CALL(*g_mockTSBReader, FindNext()).WillOnce(Return(nullptr));
 
 	EXPECT_CALL(*g_mockTSBReader, GetPlaybackRate()).WillOnce(Return(AAMP_NORMAL_PLAY_RATE));
 
@@ -151,7 +151,8 @@ TEST_F(AampTsbSessionManagerTests, NoFreeFragments)
 
 	mAampTSBSessionManager->GetTsbReader(eMEDIATYPE_VIDEO)->mTrackEnabled = true;
 
-	EXPECT_CALL(*g_mockTSBReader, FindNext(_Return(nullptr)));
+	// FindNext should not be called when there are no free fragments
+	EXPECT_CALL(*g_mockTSBReader, FindNext()).Times(0);
 
 	EXPECT_CALL(*g_mockTSBReader, ReadNext(_)).Times(0);
 
@@ -189,7 +190,7 @@ TEST_F(AampTsbSessionManagerTests, ReadInitFragmentFailure)
 
 	EXPECT_CALL(*g_mockTSBReader, GetPlaybackRate()).WillOnce(Return(AAMP_NORMAL_PLAY_RATE));
 
-	EXPECT_CALL(*g_mockTSBReader, FindNext(_Return(mockFragmentData)));
+	EXPECT_CALL(*g_mockTSBReader, FindNext()).WillOnce(Return(mockFragmentData));
 
 	EXPECT_CALL(*g_mockTSBReader, ReadNext(_)).Times(1);
 
@@ -227,7 +228,7 @@ TEST_F(AampTsbSessionManagerTests, SameInitFragment)
 
 	EXPECT_CALL(*g_mockTSBReader, GetPlaybackRate()).WillOnce(Return(AAMP_NORMAL_PLAY_RATE));
 
-	EXPECT_CALL(*g_mockTSBReader, FindNext(_Return(mockFragmentData));
+	EXPECT_CALL(*g_mockTSBReader, FindNext()).WillOnce(Return(mockFragmentData));
 
 	EXPECT_CALL(*g_mockTSBReader, ReadNext(mockFragmentData)).Times(1);
 
@@ -266,7 +267,7 @@ TEST_F(AampTsbSessionManagerTests, FirstDownload_Success)
 
 	EXPECT_CALL(*g_mockTSBReader, GetPlaybackRate()).WillOnce(Return(AAMP_NORMAL_PLAY_RATE));
 
-	EXPECT_CALL(*g_mockTSBReader, FindNext(_Return(mockFragmentData));
+	EXPECT_CALL(*g_mockTSBReader, FindNext()).WillOnce(Return(mockFragmentData));
 
 	EXPECT_CALL(*g_mockTSBReader, ReadNext(mockFragmentData)).Times(1);
 
@@ -305,14 +306,14 @@ TEST_F(AampTsbSessionManagerTests, OnlyFreeFragmentForInit)
 
 	EXPECT_CALL(*g_mockTSBReader, GetPlaybackRate()).WillRepeatedly(Return(AAMP_NORMAL_PLAY_RATE));
 
-	EXPECT_CALL(*g_mockTSBReader, FindNext(_Return(mockFragmentData));
+	EXPECT_CALL(*g_mockTSBReader, FindNext()).WillOnce(Return(mockFragmentData));
 	EXPECT_CALL(*g_mockTSBReader, ReadNext(_)).Times(0);
 	// CacheFragment not called because need space for both init and media fragments
 	EXPECT_CALL(*g_mockTSBStore, GetSize(_)).Times(0);
 	EXPECT_CALL(*g_mockMediaStreamContext, CacheTsbFragment(_)).Times(0);
 	EXPECT_FALSE(mAampTSBSessionManager->PushNextTsbFragment(mMediaStreamContext.get(), 1));
 
-	EXPECT_CALL(*g_mockTSBReader, FindNext(_Return(mockFragmentData));
+	EXPECT_CALL(*g_mockTSBReader, FindNext()).WillOnce(Return(mockFragmentData));
 	EXPECT_CALL(*g_mockTSBReader, ReadNext(_)).Times(1);
 	// Called twice for init and media fragments
 	EXPECT_CALL(*g_mockTSBStore, GetSize(_)).Times(2).WillRepeatedly(Return(10));
@@ -352,8 +353,8 @@ TEST_F(AampTsbSessionManagerTests, SkipFragments)
 
 	EXPECT_CALL(*g_mockTSBReader, GetPlaybackRate()).WillOnce(Return(AAMP_NORMAL_PLAY_RATE));
 
-	EXPECT_CALL(*g_mockTSBReader, FindNext(_)).WillRepeatedly([=](AampTime offset) mutable mutable {
-		static double currentPosition = dummyPosition + offset.inSeconds();
+	EXPECT_CALL(*g_mockTSBReader, FindNext()).WillRepeatedly([=]() mutable {
+		static double currentPosition = dummyPosition;
 		auto fragmentData = std::make_shared<TsbFragmentData>(
 			dummyUrl, dummyMediaType, currentPosition, dummyDuration, dummyPts, dummyDisc,
 			dummyPrId, mockInitData, dummyTimeScale, dummyPTSOffsetSec
