@@ -4158,7 +4158,6 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 						If not updated correctly, the offset will accumulate for each ad,
 						leading to inaccuracies.*/
 						mMediaStreamContext[i]->periodStartOffset += ((double)mCdaiObject->mCurAds->at(mCdaiObject->mCurAdIdx).basePeriodOffset / 1000.0);
-						AAMPLOG_INFO("patrick periodStartOffset for track %d is %lf", i, mMediaStreamContext[i]->periodStartOffset);
 					}
 				}
 			}
@@ -6694,7 +6693,6 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateMediaTrackInfo(AampMediaType typ
 	pMediaStreamContext->fragmentRepeatCount = 0;
 	pMediaStreamContext->fragmentOffset = 0;
 	pMediaStreamContext->periodStartOffset = pMediaStreamContext->fragmentTime;
-	AAMPLOG_INFO("patrick periodStartOffset for track %d is %lf", type, pMediaStreamContext->periodStartOffset);
 
 	if (0 == pMediaStreamContext->fragmentDescriptor.Bandwidth || !aamp->IsFogTSBSupported())
 	{
@@ -7942,7 +7940,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, 
 			pMediaStreamContext->fragmentRepeatCount = 0;
 			pMediaStreamContext->fragmentOffset = 0;
 			pMediaStreamContext->periodStartOffset = pMediaStreamContext->fragmentTime;
-			AAMPLOG_INFO("patrick periodStartOffset for track %d is %lf", i, pMediaStreamContext->periodStartOffset);
+
 			if(0 == pMediaStreamContext->fragmentDescriptor.Bandwidth || !aamp->IsFogTSBSupported())
 			{
 				pMediaStreamContext->fragmentDescriptor.Bandwidth = pMediaStreamContext->representation->GetBandwidth();
@@ -7964,9 +7962,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, 
 				mPeriodDuration = mMPDParseHelper->GetPeriodDuration(mCurrentPeriodIdx,mLastPlaylistDownloadTimeMs,(rate != AAMP_NORMAL_PLAY_RATE),aamp->IsUninterruptedTSB());
 				aamp->mNextPeriodDuration = mPeriodDuration;
 				aamp->mNextPeriodStartTime = mPeriodStartTime;
-				double oldFragmentTime = pMediaStreamContext->fragmentTime;
 				pMediaStreamContext->fragmentTime = mPeriodStartTime;
-				AAMPLOG_INFO("patrick Track %d oldFragmentTime %f fragmentTime %f", i, oldFragmentTime, pMediaStreamContext->fragmentTime);
 
 				// For playing an ad in a ad break, we should update fragmentTime to PeriodStartTime + basePeriodOffset of ad;
 				if (mCdaiObject->mAdState == AdState::IN_ADBREAK_AD_PLAYING && mCdaiObject->mCurAdIdx > 0 )
