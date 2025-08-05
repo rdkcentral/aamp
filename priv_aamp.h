@@ -3469,7 +3469,7 @@ public:
 	 */
 	void SetLLDashAdjustSpeed(bool state)
 	{
-		AAMPLOG_MIL("Jose: SetLLDashAdjustSpeed %d", state);
+		AAMPLOG_INFO("Set LLDash adjust speed to %d", state);
 		bLLDashAdjustPlayerSpeed = state;
 	}
 
