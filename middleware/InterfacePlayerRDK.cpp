@@ -2022,6 +2022,8 @@ int InterfacePlayerRDK::SetupStream(int streamId,  void *playerInstance, std::st
 
 	if (eGST_MEDIATYPE_SUBTITLE == streamId)
 	{
+		printf("Neil entering SetupStream(eGST_MEDIATYPE_SUBTITLE)\n");
+
 		if(m_gstConfigParam->gstreamerSubsEnabled)
 		{
 			if (pInterfacePlayerRDK->gstPrivateContext->usingRialtoSink)
@@ -2035,27 +2037,24 @@ int InterfacePlayerRDK::SetupStream(int streamId,  void *playerInstance, std::st
 				{
 					MW_LOG_INFO("Created rialtomsesubtitlesink: %s", GST_ELEMENT_NAME(textsink));
 					printf("Neil Created rialtomsesubtitlesink: %s\n", GST_ELEMENT_NAME(textsink));	
+					auto subtitlebin = gst_bin_new("subtitlebin");
+					auto vipertransform = gst_element_factory_make("vipertransform", NULL);
+					gst_bin_add_many(GST_BIN(subtitlebin),vipertransform,textsink,NULL);
+					gst_element_link(vipertransform, textsink);
+					gst_element_add_pad(subtitlebin, gst_ghost_pad_new("sink", gst_element_get_static_pad(vipertransform, "sink")));
 
+					g_object_set(stream->sinkbin, "text-sink", subtitlebin, NULL);
+					pInterfacePlayerRDK->gstPrivateContext->subtitle_sink = textsink;
+					MW_LOG_MIL("using rialtomsesubtitlesink muted=%d sink=%p", pInterfacePlayerRDK->gstPrivateContext->subtitleMuted, pInterfacePlayerRDK->gstPrivateContext->subtitle_sink);
+					printf("Neil using rialtomsesubtitlesink muted=%d sink=%p\n", pInterfacePlayerRDK->gstPrivateContext->subtitleMuted, pInterfacePlayerRDK->gstPrivateContext->subtitle_sink);	
+
+					g_object_set(textsink, "mute", pInterfacePlayerRDK->gstPrivateContext->subtitleMuted ? TRUE : FALSE, NULL);		
 				}
 				else
 				{
 					printf("Neil Failed to create rialtomsesubtitlesink\n");	
-
-					MW_LOG_WARN("Failed to create rialtomsesubtitlesink");
 				}
-				auto subtitlebin = gst_bin_new("subtitlebin");
-				auto vipertransform = gst_element_factory_make("vipertransform", NULL);
-				gst_bin_add_many(GST_BIN(subtitlebin),vipertransform,textsink,NULL);
-				gst_element_link(vipertransform, textsink);
-				gst_element_add_pad(subtitlebin, gst_ghost_pad_new("sink", gst_element_get_static_pad(vipertransform, "sink")));
-
-				g_object_set(stream->sinkbin, "text-sink", subtitlebin, NULL);
-				pInterfacePlayerRDK->gstPrivateContext->subtitle_sink = textsink;
-				MW_LOG_MIL("using rialtomsesubtitlesink muted=%d sink=%p", pInterfacePlayerRDK->gstPrivateContext->subtitleMuted, pInterfacePlayerRDK->gstPrivateContext->subtitle_sink);
-				printf("Neil using rialtomsesubtitlesink muted=%d sink=%p\n", pInterfacePlayerRDK->gstPrivateContext->subtitleMuted, pInterfacePlayerRDK->gstPrivateContext->subtitle_sink);	
-
-				g_object_set(textsink, "mute", pInterfacePlayerRDK->gstPrivateContext->subtitleMuted ? TRUE : FALSE, NULL);
-			}
+	}
 			else
 			{
 					printf("Neil subs using subtecbin\n");	
@@ -2121,7 +2120,7 @@ int InterfacePlayerRDK::SetupStream(int streamId,  void *playerInstance, std::st
 			GstElement* vidsink = gst_element_factory_make("rialtomsevideosink", NULL);
 			if (vidsink)
 			{
-				printf("Neil uCreated rialtomsevideosink: %s\n", GST_ELEMENT_NAME(vidsink));
+				printf("Neil Created rialtomsevideosink: %s\n", GST_ELEMENT_NAME(vidsink));
 				MW_LOG_INFO("Created rialtomsevideosink: %s", GST_ELEMENT_NAME(vidsink));
 				g_object_set(stream->sinkbin, "video-sink", vidsink, NULL);				/* In the stream->sinkbin, set the video-sink property to vidsink */
 				GstMediaFormat mediaFormat = (GstMediaFormat)m_gstConfigParam->media;
@@ -2600,8 +2599,8 @@ void InterfacePlayerRDK::GetVideoSize(int &width, int &height)
 void InterfacePlayerRDK::SetSubtitleMute(bool muted)
 {
 	printf("NEIL entering InterfacePlayerRDK::SetSubtitleMute(mute = %s)\n", muted?"true":"false");
-
 	gstPrivateContext->subtitleMuted = muted;
+
 	if (gstPrivateContext->subtitle_sink)
 	{
 		printf("NEIL muted %d, subtitle_sink =%p\n", muted, gstPrivateContext->subtitle_sink);
@@ -2611,6 +2610,7 @@ void InterfacePlayerRDK::SetSubtitleMute(bool muted)
 	{
 		printf("NEIL subtitle_sink is NULL\n");
 	}
+	printf("NEIL leaving InterfacePlayerRDK::SetSubtitleMute()\n");
 }
 
 /**
