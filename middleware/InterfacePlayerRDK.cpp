@@ -1704,6 +1704,12 @@ void InterfacePlayerRDK::InitializeSourceForPlayer(void *PlayerInstance, void * 
 		int MaxGstVideoBufBytes = m_gstConfigParam->videoBufBytes;
 		MW_LOG_INFO("Setting gst Video buffer max bytes to %d", MaxGstVideoBufBytes);
 		g_object_set(source, "max-bytes", (guint64)MaxGstVideoBufBytes, NULL);			/* Sets the maximum video buffer bytes as per configuration*/
+
+		if (socInterface->IsPlatformSegmentReady(gstPrivateContext->video_sink, gstPrivateContext->usingRialtoSink))
+		{
+			MW_LOG_INFO("Setting handle-segment-change to 1");
+			g_object_set(source, "handle-segment-change", TRUE, NULL);
+		}
 	}
 	else if (eGST_MEDIATYPE_AUDIO == mediaType || eGST_MEDIATYPE_AUX_AUDIO == mediaType)
 	{
@@ -2831,12 +2837,8 @@ bool InterfacePlayerRDK::SendHelper(int type, const void *ptr, size_t len, doubl
 		{
 			SendNewSegmentEvent(mediaType, pts, 0);
 			segmentEventSent = true;
-			MW_LOG_INFO("mediaType[%d] SendGstEvents - first buffer received !!! initFragment: %d, pts: %" G_GUINT64_FORMAT, mediaType, initFragment, pts);
 		}
-		else
-		{
-			MW_LOG_INFO("mediaType[%d] SendGstEvents - first buffer received !!! initFragment: %d, pts: %" G_GUINT64_FORMAT, mediaType, initFragment, pts);
-		}
+		MW_LOG_DEBUG("mediaType[%d] SendGstEvents - first buffer received !!! initFragment: %d, pts: %" G_GUINT64_FORMAT, mediaType, initFragment, pts);
 	}
 
 	sendNewSegmentEvent = segmentEventSent;
@@ -3007,7 +3009,7 @@ bool InterfacePlayerRDK::SendHelper(int type, const void *ptr, size_t len, doubl
 	pthread_mutex_unlock(&stream->sourceLock);
 	if (isFirstBuffer)
 	{
-		if(!gstPrivateContext->using_westerossink)
+		if (!gstPrivateContext->using_westerossink && !gstPrivateContext->usingRialtoSink)
 		{
 			notifyFirstBufferProcessed = true;
 		}
@@ -3061,30 +3063,13 @@ void InterfacePlayerRDK::SendNewSegmentEvent(GstMediaType mediaType, GstClockTim
 			segment.applied_rate = gstPrivateContext->rate;
 		}
 
-#if 0
-		MW_LOG_INFO("Sending segment event for mediaType[%d]. start %" G_GUINT64_FORMAT " stop %" G_GUINT64_FORMAT" rate %f applied_rate %f", mediaType, segment.start, segment.stop, segment.rate, segment.applied_rate);
-		GstEvent* event1 = gst_event_new_segment (&segment);
-		GstPad* sourceEleSrcPad = gst_element_get_static_pad(GST_ELEMENT(stream->source), "src");
-		if (!gst_pad_push_event(sourceEleSrcPad, event1))
-		{
-			MW_LOG_ERR("gst_pad_push_event segment error");
-		}
-		gst_object_unref(sourceEleSrcPad);
-#else        
 		GstCaps *currentCaps = gst_app_src_get_caps(GST_APP_SRC(stream->source));
         GstSample *sample = gst_sample_new (nullptr, currentCaps, &segment, nullptr);
-
-		MW_LOG_INFO("Set property handle-segment-change");
-		GValue val = { 0, };
-		g_value_init(&val, G_TYPE_BOOLEAN);
-		g_value_set_boolean(&val, TRUE);
-		g_object_set_property(G_OBJECT(stream->source), "handle-segment-change", &val);
 
 		MW_LOG_INFO("Pushing sample for mediaType[%d]. start %" G_GUINT64_FORMAT " stop %" G_GUINT64_FORMAT" rate %f applied_rate %f", mediaType, segment.start, segment.stop, segment.rate, segment.applied_rate);
 		gst_app_src_push_sample(GST_APP_SRC(stream->source), sample);
         gst_sample_unref(sample);
         gst_caps_unref(currentCaps);
-#endif
 	}
 }
 

@@ -95,13 +95,11 @@ void logprintf(AAMP_LogLevel logLevelIndex, const char* file, int line, const ch
 	
 	char *format_ptr = NULL;
 	int format_bytes = 0;
-	static int log_id = 0;
 	for( int pass=0; pass<2; pass++ )
 	{ // two pass: measure required bytes then populate format string
 		format_bytes = snprintf(format_ptr, format_bytes,
-							   "%s-0x%04x [AAMP-PLAYER][%d][%s][%zx][%s][%d]%s\n",
+							   "%s[AAMP-PLAYER][%d][%s][%zx][%s][%d]%s\n",
 							   timestamp,
-							   log_id,
 							   gPlayerId,
 							   mLogLevelStr[logLevelIndex],
 							   GetPrintableThreadID(),
@@ -157,7 +155,6 @@ void logprintf(AAMP_LogLevel logLevelIndex, const char* file, int line, const ch
 			va_end(args);
 		}
 	}
-	log_id++;
 }
 
 /**
