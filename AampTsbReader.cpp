@@ -306,8 +306,9 @@ void AampTsbReader::ReadNext(TsbFragmentDataPtr nextFragmentData)
 	}
 	else
 	{
-		// Handle null fragment case
+		// Handle null fragment case - this indicates we've reached the end of available data
 		AAMPLOG_INFO("[%s] Null fragment read, setting EOS.", GetMediaTypeName(mMediaType));
+		mEosReached = true;
 	}
 }
 
