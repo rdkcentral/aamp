@@ -6693,7 +6693,6 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateMediaTrackInfo(AampMediaType typ
 	pMediaStreamContext->fragmentRepeatCount = 0;
 	pMediaStreamContext->fragmentOffset = 0;
 	pMediaStreamContext->periodStartOffset = pMediaStreamContext->fragmentTime;
-
 	if (0 == pMediaStreamContext->fragmentDescriptor.Bandwidth || !aamp->IsFogTSBSupported())
 	{
 		pMediaStreamContext->fragmentDescriptor.Bandwidth = pMediaStreamContext->representation->GetBandwidth();
@@ -7940,7 +7939,6 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, 
 			pMediaStreamContext->fragmentRepeatCount = 0;
 			pMediaStreamContext->fragmentOffset = 0;
 			pMediaStreamContext->periodStartOffset = pMediaStreamContext->fragmentTime;
-
 			if(0 == pMediaStreamContext->fragmentDescriptor.Bandwidth || !aamp->IsFogTSBSupported())
 			{
 				pMediaStreamContext->fragmentDescriptor.Bandwidth = pMediaStreamContext->representation->GetBandwidth();
@@ -7963,7 +7961,6 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, 
 				aamp->mNextPeriodDuration = mPeriodDuration;
 				aamp->mNextPeriodStartTime = mPeriodStartTime;
 				pMediaStreamContext->fragmentTime = mPeriodStartTime;
-
 				// For playing an ad in a ad break, we should update fragmentTime to PeriodStartTime + basePeriodOffset of ad;
 				if (mCdaiObject->mAdState == AdState::IN_ADBREAK_AD_PLAYING && mCdaiObject->mCurAdIdx > 0 )
 				{
