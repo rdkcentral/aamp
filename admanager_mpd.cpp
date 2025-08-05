@@ -537,7 +537,13 @@ void  PrivateCDAIObjectMPD::PlaceAds(dash::mpd::IMPD *mpd)
 					if (diff <  OFFSET_ALIGN_FACTOR)
 					{
 						//check if next period available
-						iter++;
+						for (iter = iter+1; iter < periods.size(); iter++)
+						{
+							if (adMPDParseHelper->aamp_GetPeriodDuration(iter, 0) > 0)
+							{
+								break;
+							}
+						}
 						if( iter < periods.size() && adMPDParseHelper->aamp_GetPeriodDuration(iter, 0) > 0)
 						{
 							auto nextPeriod = periods.at(iter);
