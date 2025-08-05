@@ -21,6 +21,7 @@
 #include "vendor/amlogic/AmlogicSocInterface.h"
 #include "vendor/brcm/BrcmSocInterface.h"
 #include "vendor/realtek/RealtekSocInterface.h"
+
 DefaultSocInterface::DefaultSocInterface()
 {
 }
@@ -29,6 +30,7 @@ std::shared_ptr<SocInterface> SocInterface::CreateSocInterface()
         std::shared_ptr<SocInterface> obj = std::make_shared<DefaultSocInterface>();
         return obj;
 }
+
 bool DefaultSocInterface::UseAppSrc()
 {
 #if defined (__APPLE__)

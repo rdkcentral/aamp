@@ -81,6 +81,9 @@ public:
 	MOCK_METHOD(GstPluginFeature *, gst_registry_lookup_feature, (GstRegistry *registry, const char *name));
 	MOCK_METHOD(GstPad*, gst_element_get_static_pad, (GstElement *element, const gchar *name));
 	MOCK_METHOD(gboolean, gst_pad_push_event, (GstPad* pad, GstEvent* event), ());
+	MOCK_METHOD(void, gst_segment_init, (GstSegment *segment, GstFormat format));
+	MOCK_METHOD(GstEvent *, gst_event_new_segment, (GstSegment *segment));
+	MOCK_METHOD(GstEvent*, gst_event_new_custom, (GstEventType type, GstStructure* structure), ());
 
 	/*
 gst_app_sink_get_type

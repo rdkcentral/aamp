@@ -1072,3 +1072,1286 @@ TEST_F(InterfacePlayerTests, GstResetFirstFrame)
 	mInterfaceGstPlayer->ResetFirstFrame();
 	EXPECT_FALSE(mPlayerContext->firstFrameReceived);
 }
+
+TEST_F(InterfacePlayerTests, GstGetVideoPlaybackQuality_StatsNull)
+{
+	GstElement video_sink = {};
+	GstStructure stats = {1};
+	mPlayerContext->video_sink = &video_sink;
+	GstPlaybackQualityStruct* result = mInterfaceGstPlayer->GetVideoPlaybackQuality();
+	EXPECT_EQ(result,nullptr);
+}
+
+TEST_F(InterfacePlayerTests, GstGetVideoPlaybackQuality_NonRealtekPlatform)
+{
+	GstElement video_dec = {};
+	GstStructure stats = {1};
+	GValue value;
+	value.g_type = G_TYPE_UINT64;
+	value.data[0].v_uint64 = 50000;
+
+	mPlayerContext->video_dec = &video_dec;
+
+ 	EXPECT_CALL(*g_mockGLib, g_object_get(_,StrEq("stats"), Matcher<GstStructure*>(_)))
+		.WillOnce(DoAll(SetArgPointee<2>(stats), Return()));
+	EXPECT_CALL(*g_mockGStreamer, gst_structure_get_value(_, StrEq("rendered")))
+		.WillOnce(Return(&value));
+	EXPECT_CALL(*g_mockGStreamer, gst_structure_get_value(_, StrEq("dropped")))
+		.WillOnce(Return(&value));
+	EXPECT_CALL(*g_mockGStreamer, g_value_get_uint64(&value)).Times(2)
+	.WillOnce(Return(90000)).WillOnce(Return(50000));
+
+	GstPlaybackQualityStruct* result = mInterfaceGstPlayer->GetVideoPlaybackQuality();
+
+	if (result)
+	{
+		EXPECT_EQ(result->rendered, 90000);
+		EXPECT_EQ(result->dropped, 50000);
+	}
+	else
+	{
+		assert(false); // Fail the test if null is returned
+	}
+
+}
+
+#if 0
+TEST_F(InterfacePlayerTests, GstGetVideoPlaybackQuality_VideoSink)
+{
+    GstElement* video_sink = gst_element_factory_make("fakesink", "sink");
+    GstStructure* stats = gst_structure_new_empty("dummy_stats");
+
+    // GValue for "rendered"
+    GValue rendered_val = G_VALUE_INIT;
+    g_value_init(&rendered_val, G_TYPE_UINT64);
+    g_value_set_uint64(&rendered_val, 90000);
+
+    // GValue for "dropped"
+    GValue dropped_val = G_VALUE_INIT;
+    g_value_init(&dropped_val, G_TYPE_UINT64);
+    g_value_set_uint64(&dropped_val, 50000);
+
+    mPlayerContext->video_sink = video_sink;
+
+    EXPECT_CALL(*g_mockGStreamer, gst_structure_get_value(_, StrEq("rendered")))
+        .WillOnce(Return(&rendered_val));
+
+    EXPECT_CALL(*g_mockGStreamer, gst_structure_get_value(_, StrEq("dropped")))
+        .WillOnce(Return(&dropped_val));
+
+    EXPECT_CALL(*g_mockGStreamer, g_value_get_uint64(&rendered_val))
+        .WillOnce(Return(90000));
+
+    EXPECT_CALL(*g_mockGStreamer, g_value_get_uint64(&dropped_val))
+        .WillOnce(Return(50000));
+
+    GstPlaybackQualityStruct* result = mInterfaceGstPlayer->GetVideoPlaybackQuality();
+
+    ASSERT_NE(result, nullptr);
+    EXPECT_EQ(result->rendered, 90000);
+    EXPECT_EQ(result->dropped, 50000);
+
+    gst_structure_free(stats);
+    gst_object_unref(video_sink);
+}
+#endif
+
+TEST_F(InterfacePlayerTests, GstGetPositionMilliseconds)
+{
+	mPlayerContext->pipeline = nullptr;
+
+	long long result = mInterfaceGstPlayer->GetPositionMilliseconds();
+
+	EXPECT_EQ(mInterfaceGstPlayer->GetPositionMilliseconds(), 0);
+
+	mPlayerContext->pipeline = &gst_element_pipeline;
+	mPlayerContext->positionQuery = nullptr;
+
+	EXPECT_EQ(mInterfaceGstPlayer->GetPositionMilliseconds(), 0);
+
+	mPlayerContext->positionQuery = &query;
+	mPlayerContext->pipelineState = GST_STATE_READY;
+	mPlayerContext->paused = false;
+
+	EXPECT_EQ(mInterfaceGstPlayer->GetPositionMilliseconds(), 0);
+
+	mPlayerContext->pipelineState = GST_STATE_PLAYING;
+	mPlayerContext->paused = false;
+	mPlayerContext->segmentStart = -1;
+	EXPECT_CALL(*g_mockGStreamer, gst_element_query(_,_)).WillRepeatedly(Return(FALSE));
+	EXPECT_EQ(mInterfaceGstPlayer->GetPositionMilliseconds(), 0);
+
+	EXPECT_CALL(*g_mockGStreamer, gst_element_query(_,_)).Times(2).WillOnce(Return(TRUE)).WillOnce(Return(FALSE));
+	EXPECT_EQ(mInterfaceGstPlayer->GetPositionMilliseconds(), 0);
+
+	mPlayerContext->segmentStart = 1;
+	mPlayerConfigParams->media = eGST_MEDIAFORMAT_PROGRESSIVE;
+	gint64 pos = 5000000;
+	EXPECT_CALL(*g_mockGStreamer, gst_query_parse_position(_,_,_))
+		.WillOnce(DoAll(SetArgPointee<2>(pos), Return()));
+	EXPECT_CALL(*g_mockGStreamer, gst_element_query(_,_)).WillRepeatedly(Return(TRUE));
+	EXPECT_EQ(mInterfaceGstPlayer->GetPositionMilliseconds(), 4); // {(5000000/1000000) -1 } * 4
+
+	mPlayerContext->segmentStart = -1;
+	EXPECT_CALL(*g_mockGStreamer, gst_query_parse_position(_,_,_))
+		.WillOnce(DoAll(SetArgPointee<2>(pos), Return()));
+	EXPECT_CALL(*g_mockGStreamer, gst_element_query(_,_)).Times(2).WillOnce(Return(FALSE)).WillOnce(Return(TRUE));
+	EXPECT_EQ(mInterfaceGstPlayer->GetPositionMilliseconds(), 5); // (5000000/1000000)  * 4
+}
+
+TEST_F(InterfacePlayerTests, GstGetDurationMilliseconds_PipelineNull)
+{
+	//PipelineNull
+	mPlayerContext->pipeline = nullptr;
+	long result = mInterfaceGstPlayer->GetDurationMilliseconds();
+	EXPECT_EQ(result, 0);
+}
+
+TEST_F(InterfacePlayerTests, GstGetDurationMilliseconds_PipelineNotPlayingOrPaused)
+{
+	mPlayerContext->pipeline = &gst_element_pipeline;
+	mPlayerContext->pipelineState = GST_STATE_READY;
+	mPlayerContext->paused = false;
+
+	long result = mInterfaceGstPlayer->GetDurationMilliseconds();
+
+	EXPECT_EQ(result, 0);
+}
+
+TEST_F(InterfacePlayerTests, GstGetVideoSize_ValidRectangle)
+{
+	int width = 0;
+	int height = 0;
+	std::string videoRectangle = "10,20,1920,1080";
+	strncpy(mPlayerContext->videoRectangle, videoRectangle.c_str(), sizeof(mPlayerContext->videoRectangle) - 1);
+
+	mInterfaceGstPlayer->GetVideoSize(width, height);
+
+	EXPECT_EQ(width, 1920);
+	EXPECT_EQ(height, 1080);
+}
+
+TEST_F(InterfacePlayerTests, GstGetVideoSize_InvalidRectangle)
+{
+	int width = 0;
+	int height = 0;
+	std::string videoRectangle = "10,20,0,0";
+	strncpy(mPlayerContext->videoRectangle, videoRectangle.c_str(), sizeof(mPlayerContext->videoRectangle) - 1);
+
+	mInterfaceGstPlayer->GetVideoSize(width, height);
+
+	EXPECT_EQ(width, 0);
+	EXPECT_EQ(height, 0);
+}
+
+TEST_F(InterfacePlayerTests, GstGetVideoSize_InvalidRectangle2)
+{
+	int width = 0;
+	int height = 0;
+	std::string videoRectangle = "10,20,-12,-240000000000"; //negative values , overflow values
+	strncpy(mPlayerContext->videoRectangle, videoRectangle.c_str(), sizeof(mPlayerContext->videoRectangle) - 1);
+
+	mInterfaceGstPlayer->GetVideoSize(width, height);
+
+	EXPECT_EQ(width, 0);
+	EXPECT_EQ(height, 0);
+}
+
+TEST_F(InterfacePlayerTests, GstGetVideoSize_PartialRectangle)
+{
+	int width = 0;
+	int height = 0;
+	std::string videoRectangle = "10,20,1920";
+	strncpy(mPlayerContext->videoRectangle, videoRectangle.c_str(), sizeof(mPlayerContext->videoRectangle) - 1);
+
+	mInterfaceGstPlayer->GetVideoSize(width, height);
+
+	EXPECT_EQ(width, 0);
+	EXPECT_EQ(height, 0);
+}
+
+TEST_F(InterfacePlayerTests, GstGetVideoSize_EmptyRectangle)
+{
+	int width = 0;
+	int height = 0;
+	std::string videoRectangle = "";
+	strncpy(mPlayerContext->videoRectangle, videoRectangle.c_str(), sizeof(mPlayerContext->videoRectangle) - 1);
+
+	mInterfaceGstPlayer->GetVideoSize(width, height);
+
+	EXPECT_EQ(width, 0);
+	EXPECT_EQ(height, 0);
+}
+
+TEST_F(InterfacePlayerTests, GstSetSubtitleMute_WithSubtitleSink)
+{
+	GstElement subtitle_sink = {};
+	mPlayerContext->subtitle_sink = &subtitle_sink;
+
+	EXPECT_CALL(*g_mockGLib, g_object_set(&subtitle_sink, StrEq("mute"), Matcher<int>(true)));
+	mInterfaceGstPlayer->SetSubtitleMute(true);
+	EXPECT_TRUE(mPlayerContext->subtitleMuted);
+
+	EXPECT_CALL(*g_mockGLib, g_object_set(&subtitle_sink, StrEq("mute"), Matcher<int>(false)));
+	mInterfaceGstPlayer->SetSubtitleMute(false);
+	EXPECT_FALSE(mPlayerContext->subtitleMuted);
+}
+
+TEST_F(InterfacePlayerTests, GstSetSubtitleMute_WithoutSubtitleSink)
+{
+	mPlayerContext->subtitle_sink = nullptr;
+
+	EXPECT_CALL(*g_mockGLib, g_object_set(_, StrEq("mute"),Matcher<int>(_))).Times(0);
+	mInterfaceGstPlayer->SetSubtitleMute(true);
+	EXPECT_TRUE(mPlayerContext->subtitleMuted);
+
+	mInterfaceGstPlayer->SetSubtitleMute(false);
+	EXPECT_FALSE(mPlayerContext->subtitleMuted);
+}
+
+TEST_F(InterfacePlayerTests, GstSetVideoRectangle_SameCoordinates)
+{
+	int x = 10, y = 20, w = 1920, h = 1080;
+	std::string videoRectangle = "10,20,1920,1080";
+	strncpy(mPlayerContext->videoRectangle, videoRectangle.c_str(), sizeof(mPlayerContext->videoRectangle) - 1);
+
+	mInterfaceGstPlayer->SetVideoRectangle(x, y, w, h);
+
+	EXPECT_STREQ(mPlayerContext->videoRectangle, videoRectangle.c_str());
+}
+
+TEST_F(InterfacePlayerTests, GstSetVideoRectangle_DifferentCoordinates)
+{
+	int x = 10, y = 20, w = 1920, h = 1080;
+	std::string videoRectangle = "0,0,1280,720";
+	strncpy(mPlayerContext->videoRectangle, videoRectangle.c_str(), sizeof(mPlayerContext->videoRectangle) - 1);
+
+	mPlayerConfigParams->enableRectPropertyCfg = true;
+	GstElement video_sink = {};
+	mPlayerContext->video_sink = &video_sink;
+
+	EXPECT_CALL(*g_mockGLib, g_object_set(&video_sink, StrEq("rectangle"),  Matcher<char *>(_)));
+
+	mInterfaceGstPlayer->SetVideoRectangle(x, y, w, h);
+
+	EXPECT_STREQ(mPlayerContext->videoRectangle, "10,20,1920,1080");
+}
+
+TEST_F(InterfacePlayerTests, GstSetVideoRectangle_EnableRectPropertyCfgFalse)
+{
+	int x = 10, y = 20, w = 1920, h = 1080;
+	std::string videoRectangle = "0,0,1280,720";
+	strncpy(mPlayerContext->videoRectangle, videoRectangle.c_str(), sizeof(mPlayerContext->videoRectangle) - 1);
+
+	mPlayerConfigParams->enableRectPropertyCfg = false;
+
+	mInterfaceGstPlayer->SetVideoRectangle(x, y, w, h);
+
+	EXPECT_STREQ(mPlayerContext->videoRectangle, "10,20,1920,1080");
+}
+
+TEST_F(InterfacePlayerTests, GstSetVideoRectangle_VideoSinkNull)
+{
+	int x = 10, y = 20, w = 1920, h = 1080;
+	std::string videoRectangle = "0,0,1280,720";
+	strncpy(mPlayerContext->videoRectangle, videoRectangle.c_str(), sizeof(mPlayerContext->videoRectangle) - 1);
+
+	mPlayerConfigParams->enableRectPropertyCfg = true;
+	mPlayerContext->video_sink = nullptr;
+
+	mInterfaceGstPlayer->SetVideoRectangle(x, y, w, h);
+
+	EXPECT_STREQ(mPlayerContext->videoRectangle, "10,20,1920,1080");
+}
+
+
+TEST_F(InterfacePlayerTests, StopBuffering_ForceStopTrue)
+{
+	bool isPlaying = false;
+	bool forceStop = true;
+
+	GstElement video_dec = {};
+	mPlayerContext->video_dec = &video_dec;
+	EXPECT_CALL(*g_mockGStreamer, gst_element_get_state(_, _, _, _))
+			 .WillOnce(DoAll(SetArgPointee<1>(GST_STATE_PLAYING), SetArgPointee<2>(GST_STATE_PLAYING), Return(GST_STATE_CHANGE_SUCCESS)));
+
+
+	bool result = mInterfaceGstPlayer->StopBuffering(forceStop, isPlaying);
+
+	EXPECT_TRUE(result);
+	EXPECT_TRUE(isPlaying);
+}
+
+
+TEST_F(InterfacePlayerTests, StopBuffering_EnoughData)
+{
+	bool isPlaying = false;
+	bool forceStop = false;
+
+	GstElement video_dec = {};
+	mPlayerContext->video_dec = &video_dec;
+	mPlayerConfigParams->framesToQueue = 5;
+
+	EXPECT_CALL(*g_mockGLib, g_object_get(&video_dec, StrEq("queued_frames"),Matcher<uint*>(_)))
+		.WillOnce(DoAll(SetArgPointee<2>(6), Return()));
+
+	GstElement pipeline = {};
+	mPlayerContext->pipeline = &pipeline;
+
+	EXPECT_CALL(*g_mockGStreamer, gst_element_get_state(_, _, _, _))
+		.WillOnce(DoAll(SetArgPointee<1>(GST_STATE_PLAYING), SetArgPointee<2>(GST_STATE_NULL), Return(GST_STATE_CHANGE_SUCCESS)));
+
+	bool result = mInterfaceGstPlayer->StopBuffering(forceStop, isPlaying);
+
+	EXPECT_TRUE(result);
+	EXPECT_TRUE(isPlaying);
+}
+
+TEST_F(InterfacePlayerTests, StopBuffering_NotEnoughData)
+{
+	bool isPlaying = false;
+	bool forceStop = false;
+
+	GstElement video_dec = {};
+	mPlayerContext->video_dec = &video_dec;
+	mPlayerConfigParams->framesToQueue = 5;
+
+	EXPECT_CALL(*g_mockGLib, g_object_get(&video_dec, StrEq("queued_frames"),Matcher<uint*>(_)))
+		.WillOnce(DoAll(SetArgPointee<2>(4), Return()));
+
+	bool result = mInterfaceGstPlayer->StopBuffering(forceStop, isPlaying);
+
+	EXPECT_FALSE(result);
+	EXPECT_FALSE(isPlaying);
+}
+
+TEST_F(InterfacePlayerTests, StopBuffering_GstElementGetStateFailure)
+{
+	bool isPlaying = false;
+	bool forceStop = false;
+
+	GstElement video_dec = {};
+	mPlayerContext->video_dec = &video_dec;
+	mPlayerConfigParams->framesToQueue = 5;
+
+	EXPECT_CALL(*g_mockGLib, g_object_get(&video_dec, StrEq("queued_frames"),Matcher<uint*>(_)))
+		.WillOnce(DoAll(SetArgPointee<2>(6), Return()));
+
+	GstElement pipeline = {};
+	mPlayerContext->pipeline = &pipeline;
+
+	EXPECT_CALL(*g_mockGStreamer, gst_element_get_state(&pipeline, _, _, _))
+		.WillOnce(Return(GST_STATE_CHANGE_FAILURE));
+
+	bool result = mInterfaceGstPlayer->StopBuffering(forceStop, isPlaying);
+
+	EXPECT_FALSE(result);
+	EXPECT_FALSE(isPlaying);
+}
+
+TEST_F(InterfacePlayerTests, WaitForSourceSetup_Success)
+{
+	GstMediaType mediaType = eGST_MEDIATYPE_VIDEO;
+	gst_media_stream* stream = &mPlayerContext->stream[mediaType];
+	stream->sourceConfigured = false;
+
+	std::thread setupThread([&]() {
+		std::this_thread::sleep_for(std::chrono::milliseconds(200));
+		{
+			std::lock_guard<std::mutex> lock(mInterfaceGstPlayer->mSourceSetupMutex);
+			stream->sourceConfigured = true;
+		}
+		mInterfaceGstPlayer->mSourceSetupCV.notify_all();
+	});
+
+	bool result = mInterfaceGstPlayer->WaitForSourceSetup(mediaType);
+
+	EXPECT_TRUE(result);
+	EXPECT_TRUE(stream->sourceConfigured);
+
+	setupThread.join();
+}
+
+TEST_F(InterfacePlayerTests, WaitForSourceSetup_Timeout)
+{
+	GstMediaType mediaType = eGST_MEDIATYPE_VIDEO;
+	gst_media_stream* stream = &mPlayerContext->stream[mediaType];
+	stream->sourceConfigured = false;
+
+	bool result = mInterfaceGstPlayer->WaitForSourceSetup(mediaType);
+
+	EXPECT_FALSE(result);
+	EXPECT_FALSE(stream->sourceConfigured);
+}
+
+TEST_F(InterfacePlayerTests, WaitForSourceSetup_PauseInjector)
+{
+	GstMediaType mediaType = eGST_MEDIATYPE_VIDEO;
+	gst_media_stream* stream = &mPlayerContext->stream[mediaType];
+	stream->sourceConfigured = false;
+	mInterfaceGstPlayer->mPauseInjector = true;
+
+	bool result = mInterfaceGstPlayer->WaitForSourceSetup(mediaType);
+
+	EXPECT_FALSE(result);
+	EXPECT_FALSE(stream->sourceConfigured);
+}
+
+TEST_F(InterfacePlayerTests, ForwardBuffersToAuxPipeline_WaitForSourceSetupFailed)
+{
+	GstBuffer buffer = {};
+    gst_media_stream* stream = &mPlayerContext->stream[eGST_MEDIATYPE_AUX_AUDIO];
+    stream->format = GST_FORMAT_ISO_BMFF;
+    stream->sourceConfigured = false;
+
+	EXPECT_CALL(*g_mockGStreamer, gst_buffer_copy_into(_, _, _, _, _)).Times(0);
+	EXPECT_CALL(*g_mockGStreamer, gst_app_src_push_buffer(_, _)).Times(0);
+
+    // Run the method
+    mInterfacePrivatePlayer->ForwardBuffersToAuxPipeline(&buffer, true, mInterfaceGstPlayer);
+}
+
+TEST_F(InterfacePlayerTests, ForwardBuffersToAuxPipeline_PushBufferFailed)
+{
+	GstBuffer buffer = {};
+	gst_media_stream* stream = &mPlayerContext->stream[eGST_MEDIATYPE_AUX_AUDIO];
+	stream->sourceConfigured = true;
+	stream->format = GST_FORMAT_ISO_BMFF;
+	stream->source = &gst_element_pipeline;
+
+	GstBuffer fwdBuffer = {};
+	//assert(false) in source code causes premature exit which causes expect_call to fail
+	ON_CALL(*g_mockGStreamer, gst_buffer_new())
+		.WillByDefault(Return(&fwdBuffer));
+	ON_CALL(*g_mockGStreamer, gst_buffer_copy_into(_,_,_,_,_))
+		.WillByDefault(Return(TRUE));
+	ON_CALL(*g_mockGStreamer, gst_app_src_push_buffer(_,_))
+		.WillByDefault(Return(GST_FLOW_ERROR));
+
+	//catches the assert(false) in the function
+	EXPECT_DEATH(mInterfacePrivatePlayer->ForwardBuffersToAuxPipeline(&buffer,true,mInterfaceGstPlayer), "Assertion");
+}
+
+TEST_F(InterfacePlayerTests, HandleVideoBufferSent_SubsequentBuffer)
+{
+	mPlayerContext->numberOfVideoBuffersSent = 5;
+	bool result = mInterfaceGstPlayer->HandleVideoBufferSent();
+
+	EXPECT_FALSE(result);
+	EXPECT_EQ(mPlayerContext->numberOfVideoBuffersSent, 6);
+}
+
+TEST_F(InterfacePlayerTests, SetPlayerName)
+{
+	std::string testName = "TestPlayer";
+	mInterfaceGstPlayer->SetPlayerName(testName);
+	EXPECT_EQ(mInterfacePrivatePlayer->mPlayerName, testName);
+}
+
+TEST_F(InterfacePlayerTests, PauseInjector_SetsPauseInjectorToTrue)
+{
+	mInterfaceGstPlayer->mPauseInjector = false;
+	mInterfaceGstPlayer->PauseInjector();
+	EXPECT_TRUE(mInterfaceGstPlayer->mPauseInjector);
+}
+
+TEST_F(InterfacePlayerTests, ResumeInjector_SetsPauseInjectorToFalseAndNotifiesAll)
+{
+	mInterfaceGstPlayer->mPauseInjector = true;
+	mInterfaceGstPlayer->ResumeInjector();
+	EXPECT_FALSE(mInterfaceGstPlayer->mPauseInjector);
+}
+
+TEST_F(InterfacePlayerTests, SendNewSegmentEvent_VideoMediaType)
+{
+	GstMediaType mediaType = eGST_MEDIATYPE_VIDEO;
+	GstClockTime startPts = 1000;
+	GstClockTime stopPts = 2000;
+	mPlayerContext->stream[mediaType].format = GST_FORMAT_ISO_BMFF;
+
+	GstPad gst_pad = {};
+	GstEvent gst_event = {};
+
+	// Mock the necessary GStreamer functions and objects
+	EXPECT_CALL(*g_mockGStreamer, gst_element_get_static_pad(_, StrEq("src")))
+		.WillRepeatedly(Return(&gst_pad));
+	EXPECT_CALL(*g_mockGStreamer, gst_segment_init(_, GST_FORMAT_TIME))
+		.WillRepeatedly(DoAll(SetArgPointee<0>(GstSegment{}), Return()));
+	EXPECT_CALL(*g_mockGStreamer, gst_event_new_segment(_))
+		.WillRepeatedly(Return(&gst_event));
+	EXPECT_CALL(*g_mockGStreamer, gst_pad_push_event(_, _))
+		.WillOnce(Return(TRUE)).WillOnce(Return(FALSE));	// success and failure case
+	EXPECT_CALL(*g_mockGStreamer, gst_object_unref(_))
+		.Times(2);
+
+
+	mInterfacePrivatePlayer->SendNewSegmentEvent(mediaType, startPts, stopPts);	//success
+	mInterfacePrivatePlayer->SendNewSegmentEvent(mediaType, startPts, stopPts);	//failure
+}
+
+TEST_F(InterfacePlayerTests, Queue_and_ClearProtectionEvent)
+{
+	std::string formatType = "cenc";
+	const char *protSystemId = "test-system-id";
+	const char initData[] = "test-init-data";
+	size_t initDataSize = sizeof(initData);
+	int mediaType = eGST_MEDIATYPE_VIDEO;
+	GstBuffer gst_buffer = {};
+	GstEvent gst_event = {};
+
+	// Mock the necessary GStreamer functions and objects
+	EXPECT_CALL(*g_mockGStreamer, gst_buffer_new_wrapped(NotNull(), initDataSize))
+		.WillRepeatedly(Return(&gst_buffer));
+	EXPECT_CALL(*g_mockGStreamer, gst_event_new_protection(StrEq(protSystemId), &gst_buffer, StrEq(formatType.c_str())))
+		.WillRepeatedly(Return(&gst_event));
+
+	mInterfaceGstPlayer->QueueProtectionEvent(formatType, protSystemId, initData, initDataSize, mediaType);
+
+	//call again to test GstPrivateContext->protectionEvent[type] != NULL
+	mInterfaceGstPlayer->QueueProtectionEvent(formatType, protSystemId, initData, initDataSize, mediaType);
+
+	// Verify the protection event is queued
+	EXPECT_EQ(mPlayerContext->protectionEvent[mediaType], &gst_event);
+	EXPECT_NE(mPlayerContext->protectionEvent[mediaType],nullptr) ;
+
+	//test InterfacePlayerRDK::ClearProtectionEvent()
+	mInterfaceGstPlayer->ClearProtectionEvent();
+	EXPECT_EQ(mPlayerContext->protectionEvent[mediaType], nullptr);
+}
+
+TEST_F(InterfacePlayerTests, Pause_PipelineNull)
+{
+	bool pause = true;
+	bool forceStopGstreamerPreBuffering = false;
+
+	// Set pipeline to NULL
+	mPlayerContext->pipeline = NULL;
+	bool result = mInterfaceGstPlayer->Pause(pause, forceStopGstreamerPreBuffering);
+	EXPECT_FALSE(result);
+}
+
+TEST_F(InterfacePlayerTests, Pause_Failure)
+{
+	bool pause = true;
+	bool forceStopGstreamerPreBuffering = false;
+
+	// Set pipeline to a non-null value
+	mPlayerContext->pipeline = &gst_element_pipeline;
+
+	EXPECT_CALL(*g_mockGStreamer, gst_element_get_state(_, NotNull(), NotNull(), _))
+		.WillRepeatedly(Return(GST_STATE_CHANGE_SUCCESS));
+
+	EXPECT_CALL(*g_mockGStreamer, gst_element_set_state(_, GST_STATE_PAUSED))
+		.WillOnce(Return(GST_STATE_CHANGE_FAILURE));
+
+	bool result = mInterfaceGstPlayer->Pause(pause, forceStopGstreamerPreBuffering);
+
+	EXPECT_TRUE(result);
+}
+
+TEST_F(InterfacePlayerTests, IsCacheEmpty_SourceNull)
+{
+	int mediaType = eGST_MEDIATYPE_VIDEO;
+	gst_media_stream* stream = &mPlayerContext->stream[mediaType];
+	stream->source = nullptr;
+
+	bool result = mInterfaceGstPlayer->IsCacheEmpty(mediaType);
+
+	EXPECT_TRUE(result);
+}
+
+TEST_F(InterfacePlayerTests, IsCacheEmpty_CacheLevelNotEmpty)
+{
+	int mediaType = eGST_MEDIATYPE_VIDEO;
+	gst_media_stream* stream = &mPlayerContext->stream[mediaType];
+	stream->source = &gst_element_pipeline;
+
+	EXPECT_CALL(*g_mockGStreamer, gst_app_src_get_current_level_bytes(GST_APP_SRC(stream->source)))
+		.WillOnce(Return(1000));
+
+	bool result = mInterfaceGstPlayer->IsCacheEmpty(mediaType);
+
+	EXPECT_FALSE(result);
+}
+
+TEST_F(InterfacePlayerTests, IsCacheEmpty_CacheLevelEmpty_BufferUnderrun)
+{
+	int mediaType = eGST_MEDIATYPE_VIDEO;
+	gst_media_stream* stream = &mPlayerContext->stream[mediaType];
+	stream->source = &gst_element_pipeline;
+	mPlayerContext->stream[eGST_MEDIATYPE_VIDEO].bufferUnderrun = true;
+
+	EXPECT_CALL(*g_mockGStreamer, gst_app_src_get_current_level_bytes(GST_APP_SRC(stream->source)))
+		.WillOnce(Return(0));
+
+	bool result = mInterfaceGstPlayer->IsCacheEmpty(mediaType);
+
+	EXPECT_TRUE(result);
+}
+
+TEST_F(InterfacePlayerTests, IsCacheEmpty_CacheLevelEmpty_PTSChanged)
+{
+	int mediaType = eGST_MEDIATYPE_VIDEO;
+	gst_media_stream* stream = &mPlayerContext->stream[mediaType];
+	stream->source = &gst_element_pipeline;
+	mPlayerContext->stream[eGST_MEDIATYPE_VIDEO].bufferUnderrun = false;
+	mPlayerContext->stream[eGST_MEDIATYPE_AUDIO].bufferUnderrun = false;
+
+	EXPECT_CALL(*g_mockGStreamer, gst_app_src_get_current_level_bytes(GST_APP_SRC(stream->source)))
+		.WillOnce(Return(0));
+
+	bool result = mInterfaceGstPlayer->IsCacheEmpty(mediaType);
+
+	EXPECT_FALSE(result);
+}
+
+TEST_F(InterfacePlayerTests, ResetEOSSignalledFlag)
+{
+	mPlayerContext->eosSignalled = true;
+	mInterfaceGstPlayer->ResetEOSSignalledFlag();
+	EXPECT_FALSE(mPlayerContext->eosSignalled);
+}
+
+TEST_F(InterfacePlayerTests, PipelineConfiguredForMedia_True)
+{
+	int mediaType = eGST_MEDIATYPE_VIDEO;
+	gst_media_stream* stream = &mPlayerContext->stream[mediaType];
+	stream->sourceConfigured = true;
+
+	bool result = mInterfaceGstPlayer->PipelineConfiguredForMedia(mediaType);
+
+	EXPECT_TRUE(result);
+}
+
+TEST_F(InterfacePlayerTests, PipelineConfiguredForMedia_False)
+{
+	int mediaType = eGST_MEDIATYPE_VIDEO;
+	gst_media_stream* stream = &mPlayerContext->stream[mediaType];
+	stream->sourceConfigured = false;
+
+	bool result = mInterfaceGstPlayer->PipelineConfiguredForMedia(mediaType);
+
+	EXPECT_FALSE(result);
+}
+
+TEST_F(InterfacePlayerTests, GetBufferControlData_PausedState)
+{
+	int mediaType = eGST_MEDIATYPE_VIDEO;
+	gst_media_stream* stream = &mPlayerContext->stream[mediaType];
+	GstElement sinkbin = {};
+	stream->sinkbin = &sinkbin;
+	mPlayerContext->paused = false;
+
+	EXPECT_CALL(*g_mockGStreamer, gst_element_get_state(&sinkbin, NotNull(), NotNull(), _))
+		.WillOnce(DoAll(SetArgPointee<1>(GST_STATE_PAUSED), SetArgPointee<2>(GST_STATE_NULL), Return(GST_STATE_CHANGE_SUCCESS)));
+
+	bool result = mInterfaceGstPlayer->GetBufferControlData(mediaType);
+
+	EXPECT_TRUE(result);
+
+	EXPECT_CALL(*g_mockGStreamer, gst_element_get_state(&sinkbin, NotNull(), NotNull(), _))
+		.WillOnce(DoAll(SetArgPointee<1>(GST_STATE_PLAYING), SetArgPointee<2>(GST_STATE_NULL), Return(GST_STATE_CHANGE_SUCCESS)));
+
+	result = mInterfaceGstPlayer->GetBufferControlData(mediaType);
+
+	EXPECT_FALSE(result);
+}
+
+TEST_F(InterfacePlayerTests, IsStreamReadyTest)
+{
+	int mediaType = eGST_MEDIATYPE_VIDEO;
+	gst_media_stream* stream = &mPlayerContext->stream[mediaType];
+	GstElement sinkbin = {};
+	stream->sinkbin = &sinkbin;
+	stream->sourceConfigured = true;
+
+	EXPECT_TRUE(mInterfaceGstPlayer->IsStreamReady(mediaType));
+
+	stream->sinkbin = nullptr;
+	stream->sourceConfigured = true;
+	EXPECT_FALSE(mInterfaceGstPlayer->IsStreamReady(mediaType));
+
+	sinkbin = {};
+	stream->sinkbin = &sinkbin;
+	stream->sourceConfigured = false;
+	EXPECT_FALSE(mInterfaceGstPlayer->IsStreamReady(mediaType));
+
+
+	stream->sinkbin = nullptr;
+	stream->sourceConfigured = false;
+	EXPECT_FALSE(mInterfaceGstPlayer->IsStreamReady(mediaType));
+}
+
+TEST_F(InterfacePlayerTests, SignalTrickModeDiscontinuity_TrickmodeSuccess)
+{
+	gst_media_stream* stream = &mPlayerContext->stream[eGST_MEDIATYPE_VIDEO];
+	stream->source = &gst_element_pipeline;
+	mPlayerContext->rate = 2; // != NORMAL_PLAY_RATE
+	mPlayerConfigParams->vodTrickModeFPS = 30;
+
+	GstPad gst_pad = {};
+	GstEvent gst_event = {};
+	GstStructure gst_structure = {};
+
+	EXPECT_CALL(*g_mockGStreamer, gst_element_get_static_pad(_, StrEq("src")))
+		.WillOnce(Return(&gst_pad));
+	EXPECT_CALL(*g_mockGStreamer, gst_event_new_custom(GST_EVENT_CUSTOM_DOWNSTREAM,_))
+		.WillOnce(Return(&gst_event));
+	EXPECT_CALL(*g_mockGStreamer, gst_pad_push_event(&gst_pad,_))
+		.WillOnce(Return(TRUE)); // Success case
+	EXPECT_CALL(*g_mockGStreamer, gst_object_unref(&gst_pad))
+		.Times(1);
+
+	mInterfaceGstPlayer->SignalTrickModeDiscontinuity();
+}
+
+TEST_F(InterfacePlayerTests, SignalTrickModeDiscontinuity_TrickmodeFail)
+{
+	gst_media_stream* stream = &mPlayerContext->stream[eGST_MEDIATYPE_VIDEO];
+	stream->source = &gst_element_pipeline;
+	mPlayerContext->rate = 2; // != NORMAL_PLAY_RATE
+	mPlayerConfigParams->vodTrickModeFPS = 30;
+
+	GstPad gst_pad = {};
+	GstEvent gst_event = {};
+	GstStructure gst_structure = {};
+
+	EXPECT_CALL(*g_mockGStreamer, gst_element_get_static_pad(_, StrEq("src")))
+		.WillOnce(Return(&gst_pad));
+	EXPECT_CALL(*g_mockGStreamer, gst_event_new_custom(GST_EVENT_CUSTOM_DOWNSTREAM,_))
+		.WillOnce(Return(&gst_event));
+	EXPECT_CALL(*g_mockGStreamer, gst_pad_push_event(&gst_pad,_))
+		.WillOnce(Return(false)); // Failure case
+	EXPECT_CALL(*g_mockGStreamer, gst_object_unref(&gst_pad))
+		.Times(1);
+
+	mInterfaceGstPlayer->SignalTrickModeDiscontinuity();
+}
+
+TEST_F(InterfacePlayerTests, EnableGstDebugLogging)
+{
+	std::string debugLevel = "";
+	EXPECT_CALL(*g_mockGStreamer, gst_debug_set_threshold_from_string(_, _)).Times(0);
+	mInterfaceGstPlayer->EnableGstDebugLogging(debugLevel);
+
+	debugLevel = "GST_LEVEL_DEBUG";
+	EXPECT_CALL(*g_mockGStreamer, gst_debug_set_threshold_from_string(StrEq(debugLevel.c_str()), 1)).Times(1);
+	mInterfaceGstPlayer->EnableGstDebugLogging(debugLevel);
+}
+
+TEST_F(InterfacePlayerTests, CheckDiscontinuity_FirstBufferNotProcessed)
+{
+	int mediaType = eGST_MEDIATYPE_VIDEO;
+	int streamFormat = GST_FORMAT_ISO_BMFF;
+	bool codecChange = false;
+	bool unblockDiscProcess = false;
+	bool shouldHaltBuffering = false;
+
+	gst_media_stream* stream = &mPlayerContext->stream[mediaType];
+	stream->format = GST_FORMAT_ISO_BMFF;
+	stream->firstBufferProcessed = false;
+
+	bool result = mInterfaceGstPlayer->CheckDiscontinuity(mediaType, streamFormat, codecChange, unblockDiscProcess, shouldHaltBuffering);
+
+	EXPECT_FALSE(result);
+	EXPECT_FALSE(unblockDiscProcess);
+	EXPECT_FALSE(shouldHaltBuffering);
+}
+
+TEST_F(InterfacePlayerTests, CheckDiscontinuity_AudioDiscontinuity)
+{
+	int mediaType = eGST_MEDIATYPE_AUDIO;
+	int streamFormat = GST_FORMAT_ISO_BMFF;
+	bool codecChange = true;
+	bool unblockDiscProcess = false;
+	bool shouldHaltBuffering = false;
+
+	mPlayerConfigParams->enablePTSReStamp = true;
+	gst_media_stream* stream = &mPlayerContext->stream[mediaType];
+	stream->format = GST_FORMAT_ISO_BMFF;
+	stream->firstBufferProcessed = true;
+
+	gst_media_stream* subtitleStream = &mPlayerContext->stream[eGST_MEDIATYPE_SUBTITLE];
+	subtitleStream->source = &gst_element_pipeline;
+
+
+	bool result = mInterfaceGstPlayer->CheckDiscontinuity(mediaType, streamFormat, codecChange, unblockDiscProcess, shouldHaltBuffering);
+
+	EXPECT_TRUE(result);
+	EXPECT_FALSE(unblockDiscProcess);
+	EXPECT_TRUE(shouldHaltBuffering);
+}
+
+TEST_F(InterfacePlayerTests, CheckDiscontinuity_EnablePTSReStamp_NoCodecChange)
+{
+	int mediaType = eGST_MEDIATYPE_VIDEO;
+	int streamFormat = GST_FORMAT_ISO_BMFF;
+	bool codecChange = false;
+	bool unblockDiscProcess = false;
+	bool shouldHaltBuffering = false;
+
+	mPlayerConfigParams->enablePTSReStamp = true;
+	gst_media_stream* stream = &mPlayerContext->stream[mediaType];
+	stream->format = GST_FORMAT_ISO_BMFF;
+	stream->firstBufferProcessed = true;
+
+	bool result = mInterfaceGstPlayer->CheckDiscontinuity(mediaType, streamFormat, codecChange, unblockDiscProcess, shouldHaltBuffering);
+
+	EXPECT_TRUE(result);
+	EXPECT_TRUE(unblockDiscProcess);
+	EXPECT_FALSE(shouldHaltBuffering);
+}
+
+TEST_F(InterfacePlayerTests, TimerAdd_ValidFunctionAndUserData)
+{
+	GSourceFunc funcPtr = [](gpointer data) -> gboolean { return G_SOURCE_CONTINUE; };
+	int repeatTimeout = 1000;
+	guint taskId = 0;
+	gpointer user_data = reinterpret_cast<gpointer>(0x1234);
+	const char* timerName = "TestTimer";
+
+	EXPECT_CALL(*g_mockGLib, g_timeout_add(repeatTimeout, funcPtr, user_data))
+		.WillOnce(Return(1));
+
+	mInterfaceGstPlayer->TimerAdd(funcPtr, repeatTimeout, taskId, user_data, timerName);
+
+	EXPECT_EQ(taskId, 1);
+}
+
+TEST_F(InterfacePlayerTests, TimerAdd_TaskAlreadyAdded)
+{
+	GSourceFunc funcPtr = [](gpointer data) -> gboolean { return G_SOURCE_CONTINUE; };
+	int repeatTimeout = 1000;
+	guint taskId = 1; // Task already added
+	gpointer user_data = reinterpret_cast<gpointer>(0x1234);
+	const char* timerName = "TestTimer";
+
+	mInterfaceGstPlayer->TimerAdd(funcPtr, repeatTimeout, taskId, user_data, timerName);
+
+	EXPECT_EQ(taskId, 1);
+}
+
+TEST_F(InterfacePlayerTests, TimerAdd_InvalidFunctionPointer)
+{
+	GSourceFunc funcPtr = nullptr; // Invalid function pointer
+	int repeatTimeout = 1000;
+	guint taskId = 0;
+	gpointer user_data = reinterpret_cast<gpointer>(0x1234);
+	const char* timerName = "TestTimer";
+
+	mInterfaceGstPlayer->TimerAdd(funcPtr, repeatTimeout, taskId, user_data, timerName);
+
+	EXPECT_EQ(taskId, 0);
+}
+
+TEST_F(InterfacePlayerTests, TimerAdd_InvalidUserData)
+{
+	GSourceFunc funcPtr = [](gpointer data) -> gboolean { return G_SOURCE_CONTINUE; };
+	int repeatTimeout = 1000;
+	guint taskId = 0;
+	gpointer user_data = nullptr; // Invalid user data
+	const char* timerName = "TestTimer";
+
+	mInterfaceGstPlayer->TimerAdd(funcPtr, repeatTimeout, taskId, user_data, timerName);
+
+	EXPECT_EQ(taskId, 0);
+}
+
+TEST_F(InterfacePlayerTests, TimerIsRunning_TaskRunning)
+{
+	guint taskId = 1; // Task is running
+	bool result = mInterfaceGstPlayer->TimerIsRunning(taskId);
+	EXPECT_TRUE(result);
+
+	taskId = PLAYER_TASK_ID_INVALID; // Task is not running
+	result = mInterfaceGstPlayer->TimerIsRunning(taskId);
+	EXPECT_FALSE(result);
+}
+
+TEST_F(InterfacePlayerTests, IdleTaskClearFlags_Success)
+{
+	GstTaskControlData taskDetails("TestTask");
+	taskDetails.taskID = 1;
+	taskDetails.taskIsPending = true;
+
+	mInterfaceGstPlayer->IdleTaskClearFlags(taskDetails);
+
+	EXPECT_FALSE(taskDetails.taskIsPending);
+	EXPECT_EQ(taskDetails.taskID, 0);
+}
+
+TEST_F(InterfacePlayerTests, IdleTaskClearFlags_Fail)
+{
+	GstTaskControlData taskDetails("TestTask2");
+	taskDetails.taskID = 0;
+	taskDetails.taskIsPending = true;
+
+	mInterfaceGstPlayer->IdleTaskClearFlags(taskDetails);
+
+	EXPECT_FALSE(taskDetails.taskIsPending);
+	EXPECT_EQ(taskDetails.taskID, 0);
+}
+
+TEST_F(InterfacePlayerTests, IdleTaskAdd_TaskNotPending)
+{
+
+	GstTaskControlData taskDetails("TestTask");
+	BackgroundTask funcPtr = [](void* data) -> int { return 0;};
+
+	EXPECT_CALL(*g_mockPlayerScheduler, ScheduleTask(_))
+				.WillOnce(Return(1));
+
+
+	bool result = mInterfaceGstPlayer->IdleTaskAdd(taskDetails, funcPtr);
+
+	EXPECT_TRUE(result);
+	EXPECT_TRUE(taskDetails.taskIsPending);
+	EXPECT_NE(taskDetails.taskID, 0);
+}
+
+TEST_F(InterfacePlayerTests, IdleTaskAdd_TaskAlreadyPending)
+{
+	GstTaskControlData taskDetails("TestTask");
+	taskDetails.taskID = 1;
+	taskDetails.taskIsPending = true;
+	BackgroundTask funcPtr = [](void* data) -> int { return 0;};
+
+	bool result = mInterfaceGstPlayer->IdleTaskAdd(taskDetails, funcPtr);
+
+	EXPECT_FALSE(result);
+	EXPECT_TRUE(taskDetails.taskIsPending);
+	EXPECT_EQ(taskDetails.taskID, 1);
+}
+
+TEST_F(InterfacePlayerTests, IdleTaskAdd_TaskFailedToAdd)
+{
+	GstTaskControlData taskDetails("TestTask");
+	BackgroundTask funcPtr = [](void* data) -> int { return 0;};
+
+	// Simulate failure to add task
+	EXPECT_CALL(*g_mockPlayerScheduler, ScheduleTask(_))
+				.WillOnce(Return(0));
+
+	bool result = mInterfaceGstPlayer->IdleTaskAdd(taskDetails, funcPtr);
+
+	EXPECT_FALSE(result);
+	EXPECT_FALSE(taskDetails.taskIsPending);
+	EXPECT_EQ(taskDetails.taskID, 0);
+}
+
+TEST_F(InterfacePlayerTests, FirstFrameCallback_SetAndInvoke)
+{
+    bool callbackInvoked = false;
+    GstMediaType expectedMediaType = eGST_MEDIATYPE_VIDEO;
+    bool notifyFirstBuffer = false;
+    bool decoderHandleNotified = false;
+    bool requireFirstVideoFrameDisplay = false;
+    bool audioOnly = false;
+
+    // Set the callback using lambda
+	mInterfaceGstPlayer->FirstFrameCallback(
+		[&](int mediaType, bool notifyBuffer, bool decoderNotified, bool& requireFirstVideoFrame, bool& audio) {
+			callbackInvoked = true;
+			EXPECT_EQ(mediaType, static_cast<int>(expectedMediaType));
+			EXPECT_EQ(notifyBuffer, notifyFirstBuffer);
+			EXPECT_EQ(decoderNotified, decoderHandleNotified);
+
+			requireFirstVideoFrame = true;
+			audio = true;
+		});
+		
+    // Invoke the callback
+    mInterfaceGstPlayer->notifyFirstFrameCallback(expectedMediaType, notifyFirstBuffer, decoderHandleNotified,
+                                                  requireFirstVideoFrameDisplay, audioOnly);
+
+    // Validate callback was invoked and reference outputs are updated
+    EXPECT_TRUE(callbackInvoked);
+    EXPECT_TRUE(requireFirstVideoFrameDisplay);
+    EXPECT_TRUE(audioOnly);
+}
+
+TEST_F(InterfacePlayerTests, StopCallback_SetAndInvoke)
+{
+	bool callbackInvoked = false;
+	bool status = true;
+
+	mInterfaceGstPlayer->StopCallback([&](bool stat) {
+		callbackInvoked = true;
+		EXPECT_EQ(stat, status);
+	});
+
+	mInterfaceGstPlayer->stopCallback(status);
+
+	EXPECT_TRUE(callbackInvoked);
+}
+
+TEST_F(InterfacePlayerTests, TearDownCallback_SetAndInvoke)
+{
+	bool callbackInvoked = false;
+	bool status = true;
+	int mediaType = eGST_MEDIATYPE_VIDEO;
+
+	mInterfaceGstPlayer->TearDownCallback([&](bool stat, int type) {
+		callbackInvoked = true;
+		EXPECT_EQ(stat, status);
+		EXPECT_EQ(type, mediaType);
+	});
+
+	mInterfaceGstPlayer->tearDownCb(status, mediaType);
+
+	EXPECT_TRUE(callbackInvoked);
+}
+
+TEST_F(InterfacePlayerTests, NotifyFirstFrame_VideoType_FirstFrameNotReceived)
+{
+	int mediaType = eGST_MEDIATYPE_VIDEO;
+	mPlayerContext->firstFrameReceived = false;
+	mPlayerContext->firstVideoFrameReceived = true;
+	mPlayerContext->NumberOfTracks = 1;
+	mPlayerContext->firstAudioFrameReceived = false;
+	mPlayerContext->decoderHandleNotified = false;
+	mInterfaceGstPlayer->PipelineSetToReady = true;
+
+	bool callbackInvoked = false;
+	mInterfaceGstPlayer->FirstFrameCallback([&](int type, bool notifyBuffer, bool decoderNotified, bool& requireFirstVideoFrame, bool& audio) {
+		callbackInvoked = true;
+		EXPECT_EQ(type, eGST_MEDIATYPE_VIDEO);
+		EXPECT_TRUE(notifyBuffer);
+		EXPECT_TRUE(decoderNotified);
+		requireFirstVideoFrame = true;
+		audio = false;
+	});
+
+	EXPECT_CALL(*g_mockPlayerScheduler, ScheduleTask(_)).Times(3)
+		.WillOnce(Return(1)).WillOnce(Return(0)).WillOnce(Return(0));
+
+	mInterfaceGstPlayer->NotifyFirstFrame(mediaType);
+
+	EXPECT_TRUE(callbackInvoked);
+	EXPECT_TRUE(mPlayerContext->firstFrameReceived);
+	EXPECT_TRUE(mPlayerContext->decoderHandleNotified);
+	EXPECT_TRUE(mPlayerContext->firstFrameCallbackIdleTaskPending);
+	EXPECT_EQ(mPlayerContext->firstFrameCallbackIdleTaskId, 1);
+	EXPECT_FALSE(mInterfaceGstPlayer->PipelineSetToReady);
+}
+
+TEST_F(InterfacePlayerTests, NotifyFirstFrame_AudioType_FirstFrameNotReceived)
+{
+	int mediaType = eGST_MEDIATYPE_AUDIO;
+	mPlayerContext->firstFrameReceived = false;
+	mPlayerContext->firstAudioFrameReceived = true;
+	mPlayerContext->NumberOfTracks = 1;
+	mPlayerContext->firstVideoFrameReceived = false;
+	mPlayerContext->decoderHandleNotified = false;
+	mInterfaceGstPlayer->PipelineSetToReady = true;
+
+	bool callbackInvoked = false;
+	mInterfaceGstPlayer->FirstFrameCallback([&](int type, bool notifyBuffer, bool decoderNotified, bool& requireFirstVideoFrame, bool& audio) {
+		callbackInvoked = true;
+		EXPECT_EQ(type, eGST_MEDIATYPE_AUDIO);
+		EXPECT_TRUE(notifyBuffer);
+		EXPECT_TRUE(decoderNotified);
+		requireFirstVideoFrame = false;
+		audio = true;
+	});
+
+	EXPECT_CALL(*g_mockPlayerScheduler, ScheduleTask(_))
+		.WillRepeatedly(Return(1));
+
+	mInterfaceGstPlayer->NotifyFirstFrame(mediaType);
+
+	EXPECT_TRUE(callbackInvoked);
+	EXPECT_TRUE(mPlayerContext->firstFrameReceived);
+	EXPECT_TRUE(mPlayerContext->decoderHandleNotified);
+	EXPECT_TRUE(mPlayerContext->firstFrameCallbackIdleTaskPending);
+	EXPECT_EQ(mPlayerContext->firstFrameCallbackIdleTaskId, 1);
+}
+
+TEST_F(InterfacePlayerTests, TriggerEvent_CallbackExists)
+{
+	InterfaceCB event = InterfaceCB::idleCb;
+	bool callbackInvoked = false;
+
+	mInterfaceGstPlayer->callbackMap[event] = [&]() {
+		callbackInvoked = true;
+	};
+
+	mInterfaceGstPlayer->TriggerEvent(event);
+
+	EXPECT_TRUE(callbackInvoked);
+}
+
+TEST_F(InterfacePlayerTests, TriggerEvent_CallbackDoesNotExist)
+{
+	InterfaceCB event = InterfaceCB::idleCb;
+	mInterfaceGstPlayer->TriggerEvent(event);
+}
+
+TEST_F(InterfacePlayerTests, TriggerEventWithData_CallbackExists)
+{
+	InterfaceCB event = InterfaceCB::idleCb;
+	int expectedData = 42;
+	bool callbackInvoked = false;
+
+	mInterfaceGstPlayer->setupStreamCallbackMap[event] = [&](int data) {
+		callbackInvoked = true;
+		EXPECT_EQ(data, expectedData);
+	};
+	mInterfaceGstPlayer->TriggerEvent(event, expectedData);
+
+	EXPECT_TRUE(callbackInvoked);
+}
+
+TEST_F(InterfacePlayerTests, TriggerEventWithData_CallbackDoesNotExist)
+{
+	InterfaceCB event = InterfaceCB::idleCb;
+	int data = 42;
+	mInterfaceGstPlayer->TriggerEvent(event, data);
+}
+
+extern bool gst_StartsWith( const char *inputStr, const char *prefix );
+TEST_F(InterfacePlayerTests, StartsWithTest)
+{
+	EXPECT_TRUE(gst_StartsWith("TestString", "Test"));
+}
+
+#define DEFAULT_BUFFERING_MAX_CNT (100) 
+TEST_F(InterfacePlayerTests, CreatePipeline_Success)
+{
+	const char* pipelineName = "testPipeline";
+	int pipelinePriority = 1;
+
+	//force destroy old pipeline
+	GstElement gst_element_pipeline2 = {.object = {.name = (gchar *)pipelineName}};
+	mPlayerContext->pipeline = &gst_element_pipeline2;
+
+	GstElement gst_element_pipeline = {.object = {.name = (gchar *)pipelineName}};
+	GstBus gst_element_bus = {.object = {.name = (gchar *)"testbus"}};
+	GstTaskPool gst_element_task_pool = {.object = {.name = (gchar *)"testtaskpool"}};
+	GstQuery* gst_element_query = new GstQuery();
+
+	EXPECT_CALL(*g_mockGStreamer, gst_pipeline_new(StrEq(pipelineName)))
+		.WillOnce(Return(&gst_element_pipeline));
+	EXPECT_CALL(*g_mockGStreamer, gst_pipeline_get_bus(GST_PIPELINE(&gst_element_pipeline)))
+		.WillOnce(Return(&gst_element_bus));
+	mPlayerContext->task_pool = &gst_element_task_pool;
+	EXPECT_CALL(*g_mockGStreamer, gst_bus_add_watch(&gst_element_bus, _, _))
+		.WillOnce(Return(1));
+	EXPECT_CALL(*g_mockGStreamer, gst_bus_set_sync_handler(&gst_element_bus, _, _, nullptr));
+	EXPECT_CALL(*g_mockGStreamer, gst_query_new_position(GST_FORMAT_TIME))
+		.WillOnce(Return(gst_element_query));
+
+	bool result = mInterfaceGstPlayer->CreatePipeline(pipelineName, pipelinePriority);
+
+	EXPECT_TRUE(result);
+	EXPECT_EQ(mPlayerContext->pipeline, &gst_element_pipeline);
+	EXPECT_EQ(mPlayerContext->bus, &gst_element_bus);;
+	EXPECT_EQ(mPlayerContext->positionQuery, gst_element_query);
+	EXPECT_EQ(mPlayerContext->buffering_enabled, mPlayerConfigParams->gstreamerBufferingBeforePlay);
+	EXPECT_FALSE(mPlayerContext->buffering_in_progress);
+	EXPECT_EQ(mPlayerContext->buffering_timeout_cnt, DEFAULT_BUFFERING_MAX_CNT);
+	EXPECT_EQ(mPlayerContext->buffering_target_state, GST_STATE_NULL);
+	EXPECT_EQ(mPlayerContext->enableSEITimeCode, mPlayerConfigParams->seiTimeCode);
+}
+
+TEST_F(InterfacePlayerTests, CreatePipeline_Failure_GetBusFailed)
+{
+	const char* pipelineName = "testPipeline";
+	int pipelinePriority = 1;
+
+	GstElement gst_element_pipeline = {.object = {.name = (gchar *)pipelineName}};
+
+	EXPECT_CALL(*g_mockGStreamer, gst_pipeline_new(StrEq(pipelineName)))
+		.WillOnce(Return(&gst_element_pipeline));
+	EXPECT_CALL(*g_mockGStreamer, gst_pipeline_get_bus(GST_PIPELINE(&gst_element_pipeline)))
+		.WillOnce(Return(nullptr));
+
+	bool result = mInterfaceGstPlayer->CreatePipeline(pipelineName, pipelinePriority);
+
+	EXPECT_FALSE(result);
+	EXPECT_EQ(mPlayerContext->pipeline, &gst_element_pipeline);
+	EXPECT_EQ(mPlayerContext->bus, nullptr);
+}
+
+TEST_F(InterfacePlayerTests, CreatePipeline_Failure_PipelineNewFailed)
+{
+	const char* pipelineName = "testPipeline";
+	int pipelinePriority = 1;
+
+	EXPECT_CALL(*g_mockGStreamer, gst_pipeline_new(StrEq(pipelineName)))
+		.WillOnce(Return(nullptr));
+
+	bool result = mInterfaceGstPlayer->CreatePipeline(pipelineName, pipelinePriority);
+
+	EXPECT_FALSE(result);
+	EXPECT_EQ(mPlayerContext->pipeline, nullptr);
+	EXPECT_EQ(mPlayerContext->bus, nullptr);
+}
+
+TEST_F(InterfacePlayerTests, SetAudioVolume)
+{
+	// Test with volume 0
+	mInterfaceGstPlayer->SetAudioVolume(0);
+	EXPECT_DOUBLE_EQ(mPlayerContext->audioVolume, 0.0);
+	mInterfaceGstPlayer->SetAudioVolume(150);
+	EXPECT_DOUBLE_EQ(mPlayerContext->audioVolume, 1.5);
+	mInterfaceGstPlayer->SetAudioVolume(-50);
+	EXPECT_DOUBLE_EQ(mPlayerContext->audioVolume, -0.5); //expected?
+}
+
+TEST_F(InterfacePlayerTests, SetVolumeOrMuteUnMute_Null)
+{
+	mInterfaceGstPlayer->SetVolumeOrMuteUnMute();
+}
+
+TEST_F(InterfacePlayerTests, SetVideoZoomTest)
+{
+	GstElement gst_element_video_sink = {.object = {.name = (gchar *)"video_sink"}};
+	mPlayerContext->video_sink = &gst_element_video_sink;
+	mPlayerContext->usingRialtoSink = false;
+
+	EXPECT_CALL(*g_mockGLib, g_object_set(&gst_element_video_sink, StrEq("zoom-mode"), Matcher<int>(2))).Times(AnyNumber());
+
+	mInterfaceGstPlayer->SetVideoZoom(2);
+	EXPECT_EQ(mPlayerContext->zoom, static_cast<GstVideoZoomMode>(2));
+
+	mPlayerContext->usingRialtoSink = true;
+	mInterfaceGstPlayer->SetVideoZoom(2);
+}
+
+TEST_F(InterfacePlayerTests, SetVideoMute_ValidVideoSink)
+{
+	GstElement gst_element_video_sink = {.object = {.name = (gchar *)"video_sink"}};
+	mPlayerContext->video_sink = &gst_element_video_sink;
+	EXPECT_CALL(*g_mockGLib, g_object_set(&gst_element_video_sink, StrEq("show-video-window"), Matcher<int>(0)));
+	mInterfaceGstPlayer->SetVideoMute(true);
+	EXPECT_TRUE(mPlayerContext->videoMuted);
+}
+
+TEST_F(InterfacePlayerTests, SetVideoMute_InvalidVideoSink)
+{
+	mPlayerContext->video_sink = nullptr;
+	EXPECT_CALL(*g_mockGLib, g_object_set(_, _,Matcher<int>(_))).Times(0);
+	mInterfaceGstPlayer->SetVideoMute(true);
+	EXPECT_TRUE(mPlayerContext->videoMuted);
+}
+
+TEST_F(InterfacePlayerTests, SetTextStyle_WithValidAttributes)
+{
+	GstElement gst_element_subtitle_sink = {.object = {.name = (gchar *)"subtitle_sink"}};
+	mPlayerContext->subtitle_sink = &gst_element_subtitle_sink;
+
+	std::string options = "ffffff";
+
+	EXPECT_CALL(*g_mockGLib, g_object_set(_, StrEq("attribute-values"), Matcher<GstStructure*>(_)));
+
+	EXPECT_TRUE(mInterfaceGstPlayer->SetTextStyle(options));
+}
+
+TEST_F(InterfacePlayerTests, SetTextStyle_Null)
+{
+	mPlayerContext->subtitle_sink = nullptr;
+
+	std::string options = "ffffff";
+	EXPECT_FALSE(mInterfaceGstPlayer->SetTextStyle(options));
+}

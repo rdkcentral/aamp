@@ -49,6 +49,7 @@ public:
 	MOCK_METHOD(void, g_object_get, (gpointer object, const gchar *first_property_name, uint *value));
 	MOCK_METHOD(void, g_object_get, (gpointer object, const gchar *first_property_name, gpointer *value));
 	MOCK_METHOD(void, g_object_get, (gpointer object, const gchar *first_property_name, gint64 *value));
+
  
 };
 

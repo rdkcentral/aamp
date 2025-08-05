@@ -439,12 +439,20 @@ GstEvent *gst_event_new_step (GstFormat format,
 gboolean gst_pad_push_event(GstPad *pad, GstEvent *event)
 {
 	TRACE_FUNC();
+	if (g_mockGStreamer != nullptr)
+	{
+		g_mockGStreamer->gst_pad_push_event(pad, event);
+	}
 	return FALSE;
 }
 
 void gst_segment_init(GstSegment *segment, GstFormat format)
 {
 	TRACE_FUNC();
+	if (g_mockGStreamer != nullptr)
+	{
+		g_mockGStreamer->gst_segment_init(segment, format);
+	}
 }
 
 const gchar *gst_flow_get_name(GstFlowReturn ret)
@@ -657,6 +665,10 @@ GstStructure *gst_structure_new(const gchar *name, const gchar *firstfield, ...)
 GstEvent *gst_event_new_custom(GstEventType type, GstStructure *structure)
 {
 	TRACE_FUNC();
+	if (g_mockGStreamer != nullptr)
+	{
+		return g_mockGStreamer->gst_event_new_custom(type, structure);
+	}
 	return NULL;
 }
 
@@ -979,4 +991,3 @@ GstPad * gst_ghost_pad_new (const gchar * name, GstPad * target)
 	TRACE_FUNC();
 	return NULL;
 }
-

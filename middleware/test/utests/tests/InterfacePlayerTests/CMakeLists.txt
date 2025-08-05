@@ -41,7 +41,7 @@ message(GSTREAMER_INCLUDE_DIRS=${GSTREAMER_INCLUDE_DIRS})
 set(TEST_SOURCES InterfacePlayerFunctionTests.cpp
 		InterfacePlayerTests.cpp)
 
-set(AAMP_SOURCES ${PLAYER_ROOT}/InterfacePlayerRDK.cpp 
+set(AAMP_SOURCES ${PLAYER_ROOT}/InterfacePlayerRDK.cpp
 		${PLAYER_ROOT}/playerLogManager/PlayerLogManager.cpp
 		${PLAYER_ROOT}/externals/PlayerExternalsInterface.cpp
 		${PLAYER_ROOT}/externals/PlayerExternalUtils.cpp)
