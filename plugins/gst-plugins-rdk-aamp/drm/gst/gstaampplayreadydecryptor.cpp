@@ -52,7 +52,7 @@ GST_DEBUG_CATEGORY(gst_aampplayreadydecryptor_debug_category);
 
 static GstStaticPadTemplate gst_aampplayreadydecryptor_src_template =
         GST_STATIC_PAD_TEMPLATE("src", GST_PAD_SRC, GST_PAD_ALWAYS,
-        GST_STATIC_CAPS("video/x-h264;video/x-h264(memory:SecMem);audio/mpeg;video/x-h265;video/x-h265(memory:SecMem);audio/x-eac3;audio/x-gst-fourcc-ec_3;audio/x-ac3"));
+        GST_STATIC_CAPS("video/x-h264;video/x-h264(secure:true);audio/mpeg;video/x-h265;video/x-h265(secure:true);audio/x-eac3;audio/x-gst-fourcc-ec_3;audio/x-ac3"));
  
 static GstStaticPadTemplate gst_aampplayreadydecryptor_sink_template =
         GST_STATIC_PAD_TEMPLATE("sink", GST_PAD_SINK, GST_PAD_ALWAYS,

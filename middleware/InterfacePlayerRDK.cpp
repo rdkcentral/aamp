@@ -2011,6 +2011,100 @@ GstFlowReturn InterfacePlayerRDK::InterfacePlayerRDK_OnVideoSample(GstElement* o
 	return GST_FLOW_OK;
 }
 
+// Pad probe callback
+static GstPadProbeReturn
+on_decryptor_src_pad_event(GstPad *pad, GstPadProbeInfo *info, gpointer user_data)
+{
+
+    GstEvent *event = GST_PAD_PROBE_INFO_EVENT (info);
+
+    if (!(GST_PAD_PROBE_INFO_TYPE(info) & GST_PAD_PROBE_TYPE_EVENT_DOWNSTREAM))
+        return GST_PAD_PROBE_OK;
+
+    if (GST_EVENT_TYPE (event) != GST_EVENT_CAPS)
+    {
+        return GST_PAD_PROBE_OK;
+    }
+
+    GstElement *decryptor = GST_ELEMENT(user_data);
+    GstPad *srcpad = gst_element_get_static_pad(decryptor, "src");
+    if (!srcpad) {
+        MW_LOG_ERR("Failed to retrieve 'src' pad from decryptor '%s'.", GST_ELEMENT_NAME(decryptor));
+        return GST_PAD_PROBE_REMOVE;
+    }
+
+    GstPad *peer = gst_pad_get_peer(srcpad);
+    if (!peer) {
+        MW_LOG_ERR("No downstream peer connected to decryptor '%s'.", GST_ELEMENT_NAME(decryptor));
+        gst_object_unref(srcpad);
+        return GST_PAD_PROBE_REMOVE;
+    }
+
+    GstElement *parent = GST_ELEMENT(gst_element_get_parent(decryptor));
+    if (!parent) {
+        MW_LOG_ERR("Failed to get parent bin of decryptor '%s'.", GST_ELEMENT_NAME(decryptor));
+        gst_object_unref(srcpad);
+        gst_object_unref(peer);
+        return GST_PAD_PROBE_REMOVE;
+    }
+
+    GstElement *svppay = gst_element_factory_make("svppay", NULL);
+    if (!svppay) {
+        MW_LOG_ERR("Failed to create 'svppay' element.");
+        gst_object_unref(srcpad);
+        gst_object_unref(peer);
+        return GST_PAD_PROBE_REMOVE;
+    }
+
+
+    gst_bin_add(GST_BIN(parent), svppay);
+    gst_element_sync_state_with_parent(svppay);
+
+    GstPad *svppay_sink = gst_element_get_static_pad(svppay, "sink");
+    GstPad *svppay_src  = gst_element_get_static_pad(svppay, "src");
+
+    if (!gst_pad_unlink(srcpad, peer)) {
+        MW_LOG_ERR("Failed to unlink decryptor '%s' from its peer.", GST_ELEMENT_NAME(decryptor));
+    }
+
+    if (gst_pad_link(srcpad, svppay_sink) != GST_PAD_LINK_OK) {
+        MW_LOG_ERR("Failed to link decryptor '%s' to svppay.", GST_ELEMENT_NAME(decryptor));
+    } else if (gst_pad_link(svppay_src, peer) != GST_PAD_LINK_OK) {
+        MW_LOG_ERR("Failed to link svppay to downstream peer.");
+    } else {
+        MW_LOG_INFO("'svppay' inserted after decryptor '%s'.", GST_ELEMENT_NAME(decryptor));
+    }
+
+    gst_object_unref(srcpad);
+    gst_object_unref(peer);
+    gst_object_unref(svppay_sink);
+    gst_object_unref(svppay_src);
+
+    return GST_PAD_PROBE_REMOVE; // done with the probe
+}
+
+
+// Main element-setup callback
+static void element_setup_cb_svppay(GstElement *playbin, GstElement *element, gpointer user_data)
+{
+    const gchar *name = gst_element_get_name(element);
+
+    MW_LOG_ERR("svppay received element:%s ", name);
+
+    if ( name && strstr(name, "decryptor")) {
+        GstPad *srcpad = gst_element_get_static_pad(element, "src");
+        if (!srcpad) {
+            MW_LOG_ERR("Unable to retrieve 'src' pad from element: %s\n", GST_ELEMENT_NAME(element));
+            return;
+        }
+
+        gst_pad_add_probe(srcpad, GST_PAD_PROBE_TYPE_EVENT_DOWNSTREAM,
+                          on_decryptor_src_pad_event, element, NULL);
+        gst_object_unref(srcpad);
+    }
+}
+
+
 int InterfacePlayerRDK::SetupStream(int streamId,  void *playerInstance, std::string manifest)
 {
 	InterfacePlayerRDK* pInterfacePlayerRDK = (InterfacePlayerRDK*)playerInstance;
@@ -2206,6 +2300,11 @@ int InterfacePlayerRDK::SetupStream(int streamId,  void *playerInstance, std::st
 		pInterfacePlayerRDK->SignalConnect(stream->sinkbin, "source-setup", G_CALLBACK(httpsoup_source_setup), this);
 	}
 
+        if(eGST_MEDIATYPE_VIDEO == streamId)
+        {
+                g_signal_connect(stream->sinkbin, "element_setup", G_CALLBACK(element_setup_cb_svppay), pInterfacePlayerRDK);
+        }
+
 	if (( ((mediaFormat == eGST_MEDIAFORMAT_DASH || mediaFormat == eGST_MEDIAFORMAT_HLS_MP4) &&
 		   m_gstConfigParam->seamlessAudioSwitch))
 		||
@@ -2215,6 +2314,7 @@ int InterfacePlayerRDK::SetupStream(int streamId,  void *playerInstance, std::st
 		// Send the media_stream object so that qtdemux can be instantly mapped to media type without caps/parent check
 		g_signal_connect(stream->sinkbin, "element_setup", G_CALLBACK(element_setup_cb), pInterfacePlayerRDK);
 	}
+
 	if (eGST_MEDIATYPE_VIDEO == streamId && (mediaFormat==eGST_MEDIAFORMAT_DASH || mediaFormat==eGST_MEDIAFORMAT_HLS_MP4))
 	{
 		// enable multiqueue
