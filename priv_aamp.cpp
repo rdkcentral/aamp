@@ -1246,6 +1246,7 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 	, prevFirstPeriodStartTime(0)
 	, mIsFlushOperationInProgress(false)
 {
+	AAMPLOG_MIL("Jose: bLLDashAdjustPlayerSpeed initialised to false");
 	mAampCacheHandler = new AampCacheHandler(mPlayerId);
 	// Create the event manager for player instance
 	mEventManager = new AampEventManager(mPlayerId);

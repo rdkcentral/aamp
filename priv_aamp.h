@@ -3467,7 +3467,11 @@ public:
 	 *   @param[in] state - true or false
 	 *   @return void
 	 */
-	void SetLLDashAdjustSpeed(bool state) { bLLDashAdjustPlayerSpeed = state; }
+	void SetLLDashAdjustSpeed(bool state)
+	{
+		AAMPLOG_MIL("Jose: SetLLDashAdjustSpeed %d", state);
+		bLLDashAdjustPlayerSpeed = state;
+	}
 
 	/**
 	 *   @brief Gets the state of the player speed correction for Low latency Dash

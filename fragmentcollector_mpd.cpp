@@ -3842,6 +3842,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 					{
 						if (mLowLatencyMode)
 						{
+							AAMPLOG_MIL("Jose: Setting LLDashAdjustSpeed to false for seek");
 							aamp->SetLLDashAdjustSpeed(false);
 						}
 					}
@@ -13342,10 +13343,12 @@ AAMPStatusType  StreamAbstractionAAMP_MPD::EnableAndSetLiveOffsetForLLDashPlayba
 			stLLServiceData.lowLatencyMode = true;
 			if( ISCONFIGSET( eAAMPConfig_EnableLowLatencyCorrection ) )
 			{
+				AAMPLOG_MIL("Jose: Setting LLDashAdjustSpeed to true");
 				aamp->SetLLDashAdjustSpeed(true);
 			}
 			else
 			{
+				AAMPLOG_MIL("Jose: Setting LLDashAdjustSpeed to false");
 				aamp->SetLLDashAdjustSpeed(false);
 			}
 			AAMPLOG_WARN("StreamAbstractionAAMP_MPD: LL-DASH playback enabled availabilityTimeOffset=%lf,fragmentDuration=%lf",
@@ -13353,6 +13356,7 @@ AAMPStatusType  StreamAbstractionAAMP_MPD::EnableAndSetLiveOffsetForLLDashPlayba
 		}
 		else
 		{
+			AAMPLOG_MIL("Jose: Setting LLDashAdjustSpeed to false");
 			aamp->SetLLDashAdjustSpeed(false);
 			if(ISCONFIGSET(eAAMPConfig_ForceLLDFlow))
 			{
