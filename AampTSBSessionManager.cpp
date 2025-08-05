@@ -189,6 +189,7 @@ std::shared_ptr<CachedFragment> AampTSBSessionManager::Read(TsbInitDataPtr initf
 	cachedFragment->cacheFragStreamInfo = initfragdata->GetCacheFragStreamInfo();
 	cachedFragment->profileIndex = initfragdata->GetProfileIndex();
 	cachedFragment->initFragment = true;
+
 	if (!readFromAampCache)
 	{
 		// Read from TSBLibrary
@@ -204,13 +205,13 @@ std::shared_ptr<CachedFragment> AampTSBSessionManager::Read(TsbInitDataPtr initf
 			if (status != TSB::Status::OK)
 			{
 				AAMPLOG_WARN("Failure in read from TSBLibrary");
-				return {};
+				cachedFragment.reset();
 			}
 		}
 		else
 		{
 			AAMPLOG_WARN("TSBLibrary returned zero length for URL: %s", uniqueUrl.c_str());
-			return {};
+			cachedFragment.reset();
 		}
 	}
 
