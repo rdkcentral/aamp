@@ -4484,15 +4484,16 @@ void InterfacePlayerRDK::SetVideoZoom(int zoom_mode)
  */
 void InterfacePlayerRDK::SetVideoMute(bool muted)
 {
-	MW_LOG_INFO("muted=%d video_sink =%p", muted, gstPrivateContext->video_sink);
+	printf("neil muted=%d video_sink =%p\n", muted, gstPrivateContext->video_sink);
 	gstPrivateContext->videoMuted = muted;
 	if (gstPrivateContext->video_sink)
 	{
+		printf("Neil InterfacePlayerRDK setting video mute\n");
 		g_object_set(gstPrivateContext->video_sink, "show-video-window", !gstPrivateContext->videoMuted, NULL);	/* videoMuted to true implies setting the 'show-video-window' to false */
 	}
 	else
 	{
-		MW_LOG_INFO("InterfacePlayerRDK not setting video mute");
+		printf("Neil InterfacePlayerRDK not setting video mute\n");
 	}
 }
 
