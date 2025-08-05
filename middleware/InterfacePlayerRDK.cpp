@@ -1453,6 +1453,7 @@ bool InterfacePlayerRDK::Flush(double position, int rate, bool shouldTearDown, b
 	GstState current;
 	GstState pending;
 
+	MW_LOG_WARN("ANJ: InterfacePlayerRDK: Entry: Flush, rate = %d, position = %f, shouldTearDown = %d, isAppSeek = %d", rate, position, shouldTearDown, isAppSeek);
 	gst_media_stream *stream = &gstPrivateContext->stream[eGST_MEDIATYPE_VIDEO];
 	gstPrivateContext->rate = rate;
 	gstPrivateContext->stream[eGST_MEDIATYPE_VIDEO].bufferUnderrun = false;
@@ -1486,6 +1487,7 @@ bool InterfacePlayerRDK::Flush(double position, int rate, bool shouldTearDown, b
 	if (gstPrivateContext->pipeline == NULL)
 	{
 		MW_LOG_WARN("InterfacePlayerRDK: Pipeline is NULL");
+		MW_LOG_WARN("ANJ: InterfacePlayerRDK: Exit1: Flush, rate = %d, position = %f, shouldTearDown = %d", rate, position, shouldTearDown);
 		return false;
 	}
 	bool bAsyncModify = false;
@@ -1515,6 +1517,7 @@ bool InterfacePlayerRDK::Flush(double position, int rate, bool shouldTearDown, b
 			// Set the rate back to the original value if it was an recovery Stop() call
 			gstPrivateContext->rate = rate;
 		}
+		MW_LOG_WARN("ANJ: InterfacePlayerRDK: Exit2: Flush, rate = %d, position = %f, shouldTearDown = %d", rate, position, shouldTearDown);
 		return false;
 	}
 
@@ -1533,6 +1536,7 @@ bool InterfacePlayerRDK::Flush(double position, int rate, bool shouldTearDown, b
 					stopCallback(true);
 					// Set the rate back to the original value if it was an recovery Stop() call
 					gstPrivateContext->rate = rate;
+					MW_LOG_WARN("ANJ: InterfacePlayerRDK: Exit3: Flush, rate = %d, position = %f, shouldTearDown = %d", rate, position, shouldTearDown);
 					return false;
 				}
 			}
@@ -1559,6 +1563,7 @@ bool InterfacePlayerRDK::Flush(double position, int rate, bool shouldTearDown, b
 			position = 0;
 		}
 	}
+	MW_LOG_WARN("ANJ: InterfacePlayerRDK: calling gst_element_seek. playRate = %f, position = %f, shouldTearDown = %d, isAppSeek = %d", playRate, position, shouldTearDown, isAppSeek);
 	if (!gst_element_seek(gstPrivateContext->pipeline, playRate, GST_FORMAT_TIME, GST_SEEK_FLAG_FLUSH, GST_SEEK_TYPE_SET,
 						  position * GST_SECOND, GST_SEEK_TYPE_NONE, GST_CLOCK_TIME_NONE))
 	{
@@ -1567,6 +1572,7 @@ bool InterfacePlayerRDK::Flush(double position, int rate, bool shouldTearDown, b
 		//Save the updated seek position
 		SetSeekPosition(position);
 	}
+	MW_LOG_WARN("ANJ: InterfacePlayerRDK: After calling gst_element_seek. playRate = %f, position = %f, shouldTearDown = %d, isAppSeek = %d", playRate, position, shouldTearDown, isAppSeek);
 
 	if ((gstPrivateContext->usingRialtoSink) &&
 		(gstPrivateContext->audio_sink) &&
@@ -1586,6 +1592,7 @@ bool InterfacePlayerRDK::Flush(double position, int rate, bool shouldTearDown, b
 	}
 	gstPrivateContext->eosSignalled = false;
 	gstPrivateContext->numberOfVideoBuffersSent = 0;
+	MW_LOG_WARN("ANJ: InterfacePlayerRDK: Exit: Flush, rate = %d, position = %f, shouldTearDown = %d, isAppSeek = %d", rate, position, shouldTearDown, isAppSeek);
 	return true;
 }
 void InterfacePlayerRDK::SignalConnect(gpointer instance, const gchar *detailed_signal, GCallback c_handler, gpointer data)
@@ -2240,6 +2247,7 @@ void InterfacePlayerRDK::SendGstEvents(GstMediaType mediaType, GstClockTime pts)
 	gboolean enableOverride = FALSE;
 	GstPad* sourceEleSrcPad = gst_element_get_static_pad(GST_ELEMENT(stream->source), "src");       /* Retrieves the src pad */
 
+	MW_LOG_WARN("ANJ: InterfacePlayerRDK: SendGstEvents(). gstPrivateContext->seekPosition = %f, stream->pendingSeek = %d", gstPrivateContext->seekPosition, stream->pendingSeek);
 	if(stream->pendingSeek)
 	{
 		if(gstPrivateContext->seekPosition > 0)
