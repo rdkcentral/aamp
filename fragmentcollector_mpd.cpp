@@ -10621,6 +10621,8 @@ void StreamAbstractionAAMP_MPD::Start(void)
 		StartFromOtherThanAampLocalTsb();
 	}
 
+	AAMPLOG_MIL("Jose: mLowLatencyMode %d eAAMPConfig_EnableLowLatencyCorrection %d GetLLDashAdjustSpeed() %d",
+		mLowLatencyMode, ISCONFIGSET(eAAMPConfig_EnableLowLatencyCorrection), aamp->GetLLDashAdjustSpeed());
 	if( (mLowLatencyMode && ISCONFIGSET( eAAMPConfig_EnableLowLatencyCorrection ) ) && \
 		(true == aamp->GetLLDashAdjustSpeed() ) )
 	{
