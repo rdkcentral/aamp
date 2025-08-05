@@ -4370,7 +4370,7 @@ void InterfacePlayerRDK::SetVolumeOrMuteUnMute(void)
 			/* Muting the audio decoder in general to avoid audio passthrough in expert mode for locked channel */
 			if (0 == gstPrivateContext->audioVolume)
 			{
-				MW_LOG_MIL("Audio Muted");
+				printf("Neil Audio Muted\n");
 				g_object_set(gSource, mutePropertyName, true, NULL);
 				gstPrivateContext->audioMuted = true;
 			}
@@ -4484,7 +4484,7 @@ void InterfacePlayerRDK::SetVideoZoom(int zoom_mode)
  */
 void InterfacePlayerRDK::SetVideoMute(bool muted)
 {
-	printf("neil muted=%d video_sink =%p\n", muted, gstPrivateContext->video_sink);
+	printf("neil entering InterfacePlayerRDK::SetVideoMutemuted=%d video_sink =%p\n", muted, gstPrivateContext->video_sink);
 	gstPrivateContext->videoMuted = muted;
 	if (gstPrivateContext->video_sink)
 	{
@@ -4495,6 +4495,7 @@ void InterfacePlayerRDK::SetVideoMute(bool muted)
 	{
 		printf("Neil InterfacePlayerRDK not setting video mute\n");
 	}
+	printf("neil leaving InterfacePlayerRDK::SetVideoMutemuted()\n");	
 }
 
 /**
