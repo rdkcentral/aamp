@@ -466,7 +466,7 @@ static const ConfigLookupEntryInt mConfigLookupTableInt[AAMPCONFIG_INT_COUNT+CON
 	{DEFAULT_MONITOR_AV_JUMP_THRESHOLD_MS,"monitorAVJumpThreshold",eAAMPConfig_MonitorAVJumpThreshold,true,eCONFIG_RANGE_MONITOR_AVSYNC_JUMP_THRESHOLD },
 	{DEFAULT_PROGRESS_LOGGING_DIVISOR,"progressLoggingDivisor",eAAMPConfig_ProgressLoggingDivisor,false},
 	{DEFAULT_MONITOR_AV_REPORTING_INTERVAL, "monitorAVReportingInterval", eAAMPConfig_MonitorAVReportingInterval, false},
-	{DEFAULT_LLDDASH_SWITCH_DURATION,"llDashMinSwitchModeDuration",eAAMPConfig_LLDashMinimumModeSwitchDuration,false},
+	{DEFAULT_LLDDASH_SWITCH_DURATION,"lldModeToggleBuffer",eAAMPConfig_LLDashMinimumModeSwitchDuration,false},
 	// aliases, kept for backwards compatibility
 	{DEFAULT_INIT_BITRATE,"defaultBitrate",eAAMPConfig_DefaultBitrate,true },
 	{DEFAULT_INIT_BITRATE_4K,"defaultBitrate4K",eAAMPConfig_DefaultBitrate4K,true },
@@ -494,6 +494,7 @@ static const ConfigLookupEntryFloat mConfigLookupTableFloat[AAMPCONFIG_FLOAT_COU
 	{DEFAULT_NORMAL_RATE_CORRECTION_SPEED,"normalLatencyCorrectionPlaybackRate",eAAMPConfig_NormalLatencyCorrectionPlaybackRate,false},
 	{DEFAULT_MIN_BUFFER_LOW_LATENCY,"lowLatencyMinBuffer",eAAMPConfig_LowLatencyMinBuffer,true, eCONFIG_RANGE_LLDBUFFER},
 	{DEFAULT_TARGET_BUFFER_LOW_LATENCY,"lowLatencyTargetBuffer",eAAMPConfig_LowLatencyTargetBuffer,true, eCONFIG_RANGE_LLDBUFFER},
+	{DEFAULT_BUFFER_TO_SWITCH_TO_LOWEST_PROFILE,"lowestProfileBuffer",eAAMPConfig_LowestProfileBuffer,false},
 	{GST_BW_TO_BUFFER_FACTOR,"bandwidthToBufferFactor", eAAMPConfig_BWToGstBufferFactor,true},
 };
 
