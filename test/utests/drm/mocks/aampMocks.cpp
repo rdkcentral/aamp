@@ -220,7 +220,7 @@ void PrivateInstanceAAMP::SendMediaMetadataEvent()
 {
 }
 
-void PrivateInstanceAAMP::Stop()
+void PrivateInstanceAAMP::Stop( bool isDestructing )
 {
 }
 
