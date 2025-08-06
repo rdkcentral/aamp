@@ -3067,7 +3067,10 @@ void InterfacePlayerRDK::SendNewSegmentEvent(GstMediaType mediaType, GstClockTim
         GstSample *sample = gst_sample_new (nullptr, currentCaps, &segment, nullptr);
 
 		MW_LOG_INFO("Pushing sample for mediaType[%d]. start %" G_GUINT64_FORMAT " stop %" G_GUINT64_FORMAT" rate %f applied_rate %f", mediaType, segment.start, segment.stop, segment.rate, segment.applied_rate);
-		gst_app_src_push_sample(GST_APP_SRC(stream->source), sample);
+		if (GST_FLOW_OK != gst_app_src_push_sample(GST_APP_SRC(stream->source), sample))
+		{
+			MW_LOG_ERR("Failed to push sample for mediaType[%d]", mediaType);
+		}
         gst_sample_unref(sample);
         gst_caps_unref(currentCaps);
 	}
