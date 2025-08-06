@@ -546,7 +546,9 @@ void PlayerCCManagerBase::Stop()
 {
 	EnsureRendererCommsInitialized();
 	MW_LOG_WARN("PlayerCCManagerBase::mEnabled=%d",mEnabled);
+	printf("ANJp:PlayerCCManagerBase::Stop(): mEnabled=%d. calling StopRendering()\n",  mEnabled);
 	StopRendering();
+	printf("ANJp:PlayerCCManagerBase::Stop(): mEnabled=%d. After calling StopRendering()\n",  mEnabled);
 }
 
 /**
@@ -556,7 +558,9 @@ void PlayerCCManagerBase::Start()
 {
 	EnsureInitialized();
 	MW_LOG_WARN("PlayerCCManagerBase:: mEnabled=%d",  mEnabled);
+	printf("ANJp:PlayerCCManagerBase::Start(): mEnabled=%d. calling StartRendering()\n",  mEnabled);
 	StartRendering();
+	printf("ANJp:PlayerCCManagerBase::Start(): mEnabled=%d. After calling StartRendering()\n",  mEnabled);
 }
 
 /**
