@@ -51,13 +51,14 @@ struct AsyncTaskObj
 	void * mData;
 	int mId;
 	std::string mTaskName;
+	uint32_t mTaskOrder;
 
 	AsyncTaskObj(AsyncTask task, void *data, std::string tskName="", int id = AAMP_TASK_ID_INVALID) :
-				mTask(task), mData(data), mId(id),mTaskName(tskName)
+				mTask(task), mData(data), mId(id),mTaskName(tskName),mTaskOrder(0)
 	{
 	}
 
-	AsyncTaskObj(const AsyncTaskObj &other) : mTask(other.mTask), mData(other.mData), mId(other.mId),mTaskName(other.mTaskName)
+	AsyncTaskObj(const AsyncTaskObj &other) : mTask(other.mTask), mData(other.mData), mId(other.mId),mTaskName(other.mTaskName),mTaskOrder(other.mTaskOrder)
 	{
 	}
 
@@ -67,6 +68,7 @@ struct AsyncTaskObj
 		mData = other.mData;
 		mId = other.mId;
 		mTaskName = other.mTaskName;
+		mTaskOrder = other.mTaskOrder;
 		return *this;
 	}
 };
@@ -78,6 +80,12 @@ class AampScheduler
 {
 private:
 	int mPlayerId;
+
+	// Gloabl variables to synchronise specific tasks between multiple players
+	static std::mutex mTaskOrderMutex;
+	static uint32_t mOrderedTaskCount;
+	static uint32_t mNextTaskInOrder;
+
 public:
 	/**
 	 * @fn AampScheduler
