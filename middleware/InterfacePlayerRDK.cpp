@@ -1234,9 +1234,9 @@ void InterfacePlayerRDK::TearDownStream(GstMediaType mediaType)
 	MW_LOG_MIL("ANJ:InterfacePlayerRDK::TearDownStream: entry mediaType = %d", mediaType);
 	if (stream->format != GST_FORMAT_INVALID)
 	{
-		MW_LOG_MIL("ANJ: InterfacePlayerRDK::TearDownStream: waiting for pthread_lock );
+		MW_LOG_MIL("ANJ: InterfacePlayerRDK::TearDownStream: waiting for pthread_lock" );
 		pthread_mutex_lock(&stream->sourceLock);
-		MW_LOG_MIL("ANJ: InterfacePlayerRDK::TearDownStream: Got pthread_lock );
+		MW_LOG_MIL("ANJ: InterfacePlayerRDK::TearDownStream: Got pthread_lock" );
 		if (gstPrivateContext->pipeline)
 		{
 			gstPrivateContext->buffering_in_progress = false;   /* stopping pipeline, don't want to change state if GST_MESSAGE_ASYNC_DONE message comes in */
@@ -1266,9 +1266,9 @@ void InterfacePlayerRDK::TearDownStream(GstMediaType mediaType)
 		g_clear_object(&stream->sinkbin);
 		g_clear_object(&stream->source);
 		stream->sourceConfigured = false;
-		MW_LOG_MIL("ANJ: InterfacePlayerRDK::TearDownStream: g_clear_object called for source and sinkbin. Now pthread_unlock );
+		MW_LOG_MIL("ANJ: InterfacePlayerRDK::TearDownStream: g_clear_object called for source and sinkbin. Now pthread_unlock" );
 		pthread_mutex_unlock(&stream->sourceLock);
-		MW_LOG_MIL("ANJ: InterfacePlayerRDK::TearDownStream: pthread_unlock done );
+		MW_LOG_MIL("ANJ: InterfacePlayerRDK::TearDownStream: pthread_unlock done" );
 	}
 	if (mediaType == eGST_MEDIATYPE_VIDEO)
 	{
