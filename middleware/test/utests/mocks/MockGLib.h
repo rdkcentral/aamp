@@ -40,6 +40,8 @@ public:
 	MOCK_METHOD(void, g_object_set, (gpointer object, const gchar *property_name, char * value));
 	MOCK_METHOD(void, g_object_set, (gpointer object, const gchar *property_name, double value));
 	MOCK_METHOD(void, g_object_set, (gpointer object, const gchar *property_name, GstStructure *value));
+	MOCK_METHOD(void, g_object_set, (gpointer object, const gchar *property_name, gpointer value));
+
 	MOCK_METHOD(gulong, g_signal_connect_data, (gpointer instance, const gchar *detailed_signal, GCallback c_handler,
 							 					gpointer data, GClosureNotify destroy_data, GConnectFlags connect_flags));
 	MOCK_METHOD(gboolean, g_type_check_instance_is_a, (gpointer instance, GType iface_type));

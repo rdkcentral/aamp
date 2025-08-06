@@ -17,8 +17,8 @@
  * limitations under the License.
  */
 
-#ifndef AAMP_MOCK_GSTREAMER_H
-#define AAMP_MOCK_GSTREAMER_H
+#ifndef PLAYER_MOCK_GSTREAMER_H
+#define PLAYER_MOCK_GSTREAMER_H
 
 #include <gmock/gmock.h>
 #include <gst/gstcaps.h>
@@ -98,4 +98,4 @@ gst_structure_get_int
 
 extern MockGStreamer *g_mockGStreamer;
 
-#endif /* AAMP_MOCK_GSTREAMER_H */
+#endif /* PLAYER_MOCK_GSTREAMER_H */

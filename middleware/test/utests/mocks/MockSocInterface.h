@@ -17,8 +17,8 @@
  * limitations under the License.
  */
 
-#ifndef AAMP_MOCK_SOC_INTERFACE_H
-#define AAMP_MOCK_SOC_INTERFACE_H
+#ifndef PLAYER_MOCK_SOC_INTERFACE_H
+#define PLAYER_MOCK_SOC_INTERFACE_H
 
 #include <gmock/gmock.h>
 #include <gst/gstcaps.h>
@@ -34,5 +34,5 @@ public:
 
 extern MockSocInterface *g_mockSocInterface;
 
-#endif /* AAMP_MOCK_SOC_INTERFACE_H */
+#endif /* PLAYER_MOCK_SOC_INTERFACE_H */
 

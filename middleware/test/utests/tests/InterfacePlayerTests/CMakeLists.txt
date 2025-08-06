@@ -41,7 +41,7 @@ message(GSTREAMER_INCLUDE_DIRS=${GSTREAMER_INCLUDE_DIRS})
 set(TEST_SOURCES InterfacePlayerFunctionTests.cpp
 		InterfacePlayerTests.cpp)
 
-set(AAMP_SOURCES ${PLAYER_ROOT}/InterfacePlayerRDK.cpp
+set(PLAYER_SOURCES ${PLAYER_ROOT}/InterfacePlayerRDK.cpp
 		${PLAYER_ROOT}/playerLogManager/PlayerLogManager.cpp
 		${PLAYER_ROOT}/externals/PlayerExternalsInterface.cpp
 		${PLAYER_ROOT}/externals/PlayerExternalUtils.cpp)
@@ -52,7 +52,7 @@ set(FAKE_SOURCES ${PLAYER_ROOT}/test/utests/fakes/FakeGStreamer.cpp
 
 add_executable(${EXEC_NAME}
                ${TEST_SOURCES}
-               ${AAMP_SOURCES}
+               ${PLAYER_SOURCES}
                ${FAKE_SOURCES})
 
 set_target_properties(${EXEC_NAME} PROPERTIES FOLDER "utests")
