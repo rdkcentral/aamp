@@ -393,7 +393,7 @@ void AampTsbReader::Term()
 	mCurrentRate = AAMP_NORMAL_PLAY_RATE;
 	mInitialized_ = false;
 	mEosReached = false;
-	mTrackEnabled = true;
+	mTrackEnabled = false;
 	mFirstPTS = 0.0;
 	mFirstPTSOffset = 0.0;
 	mCurrentBandwidth = 0.0;
