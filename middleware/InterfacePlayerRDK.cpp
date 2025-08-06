@@ -321,6 +321,7 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int auxF
 				gstPrivateContext->NumberOfTracks++;
 			}
 		}
+		MW_LOG_MIL("ANJ: gstPrivateContext->rate = %f", gstPrivateContext->rate);
 		if(socInterface->ShouldTearDownForTrickplay())
 		{
 		if(gstPrivateContext->rate > 1 || gstPrivateContext->rate < 0)
@@ -329,8 +330,10 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int auxF
 				configureStream[i] = true;
 			else
 			{
+				MW_LOG_MIL("ANJ: Calling TearDownStream. gstPrivateContext->rate = %f", gstPrivateContext->rate);
 				TearDownStream((GstMediaType)i);
 				configureStream[i] = false;
+				MW_LOG_MIL("ANJ: After Calling TearDownStream. configureStream[i] is set to false. i = %d", i);
 			}
 		}
 		}
@@ -1226,9 +1229,12 @@ void InterfacePlayerRDK::TearDownStream(GstMediaType mediaType)
 	gst_media_stream* stream = &gstPrivateContext->stream[mediaType];
 	stream->bufferUnderrun = false;
 	stream->eosReached = false;
+	MW_LOG_MIL("ANJ:InterfacePlayerRDK::TearDownStream: entry mediaType = %d", mediaType);
 	if (stream->format != GST_FORMAT_INVALID)
 	{
+		MW_LOG_MIL("ANJ: InterfacePlayerRDK::TearDownStream: waiting for pthread_lock );
 		pthread_mutex_lock(&stream->sourceLock);
+		MW_LOG_MIL("ANJ: InterfacePlayerRDK::TearDownStream: Got pthread_lock );
 		if (gstPrivateContext->pipeline)
 		{
 			gstPrivateContext->buffering_in_progress = false;   /* stopping pipeline, don't want to change state if GST_MESSAGE_ASYNC_DONE message comes in */
@@ -1258,7 +1264,9 @@ void InterfacePlayerRDK::TearDownStream(GstMediaType mediaType)
 		g_clear_object(&stream->sinkbin);
 		g_clear_object(&stream->source);
 		stream->sourceConfigured = false;
+		MW_LOG_MIL("ANJ: InterfacePlayerRDK::TearDownStream: g_clear_object called for source and sinkbin. Now pthread_unlock );
 		pthread_mutex_unlock(&stream->sourceLock);
+		MW_LOG_MIL("ANJ: InterfacePlayerRDK::TearDownStream: pthread_unlock done );
 	}
 	if (mediaType == eGST_MEDIATYPE_VIDEO)
 	{
@@ -1272,6 +1280,7 @@ void InterfacePlayerRDK::TearDownStream(GstMediaType mediaType)
 	}
 	else if (mediaType == eGST_MEDIATYPE_SUBTITLE)
 	{
+		MW_LOG_MIL("ANJ: InterfacePlayerRDK::TearDownStream: calling g_clear_object for eGST_MEDIATYPE_SUBTITLE");
 		g_clear_object(&gstPrivateContext->subtitle_sink);
 	}
 	tearDownCb(false, mediaType);
@@ -1365,7 +1374,9 @@ void InterfacePlayerRDK::Stop(bool keepLastFrame)
 	}
 	for(int i = 0; i<GST_TRACK_COUNT;i++)
 	{
+		MW_LOG_MIL("ANJ: Calling TearDownStream for i = %d", i);
 		TearDownStream((GstMediaType(i)));
+		MW_LOG_MIL("ANJ: After Calling TearDownStream for i = %d", i);
 	}
 	DestroyPipeline();
 	gstPrivateContext->rate = GST_NORMAL_PLAY_RATE;
