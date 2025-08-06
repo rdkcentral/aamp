@@ -321,7 +321,7 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int auxF
 				gstPrivateContext->NumberOfTracks++;
 			}
 		}
-		MW_LOG_MIL("ANJ: gstPrivateContext->rate = %f", gstPrivateContext->rate);
+		MW_LOG_MIL("ANJ: gstPrivateContext->rate = %d", gstPrivateContext->rate);
 		if(socInterface->ShouldTearDownForTrickplay())
 		{
 		if(gstPrivateContext->rate > 1 || gstPrivateContext->rate < 0)
@@ -330,7 +330,7 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int auxF
 				configureStream[i] = true;
 			else
 			{
-				MW_LOG_MIL("ANJ: Calling TearDownStream. gstPrivateContext->rate = %f", gstPrivateContext->rate);
+				MW_LOG_MIL("ANJ: Calling TearDownStream.");
 				TearDownStream((GstMediaType)i);
 				configureStream[i] = false;
 				MW_LOG_MIL("ANJ: After Calling TearDownStream. configureStream[i] is set to false. i = %d", i);
@@ -358,7 +358,9 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int auxF
 			(trickTeardown && (eGST_MEDIATYPE_AUDIO == i))) // remove the trickTeardown api not required
 		{
 			trickTeardown = false;
+			MW_LOG_MIL("ANJ: Calling TearDownStream 2.");
 			TearDownStream((GstMediaType)i);
+			MW_LOG_MIL("ANJ: After Calling TearDownStream 2.");
 			stream->format = newFormat[i];
 			stream->trackId = trackId;
 
@@ -1574,7 +1576,7 @@ bool InterfacePlayerRDK::Flush(double position, int rate, bool shouldTearDown, b
 			position = 0;
 		}
 	}
-	MW_LOG_WARN("ANJ: InterfacePlayerRDK: calling gst_element_seek. playRate = %f, position = %f, shouldTearDown = %d, isAppSeek = %d", playRate, position, shouldTearDown, isAppSeek);
+	MW_LOG_WARN("ANJ: InterfacePlayerRDK: calling gst_element_seek. position = %f", position);
 	if (!gst_element_seek(gstPrivateContext->pipeline, playRate, GST_FORMAT_TIME, GST_SEEK_FLAG_FLUSH, GST_SEEK_TYPE_SET,
 						  position * GST_SECOND, GST_SEEK_TYPE_NONE, GST_CLOCK_TIME_NONE))
 	{
@@ -1583,7 +1585,7 @@ bool InterfacePlayerRDK::Flush(double position, int rate, bool shouldTearDown, b
 		//Save the updated seek position
 		SetSeekPosition(position);
 	}
-	MW_LOG_WARN("ANJ: InterfacePlayerRDK: After calling gst_element_seek. playRate = %f, position = %f, shouldTearDown = %d, isAppSeek = %d", playRate, position, shouldTearDown, isAppSeek);
+	MW_LOG_WARN("ANJ: InterfacePlayerRDK: After calling gst_element_seek. position = %f", position);
 
 	if ((gstPrivateContext->usingRialtoSink) &&
 		(gstPrivateContext->audio_sink) &&
@@ -2033,6 +2035,7 @@ int InterfacePlayerRDK::SetupStream(int streamId,  void *playerInstance, std::st
 {
 	InterfacePlayerRDK* pInterfacePlayerRDK = (InterfacePlayerRDK*)playerInstance;
 	gst_media_stream* stream = &pInterfacePlayerRDK->gstPrivateContext->stream[streamId];
+	MW_LOG_MIL("ANJ: Entry: SetupStream, streamId = %d", streamId);
 	if (eGST_MEDIATYPE_SUBTITLE == streamId)
 	{
 		if(m_gstConfigParam->gstreamerSubsEnabled)
@@ -2245,6 +2248,7 @@ int InterfacePlayerRDK::SetupStream(int streamId,  void *playerInstance, std::st
 		socInterface->ConfigurePluginPriority();
 	}
 	gst_element_sync_state_with_parent(stream->sinkbin);
+	MW_LOG_MIL("ANJ: Exit: SetupStream, streamId = %d", streamId);
 	return 0;
 }
 
