@@ -218,7 +218,7 @@ static void gst_cdmidecryptor_init(
 	g_mutex_lock(&cdmidecryptor->mutex);
 	cdmidecryptor->canWait = false;
 	g_mutex_unlock(&cdmidecryptor->mutex);
-	cdmidecryptor->protectionvent = NULL;
+	cdmidecryptor->protectionEvent = NULL;
 	cdmidecryptor->sessionManager = NULL;
 	cdmidecryptor->drmSession = NULL;
 	cdmidecryptor->player = NULL;
@@ -682,7 +682,8 @@ static GstFlowReturn gst_cdmidecryptor_transform_ip(
 	if (!cdmidecryptor->firstsegprocessed
 			&& cdmidecryptor->sessionManager)
 	{
-		cdmidecryptor->sessionManager->profileBeginCb(cdmidecryptor->mediaType);
+
+		cdmidecryptor->sessionManager->profileDecryptProfileCb(((int)cdmidecryptor->mediaType), 0, 0);
 		cdmidecryptor->firstsegprocessed = true;
 	}
 
@@ -693,11 +694,11 @@ static GstFlowReturn gst_cdmidecryptor_transform_ip(
 	{
 	if(!cdmidecryptor->streamEncrypted)
 	{
-		cdmidecryptor->sessionManager->profileEndCb(cdmidecryptor->mediaType);
+		cdmidecryptor->sessionManager->profileDecryptProfileCb(((int)cdmidecryptor->mediaType), 1, 0);
 	}
 	else
 	{
-		cdmidecryptor->sessionManager->profileErrorCb(cdmidecryptor->mediaType, result);
+		cdmidecryptor->sessionManager->profileDecryptProfileCb(((int)cdmidecryptor->mediaType), 2, result);
 	}
 		cdmidecryptor->firstsegprocessed = true;
 	}
@@ -861,9 +862,9 @@ static gboolean gst_cdmidecryptor_sink_event(GstBaseTransform * trans,
 		GST_DEBUG_OBJECT(cdmidecryptor, "\n acquired lock for mutex\n");
 		std::shared_ptr<void> e = cdmidecryptor->sessionManager->DrmMetaDataCb();
                 int err = -1;
-		int resposneCode =-1;
+		int responseCode =-1;
 		if (cdmidecryptor->sessionManager->m_drmConfigParam->mIsWVKIDWorkaround){
-			cdmidecryptor->drmSession =	cdmidecryptor->sessionManager->createDrmSession(resposneCode, err,
+			cdmidecryptor->drmSession =	cdmidecryptor->sessionManager->createDrmSession(responseCode, err,
 						reinterpret_cast<const char *>(systemId), eMEDIAFORMAT_DASH,
 						outData, outDataLen, (int)cdmidecryptor->mediaType, cdmidecryptor->player, NULL, nullptr, false);
 		}else{
@@ -904,10 +905,11 @@ static gboolean gst_cdmidecryptor_sink_event(GstBaseTransform * trans,
 	else
 		{
 			cdmidecryptor->streamReceived = TRUE;
-			cdmidecryptor->sessionManager->laprofileEndCb(cdmidecryptor->mediaType);
+				cdmidecryptor->sessionManager->profileDecryptProfileCb(((int)cdmidecryptor->mediaType), 0, 0);
 			if (!cdmidecryptor->firstsegprocessed)
 			{
-				cdmidecryptor->sessionManager->profileBeginCb(cdmidecryptor->mediaType);
+				/** profilebegin -0, profileEnd -1 , profileError -2 */
+				cdmidecryptor->sessionManager->profileDecryptProfileCb(((int)cdmidecryptor->mediaType), 0, 0);
 			}
 
 			result = TRUE;
