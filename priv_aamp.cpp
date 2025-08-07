@@ -7063,6 +7063,7 @@ void PrivateInstanceAAMP::SetVideoMute(bool muted)
 #ifdef USE_SECMANAGER
 	if(ISCONFIGSET_PRIV(eAAMPConfig_UseSecManager))
 	{
+		AAMPLOG_WARN("mIsVideOnMute:%d",mDRMLicenseManager->getVideoMute());
 		mDRMLicenseManager->setVideoMute(IsLive(), GetCurrentLatency(), IsAtLivePoint(), GetLiveOffsetMs(),muted, GetStreamPositionMs());
 	}
 #endif
@@ -8846,6 +8847,7 @@ void PrivateInstanceAAMP::NotifyFirstBufferProcessed(const std::string& videoRec
 	if(ISCONFIGSET_PRIV(eAAMPConfig_UseSecManager))
 	{
 		double streamPositionMs = GetStreamPositionMs();
+		AAMPLOG_WARN("mIsVideOnMute:%d",mDRMLicenseManager->getVideoMute());
 		mDRMLicenseManager->setVideoMute(IsLive(), GetCurrentLatency(), IsAtLivePoint(), GetLiveOffsetMs(), video_muted, streamPositionMs);
 		mDRMLicenseManager->setPlaybackSpeedState(IsLive(), GetCurrentLatency(), IsAtLivePoint(), GetLiveOffsetMs(),rate, streamPositionMs, true);
 		int x = 0,y = 0,w = 0,h = 0;

@@ -65,7 +65,9 @@ DrmSessionManager::DrmSessionManager(int maxDrmSessions, void *player) : drmSess
 	cachedKeyIDs		= new KeyID[mMaxDrmSessions];
 	m_drmConfigParam = new configs();
 
-	MW_LOG_INFO("DrmSessionManager MaxSession:%d",mMaxDrmSessions);
+	bool videoMute = mIsVideoOnMute;
+
+	MW_LOG_INFO("DrmSessionManager MaxSession:%d mIsVideoOnMute:%d",mMaxDrmSessions,videoMute);
 }
 
 /**
@@ -202,8 +204,9 @@ void DrmSessionManager::setVideoWindowSize(int width, int height)
  */
 void DrmSessionManager::setVideoMute(bool live, double currentLatency, bool livepoint , double liveOffsetMs,bool isVideoOnMute, double positionMs)
 {
+
 #ifdef USE_SECMANAGER
-	MW_LOG_WARN("Video mute status (new): %d, state changed: %.1s, pos: %f", isVideoOnMute, (isVideoOnMute == mIsVideoOnMute) ? "N":"Y", positionMs);
+	MW_LOG_WARN("Video mute status (new): %d, mIsVideonMute:%d state changed: %.1s, pos: %f", isVideoOnMute, getVideoMute(), (isVideoOnMute == mIsVideoOnMute) ? "N":"Y", positionMs);
 
 	mIsVideoOnMute = isVideoOnMute;
 	auto localSession = mAampSecManagerSession; //Remove potential isSessionValid(), getSessionID() race by using a local copy
@@ -337,6 +340,11 @@ bool DrmSessionManager::IsKeyIdProcessed(std::vector<uint8_t> keyIdArray, bool &
 	return ret;
 }
 
+bool DrmSessionManager::getVideoMute()
+{
+	bool videomute = mIsVideoOnMute;
+	return videomute;
+}
 
 int DrmSessionManager::getSlotIdForSession(DrmSession* session)
 {
