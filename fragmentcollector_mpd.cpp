@@ -10199,12 +10199,26 @@ void StreamAbstractionAAMP_MPD::TsbReader()
 					bool breakLoop = false;
 					// For Slow motion, its better to keep the playback in TSB mode, since chunk injection could get stalled
 					// Hence slow motion will never hit EOS, once TSB data shows up, vEOS will be cleared
-					if(AAMP_NORMAL_PLAY_RATE != aamp->rate && AAMP_SLOWMOTION_RATE != aamp->rate && vEOS)
+					if(AAMP_NORMAL_PLAY_RATE != aamp->rate && AAMP_SLOWMOTION_RATE != aamp->rate && (vEOS || aEOS))
 					{
 						// Mark trickplay EOS and inform injector to perform seek or seek to live
 						AAMPLOG_INFO("Reader at EOS while trickplay");
-						mMediaStreamContext[eMEDIATYPE_VIDEO]->eosReached = true;
-						mMediaStreamContext[eMEDIATYPE_VIDEO]->AbortWaitForCachedAndFreeFragment(false);
+						
+						// Handle video EOS or audio-only content via video track
+						if (vEOS)
+						{
+							mMediaStreamContext[eMEDIATYPE_VIDEO]->eosReached = true;
+							mMediaStreamContext[eMEDIATYPE_VIDEO]->AbortWaitForCachedAndFreeFragment(false);
+						}
+						
+						// Handle audio EOS (only if audio track is actually enabled)
+						bool audioEnabled = (mMediaStreamContext[eMEDIATYPE_AUDIO] && mMediaStreamContext[eMEDIATYPE_AUDIO]->enabled);
+						if (aEOS && audioEnabled)
+						{
+							mMediaStreamContext[eMEDIATYPE_AUDIO]->eosReached = true;
+							mMediaStreamContext[eMEDIATYPE_AUDIO]->AbortWaitForCachedAndFreeFragment(false);
+						}
+						
 						breakLoop = true;
 					}
 					if((vEOS && aEOS && (eTUNETYPE_SEEKTOLIVE == mTuneType)) || breakLoop)
