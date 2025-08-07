@@ -1156,13 +1156,13 @@ DrmData * AampDRMLicenseManager::getLicenseSec(const LicenseRequest &licenseRequ
 		int32_t statusCode;
 		int32_t reasonCode;
 		int32_t businessStatus;
-
+		bool videoMuteState = mDRMSessionManager->mIsVideoOnMute.load();
+		AAMPLOG_WARN("mIsVideoOnmute = %d", videoMuteState);
 		if (!mDRMSessionManager->mAampSecManagerSession.isSessionValid())
 		{
 			// if we're about to get a licence and are not re-using a session, then we have not seen the first video frame yet. Do not allow watermarking to get enabled yet.
-			bool videoMuteState = mDRMSessionManager->mIsVideoOnMute;
-			AAMPLOG_WARN("First frame flag cleared before AcquireLicense, with mIsVideoOnMute=%d", videoMuteState);
-			mDRMSessionManager->mFirstFrameSeen = false;
+			AAMPLOG_WARN("First frame flag cleared before AcquireLicense, with videoMuteState=%d mIsVideoOnMute=%d ", videoMuteState, mDRMSessionManager->getVideoMute());
+			mDRMSessionManager->mFirstFrameSeen.store(false);
 		}
 
 		tStartTime = NOW_STEADY_TS_MS;
@@ -1176,7 +1176,7 @@ DrmData * AampDRMLicenseManager::getLicenseSec(const LicenseRequest &licenseRequ
 																 secclientSessionToken, challengeInfo.accessToken.length(),
 																 mDRMSessionManager->mAampSecManagerSession,
 																 &licenseResponseStr, &licenseResponseLength,
-																 &statusCode, &reasonCode, &businessStatus, mDRMSessionManager->mIsVideoOnMute);
+																 &statusCode, &reasonCode, &businessStatus, videoMuteState);
 		tEndTime = NOW_STEADY_TS_MS;
 		downloadTimeMS = tEndTime - tStartTime;
 		if (res)
@@ -1365,6 +1365,11 @@ void AampDRMLicenseManager::hideWatermarkOnDetach(void)
 void AampDRMLicenseManager::setVideoMute(bool live, double currentLatency, bool livepoint , double liveOffsetMs,bool isVideoOnMute, double positionMs)
 {
 	mDRMSessionManager->setVideoMute(live, currentLatency, livepoint, liveOffsetMs,isVideoOnMute, positionMs);
+}
+
+bool AampDRMLicenseManager::getVideoMute()
+{
+	return mDRMSessionManager->getVideoMute();
 }
 
 void AampDRMLicenseManager::setVideoWindowSize(int width, int height)

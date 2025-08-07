@@ -118,7 +118,7 @@ public:
 	* @return	void.
 	*/
 	void setVideoMute(bool live, double currentLatency, bool livepoint , double liveOffsetMs,bool videoMuteStatus, double positionMs);
-
+	bool getVideoMute();
 	void setVideoWindowSize(int width, int height);
 
 	/**

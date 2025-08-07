@@ -65,7 +65,9 @@ DrmSessionManager::DrmSessionManager(int maxDrmSessions, void *player) : drmSess
 	cachedKeyIDs		= new KeyID[mMaxDrmSessions];
 	m_drmConfigParam = new configs();
 
-	MW_LOG_INFO("DrmSessionManager MaxSession:%d",mMaxDrmSessions);
+	bool videoMute = mIsVideoOnMute.load();
+
+	MW_LOG_INFO("DrmSessionManager MaxSession:%d mIsVideoOnMute:%d",mMaxDrmSessions,videoMute);
 }
 
 /**
@@ -202,20 +204,21 @@ void DrmSessionManager::setVideoWindowSize(int width, int height)
  */
 void DrmSessionManager::setVideoMute(bool live, double currentLatency, bool livepoint , double liveOffsetMs,bool isVideoOnMute, double positionMs)
 {
-#ifdef USE_SECMANAGER
-	MW_LOG_WARN("Video mute status (new): %d, state changed: %.1s, pos: %f", isVideoOnMute, (isVideoOnMute == mIsVideoOnMute) ? "N":"Y", positionMs);
 
-	mIsVideoOnMute = isVideoOnMute;
+#ifdef USE_SECMANAGER
+	MW_LOG_WARN("Video mute status (new): %d, mIsVideonMute:%d state changed: %.1s, pos: %f", isVideoOnMute, getVideoMute(), (isVideoOnMute == mIsVideoOnMute) ? "N":"Y", positionMs);
+
+	mIsVideoOnMute.store(isVideoOnMute);
 	auto localSession = mAampSecManagerSession; //Remove potential isSessionValid(), getSessionID() race by using a local copy
 	if(localSession.isSessionValid())
 	{
-		AampSecManager::GetInstance()->UpdateSessionState(localSession.getSessionID(), !mIsVideoOnMute);
-		if(!mIsVideoOnMute)
+		AampSecManager::GetInstance()->UpdateSessionState(localSession.getSessionID(), !mIsVideoOnMute.load());
+		if(!mIsVideoOnMute.load())
 		{
 			//this is required as secmanager waits for speed update to show wm once session is active
-			int speed=mCurrentSpeed;
+			int speed=mCurrentSpeed.load();
 			MW_LOG_INFO("Setting speed after video unmute %d ", speed);
-			setPlaybackSpeedState(live, currentLatency, livepoint, liveOffsetMs,mCurrentSpeed, positionMs);
+			setPlaybackSpeedState(live, currentLatency, livepoint, liveOffsetMs, speed, positionMs);
 		}
 	}
 #endif
@@ -233,7 +236,7 @@ void DrmSessionManager::hideWatermarkOnDetach(void)
 	{
 		AampSecManager::GetInstance()->UpdateSessionState(localSession.getSessionID(), false);
 	}
-	mFirstFrameSeen = false;
+	mFirstFrameSeen.store(false);
 #endif
 }
 
@@ -241,21 +244,21 @@ void DrmSessionManager::hideWatermarkOnDetach(void)
 void DrmSessionManager::setPlaybackSpeedState(bool live, double currentLatency, bool livepoint , double liveOffsetMs, int speed, double positionMs, bool firstFrameSeen)
 {
 #ifdef USE_SECMANAGER
-	bool isVideoOnMute=mIsVideoOnMute;
+	bool isVideoOnMute=mIsVideoOnMute.load();
 	auto localSession = mAampSecManagerSession; //Remove potential isSessionValid(), getSessionID() race by using a local copy
 	MW_LOG_WARN("In DrmSessionManager::after calling setPlaybackSpeedState speed=%d position=%f sessionID=[%" PRId64 "], mute: %d",speed, positionMs, localSession.getSessionID(), isVideoOnMute);
-	mCurrentSpeed = speed;
+	mCurrentSpeed.store(speed);
 	if(firstFrameSeen)
 	{
 		MW_LOG_INFO("First frame seen - latched");
-		mFirstFrameSeen = true;
+		mFirstFrameSeen.store(true);
 	}
-	else if (mFirstFrameSeen)
+	else if (mFirstFrameSeen.load())
 	{
 		MW_LOG_INFO("First frame has previously been seen, we will send speed updates");
 	}
 
-	if(localSession.isSessionValid() && !mIsVideoOnMute && mFirstFrameSeen)
+	if(localSession.isSessionValid() && !mIsVideoOnMute.load() && mFirstFrameSeen.load())
 	{
 		MW_LOG_INFO("calling AampSecManager::setPlaybackSpeedState()");
 
@@ -279,8 +282,8 @@ void DrmSessionManager::setPlaybackSpeedState(bool live, double currentLatency, 
 	}
 	else
 	{
-		bool firstFrameSeenCopy=mFirstFrameSeen;
-		isVideoOnMute=mIsVideoOnMute;
+		bool firstFrameSeenCopy=mFirstFrameSeen.load();
+		isVideoOnMute=mIsVideoOnMute.load();
 		MW_LOG_INFO("Not calling AampSecManager::setPlaybackSpeedState(), sessionID=[%" PRId64 "], mIsVideoOnMute=%d, firstFrameSeen=%d", localSession.getSessionID(), isVideoOnMute, firstFrameSeenCopy);
 	}
 #endif
@@ -337,6 +340,11 @@ bool DrmSessionManager::IsKeyIdProcessed(std::vector<uint8_t> keyIdArray, bool &
 	return ret;
 }
 
+bool DrmSessionManager::getVideoMute()
+{
+	bool videomute = mIsVideoOnMute.load();
+	return videomute;
+}
 
 int DrmSessionManager::getSlotIdForSession(DrmSession* session)
 {
@@ -658,7 +666,7 @@ KeyState DrmSessionManager::getDrmSession(int &err, std::shared_ptr<DrmHelper> d
 				{
 					// Set the drmSession's ID as mAampSecManagerSession so that this code will not be repeated for multiple calls for createDrmSession					
 					mAampSecManagerSession = slotSession;
-					bool videoMuteState = mIsVideoOnMute;
+					bool videoMuteState = mIsVideoOnMute.load();
 					MW_LOG_WARN("Activating re-used DRM, sessionId[%" PRId64 "], with video mute = %d", slotSession.getSessionID(), videoMuteState);
 					AampSecManager::GetInstance()->UpdateSessionState(slotSession.getSessionID(), true);
 				}
@@ -773,8 +781,8 @@ void DrmSessionManager::notifyCleanup()
 		AampSecManager::GetInstance()->UpdateSessionState(localSession.getSessionID(), false);
 		// Reset the session ID, the session ID is preserved within DrmSession instances
 		mAampSecManagerSession.setSessionInvalid();	//note this doesn't necessarily close the session as the session ID is also saved in the slot
-		mCurrentSpeed = 0;
-		mFirstFrameSeen = false;
+		mCurrentSpeed.store(0);
+		mFirstFrameSeen.store(false);
 	}
 #endif
 }
