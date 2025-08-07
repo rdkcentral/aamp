@@ -1082,9 +1082,7 @@ bool MediaTrack::ProcessFragmentChunk()
 		if((mLastChunkPTS > (fpts + FLOATING_POINT_EPSILON) ) &&  (type == eTRACK_VIDEO) && (aamp->rate == AAMP_NORMAL_PLAY_RATE) && (!cachedFragment->initFragment) && (shouldSendSegmentEvent == true))
 		{
 			AAMPLOG_WARN("RESHMA --> Saved PTS %.15f is greater than current PTS %.15f for %s", mLastChunkPTS, fpts, name);
-		//	aamp->SendNewSegmentEvent((AampMediaType)type, mLastChunkPTS, 0);
-			double pos =  ((double)mLastChunkPTS/(double)timeScale);
-			aamp->FlushStreamSink(pos, aamp->rate);
+			aamp->SendNewSegmentEvent((AampMediaType)type, mLastChunkPTS, 0);
 			shouldSendSegmentEvent = false;
 		}
 		if (type != eTRACK_SUBTITLE || (aamp->IsGstreamerSubsEnabled()))
