@@ -319,7 +319,7 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int auxF
 			PipelineSetToReady = true;
 		}
 	}
-#if 1//anj
+#if 0//anj
 	bool configurationChanged = false;
 #endif//anj
 	bool configureStream[GST_TRACK_COUNT] = {};
@@ -335,7 +335,7 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int auxF
 				configureStream[i] = true;
 				gstPrivateContext->NumberOfTracks++;
 			}
-#if 1//anj
+#if 0//anj
 		configurationChanged = true;
 #endif//anj
 		}
@@ -372,7 +372,7 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int auxF
 		stream->firstBufferProcessed = false;
 	}
 
-#if 1//anj
+#if 0//anj
 	/* For Rialto, teardown and rebuild the gstreamer streams if the
 	 * configuration changes. This allows the "single-path-stream" property to
 	 * be set correctly.
@@ -1680,7 +1680,7 @@ bool InterfacePlayerRDK::Flush(double position, int rate, bool shouldTearDown, b
 	MW_LOG_WARN("ANJ: InterfacePlayerRDK: After calling gst_element_seek. position = %f, pipeline = %p", position, gstPrivateContext->pipeline);
 	printf("ANJp: InterfacePlayerRDK:Flush: After calling gst_element_seek. position = %f, pipeline = %p\n", position, gstPrivateContext->pipeline);
 
-#if 0//anj
+#if 1//anj
 	if ((gstPrivateContext->usingRialtoSink) &&
 		(gstPrivateContext->audio_sink) &&
 		(rate != GST_NORMAL_PLAY_RATE))
@@ -4222,6 +4222,16 @@ static gboolean bus_message(GstBus * bus, GstMessage * msg, InterfacePlayerRDK *
 			if(isPlaybinStateChangeEvent || pInterfacePlayerRDK->m_gstConfigParam->gstLogging)
 			{
 				MW_LOG_MIL("%s %s -> %s (pending %s)",
+						   GST_OBJECT_NAME(msg->src),
+						   gst_element_state_get_name(old_state),
+						   gst_element_state_get_name(new_state),
+						   gst_element_state_get_name(pending_state));
+				printf("ANJp:bus_message: GST_MESSAGE_STATE_CHANGED: %s %s -> %s (pending %s)\n",
+						   GST_OBJECT_NAME(msg->src),
+						   gst_element_state_get_name(old_state),
+						   gst_element_state_get_name(new_state),
+						   gst_element_state_get_name(pending_state));
+				MW_LOG_INFO("ANJ: GST_MESSAGE_STATE_CHANGED: %s %s -> %s (pending %s)",
 						   GST_OBJECT_NAME(msg->src),
 						   gst_element_state_get_name(old_state),
 						   gst_element_state_get_name(new_state),
