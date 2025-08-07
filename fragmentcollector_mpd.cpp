@@ -14182,4 +14182,4 @@ bool StreamAbstractionAAMP_MPD::DoStreamSinkFlushOnDiscontinuity()
 	bool doFlush = (!ISCONFIGSET(eAAMPConfig_EnableMediaProcessor) || mIsSegmentTimelineEnabled);
 	AAMPLOG_INFO("doFlush=%d", doFlush);
 	return doFlush;
-}
+

@@ -137,7 +137,6 @@ AAMPStatusType AampTsbReader::Init(double &startPosSec, float rate, TuneType tun
 							mTrackEnabled = true;
 						}
 						// Save First PTS
-
 						mFirstPTS = firstFragmentToFetch->GetPTS();
 						mFirstPTSOffset = firstFragmentToFetch->GetPTSOffset();
 						AAMPLOG_INFO("[%s] startPosition:%lfs rate:%f pts:%lfs ptsOffset:%lfs firstFragmentRange:(%lfs-%lfs)", 
@@ -425,3 +424,4 @@ AampTime AampTsbReader::GetFirstPTSOffset()
 {
 	return mFirstPTSOffset;
 }
+
