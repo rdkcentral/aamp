@@ -138,6 +138,7 @@ AAMPStatusType AampTsbReader::Init(double &startPosSec, float rate, TuneType tun
 						}
 						// Save First PTS
 
+
 						mFirstPTS = firstFragmentToFetch->GetPTS();
 						mFirstPTSOffset = firstFragmentToFetch->GetPTSOffset();
 						AAMPLOG_INFO("[%s] startPosition:%lfs rate:%f pts:%lfs ptsOffset:%lfs firstFragmentRange:(%lfs-%lfs)", 
