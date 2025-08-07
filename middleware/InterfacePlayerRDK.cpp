@@ -1705,7 +1705,8 @@ void InterfacePlayerRDK::InitializeSourceForPlayer(void *PlayerInstance, void * 
 		MW_LOG_INFO("Setting gst Video buffer max bytes to %d", MaxGstVideoBufBytes);
 		g_object_set(source, "max-bytes", (guint64)MaxGstVideoBufBytes, NULL);			/* Sets the maximum video buffer bytes as per configuration*/
 
-		if (socInterface->IsPlatformSegmentReady(gstPrivateContext->video_sink, gstPrivateContext->usingRialtoSink))
+		if ((gstPrivateContext->usingRialtoSink) &&
+			(socInterface->IsPlatformSegmentReady(gstPrivateContext->video_sink, gstPrivateContext->usingRialtoSink)))
 		{
 			MW_LOG_INFO("Setting handle-segment-change to 1");
 			g_object_set(source, "handle-segment-change", TRUE, NULL);
@@ -3063,16 +3064,31 @@ void InterfacePlayerRDK::SendNewSegmentEvent(GstMediaType mediaType, GstClockTim
 			segment.applied_rate = gstPrivateContext->rate;
 		}
 
-		GstCaps *currentCaps = gst_app_src_get_caps(GST_APP_SRC(stream->source));
-        GstSample *sample = gst_sample_new (nullptr, currentCaps, &segment, nullptr);
-
-		MW_LOG_INFO("Pushing sample for mediaType[%d]. start %" G_GUINT64_FORMAT " stop %" G_GUINT64_FORMAT" rate %f applied_rate %f", mediaType, segment.start, segment.stop, segment.rate, segment.applied_rate);
-		if (GST_FLOW_OK != gst_app_src_push_sample(GST_APP_SRC(stream->source), sample))
+		if (gstPrivateContext->usingRialtoSink)
 		{
-			MW_LOG_ERR("Failed to push sample for mediaType[%d]", mediaType);
+			GstCaps *currentCaps = gst_app_src_get_caps(GST_APP_SRC(stream->source));
+			GstSample *sample = gst_sample_new (nullptr, currentCaps, &segment, nullptr);
+
+			MW_LOG_INFO("Pushing sample with segment for mediaType[%d]. start %" G_GUINT64_FORMAT " stop %" G_GUINT64_FORMAT" rate %f applied_rate %f", mediaType, segment.start, segment.stop, segment.rate, segment.applied_rate);
+			if (GST_FLOW_OK != gst_app_src_push_sample(GST_APP_SRC(stream->source), sample))
+			{
+				MW_LOG_ERR("Failed to push sample for mediaType[%d]", mediaType);
+			}
+			gst_sample_unref(sample);
+			gst_caps_unref(currentCaps);
 		}
-        gst_sample_unref(sample);
-        gst_caps_unref(currentCaps);
+		else
+		{
+			MW_LOG_INFO("Sending segment event for mediaType[%d]. start %" G_GUINT64_FORMAT " stop %" G_GUINT64_FORMAT" rate %f applied_rate %f", mediaType, segment.start, segment.stop, segment.rate, segment.applied_rate);
+			GstPad* sourceEleSrcPad = gst_element_get_static_pad(GST_ELEMENT(stream->source), "src");
+			GstEvent* event = gst_event_new_segment (&segment);
+			if (!gst_pad_push_event(sourceEleSrcPad, event))
+			{
+				MW_LOG_ERR("gst_pad_push_event segment error");
+			}
+			gst_object_unref(sourceEleSrcPad);			
+
+		}
 	}
 }
 
