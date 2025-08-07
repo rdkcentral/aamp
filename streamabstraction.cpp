@@ -1367,9 +1367,12 @@ void MediaTrack::ProcessAndInjectFragment(CachedFragment *cachedFragment, bool f
 			}
 		}
 		else if (ISCONFIGSET(eAAMPConfig_OverrideMediaHeaderDuration) &&
-			(eMEDIAFORMAT_DASH == aamp->mMediaFormat))
+			//(eMEDIAFORMAT_DASH == aamp->mMediaFormat))//anj:orig
+			(eMEDIAFORMAT_DASH == aamp->mMediaFormat) && (aamp->IsLive()))
 		{
-			// Only for DASH streams
+			// Only for live DASH streams
+			//// Only for DASH streams//anj
+			printf("\nANJ: Calling ------------------------ClearMediaHeaderDuration =============\n");
 			ClearMediaHeaderDuration(cachedFragment);
 		}
 		if ((mSubtitleParser || (aamp->IsGstreamerSubsEnabled())) && type == eTRACK_SUBTITLE)
