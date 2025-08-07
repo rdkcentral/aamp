@@ -283,6 +283,8 @@ public:
 	 * 				false if key is not cached
 	 */
 	bool IsKeyIdProcessed(std::vector<uint8_t> keyIdArray, bool &status);
+
+	bool getVideoMute();
 	/**
 	 *  @fn         clearSessionData
 	 *

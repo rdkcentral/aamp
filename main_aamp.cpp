@@ -1471,6 +1471,7 @@ void PlayerInstanceAAMP::SetVideoMute(bool muted)
 		{
 			if (aamp->mpStreamAbstractionAAMP)
 			{
+				AAMPLOG_WARN("calling SetVideoMute");
 				aamp->SetVideoMute(muted); // hide/show video plane
 				aamp->CacheAndApplySubtitleMute(muted);
 			}

@@ -1161,7 +1161,7 @@ DrmData * AampDRMLicenseManager::getLicenseSec(const LicenseRequest &licenseRequ
 		{
 			// if we're about to get a licence and are not re-using a session, then we have not seen the first video frame yet. Do not allow watermarking to get enabled yet.
 			bool videoMuteState = mIsVideoOnMute;
-			AAMPLOG_WARN("First frame flag cleared before AcquireLicense, with mIsVideoOnMute=%d", videoMuteState);
+			AAMPLOG_WARN("First frame flag cleared before AcquireLicense, with videoMuteState=%d mIsVideoOnMute=%d ", videoMuteState, mDrmSessionManager->getVideoMute());
 			mDrmSessionManager->mFirstFrameSeen = false;
 		}
 
@@ -1365,6 +1365,11 @@ void AampDRMLicenseManager::hideWatermarkOnDetach(void)
 void AampDRMLicenseManager::setVideoMute(bool live, double currentLatency, bool livepoint , double liveOffsetMs,bool isVideoOnMute, double positionMs)
 {
 	mDrmSessionManager->setVideoMute(live, currentLatency, livepoint, liveOffsetMs,isVideoOnMute, positionMs);
+}
+
+bool AampDRMLicenseManager::getVideoMute()
+{
+	return mDrmSessionManager->getVideoMute();
 }
 
 void AampDRMLicenseManager::setVideoWindowSize(int width, int height)

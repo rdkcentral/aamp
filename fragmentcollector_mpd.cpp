@@ -167,6 +167,7 @@ StreamAbstractionAAMP_MPD::StreamAbstractionAAMP_MPD(class PrivateInstanceAAMP *
 	{
 		AampDRMLicenseManager *licenseManager = aamp->mDRMLicenseManager;
 		licenseManager->SetLicenseFetcher(this);
+		AAMPLOG_WARN("mIsVideoOnMute: %d", aamp->mDRMLicenseManager->getVideoMute());
 	}
 	memset(&mMediaStreamContext, 0, sizeof(mMediaStreamContext));
 	GetABRManager().clearProfiles();
@@ -7296,6 +7297,7 @@ void StreamAbstractionAAMP_MPD::StreamSelection( bool newTune, bool forceSpeedsC
 	if (aamp->mDRMLicenseManager)
 	{
 		AampDRMLicenseManager *licenseManager = aamp->mDRMLicenseManager;
+		AAMPLOG_WARN("mIsVideoOnMute: %d", aamp->mDRMLicenseManager->getVideoMute());
 		if (mMultiVideoAdaptationPresent)
 		{
 			// We have multiple video adaptations in the same period and

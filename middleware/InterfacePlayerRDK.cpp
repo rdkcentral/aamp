@@ -3523,7 +3523,7 @@ void InterfacePlayerRDK::NotifyFirstFrame(int mediaType)
 	{
 		gstPrivateContext->firstFrameReceived = true;
 		notifyFirstBuffer = true;
-		PlayerLogManager::setLogLevel(mLOGLEVEL_WARN);				//Align with player LogTuneComplete once the first frame starts, required for prod builds
+		PlayerLogManager::setLogLevel(mLOGLEVEL_TRACE);				//Align with player LogTuneComplete once the first frame starts, required for prod builds
 	}
 	if(notifyFirstFrameCallback)
 	{
