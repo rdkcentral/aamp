@@ -38,6 +38,11 @@ enum
 	PROP_0, PROP_PLAYER, PROP_DRM_SESSION_MANAGER
 };
 
+enum
+{
+	ePROF_BEGIN, ePROF_END , ePROF_ERR
+};
+
 //#define FUNCTION_DEBUG 1
 #ifdef FUNCTION_DEBUG
 #define DEBUG_FUNC()    g_warning("####### %s : %d ####\n", __FUNCTION__, __LINE__);
@@ -683,7 +688,7 @@ static GstFlowReturn gst_cdmidecryptor_transform_ip(
 			&& cdmidecryptor->sessionManager)
 	{
 
-		cdmidecryptor->sessionManager->profileDecryptProfileCb(((int)cdmidecryptor->mediaType), 0, 0);
+		cdmidecryptor->sessionManager->profileDecryptProfileCb(((int)cdmidecryptor->mediaType), ePROF_BEGIN, 0);
 		cdmidecryptor->firstsegprocessed = true;
 	}
 
@@ -694,11 +699,11 @@ static GstFlowReturn gst_cdmidecryptor_transform_ip(
 	{
 	if(!cdmidecryptor->streamEncrypted)
 	{
-		cdmidecryptor->sessionManager->profileDecryptProfileCb(((int)cdmidecryptor->mediaType), 1, 0);
+		cdmidecryptor->sessionManager->profileDecryptProfileCb(((int)cdmidecryptor->mediaType), ePROF_END, 0);
 	}
 	else
 	{
-		cdmidecryptor->sessionManager->profileDecryptProfileCb(((int)cdmidecryptor->mediaType), 2, result);
+		cdmidecryptor->sessionManager->profileDecryptProfileCb(((int)cdmidecryptor->mediaType), ePROF_ERR, result);
 	}
 		cdmidecryptor->firstsegprocessed = true;
 	}
@@ -905,7 +910,7 @@ static gboolean gst_cdmidecryptor_sink_event(GstBaseTransform * trans,
 	else
 		{
 			cdmidecryptor->streamReceived = TRUE;
-				cdmidecryptor->sessionManager->profileDecryptProfileCb(((int)cdmidecryptor->mediaType), 0, 0);
+			cdmidecryptor->sessionManager->laprofileEndCb(cdmidecryptor->mediaType);
 			if (!cdmidecryptor->firstsegprocessed)
 			{
 				/** profilebegin -0, profileEnd -1 , profileError -2 */
