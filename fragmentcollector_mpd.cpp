@@ -7970,10 +7970,10 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, 
 						//Set the period start back to the begining of the base period and then add basePeriodOffset
 						//to get the start for this AD
 						double absoluteAdBreakStartTime = mCdaiObject->mAdBreaks[mBasePeriodId].mAbsoluteAdBreakStartTime.inSeconds();
-						pMediaStreamContext->fragmentTime = absoluteAdBreakStartTime;
+					//	pMediaStreamContext->fragmentTime = absoluteAdBreakStartTime;
 						// convert to seconds, standard implicit conversion
 						pMediaStreamContext->fragmentTime += mCdaiObject->mCurAds->at(mCdaiObject->mCurAdIdx).basePeriodOffset / 1000.0;
-						if((aamp->mMPDPeriodsInfo.at(0).periodId) == mBasePeriodId)
+					//	if((aamp->mMPDPeriodsInfo.at(0).periodId) == mBasePeriodId)
 						{
 							pMediaStreamContext->fragmentTime -= mLivePeriodCulledSeconds;
 						}
@@ -8132,7 +8132,7 @@ PeriodInfo StreamAbstractionAAMP_MPD::GetFirstValidCurrMPDPeriod(std::vector<Per
 		validPeriod = currMPDPeriodDetails[0];
 		for(const auto& iter : currMPDPeriodDetails)
 		{
-			if(iter.duration > 0)
+			if(iter.duration > 0 && iter.isEmptyPeriod == false)
 			{
 				validPeriod = iter;
 				break;
@@ -8189,19 +8189,27 @@ double StreamAbstractionAAMP_MPD::GetCulledSeconds(std::vector<PeriodInfo> &curr
 					}
 					else
 					{
-						double deltaStartTime = currFirstPeriodInfo.periodStartTime - prevPeriodInfo.periodStartTime;
-						if(prevPeriodInfo.duration <= deltaStartTime)
+						if (prevPeriodInfo.isEmptyPeriod)
 						{
-							culled += (prevPeriodInfo.duration / 1000);
+							AAMPLOG_INFO("PeriodId empty %s", prevPeriodInfo.periodId.c_str());
+							iter1++;
 						}
 						else
 						{
-							culled += deltaStartTime;
+							double deltaStartTime = currFirstPeriodInfo.periodStartTime - prevPeriodInfo.periodStartTime;
+							if (prevPeriodInfo.duration <= deltaStartTime)
+							{
+								culled += (prevPeriodInfo.duration / 1000);
+							}
+							else
+							{
+								culled += deltaStartTime;
+							}
+							iter1++;
+							mLivePeriodCulledSeconds = 0;
+							AAMPLOG_WARN("PeriodId %s , with last known duration %f seems to have got culled",
+										 prevPeriodInfo.periodId.c_str(), (prevPeriodInfo.duration / 1000));
 						}
-						iter1++;
-						mLivePeriodCulledSeconds = 0;
-						AAMPLOG_WARN("PeriodId %s , with last known duration %f seems to have got culled",
-										prevPeriodInfo.periodId.c_str(), (prevPeriodInfo.duration / 1000));
 					}
 				}
 				aamp->mMPDPeriodsInfo = currMPDPeriodDetails;
@@ -14014,9 +14022,10 @@ void StreamAbstractionAAMP_MPD::UpdateMPDPeriodDetails(std::vector<PeriodInfo>& 
 		periodInfo.periodIndex = iter;
 		periodInfo.periodStartTime = mMPDParseHelper->GetPeriodStartTime(iter,mLastPlaylistDownloadTimeMs);
 		periodInfo.periodEndTime = mMPDParseHelper->GetPeriodEndTime(iter,mLastPlaylistDownloadTimeMs,(rate != AAMP_NORMAL_PLAY_RATE),aamp->IsUninterruptedTSB());
+		periodInfo.isEmptyPeriod = mMPDParseHelper->IsEmptyPeriod(iter, (rate != AAMP_NORMAL_PLAY_RATE));
 		currMPDPeriodDetails.push_back(periodInfo);
 		mMPDParseHelper->SetMPDPeriodDetails(currMPDPeriodDetails);
-		if(!mMPDParseHelper->IsEmptyPeriod(iter, (rate != AAMP_NORMAL_PLAY_RATE)))
+		if(!periodInfo.isEmptyPeriod)
 		{
 			durMs += periodInfo.duration;
 		}
