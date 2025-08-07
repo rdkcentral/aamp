@@ -1867,7 +1867,8 @@ TEST_F(PrivAampTests,GetFileTest_RetryInitWhilstBufferDepthBeforeSuccessTest)
 		.WillOnce(Return(CURLE_OPERATION_TIMEDOUT))
 		.WillOnce(Return(CURLE_OPERATION_TIMEDOUT))
 		.WillOnce(Return(CURLE_OPERATION_TIMEDOUT))
-		.WillOnce(Return(CURLE_OK));
+		// add dummy buffer in gBuff to simulate a successful request
+		.WillOnce([&gBuff] () -> CURLcode { gBuff.AppendBytes("0x0a", 4); return CURLE_OK; });
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetBufferedDuration())
 		.WillOnce(Return(10.0))
 		.WillOnce(Return(8.0));
@@ -4310,6 +4311,8 @@ TEST_F(PrivAampTests, TuneHelperWithAampTsbInjection)
 	constexpr double SEEK_POS = 123.0;
 	p_aamp->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP_MPD;
 	StreamAbstractionAAMP *savedStreamAbstractionAAMP = p_aamp->mpStreamAbstractionAAMP;
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(_)).WillRepeatedly(Return(false));
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnableChunkInjection)).WillRepeatedly(Return(true));
 	p_aamp->mMediaFormat = eMEDIAFORMAT_DASH;
 	p_aamp->rate = AAMP_RATE_PAUSE;
 	p_aamp->seek_pos_seconds = SEEK_POS;

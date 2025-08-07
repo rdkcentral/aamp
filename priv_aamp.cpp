@@ -2040,7 +2040,8 @@ void PrivateInstanceAAMP::ReportProgress(bool sync, bool beginningOfStream)
 		double start = -1;
 		double end = -1;
 		long long videoPTS = -1;
-		double bufferedDuration = 0.0;
+		double videoBufferedDuration = 0.0;
+		double audioBufferedDuration = 0.0;
 		bool bProcessEvent = true;
 		double latency = 0;
 
@@ -2088,8 +2089,10 @@ void PrivateInstanceAAMP::ReportProgress(bool sync, bool beginningOfStream)
 			std::lock_guard<std::recursive_mutex> guard(mStreamLock);
 			if (mpStreamAbstractionAAMP)
 			{
-				bufferedDuration = mpStreamAbstractionAAMP->GetBufferedVideoDurationSec() * 1000.0;
+				videoBufferedDuration = mpStreamAbstractionAAMP->GetBufferedVideoDurationSec() * 1000.0;
+				audioBufferedDuration = mpStreamAbstractionAAMP->GetBufferedAudioDurationSec() * 1000.0;
 			}
+
 		}
 		if ((mReportProgressPosn == position) && !pipeline_paused && beginningOfStream != true)
 		{
@@ -2142,7 +2145,7 @@ void PrivateInstanceAAMP::ReportProgress(bool sync, bool beginningOfStream)
 			// update available buffer to Manifest refresh cycle .
 			if(mMPDDownloaderInstance != nullptr)
 			{
-				mMPDDownloaderInstance->SetBufferAvailability((int)bufferedDuration);
+				mMPDDownloaderInstance->SetBufferAvailability((int)videoBufferedDuration);
 				mMPDDownloaderInstance->SetCurrentPositionDeltaToManifestEnd(CurrentPositionDeltaToManifestEnd);
 			}
 		}
@@ -2184,7 +2187,7 @@ void PrivateInstanceAAMP::ReportProgress(bool sync, bool beginningOfStream)
 			bps = mpStreamAbstractionAAMP->GetVideoBitrate();
 		}
 
-		ProgressEventPtr evt = std::make_shared<ProgressEvent>(duration, reportFormattedCurrPos, start, end, speed, videoPTS, bufferedDuration, seiTimecode.c_str(), latency, bps, mNetworkBandwidth, currentRate, GetSessionId());
+		ProgressEventPtr evt = std::make_shared<ProgressEvent>(duration, reportFormattedCurrPos, start, end, speed, videoPTS, videoBufferedDuration, audioBufferedDuration, seiTimecode.c_str(), latency, bps, mNetworkBandwidth, currentRate, GetSessionId());
 
 		if (trickStartUTCMS >= 0 && (bProcessEvent || mFirstProgress))
 		{
@@ -2198,7 +2201,7 @@ void PrivateInstanceAAMP::ReportProgress(bool sync, bool beginningOfStream)
 			if(mAampLLDashServiceData.lowLatencyMode && mConfig->GetConfigOwner(eAAMPConfig_InfoLogging) == AAMP_DEFAULT_SETTING)
 			{
 				int abrMinBuffer = AAMP_BUFFER_MONITOR_GREEN_THRESHOLD_LLD;
-				bool bufferBelowMin = bufferedDuration < (abrMinBuffer * 1000);
+				bool bufferBelowMin = videoBufferedDuration < (abrMinBuffer * 1000);
 
 				if (bufferBelowMin && !mIsLoggingNeeded)
 				{
@@ -2219,12 +2222,13 @@ void PrivateInstanceAAMP::ReportProgress(bool sync, bool beginningOfStream)
 				int divisor = GETCONFIGVALUE_PRIV(eAAMPConfig_ProgressLoggingDivisor);
 				if( divisor==0 || (tick++ % divisor) == 0 )
 				{
-					AAMPLOG_MIL("aamp pos: [%ld..%ld..%ld..%lld..%.2f..%.2f..%s..%ld..%ld..%.2f]",
+					AAMPLOG_MIL("aamp pos: [%ld..%ld..%ld..%lld..%.2f..%.2f..%.2f..%s..%ld..%ld..%.2f]",
 						(long)(start / 1000),
 						(long)(reportFormattedCurrPos / 1000),
 						(long)(end / 1000),
 						(long long) videoPTS,
-						(double)(bufferedDuration / 1000.0),
+						(double)(videoBufferedDuration / 1000.0),
+						(double)(audioBufferedDuration /1000.0),
 						(latency / 1000),
 						seiTimecode.c_str(),
 						bps,
@@ -2238,7 +2242,7 @@ void PrivateInstanceAAMP::ReportProgress(bool sync, bool beginningOfStream)
 			if(mTelemetryInterval > 0 && (diff > mTelemetryInterval))
 			{
 				mLastTelemetryTimeMS = currTimeMS;
-				profiler.SetLatencyParam(latency, (double)(bufferedDuration/1000.0), currentRate, mNetworkBandwidth);
+				profiler.SetLatencyParam(latency, (double)(videoBufferedDuration/1000.0), currentRate, mNetworkBandwidth);
 				profiler.GetTelemetryParam();
 			}
 
@@ -3118,7 +3122,7 @@ bool PrivateInstanceAAMP::ProcessPendingDiscontinuity()
 					{
 						profiler.ProfileBegin(PROFILE_BUCKET_DISCO_FLUSH);
 					}
-					sink->Flush(mpStreamAbstractionAAMP->GetFirstPTS(), rate);
+					sink->Flush(mpStreamAbstractionAAMP->GetFirstPTS(), rate, false);
 					if(mDiscontinuityFound)
 					{
 						profiler.ProfileEnd(PROFILE_BUCKET_DISCO_FLUSH);
@@ -3558,7 +3562,7 @@ void PrivateInstanceAAMP::LogDrmDecryptEnd(int bucketTypeIn)
  */
 void PrivateInstanceAAMP::StopDownloads()
 {
-	AAMPLOG_DEBUG ("PrivateInstanceAAMP");
+	AAMPLOG_INFO("Stop downloads");
 	if (!mbDownloadsBlocked)
 	{
 		std::lock_guard<std::recursive_mutex> guard(mLock);
@@ -3572,7 +3576,7 @@ void PrivateInstanceAAMP::StopDownloads()
  */
 void PrivateInstanceAAMP::ResumeDownloads()
 {
-	AAMPLOG_DEBUG ("PrivateInstanceAAMP");
+	AAMPLOG_INFO("Resume downloads");
 	if (mbDownloadsBlocked)
 	{
 		std::lock_guard<std::recursive_mutex> guard(mLock);
@@ -3588,14 +3592,14 @@ void PrivateInstanceAAMP::StopTrackDownloads(AampMediaType type)
 { // called from gstreamer main event loop
 	if (!mbTrackDownloadsBlocked[type])
 	{
-		AAMPLOG_DEBUG("gstreamer-enough-data from source[%d]", type);
+		AAMPLOG_INFO("gstreamer-enough-data from source[%d]", type);
 		{
 			std::lock_guard<std::recursive_mutex> guard(mLock);
 			mbTrackDownloadsBlocked[type] = true;
 		}
 		NotifySinkBufferFull(type);
 	}
-	AAMPLOG_DEBUG ("PrivateInstanceAAMP:: Exit. type = %d",  (int) type);
+	AAMPLOG_TRACE("PrivateInstanceAAMP:: Exit. type = %d", (int)type);
 }
 
 /**
@@ -3606,11 +3610,11 @@ void PrivateInstanceAAMP::ResumeTrackDownloads(AampMediaType type)
 { // called from gstreamer main event loop
 	if (mbTrackDownloadsBlocked[type])
 	{
-		AAMPLOG_DEBUG("gstreamer-needs-data from source[%d]", type);
+		AAMPLOG_INFO("gstreamer-needs-data from source[%d]", type);
 		std::lock_guard<std::recursive_mutex> guard(mLock);
 		mbTrackDownloadsBlocked[type] = false;
 	}
-	AAMPLOG_DEBUG ("PrivateInstanceAAMP::Exit. type = %d",  (int) type);
+	AAMPLOG_TRACE("PrivateInstanceAAMP::Exit. type = %d", (int)type);
 }
 
 /**
@@ -4172,6 +4176,25 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 						AampLogManager::LogNetworkLatency (effectiveUrl.c_str(), downloadTimeMS, FRAGMENT_DOWNLOAD_WARNING_THRESHOLD, mediaType);
 						print_headerResponse(context.allResponseHeaders, mediaType);
 					}
+
+					// Do the empty buffer check only for successful downloads
+					if ((http_code == 200 || http_code == 204 || http_code == 206) && (buffer->GetPtr() == NULL || buffer->GetLen() == 0))
+					{
+#if LIBCURL_VERSION_NUM >= 0x073700 // CURL version >= 7.55.0
+						double dlSize = aamp_CurlEasyGetinfoOffset(curl, CURLINFO_SIZE_DOWNLOAD_T);
+#else
+#warning LIBCURL_VERSION<7.55.0
+						double dlSize = aamp_CurlEasyGetinfoDouble(curl, CURLINFO_SIZE_DOWNLOAD);
+#endif
+						long reqSize  = aamp_CurlEasyGetinfoLong(curl, CURLINFO_REQUEST_SIZE);
+						AAMPLOG_WARN("Invalid buffer - BufferPtr: %p, BufferLen: %zu, Dlsize : %lf ,Reqsize : %ld, Url: %s",
+									buffer->GetPtr(), buffer->GetLen(), dlSize,reqSize,
+									(res == CURLE_OK) ? effectiveUrl.c_str() : remoteUrl.c_str());
+						// Treat empty buffer as a network error, to trigger rampdown
+						// Use CURLE_PARTIAL_FILE to avoid bandwidth recalculation
+						res = CURLE_PARTIAL_FILE;
+						http_code = res;
+					}
 				}
 				else
 				{
@@ -4348,7 +4371,10 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 							appName.c_str(), mediaTypeTelemetry, mediaType, http_code, timeoutClass.c_str(), totalPerformRequest, total, connect, startTransfer, resolve, appConnect, preTransfer, redirect, dlSize, reqSize,downloadbps,
 					((mediaType == eMEDIATYPE_VIDEO || mediaType == eMEDIATYPE_INIT_VIDEO || mediaType == eMEDIATYPE_PLAYLIST_VIDEO) ? (context.bitrate > 0 ? context.bitrate : mpStreamAbstractionAAMP->GetVideoBitrate()): 0),((res == CURLE_OK) ? effectiveUrl.c_str() : remoteUrl.c_str()), // Effective URL could be different than remoteURL and it is updated only for CURLE_OK case
 									range?";":"", range?range:"");
-					AAMPLOG_INFO("External Processing Delay : %lld", context.processDelay);
+					if (context.processDelay > 0)
+					{
+						AAMPLOG_INFO("External Processing Delay : %lld", context.processDelay);
+					}
 					if(ui32CurlTrace < 10 )
 					{
 						AAMPLOG_INFO("%d.CurlTrace:Dns:%2.4f, Conn:%2.4f, Ssl:%2.4f, Redir:%2.4f, Pre:Start[%2.4f:%2.4f], Hdl:%p, Url:%s",
@@ -4407,19 +4433,6 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 		}
 		if (http_code == 200 || http_code == 206)
 		{
-			if (buffer->GetPtr() == NULL || buffer->GetLen() == 0)
-			{
-#if LIBCURL_VERSION_NUM >= 0x073700 // CURL version >= 7.55.0
-				double dlSize = aamp_CurlEasyGetinfoOffset(curl, CURLINFO_SIZE_DOWNLOAD_T);
-#else
-#warning LIBCURL_VERSION<7.55.0
-				double dlSize = aamp_CurlEasyGetinfoDouble(curl, CURLINFO_SIZE_DOWNLOAD);
-#endif
-				long reqSize  = aamp_CurlEasyGetinfoLong(curl, CURLINFO_REQUEST_SIZE);
-				AAMPLOG_WARN("Invalid buffer - BufferPtr: %p, BufferLen: %zu, Dlsize : %lf ,Reqsize : %ld, Url: %s",
-							 buffer->GetPtr(), buffer->GetLen(),
-						dlSize,reqSize,(res == CURLE_OK) ? effectiveUrl.c_str() : remoteUrl.c_str());
-			}
 			if((mHarvestCountLimit > 0) && (mHarvestConfig & getHarvestConfigForMedia(mediaType)))
 			{
 				/* Avoid chance of overwriting , in case of manifest and playlist, name will be always same */
@@ -7099,7 +7112,6 @@ void PrivateInstanceAAMP::DisableDownloads(void)
 	{
 		sink->NotifyInjectorToPause();
 	}
-
 }
 
 /**
@@ -7432,11 +7444,15 @@ bool PrivateInstanceAAMP::IsLiveStream()
  * @brief Stop playback and release resources.
  *
  */
-void PrivateInstanceAAMP::Stop()
+void PrivateInstanceAAMP::Stop( bool isDestructing )
 {
 	// Clear all the player events in the queue and sets its state to RELEASED as everything is done
-	mEventManager->SetPlayerState(eSTATE_RELEASED);
 	mEventManager->FlushPendingEvents();
+	if( !isDestructing )
+	{
+		SetState(eSTATE_STOPPING);
+	}
+	
 	{
 		std::unique_lock<std::mutex> lock(gMutex);
 		auto iter = std::find_if(std::begin(gActivePrivAAMPs), std::end(gActivePrivAAMPs), [this](const gActivePrivAAMP_t& el)
@@ -7471,8 +7487,8 @@ void PrivateInstanceAAMP::Stop()
 		inpData->bIgnoreResponseHeader	= true;
 		inpData->eRequestType = eCURL_DELETE;
 		inpData->proxyName        = GetNetworkProxy();
-		T1.Initialize(inpData);
-		T1.Download(remoteUrl, respData );
+		T1.Initialize(std::move(inpData));
+		T1.Download(remoteUrl, std::move(respData) );
 	}
 
 	UnblockWaitForDiscontinuityProcessToComplete();
@@ -7565,10 +7581,12 @@ void PrivateInstanceAAMP::Stop()
 	mFirstFragmentTimeOffset = -1;
 	mProgressReportAvailabilityOffset = -1;
 	rate = 1;
-	// Set the state to eSTATE_IDLE
-	// directly setting state variable . Calling SetState will trigger event :(
-	mState = eSTATE_IDLE;
-
+	
+	if( !isDestructing )
+	{
+		SetState(eSTATE_IDLE);
+	}
+	
 	SetPauseOnStartPlayback(false);
 	mSeekOperationInProgress = false;
 	mTrickplayInProgress = false;
@@ -10020,7 +10038,11 @@ std::string PrivateInstanceAAMP::GetAvailableAudioTracks(bool allTrack)
 			{
 				if (IsLocalAAMPTsb())
 				{
-					mpStreamAbstractionAAMP->GetCurrentAudioTrack(currentTrackInfo);
+					bool trackAvailable = mpStreamAbstractionAAMP->GetCurrentAudioTrack(currentTrackInfo);
+					if( !trackAvailable )
+					{
+						AAMPLOG_WARN( "GetCurrentAudioTrack returned false" );
+					}
 				}
 				for (auto iter = trackInfo.begin(); iter != trackInfo.end(); iter++)
 				{
@@ -10140,7 +10162,11 @@ std::string PrivateInstanceAAMP::GetAvailableTextTracks(bool allTrack)
 			{
 				if (IsLocalAAMPTsb())
 				{
-					mpStreamAbstractionAAMP->GetCurrentTextTrack(currentTrackInfo);
+					bool trackInfoAvailable = mpStreamAbstractionAAMP->GetCurrentTextTrack(currentTrackInfo);
+					if( !trackInfoAvailable )
+					{
+						AAMPLOG_WARN( "GetCurrentTextTrack returned false" );
+					}
 				}
 				for (auto iter = trackInfo.begin(); iter != trackInfo.end(); iter++)
 				{
@@ -13606,9 +13632,18 @@ bool PrivateInstanceAAMP::isDecryptClearSamplesRequired()
 
 void PrivateInstanceAAMP::SetLLDashChunkMode(bool enable)
 {
-	mIsChunkMode = enable;
+	if (ISCONFIGSET_PRIV(eAAMPConfig_EnableChunkInjection))
+	{
+		mIsChunkMode = enable;
+	}
+	else
+	{
+		AAMPLOG_WARN("Chunk mode injection is disabled");
+		mIsChunkMode = false;
+	}
+
 	AampLLDashServiceData* stLLServiceData = GetLLDashServiceData();
-	if(mIsChunkMode)
+	if(enable)
 	{
 		mMPDDownloaderInstance->SetNetworkTimeout(MANIFEST_TIMEOUT_FOR_LLD);
 		SETCONFIGVALUE_PRIV(AAMP_TUNE_SETTING,eAAMPConfig_ManifestTimeout,MANIFEST_TIMEOUT_FOR_LLD);
@@ -13634,9 +13669,6 @@ void PrivateInstanceAAMP::SetLLDashChunkMode(bool enable)
 		{
 			AAMPLOG_WARN("LLD Service data is NULL, not updating CURL timeouts "); // should not go here ideally
 		}
-
-
-
 		AAMPLOG_INFO("ChunkMode enabled");
 	}
 	else
@@ -13654,7 +13686,6 @@ void PrivateInstanceAAMP::SetLLDashChunkMode(bool enable)
 			SetCurlTimeout(mNetworkTimeoutMs, (AampCurlInstance)i);
 		}
 		AAMPLOG_INFO("Updated NetworkTimeout %d for Non Chunked", mNetworkTimeoutMs);
-
 		AAMPLOG_INFO("ChunkMode disabled");
 	}
 
@@ -13768,15 +13799,16 @@ double PrivateInstanceAAMP::GetStreamPositionMs()
  * @param[in] videoPositionMS - video position in milliseconds
  * @param[in] audioPositionMS - audio position in milliseconds
  * @param[in] timeInStateMS - time in state in milliseconds
+ * @param[in] droppedFrames - dropped frames count
  * @details This function sends a MonitorAVStatusEvent to the event manager.
  * It is used to monitor the audio and video status during playback.
  * It is called when the playback is enabled (mbPlayEnabled is true).
  */
-void PrivateInstanceAAMP::SendMonitorAvEvent(const std::string &status, int64_t videoPositionMS, int64_t audioPositionMS, uint64_t timeInStateMS)
+void PrivateInstanceAAMP::SendMonitorAvEvent(const std::string &status, int64_t videoPositionMS, int64_t audioPositionMS, uint64_t timeInStateMS, uint64_t droppedFrames)
 {
 	if(mbPlayEnabled)
 	{
-		MonitorAVStatusEventPtr evt = std::make_shared<MonitorAVStatusEvent>(status, videoPositionMS, audioPositionMS, timeInStateMS, GetSessionId());
+		MonitorAVStatusEventPtr evt = std::make_shared<MonitorAVStatusEvent>(status, videoPositionMS, audioPositionMS, timeInStateMS, GetSessionId(), droppedFrames);
 		mEventManager->SendEvent(evt, AAMP_EVENT_SYNC_MODE);
 	}
 }
