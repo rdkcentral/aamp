@@ -190,13 +190,10 @@ AAMPStatusType AampTsbReader::Init(double &startPosSec, float rate, TuneType tun
  * @brief Finds and returns the next available TSB fragment for playback.
  *
  * This method checks if the reader is initialized and attempts to locate the next fragment
- * based on the current fragment's absolute position and duration. If this is the first download,
- * it returns the current fragment. Otherwise, it calculates the next position and retrieves
- * the nearest fragment from the data manager. If no fragment is found, it marks end-of-stream.
- *
- * Note: The playback rate (mCurrentRate) is logged but not used for fragment selection.
- *       This is because fragment sequencing is based solely on position and duration,
- *       regardless of playback direction (rate < 0 for rewind does not affect selection here).
+ * based on the current fragment and playback direction. If this is the first download,
+ * it returns the current fragment. For forward playback, it calculates the next position
+ * and retrieves the nearest fragment. For reverse playback, it uses the previous fragment
+ * in the linked list. If no fragment is found, it marks end-of-stream.
  *
  */
 TsbFragmentDataPtr AampTsbReader::FindNext()
@@ -215,8 +212,17 @@ TsbFragmentDataPtr AampTsbReader::FindNext()
 		}
 		else if (mCurrentFragment)
 		{
-			AampTime nextPos = mCurrentFragment->GetAbsolutePosition() + mCurrentFragment->GetDuration();
-			ret = mDataMgr->GetNearestFragment(nextPos.inSeconds());
+			if (mCurrentRate < 0.0) // reverse playback
+			{
+				// For reverse playback, get the previous fragment in the linked list
+				ret = mCurrentFragment->prev;
+			}
+			else // forward or normal playback
+			{
+				// For forward playback, calculate next position and find nearest fragment
+				AampTime nextPos = mCurrentFragment->GetAbsolutePosition() + mCurrentFragment->GetDuration();
+				ret = mDataMgr->GetNearestFragment(nextPos.inSeconds());
+			}
 		}
 
 	   if (!ret)
