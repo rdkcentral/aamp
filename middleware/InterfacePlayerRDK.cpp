@@ -232,6 +232,7 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int auxF
 	newFormat[eGST_MEDIATYPE_AUDIO] = gstAudioFormat;
 
 	printf("ANJp:ConfigurePipeline Entry\n");
+	MW_LOG_ERR("ANJ:ConfigurePipeline Entry\n");
 	if(isSubEnable)
 	{
 		MW_LOG_MIL("Gstreamer subs enabled");
@@ -318,6 +319,9 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int auxF
 			PipelineSetToReady = true;
 		}
 	}
+#if 1//anj
+	bool configurationChanged = false;
+#endif//anj
 	bool configureStream[GST_TRACK_COUNT] = {};
 	for (int i = 0; i < GST_TRACK_COUNT; i++)
 	{
@@ -331,7 +335,11 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int auxF
 				configureStream[i] = true;
 				gstPrivateContext->NumberOfTracks++;
 			}
+#if 1//anj
+		configurationChanged = true;
+#endif//anj
 		}
+
 		MW_LOG_MIL("ANJ: gstPrivateContext->rate = %d", gstPrivateContext->rate);
 		printf("ANJp:ConfigurePipeline: gstPrivateContext->rate = %d\n", gstPrivateContext->rate);
 		if(socInterface->ShouldTearDownForTrickplay())
@@ -364,6 +372,31 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int auxF
 		stream->firstBufferProcessed = false;
 	}
 
+#if 1//anj
+	/* For Rialto, teardown and rebuild the gstreamer streams if the
+	 * configuration changes. This allows the "single-path-stream" property to
+	 * be set correctly.
+	 */
+	if((gstPrivateContext->usingRialtoSink) && (configurationChanged))
+	{
+		MW_LOG_INFO("Teardown and rebuild the pipeline for Rialto");
+
+		for (int i = 0; i < GST_TRACK_COUNT; i++)
+		{
+			gst_media_stream *stream = &gstPrivateContext->stream[i];
+			if (stream->format != GST_FORMAT_INVALID)
+			{
+				TearDownStream((GstMediaType)i);
+			}
+
+			if(newFormat[i] != GST_FORMAT_INVALID)
+			{
+				configureStream[i] = true;
+			}
+		}
+	}
+#endif//anj
+
 	for (int i = 0; i < GST_TRACK_COUNT; i++)
 	{
 		gst_media_stream *stream = &gstPrivateContext->stream[i];
@@ -381,6 +414,7 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int auxF
 			stream->format = newFormat[i];
 			stream->trackId = trackId;
 
+			printf("ANJp:ConfigurePipeline: Calling InterfacePlayer_SetupStream. mediatype = %d\n", i);
 			/* Sets up the stream for the given MediaType */
 			if(0 != InterfacePlayer_SetupStream((GstMediaType)i, manifestUrl))
 			{
@@ -392,6 +426,7 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int auxF
 					return;
 				}
 			}
+			printf("ANJp:ConfigurePipeline: After Calling InterfacePlayer_SetupStream. mediatype = %d\n", i);
 
 
 		}
@@ -481,6 +516,7 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int auxF
 		gst_context_unref(context);
 	}
 	printf("ANJp:ConfigurePipeline Exit\n");
+	MW_LOG_ERR("ANJ:ConfigurePipeline Exit\n");
 }
 
 /**
@@ -1631,8 +1667,8 @@ bool InterfacePlayerRDK::Flush(double position, int rate, bool shouldTearDown, b
 			position = 0;
 		}
 	}
-	MW_LOG_WARN("ANJ: InterfacePlayerRDK: calling gst_element_seek. position = %f", position);
-	printf("ANJp: InterfacePlayerRDK:Flush: calling gst_element_seek. position = %f\n", position);
+	MW_LOG_WARN("ANJ: InterfacePlayerRDK: calling gst_element_seek. position = %f, pipeline = %p", position, gstPrivateContext->pipeline);
+	printf("ANJp: InterfacePlayerRDK:Flush: calling gst_element_seek. position = %f, pipeline = %p\n", position, gstPrivateContext->pipeline);
 	if (!gst_element_seek(gstPrivateContext->pipeline, playRate, GST_FORMAT_TIME, GST_SEEK_FLAG_FLUSH, GST_SEEK_TYPE_SET,
 						  position * GST_SECOND, GST_SEEK_TYPE_NONE, GST_CLOCK_TIME_NONE))
 	{
@@ -1641,9 +1677,10 @@ bool InterfacePlayerRDK::Flush(double position, int rate, bool shouldTearDown, b
 		//Save the updated seek position
 		SetSeekPosition(position);
 	}
-	MW_LOG_WARN("ANJ: InterfacePlayerRDK: After calling gst_element_seek. position = %f", position);
-	printf("ANJp: InterfacePlayerRDK:Flush: After calling gst_element_seek. position = %f\n", position);
+	MW_LOG_WARN("ANJ: InterfacePlayerRDK: After calling gst_element_seek. position = %f, pipeline = %p", position, gstPrivateContext->pipeline);
+	printf("ANJp: InterfacePlayerRDK:Flush: After calling gst_element_seek. position = %f, pipeline = %p\n", position, gstPrivateContext->pipeline);
 
+#if 0//anj
 	if ((gstPrivateContext->usingRialtoSink) &&
 		(gstPrivateContext->audio_sink) &&
 		(rate != GST_NORMAL_PLAY_RATE))
@@ -1656,6 +1693,7 @@ bool InterfacePlayerRDK::Flush(double position, int rate, bool shouldTearDown, b
 		printf("ANJp:Flush:Trickplay rate %d - send eos to audio sink\n", rate);
 		GstPlayer_SignalEOS(gstPrivateContext->stream[eGST_MEDIATYPE_AUDIO]);
 	}
+#endif//anj
 
 	if(bAsyncModify)
 	{
@@ -2143,7 +2181,9 @@ int InterfacePlayerRDK::SetupStream(int streamId,  void *playerInstance, std::st
 				g_object_set(G_OBJECT(stream->sinkbin), "sync", FALSE, NULL);
 
 				stream->source = GST_ELEMENT(gst_object_ref_sink(InterfacePlayerRDK_GetAppSrc(pInterfacePlayerRDK, eGST_MEDIATYPE_SUBTITLE)));
+				printf("\nANJp: SetupStream: Adding subtitle stream source to the pipeline. pipeline = %p, source = %p, stream->sinkbin = %p\n", pInterfacePlayerRDK->gstPrivateContext->pipeline, stream->source, stream->sinkbin);
 				gst_bin_add_many(GST_BIN(pInterfacePlayerRDK->gstPrivateContext->pipeline), stream->source, stream->sinkbin, NULL);		/* Add source and sink to the current pipeline */
+				printf("\nANJp: SetupStream: After adding subtitle stream source to the pipeline. pipeline = %p, source = %p, stream->sinkbin = %p\n", pInterfacePlayerRDK->gstPrivateContext->pipeline, stream->source, stream->sinkbin);
 
 				if (!gst_element_link_many(stream->source, stream->sinkbin, NULL))			/* forms a GstElement link chain; linking stream->source to stream->sinkbin */
 				{
@@ -2272,7 +2312,9 @@ int InterfacePlayerRDK::SetupStream(int streamId,  void *playerInstance, std::st
 			printf("ANJp:SetupStream: using audsrvsink\n");
 		}
 	}
+	printf("\nANJp: SetupStream: Adding stream sinkbin to the pipeline. pipeline = %p, stream->sinkbin = %p\n", pInterfacePlayerRDK->gstPrivateContext->pipeline, stream->sinkbin);
 	gst_bin_add(GST_BIN(pInterfacePlayerRDK->gstPrivateContext->pipeline), stream->sinkbin);					/* Add the stream sink to the pipeline */
+	printf("\nANJp: SetupStream: After adding stream sinkbin to the pipeline. pipeline = %p, stream->sinkbin = %p\n", pInterfacePlayerRDK->gstPrivateContext->pipeline, stream->sinkbin);
 
 	gint flags;
 	g_object_get(stream->sinkbin, "flags", &flags, NULL);									/* Read the state of the current flags */
@@ -2478,11 +2520,16 @@ std::string InterfacePlayerRDK::GetVideoRectangle()
 
 void InterfacePlayerRDK::SetSubtitlePtsOffset(std::uint64_t pts_offset)
 {
+	printf("ANJp: Entry: InterfacePlayerRDK::SetSubtitlePtsOffset: usingRialtoSink = %d, gstPrivateContext->stream[eGST_MEDIATYPE_SUBTITLE].source = %p", gstPrivateContext->usingRialtoSink, gstPrivateContext->stream[eGST_MEDIATYPE_SUBTITLE].source);//anj:TODO check if source is %p
+	printf("ANJp: Entry: InterfacePlayerRDK::SetSubtitlePtsOffset: pts_offset_in = %" PRIu64 "", pts_offset);
+	printf("\n");
 	if (gstPrivateContext->usingRialtoSink)
 	{
 		if(gstPrivateContext->stream[eGST_MEDIATYPE_SUBTITLE].source)
 		{
 			MW_LOG_INFO("usingRialtoSink pts_offset gst_seek_simple %" PRIu64 "", pts_offset);
+			printf("ANJp:usingRialtoSink pts_offset gst_seek_simple %" PRIu64 "", pts_offset);
+			printf("\n");
 			GstClockTime pts = ((double)pts_offset) * GST_SECOND;
 			GstStructure *structure{gst_structure_new("set-pts-offset", "pts-offset", G_TYPE_UINT64, pts, nullptr)};
 			if (!gst_element_send_event(gstPrivateContext->stream[eGST_MEDIATYPE_SUBTITLE].source, gst_event_new_custom(GST_EVENT_CUSTOM_DOWNSTREAM_OOB, structure)))
@@ -2617,6 +2664,7 @@ long long InterfacePlayerRDK::GetPositionMilliseconds(void)
 			MW_LOG_DEBUG("positionQuery pos - %" G_GINT64_FORMAT " rc - %lld" , GST_TIME_AS_MSECONDS(pos), rc);
 		}
 		//MW_LOG_MIL("InterfacePlayerRDK: with positionQuery pos - %" G_GINT64_FORMAT " rc - %lld", GST_TIME_AS_MSECONDS(pos), rc);
+		printf("ANJp:InterfacePlayerRDK:GetPositionMilliseconds: with positionQuery pos - %" G_GINT64_FORMAT " rc - %lld", GST_TIME_AS_MSECONDS(pos), rc);
 		//positionQuery is not unref-ed here, because it could be reused for future position queries
 	}
 	return rc;
@@ -2692,8 +2740,10 @@ void InterfacePlayerRDK::SetSubtitleMute(bool muted)
 		g_object_set(gstPrivateContext->subtitle_sink, "mute", gstPrivateContext->subtitleMuted ? TRUE : FALSE, NULL);		/* Update the 'mute' property of the sink */
 	}
 	else
+	{
 		MW_LOG_INFO("subtitle_sink is NULL");
 		printf("ANJp:SetSubtitleMute(): subtitle_sink is NULL\n");
+	}
 }
 
 /**
@@ -5060,6 +5110,8 @@ bool InterfacePlayerRDK::SignalSubtitleClock(gint64 vPTS, bool state)
 						else
 						{
 							MW_LOG_DEBUG("Sent sub_clock_sync event, pts = %" G_GUINT64_FORMAT ", pts from sink was %" G_GUINT64_FORMAT "", pts, videoPTS);
+							printf("ANJp:Sent sub_clock_sync event, pts = %" G_GUINT64_FORMAT ", pts from sink was %" G_GUINT64_FORMAT "", pts, videoPTS);
+							printf("\n");
 							signalSent=true;
 						}
 					}
