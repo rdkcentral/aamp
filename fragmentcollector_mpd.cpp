@@ -7970,7 +7970,6 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, 
 						//Set the period start back to the begining of the base period and then add basePeriodOffset
 						//to get the start for this AD
 						double absoluteAdBreakStartTime = mCdaiObject->mAdBreaks[mBasePeriodId].mAbsoluteAdBreakStartTime.inSeconds();
-					//	pMediaStreamContext->fragmentTime = absoluteAdBreakStartTime;
 						// convert to seconds, standard implicit conversion
 						pMediaStreamContext->fragmentTime += mCdaiObject->mCurAds->at(mCdaiObject->mCurAdIdx).basePeriodOffset / 1000.0;
 					//	if((aamp->mMPDPeriodsInfo.at(0).periodId) == mBasePeriodId)
