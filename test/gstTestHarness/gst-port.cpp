@@ -167,7 +167,7 @@ public:
 	
 	void enough_data( GstElement *appSrc )
 	{
-		g_print( "MediaStream::enough_data %s", GetMediaTypeAsString() );
+		g_print( "MediaStream::enough_data %s\n", GetMediaTypeAsString() );
 		context->EnoughData( mediaType );
 	}
 	
