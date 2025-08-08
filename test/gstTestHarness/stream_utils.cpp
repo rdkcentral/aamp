@@ -61,8 +61,8 @@ double GetPeriodFirstPts( const Timeline &timeline, std::string contentType, Per
 	{
 		auto representation = adaptationSet.representation[0];
 		if( representation.data.presentationTimeOffset )
-		{
-			pts = representation.data.presentationTimeOffset/(double)representation.data.timescale;
+		{ // FIXME
+			// pts = representation.data.presentationTimeOffset/(double)representation.data.timescale;
 		}
 		else if( timeline.type == "dynamic" )
 		{
@@ -73,8 +73,8 @@ double GetPeriodFirstPts( const Timeline &timeline, std::string contentType, Per
 			}
 			else if( representation.data.duration.size()>1 )
 			{
-				auto dt = (baseTime - period.start);
-				pts += dt;
+				auto delta = (baseTime - period.start);
+				pts += delta;
 			}
 			else
 			{

@@ -32,7 +32,7 @@ static void found_source_cb(GObject * object, GObject * orig, GParamSpec * pspec
 class MediaStream
 {
 public:
-	MediaStream( MediaType mediaType, class PipelineContext *context ) : isConfigured(false), playbin(NULL), appsrc(NULL), injectedSeconds(), context(context), mediaType(mediaType), pad(NULL)
+	MediaStream( MediaType mediaType, class PipelineContext *context ) : isConfigured(false), playbin(NULL), appsrc(NULL), injectedSeconds(), context(context), mediaType(mediaType)//, pad(NULL)
 	{
 	}
 	
@@ -189,8 +189,22 @@ public:
 	
 	void Seek( const SeekParam &param )
 	{
+		g_print( "Seek: start=%f stop=%f flags=%d\n",
+				param.start_s, param.stop_s, param.flags );
+		
 		gint64 start = (gint64)(param.start_s*GST_SECOND);
-		gint64 stop = (gint64)(param.stop_s*GST_SECOND);
+		GstSeekType stop_type;
+		gint64 stop;
+		if( param.stop_s < 0 )
+		{
+			stop_type = GST_SEEK_TYPE_NONE;
+			stop = GST_CLOCK_TIME_NONE;
+		}
+		else
+		{
+			stop_type = GST_SEEK_TYPE_SET;
+			stop = (gint64)(param.stop_s*GST_SECOND);
+		}
 		g_print( "MediaStream::Seek %s flags=%d start=%" GST_TIME_FORMAT " stop=%" GST_TIME_FORMAT "\n",
 				GetMediaTypeAsString(),
 				param.flags,
@@ -201,7 +215,7 @@ public:
 									   1.0, // rate
 									   GST_FORMAT_TIME,
 									   param.flags,
-									   GST_SEEK_TYPE_SET, start,
+									   stop_type, start,
 									   GST_SEEK_TYPE_SET, stop );
 		assert( rc );
 	}
@@ -212,17 +226,21 @@ public:
 		g_object_get( orig, pspec->name, &appsrc, NULL );
 		
 		// configuration to drive need-data and enough-data signaling
+		int max_bytes = 0;
 		switch( mediaType )
 		{
 			case eMEDIATYPE_VIDEO:
-				g_object_set(appsrc, "max-bytes", 12582912, NULL ); // default = 200000
+				max_bytes = 12582912;
 				break;
 			case eMEDIATYPE_AUDIO:
-				g_object_set(appsrc, "max-bytes", 1536000, NULL ); // default = 200000
+				max_bytes = 1536000;
 				break;
 			default:
+				assert(0);
 				break;
 		}
+		g_print( "max-bytes=%d\n", max_bytes );
+		g_object_set(appsrc, "max-bytes", max_bytes, NULL ); // default = 200000
 		g_object_set(appsrc, "min-percent", 50, NULL ); // default = 0
 		
 		g_signal_connect(appsrc, "need-data", G_CALLBACK(need_data_cb), this );
@@ -241,22 +259,30 @@ public:
 		}
 		else
 		{
+			g_print( "using typefind\n" );
 			g_object_set(appsrc, "typefind", TRUE, NULL);
 		}
-		pad = gst_element_get_static_pad(appsrc, "src");
+		//pad = gst_element_get_static_pad(appsrc, "src");
 		
 		// seek here avoids freeze at start for non-zero first_pts
-		assert( context->mSegmentEndSeekQueue.size()>0 );
-		SeekParam param = context->mSegmentEndSeekQueue.front();
-		context->mSegmentEndSeekQueue.pop();
-		Seek( param );
+		if( context->mSegmentEndSeekQueue.size()>0 )
+		{
+			SeekParam param = context->mSegmentEndSeekQueue.front();
+			context->mSegmentEndSeekQueue.pop();
+			Seek( param );
+		}
+		else
+		{
+			g_print("empty mSegmentEndSeekQueue\n");
+		}
+		g_print( "exiting found_source\n" );
 	}
 	
 	MediaStream(const MediaStream&)=delete; // copy constructor
 	MediaStream& operator=(const MediaStream&)=delete; // copy assignment operator
 	
 private:
-	GstPad * pad;
+	//GstPad * pad;
 	bool isConfigured; // avoid double configure
 	double injectedSeconds;
 	class PipelineContext *context;

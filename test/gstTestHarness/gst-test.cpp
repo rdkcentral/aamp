@@ -35,7 +35,7 @@
 #include <arpa/inet.h>
 #include <sys/time.h>
 
-#define STOP_NEVER 9999
+#define STOP_NEVER -1
 
 static std::mutex mCommandMutex;
 
@@ -49,7 +49,7 @@ static enum ContentFormat
 	eCONTENTFORMAT_QTDEMUX,
 	eCONTENTFORMAT_TS_ES,
 	eCONTENTFORMAT_TSDEMUX,
-} mContentFormat = eCONTENTFORMAT_QTDEMUX;
+} mContentFormat;
 
 static Mp4Demux *gMp4Demux[2]; // TODO: move these mp4demux instances inside classes
 
@@ -212,6 +212,7 @@ private:
 public:
 	TrackFragment( MediaType mediaType, const char *path, double duration, double pts_offset=0 ):len(), ptr(), tsDemux(),  pts_offset(pts_offset), duration(duration), url(path), mediaType(mediaType)
 	{
+		printf( "new TrackFragment mediaType=%d pts_offset=%f\n", mediaType, pts_offset );
 	}
 	
 	~TrackFragment()
@@ -1579,7 +1580,7 @@ static void NetworkCommandServer( struct AppContext *appContext )
 
 int my_main(int argc, char **argv)
 {
-	setenv( "GST_DEBUG", "*:4", 1 ); // programatically override gstreamer log level:
+	// setenv( "GST_DEBUG", "*:4", 1 ); // programatically override gstreamer log level:
 	// refer https://gstreamer.freedesktop.org/documentation/tutorials/basic/debugging-tools.html?gi-language=c
 	gst_init(&argc, &argv);
 	g_print( "gstreamer test harness\n" );
