@@ -1404,7 +1404,7 @@ bool TrackState::FetchFragmentHelper(int &http_error, bool &decryption_error, bo
 			{
 				// Track the end of buffer from the last downloaded fragment
 				// Use the playlistPosition instead of a rolling count in case segments are dropped
-				playTargetBufferCalc = playlistPosition + fragmentDurationSeconds;
+				playTargetBufferCalc = playTargetBufferCalcCulled + playlistPosition + fragmentDurationSeconds;
 				//  increment the buffer value after download (only for video track)
 //DJH			playTargetBufferCalc += fragmentDurationSeconds;
 				AAMPLOG_MIL("DJH playTargetBufferCalc set to %f (fragmentDurationSeconds %f)", 
@@ -4049,6 +4049,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 		{
 			trackState[iTrack]->playTarget = seekPosition;
 			trackState[iTrack]->playTargetBufferCalc = seekPosition;
+			trackState[iTrack]->playTargetBufferCalcCulled = 0;
 			AAMPLOG_MIL("DJH trackState[%d]->playTargetBufferCalc set to %f", iTrack, trackState[iTrack]->playTargetBufferCalc.inSeconds());
 		}
 
@@ -4436,6 +4437,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 			if (aamp->culledSeconds > 0)
 			{
 				trackState[iTrack]->playTargetBufferCalc = aamp->culledSeconds + seekPosition;
+				trackState[iTrack]->playTargetBufferCalcCulled = aamp->culledSeconds;
 				AAMPLOG_MIL("DJH trackState[%d]->playTargetBufferCalc set to %f (culledSeconds %f + seekPosition %f)", 
 						iTrack, trackState[iTrack]->playTargetBufferCalc.inSeconds(), aamp->culledSeconds, seekPosition.inSeconds());
 			}
@@ -4962,7 +4964,8 @@ TrackState::TrackState(TrackType type, StreamAbstractionAAMP_HLS* parent, Privat
 		) :
 		MediaTrack(type, aamp, name),
 		currentIdx(0), indexFirstMediaSequenceNumber(0), fragmentURI(), lastPlaylistDownloadTimeMS(0), lastPlaylistIndexedTimeMS(0),
-		byteRangeLength(0), byteRangeOffset(0), nextMediaSequenceNumber(0), playlistPosition(0), playTarget(0),playTargetBufferCalc(0),lastDownloadedIFrameTarget(-1),
+		byteRangeLength(0), byteRangeOffset(0), nextMediaSequenceNumber(0), playlistPosition(0), playTarget(0),playTargetBufferCalc(0),playTargetBufferCalcCulled(0),
+		lastDownloadedIFrameTarget(-1),
 		streamOutputFormat(FORMAT_INVALID),
 		playTargetOffset(0),
 		discontinuity(false),
