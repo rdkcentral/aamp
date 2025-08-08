@@ -2948,6 +2948,8 @@ TEST_F(PrivAampTests,FoundEventBreakTest)
 
 TEST_F(PrivAampTests,SetAlternateContentsTest)
 {
+	EXPECT_CALL(*g_MockPrivateCDAIObjectMPD, SetAlternateContents(_, _, _)).Times(0);
+	EXPECT_CALL(*g_mockAampEventManager, SendEvent(AdResolved(false, "adstringId", "1051-2", "A configuration issue prevents player from handling ads"), _));
 	p_aamp->SetAlternateContents("adBraeakId","adstringId","http://sampleurl.com");
 }
 
@@ -2956,12 +2958,6 @@ TEST_F(PrivAampTests,SendAdResolvedEventTest_1)
 {
 	p_aamp->SendAdResolvedEvent("adBraeakId",true,10,123445);
 	EXPECT_TRUE(p_aamp->mDownloadsEnabled);
-}
-
-TEST_F(PrivAampTests,SendAdResolvedEventTest_2)
-{
-	p_aamp->SetAlternateContents("adBraeakId", "adstringId", "http://sampleurl.com");
-	EXPECT_CALL(*g_MockPrivateCDAIObjectMPD, SetAlternateContents(_, _, _)).Times(0);
 }
 
 TEST_F(PrivAampTests,SendAdReservationEventTest)

@@ -333,7 +333,7 @@ TEST_F(AdManagerMPDTests, SetAlternateContentsTests_1)
   std::string url = "";
   uint64_t startMS = 0;
   uint32_t breakdur = 0;
-  AAMPCDAIAdErrorCode adErrorCode = eCDAI_ERROR_DELIVERY_ERROR;
+  AAMPAdErrorCode adErrorCode = eCDAI_ERROR_DELIVERY_ERROR;
   // Call the function to test
   mPrivateCDAIObjectMPD->SetAlternateContents(periodId, adId, url, startMS, breakdur);
 
@@ -395,7 +395,7 @@ R"(<?xml version="1.0" encoding="UTF-8"?>
   uint32_t breakdur = 10000;
   bool timedout = false;
   bool threadStarted = false;
-  AAMPCDAIAdErrorCode adErrorCode = eCDAI_ERROR_NONE;
+  AAMPAdErrorCode adErrorCode = eCDAI_ERROR_NONE;
 
   // To create an empty ad break object
   mPrivateCDAIObjectMPD->SetAlternateContents(periodId, "", "", startMS, breakdur);
@@ -477,7 +477,7 @@ R"(<?xml version="1.0" encoding="UTF-8"?>
   std::string url = "";
   uint64_t startMS = 0;
   uint32_t breakdur = 10000;
-  AAMPCDAIAdErrorCode adErrorCode = eCDAI_ERROR_NONE;
+  AAMPAdErrorCode adErrorCode = eCDAI_ERROR_NONE;
 
   // To create an empty ad break object
   mPrivateCDAIObjectMPD->SetAlternateContents(periodId, "", "", startMS, breakdur);
@@ -518,7 +518,7 @@ TEST_F(AdManagerMPDTests, SetAlternateContentsTests_4)
   const char *manifest = nullptr;
   bool timedout = false;
   bool threadStarted = false;
-  AAMPCDAIAdErrorCode adErrorCode = eCDAI_ERROR_DELIVERY_ERROR;
+  AAMPAdErrorCode adErrorCode = eCDAI_ERROR_DELIVERY_ERROR;
 
   // To create an empty ad break object
   mPrivateCDAIObjectMPD->SetAlternateContents(periodId, "", "", startMS, breakdur);
@@ -600,7 +600,7 @@ R"(<?xml version="1.0" encoding="UTF-8"?>
   std::string url = "";
   uint64_t startMS = 0;
   uint32_t breakdur = 10000;
-  AAMPCDAIAdErrorCode adErrorCode = eCDAI_ERROR_NONE;
+  AAMPAdErrorCode adErrorCode = eCDAI_ERROR_NONE;
 
   // To create an empty ad break object
   mPrivateCDAIObjectMPD->SetAlternateContents(periodId, "", "", startMS, breakdur);
@@ -670,7 +670,7 @@ R"(<?xml version="1.0" encoding="UTF-8"?>
   uint64_t startMS = 0;
   uint32_t breakdur = 20000;
   uint32_t adDuration = 10000;
-  AAMPCDAIAdErrorCode adErrorCode = eCDAI_ERROR_NONE;
+  AAMPAdErrorCode adErrorCode = eCDAI_ERROR_NONE;
 
   // To create an empty ad break object
   mPrivateCDAIObjectMPD->SetAlternateContents(periodId, "", "", startMS, breakdur);
@@ -710,7 +710,7 @@ R"(<?xml version="1.0" encoding="UTF-8"?>
  * @brief Test error scenario for SetAlternateContents when ad break is invalid.
  *
  * This test ensures that if an ad break is marked invalid, SetAlternateContents
- * triggers SendAdResolvedEvent with eCDAI_ERROR_DECISIONING_TIMEOUT.
+ * triggers SendAdResolvedEvent with eCDAI_ERROR_DECISION_TIMEOUT.
  */
 TEST_F(AdManagerMPDTests, SetAlternateContentsTests_7)
 {
@@ -719,7 +719,7 @@ TEST_F(AdManagerMPDTests, SetAlternateContentsTests_7)
     std::string url = "http://test.url/ad.mpd";
     uint64_t startMS = 0;
     uint32_t breakdur = 1000;
-    AAMPCDAIAdErrorCode adErrorCode = eCDAI_ERROR_DECISIONING_TIMEOUT;
+    AAMPAdErrorCode adErrorCode = eCDAI_ERROR_DECISIONING_TIMEOUT;
     // Create an ad break object and mark it invalid
     mPrivateCDAIObjectMPD->SetAlternateContents(periodId, "", "", startMS, breakdur);
     mPrivateCDAIObjectMPD->mAdBreaks[periodId].invalid = true;
@@ -747,7 +747,7 @@ TEST_F(AdManagerMPDTests, SetAlternateContentsTests_8)
     std::string url = "http://test.url/ad.mpd";
     uint64_t startMS = 0;
     uint32_t breakdur = 10000;
-    AAMPCDAIAdErrorCode errorCode = eCDAI_ERROR_UNKNOWN;
+    AAMPAdErrorCode errorCode = eCDAI_ERROR_UNKNOWN;
 
     mPrivateCDAIObjectMPD->SetAlternateContents(periodId, "", "", startMS, breakdur);
     mPrivateCDAIObjectMPD->mAdBreaks[periodId].adsDuration = 10000; // Fill up the ad break
@@ -773,7 +773,7 @@ TEST_F(AdManagerMPDTests, SetAlternateContentsTests_9)
     std::string url = "http://test.url/ad.mpd";
     uint64_t startMS = 0;
     uint32_t breakdur = 1000;
-    AAMPCDAIAdErrorCode adErrorCode = eCDAI_ERROR_DELIVERY_ERROR;
+    AAMPAdErrorCode adErrorCode = eCDAI_ERROR_DELIVERY_ERROR;
 
     // Do NOT create the ad break object
 
@@ -800,7 +800,7 @@ TEST_F(AdManagerMPDTests, SetAlternateContentsTests_10)
     std::string url = TEST_AD_MANIFEST_URL;
     uint64_t startMS = 0;
     uint32_t breakdur = 10000;
-    AAMPCDAIAdErrorCode expectedError = eCDAI_ERROR_INVALID_MANIFEST;
+    AAMPAdErrorCode expectedError = eCDAI_ERROR_INVALID_MANIFEST;
 
     mPrivateCDAIObjectMPD->SetAlternateContents(periodId, "", "", startMS, breakdur);
     mPrivateCDAIObjectMPD->mAdFulfillObj.periodId = periodId;
@@ -832,7 +832,7 @@ TEST_F(AdManagerMPDTests, SetAlternateContentsTests_11)
     std::string url = TEST_AD_MANIFEST_URL;
     uint64_t startMS = 0;
     uint32_t breakdur = 10000;
-    AAMPCDAIAdErrorCode expectedError = eCDAI_ERROR_DELIVERY_ERROR;
+    AAMPAdErrorCode expectedError = eCDAI_ERROR_DELIVERY_ERROR;
 
     mPrivateCDAIObjectMPD->SetAlternateContents(periodId, "", "", startMS, breakdur);
     mPrivateCDAIObjectMPD->mAdFulfillObj.periodId = periodId;
@@ -863,7 +863,7 @@ TEST_F(AdManagerMPDTests, SetAlternateContentsTests_12)
     std::string url = TEST_AD_MANIFEST_URL;
     uint64_t startMS = 0;
     uint32_t breakdur = 10000;
-    AAMPCDAIAdErrorCode expectedError = eCDAI_ERROR_DELIVERY_HTTP_ERROR;
+    AAMPAdErrorCode expectedError = eCDAI_ERROR_DELIVERY_HTTP_ERROR;
 
     mPrivateCDAIObjectMPD->SetAlternateContents(periodId, "", "", startMS, breakdur);
     mPrivateCDAIObjectMPD->mAdFulfillObj.periodId = periodId;
@@ -894,7 +894,7 @@ TEST_F(AdManagerMPDTests, SetAlternateContentsTests_13)
     std::string url = TEST_AD_MANIFEST_URL;
     uint64_t startMS = 0;
     uint32_t breakdur = 10000;
-    AAMPCDAIAdErrorCode expectedError = eCDAI_ERROR_DELIVERY_TIMEOUT;
+    AAMPAdErrorCode expectedError = eCDAI_ERROR_DELIVERY_TIMEOUT;
 
     mPrivateCDAIObjectMPD->SetAlternateContents(periodId, "", "", startMS, breakdur);
     mPrivateCDAIObjectMPD->mAdFulfillObj.periodId = periodId;
@@ -937,7 +937,7 @@ TEST_F(AdManagerMPDTests, SetAlternateContentsTests_14)
     mPrivateCDAIObjectMPD->mAdFulfillObj.adId = "testAd";
     mPrivateCDAIObjectMPD->mAdFulfillObj.periodId = "testPeriod";
     mPrivateCDAIObjectMPD->mAdFulfillObj.url = "http://example.com/ad.mpd";
-    AAMPCDAIAdErrorCode adErrorCode = eCDAI_ERROR_INVALID_MEDIA;
+    AAMPAdErrorCode adErrorCode = eCDAI_ERROR_INVALID_MEDIA;
 
     // Prepare a manifest with two periods
     const char *manifest =
@@ -972,7 +972,7 @@ TEST_F(AdManagerMPDTests, SetAlternateContentsTests_15)
     mPrivateCDAIObjectMPD->mAdFulfillObj.adId = "testAd";
     mPrivateCDAIObjectMPD->mAdFulfillObj.periodId = "testPeriod";
     mPrivateCDAIObjectMPD->mAdFulfillObj.url = "http://example.com/ad.mpd";
-    AAMPCDAIAdErrorCode adErrorCode = eCDAI_ERROR_INVALID_SPECIFICATION;
+    AAMPAdErrorCode adErrorCode = eCDAI_ERROR_INVALID_SPECIFICATION;
 
     // Prepare a manifest with one period and both audio/video
     static const char *manifest =

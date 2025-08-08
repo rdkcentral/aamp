@@ -878,11 +878,11 @@ bool PrivateCDAIObjectMPD::isPeriodInAdbreak(const std::string &periodId)
  * @param[out] finalManifest - Is final MPD or the final MPD should be downloaded later
  * @param[out] http_error - http error code
  * @param[out] downloadTime - Time taken to download the manifest
- * @param[out] errorCode - AAMPCDAIError code if any.
+ * @param[out] errorCode - AAMPAdErrorCode Error code if any.
  * @param[in]  tryFog - Attempt to download from FOG or not
  * @return MPD* MPD instance
  */
-MPD* PrivateCDAIObjectMPD::GetAdMPD(std::string &manifestUrl, bool &finalManifest, int &http_error, double &downloadTime,AAMPCDAIAdErrorCode &errorCode,bool tryFog)
+MPD* PrivateCDAIObjectMPD::GetAdMPD(std::string &manifestUrl, bool &finalManifest, int &http_error, double &downloadTime,AAMPAdErrorCode &errorCode,bool tryFog)
 {
 	MPD* adMpd = NULL;
 	AampGrowableBuffer manifest("adMPD_CDN");
@@ -1064,7 +1064,7 @@ bool PrivateCDAIObjectMPD::FulFillAdObject()
 	UsingPlayerId playerId(mAamp->mPlayerId);
 	bool ret = true;
 	AampMPDParseHelper adMPDParseHelper;
-	AAMPCDAIAdErrorCode adErrorCode = eCDAI_ERROR_NONE;
+	AAMPAdErrorCode adErrorCode = eCDAI_ERROR_NONE;
 	bool adStatus = false;
 	uint64_t startMS = 0;
 	uint32_t durationMs = 0;
@@ -1259,7 +1259,7 @@ bool PrivateCDAIObjectMPD::FulFillAdObject()
  */
 void PrivateCDAIObjectMPD::SetAlternateContents(const std::string &periodId, const std::string &adId, const std::string &url,  uint64_t startMS, uint32_t breakdur)
 {
-	AAMPCDAIAdErrorCode adErrorCode = eCDAI_ERROR_UNKNOWN;
+	AAMPAdErrorCode adErrorCode = eCDAI_ERROR_UNKNOWN;
 
 	if("" == adId || "" == url)
 	{

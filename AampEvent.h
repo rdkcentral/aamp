@@ -182,7 +182,7 @@ typedef enum
 } AAMPPlayerState;
 
 /**
- * @enum AAMPCDAIAdErrorCode
+ * @enum AAMPAdErrorCode
  * @brief CDAI  failure error code
  */
 typedef enum
@@ -197,7 +197,7 @@ typedef enum
 	eCDAI_ERROR_DELIVERY_ERROR,			/*adDeliveryServiceError*/
 	eCDAI_ERROR_UNKNOWN,				/*unknownAdError*/
 	eCDAI_ERROR_NONE					/**< No Error found */
-} AAMPCDAIAdErrorCode;
+} AAMPAdErrorCode;
 
 /**
  * @enum MetricsDataType

@@ -11765,7 +11765,7 @@ bool StreamAbstractionAAMP_MPD::onAdEvent(AdEvent evt)
 
 bool StreamAbstractionAAMP_MPD::onAdEvent(AdEvent evt, double &adOffset)
 {
-	AAMPCDAIAdErrorCode adErrorCode = eCDAI_ERROR_NONE;
+	AAMPAdErrorCode adErrorCode = eCDAI_ERROR_NONE;
 	if(!ISCONFIGSET(eAAMPConfig_EnableClientDai))
 	{
 		return false;
