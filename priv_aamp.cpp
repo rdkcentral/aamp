@@ -7492,8 +7492,8 @@ void PrivateInstanceAAMP::Stop( bool isDestructing )
 		inpData->bIgnoreResponseHeader	= true;
 		inpData->eRequestType = eCURL_DELETE;
 		inpData->proxyName        = GetNetworkProxy();
-		T1.Initialize(inpData);
-		T1.Download(remoteUrl, respData );
+		T1.Initialize(std::move(inpData));
+		T1.Download(remoteUrl, std::move(respData) );
 	}
 
 	UnblockWaitForDiscontinuityProcessToComplete();
@@ -10043,7 +10043,11 @@ std::string PrivateInstanceAAMP::GetAvailableAudioTracks(bool allTrack)
 			{
 				if (IsLocalAAMPTsb())
 				{
-					mpStreamAbstractionAAMP->GetCurrentAudioTrack(currentTrackInfo);
+					bool trackAvailable = mpStreamAbstractionAAMP->GetCurrentAudioTrack(currentTrackInfo);
+					if( !trackAvailable )
+					{
+						AAMPLOG_WARN( "GetCurrentAudioTrack returned false" );
+					}
 				}
 				for (auto iter = trackInfo.begin(); iter != trackInfo.end(); iter++)
 				{
@@ -10163,7 +10167,11 @@ std::string PrivateInstanceAAMP::GetAvailableTextTracks(bool allTrack)
 			{
 				if (IsLocalAAMPTsb())
 				{
-					mpStreamAbstractionAAMP->GetCurrentTextTrack(currentTrackInfo);
+					bool trackInfoAvailable = mpStreamAbstractionAAMP->GetCurrentTextTrack(currentTrackInfo);
+					if( !trackInfoAvailable )
+					{
+						AAMPLOG_WARN( "GetCurrentTextTrack returned false" );
+					}
 				}
 				for (auto iter = trackInfo.begin(); iter != trackInfo.end(); iter++)
 				{
