@@ -2217,11 +2217,10 @@ void PrivateInstanceAAMP::ReportProgress(bool sync, bool beginningOfStream)
 			}
 			AAMPLOG_MIL("DJH eAAMPConfig_ProgressLogging =%d, eAAMPConfig_ProgressLoggingDivisor=%d",
 				ISCONFIGSET_PRIV(eAAMPConfig_ProgressLogging), GETCONFIGVALUE_PRIV(eAAMPConfig_ProgressLoggingDivisor));
-			if (ISCONFIGSET_PRIV(eAAMPConfig_ProgressLogging))
+//DJH			if (ISCONFIGSET_PRIV(eAAMPConfig_ProgressLogging))
 			{
 				static int tick;
 				int divisor = GETCONFIGVALUE_PRIV(eAAMPConfig_ProgressLoggingDivisor);
-				AAMPLOG_MIL("DJH ");
 				if( divisor==0 || (tick++ % divisor) == 0 )
 				{
 				AAMPLOG_MIL("DJH ");
