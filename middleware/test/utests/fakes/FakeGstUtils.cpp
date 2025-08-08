@@ -27,12 +27,3 @@ GstCaps *GetCaps(GstStreamOutputFormat format)
 	}
 	return nullptr;
 }
-long long GetCurrentTimeMS(void)
-{
-	long long timeMS = 0;
-	if (g_mockGstUtils)
-	{
-		timeMS = g_mockGstUtils->GetCurrentTimeMS();
-	}
-	return timeMS;
-}
