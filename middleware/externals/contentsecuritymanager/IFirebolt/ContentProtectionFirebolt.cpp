@@ -105,15 +105,15 @@ void ContentProtectionFirebolt::SubscribeEvents()
 		MW_LOG_ERR("Failed to subscribe to hdcp change events: %d", static_cast<int>(result.error()));
 	}
 
-	MW_LOG_INFO("Subscribing to Firebolt resolution change event ");
+	MW_LOG_WARN("Subscribing to Firebolt resolution change event ");
 
 	result = Firebolt::IFireboltAampAccessor::Instance().DeviceInterface().subscribeOnVideoResolutionChanged(
 					[](const std::string& videoResolution) 
 					{
-						std::cout << "[Event] Video resolution changed: " << videoResolution <<std::endl;
+						MW_LOG_WARN("[Event] Video resolution changed: %s" , videoResolution);
 						if (auto videoResolution = Firebolt::IFireboltAampAccessor::Instance().DeviceInterface().videoResolution())
 						{
-							std::cout << "Device video resolution is: " << videoResolution.value()[0] << ", " << videoResolution.value()[1]<< std::endl;
+							// MW_LOG_WARN("Device video resolution is: " << videoResolution.value()[0],videoResolution.value()[1]);
 						}
 
 						//Firebolt::Device::Resolution printVideoResolution = *videoResolution;
