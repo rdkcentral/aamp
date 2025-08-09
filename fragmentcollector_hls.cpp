@@ -71,6 +71,12 @@ static const int DEFAULT_STREAM_WIDTH = 720;
 static const int DEFAULT_STREAM_HEIGHT = 576;
 static const double  DEFAULT_STREAM_FRAMERATE = 25.0;
 
+static void AppendNulTerminator( AampGrowableBuffer &buffer )
+{ // workaround - TBR
+	const char zeros[] = { 0,0 };
+	buffer.AppendBytes( zeros, sizeof(zeros) );
+}
+
 // checks if current state is going to use IFRAME ( Fragment/Playlist )
 #define IS_FOR_IFRAME(rate, type) ((type == eTRACK_VIDEO) && (rate != AAMP_NORMAL_PLAY_RATE))
 
@@ -1662,6 +1668,10 @@ void TrackState::FetchFragment()
 		{
 			AampTime duration{fragmentDurationSeconds};
 			AampTime position{playTarget - playTargetOffset};
+			if (type == eTRACK_SUBTITLE)
+			{
+				AppendNulTerminator( cachedFragment->fragment );
+			}
 			if (context->rate == AAMP_NORMAL_PLAY_RATE)
 			{
 				position -= fragmentDurationSeconds;
@@ -2330,6 +2340,7 @@ void TrackState::ProcessPlaylist(AampGrowableBuffer& newPlaylist, int http_error
 		// Free previous playlist buffer and load with new one
 		playlist.Free();
 		playlist.Replace( &newPlaylist );
+		AppendNulTerminator( playlist );
 		AampTime culled{};
 		IndexPlaylist(true, culled);
 
@@ -2402,11 +2413,6 @@ void TrackState::ProcessPlaylist(AampGrowableBuffer& newPlaylist, int http_error
 				return;
 			}
 		}
-	}
-	
-	{ // workaround
-		static const char zeros[] = { 0 };
-		playlist.AppendBytes( zeros, sizeof(zeros) );
 	}
 }
 
@@ -3640,6 +3646,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 			{
 				AampTime culled{};
 				bool playContextConfigured = false;
+				AppendNulTerminator(ts->playlist);
 				if( AampLogManager::isLogLevelAllowed(eLOGLEVEL_TRACE) )
 				{ // use printf to avoid 2048 char syslog limitation
 					printf("***Initial Playlist:******\n\n%.*s\n*****************\n", (int)ts->playlist.GetLen(), ts->playlist.GetPtr() );
@@ -5338,6 +5345,7 @@ bool StreamAbstractionAAMP_HLS::SetThumbnailTrack( int thumbIndex )
 				{
 					downloadTime = tempDownloadTime;
 					AAMPLOG_WARN("In StreamAbstractionAAMP_HLS: Configured Thumbnail");
+					AppendNulTerminator(thumbnailManifest;
 					ContentType type = aamp->GetContentType();
 					if( ContentType_LINEAR == type  || ContentType_SLE == type )
 					{
