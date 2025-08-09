@@ -1662,10 +1662,6 @@ void TrackState::FetchFragment()
 		{
 			AampTime duration{fragmentDurationSeconds};
 			AampTime position{playTarget - playTargetOffset};
-			if (type == eTRACK_SUBTITLE)
-			{
-				cachedFragment->fragment.AppendNulTerminator();
-			}
 			if (context->rate == AAMP_NORMAL_PLAY_RATE)
 			{
 				position -= fragmentDurationSeconds;
@@ -2334,8 +2330,6 @@ void TrackState::ProcessPlaylist(AampGrowableBuffer& newPlaylist, int http_error
 		// Free previous playlist buffer and load with new one
 		playlist.Free();
 		playlist.Replace( &newPlaylist );
-		playlist.AppendNulTerminator(); // make safe for cstring operations
-
 		AampTime culled{};
 		IndexPlaylist(true, culled);
 		// Update culled seconds if playlist download was successful
@@ -2618,83 +2612,67 @@ std::string StreamAbstractionAAMP_HLS::GetPlaylistURI(TrackType trackType, Strea
 * @fn GetFormatFromFragmentExtension
 * @brief Function to get media format based on fragment extension
 *
-* @param trackState[in] TrackState structure pointer
+* @param playlist[in] playlist to scan to infer stream format
 * @return StreamOutputFormat stream format
 ***************************************************************************/
-static StreamOutputFormat GetFormatFromFragmentExtension(TrackState *trackState)
+StreamOutputFormat GetFormatFromFragmentExtension( const AampGrowableBuffer &playlist )
 {
 	StreamOutputFormat format = FORMAT_INVALID;
-	std::istringstream playlistStream(trackState->playlist.GetPtr() );
-	for (std::string line; std::getline(playlistStream, line); )
+	lstring iter(playlist.GetPtr(),playlist.GetLen());
+	while( !iter.empty() )
 	{
-		if( line.empty() )
+		lstring ptr = iter.mystrpbrk();
+		if( ptr.SubStringMatch("#EXT-X-MAP") )
+		{
+			format = FORMAT_ISO_BMFF;
+		}
+		else if( ptr.startswith('#') )
 		{
 			continue;
 		}
-		if( line[0]=='#' )
-		{
-			if( line.rfind("#EXT-X-MAP",0) == 0)
-			{ // starts-with
-				format = FORMAT_ISO_BMFF;
-				break;
-			}
-		}
 		else
 		{
-			while(isspace(line.back()))
+			auto len = ptr.find('?'); // strip any URI paratmeters
+			ptr = lstring( ptr.getPtr(), len );
+			size_t delim = ptr.find('.');
+			if( delim < ptr.length() )
 			{
-				line.pop_back();
-				if (line.empty())
+				for(;;)
 				{
-					break;
+					ptr = ptr.substr((int)delim+1);
+					delim = ptr.find('.');
+					if( delim == ptr.length() )
+					{
+						break;
+					}
 				}
-			}
-			if (line.empty())
-			{
-				continue;
-			}
-			AAMPLOG_TRACE("line === %s ====",   line.c_str());
-			size_t end = line.find("?");
-			if (end != std::string::npos)
-			{ // strip any URI paratmeters
-				line = line.substr(0, end);
-			}
-			size_t extensionStart = line.find_last_of('.');
-			if (extensionStart != std::string::npos)
-			{
-				std::string extension = line.substr(extensionStart);
-				// parsed extension of first advertised fragment, now compare
-				if ( extension == ".ts" )
+				if( ptr.equal("ts") )
 				{
 					format = FORMAT_MPEGTS;
 				}
-				else if ( extension == ".aac" )
+				else if ( ptr.equal("aac") )
 				{
 					format = FORMAT_AUDIO_ES_AAC;
 				}
-				else if ( extension == ".ac3" )
+				else if ( ptr.equal("ac3") )
 				{
 					format = FORMAT_AUDIO_ES_AC3;
 				}
-				else if ( extension == ".ec3" )
+				else if ( ptr.equal("ec3") )
 				{
 					format = FORMAT_AUDIO_ES_EC3;
 				}
-				else if ( extension == ".vtt" || extension == ".webvtt" )
+				else if( ptr.equal("vtt") || ptr.equal("webvtt") )
 				{
 					format = FORMAT_SUBTITLE_WEBVTT;
 				}
 				else
 				{
-					AAMPLOG_WARN("Not TS or MP4 extension, probably ES. fragment extension %s len %zu", extension.c_str(), strlen(extension.c_str()));
+					AAMPLOG_WARN("Not TS or MP4 extension, probably ES. fragment extension %.*s", ptr.getLen(), ptr.getPtr() );
 				}
 			}
-			else
-			{
-				AAMPLOG_WARN("Could not find extension from line %s", line.c_str());
-			}
-			break;
 		}
+		break;
 	}
 	return format;
 }
@@ -3360,10 +3338,9 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 	}
 	if (this->mainManifest.GetLen() )
 	{
-		this->mainManifest.AppendNulTerminator(); // make safe for cstring operations
 		if( AampLogManager::isLogLevelAllowed(eLOGLEVEL_TRACE) )
 		{ // use printf to avoid 2048 char syslog limitation
-			printf("***Main Manifest***:\n\n%s\n************\n", this->mainManifest.GetPtr());
+			printf("***Main Manifest***:\n\n%.*s\n************\n", (int)this->mainManifest.GetLen(), this->mainManifest.GetPtr());
 		}
 
 		AampDRMLicenseManager *licenseManager = aamp->mDRMLicenseManager;
@@ -3402,8 +3379,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 			if(mainManifestResult == eAAMPSTATUS_MANIFEST_CONTENT_ERROR || mainManifestResult == eAAMPSTATUS_MANIFEST_PARSE_ERROR)
 			{ // use printf to avoid 2048 char syslog limitation
 				// Dump the invalid manifest content before reporting error
-				this->mainManifest.AppendNulTerminator();
-				printf("ERROR: Invalid Main Manifest : %s \n", this->mainManifest.GetPtr() );
+				printf("ERROR: Invalid Main Manifest : %.*s\n", (int)this->mainManifest.GetLen(), this->mainManifest.GetPtr() );
 				return mainManifestResult;
 			}
 		}
@@ -3658,10 +3634,9 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 			{
 				AampTime culled{};
 				bool playContextConfigured = false;
-				ts->playlist.AppendNulTerminator(); // make safe for cstring operations
 				if( AampLogManager::isLogLevelAllowed(eLOGLEVEL_TRACE) )
 				{ // use printf to avoid 2048 char syslog limitation
-					printf("***Initial Playlist:******\n\n%s\n*****************\n", ts->playlist.GetPtr() );
+					printf("***Initial Playlist:******\n\n%.*s\n*****************\n", (int)ts->playlist.GetLen(), ts->playlist.GetPtr() );
 				}
 				// Flag also denotes if first encrypted init fragment was pushed or not
 				ts->mCheckForInitialFragEnc = true; //force encrypted header at the start
@@ -3724,7 +3699,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 
 				lstring iter = lstring(ts->playlist.GetPtr(),ts->playlist.GetLen());
 				ts->fragmentURI = iter.mystrpbrk();
-				StreamOutputFormat format = GetFormatFromFragmentExtension(ts);
+				StreamOutputFormat format = GetFormatFromFragmentExtension(ts->playlist);
 				if (FORMAT_ISO_BMFF == format)
 				{
 					//Disable subtitle in mp4 format, as we don't support it for now
@@ -5357,7 +5332,6 @@ bool StreamAbstractionAAMP_HLS::SetThumbnailTrack( int thumbIndex )
 				{
 					downloadTime = tempDownloadTime;
 					AAMPLOG_WARN("In StreamAbstractionAAMP_HLS: Configured Thumbnail");
-					thumbnailManifest.AppendNulTerminator();
 					ContentType type = aamp->GetContentType();
 					if( ContentType_LINEAR == type  || ContentType_SLE == type )
 					{
@@ -5684,9 +5658,8 @@ void TrackState::UpdateDrmCMSha1Hash( const std::string &newSha1Hash )
 				DrmMetadataNode &drmMetadataNode = mDrmMetaDataIndex[j];
 				AAMPLOG_MIL("drmMetadataNode[%d].sha1Hash = %s", j, drmMetadataNode.sha1Hash.c_str() );
 			}
-			playlist.AppendNulTerminator(); // make safe for cstring operations
 			// use printf to avoid 2048 char syslog limitation
-			printf("***playlist***:\n\n%s\n************\n", playlist.GetPtr());
+			printf("***playlist***:\n\n%.*s\n************\n", (int)playlist.GetLen(), playlist.GetPtr());
 			assert(false);
 		}
 	}
