@@ -2332,6 +2332,7 @@ void TrackState::ProcessPlaylist(AampGrowableBuffer& newPlaylist, int http_error
 		playlist.Replace( &newPlaylist );
 		AampTime culled{};
 		IndexPlaylist(true, culled);
+
 		// Update culled seconds if playlist download was successful
 		// We need culledSeconds to find the timedMetadata position in playlist
 		// culledSeconds and FindTimedMetadata have been moved up here, because FindMediaForSequenceNumber
@@ -2401,6 +2402,11 @@ void TrackState::ProcessPlaylist(AampGrowableBuffer& newPlaylist, int http_error
 				return;
 			}
 		}
+	}
+	
+	{ // workaround
+		static const char zeros[] = { 0 };
+		playlist.AppendBytes( zeros, sizeof(zeros) );
 	}
 }
 
