@@ -114,6 +114,8 @@ public:
 	MOCK_METHOD(bool, SelectPreferredTextTrack, (TextTrackInfo& selectedTextTrack), (override));
 
 	MOCK_METHOD(bool, IsEOSReached, (), (override));
+
+	MOCK_METHOD(bool, DoEarlyStreamSinkFlush, (bool newTune, float rate), (override));
 };
 
 extern MockStreamAbstractionAAMP *g_mockStreamAbstractionAAMP;

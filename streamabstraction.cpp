@@ -1696,6 +1696,7 @@ void MediaTrack::RunInjectLoop()
 		totalInjectedDuration = 0;
 		totalInjectedChunksDuration = 0;
 		lastInjectedPosition = 0;
+		lastInjectedDuration = 0;
 	}
 	while (aamp->DownloadsAreEnabled() && keepInjecting)
 	{
@@ -1835,14 +1836,19 @@ CachedFragment* MediaTrack::GetFetchChunkBuffer(bool initialize)
  */
 bool MediaTrack::IsFragmentCacheFull()
 {
+	bool rc = false;
+	std::lock_guard<std::mutex> guard(mutex);
 	if(IsInjectionFromCachedFragmentChunks())
 	{
 		AAMPLOG_DEBUG("[%s] numberOfFragmentChunksCached %d mCachedFragmentChunksSize %zu", name, numberOfFragmentChunksCached, mCachedFragmentChunksSize);
-		return numberOfFragmentChunksCached == mCachedFragmentChunksSize;
+		rc = (numberOfFragmentChunksCached == mCachedFragmentChunksSize);
 	}
-
-	AAMPLOG_DEBUG("[%s] numberOfFragmentsCached %d maxCachedFragmentsPerTrack %d", name, numberOfFragmentsCached, maxCachedFragmentsPerTrack);
-	return numberOfFragmentsCached == maxCachedFragmentsPerTrack;
+	else
+	{
+		AAMPLOG_DEBUG("[%s] numberOfFragmentsCached %d maxCachedFragmentsPerTrack %d", name, numberOfFragmentsCached, maxCachedFragmentsPerTrack);
+		rc = numberOfFragmentsCached == maxCachedFragmentsPerTrack;
+	}
+	return rc;
 }
 
 /**
@@ -2460,22 +2466,22 @@ void StreamAbstractionAAMP::ConfigureTimeoutOnBuffer()
 /**
  *  @brief Update rampdown profile on network failure
  */
-double StreamAbstractionAAMP::GetBufferValue(MediaTrack *video)
+double StreamAbstractionAAMP::GetBufferValue(MediaTrack *track)
 {
 	double bufferValue = 0.0;
-	if (video)
+	if (track)
 	{
-		bufferValue = video->GetBufferedDuration();
-		if (aamp->IsLocalAAMPTsb() && video->IsLocalTSBInjection()) /**< Update buffer value based on manifest endDelta if it is LOCAL TSB LLD playback*/
+		bufferValue = track->GetBufferedDuration();
+		if (aamp->IsLocalAAMPTsb() && track->IsLocalTSBInjection()) /**< Update buffer value based on manifest endDelta if it is LOCAL TSB LLD playback*/
 		{
 			AampTSBSessionManager *tsbSessionManager = aamp->GetTSBSessionManager();
 			if(tsbSessionManager)
 			{
 				double manifestEndDelta = tsbSessionManager->GetManifestEndDelta();
 				bufferValue = (manifestEndDelta + aamp->mLiveOffset); /**< Buffer should be calculated from live offset*/
-				bufferValue += video->fragmentDurationSeconds; /**< Adjust with last fragment; One fragment may be downloading and not yet completed*/
+				bufferValue += track->fragmentDurationSeconds; /**< Adjust with last fragment; One fragment may be downloading and not yet completed*/
 				AAMPLOG_INFO("Inverse Buffer (%.02lf)sec based on TSB end point delta (%.02lf)sec and live offset (%.02lf)sec and fragmentDuration for adjust (%.02lf)sec !!",
-							 bufferValue, manifestEndDelta, aamp->mLiveOffset, video->fragmentDurationSeconds);
+							 bufferValue, manifestEndDelta, aamp->mLiveOffset, track->fragmentDurationSeconds);
 				if(bufferValue < 0) /** Correct the inverse buffer; it may become -ve*/
 				{
 					bufferValue = 0;
@@ -3389,12 +3395,16 @@ void MediaTrack::OnSinkBufferFull()
 
 	bool notifyCacheCompleted = false;
 	{
-		std::lock_guard<std::mutex> guard(mutex);
-		sinkBufferIsFull = true;
+		{
+			std::lock_guard<std::mutex> guard(mutex);
+			sinkBufferIsFull = true;
+		}
+		
 		// check if cache buffer is full and caching was needed
 		if (IsFragmentCacheFull() && (eTRACK_VIDEO == type) &&
 			aamp->IsFragmentCachingRequired() && !cachingCompleted)
 		{
+			std::lock_guard<std::mutex> guard(mutex);
 			AAMPLOG_WARN("## [%s] Cache is Full cacheDuration %d minInitialCacheSeconds %d, aborting caching!##",
 						name, currentInitialCacheDurationSeconds, aamp->GetInitialBufferDuration());
 			notifyCacheCompleted = true;
@@ -3687,6 +3697,25 @@ double StreamAbstractionAAMP::GetBufferedVideoDurationSec()
 	if(video)
 	{
 		bufferValue = GetBufferValue(video);
+	}
+	return bufferValue;
+}
+
+/**
+ *  @brief Get buffered audio duration in seconds
+ */
+double StreamAbstractionAAMP::GetBufferedAudioDurationSec()
+{
+	double bufferValue = -1.0;
+	// do not support trickplay track
+	if(AAMP_NORMAL_PLAY_RATE != aamp->rate)
+	{
+		return bufferValue;
+	}
+	MediaTrack *audio = GetMediaTrack(eTRACK_AUDIO);
+	if(audio)
+	{
+		bufferValue = GetBufferValue(audio);
 	}
 	return bufferValue;
 }
@@ -4027,7 +4056,7 @@ void StreamAbstractionAAMP::InitializeMediaProcessor(bool passThroughMode)
 				track->playContext->setRate(aamp->rate, PlayMode_normal);
 				if(eMEDIATYPE_AUDIO == i)
 				{
-					peerAudioProcessor = processor;
+					peerAudioProcessor = std::move(processor);
 				}
 				else if (eMEDIATYPE_VIDEO == i && subtitleESProcessor)
 				{

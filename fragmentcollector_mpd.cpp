@@ -938,7 +938,7 @@ bool StreamAbstractionAAMP_MPD::FetchFragment(MediaStreamContext *pMediaStreamCo
 						cachedFragment = pMediaStreamContext->GetFetchBuffer(true);
 					}
 				}
-				if(cachedFragment)
+				if(cachedFragment && !(aamp->GetTSBSessionManager() && pMediaStreamContext->IsLocalTSBInjection()))
 				{
 					// The pointer is loaded to bypass null check in InjectFragment thread
 					cachedFragment->fragment.AppendBytes("0x0a", 2);
@@ -3491,6 +3491,16 @@ AAMPStatusType StreamAbstractionAAMP_MPD::InitTsbReader(TuneType tuneType)
 			seekPosition = position;
 			mFirstPTS = tsbSessionManager->GetTsbReader(eMEDIATYPE_VIDEO)->GetFirstPTS();
 			AAMPLOG_MIL("Updated position: %lfs, pts:%lfs", seekPosition, mFirstPTS);
+			if (aamp->IsLocalAAMPTsbInjection())
+			{
+				for (int i = 0; i < mNumberOfTracks; i++)
+				{
+					if (mMediaStreamContext[i] != NULL)
+					{
+						mMediaStreamContext[i]->SetLocalTSBInjection(true);
+					}
+				}
+			}
 		}
 		else
 		{
@@ -6543,6 +6553,11 @@ void StreamAbstractionAAMP_MPD::SelectSubtitleTrack(bool newTune, std::vector<Te
 		{
 			AAMPLOG_WARN("Subtitle track enabled, but fragmentInjection loop not yet started! Starting now..");
 			aamp->ResumeTrackInjection(eMEDIATYPE_SUBTITLE);
+			// TODO: This could be moved to StartInjectLoop, but due to lack of testing will keep it here for now
+			if(pMediaStreamContext->playContext)
+			{
+				pMediaStreamContext->playContext->reset();
+			}
 			pMediaStreamContext->StartInjectLoop();
 		}
 	}
@@ -9101,6 +9116,7 @@ void StreamAbstractionAAMP_MPD::AdvanceTrack(int trackIdx, bool trickPlay, doubl
 	}
 	else
 	{
+		std::lock_guard<std::mutex> lock(mutex);
 		// Important DEBUG area, live downloader is delayed due to some external factors (Injector or Gstreamer)
 		if (pMediaStreamContext->IsInjectionFromCachedFragmentChunks())
 		{
@@ -9720,6 +9736,7 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 	 */
 	do
 	{
+		AAMPLOG_INFO("inner loop start");
 		bool waitForAdBreakCatchup = false;
 		bool periodChanged = false;
 		if (mpd)
@@ -10274,19 +10291,14 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateMPD(bool init)
 			if(tmpManifestDnldRespPtr->mMPDInstance != mManifestDnldRespPtr->mMPDInstance)
 			{
 				mManifestDnldRespPtr    =       tmpManifestDnldRespPtr;
-				//bool gotManifest              =       (mManifestDnldRespPtr->mMPDStatus == AAMPStatusType::eAAMPSTATUS_OK);
-				//if (gotManifest)
+				ret = GetMPDFromManifest(mManifestDnldRespPtr , false);
+				// if no parse error
+				if(ret == AAMPStatusType::eAAMPSTATUS_OK)
 				{
-					ret = GetMPDFromManifest(mManifestDnldRespPtr , false);
-					// if no parse error
-					if(ret == AAMPStatusType::eAAMPSTATUS_OK)
-					{
-						AAMPLOG_INFO("Got Manifest Updated . Continue with Fetcherloop");
-						// mCurrentPeriodIdx, mNumberOfPeriods based on mBasePeriodId
-						ret = IndexNewMPDDocument();
-					}
+					AAMPLOG_INFO("Got Manifest Updated . Continue with Fetcherloop");
+					// mCurrentPeriodIdx, mNumberOfPeriods based on mBasePeriodId
+					ret = IndexNewMPDDocument();
 				}
-
 			}
 		}
 	}
@@ -10556,11 +10568,7 @@ void StreamAbstractionAAMP_MPD::StartFromAampLocalTsb(void)
 	for (int i = 0; i < mNumberOfTracks; i++)
 	{
 		// Flush fragments from mCachedFragment, potentially cached during Live SLD
-		if (!mMediaStreamContext[i]->IsLocalTSBInjection())
-		{
-			mMediaStreamContext[i]->FlushFetchedFragments();
-		}
-		mMediaStreamContext[i]->SetLocalTSBInjection(true);
+		mMediaStreamContext[i]->FlushFetchedFragments();
 
 		// Flush fragments from mCachedFragmentChunks
 		mMediaStreamContext[i]->FlushFragments();
@@ -11479,10 +11487,10 @@ void StreamAbstractionAAMP_MPD::StopInjection(void)
 {
 	//invoked at times of discontinuity. Audio injection loop might have already exited here
 	ReassessAndResumeAudioTrack(true);
-	for (int iTrack = 0; iTrack < mNumberOfTracks; iTrack++)
+	for (int iTrack = 0; iTrack < mMaxTracks; iTrack++)
 	{
 		MediaStreamContext *track = mMediaStreamContext[iTrack];
-		if(track && track->Enabled())
+		if(track)
 		{
 			if(track->playContext)
 			{

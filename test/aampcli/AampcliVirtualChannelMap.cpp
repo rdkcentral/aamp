@@ -226,9 +226,9 @@ void VirtualChannelMap::print(unsigned long start, unsigned long end, unsigned l
 		{
 			if( numCols!=0 )
 			{
-				AAMPCLI_PRINTF( "\n" );
+				printf( "\n" );
 			}
-			AAMPCLI_PRINTF( "%s\n", channelName.c_str() );
+			printf( "%s\n", channelName.c_str() );
 			numCols = 0;
 			//Increment displayed lines here & check, as the "continue" bypasses the normal check.
 			lineCount++;
@@ -238,17 +238,17 @@ void VirtualChannelMap::print(unsigned long start, unsigned long end, unsigned l
 			}			
 			continue;
 		}
-		AAMPCLI_PRINTF("%4d: %s", pChannelInfo.channelNumber, channelName.c_str() );
+		printf("%4d: %s", pChannelInfo.channelNumber, channelName.c_str() );
 		if( numCols>=4 )
 		{ // four virtual channels per row
-			AAMPCLI_PRINTF("\n");
+			printf("\n");
 			numCols = 0;
 		}
 		else
 		{
 			while( len<maxNameLen )
 			{ // pad each column to 20 characters, for clean layout
-				AAMPCLI_PRINTF( " " );
+				printf( " " );
 				len++;
 			}
 			numCols++;
@@ -260,7 +260,7 @@ void VirtualChannelMap::print(unsigned long start, unsigned long end, unsigned l
 			break;
 		}
 	}
-	AAMPCLI_PRINTF("\n\n");
+	printf("\n\n");
 }
 
 void VirtualChannelMap::setCurrentlyTunedChannel(int value)
