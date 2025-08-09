@@ -5345,7 +5345,7 @@ bool StreamAbstractionAAMP_HLS::SetThumbnailTrack( int thumbIndex )
 				{
 					downloadTime = tempDownloadTime;
 					AAMPLOG_WARN("In StreamAbstractionAAMP_HLS: Configured Thumbnail");
-					AppendNulTerminator(thumbnailManifest;
+					AppendNulTerminator(thumbnailManifest);
 					ContentType type = aamp->GetContentType();
 					if( ContentType_LINEAR == type  || ContentType_SLE == type )
 					{
