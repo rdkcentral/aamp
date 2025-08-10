@@ -722,7 +722,7 @@ static GstFlowReturn gst_cdmidecryptor_transform_ip(
 			}
 			else
 			{
-				printF("bad fucntion");
+				printf("bad fucntion");
 			}
 		}
 		cdmidecryptor->firstsegprocessed = true;
