@@ -688,7 +688,14 @@ static GstFlowReturn gst_cdmidecryptor_transform_ip(
 			&& cdmidecryptor->sessionManager)
 	{
 
-		cdmidecryptor->sessionManager->profileDecryptProfileCb(((int)cdmidecryptor->mediaType), ePROF_BEGIN, 0);
+		if(cdmidecryptor->sessionManager->profileDecryptProfileCb)
+		{
+		    cdmidecryptor->sessionManager->profileDecryptProfileCb(((int)cdmidecryptor->mediaType), ePROF_BEGIN, 0);
+		}
+		else
+		{
+			printf("bad fucntion");
+		}
 		cdmidecryptor->firstsegprocessed = true;
 	}
 
@@ -697,14 +704,27 @@ static GstFlowReturn gst_cdmidecryptor_transform_ip(
 	if (!cdmidecryptor->firstsegprocessed
 			&& cdmidecryptor->sessionManager)
 	{
-	if(!cdmidecryptor->streamEncrypted)
-	{
-		cdmidecryptor->sessionManager->profileDecryptProfileCb(((int)cdmidecryptor->mediaType), ePROF_END, 0);
-	}
-	else
-	{
-		cdmidecryptor->sessionManager->profileDecryptProfileCb(((int)cdmidecryptor->mediaType), ePROF_ERR, result);
-	}
+		if(!cdmidecryptor->streamEncrypted)
+		{
+			if(cdmidecryptor->sessionManager->profileDecryptProfileCb)
+			{
+				cdmidecryptor->sessionManager->profileDecryptProfileCb(((int)cdmidecryptor->mediaType), ePROF_END, 0);
+			}
+			else{
+				printf("bad function ");
+			}
+		}
+		else
+		{
+			if(cdmidecryptor->sessionManager->profileDecryptProfileCb)
+			{
+				cdmidecryptor->sessionManager->profileDecryptProfileCb(((int)cdmidecryptor->mediaType), ePROF_ERR, result);
+			}
+			else
+			{
+				printF("bad fucntion");
+			}
+		}
 		cdmidecryptor->firstsegprocessed = true;
 	}
 
@@ -914,7 +934,14 @@ static gboolean gst_cdmidecryptor_sink_event(GstBaseTransform * trans,
 			if (!cdmidecryptor->firstsegprocessed)
 			{
 				/** profilebegin -0, profileEnd -1 , profileError -2 */
-				cdmidecryptor->sessionManager->profileDecryptProfileCb(((int)cdmidecryptor->mediaType), 0, 0);
+				if(cdmidecryptor->sessionManager->profileDecryptProfileCb)
+				{
+				     cdmidecryptor->sessionManager->profileDecryptProfileCb(((int)cdmidecryptor->mediaType), 0, 0);
+				}
+				else
+				{
+					printf("bad function");
+				}
 			}
 
 			result = TRUE;
