@@ -10808,6 +10808,7 @@ void StreamAbstractionAAMP_MPD::GetStreamFormat(StreamOutputFormat &primaryOutpu
 		auxOutputFormat = FORMAT_INVALID;
 	}
 
+	AAMPLOG_WARN("ANJ:Check: mMediaStreamContext[eMEDIATYPE_SUBTITLE]->enabled = %d, ISCONFIGSET(eAAMPConfig_EnablePTSReStamp) = %d, ISCONFIGSET(eAAMPConfig_useRialtoSink) = %d", mMediaStreamContext[eMEDIATYPE_SUBTITLE]->enabled, ISCONFIGSET(eAAMPConfig_EnablePTSReStamp), ISCONFIGSET(eAAMPConfig_useRialtoSink) );
 	//TODO - check whether the ugly hack above is in operation
 	// This is again a dirty hack, the check for PTS restamp enabled. TODO: We need to remove this in future
 	// For cases where subtitles is enabled mid-playback, we need to configure the pipeline at the beginning. FORMAT_SUBTITLE_MP4 will be set
@@ -10819,22 +10820,27 @@ void StreamAbstractionAAMP_MPD::GetStreamFormat(StreamOutputFormat &primaryOutpu
 		if (!mimeType.empty())
 		{
 			subtitleOutputFormat = GetSubtitleFormat(mimeType);
+			AAMPLOG_WARN("ANJ: 1. mime type not empty: subtitleOutputFormat = %d", subtitleOutputFormat);
 		}
 		// Ensure thatsubtitleOutputFormat is set to FORMAT_INVALID rather than FORMAT_SUBTITLE_MP4 when
 		// presenting inband CC with PTS restamping enabled
 		else if(isInBandCcAvailable())
 		{
 			subtitleOutputFormat = FORMAT_INVALID;
+			AAMPLOG_WARN("ANJ: 2. in band cc avilable. subtitleOutputFormat=FORMAT_INVALID: subtitleOutputFormat = %d", subtitleOutputFormat);
 		}
 		else
 		{
 			AAMPLOG_INFO("mimeType empty");
 			subtitleOutputFormat = FORMAT_SUBTITLE_MP4;
+			AAMPLOG_WARN("ANJ: 3. mime type empty: subtitleOutputFormat = FORMAT_SUBTITLE_MP4. subtitleOutputFormat = %d", subtitleOutputFormat);
 		}
+		AAMPLOG_WARN("ANJ: subtitleOutputFormat = %d", subtitleOutputFormat);
 	}
 	else
 	{
 		subtitleOutputFormat = FORMAT_INVALID;
+		AAMPLOG_WARN("ANJ: 4. else case: subtitleOutputFormat = FORMAT_INVALID. subtitleOutputFormat = %d", subtitleOutputFormat);
 	}
 }
 

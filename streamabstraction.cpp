@@ -1367,11 +1367,9 @@ void MediaTrack::ProcessAndInjectFragment(CachedFragment *cachedFragment, bool f
 			}
 		}
 		else if (ISCONFIGSET(eAAMPConfig_OverrideMediaHeaderDuration) &&
-			//(eMEDIAFORMAT_DASH == aamp->mMediaFormat))//anj:orig
-			(eMEDIAFORMAT_DASH == aamp->mMediaFormat) && (aamp->IsLive()))
+			(eMEDIAFORMAT_DASH == aamp->mMediaFormat))//anj:orig
 		{
-			// Only for live DASH streams
-			//// Only for DASH streams//anj
+			// Only for DASH streams
 			printf("\nANJ: Calling ------------------------ClearMediaHeaderDuration =============\n");
 			ClearMediaHeaderDuration(cachedFragment);
 		}
