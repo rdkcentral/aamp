@@ -961,7 +961,7 @@ bool AampDRMLicenseManager::QueueContentProtection(std::shared_ptr<DrmHelper> dr
 /**
  *  @brief Get DRM license key from DRM server.
  */
-DrmData * AampDRMLicenseManager::getLicense(LicenseRequest &licenseRequest,
+DrmData* AampDRMLicenseManager::getLicense(LicenseRequest &licenseRequest,
 		int32_t *httpCode, AampMediaType streamType, void* aampI, DrmMetaDataEventPtr eventHandle, AampCurlDownloader *pLicenseDownloader, std::string licenseProxy)
 {
 
@@ -1346,15 +1346,24 @@ DrmData * AampDRMLicenseManager::getLicenseSec(const LicenseRequest &licenseRequ
 		else
 		{
 			AAMPLOG_WARN(" acquireLicense SUCCESS! license request attempt %d; response code : sec_client %d", attemptCount, sec_client_result);
-			eventHandle->setAccessStatusValue(statusInfo.accessAttributeStatus);
+				AAMPLOG_ERR("entering");
+			if(eventHandle)
+			{
+				AAMPLOG_ERR("entering1");
+			    eventHandle->setAccessStatusValue(statusInfo.accessAttributeStatus);
+			}
 			licenseResponse = new DrmData(licenseResponseStr, licenseResponseLength);
+				AAMPLOG_ERR("entering2");
 		}
 		if (licenseResponseStr) mDrmSessionManager->playerSecInstance->PlayerSec_FreeResource(licenseResponseStr);
 	}
+				AAMPLOG_ERR("entering4");
         UpdateLicenseMetrics(DRM_GET_LICENSE_SEC, *httpCode, licenseRequest.url.c_str(), downloadTimeMS, eventHandle, nullptr );
+				AAMPLOG_ERR("entering5");
 
 	free(encodedData);
 	free(encodedChallengeData);
+				AAMPLOG_ERR("entering6 ");
 	return licenseResponse;
 }
 /*
