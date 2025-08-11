@@ -158,7 +158,6 @@ StreamAbstractionAAMP_MPD::StreamAbstractionAAMP_MPD(class PrivateInstanceAAMP *
 	,mTrackWorkers()
 	,mAudioSurplus(0)
 	,mVideoSurplus(0)
-	,mLivePeriodCulledSeconds(0)
 	,mIsSegmentTimelineEnabled(false)
 	,mSeekedInPeriod(false)
 {
@@ -7971,13 +7970,10 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, 
 						//to get the start for this AD
 						double absoluteAdBreakStartTime = mCdaiObject->mAdBreaks[mBasePeriodId].mAbsoluteAdBreakStartTime.inSeconds();
 						// convert to seconds, standard implicit conversion
-						pMediaStreamContext->fragmentTime += mCdaiObject->mCurAds->at(mCdaiObject->mCurAdIdx).basePeriodOffset / 1000.0;
-					//	if((aamp->mMPDPeriodsInfo.at(0).periodId) == mBasePeriodId)
-						{
-							pMediaStreamContext->fragmentTime -= mLivePeriodCulledSeconds;
-						}
-						AAMPLOG_INFO("StreamAbstractionAAMP_MPD: Track %d Period changed, but within an adbreak, mPeriodStartTime:%lf basePeriodOffset:%d FragmentTime: %lf PeriodCulled:%f mAbsoluteAdBreakStartTime %f",
-							i, mPeriodStartTime, mCdaiObject->mCurAds->at(mCdaiObject->mCurAdIdx).basePeriodOffset, pMediaStreamContext->fragmentTime, mLivePeriodCulledSeconds,
+						pMediaStreamContext->fragmentTime = absoluteAdBreakStartTime + mCdaiObject->mCurAds->at(mCdaiObject->mCurAdIdx).basePeriodOffset / 1000.0;
+
+						AAMPLOG_INFO("StreamAbstractionAAMP_MPD: Track %d Period changed, but within an adbreak, mPeriodStartTime:%lf basePeriodOffset:%d FragmentTime: %lf mAbsoluteAdBreakStartTime %f",
+							i, mPeriodStartTime, mCdaiObject->mCurAds->at(mCdaiObject->mCurAdIdx).basePeriodOffset, pMediaStreamContext->fragmentTime,
 							absoluteAdBreakStartTime);
 					}
 				}
@@ -8131,7 +8127,7 @@ PeriodInfo StreamAbstractionAAMP_MPD::GetFirstValidCurrMPDPeriod(std::vector<Per
 		validPeriod = currMPDPeriodDetails[0];
 		for(const auto& iter : currMPDPeriodDetails)
 		{
-			if(iter.duration > 0 && iter.isEmptyPeriod == false)
+			if(iter.duration > 0)
 			{
 				validPeriod = iter;
 				break;
@@ -8174,41 +8170,25 @@ double StreamAbstractionAAMP_MPD::GetCulledSeconds(std::vector<PeriodInfo> &curr
 						{
 							uint64_t timeDiff = currFirstPeriodInfo.startTime - prevPeriodInfo.startTime;
 							culled += ((double)timeDiff / (double)prevPeriodInfo.timeScale);
-							if(currFirstPeriodInfo.periodId == mBasePeriodId)
-							{
-								mLivePeriodCulledSeconds += ((double)timeDiff / (double)prevPeriodInfo.timeScale);
-							}else
-							{
-								mLivePeriodCulledSeconds = 0;
-							}
-							AAMPLOG_INFO("PeriodId %s, prevStart %" PRIu64 " currStart %" PRIu64 " culled %f PeriodCulledS %f",
-												prevPeriodInfo.periodId.c_str(), prevPeriodInfo.startTime, currFirstPeriodInfo.startTime, culled, mLivePeriodCulledSeconds);
+							AAMPLOG_INFO("PeriodId %s, prevStart %" PRIu64 " currStart %" PRIu64 " culled %f",
+												prevPeriodInfo.periodId.c_str(), prevPeriodInfo.startTime, currFirstPeriodInfo.startTime, culled);
 						}
 						break;
 					}
 					else
 					{
-						if (prevPeriodInfo.isEmptyPeriod)
+						double deltaStartTime = currFirstPeriodInfo.periodStartTime - prevPeriodInfo.periodStartTime;
+						if (prevPeriodInfo.duration <= deltaStartTime)
 						{
-							AAMPLOG_INFO("PeriodId empty %s", prevPeriodInfo.periodId.c_str());
-							iter1++;
+							culled += (prevPeriodInfo.duration / 1000);
 						}
 						else
 						{
-							double deltaStartTime = currFirstPeriodInfo.periodStartTime - prevPeriodInfo.periodStartTime;
-							if (prevPeriodInfo.duration <= deltaStartTime)
-							{
-								culled += (prevPeriodInfo.duration / 1000);
-							}
-							else
-							{
-								culled += deltaStartTime;
-							}
-							iter1++;
-							mLivePeriodCulledSeconds = 0;
-							AAMPLOG_WARN("PeriodId %s , with last known duration %f seems to have got culled",
-										 prevPeriodInfo.periodId.c_str(), (prevPeriodInfo.duration / 1000));
+							culled += deltaStartTime;
 						}
+						iter1++;
+						AAMPLOG_WARN("PeriodId %s , with last known duration %f seems to have got culled",
+									 prevPeriodInfo.periodId.c_str(), (prevPeriodInfo.duration / 1000));
 					}
 				}
 				aamp->mMPDPeriodsInfo = currMPDPeriodDetails;
@@ -14021,10 +14001,9 @@ void StreamAbstractionAAMP_MPD::UpdateMPDPeriodDetails(std::vector<PeriodInfo>& 
 		periodInfo.periodIndex = iter;
 		periodInfo.periodStartTime = mMPDParseHelper->GetPeriodStartTime(iter,mLastPlaylistDownloadTimeMs);
 		periodInfo.periodEndTime = mMPDParseHelper->GetPeriodEndTime(iter,mLastPlaylistDownloadTimeMs,(rate != AAMP_NORMAL_PLAY_RATE),aamp->IsUninterruptedTSB());
-		periodInfo.isEmptyPeriod = mMPDParseHelper->IsEmptyPeriod(iter, (rate != AAMP_NORMAL_PLAY_RATE));
 		currMPDPeriodDetails.push_back(periodInfo);
 		mMPDParseHelper->SetMPDPeriodDetails(currMPDPeriodDetails);
-		if(!periodInfo.isEmptyPeriod)
+		if(!mMPDParseHelper->IsEmptyPeriod(iter, (rate != AAMP_NORMAL_PLAY_RATE)))
 		{
 			durMs += periodInfo.duration;
 		}
