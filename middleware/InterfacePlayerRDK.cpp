@@ -2672,9 +2672,9 @@ long long InterfacePlayerRDK::GetPositionMilliseconds(void)
 			rc = GST_TIME_AS_MSECONDS(pos) * rate;
 			MW_LOG_DEBUG("positionQuery pos - %" G_GINT64_FORMAT " rc - %lld" , GST_TIME_AS_MSECONDS(pos), rc);
 		}
-		//MW_LOG_MIL("InterfacePlayerRDK: with positionQuery pos - %" G_GINT64_FORMAT " rc - %lld", GST_TIME_AS_MSECONDS(pos), rc);
-		printf("ANJp:InterfacePlayerRDK:GetPositionMilliseconds: with positionQuery pos - %" G_GINT64_FORMAT " rc - %lld", GST_TIME_AS_MSECONDS(pos), rc);
-		printf("\n");
+		MW_LOG_MIL("InterfacePlayerRDK: with positionQuery pos - %" G_GINT64_FORMAT " rc - %lld", GST_TIME_AS_MSECONDS(pos), rc);
+//		printf("ANJp:InterfacePlayerRDK:GetPositionMilliseconds: with positionQuery pos - %" G_GINT64_FORMAT " rc - %lld", GST_TIME_AS_MSECONDS(pos), rc);
+//		printf("\n");
 		//positionQuery is not unref-ed here, because it could be reused for future position queries
 	}
 	return rc;
