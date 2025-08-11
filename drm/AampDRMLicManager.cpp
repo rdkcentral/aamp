@@ -228,6 +228,15 @@ void AampDRMLicenseManager::renewLicense(std::shared_ptr<DrmHelper> drmHelper, v
 KeyState AampDRMLicenseManager::acquireLicense( int& responseCode, std::shared_ptr<DrmHelper> drmHelper, int sessionSlot, int &cdmError,
 	 AampMediaType streamType, void *metaDataPtr,  bool isLicenseRenewal)
 {
+	if(metaDataPtr == NULL)
+       {
+                using DrmMetaDataEventPtr = std::shared_ptr<DrmMetaDataEvent>;
+                auto drmEvent = std::make_shared<DrmMetaDataEvent>(AAMP_TUNE_FAILURE_UNKNOWN, "", 0, 0, false, std::string{});
+                metaDataPtr= static_cast<void*>(&drmEvent);
+
+                //std::shared_ptr<void> e = cdmidecryptor->sessionManager->DrmMetaDataCb();
+        }
+
 	DrmMetaDataEventPtr* eventHandlePtr = static_cast<DrmMetaDataEventPtr*>(metaDataPtr);
 	DrmMetaDataEventPtr& eventHandle = *eventHandlePtr;
 
