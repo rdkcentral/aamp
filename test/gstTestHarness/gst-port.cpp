@@ -210,21 +210,21 @@ public:
 	{
 		g_print( "MediaStream::found_source %s\n", GetMediaTypeAsString() );
 		g_object_get( orig, pspec->name, &appsrc, NULL );
+		g_assert(GST_IS_APP_SRC(appsrc));
 		
 		// configuration to drive need-data and enough-data signaling
 		switch( mediaType )
 		{
 			case eMEDIATYPE_VIDEO:
-				g_object_set(appsrc, "max-bytes", 12582912, NULL ); // default = 200000
+				g_object_set(appsrc, "max-bytes", (guint64)12582912, NULL ); // default = 200000
 				break;
 			case eMEDIATYPE_AUDIO:
-				g_object_set(appsrc, "max-bytes", 1536000, NULL ); // default = 200000
+				g_object_set(appsrc, "max-bytes", (guint64)1536000, NULL ); // default = 200000
 				break;
 			default:
 				break;
 		}
 		g_object_set(appsrc, "min-percent", 50, NULL ); // default = 0
-		
 		g_signal_connect(appsrc, "need-data", G_CALLBACK(need_data_cb), this );
 		g_signal_connect(appsrc, "enough-data", G_CALLBACK(enough_data_cb), this );
 		
@@ -245,11 +245,17 @@ public:
 		}
 		pad = gst_element_get_static_pad(appsrc, "src");
 		
-		// seek here avoids freeze at start for non-zero first_pts
-		assert( context->mSegmentEndSeekQueue.size()>0 );
-		SeekParam param = context->mSegmentEndSeekQueue.front();
-		context->mSegmentEndSeekQueue.pop();
-		Seek( param );
+		if(context && !context->mSegmentEndSeekQueue.empty())
+		{
+			assert( context->mSegmentEndSeekQueue.size()>0 );
+			SeekParam param = context->mSegmentEndSeekQueue.front();
+			context->mSegmentEndSeekQueue.pop();
+			Seek( param );
+		}
+		else
+		{
+			g_print( "MediaStream::found_source %s context is empty!!\n", GetMediaTypeAsString() );
+		}
 	}
 	
 	MediaStream(const MediaStream&)=delete; // copy constructor
