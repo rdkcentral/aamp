@@ -402,7 +402,7 @@ DrmSession * DrmSessionManager::createDrmSession( int& responseCode,
 		if (!drmHelper->parsePssh(initDataPtr, initDataLen))
 		{
 			MW_LOG_ERR(" Failed to Parse PSSH from the DRM InitData");
-			err =MW_CORRUPT_DRM_METADATA;
+			err = MW_CORRUPT_DRM_METADATA;
 		}
 		else
 		{

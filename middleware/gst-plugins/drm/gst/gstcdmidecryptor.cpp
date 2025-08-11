@@ -885,19 +885,19 @@ static gboolean gst_cdmidecryptor_sink_event(GstBaseTransform * trans,
 		cdmidecryptor->sessionManager->laprofileBeginCb(cdmidecryptor->mediaType);
 		g_mutex_lock(&cdmidecryptor->mutex);
 		GST_DEBUG_OBJECT(cdmidecryptor, "\n acquired lock for mutex\n");
-		//std::shared_ptr<void> e = cdmidecryptor->sessionManager->DrmMetaDataCb();
+		std::shared_ptr<void> e = cdmidecryptor->sessionManager->DrmMetaDataCb();
                 int err = -1;
 		int responseCode =-1;
 		if (cdmidecryptor->sessionManager->m_drmConfigParam->mIsWVKIDWorkaround){
 			cdmidecryptor->drmSession =	cdmidecryptor->sessionManager->createDrmSession(responseCode, err,
 						reinterpret_cast<const char *>(systemId), eMEDIAFORMAT_DASH,
-						outData, outDataLen, (int)cdmidecryptor->mediaType, cdmidecryptor->player, NULL, nullptr, false);
+						outData, outDataLen, (int)cdmidecryptor->mediaType, cdmidecryptor->player, e.get(), nullptr, false);
 		}else{
 			cdmidecryptor->drmSession =
 				cdmidecryptor->sessionManager->createDrmSession(responseCode, err,
 						reinterpret_cast<const char *>(systemId), eMEDIAFORMAT_DASH,
 						reinterpret_cast<const unsigned char *>(mapInfo.data),
-						mapInfo.size, (int)cdmidecryptor->mediaType, cdmidecryptor->player, NULL, nullptr, false);
+						mapInfo.size, (int)cdmidecryptor->mediaType, cdmidecryptor->player, e.get(), nullptr, false);
 		}
 		if(err != -1)
                 {

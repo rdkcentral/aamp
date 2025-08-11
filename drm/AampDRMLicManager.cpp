@@ -101,6 +101,11 @@ static void  registerCb(AampDRMLicenseManager* _this, DrmSessionManager* instanc
       instance->RegisterSetFailure([_this]( int err){
 		      _this->TriggerSetFailure(err);
 		      });
+     /** Register the MetaData callback for TriggerDrmMetaDataEvent */
+       instance->RegisterMetaDataCb([_this]() -> std::shared_ptr<void> {
+
+             return _this->TriggerDrmMetaDataEvent();
+                    });
 }
 /**
  *  getConfigs - To feed the configs to middleware DRM 
@@ -1461,14 +1466,14 @@ void AampDRMLicenseManager::TriggerLAProfileEndCb(int streamType)
 	}
 }
 
-void AampDRMLicenseManager::TriggerLAProfileErrorCb(int err, int responseCode)
+void AampDRMLicenseManager::TriggerLAProfileErrorCb(int err, int responseCodeVal)
 {
 	if(!aampInstance->licenceFromManifest)
 	{
 		AAMPTuneFailure failure = (AAMPTuneFailure)err;
 		if(AAMP_TUNE_FAILURE_UNKNOWN != failure)
 		{
-			long responseCode = (long)responseCode;
+			long responseCode = (long)responseCodeVal;
 			bool selfAbort = (failure == AAMP_TUNE_LICENCE_REQUEST_FAILED && (responseCode == CURLE_ABORTED_BY_CALLBACK || responseCode == CURLE_WRITE_ERROR));
 			if (!selfAbort)
 			{
@@ -1490,6 +1495,13 @@ void AampDRMLicenseManager::TriggerSetFailure(int err)
 	drmEvent->setFailure((AAMPTuneFailure)err);
 }
 
+std::shared_ptr<void> AampDRMLicenseManager::TriggerDrmMetaDataEvent()
+{
+	using DrmMetaDataEventPtr = std::shared_ptr<DrmMetaDataEvent>;
+	auto drmEvent = std::make_shared<DrmMetaDataEvent>(AAMP_TUNE_FAILURE_UNKNOWN, "", 0, 0, false, std::string{});
+	auto drmEventPtrWrapper = std::make_shared<DrmMetaDataEventPtr>(drmEvent);
+	return drmEventPtrWrapper;
+}
 std::string  AampDRMLicenseManager::HandleContentProtectionData(std::shared_ptr<DrmHelper> drmHelper, int streamType, std::vector<uint8_t> keyId, int isContentProtectionSupported)
 {
 	 /* To fetch correct codec type in tune time metrics when drm data is not given in manifest*/
