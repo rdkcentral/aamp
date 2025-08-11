@@ -3055,7 +3055,6 @@ AAMPStatusType StreamAbstractionAAMP_HLS::SyncTracks(void)
 				{
 					laggingTS->playTarget += laggingTS->fragmentDurationSeconds;
 					laggingTS->playTargetOffset += laggingTS->fragmentDurationSeconds;
-
 					if( !laggingTS->fragmentURI.empty() )
 					{
 						bool reloadUri = false;
