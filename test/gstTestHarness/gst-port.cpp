@@ -329,9 +329,12 @@ Pipeline::Pipeline( class PipelineContext *context ) : context(context), pipelin
 
 void Pipeline::ScheduleSeek( const SeekParam &seekParam )
 {
-	if( context->mSegmentEndSeekQueue.size()==0 )
-	{ // workaround: store pair of seek positions at start, for use with each appsrc
-		context->mSegmentEndSeekQueue.push(seekParam);
+	if( !seekParam.videoOnly )
+	{
+		if( context->mSegmentEndSeekQueue.size()==0 )
+		{ // workaround: store pair of seek positions at start, for use with each appsrc
+			context->mSegmentEndSeekQueue.push(seekParam);
+		}
 	}
 	context->mSegmentEndSeekQueue.push(seekParam);
 }

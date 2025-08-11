@@ -44,6 +44,7 @@ struct SeekParam
 	GstSeekFlags flags;
 	double start_s;
 	double stop_s;
+	bool videoOnly = false;
 };
 
 class PipelineContext

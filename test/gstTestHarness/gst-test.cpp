@@ -828,17 +828,26 @@ public:
 		pipelineContext.pipeline->SetPipelineState(ePIPELINE_STATE_PLAYING);
 	}
 	
+	/**
+	 * @brief here we play a 3.84s  duration segment from the middle, cleanly clipping the first half
+	 * This test uses seek start/stop to generate segment event (under the hood)
+	 * The initil iframe is in first half of segment - this test shows that we can play from the middle of content without needing to actually present the iframe
+	 * Presumable all the preceeding I,P,B get decoded and internally rendered, but presentation only starts at start position
+	 * Note that the test content in question has baked-in timestampe in video, making it easy to visually verify whether it is working as expected
+	 * Here we are presenting video-only content in pipeline.
+	 */
 	void TestPTO1( void )
-	{ // play 3.84s segment from middle, cleanly clipping first half
+	{
 		pipelineContext.pipeline->Reset();
 		Track &video = pipelineContext.track[eMEDIATYPE_VIDEO];
-		float pad = 2/50.0; // compensate for 1920/960 delay at start
+		float pad = 2/50.0; // this compensates for 1920/960 delay at start; without it, we start/end a bit early
 		SeekParam seekParam;
-		seekParam.flags = GST_SEEK_FLAG_FLUSH;
+		seekParam.flags = GST_SEEK_FLAG_FLUSH; // single segment being presented, so can use simple flushing seek
 		seekParam.start_s = 1.92 + pad;
 		seekParam.stop_s = 3.84 + pad;
 		pipelineContext.pipeline->ScheduleSeek(seekParam);
 		
+		// the string concats below are done to bypass .git forbidden hook
 		video.EnqueueSegment( new TrackFragment( eMEDIATYPE_VIDEO, "https://cpe" "testutility.stb.r53.xcal" ".tv/VideoTestStream/public/aamptest/streams/misc/pto-test-simple-h264/video-init-lo.m4s", 0 ) );
 		video.EnqueueSegment( new TrackFragment( eMEDIATYPE_VIDEO, "https://cpe" "testutility.stb.r53.xcal" ".tv/VideoTestStream/public/aamptest/streams/misc/pto-test-simple-h264/video-lo-4s.m4s",
 													1.92, 0 ) );
@@ -847,23 +856,37 @@ public:
 		// configure pipelines and begin streaming
 		pipelineContext.pipeline->Configure( eMEDIATYPE_VIDEO );
 		pipelineContext.pipeline->SetPipelineState(ePIPELINE_STATE_PAUSED);
+		// here we start paused on first frame
+		// after typing "pto1" command, type "play" to actually play out from that point to completion
+		// this makes it easier to record a video for frame by frame analysis
 	}
 	
+	/**
+	 * @brief here we play a 1.92s segment, then an (overlapping) 3.84s segment having different resolution
+	 * For this test, we naively inject the short segment followed by the overlapping longer segment, and let SoC handle it as it sees fit
+	 * On OSX, this actually presents correctly - the overlapping part of 2nd segment is not displayed
+	 * This is almost surely undefined behavior, that is working "by luck" on OSX
+	 * different results (or error!) expected with same test on ubuntu or RDK devices
+	 * Note that this is simple video-only test - behavior could be further complicated if we were presenting audio and video simultansouely
+	 */
 	void TestPTO2( void )
-	{ // play 3.84s segment from middle, cleanly clipping first half
+	{
 		pipelineContext.pipeline->Reset();
 		Track &video = pipelineContext.track[eMEDIATYPE_VIDEO];
 		float pad = 2/50.0; // compensate for 1920/960 delay at start
 		SeekParam seekParam;
 		seekParam.flags = GST_SEEK_FLAG_FLUSH;
-		seekParam.start_s = 0.0 + pad;
+		seekParam.start_s = 0.0; // no video expected to display until pad seconds elapsed, but ok to use zero here
 		seekParam.stop_s = 3.84 + pad;
+		seekParam.videoOnly = true;
 		pipelineContext.pipeline->ScheduleSeek(seekParam);
 		
+		// first, inject the 1.92s high profile segment
 		video.EnqueueSegment( new TrackFragment( eMEDIATYPE_VIDEO, "https://cpe" "testutility.stb.r53.xcal" ".tv/VideoTestStream/public/aamptest/streams/misc/pto-test-simple-h264/video-init-hi.m4s", 0 ) );
 		video.EnqueueSegment( new TrackFragment( eMEDIATYPE_VIDEO, "https://cpe" "testutility.stb.r53.xcal" ".tv/VideoTestStream/public/aamptest/streams/misc/pto-test-simple-h264/video-hi-2s.m4s",
 												1.92,0 ) );
 			
+		// now inject the 3.84s (overlapping) lower profile segment
 		video.EnqueueSegment( new TrackFragment( eMEDIATYPE_VIDEO, "https://cpe" "testutility.stb.r53.xcal" ".tv/VideoTestStream/public/aamptest/streams/misc/pto-test-simple-h264/video-init-lo.m4s", 0 ) );
 		video.EnqueueSegment( new TrackFragment( eMEDIATYPE_VIDEO, "https://cpe" "testutility.stb.r53.xcal" ".tv/VideoTestStream/public/aamptest/streams/misc/pto-test-simple-h264/video-lo-4s.m4s",
 													1.92, 0 ) );
@@ -872,31 +895,41 @@ public:
 		// configure pipelines and begin streaming
 		pipelineContext.pipeline->Configure( eMEDIATYPE_VIDEO );
 		pipelineContext.pipeline->SetPipelineState(ePIPELINE_STATE_PAUSED);
+		// here we start paused on first frame
+		// after typing "pto2" command, type "play" to actually play out from that point to completion
+		// this makes it easier to record a video for frame by frame analysis
 	}
 	
+	/**
+	 * @brief here we attempt to use non-flushing segment seeks to play a 1.92s segment followed by an overlapping 3.84s segment
+	 * explicit start/end times are used to clip the pair of segments, which should be a valid mechanism to avoid any ambiguity of SoC-specific behaviors
+	 * this is NOT working correctly on OSX (simmilar to dai3 test)
+	 */
 	void TestPTO3( void )
 	{
-		// play 3.84s segment from middle, cleanly clipping first half
 		pipelineContext.pipeline->Reset();
 		Track &video = pipelineContext.track[eMEDIATYPE_VIDEO];
 		float pad = 2/50.0; // compensate for 1920/960 delay at start
 		SeekParam seekParam;
-		seekParam.flags = GST_SEEK_FLAG_SEGMENT;
-		seekParam.start_s = pad;
-		seekParam.stop_s = 1.92+pad;
+		seekParam.flags = GST_SEEK_FLAG_SEGMENT; // use segment based presentatino, allowing multiple EOS to be signaled
+		// present first 1.92s segment
+		seekParam.start_s = pad+0;
+		seekParam.stop_s = pad+1.92;
 		pipelineContext.pipeline->ScheduleSeek(seekParam);
 		video.EnqueueSegment( new TrackFragment( eMEDIATYPE_VIDEO, "https://cpe" "testutility.stb.r53.xcal" ".tv/VideoTestStream/public/aamptest/streams/misc/pto-test-simple-h264/video-init-hi.m4s", 0 ) );
 		video.EnqueueSegment( new TrackFragment( eMEDIATYPE_VIDEO, "https://cpe" "testutility.stb.r53.xcal" ".tv/VideoTestStream/public/aamptest/streams/misc/pto-test-simple-h264/video-hi-2s.m4s",
 													1.92, 0 ) );
+		
+		// this "EOS" is just to mark the end of segment, so we can receive segment end event and trigger presentation of next segment with new start,end pts
 		video.EnqueueControl( new TrackEOS() );
 		
+		// here, present 2nd half of 2nd segment (1.92s to 3.84s)
 		seekParam.flags = GST_SEEK_FLAG_SEGMENT;
-		seekParam.start_s = 1.92 + pad;
-		seekParam.stop_s = 3.84 + pad;
+		seekParam.start_s = pad+1.92;
+		seekParam.stop_s = pad+3.84;
 		pipelineContext.pipeline->ScheduleSeek(seekParam);
 		
 		video.EnqueueSegment( new TrackFragment( eMEDIATYPE_VIDEO, "https://cpe" "testutility.stb.r53.xcal" ".tv/VideoTestStream/public/aamptest/streams/misc/pto-test-simple-h264/video-init-lo.m4s", 0 ) );
-		
 		video.EnqueueSegment( new TrackFragment( eMEDIATYPE_VIDEO, "https://cpe" "testutility.stb.r53.xcal" ".tv/VideoTestStream/public/aamptest/streams/misc/pto-test-simple-h264/video-lo-4s.m4s",
 													1.92, 0 ) );
 		video.EnqueueControl( new TrackEOS() );
@@ -904,6 +937,9 @@ public:
 		// configure pipelines and begin streaming
 		pipelineContext.pipeline->Configure( eMEDIATYPE_VIDEO );
 		pipelineContext.pipeline->SetPipelineState(ePIPELINE_STATE_PAUSED);
+		// here we start paused on first frame
+		// after typing "pto2" command, type "play" to actually play out from that point to completion
+		// this makes it easier to record a video for frame by frame analysis
 	}
 	
 	void FeedPipelineIfNeeded( MediaType mediaType )
