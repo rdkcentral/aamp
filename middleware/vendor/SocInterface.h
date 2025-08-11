@@ -125,7 +125,8 @@ public:
 	 * @return A pointer to the created SocInterface object.
 	 */
 	static std::shared_ptr<SocInterface> CreateSocInterface();
-	
+
+	virtual bool IsTargetSoc() const { return false; }
 	/**
 	 * @brief Check if AppSrc should be used.
 	 *

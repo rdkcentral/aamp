@@ -89,7 +89,8 @@ class AmlogicSocInterface : public SocInterface
 		 * @param trackId Track ID.
 		 */
 		void SetAC4Tracks(GstElement *src, int trackId) override;
-
+		
+		bool IsTargetSoc() const override { return true; }
 		/**
 		 * @brief Set rate correction.
 		 * @return True on success, false otherwise.
