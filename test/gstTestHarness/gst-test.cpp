@@ -828,6 +828,23 @@ public:
 		pipelineContext.pipeline->SetPipelineState(ePIPELINE_STATE_PLAYING);
 	}
 	
+	void TestPTO( void )
+	{ // play 3.84s segment from middle, cleanly clipping first half
+		pipelineContext.pipeline->Reset();
+		Track &video = pipelineContext.track[eMEDIATYPE_VIDEO];
+		SeekParam seekParam;
+		seekParam.flags = GST_SEEK_FLAG_SEGMENT;
+		seekParam.start_s = 1.92+2/50.0; // compensate for 1920/960 delay at start
+		seekParam.stop_s = 3.84+2/50.0;
+		pipelineContext.pipeline->ScheduleSeek(seekParam);
+		video.EnqueueSegment( new TrackFragment( eMEDIATYPE_VIDEO, "https://cpe" "testutility.stb.r53.xcal" ".tv/VideoTestStream/public/aamptest/streams/misc/pto-test-simple-h264/video-init-lo.m4s", 0 ) );
+		video.EnqueueSegment( new TrackFragment( eMEDIATYPE_VIDEO, "https://cpe" "testutility.stb.r53.xcal" ".tv/VideoTestStream/public/aamptest/streams/misc/pto-test-simple-h264/video-lo-4s.m4s", 0 ) );
+		video.EnqueueControl( new TrackEOS() );
+		// configure pipelines and begin streaming
+		pipelineContext.pipeline->Configure( eMEDIATYPE_VIDEO );
+		pipelineContext.pipeline->SetPipelineState(ePIPELINE_STATE_PAUSED);
+	}
+	
 	void FeedPipelineIfNeeded( MediaType mediaType )
 	{
 		Track &t = pipelineContext.track[mediaType];
@@ -1400,6 +1417,10 @@ public:
 		else if( strcmp(str,"dai3")==0 )
 		{
 			TestDAI3();
+		}
+		else if( strcmp(str,"pto")==0 )
+		{
+			TestPTO();
 		}
 		else if( strcmp(str,"ready")==0 )
 		{
