@@ -411,16 +411,20 @@ KeyState AampDRMLicenseManager::acquireLicense( int& responseCode, std::shared_p
 }
 KeyState AampDRMLicenseManager::handleLicenseResponse(int &responseCode,std::shared_ptr<DrmHelper> drmHelper, int sessionSlot, int &cdmError, int32_t httpResponseCode, int32_t httpExtendedStatusCode, shared_ptr<DrmData> licenseResponse, DrmMetaDataEventPtr eventHandle,  bool isLicenseRenewal)
 {
+	AAMPLOG_ERR("entering HandleLicenseResponse");
 	if (!drmHelper->isExternalLicense())
 	{
 		if ((licenseResponse != NULL) && (licenseResponse->getDataLength() != 0))
 		{
+	AAMPLOG_ERR("entering HandleLicenseResponse1");
 			if(!isLicenseRenewal)
 			{
+	AAMPLOG_ERR("entering HandleLicenseResponse2");
 				aampInstance->profiler.ProfileEnd(PROFILE_BUCKET_LA_NETWORK);
 			}
 			if (!isSecFeatureEnabled() && (!drmHelper->getDrmMetaData().empty() || aampInstance->mConfig->IsConfigSet(eAAMPConfig_Base64LicenseWrapping)))
 			{
+	AAMPLOG_ERR("entering HandleLicenseResponse3");
 				if (!drmHelper->getDrmMetaData().empty() || aampInstance->mConfig->IsConfigSet(eAAMPConfig_Base64LicenseWrapping))
 				{
 					/*
@@ -579,6 +583,7 @@ void AampDRMLicenseManager::UpdateLicenseMetrics(DrmRequestType requestType, int
 	cJSON *item = nullptr;
 	if( nullptr == eventHandle)
 	{
+		AAMPLOG_ERR("event Handle - NULL");
 		return;
 	}
 	item = cJSON_CreateObject();
