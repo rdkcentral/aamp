@@ -885,7 +885,7 @@ static gboolean gst_cdmidecryptor_sink_event(GstBaseTransform * trans,
 		cdmidecryptor->sessionManager->laprofileBeginCb(cdmidecryptor->mediaType);
 		g_mutex_lock(&cdmidecryptor->mutex);
 		GST_DEBUG_OBJECT(cdmidecryptor, "\n acquired lock for mutex\n");
-		std::shared_ptr<void> e = cdmidecryptor->sessionManager->DrmMetaDataCb();
+		//std::shared_ptr<void> e = cdmidecryptor->sessionManager->DrmMetaDataCb();
                 int err = -1;
 		int responseCode =-1;
 		if (cdmidecryptor->sessionManager->m_drmConfigParam->mIsWVKIDWorkaround){
