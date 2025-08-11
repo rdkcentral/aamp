@@ -264,7 +264,7 @@ static const ConfigLookupEntryBool mConfigLookupTableBool[AAMPCONFIG_BOOL_COUNT]
 	{false,"playreadyOutputProtection",eAAMPConfig_EnablePROutputProtection,false},
 	{true,"retuneOnBufferingTimeout",eAAMPConfig_ReTuneOnBufferingTimeout,false},
 	{true,"sslVerifyPeer",eAAMPConfig_SslVerifyPeer,false},
-	{false,"client-dai",eAAMPConfig_EnableClientDai,true},  // not changing this name , this is already in use for RFC
+	{false,"client-dai",eAAMPConfig_EnableClientDai,false},  // not changing this name , this is already in use for RFC
 	{false,"cdnAdsOnly",eAAMPConfig_PlayAdFromCDN,false},
 	{true,"enableVideoEndEvent",eAAMPConfig_EnableVideoEndEvent,true},
 	{true,"enableVideoRectangle",eAAMPConfig_EnableRectPropertyCfg,false},
