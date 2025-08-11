@@ -149,8 +149,7 @@ void logprintf(MW_LogLevel logLevelIndex, const char* file, int line, const char
 					    ethanLogLevel = ETHAN_LOG_MILESTONE;
 					    break;
 			    }
-			     vprintf( format_ptr, args );
-
+			    vethanlog(ethanLogLevel,NULL,NULL,-1,format_ptr, args);
 		    }
 		    else
 		    {
