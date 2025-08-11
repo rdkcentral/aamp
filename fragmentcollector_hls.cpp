@@ -872,8 +872,6 @@ lstring TrackState::GetNextFragmentUriFromPlaylist(bool& reloadUri, bool ignoreD
 		playTarget = 0;
 		//return fragmentURI; // leads to buffer overrun/crash
 	}
-AAMPLOG_WARN("DJH playTarget %f, playlistPosition %f, fragmentURI %s",
-				playTarget.inSeconds(), playlistPosition.inSeconds(), fragmentURI.tostring().c_str());	
 	if ((playlistPosition == playTarget)
 			|| (isFirstFragmentAfterABR && (type == eTRACK_VIDEO) && (-1.0 != playlistPosition) && (playlistPosition.seconds() == playTarget.seconds())))
 			// Check the playposition and playtarget matches in case of fragment duration mismatch after changing profile in ABR.
@@ -1144,8 +1142,6 @@ AAMPLOG_WARN("DJH playTarget %f, playlistPosition %f, fragmentURI %s",
 		ptr = iter.mystrpbrk();
 
 	}
-AAMPLOG_WARN("DJH playTarget %f, playlistPosition %f, fragmentURI %s",
-				playTarget.inSeconds(), playlistPosition.inSeconds(), fragmentURI.tostring().c_str());		
 	return rc;
 }
 
@@ -1404,11 +1400,7 @@ bool TrackState::FetchFragmentHelper(int &http_error, bool &decryption_error, bo
 			{
 				// Track the end of buffer from the last downloaded fragment
 				// Use the playlistPosition instead of a rolling count in case segments are dropped
-				playTargetBufferCalc = playTargetBufferCalcCulled + playlistPosition + fragmentDurationSeconds;
-				//  increment the buffer value after download (only for video track)
-//DJH			playTargetBufferCalc += fragmentDurationSeconds;
-				AAMPLOG_MIL("DJH playTargetBufferCalc set to %f (fragmentDurationSeconds %f)", 
-						playTargetBufferCalc.inSeconds(), fragmentDurationSeconds);
+				playTargetBufferCalc = playlistCulledOffset + playlistPosition + fragmentDurationSeconds;
 			}
 
 			if((eTRACK_VIDEO == type)  && (aamp->IsFogTSBSupported()))
@@ -1626,9 +1618,6 @@ void TrackState::FetchFragment()
 							double position = (double)(playTarget - playTargetOffset);
 							AAMPLOG_WARN("%s Already at the lowest profile, skipping segment at pos = %lf duration=%lf",name,position,duration);
 							updateSkipPoint(position, duration);
-//DJH						playTargetBufferCalc += fragmentDurationSeconds;
-							AAMPLOG_WARN("DJH fetch failed playTargetBufferCalc set to %f (fragmentDurationSeconds %f)", 
-									playTargetBufferCalc.inSeconds(), fragmentDurationSeconds);
 							context->mRampDownCount = 0;
 						}
 					}
@@ -2010,7 +1999,6 @@ void TrackState::IndexPlaylist(bool IsRefresh, AampTime &culledSec)
 				}
 				else if(ptr.removePrefix("-X-MEDIA-SEQUENCE:"))
 				{
-					AAMPLOG_WARN("DJH [%s] aamp: EXT-X-MEDIA-SEQUENCE = %s", name,  ptr.getPtr());
 					indexFirstMediaSequenceNumber = ptr.atoll();
 					mediaSequence = true;
 					node.mediaSequenceNumber = indexFirstMediaSequenceNumber;
@@ -3252,7 +3240,6 @@ AAMPStatusType StreamAbstractionAAMP_HLS::SyncTracks(void)
 	}
 	// New calculated playTarget assign back for buffer calculation
 	video->playTargetBufferCalc = video->playTarget;
-	AAMPLOG_MIL("DJH video->playTargetBufferCalc set to %f", video->playTargetBufferCalc.inSeconds());
 	if (!trackState[eMEDIATYPE_AUDIO]->enabled)
 	{
 		AAMPLOG_WARN("Exit : aux track start %f, muxed track start %f sub track start %f",
@@ -4049,8 +4036,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 		{
 			trackState[iTrack]->playTarget = seekPosition;
 			trackState[iTrack]->playTargetBufferCalc = seekPosition;
-			trackState[iTrack]->playTargetBufferCalcCulled = 0;
-			AAMPLOG_MIL("DJH trackState[%d]->playTargetBufferCalc set to %f", iTrack, trackState[iTrack]->playTargetBufferCalc.inSeconds());
+			trackState[iTrack]->playlistCulledOffset = 0;
 		}
 
 		if ((video->enabled && video->mDuration == 0.0f) || (audio->enabled && audio->mDuration == 0.0f))
@@ -4237,24 +4223,20 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 				offsetToLive = (std::min)(offsetToLiveVideo,offsetToLiveAudio);
 				video->playTarget += offsetToLive;
 				video->playTargetBufferCalc = video->playTarget;
-				AAMPLOG_MIL("DJH video->playTargetBufferCalc set to %f", video->playTargetBufferCalc.inSeconds());
 				if (audio->enabled )
 				{
 					audio->playTarget += offsetToLive;
 					audio->playTargetBufferCalc = audio->playTarget;
-					AAMPLOG_MIL("DJH audio->playTargetBufferCalc set to %f", audio->playTargetBufferCalc.inSeconds());
 				}
 				if (subtitle->enabled)
 				{
 					subtitle->playTarget += offsetToLive;
 					subtitle->playTargetBufferCalc = subtitle->playTarget;
-					AAMPLOG_MIL("DJH subtitle->playTargetBufferCalc set to %f", subtitle->playTargetBufferCalc.inSeconds());
 				}
 				if (aux->enabled)
 				{
 					aux->playTarget += offsetToLive;
 					aux->playTargetBufferCalc = aux->playTarget;
-					AAMPLOG_MIL("DJH aux->playTargetBufferCalc set to %f", aux->playTargetBufferCalc.inSeconds());
 				}
 				// Entering live will happen if offset is adjusted , if its 0 playback is starting from beginning
 				if(offsetToLive != 0.0)
@@ -4315,7 +4297,6 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 										video->playTarget.inSeconds(), videoPrevDiscontinuity.inSeconds());
 								video->playTarget = videoPrevDiscontinuity;
 								video->playTargetBufferCalc = video->playTarget;
-								AAMPLOG_MIL("DJH video->playTargetBufferCalc set to %f (videoPrevDiscontinuity)", video->playTargetBufferCalc.inSeconds());
 							}
 							if (otherTrack->playTarget < audioPrevDiscontinuity)
 							{
@@ -4323,7 +4304,6 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 										otherTrack->name, otherTrack->playTarget.inSeconds(), audioPrevDiscontinuity.inSeconds());
 								otherTrack->playTarget = audioPrevDiscontinuity;
 								otherTrack->playTargetBufferCalc = otherTrack->playTarget;
-								AAMPLOG_MIL("DJH %s->playTargetBufferCalc set to %f (audioPrevDiscontinuity)", otherTrack->name, otherTrack->playTargetBufferCalc.inSeconds());
 							}
 							break;
 						}
@@ -4366,7 +4346,6 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 					ts->fragmentURI = ts->GetNextFragmentUriFromPlaylist(reloadUri, true);
 					ts->playTarget = ts->playlistPosition;
 					ts->playTargetBufferCalc = ts->playTarget;
-					AAMPLOG_MIL("DJH %s->playTargetBufferCalc set to %f", ts->name, ts->playTargetBufferCalc.inSeconds());
 				}
 
 				// To avoid audio loss while seeking HLS/TS AV of different duration w/o affecting VOD Discontinuities
@@ -4437,9 +4416,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 			if (aamp->culledSeconds > 0)
 			{
 				trackState[iTrack]->playTargetBufferCalc = aamp->culledSeconds + seekPosition;
-				trackState[iTrack]->playTargetBufferCalcCulled = aamp->culledSeconds;
-				AAMPLOG_MIL("DJH trackState[%d]->playTargetBufferCalc set to %f (culledSeconds %f + seekPosition %f)", 
-						iTrack, trackState[iTrack]->playTargetBufferCalc.inSeconds(), aamp->culledSeconds, seekPosition.inSeconds());
+				trackState[iTrack]->playlistCulledOffset = aamp->culledSeconds;
 			}
 		}
 
@@ -4541,7 +4518,6 @@ void StreamAbstractionAAMP_HLS::InitTracks()
 		ts->playlistPosition = -1;
 		ts->playTarget = seekPosition;
 		ts->playTargetBufferCalc = seekPosition;
-		AAMPLOG_MIL("DJH %s->playTargetBufferCalc set to %f", ts->name, ts->playTargetBufferCalc.inSeconds());
 		if (iTrack == eTRACK_SUBTITLE && !aamp->IsSubtitleEnabled())
 		{
 			AAMPLOG_INFO("StreamAbstractionAAMP_HLS::subtitles disabled by application");
@@ -4692,8 +4668,6 @@ double StreamAbstractionAAMP_HLS::GetBufferedDuration()
  */
 double TrackState::GetBufferedDuration()
 {
-	AAMPLOG_ERR("DJH playTargetBufferCalc %f, GetPositionMs %lld",
-			playTargetBufferCalc.inSeconds(), aamp->GetPositionMs());
 	return (playTargetBufferCalc.inSeconds() - (aamp->GetPositionMs() / 1000));
 }
 
@@ -4964,7 +4938,7 @@ TrackState::TrackState(TrackType type, StreamAbstractionAAMP_HLS* parent, Privat
 		) :
 		MediaTrack(type, aamp, name),
 		currentIdx(0), indexFirstMediaSequenceNumber(0), fragmentURI(), lastPlaylistDownloadTimeMS(0), lastPlaylistIndexedTimeMS(0),
-		byteRangeLength(0), byteRangeOffset(0), nextMediaSequenceNumber(0), playlistPosition(0), playTarget(0),playTargetBufferCalc(0),playTargetBufferCalcCulled(0),
+		byteRangeLength(0), byteRangeOffset(0), nextMediaSequenceNumber(0), playlistPosition(0), playTarget(0),playTargetBufferCalc(0),playlistCulledOffset(0),
 		lastDownloadedIFrameTarget(-1),
 		streamOutputFormat(FORMAT_INVALID),
 		playTargetOffset(0),
@@ -5196,7 +5170,7 @@ void StreamAbstractionAAMP_HLS::Stop(bool clearChannelData)
 				sink->ClearProtectionEvent();
 			}
 		}
-		if(ISCONFIGSET(eAAMPConfig_UseSecManager) || ISCONFIGSET(eAAMPConfig_UseFireboltSDK))
+		if(ISCONFIGSET(eAAMPConfig_UseSecManager))
 		{
 			aamp->mDRMLicenseManager->notifyCleanup();
 		}
@@ -7104,7 +7078,6 @@ void TrackState::SwitchAudioTrack()
 		playlistPosition += fragmentDurationSeconds;
 		playTarget = playlistPosition;
 		playTargetBufferCalc = playTarget;
-		AAMPLOG_MIL("DJH playTargetBufferCalc set to %f", playTargetBufferCalc.inSeconds());
 		//PlayTargetOffset is determined at Init, hence keep it un-reset.
 		//playTargetOffset = 0;
 		AAMPLOG_INFO("Calculated diffInFetchDuration %lf diffInInjectedDuration %lf  LastInjectedFragmentPosition() %lf", diffInFetchedDuration, diffInInjectedDuration, GetLastInjectedFragmentPosition());
@@ -7443,44 +7416,4 @@ bool StreamAbstractionAAMP_HLS::SelectPreferredTextTrack(TextTrackInfo& selected
 		}
 	}
 	return bestTrackFound;
-}
-/*
- * @fn DoEarlyStreamSinkFlush
- * @brief Checks if the stream need to be flushed or not
- *
- * @param newTune true if this is a new tune, false otherwise
- * @param rate playback rate
- * @return true if stream should be flushed, false otherwise
- */
-bool StreamAbstractionAAMP_HLS::DoEarlyStreamSinkFlush(bool newTune, float rate)
-{
-	// Live adjust or syncTrack occurred, send an updated flush event
-	bool doFlush = !newTune;
-	TrackState *video = trackState[eMEDIATYPE_VIDEO];
-	if (video && video->streamOutputFormat == FORMAT_ISO_BMFF)
-	{
-		// doFlush for non mp4 formats. HLS MP4 uses media processor to handle flushes
-		doFlush = false;
-	}
-	AAMPLOG_INFO("doFlush=%d, newTune=%d, rate=%f", doFlush, newTune, rate);
-	return doFlush;
-}
-
-/*
- * @brief Should flush the stream sink on discontinuity or not.
- *
- * @return true if stream should be flushed, false otherwise
- */
-bool StreamAbstractionAAMP_HLS::DoStreamSinkFlushOnDiscontinuity()
-{
-	// doFlush for non mp4 formats.
-	bool doFlush = true;
-	TrackState *video = trackState[eMEDIATYPE_VIDEO];
-	if (video && video->streamOutputFormat == FORMAT_ISO_BMFF)
-	{
-		// HLS MP4 uses media processor to handle flushes
-		doFlush = false;
-	}
-	AAMPLOG_INFO("doFlush=%d", doFlush);
-	return doFlush;
 }

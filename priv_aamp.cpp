@@ -2215,16 +2215,12 @@ void PrivateInstanceAAMP::ReportProgress(bool sync, bool beginningOfStream)
 					SETCONFIGVALUE_PRIV(AAMP_STREAM_SETTING, eAAMPConfig_ProgressLogging, false);
 				}
 			}
-			AAMPLOG_MIL("DJH eAAMPConfig_ProgressLogging =%d, eAAMPConfig_ProgressLoggingDivisor=%d",
-				ISCONFIGSET_PRIV(eAAMPConfig_ProgressLogging), GETCONFIGVALUE_PRIV(eAAMPConfig_ProgressLoggingDivisor));
-//DJH			if (ISCONFIGSET_PRIV(eAAMPConfig_ProgressLogging))
+			if (ISCONFIGSET_PRIV(eAAMPConfig_ProgressLogging))
 			{
 				static int tick;
 				int divisor = GETCONFIGVALUE_PRIV(eAAMPConfig_ProgressLoggingDivisor);
 				if( divisor==0 || (tick++ % divisor) == 0 )
 				{
-				AAMPLOG_MIL("DJH ");
-
 					AAMPLOG_MIL("aamp pos: [%ld..%ld..%ld..%lld..%.2f..%.2f..%.2f..%s..%ld..%ld..%.2f]",
 						(long)(start / 1000),
 						(long)(reportFormattedCurrPos / 1000),
