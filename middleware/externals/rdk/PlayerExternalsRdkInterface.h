@@ -29,30 +29,29 @@
 #include "videoResolution.hpp"
 #include "videoOutputPort.hpp"
 #include "videoOutputPortType.hpp"
-#include <libIARM.h>
-#include <libIBus.h>
 #include "libIBusDaemon.h"
 #include "dsMgr.h"
 #include "dsDisplay.h"
-#include <iarmUtil.h>
 #include "audioOutputPort.hpp"
 #include "dsAudio.h"
 
+#include <memory>
+
 #include "PlayerExternalsInterfaceBase.h"
+
+class DeviceInterfaceBase;
 
 //class representing IARM interface in rdk
 class PlayerExternalsRdkInterface : public PlayerExternalsInterfaceBase
 {
     
        dsHdcpProtocolVersion_t m_hdcpCurrentProtocol;
+
+       std::shared_ptr<DeviceInterfaceBase> m_pDeviceInterfaceBase = nullptr;
+
     public:
 
-        /**
-         * @fn IARMInit
-         * @brief Initialize IARM
-         * @param[in] processName string of the name of the process initializing IARM
-         */
-        static void IARMInit(const char* processName);
+        PlayerExternalsRdkInterface(std::string processName);
 
         /**
          * @fn IARMRegisterDsMgrEventHandler
@@ -125,6 +124,8 @@ class PlayerExternalsRdkInterface : public PlayerExternalsInterfaceBase
          * @return True if wifi. False, if not.
          */
         bool GetActiveInterface();
+
+        void SetActiveInterface(bool isWifi);
 
         ~PlayerExternalsRdkInterface(){}
 };
