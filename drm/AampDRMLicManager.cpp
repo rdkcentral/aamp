@@ -394,18 +394,26 @@ KeyState AampDRMLicenseManager::acquireLicense( int& responseCode, std::shared_p
 					{
 						AAMPLOG_WARN("Ignore  AuthToken Provided for non-ContentMetadata DRM license request");
 					}
+	AAMPLOG_ERR("entering LicenseResponse1");
 					
 				      eventHandle->setSecclientError(false);
+	AAMPLOG_ERR("entering LicenseResponse2");
 			              licenseResponse.reset(getLicense(licenseRequest, &httpResponseCode, streamType, aampInstance, eventHandle, &mLicenseDownloader[sessionSlot],licenseServerProxy));
+	AAMPLOG_ERR("entering LicenseResponse3");
 				}
+	AAMPLOG_ERR("entering LicenseResponse4");
 
 			}
+	AAMPLOG_ERR("entering LicenseResponse5");
 		}
+	AAMPLOG_ERR("entering LicenseResponse6");
 	}
 
 	if (code == KEY_PENDING)
 	{
+	AAMPLOG_ERR("entering LicenseResponse7");
 		code = handleLicenseResponse(responseCode, drmHelper, sessionSlot, cdmError, httpResponseCode, httpExtendedStatusCode, licenseResponse, eventHandle,  isLicenseRenewal);
+	AAMPLOG_ERR("entering LicenseResponse20");
 	}
 	return code;
 }
