@@ -806,18 +806,15 @@ void AampTSBSessionManager::SkipFragment(std::shared_ptr<AampTsbReader>& reader,
 				delta = static_cast<AampTime>(std::abs(static_cast<double>(rate))) / static_cast<double>(vodTrickplayFPS);
 			}
 			
-			// For trick play rates, ensure we advance at least one fragment
-			bool shouldAdvance = (delta > 0.0);
-			while (delta > 0.0 || shouldAdvance)
+			// Only skip fragments when delta is larger than fragment duration
+			while (delta > 0.0)
 			{
 				AampTime fragDuration = nextFragmentData->GetDuration();
-				if (delta <= fragDuration && !shouldAdvance)
+				if (delta <= fragDuration)
 					break;
 
 				delta -= fragDuration;
 				skippedDuration += fragDuration;
-				shouldAdvance = false; // Ensure we advance at least once
-
 				TsbFragmentDataPtr tmp{};
 				if (rate > 0.0)
 				{
