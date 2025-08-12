@@ -22,6 +22,8 @@ class DeviceIARMInterface : public DeviceInterfaceBase {
 
     char *GetTR181Config(const char * paramName, size_t & iConfigLen) override;
 
+    static std::shared_ptr<DeviceIARMInterface> GetInstance();
+
     private:
 
     DeviceIARMInterface();

@@ -181,11 +181,6 @@ void PlayerExternalsRdkInterface::IARMRemoveDsMgrEventHandler()
     m_pDeviceInterfaceBase->RemoveDsMgrEventHandler();
 }
 
-/**
- * @brief Active streaming interface is wifi
- *
- * @return bool - true if wifi interface connected
- */
 bool PlayerExternalsRdkInterface::IsActiveStreamingInterfaceWifi(void)
 {
     return m_pDeviceInterfaceBase->IsActiveStreamingInterfaceWifi();
