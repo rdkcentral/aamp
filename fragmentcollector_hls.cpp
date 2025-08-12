@@ -5017,6 +5017,7 @@ void TrackState::Stop(bool clearDRM)
 	if (fragmentCollectorThreadID.joinable())
 	{
 		fragmentCollectorThreadID.join();
+		aamp->profiler.ProfileEnd(PROFILE_BUCKET_STOP_FRAGMENT_COLLECTOR);
 	}
 
 	aamp->StopTrackInjection((AampMediaType) type);

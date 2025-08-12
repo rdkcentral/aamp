@@ -10695,6 +10695,7 @@ void StreamAbstractionAAMP_MPD::Stop(bool clearChannelData)
 	{
 		fragmentCollectorThreadID.join();
 	}
+	aamp->profiler.ProfileEnd(PROFILE_BUCKET_STOP_FRAGMENT_COLLECTOR);
 
 	if(tsbReaderThreadID.joinable())
 	{

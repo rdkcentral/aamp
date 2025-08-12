@@ -38,7 +38,7 @@
  * @brief ProfileEventAAMP Constructor
  */
 ProfileEventAAMP::ProfileEventAAMP():
-	tuneStartMonotonicBase(0), tuneStartBaseUTCMS(0), bandwidthBitsPerSecondVideo(0),
+	tuneStartMonotonicBase(0),tuneStopMonotonicBase(0), tuneStartBaseUTCMS(0), bandwidthBitsPerSecondVideo(0),
         bandwidthBitsPerSecondAudio(0), buckets(), drmErrorCode(0), enabled(false), xreTimeBuckets(), tuneEventList(),
 	tuneEventListMtx(), mTuneFailBucketType(PROFILE_BUCKET_MANIFEST), mTuneFailErrorCode(0), rateCorrection(0), bitrateChange(0), bufferChange(0), telemetryParam(NULL), mLldLowBuffObject(NULL),discontinuityParamMutex()
 {
@@ -214,6 +214,11 @@ void ProfileEventAAMP::TuneBegin(void)
 	telemetryParam = cJSON_CreateObject();
 }
 
+void ProfileEventAAMP::TuneStop(void)
+{
+	tuneStopMonotonicBase =NOW_SYSTEM_TS_MS;
+}
+
 /**
  * @brief Logging performance metrics after successful tune completion. Metrics starts with IP_AAMP_TUNETIME
  *
@@ -312,10 +317,9 @@ void ProfileEventAAMP::TuneEnd(TuneEndMetrics &mTuneEndMetrics,std::string appNa
 		"%d,%d,"		// If Player was in prebuffered mode, time spent in prebuffered(BG) mode
 		"%d,%d,"		// Asset duration in seconds, Connection is wifi or not - wifi(1) ethernet(0)
 		"%d,%d,%s,%s,"		// TuneAttempts ,Tunestatus -success(1) failure (0) ,Failure Reason, AppName
-		"%d,%d,%d,%d,%d",       // TimedMetadata (count,start,total) ,TSBEnabled or not - enabled(1) not enabled(0)
+		"%d,%d,%d,%d,%d",   	// TimedMetadata (count,start,total) ,TSBEnabled or not - enabled(1) not enabled(0)
 					//  TotalTime -for failure and interrupt tune -it is time at which failure /interrupt reported	
 		// TODO: settop type, flags, isFOGEnabled, isDDPlus, isDemuxed, assetDurationMs
-
 		tuneTimeStrPrefix,
 		AAMP_TUNETIME_VERSION, // version for this protocol, initially zero
 		AAMP_VERSION, // build - incremented when there are significant player changes/optimizations
@@ -342,6 +346,7 @@ void ProfileEventAAMP::TuneEnd(TuneEndMetrics &mTuneEndMetrics,std::string appNa
 		durationSeconds,interfaceWifi,
 		mTuneEndMetrics.mTuneAttempts, mTuneEndMetrics.success,failureReason.c_str(),appName.c_str(),
 		mTuneEndMetrics.mTimedMetadata,mTimedMetadataStartTime < 0 ? 0 : mTimedMetadataStartTime , mTuneEndMetrics.mTimedMetadataDuration,mTuneEndMetrics.mFogTSBEnabled,mTotalTime
+
 		);
 
 		// Telemetry is generated in GetTuneTimeMetricAsJson hence calling always,
@@ -355,6 +360,17 @@ void ProfileEventAAMP::TuneEnd(TuneEndMetrics &mTuneEndMetrics,std::string appNa
 		}
 }
 
+void ProfileEventAAMP::Stop()
+{
+		AAMPLOG_WARN(" IP_STOP_TIME:"
+					"%d,%d,%d,"
+			        "%d,%d,%d,"
+					"%d,%d,%d",
+
+					buckets[PROFILE_BUCKET_STOP_FRAGMENT_COLLECTOR].tStart,bucketDuration(PROFILE_BUCKET_STOP_FRAGMENT_COLLECTOR), buckets[PROFILE_BUCKET_STOP_FRAGMENT_COLLECTOR].tFinish,
+					buckets[PROFILE_BUCKET_STOP_INJECTOR].tStart, bucketDuration(PROFILE_BUCKET_STOP_INJECTOR), buckets[PROFILE_BUCKET_STOP_INJECTOR].tFinish,
+					buckets[PROFILE_BUCKET_STOP_PIPELINE].tStart, bucketDuration(PROFILE_BUCKET_STOP_PIPELINE), buckets[PROFILE_BUCKET_STOP_PIPELINE].tFinish);
+}
 /**
  *  @brief Method converting the AAMP style tune performance data to IP_EX_TUNETIME style data
  */

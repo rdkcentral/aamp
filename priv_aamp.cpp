@@ -7451,6 +7451,10 @@ bool PrivateInstanceAAMP::IsLiveStream()
  */
 void PrivateInstanceAAMP::Stop( bool isDestructing )
 {
+	AAMPLOG_INFO("PRIVAAMP STOP");
+	profiler.ProfileBegin(PROFILE_BUCKET_STOP_FRAGMENT_COLLECTOR);
+	profiler.ProfileBegin(PROFILE_BUCKET_STOP_INJECTOR);
+	profiler.ProfileBegin(PROFILE_BUCKET_STOP_PIPELINE);
 	// Clear all the player events in the queue and sets its state to RELEASED as everything is done
 	mEventManager->FlushPendingEvents();
 	if( !isDestructing )
@@ -7651,6 +7655,7 @@ void PrivateInstanceAAMP::Stop( bool isDestructing )
 	EnableDownloads();
 
 	AampStreamSinkManager::GetInstance().DeactivatePlayer(this, true);
+	profiler.Stop();
 }
 
 /**

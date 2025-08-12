@@ -433,6 +433,7 @@ AAMPGstPlayer::~AAMPGstPlayer()
 	playerInstance->DestroyPipeline();
 	SAFE_DELETE(playerInstance);
 	SAFE_DELETE(privateContext);
+	this->aamp->profiler.ProfileEnd(PROFILE_BUCKET_STOP_PIPELINE);
 }
 
 /**

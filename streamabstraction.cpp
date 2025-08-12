@@ -1772,6 +1772,7 @@ void MediaTrack::StopInjectLoop()
 	{
 		fragmentInjectorThreadID.join();
 		AAMPLOG_INFO("Fragment injector thread joined");
+		aamp->profiler.ProfileEnd(PROFILE_BUCKET_STOP_INJECTOR);
 	}
 	fragmentInjectorThreadStarted = false;
 }

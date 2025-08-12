@@ -77,8 +77,13 @@ typedef enum
 	PROFILE_BUCKET_DISCO_TOTAL,          /**< Discontinuity transition total bucket*/
 	PROFILE_BUCKET_DISCO_FLUSH,           /**< Discontinuity transition pipeline flush bucket*/
 	PROFILE_BUCKET_DISCO_FIRST_FRAME,      /**< Discontinuity transition first frame displayed bucket*/
-	PROFILE_BUCKET_TYPE_COUNT           /**< Bucket count*/	
+	PROFILE_BUCKET_TYPE_COUNT,          /**< Bucket count*/	
+
+	PROFILE_BUCKET_STOP_FRAGMENT_COLLECTOR,
+	PROFILE_BUCKET_STOP_INJECTOR,
+	PROFILE_BUCKET_STOP_PIPELINE
 } ProfilerBucketType;
+
 
 /**
  * @enum ClassicProfilerBucketType
@@ -214,7 +219,7 @@ private:
 		(buckets[id].complete?(buckets[id].tFinish - buckets[id].tStart):0)
 
 	long long tuneStartMonotonicBase;       /**< Base time from Monotonic clock for interval calculation */
-
+    long long tuneStopMonotonicBase;
 	long long tuneStartBaseUTCMS;           /**< common UTC base for start of tune */
 	long long xreTimeBuckets[TuneTimeMax];  /**< Start time of each buckets for classic metrics conversion */
 	long bandwidthBitsPerSecondVideo;       /**< Video bandwidth in bps */
@@ -356,8 +361,13 @@ public:
 	 * @param[out] tuneMetricData - Output JSON string
 	 * @return void
 	 */
-	void TuneEnd(TuneEndMetrics &mTuneendmetrics, std::string appName, std::string playerActiveMode, int playerId, bool playerPreBuffered, unsigned int durationSeconds, bool interfaceWifi, std::string failureReason, std::string *tuneMetricData);
-	/**
+	 void TuneEnd(TuneEndMetrics &mTuneendmetrics, std::string appName, std::string playerActiveMode, int playerId, bool playerPreBuffered, unsigned int durationSeconds, bool interfaceWifi, std::string failureReason, std::string *tuneMetricData);
+	
+	 void TuneStop(void);
+
+	 void Stop();
+
+	 /**
 	 * @fn GetClassicTuneTimeInfo
 	 *
 	 * @param[in] success - Tune status
