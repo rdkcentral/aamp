@@ -335,13 +335,16 @@ int TSProcessor::insertPatPmt(unsigned char *buffer, bool trick, int bufferSize)
 	}
 
 	int index = 3 + m_ttsSize;
-	buffer[index] = ((buffer[index] & 0xF0) | (m_patCounter++ & 0x0F));
-
-	index += m_packetSize;
-	while (index < len)
+	if (index < len)
 	{
-		buffer[index] = ((buffer[index] & 0xF0) | (m_pmtCounter++ & 0x0F));
+		buffer[index] = ((buffer[index] & 0xF0) | (m_patCounter++ & 0x0F));
+
 		index += m_packetSize;
+		while (index < len)
+		{
+			buffer[index] = ((buffer[index] & 0xF0) | (m_pmtCounter++ & 0x0F));
+			index += m_packetSize;
+		}
 	}
 
 	return len;
@@ -701,22 +704,36 @@ void TSProcessor::updatePATPMT()
 	{
 		free(m_PatPmt);
 		m_PatPmt = 0;
+		m_PatPmtLen = 0;
 	}
 	if (m_PatPmtTrick)
 	{
 		free(m_PatPmtTrick);
 		m_PatPmtTrick = 0;
+		m_PatPmtTrickLen = 0;
 	}
 
 	if (m_PatPmtPcr)
 	{
 		free(m_PatPmtPcr);
 		m_PatPmtPcr = 0;
+		m_PatPmtPcrLen = 0;
 	}
 
-	generatePATandPMT(false, &m_PatPmt, &m_PatPmtLen);
-	generatePATandPMT(true, &m_PatPmtTrick, &m_PatPmtTrickLen);
-	generatePATandPMT(false, &m_PatPmtPcr, &m_PatPmtPcrLen, true);
+	if (!generatePATandPMT(false, &m_PatPmt, &m_PatPmtLen))
+	{
+		AAMPLOG_WARN("generatePATandPMT(&m_PatPmt) failed.");
+	}
+
+	if (!generatePATandPMT(true, &m_PatPmtTrick, &m_PatPmtTrickLen))
+	{
+		AAMPLOG_WARN("generatePATandPMT(&m_PatPmtTrick) failed.");
+	}
+
+	if (!generatePATandPMT(false, &m_PatPmtPcr, &m_PatPmtPcrLen, true))
+	{
+		AAMPLOG_WARN("generatePATandPMT(&m_PatPmtPcr) failed.");
+	}
 }
 
 /**
