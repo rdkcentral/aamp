@@ -92,17 +92,17 @@ void logprintf(AAMP_LogLevel logLevelIndex, const char* file, int line, const ch
 		gettimeofday(&t, NULL);
 		snprintf(timestamp, sizeof(timestamp), AAMPCLI_TIMESTAMP_PREFIX_FORMAT, (unsigned int)t.tv_sec, (unsigned int)t.tv_usec / 1000 );
 	}
-	
+
 	char *format_ptr = NULL;
 	int format_bytes = 0;
 	for( int pass=0; pass<2; pass++ )
 	{ // two pass: measure required bytes then populate format string
 		format_bytes = snprintf(format_ptr, format_bytes,
-							   "%s[AAMP-PLAYER][%d][%s][%zx][%s][%d]%s\n",
+							   "%s[AAMP-PLAYER][%d][%s][%p][%s][%d]%s\n",
 							   timestamp,
 							   gPlayerId,
 							   mLogLevelStr[logLevelIndex],
-							   GetPrintableThreadID(),
+							   g_thread_self(),
 							   file, line,
 							   format );
 		if( format_bytes<=0 )
@@ -133,11 +133,11 @@ void logprintf(AAMP_LogLevel logLevelIndex, const char* file, int line, const ch
 					case eLOGLEVEL_DEBUG:
 						ethanLogLevel = ETHAN_LOG_DEBUG;
 						break;
-						
+
 					case eLOGLEVEL_ERROR:
 						ethanLogLevel = ETHAN_LOG_FATAL;
 						break;
-						
+
 					case eLOGLEVEL_INFO: // note: we rely on eLOGLEVEL_INFO at tune time for triage
 					case eLOGLEVEL_WARN:
 					case eLOGLEVEL_MIL:

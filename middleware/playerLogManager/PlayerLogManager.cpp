@@ -30,7 +30,7 @@
 #include <cstring>
 #include "PlayerLogManager.h"
 #include "PlayerUtils.h"
-
+#include <glib.h>
 #ifdef USE_ETHAN_LOG
 #include <ethanlog.h>
 #else
@@ -88,6 +88,7 @@ std::size_t GetPlayerPrintableThreadID( void )
 /**
  * @brief Print logs to console / log file
  */
+
 void logprintf(MW_LogLevel logLevelIndex, const char* file, int line, const char *format, ...)
 {
         char timestamp[MW_CLI_TIMESTAMP_PREFIX_MAX_CHARS];
@@ -103,10 +104,10 @@ void logprintf(MW_LogLevel logLevelIndex, const char* file, int line, const char
         for( int pass=0; pass<2; pass++ )
         {
             format_bytes = snprintf(format_ptr, format_bytes,
-                                                           "%s[MIDDLEWARE][%s][%zx][%s][%d]%s\n",
+                                                           "%s[MIDDLEWARE][%s][%p][%s][%d]%s\n",
                                                            timestamp,
                                                            mLogLevelStr[logLevelIndex],
-							   GetPlayerPrintableThreadID(),
+							   g_thread_self(),
                                                            file, line,
                                                            format );
             if( format_bytes<=0 )
