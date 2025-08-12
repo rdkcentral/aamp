@@ -1032,6 +1032,21 @@ class StreamAbstractionAAMP_HLS : public StreamAbstractionAAMP
 		 ***************************************************************************/
 		bool SelectPreferredTextTrack(TextTrackInfo& selectedTextTrack) override;
 
+		/***************************************************************************
+		 * @fn DoEarlyStreamSinkFlush
+		 *
+		 * @param[in] newTune true if new tune
+		 * @param[in] rate playback rate
+		 * @return bool true if stream should be flushed
+		 ***************************************************************************/
+		virtual bool DoEarlyStreamSinkFlush(bool newTune, float rate) override;
+
+		/***************************************************************************
+		 * @brief Should flush the stream sink on discontinuity or not.
+		 *
+		 * @return true if stream should be flushed, false otherwise
+		 ***************************************************************************/
+		virtual bool DoStreamSinkFlushOnDiscontinuity() override;
 	protected:
 		/***************************************************************************
 		 * @fn GetStreamInfo
@@ -1099,5 +1114,7 @@ class StreamAbstractionAAMP_HLS : public StreamAbstractionAAMP
 		 std::unique_ptr<aamp::MetadataProcessorIntf> mMetadataProcessor;
 			 
 };
+
+StreamOutputFormat GetFormatFromFragmentExtension( const AampGrowableBuffer &playlist );
 
 #endif // FRAGMENTCOLLECTOR_HLS_H

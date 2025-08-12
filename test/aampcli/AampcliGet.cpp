@@ -23,6 +23,7 @@
  */
 #include <iomanip>
 #include "AampcliGet.h"
+#include "AampcliPrintf.h"
 
 std::map<std::string,getCommandInfo> Get::getCommands = std::map<std::string,getCommandInfo>();
 std::vector<std::string> Get::commands(0);
@@ -57,11 +58,11 @@ bool Get::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 		{
 			switch(getCmd){
 				case 32:
-					printf("[AAMPCLI] GETTING AVAILABLE THUMBNAIL TRACKS: %s\n", playerInstanceAamp->GetAvailableThumbnailTracks().c_str() );
+					AAMPCLI_PRINTF("[AAMPCLI] GETTING AVAILABLE THUMBNAIL TRACKS: %s\n", playerInstanceAamp->GetAvailableThumbnailTracks().c_str() );
 					break;
 
 				case 1:
-					printf("[AAMPCLI] GETTING CURRENT STATE: %d\n", (int) playerInstanceAamp->GetState());
+					AAMPCLI_PRINTF("[AAMPCLI] GETTING CURRENT STATE: %d\n", (int) playerInstanceAamp->GetState());
 					break;
 
 				case 33:
@@ -82,143 +83,143 @@ bool Get::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 						//strip formatting so easy to read from l2test
 						json.erase(remove(json.begin(), json.end(), '\n'), json.end());
 						json.erase(remove(json.begin(), json.end(), '\t'), json.end());
-						printf("[AAMPCLI] GETTING THUMBNAIL TIME RANGE DATA %s\n", json.c_str());
+						AAMPCLI_PRINTF("[AAMPCLI] GETTING THUMBNAIL TIME RANGE DATA %s\n", json.c_str());
 					}
 					else
 					{
-						printf("[AAMPCLI] GETTING THUMBNAIL TIME RANGE DATA for duration (%d,%d): %s\n complete.\n",
+						AAMPCLI_PRINTF("[AAMPCLI] GETTING THUMBNAIL TIME RANGE DATA for duration (%d,%d): %s\n complete.\n",
 							   value1, value2, json.c_str());
 					}
 				}
 					break;
 
 				case 24:
-					printf("[AAMPCLI] CURRENT AUDIO TRACK NUMBER: %d\n", playerInstanceAamp->GetAudioTrack() );
+					AAMPCLI_PRINTF("[AAMPCLI] CURRENT AUDIO TRACK NUMBER: %d\n", playerInstanceAamp->GetAudioTrack() );
 					break;
 
 				case 25:
-					printf("[AAMPCLI] INITIAL BUFFER DURATION: %d\n", playerInstanceAamp->GetInitialBufferDuration() );
+					AAMPCLI_PRINTF("[AAMPCLI] INITIAL BUFFER DURATION: %d\n", playerInstanceAamp->GetInitialBufferDuration() );
 					break;
 
 				case 26:
-					printf("[AAMPCLI] CURRENT AUDIO TRACK INFO: %s\n", playerInstanceAamp->GetAudioTrackInfo().c_str() );
+					AAMPCLI_PRINTF("[AAMPCLI] CURRENT AUDIO TRACK INFO: %s\n", playerInstanceAamp->GetAudioTrackInfo().c_str() );
 					break;
 
 				case 27:
-					printf("[AAMPCLI] CURRENT TEXT TRACK INFO: %s\n", playerInstanceAamp->GetTextTrackInfo().c_str() );
+					AAMPCLI_PRINTF("[AAMPCLI] CURRENT TEXT TRACK INFO: %s\n", playerInstanceAamp->GetTextTrackInfo().c_str() );
 					break;
 
 				case 28:
-					printf("[AAMPCLI] CURRENT PREPRRED AUDIO PROPERTIES: %s\n", playerInstanceAamp->GetPreferredAudioProperties().c_str() );
+					AAMPCLI_PRINTF("[AAMPCLI] CURRENT PREPRRED AUDIO PROPERTIES: %s\n", playerInstanceAamp->GetPreferredAudioProperties().c_str() );
 					break;
 
 				case 29:
-					printf("[AAMPCLI] CURRENT PREPRRED TEXT PROPERTIES: %s\n", playerInstanceAamp->GetPreferredTextProperties().c_str() );
+					AAMPCLI_PRINTF("[AAMPCLI] CURRENT PREPRRED TEXT PROPERTIES: %s\n", playerInstanceAamp->GetPreferredTextProperties().c_str() );
 					break;
 
 				case 30:
-					printf("[AAMPCLI] CC VISIBILITY STATUS: %s\n",playerInstanceAamp->GetCCStatus()?"ENABLED":"DISABLED");
+					AAMPCLI_PRINTF("[AAMPCLI] CC VISIBILITY STATUS: %s\n",playerInstanceAamp->GetCCStatus()?"ENABLED":"DISABLED");
 					break;
 
 				case 31:
-					printf("[AAMPCLI] CURRENT TEXT TRACK: %d\n", playerInstanceAamp->GetTextTrack() );
+					AAMPCLI_PRINTF("[AAMPCLI] CURRENT TEXT TRACK: %d\n", playerInstanceAamp->GetTextTrack() );
 					break;
 
 				case 20:
-					printf("[AAMPCLI] AVAILABLE AUDIO TRACKS: %s\n", playerInstanceAamp->GetAvailableAudioTracks(false).c_str() );
+					AAMPCLI_PRINTF("[AAMPCLI] AVAILABLE AUDIO TRACKS: %s\n", playerInstanceAamp->GetAvailableAudioTracks(false).c_str() );
 					break;
 
 				case 34:
-					printf("[AAMPCLI] AVAILABLE VIDEO TRACKS: %s\n", playerInstanceAamp->GetAvailableVideoTracks().c_str() );
+					AAMPCLI_PRINTF("[AAMPCLI] AVAILABLE VIDEO TRACKS: %s\n", playerInstanceAamp->GetAvailableVideoTracks().c_str() );
 					break;
 
 				case 35:
-					printf( "[AAMPCLI] LIVE: %s\n", playerInstanceAamp->IsLive()? "TRUE": "FALSE" );
+					AAMPCLI_PRINTF( "[AAMPCLI] LIVE: %s\n", playerInstanceAamp->IsLive()? "TRUE": "FALSE" );
 					break;
 
 				case 36:
-						printf("[AAMPCLI] VIDEO PLAYBACK QUALITY: %s\n", playerInstanceAamp->GetVideoPlaybackQuality().c_str() );
+						AAMPCLI_PRINTF("[AAMPCLI] VIDEO PLAYBACK QUALITY: %s\n", playerInstanceAamp->GetVideoPlaybackQuality().c_str() );
 					break;
 					   
 				case 21:
-					printf("[AAMPCLI] ALL AUDIO TRACKS: %s\n", playerInstanceAamp->GetAvailableAudioTracks(true).c_str() );
+					AAMPCLI_PRINTF("[AAMPCLI] ALL AUDIO TRACKS: %s\n", playerInstanceAamp->GetAvailableAudioTracks(true).c_str() );
 					break;
 
 				case 23:
-					printf("[AAMPCLI] ALL TEXT TRACKS: %s\n", playerInstanceAamp->GetAvailableTextTracks(true).c_str() );
+					AAMPCLI_PRINTF("[AAMPCLI] ALL TEXT TRACKS: %s\n", playerInstanceAamp->GetAvailableTextTracks(true).c_str() );
 					break;
 
 				case 22:
-					printf("[AAMPCLI] AVAILABLE TEXT TRACKS: %s\n", playerInstanceAamp->GetAvailableTextTracks(false).c_str() );
+					AAMPCLI_PRINTF("[AAMPCLI] AVAILABLE TEXT TRACKS: %s\n", playerInstanceAamp->GetAvailableTextTracks(false).c_str() );
 					break;
 
 				case 2:
-					printf("[AAMPCLI] CURRRENT AUDIO LANGUAGE = %s\n",
+					AAMPCLI_PRINTF("[AAMPCLI] CURRRENT AUDIO LANGUAGE = %s\n",
 							playerInstanceAamp->GetAudioLanguage().c_str());
 					break;
 
 				case 3:
-					printf("[AAMPCLI] CURRRENT DRM  = %s\n",
+					AAMPCLI_PRINTF("[AAMPCLI] CURRRENT DRM  = %s\n",
 							playerInstanceAamp->GetDRM().c_str());
 					break;
 
 				case 4:
-					printf("[AAMPCLI] PLAYBACK POSITION = %lf\n",
+					AAMPCLI_PRINTF("[AAMPCLI] PLAYBACK POSITION = %.3lf\n",
 							playerInstanceAamp->GetPlaybackPosition());
 					break;
 
 				case 5:
-					printf("[AAMPCLI] PLAYBACK DURATION = %lf\n",
+					AAMPCLI_PRINTF("[AAMPCLI] PLAYBACK DURATION = %lf\n",
 							playerInstanceAamp->GetPlaybackDuration());
 					break;
 
 				case 6:
-					printf("[AAMPCLI] CURRENT VIDEO PROFILE BITRATE = %ld\n",
+					AAMPCLI_PRINTF("[AAMPCLI] CURRENT VIDEO PROFILE BITRATE = %ld\n",
 							playerInstanceAamp->GetVideoBitrate());
 					break;
 
 				case 7:
-					printf("[AAMPCLI] INITIAL BITRATE = %ld \n",
+					AAMPCLI_PRINTF("[AAMPCLI] INITIAL BITRATE = %ld \n",
 							playerInstanceAamp->GetInitialBitrate());
 					break;
 
 				case 8:
-					printf("[AAMPCLI] INITIAL BITRATE 4K = %ld \n",
+					AAMPCLI_PRINTF("[AAMPCLI] INITIAL BITRATE 4K = %ld \n",
 							playerInstanceAamp->GetInitialBitrate4k());
 					break;
 
 				case 9:
-					printf("[AAMPCLI] MINIMUM BITRATE = %ld \n",
+					AAMPCLI_PRINTF("[AAMPCLI] MINIMUM BITRATE = %ld \n",
 							playerInstanceAamp->GetMinimumBitrate());
 					break;
 
 				case 10:
-					printf("[AAMPCLI] MAXIMUM BITRATE = %ld \n",
+					AAMPCLI_PRINTF("[AAMPCLI] MAXIMUM BITRATE = %ld \n",
 							playerInstanceAamp->GetMaximumBitrate());
 					break;
 
 				case 11:
-					printf("[AAMPCLI] AUDIO BITRATE = %ld\n",
+					AAMPCLI_PRINTF("[AAMPCLI] AUDIO BITRATE = %ld\n",
 							playerInstanceAamp->GetAudioBitrate());
 					break;
 
 				case 12:
-					printf("[AAMPCLI] Video Zoom mode: %s\n",
+					AAMPCLI_PRINTF("[AAMPCLI] Video Zoom mode: %s\n",
 							(playerInstanceAamp->GetVideoZoom())?"None(Normal)":"Full(Enabled)");
 					break;
 
 				case 13:
-					printf("[AAMPCLI] Video Mute status:%s\n",
+					AAMPCLI_PRINTF("[AAMPCLI] Video Mute status:%s\n",
 							(playerInstanceAamp->GetVideoMute())?"ON":"OFF");
 					break;
 
 				case 14:
-					printf("[AAMPCLI] AUDIO VOLUME = %d\n",
+					AAMPCLI_PRINTF("[AAMPCLI] AUDIO VOLUME = %d\n",
 							playerInstanceAamp->GetAudioVolume());
 					break;
 
 				case 15:
-					printf("[AAMPCLI] PLAYBACK RATE = %d\n",
+					AAMPCLI_PRINTF("[AAMPCLI] PLAYBACK RATE = %d\n",
 							playerInstanceAamp->GetPlaybackRate());
 					break;
 
@@ -232,7 +233,7 @@ bool Get::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 							temp += std::to_string(videoBitrates[i]);
 						}
 						temp += " ]";
-						printf( "%s\n", temp.c_str() );
+						AAMPCLI_PRINTF( "%s\n", temp.c_str() );
 						break;
 					}
 
@@ -246,30 +247,30 @@ bool Get::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 							temp += std::to_string(audioBitrates[i]);
 						}
 						temp += " ]";
-						printf( "%s\n", temp.c_str() );
+						AAMPCLI_PRINTF( "%s\n", temp.c_str() );
 						break;
 					}
 				case 18:
 					{
 						std::string preferredLanguages = playerInstanceAamp->GetPreferredLanguages();
-						printf("[AAMPCLI] PREFERRED LANGUAGES = \"%s\"\n", preferredLanguages.c_str() );
+						AAMPCLI_PRINTF("[AAMPCLI] PREFERRED LANGUAGES = \"%s\"\n", preferredLanguages.c_str() );
 						break;
 					}
 
 				case 19:
 					{
-						printf("[AAMPCLI] RAMP DOWN LIMIT= %d\n", playerInstanceAamp->GetRampDownLimit());
+						AAMPCLI_PRINTF("[AAMPCLI] RAMP DOWN LIMIT= %d\n", playerInstanceAamp->GetRampDownLimit());
 						break;
 					}
 
 				case 37:
 					{
-						printf("[AAMPCLI] WEBVTT/TTML support: \"%s\"\n", playerInstanceAamp->IsOOBCCRenderingSupported() ? "Enabled" : "Disabled");
+						AAMPCLI_PRINTF("[AAMPCLI] WEBVTT/TTML support: \"%s\"\n", playerInstanceAamp->IsOOBCCRenderingSupported() ? "Enabled" : "Disabled");
 						break;
 					}
 
 				default:
-					printf("[AAMPCLI] Invalid get command %s\n", cmd);
+					AAMPCLI_PRINTF("[AAMPCLI] Invalid get command %s\n", cmd);
 					break;
 			}
 
@@ -277,7 +278,7 @@ bool Get::execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp)
 	}
 	else
 	{
-		printf("[AAMPCLI] Invalid get command = %s\n", cmd);
+		AAMPCLI_PRINTF("[AAMPCLI] Invalid get command = %s\n", cmd);
 	}
 
 	return true;
@@ -357,14 +358,14 @@ void Get::addCommand(int value,std::string command,std::string description)
  */
 void Get::ShowHelpGet(){
 
-	printf("******************************************************************************************\n");
-	printf("*   get <command> [<arguments>]\n");
-	printf("*   Usage of Commands, and arguments expected\n");
-	printf("******************************************************************************************\n");
+	AAMPCLI_PRINTF("******************************************************************************************\n");
+	AAMPCLI_PRINTF("*   get <command> [<arguments>]\n");
+	AAMPCLI_PRINTF("*   Usage of Commands, and arguments expected\n");
+	AAMPCLI_PRINTF("******************************************************************************************\n");
 
 	if(!commands.empty())
 	{
-		for(auto itr:commands)
+		for(const auto& itr:commands)
 		{
 			auto getCmdItr = getCommands.find(itr);
 			if(getCmdItr != getCommands.end())
@@ -374,7 +375,7 @@ void Get::ShowHelpGet(){
 		}
 	}
 
-	printf("****************************************************************************\n");
+	AAMPCLI_PRINTF("****************************************************************************\n");
 }
 
 char * Get::getCommandRecommender(const char *text, int state)

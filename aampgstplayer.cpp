@@ -431,6 +431,7 @@ AAMPGstPlayer::~AAMPGstPlayer()
 	UnregisterBusCb();
 	UnregisterFirstFrameCallbacks();
 	playerInstance->DestroyPipeline();
+	SAFE_DELETE(playerInstance);
 	SAFE_DELETE(privateContext);
 }
 
@@ -1280,10 +1281,12 @@ static gboolean MonitorAvTimerCallback(gpointer user_data)
 				{
 					timeInState = player->GetMonitorAVInterval(); // Cap to reporting interval
 				}
+				GstPlaybackQualityStruct* playbackQuality = player->playerInstance->GetVideoPlaybackQuality();
 				player->aamp->SendMonitorAvEvent(monitorAVState.description,
 						monitorAVState.av_position[eMEDIATYPE_VIDEO],
 						monitorAVState.av_position[eMEDIATYPE_AUDIO],
-						timeInState);
+						timeInState,
+						(playbackQuality && playbackQuality->dropped > 0) ? playbackQuality->dropped : 0);
 			}
 		}
 	}

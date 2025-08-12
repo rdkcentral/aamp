@@ -18,6 +18,7 @@
 */
 
 #include "AampcliSubtecSimulator.h"
+#include "AampcliPrintf.h"
 
 #include <sys/socket.h>
 #include <sys/un.h>
@@ -90,7 +91,7 @@ static void DumpBinaryData(const unsigned char *ptr, size_t len)
 		{
 			*dst++ = 0x00;
 
-			printf("%s\n", buf);
+			AAMPCLI_PRINTF("%s\n", buf);
 			dst = buf;
 			fit = FIT_CHARS;
 		}
@@ -103,39 +104,39 @@ static void DumpPacket(const unsigned char *ptr, size_t len)
 	std::uint32_t type;
 	if (read32(ptr, len, type))
 	{
-		printf("Type:%s:%d\n", Packet::getTypeString(type).c_str(), type);
+		AAMPCLI_PRINTF("Type:%s:%d\n", Packet::getTypeString(type).c_str(), type);
 		ptr += 4;
 		len -= 4;
 	}
 	else
 	{
-		printf("Packet read failed on type - returning\n");
+		AAMPCLI_PRINTF("Packet read failed on type - returning\n");
 		return;
 	}
 	//Get Packet counter
 	std::uint32_t counter;
 	if (read32(ptr, len, counter))
 	{
-		printf("Counter:%d\n", counter);
+		AAMPCLI_PRINTF("Counter:%d\n", counter);
 		ptr += 4;
 		len -= 4;
 	}
 	else
 	{
-		printf("Packet read failed on type - returning\n");
+		AAMPCLI_PRINTF("Packet read failed on type - returning\n");
 		return;
 	}
 	//Get size
 	std::uint32_t size;
 	if (read32(ptr, len, size))
 	{
-		printf("Packet size:%d\n", size);
+		AAMPCLI_PRINTF("Packet size:%d\n", size);
 		ptr += 4;
 		len -= 4;
 	}
 	else
 	{
-		printf("Packet read failed on type - returning\n");
+		AAMPCLI_PRINTF("Packet read failed on type - returning\n");
 		return;
 	}
 
@@ -148,24 +149,24 @@ static void DumpPacket(const unsigned char *ptr, size_t len)
 
 		if (read32(ptr, len, channelId))
 		{
-			printf("channelId:%d\n", channelId);
+			AAMPCLI_PRINTF("channelId:%d\n", channelId);
 			ptr += 4;
 			len -= 4;
 		}
 		else
 		{
-			printf("channelId read failed\n");
+			AAMPCLI_PRINTF("channelId read failed\n");
 		}
 
 		if (read32(ptr, len, ccType))
 		{
-			printf("ccType:%d\n", ccType);
+			AAMPCLI_PRINTF("ccType:%d\n", ccType);
 			ptr += 4;
 			len -= 4;
 		}
 		else
 		{
-			printf("ccType read failed\n");
+			AAMPCLI_PRINTF("ccType read failed\n");
 		}
 
 		if (read32(ptr, len, attribType))
@@ -175,7 +176,7 @@ static void DumpPacket(const unsigned char *ptr, size_t len)
 		}
 		else
 		{
-			printf("AttribType read failed\n");
+			AAMPCLI_PRINTF("AttribType read failed\n");
 		}
 
 		uint32_t i = 0;
@@ -188,12 +189,12 @@ static void DumpPacket(const unsigned char *ptr, size_t len)
 			}
 			else
 			{
-				printf("attribValue read failed\n");
+				AAMPCLI_PRINTF("attribValue read failed\n");
 				break;
 			}
 			if (attribType & 1)
 			{
-				printf("attribute[%u]: %u\n", i, attribValue);
+				AAMPCLI_PRINTF("attribute[%u]: %u\n", i, attribValue);
 			}
 
 			attribType >>= 1;
@@ -204,7 +205,7 @@ static void DumpPacket(const unsigned char *ptr, size_t len)
 	{
 		if (len > 0)
 		{
-			printf("Packet data:\n");
+			AAMPCLI_PRINTF("Packet data:\n");
 			DumpBinaryData(ptr, len);
 		}
 	}
@@ -223,7 +224,7 @@ static void *SubtecSimulatorThread( void *param )
 	timeout.tv_usec = 0;
 	if( buffer )
 	{
-		printf( "SubtecSimulatorThread - listening for packets\n" );
+		AAMPCLI_PRINTF( "SubtecSimulatorThread - listening for packets\n" );
 		while(state->started)
 		{
 			fd_set readfds, masterfds;
@@ -232,12 +233,12 @@ static void *SubtecSimulatorThread( void *param )
 			memcpy(&readfds, &masterfds, sizeof(fd_set));
 			if (select(state->sockfd + 1, &readfds, NULL, NULL, &timeout) < 0)
 			{
-				printf( "select failed\n" );
+				AAMPCLI_PRINTF( "select failed\n" );
 			}
 			else if (FD_ISSET(state->sockfd, &readfds))
 			{
 				int numBytes = (int)recvfrom( state->sockfd, (void *)buffer, maxBuf, MSG_WAITALL, (struct sockaddr *) &cliaddr, &sockLen);
-				printf( "***SubtecSimulatorThread:\n" );
+				AAMPCLI_PRINTF( "***SubtecSimulatorThread:\n" );
 				DumpPacket( buffer, numBytes );
 			}
 			else
@@ -248,7 +249,7 @@ static void *SubtecSimulatorThread( void *param )
 		free( buffer );
 	}
 	(void)close( state->sockfd );
-	printf( "SubtecSimulatorThread - exit\n" );
+	AAMPCLI_PRINTF( "SubtecSimulatorThread - exit\n" );
 	return 0;
 }
 
@@ -271,19 +272,19 @@ bool StartSubtecSimulator( const char *socket_path )
 				state->started = true; //assume it is going to start
 				if( pthread_create(&state->threadId, NULL, &SubtecSimulatorThread, (void *)state) )
 				{
-					printf( "SubtecSimulatorThread create() error: %d\n", errno );
+					AAMPCLI_PRINTF( "SubtecSimulatorThread create() error: %d\n", errno );
 					state->started = false;
 				}
 			}
 			else
 			{
-				printf( "SubtecSimulatorThread bind() error: %d\n", errno );
+				AAMPCLI_PRINTF( "SubtecSimulatorThread bind() error: %d\n", errno );
 			}
 		}
 	}
 	else
 	{
-		printf( "Subtec Simulator already started\n" );
+		AAMPCLI_PRINTF( "Subtec Simulator already started\n" );
 	}
 	return state->started;
 }
@@ -298,7 +299,7 @@ bool StopSubtecSimulator( void )
 	}
 	else
 	{
-		printf( "Subtec Simulator already stopped\n" );
+		AAMPCLI_PRINTF( "Subtec Simulator already stopped\n" );
 	}
 	return !state->started;
 }

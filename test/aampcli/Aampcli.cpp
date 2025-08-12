@@ -82,7 +82,7 @@ void Aampcli::doAutomation( int startChannel, int stopChannel, int maxTuneTimeS,
 
 	if (mVirtualChannelMap.next() == NULL)
 	{
-		printf("[AAMPCLI] Can not auto channels, empty virtual channel map.\n");
+		AAMPCLI_PRINTF("[AAMPCLI] Can not auto channels, empty virtual channel map.\n");
 		return;
 	}
 
@@ -100,7 +100,7 @@ void Aampcli::doAutomation( int startChannel, int stopChannel, int maxTuneTimeS,
 				continue; // skip unsupported DRM AND Audio formats
 #endif
 			}
-			printf( "%d,\"%s\",%s,%s\n",
+			AAMPCLI_PRINTF( "%d,\"%s\",%s,%s\n",
 					info->channelNumber, info->name.c_str(), info->uri.c_str(), "TUNING...");
 
 			char cmd[32];
@@ -123,10 +123,10 @@ void Aampcli::doAutomation( int startChannel, int stopChannel, int maxTuneTimeS,
 				case eSTATE_PLAYING:
 					sleep(playTimeS); // let play for a bit longer, as visibility sanity check
 					stateName = "OK";
-					printf( "***STOP***\n" );
+					AAMPCLI_PRINTF( "***STOP***\n" );
 					mSingleton->Stop();
 					sleep( betweenTimeS );
-					printf( "***NEXT***\n" );
+					AAMPCLI_PRINTF( "***NEXT***\n" );
 					break;
 				case eSTATE_ERROR:
 					stateName = "FAIL";
@@ -135,7 +135,7 @@ void Aampcli::doAutomation( int startChannel, int stopChannel, int maxTuneTimeS,
 					stateName = "TIMEOUT";
 					break;
 			}
-			printf( "***%s\n", stateName );
+			AAMPCLI_PRINTF( "***%s\n", stateName );
 			FILE *f = fopen( outPath.c_str(), mod );
 			assert( f );
 			fprintf( f, "%d,\"%s\",%s,%s,%s\n",
@@ -156,7 +156,7 @@ void Aampcli::runCommand( std::string args )
 	{
 		lCommandHandler.dispatchAampcliCommands( args.c_str(), mAampcli.mSingleton);
 	}
-	printf("[AAMPCLI] type 'help' for list of available commands\n");
+	AAMPCLI_PRINTF("[AAMPCLI] type 'help' for list of available commands\n");
 	for(;;)
 	{
 		rl_attempted_completion_function = lCommandHandler.commandCompletion;
@@ -219,7 +219,7 @@ gpointer Aampcli::aampGstPlayerStreamThread(gpointer arg)
 	if (mAampcli.mAampGstPlayerMainLoop)
 	{
 		g_main_loop_run(mAampcli.mAampGstPlayerMainLoop); // blocks
-		printf("[AAMPCLI] aampGstPlayerStreamThread: exited main event loop\n");
+		AAMPCLI_PRINTF("[AAMPCLI] aampGstPlayerStreamThread: exited main event loop\n");
 	}
 	g_main_loop_unref(mAampcli.mAampGstPlayerMainLoop);
 	mAampcli.mAampGstPlayerMainLoop = NULL;
@@ -249,18 +249,18 @@ void Aampcli::newPlayerInstance( std::string appName)
 
 	if (!appName.empty())
 	{
-		printf(" Set player name %s\n", appName.c_str());
+		AAMPCLI_PRINTF(" Set player name %s\n", appName.c_str());
 		player->SetAppName(appName);
 	}
 
 	if( !mEventListener )
 	{ // for now, use common event listener (could be instance specific)
-		printf( "allocating new MyAAMPEventListener\n");
+		AAMPCLI_PRINTF( "allocating new MyAAMPEventListener\n");
 		mEventListener = new MyAAMPEventListener();
 	}
 	player->RegisterEvents(mEventListener);
 	int playerId = player->GetId();
-	printf( "new playerInstance; id=%d\n", playerId );
+	AAMPCLI_PRINTF( "new playerInstance; id=%d\n", playerId );
 	mPlayerInstances.push_back(player);
 	mPlayerSessionID.push_back({});
 	mSingleton = player; // select
@@ -369,9 +369,9 @@ static int main_func(int argc, char **argv)
 
 	gApplicationPath = argv[0];
 
-	printf("**************************************************************************\n");
-	printf("** ADVANCED ADAPTIVE MEDIA PLAYER (AAMP) - COMMAND LINE INTERFACE (CLI) **\n");
-	printf("**************************************************************************\n");
+	AAMPCLI_PRINTF("**************************************************************************\n");
+	AAMPCLI_PRINTF("** ADVANCED ADAPTIVE MEDIA PLAYER (AAMP) - COMMAND LINE INTERFACE (CLI) **\n");
+	AAMPCLI_PRINTF("**************************************************************************\n");
 
 	mAampcli.initPlayerLoop(0,NULL);
 	mAampcli.newPlayerInstance();
@@ -382,14 +382,14 @@ static int main_func(int argc, char **argv)
 	FILE *f;
 	if ( (f = mAampcli.getConfigFile(cfgCSV)) != NULL)
 	{ // open virtual map from csv file
-		printf("[AAMPCLI] opened aampcli.csv\n");
+		AAMPCLI_PRINTF("[AAMPCLI] opened aampcli.csv\n");
 		mVirtualChannelMap.loadVirtualChannelMapFromCSV( f );
 		fclose( f );
 		f = NULL;
 	}
 	else if ( (f = mAampcli.getConfigFile(cfgLegacy)) != NULL)
 	{  // open virtual map from legacy cfg file
-		printf("[AAMPCLI] opened aampcli.cfg\n");
+		AAMPCLI_PRINTF("[AAMPCLI] opened aampcli.cfg\n");
 		mVirtualChannelMap.loadVirtualChannelMapLegacyFormat(f);
 		fclose(f);
 		f = NULL;
@@ -407,7 +407,7 @@ static int main_func(int argc, char **argv)
 	std::thread cmdThreadId = std::thread(&mAampcli.runCommand, args);
 	createAppWindow(argc,argv);
 	cmdThreadId.join();
-	printf( "[AAMPCLI] done\n" );
+	AAMPCLI_PRINTF( "[AAMPCLI] done\n" );
 }
 
 int main( int argc, char **argv )
@@ -459,13 +459,13 @@ void MyAAMPEventListener::Event(const AAMPEventPtr& e)
 		case AAMP_EVENT_STATE_CHANGED:
 			{
 				StateChangedEventPtr ev = std::dynamic_pointer_cast<StateChangedEvent>(e);
-				printf("[AAMPCLI] AAMP_EVENT_STATE_CHANGED: %s (%d)\n", mAampcli.mEventListener->stringifyPlayerState(ev->getState()), ev->getState());
+				AAMPCLI_PRINTF("[AAMPCLI] AAMP_EVENT_STATE_CHANGED: %s (%d)\n", mAampcli.mEventListener->stringifyPlayerState(ev->getState()), ev->getState());
 				break;
 			}
 		case AAMP_EVENT_SEEKED:
 			{
 				SeekedEventPtr ev = std::dynamic_pointer_cast<SeekedEvent>(e);
-				printf("[AAMPCLI] AAMP_EVENT_SEEKED: new positionMs %f\n", ev->getPosition());
+				AAMPCLI_PRINTF("[AAMPCLI] AAMP_EVENT_SEEKED: new positionMs %f\n", ev->getPosition());
 				break;
 			}
 		case AAMP_EVENT_MEDIA_METADATA:
@@ -473,58 +473,58 @@ void MyAAMPEventListener::Event(const AAMPEventPtr& e)
 				MediaMetadataEventPtr ev = std::dynamic_pointer_cast<MediaMetadataEvent>(e);
 				std::vector<std::string> languages = ev->getLanguages();
 				int langCount = ev->getLanguagesCount();
-				printf("[AAMPCLI] AAMP_EVENT_MEDIA_METADATA\n");
+				AAMPCLI_PRINTF("[AAMPCLI] AAMP_EVENT_MEDIA_METADATA\n");
 				for (int i = 0; i < langCount; i++)
 				{
-					printf("[AAMPCLI] language: %s\n", languages[i].c_str());
+					AAMPCLI_PRINTF("[AAMPCLI] language: %s\n", languages[i].c_str());
 				}
-				printf("[AAMPCLI] AAMP_EVENT_MEDIA_METADATA\n\tDuration=%ld\n\twidth=%d\n\tHeight=%d\n\tHasDRM=%d\n\tProgreamStartTime=%f\n\tTsbDepthMs=%d\n\tUrl=%s\n", ev->getDuration(), ev->getWidth(), ev->getHeight(), ev->hasDrm(), ev->getProgramStartTime(), ev->getTsbDepth(), ev->getUrl().c_str());
+				AAMPCLI_PRINTF("[AAMPCLI] AAMP_EVENT_MEDIA_METADATA\n\tDuration=%ld\n\twidth=%d\n\tHeight=%d\n\tHasDRM=%d\n\tProgreamStartTime=%f\n\tTsbDepthMs=%d\n\tUrl=%s\n", ev->getDuration(), ev->getWidth(), ev->getHeight(), ev->hasDrm(), ev->getProgramStartTime(), ev->getTsbDepth(), ev->getUrl().c_str());
 				int bitrateCount = ev->getBitratesCount();
 				std::vector<BitsPerSecond> bitrates = ev->getBitrates();
-				printf("[AAMPCLI] Bitrates:\n");
+				AAMPCLI_PRINTF("[AAMPCLI] Bitrates:\n");
 				for(int i = 0; i < bitrateCount; i++)
 				{
-					printf("\t[AAMPCLI] bitrate(%d)=%ld\n", i, bitrates.at(i));
+					AAMPCLI_PRINTF("\t[AAMPCLI] bitrate(%d)=%ld\n", i, bitrates.at(i));
 				}
-				printf("[AAMPCLI] Supported Speeds:\n");
+				AAMPCLI_PRINTF("[AAMPCLI] Supported Speeds:\n");
 				const std::vector<float> &supportedSpeeds = ev->getSupportedSpeeds();
 				for( int i=0; i<supportedSpeeds.size(); i++ )
 				{
-					printf( "\t[AAMPCLI] supportedSpeed(%d)=%f\n", i, supportedSpeeds[i] );
+					AAMPCLI_PRINTF( "\t[AAMPCLI] supportedSpeed(%d)=%f\n", i, supportedSpeeds[i] );
 				}
 				break;
 			}
 		case AAMP_EVENT_TUNED:
 			{
-				printf("[AAMPCLI] AAMP_EVENT_TUNED\n");
+				AAMPCLI_PRINTF("[AAMPCLI] AAMP_EVENT_TUNED\n");
 				break;
 			}
 		case AAMP_EVENT_TUNE_FAILED:
 			{
 				MediaErrorEventPtr ev = std::dynamic_pointer_cast<MediaErrorEvent>(e);
 				mAampcli.mTuneFailureDescription = ev->getDescription();
-				printf("[AAMPCLI] AAMP_EVENT_TUNE_FAILED reason=%s\n",mAampcli.mTuneFailureDescription.c_str());
+				AAMPCLI_PRINTF("[AAMPCLI] AAMP_EVENT_TUNE_FAILED reason=%s\n",mAampcli.mTuneFailureDescription.c_str());
 				break;
 			}
 		case AAMP_EVENT_SPEED_CHANGED:
 			{
 				SpeedChangedEventPtr ev = std::dynamic_pointer_cast<SpeedChangedEvent>(e);
-				printf("[AAMPCLI] AAMP_EVENT_SPEED_CHANGED current rate=%f\n", ev->getRate());
+				AAMPCLI_PRINTF("[AAMPCLI] AAMP_EVENT_SPEED_CHANGED current rate=%f\n", ev->getRate());
 				break;
 			}
 		case AAMP_EVENT_DRM_METADATA:
 			{
 				DrmMetaDataEventPtr ev = std::dynamic_pointer_cast<DrmMetaDataEvent>(e);
-				printf("[AAMPCLI] AAMP_DRM_FAILED Tune failure:%d\t\naccess status str:%s\t\naccess status val:%d\t\nResponse code:%d\t\nIs SecClient error:%d\t\n",ev->getFailure(), ev->getAccessStatus().c_str(), ev->getAccessStatusValue(), ev->getResponseCode(), ev->getSecclientError());
-				printf("[AAMPCLI] AAMP_DRM_FAILED Tune failure:networkmetrics:%s\n",ev->getNetworkMetricData().c_str());
+				AAMPCLI_PRINTF("[AAMPCLI] AAMP_DRM_FAILED Tune failure:%d\t\naccess status str:%s\t\naccess status val:%d\t\nResponse code:%d\t\nIs SecClient error:%d\t\n",ev->getFailure(), ev->getAccessStatus().c_str(), ev->getAccessStatusValue(), ev->getResponseCode(), ev->getSecclientError());
+				AAMPCLI_PRINTF("[AAMPCLI] AAMP_DRM_FAILED Tune failure:networkmetrics:%s\n",ev->getNetworkMetricData().c_str());
 				break;
 			}
 		case AAMP_EVENT_EOS:
-			printf("[AAMPCLI] AAMP_EVENT_EOS\n");
+			AAMPCLI_PRINTF("[AAMPCLI] AAMP_EVENT_EOS\n");
 			break;
 
 		case AAMP_EVENT_PLAYLIST_INDEXED:
-			printf("[AAMPCLI] AAMP_EVENT_PLAYLIST_INDEXED\n");
+			AAMPCLI_PRINTF("[AAMPCLI] AAMP_EVENT_PLAYLIST_INDEXED\n");
 			break;
 		case AAMP_EVENT_PROGRESS:
 			{
@@ -543,69 +543,69 @@ void MyAAMPEventListener::Event(const AAMPEventPtr& e)
 						snprintf( seekableRange, sizeof(seekableRange), "[start=%.3fs end=%.3fs]", start/1000.0, end/1000.0 );
 					}
 
-					printf("[AAMPCLI] AAMP_EVENT_PROGRESS duration=%.3fs position=%.3fs seekableRange%s currRate=%.3f bufferedDuration=%.3fs PTS=%lld timecode='%s' latency=%.3fs profileBandwidth=%ld networkBandwidth=%ld currentPlayRate=%.3f sessionId='%s'\n", ev->getDuration()/1000.0, ev->getPosition()/1000.0, seekableRange, ev->getSpeed(), ev->getBufferedDuration()/1000.0, ev->getPTS(), ev->getSEITimeCode(), ev->getLiveLatency()/1000.0, ev->getProfileBandwidth(), ev->getNetworkBandwidth(), ev->getCurrentPlayRate(), ev->GetSessionId().c_str());
+					AAMPCLI_PRINTF("[AAMPCLI] AAMP_EVENT_PROGRESS duration=%.3fs position=%.3fs seekableRange%s currRate=%.3f bufferedVideoDuration=%.3fs bufferedAudioDuration=%.3fs  PTS=%lld timecode='%s' latency=%.3fs profileBandwidth=%ld networkBandwidth=%ld currentPlayRate=%.3f sessionId='%s'\n", ev->getDuration()/1000.0, ev->getPosition()/1000.0, seekableRange, ev->getSpeed(), ev->getVideoBufferedDuration()/1000.0, ev->getAudioBufferedDuration()/1000.0, ev->getPTS(), ev->getSEITimeCode(), ev->getLiveLatency()/1000.0, ev->getProfileBandwidth(), ev->getNetworkBandwidth(), ev->getCurrentPlayRate(), ev->GetSessionId().c_str());
 				}
 			}
 			break;
 		case AAMP_EVENT_CC_HANDLE_RECEIVED:
 			{
 				CCHandleEventPtr ev = std::dynamic_pointer_cast<CCHandleEvent>(e);
-				printf("[AAMPCLI] AAMP_EVENT_CC_HANDLE_RECEIVED CCHandle=%lu\n",ev->getCCHandle());
+				AAMPCLI_PRINTF("[AAMPCLI] AAMP_EVENT_CC_HANDLE_RECEIVED CCHandle=%lu\n",ev->getCCHandle());
 				break;
 			}
 		case AAMP_EVENT_BITRATE_CHANGED:
 			{
 				BitrateChangeEventPtr ev = std::dynamic_pointer_cast<BitrateChangeEvent>(e);
-				printf("[AAMPCLI] AAMP_EVENT_BITRATE_CHANGED\n\tbitrate=%" BITSPERSECOND_FORMAT "\n\tdescription=\"%s\"\n\tresolution=%dx%d@%ffps\n\ttime=%d\n\tposition=%lf\n", ev->getBitrate(), ev->getDescription().c_str(), ev->getWidth(), ev->getHeight(), ev->getFrameRate(), ev->getTime(), ev->getPosition());
+				AAMPCLI_PRINTF("[AAMPCLI] AAMP_EVENT_BITRATE_CHANGED\n\tbitrate=%" BITSPERSECOND_FORMAT "\n\tdescription=\"%s\"\n\tresolution=%dx%d@%ffps\n\ttime=%d\n\tposition=%lf\n", ev->getBitrate(), ev->getDescription().c_str(), ev->getWidth(), ev->getHeight(), ev->getFrameRate(), ev->getTime(), ev->getPosition());
 				break;
 			}
 		case AAMP_EVENT_AUDIO_TRACKS_CHANGED:
-			printf("[AAMPCLI] AAMP_EVENT_AUDIO_TRACKS_CHANGED\n");
+			AAMPCLI_PRINTF("[AAMPCLI] AAMP_EVENT_AUDIO_TRACKS_CHANGED\n");
 			break;
 		case AAMP_EVENT_TEXT_TRACKS_CHANGED:
-			printf("[AAMPCLI] AAMP_EVENT_TEXT_TRACKS_CHANGED\n");
+			AAMPCLI_PRINTF("[AAMPCLI] AAMP_EVENT_TEXT_TRACKS_CHANGED\n");
 			break;
 		case AAMP_EVENT_ID3_METADATA:
-			printf("[AAMPCLI] AAMP_EVENT_ID3_METADATA\n");
+			AAMPCLI_PRINTF("[AAMPCLI] AAMP_EVENT_ID3_METADATA\n");
 			{
 				auto ev = std::dynamic_pointer_cast<ID3MetadataEvent>(e);
-				printf("[AAMPCLI] :: presentation time: %" PRIu64 "\n\n", ev->getPresentationTime());
+				AAMPCLI_PRINTF("[AAMPCLI] :: presentation time: %" PRIu64 "\n\n", ev->getPresentationTime());
 			}
 
 			break;
 		case AAMP_EVENT_BLOCKED :
 			{
 				BlockedEventPtr ev = std::dynamic_pointer_cast<BlockedEvent>(e);
-				printf("[AAMPCLI] AAMP_EVENT_BLOCKED Reason:%s\n" ,ev->getReason().c_str());
+				AAMPCLI_PRINTF("[AAMPCLI] AAMP_EVENT_BLOCKED Reason:%s\n" ,ev->getReason().c_str());
 				break;
 			}
 		case AAMP_EVENT_CONTENT_GAP :
 			{
 				ContentGapEventPtr ev = std::dynamic_pointer_cast<ContentGapEvent>(e);
-				printf("[AAMPCLI] AAMP_EVENT_CONTENT_GAP\n\tStart:%lf\n\tDuration:%lf\n", ev->getTime(), ev->getDuration());
+				AAMPCLI_PRINTF("[AAMPCLI] AAMP_EVENT_CONTENT_GAP\n\tStart:%lf\n\tDuration:%lf\n", ev->getTime(), ev->getDuration());
 				break;
 			}
 		case AAMP_EVENT_WATERMARK_SESSION_UPDATE:
 			{
 				WatermarkSessionUpdateEventPtr ev = std::dynamic_pointer_cast<WatermarkSessionUpdateEvent>(e);
-				printf("[AAMPCLI] AAMP_EVENT_WATERMARK_SESSION_UPDATE SessionHandle:%d Status:%d System:%s\n" ,ev->getSessionHandle(), ev->getStatus(), ev->getSystem().c_str());
+				AAMPCLI_PRINTF("[AAMPCLI] AAMP_EVENT_WATERMARK_SESSION_UPDATE SessionHandle:%d Status:%d System:%s\n" ,ev->getSessionHandle(), ev->getStatus(), ev->getSystem().c_str());
 				break;
 			}
 		case AAMP_EVENT_BUFFERING_CHANGED:
 			{
 				BufferingChangedEventPtr ev = std::dynamic_pointer_cast<BufferingChangedEvent>(e);
-				printf("[AAMPCLI] AAMP_EVENT_BUFFERING_CHANGED Sending Buffer Change event status (Buffering): %s", (ev->buffering() ? "End": "Start"));
+				AAMPCLI_PRINTF("[AAMPCLI] AAMP_EVENT_BUFFERING_CHANGED Sending Buffer Change event status (Buffering): %s", (ev->buffering() ? "End": "Start"));
 				break;
 			}
 		case AAMP_EVENT_CONTENT_PROTECTION_DATA_UPDATE:
 			{
 				ContentProtectionDataEventPtr ev =  std::dynamic_pointer_cast<ContentProtectionDataEvent>(e);
-				printf("[AAMPCLI] AAMP_EVENT_CONTENT_PROTECTION_UPDATE received stream type %s\n",ev->getStreamType().c_str());
+				AAMPCLI_PRINTF("[AAMPCLI] AAMP_EVENT_CONTENT_PROTECTION_UPDATE received stream type %s\n",ev->getStreamType().c_str());
 				std::vector<uint8_t> key = ev->getKeyID();
-				printf("[AAMPCLI] AAMP_EVENT_CONTENT_PROTECTION_UPDATE received key is ");
+				AAMPCLI_PRINTF("[AAMPCLI] AAMP_EVENT_CONTENT_PROTECTION_UPDATE received key is ");
 				for(int i=0;i<key.size();i++)
-					printf("%x",key.at(i)&0xff);
-				printf("\n");
+					AAMPCLI_PRINTF("%x",key.at(i)&0xff);
+				AAMPCLI_PRINTF("\n");
 				cJSON *root = cJSON_CreateObject();
 				cJSON *KeyId = cJSON_CreateArray();
 				for(int i=0;i<key.size();i++)
@@ -621,7 +621,7 @@ void MyAAMPEventListener::Event(const AAMPEventPtr& e)
 			TimedMetadataEventPtr ev =  std::dynamic_pointer_cast<TimedMetadataEvent>(e);
 			if( ev->getName() == "SCTE35" )
 			{
-				printf("[AAMPCLI] AAMP_EVENT_TIMED_METADATA received\n");
+				AAMPCLI_PRINTF("[AAMPCLI] AAMP_EVENT_TIMED_METADATA received\n");
 				/* Decode any SCTE35 splice info event. */
 				std::vector<SCTE35SpliceInfo::Summary> spliceInfoSummary;
 				SCTE35SpliceInfo spliceInfo(ev->getContent());
@@ -629,26 +629,26 @@ void MyAAMPEventListener::Event(const AAMPEventPtr& e)
 				bool mapped = false;
 				for( auto &splice : spliceInfoSummary)
 				{
-					printf("[AAMPCLI] SCTE35SpliceInfo type=%d time=%fs duration=%fs id=0x%" PRIx32 "\n",
+					AAMPCLI_PRINTF("[AAMPCLI] SCTE35SpliceInfo type=%d time=%fs duration=%fs id=0x%" PRIx32 "\n",
 						   static_cast<int>(splice.type), splice.time, splice.duration, splice.event_id );
 					switch( splice.type )
 					{
 						case SCTE35SpliceInfo::SEGMENTATION_TYPE::PROVIDER_ADVERTISEMENT_START:
 						case SCTE35SpliceInfo::SEGMENTATION_TYPE::PROVIDER_PLACEMENT_OPPORTUNITY_START:
-							printf("[AAMPCLI] [CDAI] Dynamic ad start signalled for breakId='%s'\n)", ev->getId().c_str() );
+							AAMPCLI_PRINTF("[AAMPCLI] [CDAI] Dynamic ad start signalled for breakId='%s'\n)", ev->getId().c_str() );
 							for( const AdvertInfo &advertInfo : mAdvertList )
 							{
 								if( advertInfo.adBreakId == ev->getId() )
 								{
 									std::string adId = "adId" + std::to_string(++mAdReservationIndex);
-									printf("[AAMPCLI] AAMP_EVENT_TIMED_METADATA place advert breakId=%s adId=%s url=%s\n", ev->getId().c_str(), adId.c_str(), advertInfo.url.c_str());
+									AAMPCLI_PRINTF("[AAMPCLI] AAMP_EVENT_TIMED_METADATA place advert breakId=%s adId=%s url=%s\n", ev->getId().c_str(), adId.c_str(), advertInfo.url.c_str());
 									mAampcli.mSingleton->SetAlternateContents(ev->getId(), adId, advertInfo.url);
 									mapped = true;
 								}
 							}
 							if( !mapped )
 							{
-								printf( "[AAMPCLI] unmapped breakId=%s\n", ev->getId().c_str() );
+								AAMPCLI_PRINTF( "[AAMPCLI] unmapped breakId=%s\n", ev->getId().c_str() );
 							}
 							break;
 						default:
@@ -663,89 +663,89 @@ void MyAAMPEventListener::Event(const AAMPEventPtr& e)
 		{
 			std::string manifest;
 			ManifestRefreshEventPtr ev = std::dynamic_pointer_cast<ManifestRefreshEvent>(e);
-			printf("\n[AAMPCLI] AAMP_EVENT_MANIFEST_REFRESH_NOTIFY received Dur[%u]:NoPeriods[%u]:PubTime[%u] manifestType[%s]\n",ev->getManifestDuration(),ev->getNoOfPeriods(),ev->getManifestPublishedTime(),ev->getManifestType().c_str());
+			AAMPCLI_PRINTF("\n[AAMPCLI] AAMP_EVENT_MANIFEST_REFRESH_NOTIFY received Dur[%u]:NoPeriods[%u]:PubTime[%u] manifestType[%s]\n",ev->getManifestDuration(),ev->getNoOfPeriods(),ev->getManifestPublishedTime(),ev->getManifestType().c_str());
 			manifest = mAampcli.mSingleton->GetManifest();
-			printf("\n [AAMPCLI] Dash  Manifest length [%zu]\n",manifest.length());
+			AAMPCLI_PRINTF("\n [AAMPCLI] Dash  Manifest length [%zu]\n",manifest.length());
 			break;
 		}
 		case AAMP_EVENT_TUNE_TIME_METRICS:
 		{
 			TuneTimeMetricsEventPtr ev = std::dynamic_pointer_cast<TuneTimeMetricsEvent>(e);
-			printf("[AAMPCLI] AAMP_EVENT_TUNE_TIME_METRICS\n\tData[%s]\n",ev->getTuneMetricsData().c_str());
+			AAMPCLI_PRINTF("[AAMPCLI] AAMP_EVENT_TUNE_TIME_METRICS\n\tData[%s]\n",ev->getTuneMetricsData().c_str());
 			break;
 		}
 
 		case AAMP_EVENT_AD_RESOLVED:
 		{
 			AdResolvedEventPtr ev = std::dynamic_pointer_cast<AdResolvedEvent>(e);
-			printf("[AAMPCLI] AAMP_EVENT_AD_RESOLVED\tresolveStatus=%d\tadId=%s\tstart=%" PRIu64 "\tduration=%" PRIu64 "\n", ev->getResolveStatus(), ev->getAdId().c_str(), ev->getStart(), ev->getDuration());
+			AAMPCLI_PRINTF("[AAMPCLI] AAMP_EVENT_AD_RESOLVED\tresolveStatus=%d\tadId=%s\tstart=%" PRIu64 "\tduration=%" PRIu64 "\n", ev->getResolveStatus(), ev->getAdId().c_str(), ev->getStart(), ev->getDuration());
 			break;
 		}
 
 		case AAMP_EVENT_AD_RESERVATION_START:
 		{
 			AdReservationEventPtr ev = std::dynamic_pointer_cast<AdReservationEvent>(e);
-			printf("[AAMPCLI] AAMP_EVENT_AD_RESERVATION_START\tadBreakId=%s\tposition=%" PRIu64 "\n", ev->getAdBreakId().c_str(), ev->getPosition());
+			AAMPCLI_PRINTF("[AAMPCLI] AAMP_EVENT_AD_RESERVATION_START\tadBreakId=%s\tposition=%" PRIu64 "\n", ev->getAdBreakId().c_str(), ev->getPosition());
 			break;
 		}
 
 		case AAMP_EVENT_AD_RESERVATION_END:
 		{
 			AdReservationEventPtr ev = std::dynamic_pointer_cast<AdReservationEvent>(e);
-			printf("[AAMPCLI] AAMP_EVENT_AD_RESERVATION_END\tadBreakId=%s\tposition=%" PRIu64 "\n", ev->getAdBreakId().c_str(), ev->getPosition());
+			AAMPCLI_PRINTF("[AAMPCLI] AAMP_EVENT_AD_RESERVATION_END\tadBreakId=%s\tposition=%" PRIu64 "\n", ev->getAdBreakId().c_str(), ev->getPosition());
 			break;
 		}
 
 		case AAMP_EVENT_AD_PLACEMENT_START:
 		{
 			AdPlacementEventPtr ev = std::dynamic_pointer_cast<AdPlacementEvent>(e);
-			printf("[AAMPCLI] AAMP_EVENT_AD_PLACEMENT_START\tadId=%s\tposition=%u\toffset=%u\tduration=%u\terror=%d\n", ev->getAdId().c_str(), ev->getPosition(), ev->getOffset(), ev->getDuration(), ev->getErrorCode());
+			AAMPCLI_PRINTF("[AAMPCLI] AAMP_EVENT_AD_PLACEMENT_START\tadId=%s\tposition=%u\toffset=%u\tduration=%u\terror=%d\n", ev->getAdId().c_str(), ev->getPosition(), ev->getOffset(), ev->getDuration(), ev->getErrorCode());
 			break;
 		}
 
 		case AAMP_EVENT_AD_PLACEMENT_END:
 		{
 			AdPlacementEventPtr ev = std::dynamic_pointer_cast<AdPlacementEvent>(e);
-			printf("[AAMPCLI] AAMP_EVENT_AD_PLACEMENT_END\tadId=%s\tposition=%u\toffset=%u\tduration=%u\terror=%d\n", ev->getAdId().c_str(), ev->getPosition(), ev->getOffset(), ev->getDuration(), ev->getErrorCode());
+			AAMPCLI_PRINTF("[AAMPCLI] AAMP_EVENT_AD_PLACEMENT_END\tadId=%s\tposition=%u\toffset=%u\tduration=%u\terror=%d\n", ev->getAdId().c_str(), ev->getPosition(), ev->getOffset(), ev->getDuration(), ev->getErrorCode());
 			break;
 		}
 
 		case AAMP_EVENT_AD_PLACEMENT_ERROR:
 		{
 			AdPlacementEventPtr ev = std::dynamic_pointer_cast<AdPlacementEvent>(e);
-			printf("[AAMPCLI] AAMP_EVENT_AD_PLACEMENT_ERROR\tadId=%s\tposition=%u\toffset=%u\tduration=%u\terror=%d\n", ev->getAdId().c_str(), ev->getPosition(), ev->getOffset(), ev->getDuration(), ev->getErrorCode());
+			AAMPCLI_PRINTF("[AAMPCLI] AAMP_EVENT_AD_PLACEMENT_ERROR\tadId=%s\tposition=%u\toffset=%u\tduration=%u\terror=%d\n", ev->getAdId().c_str(), ev->getPosition(), ev->getOffset(), ev->getDuration(), ev->getErrorCode());
 			break;
 		}
 
 		case AAMP_EVENT_AD_PLACEMENT_PROGRESS:
 		{
 			AdPlacementEventPtr ev = std::dynamic_pointer_cast<AdPlacementEvent>(e);
-			printf("[AAMPCLI] AAMP_EVENT_AD_PLACEMENT_PROGRESS\tadId=%s\tposition=%u\toffset=%u\tduration=%u\terror=%d\n", ev->getAdId().c_str(), ev->getPosition(), ev->getOffset(), ev->getDuration(), ev->getErrorCode());
+			AAMPCLI_PRINTF("[AAMPCLI] AAMP_EVENT_AD_PLACEMENT_PROGRESS\tadId=%s\tposition=%u\toffset=%u\tduration=%u\terror=%d\n", ev->getAdId().c_str(), ev->getPosition(), ev->getOffset(), ev->getDuration(), ev->getErrorCode());
 			break;
 		}
 		case AAMP_EVENT_NEED_MANIFEST_DATA:
 		{
-			printf("[AAMPCLI]  AAMP_EVENT_NEED_MANIFEST_DATA received \n");
+			AAMPCLI_PRINTF("[AAMPCLI]  AAMP_EVENT_NEED_MANIFEST_DATA received \n");
 			std::string manifestData = PlaybackCommand::getManifestData(mAampcli.mManifestDataUrl);
-			printf("[AAMPCLI] updateManifest\n");
+			AAMPCLI_PRINTF("[AAMPCLI] updateManifest\n");
 			mAampcli.mSingleton->updateManifest(manifestData.c_str());
 			break;
 		}
 		case AAMP_EVENT_MONITORAV_STATUS:
 		{
 			MonitorAVStatusEventPtr ev = std::dynamic_pointer_cast<MonitorAVStatusEvent>(e);
-			printf("[AAMPCLI] AAMP_EVENT_MONITORAV_STATUS\tstatus=%s\tvposition =%" PRId64 "\taposition=%" PRId64 "\ttimeInStateMS= %" PRIu64 "\n", ev->getMonitorAVStatus().c_str(), ev->getVideoPositionMS(), ev->getAudioPositionMS(), ev->getTimeInStateMS());
+			AAMPCLI_PRINTF("[AAMPCLI] AAMP_EVENT_MONITORAV_STATUS\tstatus=%s\tvposition =%" PRId64 "\taposition=%" PRId64 "\ttimeInStateMS= %" PRIu64 "\tdroppedFrames= %" PRIu64 "\n", ev->getMonitorAVStatus().c_str(), ev->getVideoPositionMS(), ev->getAudioPositionMS(), ev->getTimeInStateMS(),ev->getDroppedFrames());
 		}
 		case AAMP_EVENT_REPORT_ANOMALY:
 		{
-			printf("[AAMPCLI] AAMP_EVENT_REPORT_ANOMALY received \n");
+			AAMPCLI_PRINTF("[AAMPCLI] AAMP_EVENT_REPORT_ANOMALY received \n");
 			break;
 		}
 
 
 		case AAMP_EVENT_ENTERING_LIVE:
 		{
-			printf("[AAMPCLI] AAMP_EVENT_ENTERING_LIVE\n");
+			AAMPCLI_PRINTF("[AAMPCLI] AAMP_EVENT_ENTERING_LIVE\n");
 			break;
 		}
 

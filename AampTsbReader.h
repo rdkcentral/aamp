@@ -28,6 +28,7 @@
 #include "AampTsbDataManager.h"
 #include "priv_aamp.h"
 #include "AampMediaType.h"
+#include "AampTime.h"
 
 /**
  * @class AampTsbReader
@@ -82,9 +83,9 @@ public:
 	/**
 	 * @fn GetStartPosition
 	 *
-	 * @return None
+	 * @return AampTime - Start position
 	 */
-	double GetStartPosition();
+	AampTime GetStartPosition();
 
 	/**
 	 * @fn Flush  - function to clear the TSB storage
@@ -131,7 +132,15 @@ public:
 	 *
 	 * @return double - First PTS
 	 */
-	double GetFirstPTS() { return mFirstPTS; }
+  
+	double GetFirstPTS();
+
+	/**
+	 * @fn GetFirstPTSOffset
+	 *
+	 * @return AampTime - First PTS Offset
+	 */
+	AampTime GetFirstPTSOffset();
 
 	/**
 	 * @fn GetMediaType
@@ -186,11 +195,12 @@ public:
 private:
 	bool mInitialized_;
 
-	double mStartPosition;
+	AampTime mStartPosition;
 	float mCurrentRate;
 	std::string mTsbSessionId;
 	AampMediaType mMediaType;
-	double mFirstPTS;
+	AampTime mFirstPTS;
+	AampTime mFirstPTSOffset;
 	bool mNewInitWaiting;
 	TuneType mActiveTuneType;
 	bool mIsNextFragmentDisc;
@@ -200,7 +210,7 @@ private:
 	std::condition_variable mEosCVWait;	/**< Conditional variable for signaling wait*/
 
 protected:
-	double mUpcomingFragmentPosition;
+	AampTime mUpcomingFragmentPosition;
 	/**
 	 * @fn CheckPeriodBoundary
 	 * 

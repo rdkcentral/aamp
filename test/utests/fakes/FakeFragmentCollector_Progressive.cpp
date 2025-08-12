@@ -50,3 +50,4 @@ void StreamAbstractionAAMP_PROGRESSIVE::FetcherLoop()
 {
 
 }
+bool StreamAbstractionAAMP_PROGRESSIVE::DoEarlyStreamSinkFlush(bool newTune, float rate) { return false; }

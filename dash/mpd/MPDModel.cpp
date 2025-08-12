@@ -170,8 +170,8 @@ string findBaseUrl(DomElement &element, const string &current, bool isFile) {
 
         Url newbase(eUrl.text());
         if (newbase.isRelative()) {
-            auto out = Url(_current).resolve(newbase).format(Url::StripTrailingSlash).append(
-                    slash);
+            auto out = std::move(Url(_current).resolve(newbase).format(Url::StripTrailingSlash).append(
+                    slash));
             return out;
         } else {
             return newbase.format(Url::StripTrailingSlash).append(slash);
@@ -1432,8 +1432,8 @@ void DashMPDRoot::setLocation(string location) {
 }
 
 /**
- * @briefa  Set fetchTime
- * @param   FetchTime
+ * @brief Set fetchTime
+ * @param FetchTime
  */
 void DashMPDRoot::setFetchTime(double fetchTime) {
     elem.addNamespace(FOG_EXTRA_NS, FOG_EXTRA_NS_URI);

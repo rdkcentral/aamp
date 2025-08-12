@@ -734,7 +734,7 @@ void PlayerCCManagerBase::RestoreCC()
 
 	std::string trackId = GetTrack();
 
-	const auto textTracks = getLastTextTracks();
+	const auto& textTracks = getLastTextTracks();
 	bool matchFound = false;
 
 	if(!textTracks.empty())

@@ -36,13 +36,13 @@ typedef struct AdvertInfo
 
 class PlaybackCommand : public Command
 {
-	
 public:
 	static void registerPlaybackCommands();
 	static char *commandRecommender(const char *text, int state);
 	static bool isCommandMatch( const char *cmdBuf, const char *cmdName );
 	static bool isNumber(const char *s);
 	static void showHelp(void);
+	static void parse( const char *cmd );
 	void termPlayerLoop();
 	bool execute( const char *cmd, PlayerInstanceAAMP *playerInstanceAamp) override;
 	PlayerInstanceAAMP * findPlayerInstance( const char *playerRef );

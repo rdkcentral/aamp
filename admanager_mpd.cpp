@@ -828,7 +828,7 @@ int PrivateCDAIObjectMPD::CheckForAdStart(const float &rate, bool init, const st
 			AdNode &curAd = abObj.ads->at(adIdx);
 			if(!curAd.placed)
 			{
-				for(auto placementObj: mAdtoInsertInNextBreakVec)
+				for(const auto& placementObj: mAdtoInsertInNextBreakVec)
 				{
 					if(curP2Ad.adBreakId == placementObj.pendingAdbrkId)
 					{
@@ -1030,8 +1030,7 @@ MPD* PrivateCDAIObjectMPD::GetAdMPD(std::string &manifestUrl, bool &finalManifes
 
 		if (AampLogManager::isLogLevelAllowed(eLOGLEVEL_TRACE))
 		{ // use printf to avoid 2048 char syslog limitation
-			manifest.AppendNulTerminator(); // make safe for cstring operations
-			printf("***Ad manifest***:\n\n%s\n", manifest.GetPtr() );
+			printf("***Ad manifest***:\n\n%.*s\n", (int)manifest.GetLen(), manifest.GetPtr() );
 		}
 		manifest.Free();
 	}
