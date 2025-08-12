@@ -219,9 +219,15 @@ TsbFragmentDataPtr AampTsbReader::FindNext()
 			}
 			else // forward or normal playback
 			{
-				// For forward playback, calculate next position and find nearest fragment
+				// For forward playback, get the next fragment in the linked list
 				AampTime nextPos = mCurrentFragment->GetAbsolutePosition() + mCurrentFragment->GetDuration();
-				ret = mDataMgr->GetNearestFragment(nextPos.inSeconds());
+				auto oldFrag = mDataMgr->GetNearestFragment(nextPos.inSeconds());
+				ret = mCurrentFragment->next;
+				// Log current, next and old fragment positions
+				AAMPLOG_INFO("[%s] <PB> Current fragment %.6f Next fragment %.6f Old fragment %.6f; nextPos %.6f",
+					GetMediaTypeName(mMediaType), mCurrentFragment->GetAbsolutePosition().inSeconds(),
+					(ret ? ret->GetAbsolutePosition().inSeconds() : 0), (oldFrag ? oldFrag->GetAbsolutePosition().inSeconds() : 0), 
+					nextPos.inSeconds());
 			}
 		}
 
@@ -280,12 +286,7 @@ void AampTsbReader::ReadNext(TsbFragmentDataPtr nextFragmentData)
 			mEosReached = !nextFragmentData->next;
 		}
 
-		// Complement this state with last init header push status
-		if (mActiveTuneType == eTUNETYPE_SEEKTOLIVE)
-		{
-			mEosReached &= !mNewInitWaiting;
-		}
-		// Determine if the next fragment is discontinuous.
+		// Complement this state with last init header push status/ Determine if the next fragment is discontinuous.
 		// For forward iteration, examine the discontinuity marker in the next fragment.
 		// For reverse iteration, inspect the discontinuity marker in the current fragment,
 		//		indicating that the upcoming iteration will transition to a different period.
