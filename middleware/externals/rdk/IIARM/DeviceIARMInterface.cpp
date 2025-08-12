@@ -5,6 +5,7 @@
 #include <libIARM.h>
 #include <libIBus.h>
 #include <iarmUtil.h>
+#include "libIBusDaemon.h"
 #include <hostIf_tr69ReqHandler.h>
 #include "tr181api.h"
 #include "_base64.h"

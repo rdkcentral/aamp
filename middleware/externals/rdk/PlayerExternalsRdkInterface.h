@@ -29,7 +29,6 @@
 #include "videoResolution.hpp"
 #include "videoOutputPort.hpp"
 #include "videoOutputPortType.hpp"
-#include "libIBusDaemon.h"
 #include "dsMgr.h"
 #include "dsDisplay.h"
 #include "audioOutputPort.hpp"
