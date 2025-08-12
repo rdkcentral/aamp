@@ -10816,6 +10816,7 @@ void StreamAbstractionAAMP_MPD::GetStreamFormat(StreamOutputFormat &primaryOutpu
 			&& mMediaStreamContext[eMEDIATYPE_SUBTITLE]->type != eTRACK_AUX_AUDIO)
 	{
 		AAMPLOG_WARN("Entering GetCurrentMimeType");
+		AAMPLOG_WARN("ANJ: mMediaStreamContext[eMEDIATYPE_SUBTITLE]->type = %d", mMediaStreamContext[eMEDIATYPE_SUBTITLE]->type);
 		auto mimeType = GetCurrentMimeType(eMEDIATYPE_SUBTITLE);
 		if (!mimeType.empty())
 		{
@@ -10841,6 +10842,11 @@ void StreamAbstractionAAMP_MPD::GetStreamFormat(StreamOutputFormat &primaryOutpu
 	{
 		subtitleOutputFormat = FORMAT_INVALID;
 		AAMPLOG_WARN("ANJ: 4. else case: subtitleOutputFormat = FORMAT_INVALID. subtitleOutputFormat = %d", subtitleOutputFormat);
+#if 1//anj
+		AAMPLOG_WARN("ANJ: Overwriting subtitleOutputFormat = FORMAT_SUBTITLE_MP4 ");
+		subtitleOutputFormat = FORMAT_SUBTITLE_MP4;
+		AAMPLOG_WARN("ANJ: Overwritten subtitleOutputFormat = FORMAT_SUBTITLE_MP4 ");
+#endif//anj
 	}
 }
 
