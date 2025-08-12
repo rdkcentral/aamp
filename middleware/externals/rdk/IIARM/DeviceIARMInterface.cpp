@@ -48,7 +48,7 @@ std::shared_ptr<DeviceIARMInterface> GetInstance()
 {
     if(nullptr == s_pDeviceIARMInterface)
     {
-        s_pDeviceIARMInterface = std::make_shared(new DeviceIARMInterface());
+        s_pDeviceIARMInterface = std::shared_ptr<DeviceIARMInterface>(new DeviceIARMInterface());
     }
 
     return s_pDeviceIARMInterface;
