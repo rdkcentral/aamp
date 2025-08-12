@@ -965,33 +965,21 @@ bool MediaTrack::ProcessFragmentChunk()
 		cachedFragment->initFragment = false;
 		return true;
 	}
-	if((cachedFragment->downloadStartTime != prevDownloadStartTime) && (unparsedBufferChunk.GetPtr() != NULL) && cachedFragment->injectionBehaviour == eINJECTION_BEHAVIOUR_COMPLETED_CHUNK)
+	if((cachedFragment->downloadStartTime != prevDownloadStartTime) && (unparsedBufferChunk.GetPtr() != NULL))
 	{
 		AAMPLOG_WARN("[%s] clean up curl chunk buffer, since  prevDownloadStartTime[%lld] != currentdownloadtime[%lld]", name,prevDownloadStartTime,cachedFragment->downloadStartTime);
 		unparsedBufferChunk.Free();
 	}
+	if(cachedFragment->isDummy == true )
+	{
+		aamp->SendSegmentStop((AampMediaType)type,mLastChunkPTS);
+		aamp->SendNewSegmentEvent((AampMediaType)type,mLastChunkPTS,0);
+		return true;
+	}
 	size_t requiredLength = cachedFragment->fragment.GetLen() + unparsedBufferChunk.GetLen();
 	AAMPLOG_DEBUG("[%s] cachedFragment->fragment.len [%zu] to unparsedBufferChunk.len [%zu] Required Len [%zu]", name, cachedFragment->fragment.GetLen(), unparsedBufferChunk.GetLen(), requiredLength);
 
-	//Append Cache buffer to unparsed buffer for processing
-	if (cachedFragment->injectionBehaviour < eINJECTION_BEHAVIOUR_COMPLETED_FRAGMENT)
-	{
-		unparsedBufferChunk.AppendBytes( cachedFragment->fragment.GetPtr(), cachedFragment->fragment.GetLen() );
-	}
-	switch (cachedFragment->injectionBehaviour)
-	{
-		case eINJECTION_BEHAVIOUR_INPROGRESS_FRAGMENT:
-			AAMPLOG_INFO("[%s][NANDU] InProgress Chunk, saved in unparsed buffer, fragmentChunkIdxToInject %d", name, fragmentChunkIdxToInject);
-			return true;
-		case eINJECTION_BEHAVIOUR_FAILED_FRAGMENT:
-			unparsedBufferChunk.Free();
-			AAMPLOG_WARN("[%s][NANDU] Failed Chunk, free unparsed buffer, fragmentChunkIdxToInject %d", name, fragmentChunkIdxToInject);
-			return true;
-		default:
-			AAMPLOG_INFO("[%s][NANDU] Completed Chunk, mode: %d", name, cachedFragment->injectionBehaviour);
-			break;
-	}
-
+	unparsedBufferChunk.AppendBytes(cachedFragment->fragment.GetPtr(), cachedFragment->fragment.GetLen());
 	//Parse Chunk Data
 	IsoBmffBuffer isobuf;                   /**< Fragment Chunk buffer box parser*/
 	char *unParsedBuffer = NULL;
@@ -1102,6 +1090,11 @@ bool MediaTrack::ProcessFragmentChunk()
 			}
 			AAMPLOG_INFO("Injecting chunk for %s br=%d,chunksize=%zu fpts=%f fduration=%f",name,bandwidthBitsPerSecond,parsedBufferChunk.GetLen(),fpts,fduration);
 			InjectFragmentChunkInternal((AampMediaType)type,&parsedBufferChunk , fpts, fpts, fduration, cachedFragment->PTSOffsetSec);
+			if(type == eTRACK_VIDEO && (!cachedFragment->initFragment))
+			{
+				mLastChunkPTS = fpts + fduration;
+			}
+
 			totalInjectedChunksDuration += fduration;
 		}
 	}
@@ -2019,7 +2012,7 @@ MediaTrack::MediaTrack(TrackType type, PrivateInstanceAAMP* aamp, const char* na
 		,mIsoBmffHelper(std::make_shared<IsoBmffHelper>())
 		,mLastFragmentPts(0), mRestampedPts(0), mRestampedDuration(0), mTrickmodeState(TrickmodeState::UNDEF)
 		,mTrackParamsMutex(), mCheckForRampdown(false)
-		,gotLocalTime(false),ptsRollover(false),currentLocalTimeMs(0)
+		,gotLocalTime(false),ptsRollover(false),currentLocalTimeMs(0), mLastChunkPTS(0)
 {
 	maxCachedFragmentsPerTrack = GETCONFIGVALUE(eAAMPConfig_MaxFragmentCached);
 	mCachedFragment = new CachedFragment[(maxCachedFragmentsPerTrack) ? maxCachedFragmentsPerTrack : 1];

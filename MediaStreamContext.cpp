@@ -133,11 +133,6 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 				AAMPLOG_INFO("maxInitDownloadTimeMS %d, initSegment %d, mTsbDepthMs %d, GetPublishTime %llu(ms), fragmentTime %f(s) ",
 					maxInitDownloadTimeMS, initSegment, aamp->mTsbDepthMs, (unsigned long long)dnldInstance->GetPublishTime(), fragmentTime);
 			}
-			if (aamp->GetLLDashChunkMode())
-			{
-				injectionMode = GetBufferedDuration() > GETCONFIGVALUE(eAAMPConfig_LLDashMinimumModeSwitchDuration) ? eINJECTION_MODE_INJECT_FULL_FRAGMENT : eINJECTION_MODE_INJECT_CHUNKS;
-				AAMPLOG_INFO("LLDash injectionMode: %d selected for %s", injectionMode, fragmentUrl.c_str());
-			}
 
 			ret = aamp->GetFile(fragmentUrl, actualType, mTempFragment.get(), effectiveUrl, &httpErrorCode, &downloadTimeS, range, curlInstance, true/*resetBuffer*/,  &bitrate, &iFogError, fragmentDurationS, bucketType, maxInitDownloadTimeMS);
 			if (initSegment && ret)
@@ -149,13 +144,10 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 				cachedFragment->fragment = *mTempFragment;
 				mTempFragment->Free();
 			}
-			if (aamp->GetLLDashChunkMode() && !initSegment)
+			if (aamp->GetLLDashChunkMode() && !initSegment && !ret)
 			{
 				// If LL-DASH chunk mode is enabled, we need to set the injection mode based on the buffered duration
-				InjectionBehaviour injectionBehaviour = (ret) ? eINJECTION_BEHAVIOUR_COMPLETED_FRAGMENT : eINJECTION_BEHAVIOUR_FAILED_FRAGMENT;
-				// Now reset the injection mode to inject chunks
-				injectionMode = eINJECTION_MODE_INJECT_CHUNKS;
-				CacheFragmentChunk(actualType, "0x0a", 2, effectiveUrl, NOW_STEADY_TS_MS, injectionBehaviour);
+				CacheFragmentChunk(actualType, "0x0a", 2, effectiveUrl, NOW_STEADY_TS_MS, true);
 			}
 		}
 
@@ -479,7 +471,7 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 /**
  *  @brief Cache Fragment Chunk
  */
-bool MediaStreamContext::CacheFragmentChunk(AampMediaType actualType, char *ptr, size_t size, std::string remoteUrl, long long dnldStartTime, InjectionBehaviour injectionBehaviour)
+bool MediaStreamContext::CacheFragmentChunk(AampMediaType actualType, char *ptr, size_t size, std::string remoteUrl, long long dnldStartTime, bool dummy)
 {
 	AAMPLOG_DEBUG("[%s] Chunk Buffer Length %zu Remote URL %s", name, size, remoteUrl.c_str());
 
@@ -500,17 +492,7 @@ bool MediaStreamContext::CacheFragmentChunk(AampMediaType actualType, char *ptr,
 		cachedFragment->fragment.AppendBytes(ptr, size);
 		cachedFragment->timeScale = fragmentDescriptor.TimeScale;
 		cachedFragment->uri = remoteUrl;
-		if (injectionMode == eINJECTION_MODE_INJECT_CHUNKS)
-		{
-			// For boundary dummy fragments and chunked mode injection
-			cachedFragment->injectionBehaviour = injectionBehaviour;
-		}
-		else
-		{
-			// This is set for non-chunk mode with curl downloads for holding injection
-			cachedFragment->injectionBehaviour = eINJECTION_BEHAVIOUR_INPROGRESS_FRAGMENT;
-		}
-		AAMPLOG_INFO("[%s][NANDU] CacheFragmentChunk: cachedFragment injection mode %d", name, cachedFragment->injectionBehaviour);
+		cachedFragment->isDummy = dummy;
 		/* The value of PTSOffsetSec in the context can get updated at the start of a period before
 		 * the last segment from the previous period has been injected, hence we copy it
 		 */

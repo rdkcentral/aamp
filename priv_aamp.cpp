@@ -13859,3 +13859,27 @@ void PrivateInstanceAAMP::GetStreamFormat(StreamOutputFormat &primaryOutputForma
 		AAMPLOG_TRACE("aamp->rate %f videoFormat %d audioFormat %d auxFormat %d subFormat %d", rate, primaryOutputFormat, audioOutputFormat, auxAudioOutputFormat, subtitleOutputFormat);
 	}
 }
+
+void PrivateInstanceAAMP::SendNewSegmentEvent( AampMediaType mediaType, double startPts, double stopPts)
+ {
+	AAMPLOG_WARN("calling sendNewSegmentEvent in pvt aamp");
+ 	StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
+ 	if(sink)
+ 	{
+
+		AAMPLOG_WARN("calling sendNewSegmentEvent inside");
+ 		sink->SendNewSegmentEvent(mediaType, startPts, stopPts);
+ 	}
+ }
+
+void PrivateInstanceAAMP::SendSegmentStop(AampMediaType mediaType, double pts)
+{
+	AAMPLOG_WARN("calling  sendSegmentStop");
+	StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
+	if(sink)
+        {
+                AAMPLOG_WARN("calling sendSegmentStop inside");
+                sink->SendSegmentStop(mediaType, pts);
+        }
+
+}

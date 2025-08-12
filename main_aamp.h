@@ -750,6 +750,10 @@ public:
  	*/
 	virtual void NotifyInjectorToPause() {};
 
+	virtual void SendNewSegmentEvent( AampMediaType mediaType, double startPts, double stopPts) {};
+
+	virtual void SendSegmentStop(AampMediaType mediaType,double pts) {};
+
 };
 
 

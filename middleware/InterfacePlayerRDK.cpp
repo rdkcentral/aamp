@@ -3053,7 +3053,7 @@ void InterfacePlayerRDK::SendNewSegmentEvent(GstMediaType mediaType, GstClockTim
 				segment.applied_rate = gstPrivateContext->rate;
 
 		}
-		MW_LOG_INFO("Sending segment event for mediaType[%d]. start %" G_GUINT64_FORMAT " stop %" G_GUINT64_FORMAT" rate %f applied_rate %f", mediaType, segment.start, segment.stop, segment.rate, segment.applied_rate);
+		MW_LOG_ERR("Sending segment event for mediaType[%d]. start %" G_GUINT64_FORMAT " stop %" G_GUINT64_FORMAT" rate %f applied_rate %f", mediaType, segment.start, segment.stop, segment.rate, segment.applied_rate);
 		GstEvent* event = gst_event_new_segment (&segment);
 		if (!gst_pad_push_event(sourceEleSrcPad, event))
 		{
@@ -3061,6 +3061,20 @@ void InterfacePlayerRDK::SendNewSegmentEvent(GstMediaType mediaType, GstClockTim
 		}
 	}
 	gst_object_unref(sourceEleSrcPad);
+}
+
+void InterfacePlayerRDK::SendSegmentStop(GstMediaType mediaType, double pts)
+{
+	MW_LOG_ERR("sendSegmentStop middleware");
+	gint64 position = (gint64)(pts);
+	GstEvent* event = gst_event_new_segment_done(GST_FORMAT_TIME, position);
+	gst_media_stream* stream = &gstPrivateContext->stream[mediaType];
+	GstPad* sourceEleSrcPad = gst_element_get_static_pad(GST_ELEMENT(stream->source), "src");
+	if (!gst_pad_push_event(sourceEleSrcPad, event))
+	{
+		MW_LOG_ERR("gst_pad_push_event segment error");
+	}
+
 }
 
 /**

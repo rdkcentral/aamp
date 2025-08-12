@@ -73,18 +73,6 @@ struct StreamResolution
 };
 
 /**
- * @brief Structure holding the information of a fragment injection behaviour
- */
-typedef enum
-{
-	eINJECTION_BEHAVIOUR_UNDEFINED,			 /**< Undefined Injection Behaviour */
-	eINJECTION_BEHAVIOUR_COMPLETED_CHUNK,	 /**< Chunk Complete Injection Behaviour */
-	eINJECTION_BEHAVIOUR_INPROGRESS_FRAGMENT,	 /**< In progress the chunk */
-	eINJECTION_BEHAVIOUR_COMPLETED_FRAGMENT, /**< Fragment Completed */
-	eINJECTION_BEHAVIOUR_FAILED_FRAGMENT,	 /**< Fragment Failed */
-} InjectionBehaviour;
-
-/**
  * @brief Structure holding the information of a stream.
  */
 struct StreamInfo
@@ -151,11 +139,10 @@ public:
 	long long discontinuityIndex;
 	double PTSOffsetSec; 			/* PTS offset to apply for this segment */
 	double absPosition;		/** Absolute position */
-	InjectionBehaviour injectionBehaviour; /**< Injection Behaviour */
 	CachedFragment() : fragment(AampGrowableBuffer("cached-fragment")), position(0.0), duration(0.0),
 					   initFragment(false), discontinuity(false), profileIndex(0), cacheFragStreamInfo(StreamInfo()),
 					   type(eMEDIATYPE_DEFAULT), downloadStartTime(0), timeScale(0), PTSOffsetSec(0), absPosition(0.0),
-					   isDummy(false), injectionBehaviour(eINJECTION_BEHAVIOUR_UNDEFINED)
+					   isDummy(false)
 	{
 	}
 
@@ -175,7 +162,6 @@ public:
 		this->PTSOffsetSec = other->PTSOffsetSec;
 		this->absPosition =  other->absPosition;
 		this->isDummy = other->isDummy;
-		this->injectionBehaviour = other->injectionBehaviour;
 	}
 	void Clear()
 	{
@@ -1022,6 +1008,7 @@ private:
 	AampTime mRestampedDuration;			/**< Restamped segment duration, used in trick modes */
 	TrickmodeState mTrickmodeState;			/**< Current trick mode state */
 	std::mutex mTrackParamsMutex;			/**< Mutex for track parameters */
+	double mLastChunkPTS;
 };
 
 /**

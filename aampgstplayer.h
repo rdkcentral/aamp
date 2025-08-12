@@ -431,6 +431,10 @@ public:
 	 */
 	int GetMonitorAVInterval() const { return mMonitorAVInterval; }
 
+	void SendNewSegmentEvent(AampMediaType mediaType, double sendingPts, double stopPts);
+
+	void SendSegmentStop(AampMediaType mediaType,double pts);
+
 private:
 	std::mutex mBufferingLock;
 	id3_callback_t m_ID3MetadataHandler; /**< Function to call to generate the JS event for in ID3 packet */
