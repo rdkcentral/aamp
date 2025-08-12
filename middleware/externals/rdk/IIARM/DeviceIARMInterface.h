@@ -24,9 +24,9 @@ class DeviceIARMInterface : public DeviceInterfaceBase {
 
     private:
 
-    DeviceIARMInterface(std::string processName);
+    DeviceIARMInterface();
 
-    static void IARMInit(const char* processName);
+    static void IARMInit();
 
 };
 

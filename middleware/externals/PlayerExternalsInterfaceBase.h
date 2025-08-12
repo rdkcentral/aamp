@@ -98,13 +98,6 @@ class PlayerExternalsInterfaceBase
         void setGstElement(GstElement *element) { m_gstElement = element;  }
 
         /**
-         * @fn IARMInit
-         * @brief Initialize IARM
-         * @param[in] processName string of the name of the process initializing IARM
-         */
-        static void IARMInit(const char* processName){}
-
-        /**
          * @fn IARMRegisterDsMgrEventHandler
          * @brief Register Display Settings Mgr event handlers
          */

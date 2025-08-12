@@ -51,7 +51,7 @@ class PlayerExternalsRdkInterface : public PlayerExternalsInterfaceBase
 
     public:
 
-        PlayerExternalsRdkInterface(std::string processName);
+        PlayerExternalsRdkInterface();
 
         /**
          * @fn IARMRegisterDsMgrEventHandler

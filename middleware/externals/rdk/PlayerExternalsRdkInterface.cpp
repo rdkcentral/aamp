@@ -47,9 +47,9 @@ PlayerExternalsRdkInterface * PlayerExternalsRdkInterface::GetPlayerExternalsRdk
     return s_pPlayerIarmRdkOP;
 }
 
-PlayerExternalsRdkInterface::PlayerExternalsRdkInterface(std::string processName)
+PlayerExternalsRdkInterface::PlayerExternalsRdkInterface()
 {
-    m_pDeviceInterfaceBase = DeviceIARMInterface::GetInstance(processName);
+    m_pDeviceInterfaceBase = DeviceIARMInterface::GetInstance();
 }
 
 void PlayerExternalsRdkInterface::IARMRegisterDsMgrEventHandler()

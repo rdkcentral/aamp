@@ -108,13 +108,6 @@ bool PlayerExternalsInterface::IsActiveStreamingInterfaceWifi(void)
 }
 
 /**
- * @brief initilaize IARM
- */
-void PlayerExternalsInterface::IARMInit(const char* processName)
-{
-}
-
-/**
  * @brief should wifi curl header be configured
  */
 bool PlayerExternalsInterface::IsConfigWifiCurlHeader()

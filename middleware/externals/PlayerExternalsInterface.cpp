@@ -155,22 +155,6 @@ bool PlayerExternalsInterface::IsActiveStreamingInterfaceWifi(void)
 }
 
 /**
- * @brief Initializes IARM
- */
-void PlayerExternalsInterface::IARMInit(const char* processName){
-
-#ifdef IARM_MGR
-    if(!IsContainerEnvironment())
-    {
-        PlayerExternalsRdkInterface::IARMInit(processName);
-    }
-#else
-    FakePlayerIarmInterface::IARMInit(processName);
-#endif
-
-}
-
-/**
  * @brief checks if Wifi Curl Header ought to be configured
  */
 bool PlayerExternalsInterface::IsConfigWifiCurlHeader()
