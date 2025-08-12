@@ -14,7 +14,7 @@
 #include "PlayerExternalsRdkInterface.h"
 
 
-std::shared_ptr<DeviceFireboltInterface> s_pDDeviceFireboltInterface = nullptr;
+std::shared_ptr<DeviceFireboltInterface> s_pDeviceFireboltInterface = nullptr;
 
 std::mutex mConnectionMutex;
 std::condition_variable mConnectionCV;
