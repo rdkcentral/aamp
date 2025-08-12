@@ -269,9 +269,6 @@ public:
 	 * @fn Registration of callbacks to application from gst-plugins
 	 * @param[in] StreamType
 	 * @return void */
-        void TriggerProfileBeginCb(int streamType);
-        void TriggerProfileEndCb(int streamType);
-        void TriggerProfileErrorCb(int streamType, int result);
         void TriggerLAProfileBeginCb(int streamType);
         void TriggerLAProfileEndCb(int streamType);
         void TriggerLAProfileErrorCb(int err, int responseCode);

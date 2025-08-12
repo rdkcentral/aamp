@@ -413,28 +413,6 @@ public:
 	{
 		profileDecryptProfileCb = callback;
 	};
-
-	using ProfileBeginCallback = std::function<void(int)>;
-	ProfileBeginCallback profileBeginCb;
-	void RegisterProfBegin(const ProfileBeginCallback callback)
-	{
-		profileBeginCb = callback;
-	};
-
-	using ProfileEndCallback = std::function<void(int streamType)>;
-	ProfileEndCallback profileEndCb;
-	void RegisterProfEnd(const ProfileEndCallback callback)
-	{
-		profileEndCb = callback;
-	};
-
-	using ProfileErrorCallback = std::function<void(int streamType, int result)>;
-	ProfileErrorCallback profileErrorCb;
-	void RegisterProfError(const ProfileErrorCallback callback)
-	{
-		profileErrorCb = callback;
-	};
-
 	using LAProfileBeginCallback = std::function<void(int)>;
 	LAProfileBeginCallback laprofileBeginCb;
 	void RegisterLAProfBegin(const LAProfileBeginCallback callback)

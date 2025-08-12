@@ -67,20 +67,6 @@ static void  registerCb(AampDRMLicenseManager* _this, DrmSessionManager* instanc
      instance->RegisterDecryptProfile([_this](int streamType, int action, int result /* = 0 */){
          _this->TriggerDecryptProfile(streamType, action, result);
      });
-    /**  Register the profiler update callback for TriggerProfileBeginCb */
-     instance->RegisterProfBegin([_this](int streamType){
-         _this->TriggerProfileBeginCb(streamType);
-     });
-
-     /** Register the profiler end callback for TriggerProfileEndCb */
-     instance->RegisterProfEnd([_this](int streamType){
-		     _this->TriggerProfileEndCb(streamType);
-		     });
-
-     /** Register the profiler Error callback for TriggerProfileErrorCb */
-     instance->RegisterProfError([_this](int streamType,int result){
-                  _this->TriggerProfileErrorCb(streamType,result);
-                        });
 
      /** Register the profiler update callback for TriggerLAProfileBeginCb */
      instance->RegisterLAProfBegin([_this](int streamType){
@@ -91,7 +77,6 @@ static void  registerCb(AampDRMLicenseManager* _this, DrmSessionManager* instanc
      instance->RegisterLAProfEnd([_this](int streamType){
 		_this->TriggerLAProfileEndCb(streamType);
      });
-     
      /** Register the profiler error callback for TriggerLAProfileErrorCb */
       instance->RegisterLAProfError([_this](int err, int responseCode){
 	     _this->TriggerLAProfileErrorCb(err, responseCode);
@@ -399,45 +384,32 @@ KeyState AampDRMLicenseManager::acquireLicense( int& responseCode, std::shared_p
 					{
 						AAMPLOG_WARN("Ignore  AuthToken Provided for non-ContentMetadata DRM license request");
 					}
-	AAMPLOG_ERR("entering LicenseResponse1");
 					
 				      eventHandle->setSecclientError(false);
-	AAMPLOG_ERR("entering LicenseResponse2");
 			              licenseResponse.reset(getLicense(licenseRequest, &httpResponseCode, streamType, aampInstance, eventHandle, &mLicenseDownloader[sessionSlot],licenseServerProxy));
-	AAMPLOG_ERR("entering LicenseResponse3");
 				}
-	AAMPLOG_ERR("entering LicenseResponse4");
-
 			}
-	AAMPLOG_ERR("entering LicenseResponse5");
 		}
-	AAMPLOG_ERR("entering LicenseResponse6");
 	}
 
 	if (code == KEY_PENDING)
 	{
-	AAMPLOG_ERR("entering LicenseResponse7");
 		code = handleLicenseResponse(responseCode, drmHelper, sessionSlot, cdmError, httpResponseCode, httpExtendedStatusCode, licenseResponse, eventHandle,  isLicenseRenewal);
-	AAMPLOG_ERR("entering LicenseResponse20");
 	}
 	return code;
 }
 KeyState AampDRMLicenseManager::handleLicenseResponse(int &responseCode,std::shared_ptr<DrmHelper> drmHelper, int sessionSlot, int &cdmError, int32_t httpResponseCode, int32_t httpExtendedStatusCode, shared_ptr<DrmData> licenseResponse, DrmMetaDataEventPtr eventHandle,  bool isLicenseRenewal)
 {
-	AAMPLOG_ERR("entering HandleLicenseResponse");
 	if (!drmHelper->isExternalLicense())
 	{
 		if ((licenseResponse != NULL) && (licenseResponse->getDataLength() != 0))
 		{
-	AAMPLOG_ERR("entering HandleLicenseResponse1");
 			if(!isLicenseRenewal)
 			{
-	AAMPLOG_ERR("entering HandleLicenseResponse2");
 				aampInstance->profiler.ProfileEnd(PROFILE_BUCKET_LA_NETWORK);
 			}
 			if (!isSecFeatureEnabled() && (!drmHelper->getDrmMetaData().empty() || aampInstance->mConfig->IsConfigSet(eAAMPConfig_Base64LicenseWrapping)))
 			{
-	AAMPLOG_ERR("entering HandleLicenseResponse3");
 				if (!drmHelper->getDrmMetaData().empty() || aampInstance->mConfig->IsConfigSet(eAAMPConfig_Base64LicenseWrapping))
 				{
 					/*
@@ -1413,42 +1385,6 @@ void AampDRMLicenseManager::TriggerDecryptProfile(int streamType, int action, in
             aampInstance->profiler.ProfileError(bucket, result);
             break;
     }
-}
-/*
- * @brief callback to do profiling from gst-plugins to application 
- */
-void AampDRMLicenseManager::TriggerProfileBeginCb(int streamType)
-{
-	ProfilerBucketType bucket = GetDecryptProfileBucket(streamType);
-	if (bucket != PROFILE_BUCKET_INVALID)
-	{
-		aampInstance->profiler.ProfileBegin(bucket);
-	}
-
-}
-
-void AampDRMLicenseManager::TriggerProfileEndCb(int streamType)
-{
-	if(AampMediaType ::eMEDIATYPE_AUDIO == streamType)
-	{
-		aampInstance->profiler.ProfileEnd(PROFILE_BUCKET_DECRYPT_AUDIO);
-	}
-	else if(AampMediaType ::eMEDIATYPE_VIDEO == streamType)
-	{
-		aampInstance->profiler.ProfileEnd(PROFILE_BUCKET_DECRYPT_VIDEO);
-	}
-}
-
-void AampDRMLicenseManager::TriggerProfileErrorCb(int streamType, int result)
-{
-	if(AampMediaType ::eMEDIATYPE_AUDIO == streamType)
-	{
-		aampInstance->profiler.ProfileError(PROFILE_BUCKET_DECRYPT_AUDIO,(int)result);
-	}
-	else if(AampMediaType ::eMEDIATYPE_VIDEO == streamType)
-	{
-		aampInstance->profiler.ProfileError(PROFILE_BUCKET_DECRYPT_VIDEO,(int)result);
-	}
 }
 void AampDRMLicenseManager::TriggerLAProfileBeginCb(int streamType)
 {
