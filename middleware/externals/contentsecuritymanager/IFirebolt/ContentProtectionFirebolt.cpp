@@ -71,66 +71,7 @@ void ContentProtectionFirebolt::SubscribeEvents()
 		MW_LOG_ERR("Failed to subscribe to watermark events: %d", static_cast<int>(result.error()));
 	}
 
-	MW_LOG_INFO("Subscribing to Firebolt Network change event ");
-
-	result =  Firebolt::IFireboltAampAccessor::Instance().DeviceInterface().subscribeOnNetworkChanged(
-					[](const auto& network) {
-						MW_LOG_ERR("network changed");
-					    MW_LOG_ERR("CAHNGED %d %d", static_cast<int>(network.state), static_cast<int>(network.type));
-						std::cout << "[Subscription] Network changed" << std::endl; 
-					});
 	
-	if(result)
-	{
-		mSubscriptionId = result.value();
-	}
-	else
-	{
-		MW_LOG_ERR("Failed to subscribe to network change events: %d", static_cast<int>(result.error()));
-	}        
-	MW_LOG_INFO("Subscribing to Firebolt hdcp change event ");
-
-	result =  Firebolt::IFireboltAampAccessor::Instance().DeviceInterface().subscribeOnHdcpChanged(
-					[](const auto& network) {
-						MW_LOG_ERR("hdcp changed");
-					});
-
-	if(result)
-	{
-		mSubscriptionId = result.value();
-	}
-
-	else
-	{
-		MW_LOG_ERR("Failed to subscribe to hdcp change events: %d", static_cast<int>(result.error()));
-	}
-
-	MW_LOG_WARN("Subscribing to Firebolt resolution change event ");
-
-	result = Firebolt::IFireboltAampAccessor::Instance().DeviceInterface().subscribeOnVideoResolutionChanged(
-					[](const std::string& videoResolution) 
-					{
-						MW_LOG_WARN("[Event] Video resolution changed: %s" , videoResolution.c_str());
-						if (auto videoResolution = Firebolt::IFireboltAampAccessor::Instance().DeviceInterface().videoResolution())
-						{
-							// MW_LOG_WARN("Device video resolution is: " << videoResolution.value()[0],videoResolution.value()[1]);
-						}
-
-						//Firebolt::Device::Resolution printVideoResolution = *videoResolution;
-
-						// MW_LOG_ERR("resolution changed");
-
-						//MW_LOG_INFO("Device video resolution is: %d, %d" , printVideoResolution.value()[0] , printVideoResolution.value()[1]);
-
-					});
-	if(result)
-	{
-		MW_LOG_ERR("resolution changed");
-	}
-	else
-	{
-		MW_LOG_ERR("Failed to get video resolution %d ",  static_cast<int>(result.error()));
-	}
 }
 
 void ContentProtectionFirebolt::UnSubscribeEvents()
