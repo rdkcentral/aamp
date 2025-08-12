@@ -3060,7 +3060,8 @@ void InterfacePlayerRDK::SendNewSegmentEvent(GstMediaType mediaType, GstClockTim
 		if (((GstMediaType)mediaType == eGST_MEDIATYPE_VIDEO) &&
 			(!socInterface->IsVideoMaster(gstPrivateContext->video_sink, gstPrivateContext->usingRialtoSink)))
 		{
-			//  notify westerossink of rate to run in Vmaster mode
+			// set applied_rate to trickplay rate if video sink doesn't use vmaster
+			// so that it can correctly handle there being no audio
 			segment.applied_rate = gstPrivateContext->rate;
 		}
 
@@ -3072,7 +3073,7 @@ void InterfacePlayerRDK::SendNewSegmentEvent(GstMediaType mediaType, GstClockTim
 			MW_LOG_INFO("Pushing sample with segment for mediaType[%d]. start %" G_GUINT64_FORMAT " stop %" G_GUINT64_FORMAT" rate %f applied_rate %f", mediaType, segment.start, segment.stop, segment.rate, segment.applied_rate);
 			if (GST_FLOW_OK != gst_app_src_push_sample(GST_APP_SRC(stream->source), sample))
 			{
-				MW_LOG_ERR("Failed to push sample for mediaType[%d]", mediaType);
+				MW_LOG_ERR("Failed to push sample with segment for mediaType[%d]", mediaType);
 			}
 			gst_sample_unref(sample);
 			gst_caps_unref(currentCaps);
@@ -3084,7 +3085,7 @@ void InterfacePlayerRDK::SendNewSegmentEvent(GstMediaType mediaType, GstClockTim
 			GstEvent* event = gst_event_new_segment (&segment);
 			if (!gst_pad_push_event(sourceEleSrcPad, event))
 			{
-				MW_LOG_ERR("gst_pad_push_event segment error");
+				MW_LOG_ERR("Failed to push segment event for mediaType[%d]", mediaType);
 			}
 			gst_object_unref(sourceEleSrcPad);			
 
