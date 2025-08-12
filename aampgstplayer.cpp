@@ -1342,3 +1342,9 @@ void AAMPGstPlayer::SendSegmentStop(AampMediaType mediaType,double pts)
 	playerInstance->SendSegmentStop(type,sendingPts);
 }
 
+void AAMPGstPlayer::SendSegmentSeek(double pts, float rate)
+{
+	AAMPLOG_WARN("sendSegmentSeek inside");
+	playerInstance->SendSegmentSeek(pts, rate);
+}
+

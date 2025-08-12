@@ -720,6 +720,8 @@ public:
 	void SendNewSegmentEvent(GstMediaType mediaType, GstClockTime startPts, GstClockTime stopPts);
 
 	void SendSegmentStop(GstMediaType mediaType, double pts);
+
+	void SendSegmentSeek(double pts, float rate);
 	/**
 	 * @brief Handles the video buffer sent event.
 	 * @return True if the video buffer was handled successfully, false otherwise.

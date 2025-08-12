@@ -970,10 +970,16 @@ bool MediaTrack::ProcessFragmentChunk()
 		AAMPLOG_WARN("[%s] clean up curl chunk buffer, since  prevDownloadStartTime[%lld] != currentdownloadtime[%lld]", name,prevDownloadStartTime,cachedFragment->downloadStartTime);
 		unparsedBufferChunk.Free();
 	}
-	if(cachedFragment->isDummy == true )
+	if(cachedFragment->boundarySegment == true )
 	{
-		aamp->SendSegmentStop((AampMediaType)type,mLastChunkPTS);
-		aamp->SendNewSegmentEvent((AampMediaType)type,mLastChunkPTS,0);
+		AAMPLOG_WARN("boundarySegment is injected");
+	//	aamp->SendSegmentStop((AampMediaType)type,mLastChunkPTS);
+		aamp->SendNewSegmentEvent((AampMediaType)type,0,mLastChunkPTS);
+		aamp->EndOfStreamReached((AampMediaType)type);
+		boundarySegmentReached = true;
+		std::unique_lock<std::mutex> lock(segmentEndMtx);
+		segmentEndNotified.wait(lock, [this] { return segmentEnd;});
+
 		return true;
 	}
 	size_t requiredLength = cachedFragment->fragment.GetLen() + unparsedBufferChunk.GetLen();
@@ -2002,7 +2008,7 @@ MediaTrack::MediaTrack(TrackType type, PrivateInstanceAAMP* aamp, const char* na
 		discontinuityProcessed(false), ptsError(false), mCachedFragment(NULL), name(name), type(type), aamp(aamp),
 		mutex(), fragmentFetched(), fragmentInjected(), abortInject(false),
 		mSubtitleParser(), refreshSubtitles(false), refreshAudio(false), maxCachedFragmentsPerTrack(0),
-		mCachedFragmentChunks{}, unparsedBufferChunk{"unparsedBufferChunk"}, parsedBufferChunk{"parsedBufferChunk"}, fragmentChunkFetched(), fragmentChunkInjected(), maxCachedFragmentChunksPerTrack(0),
+		mCachedFragmentChunks{}, unparsedBufferChunk{"unparsedBufferChunk"}, parsedBufferChunk{"parsedBufferChunk"}, fragmentChunkFetched(), segmentEndMtx(), segmentEndNotified(), segmentEnd(false), fragmentChunkInjected(), maxCachedFragmentChunksPerTrack(0),
 		noMDATCount(0), loadNewAudio(false), audioFragmentCached(), audioMutex(), loadNewSubtitle(false), subtitleFragmentCached(), subtitleMutex(),
 		abortPlaylistDownloader(true), playlistDownloaderThreadStarted(false), plDownloadWait()
 		,dwnldMutex(), playlistDownloaderThread(NULL), fragmentCollectorWaitingForPlaylistUpdate(false)

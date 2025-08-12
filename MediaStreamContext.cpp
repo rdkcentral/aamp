@@ -144,7 +144,7 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 				cachedFragment->fragment = *mTempFragment;
 				mTempFragment->Free();
 			}
-			if (aamp->GetLLDashChunkMode() && !initSegment && !ret)
+			if (aamp->GetLLDashChunkMode() && (!initSegment) && (ret == false))
 			{
 				// If LL-DASH chunk mode is enabled, we need to set the injection mode based on the buffered duration
 				CacheFragmentChunk(actualType, "0x0a", 2, effectiveUrl, NOW_STEADY_TS_MS, true);
@@ -492,7 +492,7 @@ bool MediaStreamContext::CacheFragmentChunk(AampMediaType actualType, char *ptr,
 		cachedFragment->fragment.AppendBytes(ptr, size);
 		cachedFragment->timeScale = fragmentDescriptor.TimeScale;
 		cachedFragment->uri = remoteUrl;
-		cachedFragment->isDummy = dummy;
+		cachedFragment->boundarySegment = dummy;
 		/* The value of PTSOffsetSec in the context can get updated at the start of a period before
 		 * the last segment from the previous period has been injected, hence we copy it
 		 */

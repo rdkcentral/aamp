@@ -435,6 +435,8 @@ public:
 
 	void SendSegmentStop(AampMediaType mediaType,double pts);
 
+	void SendSegmentSeek(double pts, float rate);
+
 private:
 	std::mutex mBufferingLock;
 	id3_callback_t m_ID3MetadataHandler; /**< Function to call to generate the JS event for in ID3 packet */

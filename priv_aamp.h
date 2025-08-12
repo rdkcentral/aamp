@@ -805,6 +805,8 @@ public:
 
 	void SendSegmentStop(AampMediaType mediaType,double pts);
 
+	void SendSegmentSeek(double mLastChunkPTS);
+
 	bool mDiscontinuityFound;
 	int mTelemetryInterval;
 	std::vector< std::pair<long long,long> > mAbrBitrateData;

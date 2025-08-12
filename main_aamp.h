@@ -754,6 +754,8 @@ public:
 
 	virtual void SendSegmentStop(AampMediaType mediaType,double pts) {};
 
+	virtual void SendSegmentSeek(double pts, float rate) {};
+
 };
 
 

@@ -3077,6 +3077,17 @@ void InterfacePlayerRDK::SendSegmentStop(GstMediaType mediaType, double pts)
 
 }
 
+void InterfacePlayerRDK::SendSegmentSeek(double pts, float rate)
+{
+	MW_LOG_ERR("middleware  sendSegmentSeek inside");
+
+	 if (!gst_element_seek(gstPrivateContext->pipeline, rate, GST_FORMAT_TIME, GST_SEEK_FLAG_SEGMENT, GST_SEEK_TYPE_SET,
+                                                  pts * GST_SECOND, GST_SEEK_TYPE_NONE, GST_CLOCK_TIME_NONE))
+        {
+                MW_LOG_ERR("Seek failed");
+        }
+}
+
 /**
  *  @brief Generate a protection event
  */

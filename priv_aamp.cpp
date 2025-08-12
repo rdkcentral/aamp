@@ -3206,6 +3206,7 @@ void PrivateInstanceAAMP::NotifyEOSReached()
 {
 	bool isDiscontinuity = IsDiscontinuityProcessPending();
 	bool isLive = IsLive();
+	MediaTrack *mediaTrack = NULL;
 
 	AAMPLOG_MIL("Enter . processingDiscontinuity %d isLive %d", isDiscontinuity, isLive);
 	mDiscontinuityFound = isDiscontinuity;
@@ -3222,6 +3223,7 @@ void PrivateInstanceAAMP::NotifyEOSReached()
 		*/
 		// Used TryStreamLock() to avoid crash when mpStreamAbstractionAAMP gets deleted by SetRate b/w checking for
 		// mpStreamAbstractionAAMP not null & IsEOSReached()
+		
 		if( TryStreamLock() )
 		{
 			int ret = false;
@@ -3234,6 +3236,25 @@ void PrivateInstanceAAMP::NotifyEOSReached()
 			{
 				AAMPLOG_ERR("Bogus EOS event received from GStreamer, discarding it!");
 				ret = true;
+			}
+			else
+			{
+				if(mpStreamAbstractionAAMP)
+				{
+					mediaTrack = mpStreamAbstractionAAMP->GetMediaTrack(eTRACK_VIDEO);
+					if(mediaTrack)
+					{
+						if(mediaTrack->boundarySegmentReached == true)
+						{
+							AAMPLOG_WARN("Setter thread reached");
+                                                        SendSegmentSeek(mediaTrack->mLastChunkPTS);
+							std::lock_guard<std::mutex> lock(mediaTrack->segmentEndMtx);
+							mediaTrack->segmentEnd = true;
+							mediaTrack->segmentEndNotified.notify_one();
+							mediaTrack->boundarySegmentReached == false;
+						}
+					}
+				}
 			}
 			ReleaseStreamLock();
 			if (ret)
@@ -13879,7 +13900,18 @@ void PrivateInstanceAAMP::SendSegmentStop(AampMediaType mediaType, double pts)
 	if(sink)
         {
                 AAMPLOG_WARN("calling sendSegmentStop inside");
-                sink->SendSegmentStop(mediaType, pts);
+            //    sink->SendSegmentStop(mediaType, pts);
+        }
+
+}
+
+void PrivateInstanceAAMP::SendSegmentSeek(double mLastChunkPTS)
+{
+	StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
+	if(sink)
+        {
+                AAMPLOG_WARN("calling sendSegmentSeek inside");
+                sink->SendSegmentSeek(mLastChunkPTS, rate);
         }
 
 }

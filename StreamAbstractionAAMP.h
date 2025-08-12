@@ -139,10 +139,11 @@ public:
 	long long discontinuityIndex;
 	double PTSOffsetSec; 			/* PTS offset to apply for this segment */
 	double absPosition;		/** Absolute position */
+	bool boundarySegment;
 	CachedFragment() : fragment(AampGrowableBuffer("cached-fragment")), position(0.0), duration(0.0),
 					   initFragment(false), discontinuity(false), profileIndex(0), cacheFragStreamInfo(StreamInfo()),
 					   type(eMEDIATYPE_DEFAULT), downloadStartTime(0), timeScale(0), PTSOffsetSec(0), absPosition(0.0),
-					   isDummy(false)
+					   isDummy(false), boundarySegment(false)
 	{
 	}
 
@@ -927,12 +928,17 @@ public:
 	int maxCachedFragmentsPerTrack;
 	int maxCachedFragmentChunksPerTrack;
 	std::condition_variable fragmentChunkFetched;/**< Signaled after a fragment Chunk is fetched*/
+	std::mutex segmentEndMtx;
+	std::condition_variable segmentEndNotified;
+	bool segmentEnd;//shared boolean flag
+	bool boundarySegmentReached;
 	int noMDATCount;                    /**< MDAT Chunk Not Found count continuously while chunk buffer processing*/
 	double m_totalDurationForPtsRestamping;
 	std::shared_ptr<MediaProcessor> playContext;		/**< state for s/w demuxer / pts/pcr restamper module */
 	bool seamlessAudioSwitchInProgress; /**< Flag to indicate seamless audio track switch in progress */
 	bool seamlessSubtitleSwitchInProgress;
 	bool mCheckForRampdown;		        /**< flag to indicate if the track is undergoing rampdown or not */
+	double mLastChunkPTS;
 
 protected:
 	PrivateInstanceAAMP* aamp;          /**< Pointer to the PrivateInstanceAAMP*/
@@ -1008,7 +1014,7 @@ private:
 	AampTime mRestampedDuration;			/**< Restamped segment duration, used in trick modes */
 	TrickmodeState mTrickmodeState;			/**< Current trick mode state */
 	std::mutex mTrackParamsMutex;			/**< Mutex for track parameters */
-	double mLastChunkPTS;
+//	double mLastChunkPTS;
 };
 
 /**
