@@ -692,10 +692,6 @@ static GstFlowReturn gst_cdmidecryptor_transform_ip(
 		{
 		    cdmidecryptor->sessionManager->profileDecryptProfileCb(((int)cdmidecryptor->mediaType), ePROF_BEGIN, 0);
 		}
-		else
-		{
-			printf("bad fucntion");
-		}
 		cdmidecryptor->firstsegprocessed = true;
 	}
 
@@ -710,19 +706,12 @@ static GstFlowReturn gst_cdmidecryptor_transform_ip(
 			{
 				cdmidecryptor->sessionManager->profileDecryptProfileCb(((int)cdmidecryptor->mediaType), ePROF_END, 0);
 			}
-			else{
-				printf("bad function ");
-			}
 		}
 		else
 		{
 			if(cdmidecryptor->sessionManager->profileDecryptProfileCb)
 			{
 				cdmidecryptor->sessionManager->profileDecryptProfileCb(((int)cdmidecryptor->mediaType), ePROF_ERR, result);
-			}
-			else
-			{
-				printf("bad fucntion");
 			}
 		}
 		cdmidecryptor->firstsegprocessed = true;
@@ -901,9 +890,9 @@ static gboolean gst_cdmidecryptor_sink_event(GstBaseTransform * trans,
 		}
 		if(err != -1)
                 {
-			//TODO RDK-56050 setting failures and not triggering event
+			//RDK-56050 setting failures and not triggering event
                        cdmidecryptor->sessionManager->setfailureCb(err);
-                }
+                
 		if (NULL == cdmidecryptor->drmSession)
 		{
 /* For  Avoided setting 'streamReceived' as FALSE if createDrmSession() failed after a successful case.
