@@ -181,9 +181,15 @@ void PlayerExternalsRdkInterface::IARMRemoveDsMgrEventHandler()
     m_pDeviceInterfaceBase->RemoveDsMgrEventHandler();
 }
 
+std::shared_ptr<DeviceInterfaceBase> PlayerExternalsRdkInterface::GetDeviceInterface()
+{
+    return m_pDeviceInterfaceBase;
+}
+
 bool PlayerExternalsRdkInterface::IsActiveStreamingInterfaceWifi(void)
 {
-    return m_pDeviceInterfaceBase->IsActiveStreamingInterfaceWifi();
+    PlayerExternalsRdkInterface* instance = PlayerExternalsRdkInterface::GetPlayerExternalsRdkInterfaceInstance();
+    return instance->GetDeviceInterface()->IsActiveStreamingInterfaceWifi();
 }
 
 bool PlayerExternalsRdkInterface::GetActiveInterface()

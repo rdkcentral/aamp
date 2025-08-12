@@ -91,7 +91,7 @@ class PlayerExternalsRdkInterface : public PlayerExternalsInterfaceBase
          * @brief Checks if current active interface is wifi and also sets up NET_SRV_MGR event to handles active interface change
          * @return True if current active is wifi. False if not.
          */
-        bool IsActiveStreamingInterfaceWifi();
+        static bool IsActiveStreamingInterfaceWifi();
 
         // Singleton for object creation
 	
@@ -125,6 +125,8 @@ class PlayerExternalsRdkInterface : public PlayerExternalsInterfaceBase
         bool GetActiveInterface();
 
         void SetActiveInterface(bool isWifi);
+
+        std::shared_ptr<DeviceInterfaceBase> GetDeviceInterface();
 
         ~PlayerExternalsRdkInterface(){}
 };
