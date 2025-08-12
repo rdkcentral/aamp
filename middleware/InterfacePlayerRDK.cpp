@@ -3032,7 +3032,7 @@ void InterfacePlayerRDK::ResumeInjector()
  */
 void InterfacePlayerRDK::SendNewSegmentEvent(GstMediaType mediaType, GstClockTime startPts ,GstClockTime stopPts)
 {
-	MW_LOG_ERR("RESHMA-->> SENDNEWSEGMENT MIDDLEWARE");
+	MW_LOG_ERR("sendNewSegmentEvent middleware");
 	gst_media_stream* stream = &gstPrivateContext->stream[mediaType];
 	GstPad* sourceEleSrcPad = gst_element_get_static_pad(GST_ELEMENT(stream->source), "src");
 	if (stream->format == GST_FORMAT_ISO_BMFF)
@@ -3052,7 +3052,7 @@ void InterfacePlayerRDK::SendNewSegmentEvent(GstMediaType mediaType, GstClockTim
 				segment.applied_rate = gstPrivateContext->rate;
 
 		}
-		MW_LOG_ERR("RESHMA-->> Sending segment event for mediaType[%d]. start %" G_GUINT64_FORMAT " stop %" G_GUINT64_FORMAT" rate %f applied_rate %f", mediaType, segment.start, segment.stop, segment.rate, segment.applied_rate);
+		MW_LOG_ERR("sending segment event for mediaType[%d]. start %" G_GUINT64_FORMAT " stop %" G_GUINT64_FORMAT" rate %f applied_rate %f", mediaType, segment.start, segment.stop, segment.rate, segment.applied_rate);
 		GstEvent* event = gst_event_new_segment (&segment);
 		if (!gst_pad_push_event(sourceEleSrcPad, event))
 		{
@@ -3062,6 +3062,19 @@ void InterfacePlayerRDK::SendNewSegmentEvent(GstMediaType mediaType, GstClockTim
 	gst_object_unref(sourceEleSrcPad);
 }
 
+void InterfacePlayerRDK::SendSegmentStop(GstMediaType mediaType, double pts)
+{
+	MW_LOG_ERR("sendSegmentStop middleware");
+	gint64 position = (gint64)(pts);
+	GstEvent* event = gst_event_new_segment_done(GST_FORMAT_TIME, position);
+	gst_media_stream* stream = &gstPrivateContext->stream[mediaType];
+	GstPad* sourceEleSrcPad = gst_element_get_static_pad(GST_ELEMENT(stream->source), "src");
+	if (!gst_pad_push_event(sourceEleSrcPad, event))
+	{
+		MW_LOG_ERR("gst_pad_push_event segment error");
+	}
+
+}
 /**
  *  @brief Generate a protection event
  */

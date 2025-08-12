@@ -13804,13 +13804,25 @@ double PrivateInstanceAAMP::GetFormatPositionOffsetInMSecs()
  */
 void PrivateInstanceAAMP::SendNewSegmentEvent( AampMediaType mediaType, double startPts, double stopPts)
 {
-	AAMPLOG_WARN("RESHMA-->> CALLING GSTREAMER SENDNEWSEGMENTEVENT");
+	AAMPLOG_WARN("calling sendNewSegmentEvent in pvt aamp");
 	StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
 	if(sink)
 	{
-		AAMPLOG_WARN("RESHMA-->> CALLING GSTREAMER SENDNEWSEGMENTEVENT INSIDE");
+		AAMPLOG_WARN("calling sendNewSegmentEvent inside");
 		sink->SendNewSegmentEvent(mediaType, startPts, stopPts);
 	}
+}
+
+void PrivateInstanceAAMP::SendSegmentStop(AampMediaType mediaType, double pts)
+{
+	AAMPLOG_WARN("calling  sendSegmentStop");
+	StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
+	if(sink)
+        {
+                AAMPLOG_WARN("calling sendSegmentStop inside");
+                sink->SendSegmentStop(mediaType, pts);
+        }
+
 }
 
 /**

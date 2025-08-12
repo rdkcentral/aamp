@@ -955,7 +955,7 @@ bool MediaTrack::ProcessFragmentChunk()
 		}
 		if (type != eTRACK_SUBTITLE || (aamp->IsGstreamerSubsEnabled()))
 		{
-			AAMPLOG_INFO("Injecting init chunk for %s",name);
+			AAMPLOG_INFO("Injecting init chunk for %s pts %1.5f",name, cachedFragment->PTSOffsetSec);
 			InjectFragmentChunkInternal((AampMediaType)type, &cachedFragment->fragment, cachedFragment->position, cachedFragment->position, cachedFragment->duration, cachedFragment->PTSOffsetSec, cachedFragment->initFragment, cachedFragment->discontinuity);
 			if (eTRACK_VIDEO == type && pContext && pContext->GetProfileCount())
 			{
@@ -1072,6 +1072,7 @@ bool MediaTrack::ProcessFragmentChunk()
 				(void)mIsoBmffHelper->RestampPts(parsedBufferChunk, ptsOffset, cachedFragment->uri,
 												 name, cachedFragment->timeScale);
 				fpts += cachedFragment->PTSOffsetSec;
+				AAMPLOG_WARN("PTSOffsetSec %1.5f",fpts);
 			}
 		}
 
@@ -1081,7 +1082,8 @@ bool MediaTrack::ProcessFragmentChunk()
 		}
 		if((mLastChunkPTS > (fpts + FLOATING_POINT_EPSILON) ) &&  (type == eTRACK_VIDEO) && (aamp->rate == AAMP_NORMAL_PLAY_RATE) && (!cachedFragment->initFragment) && (shouldSendSegmentEvent == true))
 		{
-			AAMPLOG_WARN("RESHMA --> Saved PTS %.15f is greater than current PTS %.15f for %s", mLastChunkPTS, fpts, name);
+			AAMPLOG_WARN("Saved PTS %.15f is greater than current PTS %.15f for %s", mLastChunkPTS, fpts, name);
+			aamp->SendSegmentStop((AampMediaType)type,mLastChunkPTS);
 			aamp->SendNewSegmentEvent((AampMediaType)type, mLastChunkPTS, 0);
 			shouldSendSegmentEvent = false;
 		}
