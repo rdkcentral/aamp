@@ -26,6 +26,7 @@
 #include "DeviceInterfaceBase.h"
 
 #include "DeviceIARMInterface.h"
+#include "DeviceFireboltInterface.h"
 
 #define DISPLAY_WIDTH_UNKNOWN       -1  /**< Parsing failed for getResolution().getName(); */
 #define DISPLAY_HEIGHT_UNKNOWN      -1  /**< Parsing failed for getResolution().getName(); */
@@ -49,7 +50,11 @@ PlayerExternalsRdkInterface * PlayerExternalsRdkInterface::GetPlayerExternalsRdk
 
 PlayerExternalsRdkInterface::PlayerExternalsRdkInterface()
 {
+#ifdef USE_FIREBOLT
+    m_pDeviceInterfaceBase = DeviceFireboltInterface::GetInstance();
+#else
     m_pDeviceInterfaceBase = DeviceIARMInterface::GetInstance();
+#endif
 }
 
 void PlayerExternalsRdkInterface::IARMRegisterDsMgrEventHandler()
