@@ -10,25 +10,25 @@ class DeviceIARMInterface : public DeviceInterfaceBase {
     
     public:
 
-    DeviceIARMInterface(const DeviceIARMInterface&) = delete;
-    
-    DeviceIARMInterface& operator=(const DeviceIARMInterface&) = delete;
+        DeviceIARMInterface(const DeviceIARMInterface&) = delete;
+        
+        DeviceIARMInterface& operator=(const DeviceIARMInterface&) = delete;
 
-    void RegisterDsMgrEventHandler() override;
+        void RegisterDsMgrEventHandler() override;
 
-    void RemoveDsMgrEventHandler() override;
+        void RemoveDsMgrEventHandler() override;
 
-    bool IsActiveStreamingInterfaceWifi() override;
+        bool IsActiveStreamingInterfaceWifi() override;
 
-    char *GetTR181Config(const char * paramName, size_t & iConfigLen) override;
+        char *GetTR181Config(const char * paramName, size_t & iConfigLen) override;
 
-    static std::shared_ptr<DeviceIARMInterface> GetInstance();
+        static std::shared_ptr<DeviceIARMInterface> GetInstance();
 
-    protected:
+    private:
 
-    DeviceIARMInterface();
+        DeviceIARMInterface();
 
-    static void IARMInit();
+        static void IARMInit();
 
 };
 

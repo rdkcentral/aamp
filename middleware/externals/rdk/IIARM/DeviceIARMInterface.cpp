@@ -44,7 +44,7 @@ static void ResolutionHandler(const char *owner, IARM_EventId_t eventId, void *d
 static void getActiveInterfaceEventHandler (const char *owner, IARM_EventId_t eventId, void *data, size_t len);
 
 
-std::shared_ptr<DeviceIARMInterface> GetInstance()
+std::shared_ptr<DeviceIARMInterface> DeviceIARMInterface::GetInstance()
 {
     if(nullptr == s_pDeviceIARMInterface)
     {
