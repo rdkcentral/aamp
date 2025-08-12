@@ -16,8 +16,8 @@
 
 std::shared_ptr<DeviceFireboltInterface> s_pDeviceFireboltInterface = nullptr;
 
-std::mutex mConnectionMutex;
-std::condition_variable mConnectionCV;
+std::mutex mFireboltConnectionMutex;
+std::condition_variable mFireboltConnectionCV;
 
 
 std::shared_ptr<DeviceFireboltInterface> DeviceFireboltInterface::GetInstance()
@@ -45,8 +45,8 @@ DeviceFireboltInterface::DeviceFireboltInterface()
 		return;
 	}
 	/*Wait Time is 500 millisecond*/
-	std::unique_lock<std::mutex> mLock(mConnectionMutex);
-	if (!mConnectionCV.wait_for(mLock, std::chrono::milliseconds(500), [this] { return mIsConnected; })) {
+	std::unique_lock<std::mutex> mLock(mFireboltConnectionMutex);
+	if (!mFireboltConnectionCV.wait_for(mLock, std::chrono::milliseconds(500), [this] { return mIsConnected; })) {
 		MW_LOG_ERR("Firebolt Core To Be Initialized URL: [%s] Failed(Timeout) after 500ms", url.c_str());
 		return;
 	}
@@ -90,10 +90,10 @@ void DeviceFireboltInterface::ConnectionChanged(const bool connected, int error)
 {
 	MW_LOG_WARN("Firebolt connection changed. Connected: %d Error : %d", connected, error);
 	{
-		std::lock_guard<std::mutex> lock(mConnectionMutex);
+		std::lock_guard<std::mutex> lock(mFireboltConnectionMutex);
 		mIsConnected = connected;
 	}
-	mConnectionCV.notify_one();    
+	mFireboltConnectionCV.notify_one();    
 }
 
 void DeviceFireboltInterface::DestroyFireboltInstance()
