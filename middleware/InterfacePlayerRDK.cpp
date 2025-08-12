@@ -415,6 +415,7 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int auxF
 			stream->trackId = trackId;
 
 			printf("ANJp:ConfigurePipeline: Calling InterfacePlayer_SetupStream. mediatype = %d\n", i);
+			MW_LOG_WARN("ANJ:ConfigurePipeline: Calling InterfacePlayer_SetupStream. mediatype = %d\n", i);
 			/* Sets up the stream for the given MediaType */
 			if(0 != InterfacePlayer_SetupStream((GstMediaType)i, manifestUrl))
 			{
@@ -423,9 +424,11 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int auxF
 				//Don't kill the tune for subtitles
 				if (eGST_MEDIATYPE_SUBTITLE != (GstMediaType)i)
 				{
+					MW_LOG_WARN("ANJ:Exit1 as stream is not subtitle:ConfigurePipeline: After Calling InterfacePlayer_SetupStream. mediatype = %d\n", i);
 					return;
 				}
 			}
+			MW_LOG_WARN("ANJ:ConfigurePipeline: After Calling InterfacePlayer_SetupStream. mediatype = %d\n", i);
 			printf("ANJp:ConfigurePipeline: After Calling InterfacePlayer_SetupStream. mediatype = %d\n", i);
 
 
@@ -447,6 +450,7 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int auxF
 			MW_LOG_INFO("Setting single-path-stream to %d", videoOnly);
 			printf("ANJp:ConfigurePipeline: Setting single-path-stream to %d\n", videoOnly);
 			g_object_set(vidsink, "single-path-stream", videoOnly, NULL);
+			MW_LOG_WARN("ANJ: After Setting single-path-stream to %d", videoOnly);
 		}
 		else
 		{
