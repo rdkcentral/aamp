@@ -40,6 +40,7 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/rdk)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/contentsecuritymanager)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/contentsecuritymanager/IFirebolt)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/rdk/IIARM)
 
 option(DISABLE_SECURITY_TOKEN "Disable security token" OFF)
 
@@ -100,6 +101,7 @@ if(CMAKE_IARM_MGR)
     message("PLAYER IARM_MGR set")
     set(LIB_EXT_DEFINES "${LIB_EXT_DEFINES} -DIARM_MGR=1")
     set(EXT_SOURCES "${EXT_SOURCES}" rdk/PlayerExternalsRdkInterface.cpp)
+    set(EXT_SOURCES "${EXT_SOURCES}" rdk/IIARM/DeviceIARMInterface.cpp)
     list(APPEND LIB_EXT_DEPENDS -lIARMBus -lds -ldshalcli)
 endif()
 
