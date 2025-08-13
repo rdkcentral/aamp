@@ -23,6 +23,7 @@
 #include "PlayerLogManager.h"
 #include "contentprotection.h"
 #include "fireboltaamp.h"
+#include "FireboltInterface.h"
 
 #include <unistd.h>
 #include <iomanip>

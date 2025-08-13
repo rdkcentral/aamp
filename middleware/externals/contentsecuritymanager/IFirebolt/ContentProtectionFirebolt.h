@@ -25,7 +25,6 @@
 
 #include "ContentSecurityManager.h"
 #include "ContentSecurityManagerSession.h"
-#include "FireboltInterface.h"
 
 #include <iostream>
 #include <list>
@@ -35,6 +34,7 @@
 #include <string>
 #include <memory>
 
+class FireboltInterface; //forward declaration
 
 /**
  * @class ContentProtectionFirebolt
@@ -124,7 +124,7 @@ public:
 	 * @param sessionId Session context (optional)
 	 */
 	void ShowWatermark(bool show, int64_t sessionId);
-	
+
 	void HandleWatermarkEvent(const std::string& sessionId, const std::string& statusStr, const std::string& appId);
 private:
 	/**
