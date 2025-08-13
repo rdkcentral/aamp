@@ -92,6 +92,7 @@ void logprintf(MW_LogLevel logLevelIndex, const char* file, int line, const char
 {
         char timestamp[MW_CLI_TIMESTAMP_PREFIX_MAX_CHARS];
         timestamp[0] = 0x00;
+		static int mw_count = 0;
 	if( PlayerLogManager::disableLogRedirection )
 	{ // add timestamp if not using sd_journal_print
 		struct timeval t;
@@ -103,8 +104,9 @@ void logprintf(MW_LogLevel logLevelIndex, const char* file, int line, const char
         for( int pass=0; pass<2; pass++ )
         {
             format_bytes = snprintf(format_ptr, format_bytes,
-                                                           "%s[MIDDLEWARE][%s][%zx][%s][%d]%s\n",
-                                                           timestamp,
+                                                           "%s[MIDDLEWARE][0x%08x][%s][%zx][%s][%d]%s\n",
+														   timestamp,
+														   mw_count,
                                                            mLogLevelStr[logLevelIndex],
 							   GetPlayerPrintableThreadID(),
                                                            file, line,
@@ -119,7 +121,7 @@ void logprintf(MW_LogLevel logLevelIndex, const char* file, int line, const char
                 format_ptr = (char *)alloca(format_bytes); // allocate on stack
             }
             else
-	    {
+	    	{
 		    va_list args;
 		    va_start(args, format);
 		    if( PlayerLogManager::disableLogRedirection )
@@ -158,6 +160,7 @@ void logprintf(MW_LogLevel logLevelIndex, const char* file, int line, const char
 		    }
 		    va_end(args);
 	    }
+		mw_count++;
 	}
 }
 
