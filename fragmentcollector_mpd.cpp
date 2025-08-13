@@ -10838,9 +10838,12 @@ void StreamAbstractionAAMP_MPD::GetStreamFormat(StreamOutputFormat &primaryOutpu
 		}
 		AAMPLOG_WARN("ANJ: subtitleOutputFormat = %d", subtitleOutputFormat);
 #if 1//anj
-		AAMPLOG_WARN("ANJ: If:If:if: Overwriting subtitleOutputFormat = FORMAT_SUBTITLE_TTML ");
-		subtitleOutputFormat = FORMAT_SUBTITLE_TTML;
-		AAMPLOG_WARN("ANJ: Overwritten subtitleOutputFormat = FORMAT_SUBTITLE_TTML ");
+		AAMPLOG_WARN("ANJ: If:If:if: Overwriting subtitleOutputFormat = FORMAT_SUBTITLE_MP4 ");
+		subtitleOutputFormat = FORMAT_SUBTITLE_MP4;
+		AAMPLOG_WARN("ANJ: Overwritten subtitleOutputFormat = FORMAT_SUBTITLE_MP4 ");
+		//AAMPLOG_WARN("ANJ: If:If:if: Overwriting subtitleOutputFormat = FORMAT_SUBTITLE_TTML ");
+		//subtitleOutputFormat = FORMAT_SUBTITLE_TTML;
+		//AAMPLOG_WARN("ANJ: Overwritten subtitleOutputFormat = FORMAT_SUBTITLE_TTML ");
 #endif//anj
 	}
 	else
@@ -10848,9 +10851,12 @@ void StreamAbstractionAAMP_MPD::GetStreamFormat(StreamOutputFormat &primaryOutpu
 		subtitleOutputFormat = FORMAT_INVALID;
 		AAMPLOG_WARN("ANJ: 4. else case: subtitleOutputFormat = FORMAT_INVALID. subtitleOutputFormat = %d", subtitleOutputFormat);
 #if 1//anj
-		AAMPLOG_WARN("ANJ: Overwriting subtitleOutputFormat = FORMAT_SUBTITLE_TTML ");
-		subtitleOutputFormat = FORMAT_SUBTITLE_TTML;
-		AAMPLOG_WARN("ANJ: Overwritten subtitleOutputFormat = FORMAT_SUBTITLE_TTML ");
+		AAMPLOG_WARN("ANJ: Overwriting subtitleOutputFormat = FORMAT_SUBTITLE_MP4 ");
+		subtitleOutputFormat = FORMAT_SUBTITLE_MP4;
+		AAMPLOG_WARN("ANJ: Overwritten subtitleOutputFormat = FORMAT_SUBTITLE_MP4 ");
+		//AAMPLOG_WARN("ANJ: Overwriting subtitleOutputFormat = FORMAT_SUBTITLE_TTML ");
+		//subtitleOutputFormat = FORMAT_SUBTITLE_TTML;
+		//AAMPLOG_WARN("ANJ: Overwritten subtitleOutputFormat = FORMAT_SUBTITLE_TTML ");
 #endif//anj
 	}
 }
