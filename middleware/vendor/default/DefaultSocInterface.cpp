@@ -214,9 +214,7 @@ bool DefaultSocInterface::ConfigureAudioSink(GstElement **audio_sink, GstObject 
 /**
  * @brief Checks if the platform segment is ready for processing new segment.
  *
- * This function returns a boolean value indicating whether the platform segment
- * is ready. If the function returns `true`, it means the segment is ready;
- * otherwise, it is not.
+ * It is used in scenarios where AV synchronization and trick mode speed adjustments are necessary.
  *
  * @param videoSink The video sink element.
  * @param isRialto Flag indicating whether Rialto sink is being used.
