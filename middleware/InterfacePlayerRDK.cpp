@@ -1572,7 +1572,7 @@ bool InterfacePlayerRDK::Flush(double position, int rate, bool shouldTearDown, b
 		(gstPrivateContext->audio_sink) &&
 		(rate != GST_NORMAL_PLAY_RATE))
 	{
-		/* 
+		/*
 		 * If trickplay, avoid tearing down the pipeline in ConfigurePipeline(),
 		 * by bringing the audio pipeline out of pre-roll which would block streaming.
 		 */
@@ -1808,7 +1808,7 @@ static void GstPlayer_OnDemuxPadAddedCb(GstElement* demux, GstPad* newPad, void*
 																	 (GstPadProbeCallback)InterfacePlayerRDK_DemuxPadProbeCallbackAny,
 																	 pInterfacePlayerRDK,
 																	 NULL);
-							MW_LOG_WARN("Added probe to qtdemux type[%d] src pad: %s", i, GST_PAD_NAME(newPad));
+							MW_LOG_WARN("Added probe to qtdemux type[%d] src pad: %s mask %u", i, GST_PAD_NAME(newPad),mask);
 						}
 						else
 						{
