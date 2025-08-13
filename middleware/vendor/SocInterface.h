@@ -457,9 +457,9 @@ public:
 	virtual bool ResetNewSegmentEvent(){return false;}
 	
 	/**
-	 * @brief check if platform segment is ready
+	 * @brief Checks if platform segment is ready.
 	 *
-	 * it is used in scenarios where AV synchronization and trick mode speed adjustments are necessary.
+	 * It is used in scenarios where AV synchronization and trick mode speed adjustments are necessary.
 	 *
 	 * @param videoSink The video sink element.
 	 * @param isRialto Flag indicating whether Rialto sink is being used.
