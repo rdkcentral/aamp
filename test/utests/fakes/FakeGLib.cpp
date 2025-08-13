@@ -20,6 +20,8 @@
 #include <glib-object.h>
 #include <glib.h>
 #include <iostream>
+#include <cstring>
+#include <cstdarg>
 
 #include "MockGLib.h"
 
@@ -72,6 +74,20 @@ void g_object_set(gpointer object, const gchar *first_property_name, ...)
 void g_object_get(gpointer object, const gchar *first_property_name, ...)
 {
 	TRACE_FUNC();
+	if (g_mockGLib != nullptr)
+	{
+		// Handle the variadic arguments for the is-master property
+		va_list args;
+		va_start(args, first_property_name);
+		
+		if (first_property_name && strcmp(first_property_name, "is-master") == 0)
+		{
+			gboolean *value = va_arg(args, gboolean*);
+			g_mockGLib->g_object_get(object, first_property_name, value);
+		}
+		
+		va_end(args);
+	}
 }
 
 gulong g_signal_connect_data(gpointer instance, const gchar *detailed_signal, GCallback c_handler,
