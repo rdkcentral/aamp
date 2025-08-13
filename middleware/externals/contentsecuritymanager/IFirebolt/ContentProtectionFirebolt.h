@@ -23,6 +23,10 @@
 #ifndef CONTENT_PROTECTION_FIREBOLT_H
 #define CONTENT_PROTECTION_FIREBOLT_H
 
+#include "ContentSecurityManager.h"
+#include "ContentSecurityManagerSession.h"
+#include "FireboltInterface.h"
+
 #include <iostream>
 #include <list>
 #include <mutex>
@@ -30,8 +34,7 @@
 #include <cassert>
 #include <string>
 #include <memory>
-#include "ContentSecurityManager.h"
-#include "ContentSecurityManagerSession.h"
+
 
 /**
  * @class ContentProtectionFirebolt
@@ -121,36 +124,9 @@ public:
 	 * @param sessionId Session context (optional)
 	 */
 	void ShowWatermark(bool show, int64_t sessionId);
-	//	void dispatchEvent(EventType event, const std::string &sessionId, const std::string &appId, const std::string &status);
-	/**
-	 * @brief Subscribe to CP-related events
-	 * @param string
-	 */
-	void SubscribeContentProtectionSettings(const std::string&);
-	/**
-	 * @brief Unsubscribe to CP-related events
-	 * @param string
-	 */
-	void UnsubscribeContentProtectionSettings( const std::string&);
-	/**
-	 * @brief Static callback used by Firebolt SDK when connection changes
-	 * @param connected Whether the client is connected
-	 * @param error Error code (if any)
-	 */
-	void ConnectionChanged(const bool connected, int error);
+	
 	void HandleWatermarkEvent(const std::string& sessionId, const std::string& statusStr, const std::string& appId);
 private:
-	/**
-	 * @brief Creates and initializes Firebolt instance using wsUrl
-	 * @param url The WebSocket URL to connect to
-	 * @return true if connection was successful
-	 */	
-	bool CreateFireboltInstance(const std::string& url);
-	/**
-	 * @brief Cleans up Firebolt SDK state
-	 * @return true if successfully torn down
-	 */
-	void DestroyFireboltInstance();
 	/**
 	 * @brief Subscribes to Firebolt events (currently stub)
 	 * @return true if stub accepted
@@ -161,12 +137,11 @@ private:
 	 * @return true if stub accepted
 	 */
 	void UnSubscribeEvents();
-	bool mIsConnected;
 	std::mutex mFireboltInitMutex;
 	std::mutex mContentProtectionMutex;
 	std::mutex mSpeedStateMutex;
 	bool mInitialized;
-	unsigned mListenerId;
 	static uint64_t mSubscriptionId;
+	std::shared_ptr<FireboltInterface> m_pFireboltInterface;
 };
 #endif /* CONTENT_PROTECTION_FIREBOLT_H */

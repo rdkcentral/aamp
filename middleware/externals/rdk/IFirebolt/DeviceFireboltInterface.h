@@ -2,6 +2,7 @@
 #define DEVICE_FIREBOLT_INTERFACE_H
 
 #include "DeviceInterfaceBase.h"
+#include "FireboltInterface.h"
 
 #include <string>
 #include <vector>
@@ -17,7 +18,7 @@ class DeviceFireboltInterface : public DeviceInterfaceBase {
 
         void RegisterDsMgrEventHandler() override;
 
-        void RemoveDsMgrEventHandler() override;
+        void RemoveEventHandler() override;
 
         bool IsActiveStreamingInterfaceWifi() override;
 
@@ -30,6 +31,8 @@ class DeviceFireboltInterface : public DeviceInterfaceBase {
         bool mIsConnected = false;
 
         unsigned int mListenerId;
+
+        std::shared_ptr<FireboltInterface> m_pFireboltInterface;
 
         std::vector<uint64_t> mDsMgrSubscriptionId;
 
