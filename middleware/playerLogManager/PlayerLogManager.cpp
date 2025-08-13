@@ -30,6 +30,8 @@
 #include <cstring>
 #include "PlayerLogManager.h"
 #include "PlayerUtils.h"
+#include <mutex>
+
 
 #ifdef USE_ETHAN_LOG
 #include <ethanlog.h>
@@ -94,6 +96,9 @@ void logprintf(MW_LogLevel logLevelIndex, const char *file, int line, const char
 	timestamp[0] = 0x00;
 
   static int mw_count = 0;
+	std::mutex m;
+
+	m.lock();
 
 	if (PlayerLogManager::disableLogRedirection)
 	{ // add timestamp if not using sd_journal_print
@@ -103,6 +108,7 @@ void logprintf(MW_LogLevel logLevelIndex, const char *file, int line, const char
 	}
 	char *format_ptr = NULL;
 	int format_bytes = 0;
+
 	for (int pass = 0; pass < 2; pass++)
 	{
 		format_bytes = snprintf(format_ptr, format_bytes,
@@ -164,6 +170,7 @@ void logprintf(MW_LogLevel logLevelIndex, const char *file, int line, const char
 		}
 	}
 	mw_count++;
+	 m.unlock();
 }
 
 /**
