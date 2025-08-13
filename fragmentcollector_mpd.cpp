@@ -3833,15 +3833,11 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 			else if (((eTUNETYPE_SEEK == tuneType) || (eTUNETYPE_RETUNE == tuneType || eTUNETYPE_NEW_SEEK == tuneType)) && (rate > 0))
 			{
 				double seekWindowEnd = duration - aamp->mLiveOffset;
-				// Add tolerance for TSB linked-list navigation to prevent premature live edge detection
-				double tsbTolerance = (aamp->GetTSBSessionManager() && rate > AAMP_NORMAL_PLAY_RATE) ? 10.0 : 0.0;
-				double adjustedSeekWindowEnd = seekWindowEnd - tsbTolerance;
-				
 				// check if seek beyond live point
-				if (seekPosition > adjustedSeekWindowEnd)
+				if (seekPosition > seekWindowEnd)
 				{
-					AAMPLOG_WARN( "StreamAbstractionAAMP_MPD: offSetFromStart[%f] adjustedSeekWindowEnd[%f] (original: %f, tolerance: %f)",
-							seekPosition, adjustedSeekWindowEnd, seekWindowEnd, tsbTolerance);
+					AAMPLOG_WARN( "StreamAbstractionAAMP_MPD: offSetFromStart[%f] seekWindowEnd[%f] ",
+							seekPosition, seekWindowEnd);
 					liveAdjust = true;
 					if (eTUNETYPE_SEEK == tuneType)
 					{
