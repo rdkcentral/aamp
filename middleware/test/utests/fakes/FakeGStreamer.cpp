@@ -877,3 +877,21 @@ GstPad * gst_ghost_pad_new (const gchar * name, GstPad * target)
 	return NULL;
 }
 
+GstCaps *gst_app_src_get_caps(GstAppSrc *appsrc)
+{
+	TRACE_FUNC();
+	return NULL;
+}
+
+GstSample *gst_sample_new (GstBuffer * buffer, GstCaps * caps, const GstSegment * segment, GstStructure * info)
+{
+	TRACE_FUNC();
+	return NULL;
+}
+
+GstFlowReturn gst_app_src_push_sample (GstAppSrc * appsrc, GstSample * sample)
+{
+	TRACE_FUNC();
+	return GST_FLOW_OK;
+}
+
