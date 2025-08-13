@@ -335,7 +335,7 @@ int TSProcessor::insertPatPmt(unsigned char *buffer, bool trick, int bufferSize)
 		src = m_PatPmt;
 	}
 
-	if (len)
+	if (len > 0)
 	{
 		memcpy(buffer, src, len);
 
