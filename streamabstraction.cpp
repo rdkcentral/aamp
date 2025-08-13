@@ -2372,9 +2372,12 @@ void StreamAbstractionAAMP::GetDesiredProfileOnBuffer(int currProfileIndex, int 
 	double minBufferNeeded ;
 	if(bufferValue > 0)
 	{
-		if(aamp->GetLLDashServiceData()->lowLatencyMode)
+		if(aamp->GetLLDashServiceData()->lowLatencyMode && bufferValue <= mABRMinBuffer)
 		{
-			minBufferNeeded	= mABRMinBuffer;
+		//	minBufferNeeded	= mABRMinBuffer;
+			// Immediate rampdown to lowest profile for LL-DASH
+			newProfileIndex = 0;
+			AAMPLOG_WARN("LL-DASH: Buffer drained, ramping down to lowest profile!");
 		}
 		else
 		{
@@ -2627,7 +2630,12 @@ bool StreamAbstractionAAMP::RampDownProfile(int http_error)
 	bool ret = false;
 	int desiredProfileIndex = currentProfileIndex;
 	MediaTrack *video = GetMediaTrack(eTRACK_VIDEO);
-	if (this->UseIframeTrack())
+	// Immediate rampdown to lowest profile for LL-DASH
+	if(aamp->GetLLDashServiceData()->lowLatencyMode)
+	{
+		desiredProfileIndex = 0; // Always rampdown to lowest profile
+	}
+	else if(this->UseIframeTrack())
 	{
 		//We use only second last and lowest profiles for iframes
 		int lowestIframeProfile = aamp->mhAbrManager.getLowestIframeProfile();
@@ -2785,7 +2793,16 @@ bool StreamAbstractionAAMP::CheckForRampDownProfile(int http_error)
 	}
 
 	// If lowest profile reached, then no need to check for ramp up/down for timeout cases, instead skip the failed fragment and jump to next fragment to download.
-	if (GetABRMode() == ABRMode::ABR_MANAGER && !IsLowestProfile(currentProfileIndex))
+	//For LL-DASH, always rampdown to lowest profile on error
+	if (aamp->GetLLDashServiceData()->lowLatencyMode && !IsLowestProfile(currentProfileIndex))
+	{
+		if (RampDownProfile(http_error))
+		{
+			AAMPLOG_INFO("LL-DASH: Rampdown to lowest profile due to network error");
+			retValue = true;
+		}
+	}
+	else if(GetABRMode() == ABRMode::ABR_MANAGER && !IsLowestProfile(currentProfileIndex))
 	{
 		http_error = getOriginalCurlError(http_error);
 
@@ -2931,6 +2948,12 @@ bool StreamAbstractionAAMP::UpdateProfileBasedOnFragmentCache()
 	double totalFetchedDuration = video->GetTotalFetchedDuration();
 	long availBW = aamp->GetCurrentlyAvailableBandwidth();
 	bool checkProfileChange = aamp->mhAbrManager.CheckProfileChange(totalFetchedDuration,currentProfileIndex,availBW);
+	double bufferValue = GetBufferValue(video);
+	if (aamp->GetLLDashServiceData()->lowLatencyMode && bufferValue <= mABRMinBuffer)
+    	{
+        	desiredProfileIndex = 0; // Always rampdown to lowest profile
+        	AAMPLOG_WARN("LL-DASH: Buffer empty, ramping down to lowest profile!");
+    	}
 	//For LLD, it's necessary to initiate a rampdown process when there is a consistent download delay in order to construct the buffer.
 	if (aamp->GetLLDashServiceData()->lowLatencyMode && !checkProfileChange && (aamp->mDownloadDelay >= (int)(floor(aamp->mLiveOffset / 2))))
 	{
