@@ -34,7 +34,7 @@ FireboltInterface::FireboltInterface()
 	}
 	/*Wait Time is 500 millisecond*/
 	std::unique_lock<std::mutex> mLock(mFireboltInterfaceConnectionMutex);
-	if (!mFireboltConnectionCV.wait_for(mLock, std::chrono::milliseconds(500), [this] { return mIsConnected; })) {
+	if (!mFireboltInterfaceConnectionCV.wait_for(mLock, std::chrono::milliseconds(500), [this] { return mIsConnected; })) {
 		MW_LOG_ERR("Firebolt Core To Be Initialized URL: [%s] Failed(Timeout) after 500ms", url.c_str());
 		return;
 	}
@@ -83,7 +83,7 @@ void FireboltInterface::ConnectionChanged(const bool connected, int error)
 		std::lock_guard<std::mutex> lock(mFireboltInterfaceConnectionMutex);
 		mIsConnected = connected;
 	}
-	mFireboltConnectionCV.notify_one();    
+	mFireboltInterfaceConnectionCV.notify_one();    
 }
 
 void FireboltInterface::DestroyFireboltInstance()

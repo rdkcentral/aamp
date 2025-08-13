@@ -27,6 +27,8 @@ class FireboltInterface{
 
         static std::shared_ptr<FireboltInterface> GetInstance();
 
+        ~FireboltInterface();
+
     private:
 
         bool mIsConnected = false;
