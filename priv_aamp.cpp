@@ -7048,15 +7048,27 @@ void PrivateInstanceAAMP::SetVideoZoom(VideoZoomMode zoom)
  */
 void PrivateInstanceAAMP::SetVideoMute(bool muted)
 {
+	AAMPLOG_INFO(" Neil Entering PrivateInstanceAAMP::SetVideoMute(mute == %s)", muted?"true":"false");
+
 	StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
 	if (sink)
 	{
+		AAMPLOG_INFO(" Neil PrivateInstanceAAMP::SetVideoMute(sink== true)");
+
 		sink->SetVideoMute(muted);
 	}
+	else
+			AAMPLOG_INFO(" Neil PrivateInstanceAAMP::SetVideoMute(sink== false)");
+
 	if(ISCONFIGSET_PRIV(eAAMPConfig_UseSecManager) || ISCONFIGSET_PRIV(eAAMPConfig_UseFireboltSDK))
 	{
+		AAMPLOG_INFO(" Neil PrivateInstanceAAMP::SetVideoMute(secmanager == true or firebolt == true)");
+
 		mDRMLicenseManager->setVideoMute(IsLive(), GetCurrentLatency(), IsAtLivePoint(), GetLiveOffsetMs(),muted, GetStreamPositionMs());
 	}
+	else
+		AAMPLOG_INFO(" Neil PrivateInstanceAAMP::SetVideoMute(secmanager == false or firebolt == false)");
+
 }
 
 /**
@@ -7492,8 +7504,8 @@ void PrivateInstanceAAMP::Stop( bool isDestructing )
 		inpData->bIgnoreResponseHeader	= true;
 		inpData->eRequestType = eCURL_DELETE;
 		inpData->proxyName        = GetNetworkProxy();
-		T1.Initialize(std::move(inpData));
-		T1.Download(remoteUrl, std::move(respData) );
+		T1.Initialize(inpData);
+		T1.Download(remoteUrl, respData );
 	}
 
 	UnblockWaitForDiscontinuityProcessToComplete();
@@ -10043,11 +10055,7 @@ std::string PrivateInstanceAAMP::GetAvailableAudioTracks(bool allTrack)
 			{
 				if (IsLocalAAMPTsb())
 				{
-					bool trackAvailable = mpStreamAbstractionAAMP->GetCurrentAudioTrack(currentTrackInfo);
-					if( !trackAvailable )
-					{
-						AAMPLOG_WARN( "GetCurrentAudioTrack returned false" );
-					}
+					mpStreamAbstractionAAMP->GetCurrentAudioTrack(currentTrackInfo);
 				}
 				for (auto iter = trackInfo.begin(); iter != trackInfo.end(); iter++)
 				{
@@ -10167,11 +10175,7 @@ std::string PrivateInstanceAAMP::GetAvailableTextTracks(bool allTrack)
 			{
 				if (IsLocalAAMPTsb())
 				{
-					bool trackInfoAvailable = mpStreamAbstractionAAMP->GetCurrentTextTrack(currentTrackInfo);
-					if( !trackInfoAvailable )
-					{
-						AAMPLOG_WARN( "GetCurrentTextTrack returned false" );
-					}
+					mpStreamAbstractionAAMP->GetCurrentTextTrack(currentTrackInfo);
 				}
 				for (auto iter = trackInfo.begin(); iter != trackInfo.end(); iter++)
 				{

@@ -231,22 +231,23 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int auxF
 	GstStreamOutputFormat newFormat[GST_TRACK_COUNT];
 	newFormat[eGST_MEDIATYPE_VIDEO] = gstFormat;
 	newFormat[eGST_MEDIATYPE_AUDIO] = gstAudioFormat;
+	printf("Neil entering InterfacePlayerRDK::ConfigurePipeline()\n");
 
 	if(isSubEnable)
 	{
-		MW_LOG_MIL("Gstreamer subs enabled");
+		MW_LOG_MIL("Neil Gstreamer subs enabled");
 		newFormat[eGST_MEDIATYPE_SUBTITLE] = gstSubFormat;
 	}
 	else
 	{
-		MW_LOG_MIL("Gstreamer subs disabled");
+		MW_LOG_MIL("Neil Gstreamer subs disabled");
 		newFormat[eGST_MEDIATYPE_SUBTITLE]=GST_FORMAT_INVALID;
 	}
 
 	/*Enable sending of audio data to the auxiliary output*/
 	if(forwardAudioToAux)
 	{
-		MW_LOG_MIL("InterfacePlayerRDK: Override auxFormat %d -> %d", auxFormat, audioFormat);
+		MW_LOG_MIL("Neil InterfacePlayerRDK: Override auxFormat %d -> %d", auxFormat, audioFormat);
 		gstPrivateContext->forwardAudioBuffers = true;
 		newFormat[eGST_MEDIATYPE_AUX_AUDIO] = gstAudioFormat;
 	}
@@ -271,18 +272,18 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int auxF
 	if(!(m_gstConfigParam->useRialtoSink))
 	{
 		gstPrivateContext->usingRialtoSink = false;
-		MW_LOG_MIL("Rialto disabled");
+		MW_LOG_MIL("Neil Rialto disabled");
 	}
 	else
 	{
 		gstPrivateContext->usingRialtoSink = true;
 		if (gstPrivateContext->using_westerossink)
 		{
-			MW_LOG_WARN("Rialto and Westeros Sink enabled");
+			MW_LOG_WARN("Neil Rialto and Westeros Sink enabled");
 		}
 		else
 		{
-			MW_LOG_MIL("Rialto enabled");
+			MW_LOG_MIL("Neil Rialto enabled");
 		}
 	}
 
@@ -293,7 +294,7 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int auxF
 
 	if (gstPrivateContext->pipeline == NULL || gstPrivateContext->bus == NULL)
 	{
-		MW_LOG_MIL("Create pipeline %s (pipeline %p bus %p)", pipelineName, gstPrivateContext->pipeline, gstPrivateContext->bus);
+		MW_LOG_MIL("Neil Create pipeline %s (pipeline %p bus %p)", pipelineName, gstPrivateContext->pipeline, gstPrivateContext->bus);
 		CreatePipeline(pipelineName, PipelinePriority); 		/*Create a new pipeline if pipeline or the message bus does not exist*/
 	}
 
@@ -301,11 +302,11 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int auxF
 	{
 		if(SetStateWithWarnings(gstPrivateContext->pipeline, GST_STATE_READY) == GST_STATE_CHANGE_FAILURE)
 		{
-			MW_LOG_ERR("InterfacePlayerRDK_Configure GST_STATE_READY failed on forceful set");
+			MW_LOG_ERR("Neil InterfacePlayerRDK_Configure GST_STATE_READY failed on forceful set");
 		}
 		else
 		{
-			MW_LOG_INFO("Forcefully set pipeline to ready state due to track_id change");
+			MW_LOG_INFO("Neil Forcefully set pipeline to ready state due to track_id change");
 			PipelineSetToReady = true;
 		}
 	}
@@ -317,7 +318,7 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int auxF
 		{
 			if (newFormat[i] != GST_FORMAT_INVALID)
 			{
-				MW_LOG_MIL("Closing stream %d old format = %d, new format = %d",i, stream->format, newFormat[i]);
+				MW_LOG_MIL("Neil Closing stream %d old format = %d, new format = %d",i, stream->format, newFormat[i]);
 				configureStream[i] = true;
 				gstPrivateContext->NumberOfTracks++;
 			}
@@ -338,7 +339,7 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int auxF
 		/* Force configure the bin for mid stream audio type change */
 		if (!configureStream[i] && bESChangeStatus && (eGST_MEDIATYPE_AUDIO == i))
 		{
-			MW_LOG_MIL("AudioType Changed. Force configure pipeline");
+			MW_LOG_MIL("NEIL AudioType Changed. Force configure pipeline");
 			configureStream[i] = true;
 		}
 
@@ -363,7 +364,7 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int auxF
 			/* Sets up the stream for the given MediaType */
 			if(0 != InterfacePlayer_SetupStream((GstMediaType)i, manifestUrl))
 			{
-				MW_LOG_ERR("InterfacePlayerRDK: track %d failed", i);
+				MW_LOG_ERR("NEIL InterfacePlayerRDK: track %d failed", i);
 				//Don't kill the tune for subtitles
 				if (eGST_MEDIATYPE_SUBTITLE != (GstMediaType)i)
 				{
@@ -382,50 +383,51 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int auxF
 		 * server side.
 		 * For progressive media, we don't know what tracks are used.
 		 */
+		printf("NEIL  Reconfigure the Rialto video sink to update the single path stream\n");
 		GstElement* vidsink = NULL;
 		g_object_get(gstPrivateContext->stream[eGST_MEDIATYPE_VIDEO].sinkbin, "video-sink", &vidsink, NULL);
 		if(vidsink)
 		{
 			gboolean videoOnly = (audioFormat == GST_FORMAT_INVALID);
-			MW_LOG_INFO("Setting single-path-stream to %d", videoOnly);
+			MW_LOG_INFO("NEIL Setting single-path-stream to %d", videoOnly);
 			g_object_set(vidsink, "single-path-stream", videoOnly, NULL);
 		}
 		else
 		{
-			MW_LOG_WARN("Couldn't get video-sink");
+			MW_LOG_WARN("NEIL Couldn't get video-sink");
 		}
 	}
 	if (gstPrivateContext->pauseOnStartPlayback && GST_NORMAL_PLAY_RATE == gstPrivateContext->rate)
 	{
-		MW_LOG_INFO("Setting state to GST_STATE_PAUSED - pause on playback enabled");
+		MW_LOG_INFO("NEIL Setting state to GST_STATE_PAUSED - pause on playback enabled");
 		gstPrivateContext->paused = true;
 		gstPrivateContext->pendingPlayState = false;
 		if (SetStateWithWarnings(gstPrivateContext->pipeline, GST_STATE_PAUSED) == GST_STATE_CHANGE_FAILURE)
 		{
-			MW_LOG_ERR("InterfacePlayerRDK: GST_STATE_PAUSED failed");
+			MW_LOG_ERR("NEIL InterfacePlayerRDK: GST_STATE_PAUSED failed");
 		}
 	}
 	/* If buffering is enabled, set the pipeline in Paused state, once sufficient content has been buffered the pipeline will be set to GST_STATE_PLAYING */
 	else if (gstPrivateContext->buffering_enabled && format != GST_FORMAT_INVALID && GST_NORMAL_PLAY_RATE == gstPrivateContext->rate)
 	{
-		MW_LOG_INFO("Setting state to GST_STATE_PAUSED, target state to GST_STATE_PLAYING");
+		MW_LOG_INFO("NEIL Setting state to GST_STATE_PAUSED, target state to GST_STATE_PLAYING");
 		gstPrivateContext->buffering_target_state = GST_STATE_PLAYING;
 		gstPrivateContext->buffering_in_progress = true;
 		gstPrivateContext->buffering_timeout_cnt = DEFAULT_BUFFERING_MAX_CNT;
 
 		if (SetStateWithWarnings(gstPrivateContext->pipeline, GST_STATE_PAUSED) == GST_STATE_CHANGE_FAILURE)
 		{
-			MW_LOG_ERR("InterfacePlayerRDK_Configure GST_STATE_PAUSED failed");
+			MW_LOG_ERR("NEIL InterfacePlayerRDK_Configure GST_STATE_PAUSED failed");
 		}
 		gstPrivateContext->pendingPlayState = false;
 		gstPrivateContext->paused = false;
 	}
 	else
 	{
-		MW_LOG_INFO("Setting state to GST_STATE_PLAYING");
+		MW_LOG_INFO("NEIL Setting state to GST_STATE_PLAYING");
 		if (SetStateWithWarnings(gstPrivateContext->pipeline, GST_STATE_PLAYING) == GST_STATE_CHANGE_FAILURE)
 		{
-			MW_LOG_ERR("InterfacePlayerRDK: GST_STATE_PLAYING failed");
+			MW_LOG_ERR("NEIL InterfacePlayerRDK: GST_STATE_PLAYING failed");
 		}
 		gstPrivateContext->pendingPlayState = false;
 		gstPrivateContext->paused = false;
@@ -436,7 +438,7 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int auxF
 	gstPrivateContext->decodeErrorCBCount = 0;
 	if (gstPrivateContext->usingRialtoSink)
 	{
-		MW_LOG_INFO("RialtoSink subtitle_sink = %p ",gstPrivateContext->subtitle_sink);
+		MW_LOG_INFO("NEIL RialtoSink subtitle_sink = %p ",gstPrivateContext->subtitle_sink);
 		GstContext *context = gst_context_new("streams-info", false);
 		GstStructure *contextStructure = gst_context_writable_structure(context);
 		if( !gstPrivateContext->subtitle_sink ) MW_LOG_WARN( "subtitle_sink==NULL" );
@@ -449,6 +451,7 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int auxF
 		gst_element_set_context(GST_ELEMENT(gstPrivateContext->pipeline), context);
 		gst_context_unref(context);
 	}
+	printf("NEIL Leaving Configurepipeline()\n");
 }
 
 /**
@@ -1227,6 +1230,7 @@ void InterfacePlayerRDK::TearDownStream(GstMediaType mediaType)
 	gst_media_stream* stream = &gstPrivateContext->stream[mediaType];
 	stream->bufferUnderrun = false;
 	stream->eosReached = false;
+	printf("NEIL entering TearDownStream()\n");
 	if (stream->format != GST_FORMAT_INVALID)
 	{
 		pthread_mutex_lock(&stream->sourceLock);
@@ -1238,16 +1242,16 @@ void InterfacePlayerRDK::TearDownStream(GstMediaType mediaType)
 			{
 				if (GST_STATE_CHANGE_FAILURE == SetStateWithWarnings(GST_ELEMENT(stream->sinkbin), GST_STATE_NULL))
 				{
-					MW_LOG_ERR("InterfacePlayerRDK::TearDownStream: Failed to set NULL state for sinkbin");
+					MW_LOG_ERR("NEIL InterfacePlayerRDK::TearDownStream: Failed to set NULL state for sinkbin");
 				}
 				if (!gst_bin_remove(GST_BIN(gstPrivateContext->pipeline), GST_ELEMENT(stream->sinkbin)))			/* Removes the sinkbin element from the pipeline */
 				{
-					MW_LOG_ERR("InterfacePlayerRDK::TearDownStream:  Unable to remove sinkbin from pipeline");
+					MW_LOG_ERR("NEIL InterfacePlayerRDK::TearDownStream:  Unable to remove sinkbin from pipeline");
 				}
 			}
 			else
 			{
-				MW_LOG_WARN("InterfacePlayerRDK::TearDownStream:  sinkbin = NULL, skip remove sinkbin from pipeline");
+				MW_LOG_WARN("NEIL InterfacePlayerRDK::TearDownStream:  sinkbin = NULL, skip remove sinkbin from pipeline");
 			}
 		}
 		//After sinkbin is removed from pipeline, a new decoder handle may be generated
@@ -1276,7 +1280,7 @@ void InterfacePlayerRDK::TearDownStream(GstMediaType mediaType)
 		g_clear_object(&gstPrivateContext->subtitle_sink);
 	}
 	tearDownCb(false, mediaType);
-	MW_LOG_MIL("InterfacePlayerRDK::TearDownStream: exit mediaType = %d", mediaType);
+	MW_LOG_MIL("Neil leaving InterfacePlayerRDK::TearDownStream: exit mediaType = %d", mediaType);
 }
 
 void InterfacePlayerRDK::Stop(bool keepLastFrame)
@@ -2247,7 +2251,7 @@ int InterfacePlayerRDK::SetupStream(int streamId,  void *playerInstance, std::st
 	{
 		// enable multiqueue
 		int MaxGstVideoBufBytes = m_gstConfigParam->videoBufBytes;
-		MW_LOG_INFO("Setting gst Video buffer size bytes to %d", MaxGstVideoBufBytes);
+		MW_LOG_INFO("Neil Setting gst Video buffer size bytes to %d", MaxGstVideoBufBytes);
 		socInterface->SetVideoBufferSize(stream->sinkbin, MaxGstVideoBufBytes);
 	}
 	if (eGST_MEDIATYPE_AUDIO == streamId)
@@ -4484,7 +4488,7 @@ void InterfacePlayerRDK::SetVideoZoom(int zoom_mode)
  */
 void InterfacePlayerRDK::SetVideoMute(bool muted)
 {
-	printf("neil entering InterfacePlayerRDK::SetVideoMutemuted=%d video_sink =%p\n", muted, gstPrivateContext->video_sink);
+	printf("neil entering InterfacePlayerRDK::SetVideoMute=%s video_sink =%p\n",  muted?"true":"false", gstPrivateContext->video_sink);
 	gstPrivateContext->videoMuted = muted;
 	if (gstPrivateContext->video_sink)
 	{
