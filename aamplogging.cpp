@@ -27,7 +27,6 @@
 #include <thread>
 #include <sstream>
 #include "priv_aamp.h"
-#include <atomic>
 
 using namespace std;
 
@@ -97,7 +96,7 @@ void logprintf(AAMP_LogLevel logLevelIndex, const char* file, int line, const ch
 	
 	char *format_ptr = NULL;
 	int format_bytes = 0;
-	std::atomic<int> log_id = 0;
+  static int log_id = 0;
 
 	for( int pass=0; pass<2; pass++ )
 	{ // two pass: measure required bytes then populate format string

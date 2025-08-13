@@ -30,7 +30,6 @@
 #include <cstring>
 #include "PlayerLogManager.h"
 #include "PlayerUtils.h"
-#include <atomic>
 
 #ifdef USE_ETHAN_LOG
 #include <ethanlog.h>
@@ -94,7 +93,7 @@ void logprintf(MW_LogLevel logLevelIndex, const char *file, int line, const char
 	char timestamp[MW_CLI_TIMESTAMP_PREFIX_MAX_CHARS];
 	timestamp[0] = 0x00;
 
-	std::atomic<int> mw_count = 0;
+  static int mw_count = 0;
 
 	if (PlayerLogManager::disableLogRedirection)
 	{ // add timestamp if not using sd_journal_print
