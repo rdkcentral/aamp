@@ -18,7 +18,7 @@ class DeviceFireboltInterface : public DeviceInterfaceBase {
 
         void RegisterDsMgrEventHandler() override;
 
-        void RemoveEventHandler() override;
+        void RemoveDsMgrEventHandler() override;
 
         bool IsActiveStreamingInterfaceWifi() override;
 

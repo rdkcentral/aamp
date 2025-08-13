@@ -86,8 +86,9 @@ void DeviceFireboltInterface::RegisterDsMgrEventHandler()
 
 }
 
-void DeviceFireboltInterface::RemoveEventHandler()
+void DeviceFireboltInterface::RemoveDsMgrEventHandler()
 {
+	//removes everything ...
     auto result =
             Firebolt::IFireboltAampAccessor::Instance().DeviceInterface().unsubscribeAll();
         if (result.error() != Firebolt::Error::None)
