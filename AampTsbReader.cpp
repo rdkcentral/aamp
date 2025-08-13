@@ -240,21 +240,11 @@ TsbFragmentDataPtr AampTsbReader::FindNext()
 		   }
 		   else // forward or normal
 		   {
-			   // For fast forward rates, be more conservative about EOS detection
-			   // Allow playback to continue closer to actual live edge
-			   if (mCurrentRate > AAMP_NORMAL_PLAY_RATE)
-			   {
-				   // Only set EOS if we're within 2 fragments of the edge
-				   atEos = !(ret->next) && !(ret->next && ret->next->next);
-			   }
-			   else
-			   {
-				   atEos = !(ret->next);
-			   }
+			   atEos = !(ret->next);
 		   }
 		   if (atEos)
 		   {
-			   AAMPLOG_INFO("[%s] At buffer edge, setting EOS. absPos %lfs rate %f", GetMediaTypeName(mMediaType), ret->GetAbsolutePosition().inSeconds(), mCurrentRate);
+			   AAMPLOG_INFO("[%s] At buffer edge, setting EOS. absPos %lfs", GetMediaTypeName(mMediaType), ret->GetAbsolutePosition().inSeconds());
 			   mEosReached = true;
 		   }
 		   AAMPLOG_INFO("[%s] Returning fragment: absPos %lfs pts %lfs period %s timeScale %u ptsOffset %fs url %s",
