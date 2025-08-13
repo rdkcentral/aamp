@@ -31,7 +31,7 @@ DeviceFireboltInterface::DeviceFireboltInterface()
 
 DeviceFireboltInterface::~DeviceFireboltInterface()
 {
-	RemoveEventHandler();
+	RegisterDsMgrEventHandler();
 	m_pFireboltInterface = nullptr;
 }
 
