@@ -30,6 +30,7 @@
 #include <cstring>
 #include "PlayerLogManager.h"
 #include "PlayerUtils.h"
+#include <atomic>
 
 #ifdef USE_ETHAN_LOG
 #include <ethanlog.h>
@@ -88,80 +89,82 @@ std::size_t GetPlayerPrintableThreadID( void )
 /**
  * @brief Print logs to console / log file
  */
-void logprintf(MW_LogLevel logLevelIndex, const char* file, int line, const char *format, ...)
+void logprintf(MW_LogLevel logLevelIndex, const char *file, int line, const char *format, ...)
 {
-        char timestamp[MW_CLI_TIMESTAMP_PREFIX_MAX_CHARS];
-        timestamp[0] = 0x00;
-		static int mw_count = 0;
-	if( PlayerLogManager::disableLogRedirection )
+	char timestamp[MW_CLI_TIMESTAMP_PREFIX_MAX_CHARS];
+	timestamp[0] = 0x00;
+
+	std::atomic<int> mw_count = 0;
+
+	if (PlayerLogManager::disableLogRedirection)
 	{ // add timestamp if not using sd_journal_print
 		struct timeval t;
 		gettimeofday(&t, NULL);
-		snprintf(timestamp, sizeof(timestamp), MW_CLI_TIMESTAMP_PREFIX_FORMAT, (unsigned int)t.tv_sec, (unsigned int)t.tv_usec / 1000 );
+		snprintf(timestamp, sizeof(timestamp), MW_CLI_TIMESTAMP_PREFIX_FORMAT, (unsigned int)t.tv_sec, (unsigned int)t.tv_usec / 1000);
 	}
 	char *format_ptr = NULL;
-        int format_bytes = 0;
-        for( int pass=0; pass<2; pass++ )
-        {
-            format_bytes = snprintf(format_ptr, format_bytes,
-                                                           "%s[MIDDLEWARE][0x%08x][%s][%zx][%s][%d]%s\n",
-														   timestamp,
-														   mw_count,
-                                                           mLogLevelStr[logLevelIndex],
-							   GetPlayerPrintableThreadID(),
-                                                           file, line,
-                                                           format );
-            if( format_bytes<=0 )
-            { // should never happen!
-                break;
-            }
-            if( pass==0 )
-            {
-                format_bytes++; // include nul terminator
-                format_ptr = (char *)alloca(format_bytes); // allocate on stack
-            }
-            else
-	    	{
-		    va_list args;
-		    va_start(args, format);
-		    if( PlayerLogManager::disableLogRedirection )
-		    { // cli
-			    vprintf( format_ptr, args );
-		    }
-		    else if ( PlayerLogManager::enableEthanLogRedirection )
-		    { // remap MW log levels to Ethan log levels
-			    int ethanLogLevel;
-			    // Important: in production builds, Ethan logger filters out everything
-			    // except ETHAN_LOG_MILESTONE and ETHAN_LOG_FATAL
-			    switch (logLevelIndex)
-			    {
-				    case mLOGLEVEL_TRACE:
-				    case mLOGLEVEL_DEBUG:
-					    ethanLogLevel = ETHAN_LOG_DEBUG;
-					    break;
+	int format_bytes = 0;
+	for (int pass = 0; pass < 2; pass++)
+	{
+		format_bytes = snprintf(format_ptr, format_bytes,
+								"%s[MIDDLEWARE][0x%08x][%s][%zx][%s][%d]%s\n",
+								timestamp,
+								mw_count,
+								mLogLevelStr[logLevelIndex],
+								GetPlayerPrintableThreadID(),
+								file, line,
+								format);
+		if (format_bytes <= 0)
+		{ // should never happen!
+			break;
+		}
+		if (pass == 0)
+		{
+			format_bytes++;							   // include nul terminator
+			format_ptr = (char *)alloca(format_bytes); // allocate on stack
+		}
+		else
+		{
+			va_list args;
+			va_start(args, format);
+			if (PlayerLogManager::disableLogRedirection)
+			{ // cli
+				vprintf(format_ptr, args);
+			}
+			else if (PlayerLogManager::enableEthanLogRedirection)
+			{ // remap MW log levels to Ethan log levels
+				int ethanLogLevel;
+				// Important: in production builds, Ethan logger filters out everything
+				// except ETHAN_LOG_MILESTONE and ETHAN_LOG_FATAL
+				switch (logLevelIndex)
+				{
+				case mLOGLEVEL_TRACE:
+				case mLOGLEVEL_DEBUG:
+					ethanLogLevel = ETHAN_LOG_DEBUG;
+					break;
 
-				    case mLOGLEVEL_ERROR:
-					    ethanLogLevel = ETHAN_LOG_FATAL;
-					    break;
+				case mLOGLEVEL_ERROR:
+					ethanLogLevel = ETHAN_LOG_FATAL;
+					break;
 
-				    case mLOGLEVEL_INFO: // note: we rely on eLOGLEVEL_INFO at tune time for triage
-				    case mLOGLEVEL_WARN:
-				    case mLOGLEVEL_MIL:
-				    default:
-					    ethanLogLevel = ETHAN_LOG_MILESTONE;
-					    break;
-			    }
-			    vethanlog(ethanLogLevel,NULL,NULL,-1,format_ptr, args);
-		    }
-		    else
-		    {
-			    format_ptr[format_bytes-1] = 0x00; // strip not-needed newline (good for Ethan Logger, too?)
-			    sd_journal_printv(LOG_NOTICE,format_ptr,args); // note: truncates to 2040 characters
-		    }
-		    va_end(args);
-	    }
-		mw_count++;
+				case mLOGLEVEL_INFO: // note: we rely on eLOGLEVEL_INFO at tune time for triage
+				case mLOGLEVEL_WARN:
+				case mLOGLEVEL_MIL:
+				default:
+					ethanLogLevel = ETHAN_LOG_MILESTONE;
+					break;
+				}
+				vethanlog(ethanLogLevel, NULL, NULL, -1, format_ptr, args);
+			}
+			else
+			{
+				format_ptr[format_bytes - 1] = 0x00;			 // strip not-needed newline (good for Ethan Logger, too?)
+				sd_journal_printv(LOG_NOTICE, format_ptr, args); // note: truncates to 2040 characters
+			}
+			va_end(args);
+		}
 	}
+	mw_count++;
 }
 
 /**
