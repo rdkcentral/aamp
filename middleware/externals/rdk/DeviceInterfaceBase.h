@@ -13,7 +13,7 @@ class DeviceInterfaceBase {
 
     virtual void RegisterDsMgrEventHandler() = 0;
 
-    virtual void RemoveEventHandler() = 0;
+    virtual void RemoveDsMgrEventHandler() = 0;
 
     //ToDo : rename below, it basically registers IARM_BUS_NETWORK_MANAGER_EVENT_INTERFACE_IPADDRESS and retuens truw if wifi
     virtual bool IsActiveStreamingInterfaceWifi() = 0;
