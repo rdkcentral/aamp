@@ -16,6 +16,8 @@ class DeviceFireboltInterface : public DeviceInterfaceBase {
         
         DeviceFireboltInterface& operator=(const DeviceFireboltInterface&) = delete;
 
+        ~DeviceFireboltInterface();
+
         void RegisterDsMgrEventHandler() override;
 
         void RemoveDsMgrEventHandler() override;

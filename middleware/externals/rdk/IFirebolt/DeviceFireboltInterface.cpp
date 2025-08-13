@@ -89,12 +89,7 @@ void DeviceFireboltInterface::RegisterDsMgrEventHandler()
 void DeviceFireboltInterface::RemoveDsMgrEventHandler()
 {
 	//removes everything ...
-    auto result =
-            Firebolt::IFireboltAampAccessor::Instance().DeviceInterface().unsubscribeAll();
-        if (result.error() != Firebolt::Error::None)
-        {
-            MW_LOG_ERR("Failed to Unsubscribe to watermark events: %d", static_cast<int>(result.error()));
-        }
+    Firebolt::IFireboltAampAccessor::Instance().DeviceInterface().unsubscribeAll();        
 }
 
 bool DeviceFireboltInterface::IsActiveStreamingInterfaceWifi()
