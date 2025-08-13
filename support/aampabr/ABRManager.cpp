@@ -712,3 +712,21 @@ void ABRManager::setLogDirectory(char driveName) {
 void ABRManager::setDefaultIframeBitrate(long defaultIframeBitrate) {
   mDefaultIframeBitrate = defaultIframeBitrate;
 }
+
+int ABRManager::getLowestProfileIndex()
+{
+    int lowestProfileIndex = 0;
+    long lowestBitrate = mProfiles[0].bandwidthBitsPerSecond;
+    int profileCount = getProfileCount();
+
+    for (int i = 1; i < profileCount; ++i)
+    {
+        long bitrate = mProfiles[i].bandwidthBitsPerSecond;
+        if (bitrate < lowestBitrate)
+        {
+            lowestBitrate = bitrate;
+            lowestProfileIndex = i;
+        }
+    }
+    return lowestProfileIndex;
+}
