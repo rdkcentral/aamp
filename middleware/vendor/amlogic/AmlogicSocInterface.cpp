@@ -18,7 +18,7 @@
  */
 
 #include "AmlogicSocInterface.h"
-
+#include <gst_svp_meta.h>
 /**
  * @brief AmlogicSocInterface constructor.
  */
