@@ -1837,17 +1837,21 @@ void InterfacePlayerRDK::InitializeSourceForPlayer(void *PlayerInstance, void * 
 	/* "format" can be used to perform seek or query/conversion operation*/
 	/* gstreamer.freedesktop.org recommends to use GST_FORMAT_TIME 'if you don't have a good reason to query for samples/frames' */
 	g_object_set(source, "format", GST_FORMAT_TIME, NULL);
+	MW_LOG_ERR("ANJ:1 mediaType = %d, stream->format = %d, m_gstConfigParam->useMp4Demux = %d", mediaType, stream->format, m_gstConfigParam->useMp4Demux);
 	if( stream->format!=GST_FORMAT_ISO_BMFF || !m_gstConfigParam->useMp4Demux )
 	{
+		MW_LOG_ERR("ANJ:2 inside first if: stream->format = %d, m_gstConfigParam->useMp4Demux = %d", stream->format, m_gstConfigParam->useMp4Demux);
 		caps = GetCaps(static_cast<GstStreamOutputFormat>(stream->format));
 	}
 	if (caps != NULL)
 	{
+		MW_LOG_ERR("ANJ:3 inside if caps != NULL ");
 		gst_app_src_set_caps(GST_APP_SRC(source), caps);
 		gst_caps_unref(caps);
 	}
 	else
 	{
+		MW_LOG_ERR("ANJ:4 inside else: setting typefind ");
 		/* If capabilities can not be established, set typefind TRUE. typefind determines the media-type of a stream and once type has been
 		 * detected it sets its src pad caps to the found media type
 		 */
