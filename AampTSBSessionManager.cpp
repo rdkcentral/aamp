@@ -1001,11 +1001,11 @@ double AampTSBSessionManager::GetManifestEndDelta()
 	LockReadMutex();
 	if(mStoreEndPosition > 0.0 && mAamp->mAbsoluteEndPosition > 0.0  )
 	{
-		manifestEndDelta = mStoreEndPosition - mAamp->mAbsoluteEndPosition > 0;
+		manifestEndDelta = mStoreEndPosition - mAamp->mAbsoluteEndPosition;
 	}
 	else
 	{
-		AAMPLOG_WARN("TSB SEssion manager progress has not yet updated!!! returning..  %.02lf", manifestEndDelta);
+		AAMPLOG_WARN("TSB Session manager progress has not yet updated!!! returning..  %.02lf", manifestEndDelta);
 	}
 	UnlockReadMutex();
 
