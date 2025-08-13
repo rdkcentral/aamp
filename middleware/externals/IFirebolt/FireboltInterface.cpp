@@ -40,6 +40,8 @@ FireboltInterface::FireboltInterface()
 	}
 
     InitializeCallbackMap();
+
+    MW_LOG_WARN("Firebolt ContentProtection initialized with URL: [%s]", url.c_str());
 }
 
 bool FireboltInterface::CreateFireboltInstance(const std::string &url)

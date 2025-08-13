@@ -38,7 +38,7 @@ std::mutex mConnectionMutex;
 using namespace Firebolt;
 uint64_t ContentProtectionFirebolt::mSubscriptionId = 0; 
 
-ContentProtectionFirebolt::ContentProtectionFirebolt() : mInitialized(false), mIsConnected(false), mSpeedStateMutex(), mContentProtectionMutex(), mFireboltInitMutex(), mListenerId(0)
+ContentProtectionFirebolt::ContentProtectionFirebolt() : mInitialized(false), mSpeedStateMutex(), mContentProtectionMutex(), mFireboltInitMutex()
 {
 	Initialize();	
 }
@@ -112,7 +112,6 @@ void ContentProtectionFirebolt::Initialize()
 	/* CP Thunder Plugin doesnt allow invalid sessionId like 0 as in Thunder, hence not calling CloseDrmSession */
 	//CloseDrmSession(sessionId);
 	SubscribeEvents();
-	MW_LOG_WARN("Firebolt ContentProtection initialized with URL: [%s]", url.c_str());
 }
 
 void ContentProtectionFirebolt::DeInitialize()
