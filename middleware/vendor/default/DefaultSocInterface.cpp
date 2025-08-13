@@ -226,6 +226,7 @@ bool DefaultSocInterface::IsPlatformSegmentReady(GstElement *videoSink, bool isR
 
 	if (isRialto && (videoSink != nullptr))
 	{
+		// "is-master" is a Rialto sink property
 		g_object_get(videoSink, "is-master", &isMaster, nullptr);
 		MW_LOG_INFO("is-master %d", isMaster);		
 	}
@@ -246,6 +247,7 @@ bool DefaultSocInterface::IsVideoMaster(GstElement *videoSink, bool isRialto)
 
 	if (isRialto && (videoSink != nullptr))
 	{
+		// "is-master" is a Rialto sink property
 		g_object_get(videoSink, "is-master", &isMaster, nullptr);
 		MW_LOG_INFO("is-master %d", isMaster);		
 	}

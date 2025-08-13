@@ -1708,6 +1708,8 @@ void InterfacePlayerRDK::InitializeSourceForPlayer(void *PlayerInstance, void * 
 		if ((gstPrivateContext->usingRialtoSink) &&
 			(socInterface->IsPlatformSegmentReady(gstPrivateContext->video_sink, gstPrivateContext->usingRialtoSink)))
 		{
+			// This property is required so that the segment event sent via gst_app_src_push_sample 
+			// in SendNewSegmentEvent, is sent with the next data flow
 			MW_LOG_INFO("Setting handle-segment-change to 1");
 			g_object_set(source, "handle-segment-change", TRUE, NULL);
 		}
