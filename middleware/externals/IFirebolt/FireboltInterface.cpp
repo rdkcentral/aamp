@@ -39,8 +39,6 @@ FireboltInterface::FireboltInterface()
 		return;
 	}
 
-    InitializeCallbackMap();
-
     MW_LOG_WARN("Firebolt ContentProtection initialized with URL: [%s]", url.c_str());
 }
 
@@ -99,12 +97,4 @@ FireboltInterface::~FireboltInterface()
     Firebolt::IFireboltAampAccessor::Instance().ContentProtectionInterface().unsubscribeAll();
     Firebolt::IFireboltAampAccessor::Instance().DeviceInterface().unsubscribeAll();
     DestroyFireboltInstance();
-}
-
-void FireboltInterface::InitializeCallbackMap()
-{
-    for(int i = 0; i <= static_cast<int>(FireboltCallbackName::WATERMARK_STATUS_CHANGED); i++)
-    {
-        m_CallbackMap.insert({(FireboltCallbackName)i, 0});
-    }
 }

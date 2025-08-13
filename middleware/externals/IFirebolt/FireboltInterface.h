@@ -3,19 +3,6 @@
 #include "fireboltaamp.h"
 
 #include <memory>
-#include <map>
-
-/**
- * @brief FireboltCallbackName : names for firebolt callbacks
- */
-enum FireboltCallbackName
-{
-    HDCP_CHANGED,
-    NETWORK_CHANGED,
-    VIDEO_RESOLUTION_CHANGED,
-    WATERMARK_STATUS_CHANGED //keep in end to maintain count
-};
-
 
 class FireboltInterface{
 
@@ -35,8 +22,6 @@ class FireboltInterface{
 
         unsigned int mListenerId;
 
-        std::map<FireboltCallbackName, unsigned int> m_CallbackMap;
-
         FireboltInterface();
 
         bool CreateFireboltInstance(const std::string &url);
@@ -44,7 +29,5 @@ class FireboltInterface{
         void ConnectionChanged(const bool connected, int error);
 
         void DestroyFireboltInstance();
-
-        void InitializeCallbackMap();
 
 };
