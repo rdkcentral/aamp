@@ -10618,8 +10618,7 @@ void StreamAbstractionAAMP_MPD::StartFromAampLocalTsb(void)
 
 void StreamAbstractionAAMP_MPD::Start(void)
 {
-	AAMPLOG_INFO("patrick delay");
-	aamp->interruptibleMsSleep(200);
+
 	if (aamp->IsLocalAAMPTsbInjection())
 	{
 		StartFromAampLocalTsb();
