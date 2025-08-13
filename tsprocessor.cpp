@@ -317,33 +317,39 @@ TSProcessor::~TSProcessor()
 int TSProcessor::insertPatPmt(unsigned char *buffer, bool trick, int bufferSize)
 {
 	int len;
+	unsigned char *src;
 
 	if (trick && m_trickExcludeAudio)
 	{
 		len = m_PatPmtTrickLen;
-		memcpy(buffer, m_PatPmtTrick, len);
+		src = m_PatPmtTrick;
 	}
 	else if (trick && m_isMCChannel)
 	{
 		len = m_PatPmtPcrLen;
-		memcpy(buffer, m_PatPmtPcr, len);
+		src = m_PatPmtPcr;
 	}
 	else
 	{
 		len = m_PatPmtLen;
-		memcpy(buffer, m_PatPmt, len);
+		src = m_PatPmt;
 	}
 
-	int index = 3 + m_ttsSize;
-	if (index < len)
+	if (len)
 	{
-		buffer[index] = ((buffer[index] & 0xF0) | (m_patCounter++ & 0x0F));
+		memcpy(buffer, src, len);
 
-		index += m_packetSize;
-		while (index < len)
+		int index = 3 + m_ttsSize;
+		if (index < len)
 		{
-			buffer[index] = ((buffer[index] & 0xF0) | (m_pmtCounter++ & 0x0F));
+			buffer[index] = ((buffer[index] & 0xF0) | (m_patCounter++ & 0x0F));
+
 			index += m_packetSize;
+			while (index < len)
+			{
+				buffer[index] = ((buffer[index] & 0xF0) | (m_pmtCounter++ & 0x0F));
+				index += m_packetSize;
+			}
 		}
 	}
 
