@@ -220,14 +220,8 @@ TsbFragmentDataPtr AampTsbReader::FindNext()
 			else // forward or normal playback
 			{
 				// For forward playback, get the next fragment in the linked list
-				AampTime nextPos = mCurrentFragment->GetAbsolutePosition() + mCurrentFragment->GetDuration();
-				auto oldFrag = mDataMgr->GetNearestFragment(nextPos.inSeconds());
 				ret = mCurrentFragment->next;
-				// Log current, next and old fragment positions
-				AAMPLOG_INFO("[%s] <PB> Current fragment %.6f Next fragment %.6f Old fragment %.6f; nextPos %.6f",
-					GetMediaTypeName(mMediaType), mCurrentFragment->GetAbsolutePosition().inSeconds(),
-					(ret ? ret->GetAbsolutePosition().inSeconds() : 0), (oldFrag ? oldFrag->GetAbsolutePosition().inSeconds() : 0), 
-					nextPos.inSeconds());
+
 			}
 		}
 
@@ -246,11 +240,21 @@ TsbFragmentDataPtr AampTsbReader::FindNext()
 		   }
 		   else // forward or normal
 		   {
-			   atEos = !(ret->next);
+			   // For fast forward rates, be more conservative about EOS detection
+			   // Allow playback to continue closer to actual live edge
+			   if (mCurrentRate > AAMP_NORMAL_PLAY_RATE)
+			   {
+				   // Only set EOS if we're within 2 fragments of the edge
+				   atEos = !(ret->next) && !(ret->next && ret->next->next);
+			   }
+			   else
+			   {
+				   atEos = !(ret->next);
+			   }
 		   }
 		   if (atEos)
 		   {
-			   AAMPLOG_INFO("[%s] At buffer edge, setting EOS. absPos %lfs", GetMediaTypeName(mMediaType), ret->GetAbsolutePosition().inSeconds());
+			   AAMPLOG_INFO("[%s] At buffer edge, setting EOS. absPos %lfs rate %f", GetMediaTypeName(mMediaType), ret->GetAbsolutePosition().inSeconds(), mCurrentRate);
 			   mEosReached = true;
 		   }
 		   AAMPLOG_INFO("[%s] Returning fragment: absPos %lfs pts %lfs period %s timeScale %u ptsOffset %fs url %s",
@@ -289,7 +293,7 @@ void AampTsbReader::ReadNext(TsbFragmentDataPtr nextFragmentData)
 		// Complement this state with last init header push status/ Determine if the next fragment is discontinuous.
 		// For forward iteration, examine the discontinuity marker in the next fragment.
 		// For reverse iteration, inspect the discontinuity marker in the current fragment,
-		//		indicating that the upcoming iteration will transition to a different period.
+		// indicating that the upcoming iteration will transition to a different period.
 		if (mCurrentRate >= 0.0)
 		{
 			mIsNextFragmentDisc = nextFragmentData->IsDiscontinuous();

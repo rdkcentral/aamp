@@ -784,7 +784,7 @@ void AampTSBSessionManager::SkipFragment(std::shared_ptr<AampTsbReader>& reader,
 {
 	if (nextFragmentData && reader && !reader->IsEos())
 	{
-		AampTime skippedDuration = 0.0;
+		AampTime skippedDuration{};
 		if(eMEDIATYPE_VIDEO == reader->GetMediaType())
 		{
 			AampTime startPos = nextFragmentData->GetAbsolutePosition();
