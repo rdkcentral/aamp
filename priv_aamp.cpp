@@ -592,8 +592,7 @@ size_t PrivateInstanceAAMP::HandleSSLWriteCallback ( char *ptr, size_t size, siz
 	{
 		if ((NULL == context->buffer->GetPtr() ) && (context->contentLength > 0))
 		{
-			size_t len = context->contentLength + 2;
-			/*Add 2 additional characters to take care of extra characters inserted by aamp_AppendNulTerminator*/
+			size_t len = context->contentLength;
 			if(context->downloadIsEncoded && (len < DEFAULT_ENCODED_CONTENT_BUFFER_SIZE))
 			{
 				// Allocate a fixed buffer for encoded contents. Content length is not trusted here
@@ -6290,22 +6289,28 @@ MediaFormat PrivateInstanceAAMP::GetMediaFormatType(const char *url)
 			{
 				rc = eMEDIAFORMAT_HLS;
 			}
-			else if((sniffedBytes.GetLen() >= 6 && memcmp(sniffedBytes.GetPtr(), "<?xml ", 6) == 0) || // can start with xml
-					 (sniffedBytes.GetLen() >= 5 && memcmp(sniffedBytes.GetPtr(), "<MPD ", 5) == 0)) // or directly with mpd
-			{ // note: legal to have whitespace before leading tag
-				sniffedBytes.AppendNulTerminator();
-				if (strstr(sniffedBytes.GetPtr(), "SmoothStreamingMedia"))
-				{
-					rc = eMEDIAFORMAT_SMOOTHSTREAMINGMEDIA;
-				}
-				else
-				{
-					rc = eMEDIAFORMAT_DASH;
-				}
-			}
 			else
 			{
-				rc = eMEDIAFORMAT_PROGRESSIVE;
+				rc = eMEDIAFORMAT_PROGRESSIVE; // default
+				const char *ptr = sniffedBytes.GetPtr();
+				const char *fin = ptr + sniffedBytes.GetLen();
+				while( ptr<fin )
+				{
+					char c = *ptr++;
+					if( c == '<' )
+					{
+						if( memcmp(ptr,"SmoothStreamingMedia ",21)==0 )
+						{
+							rc = eMEDIAFORMAT_SMOOTHSTREAMINGMEDIA;
+							break;
+						}
+						else if( memcmp(ptr,"MPD ",4)==0 )
+						{
+							rc = eMEDIAFORMAT_DASH;
+							break;
+						}
+					}
+				}
 			}
 		}
 		sniffedBytes.Free();
@@ -7482,8 +7487,8 @@ void PrivateInstanceAAMP::Stop( bool isDestructing )
 		inpData->bIgnoreResponseHeader	= true;
 		inpData->eRequestType = eCURL_DELETE;
 		inpData->proxyName        = GetNetworkProxy();
-		T1.Initialize(inpData);
-		T1.Download(remoteUrl, respData );
+		T1.Initialize(std::move(inpData));
+		T1.Download(remoteUrl, std::move(respData) );
 	}
 
 	UnblockWaitForDiscontinuityProcessToComplete();
@@ -10033,7 +10038,11 @@ std::string PrivateInstanceAAMP::GetAvailableAudioTracks(bool allTrack)
 			{
 				if (IsLocalAAMPTsb())
 				{
-					mpStreamAbstractionAAMP->GetCurrentAudioTrack(currentTrackInfo);
+					bool trackAvailable = mpStreamAbstractionAAMP->GetCurrentAudioTrack(currentTrackInfo);
+					if( !trackAvailable )
+					{
+						AAMPLOG_WARN( "GetCurrentAudioTrack returned false" );
+					}
 				}
 				for (auto iter = trackInfo.begin(); iter != trackInfo.end(); iter++)
 				{
@@ -10153,7 +10162,11 @@ std::string PrivateInstanceAAMP::GetAvailableTextTracks(bool allTrack)
 			{
 				if (IsLocalAAMPTsb())
 				{
-					mpStreamAbstractionAAMP->GetCurrentTextTrack(currentTrackInfo);
+					bool trackInfoAvailable = mpStreamAbstractionAAMP->GetCurrentTextTrack(currentTrackInfo);
+					if( !trackInfoAvailable )
+					{
+						AAMPLOG_WARN( "GetCurrentTextTrack returned false" );
+					}
 				}
 				for (auto iter = trackInfo.begin(); iter != trackInfo.end(); iter++)
 				{
