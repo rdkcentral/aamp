@@ -3074,7 +3074,8 @@ bool InterfacePlayerRDK::SendHelper(int type, const void *ptr, size_t len, doubl
 				if (mediaType == eGST_MEDIATYPE_SUBTITLE)
 					GST_BUFFER_OFFSET(buffer) = pts_offset;
 
-				MW_LOG_INFO("Sending segment for mediaType[%d]. pts %" G_GUINT64_FORMAT " dts %" G_GUINT64_FORMAT" len:%zu init:%d discontinuity:%d dur:%" G_GUINT64_FORMAT,
+				MW_LOG_WARN("ANJ:Sending segment for mediaType[%d]. pts %" G_GUINT64_FORMAT " dts %" G_GUINT64_FORMAT" len:%zu init:%d discontinuity:%d dur:%" G_GUINT64_FORMAT,
+				//MW_LOG_INFO("Sending segment for mediaType[%d]. pts %" G_GUINT64_FORMAT " dts %" G_GUINT64_FORMAT" len:%zu init:%d discontinuity:%d dur:%" G_GUINT64_FORMAT,
 							mediaType, pts, dts, len, initFragment, discontinuity,duration);
 
 			}
