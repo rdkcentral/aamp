@@ -225,30 +225,10 @@ TsbFragmentDataPtr AampTsbReader::FindNext()
 			}
 		}
 
-	   if (!ret)
+	   if (!ret && mCurrentRate< AAMP_NORMAL_PLAY_RATE)
 	   {
 		   AAMPLOG_INFO("[%s] No next fragment available, mCurrentRate %f", GetMediaTypeName(mMediaType), mCurrentRate);
 		   mEosReached = true;
-	   }
-	   else
-	   {
-		   // Additional EOS checks if ret is valid but at buffer edge
-		   bool atEos = false;
-		   if (mCurrentRate < 0.0) // rewind
-		   {
-			   atEos = !(ret->prev);
-		   }
-		   else // forward or normal
-		   {
-			   atEos = !(ret->next);
-		   }
-		   if (atEos)
-		   {
-			   AAMPLOG_INFO("[%s] At buffer edge, setting EOS. absPos %lfs", GetMediaTypeName(mMediaType), ret->GetAbsolutePosition().inSeconds());
-			   mEosReached = true;
-		   }
-		   AAMPLOG_INFO("[%s] Returning fragment: absPos %lfs pts %lfs period %s timeScale %u ptsOffset %fs url %s",
-			   GetMediaTypeName(mMediaType), ret->GetAbsolutePosition().inSeconds(), ret->GetPTS().inSeconds(), ret->GetPeriodId().c_str(), ret->GetTimeScale(), ret->GetPTSOffset().inSeconds(), ret->GetUrl().c_str());
 	   }
 	}
 
