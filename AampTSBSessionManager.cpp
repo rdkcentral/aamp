@@ -1001,7 +1001,7 @@ double AampTSBSessionManager::GetManifestEndDelta()
 	LockReadMutex();
 	if(mStoreEndPosition > 0.0 && mAamp->mAbsoluteEndPosition > 0.0  )
 	{
-		manifestEndDelta = mStoreEndPosition - mAamp->mAbsoluteEndPosition;
+		manifestEndDelta = mStoreEndPosition - mAamp->mAbsoluteEndPosition > 0.0;
 	}
 	else
 	{
