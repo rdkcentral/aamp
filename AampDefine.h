@@ -71,7 +71,6 @@
 #define DEFAULT_INIT_BITRATE_4K 13000000            		/**< Initial bitrate for 4K playback: 13mb ie, 3/4 profile */
 #define AAMP_LIVE_OFFSET 15             			/**< Live offset in seconds */
 #define AAMP_DEFAULT_LIVE_OFFSET_DRIFT (1)          /**< Default value of allowed live offset drift **/
-#define AAMP_LIVE_EDGE_TOLERANCE 3.0                /**< Tolerance buffer for live edge detection to handle TSB navigation jumps */
 #define AAMP_DEFAULT_PLAYBACK_OFFSET -99999            		/**< default 'unknown' offset value */
 #define AAMP_CDVR_LIVE_OFFSET 30        			/**< Live offset in seconds for CDVR hot recording */
 #define MIN_DASH_DRM_SESSIONS 3

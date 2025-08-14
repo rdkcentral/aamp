@@ -3833,14 +3833,11 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 			else if (((eTUNETYPE_SEEK == tuneType) || (eTUNETYPE_RETUNE == tuneType || eTUNETYPE_NEW_SEEK == tuneType)) && (rate > 0))
 			{
 				double seekWindowEnd = duration - aamp->mLiveOffset;
-				// Add tolerance buffer to reduce sensitivity to timing variations from TSB navigation
-				const double liveEdgeTolerance = AAMP_LIVE_EDGE_TOLERANCE;
-				
-				// check if seek beyond live point (with tolerance)
-				if (seekPosition > (seekWindowEnd + liveEdgeTolerance))
+				// check if seek beyond live point
+				if (seekPosition > seekWindowEnd)
 				{
-					AAMPLOG_WARN( "StreamAbstractionAAMP_MPD: offSetFromStart[%f] seekWindowEnd[%f] tolerance[%f]",
-							seekPosition, seekWindowEnd, liveEdgeTolerance);
+					AAMPLOG_WARN( "StreamAbstractionAAMP_MPD: offSetFromStart[%f] seekWindowEnd[%f] ",
+							seekPosition, seekWindowEnd);
 					liveAdjust = true;
 					if (eTUNETYPE_SEEK == tuneType)
 					{
@@ -8471,7 +8468,31 @@ void StreamAbstractionAAMP_MPD::UpdateCulledAndDurationFromPeriodInfo(std::vecto
 			}
 			mCulledSeconds = firstPeriodStart;
 		}
-		aamp->mAbsoluteEndPosition = lastPeriodStart + (mMPDParseHelper->GetPeriodDuration(lastPeriodIdx,mLastPlaylistDownloadTimeMs,(rate != AAMP_NORMAL_PLAY_RATE),aamp->IsUninterruptedTSB()) / 1000.00);
+		double newAbsoluteEndPosition = lastPeriodStart + (mMPDParseHelper->GetPeriodDuration(lastPeriodIdx,mLastPlaylistDownloadTimeMs,(rate != AAMP_NORMAL_PLAY_RATE),aamp->IsUninterruptedTSB()) / 1000.00);
+		
+		// Smooth position updates during trick play to prevent sudden jumps from linked-list navigation
+		if (rate > AAMP_NORMAL_PLAY_RATE && aamp->mAbsoluteEndPosition > 0.0)
+		{
+			double maxJump = 2.0 * rate; // Allow proportional jumps based on playback rate
+			double delta = newAbsoluteEndPosition - aamp->mAbsoluteEndPosition;
+			
+			if (delta > maxJump)
+			{
+				// Limit the jump to prevent sudden position window changes
+				aamp->mAbsoluteEndPosition += maxJump;
+				AAMPLOG_TRACE("Smoothing AbsoluteEndPosition jump: raw=%.2f limited=%.2f delta=%.2f maxJump=%.2f", 
+							  newAbsoluteEndPosition, aamp->mAbsoluteEndPosition, delta, maxJump);
+			}
+			else
+			{
+				aamp->mAbsoluteEndPosition = newAbsoluteEndPosition;
+			}
+		}
+		else
+		{
+			aamp->mAbsoluteEndPosition = newAbsoluteEndPosition;
+		}
+		
 		if(aamp->mAbsoluteEndPosition < aamp->culledSeconds)
 		{
 			// Handling edge case just before dynamic => static transition.

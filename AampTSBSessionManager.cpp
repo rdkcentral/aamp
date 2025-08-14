@@ -998,27 +998,10 @@ bool AampTSBSessionManager::PushNextTsbFragment(MediaStreamContext *pMediaStream
 double AampTSBSessionManager::GetManifestEndDelta()
 {
 	double manifestEndDelta = 0.0;
-	static double previousDelta = 0.0;
-	static double smoothingFactor = 0.3; // Adjust for more/less smoothing
-	
 	LockReadMutex();
 	if(mStoreEndPosition > 0.0 && mAamp->mAbsoluteEndPosition > 0.0  )
 	{
-		double rawDelta = mStoreEndPosition - mAamp->mAbsoluteEndPosition;
-		
-		// Apply exponential smoothing to reduce sudden jumps
-		if(previousDelta > 0.0)
-		{
-			manifestEndDelta = (smoothingFactor * rawDelta) + ((1.0 - smoothingFactor) * previousDelta);
-		}
-		else
-		{
-			manifestEndDelta = rawDelta; // First calculation
-		}
-		
-		previousDelta = manifestEndDelta;
-		
-		AAMPLOG_TRACE("TSB manifest delta: raw=%.2f smoothed=%.2f", rawDelta, manifestEndDelta);
+		manifestEndDelta = mStoreEndPosition - mAamp->mAbsoluteEndPosition;
 	}
 	else
 	{
