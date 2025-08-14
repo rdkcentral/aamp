@@ -67,7 +67,9 @@ AampMPDParseHelper::AampMPDParseHelper(const AampMPDParseHelper& cachedMPD) : mI
 */
 void AampMPDParseHelper::Initialize(dash::mpd::IMPD *instance)
 {
+	AAMPLOG_WARN("RDKEMW-5735-->Calling Clear() inside Initialise");
 	Clear();
+	AAMPLOG_WARN("RDKEMW-5735-->Clear() from Initialise called");
 	std::unique_lock<std::mutex> lck(mMyObjectMutex);
 	if(instance != NULL)
 	{
@@ -110,6 +112,7 @@ void AampMPDParseHelper::Clear()
 */
 void AampMPDParseHelper::parseMPD()
 {
+	AAMPLOG_WARN("RDKEMW-5735-->Inside parseMPD()");
 	mIsLiveManifest   =       !(mMPDInstance->GetType() == "static");
 
 	std::string tempStr = mMPDInstance->GetMinimumUpdatePeriod();
@@ -192,6 +195,7 @@ void AampMPDParseHelper::parseMPD()
 	}
 
 	mNumberOfPeriods = (int)mMPDInstance->GetPeriods().size();
+	AAMPLOG_WARN("RDKEMW-5735-->returning from parseMPD()");
 }
 
 /**

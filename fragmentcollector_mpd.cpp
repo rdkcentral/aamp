@@ -3084,6 +3084,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::GetMPDFromManifest( ManifestDownloadRe
 	else
 	{
 		ret = AAMPStatusType::eAAMPSTATUS_MANIFEST_CONTENT_ERROR;
+		AAMPLOG_WARN("RDKEMW-5735-->Setting CONTENT error");
 	}
 	return ret;
 }
@@ -3964,6 +3965,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 			if(durationMs == INVALID_VOD_DURATION)
 			{
 				AAMPLOG_WARN("Duration of VOD content is 0");
+				AAMPLOG_WARN("RDKEMW-5735-->Setting CONTENT error");
 				return eAAMPSTATUS_MANIFEST_CONTENT_ERROR;
 			}
 
@@ -4025,6 +4027,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 		if(mAudioType == eAUDIO_UNSUPPORTED)
 		{
 			retval = eAAMPSTATUS_MANIFEST_CONTENT_ERROR;
+			AAMPLOG_WARN("RDKEMW-5735-->Setting CONTENT error");
 			aamp->SendErrorEvent(AAMP_TUNE_UNSUPPORTED_AUDIO_TYPE);
 		}
 		else if(mNumberOfTracks)
@@ -4199,6 +4202,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 	else if(ret == eAAMPSTATUS_MANIFEST_CONTENT_ERROR)
 	{
 		retval = eAAMPSTATUS_MANIFEST_CONTENT_ERROR;
+		AAMPLOG_WARN("RDKEMW-5735-->Setting CONTENT error");
 	}
 	else
 	{
@@ -4523,6 +4527,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::FetchDashManifest()
 
 					aamp->mFogDownloadFailReason.clear();
 					AAMPLOG_ERR("StreamAbstractionAAMP_MPD: No playable profiles found");
+					AAMPLOG_WARN("RDKEMW-5735-->Setting CONTENT error");
 					ret = AAMPStatusType::eAAMPSTATUS_MANIFEST_CONTENT_ERROR;
 				}
 			}
@@ -4648,6 +4653,7 @@ void StreamAbstractionAAMP_MPD::MPDUpdateCallbackExec()
 			}
 
 			std::string manifestType = mMPDParser->IsLiveManifest() ? "dynamic" : "static";
+
 			AAMPLOG_INFO( "Send RefreshNotify Dur[%" PRIu64 "] NoOfPeriods[%d] PubTime[%u] ManifestType[%s]", manifestDuration, mMPDParser->GetNumberOfPeriods(), tmpManifestDnldRespPtr->mMPDInstance->GetFetchTime(), manifestType.c_str());
 			aamp->SendEvent(std::make_shared<ManifestRefreshEvent>(manifestDuration, mMPDParser->GetNumberOfPeriods(), tmpManifestDnldRespPtr->mMPDInstance->GetFetchTime(), manifestType, aamp->GetSessionId()), AAMP_EVENT_ASYNC_MODE);
 		}
@@ -6658,6 +6664,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateMediaTrackInfo(AampMediaType typ
 	if ((!pMediaStreamContext) || (!pMediaStreamContext->enabled))
 	{
 		AAMPLOG_WARN("pMediaStreamContext  is null");  //CID:82464,84186 - Null Returns
+		AAMPLOG_WARN("RDKEMW-5735-->Setting CONTENT error");
 		return eAAMPSTATUS_MANIFEST_CONTENT_ERROR;
 	}
 	AAMPLOG_INFO("Enter : Type[%d] timeLineIndex %d fragmentRepeatCount %d fragmentTime %f segNumber %" PRIu64 " Ftime:%f" ,pMediaStreamContext->type,
@@ -6673,6 +6680,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateMediaTrackInfo(AampMediaType typ
 	else
 	{
 		AAMPLOG_WARN("Not able to find representation from manifest, sending error event");
+		AAMPLOG_WARN("RDKEMW-5735-->Setting CONTENT error");
 		aamp->SendErrorEvent(AAMP_TUNE_INIT_FAILED_MANIFEST_CONTENT_ERROR);
 		return eAAMPSTATUS_MANIFEST_CONTENT_ERROR;
 	}
@@ -7422,6 +7430,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, 
 		if(!pMediaStreamContext)
 		{
 			AAMPLOG_WARN("pMediaStreamContext  is null");  //CID:82464,84186 - Null Returns
+			AAMPLOG_WARN("RDKEMW-5735-->Setting CONTENT error");
 			return eAAMPSTATUS_MANIFEST_CONTENT_ERROR;
 		}
 		if(mCdaiObject->mAdState == AdState::IN_ADBREAK_AD_PLAYING)
@@ -7806,6 +7815,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, 
 					if (0 == addedProfiles)
 					{
 						ret = eAAMPSTATUS_MANIFEST_CONTENT_ERROR;
+						AAMPLOG_WARN("RDKEMW-5735-->Setting CONTENT error");
 						AAMPLOG_WARN("No profiles found, minBitrate : %ld maxBitrate: %ld", minBitrate, maxBitrate);
 						return ret;
 					}
@@ -7911,6 +7921,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, 
 			{
 				AAMPLOG_WARN("Not able to find representation from manifest, sending error event");
 				aamp->SendErrorEvent(AAMP_TUNE_INIT_FAILED_MANIFEST_CONTENT_ERROR);
+				AAMPLOG_WARN("RDKEMW-5735-->Setting CONTENT error");
 				return eAAMPSTATUS_MANIFEST_CONTENT_ERROR;
 			}
 
@@ -9724,6 +9735,7 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 					else if (eAAMPSTATUS_MANIFEST_CONTENT_ERROR == ret)
 					{
 						aamp->DisableDownloads();
+						AAMPLOG_WARN("RDKEMW-5735-->FIrst else-if condition");
 						AAMPLOG_WARN("Exiting from fetcher loop due to manifest content error");
 						break;
 					}
@@ -9744,7 +9756,9 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 					}
 					else if (eAAMPSTATUS_MANIFEST_CONTENT_ERROR == ret)
 					{
+
 						aamp->DisableDownloads();
+						AAMPLOG_WARN("RDKEMW-5735-->Inside second else-if condition");
 						AAMPLOG_WARN("Exiting from fetcher loop due to manifest content error");
 						break;
 					}
@@ -9873,6 +9887,7 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 				if (eAAMPSTATUS_MANIFEST_CONTENT_ERROR == UpdateMPD())
 				{
 					aamp->DisableDownloads();
+					AAMPLOG_WARN("Inside 3rd else-if condition");
 					AAMPLOG_WARN("Exiting from fetcher loop due to manifest content error");
 					break;
 				}

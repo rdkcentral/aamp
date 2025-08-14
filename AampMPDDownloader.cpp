@@ -96,6 +96,7 @@ std::shared_ptr<_manifestDownloadResponse> _manifestDownloadResponse::clone()
 */
 void _manifestDownloadResponse::parseMPD()
 {
+	AAMPLOG_WARN("RDKEMW-5735-->Inside parseMPD() of AampMPDDownloader.cpp");
 	std::string manifestStr;	
 	xmlTextReaderPtr mXMLReader =   NULL; // Initialize to nullptr
 
@@ -155,6 +156,7 @@ void _manifestDownloadResponse::parseMPD()
 	}
 
 	AAMPLOG_INFO("Parse MPD Completed ...");
+	AAMPLOG_WARN("Returning from parseMPD in AampMPDDownloader");
 }
 
 /**
