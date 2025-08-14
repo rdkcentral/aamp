@@ -5482,7 +5482,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 			mFragmentCachingRequired = true;
 		}
 
-		AAMPLOG_INFO("TuneHelper - seek_pos: %f", seek_pos_seconds);
+		AAMPLOG_INFO("Neil TuneHelper - seek_pos: %f", seek_pos_seconds);
 		UpdatePTSOffsetFromTune(seek_pos_seconds, true);
 
 		// Set Pause on First Video frame if seeking and requested
@@ -5507,11 +5507,17 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 			IncreaseGSTBufferSize();
 		}
 
+		AAMPLOG_INFO("Neil TuneHelper checking mbUsingExternalPlayer!!");
+
 		if (!mbUsingExternalPlayer)
 		{
+			AAMPLOG_INFO("Neil mbUsingExternalPlayer = false");
+
 			StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
 			if (sink)
 			{
+				AAMPLOG_INFO("Neil sink = true");
+
 				sink->SetVideoZoom(zoom_mode);
 				sink->SetVideoMute(video_muted);
 				if (mApplyCachedVideoMute)
@@ -5527,7 +5533,13 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 					sink->Configure(mVideoFormat, mAudioFormat, mAuxFormat, mSubtitleFormat, mpStreamAbstractionAAMP->GetESChangeStatus(), mpStreamAbstractionAAMP->GetAudioFwdToAuxStatus());
 				}
 			}
+			else
+				AAMPLOG_INFO("Neil sink = false");
+
 		}
+		else
+			AAMPLOG_INFO("Neil mbUsingExternalPlayer = true");
+
 
 		/* executing the flush earlier in order to avoid the tune delay while waiting for the first video and audio fragment to download
 		 * and retrieve the pts value, as in the segmenttimeline streams we get the pts value from manifest itself
@@ -5684,6 +5696,9 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 	int iCacheMaxSize = 0;
 	double tmpVar=0;
 	int intTmpVar=0;
+
+	AAMPLOG_INFO("Neil entering PrivateInstanceAAMP::Tune()");
+
 	/** Disable iframe extraction by default*/
 	SetIsIframeExtractionEnabled(false);
 	TuneType tuneType =  eTUNETYPE_NEW_NORMAL;
