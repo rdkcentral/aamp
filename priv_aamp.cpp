@@ -10858,7 +10858,12 @@ int PrivateInstanceAAMP::GetTextTrack()
 {
 	int idx = -1;
 	AcquireStreamLock();
-	if (PlayerCCManager::GetInstance()->GetStatus() && mpStreamAbstractionAAMP)
+	if (mpStreamAbstractionAAMP && !subtitles_muted)
+	{
+		idx = mpStreamAbstractionAAMP->GetTextTrack();
+	}
+
+	if (PlayerCCManager::GetInstance()->GetStatus() && idx == -1 && mpStreamAbstractionAAMP)
 	{
 		std::string trackId = PlayerCCManager::GetInstance()->GetTrack();
 		if (!trackId.empty())
@@ -10872,10 +10877,6 @@ int PrivateInstanceAAMP::GetTextTrack()
 				}
 			}
 		}
-	}
-	if (mpStreamAbstractionAAMP && idx == -1 && !subtitles_muted)
-	{
-		idx = mpStreamAbstractionAAMP->GetTextTrack();
 	}
 	ReleaseStreamLock();
 	return idx;
@@ -12266,11 +12267,15 @@ void PrivateInstanceAAMP::SetPreferredTextLanguages(const char *param )
 							AAMPLOG_ERR("TSB Session Manager is NULL");
 						}
 					}
-					else
+					else if(mDisableRateCorrection)
 					{
 						TuneHelper(eTUNETYPE_SEEK);
 					}
-
+					else
+					{
+						TuneHelper(eTUNETYPE_SEEKTOLIVE);
+					}
+					
 					discardEnteringLiveEvt = false;
 				}
 				ReleaseStreamLock();
