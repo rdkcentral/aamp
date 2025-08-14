@@ -232,12 +232,12 @@ TsbFragmentDataPtr AampTsbReader::FindNext()
 	   }
 	}
 
-	if (!ret)
+	if (ret)
 	{
 		AAMPLOG_INFO("[%s] Returning fragment: absPos %lfs pts %lfs period %s timeScale %u ptsOffset %fs url %s",
 			GetMediaTypeName(mMediaType), ret->GetAbsolutePosition().inSeconds(), ret->GetPTS().inSeconds(), ret->GetPeriodId().c_str(), ret->GetTimeScale(), ret->GetPTSOffset().inSeconds(), ret->GetUrl().c_str());
 	}
-	
+
 	return ret;
 }
 

@@ -8468,30 +8468,8 @@ void StreamAbstractionAAMP_MPD::UpdateCulledAndDurationFromPeriodInfo(std::vecto
 			}
 			mCulledSeconds = firstPeriodStart;
 		}
-		double newAbsoluteEndPosition = lastPeriodStart + (mMPDParseHelper->GetPeriodDuration(lastPeriodIdx,mLastPlaylistDownloadTimeMs,(rate != AAMP_NORMAL_PLAY_RATE),aamp->IsUninterruptedTSB()) / 1000.00);
 		
-		// Smooth position updates during trick play to prevent sudden jumps from linked-list navigation
-		if (rate > AAMP_NORMAL_PLAY_RATE && aamp->mAbsoluteEndPosition > 0.0)
-		{
-			double maxJump = 2.0 * rate; // Allow proportional jumps based on playback rate
-			double delta = newAbsoluteEndPosition - aamp->mAbsoluteEndPosition;
-			
-			if (delta > maxJump)
-			{
-				// Limit the jump to prevent sudden position window changes
-				aamp->mAbsoluteEndPosition += maxJump;
-				AAMPLOG_TRACE("Smoothing AbsoluteEndPosition jump: raw=%.2f limited=%.2f delta=%.2f maxJump=%.2f", 
-							  newAbsoluteEndPosition, aamp->mAbsoluteEndPosition, delta, maxJump);
-			}
-			else
-			{
-				aamp->mAbsoluteEndPosition = newAbsoluteEndPosition;
-			}
-		}
-		else
-		{
-			aamp->mAbsoluteEndPosition = newAbsoluteEndPosition;
-		}
+		aamp->mAbsoluteEndPosition = lastPeriodStart + (mMPDParseHelper->GetPeriodDuration(lastPeriodIdx,mLastPlaylistDownloadTimeMs,(rate != AAMP_NORMAL_PLAY_RATE),aamp->IsUninterruptedTSB()) / 1000.00);
 		
 		if(aamp->mAbsoluteEndPosition < aamp->culledSeconds)
 		{
