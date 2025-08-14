@@ -5515,12 +5515,14 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 				sink->SetVideoMute(video_muted);
 				if (mApplyCachedVideoMute)
 				{
+					AAMPLOG_INFO("Neil CacheAndApplySubtitleMute(video_muted)");
 					mApplyCachedVideoMute = false;
 					CacheAndApplySubtitleMute(video_muted);
 				}
 				sink->SetAudioVolume(volume);
 				if (mbPlayEnabled)
 				{
+					AAMPLOG_INFO("Neil CacheAndApplySubtitleMute(video_audio)");
 					sink->Configure(mVideoFormat, mAudioFormat, mAuxFormat, mSubtitleFormat, mpStreamAbstractionAAMP->GetESChangeStatus(), mpStreamAbstractionAAMP->GetAudioFwdToAuxStatus());
 				}
 			}
@@ -6104,7 +6106,7 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 	if(mApplyCachedVideoMute)
 	{
 		mApplyCachedVideoMute = false;
-		AAMPLOG_INFO("Cached videoMute is being executed, mute value: %d", video_muted);
+		AAMPLOG_INFO("Neil Cached videoMute is being executed, mute value: %d", video_muted);
 		if (mpStreamAbstractionAAMP)
 		{
 			//There two fns are being called in PlayerInstanceAAMP::SetVideoMute
