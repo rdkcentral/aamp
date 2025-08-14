@@ -360,7 +360,7 @@ bool IsoBmffProcessor::setTuneTimePTS(AampGrowableBuffer *fragBuffer, double pos
 					AAMPLOG_INFO("[pto] IsoBmffProcessor %s NotifyFirstVideoPTS basePTS=%" PRIu64 " timeScale=%u", IsoBmffProcessorTypeName[type], basePTS, timeScale);
 					p_aamp->NotifyFirstVideoPTS(basePTS, timeScale);
 
-					double offset = p_aamp->GetPTOoffset();
+					double offset = p_aamp->getPtoOffset();
 					AAMPLOG_INFO("[pto] IsoBmffProcessor %s pos before offset=%f playRate=%f", IsoBmffProcessorTypeName[type], pos, playRate);
 
 					pos = pos - offset;

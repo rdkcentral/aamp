@@ -9518,11 +9518,11 @@ void PrivateInstanceAAMP::NotifyFirstVideoPTS(unsigned long long pts, unsigned l
 		mpStreamAbstractionAAMP->NotifyFirstVideoPTS(pts, timeScale);
 	}
 }
-double PrivateInstanceAAMP::GetPTOoffset( void )
+double PrivateInstanceAAMP::getPtoOffset( void )
 {
 	if (mpStreamAbstractionAAMP)
 	{
-		return mpStreamAbstractionAAMP->GetPTOoffset();
+		return mpStreamAbstractionAAMP->getPtoOffset();
 	}
 }
 

@@ -487,7 +487,7 @@ public:
 	 */
 	void NotifyFirstVideoPTS(unsigned long long pts, unsigned long timeScale) override;
 
-	double GetPTOoffset( void );
+	double getPtoOffset( void );
 
 	/**
 	 * @fn GetAvailabilityStartTime
@@ -1147,7 +1147,7 @@ protected:
 	double mTSBDepth;
 	double mPresentationOffsetDelay;
 	double mFirstPTS;
-	double mPTOoffset;
+	double mPtoOffset;
 	double mStartTimeOfFirstPTS;
 	double mVideoPosRemainder;
 	double mFirstVideoFragPTS;

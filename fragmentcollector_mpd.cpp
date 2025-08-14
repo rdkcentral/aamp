@@ -1162,7 +1162,7 @@ bool StreamAbstractionAAMP_MPD::PushNextFragment( class MediaStreamContext *pMed
 			if(!timelines.empty())
 			{
 #if defined(DEBUG_TIMELINE) || defined(AAMP_SIMULATOR_BUILD)
-				AAMPLOG_INFO("Type[%d] timelineCnt=%zu timeLineIndex:%d FDTime=%f L=%" PRIu64 " [fragmentTime = %f,  mLiveEndPosition=%f]",
+				AAMPLOG_INFO("Type[%d] segTimeline timelineCnt=%zu timeLineIndex:%d FDTime=%f L=%" PRIu64 " [fragmentTime = %f,  mLiveEndPosition=%f]",
 					pMediaStreamContext->type, timelines.size(), pMediaStreamContext->timeLineIndex, pMediaStreamContext->fragmentDescriptor.Time, pMediaStreamContext->lastSegmentTime, pMediaStreamContext->fragmentTime, mLiveEndPosition);
 #endif
 				if ((pMediaStreamContext->timeLineIndex >= timelines.size()) || (pMediaStreamContext->timeLineIndex < 0)
@@ -14014,12 +14014,12 @@ void StreamAbstractionAAMP_MPD::NotifyFirstVideoPTS(unsigned long long pts, unsi
 	double incomingPTS = ((double)pts / (double)timeScale);
 	if( incomingPTS > mFirstPTS )
 	{
-		mPTOoffset = incomingPTS - mFirstPTS;
+		mPtoOffset = incomingPTS - mFirstPTS;
 	}
 }
-double StreamAbstractionAAMP_MPD::GetPTOoffset( void )
+double StreamAbstractionAAMP_MPD::getPtoOffset( void )
 {
-	return mPTOoffset;
+	return mPtoOffset;
 }
 
 /**
