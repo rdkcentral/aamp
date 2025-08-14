@@ -271,8 +271,8 @@ public:
 	 * @return void */
         void TriggerLAProfileBeginCb(int streamType);
         void TriggerLAProfileEndCb(int streamType);
-        void TriggerLAProfileErrorCb(int err, int responseCode);
-        void TriggerSetFailure(int err);
+        void TriggerLAProfileErrorCb(void *ptr);
+        void TriggerSetFailure(void *ptr, int err);
         std::shared_ptr<void> TriggerDrmMetaDataEvent();
 
         void TriggerDecryptProfile(int streamType, int action, int result /* = 0 */);

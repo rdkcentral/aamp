@@ -427,14 +427,14 @@ public:
 		laprofileEndCb = callback;
 	};
 
-	using LAProfileErrorCallback = std::function<void(int err, int responseCode)>;
+	using LAProfileErrorCallback = std::function<void(void *ptr)>;
 	LAProfileErrorCallback laprofileErrorCb;
 	void RegisterLAProfError(const LAProfileErrorCallback callback)
 	{
 		laprofileErrorCb = callback;
 	};
 
-	using SetFailureCallback = std::function<void( int err)>;
+	using SetFailureCallback = std::function<void(void *ptr, int err)>;
 	SetFailureCallback setfailureCb;
 	void RegisterSetFailure(const SetFailureCallback callback)
 	{

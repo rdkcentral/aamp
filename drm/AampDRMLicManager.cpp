@@ -77,14 +77,15 @@ static void  registerCb(AampDRMLicenseManager* _this, DrmSessionManager* instanc
      instance->RegisterLAProfEnd([_this](int streamType){
 		_this->TriggerLAProfileEndCb(streamType);
      });
+     
      /** Register the profiler error callback for TriggerLAProfileErrorCb */
-      instance->RegisterLAProfError([_this](int err, int responseCode){
-	     _this->TriggerLAProfileErrorCb(err, responseCode);
+      instance->RegisterLAProfError([_this](void* ptr){
+	     _this->TriggerLAProfileErrorCb(ptr);
      });
 
      /**  Register the SetFailure callback for TriggerSetFailureCb */
-      instance->RegisterSetFailure([_this]( int err){
-		      _this->TriggerSetFailure(err);
+      instance->RegisterSetFailure([_this](void* ptr, int err){
+		      _this->TriggerSetFailure(ptr,err);
 		      });
      /** Register the MetaData callback for TriggerDrmMetaDataEvent */
        instance->RegisterMetaDataCb([_this]() -> std::shared_ptr<void> {
@@ -218,15 +219,6 @@ void AampDRMLicenseManager::renewLicense(std::shared_ptr<DrmHelper> drmHelper, v
 KeyState AampDRMLicenseManager::acquireLicense( int& responseCode, std::shared_ptr<DrmHelper> drmHelper, int sessionSlot, int &cdmError,
 	 AampMediaType streamType, void *metaDataPtr,  bool isLicenseRenewal)
 {
-	if(metaDataPtr == NULL)
-       {
-                using DrmMetaDataEventPtr = std::shared_ptr<DrmMetaDataEvent>;
-                auto drmEvent = std::make_shared<DrmMetaDataEvent>(AAMP_TUNE_FAILURE_UNKNOWN, "", 0, 0, false, std::string{});
-                metaDataPtr= static_cast<void*>(&drmEvent);
-
-                //std::shared_ptr<void> e = cdmidecryptor->sessionManager->DrmMetaDataCb();
-        }
-
 	DrmMetaDataEventPtr* eventHandlePtr = static_cast<DrmMetaDataEventPtr*>(metaDataPtr);
 	DrmMetaDataEventPtr& eventHandle = *eventHandlePtr;
 
@@ -1323,24 +1315,22 @@ DrmData * AampDRMLicenseManager::getLicenseSec(const LicenseRequest &licenseRequ
 		else
 		{
 			AAMPLOG_WARN(" acquireLicense SUCCESS! license request attempt %d; response code : sec_client %d", attemptCount, sec_client_result);
-				AAMPLOG_ERR("entering");
+				
 			if(eventHandle)
 			{
-				AAMPLOG_ERR("entering1");
+				
 			    eventHandle->setAccessStatusValue(statusInfo.accessAttributeStatus);
 			}
 			licenseResponse = new DrmData(licenseResponseStr, licenseResponseLength);
-				AAMPLOG_ERR("entering2");
+				
 		}
 		if (licenseResponseStr) mDrmSessionManager->playerSecInstance->PlayerSec_FreeResource(licenseResponseStr);
 	}
-				AAMPLOG_ERR("entering4");
-        UpdateLicenseMetrics(DRM_GET_LICENSE_SEC, *httpCode, licenseRequest.url.c_str(), downloadTimeMS, eventHandle, nullptr );
-				AAMPLOG_ERR("entering5");
+				
+        UpdateLicenseMetrics(DRM_GET_LICENSE_SEC, *httpCode, licenseRequest.url.c_str(), downloadTimeMS, eventHandle, nullptr );				
 
 	free(encodedData);
 	free(encodedChallengeData);
-				AAMPLOG_ERR("entering6 ");
 	return licenseResponse;
 }
 /*
@@ -1402,14 +1392,15 @@ void AampDRMLicenseManager::TriggerLAProfileEndCb(int streamType)
 	}
 }
 
-void AampDRMLicenseManager::TriggerLAProfileErrorCb(int err, int responseCodeVal)
+void AampDRMLicenseManager::TriggerLAProfileErrorCb(void *ptr)
 {
 	if(!aampInstance->licenceFromManifest)
 	{
-		AAMPTuneFailure failure = (AAMPTuneFailure)err;
+		DrmMetaDataEventPtr e = *static_cast<DrmMetaDataEventPtr*>(ptr);
+		AAMPTuneFailure failure = e->getFailure();
 		if(AAMP_TUNE_FAILURE_UNKNOWN != failure)
 		{
-			long responseCode = (long)responseCodeVal;
+			long responseCode = e->getResponseCode();
 			bool selfAbort = (failure == AAMP_TUNE_LICENCE_REQUEST_FAILED && (responseCode == CURLE_ABORTED_BY_CALLBACK || responseCode == CURLE_WRITE_ERROR));
 			if (!selfAbort)
 			{
@@ -1425,10 +1416,10 @@ void AampDRMLicenseManager::TriggerLAProfileErrorCb(int err, int responseCodeVal
 	}
 }
 
-void AampDRMLicenseManager::TriggerSetFailure(int err)
+void AampDRMLicenseManager::TriggerSetFailure(void *ptr, int err)
 {
-	auto drmEvent = std::make_shared<DrmMetaDataEvent>(AAMP_TUNE_FAILURE_UNKNOWN, "", 0, 0, false, std::string{});
-	drmEvent->setFailure((AAMPTuneFailure)err);
+	DrmMetaDataEventPtr e = *static_cast<DrmMetaDataEventPtr*>(ptr);
+	e->setFailure((AAMPTuneFailure)err);
 }
 
 std::shared_ptr<void> AampDRMLicenseManager::TriggerDrmMetaDataEvent()

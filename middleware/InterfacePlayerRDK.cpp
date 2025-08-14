@@ -381,7 +381,7 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int auxF
 		stream->eosReached = false;
 		stream->firstBufferProcessed = false;
 	}
-#if 0
+#if 0 
 	/* For Rialto, teardown and rebuild the gstreamer streams if the
 	 * configuration changes. This allows the "single-path-stream" property to
 	 * be set correctly.

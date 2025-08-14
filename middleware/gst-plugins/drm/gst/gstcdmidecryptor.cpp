@@ -890,9 +890,8 @@ static gboolean gst_cdmidecryptor_sink_event(GstBaseTransform * trans,
 		}
 		if(err != -1)
                 {
-			//RDK-56050 setting failures and not triggering event
-                       cdmidecryptor->sessionManager->setfailureCb(err);
-		}                
+                       cdmidecryptor->sessionManager->setfailureCb(e.get(),err);
+                }
 		if (NULL == cdmidecryptor->drmSession)
 		{
 /* For  Avoided setting 'streamReceived' as FALSE if createDrmSession() failed after a successful case.
@@ -911,7 +910,7 @@ static gboolean gst_cdmidecryptor_sink_event(GstBaseTransform * trans,
 		 */
 		if(SessionMgrState::eSESSIONMGR_ACTIVE == cdmidecryptor->sessionManager->getSessionMgrState())
 		{
-			cdmidecryptor->sessionManager->laprofileErrorCb(err, responseCode);
+			cdmidecryptor->sessionManager->laprofileErrorCb(e.get());
 			GST_ERROR_OBJECT(cdmidecryptor,"Failed to create DRM Session\n");
 		}
 			result = TRUE;
@@ -922,6 +921,8 @@ static gboolean gst_cdmidecryptor_sink_event(GstBaseTransform * trans,
 			cdmidecryptor->sessionManager->laprofileEndCb(cdmidecryptor->mediaType);
 			if (!cdmidecryptor->firstsegprocessed)
 			{
+
+
 				/** profilebegin -0, profileEnd -1 , profileError -2 */
 				if(cdmidecryptor->sessionManager->profileDecryptProfileCb)
 				{
