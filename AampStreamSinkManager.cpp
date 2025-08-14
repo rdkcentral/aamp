@@ -521,26 +521,32 @@ StreamSink* AampStreamSinkManager::GetStreamSink(PrivateInstanceAAMP *aamp)
 StreamSink* AampStreamSinkManager::GetStreamSinkNoLock(PrivateInstanceAAMP *aamp)
 {
 	StreamSink *sink_ptr = nullptr;
+		AAMPLOG_TRACE("Neil entering GetStreamSinkNoLock()");
 
 	if (mClientStreamSinkMap.count(aamp) != 0)
 	{
-		AAMPLOG_TRACE("AampStreamSinkManager(%p) Returning client Stream Sink found for PLAYER[%d]", this, aamp->mPlayerId);
+		AAMPLOG_TRACE("Neil AampStreamSinkManager(%p) Returning client Stream Sink found for PLAYER[%d]", this, aamp->mPlayerId);
 		sink_ptr = mClientStreamSinkMap[aamp];
 	}
 	else if (mActiveGstPlayersMap.count(aamp) != 0)
 	{
-		AAMPLOG_TRACE("AampStreamSinkManager(%p) Returning active Stream Sink found for PLAYER[%d]", this, aamp->mPlayerId);
+		AAMPLOG_TRACE("Neil AampStreamSinkManager(%p) Returning active Stream Sink found for PLAYER[%d]", this, aamp->mPlayerId);
 		sink_ptr = mActiveGstPlayersMap[aamp];
 	}
 	else if (mInactiveGstPlayersMap.count(aamp) != 0)
 	{
-		AAMPLOG_TRACE("AampStreamSinkManager(%p) Returning inactive Stream Sink found or PLAYER[%d]", this, aamp->mPlayerId);
+		AAMPLOG_TRACE("Neil AampStreamSinkManager(%p) Returning inactive Stream Sink found or PLAYER[%d]", this, aamp->mPlayerId);
 		sink_ptr = mInactiveGstPlayersMap[aamp];
 	}
 	else
 	{
 		// If not found, best not to dereference the pointer in case invalid
-		AAMPLOG_ERR("AampStreamSinkManager(%p) Stream Sink for aamp(%p) not found", this, aamp);
+		AAMPLOG_ERR("Neil AampStreamSinkManager(%p) Stream Sink for aamp(%p) not found. Map sizes: client[%zu], active[%zu], inactive[%zu]",
+					this,
+					aamp,
+					mClientStreamSinkMap.size(),
+					mActiveGstPlayersMap.size(),
+					mInactiveGstPlayersMap.size());
 	}
 
 	return sink_ptr;
