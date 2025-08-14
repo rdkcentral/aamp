@@ -158,7 +158,6 @@ StreamAbstractionAAMP_MPD::StreamAbstractionAAMP_MPD(class PrivateInstanceAAMP *
 	,mTrackWorkers()
 	,mAudioSurplus(0)
 	,mVideoSurplus(0)
-	,mLivePeriodCulledSeconds(0)
 	,mIsSegmentTimelineEnabled(false)
 	,mSeekedInPeriod(false)
 {
@@ -7965,8 +7964,8 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, 
 			if(periodChanged)
 			{
 				//update period start and endtimes as period has changed.
-				mPeriodEndTime   =mMPDParseHelper->GetPeriodEndTime(mCurrentPeriodIdx, mLastPlaylistDownloadTimeMs,(rate != AAMP_NORMAL_PLAY_RATE),aamp->IsUninterruptedTSB());
-				mPeriodStartTime =mMPDParseHelper->GetPeriodStartTime(mCurrentPeriodIdx,mLastPlaylistDownloadTimeMs);
+				mPeriodEndTime = mMPDParseHelper->GetPeriodEndTime(mCurrentPeriodIdx, mLastPlaylistDownloadTimeMs,(rate != AAMP_NORMAL_PLAY_RATE),aamp->IsUninterruptedTSB());
+				mPeriodStartTime = mMPDParseHelper->GetPeriodStartTime(mCurrentPeriodIdx,mLastPlaylistDownloadTimeMs);
 				mPeriodDuration = mMPDParseHelper->GetPeriodDuration(mCurrentPeriodIdx,mLastPlaylistDownloadTimeMs,(rate != AAMP_NORMAL_PLAY_RATE),aamp->IsUninterruptedTSB());
 				aamp->mNextPeriodDuration = mPeriodDuration;
 				aamp->mNextPeriodStartTime = mPeriodStartTime;
@@ -7977,14 +7976,15 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, 
 					// Make sure basePeriodOffset is updated
 					if (mCdaiObject->mCurAds->at(mCdaiObject->mCurAdIdx).basePeriodOffset != -1)
 					{
-						// convert to seconds
-						pMediaStreamContext->fragmentTime += (double)((double)mCdaiObject->mCurAds->at(mCdaiObject->mCurAdIdx).basePeriodOffset / 1000.0);
-						if((aamp->mMPDPeriodsInfo.at(0).periodId) == mBasePeriodId)
-						{
-							pMediaStreamContext->fragmentTime -= mLivePeriodCulledSeconds;
-						}
-						AAMPLOG_INFO("StreamAbstractionAAMP_MPD: Track %d Period changed, but within an adbreak, mPeriodStartTime:%lf basePeriodOffset:%d FragmentTime: %lf PeriodCulled:%f",
-							i, mPeriodStartTime, mCdaiObject->mCurAds->at(mCdaiObject->mCurAdIdx).basePeriodOffset, pMediaStreamContext->fragmentTime, mLivePeriodCulledSeconds);
+						//Set the period start back to the begining of the base period and then add basePeriodOffset
+						//to get the start for this AD
+						double absoluteAdBreakStartTime = mCdaiObject->mAdBreaks[mBasePeriodId].mAbsoluteAdBreakStartTime.inSeconds();
+						// convert to seconds, standard implicit conversion
+						pMediaStreamContext->fragmentTime = absoluteAdBreakStartTime + mCdaiObject->mCurAds->at(mCdaiObject->mCurAdIdx).basePeriodOffset / 1000.0;
+
+						AAMPLOG_INFO("StreamAbstractionAAMP_MPD: Track %d Period changed, but within an adbreak, mPeriodStartTime:%lf basePeriodOffset:%d FragmentTime: %lf mAbsoluteAdBreakStartTime %f",
+							i, mPeriodStartTime, mCdaiObject->mCurAds->at(mCdaiObject->mCurAdIdx).basePeriodOffset, pMediaStreamContext->fragmentTime,
+							absoluteAdBreakStartTime);
 					}
 				}
 				AAMPLOG_INFO("StreamAbstractionAAMP_MPD: Track %d Period changed, updating fragmentTime to %lf", i, pMediaStreamContext->fragmentTime);
@@ -8180,22 +8180,15 @@ double StreamAbstractionAAMP_MPD::GetCulledSeconds(std::vector<PeriodInfo> &curr
 						{
 							uint64_t timeDiff = currFirstPeriodInfo.startTime - prevPeriodInfo.startTime;
 							culled += ((double)timeDiff / (double)prevPeriodInfo.timeScale);
-							if(currFirstPeriodInfo.periodId == mBasePeriodId)
-							{
-								mLivePeriodCulledSeconds += ((double)timeDiff / (double)prevPeriodInfo.timeScale);
-							}else
-							{
-								mLivePeriodCulledSeconds = 0;
-							}
-							AAMPLOG_INFO("PeriodId %s, prevStart %" PRIu64 " currStart %" PRIu64 " culled %f PeriodCulledS %f",
-												prevPeriodInfo.periodId.c_str(), prevPeriodInfo.startTime, currFirstPeriodInfo.startTime, culled, mLivePeriodCulledSeconds);
+							AAMPLOG_INFO("PeriodId %s, prevStart %" PRIu64 " currStart %" PRIu64 " culled %f",
+												prevPeriodInfo.periodId.c_str(), prevPeriodInfo.startTime, currFirstPeriodInfo.startTime, culled);
 						}
 						break;
 					}
 					else
 					{
 						double deltaStartTime = currFirstPeriodInfo.periodStartTime - prevPeriodInfo.periodStartTime;
-						if(prevPeriodInfo.duration <= deltaStartTime)
+						if (prevPeriodInfo.duration <= deltaStartTime)
 						{
 							culled += (prevPeriodInfo.duration / 1000);
 						}
@@ -8204,9 +8197,8 @@ double StreamAbstractionAAMP_MPD::GetCulledSeconds(std::vector<PeriodInfo> &curr
 							culled += deltaStartTime;
 						}
 						iter1++;
-						mLivePeriodCulledSeconds = 0;
 						AAMPLOG_WARN("PeriodId %s , with last known duration %f seems to have got culled",
-										prevPeriodInfo.periodId.c_str(), (prevPeriodInfo.duration / 1000));
+									 prevPeriodInfo.periodId.c_str(), (prevPeriodInfo.duration / 1000));
 					}
 				}
 				aamp->mMPDPeriodsInfo = currMPDPeriodDetails;
@@ -10539,7 +10531,7 @@ void StreamAbstractionAAMP_MPD::StartFromOtherThanAampLocalTsb(void)
 		{
 			AAMPLOG_INFO("FetcherLoop thread already running, not creating a new one");
 		}
-	} 
+	}
 	catch (std::exception &e)
 	{
 		AAMPLOG_ERR("Thread allocation failed for FetcherLoop : %s ", e.what());
