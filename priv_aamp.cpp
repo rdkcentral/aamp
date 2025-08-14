@@ -5043,6 +5043,7 @@ static int aampApplyThreadPrioFromEnv(const char *env, int defaultPolicy, int de
 void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 {
 	bool newTune;
+	printf("Neil entering TuneHelper()\n");
 
 	aampApplyThreadPrioFromEnv("AAMP_AV_PIPELINE_PRIORITY", SCHED_OTHER, 0);
 	for (int i = 0; i < AAMP_TRACK_COUNT; i++)
@@ -5628,6 +5629,8 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 			SendMediaMetadataEvent();
 		}
 	}
+	printf("Neil leaving TuneHelper()\n");
+
 }
 
 /**
@@ -7050,7 +7053,7 @@ void PrivateInstanceAAMP::SetVideoZoom(VideoZoomMode zoom)
  */
 void PrivateInstanceAAMP::SetVideoMute(bool muted)
 {
-	AAMPLOG_INFO(" Neil Entering PrivateInstanceAAMP::SetVideoMute(mute == %s)", muted?"true":"false");
+	printf("Neil Entering PrivateInstanceAAMP::SetVideoMute(mute == %s)\n", muted?"true":"false");
 
 	StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
 	if (sink)
@@ -7071,6 +7074,7 @@ void PrivateInstanceAAMP::SetVideoMute(bool muted)
 	else
 		AAMPLOG_INFO(" Neil PrivateInstanceAAMP::SetVideoMute(secmanager == false or firebolt == false)");
 
+		printf("Neil Leaving PrivateInstanceAAMP::SetVideoMute()\n");
 }
 
 /**
