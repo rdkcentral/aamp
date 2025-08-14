@@ -232,6 +232,7 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int auxF
 	newFormat[eGST_MEDIATYPE_VIDEO] = gstFormat;
 	newFormat[eGST_MEDIATYPE_AUDIO] = gstAudioFormat;
 	printf("Neil entering InterfacePlayerRDK::ConfigurePipeline()\n");
+MW_LOG_MIL("Neil entering InterfacePlayerRDK::ConfigurePipeline()");
 
 	if(isSubEnable)
 	{
