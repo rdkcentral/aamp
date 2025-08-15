@@ -68,12 +68,18 @@ bool FileLogger::initializeLogFile() noexcept
 
 FileLogger::FileLogger() noexcept
 	: m_fileStream(nullptr)
-	, m_logFilePath(s_customFilename.empty() ? "/tmp/aamp_log.txt" : s_customFilename)
+	, m_logFilePath(s_customFilename)
 	, m_isValid(false)
 {
-	std::cout << "[FileLogger::FileLogger] Constructor called with path: " << m_logFilePath << std::endl;
+	std::cout << "[FileLogger::FileLogger] Constructor called with path: " << (m_logFilePath.empty() ? "NONE" : m_logFilePath) << std::endl;
 	std::cout << "[FileLogger::FileLogger] Custom filename " << (s_customFilename.empty() ? "NOT SET" : ("SET to: " + s_customFilename)) << std::endl;
-	initializeLogFile();
+	
+	// Only initialize log file if custom filename has been set
+	if (!s_customFilename.empty()) {
+		initializeLogFile();
+	} else {
+		std::cout << "[FileLogger::FileLogger] Deferring file initialization until custom filename is set" << std::endl;
+	}
 }
 
 FileLogger::~FileLogger() noexcept
@@ -88,13 +94,32 @@ FileLogger::~FileLogger() noexcept
 
 void FileLogger::writeLog(const char* format, va_list args) const noexcept
 {
+	// Discard writes until custom filename has been set
+	if (s_customFilename.empty()) {
+		std::cout << "[FileLogger::writeLog] No custom filename set, discarding write" << std::endl;
+		return;
+	}
+	
+	std::lock_guard<std::mutex> lock(m_mutex);
+	
+	// Initialize file if not already done (custom filename was set after constructor)
+	if (!m_isValid || !m_fileStream || !m_fileStream->is_open()) {
+		std::cout << "[FileLogger::writeLog] File not initialized, attempting to initialize with: " << s_customFilename << std::endl;
+		
+		// Cast away const for this initialization case
+		FileLogger* mutableThis = const_cast<FileLogger*>(this);
+		mutableThis->m_logFilePath = s_customFilename;
+		if (!mutableThis->initializeLogFile()) {
+			std::cout << "[FileLogger::writeLog] Failed to initialize log file, discarding write" << std::endl;
+			return;
+		}
+	}
+	
 	if (!isValid()) 
 	{
 		std::cout << "[FileLogger::writeLog] FileLogger is not valid, skipping write" << std::endl;
 		return;
 	}
-	
-	std::lock_guard<std::mutex> lock(m_mutex);
 	
 	try 
 	{
@@ -156,9 +181,17 @@ FileLogger& FileLogger::getInstance() noexcept
 bool FileLogger::setCustomFilename(const std::string& filename) noexcept
 {
 	std::cout << "[FileLogger::setCustomFilename] Called with filename: " << filename << std::endl;
+	
+	// Fail if custom filename is already set
+	if (!s_customFilename.empty()) {
+		std::cout << "[FileLogger::setCustomFilename] Custom filename already set to: " << s_customFilename << ", rejecting new filename: " << filename << std::endl;
+		return false;
+	}
+	
 	if (!filename.empty()) {
 		s_customFilename = filename;
 		std::cout << "[FileLogger::setCustomFilename] Custom filename set successfully" << std::endl;
+		std::cout << "[FileLogger::setCustomFilename] First filename set, will initialize file on next write" << std::endl;
 		return true;
 	}
 	
