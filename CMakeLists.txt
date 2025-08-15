@@ -189,7 +189,7 @@ set(LIBAAMP_DEPENDS
 	-ldl
 )
 
-# TDB needs to bring back for UT. 
+# TDB needs to bring back for UT.
 #include(test/mocks/mocks.cmake NO_POLICY_SCOPE)
 
 # Adding subdirectories for internal libraries
@@ -298,6 +298,7 @@ set(LIBAAMP_SOURCES
 	AampBufferControl.cpp AampBufferControl.h
 	tsprocessor.cpp tsprocessor.h
 	aamplogging.cpp AampLogManager.h
+	FileLogger.cpp
 	AampConfig.cpp AampConfig.h
 	AampEventManager.cpp AampEventManager.h
 	subtitle/webvttParser.cpp subtitle/webvttParser.h subtitle/vttCue.h
@@ -666,7 +667,7 @@ install(TARGETS gstTestHarness
 xcode_define_schema(gstTestHarness)
 
 #TODO: Decide which are the actual public headers
-install(FILES 
+install(FILES
 	Accessibility.hpp AampEvent.h AampConfig.h AampCMCDCollector.h AampEventManager.h
 	AampDefine.h AampEventListener.h AampMediaType.h AampLogManager.h
 	middleware/drm/DrmMemorySystem.h middleware/drm/DrmSessionManager.h

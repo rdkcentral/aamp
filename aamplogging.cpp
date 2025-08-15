@@ -27,14 +27,17 @@
 #include <thread>
 #include <sstream>
 #include "priv_aamp.h"
+#include "FileLogger.h"
 using namespace std;
-
 
 #ifdef USE_ETHAN_LOG
 #include <ethanlog.h>
 #else
 // stubs for use if USE_ETHAN_LOG not defined
-void vethanlog(int level, const char *filename, const char *function, int line, const char *format, va_list ap){}
+void vethanlog(int level, const char *filename, const char *function, int line, const char *format, va_list ap){
+	// Original stub behavior (no-op) plus redirect to our file logger for dual logging
+	FileLogger::getInstance().writeLog(format, ap);
+}
 #define ETHAN_LOG_INFO 0
 #define ETHAN_LOG_DEBUG 1
 #define ETHAN_LOG_WARNING 2
@@ -146,6 +149,7 @@ void logprintf(AAMP_LogLevel logLevelIndex, const char* file, int line, const ch
 						break;
 				}
 				vethanlog(ethanLogLevel,NULL,NULL,-1,format_ptr, args);
+				FileLogger::getInstance().writeLog(format_ptr, args);
 			}
 			else
 			{
