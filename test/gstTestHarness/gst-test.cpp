@@ -840,8 +840,9 @@ public:
 	{
 		pipelineContext.pipeline->Reset();
 		Track &video = pipelineContext.track[eMEDIATYPE_VIDEO];
-		float pad = 2/50.0; // this compensates for 1920/960 delay at start; without it, we start/end a bit early
+        float pad = 2/50.0; // compensate for 1920/960 (two frame) delay
 		SeekParam seekParam;
+        seekParam.videoOnly = true;
 		seekParam.flags = GST_SEEK_FLAG_FLUSH; // single segment being presented, so can use simple flushing seek
 		seekParam.start_s = 1.92 + pad;
 		seekParam.stop_s = 3.84 + pad;
@@ -873,12 +874,12 @@ public:
 	{
 		pipelineContext.pipeline->Reset();
 		Track &video = pipelineContext.track[eMEDIATYPE_VIDEO];
-		float pad = 2/50.0; // compensate for 1920/960 delay at start
+        float pad = 2/50.0; // compensate for 1920/960 (two frame) delay
 		SeekParam seekParam;
+        seekParam.videoOnly = true;
 		seekParam.flags = GST_SEEK_FLAG_FLUSH;
 		seekParam.start_s = 0.0; // no video expected to display until pad seconds elapsed, but ok to use zero here
 		seekParam.stop_s = 3.84 + pad;
-		seekParam.videoOnly = true;
 		pipelineContext.pipeline->ScheduleSeek(seekParam);
 		
 		// first, inject the 1.92s high profile segment
@@ -909,31 +910,34 @@ public:
 	{
 		pipelineContext.pipeline->Reset();
 		Track &video = pipelineContext.track[eMEDIATYPE_VIDEO];
-		float pad = 2/50.0; // compensate for 1920/960 delay at start
+        float pad = 2/50.0; // compensate for 1920/960 (two frame) delay
 		SeekParam seekParam;
-		seekParam.flags = GST_SEEK_FLAG_SEGMENT; // use segment based presentatino, allowing multiple EOS to be signaled
-		// present first 1.92s segment
-		seekParam.start_s = pad+0;
-		seekParam.stop_s = pad+1.92;
-		pipelineContext.pipeline->ScheduleSeek(seekParam);
-		video.EnqueueSegment( new TrackFragment( eMEDIATYPE_VIDEO, "https://cpe" "testutility.stb.r53.xcal" ".tv/VideoTestStream/public/aamptest/streams/misc/pto-test-simple-h264/video-init-hi.m4s", 0 ) );
-		video.EnqueueSegment( new TrackFragment( eMEDIATYPE_VIDEO, "https://cpe" "testutility.stb.r53.xcal" ".tv/VideoTestStream/public/aamptest/streams/misc/pto-test-simple-h264/video-hi-2s.m4s",
-													1.92, 0 ) );
-		
-		// this "EOS" is just to mark the end of segment, so we can receive segment end event and trigger presentation of next segment with new start,end pts
-		video.EnqueueControl( new TrackEOS() );
-		
-		// here, present 2nd half of 2nd segment (1.92s to 3.84s)
+        seekParam.videoOnly = true;
 		seekParam.flags = GST_SEEK_FLAG_SEGMENT;
-		seekParam.start_s = pad+1.92;
-		seekParam.stop_s = pad+3.84;
-		pipelineContext.pipeline->ScheduleSeek(seekParam);
+        
+        { // present first 1.92s segment
+            seekParam.start_s = pad+0;
+            seekParam.stop_s = pad+1.92;
+            pipelineContext.pipeline->ScheduleSeek(seekParam);
+            video.EnqueueSegment( new TrackFragment( eMEDIATYPE_VIDEO, "https://cpe" "testutility.stb.r53.xcal" ".tv/VideoTestStream/public/aamptest/streams/misc/pto-test-simple-h264/video-init-hi.m4s", 0 ) );
+            video.EnqueueSegment( new TrackFragment( eMEDIATYPE_VIDEO, "https://cpe" "testutility.stb.r53.xcal" ".tv/VideoTestStream/public/aamptest/streams/misc/pto-test-simple-h264/video-hi-2s.m4s",
+                                                    1.92, 0 ) );
+            // this "EOS" is just to mark the end of segment, so we can receive segment end event and trigger presentation of next segment with new start,end pts
+            video.EnqueueControl( new TrackEOS() );
+        }
 		
-		video.EnqueueSegment( new TrackFragment( eMEDIATYPE_VIDEO, "https://cpe" "testutility.stb.r53.xcal" ".tv/VideoTestStream/public/aamptest/streams/misc/pto-test-simple-h264/video-init-lo.m4s", 0 ) );
-		video.EnqueueSegment( new TrackFragment( eMEDIATYPE_VIDEO, "https://cpe" "testutility.stb.r53.xcal" ".tv/VideoTestStream/public/aamptest/streams/misc/pto-test-simple-h264/video-lo-4s.m4s",
-													1.92, 0 ) );
-		video.EnqueueControl( new TrackEOS() );
-		
+        { // present 2nd half of 2nd segment (1.92s to 3.84s)
+            seekParam.flags = GST_SEEK_FLAG_SEGMENT;
+            seekParam.start_s = pad+1.92;
+            seekParam.stop_s = pad+3.84;
+            pipelineContext.pipeline->ScheduleSeek(seekParam);
+            
+            video.EnqueueSegment( new TrackFragment( eMEDIATYPE_VIDEO, "https://cpe" "testutility.stb.r53.xcal" ".tv/VideoTestStream/public/aamptest/streams/misc/pto-test-simple-h264/video-init-lo.m4s", 0 ) );
+            video.EnqueueSegment( new TrackFragment( eMEDIATYPE_VIDEO, "https://cpe" "testutility.stb.r53.xcal" ".tv/VideoTestStream/public/aamptest/streams/misc/pto-test-simple-h264/video-lo-4s.m4s",
+                                                    1.92, 0 ) );
+            video.EnqueueControl( new TrackEOS() );
+        }
+        
 		// configure pipelines and begin streaming
 		pipelineContext.pipeline->Configure( eMEDIATYPE_VIDEO );
 		pipelineContext.pipeline->SetPipelineState(ePIPELINE_STATE_PAUSED);
