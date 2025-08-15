@@ -53,6 +53,12 @@ private:
 	 */
 	bool initializeLogFile() noexcept;
 	
+	/**
+	 * @brief Get current timestamp in ISO 8601 format
+	 * @return Timestamp string in format YYYY-MM-DDTHH:MM:SS.sssZ
+	 */
+	std::string getCurrentTimestamp() const noexcept;
+	
 public:
 	/**
 	 * @brief Constructor - Initialize with default location

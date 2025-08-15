@@ -26,6 +26,9 @@
 #include <vector>
 #include <cstdio>
 #include <iostream>
+#include <chrono>
+#include <iomanip>
+#include <sstream>
 #include "AampConfig.h"
 
 // Static member definitions
@@ -114,7 +117,8 @@ void FileLogger::writeLog(const char* format, va_list args) const noexcept
 		// Write to file
 		if (m_fileStream && m_fileStream->is_open()) 
 		{
-			*m_fileStream << buffer.data();
+			std::string timestamp = getCurrentTimestamp();
+			*m_fileStream << timestamp << " " << buffer.data() << "\n";
 			m_fileStream->flush(); // Ensure immediate write
 			std::cout << "[FileLogger::writeLog] Successfully wrote " << size << " chars to log file" << std::endl;
 		}
@@ -163,4 +167,25 @@ bool FileLogger::setCustomFilename(const std::string& filename) noexcept
 	
 	std::cout << "[FileLogger::setCustomFilename] Empty filename provided, ignoring" << std::endl;
 	return false;
+}
+
+std::string FileLogger::getCurrentTimestamp() const noexcept
+{
+	try 
+	{
+		auto now = std::chrono::system_clock::now();
+		auto time_t = std::chrono::system_clock::to_time_t(now);
+		auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+			now.time_since_epoch()) % 1000;
+		
+		std::stringstream ss;
+		ss << std::put_time(std::gmtime(&time_t), "%Y-%m-%dT%H:%M:%S");
+		ss << '.' << std::setfill('0') << std::setw(3) << ms.count() << 'Z';
+		
+		return ss.str();
+	}
+	catch (...)
+	{
+		return "1970-01-01T00:00:00.000Z"; // Fallback timestamp
+	}
 }
