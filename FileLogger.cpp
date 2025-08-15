@@ -120,7 +120,6 @@ void FileLogger::writeLog(const char* format, va_list args) const noexcept
 			std::string timestamp = getCurrentTimestamp();
 			*m_fileStream << timestamp << " " << buffer.data() << "\n";
 			m_fileStream->flush(); // Ensure immediate write
-			std::cout << "[FileLogger::writeLog] Successfully wrote " << size << " chars to log file" << std::endl;
 		}
 		else
 		{
@@ -142,7 +141,6 @@ bool FileLogger::isValid() const noexcept
 
 FileLogger& FileLogger::getInstance() noexcept
 {
-	std::cout << "[FileLogger::getInstance] Called" << std::endl;
 	// Thread-safe singleton with lazy initialization
 	static FileLogger* instance = nullptr;
 	static std::once_flag initialized;
@@ -152,7 +150,6 @@ FileLogger& FileLogger::getInstance() noexcept
 		instance = new FileLogger();
 	});
 	
-	std::cout << "[FileLogger::getInstance] Returning instance" << std::endl;
 	return *instance;
 }
 
