@@ -29,6 +29,10 @@
 #include <chrono>
 #include <iomanip>
 #include <sstream>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <cerrno>
 #include "AampConfig.h"
 
 // Static member definitions
@@ -39,6 +43,18 @@ bool FileLogger::initializeLogFile() noexcept
 	std::cout << "[FileLogger::initializeLogFile] Attempting to open log file: " << m_logFilePath << std::endl;
 	try 
 	{
+		// Create the file with proper permissions (666) if it doesn't exist
+		int fd = open(m_logFilePath.c_str(), O_CREAT | O_WRONLY | O_APPEND, 
+		              S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH);
+		
+		if (fd != -1) {
+			close(fd);  // Close the file descriptor, we'll use ofstream
+			std::cout << "[FileLogger::initializeLogFile] File created/opened with 666 permissions" << std::endl;
+		} else {
+			std::cout << "[FileLogger::initializeLogFile] Warning: Failed to create file with proper permissions, errno: " << errno << std::endl;
+		}
+		
+		// Now open with ofstream
 		m_fileStream.reset(new std::ofstream(
 			m_logFilePath, 
 			std::ios::out | std::ios::app
@@ -55,6 +71,15 @@ bool FileLogger::initializeLogFile() noexcept
 		else
 		{
 			std::cout << "[FileLogger::initializeLogFile] Failed to open log file: " << m_logFilePath << std::endl;
+			if (m_fileStream) {
+				std::cout << "[FileLogger::initializeLogFile] Stream created but is_open() returned false" << std::endl;
+				std::cout << "[FileLogger::initializeLogFile] Stream state - good(): " << m_fileStream->good() 
+				          << ", fail(): " << m_fileStream->fail() 
+				          << ", bad(): " << m_fileStream->bad() 
+				          << ", eof(): " << m_fileStream->eof() << std::endl;
+			} else {
+				std::cout << "[FileLogger::initializeLogFile] Failed to create stream object" << std::endl;
+			}
 		}
 	}
 	catch (const std::exception& e) 
