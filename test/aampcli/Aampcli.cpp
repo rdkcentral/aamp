@@ -61,7 +61,7 @@ Aampcli::Aampcli(const Aampcli& aampcli):
 {
 	mSingleton = aampcli.mSingleton;
 	mEventListener = aampcli.mEventListener;
-	
+
 };
 
 Aampcli& Aampcli::operator=(const Aampcli& aampcli)
@@ -181,7 +181,7 @@ void Aampcli::runCommand( std::string args )
 			while( *ptr == ' ' ) ptr++; // skip leading whitespace
 			while( fin>ptr && fin[-1]==' ' ) fin--;
 			*fin = 0x00;
-			
+
 			if( *ptr )
 			{
 				add_history(ptr);
@@ -237,7 +237,7 @@ void Aampcli::initPlayerLoop(int argc, char **argv)
 	{
 		mInitialized = true;
 		PlayerCliGstInit(&argc, &argv);
-		
+
 		mAampGstPlayerMainLoop = g_main_loop_new(NULL, FALSE);
 		mAampMainLoopThread = g_thread_new("AAMPGstPlayerLoop", &aampGstPlayerStreamThread, NULL );
 	}
@@ -408,6 +408,7 @@ static int main_func(int argc, char **argv)
 	createAppWindow(argc,argv);
 	cmdThreadId.join();
 	AAMPCLI_PRINTF( "[AAMPCLI] done\n" );
+	return 0;
 }
 
 int main( int argc, char **argv )
@@ -658,7 +659,7 @@ void MyAAMPEventListener::Event(const AAMPEventPtr& e)
 			} // SCTE35
 			break;
 		}
-			
+
 		case AAMP_EVENT_MANIFEST_REFRESH_NOTIFY:
 		{
 			std::string manifest;

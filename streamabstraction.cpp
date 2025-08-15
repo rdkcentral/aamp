@@ -4621,7 +4621,7 @@ bool MediaTrack::IsInjectionFromCachedFragmentChunks()
 }
 
 /**
- *   @brief Reintializes the injection
+ *   @brief Re-initializes the injection
  *   @param[in] rate - play rate
  */	
 void StreamAbstractionAAMP::ReinitializeInjection(double rate) 
