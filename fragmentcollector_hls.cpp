@@ -71,6 +71,12 @@ static const int DEFAULT_STREAM_WIDTH = 720;
 static const int DEFAULT_STREAM_HEIGHT = 576;
 static const double  DEFAULT_STREAM_FRAMERATE = 25.0;
 
+static void AppendNulTerminator( AampGrowableBuffer &buffer )
+{ // workaround - TBR
+	const char zeros[] = { 0,0 };
+	buffer.AppendBytes( zeros, sizeof(zeros) );
+}
+
 // checks if current state is going to use IFRAME ( Fragment/Playlist )
 #define IS_FOR_IFRAME(rate, type) ((type == eTRACK_VIDEO) && (rate != AAMP_NORMAL_PLAY_RATE))
 
@@ -2335,9 +2341,9 @@ void TrackState::ProcessPlaylist(AampGrowableBuffer& newPlaylist, int http_error
 		playlist.Free();
 		playlist.Replace( &newPlaylist );
 		playlist.AppendNulTerminator(); // make safe for cstring operations
-
 		AampTime culled{};
 		IndexPlaylist(true, culled);
+
 		// Update culled seconds if playlist download was successful
 		// We need culledSeconds to find the timedMetadata position in playlist
 		// culledSeconds and FindTimedMetadata have been moved up here, because FindMediaForSequenceNumber
