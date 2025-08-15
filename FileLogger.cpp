@@ -25,6 +25,7 @@
 #include "FileLogger.h"
 #include <vector>
 #include <cstdio>
+#include <iostream>
 #include "AampConfig.h"
 
 // Static member definitions
@@ -32,6 +33,7 @@ std::string FileLogger::s_customFilename = "";
 
 bool FileLogger::initializeLogFile() noexcept
 {
+	std::cout << "[FileLogger::initializeLogFile] Attempting to open log file: " << m_logFilePath << std::endl;
 	try 
 	{
 		m_fileStream.reset(new std::ofstream(
@@ -44,11 +46,17 @@ bool FileLogger::initializeLogFile() noexcept
 			// Set unbuffered mode for immediate flushing
 			m_fileStream->rdbuf()->pubsetbuf(nullptr, 0);
 			m_isValid = true;
+			std::cout << "[FileLogger::initializeLogFile] Successfully opened log file: " << m_logFilePath << std::endl;
 			return true;
 		}
+		else
+		{
+			std::cout << "[FileLogger::initializeLogFile] Failed to open log file: " << m_logFilePath << std::endl;
+		}
 	}
-	catch (const std::exception&) 
+	catch (const std::exception& e) 
 	{
+		std::cout << "[FileLogger::initializeLogFile] Exception opening log file: " << e.what() << std::endl;
 		// Silent failure - logging should not crash the application
 	}
 	m_isValid = false;
@@ -60,6 +68,8 @@ FileLogger::FileLogger() noexcept
 	, m_logFilePath(s_customFilename.empty() ? "/tmp/aamp_log.txt" : s_customFilename)
 	, m_isValid(false)
 {
+	std::cout << "[FileLogger::FileLogger] Constructor called with path: " << m_logFilePath << std::endl;
+	std::cout << "[FileLogger::FileLogger] Custom filename " << (s_customFilename.empty() ? "NOT SET" : ("SET to: " + s_customFilename)) << std::endl;
 	initializeLogFile();
 }
 
@@ -77,6 +87,7 @@ void FileLogger::writeLog(const char* format, va_list args) const noexcept
 {
 	if (!isValid()) 
 	{
+		std::cout << "[FileLogger::writeLog] FileLogger is not valid, skipping write" << std::endl;
 		return;
 	}
 	
@@ -92,6 +103,7 @@ void FileLogger::writeLog(const char* format, va_list args) const noexcept
 		
 		if (size <= 0) 
 		{
+			std::cout << "[FileLogger::writeLog] Invalid format string or size" << std::endl;
 			return;
 		}
 		
@@ -104,10 +116,16 @@ void FileLogger::writeLog(const char* format, va_list args) const noexcept
 		{
 			*m_fileStream << buffer.data();
 			m_fileStream->flush(); // Ensure immediate write
+			std::cout << "[FileLogger::writeLog] Successfully wrote " << size << " chars to log file" << std::endl;
+		}
+		else
+		{
+			std::cout << "[FileLogger::writeLog] File stream is not open for writing" << std::endl;
 		}
 	}
-	catch (const std::exception&) 
+	catch (const std::exception& e) 
 	{
+		std::cout << "[FileLogger::writeLog] Exception during write: " << e.what() << std::endl;
 		// Silent failure - logging should not crash the application
 	}
 }
@@ -120,23 +138,29 @@ bool FileLogger::isValid() const noexcept
 
 FileLogger& FileLogger::getInstance() noexcept
 {
+	std::cout << "[FileLogger::getInstance] Called" << std::endl;
 	// Thread-safe singleton with lazy initialization
 	static FileLogger* instance = nullptr;
 	static std::once_flag initialized;
 	
 	std::call_once(initialized, []() {
+		std::cout << "[FileLogger::getInstance] Creating singleton instance" << std::endl;
 		instance = new FileLogger();
 	});
 	
+	std::cout << "[FileLogger::getInstance] Returning instance" << std::endl;
 	return *instance;
 }
 
 bool FileLogger::setCustomFilename(const std::string& filename) noexcept
 {
+	std::cout << "[FileLogger::setCustomFilename] Called with filename: " << filename << std::endl;
 	if (!filename.empty()) {
 		s_customFilename = filename;
+		std::cout << "[FileLogger::setCustomFilename] Custom filename set successfully" << std::endl;
 		return true;
 	}
 	
+	std::cout << "[FileLogger::setCustomFilename] Empty filename provided, ignoring" << std::endl;
 	return false;
 }
