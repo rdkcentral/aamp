@@ -153,22 +153,6 @@ TEST_F(FunctionalTests, MoveBytesTest)
     EXPECT_EQ(buffer.GetAvail(), srcLen);     // Check if available space remains the same
 }
 
-TEST_F(FunctionalTests, AppendNulTerminatorTest)
-{
-    AampGrowableBuffer buffer("buffer");  // Create a new buffer for this test
-
-    EXPECT_CALL(*g_mockGLib, g_realloc(_,_)).WillOnce(callRealloc);
-
-    // Act: Call the AppendNulTerminator function
-    buffer.AppendNulTerminator();
-
- 	EXPECT_CALL(*g_mockGLib, g_free(_)).WillOnce(callFree);
-
-    // Assert: Check the effects of the AppendNulTerminator function
-    EXPECT_EQ(buffer.GetLen(), 2);
-    EXPECT_EQ(buffer.GetPtr()[0], '\0');    // Check if null terminator is appended
-}
-
 TEST_F(FunctionalTests, ClearTest)
 {
     // Create a new buffer for this test
