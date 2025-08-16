@@ -73,7 +73,7 @@ static const double  DEFAULT_STREAM_FRAMERATE = 25.0;
 
 static void AppendNulTerminator( AampGrowableBuffer &buffer )
 { // workaround - TBR
-	const char zeros[] = { 0,0 };
+	static const char zeros[] = { 0,0 };
 	buffer.AppendBytes( zeros, sizeof(zeros) );
 }
 
@@ -2629,7 +2629,8 @@ std::string StreamAbstractionAAMP_HLS::GetPlaylistURI(TrackType trackType, Strea
 ***************************************************************************/
 StreamOutputFormat GetFormatFromFragmentExtension( const AampGrowableBuffer &playlist )
 {
-	StreamOutputFormat format = FORMAT_INVALID;
+    AAMPLOG_MIL("entering GetFormatFromFragmentExtension");
+    StreamOutputFormat format = FORMAT_INVALID;
 	lstring iter(playlist.GetPtr(),playlist.GetLen());
 	while( !iter.empty() )
 	{
@@ -2686,6 +2687,7 @@ StreamOutputFormat GetFormatFromFragmentExtension( const AampGrowableBuffer &pla
 		}
 		break;
 	}
+    AAMPLOG_MIL( "format=%d", format );
 	return format;
 }
 
@@ -3350,6 +3352,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 	}
 	if (this->mainManifest.GetLen() )
 	{
+        AppendNulTerminator(this->mainManifest);
 		if( AampLogManager::isLogLevelAllowed(eLOGLEVEL_TRACE) )
 		{ // use printf to avoid 2048 char syslog limitation
 			printf("***Main Manifest***:\n\n%.*s\n************\n", (int)this->mainManifest.GetLen(), this->mainManifest.GetPtr());
