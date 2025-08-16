@@ -73,7 +73,7 @@ static const double  DEFAULT_STREAM_FRAMERATE = 25.0;
 
 static void AppendNulTerminator( AampGrowableBuffer &buffer )
 { // workaround - TBR
-	static const char zeros[] = { 0,0 };
+	const char zeros[] = { 0,0 };
 	buffer.AppendBytes( zeros, sizeof(zeros) );
 }
 
@@ -1670,7 +1670,7 @@ void TrackState::FetchFragment()
 			AampTime position{playTarget - playTargetOffset};
 			if (type == eTRACK_SUBTITLE)
 			{
-				AppendNulTerminator( cachedFragment->fragment );
+				//AppendNulTerminator( cachedFragment->fragment );
 			}
 			if (context->rate == AAMP_NORMAL_PLAY_RATE)
 			{
@@ -2340,10 +2340,10 @@ void TrackState::ProcessPlaylist(AampGrowableBuffer& newPlaylist, int http_error
 		// Free previous playlist buffer and load with new one
 		playlist.Free();
 		playlist.Replace( &newPlaylist );
-		AppendNulTerminator( playlist );
 		AampTime culled{};
 		IndexPlaylist(true, culled);
-
+        AppendNulTerminator( playlist );
+        
 		// Update culled seconds if playlist download was successful
 		// We need culledSeconds to find the timedMetadata position in playlist
 		// culledSeconds and FindTimedMetadata have been moved up here, because FindMediaForSequenceNumber
@@ -2629,7 +2629,6 @@ std::string StreamAbstractionAAMP_HLS::GetPlaylistURI(TrackType trackType, Strea
 ***************************************************************************/
 StreamOutputFormat GetFormatFromFragmentExtension( const AampGrowableBuffer &playlist )
 {
-    AAMPLOG_MIL("entering GetFormatFromFragmentExtension");
     StreamOutputFormat format = FORMAT_INVALID;
 	lstring iter(playlist.GetPtr(),playlist.GetLen());
 	while( !iter.empty() )
@@ -2637,17 +2636,14 @@ StreamOutputFormat GetFormatFromFragmentExtension( const AampGrowableBuffer &pla
 		lstring ptr = iter.mystrpbrk();
 		if( ptr.SubStringMatch("#EXT-X-MAP") )
 		{
-			format = FORMAT_ISO_BMFF;
+            format = FORMAT_ISO_BMFF;
 		}
-		else if( ptr.startswith('#') )
-		{
-			continue;
-		}
-		else
-		{
+		else if( ptr.SubStringMatch("#EXTINF:") )
+		{ // next line is url
+            lstring ptr = iter.mystrpbrk();
 			auto len = ptr.find('?'); // strip any URI paratmeters
 			ptr = lstring( ptr.getPtr(), len );
-			size_t delim = ptr.find('.');
+            size_t delim = ptr.find('.');
 			if( delim < ptr.length() )
 			{
 				for(;;)
@@ -2659,7 +2655,7 @@ StreamOutputFormat GetFormatFromFragmentExtension( const AampGrowableBuffer &pla
 						break;
 					}
 				}
-				if( ptr.equal("ts") )
+            	if( ptr.equal("ts") )
 				{
 					format = FORMAT_MPEGTS;
 				}
@@ -2684,10 +2680,9 @@ StreamOutputFormat GetFormatFromFragmentExtension( const AampGrowableBuffer &pla
 					AAMPLOG_WARN("Not TS or MP4 extension, probably ES. fragment extension %.*s", ptr.getLen(), ptr.getPtr() );
 				}
 			}
+            break;
 		}
-		break;
 	}
-    AAMPLOG_MIL( "format=%d", format );
 	return format;
 }
 
@@ -3352,7 +3347,6 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 	}
 	if (this->mainManifest.GetLen() )
 	{
-        AppendNulTerminator(this->mainManifest);
 		if( AampLogManager::isLogLevelAllowed(eLOGLEVEL_TRACE) )
 		{ // use printf to avoid 2048 char syslog limitation
 			printf("***Main Manifest***:\n\n%.*s\n************\n", (int)this->mainManifest.GetLen(), this->mainManifest.GetPtr());
@@ -3649,7 +3643,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 			{
 				AampTime culled{};
 				bool playContextConfigured = false;
-				AppendNulTerminator(ts->playlist);
+				//AppendNulTerminator(ts->playlist);
 				if( AampLogManager::isLogLevelAllowed(eLOGLEVEL_TRACE) )
 				{ // use printf to avoid 2048 char syslog limitation
 					printf("***Initial Playlist:******\n\n%.*s\n*****************\n", (int)ts->playlist.GetLen(), ts->playlist.GetPtr() );
@@ -5348,7 +5342,7 @@ bool StreamAbstractionAAMP_HLS::SetThumbnailTrack( int thumbIndex )
 				{
 					downloadTime = tempDownloadTime;
 					AAMPLOG_WARN("In StreamAbstractionAAMP_HLS: Configured Thumbnail");
-					AppendNulTerminator(thumbnailManifest);
+					//AppendNulTerminator(thumbnailManifest);
 					ContentType type = aamp->GetContentType();
 					if( ContentType_LINEAR == type  || ContentType_SLE == type )
 					{
