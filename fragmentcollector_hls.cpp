@@ -73,7 +73,7 @@ static const double  DEFAULT_STREAM_FRAMERATE = 25.0;
 
 static void AppendNulTerminator( AampGrowableBuffer &buffer )
 { // workaround - TBR
-	const char zeros[] = { 0,0 };
+    const char zeros[] = { 0 };//,0 };
 	buffer.AppendBytes( zeros, sizeof(zeros) );
 }
 
@@ -2342,7 +2342,7 @@ void TrackState::ProcessPlaylist(AampGrowableBuffer& newPlaylist, int http_error
 		playlist.Replace( &newPlaylist );
 		AampTime culled{};
 		IndexPlaylist(true, culled);
-        AppendNulTerminator( playlist );
+        AppendNulTerminator( playlist ); // why needed?
         
 		// Update culled seconds if playlist download was successful
 		// We need culledSeconds to find the timedMetadata position in playlist
@@ -2638,51 +2638,58 @@ StreamOutputFormat GetFormatFromFragmentExtension( const AampGrowableBuffer &pla
 		{
             format = FORMAT_ISO_BMFF;
 		}
-		else if( ptr.SubStringMatch("#EXTINF:") )
-		{ // next line is url
-            lstring ptr = iter.mystrpbrk();
-			auto len = ptr.find('?'); // strip any URI paratmeters
-			ptr = lstring( ptr.getPtr(), len );
-            size_t delim = ptr.find('.');
-			if( delim < ptr.length() )
-			{
-				for(;;)
-				{
-					ptr = ptr.substr((int)delim+1);
-					delim = ptr.find('.');
-					if( delim == ptr.length() )
-					{
-						break;
-					}
-				}
-            	if( ptr.equal("ts") )
-				{
-					format = FORMAT_MPEGTS;
-				}
-				else if ( ptr.equal("aac") )
-				{
-					format = FORMAT_AUDIO_ES_AAC;
-				}
-				else if ( ptr.equal("ac3") )
-				{
-					format = FORMAT_AUDIO_ES_AC3;
-				}
-				else if ( ptr.equal("ec3") )
-				{
-					format = FORMAT_AUDIO_ES_EC3;
-				}
-				else if( ptr.equal("vtt") || ptr.equal("webvtt") )
-				{
-					format = FORMAT_SUBTITLE_WEBVTT;
-				}
-				else
-				{
-					AAMPLOG_WARN("Not TS or MP4 extension, probably ES. fragment extension %.*s", ptr.getLen(), ptr.getPtr() );
-				}
-			}
-            break;
-		}
+		else if( ptr.startswith('#') )
+        {
+            continue;
+        }
+        else
+        {
+            auto len = ptr.find('?'); // strip any URI paratmeters
+            if( len>0 )
+            { // skip empty lines
+                ptr = lstring( ptr.getPtr(), len );
+                size_t delim = ptr.find('.');
+                if( delim < ptr.length() )
+                {
+                    for(;;)
+                    {
+                        ptr = ptr.substr((int)delim+1);
+                        delim = ptr.find('.');
+                        if( delim == ptr.length() )
+                        {
+                            break;
+                        }
+                    }
+                    if( ptr.equal("ts") )
+                    {
+                        format = FORMAT_MPEGTS;
+                    }
+                    else if ( ptr.equal("aac") )
+                    {
+                        format = FORMAT_AUDIO_ES_AAC;
+                    }
+                    else if ( ptr.equal("ac3") )
+                    {
+                        format = FORMAT_AUDIO_ES_AC3;
+                    }
+                    else if ( ptr.equal("ec3") )
+                    {
+                        format = FORMAT_AUDIO_ES_EC3;
+                    }
+                    else if( ptr.equal("vtt") || ptr.equal("webvtt") )
+                    {
+                        format = FORMAT_SUBTITLE_WEBVTT;
+                    }
+                    else
+                    {
+                        AAMPLOG_WARN("Not TS or MP4 extension, probably ES. fragment extension %.*s", ptr.getLen(), ptr.getPtr() );
+                    }
+                }
+                break;
+            }
+        }
 	}
+    AAMPLOG_MIL( "format=%d", format );
 	return format;
 }
 

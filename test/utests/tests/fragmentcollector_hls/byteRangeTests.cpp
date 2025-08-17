@@ -208,7 +208,8 @@ TEST_F(byteRangeTests, testFormatFromExtension )
 		StreamOutputFormat format;
 	} test_data[] =
 	{
-		{ "#EXTM3U8\r\nx.ts", FORMAT_MPEGTS },
+        { "#EXTM3U8\r\nx.ts", FORMAT_MPEGTS },
+        { "#EXTM3U8\r\n\r\ny.ts", FORMAT_MPEGTS },
 		{ "#EXTM3U8\r\n#EXT-X-MEDIA\r\n#EXT-X-MAP foo.mp4", FORMAT_ISO_BMFF },
 		{ "a.b.x.aac", FORMAT_AUDIO_ES_AAC },
 		{ "x.ac3", FORMAT_AUDIO_ES_AC3 },    /**< AC3 Audio Elementary Stream */
@@ -221,6 +222,7 @@ TEST_F(byteRangeTests, testFormatFromExtension )
 	};
 	for( size_t i=0; i<ARRAY_SIZE(test_data); i++ )
 	{
+        printf( "test#%zu: '%s'\n", i, test_data[i].data );
 		AampGrowableBuffer buffer;
 		buffer.AppendBytes(test_data[i].data, strlen(test_data[i].data) );
 		StreamOutputFormat format = GetFormatFromFragmentExtension( buffer );
