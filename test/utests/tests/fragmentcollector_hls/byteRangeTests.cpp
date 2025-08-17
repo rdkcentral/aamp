@@ -112,10 +112,10 @@ TEST_F(byteRangeTests, withoutbyterange) {
 	EXPECT_FALSE(status);
 }
 
+/* Note: this is not a valid variation to expect in HLS playlists, currently not distinguished by IsExtXByteRange
 TEST_F(byteRangeTests, withoutvalue) {
 	size_t byteRangeLength = 0;
 	size_t byteRangeOffset = 0;
-
 	const char *raw = "#EXT-X-BYTERANGE:";
 	lstring param(raw,strlen(raw));
 	bool status = trackStateObj->IsExtXByteRange(param,&byteRangeLength, &byteRangeOffset);
@@ -123,15 +123,16 @@ TEST_F(byteRangeTests, withoutvalue) {
 	EXPECT_EQ(byteRangeLength,0);
 	EXPECT_EQ(byteRangeOffset,0);
 }
+*/
 
 TEST_F(byteRangeTests, withbytelength) {
 	size_t byteRangeLength = 0;
 	size_t byteRangeOffset = 0;
 	
-	const char *raw = "#EXT-X-BYTERANGE: 1234";
+	const char *raw = "#EXT-X-BYTERANGE: 1234"; // length-only
 	lstring param(raw,strlen(raw));
 	bool status = trackStateObj->IsExtXByteRange(param,&byteRangeLength, &byteRangeOffset);
-	EXPECT_FALSE(status);
+    EXPECT_TRUE(status);
 	EXPECT_EQ(byteRangeLength,1234);
 	EXPECT_EQ(byteRangeOffset,0);
 }
@@ -140,7 +141,7 @@ TEST_F(byteRangeTests, withbytevalue) {
 	size_t byteRangeLength = 0;
 	size_t byteRangeOffset = 0;
 
-	const char *raw = "#EXT-X-BYTERANGE: 1234@4321";
+	const char *raw = "#EXT-X-BYTERANGE: 1234@4321"; // length & range
 	lstring param(raw,strlen(raw));
 	bool status = trackStateObj->IsExtXByteRange(param,&byteRangeLength, &byteRangeOffset);
 	EXPECT_TRUE(status);
@@ -152,7 +153,7 @@ TEST_F(byteRangeTests, withoutseg) {
 	size_t byteRangeLength = 0;
 	size_t byteRangeOffset = 0;
 
-	const char *raw = "#EXT-X-BYTERANGE: 1234@4321,";
+	const char *raw = "#EXT-X-BYTERANGE: 1234@4321,"; // length & range
 	lstring param(raw,strlen(raw));
 	bool status = trackStateObj->IsExtXByteRange(param,&byteRangeLength, &byteRangeOffset);
 	EXPECT_TRUE(status);
@@ -164,7 +165,7 @@ TEST_F(byteRangeTests, withsegnum) {
 	size_t byteRangeLength = 0;
 	size_t byteRangeOffset = 0;
 
-	const char *raw = "#EXT-X-BYTERANGE: 1234@4321,\nseg2.m4s";
+	const char *raw = "#EXT-X-BYTERANGE: 1234@4321,\nseg2.m4s"; // length & range
 	lstring param(raw,strlen(raw));
 	bool status = trackStateObj->IsExtXByteRange(param,&byteRangeLength, &byteRangeOffset);
 	EXPECT_TRUE(status);

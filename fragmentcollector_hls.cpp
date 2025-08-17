@@ -71,12 +71,6 @@ static const int DEFAULT_STREAM_WIDTH = 720;
 static const int DEFAULT_STREAM_HEIGHT = 576;
 static const double  DEFAULT_STREAM_FRAMERATE = 25.0;
 
-static void AppendNulTerminator( AampGrowableBuffer &buffer )
-{ // workaround - TBR
-    const char zeros[] = { 0 };//,0 };
-	buffer.AppendBytes( zeros, sizeof(zeros) );
-}
-
 // checks if current state is going to use IFRAME ( Fragment/Playlist )
 #define IS_FOR_IFRAME(rate, type) ((type == eTRACK_VIDEO) && (rate != AAMP_NORMAL_PLAY_RATE))
 
@@ -791,12 +785,16 @@ lstring TrackState::GetIframeFragmentUriFromIndex(bool &bSegmentRepeated)
 			}
 			while (fragmentInfo.startswith('#'))
 			{
-				IsExtXByteRange(fragmentInfo, &byteRangeLength, &byteRangeOffset);
-				size_t offs = fragmentInfo.getPtr() - playlist.GetPtr();
-				lstring iter( fragmentInfo.getPtr(), playlist.GetLen() - offs );
-				fragmentInfo = iter.mystrpbrk(); // #EXTINF
-				fragmentInfo = iter.mystrpbrk(); // url
-			}
+                const char *fragmentPtr = fragmentInfo.getPtr();
+                size_t offs = fragmentPtr - playlist.GetPtr();
+                lstring iter( fragmentPtr, playlist.GetLen() - offs );
+                fragmentInfo = iter.mystrpbrk(); // #EXTINF
+                fragmentInfo = iter.mystrpbrk(); // #EXT-X-BYTERANGE (or url)
+				if( IsExtXByteRange(fragmentInfo, &byteRangeLength, &byteRangeOffset) )
+                {
+                    fragmentInfo = iter.mystrpbrk(); // url
+                }
+            }
 
 			{
 				mFragmentURIFromIndex = fragmentInfo;
@@ -854,10 +852,10 @@ lstring TrackState::GetNextFragmentUriFromPlaylist(bool& reloadUri, bool ignoreD
 {
 	lstring rc;
 
-	auto p = fragmentURI.getPtr();
+	auto p = fragmentURI.getPtr(); // pointer inside playlist
 	auto l = playlist.GetLen();
-	size_t offs = p - playlist.GetPtr();
-	if( offs>=l ) return lstring();
+	size_t offs = p - playlist.GetPtr(); // offset from playlist start
+	if( offs>=l ) return rc;
 	lstring iter( p, l-offs );
 	lstring ptr = iter.mystrpbrk();
 
@@ -921,16 +919,8 @@ lstring TrackState::GetNextFragmentUriFromPlaylist(bool& reloadUri, bool ignoreD
 					}
 					fragmentDurationSeconds = ptr.atof();
 				}
-				else if (ptr.removePrefix("-X-BYTERANGE:"))
-				{
-					byteRangeLength = ptr.atoll();
-					size_t offsetDelim = ptr.find('@');
-					if( offsetDelim<ptr.length() )
-					{
-						ptr.removePrefix(offsetDelim+1); // skip past '@'
-						byteRangeOffset = ptr.atoll();
-					}
-
+				else if( IsExtXByteRange(ptr,&byteRangeLength,&byteRangeOffset) )
+                { // -X-BYTERANGE:
 					mByteOffsetCalculation = true;
 					if (0 != byteRangeLength && 0 == byteRangeOffset)
 					{
@@ -1668,10 +1658,6 @@ void TrackState::FetchFragment()
 		{
 			AampTime duration{fragmentDurationSeconds};
 			AampTime position{playTarget - playTargetOffset};
-			if (type == eTRACK_SUBTITLE)
-			{
-				//AppendNulTerminator( cachedFragment->fragment );
-			}
 			if (context->rate == AAMP_NORMAL_PLAY_RATE)
 			{
 				position -= fragmentDurationSeconds;
@@ -2342,7 +2328,12 @@ void TrackState::ProcessPlaylist(AampGrowableBuffer& newPlaylist, int http_error
 		playlist.Replace( &newPlaylist );
 		AampTime culled{};
 		IndexPlaylist(true, culled);
-        AppendNulTerminator( playlist ); // why needed?
+        
+        if(1)
+        { // AppendNulTerminator - why needed?
+            const char zeros[] = { 0 };
+            playlist.AppendBytes( zeros, sizeof(zeros) );
+        }
         
 		// Update culled seconds if playlist download was successful
 		// We need culledSeconds to find the timedMetadata position in playlist
@@ -3650,7 +3641,6 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 			{
 				AampTime culled{};
 				bool playContextConfigured = false;
-				//AppendNulTerminator(ts->playlist);
 				if( AampLogManager::isLogLevelAllowed(eLOGLEVEL_TRACE) )
 				{ // use printf to avoid 2048 char syslog limitation
 					printf("***Initial Playlist:******\n\n%.*s\n*****************\n", (int)ts->playlist.GetLen(), ts->playlist.GetPtr() );
@@ -5349,7 +5339,6 @@ bool StreamAbstractionAAMP_HLS::SetThumbnailTrack( int thumbIndex )
 				{
 					downloadTime = tempDownloadTime;
 					AAMPLOG_WARN("In StreamAbstractionAAMP_HLS: Configured Thumbnail");
-					//AppendNulTerminator(thumbnailManifest);
 					ContentType type = aamp->GetContentType();
 					if( ContentType_LINEAR == type  || ContentType_SLE == type )
 					{
@@ -7360,11 +7349,26 @@ StreamAbstractionAAMP::ABRMode StreamAbstractionAAMP_HLS::GetABRMode()
 	return mode;
 }
 
-bool TrackState::IsExtXByteRange( lstring fragmentInfo, size_t *byteRangeLength, size_t *byteRangeOffset)
+bool TrackState::IsExtXByteRange( lstring ptr, size_t *byteRangeLength, size_t *byteRangeOffset)
 {
-	std::string temp = fragmentInfo.tostring();
-	int n = sscanf( temp.c_str(), "#EXT-X-BYTERANGE:%zu@%zu", byteRangeLength, byteRangeOffset );
-	return n==2;
+    if( ptr.removePrefix("#EXT-X-BYTERANGE:") || ptr.removePrefix("-X-BYTERANGE:") )
+    {
+        ptr.stripLeadingSpaces();
+        *byteRangeLength = ptr.atoll();
+        size_t offsetDelim = ptr.find('@');
+        if( offsetDelim<ptr.length() )
+        {
+            ptr.removePrefix(offsetDelim+1); // skip past '@'
+            *byteRangeOffset = ptr.atoll();
+        }
+        return true;
+    }
+    return false;
+
+    
+//	std::string temp = fragmentInfo.tostring();
+//	int n = sscanf( temp.c_str(), "#EXT-X-BYTERANGE:%zu@%zu", byteRangeLength, byteRangeOffset );
+//	return n>0;
 }
 //Enable default text track for Rialto
 void StreamAbstractionAAMP_HLS::SelectSubtitleTrack()
