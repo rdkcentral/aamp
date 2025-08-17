@@ -44,8 +44,11 @@ private:
 	std::string m_logFilePath;
 	bool m_isValid;
 	
-	// Static members for custom filename support
-	static std::string s_customFilename;
+	// Static members for custom path support
+	static std::string s_customPath;
+	
+	// Constant filename
+	static constexpr const char* LOG_FILENAME = "aamp_log.txt";
 	
 	/**
 	 * @brief Initialize the log file stream
@@ -98,11 +101,11 @@ public:
 	static FileLogger& getInstance() noexcept;
 	
 	/**
-	 * @brief Set custom filename for log file (must be called before first getInstance)
-	 * @param filename Custom filename to use (without path)
-	 * @return true if filename was set successfully, false if instance already created
+	 * @brief Set custom path for log file (must be called before first getInstance)
+	 * @param path Custom directory path to use (without filename)
+	 * @return true if path was set successfully, false if instance already created
 	 */
-	static bool setCustomFilename(const std::string& filename) noexcept;
+	static bool setCustomFilename(const std::string& path) noexcept;
 };
 
 #endif // FILELOGGER_H
