@@ -78,7 +78,7 @@ if(APPLE)
 	# which point to directories outside the build tree to the install RPATH
 	set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
 else()
-	# For Linux builds, use the origin of the executable as the RPATH
+	# For other builds, use the origin of the executable as the RPATH
 	set(CMAKE_INSTALL_RPATH "$ORIGIN")
 endif()
 
