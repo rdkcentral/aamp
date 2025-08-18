@@ -27,6 +27,7 @@
 #include "TsbSem.h"
 #include "TsbLocationLock.h"
 #include "TsbFs.h"
+#include "FileLogger.h"
 
 #define TSB_BYTES_IN_MIB    (1024 * 1024)
 
@@ -284,6 +285,9 @@ StoreImpl::StoreImpl(const Store::Config& config, LogFunction logger, int logger
 		TSB_LOG_ERROR(mLogger, "Failed to create", "flushDir", flushDir);
 		throw std::invalid_argument("Failed to create flushDir");
 	}
+
+	std::cout << "calling [FileLogger::setCustomFilename] with path: " << mLocation << std::endl;
+	FileLogger::setCustomFilename(mLocation);
 
 	mLocationLock = std::make_unique<LocationLock>(mLocation);
 	if (mLocationLock->Lock() == Status::FAILED)
