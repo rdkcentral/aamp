@@ -6551,6 +6551,14 @@ void StreamAbstractionAAMP_MPD::SelectSubtitleTrack(bool newTune, std::vector<Te
 			pMediaStreamContext->StartInjectLoop();
 		}
 	}
+
+#if 0//anj
+	if(|pMediaStreamContext->enabled)
+	{
+		pMediaStreamContext->enabled = true;
+	}
+#endif//anj
+
 	if(selAdaptationSetIndex < 0 && rate == 1)
 	{
 		AAMPLOG_WARN("StreamAbstractionAAMP_MPD: No valid adaptation set found for Media[%s]",GetMediaTypeName(eMEDIATYPE_SUBTITLE));
@@ -8780,6 +8788,24 @@ void StreamAbstractionAAMP_MPD::PushEncryptedHeaders(std::map<int, std::string>&
 {
 	for (std::map<int, std::string>::iterator it=mappedHeaders.begin(); it!=mappedHeaders.end(); ++it)
 	{
+#if 1//Andy's change - anj
+		if (it->first != eMEDIATYPE_SUBTITLE)
+		{
+			if (it->first < mTrackWorkers.size() && ISCONFIGSET(eAAMPConfig_DashParallelFragDownload) && mTrackWorkers[it->first])
+			{
+				// Download the video, audio & subtitle fragments in a separate parallel thread.
+				AAMPLOG_DEBUG("Submitting job for init encrypted header track %d", it->first);
+				auto track = it->first;
+				auto header = it->second;
+				mTrackWorkers[it->first]->SubmitJob([this, track, header]() { CacheEncryptedHeader(track, header); });
+			}
+			else
+			{
+				AAMPLOG_INFO("Track %d worker not available, caching init encrypted header sequentially", it->first);
+				CacheEncryptedHeader(it->first, it->second);
+			}
+		}
+#else
 		if (it->first < mTrackWorkers.size() && ISCONFIGSET(eAAMPConfig_DashParallelFragDownload) && mTrackWorkers[it->first])
 		{
 			// Download the video, audio & subtitle fragments in a separate parallel thread.
@@ -8793,6 +8819,7 @@ void StreamAbstractionAAMP_MPD::PushEncryptedHeaders(std::map<int, std::string>&
 			AAMPLOG_INFO("Track %d worker not available, caching init encrypted header sequentially", it->first);
 			CacheEncryptedHeader(it->first, it->second);
 		}
+#endif//Andy's change:end
 	}
 
 	for (int trackIdx = (mNumberOfTracks - 1); (ISCONFIGSET(eAAMPConfig_DashParallelFragDownload) && trackIdx >= 0); trackIdx--)
@@ -8855,6 +8882,40 @@ bool StreamAbstractionAAMP_MPD::GetEncryptedHeaders(std::map<int, std::string>& 
 					{
 						if (mMPDParseHelper->IsContentType(adaptationSet, (AampMediaType)i ))
 						{
+#if 1//Andy's change - anj
+							if ((AampMediaType)i == eMEDIATYPE_SUBTITLE)
+							{
+								size_t representationIndex = 0;
+
+								IRepresentation *representation = adaptationSet->GetRepresentation().at(representationIndex);
+								SegmentTemplates segmentTemplates(representation->GetSegmentTemplate(), adaptationSet->GetSegmentTemplate());
+								if(segmentTemplates.HasSegmentTemplate())
+								{
+									std::string initialization = segmentTemplates.Getinitialization();
+									if (!initialization.empty())
+									{
+										std::string fragmentUrl;
+										FragmentDescriptor *fragmentDescriptor = new FragmentDescriptor();
+										fragmentDescriptor->bUseMatchingBaseUrl = ISCONFIGSET(eAAMPConfig_MatchBaseUrl);
+										fragmentDescriptor->manifestUrl = mMediaStreamContext[eMEDIATYPE_VIDEO]->fragmentDescriptor.manifestUrl;
+										fragmentDescriptor->Bandwidth = representation->GetBandwidth();
+										fragmentDescriptor->ClearMatchingBaseUrl();
+										fragmentDescriptor->AppendMatchingBaseUrl(&mpd->GetBaseUrls());
+										fragmentDescriptor->AppendMatchingBaseUrl(&period->GetBaseURLs());
+										fragmentDescriptor->AppendMatchingBaseUrl(&adaptationSet->GetBaseURLs());
+										fragmentDescriptor->AppendMatchingBaseUrl(&representation->GetBaseURLs());
+										fragmentDescriptor->RepresentationID.assign(representation->GetId());
+										FragmentDescriptor *fragmentDescriptorCMCD(fragmentDescriptor);
+										
+										ConstructFragmentURL(fragmentUrl,fragmentDescriptorCMCD , initialization);
+										AAMPLOG_MIL("APS: [%s] Saved init url %s", GetMediaTypeName((AampMediaType)i), fragmentUrl.c_str());
+										mappedHeaders[i] = fragmentUrl;
+										SAFE_DELETE(fragmentDescriptor);
+									}
+								}
+								// Handle subtitle specific logic
+							}
+#endif//Andy's change:end - anj
 							vector<IDescriptor*> contentProt = mMPDParseHelper->GetContentProtection(adaptationSet);
 							if(0 == contentProt.size())
 							{
@@ -8928,6 +8989,9 @@ bool StreamAbstractionAAMP_MPD::GetEncryptedHeaders(std::map<int, std::string>& 
 										fragmentDescriptor->RepresentationID.assign(representation->GetId());
 										 FragmentDescriptor *fragmentDescriptorCMCD(fragmentDescriptor);
 										ConstructFragmentURL(fragmentUrl,fragmentDescriptorCMCD , initialization);
+#if 1//Andy's change - anj
+										AAMPLOG_MIL("APS: [%s] Saved init url %s", GetMediaTypeName((AampMediaType)i), fragmentUrl.c_str());
+#endif//Andy's change:end - anj
 
 										mappedHeaders[i] = fragmentUrl;
 
@@ -11540,6 +11604,42 @@ void StreamAbstractionAAMP_MPD::StartInjection(void)
 			track->StartInjectLoop();
 		}
 	}
+#if 1//Andy's change - anj
+	MediaStreamContext *track = mMediaStreamContext[eMEDIATYPE_SUBTITLE];
+	if(track && !track->Enabled())
+	{
+		std::map<int, std::string> headers;
+
+		AampStreamSinkManager::GetInstance().GetEncryptedHeaders(headers);
+		if (!headers.empty())
+		{
+			if (headers.count(eMEDIATYPE_SUBTITLE))
+			{
+				AAMPLOG_WARN("APS: Subtitle track is disabled, url for init segment found: %s", headers.at(eMEDIATYPE_SUBTITLE).c_str());
+				AampGrowableBuffer buffer("subtitle-init-buffer");
+				std::string effectiveUrl;
+				int http_error = 0;
+				if (aamp->GetFile(headers.at(eMEDIATYPE_SUBTITLE), eMEDIATYPE_SUBTITLE, &buffer, effectiveUrl, &http_error, NULL, NULL, eCURLINSTANCE_SUBTITLE))
+				{
+					aamp->SendStreamTransfer(eMEDIATYPE_SUBTITLE, &buffer, 0, 0, 0, 0, true, false);
+				}
+			}
+			else
+			{
+				AAMPLOG_WARN("APS: Subtitle track is disabled, url for init segment not found");
+			}
+		}
+		else
+		{
+			AAMPLOG_WARN("APS: Subtitle track is disabled, but no encrypted headers");
+		}
+	}
+	else
+	{
+		AAMPLOG_WARN("APS: Subtitle track is enabled, no need to fetch init segment");
+	}
+
+#endif//Andy's change:end -anj
 }
 
 

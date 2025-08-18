@@ -4196,7 +4196,7 @@ static gboolean bus_message(GstBus * bus, GstMessage * msg, InterfacePlayerRDK *
 			busEvent.msg = srcName ? srcName : "Unknown source";
 			busEvent.dbg_info = "N/A";
 			busEvent.msgType = MESSAGE_STATE_CHANGE;
-#if 1//anjali
+#if 0//anjali
 			MW_LOG_MIL("new_state = %d", new_state);    
 			if (new_state == GST_STATE_READY)
 			{
@@ -4223,6 +4223,16 @@ static gboolean bus_message(GstBus * bus, GstMessage * msg, InterfacePlayerRDK *
 						   gst_element_state_get_name(old_state),
 						   gst_element_state_get_name(new_state),
 						   gst_element_state_get_name(pending_state));
+#if 1//Andy's change - anj
+				if(isPlaybinStateChangeEvent)
+				{
+					char dot_filename[64];
+					static int i = 0;
+					snprintf(dot_filename, sizeof(dot_filename), "myplayer-%s-%d.dot", gst_element_state_get_name(new_state), i++);
+					MW_LOG_MIL("ANJ: Dumping DOT");    
+					GST_DEBUG_BIN_TO_DOT_FILE((GstBin *)pInterfacePlayerRDK->gstPrivateContext->pipeline, GST_DEBUG_GRAPH_SHOW_ALL, dot_filename);
+				}
+#endif//Andy's change:end -anj
 
 				if(isPlaybinStateChangeEvent && pInterfacePlayerRDK->gstPrivateContext->pauseOnStartPlayback && (new_state == GST_STATE_PAUSED))
 				{
