@@ -10113,6 +10113,8 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 		}
 	} // Loop 1
 	while (!exitFetchLoop);
+	aamp->profiler.ProfileEnd(PROFILE_BUCKET_STOP_FC_VIDEO);
+	aamp->profiler.ProfileEnd(PROFILE_BUCKET_STOP_FC_AUDIO);
 	AAMPLOG_MIL("FetcherLoop done");
 }
 
@@ -10724,6 +10726,7 @@ void StreamAbstractionAAMP_MPD::Stop(bool clearChannelData)
 	if (!aamp->DownloadsAreEnabled() && fragmentCollectorThreadID.joinable())
 	{
 		fragmentCollectorThreadID.join();
+		AAMPLOG_INFO("Fragment collector thread joined");
 	}
 
 	if(tsbReaderThreadID.joinable())
@@ -10733,7 +10736,6 @@ void StreamAbstractionAAMP_MPD::Stop(bool clearChannelData)
 		tsbReaderThreadID.join();
 		AAMPLOG_INFO("Joined tsbReaderThreadID");
 	}
-
 	for (int iTrack = 0; iTrack < mMaxTracks; iTrack++)
 	{
 		MediaStreamContext *track = mMediaStreamContext[iTrack];

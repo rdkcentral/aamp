@@ -221,6 +221,7 @@ bool AampLicensePreFetcher::Term()
 	
 	mTrackStatus.fill(false);
 	mFetchInstance = nullptr;
+	mPrivAAMP->profiler.ProfileEnd(PROFILE_BUCKET_RELEASE_DRM);
 	return ret;
 }
 
@@ -291,6 +292,8 @@ void AampLicensePreFetcher::PreFetchThread()
 			}
 		}
 	}
+	mPrivAAMP->profiler.ProfileEnd(PROFILE_BUCKET_STOP_PREFETCH_THREAD);
+
 }
 
 /**

@@ -1373,6 +1373,7 @@ PrivateInstanceAAMP::~PrivateInstanceAAMP()
 
 	AampStreamSinkManager::GetInstance().DeleteStreamSink(this);
 
+
 	SAFE_DELETE(mTSBSessionManager);
 	if (HasSidecarData())
 	{ // has sidecar data
@@ -7488,8 +7489,15 @@ void PrivateInstanceAAMP::Stop( bool isDestructing )
 		mAutoResumeTaskId = AAMP_TASK_ID_INVALID;
 		mAutoResumeTaskPending = false;
 	}
-
+	profiler.TuneStop();
+	profiler.ProfileBegin(PROFILE_BUCKET_STOP_TOTAL);
+	profiler.ProfileBegin(PROFILE_BUCKET_STOP_MONITOR_VIDEO);
+	profiler.ProfileBegin(PROFILE_BUCKET_STOP_MONITOR_AUDIO);
+	profiler.ProfileBegin(PROFILE_BUCKET_STOP_MANIFEST_DOWNLOADER);
+	profiler.ProfileBegin(PROFILE_BUCKET_STOP_FC_VIDEO);
+	profiler.ProfileBegin(PROFILE_BUCKET_STOP_FC_AUDIO);
 	DisableDownloads();
+
 	//Moved the tsb delete request from XRE to AAMP to avoid the HTTP-404 erros
 	if(IsFogTSBSupported())
 	{
@@ -7505,7 +7513,11 @@ void PrivateInstanceAAMP::Stop( bool isDestructing )
 	}
 
 	UnblockWaitForDiscontinuityProcessToComplete();
+	profiler.ProfileBegin(PROFILE_BUCKET_STOP_RATE_CORRECTION);
 	StopRateCorrectionWorkerThread();
+	AAMPLOG_INFO("RATE CRT STOPPED");
+	profiler.ProfileEnd(PROFILE_BUCKET_STOP_RATE_CORRECTION);
+
 	if(mTelemetryInterval > 0)
 	{
 		double bufferedDuration = 0.0;
@@ -7524,6 +7536,8 @@ void PrivateInstanceAAMP::Stop( bool isDestructing )
 	SetLocalAAMPTsb(false);
 	SetLocalAAMPTsbInjection(false);
 	// Stopping the playback, release all DRM context
+	profiler.ProfileBegin(PROFILE_BUCKET_STOP_PREFETCH_THREAD);
+	profiler.ProfileBegin(PROFILE_BUCKET_RELEASE_DRM);
 	if (mpStreamAbstractionAAMP)
 	{
 		AcquireStreamLock();
@@ -7646,6 +7660,7 @@ void PrivateInstanceAAMP::Stop( bool isDestructing )
 	{
 		// delete the MPD Downloader Instance
 		AAMPLOG_INFO("Calling delete of Downloader instance ");
+		profiler.ProfileEnd(PROFILE_BUCKET_STOP_MANIFEST_DOWNLOADER);
 		SAFE_DELETE(mMPDDownloaderInstance);
 	}
 
@@ -7657,7 +7672,8 @@ void PrivateInstanceAAMP::Stop( bool isDestructing )
 	}
 	SetFlushFdsNeededInCurlStore(false);
 	EnableDownloads();
-
+	profiler.ProfileEnd(PROFILE_BUCKET_STOP_TOTAL);
+	profiler.LogStopTime(mMediaFormatName[mMediaFormat]);
 	AampStreamSinkManager::GetInstance().DeactivatePlayer(this, true);
 }
 
