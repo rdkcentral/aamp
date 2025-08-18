@@ -178,34 +178,32 @@ void FileLogger::writeLog(const char* format, va_list args) const noexcept
 {
 	std::lock_guard<std::mutex> lock(m_mutex);
 	
-	// If no custom path is set, use temporary file
-	if (s_customPath.empty()) {
-		if (!m_isValid || !m_fileStream || !m_fileStream->is_open()) {
-			std::cout << "[FileLogger::writeLog] No custom path set, attempting to initialize temporary log file" << std::endl;
-			FileLogger* mutableThis = const_cast<FileLogger*>(this);
-			if (!mutableThis->initializeTempLogFile()) {
-				std::cout << "[FileLogger::writeLog] Failed to initialize temporary log file, discarding write" << std::endl;
-				return;
-			}
-		}
-	} else {
-		// Custom path is set, try to use it (or switch from temp file)
-		bool needsInitialization = !m_isValid || !m_fileStream || !m_fileStream->is_open();
-		
-		// Also check if we're currently using the temp file and need to switch
+	// If custom path is set, try to switch from temp file to target location
+	if (!s_customPath.empty()) {
+		// Check if we're currently using the temp file and need to switch
 		if (m_isValid && m_logFilePath == "/tmp/aamp_log_start.txt") {
 			std::cout << "[FileLogger::writeLog] Switching from temporary file to target location: " << s_customPath << std::endl;
-			needsInitialization = true;
+			
 			// Close current temp file
 			FileLogger* mutableThis = const_cast<FileLogger*>(this);
 			if (mutableThis->m_fileStream && mutableThis->m_fileStream->is_open()) {
 				mutableThis->m_fileStream->close();
 			}
 			mutableThis->m_isValid = false;
+			
+			// Try to initialize target file
+			if (!mutableThis->initializeLogFile()) {
+				std::cout << "[FileLogger::writeLog] Failed to initialize target log file, continuing with temporary file" << std::endl;
+				// Re-open temporary file since we closed it
+				if (!mutableThis->initializeTempLogFile()) {
+					std::cout << "[FileLogger::writeLog] Failed to re-open temporary log file, discarding write" << std::endl;
+					return;
+				}
+			}
 		}
-		
-		if (needsInitialization) {
-			std::cout << "[FileLogger::writeLog] File not initialized, attempting to initialize with path: " << s_customPath << std::endl;
+		// If target file is not initialized but custom path is set, try to initialize it
+		else if (!m_isValid || !m_fileStream || !m_fileStream->is_open()) {
+			std::cout << "[FileLogger::writeLog] Target file not initialized, attempting to initialize with path: " << s_customPath << std::endl;
 			
 			FileLogger* mutableThis = const_cast<FileLogger*>(this);
 			if (!mutableThis->initializeLogFile()) {
@@ -218,8 +216,10 @@ void FileLogger::writeLog(const char* format, va_list args) const noexcept
 			}
 		}
 	}
+	// If no custom path is set, we should already have the temp file from constructor
+	// No action needed - just proceed with writing
 	
-	// Check if file is still not valid after initialization attempt
+	// Check if file is still not valid after any initialization attempts
 	if (!m_isValid || !m_fileStream || !m_fileStream->is_open()) 
 	{
 		std::cout << "[FileLogger::writeLog] FileLogger is not valid after initialization, discarding write" << std::endl;
