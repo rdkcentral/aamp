@@ -592,7 +592,8 @@ size_t PrivateInstanceAAMP::HandleSSLWriteCallback ( char *ptr, size_t size, siz
 	{
 		if ((NULL == context->buffer->GetPtr() ) && (context->contentLength > 0))
 		{
-			size_t len = context->contentLength;
+			size_t len = context->contentLength + 2;
+			/*Add 2 additional characters to take care of extra characters inserted by aamp_AppendNulTerminator*/
 			if(context->downloadIsEncoded && (len < DEFAULT_ENCODED_CONTENT_BUFFER_SIZE))
 			{
 				// Allocate a fixed buffer for encoded contents. Content length is not trusted here
@@ -5215,12 +5216,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 		}
 		else
 		{
-			mpStreamAbstractionAAMP->SetTrickplayMode(rate);
-			mpStreamAbstractionAAMP->ResetTrickModePtsRestamping();
-			if (!GetLLDashChunkMode())
-			{
-				mpStreamAbstractionAAMP->SetVideoPlaybackRate(rate);
-			}
+			mpStreamAbstractionAAMP->ReinitializeInjection(rate);
 		}
 	}
 	else if (mMediaFormat == eMEDIAFORMAT_HLS || mMediaFormat == eMEDIAFORMAT_HLS_MP4)
@@ -6294,28 +6290,22 @@ MediaFormat PrivateInstanceAAMP::GetMediaFormatType(const char *url)
 			{
 				rc = eMEDIAFORMAT_HLS;
 			}
+			else if((sniffedBytes.GetLen() >= 6 && memcmp(sniffedBytes.GetPtr(), "<?xml ", 6) == 0) || // can start with xml
+					 (sniffedBytes.GetLen() >= 5 && memcmp(sniffedBytes.GetPtr(), "<MPD ", 5) == 0)) // or directly with mpd
+			{ // note: legal to have whitespace before leading tag
+				sniffedBytes.AppendNulTerminator();
+				if (strstr(sniffedBytes.GetPtr(), "SmoothStreamingMedia"))
+				{
+					rc = eMEDIAFORMAT_SMOOTHSTREAMINGMEDIA;
+				}
+				else
+				{
+					rc = eMEDIAFORMAT_DASH;
+				}
+			}
 			else
 			{
-				rc = eMEDIAFORMAT_PROGRESSIVE; // default
-				const char *ptr = sniffedBytes.GetPtr();
-				const char *fin = ptr + sniffedBytes.GetLen();
-				while( ptr<fin )
-				{
-					char c = *ptr++;
-					if( c == '<' )
-					{
-						if( memcmp(ptr,"SmoothStreamingMedia ",21)==0 )
-						{
-							rc = eMEDIAFORMAT_SMOOTHSTREAMINGMEDIA;
-							break;
-						}
-						else if( memcmp(ptr,"MPD ",4)==0 )
-						{
-							rc = eMEDIAFORMAT_DASH;
-							break;
-						}
-					}
-				}
+				rc = eMEDIAFORMAT_PROGRESSIVE;
 			}
 		}
 		sniffedBytes.Free();
@@ -13700,6 +13690,11 @@ void PrivateInstanceAAMP::SetLLDashChunkMode(bool enable)
 		mpStreamAbstractionAAMP->SetABRMaxBuffer(GETCONFIGVALUE_PRIV(eAAMPConfig_MaxABRNWBufferRampUp));
 		LoadAampAbrConfig();
 	}
+}
+
+bool PrivateInstanceAAMP::GetLLDashChunkMode()
+{
+	return mIsChunkMode;
 }
 
 bool PrivateInstanceAAMP::GetLLDashAdjustSpeed(void)
