@@ -113,14 +113,8 @@ void ContentProtectionFirebolt::SubscribeEvents()
 						MW_LOG_WARN("[Event] Video resolution changed: %s" , videoResolution.c_str());
 						if (auto videoResolution = Firebolt::IFireboltAampAccessor::Instance().DeviceInterface().videoResolution())
 						{
-							// MW_LOG_WARN("Device video resolution is: " << videoResolution.value()[0],videoResolution.value()[1]);
+							MW_LOG_WARN("Device video resolution is: [%d] [%d] size: %d", videoResolution.value()[0], videoResolution.value()[1], videoResolution.value().size());
 						}
-
-						//Firebolt::Device::Resolution printVideoResolution = *videoResolution;
-
-						// MW_LOG_ERR("resolution changed");
-
-						//MW_LOG_INFO("Device video resolution is: %d, %d" , printVideoResolution.value()[0] , printVideoResolution.value()[1]);
 
 					});
 	if(result)
