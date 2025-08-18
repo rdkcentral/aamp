@@ -48,7 +48,7 @@ void DeviceFireboltInterface::RegisterDsMgrEventHandler()
 	auto result =  Firebolt::IFireboltAampAccessor::Instance().DeviceInterface().subscribeOnHdcpChanged(
 					[](const auto& hdcpProtocol) {
 						MW_LOG_ERR("[Event] HDCP changed");
-						HDMIEventHandlerFirebolt(hdcpProtocol);
+						HDCPEventHandlerFirebolt(hdcpProtocol);
 					});
 
 	if(result)
@@ -67,7 +67,7 @@ void DeviceFireboltInterface::RegisterDsMgrEventHandler()
 					[](const std::string& videoResolution) 
 					{
 						MW_LOG_WARN("[Event] Video resolution changed: %s" , videoResolution.c_str());
-						ResolutionHandlerFirebolt();
+						ResolutionHandlerFirebolt(videoResolution);
 					});
 	if(result)
 	{
@@ -107,7 +107,7 @@ bool DeviceFireboltInterface::IsActiveStreamingInterfaceWifi()
 		MW_LOG_ERR("Failed to subscribe to network change events: %d", static_cast<int>(result.error()));
 	}
 
-	const Firebolt::Device::NetworkInfoResult& curr_network = Firebolt::IFireboltAampAccessor::Instance().DeviceInterface().network();
+	auto curr_network = Firebolt::IFireboltAampAccessor::Instance().DeviceInterface().network();
 
 	if(curr_network.type == Firebolt::Device::NetworkType::WIFI)
 	{
@@ -144,7 +144,7 @@ static void getActiveInterfaceEventHandlerFirebolt (const Firebolt::Device::Netw
 		{
 			MW_LOG_ERR("Unsupported Interface %d", (int)t_NetworkInfoResult.type);
 		}
-		MW_LOG_WARN("getActiveInterfaceEventHandler activeinterface changed to %s\n", interface);
+		MW_LOG_WARN("getActiveInterfaceEventHandler activeinterface changed to %s\n", interface.c_str());
 	}
 	else
 	{
@@ -185,7 +185,7 @@ static void ResolutionHandlerFirebolt(const std::string& t_res)
 	int width = 1280;
 	int height = 720;
 
-	MW_LOG_WARN("Resolution: %s", t_res);
+	MW_LOG_WARN("Resolution: %s", t_res.c_str());
 
 	pInstance->SetResolution(width, height);
 
