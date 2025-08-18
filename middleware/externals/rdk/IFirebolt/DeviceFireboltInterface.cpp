@@ -109,10 +109,18 @@ bool DeviceFireboltInterface::IsActiveStreamingInterfaceWifi()
 
 	auto curr_network = Firebolt::IFireboltAampAccessor::Instance().DeviceInterface().network();
 
-	if(curr_network.type == Firebolt::Device::NetworkType::WIFI)
+	if(curr_network)
 	{
-		bRet = true;
+		if(curr_network.value().type == Firebolt::Device::NetworkType::WIFI)
+		{
+			bRet = true;
+		}
 	}
+	else
+	{
+		MW_LOG_ERR("Failed to get current interface");
+	}
+	
 
 	return bRet;
 
