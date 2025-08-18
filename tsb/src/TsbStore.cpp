@@ -21,7 +21,6 @@
 #include <atomic>
 #include <cerrno>
 #include <cstring>
-#include <iostream>
 
 #include "TsbApi.h"
 #include "TsbLog.h"
@@ -287,7 +286,6 @@ StoreImpl::StoreImpl(const Store::Config& config, LogFunction logger, int logger
 		throw std::invalid_argument("Failed to create flushDir");
 	}
 
-	std::cout << "calling [FileLogger::setCustomFilename] with path: " << mLocation << std::endl;
 	FileLogger::setCustomFilename(mLocation);
 
 	mLocationLock = std::make_unique<LocationLock>(mLocation);
@@ -311,8 +309,6 @@ StoreImpl::StoreImpl(const Store::Config& config, LogFunction logger, int logger
 		{
 		if (dir_entry.path() != flushDir)
 		{
-							TSB_LOG_ERROR(mLogger, "DJH move ", "path",
-								dir_entry.path(), "errorCode", ec);
 			FS::rename(dir_entry.path(), flushDir / dir_entry.path().filename(), ec);
 			if (ec.default_error_condition())
 			{
