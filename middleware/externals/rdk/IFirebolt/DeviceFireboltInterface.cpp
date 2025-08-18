@@ -189,12 +189,23 @@ static void HDCPEventHandlerFirebolt(const Firebolt::Device::HDCPVersionMap& t_H
  */
 static void ResolutionHandlerFirebolt(const std::string& t_res)
 {
-    PlayerExternalsRdkInterface *pInstance = PlayerExternalsRdkInterface::GetPlayerExternalsRdkInterfaceInstance();
-	int width = 1280;
+    int width = 1280;
 	int height = 720;
 
 	MW_LOG_WARN("Resolution: %s", t_res.c_str());
 
-	pInstance->SetResolution(width, height);
+	auto curr_network = Firebolt::IFireboltAampAccessor::Instance().DeviceInterface().videoResolution();
+
+	if(curr_network)
+	{
+		PlayerExternalsRdkInterface *pInstance = PlayerExternalsRdkInterface::GetPlayerExternalsRdkInterfaceInstance();
+		width = curr_network.value()[0];
+		height = curr_network.value()[1];
+		pInstance->SetResolution(width, height);
+	}
+	else
+	{
+		MW_LOG_ERR("Failed to get current resolution");
+	}
 
 }
