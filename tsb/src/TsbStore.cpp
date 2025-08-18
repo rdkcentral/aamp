@@ -307,8 +307,12 @@ StoreImpl::StoreImpl(const Store::Config& config, LogFunction logger, int logger
 	// Move any stale files / directories present in the storage due to a non clean shutdown.
 	for (const auto& dir_entry : FS::directory_iterator{mLocation})
 	{
+//		if (dir_entry.path().filename() != "aamp_log.txt")
+//		{
 		if (dir_entry.path() != flushDir)
 		{
+							TSB_LOG_ERROR(mLogger, "DJH move ", "path",
+								dir_entry.path(), "errorCode", ec);
 			FS::rename(dir_entry.path(), flushDir / dir_entry.path().filename(), ec);
 			if (ec.default_error_condition())
 			{
@@ -316,6 +320,7 @@ StoreImpl::StoreImpl(const Store::Config& config, LogFunction logger, int logger
 								dir_entry.path(), "errorCode", ec);
 			}
 		}
+//		}
 	}
 
 	FS::space_info s = GetFilesystemSpace();
