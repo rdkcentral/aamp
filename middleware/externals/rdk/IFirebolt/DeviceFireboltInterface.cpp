@@ -115,7 +115,17 @@ bool DeviceFireboltInterface::IsActiveStreamingInterfaceWifi()
 	{
 		if(curr_network.value().type == Firebolt::Device::NetworkType::WIFI)
 		{
+			MW_LOG_INFO("Current interface wifi");
 			bRet = true;
+		}
+		else if(curr_network.value().type == Firebolt::Device::NetworkType::ETHERNET)
+		{
+			MW_LOG_INFO("Current interface ethernet");
+			bRet = false;
+		}
+		else
+		{
+			MW_LOG_ERR("Unsupported interface!!");
 		}
 	}
 	else
@@ -130,6 +140,7 @@ bool DeviceFireboltInterface::IsActiveStreamingInterfaceWifi()
 
 char * DeviceFireboltInterface::GetTR181Config(const char * paramName, size_t & iConfigLen)
 {
+	MW_LOG_ERR("TR181 not supported for firebolt");
     return nullptr;
 }
 
@@ -156,11 +167,11 @@ static void getActiveInterfaceEventHandlerFirebolt (const Firebolt::Device::Netw
 		{
 			MW_LOG_ERR("Unsupported Interface %d", (int)t_NetworkInfoResult.type);
 		}
-		MW_LOG_WARN("getActiveInterfaceEventHandler activeinterface changed to %s\n", interface.c_str());
+		MW_LOG_INFO("getActiveInterfaceEventHandler activeinterface changed to %s\n", interface.c_str());
 	}
 	else
 	{
-		MW_LOG_WARN("getActiveInterfaceEventHandler interface type:%d state:%d\n", (int)t_NetworkInfoResult.type, (int)t_NetworkInfoResult.state);
+		MW_LOG_ERR("Disconnected interface type:%d state:%d\n", (int)t_NetworkInfoResult.type, (int)t_NetworkInfoResult.state);
 	}
     
 	
@@ -198,7 +209,7 @@ static void ResolutionHandlerFirebolt(const std::string& t_res)
     int width = 1280;
 	int height = 720;
 
-	MW_LOG_WARN("Resolution: %s", t_res.c_str());
+	MW_LOG_INFO("Resolution: %s", t_res.c_str());
 
 	auto curr_network = Firebolt::IFireboltAampAccessor::Instance().DeviceInterface().videoResolution();
 
