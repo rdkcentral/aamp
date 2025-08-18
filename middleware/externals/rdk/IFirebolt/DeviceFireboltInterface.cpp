@@ -53,6 +53,7 @@ void DeviceFireboltInterface::RegisterDsMgrEventHandler()
 
 	if(result)
 	{
+		MW_LOG_INFO("HDCP changed event registerd");
 		mDsMgrSubscriptionId.push_back(result.value());
 	}
 
@@ -71,7 +72,7 @@ void DeviceFireboltInterface::RegisterDsMgrEventHandler()
 					});
 	if(result)
 	{
-		MW_LOG_ERR("resolution changed");
+		MW_LOG_INFO("Resolution changed event registerd");
         mDsMgrSubscriptionId.push_back(result.value());
 	}
 	else
@@ -100,6 +101,7 @@ bool DeviceFireboltInterface::IsActiveStreamingInterfaceWifi()
 	
 	if(result)
 	{
+		MW_LOG_INFO("Network changed event registerd");
 		mNtwMgrSubscriptionId.push_back(result.value());
 	}
 	else
@@ -142,11 +144,13 @@ static void getActiveInterfaceEventHandlerFirebolt (const Firebolt::Device::Netw
 		{
 			interface = "wlan";
 			pInstance->SetActiveInterface(true);
+			MW_LOG_INFO("Network interface changed to wifi");
 		}
 		else if(t_NetworkInfoResult.type == Firebolt::Device::NetworkType::ETHERNET)
 		{
 			interface = "eth";
 			pInstance->SetActiveInterface(false);
+			MW_LOG_INFO("Network interface changed to ethernet");
 		}
 		else
 		{
@@ -172,10 +176,12 @@ static void HDCPEventHandlerFirebolt(const Firebolt::Device::HDCPVersionMap& t_H
     if(t_HDCPVersionMap.hdcp2_2)
 	{
 		pInstance->setHdcpProtocol(dsHDCP_VERSION_2X);
+		MW_LOG_INFO("HDCP protocol updated 2_2");
 	}
 	else if(t_HDCPVersionMap.hdcp1_4)
 	{
 		pInstance->setHdcpProtocol(dsHDCP_VERSION_1X);
+		MW_LOG_INFO("HDCP protocol updated 1_4");
 	}
 	else
 	{
@@ -202,6 +208,7 @@ static void ResolutionHandlerFirebolt(const std::string& t_res)
 		width = curr_network.value()[0];
 		height = curr_network.value()[1];
 		pInstance->SetResolution(width, height);
+		MW_LOG_INFO("Updating resolution [%d][%d]", curr_network.value()[0], curr_network.value()[1]);
 	}
 	else
 	{
