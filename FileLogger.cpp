@@ -38,116 +38,98 @@
 // Static member definitions
 std::string FileLogger::s_customPath = "";
 
-bool FileLogger::initializeTempLogFile() noexcept
+bool FileLogger::createFileWithPermissions(const std::string& filePath) noexcept
 {
-	const std::string tempLogPath = "/tmp/aamp_log_start.txt";
+	int fd = open(filePath.c_str(), O_CREAT | O_WRONLY | O_APPEND, 
+	              S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH);
 	
-	std::cout << "[FileLogger::initializeTempLogFile] Attempting to open temporary log file: " << tempLogPath << std::endl;
-	try 
-	{
-		// Create the temporary file with proper permissions (666) if it doesn't exist
-		int fd = open(tempLogPath.c_str(), O_CREAT | O_WRONLY | O_APPEND, 
-		              S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH);
-		
-		if (fd != -1) {
-			close(fd);  // Close the file descriptor, we'll use ofstream
-			std::cout << "[FileLogger::initializeTempLogFile] Temporary file created/opened with 666 permissions" << std::endl;
-		} else {
-			std::cout << "[FileLogger::initializeTempLogFile] Warning: Failed to create temporary file, errno: " << errno << std::endl;
-			return false;
-		}
-		
-		// Open with ofstream
-		m_fileStream.reset(new std::ofstream(
-			tempLogPath, 
-			std::ios::out | std::ios::app
-		));
-		
-		if (m_fileStream && m_fileStream->is_open()) 
-		{
-			// Set unbuffered mode for immediate flushing
-			m_fileStream->rdbuf()->pubsetbuf(nullptr, 0);
-			m_isValid = true;
-			m_logFilePath = tempLogPath;
-			std::cout << "[FileLogger::initializeTempLogFile] Successfully opened temporary log file: " << tempLogPath << std::endl;
-			return true;
-		}
-		else
-		{
-			std::cout << "[FileLogger::initializeTempLogFile] Failed to open temporary log file: " << tempLogPath << std::endl;
-		}
-	}
-	catch (const std::exception& e) 
-	{
-		std::cout << "[FileLogger::initializeTempLogFile] Exception opening temporary log file: " << e.what() << std::endl;
-	}
-	return false;
-}
-
-bool FileLogger::initializeLogFile() noexcept
-{
-	// Cannot initialize without a custom path set
-	if (s_customPath.empty()) {
-		std::cout << "[FileLogger::initializeLogFile] Cannot initialize: no custom path set" << std::endl;
+	if (fd != -1) {
+		close(fd);
+		std::cout << "[FileLogger::createFileWithPermissions] File created/opened with 666 permissions: " << filePath << std::endl;
+		return true;
+	} else {
+		std::cout << "[FileLogger::createFileWithPermissions] Warning: Failed to create file, errno: " << errno << " for path: " << filePath << std::endl;
 		return false;
 	}
-	
-	// Construct full path with constant filename
-	m_logFilePath = s_customPath;
-	if (m_logFilePath.back() != '/') {
-		m_logFilePath += "/";
-	}
-	m_logFilePath += LOG_FILENAME;
-	
-	std::cout << "[FileLogger::initializeLogFile] Attempting to open log file: " << m_logFilePath << std::endl;
-	try 
-	{
-		// Create the file with proper permissions (666) if it doesn't exist
-		int fd = open(m_logFilePath.c_str(), O_CREAT | O_WRONLY | O_APPEND, 
-		              S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH);
+}
+
+bool FileLogger::initializeStream(const std::string& filePath) noexcept
+{
+	try {
+		m_fileStream.reset(new std::ofstream(filePath, std::ios::out | std::ios::app));
 		
-		if (fd != -1) {
-			close(fd);  // Close the file descriptor, we'll use ofstream
-			std::cout << "[FileLogger::initializeLogFile] File created/opened with 666 permissions" << std::endl;
-		} else {
-			std::cout << "[FileLogger::initializeLogFile] Warning: Failed to create file with proper permissions, errno: " << errno << std::endl;
-		}
-		
-		// Now open with ofstream
-		m_fileStream.reset(new std::ofstream(
-			m_logFilePath, 
-			std::ios::out | std::ios::app
-		));
-		
-		if (m_fileStream && m_fileStream->is_open()) 
-		{
+		if (m_fileStream && m_fileStream->is_open()) {
 			// Set unbuffered mode for immediate flushing
 			m_fileStream->rdbuf()->pubsetbuf(nullptr, 0);
 			m_isValid = true;
-			std::cout << "[FileLogger::initializeLogFile] Successfully opened log file: " << m_logFilePath << std::endl;
+			m_logFilePath = filePath;
+			std::cout << "[FileLogger::initializeStream] Successfully opened log file: " << filePath << std::endl;
 			return true;
-		}
-		else
-		{
-			std::cout << "[FileLogger::initializeLogFile] Failed to open log file: " << m_logFilePath << std::endl;
+		} else {
+			std::cout << "[FileLogger::initializeStream] Failed to open log file: " << filePath << std::endl;
 			if (m_fileStream) {
-				std::cout << "[FileLogger::initializeLogFile] Stream created but is_open() returned false" << std::endl;
-				std::cout << "[FileLogger::initializeLogFile] Stream state - good(): " << m_fileStream->good() 
+				std::cout << "[FileLogger::initializeStream] Stream created but is_open() returned false" << std::endl;
+				std::cout << "[FileLogger::initializeStream] Stream state - good(): " << m_fileStream->good() 
 				          << ", fail(): " << m_fileStream->fail() 
 				          << ", bad(): " << m_fileStream->bad() 
 				          << ", eof(): " << m_fileStream->eof() << std::endl;
 			} else {
-				std::cout << "[FileLogger::initializeLogFile] Failed to create stream object" << std::endl;
+				std::cout << "[FileLogger::initializeStream] Failed to create stream object" << std::endl;
 			}
 		}
+	} catch (const std::exception& e) {
+		std::cout << "[FileLogger::initializeStream] Exception opening log file: " << e.what() << std::endl;
 	}
-	catch (const std::exception& e) 
-	{
-		std::cout << "[FileLogger::initializeLogFile] Exception opening log file: " << e.what() << std::endl;
-		// Silent failure - logging should not crash the application
-	}
+	
 	m_isValid = false;
 	return false;
+}
+
+bool FileLogger::initializeTempLogFile() noexcept
+{
+	const std::string tempLogPath = "/tmp/aamp_log_start.txt";
+	bool success = false;
+	
+	std::cout << "[FileLogger::initializeTempLogFile] Attempting to open temporary log file: " << tempLogPath << std::endl;
+	
+	// Check if we already have this file open
+	if (m_isValid && m_fileStream && m_fileStream->is_open() && m_logFilePath == tempLogPath) {
+		std::cout << "[FileLogger::initializeTempLogFile] Temporary log file already open and valid" << std::endl;
+		success = true;
+	} else if (createFileWithPermissions(tempLogPath)) {
+		success = initializeStream(tempLogPath);
+	}
+	
+	return success;
+}
+
+bool FileLogger::initializeLogFile() noexcept
+{
+	bool success = false;
+	
+	// Cannot initialize without a custom path set
+	if (s_customPath.empty()) {
+		std::cout << "[FileLogger::initializeLogFile] Cannot initialize: no custom path set" << std::endl;
+	} else {
+		// Construct full path with constant filename
+		std::string targetPath = s_customPath;
+		if (targetPath.back() != '/') {
+			targetPath += "/";
+		}
+		targetPath += LOG_FILENAME;
+		
+		std::cout << "[FileLogger::initializeLogFile] Attempting to open log file: " << targetPath << std::endl;
+		
+		// Check if we already have this file open
+		if (m_isValid && m_fileStream && m_fileStream->is_open() && m_logFilePath == targetPath) {
+			std::cout << "[FileLogger::initializeLogFile] Target log file already open and valid" << std::endl;
+			success = true;
+		} else if (createFileWithPermissions(targetPath)) {
+			success = initializeStream(targetPath);
+		}
+	}
+	
+	return success;
 }
 
 FileLogger::FileLogger() noexcept

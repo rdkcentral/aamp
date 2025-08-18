@@ -63,6 +63,20 @@ private:
 	bool initializeTempLogFile() noexcept;
 	
 	/**
+	 * @brief Create file with proper permissions (666)
+	 * @param filePath Path to the file to create
+	 * @return true if file created successfully, false otherwise
+	 */
+	bool createFileWithPermissions(const std::string& filePath) noexcept;
+	
+	/**
+	 * @brief Initialize ofstream with the given file path
+	 * @param filePath Path to the file to open
+	 * @return true if stream initialized successfully, false otherwise
+	 */
+	bool initializeStream(const std::string& filePath) noexcept;
+	
+	/**
 	 * @brief Get current timestamp in ISO 8601 format
 	 * @return Timestamp string in format YYYY-MM-DDTHH:MM:SS.sssZ
 	 */
