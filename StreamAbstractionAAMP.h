@@ -787,7 +787,7 @@ protected:
 	 *
 	 * @return void
 	 */
-	void UpdateTSAfterInject();
+	virtual void UpdateTSAfterInject();
 
 	/**
 	 * @brief Update segment cache and inject buffer to gstreamer
@@ -951,6 +951,7 @@ protected:
 	bool loadNewSubtitle;
 
 	StreamOutputFormat mSourceFormat {StreamOutputFormat::FORMAT_INVALID};
+	int FragmentIndexToInject() { return fragmentIdxToInject; } /**< Access the index of the fragment to be injected */
 
 private:
 	enum class TrickmodeState

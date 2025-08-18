@@ -386,6 +386,9 @@ void MediaTrack::SetCachedFragmentChunksSize(size_t size)
 void MediaTrack::UpdateTSAfterInject()
 {
 }
+void MediaTrack::UpdateTSAfterChunkInject()
+{
+}
 void StreamAbstractionAAMP::UpdateStreamInfoBitrateData(int profileIndex, StreamInfo &cacheFragStreamInfo)
 {
 }

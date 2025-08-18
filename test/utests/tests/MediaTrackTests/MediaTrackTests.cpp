@@ -76,6 +76,8 @@ public:
 					   const char* name, StreamAbstractionAAMP* context)
 		: MediaTrack(type, aamp, name), mContext(context)
 	{
+		lastInjectedPosition = 0;
+		lastInjectedDuration = 0;
 	}
 
 	// Provide overrides for pure virtuals - this is just to keep the compiler happy
@@ -93,10 +95,22 @@ public:
 	void abortWaitForVideoPTS() override {};
 	double GetBufferedDuration() override { return 0; };
 
+	double lastInjectedPosition;
+	double lastInjectedDuration;
+
 protected:
 	// Must return something non-null to avoid a crash
 	StreamAbstractionAAMP* GetContext() override { return mContext; };
 	void InjectFragmentInternal(CachedFragment*, bool&, bool) override {};
+
+	void UpdateTSAfterInject() override
+	{
+		// Store the injected position for validation before clearing the cached fragment
+		lastInjectedPosition = mCachedFragment[FragmentIndexToInject()].position;
+		lastInjectedDuration = mCachedFragment[FragmentIndexToInject()].duration;
+		
+		MediaTrack::UpdateTSAfterInject();
+	}
 
 private:
 	std::string mFakeStr;
@@ -403,8 +417,8 @@ TEST_P(MediaTrackDashTrickModePtsRestampValidPlayRateTests, ValidPlayRateTest)
 	if (!testParam.lowLatencyMode)
 	{
 		// Check that the PTS that is (eventually) passed on to GStreamer is as expected
-		ASSERT_EQ(bufferedFragment->duration, restampedDuration.inSeconds());
-		ASSERT_EQ(bufferedFragment->position, restampedPts.inSeconds());
+		ASSERT_EQ(iframeTrack.lastInjectedDuration, restampedDuration.inSeconds());
+		ASSERT_EQ(iframeTrack.lastInjectedPosition, restampedPts.inSeconds());
 	}
 
 	// Verify the next two steady-state media segments
@@ -463,8 +477,8 @@ TEST_P(MediaTrackDashTrickModePtsRestampValidPlayRateTests, ValidPlayRateTest)
 		if (!testParam.lowLatencyMode)
 		{
 			// Check that the PTS that is (eventually) passed on to GStreamer is as expected
-			ASSERT_EQ(bufferedFragment->duration, restampedDuration.inSeconds());
-			ASSERT_EQ(bufferedFragment->position, restampedPts.inSeconds());
+			ASSERT_EQ(iframeTrack.lastInjectedDuration, restampedDuration.inSeconds());
+			ASSERT_EQ(iframeTrack.lastInjectedPosition, restampedPts.inSeconds());
 		}
 	}
 }
@@ -688,7 +702,7 @@ TEST_F(MediaTrackTests, DashTrickModePtsRestampDiscontinuityTest)
 									TRICKMODE_TIMESCALE))
 		.WillOnce(Return(true));
 	ASSERT_TRUE(iframeTrack.InjectFragment());
-	ASSERT_DOUBLE_EQ(bufferedFragment->position, restampedPts.inSeconds());
+	ASSERT_DOUBLE_EQ(iframeTrack.lastInjectedPosition, restampedPts.inSeconds());
 
 	// First media segment for advert
 	testFragment = CachedFragment{};
@@ -709,8 +723,8 @@ TEST_F(MediaTrackTests, DashTrickModePtsRestampDiscontinuityTest)
 		.WillOnce(Return(true));
 
 	ASSERT_TRUE(iframeTrack.InjectFragment());
-	ASSERT_DOUBLE_EQ(bufferedFragment->duration, restampedDuration.inSeconds());
-	ASSERT_DOUBLE_EQ(bufferedFragment->position, restampedPts.inSeconds());
+	ASSERT_EQ(iframeTrack.lastInjectedDuration, restampedDuration.inSeconds());
+	ASSERT_EQ(iframeTrack.lastInjectedPosition, restampedPts.inSeconds());
 
 	// Second media segment for advert (transition from discontinuity back to steady state)
 	testFragment = CachedFragment{};
@@ -733,8 +747,8 @@ TEST_F(MediaTrackTests, DashTrickModePtsRestampDiscontinuityTest)
 		.WillOnce(Return(true));
 
 	ASSERT_TRUE(iframeTrack.InjectFragment());
-	ASSERT_DOUBLE_EQ(bufferedFragment->duration, restampedDuration.inSeconds());
-	ASSERT_DOUBLE_EQ(bufferedFragment->position, restampedPts.inSeconds());
+	ASSERT_EQ(iframeTrack.lastInjectedDuration, restampedDuration.inSeconds());
+	ASSERT_EQ(iframeTrack.lastInjectedPosition, restampedPts.inSeconds());
 }
 
 TEST_F(MediaTrackTests, FlushFetchedFragmentsTest)

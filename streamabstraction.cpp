@@ -373,7 +373,7 @@ void MediaTrack::UpdateTSAfterInject()
 	std::lock_guard<std::mutex> guard(mutex);
 	AAMPLOG_DEBUG("[%s] Free cachedFragment[%d] numberOfFragmentsCached %d",
 				  name, fragmentIdxToInject, numberOfFragmentsCached);
-	mCachedFragment[fragmentIdxToInject].fragment.Free();
+	mCachedFragment[fragmentIdxToInject].Clear();
 	fragmentIdxToInject++;
 	if (fragmentIdxToInject == maxCachedFragmentsPerTrack)
 	{
@@ -391,7 +391,7 @@ void MediaTrack::UpdateTSAfterChunkInject()
 	std::lock_guard<std::mutex> guard(mutex);
 	//Free Chunk Cache Buffer
 	prevDownloadStartTime = mCachedFragmentChunks[fragmentChunkIdxToInject].downloadStartTime;
-	mCachedFragmentChunks[fragmentChunkIdxToInject].fragment.Free();
+	mCachedFragmentChunks[fragmentChunkIdxToInject].Clear();
 
 	parsedBufferChunk.Free();
 	//memset(&parsedBufferChunk, 0x00, sizeof(AampGrowableBuffer));
@@ -1333,6 +1333,10 @@ void MediaTrack::ProcessAndInjectFragment(CachedFragment *cachedFragment, bool f
 		{
 			bIgnore = ProcessFragmentChunk();
 		}
+		else //cachedFragment->isDummy
+		{
+			AAMPLOG_INFO("[%s] Skipping injection for dummy fragment chunk", name);
+		}		
 		if(bIgnore)
 		{
 			AAMPLOG_TRACE("[%s] Updating the chunk inject ==> fragmentChunkIdxToInject = %d numberOfFragmentChunksCached %d", name, fragmentChunkIdxToInject, numberOfFragmentChunksCached);
@@ -1419,6 +1423,10 @@ void MediaTrack::ProcessAndInjectFragment(CachedFragment *cachedFragment, bool f
 			{
 				InjectFragmentInternal(cachedFragment, fragmentDiscarded, cachedFragment->discontinuity);
 			}
+		}
+		else if (cachedFragment->isDummy)
+		{
+			AAMPLOG_INFO("Skipping injection for dummy fragment, type %d", type);
 		}
 		class StreamAbstractionAAMP* pContext = GetContext();
 		if (eTRACK_VIDEO == type && pContext && pContext->GetProfileCount())
@@ -1945,8 +1953,7 @@ void MediaTrack::FlushFragments()
 	{
 		for (int i = 0; i < maxCachedFragmentsPerTrack; i++)
 		{
-			mCachedFragment[i].fragment.Free();
-			memset(&mCachedFragment[i], 0, sizeof(CachedFragment));
+			mCachedFragment[i].Clear();
 		}
 		fragmentIdxToInject = 0;
 		fragmentIdxToFetch = 0;
