@@ -103,7 +103,7 @@ class PlayerIarmInterfaceBase
          * @brief Initialize IARM
          * @param[in] processName string of the name of the process initializing IARM
          */
-        static void IARMInit(const char* processName){}
+        static void IARMInit(const char* processName, bool powerEvt){}
 
         /**
          * @fn IARMRegisterDsMgrEventHandler

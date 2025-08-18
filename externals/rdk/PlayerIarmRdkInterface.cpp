@@ -95,7 +95,7 @@ PlayerIarmRdkInterface * PlayerIarmRdkInterface::GetPlayerIarmRdkInterfaceInstan
     return s_pPlayerIarmRdkOP;
 }
 
-void PlayerIarmRdkInterface::IARMInit(const char* processName)
+void PlayerIarmRdkInterface::IARMInit(const char* processName, bool powerEvt)
 {
     //char processName[20] = {0};
     IARM_Result_t result;
@@ -111,7 +111,7 @@ void PlayerIarmRdkInterface::IARMInit(const char* processName)
             printf("IARM Interface Connected in Player\n");
 		// Register for power mode change event
 	    printf("******** Registering **************\n");
-	    if(isDevicePropertiesPresent())
+	    if(powerEvt && isDevicePropertiesPresent())
 	    {
 	     	AAMPLOG_WARN("Registering power manager mode change in PLAYER");
 		IARM_Bus_RegisterEventHandler(IARM_BUS_PWRMGR_NAME, IARM_BUS_PWRMGR_EVENT_MODECHANGED, powerModeChangeHandler);

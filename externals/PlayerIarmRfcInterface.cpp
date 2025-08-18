@@ -157,15 +157,15 @@ bool PlayerIarmRfcInterface::IsActiveStreamingInterfaceWifi(void)
 /**
  * @brief Initializes IARM
  */
-void PlayerIarmRfcInterface::IARMInit(const char* processName){
+void PlayerIarmRfcInterface::IARMInit(const char* processName, bool powerEvt){
 
 #ifdef IARM_MGR
     if(!IsContainerEnvironment())
     {
-        PlayerIarmRdkInterface::IARMInit(processName);
+        PlayerIarmRdkInterface::IARMInit(processName, powerEvt);
     }
 #else
-    FakePlayerIarmInterface::IARMInit(processName);
+    FakePlayerIarmInterface::IARMInit(processName, powerEvt);
 #endif
 
 }
