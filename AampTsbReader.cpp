@@ -34,7 +34,7 @@
  */
 AampTsbReader::AampTsbReader(PrivateInstanceAAMP *aamp, std::shared_ptr<AampTsbDataManager> dataMgr, AampMediaType mediaType, std::string sessionId)
 	: mAamp(aamp), mDataMgr(std::move(dataMgr)), mMediaType(mediaType), mInitialized_(false), mStartPosition(0.0),
-	  mUpcomingFragmentPosition(0.0), mCurrentRate(AAMP_NORMAL_PLAY_RATE), mTsbSessionId(std::move(sessionId)), mEosReached(false), mTrackEnabled(true),
+	  mUpcomingFragmentPosition(0.0), mCurrentRate(AAMP_NORMAL_PLAY_RATE), mTsbSessionId(std::move(sessionId)), mEosReached(false), mTrackEnabled(false),
 	  mFirstPTS(0.0), mFirstPTSOffset(0.0), mCurrentBandwidth(0.0), mNewInitWaiting(false), mActiveTuneType(eTUNETYPE_NEW_NORMAL),
 	  mEosCVWait(), mEosMutex(), mIsEndFragmentInjected(false), mIsNextFragmentDisc(false), mIsPeriodBoundary(false),
 	  mCurrentFragment(), mLastInitFragmentData()
@@ -380,7 +380,7 @@ void AampTsbReader::Term()
 	mCurrentRate = AAMP_NORMAL_PLAY_RATE;
 	mInitialized_ = false;
 	mEosReached = false;
-	mTrackEnabled = true;
+	mTrackEnabled = false;
 	mFirstPTS = 0.0;
 	mFirstPTSOffset = 0.0;
 	mCurrentBandwidth = 0.0;
