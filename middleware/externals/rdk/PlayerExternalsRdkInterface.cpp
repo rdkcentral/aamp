@@ -34,7 +34,7 @@
 
 PlayerExternalsRdkInterface* s_pPlayerIarmRdkOP = NULL;
 
-// #define USE_FIREBOLT
+#define USE_FIREBOLT
 
 static bool isInterfaceWifi = false;
 
