@@ -39,6 +39,12 @@
 #include "dsAudio.h"
 
 #include "PlayerIARMInterfaceBase.h"
+#include <iarmUtil.h>
+#include <libIARM.h>
+#include "manager.hpp"
+#include "host.hpp"
+#include "pwrMgr.h"
+#include <sys/stat.h>
 
 //class representing IARM interface in rdk
 class PlayerIarmRdkInterface : public PlayerIarmInterfaceBase

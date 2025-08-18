@@ -63,7 +63,8 @@
  */
 
 #define PrivAAMPState AAMPPlayerState // backwards compatibility for apps using native interface
-
+void doFakeTune();
+bool isDevicePropertiesPresent();
 /**
  * @enum AAMPAnomalyMessageType
  * @brief AAMP anomaly message types
