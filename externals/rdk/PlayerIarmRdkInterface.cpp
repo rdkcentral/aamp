@@ -78,6 +78,7 @@ void powerModeChangeHandler(const char *owner, IARM_EventId_t eventId, void *dat
                 param->data.state.curState, param->data.state.newState);
         if(param->data.state.curState == IARM_BUS_PWRMGR_POWERSTATE_STANDBY_DEEP_SLEEP && param->data.state.newState != IARM_BUS_PWRMGR_POWERSTATE_STANDBY_DEEP_SLEEP )
         {
+	    printf(" DEEPSLEEP : calling triggerFakeTune  \n");
             triggerFakeTune();
         }
     }

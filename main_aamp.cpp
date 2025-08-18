@@ -56,7 +56,7 @@ void doFakeTune()
 {
 	if(isDevicePropertiesPresent())
 	{
-			AAMPLOG_WARN("Triggering fake tune to wake up AAMP from deep sleep");
+			AAMPLOG_WARN("doFakeTune : Triggering fake tune");
 			std::shared_ptr<PlayerInstanceAAMP> fakeTuneInstance = std::make_shared<PlayerInstanceAAMP>(nullptr, nullptr);
 			std::string jsonStr = R"({
 		    "preferredDrm": 1,
