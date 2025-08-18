@@ -77,6 +77,23 @@ typedef enum
 	PROFILE_BUCKET_DISCO_TOTAL,          /**< Discontinuity transition total bucket*/
 	PROFILE_BUCKET_DISCO_FLUSH,           /**< Discontinuity transition pipeline flush bucket*/
 	PROFILE_BUCKET_DISCO_FIRST_FRAME,      /**< Discontinuity transition first frame displayed bucket*/
+
+    PROFILE_BUCKET_STOP_FC_VIDEO,   /**< Time taken to stop the video fragment thread */
+	PROFILE_BUCKET_STOP_FC_AUDIO,   /**< Time taken to stop the audio fragment thread */
+
+    PROFILE_BUCKET_STOP_INJECTOR_VIDEO,       /**< Time taken to stop the video injector thread */
+    PROFILE_BUCKET_STOP_INJECTOR_AUDIO,       /**< Time taken to stop the audio injector thread */
+
+    PROFILE_BUCKET_RELEASE_DRM,                        /**< Time taken to clear DRM resources during stop */
+    PROFILE_BUCKET_DESTROY_PIPELINE,                 /**< Time taken to destroy the playback pipeline */
+    PROFILE_BUCKET_STOP_RATE_CORRECTION,      /**< Time taken to stop the rate correction thread */
+
+    PROFILE_BUCKET_STOP_MONITOR_VIDEO,              /**< Time taken to stop the monitor thread */
+	PROFILE_BUCKET_STOP_MONITOR_AUDIO,
+	
+    PROFILE_BUCKET_STOP_PREFETCH_THREAD,             /**< Time taken to stop the prefetch thread */
+	PROFILE_BUCKET_STOP_MANIFEST_DOWNLOADER,	/**< Time taken to stop/cleanup the MPD downloader instance */
+    PROFILE_BUCKET_STOP_TOTAL,                       /**< Total time taken for all stop operations */
 	PROFILE_BUCKET_TYPE_COUNT           /**< Bucket count*/	
 } ProfilerBucketType;
 
@@ -213,7 +230,10 @@ private:
 #define bucketDuration(id) \
 		(buckets[id].complete?(buckets[id].tFinish - buckets[id].tStart):0)
 
+	bool tuneStart;
+
 	long long tuneStartMonotonicBase;       /**< Base time from Monotonic clock for interval calculation */
+	long long tuneStopMonotonicBase;
 
 	long long tuneStartBaseUTCMS;           /**< common UTC base for start of tune */
 	long long xreTimeBuckets[TuneTimeMax];  /**< Start time of each buckets for classic metrics conversion */
@@ -342,6 +362,16 @@ public:
 	 * @return void
 	 */
 	void TuneBegin(void);
+
+	/**
+	 * @fn TuneBegin
+	 *
+	 * @return void
+	 */
+	void TuneStop(void);
+
+	void LogStopTime(void);
+
 
 	/**
 	 * @fn TuneEnd

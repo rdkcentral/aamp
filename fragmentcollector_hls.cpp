@@ -4708,6 +4708,7 @@ void TrackState::RunFetchLoop()
 	bool abortedDownload = false;
 
 	for (;;)
+
 	{
 		while (!abortedDownload && (!fragmentURI.empty() || refreshAudio) && aamp->DownloadsAreEnabled())
 		{
@@ -4853,6 +4854,14 @@ void TrackState::RunFetchLoop()
 			}
 			context->CheckForPlaybackStall(false);
 		}
+	}
+	if(type == eTRACK_VIDEO)
+	{
+		aamp->profiler.ProfileEnd(PROFILE_BUCKET_STOP_FC_VIDEO);
+	}
+	if(type == eTRACK_AUDIO)
+	{
+		aamp->profiler.ProfileEnd(PROFILE_BUCKET_STOP_FC_AUDIO);
 	}
 	AAMPLOG_WARN("fragment collector done. track %s", name);
 }

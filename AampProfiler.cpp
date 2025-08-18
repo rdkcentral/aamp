@@ -38,9 +38,9 @@
  * @brief ProfileEventAAMP Constructor
  */
 ProfileEventAAMP::ProfileEventAAMP():
-	tuneStartMonotonicBase(0), tuneStartBaseUTCMS(0), bandwidthBitsPerSecondVideo(0),
+	tuneStartMonotonicBase(0), tuneStopMonotonicBase(0), tuneStartBaseUTCMS(0), bandwidthBitsPerSecondVideo(0),
         bandwidthBitsPerSecondAudio(0), buckets(), drmErrorCode(0), enabled(false), xreTimeBuckets(), tuneEventList(),
-	tuneEventListMtx(), mTuneFailBucketType(PROFILE_BUCKET_MANIFEST), mTuneFailErrorCode(0), rateCorrection(0), bitrateChange(0), bufferChange(0), telemetryParam(NULL), mLldLowBuffObject(NULL),discontinuityParamMutex()
+	tuneEventListMtx(), mTuneFailBucketType(PROFILE_BUCKET_MANIFEST), mTuneFailErrorCode(0), rateCorrection(0), bitrateChange(0), bufferChange(0), telemetryParam(NULL), mLldLowBuffObject(NULL),discontinuityParamMutex(),	tuneStart(true)
 {
 }
 
@@ -194,6 +194,7 @@ void ProfileEventAAMP::getTuneEventsJSON(std::string &outStr, const std::string 
 void ProfileEventAAMP::TuneBegin(void)
 { // start tune
 	memset(buckets, 0, sizeof(buckets));
+	tuneStart = true;
 	tuneStartBaseUTCMS = NOW_SYSTEM_TS_MS;
 	tuneStartMonotonicBase = NOW_STEADY_TS_MS;
 	bandwidthBitsPerSecondVideo = 0;
@@ -212,6 +213,16 @@ void ProfileEventAAMP::TuneBegin(void)
 	}
 	mLldLowBuffObject = NULL;
 	telemetryParam = cJSON_CreateObject();
+}
+
+/**
+ *  @brief Profiler method to perform tune stop related operations.
+ */
+void ProfileEventAAMP::TuneStop(void)
+{ // stop tune
+	AAMPLOG_INFO("Tune stops");
+	tuneStart = false;
+	tuneStopMonotonicBase = NOW_STEADY_TS_MS;
 }
 
 /**
@@ -355,6 +366,7 @@ void ProfileEventAAMP::TuneEnd(TuneEndMetrics &mTuneEndMetrics,std::string appNa
 		}
 }
 
+
 /**
  *  @brief Method converting the AAMP style tune performance data to IP_EX_TUNETIME style data
  */
@@ -418,7 +430,7 @@ void ProfileEventAAMP::ProfileBegin(ProfilerBucketType type)
 	struct ProfilerBucket *bucket = &buckets[type];
 	if (!bucket->complete && (0==bucket->tStart))	//No other Begin should record before the End
 	{
-		bucket->tStart 		= (unsigned int)(NOW_STEADY_TS_MS - tuneStartMonotonicBase);
+		bucket->tStart 		= (unsigned int)(NOW_STEADY_TS_MS - (tuneStart ? tuneStartMonotonicBase : tuneStopMonotonicBase));
 		bucket->tFinish 	= bucket->tStart;
 		bucket->profileStarted = true;
 	}
@@ -446,7 +458,7 @@ void ProfileEventAAMP::ProfileEnd(ProfilerBucketType type)
 	struct ProfilerBucket *bucket = &buckets[type];
 	if (!bucket->complete && bucket->profileStarted)
 	{
-		bucket->tFinish = (unsigned int)(NOW_STEADY_TS_MS - tuneStartMonotonicBase);
+		bucket->tFinish = (unsigned int)(NOW_STEADY_TS_MS - (tuneStart ? tuneStartMonotonicBase : tuneStopMonotonicBase));
 		bucket->complete = true;
 	}
 }
@@ -644,3 +656,38 @@ void ProfileEventAAMP::GetTelemetryParam()
 	}
 }
 
+void ProfileEventAAMP::LogStopTime()
+{
+    // Print bucket name and values for all relevant profiler buckets
+    AAMPLOG_WARN("IP_STOP_TIME: %d,%s,%lld," // version, build, tuneStoptBaseUTCMS
+    	"%d,%d,%d,%d,"  // rate_correction_thread: complete, start, duration, finish
+		"%d,%d,%d,%d,"  // monitor_thread_video: complete, start, duration, finish
+		"%d,%d,%d,%d,"  // monitor_thread_audio: complete, start, duration, finish
+		"%d,%d,%d,%d,"  // fragment_collector_video_thread: complete, start, duration, finish
+		"%d,%d,%d,%d,"  // fragment_collector_audio_thread: complete, start, duration, finish
+		"%d,%d,%d,%d,"  // injector_video_thread: complete, start, duration, finish
+		"%d,%d,%d,%d,"  // injector_audio_thread: complete, start, duration, finish
+		"%d,%d,%d,%d,"  // prefetch_thread: complete, start, duration, finish
+		"%d,%d,%d,%d,"  // destroy_pipeline: complete, start, duration, finish
+		"%d,%d,%d,%d,"  // clear_drm: complete, start, duration, finish
+		"%d,%d,%d,%d,"  // mpd_downloader_instance: complete, start, duration, finish
+		"%d,%d,%d,%d", // total: complete, start, duration finish
+
+		AAMP_TUNETIME_VERSION, // version for this protocol, initially zero
+		AAMP_VERSION, // build - incremented when there are significant player changes/optimizations
+        tuneStopMonotonicBase, // when tune logically stopped from AAMP perspective
+
+        buckets[PROFILE_BUCKET_STOP_RATE_CORRECTION].complete, buckets[PROFILE_BUCKET_STOP_RATE_CORRECTION].tStart, bucketDuration(PROFILE_BUCKET_STOP_RATE_CORRECTION), buckets[PROFILE_BUCKET_STOP_RATE_CORRECTION].tFinish,
+        buckets[PROFILE_BUCKET_STOP_MONITOR_VIDEO].complete, buckets[PROFILE_BUCKET_STOP_MONITOR_VIDEO].tStart, bucketDuration(PROFILE_BUCKET_STOP_MONITOR_VIDEO), buckets[PROFILE_BUCKET_STOP_MONITOR_VIDEO].tFinish,
+        buckets[PROFILE_BUCKET_STOP_MONITOR_AUDIO].complete, buckets[PROFILE_BUCKET_STOP_MONITOR_AUDIO].tStart, bucketDuration(PROFILE_BUCKET_STOP_MONITOR_AUDIO), buckets[PROFILE_BUCKET_STOP_MONITOR_AUDIO].tFinish,
+		buckets[PROFILE_BUCKET_STOP_FC_VIDEO].complete, buckets[PROFILE_BUCKET_STOP_FC_VIDEO].tStart, bucketDuration(PROFILE_BUCKET_STOP_FC_VIDEO), buckets[PROFILE_BUCKET_STOP_FC_VIDEO].tFinish,
+	    buckets[PROFILE_BUCKET_STOP_FC_AUDIO].complete, buckets[PROFILE_BUCKET_STOP_FC_AUDIO].tStart, bucketDuration(PROFILE_BUCKET_STOP_FC_AUDIO), buckets[PROFILE_BUCKET_STOP_FC_AUDIO].tFinish,
+        buckets[PROFILE_BUCKET_STOP_INJECTOR_VIDEO].complete, buckets[PROFILE_BUCKET_STOP_INJECTOR_VIDEO].tStart, bucketDuration(PROFILE_BUCKET_STOP_INJECTOR_VIDEO), buckets[PROFILE_BUCKET_STOP_INJECTOR_VIDEO].tFinish,
+        buckets[PROFILE_BUCKET_STOP_INJECTOR_AUDIO].complete, buckets[PROFILE_BUCKET_STOP_INJECTOR_AUDIO].tStart, bucketDuration(PROFILE_BUCKET_STOP_INJECTOR_AUDIO), buckets[PROFILE_BUCKET_STOP_INJECTOR_AUDIO].tFinish,
+        buckets[PROFILE_BUCKET_STOP_PREFETCH_THREAD].complete, buckets[PROFILE_BUCKET_STOP_PREFETCH_THREAD].tStart, bucketDuration(PROFILE_BUCKET_STOP_PREFETCH_THREAD), buckets[PROFILE_BUCKET_STOP_PREFETCH_THREAD].tFinish,
+        buckets[PROFILE_BUCKET_DESTROY_PIPELINE].complete, buckets[PROFILE_BUCKET_DESTROY_PIPELINE].tStart, bucketDuration(PROFILE_BUCKET_DESTROY_PIPELINE), buckets[PROFILE_BUCKET_DESTROY_PIPELINE].tFinish,
+		buckets[PROFILE_BUCKET_RELEASE_DRM].complete, buckets[PROFILE_BUCKET_RELEASE_DRM].tStart, bucketDuration(PROFILE_BUCKET_RELEASE_DRM), buckets[PROFILE_BUCKET_RELEASE_DRM].tFinish,
+		buckets[PROFILE_BUCKET_STOP_MANIFEST_DOWNLOADER].complete, buckets[PROFILE_BUCKET_STOP_MANIFEST_DOWNLOADER].tStart, bucketDuration(PROFILE_BUCKET_STOP_MANIFEST_DOWNLOADER), buckets[PROFILE_BUCKET_STOP_MANIFEST_DOWNLOADER].tFinish,
+        buckets[PROFILE_BUCKET_STOP_TOTAL].complete, buckets[PROFILE_BUCKET_STOP_TOTAL].tStart, bucketDuration(PROFILE_BUCKET_STOP_TOTAL), buckets[PROFILE_BUCKET_STOP_TOTAL].tFinish
+    );
+}

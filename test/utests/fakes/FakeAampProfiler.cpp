@@ -27,6 +27,14 @@ void ProfileEventAAMP::TuneBegin(void)
 {
 }
 
+void ProfileEventAAMP::TuneStop(void)
+{
+}
+
+void ProfileEventAAMP::LogStopTime(void)
+{
+}
+
 void ProfileEventAAMP::TuneEnd(TuneEndMetrics &mTuneEndMetrics,std::string appName, std::string playerActiveMode, int playerId, bool playerPreBuffered, unsigned int durationSeconds, bool interfaceWifi,std::string failureReason,std::string *tuneMetricData)
 {
 }
