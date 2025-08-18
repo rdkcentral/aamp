@@ -57,6 +57,12 @@ private:
 	bool initializeLogFile() noexcept;
 	
 	/**
+	 * @brief Initialize temporary log file stream for startup logging
+	 * @return true if initialization successful, false otherwise
+	 */
+	bool initializeTempLogFile() noexcept;
+	
+	/**
 	 * @brief Get current timestamp in ISO 8601 format
 	 * @return Timestamp string in format YYYY-MM-DDTHH:MM:SS.sssZ
 	 */
