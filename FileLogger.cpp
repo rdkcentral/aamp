@@ -59,7 +59,7 @@ bool FileLogger::initializeLogFile() noexcept
 		// Ensure directory exists - create parent directories if needed
 		std::cout << "[FileLogger::initializeLogFile] Ensuring directory exists: " << s_customPath << std::endl;
 		// Use mkdir -p equivalent
-		std::string mkdirCmd = "mkdir -p \"" + s_customPath + "\"";
+		std::string mkdirCmd = "mkdir -m 777 -p \"" + s_customPath + "\"";
 		int result = system(mkdirCmd.c_str());
 		if (result != 0) {
 			std::cout << "[FileLogger::initializeLogFile] Warning: mkdir command failed with result: " << result << std::endl;
@@ -121,7 +121,6 @@ FileLogger::FileLogger() noexcept
 	, m_isValid(false)
 {
 	std::cout << "[FileLogger::FileLogger] Constructor called with path: " << (s_customPath.empty() ? "NONE" : s_customPath) << std::endl;
-	std::cout << "[FileLogger::FileLogger] Custom path " << (s_customPath.empty() ? "NOT SET" : ("SET to: " + s_customPath)) << std::endl;
 	
 	// Only initialize log file if custom path has been set
 	if (!s_customPath.empty()) {
@@ -228,23 +227,20 @@ FileLogger& FileLogger::getInstance() noexcept
 
 bool FileLogger::setCustomFilename(const std::string& path) noexcept
 {
-	std::cout << "[FileLogger::setCustomFilename] Called with path: " << path << std::endl;
+	bool success = false;
 	
-	// Fail if custom path is already set
+	// Check if custom path is already set
 	if (!s_customPath.empty()) {
 		std::cout << "[FileLogger::setCustomFilename] Custom path already set to: " << s_customPath << ", rejecting new path: " << path << std::endl;
-		return false;
-	}
-	
-	if (!path.empty()) {
+	} else if (!path.empty()) {
 		s_customPath = path;
+		success = true;
 		std::cout << "[FileLogger::setCustomFilename] Custom path set successfully" << std::endl;
-		std::cout << "[FileLogger::setCustomFilename] First path set, will initialize file on next write" << std::endl;
-		return true;
+	} else {
+		std::cout << "[FileLogger::setCustomFilename] Empty path provided, ignoring" << std::endl;
 	}
 	
-	std::cout << "[FileLogger::setCustomFilename] Empty path provided, ignoring" << std::endl;
-	return false;
+	return success;
 }
 
 std::string FileLogger::getCurrentTimestamp() const noexcept
