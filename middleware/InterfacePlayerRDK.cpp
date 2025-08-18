@@ -4491,7 +4491,7 @@ void InterfacePlayerRDK::SetVideoMute(bool muted)
 	}
 	else
 	{
-		MW_LOG_INFO("InterfacePlayerRDK not setting video mute");
+		MW_LOG_WARN("InterfacePlayerRDK not setting video mute");
 	}
 }
 
