@@ -21,6 +21,7 @@
 #include <atomic>
 #include <cerrno>
 #include <cstring>
+#include <iostream>
 
 #include "TsbApi.h"
 #include "TsbLog.h"

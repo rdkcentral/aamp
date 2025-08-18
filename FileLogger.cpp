@@ -263,12 +263,6 @@ void FileLogger::writeLog(const char* format, va_list args) const noexcept
 	}
 }
 
-bool FileLogger::isValid() const noexcept
-{
-	std::lock_guard<std::mutex> lock(m_mutex);
-	return m_isValid && m_fileStream && m_fileStream->is_open();
-}
-
 FileLogger& FileLogger::getInstance() noexcept
 {
 	// Thread-safe singleton with lazy initialization

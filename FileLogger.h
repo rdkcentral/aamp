@@ -95,12 +95,6 @@ public:
 	void writeLog(const char* format, va_list args) const noexcept;
 	
 	/**
-	 * @brief Check if logger is in valid state
-	 * @return true if logger can write to file, false otherwise
-	 */
-	bool isValid() const noexcept;
-	
-	/**
 	 * @brief Get singleton instance with lazy initialization
 	 * @return Reference to the singleton FileLogger instance
 	 */
