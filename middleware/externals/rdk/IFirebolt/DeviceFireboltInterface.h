@@ -30,10 +30,6 @@ class DeviceFireboltInterface : public DeviceInterfaceBase {
 
     private:
 
-        bool mIsConnected = false;
-
-        unsigned int mListenerId;
-
         std::shared_ptr<FireboltInterface> m_pFireboltInterface;
 
         std::vector<uint64_t> mDsMgrSubscriptionId;

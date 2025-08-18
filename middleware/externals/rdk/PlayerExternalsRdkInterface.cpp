@@ -183,6 +183,12 @@ void PlayerExternalsRdkInterface::SetHDMIStatus()
     return;
 }
 
+void PlayerExternalsRdkInterface::setHdcpProtocol(dsHdcpProtocolVersion_t t_protocol)
+{
+    m_hdcpCurrentProtocol = t_protocol;
+    MW_LOG_WARN(" detected HDCP version %s\n", m_hdcpCurrentProtocol == dsHDCP_VERSION_2X ? "2.x" : "1.4");
+}
+
 void PlayerExternalsRdkInterface::IARMRemoveDsMgrEventHandler()
 {
     m_pDeviceInterfaceBase->RemoveDsMgrEventHandler();

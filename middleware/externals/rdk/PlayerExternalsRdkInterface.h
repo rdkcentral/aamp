@@ -128,6 +128,8 @@ class PlayerExternalsRdkInterface : public PlayerExternalsInterfaceBase
 
         std::shared_ptr<DeviceInterfaceBase> GetDeviceInterface();
 
+        void setHdcpProtocol(dsHdcpProtocolVersion_t t_protocol);
+
         ~PlayerExternalsRdkInterface(){}
 };
 
