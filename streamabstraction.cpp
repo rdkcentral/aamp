@@ -2370,26 +2370,27 @@ void StreamAbstractionAAMP::GetDesiredProfileOnBuffer(int currProfileIndex, int 
 
 	double bufferValue = GetBufferValue(video);
 	double minBufferNeeded ;
-	if(bufferValue > 0)
+	if((int)bufferValue > 0)
 	{
-		if(aamp->GetLLDashServiceData()->lowLatencyMode && bufferValue <= mABRMinBuffer)
+		if(aamp->GetLLDashServiceData()->lowLatencyMode)
 		{
-		//	minBufferNeeded	= mABRMinBuffer;
-			// Immediate rampdown to lowest profile for LL-DASH
-			newProfileIndex = aamp->mhAbrManager.getLowestProfileIndex();
-			AAMPLOG_WARN("LL-DASH: Buffer drained, ramping down to lowest profile!");
+			minBufferNeeded	= mABRMinBuffer;
 		}
 		else
 		{
 			minBufferNeeded = video->fragmentDurationSeconds + aamp->mNetworkTimeoutMs/1000;
 		}
 		aamp->mhAbrManager.GetDesiredProfileOnBuffer(currProfileIndex,newProfileIndex,bufferValue,minBufferNeeded);
+		if(aamp->GetLLDashServiceData()->lowLatencyMode && bufferValue <= mABRMinBuffer)
+		{
+			newProfileIndex = RampDownProfileLLD(); 
+		}
 	}
 	//When buffer goes zero, no need to ramp up - Switch directly to 0th profile ,inorder to build buffer
 	else
 	{
 		AAMPLOG_WARN("Switch to index 0; buffer is about to drain :Buffer %lf !!",bufferValue);
-		newProfileIndex = 0;
+		newProfileIndex = aamp->mhAbrManager.getProfileIndexForLowestBandwidth();
 	}
 }
 
@@ -2401,7 +2402,7 @@ void StreamAbstractionAAMP::GetDesiredProfileOnSteadyState(int currProfileIndex,
 	MediaTrack *video = GetMediaTrack(eTRACK_VIDEO);
 	double bufferValue = GetBufferValue(video);
 	//long currBandwidth = GetStreamInfo(currProfileIndex)->bandwidthBitsPerSecond;
-	if(bufferValue > 0 && currProfileIndex == newProfileIndex)
+	if((int)bufferValue > 0 && currProfileIndex == newProfileIndex)
 	{
 		AAMPLOG_INFO("buffer:%f currProf:%d nwBW:%ld",bufferValue,currProfileIndex,nwBandwidth);
 		if(bufferValue > mABRMaxBuffer && !aamp->GetLLDashServiceData()->lowLatencyMode)
@@ -2440,6 +2441,8 @@ void StreamAbstractionAAMP::GetDesiredProfileOnSteadyState(int currProfileIndex,
 	{
 		mABRLowBufferCounter = 0 ;
 		mABRHighBufferCounter = 0;
+		if((int)bufferValue == 0){
+		newProfileIndex = aamp->mhAbrManager.getProfileIndexForLowestBandwidth();}
 	}
 }
 
@@ -2456,7 +2459,7 @@ void StreamAbstractionAAMP::ConfigureTimeoutOnBuffer()
 		// If buffer is high , set high timeout , not to fail the download
 		// If buffer is low , set timeout less than the buffer availability
 		double vBufferDuration = video->GetBufferedDuration();
-		if(vBufferDuration > 0)
+		if((int)vBufferDuration > 0)
 		{
 			int timeoutMs = vBufferDuration*1000;
 			if(vBufferDuration < mABRMaxBuffer)
@@ -2547,7 +2550,7 @@ int StreamAbstractionAAMP::GetDesiredProfileBasedOnCache(void)
 		{
 			//InsufficientBufferRule: Buffer is empty
 			AAMPLOG_WARN("Switch to index 0; buffer is about to drain :Buffer %lf !!",bufferValue);
-			desiredProfileIndex = 0;
+			desiredProfileIndex = aamp->mhAbrManager.getProfileIndexForLowestBandwidth();
 			if(currentProfileIndex != desiredProfileIndex)
 			{
 				mBitrateReason = eAAMP_BITRATE_CHANGE_BY_BUFFER_EMPTY;
@@ -2583,6 +2586,20 @@ int StreamAbstractionAAMP::GetDesiredProfileBasedOnCache(void)
 			desiredProfileIndex = aamp->mhAbrManager.getProfileIndexByBitrateRampUpOrDown(currentProfileIndex,
 																						  currentBandwidth, networkBandwidth, nwConsistencyCnt);
 			AAMP_LogLevel logLevel = eLOGLEVEL_INFO;
+			double bufferValue = GetBufferValue(video);
+			if((int)bufferValue == 0)
+			{
+				AAMPLOG_WARN("Attempting rampdown to lowest profile as buffer is 0");
+				desiredProfileIndex = aamp->mhAbrManager.getProfileIndexForLowestBandwidth();
+				return desiredProfileIndex;	
+			}
+	//		else
+	//		{
+	//			desiredProfileIndex = RampDownProfileLLD();
+//
+//			}
+//			return desiredProfileIndex;
+			
 			if(aamp->IsTuneTypeNew)
 			{
 				logLevel = eLOGLEVEL_MIL;
@@ -2653,13 +2670,14 @@ bool StreamAbstractionAAMP::RampDownProfile(int http_error)
 		// 1. Rampdown to the lowest profile directly (if this also fails, will lead to playback failure or skipped content)
 		// 2. Rampdown in single steps (here we're already rebuffering or not yet streaming)
 		// Recommend option 2, unless good reason is found to rampdown to lowest profile directly.
-		if((aamp->GetLLDashServiceData()->lowLatencyMode && bufferValue <= mABRMinBuffer) || (aamp->GetLLDashServiceData()->lowLatencyMode && !IsLowestProfile(desiredProfileIndex)))
+		if((int)bufferValue == 0)
 		{
 			//desiredProfileIndex = 0; // Immediate rampdown to lowest profile
-			desiredProfileIndex = aamp->mhAbrManager.getLowestProfileIndex();
-			AAMPLOG_WARN("LL-DASH: Buffer low (<= min), ramping down to lowest profile! Buffer: %lf, Min: %d", bufferValue, mABRMinBuffer);
+			AAMPLOG_WARN("Attempting rampdown to lowest profile as buffer is 0");
+			desiredProfileIndex = aamp->mhAbrManager.getProfileIndexForLowestBandwidth();
+		//	AAMPLOG_WARN("ramping down from currentProfile %d to desiredProfile %d",currentProfileIndex, desiredProfileIndex);
 		}
-		else if(bufferValue == 0 || bufferValue > mABRMaxBuffer)
+		else if(bufferValue > mABRMaxBuffer)
 		{
 			// Rampdown in single steps
 			desiredProfileIndex = aamp->mhAbrManager.getRampedDownProfileIndex(currentProfileIndex);
@@ -2736,6 +2754,18 @@ bool StreamAbstractionAAMP::RampDownProfile(int http_error)
 }
 
 /**
+ *  @brief Get Desired Profile based on Bandwidth
+ */
+int StreamAbstractionAAMP::RampDownProfileLLD()
+{
+	int desiredProfileIndex = 0;
+
+	long currentBandwidth = GetStreamInfo(currentProfileIndex)->bandwidthBitsPerSecond;
+
+	desiredProfileIndex = aamp->mhAbrManager.getProfileIndexForLowerBandwidth(currentBandwidth);
+	return desiredProfileIndex;
+}
+/**
  *  @brief Check whether the current profile is lowest.
  */
 bool StreamAbstractionAAMP::IsLowestProfile(int currentProfileIndex)
@@ -2803,7 +2833,7 @@ bool StreamAbstractionAAMP::CheckForRampDownProfile(int http_error)
 		{
 			if (RampDownProfile(http_error))
 			{
-				AAMPLOG_WARN("StreamAbstractionAAMP: Condition Rampdown Success");
+				AAMPLOG_INFO("StreamAbstractionAAMP: Condition Rampdown Success");
 				retValue = true;
 			}
 		}
@@ -2940,22 +2970,23 @@ bool StreamAbstractionAAMP::UpdateProfileBasedOnFragmentCache()
 	int desiredProfileIndex = currentProfileIndex;
 	double totalFetchedDuration = video->GetTotalFetchedDuration();
 	long availBW = aamp->GetCurrentlyAvailableBandwidth();
+	bool profileChangeNeeded = false;
 	bool checkProfileChange = aamp->mhAbrManager.CheckProfileChange(totalFetchedDuration,currentProfileIndex,availBW);
+	bool bufferLow = false;	
 	double bufferValue = GetBufferValue(video);
-	if (aamp->GetLLDashServiceData()->lowLatencyMode && bufferValue <= mABRMinBuffer)
-    	{
-        	desiredProfileIndex = aamp->mhAbrManager.getLowestProfileIndex();
-        	AAMPLOG_WARN("LL-DASH: Buffer empty, ramping down to lowest profile!");
-    	}
-	//For LLD, it's necessary to initiate a rampdown process when there is a consistent download delay in order to construct the buffer.
-	if (aamp->GetLLDashServiceData()->lowLatencyMode && !checkProfileChange && (aamp->mDownloadDelay >= (int)(floor(aamp->mLiveOffset / 2))))
+	if((int)bufferValue == 0 )
+	{
+		bufferLow = true;
+	}
+	
+	if (aamp->GetLLDashServiceData()->lowLatencyMode && !checkProfileChange  &&  (aamp->mDownloadDelay >= (int)(floor(aamp->mLiveOffset / 2))))
 	{
 		desiredProfileIndex = aamp->mhAbrManager.getRampedDownProfileIndex(currentProfileIndex);
 		AAMPLOG_INFO("ProfileChange Due to Download Delay %lf totalFetchedDuration ,%d aamp->mDownloadDelay %lf aamp->mLiveOffset %d desiredProfileIndex",totalFetchedDuration,aamp->mDownloadDelay,aamp->mLiveOffset,desiredProfileIndex);
 		aamp->mDownloadDelay = 0;
 	}
 
-	if(checkProfileChange)
+	if(checkProfileChange || bufferLow)
 	{
 		desiredProfileIndex = GetDesiredProfileBasedOnCache();
 	}
@@ -2984,7 +3015,7 @@ bool StreamAbstractionAAMP::UpdateProfileBasedOnFragmentCache()
 
 		this->currentProfileIndex = desiredProfileIndex;
 		profileIdxForBandwidthNotification = desiredProfileIndex;
-		AAMPLOG_DEBUG(" profileIdxForBandwidthNotification updated to %d ",  profileIdxForBandwidthNotification);
+		AAMPLOG_DEBUG("profileIdxForBandwidthNotification updated to %d ",  profileIdxForBandwidthNotification);
 		video->ABRProfileChanged();
 		long newBW = GetStreamInfo(profileIdxForBandwidthNotification)->bandwidthBitsPerSecond;
 		video->SetCurrentBandWidth((int)newBW);

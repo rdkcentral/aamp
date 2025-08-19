@@ -24,6 +24,7 @@
 #include <cstdarg>
 #include <sys/time.h>
 #include <cstring>
+#include <algorithm>
 
 #if !defined(__APPLE__)
 #if defined(USE_SYSTEMD_JOURNAL_PRINT)
@@ -713,20 +714,37 @@ void ABRManager::setDefaultIframeBitrate(long defaultIframeBitrate) {
   mDefaultIframeBitrate = defaultIframeBitrate;
 }
 
-int ABRManager::getLowestProfileIndex()
+/**
+ *  @brief Get the index suitable for given bandwidth
+ */
+int ABRManager::getProfileIndexForLowerBandwidth(long bandwidth)
 {
-    int lowestProfileIndex = 0;
-    long lowestBitrate = mProfiles[0].bandwidthBitsPerSecond;
-    int profileCount = getProfileCount();
+	int bestIndex = 0;
+	long bestBitrate = 0;
+	int profileCount = getProfileCount();
 
-    for (int i = 1; i < profileCount; ++i)
-    {
-        long bitrate = mProfiles[i].bandwidthBitsPerSecond;
-        if (bitrate < lowestBitrate)
-        {
-            lowestBitrate = bitrate;
-            lowestProfileIndex = i;
-        }
-    }
-    return lowestProfileIndex;
+	for (int i = 0; i < profileCount; ++i)
+	{
+		long bitrate = mProfiles[i].bandwidthBitsPerSecond;
+		if(bitrate < bandwidth && bitrate > bestBitrate)
+		{
+			bestBitrate = bitrate;
+			bestIndex = i;
+		}
+	}
+	return bestIndex;
+}
+
+int  ABRManager::getProfileIndexForLowestBandwidth()
+{
+	std::lock_guard<std::mutex> lock(mProfileLock);
+	int profileCount = getProfileCountUnlocked();
+	PROFILES_EMPTY_CHECK_RET(profileCount, 0);
+	auto it = min_element(mProfiles.begin(), mProfiles.end(),
+		[](const ProfileInfo &a, const ProfileInfo &b) {
+			return a.bandwidthBitsPerSecond < b.bandwidthBitsPerSecond;
+		});
+	
+	int index = std::distance(mProfiles.begin(), it);
+	return index;
 }

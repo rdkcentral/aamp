@@ -237,13 +237,14 @@ bool HybridABRManager::CheckProfileChange(double totalFetchedDuration ,int currP
 {
 	bool checkProfileChange = true;
 	long currBW = getBandwidthOfProfile(currProfileIndex);
+
 	//Avoid doing ABR during initial buffering which will affect tune times adversely
-	if ( totalFetchedDuration > 0 && totalFetchedDuration < eAAMPAbrConfig.abrSkipDuration)
+	if ( totalFetchedDuration > 0 && totalFetchedDuration < eAAMPAbrConfig.abrSkipDuration )
 	{
 		AAMPABRLOG_TRACE("[%s][%d] TotalFetchedDuration %lf ",__FUNCTION__,__LINE__,totalFetchedDuration);
 		//For initial fragment downloads, check available bw is less than default bw
 		//If available BW is less than current selected one, we need ABR
-		if (availBW > 0 && availBW < currBW)
+		if ((availBW > 0 && availBW < currBW) )
 		{
 			AAMPABRLOG_WARN("Changing profile due to low available bandwidth(%ld) than default(%ld)!! ", availBW, currBW);
 

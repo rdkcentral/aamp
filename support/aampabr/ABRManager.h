@@ -185,7 +185,15 @@ public:
    */
   int getMaxBandwidthProfile(const std::string& periodId = std::string());
 
-  int getLowestProfileIndex();
+  /**
+   * @brief Get profile of lower bandwidth
+   * 
+   * @param bandwidth The bandwidth
+   * @return int index of the nearest lower bandwidth 
+   */
+  int getProfileIndexForLowerBandwidth(long bandwidth);
+
+  int getProfileIndexForLowestBandwidth();
 public:
   // Getters/Setters
   /**

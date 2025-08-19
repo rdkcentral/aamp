@@ -1250,6 +1250,14 @@ public:
 	 *   @return True, if ramp down successful. Else false
 	 */
 	bool RampDownProfile(int http_error);
+
+	/**
+         *   @fn RampDownProfileLLD
+         *
+         *   @return desiredProfileIndex
+         */
+	int RampDownProfileLLD();
+
 	/**
 	 *   @fn GetDesiredProfileOnBuffer
 	 *
