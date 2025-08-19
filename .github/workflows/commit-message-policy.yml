@@ -6,6 +6,7 @@ on:
       - dev_sprint_25_2
       - feature/VPLAY-10292_new
       - feature/VPLAY-10292
+      - feature/VPLAY-10292_temp
     types: [ opened, reopened, edited, synchronize, unlocked ] 
 
 jobs:
