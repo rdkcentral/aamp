@@ -16,10 +16,8 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
         with:
-            path: 'code'
             ref: ${{ github.event.pull_request.head.sha }}
             
       - name: Executing Validation Script
         run: |
-          cd code
           python3 .github/commit_template_validation.py --newrev "${{ github.event.pull_request.head.sha }}" --message "${{ github.event.pull_request.title }}"
