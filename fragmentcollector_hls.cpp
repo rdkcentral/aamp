@@ -857,7 +857,6 @@ lstring TrackState::GetNextFragmentUriFromPlaylist(bool& reloadUri, bool ignoreD
 	size_t offs = p - playlist.GetPtr(); // offset from playlist start
 	if( offs>=l ) return rc;
 	lstring iter( p, l-offs );
-	lstring ptr = iter.mystrpbrk();
 
 	size_t byteRangeLength = 0; // default, when optional byterange offset is left unspecified
 	size_t byteRangeOffset = 0;
@@ -883,7 +882,7 @@ lstring TrackState::GetNextFragmentUriFromPlaylist(bool& reloadUri, bool ignoreD
 	if ( playlistPosition != -1.0 && !fragmentURI.empty() )
 	{ // already presenting - skip past previous segment
 		//AAMPLOG_WARN("[PLAYLIST_POSITION!= -1]");
-		ptr = iter.mystrpbrk();
+		iter.mystrpbrk();
 	}
 	if ((playlistPosition > playTarget) && (fragmentDurationSeconds > PLAYLIST_TIME_DIFF_THRESHOLD_SECONDS) &&
 		((playlistPosition - playTarget) > fragmentDurationSeconds))
@@ -900,6 +899,7 @@ lstring TrackState::GetNextFragmentUriFromPlaylist(bool& reloadUri, bool ignoreD
 	//AAMPLOG_WARN("before loop, ptr = %p fragmentURI %p", ptr, fragmentURI);
 	while (!iter.empty())
 	{
+        lstring ptr = iter.mystrpbrk();
 		if(!ptr.empty())
 		{
 			if (ptr.removePrefix("#EXT"))
@@ -1129,11 +1129,9 @@ lstring TrackState::GetNextFragmentUriFromPlaylist(bool& reloadUri, bool ignoreD
 				}
 			}
 		}
-		ptr = iter.mystrpbrk();
-
 	}
 	return rc;
-}
+} // GetNextFragmentUriFromPlaylist
 
 /**
  * @brief Get fragment tag based on media sequence number
@@ -2328,12 +2326,6 @@ void TrackState::ProcessPlaylist(AampGrowableBuffer& newPlaylist, int http_error
 		playlist.Replace( &newPlaylist );
 		AampTime culled{};
 		IndexPlaylist(true, culled);
-        
-        if(1)
-        { // AppendNulTerminator - why needed?
-            const char zeros[] = { 0 };
-            playlist.AppendBytes( zeros, sizeof(zeros) );
-        }
         
 		// Update culled seconds if playlist download was successful
 		// We need culledSeconds to find the timedMetadata position in playlist
@@ -7313,6 +7305,7 @@ void StreamAbstractionAAMP_HLS::ChangeMuxedAudioTrackIndex(std::string& index)
 ****************************************************************************/
 void TrackState::getNextFetchRequestUri( void )
 {
+    return;
 	auto ptr = fragmentURI.getPtr();
 	if( ptr )
 	{
