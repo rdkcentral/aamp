@@ -71,33 +71,33 @@ void ContentProtectionFirebolt::SubscribeEvents()
 		MW_LOG_ERR("Failed to subscribe to watermark events: %d", static_cast<int>(result.error()));
 	}
 
-	MW_LOG_INFO("Subscribing to Firebolt Network change event ");
+	MW_LOG_WARN("Subscribing to Firebolt Network change event ");
 
 	result =  Firebolt::IFireboltAampAccessor::Instance().DeviceInterface().subscribeOnNetworkChanged(
 					[](const auto& network) {
-						MW_LOG_ERR("network changed");
-					    MW_LOG_ERR("CAHNGED %d %d", static_cast<int>(network.state), static_cast<int>(network.type));
+						MW_LOG_WARN("[Event] Network changed");
+					    MW_LOG_WARN("CHANGED state:%d type:%d", static_cast<int>(network.state), static_cast<int>(network.type));
 						std::cout << "[Subscription] Network changed" << std::endl; 
 					});
 	
 	if(result)
 	{
-		mSubscriptionId = result.value();
+		MW_LOG_WARN("Firebolt Network change event registered successfully");
 	}
 	else
 	{
 		MW_LOG_ERR("Failed to subscribe to network change events: %d", static_cast<int>(result.error()));
 	}        
-	MW_LOG_INFO("Subscribing to Firebolt hdcp change event ");
+	MW_LOG_WARN("Subscribing to Firebolt HDCP change event ");
 
 	result =  Firebolt::IFireboltAampAccessor::Instance().DeviceInterface().subscribeOnHdcpChanged(
 					[](const auto& network) {
-						MW_LOG_ERR("hdcp changed");
+						MW_LOG_WARN("[Event] HDCP changed");
 					});
 
 	if(result)
 	{
-		mSubscriptionId = result.value();
+		MW_LOG_WARN("Firebolt HDCP change event registered successfully");
 	}
 
 	else
@@ -119,7 +119,7 @@ void ContentProtectionFirebolt::SubscribeEvents()
 					});
 	if(result)
 	{
-		MW_LOG_ERR("resolution changed");
+		MW_LOG_WARN("Firebolt resolution change event registered successfully");
 	}
 	else
 	{
