@@ -2077,7 +2077,7 @@ public:
 
 	/**
 	 *   @fn ReinitializeInjection
-	 *   @brief Reintializes the injection logic
+	 *   @brief Re-Initialize the injection logic
 	 *   @param[in] rate - play rate
 	 */	
 	void ReinitializeInjection(double rate);

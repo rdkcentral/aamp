@@ -1147,10 +1147,12 @@ bool AampTSBSessionManager::EndAdPlacementWithError(const std::string &adId, uin
 // Shifts all current and future positions to the current position.
 void AampTSBSessionManager::ShiftFutureAdEvents()
 {
-	// Protect this section with the write queue mutex
-	std::unique_lock<std::mutex> guard(mWriteQueueMutex);
-	AampTime currentWritePosition = mCurrentWritePosition;
-	guard.unlock();
+	AampTime currentWritePosition;
+	{
+		// Protect this assignment with the write queue mutex
+		std::lock_guard<std::mutex> guard(mWriteQueueMutex);
+		currentWritePosition = mCurrentWritePosition;
+	}
 
 	// Get only AD type metadata using the template method with explicit type
 	auto result = mMetaDataManager.GetMetaDataByType<AampTsbMetaData>(AampTsbMetaData::Type::AD_METADATA_TYPE, currentWritePosition, currentWritePosition + mTsbLength);
