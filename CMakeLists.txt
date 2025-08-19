@@ -77,6 +77,9 @@ if(APPLE)
 	# add the automatically determined parts of the RPATH
 	# which point to directories outside the build tree to the install RPATH
 	set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
+else()
+	# For other builds, use the origin of the executable as the RPATH
+	set(CMAKE_INSTALL_RPATH "$ORIGIN")
 endif()
 
 #update XCode scheme flags, harmless for non Darwin builds
