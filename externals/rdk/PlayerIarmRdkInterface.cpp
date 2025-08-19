@@ -115,7 +115,7 @@ void PlayerIarmRdkInterface::IARMInit(const char* processName, bool powerEvt)
 	    if (powerEvt)
 	    {
 		    printf("******** Registering **************\n");
-		    if(IsContainerEnvironment())
+		    if(isDevicePropertiesPresent())
 		    {
 			    AAMPLOG_WARN("Registering power manager mode change in Player");
 			    IARM_Bus_RegisterEventHandler(IARM_BUS_PWRMGR_NAME, IARM_BUS_PWRMGR_EVENT_MODECHANGED, powerModeChangeHandler);
