@@ -319,11 +319,10 @@ void AampStreamSinkManager::ReinjectEncryptedHeaders()
 void AampStreamSinkManager::GetEncryptedHeaders(std::map<int, std::string>& mappedHeaders)
 {
 	std::lock_guard<std::mutex> lock(mStreamSinkMutex);
-#if 1//Andy's change - anj
 	mappedHeaders = mEncryptedHeaders;
-#endif//Andy's change
 
-#if 0//Andy's change - anj
+#if 0
+
 	if (!mEncryptedHeadersInjected)
 	{
 		mappedHeaders = mEncryptedHeaders;
@@ -334,7 +333,7 @@ void AampStreamSinkManager::GetEncryptedHeaders(std::map<int, std::string>& mapp
 		AAMPLOG_INFO("AampStreamSinkManager(%p) Encrypted headers already injected", this );
 		mappedHeaders.clear();
 	}
-#endif//Andy's change
+#endif
 }
 
 void AampStreamSinkManager::DeactivatePlayer(PrivateInstanceAAMP *aamp, bool stop)

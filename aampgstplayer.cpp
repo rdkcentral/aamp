@@ -794,14 +794,11 @@ void AAMPGstPlayer::Configure(StreamOutputFormat format, StreamOutputFormat audi
 
 	playerInstance->SetPreferredDRM(GetDrmSystemID(aamp->GetPreferredDRM())); // pass the preferred DRM to Interface
 	InitializePlayerConfigs(this, playerInstance);
-#if 1//Andy's change - anj
-	//ANj:To Enable gstreamer logging
 	std::string debugLevel = GETCONFIGVALUE(eAAMPConfig_GstDebugLevel);
 	if(!debugLevel.empty())
 	{
 		playerInstance->EnableGstDebugLogging(debugLevel);
 	}
-#endif//Andy'si change
 	/*set the run time configs for pipeline configuration*/
 
 	const char *envVal = getenv("AAMP_AV_PIPELINE_PRIORITY");

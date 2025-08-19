@@ -6560,14 +6560,6 @@ void StreamAbstractionAAMP_MPD::SelectSubtitleTrack(bool newTune, std::vector<Te
 			pMediaStreamContext->StartInjectLoop();
 		}
 	}
-
-#if 0//anj
-	if(|pMediaStreamContext->enabled)
-	{
-		pMediaStreamContext->enabled = true;
-	}
-#endif//anj
-
 	if(selAdaptationSetIndex < 0 && rate == 1)
 	{
 		AAMPLOG_WARN("StreamAbstractionAAMP_MPD: No valid adaptation set found for Media[%s]",GetMediaTypeName(eMEDIATYPE_SUBTITLE));
@@ -8790,7 +8782,6 @@ void StreamAbstractionAAMP_MPD::PushEncryptedHeaders(std::map<int, std::string>&
 {
 	for (std::map<int, std::string>::iterator it=mappedHeaders.begin(); it!=mappedHeaders.end(); ++it)
 	{
-#if 1//Andy's change - anj
 		if (it->first != eMEDIATYPE_SUBTITLE)
 		{
 			if (it->first < mTrackWorkers.size() && ISCONFIGSET(eAAMPConfig_DashParallelFragDownload) && mTrackWorkers[it->first])
@@ -8807,21 +8798,6 @@ void StreamAbstractionAAMP_MPD::PushEncryptedHeaders(std::map<int, std::string>&
 				CacheEncryptedHeader(it->first, it->second);
 			}
 		}
-#else
-		if (it->first < mTrackWorkers.size() && ISCONFIGSET(eAAMPConfig_DashParallelFragDownload) && mTrackWorkers[it->first])
-		{
-			// Download the video, audio & subtitle fragments in a separate parallel thread.
-			AAMPLOG_DEBUG("Submitting job for init encrypted header track %d", it->first);
-			auto track = it->first;
-			auto header = it->second;
-			mTrackWorkers[it->first]->SubmitJob([this, track, header]() { CacheEncryptedHeader(track, header); });
-		}
-		else
-		{
-			AAMPLOG_INFO("Track %d worker not available, caching init encrypted header sequentially", it->first);
-			CacheEncryptedHeader(it->first, it->second);
-		}
-#endif//Andy's change:end
 	}
 
 	for (int trackIdx = (mNumberOfTracks - 1); (ISCONFIGSET(eAAMPConfig_DashParallelFragDownload) && trackIdx >= 0); trackIdx--)
@@ -8884,7 +8860,6 @@ bool StreamAbstractionAAMP_MPD::GetEncryptedHeaders(std::map<int, std::string>& 
 					{
 						if (mMPDParseHelper->IsContentType(adaptationSet, (AampMediaType)i ))
 						{
-#if 1//Andy's change - anj
 							if ((AampMediaType)i == eMEDIATYPE_SUBTITLE)
 							{
 								size_t representationIndex = 0;
@@ -8898,26 +8873,32 @@ bool StreamAbstractionAAMP_MPD::GetEncryptedHeaders(std::map<int, std::string>& 
 									{
 										std::string fragmentUrl;
 										FragmentDescriptor *fragmentDescriptor = new FragmentDescriptor();
-										fragmentDescriptor->bUseMatchingBaseUrl = ISCONFIGSET(eAAMPConfig_MatchBaseUrl);
+
+										fragmentDescriptor->bUseMatchingBaseUrl	=	ISCONFIGSET(eAAMPConfig_MatchBaseUrl);
 										fragmentDescriptor->manifestUrl = mMediaStreamContext[eMEDIATYPE_VIDEO]->fragmentDescriptor.manifestUrl;
+
 										fragmentDescriptor->Bandwidth = representation->GetBandwidth();
+
 										fragmentDescriptor->ClearMatchingBaseUrl();
 										fragmentDescriptor->AppendMatchingBaseUrl(&mpd->GetBaseUrls());
 										fragmentDescriptor->AppendMatchingBaseUrl(&period->GetBaseURLs());
 										fragmentDescriptor->AppendMatchingBaseUrl(&adaptationSet->GetBaseURLs());
 										fragmentDescriptor->AppendMatchingBaseUrl(&representation->GetBaseURLs());
+
 										fragmentDescriptor->RepresentationID.assign(representation->GetId());
 										FragmentDescriptor *fragmentDescriptorCMCD(fragmentDescriptor);
 										
 										ConstructFragmentURL(fragmentUrl,fragmentDescriptorCMCD , initialization);
+
 										AAMPLOG_MIL("APS: [%s] Saved init url %s", GetMediaTypeName((AampMediaType)i), fragmentUrl.c_str());
 										mappedHeaders[i] = fragmentUrl;
-										SAFE_DELETE(fragmentDescriptor);
+
+										SAFE_DELETE(fragmentDescriptor);								
 									}
 								}
 								// Handle subtitle specific logic
 							}
-#endif//Andy's change:end - anj
+
 							vector<IDescriptor*> contentProt = mMPDParseHelper->GetContentProtection(adaptationSet);
 							if(0 == contentProt.size())
 							{
@@ -8991,10 +8972,8 @@ bool StreamAbstractionAAMP_MPD::GetEncryptedHeaders(std::map<int, std::string>& 
 										fragmentDescriptor->RepresentationID.assign(representation->GetId());
 										 FragmentDescriptor *fragmentDescriptorCMCD(fragmentDescriptor);
 										ConstructFragmentURL(fragmentUrl,fragmentDescriptorCMCD , initialization);
-#if 1//Andy's change - anj
-										AAMPLOG_MIL("APS: [%s] Saved init url %s", GetMediaTypeName((AampMediaType)i), fragmentUrl.c_str());
-#endif//Andy's change:end - anj
 
+										AAMPLOG_MIL("APS: [%s] Saved init url %s", GetMediaTypeName((AampMediaType)i), fragmentUrl.c_str());
 										mappedHeaders[i] = fragmentUrl;
 
 										SAFE_DELETE(fragmentDescriptor);
@@ -10870,7 +10849,6 @@ void StreamAbstractionAAMP_MPD::GetStreamFormat(StreamOutputFormat &primaryOutpu
 		auxOutputFormat = FORMAT_INVALID;
 	}
 
-	AAMPLOG_WARN("ANJ:Check: mMediaStreamContext[eMEDIATYPE_SUBTITLE]->enabled = %d, ISCONFIGSET(eAAMPConfig_EnablePTSReStamp) = %d, ISCONFIGSET(eAAMPConfig_useRialtoSink) = %d", mMediaStreamContext[eMEDIATYPE_SUBTITLE]->enabled, ISCONFIGSET(eAAMPConfig_EnablePTSReStamp), ISCONFIGSET(eAAMPConfig_useRialtoSink) );
 	//TODO - check whether the ugly hack above is in operation
 	// This is again a dirty hack, the check for PTS restamp enabled. TODO: We need to remove this in future
 	// For cases where subtitles is enabled mid-playback, we need to configure the pipeline at the beginning. FORMAT_SUBTITLE_MP4 will be set
@@ -10878,49 +10856,30 @@ void StreamAbstractionAAMP_MPD::GetStreamFormat(StreamOutputFormat &primaryOutpu
 			&& mMediaStreamContext[eMEDIATYPE_SUBTITLE]->type != eTRACK_AUX_AUDIO)
 	{
 		AAMPLOG_WARN("Entering GetCurrentMimeType");
-		AAMPLOG_WARN("ANJ: mMediaStreamContext[eMEDIATYPE_SUBTITLE]->type = %d", mMediaStreamContext[eMEDIATYPE_SUBTITLE]->type);
 		auto mimeType = GetCurrentMimeType(eMEDIATYPE_SUBTITLE);
 		if (!mimeType.empty())
 		{
 			subtitleOutputFormat = GetSubtitleFormat(mimeType);
-			AAMPLOG_WARN("ANJ: 1. mime type not empty: subtitleOutputFormat = %d", subtitleOutputFormat);
 		}
 		// Ensure thatsubtitleOutputFormat is set to FORMAT_INVALID rather than FORMAT_SUBTITLE_MP4 when
 		// presenting inband CC with PTS restamping enabled
 		else if(isInBandCcAvailable())
 		{
 			subtitleOutputFormat = FORMAT_INVALID;
-			AAMPLOG_WARN("ANJ: 2. in band cc avilable. subtitleOutputFormat=FORMAT_INVALID: subtitleOutputFormat = %d", subtitleOutputFormat);
 		}
 		else
 		{
 			AAMPLOG_INFO("mimeType empty");
 			subtitleOutputFormat = FORMAT_SUBTITLE_MP4;
-			AAMPLOG_WARN("ANJ: 3. mime type empty: subtitleOutputFormat = FORMAT_SUBTITLE_MP4. subtitleOutputFormat = %d", subtitleOutputFormat);
 		}
-		AAMPLOG_WARN("ANJ: subtitleOutputFormat = %d", subtitleOutputFormat);
-#if 1//anj
-		AAMPLOG_WARN("ANJ: If:If:if: Overwriting subtitleOutputFormat = FORMAT_SUBTITLE_MP4 ");
-		subtitleOutputFormat = FORMAT_SUBTITLE_MP4;
-		AAMPLOG_WARN("ANJ: Overwritten subtitleOutputFormat = FORMAT_SUBTITLE_MP4 ");
-		//AAMPLOG_WARN("ANJ: If:If:if: Overwriting subtitleOutputFormat = FORMAT_SUBTITLE_TTML ");
-		//subtitleOutputFormat = FORMAT_SUBTITLE_TTML;
-		//AAMPLOG_WARN("ANJ: Overwritten subtitleOutputFormat = FORMAT_SUBTITLE_TTML ");
-#endif//anj
 	}
 	else
 	{
 		subtitleOutputFormat = FORMAT_INVALID;
-		AAMPLOG_WARN("ANJ: 4. else case: subtitleOutputFormat = FORMAT_INVALID. subtitleOutputFormat = %d", subtitleOutputFormat);
-#if 1//anj
-		AAMPLOG_WARN("ANJ: Overwriting subtitleOutputFormat = FORMAT_SUBTITLE_MP4 ");
-		subtitleOutputFormat = FORMAT_SUBTITLE_MP4;
-		AAMPLOG_WARN("ANJ: Overwritten subtitleOutputFormat = FORMAT_SUBTITLE_MP4 ");
-		//AAMPLOG_WARN("ANJ: Overwriting subtitleOutputFormat = FORMAT_SUBTITLE_TTML ");
-		//subtitleOutputFormat = FORMAT_SUBTITLE_TTML;
-		//AAMPLOG_WARN("ANJ: Overwritten subtitleOutputFormat = FORMAT_SUBTITLE_TTML ");
-#endif//anj
 	}
+
+	AAMPLOG_INFO("APS: Forced subtitleOutputFormat to FORMAT_SUBTITLE_MP4");
+	subtitleOutputFormat = FORMAT_SUBTITLE_MP4;
 }
 
 /**
@@ -11602,7 +11561,7 @@ void StreamAbstractionAAMP_MPD::StartInjection(void)
 			track->StartInjectLoop();
 		}
 	}
-#if 1//Andy's change - anj
+
 	MediaStreamContext *track = mMediaStreamContext[eMEDIATYPE_SUBTITLE];
 	if(track && !track->Enabled())
 	{
@@ -11636,8 +11595,6 @@ void StreamAbstractionAAMP_MPD::StartInjection(void)
 	{
 		AAMPLOG_WARN("APS: Subtitle track is enabled, no need to fetch init segment");
 	}
-
-#endif//Andy's change:end -anj
 }
 
 
