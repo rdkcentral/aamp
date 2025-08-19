@@ -111,12 +111,12 @@ bool FileLogger::initializeLogFile() noexcept
 	if (s_customPath.empty()) {
 		std::cout << "[FileLogger::initializeLogFile] Cannot initialize: no custom path set" << std::endl;
 	} else {
-		// Construct full path with constant filename
+		// Construct full path with timestamped filename
 		std::string targetPath = s_customPath;
 		if (targetPath.back() != '/') {
 			targetPath += "/";
 		}
-		targetPath += LOG_FILENAME;
+		targetPath += generateTimestampedFilename();
 		
 		std::cout << "[FileLogger::initializeLogFile] Attempting to open log file: " << targetPath << std::endl;
 		
@@ -275,6 +275,27 @@ bool FileLogger::setCustomFilename(const std::string& path) noexcept
 	}
 	
 	return success;
+}
+
+std::string FileLogger::generateTimestampedFilename() const noexcept
+{
+	try 
+	{
+		auto now = std::chrono::system_clock::now();
+		auto time_t = std::chrono::system_clock::to_time_t(now);
+		
+		std::stringstream ss;
+		ss << LOG_FILENAME_BASE << "_" 
+		   << std::put_time(std::gmtime(&time_t), "%Y%m%d_%H%M%S") 
+		   << ".txt";
+		
+		return ss.str();
+	}
+	catch (...)
+	{
+		// Fallback to simple filename if timestamp generation fails
+		return std::string(LOG_FILENAME_BASE) + "_fallback.txt";
+	}
 }
 
 std::string FileLogger::getCurrentTimestamp() const noexcept

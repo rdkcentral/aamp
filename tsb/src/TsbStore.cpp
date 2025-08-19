@@ -305,7 +305,8 @@ StoreImpl::StoreImpl(const Store::Config& config, LogFunction logger, int logger
 	// Move any stale files / directories present in the storage due to a non clean shutdown.
 	for (const auto& dir_entry : FS::directory_iterator{mLocation})
 	{
-		if (dir_entry.path().filename() != "aamp_log.txt")
+		std::string filename = dir_entry.path().filename().string();
+		if (filename.find(FileLogger::LOG_FILENAME_BASE) != 0)  // Skip files starting with LOG_FILENAME_BASE
 		{
 		if (dir_entry.path() != flushDir)
 		{

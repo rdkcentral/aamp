@@ -47,8 +47,11 @@ private:
 	// Static members for custom path support
 	static std::string s_customPath;
 	
-	// Constant filename
-	static constexpr const char* LOG_FILENAME = "aamp_log.txt";
+	/**
+	 * @brief Generate timestamped log filename
+	 * @return Timestamped filename string
+	 */
+	std::string generateTimestampedFilename() const noexcept;
 	
 	/**
 	 * @brief Initialize the log file stream
@@ -83,6 +86,9 @@ private:
 	std::string getCurrentTimestamp() const noexcept;
 	
 public:
+	// Base filename constant (timestamp will be appended)
+	static constexpr const char* LOG_FILENAME_BASE = "aamp_log";
+	
 	/**
 	 * @brief Constructor - Initialize with default location
 	 */
