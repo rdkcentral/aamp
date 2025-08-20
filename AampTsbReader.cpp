@@ -53,6 +53,14 @@ AampTsbReader::~AampTsbReader()
 	Term();
 }
 
+/** 
+ * @fn isSeek
+ */
+bool AampTsbReader::isSeek(TuneType tuneType)
+{
+	return (tuneType == eTUNETYPE_NEW_SEEK || tuneType == eTUNETYPE_SEEK || tuneType == eTUNETYPE_SEEKTOLIVE || tuneType == eTUNETYPE_SEEKTOEND);
+}
+
 /**
  * @fn AampTsbReader Init function
  *
@@ -80,7 +88,7 @@ AAMPStatusType AampTsbReader::Init(double &startPosSec, float rate, TuneType tun
 				TsbFragmentDataPtr firstFragment = mDataMgr->GetFirstFragment();
 				TsbFragmentDataPtr lastFragment = mDataMgr->GetLastFragment();
 				double requestedPosition = 0.0;
-				if (eTUNETYPE_NEW_SEEK == tuneType || eTUNETYPE_SEEK == tuneType)
+				if (isSeek(tuneType))
 				{
 					mIsNextFragmentDisc = true;
 					AAMPLOG_INFO("[%s] Setting discontinuity for seek", GetMediaTypeName(mMediaType));
@@ -225,10 +233,14 @@ TsbFragmentDataPtr AampTsbReader::FindNext()
 			}
 		}
 
-	   if (!ret && mCurrentRate < AAMP_NORMAL_PLAY_RATE)
+	   if (!ret)
 	   {
 		   AAMPLOG_INFO("[%s] No next fragment available, mCurrentRate %f", GetMediaTypeName(mMediaType), mCurrentRate);
-		   mEosReached = true;
+
+		   if (mCurrentRate < AAMP_NORMAL_PLAY_RATE)
+		   {
+				mEosReached = true;
+		   }
 	   }
 	}
 

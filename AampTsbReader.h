@@ -193,6 +193,15 @@ public:
 	void SetEndFragmentInjected() { mIsEndFragmentInjected.store(true); }
 
 private:
+	/**
+	 * @fn isSeek - Check if the tune type is any of the seeks
+	 *
+	 * @param[in] tuneType - Tune type to check
+	 *
+	 * @return bool - true if seek, false otherwise
+	 */
+	bool isSeek(TuneType tuneType);
+
 	bool mInitialized_;
 
 	AampTime mStartPosition;
