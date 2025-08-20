@@ -22,12 +22,10 @@
 #include "gstcdmidecryptor.h"
 #include <open_cdm.h>
 #include <open_cdm_adapter.h>
-#if defined(AMLOGIC)
-#include <gst_svp_meta.h>
-#endif
 #include <dlfcn.h>
 #include <stdio.h>
 #include "DrmConstants.h"
+#include "SocInterface.h"
 
 GST_DEBUG_CATEGORY_STATIC ( gst_cdmidecryptor_debug_category);
 #define GST_CAT_DEFAULT  gst_cdmidecryptor_debug_category
@@ -45,6 +43,7 @@ enum
 #define DEBUG_FUNC()
 #endif
 
+std::shared_ptr<SocInterface> socInterface = SocInterface::CreateSocInterface();
 /**
  * @brief Replaces the Key ID in Widevine PSSH data with the Key ID from Clear Key PSSH data.
  *
@@ -59,6 +58,7 @@ enum
  *
  * @note The caller is responsible for freeing the memory allocated for the modified PSSH data.
  */
+
 static unsigned char* ReplaceKIDPsshData(const unsigned char *InputData, const size_t InputDataLength,  size_t & OutputDataLength)
 {
 	unsigned char *outputData = NULL;
@@ -184,11 +184,11 @@ static void gst_cdmidecryptor_class_init(
 			gst_cdmidecryptor_sink_event);
 	base_transform_class->transform_ip = GST_DEBUG_FUNCPTR(
 			gst_cdmidecryptor_transform_ip);
-
-#if !defined(AMLOGIC)
+if (!socInterface || !socInterface->IsTargetSoc())
+{
 	base_transform_class->accept_caps = GST_DEBUG_FUNCPTR(
 			gst_cdmidecryptor_accept_caps);
-#endif
+}
 	base_transform_class->transform_ip_on_passthrough = FALSE;
 
 	gst_element_class_set_static_metadata(GST_ELEMENT_CLASS(klass),
@@ -426,11 +426,11 @@ gst_cdmidecryptor_transform_caps(GstBaseTransform * trans,
 		}
 
 		gst_cdmicapsappendifnotduplicate(transformedCaps, out);
-
-#if defined(AMLOGIC)
+if (socInterface && socInterface->IsTargetSoc())
+{
 	if (direction == GST_PAD_SINK && !gst_caps_is_empty(transformedCaps) && OCDMGstTransformCaps)
 		OCDMGstTransformCaps(&transformedCaps);
-#endif
+}
 	}
 
 	if (filter)
@@ -503,7 +503,8 @@ static GstFlowReturn gst_cdmidecryptor_transform_ip(
 	{
 		GST_DEBUG_OBJECT(cdmidecryptor,
 				"Failed to get GstProtection metadata from buffer %p, could be clear buffer",buffer);
-#if defined(AMLOGIC)
+if (socInterface && socInterface->IsTargetSoc())
+{
 		// call decrypt even for clear samples in order to copy it to a secure buffer. If secure buffers are not supported
 		// decrypt() call will return without doing anything
 		if (cdmidecryptor->drmSession != NULL)
@@ -513,7 +514,7 @@ static GstFlowReturn gst_cdmidecryptor_transform_ip(
 			result = GST_FLOW_NOT_SUPPORTED;
 			GST_ERROR_OBJECT(cdmidecryptor, "drmSession is **** NULL ****, returning GST_FLOW_NOT_SUPPORTED");
 		}
-#endif
+}
 		goto free_resources;
 	}
 
@@ -959,20 +960,18 @@ static GstStateChangeReturn gst_cdmidecryptor_changestate(
 		g_cond_signal(&cdmidecryptor->condition);
 		g_mutex_unlock(&cdmidecryptor->mutex);
 		break;
-#if defined(AMLOGIC)
 	case GST_STATE_CHANGE_NULL_TO_READY:
 		GST_DEBUG_OBJECT(cdmidecryptor, "NULL->READY");
 		if (cdmidecryptor->svpCtx == NULL)
-		 gst_svp_ext_get_context(&cdmidecryptor->svpCtx, Server, 0);
+		socInterface->SvpGetContext(&cdmidecryptor->svpCtx, Server, 0);
 		break;
 	case GST_STATE_CHANGE_READY_TO_NULL:
 		GST_DEBUG_OBJECT(cdmidecryptor, "READY->NULL");
 		if (cdmidecryptor->svpCtx) {
-  	        	gst_svp_ext_free_context(cdmidecryptor->svpCtx);
+			socInterface->SvpFreeContext(cdmidecryptor->svpCtx);
 			cdmidecryptor->svpCtx = NULL;	
 		}
 		break;
-#endif
 	default:
 		break;
 	}

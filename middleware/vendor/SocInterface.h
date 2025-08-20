@@ -26,6 +26,7 @@
 #include <memory>
 #include <gst/base/gstbasesink.h>
 #include "PlayerLogManager.h"
+#include "gst_svp_meta.h"
 
 #define REQUIRED_QUEUED_FRAMES_DEFAULT (5+1)
 /**
@@ -100,7 +101,11 @@ public:
 	 * @param status Set to `true` if Westeros Sink is enabled, `false` otherwise.
 	 */
 	void SetWesterosSinkState(bool status);
-	
+
+	void SvpGetContext(void **svpCtx, int server, int flags);
+
+	void SvpFreeContext(void *svpCtx);
+
 	/*@brief returns true if video stats required from sink otherwise false*/
 	virtual bool IsPlaybackQualityFromSink(){return false;}
 	
@@ -125,7 +130,8 @@ public:
 	 * @return A pointer to the created SocInterface object.
 	 */
 	static std::shared_ptr<SocInterface> CreateSocInterface();
-	
+
+	virtual bool IsTargetSoc() const { return false; }
 	/**
 	 * @brief Check if AppSrc should be used.
 	 *
