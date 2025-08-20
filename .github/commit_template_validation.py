@@ -7,10 +7,8 @@ COMMIT_MESSAGE_FORMAT = '''
 ###########         ERROR : INVALID COMMIT MESSAGE!          ############
 -------------- Please follow the commit message format as below --------------
 
-RDKDEV-1234 : Fixes code download failure to set-top via IP download
+VPLAY-1234 : Fixes code download failure to set-top via IP download
 
-Reason for change: Enable capabilities for IPV6 connections .
-Test Procedure: Refer ticket
 --------------------------------------------------------------------------------
 '''
 
