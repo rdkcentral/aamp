@@ -1,0 +1,38 @@
+name: Auto Retarget Pull Requests
+
+on:
+  pull_request:
+    branches: [ develop ]
+
+jobs:
+  retarget:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
+      - name: Check PR base and retarget if needed
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const prNumber = context.payload.pull_request.number;
+            const currentBase = context.payload.pull_request.base.ref;
+
+            let newBase = null;
+
+            if (currentBase.startsWith("feature/")) {
+              // If targeting feature/* → retarget to dev_sprint_25_2
+              newBase = "dev_sprint_25_2";
+            }
+
+            if (newBase) {
+              console.log(`Changing PR #${prNumber} base from ${currentBase} to ${newBase}...`);
+              await github.rest.pulls.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: prNumber,
+                base: newBase
+              });
+              console.log(`PR retargeted to ${newBase}`);
+            } else {
+              console.log(`PR target good`);
+            }
