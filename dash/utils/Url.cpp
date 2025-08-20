@@ -696,11 +696,11 @@ Url &Url::scheme(const std::string& s) {
     lazy_parse();
     std::string o(s);
     to_lower(o);
-    if (o!=m_scheme) {
-        m_scheme=o;
-        m_built=false;
-        if ((m_scheme=="http" && m_port=="80") || (m_scheme=="https" && m_port=="443"))
-            m_port="";
+    if (o! = m_scheme) {
+        m_scheme = std::move(o);
+        m_built = false;
+        if ((m_scheme == "http" && m_port == "80") || (m_scheme == "https" && m_port == "443"))
+            m_port = "";
     }
     return *this;
 }
@@ -719,8 +719,8 @@ Url &Url::user_info(const std::string& s) {
     
     lazy_parse();
     if (m_user!=s) {
-        m_user=s;
-        m_built=false;
+        m_user = s;
+        m_built = false;
     }
     return *this;
 }
@@ -748,34 +748,34 @@ Url &Url::host(const std::string& h, std::uint8_t ip_v) {
             return *this;
         }
         
-        ip_v=4;
-        o=h;
-    } else if(ip_v!=0&&ip_v!=4&&ip_v!=6) {
+        ip_v = 4;
+        o = h;
+    } else if(ip_v!=0 && ip_v!=4 && ip_v!=6) {
         if (!is_ipv6(h)) {
             AAMPLOG_ERR("%s", ("parse_error: Invalid IPvFuture address '"+h+"'").c_str());
             return *this;
         }
-        o=h;
+        o = h;
     } else if (is_ipv6(h)) {
         if (!is_valid_ipv6(h)) {
             AAMPLOG_ERR("%s", ("parse_error: Invalid IPv6 address '"+h+"'").c_str());
             return *this;
         }
         
-        ip_v=6;
-        o=normalize_IPv6(h);
+        ip_v = 6;
+        o = normalize_IPv6(h);
     } else if (is_reg_name(h)) {
-        ip_v=0;
-        o=normalize_reg_name(h);
+        ip_v = 0;
+        o = normalize_reg_name(h);
     } else {
         AAMPLOG_ERR("%s", ("parse_error: Invalid host '"+h+"'").c_str());
         return *this;
     }
     
     if (m_host!=o||m_ip_v!=ip_v) {
-        m_host=o;
-        m_ip_v=ip_v;
-        m_built=false;
+        m_host = std::move(o);
+        m_ip_v = ip_v;
+        m_built = false;
     }
     return *this;
 }
@@ -797,8 +797,8 @@ Url &Url::port(const std::string& p) {
     if ((m_scheme=="http" && o=="80") || (m_scheme=="https" && o=="443"))
         o="";
     if (m_port!=o) {
-        m_port=o;
-        m_built=false;
+        m_port = std::move(o);
+        m_built = false;
     }
     return *this;
 }
@@ -818,7 +818,7 @@ Url &Url::path(const std::string& p) {
     lazy_parse();
     std::string o(p);
     if (m_path!=o) {
-        m_path=o;
+        m_path=std::move(o);
         m_built=false;
     }
     return *this;
@@ -1053,16 +1053,16 @@ void Url::parse_url() const {
     if (fragment_b)
         _fragment=decode(fragment_b, fragment_e);
 
-    m_scheme=_scheme;
-    m_user=_user;
-    m_host=_host;
-    m_ip_v=ip_v;
-    m_port=_port;
-    m_path=_path;
-    m_query=query_v;
-    m_fragment=_fragment;
-    m_parse=true;
-    m_built=false;
+    m_scheme = std::move(_scheme);
+    m_user = std::move(_user);
+    m_host = std::move(_host);
+    m_ip_v = ip_v;
+    m_port = std::move(_port);
+    m_path = std::move(_path);
+    m_query = std::move(query_v);
+    m_fragment = _fragment;
+    m_parse = true;
+    m_built = false;
 }
 
 
@@ -1241,7 +1241,7 @@ bool Url::operator==(const Url &other) const {
  */
 Url Url::resolveOrReplace(Url relativeOrAbs) {
     if (relativeOrAbs.isRelative()) {
-        return resolve(relativeOrAbs);
+        return resolve(std::move(relativeOrAbs));
     } else {
         return relativeOrAbs;
     }

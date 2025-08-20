@@ -90,7 +90,7 @@ string elem_get_attribute_hierarchy(string attr, T _this, P _parent) {
  */
 template<class T, class P>
 void elem_set_attribute_hierarchy(string attr, string value, T _this, P _parent) {
-    _this->elem.setAttribute(attr, value);
+    _this->elem.setAttribute(attr, std::move(value));
     auto parent = _parent.lock();
     if(parent) {
         parent->elem.removeAttribute(attr);
@@ -125,7 +125,7 @@ string DashMPDRoot::getLocalRelativePathFromURL(string &targetUrl_) {
 
     if (mpdBaseUrl.isParentOf(targetUrl)) {
         // if child of mpd base url, store as simple relative path
-        Url localPathUrl = Url(targetUrl.relativeTo(mpdBaseUrl));
+        Url localPathUrl = Url(targetUrl.relativeTo(std::move(mpdBaseUrl)));
         localPathUrl.set_query().clear(); //Clears query args
         return localPathUrl.format(Url::StripTrailingSlash);
     } else {
@@ -170,7 +170,7 @@ string findBaseUrl(DomElement &element, const string &current, bool isFile) {
 
         Url newbase(eUrl.text());
         if (newbase.isRelative()) {
-            auto out = std::move(Url(_current).resolve(newbase).format(Url::StripTrailingSlash).append(
+            auto out = std::move(Url(_current).resolve(std::move(newbase)).format(Url::StripTrailingSlash).append(
                     slash));
             return out;
         } else {
@@ -381,7 +381,7 @@ string DashMPDRepresentation::getMimeType() {
  */
 string DashMPDRepresentation::getRepresentationKey() const {
     string repId = this->getId();
-    string representation = repId.empty() ? to_string(this->index) : repId;
+    string representation = repId.empty() ? to_string(this->index) : std::move(repId);
     auto parent = this->parent.lock();
     if(parent) {
         representationKey = parent->getAdaptationSetKey() + "-" + representation;
@@ -506,7 +506,7 @@ shared_ptr<DashMPDBaseURL> DashMPDRepresentation::setBaseURLValue(std::string va
     } else {
         auto baseurl = getFirstChild<DashMPDBaseURL>("BaseURL");
         if (baseurl->isNull()) baseurl = addChild<DashMPDBaseURL>("BaseURL");
-        baseurl->setText(value);
+        baseurl->setText(std::move(value));
         return baseurl;
     }
 }
@@ -1128,7 +1128,7 @@ void DashMPDPeriod::removeSegmentDetails()
             auto samplingRate = representation->elem.attribute("audioSamplingRate", MPD_UNSET_STRING);
             if (MPD_UNSET_STRING != samplingRate)
             {
-                repr.setAttribute("audioSamplingRate", samplingRate);
+                repr.setAttribute("audioSamplingRate", std::move(samplingRate));
             }
             for(auto supProp : representation->getSupplementalProperties())
             {
@@ -1197,7 +1197,7 @@ shared_ptr<DashMPDAdaptationSet> DashMPDPeriod::findAdaptationSet(const shared_p
     {
         if (as->elem.attribute("id") == adaptationSet->elem.attribute("id"))
         {
-            ret = as;
+            ret = std::move(as);
             break;
         }
     }
@@ -1225,7 +1225,7 @@ void DashMPDPeriod::mergePeriod(const shared_ptr<DashMPDPeriod> &period) {
             AAMPLOG_WARN("New adaptation is getting added to the period at the middle of refresh");
             auto eAdaptationSet = adaptationSet->elem.cloneTo(elem, true);
             auto clonedAdaptationSet = addChild<DashMPDAdaptationSet>(eAdaptationSet);
-            adaptationSets.push_back(clonedAdaptationSet);
+            adaptationSets.push_back(std::move(clonedAdaptationSet));
             hasNewAdaptationSet = true;
         }
     }
@@ -1346,9 +1346,9 @@ void DashMPDRoot::setRelativeBaseUrlElement(DashMPDAny &e, string parentUrl_) {
         // Make URL absolute
         Url elemUrl(eBaseUrl.text());
         if (!elemUrl.str().empty() && elemUrl.isRelative()) {
-            absUrl = parentUrl.resolve(elemUrl);
+            absUrl = parentUrl.resolve(std::move(elemUrl));
         } else {
-            absUrl = elemUrl;
+            absUrl = std::move(elemUrl);
         }
 
         Url newBaseUrl;
@@ -1396,7 +1396,7 @@ double DashMPDRoot::getTimeShiftBufferDepth() {
 void DashMPDRoot::setAvailabilityEndTime(double epochSeconds) {
     std::string isoDateTime;
     if (epochSecondsToIsoDateTime(epochSeconds, isoDateTime)) {
-        SET_ATTRIBUTE_DOUBLE("availabilityEndTime", epochSeconds, isoDateTime);
+        SET_ATTRIBUTE_DOUBLE("availabilityEndTime", epochSeconds, std::move(isoDateTime));
     } else {
         AAMPLOG_ERR("Failed to convert %lf to iso datetime", epochSeconds);
     }
@@ -1480,7 +1480,7 @@ double DashMPDRoot::getAvailabilityEndTime() {
 void DashMPDRoot::setAvailabilityStartTime(double availStartTime) {
     std::string isoDateTime;
     if (epochSecondsToIsoDateTime(availStartTime, isoDateTime)) {
-        SET_ATTRIBUTE_DOUBLE("availabilityStartTime", availStartTime, isoDateTime);
+        SET_ATTRIBUTE_DOUBLE("availabilityStartTime", availStartTime, std::move(isoDateTime));
     } else {
         AAMPLOG_ERR("Failed to convert %lf to iso datetime", availStartTime);
     }
@@ -1501,7 +1501,7 @@ double DashMPDRoot::getPublishTime() {
 void DashMPDRoot::setPublishTime(double epochSeconds) {
     std::string isoDateTime;
     if (epochSecondsToIsoDateTime(epochSeconds, isoDateTime)) {
-        SET_ATTRIBUTE_DOUBLE("publishTime", epochSeconds, isoDateTime);
+        SET_ATTRIBUTE_DOUBLE("publishTime", epochSeconds, std::move(isoDateTime));
     }
 }
 
@@ -1618,7 +1618,7 @@ shared_ptr<DashMPDPeriod> DashMPDRoot::findPeriod(const string &periodId)
         shared_ptr<DashMPDPeriod> currPeriod = periods.at(iter);
         if (currPeriod->getId() == periodId)
         {
-            retPeriod = currPeriod;
+            retPeriod = std::move(currPeriod);
             break;
         }
     }
@@ -1748,7 +1748,7 @@ shared_ptr<DashMPDBaseURL> DashMPDAdaptationSet::setBaseURLValue(std::string val
     } else {
         auto baseurl = getFirstChild<DashMPDBaseURL>("BaseURL");
         if (baseurl->isNull()) baseurl = addChild<DashMPDBaseURL>("BaseURL");
-        baseurl->setText(value);
+        baseurl->setText(std::move(value));
         return baseurl;
     }
 }
@@ -2216,7 +2216,7 @@ string DashMPDSegmentURL::getMediaRange() {
  * @param   path
  */
 void DashMPDSegmentURL::setSegmentPath(string path) {
-    segmentPath = path;
+    segmentPath = std::move(path);
 }
 
 /**
@@ -2234,7 +2234,7 @@ string DashMPDSegmentURL::getSegmentPath() {
  */
 void DashMPDSegmentURL::setMedia(string media) {
     if (media == MPD_UNSET_STRING) elem.removeAttribute("media");
-    else elem.setAttribute("media", media);
+    else elem.setAttribute("media", std::move(media));
 }
 
 /**

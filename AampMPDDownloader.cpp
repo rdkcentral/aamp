@@ -58,8 +58,8 @@ void _manifestDownloadResponse::show()
 		SAFE_DELETE(mRootNode);
 	}
 
-	mMPDDownloadResponse	=	NULL;
-	mDashMpdDoc	=	NULL;
+	mMPDDownloadResponse = NULL;
+	mDashMpdDoc = NULL;
 
 }
 
@@ -128,7 +128,7 @@ void _manifestDownloadResponse::parseMPD()
 					{
 						mpd->SetFetchTime(fetchTime);
 						std::shared_ptr<dash::mpd::IMPD> tmp_ptr(mpd);
-						mMPDInstance		=	tmp_ptr;
+						mMPDInstance		=	std::move(tmp_ptr);
 						mMPDStatus 		= 	AAMPStatusType::eAAMPSTATUS_OK;
 						mMPDParseHelper->Initialize(mpd);
 					}
@@ -180,9 +180,9 @@ AampMPDDownloader::~AampMPDDownloader()
 	// Clear the queue and release all the objects
 	Release();
 	// reset the pointers , its shared pointer, it will released automatically
-	mMPDData	=	nullptr;
-	mMPDDnldCfg	=	NULL;
-	mCachedMPDData	=	nullptr;
+	mMPDData = nullptr;
+	mMPDDnldCfg = NULL;
+	mCachedMPDData = nullptr;
 }
 
 /**
@@ -197,7 +197,7 @@ void AampMPDDownloader::Initialize(ManifestDownloadConfigPtr mpdDnldCfg, std::st
 		return;
 	}
 
-	mAppName	=	appName;
+	mAppName	=	std::move(appName);
 
 	// Release and reset and previously called values
 	// Initialize to be called only once . If repeatedly called , then stored vars will be
@@ -206,11 +206,11 @@ void AampMPDDownloader::Initialize(ManifestDownloadConfigPtr mpdDnldCfg, std::st
 	mReleaseCalled = false;
 
 	std::lock_guard<std::recursive_mutex> lock(mMPDDnldMutex);
-	mMPDDnldCfg = mpdDnldCfg;
+	mMPDDnldCfg = std::move(mpdDnldCfg);
 
 	if(mpdPreProcessFuncptr)
 	{
-		mMpdPreProcessFuncptr = mpdPreProcessFuncptr;
+		mMpdPreProcessFuncptr = std::move(mpdPreProcessFuncptr);
 	}
 
 }
@@ -360,7 +360,7 @@ void AampMPDDownloader::downloadMPDThread1()
 				std::unordered_map<std::string, std::vector<std::string>> CMCDHeaders = getCMCDHeader();
 				Headers.insert(CMCDHeaders.begin(), CMCDHeaders.end());
 			}
-			mMPDDnldCfg->mDnldConfig->sCustomHeaders = Headers;
+			mMPDDnldCfg->mDnldConfig->sCustomHeaders = std::move(Headers);
 			mMPDDnldCfg->mDnldConfig->iDownload502RetryCount = MANIFEST_DOWNLOAD_502_RETRY_COUNT;
 			mDownloader1.Initialize(mMPDDnldCfg->mDnldConfig);
 			refreshNeeded = false;
@@ -775,13 +775,13 @@ bool AampMPDDownloader::readMPDData(ManifestDownloadResponsePtr dnldManifest)
 		} 
 		else
 		{
-			mRefreshInterval = getMeNextManifestDownloadWaitTime(dnldManifest);
+			mRefreshInterval = getMeNextManifestDownloadWaitTime(std::move(dnldManifest));
 		}
 	} 
 	else 
 	{
 		mPublishTime = publishTimeMSec;
-		mRefreshInterval = getMeNextManifestDownloadWaitTime(dnldManifest);
+		mRefreshInterval = getMeNextManifestDownloadWaitTime(std::move(dnldManifest));
 		mMinimalRefreshRetryCount = 0;  // Reset the retry count on detecting a new publish time
 	}
 	return retVal;
@@ -1127,7 +1127,7 @@ std::unordered_map<std::string, std::vector<std::string>> AampMPDDownloader::get
 				std::string header_name = header.substr(0, colon_pos + 1); // include the colon
 				std::string header_value = header.substr(colon_pos + 1);
 				trim(header_value); // remove any whitespace
-				cmcd[header_name].push_back(header_value);
+				cmcd[header_name].push_back(std::move(header_value));
 			}
 		}
 	}

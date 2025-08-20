@@ -148,7 +148,7 @@ bool AampLicensePreFetcher::QueueContentProtection(DrmHelperPtr drmHelper, std::
 			if(isVssPeriod)
 			{
 				std::lock_guard<std::mutex>lock(mQVssMutex);
-				mVssFetchQueue.push_back(fetchObject);
+				mVssFetchQueue.push_back(std::move(fetchObject));
 				if (!mVssPreFetchThreadStarted)
 				{
 					AAMPLOG_WARN("Starting mVssPreFetchThread");
@@ -173,7 +173,7 @@ bool AampLicensePreFetcher::QueueContentProtection(DrmHelperPtr drmHelper, std::
 					return true;
 				}
 
-				mFetchQueue.push_back(fetchObject);
+				mFetchQueue.push_back(std::move(fetchObject));
 				if (!mPreFetchThreadStarted)
 				{
 					AAMPLOG_WARN("Starting mPreFetchThread");
@@ -443,7 +443,7 @@ void AampLicensePreFetcher::NotifyDrmFailure(LicensePreFetchObjectPtr fetchObj, 
 			AAMPLOG_WARN("Drm failure:%d response: %d isRetryEnabled:%d ",(int)failure,event->getResponseCode(),isRetryEnabled);
 			mPrivAAMP->SendDRMMetaData(event);	//Send Header response first for failure case.
 			AAMPLOG_ERR("Failed DRM Session sending error event");
-			mPrivAAMP->SendDrmErrorEvent(event, isRetryEnabled);
+			mPrivAAMP->SendDrmErrorEvent(std::move(event), isRetryEnabled);
 			mPrivAAMP->profiler.SetDrmErrorCode((int)failure);
 			mPrivAAMP->profiler.ProfileError(PROFILE_BUCKET_LA_TOTAL, (int)failure);
 		}
@@ -471,7 +471,7 @@ bool AampLicensePreFetcher::CreateDRMSession(LicensePreFetchObjectPtr fetchObj)
 	if (fetchObj->mHelper == nullptr)
 	{
 		AAMPLOG_ERR("Failed DRM Session Creation,  no helper");
-		NotifyDrmFailure(fetchObj, e);
+		NotifyDrmFailure(std::move(fetchObj), std::move(e));
 		return ret;
 	}
 	AampDRMLicenseManager* licenseManger= mPrivAAMP->mDRMLicenseManager;
@@ -491,7 +491,7 @@ bool AampLicensePreFetcher::CreateDRMSession(LicensePreFetchObjectPtr fetchObj)
 	if(NULL == drmSession)
 	{
 		AAMPLOG_ERR("Failed DRM Session Creation for systemId = %s", fetchObj->mHelper->getUuid().c_str());
-		NotifyDrmFailure(fetchObj, e);
+		NotifyDrmFailure(std::move(fetchObj), std::move(e));
 	}
 	else
 	{
@@ -499,7 +499,7 @@ bool AampLicensePreFetcher::CreateDRMSession(LicensePreFetchObjectPtr fetchObj)
 		if(e->getAccessStatusValue() != 3)
 		{
 			AAMPLOG_INFO("Sending DRMMetaData");
-			mPrivAAMP->SendDRMMetaData(e);
+			mPrivAAMP->SendDRMMetaData(std::move(e));
 		}
 	}
 	mPrivAAMP->profiler.ProfileEnd(PROFILE_BUCKET_LA_TOTAL);

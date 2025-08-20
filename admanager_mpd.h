@@ -146,7 +146,7 @@ struct AdNode {
 	*/
 	AdNode(bool invalid, bool placed, bool resolved, std::string adId, std::string url, uint64_t duration,
 		std::string basePeriodId, int basePeriodOffset, MPD* mpd)
-		: invalid(invalid), placed(placed), resolved(resolved), adId(adId), url(url), duration(duration), basePeriodId(basePeriodId),
+		: invalid(invalid), placed(placed), resolved(resolved), adId(std::move(adId)), url(std::move(url)), duration(duration), basePeriodId(std::move(basePeriodId)),
 		basePeriodOffset(basePeriodOffset), mpd(mpd)
 	{
 
@@ -209,7 +209,7 @@ struct AdBreakObject{
 	*/
 	AdBreakObject(uint32_t _duration, AdNodeVectorPtr _ads, std::string _endPeriodId,
 		uint64_t _endPeriodOffset, uint32_t _adsDuration)
-		: brkDuration(_duration), ads(_ads), endPeriodId(_endPeriodId), endPeriodOffset(_endPeriodOffset),
+		: brkDuration(_duration), ads(std::move(_ads)), endPeriodId(std::move(_endPeriodId)), endPeriodOffset(_endPeriodOffset),
 		adsDuration(_adsDuration), adjustEndPeriodOffset(false), mAdBreakPlaced(false), mAdFailed(false), mSplitPeriod(false), invalid(false), mAbsoluteAdBreakStartTime(0.0)
 	{
 	}
@@ -288,7 +288,7 @@ struct AdFulfillObj {
 	* @brief AdFulfillObj constructor
 	*/
 	AdFulfillObj(std::string _periodId, std::string _adId, std::string _url)
-		: periodId(_periodId), adId(_adId), url(_url)
+		: periodId(std::move(_periodId)), adId(std::move(_adId)), url(std::move(_url))
 	{
 	}
 };

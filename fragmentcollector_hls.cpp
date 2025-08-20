@@ -190,7 +190,7 @@ static void ParseKeyAttributeCallback(lstring attrName, lstring valuePtr, void* 
 		if( !uri.empty() )
 		{
 			ts->mIVKeyChanged = (ts->mDrmInfo.keyURI != uri);
-			ts->mDrmInfo.keyURI = uri;
+			ts->mDrmInfo.keyURI = std::move(uri);
 		}
 	}
 	else if (attrName.equal("IV"))
@@ -461,7 +461,7 @@ void StreamAbstractionAAMP_HLS::InitiateDrmProcess()
 				if (nullptr != drmHelper)
 				{
 					/* This needs effort from MSO as to what they want to do viz-a-viz preferred DRM, */
-					drmHelperToUse = drmHelper;
+					drmHelperToUse = std::move(drmHelper);
 				}
 			}
 		}
@@ -471,7 +471,7 @@ void StreamAbstractionAAMP_HLS::InitiateDrmProcess()
 			/** Queue protection event to the pipeline **/
 			licenseManager->QueueProtectionEvent(drmHelperToUse, "1", 0, eMEDIATYPE_VIDEO);
 			/** Queue content protection in DRM license fetcher **/
-			licenseManager->QueueContentProtection(drmHelperToUse, "1", 0, eMEDIATYPE_VIDEO);
+			licenseManager->QueueContentProtection(std::move(drmHelperToUse), "1", 0, eMEDIATYPE_VIDEO);
 		}
 	}
 }
@@ -1772,7 +1772,7 @@ void TrackState::InjectFragmentInternal(CachedFragment* cachedFragment, bool &fr
 			cachedFragment->PTSOffsetSec,
 			isDiscontinuity,
 			cachedFragment->initFragment,
-			processor,
+			std::move(processor),
 			ptsError );
 	}
 	else
@@ -2080,7 +2080,7 @@ void TrackState::IndexPlaylist(bool IsRefresh, AampTime &culledSec)
 					// check if during trickplay drmInfo is considered.
 					KeyTagStruct keyinfo;
 					keyinfo.mKeyStartDuration = totalDuration.inSeconds();
-					keyinfo.mKeyTagStr = key;
+					keyinfo.mKeyTagStr = std::move(key);
 					if (!mDrm) // we don't want to keep calling this on updating the playlist as it may update the key info incorrectly
 							   // if there are are multiple keys in the manifest
 					{
@@ -2122,7 +2122,7 @@ void TrackState::IndexPlaylist(bool IsRefresh, AampTime &culledSec)
 					{
 						keyinfo.mShaID = mCMSha1Hash;
 					}
-					mKeyHashTable.push_back(keyinfo);
+					mKeyHashTable.push_back(std::move(keyinfo));
 					mKeyTagChanged = false;
 					mDrmKeyTagCount++;
 				}
@@ -4588,7 +4588,7 @@ void StreamAbstractionAAMP_HLS::PreCachePlaylist()
 			PreCacheUrlStruct newelem;
 			aamp_ResolveURL( newelem.url, aamp->GetManifestUrl(), mediaInfo.uri.c_str(), ISCONFIGSET(eAAMPConfig_PropagateURIParam) );
 			newelem.type = ((mediaInfo.type==eMEDIATYPE_AUDIO)?eMEDIATYPE_PLAYLIST_AUDIO:eMEDIATYPE_PLAYLIST_SUBTITLE);
-			dnldList.push_back(newelem);
+			dnldList.push_back(std::move(newelem));
 		}
 	}
 
@@ -4878,13 +4878,13 @@ void TrackState::FragmentCollector(void)
 StreamAbstractionAAMP_HLS::StreamAbstractionAAMP_HLS(class PrivateInstanceAAMP *aamp,double seekpos, float rate,
 	id3_callback_t id3Handler,
 	ptsoffset_update_t ptsUpdate)
-: StreamAbstractionAAMP(aamp, id3Handler),
+: StreamAbstractionAAMP(aamp, std::move(id3Handler)),
 	rate(rate), maxIntervalBtwPlaylistUpdateMs(DEFAULT_INTERVAL_BETWEEN_PLAYLIST_UPDATES_MS), mainManifest("mainManifest"), allowsCache(false), seekPosition(seekpos), mTrickPlayFPS(),
 	enableThrottle(false), firstFragmentDecrypted(false), mStartTimestampZero(false), mNumberOfTracks(0), midSeekPtsOffset(0),
 	segDLFailCount(0), segDrmDecryptFailCount(0), mMediaCount(0),mProfileCount(0),
 	mLangList(),mIframeAvailable(false), thumbnailManifest("thumbnailManifest"), indexedTileInfo(),
 	mFirstPTS(0),mDiscoCheckMutex(),
-	mPtsOffsetUpdate{ptsUpdate},
+	mPtsOffsetUpdate{std::move(ptsUpdate)},
 	mDrmInterface(aamp),
 	mMetadataProcessor{nullptr}
 {
@@ -5320,7 +5320,7 @@ bool StreamAbstractionAAMP_HLS::SetThumbnailTrack( int thumbIndex )
 				AampTime downloadTime{};
 				std::string tempEffectiveUrl;
 				double tempDownloadTime;
-				if( aamp->GetFile(url, eMEDIATYPE_PLAYLIST_IFRAME, &thumbnailManifest, tempEffectiveUrl, &http_error, &tempDownloadTime, NULL, eCURLINSTANCE_MANIFEST_MAIN,true) )
+				if( aamp->GetFile(std::move(url), eMEDIATYPE_PLAYLIST_IFRAME, &thumbnailManifest, tempEffectiveUrl, &http_error, &tempDownloadTime, NULL, eCURLINSTANCE_MANIFEST_MAIN,true) )
 				{
 					downloadTime = tempDownloadTime;
 					AAMPLOG_WARN("In StreamAbstractionAAMP_HLS: Configured Thumbnail");
@@ -7096,14 +7096,14 @@ void StreamAbstractionAAMP_HLS::PopulateAudioAndTextTracks()
 				std::string language = (!media.language.empty()) ? GetLanguageCode(i) : std::string();
 				std::string codec = GetAudioFormatStringForCodec(media.audioFormat) ;
 				//AAMPLOG_WARN("streamAbstractionAAMP_HLS:: Audio Track - lang:%s, group_id:%s, name:%s, codec:%s, characteristics:%s, channels:%d isDefault=%d", language.c_str(), group_id.c_str(), name.c_str(), codec.c_str(), characteristics.c_str(), media.channels,media.isDefault);
-				mAudioTracks.push_back(AudioTrackInfo(index, language, media.group_id, media.name, codec, media.characteristics, media.channels,media.isDefault));
+				mAudioTracks.push_back(AudioTrackInfo(std::move(index), std::move(language), media.group_id, media.name, std::move(codec), media.characteristics, media.channels,media.isDefault));
 			}
 			else if (media.type == eMEDIATYPE_SUBTITLE)
 			{
 				std::string index = std::to_string(i);
 				std::string language = (!media.language.empty()) ? GetLanguageCode(i) : std::string();
 //				AAMPLOG_WARN("StreamAbstractionAAMP_HLS:: Text Track - lang:%s, isCC:%d, group_id:%s, name:%s, instreamID:%s, characteristics:%s", language.c_str(), media.isCC, group_id.c_str(), name.c_str(), instreamID.c_str(), characteristics.c_str());
-				mTextTracks.push_back(TextTrackInfo(index, language, media.isCC, media.group_id, media.name, media.instreamID, media.characteristics,0));
+				mTextTracks.push_back(TextTrackInfo(std::move(index), std::move(language), media.isCC, media.group_id, media.name, media.instreamID, media.characteristics,0));
 			}
 			i++;
 		}

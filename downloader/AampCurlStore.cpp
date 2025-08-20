@@ -293,7 +293,7 @@ CURL* CurlStore::GetCurlHandle(PrivateInstanceAAMP *aamp,std::string url, AampCu
 	assert (startIdx <= eCURLINSTANCE_MAX);
 
 	std::string HostName;
-	HostName = aamp_getHostFromURL ( url );
+	HostName = aamp_getHostFromURL ( std::move(url) );
 
 	if (ISCONFIGSET(eAAMPConfig_EnableCurlStore) && !( aamp_IsLocalHost(HostName) ))
 	{
@@ -316,7 +316,7 @@ void CurlStore::SaveCurlHandle (PrivateInstanceAAMP *aamp, std::string url, Aamp
 	assert (startIdx <= eCURLINSTANCE_MAX);
 
 	std::string HostName;
-	HostName = aamp_getHostFromURL ( url );
+	HostName = aamp_getHostFromURL ( std::move(url) );
 
 	if (ISCONFIGSET(eAAMPConfig_EnableCurlStore) && !( aamp_IsLocalHost(HostName) ))
 	{
