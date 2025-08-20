@@ -4292,10 +4292,18 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 			}
 		}
 
-		//Check if subtitle MediaHeader is already present in AampStreamSinkManager.
-		//If not, add it.
-		ExtractAndAddSubtitleMediaHeader();
-		AAMPLOG_WARN("StreamAbstractionAAMP_MPD: added subtitle MediaHeader to AampStreamSinkManager.");
+		AAMPLOG_ERR("ANJ: mIsLiveStream = %d, ISCONFIGSET(eAAMPConfig_useRialtoSink) = %d", mIsLiveStream, ISCONFIGSET(eAAMPConfig_useRialtoSink));
+		if ( ISCONFIGSET(eAAMPConfig_useRialtoSink) && !mIsLiveStream)
+		{
+			//Check if subtitle MediaHeader is already present in AampStreamSinkManager.
+			//If not, add it.
+			subtitleHeader = AampStreamSinkManager::GetInstance().GetMediaHeader(eMEDIATYPE_SUBTITLE);
+			if(!subtitleHeader)
+			{
+				ExtractAndAddSubtitleMediaHeader();
+				AAMPLOG_WARN("StreamAbstractionAAMP_MPD: added subtitle MediaHeader to AampStreamSinkManager.");
+			}
+		}
 
 		AAMPLOG_WARN("StreamAbstractionAAMP_MPD: fetch initialization fragments");
 		// We have decided on the first period, calculate the PTSoffset to be applied to
@@ -9047,7 +9055,7 @@ bool StreamAbstractionAAMP_MPD::ExtractAndAddSubtitleMediaHeader()
 
 								ConstructFragmentURL(fragmentUrl,fragmentDescriptorCMCD , initialization);
 								AAMPLOG_MIL("[SUBTITLE]: mimeType:%s, init url %s", subtitleMimeType.c_str(), fragmentUrl.c_str());
-								subtitleHeader->url = fragmentUrl;
+								subtitleHeader->url = std::move(fragmentUrl);
 								subtitleHeader->mimeType = subtitleMimeType;
 								AampStreamSinkManager::GetInstance().AddMediaHeader(eMEDIATYPE_SUBTITLE, subtitleHeader);
 								AAMPLOG_MIL("Saved subtitleHeader");
@@ -10964,18 +10972,21 @@ void StreamAbstractionAAMP_MPD::GetStreamFormat(StreamOutputFormat &primaryOutpu
 		subtitleOutputFormat = FORMAT_INVALID;
 	}
 
-	AAMPLOG_ERR("ANJ: Before Overwriting subtitleOutputFormat with the cached mimeType. subtitleOutputFormat = %d", subtitleOutputFormat);
-	subtitleHeader = AampStreamSinkManager::GetInstance().GetMediaHeader(eMEDIATYPE_SUBTITLE);
-	if(subtitleHeader)
+	AAMPLOG_ERR("ANJ: mIsLiveStream = %d, ISCONFIGSET(eAAMPConfig_useRialtoSink) = %d", mIsLiveStream, ISCONFIGSET(eAAMPConfig_useRialtoSink));
+	if ( ISCONFIGSET(eAAMPConfig_useRialtoSink) && !mIsLiveStream)
 	{
-		auto mimeType = subtitleHeader->mimeType;
-		if (!mimeType.empty())
+		AAMPLOG_WARN("Non Live. update subtitleOutputFormat[%d] if subtitle Media headers are cached", subtitleOutputFormat);
+		subtitleHeader = AampStreamSinkManager::GetInstance().GetMediaHeader(eMEDIATYPE_SUBTITLE);
+		if(subtitleHeader)
 		{
-			subtitleOutputFormat = GetSubtitleFormat(mimeType);
-			AAMPLOG_WARN("Forced subtitleOutputFormat[%d] with the cached mimeType[%s]", subtitleOutputFormat, mimeType.c_str());
+			const auto & mimeType = subtitleHeader->mimeType;
+			if (!mimeType.empty())
+			{
+				subtitleOutputFormat = GetSubtitleFormat(mimeType);
+				AAMPLOG_WARN("Forced subtitleOutputFormat[%d] with the cached mimeType[%s]", subtitleOutputFormat, mimeType.c_str());
+			}
 		}
 	}
-	AAMPLOG_ERR("ANJ: End:Overwritten subtitleOutputFormat with the cached mimeType. subtitleOutputFormat = %d", subtitleOutputFormat);
 }
 
 /**
@@ -11662,30 +11673,34 @@ void StreamAbstractionAAMP_MPD::StartInjection(void)
 		}
 	}
 
-	subtitleHeader = AampStreamSinkManager::GetInstance().GetMediaHeader(eMEDIATYPE_SUBTITLE);
-	if(subtitleHeader)
+	AAMPLOG_ERR("ANJ: mIsLiveStream = %d, ISCONFIGSET(eAAMPConfig_useRialtoSink) = %d", mIsLiveStream, ISCONFIGSET(eAAMPConfig_useRialtoSink));
+	if ( ISCONFIGSET(eAAMPConfig_useRialtoSink) && !mIsLiveStream)
 	{
-		MediaStreamContext *track = mMediaStreamContext[eMEDIATYPE_SUBTITLE];
-		if(track && !track->Enabled())
+		AAMPLOG_MIL("Not a live stream, pre-fetch and inject subtitle init segments if available.");
+		subtitleHeader = AampStreamSinkManager::GetInstance().GetMediaHeader(eMEDIATYPE_SUBTITLE);
+		if(subtitleHeader)
 		{
-			AAMPLOG_MIL("Subtitle track is disabled; url for init segment found: %s, mimeType = %s", subtitleHeader->url.c_str(),  subtitleHeader->mimeType.c_str());
-			AampGrowableBuffer buffer("subtitle-init-buffer");
-			std::string effectiveUrl;
-			int http_error = 0;
-			if (aamp->GetFile(subtitleHeader->url, eMEDIATYPE_SUBTITLE, &buffer, effectiveUrl, &http_error, NULL, NULL, eCURLINSTANCE_SUBTITLE))
+			MediaStreamContext *track = mMediaStreamContext[eMEDIATYPE_SUBTITLE];
+			if(track && !track->Enabled())
 			{
-				aamp->SendStreamTransfer(eMEDIATYPE_SUBTITLE, &buffer, 0, 0, 0, 0, true, false);
+				AAMPLOG_MIL("Subtitle track is disabled; url for init segment found: %s, mimeType = %s", subtitleHeader->url.c_str(),  subtitleHeader->mimeType.c_str());
+				AampGrowableBuffer buffer("subtitle-init-buffer");
+				std::string effectiveUrl;
+				int http_error = 0;
+				if (aamp->GetFile(subtitleHeader->url, eMEDIATYPE_SUBTITLE, &buffer, effectiveUrl, &http_error, NULL, NULL, eCURLINSTANCE_SUBTITLE))
+				{
+					aamp->SendStreamTransfer(eMEDIATYPE_SUBTITLE, &buffer, 0, 0, 0, 0, true, false);
+				}
+			}
+			else
+			{
+				AAMPLOG_MIL("subtitle track is enabled. No need to pre-fetch and inject init segment.");
 			}
 		}
 		else
 		{
-			AAMPLOG_MIL("subtitle track is enabled. No need to pre-fetch and inject init segment.");
+			AAMPLOG_WARN("No media header available for subtitles.");
 		}
-			
-	}
-	else
-	{
-		AAMPLOG_WARN("No media header available for subtitles.");
 	}
 }
 
