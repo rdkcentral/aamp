@@ -38,11 +38,21 @@
  */
 class FileLogger final
 {
+public:
+	/**
+	 * @brief Logger state enumeration for state machine
+	 */
+	enum class LoggerState {
+		TEMP_FILE_ACTIVE,   // Using /tmp/aamp_log_start.txt
+		TARGET_FILE_ACTIVE, // Using timestamped file in custom path
+		ERROR_STATE         // File operations failed
+	};
+
 private:
 	mutable std::mutex m_mutex;
 	std::unique_ptr<std::ofstream> m_fileStream;
 	std::string m_logFilePath;
-	bool m_isValid;
+	LoggerState m_state;
 	
 	// Static members for custom path support
 	static std::string s_customPath;
@@ -78,6 +88,38 @@ private:
 	 * @return true if stream initialized successfully, false otherwise
 	 */
 	bool initializeStream(const std::string& filePath) noexcept;
+	
+	// State machine handlers
+	/**
+	 * @brief Handle write when in TEMP_FILE_ACTIVE state
+	 * @param message Formatted log message
+	 */
+	void handleTempFileWrite(const std::string& message) noexcept;
+	
+	/**
+	 * @brief Handle write when in ERROR_STATE
+	 * @param message Formatted log message
+	 */
+	void handleErrorWrite(const std::string& message) noexcept;
+	
+	/**
+	 * @brief Attempt to switch from temp file to target file
+	 */
+	void attemptSwitchToTarget() noexcept;
+	
+	/**
+	 * @brief Write message to current file stream
+	 * @param message Formatted log message
+	 */
+	void writeToCurrentFile(const std::string& message) noexcept;
+	
+	/**
+	 * @brief Format variadic arguments into string message
+	 * @param format Printf-style format string
+	 * @param args Variadic arguments
+	 * @return Formatted message string
+	 */
+	std::string formatMessage(const char* format, va_list args) const noexcept;
 	
 	/**
 	 * @brief Get current timestamp in ISO 8601 format

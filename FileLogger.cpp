@@ -61,7 +61,6 @@ bool FileLogger::initializeStream(const std::string& filePath) noexcept
 		if (m_fileStream && m_fileStream->is_open()) {
 			// Set unbuffered mode for immediate flushing
 			m_fileStream->rdbuf()->pubsetbuf(nullptr, 0);
-			m_isValid = true;
 			m_logFilePath = filePath;
 			std::cout << "[FileLogger::initializeStream] Successfully opened log file: " << filePath << std::endl;
 			return true;
@@ -81,61 +80,49 @@ bool FileLogger::initializeStream(const std::string& filePath) noexcept
 		std::cout << "[FileLogger::initializeStream] Exception opening log file: " << e.what() << std::endl;
 	}
 	
-	m_isValid = false;
 	return false;
 }
 
 bool FileLogger::initializeTempLogFile() noexcept
 {
 	const std::string tempLogPath = "/tmp/aamp_log_start.txt";
-	bool success = false;
 	
 	std::cout << "[FileLogger::initializeTempLogFile] Attempting to open temporary log file: " << tempLogPath << std::endl;
 	
-	// Check if we already have this file open
-	if (m_isValid && m_fileStream && m_fileStream->is_open() && m_logFilePath == tempLogPath) {
-		std::cout << "[FileLogger::initializeTempLogFile] Temporary log file already open and valid" << std::endl;
-		success = true;
-	} else if (createFileWithPermissions(tempLogPath)) {
-		success = initializeStream(tempLogPath);
+	// Check if we already have a valid file open
+	if (m_fileStream && m_fileStream->is_open()) {
+		std::cout << "[FileLogger::initializeTempLogFile] Log file already open and valid" << std::endl;
+		return true;
 	}
 	
-	return success;
+	if (createFileWithPermissions(tempLogPath)) {
+		return initializeStream(tempLogPath);
+	}
+	
+	return false;
 }
 
 bool FileLogger::initializeLogFile() noexcept
 {
-	bool success = false;
+	// Construct full path with timestamped filename
+	std::string targetPath = s_customPath;
+	if (targetPath.back() != '/') {
+		targetPath += "/";
+	}
+	targetPath += generateTimestampedFilename();
 	
-	// Cannot initialize without a custom path set
-	if (s_customPath.empty()) {
-		std::cout << "[FileLogger::initializeLogFile] Cannot initialize: no custom path set" << std::endl;
-	} else {
-		// Construct full path with timestamped filename
-		std::string targetPath = s_customPath;
-		if (targetPath.back() != '/') {
-			targetPath += "/";
-		}
-		targetPath += generateTimestampedFilename();
-		
-		std::cout << "[FileLogger::initializeLogFile] Attempting to open log file: " << targetPath << std::endl;
-		
-		// Check if we already have this file open
-		if (m_isValid && m_fileStream && m_fileStream->is_open() && m_logFilePath == targetPath) {
-			std::cout << "[FileLogger::initializeLogFile] Target log file already open and valid" << std::endl;
-			success = true;
-		} else if (createFileWithPermissions(targetPath)) {
-			success = initializeStream(targetPath);
-		}
+	std::cout << "[FileLogger::initializeLogFile] Attempting to open log file: " << targetPath << std::endl;
+	
+	if (createFileWithPermissions(targetPath)) {
+		return initializeStream(targetPath);
 	}
 	
-	return success;
+	return false;
 }
 
 FileLogger::FileLogger() noexcept
 	: m_fileStream(nullptr)
 	, m_logFilePath("")
-	, m_isValid(false)
 {
 	std::cout << "[FileLogger::FileLogger] Constructor called" << std::endl;
 	std::cout << "[FileLogger::FileLogger] Custom path " << (s_customPath.empty() ? "NOT SET" : ("SET to: " + s_customPath)) << std::endl;
@@ -143,7 +130,11 @@ FileLogger::FileLogger() noexcept
 	// Initialize with temporary file for startup logging
 	// This ensures we capture logs from the very beginning
 	std::cout << "[FileLogger::FileLogger] Initializing with temporary log file for startup logging" << std::endl;
-	initializeTempLogFile();
+	if (initializeTempLogFile()) {
+		m_state = LoggerState::TEMP_FILE_ACTIVE;
+	} else {
+		m_state = LoggerState::ERROR_STATE;
+	}
 }
 
 FileLogger::~FileLogger() noexcept
@@ -160,88 +151,92 @@ void FileLogger::writeLog(const char* format, va_list args) const noexcept
 {
 	std::lock_guard<std::mutex> lock(m_mutex);
 	
-	// If custom path is set, try to switch from temp file to target location
+	// Format message once, outside state logic
+	std::string message = formatMessage(format, args);
+	if (message.empty()) {
+		return; // Invalid format or formatting failed
+	}
+	
+	// State machine dispatch - single switch statement!
+	FileLogger* mutableThis = const_cast<FileLogger*>(this);
+	switch (m_state) {
+		case LoggerState::TEMP_FILE_ACTIVE:
+			mutableThis->handleTempFileWrite(message);
+			break;
+			
+		case LoggerState::TARGET_FILE_ACTIVE:
+			mutableThis->writeToCurrentFile(message);
+			break;
+			
+		case LoggerState::ERROR_STATE:
+			mutableThis->handleErrorWrite(message);
+			break;
+	}
+}
+
+void FileLogger::handleTempFileWrite(const std::string& message) noexcept
+{
+	// Attempt to switch to target file if custom path is available
 	if (!s_customPath.empty()) {
-		// Check if we're currently using the temp file and need to switch
-		if (m_isValid && m_logFilePath == "/tmp/aamp_log_start.txt") {
-			std::cout << "[FileLogger::writeLog] Switching from temporary file to target location: " << s_customPath << std::endl;
-			
-			// Close current temp file
-			FileLogger* mutableThis = const_cast<FileLogger*>(this);
-			if (mutableThis->m_fileStream && mutableThis->m_fileStream->is_open()) {
-				mutableThis->m_fileStream->close();
-			}
-			mutableThis->m_isValid = false;
-			
-			// Try to initialize target file
-			if (!mutableThis->initializeLogFile()) {
-				std::cout << "[FileLogger::writeLog] Failed to initialize target log file, continuing with temporary file" << std::endl;
-				// Re-open temporary file since we closed it
-				if (!mutableThis->initializeTempLogFile()) {
-					std::cout << "[FileLogger::writeLog] Failed to re-open temporary log file, discarding write" << std::endl;
-					return;
-				}
-			}
-		}
-		// If target file is not initialized but custom path is set, try to initialize it
-		else if (!m_isValid || !m_fileStream || !m_fileStream->is_open()) {
-			std::cout << "[FileLogger::writeLog] Target file not initialized, attempting to initialize with path: " << s_customPath << std::endl;
-			
-			FileLogger* mutableThis = const_cast<FileLogger*>(this);
-			if (!mutableThis->initializeLogFile()) {
-				std::cout << "[FileLogger::writeLog] Failed to initialize target log file, falling back to temporary file" << std::endl;
-				// Fall back to temporary file
-				if (!mutableThis->initializeTempLogFile()) {
-					std::cout << "[FileLogger::writeLog] Failed to initialize temporary log file, discarding write" << std::endl;
-					return;
-				}
-			}
+		attemptSwitchToTarget();
+	}
+	
+	// Write to current file unless we're in error state
+	if (m_state != LoggerState::ERROR_STATE) {
+		writeToCurrentFile(message);
+	}
+}
+
+void FileLogger::handleErrorWrite(const std::string& message) noexcept
+{
+	// Try to recover by initializing temp file
+	std::cout << "[FileLogger::handleErrorWrite] Attempting recovery" << std::endl;
+	if (initializeTempLogFile()) {
+		m_state = LoggerState::TEMP_FILE_ACTIVE;
+		writeToCurrentFile(message);
+	}
+	// If recovery fails, message is lost
+}
+
+void FileLogger::attemptSwitchToTarget() noexcept
+{
+	// Close current temp file
+	if (m_fileStream && m_fileStream->is_open()) {
+		m_fileStream->close();
+	}
+	
+	// Try to initialize target file
+	if (initializeLogFile()) {
+		m_state = LoggerState::TARGET_FILE_ACTIVE;
+		std::cout << "[FileLogger::attemptSwitchToTarget] Successfully switched to target file" << std::endl;
+	} else {
+		std::cout << "[FileLogger::attemptSwitchToTarget] Failed to switch, falling back to temp file" << std::endl;
+		// Fall back to temporary file
+		if (initializeTempLogFile()) {
+			m_state = LoggerState::TEMP_FILE_ACTIVE;
+		} else {
+			m_state = LoggerState::ERROR_STATE;
 		}
 	}
-	// If no custom path is set, we should already have the temp file from constructor
-	// No action needed - just proceed with writing
-	
-	// Check if file is still not valid after any initialization attempts
-	if (!m_isValid || !m_fileStream || !m_fileStream->is_open()) 
-	{
-		std::cout << "[FileLogger::writeLog] FileLogger is not valid after initialization, discarding write" << std::endl;
+}
+
+void FileLogger::writeToCurrentFile(const std::string& message) noexcept
+{
+	if (!m_fileStream || !m_fileStream->is_open()) {
+		m_state = LoggerState::ERROR_STATE;
 		return;
 	}
 	
-	try 
-	{
-		// Calculate required buffer size
-		va_list args_copy;
-		va_copy(args_copy, args);
-		int size = vsnprintf(nullptr, 0, format, args_copy);
-		va_end(args_copy);
-		
-		if (size <= 0) 
-		{
-			std::cout << "[FileLogger::writeLog] Invalid format string or size" << std::endl;
-			return;
+	try {
+		// Direct write to reduce string copies
+		*m_fileStream << getCurrentTimestamp() << " " << message << "\n";
+		m_fileStream->flush(); // Ensure immediate write
+	} catch (const std::exception& e) {
+		std::cout << "[FileLogger::writeToCurrentFile] Exception during write: " << e.what() << std::endl;
+		if (m_fileStream) {
+			m_fileStream->close();
 		}
-		
-		// Create buffer and format message
-		std::vector<char> buffer(size + 1);
-		vsnprintf(buffer.data(), buffer.size(), format, args);
-		
-		// Write to file
-		if (m_fileStream && m_fileStream->is_open()) 
-		{
-			std::string timestamp = getCurrentTimestamp();
-			*m_fileStream << timestamp << " " << buffer.data() << "\n";
-			m_fileStream->flush(); // Ensure immediate write
-		}
-		else
-		{
-			std::cout << "[FileLogger::writeLog] File stream is not open for writing" << std::endl;
-		}
-	}
-	catch (const std::exception& e) 
-	{
-		std::cout << "[FileLogger::writeLog] Exception during write: " << e.what() << std::endl;
-		// Silent failure - logging should not crash the application
+		m_state = LoggerState::ERROR_STATE;
 	}
 }
 
@@ -263,18 +258,44 @@ bool FileLogger::setCustomFilename(const std::string& path) noexcept
 {
 	bool success = false;
 	
-	// Check if custom path is already set
 	if (!s_customPath.empty()) {
 		std::cout << "[FileLogger::setCustomFilename] Custom path already set to: " << s_customPath << ", rejecting new path: " << path << std::endl;
-	} else if (!path.empty()) {
+	} else if (path.empty()) {
+		std::cout << "[FileLogger::setCustomFilename] Empty path provided, ignoring" << std::endl;
+	} else {
 		s_customPath = path;
 		success = true;
 		std::cout << "[FileLogger::setCustomFilename] Custom path set successfully" << std::endl;
-	} else {
-		std::cout << "[FileLogger::setCustomFilename] Empty path provided, ignoring" << std::endl;
 	}
 	
 	return success;
+}
+
+std::string FileLogger::formatMessage(const char* format, va_list args) const noexcept
+{
+	try 
+	{
+		// Calculate required buffer size
+		va_list args_copy;
+		va_copy(args_copy, args);
+		int size = vsnprintf(nullptr, 0, format, args_copy);
+		va_end(args_copy);
+		
+		if (size <= 0) 
+		{
+			return "";
+		}
+		
+		// Create buffer and format message
+		std::vector<char> buffer(size + 1);
+		vsnprintf(buffer.data(), buffer.size(), format, args);
+		
+		return std::string(buffer.data());
+	}
+	catch (...)
+	{
+		return "";
+	}
 }
 
 std::string FileLogger::generateTimestampedFilename() const noexcept
