@@ -616,3 +616,57 @@ void AampStreamSinkManager::UpdateTuningPlayer(PrivateInstanceAAMP *aamp)
 		break;
 	}
 }
+
+//void AampStreamSinkManager::AddMediaHeader(PrivateInstanceAAMP *aamp, int track, std::shared_ptr<MediaHeader> header)
+void AampStreamSinkManager::AddMediaHeader(int track, std::shared_ptr<AampStreamSinkManager::MediaHeader> header)
+{
+	std::lock_guard<std::mutex> lock(mStreamSinkMutex);
+	AAMPLOG_INFO("Entry for track = %d", track);
+
+	//if (!mMediaHeaders.empty())
+	if (mMediaHeaders.count(track))
+	{
+		//AAMPLOG_WARN("AampStreamSinkManager(%p) media headers for track %d have already been set. PLAYER[%d]", this, track, aamp->mPlayerId);
+		//AAMPLOG_WARN("AampStreamSinkManager(%p) Saved media url = %s, mimeType = %s, track = %d, PLAYER[%d]", this, mMediaHeaders[track]->url.c_str(), mMediaHeaders[track]->mimeType.c_str(), track, aamp->mPlayerId);
+		AAMPLOG_WARN("AampStreamSinkManager(%p) media headers for track %d have already been set.", this, track);
+		AAMPLOG_WARN("AampStreamSinkManager(%p) Saved media url = %s, mimeType = %s, track = %d", this, mMediaHeaders[track]->url.c_str(), mMediaHeaders[track]->mimeType.c_str(), track);
+	}
+	else
+	{
+		mMediaHeaders[track] = header;
+		AAMPLOG_MIL("AampStreamSinkManager(%p) Added header for track = %d", this, track);
+		//AAMPLOG_MIL("AampStreamSinkManager(%p) Added header for track = %d, PLAYER[%d]", this, track, aamp->mPlayerId);
+	}
+}
+
+//void AampStreamSinkManager::RemoveMediaHeader(PrivateInstanceAAMP *aamp, int track)
+void AampStreamSinkManager::RemoveMediaHeader(int track)
+{
+	std::lock_guard<std::mutex> lock(mStreamSinkMutex);
+	mMediaHeaders.erase(track);
+	AAMPLOG_MIL("AampStreamSinkManager(%p) Removed header for track = %d", this, track);
+	//AAMPLOG_MIL("AampStreamSinkManager(%p) Removed header for track = %d, PLAYER[%d]", this, track, aamp->mPlayerId);
+}
+
+//std::shared_ptr<MediaHeader> AampStreamSinkManager::GetMediaHeader(PrivateInstanceAAMP *aamp, int track)
+std::shared_ptr<AampStreamSinkManager::AampStreamSinkManager::MediaHeader> AampStreamSinkManager::GetMediaHeader(int track)
+{
+	std::lock_guard<std::mutex> lock(mStreamSinkMutex);
+	auto it = mMediaHeaders.find(track);
+	if (it != mMediaHeaders.end())
+	{
+		AAMPLOG_MIL("AampStreamSinkManager(%p) Returning header for track = %d", this, track);
+		//AAMPLOG_MIL("AampStreamSinkManager(%p) Returning header for track = %d, PLAYER[%d]", this, track, aamp->mPlayerId);
+		return it->second;
+	}
+	return nullptr;
+}
+
+//void AampStreamSinkManager::RemoveMediaHeaders(PrivateInstanceAAMP *aamp)
+void AampStreamSinkManager::RemoveMediaHeaders()
+{
+	std::lock_guard<std::mutex> lock(mStreamSinkMutex);
+	mMediaHeaders.clear();
+	AAMPLOG_MIL("AampStreamSinkManager(%p) Cleared all media headers", this);
+	//AAMPLOG_MIL("AampStreamSinkManager(%p) Cleared all media headers, PLAYER[%d]", this, aamp->mPlayerId);
+}

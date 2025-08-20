@@ -29,6 +29,7 @@
 #include "aampgstplayer.h"
 #include "AampStreamSinkInactive.h"
 
+
 class PrivateInstanceAAMP;
 
 /**
@@ -38,6 +39,20 @@ class PrivateInstanceAAMP;
 class AampStreamSinkManager
 {
 public:
+
+	/**
+	 * @class MediaHeader
+	 * @brief  Class containing MediaHeader data to be cached from the main asset
+	 */
+	class MediaHeader {
+	public:
+		std::string url;           /**< url of the media */
+		std::string mimeType;      /**< mime type of the media */
+
+		MediaHeader() = default;
+		MediaHeader(const std::string& url_, const std::string& mimeType_)
+			: url(url_), mimeType(mimeType_) {}
+	};
 
 	virtual ~AampStreamSinkManager();
 	/**
@@ -143,9 +158,21 @@ public:
 	 */
 	virtual void UpdateTuningPlayer(PrivateInstanceAAMP *aamp);
 
+#if 0//anj
+	virtual void AddMediaHeader(PrivateInstanceAAMP *aamp, int track, std::shared_ptr<MediaHeader> header);
+	virtual void RemoveMediaHeader(PrivateInstanceAAMP *aamp, int track);
+	virtual std::shared_ptr<MediaHeader> GetMediaHeader(PrivateInstanceAAMP *aamp, int track);
+#else
+	virtual void AddMediaHeader(int track, std::shared_ptr<MediaHeader> header);
+	virtual void RemoveMediaHeader(int track);
+	virtual std::shared_ptr<MediaHeader> GetMediaHeader(int track);
+#endif
+
 protected:
 
 	AampStreamSinkManager();
+	//virtual void RemoveMediaHeaders(PrivateInstanceAAMP *aamp);
+	virtual void RemoveMediaHeaders();//anj
 
 private:
 
@@ -177,6 +204,8 @@ private:
 	std::map<PrivateInstanceAAMP*, AAMPGstPlayer*> mActiveGstPlayersMap;					/**< To maintain information on currently active PrivateInstanceAAMP */
 	std::map<PrivateInstanceAAMP*, AampStreamSinkInactive*> mInactiveGstPlayersMap;			/**< To maintain information on currently inactive PrivateInstanceAAMP*/
 	std::map<int, std::string> mEncryptedHeaders;
+	std::map<int, std::shared_ptr<MediaHeader>> mMediaHeaders;
+	//MediaHeader mMediaHeader;
 
 	PipelineMode mPipelineMode;
 
@@ -184,6 +213,7 @@ private:
 
 	PrivateInstanceAAMP *mEncryptedAamp;
 	bool mEncryptedHeadersInjected;
+
 };
 
 #endif /* AAMPSTREAMSINKMANAGER_H */
