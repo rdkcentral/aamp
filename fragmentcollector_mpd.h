@@ -878,6 +878,8 @@ protected:
 	 * @return bool
 	 */
 	bool GetEncryptedHeaders(std::map<int, std::string>& mappedHeaders);
+	//bool ExtractAndAddSubtitleMediaHeader(PrivateInstanceAAMP *aamp);//anj
+	bool ExtractAndAddSubtitleMediaHeader();//anj
 	/**
 	 * @fn GetProfileIdxForBandwidthNotification
 	 * @param bandwidth - bandwidth to identify profile index from list
