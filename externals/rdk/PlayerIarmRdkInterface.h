@@ -39,7 +39,12 @@
 #include "dsAudio.h"
 
 #include "PlayerIARMInterfaceBase.h"
-
+#include <iarmUtil.h>
+#include <libIARM.h>
+#include "manager.hpp"
+#include "host.hpp"
+#include "pwrMgr.h"
+#include <sys/stat.h>
 //class representing IARM interface in rdk
 class PlayerIarmRdkInterface : public PlayerIarmInterfaceBase
 {
@@ -52,7 +57,7 @@ class PlayerIarmRdkInterface : public PlayerIarmInterfaceBase
          * @brief Initialize IARM
          * @param[in] processName string of the name of the process initializing IARM
          */
-        static void IARMInit(const char* processName);
+        static void IARMInit(const char* processName, bool powerEvt);
 
         /**
          * @fn IARMRegisterDsMgrEventHandler

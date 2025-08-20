@@ -21,8 +21,9 @@
  * @file PlayerIARMRDKInterface.cpp
  * @brief player interface with IARM specific to RDK
  */
+#include "PlayerExternalUtils.h"
 #include "PlayerIarmRdkInterface.h"
-
+#include "main_aamp.h"
 #include <hostIf_tr69ReqHandler.h>
 #include "tr181api.h"
 #include "PlayerBase64.h"
@@ -62,6 +63,28 @@ static void HDMIEventHandler(const char *owner, IARM_EventId_t eventId, void *da
 static void ResolutionHandler(const char *owner, IARM_EventId_t eventId, void *data, size_t len);
 static void getActiveInterfaceEventHandler (const char *owner, IARM_EventId_t eventId, void *data, size_t len);
 
+#ifdef IARM_MGR
+void triggerFakeTune()
+{
+	std::thread([](){
+		doFakeTune();
+	}).detach();
+}
+
+void powerModeChangeHandler(const char *owner, IARM_EventId_t eventId, void *data, size_t len) {
+    printf("******** event received **************\n");
+    if (eventId == IARM_BUS_PWRMGR_EVENT_MODECHANGED ) {
+        IARM_Bus_PWRMgr_EventData_t *param = (IARM_Bus_PWRMgr_EventData_t *)data;
+        printf("Event IARM_BUS_PWRMGR_EVENT_MODECHANGED: State Changed %d -- > %d\n",
+                param->data.state.curState, param->data.state.newState);
+        if(param->data.state.curState == IARM_BUS_PWRMGR_POWERSTATE_STANDBY_DEEP_SLEEP && param->data.state.newState != IARM_BUS_PWRMGR_POWERSTATE_STANDBY_DEEP_SLEEP )
+        {
+            printf(" DEEPSLEEP : calling triggerFakeTune  \n");
+	    triggerFakeTune();
+        }
+    }
+}
+#endif // IARM
 /**
  * @brief Singleton for object creation
  */
@@ -74,7 +97,7 @@ PlayerIarmRdkInterface * PlayerIarmRdkInterface::GetPlayerIarmRdkInterfaceInstan
     return s_pPlayerIarmRdkOP;
 }
 
-void PlayerIarmRdkInterface::IARMInit(const char* processName)
+void PlayerIarmRdkInterface::IARMInit(const char* processName, bool powerEvt)
 {
     //char processName[20] = {0};
     IARM_Result_t result;
@@ -87,10 +110,20 @@ void PlayerIarmRdkInterface::IARMInit(const char* processName)
     }
 
     if (IARM_RESULT_SUCCESS == (result = IARM_Bus_Connect())) {
-            printf("IARM Interface Connected in Player\n");
+	    printf("IARM Interface Connected in Player\n");
+	    // Register for power mode change event
+	    if (powerEvt)
+	    {
+		    printf("******** Registering **************\n");
+		    if(isDevicePropertiesPresent())
+		    {
+			    AAMPLOG_WARN("Registering power manager mode change in Player");
+			    IARM_Bus_RegisterEventHandler(IARM_BUS_PWRMGR_NAME, IARM_BUS_PWRMGR_EVENT_MODECHANGED, powerModeChangeHandler);
+		    }
+	    }
     }
     else {
-            printf("IARM Interface Connected Externally :%d\n", result);
+	    printf("IARM Interface Connected Externally :%d\n", result);
     }
 }
 

@@ -46,14 +46,54 @@ AampConfig *gpGlobalConfig=NULL;
 #include "AampSecManager.h"
 #endif
 
+bool isDevicePropertiesPresent() {
+    struct stat buffer;
+    return (stat("/etc/device.properties", &buffer) == 0);
+}
+
 std::mutex PlayerInstanceAAMP::mPrvAampMtx;
+
+void doFakeTune()
+{
+#ifdef IARM_MGR
+	if(isDevicePropertiesPresent())
+	{
+			AAMPLOG_WARN("doFakeTune : Triggering fake tune");
+			std::shared_ptr<PlayerInstanceAAMP> fakeTuneInstance = std::make_shared<PlayerInstanceAAMP>(nullptr, nullptr);
+			std::string jsonStr = R"({
+		    		"preferredDrm": 1,
+		    		"licenseServerUrl": "https://dummy.com"
+			})";
+			fakeTuneInstance->InitAAMPConfig(jsonStr.c_str());
+			fakeTuneInstance->Tune(
+			FAKE_TUNE_URL, // mainManifestUrl
+			true,						  // autoPlay
+			"VOD",						  // contentType
+			true,						  // bFirstAttempt
+			false,						  // bFinalAttempt
+			"trace-id-123",				  // traceUUID
+			false,						  // audioDecoderStreamSync
+			nullptr,					  // refreshManifestUrl
+			0,							  // mpdStichingMode
+			"session-id"				  // sid
+			);
+			AAMPLOG_WARN("After Fake tune call ...");
+			std::thread([fakeTuneInstance]() {
+					AAMPLOG_WARN("Sleeping before calling stop");
+					std::this_thread::sleep_for(std::chrono::seconds(7)); // or your desired duration
+					fakeTuneInstance->Stop();
+					AAMPLOG_WARN("Fake tune instance stopped..");
+					}).detach();
+	}
+#endif
+}
 
 /**
  *  @brief PlayerInstanceAAMP Constructor.
  */
 PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink
 	, std::function< void(const unsigned char *, int, int, int) > exportFrames
-	) : aamp(NULL), sp_aamp(nullptr), mJSBinding_DL(),mAsyncRunning(false),mConfig(),mAsyncTuneEnabled(false),mScheduler()
+	, bool powerEvt	) : aamp(NULL), sp_aamp(nullptr), mJSBinding_DL(),mAsyncRunning(false),mConfig(),mAsyncTuneEnabled(false),mScheduler()
 {
 //Need to do iarm initialization process before reading the tr181 aamp parameters.
 //Using printf here since AAMP logs can only use after creating the global object
@@ -64,7 +104,7 @@ PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink
 
 			snprintf(processName, sizeof(processName), "PLAYER-%u", getpid());
 
-			PlayerIarmRfcInterface::IARMInit(processName);
+			PlayerIarmRfcInterface::IARMInit(processName, powerEvt);
 
 
 			iarmInitialized = true;
