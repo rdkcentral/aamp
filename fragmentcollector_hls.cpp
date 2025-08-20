@@ -7305,7 +7305,6 @@ void StreamAbstractionAAMP_HLS::ChangeMuxedAudioTrackIndex(std::string& index)
 ****************************************************************************/
 void TrackState::getNextFetchRequestUri( void )
 {
-    return;
 	auto ptr = fragmentURI.getPtr();
 	if( ptr )
 	{
@@ -7357,12 +7356,8 @@ bool TrackState::IsExtXByteRange( lstring ptr, size_t *byteRangeLength, size_t *
         return true;
     }
     return false;
-
-    
-//	std::string temp = fragmentInfo.tostring();
-//	int n = sscanf( temp.c_str(), "#EXT-X-BYTERANGE:%zu@%zu", byteRangeLength, byteRangeOffset );
-//	return n>0;
 }
+
 //Enable default text track for Rialto
 void StreamAbstractionAAMP_HLS::SelectSubtitleTrack()
 {
