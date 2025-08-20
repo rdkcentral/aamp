@@ -3524,6 +3524,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 {
 	bool forceSpeedsChangedEvent = false;
 	AAMPStatusType retval = eAAMPSTATUS_OK;
+	std::shared_ptr<AampStreamSinkManager::MediaHeader> subtitleHeader = {};
 	aamp->CurlInit(eCURLINSTANCE_VIDEO, DEFAULT_CURL_INSTANCE_COUNT, aamp->GetNetworkProxy());
 	mCdaiObject->ResetState();
 	aamp->SetLLDashChunkMode(false); //Reset ChunkMode
@@ -4264,11 +4265,11 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 				AampStreamSinkManager::GetInstance().SetEncryptedHeaders(aamp, headers);
 			}
 		}
-		//anjali: check if mMediaHeader is empty and then call
-		AAMPLOG_WARN("ANJ: StreamAbstractionAAMP_MPD: calling ExtractAndAddSubtitleMediaHeader");
+
+		//Check if subtitle MediaHeader is already present in AampStreamSinkManager.
+		//If not, add it.
 		ExtractAndAddSubtitleMediaHeader();
-		//ExtractAndAddSubtitleMediaHeader(aamp);
-		AAMPLOG_WARN("ANJ: StreamAbstractionAAMP_MPD: After calling ExtractAndAddSubtitleMediaHeader");
+		AAMPLOG_WARN("StreamAbstractionAAMP_MPD: added subtitle MediaHeader to AampStreamSinkManager.");
 
 		AAMPLOG_WARN("StreamAbstractionAAMP_MPD: fetch initialization fragments");
 		// We have decided on the first period, calculate the PTSoffset to be applied to
@@ -8965,96 +8966,83 @@ bool StreamAbstractionAAMP_MPD::GetEncryptedHeaders(std::map<int, std::string>& 
  * @brief Find subtitle adaptationSet if available
  * return true for a successful subtitle media header push
  */
-//bool StreamAbstractionAAMP_MPD::ExtractAndAddSubtitleMediaHeader(PrivateInstanceAAMP *aamp)
 bool StreamAbstractionAAMP_MPD::ExtractAndAddSubtitleMediaHeader()
 {
 	bool ret = false;
 	size_t numPeriods = mMPDParseHelper->GetNumberOfPeriods();  //CID:96576 - Removed the  headerCount variable which is initialized but not used
-//	for(int i = mNumberOfTracks - 1; i >= 0; i--)
+	bool subtitleFound = false;
+	unsigned iPeriod = 0;
+
+	while(iPeriod < numPeriods && !subtitleFound)
 	{
-		bool subtitleFound = false;
-		unsigned iPeriod = 0;
-		while(iPeriod < numPeriods && !subtitleFound)
+		IPeriod *period = mpd->GetPeriods().at(iPeriod);
+		if(period != NULL)
 		{
-			IPeriod *period = mpd->GetPeriods().at(iPeriod);
-			if(period != NULL)
+			size_t numAdaptationSets = period->GetAdaptationSets().size();
+			for(unsigned iAdaptationSet = 0; iAdaptationSet < numAdaptationSets && !subtitleFound; iAdaptationSet++)
 			{
-				size_t numAdaptationSets = period->GetAdaptationSets().size();
-				for(unsigned iAdaptationSet = 0; iAdaptationSet < numAdaptationSets && !subtitleFound; iAdaptationSet++)
+				IAdaptationSet *adaptationSet = period->GetAdaptationSets().at(iAdaptationSet);
+				if(adaptationSet != NULL)
 				{
-					IAdaptationSet *adaptationSet = period->GetAdaptationSets().at(iAdaptationSet);
-					if(adaptationSet != NULL)
+					if (mMPDParseHelper->IsContentType(adaptationSet, eMEDIATYPE_SUBTITLE ))
 					{
-						//if (mMPDParseHelper->IsContentType(adaptationSet, (AampMediaType)i ))
-						if (mMPDParseHelper->IsContentType(adaptationSet, eMEDIATYPE_SUBTITLE ))
-						{//anj
-						//	if ((AampMediaType)i == eMEDIATYPE_SUBTITLE)
+						size_t representationIndex = 0;
+						PeriodElement periodElement(adaptationSet, NULL);
+						std::string subtitleMimeType = periodElement.GetMimeType();
+
+						IRepresentation *representation = adaptationSet->GetRepresentation().at(representationIndex);
+						SegmentTemplates segmentTemplates(representation->GetSegmentTemplate(), adaptationSet->GetSegmentTemplate());
+						if( subtitleMimeType.empty() )
+						{
+							AAMPLOG_MIL("eMEDIATYPE_SUBTITLE:subtitleMimeType is empty. Try getting it from representation");
+							PeriodElement periodElement(adaptationSet, representation);
+							subtitleMimeType = periodElement.GetMimeType();
+						}
+						AAMPLOG_MIL("eMEDIATYPE_SUBTITLE:subtitleMimeType = %s", subtitleMimeType.c_str());
+
+						if(segmentTemplates.HasSegmentTemplate())
+						{
+							std::string initialization = segmentTemplates.Getinitialization();
+							if (!initialization.empty())
 							{
-								size_t representationIndex = 0;
-								PeriodElement periodElement(adaptationSet, NULL);
-								std::string subtitleMimeType = periodElement.GetMimeType();
+								std::string fragmentUrl;
+								FragmentDescriptor *fragmentDescriptor = new FragmentDescriptor();
+								std::shared_ptr<AampStreamSinkManager::MediaHeader> subtitleHeader = std::make_shared<AampStreamSinkManager::MediaHeader>();
+								fragmentDescriptor->bUseMatchingBaseUrl = ISCONFIGSET(eAAMPConfig_MatchBaseUrl);
+								fragmentDescriptor->manifestUrl = mMediaStreamContext[eMEDIATYPE_VIDEO]->fragmentDescriptor.manifestUrl;
+								fragmentDescriptor->Bandwidth = representation->GetBandwidth();
+								fragmentDescriptor->ClearMatchingBaseUrl();
+								fragmentDescriptor->AppendMatchingBaseUrl(&mpd->GetBaseUrls());
+								fragmentDescriptor->AppendMatchingBaseUrl(&period->GetBaseURLs());
+								fragmentDescriptor->AppendMatchingBaseUrl(&adaptationSet->GetBaseURLs());
+								fragmentDescriptor->AppendMatchingBaseUrl(&representation->GetBaseURLs());
+								fragmentDescriptor->RepresentationID.assign(representation->GetId());
+								FragmentDescriptor *fragmentDescriptorCMCD(fragmentDescriptor);
 
-								IRepresentation *representation = adaptationSet->GetRepresentation().at(representationIndex);
-								SegmentTemplates segmentTemplates(representation->GetSegmentTemplate(), adaptationSet->GetSegmentTemplate());
-								if( subtitleMimeType.empty() )
-								{
-									AAMPLOG_MIL("ANJ: eMEDIATYPE_SUBTITLE : subtitleMimeType is empty. Try getting it from representation");
-									PeriodElement periodElement(adaptationSet, representation);
-									subtitleMimeType = periodElement.GetMimeType();
-								}
-								AAMPLOG_MIL("ANJ: eMEDIATYPE_SUBTITLE : subtitleMimeType = %s", subtitleMimeType.c_str());
-
-								if(segmentTemplates.HasSegmentTemplate())
-								{
-									std::string initialization = segmentTemplates.Getinitialization();
-									if (!initialization.empty())
-									{
-										std::string fragmentUrl;
-										FragmentDescriptor *fragmentDescriptor = new FragmentDescriptor();
-
-										std::shared_ptr<AampStreamSinkManager::MediaHeader> subtitleHeader = std::make_shared<AampStreamSinkManager::MediaHeader>();
-										//mTsbReaders.emplace((AampMediaType)i, std::make_shared<AampTsbReader>(mAamp, dataMgr, (AampMediaType)i, mTsbSessionId));
-										//mDataManagers[mediaType] = {std::make_shared<AampTsbDataManager>(), 0.0};
-										fragmentDescriptor->bUseMatchingBaseUrl = ISCONFIGSET(eAAMPConfig_MatchBaseUrl);
-										fragmentDescriptor->manifestUrl = mMediaStreamContext[eMEDIATYPE_VIDEO]->fragmentDescriptor.manifestUrl;
-										fragmentDescriptor->Bandwidth = representation->GetBandwidth();
-										fragmentDescriptor->ClearMatchingBaseUrl();
-										fragmentDescriptor->AppendMatchingBaseUrl(&mpd->GetBaseUrls());
-										fragmentDescriptor->AppendMatchingBaseUrl(&period->GetBaseURLs());
-										fragmentDescriptor->AppendMatchingBaseUrl(&adaptationSet->GetBaseURLs());
-										fragmentDescriptor->AppendMatchingBaseUrl(&representation->GetBaseURLs());
-										fragmentDescriptor->RepresentationID.assign(representation->GetId());
-										FragmentDescriptor *fragmentDescriptorCMCD(fragmentDescriptor);
-										
-										ConstructFragmentURL(fragmentUrl,fragmentDescriptorCMCD , initialization);
-										AAMPLOG_MIL("ANJ: [SUBTITLE]: mimeType:%s, init url %s", subtitleMimeType.c_str(), fragmentUrl.c_str());
-										subtitleHeader->url = fragmentUrl;
-										subtitleHeader->mimeType = subtitleMimeType;
-										//AampStreamSinkManager::GetInstance().AddMediaHeader(aamp, eMEDIATYPE_SUBTITLE, subtitleHeader);
-										AampStreamSinkManager::GetInstance().AddMediaHeader(eMEDIATYPE_SUBTITLE, subtitleHeader);
-										AAMPLOG_MIL("ANJ: Saved subtitleHeader");
-										ret = true;
-										//mappedHeaders[i] = fragmentUrl;
-										SAFE_DELETE(fragmentDescriptor);
-										subtitleFound = true;
-									}
-								}
-								// Handle subtitle specific logic
+								ConstructFragmentURL(fragmentUrl,fragmentDescriptorCMCD , initialization);
+								AAMPLOG_MIL("[SUBTITLE]: mimeType:%s, init url %s", subtitleMimeType.c_str(), fragmentUrl.c_str());
+								subtitleHeader->url = fragmentUrl;
+								subtitleHeader->mimeType = subtitleMimeType;
+								AampStreamSinkManager::GetInstance().AddMediaHeader(eMEDIATYPE_SUBTITLE, subtitleHeader);
+								AAMPLOG_MIL("Saved subtitleHeader");
+								ret = true;
+								SAFE_DELETE(fragmentDescriptor);
+								subtitleFound = true;
 							}
 						}
 					}
-					else
-					{
-						AAMPLOG_WARN("adaptationSet is null");  //CID:84361 - Null Returns
-					}
+				}
+				else
+				{
+					AAMPLOG_WARN("adaptationSet is null");  //CID:84361 - Null Returns
 				}
 			}
-			else
-			{
-				AAMPLOG_WARN("period    is null");  //CID:86137 - Null Returns
-			}
-			iPeriod++;
 		}
+		else
+		{
+			AAMPLOG_WARN("period    is null");  //CID:86137 - Null Returns
+		}
+		iPeriod++;
 	}
 	return ret;
 }
@@ -10939,11 +10927,7 @@ void StreamAbstractionAAMP_MPD::GetStreamFormat(StreamOutputFormat &primaryOutpu
 	{
 		subtitleOutputFormat = FORMAT_INVALID;
 	}
-#if 0
-	AAMPLOG_ERR("ANJ: Overwriting subtitleOutputFormat to FORMAT_SUBTITLE_MP4");
-	subtitleOutputFormat = FORMAT_SUBTITLE_MP4;
-	AAMPLOG_ERR("ANJ: Overwritten subtitleOutputFormat to FORMAT_SUBTITLE_MP4");
-#else
+
 	AAMPLOG_ERR("ANJ: Before Overwriting subtitleOutputFormat with the cached mimeType. subtitleOutputFormat = %d", subtitleOutputFormat);
 	subtitleHeader = AampStreamSinkManager::GetInstance().GetMediaHeader(eMEDIATYPE_SUBTITLE);
 	if(subtitleHeader)
@@ -10952,10 +10936,10 @@ void StreamAbstractionAAMP_MPD::GetStreamFormat(StreamOutputFormat &primaryOutpu
 		if (!mimeType.empty())
 		{
 			subtitleOutputFormat = GetSubtitleFormat(mimeType);
+			AAMPLOG_WARN("Forced subtitleOutputFormat[%d] with the cached mimeType[%s]", subtitleOutputFormat, mimeType.c_str());
 		}
 	}
-	AAMPLOG_ERR("ANJ: Overwritten subtitleOutputFormat with the cached mimeType. subtitleOutputFormat = %d", subtitleOutputFormat);
-#endif
+	AAMPLOG_ERR("ANJ: End:Overwritten subtitleOutputFormat with the cached mimeType. subtitleOutputFormat = %d", subtitleOutputFormat);
 }
 
 /**
@@ -11625,7 +11609,7 @@ void StreamAbstractionAAMP_MPD::StartInjection(void)
 	mTrackState = eDISCONTINUITY_FREE;
 	std::shared_ptr<AampStreamSinkManager::MediaHeader> subtitleHeader = {};
 
-	AAMPLOG_WARN("ANJ: mNumberOfTracks = %d", mNumberOfTracks);
+	AAMPLOG_INFO("mNumberOfTracks = %d", mNumberOfTracks);
 
 	for (int iTrack = 0; iTrack < mNumberOfTracks; iTrack++)
 	{
@@ -11642,14 +11626,13 @@ void StreamAbstractionAAMP_MPD::StartInjection(void)
 		}
 	}
 
-#if 1//anj
 	subtitleHeader = AampStreamSinkManager::GetInstance().GetMediaHeader(eMEDIATYPE_SUBTITLE);
 	if(subtitleHeader)
 	{
 		MediaStreamContext *track = mMediaStreamContext[eMEDIATYPE_SUBTITLE];
 		if(track && !track->Enabled())
 		{
-			AAMPLOG_WARN("ANJ: Subtitle track is disabled; url for init segment found: %s, mimeType = %s", subtitleHeader->url.c_str(),  subtitleHeader->mimeType.c_str());
+			AAMPLOG_MIL("Subtitle track is disabled; url for init segment found: %s, mimeType = %s", subtitleHeader->url.c_str(),  subtitleHeader->mimeType.c_str());
 			AampGrowableBuffer buffer("subtitle-init-buffer");
 			std::string effectiveUrl;
 			int http_error = 0;
@@ -11660,15 +11643,14 @@ void StreamAbstractionAAMP_MPD::StartInjection(void)
 		}
 		else
 		{
-			AAMPLOG_WARN("ANJ: subtitle track is enabled. No need to pre-fetch and inject init segment.");
+			AAMPLOG_MIL("subtitle track is enabled. No need to pre-fetch and inject init segment.");
 		}
 			
 	}
 	else
 	{
-		AAMPLOG_WARN("ANJ: No media header available for subtitles.");
+		AAMPLOG_WARN("No media header available for subtitles.");
 	}
-#endif//anj
 }
 
 

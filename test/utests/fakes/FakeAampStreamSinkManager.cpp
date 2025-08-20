@@ -102,3 +102,21 @@ StreamSink* AampStreamSinkManager::GetStoppingStreamSink(PrivateInstanceAAMP *aa
 void AampStreamSinkManager::UpdateTuningPlayer(PrivateInstanceAAMP *aamp)
 {
 }
+
+void AampStreamSinkManager::AddMediaHeader(int track, std::shared_ptr<MediaHeader> header)
+{
+}
+
+void AampStreamSinkManager::RemoveMediaHeader(int track)
+{
+}
+
+std::shared_ptr<MediaHeader> AampStreamSinkManager::GetMediaHeader(int track)
+{
+	return nullptr;
+}
+
+void AampStreamSinkManager::RemoveMediaHeaders()
+{
+}
+

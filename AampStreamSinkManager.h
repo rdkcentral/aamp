@@ -157,22 +157,34 @@ public:
 	 *  @param[in] aamp - the PrivateInstanceAAMP that represents the player being tuned
 	 */
 	virtual void UpdateTuningPlayer(PrivateInstanceAAMP *aamp);
-
-#if 0//anj
-	virtual void AddMediaHeader(PrivateInstanceAAMP *aamp, int track, std::shared_ptr<MediaHeader> header);
-	virtual void RemoveMediaHeader(PrivateInstanceAAMP *aamp, int track);
-	virtual std::shared_ptr<MediaHeader> GetMediaHeader(PrivateInstanceAAMP *aamp, int track);
-#else
+	/**
+	 *  @fn AddMediaHeader
+	 *  @brief Store the media init headers collected from the main VOD asset
+	 *  @param[in] track - the media(subtitle,video or audio) for which the headers to be saved
+	 *  @param[in] header - contains the init url and mimeType of the media
+	 */
 	virtual void AddMediaHeader(int track, std::shared_ptr<MediaHeader> header);
+	/**
+	 *  @fn RemoveMediaHeader
+	 *  @brief Removes the media init headers collected from the main VOD asset
+	 *  @param[in] track - the media(subtitle,video or audio) for which the headers to be removed
+	 */
 	virtual void RemoveMediaHeader(int track);
+	/**
+	 *  @fn GetMediaHeader
+	 *  @brief Returns the media init headers collected from the main VOD asset
+	 *  @param[in] track - the media(subtitle,video or audio) for which the headers to be retrieved
+	 */
 	virtual std::shared_ptr<MediaHeader> GetMediaHeader(int track);
-#endif
 
 protected:
 
 	AampStreamSinkManager();
-	//virtual void RemoveMediaHeaders(PrivateInstanceAAMP *aamp);
-	virtual void RemoveMediaHeaders();//anj
+	/**
+	 *  @fn RemoveMediaHeaders
+	 *  @brief Removes all the media init headers collected from the main VOD asset
+	 */
+	virtual void RemoveMediaHeaders();
 
 private:
 
@@ -204,8 +216,8 @@ private:
 	std::map<PrivateInstanceAAMP*, AAMPGstPlayer*> mActiveGstPlayersMap;					/**< To maintain information on currently active PrivateInstanceAAMP */
 	std::map<PrivateInstanceAAMP*, AampStreamSinkInactive*> mInactiveGstPlayersMap;			/**< To maintain information on currently inactive PrivateInstanceAAMP*/
 	std::map<int, std::string> mEncryptedHeaders;
+
 	std::map<int, std::shared_ptr<MediaHeader>> mMediaHeaders;
-	//MediaHeader mMediaHeader;
 
 	PipelineMode mPipelineMode;
 
