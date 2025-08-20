@@ -48,8 +48,8 @@ KeyID::KeyID() : creationTime(0), isFailedKeyId(false), isPrimaryKeyId(false), d
  *  @brief DrmSessionManager constructor.
  */
 DrmSessionManager::DrmSessionManager(int maxDrmSessions, void *player) : drmSessionContexts(NULL),
-		cachedKeyIDs(NULL), accessToken(NULL),
-		accessTokenLen(0), sessionMgrState(SessionMgrState::eSESSIONMGR_ACTIVE), accessTokenMutex(),
+		cachedKeyIDs(NULL),
+		sessionMgrState(SessionMgrState::eSESSIONMGR_ACTIVE),
 		cachedKeyMutex()
 		,mEnableAccessAttributes(true)
 		,mDrmSessionLock()
@@ -73,7 +73,6 @@ DrmSessionManager::DrmSessionManager(int maxDrmSessions, void *player) : drmSess
  */
 DrmSessionManager::~DrmSessionManager()
 {
-	clearAccessToken();
 	clearSessionData();
 	MW_SAFE_DELETE_ARRAY(drmSessionContexts);
 	MW_SAFE_DELETE_ARRAY(cachedKeyIDs);
@@ -148,19 +147,6 @@ void DrmSessionManager::clearFailedKeyIds()
 			cachedKeyIDs[i].creationTime = 0;
 		}
 		cachedKeyIDs[i].isPrimaryKeyId = false;
-	}
-}
-
-/**
- *  @brief Clean up the memory for accessToken.
- */
-void DrmSessionManager::clearAccessToken()
-{
-	if(accessToken)
-	{
-		free(accessToken);
-		accessToken = NULL;
-		accessTokenLen = 0;
 	}
 }
 

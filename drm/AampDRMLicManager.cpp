@@ -81,7 +81,7 @@ void getConfigs(DrmSessionManager *mDRMSessionManager , PrivateInstanceAAMP *aam
  *  @brief AampDRMLicenseManager constructor.
  */
 AampDRMLicenseManager::AampDRMLicenseManager(int maxDrmSessions, PrivateInstanceAAMP *aamp) : mMaxDRMSessions(maxDrmSessions),
-		aampInstance(aamp), mDRMSessionManager(NULL)
+		aampInstance(aamp), mDRMSessionManager(NULL), accessTokenMutex(), accessToken(NULL), accessTokenLen(0)
 {
     aampInstance = aamp; 
     mDRMSessionManager = new DrmSessionManager(maxDrmSessions ,aampInstance);
@@ -99,6 +99,7 @@ AampDRMLicenseManager::AampDRMLicenseManager(int maxDrmSessions, PrivateInstance
 AampDRMLicenseManager::~AampDRMLicenseManager()
 {
 	SAFE_DELETE(mLicensePrefetcher);
+	clearAccessToken();
 	SAFE_DELETE(mDRMSessionManager);
 	releaseLicenseRenewalThreads();
 	for(int i = 0 ; i < mMaxDRMSessions;i++)  
@@ -106,6 +107,19 @@ AampDRMLicenseManager::~AampDRMLicenseManager()
 		mLicenseDownloader[i].Release();
 	}
 	SAFE_DELETE_ARRAY( mLicenseDownloader );
+}
+
+/**
+ *  @brief Clean up the memory for accessToken.
+ */
+void AampDRMLicenseManager::clearAccessToken()
+{
+       if(accessToken)
+       {
+               free(accessToken);
+               accessToken = NULL;
+               accessTokenLen = 0;
+       }
 }
 
 /**
