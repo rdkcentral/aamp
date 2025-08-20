@@ -110,7 +110,4 @@ std::shared_ptr<AampStreamSinkManager::MediaHeader> AampStreamSinkManager::GetMe
 	return nullptr;
 }
 
-void AampStreamSinkManager::RemoveMediaHeaders()
-{
-}
 

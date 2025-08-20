@@ -1122,6 +1122,11 @@ protected:
 	void SendAdReservationEvent(AAMPEventType type, const std::string& adBreakId,
 							   uint64_t position, AampTime absolutePosition, bool immediate);
 
+	/**
+	 * @brief Send any cached init fragments to be injected on disabled streams to generate the pipeline
+	 */
+	void SendMediaHeaders(void);
+
 	std::mutex mStreamLock;
 	bool abortTsbReader;
 	std::set<std::string> mLangList;

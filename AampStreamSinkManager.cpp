@@ -31,6 +31,7 @@ AampStreamSinkManager::AampStreamSinkManager() :
 	mActiveGstPlayersMap(),
 	mInactiveGstPlayersMap(),
 	mEncryptedHeaders(),
+	mMediaHeaders(),
 	mPipelineMode(ePIPELINEMODE_UNDEFINED),
 	mStreamSinkMutex(),
 	mEncryptedAamp(nullptr),
@@ -77,6 +78,7 @@ void AampStreamSinkManager::Clear(void)
 	mPipelineMode = ePIPELINEMODE_UNDEFINED;
 	mEncryptedHeaders.clear();
 	mEncryptedHeadersInjected = false;
+	mMediaHeaders.clear();
 }
 
 void AampStreamSinkManager::SetSinglePipelineMode(PrivateInstanceAAMP *aamp)
@@ -356,6 +358,7 @@ void AampStreamSinkManager::DeactivatePlayer(PrivateInstanceAAMP *aamp, bool sto
 					AAMPLOG_WARN("AampStreamSinkManager(%p) Single Pipeline mode, deactivating and stopping active PLAYER[%d]", this, aamp->mPlayerId);
 					mEncryptedHeadersInjected = false;
 					mEncryptedHeaders.clear();
+					mMediaHeaders.clear();
 				}
 				else
 				{
@@ -650,11 +653,4 @@ std::shared_ptr<AampStreamSinkManager::AampStreamSinkManager::MediaHeader> AampS
 		return it->second;
 	}
 	return nullptr;
-}
-
-void AampStreamSinkManager::RemoveMediaHeaders()
-{
-	std::lock_guard<std::mutex> lock(mStreamSinkMutex);
-	mMediaHeaders.clear();
-	AAMPLOG_MIL("AampStreamSinkManager(%p) Cleared all media headers", this);
 }

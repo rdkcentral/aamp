@@ -259,6 +259,7 @@ protected:
 			{eAAMPConfig_MPDDiscontinuityHandlingCdvr, true},
 			{eAAMPConfig_ForceMultiPeriodDiscontinuity, false},
 			{eAAMPConfig_SuppressDecode, false},
+			{eAAMPConfig_useRialtoSink, false},
 			{eAAMPConfig_InterruptHandling, false}};
 
 	BoolConfigSettings mBoolConfigSettings;
