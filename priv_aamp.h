@@ -3504,7 +3504,7 @@ public:
 	 *
 	 *   @return true if LL-DASH chunk mode is enabled, false otherwise.
 	 */
-	bool GetLLDashChunkMode() { return mIsChunkMode; }
+	bool GetLLDashChunkMode();
 
 	/**
 	 *   @brief Is iframe extraction enabled
