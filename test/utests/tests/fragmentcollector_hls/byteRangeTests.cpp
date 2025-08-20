@@ -112,8 +112,8 @@ TEST_F(byteRangeTests, withoutbyterange) {
 	EXPECT_FALSE(status);
 }
 
-/* Note: this is not a valid variation to expect in HLS playlists, currently not distinguished by IsExtXByteRange
 TEST_F(byteRangeTests, withoutvalue) {
+	GTEST_SKIP(); // for now skip this invalid variation
 	size_t byteRangeLength = 0;
 	size_t byteRangeOffset = 0;
 	const char *raw = "#EXT-X-BYTERANGE:";
@@ -123,7 +123,6 @@ TEST_F(byteRangeTests, withoutvalue) {
 	EXPECT_EQ(byteRangeLength,0);
 	EXPECT_EQ(byteRangeOffset,0);
 }
-*/
 
 TEST_F(byteRangeTests, withbytelength) {
 	size_t byteRangeLength = 0;
