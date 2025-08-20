@@ -400,4 +400,3 @@ TEST_F(FunctionalTests, SetLenAfterAppendBytesTest)
     EXPECT_DEATH(buffer.SetLen(100), _);
     EXPECT_EQ(buffer.GetLen(), srcLen);     // Check that length has not changed
 }
-

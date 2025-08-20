@@ -1282,6 +1282,7 @@ protected:
 	bool mShortAdOffsetCalc;
 	AampTime mNextPts;					/*For PTS restamping*/
 	std::vector<std::unique_ptr<aamp::AampTrackWorker>> mTrackWorkers;	/**< Track workers for fetching fragments*/
+	bool mIsFinalFirstPTS; /**< Flag to indicate if the first PTS is final or not */
 };
 
 #endif //FRAGMENTCOLLECTOR_MPD_H_
