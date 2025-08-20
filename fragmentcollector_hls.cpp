@@ -1386,8 +1386,9 @@ bool TrackState::FetchFragmentHelper(int &http_error, bool &decryption_error, bo
 			}
 			else
 			{
-				// increment the buffer value after download
-				playTargetBufferCalc += fragmentDurationSeconds;
+				// Track the end of buffer from the last downloaded fragment
+				// Use the playlistPosition instead of a rolling count in case segments are dropped
+				playTargetBufferCalc = playlistCulledOffset + playlistPosition + fragmentDurationSeconds;
 			}
 
 			if((eTRACK_VIDEO == type)  && (aamp->IsFogTSBSupported()))
@@ -1579,7 +1580,6 @@ void TrackState::FetchFragment()
 				// should continue with next fragment,no retry needed .
 				if (eTRACK_VIDEO == type && http_error != 0 && aamp->CheckABREnabled())
 				{
-					context->lastSelectedProfileIndex = context->currentProfileIndex;
 					// Check whether player reached rampdown limit, then rampdown
 					if(!context->CheckForRampDownLimitReached())
 					{
@@ -2369,15 +2369,6 @@ void TrackState::ProcessPlaylist(AampGrowableBuffer& newPlaylist, int http_error
 		if (newPlaylist.GetPtr() )
 		{
 			newPlaylist.Free();
-		}
-		//Refresh happened due to ABR switching, we need to reset the profileIndex
-		//so that ABR can be attempted later
-		if (playlist.GetPtr() )
-		{
-			if (refreshPlaylist)
-			{
-				context->currentProfileIndex = context->lastSelectedProfileIndex;
-			}
 		}
 
 		if (aamp->DownloadsAreEnabled())
@@ -3452,7 +3443,6 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 			currentProfileIndex = GetDesiredProfile(false);
 			HlsStreamInfo *streamInfo = (HlsStreamInfo*)GetStreamInfo(currentProfileIndex);
 			long bandwidthBitsPerSecond = streamInfo->bandwidthBitsPerSecond;
-			lastSelectedProfileIndex = currentProfileIndex;
 			aamp->ResetCurrentlyAvailableBandwidth(bandwidthBitsPerSecond, trickplayMode, currentProfileIndex);
 			aamp->profiler.SetBandwidthBitsPerSecondVideo(bandwidthBitsPerSecond);
 			AAMPLOG_INFO("Selected BitRate: %ld, Max BitRate: %ld", bandwidthBitsPerSecond, GetStreamInfo(GetMaxBWProfile())->bandwidthBitsPerSecond);
@@ -3510,6 +3500,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 			}
 			if(!video->playlist.GetLen() )
 			{
+				int lastSelectedProfileIndex = currentProfileIndex;
 				int limitCount = 0;
 				int numberOfLimit = GETCONFIGVALUE(eAAMPConfig_InitRampDownLimit);
 				do{
@@ -4030,6 +4021,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 		{
 			trackState[iTrack]->playTarget = seekPosition;
 			trackState[iTrack]->playTargetBufferCalc = seekPosition;
+			trackState[iTrack]->playlistCulledOffset = 0;
 		}
 
 		if ((video->enabled && video->mDuration == 0.0f) || (audio->enabled && audio->mDuration == 0.0f))
@@ -4409,6 +4401,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 			if (aamp->culledSeconds > 0)
 			{
 				trackState[iTrack]->playTargetBufferCalc = aamp->culledSeconds + seekPosition;
+				trackState[iTrack]->playlistCulledOffset = aamp->culledSeconds;
 			}
 		}
 
@@ -4770,7 +4763,6 @@ void TrackState::RunFetchLoop()
 			// Avoid ABR if we have seen or just pushed an init fragment
 			if((eTRACK_VIDEO == type) && (!context->trickplayMode) && !(mInjectInitFragment || mSkipAbr))
 			{
-				context->lastSelectedProfileIndex = context->currentProfileIndex;
 				// if rampdown is attempted to any failure , no abr change to be attempted .
 				// else profile be reset to top one leading to looping of bad fragment
 				if(!mCheckForRampdown)
@@ -4889,7 +4881,7 @@ StreamAbstractionAAMP_HLS::StreamAbstractionAAMP_HLS(class PrivateInstanceAAMP *
 : StreamAbstractionAAMP(aamp, id3Handler),
 	rate(rate), maxIntervalBtwPlaylistUpdateMs(DEFAULT_INTERVAL_BETWEEN_PLAYLIST_UPDATES_MS), mainManifest("mainManifest"), allowsCache(false), seekPosition(seekpos), mTrickPlayFPS(),
 	enableThrottle(false), firstFragmentDecrypted(false), mStartTimestampZero(false), mNumberOfTracks(0), midSeekPtsOffset(0),
-	lastSelectedProfileIndex(0), segDLFailCount(0), segDrmDecryptFailCount(0), mMediaCount(0),mProfileCount(0),
+	segDLFailCount(0), segDrmDecryptFailCount(0), mMediaCount(0),mProfileCount(0),
 	mLangList(),mIframeAvailable(false), thumbnailManifest("thumbnailManifest"), indexedTileInfo(),
 	mFirstPTS(0),mDiscoCheckMutex(),
 	mPtsOffsetUpdate{ptsUpdate},
@@ -4931,7 +4923,8 @@ TrackState::TrackState(TrackType type, StreamAbstractionAAMP_HLS* parent, Privat
 		) :
 		MediaTrack(type, aamp, name),
 		currentIdx(0), indexFirstMediaSequenceNumber(0), fragmentURI(), lastPlaylistDownloadTimeMS(0), lastPlaylistIndexedTimeMS(0),
-		byteRangeLength(0), byteRangeOffset(0), nextMediaSequenceNumber(0), playlistPosition(0), playTarget(0),playTargetBufferCalc(0),lastDownloadedIFrameTarget(-1),
+		byteRangeLength(0), byteRangeOffset(0), nextMediaSequenceNumber(0), playlistPosition(0), playTarget(0),playTargetBufferCalc(0),playlistCulledOffset(0),
+		lastDownloadedIFrameTarget(-1),
 		streamOutputFormat(FORMAT_INVALID),
 		playTargetOffset(0),
 		discontinuity(false),
@@ -7419,6 +7412,7 @@ bool StreamAbstractionAAMP_HLS::SelectPreferredTextTrack(TextTrackInfo& selected
 	}
 	return bestTrackFound;
 }
+
 /*
  * @fn DoEarlyStreamSinkFlush
  * @brief Checks if the stream need to be flushed or not
