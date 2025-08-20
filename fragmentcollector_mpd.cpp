@@ -4295,15 +4295,11 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 		// Rialto does not support dynamic streams, so we need to extract and save the 
 		// subtitle init fragment from the main vod asset, so that it can be injected
 		// later if a pre-roll advert is played that does not contain subtitles.
-		if ( ISCONFIGSET(eAAMPConfig_useRialtoSink) && !mIsLiveStream)
+		if (ISCONFIGSET(eAAMPConfig_useRialtoSink) && 
+		   !mIsLiveStream &&
+		   (nullptr == AampStreamSinkManager::GetInstance().GetMediaHeader(eMEDIATYPE_SUBTITLE)))
 		{
-			//Check if subtitle MediaHeader is already present in AampStreamSinkManager.
-			//If not, add it.
-			subtitleHeader = AampStreamSinkManager::GetInstance().GetMediaHeader(eMEDIATYPE_SUBTITLE);
-			if(!subtitleHeader)
-			{
-				ExtractAndAddSubtitleMediaHeader();
-			}
+			ExtractAndAddSubtitleMediaHeader();
 		}
 
 		AAMPLOG_WARN("StreamAbstractionAAMP_MPD: fetch initialization fragments");
@@ -10946,30 +10942,32 @@ void StreamAbstractionAAMP_MPD::GetStreamFormat(StreamOutputFormat &primaryOutpu
 	// This is again a dirty hack, the check for PTS restamp enabled. TODO: We need to remove this in future
 	// For cases where subtitles is enabled mid-playback, we need to configure the pipeline at the beginning. FORMAT_SUBTITLE_MP4 will be set
 	if (mMediaStreamContext[eMEDIATYPE_SUBTITLE] && 
-		(mMediaStreamContext[eMEDIATYPE_SUBTITLE]->type != eTRACK_AUX_AUDIO) &&
-		(mMediaStreamContext[eMEDIATYPE_SUBTITLE]->enabled || ISCONFIGSET(eAAMPConfig_EnablePTSReStamp)))
+		mMediaStreamContext[eMEDIATYPE_SUBTITLE]->type != eTRACK_AUX_AUDIO)
 	{
-		AAMPLOG_WARN("Entering GetCurrentMimeType");
-		auto mimeType = GetCurrentMimeType(eMEDIATYPE_SUBTITLE);
-		if (!mimeType.empty())
+		if (mMediaStreamContext[eMEDIATYPE_SUBTITLE]->enabled || ISCONFIGSET(eAAMPConfig_EnablePTSReStamp))
 		{
-			subtitleOutputFormat = GetSubtitleFormat(mimeType);
-		}
-		// Ensure thatsubtitleOutputFormat is set to FORMAT_INVALID rather than FORMAT_SUBTITLE_MP4 when
-		// presenting inband CC with PTS restamping enabled
-		else if(isInBandCcAvailable())
-		{
-			subtitleOutputFormat = FORMAT_INVALID;
-		}
-		else
-		{
-			AAMPLOG_INFO("mimeType empty");
-			subtitleOutputFormat = FORMAT_SUBTITLE_MP4;
+			AAMPLOG_WARN("Entering GetCurrentMimeType");
+			auto mimeType = GetCurrentMimeType(eMEDIATYPE_SUBTITLE);
+			if (!mimeType.empty())
+			{
+				subtitleOutputFormat = GetSubtitleFormat(mimeType);
+			}
+			// Ensure thatsubtitleOutputFormat is set to FORMAT_INVALID rather than FORMAT_SUBTITLE_MP4 when
+			// presenting inband CC with PTS restamping enabled
+			else if(isInBandCcAvailable())
+			{
+				subtitleOutputFormat = FORMAT_INVALID;
+			}
+			else
+			{
+				AAMPLOG_INFO("mimeType empty");
+				subtitleOutputFormat = FORMAT_SUBTITLE_MP4;
+			}
 		}
 
- 		// If subtitles are not enabled, we need to have an init fragment to inject otherwise
+		// If subtitles are not enabled, we need to have an init fragment to inject otherwise
 		// a complete pipeline cannot be created; and Rialto will not start playing video
-		if (ISCONFIGSET(eAAMPConfig_useRialtoSink) && !mMediaStreamContext[eMEDIATYPE_SUBTITLE]->enabled)
+		if (!mMediaStreamContext[eMEDIATYPE_SUBTITLE]->enabled && ISCONFIGSET(eAAMPConfig_useRialtoSink))
 		{
 			std::shared_ptr<AampStreamSinkManager::MediaHeader> subtitleHeader = AampStreamSinkManager::GetInstance().GetMediaHeader(eMEDIATYPE_SUBTITLE);
 			if(subtitleHeader && !subtitleHeader->mimeType.empty())

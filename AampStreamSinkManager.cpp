@@ -627,12 +627,14 @@ void AampStreamSinkManager::AddMediaHeader(int track, std::shared_ptr<AampStream
 
 	if (mMediaHeaders.count(track))
 	{
-		AAMPLOG_WARN("AampStreamSinkManager(%p) media headers for track %d have already been set. url[%s], mimeType[%s]", this, track, mMediaHeaders[track]->url.c_str(), mMediaHeaders[track]->mimeType.c_str());
+		AAMPLOG_WARN("AampStreamSinkManager(%p) media headers for track[%d] have already been set url[%s] mimeType[%s] injected[%d]", 
+			this, track, mMediaHeaders[track]->url.c_str(), mMediaHeaders[track]->mimeType.c_str(), mMediaHeaders[track]->injected);
 	}
 	else
 	{
 		mMediaHeaders[track] = std::move(header);
-		AAMPLOG_MIL("AampStreamSinkManager(%p) Added header for track = %d", this, track);
+		AAMPLOG_INFO("AampStreamSinkManager(%p) Added header for track[%d] url[%s] mimeType[%s] injected[%d]",
+			this, track, mMediaHeaders[track]->url.c_str(), mMediaHeaders[track]->mimeType.c_str(), mMediaHeaders[track]->injected);
 	}
 }
 
@@ -640,7 +642,7 @@ void AampStreamSinkManager::RemoveMediaHeader(int track)
 {
 	std::lock_guard<std::mutex> lock(mStreamSinkMutex);
 	mMediaHeaders.erase(track);
-	AAMPLOG_MIL("AampStreamSinkManager(%p) Removed header for track = %d", this, track);
+	AAMPLOG_INFO("AampStreamSinkManager(%p) Removed header for track[%d]", this, track);
 }
 
 std::shared_ptr<AampStreamSinkManager::AampStreamSinkManager::MediaHeader> AampStreamSinkManager::GetMediaHeader(int track)
@@ -649,7 +651,8 @@ std::shared_ptr<AampStreamSinkManager::AampStreamSinkManager::MediaHeader> AampS
 	auto it = mMediaHeaders.find(track);
 	if (it != mMediaHeaders.end())
 	{
-		AAMPLOG_MIL("AampStreamSinkManager(%p) Returning header for track = %d", this, track);
+		AAMPLOG_INFO("AampStreamSinkManager(%p) track[%d] url[%s] mimeType[%s] injected[%d]", 
+			this, track, it->second->url.c_str(), it->second->mimeType.c_str(), it->second->injected);
 		return it->second;
 	}
 	return nullptr;
