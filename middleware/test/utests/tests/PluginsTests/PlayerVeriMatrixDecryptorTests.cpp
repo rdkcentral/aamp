@@ -16,30 +16,29 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-#include "gstaampwidevinedecryptor.h"
-
+#include "gstverimatrixdecryptor.h"
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 class PluginsTests : public ::testing::Test
 {
 protected:
-	//GstAampwidevinedecryptor *aampwidevinedecryptor;
+	//GstAampverimatrixdecryptor *aampverimatrixdecryptor;
+	
 	void SetUp() override
 	{
-		//aampwidevinedecryptor = new GstAampwidevinedecryptor();
+		//aampverimatrixdecryptor = new GstAampverimatrixdecryptor();
 	}
 
 	void TearDown() override
-	{	
-		//delete aampwidevinedecryptor;
+	{
+		//delete aampverimatrixdecryptor;
 	}
 public:
 };
 
-TEST_F(PluginsTests, TestWidevineDecryptor_Init)
+TEST_F(PluginsTests, TestVeriMatrixDecryptor_Init)
 {
-	//GstAampwidevinedecryptor *aampwidevinedecryptor = NULL;
-	//gst_aampwidevinedecryptor_init(aampwidevinedecryptor);
+	//GstAampverimatrixdecryptor *aampverimatrixdecryptor = NULL;
+	//gst_aampverimatrixdecryptor_init(aampverimatrixdecryptor);
 }
