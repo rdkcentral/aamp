@@ -628,7 +628,7 @@ void AampStreamSinkManager::AddMediaHeader(int track, std::shared_ptr<AampStream
 	}
 	else
 	{
-		mMediaHeaders[track] = header;
+		mMediaHeaders[track] = std::move(header);
 		AAMPLOG_MIL("AampStreamSinkManager(%p) Added header for track = %d", this, track);
 	}
 }
