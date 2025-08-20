@@ -4386,6 +4386,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 			if(ISCONFIGSET(eAAMPConfig_MidFragmentSeek))
 			{
 				midSeekPtsOffset = seekPosition - video->playTarget.inSeconds();
+				AAMPLOG_WARN("[SeekMid] midSeekPtsOffset : %f seekPosition %f playTarget %f", midSeekPtsOffset.inSeconds(),seekPosition.inSeconds(), video->playTarget.inSeconds());
 				if(midSeekPtsOffset > video->fragmentDurationSeconds/2)
 				{
 					if(aamp->GetInitialBufferDuration() == 0)
@@ -4658,6 +4659,7 @@ double StreamAbstractionAAMP_HLS::GetFirstPTS()
 		if(ISCONFIGSET(eAAMPConfig_MidFragmentSeek))
 		{
 			pts += midSeekPtsOffset;
+			AAMPLOG_WARN("midSeekPtsOffset : %f", midSeekPtsOffset.inSeconds());
 		}
 	}
 	else

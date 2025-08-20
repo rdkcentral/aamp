@@ -2589,6 +2589,9 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 								if(ISCONFIGSET(eAAMPConfig_MidFragmentSeek))
 								{
 									mFirstPTS += mVideoPosRemainder;
+									
+									AAMPLOG_INFO("[%s] [SeekMid] mFirstPTS %f -> %f ", pMediaStreamContext->name, mFirstPTS, mVideoPosRemainder);
+
 									if(mVideoPosRemainder > fragmentDuration/2)
 									{
 										if(aamp->GetInitialBufferDuration() == 0)
@@ -2697,7 +2700,7 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 						if(ISCONFIGSET(eAAMPConfig_MidFragmentSeek))
 						{
 							mVideoPosRemainder = skipTime;
-							AAMPLOG_INFO("[%s] mFirstPTS %f  mVideoPosRemainder %f", pMediaStreamContext->name, mFirstPTS, mVideoPosRemainder);
+							AAMPLOG_INFO("[%s] [SeekMid] mFirstPTS %f  mVideoPosRemainder %f", pMediaStreamContext->name, mFirstPTS, mVideoPosRemainder);
 						}
 						break;
 					}
@@ -2724,7 +2727,7 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 						if(ISCONFIGSET(eAAMPConfig_MidFragmentSeek))
 						{
 							mVideoPosRemainder = skipTime;
-							AAMPLOG_INFO("[%s] mFirstPTS %f  mVideoPosRemainder %f", pMediaStreamContext->name, mFirstPTS, mVideoPosRemainder);
+							AAMPLOG_INFO("[%s] [SeekMid] mFirstPTS %f  mVideoPosRemainder %f", pMediaStreamContext->name, mFirstPTS, mVideoPosRemainder);
 						}
 						break;
 					}
@@ -4134,10 +4137,14 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 			if(!ISCONFIGSET(eAAMPConfig_MidFragmentSeek))
 			{
 				seekPosition = mMediaStreamContext[eMEDIATYPE_VIDEO]->fragmentTime;
+				AAMPLOG_INFO("[SeekMid] seekPosition %f  fragmentTime %f",seekPosition,mMediaStreamContext[eMEDIATYPE_VIDEO]->fragmentTime);
+
 			}
 			else
 			{
 				seekPosition = mMediaStreamContext[eMEDIATYPE_VIDEO]->fragmentTime + mVideoPosRemainder;
+				AAMPLOG_INFO("[SeekMid] seekPosition %f  fragmentTime %f",seekPosition,mMediaStreamContext[eMEDIATYPE_VIDEO]->fragmentTime);
+
 			}
 
 			for (int i = 0; i < mNumberOfTracks; i++)
