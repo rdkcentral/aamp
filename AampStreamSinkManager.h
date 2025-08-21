@@ -48,10 +48,11 @@ public:
 	public:
 		std::string url;           /**< url of the media */
 		std::string mimeType;      /**< mime type of the media */
+		bool injected;             /**< indicates if the media header has been injected */
 
 		MediaHeader() = default;
 		MediaHeader(const std::string& url_, const std::string& mimeType_)
-			: url(url_), mimeType(mimeType_) {}
+			: url(url_), mimeType(mimeType_), injected(false) {}
 	};
 
 	virtual ~AampStreamSinkManager();
@@ -180,11 +181,6 @@ public:
 protected:
 
 	AampStreamSinkManager();
-	/**
-	 *  @fn RemoveMediaHeaders
-	 *  @brief Removes all the media init headers collected from the main VOD asset
-	 */
-	virtual void RemoveMediaHeaders();
 
 private:
 

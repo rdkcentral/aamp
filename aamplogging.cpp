@@ -145,8 +145,7 @@ void logprintf(AAMP_LogLevel logLevelIndex, const char* file, int line, const ch
 						ethanLogLevel = ETHAN_LOG_MILESTONE;
 						break;
 				}
-				vprintf(format_ptr, args);//anj
-				//vethanlog(ethanLogLevel,NULL,NULL,-1,format_ptr, args);
+				vethanlog(ethanLogLevel,NULL,NULL,-1,format_ptr, args);
 			}
 			else
 			{

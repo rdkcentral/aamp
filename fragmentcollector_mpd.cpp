@@ -4292,17 +4292,14 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 			}
 		}
 
-		AAMPLOG_ERR("ANJ: mIsLiveStream = %d, ISCONFIGSET(eAAMPConfig_useRialtoSink) = %d", mIsLiveStream, ISCONFIGSET(eAAMPConfig_useRialtoSink));
-		if ( ISCONFIGSET(eAAMPConfig_useRialtoSink) && !mIsLiveStream)
+		// Rialto does not support dynamic streams, so we need to extract and save the 
+		// subtitle init fragment from the main vod asset, so that it can be injected
+		// later if a pre-roll advert is played that does not contain subtitles.
+		if (ISCONFIGSET(eAAMPConfig_useRialtoSink) && 
+		   !mIsLiveStream &&
+		   (nullptr == AampStreamSinkManager::GetInstance().GetMediaHeader(eMEDIATYPE_SUBTITLE)))
 		{
-			//Check if subtitle MediaHeader is already present in AampStreamSinkManager.
-			//If not, add it.
-			subtitleHeader = AampStreamSinkManager::GetInstance().GetMediaHeader(eMEDIATYPE_SUBTITLE);
-			if(!subtitleHeader)
-			{
-				ExtractAndAddSubtitleMediaHeader();
-				AAMPLOG_WARN("StreamAbstractionAAMP_MPD: added subtitle MediaHeader to AampStreamSinkManager.");
-			}
+			ExtractAndAddSubtitleMediaHeader();
 		}
 
 		AAMPLOG_WARN("StreamAbstractionAAMP_MPD: fetch initialization fragments");
@@ -10914,8 +10911,6 @@ StreamOutputFormat GetSubtitleFormat(std::string mimeType)
  */
 void StreamAbstractionAAMP_MPD::GetStreamFormat(StreamOutputFormat &primaryOutputFormat, StreamOutputFormat &audioOutputFormat, StreamOutputFormat &auxOutputFormat, StreamOutputFormat &subtitleOutputFormat)
 {
-	std::shared_ptr<AampStreamSinkManager::MediaHeader> subtitleHeader = {};
-
 	if(mMediaStreamContext[eMEDIATYPE_VIDEO] && mMediaStreamContext[eMEDIATYPE_VIDEO]->enabled )
 	{
 		primaryOutputFormat = FORMAT_ISO_BMFF;
@@ -10946,46 +10941,49 @@ void StreamAbstractionAAMP_MPD::GetStreamFormat(StreamOutputFormat &primaryOutpu
 	//TODO - check whether the ugly hack above is in operation
 	// This is again a dirty hack, the check for PTS restamp enabled. TODO: We need to remove this in future
 	// For cases where subtitles is enabled mid-playback, we need to configure the pipeline at the beginning. FORMAT_SUBTITLE_MP4 will be set
-	if (mMediaStreamContext[eMEDIATYPE_SUBTITLE] && (mMediaStreamContext[eMEDIATYPE_SUBTITLE]->enabled || (ISCONFIGSET(eAAMPConfig_EnablePTSReStamp) && (!(ISCONFIGSET(eAAMPConfig_useRialtoSink)))))
-			&& mMediaStreamContext[eMEDIATYPE_SUBTITLE]->type != eTRACK_AUX_AUDIO)
+	if (mMediaStreamContext[eMEDIATYPE_SUBTITLE] && 
+		mMediaStreamContext[eMEDIATYPE_SUBTITLE]->type != eTRACK_AUX_AUDIO)
 	{
-		AAMPLOG_WARN("Entering GetCurrentMimeType");
-		auto mimeType = GetCurrentMimeType(eMEDIATYPE_SUBTITLE);
-		if (!mimeType.empty())
+		if (mMediaStreamContext[eMEDIATYPE_SUBTITLE]->enabled || ISCONFIGSET(eAAMPConfig_EnablePTSReStamp))
 		{
-			subtitleOutputFormat = GetSubtitleFormat(mimeType);
+			AAMPLOG_WARN("Entering GetCurrentMimeType");
+			auto mimeType = GetCurrentMimeType(eMEDIATYPE_SUBTITLE);
+			if (!mimeType.empty())
+			{
+				subtitleOutputFormat = GetSubtitleFormat(mimeType);
+			}
+			// Ensure thatsubtitleOutputFormat is set to FORMAT_INVALID rather than FORMAT_SUBTITLE_MP4 when
+			// presenting inband CC with PTS restamping enabled
+			else if(isInBandCcAvailable())
+			{
+				subtitleOutputFormat = FORMAT_INVALID;
+			}
+			else
+			{
+				AAMPLOG_INFO("mimeType empty");
+				subtitleOutputFormat = FORMAT_SUBTITLE_MP4;
+			}
 		}
-		// Ensure thatsubtitleOutputFormat is set to FORMAT_INVALID rather than FORMAT_SUBTITLE_MP4 when
-		// presenting inband CC with PTS restamping enabled
-		else if(isInBandCcAvailable())
+
+		// If subtitles are not enabled, we need to have an init fragment to inject otherwise
+		// a complete pipeline cannot be created; and Rialto will not start playing video
+		if (!mMediaStreamContext[eMEDIATYPE_SUBTITLE]->enabled && ISCONFIGSET(eAAMPConfig_useRialtoSink))
 		{
-			subtitleOutputFormat = FORMAT_INVALID;
-		}
-		else
-		{
-			AAMPLOG_INFO("mimeType empty");
-			subtitleOutputFormat = FORMAT_SUBTITLE_MP4;
+			std::shared_ptr<AampStreamSinkManager::MediaHeader> subtitleHeader = AampStreamSinkManager::GetInstance().GetMediaHeader(eMEDIATYPE_SUBTITLE);
+			if(subtitleHeader && !subtitleHeader->mimeType.empty())
+			{
+				subtitleOutputFormat = GetSubtitleFormat(subtitleHeader->mimeType);
+				AAMPLOG_INFO("Using saved subtitle mime type, subtitleOutputFormat = %d", subtitleOutputFormat);
+			}
+			else
+			{
+				subtitleOutputFormat = FORMAT_INVALID;
+			}
 		}
 	}
 	else
 	{
 		subtitleOutputFormat = FORMAT_INVALID;
-	}
-
-	AAMPLOG_ERR("ANJ: mIsLiveStream = %d, ISCONFIGSET(eAAMPConfig_useRialtoSink) = %d", mIsLiveStream, ISCONFIGSET(eAAMPConfig_useRialtoSink));
-	if ( ISCONFIGSET(eAAMPConfig_useRialtoSink) && !mIsLiveStream)
-	{
-		AAMPLOG_WARN("Non Live. update subtitleOutputFormat[%d] if subtitle Media headers are cached", subtitleOutputFormat);
-		subtitleHeader = AampStreamSinkManager::GetInstance().GetMediaHeader(eMEDIATYPE_SUBTITLE);
-		if(subtitleHeader)
-		{
-			const auto & mimeType = subtitleHeader->mimeType;
-			if (!mimeType.empty())
-			{
-				subtitleOutputFormat = GetSubtitleFormat(mimeType);
-				AAMPLOG_WARN("Forced subtitleOutputFormat[%d] with the cached mimeType[%s]", subtitleOutputFormat, mimeType.c_str());
-			}
-		}
 	}
 }
 
@@ -11649,15 +11647,48 @@ void StreamAbstractionAAMP_MPD::StopInjection(void)
 }
 
 /**
+ * @brief Send any cached init fragments to be injected on disabled streams to generate the pipeline
+ */
+void StreamAbstractionAAMP_MPD::SendMediaHeaders()
+{
+	for (int iTrack = 0; iTrack < mMaxTracks; iTrack++)
+	{
+		MediaStreamContext *track = mMediaStreamContext[iTrack];
+		if(track && !track->Enabled())
+		{
+			std::shared_ptr<AampStreamSinkManager::MediaHeader> header = AampStreamSinkManager::GetInstance().GetMediaHeader(iTrack);
+			if(header && !header->injected)
+			{
+				AAMPLOG_INFO("Track is disabled; url for init segment found: %s", header->url.c_str());
+				AampGrowableBuffer buffer("init-buffer");
+				std::string effectiveUrl;
+				int http_error = 0;
+				if (aamp->GetFile(header->url, (AampMediaType) iTrack, &buffer, effectiveUrl, &http_error, NULL, NULL, eCURLINSTANCE_VIDEO + iTrack))
+				{
+					aamp->SendStreamTransfer((AampMediaType) iTrack, &buffer, 0, 0, 0, 0, true, false);
+				}
+				else
+				{
+					AAMPLOG_ERR("Failed to download init segment: %s", header->url.c_str());
+				}
+				AampStreamSinkManager::GetInstance().RemoveMediaHeader(iTrack);
+
+				// Update the header with injected set
+				header->injected = true;
+				AampStreamSinkManager::GetInstance().AddMediaHeader(iTrack, header);
+			}
+		}
+	}
+}
+
+/**
  *   @brief  Start injecting fragments to StreamSink.
  */
 void StreamAbstractionAAMP_MPD::StartInjection(void)
 {
 	mTrackState = eDISCONTINUITY_FREE;
-	std::shared_ptr<AampStreamSinkManager::MediaHeader> subtitleHeader = {};
 
-	AAMPLOG_INFO("mNumberOfTracks = %d", mNumberOfTracks);
-
+	SendMediaHeaders();
 	for (int iTrack = 0; iTrack < mNumberOfTracks; iTrack++)
 	{
 		MediaStreamContext *track = mMediaStreamContext[iTrack];
@@ -11670,36 +11701,6 @@ void StreamAbstractionAAMP_MPD::StartInjection(void)
 				track->playContext->reset();
 			}
 			track->StartInjectLoop();
-		}
-	}
-
-	AAMPLOG_ERR("ANJ: mIsLiveStream = %d, ISCONFIGSET(eAAMPConfig_useRialtoSink) = %d", mIsLiveStream, ISCONFIGSET(eAAMPConfig_useRialtoSink));
-	if ( ISCONFIGSET(eAAMPConfig_useRialtoSink) && !mIsLiveStream)
-	{
-		AAMPLOG_MIL("Not a live stream, pre-fetch and inject subtitle init segments if available.");
-		subtitleHeader = AampStreamSinkManager::GetInstance().GetMediaHeader(eMEDIATYPE_SUBTITLE);
-		if(subtitleHeader)
-		{
-			MediaStreamContext *track = mMediaStreamContext[eMEDIATYPE_SUBTITLE];
-			if(track && !track->Enabled())
-			{
-				AAMPLOG_MIL("Subtitle track is disabled; url for init segment found: %s, mimeType = %s", subtitleHeader->url.c_str(),  subtitleHeader->mimeType.c_str());
-				AampGrowableBuffer buffer("subtitle-init-buffer");
-				std::string effectiveUrl;
-				int http_error = 0;
-				if (aamp->GetFile(subtitleHeader->url, eMEDIATYPE_SUBTITLE, &buffer, effectiveUrl, &http_error, NULL, NULL, eCURLINSTANCE_SUBTITLE))
-				{
-					aamp->SendStreamTransfer(eMEDIATYPE_SUBTITLE, &buffer, 0, 0, 0, 0, true, false);
-				}
-			}
-			else
-			{
-				AAMPLOG_MIL("subtitle track is enabled. No need to pre-fetch and inject init segment.");
-			}
-		}
-		else
-		{
-			AAMPLOG_WARN("No media header available for subtitles.");
 		}
 	}
 }

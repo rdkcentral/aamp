@@ -129,6 +129,7 @@ public:
 		{eAAMPConfig_LocalTSBEnabled, false},
 		{eAAMPConfig_EnableIFrameTrackExtract, false},
 		{eAAMPConfig_GstSubtecEnabled, false},
+		{eAAMPConfig_useRialtoSink, false},
 	};
 	BoolConfigSettings mBoolConfigSettings;
 
