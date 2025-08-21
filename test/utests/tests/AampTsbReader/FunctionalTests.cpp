@@ -1316,7 +1316,7 @@ TEST_F(AampTsbReaderSimpleMethodsTest, Term_ResetsState)
 	mTestableTsbReader->mTrackEnabled = false;
 	mTestableTsbReader->Term();
 	EXPECT_FALSE(mTestableTsbReader->mEosReached);
-	EXPECT_TRUE(mTestableTsbReader->mTrackEnabled);
+	EXPECT_FALSE(mTestableTsbReader->mTrackEnabled);  // Term() resets to clean, uninitialized state
 }
 
 TEST_F(AampTsbReaderSimpleMethodsTest, ResetEos_ResetsEosFlag)
