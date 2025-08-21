@@ -3550,7 +3550,6 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 {
 	bool forceSpeedsChangedEvent = false;
 	AAMPStatusType retval = eAAMPSTATUS_OK;
-	std::shared_ptr<AampStreamSinkManager::MediaHeader> subtitleHeader = {};
 	aamp->CurlInit(eCURLINSTANCE_VIDEO, DEFAULT_CURL_INSTANCE_COUNT, aamp->GetNetworkProxy());
 	mCdaiObject->ResetState();
 	aamp->SetLLDashChunkMode(false); //Reset ChunkMode
