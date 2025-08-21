@@ -53,14 +53,6 @@ AampTsbReader::~AampTsbReader()
 	Term();
 }
 
-/** 
- * @fn isSeek
- */
-bool AampTsbReader::isSeek(TuneType tuneType)
-{
-	return (tuneType == eTUNETYPE_NEW_SEEK || tuneType == eTUNETYPE_SEEK || tuneType == eTUNETYPE_SEEKTOLIVE || tuneType == eTUNETYPE_SEEKTOEND);
-}
-
 /**
  * @fn AampTsbReader Init function
  *
@@ -88,11 +80,7 @@ AAMPStatusType AampTsbReader::Init(double &startPosSec, float rate, TuneType tun
 				TsbFragmentDataPtr firstFragment = mDataMgr->GetFirstFragment();
 				TsbFragmentDataPtr lastFragment = mDataMgr->GetLastFragment();
 				double requestedPosition = 0.0;
-				if (isSeek(tuneType))
-				{
-					mIsNextFragmentDisc = true;
-					AAMPLOG_INFO("[%s] Setting discontinuity for seek", GetMediaTypeName(mMediaType));
-				}
+
 				mActiveTuneType = tuneType;
 				if (!(firstFragment && lastFragment))
 				{
@@ -278,7 +266,6 @@ void AampTsbReader::ReadNext(TsbFragmentDataPtr nextFragmentData)
 			mEosReached = !nextFragmentData->next;
 		}
 
-		// Complement this state with last init header push status/ Determine if the next fragment is discontinuous.
 		// For forward iteration, examine the discontinuity marker in the next fragment.
 		// For reverse iteration, inspect the discontinuity marker in the current fragment,
 		// indicating that the upcoming iteration will transition to a different period.
