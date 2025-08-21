@@ -94,7 +94,7 @@ void AampTSBSessionManager::Init()
 
 		// All Configuration to TSBHandler to be set before calling Init
 
-		mTSBStore = mAamp->GetTSBStore(config, AampLogManager::aampLogger, level);
+        mTSBStore = mAamp->_GetTSBStore(config, AampLogManager::aampLogger, level);
 		if (mTSBStore)
 		{
 			// Initialize datamanager for respective mediatype
@@ -183,7 +183,7 @@ std::shared_ptr<CachedFragment> AampTSBSessionManager::Read(TsbInitDataPtr initf
 	CachedFragmentPtr cachedFragment = std::make_shared<CachedFragment>();
 	std::string url = initfragdata->GetUrl();
 	std::string effectiveUrl;
-	bool readFromAampCache = mAamp->getAampCacheHandler()->RetrieveFromInitFragmentCache(url, &cachedFragment->fragment, effectiveUrl);
+	bool readFromAampCache = mAamp->_getAampCacheHandler()->RetrieveFromInitFragmentCache(url, &cachedFragment->fragment, effectiveUrl);
 	cachedFragment->type = initfragdata->GetMediaType();
 	cachedFragment->cacheFragStreamInfo = initfragdata->GetCacheFragStreamInfo();
 	cachedFragment->profileIndex = initfragdata->GetProfileIndex();
@@ -915,7 +915,7 @@ bool AampTSBSessionManager::PushNextTsbFragment(MediaStreamContext *pMediaStream
 						if (nextFragment)
 						{
 							// Slow motion is like a normal playback with audio (volume set to 0) and handled in GST layer with SetPlaybackRate
-							if(mAamp->IsIframeExtractionEnabled() && AAMP_NORMAL_PLAY_RATE !=  rate && AAMP_RATE_PAUSE != rate && eMEDIATYPE_VIDEO == mediaType && AAMP_SLOWMOTION_RATE != rate )
+							if(mAamp->_IsIframeExtractionEnabled() && AAMP_NORMAL_PLAY_RATE !=  rate && AAMP_RATE_PAUSE != rate && eMEDIATYPE_VIDEO == mediaType && AAMP_SLOWMOTION_RATE != rate )
 							{
 								if(!mIsoBmffHelper->ConvertToKeyFrame(nextFragment->fragment))
 								{
@@ -1014,7 +1014,7 @@ void AampTSBSessionManager::UpdateProgress(double manifestDuration, double manif
 	{
 		// Update culled seconds based on seconds culled in store
 		AAMPLOG_TRACE("Updating culled seconds: %lf", culledSeconds);
-		mAamp->UpdateCullingState(culledSeconds);
+		mAamp->_UpdateCullingState(culledSeconds);
 	}
 	mAamp->culledSeconds = GetTsbDataManager(eMEDIATYPE_VIDEO)->GetFirstFragmentPosition();
 	LockReadMutex();
@@ -1027,7 +1027,7 @@ void AampTSBSessionManager::UpdateProgress(double manifestDuration, double manif
 	UnlockReadMutex();
 	double duration = mAamp->mAbsoluteEndPosition -mAamp->culledSeconds;
 	AAMPLOG_TRACE("Updating duration: %lf", duration);
-	mAamp->UpdateDuration(duration);
+	mAamp->_UpdateDuration(duration);
 }
 
 /**

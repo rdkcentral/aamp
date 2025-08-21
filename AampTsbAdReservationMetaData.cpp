@@ -44,10 +44,10 @@ void AampTsbAdReservationMetaData::SendEvent(PrivateInstanceAAMP* aamp) const
 		switch (mEventType)
 		{
 			case EventType::START:
-				aamp->SendAdReservationEvent(AAMP_EVENT_AD_RESERVATION_START, mAdBreakId, mPeriodPosition, mPosition.milliseconds());
+				aamp->_SendAdReservationEvent(AAMP_EVENT_AD_RESERVATION_START, mAdBreakId, mPeriodPosition, mPosition.milliseconds());
 				break;
 			case EventType::END:
-				aamp->SendAdReservationEvent(AAMP_EVENT_AD_RESERVATION_END, mAdBreakId, mPeriodPosition, mPosition.milliseconds());
+				aamp->_SendAdReservationEvent(AAMP_EVENT_AD_RESERVATION_END, mAdBreakId, mPeriodPosition, mPosition.milliseconds());
 				break;
 			default:
 				AAMPLOG_WARN("Unknown reservation event type: %d", static_cast<int>(mEventType));

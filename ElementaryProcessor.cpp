@@ -29,7 +29,7 @@ ElementaryProcessor::ElementaryProcessor(class PrivateInstanceAAMP *aamp)
 : p_aamp(aamp), basePTS(0), playRate(1.0f), abortAll(false), contentType(ContentType_UNKNOWN),
 	processPTSComplete(false),mediaFormat(eMEDIAFORMAT_UNKNOWN)
 {
-    mediaFormat = p_aamp->GetMediaFormatTypeEnum();
+    mediaFormat = p_aamp->_GetMediaFormatTypeEnum();
 
 	AAMPLOG_WARN("ElementaryProcessor:: Created ElementaryProcessor(%p) for mediaformat %d", this,mediaFormat);
 }
@@ -65,11 +65,11 @@ void ElementaryProcessor::sendStream(AampGrowableBuffer *pBuffer,double position
 {
 	if(mediaFormat == eMEDIAFORMAT_DASH)
 	{
-		p_aamp->SendStreamTransfer((AampMediaType)eMEDIATYPE_SUBTITLE, pBuffer,position, position, duration, fragmentPTSoffset, isInit, discontinuous);
+		p_aamp->_SendStreamTransfer((AampMediaType)eMEDIATYPE_SUBTITLE, pBuffer,position, position, duration, fragmentPTSoffset, isInit, discontinuous);
 	}
 	else
 	{
-		p_aamp->SendStreamCopy((AampMediaType)eMEDIATYPE_SUBTITLE, pBuffer->GetPtr(), pBuffer->GetLen(), position, position, duration);
+		p_aamp->_SendStreamCopy((AampMediaType)eMEDIATYPE_SUBTITLE, pBuffer->GetPtr(), pBuffer->GetLen(), position, position, duration);
 	}
 }
 

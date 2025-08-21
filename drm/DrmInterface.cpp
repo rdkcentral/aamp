@@ -15,7 +15,7 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
-*/
+ */
 #include "DrmInterface.h"
 #include "Aes.h"
 #include "HlsOcdmBridgeInterface.h"
@@ -39,37 +39,37 @@ void registerCallback(DrmInterface *_this ,std::shared_ptr<AesDec> instance )
     /**
      * @brief Register callback for notify any drm related failures to player
      */
-     instance->RegisterNotifyDrmErrorCb([_this](int drmFailure ) {
+    instance->RegisterNotifyDrmErrorCb([_this](int drmFailure ) {
         return _this->NotifyDrmError(drmFailure);
     });
-     /** 
-      * @brief Register callback to do profiling 
-      */
-      instance->RegisterProfileUpdateCb([_this](bool type , int bucketType ) {
+    /**
+     * @brief Register callback to do profiling
+     */
+    instance->RegisterProfileUpdateCb([_this](bool type , int bucketType ) {
         return _this->ProfileUpdateDrmDecrypt(type, (int)bucketType);
     });
-      /**
-       * @brief  Callback for Access key 
-       */
-      instance->RegisterGetAccessKeyCb([_this](std::string &keyURI, std::string& tempEffectiveUrl, int& http_error, double& downloadTime,unsigned int curlInstance
-, bool &keyAcquisitionStatus, int &failureReason,  char** ptr) {
+    /**
+     * @brief  Callback for Access key
+     */
+    instance->RegisterGetAccessKeyCb([_this](std::string &keyURI, std::string& tempEffectiveUrl, int& http_error, double& downloadTime,unsigned int curlInstance
+                                             , bool &keyAcquisitionStatus, int &failureReason,  char** ptr) {
         return _this->GetAccessKey(keyURI, tempEffectiveUrl, http_error,  downloadTime,curlInstance
-, keyAcquisitionStatus, failureReason, ptr);
+                                   , keyAcquisitionStatus, failureReason, ptr);
     });
-      /** 
-       * @brief Callback for curl init
-       */
-      instance->RegisterGetCurlInitCb([_this](int& curlInstance ){
+    /**
+     * @brief Callback for curl init
+     */
+    instance->RegisterGetCurlInitCb([_this](int& curlInstance ){
         return _this->GetCurlInit(curlInstance);
     });
-
+    
 }
 /**
  *@brief updates the PrivateInstanceAAMP instance
  */
 void DrmInterface::UpdateAamp(PrivateInstanceAAMP* aamp)
 {
-	mpAamp = aamp;
+    mpAamp = aamp;
 }
 
 /**
@@ -77,55 +77,56 @@ void DrmInterface::UpdateAamp(PrivateInstanceAAMP* aamp)
  */
 void registerCallbackForHls(DrmInterface* _this, PlayerHlsDrmSessionInterface* instance)
 {
-
-      instance->RegisterGetHlsDrmSessionCb([_this](std::shared_ptr <HlsDrmBase>&bridge, std::shared_ptr<DrmHelper> &drmHelper ,  DrmSession* &session , int streamType){
-		      return _this->getHlsDrmSession(bridge, drmHelper, session ,  streamType);
-		      });
+    
+    instance->RegisterGetHlsDrmSessionCb([_this](std::shared_ptr <HlsDrmBase>&bridge, std::shared_ptr<DrmHelper> &drmHelper ,  DrmSession* &session , int streamType){
+        return _this->getHlsDrmSession(bridge, drmHelper, session ,  streamType);
+    });
 }
-/* 
- * @brief DrmInterface constructor 
+
+/*
+ * @brief DrmInterface constructor
  * */
 DrmInterface::DrmInterface(PrivateInstanceAAMP* aamp):mAesKeyBuf("aesKeyBuf")
 {
-
-    mpAamp = aamp;	
+    
+    mpAamp = aamp;
 }
+
 /*
  * @brief DrmInterface destructor
  */
 DrmInterface::~DrmInterface()
 {
 }
+
 /*
- * @brief TerminateCurlInstance Terminating the curl instance if any 
+ * @brief TerminateCurlInstance Terminating the curl instance if any
  */
 void DrmInterface::TerminateCurlInstance(int mCurlInstance)
 {
-   mpAamp->SyncBegin();
-   mpAamp->CurlTerm((AampCurlInstance)mCurlInstance);
-   mpAamp->SyncEnd();
-
-
+    mpAamp->_SyncBegin();
+    mpAamp->_CurlTerm((AampCurlInstance)mCurlInstance);
+    mpAamp->_SyncEnd();
 }
 /**
  * @brief Notify the error /failures to player
  */
 void DrmInterface::NotifyDrmError(int drmFailure)
 {
-	//If downloads are disabled, don't send error event upstream
-	if (mpAamp->DownloadsAreEnabled())
-	{
-		mpAamp->DisableDownloads();
-		if(AAMP_TUNE_UNTRACKED_DRM_ERROR == drmFailure)
-		{
-			mpAamp->SendErrorEvent((AAMPTuneFailure)drmFailure, "AAMP: DRM Failure" );
-		}
-		else
-		{
-			mpAamp->SendErrorEvent((AAMPTuneFailure)drmFailure);
-		}
-	}
-
+    //If downloads are disabled, don't send error event upstream
+    if (mpAamp->_DownloadsAreEnabled())
+    {
+        mpAamp->_DisableDownloads();
+        if(AAMP_TUNE_UNTRACKED_DRM_ERROR == drmFailure)
+        {
+            mpAamp->_SendErrorEvent((AAMPTuneFailure)drmFailure, "AAMP: DRM Failure" );
+        }
+        else
+        {
+            mpAamp->_SendErrorEvent((AAMPTuneFailure)drmFailure);
+        }
+    }
+    
 }
 ProfilerBucketType DrmInterface::MapDrmToProfilerBucket(DrmProfilerBucketType drmType)
 {
@@ -135,10 +136,10 @@ ProfilerBucketType DrmInterface::MapDrmToProfilerBucket(DrmProfilerBucketType dr
         case DRM_PROFILE_BUCKET_DECRYPT_AUDIO:    return PROFILE_BUCKET_DECRYPT_AUDIO;
         case DRM_PROFILE_BUCKET_DECRYPT_SUBTITLE: return PROFILE_BUCKET_DECRYPT_SUBTITLE;
         case DRM_PROFILE_BUCKET_DECRYPT_AUXILIARY:return PROFILE_BUCKET_DECRYPT_AUXILIARY;
-
+            
         case DRM_PROFILE_BUCKET_LA_TOTAL:         return PROFILE_BUCKET_LA_TOTAL;
         case DRM_PROFILE_BUCKET_LA_PREPROC:       return PROFILE_BUCKET_LA_PREPROC;
-
+            
         default: return PROFILE_BUCKET_TYPE_COUNT; // or handle as error
     }
 }
@@ -147,52 +148,52 @@ ProfilerBucketType DrmInterface::MapDrmToProfilerBucket(DrmProfilerBucketType dr
  */
 void DrmInterface::ProfileUpdateDrmDecrypt(bool type, int bucketType)
 {
-	if(type == 0)
-	{
-		mpAamp->LogDrmInitComplete();
-	}
-	else
-	{
-	       ProfilerBucketType val = MapDrmToProfilerBucket((DrmProfilerBucketType)bucketType);
-	       mpAamp->LogDrmDecryptEnd(val);
-	}
+    if(type == 0)
+    {
+        mpAamp->_LogDrmInitComplete();
+    }
+    else
+    {
+        ProfilerBucketType val = MapDrmToProfilerBucket((DrmProfilerBucketType)bucketType);
+        mpAamp->_LogDrmDecryptEnd(val);
+    }
 }
 /**
- * @brief GetAccessKey To get access of the key 
+ * @brief GetAccessKey To get access of the key
  */
 void DrmInterface::GetAccessKey(std::string &keyURI,  std::string& tempEffectiveUrl, int& http_error, double& downloadTime,unsigned int curlInstance, bool &keyAcquisitionStatus, int &failureReason,  char** ptr)
 {
-        bool fetched = mpAamp->GetFile(keyURI, (AampMediaType)eMEDIATYPE_LICENCE, &mAesKeyBuf, tempEffectiveUrl, &http_error, &downloadTime, NULL, curlInstance, true);
-	*ptr =mAesKeyBuf.GetPtr();
-
-        if (fetched)
+    bool fetched = mpAamp->_GetFile(keyURI, (AampMediaType)eMEDIATYPE_LICENCE, &mAesKeyBuf, tempEffectiveUrl, &http_error, &downloadTime, NULL, curlInstance, true);
+    *ptr =mAesKeyBuf.GetPtr();
+    
+    if (fetched)
+    {
+        if (AES_128_KEY_LEN_BYTES == mAesKeyBuf.GetLen() )
         {
-                if (AES_128_KEY_LEN_BYTES == mAesKeyBuf.GetLen() )
-                {
-                        AAMPLOG_WARN("Key fetch success len = %d",  (int)mAesKeyBuf.GetLen());
-			keyAcquisitionStatus = true;
-                }
-                else
-                {
-                        AAMPLOG_ERR("Error Key fetch - size %d",  (int)mAesKeyBuf.GetLen() );
-                        failureReason = AAMP_TUNE_INVALID_DRM_KEY;
-                }
+            AAMPLOG_WARN("Key fetch success len = %d",  (int)mAesKeyBuf.GetLen());
+            keyAcquisitionStatus = true;
         }
         else
         {
-                AAMPLOG_ERR("Key fetch failed");
-                if (http_error == CURLE_OPERATION_TIMEDOUT)
-                {
-                        failureReason = AAMP_TUNE_LICENCE_TIMEOUT;
-                }
-                else
-                {
-                        failureReason = AAMP_TUNE_LICENCE_REQUEST_FAILED;
-                }
+            AAMPLOG_ERR("Error Key fetch - size %d",  (int)mAesKeyBuf.GetLen() );
+            failureReason = AAMP_TUNE_INVALID_DRM_KEY;
         }
+    }
+    else
+    {
+        AAMPLOG_ERR("Key fetch failed");
+        if (http_error == CURLE_OPERATION_TIMEDOUT)
+        {
+            failureReason = AAMP_TUNE_LICENCE_TIMEOUT;
+        }
+        else
+        {
+            failureReason = AAMP_TUNE_LICENCE_REQUEST_FAILED;
+        }
+    }
 }
 /*
- * initialise the static member variable 
+ * initialise the static member variable
  */
 std::shared_ptr<DrmInterface> DrmInterface::mInstance = nullptr;
 /**
@@ -200,41 +201,40 @@ std::shared_ptr<DrmInterface> DrmInterface::mInstance = nullptr;
  */
 std::shared_ptr<DrmInterface> DrmInterface::GetInstance(PrivateInstanceAAMP* aamp)
 {
-	if (nullptr == mInstance)
-        {
-                mInstance = std::make_shared<DrmInterface>(aamp);
-        } 
-        return mInstance;
+    if (nullptr == mInstance)
+    {
+        mInstance = std::make_shared<DrmInterface>(aamp);
+    }
+    return mInstance;
 }
 void DrmInterface::RegisterAesInterfaceCb( std::shared_ptr<HlsDrmBase> instance)
 {
-      std::shared_ptr<AesDec> aesDecPtr = std::dynamic_pointer_cast<AesDec>(instance);
-
-     if(instance)
-     {
-         registerCallback(this , aesDecPtr);
-     }
+    std::shared_ptr<AesDec> aesDecPtr = std::dynamic_pointer_cast<AesDec>(instance);
+    
+    if(instance)
+    {
+        registerCallback(this , aesDecPtr);
+    }
 }
-/** 
- * @brief RegisterHlsInterfaceCb callback to register 
+/**
+ * @brief RegisterHlsInterfaceCb callback to register
  */
 void DrmInterface::RegisterHlsInterfaceCb( PlayerHlsDrmSessionInterface* instance)
 {
-      PlayerHlsDrmSessionInterface* hlsDecPtr = (PlayerHlsDrmSessionInterface*)instance;
-
-      registerCallbackForHls(this , hlsDecPtr);
+    PlayerHlsDrmSessionInterface* hlsDecPtr = (PlayerHlsDrmSessionInterface*)instance;
+    
+    registerCallbackForHls(this , hlsDecPtr);
 }
 /**
  * @brief Curl Init
  */
 void DrmInterface::GetCurlInit(int &curlInstance)
 {
-	if ((-1 == curlInstance) && (mpAamp != NULL))
-        {
-              curlInstance = eCURLINSTANCE_AES;
-              mpAamp->CurlInit((AampCurlInstance)curlInstance,1,mpAamp->GetLicenseReqProxy());
-	
-	}
+    if ((-1 == curlInstance) && (mpAamp != NULL))
+    {
+        curlInstance = eCURLINSTANCE_AES;
+        mpAamp->_CurlInit((AampCurlInstance)curlInstance,1,mpAamp->_GetLicenseReqProxy());
+    }
 }
 
 /**
@@ -242,30 +242,30 @@ void DrmInterface::GetCurlInit(int &curlInstance)
  */
 void DrmInterface::getHlsDrmSession(std::shared_ptr <HlsDrmBase>&bridge, std::shared_ptr<DrmHelper> &drmHelper ,  DrmSession* &session , int streamType)
 {
-        mpAamp->mDRMLicenseManager->setSessionMgrState(SessionMgrState::eSESSIONMGR_ACTIVE);
-
-        mpAamp->profiler.ProfileBegin(PROFILE_BUCKET_LA_TOTAL);
-        DrmMetaDataEventPtr event = std::make_shared<DrmMetaDataEvent>(AAMP_TUNE_FAILURE_UNKNOWN, "", 0, 0, false, mpAamp->GetSessionId());
-        session = mpAamp->mDRMLicenseManager->createDrmSession( drmHelper, mpAamp, event , (int)streamType);
-        if (!session)
+    mpAamp->mDRMLicenseManager->setSessionMgrState(SessionMgrState::eSESSIONMGR_ACTIVE);
+    
+    mpAamp->profiler.ProfileBegin(PROFILE_BUCKET_LA_TOTAL);
+    DrmMetaDataEventPtr event = std::make_shared<DrmMetaDataEvent>(AAMP_TUNE_FAILURE_UNKNOWN, "", 0, 0, false, mpAamp->_GetSessionId());
+    session = mpAamp->mDRMLicenseManager->createDrmSession( drmHelper, mpAamp, event , (int)streamType);
+    if (!session)
+    {
+        AAMPLOG_WARN("Failed to create Drm Session ");
+        
+        if (mpAamp->_DownloadsAreEnabled())
         {
-                AAMPLOG_WARN("Failed to create Drm Session ");
-
-                if (mpAamp->DownloadsAreEnabled())
-                {
-                        AAMPTuneFailure failure = event->getFailure();
-
-                        mpAamp->DisableDownloads();
-                        mpAamp->SendErrorEvent(failure);
-
-                        mpAamp->profiler.ProfileError(PROFILE_BUCKET_LA_TOTAL, (int) failure);
-                }
+            AAMPTuneFailure failure = event->getFailure();
+            
+            mpAamp->_DisableDownloads();
+            mpAamp->_SendErrorEvent(failure);
+            
+            mpAamp->profiler.ProfileError(PROFILE_BUCKET_LA_TOTAL, (int) failure);
         }
-        else
-        {
-                AAMPLOG_WARN("created Drm Session ");
-                HlsDrmBase* tempBridge = HlsOcdmBridgeInterface::GetBridge(session);
-                bridge = std::shared_ptr<HlsDrmBase>(tempBridge);
-        }
-        mpAamp->profiler.ProfileEnd(PROFILE_BUCKET_LA_TOTAL);
+    }
+    else
+    {
+        AAMPLOG_WARN("created Drm Session ");
+        HlsDrmBase* tempBridge = HlsOcdmBridgeInterface::GetBridge(session);
+        bridge = std::shared_ptr<HlsDrmBase>(tempBridge);
+    }
+    mpAamp->profiler.ProfileEnd(PROFILE_BUCKET_LA_TOTAL);
 }

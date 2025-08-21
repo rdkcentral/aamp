@@ -457,7 +457,7 @@ void StreamAbstractionAAMP_HLS::InitiateDrmProcess()
 			if (!aamp->aesCtrAttrDataList.at(i).isProcessed)
 			{
 				aamp->aesCtrAttrDataList.at(i).isProcessed = true;
-				DrmHelperPtr drmHelper = ProcessContentProtection( aamp->aesCtrAttrDataList.at(i).attrName, ISCONFIGSET(eAAMPConfig_PropagateURIParam),  aamp->isDecryptClearSamplesRequired());
+				DrmHelperPtr drmHelper = ProcessContentProtection( aamp->aesCtrAttrDataList.at(i).attrName, ISCONFIGSET(eAAMPConfig_PropagateURIParam),  aamp->_isDecryptClearSamplesRequired());
 				if (nullptr != drmHelper)
 				{
 					/* This needs effort from MSO as to what they want to do viz-a-viz preferred DRM, */
@@ -608,7 +608,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::ParseMainManifest()
 						AampTime offsetval{ParseXStartTimeOffset(ptr)};
 						if (offsetval != 0.0)
 						{
-							if(!aamp->IsLiveAdjustRequired())
+							if(!aamp->_IsLiveAdjustRequired())
 							{
 								SETCONFIGVALUE(AAMP_STREAM_SETTING,eAAMPConfig_CDVRLiveOffset, abs(offsetval));
 							}
@@ -616,7 +616,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::ParseMainManifest()
 							{
 								SETCONFIGVALUE(AAMP_STREAM_SETTING,eAAMPConfig_LiveOffset, abs(offsetval));
 							}
-							aamp->UpdateLiveOffset();
+                            aamp->_UpdateLiveOffset();
 							AAMPLOG_WARN("WARNING:found EXT-X-START in MainManifest Offset:%f  liveOffset:%f",offsetval.inSeconds(),aamp->mLiveOffset);
 						}
 					}
@@ -701,7 +701,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::ParseMainManifest()
 				}
 			}
 		}
-		aamp->StoreLanguageList(mLangList); // For playlist playback, there will be no languages available
+        aamp->_StoreLanguageList(mLangList); // For playlist playback, there will be no languages available
 	}
 	return retval;
 }
@@ -1347,7 +1347,7 @@ bool TrackState::FetchFragmentHelper(int &http_error, bool &decryption_error, bo
 				}
 			}
 			
-			bool fetched = aamp->GetFile(fragmentUrl, (AampMediaType)(type), &cachedFragment->fragment,
+			bool fetched = aamp->_GetFile(fragmentUrl, (AampMediaType)(type), &cachedFragment->fragment,
 			 tempEffectiveUrl, &http_error, &downloadTime, range, type, false, NULL, NULL, fragmentDurationSeconds);
 			//Workaround for 404 of subtitle fragments
 			//TODO: This needs to be handled at server side and this workaround has to be removed
@@ -1380,11 +1380,11 @@ bool TrackState::FetchFragmentHelper(int &http_error, bool &decryption_error, bo
 				//Adding logic to report error if fragment downloads are failing continuously
 				//Avoid sending error for failure to download subtitle fragments
 				int FragmentDownloadFailThreshold = GETCONFIGVALUE(eAAMPConfig_FragmentDownloadFailThreshold);
-				if((FragmentDownloadFailThreshold <= segDLFailCount) && aamp->DownloadsAreEnabled() && type != eTRACK_SUBTITLE)
+				if((FragmentDownloadFailThreshold <= segDLFailCount) && aamp->_DownloadsAreEnabled() && type != eTRACK_SUBTITLE)
 				{
 					AAMPLOG_ERR("Not able to download fragments; reached failure threshold sending tune failed event");
 					abortWaitForVideoPTS();
-					aamp->SendDownloadErrorEvent(AAMP_TUNE_FRAGMENT_DOWNLOAD_FAILURE, http_error);
+                    aamp->_SendDownloadErrorEvent(AAMP_TUNE_FRAGMENT_DOWNLOAD_FAILURE, http_error);
 				}
 				cachedFragment->fragment.Free();
 				lastDownloadedIFrameTarget = -1;
@@ -1396,7 +1396,7 @@ bool TrackState::FetchFragmentHelper(int &http_error, bool &decryption_error, bo
 				playTargetBufferCalc += fragmentDurationSeconds;
 			}
 
-			if((eTRACK_VIDEO == type)  && (aamp->IsFogTSBSupported()))
+			if((eTRACK_VIDEO == type)  && (aamp->_IsFogTSBSupported()))
 			{
 				std::size_t pos = fragmentUrl.find(FOG_FRAG_BW_IDENTIFIER);
 				if (pos != std::string::npos)
@@ -1447,14 +1447,14 @@ bool TrackState::FetchFragmentHelper(int &http_error, bool &decryption_error, bo
 
 					if(eDRM_SUCCESS != drmReturn)
 					{
-						if (aamp->DownloadsAreEnabled())
+						if (aamp->_DownloadsAreEnabled())
 						{
 							AAMPLOG_WARN("FetchFragmentHelper : drm_Decrypt failed. fragmentURL %s - RetryCount %d", fragmentUrl.c_str(), segDrmDecryptFailCount);
 							if (eDRM_KEY_ACQUISITION_TIMEOUT == drmReturn)
 							{
 								decryption_error = true;
 								AAMPLOG_WARN("FetchFragmentHelper : drm_Decrypt failed due to license acquisition timeout");
-								aamp->SendErrorEvent(AAMP_TUNE_LICENCE_TIMEOUT, NULL, true);
+                                aamp->_SendErrorEvent(AAMP_TUNE_LICENCE_TIMEOUT, NULL, true);
 							}
 							else
 							{
@@ -1465,7 +1465,7 @@ bool TrackState::FetchFragmentHelper(int &http_error, bool &decryption_error, bo
 								{
 									decryption_error = true;
 									AAMPLOG_ERR("FetchFragmentHelper : drm_Decrypt failed for fragments, reached failure threshold (%d) sending failure event", aamp->mDrmDecryptFailCount);
-									aamp->SendErrorEvent(AAMP_TUNE_DRM_DECRYPT_FAILED);
+                                    aamp->_SendErrorEvent(AAMP_TUNE_DRM_DECRYPT_FAILED);
 								}
 							}
 						}
@@ -1477,7 +1477,7 @@ bool TrackState::FetchFragmentHelper(int &http_error, bool &decryption_error, bo
 				}
 				if (!context->firstFragmentDecrypted)
 				{
-					aamp->NotifyFirstFragmentDecrypted();
+                    aamp->_NotifyFirstFragmentDecrypted();
 					context->firstFragmentDecrypted = true;
 				}
 			}
@@ -1575,7 +1575,7 @@ void TrackState::FetchFragment()
 	bool bKeyChanged = false;
 	int iFogErrorCode = -1;
 	int iCurrentRate = aamp->rate; //  Store it as back up, As sometimes by the time File is downloaded, rate might have changed due to user initiated Trick-Play
-	if (aamp->DownloadsAreEnabled() && !abort)
+	if (aamp->_DownloadsAreEnabled() && !abort)
 	{
 		if(false == FetchFragmentHelper(http_error, decryption_error, bKeyChanged, &iFogErrorCode, downloadTime))
 		{
@@ -1583,7 +1583,7 @@ void TrackState::FetchFragment()
 			{
 				// Profile RampDown check and rampdown is needed only for Video . If audio fragment download fails
 				// should continue with next fragment,no retry needed .
-				if (eTRACK_VIDEO == type && http_error != 0 && aamp->CheckABREnabled())
+				if (eTRACK_VIDEO == type && http_error != 0 && aamp->_CheckABREnabled())
 				{
 					context->lastSelectedProfileIndex = context->currentProfileIndex;
 					// Check whether player reached rampdown limit, then rampdown
@@ -1638,9 +1638,9 @@ void TrackState::FetchFragment()
 
 			// in case of tsb, GetCurrentBandWidth does not return correct bandwidth as it is updated after this point
 			// hence getting from context which is updated in FetchFragmentHelper
-			long lbwd = aamp->IsFogTSBSupported() ? context->GetTsbBandwidth() : this->GetCurrentBandWidth();
+			long lbwd = aamp->_IsFogTSBSupported() ? context->GetTsbBandwidth() : this->GetCurrentBandWidth();
 			//update videoend info
-			aamp->UpdateVideoEndMetrics((IS_FOR_IFRAME(iCurrentRate, type) ? eMEDIATYPE_IFRAME : (AampMediaType)(type)),
+            aamp->_UpdateVideoEndMetrics((IS_FOR_IFRAME(iCurrentRate, type) ? eMEDIATYPE_IFRAME : (AampMediaType)(type)),
 										lbwd,
 										((iFogErrorCode > 0) ? iFogErrorCode : http_error), this->mEffectiveUrl, fragmentDurationSeconds, downloadTime, bKeyChanged, fragmentEncrypted);
 			return;
@@ -1687,15 +1687,15 @@ void TrackState::FetchFragment()
 			cachedFragment->absPosition = playlistPosition.inSeconds();
 			// in case of tsb, GetCurrentBandWidth does not return correct bandwidth as it is updated after this point
 			// hence getting from context which is updated in FetchFragmentHelper
-			long lbwd = aamp->IsFogTSBSupported() ? context->GetTsbBandwidth() : this->GetCurrentBandWidth();
+			long lbwd = aamp->_IsFogTSBSupported() ? context->GetTsbBandwidth() : this->GetCurrentBandWidth();
 
 			// update videoend info
-			aamp->UpdateVideoEndMetrics( (IS_FOR_IFRAME(iCurrentRate,type)? eMEDIATYPE_IFRAME:(AampMediaType)(type) ),
+            aamp->_UpdateVideoEndMetrics( (IS_FOR_IFRAME(iCurrentRate,type)? eMEDIATYPE_IFRAME:(AampMediaType)(type) ),
 									lbwd,
 									((iFogErrorCode > 0 ) ? iFogErrorCode : http_error), this->mEffectiveUrl, cachedFragment->duration, downloadTime, bKeyChanged, fragmentEncrypted);
 
 			const auto early_processing = aamp->mConfig->IsConfigSet(eAAMPConfig_EarlyID3Processing);
-			if (early_processing && playContext && aamp->IsEventListenerAvailable(AAMP_EVENT_ID3_METADATA))
+			if (early_processing && playContext && aamp->_IsEventListenerAvailable(AAMP_EVENT_ID3_METADATA))
 			{
 				if (const auto & metadata_processor = context->GetMetadataProcessor(mSourceFormat))
 				{
@@ -1759,7 +1759,7 @@ void TrackState::InjectFragmentInternal(CachedFragment* cachedFragment, bool &fr
 			}
 			else
 			{
-				aamp->SendStreamCopy(type, buf.data(), buf.size(), info.pts_s, info.dts_s, info.duration);
+                aamp->_SendStreamCopy(type, buf.data(), buf.size(), info.pts_s, info.dts_s, info.duration);
 			}
 		};
 		
@@ -1788,7 +1788,7 @@ void TrackState::InjectFragmentInternal(CachedFragment* cachedFragment, bool &fr
 	else
 	{
 		fragmentDiscarded = false;
-		aamp->SendStreamCopy(
+        aamp->_SendStreamCopy(
 							 (AampMediaType)type,
 							 cachedFragment->fragment.GetPtr(),
 							 cachedFragment->fragment.GetLen(),
@@ -1894,7 +1894,7 @@ void TrackState::SetDrmContext()
 		mDrm = AesDec::GetInstance();
 		mDrmInterface->RegisterAesInterfaceCb((std::shared_ptr <HlsDrmBase>) mDrm);
 
-		aamp->setCurrentDrm(std::make_shared<VanillaDrmHelper>());
+        aamp->_setCurrentDrm(std::make_shared<VanillaDrmHelper>());
 
 #else
 		AAMPLOG_WARN("StreamAbstractionAAMP_HLS: AAMP_VANILLA_AES_SUPPORT not defined");
@@ -1936,7 +1936,7 @@ void TrackState::IndexPlaylist(bool IsRefresh, AampTime &culledSec)
 			if( numChars>MANIFEST_TEMP_DATA_LENGTH ) numChars = MANIFEST_TEMP_DATA_LENGTH;
 			AAMPLOG_ERR("ERROR: Invalid Playlist URL:%s ", mPlaylistUrl.c_str());
 			AAMPLOG_ERR("ERROR: Invalid Playlist DATA:%.*s ", numChars, iter.getPtr() );
-			aamp->SendErrorEvent(AAMP_TUNE_INVALID_MANIFEST_FAILURE);
+            aamp->_SendErrorEvent(AAMP_TUNE_INVALID_MANIFEST_FAILURE);
 			mDuration = totalDuration.inSeconds();
 			return;
 		}
@@ -1950,9 +1950,9 @@ void TrackState::IndexPlaylist(bool IsRefresh, AampTime &culledSec)
 
 		mDrmInfo.mediaFormat = eMEDIAFORMAT_HLS;
 		mDrmInfo.manifestURL = mEffectiveUrl;
-		mDrmInfo.masterManifestURL = aamp->GetManifestUrl();
-		mDrmInfo.initData = aamp->GetDrmInitData();
-		mDrmInfo.bDecryptClearSamplesRequired = aamp->isDecryptClearSamplesRequired();
+		mDrmInfo.masterManifestURL = aamp->_GetManifestUrl();
+		mDrmInfo.initData = aamp->_GetDrmInitData();
+		mDrmInfo.bDecryptClearSamplesRequired = aamp->_isDecryptClearSamplesRequired();
 		AampTime fragDuration{};
 
 		while(!iter.empty())
@@ -2156,10 +2156,10 @@ void TrackState::IndexPlaylist(bool IsRefresh, AampTime &culledSec)
 					// check if App has not configured any liveoffset
 					{
 						AampTime offsetval{ParseXStartTimeOffset(ptr)};
-						if(!aamp->IsLiveAdjustRequired())
+						if(!aamp->_IsLiveAdjustRequired())
 						{
 							SETCONFIGVALUE(AAMP_STREAM_SETTING,eAAMPConfig_CDVRLiveOffset,offsetval.inSeconds());
-							aamp->UpdateLiveOffset();
+                            aamp->_UpdateLiveOffset();
 						}
 						else
 						{
@@ -2171,7 +2171,7 @@ void TrackState::IndexPlaylist(bool IsRefresh, AampTime &culledSec)
 							else
 							{
 								SETCONFIGVALUE(AAMP_STREAM_SETTING,eAAMPConfig_LiveOffset,offsetval.inSeconds());
-								aamp->UpdateLiveOffset();
+                                aamp->_UpdateLiveOffset();
 							}
 						}
 
@@ -2199,14 +2199,14 @@ void TrackState::IndexPlaylist(bool IsRefresh, AampTime &culledSec)
 			indexFirstMediaSequenceNumber = 0;
 		}
 		// When setting live status to stream, check the playlist type of both video/audio(demuxed)
-		aamp->SetIsLive(context->IsLive());
+        aamp->_SetIsLive(context->IsLive());
 		if(!IsLive())
 		{
-			aamp->getAampCacheHandler()->InsertToPlaylistCache(mPlaylistUrl, &playlist, mEffectiveUrl,IsLive(),TrackTypeToMediaType(type));
+            aamp->_getAampCacheHandler()->InsertToPlaylistCache(mPlaylistUrl, &playlist, mEffectiveUrl,IsLive(),TrackTypeToMediaType(type));
 		}
 		if(eTRACK_VIDEO == type)
 		{
-			aamp->UpdateDuration(totalDuration.inSeconds());
+            aamp->_UpdateDuration(totalDuration.inSeconds());
 		}
 
 	}
@@ -2283,7 +2283,7 @@ void TrackState::ABRProfileChanged()
 	if( !pcontext.empty() )// != NULL)
 	{
 		AAMPLOG_TRACE("playlistPosition %f", playlistPosition.inSeconds());
-		aamp_ResolveURL(mPlaylistUrl, aamp->GetManifestUrl(), pcontext.c_str(), ISCONFIGSET(eAAMPConfig_PropagateURIParam));
+		aamp_ResolveURL(mPlaylistUrl, aamp->_GetManifestUrl(), pcontext.c_str(), ISCONFIGSET(eAAMPConfig_PropagateURIParam));
 		std::lock_guard<std::mutex> guard(mutex);
 		//playlistPosition reset will be done by RefreshPlaylist once playlist downloaded successfully
 		//refreshPlaylist is used to reset the profile index if playlist download fails! Be careful with it.
@@ -2349,7 +2349,7 @@ void TrackState::ProcessPlaylist(AampGrowableBuffer& newPlaylist, int http_error
 			{
 				AAMPLOG_INFO("Updating PDT (%f) and culled (%f)", mProgramDateTime.inSeconds(), culled.inSeconds());
 				aamp->mProgramDateTime = mProgramDateTime.inSeconds();
-				aamp->UpdateCullingState(culled.inSeconds()); // report amount of content that was implicitly culled since last playlist download
+                aamp->_UpdateCullingState(culled.inSeconds()); // report amount of content that was implicitly culled since last playlist download
 			}
 			// Metadata refresh is needed for live content only , not for VOD
 			// Across ABR , for VOD no metadata change is expected from initial reported ones
@@ -2391,7 +2391,7 @@ void TrackState::ProcessPlaylist(AampGrowableBuffer& newPlaylist, int http_error
 			}
 		}
 
-		if (aamp->DownloadsAreEnabled())
+		if (aamp->_DownloadsAreEnabled())
 		{
 			if (CURLE_OPERATION_TIMEDOUT == http_error || CURLE_COULDNT_CONNECT == http_error)
 			{
@@ -2403,7 +2403,7 @@ void TrackState::ProcessPlaylist(AampGrowableBuffer& newPlaylist, int http_error
 			//Send Error Event when new audio playlist fails after audio track change on seamlessAudioSwitch
 			if((fragmentURI.empty() && (manifestDLFailCount > MAX_MANIFEST_DOWNLOAD_RETRY)) || (seamlessAudioSwitchInProgress))//No more fragments to download
 			{
-				aamp->SendDownloadErrorEvent(AAMP_TUNE_MANIFEST_REQ_FAILED, http_error);
+                aamp->_SendDownloadErrorEvent(AAMP_TUNE_MANIFEST_REQ_FAILED, http_error);
 				return;
 			}
 		}
@@ -2597,7 +2597,7 @@ std::string StreamAbstractionAAMP_HLS::GetPlaylistURI(TrackType trackType, Strea
 		{
 			int index = -1;
 			// Plain comparison to get the audio track with matching language
-			index = GetMediaIndexForLanguage(aamp->GetAuxiliaryAudioLanguage(), trackType);
+			index = GetMediaIndexForLanguage(aamp->_GetAuxiliaryAudioLanguage(), trackType);
 			if (index != -1)
 			{
 				playlistURI = mediaInfoStore[index].uri;
@@ -3279,7 +3279,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::SyncTracks(void)
 std::string StreamAbstractionAAMP_HLS::GetLanguageCode(int iMedia)
 {
 	std::string lang = mediaInfoStore[iMedia].language;
-	lang = Getiso639map_NormalizeLanguageCode(lang,aamp->GetLangCodePreference());
+	lang = Getiso639map_NormalizeLanguageCode(lang,aamp->_GetLangCodePreference());
 	return lang;
 }
 
@@ -3290,7 +3290,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 {
 	AAMPStatusType retval = eAAMPSTATUS_GENERIC_ERROR;
 	mTuneType = tuneType;
-	bool newTune = aamp->IsNewTune();
+	bool newTune = aamp->_IsNewTune();
 	aamp->IsTuneTypeNew = newTune;
 
 	int http_error = 0;   //CID:81873 - Initialization
@@ -3298,10 +3298,10 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 
 	for (int i = 0; i < AAMP_TRACK_COUNT; i++)
 	{
-		aamp->SetCurlTimeout(aamp->mNetworkTimeoutMs, (AampCurlInstance)i);
+        aamp->_SetCurlTimeout(aamp->mNetworkTimeoutMs, (AampCurlInstance)i);
 	}
 
-	if (aamp->getAampCacheHandler()->RetrieveFromPlaylistCache(aamp->GetManifestUrl(), &mainManifest, aamp->GetManifestUrl(), eMEDIATYPE_MANIFEST))
+	if (aamp->_getAampCacheHandler()->RetrieveFromPlaylistCache(aamp->_GetManifestUrl(), &mainManifest, aamp->_GetManifestUrl(), eMEDIATYPE_MANIFEST))
 	{
 		AAMPLOG_WARN("StreamAbstractionAAMP_HLS: Main manifest retrieved from cache");
 	}
@@ -3314,13 +3314,13 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 		aamp->profiler.ProfileBegin(PROFILE_BUCKET_MANIFEST);
 		AAMPLOG_TRACE("StreamAbstractionAAMP_HLS::downloading manifest");
 		// take the original url before its gets changed in GetFile
-		std::string mainManifestOrigUrl = aamp->GetManifestUrl();
-		aamp->SetCurlTimeout(aamp->mManifestTimeoutMs, eCURLINSTANCE_MANIFEST_MAIN);
-		(void) aamp->GetFile(aamp->GetManifestUrl(), eMEDIATYPE_MANIFEST, &this->mainManifest, aamp->GetManifestUrl(), &http_error, &mainManifestdownloadTime, NULL, eCURLINSTANCE_MANIFEST_MAIN, true,NULL,NULL,0);//CID:82578 - checked return
+		std::string mainManifestOrigUrl = aamp->_GetManifestUrl();
+        aamp->_SetCurlTimeout(aamp->mManifestTimeoutMs, eCURLINSTANCE_MANIFEST_MAIN);
+		(void) aamp->_GetFile(aamp->_GetManifestUrl(), eMEDIATYPE_MANIFEST, &this->mainManifest, aamp->_GetManifestUrl(), &http_error, &mainManifestdownloadTime, NULL, eCURLINSTANCE_MANIFEST_MAIN, true,NULL,NULL,0);//CID:82578 - checked return
 		// Set playlist curl timeouts.
 		for (int i = eCURLINSTANCE_MANIFEST_PLAYLIST_VIDEO; i < (eCURLINSTANCE_MANIFEST_PLAYLIST_VIDEO + AAMP_TRACK_COUNT); i++)
 		{
-			aamp->SetCurlTimeout(aamp->mPlaylistTimeoutMs, (AampCurlInstance) i);
+            aamp->_SetCurlTimeout(aamp->mPlaylistTimeoutMs, (AampCurlInstance) i);
 		}
 		//update videoend info
 		updateVideoEndMetrics = true;
@@ -3328,7 +3328,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 		{
 			aamp->profiler.ProfileEnd(PROFILE_BUCKET_MANIFEST);
 			AAMPLOG_TRACE("StreamAbstractionAAMP_HLS::downloaded manifest");
-			aamp->getAampCacheHandler()->InsertToPlaylistCache(mainManifestOrigUrl, &mainManifest, aamp->GetManifestUrl(),false,eMEDIATYPE_MANIFEST);
+            aamp->_getAampCacheHandler()->InsertToPlaylistCache(mainManifestOrigUrl, &mainManifest, aamp->_GetManifestUrl(),false,eMEDIATYPE_MANIFEST);
 		}
 		else
 		{
@@ -3339,23 +3339,23 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 				retval = AAMPStatusType::eAAMPSTATUS_MANIFEST_CONTENT_ERROR;
 			}
 			else{
-			aamp->UpdateDuration(0);
+                aamp->_UpdateDuration(0);
 			AAMPLOG_ERR("Manifest download failed : http response : %d", http_error);
 			retval = eAAMPSTATUS_MANIFEST_DOWNLOAD_ERROR;
 			}
 		}
 	}
-	if (!this->mainManifest.GetLen() && aamp->DownloadsAreEnabled()) //!aamp->GetFile(aamp->GetManifestUrl(), &this->mainManifest, aamp->GetManifestUrl()))
+	if (!this->mainManifest.GetLen() && aamp->_DownloadsAreEnabled()) //!aamp->_GetFile(aamp->GetManifestUrl(), &this->mainManifest, aamp->_GetManifestUrl()))
 	{
 		aamp->profiler.ProfileError(PROFILE_BUCKET_MANIFEST, http_error);
 		aamp->profiler.ProfileEnd(PROFILE_BUCKET_MANIFEST);
 		if(retval == AAMPStatusType::eAAMPSTATUS_MANIFEST_CONTENT_ERROR)
 		{
-			aamp->SendDownloadErrorEvent(AAMP_TUNE_INIT_FAILED_MANIFEST_CONTENT_ERROR, http_error);
+            aamp->_SendDownloadErrorEvent(AAMP_TUNE_INIT_FAILED_MANIFEST_CONTENT_ERROR, http_error);
 		}
 		else
 		{
-			aamp->SendDownloadErrorEvent(AAMP_TUNE_MANIFEST_REQ_FAILED, http_error);
+            aamp->_SendDownloadErrorEvent(AAMP_TUNE_MANIFEST_REQ_FAILED, http_error);
 		}
 	}
 	if (this->mainManifest.GetLen() )
@@ -3386,11 +3386,11 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 					streamInfoStore.emplace_back(HlsStreamInfo{});
 					HlsStreamInfo &streamInfo = streamInfoStore[mProfileCount];
 					setupStreamInfo(streamInfo);
-					streamInfo.uri = aamp->GetManifestUrl().c_str();
+					streamInfo.uri = aamp->_GetManifestUrl().c_str();
 					SETCONFIGVALUE(AAMP_TUNE_SETTING,eAAMPConfig_EnableABR,false);
 					mainManifestResult = eAAMPSTATUS_OK;
 					AAMPLOG_INFO("StreamAbstractionAAMP_HLS::Playlist only playback.");
-					aamp->getAampCacheHandler()->RemoveFromPlaylistCache(aamp->GetManifestUrl());
+                    aamp->_getAampCacheHandler()->RemoveFromPlaylistCache(aamp->_GetManifestUrl());
 				}
 				else
 				{
@@ -3412,11 +3412,11 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 		{
 			if (!newTune)
 			{
-				long persistedBandwidth = aamp->GetPersistedBandwidth();
-				long defaultBitRate 	= aamp->GetDefaultBitrate();
+				long persistedBandwidth = aamp->_GetPersistedBandwidth();
+				long defaultBitRate 	= aamp->_GetDefaultBitrate();
 				//We were tuning to a lesser profile previously, so we use it as starting profile
 				// If bitrate to be persisted during trickplay is true, set persisted BW as default init BW
-				if (persistedBandwidth > 0 && (persistedBandwidth < defaultBitRate || aamp->IsBitRatePersistedOverSeek()))
+				if (persistedBandwidth > 0 && (persistedBandwidth < defaultBitRate || aamp->_IsBitRatePersistedOverSeek()))
 				{
 					aamp->mhAbrManager.setDefaultInitBitrate(persistedBandwidth);
 				}
@@ -3424,12 +3424,12 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 			else
 			{
 				// Set Default init bitrate according to last PersistBandwidth
-				if((ISCONFIGSET(eAAMPConfig_PersistLowNetworkBandwidth)|| ISCONFIGSET(eAAMPConfig_PersistHighNetworkBandwidth)) && !aamp->IsFogTSBSupported())
+				if((ISCONFIGSET(eAAMPConfig_PersistLowNetworkBandwidth)|| ISCONFIGSET(eAAMPConfig_PersistHighNetworkBandwidth)) && !aamp->_IsFogTSBSupported())
 				{
 					long persistbandwidth = aamp->mhAbrManager.getPersistBandwidth();
 					long TimeGap   =  aamp_GetCurrentTimeMS() - ABRManager::mPersistBandwidthUpdatedTime;
 					//If current Network bandwidth is lower than current default bitrate ,use persistbw as default bandwidth when peristLowNetworkConfig exist
-					if(ISCONFIGSET(eAAMPConfig_PersistLowNetworkBandwidth) && TimeGap < 10000 &&  persistbandwidth < aamp->GetDefaultBitrate() && persistbandwidth > 0)
+					if(ISCONFIGSET(eAAMPConfig_PersistLowNetworkBandwidth) && TimeGap < 10000 &&  persistbandwidth < aamp->_GetDefaultBitrate() && persistbandwidth > 0)
 					{
 						AAMPLOG_WARN("PersistBitrate used as defaultBitrate. PersistBandwidth : %ld TimeGap : %ld",persistbandwidth,TimeGap);
 						aamp->mhAbrManager.setDefaultInitBitrate(persistbandwidth);
@@ -3443,8 +3443,8 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 					//set default bitrate
 					else
 					{
-						AAMPLOG_WARN("Using defaultBitrate %ld . PersistBandwidth : %ld TimeGap : %ld",aamp->GetDefaultBitrate(),persistbandwidth,TimeGap);
-						aamp->mhAbrManager.setDefaultInitBitrate(aamp->GetDefaultBitrate());
+						AAMPLOG_WARN("Using defaultBitrate %ld . PersistBandwidth : %ld TimeGap : %ld",aamp->_GetDefaultBitrate(),persistbandwidth,TimeGap);
+						aamp->mhAbrManager.setDefaultInitBitrate(aamp->_GetDefaultBitrate());
 
 					}
 				}
@@ -3478,7 +3478,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 			HlsStreamInfo *streamInfo = (HlsStreamInfo*)GetStreamInfo(currentProfileIndex);
 			long bandwidthBitsPerSecond = streamInfo->bandwidthBitsPerSecond;
 			lastSelectedProfileIndex = currentProfileIndex;
-			aamp->ResetCurrentlyAvailableBandwidth(bandwidthBitsPerSecond, trickplayMode, currentProfileIndex);
+            aamp->_ResetCurrentlyAvailableBandwidth(bandwidthBitsPerSecond, trickplayMode, currentProfileIndex);
 			aamp->profiler.SetBandwidthBitsPerSecondVideo(bandwidthBitsPerSecond);
 			AAMPLOG_INFO("Selected BitRate: %ld, Max BitRate: %ld", bandwidthBitsPerSecond, GetStreamInfo(GetMaxBWProfile())->bandwidthBitsPerSecond);
 		}
@@ -3518,7 +3518,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 		aamp->profiler.SetBandwidthBitsPerSecondAudio(audio->GetCurrentBandWidth());
 		if (audio->enabled)
 		{
-			if (aamp->getAampCacheHandler()->RetrieveFromPlaylistCache(audio->mPlaylistUrl, &audio->playlist, audio->mEffectiveUrl, eMEDIATYPE_PLAYLIST_AUDIO))
+			if (aamp->_getAampCacheHandler()->RetrieveFromPlaylistCache(audio->mPlaylistUrl, &audio->playlist, audio->mEffectiveUrl, eMEDIATYPE_PLAYLIST_AUDIO))
 			{
 				AAMPLOG_INFO("StreamAbstractionAAMP_HLS::audio playlist retrieved from cache");
 			}
@@ -3529,7 +3529,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 		}
 		if (video && video->enabled)
 		{
-			if (aamp->getAampCacheHandler()->RetrieveFromPlaylistCache(video->mPlaylistUrl, &video->playlist, video->mEffectiveUrl, eMEDIATYPE_PLAYLIST_VIDEO))
+			if (aamp->_getAampCacheHandler()->RetrieveFromPlaylistCache(video->mPlaylistUrl, &video->playlist, video->mEffectiveUrl, eMEDIATYPE_PLAYLIST_VIDEO))
 			{
 				AAMPLOG_INFO("StreamAbstractionAAMP_HLS::video playlist retrieved from cache");
 			}
@@ -3556,7 +3556,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 						GetStreamInfo(GetMaxBWProfile())->bandwidthBitsPerSecond);
 						std::string uri = GetPlaylistURI(eTRACK_VIDEO, &video->streamOutputFormat);
 						if( !uri.empty() ){
-							aamp_ResolveURL(video->mPlaylistUrl, aamp->GetManifestUrl(), uri.c_str(), ISCONFIGSET(eAAMPConfig_PropagateURIParam));
+							aamp_ResolveURL(video->mPlaylistUrl, aamp->_GetManifestUrl(), uri.c_str(), ISCONFIGSET(eAAMPConfig_PropagateURIParam));
 
 						}else{
 							AAMPLOG_ERR("StreamAbstractionAAMP_HLS::Failed to get URL after %d rampdown attempts",
@@ -3566,7 +3566,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 
 					}else if (video->playlist.GetLen()){
 						long bandwidthBitsPerSecond = GetStreamInfo(currentProfileIndex)->bandwidthBitsPerSecond;
-						aamp->ResetCurrentlyAvailableBandwidth(
+                        aamp->_ResetCurrentlyAvailableBandwidth(
 							bandwidthBitsPerSecond,
 							trickplayMode,currentProfileIndex);
 						aamp->profiler.SetBandwidthBitsPerSecondVideo(
@@ -3586,7 +3586,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 		}
 		if (subtitle->enabled)
 		{
-			if (aamp->getAampCacheHandler()->RetrieveFromPlaylistCache(subtitle->mPlaylistUrl, &subtitle->playlist, subtitle->mEffectiveUrl, eMEDIATYPE_PLAYLIST_SUBTITLE))
+			if (aamp->_getAampCacheHandler()->RetrieveFromPlaylistCache(subtitle->mPlaylistUrl, &subtitle->playlist, subtitle->mEffectiveUrl, eMEDIATYPE_PLAYLIST_SUBTITLE))
 			{
 				AAMPLOG_INFO("StreamAbstractionAAMP_HLS::subtitle playlist retrieved from cache");
 			}
@@ -3603,7 +3603,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 		}
 		if (aux->enabled)
 		{
-			if (aamp->getAampCacheHandler()->RetrieveFromPlaylistCache(aux->mPlaylistUrl, &aux->playlist, aux->mEffectiveUrl, eMEDIATYPE_PLAYLIST_AUX_AUDIO))
+			if (aamp->_getAampCacheHandler()->RetrieveFromPlaylistCache(aux->mPlaylistUrl, &aux->playlist, aux->mEffectiveUrl, eMEDIATYPE_PLAYLIST_AUX_AUDIO))
 			{
 				AAMPLOG_INFO("StreamAbstractionAAMP_HLS::auxiliary audio playlist retrieved from cache");
 			}
@@ -3633,7 +3633,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 		if (rate != AAMP_NORMAL_PLAY_RATE)
 		{
 			trickplayMode = true;
-			if(aamp->IsFogTSBSupported())
+			if(aamp->_IsFogTSBSupported())
 			{
 				mTrickPlayFPS = GETCONFIGVALUE(eAAMPConfig_LinearTrickPlayFPS);
 			}
@@ -3675,7 +3675,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 					{
 						AAMPLOG_INFO("Updating PDT (%f) and culled (%f) Updated seek_pos_seconds:%f ",ts->mProgramDateTime.inSeconds(), culled.inSeconds(), (seekPosition.inSeconds() - culled.inSeconds()));
 						aamp->mProgramDateTime = ts->mProgramDateTime.inSeconds();
-						aamp->UpdateCullingState(culled.inSeconds()); // report amount of content that was implicitly culled since last playlist download
+                        aamp->_UpdateCullingState(culled.inSeconds()); // report amount of content that was implicitly culled since last playlist download
 						SeekPosUpdate(seekPosition.inSeconds() - culled.inSeconds());
 					}
 				}
@@ -3708,7 +3708,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 					if(bMetadata && newTune)
 					{
 						// Send bulk report
-						aamp->ReportBulkTimedMetadata();
+                        aamp->_ReportBulkTimedMetadata();
 					}
 				}
 
@@ -3719,7 +3719,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 					{
 						maxIntervalBtwPlaylistUpdateMs = DEFAULT_INTERVAL_BETWEEN_PLAYLIST_UPDATES_MS;
 					}
-					aamp->UpdateRefreshPlaylistInterval(maxIntervalBtwPlaylistUpdateMs/1000.0);
+                    aamp->_UpdateRefreshPlaylistInterval(maxIntervalBtwPlaylistUpdateMs/1000.0);
 				}
 
 				lstring iter = lstring(ts->playlist.GetPtr(),ts->playlist.GetLen());
@@ -3761,7 +3761,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 				{
 					AAMPLOG_WARN("StreamAbstractionAAMP_HLS::Init : Track[%s] - FORMAT_AUDIO_ES_AAC", ts->name);
 					ts->streamOutputFormat = FORMAT_AUDIO_ES_AAC;
-					aamp->SetAudioPlayContextCreationSkipped( true );
+                    aamp->_SetAudioPlayContextCreationSkipped( true );
 					audioFormatMPEGTS = false;
 					continue;
 				}
@@ -3771,7 +3771,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 				{
 					AAMPLOG_WARN("StreamAbstractionAAMP_HLS::Init : Track[%s] - FORMAT_AUDIO_ES_AC3", ts->name);
 					ts->streamOutputFormat = FORMAT_AUDIO_ES_AC3;
-					aamp->SetAudioPlayContextCreationSkipped( true );
+                    aamp->_SetAudioPlayContextCreationSkipped( true );
 					audioFormatMPEGTS = false;
 					continue;
 				}
@@ -3781,7 +3781,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 				{
 					AAMPLOG_WARN("StreamAbstractionAAMP_HLS::Init : Track[%s] - FORMAT_AUDIO_ES_EC3", ts->name);
 					ts->streamOutputFormat = FORMAT_AUDIO_ES_EC3;
-					aamp->SetAudioPlayContextCreationSkipped( true );
+                    aamp->_SetAudioPlayContextCreationSkipped( true );
 					audioFormatMPEGTS = false;
 					continue;
 				}
@@ -3812,12 +3812,12 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 						else
 						{
 							AAMPLOG_WARN("GST subtec");
-							if (aamp->WebVTTCueListenersRegistered())
+							if (aamp->_WebVTTCueListenersRegistered())
 							{
 								int width = 0, height = 0;
 								PlayerCallbacks playerCallBack = {};
 								this->InitializePlayerCallbacks(playerCallBack);
-								aamp->GetPlayerVideoSize(width, height);
+                                aamp->_GetPlayerVideoSize(width, height);
 								ts->mSubtitleParser = subtec_make_unique<WebVTTParser>(type, width, height);
 								if(ts->mSubtitleParser)
 								{
@@ -3835,7 +3835,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 								ts->enabled = false;
 							}
 						}
-						aamp->StopTrackDownloads(eMEDIATYPE_SUBTITLE);
+                        aamp->_StopTrackDownloads(eMEDIATYPE_SUBTITLE);
 					}
 					else
 					{
@@ -4031,7 +4031,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 					else
 					{
 						this->trickplayMode = true;
-						if(aamp->IsFogTSBSupported())
+						if(aamp->_IsFogTSBSupported())
 						{
 							mTrickPlayFPS = GETCONFIGVALUE(eAAMPConfig_LinearTrickPlayFPS);
 						}
@@ -4048,7 +4048,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 		// Set mIsLiveStream to keep live the history.
 		if(newTune)
 		{
-			aamp->SetIsLiveStream(aamp->IsLive());
+            aamp->_SetIsLiveStream(aamp->_IsLive());
 		}
 
 		//reiterate loop when player receive an update in seek position
@@ -4070,39 +4070,39 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 			mProgramStartTime = programStartTime.inSeconds();
 			// Delay "preparing" state until all tracks have been processed.
 			// JS Player assumes all onTimedMetadata event fire before "preparing" state.
-			aamp->SetState(eSTATE_PREPARING);
+            aamp->_SetState(eSTATE_PREPARING);
 		}
 
 		//Currently un-used playlist indexed event, might save some JS overhead
 		if (!ISCONFIGSET(eAAMPConfig_DisablePlaylistIndexEvent))
 		{
-			aamp->SendEvent(std::make_shared<AAMPEventObject>(AAMP_EVENT_PLAYLIST_INDEXED, aamp->GetSessionId()),AAMP_EVENT_ASYNC_MODE);
+            aamp->_SendEvent(std::make_shared<AAMPEventObject>(AAMP_EVENT_PLAYLIST_INDEXED, aamp->_GetSessionId()),AAMP_EVENT_ASYNC_MODE);
 		}
 		if (newTune)
 		{
-			if(ContentType_UNKNOWN == aamp->GetContentType())
+			if(ContentType_UNKNOWN == aamp->_GetContentType())
 			{
-				if(aamp->IsLive())
+				if(aamp->_IsLive())
 				{
-					aamp->SetContentType("LINEAR_TV");
+                    aamp->_SetContentType("LINEAR_TV");
 				}
 				else
 				{
-					aamp->SetContentType("VOD");
+                    aamp->_SetContentType("VOD");
 				}
 			}
 
 
-			if (eTUNED_EVENT_ON_PLAYLIST_INDEXED == aamp->GetTuneEventConfig(aamp->IsLive()))
+			if (eTUNED_EVENT_ON_PLAYLIST_INDEXED == aamp->_GetTuneEventConfig(aamp->_IsLive()))
 			{
-				if (aamp->SendTunedEvent())
+				if (aamp->_SendTunedEvent())
 				{
 					AAMPLOG_WARN("aamp: hls - sent tune event after indexing playlist");
 				}
 			}
 		}
 
-		if (aamp->IsLive())
+		if (aamp->_IsLive())
 		{
 			/** Set preferred live Offset for 4K or non 4K; Default value of mIsStream4K = false */
 			aamp->mIsStream4K = GetPreferredLiveOffsetFromConfig();
@@ -4116,8 +4116,8 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 
 		/*Do live adjust on live streams on 1. eTUNETYPE_NEW_NORMAL, 2. eTUNETYPE_SEEKTOLIVE,
 		 * 3. Seek to a point beyond duration*/
-		bool liveAdjust = (eTUNETYPE_NEW_NORMAL == tuneType)  && aamp->IsLiveAdjustRequired() && (aamp->IsLive());
-		if ((eTUNETYPE_SEEKTOLIVE == tuneType) && aamp->IsLive())
+		bool liveAdjust = (eTUNETYPE_NEW_NORMAL == tuneType)  && aamp->_IsLiveAdjustRequired() && (aamp->_IsLive());
+		if ((eTUNETYPE_SEEKTOLIVE == tuneType) && aamp->_IsLive())
 		{
 			AAMPLOG_WARN("StreamAbstractionAAMP_HLS: eTUNETYPE_SEEKTOLIVE, reset playTarget and enable liveAdjust");
 			liveAdjust = true;
@@ -4126,20 +4126,20 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 			video->playTarget = 0;
 			subtitle->playTarget = 0;
 			aux->playTarget = 0;
-			aamp->NotifyOnEnteringLive();
+            aamp->_NotifyOnEnteringLive();
 			aamp->mDisableRateCorrection = false;
 		}
 		else if (((eTUNETYPE_SEEK == tuneType) || (eTUNETYPE_RETUNE == tuneType) || (eTUNETYPE_NEW_SEEK == tuneType)) && (this->rate > 0))
 		{
 			AampTime seekWindowEnd{video->mDuration};
-			if(aamp->IsLive())
+			if(aamp->_IsLive())
 			{
 				seekWindowEnd -= aamp->mLiveOffset ;
 			}
 			// check if seek beyond live point
 			if (video->playTarget.nearestSecond() >= seekWindowEnd.nearestSecond())
 			{
-				if (aamp->IsLive())
+				if (aamp->_IsLive())
 				{
 					AAMPLOG_WARN("StreamAbstractionAAMP_HLS: playTarget > seekWindowEnd , playTarget:%f and seekWindowEnd:%f",
 							video->playTarget.inSeconds() , seekWindowEnd.inSeconds());
@@ -4151,7 +4151,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 					aux->playTarget = 0;
 					if (eTUNETYPE_SEEK == tuneType)
 					{
-						aamp->NotifyOnEnteringLive();
+                        aamp->_NotifyOnEnteringLive();
 					}
 					AAMPLOG_INFO("StreamAbstractionAAMP_HLS: Live latency correction is enabled due to the seek (rate=%f) to live window!!", this->rate);
 					aamp->mDisableRateCorrection = false;
@@ -4179,7 +4179,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 		if (audio->enabled || aux->enabled)
 		{
 			TrackState *other = audio->enabled ? audio : aux;
-			if (!aamp->IsLive())
+			if (!aamp->_IsLive())
 			{
 				retval = SyncTracksForDiscontinuity();
 				if (eAAMPSTATUS_OK != retval)
@@ -4273,7 +4273,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 
 		}
 		/*Adjust for discontinuity*/
-		if ((audio->enabled || aux->enabled) && (aamp->IsLive()) && !ISCONFIGSET(eAAMPConfig_AudioOnlyPlayback))
+		if ((audio->enabled || aux->enabled) && (aamp->_IsLive()) && !ISCONFIGSET(eAAMPConfig_AudioOnlyPlayback))
 		{
 			TrackState *otherTrack = audio->enabled ? audio : aux;
 			auto discontinuityIndexCount = video->mDiscontinuityIndex.size();
@@ -4300,7 +4300,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 						}
 						else
 						{
-							videoNextDiscontinuity = aamp->GetDurationMs() / 1000;
+							videoNextDiscontinuity = aamp->_GetDurationMs() / 1000;
 							audioNextDiscontinuity = videoNextDiscontinuity;
 						}
 						if ((videoNextDiscontinuity > (video->playTarget + 5))
@@ -4388,9 +4388,9 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 				midSeekPtsOffset = seekPosition - video->playTarget.inSeconds();
 				if(midSeekPtsOffset > video->fragmentDurationSeconds/2)
 				{
-					if(aamp->GetInitialBufferDuration() == 0)
+					if(aamp->_GetInitialBufferDuration() == 0)
 					{
-						AAMPPlayerState state = aamp->GetState();
+						AAMPPlayerState state = aamp->_GetState();
 						if(state == eSTATE_SEEKING)
 						{
 							// To prevent underflow when seeked to end of fragment.
@@ -4450,21 +4450,21 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 				int http_error = 0;
 				AampGrowableBuffer defaultIframePlaylist("defaultIframePlaylist");
 				HlsStreamInfo *streamInfo = (HlsStreamInfo *)GetStreamInfo(iframeStreamIdx);
-				aamp_ResolveURL(defaultIframePlaylistUrl, aamp->GetManifestUrl(), streamInfo->uri.c_str(), ISCONFIGSET(eAAMPConfig_PropagateURIParam));
+				aamp_ResolveURL(defaultIframePlaylistUrl, aamp->_GetManifestUrl(), streamInfo->uri.c_str(), ISCONFIGSET(eAAMPConfig_PropagateURIParam));
 				AAMPLOG_TRACE("StreamAbstractionAAMP_HLS:: Downloading iframe playlist");
 				bool bFiledownloaded = false;
-				if( !aamp->getAampCacheHandler()->RetrieveFromPlaylistCache(defaultIframePlaylistUrl, &defaultIframePlaylist, defaultIframePlaylistEffectiveUrl, eMEDIATYPE_PLAYLIST_IFRAME) )
+				if( !aamp->_getAampCacheHandler()->RetrieveFromPlaylistCache(defaultIframePlaylistUrl, &defaultIframePlaylist, defaultIframePlaylistEffectiveUrl, eMEDIATYPE_PLAYLIST_IFRAME) )
 				{
 					double tempDownloadTime{0.0};
-					bFiledownloaded = aamp->GetFile(defaultIframePlaylistUrl, eMEDIATYPE_PLAYLIST_IFRAME, &defaultIframePlaylist, defaultIframePlaylistEffectiveUrl, &http_error, &tempDownloadTime, NULL,eCURLINSTANCE_MANIFEST_MAIN);
+					bFiledownloaded = aamp->_GetFile(defaultIframePlaylistUrl, eMEDIATYPE_PLAYLIST_IFRAME, &defaultIframePlaylist, defaultIframePlaylistEffectiveUrl, &http_error, &tempDownloadTime, NULL,eCURLINSTANCE_MANIFEST_MAIN);
 					AampTime downloadTime{tempDownloadTime};
 					//update videoend info
 					ManifestData manifestData(downloadTime.milliseconds(), defaultIframePlaylist.GetLen());
-					aamp->UpdateVideoEndMetrics( eMEDIATYPE_MANIFEST,streamInfo->bandwidthBitsPerSecond,http_error,defaultIframePlaylistEffectiveUrl, downloadTime.inSeconds(), &manifestData);
+                    aamp->_UpdateVideoEndMetrics( eMEDIATYPE_MANIFEST,streamInfo->bandwidthBitsPerSecond,http_error,defaultIframePlaylistEffectiveUrl, downloadTime.inSeconds(), &manifestData);
 				}
 				if (defaultIframePlaylist.GetLen() && bFiledownloaded)
 				{
-					aamp->getAampCacheHandler()->InsertToPlaylistCache(defaultIframePlaylistUrl, &defaultIframePlaylist, defaultIframePlaylistEffectiveUrl,aamp->IsLive(),eMEDIATYPE_PLAYLIST_IFRAME);
+                    aamp->_getAampCacheHandler()->InsertToPlaylistCache(defaultIframePlaylistUrl, &defaultIframePlaylist, defaultIframePlaylistEffectiveUrl,aamp->_IsLive(),eMEDIATYPE_PLAYLIST_IFRAME);
 					AAMPLOG_TRACE("StreamAbstractionAAMP_HLS:: Cached iframe playlist");
 				}
 				else
@@ -4475,7 +4475,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 			}
 		}
 
-		if (newTune && !aamp->IsLive() && (aamp->mPreCacheDnldTimeWindow > 0) && (aamp->durationSeconds > aamp->mPreCacheDnldTimeWindow*60))
+		if (newTune && !aamp->_IsLive() && (aamp->mPreCacheDnldTimeWindow > 0) && (aamp->durationSeconds > aamp->mPreCacheDnldTimeWindow*60))
 		{
 			// Special requirement
 			// work around Adobe SSAI session lifecycle problem
@@ -4494,7 +4494,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 	{
 		//update videoend info
 		ManifestData manifestData((long)(mainManifestdownloadTime*1000), this->mainManifest.GetLen(), parseTimeMs);
-		aamp->UpdateVideoEndMetrics( eMEDIATYPE_MANIFEST,0,http_error,aamp->GetManifestUrl(), mainManifestdownloadTime, &manifestData);
+        aamp->_UpdateVideoEndMetrics( eMEDIATYPE_MANIFEST,0,http_error,aamp->_GetManifestUrl(), mainManifestdownloadTime, &manifestData);
 	}
 	return retval;
 }
@@ -4536,7 +4536,7 @@ void StreamAbstractionAAMP_HLS::InitTracks()
 		ts->playlistPosition = -1;
 		ts->playTarget = seekPosition;
 		ts->playTargetBufferCalc = seekPosition;
-		if (iTrack == eTRACK_SUBTITLE && !aamp->IsSubtitleEnabled())
+		if (iTrack == eTRACK_SUBTITLE && !aamp->_IsSubtitleEnabled())
 		{
 			AAMPLOG_INFO("StreamAbstractionAAMP_HLS::subtitles disabled by application");
 			ts->enabled = false;
@@ -4545,14 +4545,14 @@ void StreamAbstractionAAMP_HLS::InitTracks()
 		}
 		if (iTrack == eTRACK_AUX_AUDIO)
 		{
-			if (!aamp->IsAuxiliaryAudioEnabled())
+			if (!aamp->_IsAuxiliaryAudioEnabled())
 			{
 				AAMPLOG_INFO("StreamAbstractionAAMP_HLS::auxiliary audio disabled");
 				ts->enabled = false;
 				ts->streamOutputFormat = FORMAT_INVALID;
 				continue;
 			}
-			else if (aamp->GetAuxiliaryAudioLanguage() == aamp->mAudioTuple.language)
+			else if (aamp->_GetAuxiliaryAudioLanguage() == aamp->mAudioTuple.language)
 			{
 				AAMPLOG_INFO("StreamAbstractionAAMP_HLS::auxiliary audio same as primary audio, set forward audio flag");
 				ts->enabled = false;
@@ -4564,7 +4564,7 @@ void StreamAbstractionAAMP_HLS::InitTracks()
 		std::string uri = GetPlaylistURI((TrackType)iTrack, &ts->streamOutputFormat);
 		if( !uri.empty() )
 		{
-			aamp_ResolveURL(ts->mPlaylistUrl, aamp->GetManifestUrl(), uri.c_str(), ISCONFIGSET(eAAMPConfig_PropagateURIParam));
+			aamp_ResolveURL(ts->mPlaylistUrl, aamp->_GetManifestUrl(), uri.c_str(), ISCONFIGSET(eAAMPConfig_PropagateURIParam));
 			if(ts->streamOutputFormat != FORMAT_INVALID)
 			{
 				ts->enabled = true;
@@ -4589,7 +4589,7 @@ void StreamAbstractionAAMP_HLS::CachePlaylistThreadFunction(void)
 {
 	// required to work around Adobe SSAI session lifecycle problem
 	// Temporary workaround code 
-	aamp->PreCachePlaylistDownloadTask();
+    aamp->_PreCachePlaylistDownloadTask();
 	return;
 }
 
@@ -4608,7 +4608,7 @@ void StreamAbstractionAAMP_HLS::PreCachePlaylist()
 	{
 		// Add Video and IFrame Profiles
 		PreCacheUrlStruct newelem;
-		aamp_ResolveURL(newelem.url, aamp->GetManifestUrl(), streamInfo.uri.c_str(), ISCONFIGSET(eAAMPConfig_PropagateURIParam));
+		aamp_ResolveURL(newelem.url, aamp->_GetManifestUrl(), streamInfo.uri.c_str(), ISCONFIGSET(eAAMPConfig_PropagateURIParam));
 		newelem.type = streamInfo.isIframeTrack?eMEDIATYPE_PLAYLIST_IFRAME:eMEDIATYPE_PLAYLIST_VIDEO;
 		dnldList.push_back(newelem);
 	}
@@ -4619,14 +4619,14 @@ void StreamAbstractionAAMP_HLS::PreCachePlaylist()
 		if( !mediaInfo.uri.empty() )
 		{
 			PreCacheUrlStruct newelem;
-			aamp_ResolveURL( newelem.url, aamp->GetManifestUrl(), mediaInfo.uri.c_str(), ISCONFIGSET(eAAMPConfig_PropagateURIParam) );
+			aamp_ResolveURL( newelem.url, aamp->_GetManifestUrl(), mediaInfo.uri.c_str(), ISCONFIGSET(eAAMPConfig_PropagateURIParam) );
 			newelem.type = ((mediaInfo.type==eMEDIATYPE_AUDIO)?eMEDIATYPE_PLAYLIST_AUDIO:eMEDIATYPE_PLAYLIST_SUBTITLE);
 			dnldList.push_back(newelem);
 		}
 	}
 
 	// Set the download list to PrivateInstance to download it
-	aamp->SetPreCacheDownloadList(dnldList);
+    aamp->_SetPreCacheDownloadList(dnldList);
 
 	try
 	{
@@ -4686,7 +4686,7 @@ double StreamAbstractionAAMP_HLS::GetBufferedDuration()
  */
 double TrackState::GetBufferedDuration()
 {
-	return (playTargetBufferCalc.inSeconds() - (aamp->GetPositionMs() / 1000));
+	return (playTargetBufferCalc.inSeconds() - (aamp->_GetPositionMs() / 1000));
 }
 
 
@@ -4703,11 +4703,11 @@ void TrackState::SwitchSubtitleTrack()
 		AAMPLOG_INFO("Preparing to flush fragments and switch playlist");
 		// Flush all counters, reset the playlist URL and refresh the playlist
 		FlushFragments();
-		aamp_ResolveURL(mPlaylistUrl, aamp->GetManifestUrl(), context->GetPlaylistURI(type).c_str(), ISCONFIGSET(eAAMPConfig_PropagateURIParam));
-		if(aamp->IsLive())
+		aamp_ResolveURL(mPlaylistUrl, aamp->_GetManifestUrl(), context->GetPlaylistURI(type).c_str(), ISCONFIGSET(eAAMPConfig_PropagateURIParam));
+		if(aamp->_IsLive())
 		{
 			// Abort ongoing playlist download if any.
-			aamp->DisableMediaDownloads(playlistMediaType);
+            aamp->_DisableMediaDownloads(playlistMediaType);
 			// Abort playlist timed wait for immediate download.
 			AbortWaitForPlaylistDownload();
 			// Notify that fragment collector is waiting
@@ -4727,7 +4727,7 @@ void TrackState::SwitchSubtitleTrack()
 		ReleasePlaylistLock();
 		context->AbortWaitForAudioTrackCatchup(true);
 
-		mSubtitleParser->init(aamp->GetPositionSeconds(), aamp->GetBasePTS());
+		mSubtitleParser->init(aamp->_GetPositionSeconds(), aamp->_GetBasePTS());
 	}
 }
 
@@ -4742,7 +4742,7 @@ void TrackState::RunFetchLoop()
 
 	for (;;)
 	{
-		while (!abortedDownload && (!fragmentURI.empty() || refreshAudio) && aamp->DownloadsAreEnabled())
+		while (!abortedDownload && (!fragmentURI.empty() || refreshAudio) && aamp->_DownloadsAreEnabled())
 		{
 			skipFetchFragment = false;
 			if(refreshAudio)
@@ -4787,7 +4787,7 @@ void TrackState::RunFetchLoop()
 			}
 
 			// FetchFragment involves multiple wait operations, so check download status again
-			if (!aamp->DownloadsAreEnabled())
+			if (!aamp->_DownloadsAreEnabled())
 			{
 				break;
 			}
@@ -4801,7 +4801,7 @@ void TrackState::RunFetchLoop()
 				// else profile be reset to top one leading to looping of bad fragment
 				if(!mCheckForRampdown)
 				{
-					if (aamp->CheckABREnabled())
+					if (aamp->_CheckABREnabled())
 					{
 						context->CheckForProfileChange();
 					}
@@ -4824,10 +4824,10 @@ void TrackState::RunFetchLoop()
 				{
 					// Refresh playlist for ABR
 					AAMPLOG_INFO("Refreshing '%s' playlist for ABR", name);
-					if(aamp->IsLive())
+					if(aamp->_IsLive())
 					{
 						// Abort ongoing playlist download if any.
-						aamp->DisableMediaDownloads(playlistMediaType);
+                        aamp->_DisableMediaDownloads(playlistMediaType);
 						// Abort playlist timed wait for immediate download.
 						AbortWaitForPlaylistDownload();
 						// Notify that fragment collector is waiting
@@ -4846,14 +4846,14 @@ void TrackState::RunFetchLoop()
 		}
 		// reached end of vod stream
 		//teststreamer_EndOfStreamReached();
-		if(!abortedDownload && context->aamp->IsFogTSBSupported() && eosReached)
+		if(!abortedDownload && context->aamp->_IsFogTSBSupported() && eosReached)
 		{
 			AbortWaitForCachedAndFreeFragment(false);
 			/* Make the aborted variable to true to avoid
 			* further fragment fetch loop running and abort sending multiple time */
 			abortedDownload = true;
 		}
-		else if ((eosReached && !context->aamp->IsFogTSBSupported()) || mReachedEndListTag || !context->aamp->DownloadsAreEnabled())
+		else if ((eosReached && !context->aamp->_IsFogTSBSupported()) || mReachedEndListTag || !context->aamp->_DownloadsAreEnabled())
 		{
 			/* Check whether already aborted or not */
 			if(!abortedDownload)
@@ -4864,7 +4864,7 @@ void TrackState::RunFetchLoop()
 		}
 
 		// wait for manifest refresh on EOS case
-		if(!abortedDownload && aamp->IsLive())
+		if(!abortedDownload && aamp->_IsLive())
 		{
 			// Notify that fragment collector is waiting
 			AAMPLOG_INFO("EOS wait for playlist refresh");
@@ -4942,9 +4942,9 @@ StreamAbstractionAAMP_HLS::StreamAbstractionAAMP_HLS(class PrivateInstanceAAMP *
 	mediaInfoStore.reserve(initial_media_info_store_capacity);
 	//targetDurationSeconds = 0.0;
 	aamp->mhAbrManager.clearProfiles();
-	aamp->CurlInit(eCURLINSTANCE_VIDEO, DEFAULT_CURL_INSTANCE_COUNT,aamp->GetNetworkProxy());
+    aamp->_CurlInit(eCURLINSTANCE_VIDEO, DEFAULT_CURL_INSTANCE_COUNT,aamp->_GetNetworkProxy());
 	// Initializing curl instances for playlists.
-	aamp->CurlInit(eCURLINSTANCE_MANIFEST_PLAYLIST_VIDEO, AAMP_TRACK_COUNT, aamp->GetNetworkProxy());
+    aamp->_CurlInit(eCURLINSTANCE_MANIFEST_PLAYLIST_VIDEO, AAMP_TRACK_COUNT, aamp->_GetNetworkProxy());
 }
 
 
@@ -5022,7 +5022,7 @@ void TrackState::Stop(bool clearDRM)
 	{
 		playContext->abort();
 	}
-	if(aamp->IsLive())
+	if(aamp->_IsLive())
 	{
 		StopPlaylistDownloaderThread();
 	}
@@ -5031,7 +5031,7 @@ void TrackState::Stop(bool clearDRM)
 		fragmentCollectorThreadID.join();
 	}
 
-	aamp->StopTrackInjection((AampMediaType) type);
+    aamp->_StopTrackInjection((AampMediaType) type);
 	StopInjectLoop();
 
 	//To be called after StopInjectLoop to avoid cues to be injected after cleanup
@@ -5064,12 +5064,12 @@ StreamAbstractionAAMP_HLS::~StreamAbstractionAAMP_HLS()
 		SAFE_DELETE(track);
 	}
 
-	aamp->SyncBegin();
+    aamp->_SyncBegin();
 	this->thumbnailManifest.Free();
 	this->mainManifest.Free();
-	aamp->CurlTerm(eCURLINSTANCE_VIDEO, DEFAULT_CURL_INSTANCE_COUNT);
-	aamp->CurlTerm(eCURLINSTANCE_MANIFEST_PLAYLIST_VIDEO, AAMP_TRACK_COUNT);
-	aamp->SyncEnd();
+    aamp->_CurlTerm(eCURLINSTANCE_VIDEO, DEFAULT_CURL_INSTANCE_COUNT);
+    aamp->_CurlTerm(eCURLINSTANCE_MANIFEST_PLAYLIST_VIDEO, AAMP_TRACK_COUNT);
+    aamp->_SyncEnd();
 }
 
 /**
@@ -5082,7 +5082,7 @@ void TrackState::Start(void)
 		playContext->reset();
 	}
 
-	if(aamp->IsLive())
+	if(aamp->_IsLive())
 	{
 		StartPlaylistDownloaderThread();
 	}
@@ -5105,9 +5105,9 @@ void TrackState::Start(void)
 		AAMPLOG_WARN("Failed to create FragmentCollector thread : %s", e.what());
 	}
 
-	if(aamp->IsPlayEnabled())
+	if(aamp->_IsPlayEnabled())
 	{
-		aamp->ResumeTrackInjection((AampMediaType) type);
+        aamp->_ResumeTrackInjection((AampMediaType) type);
 		StartInjectLoop();
 	}
 }
@@ -5136,7 +5136,7 @@ void StreamAbstractionAAMP_HLS::Start(void)
  */
 void StreamAbstractionAAMP_HLS::Stop(bool clearChannelData)
 {
-	aamp->DisableDownloads();
+    aamp->_DisableDownloads();
 	ReassessAndResumeAudioTrack(true);
 	AbortWaitForAudioTrackCatchup(false);
 
@@ -5175,9 +5175,9 @@ void StreamAbstractionAAMP_HLS::Stop(bool clearChannelData)
 
 	if (clearChannelData)
 	{
-		if (aamp->GetCurrentDRM() != nullptr)
+		if (aamp->_GetCurrentDRM() != nullptr)
 		{
-			aamp->GetCurrentDRM()->cancelDrmSession();
+            aamp->_GetCurrentDRM()->cancelDrmSession();
 		}
 		if(aamp->fragmentCdmEncrypted)
 		{
@@ -5196,7 +5196,7 @@ void StreamAbstractionAAMP_HLS::Stop(bool clearChannelData)
 	}
 	if(!clearChannelData)
 	{
-		aamp->EnableDownloads();
+        aamp->_EnableDownloads();
 	}
 }
 
@@ -5348,26 +5348,26 @@ bool StreamAbstractionAAMP_HLS::SetThumbnailTrack( int thumbIndex )
 				aamp->mthumbIndexValue = iProfile;
 
 				std::string url;
-				aamp_ResolveURL(url, aamp->GetManifestUrl(), streamInfo.uri.c_str(), ISCONFIGSET(eAAMPConfig_PropagateURIParam));
+				aamp_ResolveURL(url, aamp->_GetManifestUrl(), streamInfo.uri.c_str(), ISCONFIGSET(eAAMPConfig_PropagateURIParam));
 				int http_error = 0;
 				AampTime downloadTime{};
 				std::string tempEffectiveUrl;
 				double tempDownloadTime;
-				if( aamp->GetFile(url, eMEDIATYPE_PLAYLIST_IFRAME, &thumbnailManifest, tempEffectiveUrl, &http_error, &tempDownloadTime, NULL, eCURLINSTANCE_MANIFEST_MAIN,true) )
+				if( aamp->_GetFile(url, eMEDIATYPE_PLAYLIST_IFRAME, &thumbnailManifest, tempEffectiveUrl, &http_error, &tempDownloadTime, NULL, eCURLINSTANCE_MANIFEST_MAIN,true) )
 				{
 					downloadTime = tempDownloadTime;
 					AAMPLOG_WARN("In StreamAbstractionAAMP_HLS: Configured Thumbnail");
 					thumbnailManifest.AppendNulTerminator();
-					ContentType type = aamp->GetContentType();
+					ContentType type = aamp->_GetContentType();
 					if( ContentType_LINEAR == type  || ContentType_SLE == type )
 					{
-						if( aamp->getAampCacheHandler()->IsPlaylistUrlCached(streamInfo.uri) )
+						if( aamp->_getAampCacheHandler()->IsPlaylistUrlCached(streamInfo.uri) )
 						{
-							aamp->getAampCacheHandler()->RemoveFromPlaylistCache(streamInfo.uri);
+                            aamp->_getAampCacheHandler()->RemoveFromPlaylistCache(streamInfo.uri);
 						}
 						rc=true;
 					}
-					aamp->getAampCacheHandler()->InsertToPlaylistCache(streamInfo.uri, &thumbnailManifest, tempEffectiveUrl,false,eMEDIATYPE_PLAYLIST_IFRAME);
+                    aamp->_getAampCacheHandler()->InsertToPlaylistCache(streamInfo.uri, &thumbnailManifest, tempEffectiveUrl,false,eMEDIATYPE_PLAYLIST_IFRAME);
 					if( ContentType_SLE != type && ContentType_LINEAR != type )
 					{
 						lstring iter = lstring(thumbnailManifest.GetPtr(), thumbnailManifest.GetLen());
@@ -5399,12 +5399,12 @@ std::vector<ThumbnailData> StreamAbstractionAAMP_HLS::GetThumbnailRangeData(doub
 {
 	std::vector<ThumbnailData> data{};
 	HlsStreamInfo &streamInfo = streamInfoStore[aamp->mthumbIndexValue];
-	ContentType type = aamp->GetContentType();
+	ContentType type = aamp->_GetContentType();
 	if(!thumbnailManifest.GetPtr() || ( type == ContentType_SLE || type == ContentType_LINEAR ) )
 	{
 		thumbnailManifest.Free();
 		std::string tmpurl;
-		if(aamp->getAampCacheHandler()->RetrieveFromPlaylistCache(streamInfo.uri, &thumbnailManifest, tmpurl,eMEDIATYPE_PLAYLIST_IFRAME))
+		if(aamp->_getAampCacheHandler()->RetrieveFromPlaylistCache(streamInfo.uri, &thumbnailManifest, tmpurl,eMEDIATYPE_PLAYLIST_IFRAME))
 		{
 			lstring iter = lstring(thumbnailManifest.GetPtr(),thumbnailManifest.GetLen());
 			indexedTileInfo = IndexThumbnails( iter, tStart );
@@ -5456,7 +5456,7 @@ std::vector<ThumbnailData> StreamAbstractionAAMP_HLS::GetThumbnailRangeData(doub
 		}
 
 		std::string url;
-		aamp_ResolveURL(url, aamp->GetManifestUrl(), streamInfo.uri.c_str(), ISCONFIGSET(eAAMPConfig_PropagateURIParam));
+		aamp_ResolveURL(url, aamp->_GetManifestUrl(), streamInfo.uri.c_str(), ISCONFIGSET(eAAMPConfig_PropagateURIParam));
 		*baseurl = url.substr(0,url.find_last_of("/\\")+1);
 	}
 	*width = streamInfo.resolution.width;
@@ -5488,8 +5488,8 @@ void StreamAbstractionAAMP_HLS::StartSubtitleParser()
 	TrackState *subtitle = trackState[eMEDIATYPE_SUBTITLE];
 	if (subtitle && subtitle->enabled && subtitle->mSubtitleParser)
 	{
-		AAMPLOG_INFO("sending init isLive : %d firstPTS : %.3f seek_pos :%f ",aamp->IsLive(), mFirstPTS.inSeconds() * 1000.0,aamp->seek_pos_seconds);
-		if( ISCONFIGSET(eAAMPConfig_HlsTsEnablePTSReStamp) || aamp->IsLive())
+		AAMPLOG_INFO("sending init isLive : %d firstPTS : %.3f seek_pos :%f ",aamp->_IsLive(), mFirstPTS.inSeconds() * 1000.0,aamp->seek_pos_seconds);
+		if( ISCONFIGSET(eAAMPConfig_HlsTsEnablePTSReStamp) || aamp->_IsLive())
 		{
 			subtitle->mSubtitleParser->init( mFirstPTS.inSeconds(),0);
 		}
@@ -5557,7 +5557,7 @@ DrmReturn TrackState::DrmDecrypt( CachedFragment * cachedFragment, ProfilerBucke
 	DrmReturn drmReturn = eDRM_ERROR;
 	{
 		std::lock_guard<std::mutex> guard(mTrackDrmMutex);
-		if (aamp->DownloadsAreEnabled())
+		if (aamp->_DownloadsAreEnabled())
 		{
 			// Update the DRM Context , if current active Drm Session is not received (mDrm)
 			// or if Key Tag changed ( either with hash change )
@@ -5743,23 +5743,23 @@ void TrackState::FetchPlaylist()
 	}
 
 	int iCurrentRate = aamp->rate; //  Store it as back up, As sometimes by the time File is downloaded, rate might have changed due to user initiated Trick-Play
-	AampCurlInstance dnldCurlInstance = aamp->GetPlaylistCurlInstance(mType , true);
-	aamp->SetCurlTimeout(aamp->mPlaylistTimeoutMs,dnldCurlInstance);
+	AampCurlInstance dnldCurlInstance = aamp->_GetPlaylistCurlInstance(mType , true);
+    aamp->_SetCurlTimeout(aamp->mPlaylistTimeoutMs,dnldCurlInstance);
 	aamp->profiler.ProfileBegin(bucketId);
 
 	double tempDownloadTime{};
-	(void) aamp->GetFile(mPlaylistUrl, mType, &playlist, mEffectiveUrl, &http_error, &tempDownloadTime, NULL, (unsigned int)dnldCurlInstance, true );
+	(void) aamp->_GetFile(mPlaylistUrl, mType, &playlist, mEffectiveUrl, &http_error, &tempDownloadTime, NULL, (unsigned int)dnldCurlInstance, true );
 	downloadTime = tempDownloadTime;
 	// update videoend info
 	main_error = context->getOriginalCurlError(http_error);
 
 	ManifestData manifestData(downloadTime.milliseconds(), playlist.GetLen());
-	aamp->UpdateVideoEndMetrics((IS_FOR_IFRAME(iCurrentRate, this->type) ? eMEDIATYPE_PLAYLIST_IFRAME : mType), this->GetCurrentBandWidth(),
+    aamp->_UpdateVideoEndMetrics((IS_FOR_IFRAME(iCurrentRate, this->type) ? eMEDIATYPE_PLAYLIST_IFRAME : mType), this->GetCurrentBandWidth(),
 								main_error, mEffectiveUrl, downloadTime.inSeconds(), &manifestData);
 	if (playlist.GetLen())
 		aamp->profiler.ProfileEnd(bucketId);
 
-	aamp->SetCurlTimeout(aamp->mNetworkTimeoutMs,dnldCurlInstance);
+    aamp->_SetCurlTimeout(aamp->mNetworkTimeoutMs,dnldCurlInstance);
 	if (!playlist.GetLen())
 	{
 		AAMPLOG_WARN("Playlist download failed : %s  http response : %d", mPlaylistUrl.c_str(), http_error);
@@ -5903,7 +5903,7 @@ bool TrackState::HasDiscontinuityAroundPosition(AampTime position, bool useDisco
 
 	std::unique_lock<std::mutex> lock(mPlaylistMutex);
 
-	while (aamp->DownloadsAreEnabled())
+	while (aamp->_DownloadsAreEnabled())
 	{
 		// No condition to check DiscontinuityCount.Possible that in next refresh it will be available,
 		// Case where one discontinuity in one track ,but other track not having it
@@ -5984,7 +5984,7 @@ bool TrackState::HasDiscontinuityAroundPosition(AampTime position, bool useDisco
 			{
 				int maxPlaylistRefreshCount;
 				bool liveNoTSB;
-				if (aamp->IsFogTSBSupported() || aamp->IsInProgressCDVR())
+				if (aamp->_IsFogTSBSupported() || aamp->_IsInProgressCDVR())
 				{
 					maxPlaylistRefreshCount = MAX_PLAYLIST_REFRESH_FOR_DISCONTINUITY_CHECK_EVENT;
 					liveNoTSB = false;
@@ -6066,7 +6066,7 @@ void TrackState::FetchInitFragment()
 			forcePushEncryptedHeader = false;
 		}
 
-		ProfilerBucketType bucketType = aamp->GetProfilerBucketForMedia((AampMediaType)type, true);
+		ProfilerBucketType bucketType = aamp->_GetProfilerBucketForMedia((AampMediaType)type, true);
 		aamp->profiler.ProfileBegin(bucketType);
 
 		if(discontinuity )
@@ -6098,7 +6098,7 @@ void TrackState::FetchInitFragment()
 			mFirstEncInitFragmentInfo = NULL; //reset init fragment, since encrypted header already pushed
 			UpdateTSAfterFetch(true);
 		}
-		else if (type == eTRACK_VIDEO && aamp->CheckABREnabled() && !context->CheckForRampDownLimitReached())
+		else if (type == eTRACK_VIDEO && aamp->_CheckABREnabled() && !context->CheckForRampDownLimitReached())
 		{
 			// Attempt rampdown for init fragment to get playable profiles.
 			// TODO: Remove profile if init fragment is not available from ABR.
@@ -6114,24 +6114,24 @@ void TrackState::FetchInitFragment()
 			else
 			{
 				// Failed to get init fragment from all attempted profiles
-				if (aamp->DownloadsAreEnabled())
+				if (aamp->_DownloadsAreEnabled())
 				{
 					AAMPLOG_ERR("%s TrackState::Init fragment fetch failed", name);
 					aamp->profiler.ProfileError(bucketType, http_code);
 					abortWaitForVideoPTS();
-					aamp->SendDownloadErrorEvent(AAMP_TUNE_INIT_FRAGMENT_DOWNLOAD_FAILURE, http_code);
+                    aamp->_SendDownloadErrorEvent(AAMP_TUNE_INIT_FRAGMENT_DOWNLOAD_FAILURE, http_code);
 				}
 				context->mRampDownCount = 0;
 			}
 			AAMPLOG_WARN("Error while fetching init fragment:%s, failedCount:%d. decrementing profile", name, segDLFailCount);
 		}
-		else if (aamp->DownloadsAreEnabled())
+		else if (aamp->_DownloadsAreEnabled())
 		{
 			int http_error = context->getOriginalCurlError(http_code);
 			AAMPLOG_ERR("%s TrackState::Init fragment fetch failed", name);
 			abortWaitForVideoPTS();
 			aamp->profiler.ProfileError(bucketType, http_error);
-			aamp->SendDownloadErrorEvent(AAMP_TUNE_INIT_FRAGMENT_DOWNLOAD_FAILURE, http_code);
+            aamp->_SendDownloadErrorEvent(AAMP_TUNE_INIT_FRAGMENT_DOWNLOAD_FAILURE, http_code);
 		}
 	}
 	else if (mInitFragmentInfo.empty())
@@ -6256,7 +6256,7 @@ bool TrackState::FetchInitFragmentHelper(int &http_code, bool forcePushEncrypted
 			long long ts_start, ts_end;
 			ts_start = aamp_GetCurrentTimeMS();
 #endif /* CHECK_PERFORMANCE */
-			bool fetched = aamp->getAampCacheHandler()->RetrieveFromInitFragmentCache(fragmentUrl, &cachedFragment->fragment, tempEffectiveUrl);
+			bool fetched = aamp->_getAampCacheHandler()->RetrieveFromInitFragmentCache(fragmentUrl, &cachedFragment->fragment, tempEffectiveUrl);
 
 #ifdef CHECK_PERFORMANCE
 			ts_end = aamp_GetCurrentTimeMS();
@@ -6267,7 +6267,7 @@ bool TrackState::FetchInitFragmentHelper(int &http_code, bool forcePushEncrypted
 			if ( !fetched )
 			{
 				double tempDownloadTime{0.0};
-				fetched = aamp->GetFile(fragmentUrl, actualType, &cachedFragment->fragment, tempEffectiveUrl, &http_code, &tempDownloadTime, range,
+				fetched = aamp->_GetFile(fragmentUrl, actualType, &cachedFragment->fragment, tempEffectiveUrl, &http_code, &tempDownloadTime, range,
 						type, false );
 				AampTime downloadTime{tempDownloadTime};
 
@@ -6277,10 +6277,10 @@ bool TrackState::FetchInitFragmentHelper(int &http_code, bool forcePushEncrypted
 #endif /* CHECK_PERFORMANCE */
 
 				int main_error = context->getOriginalCurlError(http_code);
-				aamp->UpdateVideoEndMetrics(actualType, this->GetCurrentBandWidth(), main_error, mEffectiveUrl, downloadTime.inSeconds());
+                aamp->_UpdateVideoEndMetrics(actualType, this->GetCurrentBandWidth(), main_error, mEffectiveUrl, downloadTime.inSeconds());
 
 				if ( fetched )
-				aamp->getAampCacheHandler()->InsertToInitFragCache ( fragmentUrl, &cachedFragment->fragment, tempEffectiveUrl, actualType);
+                    aamp->_getAampCacheHandler()->InsertToInitFragCache ( fragmentUrl, &cachedFragment->fragment, tempEffectiveUrl, actualType);
 			}
 			if (!fetched)
 			{
@@ -6329,7 +6329,7 @@ void StreamAbstractionAAMP_HLS::StopInjection(void)
 void TrackState::StopInjection()
 {
 	AbortWaitForCachedFragment();
-	aamp->StopTrackInjection((AampMediaType) type);
+    aamp->_StopTrackInjection((AampMediaType) type);
 	if (playContext)
 	{
 		playContext->abort();
@@ -6345,7 +6345,7 @@ void TrackState::StartInjection()
 {
 	AAMPLOG_INFO("StartInjection()");
 
-	aamp->ResumeTrackInjection((AampMediaType) type);
+    aamp->_ResumeTrackInjection((AampMediaType) type);
 	if (playContext)
 	{
 		playContext->reset();
@@ -6392,7 +6392,7 @@ void TrackState::CancelDrmOperation(bool clearDRM)
 		mDrm->CancelKeyWait();
 		if (clearDRM)
 		{
-			if ((aamp->GetCurrentDRM() == nullptr) || (!aamp->GetCurrentDRM()->canCancelDrmSession()))
+			if ((aamp->_GetCurrentDRM() == nullptr) || (!aamp->_GetCurrentDRM()->canCancelDrmSession()))
 			{
 				std::lock_guard<std::mutex> guard(mTrackDrmMutex);
 				mDrm->Release();
@@ -6446,11 +6446,11 @@ void TrackState::FindTimedMetadata(bool reportBulkMeta, bool bInitCall)
 							std::string temp = ptr.tostring();
 							if(reportBulkMeta)
 							{
-								aamp->SaveTimedMetadata(positionMilliseconds, data, temp.c_str(), (int)nb);
+                                aamp->_SaveTimedMetadata(positionMilliseconds, data, temp.c_str(), (int)nb);
 							}
 							else
 							{
-								aamp->ReportTimedMetadata(positionMilliseconds, data, temp.c_str(), (int)nb, bInitCall);
+                                aamp->_ReportTimedMetadata(positionMilliseconds, data, temp.c_str(), (int)nb, bInitCall);
 							}
 							break;
 						}
@@ -6505,8 +6505,8 @@ bool StreamAbstractionAAMP_HLS::Is4KStream(int &height, BitsPerSecond &bandwidth
 void StreamAbstractionAAMP_HLS::ConfigureVideoProfiles()
 {
 	std::string audiogroupId ;
-	long minBitrate = aamp->GetMinimumBitrate();
-	long maxBitrate = aamp->GetMaximumBitrate();
+	long minBitrate = aamp->_GetMinimumBitrate();
+	long maxBitrate = aamp->_GetMaximumBitrate();
 	bool iProfileCapped = false;
 	bool resolutionCheckEnabled = ISCONFIGSET(eAAMPConfig_LimitResolution);
 	if(resolutionCheckEnabled && (0 == aamp->mDisplayWidth || 0 == aamp->mDisplayHeight))
@@ -6572,7 +6572,7 @@ void StreamAbstractionAAMP_HLS::ConfigureVideoProfiles()
 							continue;
 						}
 						//Update profile resolution with VideoEnd Metrics object.
-						aamp->UpdateVideoEndProfileResolution( eMEDIATYPE_IFRAME,
+                        aamp->_UpdateVideoEndProfileResolution( eMEDIATYPE_IFRAME,
 								streamInfo.bandwidthBitsPerSecond,
 								streamInfo.resolution.width,
 								streamInfo.resolution.height );
@@ -6603,7 +6603,7 @@ void StreamAbstractionAAMP_HLS::ConfigureVideoProfiles()
 				break;
 			}
 		}
-		if (!aamp->IsFogTSBSupported() && iProfileCapped)
+		if (!aamp->_IsFogTSBSupported() && iProfileCapped)
 		{
 			aamp->mProfileCappedStatus = true;
 		}
@@ -6849,7 +6849,7 @@ void StreamAbstractionAAMP_HLS::ConfigureVideoProfiles()
 					if(streamInfo.enabled)
 					{
 						//Update profile resolution with VideoEnd Metrics object.
-						aamp->UpdateVideoEndProfileResolution( eMEDIATYPE_VIDEO,
+                        aamp->_UpdateVideoEndProfileResolution( eMEDIATYPE_VIDEO,
 								streamInfo.bandwidthBitsPerSecond,
 								streamInfo.resolution.width,
 								streamInfo.resolution.height );
@@ -6866,7 +6866,7 @@ void StreamAbstractionAAMP_HLS::ConfigureVideoProfiles()
 					else if( isThumbnailStream(streamInfo) )
 					{
 						//Updating Thumbnail profiles along with Video profiles.
-						aamp->UpdateVideoEndProfileResolution( eMEDIATYPE_IFRAME,
+                        aamp->_UpdateVideoEndProfileResolution( eMEDIATYPE_IFRAME,
 								streamInfo.bandwidthBitsPerSecond,
 								streamInfo.resolution.width,
 								streamInfo.resolution.height );
@@ -6881,7 +6881,7 @@ void StreamAbstractionAAMP_HLS::ConfigureVideoProfiles()
 						AAMPLOG_INFO("Adding image track, userData=%d BW = %ld ", j, streamInfo.bandwidthBitsPerSecond);
 					}
 				}
-				if (!aamp->IsFogTSBSupported() && iProfileCapped)
+				if (!aamp->_IsFogTSBSupported() && iProfileCapped)
 				{
 					aamp->mProfileCappedStatus = true;
 				}
@@ -6957,7 +6957,7 @@ void StreamAbstractionAAMP_HLS::ConfigureVideoProfiles()
  */
 void StreamAbstractionAAMP_HLS::ConfigureTextTrack()
 {
-	TextTrackInfo track = aamp->GetPreferredTextTrack();
+	TextTrackInfo track = aamp->_GetPreferredTextTrack();
 	currentTextTrackProfileIndex = -1;
 	if (!track.index.empty())
 	{
@@ -6990,9 +6990,9 @@ void StreamAbstractionAAMP_HLS::RefreshTrack(AampMediaType type)
 			track->refreshAudio = true;
 		}
 		track->AbortWaitForCachedAndFreeFragment(true);
-		aamp->StopTrackInjection(type);
+        aamp->_StopTrackInjection(type);
 		aamp->mDisableRateCorrection = true;
-		if(aamp->IsLive() && !track->seamlessAudioSwitchInProgress)
+		if(aamp->_IsLive() && !track->seamlessAudioSwitchInProgress)
 		{
 			track->AbortFragmentDownloaderWait();
 		}
@@ -7022,14 +7022,14 @@ void TrackState::SwitchAudioTrack()
 
 		//Update audio track index and notify based on new track configured in ConfigureAudioTrack, Populating AudioAndTextTracks will again append to the older vector
 		aamp->mCurrentAudioTrackIndex = context->currentAudioProfileIndex;
-		aamp->NotifyAudioTracksChanged();
+        aamp->_NotifyAudioTracksChanged();
 
-		aamp_ResolveURL(mPlaylistUrl, aamp->GetManifestUrl(), context->GetPlaylistURI(type).c_str(), ISCONFIGSET(eAAMPConfig_PropagateURIParam));
+		aamp_ResolveURL(mPlaylistUrl, aamp->_GetManifestUrl(), context->GetPlaylistURI(type).c_str(), ISCONFIGSET(eAAMPConfig_PropagateURIParam));
 		mInjectInitFragment = true;
-		if(aamp->IsLive())
+		if(aamp->_IsLive())
 		{
 			// Abort ongoing playlist download or wait for refresh if any.
-			aamp->DisableMediaDownloads(playlistMediaType);
+            aamp->_DisableMediaDownloads(playlistMediaType);
 			AbortWaitForPlaylistDownload();
 			// Notify that fragment collector is waiting
 			NotifyFragmentCollectorWait();
@@ -7041,14 +7041,14 @@ void TrackState::SwitchAudioTrack()
 		}
 
 		//Abort the playback when new audio playlist download fails as we do in InitTracks, to avoid continuing with older audio
-		if(!context->aamp->DownloadsAreEnabled())
+		if(!context->aamp->_DownloadsAreEnabled())
 		{
 			NotifyCachedAudioFragmentAvailable();
 			seamlessAudioSwitchInProgress = false;
 			return;
 		}
 		// Get the current playback position, we need to seek to this in the new playlist
-		AampTime gstSeek{aamp->GetPositionSeconds()};
+		AampTime gstSeek{aamp->_GetPositionSeconds()};
 		TrackState *video = context->trackState[eTRACK_VIDEO];
 		if(video && video->enabled)
 		{
@@ -7150,7 +7150,7 @@ void StreamAbstractionAAMP_HLS::PopulateAudioAndTextTracks()
 		aamp->mCurrentAudioTrackIndex = currentAudioProfileIndex;
 		if (tracksChanged)
 		{
-			aamp->NotifyAudioTracksChanged();
+            aamp->_NotifyAudioTracksChanged();
 		}
 
 		tracksChanged = false;
@@ -7161,12 +7161,12 @@ void StreamAbstractionAAMP_HLS::PopulateAudioAndTextTracks()
 		aamp->mCurrentTextTrackIndex = currentTextTrackProfileIndex;
 		if (tracksChanged)
 		{
-			aamp->NotifyTextTracksChanged();
+            aamp->_NotifyTextTracksChanged();
 		}
 		std::vector<TextTrackInfo> textTracksCopy;
 		std::copy_if(begin(mTextTracks), end(mTextTracks), back_inserter(textTracksCopy), [](const TextTrackInfo& e){return e.isCC;});
 		std::vector<CCTrackInfo> updatedTextTracks;
-		aamp->UpdateCCTrackInfo(textTracksCopy,updatedTextTracks);
+        aamp->_UpdateCCTrackInfo(textTracksCopy,updatedTextTracks);
 		PlayerCCManager::GetInstance()->updateLastTextTracks(updatedTextTracks);
 	}
 	else
@@ -7355,7 +7355,7 @@ StreamAbstractionAAMP::ABRMode StreamAbstractionAAMP_HLS::GetABRMode()
 {
 	ABRMode mode;
 
-	if (aamp->IsFogTSBSupported())
+	if (aamp->_IsFogTSBSupported())
 	{
 		// Fog manages ABR.
 		mode = ABRMode::FOG_TSB;
@@ -7393,8 +7393,8 @@ void StreamAbstractionAAMP_HLS::SelectSubtitleTrack()
 		{
 			currentTextTrackProfileIndex = std::stoi(firstAvailTextTrack->index);
 			aamp->mIsInbandCC = false;
-			aamp->SetCCStatus(false); //mute the subtitle track
-			aamp->SetPreferredTextTrack(*firstAvailTextTrack);
+            aamp->_SetCCStatus(false); //mute the subtitle track
+            aamp->_SetPreferredTextTrack(*firstAvailTextTrack);
 		}
 	}
 	AAMPLOG_INFO("using RialtoSink TextTrack Selected :%d", currentTextTrackProfileIndex);

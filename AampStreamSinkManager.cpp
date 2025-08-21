@@ -380,7 +380,7 @@ void AampStreamSinkManager::ActivatePlayer(PrivateInstanceAAMP *aamp)
 	// N.B. GetPositionMs() must be called before locking the StreamSink mutex, to avoid deadlock.
 	// This is because PrivateInstanceAAMP::GetPositionRelativeToSeekMilliseconds() calls
 	// GetStreamSink, which also locks mStreamSinkMutex.
-	double position = aamp->GetPositionMs() / 1000.00;
+	double position = aamp->_GetPositionMs() / 1000.00;
 
 	std::lock_guard<std::mutex> lock(mStreamSinkMutex);
 	
@@ -448,7 +448,7 @@ void AampStreamSinkManager::SetActive(PrivateInstanceAAMP *aamp, double position
 	mGstPlayer->Flush(position, aamp->rate, true);
 	aamp->mIsFlushOperationInProgress = false;
 	mGstPlayer->SetSubtitleMute(aamp->subtitles_muted);
-	if(!aamp->IsTuneCompleted() && aamp->IsPlayEnabled() && (mPipelineMode == ePIPELINEMODE_SINGLE))
+	if(!aamp->_IsTuneCompleted() && aamp->_IsPlayEnabled() && (mPipelineMode == ePIPELINEMODE_SINGLE))
 	{
 		mGstPlayer->ResetFirstFrame();
 	}
