@@ -66,13 +66,6 @@ class FakePlayerExternalsInterface : public PlayerExternalsInterfaceBase
             m_hdcpCurrentProtocol = PLAYER_dsHDCP_VERSION_1X;
             m_isHDCPEnabled = true;
         }
-
-        /**
-         * @fn IsActiveStreamingInterfaceWifi
-         * @brief Checks if current active interface is wifi and also sets up NET_SRV_MGR event to handles active interface change
-         * @return True if current active is wifi. False if not.
-         */
-        static bool IsActiveStreamingInterfaceWifi(){return false;}
         
         /**
          * @fn GetTR181Config
@@ -137,12 +130,6 @@ public:
      *
      */
     PlayerExternalsInterface& operator=(const PlayerExternalsInterface&) = delete;
-    
-    /**
-     * @brief Routine to check ActiveStreamingInterface
-     *
-     */
-	static bool IsActiveStreamingInterfaceWifi(void);
 	 
 	 
 

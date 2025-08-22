@@ -18,12 +18,6 @@ class DeviceFireboltInterface : public DeviceInterfaceBase {
 
         ~DeviceFireboltInterface();
 
-        void RegisterDsMgrEventHandler() override;
-
-        void RemoveDsMgrEventHandler() override;
-
-        bool IsActiveStreamingInterfaceWifi() override;
-
         char *GetTR181Config(const char * paramName, size_t & iConfigLen) override;
 
         static std::shared_ptr<DeviceFireboltInterface> GetInstance();
@@ -41,6 +35,12 @@ class DeviceFireboltInterface : public DeviceInterfaceBase {
         bool CreateFireboltInstance(const std::string &url);
 
         void ConnectionChanged(const bool connected, int error);
+
+        void RegisterDsMgrEventHandler() override;
+
+        void RegisterNtwMgrEventHandler() override;
+
+        void RemoveEventHandlers() override;
 
         void DestroyFireboltInstance();
 

@@ -136,24 +136,6 @@ bool PlayerExternalsInterface::GetActiveInterface()
 }
 
 /**
- * @brief sets up interfaces to retrieve current active interface
- */
-bool PlayerExternalsInterface::IsActiveStreamingInterfaceWifi(void)
-{
-    bool bRet = false;
-#ifdef IARM_MGR
-    if(!IsContainerEnvironment())
-    {
-        bRet = PlayerExternalsRdkInterface::IsActiveStreamingInterfaceWifi();
-    }
-#else
-    bRet = FakePlayerExternalsInterface::IsActiveStreamingInterfaceWifi();
-#endif
-
-    return bRet;
-}
-
-/**
  * @brief checks if Wifi Curl Header ought to be configured
  */
 bool PlayerExternalsInterface::IsConfigWifiCurlHeader()

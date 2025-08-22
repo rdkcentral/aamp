@@ -110,13 +110,6 @@ class PlayerExternalsInterfaceBase
          * @brief Checks Display Settings and sets HDMI parameters like video output resolution, HDCP protocol
          */
         virtual void SetHDMIStatus(){}
-
-        /**
-         * @fn IsActiveStreamingInterfaceWifi
-         * @brief Checks if current active interface is wifi and also sets up NET_SRV_MGR event to handles active interface change
-         * @return True if current active is wifi. False if not.
-         */
-        bool IsActiveStreamingInterfaceWifi(){return false;}
         
         /**
          * @fn GetTR181Config

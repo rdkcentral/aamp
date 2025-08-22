@@ -57,6 +57,15 @@ std::shared_ptr<DeviceIARMInterface> DeviceIARMInterface::GetInstance()
 DeviceIARMInterface::DeviceIARMInterface()
 {
     IARMInit();
+    RegisterDsMgrEventHandler();
+    RegisterNtwMgrEventHandler();
+}
+
+DeviceIARMInterface::~DeviceIARMInterface()
+{
+    RemoveEventHandlers();
+
+    s_pDeviceIARMInterface = nullptr;
 }
 
 void DeviceIARMInterface::IARMInit()
@@ -86,14 +95,15 @@ void DeviceIARMInterface::RegisterDsMgrEventHandler()
     IARM_Bus_RegisterEventHandler(IARM_BUS_DSMGR_NAME,IARM_BUS_DSMGR_EVENT_RES_POSTCHANGE, ResolutionHandler);
 }
 
-void DeviceIARMInterface::RemoveDsMgrEventHandler()
+void DeviceIARMInterface::RemoveEventHandlers()
 {
     IARM_Bus_RemoveEventHandler(IARM_BUS_DSMGR_NAME,IARM_BUS_DSMGR_EVENT_HDMI_HOTPLUG, HDMIEventHandler);
     IARM_Bus_RemoveEventHandler(IARM_BUS_DSMGR_NAME,IARM_BUS_DSMGR_EVENT_HDCP_STATUS, HDMIEventHandler);
     IARM_Bus_RemoveEventHandler(IARM_BUS_DSMGR_NAME,IARM_BUS_DSMGR_EVENT_RES_POSTCHANGE, ResolutionHandler);
+    IARM_Bus_RemoveEventHandler("NET_SRV_MGR", IARM_BUS_NETWORK_MANAGER_EVENT_INTERFACE_IPADDRESS, getActiveInterfaceEventHandler);
 }
 
-bool DeviceIARMInterface::IsActiveStreamingInterfaceWifi()
+void DeviceIARMInterface::RegisterNtwMgrEventHandler()
 {
     std::shared_ptr<PlayerExternalsRdkInterface> pInstance = PlayerExternalsRdkInterface::GetPlayerExternalsRdkInterfaceInstance();
 
@@ -115,7 +125,6 @@ bool DeviceIARMInterface::IsActiveStreamingInterfaceWifi()
     }
     IARM_Bus_RegisterEventHandler("NET_SRV_MGR", IARM_BUS_NETWORK_MANAGER_EVENT_INTERFACE_IPADDRESS, getActiveInterfaceEventHandler);
     pInstance->SetActiveInterface(wifiStatus);
-    return wifiStatus;
 }
 
 char * DeviceIARMInterface::GetTR181Config(const char * paramName, size_t & iConfigLen)

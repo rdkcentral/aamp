@@ -31,11 +31,13 @@ std::shared_ptr<DeviceFireboltInterface> DeviceFireboltInterface::GetInstance()
 DeviceFireboltInterface::DeviceFireboltInterface()
 {
     m_pFireboltInterface = FireboltInterface::GetInstance();
+	RegisterDsMgrEventHandler();
+	RegisterNtwMgrEventHandler();
 }
 
 DeviceFireboltInterface::~DeviceFireboltInterface()
 {
-	RegisterDsMgrEventHandler();
+	RemoveEventHandlers();
 	m_pFireboltInterface = nullptr;
 }
 
@@ -82,16 +84,15 @@ void DeviceFireboltInterface::RegisterDsMgrEventHandler()
 
 }
 
-void DeviceFireboltInterface::RemoveDsMgrEventHandler()
+void DeviceFireboltInterface::RemoveEventHandlers()
 {
 	//removes everything ...
     Firebolt::IFireboltAampAccessor::Instance().DeviceInterface().unsubscribeAll();        
 }
 
-bool DeviceFireboltInterface::IsActiveStreamingInterfaceWifi()
+void DeviceFireboltInterface::RegisterNtwMgrEventHandler()
 {
-	bool bRet = false;
-    MW_LOG_WARN("Subscribing to Firebolt Network change event ");
+	MW_LOG_WARN("Subscribing to Firebolt Network change event ");
 
 	auto result =  Firebolt::IFireboltAampAccessor::Instance().DeviceInterface().subscribeOnNetworkChanged(
 					[](const auto& network) {
@@ -109,32 +110,21 @@ bool DeviceFireboltInterface::IsActiveStreamingInterfaceWifi()
 		MW_LOG_ERR("Failed to subscribe to network change events: %d", static_cast<int>(result.error()));
 	}
 
-	auto curr_network = Firebolt::IFireboltAampAccessor::Instance().DeviceInterface().network();
+	std::shared_ptr<PlayerExternalsRdkInterface> pInstance = PlayerExternalsRdkInterface::GetPlayerExternalsRdkInterfaceInstance();
 
-	if(curr_network)
+	auto network = Firebolt::IFireboltAampAccessor::Instance().DeviceInterface().network();
+
+	if(network)
 	{
-		if(curr_network.value().type == Firebolt::Device::NetworkType::WIFI)
+		if(network.value().type == Firebolt::Device::NetworkType::WIFI)
 		{
-			MW_LOG_INFO("Current interface wifi");
-			bRet = true;
-		}
-		else if(curr_network.value().type == Firebolt::Device::NetworkType::ETHERNET)
-		{
-			MW_LOG_INFO("Current interface ethernet");
-			bRet = false;
+			pInstance->SetActiveInterface(true);
 		}
 		else
 		{
-			MW_LOG_ERR("Unsupported interface!!");
+			pInstance->SetActiveInterface(false);
 		}
 	}
-	else
-	{
-		MW_LOG_ERR("Failed to get current interface");
-	}
-	
-
-	return bRet;
 
 }
 
