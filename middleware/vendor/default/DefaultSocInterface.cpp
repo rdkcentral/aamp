@@ -212,56 +212,57 @@ bool DefaultSocInterface::ConfigureAudioSink(GstElement **audio_sink, GstObject 
 }
 
 /**
-		 * @brief Sets the playback rate for the given GStreamer elements.
-		 *
-		 * @param sources A vector of GStreamer source elements.
-		 * @param pipeline The main GStreamer pipeline.
-		 * @param rate The desired playback rate.
-		 * @param video_dec The video decoder element.
-		 * @param audio_dec The audio decoder element.
-		 * @return True if the playback rate was set successfully, false otherwise.
-		 */
-		bool SetPlaybackRate(const std::vector<GstElement*>& sources, GstElement *pipeline, double rate, GstElement *video_dec, GstElement *audio_dec)
-        {
-			bool status = false;
-			#if defined(__APPLE__) || defined(UBUNTU)
-				status = false;
-                         #else
-			if (isRialto)
+ * @brief Sets the playback rate for the given GStreamer elements.
+ *
+ * @param sources A vector of GStreamer source elements.
+ * @param pipeline The main GStreamer pipeline.
+ * @param rate The desired playback rate.
+ * @param video_dec The video decoder element.
+ * @param audio_dec The audio decoder element.
+ * @return True if the playback rate was set successfully, false otherwise.
+ */
+bool DefaultSocInterface::SetPlaybackRate(const std::vector<GstElement*>& sources, GstElement *pipeline, double rate, GstElement *video_dec, GstElement *audio_dec)
+{
+	bool status = false;
+	bool  isRialto = true;// hardcoded 
+#if defined(__APPLE__) || defined(UBUNTU)
+	status = false;
+#else
+	if (isRialto)
+	{
+		if(GST_CHECK_VERSION(1,18,0))
+		{
+			/*for gst version 1.18.0 we need to apply rate into audio/video source pad*/
+			for (GstElement* source : sources)
 			{
-				if(GST_CHECK_VERSION(1,18,0))
+				if(source)
 				{
-					/*for gst version 1.18.0 we need to apply rate into audio/video source pad*/
-					for (GstElement* source : sources)
+					GstPad* sourceEleSrcPad = gst_element_get_static_pad(GST_ELEMENT(source), "src");
+					if(!sourceEleSrcPad)
 					{
-						if(source)
-						{
-							GstPad* sourceEleSrcPad = gst_element_get_static_pad(GST_ELEMENT(source), "src");
-							if(!sourceEleSrcPad)
-							{
-								MW_LOG_ERR("failed to get static pad retrying");
-								continue;
-							}
-							/*
-							gboolean ret = gst_pad_send_event(sourceEleSrcPad, gst_event_new_seek (rate, GST_FORMAT_TIME,
-							static_cast<GstSeekFlags>(GST_SEEK_FLAG_INSTANT_RATE_CHANGE),
-							GST_SEEK_TYPE_NONE,0, GST_SEEK_TYPE_NONE, 0));
-							gst_object_unref(sourceEleSrcPad);
-							*/
-							GstEvent* seek_event = gst_event_new_seek(rate, GST_FORMAT_TIME, static_cast<GstSeekFlags>(GST_SEEK_FLAG_INSTANT_RATE_CHANGE), GST_SEEK_TYPE_NONE, 0, GST_SEEK_TYPE_NONE, 0);
-							if (!seek_event)
-							{
-								MW_LOG_ERR("Failed to create seek event");
-								gst_object_unref(sourceEleSrcPad);
-								continue;
-							}
-							gboolean ret = gst_pad_send_event(sourceEleSrcPad, seek_event);
-							gst_object_unref(sourceEleSrcPad);
-							if(ret)
-							{
-								status = true;
-							}
-							else
+						MW_LOG_ERR("failed to get static pad retrying");
+						continue;
+					}
+					/*
+					   gboolean ret = gst_pad_send_event(sourceEleSrcPad, gst_event_new_seek (rate, GST_FORMAT_TIME,
+					   static_cast<GstSeekFlags>(GST_SEEK_FLAG_INSTANT_RATE_CHANGE),
+					   GST_SEEK_TYPE_NONE,0, GST_SEEK_TYPE_NONE, 0));
+					   gst_object_unref(sourceEleSrcPad);
+					   */
+					GstEvent* seek_event = gst_event_new_seek(rate, GST_FORMAT_TIME, static_cast<GstSeekFlags>(GST_SEEK_FLAG_INSTANT_RATE_CHANGE), GST_SEEK_TYPE_NONE, 0, GST_SEEK_TYPE_NONE, 0);
+					if (!seek_event)
+					{
+						MW_LOG_ERR("Failed to create seek event");
+						gst_object_unref(sourceEleSrcPad);
+						continue;
+					}
+					gboolean ret = gst_pad_send_event(sourceEleSrcPad, seek_event);
+					gst_object_unref(sourceEleSrcPad);
+					if(ret)
+					{
+						status = true;
+					}
+					else
 							{
 								MW_LOG_ERR("Vendor: failed to send the rate event to src pad");
 							}
