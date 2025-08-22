@@ -99,7 +99,7 @@ class PlayerExternalsRdkInterface : public PlayerExternalsInterfaceBase
          * @fn GetPlayerExternalsRdkInterfaceInstance
          * @retval PlayerExternalsRdkInterface object
          */	
-        static PlayerExternalsRdkInterface * GetPlayerExternalsRdkInterfaceInstance();
+        static std::shared_ptr<PlayerExternalsRdkInterface> GetPlayerExternalsRdkInterfaceInstance();
 
         /**
          * @fn GetTR181Config

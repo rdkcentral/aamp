@@ -32,7 +32,7 @@
 #define DISPLAY_HEIGHT_UNKNOWN      -1  /**< Parsing failed for getResolution().getName(); */
 #define DISPLAY_RESOLUTION_NA        0  /**< Resolution not available yet or not connected to HDMI */
 
-PlayerExternalsRdkInterface* s_pPlayerIarmRdkOP = NULL;
+std::shared_ptr<PlayerExternalsRdkInterface> s_pPlayerIarmRdkOP = nullptr;
 
 #define USE_FIREBOLT
 
@@ -41,10 +41,10 @@ static bool isInterfaceWifi = false;
 /**
  * @brief Singleton for object creation
  */
-PlayerExternalsRdkInterface * PlayerExternalsRdkInterface::GetPlayerExternalsRdkInterfaceInstance()
+std::shared_ptr<PlayerExternalsRdkInterface> PlayerExternalsRdkInterface::GetPlayerExternalsRdkInterfaceInstance()
 {
     if(s_pPlayerIarmRdkOP == NULL) {
-        s_pPlayerIarmRdkOP = new PlayerExternalsRdkInterface();
+        s_pPlayerIarmRdkOP = std::shared_ptr<PlayerExternalsRdkInterface>(new PlayerExternalsRdkInterface());
     }
 
     return s_pPlayerIarmRdkOP;
@@ -68,6 +68,7 @@ PlayerExternalsRdkInterface::~PlayerExternalsRdkInterface()
 {
     RemoveDsMgrEventHandler();
     m_pDeviceInterfaceBase = nullptr;
+    s_pPlayerIarmRdkOP = nullptr;
 }
 
 void PlayerExternalsRdkInterface::RegisterDsMgrEventHandler()
