@@ -224,9 +224,9 @@ bool DefaultSocInterface::ConfigureAudioSink(GstElement **audio_sink, GstObject 
 		bool SetPlaybackRate(const std::vector<GstElement*>& sources, GstElement *pipeline, double rate, GstElement *video_dec, GstElement *audio_dec) override;
         {
 			bool status = false;
-			#if defined(__APPLE__) || defined(UBUNTU)
+			#ifdef (__APPLE__) || defined(UBUNTU)
 				status = false;
-			#elif
+                         #else
 			if (isRialto)
 			{
 				if(GST_CHECK_VERSION(1,18,0))
