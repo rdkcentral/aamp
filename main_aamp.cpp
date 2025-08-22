@@ -47,6 +47,7 @@ AampConfig *gpGlobalConfig=NULL;
 
 std::mutex PlayerInstanceAAMP::mPrvAampMtx;
 
+#ifdef USE_PREINIT_DECODING
 void doFakeTune()
 {
 	if(PlayerExternalsInterface::IsDevicePropertiesPresent())
@@ -79,6 +80,7 @@ void doFakeTune()
 					}).detach();
 	}
 }
+#endif
 
 /**
  *  @brief PlayerInstanceAAMP Constructor.
