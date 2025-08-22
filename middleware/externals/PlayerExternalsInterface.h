@@ -114,8 +114,6 @@ private:
 
     static std::shared_ptr<PlayerExternalsInterface> s_pPlayerOP;
 
-    bool m_UseFirebolt = false;
-
     /**
      * @fn PlayerExternalsInterface
      */
@@ -203,6 +201,8 @@ public:
     bool IsConfigWifiCurlHeader();
 
     static void SetUseFirebolt(bool t_use_firebolt);
+
+    bool GetUseFirebolt();
 
 };
 

@@ -170,3 +170,13 @@ bool PlayerExternalsInterface::IsConfigWifiCurlHeader()
     return bRet;
 }
 
+void PlayerExternalsInterface::SetUseFirebolt(bool t_use_firebolt)
+{
+    mUseFireboltExternals = t_use_firebolt;
+    printf("[PlayerExternalsInterface][SetUseFirebolt] mUseFireboltExternals : %d\n", mUseFireboltExternals);
+}
+
+bool PlayerExternalsInterface::GetUseFirebolt()
+{
+    return mUseFireboltExternals;
+}

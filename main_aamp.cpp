@@ -54,10 +54,9 @@ PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink
 	, std::function< void(const unsigned char *, int, int, int) > exportFrames
 	) : aamp(NULL), sp_aamp(nullptr), mJSBinding_DL(),mAsyncRunning(false),mConfig(),mAsyncTuneEnabled(false),mScheduler()
 {
-//Need to do iarm initialization process before reading the tr181 aamp parameters.
-//Using printf here since AAMP logs can only use after creating the global object
+
 	
-	std::shared_ptr<PlayerExternalsInterface> pExternalsInterface = PlayerExternalsInterface::GetPlayerExternalsInterfaceInstance();
+	
 
 	// Create very first instance of Aamp Config to read the cfg & Operator file .This is needed for very first
 	// tune only . After that every tune will use the same config parameters
@@ -80,6 +79,12 @@ PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink
 				gpGlobalConfig->ReadAampCfgFromEnv();
 			}
 		}
+		//Need to do iarm initialization process before reading the tr181 aamp parameters.
+		//Using printf here since AAMP logs can only use after creating the global object
+
+		PlayerExternalsInterface::SetUseFirebolt(gpGlobalConfig->IsConfigSet(eAAMPConfig_UseFireboltSDK));
+		std::shared_ptr<PlayerExternalsInterface> pExternalsInterface = PlayerExternalsInterface::GetPlayerExternalsInterfaceInstance();
+		
 		gpGlobalConfig->ReadOperatorConfiguration();
 		gpGlobalConfig->ShowDevCfgConfiguration();
 		gpGlobalConfig->ShowOperatorSetConfiguration();

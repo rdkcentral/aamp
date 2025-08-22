@@ -28,13 +28,13 @@
 #include "DeviceIARMInterface.h"
 #include "DeviceFireboltInterface.h"
 
+#include "PlayerExternalsInterface.h"
+
 #define DISPLAY_WIDTH_UNKNOWN       -1  /**< Parsing failed for getResolution().getName(); */
 #define DISPLAY_HEIGHT_UNKNOWN      -1  /**< Parsing failed for getResolution().getName(); */
 #define DISPLAY_RESOLUTION_NA        0  /**< Resolution not available yet or not connected to HDMI */
 
 std::shared_ptr<PlayerExternalsRdkInterface> s_pPlayerIarmRdkOP = nullptr;
-
-// #define USE_FIREBOLT
 
 static bool isInterfaceWifi = false;
 
@@ -52,11 +52,16 @@ std::shared_ptr<PlayerExternalsRdkInterface> PlayerExternalsRdkInterface::GetPla
 
 PlayerExternalsRdkInterface::PlayerExternalsRdkInterface()
 {
-#ifdef USE_FIREBOLT
-    m_pDeviceInterfaceBase = DeviceFireboltInterface::GetInstance();
-#else
-    m_pDeviceInterfaceBase = DeviceIARMInterface::GetInstance();
-#endif
+    std::shared_ptr<PlayerExternalsInterface> pInstance = PlayerExternalsInterface::GetPlayerExternalsInterfaceInstance();
+
+    if(pInstance->GetUseFirebolt())
+    {
+        m_pDeviceInterfaceBase = DeviceFireboltInterface::GetInstance();
+    }
+    else
+    {
+        m_pDeviceInterfaceBase = DeviceIARMInterface::GetInstance();
+    }     
 
     // Get initial HDCP status
     SetHDMIStatus();
