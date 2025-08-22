@@ -65,20 +65,13 @@ PlayerExternalsRdkInterface::PlayerExternalsRdkInterface()
 
     // Get initial HDCP status
     SetHDMIStatus();
-    RegisterDsMgrEventHandler();
 
 }
 
 PlayerExternalsRdkInterface::~PlayerExternalsRdkInterface()
 {
-    RemoveDsMgrEventHandler();
     m_pDeviceInterfaceBase = nullptr;
     s_pPlayerIarmRdkOP = nullptr;
-}
-
-void PlayerExternalsRdkInterface::RegisterDsMgrEventHandler()
-{
-    m_pDeviceInterfaceBase->RegisterDsMgrEventHandler();
 }
 
 void PlayerExternalsRdkInterface::GetDisplayResolution(int &width, int &height)
@@ -204,11 +197,6 @@ void PlayerExternalsRdkInterface::setHdcpProtocol(dsHdcpProtocolVersion_t t_prot
 {
     m_hdcpCurrentProtocol = t_protocol;
     MW_LOG_WARN(" detected HDCP version %s\n", m_hdcpCurrentProtocol == dsHDCP_VERSION_2X ? "2.x" : "1.4");
-}
-
-void PlayerExternalsRdkInterface::RemoveDsMgrEventHandler()
-{
-    m_pDeviceInterfaceBase->RemoveDsMgrEventHandler();
 }
 
 std::shared_ptr<DeviceInterfaceBase> PlayerExternalsRdkInterface::GetDeviceInterface()

@@ -50,18 +50,6 @@ class PlayerExternalsRdkInterface : public PlayerExternalsInterfaceBase
 
         PlayerExternalsRdkInterface();
 
-       /**
-         * @fn RegisterDsMgrEventHandler
-         * @brief Register Display Settings Mgr event handlers
-         */
-        void RegisterDsMgrEventHandler();
-
-        /**
-         * @fn RemoveDsMgrEventHandler
-         * @brief Remove Display Settings Mgr event handlers
-         */
-        void RemoveDsMgrEventHandler();
-
     public:
 
         /**
