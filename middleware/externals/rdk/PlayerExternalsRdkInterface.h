@@ -44,25 +44,25 @@ class DeviceInterfaceBase;
 class PlayerExternalsRdkInterface : public PlayerExternalsInterfaceBase
 {
     
-       dsHdcpProtocolVersion_t m_hdcpCurrentProtocol;
+        dsHdcpProtocolVersion_t m_hdcpCurrentProtocol;
 
-       std::shared_ptr<DeviceInterfaceBase> m_pDeviceInterfaceBase = nullptr;
-
-    public:
+        std::shared_ptr<DeviceInterfaceBase> m_pDeviceInterfaceBase = nullptr;
 
         PlayerExternalsRdkInterface();
 
-        /**
-         * @fn IARMRegisterDsMgrEventHandler
+       /**
+         * @fn RegisterDsMgrEventHandler
          * @brief Register Display Settings Mgr event handlers
          */
-        void IARMRegisterDsMgrEventHandler() override;
+        void RegisterDsMgrEventHandler();
 
         /**
-         * @fn IARMRemoveDsMgrEventHandler
+         * @fn RemoveDsMgrEventHandler
          * @brief Remove Display Settings Mgr event handlers
          */
-        void IARMRemoveDsMgrEventHandler() override;
+        void RemoveDsMgrEventHandler();
+
+    public:
 
         /**
          * @fn GetDisplayResolution
@@ -130,7 +130,7 @@ class PlayerExternalsRdkInterface : public PlayerExternalsInterfaceBase
 
         void setHdcpProtocol(dsHdcpProtocolVersion_t t_protocol);
 
-        ~PlayerExternalsRdkInterface(){}
+        ~PlayerExternalsRdkInterface();
 };
 
 

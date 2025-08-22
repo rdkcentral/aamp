@@ -57,9 +57,20 @@ PlayerExternalsRdkInterface::PlayerExternalsRdkInterface()
 #else
     m_pDeviceInterfaceBase = DeviceIARMInterface::GetInstance();
 #endif
+
+    // Get initial HDCP status
+    SetHDMIStatus();
+    RegisterDsMgrEventHandler();
+
 }
 
-void PlayerExternalsRdkInterface::IARMRegisterDsMgrEventHandler()
+PlayerExternalsRdkInterface::~PlayerExternalsRdkInterface()
+{
+    RemoveDsMgrEventHandler();
+    m_pDeviceInterfaceBase = nullptr;
+}
+
+void PlayerExternalsRdkInterface::RegisterDsMgrEventHandler()
 {
     m_pDeviceInterfaceBase->RegisterDsMgrEventHandler();
 }
@@ -189,7 +200,7 @@ void PlayerExternalsRdkInterface::setHdcpProtocol(dsHdcpProtocolVersion_t t_prot
     MW_LOG_WARN(" detected HDCP version %s\n", m_hdcpCurrentProtocol == dsHDCP_VERSION_2X ? "2.x" : "1.4");
 }
 
-void PlayerExternalsRdkInterface::IARMRemoveDsMgrEventHandler()
+void PlayerExternalsRdkInterface::RemoveDsMgrEventHandler()
 {
     m_pDeviceInterfaceBase->RemoveDsMgrEventHandler();
 }

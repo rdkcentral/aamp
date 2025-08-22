@@ -19,11 +19,11 @@
 
 /**
  * @file PlayerExternalsInterfaceBase.h
- * @brief Base class for player interface with IARM
+ * @brief Base class for player interface with Externals
  */
 
-#ifndef PLAYER_IARM_INTERFACE_BASE_H
-#define PLAYER_IARM_INTERFACE_BASE_H
+#ifndef PLAYER_EXTERNALS_INTERFACE_BASE_H
+#define PLAYER_EXTERNALS_INTERFACE_BASE_H
 
 
 #include <stddef.h>
@@ -36,7 +36,7 @@
 #define UHD_WIDTH   3840
 #define UHD_HEIGHT  2160
 
-//base class for iarm interface
+//base class for externals interface
 class PlayerExternalsInterfaceBase
 {
     protected:
@@ -96,18 +96,6 @@ class PlayerExternalsInterfaceBase
          * @brief Set Video decoder Gst Element for UHD identification
          */
         void setGstElement(GstElement *element) { m_gstElement = element;  }
-
-        /**
-         * @fn IARMRegisterDsMgrEventHandler
-         * @brief Register Display Settings Mgr event handlers
-         */
-        virtual void IARMRegisterDsMgrEventHandler(){}
-
-        /**
-         * @fn IARMRemoveDsMgrEventHandler
-         * @brief Remove Display Settings Mgr event handlers
-         */
-        virtual void IARMRemoveDsMgrEventHandler(){}
 
         /**
          * @fn GetDisplayResolution

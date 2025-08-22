@@ -38,29 +38,17 @@
 #undef __reserved
 
 
-//used for FakePlayerIarmInterface only, mimics dsmgr params
+//used for FakePlayerExternalsInterface only, mimics dsmgr params
 #define PLAYER_dsHDCP_VERSION_MAX 30
 #define PLAYER_dsHDCP_VERSION_2X 22
 #define PLAYER_dsHDCP_VERSION_1X 14
 typedef int playerDsHdcpProtocolVersion_t;
 
-class FakePlayerIarmInterface : public PlayerExternalsInterfaceBase
+class FakePlayerExternalsInterface : public PlayerExternalsInterfaceBase
 {
         playerDsHdcpProtocolVersion_t m_hdcpCurrentProtocol;
     public:
-        FakePlayerIarmInterface(){}
-
-        /**
-         * @fn IARMRegisterDsMgrEventHandler
-         * @brief Register Display Settings Mgr event handlers
-         */
-        void IARMRegisterDsMgrEventHandler() override{}
-
-        /**
-         * @fn IARMRemoveDsMgrEventHandler
-         * @brief Remove Display Settings Mgr event handlers
-         */
-        void IARMRemoveDsMgrEventHandler() override{}
+        FakePlayerExternalsInterface(){SetHDMIStatus();}
 
         /**
          * @fn GetDisplayResolution
@@ -109,7 +97,7 @@ class FakePlayerIarmInterface : public PlayerExternalsInterfaceBase
          */
         bool GetActiveInterface()override{return false;}
         
-        ~FakePlayerIarmInterface(){}
+        ~FakePlayerExternalsInterface(){}
 };
 
 /**
@@ -122,17 +110,21 @@ class PlayerExternalsInterface
 private:
 
 
-    PlayerExternalsInterfaceBase* m_pIarmInterface;
+    std::shared_ptr<PlayerExternalsInterfaceBase> m_pIarmInterface;
 
     static std::shared_ptr<PlayerExternalsInterface> s_pPlayerOP;
 
-    
-public:
+    bool m_UseFirebolt = false;
 
     /**
      * @fn PlayerExternalsInterface
      */
     PlayerExternalsInterface();
+    
+
+    
+public:
+
     /**
      * @fn ~PlayerExternalsInterface
      */
@@ -209,6 +201,8 @@ public:
      * @brief Routine to find if IARM is supported in platform
      */
     bool IsConfigWifiCurlHeader();
+
+    static void SetUseFirebolt(bool t_use_firebolt);
 
 };
 

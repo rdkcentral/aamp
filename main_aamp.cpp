@@ -56,20 +56,8 @@ PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink
 {
 //Need to do iarm initialization process before reading the tr181 aamp parameters.
 //Using printf here since AAMP logs can only use after creating the global object
-	// static bool iarmInitialized = false;
-	// if(!iarmInitialized)
-	// {
-	// 		char processName[20] = {0};
-
-	// 		snprintf(processName, sizeof(processName), "PLAYER-%u", getpid());
-
-	// 		PlayerExternalsInterface::IARMInit(processName);
-
-
-	// 		iarmInitialized = true;
-	// }
-
-	std::shared_ptr<PlayerExternalsInterface> pInterface = PlayerExternalsInterface::GetPlayerExternalsInterfaceInstance();
+	
+	std::shared_ptr<PlayerExternalsInterface> pExternalsInterface = PlayerExternalsInterface::GetPlayerExternalsInterfaceInstance();
 
 	// Create very first instance of Aamp Config to read the cfg & Operator file .This is needed for very first
 	// tune only . After that every tune will use the same config parameters

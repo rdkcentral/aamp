@@ -31,6 +31,8 @@
 /**< Static variable for singleton */
 std::shared_ptr<PlayerExternalsInterface> PlayerExternalsInterface::s_pPlayerOP = NULL;
 
+static bool mUseFireboltExternals = false;
+
 /**
  * @brief PlayerExternalsInterface Constructor
  */
@@ -39,19 +41,16 @@ PlayerExternalsInterface::PlayerExternalsInterface()
 #ifdef IARM_MGR
     if(!IsContainerEnvironment())
     {
-        m_pIarmInterface = new PlayerExternalsRdkInterface();
+        m_pIarmInterface = PlayerExternalsRdkInterface::GetPlayerExternalsRdkInterfaceInstance();
     }
     else
     {
-        m_pIarmInterface = new FakePlayerIarmInterface();
+        m_pIarmInterface = std::shared_ptr<PlayerExternalsInterfaceBase>(new FakePlayerExternalsInterface());
     }
     
 #else
-    m_pIarmInterface = new FakePlayerIarmInterface();
+    m_pIarmInterface = std::shared_ptr<PlayerExternalsInterfaceBase>(new FakePlayerExternalsInterface());
 #endif
-    // Get initial HDCP status
-    m_pIarmInterface->SetHDMIStatus();
-    m_pIarmInterface->IARMRegisterDsMgrEventHandler();
 
 }
 
@@ -60,8 +59,8 @@ PlayerExternalsInterface::PlayerExternalsInterface()
  */
 PlayerExternalsInterface::~PlayerExternalsInterface()
 {
-    m_pIarmInterface->IARMRemoveDsMgrEventHandler();
-    s_pPlayerOP = NULL;
+    m_pIarmInterface = nullptr;
+    s_pPlayerOP = NULL;    
 }
 
 /**
@@ -148,7 +147,7 @@ bool PlayerExternalsInterface::IsActiveStreamingInterfaceWifi(void)
         bRet = PlayerExternalsRdkInterface::IsActiveStreamingInterfaceWifi();
     }
 #else
-    bRet = FakePlayerIarmInterface::IsActiveStreamingInterfaceWifi();
+    bRet = FakePlayerExternalsInterface::IsActiveStreamingInterfaceWifi();
 #endif
 
     return bRet;

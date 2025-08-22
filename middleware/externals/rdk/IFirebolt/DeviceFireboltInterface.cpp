@@ -198,6 +198,8 @@ static void HDCPEventHandlerFirebolt(const Firebolt::Device::HDCPVersionMap& t_H
 	{
 		MW_LOG_ERR("Unknown HDCP protocol");
 	}
+
+	SetHDMIStatus();
             
 }
 
