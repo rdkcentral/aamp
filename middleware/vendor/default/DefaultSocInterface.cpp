@@ -221,10 +221,10 @@ bool DefaultSocInterface::ConfigureAudioSink(GstElement **audio_sink, GstObject 
 		 * @param audio_dec The audio decoder element.
 		 * @return True if the playback rate was set successfully, false otherwise.
 		 */
-		bool SetPlaybackRate(const std::vector<GstElement*>& sources, GstElement *pipeline, double rate, GstElement *video_dec, GstElement *audio_dec) override;
+		bool SetPlaybackRate(const std::vector<GstElement*>& sources, GstElement *pipeline, double rate, GstElement *video_dec, GstElement *audio_dec)
         {
 			bool status = false;
-			#ifdef (__APPLE__) || defined(UBUNTU)
+			#if defined(__APPLE__) || defined(UBUNTU)
 				status = false;
                          #else
 			if (isRialto)
