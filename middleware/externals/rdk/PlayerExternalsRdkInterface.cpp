@@ -23,16 +23,18 @@
  */
 #include "PlayerExternalUtils.h"
 #include "PlayerExternalsRdkInterface.h"
-#include "main_aamp.h"
 #include <hostIf_tr69ReqHandler.h>
 #include "tr181api.h"
 #include "_base64.h"
+#ifdef USE_PREINIT_DECODING
+#include "main_aamp.h"
 #include <iarmUtil.h>
 #include <libIARM.h>
 #include "manager.hpp"
 #include "host.hpp"
 #include "pwrMgr.h"
 #include <sys/stat.h>
+#endif
 
 #define DISPLAY_WIDTH_UNKNOWN       -1  /**< Parsing failed for getResolution().getName(); */
 #define DISPLAY_HEIGHT_UNKNOWN      -1  /**< Parsing failed for getResolution().getName(); */
