@@ -63,7 +63,7 @@ PrivateCDAIObjectMPD::PrivateCDAIObjectMPD(PrivateInstanceAAMP* aamp) : mAamp(aa
 					mAdBrkVecMtx(), mAdFulfillMtx(), mAdFulfillCV(), mAdFulfillQ(), mExitFulfillAdLoop(false), mAdPlacementMtx(), mAdPlacementCV()
 {
 	StartFulfillAdLoop();
-	mAamp->CurlInit(eCURLINSTANCE_DAI,1,mAamp->GetNetworkProxy());
+    mAamp->_CurlInit(eCURLINSTANCE_DAI,1,mAamp->_GetNetworkProxy());
 }
 
 /**
@@ -73,7 +73,7 @@ PrivateCDAIObjectMPD::~PrivateCDAIObjectMPD()
 {
 	AbortWaitForNextAdResolved();
 	StopFulfillAdLoop();
-	mAamp->CurlTerm(eCURLINSTANCE_DAI);
+    mAamp->_CurlTerm(eCURLINSTANCE_DAI);
 }
 
 /**
@@ -887,12 +887,12 @@ MPD* PrivateCDAIObjectMPD::GetAdMPD(std::string &manifestUrl, bool &finalManifes
 	AampGrowableBuffer manifest("adMPD_CDN");
 	bool gotManifest = false;
 	std::string effectiveUrl;
-	gotManifest = mAamp->GetFile(manifestUrl, eMEDIATYPE_MANIFEST, &manifest, effectiveUrl, &http_error, &downloadTime, NULL, eCURLINSTANCE_DAI);
+	gotManifest = mAamp->_GetFile(manifestUrl, eMEDIATYPE_MANIFEST, &manifest, effectiveUrl, &http_error, &downloadTime, NULL, eCURLINSTANCE_DAI);
 	if (gotManifest)
 	{
 		AAMPLOG_TRACE("PrivateCDAIObjectMPD:: manifest download success");
 	}
-	else if (mAamp->DownloadsAreEnabled())
+	else if (mAamp->_DownloadsAreEnabled())
 	{
 		AAMPLOG_ERR("PrivateCDAIObjectMPD:: manifest download failed");
 	}
@@ -910,7 +910,7 @@ MPD* PrivateCDAIObjectMPD::GetAdMPD(std::string &manifestUrl, bool &finalManifes
 		xmlTextReaderPtr reader = xmlReaderForMemory( manifest.GetPtr(), (int) manifest.GetLen(), NULL, NULL, 0);
 		if(tryFog && !mAamp->mConfig->IsConfigSet(eAAMPConfig_PlayAdFromCDN) && reader && mIsFogTSB)	//Main content from FOG. Ad is expected from FOG.
 		{
-			std::string channelUrl = mAamp->GetManifestUrl();	//TODO: Get FOG URL from channel URL
+			std::string channelUrl = mAamp->_GetManifestUrl();	//TODO: Get FOG URL from channel URL
 			std::string encodedUrl;
 			UrlEncode(effectiveUrl, encodedUrl);
 			int ipend = 0;
@@ -932,7 +932,7 @@ MPD* PrivateCDAIObjectMPD::GetAdMPD(std::string &manifestUrl, bool &finalManifes
 
 			AampGrowableBuffer fogManifest("adMPD_FOG");
 			http_error = 0;
-			mAamp->GetFile(effectiveUrl, eMEDIATYPE_MANIFEST, &fogManifest, effectiveUrl, &http_error, &downloadTime, NULL, eCURLINSTANCE_DAI);
+            mAamp->_GetFile(effectiveUrl, eMEDIATYPE_MANIFEST, &fogManifest, effectiveUrl, &http_error, &downloadTime, NULL, eCURLINSTANCE_DAI);
 			if(200 == http_error || 204 == http_error)
 			{
 				manifestUrl = effectiveUrl;
@@ -1195,7 +1195,7 @@ bool PrivateCDAIObjectMPD::FulFillAdObject()
 	{
 		// Send the resolved event to the player
 		AbortWaitForNextAdResolved();
-		mAamp->SendAdResolvedEvent(mAdFulfillObj.adId, adStatus, startMS, durationMs);
+        mAamp->_SendAdResolvedEvent(mAdFulfillObj.adId, adStatus, startMS, durationMs);
 	}
 	return ret;
 }
@@ -1243,7 +1243,7 @@ void PrivateCDAIObjectMPD::SetAlternateContents(const std::string &periodId, con
 		// Reject the promise as ad couldn't be resolved
 		if(!adCached)
 		{
-			mAamp->SendAdResolvedEvent(adId, false, 0, 0);
+            mAamp->_SendAdResolvedEvent(adId, false, 0, 0);
 		}
 	}
 }
@@ -1391,10 +1391,10 @@ void PrivateCDAIObjectMPD::FulfillAdLoop()
 		// Wait for the condition variable to be notified
 		// It goes into wait state if the queue is empty or if the downloads are disabled
 		mAdFulfillCV.wait(lock, [this] {
-			return (mAamp->DownloadsAreEnabled() && !mAdFulfillQ.empty()) || mExitFulfillAdLoop;});
+			return (mAamp->_DownloadsAreEnabled() && !mAdFulfillQ.empty()) || mExitFulfillAdLoop;});
 		AAMPLOG_INFO("AdFulfillQ size[%zu]", mAdFulfillQ.size());
 		// Check if the queue is not empty and downloads are enabled
-		if(!mAdFulfillQ.empty() && mAamp->DownloadsAreEnabled() && !mExitFulfillAdLoop)
+		if(!mAdFulfillQ.empty() && mAamp->_DownloadsAreEnabled() && !mExitFulfillAdLoop)
 		{
 			AdFulfillObj adFulfillObj = mAdFulfillQ.front();
 			lock.unlock();

@@ -57,7 +57,7 @@ IsoBmffProcessor::IsoBmffProcessor(class PrivateInstanceAAMP *aamp, id3_callback
 	{
 		peerSubtitleProcessor->setPeerProcessor(this);
 	}
-	mediaFormat = p_aamp->GetMediaFormatTypeEnum();
+	mediaFormat = p_aamp->_GetMediaFormatTypeEnum();
 
 	// Sometimes AAMP pushes an encrypted init segment first to force decryptor plugin selection
 	initSegment.reserve(3); //consider Subtitles as well
@@ -119,7 +119,7 @@ bool IsoBmffProcessor::sendSegment(AampGrowableBuffer* pBuffer,double position,d
 		}
 		else
 		{
-			p_aamp->ProcessID3Metadata(pBuffer->GetPtr(), pBuffer->GetLen(), (AampMediaType)type);
+            p_aamp->_ProcessID3Metadata(pBuffer->GetPtr(), pBuffer->GetLen(), (AampMediaType)type);
 			sendStream(pBuffer, position, duration, fragmentPTSoffset, discontinuous, isInit);
 		}
 	}
@@ -152,7 +152,7 @@ void IsoBmffProcessor::resetPTSOnSubtitleSwitch(AampGrowableBuffer *pBuffer, dou
 
 		sumPTS -= skippedPTS;
 		pos = ((double)sumPTS / (double)currTimeScale);
-		p_aamp->FlushTrack((AampMediaType)type,pos);
+        p_aamp->_FlushTrack((AampMediaType)type,pos);
 		startPos = pos;
 		prevPosition = position;
 		AAMPLOG_WARN("IsoBmffProcessor %s Updated SumPTS %" PRIu64 "  TS: %u and start pos %f", IsoBmffProcessorTypeName[type],sumPTS, currTimeScale, startPos);
@@ -165,7 +165,7 @@ void IsoBmffProcessor::resetPTSOnSubtitleSwitch(AampGrowableBuffer *pBuffer, dou
 		if(buffer.getFirstPTS(currentPTS))
 		{
 			double pos = (double)currentPTS / (double)currTimeScale;
-			p_aamp->FlushTrack((AampMediaType)type,pos);
+            p_aamp->_FlushTrack((AampMediaType)type,pos);
 			AAMPLOG_MIL("Curr PTS %" PRIu64 " TS: %u",currentPTS,currTimeScale);
 		}
 	}
@@ -198,7 +198,7 @@ void IsoBmffProcessor::resetPTSOnAudioSwitch(AampGrowableBuffer *pBuffer, double
 
 		sumPTS -= skippedPTS;
 		pos = ((double)sumPTS / (double)currTimeScale);
-		p_aamp->FlushTrack((AampMediaType)type,pos);
+        p_aamp->_FlushTrack((AampMediaType)type,pos);
 		startPos = pos;
 		prevPosition = position;
 		AAMPLOG_WARN("IsoBmffProcessor %s Updated SumPTS %" PRIu64 "  TS: %u and start pos %f", IsoBmffProcessorTypeName[type],sumPTS, currTimeScale, startPos);
@@ -212,7 +212,7 @@ void IsoBmffProcessor::resetPTSOnAudioSwitch(AampGrowableBuffer *pBuffer, double
 		if(buffer.getFirstPTS(currentPTS))
 		{
 			double pos = (double)currentPTS / (double)currTimeScale;
-			p_aamp->FlushTrack((AampMediaType)type,pos);
+            p_aamp->_FlushTrack((AampMediaType)type,pos);
 			AAMPLOG_MIL("Curr PTS %" PRIu64 " TS: %u",currentPTS,currTimeScale);
 		}
 	}
@@ -356,12 +356,12 @@ bool IsoBmffProcessor::setTuneTimePTS(AampGrowableBuffer *fragBuffer, double pos
 					// If AAMP override hack is enabled for this platform, then we need to pass the basePTS value to
 					// PrivateInstanceAAMP since PTS will be restamped in qtdemux. This ensures proper pts value is sent in progress event.
 					lock.unlock();
-					p_aamp->NotifyFirstVideoPTS(basePTS, timeScale);
+                    p_aamp->_NotifyFirstVideoPTS(basePTS, timeScale);
 					if (type == eBMFFPROCESSOR_TYPE_VIDEO)
 					{
 						// Send flushing seek to gstreamer pipeline.
 						// For new tune, this will not work, so send pts as fragment position
-						p_aamp->FlushStreamSink(pos, playRate);
+                        p_aamp->_FlushStreamSink(pos, playRate);
 					}
 
 					if (peerProcessor)
@@ -392,7 +392,7 @@ bool IsoBmffProcessor::setTuneTimePTS(AampGrowableBuffer *fragBuffer, double pos
 				if (sendError)
 				{
 					AAMPLOG_WARN("IsoBmffProcessor %s Init segment missing during PTS processing!",  IsoBmffProcessorTypeName[type]);
-					p_aamp->SendErrorEvent(AAMP_TUNE_MP4_INIT_FRAGMENT_MISSING);
+                    p_aamp->_SendErrorEvent(AAMP_TUNE_MP4_INIT_FRAGMENT_MISSING);
 				}
 			}
 			else
@@ -414,11 +414,11 @@ void IsoBmffProcessor::sendStream(AampGrowableBuffer *pBuffer, double position, 
 {
 	if(mediaFormat == eMEDIAFORMAT_DASH)
 	{
-		p_aamp->SendStreamTransfer((AampMediaType)type, pBuffer,position, position, duration, fragmentPTSoffset, isInit, discontinuous);
+        p_aamp->_SendStreamTransfer((AampMediaType)type, pBuffer,position, position, duration, fragmentPTSoffset, isInit, discontinuous);
 	}
 	else
 	{
-		p_aamp->SendStreamCopy((AampMediaType)type, pBuffer->GetPtr(), pBuffer->GetLen(), position, position, duration);
+        p_aamp->_SendStreamCopy((AampMediaType)type, pBuffer->GetPtr(), pBuffer->GetLen(), position, position, duration);
 	}
 }
 
@@ -453,7 +453,7 @@ void IsoBmffProcessor::restampPTSAndSendSegment(AampGrowableBuffer *pBuffer,doub
 								IsoBmffProcessorTypeName[type], timeScaleChangeState );
 
 				currTimeScale = timeScale;
-				p_aamp->ProcessID3Metadata(pBuffer->GetPtr(), pBuffer->GetLen(), (AampMediaType)type);
+                p_aamp->_ProcessID3Metadata(pBuffer->GetPtr(), pBuffer->GetLen(), (AampMediaType)type);
 				sendStream(pBuffer,position,duration, 0.0, isDiscontinuity, isInit);
 			}
 			/*check is current time scale same. If same then save the init fragment*/
@@ -598,7 +598,7 @@ void IsoBmffProcessor::restampPTSAndSendSegment(AampGrowableBuffer *pBuffer,doub
 							" restampedPTS = %" PRIu64 " sumPTS = %" PRIu64 " position = %.02lf newPos = %0.2lf", IsoBmffProcessorTypeName[type], durationFromFragment, currentPTS,
 							sumPTS-durationFromFragment, sumPTS, position, newPos);
 
-			p_aamp->ProcessID3Metadata(pBuffer->GetPtr(), pBuffer->GetLen(), (AampMediaType)type);
+            p_aamp->_ProcessID3Metadata(pBuffer->GetPtr(), pBuffer->GetLen(), (AampMediaType)type);
 			sendStream(pBuffer, newPos, duration, 0.0, isDiscontinuity, isInit);
 		}
 		prevPosition = position;
@@ -1240,7 +1240,7 @@ void IsoBmffProcessor::pushInitSegment(double position)
 		for (auto it = initSegment.begin(); it != initSegment.end();)
 		{
 			AampGrowableBuffer *buf = *it;
-			p_aamp->SendStreamTransfer((AampMediaType)type, buf, position, position, 0, 0.0, true);
+            p_aamp->_SendStreamTransfer((AampMediaType)type, buf, position, position, 0, 0.0, true);
 			SAFE_DELETE(buf);
 			it = initSegment.erase(it);
 		}

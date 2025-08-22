@@ -71,8 +71,8 @@ static void InitializePlayerConfigs(AAMPGstPlayer *_this, void *playerInstance)
 	auto interfacePlayer = static_cast<InterfacePlayerRDK*>(playerInstance);
 	auto& config = _this->aamp->mConfig;
 //	assert( config );
-	interfacePlayer->m_gstConfigParam->media = _this->aamp->GetMediaFormatTypeEnum();
-	interfacePlayer->m_gstConfigParam->networkProxy =_this->aamp->GetNetworkProxy();
+	interfacePlayer->m_gstConfigParam->media = _this->aamp->_GetMediaFormatTypeEnum();
+	interfacePlayer->m_gstConfigParam->networkProxy =_this->aamp->_GetNetworkProxy();
 	interfacePlayer->m_gstConfigParam->tcpServerSink = config->IsConfigSet(eAAMPConfig_useTCPServerSink);
 	interfacePlayer->m_gstConfigParam->tcpPort = config->GetConfigValue(eAAMPConfig_TCPServerSinkPort);
 	interfacePlayer->m_gstConfigParam->appSrcForProgressivePlayback = config->IsConfigSet(eAAMPConfig_UseAppSrcForProgressivePlayback);
@@ -99,8 +99,8 @@ static void InitializePlayerConfigs(AAMPGstPlayer *_this, void *playerInstance)
 	interfacePlayer->m_gstConfigParam->monitorAvJumpThresholdMs =  config->GetConfigValue(eAAMPConfig_MonitorAVJumpThreshold);
 	interfacePlayer->m_gstConfigParam->audioDecoderStreamSync = _this->aamp->mAudioDecoderStreamSync;
 	interfacePlayer->m_gstConfigParam->audioOnlyMode = _this->aamp->mAudioOnlyPb;
-	interfacePlayer->m_gstConfigParam->gstreamerSubsEnabled = _this->aamp->IsGstreamerSubsEnabled();
-	interfacePlayer->m_gstConfigParam->media = _this->aamp->GetMediaFormatTypeEnum();
+	interfacePlayer->m_gstConfigParam->gstreamerSubsEnabled = _this->aamp->_IsGstreamerSubsEnabled();
+	interfacePlayer->m_gstConfigParam->media = _this->aamp->_GetMediaFormatTypeEnum();
 	interfacePlayer->m_gstConfigParam->useMp4Demux = config->IsConfigSet(eAAMPConfig_UseMp4Demux);
 }
 
@@ -260,12 +260,12 @@ void AAMPGstPlayer::RegisterFirstFrameCallbacks()
 	playerInstance->callbackMap[InterfaceCB::firstVideoFrameDisplayed] = [this]()
 	{
 		UsingPlayerId playerId(aamp->mPlayerId);
-		aamp->NotifyFirstVideoFrameDisplayed();
+		aamp->_NotifyFirstVideoFrameDisplayed();
 	};
 	playerInstance->callbackMap[InterfaceCB::idleCb] = [this]()
 	{
 		UsingPlayerId playerId( aamp->mPlayerId );
-		aamp->ReportProgress();
+		aamp->_ReportProgress();
 
 	};
 	playerInstance->callbackMap[InterfaceCB::progressCb] = [this]()
@@ -275,17 +275,17 @@ void AAMPGstPlayer::RegisterFirstFrameCallbacks()
 		{
 			privateContext->mBufferControl[i].update(this, static_cast<AampMediaType>(i));
 		}
-		aamp->ReportProgress();
+		aamp->_ReportProgress();
 	};
 	playerInstance->callbackMap[InterfaceCB::firstVideoFrameReceived] = [this]()
 	{
 		UsingPlayerId playerId(aamp->mPlayerId);
-		aamp->NotifyFirstFrameReceived(this->playerInstance->GetCCDecoderHandle());
+		aamp->_NotifyFirstFrameReceived(this->playerInstance->GetCCDecoderHandle());
 	};
 	playerInstance->callbackMap[InterfaceCB::notifyEOS] = [this]()
 	{
 		UsingPlayerId playerId(aamp->mPlayerId);
-		aamp->NotifyEOSReached();
+		aamp->_NotifyEOSReached();
 	};
 	playerInstance->FirstFrameCallback([this](int mediatype, bool notifyFirstBuffer, bool initCC, bool& requireFirstVideoFrameDisplay, bool &audioOnly) {
 		UsingPlayerId playerId(aamp->mPlayerId);
@@ -295,9 +295,9 @@ void AAMPGstPlayer::RegisterFirstFrameCallbacks()
 	{
 		if (eGST_MEDIATYPE_SUBTITLE == streamId)
 		{
-			if(this->aamp->IsGstreamerSubsEnabled())
+			if(this->aamp->_IsGstreamerSubsEnabled())
 			{
-				this->aamp->StopTrackDownloads(eMEDIATYPE_SUBTITLE);                                    /* Stop any ongoing downloads before setting up a new subtitle stream */
+				this->aamp->_StopTrackDownloads(eMEDIATYPE_SUBTITLE);                                    /* Stop any ongoing downloads before setting up a new subtitle stream */
 			}
 		}
 
@@ -354,9 +354,9 @@ void AAMPGstPlayer::NotifyFirstFrame(int mediatype, bool notifyFirstBuffer, bool
 	// incase of audio or video only playback NumberofTracks =1, so in that case also LogTuneCompleted needs to captured when either audio/video frame received.
 	if(notifyFirstBuffer && !aamp->mIsFlushOperationInProgress)
 	{
-		aamp->LogFirstFrame();
-		aamp->LogTuneComplete();
-		aamp->NotifyFirstBufferProcessed(GetVideoRectangle());
+		aamp->_LogFirstFrame();
+		aamp->_LogTuneComplete();
+		aamp->_NotifyFirstBufferProcessed(GetVideoRectangle());
 		firstBufferNotified=true;
 	}
 	audioOnly = aamp->mAudioOnlyPb;
@@ -364,7 +364,7 @@ void AAMPGstPlayer::NotifyFirstFrame(int mediatype, bool notifyFirstBuffer, bool
 	{
 		if((aamp->mTelemetryInterval > 0) && aamp->mDiscontinuityFound)
 		{
-			aamp->SetDiscontinuityParam();
+			aamp->_SetDiscontinuityParam();
 		}
 
 		// No additional checks added here, since the NotifyFirstFrame will be invoked only once
@@ -372,16 +372,16 @@ void AAMPGstPlayer::NotifyFirstFrame(int mediatype, bool notifyFirstBuffer, bool
 		// twice in this function, since it updates timestamp for calculating time elapsed, its trivial
 		if (!firstBufferNotified && !aamp->mIsFlushOperationInProgress)
 		{
-			aamp->NotifyFirstBufferProcessed(GetVideoRectangle());
+			aamp->_NotifyFirstBufferProcessed(GetVideoRectangle());
 		}
 
 		if (initCC)
 		{
 			//If pipeline is set to ready forcefully due to change in track_id, then re-initialize CC
-			aamp->InitializeCC(playerInstance->GetCCDecoderHandle());
+			aamp->_InitializeCC(playerInstance->GetCCDecoderHandle());
 		}
 
-		requireFirstVideoFrameDisplay = aamp->IsFirstVideoFrameDisplayedRequired();
+		requireFirstVideoFrameDisplay = aamp->_IsFirstVideoFrameDisplayedRequired();
 	}
 };
 
@@ -452,22 +452,22 @@ static void HandleBufferingTimeoutCb(bool isBufferingTimeoutConditionMet, bool i
 		if(isBufferingTimeoutConditionMet)
 		{
 			AAMPLOG_WARN("Schedule retune.");
-			aamp->ScheduleRetune(eGST_ERROR_VIDEO_BUFFERING, eMEDIATYPE_VIDEO);
+			aamp->_ScheduleRetune(eGST_ERROR_VIDEO_BUFFERING, eMEDIATYPE_VIDEO);
 		}
 		else if(isPlayerReady)
 		{
 			if(isRateCorrectionDefaultOnPlaying)
 			{
 				// Setting first fractional rate as DEFAULT_INITIAL_RATE_CORRECTION_SPEED right away on PLAYING to avoid audio drop
-				if (aamp->mConfig->IsConfigSet(eAAMPConfig_EnableLiveLatencyCorrection) && aamp->IsLive())
+				if (aamp->mConfig->IsConfigSet(eAAMPConfig_EnableLiveLatencyCorrection) && aamp->_IsLive())
 				{
 					AAMPLOG_WARN("Setting first fractional rate %.6f right after moving to PLAYING", DEFAULT_INITIAL_RATE_CORRECTION_SPEED);
 					_this->SetPlayBackRate(DEFAULT_INITIAL_RATE_CORRECTION_SPEED);
 				}
 			}
-			if(!aamp->IsGstreamerSubsEnabled())
+			if(!aamp->_IsGstreamerSubsEnabled())
 			{
-				aamp->UpdateSubtitleTimestamp();
+                aamp->_UpdateSubtitleTimestamp();
 			}
 		}
 	}
@@ -481,8 +481,8 @@ static void HandleBufferingTimeoutCb(bool isBufferingTimeoutConditionMet, bool i
  */
 static void HandleOnGstDecodeErrorCb(int decodeErrorCBCount, AAMPGstPlayer * _this)
 {
-	_this->aamp->SendAnomalyEvent(ANOMALY_WARNING, "Decode Error Message Callback=%d time=%d",decodeErrorCBCount, AAMP_MIN_DECODE_ERROR_INTERVAL);
-	AAMPLOG_ERR("## APP[%s] Got Decode Error message",_this->aamp->GetAppName().c_str());
+	_this->aamp->_SendAnomalyEvent(ANOMALY_WARNING, "Decode Error Message Callback=%d time=%d",decodeErrorCBCount, AAMP_MIN_DECODE_ERROR_INTERVAL);
+	AAMPLOG_ERR("## APP[%s] Got Decode Error message",_this->aamp->_GetAppName().c_str());
 }
 
 /**
@@ -494,14 +494,14 @@ static void HandleOnGstDecodeErrorCb(int decodeErrorCBCount, AAMPGstPlayer * _th
  */
 static void HandleOnGstPtsErrorCb(bool isVideo, bool isAudioSink, AAMPGstPlayer * _this)
 {
-	AAMPLOG_ERR("## APP[%s] Got PTS error message", _this->aamp->GetAppName().c_str());
+	AAMPLOG_ERR("## APP[%s] Got PTS error message", _this->aamp->_GetAppName().c_str());
 	if(isVideo)
 	{
-		_this->aamp->ScheduleRetune(eGST_ERROR_PTS, eMEDIATYPE_VIDEO);
+		_this->aamp->_ScheduleRetune(eGST_ERROR_PTS, eMEDIATYPE_VIDEO);
 	}
 	else if(isAudioSink)
 	{
-		_this->aamp->ScheduleRetune(eGST_ERROR_PTS, eMEDIATYPE_AUDIO);
+		_this->aamp->_ScheduleRetune(eGST_ERROR_PTS, eMEDIATYPE_AUDIO);
 	}
 }
 
@@ -517,7 +517,7 @@ static void HandleOnGstBufferUnderflowCb(int mediaType, AAMPGstPlayer * _this)
 
 	bool isBufferFull = _this->privateContext->mBufferControl[type].isBufferFull(type);
 	_this->privateContext->mBufferControl[type].underflow(_this, type);
-	_this->aamp->ScheduleRetune(eGST_ERROR_UNDERFLOW, type, isBufferFull);		/* Schedule a retune */
+	_this->aamp->_ScheduleRetune(eGST_ERROR_UNDERFLOW, type, isBufferFull);		/* Schedule a retune */
 }
 
 /**
@@ -549,16 +549,16 @@ static void HandleBusMessage(const BusEventData busEvent, AAMPGstPlayer * _this)
 			std::string errorDesc = "GstPipeline Error:" + busEvent.msg;
 			if (busEvent.msg.find("video decode error") != std::string::npos)
 			{
-				_this->aamp->SendErrorEvent(AAMP_TUNE_GST_PIPELINE_ERROR, errorDesc.c_str(), false);
+				_this->aamp->_SendErrorEvent(AAMP_TUNE_GST_PIPELINE_ERROR, errorDesc.c_str(), false);
 			}
 			else if (busEvent.msg.find("HDCP Compliance Check Failure") != std::string::npos)
 			{
-				_this->aamp->SendErrorEvent(AAMP_TUNE_HDCP_COMPLIANCE_ERROR, errorDesc.c_str(), false);
+				_this->aamp->_SendErrorEvent(AAMP_TUNE_HDCP_COMPLIANCE_ERROR, errorDesc.c_str(), false);
 			}
 			else if ((busEvent.msg.find("Internal data stream error") != std::string::npos) && _this->aamp->mConfig->IsConfigSet(eAAMPConfig_RetuneForGSTError))
 			{
 				AAMPLOG_ERR("Schedule retune for GstPipeline Error");
-				_this->aamp->ScheduleRetune(eGST_ERROR_GST_PIPELINE_INTERNAL, eMEDIATYPE_VIDEO);
+				_this->aamp->_ScheduleRetune(eGST_ERROR_GST_PIPELINE_INTERNAL, eMEDIATYPE_VIDEO);
 			}
 			else if (busEvent.msg.find("Error parsing H.264 stream") != std::string::npos)
 			{ // note: surfacing this intermittent error can cause freeze on partner apps.
@@ -567,11 +567,11 @@ static void HandleBusMessage(const BusEventData busEvent, AAMPGstPlayer * _this)
 			else if (busEvent.msg.find("This file is corrupt and cannot be played") != std::string::npos)
 			{ // fatal error; disable retry flag to avoid failure loop
 				AAMPLOG_ERR("%s", errorDesc.c_str());
-				_this->aamp->SendErrorEvent(AAMP_TUNE_GST_PIPELINE_ERROR,errorDesc.c_str(), false);
+				_this->aamp->_SendErrorEvent(AAMP_TUNE_GST_PIPELINE_ERROR,errorDesc.c_str(), false);
 			}
 			else
 			{
-				_this->aamp->SendErrorEvent(AAMP_TUNE_GST_PIPELINE_ERROR, errorDesc.c_str());
+				_this->aamp->_SendErrorEvent(AAMP_TUNE_GST_PIPELINE_ERROR, errorDesc.c_str());
 			}
 		}
 			break;
@@ -580,7 +580,7 @@ static void HandleBusMessage(const BusEventData busEvent, AAMPGstPlayer * _this)
 			if (_this->aamp->mConfig->IsConfigSet(eAAMPConfig_DecoderUnavailableStrict)  && busEvent.msg.find("No decoder available") != std::string::npos)
 			{
 				std::string warnDesc = "GstPipeline Error:" + busEvent.msg;
-				_this->aamp->SendErrorEvent(AAMP_TUNE_GST_PIPELINE_ERROR, warnDesc.c_str(), false);
+				_this->aamp->_SendErrorEvent(AAMP_TUNE_GST_PIPELINE_ERROR, warnDesc.c_str(), false);
 			}
 			break;
 
@@ -589,12 +589,12 @@ static void HandleBusMessage(const BusEventData busEvent, AAMPGstPlayer * _this)
 		{
 			if(busEvent.firstBufferProcessed)
 			{
-				_this->aamp->NotifyFirstBufferProcessed(_this->GetVideoRectangle());
+				_this->aamp->_NotifyFirstBufferProcessed(_this->GetVideoRectangle());
 			}
 			if(busEvent.receivedFirstFrame)
 			{
-				_this->aamp->LogFirstFrame();
-				_this->aamp->LogTuneComplete();
+				_this->aamp->_LogFirstFrame();
+				_this->aamp->_LogTuneComplete();
 			}
 
 			if(_this->aamp->mSetPlayerRateAfterFirstframe || (busEvent.setPlaybackRate && ((AAMP_SLOWMOTION_RATE == _this->aamp->playerrate) && (_this->aamp->rate == AAMP_NORMAL_PLAY_RATE))))
@@ -609,7 +609,7 @@ static void HandleBusMessage(const BusEventData busEvent, AAMPGstPlayer * _this)
 						if(false != sink->SetPlayBackRate(_this->aamp->playerrate))
 						{
 							_this->aamp->rate=_this->aamp->playerrate;
-							_this->aamp->SetAudioVolume(0);
+							_this->aamp->_SetAudioVolume(0);
 						}
 					}
 					else if (busEvent.setPlaybackRate)
@@ -632,7 +632,7 @@ static void HandleBusMessage(const BusEventData busEvent, AAMPGstPlayer * _this)
 			{
 				AAMPLOG_ERR("Received HDCPProtectionFailure event.Schedule Retune ");
 				_this->Flush(0, AAMP_NORMAL_PLAY_RATE, true);
-				_this->aamp->ScheduleRetune(eGST_ERROR_OUTPUT_PROTECTION_ERROR,eMEDIATYPE_VIDEO);
+				_this->aamp->_ScheduleRetune(eGST_ERROR_OUTPUT_PROTECTION_ERROR,eMEDIATYPE_VIDEO);
 			}
 			break;
 		default:
@@ -646,7 +646,7 @@ static void HandleBusMessage(const BusEventData busEvent, AAMPGstPlayer * _this)
  */
 void AAMPGstPlayer::QueueProtectionEvent(const char *protSystemId, const void *initData, size_t initDataSize, AampMediaType type)
 {
-	std::string formatType = this->aamp->IsDashAsset() ? "dash/mpd" : "hls/m3u8";
+	std::string formatType = this->aamp->_IsDashAsset() ? "dash/mpd" : "hls/m3u8";
 	playerInstance->QueueProtectionEvent(formatType, protSystemId, initData, initDataSize, type);
 }
 
@@ -686,9 +686,9 @@ bool AAMPGstPlayer::SendHelper(AampMediaType mediaType, const void *ptr, size_t 
 			bool isFirstVideoBuffer = playerInstance->HandleVideoBufferSent();
 			if(isFirstVideoBuffer)
 			{ // required in order for subtitle harvesting/processing to work
-				aamp->UpdateSubtitleTimestamp();
+                aamp->_UpdateSubtitleTimestamp();
 				// required in order to fetch more than eAAMPConfig_PrePlayBufferCount video segments see WaitForFreeFragmentAvailable()
-				aamp->NotifyFirstFrameReceived(playerInstance->GetCCDecoderHandle());
+                aamp->_NotifyFirstFrameReceived(playerInstance->GetCCDecoderHandle());
 			}
 		}
 		return false;
@@ -740,15 +740,15 @@ bool AAMPGstPlayer::SendHelper(AampMediaType mediaType, const void *ptr, size_t 
 		// So we can move NotifyFirstBufferProcessed to the more accurate signal callback
 		if (notifyFirstBufferProcessed)
 		{
-			aamp->NotifyFirstBufferProcessed(GetVideoRectangle());
+            aamp->_NotifyFirstBufferProcessed(GetVideoRectangle());
 			if((aamp->mTelemetryInterval > 0) && aamp->mDiscontinuityFound)
 			{
-				aamp->SetDiscontinuityParam();
+                aamp->_SetDiscontinuityParam();
 			}
 		}
 		if(resetTrickUTC)                               //PlatformNeeds TrickStartUTC Time
 		{
-			aamp->ResetTrickStartUTCTime();
+            aamp->_ResetTrickStartUTCTime();
 		}
 
 		StopBuffering(false);
@@ -785,25 +785,25 @@ void AAMPGstPlayer::Stream()
  */
 void AAMPGstPlayer::Configure(StreamOutputFormat format, StreamOutputFormat audioFormat, StreamOutputFormat auxFormat, StreamOutputFormat subFormat, bool bESChangeStatus, bool forwardAudioToAux, bool setReadyAfterPipelineCreation)
 {
-	bool isSubEnable = aamp->IsGstreamerSubsEnabled();
-	int32_t trackId = aamp->GetCurrentAudioTrackId();
+	bool isSubEnable = aamp->_IsGstreamerSubsEnabled();
+	int32_t trackId = aamp->_GetCurrentAudioTrackId();
 	int PipelinePriority;
 	gint rate = INVALID_RATE;
 
 	AAMPLOG_MIL("videoFormat %d audioFormat %d auxFormat %d subFormat %d",format, audioFormat, auxFormat, subFormat);
 
-	playerInstance->SetPreferredDRM(GetDrmSystemID(aamp->GetPreferredDRM())); // pass the preferred DRM to Interface
+	playerInstance->SetPreferredDRM(GetDrmSystemID(aamp->_GetPreferredDRM())); // pass the preferred DRM to Interface
 	InitializePlayerConfigs(this, playerInstance);
 	/*set the run time configs for pipeline configuration*/
 
 	const char *envVal = getenv("AAMP_AV_PIPELINE_PRIORITY");
 	PipelinePriority = envVal ? atoi(envVal) : -1;
 
-	bool FirstFrameFlag = aamp->IsFirstVideoFrameDisplayedRequired();
+	bool FirstFrameFlag = aamp->_IsFirstVideoFrameDisplayedRequired();
 	/*Configure and create the pipeline*/
 	playerInstance->ConfigurePipeline(static_cast<int>(format),static_cast<int>(audioFormat),static_cast<int>(auxFormat),static_cast<int>(subFormat),
 									  bESChangeStatus,forwardAudioToAux,setReadyAfterPipelineCreation,
-									  isSubEnable, trackId, rate, PIPELINE_NAME, PipelinePriority, FirstFrameFlag, aamp->GetManifestUrl().c_str());
+									  isSubEnable, trackId, rate, PIPELINE_NAME, PipelinePriority, FirstFrameFlag, aamp->_GetManifestUrl().c_str());
 	AAMPLOG_TRACE("exiting AAMPGstPlayer");
 	StartMonitorAvTimer();
 }
@@ -815,7 +815,7 @@ bool AAMPGstPlayer::PipelineConfiguredForMedia(AampMediaType type)
 {
 	bool pipelineConfigured = true;
 
-	if( type != eMEDIATYPE_SUBTITLE || aamp->IsGstreamerSubsEnabled() )
+	if( type != eMEDIATYPE_SUBTITLE || aamp->_IsGstreamerSubsEnabled() )
 	{
 		pipelineConfigured = playerInstance->PipelineConfiguredForMedia((int) type);
 	}
@@ -876,7 +876,7 @@ bool AAMPGstPlayer::IsAssociatedAamp(PrivateInstanceAAMP *aampInstance)
 void AAMPGstPlayer::ChangeAamp(PrivateInstanceAAMP *newAamp, id3_callback_t id3HandlerCallback)
 {
 	aamp = newAamp;
-	if(aamp->DownloadsAreEnabled())
+	if(aamp->_DownloadsAreEnabled())
 	{
 		playerInstance->ResumeInjector();
 	}
@@ -926,18 +926,18 @@ long long AAMPGstPlayer::GetPositionMilliseconds(void)
  */
 bool AAMPGstPlayer::Pause( bool pause, bool forceStopGstreamerPreBuffering )
 {
-	aamp->SyncBegin();					/* Obtains a mutex lock */
+    aamp->_SyncBegin();					/* Obtains a mutex lock */
 
 	AAMPLOG_MIL("entering AAMPGstPlayer_Pause - pause(%d) stop-pre-buffering(%d)", pause, forceStopGstreamerPreBuffering);
 
 	bool res = this->playerInstance->Pause(pause, forceStopGstreamerPreBuffering);
 	if(res)
 	{
-		if(!aamp->IsGstreamerSubsEnabled())
-			aamp->PauseSubtitleParser(pause);
+		if(!aamp->_IsGstreamerSubsEnabled())
+            aamp->_PauseSubtitleParser(pause);
 	}
 
-	aamp->SyncEnd();					/* Releases the mutex */
+    aamp->_SyncEnd();					/* Releases the mutex */
 
 	return res;
 	//return retValue;
@@ -1005,7 +1005,7 @@ void AAMPGstPlayer::Flush(double position, int rate, bool shouldTearDown)
 	{
 		return;
 	}
-	AAMPPlayerState state = aamp->GetState();
+	AAMPPlayerState state = aamp->_GetState();
 	bool isAppSeek = false;
 	if(state == eSTATE_SEEKING)
 	{
@@ -1033,12 +1033,12 @@ bool AAMPGstPlayer::Discontinuity(AampMediaType type)
 
 	bool CompleteDiscontinuityDataDeliverForPTSRestamp =false;
 	bool shouldHaltBuffering = false;
-	ret = playerInstance->CheckDiscontinuity((int)type,(int)aamp->mVideoFormat, aamp->ReconfigureForCodecChange(), CompleteDiscontinuityDataDeliverForPTSRestamp, shouldHaltBuffering);
+	ret = playerInstance->CheckDiscontinuity((int)type,(int)aamp->mVideoFormat, aamp->_ReconfigureForCodecChange(), CompleteDiscontinuityDataDeliverForPTSRestamp, shouldHaltBuffering);
 
 	if(CompleteDiscontinuityDataDeliverForPTSRestamp)
 	{
 		AAMPLOG_WARN("NO EOS: PTS-RESTAMP ENABLED and codec has not changed");
-		aamp->CompleteDiscontinuityDataDeliverForPTSRestamp(type);
+        aamp->_CompleteDiscontinuityDataDeliverForPTSRestamp(type);
 	}
 
 	else if(shouldHaltBuffering)
@@ -1169,14 +1169,14 @@ void AAMPGstPlayer::StopBuffering(bool forceStop)
 {
 	std::lock_guard<std::mutex> guard(mBufferingLock);
 	//Check if we are in buffering
-	if (ISCONFIGSET(eAAMPConfig_ReportBufferEvent) && aamp->GetBufUnderFlowStatus())
+	if (ISCONFIGSET(eAAMPConfig_ReportBufferEvent) && aamp->_GetBufUnderFlowStatus())
 	{
 		bool isPlaying = false;
 		bool sendEndEvent = playerInstance->StopBuffering(forceStop, isPlaying);
 		if(!sendEndEvent && isPlaying)
 		{
-			sendEndEvent = aamp->PausePipeline(false, false);
-			aamp->UpdateSubtitleTimestamp();
+			sendEndEvent = aamp->_PausePipeline(false, false);
+            aamp->_UpdateSubtitleTimestamp();
 		}
 
 		if( !sendEndEvent )
@@ -1185,7 +1185,7 @@ void AAMPGstPlayer::StopBuffering(bool forceStop)
 		}
 		else
 		{
-			aamp->SendBufferChangeEvent();          /* To indicate buffer availability */
+            aamp->_SendBufferChangeEvent();          /* To indicate buffer availability */
 		}
 	}
 }
@@ -1217,7 +1217,7 @@ bool AAMPGstPlayer::SetTextStyle(const std::string &options)
 bool AAMPGstPlayer::SignalSubtitleClock( void )
 {
 	bool signalSent=false;
-	signalSent = playerInstance->SignalSubtitleClock(GetVideoPTS(), aamp->GetBufUnderFlowStatus());
+	signalSent = playerInstance->SignalSubtitleClock(GetVideoPTS(), aamp->_GetBufUnderFlowStatus());
 	return signalSent;
 }
 
@@ -1227,7 +1227,7 @@ void AAMPGstPlayer::GetBufferControlData(AampMediaType mediaType, BufferControlD
 	data.StreamReady = playerInstance->IsStreamReady(type);
 	if (data.StreamReady)
 	{
-		data.ElapsedSeconds = std::abs(aamp->GetPositionRelativeToSeekSeconds());
+		data.ElapsedSeconds = std::abs(aamp->_GetPositionRelativeToSeekSeconds());
 
 		data.GstWaitingForData = playerInstance->GetBufferControlData(mediaType);
 	}
@@ -1282,7 +1282,7 @@ static gboolean MonitorAvTimerCallback(gpointer user_data)
 					timeInState = player->GetMonitorAVInterval(); // Cap to reporting interval
 				}
 				GstPlaybackQualityStruct* playbackQuality = player->playerInstance->GetVideoPlaybackQuality();
-				player->aamp->SendMonitorAvEvent(monitorAVState.description,
+				player->aamp->_SendMonitorAvEvent(monitorAVState.description,
 						monitorAVState.av_position[eMEDIATYPE_VIDEO],
 						monitorAVState.av_position[eMEDIATYPE_AUDIO],
 						timeInState,

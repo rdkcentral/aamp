@@ -32,7 +32,7 @@
  */
 void MediaStreamContext::InjectFragmentInternal(CachedFragment* cachedFragment, bool &fragmentDiscarded,bool isDiscontinuity)
 {
-	assert(!aamp->GetLLDashChunkMode());
+	assert(!aamp->_GetLLDashChunkMode());
 
 	if(playContext)
 	{
@@ -44,9 +44,9 @@ void MediaStreamContext::InjectFragmentInternal(CachedFragment* cachedFragment, 
 	}
 	else
 	{
-		aamp->ProcessID3Metadata(cachedFragment->fragment.GetPtr(), cachedFragment->fragment.GetLen(), (AampMediaType) type);
+        aamp->_ProcessID3Metadata(cachedFragment->fragment.GetPtr(), cachedFragment->fragment.GetLen(), (AampMediaType) type);
 		AAMPLOG_DEBUG("Type[%d] cachedFragment->position: %f cachedFragment->duration: %f cachedFragment->initFragment: %d", type, cachedFragment->position,cachedFragment->duration,cachedFragment->initFragment);
-		aamp->SendStreamTransfer((AampMediaType)type, &cachedFragment->fragment,
+        aamp->_SendStreamTransfer((AampMediaType)type, &cachedFragment->fragment,
 		cachedFragment->position, cachedFragment->position, cachedFragment->duration, cachedFragment->PTSOffsetSec, cachedFragment->initFragment, cachedFragment->discontinuity);
 	}
 
@@ -64,7 +64,7 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 	AAMPLOG_INFO("Type[%d] position(before restamp) %f discontinuity %d pto %f scale %u duration %f mPTSOffsetSec %f absTime %lf fragmentUrl %s", type, position, discontinuity, pto, scale, fragmentDurationS, GetContext()->mPTSOffset.inSeconds(), posInAbsTimeline, fragmentUrl.c_str());
 
 	fragmentDurationSeconds = fragmentDurationS;
-	ProfilerBucketType bucketType = aamp->GetProfilerBucketForMedia(mediaType, initSegment);
+	ProfilerBucketType bucketType = aamp->_GetProfilerBucketForMedia(mediaType, initSegment);
 	CachedFragment* cachedFragment = GetFetchBuffer(true);
 	BitsPerSecond bitrate = 0;
 	double downloadTimeS = 0;
@@ -85,7 +85,7 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 		position += GetContext()->mPTSOffset.inSeconds();
 		AAMPLOG_INFO("Type[%d] position after restamp = %fs", type, position);
 	}
-	AampTSBSessionManager *tsbSessionManager = aamp->GetTSBSessionManager();
+	AampTSBSessionManager *tsbSessionManager = aamp->_GetTSBSessionManager();
 
 	auto CheckEos = [this, &tsbSessionManager, &actualType]() {
 		return IsLocalTSBInjection() &&
@@ -115,13 +115,13 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 		bool bReadfromcache = false;
 		if(initSegment)
 		{
-			ret = bReadfromcache = aamp->getAampCacheHandler()->RetrieveFromInitFragmentCache(fragmentUrl,&cachedFragment->fragment,effectiveUrl);
+			ret = bReadfromcache = aamp->_getAampCacheHandler()->RetrieveFromInitFragmentCache(fragmentUrl,&cachedFragment->fragment,effectiveUrl);
 		}
 		if(!bReadfromcache)
 		{
-			AampMPDDownloader *dnldInstance = aamp->GetMPDDownloader();
+			AampMPDDownloader *dnldInstance = aamp->_GetMPDDownloader();
 			int maxInitDownloadTimeMS = 0;
-			if ((aamp->IsLocalAAMPTsb()) && (dnldInstance))
+			if ((aamp->_IsLocalAAMPTsb()) && (dnldInstance))
 			{
 				//Calculate the time remaining for the fragment to be available in the timeshift buffer window
 				//         A                                     B                        C
@@ -134,10 +134,10 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 					maxInitDownloadTimeMS, initSegment, aamp->mTsbDepthMs, (unsigned long long)dnldInstance->GetPublishTime(), fragmentTime);
 			}
 
-			ret = aamp->GetFile(fragmentUrl, actualType, mTempFragment.get(), effectiveUrl, &httpErrorCode, &downloadTimeS, range, curlInstance, true/*resetBuffer*/,  &bitrate, &iFogError, fragmentDurationS, bucketType, maxInitDownloadTimeMS);
+			ret = aamp->_GetFile(fragmentUrl, actualType, mTempFragment.get(), effectiveUrl, &httpErrorCode, &downloadTimeS, range, curlInstance, true/*resetBuffer*/,  &bitrate, &iFogError, fragmentDurationS, bucketType, maxInitDownloadTimeMS);
 			if (initSegment && ret)
 			{
-				aamp->getAampCacheHandler()->InsertToInitFragCache(fragmentUrl, mTempFragment.get(), effectiveUrl, actualType);
+                aamp->_getAampCacheHandler()->InsertToInitFragCache(fragmentUrl, mTempFragment.get(), effectiveUrl, actualType);
 			}
 			if (ret)
 			{
@@ -178,17 +178,17 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 					if(actualType == eMEDIATYPE_INIT_VIDEO)
 					{
 						AAMPLOG_INFO("Video TimeScale [%d]", timeScale);
-						aamp->SetVidTimeScale(timeScale);
+                        aamp->_SetVidTimeScale(timeScale);
 					}
 					else if (actualType == eMEDIATYPE_INIT_AUDIO)
 					{
 						AAMPLOG_INFO("Audio TimeScale  [%d]", timeScale);
-						aamp->SetAudTimeScale(timeScale);
+                        aamp->_SetAudTimeScale(timeScale);
 					}
 					else if (actualType == eMEDIATYPE_INIT_SUBTITLE)
 					{
 						AAMPLOG_INFO("Subtitle TimeScale  [%d]", timeScale);
-						aamp->SetSubTimeScale(timeScale);
+                        aamp->_SetSubTimeScale(timeScale);
 					}
 				}
 				if(actualType == eMEDIATYPE_INIT_VIDEO)
@@ -245,7 +245,7 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 		if(!bReadfromcache)
 		{
 			//update videoend info
-			aamp->UpdateVideoEndMetrics( actualType, bitrate? bitrate : fragmentDescriptor.Bandwidth, (iFogError > 0 ? iFogError : httpErrorCode),effectiveUrl,fragmentDurationS, downloadTimeS);
+            aamp->_UpdateVideoEndMetrics( actualType, bitrate? bitrate : fragmentDescriptor.Bandwidth, (iFogError > 0 ? iFogError : httpErrorCode),effectiveUrl,fragmentDurationS, downloadTimeS);
 		}
 	}
 
@@ -264,7 +264,7 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 	{
 		AAMPLOG_INFO("fragment fetch failed - Free cachedFragment for %d",actualType);
 		cachedFragment->fragment.Free();
-		if( aamp->DownloadsAreEnabled())
+		if( aamp->_DownloadsAreEnabled())
 		{
 			AAMPLOG_WARN("%sfragment fetch failed -- fragmentUrl %s", (initSegment)?"Init ":" ", fragmentUrl.c_str());
 			if (mSkipSegmentOnError)
@@ -292,8 +292,8 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 						{
 							AAMPLOG_ERR("%s Not able to download fragments; reached failure threshold sending tune failed event",name);
 							abortWaitForVideoPTS();
-							aamp->SetFlushFdsNeededInCurlStore(true);
-							aamp->SendDownloadErrorEvent(AAMP_TUNE_FRAGMENT_DOWNLOAD_FAILURE, httpErrorCode);
+                            aamp->_SetFlushFdsNeededInCurlStore(true);
+                            aamp->_SendDownloadErrorEvent(AAMP_TUNE_FRAGMENT_DOWNLOAD_FAILURE, httpErrorCode);
 						}
 					}
 					else
@@ -301,9 +301,9 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 						// When rampdown limit is not specified, init segment will be ramped down, this will
 						AAMPLOG_ERR("%s Not able to download init fragments; reached failure threshold sending tune failed event",name);
 						abortWaitForVideoPTS();
-						aamp->SetFlushFdsNeededInCurlStore(true);
+                        aamp->_SetFlushFdsNeededInCurlStore(true);
 
-						aamp->SendDownloadErrorEvent(AAMP_TUNE_INIT_FRAGMENT_DOWNLOAD_FAILURE, httpErrorCode);
+                        aamp->_SendDownloadErrorEvent(AAMP_TUNE_INIT_FRAGMENT_DOWNLOAD_FAILURE, httpErrorCode);
 					}
 				}
 			}
@@ -330,8 +330,8 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 						// Already at lowest profile, send error event for init fragment.
 						AAMPLOG_ERR("Not able to download init fragments; reached failure threshold sending tune failed event");
 						abortWaitForVideoPTS();
-						aamp->SetFlushFdsNeededInCurlStore(true);
-						aamp->SendDownloadErrorEvent(AAMP_TUNE_INIT_FRAGMENT_DOWNLOAD_FAILURE, httpErrorCode);
+                        aamp->_SetFlushFdsNeededInCurlStore(true);
+                        aamp->_SendDownloadErrorEvent(AAMP_TUNE_INIT_FRAGMENT_DOWNLOAD_FAILURE, httpErrorCode);
 					}
 					else
 					{
@@ -352,8 +352,8 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 					if (!playingAd && httpErrorCode != 502)
 					{
 						abortWaitForVideoPTS();
-						aamp->SetFlushFdsNeededInCurlStore(true);
-						aamp->SendDownloadErrorEvent(AAMP_TUNE_INIT_FRAGMENT_DOWNLOAD_FAILURE, httpErrorCode);
+                        aamp->_SetFlushFdsNeededInCurlStore(true);
+                        aamp->_SendDownloadErrorEvent(AAMP_TUNE_INIT_FRAGMENT_DOWNLOAD_FAILURE, httpErrorCode);
 					}
 				}
 				else
@@ -393,18 +393,18 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 				AAMPLOG_INFO("Reader at EOS, Pushing last downloaded data");
 				tsbSessionManager->GetTsbReader((AampMediaType)type)->CheckForWaitIfReaderDone();
 				// If reader is at EOS, inject the last data in AAMP TSB
-				if (aamp->GetLLDashChunkMode())
+				if (aamp->_GetLLDashChunkMode())
 				{
 					CacheTsbFragment(fragmentToTsbSessionMgr);
 				}
 				SetLocalTSBInjection(false);
 				// If all of the active media contexts are no longer injecting from TSB, update the AAMP flag
-				aamp->UpdateLocalAAMPTsbInjection();
+                aamp->_UpdateLocalAAMPTsbInjection();
 			}
 			else if (fragmentToTsbSessionMgr->initFragment && !IsLocalTSBInjection() && !aamp->pipeline_paused)
 			{
 				// In chunk mode, media segments are added to the chunk cache in the SSL callback, but init segments are added here
-				if (aamp->GetLLDashChunkMode())
+				if (aamp->_GetLLDashChunkMode())
 				{
 					CacheTsbFragment(fragmentToTsbSessionMgr);
 				}
@@ -416,7 +416,7 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 		{
 			AAMPLOG_WARN("Type[%d] Empty cachedFragment ignored!! fragmentUrl %s fragmentTime %f discontinuity %d pto %f  scale %u duration %f", type, fragmentUrl.c_str(), position, discontinuity, pto, scale, fragmentDurationS);
 		}
-		else if(aamp->GetLLDashChunkMode() && initSegment)
+		else if(aamp->_GetLLDashChunkMode() && initSegment)
 		{
 			std::shared_ptr<CachedFragment> fragmentToTsbSessionMgr = std::make_shared<CachedFragment>();
 			fragmentToTsbSessionMgr->Copy(cachedFragment, cachedFragment->fragment.GetLen());
@@ -431,10 +431,10 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 
 		// If playing back from local TSB, or pending playing back from local TSB as paused, but not paused due to underflow
 		if (tsbSessionManager &&
-			(IsLocalTSBInjection() || (aamp->pipeline_paused && !aamp->GetBufUnderFlowStatus())))
+			(IsLocalTSBInjection() || (aamp->pipeline_paused && !aamp->_GetBufUnderFlowStatus())))
 		{
 			AAMPLOG_TRACE("[%s] cachedFragment %p ptr %p not injecting IsLocalTSBInjection %d, aamp->pipeline_paused %d, aamp->GetBufUnderFlowStatus() %d",
-				name, cachedFragment, cachedFragment->fragment.GetPtr(), IsLocalTSBInjection(), aamp->pipeline_paused, aamp->GetBufUnderFlowStatus());
+				name, cachedFragment, cachedFragment->fragment.GetPtr(), IsLocalTSBInjection(), aamp->pipeline_paused, aamp->_GetBufUnderFlowStatus());
 			cachedFragment->fragment.Free();
 		}
 		else
@@ -444,7 +444,7 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 
 			// With AAMP TSB enabled, the chunk cache is used for any content type (SLD or LLD)
 			// When playing live SLD content, the fragment is written to the regular cache and to the chunk cache
-			if(tsbSessionManager && !IsLocalTSBInjection() && !aamp->GetLLDashChunkMode())
+			if(tsbSessionManager && !IsLocalTSBInjection() && !aamp->_GetLLDashChunkMode())
 			{
 				std::shared_ptr<CachedFragment> fragmentToCache = std::make_shared<CachedFragment>();
 				fragmentToCache->Copy(cachedFragment, cachedFragment->fragment.GetLen());
@@ -607,7 +607,7 @@ void MediaStreamContext::ABRProfileChanged(void)
 double MediaStreamContext::GetBufferedDuration()
 {
 	double bufferedDuration=0;
-	double position = aamp->GetPositionMs() / 1000.00;
+	double position = aamp->_GetPositionMs() / 1000.00;
 	AAMPLOG_INFO("[%s] lastDownloadedPosition %lfs position %lfs prevFirstPeriodStartTime %llds",
 		GetMediaTypeName(mediaType),
 		lastDownloadedPosition.load(),
@@ -655,7 +655,7 @@ double MediaStreamContext::GetBufferedDuration()
  */
 void MediaStreamContext::SignalTrickModeDiscontinuity()
 {
-	aamp->SignalTrickModeDiscontinuity();
+    aamp->_SignalTrickModeDiscontinuity();
 }
 
 /**

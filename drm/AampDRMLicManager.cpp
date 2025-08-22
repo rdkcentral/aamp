@@ -83,7 +83,7 @@ AampDRMLicenseManager::AampDRMLicenseManager(int maxDrmSessions, PrivateInstance
 		aampInstance(aamp), mDrmSessionManager(NULL)
 {
     aampInstance = aamp; 
-	std::function<void(uint32_t,uint32_t,const std::string&)> waterMarkSessionUpdateCB = std::bind(&PrivateInstanceAAMP::SendWatermarkSessionUpdateEvent, aampInstance, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3);
+	std::function<void(uint32_t,uint32_t,const std::string&)> waterMarkSessionUpdateCB = std::bind(&PrivateInstanceAAMP::_SendWatermarkSessionUpdateEvent, aampInstance, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3);
     mDrmSessionManager = new DrmSessionManager(maxDrmSessions ,aampInstance, std::move(waterMarkSessionUpdateCB));
     registerCb(this, mDrmSessionManager);
     getConfigs(mDrmSessionManager, aampInstance);
@@ -136,12 +136,12 @@ void AampDRMLicenseManager::licenseRenewalThread(std::shared_ptr<DrmHelper> drmH
 {
 	bool isSecClientError = false;
 	//isSecClientError = true; //for secmanager
-	DrmMetaDataEventPtr e = std::make_shared<DrmMetaDataEvent>(AAMP_TUNE_FAILURE_UNKNOWN, "", 0, 0, isSecClientError, aampInstance->GetSessionId());
+	DrmMetaDataEventPtr e = std::make_shared<DrmMetaDataEvent>(AAMP_TUNE_FAILURE_UNKNOWN, "", 0, 0, isSecClientError, aampInstance->_GetSessionId());
 	int cdmError = -1;
 	KeyState code = acquireLicense(drmHelper, sessionSlot, cdmError,  eMEDIATYPE_LICENCE,(void*)e.get() ,true);
 	if (code != KEY_READY)
 	{
-		aampInstance->SendAnomalyEvent(ANOMALY_WARNING, "License Renewal failed due to Key State %d", code);
+        aampInstance->_SendAnomalyEvent(ANOMALY_WARNING, "License Renewal failed due to Key State %d", code);
 		AAMPLOG_ERR("Unable to Renew License for DRM Session : Key State %d ", code);
 	}
 	else
@@ -178,7 +178,7 @@ void AampDRMLicenseManager::renewLicense(std::shared_ptr<DrmHelper> drmHelper, v
 	}
 	else
 	{
-		aampInstance->SendAnomalyEvent(ANOMALY_WARNING, "Failed to renew license as slot not available");
+        aampInstance->_SendAnomalyEvent(ANOMALY_WARNING, "Failed to renew license as slot not available");
 		AAMPLOG_ERR("Failed to renew license as the requested DRM session slot is not available");
 	}
 }
@@ -286,7 +286,7 @@ KeyState AampDRMLicenseManager::acquireLicense(std::shared_ptr<DrmHelper> drmHel
 
 			LicenseRequest licenseRequest;
 			DRMSystems drmType = GetDrmSystem(drmHelper->getUuid());
-			licenseRequest.url = aampInstance->GetLicenseServerUrlForDrm(drmType);
+			licenseRequest.url = aampInstance->_GetLicenseServerUrlForDrm(drmType);
 			licenseRequest.licenseAnonymousRequest = anonymousLicenceReq;
 			drmHelper->generateLicenseRequest(challengeInfo, licenseRequest);
 			if (code != KEY_PENDING || ((licenseRequest.method == LicenseRequest::POST) && (!challengeInfo.data.get())))
@@ -711,7 +711,7 @@ bool AampDRMLicenseManager::configureLicenseServerParameters(std::shared_ptr<Drm
 	// 2. In addition for ContentMetadata license, add additional headers if present
 	{
 		std::unordered_map<std::string, std::vector<std::string>> customHeaders;
-		aampInstance->GetCustomLicenseHeaders(customHeaders);
+        aampInstance->_GetCustomLicenseHeaders(customHeaders);
 
 		if (!customHeaders.empty())
 		{
@@ -757,7 +757,7 @@ bool AampDRMLicenseManager::configureLicenseServerParameters(std::shared_ptr<Drm
 		}
 
 		// license Server Proxy need to be applied for both request , with and without contentMetadata
-		licenseServerProxy = aampInstance->GetLicenseReqProxy();
+		licenseServerProxy = aampInstance->_GetLicenseReqProxy();
 	}
 
 	return isContentMetadataAvailable;
@@ -798,13 +798,13 @@ void AampDRMLicenseManager::ContentProtectionDataUpdate(PrivateInstanceAAMP* aam
 		iter1++;
 	}
 	if(!DRM_Config_Available) {
-		ContentProtectionDataEventPtr eventData = std::make_shared<ContentProtectionDataEvent>(keyId, contentType, aampInstance->GetSessionId());
+		ContentProtectionDataEventPtr eventData = std::make_shared<ContentProtectionDataEvent>(keyId, contentType, aampInstance->_GetSessionId());
 		std::string keyIdDebugStr = AampLogManager::getHexDebugStr(keyId);
 		std::unique_lock<std::recursive_mutex> lock(aampInstance->mDynamicDrmUpdateLock);
 		int drmUpdateTimeout = aampInstance->mConfig->GetConfigValue(eAAMPConfig_ContentProtectionDataUpdateTimeout);
 		AAMPLOG_WARN("Timeout Wait for DRM config message from application :%d",drmUpdateTimeout);
 		AAMPLOG_INFO("Found new KeyId %s and not in drm config cache, sending ContentProtectionDataEvent to App", keyIdDebugStr.c_str());
-		aampInstance->SendEvent(eventData);
+        aampInstance->_SendEvent(eventData);
 		if( std::cv_status::timeout ==
 		   aampInstance->mWaitForDynamicDRMToUpdate.wait_for(
 															 lock,
@@ -1045,10 +1045,10 @@ DrmData * AampDRMLicenseManager::getLicense(LicenseRequest &licenseRequest,
 		
 		double totalPerformRequest = (double)(downloadTimeMS)/1000;
 		std::string appName, timeoutClass;
-		if (!aampInstance->GetAppName().empty())
+		if (!aampInstance->_GetAppName().empty())
 		{
 			// append app name with class data
-			appName = aampInstance->GetAppName() + ",";
+			appName = aampInstance->_GetAppName() + ",";
 		}
 		if (CURLE_OPERATION_TIMEDOUT == res || CURLE_PARTIAL_FILE == res || CURLE_COULDNT_CONNECT == res)
 		{
@@ -1122,10 +1122,10 @@ DrmData * AampDRMLicenseManager::getLicenseSec(const LicenseRequest &licenseRequ
 
 	if(aampInstance->mIsVSS)
 	{
-		if (aampInstance->GetEnableAccessAttributesFlag())
+		if (aampInstance->_GetEnableAccessAttributesFlag())
 		{
-			serviceZone = aampInstance->GetServiceZone();
-			streamID = aampInstance->GetVssVirtualStreamID();
+			serviceZone = aampInstance->_GetServiceZone();
+			streamID = aampInstance->_GetVssVirtualStreamID();
 			if (!serviceZone.empty())
 			{
 				accessAttributes[numberOfAccessAttributes][0] = VSS_SERVICE_ZONE_KEY_STR;
@@ -1143,7 +1143,7 @@ DrmData * AampDRMLicenseManager::getLicenseSec(const LicenseRequest &licenseRequ
 	}
 	std::string moneytracestr;
 	requestMetadata[0][0] = "X-MoneyTrace";
-	aampInstance->GetMoneyTraceString(moneytracestr);
+    aampInstance->_GetMoneyTraceString(moneytracestr);
 	requestMetadata[0][1] = moneytracestr.c_str();
 
 	AAMPLOG_WARN("[HHH] Before calling SecClient_AcquireLicense-----------");
@@ -1165,8 +1165,8 @@ DrmData * AampDRMLicenseManager::getLicenseSec(const LicenseRequest &licenseRequ
 		}
 
 		std::string clientId = "aamp";
-		std::string appId = aampInstance->GetAppName();
-		if(appId.empty()) 
+		std::string appId = aampInstance->_GetAppName();
+		if(appId.empty())
 		{
 			appId = clientId;
 
@@ -1301,12 +1301,12 @@ void AampDRMLicenseManager::ProfilerUpdate()
 std::string  AampDRMLicenseManager::HandleContentProtectionData(std::shared_ptr<DrmHelper> drmHelper, int streamType, std::vector<uint8_t> keyId, int contentProtectionUpd)
 {
 	 /* To fetch correct codec type in tune time metrics when drm data is not given in manifest*/
-	 aampInstance->setCurrentDrm(drmHelper);
+    aampInstance->_setCurrentDrm(drmHelper);
 
 	bool RuntimeDRMConfigSupported = aampInstance->mConfig->IsConfigSet(eAAMPConfig_RuntimeDRMConfig);
 	if(contentProtectionUpd)
 	{
-	    if(RuntimeDRMConfigSupported && aampInstance->IsEventListenerAvailable(AAMP_EVENT_CONTENT_PROTECTION_DATA_UPDATE) && (streamType < 4))
+	    if(RuntimeDRMConfigSupported && aampInstance->_IsEventListenerAvailable(AAMP_EVENT_CONTENT_PROTECTION_DATA_UPDATE) && (streamType < 4))
 	    {
 	    	aampInstance->mcurrent_keyIdArray = keyId;
 	    	AAMPLOG_INFO("App registered the ContentProtectionDataEvent to send new drm config");
@@ -1314,7 +1314,7 @@ std::string  AampDRMLicenseManager::HandleContentProtectionData(std::shared_ptr<
 	    	aampInstance->mcurrent_keyIdArray.clear();
 	    }
 	}
-	std::string customData = aampInstance->GetLicenseCustomData();
+	std::string customData = aampInstance->_GetLicenseCustomData();
     return customData;
 }
 /**

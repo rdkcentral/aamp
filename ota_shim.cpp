@@ -47,8 +47,7 @@ void StreamAbstractionAAMP_OTA::onPlayerStatusHandler(PlayerStatusData data) {
 		// Check if event is for current aamp instance,
 		// sometimes blocked events are delayed and in fast channel change
 		// scenario it is delivered late.
-		currentLocator =  aamp->GetManifestUrl();
-
+		currentLocator =  aamp->_GetManifestUrl();
 		if( 0 != currentLocator.compare(data.eventUrl))
 		{
 			AAMPLOG_WARN( "[OTA_SHIM] Ignoring BLOCKED event as tune url %s playerStatus event url %s is not same ",currentLocator.c_str(),data.eventUrl.c_str());
@@ -78,20 +77,20 @@ void StreamAbstractionAAMP_OTA::onPlayerStatusHandler(PlayerStatusData data) {
 		{
 			AAMPLOG_WARN( "[OTA_SHIM] Received BLOCKED event from player with REASON: %s Current Ratings: %s",  data.reasonString.c_str(), data.ratingString.c_str());
 
-			aamp->SendAnomalyEvent(ANOMALY_WARNING,"BLOCKED REASON:%s", data.reasonString.c_str());
-			aamp->SendBlockedEvent(data.reasonString, currentLocator);
+            aamp->_SendAnomalyEvent(ANOMALY_WARNING,"BLOCKED REASON:%s", data.reasonString.c_str());
+            aamp->_SendBlockedEvent(data.reasonString, currentLocator);
 			state = eSTATE_BLOCKED;
 			prevBlockedReason = data.reasonString;
 		}else if(0 == data.currState.compare("PLAYING"))
 		{
 			if(!tuned){
-				aamp->SendTunedEvent(false);
+                aamp->_SendTunedEvent(false);
 				/* For consistency, during first tune, first move to
 				 PREPARED state to match normal IPTV flow sequence */
-				aamp->SetState(eSTATE_PREPARED);
+                aamp->_SetState(eSTATE_PREPARED);
 				tuned = true;
-				aamp->LogFirstFrame();
-				aamp->LogTuneComplete();
+                aamp->_LogFirstFrame();
+                aamp->_LogTuneComplete();
 			}
 			AAMPLOG_WARN( "[OTA_SHIM] PLAYING STATE Current Ratings : %s", data.ratingString.c_str());
 			state = eSTATE_PLAYING;
@@ -105,7 +104,7 @@ void StreamAbstractionAAMP_OTA::onPlayerStatusHandler(PlayerStatusData data) {
 		{
 			if(0 == data.currState.compare("IDLE"))
 			{
-				aamp->SendAnomalyEvent(ANOMALY_WARNING, "ATSC Tuner Idle");
+                aamp->_SendAnomalyEvent(ANOMALY_WARNING, "ATSC Tuner Idle");
 			}else{
 				/* Currently plugin lists only "IDLE","ERROR","PROCESSING","PLAYING"&"DONE" */
 				AAMPLOG_INFO( "[OTA_SHIM] Unsupported state change!");
@@ -113,7 +112,7 @@ void StreamAbstractionAAMP_OTA::onPlayerStatusHandler(PlayerStatusData data) {
 			/* Need not set a new state hence returning */
 			return;
 		}
-		aamp->SetState(state);
+        aamp->_SetState(state);
 	}
 
 	if( 0 == data.currState.compare("PLAYING") ||
@@ -129,7 +128,7 @@ void StreamAbstractionAAMP_OTA::onPlayerStatusHandler(PlayerStatusData data) {
 			{
 				miPrevmiVideoWidth = miVideoWidth;
 				miPrevmiVideoHeight = miVideoHeight;
-				aamp->NotifyBitRateChangeEvent(mVideoBitrate, eAAMP_BITRATE_CHANGE_BY_OTA, miVideoWidth, miVideoHeight, mFrameRate, 0, false, mVideoScanType, mAspectRatioWidth, mAspectRatioHeight);
+                aamp->_NotifyBitRateChangeEvent(mVideoBitrate, eAAMP_BITRATE_CHANGE_BY_OTA, miVideoWidth, miVideoHeight, mFrameRate, 0, false, mVideoScanType, mAspectRatioWidth, mAspectRatioHeight);
 			}
 		}
 	}
@@ -248,7 +247,7 @@ bool StreamAbstractionAAMP_OTA::PopulateMetaData(PlayerStatusData data)
 
 void StreamAbstractionAAMP_OTA::SendMediaMetadataEvent()
 {
-	if(aamp->IsEventListenerAvailable(AAMP_EVENT_MEDIA_METADATA))
+	if(aamp->_IsEventListenerAvailable(AAMP_EVENT_MEDIA_METADATA))
 	{
 		MediaMetadataEventPtr event = std::make_shared<MediaMetadataEvent>(-1/*duration*/, miVideoWidth, miVideoHeight, false/*hasDrm*/,true/*isLive*/, ""/*drmtype*/, -1/*programStartTime*/,0/*tsbdepth*/, std::string{},std::string{} /*effectiveUrl*/);
 
@@ -258,7 +257,7 @@ void StreamAbstractionAAMP_OTA::SendMediaMetadataEvent()
 		event->SetVideoMetaData(mFrameRate,mVideoScanType,mAspectRatioWidth,mAspectRatioHeight, mVideoCodec,  mHdrType, mPCRating,mSsi);
 		event->SetAudioMetaData(mAudioCodec,mAudioMixType,mIsAtmos);
 		event->addAudioBitrate(mAudioBitrate);
-		aamp->SendEvent(event,AAMP_EVENT_ASYNC_MODE);
+        aamp->_SendEvent(event,AAMP_EVENT_ASYNC_MODE);
 	}
 }
 
@@ -282,7 +281,7 @@ AAMPStatusType StreamAbstractionAAMP_OTA::Init(TuneType tuneType)
 		prevBlockedReason = "";
 		tuned = false;
 
-		aamp->SetContentType("OTA");
+        aamp->_SetContentType("OTA");
 
 		thunderAccessObj.ActivatePlugin();
 		std::function<void(PlayerStatusData)> actualMethod = std::bind(&StreamAbstractionAAMP_OTA::onPlayerStatusHandler, this, std::placeholders::_1);
@@ -347,7 +346,7 @@ void StreamAbstractionAAMP_OTA::Start(void)
 	}
 	if(aamp)
 	{
-		std::string url = aamp->GetManifestUrl();
+		std::string url = aamp->_GetManifestUrl();
 		if(!thunderAccessObj.IsThunderAccess())
 		{
 				AAMPLOG_WARN( "[OTA_SHIM]Inside CURL ACCESS");
@@ -457,7 +456,7 @@ void StreamAbstractionAAMP_OTA::NotifyAudioTrackChange(const std::vector<AudioTr
 {
     if ((0 != mAudioTracks.size()) && (tracks.size() != mAudioTracks.size()))
     {
-        aamp->NotifyAudioTracksChanged();
+        aamp->_NotifyAudioTracksChanged();
     }
     return;
 }
@@ -527,7 +526,8 @@ void StreamAbstractionAAMP_OTA::SetPreferredAudioLanguages()
 	{
 		bool modifiedLang = false;
 		bool modifiedRend = false;
-		AAMPLOG_WARN( "[OTA_SHIM]aamp->preferredLanguagesString : %s, gATSCSettings.preferredLanguages : %s aamp->preferredRenditionString : %s gATSCSettings.preferredRendition : %s",  aamp->preferredLanguagesString.c_str(),gATSCSettings.preferredLanguages.c_str(), aamp->preferredRenditionString.c_str(), gATSCSettings.preferredRendition.c_str());fflush(stdout);
+		AAMPLOG_WARN( "[OTA_SHIM]aamp->preferredLanguagesString : %s, gATSCSettings.preferredLanguages : %s aamp->preferredRenditionString : %s gATSCSettings.preferredRendition : %s",  aamp->preferredLanguagesString.c_str(),gATSCSettings.preferredLanguages.c_str(), aamp->preferredRenditionString.c_str(), gATSCSettings.preferredRendition.c_str());
+        fflush(stdout);
 
 		PlayerPreferredAudioData data;
 		data.preferredRenditionString = aamp->preferredLanguagesString;
@@ -611,7 +611,7 @@ void StreamAbstractionAAMP_OTA::GetAudioTracks()
 			index = to_string(i);
 
 			std::string languageCode;
-			languageCode = Getiso639map_NormalizeLanguageCode(plyrAudData[i].language, aamp->GetLangCodePreference());
+			languageCode = Getiso639map_NormalizeLanguageCode(plyrAudData[i].language, aamp->_GetLangCodePreference());
 			aTracks.push_back(AudioTrackInfo(index, /*idx*/ languageCode, /*lang*/ plyrAudData[i].contentType, /*rend*/ plyrAudData[i].name, /*name*/ plyrAudData[i].type, /*codecStr*/ plyrAudData[i].pk, /*primaryKey*/ plyrAudData[i].contentType, /*contentType*/ plyrAudData[i].mixType /*mixType*/));
 		}
 
@@ -672,7 +672,7 @@ void StreamAbstractionAAMP_OTA::GetTextTracks()
 				std::string index = std::to_string(ccIndex++);
 				std::string serviceNo;
 				int ccServiceNumber = -1;
-				std::string languageCode = Getiso639map_NormalizeLanguageCode(txtData[i].language, aamp->GetLangCodePreference());
+				std::string languageCode = Getiso639map_NormalizeLanguageCode(txtData[i].language, aamp->_GetLangCodePreference());
 
 				ccServiceNumber = txtData[i].ccServiceNumber;
 				/*Plugin info : ccServiceNumber	int Set to 1-63 for 708 CC Subtitles and 1-4 for 608/TEXT*/

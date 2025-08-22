@@ -49,11 +49,11 @@ void AampBufferControl::BufferControlExternalData::actionDownloads(const AAMPGst
 	{
 		if(downloadsEnabled)
 		{
-			player->aamp->ResumeTrackDownloads(mediaType);
+			player->aamp->_ResumeTrackDownloads(mediaType);
 		}
 		else
 		{
-			player->aamp->StopTrackDownloads(mediaType);
+			player->aamp->_StopTrackDownloads(mediaType);
 		}
 	}
 }

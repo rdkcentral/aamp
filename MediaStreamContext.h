@@ -58,7 +58,7 @@ public:
     {
         AAMPLOG_INFO("[%s] Create new MediaStreamContext",
             GetMediaTypeName(mediaType));
-        mPlaylistUrl = aamp->GetManifestUrl();
+        mPlaylistUrl = aamp->_GetManifestUrl();
         fragmentDescriptor.bUseMatchingBaseUrl = ISCONFIGSET(eAAMPConfig_MatchBaseUrl);
         mTempFragment = std::make_shared<AampGrowableBuffer>("temp");
     }

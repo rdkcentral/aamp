@@ -41,19 +41,19 @@ void StreamAbstractionAAMP_RMF::onPlayerStatusHandler(std::string title) {
 	if(0 == title.compare("report first video frame"))
 	{
 		if(!tuned){
-			aamp->SendTunedEvent(false);
+            aamp->_SendTunedEvent(false);
 			tuned = true;
-			aamp->LogFirstFrame();
-			aamp->LogTuneComplete();
+            aamp->_LogFirstFrame();
+            aamp->_LogTuneComplete();
 		}
-		aamp->SetState(eSTATE_PLAYING);
+        aamp->_SetState(eSTATE_PLAYING);
 	}
 }
 
 void StreamAbstractionAAMP_RMF::onPlayerErrorHandler(std::string error_message) {
 	
-	aamp->SendAnomalyEvent(ANOMALY_WARNING, error_message.c_str());
-	aamp->SetState(eSTATE_ERROR);
+    aamp->_SendAnomalyEvent(ANOMALY_WARNING, error_message.c_str());
+    aamp->_SetState(eSTATE_ERROR);
 }
 
 
@@ -67,7 +67,7 @@ AAMPStatusType StreamAbstractionAAMP_RMF::Init(TuneType tuneType)
 
 	tuned = false;
 
-	aamp->SetContentType("RMF");
+    aamp->_SetContentType("RMF");
 
 	if(false == thunderAccessObj.InitRmf()) //Note: do not terminate unless we're desperate for resources. deinit is sluggish.
 	{
@@ -100,7 +100,7 @@ StreamAbstractionAAMP_RMF::~StreamAbstractionAAMP_RMF()
  */
 void StreamAbstractionAAMP_RMF::Start(void)
 {
-	std::string url = aamp->GetManifestUrl();
+	std::string url = aamp->_GetManifestUrl();
 
 	AAMPLOG_INFO( "[RMF_SHIM] url : %s ", url.c_str());
 
@@ -128,7 +128,7 @@ void StreamAbstractionAAMP_RMF::Stop(bool clearChannelData)
 		return;
 
 	thunderAccessObj.StopRmf();
-	aamp->SetState(eSTATE_STOPPED);
+    aamp->_SetState(eSTATE_STOPPED);
 }
 
 /**
@@ -139,7 +139,7 @@ void StreamAbstractionAAMP_RMF::SetVideoRectangle(int x, int y, int w, int h)
 	std::string videoInputType = "";
 	if(true != thunderAccessObj.SetVideoRectangle(x, y, w, h, videoInputType, PlayerThunderAccessShim::RMF_SHIM))
 	{
-		AAMPLOG_ERR("Failed to set video rectangle for URL: %s", aamp->GetManifestUrl().c_str());
+		AAMPLOG_ERR("Failed to set video rectangle for URL: %s", aamp->_GetManifestUrl().c_str());
 	}
 }
 

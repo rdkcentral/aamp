@@ -615,7 +615,7 @@ void TSProcessor::processPMTSection(unsigned char* section, int sectionLength)
 			std::string language;
 			if(audioComponents[i].associatedLanguage)
 			{
-				language = Getiso639map_NormalizeLanguageCode(audioComponents[i].associatedLanguage,aamp->GetLangCodePreference());
+				language = Getiso639map_NormalizeLanguageCode(audioComponents[i].associatedLanguage,aamp->_GetLangCodePreference());
 			}
 			std::string group_id = m_audioGroupId;
 			std::string name = language; // use 3 character language code as default track name
@@ -668,11 +668,11 @@ void TSProcessor::processPMTSection(unsigned char* section, int sectionLength)
 	// Notify the format to StreamSink
 	if (!m_auxiliaryAudio)
 	{
-		aamp->SetStreamFormat(videoFormat, audioFormat, FORMAT_INVALID);
+		aamp->_SetStreamFormat(videoFormat, audioFormat, FORMAT_INVALID);
 	}
 	else
 	{
-		aamp->SetStreamFormat(videoFormat, FORMAT_INVALID, audioFormat);
+		aamp->_SetStreamFormat(videoFormat, FORMAT_INVALID, audioFormat);
 	}
 
 	if (m_dsmccComponentFound)
@@ -820,7 +820,7 @@ void TSProcessor::sendDiscontinuity(double position)
 		AAMPLOG_TRACE("emit pcr discontinuity");
 		if (!m_demux)
 		{
-			aamp->SendStreamCopy((AampMediaType)m_track, discontinuityPacket, m_packetSize, position, position, 0);
+			aamp->_SendStreamCopy((AampMediaType)m_track, discontinuityPacket, m_packetSize, position, position, 0);
 		}
 		if (haveInsertPCR)
 		{
@@ -848,7 +848,7 @@ void TSProcessor::sendDiscontinuity(double position)
 
 			if (!m_demux)
 			{
-				aamp->SendStreamCopy((AampMediaType)m_track, discontinuityPacket, m_packetSize, position, position, 0);
+                aamp->_SendStreamCopy((AampMediaType)m_track, discontinuityPacket, m_packetSize, position, position, 0);
 			}
 		}
 	}
@@ -1765,7 +1765,7 @@ void TSProcessor::sendQueuedSegment(long long basepts, double updatedStartPositi
 
 			MediaProcessor::process_fcn_t processor = [this](AampMediaType type, SegmentInfo_t info, std::vector<uint8_t> buf)
 			{
-				aamp->SendStreamCopy(type, buf.data(), buf.size(), info.pts_s, info.dts_s, info.duration);
+                aamp->_SendStreamCopy(type, buf.data(), buf.size(), info.pts_s, info.dts_s, info.duration);
 			};
 
 			if(!demuxAndSend(m_queuedSegment, m_queuedSegmentLen, m_queuedSegmentPos, m_queuedSegmentDuration, m_queuedSegmentDiscontinuous, processor))
@@ -1930,7 +1930,7 @@ bool TSProcessor::sendSegment(AampGrowableBuffer* pBuffer, double position, doub
 			{
 				updatePATPMT();
 				int secSize = insertPatPmt(sec, (m_playMode != PlayMode_normal), PATPMT_MAX_SIZE);
-				aamp->SendStreamCopy((AampMediaType)m_track, sec, secSize, position, position, 0);
+                aamp->_SendStreamCopy((AampMediaType)m_track, sec, secSize, position, position, 0);
 				free(sec);
 				AAMPLOG_TRACE("Send PAT/PMT");
 			}
@@ -1976,7 +1976,7 @@ bool TSProcessor::sendSegment(AampGrowableBuffer* pBuffer, double position, doub
 		}
 		else
 		{
-			aamp->SendStreamCopy((AampMediaType)m_track, packetStart, len, position, position, duration);
+            aamp->_SendStreamCopy((AampMediaType)m_track, packetStart, len, position, position, duration);
 		}
 	}
 	if (-1 != duration)
@@ -4041,7 +4041,7 @@ bool TSProcessor::FilterAudioCodecBasedOnConfig(StreamOutputFormat audioFormat)
  */
 void TSProcessor::GetLanguageCode(std::string& lang)
 {
-	lang = Getiso639map_NormalizeLanguageCode(lang,aamp->GetLangCodePreference());
+	lang = Getiso639map_NormalizeLanguageCode(lang,aamp->_GetLangCodePreference());
 }
 
 /**

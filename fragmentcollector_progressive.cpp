@@ -83,16 +83,16 @@ static size_t StreamWriteCallback( void *ptr, size_t size, size_t nmemb, void *u
 	   // TODO: info logging is normally only done up until first frame rendered, but even so is too noisy for below, since CURL write callback yields many small chunks
 		AAMPLOG_INFO("StreamWriteCallback(%zu bytes)", nmemb);
 		// throttle download speed if gstreamer isn't hungry
-		aamp->BlockUntilGstreamerWantsData( NULL/*CB*/, 0.0/*periodMs*/, eMEDIATYPE_VIDEO );
+        aamp->_BlockUntilGstreamerWantsData( NULL/*CB*/, 0.0/*periodMs*/, eMEDIATYPE_VIDEO );
 		double fpts = 0.0;
 		double fdts = 0.0;
 		double fDuration = 2.0; // HACK!  //CID:113073 - Position variable initialized but not used
 		if( nmemb>0 )
 		{
-		   aamp->SendStreamCopy( eMEDIATYPE_VIDEO, ptr, nmemb, fpts, fdts, fDuration);
+            aamp->_SendStreamCopy( eMEDIATYPE_VIDEO, ptr, nmemb, fpts, fdts, fDuration);
 		   if( !context->sentTunedEvent )
 		   { // send TunedEvent after first chunk injected - this is hint for XRE to hide the "tuning overcard"
-			   aamp->SendTunedEvent(false);
+               aamp->_SendTunedEvent(false);
 			   context->sentTunedEvent = true;
 		   }
 	   }
@@ -138,7 +138,7 @@ void StreamAbstractionAAMP_PROGRESSIVE::StreamFile( const char *uri, int *http_e
  */
 void StreamAbstractionAAMP_PROGRESSIVE::FetcherLoop()
 {
-	std::string contentUrl = aamp->GetManifestUrl();
+	std::string contentUrl = aamp->_GetManifestUrl();
 	std::string effectiveUrl;
 	int http_error;
 	
@@ -149,12 +149,12 @@ void StreamAbstractionAAMP_PROGRESSIVE::FetcherLoop()
 	else
 	{
 		// send TunedEvent after first chunk injected - this is hint for XRE to hide the "tuning overcard"
-		aamp->SendTunedEvent(false);
+        aamp->_SendTunedEvent(false);
 	}
 
-	while( aamp->DownloadsAreEnabled() )
+	while( aamp->_DownloadsAreEnabled() )
 	{
-		aamp->interruptibleMsSleep( 1000 );
+        aamp->_interruptibleMsSleep( 1000 );
 	}
 }
 
@@ -177,15 +177,15 @@ void StreamAbstractionAAMP_PROGRESSIVE::FragmentCollector(void)
 AAMPStatusType StreamAbstractionAAMP_PROGRESSIVE::Init(TuneType tuneType)
 {
 	AAMPStatusType retval = eAAMPSTATUS_OK;
-	aamp->CurlInit(eCURLINSTANCE_VIDEO, AAMP_TRACK_COUNT,aamp->GetNetworkProxy());  //CID:110904 - newTune bool variable  initialized not used
+    aamp->_CurlInit(eCURLINSTANCE_VIDEO, AAMP_TRACK_COUNT,aamp->_GetNetworkProxy());  //CID:110904 - newTune bool variable  initialized not used
 	aamp->IsTuneTypeNew = false;
 	std::set<std::string> mLangList; /**< empty language list */
 	std::vector<BitsPerSecond> bitrates; /**< empty bitrates */
 	for (int i = 0; i < AAMP_TRACK_COUNT; i++)
 	{
-		aamp->SetCurlTimeout(aamp->mNetworkTimeoutMs, (AampCurlInstance) i);
+        aamp->_SetCurlTimeout(aamp->mNetworkTimeoutMs, (AampCurlInstance) i);
 	}
-	aamp->SendMediaMetadataEvent();
+    aamp->_SendMediaMetadataEvent();
 	return retval;
 }
 
@@ -194,7 +194,7 @@ AAMPStatusType StreamAbstractionAAMP_PROGRESSIVE::Init(TuneType tuneType)
 AAMPStatusType StreamAbstractionAAMP_PROGRESSIVE::Init(TuneType tuneType)
 {
 	AAMPStatusType retval = eAAMPSTATUS_OK;
-	bool newTune = aamp->IsNewTune();
+	bool newTune = aamp->_IsNewTune();
 	aamp->IsTuneTypeNew = false;
 	return retval;
 }
@@ -247,9 +247,9 @@ void StreamAbstractionAAMP_PROGRESSIVE::Stop(bool clearChannelData)
 {
 	if(fragmentCollectorThreadID.joinable())
     {
-        aamp->DisableDownloads();
+        aamp->_DisableDownloads();
         fragmentCollectorThreadID.join();
-        aamp->EnableDownloads();
+        aamp->_EnableDownloads();
     }
  }
 

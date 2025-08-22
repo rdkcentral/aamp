@@ -1180,14 +1180,14 @@ double RecalculatePTS(AampMediaType mediaType, const void *ptr, size_t len, Priv
 	switch( mediaType )
 	{
 	case eMEDIATYPE_VIDEO:
-		timeScale = aamp->GetVidTimeScale();
+		timeScale = aamp->_GetVidTimeScale();
 		break;
 	case eMEDIATYPE_AUDIO:
 	case eMEDIATYPE_AUX_AUDIO:
-		timeScale = aamp->GetAudTimeScale();
+		timeScale = aamp->_GetAudTimeScale();
 		break;
 	case eMEDIATYPE_SUBTITLE:
-		timeScale = aamp->GetSubTimeScale();
+		timeScale = aamp->_GetSubTimeScale();
 		break;
 	default:
 		AAMPLOG_WARN("Invalid media type %d", mediaType);
