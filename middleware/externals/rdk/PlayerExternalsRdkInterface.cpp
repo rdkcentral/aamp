@@ -34,7 +34,7 @@
 
 std::shared_ptr<PlayerExternalsRdkInterface> s_pPlayerIarmRdkOP = nullptr;
 
-#define USE_FIREBOLT
+// #define USE_FIREBOLT
 
 static bool isInterfaceWifi = false;
 
