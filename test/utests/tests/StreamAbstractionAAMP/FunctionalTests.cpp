@@ -77,12 +77,12 @@ protected:
 		MockMediaTrack *mMockAudioTrack;
 		MockMediaTrack *mMockVideoTrack;
 
-		virtual AAMPStatusType Init(TuneType tuneType){return eAAMPSTATUS_OK;}
-		virtual void Start(){}
-		virtual void Stop(bool clearChannelData){}
-		virtual void GetStreamFormat(StreamOutputFormat &primaryOutputFormat, StreamOutputFormat &audioOutputFormat, StreamOutputFormat &auxAudioOutputFormat, StreamOutputFormat &subtitleOutputFormat){}
+		virtual AAMPStatusType Init(TuneType tuneType) override {return eAAMPSTATUS_OK;}
+		virtual void Start() override {}
+		virtual void Stop(bool clearChannelData) override {}
+		virtual void GetStreamFormat(StreamOutputFormat &primaryOutputFormat, StreamOutputFormat &audioOutputFormat, StreamOutputFormat &auxAudioOutputFormat, StreamOutputFormat &subtitleOutputFormat) override {}
 
-		virtual MediaTrack* GetMediaTrack(TrackType type)
+		virtual MediaTrack* GetMediaTrack(TrackType type) override
 		{
 			if (type == eTRACK_AUDIO)
 				return mMockAudioTrack;
