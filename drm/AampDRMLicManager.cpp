@@ -187,13 +187,17 @@ void AampDRMLicenseManager::renewLicense(std::shared_ptr<DrmHelper> drmHelper, v
 KeyState AampDRMLicenseManager::acquireLicense(std::shared_ptr<DrmHelper> drmHelper, int sessionSlot, int &cdmError,
 	 AampMediaType streamType, void *metaDataPtr,  bool isLicenseRenewal)
 {
+	KeyState code = KEY_ERROR;
+	if(aampInstance->mManifestUrl == FAKE_TUNE_URL)
+	{
+		return code;
+	}
 	DrmMetaDataEventPtr* eventHandlePtr = static_cast<DrmMetaDataEventPtr*>(metaDataPtr);
 	DrmMetaDataEventPtr& eventHandle = *eventHandlePtr;
 
 	shared_ptr<DrmData> licenseResponse;
 	int32_t httpResponseCode = -1;
 	int32_t httpExtendedStatusCode = -1;
-	KeyState code = KEY_ERROR;
 	if (drmHelper->isExternalLicense() && !isLicenseRenewal)
 	{
 		// External license, assuming the DRM system is ready to proceed
