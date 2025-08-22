@@ -213,7 +213,7 @@ std::shared_ptr<DeviceInterfaceBase> PlayerExternalsRdkInterface::GetDeviceInter
 
 bool PlayerExternalsRdkInterface::IsActiveStreamingInterfaceWifi(void)
 {
-    PlayerExternalsRdkInterface* instance = PlayerExternalsRdkInterface::GetPlayerExternalsRdkInterfaceInstance();
+    std::shared_ptr<PlayerExternalsRdkInterface> instance = PlayerExternalsRdkInterface::GetPlayerExternalsRdkInterfaceInstance();
     return instance->GetDeviceInterface()->IsActiveStreamingInterfaceWifi();
 }
 
