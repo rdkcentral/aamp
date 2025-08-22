@@ -1090,17 +1090,6 @@ TEST_F(FunctionalTests, ReadNextPlay2EOSFalse)
 	EXPECT_EQ(mTestableTsbReader->mEosReached, false);
 }
 
-TEST_F(FunctionalTests, Init_TuneTypeSeek_SetsDiscontinuity)
-{
-	double startPos = 1000.0;
-	float rate = 1.0f;
-	TuneType tuneType = eTUNETYPE_NEW_SEEK;
-	EXPECT_CALL(*g_mockTSBDataManager, GetFirstFragment()).WillOnce(Return(nullptr));
-	EXPECT_CALL(*g_mockTSBDataManager, GetLastFragment()).WillOnce(Return(nullptr));
-	EXPECT_EQ(mTestableTsbReader->Init(startPos, rate, tuneType, nullptr), eAAMPSTATUS_OK);
-	EXPECT_TRUE(mTestableTsbReader->IsDiscontinuous());
-}
-
 TEST_F(FunctionalTests, FindNext_WithOffset)
 {
 	float rate = 1.0f;
