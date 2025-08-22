@@ -187,3 +187,16 @@ bool PlayerExternalsInterface::IsConfigWifiCurlHeader()
     return bRet;
 }
 
+bool PlayerExternalsInterface::IsDevicePropertiesPresent()
+{
+    bool bRet = false;
+#ifdef IARM_MGR
+    if(!IsContainerEnvironment())
+    {
+        bRet = true;
+    }
+#else
+    bRet = false;
+#endif
+    return bRet;
+}

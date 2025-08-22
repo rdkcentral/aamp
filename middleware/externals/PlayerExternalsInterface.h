@@ -224,6 +224,7 @@ public:
      */
     bool IsConfigWifiCurlHeader();
 
+    static bool IsDevicePropertiesPresent();
 };
 
 #endif // PlayerExternalsInterface_h
