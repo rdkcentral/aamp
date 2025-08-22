@@ -4491,7 +4491,7 @@ void InterfacePlayerRDK::SetVideoMute(bool muted)
 	}
 	else
 	{
-		MW_LOG_WARN("InterfacePlayerRDK not setting video mute");
+		MW_LOG_INFO("InterfacePlayerRDK not setting video mute");
 	}
 }
 
@@ -4574,8 +4574,6 @@ static GstBusSyncReply bus_sync_handler(GstBus * bus, GstMessage * msg, Interfac
 		case GST_MESSAGE_STATE_CHANGED:
 			GstState old_state, new_state;
 			gst_message_parse_state_changed(msg, &old_state, &new_state, NULL);
-			MW_LOG_MIL("InterfacePlayerRDK - using %s, old state %d new state %d",
-						GST_OBJECT_NAME(msg->src), old_state, new_state);
 
 			if (GST_MESSAGE_SRC(msg) == GST_OBJECT(pInterfacePlayerRDK->gstPrivateContext->pipeline))
 			{

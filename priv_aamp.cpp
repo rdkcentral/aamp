@@ -5507,7 +5507,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 			if (sink)
 			{
 				sink->SetVideoZoom(zoom_mode);
-				AAMPLOG_MIL("SetVideoMute video_muted %d mApplyCachedVideoMute %d", video_muted, mApplyCachedVideoMute);
+				AAMPLOG_INFO("SetVideoMute video_muted %d mApplyCachedVideoMute %d", video_muted, mApplyCachedVideoMute);
 				sink->SetVideoMute(video_muted);
 				if (mApplyCachedVideoMute)
 				{

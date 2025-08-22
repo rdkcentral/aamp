@@ -65,7 +65,6 @@ void DefaultSocInterface::SetAC4Tracks(GstElement *src, int trackId)
 
 bool DefaultSocInterface::IsVideoSink(const char* name, bool isRialto)
 {
-	//return (mUsingWesterosSink && StartsWith(name, "westerossink") == true);
 	bool isVideoSink = false;
 
 	// Check for Westeros sink
