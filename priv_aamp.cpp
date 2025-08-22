@@ -2776,6 +2776,11 @@ void PrivateInstanceAAMP::SendTuneMetricsEvent(std::string &timeMetricData)
  */
 void PrivateInstanceAAMP::SendErrorEvent(AAMPTuneFailure tuneFailure, const char * description, bool isRetryEnabled, int32_t secManagerClassCode, int32_t secManagerReasonCode, int32_t secClientBusinessStatus, const std::string &responseData)
 {
+	if(mManifestUrl == FAKE_TUNE_URL)
+	{
+		AAMPLOG_WARN("PrivateInstanceAAMP: Ignore error for fake tune");
+		return;
+	}
 	bool sendErrorEvent = false;
 	std::unique_lock<std::recursive_mutex> lock(mLock);
 	if(mState != eSTATE_ERROR)
