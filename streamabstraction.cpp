@@ -2555,7 +2555,7 @@ int StreamAbstractionAAMP::GetDesiredProfileBasedOnCache(void)
 				logLevel = eLOGLEVEL_MIL;
 			}
 
-			AAMPLOG(logLevel,"currBW:%ld NwBW=%ld currProf:%d desiredProf:%d ,Buffer  %lf",currentBandwidth,networkBandwidth,currentProfileIndex,desiredProfileIndex,bufferValue/1000);
+			AAMPLOG(logLevel,"currBW:%ld NwBW=%ld currProf:%d desiredProf:%d ,Buffer:%lf",currentBandwidth,networkBandwidth,currentProfileIndex,desiredProfileIndex,bufferValue);
 
 			if (currentProfileIndex != desiredProfileIndex)
 			{
@@ -4618,4 +4618,19 @@ bool MediaTrack::IsInjectionFromCachedFragmentChunks()
 	AAMPLOG_TRACE("[%s] isLLDashChunkMode %d aampTsbEnabled %d ret %d",
 				  name, isLLDashChunkMode, aampTsbEnabled, isInjectionFromCachedFragmentChunks);
 	return isInjectionFromCachedFragmentChunks;
+}
+
+/**
+ *   @brief Re-initializes the injection
+ *   @param[in] rate - play rate
+ */	
+void StreamAbstractionAAMP::ReinitializeInjection(double rate) 
+{
+	clearFirstPTS();							//Clears the mFirstPTS value to trigger update of first PTS
+	SetTrickplayMode(rate);
+	ResetTrickModePtsRestamping();
+	if (!aamp->GetLLDashChunkMode())
+	{
+		SetVideoPlaybackRate(rate);
+	}
 }

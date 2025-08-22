@@ -158,9 +158,9 @@ StreamAbstractionAAMP_MPD::StreamAbstractionAAMP_MPD(class PrivateInstanceAAMP *
 	,mTrackWorkers()
 	,mAudioSurplus(0)
 	,mVideoSurplus(0)
-	,mLivePeriodCulledSeconds(0)
 	,mIsSegmentTimelineEnabled(false)
 	,mSeekedInPeriod(false)
+	,mIsFinalFirstPTS(false)
 {
 	this->aamp = aamp;
 	if (aamp->mDRMLicenseManager)
@@ -2411,6 +2411,28 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 
 		std::string media = segmentTemplates.Getmedia();
 		const ISegmentTimeline *segmentTimeline = segmentTemplates.GetSegmentTimeline();
+		uint64_t pto = segmentTemplates.GetPresentationTimeOffset();
+		// Align to PTO if present for segmentTimeline
+		// For segment template, its handled in its own way
+		// Only for updateFirstPTS, we need to align to PTO, for trickplay its not required
+		if (segmentTimeline && (pto > 0) && updateFirstPTS)
+		{
+			uint64_t startTime = 0;
+			const auto& timelines = segmentTimeline->GetTimelines();
+			ITimeline *timeline = timelines.at(0);
+			map<string, string> attributeMap = timeline->GetRawAttributes();
+			if(attributeMap.find("t") != attributeMap.end())
+			{
+				startTime = timeline->GetStartTime();
+			}
+			// TODO: For cases where PTO is less than startTime, unclear what needs to be done.
+			if (pto > startTime)
+			{
+				double offset = (double)(pto - startTime) / (double)segmentTemplates.GetTimescale();
+				AAMPLOG_INFO("Adding PTO offset:%lf to skipTime: %lf", offset, skipTime);
+				skipTime += offset;
+			}
+		}
 		do
 		{
 			if (segmentTimeline)
@@ -2465,7 +2487,6 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 					double fragmentDuration = ComputeFragmentDuration(duration,timeScale);
 					double nextPTS = (double)(pMediaStreamContext->fragmentDescriptor.Time + duration)/timeScale;
 					double firstPTS = (double)pMediaStreamContext->fragmentDescriptor.Time/timeScale;
-//					AAMPLOG_TRACE("[%s] firstPTS %f nextPTS %f duration %f skipTime %f", pMediaStreamContext->name, firstPTS, nextPTS, fragmentDuration, skipTime);
 					if (firstFrag && updateFirstPTS)
 					{
 						if (skipToEnd)
@@ -2480,7 +2501,8 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 								AAMPLOG_INFO("Player switched in rewind mode, adjusted skptime from %f to %f ", skipTime, skipTime - fragmentDuration);
 								skipTime -= fragmentDuration;
 							}
-							if (pMediaStreamContext->type == eTRACK_AUDIO && (mFirstVideoFragPTS || mFirstPTS || mVideoPosRemainder) && ( !pMediaStreamContext->refreshAudio )){
+							if (pMediaStreamContext->type == eTRACK_AUDIO && (mFirstVideoFragPTS || mFirstPTS || mVideoPosRemainder) && ( !pMediaStreamContext->refreshAudio ))
+							{
 								/* In case of the Seamless Audio Switch enabled scenario, no need to adjust the skiptime, as the video fragment PTS alignment is not performed in this case
 								* so if the skip time is adjusted wrong audio fragments downloaded, so Audio mute issue is observed if we switch the track, so we handled that the below case won't
 								* execute during the seamless audio switch scenario
@@ -2489,7 +2511,6 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 								double newSkipTime = skipTime + (mFirstVideoFragPTS - firstPTS); /* adjust for audio/video frag start PTS differences */
 								newSkipTime -= mVideoPosRemainder;   /* adjust for mVideoPosRemainder, which is (video seekposition/skipTime - mFirstPTS) */
 								newSkipTime += fragmentDuration/4.0; /* adjust for case where video start is near end of current audio fragment by adding to the audio skipTime, pushing it into the next fragment, if close(within this adjustment) */
-								//							AAMPLOG_INFO("newSkiptime %f, skipTime %f  mFirstFragPTS[vid] %f  firstPTS %f  mFirstFragPTS[vid]-firstPTS %f mVideoPosRemainder %f  fragmentDuration/4.0 %f", newSkipTime, skipTime, mFirstVideoFragPTS, firstPTS, mFirstVideoFragPTS-firstPTS, mVideoPosRemainder,  fragmentDuration/4.0);
 								skipTime = newSkipTime;
 							}
 						}
@@ -2585,6 +2606,8 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 							{
 								AAMPLOG_INFO("[%s] mFirstPTS %f -> %f ", pMediaStreamContext->name, mFirstPTS, firstPTS);
 								mFirstPTS = firstPTS;
+								// Here, the firstPTS is known from timeline, so set it as final PTS
+								mIsFinalFirstPTS = true;
 								mVideoPosRemainder = skipTime;
 								if(ISCONFIGSET(eAAMPConfig_MidFragmentSeek))
 								{
@@ -2680,7 +2703,9 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 						if( updateFirstPTS )
 						{
 							mFirstPTS += skipTime;
-							AAMPLOG_DEBUG("Type[%d] updateFirstPTS: %f SkipTime: %f",pMediaStreamContext->type,mFirstPTS, skipTime);
+							// Here, PTO is known from manifest, so set it as final PTS
+							mIsFinalFirstPTS = true;
+							AAMPLOG_DEBUG("Type[%d] updateFirstPTS: %f SkipTime: %f",pMediaStreamContext->type, mFirstPTS, skipTime);
 						}
 					}
 					if (skipTime >= segmentDuration)
@@ -2731,7 +2756,7 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 				}
 			}
 			if( skipTime==0 ) AAMPLOG_WARN( "skipTime is 0" );
-		}while(true); // was while(skipTime != 0);
+		} while(true);
 
 		AAMPLOG_INFO("Exit :Type[%d] timeLineIndex %d fragmentRepeatCount %d fragmentDescriptor.Number %" PRIu64 " fragmentTime %f FTime:%f",pMediaStreamContext->type,
 				pMediaStreamContext->timeLineIndex, pMediaStreamContext->fragmentRepeatCount, pMediaStreamContext->fragmentDescriptor.Number, pMediaStreamContext->fragmentTime,pMediaStreamContext->fragmentDescriptor.Time);
@@ -7965,8 +7990,8 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, 
 			if(periodChanged)
 			{
 				//update period start and endtimes as period has changed.
-				mPeriodEndTime   =mMPDParseHelper->GetPeriodEndTime(mCurrentPeriodIdx, mLastPlaylistDownloadTimeMs,(rate != AAMP_NORMAL_PLAY_RATE),aamp->IsUninterruptedTSB());
-				mPeriodStartTime =mMPDParseHelper->GetPeriodStartTime(mCurrentPeriodIdx,mLastPlaylistDownloadTimeMs);
+				mPeriodEndTime = mMPDParseHelper->GetPeriodEndTime(mCurrentPeriodIdx, mLastPlaylistDownloadTimeMs,(rate != AAMP_NORMAL_PLAY_RATE),aamp->IsUninterruptedTSB());
+				mPeriodStartTime = mMPDParseHelper->GetPeriodStartTime(mCurrentPeriodIdx,mLastPlaylistDownloadTimeMs);
 				mPeriodDuration = mMPDParseHelper->GetPeriodDuration(mCurrentPeriodIdx,mLastPlaylistDownloadTimeMs,(rate != AAMP_NORMAL_PLAY_RATE),aamp->IsUninterruptedTSB());
 				aamp->mNextPeriodDuration = mPeriodDuration;
 				aamp->mNextPeriodStartTime = mPeriodStartTime;
@@ -7977,14 +8002,15 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, 
 					// Make sure basePeriodOffset is updated
 					if (mCdaiObject->mCurAds->at(mCdaiObject->mCurAdIdx).basePeriodOffset != -1)
 					{
-						// convert to seconds
-						pMediaStreamContext->fragmentTime += (double)((double)mCdaiObject->mCurAds->at(mCdaiObject->mCurAdIdx).basePeriodOffset / 1000.0);
-						if((aamp->mMPDPeriodsInfo.at(0).periodId) == mBasePeriodId)
-						{
-							pMediaStreamContext->fragmentTime -= mLivePeriodCulledSeconds;
-						}
-						AAMPLOG_INFO("StreamAbstractionAAMP_MPD: Track %d Period changed, but within an adbreak, mPeriodStartTime:%lf basePeriodOffset:%d FragmentTime: %lf PeriodCulled:%f",
-							i, mPeriodStartTime, mCdaiObject->mCurAds->at(mCdaiObject->mCurAdIdx).basePeriodOffset, pMediaStreamContext->fragmentTime, mLivePeriodCulledSeconds);
+						//Set the period start back to the beginning of the base period and then add basePeriodOffset
+						//to get the start for this AD
+						double absoluteAdBreakStartTime = mCdaiObject->mAdBreaks[mBasePeriodId].mAbsoluteAdBreakStartTime.inSeconds();
+						// convert to seconds, standard implicit conversion
+						pMediaStreamContext->fragmentTime = absoluteAdBreakStartTime + mCdaiObject->mCurAds->at(mCdaiObject->mCurAdIdx).basePeriodOffset / 1000.0;
+
+						AAMPLOG_INFO("StreamAbstractionAAMP_MPD: Track %d Period changed, but within an adbreak, mPeriodStartTime:%lf basePeriodOffset:%d FragmentTime: %lf mAbsoluteAdBreakStartTime %f",
+							i, mPeriodStartTime, mCdaiObject->mCurAds->at(mCdaiObject->mCurAdIdx).basePeriodOffset, pMediaStreamContext->fragmentTime,
+							absoluteAdBreakStartTime);
 					}
 				}
 				AAMPLOG_INFO("StreamAbstractionAAMP_MPD: Track %d Period changed, updating fragmentTime to %lf", i, pMediaStreamContext->fragmentTime);
@@ -8180,22 +8206,15 @@ double StreamAbstractionAAMP_MPD::GetCulledSeconds(std::vector<PeriodInfo> &curr
 						{
 							uint64_t timeDiff = currFirstPeriodInfo.startTime - prevPeriodInfo.startTime;
 							culled += ((double)timeDiff / (double)prevPeriodInfo.timeScale);
-							if(currFirstPeriodInfo.periodId == mBasePeriodId)
-							{
-								mLivePeriodCulledSeconds += ((double)timeDiff / (double)prevPeriodInfo.timeScale);
-							}else
-							{
-								mLivePeriodCulledSeconds = 0;
-							}
-							AAMPLOG_INFO("PeriodId %s, prevStart %" PRIu64 " currStart %" PRIu64 " culled %f PeriodCulledS %f",
-												prevPeriodInfo.periodId.c_str(), prevPeriodInfo.startTime, currFirstPeriodInfo.startTime, culled, mLivePeriodCulledSeconds);
+							AAMPLOG_INFO("PeriodId %s, prevStart %" PRIu64 " currStart %" PRIu64 " culled %f",
+												prevPeriodInfo.periodId.c_str(), prevPeriodInfo.startTime, currFirstPeriodInfo.startTime, culled);
 						}
 						break;
 					}
 					else
 					{
 						double deltaStartTime = currFirstPeriodInfo.periodStartTime - prevPeriodInfo.periodStartTime;
-						if(prevPeriodInfo.duration <= deltaStartTime)
+						if (prevPeriodInfo.duration <= deltaStartTime)
 						{
 							culled += (prevPeriodInfo.duration / 1000);
 						}
@@ -8204,9 +8223,8 @@ double StreamAbstractionAAMP_MPD::GetCulledSeconds(std::vector<PeriodInfo> &curr
 							culled += deltaStartTime;
 						}
 						iter1++;
-						mLivePeriodCulledSeconds = 0;
 						AAMPLOG_WARN("PeriodId %s , with last known duration %f seems to have got culled",
-										prevPeriodInfo.periodId.c_str(), (prevPeriodInfo.duration / 1000));
+									 prevPeriodInfo.periodId.c_str(), (prevPeriodInfo.duration / 1000));
 					}
 				}
 				aamp->mMPDPeriodsInfo = currMPDPeriodDetails;
@@ -9541,6 +9559,9 @@ bool StreamAbstractionAAMP_MPD::IndexSelectedPeriod(bool periodChanged, bool adS
 	if (mUpdateStreamInfo && periodChanged)
 	{
 		bool resetTimeLineIndex = (mIsLiveStream || periodChanged);
+		// Reset the video skip remainder to zero as this is a new period
+		mVideoPosRemainder = 0;
+		mIsFinalFirstPTS = false;
 		AAMPStatusType ret = UpdateTrackInfo(true, resetTimeLineIndex);
 		if (ret != eAAMPSTATUS_OK)
 		{
@@ -9621,6 +9642,7 @@ void StreamAbstractionAAMP_MPD::DetectDiscontinuityAndFetchInit(bool periodChang
 			{
 				// Trying to maintain parity with GetFirstSegmentStartTime() logic, and get video start time
 				uint64_t segmentStartTime = 0;
+				bool usingPTO = false;
 				const ISegmentTimeline *segmentTimeline = segmentTemplates.GetSegmentTimeline();
 				if (segmentTimeline)
 				{
@@ -9629,14 +9651,14 @@ void StreamAbstractionAAMP_MPD::DetectDiscontinuityAndFetchInit(bool periodChang
 					{
 						segmentStartTime = timelines.at(0)->GetStartTime();
 					}
-					uint64_t presentationTimeOffset = segmentTemplates.GetPresentationTimeOffset();
-					if (presentationTimeOffset > segmentStartTime)
-					{
-						AAMPLOG_WARN("StreamAbstractionAAMP_MPD: Presentation Time Offset %" PRIu64 " ahead of segment start Time %" PRIu64 ", Set PTO as segment start", presentationTimeOffset, segmentStartTime);
-						segmentStartTime = presentationTimeOffset;
-					}
 				}
-
+				uint64_t presentationTimeOffset = segmentTemplates.GetPresentationTimeOffset();
+				if (presentationTimeOffset > segmentStartTime)
+				{
+					AAMPLOG_WARN("StreamAbstractionAAMP_MPD: Presentation Time Offset %" PRIu64 " ahead of segment start Time %" PRIu64 ", Set PTO as segment start", presentationTimeOffset, segmentStartTime);
+					segmentStartTime = presentationTimeOffset;
+					usingPTO = true;
+				}
 
 				/* Process the discontinuity,
 				* 1. If the next segment time is not matching with the next period segment start time.
@@ -9650,6 +9672,7 @@ void StreamAbstractionAAMP_MPD::DetectDiscontinuityAndFetchInit(bool periodChang
 					if (segmentTemplates.GetTimescale() != 0 && !mSeekedInPeriod)
 					{
 						mFirstPTS = (double)segmentStartTime / (double)segmentTemplates.GetTimescale();
+						mIsFinalFirstPTS = true;
 					}
 					else
 					{
@@ -9665,6 +9688,11 @@ void StreamAbstractionAAMP_MPD::DetectDiscontinuityAndFetchInit(bool periodChang
 				else if (nextSegmentTime != segmentStartTime || ISCONFIGSET(eAAMPConfig_ForceMultiPeriodDiscontinuity))
 				{
 					discontinuity = true;
+					if (usingPTO)
+					{
+						mFirstPTS = (double)segmentStartTime / (double)segmentTemplates.GetTimescale();
+						mIsFinalFirstPTS = true;
+					}
 					double startTime = (mMPDParseHelper->GetPeriodStartTime(mCurrentPeriodIdx, mLastPlaylistDownloadTimeMs) - mAvailabilityStartTime);
 					if ((startTime != 0) && !mIsFogTSB)
 					{
@@ -10539,7 +10567,7 @@ void StreamAbstractionAAMP_MPD::StartFromOtherThanAampLocalTsb(void)
 		{
 			AAMPLOG_INFO("FetcherLoop thread already running, not creating a new one");
 		}
-	} 
+	}
 	catch (std::exception &e)
 	{
 		AAMPLOG_ERR("Thread allocation failed for FetcherLoop : %s ", e.what());
@@ -13386,7 +13414,7 @@ AAMPStatusType  StreamAbstractionAAMP_MPD::EnableAndSetLiveOffsetForLLDashPlayba
 
 			if ( 0 == stLLServiceData.minPlaybackRate )
 			{
-				stLLServiceData.minPlaybackRate = GETCONFIGVALUE(eAAMPConfig_MinLatencyCorrectionPlaybackRate);;
+				stLLServiceData.minPlaybackRate = GETCONFIGVALUE(eAAMPConfig_MinLatencyCorrectionPlaybackRate);
 			}
 
 			minLatency = GETCONFIGVALUE(eAAMPConfig_LLMinLatency);
@@ -13989,7 +14017,13 @@ void StreamAbstractionAAMP_MPD::SeekPosUpdate(double secondsRelativeToTuneTime)
  */
 void StreamAbstractionAAMP_MPD::NotifyFirstVideoPTS(unsigned long long pts, unsigned long timeScale)
 {
-	mFirstPTS = ((double)pts / (double)timeScale);
+	double firstPTS = ((double)pts / (double)timeScale);
+	if (!mIsFinalFirstPTS)
+	{
+		AAMPLOG_MIL("First PTS %lf -> %lf", mFirstPTS, firstPTS);
+		mFirstPTS = firstPTS;
+		mIsFinalFirstPTS = true;
+	}
 }
 
 /**
@@ -14181,4 +14215,12 @@ bool StreamAbstractionAAMP_MPD::DoStreamSinkFlushOnDiscontinuity()
 	bool doFlush = (!ISCONFIGSET(eAAMPConfig_EnableMediaProcessor) || mIsSegmentTimelineEnabled);
 	AAMPLOG_INFO("doFlush=%d", doFlush);
 	return doFlush;
+}
+/**
+ * @fn clearFirstPTS
+ * @brief Clears the mFirstPTS value to trigger update of first PTS
+ */
+void StreamAbstractionAAMP_MPD::clearFirstPTS(void)
+{
+	mFirstPTS = 0.0;
 }

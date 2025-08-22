@@ -252,3 +252,12 @@ bool DefaultSocInterface::ConfigureAudioSink(GstElement **audio_sink, GstObject 
         return status;
 }
 
+bool DefaultSocInterface::IsPlatformSegmentReady(GstElement *videoSink, bool isRialto)
+{
+	return false;
+}
+
+bool DefaultSocInterface::IsVideoMaster(GstElement *videoSink, bool isRialto)
+{
+	return true;
+}
