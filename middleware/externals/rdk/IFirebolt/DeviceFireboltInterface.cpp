@@ -146,7 +146,7 @@ char * DeviceFireboltInterface::GetTR181Config(const char * paramName, size_t & 
 
 static void getActiveInterfaceEventHandlerFirebolt (const Firebolt::Device::NetworkInfoResult& t_NetworkInfoResult)
 {
-    PlayerExternalsRdkInterface *pInstance = PlayerExternalsRdkInterface::GetPlayerExternalsRdkInterfaceInstance();
+    std::shared_ptr<PlayerExternalsRdkInterface> pInstance = PlayerExternalsRdkInterface::GetPlayerExternalsRdkInterfaceInstance();
 
 	if(t_NetworkInfoResult.state == Firebolt::Device::NetworkState::CONNECTED)
 	{
@@ -182,7 +182,7 @@ static void getActiveInterfaceEventHandlerFirebolt (const Firebolt::Device::Netw
  */
 static void HDCPEventHandlerFirebolt(const Firebolt::Device::HDCPVersionMap& t_HDCPVersionMap)
 {
-    PlayerExternalsRdkInterface *pInstance = PlayerExternalsRdkInterface::GetPlayerExternalsRdkInterfaceInstance();
+    std::shared_ptr<PlayerExternalsRdkInterface> pInstance = PlayerExternalsRdkInterface::GetPlayerExternalsRdkInterfaceInstance();
 
     if(t_HDCPVersionMap.hdcp2_2)
 	{
@@ -199,7 +199,7 @@ static void HDCPEventHandlerFirebolt(const Firebolt::Device::HDCPVersionMap& t_H
 		MW_LOG_ERR("Unknown HDCP protocol");
 	}
 
-	SetHDMIStatus();
+	pInstance->SetHDMIStatus();
             
 }
 
@@ -217,7 +217,7 @@ static void ResolutionHandlerFirebolt(const std::string& t_res)
 
 	if(curr_network)
 	{
-		PlayerExternalsRdkInterface *pInstance = PlayerExternalsRdkInterface::GetPlayerExternalsRdkInterfaceInstance();
+		std::shared_ptr<PlayerExternalsRdkInterface> pInstance = PlayerExternalsRdkInterface::GetPlayerExternalsRdkInterfaceInstance();
 		width = curr_network.value()[0];
 		height = curr_network.value()[1];
 		pInstance->SetResolution(width, height);

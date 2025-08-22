@@ -95,7 +95,7 @@ void DeviceIARMInterface::RemoveDsMgrEventHandler()
 
 bool DeviceIARMInterface::IsActiveStreamingInterfaceWifi()
 {
-    PlayerExternalsRdkInterface *pInstance = PlayerExternalsRdkInterface::GetPlayerExternalsRdkInterfaceInstance();
+    std::shared_ptr<PlayerExternalsRdkInterface> pInstance = PlayerExternalsRdkInterface::GetPlayerExternalsRdkInterfaceInstance();
 
     bool wifiStatus = false;
     IARM_Result_t ret = IARM_RESULT_SUCCESS;
@@ -158,7 +158,7 @@ char * DeviceIARMInterface::GetTR181Config(const char * paramName, size_t & iCon
 
 static void getActiveInterfaceEventHandler (const char *owner, IARM_EventId_t eventId, void *data, size_t len)
 {
-    PlayerExternalsRdkInterface *pInstance = PlayerExternalsRdkInterface::GetPlayerExternalsRdkInterfaceInstance();
+    std::shared_ptr<PlayerExternalsRdkInterface> pInstance = PlayerExternalsRdkInterface::GetPlayerExternalsRdkInterfaceInstance();
 
 	static char previousInterface[20] = {'\0'};
 	
@@ -192,7 +192,7 @@ static void getActiveInterfaceEventHandler (const char *owner, IARM_EventId_t ev
  */
 static void HDMIEventHandler(const char *owner, IARM_EventId_t eventId, void *data, size_t len)
 {
-    PlayerExternalsRdkInterface *pInstance = PlayerExternalsRdkInterface::GetPlayerExternalsRdkInterfaceInstance();
+    std::shared_ptr<PlayerExternalsRdkInterface> pInstance = PlayerExternalsRdkInterface::GetPlayerExternalsRdkInterfaceInstance();
 
     switch (eventId)
     {
@@ -231,7 +231,7 @@ static void HDMIEventHandler(const char *owner, IARM_EventId_t eventId, void *da
  */
 static void ResolutionHandler(const char *owner, IARM_EventId_t eventId, void *data, size_t len)
 {
-    PlayerExternalsRdkInterface *pInstance = PlayerExternalsRdkInterface::GetPlayerExternalsRdkInterfaceInstance();
+    std::shared_ptr<PlayerExternalsRdkInterface> pInstance = PlayerExternalsRdkInterface::GetPlayerExternalsRdkInterfaceInstance();
 
     switch (eventId) {
         case IARM_BUS_DSMGR_EVENT_RES_PRECHANGE:
