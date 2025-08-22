@@ -1440,7 +1440,7 @@ void aamp_setThreadName(const char *name)
 		char truncatedThreadName[MAX_THREAD_NAME_LENGTH];
 		size_t len = strlen(name);
 		if( len>=MAX_THREAD_NAME_LENGTH )
-		{ // clamp
+		{ // clamp, avoiding ERANGE error
 			len = MAX_THREAD_NAME_LENGTH-1;
 		}
 		memcpy( truncatedThreadName, name, len );
