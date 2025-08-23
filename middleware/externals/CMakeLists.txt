@@ -100,11 +100,10 @@ if(CMAKE_USE_SECCLIENT OR CMAKE_USE_SECMANAGER)
 		set(SECMGR_SOURCES ${SECMGR_SOURCES} contentsecuritymanager/ThunderAccessPlayer.cpp contentsecuritymanager/SecManagerThunder.cpp)
 	endif()
 endif()
-
 if(CMAKE_PREINIT_DECODER)
 	message("PLAYER PREINIT_DECODING set")
 	include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../../support/aampabr)
-	set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DUSE_PREINIT_DECODING=1")
+	set(LIB_EXT_DEFINES "${LIB_EXT_DEFINES} -DUSE_PREINIT_DECODING=1")
 endif()
 
 #IARM/RFC
