@@ -36,7 +36,7 @@
 // Mock headers
 #include "MockTSBStore.h"
 #include "MockMediaStreamContext.h"
-#include "MockPrivateInstanceAAMP.h"
+#include "MockPlayerInstanceAAMP.h"
 #include "MockAampConfig.h"
 #include "MockAampUtils.h"
 #include "MockTsbMetaDataManager.h"
@@ -62,7 +62,7 @@ class FunctionalTests : public ::testing::Test
 {
 protected:
 	AampTSBSessionManager *mAampTSBSessionManager;
-	PrivateInstanceAAMP *aamp{};
+	PlayerInstanceAAMP *aamp{};
 	static constexpr const char *TEST_BASE_URL = "http://server/";
 	static constexpr const char *TEST_DATA = "This is a dummy data";
 	std::string TEST_PERIOD_ID = "1";
@@ -79,17 +79,17 @@ protected:
 		EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_TsbLogLevel))
 			.WillOnce(Return(static_cast<int>(TSB::LogLevel::TRACE)));
 
-		aamp = new PrivateInstanceAAMP(gpGlobalConfig);
+		aamp = new PlayerInstanceAAMP(gpGlobalConfig);
 		mAampTSBSessionManager = new AampTSBSessionManager(aamp);
 		TSB::Store::Config config;
 		mTSBStore = std::make_shared<TSB::Store>(config, AampLogManager::aampLogger, aamp->mPlayerId, TSB::LogLevel::TRACE);
 		g_mockTSBStore = new MockTSBStore();
 		g_mockMediaStreamContext = new StrictMock<MockMediaStreamContext>();
-		g_mockPrivateInstanceAAMP = new StrictMock<MockPrivateInstanceAAMP>();
+		g_mockPlayerInstanceAAMP = new StrictMock<MockPlayerInstanceAAMP>();
 		g_mockAampUtils = new NiceMock<MockAampUtils>();
 		g_mockAampTsbMetaDataManager = new StrictMock<MockAampTsbMetaDataManager>();
 
-		EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetTSBStore(_,_,_)).WillRepeatedly(Return(mTSBStore));
+		EXPECT_CALL(*g_mockPlayerInstanceAAMP, GetTSBStore(_,_,_)).WillRepeatedly(Return(mTSBStore));
 		mAampTSBSessionManager->SetTsbLength(5);
 		mAampTSBSessionManager->SetTsbLocation("/tmp");
 		mAampTSBSessionManager->SetTsbMinFreePercentage(5);
@@ -119,8 +119,8 @@ protected:
 		delete g_mockAampUtils;
 		g_mockAampUtils = nullptr;
 
-		delete g_mockPrivateInstanceAAMP;
-		g_mockPrivateInstanceAAMP = nullptr;
+		delete g_mockPlayerInstanceAAMP;
+		g_mockPlayerInstanceAAMP = nullptr;
 
 		delete mAampTSBSessionManager;
 		mAampTSBSessionManager = nullptr;
@@ -175,7 +175,7 @@ TEST_F(FunctionalTests, TSBWriteTests)
 	cachedFragment->type = eMEDIATYPE_INIT_VIDEO;
 
 	EXPECT_CALL(*g_mockTSBStore, Write(UNIQUE_INIT_URL, TEST_DATA, strlen(TEST_DATA))).WillOnce(Return(TSB::Status::OK));
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetVidTimeScale()).WillRepeatedly(Return(1));
+	EXPECT_CALL(*g_mockPlayerInstanceAAMP, GetVidTimeScale()).WillRepeatedly(Return(1));
 	mAampTSBSessionManager->EnqueueWrite(INIT_URL, cachedFragment, TEST_PERIOD_ID);
 	std::this_thread::sleep_for(std::chrono::milliseconds(25));
 
@@ -252,8 +252,8 @@ TEST_F(FunctionalTests, Cullsegments)
 	cachedFragment->fragment.AppendBytes(TEST_DATA, strlen(TEST_DATA));
 
 	EXPECT_CALL(*g_mockTSBStore, Write(_,_,_)).WillRepeatedly(Return(TSB::Status::OK));
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetVidTimeScale()).WillRepeatedly(Return(1));
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetAudTimeScale()).WillRepeatedly(Return(1));
+	EXPECT_CALL(*g_mockPlayerInstanceAAMP, GetVidTimeScale()).WillRepeatedly(Return(1));
+	EXPECT_CALL(*g_mockPlayerInstanceAAMP, GetAudTimeScale()).WillRepeatedly(Return(1));
 
 	const std::string initUrl = std::string(TEST_BASE_URL) + std::string("init.mp4");
 	cachedFragment->type = eMEDIATYPE_INIT_VIDEO;
@@ -329,7 +329,7 @@ TEST_F(FunctionalTests, TSBReadTests)
 	cachedFragment->fragment.AppendBytes(TEST_DATA, TEST_DATA_LEN);
 
 	EXPECT_CALL(*g_mockTSBStore, Write(_,_,_)).WillRepeatedly(Return(TSB::Status::OK));
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetVidTimeScale()).WillRepeatedly(Return(1));
+	EXPECT_CALL(*g_mockPlayerInstanceAAMP, GetVidTimeScale()).WillRepeatedly(Return(1));
 	EXPECT_CALL(*g_mockAampUtils, RecalculatePTS(eMEDIATYPE_INIT_VIDEO,_,_,_)).Times(1).WillOnce(Return(0.0));
 	EXPECT_CALL(*g_mockAampUtils, RecalculatePTS(eMEDIATYPE_VIDEO,_,_,_)).Times(2).WillRepeatedly(Return(FRAG_FIRST_PTS));
 

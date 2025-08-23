@@ -23,7 +23,7 @@
 #include "AampTsbAdMetaData.h"
 #include <string>
 
-class PrivateInstanceAAMP;
+class PlayerInstanceAAMP;
 
 /**
  * @class AampTsbAdReservationMetaData
@@ -63,7 +63,7 @@ public:
 	 * @brief Send reservation-specific ad event
 	 * @param[in] aamp Pointer to the AAMP instance for sending events
 	 */
-	void SendEvent(PrivateInstanceAAMP* aamp) const override;
+	void SendEvent(PlayerInstanceAAMP* aamp) const override;
 
 private:
 	std::string mAdBreakId;    /**< Reservation Id */

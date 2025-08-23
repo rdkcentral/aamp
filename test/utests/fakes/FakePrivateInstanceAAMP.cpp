@@ -17,21 +17,21 @@
 * limitations under the License.
 */
 
-#include "priv_aamp.h"
-#include "MockPrivateInstanceAAMP.h"
+#include "main_aamp.h"
+#include "MockPlayerInstanceAAMP.h"
 #include "AampMPDDownloader.h"
 #include "AampStreamSinkManager.h"
 
 #include "ID3Metadata.hpp"
 #include "AampSegmentInfo.hpp"
 
-MockPrivateInstanceAAMP *g_mockPrivateInstanceAAMP = nullptr;
+MockPlayerInstanceAAMP *g_mockPlayerInstanceAAMP = nullptr;
 
-bool PrivateInstanceAAMP::mTrackGrowableBufMem;
+bool PlayerInstanceAAMP::mTrackGrowableBufMem;
 
 static int PLAYERID_CNTR = 0;
 
-PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) :
+PlayerInstanceAAMP::PlayerInstanceAAMP(AampConfig *config) :
 	profiler(),
 	licenceFromManifest(false),
 	previousAudioType(eAUDIO_UNKNOWN),
@@ -144,92 +144,92 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) :
 {
 }
 
-PrivateInstanceAAMP::~PrivateInstanceAAMP()
+PlayerInstanceAAMP::~PlayerInstanceAAMP()
 {
 }
 
-size_t PrivateInstanceAAMP::HandleSSLWriteCallback ( char *ptr, size_t size, size_t nmemb, void* userdata )
+size_t PlayerInstanceAAMP::HandleSSLWriteCallback ( char *ptr, size_t size, size_t nmemb, void* userdata )
 {
 	return 0;
 }
 
-size_t PrivateInstanceAAMP::HandleSSLHeaderCallback ( const char *ptr, size_t size, size_t nmemb, void* user_data )
+size_t PlayerInstanceAAMP::HandleSSLHeaderCallback ( const char *ptr, size_t size, size_t nmemb, void* user_data )
 {
 	return 0;
 }
 
-int PrivateInstanceAAMP::HandleSSLProgressCallback ( void *clientp, double dltotal, double dlnow, double ultotal, double ulnow )
+int PlayerInstanceAAMP::HandleSSLProgressCallback ( void *clientp, double dltotal, double dlnow, double ultotal, double ulnow )
 {
 	return 0;
 }
 
-void PrivateInstanceAAMP::UpdateUseSinglePipeline( void )
+void PlayerInstanceAAMP::UpdateUseSinglePipeline( void )
 {
 }
 
-void PrivateInstanceAAMP::UpdateMaxDRMSessions( void )
+void PlayerInstanceAAMP::UpdateMaxDRMSessions( void )
 {
 }
 
-void PrivateInstanceAAMP::ActivatePlayer()
+void PlayerInstanceAAMP::ActivatePlayer()
 {
 }
-void PrivateInstanceAAMP::SendMediaMetadataEvent()
+void PlayerInstanceAAMP::SendMediaMetadataEvent()
 {
 }
-AAMPPlayerState PrivateInstanceAAMP::GetState()
+AAMPPlayerState PlayerInstanceAAMP::GetState()
 {
 	AAMPPlayerState state = eSTATE_IDLE;
-	if (g_mockPrivateInstanceAAMP != nullptr)
+	if (g_mockPlayerInstanceAAMP != nullptr)
 	{
-		state = g_mockPrivateInstanceAAMP->GetState();
+		state = g_mockPlayerInstanceAAMP->GetState();
 	}
 	return state;
 }
 
-void PrivateInstanceAAMP::SetState(AAMPPlayerState state)
+void PlayerInstanceAAMP::SetState(AAMPPlayerState state)
 {
-	if (g_mockPrivateInstanceAAMP != nullptr)
+	if (g_mockPlayerInstanceAAMP != nullptr)
 	{
-		g_mockPrivateInstanceAAMP->SetState(state);
+		g_mockPlayerInstanceAAMP->SetState(state);
 	}
 }
 
-void PrivateInstanceAAMP::Stop( bool isDestructing )
+void PlayerInstanceAAMP::Stop( bool isDestructing )
 {
 }
 
-void PrivateInstanceAAMP::SetAudioTrack(int)
+void PlayerInstanceAAMP::SetAudioTrack(int)
 {
 
 }
-bool PrivateInstanceAAMP::IsActiveInstancePresent()
+bool PlayerInstanceAAMP::IsActiveInstancePresent()
 {
 	return true;
 }
 
-void PrivateInstanceAAMP::StartPausePositionMonitoring(long long pausePositionMilliseconds)
+void PlayerInstanceAAMP::StartPausePositionMonitoring(long long pausePositionMilliseconds)
 {
-	if (g_mockPrivateInstanceAAMP != nullptr)
+	if (g_mockPlayerInstanceAAMP != nullptr)
 	{
-		g_mockPrivateInstanceAAMP->StartPausePositionMonitoring(pausePositionMilliseconds);
+		g_mockPlayerInstanceAAMP->StartPausePositionMonitoring(pausePositionMilliseconds);
 	}
 }
 
-void PrivateInstanceAAMP::StopPausePositionMonitoring(std::string reason)
+void PlayerInstanceAAMP::StopPausePositionMonitoring(std::string reason)
 {
-	if (g_mockPrivateInstanceAAMP != nullptr)
+	if (g_mockPlayerInstanceAAMP != nullptr)
 	{
-		g_mockPrivateInstanceAAMP->StopPausePositionMonitoring(reason);
+		g_mockPlayerInstanceAAMP->StopPausePositionMonitoring(reason);
 	}
 }
 
-AampCacheHandler * PrivateInstanceAAMP::getAampCacheHandler()
+AampCacheHandler * PlayerInstanceAAMP::getAampCacheHandler()
 {
 	return nullptr;
 }
 
-void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
+void PlayerInstanceAAMP::Tune(const char *mainManifestUrl,
 								bool autoPlay,
 								const char *contentType,
 								bool bFirstAttempt,
@@ -247,173 +247,173 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 	mFogTSBEnabled = strcasestr(mainManifestUrl, "tsb?");
 }
 
-void PrivateInstanceAAMP::detach()
+void PlayerInstanceAAMP::detach()
 {
 }
 
-void PrivateInstanceAAMP::NotifySpeedChanged(float rate, bool changeState)
+void PlayerInstanceAAMP::NotifySpeedChanged(float rate, bool changeState)
 {
 }
 
-void PrivateInstanceAAMP::LogPlayerPreBuffered(void)
+void PlayerInstanceAAMP::LogPlayerPreBuffered(void)
 {
 }
 
-bool PrivateInstanceAAMP::IsLive()
+bool PlayerInstanceAAMP::IsLive()
 {
 	return mIsLive;
 }
 
-void PrivateInstanceAAMP::NotifyOnEnteringLive()
+void PlayerInstanceAAMP::NotifyOnEnteringLive()
 {
-	if (g_mockPrivateInstanceAAMP != nullptr)
+	if (g_mockPlayerInstanceAAMP != nullptr)
 	{
-		g_mockPrivateInstanceAAMP->NotifyOnEnteringLive();
+		g_mockPlayerInstanceAAMP->NotifyOnEnteringLive();
 	}
 }
 
-bool PrivateInstanceAAMP::GetPauseOnFirstVideoFrameDisp(void)
+bool PlayerInstanceAAMP::GetPauseOnFirstVideoFrameDisp(void)
 {
 	return false;
 }
 
-long long PrivateInstanceAAMP::GetPositionMilliseconds()
+long long PlayerInstanceAAMP::GetPositionMilliseconds()
 {
 	long long positionMs = 0;
 
-	if (g_mockPrivateInstanceAAMP != nullptr)
+	if (g_mockPlayerInstanceAAMP != nullptr)
 	{
-		positionMs = g_mockPrivateInstanceAAMP->GetPositionMilliseconds();
+		positionMs = g_mockPlayerInstanceAAMP->GetPositionMilliseconds();
 	}
 
 	return positionMs;
 }
 
-bool PrivateInstanceAAMP::SetStateBufferingIfRequired()
+bool PlayerInstanceAAMP::SetStateBufferingIfRequired()
 {
 	return false;
 }
 
-void PrivateInstanceAAMP::NotifyFirstBufferProcessed(const std::string&)
+void PlayerInstanceAAMP::NotifyFirstBufferProcessed(const std::string&)
 {
 }
 
-void PrivateInstanceAAMP::StopDownloads()
+void PlayerInstanceAAMP::StopDownloads()
 {
-	if (g_mockPrivateInstanceAAMP != nullptr)
+	if (g_mockPlayerInstanceAAMP != nullptr)
 	{
-		g_mockPrivateInstanceAAMP->StopDownloads();
+		g_mockPlayerInstanceAAMP->StopDownloads();
 	}
 }
 
-void PrivateInstanceAAMP::ResumeDownloads()
+void PlayerInstanceAAMP::ResumeDownloads()
 {
-	if (g_mockPrivateInstanceAAMP != nullptr)
+	if (g_mockPlayerInstanceAAMP != nullptr)
 	{
-		g_mockPrivateInstanceAAMP->ResumeDownloads();
+		g_mockPlayerInstanceAAMP->ResumeDownloads();
 	}
 }
 
-void PrivateInstanceAAMP::EnableDownloads()
+void PlayerInstanceAAMP::EnableDownloads()
 {
 }
 
-void PrivateInstanceAAMP::AcquireStreamLock()
+void PlayerInstanceAAMP::AcquireStreamLock()
 {
 }
 
-void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
+void PlayerInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 {
-	if (g_mockPrivateInstanceAAMP != nullptr)
+	if (g_mockPlayerInstanceAAMP != nullptr)
 	{
-		g_mockPrivateInstanceAAMP->TuneHelper(tuneType, seekWhilePaused);
+		g_mockPlayerInstanceAAMP->TuneHelper(tuneType, seekWhilePaused);
 	}
 }
 
-void PrivateInstanceAAMP::ReleaseStreamLock()
+void PlayerInstanceAAMP::ReleaseStreamLock()
 {
 }
 
-bool PrivateInstanceAAMP::IsFragmentCachingRequired()
+bool PlayerInstanceAAMP::IsFragmentCachingRequired()
 {
 	return false;
 }
 
-void PrivateInstanceAAMP::TeardownStream(bool newTune, bool disableDownloads)
+void PlayerInstanceAAMP::TeardownStream(bool newTune, bool disableDownloads)
 {
 }
 
-void PrivateInstanceAAMP::SetVideoRectangle(int x, int y, int w, int h)
+void PlayerInstanceAAMP::SetVideoRectangle(int x, int y, int w, int h)
 {
 }
 
-void PrivateInstanceAAMP::SetVideoZoom(VideoZoomMode zoom)
+void PlayerInstanceAAMP::SetVideoZoom(VideoZoomMode zoom)
 {
 }
 
-bool PrivateInstanceAAMP::TryStreamLock()
+bool PlayerInstanceAAMP::TryStreamLock()
 {
 	return false;
 }
 
-void PrivateInstanceAAMP::SetVideoMute(bool muted)
+void PlayerInstanceAAMP::SetVideoMute(bool muted)
 {
 }
 
-void PrivateInstanceAAMP::SetSubtitleMute(bool muted)
+void PlayerInstanceAAMP::SetSubtitleMute(bool muted)
 {
 }
 
-void PrivateInstanceAAMP::SetAudioVolume(int volume)
+void PlayerInstanceAAMP::SetAudioVolume(int volume)
 {
 }
 
-void PrivateInstanceAAMP::AddEventListener(AAMPEventType eventType, EventListener* eventListener)
+void PlayerInstanceAAMP::AddEventListener(AAMPEventType eventType, EventListener* eventListener)
 {
 }
 
-void PrivateInstanceAAMP::RemoveEventListener(AAMPEventType eventType, EventListener* eventListener)
+void PlayerInstanceAAMP::RemoveEventListener(AAMPEventType eventType, EventListener* eventListener)
 {
 }
 
-DrmHelperPtr PrivateInstanceAAMP::GetCurrentDRM(void)
+DrmHelperPtr PlayerInstanceAAMP::GetCurrentDRM(void)
 {
 	return nullptr;
 }
 
-void PrivateInstanceAAMP::AddCustomHTTPHeader(std::string headerName, std::vector<std::string> headerValue, bool isLicenseHeader)
+void PlayerInstanceAAMP::AddCustomHTTPHeader(std::string headerName, std::vector<std::string> headerValue, bool isLicenseHeader)
 {
 }
 
-void PrivateInstanceAAMP::SetLiveOffsetAppRequest(bool LiveOffsetAppRequest)
+void PlayerInstanceAAMP::SetLiveOffsetAppRequest(bool LiveOffsetAppRequest)
 {
 }
 
-long long PrivateInstanceAAMP::GetDurationMs()
-{
-	return 0;
-}
-
-long PrivateInstanceAAMP::GetCurrentLatency()
+long long PlayerInstanceAAMP::GetDurationMs()
 {
 	return 0;
 }
 
-bool PrivateInstanceAAMP::IsAtLivePoint()
+long PlayerInstanceAAMP::GetCurrentLatency()
+{
+	return 0;
+}
+
+bool PlayerInstanceAAMP::IsAtLivePoint()
 {
 	return false;
 }
 
-ContentType PrivateInstanceAAMP::GetContentType() const
+ContentType PlayerInstanceAAMP::GetContentType() const
 {
 	return ContentType_UNKNOWN;
 }
 
-void PrivateInstanceAAMP::SetAlternateContents(const std::string &adBreakId, const std::string &adId, const std::string &url)
+void PlayerInstanceAAMP::SetAlternateContents(const std::string &adBreakId, const std::string &adId, const std::string &url)
 {
 }
 
-void PrivateInstanceAAMP::GetMoneyTraceString(std::string &customHeader) const
+void PlayerInstanceAAMP::GetMoneyTraceString(std::string &customHeader) const
 {
 }
 
@@ -421,191 +421,191 @@ void SetPreferredLanguages(const char *languageList, const char *preferredRendit
 {
 }
 
-std::string PrivateInstanceAAMP::GetPreferredAudioProperties()
+std::string PlayerInstanceAAMP::GetPreferredAudioProperties()
 {
 	std::string audio_result = "AudioProperties";
 	return audio_result;
 }
 
-std::string PrivateInstanceAAMP::GetPreferredTextProperties()
+std::string PlayerInstanceAAMP::GetPreferredTextProperties()
 {
 	std::string result = "TextProperties";
 	return result;
 }
 
-void PrivateInstanceAAMP::SetPreferredTextLanguages(const char *param )
+void PlayerInstanceAAMP::SetPreferredTextLanguages(const char *param )
 {
 }
 
-DRMSystems PrivateInstanceAAMP::GetPreferredDRM()
+DRMSystems PlayerInstanceAAMP::GetPreferredDRM()
 {
 	return eDRM_NONE;
 }
 
-std::string PrivateInstanceAAMP::GetAvailableVideoTracks()
+std::string PlayerInstanceAAMP::GetAvailableVideoTracks()
 {
 	std::string s = "AvailableVideo";
 	return s;
 }
 
-void PrivateInstanceAAMP::SetVideoTracks(std::vector<BitsPerSecond> bitrateList)
+void PlayerInstanceAAMP::SetVideoTracks(std::vector<BitsPerSecond> bitrateList)
 {
 }
 
-std::string PrivateInstanceAAMP::GetAudioTrackInfo()
+std::string PlayerInstanceAAMP::GetAudioTrackInfo()
 {
 	std::string result = "AudioTrack";
 	return result;
 }
 
-std::string PrivateInstanceAAMP::GetTextTrackInfo()
+std::string PlayerInstanceAAMP::GetTextTrackInfo()
 {
 	std::string text_result = "TextTrack";
 	return text_result;
 }
 
-int PrivateInstanceAAMP::GetTextTrack()
+int PlayerInstanceAAMP::GetTextTrack()
 {
 	return 0;
 }
 
-std::string PrivateInstanceAAMP::GetAvailableTextTracks(bool allTrack)
+std::string PlayerInstanceAAMP::GetAvailableTextTracks(bool allTrack)
 {
 	return "";
 }
 
-std::string PrivateInstanceAAMP::GetAvailableAudioTracks(bool allTrack)
+std::string PlayerInstanceAAMP::GetAvailableAudioTracks(bool allTrack)
 {
-	if (g_mockPrivateInstanceAAMP != nullptr) {
-		return g_mockPrivateInstanceAAMP->GetAvailableAudioTracks(allTrack);
+	if (g_mockPlayerInstanceAAMP != nullptr) {
+		return g_mockPlayerInstanceAAMP->GetAvailableAudioTracks(allTrack);
 	}else {
 		return "";
 	}
 }
 
-std::string PrivateInstanceAAMP::GetVideoRectangle()
+std::string PlayerInstanceAAMP::GetVideoRectangle()
 {
 	std::string video = "VideoRectangle";
 	return video;
 }
 
-void PrivateInstanceAAMP::SetAppName(std::string name)
+void PlayerInstanceAAMP::SetAppName(std::string name)
 {
 }
 
-std::string PrivateInstanceAAMP::GetAppName()
+std::string PlayerInstanceAAMP::GetAppName()
 {
 	std::string name = "AppName";
 	return name;
 }
 
-int PrivateInstanceAAMP::GetAudioTrack()
+int PlayerInstanceAAMP::GetAudioTrack()
 {
 	return 0;
 }
 
-void PrivateInstanceAAMP::SetCCStatus(bool enabled)
+void PlayerInstanceAAMP::SetCCStatus(bool enabled)
 {
 }
 
-bool PrivateInstanceAAMP::GetCCStatus(void)
+bool PlayerInstanceAAMP::GetCCStatus(void)
 {
 	return false;
 }
 
-void PrivateInstanceAAMP::SetTextStyle(const std::string &options)
+void PlayerInstanceAAMP::SetTextStyle(const std::string &options)
 {
 }
 
-std::string PrivateInstanceAAMP::GetTextStyle()
+std::string PlayerInstanceAAMP::GetTextStyle()
 {
 	std::string result = "TextStyle";
 	return result;
 }
 
-std::string PrivateInstanceAAMP::GetThumbnailTracks()
+std::string PlayerInstanceAAMP::GetThumbnailTracks()
 {
 	std::string result = "ThumbnailTracks";
 	return result;
 }
 
-std::string PrivateInstanceAAMP::GetThumbnails(double tStart, double tEnd)
+std::string PlayerInstanceAAMP::GetThumbnails(double tStart, double tEnd)
 {
 	std::string result = "Thumbnail";
 	return result;
 }
 
-void PrivateInstanceAAMP::DisableContentRestrictions(long grace, long time, bool eventChange)
+void PlayerInstanceAAMP::DisableContentRestrictions(long grace, long time, bool eventChange)
 {
 }
 
-void PrivateInstanceAAMP::EnableContentRestrictions()
+void PlayerInstanceAAMP::EnableContentRestrictions()
 {
 }
 
-MediaFormat PrivateInstanceAAMP::GetMediaFormatType(const char *url)
+MediaFormat PlayerInstanceAAMP::GetMediaFormatType(const char *url)
 {
 	return eMEDIAFORMAT_UNKNOWN;
 }
 
-MediaFormat PrivateInstanceAAMP::GetMediaFormatTypeEnum() const
+MediaFormat PlayerInstanceAAMP::GetMediaFormatTypeEnum() const
 {
-	if (g_mockPrivateInstanceAAMP != nullptr) {
-		return g_mockPrivateInstanceAAMP->GetMediaFormatTypeEnum();
+	if (g_mockPlayerInstanceAAMP != nullptr) {
+		return g_mockPlayerInstanceAAMP->GetMediaFormatTypeEnum();
 	} else {
 		return eMEDIAFORMAT_UNKNOWN;
 	}
 }
 
-void PrivateInstanceAAMP::SetEventPriorityAsyncTune(bool bValue)
+void PlayerInstanceAAMP::SetEventPriorityAsyncTune(bool bValue)
 {
 }
 
-bool PrivateInstanceAAMP::IsTuneCompleted()
+bool PlayerInstanceAAMP::IsTuneCompleted()
 {
 	return false;
 }
 
-void PrivateInstanceAAMP::SendWatermarkSessionUpdateEvent(uint32_t sessionHandle, uint32_t status, const std::string &system)
+void PlayerInstanceAAMP::SendWatermarkSessionUpdateEvent(uint32_t sessionHandle, uint32_t status, const std::string &system)
 {
 	return;
 }
 
-void PrivateInstanceAAMP::TuneFail(bool fail)
+void PlayerInstanceAAMP::TuneFail(bool fail)
 {
 }
 
-std::string PrivateInstanceAAMP::GetPlaybackStats()
+std::string PlayerInstanceAAMP::GetPlaybackStats()
 {
 	std::string result = "playbackstats";
 	return result;
 }
 
-void PrivateInstanceAAMP::Individualization(const std::string& payload)
+void PlayerInstanceAAMP::Individualization(const std::string& payload)
 {
 }
 
-void PrivateInstanceAAMP::SetTextTrack(int trackId, char *data)
+void PlayerInstanceAAMP::SetTextTrack(int trackId, char *data)
 {
 }
 
-bool PrivateInstanceAAMP::LockGetPositionMilliseconds()
+bool PlayerInstanceAAMP::LockGetPositionMilliseconds()
 {
 	return false;
 }
 
-void PrivateInstanceAAMP::UnlockGetPositionMilliseconds()
+void PlayerInstanceAAMP::UnlockGetPositionMilliseconds()
 {
 }
 
-void PrivateInstanceAAMP::SetPreferredLanguages(char const*, char const*, char const*, char const*, char const*, const Accessibility*, char const*)
+void PlayerInstanceAAMP::SetPreferredLanguages(char const*, char const*, char const*, char const*, char const*, const Accessibility*, char const*)
 {
 }
 
 /**
  * @brief Check if Live Adjust is required for current content. ( For "vod/ivod/ip-dvr/cdvr/eas", Live Adjust is not required ).
  */
-bool PrivateInstanceAAMP::IsLiveAdjustRequired()
+bool PlayerInstanceAAMP::IsLiveAdjustRequired()
 {
 	bool retValue;
 
@@ -630,72 +630,72 @@ bool PrivateInstanceAAMP::IsLiveAdjustRequired()
 	return retValue;
 }
 
-void PrivateInstanceAAMP::UpdateLiveOffset()
+void PlayerInstanceAAMP::UpdateLiveOffset()
 {
 }
 
-void PrivateInstanceAAMP::StoreLanguageList(const std::set<std::string> &langlist)
+void PlayerInstanceAAMP::StoreLanguageList(const std::set<std::string> &langlist)
 {
 }
 
-bool PrivateInstanceAAMP::DownloadsAreEnabled(void)
+bool PlayerInstanceAAMP::DownloadsAreEnabled(void)
 {
 	bool retVal = false;//mDownloadsEnabled;
-	if (g_mockPrivateInstanceAAMP != nullptr)
+	if (g_mockPlayerInstanceAAMP != nullptr)
 	{
-		retVal = g_mockPrivateInstanceAAMP->DownloadsAreEnabled();
+		retVal = g_mockPlayerInstanceAAMP->DownloadsAreEnabled();
 	}
 	return retVal;
 }
 
-void PrivateInstanceAAMP::SendDownloadErrorEvent(AAMPTuneFailure tuneFailure, int error_code)
+void PlayerInstanceAAMP::SendDownloadErrorEvent(AAMPTuneFailure tuneFailure, int error_code)
 {
 }
 
-BitsPerSecond PrivateInstanceAAMP::GetMaximumBitrate()
+BitsPerSecond PlayerInstanceAAMP::GetMaximumBitrate()
 {
     return LONG_MAX;
 }
 
-void PrivateInstanceAAMP::UpdateVideoEndProfileResolution(AampMediaType mediaType, BitsPerSecond bitrate, int width, int height)
+void PlayerInstanceAAMP::UpdateVideoEndProfileResolution(AampMediaType mediaType, BitsPerSecond bitrate, int width, int height)
 {
 }
 
-BitsPerSecond PrivateInstanceAAMP::GetDefaultBitrate()
+BitsPerSecond PlayerInstanceAAMP::GetDefaultBitrate()
 {
     return 0;
 }
 
-void PrivateInstanceAAMP::UpdateDuration(double seconds)
+void PlayerInstanceAAMP::UpdateDuration(double seconds)
 {
 }
 
-void PrivateInstanceAAMP::SendErrorEvent(AAMPTuneFailure tuneFailure, const char * description, bool isRetryEnabled, int32_t secManagerClassCode, int32_t secManagerReasonCode, int32_t secClientBusinessStatus, const std::string &responseData)
+void PlayerInstanceAAMP::SendErrorEvent(AAMPTuneFailure tuneFailure, const char * description, bool isRetryEnabled, int32_t secManagerClassCode, int32_t secManagerReasonCode, int32_t secClientBusinessStatus, const std::string &responseData)
 {
-	if (g_mockPrivateInstanceAAMP != nullptr)
+	if (g_mockPlayerInstanceAAMP != nullptr)
 	{
-		g_mockPrivateInstanceAAMP->SendErrorEvent(tuneFailure, description, isRetryEnabled, secManagerClassCode, secManagerReasonCode, secClientBusinessStatus, responseData);
+		g_mockPlayerInstanceAAMP->SendErrorEvent(tuneFailure, description, isRetryEnabled, secManagerClassCode, secManagerReasonCode, secClientBusinessStatus, responseData);
 	}
 }
 
-void PrivateInstanceAAMP::SetCurlTimeout(long timeoutMS, AampCurlInstance instance)
+void PlayerInstanceAAMP::SetCurlTimeout(long timeoutMS, AampCurlInstance instance)
 {
 }
 
-void PrivateInstanceAAMP::CurlInit(AampCurlInstance startIdx, unsigned int instanceCount, std::string proxyName)
+void PlayerInstanceAAMP::CurlInit(AampCurlInstance startIdx, unsigned int instanceCount, std::string proxyName)
 {
 }
 
-bool PrivateInstanceAAMP::GetFile(std::string remoteUrl, AampMediaType mediaType, AampGrowableBuffer *buffer, std::string& effectiveUrl,
+bool PlayerInstanceAAMP::GetFile(std::string remoteUrl, AampMediaType mediaType, AampGrowableBuffer *buffer, std::string& effectiveUrl,
                 int * http_error, double *downloadTime, const char *range, unsigned int curlInstance,
                 bool resetBuffer, BitsPerSecond *bitrate, int * fogError,
                 double fragmentDurationSeconds, ProfilerBucketType bucketType, int maxInitDownloadTimeMS)
 {
 	bool rv = true;
 
-	if (g_mockPrivateInstanceAAMP != nullptr)
+	if (g_mockPlayerInstanceAAMP != nullptr)
 	{
-		rv = g_mockPrivateInstanceAAMP->GetFile(remoteUrl, mediaType, buffer, effectiveUrl,
+		rv = g_mockPlayerInstanceAAMP->GetFile(remoteUrl, mediaType, buffer, effectiveUrl,
 				 								http_error, downloadTime, range, curlInstance,
 												resetBuffer, bitrate, fogError,
 												fragmentDurationSeconds, bucketType, maxInitDownloadTimeMS);
@@ -704,14 +704,14 @@ bool PrivateInstanceAAMP::GetFile(std::string remoteUrl, AampMediaType mediaType
 	return rv;
 }
 
-void PrivateInstanceAAMP::DisableMediaDownloads(AampMediaType type)
+void PlayerInstanceAAMP::DisableMediaDownloads(AampMediaType type)
 {
 }
 
 /**
  * @brief Set Content Type
  */
-void PrivateInstanceAAMP::SetContentType(const char *cType)
+void PlayerInstanceAAMP::SetContentType(const char *cType)
 {
 	mContentType = ContentType_UNKNOWN; //default unknown
 	if(NULL != cType)
@@ -780,108 +780,108 @@ void PrivateInstanceAAMP::SetContentType(const char *cType)
 	}
 }
 
-void PrivateInstanceAAMP::UpdateVideoEndMetrics(AampMediaType mediaType, BitsPerSecond bitrate, int curlOrHTTPCode, std::string& strUrl, double duration, double curlDownloadTime)
+void PlayerInstanceAAMP::UpdateVideoEndMetrics(AampMediaType mediaType, BitsPerSecond bitrate, int curlOrHTTPCode, std::string& strUrl, double duration, double curlDownloadTime)
 {
 }
 
-void PrivateInstanceAAMP::CurlTerm(AampCurlInstance startIdx, unsigned int instanceCount)
+void PlayerInstanceAAMP::CurlTerm(AampCurlInstance startIdx, unsigned int instanceCount)
 {
 }
 
-void PrivateInstanceAAMP::DisableDownloads(void)
+void PlayerInstanceAAMP::DisableDownloads(void)
 {
-	if (g_mockPrivateInstanceAAMP != nullptr)
+	if (g_mockPlayerInstanceAAMP != nullptr)
 	{
-		g_mockPrivateInstanceAAMP->DisableDownloads();
+		g_mockPlayerInstanceAAMP->DisableDownloads();
 	}
 }
 
-int PrivateInstanceAAMP::GetInitialBufferDuration()
+int PlayerInstanceAAMP::GetInitialBufferDuration()
 {
     return 0;
 }
 
-BitsPerSecond PrivateInstanceAAMP::GetMinimumBitrate()
+BitsPerSecond PlayerInstanceAAMP::GetMinimumBitrate()
 {
     return 0;
 }
 
-long long PrivateInstanceAAMP::GetPositionMs()
+long long PlayerInstanceAAMP::GetPositionMs()
 {
 	long long positionMs = 0;
 
-	if (g_mockPrivateInstanceAAMP != nullptr)
+	if (g_mockPlayerInstanceAAMP != nullptr)
 	{
-		positionMs = g_mockPrivateInstanceAAMP->GetPositionMs();
+		positionMs = g_mockPlayerInstanceAAMP->GetPositionMs();
 	}
 
 	return positionMs;
 }
 
-bool PrivateInstanceAAMP::IsAuxiliaryAudioEnabled(void)
+bool PlayerInstanceAAMP::IsAuxiliaryAudioEnabled(void)
 {
     return true;
 }
 
-bool PrivateInstanceAAMP::IsPlayEnabled()
+bool PlayerInstanceAAMP::IsPlayEnabled()
 {
     return true;
 }
 
-bool PrivateInstanceAAMP::IsSubtitleEnabled(void)
+bool PlayerInstanceAAMP::IsSubtitleEnabled(void)
 {
     return true;
 }
 
-void PrivateInstanceAAMP::NotifyAudioTracksChanged()
+void PlayerInstanceAAMP::NotifyAudioTracksChanged()
 {
 }
 
-void PrivateInstanceAAMP::NotifyFirstFragmentDecrypted()
+void PlayerInstanceAAMP::NotifyFirstFragmentDecrypted()
 {
 }
 
-void PrivateInstanceAAMP::NotifyTextTracksChanged()
+void PlayerInstanceAAMP::NotifyTextTracksChanged()
 {
 }
 
-void PrivateInstanceAAMP::PreCachePlaylistDownloadTask()
+void PlayerInstanceAAMP::PreCachePlaylistDownloadTask()
 {
 }
 
-void PrivateInstanceAAMP::ReportBulkTimedMetadata()
+void PlayerInstanceAAMP::ReportBulkTimedMetadata()
 {
 }
 
-void PrivateInstanceAAMP::ReportTimedMetadata(bool init)
+void PlayerInstanceAAMP::ReportTimedMetadata(bool init)
 {
 }
 
-void PrivateInstanceAAMP::ReportTimedMetadata(long long timeMilliseconds, const char *szName, const char *szContent, int nb, bool bSyncCall, const char *id, double durationMS)
+void PlayerInstanceAAMP::ReportTimedMetadata(long long timeMilliseconds, const char *szName, const char *szContent, int nb, bool bSyncCall, const char *id, double durationMS)
 {
 }
 
-void PrivateInstanceAAMP::ResetCurrentlyAvailableBandwidth(BitsPerSecond bitsPerSecond , bool trickPlay,int profile)
+void PlayerInstanceAAMP::ResetCurrentlyAvailableBandwidth(BitsPerSecond bitsPerSecond , bool trickPlay,int profile)
 {
 }
 
-void PrivateInstanceAAMP::ResumeTrackInjection(AampMediaType type)
+void PlayerInstanceAAMP::ResumeTrackInjection(AampMediaType type)
 {
 }
 
-void PrivateInstanceAAMP::SaveTimedMetadata(long long timeMilliseconds, const char* szName, const char* szContent, int nb, const char* id, double durationMS)
+void PlayerInstanceAAMP::SaveTimedMetadata(long long timeMilliseconds, const char* szName, const char* szContent, int nb, const char* id, double durationMS)
 {
 }
 
-void PrivateInstanceAAMP::SendEvent(AAMPEventPtr eventData, AAMPEventMode eventMode)
+void PlayerInstanceAAMP::SendEvent(AAMPEventPtr eventData, AAMPEventMode eventMode)
 {
 }
 
-bool PrivateInstanceAAMP::SendStreamCopy(AampMediaType mediaType, const void *ptr, size_t len, double fpts, double fdts, double fDuration)
+bool PlayerInstanceAAMP::SendStreamCopy(AampMediaType mediaType, const void *ptr, size_t len, double fpts, double fdts, double fDuration)
 {
-	if (g_mockPrivateInstanceAAMP != nullptr)
+	if (g_mockPlayerInstanceAAMP != nullptr)
 	{
-		return g_mockPrivateInstanceAAMP->SendStreamCopy(mediaType, ptr, len, fpts, fdts, fDuration);
+		return g_mockPlayerInstanceAAMP->SendStreamCopy(mediaType, ptr, len, fpts, fdts, fDuration);
 	}
 	else
 	{
@@ -889,262 +889,262 @@ bool PrivateInstanceAAMP::SendStreamCopy(AampMediaType mediaType, const void *pt
 	}
 }
 
-bool PrivateInstanceAAMP::SendTunedEvent(bool isSynchronous)
+bool PlayerInstanceAAMP::SendTunedEvent(bool isSynchronous)
 {
     return true;
 }
 
-void PrivateInstanceAAMP::SetPreCacheDownloadList(PreCacheUrlList &dnldListInput)
+void PlayerInstanceAAMP::SetPreCacheDownloadList(PreCacheUrlList &dnldListInput)
 {
 }
 
-void PrivateInstanceAAMP::StopTrackDownloads(AampMediaType type)
+void PlayerInstanceAAMP::StopTrackDownloads(AampMediaType type)
 {
 }
 
-void PrivateInstanceAAMP::StopTrackInjection(AampMediaType type)
+void PlayerInstanceAAMP::StopTrackInjection(AampMediaType type)
 {
 }
 
-void PrivateInstanceAAMP::SyncBegin(void)
+void PlayerInstanceAAMP::SyncBegin(void)
 {
 }
 
-void PrivateInstanceAAMP::SyncEnd(void)
+void PlayerInstanceAAMP::SyncEnd(void)
 {
 }
 
-void PrivateInstanceAAMP::UpdateCullingState(double culledSecs)
+void PlayerInstanceAAMP::UpdateCullingState(double culledSecs)
 {
 }
 
-void PrivateInstanceAAMP::UpdateRefreshPlaylistInterval(float maxIntervalSecs)
+void PlayerInstanceAAMP::UpdateRefreshPlaylistInterval(float maxIntervalSecs)
 {
 }
 
-void PrivateInstanceAAMP::UpdateVideoEndMetrics(AampMediaType mediaType, BitsPerSecond bitrate, int curlOrHTTPCode, std::string& strUrl, double duration, double curlDownloadTime, bool keyChanged, bool isEncrypted, ManifestData * manifestData)
+void PlayerInstanceAAMP::UpdateVideoEndMetrics(AampMediaType mediaType, BitsPerSecond bitrate, int curlOrHTTPCode, std::string& strUrl, double duration, double curlDownloadTime, bool keyChanged, bool isEncrypted, ManifestData * manifestData)
 {
 }
 
-void PrivateInstanceAAMP::UpdateVideoEndMetrics(AAMPAbrInfo & info)
+void PlayerInstanceAAMP::UpdateVideoEndMetrics(AAMPAbrInfo & info)
 {
 }
 
-void PrivateInstanceAAMP::UpdateVideoEndMetrics(AampMediaType mediaType, BitsPerSecond bitrate, int curlOrHTTPCode, std::string& strUrl, double curlDownloadTime, ManifestData * manifestData)
+void PlayerInstanceAAMP::UpdateVideoEndMetrics(AampMediaType mediaType, BitsPerSecond bitrate, int curlOrHTTPCode, std::string& strUrl, double curlDownloadTime, ManifestData * manifestData)
 {
 }
 
-bool PrivateInstanceAAMP::WebVTTCueListenersRegistered(void)
+bool PlayerInstanceAAMP::WebVTTCueListenersRegistered(void)
 {
     return true;
 }
 
-LangCodePreference PrivateInstanceAAMP::GetLangCodePreference() const
+LangCodePreference PlayerInstanceAAMP::GetLangCodePreference() const
 {
     return ISO639_NO_LANGCODE_PREFERENCE;
 }
 
-TunedEventConfig PrivateInstanceAAMP::GetTuneEventConfig(bool isLive)
+TunedEventConfig PlayerInstanceAAMP::GetTuneEventConfig(bool isLive)
 {
     return eTUNED_EVENT_ON_PLAYLIST_INDEXED;
 }
 
-std::string PrivateInstanceAAMP::GetNetworkProxy()
+std::string PlayerInstanceAAMP::GetNetworkProxy()
 {
     std::string s;
     return s;
 }
 
-AampCurlInstance PrivateInstanceAAMP::GetPlaylistCurlInstance(AampMediaType type, bool isInitialDownload)
+AampCurlInstance PlayerInstanceAAMP::GetPlaylistCurlInstance(AampMediaType type, bool isInitialDownload)
 {
     return eCURLINSTANCE_MANIFEST_PLAYLIST_VIDEO;
 }
 
-void PrivateInstanceAAMP::BlockUntilGstreamerWantsData(void(*cb)(void), int periodMs, int track)
+void PlayerInstanceAAMP::BlockUntilGstreamerWantsData(void(*cb)(void), int periodMs, int track)
 {
-	if (g_mockPrivateInstanceAAMP != nullptr) {
-		return g_mockPrivateInstanceAAMP->BlockUntilGstreamerWantsData(cb, periodMs, track);
+	if (g_mockPlayerInstanceAAMP != nullptr) {
+		return g_mockPlayerInstanceAAMP->BlockUntilGstreamerWantsData(cb, periodMs, track);
 	}
 }
 
-void PrivateInstanceAAMP::CheckForDiscontinuityStall(AampMediaType mediaType)
+void PlayerInstanceAAMP::CheckForDiscontinuityStall(AampMediaType mediaType)
 {
 }
 
-bool PrivateInstanceAAMP::Discontinuity(AampMediaType track, bool setDiscontinuityFlag)
+bool PlayerInstanceAAMP::Discontinuity(AampMediaType track, bool setDiscontinuityFlag)
 {
     return true;
 }
 
-bool PrivateInstanceAAMP::DiscontinuitySeenInAllTracks()
+bool PlayerInstanceAAMP::DiscontinuitySeenInAllTracks()
 {
     return true;
 }
 
-bool PrivateInstanceAAMP::DiscontinuitySeenInAnyTracks()
+bool PlayerInstanceAAMP::DiscontinuitySeenInAnyTracks()
 {
     return true;
 }
 
-void PrivateInstanceAAMP::EnableMediaDownloads(AampMediaType type)
+void PlayerInstanceAAMP::EnableMediaDownloads(AampMediaType type)
 {
 }
 
-void PrivateInstanceAAMP::EndOfStreamReached(AampMediaType mediaType)
+void PlayerInstanceAAMP::EndOfStreamReached(AampMediaType mediaType)
 {
 }
 
-uint32_t  PrivateInstanceAAMP::GetAudTimeScale(void)
+uint32_t  PlayerInstanceAAMP::GetAudTimeScale(void)
 {
-	if (g_mockPrivateInstanceAAMP != nullptr) {
-		return g_mockPrivateInstanceAAMP->GetAudTimeScale();
+	if (g_mockPlayerInstanceAAMP != nullptr) {
+		return g_mockPlayerInstanceAAMP->GetAudTimeScale();
 	}else {
 		return 0u;
 	}
 }
 
-uint32_t  PrivateInstanceAAMP::GetSubTimeScale(void)
+uint32_t  PlayerInstanceAAMP::GetSubTimeScale(void)
 {
 	return 0u;
 }
 
-BitsPerSecond PrivateInstanceAAMP::GetCurrentlyAvailableBandwidth(void)
+BitsPerSecond PlayerInstanceAAMP::GetCurrentlyAvailableBandwidth(void)
 {
     return 0;
 }
 
-BitsPerSecond PrivateInstanceAAMP::GetIframeBitrate()
+BitsPerSecond PlayerInstanceAAMP::GetIframeBitrate()
 {
     return 0;
 }
 
-BitsPerSecond PrivateInstanceAAMP::GetIframeBitrate4K()
+BitsPerSecond PlayerInstanceAAMP::GetIframeBitrate4K()
 {
     return 0;
 }
 
-AampLLDashServiceData*  PrivateInstanceAAMP::GetLLDashServiceData(void)
+AampLLDashServiceData*  PlayerInstanceAAMP::GetLLDashServiceData(void)
 {
 	return &this->mAampLLDashServiceData;
 }
 
-uint32_t  PrivateInstanceAAMP::GetVidTimeScale(void)
+uint32_t  PlayerInstanceAAMP::GetVidTimeScale(void)
 {
-	if (g_mockPrivateInstanceAAMP != nullptr) {
-		return g_mockPrivateInstanceAAMP->GetVidTimeScale();
+	if (g_mockPlayerInstanceAAMP != nullptr) {
+		return g_mockPlayerInstanceAAMP->GetVidTimeScale();
 	}else {
 		return 0u;
 	}
 }
 
-void PrivateInstanceAAMP::interruptibleMsSleep(int timeInMs)
+void PlayerInstanceAAMP::interruptibleMsSleep(int timeInMs)
 {
 }
 
-bool PrivateInstanceAAMP::IsDiscontinuityIgnoredForOtherTrack(AampMediaType track)
+bool PlayerInstanceAAMP::IsDiscontinuityIgnoredForOtherTrack(AampMediaType track)
 {
     return true;
 }
 
-bool PrivateInstanceAAMP::IsDiscontinuityIgnoredForCurrentTrack(AampMediaType track)
+bool PlayerInstanceAAMP::IsDiscontinuityIgnoredForCurrentTrack(AampMediaType track)
 {
     return true;
 }
 
-bool PrivateInstanceAAMP::IsDiscontinuityProcessPending()
+bool PlayerInstanceAAMP::IsDiscontinuityProcessPending()
 {
     return true;
 }
 
-bool PrivateInstanceAAMP::IsSinkCacheEmpty(AampMediaType mediaType)
+bool PlayerInstanceAAMP::IsSinkCacheEmpty(AampMediaType mediaType)
 {
     return true;
 }
 
-void PrivateInstanceAAMP::NotifyBitRateChangeEvent( BitsPerSecond bitrate, BitrateChangeReason reason, int width, int height, double frameRate, double position, bool GetBWIndex, VideoScanType scantype, int aspectRatioWidth, int aspectRatioHeight)
+void PlayerInstanceAAMP::NotifyBitRateChangeEvent( BitsPerSecond bitrate, BitrateChangeReason reason, int width, int height, double frameRate, double position, bool GetBWIndex, VideoScanType scantype, int aspectRatioWidth, int aspectRatioHeight)
 {
 }
 
-void PrivateInstanceAAMP::NotifyFragmentCachingComplete()
+void PlayerInstanceAAMP::NotifyFragmentCachingComplete()
 {
 }
 
-void PrivateInstanceAAMP::ResetEOSSignalledFlag()
+void PlayerInstanceAAMP::ResetEOSSignalledFlag()
 {
 }
 
-void PrivateInstanceAAMP::ResetTrackDiscontinuityIgnoredStatus(void)
+void PlayerInstanceAAMP::ResetTrackDiscontinuityIgnoredStatus(void)
 {
 }
 
-void PrivateInstanceAAMP::ResetTrackDiscontinuityIgnoredStatusForTrack(AampMediaType track)
+void PlayerInstanceAAMP::ResetTrackDiscontinuityIgnoredStatusForTrack(AampMediaType track)
 {
 }
 
-void PrivateInstanceAAMP::ScheduleRetune(PlaybackErrorType errorType, AampMediaType trackType, bool bufferFull)
+void PlayerInstanceAAMP::ScheduleRetune(PlaybackErrorType errorType, AampMediaType trackType, bool bufferFull)
 {
 }
 
-void PrivateInstanceAAMP::SendStalledErrorEvent()
+void PlayerInstanceAAMP::SendStalledErrorEvent()
 {
 }
 
-void PrivateInstanceAAMP::SendStreamTransfer(AampMediaType mediaType, AampGrowableBuffer* buffer, double fpts, double fdts, double fDuration, double fragmentPTSoffset, bool initFragment, bool discontinuity)
+void PlayerInstanceAAMP::SendStreamTransfer(AampMediaType mediaType, AampGrowableBuffer* buffer, double fpts, double fdts, double fDuration, double fragmentPTSoffset, bool initFragment, bool discontinuity)
 {
-	if (g_mockPrivateInstanceAAMP != nullptr)
+	if (g_mockPlayerInstanceAAMP != nullptr)
 	{
-		return g_mockPrivateInstanceAAMP->SendStreamTransfer(mediaType, buffer, fpts, fdts, fDuration, fragmentPTSoffset, initFragment, discontinuity);
+		return g_mockPlayerInstanceAAMP->SendStreamTransfer(mediaType, buffer, fpts, fdts, fDuration, fragmentPTSoffset, initFragment, discontinuity);
 	}
 }
 
-void PrivateInstanceAAMP::SetTrackDiscontinuityIgnoredStatus(AampMediaType track)
+void PlayerInstanceAAMP::SetTrackDiscontinuityIgnoredStatus(AampMediaType track)
 {
 }
 
-void PrivateInstanceAAMP::StopBuffering(bool forceStop)
+void PlayerInstanceAAMP::StopBuffering(bool forceStop)
 {
 }
 
-bool PrivateInstanceAAMP::TrackDownloadsAreEnabled(AampMediaType type)
+bool PlayerInstanceAAMP::TrackDownloadsAreEnabled(AampMediaType type)
 {
     return true;
 }
 
-void PrivateInstanceAAMP::UnblockWaitForDiscontinuityProcessToComplete(void)
+void PlayerInstanceAAMP::UnblockWaitForDiscontinuityProcessToComplete(void)
 {
 }
 
-void PrivateInstanceAAMP::CompleteDiscontinuityDataDeliverForPTSRestamp(AampMediaType type)
+void PlayerInstanceAAMP::CompleteDiscontinuityDataDeliverForPTSRestamp(AampMediaType type)
 {
 }
 
-void PrivateInstanceAAMP::SendAnomalyEvent(AAMPAnomalyMessageType type, const char* format, ...)
+void PlayerInstanceAAMP::SendAnomalyEvent(AAMPAnomalyMessageType type, const char* format, ...)
 {
 }
 
-void PrivateInstanceAAMP::LoadAampAbrConfig(void)
+void PlayerInstanceAAMP::LoadAampAbrConfig(void)
 {
 }
 
-void PrivateInstanceAAMP::SetLowLatencyServiceConfigured(bool bConfig)
+void PlayerInstanceAAMP::SetLowLatencyServiceConfigured(bool bConfig)
 {
 }
 
-void PrivateInstanceAAMP::SetLLDashServiceData(AampLLDashServiceData &stAampLLDashServiceData)
+void PlayerInstanceAAMP::SetLLDashServiceData(AampLLDashServiceData &stAampLLDashServiceData)
 {
 	this->mAampLLDashServiceData = stAampLLDashServiceData;
 }
 
-bool PrivateInstanceAAMP::GetLowLatencyServiceConfigured()
+bool PlayerInstanceAAMP::GetLowLatencyServiceConfigured()
 {
 	return false;
 }
 
-long long PrivateInstanceAAMP::DurationFromStartOfPlaybackMs(void)
+long long PlayerInstanceAAMP::DurationFromStartOfPlaybackMs(void)
 {
-	if (g_mockPrivateInstanceAAMP != nullptr)
+	if (g_mockPlayerInstanceAAMP != nullptr)
 	{
-		return g_mockPrivateInstanceAAMP->DurationFromStartOfPlaybackMs();
+		return g_mockPlayerInstanceAAMP->DurationFromStartOfPlaybackMs();
 	}
 	else
 	{
@@ -1152,146 +1152,146 @@ long long PrivateInstanceAAMP::DurationFromStartOfPlaybackMs(void)
 	}
 }
 
-void PrivateInstanceAAMP::UpdateVideoEndMetrics(double adjustedRate)
+void PlayerInstanceAAMP::UpdateVideoEndMetrics(double adjustedRate)
 {
 }
 
-void PrivateInstanceAAMP::SendAdReservationEvent(AAMPEventType type, const std::string &adBreakId, uint64_t position, uint64_t absolutePositionMs, bool immediate)
+void PlayerInstanceAAMP::SendAdReservationEvent(AAMPEventType type, const std::string &adBreakId, uint64_t position, uint64_t absolutePositionMs, bool immediate)
 {
-	if (g_mockPrivateInstanceAAMP != nullptr)
+	if (g_mockPlayerInstanceAAMP != nullptr)
 	{
-		g_mockPrivateInstanceAAMP->SendAdReservationEvent(type, adBreakId, position, absolutePositionMs, immediate);
+		g_mockPlayerInstanceAAMP->SendAdReservationEvent(type, adBreakId, position, absolutePositionMs, immediate);
 	}
 }
 
-void PrivateInstanceAAMP::SendAdPlacementEvent(AAMPEventType type, const std::string &adId, uint32_t position, uint64_t absolutePositionMs, uint32_t adOffset, uint32_t adDuration, bool immediate, long error_code)
+void PlayerInstanceAAMP::SendAdPlacementEvent(AAMPEventType type, const std::string &adId, uint32_t position, uint64_t absolutePositionMs, uint32_t adOffset, uint32_t adDuration, bool immediate, long error_code)
 {
-	if (g_mockPrivateInstanceAAMP != nullptr)
+	if (g_mockPlayerInstanceAAMP != nullptr)
 	{
-		g_mockPrivateInstanceAAMP->SendAdPlacementEvent(type, adId, position, absolutePositionMs, adOffset, adDuration, immediate, error_code);
+		g_mockPlayerInstanceAAMP->SendAdPlacementEvent(type, adId, position, absolutePositionMs, adOffset, adDuration, immediate, error_code);
 	}
 }
 
-bool PrivateInstanceAAMP::IsLiveStream(void)
+bool PlayerInstanceAAMP::IsLiveStream(void)
 {
 	return mIsLiveStream;
 }
 
-void PrivateInstanceAAMP::WaitForDiscontinuityProcessToComplete(void)
+void PlayerInstanceAAMP::WaitForDiscontinuityProcessToComplete(void)
 {
-	if (g_mockPrivateInstanceAAMP != nullptr)
+	if (g_mockPlayerInstanceAAMP != nullptr)
 	{
-		g_mockPrivateInstanceAAMP->WaitForDiscontinuityProcessToComplete();
+		g_mockPlayerInstanceAAMP->WaitForDiscontinuityProcessToComplete();
 	}
 }
 
-void PrivateInstanceAAMP::SendSupportedSpeedsChangedEvent(bool isIframeTrackPresent)
+void PlayerInstanceAAMP::SendSupportedSpeedsChangedEvent(bool isIframeTrackPresent)
 {
 }
 
-BitsPerSecond PrivateInstanceAAMP::GetDefaultBitrate4K()
+BitsPerSecond PlayerInstanceAAMP::GetDefaultBitrate4K()
 {
 	return 0;
 }
 
-void PrivateInstanceAAMP::SaveNewTimedMetadata(long long timeMS, const char* szName, const char* szContent, int nb, const char* id, double durationMS)
+void PlayerInstanceAAMP::SaveNewTimedMetadata(long long timeMS, const char* szName, const char* szContent, int nb, const char* id, double durationMS)
 {
-	if (g_mockPrivateInstanceAAMP != nullptr)
+	if (g_mockPlayerInstanceAAMP != nullptr)
 	{
-		g_mockPrivateInstanceAAMP->SaveNewTimedMetadata(timeMS, id, durationMS);
+		g_mockPlayerInstanceAAMP->SaveNewTimedMetadata(timeMS, id, durationMS);
 	}
 }
 
-void PrivateInstanceAAMP::FoundEventBreak(const std::string &adBreakId, uint64_t startMS, EventBreakInfo brInfo)
+void PlayerInstanceAAMP::FoundEventBreak(const std::string &adBreakId, uint64_t startMS, EventBreakInfo brInfo)
 {
-	if (g_mockPrivateInstanceAAMP != nullptr)
+	if (g_mockPlayerInstanceAAMP != nullptr)
 	{
-		g_mockPrivateInstanceAAMP->FoundEventBreak(adBreakId, startMS, brInfo);
+		g_mockPlayerInstanceAAMP->FoundEventBreak(adBreakId, startMS, brInfo);
 	}
 }
 
-void PrivateInstanceAAMP::SendAdResolvedEvent(const std::string &adId, bool status, uint64_t startMS, uint64_t durationMs)
+void PlayerInstanceAAMP::SendAdResolvedEvent(const std::string &adId, bool status, uint64_t startMS, uint64_t durationMs)
 {
-	if (g_mockPrivateInstanceAAMP != nullptr)
+	if (g_mockPlayerInstanceAAMP != nullptr)
 	{
-		g_mockPrivateInstanceAAMP->SendAdResolvedEvent(adId, status, startMS, durationMs);
+		g_mockPlayerInstanceAAMP->SendAdResolvedEvent(adId, status, startMS, durationMs);
 	}
 }
 
-void PrivateInstanceAAMP::ReportContentGap(long long timeMS, std::string id, double durationMS)
+void PlayerInstanceAAMP::ReportContentGap(long long timeMS, std::string id, double durationMS)
 {
 }
 
-void PrivateInstanceAAMP::SendHTTPHeaderResponse()
+void PlayerInstanceAAMP::SendHTTPHeaderResponse()
 {
 }
 
-void PrivateInstanceAAMP::LoadIDX(ProfilerBucketType bucketType, std::string fragmentUrl, std::string& effectiveUrl, AampGrowableBuffer *fragment, unsigned int curlInstance, const char *range, int * http_code, double *downloadTime, AampMediaType mediaType,int * fogError)
+void PlayerInstanceAAMP::LoadIDX(ProfilerBucketType bucketType, std::string fragmentUrl, std::string& effectiveUrl, AampGrowableBuffer *fragment, unsigned int curlInstance, const char *range, int * http_code, double *downloadTime, AampMediaType mediaType,int * fogError)
 {
         return;
 }
 
-bool PrivateInstanceAAMP::IsAudioLanguageSupported (const char *checkLanguage)
+bool PlayerInstanceAAMP::IsAudioLanguageSupported (const char *checkLanguage)
 {
 	return false;
 }
 
-void PrivateInstanceAAMP::LicenseRenewal(DrmHelperPtr drmHelper,void* userData)
+void PlayerInstanceAAMP::LicenseRenewal(DrmHelperPtr drmHelper,void* userData)
 {
 }
 
-bool PrivateInstanceAAMP::IsEventListenerAvailable(AAMPEventType eventType)
+bool PlayerInstanceAAMP::IsEventListenerAvailable(AAMPEventType eventType)
 {
 	return false;
 }
 
-void PrivateInstanceAAMP::ID3MetadataHandler(AampMediaType, const uint8_t *, size_t, const SegmentInfo_t &, const char * scheme_uri)
+void PlayerInstanceAAMP::ID3MetadataHandler(AampMediaType, const uint8_t *, size_t, const SegmentInfo_t &, const char * scheme_uri)
 {
 }
 
-void PrivateInstanceAAMP::ResetProfileCache()
+void PlayerInstanceAAMP::ResetProfileCache()
 {
 }
 
-struct curl_slist* PrivateInstanceAAMP::GetCustomHeaders(AampMediaType mediaType)
+struct curl_slist* PlayerInstanceAAMP::GetCustomHeaders(AampMediaType mediaType)
 {
 
        return NULL;
 }
 
-void PrivateInstanceAAMP::ResetDiscontinuityInTracks()
+void PlayerInstanceAAMP::ResetDiscontinuityInTracks()
 {
 }
 
-std::shared_ptr<ManifestDownloadConfig> PrivateInstanceAAMP::prepareManifestDownloadConfig()
+std::shared_ptr<ManifestDownloadConfig> PlayerInstanceAAMP::prepareManifestDownloadConfig()
 {
 	return NULL;
 }
 
-std::string PrivateInstanceAAMP::GetVideoPlaybackQuality()
+std::string PlayerInstanceAAMP::GetVideoPlaybackQuality()
 {
 	std::string result = "videoplayback";
         return result;
 }
 
-bool PrivateInstanceAAMP::PipelineValid(AampMediaType track)
+bool PlayerInstanceAAMP::PipelineValid(AampMediaType track)
 {
 	return true;
 }
 
-void PrivateInstanceAAMP::SetStreamFormat(StreamOutputFormat videoFormat, StreamOutputFormat audioFormat, StreamOutputFormat auxFormat)
+void PlayerInstanceAAMP::SetStreamFormat(StreamOutputFormat videoFormat, StreamOutputFormat audioFormat, StreamOutputFormat auxFormat)
 {
-	if (g_mockPrivateInstanceAAMP != nullptr)
+	if (g_mockPlayerInstanceAAMP != nullptr)
 	{
-		g_mockPrivateInstanceAAMP->SetStreamFormat(videoFormat, audioFormat, auxFormat);
+		g_mockPlayerInstanceAAMP->SetStreamFormat(videoFormat, audioFormat, auxFormat);
 	}
 }
 
-void PrivateInstanceAAMP::NotifyFirstVideoPTS(unsigned long long pts, unsigned long timeScale)
+void PlayerInstanceAAMP::NotifyFirstVideoPTS(unsigned long long pts, unsigned long timeScale)
 {
 }
 
-void PrivateInstanceAAMP::NotifyVideoBasePTS(unsigned long long basepts, unsigned long timeScale)
+void PlayerInstanceAAMP::NotifyVideoBasePTS(unsigned long long basepts, unsigned long timeScale)
 {
 }
 
@@ -1299,31 +1299,31 @@ void PrivateInstanceAAMP::NotifyVideoBasePTS(unsigned long long basepts, unsigne
  * @brief Get Last downloaded manifest for DASH
  * @return last downloaded manifest data
  */
-void PrivateInstanceAAMP::GetLastDownloadedManifest(std::string& manifestBuffer)
+void PlayerInstanceAAMP::GetLastDownloadedManifest(std::string& manifestBuffer)
 {
 }
 
-void PrivateInstanceAAMP::ProcessID3Metadata(char *segment, size_t size, AampMediaType type, uint64_t timeStampOffset)
+void PlayerInstanceAAMP::ProcessID3Metadata(char *segment, size_t size, AampMediaType type, uint64_t timeStampOffset)
 {
-	if (g_mockPrivateInstanceAAMP != nullptr)
+	if (g_mockPlayerInstanceAAMP != nullptr)
 	{
-		g_mockPrivateInstanceAAMP->ProcessID3Metadata(segment, size, type, timeStampOffset);
+		g_mockPlayerInstanceAAMP->ProcessID3Metadata(segment, size, type, timeStampOffset);
 	}
 }
 
-void PrivateInstanceAAMP::SetVidTimeScale(uint32_t vidTimeScale)
+void PlayerInstanceAAMP::SetVidTimeScale(uint32_t vidTimeScale)
 {
 }
 
-void PrivateInstanceAAMP::SetAudTimeScale(uint32_t audTimeScale)
+void PlayerInstanceAAMP::SetAudTimeScale(uint32_t audTimeScale)
 {
 }
 
-void PrivateInstanceAAMP::SetSubTimeScale(uint32_t audTimeScale)
+void PlayerInstanceAAMP::SetSubTimeScale(uint32_t audTimeScale)
 {
 }
 
-void PrivateInstanceAAMP::SignalTrickModeDiscontinuity()
+void PlayerInstanceAAMP::SignalTrickModeDiscontinuity()
 {
 }
 
@@ -1331,23 +1331,23 @@ void PrivateInstanceAAMP::SignalTrickModeDiscontinuity()
  * @brief Resume downloads for a track.
  * Called from StreamSink to control flow
  */
-void PrivateInstanceAAMP::ResumeTrackDownloads(AampMediaType)
+void PlayerInstanceAAMP::ResumeTrackDownloads(AampMediaType)
 {
 }
 
-void PrivateInstanceAAMP::SetDiscontinuityParam()
+void PlayerInstanceAAMP::SetDiscontinuityParam()
 {
 }
 
-void PrivateInstanceAAMP::SetLatencyParam(double latency, double buff, double rate, double bw)
+void PlayerInstanceAAMP::SetLatencyParam(double latency, double buff, double rate, double bw)
 {
 }
 
-void PrivateInstanceAAMP::SetLLDLowBufferParam(double latency, double buff, double rate, double bw, double buffLowCount)
+void PlayerInstanceAAMP::SetLLDLowBufferParam(double latency, double buff, double rate, double bw, double buffLowCount)
 {
 }
 
-void PrivateInstanceAAMP::FlushStreamSink(double position, double rate)
+void PlayerInstanceAAMP::FlushStreamSink(double position, double rate)
 {
 }
 
@@ -1355,7 +1355,7 @@ void PrivateInstanceAAMP::FlushStreamSink(double position, double rate)
  * @brief to check gstsubtec flag and vttcueventlistener
  */
 
-bool PrivateInstanceAAMP::IsGstreamerSubsEnabled(void)
+bool PlayerInstanceAAMP::IsGstreamerSubsEnabled(void)
 {
         return false;
 }
@@ -1364,7 +1364,7 @@ bool PrivateInstanceAAMP::IsGstreamerSubsEnabled(void)
  * @brief Set Discontinuity handling period change marked flag
  * @param[in] value Period change marked flag
  */
-void PrivateInstanceAAMP::SetIsPeriodChangeMarked(bool value)
+void PlayerInstanceAAMP::SetIsPeriodChangeMarked(bool value)
 {
 	mIsPeriodChangeMarked = value;
 }
@@ -1373,221 +1373,221 @@ void PrivateInstanceAAMP::SetIsPeriodChangeMarked(bool value)
  * @brief Get Discontinuity handling period change marked flag
  * @return Period change marked flag
  */
-bool PrivateInstanceAAMP::GetIsPeriodChangeMarked()
+bool PlayerInstanceAAMP::GetIsPeriodChangeMarked()
 {
 	return mIsPeriodChangeMarked;
 }
 
-long long PrivateInstanceAAMP::GetVideoPTS()
+long long PlayerInstanceAAMP::GetVideoPTS()
 {
 	return 0;
 }
 
-bool PrivateInstanceAAMP::SignalSubtitleClock( void )
+bool PlayerInstanceAAMP::SignalSubtitleClock( void )
 {
 	return false;
 }
 
-int PrivateInstanceAAMP::ScheduleAsyncTask(IdleTask task, void *arg, std::string taskName)
+int PlayerInstanceAAMP::ScheduleAsyncTask(IdleTask task, void *arg, std::string taskName)
 {
 	int retval = 0;
-	if (g_mockPrivateInstanceAAMP != nullptr)
+	if (g_mockPlayerInstanceAAMP != nullptr)
 	{
-		retval = g_mockPrivateInstanceAAMP->ScheduleAsyncTask(task, arg, taskName);
+		retval = g_mockPlayerInstanceAAMP->ScheduleAsyncTask(task, arg, taskName);
 	}
 	return retval;
 }
 
-bool PrivateInstanceAAMP::RemoveAsyncTask(int taskId)
+bool PlayerInstanceAAMP::RemoveAsyncTask(int taskId)
 {
 	bool retval = false;
-	if (g_mockPrivateInstanceAAMP != nullptr)
+	if (g_mockPlayerInstanceAAMP != nullptr)
 	{
-		retval = g_mockPrivateInstanceAAMP->RemoveAsyncTask(taskId);
+		retval = g_mockPlayerInstanceAAMP->RemoveAsyncTask(taskId);
 	}
 	return retval;
 }
 
-void PrivateInstanceAAMP::NotifyFirstFrameReceived(unsigned long)
+void PlayerInstanceAAMP::NotifyFirstFrameReceived(unsigned long)
 {
 }
 
-void PrivateInstanceAAMP::NotifyEOSReached()
+void PlayerInstanceAAMP::NotifyEOSReached()
 {
 }
 
-void PrivateInstanceAAMP::ReportProgress(bool sync, bool beginningOfStream)
+void PlayerInstanceAAMP::ReportProgress(bool sync, bool beginningOfStream)
 {
 }
 
-void PrivateInstanceAAMP::NotifyFirstVideoFrameDisplayed()
+void PlayerInstanceAAMP::NotifyFirstVideoFrameDisplayed()
 {
 }
 
-void PrivateInstanceAAMP::LogFirstFrame(void)
+void PlayerInstanceAAMP::LogFirstFrame(void)
 {
 }
 
-void PrivateInstanceAAMP::LogTuneComplete(void)
+void PlayerInstanceAAMP::LogTuneComplete(void)
 {
 }
 
-void PrivateInstanceAAMP::InitializeCC(unsigned long)
+void PlayerInstanceAAMP::InitializeCC(unsigned long)
 {
 }
 
-bool PrivateInstanceAAMP::IsFirstVideoFrameDisplayedRequired()
-{
-	return false;
-}
-
-void PrivateInstanceAAMP::UpdateSubtitleTimestamp()
-{
-}
-
-double PrivateInstanceAAMP::GetFirstPTS()
-{
-	return 0;
-}
-
-double PrivateInstanceAAMP::GetMidSeekPosOffset()
-{
-	return 0;
-}
-
-int PrivateInstanceAAMP::GetCurrentAudioTrackId()
-{
-	return 0;
-}
-
-void PrivateInstanceAAMP::PauseSubtitleParser(bool pause)
-{
-}
-
-bool PrivateInstanceAAMP::PausePipeline(bool pause, bool forceStopGstreamerPreBuffering)
+bool PlayerInstanceAAMP::IsFirstVideoFrameDisplayedRequired()
 {
 	return false;
 }
 
-void PrivateInstanceAAMP::SendBufferChangeEvent(bool bufferingStopped)
+void PlayerInstanceAAMP::UpdateSubtitleTimestamp()
 {
 }
 
-long long PrivateInstanceAAMP::GetPositionRelativeToSeekMilliseconds(long long rate,
+double PlayerInstanceAAMP::GetFirstPTS()
+{
+	return 0;
+}
+
+double PlayerInstanceAAMP::GetMidSeekPosOffset()
+{
+	return 0;
+}
+
+int PlayerInstanceAAMP::GetCurrentAudioTrackId()
+{
+	return 0;
+}
+
+void PlayerInstanceAAMP::PauseSubtitleParser(bool pause)
+{
+}
+
+bool PlayerInstanceAAMP::PausePipeline(bool pause, bool forceStopGstreamerPreBuffering)
+{
+	return false;
+}
+
+void PlayerInstanceAAMP::SendBufferChangeEvent(bool bufferingStopped)
+{
+}
+
+long long PlayerInstanceAAMP::GetPositionRelativeToSeekMilliseconds(long long rate,
 																	 long long trickStartUTCMS)
 {
 	return 0;
 }
 
-void PrivateInstanceAAMP::CacheAndApplySubtitleMute(bool muted)
+void PlayerInstanceAAMP::CacheAndApplySubtitleMute(bool muted)
 {
 }
 
-void PrivateInstanceAAMP::FlushTrack(AampMediaType mediaType,double pos)
+void PlayerInstanceAAMP::FlushTrack(AampMediaType mediaType,double pos)
 {
 }
 
-void PrivateInstanceAAMP::ReleaseDynamicDRMToUpdateWait(void)
+void PlayerInstanceAAMP::ReleaseDynamicDRMToUpdateWait(void)
 {
 }
 
-std::shared_ptr<TSB::Store> PrivateInstanceAAMP::GetTSBStore(const TSB::Store::Config& config, TSB::LogFunction logger, TSB::LogLevel level)
+std::shared_ptr<TSB::Store> PlayerInstanceAAMP::GetTSBStore(const TSB::Store::Config& config, TSB::LogFunction logger, TSB::LogLevel level)
 {
-	if (g_mockPrivateInstanceAAMP)
+	if (g_mockPlayerInstanceAAMP)
 	{
-		return g_mockPrivateInstanceAAMP->GetTSBStore(config, logger, level);
+		return g_mockPlayerInstanceAAMP->GetTSBStore(config, logger, level);
 	}
 	return nullptr;
 }
 
-void PrivateInstanceAAMP::SetLocalAAMPTsbInjection(bool value)
+void PlayerInstanceAAMP::SetLocalAAMPTsbInjection(bool value)
 {
 }
 
-bool PrivateInstanceAAMP::IsLocalAAMPTsbInjection()
+bool PlayerInstanceAAMP::IsLocalAAMPTsbInjection()
 {
-	if (g_mockPrivateInstanceAAMP)
+	if (g_mockPlayerInstanceAAMP)
 	{
-		return g_mockPrivateInstanceAAMP->IsLocalAAMPTsbInjection();
+		return g_mockPlayerInstanceAAMP->IsLocalAAMPTsbInjection();
 	}
 	return false;
 }
 
-void PrivateInstanceAAMP::UpdateLocalAAMPTsbInjection()
+void PlayerInstanceAAMP::UpdateLocalAAMPTsbInjection()
 {
-	if (g_mockPrivateInstanceAAMP)
+	if (g_mockPlayerInstanceAAMP)
 	{
-		g_mockPrivateInstanceAAMP->UpdateLocalAAMPTsbInjection();
+		g_mockPlayerInstanceAAMP->UpdateLocalAAMPTsbInjection();
 	}
 }
 
-bool PrivateInstanceAAMP::GetLLDashAdjustSpeed(void)
+bool PlayerInstanceAAMP::GetLLDashAdjustSpeed(void)
 {
-	if (g_mockPrivateInstanceAAMP)
+	if (g_mockPlayerInstanceAAMP)
 	{
-		return g_mockPrivateInstanceAAMP->GetLLDashAdjustSpeed();
+		return g_mockPlayerInstanceAAMP->GetLLDashAdjustSpeed();
 	}
 	return false;
 }
 
-double PrivateInstanceAAMP::GetLLDashCurrentPlayBackRate(void)
+double PlayerInstanceAAMP::GetLLDashCurrentPlayBackRate(void)
 {
-	if (g_mockPrivateInstanceAAMP)
+	if (g_mockPlayerInstanceAAMP)
 	{
-		return g_mockPrivateInstanceAAMP->GetLLDashCurrentPlayBackRate();
+		return g_mockPlayerInstanceAAMP->GetLLDashCurrentPlayBackRate();
 	}
 	return 1.0;
 }
 
-void PrivateInstanceAAMP::TimedWaitForLatencyCheck(int timeInMs)
+void PlayerInstanceAAMP::TimedWaitForLatencyCheck(int timeInMs)
 {
 }
 
-void PrivateInstanceAAMP::WakeupLatencyCheck()
+void PlayerInstanceAAMP::WakeupLatencyCheck()
 {
 }
 
-void PrivateInstanceAAMP::IncreaseGSTBufferSize()
+void PlayerInstanceAAMP::IncreaseGSTBufferSize()
 {
 }
 
-AampTSBSessionManager *PrivateInstanceAAMP::GetTSBSessionManager()
+AampTSBSessionManager *PlayerInstanceAAMP::GetTSBSessionManager()
 {
 	AampTSBSessionManager *aampTsbSessionManager = nullptr;
 
-	if (g_mockPrivateInstanceAAMP)
+	if (g_mockPlayerInstanceAAMP)
 	{
-		aampTsbSessionManager = g_mockPrivateInstanceAAMP->GetTSBSessionManager();
+		aampTsbSessionManager = g_mockPlayerInstanceAAMP->GetTSBSessionManager();
 	}
 
 	return aampTsbSessionManager;
 }
 
-std::string PrivateInstanceAAMP::GetLicenseReqProxy()
+std::string PlayerInstanceAAMP::GetLicenseReqProxy()
 {
 	return "";
 }
 
-std::string PrivateInstanceAAMP::GetLicenseCustomData()
+std::string PlayerInstanceAAMP::GetLicenseCustomData()
 {
 	return "";
 }
 
-void PrivateInstanceAAMP::GetCustomLicenseHeaders(std::unordered_map<std::string, std::vector<std::string>>& customHeaders)
+void PlayerInstanceAAMP::GetCustomLicenseHeaders(std::unordered_map<std::string, std::vector<std::string>>& customHeaders)
 {
 }
 
-std::string PrivateInstanceAAMP::GetLicenseServerUrlForDrm(DRMSystems type)
+std::string PlayerInstanceAAMP::GetLicenseServerUrlForDrm(DRMSystems type)
 {
     return "";
 }
 
-bool PrivateInstanceAAMP::ReconfigureForCodecChange()
+bool PlayerInstanceAAMP::ReconfigureForCodecChange()
 {
 	return false;
 }
 
-std::string PrivateInstanceAAMP::SendManifestPreProcessEvent()
+std::string PlayerInstanceAAMP::SendManifestPreProcessEvent()
 {
 	std::string  bRetManifestData;
 	if(!mProvidedManifestFile.empty())
@@ -1597,110 +1597,110 @@ std::string PrivateInstanceAAMP::SendManifestPreProcessEvent()
 	return bRetManifestData;
 }
 
-void PrivateInstanceAAMP::updateManifest(const char *manifestData)
+void PlayerInstanceAAMP::updateManifest(const char *manifestData)
 {
 	if(NULL != manifestData)
 		mProvidedManifestFile = manifestData;
 }
 
 
-void PrivateInstanceAAMP::SetPauseOnStartPlayback(bool enable)
+void PlayerInstanceAAMP::SetPauseOnStartPlayback(bool enable)
 {
-	if (g_mockPrivateInstanceAAMP)
+	if (g_mockPlayerInstanceAAMP)
 	{
-		g_mockPrivateInstanceAAMP->SetPauseOnStartPlayback(enable);
+		g_mockPlayerInstanceAAMP->SetPauseOnStartPlayback(enable);
 	}
 }
 
-bool PrivateInstanceAAMP::isDecryptClearSamplesRequired()
+bool PlayerInstanceAAMP::isDecryptClearSamplesRequired()
 {
 	bool bIsDecryptClearSamplesRequired = false;
-	if (g_mockPrivateInstanceAAMP)
+	if (g_mockPlayerInstanceAAMP)
 	{
-		bIsDecryptClearSamplesRequired = g_mockPrivateInstanceAAMP->isDecryptClearSamplesRequired();
+		bIsDecryptClearSamplesRequired = g_mockPlayerInstanceAAMP->isDecryptClearSamplesRequired();
 	}
 	return bIsDecryptClearSamplesRequired;
 }
 
-void PrivateInstanceAAMP::ResetTrickStartUTCTime()
+void PlayerInstanceAAMP::ResetTrickStartUTCTime()
 {
 }
 
-void PrivateInstanceAAMP::SetLLDashChunkMode(bool enable)
+void PlayerInstanceAAMP::SetLLDashChunkMode(bool enable)
 {
-	if (g_mockPrivateInstanceAAMP)
+	if (g_mockPlayerInstanceAAMP)
 	{
-		g_mockPrivateInstanceAAMP->SetLLDashChunkMode(enable);
+		g_mockPlayerInstanceAAMP->SetLLDashChunkMode(enable);
 	}
 }
 
-bool PrivateInstanceAAMP::GetLLDashChunkMode()
+bool PlayerInstanceAAMP::GetLLDashChunkMode()
 {
 	bool bIsChunkMode = false;
-	if (g_mockPrivateInstanceAAMP)
+	if (g_mockPlayerInstanceAAMP)
 	{
-		bIsChunkMode = g_mockPrivateInstanceAAMP->GetLLDashChunkMode();
+		bIsChunkMode = g_mockPlayerInstanceAAMP->GetLLDashChunkMode();
 	}
 	return bIsChunkMode;
 }
 
-const char* PrivateInstanceAAMP::getStringForPlaybackError(PlaybackErrorType errorType)
+const char* PlayerInstanceAAMP::getStringForPlaybackError(PlaybackErrorType errorType)
 {
 	return "";
 }
 
-unsigned char* PrivateInstanceAAMP::ReplaceKeyIDPsshData(const unsigned char *InputData, const size_t InputDataLength,  size_t & OutputDataLength) {
+unsigned char* PlayerInstanceAAMP::ReplaceKeyIDPsshData(const unsigned char *InputData, const size_t InputDataLength,  size_t & OutputDataLength) {
 
 	return NULL;
 }
 
-void PrivateInstanceAAMP::SendBlockedEvent(const std::string & reason, const std::string currentLocator)
+void PlayerInstanceAAMP::SendBlockedEvent(const std::string & reason, const std::string currentLocator)
 {
 
 }
-void PrivateInstanceAAMP::GetPlayerVideoSize(int &width, int &height)
+void PlayerInstanceAAMP::GetPlayerVideoSize(int &width, int &height)
 {
 }
 
-void PrivateInstanceAAMP::SendVTTCueDataAsEvent(VTTCue* cue)
+void PlayerInstanceAAMP::SendVTTCueDataAsEvent(VTTCue* cue)
 {
 }
 
-void PrivateInstanceAAMP::UpdateCCTrackInfo(const std::vector<TextTrackInfo>& textTracksCopy, std::vector<CCTrackInfo>& updatedTextTracks)
+void PlayerInstanceAAMP::UpdateCCTrackInfo(const std::vector<TextTrackInfo>& textTracksCopy, std::vector<CCTrackInfo>& updatedTextTracks)
 {
 }
 
-void PrivateInstanceAAMP::CalculateTrickModePositionEOS(void)
+void PlayerInstanceAAMP::CalculateTrickModePositionEOS(void)
 {
-	if (g_mockPrivateInstanceAAMP)
+	if (g_mockPlayerInstanceAAMP)
 	{
-		g_mockPrivateInstanceAAMP->CalculateTrickModePositionEOS();
+		g_mockPlayerInstanceAAMP->CalculateTrickModePositionEOS();
 	}
 }
 
-double PrivateInstanceAAMP::GetLivePlayPosition(void)
+double PlayerInstanceAAMP::GetLivePlayPosition(void)
 {
 	double livePlayPosition = 0.0;
-	if (g_mockPrivateInstanceAAMP)
+	if (g_mockPlayerInstanceAAMP)
 	{
-		livePlayPosition = g_mockPrivateInstanceAAMP->GetLivePlayPosition();
+		livePlayPosition = g_mockPlayerInstanceAAMP->GetLivePlayPosition();
 	}
 	return livePlayPosition;
 }
 
-void PrivateInstanceAAMP::IncrementGaps()
+void PlayerInstanceAAMP::IncrementGaps()
 {
 }
 
-double PrivateInstanceAAMP::GetStreamPositionMs()
+double PlayerInstanceAAMP::GetStreamPositionMs()
 {
 	return 0.0;
 }
 
-void PrivateInstanceAAMP::SendMonitorAvEvent(const std::string &status, int64_t videoPositionMS, int64_t audioPositionMS, uint64_t timeInStateMS, uint64_t droppedFrames)
+void PlayerInstanceAAMP::SendMonitorAvEvent(const std::string &status, int64_t videoPositionMS, int64_t audioPositionMS, uint64_t timeInStateMS, uint64_t droppedFrames)
 {
 }
-double PrivateInstanceAAMP::GetFormatPositionOffsetInMSecs()
+double PlayerInstanceAAMP::GetFormatPositionOffsetInMSecs()
 {
 	return 0;
 }

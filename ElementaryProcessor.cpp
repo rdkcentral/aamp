@@ -25,7 +25,7 @@
 #include "ElementaryProcessor.h"
 #include <assert.h>
 
-ElementaryProcessor::ElementaryProcessor(class PrivateInstanceAAMP *aamp)
+ElementaryProcessor::ElementaryProcessor(class PlayerInstanceAAMP *aamp)
 : p_aamp(aamp), basePTS(0), playRate(1.0f), abortAll(false), contentType(ContentType_UNKNOWN),
 	processPTSComplete(false),mediaFormat(eMEDIAFORMAT_UNKNOWN)
 {

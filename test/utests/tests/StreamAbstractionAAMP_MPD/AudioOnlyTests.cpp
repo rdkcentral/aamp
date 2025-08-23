@@ -20,7 +20,7 @@
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
 #include <chrono>
-#include "priv_aamp.h"
+#include "main_aamp.h"
 #include "AampConfig.h"
 #include "AampScheduler.h"
 #include "AampLogManager.h"
@@ -29,7 +29,7 @@
 #include "MockAampConfig.h"
 #include "MockAampUtils.h"
 #include "MockAampGstPlayer.h"
-#include "MockPrivateInstanceAAMP.h"
+#include "MockPlayerInstanceAAMP.h"
 #include "MockMediaStreamContext.h"
 #include "MockAampMPDDownloader.h"
 #include "MockAampStreamSinkManager.h"
@@ -54,7 +54,7 @@ class AudioOnlyTests : public ::testing::Test
 {
 protected:
 
-	PrivateInstanceAAMP *mPrivateInstanceAAMP;
+	PlayerInstanceAAMP *mPlayerInstanceAAMP;
 	StreamAbstractionAAMP_MPD *mStreamAbstractionAAMP_MPD;
 	CDAIObject *mCdaiObj;
 	const char *mManifest;
@@ -120,14 +120,14 @@ protected:
 			gpGlobalConfig =  new AampConfig();
 		}
 
-		mPrivateInstanceAAMP = new PrivateInstanceAAMP(gpGlobalConfig);
-		mPrivateInstanceAAMP->mIsDefaultOffset = true;
+		mPlayerInstanceAAMP = new PlayerInstanceAAMP(gpGlobalConfig);
+		mPlayerInstanceAAMP->mIsDefaultOffset = true;
 
 		g_mockAampConfig = new NiceMock<MockAampConfig>();
 
-		g_mockAampGstPlayer = new MockAAMPGstPlayer(mPrivateInstanceAAMP);
+		g_mockAampGstPlayer = new MockAAMPGstPlayer(mPlayerInstanceAAMP);
 
-		g_mockPrivateInstanceAAMP = new StrictMock<MockPrivateInstanceAAMP>();
+		g_mockPlayerInstanceAAMP = new StrictMock<MockPlayerInstanceAAMP>();
 
 		g_mockMediaStreamContext = new StrictMock<MockMediaStreamContext>();
 
@@ -152,8 +152,8 @@ protected:
 			mStreamAbstractionAAMP_MPD = nullptr;
 		}
 
-		delete mPrivateInstanceAAMP;
-		mPrivateInstanceAAMP = nullptr;
+		delete mPlayerInstanceAAMP;
+		mPlayerInstanceAAMP = nullptr;
 
 		delete mCdaiObj;
 		mCdaiObj = nullptr;
@@ -167,8 +167,8 @@ protected:
 		delete g_mockAampGstPlayer;
 		g_mockAampGstPlayer = nullptr;
 
-		delete g_mockPrivateInstanceAAMP;
-		g_mockPrivateInstanceAAMP = nullptr;
+		delete g_mockPlayerInstanceAAMP;
+		g_mockPlayerInstanceAAMP = nullptr;
 
 		delete g_mockMediaStreamContext;
 		g_mockMediaStreamContext = nullptr;
@@ -266,20 +266,20 @@ public:
 		}
 
 		/* Create MPD instance. */
-		mStreamAbstractionAAMP_MPD = new StreamAbstractionAAMP_MPD(mPrivateInstanceAAMP, seekPos, rate);
-		mCdaiObj = new CDAIObjectMPD(mPrivateInstanceAAMP);
+		mStreamAbstractionAAMP_MPD = new StreamAbstractionAAMP_MPD(mPlayerInstanceAAMP, seekPos, rate);
+		mCdaiObj = new CDAIObjectMPD(mPlayerInstanceAAMP);
 		mStreamAbstractionAAMP_MPD->SetCDAIObject(mCdaiObj);
 
-		mPrivateInstanceAAMP->SetManifestUrl(TEST_MANIFEST_URL);
+		mPlayerInstanceAAMP->SetManifestUrl(TEST_MANIFEST_URL);
 
 		/* Initialize MPD. */
-		EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetState(eSTATE_PREPARING));
+		EXPECT_CALL(*g_mockPlayerInstanceAAMP, SetState(eSTATE_PREPARING));
 
-		EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState())
+		EXPECT_CALL(*g_mockPlayerInstanceAAMP, GetState())
 			.Times(AnyNumber())
 			.WillRepeatedly(Return(eSTATE_PREPARING));
-		EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetLLDashChunkMode()).WillRepeatedly(Return(false));
-		EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetLLDashChunkMode(_));
+		EXPECT_CALL(*g_mockPlayerInstanceAAMP, GetLLDashChunkMode()).WillRepeatedly(Return(false));
+		EXPECT_CALL(*g_mockPlayerInstanceAAMP, SetLLDashChunkMode(_));
 		// For the time being return the same manifest again
 		EXPECT_CALL(*g_mockAampMPDDownloader, GetManifest (_, _, _))
 			.WillRepeatedly(WithoutArgs(Invoke(this, &AudioOnlyTests::GetManifestForMPDDownloader)));
@@ -347,7 +347,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 
 	status = InitializeMPD(manifest);
 	EXPECT_EQ(status, eAAMPSTATUS_OK);
-	EXPECT_EQ(mPrivateInstanceAAMP->mAudioOnlyPb, true);
+	EXPECT_EQ(mPlayerInstanceAAMP->mAudioOnlyPb, true);
 	EXPECT_EQ(mStreamAbstractionAAMP_MPD->GetMediaTrack(eTRACK_VIDEO)->enabled, true);
 	EXPECT_EQ(mStreamAbstractionAAMP_MPD->GetMediaTrack(eTRACK_AUDIO)->enabled, false);
 
@@ -421,7 +421,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 
 	status = InitializeMPD(manifest);
 	EXPECT_EQ(status, eAAMPSTATUS_OK);
-	EXPECT_EQ(mPrivateInstanceAAMP->mAudioOnlyPb, true);
+	EXPECT_EQ(mPlayerInstanceAAMP->mAudioOnlyPb, true);
 	EXPECT_EQ(mStreamAbstractionAAMP_MPD->GetMediaTrack(eTRACK_VIDEO)->enabled, true);
 	EXPECT_EQ(mStreamAbstractionAAMP_MPD->GetMediaTrack(eTRACK_AUDIO)->enabled, false);
 
@@ -493,7 +493,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 
 	status = InitializeMPD(manifest, TuneType::eTUNETYPE_NEW_NORMAL, 240);
 	EXPECT_EQ(status, eAAMPSTATUS_OK);
-	EXPECT_EQ(mPrivateInstanceAAMP->mAudioOnlyPb, true);
+	EXPECT_EQ(mPlayerInstanceAAMP->mAudioOnlyPb, true);
 	EXPECT_EQ(mStreamAbstractionAAMP_MPD->GetMediaTrack(eTRACK_VIDEO)->enabled, true);
 	EXPECT_EQ(mStreamAbstractionAAMP_MPD->GetMediaTrack(eTRACK_AUDIO)->enabled, false);
 

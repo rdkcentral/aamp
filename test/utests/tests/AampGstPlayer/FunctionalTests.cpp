@@ -25,7 +25,7 @@
 #include "MockGLib.h"
 #include "MockAampConfig.h"
 #include "MockGstHandlerControl.h"
-#include "MockPrivateInstanceAAMP.h"
+#include "MockPlayerInstanceAAMP.h"
 #include "MockAampUtils.h"
 #include "MockPlayerUtils.h"
 
@@ -51,7 +51,7 @@ class AAMPGstPlayerTests : public ::testing::Test
 protected:
 	AAMPGstPlayer *mAAMPGstPlayer;
 	InterfacePlayerRDK *mplayer;
-	PrivateInstanceAAMP *mPrivateInstanceAAMP;
+	PlayerInstanceAAMP *mPlayerInstanceAAMP;
 	bool isPipelineSetup = false;
 	GstElement gst_element_pipeline = {.object = {.name = (gchar *)"Pipeline"}};
 	GstBus bus = {};
@@ -66,14 +66,14 @@ protected:
 		g_mockGLib = new MockGLib();
 		g_mockAampConfig = new NiceMock<MockAampConfig>();
 		g_mockGstHandlerControl= new MockGstHandlerControl();
-		g_mockPrivateInstanceAAMP = new MockPrivateInstanceAAMP();
-		mPrivateInstanceAAMP = new PrivateInstanceAAMP{};
+		g_mockPlayerInstanceAAMP = new MockPlayerInstanceAAMP();
+		mPlayerInstanceAAMP = new PlayerInstanceAAMP{};
 	}
 
 	void TearDown() override
 	{
-		delete g_mockPrivateInstanceAAMP;
-		g_mockPrivateInstanceAAMP = nullptr;
+		delete g_mockPlayerInstanceAAMP;
+		g_mockPlayerInstanceAAMP = nullptr;
 
 		delete g_mockGstHandlerControl;
 		 g_mockGstHandlerControl= nullptr;
@@ -90,8 +90,8 @@ protected:
 		delete g_mockAampUtils;
 		g_mockAampUtils = nullptr;
 
-		delete mPrivateInstanceAAMP;
-		mPrivateInstanceAAMP = nullptr;
+		delete mPlayerInstanceAAMP;
+		mPlayerInstanceAAMP = nullptr;
 
 		delete g_mockPlayerUtils;
 		g_mockPlayerUtils = nullptr;
@@ -125,7 +125,7 @@ public:
 					.WillOnce(Return(debug_level));
 		EXPECT_CALL(*g_mockGStreamer, gst_debug_set_threshold_from_string(StrEq(debug_level.c_str()), reset));
 
-		mAAMPGstPlayer = new AAMPGstPlayer{mPrivateInstanceAAMP, nullptr};
+		mAAMPGstPlayer = new AAMPGstPlayer{mPlayerInstanceAAMP, nullptr};
 		mInterfaceGstPlayer = new InterfacePlayerRDK();
 		mplayer = mAAMPGstPlayer->playerInstance;
 	}

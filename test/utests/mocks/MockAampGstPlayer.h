@@ -29,7 +29,7 @@ class MockAAMPGstPlayer : public AAMPGstPlayer
 {
 public:
 
-    MockAAMPGstPlayer( PrivateInstanceAAMP *aamp) : AAMPGstPlayer( aamp, mock_id3_callback) { }
+    MockAAMPGstPlayer( PlayerInstanceAAMP *aamp) : AAMPGstPlayer( aamp, mock_id3_callback) { }
 
     MOCK_METHOD( long long, GetPositionMilliseconds, (), (override));
 
@@ -37,11 +37,11 @@ public:
 
     MOCK_METHOD(bool , SetTextStyle, (const std::string &options), (override));
 
-    MOCK_METHOD(void, ChangeAamp, (PrivateInstanceAAMP *, id3_callback_t));
+    MOCK_METHOD(void, ChangeAamp, (PlayerInstanceAAMP *, id3_callback_t));
 
     MOCK_METHOD(void, Flush, (double position, int rate, bool shouldTearDown), (override));
 
-    MOCK_METHOD(void, SetEncryptedAamp, (PrivateInstanceAAMP *));
+    MOCK_METHOD(void, SetEncryptedAamp, (PlayerInstanceAAMP *));
 
     MOCK_METHOD(bool, IsCodecSupported, (const std::string &codecName));
 

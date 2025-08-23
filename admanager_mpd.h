@@ -51,9 +51,9 @@ public:
 	/**
 	 * @fn CDAIObjectMPD
 	 *
-	 * @param[in] aamp - Pointer to PrivateInstanceAAMP
+	 * @param[in] aamp - Pointer to PlayerInstanceAAMP
 	 */
-	CDAIObjectMPD(PrivateInstanceAAMP* aamp);
+	CDAIObjectMPD(PlayerInstanceAAMP* aamp);
 
 	/**
 	 * @fn ~CDAIObjectMPD
@@ -342,7 +342,7 @@ struct PlacementObj {
 class PrivateCDAIObjectMPD
 {
 public:
-	PrivateInstanceAAMP*                           mAamp;               /**< AAMP player's private instance */
+	PlayerInstanceAAMP*                           mAamp;               /**< AAMP player's private instance */
 	std::mutex                                     mDaiMtx;             /**< Mutex protecting DAI critical section */
 	bool                                           mIsFogTSB;           /**< Channel playing from TSB or not */
 	std::unordered_map<std::string, AdBreakObject> mAdBreaks;           /**< Periodid to adbreakobject map*/
@@ -369,9 +369,9 @@ public:
 	/**
 	 * @fn PrivateCDAIObjectMPD
 	 *
-	 * @param[in] aamp - Pointer to PrivateInstanceAAMP
+	 * @param[in] aamp - Pointer to PlayerInstanceAAMP
 	 */
-	PrivateCDAIObjectMPD(PrivateInstanceAAMP* aamp);
+	PrivateCDAIObjectMPD(PlayerInstanceAAMP* aamp);
 
 	/**
 	 * @fn ~PrivateCDAIObjectMPD

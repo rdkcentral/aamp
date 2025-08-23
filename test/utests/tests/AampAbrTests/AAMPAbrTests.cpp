@@ -17,7 +17,7 @@
  * limitations under the License.
  */
 #include <gtest/gtest.h>
-#include "priv_aamp.h"
+#include "main_aamp.h"
 int main(int argc, char** argv)
 {
 	testing::InitGoogleTest(&argc, argv);

@@ -19,13 +19,13 @@
 
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
-#include "priv_aamp.h"
+#include "main_aamp.h"
 #include "AampTSBSessionManager.h"
 #include "AampTsbReader.h"
 #include "AampConfig.h"
 #include "StreamAbstractionAAMP.h"
 #include "MockAampConfig.h"
-#include "MockPrivateInstanceAAMP.h"
+#include "MockPlayerInstanceAAMP.h"
 #include "MockTSBReader.h"
 #include "MockTSBStore.h"
 #include "MockTSBDataManager.h"
@@ -54,10 +54,10 @@ protected:
 			gpGlobalConfig = new AampConfig();
 		}
 		g_mockAampConfig = new NiceMock<MockAampConfig>();
-		mAamp = std::make_shared<PrivateInstanceAAMP>(gpGlobalConfig);
+		mAamp = std::make_shared<PlayerInstanceAAMP>(gpGlobalConfig);
 
 		// Create mocks for the AAMP objects
-		g_mockPrivateInstanceAAMP = new NiceMock<MockPrivateInstanceAAMP>();
+		g_mockPlayerInstanceAAMP = new NiceMock<MockPlayerInstanceAAMP>();
 		g_mockTSBReader = std::make_shared<StrictMock<MockTSBReader>>();
 		g_mockTSBDataManager = new NiceMock<MockTSBDataManager>();
 		g_mockTSBStore = new NiceMock<MockTSBStore>();
@@ -74,7 +74,7 @@ protected:
 
 		mTsbStore = std::make_shared<TSB::Store>(expectedTSBConfig, TSB::LogFunction(), mAamp->mPlayerId, TSB::LogLevel::TRACE);
 
-		EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetTSBStore(_, _, _)).WillRepeatedly(Return(mTsbStore));
+		EXPECT_CALL(*g_mockPlayerInstanceAAMP, GetTSBStore(_, _, _)).WillRepeatedly(Return(mTsbStore));
 		mAampTSBSessionManager = std::make_shared<AampTSBSessionManager>(mAamp.get());
 		mAampTSBSessionManager->Init();
 
@@ -104,12 +104,12 @@ protected:
 		gpGlobalConfig = nullptr;
 		delete(g_mockAampConfig);
 		g_mockAampConfig = nullptr;
-		delete(g_mockPrivateInstanceAAMP);
-		g_mockPrivateInstanceAAMP = nullptr;
+		delete(g_mockPlayerInstanceAAMP);
+		g_mockPlayerInstanceAAMP = nullptr;
 		mTsbStore.reset();
 	}
 
-	std::shared_ptr<PrivateInstanceAAMP> mAamp;
+	std::shared_ptr<PlayerInstanceAAMP> mAamp;
 	std::shared_ptr<AampTSBSessionManager> mAampTSBSessionManager;
 	std::shared_ptr<MediaStreamContext> mMediaStreamContext;
 	std::shared_ptr<AampTsbDataManager> mTsbDataManager;

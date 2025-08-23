@@ -20,7 +20,7 @@
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
 #include <chrono>
-#include "priv_aamp.h"
+#include "main_aamp.h"
 #include "AampConfig.h"
 #include "AampScheduler.h"
 #include "AampLogManager.h"
@@ -29,7 +29,7 @@
 #include "MockAampConfig.h"
 #include "MockAampUtils.h"
 #include "MockAampGstPlayer.h"
-#include "MockPrivateInstanceAAMP.h"
+#include "MockPlayerInstanceAAMP.h"
 #include "MockMediaStreamContext.h"
 #include "MockAampMPDDownloader.h"
 #include "MockAampStreamSinkManager.h"
@@ -70,7 +70,7 @@ protected:
 	public:
 		double mBufferDuration;
 		// Constructor to pass parameters to the base class constructor
-		TestableStreamAbstractionAAMP_MPD(PrivateInstanceAAMP *aamp,
+		TestableStreamAbstractionAAMP_MPD(PlayerInstanceAAMP *aamp,
 										  double seekpos, float rate)
 			: StreamAbstractionAAMP_MPD(aamp, seekpos, rate)
 		{
@@ -173,7 +173,7 @@ protected:
 		}
 	};
 
-	PrivateInstanceAAMP *mPrivateInstanceAAMP;
+	PlayerInstanceAAMP *mPlayerInstanceAAMP;
 	TestableStreamAbstractionAAMP_MPD *mStreamAbstractionAAMP_MPD;
 	CDAIObject *mCdaiObj;
 	using BoolConfigSettings = std::map<AAMPConfigSettingBool, bool>;
@@ -257,16 +257,16 @@ protected:
 			gpGlobalConfig = new AampConfig();
 		}
 
-		mPrivateInstanceAAMP = new PrivateInstanceAAMP(gpGlobalConfig);
-		mPrivateInstanceAAMP->mIsDefaultOffset = true;
+		mPlayerInstanceAAMP = new PlayerInstanceAAMP(gpGlobalConfig);
+		mPlayerInstanceAAMP->mIsDefaultOffset = true;
 
 		g_mockAampConfig = new NiceMock<MockAampConfig>();
 
-		g_mockAampGstPlayer = new MockAAMPGstPlayer(mPrivateInstanceAAMP);
+		g_mockAampGstPlayer = new MockAAMPGstPlayer(mPlayerInstanceAAMP);
 
-		mPrivateInstanceAAMP->mIsDefaultOffset = true;
+		mPlayerInstanceAAMP->mIsDefaultOffset = true;
 
-		g_mockPrivateInstanceAAMP = new StrictMock<MockPrivateInstanceAAMP>();
+		g_mockPlayerInstanceAAMP = new StrictMock<MockPlayerInstanceAAMP>();
 
 		g_mockMediaStreamContext = new StrictMock<MockMediaStreamContext>();
 
@@ -288,8 +288,8 @@ protected:
 			mStreamAbstractionAAMP_MPD = nullptr;
 		}
 
-		delete mPrivateInstanceAAMP;
-		mPrivateInstanceAAMP = nullptr;
+		delete mPlayerInstanceAAMP;
+		mPlayerInstanceAAMP = nullptr;
 
 		delete mCdaiObj;
 		mCdaiObj = nullptr;
@@ -303,8 +303,8 @@ protected:
 		delete g_mockAampGstPlayer;
 		g_mockAampGstPlayer = nullptr;
 
-		delete g_mockPrivateInstanceAAMP;
-		g_mockPrivateInstanceAAMP = nullptr;
+		delete g_mockPlayerInstanceAAMP;
+		g_mockPlayerInstanceAAMP = nullptr;
 
 		delete g_mockMediaStreamContext;
 		g_mockMediaStreamContext = nullptr;
@@ -357,8 +357,8 @@ public:
 		}
 
 		/* Create MPD instance. */
-		mStreamAbstractionAAMP_MPD = new TestableStreamAbstractionAAMP_MPD(mPrivateInstanceAAMP, seekPos, rate);
-		mCdaiObj = new CDAIObjectMPD(mPrivateInstanceAAMP);
+		mStreamAbstractionAAMP_MPD = new TestableStreamAbstractionAAMP_MPD(mPlayerInstanceAAMP, seekPos, rate);
+		mCdaiObj = new CDAIObjectMPD(mPlayerInstanceAAMP);
 		mStreamAbstractionAAMP_MPD->SetCDAIObject(mCdaiObj);
 		return eAAMPSTATUS_OK;
 	}
@@ -377,33 +377,33 @@ TEST_P(MonitorLatencyTests, LatencyChangeExpectedScenarios)
 	// Initialize the test case variables with parameterized values
 	std::string fragmentUrl;
 	AAMPStatusType status;
-	mPrivateInstanceAAMP->rate = 1.0;
+	mPlayerInstanceAAMP->rate = 1.0;
 	status = InitializeMPD();
 	EXPECT_EQ(status, eAAMPSTATUS_OK);
 
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState())
+	EXPECT_CALL(*g_mockPlayerInstanceAAMP, GetState())
 		.Times(AnyNumber())
 		.WillRepeatedly(Return(eSTATE_PLAYING));
 
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled())
+	EXPECT_CALL(*g_mockPlayerInstanceAAMP, DownloadsAreEnabled())
 		.Times(AnyNumber())
 		.WillRepeatedly(Return(true));
 
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetPositionMs())
+	EXPECT_CALL(*g_mockPlayerInstanceAAMP, GetPositionMs())
 		.Times(AnyNumber())
 		.WillRepeatedly(Return(params.currPos));
 
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, DurationFromStartOfPlaybackMs())
+	EXPECT_CALL(*g_mockPlayerInstanceAAMP, DurationFromStartOfPlaybackMs())
 		.Times(AnyNumber())
 		.WillRepeatedly(Return(params.endPos));
 
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetLLDashAdjustSpeed())
+	EXPECT_CALL(*g_mockPlayerInstanceAAMP, GetLLDashAdjustSpeed())
 		.WillOnce(Return(true))
 		.WillOnce(Return(true))
 		.WillOnce(Return(true))
 		.WillOnce(Return(false));
 
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetLLDashCurrentPlayBackRate())
+	EXPECT_CALL(*g_mockPlayerInstanceAAMP, GetLLDashCurrentPlayBackRate())
 		.WillOnce(Return(params.currPlaybackRate))
 		.WillOnce(Return(params.currPlaybackRate));
 
@@ -424,7 +424,7 @@ TEST_P(MonitorLatencyTests, LatencyChangeExpectedScenarios)
 	lLDashServiceData.maxPlaybackRate = DEFAULT_MAX_RATE_CORRECTION_SPEED;
 	lLDashServiceData.isSegTimeLineBased = true;
 	lLDashServiceData.fragmentDuration = 2; //dummy
-	mPrivateInstanceAAMP->SetLLDashServiceData(lLDashServiceData);
+	mPlayerInstanceAAMP->SetLLDashServiceData(lLDashServiceData);
 
 	mStreamAbstractionAAMP_MPD->mBufferDuration = params.configBuffer;
 

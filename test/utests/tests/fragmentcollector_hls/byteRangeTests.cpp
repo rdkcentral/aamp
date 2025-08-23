@@ -21,7 +21,7 @@
 #include <gmock/gmock.h>
 #include <chrono>
 
-#include "priv_aamp.h"
+#include "main_aamp.h"
 
 #include "AampConfig.h"
 #include "AampLogManager.h"
@@ -35,7 +35,7 @@ class TestTrackState : public TrackState
 {
 public:
 	TestTrackState(TrackType type, class StreamAbstractionAAMP_HLS *parent,
-				   PrivateInstanceAAMP *aamp, const char *name,
+				   PlayerInstanceAAMP *aamp, const char *name,
 				   id3_callback_t id3Handler = nullptr,
 				   ptsoffset_update_t ptsUpdate = nullptr)
 		: TrackState(type, parent, aamp, name, id3Handler, ptsUpdate) {}
@@ -60,7 +60,7 @@ public:
 class byteRangeTests : public ::testing::Test
 {
 protected:
-    PrivateInstanceAAMP *mPrivateInstanceAAMP{};
+    PlayerInstanceAAMP *mPlayerInstanceAAMP{};
     StreamAbstractionAAMP_HLS *mStreamAbstractionAAMP_HLS{};
     TrackState *trackStateObj{};
 
@@ -71,13 +71,13 @@ protected:
             gpGlobalConfig = new AampConfig();
         }
 
-        mPrivateInstanceAAMP = new PrivateInstanceAAMP(gpGlobalConfig);
+        mPlayerInstanceAAMP = new PlayerInstanceAAMP(gpGlobalConfig);
 
         g_mockAampConfig = new MockAampConfig();
 
-        mStreamAbstractionAAMP_HLS = new StreamAbstractionAAMP_HLS(mPrivateInstanceAAMP, 0, 0.0);
+        mStreamAbstractionAAMP_HLS = new StreamAbstractionAAMP_HLS(mPlayerInstanceAAMP, 0, 0.0);
 
-        trackStateObj = new TrackState(eTRACK_VIDEO, mStreamAbstractionAAMP_HLS, mPrivateInstanceAAMP, "TestTrack");
+        trackStateObj = new TrackState(eTRACK_VIDEO, mStreamAbstractionAAMP_HLS, mPlayerInstanceAAMP, "TestTrack");
 
     }
 
@@ -86,8 +86,8 @@ protected:
         delete trackStateObj;
         trackStateObj = nullptr;
 
-        delete mPrivateInstanceAAMP;
-        mPrivateInstanceAAMP = nullptr;
+        delete mPlayerInstanceAAMP;
+        mPlayerInstanceAAMP = nullptr;
 
         delete mStreamAbstractionAAMP_HLS;
        	mStreamAbstractionAAMP_HLS = nullptr;
@@ -191,7 +191,7 @@ TEST_F(byteRangeTests, testThreadStart)
 
 	// This is necessary to ensure that the StreamAbstractionAAMP_HLS object is properly initialized
 	// and can handle the Start and Stop calls correctly.
-	TrackState *trackState = new TestTrackState(eTRACK_VIDEO, mStreamAbstractionAAMP_HLS, mPrivateInstanceAAMP, "TestTrack");
+	TrackState *trackState = new TestTrackState(eTRACK_VIDEO, mStreamAbstractionAAMP_HLS, mPlayerInstanceAAMP, "TestTrack");
 
 	// Call the Start function
 	trackState->Start();

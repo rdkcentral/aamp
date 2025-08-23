@@ -21,15 +21,15 @@
 #define AAMP_MOCK_AAMP_PRIV_AAMP_H
 
 #include <gmock/gmock.h>
-#include "priv_aamp.h"
+#include "main_aamp.h"
 
-class MockPrivateInstanceAAMP
+class MockPlayerInstanceAAMP
 {
 public:
 	MOCK_METHOD(void, Individualization, (const std::string &payload));
 	MOCK_METHOD(bool, isDecryptClearSamplesRequired, ());
 };
 
-extern MockPrivateInstanceAAMP *g_mockPrivateInstanceAAMP;
+extern MockPlayerInstanceAAMP *g_mockPlayerInstanceAAMP;
 
 #endif /* AAMP_MOCK_AAMP_PRIV_AAMP_H */

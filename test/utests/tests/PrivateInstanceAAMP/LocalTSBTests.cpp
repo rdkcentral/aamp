@@ -20,7 +20,7 @@
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
 
-#include "priv_aamp.h"
+#include "main_aamp.h"
 
 #include "AampConfig.h"
 #include "AampScheduler.h"
@@ -39,7 +39,7 @@ using ::testing::Invoke;
 class LocalTSBTests : public ::testing::Test
 {
 protected:
-	PrivateInstanceAAMP *mPrivateInstanceAAMP{};
+	PlayerInstanceAAMP *mPlayerInstanceAAMP{};
 
 	void SetUp() override
 	{
@@ -48,22 +48,22 @@ protected:
 			gpGlobalConfig =  new AampConfig();
 		}
 
-		mPrivateInstanceAAMP = new PrivateInstanceAAMP(gpGlobalConfig);
+		mPlayerInstanceAAMP = new PlayerInstanceAAMP(gpGlobalConfig);
 
 		g_mockAampConfig = new NiceMock<MockAampConfig>();
 
-		g_mockTSBSessionManager = new MockTSBSessionManager(mPrivateInstanceAAMP);
+		g_mockTSBSessionManager = new MockTSBSessionManager(mPlayerInstanceAAMP);
 
-        g_mockAampGstPlayer = new MockAAMPGstPlayer( mPrivateInstanceAAMP);
-        g_mockStreamAbstractionAAMP_MPD = new NiceMock<MockStreamAbstractionAAMP_MPD>(mPrivateInstanceAAMP, 0, 0);
+        g_mockAampGstPlayer = new MockAAMPGstPlayer( mPlayerInstanceAAMP);
+        g_mockStreamAbstractionAAMP_MPD = new NiceMock<MockStreamAbstractionAAMP_MPD>(mPlayerInstanceAAMP, 0, 0);
 
-        //mPrivateInstanceAAMP->mStreamSink = g_mockAampGstPlayer; //TODO fix
+        //mPlayerInstanceAAMP->mStreamSink = g_mockAampGstPlayer; //TODO fix
     }
 
 	void TearDown() override
 	{
-		delete mPrivateInstanceAAMP;
-		mPrivateInstanceAAMP = nullptr;
+		delete mPlayerInstanceAAMP;
+		mPlayerInstanceAAMP = nullptr;
 
 		delete g_mockStreamAbstractionAAMP_MPD;
 		g_mockStreamAbstractionAAMP_MPD = nullptr;
@@ -105,11 +105,11 @@ TEST_F(LocalTSBTests, TimeOut_Config_Based_On_Network)
 
 
 	const char *lldUrl = "http://localhost:80/test/manifest.mpd";
-	mPrivateInstanceAAMP->Tune(lldUrl, false, "LINEAR_TV");
+	mPlayerInstanceAAMP->Tune(lldUrl, false, "LINEAR_TV");
 
-	EXPECT_EQ(mPrivateInstanceAAMP->mNetworkTimeoutMs, networkTimeout * 1000);
-	EXPECT_EQ(mPrivateInstanceAAMP->mManifestTimeoutMs, networkTimeout * 1000);
-	EXPECT_EQ(mPrivateInstanceAAMP->mPlaylistTimeoutMs, networkTimeout * 1000);
+	EXPECT_EQ(mPlayerInstanceAAMP->mNetworkTimeoutMs, networkTimeout * 1000);
+	EXPECT_EQ(mPlayerInstanceAAMP->mManifestTimeoutMs, networkTimeout * 1000);
+	EXPECT_EQ(mPlayerInstanceAAMP->mPlaylistTimeoutMs, networkTimeout * 1000);
 }
 
 TEST_F(LocalTSBTests, Chunked_With_LLD_And_Config_On)
@@ -132,13 +132,13 @@ TEST_F(LocalTSBTests, Chunked_With_LLD_And_Config_On)
 	llData.lowLatencyMode = true;
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP_MPD, Init(_))
 		.WillOnce([this, &llData] {
-					this->mPrivateInstanceAAMP->SetLLDashServiceData(llData);
+					this->mPlayerInstanceAAMP->SetLLDashServiceData(llData);
 					return eAAMPSTATUS_OK;
 				});
-	mPrivateInstanceAAMP->Tune(chunkedUrl, true, "LINEAR_TV");
-	EXPECT_TRUE(mPrivateInstanceAAMP->IsLocalAAMPTsb());
+	mPlayerInstanceAAMP->Tune(chunkedUrl, true, "LINEAR_TV");
+	EXPECT_TRUE(mPlayerInstanceAAMP->IsLocalAAMPTsb());
 	// IsLocalAAMPTsbInjection() is true when Local AAMP TSB is enabled and playing from TSB (not live)
-	EXPECT_FALSE(mPrivateInstanceAAMP->IsLocalAAMPTsbInjection());
+	EXPECT_FALSE(mPlayerInstanceAAMP->IsLocalAAMPTsbInjection());
 }
 
 TEST_F(LocalTSBTests, Config_On_And_PtsReStamp_Off)
@@ -155,11 +155,11 @@ TEST_F(LocalTSBTests, Config_On_And_PtsReStamp_Off)
 	EXPECT_CALL(*g_mockTSBSessionManager, Init()).Times(0);
 	const char *url = "http://localhost:80/manifest.mpd";
 
-	mPrivateInstanceAAMP->Tune(url, true, "LINEAR_TV");
+	mPlayerInstanceAAMP->Tune(url, true, "LINEAR_TV");
 	// IsLocalAAMPTsb() is true if PTS Restamp is enabled and local TSB is enabled in configuration.
-	EXPECT_FALSE(mPrivateInstanceAAMP->IsLocalAAMPTsb());
+	EXPECT_FALSE(mPlayerInstanceAAMP->IsLocalAAMPTsb());
 	// IsLocalAAMPTsbInjection() is true when Local AAMP TSB is enabled and playing from TSB (not live)
-	EXPECT_FALSE(mPrivateInstanceAAMP->IsLocalAAMPTsbInjection());
+	EXPECT_FALSE(mPlayerInstanceAAMP->IsLocalAAMPTsbInjection());
 }
 
 TEST_F(LocalTSBTests, SLD_And_Config_On)
@@ -181,13 +181,13 @@ TEST_F(LocalTSBTests, SLD_And_Config_On)
 	llData.lowLatencyMode = false;
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP_MPD, Init(_))
 		.WillOnce([this, &llData] {
-					this->mPrivateInstanceAAMP->SetLLDashServiceData(llData);
+					this->mPlayerInstanceAAMP->SetLLDashServiceData(llData);
 					return eAAMPSTATUS_OK;
 				});
-	mPrivateInstanceAAMP->Tune(url, true, "LINEAR_TV");
-	EXPECT_TRUE(mPrivateInstanceAAMP->IsLocalAAMPTsb());
+	mPlayerInstanceAAMP->Tune(url, true, "LINEAR_TV");
+	EXPECT_TRUE(mPlayerInstanceAAMP->IsLocalAAMPTsb());
 	// IsLocalAAMPTsbInjection() is true when Local AAMP TSB is enabled and playing from TSB (not live)
-	EXPECT_FALSE(mPrivateInstanceAAMP->IsLocalAAMPTsbInjection());
+	EXPECT_FALSE(mPlayerInstanceAAMP->IsLocalAAMPTsbInjection());
 }
 
 TEST_F(LocalTSBTests, VOD_And_Config_On)
@@ -200,10 +200,10 @@ TEST_F(LocalTSBTests, VOD_And_Config_On)
 		.WillRepeatedly(Return(""));
 
 	const char *url = "http://localhost:80/manifest.mpd";
-	mPrivateInstanceAAMP->Tune(url, true, "VOD");
+	mPlayerInstanceAAMP->Tune(url, true, "VOD");
 	// IsLocalAAMPTsb() is false for VOD content
-	EXPECT_FALSE(mPrivateInstanceAAMP->IsLocalAAMPTsb());
-	EXPECT_FALSE(mPrivateInstanceAAMP->IsLocalAAMPTsbInjection());
+	EXPECT_FALSE(mPlayerInstanceAAMP->IsLocalAAMPTsb());
+	EXPECT_FALSE(mPlayerInstanceAAMP->IsLocalAAMPTsbInjection());
 }
 
 TEST_F(LocalTSBTests, Chunked_With_LLD_And_Config_Off)
@@ -226,12 +226,12 @@ TEST_F(LocalTSBTests, Chunked_With_LLD_And_Config_Off)
 	llData.lowLatencyMode = true;
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP_MPD, Init(_))
 		.WillOnce([this, &llData] {
-					this->mPrivateInstanceAAMP->SetLLDashServiceData(llData);
+					this->mPlayerInstanceAAMP->SetLLDashServiceData(llData);
 					return eAAMPSTATUS_OK;
 				});
-	mPrivateInstanceAAMP->Tune(chunkedUrl, true, "LINEAR_TV");
-	EXPECT_FALSE(mPrivateInstanceAAMP->IsLocalAAMPTsb());
-	EXPECT_FALSE(mPrivateInstanceAAMP->IsLocalAAMPTsbInjection());
+	mPlayerInstanceAAMP->Tune(chunkedUrl, true, "LINEAR_TV");
+	EXPECT_FALSE(mPlayerInstanceAAMP->IsLocalAAMPTsb());
+	EXPECT_FALSE(mPlayerInstanceAAMP->IsLocalAAMPTsbInjection());
 }
 
 TEST_F(LocalTSBTests, Chunked_Without_LLD_And_Config_On)
@@ -247,12 +247,12 @@ TEST_F(LocalTSBTests, Chunked_Without_LLD_And_Config_On)
 	AampLLDashServiceData llData;
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP_MPD, Init(_))
 		.WillOnce([this, &llData] {
-					this->mPrivateInstanceAAMP->SetLLDashServiceData(llData);
+					this->mPlayerInstanceAAMP->SetLLDashServiceData(llData);
 					return eAAMPSTATUS_OK;
 				});
-	mPrivateInstanceAAMP->Tune(chunkedUrl, true, "LINEAR_TV");
-	EXPECT_FALSE(mPrivateInstanceAAMP->IsLocalAAMPTsb());
-	EXPECT_FALSE(mPrivateInstanceAAMP->IsLocalAAMPTsbInjection());
+	mPlayerInstanceAAMP->Tune(chunkedUrl, true, "LINEAR_TV");
+	EXPECT_FALSE(mPlayerInstanceAAMP->IsLocalAAMPTsb());
+	EXPECT_FALSE(mPlayerInstanceAAMP->IsLocalAAMPTsbInjection());
 }
 
 TEST_F(LocalTSBTests, VOD_With_Config_On)
@@ -264,15 +264,15 @@ TEST_F(LocalTSBTests, VOD_With_Config_On)
 	AampLLDashServiceData llData;
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP_MPD, Init(_))
 		.WillOnce([this, &llData] {
-					this->mPrivateInstanceAAMP->SetLLDashServiceData(llData);
+					this->mPlayerInstanceAAMP->SetLLDashServiceData(llData);
 					return eAAMPSTATUS_OK;
 				});
 
 	const char *Url = "http://localhost:80/low/manifest.mpd";
-	mPrivateInstanceAAMP->Tune(Url, true, "VOD");
+	mPlayerInstanceAAMP->Tune(Url, true, "VOD");
 
-	EXPECT_FALSE(mPrivateInstanceAAMP->IsLocalAAMPTsb());
-	EXPECT_FALSE(mPrivateInstanceAAMP->IsLocalAAMPTsbInjection());
+	EXPECT_FALSE(mPlayerInstanceAAMP->IsLocalAAMPTsb());
+	EXPECT_FALSE(mPlayerInstanceAAMP->IsLocalAAMPTsbInjection());
 }
 
 TEST_F(LocalTSBTests, IncreaseGSTBufferTest_1)
@@ -282,38 +282,38 @@ TEST_F(LocalTSBTests, IncreaseGSTBufferTest_1)
 	llData.lowLatencyMode = true;
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP_MPD, Init(_))
 		.WillOnce([this, &llData] {
-					this->mPrivateInstanceAAMP->SetLLDashServiceData(llData);
+					this->mPlayerInstanceAAMP->SetLLDashServiceData(llData);
 					return eAAMPSTATUS_OK;
 				});
-	mPrivateInstanceAAMP->Tune(testUrl, true, "LINEAR_TV");
-    #define GETCFG(x) mPrivateInstanceAAMP->mConfig->GetConfigValue(x)
+	mPlayerInstanceAAMP->Tune(testUrl, true, "LINEAR_TV");
+    #define GETCFG(x) mPlayerInstanceAAMP->mConfig->GetConfigValue(x)
 	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_BWToGstBufferFactor)).WillRepeatedly(Return(0.8));
 	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_GstVideoBufBytes)).WillRepeatedly(Return(GST_VIDEOBUFFER_SIZE_BYTES));
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP_MPD, GetMaxBitrate()).WillOnce(Return(8000000)); //8 Mbps
 	int newBuffer = 8000000 * 0.8;
 	EXPECT_CALL(*g_mockAampConfig, SetConfigValue(eAAMPConfig_GstVideoBufBytes,newBuffer)).Times(0);	//UTest addressed, With CONTENT_4K_SUPPORTED is set default, newBuffer < minVideoBuffer, hence the buffer config shouldnt be modified.
-	mPrivateInstanceAAMP->IncreaseGSTBufferSize();
+	mPlayerInstanceAAMP->IncreaseGSTBufferSize();
 
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP_MPD, GetMaxBitrate()).WillOnce(Return(13000000)); //13 Mbps
 	newBuffer = 13000000 * 0.8;
 	EXPECT_CALL(*g_mockAampConfig, SetConfigValue(eAAMPConfig_GstVideoBufBytes,newBuffer)).Times(0);
-	mPrivateInstanceAAMP->IncreaseGSTBufferSize();
+	mPlayerInstanceAAMP->IncreaseGSTBufferSize();
 
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP_MPD, GetMaxBitrate()).WillOnce(Return(18000000)); // 18 Mbps
 	newBuffer = 18000000 * 0.8;
 	EXPECT_CALL(*g_mockAampConfig, SetConfigValue(eAAMPConfig_GstVideoBufBytes,newBuffer)).Times(0);
-	mPrivateInstanceAAMP->IncreaseGSTBufferSize();
+	mPlayerInstanceAAMP->IncreaseGSTBufferSize();
 
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP_MPD, GetMaxBitrate()).WillOnce(Return(30000000)); //30 Mbps
 	newBuffer = 30000000 * 0.8;
 	EXPECT_CALL(*g_mockAampConfig, SetConfigValue(eAAMPConfig_GstVideoBufBytes,newBuffer));
-	mPrivateInstanceAAMP->IncreaseGSTBufferSize();
+	mPlayerInstanceAAMP->IncreaseGSTBufferSize();
 
 	//GST_VIDEOBUFFER_SIZE_MAX_BYTES
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP_MPD, GetMaxBitrate()).WillOnce(Return(100000000)); //100 Mbps should top out to 25 Mb
 	newBuffer = GST_VIDEOBUFFER_SIZE_MAX_BYTES;
 	EXPECT_CALL(*g_mockAampConfig, SetConfigValue(eAAMPConfig_GstVideoBufBytes,newBuffer));
-	mPrivateInstanceAAMP->IncreaseGSTBufferSize();
+	mPlayerInstanceAAMP->IncreaseGSTBufferSize();
 }
 
 TEST_F(LocalTSBTests, IncreaseGSTBufferTest_2)
@@ -323,17 +323,17 @@ TEST_F(LocalTSBTests, IncreaseGSTBufferTest_2)
 	llData.lowLatencyMode = true;
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP_MPD, Init(_))
 		.WillOnce([this, &llData] {
-					this->mPrivateInstanceAAMP->SetLLDashServiceData(llData);
+					this->mPlayerInstanceAAMP->SetLLDashServiceData(llData);
 					return eAAMPSTATUS_OK;
 				});
-	mPrivateInstanceAAMP->Tune(testUrl, true, "LINEAR_TV");
-    #define GETCFG(x) mPrivateInstanceAAMP->mConfig->GetConfigValue(x)
+	mPlayerInstanceAAMP->Tune(testUrl, true, "LINEAR_TV");
+    #define GETCFG(x) mPlayerInstanceAAMP->mConfig->GetConfigValue(x)
 	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_BWToGstBufferFactor)).WillRepeatedly(Return(0.8));
 	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_GstVideoBufBytes)).WillRepeatedly(Return(GST_VIDEOBUFFER_SIZE_BYTES));
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP_MPD, GetMaxBitrate()).WillOnce(Return(1000000)); //1 Mbps - Negative case should default and change config value
 	int newBuffer = GST_VIDEOBUFFER_SIZE_BYTES;
 	EXPECT_CALL(*g_mockAampConfig, SetConfigValue(eAAMPConfig_GstVideoBufBytes,0)).Times(0); // Should not be called
-	mPrivateInstanceAAMP->IncreaseGSTBufferSize();
+	mPlayerInstanceAAMP->IncreaseGSTBufferSize();
 }
 
 TEST_F(LocalTSBTests, ScheduleRetuneTest)
@@ -341,7 +341,7 @@ TEST_F(LocalTSBTests, ScheduleRetuneTest)
 	//initializing scheduler for single test
 	g_mockAampScheduler = new NiceMock<MockAampScheduler>();
 	AampScheduler mScheduler{};
-	mPrivateInstanceAAMP->SetScheduler(&mScheduler);
+	mPlayerInstanceAAMP->SetScheduler(&mScheduler);
 
 	std::string taskName;
 
@@ -349,39 +349,39 @@ TEST_F(LocalTSBTests, ScheduleRetuneTest)
 	AampLLDashServiceData llData;
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP_MPD, Init(_))
 		.WillOnce([this, &llData] {
-					this->mPrivateInstanceAAMP->SetLLDashServiceData(llData);
+					this->mPlayerInstanceAAMP->SetLLDashServiceData(llData);
 					return eAAMPSTATUS_OK;
 				});
 
-	mPrivateInstanceAAMP->Tune(testUrl, true, "LINEAR_TV");
-	mPrivateInstanceAAMP->SetState(eSTATE_PLAYING);
+	mPlayerInstanceAAMP->Tune(testUrl, true, "LINEAR_TV");
+	mPlayerInstanceAAMP->SetState(eSTATE_PLAYING);
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnableCurlStore)).WillRepeatedly(Return(true));// uninteresting expect call
 
 	//trickplay case
-	mPrivateInstanceAAMP->rate=-30;
+	mPlayerInstanceAAMP->rate=-30;
 	EXPECT_CALL(*g_mockAampScheduler, ScheduleTask(_))
 				.WillOnce(Invoke([&taskName](AsyncTaskObj obj) -> int {
 					taskName = obj.mTaskName;
 					return 1;
 				}));
-	mPrivateInstanceAAMP->ScheduleRetune(eGST_ERROR_GST_PIPELINE_INTERNAL, eMEDIATYPE_VIDEO);
-	EXPECT_EQ(taskName, "PrivateInstanceAAMP_Retune");
+	mPlayerInstanceAAMP->ScheduleRetune(eGST_ERROR_GST_PIPELINE_INTERNAL, eMEDIATYPE_VIDEO);
+	EXPECT_EQ(taskName, "PlayerInstanceAAMP_Retune");
 
 	//paused state
-	mPrivateInstanceAAMP->rate=0;
+	mPlayerInstanceAAMP->rate=0;
 	EXPECT_CALL(*g_mockAampScheduler, ScheduleTask(_)).Times(0); // should not be called
-	mPrivateInstanceAAMP->ScheduleRetune(eGST_ERROR_GST_PIPELINE_INTERNAL, eMEDIATYPE_VIDEO);
+	mPlayerInstanceAAMP->ScheduleRetune(eGST_ERROR_GST_PIPELINE_INTERNAL, eMEDIATYPE_VIDEO);
 
 	//trickplay but not internal pipeline error
-	mPrivateInstanceAAMP->rate=2;
+	mPlayerInstanceAAMP->rate=2;
 	EXPECT_CALL(*g_mockAampScheduler, ScheduleTask(_)).Times(0);
-	mPrivateInstanceAAMP->ScheduleRetune(eGST_ERROR_UNDERFLOW, eMEDIATYPE_VIDEO);
+	mPlayerInstanceAAMP->ScheduleRetune(eGST_ERROR_UNDERFLOW, eMEDIATYPE_VIDEO);
 
 	//mContentType == ContentType_EAS -> should not trigger retune
-	mPrivateInstanceAAMP->rate=4;
-	mPrivateInstanceAAMP->SetContentType("EAS");
+	mPlayerInstanceAAMP->rate=4;
+	mPlayerInstanceAAMP->SetContentType("EAS");
 	EXPECT_CALL(*g_mockAampScheduler, ScheduleTask(_)).Times(0);
-	mPrivateInstanceAAMP->ScheduleRetune(eGST_ERROR_GST_PIPELINE_INTERNAL, eMEDIATYPE_VIDEO);
+	mPlayerInstanceAAMP->ScheduleRetune(eGST_ERROR_GST_PIPELINE_INTERNAL, eMEDIATYPE_VIDEO);
 
 	delete g_mockAampScheduler;
 	g_mockAampScheduler = nullptr;

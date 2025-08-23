@@ -23,9 +23,6 @@
 * @brief Header file for DRM License manager
 */
 
-
-
-#include "priv_aamp.h"
 #include "AampDRMLicPreFetcher.h"
 #include "DrmSession.h"
 #include "AampCurlDownloader.h"
@@ -37,7 +34,7 @@ public:
 	/**
 	 *  @fn AampDRMLicenseManager
 	 */
-	AampDRMLicenseManager(int maxDrmSessions, PrivateInstanceAAMP *aamp);
+	AampDRMLicenseManager(int maxDrmSessions, PlayerInstanceAAMP *aamp);
 
 	/**
 	 *  @fn ~AampDRMLicenseManager
@@ -55,7 +52,7 @@ public:
 	std::vector<std::thread> mLicenseRenewalThreads;
 	AampCurlDownloader mAccessTokenConnector;
 	AampLicensePreFetcher* mLicensePrefetcher; /**< DRM license prefetcher instance */
-	PrivateInstanceAAMP *aampInstance; /** AAMP instance **/
+	PlayerInstanceAAMP *aampInstance; /** AAMP instance **/
 	std::atomic<bool> mIsVideoOnMute;
 	std::atomic<int> mCurrentSpeed;
 
@@ -96,7 +93,7 @@ public:
 	 * @fn configureLicenseServerParameters
 	 */
 	bool configureLicenseServerParameters(std::shared_ptr<DrmHelper> drmHelper, LicenseRequest& licRequest,
-					std::string &licenseServerProxy, const ChallengeInfo& challengeInfo, PrivateInstanceAAMP* aampInstance);
+					std::string &licenseServerProxy, const ChallengeInfo& challengeInfo, PlayerInstanceAAMP* aampInstance);
 
 	/**
 	* @fn 	Update tracking of speed status and send watermarking requests as required. This is based on video presence, video mute state, and speed
@@ -168,7 +165,7 @@ public:
 	 * @return void
 	 */
 
-	void renewLicense(std::shared_ptr<DrmHelper> drmHelper, void* userData, PrivateInstanceAAMP* aampInstance);
+	void renewLicense(std::shared_ptr<DrmHelper> drmHelper, void* userData, PlayerInstanceAAMP* aampInstance);
 	/**
 	 * @fn licenseRenewalThread
 	 *
@@ -177,7 +174,7 @@ public:
 	 * @param[in] aampInstance - Aamp instance
 	 * @return void
 	 */
-	void licenseRenewalThread(std::shared_ptr<DrmHelper> drmHelper, int sessionSlot, PrivateInstanceAAMP* aampInstance);
+	void licenseRenewalThread(std::shared_ptr<DrmHelper> drmHelper, int sessionSlot, PlayerInstanceAAMP* aampInstance);
 		/**
 	 * @fn releaseLicenseRenewalThreads
 	 */
@@ -197,7 +194,7 @@ public:
 	/**
 	 * @fn ContentProtectionDataUpdate
 	 */
-	void ContentProtectionDataUpdate(PrivateInstanceAAMP* aampInstance, std::vector<uint8_t> keyId, AampMediaType streamType);
+	void ContentProtectionDataUpdate(PlayerInstanceAAMP* aampInstance, std::vector<uint8_t> keyId, AampMediaType streamType);
 	/**
 	 * @brief Set the Common Key Duration object
 	 * 
@@ -289,7 +286,7 @@ public:
 	 *                      is already extracted during manifest parsing. Used when content meta data
 	 *                      is available as part of another PSSH header, like DRM Agnostic PSSH
 	 *                      header.
-	 *  @param[in]  aamp - Pointer to PrivateInstanceAAMP, for DRM related profiling.
+	 *  @param[in]  aamp - Pointer to PlayerInstanceAAMP, for DRM related profiling.
 	 *  @retval     error_code - Gets updated with proper error code, if session creation fails.
 	 *                      No NULL checks are done for error_code, caller should pass a valid pointer.
 	 */

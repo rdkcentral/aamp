@@ -21,7 +21,7 @@
 #include <gmock/gmock.h>
 #include <chrono>
 
-#include "priv_aamp.h"
+#include "main_aamp.h"
 #include "AampConfig.h"
 #include "AampTSBSessionManager.h"
 
@@ -54,14 +54,14 @@ protected:
 			gpGlobalConfig =  new AampConfig();
 		}
 
-		mPrivateInstanceAAMP = new PrivateInstanceAAMP(gpGlobalConfig);
+		mPlayerInstanceAAMP = new PlayerInstanceAAMP(gpGlobalConfig);
 		g_mockAampConfig = new NiceMock<MockAampConfig>();
-		g_mockAampGstPlayer = new MockAAMPGstPlayer( mPrivateInstanceAAMP);
-		g_mockStreamAbstractionAAMP = new StrictMock<MockStreamAbstractionAAMP>(mPrivateInstanceAAMP);
+		g_mockAampGstPlayer = new MockAAMPGstPlayer( mPlayerInstanceAAMP);
+		g_mockStreamAbstractionAAMP = new StrictMock<MockStreamAbstractionAAMP>(mPlayerInstanceAAMP);
 		g_mockAampStreamSinkManager = new NiceMock<MockAampStreamSinkManager>();
 
-		mPrivateInstanceAAMP->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP;
-		mPrivateInstanceAAMP->SetState(eSTATE_PLAYING);
+		mPlayerInstanceAAMP->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP;
+		mPlayerInstanceAAMP->SetState(eSTATE_PLAYING);
 
 		EXPECT_CALL(*g_mockAampConfig, IsConfigSet(_)).WillRepeatedly(Return(false));
 
@@ -70,8 +70,8 @@ protected:
 
 	void TearDown() override
 	{
-		delete mPrivateInstanceAAMP;
-		mPrivateInstanceAAMP = nullptr;
+		delete mPlayerInstanceAAMP;
+		mPlayerInstanceAAMP = nullptr;
 
 		if (g_mockStreamAbstractionAAMP != nullptr)
 		{
@@ -106,7 +106,7 @@ public:
 		g_mockStreamAbstractionAAMP = nullptr;
 	}
 
-	PrivateInstanceAAMP *mPrivateInstanceAAMP{};
+	PlayerInstanceAAMP *mPlayerInstanceAAMP{};
 };
 
 class SetPreferredTextLanguagesIso639Tests : public SetPreferredTextLanguagesTests,
@@ -129,10 +129,10 @@ protected:
 	}
 };
 
-class SetPreferredTextLanguagesTsbSessionManager : public PrivateInstanceAAMP
+class SetPreferredTextLanguagesTsbSessionManager : public PlayerInstanceAAMP
 	{
 public:
-	SetPreferredTextLanguagesTsbSessionManager(AampConfig *config):PrivateInstanceAAMP(config)
+	SetPreferredTextLanguagesTsbSessionManager(AampConfig *config):PlayerInstanceAAMP(config)
 	{
 	}
 
@@ -163,9 +163,9 @@ TEST_P(SetPreferredTextLanguagesIso639Tests, LanguageListTestIso639)
 	tracks.push_back(TextTrackInfo("idx0", "eng", false, "rend0", "trackName0", "codecStr0", "cha0", "typ0", "lab0", "type0", Accessibility(), true));
 	tracks.push_back(TextTrackInfo("idx1", "spa", false, "rend1", "trackName1", "codecStr1", "cha1", "typ1", "lab1", "type1", Accessibility(), true));
 
-	mPrivateInstanceAAMP->preferredTextLanguagesString.clear();
-	mPrivateInstanceAAMP->preferredTextLanguagesList.clear();
-	mPrivateInstanceAAMP->subtitles_muted = false;
+	mPlayerInstanceAAMP->preferredTextLanguagesString.clear();
+	mPlayerInstanceAAMP->preferredTextLanguagesList.clear();
+	mPlayerInstanceAAMP->subtitles_muted = false;
 
 	/* Call SetPreferredTextLanguages() without changing the preferred languages
 	 * list. There should be no retune.
@@ -195,12 +195,12 @@ TEST_P(SetPreferredTextLanguagesIso639Tests, LanguageListTestIso639)
 	EXPECT_CALL(*g_mockAampGstPlayer, Flush(_,_,_))
 		.Times(0);
 
-	mPrivateInstanceAAMP->SetPreferredTextLanguages(testLanguageList);
+	mPlayerInstanceAAMP->SetPreferredTextLanguages(testLanguageList);
 
 	/* Verify the preferred languages list. */
-	EXPECT_STREQ(mPrivateInstanceAAMP->preferredTextLanguagesString.c_str(), "eng");
-	EXPECT_EQ(mPrivateInstanceAAMP->preferredTextLanguagesList.size(), 1);
-	EXPECT_STREQ(mPrivateInstanceAAMP->preferredTextLanguagesList.at(0).c_str(), "eng");
+	EXPECT_STREQ(mPlayerInstanceAAMP->preferredTextLanguagesString.c_str(), "eng");
+	EXPECT_EQ(mPlayerInstanceAAMP->preferredTextLanguagesList.size(), 1);
+	EXPECT_STREQ(mPlayerInstanceAAMP->preferredTextLanguagesList.at(0).c_str(), "eng");
 }
 
 INSTANTIATE_TEST_SUITE_P(SetPreferredTextLanguagesTests, SetPreferredTextLanguagesIso639Tests,
@@ -225,10 +225,10 @@ TEST_F(SetPreferredTextLanguagesTests, LanguageListTest2)
 	tracks.push_back(TextTrackInfo("idx0", "lang0", false, "rend0", "trackName0", "codecStr0", "cha0", "typ0", "lab0", "type0", Accessibility(), true));
 	tracks.push_back(TextTrackInfo("idx1", "lang1", false, "rend1", "trackName1", "codecStr1", "cha1", "typ1", "lab1", "type1", Accessibility(), true));
 
-	mPrivateInstanceAAMP->preferredTextLanguagesString = "lang0";
-	mPrivateInstanceAAMP->preferredTextLanguagesList.clear();
-	mPrivateInstanceAAMP->preferredTextLanguagesList.push_back("lang0");
-	mPrivateInstanceAAMP->subtitles_muted = false;
+	mPlayerInstanceAAMP->preferredTextLanguagesString = "lang0";
+	mPlayerInstanceAAMP->preferredTextLanguagesList.clear();
+	mPlayerInstanceAAMP->preferredTextLanguagesList.push_back("lang0");
+	mPlayerInstanceAAMP->subtitles_muted = false;
 
 	/* Call SetPreferredTextLanguages() changing the preferred languages list.
 	 * There should be a retune.
@@ -240,12 +240,12 @@ TEST_F(SetPreferredTextLanguagesTests, LanguageListTest2)
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_))
 		.WillOnce(Invoke(this, &SetPreferredTextLanguagesTests::Stop));
 
-	mPrivateInstanceAAMP->SetPreferredTextLanguages("lang1");
+	mPlayerInstanceAAMP->SetPreferredTextLanguages("lang1");
 
 	/* Verify the preferred languages list. */
-	EXPECT_STREQ(mPrivateInstanceAAMP->preferredTextLanguagesString.c_str(), "lang1");
-	EXPECT_EQ(mPrivateInstanceAAMP->preferredTextLanguagesList.size(), 1);
-	EXPECT_STREQ(mPrivateInstanceAAMP->preferredTextLanguagesList.at(0).c_str(), "lang1");
+	EXPECT_STREQ(mPlayerInstanceAAMP->preferredTextLanguagesString.c_str(), "lang1");
+	EXPECT_EQ(mPlayerInstanceAAMP->preferredTextLanguagesList.size(), 1);
+	EXPECT_STREQ(mPlayerInstanceAAMP->preferredTextLanguagesList.at(0).c_str(), "lang1");
 }
 
 /**
@@ -259,10 +259,10 @@ TEST_F(SetPreferredTextLanguagesTests, LanguageListTest3)
 	tracks.push_back(TextTrackInfo("idx0", "lang0", false, "rend0", "trackName0", "codecStr0", "cha0", "typ0", "lab0", "type0", Accessibility(), true));
 	tracks.push_back(TextTrackInfo("idx1", "lang1", false, "rend1", "trackName1", "codecStr1", "cha1", "typ1", "lab1", "type1", Accessibility(), true));
 
-	mPrivateInstanceAAMP->preferredTextLanguagesString = "lang0";
-	mPrivateInstanceAAMP->preferredTextLanguagesList.clear();
-	mPrivateInstanceAAMP->preferredTextLanguagesList.push_back("lang0");
-	mPrivateInstanceAAMP->subtitles_muted = false;
+	mPlayerInstanceAAMP->preferredTextLanguagesString = "lang0";
+	mPlayerInstanceAAMP->preferredTextLanguagesList.clear();
+	mPlayerInstanceAAMP->preferredTextLanguagesList.push_back("lang0");
+	mPlayerInstanceAAMP->subtitles_muted = false;
 
 	/* Call SetPreferredTextLanguages() passing a language which is not available.
 	 * There should be no retune.
@@ -272,12 +272,12 @@ TEST_F(SetPreferredTextLanguagesTests, LanguageListTest3)
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_))
 		.Times(0);
 
-	mPrivateInstanceAAMP->SetPreferredTextLanguages("lang2");
+	mPlayerInstanceAAMP->SetPreferredTextLanguages("lang2");
 
 	/* Verify the preferred languages list. */
-	EXPECT_STREQ(mPrivateInstanceAAMP->preferredTextLanguagesString.c_str(), "lang2");
-	EXPECT_EQ(mPrivateInstanceAAMP->preferredTextLanguagesList.size(), 1);
-	EXPECT_STREQ(mPrivateInstanceAAMP->preferredTextLanguagesList.at(0).c_str(), "lang2");
+	EXPECT_STREQ(mPlayerInstanceAAMP->preferredTextLanguagesString.c_str(), "lang2");
+	EXPECT_EQ(mPlayerInstanceAAMP->preferredTextLanguagesList.size(), 1);
+	EXPECT_STREQ(mPlayerInstanceAAMP->preferredTextLanguagesList.at(0).c_str(), "lang2");
 }
 
 /**
@@ -291,10 +291,10 @@ TEST_F(SetPreferredTextLanguagesTests, LanguageListTest4)
 	tracks.push_back(TextTrackInfo("idx0", "lang0", false, "rend0", "trackName0", "codecStr0", "cha0", "typ0", "lab0", "type0", Accessibility(), true));
 	tracks.push_back(TextTrackInfo("idx1", "lang1", false, "rend1", "trackName1", "codecStr1", "cha1", "typ1", "lab1", "type1", Accessibility(), true));
 
-	mPrivateInstanceAAMP->preferredTextLanguagesString = "lang0";
-	mPrivateInstanceAAMP->preferredTextLanguagesList.clear();
-	mPrivateInstanceAAMP->preferredTextLanguagesList.push_back("lang0");
-	mPrivateInstanceAAMP->subtitles_muted = false;
+	mPlayerInstanceAAMP->preferredTextLanguagesString = "lang0";
+	mPlayerInstanceAAMP->preferredTextLanguagesList.clear();
+	mPlayerInstanceAAMP->preferredTextLanguagesList.push_back("lang0");
+	mPlayerInstanceAAMP->subtitles_muted = false;
 
 	/* Call SetPreferredTextLanguages() changing the preferred languages list.
 	 * There should be a retune.
@@ -306,12 +306,12 @@ TEST_F(SetPreferredTextLanguagesTests, LanguageListTest4)
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_))
 		.WillOnce(Invoke(this, &SetPreferredTextLanguagesTests::Stop));
 
-	mPrivateInstanceAAMP->SetPreferredTextLanguages("{\"languages\":\"lang1\"}");
+	mPlayerInstanceAAMP->SetPreferredTextLanguages("{\"languages\":\"lang1\"}");
 
 	/* Verify the preferred languages list. */
-	EXPECT_STREQ(mPrivateInstanceAAMP->preferredTextLanguagesString.c_str(), "lang1");
-	EXPECT_EQ(mPrivateInstanceAAMP->preferredTextLanguagesList.size(), 1);
-	EXPECT_STREQ(mPrivateInstanceAAMP->preferredTextLanguagesList.at(0).c_str(), "lang1");
+	EXPECT_STREQ(mPlayerInstanceAAMP->preferredTextLanguagesString.c_str(), "lang1");
+	EXPECT_EQ(mPlayerInstanceAAMP->preferredTextLanguagesList.size(), 1);
+	EXPECT_STREQ(mPlayerInstanceAAMP->preferredTextLanguagesList.at(0).c_str(), "lang1");
 }
 
 /**
@@ -324,9 +324,9 @@ TEST_F(SetPreferredTextLanguagesTests, LanguageListTest5)
 	tracks.push_back(TextTrackInfo("idx0", "lang0", false, "rend0", "trackName0", "codecStr0", "cha0", "typ0", "lab0", "type0", Accessibility(), true));
 	tracks.push_back(TextTrackInfo("idx1", "lang1", false, "rend1", "trackName1", "codecStr1", "cha1", "typ1", "lab1", "type1", Accessibility(), true));
 
-	mPrivateInstanceAAMP->preferredTextLanguagesString.clear();
-	mPrivateInstanceAAMP->preferredTextLanguagesList.clear();
-	mPrivateInstanceAAMP->subtitles_muted = false;
+	mPlayerInstanceAAMP->preferredTextLanguagesString.clear();
+	mPlayerInstanceAAMP->preferredTextLanguagesList.clear();
+	mPlayerInstanceAAMP->subtitles_muted = false;
 
 	/* Call SetPreferredTextLanguages() changing the preferred languages list.
 	 * There should be a retune as multiple languages are specified.
@@ -340,13 +340,13 @@ TEST_F(SetPreferredTextLanguagesTests, LanguageListTest5)
 	EXPECT_CALL(*g_mockAampGstPlayer, Flush(_,_,_))
 		.Times(AtLeast(1));
 
-	mPrivateInstanceAAMP->SetPreferredTextLanguages("{\"languages\":[\"lang0\",\"lang1\"]}");
+	mPlayerInstanceAAMP->SetPreferredTextLanguages("{\"languages\":[\"lang0\",\"lang1\"]}");
 
 	/* Verify the preferred languages list. */
-	EXPECT_STREQ(mPrivateInstanceAAMP->preferredTextLanguagesString.c_str(), "lang0,lang1");
-	EXPECT_EQ(mPrivateInstanceAAMP->preferredTextLanguagesList.size(), 2);
-	EXPECT_STREQ(mPrivateInstanceAAMP->preferredTextLanguagesList.at(0).c_str(), "lang0");
-	EXPECT_STREQ(mPrivateInstanceAAMP->preferredTextLanguagesList.at(1).c_str(), "lang1");
+	EXPECT_STREQ(mPlayerInstanceAAMP->preferredTextLanguagesString.c_str(), "lang0,lang1");
+	EXPECT_EQ(mPlayerInstanceAAMP->preferredTextLanguagesList.size(), 2);
+	EXPECT_STREQ(mPlayerInstanceAAMP->preferredTextLanguagesList.at(0).c_str(), "lang0");
+	EXPECT_STREQ(mPlayerInstanceAAMP->preferredTextLanguagesList.at(1).c_str(), "lang1");
 
 	g_mockStreamAbstractionAAMP = nullptr;
 }
@@ -360,13 +360,13 @@ TEST_F(SetPreferredTextLanguagesTests, LanguageListTest6)
 	tracks.push_back(TextTrackInfo("idx0", "lang0", false, "rend0", "trackName0", "codecStr0", "cha0", "typ0", "lab0", "type0", Accessibility(), true));
 	tracks.push_back(TextTrackInfo("idx1", "lang1", false, "rend1", "trackName1", "codecStr1", "cha1", "typ1", "lab1", "type1", Accessibility(), true));
 
-	mPrivateInstanceAAMP->preferredTextLanguagesString = "lang0";
-	mPrivateInstanceAAMP->preferredTextLanguagesList.clear();
-	mPrivateInstanceAAMP->preferredTextLanguagesList.push_back("lang0");
-	mPrivateInstanceAAMP->subtitles_muted = false;
-	mPrivateInstanceAAMP->mFogTSBEnabled = true;
-	mPrivateInstanceAAMP->mManifestUrl = "http://host/Manifest.mpd";
-	mPrivateInstanceAAMP->mTsbSessionRequestUrl = "http://host/TsbSessionRequest.mpd";
+	mPlayerInstanceAAMP->preferredTextLanguagesString = "lang0";
+	mPlayerInstanceAAMP->preferredTextLanguagesList.clear();
+	mPlayerInstanceAAMP->preferredTextLanguagesList.push_back("lang0");
+	mPlayerInstanceAAMP->subtitles_muted = false;
+	mPlayerInstanceAAMP->mFogTSBEnabled = true;
+	mPlayerInstanceAAMP->mManifestUrl = "http://host/Manifest.mpd";
+	mPlayerInstanceAAMP->mTsbSessionRequestUrl = "http://host/TsbSessionRequest.mpd";
 
 	/* Call SetPreferredTextLanguages() changing the preferred languages list.
 	 * There should be a retune but no new TSB requested.
@@ -377,15 +377,15 @@ TEST_F(SetPreferredTextLanguagesTests, LanguageListTest6)
 		.WillOnce(::testing::DoAll(::testing::SetArgReferee<0>(tracks[0]),Return(true)));
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_))
 		.WillOnce(Invoke(this, &SetPreferredTextLanguagesTests::Stop));
-	mPrivateInstanceAAMP->SetPreferredTextLanguages("lang1");
+	mPlayerInstanceAAMP->SetPreferredTextLanguages("lang1");
 
 	/* Verified the requested manifest URL. */
-	EXPECT_STREQ(mPrivateInstanceAAMP->mManifestUrl.c_str(), "http://host/Manifest.mpd");
+	EXPECT_STREQ(mPlayerInstanceAAMP->mManifestUrl.c_str(), "http://host/Manifest.mpd");
 
 	/* Verify the preferred languages list. */
-	EXPECT_STREQ(mPrivateInstanceAAMP->preferredTextLanguagesString.c_str(), "lang1");
-	EXPECT_EQ(mPrivateInstanceAAMP->preferredTextLanguagesList.size(), 1);
-	EXPECT_STREQ(mPrivateInstanceAAMP->preferredTextLanguagesList.at(0).c_str(), "lang1");
+	EXPECT_STREQ(mPlayerInstanceAAMP->preferredTextLanguagesString.c_str(), "lang1");
+	EXPECT_EQ(mPlayerInstanceAAMP->preferredTextLanguagesList.size(), 1);
+	EXPECT_STREQ(mPlayerInstanceAAMP->preferredTextLanguagesList.at(0).c_str(), "lang1");
 }
 
 /**
@@ -398,13 +398,13 @@ TEST_F(SetPreferredTextLanguagesTests, LanguageListTest7)
 	tracks.push_back(TextTrackInfo("idx0", "lang0", false, "rend0", "trackName0", "codecStr0", "cha0", "typ0", "lab0", "type0", Accessibility(), true));
 	tracks.push_back(TextTrackInfo("idx1", "lang1", false, "rend1", "trackName1", "codecStr1", "cha1", "typ1", "lab1", "type1", Accessibility(), false));
 
-	mPrivateInstanceAAMP->preferredTextLanguagesString = "lang0";
-	mPrivateInstanceAAMP->preferredTextLanguagesList.clear();
-	mPrivateInstanceAAMP->preferredTextLanguagesList.push_back("lang0");
-	mPrivateInstanceAAMP->subtitles_muted = false;
-	mPrivateInstanceAAMP->mFogTSBEnabled = true;
-	mPrivateInstanceAAMP->mManifestUrl = "http://host/Manifest.mpd";
-	mPrivateInstanceAAMP->mTsbSessionRequestUrl = "http://host/TsbSessionRequest.mpd";
+	mPlayerInstanceAAMP->preferredTextLanguagesString = "lang0";
+	mPlayerInstanceAAMP->preferredTextLanguagesList.clear();
+	mPlayerInstanceAAMP->preferredTextLanguagesList.push_back("lang0");
+	mPlayerInstanceAAMP->subtitles_muted = false;
+	mPlayerInstanceAAMP->mFogTSBEnabled = true;
+	mPlayerInstanceAAMP->mManifestUrl = "http://host/Manifest.mpd";
+	mPlayerInstanceAAMP->mTsbSessionRequestUrl = "http://host/TsbSessionRequest.mpd";
 
 	/* Call SetPreferredTextLanguages() changing the preferred languages list but
 	 * the matching track is disabled. There should be a retune and a new TSB
@@ -417,15 +417,15 @@ TEST_F(SetPreferredTextLanguagesTests, LanguageListTest7)
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_))
 		.WillOnce(Invoke(this, &SetPreferredTextLanguagesTests::Stop));
 
-	mPrivateInstanceAAMP->SetPreferredTextLanguages("lang1");
+	mPlayerInstanceAAMP->SetPreferredTextLanguages("lang1");
 
 	/* The manifest URL should be changed to reload the TSB. */
-	EXPECT_STREQ(mPrivateInstanceAAMP->mManifestUrl.c_str(), "http://host/TsbSessionRequest.mpd&reloadTSB=true");
+	EXPECT_STREQ(mPlayerInstanceAAMP->mManifestUrl.c_str(), "http://host/TsbSessionRequest.mpd&reloadTSB=true");
 
 	/* Verify the preferred languages list. */
-	EXPECT_STREQ(mPrivateInstanceAAMP->preferredTextLanguagesString.c_str(), "lang1");
-	EXPECT_EQ(mPrivateInstanceAAMP->preferredTextLanguagesList.size(), 1);
-	EXPECT_STREQ(mPrivateInstanceAAMP->preferredTextLanguagesList.at(0).c_str(), "lang1");
+	EXPECT_STREQ(mPlayerInstanceAAMP->preferredTextLanguagesString.c_str(), "lang1");
+	EXPECT_EQ(mPlayerInstanceAAMP->preferredTextLanguagesList.size(), 1);
+	EXPECT_STREQ(mPlayerInstanceAAMP->preferredTextLanguagesList.at(0).c_str(), "lang1");
 }
 
 /**
@@ -436,17 +436,17 @@ TEST_F(SetPreferredTextLanguagesTests, RenditionTest1)
 	std::vector<TextTrackInfo> tracks;
 
         tracks.push_back(TextTrackInfo("idx0", "lang0", false, "rend0", "trackName0", "codecStr0", "cha0", "typ0", "lab0", "type0", Accessibility(), true));
-	mPrivateInstanceAAMP->preferredTextRenditionString = "rend0";
+	mPlayerInstanceAAMP->preferredTextRenditionString = "rend0";
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, SelectPreferredTextTrack(_))
 		.WillOnce(::testing::DoAll(::testing::SetArgReferee<0>(tracks[0]),Return(true)));
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_))
 		.Times(1);
 	EXPECT_CALL(*g_mockAampGstPlayer, Flush(_,_,_))
 		.Times(1);
-	mPrivateInstanceAAMP->SetPreferredTextLanguages("{\"rendition\":\"rend0\"}");
+	mPlayerInstanceAAMP->SetPreferredTextLanguages("{\"rendition\":\"rend0\"}");
 
 	/* Verify the preferred rendition list. */
-	EXPECT_STREQ(mPrivateInstanceAAMP->preferredTextRenditionString.c_str(), "rend0");
+	EXPECT_STREQ(mPlayerInstanceAAMP->preferredTextRenditionString.c_str(), "rend0");
 	g_mockStreamAbstractionAAMP = NULL;
 }
 
@@ -461,8 +461,8 @@ TEST_F(SetPreferredTextLanguagesTests, RenditionTest2)
 	tracks.push_back(TextTrackInfo("idx0", "lang0", false, "rend0", "trackName0", "codecStr0", "cha0", "typ0", "lab0", "type0", Accessibility(), true));
 	tracks.push_back(TextTrackInfo("idx1", "lang1", false, "rend1", "trackName1", "codecStr1", "cha1", "typ1", "lab1", "type1", Accessibility(), true));
 
-	mPrivateInstanceAAMP->preferredTextRenditionString = "rend0";
-	mPrivateInstanceAAMP->subtitles_muted = false;
+	mPlayerInstanceAAMP->preferredTextRenditionString = "rend0";
+	mPlayerInstanceAAMP->subtitles_muted = false;
 
 	/* Call SetPreferredLanguages() changing the preferred rendition. There
 	 * should be a retune.
@@ -474,10 +474,10 @@ TEST_F(SetPreferredTextLanguagesTests, RenditionTest2)
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_))
 		.WillOnce(Invoke(this, &SetPreferredTextLanguagesTests::Stop));
 
-	mPrivateInstanceAAMP->SetPreferredTextLanguages("{\"rendition\":\"rend1\"}");
+	mPlayerInstanceAAMP->SetPreferredTextLanguages("{\"rendition\":\"rend1\"}");
 
 	/* Verify the preferred rendition list. */
-	EXPECT_STREQ(mPrivateInstanceAAMP->preferredTextRenditionString.c_str(), "rend1");
+	EXPECT_STREQ(mPlayerInstanceAAMP->preferredTextRenditionString.c_str(), "rend1");
 }
 
 /**
@@ -490,11 +490,11 @@ TEST_F(SetPreferredTextLanguagesTests, RenditionTest3)
 	tracks.push_back(TextTrackInfo("idx0", "lang0", false, "rend0", "trackName0", "codecStr0", "cha0", "typ0", "lab0", "type0", Accessibility(), true));
 	tracks.push_back(TextTrackInfo("idx1", "lang1", false, "rend1", "trackName1", "codecStr1", "cha1", "typ1", "lab1", "type1", Accessibility(), true));
 
-	mPrivateInstanceAAMP->preferredTextRenditionString = "rend0";
-	mPrivateInstanceAAMP->subtitles_muted = false;
-	mPrivateInstanceAAMP->mFogTSBEnabled = true;
-	mPrivateInstanceAAMP->mManifestUrl = "http://host/Manifest.mpd";
-	mPrivateInstanceAAMP->mTsbSessionRequestUrl = "http://host/TsbSessionRequest.mpd";
+	mPlayerInstanceAAMP->preferredTextRenditionString = "rend0";
+	mPlayerInstanceAAMP->subtitles_muted = false;
+	mPlayerInstanceAAMP->mFogTSBEnabled = true;
+	mPlayerInstanceAAMP->mManifestUrl = "http://host/Manifest.mpd";
+	mPlayerInstanceAAMP->mTsbSessionRequestUrl = "http://host/TsbSessionRequest.mpd";
 
 	/* Call SetPreferredTextLanguages() changing the preferred rendition. There
 	 * should be a retune but no new TSB requested.
@@ -506,13 +506,13 @@ TEST_F(SetPreferredTextLanguagesTests, RenditionTest3)
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_))
 		.WillOnce(Invoke(this, &SetPreferredTextLanguagesTests::Stop));
 
-	mPrivateInstanceAAMP->SetPreferredTextLanguages("{\"rendition\":\"rend1\"}");
+	mPlayerInstanceAAMP->SetPreferredTextLanguages("{\"rendition\":\"rend1\"}");
 
 	/* Verified the requested manifest URL. */
-	EXPECT_STREQ(mPrivateInstanceAAMP->mManifestUrl.c_str(), "http://host/Manifest.mpd");
+	EXPECT_STREQ(mPlayerInstanceAAMP->mManifestUrl.c_str(), "http://host/Manifest.mpd");
 
 	/* Verify the preferred rendition list. */
-	EXPECT_STREQ(mPrivateInstanceAAMP->preferredTextRenditionString.c_str(), "rend1");
+	EXPECT_STREQ(mPlayerInstanceAAMP->preferredTextRenditionString.c_str(), "rend1");
 }
 
 /**
@@ -526,11 +526,11 @@ TEST_F(SetPreferredTextLanguagesTests, RenditionTest4)
 	tracks.push_back(TextTrackInfo("idx0", "lang0", false, "rend0", "trackName0", "codecStr0", "cha0", "typ0", "lab0", "type0", Accessibility(), true));
 	tracks.push_back(TextTrackInfo("idx1", "lang1", false, "rend1", "trackName1", "codecStr1", "cha1", "typ1", "lab1", "type1", Accessibility(), false));
 
-	mPrivateInstanceAAMP->preferredTextRenditionString = "rend0";
-	mPrivateInstanceAAMP->subtitles_muted = false;
-	mPrivateInstanceAAMP->mFogTSBEnabled = true;
-	mPrivateInstanceAAMP->mManifestUrl = "http://host/Manifest.mpd";
-	mPrivateInstanceAAMP->mTsbSessionRequestUrl = "http://host/TsbSessionRequest.mpd";
+	mPlayerInstanceAAMP->preferredTextRenditionString = "rend0";
+	mPlayerInstanceAAMP->subtitles_muted = false;
+	mPlayerInstanceAAMP->mFogTSBEnabled = true;
+	mPlayerInstanceAAMP->mManifestUrl = "http://host/Manifest.mpd";
+	mPlayerInstanceAAMP->mTsbSessionRequestUrl = "http://host/TsbSessionRequest.mpd";
 
 	/* Call SetPreferredTextLanguages() changing the preferred renditon but the
 	 * matching track is disabled. There should be a retune and a new TSB
@@ -543,13 +543,13 @@ TEST_F(SetPreferredTextLanguagesTests, RenditionTest4)
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_))
 		.WillOnce(Invoke(this, &SetPreferredTextLanguagesTests::Stop));
 
-	mPrivateInstanceAAMP->SetPreferredTextLanguages("{\"rendition\":\"rend1\"}");
+	mPlayerInstanceAAMP->SetPreferredTextLanguages("{\"rendition\":\"rend1\"}");
 
 	/* The manifest URL should be changed to reload the TSB. */
-	EXPECT_STREQ(mPrivateInstanceAAMP->mManifestUrl.c_str(), "http://host/TsbSessionRequest.mpd&reloadTSB=true");
+	EXPECT_STREQ(mPlayerInstanceAAMP->mManifestUrl.c_str(), "http://host/TsbSessionRequest.mpd&reloadTSB=true");
 
 	/* Verify the preferred rendition list. */
-	EXPECT_STREQ(mPrivateInstanceAAMP->preferredTextRenditionString.c_str(), "rend1");
+	EXPECT_STREQ(mPlayerInstanceAAMP->preferredTextRenditionString.c_str(), "rend1");
 }
 
 TEST_F(SetPreferredTextLanguagesTests, TextTrackNameTest2)
@@ -558,8 +558,8 @@ TEST_F(SetPreferredTextLanguagesTests, TextTrackNameTest2)
 
 	tracks.push_back(TextTrackInfo("idx0", "lang0", false, "rend0", "English", "codecStr0", "cha0", "typ0", "lab0", "type0", Accessibility(), true));
 	tracks.push_back(TextTrackInfo("idx1", "lang1", false, "rend1", "Spanish", "codecStr1", "cha1", "typ1", "lab1", "type1", Accessibility(), true));
-	mPrivateInstanceAAMP->preferredTextNameString = "English";
-	mPrivateInstanceAAMP->subtitles_muted = false;
+	mPlayerInstanceAAMP->preferredTextNameString = "English";
+	mPlayerInstanceAAMP->subtitles_muted = false;
 	/* Call SetPreferredLanguages() without changing the preferred Name.
 	* There should be no retune.
 	*/
@@ -568,9 +568,9 @@ TEST_F(SetPreferredTextLanguagesTests, TextTrackNameTest2)
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_))
 		.Times(0);
 
-	mPrivateInstanceAAMP->SetPreferredTextLanguages("{\"name\":\"English\"}");
+	mPlayerInstanceAAMP->SetPreferredTextLanguages("{\"name\":\"English\"}");
 	// Verify the preferred Name list.
-	EXPECT_STREQ(mPrivateInstanceAAMP->preferredTextNameString.c_str(), "English");
+	EXPECT_STREQ(mPlayerInstanceAAMP->preferredTextNameString.c_str(), "English");
 }
 
 TEST_F(SetPreferredTextLanguagesTests, TextTrackNameTest3)
@@ -580,8 +580,8 @@ TEST_F(SetPreferredTextLanguagesTests, TextTrackNameTest3)
 	tracks.push_back(TextTrackInfo("idx0", "lang0", false, "rend0", "English", "codecStr0", "cha0", "typ0", "lab0", "type0", Accessibility(), true));
 	tracks.push_back(TextTrackInfo("idx1", "lang1", false, "rend1", "Spanish", "codecStr1", "cha1", "typ1", "lab1", "type1", Accessibility(), true));
 
-	mPrivateInstanceAAMP->preferredTextNameString = "English";
-	mPrivateInstanceAAMP->subtitles_muted = false;
+	mPlayerInstanceAAMP->preferredTextNameString = "English";
+	mPlayerInstanceAAMP->subtitles_muted = false;
 
 	/* Call SetPreferredLanguages() changing the preferred name. There
 	 * should be a retune.
@@ -593,13 +593,13 @@ TEST_F(SetPreferredTextLanguagesTests, TextTrackNameTest3)
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_))
 		.WillOnce(Invoke(this, &SetPreferredTextLanguagesTests::Stop));
 
-	mPrivateInstanceAAMP->SetPreferredTextLanguages("{\"name\":\"Spanish\"}");
+	mPlayerInstanceAAMP->SetPreferredTextLanguages("{\"name\":\"Spanish\"}");
 
 	/* Verify the preferred name list. */
-	EXPECT_STREQ(mPrivateInstanceAAMP->preferredTextNameString.c_str(), "Spanish");
+	EXPECT_STREQ(mPlayerInstanceAAMP->preferredTextNameString.c_str(), "Spanish");
 
 	/* Verify the preferred language is not set to an incorrect value */
-	EXPECT_STRNE(mPrivateInstanceAAMP->preferredTextNameString.c_str(), "English");
+	EXPECT_STRNE(mPlayerInstanceAAMP->preferredTextNameString.c_str(), "English");
 }
 
 TEST_F(SetPreferredTextLanguagesTests, TextTrackNameTest4)
@@ -609,11 +609,11 @@ TEST_F(SetPreferredTextLanguagesTests, TextTrackNameTest4)
 	tracks.push_back(TextTrackInfo("idx0", "lang0", false, "rend0", "English", "codecStr0", "cha0", "typ0", "lab0", "type0", Accessibility(), true));
 	tracks.push_back(TextTrackInfo("idx1", "lang1", false, "rend1", "Spanish", "codecStr1", "cha1", "typ1", "lab1", "type1", Accessibility(), true));
 
-	mPrivateInstanceAAMP->preferredTextNameString = "English";
-	mPrivateInstanceAAMP->subtitles_muted = false;
-	mPrivateInstanceAAMP->mFogTSBEnabled = true;
-	mPrivateInstanceAAMP->mManifestUrl = "http://host/Manifest.mpd";
-	mPrivateInstanceAAMP->mTsbSessionRequestUrl = "http://host/TsbSessionRequest.mpd";
+	mPlayerInstanceAAMP->preferredTextNameString = "English";
+	mPlayerInstanceAAMP->subtitles_muted = false;
+	mPlayerInstanceAAMP->mFogTSBEnabled = true;
+	mPlayerInstanceAAMP->mManifestUrl = "http://host/Manifest.mpd";
+	mPlayerInstanceAAMP->mTsbSessionRequestUrl = "http://host/TsbSessionRequest.mpd";
 
 	/* Call SetPreferredTextLanguages() changing the preferred name. There
 	 * should be a retune but no new TSB requested.
@@ -625,13 +625,13 @@ TEST_F(SetPreferredTextLanguagesTests, TextTrackNameTest4)
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_))
 		.WillOnce(Invoke(this, &SetPreferredTextLanguagesTests::Stop));
 
-	mPrivateInstanceAAMP->SetPreferredTextLanguages("{\"name\":\"Spanish\"}");
+	mPlayerInstanceAAMP->SetPreferredTextLanguages("{\"name\":\"Spanish\"}");
 
 	/* Verified the requested manifest URL. */
-	EXPECT_STREQ(mPrivateInstanceAAMP->mManifestUrl.c_str(), "http://host/Manifest.mpd");
+	EXPECT_STREQ(mPlayerInstanceAAMP->mManifestUrl.c_str(), "http://host/Manifest.mpd");
 
 	/* Verify the preferred name list. */
-	EXPECT_STREQ(mPrivateInstanceAAMP->preferredTextNameString.c_str(), "Spanish");
+	EXPECT_STREQ(mPlayerInstanceAAMP->preferredTextNameString.c_str(), "Spanish");
 }
 
 TEST_F(SetPreferredTextLanguagesTests, TextTrackNameTest5)
@@ -641,11 +641,11 @@ TEST_F(SetPreferredTextLanguagesTests, TextTrackNameTest5)
 	tracks.push_back(TextTrackInfo("idx0", "lang0", false, "rend0", "English", "codecStr0", "cha0", "typ0", "lab0", "type0", Accessibility(), true));
 	tracks.push_back(TextTrackInfo("idx1", "lang1", false, "rend1", "Spanish", "codecStr1", "cha1", "typ1", "lab1", "type1", Accessibility(), false));
 
-	mPrivateInstanceAAMP->preferredTextNameString = "English";
-	mPrivateInstanceAAMP->subtitles_muted = false;
-	mPrivateInstanceAAMP->mFogTSBEnabled = true;
-	mPrivateInstanceAAMP->mManifestUrl = "http://host/Manifest.mpd";
-	mPrivateInstanceAAMP->mTsbSessionRequestUrl = "http://host/TsbSessionRequest.mpd";
+	mPlayerInstanceAAMP->preferredTextNameString = "English";
+	mPlayerInstanceAAMP->subtitles_muted = false;
+	mPlayerInstanceAAMP->mFogTSBEnabled = true;
+	mPlayerInstanceAAMP->mManifestUrl = "http://host/Manifest.mpd";
+	mPlayerInstanceAAMP->mTsbSessionRequestUrl = "http://host/TsbSessionRequest.mpd";
 
 	/* Call SetPreferredTextLanguages() changing the preferred name but the
 	 * matching track is disabled. There should be a retune and a new TSB
@@ -658,13 +658,13 @@ TEST_F(SetPreferredTextLanguagesTests, TextTrackNameTest5)
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_))
 		.WillOnce(Invoke(this, &SetPreferredTextLanguagesTests::Stop));
 
-	mPrivateInstanceAAMP->SetPreferredTextLanguages("{\"name\":\"Spanish\"}");
+	mPlayerInstanceAAMP->SetPreferredTextLanguages("{\"name\":\"Spanish\"}");
 
 	/* The manifest URL should be changed to reload the TSB. */
-	EXPECT_STREQ(mPrivateInstanceAAMP->mManifestUrl.c_str(), "http://host/TsbSessionRequest.mpd&reloadTSB=true");
+	EXPECT_STREQ(mPlayerInstanceAAMP->mManifestUrl.c_str(), "http://host/TsbSessionRequest.mpd&reloadTSB=true");
 
 	/* Verify the preferred name list. */
-	EXPECT_STREQ(mPrivateInstanceAAMP->preferredTextNameString.c_str(), "Spanish");
+	EXPECT_STREQ(mPlayerInstanceAAMP->preferredTextNameString.c_str(), "Spanish");
 }
 
 TEST_F(SetPreferredTextLanguagesTests, SetTsbSessionManagerNull)
@@ -711,7 +711,7 @@ TEST_F(SetPreferredTextLanguagesTests, SetTsbSessionManagerNull)
 	// to prevent re-entrant calls from the mock's destructor, then delete the mock.
 	auto mockToDelete = g_mockStreamAbstractionAAMP;
 	g_mockStreamAbstractionAAMP = nullptr;
-	mPrivateInstanceAAMP->mpStreamAbstractionAAMP = nullptr;
+	mPlayerInstanceAAMP->mpStreamAbstractionAAMP = nullptr;
 	testp_aamp->mpStreamAbstractionAAMP = nullptr;
 	delete mockToDelete;
 }
@@ -761,7 +761,7 @@ TEST_F(SetPreferredTextLanguagesTests, ChangePrefTextLangWithTSB)
 	// to prevent re-entrant calls from the mock's destructor, then delete the mock.
 	auto mockToDelete = g_mockStreamAbstractionAAMP;
 	g_mockStreamAbstractionAAMP = nullptr;
-	mPrivateInstanceAAMP->mpStreamAbstractionAAMP = nullptr;
+	mPlayerInstanceAAMP->mpStreamAbstractionAAMP = nullptr;
 	testp_aamp->mpStreamAbstractionAAMP = nullptr;
 	delete mockToDelete;
 	delete (g_mockTSBSessionManager);

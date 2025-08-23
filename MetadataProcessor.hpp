@@ -30,7 +30,7 @@
 #include "tsDemuxer.hpp"
 #include "tsFragmentProcessor.hpp"
 
-#include "priv_aamp.h"
+#include "main_aamp.h"
 #include <pthread.h>
 
 /// Function to call to update the local PTS record

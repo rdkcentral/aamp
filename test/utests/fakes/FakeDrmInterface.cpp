@@ -24,7 +24,7 @@
  * @brief HLS Drm Interface */
 /* Constructor for dmrInterfce()
  * */
-DrmInterface::DrmInterface(PrivateInstanceAAMP* aamp):mAesKeyBuf("aesKeyBuf")
+DrmInterface::DrmInterface(PlayerInstanceAAMP* aamp):mAesKeyBuf("aesKeyBuf")
 {
 
 }
@@ -56,7 +56,7 @@ std::shared_ptr<DrmInterface> DrmInterface::mInstance = nullptr;
 /**
  * @brief Get singleton instance
  */
-std::shared_ptr<DrmInterface> DrmInterface::GetInstance(PrivateInstanceAAMP* aamp)
+std::shared_ptr<DrmInterface> DrmInterface::GetInstance(PlayerInstanceAAMP* aamp)
 {
     return nullptr;
 }
@@ -75,6 +75,6 @@ void DrmInterface::getHlsDrmSession(std::shared_ptr <HlsDrmBase>&bridge, std::sh
 {
 
 }
-void DrmInterface::UpdateAamp(PrivateInstanceAAMP* aamp)
+void DrmInterface::UpdateAamp(PlayerInstanceAAMP* aamp)
 {
 }

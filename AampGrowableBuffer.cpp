@@ -26,11 +26,11 @@
 #include "AampConfig.h"
 #include <assert.h>
 #include <glib.h>
-#include "priv_aamp.h"
+#include "main_aamp.h"
 
 // optional realtime logging for memory use
 #define AAMPGROWABLEBUF_LOG() \
-    if(PrivateInstanceAAMP::mTrackGrowableBufMem) \
+    if(PlayerInstanceAAMP::mTrackGrowableBufMem) \
         printf("AampGrowableBuffer::%s(%s:%d)\n",\
         __FUNCTION__,name,gNetMemoryCount);
 

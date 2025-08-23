@@ -22,7 +22,7 @@
 
 MockPrivateCDAIObjectMPD *g_MockPrivateCDAIObjectMPD = nullptr;
 
-CDAIObjectMPD::CDAIObjectMPD(PrivateInstanceAAMP* aamp): CDAIObject(aamp), mPrivObj(new PrivateCDAIObjectMPD(aamp))
+CDAIObjectMPD::CDAIObjectMPD(PlayerInstanceAAMP* aamp): CDAIObject(aamp), mPrivObj(new PrivateCDAIObjectMPD(aamp))
 {
 }
 
@@ -35,7 +35,7 @@ void CDAIObjectMPD::SetAlternateContents(const std::string &adBreakId, const std
 {
 }
 
-PrivateCDAIObjectMPD::PrivateCDAIObjectMPD(PrivateInstanceAAMP* aamp) : mAamp(aamp),mDaiMtx(), mIsFogTSB(false), mAdBreaks(), mPeriodMap(), mCurPlayingBreakId(), mAdObjThreadID(), mCurAds(nullptr),
+PrivateCDAIObjectMPD::PrivateCDAIObjectMPD(PlayerInstanceAAMP* aamp) : mAamp(aamp),mDaiMtx(), mIsFogTSB(false), mAdBreaks(), mPeriodMap(), mCurPlayingBreakId(), mAdObjThreadID(), mCurAds(nullptr),
 					mCurAdIdx(-1), mContentSeekOffset(0), mAdState(AdState::OUTSIDE_ADBREAK),mPlacementObj(), mAdFulfillObj(),mAdObjThreadStarted(false),mAdtoInsertInNextBreakVec(),mAdBrkVecMtx()
 {
 }

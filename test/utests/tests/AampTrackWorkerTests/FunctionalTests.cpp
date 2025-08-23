@@ -22,7 +22,7 @@
 #include <thread>
 #include <chrono>
 #include "AampTrackWorker.h"
-#include "priv_aamp.h"
+#include "main_aamp.h"
 #include "AampUtils.h"
 
 using ::testing::_;
@@ -42,7 +42,7 @@ protected:
 	public:
 		using AampTrackWorker::mMutex; // Expose protected member for testing
 
-		TestableAampTrackWorker(PrivateInstanceAAMP *_aamp, AampMediaType _mediaType)
+		TestableAampTrackWorker(PlayerInstanceAAMP *_aamp, AampMediaType _mediaType)
 			: aamp::AampTrackWorker(_aamp, _mediaType)
 		{
 		}
@@ -67,7 +67,7 @@ protected:
 			mJobAvailable = jobAvailable;
 		}
 
-		PrivateInstanceAAMP *GetAampInstance()
+		PlayerInstanceAAMP *GetAampInstance()
 		{
 			return aamp;
 		}
@@ -82,7 +82,7 @@ protected:
 			mCondVar.notify_one();
 		}
 	};
-	PrivateInstanceAAMP *mPrivateInstanceAAMP;
+	PlayerInstanceAAMP *mPlayerInstanceAAMP;
 	AampMediaType mMediaType = AampMediaType::eMEDIATYPE_VIDEO;
 	TestableAampTrackWorker *mTestableAampTrackWorker;
 
@@ -93,9 +93,9 @@ protected:
 			gpGlobalConfig = new AampConfig();
 		}
 
-		mPrivateInstanceAAMP = new PrivateInstanceAAMP(gpGlobalConfig);
+		mPlayerInstanceAAMP = new PlayerInstanceAAMP(gpGlobalConfig);
 
-		mTestableAampTrackWorker = new TestableAampTrackWorker(mPrivateInstanceAAMP, mMediaType);
+		mTestableAampTrackWorker = new TestableAampTrackWorker(mPlayerInstanceAAMP, mMediaType);
 	}
 
 	void TearDown() override
@@ -103,8 +103,8 @@ protected:
 		delete mTestableAampTrackWorker;
 		mTestableAampTrackWorker = nullptr;
 
-		delete mPrivateInstanceAAMP;
-		mPrivateInstanceAAMP = nullptr;
+		delete mPlayerInstanceAAMP;
+		mPlayerInstanceAAMP = nullptr;
 
 		if (gpGlobalConfig)
 		{
@@ -124,7 +124,7 @@ TEST_F(FunctionalTests, ConstructorInitializesFields)
 {
 	EXPECT_FALSE(mTestableAampTrackWorker->GetStopFlag());
 	EXPECT_FALSE(mTestableAampTrackWorker->GetJobAvailableFlag());
-	EXPECT_EQ(mTestableAampTrackWorker->GetAampInstance(), mPrivateInstanceAAMP);
+	EXPECT_EQ(mTestableAampTrackWorker->GetAampInstance(), mPlayerInstanceAAMP);
 	EXPECT_EQ(mTestableAampTrackWorker->GetMediaType(), mMediaType);
 }
 
@@ -226,7 +226,7 @@ TEST_F(FunctionalTests, ConstructorHandlesExceptionsGracefully)
 {
 	try
 	{
-		PrivateInstanceAAMP mAAMP;
+		PlayerInstanceAAMP mAAMP;
 		aamp::AampTrackWorker audioWorker(&mAAMP, AampMediaType::eMEDIATYPE_AUDIO);
 		aamp::AampTrackWorker auxAudioWorker(&mAAMP, AampMediaType::eMEDIATYPE_AUX_AUDIO);
 		aamp::AampTrackWorker subtitleWorker(&mAAMP, AampMediaType::eMEDIATYPE_SUBTITLE);

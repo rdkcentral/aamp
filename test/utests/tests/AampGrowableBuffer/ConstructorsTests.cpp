@@ -22,7 +22,7 @@
 #include "MockGLib.h"
 #include "AampGrowableBuffer.h"
 #include "MockAampConfig.h"
-#include "MockPrivateInstanceAAMP.h"
+#include "MockPlayerInstanceAAMP.h"
 
 #include <functional>
 #include <cmath>

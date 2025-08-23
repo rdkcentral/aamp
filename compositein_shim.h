@@ -40,7 +40,7 @@ public:
     /**
     *   @brief get StreamAbstractionAAMP_COMPOSITEIN instance
     */
-    static StreamAbstractionAAMP_COMPOSITEIN * GetInstance(class PrivateInstanceAAMP *aamp,double seekpos, float rate);
+    static StreamAbstractionAAMP_COMPOSITEIN * GetInstance(class PlayerInstanceAAMP *aamp,double seekpos, float rate);
 
     /**
     *  @brief Clear aamp of CompositeInInstance
@@ -79,11 +79,11 @@ public:
     private:
     /**
      * @fn StreamAbstractionAAMP_COMPOSITEIN
-     * @param aamp pointer to PrivateInstanceAAMP object associated with player
+     * @param aamp pointer to PlayerInstanceAAMP object associated with player
      * @param seekpos Seek position
      * @param rate playback rate
      */
-     StreamAbstractionAAMP_COMPOSITEIN(class PrivateInstanceAAMP *aamp,double seekpos, float rate);
+     StreamAbstractionAAMP_COMPOSITEIN(class PlayerInstanceAAMP *aamp,double seekpos, float rate);
      static StreamAbstractionAAMP_COMPOSITEIN* mCompositeinInstance;
 };
 

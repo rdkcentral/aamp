@@ -18,7 +18,7 @@
  */
 
 #include <gtest/gtest.h>
-#include "MockPrivateInstanceAAMP.h"
+#include "MockPlayerInstanceAAMP.h"
 #include "AampTsbAdPlacementMetaData.h"
 
 /**
@@ -27,21 +27,21 @@
 class AampTsbAdPlacementMetaDataTest : public ::testing::Test
 {
 public:
-	PrivateInstanceAAMP *mPrivateInstanceAAMP;
+	PlayerInstanceAAMP *mPlayerInstanceAAMP;
 protected:
 	void SetUp() override
 	{
-		g_mockPrivateInstanceAAMP = new MockPrivateInstanceAAMP();
-		mPrivateInstanceAAMP = new PrivateInstanceAAMP{};
+		g_mockPlayerInstanceAAMP = new MockPlayerInstanceAAMP();
+		mPlayerInstanceAAMP = new PlayerInstanceAAMP{};
 	}
 
 	void TearDown() override
 	{
-		delete g_mockPrivateInstanceAAMP;
-		g_mockPrivateInstanceAAMP = nullptr;
+		delete g_mockPlayerInstanceAAMP;
+		g_mockPlayerInstanceAAMP = nullptr;
 
-		delete mPrivateInstanceAAMP;
-		mPrivateInstanceAAMP = nullptr;
+		delete mPlayerInstanceAAMP;
+		mPlayerInstanceAAMP = nullptr;
 	}
 };
 
@@ -88,11 +88,11 @@ TEST_F(AampTsbAdPlacementMetaDataTest, PlacementEventTest)
 			AampTsbAdMetaData::EventType::START,
 			positionTime, duration, adId, position, offset);
 
-		EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdPlacementEvent(
+		EXPECT_CALL(*g_mockPlayerInstanceAAMP, SendAdPlacementEvent(
 			AAMP_EVENT_AD_PLACEMENT_START, adId, position, positionTime.milliseconds(),
 			offset, duration, immediate, 0)).Times(1);
 
-		startMetadata.SendEvent(mPrivateInstanceAAMP);
+		startMetadata.SendEvent(mPlayerInstanceAAMP);
 	}
 
 	// Test END event
@@ -101,11 +101,11 @@ TEST_F(AampTsbAdPlacementMetaDataTest, PlacementEventTest)
 			AampTsbAdMetaData::EventType::END,
 			positionTime, duration, adId, position, offset);
 
-		EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdPlacementEvent(
+		EXPECT_CALL(*g_mockPlayerInstanceAAMP, SendAdPlacementEvent(
 			AAMP_EVENT_AD_PLACEMENT_END, adId, position, positionTime.milliseconds(),
 			offset, duration, immediate, 0)).Times(1);
 
-		endMetadata.SendEvent(mPrivateInstanceAAMP);
+		endMetadata.SendEvent(mPlayerInstanceAAMP);
 	}
 
 	// Test ERROR event
@@ -114,11 +114,11 @@ TEST_F(AampTsbAdPlacementMetaDataTest, PlacementEventTest)
 			AampTsbAdMetaData::EventType::ERROR,
 			positionTime, duration, adId, position, offset);
 
-		EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdPlacementEvent(
+		EXPECT_CALL(*g_mockPlayerInstanceAAMP, SendAdPlacementEvent(
 			AAMP_EVENT_AD_PLACEMENT_ERROR, adId, position, positionTime.milliseconds(),
 			offset, duration, immediate, 0)).Times(1);
 
-		errorMetadata.SendEvent(mPrivateInstanceAAMP);
+		errorMetadata.SendEvent(mPlayerInstanceAAMP);
 	}
 }
 
@@ -163,11 +163,11 @@ TEST_F(AampTsbAdPlacementMetaDataTest, EdgeCasesTest)
 			AampTsbAdMetaData::EventType::START,
 			positionTime, zeroDurationValue, adId, position, offset);
 
-		EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdPlacementEvent(
+		EXPECT_CALL(*g_mockPlayerInstanceAAMP, SendAdPlacementEvent(
 			AAMP_EVENT_AD_PLACEMENT_START, adId, position, positionTime.milliseconds(),
 			offset, zeroDurationValue, immediate, 0)).Times(1);
 
-		zeroDuration.SendEvent(mPrivateInstanceAAMP);
+		zeroDuration.SendEvent(mPlayerInstanceAAMP);
 	}
 
 	// Test large values
@@ -178,11 +178,11 @@ TEST_F(AampTsbAdPlacementMetaDataTest, EdgeCasesTest)
 		AampTsbAdPlacementMetaData largeValues(
 			AampTsbAdMetaData::EventType::START, positionTime, duration, adId, maxRelPos, maxOffset);
 
-		EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdPlacementEvent(
+		EXPECT_CALL(*g_mockPlayerInstanceAAMP, SendAdPlacementEvent(
 			AAMP_EVENT_AD_PLACEMENT_START, adId, maxRelPos, positionTime.milliseconds(),
 			maxOffset, duration, immediate, 0)).Times(1);
 
-			largeValues.SendEvent(mPrivateInstanceAAMP);
+			largeValues.SendEvent(mPlayerInstanceAAMP);
 	}
 
 	// Test empty ad ID
@@ -190,11 +190,11 @@ TEST_F(AampTsbAdPlacementMetaDataTest, EdgeCasesTest)
 		AampTsbAdPlacementMetaData emptyId(
 			AampTsbAdMetaData::EventType::START, positionTime, duration, "", position, offset);
 
-		EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdPlacementEvent(
+		EXPECT_CALL(*g_mockPlayerInstanceAAMP, SendAdPlacementEvent(
 				AAMP_EVENT_AD_PLACEMENT_START, "", position, positionTime.milliseconds(),
 				offset, duration, immediate, 0)).Times(1);
 
-		emptyId.SendEvent(mPrivateInstanceAAMP);
+		emptyId.SendEvent(mPlayerInstanceAAMP);
 
 	}
 }

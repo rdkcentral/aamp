@@ -29,10 +29,10 @@
 
 // unit under test
 #include "MockAampConfig.h"
-#include "MockPrivateInstanceAAMP.h"
+#include "MockPlayerInstanceAAMP.h"
 #include "MockIsoBmffBuffer.h"
 #include "AampConfig.h"
-#include "priv_aamp.h"
+#include "main_aamp.h"
 #include "AampLogManager.h"
 #include "isobmff/isobmffprocessor.h"
 
@@ -51,7 +51,7 @@ class IsoBmffProcessorBaseTests : public ::testing::Test
 		IsoBmffProcessor *mIsoBmffProcessor{};
 		IsoBmffProcessor *mAudIsoBmffProcessor{};
 		IsoBmffProcessor *mSubIsoBmffProcessor{};
-		PrivateInstanceAAMP *mPrivateInstanceAAMP{};
+		PlayerInstanceAAMP *mPlayerInstanceAAMP{};
 		MediaProcessor::process_fcn_t mProcessorFn{};
 		std::thread asyncTask;
 		// To be set by derived classes
@@ -60,21 +60,21 @@ class IsoBmffProcessorBaseTests : public ::testing::Test
 
 		void SetUp() override
 		{
-			mPrivateInstanceAAMP = new PrivateInstanceAAMP(gpGlobalConfig);
-			g_mockPrivateInstanceAAMP = new MockPrivateInstanceAAMP();
+			mPlayerInstanceAAMP = new PlayerInstanceAAMP(gpGlobalConfig);
+			g_mockPlayerInstanceAAMP = new MockPlayerInstanceAAMP();
 			g_mockAampConfig = new MockAampConfig();
 			g_mockIsoBmffBuffer = new MockIsoBmffBuffer();
 			EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnablePTSReStamp)).WillRepeatedly(Return(IsPTSReStampEnabled()));
-			EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetMediaFormatTypeEnum()).WillRepeatedly(Return(eMEDIAFORMAT_HLS_MP4));
+			EXPECT_CALL(*g_mockPlayerInstanceAAMP, GetMediaFormatTypeEnum()).WillRepeatedly(Return(eMEDIAFORMAT_HLS_MP4));
 			EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_FragmentDownloadFailThreshold)).WillRepeatedly(Return(10));
 			EXPECT_CALL(*g_mockIsoBmffBuffer, parseBuffer(_,_)).WillRepeatedly(Return(true));
 			EXPECT_CALL(*g_mockIsoBmffBuffer, setBuffer(_,_)).Times(AnyNumber());
 
 			id3_callback_t id3Handler = nullptr;
 
-			mAudIsoBmffProcessor = new IsoBmffProcessor(mPrivateInstanceAAMP, id3Handler, eBMFFPROCESSOR_TYPE_AUDIO, IsPTMEnabled(),nullptr, nullptr);
-			mSubIsoBmffProcessor = new IsoBmffProcessor(mPrivateInstanceAAMP, id3Handler, eBMFFPROCESSOR_TYPE_SUBTITLE, IsPTMEnabled(),nullptr, nullptr);
-			mIsoBmffProcessor = new IsoBmffProcessor(mPrivateInstanceAAMP, id3Handler, eBMFFPROCESSOR_TYPE_VIDEO, IsPTMEnabled(),mAudIsoBmffProcessor, mSubIsoBmffProcessor);
+			mAudIsoBmffProcessor = new IsoBmffProcessor(mPlayerInstanceAAMP, id3Handler, eBMFFPROCESSOR_TYPE_AUDIO, IsPTMEnabled(),nullptr, nullptr);
+			mSubIsoBmffProcessor = new IsoBmffProcessor(mPlayerInstanceAAMP, id3Handler, eBMFFPROCESSOR_TYPE_SUBTITLE, IsPTMEnabled(),nullptr, nullptr);
+			mIsoBmffProcessor = new IsoBmffProcessor(mPlayerInstanceAAMP, id3Handler, eBMFFPROCESSOR_TYPE_VIDEO, IsPTMEnabled(),mAudIsoBmffProcessor, mSubIsoBmffProcessor);
 		}
 
 		void TearDown() override
@@ -87,10 +87,10 @@ class IsoBmffProcessorBaseTests : public ::testing::Test
 			mSubIsoBmffProcessor = nullptr;
 			delete gpGlobalConfig;
 			gpGlobalConfig = nullptr;
-			delete mPrivateInstanceAAMP;
-			mPrivateInstanceAAMP = nullptr;
-			delete g_mockPrivateInstanceAAMP;
-			g_mockPrivateInstanceAAMP = nullptr;
+			delete mPlayerInstanceAAMP;
+			mPlayerInstanceAAMP = nullptr;
+			delete g_mockPlayerInstanceAAMP;
+			g_mockPlayerInstanceAAMP = nullptr;
 			delete g_mockIsoBmffBuffer;
 			g_mockIsoBmffBuffer = nullptr;
 			delete g_mockAampConfig;
@@ -137,7 +137,7 @@ TEST_F(IsoBmffProcessorTests, abortTests1)
 	mIsoBmffProcessor->sendSegment(&buffer, 0, 0, 0.0, false, false, mProcessorFn, ptsError);
 
 	t.join();
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendErrorEvent(_, _, _, _, _, _, _)).Times(0);
+	EXPECT_CALL(*g_mockPlayerInstanceAAMP, SendErrorEvent(_, _, _, _, _, _, _)).Times(0);
 	buffer.Free();
 }
 
@@ -156,9 +156,9 @@ TEST_F(IsoBmffProcessorTests, abortTests2)
 		return true;
 	});
 
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendErrorEvent(_, _, _, _, _, _, _)).Times(0);
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendStreamTransfer(_, _, _, _, _, _, _, _)).Times(0);
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendStreamCopy(_, _, _, _, _, _)).Times(0);
+	EXPECT_CALL(*g_mockPlayerInstanceAAMP, SendErrorEvent(_, _, _, _, _, _, _)).Times(0);
+	EXPECT_CALL(*g_mockPlayerInstanceAAMP, SendStreamTransfer(_, _, _, _, _, _, _, _)).Times(0);
+	EXPECT_CALL(*g_mockPlayerInstanceAAMP, SendStreamCopy(_, _, _, _, _, _)).Times(0);
 
 	mIsoBmffProcessor->sendSegment(&buffer, 0, 0, 0.0, true, true, mProcessorFn, ptsError);
 
@@ -186,9 +186,9 @@ TEST_F(IsoBmffProcessorTests, abortTests3)
 		return false;
 	});
 
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendErrorEvent(_, _, _, _, _, _, _)).Times(0);
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendStreamTransfer(_, _, _, _, _, _, _, _)).Times(0);
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendStreamCopy(_, _, _, _, _, _)).Times(0);
+	EXPECT_CALL(*g_mockPlayerInstanceAAMP, SendErrorEvent(_, _, _, _, _, _, _)).Times(0);
+	EXPECT_CALL(*g_mockPlayerInstanceAAMP, SendStreamTransfer(_, _, _, _, _, _, _, _)).Times(0);
+	EXPECT_CALL(*g_mockPlayerInstanceAAMP, SendStreamCopy(_, _, _, _, _, _)).Times(0);
 
 	(void)mAudIsoBmffProcessor->sendSegment(&buffer, 0, 0, 0.0, false, false, mProcessorFn, ptsError);
 
@@ -208,9 +208,9 @@ TEST_F(IsoBmffProcessorTests, abortTests4)
 	// EXPECT_CALL(*g_mockIsoBmffBuffer, isInitSegment()).WillOnce(Return(false));
 	// EXPECT_CALL(*g_mockIsoBmffBuffer, getFirstPTS(_)).WillOnce(DoAll(SetArgReferee<0>(10000), Return(true)));
 
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendErrorEvent(_, _, _, _, _, _, _)).Times(0);
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendStreamTransfer(_, _, _, _, _, _, _, _)).Times(0);
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendStreamCopy(_, _, _, _, _, _)).Times(0);
+	EXPECT_CALL(*g_mockPlayerInstanceAAMP, SendErrorEvent(_, _, _, _, _, _, _)).Times(0);
+	EXPECT_CALL(*g_mockPlayerInstanceAAMP, SendStreamTransfer(_, _, _, _, _, _, _, _)).Times(0);
+	EXPECT_CALL(*g_mockPlayerInstanceAAMP, SendStreamCopy(_, _, _, _, _, _)).Times(0);
 
 	// Call sendSegment after an abort was called
 	(void)mIsoBmffProcessor->abort();
@@ -243,8 +243,8 @@ TEST_F(IsoBmffProcessorTests, abortTests5)
 	EXPECT_CALL(*g_mockIsoBmffBuffer, getSampleDuration(_,_)).WillOnce(SetArgReferee<1>(20000));
 
 	//Called twice for init and fragment
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendStreamTransfer(_, _, _, _, _, _, _, _)).Times(1);
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendStreamCopy(_, _, _, _, _, _)).WillOnce(Return(true));
+	EXPECT_CALL(*g_mockPlayerInstanceAAMP, SendStreamTransfer(_, _, _, _, _, _, _, _)).Times(1);
+	EXPECT_CALL(*g_mockPlayerInstanceAAMP, SendStreamCopy(_, _, _, _, _, _)).WillOnce(Return(true));
 
 	mIsoBmffProcessor->sendSegment(&buffer, 0, 0, 0.0, false, false, mProcessorFn, ptsError);
 
@@ -733,7 +733,7 @@ TEST_F(IsoBmffProcessorTests, ptsTests_4)
 TEST_F(IsoBmffProcessorTests, PTMOnRestampOnTest)
 {
 	// With restamp config enabled, PTM should be disabled
-	IsoBmffProcessor *processor = new IsoBmffProcessor(mPrivateInstanceAAMP, nullptr, eBMFFPROCESSOR_TYPE_AUDIO, true /* passThrough */,nullptr,nullptr);
+	IsoBmffProcessor *processor = new IsoBmffProcessor(mPlayerInstanceAAMP, nullptr, eBMFFPROCESSOR_TYPE_AUDIO, true /* passThrough */,nullptr,nullptr);
 	EXPECT_EQ(processor->getPassThroughMode(), false);
 	delete processor;
 }
@@ -749,7 +749,7 @@ TEST_F(IsoBmffProcessorPTMTests, passThroughTests1)
 	uint32_t vCurrTS = 24000;
 
 	// 3 sendSegment calls and configured with HLS_MP4 content type
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendStreamCopy(_, _, _, _, _, _)).Times(3);
+	EXPECT_CALL(*g_mockPlayerInstanceAAMP, SendStreamCopy(_, _, _, _, _, _)).Times(3);
 
 	// Expecting the timescale to be read first
 	EXPECT_CALL(*g_mockIsoBmffBuffer, isInitSegment()).WillOnce(Return(true));

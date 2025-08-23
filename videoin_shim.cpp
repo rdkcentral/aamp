@@ -22,7 +22,7 @@
  * @brief shim for dispatching UVE HDMI input playback
  */
 #include "videoin_shim.h"
-#include "priv_aamp.h"
+#include "main_aamp.h"
 #include <stdlib.h>
 #include <string.h>
 #include <signal.h>
@@ -58,7 +58,7 @@ AAMPStatusType StreamAbstractionAAMP_VIDEOIN::InitHelper(TuneType tuneType)
 /**
  * @brief StreamAbstractionAAMP_VIDEOIN Constructor
  */
-StreamAbstractionAAMP_VIDEOIN::StreamAbstractionAAMP_VIDEOIN( const std::string name, PlayerThunderAccessPlugin callSign,  class PrivateInstanceAAMP *aamp,double seek_pos, float rate, const std::string type)
+StreamAbstractionAAMP_VIDEOIN::StreamAbstractionAAMP_VIDEOIN( const std::string name, PlayerThunderAccessPlugin callSign,  class PlayerInstanceAAMP *aamp,double seek_pos, float rate, const std::string type)
                                : mName(name),
                                StreamAbstractionAAMP(aamp),
                                mTuned(false),

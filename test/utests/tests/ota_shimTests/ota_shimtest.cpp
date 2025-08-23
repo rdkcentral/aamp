@@ -19,7 +19,7 @@
 
 #include "AampUtils.h"
 #include "ota_shim.h"
-#include "priv_aamp.h"
+#include "main_aamp.h"
 #include <stdlib.h>
 #include <string.h>
 #include <signal.h>
@@ -30,15 +30,15 @@
 using namespace testing;
 AampConfig *gpGlobalConfig{nullptr};
 
-PrivateInstanceAAMP *mPrivateInstanceAAMP{};
+PlayerInstanceAAMP *mPlayerInstanceAAMP{};
 
 class StreamAbstractionAAMP_OTATest : public ::testing::Test
 {
 protected:
     void SetUp() override
     {
-        mPrivateInstanceAAMP = new PrivateInstanceAAMP();
-        aamp_ota = new TestableStreamAbstractionOTA(mPrivateInstanceAAMP, 0.0, 1.0);
+        mPlayerInstanceAAMP = new PlayerInstanceAAMP();
+        aamp_ota = new TestableStreamAbstractionOTA(mPlayerInstanceAAMP, 0.0, 1.0);
     }
 
     void TearDown() override
@@ -52,7 +52,7 @@ protected:
         // Make the test class a friend of the StreamAbstractionAAMP_OTA class
         friend class StreamAbstractionAAMP_OTATest;
 
-        TestableStreamAbstractionOTA(PrivateInstanceAAMP *aamp,
+        TestableStreamAbstractionOTA(PlayerInstanceAAMP *aamp,
                                      double startTime, double playRate)
             : StreamAbstractionAAMP_OTA(aamp, startTime, playRate)
         {
@@ -74,7 +74,7 @@ protected:
 
     };
 
-    PrivateInstanceAAMP *mPrivateInstanceAAMP;
+    PlayerInstanceAAMP *mPlayerInstanceAAMP;
     TestableStreamAbstractionOTA *aamp_ota;
 };
 

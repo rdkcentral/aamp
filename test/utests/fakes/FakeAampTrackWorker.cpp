@@ -27,11 +27,11 @@ namespace aamp
 	 *
 	 * Initializes the worker thread and sets the initial state of the worker.
 	 *
-	 * @param[in] _aamp The PrivateInstanceAAMP instance.
+	 * @param[in] _aamp The PlayerInstanceAAMP instance.
 	 * @param[in] _mediaType The media type of the track.
 	 *
 	 */
-	AampTrackWorker::AampTrackWorker(PrivateInstanceAAMP *_aamp, AampMediaType _mediaType)
+	AampTrackWorker::AampTrackWorker(PlayerInstanceAAMP *_aamp, AampMediaType _mediaType)
 		: aamp(_aamp), mMediaType(_mediaType), mJobAvailable(false), mStop(false), mWorkerThread(), mJob(), mMutex(), mCondVar(), mCompletionVar()
 	{
 	}

@@ -29,7 +29,7 @@
 
 // unit under test
 #include "MockAampConfig.h"
-#include "MockPrivateInstanceAAMP.h"
+#include "MockPlayerInstanceAAMP.h"
 #include "isobmff/isobmffbuffer.h"
 #include "AampConfig.h"
 #include "isobmff/isobmffbox.h"

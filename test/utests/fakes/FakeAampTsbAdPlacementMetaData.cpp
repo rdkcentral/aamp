@@ -41,7 +41,7 @@ void AampTsbAdPlacementMetaData::Dump(const std::string &message) const
 	}
 }
 
-void AampTsbAdPlacementMetaData::SendEvent(PrivateInstanceAAMP* aamp) const
+void AampTsbAdPlacementMetaData::SendEvent(PlayerInstanceAAMP* aamp) const
 {
 	if (g_mockAampTsbAdPlacementMetaData)
 	{

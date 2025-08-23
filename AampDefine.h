@@ -26,6 +26,7 @@
  */
 
 #include <limits.h>
+#include "ABRManager.h"
 
 #define AAMP_CFG_PATH "/opt/aamp.cfg"
 #define AAMP_JSON_PATH "/opt/aampcfg.json"
@@ -358,6 +359,121 @@ enum EOSInjectionModeCode
 	/* In addition to the EOS_INJECTION_MODE_NO_EXTRA cases
 	 * EOS is injected in AAMPGstPlayer::Stop() prior to setting the state to null.*/
 	EOS_INJECTION_MODE_STOP_ONLY,
+};
+
+/**
+ * @brief To store Set Cookie: headers and X-Reason headers in HTTP Response
+ */
+struct httpRespHeaderData {
+    httpRespHeaderData() : type(0), data("")
+    {
+    }
+    int type;             /**< Header type */
+    std::string data;     /**< Header value */
+};
+
+/**
+ * @struct ThumbnailData
+ * @brief Holds the Thumbnail information
+ */
+struct ThumbnailData {
+    ThumbnailData() : url(""), x(0), y(0), t(0.0), d(0.0)
+    {
+    }
+    std::string url; /**<  url of tile image (may be relative or absolute path) */
+    double t; /**<  presentation time for this thumbnail */
+    double d; /**< time duration of this tile */
+    int x;    /**< x coordinate of thumbnail within tile */
+    int y;    /**< y coordinate of Thumbnail within tile */
+};
+
+/**
+ * @struct SpeedCache
+ * @brief Stores the information for cache speed
+ */
+struct SpeedCache
+{
+    long last_sample_time_val;
+    long prev_dlnow;
+    long prevSampleTotalDownloaded;
+    long totalDownloaded;
+    long speed_now;
+    long start_val;
+    bool bStart;
+
+    double totalWeight;
+    double weightedBitsPerSecond;
+    std::vector< std::pair<double,long> > mChunkSpeedData;
+
+    SpeedCache() : last_sample_time_val(0), prev_dlnow(0), prevSampleTotalDownloaded(0), totalDownloaded(0), speed_now(0), start_val(0), bStart(false) , totalWeight(0), weightedBitsPerSecond(0), mChunkSpeedData()
+    {
+    }
+};
+
+
+/**
+ * @brief To store video rectangle properties
+ */
+struct videoRect {
+   int horizontalPos;
+   int verticalPos;
+   int width;
+   int height;
+};
+
+/**
+ * @class AudioTrackTuple
+ * @brief Class to hold audio information like lang, codec, bitrate,etc
+ */
+class AudioTrackTuple
+{
+    public:
+        std::string language;
+        std::string rendition;
+        std::string codec;
+        BitsPerSecond bitrate;
+        unsigned int channel;
+
+    public:
+        AudioTrackTuple(): language(""),rendition(""),codec(""),bitrate(0), channel(0){}
+
+        void setAudioTrackTuple(std::string language="",  std::string rendition="", std::string codec="", unsigned int channel=0)
+        {
+            this->language = language;
+            this->rendition = rendition;
+            this->codec = codec;
+            this->channel = channel;
+            this->bitrate = 0;
+        }
+
+        void clear(void)
+        {
+            this->language = "";
+            this->rendition = "";
+            this->codec = "";
+            this->bitrate = 0;
+            this->channel = 0;
+        }
+};
+
+/**
+ *    \Class attrNameData
+ *     \brief    local class to hold DRM information
+ */
+class attrNameData
+{
+public:
+    std::string attrName;
+    bool isProcessed;
+    attrNameData() : attrName(""),isProcessed(false)
+    {
+    }
+
+    attrNameData(std::string argument) : attrName(argument), isProcessed(false)
+    {
+    }
+
+    bool operator==(const attrNameData& rhs) const { return (this->attrName == rhs.attrName); }
 };
 
 #endif

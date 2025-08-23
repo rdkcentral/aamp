@@ -23,20 +23,20 @@
 #include <string>
 #include <stdint.h>
 #include <iostream>
-#include "priv_aamp.h"
+#include "main_aamp.h"
 
 using namespace testing;
 AampConfig *gpGlobalConfig{nullptr};
 
-PrivateInstanceAAMP *mPrivateInstanceAAMP{};
+PlayerInstanceAAMP *mPlayerInstanceAAMP{};
 
 class  StreamAbstractionAAMP_COMPOSITEINTEST: public ::testing::Test {
 protected:
     
     void SetUp() override {
             
-             mPrivateInstanceAAMP = new PrivateInstanceAAMP();
-             compositeInput = StreamAbstractionAAMP_COMPOSITEIN::GetInstance(mPrivateInstanceAAMP, 0.0, 1.0);
+             mPlayerInstanceAAMP = new PlayerInstanceAAMP();
+             compositeInput = StreamAbstractionAAMP_COMPOSITEIN::GetInstance(mPlayerInstanceAAMP, 0.0, 1.0);
     
         }
     

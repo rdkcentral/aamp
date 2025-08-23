@@ -21,7 +21,7 @@
 #include <gmock/gmock.h>
 #include <chrono>
 
-#include "priv_aamp.h"
+#include "main_aamp.h"
 
 #include "AampConfig.h"
 #include "MockAampGstPlayer.h"
@@ -42,7 +42,7 @@ class SubtitleMuteTests : public testing::TestWithParam< std::pair<bool, bool> >
 {
 protected:
 
-    PrivateInstanceAAMP *mPrivateInstanceAAMP{};
+    PlayerInstanceAAMP *mPlayerInstanceAAMP{};
 
     void SetUp() override
     {
@@ -52,20 +52,20 @@ protected:
             gpGlobalConfig =  new AampConfig();
         }
 
-        mPrivateInstanceAAMP = new PrivateInstanceAAMP(gpGlobalConfig);
-        g_mockAampGstPlayer = new MockAAMPGstPlayer( mPrivateInstanceAAMP);
-        g_mockStreamAbstractionAAMP = new MockStreamAbstractionAAMP(mPrivateInstanceAAMP);
+        mPlayerInstanceAAMP = new PlayerInstanceAAMP(gpGlobalConfig);
+        g_mockAampGstPlayer = new MockAAMPGstPlayer( mPlayerInstanceAAMP);
+        g_mockStreamAbstractionAAMP = new MockStreamAbstractionAAMP(mPlayerInstanceAAMP);
 		g_mockAampStreamSinkManager = new NiceMock<MockAampStreamSinkManager>();
 
-        mPrivateInstanceAAMP->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP;
+        mPlayerInstanceAAMP->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP;
 
    		EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer));
     }
 
     void TearDown() override
     {
-        delete mPrivateInstanceAAMP;
-        mPrivateInstanceAAMP = nullptr;
+        delete mPlayerInstanceAAMP;
+        mPlayerInstanceAAMP = nullptr;
 
         delete g_mockStreamAbstractionAAMP;
         g_mockStreamAbstractionAAMP = nullptr;
@@ -83,19 +83,19 @@ protected:
 public:
     void CacheAndMuteSubtitles(bool currState, bool inputState)
     {
-        mPrivateInstanceAAMP->subtitles_muted = currState;
+        mPlayerInstanceAAMP->subtitles_muted = currState;
         // Confirm operation works as expected
         // If input = unmute, subtitles should be set to currState (mute/un-mute)
         bool finalState = inputState ? inputState : currState;
         EXPECT_CALL(*g_mockStreamAbstractionAAMP, MuteSubtitles(finalState)).Times(1);
         EXPECT_CALL(*g_mockAampGstPlayer, SetSubtitleMute(finalState)).Times(1);
 
-        mPrivateInstanceAAMP->AcquireStreamLock();
-        mPrivateInstanceAAMP->CacheAndApplySubtitleMute(inputState);
-        mPrivateInstanceAAMP->ReleaseStreamLock();
+        mPlayerInstanceAAMP->AcquireStreamLock();
+        mPlayerInstanceAAMP->CacheAndApplySubtitleMute(inputState);
+        mPlayerInstanceAAMP->ReleaseStreamLock();
 
         // Confirm original state is preserved
-        EXPECT_EQ(mPrivateInstanceAAMP->subtitles_muted, currState);
+        EXPECT_EQ(mPlayerInstanceAAMP->subtitles_muted, currState);
     }
 
 };

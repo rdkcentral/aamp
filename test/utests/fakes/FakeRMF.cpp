@@ -46,7 +46,7 @@ AAMPStatusType StreamAbstractionAAMP_RMF::Init(TuneType tuneType)
 /**
  *  @brief StreamAbstractionAAMP_RMF Constructor
  */
-StreamAbstractionAAMP_RMF::StreamAbstractionAAMP_RMF(class PrivateInstanceAAMP *aamp,double seek_pos, float rate)
+StreamAbstractionAAMP_RMF::StreamAbstractionAAMP_RMF(class PlayerInstanceAAMP *aamp,double seek_pos, float rate)
 	: StreamAbstractionAAMP(aamp)
 	  , tuned(false),
 	  thunderAccessObj(PlayerThunderAccessPlugin::RMF)

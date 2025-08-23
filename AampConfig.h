@@ -71,15 +71,16 @@
 ///			Not recommended . Better to have the conversion ( enum to string , sec to millisec etc ) where its consumed .
 ///////////////////////////////// Happy Configuration ////////////////////////////////////
 
+#define ISCONFIGSET(x) (aamp->mConfig.IsConfigSet(x))
+#define SETCONFIGVALUE(owner,key,value) (aamp->mConfig.SetConfigValue(owner, key ,value))
+#define GETCONFIGVALUE(key) (aamp->mConfig.GetConfigValue(key))
+#define GETCONFIGOWNER(key) (aamp->mConfig.GetConfigOwner(key))
 
-#define ISCONFIGSET(x) (aamp->mConfig->IsConfigSet(x))
-#define ISCONFIGSET_PRIV(x) (mConfig->IsConfigSet(x))
-#define SETCONFIGVALUE(owner,key,value) (aamp->mConfig->SetConfigValue(owner, key ,value))
-#define SETCONFIGVALUE_PRIV(owner,key,value) (mConfig->SetConfigValue(owner, key ,value))
-#define GETCONFIGVALUE(key) (aamp->mConfig->GetConfigValue( key))
-#define GETCONFIGVALUE_PRIV(key) (mConfig->GetConfigValue( key))
-#define GETCONFIGOWNER(key) (aamp->mConfig->GetConfigOwner(key))
-#define GETCONFIGOWNER_PRIV(key) (mConfig->GetConfigOwner(key))
+#define ISCONFIGSET_PRIV(x) (mConfig.IsConfigSet(x))
+#define SETCONFIGVALUE_PRIV(owner,key,value) (mConfig.SetConfigValue(owner, key ,value))
+#define GETCONFIGVALUE_PRIV(key) (mConfig.GetConfigValue( key))
+#define GETCONFIGOWNER_PRIV(key) (mConfig.GetConfigOwner(key))
+
 /**
  * @brief AAMP Config Settings
  */
@@ -599,16 +600,16 @@ public:
      	 * @param[in] cfg - Configuration enum
      	 * @return true / false 
      	 */
-	bool IsConfigSet(AAMPConfigSettingBool cfg);
-	bool GetConfigValue( AAMPConfigSettingBool cfg );
-	int GetConfigValue( AAMPConfigSettingInt cfg );
-	double GetConfigValue( AAMPConfigSettingFloat cfg );
-	std::string GetConfigValue( AAMPConfigSettingString cfg );
+	bool IsConfigSet(AAMPConfigSettingBool cfg) const;
+	bool GetConfigValue( AAMPConfigSettingBool cfg ) const;
+	int GetConfigValue( AAMPConfigSettingInt cfg ) const;
+	double GetConfigValue( AAMPConfigSettingFloat cfg ) const;
+	std::string GetConfigValue( AAMPConfigSettingString cfg ) const;
 	
-	ConfigPriority GetConfigOwner(AAMPConfigSettingBool cfg);
-	ConfigPriority GetConfigOwner(AAMPConfigSettingInt cfg);
-	ConfigPriority GetConfigOwner(AAMPConfigSettingFloat cfg);
-	ConfigPriority GetConfigOwner(AAMPConfigSettingString cfg);
+	ConfigPriority GetConfigOwner(AAMPConfigSettingBool cfg) const;
+	ConfigPriority GetConfigOwner(AAMPConfigSettingInt cfg) const;
+	ConfigPriority GetConfigOwner(AAMPConfigSettingFloat cfg) const;
+	ConfigPriority GetConfigOwner(AAMPConfigSettingString cfg) const;
 	
  	/**
      	 * @fn GetChannelOverride

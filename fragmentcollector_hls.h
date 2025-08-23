@@ -200,12 +200,12 @@ class TrackState : public MediaTrack
 		 *
 		 * @param[in] type Type of the track
 		 * @param[in] parent StreamAbstractionAAMP_HLS instance
-		 * @param[in] aamp PrivateInstanceAAMP pointer
+		 * @param[in] aamp PlayerInstanceAAMP pointer
 		 * @param[in] name Name of the track
 		 * @return void
 		 ***************************************************************************/
 		TrackState(TrackType type, class StreamAbstractionAAMP_HLS* parent,
-			PrivateInstanceAAMP* aamp, const char* name,
+			PlayerInstanceAAMP* aamp, const char* name,
 			id3_callback_t id3Handler = nullptr,
 			ptsoffset_update_t ptsUpdate = nullptr
 			);
@@ -675,7 +675,7 @@ public:
 		StreamOperation demuxOp; /** denotes whether a given (hls/ts) track is muxed */
 };
 
-class PrivateInstanceAAMP;
+class PlayerInstanceAAMP;
 /**
  * \class StreamAbstractionAAMP_HLS
  *
@@ -694,12 +694,12 @@ class StreamAbstractionAAMP_HLS : public StreamAbstractionAAMP
 		/***************************************************************************
 		 * @fn StreamAbstractionAAMP_HLS
 		 *
-		 * @param[in] aamp PrivateInstanceAAMP pointer
+		 * @param[in] aamp PlayerInstanceAAMP pointer
 		 * @param[in] seekpos Seek position
 		 * @param[in] rate Rate of playback
 		 * @return void
 		 ***************************************************************************/
-		StreamAbstractionAAMP_HLS(class PrivateInstanceAAMP *aamp,
+		StreamAbstractionAAMP_HLS(class PlayerInstanceAAMP *aamp,
 			double seekpos, float rate,
 			id3_callback_t id3Handler = nullptr,
 			ptsoffset_update_t ptsOffsetUpdate = nullptr

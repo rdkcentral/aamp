@@ -21,7 +21,7 @@
 #include <gmock/gmock.h>
 #include <chrono>
 
-#include "priv_aamp.h"
+#include "main_aamp.h"
 
 #include "AampConfig.h"
 #include "AampScheduler.h"
@@ -43,11 +43,11 @@ using ::testing::NiceMock;
 using ::testing::AnyNumber;
 
 
-class TestablePrivateInstanceAAMP : public PrivateInstanceAAMP
+class TestablePlayerInstanceAAMP : public PlayerInstanceAAMP
 {
 public:
 
-    TestablePrivateInstanceAAMP(AampConfig *config) : PrivateInstanceAAMP(config)
+    TestablePlayerInstanceAAMP(AampConfig *config) : PlayerInstanceAAMP(config)
     {
     }
 
@@ -58,7 +58,7 @@ public:
 
     void NotifyPauseOnStartPlayback(void)
     {
-        PrivateInstanceAAMP::NotifyPauseOnStartPlayback();
+        PlayerInstanceAAMP::NotifyPauseOnStartPlayback();
     }
 
     bool Test_PauseOnStartPlayback(void)
@@ -71,7 +71,7 @@ class PauseOnPlaybackTests : public ::testing::Test
 {
 protected:
 
-    TestablePrivateInstanceAAMP *mPrivateInstanceAAMP{};
+    TestablePlayerInstanceAAMP *mPlayerInstanceAAMP{};
     AampLLDashServiceData aampLLDashServiceData;
 
     void SetUp() override
@@ -82,15 +82,15 @@ protected:
             gpGlobalConfig =  new AampConfig();
         }
 
-        mPrivateInstanceAAMP = new TestablePrivateInstanceAAMP(gpGlobalConfig);
+        mPlayerInstanceAAMP = new TestablePlayerInstanceAAMP(gpGlobalConfig);
 
-        g_mockAampGstPlayer = new MockAAMPGstPlayer( mPrivateInstanceAAMP);
+        g_mockAampGstPlayer = new MockAAMPGstPlayer( mPlayerInstanceAAMP);
         g_mockAampStreamSinkManager = new NiceMock<MockAampStreamSinkManager>();
         g_mockAampEventManager = new MockAampEventManager();
-        g_mockStreamAbstractionAAMP = new MockStreamAbstractionAAMP(mPrivateInstanceAAMP);
+        g_mockStreamAbstractionAAMP = new MockStreamAbstractionAAMP(mPlayerInstanceAAMP);
 
 
-        mPrivateInstanceAAMP->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP;
+        mPlayerInstanceAAMP->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP;
 
    		EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer));
         EXPECT_CALL(*g_mockAampEventManager, IsEventListenerAvailable(_)).WillRepeatedly(Return(true));
@@ -98,8 +98,8 @@ protected:
 
     void TearDown() override
     {
-        delete mPrivateInstanceAAMP;
-        mPrivateInstanceAAMP = nullptr;
+        delete mPlayerInstanceAAMP;
+        mPlayerInstanceAAMP = nullptr;
 
         delete g_mockStreamAbstractionAAMP;
         g_mockStreamAbstractionAAMP = nullptr;
@@ -120,35 +120,35 @@ public:
 // ensure default zoom mod initialized as expected
 TEST_F(PauseOnPlaybackTests, DefaultZoomMode )
 {
-	EXPECT_EQ(mPrivateInstanceAAMP->zoom_mode,VIDEO_ZOOM_NONE);
+	EXPECT_EQ(mPlayerInstanceAAMP->zoom_mode,VIDEO_ZOOM_NONE);
 }
 
 // Testing calling SetPauseOnStartPlayback_Enable with enabled
 TEST_F(PauseOnPlaybackTests, SetPauseOnStartPlayback_Enable)
 {
     EXPECT_CALL(*g_mockAampGstPlayer, SetPauseOnStartPlayback(true)).Times(1);
-    mPrivateInstanceAAMP->SetPauseOnStartPlayback(true);
-    EXPECT_TRUE(mPrivateInstanceAAMP->Test_PauseOnStartPlayback());
+    mPlayerInstanceAAMP->SetPauseOnStartPlayback(true);
+    EXPECT_TRUE(mPlayerInstanceAAMP->Test_PauseOnStartPlayback());
 }
 
 // Testing calling SetPauseOnStartPlayback_Enable with not enabled
 TEST_F(PauseOnPlaybackTests, SetPauseOnStartPlayback_NotEnable)
 {
     EXPECT_CALL(*g_mockAampGstPlayer, SetPauseOnStartPlayback(false)).Times(1);
-    mPrivateInstanceAAMP->SetPauseOnStartPlayback(false);
-    EXPECT_FALSE(mPrivateInstanceAAMP->Test_PauseOnStartPlayback());
+    mPlayerInstanceAAMP->SetPauseOnStartPlayback(false);
+    EXPECT_FALSE(mPlayerInstanceAAMP->Test_PauseOnStartPlayback());
 }
 
 // Testing calling SetPauseOnStartPlayback_Enable with not enabled, when already been enabled
 TEST_F(PauseOnPlaybackTests, SetPauseOnStartPlayback_AlreadyEnabled)
 {
     EXPECT_CALL(*g_mockAampGstPlayer, SetPauseOnStartPlayback(true)).Times(1);
-    mPrivateInstanceAAMP->SetPauseOnStartPlayback(true);
-    ASSERT_TRUE(mPrivateInstanceAAMP->Test_PauseOnStartPlayback());
+    mPlayerInstanceAAMP->SetPauseOnStartPlayback(true);
+    ASSERT_TRUE(mPlayerInstanceAAMP->Test_PauseOnStartPlayback());
 
     EXPECT_CALL(*g_mockAampGstPlayer, SetPauseOnStartPlayback(false)).Times(1);
-    mPrivateInstanceAAMP->SetPauseOnStartPlayback(false);
-    EXPECT_FALSE(mPrivateInstanceAAMP->Test_PauseOnStartPlayback());
+    mPlayerInstanceAAMP->SetPauseOnStartPlayback(false);
+    EXPECT_FALSE(mPlayerInstanceAAMP->Test_PauseOnStartPlayback());
 }
 
 // Testing calling SetPauseOnStartPlayback_Enable with enabled, but no StreamSink
@@ -156,53 +156,53 @@ TEST_F(PauseOnPlaybackTests, SetPauseOnStartPlayback_NoSink)
 {
     EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(nullptr));
     EXPECT_CALL(*g_mockAampGstPlayer, SetPauseOnStartPlayback(_)).Times(0);
-    mPrivateInstanceAAMP->SetPauseOnStartPlayback(true);
-    EXPECT_FALSE(mPrivateInstanceAAMP->Test_PauseOnStartPlayback());
+    mPlayerInstanceAAMP->SetPauseOnStartPlayback(true);
+    EXPECT_FALSE(mPlayerInstanceAAMP->Test_PauseOnStartPlayback());
 }
 
 // Testing calling NotifyPauseOnStartPlayback when Pause On Playback not active
 // mbPauseOnStartPlayback has not been set
 TEST_F(PauseOnPlaybackTests, NotifyPauseOnStartPlayback_NotActive)
 {
-    mPrivateInstanceAAMP->mbDownloadsBlocked = false;
-    mPrivateInstanceAAMP->mDisableRateCorrection = false;
+    mPlayerInstanceAAMP->mbDownloadsBlocked = false;
+    mPlayerInstanceAAMP->mDisableRateCorrection = false;
 
-    mPrivateInstanceAAMP->SetLowLatencyMode();
-    mPrivateInstanceAAMP->SetLLDashAdjustSpeed(true);
-    ASSERT_TRUE(mPrivateInstanceAAMP->GetLLDashAdjustSpeed());
+    mPlayerInstanceAAMP->SetLowLatencyMode();
+    mPlayerInstanceAAMP->SetLLDashAdjustSpeed(true);
+    ASSERT_TRUE(mPlayerInstanceAAMP->GetLLDashAdjustSpeed());
 
     EXPECT_CALL(*g_mockAampGstPlayer, Pause(_,_)).Times(0);
 
-    mPrivateInstanceAAMP->NotifyPauseOnStartPlayback();
+    mPlayerInstanceAAMP->NotifyPauseOnStartPlayback();
 
-    EXPECT_FALSE(mPrivateInstanceAAMP->Test_PauseOnStartPlayback());
-    EXPECT_FALSE(mPrivateInstanceAAMP->mbDownloadsBlocked);
-    EXPECT_FALSE(mPrivateInstanceAAMP->mDisableRateCorrection);
-    EXPECT_TRUE(mPrivateInstanceAAMP->GetLLDashAdjustSpeed());
+    EXPECT_FALSE(mPlayerInstanceAAMP->Test_PauseOnStartPlayback());
+    EXPECT_FALSE(mPlayerInstanceAAMP->mbDownloadsBlocked);
+    EXPECT_FALSE(mPlayerInstanceAAMP->mDisableRateCorrection);
+    EXPECT_TRUE(mPlayerInstanceAAMP->GetLLDashAdjustSpeed());
 }
 
 // Testing calling NotifyPauseOnStartPlayback when Pause On Playback active
 // Good case
 TEST_F(PauseOnPlaybackTests, NotifyFirstFrameReceived_Success)
 {
-    mPrivateInstanceAAMP->mbDownloadsBlocked = false;
-    mPrivateInstanceAAMP->mDisableRateCorrection = false;
+    mPlayerInstanceAAMP->mbDownloadsBlocked = false;
+    mPlayerInstanceAAMP->mDisableRateCorrection = false;
 
-    mPrivateInstanceAAMP->SetPauseOnStartPlayback(true);
+    mPlayerInstanceAAMP->SetPauseOnStartPlayback(true);
 
-    mPrivateInstanceAAMP->SetLowLatencyMode();
-    mPrivateInstanceAAMP->SetLLDashAdjustSpeed(true);
-    ASSERT_TRUE(mPrivateInstanceAAMP->GetLLDashAdjustSpeed());
+    mPlayerInstanceAAMP->SetLowLatencyMode();
+    mPlayerInstanceAAMP->SetLLDashAdjustSpeed(true);
+    ASSERT_TRUE(mPlayerInstanceAAMP->GetLLDashAdjustSpeed());
 
     EXPECT_CALL(*g_mockAampEventManager, SendEvent(StateChanged(eSTATE_PAUSED),_)).Times(1);
     EXPECT_CALL(*g_mockAampEventManager, SendEvent(SpeedChanged(0.0),_)).Times(1);
     EXPECT_CALL(*g_mockStreamAbstractionAAMP, NotifyPlaybackPaused(true)).Times(1);
 
-    mPrivateInstanceAAMP->NotifyPauseOnStartPlayback();
+    mPlayerInstanceAAMP->NotifyPauseOnStartPlayback();
 
-    EXPECT_FALSE(mPrivateInstanceAAMP->Test_PauseOnStartPlayback());
-    EXPECT_TRUE(mPrivateInstanceAAMP->mbDownloadsBlocked);
-    EXPECT_TRUE(mPrivateInstanceAAMP->mDisableRateCorrection);
-    EXPECT_FALSE(mPrivateInstanceAAMP->GetLLDashAdjustSpeed());
+    EXPECT_FALSE(mPlayerInstanceAAMP->Test_PauseOnStartPlayback());
+    EXPECT_TRUE(mPlayerInstanceAAMP->mbDownloadsBlocked);
+    EXPECT_TRUE(mPlayerInstanceAAMP->mDisableRateCorrection);
+    EXPECT_FALSE(mPlayerInstanceAAMP->GetLLDashAdjustSpeed());
 }
 

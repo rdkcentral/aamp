@@ -22,6 +22,9 @@
 #include "AampGrowableBuffer.h"
 #include "HlsDrmSessionManager.h"
 #include "AampDRMLicManager.h"
+#include "main_aamp.h" // TBR
+#include "AampProfiler.h"
+
 #define AES_128_KEY_LEN_BYTES 16
 /**
  * @file Drm_Interface.cpp
@@ -65,9 +68,9 @@ void registerCallback(DrmInterface *_this ,std::shared_ptr<AesDec> instance )
     
 }
 /**
- *@brief updates the PrivateInstanceAAMP instance
+ *@brief updates the PlayerInstanceAAMP instance
  */
-void DrmInterface::UpdateAamp(PrivateInstanceAAMP* aamp)
+void DrmInterface::UpdateAamp(PlayerInstanceAAMP* aamp)
 {
     mpAamp = aamp;
 }
@@ -86,7 +89,7 @@ void registerCallbackForHls(DrmInterface* _this, PlayerHlsDrmSessionInterface* i
 /*
  * @brief DrmInterface constructor
  * */
-DrmInterface::DrmInterface(PrivateInstanceAAMP* aamp):mAesKeyBuf("aesKeyBuf")
+DrmInterface::DrmInterface(PlayerInstanceAAMP* aamp):mAesKeyBuf("aesKeyBuf")
 {
     
     mpAamp = aamp;
@@ -128,6 +131,7 @@ void DrmInterface::NotifyDrmError(int drmFailure)
     }
     
 }
+
 ProfilerBucketType DrmInterface::MapDrmToProfilerBucket(DrmProfilerBucketType drmType)
 {
     switch (drmType)
@@ -140,7 +144,7 @@ ProfilerBucketType DrmInterface::MapDrmToProfilerBucket(DrmProfilerBucketType dr
         case DRM_PROFILE_BUCKET_LA_TOTAL:         return PROFILE_BUCKET_LA_TOTAL;
         case DRM_PROFILE_BUCKET_LA_PREPROC:       return PROFILE_BUCKET_LA_PREPROC;
             
-        default: return PROFILE_BUCKET_TYPE_COUNT; // or handle as error
+        default: return (ProfilerBucketType)PROFILE_BUCKET_TYPE_COUNT; // or handle as error
     }
 }
 /**
@@ -199,7 +203,7 @@ std::shared_ptr<DrmInterface> DrmInterface::mInstance = nullptr;
 /**
  * @brief Get singleton instance
  */
-std::shared_ptr<DrmInterface> DrmInterface::GetInstance(PrivateInstanceAAMP* aamp)
+std::shared_ptr<DrmInterface> DrmInterface::GetInstance(PlayerInstanceAAMP* aamp)
 {
     if (nullptr == mInstance)
     {

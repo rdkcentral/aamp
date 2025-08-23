@@ -24,7 +24,7 @@
 #include <cstring>
 #include <memory>
 #include <cjson/cJSON.h>
-#include "priv_aamp.h"
+#include "main_aamp.h"
 
 #include <gmock/gmock.h>
 
@@ -109,14 +109,14 @@ struct MockChallengeData
 class TestUtilDrm
 {
 private:
-	PrivateInstanceAAMP* mAamp = nullptr;
+	PlayerInstanceAAMP* mAamp = nullptr;
 	std::map<std::string, TestCurlResponse> mCurlResponses;
 	MockChallengeData mMockChallengeData;
 	std::unique_ptr<AampDRMLicenseManager> mLicenseManager;
 	std::unique_ptr<DrmSessionManager> mSessionManager;
 
 public:
-	TestUtilDrm(PrivateInstanceAAMP* privAamp);
+	TestUtilDrm(PlayerInstanceAAMP* privAamp);
 	~TestUtilDrm();
 
 	AampDRMLicenseManager* getSessionManager();

@@ -40,11 +40,11 @@ class StreamAbstractionAAMP_VIDEOIN : public StreamAbstractionAAMP
 public:
     /**
      * @fn StreamAbstractionAAMP_VIDEOIN
-     * @param aamp pointer to PrivateInstanceAAMP object associated with player
+     * @param aamp pointer to PlayerInstanceAAMP object associated with player
      * @param seekpos Seek position
      * @param rate playback rate
      */
-    StreamAbstractionAAMP_VIDEOIN(const std::string name, PlayerThunderAccessPlugin callSign, class PrivateInstanceAAMP *aamp,double seekpos, float rate, const std::string type);
+    StreamAbstractionAAMP_VIDEOIN(const std::string name, PlayerThunderAccessPlugin callSign, class PlayerInstanceAAMP *aamp,double seekpos, float rate, const std::string type);
     /**
      * @fn ~StreamAbstractionAAMP_VIDEOIN
      */

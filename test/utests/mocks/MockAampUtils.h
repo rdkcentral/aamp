@@ -38,7 +38,7 @@ public:
 
 	MOCK_METHOD(std::string, Getiso639map_NormalizeLanguageCode, (std::string, LangCodePreference));
 
-	MOCK_METHOD(double, RecalculatePTS, (AampMediaType mediaType, const void *ptr, size_t len, PrivateInstanceAAMP *aamp));
+	MOCK_METHOD(double, RecalculatePTS, (AampMediaType mediaType, const void *ptr, size_t len, PlayerInstanceAAMP *aamp));
 };
 
 extern MockAampUtils *g_mockAampUtils;

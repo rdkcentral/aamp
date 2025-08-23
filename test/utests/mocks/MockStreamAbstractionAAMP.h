@@ -26,7 +26,7 @@
 class MockMediaTrack : public MediaTrack
 {
 public:
-	MockMediaTrack(TrackType type, PrivateInstanceAAMP *aamp, const char *name)
+	MockMediaTrack(TrackType type, PlayerInstanceAAMP *aamp, const char *name)
 		: MediaTrack(type, aamp, name) {}
 	MOCK_METHOD(bool, IsLocalTSBInjection, ());
 	MOCK_METHOD(bool, Enabled, ());
@@ -54,7 +54,7 @@ class MockStreamAbstractionAAMP : public StreamAbstractionAAMP
 {
 public:
 
-	MockStreamAbstractionAAMP(PrivateInstanceAAMP *aamp) : StreamAbstractionAAMP(aamp) { }
+	MockStreamAbstractionAAMP(PlayerInstanceAAMP *aamp) : StreamAbstractionAAMP(aamp) { }
 
 	MOCK_METHOD(void, NotifyPlaybackPaused, (bool paused), (override));
 

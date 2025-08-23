@@ -24,7 +24,7 @@
 
 #include "AampUtils.h"
 #include "rmf_shim.h"
-#include "priv_aamp.h"
+#include "main_aamp.h"
 #include <stdlib.h>
 #include <string.h>
 #include <signal.h>
@@ -80,7 +80,7 @@ AAMPStatusType StreamAbstractionAAMP_RMF::Init(TuneType tuneType)
 /**
  *  @brief StreamAbstractionAAMP_RMF Constructor
  */
-StreamAbstractionAAMP_RMF::StreamAbstractionAAMP_RMF(class PrivateInstanceAAMP *aamp,double seek_pos, float rate)
+StreamAbstractionAAMP_RMF::StreamAbstractionAAMP_RMF(class PlayerInstanceAAMP *aamp,double seek_pos, float rate)
 	: StreamAbstractionAAMP(aamp)
 	  , tuned(false),
 	  thunderAccessObj(PlayerThunderAccessPlugin::RMF)
@@ -121,8 +121,8 @@ void StreamAbstractionAAMP_RMF::Start(void)
 void StreamAbstractionAAMP_RMF::Stop(bool clearChannelData)
 {
 	/*StreamAbstractionAAMP::Stop is being called twice
-	  PrivateInstanceAAMP::Stop calls Stop with clearChannelData set to true
-	  PrivateInstanceAAMP::TeardownStream calls Stop with clearChannelData set to false
+	  PlayerInstanceAAMP::Stop calls Stop with clearChannelData set to true
+	  PlayerInstanceAAMP::TeardownStream calls Stop with clearChannelData set to false
 	  Hence avoiding the Stop with clearChannelData set to false*/
 	if(!clearChannelData)
 		return;

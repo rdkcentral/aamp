@@ -22,7 +22,7 @@
 
 MockAampCurlStore *g_mockAampCurlStore = nullptr;
 
-CurlStore::CurlStore(PrivateInstanceAAMP *pAamp)
+CurlStore::CurlStore(PlayerInstanceAAMP *pAamp)
 {
 }
 
@@ -30,15 +30,15 @@ CurlStore::~CurlStore()
 {
 }
 
-void CurlStore::CurlInit(PrivateInstanceAAMP *pAamp, AampCurlInstance startIdx, unsigned int instanceCount, std::string proxyName, const std::string &RemoteHost)
+void CurlStore::CurlInit(PlayerInstanceAAMP *pAamp, AampCurlInstance startIdx, unsigned int instanceCount, std::string proxyName, const std::string &RemoteHost)
 {
 }
 
-void CurlStore::CurlTerm(PrivateInstanceAAMP *pAamp, AampCurlInstance startIdx, unsigned int instanceCount, bool isCloseFd,const std::string &RemoteHost )
+void CurlStore::CurlTerm(PlayerInstanceAAMP *pAamp, AampCurlInstance startIdx, unsigned int instanceCount, bool isCloseFd,const std::string &RemoteHost )
 {
 }
 
-CurlStore& CurlStore::GetCurlStoreInstance ( PrivateInstanceAAMP *pAamp )
+CurlStore& CurlStore::GetCurlStoreInstance ( PlayerInstanceAAMP *pAamp )
 {
 	static CurlStore cs(pAamp);
 	return cs;
@@ -56,11 +56,11 @@ int GetCurlResponseCode(CURL *curlhandle)
 	return rv;
 }
 
-CURL* CurlStore::GetCurlHandle(PrivateInstanceAAMP *aamp,std::string url, AampCurlInstance startIdx )
+CURL* CurlStore::GetCurlHandle(PlayerInstanceAAMP *aamp,std::string url, AampCurlInstance startIdx )
 {
     return nullptr;
 }
 
-void CurlStore::SaveCurlHandle (PrivateInstanceAAMP *aamp, std::string url, AampCurlInstance startIdx, CURL *curl )
+void CurlStore::SaveCurlHandle (PlayerInstanceAAMP *aamp, std::string url, AampCurlInstance startIdx, CURL *curl )
 {
 }

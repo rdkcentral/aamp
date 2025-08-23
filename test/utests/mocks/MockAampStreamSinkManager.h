@@ -27,20 +27,20 @@ class MockAampStreamSinkManager : public AampStreamSinkManager
 {
 public:
 
-	MOCK_METHOD(void, SetSinglePipelineMode, (PrivateInstanceAAMP *));
-	MOCK_METHOD(void, CreateStreamSink, (PrivateInstanceAAMP *, id3_callback_t , (std::function< void(uint8_t *, int, int, int) >)));
-	MOCK_METHOD(void, SetStreamSink, (PrivateInstanceAAMP *, StreamSink *));
-	MOCK_METHOD(void, DeleteStreamSink, (PrivateInstanceAAMP *));
-	MOCK_METHOD(void, ActivatePlayer, (PrivateInstanceAAMP *));
-	MOCK_METHOD(void, DeactivatePlayer, (PrivateInstanceAAMP *, bool));
-	MOCK_METHOD(StreamSink*, GetActiveStreamSink, (PrivateInstanceAAMP *));
-	MOCK_METHOD(StreamSink*, GetStreamSink, (PrivateInstanceAAMP *));
-	MOCK_METHOD(StreamSink*, GetStoppingStreamSink, (PrivateInstanceAAMP *));
+	MOCK_METHOD(void, SetSinglePipelineMode, (PlayerInstanceAAMP *));
+	MOCK_METHOD(void, CreateStreamSink, (PlayerInstanceAAMP *, id3_callback_t , (std::function< void(uint8_t *, int, int, int) >)));
+	MOCK_METHOD(void, SetStreamSink, (PlayerInstanceAAMP *, StreamSink *));
+	MOCK_METHOD(void, DeleteStreamSink, (PlayerInstanceAAMP *));
+	MOCK_METHOD(void, ActivatePlayer, (PlayerInstanceAAMP *));
+	MOCK_METHOD(void, DeactivatePlayer, (PlayerInstanceAAMP *, bool));
+	MOCK_METHOD(StreamSink*, GetActiveStreamSink, (PlayerInstanceAAMP *));
+	MOCK_METHOD(StreamSink*, GetStreamSink, (PlayerInstanceAAMP *));
+	MOCK_METHOD(StreamSink*, GetStoppingStreamSink, (PlayerInstanceAAMP *));
 
-	MOCK_METHOD(void, SetEncryptedHeaders, (PrivateInstanceAAMP *, (std::map<int, std::string>)& ));
+	MOCK_METHOD(void, SetEncryptedHeaders, (PlayerInstanceAAMP *, (std::map<int, std::string>)& ));
 	MOCK_METHOD(void, GetEncryptedHeaders, ((std::map<int, std::string>)&));
-	MOCK_METHOD(void, SetActive, (PrivateInstanceAAMP *));
-	MOCK_METHOD(void, UpdateTuningPlayer, (PrivateInstanceAAMP *));
+	MOCK_METHOD(void, SetActive, (PlayerInstanceAAMP *));
+	MOCK_METHOD(void, UpdateTuningPlayer, (PlayerInstanceAAMP *));
 };
 
 extern MockAampStreamSinkManager *g_mockAampStreamSinkManager;

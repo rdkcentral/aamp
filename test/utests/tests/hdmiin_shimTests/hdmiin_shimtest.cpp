@@ -19,7 +19,7 @@
 
 #include "hdmiin_shim.h"
 #include <gtest/gtest.h>
-#include "priv_aamp.h"
+#include "main_aamp.h"
 #include <stdlib.h>
 #include <string.h>
 #include <signal.h>
@@ -29,15 +29,15 @@
 using namespace testing;
 AampConfig *gpGlobalConfig{nullptr};
 
-PrivateInstanceAAMP *mPrivateInstanceAAMP{};
+PlayerInstanceAAMP *mPlayerInstanceAAMP{};
 
 class StreamAbstractionAAMP_HDMIINTest : public ::testing::Test
 {
 protected:
     void SetUp() override
     {
-        mPrivateInstanceAAMP = new PrivateInstanceAAMP();
-        HDMIinput= StreamAbstractionAAMP_HDMIIN::GetInstance(mPrivateInstanceAAMP, 0.0, 1.0);
+        mPlayerInstanceAAMP = new PlayerInstanceAAMP();
+        HDMIinput= StreamAbstractionAAMP_HDMIIN::GetInstance(mPlayerInstanceAAMP, 0.0, 1.0);
     }
 
     void TearDown() override

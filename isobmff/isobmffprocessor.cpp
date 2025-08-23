@@ -37,7 +37,7 @@ static const char *IsoBmffProcessorTypeName[] =
 /**
  *  @brief IsoBmffProcessor constructor
  */
-IsoBmffProcessor::IsoBmffProcessor(class PrivateInstanceAAMP *aamp, id3_callback_t id3_hdl, IsoBmffProcessorType trackType, bool passThrough,
+IsoBmffProcessor::IsoBmffProcessor(class PlayerInstanceAAMP *aamp, id3_callback_t id3_hdl, IsoBmffProcessorType trackType, bool passThrough,
 	IsoBmffProcessor* peerBmffProcessor, IsoBmffProcessor* peerSubProcessor)
 	: p_aamp(aamp), type(trackType), peerProcessor(peerBmffProcessor), peerSubtitleProcessor(peerSubProcessor), basePTS(0),
 	processPTSComplete(false), timeScale(0), initSegment(), resetPTSInitSegment(),
@@ -63,7 +63,7 @@ IsoBmffProcessor::IsoBmffProcessor(class PrivateInstanceAAMP *aamp, id3_callback
 	initSegment.reserve(3); //consider Subtitles as well
 	// added check for eMEDIAFORMAT_HLS as HLS_MP4 will be updated only after the function is called.
 	// eMEDIAFORMAT_HLS + ISOBMFF processor can be confirmed as HLS_MP4
-	if (p_aamp->mConfig->IsConfigSet(eAAMPConfig_EnablePTSReStamp) && (eMEDIAFORMAT_HLS_MP4 == mediaFormat || eMEDIAFORMAT_HLS == mediaFormat))
+	if (ISCONFIGSET(eAAMPConfig_EnablePTSReStamp) && (eMEDIAFORMAT_HLS_MP4 == mediaFormat || eMEDIAFORMAT_HLS == mediaFormat))
 	{
 		isRestampConfigEnabled = true;
 		AAMPLOG_WARN("IsoBmffProcessor:: %s mediaFormat=%d old PTS RE-STAMP ENABLED", IsoBmffProcessorTypeName[type],mediaFormat);
@@ -354,7 +354,7 @@ bool IsoBmffProcessor::setTuneTimePTS(AampGrowableBuffer *fragBuffer, double pos
 					double pos = ((double)basePTS / (double)timeScale);
 					// For post processing, release mutex
 					// If AAMP override hack is enabled for this platform, then we need to pass the basePTS value to
-					// PrivateInstanceAAMP since PTS will be restamped in qtdemux. This ensures proper pts value is sent in progress event.
+					// PlayerInstanceAAMP since PTS will be restamped in qtdemux. This ensures proper pts value is sent in progress event.
 					lock.unlock();
                     p_aamp->_NotifyFirstVideoPTS(basePTS, timeScale);
 					if (type == eBMFFPROCESSOR_TYPE_VIDEO)

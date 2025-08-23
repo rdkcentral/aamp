@@ -35,7 +35,7 @@
 
 #define SECCLIENT_RESULT_HTTP_FAILURE_TIMEOUT (-7) /**< License result is not returned to the device due to network failure */
 
-class PrivateInstanceAAMP;
+class PlayerInstanceAAMP;
 
 /**
  * @brief Structure for storing the pre-fetch data
@@ -109,10 +109,10 @@ public:
 	/**
 	 * @brief Construct a new Aamp License Pre Fetcher object
 	 * 
-	 * @param aamp PrivateInstanceAAMP instance
+	 * @param aamp PlayerInstanceAAMP instance
 	 * @param fetcherInstance AampLicenseFetcher instance
 	 */
-	AampLicensePreFetcher(PrivateInstanceAAMP *aamp);
+	AampLicensePreFetcher(PlayerInstanceAAMP *aamp);
 
 	/**
 	 * @brief Copy constructor disabled
@@ -235,7 +235,7 @@ private:
 	std::array<bool, AAMP_TRACK_COUNT> mTrackStatus;    /** To mark the status of license acquisition for tracks*/
 	bool mSendErrorOnFailure;                           /** To send error event when session creation fails without additional checks*/
 
-	PrivateInstanceAAMP *mPrivAAMP;                     /** PrivateInstanceAAMP instance*/
+	PlayerInstanceAAMP *mPrivAAMP;                     /** PlayerInstanceAAMP instance*/
 	AampLicenseFetcher *mFetchInstance;                 /** AampLicenseFetcher instance for notifying DRM session status*/
 	std::thread mVssPreFetchThread;                     /** Thread for pre-fetching VSS license*/
 	std::deque<LicensePreFetchObjectPtr> mVssFetchQueue;/** Queue for storing VSS content protection objects*/

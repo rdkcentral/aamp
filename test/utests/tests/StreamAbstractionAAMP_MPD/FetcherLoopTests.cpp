@@ -20,7 +20,7 @@
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
 #include <chrono>
-#include "priv_aamp.h"
+#include "main_aamp.h"
 #include "AampConfig.h"
 #include "AampScheduler.h"
 #include "AampLogManager.h"
@@ -29,7 +29,7 @@
 #include "MockAampConfig.h"
 #include "MockAampUtils.h"
 #include "MockAampGstPlayer.h"
-#include "MockPrivateInstanceAAMP.h"
+#include "MockPlayerInstanceAAMP.h"
 #include "MockMediaStreamContext.h"
 #include "MockAampMPDDownloader.h"
 #include "MockAampStreamSinkManager.h"
@@ -57,7 +57,7 @@ protected:
 	{
 	public:
 		// Constructor to pass parameters to the base class constructor
-		TestableStreamAbstractionAAMP_MPD(PrivateInstanceAAMP *aamp,
+		TestableStreamAbstractionAAMP_MPD(PlayerInstanceAAMP *aamp,
 										  double seekpos, float rate)
 			: StreamAbstractionAAMP_MPD(aamp, seekpos, rate)
 		{
@@ -159,7 +159,7 @@ protected:
 		}
 	};
 
-	PrivateInstanceAAMP *mPrivateInstanceAAMP;
+	PlayerInstanceAAMP *mPlayerInstanceAAMP;
 	TestableStreamAbstractionAAMP_MPD *mTestableStreamAbstractionAAMP_MPD;
 	CDAIObject *mCdaiObj;
 	const char *mManifest;
@@ -289,13 +289,13 @@ protected:
 		{
 			gpGlobalConfig = new AampConfig();
 		}
-		mPrivateInstanceAAMP = new PrivateInstanceAAMP(gpGlobalConfig);
-		mPrivateInstanceAAMP->mIsDefaultOffset = true;
+		mPlayerInstanceAAMP = new PlayerInstanceAAMP(gpGlobalConfig);
+		mPlayerInstanceAAMP->mIsDefaultOffset = true;
 		g_mockAampConfig = new NiceMock<MockAampConfig>();
 		assert( g_mockAampUtils == nullptr );
-		g_mockAampGstPlayer = new MockAAMPGstPlayer(mPrivateInstanceAAMP);
-		mPrivateInstanceAAMP->mIsDefaultOffset = true;
-		g_mockPrivateInstanceAAMP = new StrictMock<MockPrivateInstanceAAMP>();
+		g_mockAampGstPlayer = new MockAAMPGstPlayer(mPlayerInstanceAAMP);
+		mPlayerInstanceAAMP->mIsDefaultOffset = true;
+		g_mockPlayerInstanceAAMP = new StrictMock<MockPlayerInstanceAAMP>();
 		g_mockMediaStreamContext = new StrictMock<MockMediaStreamContext>();
 		g_mockAampMPDDownloader = new StrictMock<MockAampMPDDownloader>();
 		g_mockAampStreamSinkManager = new NiceMock<MockAampStreamSinkManager>();
@@ -321,8 +321,8 @@ protected:
 			mTestableStreamAbstractionAAMP_MPD = nullptr;
 		}
 
-		delete mPrivateInstanceAAMP;
-		mPrivateInstanceAAMP = nullptr;
+		delete mPlayerInstanceAAMP;
+		mPlayerInstanceAAMP = nullptr;
 
 		delete mCdaiObj;
 		mCdaiObj = nullptr;
@@ -342,8 +342,8 @@ protected:
 		delete g_mockAampGstPlayer;
 		g_mockAampGstPlayer = nullptr;
 
-		delete g_mockPrivateInstanceAAMP;
-		g_mockPrivateInstanceAAMP = nullptr;
+		delete g_mockPlayerInstanceAAMP;
+		g_mockPlayerInstanceAAMP = nullptr;
 
 		delete g_mockMediaStreamContext;
 		g_mockMediaStreamContext = nullptr;
@@ -459,20 +459,20 @@ public:
 		}
 
 		/* Create MPD instance. */
-		mTestableStreamAbstractionAAMP_MPD = new TestableStreamAbstractionAAMP_MPD(mPrivateInstanceAAMP, seekPos, rate);
-		mCdaiObj = new CDAIObjectMPD(mPrivateInstanceAAMP);
+		mTestableStreamAbstractionAAMP_MPD = new TestableStreamAbstractionAAMP_MPD(mPlayerInstanceAAMP, seekPos, rate);
+		mCdaiObj = new CDAIObjectMPD(mPlayerInstanceAAMP);
 		mTestableStreamAbstractionAAMP_MPD->SetCDAIObject(mCdaiObj);
 
-		mPrivateInstanceAAMP->SetManifestUrl(TEST_MANIFEST_URL);
+		mPlayerInstanceAAMP->SetManifestUrl(TEST_MANIFEST_URL);
 
 		/* Initialize MPD. */
-		EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetState(eSTATE_PREPARING));
+		EXPECT_CALL(*g_mockPlayerInstanceAAMP, SetState(eSTATE_PREPARING));
 
-		EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState())
+		EXPECT_CALL(*g_mockPlayerInstanceAAMP, GetState())
 			.Times(AnyNumber())
 			.WillRepeatedly(Return(eSTATE_PREPARING));
-		EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetLLDashChunkMode()).WillRepeatedly(Return(false));
-		EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetLLDashChunkMode(_));
+		EXPECT_CALL(*g_mockPlayerInstanceAAMP, GetLLDashChunkMode()).WillRepeatedly(Return(false));
+		EXPECT_CALL(*g_mockPlayerInstanceAAMP, SetLLDashChunkMode(_));
 
 		// For the time being return the same manifest again
 		EXPECT_CALL(*g_mockAampMPDDownloader, GetManifest(_, _, _))
@@ -543,7 +543,7 @@ TEST_F(FetcherLoopTests, SelectSourceOrAdPeriodTests1)
 {
 	std::string fragmentUrl;
 	AAMPStatusType status;
-	mPrivateInstanceAAMP->rate = AAMP_NORMAL_PLAY_RATE;
+	mPlayerInstanceAAMP->rate = AAMP_NORMAL_PLAY_RATE;
 	bool ret = false;
 	/* Initialize MPD. The video initialization segment is cached. */
 	fragmentUrl = std::string(TEST_BASE_URL) + std::string("video_p0_init.mp4");
@@ -588,7 +588,7 @@ TEST_F(FetcherLoopTests, SelectSourceOrAdPeriodTests2)
 {
 	std::string fragmentUrl;
 	AAMPStatusType status;
-	mPrivateInstanceAAMP->rate = 1.0;
+	mPlayerInstanceAAMP->rate = 1.0;
 	bool ret = false;
 	/* Initialize MPD. The video initialization segment is cached. */
 	fragmentUrl = std::string(TEST_BASE_URL) + std::string("video_p1_init.mp4");
@@ -632,7 +632,7 @@ TEST_F(FetcherLoopTests, IndexSelectedPeriodTests1)
 {
 	std::string fragmentUrl;
 	AAMPStatusType status;
-	mPrivateInstanceAAMP->rate = 1.0;
+	mPlayerInstanceAAMP->rate = 1.0;
 	bool ret = false;
 
 	/* Initialize MPD. The video initialization segment is cached. */
@@ -672,7 +672,7 @@ TEST_F(FetcherLoopTests, IndexSelectedPeriodTests2)
 {
 	std::string fragmentUrl;
 	AAMPStatusType status;
-	mPrivateInstanceAAMP->rate = 1.0;
+	mPlayerInstanceAAMP->rate = 1.0;
 	bool ret = false;
 	/* Initialize MPD. The video initialization segment is cached. */
 	fragmentUrl = std::string(TEST_BASE_URL) + std::string("video_p0_init.mp4");
@@ -716,7 +716,7 @@ TEST_F(FetcherLoopTests, DetectDiscotinuityAndFetchInitTests1)
 {
 	std::string fragmentUrl;
 	AAMPStatusType status;
-	mPrivateInstanceAAMP->rate = 1.0;
+	mPlayerInstanceAAMP->rate = 1.0;
 	/* Initialize MPD. The video initialization segment is cached. */
 	fragmentUrl = std::string(TEST_BASE_URL) + std::string("video_p0_init.mp4");
 	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _, _, _))
@@ -735,7 +735,7 @@ TEST_F(FetcherLoopTests, DetectDiscotinuityAndFetchInitTests1)
 	// Change and index the next period,
 	mTestableStreamAbstractionAAMP_MPD->IncrementCurrentPeriodIdx();
 	mTestableStreamAbstractionAAMP_MPD->SetCurrentPeriod(mTestableStreamAbstractionAAMP_MPD->GetMPD()->GetPeriods().at(1));
-	mPrivateInstanceAAMP->SetIsPeriodChangeMarked(true);
+	mPlayerInstanceAAMP->SetIsPeriodChangeMarked(true);
 	bool periodChanged = true;
 	std::string currentPeriodId = "p1";
 	mTestableStreamAbstractionAAMP_MPD->InvokeUpdateTrackInfo(false, false);
@@ -745,7 +745,7 @@ TEST_F(FetcherLoopTests, DetectDiscotinuityAndFetchInitTests1)
 	 * Test the period change (discontinuity) is not marked
 	 */
 	mTestableStreamAbstractionAAMP_MPD->InvokeDetectDiscontinuityAndFetchInit(periodChanged);
-	EXPECT_EQ(mPrivateInstanceAAMP->GetIsPeriodChangeMarked(), false);
+	EXPECT_EQ(mPlayerInstanceAAMP->GetIsPeriodChangeMarked(), false);
 }
 
 /**
@@ -757,7 +757,7 @@ TEST_F(FetcherLoopTests, DetectDiscotinuityAndFetchInitTests2)
 {
 	std::string fragmentUrl;
 	AAMPStatusType status;
-	mPrivateInstanceAAMP->rate = 1.0;
+	mPlayerInstanceAAMP->rate = 1.0;
 	/* Initialize MPD. The video initialization segment is cached. */
 	fragmentUrl = std::string(TEST_BASE_URL) + std::string("video_p0_init.mp4");
 	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _, _, _))
@@ -778,7 +778,7 @@ TEST_F(FetcherLoopTests, DetectDiscotinuityAndFetchInitTests2)
 	// Index the next period
 	mTestableStreamAbstractionAAMP_MPD->IncrementCurrentPeriodIdx();
 	mTestableStreamAbstractionAAMP_MPD->SetCurrentPeriod(mTestableStreamAbstractionAAMP_MPD->GetMPD()->GetPeriods().at(1));
-	mPrivateInstanceAAMP->SetIsPeriodChangeMarked(true);
+	mPlayerInstanceAAMP->SetIsPeriodChangeMarked(true);
 	bool periodChanged = true;
 	std::string currentPeriodId = "p1";
 	uint64_t nextSegTime = 75000;
@@ -793,7 +793,7 @@ TEST_F(FetcherLoopTests, DetectDiscotinuityAndFetchInitTests2)
 		.WillOnce(Return(true));
 
 	mTestableStreamAbstractionAAMP_MPD->InvokeDetectDiscontinuityAndFetchInit(periodChanged, nextSegTime);
-	EXPECT_EQ(mPrivateInstanceAAMP->GetIsPeriodChangeMarked(), true);
+	EXPECT_EQ(mPlayerInstanceAAMP->GetIsPeriodChangeMarked(), true);
 }
 
 /**
@@ -808,14 +808,14 @@ TEST_F(FetcherLoopTests, BasicFetcherLoop)
 	const AampTime expectedFirstPTSOffset = 30.0;
 
 	AAMPStatusType status;
-	mPrivateInstanceAAMP->rate = AAMP_NORMAL_PLAY_RATE;
+	mPlayerInstanceAAMP->rate = AAMP_NORMAL_PLAY_RATE;
 	/* Initialize MPD. The video initialization segment is cached. */
 	fragmentUrl = std::string(TEST_BASE_URL) + std::string("video_p0_init.mp4");
 	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _, _, _))
 		.WillOnce(Return(true));
 	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, false, _, _, _, _, _))
 		.WillRepeatedly(Return(true));
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection()).WillRepeatedly(Return(false));
+	EXPECT_CALL(*g_mockPlayerInstanceAAMP, IsLocalAAMPTsbInjection()).WillRepeatedly(Return(false));
 	status = InitializeMPD(mVodManifest);
 	EXPECT_EQ(status, eAAMPSTATUS_OK);
 
@@ -828,7 +828,7 @@ TEST_F(FetcherLoopTests, BasicFetcherLoop)
 	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, false, _, _, _, _, _))
 		.WillRepeatedly(Return(true));
 
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled())
+	EXPECT_CALL(*g_mockPlayerInstanceAAMP, DownloadsAreEnabled())
 		.Times(AnyNumber())
 		.WillRepeatedly(Return(true));
 
@@ -838,7 +838,7 @@ TEST_F(FetcherLoopTests, BasicFetcherLoop)
 	EXPECT_EQ(mTestableStreamAbstractionAAMP_MPD->GetCurrentPeriodIdx(), 1);
 	EXPECT_EQ(mTestableStreamAbstractionAAMP_MPD->GetIteratorPeriodIdx(), 2);
 
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetTSBSessionManager()).WillRepeatedly(Return(nullptr));
+	EXPECT_CALL(*g_mockPlayerInstanceAAMP, GetTSBSessionManager()).WillRepeatedly(Return(nullptr));
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnablePTSReStamp)).WillOnce(Return(false));
 	// GetFirstPTS should return the first PTS value if EnablePTSReStamp is not set */
 	EXPECT_EQ(expectedFirstPTS, mTestableStreamAbstractionAAMP_MPD->GetFirstPTS());
@@ -857,13 +857,13 @@ TEST_F(FetcherLoopTests, BasicFetcherLoopLive)
 {
 	std::string fragmentUrl;
 	AAMPStatusType status;
-	mPrivateInstanceAAMP->rate = AAMP_NORMAL_PLAY_RATE;
+	mPlayerInstanceAAMP->rate = AAMP_NORMAL_PLAY_RATE;
 	/* Initialize MPD. The video initialization segment is cached. */
 	fragmentUrl = std::string(TEST_BASE_URL) + std::string("video_p0_init.mp4");
 	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _, _, _))
 		.Times(1)
 		.WillOnce(Return(true));
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection()).WillRepeatedly(Return(false));
+	EXPECT_CALL(*g_mockPlayerInstanceAAMP, IsLocalAAMPTsbInjection()).WillRepeatedly(Return(false));
 
 	status = InitializeMPD(mLiveManifest, eTUNETYPE_SEEK, 27.0);
 	EXPECT_EQ(status, eAAMPSTATUS_OK);
@@ -872,7 +872,7 @@ TEST_F(FetcherLoopTests, BasicFetcherLoopLive)
 	 * The segment starts at time 40.0s and has a duration of 2.0s.
 	 */
 	// Add the new EXPECT_CALL for DownloadsAreEnabled
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled())
+	EXPECT_CALL(*g_mockPlayerInstanceAAMP, DownloadsAreEnabled())
 		.Times(AnyNumber())
 		.WillRepeatedly([]()
 						{
@@ -902,7 +902,7 @@ TEST_F(FetcherLoopTests, SelectSourceOrAdPeriodTests3)
 {
 	std::string fragmentUrl;
 	AAMPStatusType status;
-	mPrivateInstanceAAMP->rate = 1.0;
+	mPlayerInstanceAAMP->rate = 1.0;
 	bool ret = false;
 	/* Initialize MPD. The video initialization segment is cached. */
 	fragmentUrl = std::string(TEST_BASE_URL) + std::string("video_p0_init.mp4");
@@ -942,9 +942,9 @@ TEST_F(FetcherLoopTests, SelectSourceOrAdPeriodTests3)
 	std::string currentPeriodId = "p0";
 
 
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetTSBSessionManager()).WillRepeatedly(Return(nullptr));
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection()).WillRepeatedly(Return(false));
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdReservationEvent(_, _, _, _, _)).Times(AnyNumber());
+	EXPECT_CALL(*g_mockPlayerInstanceAAMP, GetTSBSessionManager()).WillRepeatedly(Return(nullptr));
+	EXPECT_CALL(*g_mockPlayerInstanceAAMP, IsLocalAAMPTsbInjection()).WillRepeatedly(Return(false));
+	EXPECT_CALL(*g_mockPlayerInstanceAAMP, SendAdReservationEvent(_, _, _, _, _)).Times(AnyNumber());
 
 	/*
 	 * Test the scenario where ad is not placed and we are waiting for base period to catchup
@@ -1052,7 +1052,7 @@ R"(<?xml version="1.0" encoding="UTF-8"?>
 	//when skipfetch sets to true, fetchfragment will be avoided
 	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, eCURLINSTANCE_AUDIO, _,_, _, _, _, _, _, _, _))
 				.Times(0);
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetPositionMilliseconds()).WillRepeatedly(Return(0.0));
+	EXPECT_CALL(*g_mockPlayerInstanceAAMP, GetPositionMilliseconds()).WillRepeatedly(Return(0.0));
 
 	mTestableStreamAbstractionAAMP_MPD->SwitchAudioTrack();
 
@@ -1069,7 +1069,7 @@ TEST_F(FetcherLoopTests, BasicFetcherLoopLiveWithParallelDownload)
 	std::string videoFragmentUrl;
 	std::string audioFragmentUrl;
 	AAMPStatusType status;
-	mPrivateInstanceAAMP->rate = AAMP_NORMAL_PLAY_RATE;
+	mPlayerInstanceAAMP->rate = AAMP_NORMAL_PLAY_RATE;
 	static const char *multiTrackManifest = R"(<?xml version="1.0" encoding="utf-8"?>
 				<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" availabilityStartTime="2023-01-01T00:00:00Z" maxSegmentDuration="PT2S" minBufferTime="PT4.000S" minimumUpdatePeriod="P100Y" profiles="urn:dvb:dash:profile:dvb-dash:2014,urn:dvb:dash:profile:dvb-dash:isoff-ext-live:2014" publishTime="2023-01-01T00:01:00Z" timeShiftBufferDepth="PT5M" type="dynamic">
 						<Period id="p0" start="PT0S">
@@ -1120,7 +1120,7 @@ TEST_F(FetcherLoopTests, BasicFetcherLoopLiveWithParallelDownload)
 	audioFragmentUrl = std::string(TEST_BASE_URL) + std::string("audio_p0_init.mp4");
 	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(videoFragmentUrl, _, _, _, _, true, _, _, _, _, _)).Times(1).WillOnce(Return(true));
 	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(audioFragmentUrl, _, _, _, _, true, _, _, _, _, _)).Times(1).WillOnce(Return(true));
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection()).WillRepeatedly(Return(false));
+	EXPECT_CALL(*g_mockPlayerInstanceAAMP, IsLocalAAMPTsbInjection()).WillRepeatedly(Return(false));
 
 	status = InitializeMPD(multiTrackManifest, eTUNETYPE_SEEK, 24.0);
 
@@ -1133,7 +1133,7 @@ TEST_F(FetcherLoopTests, BasicFetcherLoopLiveWithParallelDownload)
 	 * The segment starts at time 40.0s and has a duration of 2.0s.
 	 */
 	// Add the new EXPECT_CALL for DownloadsAreEnabled
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled())
+	EXPECT_CALL(*g_mockPlayerInstanceAAMP, DownloadsAreEnabled())
 		.Times(AnyNumber())
 		.WillRepeatedly([]()
 						{
@@ -1248,7 +1248,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 	</Period>
 </MPD>
 )";
-	mPrivateInstanceAAMP->rate = AAMP_NORMAL_PLAY_RATE;
+	mPlayerInstanceAAMP->rate = AAMP_NORMAL_PLAY_RATE;
 	bool ret = false;
 	/* Initialize MPD. The video/audio initialization segment is cached. */
 	videoInitFragmentUrl = std::string(TEST_BASE_URL) + std::string("video_p0_init.mp4");
@@ -1324,7 +1324,7 @@ TEST_F(FetcherLoopTests, SelectSourceOrAdPeriodTests5)
 
 	std::string fragmentUrl;
 	AAMPStatusType status;
-	mPrivateInstanceAAMP->rate = 1.0;
+	mPlayerInstanceAAMP->rate = 1.0;
 	bool ret = false;
 
 	// Expect initialization fragment to be cached
@@ -1385,10 +1385,10 @@ TEST_F(FetcherLoopTests, SelectSourceOrAdPeriodTests5)
 	std::string currentPeriodId = "p0";
 
 	// Set expectations for various AAMP and CDAI method calls
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetTSBSessionManager()).WillRepeatedly(Return(nullptr));
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection()).WillRepeatedly(Return(false));
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdPlacementEvent(_, _, _, _, _, _, _, _)).Times(1);
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdReservationEvent(_, _, _, _, _)).Times(2);
+	EXPECT_CALL(*g_mockPlayerInstanceAAMP, GetTSBSessionManager()).WillRepeatedly(Return(nullptr));
+	EXPECT_CALL(*g_mockPlayerInstanceAAMP, IsLocalAAMPTsbInjection()).WillRepeatedly(Return(false));
+	EXPECT_CALL(*g_mockPlayerInstanceAAMP, SendAdPlacementEvent(_, _, _, _, _, _, _, _)).Times(1);
+	EXPECT_CALL(*g_mockPlayerInstanceAAMP, SendAdReservationEvent(_, _, _, _, _)).Times(2);
 
 	EXPECT_CALL(*g_MockPrivateCDAIObjectMPD, CheckForAdStart(_, _, _, _, _, _))
 		.Times(AnyNumber())

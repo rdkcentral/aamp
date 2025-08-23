@@ -21,7 +21,7 @@
 #include <gmock/gmock.h>
 #include <chrono>
 
-#include "priv_aamp.h"
+#include "main_aamp.h"
 
 #include "AampConfig.h"
 #include "AampScheduler.h"
@@ -105,7 +105,7 @@ protected:
     {
     public:
         // Constructor to pass parameters to the base class constructor
-        TestableStreamAbstractionAAMP_HLS(PrivateInstanceAAMP *aamp,
+        TestableStreamAbstractionAAMP_HLS(PlayerInstanceAAMP *aamp,
                                           double seekpos, float rate,
                                           id3_callback_t id3Handler = nullptr,
                                           ptsoffset_update_t ptsOffsetUpdate = nullptr)
@@ -211,7 +211,7 @@ protected:
 
     };
 
-    PrivateInstanceAAMP *mPrivateInstanceAAMP;
+    PlayerInstanceAAMP *mPlayerInstanceAAMP;
     TestableStreamAbstractionAAMP_HLS *mStreamAbstractionAAMP_HLS;
 
     void SetUp() override
@@ -221,11 +221,11 @@ protected:
             gpGlobalConfig = new AampConfig();
         }
 
-        mPrivateInstanceAAMP = new PrivateInstanceAAMP(gpGlobalConfig);
+        mPlayerInstanceAAMP = new PlayerInstanceAAMP(gpGlobalConfig);
 
         g_mockAampConfig = new MockAampConfig();
 
-        mStreamAbstractionAAMP_HLS = new TestableStreamAbstractionAAMP_HLS(mPrivateInstanceAAMP, 0.0, 1.0);
+        mStreamAbstractionAAMP_HLS = new TestableStreamAbstractionAAMP_HLS(mPlayerInstanceAAMP, 0.0, 1.0);
     }
 
     void TearDown() override
@@ -233,8 +233,8 @@ protected:
         delete mStreamAbstractionAAMP_HLS;
         mStreamAbstractionAAMP_HLS = nullptr;
 
-        delete mPrivateInstanceAAMP;
-        mPrivateInstanceAAMP = nullptr;
+        delete mPlayerInstanceAAMP;
+        mPlayerInstanceAAMP = nullptr;
 
         delete gpGlobalConfig;
         gpGlobalConfig = nullptr;
@@ -247,7 +247,7 @@ protected:
 class TrackStateTests : public ::testing::Test
 {
 protected:
-    PrivateInstanceAAMP *mPrivateInstanceAAMP{};
+    PlayerInstanceAAMP *mPlayerInstanceAAMP{};
     StreamAbstractionAAMP_HLS *mStreamAbstractionAAMP_HLS{};
      TrackState *TrackStateobj{};
 
@@ -258,15 +258,15 @@ protected:
             gpGlobalConfig = new AampConfig();
         }
 
-        mPrivateInstanceAAMP = new PrivateInstanceAAMP(gpGlobalConfig);
+        mPlayerInstanceAAMP = new PlayerInstanceAAMP(gpGlobalConfig);
 
         g_mockAampConfig = new MockAampConfig();
 
-        mStreamAbstractionAAMP_HLS = new StreamAbstractionAAMP_HLS(mPrivateInstanceAAMP, 0, 0.0);
+        mStreamAbstractionAAMP_HLS = new StreamAbstractionAAMP_HLS(mPlayerInstanceAAMP, 0, 0.0);
 
-        TrackStateobj = new TrackState(eTRACK_VIDEO, mStreamAbstractionAAMP_HLS, mPrivateInstanceAAMP, "TestTrack");
+        TrackStateobj = new TrackState(eTRACK_VIDEO, mStreamAbstractionAAMP_HLS, mPlayerInstanceAAMP, "TestTrack");
 
-        // Called in destructor of PrivateInstanceAAMP
+        // Called in destructor of PlayerInstanceAAMP
         // Done here because setting up the EXPECT_CALL in TearDown, conflicted with the mock
         // being called in the PausePosition thread.
         // EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnableCurlStore)).WillRepeatedly(Return(false));
@@ -277,8 +277,8 @@ protected:
         delete TrackStateobj;
         TrackStateobj = nullptr;
 
-        delete mPrivateInstanceAAMP;
-        mPrivateInstanceAAMP = nullptr;
+        delete mPlayerInstanceAAMP;
+        mPlayerInstanceAAMP = nullptr;
 
         delete TrackStateobj;
         TrackStateobj = nullptr;
@@ -323,9 +323,9 @@ TEST_F(StreamAbstractionAAMP_HLSTest, TestConfigureAudioTrack)
 
 TEST_F(StreamAbstractionAAMP_HLSTest, TestConfigureVideoProfiles1)
 {
-    mPrivateInstanceAAMP->mDisplayWidth = 0;
-    mPrivateInstanceAAMP->mDisplayHeight = 0;
-    mPrivateInstanceAAMP->userProfileStatus = true;
+    mPlayerInstanceAAMP->mDisplayWidth = 0;
+    mPlayerInstanceAAMP->mDisplayHeight = 0;
+    mPlayerInstanceAAMP->userProfileStatus = true;
 
     HlsStreamInfo streamInfo;
     streamInfo.enabled = true;
@@ -345,8 +345,8 @@ TEST_F(StreamAbstractionAAMP_HLSTest, TestConfigureVideoProfiles1)
 
 TEST_F(StreamAbstractionAAMP_HLSTest, TestConfigureTextTrack)
 {
-    mPrivateInstanceAAMP->mSubLanguage = "en";
-    mPrivateInstanceAAMP->GetPreferredTextTrack();
+    mPlayerInstanceAAMP->mSubLanguage = "en";
+    mPlayerInstanceAAMP->GetPreferredTextTrack();
     mStreamAbstractionAAMP_HLS->CallConfigureTextTrack();
 }
 
@@ -588,7 +588,7 @@ TEST_F(StreamAbstractionAAMP_HLSTest, StreamAbstractionAAMP_HLS_Is4KStream_no_4k
     mediaInfoStore.push_back(media);
     // Add the sample HlsStreamInfo objects to the streamInfoStore
     mStreamAbstractionAAMP_HLS->streamInfoStore.push_back(streamInfo);
-    bool TestResult = mPrivateInstanceAAMP->IsLiveAdjustRequired(); (void)TestResult;
+    bool TestResult = mPlayerInstanceAAMP->IsLiveAdjustRequired(); (void)TestResult;
     mStreamAbstractionAAMP_HLS->CallPopulateAudioAndTextTracks();
 
     mStreamAbstractionAAMP_HLS->mainManifest.AppendBytes(manifest, sizeof(manifest));
@@ -705,7 +705,7 @@ TEST_F(StreamAbstractionAAMP_HLSTest, ABRManagerMode)
 
     mStreamAbstractionAAMP_HLS->mainManifest.AppendBytes(manifest, sizeof(manifest));
     // Call the fake Tune() method with a non-local URL to setup Fog related flags.
-    mPrivateInstanceAAMP->Tune("https://ads.com/ad.m3u8", false);
+    mPlayerInstanceAAMP->Tune("https://ads.com/ad.m3u8", false);
 
     EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_AvgBWForABR)).WillOnce(Return(true));
 
@@ -722,7 +722,7 @@ TEST_F(StreamAbstractionAAMP_HLSTest, FogABRMode)
     mStreamAbstractionAAMP_HLS->mainManifest.AppendBytes(manifest, sizeof(manifest));
 
     // Call the fake Tune() method with a Fog TSB URL to setup Fog related flags.
-    mPrivateInstanceAAMP->Tune("http://127.0.0.1/tsb?clientId=FOG_AAMP&recordedUrl=https%3A%2F%2Fads.com%2Fad.m3u8", false);
+    mPlayerInstanceAAMP->Tune("http://127.0.0.1/tsb?clientId=FOG_AAMP&recordedUrl=https%3A%2F%2Fads.com%2Fad.m3u8", false);
 
     EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_AvgBWForABR)).WillOnce(Return(true));
 
@@ -1114,7 +1114,7 @@ TEST_F(StreamAbstractionAAMP_HLSTest, GetTotalProfileCounttest)
 
 TEST_F(StreamAbstractionAAMP_HLSTest, Destructortest)
 {
-    StreamAbstractionAAMP_HLS *mStreamAbstractionAAMP_HLS_1 = new StreamAbstractionAAMP_HLS(mPrivateInstanceAAMP, 0, AAMP_NORMAL_PLAY_RATE);
+    StreamAbstractionAAMP_HLS *mStreamAbstractionAAMP_HLS_1 = new StreamAbstractionAAMP_HLS(mPlayerInstanceAAMP, 0, AAMP_NORMAL_PLAY_RATE);
     mStreamAbstractionAAMP_HLS_1->~StreamAbstractionAAMP_HLS();
 }
 

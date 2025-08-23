@@ -31,7 +31,7 @@
 #include <assert.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include "priv_aamp.h"
+#include "main_aamp.h"
 #include <atomic>
 #include <algorithm>
 
@@ -73,35 +73,35 @@ static void InitializePlayerConfigs(AAMPGstPlayer *_this, void *playerInstance)
 //	assert( config );
 	interfacePlayer->m_gstConfigParam->media = _this->aamp->_GetMediaFormatTypeEnum();
 	interfacePlayer->m_gstConfigParam->networkProxy =_this->aamp->_GetNetworkProxy();
-	interfacePlayer->m_gstConfigParam->tcpServerSink = config->IsConfigSet(eAAMPConfig_useTCPServerSink);
-	interfacePlayer->m_gstConfigParam->tcpPort = config->GetConfigValue(eAAMPConfig_TCPServerSinkPort);
-	interfacePlayer->m_gstConfigParam->appSrcForProgressivePlayback = config->IsConfigSet(eAAMPConfig_UseAppSrcForProgressivePlayback);
-	interfacePlayer->m_gstConfigParam->enablePTSReStamp = config->IsConfigSet(eAAMPConfig_EnablePTSReStamp);
-	interfacePlayer->m_gstConfigParam->seamlessAudioSwitch = config->IsConfigSet(eAAMPConfig_SeamlessAudioSwitch);
-	interfacePlayer->m_gstConfigParam->videoBufBytes = config->GetConfigValue(eAAMPConfig_GstVideoBufBytes);
-	interfacePlayer->m_gstConfigParam->enableDisconnectSignals = config->IsConfigSet(eAAMPConfig_enableDisconnectSignals);
-	interfacePlayer->m_gstConfigParam->eosInjectionMode = config->GetConfigValue(eAAMPConfig_EOSInjectionMode);
-	interfacePlayer->m_gstConfigParam->vodTrickModeFPS =  config->GetConfigValue(eAAMPConfig_VODTrickPlayFPS);
-	interfacePlayer->m_gstConfigParam->enableGstPosQuery =  config->IsConfigSet(eAAMPConfig_EnableGstPositionQuery);
-	interfacePlayer->m_gstConfigParam->audioBufBytes = config->GetConfigValue(eAAMPConfig_GstAudioBufBytes);
-	interfacePlayer->m_gstConfigParam->progressTimer = config->GetConfigValue(eAAMPConfig_ReportProgressInterval);
-	interfacePlayer->m_gstConfigParam->gstreamerBufferingBeforePlay = config->IsConfigSet(eAAMPConfig_GStreamerBufferingBeforePlay);
-	interfacePlayer->m_gstConfigParam->seiTimeCode = config->IsConfigSet(eAAMPConfig_SEITimeCode);
-	interfacePlayer->m_gstConfigParam->gstLogging = config->IsConfigSet(eAAMPConfig_GSTLogging);
-	interfacePlayer->m_gstConfigParam->progressLogging =  config->IsConfigSet(eAAMPConfig_ProgressLogging);
-	interfacePlayer->m_gstConfigParam->useWesterosSink = config->IsConfigSet(eAAMPConfig_UseWesterosSink);
-	interfacePlayer->m_gstConfigParam->enableRectPropertyCfg = config->IsConfigSet(eAAMPConfig_EnableRectPropertyCfg);
-	interfacePlayer->m_gstConfigParam->useRialtoSink = config->IsConfigSet(eAAMPConfig_useRialtoSink);
-	interfacePlayer->m_gstConfigParam->monitorAV = config->IsConfigSet(eAAMPConfig_MonitorAV);
-	interfacePlayer->m_gstConfigParam->disableUnderflow = config->IsConfigSet(eAAMPConfig_DisableUnderflow);
-	interfacePlayer->m_gstConfigParam->monitorAvsyncThresholdPositiveMs = config->GetConfigValue(eAAMPConfig_MonitorAVSyncThresholdPositive);
-	interfacePlayer->m_gstConfigParam->monitorAvsyncThresholdNegativeMs = config->GetConfigValue(eAAMPConfig_MonitorAVSyncThresholdNegative);
-	interfacePlayer->m_gstConfigParam->monitorAvJumpThresholdMs =  config->GetConfigValue(eAAMPConfig_MonitorAVJumpThreshold);
+	interfacePlayer->m_gstConfigParam->tcpServerSink = config.IsConfigSet(eAAMPConfig_useTCPServerSink);
+	interfacePlayer->m_gstConfigParam->tcpPort = config.GetConfigValue(eAAMPConfig_TCPServerSinkPort);
+	interfacePlayer->m_gstConfigParam->appSrcForProgressivePlayback = config.IsConfigSet(eAAMPConfig_UseAppSrcForProgressivePlayback);
+	interfacePlayer->m_gstConfigParam->enablePTSReStamp = config.IsConfigSet(eAAMPConfig_EnablePTSReStamp);
+	interfacePlayer->m_gstConfigParam->seamlessAudioSwitch = config.IsConfigSet(eAAMPConfig_SeamlessAudioSwitch);
+	interfacePlayer->m_gstConfigParam->videoBufBytes = config.GetConfigValue(eAAMPConfig_GstVideoBufBytes);
+	interfacePlayer->m_gstConfigParam->enableDisconnectSignals = config.IsConfigSet(eAAMPConfig_enableDisconnectSignals);
+	interfacePlayer->m_gstConfigParam->eosInjectionMode = config.GetConfigValue(eAAMPConfig_EOSInjectionMode);
+	interfacePlayer->m_gstConfigParam->vodTrickModeFPS =  config.GetConfigValue(eAAMPConfig_VODTrickPlayFPS);
+	interfacePlayer->m_gstConfigParam->enableGstPosQuery =  config.IsConfigSet(eAAMPConfig_EnableGstPositionQuery);
+	interfacePlayer->m_gstConfigParam->audioBufBytes = config.GetConfigValue(eAAMPConfig_GstAudioBufBytes);
+	interfacePlayer->m_gstConfigParam->progressTimer = config.GetConfigValue(eAAMPConfig_ReportProgressInterval);
+	interfacePlayer->m_gstConfigParam->gstreamerBufferingBeforePlay = config.IsConfigSet(eAAMPConfig_GStreamerBufferingBeforePlay);
+	interfacePlayer->m_gstConfigParam->seiTimeCode = config.IsConfigSet(eAAMPConfig_SEITimeCode);
+	interfacePlayer->m_gstConfigParam->gstLogging = config.IsConfigSet(eAAMPConfig_GSTLogging);
+	interfacePlayer->m_gstConfigParam->progressLogging =  config.IsConfigSet(eAAMPConfig_ProgressLogging);
+	interfacePlayer->m_gstConfigParam->useWesterosSink = config.IsConfigSet(eAAMPConfig_UseWesterosSink);
+	interfacePlayer->m_gstConfigParam->enableRectPropertyCfg = config.IsConfigSet(eAAMPConfig_EnableRectPropertyCfg);
+	interfacePlayer->m_gstConfigParam->useRialtoSink = config.IsConfigSet(eAAMPConfig_useRialtoSink);
+	interfacePlayer->m_gstConfigParam->monitorAV = config.IsConfigSet(eAAMPConfig_MonitorAV);
+	interfacePlayer->m_gstConfigParam->disableUnderflow = config.IsConfigSet(eAAMPConfig_DisableUnderflow);
+	interfacePlayer->m_gstConfigParam->monitorAvsyncThresholdPositiveMs = config.GetConfigValue(eAAMPConfig_MonitorAVSyncThresholdPositive);
+	interfacePlayer->m_gstConfigParam->monitorAvsyncThresholdNegativeMs = config.GetConfigValue(eAAMPConfig_MonitorAVSyncThresholdNegative);
+	interfacePlayer->m_gstConfigParam->monitorAvJumpThresholdMs =  config.GetConfigValue(eAAMPConfig_MonitorAVJumpThreshold);
 	interfacePlayer->m_gstConfigParam->audioDecoderStreamSync = _this->aamp->mAudioDecoderStreamSync;
 	interfacePlayer->m_gstConfigParam->audioOnlyMode = _this->aamp->mAudioOnlyPb;
 	interfacePlayer->m_gstConfigParam->gstreamerSubsEnabled = _this->aamp->_IsGstreamerSubsEnabled();
 	interfacePlayer->m_gstConfigParam->media = _this->aamp->_GetMediaFormatTypeEnum();
-	interfacePlayer->m_gstConfigParam->useMp4Demux = config->IsConfigSet(eAAMPConfig_UseMp4Demux);
+	interfacePlayer->m_gstConfigParam->useMp4Demux = config.IsConfigSet(eAAMPConfig_UseMp4Demux);
 }
 
 /*
@@ -387,7 +387,7 @@ void AAMPGstPlayer::NotifyFirstFrame(int mediatype, bool notifyFirstBuffer, bool
 
 /*AAMPGstPlayer constructor*/
 
-AAMPGstPlayer::AAMPGstPlayer(PrivateInstanceAAMP *aamp, id3_callback_t id3HandlerCallback, std::function<void(const unsigned char *, int, int, int) > exportFrames):
+AAMPGstPlayer::AAMPGstPlayer(PlayerInstanceAAMP *aamp, id3_callback_t id3HandlerCallback, std::function<void(const unsigned char *, int, int, int) > exportFrames):
 	aamp(NULL), mEncryptedAamp(NULL), privateContext(NULL),
 	mBufferingLock(), trickTeardown(false), m_ID3MetadataHandler{id3HandlerCallback},
 	cbExportYUVFrame(NULL), monitorAvTimerId(0), mMonitorAVInterval(0)
@@ -404,7 +404,7 @@ AAMPGstPlayer::AAMPGstPlayer(PrivateInstanceAAMP *aamp, id3_callback_t id3Handle
 
 		this->cbExportYUVFrame = exportFrames;
 		playerInstance->gstCbExportYUVFrame = exportFrames;
-		std::string debugLevel = GETCONFIGVALUE(eAAMPConfig_GstDebugLevel);
+        std::string debugLevel = GETCONFIGVALUE(eAAMPConfig_GstDebugLevel);
 		if(!debugLevel.empty())
 		{
 			playerInstance->EnableGstDebugLogging(debugLevel);
@@ -459,7 +459,7 @@ static void HandleBufferingTimeoutCb(bool isBufferingTimeoutConditionMet, bool i
 			if(isRateCorrectionDefaultOnPlaying)
 			{
 				// Setting first fractional rate as DEFAULT_INITIAL_RATE_CORRECTION_SPEED right away on PLAYING to avoid audio drop
-				if (aamp->mConfig->IsConfigSet(eAAMPConfig_EnableLiveLatencyCorrection) && aamp->_IsLive())
+				if (ISCONFIGSET(eAAMPConfig_EnableLiveLatencyCorrection) && aamp->_IsLive())
 				{
 					AAMPLOG_WARN("Setting first fractional rate %.6f right after moving to PLAYING", DEFAULT_INITIAL_RATE_CORRECTION_SPEED);
 					_this->SetPlayBackRate(DEFAULT_INITIAL_RATE_CORRECTION_SPEED);
@@ -555,7 +555,9 @@ static void HandleBusMessage(const BusEventData busEvent, AAMPGstPlayer * _this)
 			{
 				_this->aamp->_SendErrorEvent(AAMP_TUNE_HDCP_COMPLIANCE_ERROR, errorDesc.c_str(), false);
 			}
-			else if ((busEvent.msg.find("Internal data stream error") != std::string::npos) && _this->aamp->mConfig->IsConfigSet(eAAMPConfig_RetuneForGSTError))
+			else if ((busEvent.msg.find("Internal data stream error") != std::string::npos) && _this->aamp->mConfig.IsConfigSet(eAAMPConfig_RetuneForGSTError))
+                     
+//                     ISCONFIGSET(eAAMPConfig_RetuneForGSTError))
 			{
 				AAMPLOG_ERR("Schedule retune for GstPipeline Error");
 				_this->aamp->_ScheduleRetune(eGST_ERROR_GST_PIPELINE_INTERNAL, eMEDIATYPE_VIDEO);
@@ -577,7 +579,7 @@ static void HandleBusMessage(const BusEventData busEvent, AAMPGstPlayer * _this)
 			break;
 
 		case MESSAGE_WARNING:
-			if (_this->aamp->mConfig->IsConfigSet(eAAMPConfig_DecoderUnavailableStrict)  && busEvent.msg.find("No decoder available") != std::string::npos)
+			if (_this->aamp->mConfig.IsConfigSet(eAAMPConfig_DecoderUnavailableStrict)  && busEvent.msg.find("No decoder available") != std::string::npos)
 			{
 				std::string warnDesc = "GstPipeline Error:" + busEvent.msg;
 				_this->aamp->_SendErrorEvent(AAMP_TUNE_GST_PIPELINE_ERROR, warnDesc.c_str(), false);
@@ -679,7 +681,7 @@ void AAMPGstPlayer::NotifyInjectorToResume()
  */
 bool AAMPGstPlayer::SendHelper(AampMediaType mediaType, const void *ptr, size_t len, double fpts, double fdts, double fDuration, bool copy, double fragmentPTSoffset, bool initFragment, bool discontinuity)
 {
-	if(ISCONFIGSET(eAAMPConfig_SuppressDecode))
+	if( ISCONFIGSET(eAAMPConfig_SuppressDecode))
 	{
 		if (eMEDIATYPE_VIDEO == mediaType)
 		{
@@ -850,30 +852,30 @@ void AAMPGstPlayer::Stop(bool keepLastFrame)
 
 
 /**
- * @brief Set the instance of PrivateInstanceAAMP that has encrypted content, used in the context of
+ * @brief Set the instance of PlayerInstanceAAMP that has encrypted content, used in the context of
  * single pipeline.
- * @param[in] aamp - Pointer to the instance of PrivateInstanceAAMP that has the encrypted content
+ * @param[in] aamp - Pointer to the instance of PlayerInstanceAAMP that has the encrypted content
  */
-void AAMPGstPlayer::SetEncryptedAamp(PrivateInstanceAAMP *aamp)
+void AAMPGstPlayer::SetEncryptedAamp(PlayerInstanceAAMP *aamp)
 {
 	mEncryptedAamp = aamp;
 	playerInstance->setEncryption((void*)mEncryptedAamp);
 
 }
 
-bool AAMPGstPlayer::IsAssociatedAamp(PrivateInstanceAAMP *aampInstance)
+bool AAMPGstPlayer::IsAssociatedAamp(PlayerInstanceAAMP *aampInstance)
 {
 	return aamp == aampInstance;
 }
 
 /**
- * @brief Change the instance of PrivateInstanceAAMP that is using the gstreamer
+ * @brief Change the instance of PlayerInstanceAAMP that is using the gstreamer
  * pipeline, when it is being used as a single pipeline shared among multiple
- * instances of PrivateInstanceAAMP
- * @param[in] newAamp - pointer to new instance of PrivateInstanceAAMP
- * @param[in] id3HandlerCallback - the id3 callback handle associated with this instance of PrivateInstanceAAMP
+ * instances of PlayerInstanceAAMP
+ * @param[in] newAamp - pointer to new instance of PlayerInstanceAAMP
+ * @param[in] id3HandlerCallback - the id3 callback handle associated with this instance of PlayerInstanceAAMP
  */
-void AAMPGstPlayer::ChangeAamp(PrivateInstanceAAMP *newAamp, id3_callback_t id3HandlerCallback)
+void AAMPGstPlayer::ChangeAamp(PlayerInstanceAAMP *newAamp, id3_callback_t id3HandlerCallback)
 {
 	aamp = newAamp;
 	if(aamp->_DownloadsAreEnabled())
@@ -1001,7 +1003,7 @@ void AAMPGstPlayer::SetAudioVolume(int volume)
  */
 void AAMPGstPlayer::Flush(double position, int rate, bool shouldTearDown)
 {
-	if(ISCONFIGSET(eAAMPConfig_SuppressDecode))
+	if( ISCONFIGSET(eAAMPConfig_SuppressDecode))
 	{
 		return;
 	}
@@ -1298,7 +1300,7 @@ static gboolean MonitorAvTimerCallback(gpointer user_data)
  */
 void AAMPGstPlayer::StartMonitorAvTimer()
 {
-	if (aamp->mConfig->IsConfigSet(eAAMPConfig_MonitorAV) && monitorAvTimerId == 0)
+	if (ISCONFIGSET(eAAMPConfig_MonitorAV) && monitorAvTimerId == 0)
 	{
 		// mMonitorAVInterval is in milliseconds
 		monitorAvTimerId = g_timeout_add(mMonitorAVInterval, MonitorAvTimerCallback, this);

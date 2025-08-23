@@ -30,7 +30,7 @@ using namespace testing;
 class ToBeTestedStub : public StreamAbstractionAAMP_MPD
 {
 public:
-	ToBeTestedStub(class PrivateInstanceAAMP *aamp, double seekpos, float rate,
+	ToBeTestedStub(class PlayerInstanceAAMP *aamp, double seekpos, float rate,
 				   id3_callback_t id3Handler = nullptr) : StreamAbstractionAAMP_MPD(aamp, seekpos, rate){};
 	FRIEND_TEST(fragmentcollector_mpd, UpdatePtsOffsetTest1);
 };
@@ -41,18 +41,18 @@ class fragmentcollector_mpd : public ::testing::Test
 protected:
 	static constexpr const char *TEST_MANIFEST_URL = "http://host/asset/manifest.mpd";
 	const char *mManifest;
-	PrivateInstanceAAMP *mPrivateInstanceAAMP{};
+	PlayerInstanceAAMP *mPlayerInstanceAAMP{};
 	ToBeTestedStub *mStreamAbstractionAAMP_MPD{};
 
 	void SetUp() override
 	{
 		gpGlobalConfig = new AampConfig();
 
-		mPrivateInstanceAAMP = new PrivateInstanceAAMP(gpGlobalConfig);
+		mPlayerInstanceAAMP = new PlayerInstanceAAMP(gpGlobalConfig);
 
 		g_mockAampConfig = new NiceMock<MockAampConfig>();
 
-		mStreamAbstractionAAMP_MPD = new ToBeTestedStub( mPrivateInstanceAAMP, 0, AAMP_NORMAL_PLAY_RATE);
+		mStreamAbstractionAAMP_MPD = new ToBeTestedStub( mPlayerInstanceAAMP, 0, AAMP_NORMAL_PLAY_RATE);
 		
 		g_mockAampMPDParseHelper = new MockAampMPDParseHelper();
 	}
@@ -68,8 +68,8 @@ protected:
 		delete g_mockAampConfig;
 		g_mockAampConfig = nullptr;
 
-		delete mPrivateInstanceAAMP;
-		mPrivateInstanceAAMP = nullptr;
+		delete mPlayerInstanceAAMP;
+		mPlayerInstanceAAMP = nullptr;
 
 		delete gpGlobalConfig;
 		gpGlobalConfig = nullptr;
@@ -240,10 +240,10 @@ TEST_F(fragmentcollector_mpd, UpdatePtsOffsetTest1)
 	respData = GetManifestForMPDDownloader();
 	mStreamAbstractionAAMP_MPD->mpd = respData->mMPDInstance.get();
 
-	PrivateInstanceAAMP *privateInstanceAAMP = new PrivateInstanceAAMP(gpGlobalConfig);
-	StreamAbstractionAAMP_MPD *streamAbstractionAAMP_MPD = new StreamAbstractionAAMP_MPD(privateInstanceAAMP, 123.45, 12.34);
+	PlayerInstanceAAMP *PlayerInstanceAAMP = new PlayerInstanceAAMP(gpGlobalConfig);
+	StreamAbstractionAAMP_MPD *streamAbstractionAAMP_MPD = new StreamAbstractionAAMP_MPD(PlayerInstanceAAMP, 123.45, 12.34);
 
-	MediaStreamContext ms(eTRACK_VIDEO, streamAbstractionAAMP_MPD, privateInstanceAAMP, "SAMPLETEXT");
+	MediaStreamContext ms(eTRACK_VIDEO, streamAbstractionAAMP_MPD, PlayerInstanceAAMP, "SAMPLETEXT");
 	mStreamAbstractionAAMP_MPD->mMediaStreamContext[eMEDIATYPE_AUDIO] = &ms;
 	mStreamAbstractionAAMP_MPD->mMediaStreamContext[eMEDIATYPE_VIDEO] = &ms;
 

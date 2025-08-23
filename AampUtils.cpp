@@ -21,7 +21,7 @@
  * @file AampUtils.cpp
  * @brief Common utility functions
  */
-
+#include "AampEvent.h"
 #include "AampUtils.h"
 #include "_base64.h"
 #include "AampConfig.h"
@@ -30,14 +30,13 @@
 #include "AampCurlDownloader.h"
 #include "isobmff/isobmffbuffer.h"
 #include "scte35/AampSCTE35.h"
-
+#include <inttypes.h>
 #include <sys/time.h>
 #include <string.h>
 #include <assert.h>
 #include <ctime>
 #include <cctype>
 #include <curl/curl.h>
-
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fstream>
@@ -1167,63 +1166,6 @@ const char *GetMediaTypeName(AampMediaType mediaType)
 	}
 }
 
-/**
- * @fn RecalculatePTS
- * @param[in] mediaType stream type
- * @param[in] ptr buffer pointer
- * @param[in] len length of buffer
- */
-double RecalculatePTS(AampMediaType mediaType, const void *ptr, size_t len, PrivateInstanceAAMP *aamp)
-{
-	double ret = 0;
-	uint32_t timeScale = 0;
-	switch( mediaType )
-	{
-	case eMEDIATYPE_VIDEO:
-		timeScale = aamp->_GetVidTimeScale();
-		break;
-	case eMEDIATYPE_AUDIO:
-	case eMEDIATYPE_AUX_AUDIO:
-		timeScale = aamp->_GetAudTimeScale();
-		break;
-	case eMEDIATYPE_SUBTITLE:
-		timeScale = aamp->_GetSubTimeScale();
-		break;
-	default:
-		AAMPLOG_WARN("Invalid media type %d", mediaType);
-		break;
-	}
-	IsoBmffBuffer isobuf;
-	isobuf.setBuffer((uint8_t *)ptr, len);
-	bool bParse = false;
-	try
-	{
-		bParse = isobuf.parseBuffer();
-	}
-	catch( std::bad_alloc& ba)
-	{
-		AAMPLOG_ERR("Bad allocation: %s", ba.what() );
-	}
-	catch( std::exception &e)
-	{
-		AAMPLOG_ERR("Unhandled exception: %s", e.what() );
-	}
-	catch( ... )
-	{
-		AAMPLOG_ERR("Unknown exception");
-	}
-	if(bParse && (0 != timeScale))
-	{
-		uint64_t fPts = 0;
-		bool bParse = isobuf.getFirstPTS(fPts);
-		if (bParse)
-		{
-			ret = fPts/(timeScale*1.0);
-		}
-	}
-	return ret;
-}
-
 TSB::LogLevel ConvertTsbLogLevel(int logLev)
 {
 	TSB::LogLevel ret = TSB::LogLevel::WARN; //default value
@@ -1239,8 +1181,6 @@ TSB::LogLevel ConvertTsbLogLevel(int logLev)
 
 	return ret;
 }
-
-
 
 /**
  * @brief Get 32 bit MPEG CRC value

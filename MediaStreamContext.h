@@ -27,6 +27,7 @@
 
 #include "StreamAbstractionAAMP.h"
 #include "fragmentcollector_mpd.h"
+#include "main_aamp.h"
 
 /**
  * @class MediaStreamContext
@@ -42,7 +43,7 @@ public:
      * @param aamp Pointer to associated aamp instance
      * @param name Name of the track
      */
-    MediaStreamContext(TrackType type, StreamAbstractionAAMP_MPD* ctx, PrivateInstanceAAMP* aamp, const char* name) :
+    MediaStreamContext(TrackType type, StreamAbstractionAAMP_MPD* ctx, PlayerInstanceAAMP* aamp, const char* name) :
             MediaTrack(type, aamp, name),
             mediaType((AampMediaType)type), adaptationSet(NULL), representation(NULL),
             fragmentIndex(0), timeLineIndex(0), fragmentRepeatCount(0), fragmentOffset(0),

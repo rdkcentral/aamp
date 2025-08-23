@@ -20,7 +20,7 @@
 #include "AampDRMLicPreFetcher.h"
 #include "DrmSession.h"
 #include "AampUtils.h"	// for aamp_GetDeferTimeMs
-#include "priv_aamp.h"
+#include "main_aamp.h"
 #include "AampDRMLicManager.h"
 #include "PlayerSecInterface.h"
 /**
@@ -32,10 +32,10 @@ int LicensePreFetchObject::staticId = 1;
 /**
  * @brief Construct a new Aamp License Pre Fetcher object
  * 
- * @param aamp PrivateInstanceAAMP instance
+ * @param aamp PlayerInstanceAAMP instance
  * @param fetcherInstance AampLicenseFetcher instance
  */
-AampLicensePreFetcher::AampLicensePreFetcher(PrivateInstanceAAMP *aamp) : mPreFetchThread(),
+AampLicensePreFetcher::AampLicensePreFetcher(PlayerInstanceAAMP *aamp) : mPreFetchThread(),
 		mFetchQueue(),
 		mQMutex(),
 		mQCond(),
@@ -465,7 +465,7 @@ bool AampLicensePreFetcher::CreateDRMSession(LicensePreFetchObjectPtr fetchObj)
 
 	if (mPrivAAMP == nullptr)
 	{
-		AAMPLOG_ERR("no PrivateInstanceAAMP instance available");
+		AAMPLOG_ERR("no PlayerInstanceAAMP instance available");
 		return ret;
 	}
 	if (fetchObj->mHelper == nullptr)

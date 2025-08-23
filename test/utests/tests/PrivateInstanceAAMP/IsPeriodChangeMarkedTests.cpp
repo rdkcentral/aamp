@@ -22,7 +22,7 @@
 #include <chrono>
 #include <atomic>
 
-#include "priv_aamp.h"
+#include "main_aamp.h"
 
 #include "AampConfig.h"
 #include "MockAampConfig.h"
@@ -37,44 +37,44 @@ protected:
             gpGlobalConfig =  new AampConfig();
         }
 
-        mPrivateInstanceAAMP = new PrivateInstanceAAMP(gpGlobalConfig);
+        mPlayerInstanceAAMP = new PlayerInstanceAAMP(gpGlobalConfig);
         mUnblocked = false;
     }
 
     void TearDown() override
     {
-        delete mPrivateInstanceAAMP;
-        mPrivateInstanceAAMP = nullptr;
+        delete mPlayerInstanceAAMP;
+        mPlayerInstanceAAMP = nullptr;
 
         delete gpGlobalConfig;
         gpGlobalConfig = nullptr;
     }
 
 public:
-    PrivateInstanceAAMP *mPrivateInstanceAAMP{};
+    PlayerInstanceAAMP *mPlayerInstanceAAMP{};
     std::atomic<bool> mUnblocked;
 };
 
 TEST_F(IsPeriodChangeMarkedTests, GetAndSet)
 {
-    EXPECT_FALSE(mPrivateInstanceAAMP->GetIsPeriodChangeMarked());
+    EXPECT_FALSE(mPlayerInstanceAAMP->GetIsPeriodChangeMarked());
 
-    mPrivateInstanceAAMP->SetIsPeriodChangeMarked(true);
-    EXPECT_TRUE(mPrivateInstanceAAMP->GetIsPeriodChangeMarked());
+    mPlayerInstanceAAMP->SetIsPeriodChangeMarked(true);
+    EXPECT_TRUE(mPlayerInstanceAAMP->GetIsPeriodChangeMarked());
 
-    mPrivateInstanceAAMP->SetIsPeriodChangeMarked(false);
-    EXPECT_FALSE(mPrivateInstanceAAMP->GetIsPeriodChangeMarked());
+    mPlayerInstanceAAMP->SetIsPeriodChangeMarked(false);
+    EXPECT_FALSE(mPlayerInstanceAAMP->GetIsPeriodChangeMarked());
 }
 
 TEST_F(IsPeriodChangeMarkedTests, WaitForDiscontinuityProcessToComplete)
 {
-    mPrivateInstanceAAMP->SetIsPeriodChangeMarked(true);
+    mPlayerInstanceAAMP->SetIsPeriodChangeMarked(true);
 
     EXPECT_FALSE(mUnblocked);
 
     // Spawn thread to perform wait.
     std::thread t([this]{
-        this->mPrivateInstanceAAMP->WaitForDiscontinuityProcessToComplete();
+        this->mPlayerInstanceAAMP->WaitForDiscontinuityProcessToComplete();
         this->mUnblocked = true;
     });
 
@@ -85,7 +85,7 @@ TEST_F(IsPeriodChangeMarkedTests, WaitForDiscontinuityProcessToComplete)
     EXPECT_FALSE(mUnblocked);
 
     // Signal the thread.
-    mPrivateInstanceAAMP->UnblockWaitForDiscontinuityProcessToComplete();
+    mPlayerInstanceAAMP->UnblockWaitForDiscontinuityProcessToComplete();
 
     t.join();
 
@@ -94,13 +94,13 @@ TEST_F(IsPeriodChangeMarkedTests, WaitForDiscontinuityProcessToComplete)
 
 TEST_F(IsPeriodChangeMarkedTests, ClearToUnblock)
 {
-    mPrivateInstanceAAMP->SetIsPeriodChangeMarked(true);
+    mPlayerInstanceAAMP->SetIsPeriodChangeMarked(true);
 
     EXPECT_FALSE(mUnblocked);
 
     // Spawn thread to perform wait.
     std::thread t([this]{
-        this->mPrivateInstanceAAMP->WaitForDiscontinuityProcessToComplete();
+        this->mPlayerInstanceAAMP->WaitForDiscontinuityProcessToComplete();
         this->mUnblocked = true;
     });
 
@@ -111,7 +111,7 @@ TEST_F(IsPeriodChangeMarkedTests, ClearToUnblock)
     EXPECT_FALSE(mUnblocked);
 
     // Clearing the flag will unblock the thread.
-    mPrivateInstanceAAMP->SetIsPeriodChangeMarked(false);
+    mPlayerInstanceAAMP->SetIsPeriodChangeMarked(false);
 
     t.join();
 

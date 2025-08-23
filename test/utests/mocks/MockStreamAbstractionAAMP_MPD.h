@@ -27,7 +27,7 @@ class MockStreamAbstractionAAMP_MPD : public StreamAbstractionAAMP_MPD
 {
 public:
 
-	MockStreamAbstractionAAMP_MPD(PrivateInstanceAAMP *aamp, double seek_pos, float rate) : StreamAbstractionAAMP_MPD(aamp, seek_pos, rate) { }
+	MockStreamAbstractionAAMP_MPD(PlayerInstanceAAMP *aamp, double seek_pos, float rate) : StreamAbstractionAAMP_MPD(aamp, seek_pos, rate) { }
 
 	MOCK_METHOD(AAMPStatusType, Init, (TuneType tuneType), (override));
 	MOCK_METHOD(AAMPStatusType, InitTsbReader, (TuneType tuneType), (override));

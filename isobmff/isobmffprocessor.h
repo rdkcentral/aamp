@@ -27,7 +27,7 @@
 
 #include "isobmffbuffer.h"
 #include "mediaprocessor.h"
-#include "priv_aamp.h"
+#include "main_aamp.h"
 #include <condition_variable>
 #include <mutex>
 
@@ -111,11 +111,11 @@ public:
 	/**
 	 * @fn IsoBmffProcessor
 	 *
-	 * @param[in] aamp - PrivateInstanceAAMP pointer
+	 * @param[in] aamp - PlayerInstanceAAMP pointer
 	 * @param[in] trackType - track type (A/V)
 	 * @param[in] peerBmffProcessor - peer instance of IsoBmffProcessor
 	 */
-	IsoBmffProcessor(class PrivateInstanceAAMP *aamp, id3_callback_t id3_hdl, IsoBmffProcessorType trackType = eBMFFPROCESSOR_TYPE_VIDEO, bool passThrough = false,
+	IsoBmffProcessor(class PlayerInstanceAAMP *aamp, id3_callback_t id3_hdl, IsoBmffProcessorType trackType = eBMFFPROCESSOR_TYPE_VIDEO, bool passThrough = false,
 		IsoBmffProcessor* peerBmffProcessor = NULL, IsoBmffProcessor* peerSubProcessor = NULL);
 
 	/**
@@ -490,7 +490,7 @@ private:
 	 */
 	bool updatePTSAndTimeScaleFromBuffer(AampGrowableBuffer *pBuffer);
 
-	PrivateInstanceAAMP *p_aamp;
+	PlayerInstanceAAMP *p_aamp;
 	timeScaleChangeStateType timeScaleChangeState;
 	MediaFormat mediaFormat;
 

@@ -25,10 +25,10 @@ AampBufferControl::BufferControlExternalData::BufferControlExternalData(const AA
 																		const AampMediaType mediaType)
 	: mRate(0), mTimeBasedBufferSeconds(0), mExtraDataCache(), mCacheValid(false)
 {
-	if (player && player->aamp && player->aamp->mConfig)
+	if (player && player->aamp)
 	{
 		uint64_t x1_bufferSize =
-			player->aamp->mConfig->GetConfigValue(eAAMPConfig_TimeBasedBufferSeconds);
+			player->aamp->mConfig.GetConfigValue(eAAMPConfig_TimeBasedBufferSeconds);
 		mRate = player->aamp->rate;
 		float absRate = std::abs(mRate);
 		if (absRate > 1)

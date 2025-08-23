@@ -20,7 +20,7 @@
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
 
-#include "priv_aamp.h"
+#include "main_aamp.h"
 
 #include "AampConfig.h"
 #include "MockAampConfig.h"
@@ -41,7 +41,7 @@ using ::testing::AnyNumber;
 class TextStyleTests : public ::testing::Test
 {
 protected:
-    PrivateInstanceAAMP *mPrivateInstanceAAMP{};
+    PlayerInstanceAAMP *mPlayerInstanceAAMP{};
 
     void SetUp() override
     {
@@ -50,21 +50,21 @@ protected:
             gpGlobalConfig =  new AampConfig();
         }
 
-        mPrivateInstanceAAMP = new PrivateInstanceAAMP(gpGlobalConfig);
+        mPlayerInstanceAAMP = new PlayerInstanceAAMP(gpGlobalConfig);
 
-        g_mockAampGstPlayer = new MockAAMPGstPlayer( mPrivateInstanceAAMP);
-        g_mockStreamAbstractionAAMP = new MockStreamAbstractionAAMP(mPrivateInstanceAAMP);
+        g_mockAampGstPlayer = new MockAAMPGstPlayer( mPlayerInstanceAAMP);
+        g_mockStreamAbstractionAAMP = new MockStreamAbstractionAAMP(mPlayerInstanceAAMP);
 		g_mockAampStreamSinkManager = new NiceMock<MockAampStreamSinkManager>();
 
-        mPrivateInstanceAAMP->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP;
+        mPlayerInstanceAAMP->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP;
 
    		EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_)).WillRepeatedly(Return(g_mockAampGstPlayer));
     }
 
     void TearDown() override
     {
-        delete mPrivateInstanceAAMP;
-        mPrivateInstanceAAMP = nullptr;
+        delete mPlayerInstanceAAMP;
+        mPlayerInstanceAAMP = nullptr;
 
         delete g_mockStreamAbstractionAAMP;
         g_mockStreamAbstractionAAMP = nullptr;
@@ -88,7 +88,7 @@ public:
 TEST_F(TextStyleTests, GetTextStyle)
 {
     // Check that TextStyle has not been applied
-    EXPECT_TRUE(mPrivateInstanceAAMP->GetTextStyle().empty());
+    EXPECT_TRUE(mPlayerInstanceAAMP->GetTextStyle().empty());
 }
 
 // Test calling SetTextStyle
@@ -97,7 +97,7 @@ TEST_F(TextStyleTests, SetTextStyle_ViaStreamAbstraction)
 {
     std::string options = "{ \"penSize\":\"small\" }";
 
-    ASSERT_TRUE(mPrivateInstanceAAMP->GetTextStyle().empty());
+    ASSERT_TRUE(mPlayerInstanceAAMP->GetTextStyle().empty());
 
     // Check that StreamAbstractionAAMP::SetTextStyle is called
     EXPECT_CALL(*g_mockStreamAbstractionAAMP, SetTextStyle(options)).WillOnce(Return(true));
@@ -105,10 +105,10 @@ TEST_F(TextStyleTests, SetTextStyle_ViaStreamAbstraction)
     // Check that StreamAbstractionAAMP::SetTextStyle is called
     EXPECT_CALL(*g_mockAampGstPlayer, SetTextStyle(options)).Times(0);
 
-    mPrivateInstanceAAMP->SetTextStyle(options);
+    mPlayerInstanceAAMP->SetTextStyle(options);
 
     // Check that TextStyle has been applied
-    EXPECT_EQ(options, mPrivateInstanceAAMP->GetTextStyle());
+    EXPECT_EQ(options, mPlayerInstanceAAMP->GetTextStyle());
 }
 
 // Test calling SetTextStyle
@@ -117,7 +117,7 @@ TEST_F(TextStyleTests, SetTextStyle_ViaStreamSink)
 {
     std::string options = "{ \"penSize\":\"small\" }";
 
-    ASSERT_TRUE(mPrivateInstanceAAMP->GetTextStyle().empty());
+    ASSERT_TRUE(mPlayerInstanceAAMP->GetTextStyle().empty());
 
     // Check that StreamAbstractionAAMP::SetTextStyle is called
     EXPECT_CALL(*g_mockStreamAbstractionAAMP, SetTextStyle(options)).WillOnce(Return(false));
@@ -125,10 +125,10 @@ TEST_F(TextStyleTests, SetTextStyle_ViaStreamSink)
     // Check that StreamSink::SetTextStyle is called
     EXPECT_CALL(*g_mockAampGstPlayer, SetTextStyle(options)).WillOnce(Return(true));
 
-    mPrivateInstanceAAMP->SetTextStyle(options);
+    mPlayerInstanceAAMP->SetTextStyle(options);
 
     // Check that TextStyle has been applied
-    EXPECT_EQ(options, mPrivateInstanceAAMP->GetTextStyle());
+    EXPECT_EQ(options, mPlayerInstanceAAMP->GetTextStyle());
 }
 
 // Test calling SetTextStyle
@@ -137,7 +137,7 @@ TEST_F(TextStyleTests, SetTextStyle_NotHandled)
 {
     std::string options = "{ \"penSize\":\"small\" }";
 
-    ASSERT_TRUE(mPrivateInstanceAAMP->GetTextStyle().empty());
+    ASSERT_TRUE(mPlayerInstanceAAMP->GetTextStyle().empty());
 
     // Check that StreamAbstractionAAMP::SetTextStyle is called
     EXPECT_CALL(*g_mockStreamAbstractionAAMP, SetTextStyle(options)).WillOnce(Return(false));
@@ -145,8 +145,8 @@ TEST_F(TextStyleTests, SetTextStyle_NotHandled)
     // Check that StreamSink::SetTextStyle is called
     EXPECT_CALL(*g_mockAampGstPlayer, SetTextStyle(options)).WillOnce(Return(false));
 
-    mPrivateInstanceAAMP->SetTextStyle(options);
+    mPlayerInstanceAAMP->SetTextStyle(options);
 
     // Check that TextStyle has not been applied
-    EXPECT_TRUE(mPrivateInstanceAAMP->GetTextStyle().empty());
+    EXPECT_TRUE(mPlayerInstanceAAMP->GetTextStyle().empty());
 }

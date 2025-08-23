@@ -31,7 +31,7 @@
 #include <uuid/uuid.h>
 #include <map>
 #include "tsb/api/TsbApi.h"
-#include "priv_aamp.h"
+#include "main_aamp.h"
 #include "AampMediaType.h"
 #include "AampTsbDataManager.h"
 #include "AampTsbMetaDataManager.h"
@@ -58,7 +58,7 @@ public:
 	 *
 	 * @return None
 	 */
-	AampTSBSessionManager(PrivateInstanceAAMP *aamp);
+	AampTSBSessionManager(PlayerInstanceAAMP *aamp);
 	/**
 	 * @brief AampTSBSessionManager Destructor
 	 *
@@ -381,7 +381,7 @@ private:
 	AampTime  mCurrentWritePosition; /**< The last fragment position written to the TSB */
 	std::shared_ptr<AampTsbMetaData> mLastAdMetaDataProcessed; /**< Last ad metadata processed */
 public:
-	PrivateInstanceAAMP *mAamp; /**< AAMP player's private instance */
+	PlayerInstanceAAMP *mAamp; /**< AAMP player's private instance */
 	std::shared_ptr<IsoBmffHelper> mIsoBmffHelper; /**< ISO BMFF helper object */
 };
 

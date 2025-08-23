@@ -25,13 +25,16 @@
 #ifndef AAMPCURLSTORE_H
 #define AAMPCURLSTORE_H
 
+#include "AampMediaType.h"
+#include "AampDefine.h"
 #include "AampCurlDefine.h"
-#include "priv_aamp.h"
+#include "AampGrowableBuffer.h"
 #include <map>
 #include <iterator>
 #include <vector>
 #include <glib.h>
 #include <mutex>
+class PlayerInstanceAAMP;
 
 #define eCURL_MAX_AGE_TIME			( (300) * (1000) )			/**< 5 mins - 300 secs - Max age for a connection */
 
@@ -110,7 +113,7 @@ private:
 	void FlushCurlSockForHost(const std::string &hostname);
 
 protected:
-	CurlStore(PrivateInstanceAAMP *pAamp);
+	CurlStore(PlayerInstanceAAMP *pAamp);
 	~CurlStore();
 
 public:
@@ -129,7 +132,7 @@ public:
 	 * @param[out] priv - curl easy handle from curl store will get stored in priv instance
 	 * @return AampCurlStoreErrorCode enum type
 	 */
-	AampCurlStoreErrorCode GetFromCurlStoreBulk ( const std::string &hostname, AampCurlInstance CurlIndex, int count, PrivateInstanceAAMP *pAamp, bool HostCurlFd );
+	AampCurlStoreErrorCode GetFromCurlStoreBulk ( const std::string &hostname, AampCurlInstance CurlIndex, int count, PlayerInstanceAAMP *pAamp, bool HostCurlFd );
 
 	/**
 	 * @param[in] hostname - hostname part from url
@@ -146,7 +149,7 @@ public:
 	 * @param[out] priv - curl easy handles in priv instance, saved in curl store
 	 * @return void
 	 */
-	void KeepInCurlStoreBulk ( const std::string &hostname, AampCurlInstance CurlIndex, int count, PrivateInstanceAAMP *pAamp, bool HostCurlFd );
+	void KeepInCurlStoreBulk ( const std::string &hostname, AampCurlInstance CurlIndex, int count, PlayerInstanceAAMP *pAamp, bool HostCurlFd );
 
 	/**
 	 * @param void
@@ -167,7 +170,7 @@ public:
 	 * @param[in] proxyName - proxy name
 	 * @return void
 	 */
-	void CurlInit(PrivateInstanceAAMP *pAamp, AampCurlInstance startIdx, unsigned int instanceCount, std::string proxyName, const std::string &remotehost=std::string("") );
+	void CurlInit(PlayerInstanceAAMP *pAamp, AampCurlInstance startIdx, unsigned int instanceCount, std::string proxyName, const std::string &remotehost=std::string("") );
 
 	/**
 	 * @param[out] privContext - priv aamp instance from which curl handles will be terminated or stored
@@ -177,7 +180,7 @@ public:
 	 * @param[in] remotehost - remote host address
 	 * @return void
 	 */
-	void CurlTerm(PrivateInstanceAAMP *pAamp, AampCurlInstance startIdx, unsigned int instanceCount, bool isFlushFds=false, const std::string &remotehost=std::string(""));
+	void CurlTerm(PlayerInstanceAAMP *pAamp, AampCurlInstance startIdx, unsigned int instanceCount, bool isFlushFds=false, const std::string &remotehost=std::string(""));
 
 	/**
 	 * @param[in] pAamp - Private aamp instance
@@ -185,7 +188,7 @@ public:
 	 * @param[in] startIdx - Index of curl instance.
 	 * @return - curl easy handle
 	 */
-	CURL* GetCurlHandle(PrivateInstanceAAMP *pAamp, std::string url, AampCurlInstance startIdx );
+	CURL* GetCurlHandle(PlayerInstanceAAMP *pAamp, std::string url, AampCurlInstance startIdx );
 
 	/**
 	 * @param[in] pAamp - Private aamp instance
@@ -194,7 +197,7 @@ public:
 	 * @param[in] curl - curl handle to be saved
 	 * @return void
 	 */
-	void SaveCurlHandle ( PrivateInstanceAAMP *pAamp, std::string url, AampCurlInstance startIdx, CURL *curl );
+	void SaveCurlHandle ( PlayerInstanceAAMP *pAamp, std::string url, AampCurlInstance startIdx, CURL *curl );
 
 	/**
 	 * @param[in] hostname - Host name to create a curl store
@@ -208,7 +211,7 @@ public:
 	 * @param[in] instId - Curl instance id
 	 * @return - Curl easy handle
 	 */
-	CURL* CurlEasyInitWithOpt ( PrivateInstanceAAMP *pAamp, const std::string &proxyName, int instId );
+	CURL* CurlEasyInitWithOpt ( PlayerInstanceAAMP *pAamp, const std::string &proxyName, int instId );
 
 	/**
 	 * @param[in] CurlSock - Curl socket struct
@@ -225,7 +228,7 @@ public:
 	 * @param[in] pContext - Private aamp instance
 	 * @return CurlStore - Singleton instance object
 	 */
-	static CurlStore& GetCurlStoreInstance(PrivateInstanceAAMP *pAamp);
+	static CurlStore& GetCurlStoreInstance(PlayerInstanceAAMP *pAamp);
 };
 
 /**
@@ -234,7 +237,7 @@ public:
  */
 struct CurlCallbackContext
 {
-	PrivateInstanceAAMP *aamp;
+    PlayerInstanceAAMP *aamp;
 	AampMediaType mediaType;
 	std::vector<std::string> allResponseHeaders;
 	AampGrowableBuffer *buffer;
@@ -252,7 +255,7 @@ struct CurlCallbackContext
 	{
 
 	}
-	CurlCallbackContext(PrivateInstanceAAMP *_aamp, AampGrowableBuffer *_buffer) : aamp(_aamp), buffer(_buffer), responseHeaderData(NULL),bitrate(0),downloadIsEncoded(false),  chunkedDownload(false), mediaType(eMEDIATYPE_DEFAULT), remoteUrl(""), allResponseHeaders{""},  contentLength(0),downloadStartTime(-1){}
+	CurlCallbackContext(PlayerInstanceAAMP *_aamp, AampGrowableBuffer *_buffer) : aamp(_aamp), buffer(_buffer), responseHeaderData(NULL),bitrate(0),downloadIsEncoded(false),  chunkedDownload(false), mediaType(eMEDIATYPE_DEFAULT), remoteUrl(""), allResponseHeaders{""},  contentLength(0),downloadStartTime(-1){}
 
 	~CurlCallbackContext() {}
 
@@ -266,10 +269,10 @@ struct CurlCallbackContext
  */
 struct CurlProgressCbContext
 {
-	PrivateInstanceAAMP *aamp;
+    PlayerInstanceAAMP *aamp;
 	AampMediaType mediaType;
 	CurlProgressCbContext() : aamp(NULL), mediaType(eMEDIATYPE_DEFAULT), downloadStartTime(-1), abortReason(eCURL_ABORT_REASON_NONE), downloadUpdatedTime(-1), startTimeout(-1), stallTimeout(-1), downloadSize(-1), downloadNow(-1), downloadNowUpdatedTime(-1), dlStarted(false), fragmentDurationMs(-1), remoteUrl(""), lowBWTimeout(-1) {}
-	CurlProgressCbContext(PrivateInstanceAAMP *_aamp, long long _downloadStartTime) : aamp(_aamp), mediaType(eMEDIATYPE_DEFAULT),downloadStartTime(_downloadStartTime), abortReason(eCURL_ABORT_REASON_NONE), downloadUpdatedTime(-1), startTimeout(-1), stallTimeout(-1), downloadSize(-1), downloadNow(-1), downloadNowUpdatedTime(-1), dlStarted(false), fragmentDurationMs(-1), remoteUrl(""), lowBWTimeout(-1) {}
+	CurlProgressCbContext(PlayerInstanceAAMP *_aamp, long long _downloadStartTime) : aamp(_aamp), mediaType(eMEDIATYPE_DEFAULT),downloadStartTime(_downloadStartTime), abortReason(eCURL_ABORT_REASON_NONE), downloadUpdatedTime(-1), startTimeout(-1), stallTimeout(-1), downloadSize(-1), downloadNow(-1), downloadNowUpdatedTime(-1), dlStarted(false), fragmentDurationMs(-1), remoteUrl(""), lowBWTimeout(-1) {}
 
 	~CurlProgressCbContext() {}
 

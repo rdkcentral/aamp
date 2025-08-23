@@ -22,7 +22,7 @@
 
 #include "AampTsbMetaData.h"
 
-class PrivateInstanceAAMP;
+class PlayerInstanceAAMP;
 
 /**
  * @class AampTsbAdMetaData
@@ -85,7 +85,7 @@ public:
 	 * @brief Send the appropriate ad event based on metadata type
 	 * @param[in] aamp Pointer to the AAMP instance for sending events
 	 */
-	virtual void SendEvent(PrivateInstanceAAMP* aamp) const = 0;
+	virtual void SendEvent(PlayerInstanceAAMP* aamp) const = 0;
 
 protected:
 	AdType mAdType;           /**< Type of ad metadata */

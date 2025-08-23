@@ -21,10 +21,10 @@
 #include <gmock/gmock.h>
 #include "MockAampConfig.h"
 #include "MockAampScheduler.h"
-#include "MockPrivateInstanceAAMP.h"
+#include "MockPlayerInstanceAAMP.h"
 #include "main_aamp.h"
 #include "MockStreamAbstractionAAMP.h"
-#include "priv_aamp.h"
+#include "main_aamp.h"
 
 using ::testing::_;
 using ::testing::Return;
@@ -45,7 +45,7 @@ protected:
 
         g_mockAampConfig = new MockAampConfig();
         g_mockAampScheduler = new MockAampScheduler();
-        g_mockPrivateInstanceAAMP = new MockPrivateInstanceAAMP();
+        g_mockPlayerInstanceAAMP = new MockPlayerInstanceAAMP();
         mConfig = new AampConfig();
         mplayer = new TestablePlayerInstanceAAMP();
 
@@ -56,8 +56,8 @@ protected:
 
     void TearDown() override
     {
-        delete g_mockPrivateInstanceAAMP;
-        g_mockPrivateInstanceAAMP = nullptr;
+        delete g_mockPlayerInstanceAAMP;
+        g_mockPlayerInstanceAAMP = nullptr;
 
         delete g_mockAampScheduler;
         g_mockAampScheduler = nullptr;
@@ -82,7 +82,7 @@ public:
     {
     }
 
-    PrivateInstanceAAMP* GetPrivAamp()
+    PlayerInstanceAAMP* GetPrivAamp()
     {
 	    return aamp;
     }
@@ -109,7 +109,7 @@ TEST_F(PauseOnPlaybackTests, NormalPlayRate)
     mplayer->GetPrivAamp()->mbPlayEnabled = false;
     mplayer->GetPrivAamp()->mbDetached = false;
 
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetPauseOnStartPlayback(false)).Times(1);
+	EXPECT_CALL(*g_mockPlayerInstanceAAMP, SetPauseOnStartPlayback(false)).Times(1);
 
     mplayer->SetRate_Internal(rate,overshootcorrection);
 }
@@ -126,7 +126,7 @@ TEST_F(PauseOnPlaybackTests, PlaybackAlreadyInitiated)
     mplayer->GetPrivAamp()->mbPlayEnabled = true;
     mplayer->GetPrivAamp()->mbDetached = false;
 	
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetPauseOnStartPlayback(false)).Times(1);
+    EXPECT_CALL(*g_mockPlayerInstanceAAMP, SetPauseOnStartPlayback(false)).Times(1);
 
     mplayer->SetRate_Internal(rate,overshootcorrection);
 }
@@ -143,7 +143,7 @@ TEST_F(PauseOnPlaybackTests, Success)
     mplayer->GetPrivAamp()->mbPlayEnabled = false;
     mplayer->GetPrivAamp()->mbDetached = false;
 	
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetPauseOnStartPlayback(true)).Times(1);
+    EXPECT_CALL(*g_mockPlayerInstanceAAMP, SetPauseOnStartPlayback(true)).Times(1);
 
     mplayer->SetRate_Internal(rate,overshootcorrection);
 }

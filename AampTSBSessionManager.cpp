@@ -50,7 +50,7 @@
  *
  * @return None
  */
-AampTSBSessionManager::AampTSBSessionManager(PrivateInstanceAAMP *aamp)
+AampTSBSessionManager::AampTSBSessionManager(PlayerInstanceAAMP *aamp)
 	: mInitialized_(false), mStopThread_(false), mAamp(aamp), mTSBStore(nullptr), mActiveTuneType(eTUNETYPE_NEW_NORMAL), mLastVideoPos(AAMP_PAUSE_POSITION_INVALID_POSITION)
 		, mCulledDuration(0.0)
 		, mStoreEndPosition(0.0)
@@ -89,7 +89,7 @@ void AampTSBSessionManager::Init()
 		config.location = mTsbLocation;
 		config.minFreePercentage = mTsbMinFreePercentage;
 		config.maxCapacity =  mTsbMaxDiskStorage;
-		TSB::LogLevel level = static_cast<TSB::LogLevel>(ConvertTsbLogLevel(mAamp->mConfig->GetConfigValue(eAAMPConfig_TsbLogLevel)));
+		TSB::LogLevel level = static_cast<TSB::LogLevel>(ConvertTsbLogLevel(mAamp->mConfig.GetConfigValue(eAAMPConfig_TsbLogLevel)));
 		AAMPLOG_INFO("[TSB Store] Initiating with config values { logLevel:%d maxCapacity : %d minFreePercentage : %d location : %s }",  static_cast<int>(level), config.maxCapacity, config.minFreePercentage, config.location.c_str());
 
 		// All Configuration to TSBHandler to be set before calling Init
@@ -786,7 +786,7 @@ void AampTSBSessionManager::SkipFragment(std::shared_ptr<AampTsbReader>& reader,
 		if(eMEDIATYPE_VIDEO == reader->GetMediaType())
 		{
 			AampTime startPos = nextFragmentData->GetAbsolutePosition();
-			int vodTrickplayFPS = mAamp->mConfig->GetConfigValue(eAAMPConfig_VODTrickPlayFPS);
+			int vodTrickplayFPS = mAamp->mConfig.GetConfigValue(eAAMPConfig_VODTrickPlayFPS);
 			float rate = reader->GetPlaybackRate();
 			AampTime delta = 0.0;
 			if(mAamp->playerStartedWithTrickPlay)
@@ -1020,7 +1020,7 @@ void AampTSBSessionManager::UpdateProgress(double manifestDuration, double manif
 	LockReadMutex();
 	AAMPLOG_TRACE("LiveDownloader:: Manifest total duration:%lf, ManifestCulledSeconds:%lf", manifestDuration, manifestCulledSecondsFromStart);
 	mStoreEndPosition = mAamp->culledSeconds + GetTotalStoreDuration(eMEDIATYPE_VIDEO);
-	if (mAamp->mConfig->IsConfigSet(eAAMPConfig_ProgressLogging))
+	if (mAamp->mConfig.IsConfigSet(eAAMPConfig_ProgressLogging))
 	{
 		AAMPLOG_INFO("tsb pos: [%lf..[X]..%lf]", mAamp->culledSeconds, mAamp->mAbsoluteEndPosition);
 	}

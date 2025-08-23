@@ -24,7 +24,7 @@
 
 #include "AampUtils.h"
 #include "ota_shim.h"
-#include "priv_aamp.h"
+#include "main_aamp.h"
 #include <stdlib.h>
 #include <string.h>
 #include <signal.h>
@@ -293,7 +293,7 @@ AAMPStatusType StreamAbstractionAAMP_OTA::Init(TuneType tuneType)
 /**
  *  @brief StreamAbstractionAAMP_OTA Constructor
  */
-StreamAbstractionAAMP_OTA::StreamAbstractionAAMP_OTA(class PrivateInstanceAAMP *aamp,double seek_pos, float rate)
+StreamAbstractionAAMP_OTA::StreamAbstractionAAMP_OTA(class PlayerInstanceAAMP *aamp,double seek_pos, float rate)
                           : StreamAbstractionAAMP(aamp)
                             , tuned(false),
                             thunderAccessObj(PlayerThunderAccessPlugin::MEDIAPLAYER),
@@ -404,8 +404,8 @@ void StreamAbstractionAAMP_OTA::Start(void)
 void StreamAbstractionAAMP_OTA::Stop(bool clearChannelData)
 {
 	/*StreamAbstractionAAMP::Stop is being called twice
-	  PrivateInstanceAAMP::Stop calls Stop with clearChannelData set to true
-	  PrivateInstanceAAMP::TeardownStream calls Stop with clearChannelData set to false
+	  PlayerInstanceAAMP::Stop calls Stop with clearChannelData set to true
+	  PlayerInstanceAAMP::TeardownStream calls Stop with clearChannelData set to false
 	  Hence avoiding the Stop with clearChannelData set to false*/
 	if(!clearChannelData)
 		return;

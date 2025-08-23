@@ -20,12 +20,12 @@
 #include <gmock/gmock.h>
 #include <chrono>
 #include <thread>
-#include "priv_aamp.h"
+#include "main_aamp.h"
 #include "AampConfig.h"
 #include "AampUtils.h"
 #include "AampLogManager.h"
 #include "admanager_mpd.h"
-#include "MockPrivateInstanceAAMP.h"
+#include "MockPlayerInstanceAAMP.h"
 #include "AampMPDUtils.h"
 #include "fragmentcollector_mpd.h"
 #include "MediaStreamContext.h"
@@ -68,7 +68,7 @@ class AdFallbackTests : public ::testing::Test
 		public:
 			using StreamAbstractionAAMP_MPD::mCdaiObject;
 			// Constructor to pass parameters to the base class constructor
-			TestableStreamAbstractionAAMP_MPD(PrivateInstanceAAMP *aamp,
+			TestableStreamAbstractionAAMP_MPD(PlayerInstanceAAMP *aamp,
 					double seekpos, float rate)
 				: StreamAbstractionAAMP_MPD(aamp, seekpos, rate)
 			{
@@ -119,7 +119,7 @@ class AdFallbackTests : public ::testing::Test
 				return StreamAbstractionAAMP_MPD::IndexNewMPDDocument(updateTrackInfo);
 			}
 		};
-		PrivateInstanceAAMP *mPrivateInstanceAAMP;
+		PlayerInstanceAAMP *mPlayerInstanceAAMP;
 		CDAIObjectMPD *mCdaiObj;
 		TestableStreamAbstractionAAMP_MPD *mStreamAbstractionAAMP_MPD;
 		const char* mManifest;
@@ -138,16 +138,16 @@ class AdFallbackTests : public ::testing::Test
 				gpGlobalConfig = new AampConfig();
 			}
 
-			mPrivateInstanceAAMP = new PrivateInstanceAAMP(gpGlobalConfig);
-			mPrivateInstanceAAMP->mIsDefaultOffset = true;
+			mPlayerInstanceAAMP = new PlayerInstanceAAMP(gpGlobalConfig);
+			mPlayerInstanceAAMP->mIsDefaultOffset = true;
 
-			mCdaiObj = new CDAIObjectMPD(mPrivateInstanceAAMP);
+			mCdaiObj = new CDAIObjectMPD(mPlayerInstanceAAMP);
 
 			g_mockAampConfig = new NiceMock<MockAampConfig>();
 
-			mPrivateInstanceAAMP->mIsDefaultOffset = true;
+			mPlayerInstanceAAMP->mIsDefaultOffset = true;
 
-			g_mockPrivateInstanceAAMP = new NiceMock<MockPrivateInstanceAAMP>();
+			g_mockPlayerInstanceAAMP = new NiceMock<MockPlayerInstanceAAMP>();
 
 			g_mockMediaStreamContext = new StrictMock<MockMediaStreamContext>();
 
@@ -169,8 +169,8 @@ class AdFallbackTests : public ::testing::Test
 			delete mCdaiObj;
 			mCdaiObj = nullptr;
 
-			delete mPrivateInstanceAAMP;
-			mPrivateInstanceAAMP = nullptr;
+			delete mPlayerInstanceAAMP;
+			mPlayerInstanceAAMP = nullptr;
 
 			delete gpGlobalConfig;
 			gpGlobalConfig = nullptr;
@@ -178,8 +178,8 @@ class AdFallbackTests : public ::testing::Test
 			delete g_mockAampConfig;
 			g_mockAampConfig = nullptr;
 
-			delete g_mockPrivateInstanceAAMP;
-			g_mockPrivateInstanceAAMP = nullptr;
+			delete g_mockPlayerInstanceAAMP;
+			g_mockPlayerInstanceAAMP = nullptr;
 
 			delete g_mockMediaStreamContext;
 			g_mockMediaStreamContext = nullptr;
@@ -239,19 +239,19 @@ class AdFallbackTests : public ::testing::Test
 		{
 			mManifest = manifest;
 
-			mPrivateInstanceAAMP->SetManifestUrl(TEST_MANIFEST_URL);
+			mPlayerInstanceAAMP->SetManifestUrl(TEST_MANIFEST_URL);
 
-			EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState())
+			EXPECT_CALL(*g_mockPlayerInstanceAAMP, GetState())
 				.Times(AnyNumber())
 				.WillRepeatedly(Return(eSTATE_PREPARING));
 			// For the time being return the same manifest again
 			EXPECT_CALL(*g_mockAampMPDDownloader, GetManifest(_, _, _))
 				.WillRepeatedly(WithoutArgs(Invoke(this, &AdFallbackTests::GetManifestForMPDDownloader)));
 			// Create MPD instance.
-			mStreamAbstractionAAMP_MPD = new TestableStreamAbstractionAAMP_MPD(mPrivateInstanceAAMP, seekPos, rate);
+			mStreamAbstractionAAMP_MPD = new TestableStreamAbstractionAAMP_MPD(mPlayerInstanceAAMP, seekPos, rate);
 			if(!mCdaiObj)
 			{
-				mCdaiObj = new CDAIObjectMPD(mPrivateInstanceAAMP);
+				mCdaiObj = new CDAIObjectMPD(mPlayerInstanceAAMP);
 			}
 			mStreamAbstractionAAMP_MPD->SetCDAIObject(mCdaiObj);
 		}
@@ -279,12 +279,12 @@ class AdFallbackTests : public ::testing::Test
 			{
 				mAdManifest = manifest;
 				// remoteUrl, manifest, effectiveUrl
-				EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile (adManifestUrl, _, _, _, _, _, _, _, _, _, _, _, _, _))
+				EXPECT_CALL(*g_mockPlayerInstanceAAMP, GetFile (adManifestUrl, _, _, _, _, _, _, _, _, _, _, _, _, _))
 					.WillOnce(WithArgs<0,2,3,4>(Invoke(this, &AdFallbackTests::GetManifest)));
 			}
 			else
 			{
-				EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile (adManifestUrl, _, _, _, _, _, _, _, _, _, _, _, _, _))
+				EXPECT_CALL(*g_mockPlayerInstanceAAMP, GetFile (adManifestUrl, _, _, _, _, _, _, _, _, _, _, _, _, _))
 					.WillOnce(Return(true));
 			}
 		}
@@ -348,7 +348,7 @@ TEST_F(AdFallbackTests, AdInitFailureTest)
 	std::string AdInitFragmentUrl = std::string(TEST_AD_BASE_URL) + std::string("video_init.mp4");
 	std::string SourceInitFragmentUrl = std::string(TEST_BASE_URL) + std::string("video_init.mp4");
 	AAMPStatusType status;
-	mPrivateInstanceAAMP->rate = 1.0;
+	mPlayerInstanceAAMP->rate = 1.0;
 
 	//For this test case we need ptsrestamp - false and cdai - true
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(_))
@@ -370,7 +370,7 @@ TEST_F(AdFallbackTests, AdInitFailureTest)
 			std::make_pair (0, AdOnPeriod(0, 0)), // for adId1 idx=0, offset=0s
 		});
 
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled())
+	EXPECT_CALL(*g_mockPlayerInstanceAAMP, DownloadsAreEnabled())
 		.Times(AnyNumber())
 		.WillRepeatedly(Return(true));
 
@@ -389,7 +389,7 @@ TEST_F(AdFallbackTests, AdInitFailureTest)
 	EXPECT_EQ(mStreamAbstractionAAMP_MPD->mCdaiObject->mAdBreaks[periodId].ads->at(0).adId, adId);
 	EXPECT_NE(mStreamAbstractionAAMP_MPD->mCdaiObject->mAdBreaks[periodId].ads->at(0).mpd, nullptr);
 
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled())
+	EXPECT_CALL(*g_mockPlayerInstanceAAMP, DownloadsAreEnabled())
 		.Times(AnyNumber())
 		.WillRepeatedly([]()
 			{

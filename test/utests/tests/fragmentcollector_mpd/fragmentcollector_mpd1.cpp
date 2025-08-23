@@ -19,10 +19,10 @@
 
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
-#include "priv_aamp.h"
+#include "main_aamp.h"
 #include "AampConfig.h"
 #include "fragmentcollector_mpd.h"
-#include "MockPrivateInstanceAAMP.h"
+#include "MockPlayerInstanceAAMP.h"
 #include "MockAampUtils.h"
 #include "MockAampConfig.h"
 #include "StreamAbstractionAAMP.h"
@@ -62,7 +62,7 @@ protected:
 			return FindPositionInTimeline(ms, timelines);
 		}
 		// Constructor to pass parameters to the base class constructor
-		TestableStreamAbstractionAAMP_MPD(PrivateInstanceAAMP *aamp)
+		TestableStreamAbstractionAAMP_MPD(PlayerInstanceAAMP *aamp)
 			: StreamAbstractionAAMP_MPD(aamp, 0, 0)
 		{
 		}
@@ -113,7 +113,7 @@ protected:
 		}
 	};
 
-	PrivateInstanceAAMP *mPrivateInstanceAAMP;
+	PlayerInstanceAAMP *mPlayerInstanceAAMP;
 	TestableStreamAbstractionAAMP_MPD *mStreamAbstractionAAMP_MPD;
 	const char *mManifest;
 	static constexpr const char *TEST_BASE_URL = "http://host/asset/";
@@ -127,9 +127,9 @@ protected:
 		gpGlobalConfig = new AampConfig();
 		g_mockAampConfig = new NiceMock<MockAampConfig>();
 
-		mPrivateInstanceAAMP = new PrivateInstanceAAMP(gpGlobalConfig);
+		mPlayerInstanceAAMP = new PlayerInstanceAAMP(gpGlobalConfig);
 
-		g_mockPrivateInstanceAAMP = new StrictMock<MockPrivateInstanceAAMP>();
+		g_mockPlayerInstanceAAMP = new StrictMock<MockPlayerInstanceAAMP>();
 
 		mStreamAbstractionAAMP_MPD = nullptr;
 
@@ -146,8 +146,8 @@ protected:
 			mStreamAbstractionAAMP_MPD = nullptr;
 		}
 
-		delete mPrivateInstanceAAMP;
-		mPrivateInstanceAAMP = nullptr;
+		delete mPlayerInstanceAAMP;
+		mPlayerInstanceAAMP = nullptr;
 
 		delete gpGlobalConfig;
 		gpGlobalConfig = nullptr;
@@ -155,8 +155,8 @@ protected:
 		delete g_mockAampConfig;
 		g_mockAampConfig = nullptr;
 
-		delete g_mockPrivateInstanceAAMP;
-		g_mockPrivateInstanceAAMP = nullptr;
+		delete g_mockPlayerInstanceAAMP;
+		g_mockPlayerInstanceAAMP = nullptr;
 
 		mManifest = nullptr;
 		if (mMPD)
@@ -202,10 +202,10 @@ public:
 		mManifest = manifest;
 
 		/* Create MPD instance. */
-		mStreamAbstractionAAMP_MPD = new TestableStreamAbstractionAAMP_MPD(mPrivateInstanceAAMP);
-		EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled()).WillRepeatedly(Return(true));
-		EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetLLDashChunkMode()).WillRepeatedly(Return(false));
-		mPrivateInstanceAAMP->SetManifestUrl(TEST_MANIFEST_URL);
+		mStreamAbstractionAAMP_MPD = new TestableStreamAbstractionAAMP_MPD(mPlayerInstanceAAMP);
+		EXPECT_CALL(*g_mockPlayerInstanceAAMP, DownloadsAreEnabled()).WillRepeatedly(Return(true));
+		EXPECT_CALL(*g_mockPlayerInstanceAAMP, GetLLDashChunkMode()).WillRepeatedly(Return(false));
+		mPlayerInstanceAAMP->SetManifestUrl(TEST_MANIFEST_URL);
 		GetMPDFromManifest();
 	}
 
@@ -218,7 +218,7 @@ public:
 		const ISegmentTemplate *segmentTemplate = adaptationSet->GetSegmentTemplate();
 		const ISegmentTimeline *segmentTimeline = segmentTemplate->GetSegmentTimeline();
 		timelines = segmentTimeline->GetTimelines();
-		return new MediaStreamContext(eTRACK_AUDIO, mStreamAbstractionAAMP_MPD, mPrivateInstanceAAMP, "xxx");
+		return new MediaStreamContext(eTRACK_AUDIO, mStreamAbstractionAAMP_MPD, mPlayerInstanceAAMP, "xxx");
 	}
 
 	void InitMs(MediaStreamContext *ms, uint64_t lastSegmentTime, uint64_t lastSegmentDuration)
@@ -372,9 +372,9 @@ TEST_F(MpdTests, FindPositionInTimeline2)
 TEST_F(MpdTests, testRepeatedStartLocalTSB)
 {
 	// Set local TSB to true
-	mStreamAbstractionAAMP_MPD = new TestableStreamAbstractionAAMP_MPD(mPrivateInstanceAAMP);
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled()).WillRepeatedly(Return(true));
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection()).WillRepeatedly(Return(true));
+	mStreamAbstractionAAMP_MPD = new TestableStreamAbstractionAAMP_MPD(mPlayerInstanceAAMP);
+	EXPECT_CALL(*g_mockPlayerInstanceAAMP, DownloadsAreEnabled()).WillRepeatedly(Return(true));
+	EXPECT_CALL(*g_mockPlayerInstanceAAMP, IsLocalAAMPTsbInjection()).WillRepeatedly(Return(true));
 
 
 	mStreamAbstractionAAMP_MPD->Start();
@@ -390,9 +390,9 @@ TEST_F(MpdTests, testRepeatedStartLocalTSB)
 TEST_F(MpdTests, testRepeatedStartNotLocalTSB)
 {
 	// Set local TSB to true
-	mStreamAbstractionAAMP_MPD = new TestableStreamAbstractionAAMP_MPD(mPrivateInstanceAAMP);
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled()).WillRepeatedly(Return(false));
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection()).WillRepeatedly(Return(false));
+	mStreamAbstractionAAMP_MPD = new TestableStreamAbstractionAAMP_MPD(mPlayerInstanceAAMP);
+	EXPECT_CALL(*g_mockPlayerInstanceAAMP, DownloadsAreEnabled()).WillRepeatedly(Return(false));
+	EXPECT_CALL(*g_mockPlayerInstanceAAMP, IsLocalAAMPTsbInjection()).WillRepeatedly(Return(false));
 
 	mStreamAbstractionAAMP_MPD->Start();
 

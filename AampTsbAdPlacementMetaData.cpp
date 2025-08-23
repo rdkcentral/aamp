@@ -20,7 +20,7 @@
 #include <inttypes.h>
 #include "AampTsbAdPlacementMetaData.h"
 #include "AampLogManager.h"
-#include "priv_aamp.h"
+#include "main_aamp.h"
 
 // AampTsbAdPlacementMetaData implementation
 AampTsbAdPlacementMetaData::AampTsbAdPlacementMetaData(
@@ -40,7 +40,7 @@ void AampTsbAdPlacementMetaData::Dump(const std::string &message) const
 				 message.c_str(), mPosition.milliseconds(), static_cast<int>(mEventType), mAdId.c_str(), mRelativePosition, mOffset);
 }
 
-void AampTsbAdPlacementMetaData::SendEvent(PrivateInstanceAAMP* aamp) const
+void AampTsbAdPlacementMetaData::SendEvent(PlayerInstanceAAMP* aamp) const
 {
 	if (aamp)
 	{

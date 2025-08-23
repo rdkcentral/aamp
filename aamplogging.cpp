@@ -26,7 +26,7 @@
 #include <algorithm>
 #include <thread>
 #include <sstream>
-#include "priv_aamp.h"
+#include "main_aamp.h"
 using namespace std;
 
 

@@ -20,7 +20,7 @@
 
 #include "AampDRMLicPreFetcher.h"
 
-AampLicensePreFetcher::AampLicensePreFetcher(PrivateInstanceAAMP *aamp)
+AampLicensePreFetcher::AampLicensePreFetcher(PlayerInstanceAAMP *aamp)
 {
 
 }

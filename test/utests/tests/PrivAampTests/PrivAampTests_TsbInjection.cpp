@@ -24,7 +24,7 @@
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
 
-#include "priv_aamp.h"
+#include "main_aamp.h"
 #include "MockStreamAbstractionAAMP.h"
 
 using ::testing::NiceMock;
@@ -34,14 +34,14 @@ using ::testing::WithParamInterface;
 class PrivAampTests : public ::testing::Test
 {
 public:
-	PrivateInstanceAAMP *p_aamp{nullptr};
+	PlayerInstanceAAMP *p_aamp{nullptr};
 	AampConfig *config{nullptr};
 
 protected:
 	void SetUp() override
 	{
 		config=new AampConfig();
-		p_aamp = new PrivateInstanceAAMP(config);
+		p_aamp = new PlayerInstanceAAMP(config);
 		g_mockStreamAbstractionAAMP = new NiceMock<MockStreamAbstractionAAMP>(p_aamp);
 	}
 
@@ -80,7 +80,7 @@ struct TrackInjectionParams
 	}
 };
 
-class TestPrivateInstanceAAMPTracks : public PrivAampTests,
+class TestPlayerInstanceAAMPTracks : public PrivAampTests,
 									  public WithParamInterface<TrackInjectionParams>
 {
 protected:
@@ -124,7 +124,7 @@ protected:
 	}
 };
 
-TEST_P(TestPrivateInstanceAAMPTracks, UpdateLocalAAMPTsbInjection)
+TEST_P(TestPlayerInstanceAAMPTracks, UpdateLocalAAMPTsbInjection)
 {
 	const auto& params = GetParam();
 	const bool hasActiveVideoInjection = params.videoInjection && params.videoTrackEnabled;
@@ -184,7 +184,7 @@ std::vector<TrackInjectionParams> GenerateTestCases() {
 
 INSTANTIATE_TEST_SUITE_P(
 	TSBInjectionTests,
-	TestPrivateInstanceAAMPTracks,
+	TestPlayerInstanceAAMPTracks,
 	::testing::ValuesIn(GenerateTestCases()),
 	[](const testing::TestParamInfo<TrackInjectionParams>& info) {
 		return info.param.ToString();

@@ -19,7 +19,7 @@
 
 #include "ElementaryProcessor.h"
 
-ElementaryProcessor::ElementaryProcessor(class PrivateInstanceAAMP *aamp)
+ElementaryProcessor::ElementaryProcessor(class PlayerInstanceAAMP *aamp)
 {
 }
 

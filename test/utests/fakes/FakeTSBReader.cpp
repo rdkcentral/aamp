@@ -33,7 +33,7 @@ std::shared_ptr<MockTSBReader> g_mockTSBReader{};
  *
  * @return None
  */
-AampTsbReader::AampTsbReader(PrivateInstanceAAMP *aamp, std::shared_ptr<AampTsbDataManager> dataMgr, AampMediaType mediaType, std::string sessionId)
+AampTsbReader::AampTsbReader(PlayerInstanceAAMP *aamp, std::shared_ptr<AampTsbDataManager> dataMgr, AampMediaType mediaType, std::string sessionId)
 	: mAamp(aamp), mDataMgr(dataMgr), mMediaType(mediaType), mInitialized_(false), mStartPosition(0.0),
 		mUpcomingFragmentPosition(0.0), mCurrentRate(AAMP_NORMAL_PLAY_RATE), mTsbSessionId(sessionId), mEosReached(false), mTrackEnabled(false),
 		mFirstPTS(0.0), mCurrentBandwidth(0.0), mNewInitWaiting(false), mActiveTuneType(eTUNETYPE_NEW_NORMAL)

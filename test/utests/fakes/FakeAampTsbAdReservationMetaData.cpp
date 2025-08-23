@@ -39,7 +39,7 @@ void AampTsbAdReservationMetaData::Dump(const std::string &message) const
 	}
 }
 
-void AampTsbAdReservationMetaData::SendEvent(PrivateInstanceAAMP* aamp) const
+void AampTsbAdReservationMetaData::SendEvent(PlayerInstanceAAMP* aamp) const
 {
 	if (g_mockAampTsbAdReservationMetaData)
 	{

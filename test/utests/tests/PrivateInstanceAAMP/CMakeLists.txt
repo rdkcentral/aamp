@@ -17,7 +17,7 @@
 
 set(AAMP_ROOT "../../../../")
 set(UTESTS_ROOT "../../")
-set(EXEC_NAME PrivateInstanceAAMP)
+set(EXEC_NAME PlayerInstanceAAMP)
 
 include_directories(${AAMP_ROOT} ${AAMP_ROOT}/isobmff ${AAMP_ROOT}/middleware/playerisobmff ${AAMP_ROOT}/drm ${AAMP_ROOT}/downloader ${AAMP_ROOT}/drm/helper  ${AAMP_ROOT}/subtitle ${AAMP_ROOT}/middleware/subtitle)
 include_directories(${AAMP_ROOT}/middleware/subtec/subtecparser)
@@ -49,7 +49,7 @@ set(TEST_SOURCES PauseAtTests.cpp
                  MediaFormatTypeTests.cpp
                  IsPeriodChangeMarkedTests.cpp
                  SubtitleMuteTests.cpp
-                 PrivateInstanceAAMPTests.cpp
+                 PlayerInstanceAAMPTests.cpp
                  LocalTSBTests.cpp)
 
 set(AAMP_SOURCES ${AAMP_ROOT}/priv_aamp.cpp)

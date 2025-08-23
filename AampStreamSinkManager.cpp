@@ -23,7 +23,7 @@
  */
 
 #include "AampStreamSinkManager.h"
-#include "priv_aamp.h"
+#include "main_aamp.h"
 
 AampStreamSinkManager::AampStreamSinkManager() :
 	mGstPlayer(nullptr),
@@ -79,7 +79,7 @@ void AampStreamSinkManager::Clear(void)
 	mEncryptedHeadersInjected = false;
 }
 
-void AampStreamSinkManager::SetSinglePipelineMode(PrivateInstanceAAMP *aamp)
+void AampStreamSinkManager::SetSinglePipelineMode(PlayerInstanceAAMP *aamp)
 {
 	std::lock_guard<std::mutex> lock(mStreamSinkMutex);
 
@@ -128,7 +128,7 @@ void AampStreamSinkManager::SetSinglePipelineMode(PrivateInstanceAAMP *aamp)
 	}
 }
 
-void AampStreamSinkManager::CreateStreamSink(PrivateInstanceAAMP *aamp, id3_callback_t id3HandlerCallback, std::function< void(const unsigned char *, int, int, int) > exportFrames)
+void AampStreamSinkManager::CreateStreamSink(PlayerInstanceAAMP *aamp, id3_callback_t id3HandlerCallback, std::function< void(const unsigned char *, int, int, int) > exportFrames)
 {
 	std::lock_guard<std::mutex> lock(mStreamSinkMutex);
 	AampStreamSinkInactive *inactiveSink = new AampStreamSinkInactive(id3HandlerCallback);  /* For every instance of aamp, there should be an AampStreamSinkInactive object*/
@@ -166,7 +166,7 @@ void AampStreamSinkManager::CreateStreamSink(PrivateInstanceAAMP *aamp, id3_call
 	}
 }
 
-void AampStreamSinkManager::SetStreamSink(PrivateInstanceAAMP *aamp, StreamSink *clientSink)
+void AampStreamSinkManager::SetStreamSink(PlayerInstanceAAMP *aamp, StreamSink *clientSink)
 {
 
 	std::lock_guard<std::mutex> lock(mStreamSinkMutex);
@@ -196,7 +196,7 @@ void AampStreamSinkManager::SetStreamSink(PrivateInstanceAAMP *aamp, StreamSink 
 	mClientStreamSinkMap.insert({aamp, clientSink});
 }
 
-void AampStreamSinkManager::DeleteStreamSink(PrivateInstanceAAMP *aamp)
+void AampStreamSinkManager::DeleteStreamSink(PlayerInstanceAAMP *aamp)
 {
 	std::lock_guard<std::mutex> lock(mStreamSinkMutex);
 	
@@ -276,7 +276,7 @@ void AampStreamSinkManager::DeleteStreamSink(PrivateInstanceAAMP *aamp)
 	}
 }
 
-void AampStreamSinkManager::SetEncryptedHeaders(PrivateInstanceAAMP *aamp, std::map<int, std::string>& mappedHeaders)
+void AampStreamSinkManager::SetEncryptedHeaders(PlayerInstanceAAMP *aamp, std::map<int, std::string>& mappedHeaders)
 {
 	std::lock_guard<std::mutex> lock(mStreamSinkMutex);
 	
@@ -332,7 +332,7 @@ void AampStreamSinkManager::GetEncryptedHeaders(std::map<int, std::string>& mapp
 	}
 }
 
-void AampStreamSinkManager::DeactivatePlayer(PrivateInstanceAAMP *aamp, bool stop)
+void AampStreamSinkManager::DeactivatePlayer(PlayerInstanceAAMP *aamp, bool stop)
 {
 	std::lock_guard<std::mutex> lock(mStreamSinkMutex);
 	
@@ -375,10 +375,10 @@ void AampStreamSinkManager::DeactivatePlayer(PrivateInstanceAAMP *aamp, bool sto
 	}
 }
 
-void AampStreamSinkManager::ActivatePlayer(PrivateInstanceAAMP *aamp)
+void AampStreamSinkManager::ActivatePlayer(PlayerInstanceAAMP *aamp)
 {
 	// N.B. GetPositionMs() must be called before locking the StreamSink mutex, to avoid deadlock.
-	// This is because PrivateInstanceAAMP::GetPositionRelativeToSeekMilliseconds() calls
+	// This is because PlayerInstanceAAMP::GetPositionRelativeToSeekMilliseconds() calls
 	// GetStreamSink, which also locks mStreamSinkMutex.
 	double position = aamp->_GetPositionMs() / 1000.00;
 
@@ -439,7 +439,7 @@ void AampStreamSinkManager::ActivatePlayer(PrivateInstanceAAMP *aamp)
 	}
 }
 
-void AampStreamSinkManager::SetActive(PrivateInstanceAAMP *aamp, double position)
+void AampStreamSinkManager::SetActive(PlayerInstanceAAMP *aamp, double position)
 {
 	AAMPLOG_INFO("AampStreamSinkManager(%p) Setting PLAYER[%d] active, position(%f)", this, aamp->mPlayerId, position);
 
@@ -463,7 +463,7 @@ AampStreamSinkManager& AampStreamSinkManager::GetInstance()
 	return instance;
 }
 
-StreamSink* AampStreamSinkManager::GetActiveStreamSink(PrivateInstanceAAMP *aamp)
+StreamSink* AampStreamSinkManager::GetActiveStreamSink(PlayerInstanceAAMP *aamp)
 {
 	std::lock_guard<std::mutex> lock(mStreamSinkMutex);
 	StreamSink *sink_ptr = nullptr;
@@ -512,13 +512,13 @@ StreamSink* AampStreamSinkManager::GetActiveStreamSink(PrivateInstanceAAMP *aamp
 	return sink_ptr;
 }
 
-StreamSink* AampStreamSinkManager::GetStreamSink(PrivateInstanceAAMP *aamp)
+StreamSink* AampStreamSinkManager::GetStreamSink(PlayerInstanceAAMP *aamp)
 {
 	std::lock_guard<std::mutex> lock(mStreamSinkMutex);
 	return GetStreamSinkNoLock(aamp);
 }
 
-StreamSink* AampStreamSinkManager::GetStreamSinkNoLock(PrivateInstanceAAMP *aamp)
+StreamSink* AampStreamSinkManager::GetStreamSinkNoLock(PlayerInstanceAAMP *aamp)
 {
 	StreamSink *sink_ptr = nullptr;
 
@@ -546,7 +546,7 @@ StreamSink* AampStreamSinkManager::GetStreamSinkNoLock(PrivateInstanceAAMP *aamp
 	return sink_ptr;
 }
 
-StreamSink *AampStreamSinkManager::GetStoppingStreamSink(PrivateInstanceAAMP *aamp)
+StreamSink *AampStreamSinkManager::GetStoppingStreamSink(PlayerInstanceAAMP *aamp)
 {
 	std::lock_guard<std::mutex> lock(mStreamSinkMutex);
 	StreamSink *sink_ptr = nullptr;
@@ -565,7 +565,7 @@ StreamSink *AampStreamSinkManager::GetStoppingStreamSink(PrivateInstanceAAMP *aa
 	return sink_ptr;
 }
 
-void AampStreamSinkManager::UpdateTuningPlayer(PrivateInstanceAAMP *aamp)
+void AampStreamSinkManager::UpdateTuningPlayer(PlayerInstanceAAMP *aamp)
 {
 	std::lock_guard<std::mutex> lock(mStreamSinkMutex);
 	switch (mPipelineMode)

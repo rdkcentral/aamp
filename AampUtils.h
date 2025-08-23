@@ -15,25 +15,28 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
-*/
-
+ */
 
 /**
-* @file Aamputils.h
-* @brief Context-free common utility functions.
-*/
-
+ * @file Aamputils.h
+ * * @brief Context-free common utility functions.
+ */
 #ifndef __AAMP_UTILS_H__
 #define __AAMP_UTILS_H__
 
+#include "StreamOutputFormat.h"
+#include "LangCodePreference.h"
+#include "AampMediaType.h"
+//#include "main_aamp.h"
 #include "DrmSystems.h"
-#include "main_aamp.h"
 #include "iso639map.h"
 #include <string>
 #include <sstream>
 #include <chrono>
+#include <thread>
 #include "TsbApi.h"
 
+class PlayerInstanceAAMP;
 
 #define NOW_SYSTEM_TS_SECS std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now().time_since_epoch()).count()     /**< Getting current system clock in seconds */
 #define NOW_STEADY_TS_SECS std::chrono::duration_cast<std::chrono::seconds>(std::chrono::steady_clock::now().time_since_epoch()).count()     /**< Getting current steady clock in seconds */
@@ -57,7 +60,6 @@
 /** FHD height*/
 #define AAMP_FHD_HEIGHT (1080)
 #define FLOATING_POINT_EPSILON 0.1 // workaround for floating point math precision issues
-
 
 /**
 * @struct	FormatMap
@@ -338,8 +340,10 @@ namespace aamp_utils
  * @param[in] mediaType stream type
  * @param[in] ptr buffer pointer
  * @param[in] len length of buffer
+ *
+ * FIXME: aamputils shouldn't have dependency on PlayerInstanceAAMP
  */
-double RecalculatePTS(AampMediaType mediaType, const void *ptr, size_t len, PrivateInstanceAAMP *aamp);
+double RecalculatePTS(AampMediaType mediaType, const void *ptr, size_t len, PlayerInstanceAAMP *aamp);
 
 /**
  * @fn ConvertTsbLogLevel

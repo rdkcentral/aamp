@@ -27,7 +27,7 @@
 
 #include "DrmSessionFactory.h"
 #include "DrmSessionManager.h"
-#include "priv_aamp.h"
+#include "main_aamp.h"
 
 #include <gtest/gtest.h>
 
@@ -39,7 +39,7 @@
 class AampLegacyDrmSessionTests : public ::testing::Test
 {
 protected:
-	PrivateInstanceAAMP *mAamp = nullptr;
+	PlayerInstanceAAMP *mAamp = nullptr;
 	AampLogManager mLogging;
 	TestUtilDrm *mUtils = nullptr;
 
@@ -48,7 +48,7 @@ protected:
 		MockAampReset();
 		MockCurlReset();
 
-		mAamp = new PrivateInstanceAAMP(gpGlobalConfig);
+		mAamp = new PlayerInstanceAAMP(gpGlobalConfig);
 		mUtils = new TestUtilDrm(mAamp);
 	}
 

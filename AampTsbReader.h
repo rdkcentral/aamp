@@ -26,7 +26,7 @@
 #define AAMP_TSBREADER_H
 
 #include "AampTsbDataManager.h"
-#include "priv_aamp.h"
+#include "main_aamp.h"
 #include "AampMediaType.h"
 #include "AampTime.h"
 
@@ -42,7 +42,7 @@ public:
 	 *
 	 * @return None
 	 */
-	AampTsbReader(PrivateInstanceAAMP *aamp, std::shared_ptr<AampTsbDataManager> dataMgr, AampMediaType mediaType, std::string sessionId);
+	AampTsbReader(PlayerInstanceAAMP *aamp, std::shared_ptr<AampTsbDataManager> dataMgr, AampMediaType mediaType, std::string sessionId);
 
 	/**
 	 * @fn AampTsbReader Destructor
@@ -219,7 +219,7 @@ protected:
 	void CheckPeriodBoundary(TsbFragmentDataPtr currFragment);
 
 public:
-	PrivateInstanceAAMP *mAamp;
+	PlayerInstanceAAMP *mAamp;
 	bool mEosReached;
 	bool mTrackEnabled;
 	std::shared_ptr<AampTsbDataManager> mDataMgr;

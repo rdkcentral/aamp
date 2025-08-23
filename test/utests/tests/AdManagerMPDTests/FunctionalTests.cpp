@@ -21,12 +21,12 @@
 #include <gmock/gmock.h>
 #include <thread>
 #include <chrono>
-#include "priv_aamp.h"
+#include "main_aamp.h"
 #include "AampConfig.h"
 #include "AampUtils.h"
 #include "AampLogManager.h"
 #include "admanager_mpd.h"
-#include "MockPrivateInstanceAAMP.h"
+#include "MockPlayerInstanceAAMP.h"
 #include "AampMPDUtils.h"
 
 #include "libdash/IMPD.h"
@@ -56,7 +56,7 @@ AampConfig *gpGlobalConfig{nullptr};
 class AdManagerMPDTests : public ::testing::Test
 {
 protected:
-  PrivateInstanceAAMP *mPrivateInstanceAAMP;
+  PlayerInstanceAAMP *mPlayerInstanceAAMP;
   CDAIObjectMPD *mCdaiObj;
   PrivateCDAIObjectMPD* mPrivateCDAIObjectMPD;
   const char* mManifest;
@@ -73,14 +73,14 @@ protected:
       gpGlobalConfig =  new AampConfig();
     }
 
-    mPrivateInstanceAAMP = new PrivateInstanceAAMP(gpGlobalConfig);
+    mPlayerInstanceAAMP = new PlayerInstanceAAMP(gpGlobalConfig);
     AampLogManager::setLogLevel(eLOGLEVEL_TRACE);
     AampLogManager::lockLogLevel(true);
 
-    g_mockPrivateInstanceAAMP = new StrictMock<MockPrivateInstanceAAMP>();
+    g_mockPlayerInstanceAAMP = new StrictMock<MockPlayerInstanceAAMP>();
 
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled()).WillRepeatedly(Return(true));
-    mCdaiObj = new CDAIObjectMPD(mPrivateInstanceAAMP);
+    EXPECT_CALL(*g_mockPlayerInstanceAAMP, DownloadsAreEnabled()).WillRepeatedly(Return(true));
+    mCdaiObj = new CDAIObjectMPD(mPlayerInstanceAAMP);
     mPrivateCDAIObjectMPD = mCdaiObj->GetPrivateCDAIObjectMPD();
     EXPECT_TRUE(mPrivateCDAIObjectMPD->mAdObjThreadStarted);
 
@@ -95,11 +95,11 @@ protected:
     mCdaiObj = nullptr;
     mPrivateCDAIObjectMPD = nullptr;
 
-    delete g_mockPrivateInstanceAAMP;
-    g_mockPrivateInstanceAAMP = nullptr;
+    delete g_mockPlayerInstanceAAMP;
+    g_mockPlayerInstanceAAMP = nullptr;
 
-    delete mPrivateInstanceAAMP;
-    mPrivateInstanceAAMP = nullptr;
+    delete mPlayerInstanceAAMP;
+    mPlayerInstanceAAMP = nullptr;
 
     delete gpGlobalConfig;
     gpGlobalConfig = nullptr;
@@ -130,12 +130,12 @@ public:
   void InitializeAdMPD(const char *manifest, bool isFOG = false, bool fogDownloadSuccess = true, int count = 1)
   {
     std::string adManifestUrl = TEST_AD_MANIFEST_URL;
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled()).WillRepeatedly(Return(true));
+    EXPECT_CALL(*g_mockPlayerInstanceAAMP, DownloadsAreEnabled()).WillRepeatedly(Return(true));
     if (manifest)
     {
       mManifest = manifest;
       // remoteUrl, manifest, effectiveUrl
-      EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile (adManifestUrl, _,_ , _, _, _, _, _, _, _, _, _, _, _))
+      EXPECT_CALL(*g_mockPlayerInstanceAAMP, GetFile (adManifestUrl, _,_ , _, _, _, _, _, _, _, _, _, _, _))
               .Times(count)
               .WillRepeatedly(WithArgs<0,2,3,4>(Invoke(this, &AdManagerMPDTests::GetManifest)));
       if (isFOG)
@@ -145,19 +145,19 @@ public:
         std::string adFogManifestUrl = TEST_FOG_AD_MANIFEST_URL;
         if (fogDownloadSuccess)
         {
-          EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile (adFogManifestUrl, _, _, _, _, _, _, _, _, _, _, _, _, _))
+          EXPECT_CALL(*g_mockPlayerInstanceAAMP, GetFile (adFogManifestUrl, _, _, _, _, _, _, _, _, _, _, _, _, _))
               .WillOnce(WithArgs<0,2,3,4>(Invoke(this, &AdManagerMPDTests::GetManifest)));;
         }
         else
         {
-          EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile (adFogManifestUrl, _, _, _, _, _, _, _, _, _, _, _, _, _))
+          EXPECT_CALL(*g_mockPlayerInstanceAAMP, GetFile (adFogManifestUrl, _, _, _, _, _, _, _, _, _, _, _, _, _))
               .WillOnce(Return(false));
         }
       }
     }
     else
     {
-      EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile (adManifestUrl, _, _, _, _, _, _, _, _, _, _, _, _, _))
+      EXPECT_CALL(*g_mockPlayerInstanceAAMP, GetFile (adManifestUrl, _, _, _, _, _, _, _, _, _, _, _, _, _))
               .WillOnce(Return(false));
     }
   }
@@ -344,7 +344,7 @@ TEST_F(AdManagerMPDTests, SetAlternateContentsTests_1)
   adId = "testAdId1";
   url = "testAdUrl1";
 
-  EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdResolvedEvent(adId, false, 0, 0)).Times(1);
+  EXPECT_CALL(*g_mockPlayerInstanceAAMP, SendAdResolvedEvent(adId, false, 0, 0)).Times(1);
   // Call the function to test when adbreak object doesn't exist and adId and url not empty
   mPrivateCDAIObjectMPD->SetAlternateContents(periodId, adId, url, startMS, breakdur);
 
@@ -403,7 +403,7 @@ R"(<?xml version="1.0" encoding="UTF-8"?>
   InitializeAdMPD(manifest);
 
   // mIsFogTSB is false, so downloaded from CDN and ad resolved event is sent
-  EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdResolvedEvent(adId, true, startMS, 10000)).Times(1);
+  EXPECT_CALL(*g_mockPlayerInstanceAAMP, SendAdResolvedEvent(adId, true, startMS, 10000)).Times(1);
 
   // We would like to also validate that AbortWaitForNextAdResolved is invoked
   std::thread t([this, &timedout, &threadStarted]{
@@ -482,11 +482,11 @@ R"(<?xml version="1.0" encoding="UTF-8"?>
 
   url = TEST_AD_MANIFEST_URL;
   mPrivateCDAIObjectMPD->mIsFogTSB = true;
-  mPrivateInstanceAAMP->SetManifestUrl(TEST_FOG_MAIN_MANIFEST_URL);
+  mPlayerInstanceAAMP->SetManifestUrl(TEST_FOG_MAIN_MANIFEST_URL);
   InitializeAdMPD(manifest, true);
 
   // mIsFogTSB is true, so downloaded from CDN and redirected to FOG and ad resolved event is sent
-  EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdResolvedEvent(adId, true, startMS, 10000)).Times(1);
+  EXPECT_CALL(*g_mockPlayerInstanceAAMP, SendAdResolvedEvent(adId, true, startMS, 10000)).Times(1);
   mPrivateCDAIObjectMPD->SetAlternateContents(periodId, adId, url, startMS, breakdur);
   std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
@@ -524,7 +524,7 @@ TEST_F(AdManagerMPDTests, SetAlternateContentsTests_4)
   InitializeAdMPD(manifest);
 
   // mIsFogTSB is false, so downloaded from CDN and ad resolved event status should be false
-  EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdResolvedEvent(adId, false, 0, 0)).Times(1);
+  EXPECT_CALL(*g_mockPlayerInstanceAAMP, SendAdResolvedEvent(adId, false, 0, 0)).Times(1);
 
   // We would like to also validate that AbortWaitForNextAdResolved is invoked
   std::thread t([this, &timedout, &threadStarted]{
@@ -603,12 +603,12 @@ R"(<?xml version="1.0" encoding="UTF-8"?>
 
   url = TEST_AD_MANIFEST_URL;
   mPrivateCDAIObjectMPD->mIsFogTSB = true;
-  mPrivateInstanceAAMP->SetManifestUrl(TEST_FOG_MAIN_MANIFEST_URL);
+  mPlayerInstanceAAMP->SetManifestUrl(TEST_FOG_MAIN_MANIFEST_URL);
   InitializeAdMPD(manifest, true, false);
 
   // mIsFogTSB is true, so downloaded from CDN and redirected to FOG which fails.
   // Here, ad resolved event is sent with true and CDN url is cached
-  EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdResolvedEvent(adId, true, startMS, 10000)).Times(1);
+  EXPECT_CALL(*g_mockPlayerInstanceAAMP, SendAdResolvedEvent(adId, true, startMS, 10000)).Times(1);
   mPrivateCDAIObjectMPD->SetAlternateContents(periodId, adId, url, startMS, breakdur);
   std::this_thread::sleep_for(std::chrono::milliseconds(50));
 
@@ -671,14 +671,14 @@ R"(<?xml version="1.0" encoding="UTF-8"?>
   mPrivateCDAIObjectMPD->SetAlternateContents(periodId, "", "", startMS, breakdur);
 
   url = TEST_AD_MANIFEST_URL;
-  mPrivateInstanceAAMP->SetManifestUrl(TEST_FOG_MAIN_MANIFEST_URL);
+  mPlayerInstanceAAMP->SetManifestUrl(TEST_FOG_MAIN_MANIFEST_URL);
   // Set the expect for GetFile twice with same manifest
   InitializeAdMPD(manifest, false, false, 2);
 
   // mIsFogTSB is true, so downloaded from CDN and redirected to FOG which fails.
   // Here, ad resolved event is sent with true and CDN url is cached
-  EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdResolvedEvent(adId1, true, startMS, 10000)).Times(1);
-  EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdResolvedEvent(adId2, true, startMS + adDuration, 10000)).Times(1);
+  EXPECT_CALL(*g_mockPlayerInstanceAAMP, SendAdResolvedEvent(adId1, true, startMS, 10000)).Times(1);
+  EXPECT_CALL(*g_mockPlayerInstanceAAMP, SendAdResolvedEvent(adId2, true, startMS + adDuration, 10000)).Times(1);
   mPrivateCDAIObjectMPD->SetAlternateContents(periodId, adId1, url, startMS, adDuration);
   mPrivateCDAIObjectMPD->SetAlternateContents(periodId, adId2, url, startMS, adDuration);
   std::this_thread::sleep_for(std::chrono::milliseconds(50));

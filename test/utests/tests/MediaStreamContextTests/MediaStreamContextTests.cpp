@@ -22,7 +22,7 @@
 #include "fragmentcollector_mpd.h"
 #include "isobmff/isobmffbuffer.h"
 #include "AampCacheHandler.h"
-#include "../priv_aamp.h"
+#include "../main_aamp.h"
 #include "AampDRMLicPreFetcherInterface.h"
 #include "AampConfig.h"
 #include "MockAampConfig.h"
@@ -44,15 +44,15 @@ class MediaStreamContextTest : public testing::Test
             gpGlobalConfig =  new AampConfig();
         }
         mStreamAbstractionAAMP_MPD = new StreamAbstractionAAMP_MPD(NULL,123.45,12.34);
-        mPrivateInstanceAAMP = new PrivateInstanceAAMP(gpGlobalConfig);
-        mMediaStreamContext = new MediaStreamContext(eTRACK_VIDEO,mStreamAbstractionAAMP_MPD,mPrivateInstanceAAMP,"SAMPLETEXT");
+        mPlayerInstanceAAMP = new PlayerInstanceAAMP(gpGlobalConfig);
+        mMediaStreamContext = new MediaStreamContext(eTRACK_VIDEO,mStreamAbstractionAAMP_MPD,mPlayerInstanceAAMP,"SAMPLETEXT");
         g_mockAampConfig = new MockAampConfig();
     }
     
     void TearDown() override
     {
-        delete mPrivateInstanceAAMP;
-        mPrivateInstanceAAMP = nullptr;
+        delete mPlayerInstanceAAMP;
+        mPlayerInstanceAAMP = nullptr;
         
         delete mStreamAbstractionAAMP_MPD;
         mStreamAbstractionAAMP_MPD = nullptr;
@@ -65,7 +65,7 @@ class MediaStreamContextTest : public testing::Test
     }
     public:
     StreamAbstractionAAMP_MPD *mStreamAbstractionAAMP_MPD;
-    PrivateInstanceAAMP *mPrivateInstanceAAMP;
+    PlayerInstanceAAMP *mPlayerInstanceAAMP;
     MediaStreamContext *mMediaStreamContext;
 };
 

@@ -28,7 +28,7 @@
 #include <memory>
 #include <unordered_map>
 #include <exception>
-#include "priv_aamp.h"
+#include "main_aamp.h"
 #include <mutex>
 #include <condition_variable>
 

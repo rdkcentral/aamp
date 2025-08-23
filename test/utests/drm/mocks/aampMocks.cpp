@@ -25,12 +25,12 @@
 
 #include "DrmUtils.h"
 #include "AampConfig.h"
-#include "priv_aamp.h"
+#include "main_aamp.h"
 #include "aampgstplayer.h"
 
-#include "MockPrivateInstanceAAMP.h"
+#include "MockPlayerInstanceAAMP.h"
 
-MockPrivateInstanceAAMP *g_mockPrivateInstanceAAMP = nullptr;
+MockPlayerInstanceAAMP *g_mockPlayerInstanceAAMP = nullptr;
 
 std::shared_ptr<AampConfig> gGlobalConfig;
 AampConfig *gpGlobalConfig;
@@ -44,120 +44,120 @@ void MockAampReset(void)
 	gpGlobalConfig = gGlobalConfig.get();
 }
 
-PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mConfig(config), mIsFakeTune(false), mIsVSS(false)
+PlayerInstanceAAMP::PlayerInstanceAAMP(AampConfig *config) : mConfig(config), mIsFakeTune(false), mIsVSS(false)
 {
 }
 
-PrivateInstanceAAMP::~PrivateInstanceAAMP()
+PlayerInstanceAAMP::~PlayerInstanceAAMP()
 {
 }
 
-void PrivateInstanceAAMP::GetCustomLicenseHeaders(
+void PlayerInstanceAAMP::GetCustomLicenseHeaders(
 	std::unordered_map<std::string, std::vector<std::string>> &customHeaders)
 {
 	customHeaders = fCustomHeaders;
 }
 
-void PrivateInstanceAAMP::SendDrmErrorEvent(DrmMetaDataEventPtr event, bool isRetryEnabled)
+void PlayerInstanceAAMP::SendDrmErrorEvent(DrmMetaDataEventPtr event, bool isRetryEnabled)
 {
 }
 
-void PrivateInstanceAAMP::SendDRMMetaData(DrmMetaDataEventPtr e)
+void PlayerInstanceAAMP::SendDRMMetaData(DrmMetaDataEventPtr e)
 {
 }
 
-void PrivateInstanceAAMP::Individualization(const std::string &payload)
+void PlayerInstanceAAMP::Individualization(const std::string &payload)
 {
-	if (g_mockPrivateInstanceAAMP != nullptr)
+	if (g_mockPlayerInstanceAAMP != nullptr)
 	{
-		g_mockPrivateInstanceAAMP->Individualization(payload);
+		g_mockPlayerInstanceAAMP->Individualization(payload);
 	}
 }
 
-void PrivateInstanceAAMP::SendEvent(AAMPEventPtr eventData, AAMPEventMode eventMode)
+void PlayerInstanceAAMP::SendEvent(AAMPEventPtr eventData, AAMPEventMode eventMode)
 {
 }
 
-void PrivateInstanceAAMP::SetState(AAMPPlayerState state)
+void PlayerInstanceAAMP::SetState(AAMPPlayerState state)
 {
 }
 
-std::string PrivateInstanceAAMP::GetLicenseReqProxy()
+std::string PlayerInstanceAAMP::GetLicenseReqProxy()
 {
 	return std::string();
 }
 
-void PrivateInstanceAAMP::SendErrorEvent(AAMPTuneFailure tuneFailure, const char * description, bool isRetryEnabled, int32_t secManagerClassCode, int32_t secManagerReasonCode, int32_t secClientBusinessStatus, const std::string &responseData)
+void PlayerInstanceAAMP::SendErrorEvent(AAMPTuneFailure tuneFailure, const char * description, bool isRetryEnabled, int32_t secManagerClassCode, int32_t secManagerReasonCode, int32_t secClientBusinessStatus, const std::string &responseData)
 {
 }
 
-std::string PrivateInstanceAAMP::GetLicenseServerUrlForDrm(DRMSystems type)
+std::string PlayerInstanceAAMP::GetLicenseServerUrlForDrm(DRMSystems type)
 {
 	std::string url;
 	if (type == eDRM_PlayReady)
 	{
-		url = GETCONFIGVALUE_PRIV(eAAMPConfig_PRLicenseServerUrl);
+		url = GETCONFIGVALUE(eAAMPConfig_PRLicenseServerUrl);
 	}
 	else if (type == eDRM_WideVine)
 	{
-		url = GETCONFIGVALUE_PRIV(eAAMPConfig_WVLicenseServerUrl);
+		url = GETCONFIGVALUE(eAAMPConfig_WVLicenseServerUrl);
 	}
 	else if (type == eDRM_ClearKey)
 	{
-		url = GETCONFIGVALUE_PRIV(eAAMPConfig_CKLicenseServerUrl);
+		url = GETCONFIGVALUE(eAAMPConfig_CKLicenseServerUrl);
 	}
 
 	if (url.empty())
 	{
-		url = GETCONFIGVALUE_PRIV(eAAMPConfig_LicenseServerUrl);
+		url = GETCONFIGVALUE(eAAMPConfig_LicenseServerUrl);
 	}
 	return url;
 }
 
-std::string PrivateInstanceAAMP::GetLicenseCustomData()
+std::string PlayerInstanceAAMP::GetLicenseCustomData()
 {
 	return std::string();
 }
 
-bool PrivateInstanceAAMP::IsEventListenerAvailable(AAMPEventType eventType)
+bool PlayerInstanceAAMP::IsEventListenerAvailable(AAMPEventType eventType)
 {
 	return false;
 }
 
-std::string PrivateInstanceAAMP::GetAppName()
+std::string PlayerInstanceAAMP::GetAppName()
 {
 	return std::string();
 }
 
-int PrivateInstanceAAMP::HandleSSLProgressCallback(void *clientp, double dltotal, double dlnow,
+int PlayerInstanceAAMP::HandleSSLProgressCallback(void *clientp, double dltotal, double dlnow,
 												   double ultotal, double ulnow)
 {
 	return 0;
 }
 
-size_t PrivateInstanceAAMP::HandleSSLHeaderCallback(const char *ptr, size_t size, size_t nmemb,
+size_t PlayerInstanceAAMP::HandleSSLHeaderCallback(const char *ptr, size_t size, size_t nmemb,
 													void *userdata)
 {
 	return 0;
 }
 
-size_t PrivateInstanceAAMP::HandleSSLWriteCallback(char *ptr, size_t size, size_t nmemb,
+size_t PlayerInstanceAAMP::HandleSSLWriteCallback(char *ptr, size_t size, size_t nmemb,
 												   void *userdata)
 {
 	return 0;
 }
 
-bool PrivateInstanceAAMP::isDecryptClearSamplesRequired()
+bool PlayerInstanceAAMP::isDecryptClearSamplesRequired()
 {
 	bool bIsDecryptClearSamplesRequired = false;
-	if (g_mockPrivateInstanceAAMP)
+	if (g_mockPlayerInstanceAAMP)
 	{
-		bIsDecryptClearSamplesRequired = g_mockPrivateInstanceAAMP->isDecryptClearSamplesRequired();
+		bIsDecryptClearSamplesRequired = g_mockPlayerInstanceAAMP->isDecryptClearSamplesRequired();
 	}
 	return bIsDecryptClearSamplesRequired;
 }
 
-void PrivateInstanceAAMP::GetMoneyTraceString(std::string &customHeader) const
+void PlayerInstanceAAMP::GetMoneyTraceString(std::string &customHeader) const
 {
 }
 
@@ -204,41 +204,41 @@ void DumpBlob(const unsigned char *ptr, size_t len)
 {
 }
 
-void PrivateInstanceAAMP::UpdateUseSinglePipeline(void)
+void PlayerInstanceAAMP::UpdateUseSinglePipeline(void)
 {
 }
 
-void PrivateInstanceAAMP::UpdateMaxDRMSessions(void)
+void PlayerInstanceAAMP::UpdateMaxDRMSessions(void)
 {
 }
 
-void PrivateInstanceAAMP::ActivatePlayer()
+void PlayerInstanceAAMP::ActivatePlayer()
 {
 }
 
-void PrivateInstanceAAMP::SendMediaMetadataEvent()
+void PlayerInstanceAAMP::SendMediaMetadataEvent()
 {
 }
 
-void PrivateInstanceAAMP::Stop( bool isDestructing )
+void PlayerInstanceAAMP::Stop( bool isDestructing )
 {
 }
 
-void PrivateInstanceAAMP::SetAudioTrack(int)
+void PlayerInstanceAAMP::SetAudioTrack(int)
 {
 }
 
-bool PrivateInstanceAAMP::IsActiveInstancePresent()
+bool PlayerInstanceAAMP::IsActiveInstancePresent()
 {
 	return true;
 }
 
-AampCacheHandler *PrivateInstanceAAMP::getAampCacheHandler()
+AampCacheHandler *PlayerInstanceAAMP::getAampCacheHandler()
 {
 	return nullptr;
 }
 
-void PrivateInstanceAAMP::Tune(const char *mainManifestUrl, bool autoPlay, const char *contentType,
+void PlayerInstanceAAMP::Tune(const char *mainManifestUrl, bool autoPlay, const char *contentType,
 							   bool bFirstAttempt, bool bFinalAttempt, const char *pTraceID,
 							   bool audioDecoderStreamSync, const char *refreshManifestUrl,
 							   int mpdStitchingMode, std::string sid,const char *preprocessedManifest)
@@ -248,148 +248,148 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl, bool autoPlay, const
 	mFogTSBEnabled = strcasestr(mainManifestUrl, "tsb?");
 }
 
-void PrivateInstanceAAMP::detach()
+void PlayerInstanceAAMP::detach()
 {
 }
 
-void PrivateInstanceAAMP::NotifySpeedChanged(float rate, bool changeState)
+void PlayerInstanceAAMP::NotifySpeedChanged(float rate, bool changeState)
 {
 }
 
-void PrivateInstanceAAMP::LogPlayerPreBuffered(void)
+void PlayerInstanceAAMP::LogPlayerPreBuffered(void)
 {
 }
 
-bool PrivateInstanceAAMP::IsLive()
+bool PlayerInstanceAAMP::IsLive()
 {
 	return mIsLive;
 }
 
-void PrivateInstanceAAMP::NotifyOnEnteringLive()
+void PlayerInstanceAAMP::NotifyOnEnteringLive()
 {
 }
 
-bool PrivateInstanceAAMP::GetPauseOnFirstVideoFrameDisp(void)
+bool PlayerInstanceAAMP::GetPauseOnFirstVideoFrameDisp(void)
 {
 	return false;
 }
 
-long long PrivateInstanceAAMP::GetPositionMilliseconds()
+long long PlayerInstanceAAMP::GetPositionMilliseconds()
 {
 	return 0;
 }
 
-bool PrivateInstanceAAMP::SetStateBufferingIfRequired()
+bool PlayerInstanceAAMP::SetStateBufferingIfRequired()
 {
 	return false;
 }
 
-void PrivateInstanceAAMP::NotifyFirstBufferProcessed(const std::string&)
+void PlayerInstanceAAMP::NotifyFirstBufferProcessed(const std::string&)
 {
 }
 
-void PrivateInstanceAAMP::StopDownloads()
+void PlayerInstanceAAMP::StopDownloads()
 {
 }
 
-void PrivateInstanceAAMP::ResumeDownloads()
+void PlayerInstanceAAMP::ResumeDownloads()
 {
 }
 
-void PrivateInstanceAAMP::EnableDownloads()
+void PlayerInstanceAAMP::EnableDownloads()
 {
 }
 
-void PrivateInstanceAAMP::AcquireStreamLock()
+void PlayerInstanceAAMP::AcquireStreamLock()
 {
 }
 
-void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
+void PlayerInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 {
 }
 
-void PrivateInstanceAAMP::ReleaseStreamLock()
+void PlayerInstanceAAMP::ReleaseStreamLock()
 {
 }
 
-bool PrivateInstanceAAMP::IsFragmentCachingRequired()
-{
-	return false;
-}
-
-void PrivateInstanceAAMP::TeardownStream(bool newTune, bool disableDownloads)
-{
-}
-
-void PrivateInstanceAAMP::SetVideoRectangle(int x, int y, int w, int h)
-{
-}
-
-void PrivateInstanceAAMP::SetVideoZoom(VideoZoomMode zoom)
-{
-}
-
-bool PrivateInstanceAAMP::TryStreamLock()
+bool PlayerInstanceAAMP::IsFragmentCachingRequired()
 {
 	return false;
 }
 
-void PrivateInstanceAAMP::SetVideoMute(bool muted)
+void PlayerInstanceAAMP::TeardownStream(bool newTune, bool disableDownloads)
 {
 }
 
-void PrivateInstanceAAMP::SetSubtitleMute(bool muted)
+void PlayerInstanceAAMP::SetVideoRectangle(int x, int y, int w, int h)
 {
 }
 
-void PrivateInstanceAAMP::SetAudioVolume(int volume)
+void PlayerInstanceAAMP::SetVideoZoom(VideoZoomMode zoom)
 {
 }
 
-void PrivateInstanceAAMP::AddEventListener(AAMPEventType eventType, EventListener *eventListener)
+bool PlayerInstanceAAMP::TryStreamLock()
+{
+	return false;
+}
+
+void PlayerInstanceAAMP::SetVideoMute(bool muted)
 {
 }
 
-void PrivateInstanceAAMP::RemoveEventListener(AAMPEventType eventType, EventListener *eventListener)
+void PlayerInstanceAAMP::SetSubtitleMute(bool muted)
 {
 }
 
-DrmHelperPtr PrivateInstanceAAMP::GetCurrentDRM(void)
+void PlayerInstanceAAMP::SetAudioVolume(int volume)
+{
+}
+
+void PlayerInstanceAAMP::AddEventListener(AAMPEventType eventType, EventListener *eventListener)
+{
+}
+
+void PlayerInstanceAAMP::RemoveEventListener(AAMPEventType eventType, EventListener *eventListener)
+{
+}
+
+DrmHelperPtr PlayerInstanceAAMP::GetCurrentDRM(void)
 {
 	return nullptr;
 }
 
-void PrivateInstanceAAMP::AddCustomHTTPHeader(std::string headerName,
+void PlayerInstanceAAMP::AddCustomHTTPHeader(std::string headerName,
 											  std::vector<std::string> headerValue,
 											  bool isLicenseHeader)
 {
 }
 
-void PrivateInstanceAAMP::SetLiveOffsetAppRequest(bool LiveOffsetAppRequest)
+void PlayerInstanceAAMP::SetLiveOffsetAppRequest(bool LiveOffsetAppRequest)
 {
 }
 
-long long PrivateInstanceAAMP::GetDurationMs()
-{
-	return 0;
-}
-
-long PrivateInstanceAAMP::GetCurrentLatency()
+long long PlayerInstanceAAMP::GetDurationMs()
 {
 	return 0;
 }
 
-bool PrivateInstanceAAMP::IsAtLivePoint()
+long PlayerInstanceAAMP::GetCurrentLatency()
+{
+	return 0;
+}
+
+bool PlayerInstanceAAMP::IsAtLivePoint()
 {
 	return false;
 }
 
-ContentType PrivateInstanceAAMP::GetContentType() const
+ContentType PlayerInstanceAAMP::GetContentType() const
 {
 	return ContentType_UNKNOWN;
 }
 
-void PrivateInstanceAAMP::SetAlternateContents(const std::string &adBreakId,
+void PlayerInstanceAAMP::SetAlternateContents(const std::string &adBreakId,
 											   const std::string &adId, const std::string &url)
 {
 }
@@ -399,156 +399,156 @@ void SetPreferredLanguages(const char *languageList, const char *preferredRendit
 {
 }
 
-std::string PrivateInstanceAAMP::GetPreferredAudioProperties()
+std::string PlayerInstanceAAMP::GetPreferredAudioProperties()
 {
 	std::string audio_result = "AudioProperties";
 	return audio_result;
 }
 
-std::string PrivateInstanceAAMP::GetPreferredTextProperties()
+std::string PlayerInstanceAAMP::GetPreferredTextProperties()
 {
 	std::string result = "TextProperties";
 	return result;
 }
 
-void PrivateInstanceAAMP::SetPreferredTextLanguages(const char *param)
+void PlayerInstanceAAMP::SetPreferredTextLanguages(const char *param)
 {
 }
 
-DRMSystems PrivateInstanceAAMP::GetPreferredDRM()
+DRMSystems PlayerInstanceAAMP::GetPreferredDRM()
 {
 	return eDRM_NONE;
 }
 
-std::string PrivateInstanceAAMP::GetAvailableVideoTracks()
+std::string PlayerInstanceAAMP::GetAvailableVideoTracks()
 {
 	std::string s = "AvailableVideo";
 	return s;
 }
 
-void PrivateInstanceAAMP::SetVideoTracks(std::vector<BitsPerSecond> bitrateList)
+void PlayerInstanceAAMP::SetVideoTracks(std::vector<BitsPerSecond> bitrateList)
 {
 }
 
-std::string PrivateInstanceAAMP::GetAudioTrackInfo()
+std::string PlayerInstanceAAMP::GetAudioTrackInfo()
 {
 	std::string result = "AudioTrack";
 	return result;
 }
 
-std::string PrivateInstanceAAMP::GetTextTrackInfo()
+std::string PlayerInstanceAAMP::GetTextTrackInfo()
 {
 	std::string text_result = "TextTrack";
 	return text_result;
 }
 
-int PrivateInstanceAAMP::GetTextTrack()
+int PlayerInstanceAAMP::GetTextTrack()
 {
 	return 0;
 }
 
-std::string PrivateInstanceAAMP::GetAvailableTextTracks(bool allTrack)
+std::string PlayerInstanceAAMP::GetAvailableTextTracks(bool allTrack)
 {
 	return "";
 }
 
-std::string PrivateInstanceAAMP::GetVideoRectangle()
+std::string PlayerInstanceAAMP::GetVideoRectangle()
 {
 	std::string video = "videorectangel";
 	return video;
 }
 
-void PrivateInstanceAAMP::SetAppName(std::string name)
+void PlayerInstanceAAMP::SetAppName(std::string name)
 {
 }
 
-int PrivateInstanceAAMP::GetAudioTrack()
+int PlayerInstanceAAMP::GetAudioTrack()
 {
 	return 0;
 }
 
-void PrivateInstanceAAMP::SetCCStatus(bool enabled)
+void PlayerInstanceAAMP::SetCCStatus(bool enabled)
 {
 }
 
-bool PrivateInstanceAAMP::GetCCStatus(void)
+bool PlayerInstanceAAMP::GetCCStatus(void)
 {
 	return false;
 }
 
-void PrivateInstanceAAMP::SetTextStyle(const std::string &options)
+void PlayerInstanceAAMP::SetTextStyle(const std::string &options)
 {
 }
 
-std::string PrivateInstanceAAMP::GetTextStyle()
+std::string PlayerInstanceAAMP::GetTextStyle()
 {
 	std::string result = "sampleStyle";
 	return result;
 }
 
-std::string PrivateInstanceAAMP::GetThumbnailTracks()
+std::string PlayerInstanceAAMP::GetThumbnailTracks()
 {
 	std::string result = "ThumbnailTracks";
 	return result;
 }
 
-std::string PrivateInstanceAAMP::GetThumbnails(double tStart, double tEnd)
+std::string PlayerInstanceAAMP::GetThumbnails(double tStart, double tEnd)
 {
 	std::string result = "Thumbnail";
 	return result;
 }
 
-void PrivateInstanceAAMP::DisableContentRestrictions(long grace, long time, bool eventChange)
+void PlayerInstanceAAMP::DisableContentRestrictions(long grace, long time, bool eventChange)
 {
 }
 
-void PrivateInstanceAAMP::EnableContentRestrictions()
+void PlayerInstanceAAMP::EnableContentRestrictions()
 {
 }
 
-MediaFormat PrivateInstanceAAMP::GetMediaFormatType(const char *url)
+MediaFormat PlayerInstanceAAMP::GetMediaFormatType(const char *url)
 {
 	return eMEDIAFORMAT_UNKNOWN;
 }
 
-void PrivateInstanceAAMP::SetEventPriorityAsyncTune(bool bValue)
+void PlayerInstanceAAMP::SetEventPriorityAsyncTune(bool bValue)
 {
 }
 
-bool PrivateInstanceAAMP::IsTuneCompleted()
+bool PlayerInstanceAAMP::IsTuneCompleted()
 {
 	return false;
 }
 
-void PrivateInstanceAAMP::SendWatermarkSessionUpdateEvent(uint32_t sessionHandle, uint32_t status, const std::string &system)
+void PlayerInstanceAAMP::SendWatermarkSessionUpdateEvent(uint32_t sessionHandle, uint32_t status, const std::string &system)
 {
 	return;
 }
 
-void PrivateInstanceAAMP::TuneFail(bool fail)
+void PlayerInstanceAAMP::TuneFail(bool fail)
 {
 }
 
-std::string PrivateInstanceAAMP::GetPlaybackStats()
+std::string PlayerInstanceAAMP::GetPlaybackStats()
 {
 	std::string result = "playbackstats";
 	return result;
 }
 
-void PrivateInstanceAAMP::SetTextTrack(int trackId, char *data)
+void PlayerInstanceAAMP::SetTextTrack(int trackId, char *data)
 {
 }
 
-bool PrivateInstanceAAMP::LockGetPositionMilliseconds()
+bool PlayerInstanceAAMP::LockGetPositionMilliseconds()
 {
 	return false;
 }
 
-void PrivateInstanceAAMP::UnlockGetPositionMilliseconds()
+void PlayerInstanceAAMP::UnlockGetPositionMilliseconds()
 {
 }
 
-void PrivateInstanceAAMP::SetPreferredLanguages(const char *, const char *, const char *,
+void PlayerInstanceAAMP::SetPreferredLanguages(const char *, const char *, const char *,
 												const char *, const char *, const Accessibility *,
 												const char *)
 {
@@ -558,7 +558,7 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *, const char *, cons
  * @brief Check if Live Adjust is required for current content. ( For "vod/ivod/ip-dvr/cdvr/eas",
  * Live Adjust is not required ).
  */
-bool PrivateInstanceAAMP::IsLiveAdjustRequired()
+bool PlayerInstanceAAMP::IsLiveAdjustRequired()
 {
 	bool retValue;
 
@@ -583,60 +583,60 @@ bool PrivateInstanceAAMP::IsLiveAdjustRequired()
 	return retValue;
 }
 
-void PrivateInstanceAAMP::UpdateLiveOffset()
+void PlayerInstanceAAMP::UpdateLiveOffset()
 {
 }
 
-void PrivateInstanceAAMP::StoreLanguageList(const std::set<std::string> &langlist)
+void PlayerInstanceAAMP::StoreLanguageList(const std::set<std::string> &langlist)
 {
 }
 
-bool PrivateInstanceAAMP::DownloadsAreEnabled(void)
+bool PlayerInstanceAAMP::DownloadsAreEnabled(void)
 {
 	return true;
 }
 
-void PrivateInstanceAAMP::SendDownloadErrorEvent(AAMPTuneFailure tuneFailure, int error_code)
+void PlayerInstanceAAMP::SendDownloadErrorEvent(AAMPTuneFailure tuneFailure, int error_code)
 {
 }
 
-BitsPerSecond PrivateInstanceAAMP::GetMaximumBitrate()
+BitsPerSecond PlayerInstanceAAMP::GetMaximumBitrate()
 {
 	return LONG_MAX;
 }
 
-void PrivateInstanceAAMP::UpdateVideoEndProfileResolution(AampMediaType mediaType,
+void PlayerInstanceAAMP::UpdateVideoEndProfileResolution(AampMediaType mediaType,
 														  BitsPerSecond bitrate, int width,
 														  int height)
 {
 }
 
-BitsPerSecond PrivateInstanceAAMP::GetDefaultBitrate()
+BitsPerSecond PlayerInstanceAAMP::GetDefaultBitrate()
 {
 	return 0;
 }
 
-void PrivateInstanceAAMP::UpdateDuration(double seconds)
+void PlayerInstanceAAMP::UpdateDuration(double seconds)
 {
 }
 
-void PrivateInstanceAAMP::SetCurlTimeout(long timeoutMS, AampCurlInstance instance)
+void PlayerInstanceAAMP::SetCurlTimeout(long timeoutMS, AampCurlInstance instance)
 {
 }
 
-void PrivateInstanceAAMP::CurlInit(AampCurlInstance startIdx, unsigned int instanceCount,
+void PlayerInstanceAAMP::CurlInit(AampCurlInstance startIdx, unsigned int instanceCount,
 								   std::string proxyName)
 {
 }
 
-void PrivateInstanceAAMP::DisableMediaDownloads(AampMediaType type)
+void PlayerInstanceAAMP::DisableMediaDownloads(AampMediaType type)
 {
 }
 
 /**
  * @brief Set Content Type
  */
-void PrivateInstanceAAMP::SetContentType(const char *cType)
+void PlayerInstanceAAMP::SetContentType(const char *cType)
 {
 	mContentType = ContentType_UNKNOWN; // default unknown
 	if (nullptr != cType)
@@ -705,130 +705,130 @@ void PrivateInstanceAAMP::SetContentType(const char *cType)
 	}
 }
 
-void PrivateInstanceAAMP::UpdateVideoEndMetrics(AampMediaType mediaType, BitsPerSecond bitrate,
+void PlayerInstanceAAMP::UpdateVideoEndMetrics(AampMediaType mediaType, BitsPerSecond bitrate,
 												int curlOrHTTPCode, std::string &strUrl,
 												double duration, double curlDownloadTime)
 {
 }
 
-void PrivateInstanceAAMP::CurlTerm(AampCurlInstance startIdx, unsigned int instanceCount)
+void PlayerInstanceAAMP::CurlTerm(AampCurlInstance startIdx, unsigned int instanceCount)
 {
 }
 
-void PrivateInstanceAAMP::DisableDownloads(void)
+void PlayerInstanceAAMP::DisableDownloads(void)
 {
 }
 
-int PrivateInstanceAAMP::GetInitialBufferDuration()
-{
-	return 0;
-}
-
-BitsPerSecond PrivateInstanceAAMP::GetMinimumBitrate()
+int PlayerInstanceAAMP::GetInitialBufferDuration()
 {
 	return 0;
 }
 
-bool PrivateInstanceAAMP::IsAuxiliaryAudioEnabled(void)
+BitsPerSecond PlayerInstanceAAMP::GetMinimumBitrate()
+{
+	return 0;
+}
+
+bool PlayerInstanceAAMP::IsAuxiliaryAudioEnabled(void)
 {
 	return true;
 }
 
-bool PrivateInstanceAAMP::IsPlayEnabled()
+bool PlayerInstanceAAMP::IsPlayEnabled()
 {
 	return true;
 }
 
-bool PrivateInstanceAAMP::IsSubtitleEnabled(void)
+bool PlayerInstanceAAMP::IsSubtitleEnabled(void)
 {
 	return true;
 }
 
-void PrivateInstanceAAMP::NotifyAudioTracksChanged()
+void PlayerInstanceAAMP::NotifyAudioTracksChanged()
 {
 }
 
-void PrivateInstanceAAMP::NotifyFirstFragmentDecrypted()
+void PlayerInstanceAAMP::NotifyFirstFragmentDecrypted()
 {
 }
 
-void PrivateInstanceAAMP::NotifyTextTracksChanged()
+void PlayerInstanceAAMP::NotifyTextTracksChanged()
 {
 }
 
-void PrivateInstanceAAMP::PreCachePlaylistDownloadTask()
+void PlayerInstanceAAMP::PreCachePlaylistDownloadTask()
 {
 }
 
-void PrivateInstanceAAMP::ReportBulkTimedMetadata()
+void PlayerInstanceAAMP::ReportBulkTimedMetadata()
 {
 }
 
-void PrivateInstanceAAMP::ReportTimedMetadata(bool init)
+void PlayerInstanceAAMP::ReportTimedMetadata(bool init)
 {
 }
 
-void PrivateInstanceAAMP::ReportTimedMetadata(long long timeMilliseconds, const char *szName,
+void PlayerInstanceAAMP::ReportTimedMetadata(long long timeMilliseconds, const char *szName,
 											  const char *szContent, int nb, bool bSyncCall,
 											  const char *id, double durationMS)
 {
 }
 
-void PrivateInstanceAAMP::ResetCurrentlyAvailableBandwidth(BitsPerSecond bitsPerSecond,
+void PlayerInstanceAAMP::ResetCurrentlyAvailableBandwidth(BitsPerSecond bitsPerSecond,
 														   bool trickPlay, int profile)
 {
 }
 
-void PrivateInstanceAAMP::ResumeTrackInjection(AampMediaType type)
+void PlayerInstanceAAMP::ResumeTrackInjection(AampMediaType type)
 {
 }
 
-void PrivateInstanceAAMP::SaveTimedMetadata(long long timeMilliseconds, const char *szName,
+void PlayerInstanceAAMP::SaveTimedMetadata(long long timeMilliseconds, const char *szName,
 											const char *szContent, int nb, const char *id,
 											double durationMS)
 {
 }
 
-bool PrivateInstanceAAMP::SendStreamCopy(AampMediaType mediaType, const void *ptr, size_t len,
+bool PlayerInstanceAAMP::SendStreamCopy(AampMediaType mediaType, const void *ptr, size_t len,
 										 double fpts, double fdts, double fDuration)
 {
 	return true;
 }
 
-bool PrivateInstanceAAMP::SendTunedEvent(bool isSynchronous)
+bool PlayerInstanceAAMP::SendTunedEvent(bool isSynchronous)
 {
 	return true;
 }
 
-void PrivateInstanceAAMP::SetPreCacheDownloadList(PreCacheUrlList &dnldListInput)
+void PlayerInstanceAAMP::SetPreCacheDownloadList(PreCacheUrlList &dnldListInput)
 {
 }
 
-void PrivateInstanceAAMP::StopTrackDownloads(AampMediaType type)
+void PlayerInstanceAAMP::StopTrackDownloads(AampMediaType type)
 {
 }
 
-void PrivateInstanceAAMP::StopTrackInjection(AampMediaType type)
+void PlayerInstanceAAMP::StopTrackInjection(AampMediaType type)
 {
 }
 
-void PrivateInstanceAAMP::SyncBegin(void)
+void PlayerInstanceAAMP::SyncBegin(void)
 {
 }
 
-void PrivateInstanceAAMP::SyncEnd(void)
+void PlayerInstanceAAMP::SyncEnd(void)
 {
 }
 
-void PrivateInstanceAAMP::UpdateCullingState(double culledSecs)
+void PlayerInstanceAAMP::UpdateCullingState(double culledSecs)
 {
 }
 
-void PrivateInstanceAAMP::UpdateRefreshPlaylistInterval(float maxIntervalSecs)
+void PlayerInstanceAAMP::UpdateRefreshPlaylistInterval(float maxIntervalSecs)
 {
 }
 
-void PrivateInstanceAAMP::UpdateVideoEndMetrics(AampMediaType mediaType, BitsPerSecond bitrate,
+void PlayerInstanceAAMP::UpdateVideoEndMetrics(AampMediaType mediaType, BitsPerSecond bitrate,
 												int curlOrHTTPCode, std::string &strUrl,
 												double duration, double curlDownloadTime,
 												bool keyChanged, bool isEncrypted,
@@ -836,134 +836,134 @@ void PrivateInstanceAAMP::UpdateVideoEndMetrics(AampMediaType mediaType, BitsPer
 {
 }
 
-void PrivateInstanceAAMP::UpdateVideoEndMetrics(AAMPAbrInfo &info)
+void PlayerInstanceAAMP::UpdateVideoEndMetrics(AAMPAbrInfo &info)
 {
 }
 
-void PrivateInstanceAAMP::UpdateVideoEndMetrics(AampMediaType mediaType, BitsPerSecond bitrate,
+void PlayerInstanceAAMP::UpdateVideoEndMetrics(AampMediaType mediaType, BitsPerSecond bitrate,
 												int curlOrHTTPCode, std::string &strUrl,
 												double curlDownloadTime, ManifestData *manifestData)
 {
 }
 
-bool PrivateInstanceAAMP::WebVTTCueListenersRegistered(void)
+bool PlayerInstanceAAMP::WebVTTCueListenersRegistered(void)
 {
 	return true;
 }
 
-LangCodePreference PrivateInstanceAAMP::GetLangCodePreference() const
+LangCodePreference PlayerInstanceAAMP::GetLangCodePreference() const
 {
 	return ISO639_NO_LANGCODE_PREFERENCE;
 }
 
-TunedEventConfig PrivateInstanceAAMP::GetTuneEventConfig(bool isLive)
+TunedEventConfig PlayerInstanceAAMP::GetTuneEventConfig(bool isLive)
 {
 	return eTUNED_EVENT_ON_PLAYLIST_INDEXED;
 }
 
-std::string PrivateInstanceAAMP::GetNetworkProxy()
+std::string PlayerInstanceAAMP::GetNetworkProxy()
 {
 	std::string s;
 	return s;
 }
 
-AampCurlInstance PrivateInstanceAAMP::GetPlaylistCurlInstance(AampMediaType type,
+AampCurlInstance PlayerInstanceAAMP::GetPlaylistCurlInstance(AampMediaType type,
 															  bool isInitialDownload)
 {
 	return eCURLINSTANCE_MANIFEST_PLAYLIST_VIDEO;
 }
 
-void PrivateInstanceAAMP::BlockUntilGstreamerWantsData(void (*cb)(void), int periodMs, int track)
+void PlayerInstanceAAMP::BlockUntilGstreamerWantsData(void (*cb)(void), int periodMs, int track)
 {
 }
 
-void PrivateInstanceAAMP::CheckForDiscontinuityStall(AampMediaType mediaType)
+void PlayerInstanceAAMP::CheckForDiscontinuityStall(AampMediaType mediaType)
 {
 }
 
-bool PrivateInstanceAAMP::Discontinuity(AampMediaType track, bool setDiscontinuityFlag)
-{
-	return true;
-}
-
-bool PrivateInstanceAAMP::DiscontinuitySeenInAllTracks()
+bool PlayerInstanceAAMP::Discontinuity(AampMediaType track, bool setDiscontinuityFlag)
 {
 	return true;
 }
 
-bool PrivateInstanceAAMP::DiscontinuitySeenInAnyTracks()
+bool PlayerInstanceAAMP::DiscontinuitySeenInAllTracks()
 {
 	return true;
 }
 
-void PrivateInstanceAAMP::EnableMediaDownloads(AampMediaType type)
+bool PlayerInstanceAAMP::DiscontinuitySeenInAnyTracks()
+{
+	return true;
+}
+
+void PlayerInstanceAAMP::EnableMediaDownloads(AampMediaType type)
 {
 }
 
-void PrivateInstanceAAMP::EndOfStreamReached(AampMediaType mediaType)
+void PlayerInstanceAAMP::EndOfStreamReached(AampMediaType mediaType)
 {
 }
 
-uint32_t PrivateInstanceAAMP::GetAudTimeScale(void)
+uint32_t PlayerInstanceAAMP::GetAudTimeScale(void)
 {
 	return 0u;
 }
 
-uint32_t PrivateInstanceAAMP::GetSubTimeScale(void)
+uint32_t PlayerInstanceAAMP::GetSubTimeScale(void)
 {
 	return 0u;
 }
 
-BitsPerSecond PrivateInstanceAAMP::GetCurrentlyAvailableBandwidth(void)
+BitsPerSecond PlayerInstanceAAMP::GetCurrentlyAvailableBandwidth(void)
 {
 	return 0;
 }
 
-BitsPerSecond PrivateInstanceAAMP::GetIframeBitrate()
+BitsPerSecond PlayerInstanceAAMP::GetIframeBitrate()
 {
 	return 0;
 }
 
-BitsPerSecond PrivateInstanceAAMP::GetIframeBitrate4K()
+BitsPerSecond PlayerInstanceAAMP::GetIframeBitrate4K()
 {
 	return 0;
 }
 
-AampLLDashServiceData *PrivateInstanceAAMP::GetLLDashServiceData(void)
+AampLLDashServiceData *PlayerInstanceAAMP::GetLLDashServiceData(void)
 {
 	return &this->mAampLLDashServiceData;
 }
 
-uint32_t PrivateInstanceAAMP::GetVidTimeScale(void)
+uint32_t PlayerInstanceAAMP::GetVidTimeScale(void)
 {
 	return 0u;
 }
 
-void PrivateInstanceAAMP::interruptibleMsSleep(int timeInMs)
+void PlayerInstanceAAMP::interruptibleMsSleep(int timeInMs)
 {
 }
 
-bool PrivateInstanceAAMP::IsDiscontinuityIgnoredForOtherTrack(AampMediaType track)
-{
-	return true;
-}
-
-bool PrivateInstanceAAMP::IsDiscontinuityIgnoredForCurrentTrack(AampMediaType track)
+bool PlayerInstanceAAMP::IsDiscontinuityIgnoredForOtherTrack(AampMediaType track)
 {
 	return true;
 }
 
-bool PrivateInstanceAAMP::IsDiscontinuityProcessPending()
+bool PlayerInstanceAAMP::IsDiscontinuityIgnoredForCurrentTrack(AampMediaType track)
 {
 	return true;
 }
 
-bool PrivateInstanceAAMP::IsSinkCacheEmpty(AampMediaType mediaType)
+bool PlayerInstanceAAMP::IsDiscontinuityProcessPending()
 {
 	return true;
 }
 
-void PrivateInstanceAAMP::NotifyBitRateChangeEvent(BitsPerSecond bitrate,
+bool PlayerInstanceAAMP::IsSinkCacheEmpty(AampMediaType mediaType)
+{
+	return true;
+}
+
+void PlayerInstanceAAMP::NotifyBitRateChangeEvent(BitsPerSecond bitrate,
 												   BitrateChangeReason reason, int width,
 												   int height, double frameRate, double position,
 												   bool GetBWIndex, VideoScanType scantype,
@@ -971,136 +971,136 @@ void PrivateInstanceAAMP::NotifyBitRateChangeEvent(BitsPerSecond bitrate,
 {
 }
 
-void PrivateInstanceAAMP::NotifyFragmentCachingComplete()
+void PlayerInstanceAAMP::NotifyFragmentCachingComplete()
 {
 }
 
-void PrivateInstanceAAMP::ResetEOSSignalledFlag()
+void PlayerInstanceAAMP::ResetEOSSignalledFlag()
 {
 }
 
-void PrivateInstanceAAMP::ResetTrackDiscontinuityIgnoredStatus(void)
+void PlayerInstanceAAMP::ResetTrackDiscontinuityIgnoredStatus(void)
 {
 }
 
-void PrivateInstanceAAMP::ResetTrackDiscontinuityIgnoredStatusForTrack(AampMediaType track)
+void PlayerInstanceAAMP::ResetTrackDiscontinuityIgnoredStatusForTrack(AampMediaType track)
 {
 }
 
-void PrivateInstanceAAMP::ScheduleRetune(PlaybackErrorType errorType, AampMediaType trackType, bool bufferFull )
+void PlayerInstanceAAMP::ScheduleRetune(PlaybackErrorType errorType, AampMediaType trackType, bool bufferFull )
 {
 }
 
-void PrivateInstanceAAMP::SendStalledErrorEvent()
+void PlayerInstanceAAMP::SendStalledErrorEvent()
 {
 }
 
-void PrivateInstanceAAMP::SetTrackDiscontinuityIgnoredStatus(AampMediaType track)
+void PlayerInstanceAAMP::SetTrackDiscontinuityIgnoredStatus(AampMediaType track)
 {
 }
 
-void PrivateInstanceAAMP::StopBuffering(bool forceStop)
+void PlayerInstanceAAMP::StopBuffering(bool forceStop)
 {
 }
 
-bool PrivateInstanceAAMP::TrackDownloadsAreEnabled(AampMediaType type)
+bool PlayerInstanceAAMP::TrackDownloadsAreEnabled(AampMediaType type)
 {
 	return true;
 }
 
-void PrivateInstanceAAMP::UnblockWaitForDiscontinuityProcessToComplete(void)
+void PlayerInstanceAAMP::UnblockWaitForDiscontinuityProcessToComplete(void)
 {
 }
 
-void PrivateInstanceAAMP::CompleteDiscontinuityDataDeliverForPTSRestamp(AampMediaType type)
+void PlayerInstanceAAMP::CompleteDiscontinuityDataDeliverForPTSRestamp(AampMediaType type)
 {
 }
 
-void PrivateInstanceAAMP::SendAnomalyEvent(AAMPAnomalyMessageType type, const char *format, ...)
+void PlayerInstanceAAMP::SendAnomalyEvent(AAMPAnomalyMessageType type, const char *format, ...)
 {
 }
 
-void PrivateInstanceAAMP::LoadAampAbrConfig(void)
+void PlayerInstanceAAMP::LoadAampAbrConfig(void)
 {
 }
 
-void PrivateInstanceAAMP::SetLowLatencyServiceConfigured(bool bConfig)
+void PlayerInstanceAAMP::SetLowLatencyServiceConfigured(bool bConfig)
 {
 }
 
-void PrivateInstanceAAMP::SetLLDashServiceData(AampLLDashServiceData &stAampLLDashServiceData)
+void PlayerInstanceAAMP::SetLLDashServiceData(AampLLDashServiceData &stAampLLDashServiceData)
 {
 	this->mAampLLDashServiceData = stAampLLDashServiceData;
 }
 
-bool PrivateInstanceAAMP::GetLowLatencyServiceConfigured()
+bool PlayerInstanceAAMP::GetLowLatencyServiceConfigured()
 {
 	return false;
 }
 
-long long PrivateInstanceAAMP::DurationFromStartOfPlaybackMs(void)
+long long PlayerInstanceAAMP::DurationFromStartOfPlaybackMs(void)
 {
 	return 0;
 }
 
-void PrivateInstanceAAMP::UpdateVideoEndMetrics(double adjustedRate)
+void PlayerInstanceAAMP::UpdateVideoEndMetrics(double adjustedRate)
 {
 }
 
-void PrivateInstanceAAMP::SendAdReservationEvent(AAMPEventType type, const std::string &adBreakId,
+void PlayerInstanceAAMP::SendAdReservationEvent(AAMPEventType type, const std::string &adBreakId,
 												 uint64_t position, uint64_t absolutePositionMs, bool immediate)
 {
 }
 
-void PrivateInstanceAAMP::SendAdPlacementEvent(AAMPEventType type, const std::string &adId,
+void PlayerInstanceAAMP::SendAdPlacementEvent(AAMPEventType type, const std::string &adId,
 											   uint32_t position, uint64_t absolutePositionMs, uint32_t adOffset,
 											   uint32_t adDuration, bool immediate, long error_code)
 {
 }
 
-bool PrivateInstanceAAMP::IsLiveStream(void)
+bool PlayerInstanceAAMP::IsLiveStream(void)
 {
 	return mIsLiveStream;
 }
 
-void PrivateInstanceAAMP::WaitForDiscontinuityProcessToComplete(void)
+void PlayerInstanceAAMP::WaitForDiscontinuityProcessToComplete(void)
 {
 }
 
-void PrivateInstanceAAMP::SendSupportedSpeedsChangedEvent(bool isIframeTrackPresent)
+void PlayerInstanceAAMP::SendSupportedSpeedsChangedEvent(bool isIframeTrackPresent)
 {
 }
 
-BitsPerSecond PrivateInstanceAAMP::GetDefaultBitrate4K()
+BitsPerSecond PlayerInstanceAAMP::GetDefaultBitrate4K()
 {
 	return 0;
 }
 
-void PrivateInstanceAAMP::SaveNewTimedMetadata(long long timeMS, const char *szName,
+void PlayerInstanceAAMP::SaveNewTimedMetadata(long long timeMS, const char *szName,
 											   const char *szContent, int nb, const char *id,
 											   double durationMS)
 {
 }
 
-void PrivateInstanceAAMP::FoundEventBreak(const std::string &adBreakId, uint64_t startMS,
+void PlayerInstanceAAMP::FoundEventBreak(const std::string &adBreakId, uint64_t startMS,
 										  EventBreakInfo brInfo)
 {
 }
 
-void PrivateInstanceAAMP::SendAdResolvedEvent(const std::string &adId, bool status,
+void PlayerInstanceAAMP::SendAdResolvedEvent(const std::string &adId, bool status,
 											  uint64_t startMS, uint64_t durationMs)
 {
 }
 
-void PrivateInstanceAAMP::ReportContentGap(long long timeMS, std::string id, double durationMS)
+void PlayerInstanceAAMP::ReportContentGap(long long timeMS, std::string id, double durationMS)
 {
 }
 
-void PrivateInstanceAAMP::SendHTTPHeaderResponse()
+void PlayerInstanceAAMP::SendHTTPHeaderResponse()
 {
 }
 
-void PrivateInstanceAAMP::LoadIDX(ProfilerBucketType bucketType, std::string fragmentUrl,
+void PlayerInstanceAAMP::LoadIDX(ProfilerBucketType bucketType, std::string fragmentUrl,
 								  std::string &effectiveUrl, AampGrowableBuffer *fragment,
 								  unsigned int curlInstance, const char *range, int *http_code,
 								  double *downloadTime, AampMediaType fileType, int *fogError)
@@ -1108,50 +1108,50 @@ void PrivateInstanceAAMP::LoadIDX(ProfilerBucketType bucketType, std::string fra
 	return;
 }
 
-void PrivateInstanceAAMP::LicenseRenewal(DrmHelperPtr drmHelper, void *userData)
+void PlayerInstanceAAMP::LicenseRenewal(DrmHelperPtr drmHelper, void *userData)
 {
 }
 
-void PrivateInstanceAAMP::ID3MetadataHandler(AampMediaType, const uint8_t *, size_t,
+void PlayerInstanceAAMP::ID3MetadataHandler(AampMediaType, const uint8_t *, size_t,
 											 const SegmentInfo_t &, const char *scheme_uri)
 {
 }
 
-void PrivateInstanceAAMP::ResetProfileCache()
+void PlayerInstanceAAMP::ResetProfileCache()
 {
 }
 
-struct curl_slist *PrivateInstanceAAMP::GetCustomHeaders(AampMediaType fileType)
+struct curl_slist *PlayerInstanceAAMP::GetCustomHeaders(AampMediaType fileType)
 {
 
 	return nullptr;
 }
 
-void PrivateInstanceAAMP::ResetDiscontinuityInTracks()
+void PlayerInstanceAAMP::ResetDiscontinuityInTracks()
 {
 }
 
-std::shared_ptr<ManifestDownloadConfig> PrivateInstanceAAMP::prepareManifestDownloadConfig()
+std::shared_ptr<ManifestDownloadConfig> PlayerInstanceAAMP::prepareManifestDownloadConfig()
 {
 	return nullptr;
 }
 
-std::string PrivateInstanceAAMP::GetVideoPlaybackQuality()
+std::string PlayerInstanceAAMP::GetVideoPlaybackQuality()
 {
 	std::string result = "videoplayback";
 	return result;
 }
 
-bool PrivateInstanceAAMP::PipelineValid(AampMediaType track)
+bool PlayerInstanceAAMP::PipelineValid(AampMediaType track)
 {
 	return true;
 }
 
-void PrivateInstanceAAMP::NotifyFirstVideoPTS(unsigned long long pts, unsigned long timeScale)
+void PlayerInstanceAAMP::NotifyFirstVideoPTS(unsigned long long pts, unsigned long timeScale)
 {
 }
 
-void PrivateInstanceAAMP::NotifyVideoBasePTS(unsigned long long basepts, unsigned long timeScale)
+void PlayerInstanceAAMP::NotifyVideoBasePTS(unsigned long long basepts, unsigned long timeScale)
 {
 }
 
@@ -1159,24 +1159,24 @@ void PrivateInstanceAAMP::NotifyVideoBasePTS(unsigned long long basepts, unsigne
  * @brief Get Last downloaded manifest for DASH
  * @return last downloaded manifest data
  */
-void PrivateInstanceAAMP::GetLastDownloadedManifest(std::string &manifestBuffer)
+void PlayerInstanceAAMP::GetLastDownloadedManifest(std::string &manifestBuffer)
 {
 }
 
-void PrivateInstanceAAMP::ProcessID3Metadata(char *segment, size_t size, AampMediaType type,
+void PlayerInstanceAAMP::ProcessID3Metadata(char *segment, size_t size, AampMediaType type,
 											 uint64_t timeStampOffset)
 {
 }
 
-void PrivateInstanceAAMP::SetVidTimeScale(uint32_t vidTimeScale)
+void PlayerInstanceAAMP::SetVidTimeScale(uint32_t vidTimeScale)
 {
 }
 
-void PrivateInstanceAAMP::SetAudTimeScale(uint32_t audTimeScale)
+void PlayerInstanceAAMP::SetAudTimeScale(uint32_t audTimeScale)
 {
 }
 
-void PrivateInstanceAAMP::SignalTrickModeDiscontinuity()
+void PlayerInstanceAAMP::SignalTrickModeDiscontinuity()
 {
 }
 
@@ -1184,19 +1184,19 @@ void PrivateInstanceAAMP::SignalTrickModeDiscontinuity()
  * @brief Resume downloads for a track.
  * Called from StreamSink to control flow
  */
-void PrivateInstanceAAMP::ResumeTrackDownloads(AampMediaType)
+void PlayerInstanceAAMP::ResumeTrackDownloads(AampMediaType)
 {
 }
 
-void PrivateInstanceAAMP::SetDiscontinuityParam()
+void PlayerInstanceAAMP::SetDiscontinuityParam()
 {
 }
 
-void PrivateInstanceAAMP::SetLatencyParam(double latency, double buffer, double playbackRate, double bw)
+void PlayerInstanceAAMP::SetLatencyParam(double latency, double buffer, double playbackRate, double bw)
 {
 }
 
-void PrivateInstanceAAMP::FlushStreamSink(double position, double rate)
+void PlayerInstanceAAMP::FlushStreamSink(double position, double rate)
 {
 }
 
@@ -1204,7 +1204,7 @@ void PrivateInstanceAAMP::FlushStreamSink(double position, double rate)
  * @brief to check gstsubtec flag and vttcueventlistener
  */
 
-bool PrivateInstanceAAMP::IsGstreamerSubsEnabled(void)
+bool PlayerInstanceAAMP::IsGstreamerSubsEnabled(void)
 {
 	return false;
 }
@@ -1213,7 +1213,7 @@ bool PrivateInstanceAAMP::IsGstreamerSubsEnabled(void)
  * @brief Set Discontinuity handling period change marked flag
  * @param[in] value Period change marked flag
  */
-void PrivateInstanceAAMP::SetIsPeriodChangeMarked(bool value)
+void PlayerInstanceAAMP::SetIsPeriodChangeMarked(bool value)
 {
 	mIsPeriodChangeMarked = value;
 }
@@ -1222,102 +1222,102 @@ void PrivateInstanceAAMP::SetIsPeriodChangeMarked(bool value)
  * @brief Get Discontinuity handling period change marked flag
  * @return Period change marked flag
  */
-bool PrivateInstanceAAMP::GetIsPeriodChangeMarked()
+bool PlayerInstanceAAMP::GetIsPeriodChangeMarked()
 {
 	return mIsPeriodChangeMarked;
 }
 
-long long PrivateInstanceAAMP::GetVideoPTS()
+long long PlayerInstanceAAMP::GetVideoPTS()
 {
 	return 0;
 }
 
-bool PrivateInstanceAAMP::SignalSubtitleClock( void )
+bool PlayerInstanceAAMP::SignalSubtitleClock( void )
 {
 	return false;
 }
 
-int PrivateInstanceAAMP::ScheduleAsyncTask(IdleTask task, void *arg, std::string taskName)
+int PlayerInstanceAAMP::ScheduleAsyncTask(IdleTask task, void *arg, std::string taskName)
 {
 	return 0;
 }
 
-bool PrivateInstanceAAMP::RemoveAsyncTask(int taskId)
+bool PlayerInstanceAAMP::RemoveAsyncTask(int taskId)
 {
 	return false;
 }
 
-void PrivateInstanceAAMP::NotifyFirstFrameReceived(unsigned long)
+void PlayerInstanceAAMP::NotifyFirstFrameReceived(unsigned long)
 {
 }
 
-void PrivateInstanceAAMP::NotifyEOSReached()
+void PlayerInstanceAAMP::NotifyEOSReached()
 {
 }
 
-void PrivateInstanceAAMP::ReportProgress(bool sync, bool beginningOfStream)
+void PlayerInstanceAAMP::ReportProgress(bool sync, bool beginningOfStream)
 {
 }
 
-void PrivateInstanceAAMP::NotifyFirstVideoFrameDisplayed()
+void PlayerInstanceAAMP::NotifyFirstVideoFrameDisplayed()
 {
 }
 
-void PrivateInstanceAAMP::LogFirstFrame(void)
+void PlayerInstanceAAMP::LogFirstFrame(void)
 {
 }
 
-void PrivateInstanceAAMP::LogTuneComplete(void)
+void PlayerInstanceAAMP::LogTuneComplete(void)
 {
 }
 
-void PrivateInstanceAAMP::InitializeCC(unsigned long)
+void PlayerInstanceAAMP::InitializeCC(unsigned long)
 {
 }
 
-bool PrivateInstanceAAMP::IsFirstVideoFrameDisplayedRequired()
+bool PlayerInstanceAAMP::IsFirstVideoFrameDisplayedRequired()
 {
 	return false;
 }
 
-void PrivateInstanceAAMP::UpdateSubtitleTimestamp()
+void PlayerInstanceAAMP::UpdateSubtitleTimestamp()
 {
 }
 
-double PrivateInstanceAAMP::GetFirstPTS()
+double PlayerInstanceAAMP::GetFirstPTS()
 {
 	return 0;
 }
 
-int PrivateInstanceAAMP::GetCurrentAudioTrackId()
+int PlayerInstanceAAMP::GetCurrentAudioTrackId()
 {
 	return 0;
 }
 
-void PrivateInstanceAAMP::PauseSubtitleParser(bool pause)
+void PlayerInstanceAAMP::PauseSubtitleParser(bool pause)
 {
 }
 
-bool PrivateInstanceAAMP::PausePipeline(bool pause, bool forceStopGstreamerPreBuffering)
+bool PlayerInstanceAAMP::PausePipeline(bool pause, bool forceStopGstreamerPreBuffering)
 {
 	return false;
 }
 
-void PrivateInstanceAAMP::SendBufferChangeEvent(bool bufferingStopped)
+void PlayerInstanceAAMP::SendBufferChangeEvent(bool bufferingStopped)
 {
 }
 
-long long PrivateInstanceAAMP::GetPositionRelativeToSeekMilliseconds(long long rate,
+long long PlayerInstanceAAMP::GetPositionRelativeToSeekMilliseconds(long long rate,
 																	 long long trickStartUTCMS)
 {
 	return 0;
 }
 
-void PrivateInstanceAAMP::CacheAndApplySubtitleMute(bool muted)
+void PlayerInstanceAAMP::CacheAndApplySubtitleMute(bool muted)
 {
 }
 
-std::string PrivateInstanceAAMP::SendManifestPreProcessEvent()
+std::string PlayerInstanceAAMP::SendManifestPreProcessEvent()
 {
 	std::string  bRetManifestData;
 	if(!mProvidedManifestFile.empty())
@@ -1327,17 +1327,17 @@ std::string PrivateInstanceAAMP::SendManifestPreProcessEvent()
 	return bRetManifestData;
 }
 
-void PrivateInstanceAAMP::updateManifest(const char *manifestData)
+void PlayerInstanceAAMP::updateManifest(const char *manifestData)
 {
 	if(NULL != manifestData)
 		mProvidedManifestFile = manifestData;
 }
 
-void PrivateInstanceAAMP::IncrementGaps()
+void PlayerInstanceAAMP::IncrementGaps()
 {
 }
 
-double PrivateInstanceAAMP::GetStreamPositionMs()
+double PlayerInstanceAAMP::GetStreamPositionMs()
 {
 	return 0.0;
 }

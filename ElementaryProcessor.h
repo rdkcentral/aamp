@@ -26,7 +26,7 @@
 #define __ELEMENTARYPROCESSOR_H__
 
 #include "mediaprocessor.h"
-#include "priv_aamp.h"
+#include "main_aamp.h"
 #include <mutex>
 #include <condition_variable>
 
@@ -41,11 +41,11 @@ public:
 	/**
 	 * @fn ElementaryProcessor
 	 *
-	 * @param[in] aamp - PrivateInstanceAAMP pointer
+	 * @param[in] aamp - PlayerInstanceAAMP pointer
 	 * @param[in] trackType - track type (A/V)
 	 * @param[in] peerBmffProcessor - peer instance of ElementaryProcessor
 	 */
-	ElementaryProcessor(class PrivateInstanceAAMP *aamp);
+	ElementaryProcessor(class PlayerInstanceAAMP *aamp);
 
 	/**
 	 * @fn ~ElementaryProcessor
@@ -178,7 +178,7 @@ private:
 	 */
     void setBasePTS(uint64_t pts){ basePTS = pts; }
 
-	PrivateInstanceAAMP *p_aamp;
+	PlayerInstanceAAMP *p_aamp;
 	ContentType contentType;
 	MediaFormat mediaFormat;
 

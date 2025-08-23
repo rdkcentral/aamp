@@ -29,7 +29,7 @@
 #include <map>
 #include <vector>
 
-#include "priv_aamp.h"
+#include "main_aamp.h"
 #include "AampcliCommand.h"
 #include "AampcliGet.h"
 #include "AampcliSet.h"

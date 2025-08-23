@@ -47,7 +47,7 @@ TestUtilJsonWrapper::~TestUtilJsonWrapper()
 	cJSON_Delete(mJsonObj);
 }
 
-TestUtilDrm::TestUtilDrm(PrivateInstanceAAMP* privAamp)
+TestUtilDrm::TestUtilDrm(PlayerInstanceAAMP* privAamp)
 	: mAamp(privAamp)
 {
 	mLicenseManager = aamp_utils::make_unique<AampDRMLicenseManager>(2, mAamp);

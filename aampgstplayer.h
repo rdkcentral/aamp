@@ -25,7 +25,7 @@
 #ifndef AAMPGSTPLAYER_H
 #define AAMPGSTPLAYER_H
 
-#include "priv_aamp.h"
+#include "main_aamp.h"
 #include "ID3Metadata.hpp"
 
 #include <stddef.h>
@@ -105,8 +105,8 @@ private:
 	bool SendHelper(AampMediaType mediaType, const void *ptr, size_t len, double fpts, double fdts, double duration, bool copy, double fragmentPTSoffset, bool initFragment = false, bool discontinuity = false);
 
 public:
-	class PrivateInstanceAAMP *aamp;
-	class PrivateInstanceAAMP *mEncryptedAamp;
+	class PlayerInstanceAAMP *aamp;
+	class PlayerInstanceAAMP *mEncryptedAamp;
 	InterfacePlayerRDK* playerInterface;
 	/**
 		 * @fn Configure
@@ -304,7 +304,7 @@ public:
 	 * @param[in] aamp Pointer to parent aamp instance
 	 * @param[in] id3HandlerCallback Function to call to generate the JS event for in ID3 packet
 	 */
-	AAMPGstPlayer(PrivateInstanceAAMP *aamp, id3_callback_t id3HandlerCallback, std::function< void(const unsigned char *, int, int, int) > exportFrames = nullptr);
+	AAMPGstPlayer(PlayerInstanceAAMP *aamp, id3_callback_t id3HandlerCallback, std::function< void(const unsigned char *, int, int, int) > exportFrames = nullptr);
 	AAMPGstPlayer(const AAMPGstPlayer&) = delete;
 	AAMPGstPlayer& operator=(const AAMPGstPlayer&) = delete;
 	/**
@@ -368,25 +368,25 @@ public:
 
 	/**
 	 * @fn ChangeAamp
-	 * @brief Change the instance of PrivateInstanceAAMP that is using the gstreamer pipeline,
-	 * when it is being used as a single pipeline shared among multiple instances of PrivateInstanceAAMP
-   	 * @param[in] newAamp - pointer to new instance of PrivateInstanceAAMP
-	 * @param[in] id3HandlerCallback - the id3 callback handle associated with this instance of PrivateInstanceAAMP
+	 * @brief Change the instance of PlayerInstanceAAMP that is using the gstreamer pipeline,
+	 * when it is being used as a single pipeline shared among multiple instances of PlayerInstanceAAMP
+   	 * @param[in] newAamp - pointer to new instance of PlayerInstanceAAMP
+	 * @param[in] id3HandlerCallback - the id3 callback handle associated with this instance of PlayerInstanceAAMP
 	 */
-	void ChangeAamp(PrivateInstanceAAMP *newAamp, id3_callback_t id3HandlerCallback);
+	void ChangeAamp(PlayerInstanceAAMP *newAamp, id3_callback_t id3HandlerCallback);
 
 	/**
 	 * @fn IsAssociatedAamp
 	 * @brief Check if the specified player is associated with the pipeline
-   	 * @param[in] aampInstance - pointer to new instance of PrivateInstanceAAMP
+   	 * @param[in] aampInstance - pointer to new instance of PlayerInstanceAAMP
 	 */
-	bool IsAssociatedAamp(PrivateInstanceAAMP *aampInstance);
+	bool IsAssociatedAamp(PlayerInstanceAAMP *aampInstance);
 
 	/**
 	 * @fn SetEncryptedAamp
-   	 * @param[in] aamp - Pointer to the instance of PrivateInstanceAAMP that has the encrypted content
+   	 * @param[in] aamp - Pointer to the instance of PlayerInstanceAAMP that has the encrypted content
 	 */
-	void SetEncryptedAamp(PrivateInstanceAAMP *aamp);
+	void SetEncryptedAamp(PlayerInstanceAAMP *aamp);
 
 	/**
 	 * @fn SignalSubtitleClock

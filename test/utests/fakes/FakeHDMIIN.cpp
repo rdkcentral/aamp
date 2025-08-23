@@ -21,7 +21,7 @@
 #include "hdmiin_shim.h"
 #include "compositein_shim.h"
 
-StreamAbstractionAAMP_VIDEOIN::StreamAbstractionAAMP_VIDEOIN( const std::string name, PlayerThunderAccessPlugin callSign, class PrivateInstanceAAMP *aamp,double seek_pos, float rate, const std::string type)
+StreamAbstractionAAMP_VIDEOIN::StreamAbstractionAAMP_VIDEOIN( const std::string name, PlayerThunderAccessPlugin callSign, class PlayerInstanceAAMP *aamp,double seek_pos, float rate, const std::string type)
                                : StreamAbstractionAAMP(aamp), thunderAccessObj(callSign)
 {
 }
@@ -63,7 +63,7 @@ void StreamAbstractionAAMP_VIDEOIN::StopHelper()
 {
 }
 
-StreamAbstractionAAMP_HDMIIN::StreamAbstractionAAMP_HDMIIN(class PrivateInstanceAAMP *aamp,double seek_pos, float rate)
+StreamAbstractionAAMP_HDMIIN::StreamAbstractionAAMP_HDMIIN(class PlayerInstanceAAMP *aamp,double seek_pos, float rate)
                              : StreamAbstractionAAMP_VIDEOIN("HDMIIN", PlayerThunderAccessPlugin::HDMIINPUT,aamp,seek_pos,rate,"HDMI")
 {
 }
@@ -85,7 +85,7 @@ void StreamAbstractionAAMP_HDMIIN::Stop(bool clearChannelData)
 {
 }
 
-StreamAbstractionAAMP_HDMIIN* StreamAbstractionAAMP_HDMIIN::GetInstance(class PrivateInstanceAAMP *aamp,double seekpos, float rate)
+StreamAbstractionAAMP_HDMIIN* StreamAbstractionAAMP_HDMIIN::GetInstance(class PlayerInstanceAAMP *aamp,double seekpos, float rate)
 {
     return nullptr;
 }
@@ -94,7 +94,7 @@ void StreamAbstractionAAMP_HDMIIN::ResetInstance()
 {
 }
 
- StreamAbstractionAAMP_COMPOSITEIN::StreamAbstractionAAMP_COMPOSITEIN(class PrivateInstanceAAMP *aamp,double seek_pos, float rate)
+ StreamAbstractionAAMP_COMPOSITEIN::StreamAbstractionAAMP_COMPOSITEIN(class PlayerInstanceAAMP *aamp,double seek_pos, float rate)
                               : StreamAbstractionAAMP_VIDEOIN("COMPOSITEIN", PlayerThunderAccessPlugin::COMPOSITEINPUT, aamp,seek_pos,rate,"COMPOSITE")
  {
  }
@@ -116,7 +116,7 @@ void StreamAbstractionAAMP_HDMIIN::ResetInstance()
  {
  }
 
-StreamAbstractionAAMP_COMPOSITEIN* StreamAbstractionAAMP_COMPOSITEIN::GetInstance(class PrivateInstanceAAMP *aamp,double seekpos, float rate)
+StreamAbstractionAAMP_COMPOSITEIN* StreamAbstractionAAMP_COMPOSITEIN::GetInstance(class PlayerInstanceAAMP *aamp,double seekpos, float rate)
 {
     return nullptr;
 }

@@ -24,7 +24,7 @@
 #include <algorithm>
 #include <unordered_map>
 #include <memory>
-#include "priv_aamp.h"
+#include "main_aamp.h"
 #include "AampLogManager.h"
 
 // Enable all log levels for L1 testing by default and lock the minimum log level,

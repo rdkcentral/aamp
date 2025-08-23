@@ -37,7 +37,7 @@
 #include "AampUtils.h"
 #include "AampLogManager.h"
 #include "AampConfig.h"
-#include "priv_aamp.h"
+#include "main_aamp.h"
 
 namespace aamp
 {
@@ -54,7 +54,7 @@ namespace aamp
 	class AampTrackWorker
 	{
 	public:
-		AampTrackWorker(PrivateInstanceAAMP *_aamp, AampMediaType _mediaType);
+		AampTrackWorker(PlayerInstanceAAMP *_aamp, AampMediaType _mediaType);
 		~AampTrackWorker();
 
 		void SubmitJob(std::function<void()> job);
@@ -67,7 +67,7 @@ namespace aamp
 		std::condition_variable mCondVar;
 		std::condition_variable mCompletionVar;
 		std::function<void()> mJob;
-		PrivateInstanceAAMP *aamp;
+		PlayerInstanceAAMP *aamp;
 		bool mJobAvailable;
 		bool mStop;
 

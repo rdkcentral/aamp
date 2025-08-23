@@ -18,7 +18,7 @@
  */
 #include <gtest/gtest.h>
 #include "videoin_shim.h"
-#include "priv_aamp.h"
+#include "main_aamp.h"
 #include <stdlib.h>
 #include <string.h>
 #include <signal.h>
@@ -33,7 +33,7 @@ class StreamAbstractionAAMP_VIDEOINTest : public ::testing::Test
 protected:
     void SetUp() override
     {
-        auto aamp = new PrivateInstanceAAMP();
+        auto aamp = new PlayerInstanceAAMP();
         std::string type = "HDMI";
         std::string name = "Name";       // Provide the appropriate name
         PlayerThunderAccessPlugin callSign = PlayerThunderAccessPlugin::COMPOSITEINPUT; // Provide the appropriate callSign
@@ -49,7 +49,7 @@ protected:
     {
     public:
         TestableStreamAbstraction(const std::string &name, const PlayerThunderAccessPlugin &callSign,
-                                  PrivateInstanceAAMP *aamp,
+                                  PlayerInstanceAAMP *aamp,
                                   double startTime, double playRate, const std::string &type)
             : StreamAbstractionAAMP_VIDEOIN(name, callSign, aamp, startTime, playRate, type)
         {

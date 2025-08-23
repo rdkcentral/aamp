@@ -30,7 +30,7 @@ AampConfig *gpGlobalConfig{ nullptr };
 class MockProgressiveFetcher : public StreamAbstractionAAMP_PROGRESSIVE
 {
 public:
-    MockProgressiveFetcher(class PrivateInstanceAAMP *aamp,double seekpos, float rate)
+    MockProgressiveFetcher(class PlayerInstanceAAMP *aamp,double seekpos, float rate)
         : StreamAbstractionAAMP_PROGRESSIVE(aamp, seekpos, rate)
     {
     }
@@ -60,13 +60,13 @@ protected:
 class fragmentcollector_progressiveTests : public ::testing::Test
 {
 public:
-    PrivateInstanceAAMP* aamp;
+    PlayerInstanceAAMP* aamp;
 
 protected:
 
     void SetUp() override
     {
-        aamp = new PrivateInstanceAAMP();
+        aamp = new PlayerInstanceAAMP();
         double seek_pos = 0.0; // Provide the desired seek_pos value
         float rate = 1.0;      // Provide the desired rate value
         profileEvent = new StreamAbstractionAAMP_PROGRESSIVE(aamp, seek_pos, rate);
@@ -145,7 +145,7 @@ TEST_F(fragmentcollector_progressiveTests, GetStreamFormatTest) {
 TEST_F(fragmentcollector_progressiveTests, Destructor)
 {
     // Create an instance of StreamAbstractionAAMP_PROGRESSIVE
-    PrivateInstanceAAMP aamp;
+    PlayerInstanceAAMP aamp;
     double seekPosition = 0.0;
     float rate = 1.0;
     StreamAbstractionAAMP_PROGRESSIVE streamAbstraction(&aamp, seekPosition, rate);

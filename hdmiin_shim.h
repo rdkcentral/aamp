@@ -41,7 +41,7 @@ public:
     /**
      *   @brief get StreamAbstractionAAMP_HDMIIN instance
      */
-    static StreamAbstractionAAMP_HDMIIN* GetInstance(class PrivateInstanceAAMP *aamp,double seekpos, float rate);
+    static StreamAbstractionAAMP_HDMIIN* GetInstance(class PlayerInstanceAAMP *aamp,double seekpos, float rate);
 
     /**
      *@brief Clear aamp of HdmiinInstance
@@ -80,11 +80,11 @@ public:
 private:
     /**
      * @fn StreamAbstractionAAMP_HDMIIN
-     * @param aamp pointer to PrivateInstanceAAMP object associated with player
+     * @param aamp pointer to PlayerInstanceAAMP object associated with player
      * @param seekpos Seek position
      * @param rate playback rate
      */
-    StreamAbstractionAAMP_HDMIIN(class PrivateInstanceAAMP *aamp,double seekpos, float rate);
+    StreamAbstractionAAMP_HDMIIN(class PlayerInstanceAAMP *aamp,double seekpos, float rate);
 
     static StreamAbstractionAAMP_HDMIIN* mHdmiinInstance;
     /*Event Handler*/

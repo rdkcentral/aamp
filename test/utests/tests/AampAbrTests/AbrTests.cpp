@@ -25,7 +25,7 @@
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
 
-#include "priv_aamp.h"
+#include "main_aamp.h"
 #include "AampConfig.h"
 #include "MockAampConfig.h"
 #include "HybridABRManager.h"
@@ -41,13 +41,13 @@ extern HybridABRManager::AampAbrConfig eAAMPAbrConfig;
 class AampAbrTests : public ::testing::Test
 {
 	public:
-		PrivateInstanceAAMP *aamp{nullptr};
+		PlayerInstanceAAMP *aamp{nullptr};
 		AampConfig *config{nullptr};
 	protected:
 		void SetUp() override
 		{
 			config=new AampConfig();
-			aamp = new PrivateInstanceAAMP(config);
+			aamp = new PlayerInstanceAAMP(config);
 			g_mockAampConfig = new NiceMock<MockAampConfig>();
 		}
 

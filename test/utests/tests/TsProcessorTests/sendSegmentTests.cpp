@@ -21,12 +21,12 @@
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
 #include <chrono>
-#include "priv_aamp.h"
+#include "main_aamp.h"
 #include "AampConfig.h"
 #include "AampLogManager.h"
 #include "tsprocessor.h"
 #include "MockAampConfig.h"
-#include "MockPrivateInstanceAAMP.h"
+#include "MockPlayerInstanceAAMP.h"
 using ::testing::_;
 using ::testing::Return;
 AampConfig *gpGlobalConfig{nullptr};
@@ -36,14 +36,14 @@ const int tsPacketLength = 188;
 class sendSegmentTests : public ::testing::Test
 {
 protected:
-    PrivateInstanceAAMP *mPrivateInstanceAAMP{};
+    PlayerInstanceAAMP *mPlayerInstanceAAMP{};
 
     class TestTSProcessor : public TSProcessor
     {
     public:
         friend class sendSegmentTests;
-        TestTSProcessor(class PrivateInstanceAAMP *mPrivateInstanceAAMP, StreamOperation streamOperation)
-        : TSProcessor(mPrivateInstanceAAMP, eStreamOp_DEMUX_AUDIO, nullptr)
+        TestTSProcessor(class PlayerInstanceAAMP *mPlayerInstanceAAMP, StreamOperation streamOperation)
+        : TSProcessor(mPlayerInstanceAAMP, eStreamOp_DEMUX_AUDIO, nullptr)
         {
         }
 
@@ -208,9 +208,9 @@ protected:
         }
         g_mockAampConfig = new MockAampConfig();
 
-        mTSProcessor = new TestTSProcessor(mPrivateInstanceAAMP, eStreamOp_DEMUX_AUDIO);
+        mTSProcessor = new TestTSProcessor(mPlayerInstanceAAMP, eStreamOp_DEMUX_AUDIO);
 
-        g_mockPrivateInstanceAAMP = new MockPrivateInstanceAAMP();
+        g_mockPlayerInstanceAAMP = new MockPlayerInstanceAAMP();
     }
 
     void TearDown() override
@@ -224,8 +224,8 @@ protected:
         delete mTSProcessor;
         mTSProcessor = nullptr;
 
-        delete g_mockPrivateInstanceAAMP;
-        g_mockPrivateInstanceAAMP = nullptr;
+        delete g_mockPlayerInstanceAAMP;
+        g_mockPlayerInstanceAAMP = nullptr;
     }
     TestTSProcessor *mTSProcessor;
 };
@@ -959,7 +959,7 @@ TEST_F(sendSegmentTests, esMP3test)
     buffer.AppendBytes(segment, sizeof(segment));
     mTSProcessor->sendSegment(&buffer, position, duration, offset, discontinuous, init,
         [this](AampMediaType type, SegmentInfo_t info, std::vector<uint8_t> buf) {
-            mPrivateInstanceAAMP->SendStreamCopy(type, buf.data(), buf.size(), info.pts_s, info.dts_s, info.duration);
+            mPlayerInstanceAAMP->SendStreamCopy(type, buf.data(), buf.size(), info.pts_s, info.dts_s, info.duration);
         },
         ptsError);
 

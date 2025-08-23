@@ -2,7 +2,7 @@
 * If not stated otherwise in this file or this component's license file the
 * following copyright and licenses apply:
 *
-* Copyright 2018 RDK Management
+* Copyright 2023 RDK Management
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -17,20 +17,18 @@
 * limitations under the License.
 */
 
-#ifndef iso639map_hpp
-#define iso639map_hpp
+#ifndef LANG_CODE_PREFERENCE_H
+#define LANG_CODE_PREFERENCE_H
 
 /**
- * @file iso639map.h
- * @brief ISO639 is a standard with representation of names for languages 
+ *  @brief Language Code Preference types
  */
+typedef enum
+{
+    ISO639_NO_LANGCODE_PREFERENCE, /**< use language codes as-is from manifest for audio/text tracks */
+    ISO639_PREFER_3_CHAR_BIBLIOGRAPHIC_LANGCODE,
+    ISO639_PREFER_3_CHAR_TERMINOLOGY_LANGCODE,
+    ISO639_PREFER_2_CHAR_LANGCODE
+} LangCodePreference;
 
-
-#include <stdio.h>
-#include "LangCodePreference.h"
-
-void iso639map_NormalizeLanguageCode( char lang[], LangCodePreference langCodePreference );
-
-#endif /* iso639map_hpp */
-
-
+#endif /* LANG_CODE_PREFERENCE_H */

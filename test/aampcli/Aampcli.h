@@ -35,7 +35,7 @@
 #include <glib.h>
 #include <readline/readline.h>
 #include <readline/history.h>
-#include <priv_aamp.h>
+#include <main_aamp.h>
 #include <main_aamp.h>
 #include "AampConfig.h"
 #include "AampDefine.h"

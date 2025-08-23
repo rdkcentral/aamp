@@ -19,14 +19,14 @@
 
 #include "aampgstplayer.h"
 #include "MockAampGstPlayer.h"
-#include "priv_aamp.h"
+#include "main_aamp.h"
 #include "AampLogManager.h"
 
 MockAAMPGstPlayer *g_mockAampGstPlayer = nullptr;
 // // Required by AampGstPlayer mocks
 // AAMPGstPlayer::id3_callback_t mock_id3_callback = [](MediaType , const uint8_t * , size_t , const SegmentInfo_t & ){ };
 
-AAMPGstPlayer::AAMPGstPlayer(PrivateInstanceAAMP *aamp, id3_callback_t id3HandlerCallback, std::function< void(const unsigned char *, int, int, int) > exportFrames )
+AAMPGstPlayer::AAMPGstPlayer(PlayerInstanceAAMP *aamp, id3_callback_t id3HandlerCallback, std::function< void(const unsigned char *, int, int, int) > exportFrames )
 {
 }
 
@@ -212,12 +212,12 @@ PlaybackQualityStruct* AAMPGstPlayer::GetVideoPlaybackQuality(void)
 	return nullptr;
 }
 
-bool AAMPGstPlayer::IsAssociatedAamp(PrivateInstanceAAMP *aamp)
+bool AAMPGstPlayer::IsAssociatedAamp(PlayerInstanceAAMP *aamp)
 {
 	return false;
 }
 
-void AAMPGstPlayer::ChangeAamp(PrivateInstanceAAMP *newAamp, id3_callback_t id3HandlerCallback)
+void AAMPGstPlayer::ChangeAamp(PlayerInstanceAAMP *newAamp, id3_callback_t id3HandlerCallback)
 {
 	if (g_mockAampGstPlayer != nullptr)
 	{
@@ -225,7 +225,7 @@ void AAMPGstPlayer::ChangeAamp(PrivateInstanceAAMP *newAamp, id3_callback_t id3H
 	}
 }
 
-void AAMPGstPlayer::SetEncryptedAamp(PrivateInstanceAAMP *aamp)
+void AAMPGstPlayer::SetEncryptedAamp(PlayerInstanceAAMP *aamp)
 {
 	if (g_mockAampGstPlayer != nullptr)
 	{

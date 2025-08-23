@@ -26,7 +26,7 @@
 using namespace testing;
 AampConfig *gpGlobalConfig{nullptr};
 
-PrivateInstanceAAMP *mPrivateInstanceAAMP{};
+PlayerInstanceAAMP *mPlayerInstanceAAMP{};
 
 const int tsPacketLength = 188;
 
@@ -34,15 +34,15 @@ class  ElementaryProcessorTest: public ::testing::Test {
 protected:
     void SetUp() override 
     {
-        mPrivateInstanceAAMP = new PrivateInstanceAAMP();
-        mElementaryProcessor = new TestElementaryProcessor(mPrivateInstanceAAMP);
+        mPlayerInstanceAAMP = new PlayerInstanceAAMP();
+        mElementaryProcessor = new TestElementaryProcessor(mPlayerInstanceAAMP);
     
     }
     
     void TearDown() override 
     {
-        delete mPrivateInstanceAAMP;
-        mPrivateInstanceAAMP = nullptr;
+        delete mPlayerInstanceAAMP;
+        mPlayerInstanceAAMP = nullptr;
 
         delete mElementaryProcessor;
         mElementaryProcessor = nullptr;
@@ -51,8 +51,8 @@ protected:
     class TestElementaryProcessor : public ElementaryProcessor
     {
     public:
-        TestElementaryProcessor(PrivateInstanceAAMP *mPrivateInstanceAAMP)
-            : ElementaryProcessor(mPrivateInstanceAAMP)
+        TestElementaryProcessor(PlayerInstanceAAMP *mPlayerInstanceAAMP)
+            : ElementaryProcessor(mPlayerInstanceAAMP)
         {
         }
 
@@ -85,7 +85,7 @@ protected:
 //     double duration = 1.3;
 //     bool discontinuous = true;
 //     bool ptsError = true;
-//     //mPrivateInstanceAAMP->SendStreamCopy((AampMediaType)eMEDIATYPE_SUBTITLE, segment, size, position, position, duration);
+//     //mPlayerInstanceAAMP->SendStreamCopy((AampMediaType)eMEDIATYPE_SUBTITLE, segment, size, position, position, duration);
 //     bool TuneTimePTSResult = mElementaryProcessor->CallsetTuneTimePTS(segment, size, position, duration, discontinuous, ptsError);       
 // }
 
@@ -100,7 +100,7 @@ protected:
     // bool discontinuous = true;
     // MediaProcessor::process_fcn_t processor;
     // bool ptsError = true;
-    //mPrivateInstanceAAMP->SendStreamCopy((AampMediaType)eMEDIATYPE_SUBTITLE, segment, size, position, position, duration);
+    //mPlayerInstanceAAMP->SendStreamCopy((AampMediaType)eMEDIATYPE_SUBTITLE, segment, size, position, position, duration);
     //bool TuneTimePTSResult = mElementaryProcessor->sendSegment(segment, size, position, duration, discontinuous, processor, ptsError);    
 // }
 
@@ -118,7 +118,7 @@ protected:
 // 	mElementaryProcessor->sendSegment(&buffer, position, duration, discontinuous,isInit,
 // 		[this](AampMediaType type, SegmentInfo_t info, std::vector<uint8_t> buf)
 // 		{
-// 			mPrivateInstanceAAMP->SendStreamCopy(type, buf.data(), buf.size(), info.pts_ms, info.dts_ms, info.duration);
+// 			mPlayerInstanceAAMP->SendStreamCopy(type, buf.data(), buf.size(), info.pts_ms, info.dts_ms, info.duration);
 // 		},
 // 		ptsError
 // 	);

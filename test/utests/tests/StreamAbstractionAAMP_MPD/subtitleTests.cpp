@@ -20,7 +20,7 @@
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
 #include <chrono>
-#include "priv_aamp.h"
+#include "main_aamp.h"
 #include "AampConfig.h"
 #include "AampScheduler.h"
 #include "AampLogManager.h"
@@ -29,7 +29,7 @@
 #include "MockAampConfig.h"
 #include "MockAampUtils.h"
 #include "MockAampGstPlayer.h"
-#include "MockPrivateInstanceAAMP.h"
+#include "MockPlayerInstanceAAMP.h"
 #include "MockMediaStreamContext.h"
 #include "MockAampMPDDownloader.h"
 #include "MockAampStreamSinkManager.h"
@@ -50,7 +50,7 @@ using ::testing::WithoutArgs;
 class TestStreamAbstractionAAMP_MPD : public StreamAbstractionAAMP_MPD
 {
 public:
-	TestStreamAbstractionAAMP_MPD(PrivateInstanceAAMP *aamp, double seekPos, float rate)
+	TestStreamAbstractionAAMP_MPD(PlayerInstanceAAMP *aamp, double seekPos, float rate)
 		: StreamAbstractionAAMP_MPD(aamp, seekPos, rate) {}
 
 	// Public wrapper for the protected SelectSubtitleTrack method
@@ -85,7 +85,7 @@ public:
 	}
 	void CallSwitchSubtitleTrack(bool newTune)
 	{
-		EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetPositionMilliseconds()).WillRepeatedly(Return(0.0));
+		EXPECT_CALL(*g_mockPlayerInstanceAAMP, GetPositionMilliseconds()).WillRepeatedly(Return(0.0));
 		mStreamAbstractionAAMP_MPD->PublicSwitchSubtitleTrack(newTune);
 	}
 	AAMPStatusType CallIndexNewMPDDocument(bool updateTrackInfo = false)
@@ -93,7 +93,7 @@ public:
 		return mStreamAbstractionAAMP_MPD->PublicIndexNewMPDDocument(updateTrackInfo);
 	}
 
-	PrivateInstanceAAMP *mPrivateInstanceAAMP;
+	PlayerInstanceAAMP *mPlayerInstanceAAMP;
 	TestStreamAbstractionAAMP_MPD *mStreamAbstractionAAMP_MPD; // Use the test subclass
 	CDAIObject *mCdaiObj;
 	const char *mManifest;
@@ -138,17 +138,17 @@ public:
 		{
 			gpGlobalConfig = new AampConfig();
 		}
-		mPrivateInstanceAAMP = new PrivateInstanceAAMP(gpGlobalConfig);
+		mPlayerInstanceAAMP = new PlayerInstanceAAMP(gpGlobalConfig);
 		g_mockAampConfig = new NiceMock<MockAampConfig>();
-		mPrivateInstanceAAMP->mIsDefaultOffset = true;
-		g_mockPrivateInstanceAAMP = new StrictMock<MockPrivateInstanceAAMP>();
+		mPlayerInstanceAAMP->mIsDefaultOffset = true;
+		g_mockPlayerInstanceAAMP = new StrictMock<MockPlayerInstanceAAMP>();
 		g_mockMediaStreamContext = new StrictMock<MockMediaStreamContext>();
 		g_mockAampMPDDownloader = new StrictMock<MockAampMPDDownloader>();
 
-		mCdaiObj = new CDAIObjectMPD(mPrivateInstanceAAMP);
-		mStreamAbstractionAAMP_MPD = new TestStreamAbstractionAAMP_MPD(mPrivateInstanceAAMP, 0.0, AAMP_NORMAL_PLAY_RATE);
+		mCdaiObj = new CDAIObjectMPD(mPlayerInstanceAAMP);
+		mStreamAbstractionAAMP_MPD = new TestStreamAbstractionAAMP_MPD(mPlayerInstanceAAMP, 0.0, AAMP_NORMAL_PLAY_RATE);
 		mStreamAbstractionAAMP_MPD->SetCDAIObject(mCdaiObj);
-		mPrivateInstanceAAMP->SetManifestUrl(TEST_MANIFEST_URL);
+		mPlayerInstanceAAMP->SetManifestUrl(TEST_MANIFEST_URL);
 
 		mManifest = nullptr;
 		mResponse = nullptr;
@@ -159,16 +159,16 @@ public:
 	{
 		delete mStreamAbstractionAAMP_MPD;
 		mStreamAbstractionAAMP_MPD = nullptr;
-		delete mPrivateInstanceAAMP;
-		mPrivateInstanceAAMP = nullptr;
+		delete mPlayerInstanceAAMP;
+		mPlayerInstanceAAMP = nullptr;
 		delete mCdaiObj;
 		mCdaiObj = nullptr;
 		delete gpGlobalConfig;
 		gpGlobalConfig = nullptr;
 		delete g_mockAampConfig;
 		g_mockAampConfig = nullptr;
-		delete g_mockPrivateInstanceAAMP;
-		g_mockPrivateInstanceAAMP = nullptr;
+		delete g_mockPlayerInstanceAAMP;
+		g_mockPlayerInstanceAAMP = nullptr;
 		delete g_mockMediaStreamContext;
 		g_mockMediaStreamContext = nullptr;
 		delete g_mockAampMPDDownloader;
@@ -245,17 +245,17 @@ public:
 				.WillRepeatedly(Return(b.second));
 		}
 		/* Create MPD instance. */
-		mStreamAbstractionAAMP_MPD = new TestStreamAbstractionAAMP_MPD(mPrivateInstanceAAMP, seekPos, rate);
-		mCdaiObj = new CDAIObjectMPD(mPrivateInstanceAAMP);
+		mStreamAbstractionAAMP_MPD = new TestStreamAbstractionAAMP_MPD(mPlayerInstanceAAMP, seekPos, rate);
+		mCdaiObj = new CDAIObjectMPD(mPlayerInstanceAAMP);
 		mStreamAbstractionAAMP_MPD->SetCDAIObject(mCdaiObj);
-		mPrivateInstanceAAMP->SetManifestUrl(TEST_MANIFEST_URL);
+		mPlayerInstanceAAMP->SetManifestUrl(TEST_MANIFEST_URL);
 		/* Initialize MPD. */
-		EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetState(eSTATE_PREPARING));
-		EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState())
+		EXPECT_CALL(*g_mockPlayerInstanceAAMP, SetState(eSTATE_PREPARING));
+		EXPECT_CALL(*g_mockPlayerInstanceAAMP, GetState())
 			.Times(AnyNumber())
 			.WillRepeatedly(Return(eSTATE_PREPARING));
-		EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetLLDashChunkMode()).WillRepeatedly(Return(false));
-		EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetLLDashChunkMode(_));
+		EXPECT_CALL(*g_mockPlayerInstanceAAMP, GetLLDashChunkMode()).WillRepeatedly(Return(false));
+		EXPECT_CALL(*g_mockPlayerInstanceAAMP, SetLLDashChunkMode(_));
 		EXPECT_CALL(*g_mockAampMPDDownloader, GetManifest(_, _, _))
 			.WillOnce(WithoutArgs(Invoke(this, &SubtitleTrackTests::GetManifestForMPDDownloader)));
 		status = mStreamAbstractionAAMP_MPD->Init(tuneType);
@@ -422,8 +422,8 @@ TEST_F(SubtitleTrackTests, SwitchSubtitleTrack)
 	EXPECT_NE(track, nullptr);
 	MediaStreamContext *pMediaStreamContext = static_cast<MediaStreamContext *>(track);
 	EXPECT_EQ(pMediaStreamContext->adaptationSetIdx, 0);
-	mPrivateInstanceAAMP->preferredTextLanguagesList.push_back("ger");
-	mPrivateInstanceAAMP->SetPreferredTextLanguages("ger"); // switching to german
+	mPlayerInstanceAAMP->preferredTextLanguagesList.push_back("ger");
+	mPlayerInstanceAAMP->SetPreferredTextLanguages("ger"); // switching to german
 	CallSwitchSubtitleTrack(true);
 	EXPECT_EQ(pMediaStreamContext->adaptationSetIdx, 2);
 	EXPECT_EQ(pMediaStreamContext->adaptationSetId, 16);

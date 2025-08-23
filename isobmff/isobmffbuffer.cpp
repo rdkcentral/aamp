@@ -23,7 +23,7 @@
 */
 
 #include "isobmffbuffer.h"
-#include "priv_aamp.h" //Required for AAMPLOG_WARN1
+#include "main_aamp.h" //Required for AAMPLOG_WARN1
 #include <string.h>
 
 static Box *findBoxInVector(const char * box_type, const std::vector<Box*> *boxes);

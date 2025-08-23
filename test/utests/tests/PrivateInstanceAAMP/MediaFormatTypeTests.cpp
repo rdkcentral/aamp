@@ -20,7 +20,7 @@
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
 
-#include "priv_aamp.h"
+#include "main_aamp.h"
 
 #include "AampConfig.h"
 #include "MockAampConfig.h"
@@ -38,7 +38,7 @@ using ::testing::Return;
 class MediaFormatTypeTests : public ::testing::Test
 {
 protected:
-    PrivateInstanceAAMP *mPrivateInstanceAAMP{};
+    PlayerInstanceAAMP *mPlayerInstanceAAMP{};
 
     void SetUp() override
     {
@@ -47,17 +47,17 @@ protected:
             gpGlobalConfig =  new AampConfig();
         }
 
-        mPrivateInstanceAAMP = new PrivateInstanceAAMP(gpGlobalConfig);
+        mPlayerInstanceAAMP = new PlayerInstanceAAMP(gpGlobalConfig);
 
-        g_mockStreamAbstractionAAMP = new MockStreamAbstractionAAMP(mPrivateInstanceAAMP);
+        g_mockStreamAbstractionAAMP = new MockStreamAbstractionAAMP(mPlayerInstanceAAMP);
 
-        mPrivateInstanceAAMP->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP;
+        mPlayerInstanceAAMP->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP;
     }
 
     void TearDown() override
     {
-        delete mPrivateInstanceAAMP;
-        mPrivateInstanceAAMP = nullptr;
+        delete mPlayerInstanceAAMP;
+        mPlayerInstanceAAMP = nullptr;
 
         delete g_mockStreamAbstractionAAMP;
         g_mockStreamAbstractionAAMP = nullptr;
@@ -105,42 +105,42 @@ const char* hlsUrl[] =
 "https://example.com/test_ipvod6/EXAMPLE_MOVIE/manifest.m3u8?StreamType=VOD_T6&ProviderId=example.com&AssetId=EXAMPLE_ASSET&sid=example-session-id&PartnerId=example&DeviceId=192.168.1.1"
 };
 
-    	MediaFormat mediaType = mPrivateInstanceAAMP->GetMediaFormatType("unknown");
+    	MediaFormat mediaType = mPlayerInstanceAAMP->GetMediaFormatType("unknown");
 	EXPECT_EQ(mediaType, eMEDIAFORMAT_UNKNOWN);
-    	mediaType = mPrivateInstanceAAMP->GetMediaFormatType("hdmiin:2");
+    	mediaType = mPlayerInstanceAAMP->GetMediaFormatType("hdmiin:2");
 	EXPECT_EQ(mediaType, eMEDIAFORMAT_HDMI);
-    	mediaType = mPrivateInstanceAAMP->GetMediaFormatType("cvbsin:2");
+    	mediaType = mPlayerInstanceAAMP->GetMediaFormatType("cvbsin:2");
 	EXPECT_EQ(mediaType, eMEDIAFORMAT_COMPOSITE);
-    	mediaType = mPrivateInstanceAAMP->GetMediaFormatType("live:123");
+    	mediaType = mPlayerInstanceAAMP->GetMediaFormatType("live:123");
 	EXPECT_EQ(mediaType, eMEDIAFORMAT_OTA);
-    	mediaType = mPrivateInstanceAAMP->GetMediaFormatType("tune:2");
+    	mediaType = mPlayerInstanceAAMP->GetMediaFormatType("tune:2");
 	EXPECT_EQ(mediaType, eMEDIAFORMAT_OTA);
-    	mediaType = mPrivateInstanceAAMP->GetMediaFormatType("mr:2");
+    	mediaType = mPlayerInstanceAAMP->GetMediaFormatType("mr:2");
 	EXPECT_EQ(mediaType, eMEDIAFORMAT_OTA);
-    	mediaType = mPrivateInstanceAAMP->GetMediaFormatType("ocap://");
+    	mediaType = mPlayerInstanceAAMP->GetMediaFormatType("ocap://");
 	EXPECT_EQ(mediaType, eMEDIAFORMAT_RMF);
 
 	for(int i=0; i < ARRAY_SIZE(hlsUrl); i++)
 	{
-		mediaType = mPrivateInstanceAAMP->GetMediaFormatType(hlsUrl[i]);
+		mediaType = mPlayerInstanceAAMP->GetMediaFormatType(hlsUrl[i]);
 		EXPECT_EQ(mediaType, eMEDIAFORMAT_HLS);
 	}
 
 	for(int i=0; i < ARRAY_SIZE(dashUrl); i++)
 	{
-		mediaType = mPrivateInstanceAAMP->GetMediaFormatType(dashUrl[i]);
+		mediaType = mPlayerInstanceAAMP->GetMediaFormatType(dashUrl[i]);
 		EXPECT_EQ(mediaType, eMEDIAFORMAT_DASH);
 	}
 	
 	for(int i=0; i < ARRAY_SIZE(progUrl); i++)
 	{
-		mediaType = mPrivateInstanceAAMP->GetMediaFormatType(progUrl[i]);
+		mediaType = mPlayerInstanceAAMP->GetMediaFormatType(progUrl[i]);
 		EXPECT_EQ(mediaType, eMEDIAFORMAT_PROGRESSIVE);
 	}
 
 	for(int i=0; i < ARRAY_SIZE(unknownUrl); i++)
 	{
-		mediaType = mPrivateInstanceAAMP->GetMediaFormatType(unknownUrl[i]);
+		mediaType = mPlayerInstanceAAMP->GetMediaFormatType(unknownUrl[i]);
 		EXPECT_EQ(mediaType, eMEDIAFORMAT_UNKNOWN);
 	}
 }
@@ -171,7 +171,7 @@ TEST_F(MediaFormatTypeTests, RecordedUrl)
 
 	for (int i = 0; i < ARRAY_SIZE(test_cases); i++)
 	{
-		mediaFormat = mPrivateInstanceAAMP->GetMediaFormatType(test_cases[i].url);
+		mediaFormat = mPlayerInstanceAAMP->GetMediaFormatType(test_cases[i].url);
 		EXPECT_EQ(mediaFormat, test_cases[i].expectedMediaFormat);
 	}
 }

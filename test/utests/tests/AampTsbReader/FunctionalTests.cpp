@@ -41,7 +41,7 @@ protected:
 	class TestableAampTsbReader : public AampTsbReader
 	{
 	public:
-		TestableAampTsbReader(PrivateInstanceAAMP *aamp, std::shared_ptr<AampTsbDataManager> dataMgr, AampMediaType mediaType, std::string sessionId)
+		TestableAampTsbReader(PlayerInstanceAAMP *aamp, std::shared_ptr<AampTsbDataManager> dataMgr, AampMediaType mediaType, std::string sessionId)
 			: AampTsbReader(aamp, dataMgr, mediaType, sessionId)
 		{
 		}
@@ -60,7 +60,7 @@ protected:
 	TestableAampTsbReader *mTestableTsbReader;
 	TestableAampTsbReader *mTestableSecondaryTsbReader;
 	std::shared_ptr<AampTsbDataManager> mDataMgr;
-	PrivateInstanceAAMP *mPrivateInstanceAAMP;
+	PlayerInstanceAAMP *mPlayerInstanceAAMP;
 
 	void SetUp() override
 	{
@@ -69,9 +69,9 @@ protected:
 			gpGlobalConfig = new AampConfig();
 		}
 
-		mPrivateInstanceAAMP = new PrivateInstanceAAMP(gpGlobalConfig);
+		mPlayerInstanceAAMP = new PlayerInstanceAAMP(gpGlobalConfig);
 		mDataMgr = std::make_shared<AampTsbDataManager>();
-		mTestableTsbReader = new TestableAampTsbReader(mPrivateInstanceAAMP, mDataMgr, eMEDIATYPE_VIDEO, "testSessionId");
+		mTestableTsbReader = new TestableAampTsbReader(mPlayerInstanceAAMP, mDataMgr, eMEDIATYPE_VIDEO, "testSessionId");
 
 		g_mockTSBDataManager = new testing::StrictMock<MockTSBDataManager>();
 		mTestableSecondaryTsbReader = nullptr;
@@ -85,8 +85,8 @@ protected:
 			gpGlobalConfig = nullptr;
 		}
 
-		delete mPrivateInstanceAAMP;
-		mPrivateInstanceAAMP = nullptr;
+		delete mPlayerInstanceAAMP;
+		mPlayerInstanceAAMP = nullptr;
 
 		if (mTestableTsbReader)
 		{
@@ -108,7 +108,7 @@ protected:
 
 	void InitializeSecondaryReader()
 	{
-		mTestableSecondaryTsbReader = new TestableAampTsbReader(mPrivateInstanceAAMP, mDataMgr, eMEDIATYPE_AUDIO, "testSessionId");
+		mTestableSecondaryTsbReader = new TestableAampTsbReader(mPlayerInstanceAAMP, mDataMgr, eMEDIATYPE_AUDIO, "testSessionId");
 	}
 };
 
@@ -1404,7 +1404,7 @@ TEST_F(FunctionalTests, ReadNextFF2EOSTrue)
 	int profileIdx = 0;
 	uint32_t timeScale = 240000;
 	double PTSOffsetSec = 0.0;
-	mPrivateInstanceAAMP->mTrickModePositionEOS = 0.0;
+	mPlayerInstanceAAMP->mTrickModePositionEOS = 0.0;
 
 	// Create init data and fragments
 	TsbInitDataPtr initFragment = std::make_shared<TsbInitData>(url, media, position, streamInfo, periodId, profileIdx);
@@ -1445,7 +1445,7 @@ TEST_F(FunctionalTests, ReadNextFF2EOSTruePosEqEOSPos)
 	int profileIdx = 0;
 	uint32_t timeScale = 240000;
 	double PTSOffsetSec = 0.0;
-	mPrivateInstanceAAMP->mTrickModePositionEOS = 1000.0;
+	mPlayerInstanceAAMP->mTrickModePositionEOS = 1000.0;
 
 	// Create init data and fragments
 	TsbInitDataPtr initFragment = std::make_shared<TsbInitData>(url, media, position, streamInfo, periodId, profileIdx);
@@ -1486,7 +1486,7 @@ TEST_F(FunctionalTests, ReadNextFF2EOSFalse)
 	int profileIdx = 0;
 	uint32_t timeScale = 240000;
 	double PTSOffsetSec = 0.0;
-	mPrivateInstanceAAMP->mTrickModePositionEOS = 1001.0;
+	mPlayerInstanceAAMP->mTrickModePositionEOS = 1001.0;
 
 	// Create init data and fragments
 	TsbInitDataPtr initFragment = std::make_shared<TsbInitData>(url, media, position, streamInfo, periodId, profileIdx);

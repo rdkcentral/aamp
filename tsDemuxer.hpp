@@ -54,7 +54,7 @@ namespace aamp_ts
 
 }
 
-class PrivateInstanceAAMP;
+class PlayerInstanceAAMP;
 
 /**
  * @class Demuxer
@@ -64,7 +64,7 @@ class Demuxer
 {
 private:
 	double ptsOffset;
-	PrivateInstanceAAMP *aamp;
+	PlayerInstanceAAMP *aamp;
 	int pes_state;
 	int pes_header_ext_len;
 	int pes_header_ext_read;
@@ -128,10 +128,10 @@ public:
 	
 	/**
 	 * @brief Demuxer Constructor
-	 * @param[in] aamp pointer to PrivateInstanceAAMP object associated with demux
+	 * @param[in] aamp pointer to PlayerInstanceAAMP object associated with demux
 	 * @param[in] type Media type to be demuxed
 	 */
-	Demuxer(class PrivateInstanceAAMP *aamp, AampMediaType type, bool optimizeMuxed )
+	Demuxer(class PlayerInstanceAAMP *aamp, AampMediaType type, bool optimizeMuxed )
 	 : aamp(aamp), pes_state(0),
 		pes_header_ext_len(0), pes_header_ext_read(0), pes_header("pes_header"), mMutex(),
 		es("es"), position(0), duration(0), base_pts{0}, rollover_pts(false), current_pts{0},

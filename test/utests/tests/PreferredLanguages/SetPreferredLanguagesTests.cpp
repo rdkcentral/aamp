@@ -21,7 +21,7 @@
 #include <gmock/gmock.h>
 #include <chrono>
 
-#include "priv_aamp.h"
+#include "main_aamp.h"
 #include "AampConfig.h"
 
 #include "MockAampConfig.h"
@@ -48,14 +48,14 @@ protected:
 			gpGlobalConfig =  new AampConfig();
 		}
 
-		mPrivateInstanceAAMP = new PrivateInstanceAAMP(gpGlobalConfig);
+		mPlayerInstanceAAMP = new PlayerInstanceAAMP(gpGlobalConfig);
 		g_mockAampConfig = new NiceMock<MockAampConfig>();
-		g_mockAampGstPlayer = new MockAAMPGstPlayer( mPrivateInstanceAAMP);
-		g_mockStreamAbstractionAAMP = new StrictMock<MockStreamAbstractionAAMP>(mPrivateInstanceAAMP);
+		g_mockAampGstPlayer = new MockAAMPGstPlayer( mPlayerInstanceAAMP);
+		g_mockStreamAbstractionAAMP = new StrictMock<MockStreamAbstractionAAMP>(mPlayerInstanceAAMP);
 		g_mockAampStreamSinkManager = new NiceMock<MockAampStreamSinkManager>();
 
-		mPrivateInstanceAAMP->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP;
-		mPrivateInstanceAAMP->SetState(eSTATE_PLAYING);
+		mPlayerInstanceAAMP->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP;
+		mPlayerInstanceAAMP->SetState(eSTATE_PLAYING);
 
 		EXPECT_CALL(*g_mockAampConfig, IsConfigSet(_)).WillRepeatedly(Return(false));
 
@@ -64,8 +64,8 @@ protected:
 
 	void TearDown() override
 	{
-		delete mPrivateInstanceAAMP;
-		mPrivateInstanceAAMP = nullptr;
+		delete mPlayerInstanceAAMP;
+		mPlayerInstanceAAMP = nullptr;
 
 		if (g_mockStreamAbstractionAAMP != nullptr)
 		{
@@ -100,7 +100,7 @@ public:
 		g_mockStreamAbstractionAAMP = nullptr;
 	}
 
-	PrivateInstanceAAMP *mPrivateInstanceAAMP{};
+	PlayerInstanceAAMP *mPlayerInstanceAAMP{};
 };
 
 /**
@@ -108,9 +108,9 @@ public:
  */
 TEST_F(SetPreferredLanguagesTests, LanguageListTest1)
 {
-	mPrivateInstanceAAMP->preferredLanguagesString = "lang0";
-	mPrivateInstanceAAMP->preferredLanguagesList.clear();
-	mPrivateInstanceAAMP->preferredLanguagesList.push_back("lang0");
+	mPlayerInstanceAAMP->preferredLanguagesString = "lang0";
+	mPlayerInstanceAAMP->preferredLanguagesList.clear();
+	mPlayerInstanceAAMP->preferredLanguagesList.push_back("lang0");
 
 	/* Call SetPreferredLanguages() without changing the preferred languages
 	 * list. There should be no retune.
@@ -120,12 +120,12 @@ TEST_F(SetPreferredLanguagesTests, LanguageListTest1)
 	EXPECT_CALL(*g_mockAampGstPlayer, Flush(_,_,_))
 		.Times(0);
 	
-	mPrivateInstanceAAMP->SetPreferredLanguages("lang0", NULL, NULL, NULL, NULL);
+	mPlayerInstanceAAMP->SetPreferredLanguages("lang0", NULL, NULL, NULL, NULL);
 
 	/* Verify the preferred languages list. */
-	EXPECT_STREQ(mPrivateInstanceAAMP->preferredLanguagesString.c_str(), "lang0");
-	EXPECT_EQ(mPrivateInstanceAAMP->preferredLanguagesList.size(), 1);
-	EXPECT_STREQ(mPrivateInstanceAAMP->preferredLanguagesList.at(0).c_str(), "lang0");
+	EXPECT_STREQ(mPlayerInstanceAAMP->preferredLanguagesString.c_str(), "lang0");
+	EXPECT_EQ(mPlayerInstanceAAMP->preferredLanguagesList.size(), 1);
+	EXPECT_STREQ(mPlayerInstanceAAMP->preferredLanguagesList.at(0).c_str(), "lang0");
 }
 
 /**
@@ -139,9 +139,9 @@ TEST_F(SetPreferredLanguagesTests, LanguageListTest2)
 	tracks.push_back(AudioTrackInfo("idx0", "lang0", "rend0", "trackName0", "codec0", 0, "type0", false, "label0", "type0", true));
 	tracks.push_back(AudioTrackInfo("idx1", "lang1", "rend1", "trackName1", "codec1", 0, "type1", false, "label1", "type1", true));
 
-	mPrivateInstanceAAMP->preferredLanguagesString = "lang0";
-	mPrivateInstanceAAMP->preferredLanguagesList.clear();
-	mPrivateInstanceAAMP->preferredLanguagesList.push_back("lang0");
+	mPlayerInstanceAAMP->preferredLanguagesString = "lang0";
+	mPlayerInstanceAAMP->preferredLanguagesList.clear();
+	mPlayerInstanceAAMP->preferredLanguagesList.push_back("lang0");
 
 	/* Call SetPreferredLanguages() changing the preferred languages list.
 	 * There should be a retune.
@@ -153,12 +153,12 @@ TEST_F(SetPreferredLanguagesTests, LanguageListTest2)
 	EXPECT_CALL(*g_mockAampGstPlayer, Flush(_,_,_))
 		.Times(1);
 	
-	mPrivateInstanceAAMP->SetPreferredLanguages("lang1", NULL, NULL, NULL, NULL);
+	mPlayerInstanceAAMP->SetPreferredLanguages("lang1", NULL, NULL, NULL, NULL);
 
 	/* Verify the preferred languages list. */
-	EXPECT_STREQ(mPrivateInstanceAAMP->preferredLanguagesString.c_str(), "lang1");
-	EXPECT_EQ(mPrivateInstanceAAMP->preferredLanguagesList.size(), 1);
-	EXPECT_STREQ(mPrivateInstanceAAMP->preferredLanguagesList.at(0).c_str(), "lang1");
+	EXPECT_STREQ(mPlayerInstanceAAMP->preferredLanguagesString.c_str(), "lang1");
+	EXPECT_EQ(mPlayerInstanceAAMP->preferredLanguagesList.size(), 1);
+	EXPECT_STREQ(mPlayerInstanceAAMP->preferredLanguagesList.at(0).c_str(), "lang1");
 }
 
 /**
@@ -172,10 +172,10 @@ TEST_F(SetPreferredLanguagesTests, LanguageListTest3)
 	tracks.push_back(AudioTrackInfo("idx0", "lang0", "rend0", "trackName0", "codec0", 0, "type0", false, "label0", "type0", true));
 	tracks.push_back(AudioTrackInfo("idx1", "lang1", "rend1", "trackName1", "codec1", 0, "type1", false, "label1", "type1", true));
 
-	mPrivateInstanceAAMP->preferredLanguagesString = "lang0,lang1";
-	mPrivateInstanceAAMP->preferredLanguagesList.clear();
-	mPrivateInstanceAAMP->preferredLanguagesList.push_back("lang0");
-	mPrivateInstanceAAMP->preferredLanguagesList.push_back("lang1");
+	mPlayerInstanceAAMP->preferredLanguagesString = "lang0,lang1";
+	mPlayerInstanceAAMP->preferredLanguagesList.clear();
+	mPlayerInstanceAAMP->preferredLanguagesList.push_back("lang0");
+	mPlayerInstanceAAMP->preferredLanguagesList.push_back("lang1");
 
 	/* Call SetPreferredLanguages() changing the preferred languages list. There
 	 * should be a retune as there are multiple languages.
@@ -187,13 +187,13 @@ TEST_F(SetPreferredLanguagesTests, LanguageListTest3)
 	EXPECT_CALL(*g_mockAampGstPlayer, Flush(_,_,_))
 		.Times(1);
 	
-	mPrivateInstanceAAMP->SetPreferredLanguages("lang0,lang2", NULL, NULL, NULL, NULL);
+	mPlayerInstanceAAMP->SetPreferredLanguages("lang0,lang2", NULL, NULL, NULL, NULL);
 
 	/* Verify the preferred languages list. */
-	EXPECT_STREQ(mPrivateInstanceAAMP->preferredLanguagesString.c_str(), "lang0,lang2");
-	EXPECT_EQ(mPrivateInstanceAAMP->preferredLanguagesList.size(), 2);
-	EXPECT_STREQ(mPrivateInstanceAAMP->preferredLanguagesList.at(0).c_str(), "lang0");
-	EXPECT_STREQ(mPrivateInstanceAAMP->preferredLanguagesList.at(1).c_str(), "lang2");
+	EXPECT_STREQ(mPlayerInstanceAAMP->preferredLanguagesString.c_str(), "lang0,lang2");
+	EXPECT_EQ(mPlayerInstanceAAMP->preferredLanguagesList.size(), 2);
+	EXPECT_STREQ(mPlayerInstanceAAMP->preferredLanguagesList.at(0).c_str(), "lang0");
+	EXPECT_STREQ(mPlayerInstanceAAMP->preferredLanguagesList.at(1).c_str(), "lang2");
 }
 
 /**
@@ -207,9 +207,9 @@ TEST_F(SetPreferredLanguagesTests, LanguageListTest4)
 	tracks.push_back(AudioTrackInfo("idx0", "lang0", "rend0", "trackName0", "codec0", 0, "type0", false, "label0", "type0", true));
 	tracks.push_back(AudioTrackInfo("idx1", "lang1", "rend1", "trackName1", "codec1", 0, "type1", false, "label1", "type1", true));
 
-	mPrivateInstanceAAMP->preferredLanguagesString = "lang0";
-	mPrivateInstanceAAMP->preferredLanguagesList.clear();
-	mPrivateInstanceAAMP->preferredLanguagesList.push_back("lang0");
+	mPlayerInstanceAAMP->preferredLanguagesString = "lang0";
+	mPlayerInstanceAAMP->preferredLanguagesList.clear();
+	mPlayerInstanceAAMP->preferredLanguagesList.push_back("lang0");
 
 	/* Call SetPreferredLanguages() passing a language which is not available.
 	 * There should be no retune.
@@ -221,12 +221,12 @@ TEST_F(SetPreferredLanguagesTests, LanguageListTest4)
 	EXPECT_CALL(*g_mockAampGstPlayer, Flush(_,_,_))
 		.Times(0);
 
-	mPrivateInstanceAAMP->SetPreferredLanguages("lang2", NULL, NULL, NULL, NULL);
+	mPlayerInstanceAAMP->SetPreferredLanguages("lang2", NULL, NULL, NULL, NULL);
 
 	/* Verify the preferred languages list. */
-	EXPECT_STREQ(mPrivateInstanceAAMP->preferredLanguagesString.c_str(), "lang2");
-	EXPECT_EQ(mPrivateInstanceAAMP->preferredLanguagesList.size(), 1);
-	EXPECT_STREQ(mPrivateInstanceAAMP->preferredLanguagesList.at(0).c_str(), "lang2");
+	EXPECT_STREQ(mPlayerInstanceAAMP->preferredLanguagesString.c_str(), "lang2");
+	EXPECT_EQ(mPlayerInstanceAAMP->preferredLanguagesList.size(), 1);
+	EXPECT_STREQ(mPlayerInstanceAAMP->preferredLanguagesList.at(0).c_str(), "lang2");
 }
 
 /**
@@ -240,9 +240,9 @@ TEST_F(SetPreferredLanguagesTests, LanguageListTest5)
 	tracks.push_back(AudioTrackInfo("idx0", "lang0", "rend0", "trackName0", "codec0", 0, "type0", false, "label0", "type0", true));
 	tracks.push_back(AudioTrackInfo("idx1", "lang1", "rend1", "trackName1", "codec1", 0, "type1", false, "label1", "type1", true));
 
-	mPrivateInstanceAAMP->preferredLanguagesString = "lang0";
-	mPrivateInstanceAAMP->preferredLanguagesList.clear();
-	mPrivateInstanceAAMP->preferredLanguagesList.push_back("lang0");
+	mPlayerInstanceAAMP->preferredLanguagesString = "lang0";
+	mPlayerInstanceAAMP->preferredLanguagesList.clear();
+	mPlayerInstanceAAMP->preferredLanguagesList.push_back("lang0");
 
 	/* Call SetPreferredLanguages() changing the preferred languages list.
 	 * There should be a retune.
@@ -254,12 +254,12 @@ TEST_F(SetPreferredLanguagesTests, LanguageListTest5)
 	EXPECT_CALL(*g_mockAampGstPlayer, Flush(_,_,_))
 		.Times(1);
 	
-	mPrivateInstanceAAMP->SetPreferredLanguages("{\"languages\":\"lang1\"}", NULL, NULL, NULL, NULL);
+	mPlayerInstanceAAMP->SetPreferredLanguages("{\"languages\":\"lang1\"}", NULL, NULL, NULL, NULL);
 
 	/* Verify the preferred languages list. */
-	EXPECT_STREQ(mPrivateInstanceAAMP->preferredLanguagesString.c_str(), "lang1");
-	EXPECT_EQ(mPrivateInstanceAAMP->preferredLanguagesList.size(), 1);
-	EXPECT_STREQ(mPrivateInstanceAAMP->preferredLanguagesList.at(0).c_str(), "lang1");
+	EXPECT_STREQ(mPlayerInstanceAAMP->preferredLanguagesString.c_str(), "lang1");
+	EXPECT_EQ(mPlayerInstanceAAMP->preferredLanguagesList.size(), 1);
+	EXPECT_STREQ(mPlayerInstanceAAMP->preferredLanguagesList.at(0).c_str(), "lang1");
 }
 
 /**
@@ -268,10 +268,10 @@ TEST_F(SetPreferredLanguagesTests, LanguageListTest5)
  */
 TEST_F(SetPreferredLanguagesTests, LanguageListTest6)
 {
-	mPrivateInstanceAAMP->preferredLanguagesString = "lang0,lang1";
-	mPrivateInstanceAAMP->preferredLanguagesList.clear();
-	mPrivateInstanceAAMP->preferredLanguagesList.push_back("lang0");
-	mPrivateInstanceAAMP->preferredLanguagesList.push_back("lang1");
+	mPlayerInstanceAAMP->preferredLanguagesString = "lang0,lang1";
+	mPlayerInstanceAAMP->preferredLanguagesList.clear();
+	mPlayerInstanceAAMP->preferredLanguagesList.push_back("lang0");
+	mPlayerInstanceAAMP->preferredLanguagesList.push_back("lang1");
 
 	/* Call SetPreferredLanguages() without changing the preferred languages
 	 * list. There should be a no retune.
@@ -283,13 +283,13 @@ TEST_F(SetPreferredLanguagesTests, LanguageListTest6)
 	EXPECT_CALL(*g_mockAampGstPlayer, Flush(_,_,_))
 		.Times(0);
 
-	mPrivateInstanceAAMP->SetPreferredLanguages("{\"languages\":[\"lang0\",\"lang1\"]}", NULL, NULL, NULL, NULL);
+	mPlayerInstanceAAMP->SetPreferredLanguages("{\"languages\":[\"lang0\",\"lang1\"]}", NULL, NULL, NULL, NULL);
 
 	/* Verify the preferred languages list. */
-	EXPECT_STREQ(mPrivateInstanceAAMP->preferredLanguagesString.c_str(), "lang0,lang1");
-	EXPECT_EQ(mPrivateInstanceAAMP->preferredLanguagesList.size(), 2);
-	EXPECT_STREQ(mPrivateInstanceAAMP->preferredLanguagesList.at(0).c_str(), "lang0");
-	EXPECT_STREQ(mPrivateInstanceAAMP->preferredLanguagesList.at(1).c_str(), "lang1");
+	EXPECT_STREQ(mPlayerInstanceAAMP->preferredLanguagesString.c_str(), "lang0,lang1");
+	EXPECT_EQ(mPlayerInstanceAAMP->preferredLanguagesList.size(), 2);
+	EXPECT_STREQ(mPlayerInstanceAAMP->preferredLanguagesList.at(0).c_str(), "lang0");
+	EXPECT_STREQ(mPlayerInstanceAAMP->preferredLanguagesList.at(1).c_str(), "lang1");
 }
 
 /**
@@ -302,12 +302,12 @@ TEST_F(SetPreferredLanguagesTests, LanguageListTest7)
 	tracks.push_back(AudioTrackInfo("idx0", "lang0", "rend0", "trackName0", "codec0", 0, "type0", false, "label0", "type0", true));
 	tracks.push_back(AudioTrackInfo("idx1", "lang1", "rend1", "trackName1", "codec1", 0, "type1", false, "label1", "type1", true));
 
-	mPrivateInstanceAAMP->preferredLanguagesString = "lang0";
-	mPrivateInstanceAAMP->preferredLanguagesList.clear();
-	mPrivateInstanceAAMP->preferredLanguagesList.push_back("lang0");
-	mPrivateInstanceAAMP->mFogTSBEnabled = true;
-	mPrivateInstanceAAMP->mManifestUrl = "http://host/Manifest.mpd";
-	mPrivateInstanceAAMP->mTsbSessionRequestUrl = "http://host/TsbSessionRequest.mpd";
+	mPlayerInstanceAAMP->preferredLanguagesString = "lang0";
+	mPlayerInstanceAAMP->preferredLanguagesList.clear();
+	mPlayerInstanceAAMP->preferredLanguagesList.push_back("lang0");
+	mPlayerInstanceAAMP->mFogTSBEnabled = true;
+	mPlayerInstanceAAMP->mManifestUrl = "http://host/Manifest.mpd";
+	mPlayerInstanceAAMP->mTsbSessionRequestUrl = "http://host/TsbSessionRequest.mpd";
 
 	/* Call SetPreferredLanguages() changing the preferred languages list.
 	 * There should be a retune but no new TSB requested.
@@ -319,15 +319,15 @@ TEST_F(SetPreferredLanguagesTests, LanguageListTest7)
 	EXPECT_CALL(*g_mockAampGstPlayer, Flush(_,_,_))
 		.Times(1);
 	
-	mPrivateInstanceAAMP->SetPreferredLanguages("lang1", NULL, NULL, NULL, NULL);
+	mPlayerInstanceAAMP->SetPreferredLanguages("lang1", NULL, NULL, NULL, NULL);
 
 	/* Verify the requested manifest URL. */
-	EXPECT_STREQ(mPrivateInstanceAAMP->mManifestUrl.c_str(), "http://host/Manifest.mpd");
+	EXPECT_STREQ(mPlayerInstanceAAMP->mManifestUrl.c_str(), "http://host/Manifest.mpd");
 
 	/* Verify the preferred languages list. */
-	EXPECT_STREQ(mPrivateInstanceAAMP->preferredLanguagesString.c_str(), "lang1");
-	EXPECT_EQ(mPrivateInstanceAAMP->preferredLanguagesList.size(), 1);
-	EXPECT_STREQ(mPrivateInstanceAAMP->preferredLanguagesList.at(0).c_str(), "lang1");
+	EXPECT_STREQ(mPlayerInstanceAAMP->preferredLanguagesString.c_str(), "lang1");
+	EXPECT_EQ(mPlayerInstanceAAMP->preferredLanguagesList.size(), 1);
+	EXPECT_STREQ(mPlayerInstanceAAMP->preferredLanguagesList.at(0).c_str(), "lang1");
 }
 
 /**
@@ -341,12 +341,12 @@ TEST_F(SetPreferredLanguagesTests, LanguageListTest8)
 	tracks.push_back(AudioTrackInfo("idx0", "lang0", "rend0", "trackName0", "codec0", 0, "type0", false, "label0", "type0", true));
 	tracks.push_back(AudioTrackInfo("idx1", "lang1", "rend1", "trackName1", "codec1", 0, "type1", false, "label1", "type1", false));
 
-	mPrivateInstanceAAMP->preferredLanguagesString = "lang0";
-	mPrivateInstanceAAMP->preferredLanguagesList.clear();
-	mPrivateInstanceAAMP->preferredLanguagesList.push_back("lang0");
-	mPrivateInstanceAAMP->mFogTSBEnabled = true;
-	mPrivateInstanceAAMP->mManifestUrl = "http://host/Manifest.mpd";
-	mPrivateInstanceAAMP->mTsbSessionRequestUrl = "http://host/TsbSessionRequest.mpd";
+	mPlayerInstanceAAMP->preferredLanguagesString = "lang0";
+	mPlayerInstanceAAMP->preferredLanguagesList.clear();
+	mPlayerInstanceAAMP->preferredLanguagesList.push_back("lang0");
+	mPlayerInstanceAAMP->mFogTSBEnabled = true;
+	mPlayerInstanceAAMP->mManifestUrl = "http://host/Manifest.mpd";
+	mPlayerInstanceAAMP->mTsbSessionRequestUrl = "http://host/TsbSessionRequest.mpd";
 
 	/* Call SetPreferredLanguages() changing the preferred languages list but the
 	 * matching track is disabled. There should be a retune and a new TSB
@@ -359,15 +359,15 @@ TEST_F(SetPreferredLanguagesTests, LanguageListTest8)
 	EXPECT_CALL(*g_mockAampGstPlayer, Flush(_,_,_))
 		.Times(1);
 	
-	mPrivateInstanceAAMP->SetPreferredLanguages("lang1", NULL, NULL, NULL, NULL);
+	mPlayerInstanceAAMP->SetPreferredLanguages("lang1", NULL, NULL, NULL, NULL);
 
 	/* The manifest URL should be changed to reload the TSB. */
-	EXPECT_STREQ(mPrivateInstanceAAMP->mManifestUrl.c_str(), "http://host/TsbSessionRequest.mpd&reloadTSB=true");
+	EXPECT_STREQ(mPlayerInstanceAAMP->mManifestUrl.c_str(), "http://host/TsbSessionRequest.mpd&reloadTSB=true");
 
 	/* Verify the preferred languages list. */
-	EXPECT_STREQ(mPrivateInstanceAAMP->preferredLanguagesString.c_str(), "lang1");
-	EXPECT_EQ(mPrivateInstanceAAMP->preferredLanguagesList.size(), 1);
-	EXPECT_STREQ(mPrivateInstanceAAMP->preferredLanguagesList.at(0).c_str(), "lang1");
+	EXPECT_STREQ(mPlayerInstanceAAMP->preferredLanguagesString.c_str(), "lang1");
+	EXPECT_EQ(mPlayerInstanceAAMP->preferredLanguagesList.size(), 1);
+	EXPECT_STREQ(mPlayerInstanceAAMP->preferredLanguagesList.at(0).c_str(), "lang1");
 }
 
 /**
@@ -375,7 +375,7 @@ TEST_F(SetPreferredLanguagesTests, LanguageListTest8)
  */
 TEST_F(SetPreferredLanguagesTests, RenditionTest1)
 {
-	mPrivateInstanceAAMP->preferredRenditionString = "rend0";
+	mPlayerInstanceAAMP->preferredRenditionString = "rend0";
 
 	/* Call SetPreferredLanguages() without changing the preferred rendition.
 	 * There should be no retune.
@@ -385,10 +385,10 @@ TEST_F(SetPreferredLanguagesTests, RenditionTest1)
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_))
 		.Times(0);
 
-	mPrivateInstanceAAMP->SetPreferredLanguages(NULL, "rend0", NULL, NULL, NULL);
+	mPlayerInstanceAAMP->SetPreferredLanguages(NULL, "rend0", NULL, NULL, NULL);
 
 	/* Verify the preferred rendition list. */
-	EXPECT_STREQ(mPrivateInstanceAAMP->preferredRenditionString.c_str(), "rend0");
+	EXPECT_STREQ(mPlayerInstanceAAMP->preferredRenditionString.c_str(), "rend0");
 }
 
 /**
@@ -401,7 +401,7 @@ TEST_F(SetPreferredLanguagesTests, RenditionTest2)
 	tracks.push_back(AudioTrackInfo("idx0", "lang0", "rend0", "trackName0", "codec0", 0, "type0", false, "label0", "type0", true));
 	tracks.push_back(AudioTrackInfo("idx1", "lang1", "rend1", "trackName1", "codec1", 0, "type1", false, "label1", "type1", true));
 
-	mPrivateInstanceAAMP->preferredRenditionString = "rend0";
+	mPlayerInstanceAAMP->preferredRenditionString = "rend0";
 
 	/* Call SetPreferredLanguages() changing the preferred rendition. There
 	 * should be a retune.
@@ -411,10 +411,10 @@ TEST_F(SetPreferredLanguagesTests, RenditionTest2)
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_))
 		.WillOnce(Invoke(this, &SetPreferredLanguagesTests::Stop));
 
-	mPrivateInstanceAAMP->SetPreferredLanguages(NULL, "rend1", NULL, NULL, NULL);
+	mPlayerInstanceAAMP->SetPreferredLanguages(NULL, "rend1", NULL, NULL, NULL);
 
 	/* Verify the preferred rendition. */
-	EXPECT_STREQ(mPrivateInstanceAAMP->preferredRenditionString.c_str(), "rend1");
+	EXPECT_STREQ(mPlayerInstanceAAMP->preferredRenditionString.c_str(), "rend1");
 }
 
 /**
@@ -428,7 +428,7 @@ TEST_F(SetPreferredLanguagesTests, RenditionTest3)
 	tracks.push_back(AudioTrackInfo("idx0", "lang0", "rend0", "trackName0", "codec0", 0, "type0", false, "label0", "type0", true));
 	tracks.push_back(AudioTrackInfo("idx1", "lang1", "rend1", "trackName1", "codec1", 0, "type1", false, "label1", "type1", true));
 
-	mPrivateInstanceAAMP->preferredRenditionString = "rend0";
+	mPlayerInstanceAAMP->preferredRenditionString = "rend0";
 
 	/* Call SetPreferredLanguages() changing the preferred rendition which is
 	 * not available. There should not be a retune.
@@ -438,10 +438,10 @@ TEST_F(SetPreferredLanguagesTests, RenditionTest3)
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_))
 		.Times(0);
 
-	mPrivateInstanceAAMP->SetPreferredLanguages(NULL, "rend2", NULL, NULL, NULL);
+	mPlayerInstanceAAMP->SetPreferredLanguages(NULL, "rend2", NULL, NULL, NULL);
 
 	/* Verify the preferred rendition. */
-	EXPECT_STREQ(mPrivateInstanceAAMP->preferredRenditionString.c_str(), "rend2");
+	EXPECT_STREQ(mPlayerInstanceAAMP->preferredRenditionString.c_str(), "rend2");
 }
 
 /**
@@ -455,7 +455,7 @@ TEST_F(SetPreferredLanguagesTests, RenditionTest4)
 	tracks.push_back(AudioTrackInfo("idx0", "lang0", "rend0", "trackName0", "codec0", 0, "type0", false, "label0", "type0", true));
 	tracks.push_back(AudioTrackInfo("idx1", "lang1", "rend1", "trackName1", "codec1", 0, "type1", false, "label1", "type1", true));
 
-	mPrivateInstanceAAMP->preferredRenditionString = "rend0";
+	mPlayerInstanceAAMP->preferredRenditionString = "rend0";
 
 	/* Call SetPreferredLanguages() changing the preferred languages list.
 	 * There should be a retune.
@@ -465,10 +465,10 @@ TEST_F(SetPreferredLanguagesTests, RenditionTest4)
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_))
 		.WillOnce(Invoke(this, &SetPreferredLanguagesTests::Stop));
 
-	mPrivateInstanceAAMP->SetPreferredLanguages("{\"rendition\":\"rend1\"}", NULL, NULL, NULL, NULL);
+	mPlayerInstanceAAMP->SetPreferredLanguages("{\"rendition\":\"rend1\"}", NULL, NULL, NULL, NULL);
 
 	/* Verify the preferred rendition. */
-	EXPECT_STREQ(mPrivateInstanceAAMP->preferredRenditionString.c_str(), "rend1");
+	EXPECT_STREQ(mPlayerInstanceAAMP->preferredRenditionString.c_str(), "rend1");
 }
 
 /**
@@ -481,10 +481,10 @@ TEST_F(SetPreferredLanguagesTests, RenditionTest5)
 	tracks.push_back(AudioTrackInfo("idx0", "lang0", "rend0", "trackName0", "codec0", 0, "type0", false, "label0", "type0", true));
 	tracks.push_back(AudioTrackInfo("idx1", "lang1", "rend1", "trackName1", "codec1", 0, "type1", false, "label1", "type1", true));
 
-	mPrivateInstanceAAMP->preferredRenditionString = "rend0";
-	mPrivateInstanceAAMP->mFogTSBEnabled = true;
-	mPrivateInstanceAAMP->mManifestUrl = "http://host/Manifest.mpd";
-	mPrivateInstanceAAMP->mTsbSessionRequestUrl = "http://host/TsbSessionRequest.mpd";
+	mPlayerInstanceAAMP->preferredRenditionString = "rend0";
+	mPlayerInstanceAAMP->mFogTSBEnabled = true;
+	mPlayerInstanceAAMP->mManifestUrl = "http://host/Manifest.mpd";
+	mPlayerInstanceAAMP->mTsbSessionRequestUrl = "http://host/TsbSessionRequest.mpd";
 
 	/* Call SetPreferredLanguages() changing the preferred rendition. There
 	 * should be a retune but no new TSB requested.
@@ -494,13 +494,13 @@ TEST_F(SetPreferredLanguagesTests, RenditionTest5)
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_))
 		.WillOnce(Invoke(this, &SetPreferredLanguagesTests::Stop));
 
-	mPrivateInstanceAAMP->SetPreferredLanguages(NULL, "rend1", NULL, NULL, NULL);
+	mPlayerInstanceAAMP->SetPreferredLanguages(NULL, "rend1", NULL, NULL, NULL);
 
 	/* Verified the requested manifest URL. */
-	EXPECT_STREQ(mPrivateInstanceAAMP->mManifestUrl.c_str(), "http://host/Manifest.mpd");
+	EXPECT_STREQ(mPlayerInstanceAAMP->mManifestUrl.c_str(), "http://host/Manifest.mpd");
 
 	/* Verify the preferred rendition. */
-	EXPECT_STREQ(mPrivateInstanceAAMP->preferredRenditionString.c_str(), "rend1");
+	EXPECT_STREQ(mPlayerInstanceAAMP->preferredRenditionString.c_str(), "rend1");
 }
 
 /**
@@ -514,10 +514,10 @@ TEST_F(SetPreferredLanguagesTests, RenditionTest6)
 	tracks.push_back(AudioTrackInfo("idx0", "lang0", "rend0", "trackName0", "codec0", 0, "type0", false, "label0", "type0", true));
 	tracks.push_back(AudioTrackInfo("idx1", "lang1", "rend1", "trackName1", "codec1", 0, "type1", false, "label1", "type1", false));
 
-	mPrivateInstanceAAMP->preferredRenditionString = "rend0";
-	mPrivateInstanceAAMP->mFogTSBEnabled = true;
-	mPrivateInstanceAAMP->mManifestUrl = "http://host/Manifest.mpd";
-	mPrivateInstanceAAMP->mTsbSessionRequestUrl = "http://host/TsbSessionRequest.mpd";
+	mPlayerInstanceAAMP->preferredRenditionString = "rend0";
+	mPlayerInstanceAAMP->mFogTSBEnabled = true;
+	mPlayerInstanceAAMP->mManifestUrl = "http://host/Manifest.mpd";
+	mPlayerInstanceAAMP->mTsbSessionRequestUrl = "http://host/TsbSessionRequest.mpd";
 
 	/* Call SetPreferredLanguages() changing the rendition. There should be a
 	 * retune and a new TSB requested.
@@ -527,13 +527,13 @@ TEST_F(SetPreferredLanguagesTests, RenditionTest6)
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_))
 		.WillOnce(Invoke(this, &SetPreferredLanguagesTests::Stop));
 
-	mPrivateInstanceAAMP->SetPreferredLanguages(NULL, "rend1", NULL, NULL, NULL);
+	mPlayerInstanceAAMP->SetPreferredLanguages(NULL, "rend1", NULL, NULL, NULL);
 
 	/* The manifest URL should be changed to reload the TSB. */
-	EXPECT_STREQ(mPrivateInstanceAAMP->mManifestUrl.c_str(), "http://host/TsbSessionRequest.mpd&reloadTSB=true");
+	EXPECT_STREQ(mPlayerInstanceAAMP->mManifestUrl.c_str(), "http://host/TsbSessionRequest.mpd&reloadTSB=true");
 
 	/* Verify the preferred rendition. */
-	EXPECT_STREQ(mPrivateInstanceAAMP->preferredRenditionString.c_str(), "rend1");
+	EXPECT_STREQ(mPlayerInstanceAAMP->preferredRenditionString.c_str(), "rend1");
 }
 
 /**
@@ -541,9 +541,9 @@ TEST_F(SetPreferredLanguagesTests, RenditionTest6)
  */
 TEST_F(SetPreferredLanguagesTests, LabelListTest1)
 {
-	mPrivateInstanceAAMP->preferredLabelsString = "label0";
-	mPrivateInstanceAAMP->preferredLabelList.clear();
-	mPrivateInstanceAAMP->preferredLabelList.push_back("label0");
+	mPlayerInstanceAAMP->preferredLabelsString = "label0";
+	mPlayerInstanceAAMP->preferredLabelList.clear();
+	mPlayerInstanceAAMP->preferredLabelList.push_back("label0");
 
 	/* Call SetPreferredLanguages() without changing the preferred label list.
 	 * There should be no retune.
@@ -553,12 +553,12 @@ TEST_F(SetPreferredLanguagesTests, LabelListTest1)
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_))
 		.Times(0);
 
-	mPrivateInstanceAAMP->SetPreferredLanguages(NULL, NULL, NULL, NULL, "label0");
+	mPlayerInstanceAAMP->SetPreferredLanguages(NULL, NULL, NULL, NULL, "label0");
 
 	/* Verify the preferred label. */
-	EXPECT_STREQ(mPrivateInstanceAAMP->preferredLabelsString.c_str(), "label0");
-	EXPECT_EQ(mPrivateInstanceAAMP->preferredLabelList.size(), 1);
-	EXPECT_STREQ(mPrivateInstanceAAMP->preferredLabelList.at(0).c_str(), "label0");
+	EXPECT_STREQ(mPlayerInstanceAAMP->preferredLabelsString.c_str(), "label0");
+	EXPECT_EQ(mPlayerInstanceAAMP->preferredLabelList.size(), 1);
+	EXPECT_STREQ(mPlayerInstanceAAMP->preferredLabelList.at(0).c_str(), "label0");
 }
 
 /**
@@ -571,9 +571,9 @@ TEST_F(SetPreferredLanguagesTests, LabelListTest2)
 	tracks.push_back(AudioTrackInfo("idx0", "lang0", "rend0", "trackName0", "codec0", 0, "type0", false, "label0", "type0", true));
 	tracks.push_back(AudioTrackInfo("idx1", "lang1", "rend1", "trackName1", "codec1", 0, "type1", false, "label1", "type1", true));
 
-	mPrivateInstanceAAMP->preferredLabelsString = "label0";
-	mPrivateInstanceAAMP->preferredLabelList.clear();
-	mPrivateInstanceAAMP->preferredLabelList.push_back("label0");
+	mPlayerInstanceAAMP->preferredLabelsString = "label0";
+	mPlayerInstanceAAMP->preferredLabelList.clear();
+	mPlayerInstanceAAMP->preferredLabelList.push_back("label0");
 
 	/* Call SetPreferredLanguages() changing the preferred label list. There
 	 * should be a retune.
@@ -583,12 +583,12 @@ TEST_F(SetPreferredLanguagesTests, LabelListTest2)
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_))
 		.WillOnce(Invoke(this, &SetPreferredLanguagesTests::Stop));
 
-	mPrivateInstanceAAMP->SetPreferredLanguages(NULL, NULL, NULL, NULL, "label1");
+	mPlayerInstanceAAMP->SetPreferredLanguages(NULL, NULL, NULL, NULL, "label1");
 
 	/* Verify the preferred label. */
-	EXPECT_STREQ(mPrivateInstanceAAMP->preferredLabelsString.c_str(), "label1");
-	EXPECT_EQ(mPrivateInstanceAAMP->preferredLabelList.size(), 1);
-	EXPECT_STREQ(mPrivateInstanceAAMP->preferredLabelList.at(0).c_str(), "label1");
+	EXPECT_STREQ(mPlayerInstanceAAMP->preferredLabelsString.c_str(), "label1");
+	EXPECT_EQ(mPlayerInstanceAAMP->preferredLabelList.size(), 1);
+	EXPECT_STREQ(mPlayerInstanceAAMP->preferredLabelList.at(0).c_str(), "label1");
 }
 
 /**
@@ -602,10 +602,10 @@ TEST_F(SetPreferredLanguagesTests, LabelListTest3)
 	tracks.push_back(AudioTrackInfo("idx0", "lang0", "rend0", "trackName0", "codec0", 0, "type0", false, "label0", "type0", true));
 	tracks.push_back(AudioTrackInfo("idx1", "lang1", "rend1", "trackName1", "codec1", 0, "type1", false, "label1", "type1", true));
 
-	mPrivateInstanceAAMP->preferredLabelsString = "label0,label1";
-	mPrivateInstanceAAMP->preferredLabelList.clear();
-	mPrivateInstanceAAMP->preferredLabelList.push_back("label0");
-	mPrivateInstanceAAMP->preferredLabelList.push_back("label1");
+	mPlayerInstanceAAMP->preferredLabelsString = "label0,label1";
+	mPlayerInstanceAAMP->preferredLabelList.clear();
+	mPlayerInstanceAAMP->preferredLabelList.push_back("label0");
+	mPlayerInstanceAAMP->preferredLabelList.push_back("label1");
 
 	/* Call SetPreferredLanguages() changing the preferred label list. There
 	 * should be a retune as there are multiple labels.
@@ -615,13 +615,13 @@ TEST_F(SetPreferredLanguagesTests, LabelListTest3)
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_))
 		.WillOnce(Invoke(this, &SetPreferredLanguagesTests::Stop));
 
-	mPrivateInstanceAAMP->SetPreferredLanguages(NULL, NULL, NULL, NULL, "label0,label2");
+	mPlayerInstanceAAMP->SetPreferredLanguages(NULL, NULL, NULL, NULL, "label0,label2");
 
 	/* Verify the preferred labels. */
-	EXPECT_STREQ(mPrivateInstanceAAMP->preferredLabelsString.c_str(), "label0,label2");
-	EXPECT_EQ(mPrivateInstanceAAMP->preferredLabelList.size(), 2);
-	EXPECT_STREQ(mPrivateInstanceAAMP->preferredLabelList.at(0).c_str(), "label0");
-	EXPECT_STREQ(mPrivateInstanceAAMP->preferredLabelList.at(1).c_str(), "label2");
+	EXPECT_STREQ(mPlayerInstanceAAMP->preferredLabelsString.c_str(), "label0,label2");
+	EXPECT_EQ(mPlayerInstanceAAMP->preferredLabelList.size(), 2);
+	EXPECT_STREQ(mPlayerInstanceAAMP->preferredLabelList.at(0).c_str(), "label0");
+	EXPECT_STREQ(mPlayerInstanceAAMP->preferredLabelList.at(1).c_str(), "label2");
 }
 
 /**
@@ -635,9 +635,9 @@ TEST_F(SetPreferredLanguagesTests, LabelListTest4)
 	tracks.push_back(AudioTrackInfo("idx0", "lang0", "rend0", "trackName0", "codec0", 0, "type0", false, "label0", "type0", true));
 	tracks.push_back(AudioTrackInfo("idx1", "lang1", "rend1", "trackName1", "codec1", 0, "type1", false, "label1", "type1", true));
 
-	mPrivateInstanceAAMP->preferredLabelsString = "label0";
-	mPrivateInstanceAAMP->preferredLabelList.clear();
-	mPrivateInstanceAAMP->preferredLabelList.push_back("label0");
+	mPlayerInstanceAAMP->preferredLabelsString = "label0";
+	mPlayerInstanceAAMP->preferredLabelList.clear();
+	mPlayerInstanceAAMP->preferredLabelList.push_back("label0");
 
 	/* Call SetPreferredLanguages() passing a label which is not available.
 	 * There should be no retune.
@@ -647,12 +647,12 @@ TEST_F(SetPreferredLanguagesTests, LabelListTest4)
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_))
 		.Times(0);
 
-	mPrivateInstanceAAMP->SetPreferredLanguages(NULL, NULL, NULL, NULL, "label2");
+	mPlayerInstanceAAMP->SetPreferredLanguages(NULL, NULL, NULL, NULL, "label2");
 
 	/* Verify the preferred label. */
-	EXPECT_STREQ(mPrivateInstanceAAMP->preferredLabelsString.c_str(), "label2");
-	EXPECT_EQ(mPrivateInstanceAAMP->preferredLabelList.size(), 1);
-	EXPECT_STREQ(mPrivateInstanceAAMP->preferredLabelList.at(0).c_str(), "label2");
+	EXPECT_STREQ(mPlayerInstanceAAMP->preferredLabelsString.c_str(), "label2");
+	EXPECT_EQ(mPlayerInstanceAAMP->preferredLabelList.size(), 1);
+	EXPECT_STREQ(mPlayerInstanceAAMP->preferredLabelList.at(0).c_str(), "label2");
 }
 
 /**
@@ -666,7 +666,7 @@ TEST_F(SetPreferredLanguagesTests, LabelListTest5)
 	tracks.push_back(AudioTrackInfo("idx0", "lang0", "rend0", "trackName0", "codec0", 0, "type0", false, "label0", "type0", true));
 	tracks.push_back(AudioTrackInfo("idx1", "lang1", "rend1", "trackName1", "codec1", 0, "type1", false, "label1", "type1", true));
 
-	mPrivateInstanceAAMP->preferredLabelsString = "label0";
+	mPlayerInstanceAAMP->preferredLabelsString = "label0";
 
 	/* Call SetPreferredLanguages() changing the preferred label list. There
 	 * should be a retune.
@@ -676,12 +676,12 @@ TEST_F(SetPreferredLanguagesTests, LabelListTest5)
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_))
 		.WillOnce(Invoke(this, &SetPreferredLanguagesTests::Stop));
 
-	mPrivateInstanceAAMP->SetPreferredLanguages("{\"label\":\"label1\"}", NULL, NULL, NULL, NULL);
+	mPlayerInstanceAAMP->SetPreferredLanguages("{\"label\":\"label1\"}", NULL, NULL, NULL, NULL);
 
 	/* Verify the preferred label. The preferred label list is not changed in
 	 * this code path.
 	 */
-	EXPECT_STREQ(mPrivateInstanceAAMP->preferredLabelsString.c_str(), "label1");
+	EXPECT_STREQ(mPlayerInstanceAAMP->preferredLabelsString.c_str(), "label1");
 }
 
 /**
@@ -694,12 +694,12 @@ TEST_F(SetPreferredLanguagesTests, LabelListTest6)
 	tracks.push_back(AudioTrackInfo("idx0", "lang0", "rend0", "trackName0", "codec0", 0, "type0", false, "label0", "type0", true));
 	tracks.push_back(AudioTrackInfo("idx1", "lang1", "rend1", "trackName1", "codec1", 0, "type1", false, "label1", "type1", true));
 
-	mPrivateInstanceAAMP->preferredLabelsString = "label0";
-	mPrivateInstanceAAMP->preferredLabelList.clear();
-	mPrivateInstanceAAMP->preferredLabelList.push_back("label0");
-	mPrivateInstanceAAMP->mFogTSBEnabled = true;
-	mPrivateInstanceAAMP->mManifestUrl = "http://host/Manifest.mpd";
-	mPrivateInstanceAAMP->mTsbSessionRequestUrl = "http://host/TsbSessionRequest.mpd";
+	mPlayerInstanceAAMP->preferredLabelsString = "label0";
+	mPlayerInstanceAAMP->preferredLabelList.clear();
+	mPlayerInstanceAAMP->preferredLabelList.push_back("label0");
+	mPlayerInstanceAAMP->mFogTSBEnabled = true;
+	mPlayerInstanceAAMP->mManifestUrl = "http://host/Manifest.mpd";
+	mPlayerInstanceAAMP->mTsbSessionRequestUrl = "http://host/TsbSessionRequest.mpd";
 
 	/* Call SetPreferredLanguages() changing the preferred label list. There
 	 * should be a retune but no new TSB requested.
@@ -709,15 +709,15 @@ TEST_F(SetPreferredLanguagesTests, LabelListTest6)
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_))
 		.WillOnce(Invoke(this, &SetPreferredLanguagesTests::Stop));
 
-	mPrivateInstanceAAMP->SetPreferredLanguages(NULL, NULL, NULL, NULL, "label1");
+	mPlayerInstanceAAMP->SetPreferredLanguages(NULL, NULL, NULL, NULL, "label1");
 
 	/* Verified the requested manifest URL. */
-	EXPECT_STREQ(mPrivateInstanceAAMP->mManifestUrl.c_str(), "http://host/Manifest.mpd");
+	EXPECT_STREQ(mPlayerInstanceAAMP->mManifestUrl.c_str(), "http://host/Manifest.mpd");
 
 	/* Verify the preferred label. */
-	EXPECT_STREQ(mPrivateInstanceAAMP->preferredLabelsString.c_str(), "label1");
-	EXPECT_EQ(mPrivateInstanceAAMP->preferredLabelList.size(), 1);
-	EXPECT_STREQ(mPrivateInstanceAAMP->preferredLabelList.at(0).c_str(), "label1");
+	EXPECT_STREQ(mPlayerInstanceAAMP->preferredLabelsString.c_str(), "label1");
+	EXPECT_EQ(mPlayerInstanceAAMP->preferredLabelList.size(), 1);
+	EXPECT_STREQ(mPlayerInstanceAAMP->preferredLabelList.at(0).c_str(), "label1");
 }
 
 /**
@@ -731,12 +731,12 @@ TEST_F(SetPreferredLanguagesTests, LabelListTest7)
 	tracks.push_back(AudioTrackInfo("idx0", "lang0", "rend0", "trackName0", "codec0", 0, "type0", false, "label0", "type0", true));
 	tracks.push_back(AudioTrackInfo("idx1", "lang1", "rend1", "trackName1", "codec1", 0, "type1", false, "label1", "type1", false));
 
-	mPrivateInstanceAAMP->preferredLabelsString = "label0";
-	mPrivateInstanceAAMP->preferredLabelList.clear();
-	mPrivateInstanceAAMP->preferredLabelList.push_back("label0");
-	mPrivateInstanceAAMP->mFogTSBEnabled = true;
-	mPrivateInstanceAAMP->mManifestUrl = "http://host/Manifest.mpd";
-	mPrivateInstanceAAMP->mTsbSessionRequestUrl = "http://host/TsbSessionRequest.mpd";
+	mPlayerInstanceAAMP->preferredLabelsString = "label0";
+	mPlayerInstanceAAMP->preferredLabelList.clear();
+	mPlayerInstanceAAMP->preferredLabelList.push_back("label0");
+	mPlayerInstanceAAMP->mFogTSBEnabled = true;
+	mPlayerInstanceAAMP->mManifestUrl = "http://host/Manifest.mpd";
+	mPlayerInstanceAAMP->mTsbSessionRequestUrl = "http://host/TsbSessionRequest.mpd";
 
 	/* Call SetPreferredLanguages() changing the preferred languages list.
 	 * There should be a retune and a new TSB requested.
@@ -746,15 +746,15 @@ TEST_F(SetPreferredLanguagesTests, LabelListTest7)
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_))
 		.WillOnce(Invoke(this, &SetPreferredLanguagesTests::Stop));
 
-	mPrivateInstanceAAMP->SetPreferredLanguages(NULL, NULL, NULL, NULL, "label1");
+	mPlayerInstanceAAMP->SetPreferredLanguages(NULL, NULL, NULL, NULL, "label1");
 
 	/* The manifest URL should be changed to reload the TSB. */
-	EXPECT_STREQ(mPrivateInstanceAAMP->mManifestUrl.c_str(), "http://host/TsbSessionRequest.mpd&reloadTSB=true");
+	EXPECT_STREQ(mPlayerInstanceAAMP->mManifestUrl.c_str(), "http://host/TsbSessionRequest.mpd&reloadTSB=true");
 
 	/* Verify the preferred label. */
-	EXPECT_STREQ(mPrivateInstanceAAMP->preferredLabelsString.c_str(), "label1");
-	EXPECT_EQ(mPrivateInstanceAAMP->preferredLabelList.size(), 1);
-	EXPECT_STREQ(mPrivateInstanceAAMP->preferredLabelList.at(0).c_str(), "label1");
+	EXPECT_STREQ(mPlayerInstanceAAMP->preferredLabelsString.c_str(), "label1");
+	EXPECT_EQ(mPlayerInstanceAAMP->preferredLabelList.size(), 1);
+	EXPECT_STREQ(mPlayerInstanceAAMP->preferredLabelList.at(0).c_str(), "label1");
 }
 
 /**
@@ -767,7 +767,7 @@ TEST_F(SetPreferredLanguagesTests, TypeTest1)
 	tracks.push_back(AudioTrackInfo("idx0", "lang0", "rend0", "trackName0", "codec0", 0, "type0", false, "label0", "type0", true));
 	tracks.push_back(AudioTrackInfo("idx1", "lang1", "rend1", "trackName1", "codec1", 0, "type1", false, "label1", "type1", true));
 
-	mPrivateInstanceAAMP->preferredTypeString = "type0";
+	mPlayerInstanceAAMP->preferredTypeString = "type0";
 
 	/* Call SetPreferredLanguages() without changing the preferred type. There
 	 * should be no retune.
@@ -777,10 +777,10 @@ TEST_F(SetPreferredLanguagesTests, TypeTest1)
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_))
 		.Times(0);
 
-	mPrivateInstanceAAMP->SetPreferredLanguages(NULL, NULL, "type0", NULL, NULL);
+	mPlayerInstanceAAMP->SetPreferredLanguages(NULL, NULL, "type0", NULL, NULL);
 
 	/* Verify the preferred type. */
-	EXPECT_STREQ(mPrivateInstanceAAMP->preferredTypeString.c_str(), "type0");
+	EXPECT_STREQ(mPlayerInstanceAAMP->preferredTypeString.c_str(), "type0");
 }
 
 /**
@@ -793,7 +793,7 @@ TEST_F(SetPreferredLanguagesTests, TypeTest2)
 	tracks.push_back(AudioTrackInfo("idx0", "lang0", "rend0", "trackName0", "codec0", 0, "type0", false, "label0", "type0", true));
 	tracks.push_back(AudioTrackInfo("idx1", "lang1", "rend1", "trackName1", "codec1", 0, "type1", false, "label1", "type1", true));
 
-	mPrivateInstanceAAMP->preferredTypeString = "type0";
+	mPlayerInstanceAAMP->preferredTypeString = "type0";
 
 	/* Call SetPreferredLanguages() changing the preferred type. There should be
 	 * a retune.
@@ -803,10 +803,10 @@ TEST_F(SetPreferredLanguagesTests, TypeTest2)
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_))
 		.WillOnce(Invoke(this, &SetPreferredLanguagesTests::Stop));
 
-	mPrivateInstanceAAMP->SetPreferredLanguages(NULL, NULL, "type1", NULL, NULL);
+	mPlayerInstanceAAMP->SetPreferredLanguages(NULL, NULL, "type1", NULL, NULL);
 
 	/* Verify the preferred type. */
-	EXPECT_STREQ(mPrivateInstanceAAMP->preferredTypeString.c_str(), "type1");
+	EXPECT_STREQ(mPlayerInstanceAAMP->preferredTypeString.c_str(), "type1");
 }
 
 /**
@@ -820,7 +820,7 @@ TEST_F(SetPreferredLanguagesTests, TypeTest3)
 	tracks.push_back(AudioTrackInfo("idx0", "lang0", "rend0", "trackName0", "codec0", 0, "type0", false, "label0", "type0", true));
 	tracks.push_back(AudioTrackInfo("idx1", "lang1", "rend1", "trackName1", "codec1", 0, "type1", false, "label1", "type1", true));
 
-	mPrivateInstanceAAMP->preferredTypeString = "type0";
+	mPlayerInstanceAAMP->preferredTypeString = "type0";
 
 	/* Call SetPreferredLanguages() passing a type which is not available. There
 	 * should be no retune.
@@ -830,10 +830,10 @@ TEST_F(SetPreferredLanguagesTests, TypeTest3)
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_))
 		.Times(0);
 
-	mPrivateInstanceAAMP->SetPreferredLanguages(NULL, NULL, "type2", NULL, NULL);
+	mPlayerInstanceAAMP->SetPreferredLanguages(NULL, NULL, "type2", NULL, NULL);
 
 	/* Verify the preferred type. */
-	EXPECT_STREQ(mPrivateInstanceAAMP->preferredTypeString.c_str(), "type2");
+	EXPECT_STREQ(mPlayerInstanceAAMP->preferredTypeString.c_str(), "type2");
 }
 
 /**
@@ -847,7 +847,7 @@ TEST_F(SetPreferredLanguagesTests, TypeTest4)
 	tracks.push_back(AudioTrackInfo("idx0", "lang0", "rend0", "trackName0", "codec0", 0, "type0", false, "label0", "type0", true));
 	tracks.push_back(AudioTrackInfo("idx1", "lang1", "rend1", "trackName1", "codec1", 0, "type1", false, "label1", "type1", true));
 
-	mPrivateInstanceAAMP->preferredAudioAccessibilityNode = Accessibility("schemId0", "val0");
+	mPlayerInstanceAAMP->preferredAudioAccessibilityNode = Accessibility("schemId0", "val0");
 
 	/* Call SetPreferredLanguages() changing the preferred type. There should be
 	 * a retune.
@@ -857,11 +857,11 @@ TEST_F(SetPreferredLanguagesTests, TypeTest4)
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_))
 		.WillOnce(Invoke(this, &SetPreferredLanguagesTests::Stop));
 
-	mPrivateInstanceAAMP->SetPreferredLanguages("{\"accessibility\":{}}", NULL, NULL, NULL, NULL);
+	mPlayerInstanceAAMP->SetPreferredLanguages("{\"accessibility\":{}}", NULL, NULL, NULL, NULL);
 
 	/* Verify the (default) preferred type. */
 	Accessibility expectedAccessibility;
-	EXPECT_EQ(mPrivateInstanceAAMP->preferredAudioAccessibilityNode, expectedAccessibility);
+	EXPECT_EQ(mPlayerInstanceAAMP->preferredAudioAccessibilityNode, expectedAccessibility);
 }
 
 /**
@@ -874,10 +874,10 @@ TEST_F(SetPreferredLanguagesTests, TypeTest5)
 	tracks.push_back(AudioTrackInfo("idx0", "lang0", "rend0", "trackName0", "codec0", 0, "type0", false, "label0", "type0", true));
 	tracks.push_back(AudioTrackInfo("idx1", "lang1", "rend1", "trackName1", "codec1", 0, "type1", false, "label1", "type1", true));
 
-	mPrivateInstanceAAMP->preferredTypeString = "type0";
-	mPrivateInstanceAAMP->mFogTSBEnabled = true;
-	mPrivateInstanceAAMP->mManifestUrl = "http://host/Manifest.mpd";
-	mPrivateInstanceAAMP->mTsbSessionRequestUrl = "http://host/TsbSessionRequest.mpd";
+	mPlayerInstanceAAMP->preferredTypeString = "type0";
+	mPlayerInstanceAAMP->mFogTSBEnabled = true;
+	mPlayerInstanceAAMP->mManifestUrl = "http://host/Manifest.mpd";
+	mPlayerInstanceAAMP->mTsbSessionRequestUrl = "http://host/TsbSessionRequest.mpd";
 
 	/* Call SetPreferredLanguages() changing the preferred type. There should be
 	 * a retune but no new TSB requested.
@@ -887,13 +887,13 @@ TEST_F(SetPreferredLanguagesTests, TypeTest5)
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_))
 		.WillOnce(Invoke(this, &SetPreferredLanguagesTests::Stop));
 
-	mPrivateInstanceAAMP->SetPreferredLanguages(NULL, NULL, "type1", NULL, NULL);
+	mPlayerInstanceAAMP->SetPreferredLanguages(NULL, NULL, "type1", NULL, NULL);
 
 	/* Verified the requested manifest URL. */
-	EXPECT_STREQ(mPrivateInstanceAAMP->mManifestUrl.c_str(), "http://host/Manifest.mpd");
+	EXPECT_STREQ(mPlayerInstanceAAMP->mManifestUrl.c_str(), "http://host/Manifest.mpd");
 
 	/* Verify the preferred type. */
-	EXPECT_STREQ(mPrivateInstanceAAMP->preferredTypeString.c_str(), "type1");
+	EXPECT_STREQ(mPlayerInstanceAAMP->preferredTypeString.c_str(), "type1");
 }
 
 /**
@@ -907,10 +907,10 @@ TEST_F(SetPreferredLanguagesTests, TypeTest6)
 	tracks.push_back(AudioTrackInfo("idx0", "lang0", "rend0", "trackName0", "codec0", 0, "type0", false, "label0", "type0", true));
 	tracks.push_back(AudioTrackInfo("idx1", "lang1", "rend1", "trackName1", "codec1", 0, "type1", false, "label1", "type1", false));
 
-	mPrivateInstanceAAMP->preferredTypeString = "type0";
-	mPrivateInstanceAAMP->mFogTSBEnabled = true;
-	mPrivateInstanceAAMP->mManifestUrl = "http://host/Manifest.mpd";
-	mPrivateInstanceAAMP->mTsbSessionRequestUrl = "http://host/TsbSessionRequest.mpd";
+	mPlayerInstanceAAMP->preferredTypeString = "type0";
+	mPlayerInstanceAAMP->mFogTSBEnabled = true;
+	mPlayerInstanceAAMP->mManifestUrl = "http://host/Manifest.mpd";
+	mPlayerInstanceAAMP->mTsbSessionRequestUrl = "http://host/TsbSessionRequest.mpd";
 
 	/* Call SetPreferredLanguages() changing the preferred tupe. There should be
 	 * a retune and a new TSB requested.
@@ -920,13 +920,13 @@ TEST_F(SetPreferredLanguagesTests, TypeTest6)
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_))
 		.WillOnce(Invoke(this, &SetPreferredLanguagesTests::Stop));
 
-	mPrivateInstanceAAMP->SetPreferredLanguages(NULL, NULL, "type1", NULL, NULL);
+	mPlayerInstanceAAMP->SetPreferredLanguages(NULL, NULL, "type1", NULL, NULL);
 
 	/* The manifest URL should be changed to reload the TSB. */
-	EXPECT_STREQ(mPrivateInstanceAAMP->mManifestUrl.c_str(), "http://host/TsbSessionRequest.mpd&reloadTSB=true");
+	EXPECT_STREQ(mPlayerInstanceAAMP->mManifestUrl.c_str(), "http://host/TsbSessionRequest.mpd&reloadTSB=true");
 
 	/* Verify the preferred type. */
-	EXPECT_STREQ(mPrivateInstanceAAMP->preferredTypeString.c_str(), "type1");
+	EXPECT_STREQ(mPlayerInstanceAAMP->preferredTypeString.c_str(), "type1");
 }
 
 /**
@@ -934,9 +934,9 @@ TEST_F(SetPreferredLanguagesTests, TypeTest6)
  */
 TEST_F(SetPreferredLanguagesTests, CodecListTest1)
 {
-	mPrivateInstanceAAMP->preferredCodecString = "codec0";
-	mPrivateInstanceAAMP->preferredCodecList.clear();
-	mPrivateInstanceAAMP->preferredCodecList.push_back("codec0");
+	mPlayerInstanceAAMP->preferredCodecString = "codec0";
+	mPlayerInstanceAAMP->preferredCodecList.clear();
+	mPlayerInstanceAAMP->preferredCodecList.push_back("codec0");
 
 	/* Call SetPreferredLanguages() without changing the preferred codec list.
 	 * There should be no retune.
@@ -946,12 +946,12 @@ TEST_F(SetPreferredLanguagesTests, CodecListTest1)
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_))
 		.Times(0);
 
-	mPrivateInstanceAAMP->SetPreferredLanguages(NULL, NULL, NULL, "codec0", NULL);
+	mPlayerInstanceAAMP->SetPreferredLanguages(NULL, NULL, NULL, "codec0", NULL);
 
 	/* Verify the preferred codec list. */
-	EXPECT_STREQ(mPrivateInstanceAAMP->preferredCodecString.c_str(), "codec0");
-	EXPECT_EQ(mPrivateInstanceAAMP->preferredCodecList.size(), 1);
-	EXPECT_STREQ(mPrivateInstanceAAMP->preferredCodecList.at(0).c_str(), "codec0");
+	EXPECT_STREQ(mPlayerInstanceAAMP->preferredCodecString.c_str(), "codec0");
+	EXPECT_EQ(mPlayerInstanceAAMP->preferredCodecList.size(), 1);
+	EXPECT_STREQ(mPlayerInstanceAAMP->preferredCodecList.at(0).c_str(), "codec0");
 }
 
 /**
@@ -964,9 +964,9 @@ TEST_F(SetPreferredLanguagesTests, CodecListTest2)
 	tracks.push_back(AudioTrackInfo("idx0", "lang0", "rend0", "trackName0", "codec0", 0, "type0", false, "label0", "type0", true));
 	tracks.push_back(AudioTrackInfo("idx1", "lang1", "rend1", "trackName1", "codec1", 0, "type1", false, "label1", "type1", true));
 
-	mPrivateInstanceAAMP->preferredCodecString = "codec0";
-	mPrivateInstanceAAMP->preferredCodecList.clear();
-	mPrivateInstanceAAMP->preferredCodecList.push_back("codec0");
+	mPlayerInstanceAAMP->preferredCodecString = "codec0";
+	mPlayerInstanceAAMP->preferredCodecList.clear();
+	mPlayerInstanceAAMP->preferredCodecList.push_back("codec0");
 
 	/* Call SetPreferredLanguages() changing the preferred codec list. There
 	 * should be a retune.
@@ -976,12 +976,12 @@ TEST_F(SetPreferredLanguagesTests, CodecListTest2)
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_))
 		.WillOnce(Invoke(this, &SetPreferredLanguagesTests::Stop));
 
-	mPrivateInstanceAAMP->SetPreferredLanguages(NULL, NULL, NULL, "codec1", NULL);
+	mPlayerInstanceAAMP->SetPreferredLanguages(NULL, NULL, NULL, "codec1", NULL);
 
 	/* Verify the preferred codec list. */
-	EXPECT_STREQ(mPrivateInstanceAAMP->preferredCodecString.c_str(), "codec1");
-	EXPECT_EQ(mPrivateInstanceAAMP->preferredCodecList.size(), 1);
-	EXPECT_STREQ(mPrivateInstanceAAMP->preferredCodecList.at(0).c_str(), "codec1");
+	EXPECT_STREQ(mPlayerInstanceAAMP->preferredCodecString.c_str(), "codec1");
+	EXPECT_EQ(mPlayerInstanceAAMP->preferredCodecList.size(), 1);
+	EXPECT_STREQ(mPlayerInstanceAAMP->preferredCodecList.at(0).c_str(), "codec1");
 }
 
 /**
@@ -995,10 +995,10 @@ TEST_F(SetPreferredLanguagesTests, CodecListTest3)
 	tracks.push_back(AudioTrackInfo("idx0", "lang0", "rend0", "trackName0", "codec0", 0, "type0", false, "label0", "type0", true));
 	tracks.push_back(AudioTrackInfo("idx1", "lang1", "rend1", "trackName1", "codec1", 0, "type1", false, "label1", "type1", true));
 
-	mPrivateInstanceAAMP->preferredCodecString = "codec0,codec1";
-	mPrivateInstanceAAMP->preferredCodecList.clear();
-	mPrivateInstanceAAMP->preferredCodecList.push_back("codec0");
-	mPrivateInstanceAAMP->preferredCodecList.push_back("codec1");
+	mPlayerInstanceAAMP->preferredCodecString = "codec0,codec1";
+	mPlayerInstanceAAMP->preferredCodecList.clear();
+	mPlayerInstanceAAMP->preferredCodecList.push_back("codec0");
+	mPlayerInstanceAAMP->preferredCodecList.push_back("codec1");
 
 	/* Call SetPreferredLanguages() changing the preferred codec list. There
 	 * should be a retune as there are multiple codecs.
@@ -1008,13 +1008,13 @@ TEST_F(SetPreferredLanguagesTests, CodecListTest3)
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_))
 		.WillOnce(Invoke(this, &SetPreferredLanguagesTests::Stop));
 
-	mPrivateInstanceAAMP->SetPreferredLanguages(NULL, NULL, NULL, "codec0,codec2", NULL);
+	mPlayerInstanceAAMP->SetPreferredLanguages(NULL, NULL, NULL, "codec0,codec2", NULL);
 
 	/* Verify the preferred codec list. */
-	EXPECT_STREQ(mPrivateInstanceAAMP->preferredCodecString.c_str(), "codec0,codec2");
-	EXPECT_EQ(mPrivateInstanceAAMP->preferredCodecList.size(), 2);
-	EXPECT_STREQ(mPrivateInstanceAAMP->preferredCodecList.at(0).c_str(), "codec0");
-	EXPECT_STREQ(mPrivateInstanceAAMP->preferredCodecList.at(1).c_str(), "codec2");
+	EXPECT_STREQ(mPlayerInstanceAAMP->preferredCodecString.c_str(), "codec0,codec2");
+	EXPECT_EQ(mPlayerInstanceAAMP->preferredCodecList.size(), 2);
+	EXPECT_STREQ(mPlayerInstanceAAMP->preferredCodecList.at(0).c_str(), "codec0");
+	EXPECT_STREQ(mPlayerInstanceAAMP->preferredCodecList.at(1).c_str(), "codec2");
 }
 
 /**
@@ -1028,9 +1028,9 @@ TEST_F(SetPreferredLanguagesTests, CodecListTest4)
 	tracks.push_back(AudioTrackInfo("idx0", "lang0", "rend0", "trackName0", "codec0", 0, "type0", false, "label0", "type0", true));
 	tracks.push_back(AudioTrackInfo("idx1", "lang1", "rend1", "trackName1", "codec1", 0, "type1", false, "label1", "type1", true));
 
-	mPrivateInstanceAAMP->preferredCodecString = "codec0";
-	mPrivateInstanceAAMP->preferredCodecList.clear();
-	mPrivateInstanceAAMP->preferredCodecList.push_back("codec0");
+	mPlayerInstanceAAMP->preferredCodecString = "codec0";
+	mPlayerInstanceAAMP->preferredCodecList.clear();
+	mPlayerInstanceAAMP->preferredCodecList.push_back("codec0");
 
 	/* Call SetPreferredLanguages() passing a codec which is not available.
 	 * There should be no retune.
@@ -1040,12 +1040,12 @@ TEST_F(SetPreferredLanguagesTests, CodecListTest4)
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_))
 		.Times(0);
 
-	mPrivateInstanceAAMP->SetPreferredLanguages(NULL, NULL, NULL, "codec2", NULL);
+	mPlayerInstanceAAMP->SetPreferredLanguages(NULL, NULL, NULL, "codec2", NULL);
 
 	/* Verify the preferred codec list. */
-	EXPECT_STREQ(mPrivateInstanceAAMP->preferredCodecString.c_str(), "codec2");
-	EXPECT_EQ(mPrivateInstanceAAMP->preferredCodecList.size(), 1);
-	EXPECT_STREQ(mPrivateInstanceAAMP->preferredCodecList.at(0).c_str(), "codec2");
+	EXPECT_STREQ(mPlayerInstanceAAMP->preferredCodecString.c_str(), "codec2");
+	EXPECT_EQ(mPlayerInstanceAAMP->preferredCodecList.size(), 1);
+	EXPECT_STREQ(mPlayerInstanceAAMP->preferredCodecList.at(0).c_str(), "codec2");
 }
 
 /**
@@ -1059,9 +1059,9 @@ TEST_F(SetPreferredLanguagesTests, CodecListTest5)
 	tracks.push_back(AudioTrackInfo("idx0", "lang0", "rend0", "trackName0", "codec0", 0, "type0", false, "label0", "type0", true));
 	tracks.push_back(AudioTrackInfo("idx1", "lang1", "rend1", "trackName1", "codec1", 0, "type1", false, "label1", "type1", false));
 
-	mPrivateInstanceAAMP->preferredCodecString = "codec0";
-	mPrivateInstanceAAMP->preferredCodecList.clear();
-	mPrivateInstanceAAMP->preferredCodecList.push_back("codec0");
+	mPlayerInstanceAAMP->preferredCodecString = "codec0";
+	mPlayerInstanceAAMP->preferredCodecList.clear();
+	mPlayerInstanceAAMP->preferredCodecList.push_back("codec0");
 
 	/* Call SetPreferredLanguages() passing a codec which is not enabled.
 	 * There should be no retune.
@@ -1071,10 +1071,10 @@ TEST_F(SetPreferredLanguagesTests, CodecListTest5)
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_))
 		.Times(0);
 
-	mPrivateInstanceAAMP->SetPreferredLanguages(NULL, NULL, NULL, "codec1", NULL);
+	mPlayerInstanceAAMP->SetPreferredLanguages(NULL, NULL, NULL, "codec1", NULL);
 
 	/* Verify the preferred codec list. */
-	EXPECT_STREQ(mPrivateInstanceAAMP->preferredCodecString.c_str(), "codec1");
-	EXPECT_EQ(mPrivateInstanceAAMP->preferredCodecList.size(), 1);
-	EXPECT_STREQ(mPrivateInstanceAAMP->preferredCodecList.at(0).c_str(), "codec1");
+	EXPECT_STREQ(mPlayerInstanceAAMP->preferredCodecString.c_str(), "codec1");
+	EXPECT_EQ(mPlayerInstanceAAMP->preferredCodecList.size(), 1);
+	EXPECT_STREQ(mPlayerInstanceAAMP->preferredCodecList.at(0).c_str(), "codec1");
 }

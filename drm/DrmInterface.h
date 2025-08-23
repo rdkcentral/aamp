@@ -28,7 +28,6 @@
 #include <stddef.h>
 #include <memory>
 #include <condition_variable>
-#include <priv_aamp.h>
 #include <AampCurlDefine.h>
 #include <AampUtils.h>
 #ifdef AAMP_VANILLA_AES_SUPPORT
@@ -37,6 +36,9 @@
 #include "DrmSession.h"
 #include "DrmHelper.h"
 #include "PlayerHlsDrmSessionInterface.h"
+#include "AampProfiler.h"
+#include "AampGrowableBuffer.h"
+
 /**
  * @class DrmInterface
  */
@@ -47,12 +49,12 @@ public:
 	/**
 	 * @fn GetInstance
 	 */
-	static std::shared_ptr<DrmInterface> GetInstance(PrivateInstanceAAMP* aamp);
+	static std::shared_ptr<DrmInterface> GetInstance(PlayerInstanceAAMP* aamp);
 
 	/** 
 	 * @fn DrmInterface - constructor
 	 */
-	DrmInterface(PrivateInstanceAAMP* aamp);
+	DrmInterface(PlayerInstanceAAMP* aamp);
 	/**
 	 * @fn ~drmInterface - Destructor
 	 */
@@ -95,7 +97,7 @@ public:
 	void NotifyDrmError(int drmFailure);
 	/**
 	 * Storing aamp instance */
-	PrivateInstanceAAMP* mpAamp;
+    PlayerInstanceAAMP* mpAamp;
 	/**Storing AampGrowableBuffer */
 	AampGrowableBuffer mAesKeyBuf;
 
@@ -118,9 +120,9 @@ public:
 	ProfilerBucketType MapDrmToProfilerBucket(DrmProfilerBucketType drmType);
 
 	/*
-	 *@brief Updates the PrivateInstanceAAMP instance.
+	 *@brief Updates the PlayerInstanceAAMP instance.
 	 */
-	void UpdateAamp(PrivateInstanceAAMP* aamp);
+	void UpdateAamp(PlayerInstanceAAMP* aamp);
 
 };
 

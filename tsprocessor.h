@@ -103,7 +103,7 @@ class TSProcessor : public MediaProcessor
        * @param[in] track AampMediaType to be operated on. Not relavent for demux operation
        * @param[in] peerTSProcessor Peer TSProcessor used along with this in case of separate audio/video playlists
        */
-      TSProcessor(class PrivateInstanceAAMP *aamp, StreamOperation streamOperation, id3_callback_t id3_hdl, int track = 0, TSProcessor* peerTSProcessor = NULL, TSProcessor* auxTSProcessor = NULL);
+      TSProcessor(class PlayerInstanceAAMP *aamp, StreamOperation streamOperation, id3_callback_t id3_hdl, int track = 0, TSProcessor* peerTSProcessor = NULL, TSProcessor* auxTSProcessor = NULL);
       /**
        * @brief Copy constructor disabled
        *
@@ -250,7 +250,7 @@ class TSProcessor : public MediaProcessor
       void setBasePTS(double position, long long pts);
 
    protected:
-      class PrivateInstanceAAMP *aamp;
+      class PlayerInstanceAAMP *aamp;
       /**
        * @fn setPlayMode
        *

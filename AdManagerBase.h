@@ -26,7 +26,7 @@
 #ifndef ADMANAGERBASE_H_
 #define ADMANAGERBASE_H_
 
-#include "priv_aamp.h"
+#include "main_aamp.h"
 #include "AampLogManager.h"
 
 /**
@@ -60,14 +60,14 @@ static constexpr const char *ADSTATE_STR[] =
 class CDAIObject
 {
 private:
-	PrivateInstanceAAMP* mAamp;       /**< AAMP player's private instance */
+	PlayerInstanceAAMP* mAamp;       /**< AAMP player's private instance */
 public:
 	/**
 	 * @brief CDAIObject constructor.
 	 *
-	 * @param[in] aamp - Pointer to PrivateInstanceAAMP
+	 * @param[in] aamp - Pointer to PlayerInstanceAAMP
 	 */
-	CDAIObject(PrivateInstanceAAMP* aamp): mAamp(aamp)
+	CDAIObject(PlayerInstanceAAMP* aamp): mAamp(aamp)
 	{
 
 	}

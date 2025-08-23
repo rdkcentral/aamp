@@ -165,11 +165,11 @@ class StreamAbstractionAAMP_MPD : public StreamAbstractionAAMP
 public:
 	/**
 	 * @fn StreamAbstractionAAMP_MPD
-	 * @param aamp pointer to PrivateInstanceAAMP object associated with player
+	 * @param aamp pointer to PlayerInstanceAAMP object associated with player
 	 * @param seek_pos Seek position
 	 * @param rate playback rate
 	 */
-	StreamAbstractionAAMP_MPD(class PrivateInstanceAAMP *aamp, double seekpos, float rate,
+	StreamAbstractionAAMP_MPD(class PlayerInstanceAAMP *aamp, double seekpos, float rate,
 		id3_callback_t id3Handler = nullptr);
 	/**
 	 * @fn ~StreamAbstractionAAMP_MPD

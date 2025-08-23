@@ -19,7 +19,7 @@
 */
 
 #include "MockAampLicManager.h"
-#include "priv_aamp.h"
+#include "main_aamp.h"
 MockAampLicenseManager *g_mockAampLicenseManager = nullptr;
 
 AAMPTuneFailure MapDrmToPlayerTuneFailure(DrmTuneFailure drmError)
@@ -43,7 +43,7 @@ AAMPTuneFailure MapDrmToPlayerTuneFailure(DrmTuneFailure drmError)
     }
 }
 
-AampDRMLicenseManager::AampDRMLicenseManager(int, PrivateInstanceAAMP*)
+AampDRMLicenseManager::AampDRMLicenseManager(int, PlayerInstanceAAMP*)
 {
 }
 
@@ -51,7 +51,7 @@ AampDRMLicenseManager::~AampDRMLicenseManager()
 {
 }
 
-void AampDRMLicenseManager::renewLicense(std::shared_ptr<DrmHelper>, void*, PrivateInstanceAAMP*)
+void AampDRMLicenseManager::renewLicense(std::shared_ptr<DrmHelper>, void*, PlayerInstanceAAMP*)
 {
 }
 

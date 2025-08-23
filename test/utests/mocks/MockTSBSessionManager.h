@@ -25,7 +25,7 @@
 class MockTSBSessionManager : public AampTSBSessionManager
 {
 public:
-	MockTSBSessionManager(PrivateInstanceAAMP *aamp) : AampTSBSessionManager(aamp) { }
+	MockTSBSessionManager(PlayerInstanceAAMP *aamp) : AampTSBSessionManager(aamp) { }
 	MOCK_METHOD(void, Init, ());
 	MOCK_METHOD(std::shared_ptr<AampTsbReader>, GetTsbReader, (AampMediaType mediaType));
 	MOCK_METHOD(bool, StartAdReservation, (const std::string &, uint64_t, AampTime));

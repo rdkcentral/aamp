@@ -17,9 +17,8 @@
  * limitations under the License.
 */
 
+#include "main_aamp.h"
 #include "tsDemuxer.hpp"
-
-#include "priv_aamp.h"
 #include "AampLogManager.h"
 
 // TS Demuxing defines
@@ -82,7 +81,7 @@ bool Demuxer::CheckForSteadyState()
 {
 	if (!reached_steady_state)
 	{
-		if( aamp && ISCONFIGSET(eAAMPConfig_HlsTsEnablePTSReStamp) )
+        if( aamp && ISCONFIGSET(eAAMPConfig_HlsTsEnablePTSReStamp) )
 		{ // skip below sanity checks if restamping from 0
 			reached_steady_state = true;
 			return true;
@@ -132,8 +131,8 @@ SegmentInfo_t Demuxer::UpdateSegmentInfo() const
 			ret.dts_s += max_pts_s;
 		}
 	}
-	if( aamp && ISCONFIGSET(eAAMPConfig_HlsTsEnablePTSReStamp))
-	{
+    if( aamp && ISCONFIGSET(eAAMPConfig_HlsTsEnablePTSReStamp) )
+    {
 		ret.pts_s += ptsOffset; // non-zero when pts restamping in use
 		ret.dts_s += ptsOffset; // non-zero when pts restamping in use
 	}

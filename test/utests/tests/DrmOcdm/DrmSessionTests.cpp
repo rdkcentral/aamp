@@ -33,7 +33,7 @@
 #include "curlMocks.h"
 #include "DrmTestUtils.h"
 #include "MockOpenCdm.h"
-#include "MockPrivateInstanceAAMP.h"
+#include "MockPlayerInstanceAAMP.h"
 #include "PlayerUtils.h"
 using ::testing::_;
 using ::testing::DoAll;
@@ -44,7 +44,7 @@ using ::testing::StrEq;
 class DrmSessionTests : public ::testing::Test
 {
 protected:
-	PrivateInstanceAAMP *mAamp = nullptr;
+	PlayerInstanceAAMP *mAamp = nullptr;
 	TestUtilDrm *mUtils = nullptr;
 	// The URL AAMP uses to fetch the session token
 	const std::string mSessionTokenUrl = "http://localhost:50050/authService/getSessionToken";
@@ -58,8 +58,8 @@ protected:
 		MockCurlReset();
 		MockOpenCdmReset();
 		g_mockopencdm = new NiceMock<MockOpenCdm>();
-		g_mockPrivateInstanceAAMP = new NiceMock<MockPrivateInstanceAAMP>();
-		mAamp = new PrivateInstanceAAMP(gpGlobalConfig);
+		g_mockPlayerInstanceAAMP = new NiceMock<MockPlayerInstanceAAMP>();
+		mAamp = new PlayerInstanceAAMP(gpGlobalConfig);
 		mUtils = new TestUtilDrm(mAamp);
 	}
 	void TearDown() override
@@ -68,8 +68,8 @@ protected:
 		mUtils = nullptr;
 		delete mAamp;
 		mAamp = nullptr;
-		delete g_mockPrivateInstanceAAMP;
-		g_mockPrivateInstanceAAMP = nullptr;
+		delete g_mockPlayerInstanceAAMP;
+		g_mockPlayerInstanceAAMP = nullptr;
 		delete g_mockopencdm;
 		g_mockopencdm = nullptr;
 		MockAampReset();

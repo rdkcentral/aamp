@@ -39,11 +39,11 @@ class StreamAbstractionAAMP_PROGRESSIVE : public StreamAbstractionAAMP
 public:
 	/**
 	 * @fn StreamAbstractionAAMP_PROGRESSIVE
-	 * @param aamp pointer to PrivateInstanceAAMP object associated with player
+	 * @param aamp pointer to PlayerInstanceAAMP object associated with player
 	 * @param seekpos Seek position
 	 * @param rate playback rate
 	 */
-	StreamAbstractionAAMP_PROGRESSIVE(class PrivateInstanceAAMP *aamp,double seekpos, float rate);
+	StreamAbstractionAAMP_PROGRESSIVE(class PlayerInstanceAAMP *aamp,double seekpos, float rate);
 	/**
 	 * @fn ~StreamAbstractionAAMP_PROGRESSIVE
 	 */

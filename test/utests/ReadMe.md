@@ -98,7 +98,7 @@ ctest -R PrivateInstance.*PositionAlready
 
 A CMake library containing fake/stub implementations of class methods, to allow compiling of class under test in isolation; these fakes are common to all tests.
 
-Implementation can be extended to call a mock instance, to allow testing of expectations. For example, see FakePrivateInstanceAAMP.cpp where some methods being used by existing tests have been extended to call a mock of PrivateInstanceAAMP if the mock has been constructed.
+Implementation can be extended to call a mock instance, to allow testing of expectations. For example, see FakePlayerInstanceAAMP.cpp where some methods being used by existing tests have been extended to call a mock of PlayerInstanceAAMP if the mock has been constructed.
 
 The files in here will likely need to be updated for any API changes/additions made to AAMP modules, otherwise unresolved symbol errors are likely to be seen.
 

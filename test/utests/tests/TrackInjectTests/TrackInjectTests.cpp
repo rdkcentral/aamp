@@ -22,11 +22,11 @@
 #include "fragmentcollector_mpd.h"
 #include "isobmff/isobmffbuffer.h"
 #include "AampCacheHandler.h"
-#include "../priv_aamp.h"
+#include "../main_aamp.h"
 #include "AampDRMLicPreFetcherInterface.h"
 // #include "AampConfig.h"
 #include "MockAampConfig.h"
-#include "MockPrivateInstanceAAMP.h"
+#include "MockPlayerInstanceAAMP.h"
 #include "MockMediaStreamContext.h"
 #include "MockIsoBmffBuffer.h"
 
@@ -44,7 +44,7 @@ class MediaTrackTest : public MediaTrack
 public:
 	std::string playlistURL;
 	// StreamAbstractionAAMP* ctx; // Might need to define a dummy StreamAbstractionAAMP to for GetContext()
-	MediaTrackTest(TrackType type, PrivateInstanceAAMP *aamp, const char *name) : MediaTrack(type, aamp, name)
+	MediaTrackTest(TrackType type, PlayerInstanceAAMP *aamp, const char *name) : MediaTrack(type, aamp, name)
 	{
 		playlistURL = "http://host/asset/low/manifest.mpd";
 	}
@@ -105,7 +105,7 @@ public:
 	{
 		AAMPLOG_WARN("Type[%d] cachedFragment->position: %f cachedFragment->duration: %f cachedFragment->initFragment: %d",
 					 type, cachedFragment->position, cachedFragment->duration, cachedFragment->initFragment);
-		g_mockPrivateInstanceAAMP->SendStreamTransfer((AampMediaType)type, &cachedFragment->fragment, cachedFragment->position,
+		g_mockPlayerInstanceAAMP->SendStreamTransfer((AampMediaType)type, &cachedFragment->fragment, cachedFragment->position,
 													  cachedFragment->position, cachedFragment->duration, 0.0, cachedFragment->initFragment, cachedFragment->discontinuity);
 	}
 
@@ -144,7 +144,7 @@ public:
 class TrackInjectTests : public testing::Test
 {
 public:
-	PrivateInstanceAAMP *mPrivateInstanceAAMP;
+	PlayerInstanceAAMP *mPlayerInstanceAAMP;
 	MediaTrackTest *mMediaTrack;
 	using BoolConfigSettings = std::map<AAMPConfigSettingBool, bool>;
 	using IntConfigSettings = std::map<AAMPConfigSettingInt, int>;
@@ -219,9 +219,9 @@ protected:
 
 		g_mockAampConfig = new NiceMock<MockAampConfig>();
 		g_mockMediaStreamContext = new StrictMock<MockMediaStreamContext>();
-		g_mockPrivateInstanceAAMP = new StrictMock<MockPrivateInstanceAAMP>();
+		g_mockPlayerInstanceAAMP = new StrictMock<MockPlayerInstanceAAMP>();
 
-		mPrivateInstanceAAMP = new PrivateInstanceAAMP(gpGlobalConfig);
+		mPlayerInstanceAAMP = new PlayerInstanceAAMP(gpGlobalConfig);
 		mBoolConfigSettings = mDefaultBoolConfigSettings;
 		mIntConfigSettings = mDefaultIntConfigSettings;
 	}
@@ -234,11 +234,11 @@ protected:
 		delete mMediaTrack;
 		mMediaTrack = nullptr;
 
-		delete mPrivateInstanceAAMP;
-		mPrivateInstanceAAMP = nullptr;
+		delete mPlayerInstanceAAMP;
+		mPlayerInstanceAAMP = nullptr;
 
-		delete g_mockPrivateInstanceAAMP;
-		g_mockPrivateInstanceAAMP = nullptr;
+		delete g_mockPlayerInstanceAAMP;
+		g_mockPlayerInstanceAAMP = nullptr;
 
 		delete g_mockAampConfig;
 		g_mockAampConfig = nullptr;
@@ -268,9 +268,9 @@ public:
 				.WillRepeatedly(Return(i.second));
 		}
 
-		mMediaTrack = new MediaTrackTest(eTRACK_VIDEO, mPrivateInstanceAAMP, "video");
+		mMediaTrack = new MediaTrackTest(eTRACK_VIDEO, mPlayerInstanceAAMP, "video");
 		mMediaTrack->SetMonitorBufferDisabled(true);
-		// mMediaTrack->SetMock(g_mockPrivateInstanceAAMP);
+		// mMediaTrack->SetMock(g_mockPlayerInstanceAAMP);
 	}
 };
 
@@ -279,22 +279,22 @@ TEST_F(TrackInjectTests, RunInjectLoopTestNonLLD)
 	AampLLDashServiceData llDashData;
 	llDashData.availabilityTimeOffset = 0.0;
 	llDashData.lowLatencyMode = false;
-	mPrivateInstanceAAMP->rate = AAMP_NORMAL_PLAY_RATE;
+	mPlayerInstanceAAMP->rate = AAMP_NORMAL_PLAY_RATE;
 
-	this->mPrivateInstanceAAMP->SetLLDashServiceData(llDashData);
+	this->mPlayerInstanceAAMP->SetLLDashServiceData(llDashData);
 	// Initialize after mock has been setup
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetLLDashChunkMode()).WillRepeatedly(Return(false));
+	EXPECT_CALL(*g_mockPlayerInstanceAAMP, GetLLDashChunkMode()).WillRepeatedly(Return(false));
 	Initialize();
 
 	mMediaTrack->fillCachedFragment(false, false, llDashData.lowLatencyMode);
 
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled())
+	EXPECT_CALL(*g_mockPlayerInstanceAAMP, DownloadsAreEnabled())
 		.WillOnce(Return(true))
 		.WillOnce(Return(false));
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection()).WillRepeatedly(Return(true));
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendStreamTransfer(eMEDIATYPE_VIDEO, _, _, _, _, _, false, false));
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, BlockUntilGstreamerWantsData( _, _, _));
-	EXPECT_EQ(mPrivateInstanceAAMP->GetLLDashChunkMode(),false); //Check setup
+	EXPECT_CALL(*g_mockPlayerInstanceAAMP, IsLocalAAMPTsbInjection()).WillRepeatedly(Return(true));
+	EXPECT_CALL(*g_mockPlayerInstanceAAMP, SendStreamTransfer(eMEDIATYPE_VIDEO, _, _, _, _, _, false, false));
+	EXPECT_CALL(*g_mockPlayerInstanceAAMP, BlockUntilGstreamerWantsData( _, _, _));
+	EXPECT_EQ(mPlayerInstanceAAMP->GetLLDashChunkMode(),false); //Check setup
 
 	mMediaTrack->RunInjectLoop();
 }
@@ -304,23 +304,23 @@ TEST_F(TrackInjectTests, RunInjectLoopTestNonLLDInit)
 	AampLLDashServiceData llDashData;
 	llDashData.availabilityTimeOffset = 0.0;
 	llDashData.lowLatencyMode = false;
-	mPrivateInstanceAAMP->rate = AAMP_NORMAL_PLAY_RATE;
+	mPlayerInstanceAAMP->rate = AAMP_NORMAL_PLAY_RATE;
 
-	this->mPrivateInstanceAAMP->SetLLDashServiceData(llDashData);
+	this->mPlayerInstanceAAMP->SetLLDashServiceData(llDashData);
 
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetLLDashChunkMode()).WillRepeatedly(Return(false));
+	EXPECT_CALL(*g_mockPlayerInstanceAAMP, GetLLDashChunkMode()).WillRepeatedly(Return(false));
 	// Initialize after mock has been setup
 	Initialize();
 
 	mMediaTrack->fillCachedFragment(true, false, llDashData.lowLatencyMode);
 
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled())
+	EXPECT_CALL(*g_mockPlayerInstanceAAMP, DownloadsAreEnabled())
 		.WillOnce(Return(true))
 		.WillOnce(Return(false));
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection()).WillRepeatedly(Return(false));
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendStreamTransfer(_, _, _, _, _, _, true, false));
-	EXPECT_EQ(mPrivateInstanceAAMP->GetLLDashChunkMode(),false); //Check setup
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, BlockUntilGstreamerWantsData( _, _, _));
+	EXPECT_CALL(*g_mockPlayerInstanceAAMP, IsLocalAAMPTsbInjection()).WillRepeatedly(Return(false));
+	EXPECT_CALL(*g_mockPlayerInstanceAAMP, SendStreamTransfer(_, _, _, _, _, _, true, false));
+	EXPECT_EQ(mPlayerInstanceAAMP->GetLLDashChunkMode(),false); //Check setup
+	EXPECT_CALL(*g_mockPlayerInstanceAAMP, BlockUntilGstreamerWantsData( _, _, _));
 
 	mMediaTrack->RunInjectLoop();
 }
@@ -330,22 +330,22 @@ TEST_F(TrackInjectTests, RunInjectLoopTestLLD)
 	AampLLDashServiceData llDashData;
 	llDashData.availabilityTimeOffset = 2.0;
 	llDashData.lowLatencyMode = true;
-	mPrivateInstanceAAMP->rate = AAMP_NORMAL_PLAY_RATE;
-	this->mPrivateInstanceAAMP->SetLLDashServiceData(llDashData);
-	this->mPrivateInstanceAAMP->mpStreamAbstractionAAMP = new StreamAbstractionAAMP_MPD(this->mPrivateInstanceAAMP, 0, 1);
+	mPlayerInstanceAAMP->rate = AAMP_NORMAL_PLAY_RATE;
+	this->mPlayerInstanceAAMP->SetLLDashServiceData(llDashData);
+	this->mPlayerInstanceAAMP->mpStreamAbstractionAAMP = new StreamAbstractionAAMP_MPD(this->mPlayerInstanceAAMP, 0, 1);
 
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetLLDashChunkMode()).WillRepeatedly(Return(true));
+	EXPECT_CALL(*g_mockPlayerInstanceAAMP, GetLLDashChunkMode()).WillRepeatedly(Return(true));
 	// Initialize after mock has been setup
 	Initialize();
 
 	mMediaTrack->fillCachedFragment(false, false, llDashData.lowLatencyMode);
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled())
+	EXPECT_CALL(*g_mockPlayerInstanceAAMP, DownloadsAreEnabled())
 		.WillOnce(Return(true))
 		.WillOnce(Return(false));
 
 	EXPECT_CALL(*g_mockIsoBmffBuffer, parseBuffer(_, _))
 		.WillOnce(Return(true));
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection()).WillRepeatedly(Return(false));
+	EXPECT_CALL(*g_mockPlayerInstanceAAMP, IsLocalAAMPTsbInjection()).WillRepeatedly(Return(false));
 
 	char unParsedBuffer[] = "AAAAAAAAAAAAAAAAAA";
 	int parsedBufferSize = 12, unParsedBufferSize = sizeof(unParsedBuffer);
@@ -358,10 +358,10 @@ TEST_F(TrackInjectTests, RunInjectLoopTestLLD)
 							  SetArgReferee<6>(duration),
 							  Return(true)));
 
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetVidTimeScale())
+	EXPECT_CALL(*g_mockPlayerInstanceAAMP, GetVidTimeScale())
 		.WillRepeatedly(Return(1));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, setBuffer(_,_));
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendStreamTransfer((AampMediaType)eMEDIATYPE_VIDEO, _, pts, pts, duration, 0.0, false, false));
+	EXPECT_CALL(*g_mockPlayerInstanceAAMP, SendStreamTransfer((AampMediaType)eMEDIATYPE_VIDEO, _, pts, pts, duration, 0.0, false, false));
 	mMediaTrack->RunInjectLoop();
 }
 
@@ -370,22 +370,22 @@ TEST_F(TrackInjectTests, RunInjectLoopTestLLDInit)
 	AampLLDashServiceData llDashData;
 	llDashData.availabilityTimeOffset = 2.0;
 	llDashData.lowLatencyMode = true;
-	mPrivateInstanceAAMP->rate = AAMP_NORMAL_PLAY_RATE;
-	this->mPrivateInstanceAAMP->SetLLDashServiceData(llDashData);
-	this->mPrivateInstanceAAMP->mpStreamAbstractionAAMP = new StreamAbstractionAAMP_MPD(this->mPrivateInstanceAAMP, 0, 1);
+	mPlayerInstanceAAMP->rate = AAMP_NORMAL_PLAY_RATE;
+	this->mPlayerInstanceAAMP->SetLLDashServiceData(llDashData);
+	this->mPlayerInstanceAAMP->mpStreamAbstractionAAMP = new StreamAbstractionAAMP_MPD(this->mPlayerInstanceAAMP, 0, 1);
 
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetLLDashChunkMode()).WillRepeatedly(Return(true));
+	EXPECT_CALL(*g_mockPlayerInstanceAAMP, GetLLDashChunkMode()).WillRepeatedly(Return(true));
 	// Initialize after mock has been setup
 	Initialize();
 
 	mMediaTrack->fillCachedFragment(true, false, llDashData.lowLatencyMode);
 
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled())
+	EXPECT_CALL(*g_mockPlayerInstanceAAMP, DownloadsAreEnabled())
 		.WillOnce(Return(true))
 		.WillOnce(Return(false));
 
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendStreamTransfer(_, _, _, _, _, _, true, false));
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection()).WillRepeatedly(Return(false));
+	EXPECT_CALL(*g_mockPlayerInstanceAAMP, SendStreamTransfer(_, _, _, _, _, _, true, false));
+	EXPECT_CALL(*g_mockPlayerInstanceAAMP, IsLocalAAMPTsbInjection()).WillRepeatedly(Return(false));
 
 	mMediaTrack->RunInjectLoop();
 }

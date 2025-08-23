@@ -20,13 +20,13 @@
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
 #include <chrono>
-#include "priv_aamp.h"
+#include "main_aamp.h"
 #include "AampConfig.h"
 #include "AampLogManager.h"
 #include "MediaStreamContext.h"
 #include "MockAampConfig.h"
 #include "MockAampUtils.h"
-#include "MockPrivateInstanceAAMP.h"
+#include "MockPlayerInstanceAAMP.h"
 #include "MockStreamAbstractionAAMP.h"
 #include "MockMediaProcessor.h"
 
@@ -53,7 +53,7 @@ protected:
 	{
 	public:
 		// Constructor to pass parameters to the base class constructor
-		TestableStreamAbstractionAAMP(PrivateInstanceAAMP* aamp)
+		TestableStreamAbstractionAAMP(PlayerInstanceAAMP* aamp)
 			: StreamAbstractionAAMP(aamp),
 			mMockAudioTrack(nullptr),
 			mMockVideoTrack(nullptr)
@@ -101,7 +101,7 @@ protected:
 
 	};
 
-	PrivateInstanceAAMP *mPrivateInstanceAAMP;
+	PlayerInstanceAAMP *mPlayerInstanceAAMP;
 	TestableStreamAbstractionAAMP *mStreamAbstractionAAMP;
 	AampConfig *mConfig;
 	std::shared_ptr<MockMediaProcessor> mMockMediaProcessor;
@@ -114,13 +114,13 @@ protected:
 		}
 		g_mockAampConfig = new NiceMock<MockAampConfig>();
 
-		if (g_mockPrivateInstanceAAMP == nullptr)
+		if (g_mockPlayerInstanceAAMP == nullptr)
 		{
-			g_mockPrivateInstanceAAMP = new NiceMock<MockPrivateInstanceAAMP>();
+			g_mockPlayerInstanceAAMP = new NiceMock<MockPlayerInstanceAAMP>();
 		}
 
-		mPrivateInstanceAAMP = new PrivateInstanceAAMP(mConfig);
-		mStreamAbstractionAAMP = new TestableStreamAbstractionAAMP(mPrivateInstanceAAMP);
+		mPlayerInstanceAAMP = new PlayerInstanceAAMP(mConfig);
+		mStreamAbstractionAAMP = new TestableStreamAbstractionAAMP(mPlayerInstanceAAMP);
 
 		// For initialisation of mediatrack
 		EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_MaxFragmentCached))
@@ -130,8 +130,8 @@ protected:
 			.Times(AnyNumber())
 			.WillRepeatedly(Return(0));
 
-		mStreamAbstractionAAMP->mMockAudioTrack = new MockMediaTrack(eTRACK_AUDIO, mPrivateInstanceAAMP, "audio");
-		mStreamAbstractionAAMP->mMockVideoTrack = new MockMediaTrack(eTRACK_VIDEO, mPrivateInstanceAAMP, "video");
+		mStreamAbstractionAAMP->mMockAudioTrack = new MockMediaTrack(eTRACK_AUDIO, mPlayerInstanceAAMP, "audio");
+		mStreamAbstractionAAMP->mMockVideoTrack = new MockMediaTrack(eTRACK_VIDEO, mPlayerInstanceAAMP, "video");
 
 		mMockMediaProcessor = std::make_shared<NiceMock<MockMediaProcessor>>();
 		mStreamAbstractionAAMP->mMockVideoTrack->playContext = mMockMediaProcessor;
@@ -148,11 +148,11 @@ protected:
 		delete mStreamAbstractionAAMP;
 		mStreamAbstractionAAMP = nullptr;
 
-		delete g_mockPrivateInstanceAAMP;
-		g_mockPrivateInstanceAAMP = nullptr;
+		delete g_mockPlayerInstanceAAMP;
+		g_mockPlayerInstanceAAMP = nullptr;
 
-		delete mPrivateInstanceAAMP;
-		mPrivateInstanceAAMP = nullptr;
+		delete mPlayerInstanceAAMP;
+		mPlayerInstanceAAMP = nullptr;
 
 		delete gpGlobalConfig;
 		gpGlobalConfig = nullptr;
@@ -167,7 +167,7 @@ protected:
 // Check that WaitForVideoTrackCatchup() waits till injected buffers match
 TEST_F(StreamAbstractionAAMP_Test, WaitFor_VideoTrackCatchup_wait)
 {
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled())
+	EXPECT_CALL(*g_mockPlayerInstanceAAMP, DownloadsAreEnabled())
 		.WillRepeatedly(Return(true));
 
 	// Check aamp loops till video catches up
@@ -188,7 +188,7 @@ TEST_F(StreamAbstractionAAMP_Test, WaitFor_VideoTrackCatchup_wait)
 // Check that WaitForVideoTrackCatchup() does not wait if video is processing a discontinuity
 TEST_F(StreamAbstractionAAMP_Test, WaitFor_VideoTrackCatchup_discontinuity)
 {
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled())
+	EXPECT_CALL(*g_mockPlayerInstanceAAMP, DownloadsAreEnabled())
 		.WillRepeatedly(Return(true));
 		
 	// Set the flag that indicates processing discontinuity
@@ -210,7 +210,7 @@ TEST_F(StreamAbstractionAAMP_Test, ReinitializeInjection_LLDashChunkModeEnabled)
 {
 	const double test_rate = 2.0;
 
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetLLDashChunkMode()).WillOnce(Return(true));
+	EXPECT_CALL(*g_mockPlayerInstanceAAMP, GetLLDashChunkMode()).WillOnce(Return(true));
 	EXPECT_CALL(*mStreamAbstractionAAMP, clearFirstPTS());
 	EXPECT_CALL(*mStreamAbstractionAAMP->mMockAudioTrack, ResetTrickModePtsRestamping()).Times(1);
 	EXPECT_CALL(*mStreamAbstractionAAMP->mMockVideoTrack, ResetTrickModePtsRestamping()).Times(1);
@@ -224,7 +224,7 @@ TEST_F(StreamAbstractionAAMP_Test, ReinitializeInjection_LLDashChunkModeDisabled
 {
 	const double test_rate = 2.0;
 
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetLLDashChunkMode()).WillOnce(Return(false));
+	EXPECT_CALL(*g_mockPlayerInstanceAAMP, GetLLDashChunkMode()).WillOnce(Return(false));
 	EXPECT_CALL(*mStreamAbstractionAAMP, clearFirstPTS());
 	EXPECT_CALL(*mStreamAbstractionAAMP->mMockAudioTrack, ResetTrickModePtsRestamping()).Times(1);
 	EXPECT_CALL(*mStreamAbstractionAAMP->mMockVideoTrack, ResetTrickModePtsRestamping()).Times(1);

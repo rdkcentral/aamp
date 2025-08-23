@@ -30,7 +30,7 @@
 #include <errno.h>
 #include <stdint.h>
 #include <sys/time.h>
-#include "priv_aamp.h"
+#include "main_aamp.h"
 #include "StreamAbstractionAAMP.h"
 
 #include "tsprocessor.h"
@@ -162,7 +162,7 @@ static StreamOutputFormat getStreamFormatForCodecType(int streamType)
 /**
  * @brief TSProcessor Constructor
  */
-TSProcessor::TSProcessor(class PrivateInstanceAAMP *aamp,StreamOperation streamOperation, id3_callback_t id3_hdl, int track, TSProcessor* peerTSProcessor, TSProcessor* auxTSProcessor)
+TSProcessor::TSProcessor(class PlayerInstanceAAMP *aamp,StreamOperation streamOperation, id3_callback_t id3_hdl, int track, TSProcessor* peerTSProcessor, TSProcessor* auxTSProcessor)
 	: m_needDiscontinuity(true),
 	m_PatPmtLen(0), m_PatPmt(0), m_PatPmtTrickLen(0), m_PatPmtTrick(0), m_PatPmtPcrLen(0), m_PatPmtPcr(0),
 	m_nullPFrame(0), m_nullPFrameLength(0), m_nullPFrameNextCount(0), m_nullPFrameOffset(0),
@@ -200,9 +200,9 @@ TSProcessor::TSProcessor(class PrivateInstanceAAMP *aamp,StreamOperation streamO
 	AAMPLOG_INFO(" constructor: %p", this);
 	bool optimizeMuxed = false;
 
-	if( aamp && ISCONFIGSET(eAAMPConfig_HlsTsEnablePTSReStamp))
-	{
-		optimizeMuxed = (m_streamOperation == eStreamOp_DEMUX_ALL);
+    if( aamp && ISCONFIGSET(eAAMPConfig_HlsTsEnablePTSReStamp) )
+    {
+        optimizeMuxed = (m_streamOperation == eStreamOp_DEMUX_ALL);
 	}
 
 	memset(m_SPS, 0, 32 * sizeof(H264SPS));
@@ -633,7 +633,7 @@ void TSProcessor::processPMTSection(unsigned char* section, int sectionLength)
 			AAMPLOG_INFO( "[%p] found audio#%d in program %d with pcr pid %d audio pid %d lan:%s codec:%s group:%s",
 				this, i, m_program, pcrPid, audioComponents[i].pid, language.c_str(), codec.c_str(), group_id.c_str());
 		}
-		if(ISCONFIGSET(eAAMPConfig_EnablePublishingMuxedAudio))
+        if( aamp && ISCONFIGSET(eAAMPConfig_EnablePublishingMuxedAudio) )
 		{
 			if(audioTracks.size() > 0)
 			{
@@ -1045,7 +1045,9 @@ bool TSProcessor::processBuffer(unsigned char *buffer, int size, bool &insPatPmt
 		assert(false);
 	}
 
-	if ( discontinuity_pending || ((m_streamOperation == eStreamOp_DEMUX_ALL) && (ISCONFIGSET(eAAMPConfig_HlsTsEnablePTSReStamp))) )
+	if ( discontinuity_pending ||
+        (m_streamOperation == eStreamOp_DEMUX_ALL &&
+         aamp && ISCONFIGSET(eAAMPConfig_HlsTsEnablePTSReStamp) ) )
 	{
 		// HACK - PAT/PMT can change across HLS discontinuity with PTS Restamp enabled ; without this, our test asset ends up losing audio during 2nd period
 		AAMPLOG_INFO(" Discontinuity pending, resetting m_havePAT & m_havePMT");
@@ -1482,8 +1484,8 @@ bool TSProcessor::demuxAndSend(const void *ptr, size_t len, double position, dou
 	bool basePtsUpdatedFromCurrentSegment = false;
 	bool optimizeMuxed = false;
 
-	if( aamp && ISCONFIGSET(eAAMPConfig_HlsTsEnablePTSReStamp))
-	{
+    if( aamp && ISCONFIGSET(eAAMPConfig_HlsTsEnablePTSReStamp) )
+    {
 		optimizeMuxed = (m_streamOperation == eStreamOp_DEMUX_ALL);
 	}
 
@@ -1939,7 +1941,7 @@ bool TSProcessor::sendSegment(AampGrowableBuffer* pBuffer, double position, doub
 		{
 			if (eStreamOp_DEMUX_AUDIO == m_streamOperation)
 			{
-				if(!ISCONFIGSET(eAAMPConfig_AudioOnlyPlayback))
+                if( aamp && !ISCONFIGSET(eAAMPConfig_AudioOnlyPlayback) ) 
 				{
 					std::unique_lock<std::mutex> lock(m_mutex);
 					if (-1 == m_basePTSFromPeer)
@@ -1962,7 +1964,7 @@ bool TSProcessor::sendSegment(AampGrowableBuffer* pBuffer, double position, doub
 				}
 				ret = demuxAndSend(packetStart, len, m_startPosition, duration, discontinuous, std::move(processor));
 			}
-			else if(!ISCONFIGSET(eAAMPConfig_DemuxAudioBeforeVideo))
+            else if( aamp && !ISCONFIGSET(eAAMPConfig_DemuxAudioBeforeVideo) )
 			{
 				ret = demuxAndSend(packetStart, len, position, duration, discontinuous, std::move(processor));
 			}
@@ -4000,10 +4002,11 @@ int TSProcessor::SelectAudioIndexToPlay()
 bool TSProcessor::FilterAudioCodecBasedOnConfig(StreamOutputFormat audioFormat)
 {
 	bool ignoreProfile = false;
-	bool bDisableEC3 = ISCONFIGSET(eAAMPConfig_DisableEC3);
-	bool bDisableAC3 = ISCONFIGSET(eAAMPConfig_DisableAC3);
+    bool bDisableEC3 = aamp && ISCONFIGSET(eAAMPConfig_DisableEC3);
+	bool bDisableAC3 = aamp && ISCONFIGSET(eAAMPConfig_DisableAC3);
 	// if EC3 disabled, implicitly disable ATMOS
-	bool bDisableATMOS = (bDisableEC3) ? true : ISCONFIGSET(eAAMPConfig_DisableATMOS);
+	bool bDisableATMOS = bDisableEC3? true :
+    (aamp && ISCONFIGSET(eAAMPConfig_DisableATMOS));
 
 	switch (audioFormat)
 	{

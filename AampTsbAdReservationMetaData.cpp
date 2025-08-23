@@ -20,7 +20,7 @@
 #include <inttypes.h>
 #include "AampTsbAdReservationMetaData.h"
 #include "AampLogManager.h"
-#include "priv_aamp.h"
+#include "main_aamp.h"
 
 // AampTsbAdReservationMetaData implementation
 AampTsbAdReservationMetaData::AampTsbAdReservationMetaData(
@@ -37,7 +37,7 @@ void AampTsbAdReservationMetaData::Dump(const std::string &message) const
 				 message.c_str(), mPosition.milliseconds(), static_cast<int>(mEventType), mAdBreakId.c_str(), mPeriodPosition);
 }
 
-void AampTsbAdReservationMetaData::SendEvent(PrivateInstanceAAMP* aamp) const
+void AampTsbAdReservationMetaData::SendEvent(PlayerInstanceAAMP* aamp) const
 {
 	if (aamp)
 	{

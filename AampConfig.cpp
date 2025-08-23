@@ -873,15 +873,16 @@ std::string AampConfig::GetUserAgentString()
 /**
  * @brief Gets the boolean configuration value
  */
-bool AampConfig::IsConfigSet(AAMPConfigSettingBool cfg)
-{	if (cfg < AAMPCONFIG_BOOL_COUNT)
+bool AampConfig::IsConfigSet(AAMPConfigSettingBool cfg) const
+{
+    if (cfg < AAMPCONFIG_BOOL_COUNT)
 	{
 		return configValueBool[cfg].value;
 	}
 	return false;
 }
 
-bool AampConfig::GetConfigValue( AAMPConfigSettingBool cfg )
+bool AampConfig::GetConfigValue( AAMPConfigSettingBool cfg ) const
 {
 	if(cfg < AAMPCONFIG_BOOL_COUNT)
 	{
@@ -893,7 +894,7 @@ bool AampConfig::GetConfigValue( AAMPConfigSettingBool cfg )
  * @brief GetConfigValue - Gets configuration for integer data type
  *
  */
-int AampConfig::GetConfigValue(AAMPConfigSettingInt cfg)
+int AampConfig::GetConfigValue(AAMPConfigSettingInt cfg) const
 {
 	if(cfg < AAMPCONFIG_INT_COUNT)
 	{
@@ -905,7 +906,7 @@ int AampConfig::GetConfigValue(AAMPConfigSettingInt cfg)
  * @brief GetConfigValue - Gets configuration for double data type
  *
  */
-double AampConfig::GetConfigValue(AAMPConfigSettingFloat cfg)
+double AampConfig::GetConfigValue(AAMPConfigSettingFloat cfg) const
 {
 	if(cfg < AAMPCONFIG_FLOAT_COUNT)
 	{
@@ -918,7 +919,7 @@ double AampConfig::GetConfigValue(AAMPConfigSettingFloat cfg)
  * @brief GetConfigValue - Gets configuration for string data type
  *
  */
-std::string AampConfig::GetConfigValue(AAMPConfigSettingString cfg)
+std::string AampConfig::GetConfigValue(AAMPConfigSettingString cfg) const
 {
 	if(cfg < AAMPCONFIG_STRING_COUNT)
 	{
@@ -932,19 +933,19 @@ std::string AampConfig::GetConfigValue(AAMPConfigSettingString cfg)
  *
  * @return ConfigPriority - owner of the config
  */
-ConfigPriority AampConfig::GetConfigOwner(AAMPConfigSettingBool cfg)
+ConfigPriority AampConfig::GetConfigOwner(AAMPConfigSettingBool cfg) const
 {
 	return configValueBool[cfg].owner;
 }
-ConfigPriority AampConfig::GetConfigOwner(AAMPConfigSettingInt cfg)
+ConfigPriority AampConfig::GetConfigOwner(AAMPConfigSettingInt cfg) const
 {
 	return configValueInt[cfg].owner;
 }
-ConfigPriority AampConfig::GetConfigOwner(AAMPConfigSettingFloat cfg)
+ConfigPriority AampConfig::GetConfigOwner(AAMPConfigSettingFloat cfg) const
 {
 	return configValueFloat[cfg].owner;
 }
-ConfigPriority AampConfig::GetConfigOwner(AAMPConfigSettingString cfg)
+ConfigPriority AampConfig::GetConfigOwner(AAMPConfigSettingString cfg) const
 {
 	return configValueString[cfg].owner;
 }

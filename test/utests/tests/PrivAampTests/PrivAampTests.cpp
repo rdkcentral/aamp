@@ -25,10 +25,10 @@
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
 
-#include "priv_aamp.h"
+#include "main_aamp.h"
 #include "AampProfiler.h"
 
-#include "MockPrivateInstanceAAMP.h"
+#include "MockPlayerInstanceAAMP.h"
 #include "main_aamp.h"
 #include "AampConfig.h"
 #include "AampTSBSessionManager.h"
@@ -69,12 +69,12 @@ const char SAMPLE_URL[] = "https://sampleUrl";
 const char SAMPLE_DEFOGGED_URL[] = "https://sampleDeFoggedUrl";
 const char SAMPLE_FOG_URL[] = "http://127.0.0.1:9080/tsb?clientId=\"FOG_AAMP\"&recordedUrl=https://sampleDeFoggedUrl";
 
-// Class to test class PrivateInstanceAAMP public interface
+// Class to test class PlayerInstanceAAMP public interface
 class PrivAampTests : public ::testing::Test
 {
 public:
 	static constexpr double kAbsErrorLivePlayPosition = 0.1;
-	PrivateInstanceAAMP *p_aamp{nullptr};
+	PlayerInstanceAAMP *p_aamp{nullptr};
 	AampConfig *config{nullptr};
 	CURL *mCurlEasyHandle{nullptr};
 
@@ -82,7 +82,7 @@ protected:
 	void SetUp() override
 	{
 		config=new AampConfig();
-		p_aamp = new PrivateInstanceAAMP(config);
+		p_aamp = new PlayerInstanceAAMP(config);
 		mCurlEasyHandle = new int(1); // Valid ptr, though not used.
 		g_mockAampGstPlayer = new NiceMock<MockAAMPGstPlayer>(p_aamp);
 		g_mockAampStreamSinkManager = new NiceMock<MockAampStreamSinkManager>();
@@ -139,17 +139,17 @@ protected:
 	}
 };
 
-// Class to test class PrivateInstanceAAMP protected members and variables
+// Class to test class PlayerInstanceAAMP protected members and variables
 class PrivAampPrivTests : public ::testing::Test
 {
 	public:
-	PrivateInstanceAAMP *aamp{nullptr};
+	PlayerInstanceAAMP *aamp{nullptr};
 	AampConfig *config{nullptr};
 	protected:
 	void SetUp() override
 	{
 		config=new AampConfig();
-		aamp = new PrivateInstanceAAMP(config);
+		aamp = new PlayerInstanceAAMP(config);
 		aamp->SetSessionId(session_id);
 		testp_aamp = new TestablePrivAamp(config);
 		g_mockAampConfig = new NiceMock<MockAampConfig>();
@@ -201,10 +201,10 @@ class PrivAampPrivTests : public ::testing::Test
 
 	}
 
-	class TestablePrivAamp : public PrivateInstanceAAMP
+	class TestablePrivAamp : public PlayerInstanceAAMP
 	{
 public:
-	TestablePrivAamp(AampConfig *config):PrivateInstanceAAMP(config)
+	TestablePrivAamp(AampConfig *config):PlayerInstanceAAMP(config)
 	{
 	}
 	bool callIsWideVineKIDWorkaround(const std::string url)
@@ -1890,7 +1890,7 @@ TEST_F(PrivAampTests,TeardownStreamTest)
 	p_aamp->TeardownStream(newTune);
 	EXPECT_EQ(0,p_aamp->mDiscontinuityTuneOperationId);
 
-	// The first call to TeardownStream on a PrivateInstanceAamp will not stop the AAMPGstPlayer, so call it again
+	// The first call to TeardownStream on a PlayerInstanceAAMP will not stop the AAMPGstPlayer, so call it again
 	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStoppingStreamSink(p_aamp)).WillOnce(Return(g_mockAampGstPlayer));
 	EXPECT_CALL(*g_mockAampGstPlayer, Stop(!newTune));
 	p_aamp->TeardownStream(newTune);
@@ -3647,7 +3647,7 @@ TEST_F(PrivAampTests,mediaType2BucketTest_122)
 TEST_F(PrivAampTests, GetCustomLicenseHeaders_EmptyMap)
 {
 	auto config=new AampConfig();
-	PrivateInstanceAAMP aamp(config);
+	PlayerInstanceAAMP aamp(config);
 	std::unordered_map<std::string, std::vector<std::string>> customHeaders;
 	aamp.GetCustomLicenseHeaders(customHeaders);
 	EXPECT_TRUE(customHeaders.empty());
@@ -4030,13 +4030,13 @@ TEST_F(PrivAampTests, ForceHttpConversionForFogTest)
 }
 TEST_F(PrivAampTests, getCurrentContentDownloadSpeedTest)
 {
-	PrivateInstanceAAMP *aamp;
+	PlayerInstanceAAMP *aamp;
 	AampMediaType mediaType = eMEDIATYPE_VIDEO;
 	bool bDownloadStart = true;
 	long start = 12345;
 	double dlnow = 10.50;
 
-	long getCurrentContentDownloadSpeed(PrivateInstanceAAMP *aamp,AampMediaType mediaType,bool bDownloadStart,long start,double dlnow);
+	long getCurrentContentDownloadSpeed(PlayerInstanceAAMP *aamp,AampMediaType mediaType,bool bDownloadStart,long start,double dlnow);
 
 	long result = getCurrentContentDownloadSpeed(p_aamp,mediaType,bDownloadStart,start,dlnow);
 

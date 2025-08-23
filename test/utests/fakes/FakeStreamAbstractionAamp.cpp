@@ -22,7 +22,7 @@
 
 MockStreamAbstractionAAMP *g_mockStreamAbstractionAAMP = nullptr;
 
-StreamAbstractionAAMP::StreamAbstractionAAMP(PrivateInstanceAAMP* aamp, id3_callback_t mID3Handler) : aamp(nullptr), mAudiostateChangeCount(0), mESChangeStatus(false)
+StreamAbstractionAAMP::StreamAbstractionAAMP(PlayerInstanceAAMP* aamp, id3_callback_t mID3Handler) : aamp(nullptr), mAudiostateChangeCount(0), mESChangeStatus(false)
 {
 }
 
@@ -214,7 +214,7 @@ void MediaTrack::StartPlaylistDownloaderThread()
 {
 }
 
-MediaTrack::MediaTrack(TrackType type, PrivateInstanceAAMP* aamp, const char* name) : parsedBufferChunk("parsedBufferChunk"), unparsedBufferChunk("unparsedBufferChunk"), name(name)
+MediaTrack::MediaTrack(TrackType type, PlayerInstanceAAMP* aamp, const char* name) : parsedBufferChunk("parsedBufferChunk"), unparsedBufferChunk("unparsedBufferChunk"), name(name)
 {
 }
 

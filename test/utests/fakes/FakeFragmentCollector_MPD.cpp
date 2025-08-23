@@ -22,7 +22,7 @@
 
 MockStreamAbstractionAAMP_MPD *g_mockStreamAbstractionAAMP_MPD = nullptr;
 
-StreamAbstractionAAMP_MPD::StreamAbstractionAAMP_MPD(class PrivateInstanceAAMP *aamp,double seek_pos, float rate, id3_callback_t id3Handler)
+StreamAbstractionAAMP_MPD::StreamAbstractionAAMP_MPD(class PlayerInstanceAAMP *aamp,double seek_pos, float rate, id3_callback_t id3Handler)
     : StreamAbstractionAAMP(aamp), mMinUpdateDurationMs(DEFAULT_INTERVAL_BETWEEN_MPD_UPDATES_MS)
 {
 }

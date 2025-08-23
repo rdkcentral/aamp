@@ -20,13 +20,13 @@
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
 #include <chrono>
-#include "priv_aamp.h"
+#include "main_aamp.h"
 #include "AampConfig.h"
 #include "AampUtils.h"
 #include "AampLogManager.h"
 #include "admanager_mpd.h"
 #include "fragmentcollector_mpd.h"
-#include "MockPrivateInstanceAAMP.h"
+#include "MockPlayerInstanceAAMP.h"
 #include "MockAampUtils.h"
 
 #include "libdash/IMPD.h"
@@ -61,7 +61,7 @@ protected:
     {
     public:
         // Constructor to pass parameters to the base class constructor
-        TestableStreamAbstractionAAMP_MPD(PrivateInstanceAAMP *aamp)
+        TestableStreamAbstractionAAMP_MPD(PlayerInstanceAAMP *aamp)
                 : StreamAbstractionAAMP_MPD(aamp, 0, 0)
         {
         }
@@ -77,7 +77,7 @@ protected:
         }
     };
 
-    PrivateInstanceAAMP *mPrivateInstanceAAMP;
+    PlayerInstanceAAMP *mPlayerInstanceAAMP;
     TestableStreamAbstractionAAMP_MPD *mStreamAbstractionAAMP_MPD;
     CDAIObject *mCdaiObj;
     const char *mManifest;
@@ -93,9 +93,9 @@ protected:
             gpGlobalConfig =  new AampConfig();
         }
 
-        mPrivateInstanceAAMP = new PrivateInstanceAAMP(gpGlobalConfig);
+        mPlayerInstanceAAMP = new PlayerInstanceAAMP(gpGlobalConfig);
 
-        g_mockPrivateInstanceAAMP = new StrictMock<MockPrivateInstanceAAMP>();
+        g_mockPlayerInstanceAAMP = new StrictMock<MockPlayerInstanceAAMP>();
 
         g_mockAampUtils = new NiceMock<MockAampUtils>();
 
@@ -118,14 +118,14 @@ protected:
         delete mCdaiObj;
         mCdaiObj = nullptr;
 
-        delete mPrivateInstanceAAMP;
-        mPrivateInstanceAAMP = nullptr;
+        delete mPlayerInstanceAAMP;
+        mPlayerInstanceAAMP = nullptr;
 
         delete gpGlobalConfig;
         gpGlobalConfig = nullptr;
 
-        delete g_mockPrivateInstanceAAMP;
-        g_mockPrivateInstanceAAMP = nullptr;
+        delete g_mockPlayerInstanceAAMP;
+        g_mockPlayerInstanceAAMP = nullptr;
 
         delete g_mockAampUtils;
         g_mockAampUtils = nullptr;
@@ -175,11 +175,11 @@ public:
         mManifest = manifest;
 
         /* Create MPD instance. */
-        mStreamAbstractionAAMP_MPD = new TestableStreamAbstractionAAMP_MPD(mPrivateInstanceAAMP);
-        EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled()).WillRepeatedly(Return(true));
+        mStreamAbstractionAAMP_MPD = new TestableStreamAbstractionAAMP_MPD(mPlayerInstanceAAMP);
+        EXPECT_CALL(*g_mockPlayerInstanceAAMP, DownloadsAreEnabled()).WillRepeatedly(Return(true));
         ResetCDAIAdObject();
 
-        mPrivateInstanceAAMP->SetManifestUrl(TEST_MANIFEST_URL);
+        mPlayerInstanceAAMP->SetManifestUrl(TEST_MANIFEST_URL);
         GetMPDFromManifest();
     }
 
@@ -193,7 +193,7 @@ public:
             delete mCdaiObj;
             mCdaiObj = nullptr;
         }
-        mCdaiObj = new CDAIObjectMPD(mPrivateInstanceAAMP);
+        mCdaiObj = new CDAIObjectMPD(mPlayerInstanceAAMP);
         mStreamAbstractionAAMP_MPD->SetCDAIObject(mCdaiObj);
     }
 
@@ -239,16 +239,16 @@ R"(<?xml version="1.0" encoding="UTF-8"?>
     // LiveManifest=true and init=true
     InitializeMPD(manifest);
     mStreamAbstractionAAMP_MPD->SetIsLiveManifest(true);
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, FoundEventBreak(adBreakId,_,_)).Times(0);
+    EXPECT_CALL(*g_mockPlayerInstanceAAMP, FoundEventBreak(adBreakId,_,_)).Times(0);
     mStreamAbstractionAAMP_MPD->InvokeFindTimedMetadata(mMPD, mRootNode, true, false);
 
     // LiveManifest=true and init=false
     ResetCDAIAdObject();
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, FoundEventBreak(adBreakId,_,Field(&EventBreakInfo::duration, 27120))).Times(1);
+    EXPECT_CALL(*g_mockPlayerInstanceAAMP, FoundEventBreak(adBreakId,_,Field(&EventBreakInfo::duration, 27120))).Times(1);
     mStreamAbstractionAAMP_MPD->InvokeFindTimedMetadata(mMPD, mRootNode, false, false);
 
     // Duplicate Periods are not processed
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, FoundEventBreak(adBreakId,_,_)).Times(0);
+    EXPECT_CALL(*g_mockPlayerInstanceAAMP, FoundEventBreak(adBreakId,_,_)).Times(0);
     mStreamAbstractionAAMP_MPD->InvokeFindTimedMetadata(mMPD, mRootNode, false, false);
 }
 
@@ -287,18 +287,18 @@ R"(<?xml version="1.0" encoding="UTF-8"?>
     // LiveManifest=false and init=true
     InitializeMPD(manifest);
     mStreamAbstractionAAMP_MPD->SetIsLiveManifest(false);
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, SaveNewTimedMetadata(_,StrEq(adBreakId.c_str()),30000.0)).Times(1);
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, SaveNewTimedMetadata(_,StrEq(adBreakId.c_str()),0)).Times(1);
+    EXPECT_CALL(*g_mockPlayerInstanceAAMP, SaveNewTimedMetadata(_,StrEq(adBreakId.c_str()),30000.0)).Times(1);
+    EXPECT_CALL(*g_mockPlayerInstanceAAMP, SaveNewTimedMetadata(_,StrEq(adBreakId.c_str()),0)).Times(1);
     mStreamAbstractionAAMP_MPD->InvokeFindTimedMetadata(mMPD, mRootNode, true, false);
 
     // LiveManifest=false and init=false
     ResetCDAIAdObject();
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, SaveNewTimedMetadata(_,StrEq(adBreakId.c_str()),30000.0)).Times(1);
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, SaveNewTimedMetadata(_,StrEq(adBreakId.c_str()),0)).Times(1);
+    EXPECT_CALL(*g_mockPlayerInstanceAAMP, SaveNewTimedMetadata(_,StrEq(adBreakId.c_str()),30000.0)).Times(1);
+    EXPECT_CALL(*g_mockPlayerInstanceAAMP, SaveNewTimedMetadata(_,StrEq(adBreakId.c_str()),0)).Times(1);
     mStreamAbstractionAAMP_MPD->InvokeFindTimedMetadata(mMPD, mRootNode, false, false);
 
     // Duplicate Periods are not processed
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, SaveNewTimedMetadata(_,_,_)).Times(0);
+    EXPECT_CALL(*g_mockPlayerInstanceAAMP, SaveNewTimedMetadata(_,_,_)).Times(0);
     mStreamAbstractionAAMP_MPD->InvokeFindTimedMetadata(mMPD, mRootNode, false, false);
 }
 
@@ -341,7 +341,7 @@ R"(<?xml version="1.0" encoding="UTF-8"?>
 
     InitializeMPD(manifest);
     mStreamAbstractionAAMP_MPD->SetIsLiveManifest(true);
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, FoundEventBreak(adBreakId,_,Field(&EventBreakInfo::duration, 27120))).Times(1);
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, FoundEventBreak(adBreakId,_,Field(&EventBreakInfo::duration, 30000))).Times(1);
+    EXPECT_CALL(*g_mockPlayerInstanceAAMP, FoundEventBreak(adBreakId,_,Field(&EventBreakInfo::duration, 27120))).Times(1);
+    EXPECT_CALL(*g_mockPlayerInstanceAAMP, FoundEventBreak(adBreakId,_,Field(&EventBreakInfo::duration, 30000))).Times(1);
     mStreamAbstractionAAMP_MPD->InvokeFindTimedMetadata(mMPD, mRootNode, false, false);
 }

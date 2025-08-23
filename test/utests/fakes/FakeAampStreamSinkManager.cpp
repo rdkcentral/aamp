@@ -19,7 +19,7 @@
 
 #include "AampStreamSinkManager.h"
 #include "MockAampStreamSinkManager.h"
-#include "priv_aamp.h"
+#include "main_aamp.h"
 
 MockAampStreamSinkManager *g_mockAampStreamSinkManager = nullptr;
 
@@ -32,23 +32,23 @@ AampStreamSinkManager::~AampStreamSinkManager()
 {
 }
 
-void AampStreamSinkManager::SetSinglePipelineMode(PrivateInstanceAAMP *aamp)
+void AampStreamSinkManager::SetSinglePipelineMode(PlayerInstanceAAMP *aamp)
 {
 }
 
-void AampStreamSinkManager::CreateStreamSink(PrivateInstanceAAMP *aamp, id3_callback_t id3HandlerCallback, std::function< void(const unsigned char *, int, int, int) > exportFrames )
+void AampStreamSinkManager::CreateStreamSink(PlayerInstanceAAMP *aamp, id3_callback_t id3HandlerCallback, std::function< void(const unsigned char *, int, int, int) > exportFrames )
 {
 }
 
-void AampStreamSinkManager::SetStreamSink(PrivateInstanceAAMP *aamp, StreamSink *streamSink)
+void AampStreamSinkManager::SetStreamSink(PlayerInstanceAAMP *aamp, StreamSink *streamSink)
 {
 }
 
-void AampStreamSinkManager::DeleteStreamSink(PrivateInstanceAAMP *aamp)
+void AampStreamSinkManager::DeleteStreamSink(PlayerInstanceAAMP *aamp)
 {
 }
 
-void AampStreamSinkManager::SetEncryptedHeaders(PrivateInstanceAAMP *aamp, std::map<int, std::string>& mappedHeaders)
+void AampStreamSinkManager::SetEncryptedHeaders(PlayerInstanceAAMP *aamp, std::map<int, std::string>& mappedHeaders)
 {
 }
 
@@ -60,11 +60,11 @@ void AampStreamSinkManager::ReinjectEncryptedHeaders()
 {
 }
 
-void AampStreamSinkManager::DeactivatePlayer(PrivateInstanceAAMP *aamp, bool stop)
+void AampStreamSinkManager::DeactivatePlayer(PlayerInstanceAAMP *aamp, bool stop)
 {
 }
 
-void AampStreamSinkManager::ActivatePlayer(PrivateInstanceAAMP *aamp)
+void AampStreamSinkManager::ActivatePlayer(PlayerInstanceAAMP *aamp)
 {
 }
 
@@ -84,21 +84,21 @@ AampStreamSinkManager& AampStreamSinkManager::GetInstance()
     }
 }
 
-StreamSink* AampStreamSinkManager::GetActiveStreamSink(PrivateInstanceAAMP *aamp)
+StreamSink* AampStreamSinkManager::GetActiveStreamSink(PlayerInstanceAAMP *aamp)
 {
     return nullptr;
 }
 
-StreamSink* AampStreamSinkManager::GetStreamSink(PrivateInstanceAAMP *aamp)
+StreamSink* AampStreamSinkManager::GetStreamSink(PlayerInstanceAAMP *aamp)
 {
     return nullptr;
 }
 
-StreamSink* AampStreamSinkManager::GetStoppingStreamSink(PrivateInstanceAAMP *aamp)
+StreamSink* AampStreamSinkManager::GetStoppingStreamSink(PlayerInstanceAAMP *aamp)
 {
     return nullptr;
 }
 
-void AampStreamSinkManager::UpdateTuningPlayer(PrivateInstanceAAMP *aamp)
+void AampStreamSinkManager::UpdateTuningPlayer(PlayerInstanceAAMP *aamp)
 {
 }

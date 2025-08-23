@@ -113,7 +113,7 @@ static gboolean SendVttCueToExt(gpointer user_data)
 * @fn WebVTTParser
 * @brief Constructor function
 * 
-* @param aamp[in] PrivateInstanceAAMP pointer
+* @param aamp[in] PlayerInstanceAAMP pointer
 * @param type[in] VTT data type
 * @return void
 ***************************************************************************/
@@ -157,7 +157,7 @@ bool WebVTTParser::init(double startPosSeconds, unsigned long long basePTS)
 	}
 
 	AAMPLOG_WARN("WebVTTParser::startPos:%.3f and mStartPTS:%lld", startPosSeconds, mStartPTS);
-	//We are ready to receive data, unblock in PrivateInstanceAAMP
+	//We are ready to receive data, unblock in PlayerInstanceAAMP
 	if(playerResumeTrackDownloads_CB)
 	{
 		playerResumeTrackDownloads_CB();

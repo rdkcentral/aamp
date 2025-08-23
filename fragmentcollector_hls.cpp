@@ -38,7 +38,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include "priv_aamp.h"
+#include "main_aamp.h"
 #include <signal.h>
 #include <semaphore.h>
 #include <math.h>
@@ -610,11 +610,11 @@ AAMPStatusType StreamAbstractionAAMP_HLS::ParseMainManifest()
 						{
 							if(!aamp->_IsLiveAdjustRequired())
 							{
-								SETCONFIGVALUE(AAMP_STREAM_SETTING,eAAMPConfig_CDVRLiveOffset, abs(offsetval));
+                                SETCONFIGVALUE(AAMP_STREAM_SETTING,eAAMPConfig_CDVRLiveOffset, abs(offsetval));
 							}
 							else
 							{
-								SETCONFIGVALUE(AAMP_STREAM_SETTING,eAAMPConfig_LiveOffset, abs(offsetval));
+                                SETCONFIGVALUE(AAMP_STREAM_SETTING,eAAMPConfig_LiveOffset, abs(offsetval));
 							}
                             aamp->_UpdateLiveOffset();
 							AAMPLOG_WARN("WARNING:found EXT-X-START in MainManifest Offset:%f  liveOffset:%f",offsetval.inSeconds(),aamp->mLiveOffset);
@@ -1684,7 +1684,7 @@ void TrackState::FetchFragment()
 									lbwd,
 									((iFogErrorCode > 0 ) ? iFogErrorCode : http_error), this->mEffectiveUrl, cachedFragment->duration, downloadTime, bKeyChanged, fragmentEncrypted);
 
-			const auto early_processing = aamp->mConfig->IsConfigSet(eAAMPConfig_EarlyID3Processing);
+			const auto early_processing = ISCONFIGSET(eAAMPConfig_EarlyID3Processing);
 			if (early_processing && playContext && aamp->_IsEventListenerAvailable(AAMP_EVENT_ID3_METADATA))
 			{
 				if (const auto & metadata_processor = context->GetMetadataProcessor(mSourceFormat))
@@ -1894,7 +1894,7 @@ void TrackState::SetDrmContext()
 	if(mDrm)
 	{
 		mDrmInterface->UpdateAamp(aamp);
-		mDrm->SetDecryptInfo( &mDrmInfo,  aamp->mConfig->GetConfigValue(eAAMPConfig_LicenseKeyAcquireWaitTime) );
+		mDrm->SetDecryptInfo( &mDrmInfo,  GETCONFIGVALUE(eAAMPConfig_LicenseKeyAcquireWaitTime) );
 	}
 }
 
@@ -2148,19 +2148,19 @@ void TrackState::IndexPlaylist(bool IsRefresh, AampTime &culledSec)
 						AampTime offsetval{ParseXStartTimeOffset(ptr)};
 						if(!aamp->_IsLiveAdjustRequired())
 						{
-							SETCONFIGVALUE(AAMP_STREAM_SETTING,eAAMPConfig_CDVRLiveOffset,offsetval.inSeconds());
+                            SETCONFIGVALUE(AAMP_STREAM_SETTING,eAAMPConfig_CDVRLiveOffset,offsetval.inSeconds());
                             aamp->_UpdateLiveOffset();
 						}
 						else
 						{
 							/** 4K stream and 4K offset configured is below stream settings ; override liveOffset */
-							if (aamp->mIsStream4K && (GETCONFIGOWNER(eAAMPConfig_LiveOffset4K) <= AAMP_STREAM_SETTING))
+							if( aamp->mIsStream4K && GETCONFIGOWNER(eAAMPConfig_LiveOffset4K) <= AAMP_STREAM_SETTING )
 							{
 								aamp->mLiveOffset = offsetval.inSeconds();
 							}
 							else
 							{
-								SETCONFIGVALUE(AAMP_STREAM_SETTING,eAAMPConfig_LiveOffset,offsetval.inSeconds());
+                                SETCONFIGVALUE(AAMP_STREAM_SETTING,eAAMPConfig_LiveOffset,offsetval.inSeconds());
                                 aamp->_UpdateLiveOffset();
 							}
 						}
@@ -2559,7 +2559,7 @@ std::string StreamAbstractionAAMP_HLS::GetPlaylistURI(TrackType trackType, Strea
 			{
 				playlistURI = mediaInfoStore[currentTextTrackProfileIndex].uri;
 				mTextTrackIndex = std::to_string(currentTextTrackProfileIndex);
-				SETCONFIGVALUE(AAMP_STREAM_SETTING,eAAMPConfig_SubTitleLanguage,(std::string)mediaInfoStore[currentTextTrackProfileIndex].language);
+                SETCONFIGVALUE(AAMP_STREAM_SETTING,eAAMPConfig_SubTitleLanguage,(std::string)mediaInfoStore[currentTextTrackProfileIndex].language);
 				if (format) *format = (mediaInfoStore[currentTextTrackProfileIndex].type == eMEDIATYPE_SUBTITLE) ? FORMAT_SUBTITLE_WEBVTT : FORMAT_UNKNOWN;
 //				AAMPLOG_WARN("StreamAbstractionAAMP_HLS: subtitle found language %s, uri %s", mediaInfoStore[currentTextTrackProfileIndex].language, playlistURI);
 			}
@@ -3354,7 +3354,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 					HlsStreamInfo &streamInfo = streamInfoStore[mProfileCount];
 					setupStreamInfo(streamInfo);
 					streamInfo.uri = aamp->_GetManifestUrl().c_str();
-					SETCONFIGVALUE(AAMP_TUNE_SETTING,eAAMPConfig_EnableABR,false);
+                    SETCONFIGVALUE(AAMP_TUNE_SETTING,eAAMPConfig_EnableABR,false);
 					mainManifestResult = eAAMPSTATUS_OK;
 					AAMPLOG_INFO("StreamAbstractionAAMP_HLS::Playlist only playback.");
                     aamp->_getAampCacheHandler()->RemoveFromPlaylistCache(aamp->_GetManifestUrl());
@@ -4361,7 +4361,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 						{
 							// To prevent underflow when seeked to end of fragment.
 							// Added +1 to ensure next fragment is fetched.
-							SETCONFIGVALUE(AAMP_STREAM_SETTING,eAAMPConfig_InitialBuffer,(int)video->fragmentDurationSeconds + 1);
+                            SETCONFIGVALUE(AAMP_STREAM_SETTING,eAAMPConfig_InitialBuffer,(int)video->fragmentDurationSeconds + 1);
 							aamp->midFragmentSeekCache = true;
 						}
 					}
@@ -4369,7 +4369,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 				else if(aamp->midFragmentSeekCache)
 				{
 					// Resetting fragment cache when seeked to first half of the fragment duration.
-					SETCONFIGVALUE(AAMP_STREAM_SETTING,eAAMPConfig_InitialBuffer,0);
+                    SETCONFIGVALUE(AAMP_STREAM_SETTING,eAAMPConfig_InitialBuffer,0);
 					aamp->midFragmentSeekCache = false;
 				}
 
@@ -4875,7 +4875,7 @@ void TrackState::FragmentCollector(void)
 /**
  * @brief Constructor function
  */
-StreamAbstractionAAMP_HLS::StreamAbstractionAAMP_HLS(class PrivateInstanceAAMP *aamp,double seekpos, float rate,
+StreamAbstractionAAMP_HLS::StreamAbstractionAAMP_HLS(class PlayerInstanceAAMP *aamp,double seekpos, float rate,
 	id3_callback_t id3Handler,
 	ptsoffset_update_t ptsUpdate)
 : StreamAbstractionAAMP(aamp, id3Handler),
@@ -4917,7 +4917,7 @@ StreamAbstractionAAMP_HLS::StreamAbstractionAAMP_HLS(class PrivateInstanceAAMP *
 /**
  * @brief TrackState Constructor
  */
-TrackState::TrackState(TrackType type, StreamAbstractionAAMP_HLS* parent, PrivateInstanceAAMP* aamp, const char* name,
+TrackState::TrackState(TrackType type, StreamAbstractionAAMP_HLS* parent, PlayerInstanceAAMP* aamp, const char* name,
 			id3_callback_t id3Handler,
 			ptsoffset_update_t ptsUpdate
 		) :

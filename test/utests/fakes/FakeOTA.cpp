@@ -19,7 +19,7 @@
 
 #include "ota_shim.h"
 
-StreamAbstractionAAMP_OTA::StreamAbstractionAAMP_OTA(class PrivateInstanceAAMP *aamp,double seek_pos, float rate)
+StreamAbstractionAAMP_OTA::StreamAbstractionAAMP_OTA(class PlayerInstanceAAMP *aamp,double seek_pos, float rate)
                           : StreamAbstractionAAMP(aamp), thunderAccessObj(PlayerThunderAccessPlugin::MEDIAPLAYER)
 {
 }

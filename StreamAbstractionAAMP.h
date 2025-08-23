@@ -25,7 +25,7 @@
 #ifndef STREAMABSTRACTIONAAMP_H
 #define STREAMABSTRACTIONAAMP_H
 
-#include "priv_aamp.h"
+#include "main_aamp.h"
 #include "AampJsonObject.h"
 #include "mediaprocessor.h"
 #include "AdManagerBase.h"
@@ -226,10 +226,10 @@ public:
 	 * @fn MediaTrack
 	 *
 	 * @param[in] type - Media track type
-	 * @param[in] aamp - Pointer to PrivateInstanceAAMP
+	 * @param[in] aamp - Pointer to PlayerInstanceAAMP
 	 * @param[in] name - Media track name
 	 */
-	MediaTrack(TrackType type, PrivateInstanceAAMP* aamp, const char* name);
+	MediaTrack(TrackType type, PlayerInstanceAAMP* aamp, const char* name);
 
 	/**
 	 * @fn ~MediaTrack
@@ -935,7 +935,7 @@ public:
 	bool mCheckForRampdown;		        /**< flag to indicate if the track is undergoing rampdown or not */
 
 protected:
-	PrivateInstanceAAMP* aamp;          /**< Pointer to the PrivateInstanceAAMP*/
+	PlayerInstanceAAMP* aamp;          /**< Pointer to the PlayerInstanceAAMP*/
 	std::shared_ptr<IsoBmffHelper> mIsoBmffHelper; /**< Helper class for ISO BMFF parsing */
 	CachedFragment *mCachedFragment;    /**< storage for currently-downloaded fragment */
 	CachedFragment mCachedFragmentChunks[DEFAULT_CACHED_FRAGMENT_CHUNKS_PER_TRACK];
@@ -1028,9 +1028,9 @@ public:
 
 	/**
 	 * @fn StreamAbstractionAAMP
-	 * @param[in] aamp pointer to PrivateInstanceAAMP object associated with stream
+	 * @param[in] aamp pointer to PlayerInstanceAAMP object associated with stream
 	 */
-	StreamAbstractionAAMP(PrivateInstanceAAMP* aamp, id3_callback_t mID3Handler = nullptr);
+	StreamAbstractionAAMP(PlayerInstanceAAMP* aamp, id3_callback_t mID3Handler = nullptr);
 
 	/**
 	 * @fn ~StreamAbstractionAAMP
@@ -1241,7 +1241,7 @@ public:
 	 */
 	bool GetESChangeStatus(void){ return mESChangeStatus;}
 
-	PrivateInstanceAAMP* aamp;  /**< Pointer to PrivateInstanceAAMP object associated with stream*/
+	PlayerInstanceAAMP* aamp;  /**< Pointer to PlayerInstanceAAMP object associated with stream*/
 
 	/**
 	 *   @fn RampDownProfile

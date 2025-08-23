@@ -26,7 +26,7 @@
 #include "fragmentcollector_mpd.h"
 #include "AampStreamSinkManager.h"
 #include "MediaStreamContext.h"
-#include "priv_aamp.h"
+#include "main_aamp.h"
 #include "AampDRMLicManager.h"
 #include "AampConstants.h"
 #include "SubtecFactory.hpp"
@@ -112,7 +112,7 @@ static bool IsIframeTrack(IAdaptationSet *adaptationSet);
 /**
  * @brief StreamAbstractionAAMP_MPD Constructor
  */
-StreamAbstractionAAMP_MPD::StreamAbstractionAAMP_MPD(class PrivateInstanceAAMP *aamp, double seek_pos, float rate, id3_callback_t id3Handler)
+StreamAbstractionAAMP_MPD::StreamAbstractionAAMP_MPD(class PlayerInstanceAAMP *aamp, double seek_pos, float rate, id3_callback_t id3Handler)
 	: StreamAbstractionAAMP(aamp, id3Handler),
 	mLangList(), seekPosition(seek_pos), rate(rate), fragmentCollectorThreadID(),tsbReaderThreadID(),
 	mpd(NULL), mNumberOfTracks(0), mCurrentPeriodIdx(0), mEndPosition(0), mIsLiveStream(true), mIsLiveManifest(true),mManifestDnldRespPtr(nullptr),mManifestUpdateHandleFlag(false), mUpdateManifestState(false),
@@ -803,7 +803,7 @@ void StreamAbstractionAAMP_MPD::ConstructFragmentURL( std::string& fragmentUrl, 
 	}
 	else if (!constructedUri.empty())
 	{
-		if(ISCONFIGSET(eAAMPConfig_DASHIgnoreBaseURLIfSlash))
+        if(ISCONFIGSET(eAAMPConfig_DASHIgnoreBaseURLIfSlash))
 		{
 			if (constructedUri == "/")
 			{
@@ -2621,7 +2621,7 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 											{
 												// To prevent underflow when seeked to end of fragment.
 												// Added +1 to ensure next fragment is fetched.
-												SETCONFIGVALUE(AAMP_STREAM_SETTING,eAAMPConfig_InitialBuffer,(int)fragmentDuration + 1);
+                                                SETCONFIGVALUE(AAMP_STREAM_SETTING,eAAMPConfig_InitialBuffer,(int)fragmentDuration + 1);
                                                 aamp->midFragmentSeekCache = true;
 											}
 										}
@@ -2629,7 +2629,7 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 									else if(aamp->midFragmentSeekCache)
 									{
 										// Resetting fragment cache when seeked to first half of the fragment duration.
-										SETCONFIGVALUE(AAMP_STREAM_SETTING,eAAMPConfig_InitialBuffer,0);
+                                        SETCONFIGVALUE(AAMP_STREAM_SETTING,eAAMPConfig_InitialBuffer,0);
                                         aamp->midFragmentSeekCache = false;
 									}
 
@@ -3884,7 +3884,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 
 				if (mLowLatencyMode && !liveAdjust)
 				{
-					int maxLatency = GETCONFIGVALUE(eAAMPConfig_LLMaxLatency);
+                    int maxLatency = GETCONFIGVALUE(eAAMPConfig_LLMaxLatency);
 					//Chunk mode is applied when the seek position is between the live edge and the maximum allowed latency from it
 					if (seekPosition > (duration - maxLatency))
 					{
@@ -13474,10 +13474,9 @@ AAMPStatusType  StreamAbstractionAAMP_MPD::EnableAndSetLiveOffsetForLLDashPlayba
 			double latencyOffsetMin = stLLServiceData.minLatency/(double)1000;
 			double latencyOffsetMax = stLLServiceData.maxLatency/(double)1000;
 			AAMPLOG_MIL("StreamAbstractionAAMP_MPD:[LL-Dash] Min Latency: %ld Max Latency: %ld Target Latency: %ld",(long)latencyOffsetMin,(long)latencyOffsetMax,(long)TargetLatency);
-			SETCONFIGVALUE(AAMP_STREAM_SETTING, eAAMPConfig_IgnoreAppLiveOffset, true);
+            SETCONFIGVALUE(AAMP_STREAM_SETTING, eAAMPConfig_IgnoreAppLiveOffset, true);
 			//Ignore Low latency setting
-			if(!ISCONFIGSET(eAAMPConfig_ForceLLDFlow) && !ISCONFIGSET(eAAMPConfig_IgnoreAppLiveOffset) && (((AAMP_DEFAULT_SETTING != GETCONFIGOWNER(eAAMPConfig_LiveOffset4K)) && (currentOffset > latencyOffsetMax) && aamp->mIsStream4K) ||
-			((AAMP_DEFAULT_SETTING != GETCONFIGOWNER(eAAMPConfig_LiveOffset)) && (currentOffset > latencyOffsetMax))))
+            if(!ISCONFIGSET(eAAMPConfig_ForceLLDFlow) && !ISCONFIGSET(eAAMPConfig_IgnoreAppLiveOffset) && (((AAMP_DEFAULT_SETTING != GETCONFIGOWNER(eAAMPConfig_LiveOffset4K)) && (currentOffset > latencyOffsetMax) && aamp->mIsStream4K) || ((AAMP_DEFAULT_SETTING != GETCONFIGOWNER(eAAMPConfig_LiveOffset)) && (currentOffset > latencyOffsetMax))))
 			{
 				AAMPLOG_WARN("StreamAbstractionAAMP_MPD: Switch off LL mode: App requested currentOffset > latencyOffsetMax");
 				stLLServiceData.lowLatencyMode = false;
@@ -13495,7 +13494,7 @@ AAMPStatusType  StreamAbstractionAAMP_MPD::EnableAndSetLiveOffsetForLLDashPlayba
 						if(((AAMP_STREAM_SETTING >= GETCONFIGOWNER(eAAMPConfig_LiveOffset4K)) && aamp->mIsStream4K) ||
 						((AAMP_STREAM_SETTING >= GETCONFIGOWNER(eAAMPConfig_LiveOffset))))
 						{
-							SETCONFIGVALUE(AAMP_STREAM_SETTING,eAAMPConfig_LiveOffset,latencyOffset);
+                            SETCONFIGVALUE(AAMP_STREAM_SETTING,eAAMPConfig_LiveOffset,latencyOffset);
 							if (AAMP_STREAM_SETTING >= GETCONFIGOWNER(eAAMPConfig_LiveOffset))
 							{
                                 aamp->_UpdateLiveOffset();
@@ -13505,7 +13504,7 @@ AAMPStatusType  StreamAbstractionAAMP_MPD::EnableAndSetLiveOffsetForLLDashPlayba
 						{
 							if(ISCONFIGSET(eAAMPConfig_IgnoreAppLiveOffset) && (GETCONFIGOWNER(eAAMPConfig_LiveOffset) == AAMP_APPLICATION_SETTING))
 							{
-								SETCONFIGVALUE(AAMP_TUNE_SETTING,eAAMPConfig_LiveOffset,latencyOffset);
+                                SETCONFIGVALUE(AAMP_TUNE_SETTING,eAAMPConfig_LiveOffset,latencyOffset);
                                 aamp->_UpdateLiveOffset();
 							}
 						}

@@ -290,7 +290,7 @@ void MediaTrack::UpdateSubtitleClockTask()
 			// Fetch PTS, send to Subtec
 			// Enable clock sync when mediaprocessor is enabled. For QTDEMUX_OVERRIDE_ENABLED platforms, video pts received from GST is relative from playback start,
 			// so we need mediaprocessor to set the base video pts so that correct pts can be signalled to subtec
-			if (enabled && aamp->_IsGstreamerSubsEnabled() && ISCONFIGSET(eAAMPConfig_EnableMediaProcessor))
+			if (enabled && aamp->_IsGstreamerSubsEnabled() &&  ISCONFIGSET(eAAMPConfig_EnableMediaProcessor))
 			{
 				// Note: This will fail if pipeline is not in play state, we have underflow, or if video pts is still returning 0 just after we entered play state
 				if (aamp->_SignalSubtitleClock())
@@ -1983,7 +1983,7 @@ void MediaTrack::OffsetTrackParams(double deltaFetchedDuration, double deltaInje
 /**
  *  @brief MediaTrack Constructor
  */
-MediaTrack::MediaTrack(TrackType type, PrivateInstanceAAMP* aamp, const char* name) :
+MediaTrack::MediaTrack(TrackType type, PlayerInstanceAAMP* aamp, const char* name) :
 		eosReached(false), enabled(false), numberOfFragmentsCached(0), numberOfFragmentChunksCached(0), fragmentIdxToInject(0), fragmentChunkIdxToInject(0),
 		fragmentIdxToFetch(0), fragmentChunkIdxToFetch(0), abort(false), fragmentInjectorThreadID(), bufferMonitorThreadID(), subtitleClockThreadID(), totalFragmentsDownloaded(0), totalFragmentChunksDownloaded(0),
 		fragmentInjectorThreadStarted(false), bufferMonitorThreadStarted(false), UpdateSubtitleClockTaskStarted(false), bufferMonitorThreadDisabled(false), totalInjectedDuration(0), totalInjectedChunksDuration(0), currentInitialCacheDurationSeconds(0),
@@ -2107,7 +2107,7 @@ void StreamAbstractionAAMP::WaitForVideoTrackCatchup()
 /**
  * @brief StreamAbstractionAAMP constructor.
  */
-StreamAbstractionAAMP::StreamAbstractionAAMP(PrivateInstanceAAMP* aamp, id3_callback_t mID3Handler):
+StreamAbstractionAAMP::StreamAbstractionAAMP(PlayerInstanceAAMP* aamp, id3_callback_t mID3Handler):
 		trickplayMode(false), currentProfileIndex(0), mCurrentBandwidth(0),currentAudioProfileIndex(-1),currentTextTrackProfileIndex(-1),
 		mTsbBandwidth(0),mNwConsistencyBypass(true), profileIdxForBandwidthNotification(0),
 		hasDrm(false), mIsAtLivePoint(false), mESChangeStatus(false),mAudiostateChangeCount(0),
@@ -3925,14 +3925,14 @@ bool StreamAbstractionAAMP::GetPreferredLiveOffsetFromConfig()
 		}
 
 		/** 4K stream and 4K support is found ; Use 4K live offset if provided*/
-		if (GETCONFIGOWNER(eAAMPConfig_LiveOffset4K) > AAMP_DEFAULT_SETTING)
+		if ( GETCONFIGOWNER(eAAMPConfig_LiveOffset4K) > AAMP_DEFAULT_SETTING)
 		{
 			/**Update live Offset with 4K stream live offset configured*/
 			aamp->mLiveOffset = GETCONFIGVALUE(eAAMPConfig_LiveOffset4K);
 			if(aamp->mBufferFor4kRampup != 0)
 			{
-				SETCONFIGVALUE(AAMP_TUNE_SETTING,eAAMPConfig_MaxABRNWBufferRampUp,aamp->mBufferFor4kRampup);
-				SETCONFIGVALUE(AAMP_TUNE_SETTING,eAAMPConfig_MinABRNWBufferRampDown,aamp->mBufferFor4kRampdown);
+                SETCONFIGVALUE(AAMP_TUNE_SETTING,eAAMPConfig_MaxABRNWBufferRampUp,aamp->mBufferFor4kRampup);
+                SETCONFIGVALUE(AAMP_TUNE_SETTING,eAAMPConfig_MinABRNWBufferRampDown,aamp->mBufferFor4kRampdown);
                 aamp->_LoadAampAbrConfig();
 			}
 			AAMPLOG_INFO("Updated live offset for 4K stream %lf", aamp->mLiveOffset);

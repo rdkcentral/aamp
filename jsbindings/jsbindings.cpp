@@ -28,7 +28,7 @@
 #include "jsbindings-version.h"
 #include "jsutils.h"
 #include "main_aamp.h"
-#include "priv_aamp.h"
+#include "main_aamp.h"
 #include <mutex>
 #include "PlayerCCManager.h"
 
@@ -351,7 +351,7 @@ static JSValueRef AAMP_getProperty_timedMetadata(JSContextRef context, JSObjectR
 		return JSValueMakeUndefined(context);
 	}
 
-	PrivateInstanceAAMP* privAAMP = (pAAMP->_aamp != NULL) ? pAAMP->_aamp->aamp : NULL;
+	PlayerInstanceAAMP* privAAMP = (pAAMP->_aamp != NULL) ? pAAMP->_aamp->aamp : NULL;
 	if (privAAMP == NULL)
 	{
                 LOG_ERROR_EX("privAAMP not initialized");

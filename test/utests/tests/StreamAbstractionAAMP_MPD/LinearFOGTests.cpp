@@ -20,7 +20,7 @@
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
 #include <chrono>
-#include "priv_aamp.h"
+#include "main_aamp.h"
 #include "AampConfig.h"
 #include "AampScheduler.h"
 #include "AampLogManager.h"
@@ -29,7 +29,7 @@
 #include "MockAampConfig.h"
 #include "MockAampUtils.h"
 #include "MockAampGstPlayer.h"
-#include "MockPrivateInstanceAAMP.h"
+#include "MockPlayerInstanceAAMP.h"
 #include "MockMediaStreamContext.h"
 #include "MockAampMPDDownloader.h"
 #include "MockAampStreamSinkManager.h"
@@ -57,7 +57,7 @@ protected:
 		{
 		public:
 				// Constructor to pass parameters to the base class constructor
-				TestableStreamAbstractionAAMP_MPD(PrivateInstanceAAMP *aamp,
+				TestableStreamAbstractionAAMP_MPD(PlayerInstanceAAMP *aamp,
 																				  double seekpos, float rate)
 						: StreamAbstractionAAMP_MPD(aamp, seekpos, rate)
 				{
@@ -74,7 +74,7 @@ protected:
 				}
 		};
 
-		PrivateInstanceAAMP *mPrivateInstanceAAMP;
+		PlayerInstanceAAMP *mPlayerInstanceAAMP;
 		TestableStreamAbstractionAAMP_MPD *mStreamAbstractionAAMP_MPD;
 		CDAIObject *mCdaiObj;
 		const char *mManifest;
@@ -141,18 +141,18 @@ protected:
 						gpGlobalConfig =  new AampConfig();
 				}
 
-				mPrivateInstanceAAMP = new PrivateInstanceAAMP(gpGlobalConfig);
-				mPrivateInstanceAAMP->mIsDefaultOffset = true;
+				mPlayerInstanceAAMP = new PlayerInstanceAAMP(gpGlobalConfig);
+				mPlayerInstanceAAMP->mIsDefaultOffset = true;
 
 				g_mockAampConfig = new NiceMock<MockAampConfig>();
 
 				g_mockAampUtils = nullptr;
 
-				g_mockAampGstPlayer = new MockAAMPGstPlayer( mPrivateInstanceAAMP);
+				g_mockAampGstPlayer = new MockAAMPGstPlayer( mPlayerInstanceAAMP);
 
-				mPrivateInstanceAAMP->mIsDefaultOffset = true;
+				mPlayerInstanceAAMP->mIsDefaultOffset = true;
 
-				g_mockPrivateInstanceAAMP = new StrictMock<MockPrivateInstanceAAMP>();
+				g_mockPlayerInstanceAAMP = new StrictMock<MockPlayerInstanceAAMP>();
 
 				g_mockMediaStreamContext = new StrictMock<MockMediaStreamContext>();
 
@@ -176,8 +176,8 @@ protected:
 						mStreamAbstractionAAMP_MPD = nullptr;
 				}
 
-				delete mPrivateInstanceAAMP;
-				mPrivateInstanceAAMP = nullptr;
+				delete mPlayerInstanceAAMP;
+				mPlayerInstanceAAMP = nullptr;
 
 				delete mCdaiObj;
 				mCdaiObj = nullptr;
@@ -197,8 +197,8 @@ protected:
 				delete g_mockAampGstPlayer;
 				g_mockAampGstPlayer = nullptr;
 
-				delete g_mockPrivateInstanceAAMP;
-				g_mockPrivateInstanceAAMP = nullptr;
+				delete g_mockPlayerInstanceAAMP;
+				g_mockPlayerInstanceAAMP = nullptr;
 
 				delete g_mockMediaStreamContext;
 				g_mockMediaStreamContext = nullptr;
@@ -296,21 +296,21 @@ public:
 				}
 
 				/* Create MPD instance. */
-				mStreamAbstractionAAMP_MPD = new TestableStreamAbstractionAAMP_MPD(mPrivateInstanceAAMP, seekPos, rate);
-				mCdaiObj = new CDAIObjectMPD(mPrivateInstanceAAMP);
+				mStreamAbstractionAAMP_MPD = new TestableStreamAbstractionAAMP_MPD(mPlayerInstanceAAMP, seekPos, rate);
+				mCdaiObj = new CDAIObjectMPD(mPlayerInstanceAAMP);
 				mStreamAbstractionAAMP_MPD->SetCDAIObject(mCdaiObj);
 
-				mPrivateInstanceAAMP->SetManifestUrl(TEST_MANIFEST_URL);
+				mPlayerInstanceAAMP->SetManifestUrl(TEST_MANIFEST_URL);
 
 				/* Initialize MPD. */
-				EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetState(eSTATE_PREPARING));
+				EXPECT_CALL(*g_mockPlayerInstanceAAMP, SetState(eSTATE_PREPARING));
 
-				EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState())
+				EXPECT_CALL(*g_mockPlayerInstanceAAMP, GetState())
 						.Times(AnyNumber())
 						.WillRepeatedly(Return(eSTATE_PREPARING));
 
-				EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetLLDashChunkMode()).WillRepeatedly(Return(false));
-				EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetLLDashChunkMode(_));
+				EXPECT_CALL(*g_mockPlayerInstanceAAMP, GetLLDashChunkMode()).WillRepeatedly(Return(false));
+				EXPECT_CALL(*g_mockPlayerInstanceAAMP, SetLLDashChunkMode(_));
 				// For the time being return the same manifest again
 				EXPECT_CALL(*g_mockAampMPDDownloader, GetManifest (_, _, _))
 						.WillRepeatedly(WithoutArgs(Invoke(this, &LinearFOGTests::GetManifestForMPDDownloader)));

@@ -22,7 +22,7 @@
  * @brief shim for dispatching UVE HDMI input playback
  */
 #include "hdmiin_shim.h"
-#include "priv_aamp.h"
+#include "main_aamp.h"
 #include <stdlib.h>
 #include <string.h>
 #include <signal.h>
@@ -38,7 +38,7 @@ StreamAbstractionAAMP_HDMIIN* StreamAbstractionAAMP_HDMIIN::mHdmiinInstance = NU
 /**
  * @brief StreamAbstractionAAMP_HDMIIN Constructor
  */
-StreamAbstractionAAMP_HDMIIN::StreamAbstractionAAMP_HDMIIN(class PrivateInstanceAAMP *aamp,double seek_pos, float rate)
+StreamAbstractionAAMP_HDMIIN::StreamAbstractionAAMP_HDMIIN(class PlayerInstanceAAMP *aamp,double seek_pos, float rate)
                              : StreamAbstractionAAMP_VIDEOIN("HDMIIN", PlayerThunderAccessPlugin::AVINPUT,aamp,seek_pos,rate,"HDMI")
 {
     aamp->_SetContentType("HDMI_IN");
@@ -97,7 +97,7 @@ void StreamAbstractionAAMP_HDMIIN::Stop(bool clearChannelData)
  *   @brief get StreamAbstractionAAMP_HDMIIN instance
  */
 
-StreamAbstractionAAMP_HDMIIN * StreamAbstractionAAMP_HDMIIN::GetInstance(class PrivateInstanceAAMP *aamp,double seekpos, float rate)
+StreamAbstractionAAMP_HDMIIN * StreamAbstractionAAMP_HDMIIN::GetInstance(class PlayerInstanceAAMP *aamp,double seekpos, float rate)
 {
 	if( mHdmiinInstance == NULL)
 	{

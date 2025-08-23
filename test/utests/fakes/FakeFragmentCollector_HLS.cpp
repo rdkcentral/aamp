@@ -17,10 +17,10 @@
 * limitations under the License.
 */
 #include "HlsDrmBase.h"
-#include "priv_aamp.h"
+#include "main_aamp.h"
 #include "DrmInterface.h"
 #include "fragmentcollector_hls.h"
-StreamAbstractionAAMP_HLS::StreamAbstractionAAMP_HLS(class PrivateInstanceAAMP *aamp,double seekpos, float rate,
+StreamAbstractionAAMP_HLS::StreamAbstractionAAMP_HLS(class PlayerInstanceAAMP *aamp,double seekpos, float rate,
 			id3_callback_t id3Handler,
 			ptsoffset_update_t ptsOffsetUpdate)
     : StreamAbstractionAAMP(aamp), mainManifest("mainManifest"), thumbnailManifest("thumbnailManifest"),mDrmInterface(aamp)

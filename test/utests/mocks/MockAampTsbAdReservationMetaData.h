@@ -39,7 +39,7 @@ public:
 	MOCK_METHOD(void, Dump, (const std::string& message), (const, override));
 	MOCK_METHOD(uint32_t, GetOrderAdded, (), (const, override));
 	MOCK_METHOD(void, SetOrderAdded, (uint32_t), (override));
-	MOCK_METHOD(void, SendEvent, (PrivateInstanceAAMP*), (const, override));
+	MOCK_METHOD(void, SendEvent, (PlayerInstanceAAMP*), (const, override));
 };
 
 extern MockAampTsbAdReservationMetaData* g_mockAampTsbAdReservationMetaData;

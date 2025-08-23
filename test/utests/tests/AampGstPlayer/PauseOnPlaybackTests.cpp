@@ -25,7 +25,7 @@
 #include "MockGLib.h"
 #include "MockAampConfig.h"
 #include "MockGstHandlerControl.h"
-#include "MockPrivateInstanceAAMP.h"
+#include "MockPlayerInstanceAAMP.h"
 #include "MockPlayerScheduler.h"
 using ::testing::NiceMock;
 using ::testing::Return;
@@ -45,7 +45,7 @@ class PauseOnPlaybackTests : public ::testing::Test
 
 protected:
 	AAMPGstPlayer *mAAMPGstPlayer;
-	PrivateInstanceAAMP *mPrivateInstanceAAMP;
+	PlayerInstanceAAMP *mPlayerInstanceAAMP;
 	InterfacePlayerRDK *mplayer;
 	void SetUp() override
 	{
@@ -59,10 +59,10 @@ protected:
 		g_mockAampConfig = new NiceMock<MockAampConfig>();
 		g_mockGstHandlerControl = new MockGstHandlerControl();
 		g_mockPlayerScheduler = new MockPlayerScheduler();
-		g_mockPrivateInstanceAAMP = new MockPrivateInstanceAAMP();
-		mPrivateInstanceAAMP = new PrivateInstanceAAMP{};
+		g_mockPlayerInstanceAAMP = new MockPlayerInstanceAAMP();
+		mPlayerInstanceAAMP = new PlayerInstanceAAMP{};
 
-    	mAAMPGstPlayer = new AAMPGstPlayer{mPrivateInstanceAAMP, nullptr};
+    	mAAMPGstPlayer = new AAMPGstPlayer{mPlayerInstanceAAMP, nullptr};
 	mplayer = mAAMPGstPlayer->playerInstance;
 
 	}
@@ -78,14 +78,14 @@ protected:
 		delete g_mockGStreamer;
 		g_mockGStreamer = nullptr;
 
-		delete mPrivateInstanceAAMP;
-		mPrivateInstanceAAMP = nullptr;
+		delete mPlayerInstanceAAMP;
+		mPlayerInstanceAAMP = nullptr;
 
 		delete g_mockGstHandlerControl;
 		g_mockGstHandlerControl = nullptr;
 
-		delete g_mockPrivateInstanceAAMP;
-		g_mockPrivateInstanceAAMP = nullptr;
+		delete g_mockPlayerInstanceAAMP;
+		g_mockPlayerInstanceAAMP = nullptr;
 	
     	delete mAAMPGstPlayer;
 	    mAAMPGstPlayer = nullptr;
@@ -295,7 +295,7 @@ TEST_F(PauseOnPlaybackTests, bus_messsage_FrameStepPropertyAvailable)
     EXPECT_CALL(*g_mockGStreamer, gst_element_send_event(_,_))
 		.WillOnce(Return(1));
 
-/*	EXPECT_CALL(*g_mockPrivateInstanceAAMP, ScheduleAsyncTask(_,mAAMPGstPlayer,StrEq("FirstFrameCallback")))
+/*	EXPECT_CALL(*g_mockPlayerInstanceAAMP, ScheduleAsyncTask(_,mAAMPGstPlayer,StrEq("FirstFrameCallback")))
 		.Times(0);
 */
 	// Call the bus_message function

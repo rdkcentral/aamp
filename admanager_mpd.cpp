@@ -32,7 +32,7 @@
 /**
  * @brief CDAIObjectMPD Constructor
  */
-CDAIObjectMPD::CDAIObjectMPD(PrivateInstanceAAMP* aamp): CDAIObject(aamp), mPrivObj(new PrivateCDAIObjectMPD(aamp))
+CDAIObjectMPD::CDAIObjectMPD(PlayerInstanceAAMP* aamp): CDAIObject(aamp), mPrivObj(new PrivateCDAIObjectMPD(aamp))
 {
 
 }
@@ -58,7 +58,7 @@ void CDAIObjectMPD::SetAlternateContents(const std::string &periodId, const std:
 /**
  * @brief PrivateCDAIObjectMPD constructor
  */
-PrivateCDAIObjectMPD::PrivateCDAIObjectMPD(PrivateInstanceAAMP* aamp) : mAamp(aamp),mDaiMtx(), mIsFogTSB(false), mAdBreaks(), mPeriodMap(), mCurPlayingBreakId(), mAdObjThreadID(), mCurAds(nullptr),
+PrivateCDAIObjectMPD::PrivateCDAIObjectMPD(PlayerInstanceAAMP* aamp) : mAamp(aamp),mDaiMtx(), mIsFogTSB(false), mAdBreaks(), mPeriodMap(), mCurPlayingBreakId(), mAdObjThreadID(), mCurAds(nullptr),
 					mCurAdIdx(-1), mContentSeekOffset(0), mAdState(AdState::OUTSIDE_ADBREAK),mPlacementObj(), mAdFulfillObj(),mAdObjThreadStarted(false),currentAdPeriodClosed(false),mAdtoInsertInNextBreakVec(),
 					mAdBrkVecMtx(), mAdFulfillMtx(), mAdFulfillCV(), mAdFulfillQ(), mExitFulfillAdLoop(false), mAdPlacementMtx(), mAdPlacementCV()
 {
@@ -899,7 +899,7 @@ MPD* PrivateCDAIObjectMPD::GetAdMPD(std::string &manifestUrl, bool &finalManifes
 
 	if (gotManifest)
 	{
-		if(mAamp->mConfig->IsConfigSet(eAAMPConfig_PlayAdFromCDN) && mAamp->mTsbType == "cloud")
+		if(mAamp->mConfig.IsConfigSet(eAAMPConfig_PlayAdFromCDN) && mAamp->mTsbType == "cloud")
 		{
 			finalManifest = false;
 		}
@@ -908,7 +908,7 @@ MPD* PrivateCDAIObjectMPD::GetAdMPD(std::string &manifestUrl, bool &finalManifes
 			finalManifest = true;
 		}
 		xmlTextReaderPtr reader = xmlReaderForMemory( manifest.GetPtr(), (int) manifest.GetLen(), NULL, NULL, 0);
-		if(tryFog && !mAamp->mConfig->IsConfigSet(eAAMPConfig_PlayAdFromCDN) && reader && mIsFogTSB)	//Main content from FOG. Ad is expected from FOG.
+		if(tryFog && !mAamp->mConfig.IsConfigSet(eAAMPConfig_PlayAdFromCDN) && reader && mIsFogTSB)	//Main content from FOG. Ad is expected from FOG.
 		{
 			std::string channelUrl = mAamp->_GetManifestUrl();	//TODO: Get FOG URL from channel URL
 			std::string encodedUrl;

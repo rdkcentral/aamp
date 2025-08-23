@@ -18,7 +18,7 @@
  */
 
 #include <gtest/gtest.h>
-#include "MockPrivateInstanceAAMP.h"
+#include "MockPlayerInstanceAAMP.h"
 #include "AampTsbAdReservationMetaData.h"
 #include <limits>
 
@@ -28,21 +28,21 @@
 class AampTsbAdReservationMetaDataTest : public ::testing::Test
 {
 public:
-	PrivateInstanceAAMP *mPrivateInstanceAAMP;
+	PlayerInstanceAAMP *mPlayerInstanceAAMP;
 protected:
 	void SetUp() override
 	{
-		g_mockPrivateInstanceAAMP = new MockPrivateInstanceAAMP();
-		mPrivateInstanceAAMP = new PrivateInstanceAAMP{};
+		g_mockPlayerInstanceAAMP = new MockPlayerInstanceAAMP();
+		mPlayerInstanceAAMP = new PlayerInstanceAAMP{};
 	}
 
 	void TearDown() override
 	{
-		delete g_mockPrivateInstanceAAMP;
-		g_mockPrivateInstanceAAMP = nullptr;
+		delete g_mockPlayerInstanceAAMP;
+		g_mockPlayerInstanceAAMP = nullptr;
 
-		delete mPrivateInstanceAAMP;
-		mPrivateInstanceAAMP = nullptr;
+		delete mPlayerInstanceAAMP;
+		mPlayerInstanceAAMP = nullptr;
 	}
 };
 
@@ -83,10 +83,10 @@ TEST_F(AampTsbAdReservationMetaDataTest, ReservationEventTest)
 			AampTsbAdMetaData::EventType::START,
 			position, adBreakId, periodPosition);
 
-		EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdReservationEvent(
+		EXPECT_CALL(*g_mockPlayerInstanceAAMP, SendAdReservationEvent(
 			AAMP_EVENT_AD_RESERVATION_START, adBreakId, periodPosition, position.milliseconds(), immediate)).Times(1);
 
-		startMetadata.SendEvent(mPrivateInstanceAAMP);
+		startMetadata.SendEvent(mPlayerInstanceAAMP);
 	}
 
 	// Test END event
@@ -95,10 +95,10 @@ TEST_F(AampTsbAdReservationMetaDataTest, ReservationEventTest)
 			AampTsbAdMetaData::EventType::END,
 			position, adBreakId, periodPosition);
 
-		EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendAdReservationEvent(
+		EXPECT_CALL(*g_mockPlayerInstanceAAMP, SendAdReservationEvent(
 			AAMP_EVENT_AD_RESERVATION_END, adBreakId, periodPosition, position.milliseconds(), immediate)).Times(1);
 
-		endMetadata.SendEvent(mPrivateInstanceAAMP);
+		endMetadata.SendEvent(mPlayerInstanceAAMP);
 	}
 }
 

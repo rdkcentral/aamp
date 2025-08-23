@@ -23,13 +23,13 @@
 #include "MediaStreamContext.h"
 #include "fragmentcollector_mpd.h"
 #include "AampCacheHandler.h"
-#include "../priv_aamp.h"
+#include "../main_aamp.h"
 #include "isobmff/isobmffbuffer.h"
 #include "AampConfig.h"
 #include "AampTSBSessionManager.h"
 #include "MockAampConfig.h"
 #include "StreamAbstractionAAMP.h"
-#include "MockPrivateInstanceAAMP.h"
+#include "MockPlayerInstanceAAMP.h"
 #include "MockStreamAbstractionAAMP_MPD.h"
 #include "MockTSBSessionManager.h"
 
@@ -105,7 +105,7 @@ TestParams testCases[] =
 class MediaStreamContextTest : public ::testing::TestWithParam<TestParams> 
 {
 	public:
-		PrivateInstanceAAMP *mPrivateInstanceAAMP;
+		PlayerInstanceAAMP *mPlayerInstanceAAMP;
 		StreamAbstractionAAMP_MPD *mStreamAbstractionAAMP_MPD;
 		MediaStreamContext *mMediaStreamContext;
 		AampTSBSessionManager *mTsbSessionManager;
@@ -186,13 +186,13 @@ class MediaStreamContextTest : public ::testing::TestWithParam<TestParams>
 					.Times(testing::AnyNumber())
 					.WillRepeatedly(Return(i.second));
 			}
-			mPrivateInstanceAAMP = new PrivateInstanceAAMP(gpGlobalConfig);
-			mStreamAbstractionAAMP_MPD = new StreamAbstractionAAMP_MPD(mPrivateInstanceAAMP, 123.45, 1);
-			mTsbSessionManager = new AampTSBSessionManager(mPrivateInstanceAAMP);
-			g_mockPrivateInstanceAAMP = new NiceMock<MockPrivateInstanceAAMP>();
-			g_mockStreamAbstractionAAMP_MPD = new NiceMock<MockStreamAbstractionAAMP_MPD>(mPrivateInstanceAAMP, 0, 0);
-			g_mockTSBSessionManager = new NiceMock<MockTSBSessionManager>(mPrivateInstanceAAMP);
-			mTsbReader = std::make_shared<AampTsbReader>(mPrivateInstanceAAMP, nullptr, eMEDIATYPE_VIDEO, "sessionId");
+			mPlayerInstanceAAMP = new PlayerInstanceAAMP(gpGlobalConfig);
+			mStreamAbstractionAAMP_MPD = new StreamAbstractionAAMP_MPD(mPlayerInstanceAAMP, 123.45, 1);
+			mTsbSessionManager = new AampTSBSessionManager(mPlayerInstanceAAMP);
+			g_mockPlayerInstanceAAMP = new NiceMock<MockPlayerInstanceAAMP>();
+			g_mockStreamAbstractionAAMP_MPD = new NiceMock<MockStreamAbstractionAAMP_MPD>(mPlayerInstanceAAMP, 0, 0);
+			g_mockTSBSessionManager = new NiceMock<MockTSBSessionManager>(mPlayerInstanceAAMP);
+			mTsbReader = std::make_shared<AampTsbReader>(mPlayerInstanceAAMP, nullptr, eMEDIATYPE_VIDEO, "sessionId");
 		}
 
 		void TearDown() override
@@ -209,8 +209,8 @@ class MediaStreamContextTest : public ::testing::TestWithParam<TestParams>
 				mPeriod = nullptr;
 			}
 
-			delete g_mockPrivateInstanceAAMP;
-			g_mockPrivateInstanceAAMP = nullptr;
+			delete g_mockPlayerInstanceAAMP;
+			g_mockPlayerInstanceAAMP = nullptr;
 
 			delete mTsbSessionManager;
 			mTsbSessionManager  =  nullptr;
@@ -221,8 +221,8 @@ class MediaStreamContextTest : public ::testing::TestWithParam<TestParams>
 			delete mStreamAbstractionAAMP_MPD;
 			mStreamAbstractionAAMP_MPD = nullptr;
 
-			delete mPrivateInstanceAAMP;
-			mPrivateInstanceAAMP = nullptr;
+			delete mPlayerInstanceAAMP;
+			mPlayerInstanceAAMP = nullptr;
 
 			delete g_mockAampConfig;
 			g_mockAampConfig = nullptr;
@@ -275,12 +275,12 @@ class MediaStreamContextTest : public ::testing::TestWithParam<TestParams>
 			AampLLDashServiceData llDashData;
 			llDashData.availabilityTimeOffset = 1.2;
 			llDashData.lowLatencyMode = lowlatency;
-			mPrivateInstanceAAMP->rate = AAMP_NORMAL_PLAY_RATE;
-			mPrivateInstanceAAMP->SetLLDashServiceData(llDashData);
-			mPrivateInstanceAAMP->SetLocalAAMPTsb(tsb);
-			mPrivateInstanceAAMP->pipeline_paused = paused;
-			mPrivateInstanceAAMP->SetBufUnderFlowStatus(underflow);
-			mMediaStreamContext = new MediaStreamContext(eTRACK_VIDEO, mStreamAbstractionAAMP_MPD, mPrivateInstanceAAMP, "SAMPLETEXT");
+			mPlayerInstanceAAMP->rate = AAMP_NORMAL_PLAY_RATE;
+			mPlayerInstanceAAMP->SetLLDashServiceData(llDashData);
+			mPlayerInstanceAAMP->SetLocalAAMPTsb(tsb);
+			mPlayerInstanceAAMP->pipeline_paused = paused;
+			mPlayerInstanceAAMP->SetBufUnderFlowStatus(underflow);
+			mMediaStreamContext = new MediaStreamContext(eTRACK_VIDEO, mStreamAbstractionAAMP_MPD, mPlayerInstanceAAMP, "SAMPLETEXT");
 			mMediaStreamContext->mTempFragment->AppendBytes(data, 12);
 			// The tests simulating EOS inject from the TSB, the rest of the tests inject from live
 			mMediaStreamContext->SetLocalTSBInjection(eos);
@@ -299,12 +299,12 @@ class MediaStreamContextTest : public ::testing::TestWithParam<TestParams>
 				mTsbReader->mEosReached = true;
 				if (!paused)
 				{
-					EXPECT_CALL(*g_mockPrivateInstanceAAMP, UpdateLocalAAMPTsbInjection());
+					EXPECT_CALL(*g_mockPlayerInstanceAAMP, UpdateLocalAAMPTsbInjection());
 				}
 			}
-			EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetTSBSessionManager()).WillOnce(Return(tsbSessionManager));
-			EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile(_, _, _, _, _, _, _, _, _, _, _, _, _, _)).WillOnce(Return(true));
-			EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetLLDashChunkMode()).WillRepeatedly(Return(chunk));
+			EXPECT_CALL(*g_mockPlayerInstanceAAMP, GetTSBSessionManager()).WillOnce(Return(tsbSessionManager));
+			EXPECT_CALL(*g_mockPlayerInstanceAAMP, GetFile(_, _, _, _, _, _, _, _, _, _, _, _, _, _)).WillOnce(Return(true));
+			EXPECT_CALL(*g_mockPlayerInstanceAAMP, GetLLDashChunkMode()).WillRepeatedly(Return(chunk));
 		}
 };
 
