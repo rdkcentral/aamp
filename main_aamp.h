@@ -444,9 +444,6 @@ class SegmentInfo_t;
  */
 class SegmentInfo_t;
 
-// PRIVAAMP_H
-
-
 #define PrivAAMPState AAMPPlayerState // backwards compatibility for apps using native interface
 
 /**
@@ -1105,9 +1102,6 @@ public:
  */
 class PlayerInstanceAAMP : public DrmCallbacks
 {
-private:
-    void _Init( void );
-    void _Term( void );
 public:
     AampConfig mConfig;
     
@@ -2514,8 +2508,10 @@ protected:
      *   @return void
      */
     void SetTextTrackInternal(int trackId, char *data);
-private:
     
+private:
+    void _Init( void );
+    void _Term( void );
     /**
      *   @fn StopInternal
      *
@@ -2529,10 +2525,7 @@ private:
     bool mAsyncRunning;                 /**< Flag denotes if async mode is on or not */
     //bool mAsyncTuneEnabled;		    /**< Flag indicating async tune status */
     AampScheduler mScheduler;
-    
-    
-    //    class PlayerInstanceAAMP : public DrmCallbacks, public std::enable_shared_from_this<PlayerInstanceAAMP>
-private:
+
     enum AAMP2ReceiverMsgType
     {
         E_AAMP2Receiver_TUNETIME,   /**< Tune time Message */
@@ -2555,7 +2548,8 @@ private:
     std::chrono::system_clock::time_point m_lastSubClockSyncTime;
     std::shared_ptr<TSB::Store> mTSBStore; /**< Local TSB Store object */
     void _SanitizeLanguageList(std::vector<std::string>& languages) const;
-public:
+
+public: // FIXME
     /**
      * @brief Get profiler bucket type
      *
@@ -2577,6 +2571,7 @@ public:
         }
     }
     
+private:
     /**
      * @fn Tune
      *
@@ -2614,6 +2609,7 @@ public:
      */
     void _ReloadTSB();
     
+public:
     /**
      * @fn TuneHelper
      * @param[in] tuneType - Type of tuning. eg: Normal, trick, seek to live, etc
@@ -2622,7 +2618,8 @@ public:
      * @return void
      */
     void _TuneHelper(TuneType tuneType, bool seekWhilePaused = false);
-    
+
+private:
     /**
      * @fn TeardownStream
      *
@@ -2640,7 +2637,8 @@ public:
      * @return void
      */
     void _SendMessageOverPipe(const char *str,int nToWrite);
-    
+
+public:    
     /**
      *   @fn GetLangCodePreference
      *   @return enum type

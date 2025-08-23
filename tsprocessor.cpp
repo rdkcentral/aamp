@@ -666,15 +666,17 @@ void TSProcessor::processPMTSection(unsigned char* section, int sectionLength)
 		audioFormat = getStreamFormatForCodecType(audioComponents[0].elemStreamType);
 	}
 	// Notify the format to StreamSink
-	if (!m_auxiliaryAudio)
-	{
-		aamp->_SetStreamFormat(videoFormat, audioFormat, FORMAT_INVALID);
-	}
-	else
-	{
-		aamp->_SetStreamFormat(videoFormat, FORMAT_INVALID, audioFormat);
-	}
-
+    if( aamp )
+    {
+        if (!m_auxiliaryAudio)
+        {
+            aamp->_SetStreamFormat(videoFormat, audioFormat, FORMAT_INVALID);
+        }
+        else
+        {
+            aamp->_SetStreamFormat(videoFormat, FORMAT_INVALID, audioFormat);
+        }
+    }
 	if (m_dsmccComponentFound)
 	{
 		AAMPLOG_INFO( "[%p] found dsmcc pid in program %d with pcr pid %d dsmcc pid %d",

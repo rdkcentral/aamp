@@ -268,105 +268,104 @@ else()
 endif()
 
 set(LIBAAMP_SOURCES
-	iso639map.cpp
-	AampCacheHandler.cpp
-	AampGrowableBuffer.cpp
-	AampScheduler.cpp
-	AampUtils.cpp
-	AampJsonObject.cpp
-	AampProfiler.cpp
-	AampEvent.cpp
-	AampEventListener.cpp
-	ota_shim.cpp
-	hdmiin_shim.cpp
-	videoin_shim.cpp
-	compositein_shim.cpp
-	rmf_shim.cpp
-	fragmentcollector_progressive.cpp
-	fragmentcollector_hls.cpp
-	fragmentcollector_mpd.cpp
-	admanager_mpd.cpp
-	streamabstraction.cpp
-	priv_aamp.cpp
-	main_aamp.cpp
-	drm/AampDRMLicManager.cpp
-	drm/DrmInterface.cpp
-	aampgstplayer.cpp
-	AampBufferControl.cpp
-	tsprocessor.cpp
-	aamplogging.cpp
-	AampConfig.cpp
-	AampEventManager.cpp
-	subtitle/webvttParser.cpp
-	isobmff/isobmffbox.cpp
-	isobmff/isobmffbuffer.cpp
-	isobmff/isobmffprocessor.cpp
-	isobmff/isobmffhelper.cpp
-	MediaStreamContext.cpp
-	downloader/AampCurlStore.cpp
-	AampDRMLicPreFetcher.cpp
-	AampCMCDCollector.cpp
-	downloader/AampCurlDownloader.cpp
-	ID3Metadata.cpp
-	dash/xml/DomDocument.cpp
-	dash/xml/DomElement.cpp
-	dash/xml/DomNode.cpp
-	dash/xml/DomNodeIter.cpp
-	dash/xml/DomTextNode.cpp
-	dash/mpd/MPDModel.cpp
-	dash/mpd/MPDSegmenter.cpp
-	dash/utils/Utils.cpp
-	dash/utils/Url.cpp
-	dash/utils/StringEx.cpp
-	dash/utils/Path.cpp
-	ProcessHandler.cpp
-	AampMPDDownloader.cpp
-	AampMPDParseHelper.cpp
-	AampMPDUtils.cpp
-	ElementaryProcessor.cpp
-	AampStreamSinkManager.cpp
-	MetadataProcessor.cpp
-	tsDemuxer.cpp
-	tsFragmentProcessor.cpp
-	AampTSBSessionManager.cpp
-	AampTsbDataManager.cpp
-	AampTsbMetaData.cpp
-	AampTsbAdMetaData.cpp
-	AampTsbAdPlacementMetaData.cpp
-	AampTsbAdReservationMetaData.cpp
-	AampTsbMetaDataManager.cpp
-	AampTsbReader.cpp
-	scte35/AampSCTE35.cpp
-	subtec/subtecparser/WebvttSubtecDevParser.cpp
-	AampTrackWorker.cpp
-	test/gstTestHarness/mp4demux.hpp
-	middleware/drm/aes/Aes.cpp
-	middleware/drm/helper/DrmHelper.cpp
-	middleware/gstplayertaskpool.cpp
-	middleware/PlayerUtils.cpp
-	middleware/drm/base64.cpp
-	middleware/drm/DrmJsonObject.cpp
-	middleware/vendor/SocInterface.cpp
-	middleware/vendor/amlogic/AmlogicSocInterface.cpp
-	middleware/vendor/realtek/RealtekSocInterface.cpp
-	middleware/vendor/brcm/BrcmSocInterface.cpp
-	middleware/vendor/default/DefaultSocInterface.cpp
-	middleware/PlayerScheduler.cpp
-	middleware/gstplayertaskpool.cpp
-	middleware/GstHandlerControl.cpp
-	middleware/GstUtils.cpp
-	middleware/InterfacePlayerRDK.cpp
-	middleware/SocUtils.cpp
-	middleware/closedcaptions/PlayerCCManager.cpp
-	middleware/PlayerUtils.cpp
-	middleware/playerLogManager/PlayerLogManager.cpp
-	middleware/playerisobmff/playerisobmffbox.cpp
-	middleware/playerisobmff/playerisobmffbuffer.cpp
-	middleware/subtec/subtecparser/WebVttSubtecParser.cpp
-	middleware/subtec/subtecparser/TtmlSubtecParser.cpp
-	middleware/subtec/subtecparser/WebvttSubtecDevInterface.cpp
-	middleware/subtec/subtecparser/TextStyleAttributes.cpp
-	middleware/playerJsonObject/PlayerJsonObject.cpp
+    AampBufferControl.cpp
+    AampCacheHandler.cpp
+    AampCMCDCollector.cpp
+    AampConfig.cpp
+    AampDRMLicPreFetcher.cpp
+    AampEvent.cpp
+    AampEventListener.cpp
+    AampEventManager.cpp
+    AampGrowableBuffer.cpp
+    aampgstplayer.cpp
+    AampJsonObject.cpp
+    aamplogging.cpp
+    AampMPDDownloader.cpp
+    AampMPDParseHelper.cpp
+    AampMPDUtils.cpp
+    AampProfiler.cpp
+    AampScheduler.cpp
+    AampStreamSinkManager.cpp
+    AampTrackWorker.cpp
+    AampTsbAdMetaData.cpp
+    AampTsbAdPlacementMetaData.cpp
+    AampTsbAdReservationMetaData.cpp
+    AampTsbDataManager.cpp
+    AampTsbMetaData.cpp
+    AampTsbMetaDataManager.cpp
+    AampTsbReader.cpp
+    AampTSBSessionManager.cpp
+    AampUtils.cpp
+    admanager_mpd.cpp
+    compositein_shim.cpp
+    dash/mpd/MPDModel.cpp
+    dash/mpd/MPDSegmenter.cpp
+    dash/utils/Path.cpp
+    dash/utils/StringEx.cpp
+    dash/utils/Url.cpp
+    dash/utils/Utils.cpp
+    dash/xml/DomDocument.cpp
+    dash/xml/DomElement.cpp
+    dash/xml/DomNode.cpp
+    dash/xml/DomNodeIter.cpp
+    dash/xml/DomTextNode.cpp
+    downloader/AampCurlDownloader.cpp
+    downloader/AampCurlStore.cpp
+    drm/AampDRMLicManager.cpp
+    drm/DrmInterface.cpp
+    ElementaryProcessor.cpp
+    fragmentcollector_hls.cpp
+    fragmentcollector_mpd.cpp
+    fragmentcollector_progressive.cpp
+    hdmiin_shim.cpp
+    ID3Metadata.cpp
+    iso639map.cpp
+    isobmff/isobmffbox.cpp
+    isobmff/isobmffbuffer.cpp
+    isobmff/isobmffhelper.cpp
+    isobmff/isobmffprocessor.cpp
+    main_aamp.cpp
+    MediaStreamContext.cpp
+    MetadataProcessor.cpp
+    middleware/closedcaptions/PlayerCCManager.cpp
+    middleware/drm/aes/Aes.cpp
+    middleware/drm/base64.cpp
+    middleware/drm/DrmJsonObject.cpp
+    middleware/drm/helper/DrmHelper.cpp
+    middleware/GstHandlerControl.cpp
+    middleware/gstplayertaskpool.cpp
+    middleware/gstplayertaskpool.cpp
+    middleware/GstUtils.cpp
+    middleware/InterfacePlayerRDK.cpp
+    middleware/playerisobmff/playerisobmffbox.cpp
+    middleware/playerisobmff/playerisobmffbuffer.cpp
+    middleware/playerJsonObject/PlayerJsonObject.cpp
+    middleware/playerLogManager/PlayerLogManager.cpp
+    middleware/PlayerScheduler.cpp
+    middleware/PlayerUtils.cpp
+    middleware/PlayerUtils.cpp
+    middleware/SocUtils.cpp
+    middleware/subtec/subtecparser/TextStyleAttributes.cpp
+    middleware/subtec/subtecparser/TtmlSubtecParser.cpp
+    middleware/subtec/subtecparser/WebvttSubtecDevInterface.cpp
+    middleware/subtec/subtecparser/WebVttSubtecParser.cpp
+    middleware/vendor/amlogic/AmlogicSocInterface.cpp
+    middleware/vendor/brcm/BrcmSocInterface.cpp
+    middleware/vendor/default/DefaultSocInterface.cpp
+    middleware/vendor/realtek/RealtekSocInterface.cpp
+    middleware/vendor/SocInterface.cpp
+    ota_shim.cpp
+    ProcessHandler.cpp
+    rmf_shim.cpp
+    scte35/AampSCTE35.cpp
+    streamabstraction.cpp
+    subtec/subtecparser/WebvttSubtecDevParser.cpp
+    subtitle/webvttParser.cpp
+    test/gstTestHarness/mp4demux.hpp
+    tsDemuxer.cpp
+    tsFragmentProcessor.cpp
+    tsprocessor.cpp
+    videoin_shim.cpp
 )
 
 if(CMAKE_SOC_PLATFORM_RPI)
@@ -584,11 +583,9 @@ add_library(aamp SHARED ${LIBAAMP_SOURCES})
 target_link_libraries(aamp subtec tsb playerfbinterface ${LIBAAMP_DEPENDS} ${LIBAAMP_MOCK_DEPENDS})
 set_target_properties(aamp PROPERTIES COMPILE_FLAGS "${LIBAAMP_DEFINES} ${OS_CXX_FLAGS}")
 set_target_properties(aamp PROPERTIES PUBLIC_HEADER "main_aamp.h")
-set_target_properties(aamp PROPERTIES PRIVATE_HEADER "priv_aamp.h")
 install(TARGETS aamp
 		DESTINATION lib
 		PUBLIC_HEADER DESTINATION include
-		PRIVATE_HEADER DESTINATION include
 )
 
 set(AAMP_CLI_SOURCES
@@ -662,43 +659,62 @@ install(TARGETS gstTestHarness
 xcode_define_schema(gstTestHarness)
 
 #TODO: Decide which are the actual public headers
-install(FILES 
-	Accessibility.hpp AampEvent.h AampConfig.h AampCMCDCollector.h AampEventManager.h
-	AampDefine.h AampEventListener.h AampMediaType.h AampLogManager.h
-	middleware/drm/DrmMemorySystem.h middleware/drm/DrmSessionManager.h
-	middleware/drm/DrmSystems.h middleware/drm/DrmData.h middleware/drm/DrmInfo.h
-	middleware/drm/DrmMediaFormat.h middleware/drm/DrmCallbacks.h
-	middleware/drm/DrmSession.h middleware/drm/ClearKeyDrmSession.h
-	middleware/drm/DrmUtils.h middleware/drm/DrmSessionFactory.h
-	middleware/drm/ocdm/opencdmsessionadapter.h middleware/PlayerUtils.h
-	middleware/drm/DrmConstants.h middleware/GstUtils.h
-	middleware/drm/helper/DrmHelper.h
-	subtitle/vttCue.h AampUtils.h
-	AampProfiler.h AampConstants.h iso639map.h AampGrowableBuffer.h
-	AampScheduler.h
-	downloader/AampCurlStore.h
-	downloader/AampCurlDownloader.h
-	downloader/AampCurlDefine.h
-	ID3Metadata.hpp
-	AampSegmentInfo.hpp
-	AampDRMLicPreFetcher.h
-	AampDRMLicPreFetcherInterface.h
-	AampMPDDownloader.h
-	AampMPDParseHelper.h
-	AampMPDPeriodInfo.h
-	AampLLDASHData.h
-	AampTSBSessionManager.h
-	AampTsbReader.h
-	tsb/api/TsbApi.h
-	middleware/closedcaptions/CCTrackInfo.h
-	middleware/PlayerScheduler.h
-	middleware/gstplayertaskpool.h
-	middleware/GstHandlerControl.h
-	middleware/GstUtils.h
-	middleware/InterfacePlayerRDK.h
-	middleware/SocUtils.h
-	middleware/closedcaptions/PlayerCCManager.h
-	middleware/PlayerUtils.h
+install(FILES
+    AampCMCDCollector.h
+    AampConfig.h
+    AampDefine.h
+    AampDRMLicPreFetcher.h
+    AampDRMLicPreFetcherInterface.h
+    AampEvent.h
+    AampEventListener.h
+    AampEventManager.h
+    AampGrowableBuffer.h
+    AampLLDASHData.h
+    AampLogManager.h
+    AampMediaType.h
+    AampMPDDownloader.h
+    AampMPDParseHelper.h
+    AampMPDPeriodInfo.h
+    AampProfiler.h AampConstants.h
+    AampScheduler.h
+    AampSegmentInfo.hpp
+    AampTsbReader.h
+    AampTSBSessionManager.h
+    Accessibility.hpp
+    downloader/AampCurlDefine.h
+    downloader/AampCurlDownloader.h
+    downloader/AampCurlStore.h
+    ID3Metadata.hpp
+    iso639map.h
+    LangCodePreference.h
+    middleware/closedcaptions/CCTrackInfo.h
+    middleware/closedcaptions/PlayerCCManager.h
+    middleware/drm/ClearKeyDrmSession.h
+    middleware/drm/DrmCallbacks.h
+    middleware/drm/DrmConstants.h
+    middleware/drm/DrmData.h
+    middleware/drm/DrmInfo.h
+    middleware/drm/DrmMediaFormat.h
+    middleware/drm/DrmMemorySystem.h
+    middleware/drm/DrmSession.h
+    middleware/drm/DrmSessionFactory.h
+    middleware/drm/DrmSessionManager.h
+    middleware/drm/DrmSystems.h
+    middleware/drm/DrmUtils.h
+    middleware/drm/helper/DrmHelper.h
+    middleware/drm/ocdm/opencdmsessionadapter.h
+    middleware/GstHandlerControl.h
+    middleware/gstplayertaskpool.h
+    middleware/GstUtils.h
+    middleware/GstUtils.h
+    middleware/InterfacePlayerRDK.h
+    middleware/PlayerScheduler.h
+    middleware/PlayerUtils.h
+    middleware/PlayerUtils.h
+    middleware/SocUtils.h
+    StreamOutputFormat.h
+    subtitle/vttCue.h AampUtils.h
+    tsb/api/TsbApi.h
 	DESTINATION include
 )
 

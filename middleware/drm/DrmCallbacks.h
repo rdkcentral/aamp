@@ -28,9 +28,6 @@
 #include <string>
 #include "DrmHelper.h"
 
-//class DrmHelper;
-//using DrmHelperPtr = std::shared_ptr<DrmHelper>;
-
 /**
  * @class DrmCallbacks
  * @brief DRM callback interface
