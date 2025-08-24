@@ -40,8 +40,7 @@ static std::unordered_map<std::string, std::vector<std::string>> fCustomHeaders;
 void MockAampReset(void)
 {
 	gGlobalConfig = std::make_shared<AampConfig>();
-
-	gpGlobalConfig = gGlobalConfig.get();
+    gpGlobalConfig = gGlobalConfig.get();
 }
 
 //PlayerInstanceAAMP::PlayerInstanceAAMP(AampConfig *config) : mConfig(config), mIsFakeTune(false), mIsVSS(false)
@@ -874,7 +873,7 @@ AampCurlInstance PlayerInstanceAAMP::GetPlaylistCurlInstance(AampMediaType type,
 	return eCURLINSTANCE_MANIFEST_PLAYLIST_VIDEO;
 }
 
-void PlayerInstanceAAMPBlockUntilGstreamerWantsData(void (*cb)(void), int periodMs, int track)
+void PlayerInstanceAAMP::BlockUntilGstreamerWantsData(void (*cb)(void), int periodMs, int track)
 {
 }
 

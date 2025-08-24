@@ -563,6 +563,7 @@ std::string aamp_GetConfigPath(const std::string &filename)
 	return "FakeAampUtils.cpp";
 }
 
+/*
 double RecalculatePTS(AampMediaType mediaType, const void *ptr, size_t len, PlayerInstanceAAMP *aamp)
 {
 	double pts = 0.0;
@@ -574,6 +575,7 @@ double RecalculatePTS(AampMediaType mediaType, const void *ptr, size_t len, Play
 
 	return pts;
 }
+*/
 
 TSB::LogLevel ConvertTsbLogLevel(int logLev)
 {

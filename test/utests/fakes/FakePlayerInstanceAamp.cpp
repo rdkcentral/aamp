@@ -944,7 +944,7 @@ AampCurlInstance PlayerInstanceAAMP::GetPlaylistCurlInstance(AampMediaType type,
     return eCURLINSTANCE_MANIFEST_PLAYLIST_VIDEO;
 }
 
-void PlayerInstanceAAMPBlockUntilGstreamerWantsData(void(*cb)(void), int periodMs, int track)
+void PlayerInstanceAAMP::BlockUntilGstreamerWantsData(void(*cb)(void), int periodMs, int track)
 {
     if (g_mockPlayerInstanceAAMP != nullptr) {
         return g_mockPlayerInstanceAAMP->BlockUntilGstreamerWantsData(cb, periodMs, track);

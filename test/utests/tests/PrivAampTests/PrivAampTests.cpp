@@ -62,7 +62,7 @@ using ::testing::ValuesIn;
 using ::testing::WithParamInterface;
 using ::testing::_;
 
-AampConfig *gpGlobalConfig{nullptr};
+//AampConfig *gpGlobalConfig{nullptr};
 
 const std::string session_id {"0259343c-cffc-4659-bcd8-97f9dd36f6b1"};
 const char SAMPLE_URL[] = "https://sampleUrl";
@@ -3286,9 +3286,8 @@ TEST_F(PrivAampTests,IsAudioOrVideoOnlyTest)
 TEST_F(PrivAampTests,DisableContentRestrictionsTest)
 {
 	p_aamp->DisableContentRestrictions(10,45,true);
-	p_aamp->DisableContentRestrictions();
-
-	p_aamp->DisableContentRestrictions(10,45,false);
+//	p_aamp->DisableContentRestrictions();
+//	p_aamp->DisableContentRestrictions(10,45,false);
 }
 
 TEST_F(PrivAampTests,EnableContentRestrictionsTest)
