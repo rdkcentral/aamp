@@ -129,6 +129,8 @@ public:
 	PlayerSecInterface *playerSecInstance;/** PlayerSecInterface instance **/
 	ContentSecurityManagerSession mContentSecurityManagerSession;
         std::atomic<bool> mFirstFrameSeen;
+	std::atomic<bool> mIsVideoOnMute;
+	std::atomic<int> mCurrentSpeed;
 private:
 	KeyID *cachedKeyIDs;
 	char* accessToken;
