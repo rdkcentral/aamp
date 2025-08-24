@@ -106,7 +106,7 @@ find_package(WPEFramework REQUIRED)
 if (WPEFRAMEWORK_FOUND)
     message("WPEFRAMEWORK_FOUND = ${WPEFRAMEWORK_FOUND}")
     #include_directories(${CMAKE_CURRENT_SOURCE_DIR} PRIVATE ${WPEFRAMEWORK_INCLUDE_DIRS})
-    # Sets the include paths to Linux/includem. By making it a system include the headers won't report any errors ( effc++ )
+    # Sets the include paths to Linux/include. By making it a system include the headers won't report any errors ( effc++ )
     include_directories(SYSTEM ${WPEFRAMEWORK_INCLUDE_DIRS})
 else()
 if (USE_THUNDER_R4)
@@ -181,7 +181,7 @@ include_directories(${GLEW_INCLUDE_DIRS})
 # Locally built/installed dependencies are here
 include_directories(.libs/include)
 
-# Sets the include paths to Linux/includem. By making it a system include the headers won't report any errors ( effc++ )
+# Sets the include paths to Linux/include. By making it a system include the headers won't report any errors ( effc++ )
 include_directories(SYSTEM ${LIBCJSON_INCLUDE_DIRS})
 
 set(LIBAAMP_HEADERS middleware/drm/DrmSystems.h

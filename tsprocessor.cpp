@@ -2045,9 +2045,9 @@ bool TSProcessor::processStartCode(unsigned char *buffer, bool& keepScanning, in
 				}
 			}
 			break;
-		case 2:  // Slice data partiton A
-		case 3:  // Slice data partiton B
-		case 4:  // Slice data partiton C
+		case 2:  // Slice data partition A
+		case 3:  // Slice data partition B
+		case 4:  // Slice data partition C
 			break;
 		case 6:  // SEI
 			break;
