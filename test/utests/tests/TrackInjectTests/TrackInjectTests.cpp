@@ -361,6 +361,7 @@ TEST_F(TrackInjectTests, RunInjectLoopTestLLD)
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetVidTimeScale())
 		.WillRepeatedly(Return(1));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, setBuffer(_,_));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, ProcessID3Metadata(_, _, (AampMediaType)eMEDIATYPE_VIDEO, 0));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendStreamTransfer((AampMediaType)eMEDIATYPE_VIDEO, _, pts, pts, duration, 0.0, false, false));
 	mMediaTrack->RunInjectLoop();
 }
@@ -384,6 +385,7 @@ TEST_F(TrackInjectTests, RunInjectLoopTestLLDInit)
 		.WillOnce(Return(true))
 		.WillOnce(Return(false));
 
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, ProcessID3Metadata(_, _, (AampMediaType)eMEDIATYPE_VIDEO, 0));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendStreamTransfer(_, _, _, _, _, _, true, false));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection()).WillRepeatedly(Return(false));
 
