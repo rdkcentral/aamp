@@ -47,7 +47,7 @@ void StreamAbstractionAAMP_OTA::onPlayerStatusHandler(PlayerStatusData data) {
 		// Check if event is for current aamp instance,
 		// sometimes blocked events are delayed and in fast channel change
 		// scenario it is delivered late.
-		currentLocator =  aamp->_GetManifestUrl();
+		currentLocator =  aamp->GetManifestUrl();
 		if( 0 != currentLocator.compare(data.eventUrl))
 		{
 			AAMPLOG_WARN( "[OTA_SHIM] Ignoring BLOCKED event as tune url %s playerStatus event url %s is not same ",currentLocator.c_str(),data.eventUrl.c_str());
@@ -346,7 +346,7 @@ void StreamAbstractionAAMP_OTA::Start(void)
 	}
 	if(aamp)
 	{
-		std::string url = aamp->_GetManifestUrl();
+		std::string url = aamp->GetManifestUrl();
 		if(!thunderAccessObj.IsThunderAccess())
 		{
 				AAMPLOG_WARN( "[OTA_SHIM]Inside CURL ACCESS");

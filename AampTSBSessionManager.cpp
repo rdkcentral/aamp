@@ -915,7 +915,7 @@ bool AampTSBSessionManager::PushNextTsbFragment(MediaStreamContext *pMediaStream
 						if (nextFragment)
 						{
 							// Slow motion is like a normal playback with audio (volume set to 0) and handled in GST layer with SetPlaybackRate
-							if(mAamp->_IsIframeExtractionEnabled() && AAMP_NORMAL_PLAY_RATE !=  rate && AAMP_RATE_PAUSE != rate && eMEDIATYPE_VIDEO == mediaType && AAMP_SLOWMOTION_RATE != rate )
+							if(mAamp->IsIframeExtractionEnabled() && AAMP_NORMAL_PLAY_RATE !=  rate && AAMP_RATE_PAUSE != rate && eMEDIATYPE_VIDEO == mediaType && AAMP_SLOWMOTION_RATE != rate )
 							{
 								if(!mIsoBmffHelper->ConvertToKeyFrame(nextFragment->fragment))
 								{

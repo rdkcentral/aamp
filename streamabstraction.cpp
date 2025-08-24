@@ -1728,7 +1728,7 @@ void MediaTrack::RunInjectLoop()
 		// and hence balancing fetch/inject not needed for CDVR
 		// TBD Not needed for LLD
 		// Not needed for local TSB gstreamer will balance A/V - thats what it does
-		if(!ISCONFIGSET(eAAMPConfig_AudioOnlyPlayback) && !aamp->_IsCDVRContent() && (!aamp->mAudioOnlyPb && !aamp->mVideoOnlyPb) && !lowLatency && !aamp->IsLocalAAMPTsb())
+		if(!ISCONFIGSET(eAAMPConfig_AudioOnlyPlayback) && !aamp->IsCDVRContent() && (!aamp->mAudioOnlyPb && !aamp->mVideoOnlyPb) && !lowLatency && !aamp->IsLocalAAMPTsb())
 		{
 			if(pContext != NULL)
 			{
@@ -2142,7 +2142,7 @@ StreamAbstractionAAMP::StreamAbstractionAAMP(PlayerInstanceAAMP* aamp, id3_callb
 		aamp->mhAbrManager.setDefaultIframeBitrate(ibitrate);
 	}
 	mRampDownLimit = GETCONFIGVALUE(eAAMPConfig_RampDownLimit);
-	if (!aamp->_IsNewTune())
+	if (!aamp->IsNewTune())
 	{
 		mBitrateReason = (aamp->rate != AAMP_NORMAL_PLAY_RATE) ? eAAMP_BITRATE_CHANGE_BY_TRICKPLAY : eAAMP_BITRATE_CHANGE_BY_SEEK;
 	}
@@ -2212,7 +2212,7 @@ int StreamAbstractionAAMP::GetDesiredProfile(bool getMidProfile)
 int StreamAbstractionAAMP::GetMaxBWProfile()
 {
 	int ret = 0;
-	if(aamp->_IsFogTSBSupported() && mTsbMaxBitrateProfileIndex >= 0)
+	if(aamp->IsFogTSBSupported() && mTsbMaxBitrateProfileIndex >= 0)
 	{
 		ret = mTsbMaxBitrateProfileIndex;
 	}
@@ -2236,7 +2236,7 @@ void StreamAbstractionAAMP::NotifyBitRateUpdate(int profileIndex, const StreamIn
 		if(streamInfo != NULL)
 		{
 			bool lGetBWIndex = false;
-			if(aamp->IsTuneTypeNew && ((cacheFragStreamInfo.bandwidthBitsPerSecond == streamInfo->bandwidthBitsPerSecond) || !aamp->_CheckABREnabled()))
+			if(aamp->IsTuneTypeNew && ((cacheFragStreamInfo.bandwidthBitsPerSecond == streamInfo->bandwidthBitsPerSecond) || !aamp->CheckABREnabled()))
 			{
 				MediaTrack *video = GetMediaTrack(eTRACK_VIDEO);
 				AAMPLOG_WARN("NotifyBitRateUpdate: Max BitRate: %" BITSPERSECOND_FORMAT ", timetotop: %f", cacheFragStreamInfo.bandwidthBitsPerSecond, video->GetTotalInjectedDuration());
@@ -2324,7 +2324,7 @@ void StreamAbstractionAAMP::UpdateProfileBasedOnFragmentDownloaded(void)
 void StreamAbstractionAAMP::UpdateRampUpOrDownProfileReason(void)
 {
 	mBitrateReason = eAAMP_BITRATE_CHANGE_BY_RAMPDOWN;
-	if(mUpdateReason && aamp->_IsFogTSBSupported())
+	if(mUpdateReason && aamp->IsFogTSBSupported())
 	{
 		mBitrateReason = eAAMP_BITRATE_CHANGE_BY_FOG_ABR;
 		mUpdateReason = false;
@@ -2749,7 +2749,7 @@ bool StreamAbstractionAAMP::CheckForRampDownProfile(int http_error)
 {
 	bool retValue = false;
 
-	if (!aamp->_CheckABREnabled())
+	if (!aamp->CheckABREnabled())
 	{
 		return retValue;
 	}

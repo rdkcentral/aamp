@@ -138,7 +138,7 @@ void StreamAbstractionAAMP_PROGRESSIVE::StreamFile( const char *uri, int *http_e
  */
 void StreamAbstractionAAMP_PROGRESSIVE::FetcherLoop()
 {
-	std::string contentUrl = aamp->_GetManifestUrl();
+	std::string contentUrl = aamp->GetManifestUrl();
 	std::string effectiveUrl;
 	int http_error;
 	
@@ -194,7 +194,7 @@ AAMPStatusType StreamAbstractionAAMP_PROGRESSIVE::Init(TuneType tuneType)
 AAMPStatusType StreamAbstractionAAMP_PROGRESSIVE::Init(TuneType tuneType)
 {
 	AAMPStatusType retval = eAAMPSTATUS_OK;
-	bool newTune = aamp->_IsNewTune();
+	bool newTune = aamp->IsNewTune();
 	aamp->IsTuneTypeNew = false;
 	return retval;
 }

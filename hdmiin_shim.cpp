@@ -76,7 +76,7 @@ void StreamAbstractionAAMP_HDMIIN::Start(void)
 {
 	if(aamp)
 	{
-		const char *url = aamp->_GetManifestUrl().c_str();
+		const char *url = aamp->GetManifestUrl().c_str();
 		int hdmiInputPort = -1;
 		if( sscanf(url, "hdmiin://localhost/deviceid/%d", &hdmiInputPort ) == 1 )
 		{

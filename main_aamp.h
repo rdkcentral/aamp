@@ -2572,7 +2572,7 @@ public: // FIXME
      * @return void
      */
     void Tune(const char *url,
-               bool autoPlay,
+               bool autoPlay = true,
                const char *contentType = NULL,
                bool bFirstAttempt = true,
                bool bFinalAttempt = false,
@@ -2600,7 +2600,6 @@ public: // FIXME
      */
     void TuneHelper(TuneType tuneType, bool seekWhilePaused = false);
 
-private:
     /**
      * @fn TeardownStream
      *
@@ -2619,7 +2618,6 @@ private:
      */
     void SendMessageOverPipe(const char *str,int nToWrite);
 
-public:    
     /**
      *   @fn GetLangCodePreference
      *   @return enum type
@@ -2813,7 +2811,6 @@ public:
     
     // To store Set Cookie: headers and X-Reason headers in HTTP Response
     httpRespHeaderData httpRespHeaders[eCURLINSTANCE_MAX];
-    //std::string cookieHeaders[MAX_CURL_INSTANCE_COUNT]; //To store Set-Cookie: headers in HTTP response
     std::string  mManifestUrl;
     std::string mTunedManifestUrl;
     std::string mTsbSessionRequestUrl;
@@ -3694,42 +3691,42 @@ public:
      *
      * @return True or False
      */
-    bool _IsFogTSBSupported() { return mFogTSBEnabled;}
+    bool IsFogTSBSupported() { return mFogTSBEnabled;}
     
     /**
      * @brief Checking whether CDVR in progress
      *
      * @return True or False
      */
-    bool _IsInProgressCDVR() {return (IsLive() && _IsCDVRContent());}
+    bool IsInProgressCDVR() {return (IsLive() && IsCDVRContent());}
     
     /**
      * @brief Checking whether fog is giving uninterrupted TSB
      *
      * @return True or False
      */
-    bool _IsUninterruptedTSB() {return (_IsFogTSBSupported() && !IsLive());}
+    bool IsUninterruptedTSB() {return (IsFogTSBSupported() && !IsLive());}
     
     /**
      * @brief Checking whether CDVR Stream or not
      *
      * @return True or False
      */
-    bool _IsCDVRContent() { return (mContentType==ContentType_CDVR || mIscDVR);}
+    bool IsCDVRContent() { return (mContentType==ContentType_CDVR || mIscDVR);}
     /**
      * @brief Checking whether OTA content or not
      *
      * @return True or False
      */
-    bool _IsOTAContent() { return (mContentType==ContentType_OTA);}
+    bool IsOTAContent() { return (mContentType==ContentType_OTA);}
     /**
      * @brief Checking whether EAS content or not
      *
      * @return True or False
      */
-    bool _IsEASContent() { return (mContentType==ContentType_EAS);}
+    bool IsEASContent() { return (mContentType==ContentType_EAS);}
     
-    bool _IsIVODContent() { return (mContentType==ContentType_IVOD);}
+    bool IsIVODContent() { return (mContentType==ContentType_IVOD);}
     /**
      * @fn ReportTimedMetadata
      */
@@ -3916,7 +3913,7 @@ public:
      *
      *   @return Manifest URL
      */
-    std::string& _GetManifestUrl(void)
+    std::string& GetManifestUrl(void)
     {
         return mManifestUrl;
     }
@@ -3926,7 +3923,7 @@ public:
      *
      *   @return DRM init data
      */
-    std::string& _GetDrmInitData(void)
+    std::string& GetDrmInitData(void)
     {
         return mDrmInitData;
     }
@@ -3937,7 +3934,7 @@ public:
      *   @param[in] url - Manifest URL
      *   @return void
      */
-    void _SetManifestUrl(const char *url)
+    void SetManifestUrl(const char *url)
     {
         mManifestUrl.assign(url);
     }
@@ -4009,37 +4006,14 @@ public:
     void EnableDownloads(void);
     
     /**
-     *   @brief Register event listener
-     *
-     *   @param[in] type - Event type
-     *   @param[in] listener - Handle to event listener
-     *   @return void
-     */
-    void _RegisterEvent(AAMPEventType type, EventListener* listener)
-    {
-        mEventManager->AddEventListener(type, listener);
-    }
-    
-    /**
      *   @brief Register all event listeners
      *
      *   @param[in] eventListener - Handle to event listener
      *   @return void
      */
-    void _RegisterAllEvents(EventListener* eventListener)
+    void RegisterAllEvents(EventListener* eventListener)
     {
         mEventManager->AddListenerForAllEvents(eventListener);
-    }
-    
-    /**
-     *   @brief UnRegister event listener
-     *
-     *   @param[in] eventListener - Handle to event listener
-     *   @return void
-     */
-    void _UnRegisterEvents(EventListener* eventListener)
-    {
-        mEventManager->RemoveListenerForAllEvents(eventListener);
     }
     
     /**
@@ -4050,28 +4024,6 @@ public:
      *   @return void
      */
     void ScheduleRetune(PlaybackErrorType errorType, AampMediaType trackType, bool bufferFull = false);
-    
-    /**
-     * @brief PlayerInstanceAAMP Constructor
-     */
-    //PlayerInstanceAAMP(AampConfig *config=NULL);
-    
-    /**
-     * @fn ~PlayerInstanceAAMP
-     */
-    //~PlayerInstanceAAMP();
-    
-    /**
-     * @brief Copy constructor disabled
-     *
-     */
-    //PlayerInstanceAAMP(const PlayerInstanceAAMP&) = delete;
-    
-    /**
-     * @brief assignment operator disabled
-     *
-     */
-    //PlayerInstanceAAMP& operator=(const PlayerInstanceAAMP&) = delete;
     
     /**
      *   @fn UpdateVideoRectangle
@@ -4218,23 +4170,6 @@ public:
      *   @return void
      */
     void SetCallbackAsDispatched(guint id);
-    
-    /**
-     *   @brief Set license server URL
-     *
-     *   @param[in] url - server URL
-     *   @param[in] drmType - DRM type (PR/WV) for which the URL has to be used, global by default
-     *   @return void
-     */
-    void _SetLicenseServerURL(const char* url, DRMSystems drmType = eDRM_MAX_DRMSystems);
-    
-    /**
-     *   @brief Set Preferred DRM.
-     *
-     *   @param[in] drmType - Preferred DRM type
-     *   @return void
-     */
-    void _SetPreferredDRM(DRMSystems drmType);
     
     /**
      *   @fn FoundEventBreak
@@ -4445,7 +4380,7 @@ public:
      *
      *   @return true if ABR enabled.
      */
-    bool _CheckABREnabled(void) { return ISCONFIGSET_PRIV(eAAMPConfig_EnableABR); }
+    bool CheckABREnabled(void) { return ISCONFIGSET_PRIV(eAAMPConfig_EnableABR); }
     
     /**
      *    @fn GetThumbnailTracks
@@ -4453,12 +4388,6 @@ public:
      *    @return string with thumbnail track information.
      */
     std::string GetThumbnailTracks();
-    /**
-     *   @brief Get preferred bitrate for video.
-     *
-     *   @return preferred bitrate.
-     */
-    long _GetVideoBitrate();
     
     /**
      *   @fn GetNetworkProxy
@@ -4480,7 +4409,7 @@ public:
      *   @param[in] isLive - is Live flag
      *   @return void
      */
-    void _SetIsLive(bool isLive)  {mIsLive = isLive; }
+    void SetIsLive(bool isLive)  {mIsLive = isLive; }
     
     /**
      *   @brief Set is Audio play context is skipped, due to Audio HLS file is ES Format type.
@@ -4488,7 +4417,7 @@ public:
      *   @param[in] isAudioContextSkipped - is audio context creation skipped.
      *   @return void
      */
-    void _SetAudioPlayContextCreationSkipped( bool isAudioContextSkipped ) { mIsAudioContextSkipped = isAudioContextSkipped; }
+    void SetAudioPlayContextCreationSkipped( bool isAudioContextSkipped ) { mIsAudioContextSkipped = isAudioContextSkipped; }
     
     /**
      *   @brief Set isLiveStream flag, This keeps the history of first tuned manifest type
@@ -4496,7 +4425,7 @@ public:
      *   @param[in] isLiveStream - is Live stream flag
      *   @return void
      */
-    void _SetIsLiveStream(bool isLiveStream)  {mIsLiveStream = isLiveStream; }
+    void SetIsLiveStream(bool isLiveStream)  {mIsLiveStream = isLiveStream; }
     
     /**
      *   @fn SignalTrickModeDiscontinuity
@@ -4509,38 +4438,38 @@ public:
      *   @brief  pass service zone, extracted from locator &sz URI parameter
      *   @return std::string
      */
-    std::string _GetServiceZone() const{ return mServiceZone; }
+    std::string GetServiceZone() const{ return mServiceZone; }
     
     /**
      *   @brief  pass virtual stream ID
      *   @return std::string
      */
-    std::string _GetVssVirtualStreamID() const{ return mVssVirtualStreamId; }
+    std::string GetVssVirtualStreamID() const{ return mVssVirtualStreamId; }
     
     /**
      *   @brief  set virtual stream ID, extracted from manifest
      */
-    void _SetVssVirtualStreamID(std::string streamID) { mVssVirtualStreamId = streamID;}
+    void SetVssVirtualStreamID(std::string streamID) { mVssVirtualStreamId = streamID;}
     
     /**
      *   @brief getTuneType Function to check what is the tuneType
      *  @return Bool TuneType
      */
-    TuneType _GetTuneType()  { return mTuneType; }
+    TuneType GetTuneType()  { return mTuneType; }
     
     /**
      *   @brief IsNewTune Function to check if tune is New tune or retune
      *
      *   @return Bool True on new tune
      */
-    bool _IsNewTune()  { return ((eTUNETYPE_NEW_NORMAL == mTuneType) || (eTUNETYPE_NEW_SEEK == mTuneType) || (eTUNETYPE_NEW_END == mTuneType)); }
+    bool IsNewTune()  { return ((eTUNETYPE_NEW_NORMAL == mTuneType) || (eTUNETYPE_NEW_SEEK == mTuneType) || (eTUNETYPE_NEW_END == mTuneType)); }
     
     /**
      *   @brief IsFirstRequestToFog Function to check first request to fog
      *
      *   @return true if first request to fog
      */
-    bool _IsFirstRequestToFog()  { return mIsFirstRequestToFOG; }
+    bool IsFirstRequestToFog()  { return mIsFirstRequestToFOG; }
     
     /**
      *   @fn IsMuxedStream
@@ -4982,28 +4911,14 @@ public:
      *
      *   @return bool - true if enabled
      */
-    bool _IsBitRatePersistedOverSeek() { return ISCONFIGSET_PRIV(eAAMPConfig_PersistentBitRateOverSeek); }
-    
-    /**
-     *   @fn SetPreferredLanguages
-     *   @param[in] languageList - string with comma-delimited language list in ISO-639
-     *             from most to least preferred. Set NULL to clear current list.
-     *   @param[in] preferredRendition  - preferred rendition from role
-     *   @param[in] preferredType -  preferred accessibility type
-     *   @param[in] codecList  - preferred codec list
-     *   @param[in] labelList  - preferred label list
-     *   @param[in] accessibilityItem - preferred accessibilityNode with scheme id and value
-     *   @param[in] preferredName - preferred name of track
-     *   @return void
-     */
-    void _SetPreferredLanguages(const char *languageList, const char *preferredRendition, const char *preferredType, const char *codecList, const char *labelList, const Accessibility *accessibilityItem = NULL, const char *preferredName = NULL);
+    bool IsBitRatePersistedOverSeek() { return ISCONFIGSET_PRIV(eAAMPConfig_PersistentBitRateOverSeek); }
     
     /**
      *   @brief Set the scheduler instance to schedule tasks
      *
      *   @param[in] instance - schedule instance
      */
-    void _SetScheduler(AampScheduler *instance) { _mScheduler = instance; }
+    void SetScheduler(AampScheduler *instance) { _mScheduler = instance; }
     
     /**
      *   @fn ScheduleAsyncTask
@@ -5069,19 +4984,11 @@ public:
     bool DiscontinuitySeenInAnyTracks(void);
     
     /**
-     *   @brief Set auxiliary language
-     *
-     *   @param[in] language - auxiliary language
-     *   @return void
-     */
-    void _SetAuxiliaryLanguage(const std::string &language) { mAuxAudioLanguage = language; }
-    
-    /**
      *   @brief Get auxiliary language
      *
      *   @return std::string auxiliary audio language
      */
-    std::string _GetAuxiliaryAudioLanguage() { return mAuxAudioLanguage; }
+    std::string GetAuxiliaryAudioLanguage() { return mAuxAudioLanguage; }
     
     /**
      *   @fn GetPauseOnFirstVideoFrameDisp
@@ -5131,7 +5038,7 @@ public:
      *
      *   @return uint32_t
      */
-    uint32_t  GetAudTimeScale(void);
+    uint32_t GetAudTimeScale(void);
     
     /**
      * @brief Sets Subtitle TimeScale
@@ -5166,7 +5073,7 @@ public:
      *   @param[in] rate - playback rate to set
      *   @return void
      */
-    void _SetLLDashCurrentPlayBackRate(double rate) { mLLDashCurrentPlayRate = rate; }
+    void SetLLDashCurrentPlayBackRate(double rate) { mLLDashCurrentPlayRate = rate; }
     
     /**
      *   @brief Gets Low Latency current play back rate
@@ -5181,7 +5088,7 @@ public:
      *   @param[in] state - true or false
      *   @return void
      */
-    void _SetLLDashAdjustSpeed(bool state) { bLLDashAdjustPlayerSpeed = state; }
+    void SetLLDashAdjustSpeed(bool state) { bLLDashAdjustPlayerSpeed = state; }
     
     /**
      *   @brief Gets the state of the player speed correction for Low latency Dash
@@ -5195,7 +5102,7 @@ public:
      *
      *   @return void
      */
-    void _SetIsIframeExtractionEnabled(bool enable)
+    void SetIsIframeExtractionEnabled(bool enable)
     {
         SETCONFIGVALUE_PRIV(AAMP_TUNE_SETTING,eAAMPConfig_EnableIFrameTrackExtract,enable);
     }
@@ -5221,7 +5128,7 @@ public:
      *
      *   @return bool
      */
-    bool _IsIframeExtractionEnabled()
+    bool IsIframeExtractionEnabled()
     {
         return ISCONFIGSET_PRIV(eAAMPConfig_EnableIFrameTrackExtract) ;
     }
@@ -5490,7 +5397,7 @@ public:
      * @param Void
      * @return double, live offset value in ms
      */
-    double _GetLiveOffsetMs() { return mLiveOffset * 1000; }
+    double GetLiveOffsetMs() { return mLiveOffset * 1000; }
     
     /**
      * @fn GetStreamPositionMs
@@ -5516,7 +5423,7 @@ public:
     /**
      * @brief Set AAMP local TSB flag
      */
-    void _SetLocalAAMPTsb(bool value)
+    void SetLocalAAMPTsb(bool value)
     {
         mLocalAAMPTsb = value;
         AAMPLOG_INFO("Local AAMP TSB %d", mLocalAAMPTsb);
@@ -5628,7 +5535,7 @@ protected:
      *
      *   @return void
      */
-    void _LazilyLoadConfigIfNeeded(void);
+    void LazilyLoadConfigIfNeeded(void);
     
     /**
      *   @fn ExtractServiceZone
@@ -5668,6 +5575,7 @@ protected:
      *   @return void
      */
     void NotifySinkBufferFull(AampMediaType type);
+    
     /**
      * @fn ExtractDrmInitData
      */
@@ -5678,21 +5586,7 @@ protected:
      *
      *   @return void
      */
-    void _ConfigureWithLocalOptions();
-    
-    /**
-     *   @brief Check if discontinuity processed in all tracks
-     *
-     *   @return true if discontinuity processed in all track
-     */
-    bool _DiscontinuitySeenInAllTracks();
-    
-    /**
-     *   @fn DiscontinuitySeenInAnyTracks
-     *
-     *   @return true if discontinuity processed in any track
-     */
-    bool _DiscontinuitySeenInAnyTracks();
+    void ConfigureWithLocalOptions();
     
     /**
      *   @fn HasSidecarData
@@ -5801,7 +5695,6 @@ protected:
     bool mFragmentCachingRequired;         /**< True if fragment caching is required or ongoing */
     std::recursive_mutex mFragmentCachingLock;     /**< To sync fragment initial caching operations */
     bool mPauseOnFirstVideoFrameDisp;     /**< True if pause AAMP after displaying first video frame */
-    //    AudioTrackInfo mPreferredAudioTrack;     /**< Preferred audio track from available tracks in asset */
     TextTrackInfo mPreferredTextTrack;     /**< Preferred text track from available tracks in asset */
     bool mFirstVideoFrameDisplayedEnabled;     /**< Set True to enable call to NotifyFirstVideoFrameDisplayed() from Sink */
     unsigned int mManifestRefreshCount;     /**< counter which keeps the count of manifest/Playlist success refresh */
@@ -5832,7 +5725,6 @@ protected:
     std::unique_ptr<char[]> mData;
     std::string mTextStyle;
     std::vector<StreamBlacklistProfileInfo> mBlacklistedProfiles;
-    //std::vector<ProfilerBucketType> cachedMediaBucketTypes;
     AampMPDDownloader *mMPDDownloaderInstance;
     
     std::atomic<double> m_PTSOffsetFromTune {0.}; /**< PTS offset cache from Tune, is reset only on a `Stop` */

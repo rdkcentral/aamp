@@ -64,7 +64,7 @@ void StreamAbstractionAAMP_COMPOSITEIN::Start(void)
 {
 	if(aamp)
 	{
-		const char *url = aamp->_GetManifestUrl().c_str();
+		const char *url = aamp->GetManifestUrl().c_str();
 		int compositeInputPort = -1;
 		if( sscanf(url, "cvbsin://localhost/deviceid/%d", &compositeInputPort ) == 1 )
 		{

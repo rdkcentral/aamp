@@ -1461,7 +1461,7 @@ TEST_F(PrivAampTests,CurlInitTest)
 TEST_F(PrivAampTests,CurlInitTest_1)
 {
 	std::string string;
-	string = p_aamp->mConfig->GetUserAgentString();
+	string = p_aamp->mConfig.GetUserAgentString();
 	EXPECT_STRNE("testString",string.c_str());
 
 	p_aamp->CurlInit(eCURLINSTANCE_PLAYLISTPRECACHE, 1, "");

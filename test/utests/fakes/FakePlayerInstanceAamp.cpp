@@ -32,7 +32,7 @@ MockPlayerInstanceAAMP *g_mockPlayerInstanceAAMP = nullptr;
 									const char *traceUUID,
 									bool audioDecoderStreamSync) { }
 
-	void PlayerInstanceAAMP::Tune(const char *mainManifestUrl,
+/*	void PlayerInstanceAAMP::Tune(const char *mainManifestUrl,
 									bool autoPlay,
 									const char *contentType,
 									bool bFirstAttempt,
@@ -43,7 +43,7 @@ MockPlayerInstanceAAMP *g_mockPlayerInstanceAAMP = nullptr;
 									int mpdStitchingMode,
 									std::string session_id,
 									const char *preprocessedManifest
-									) { }
+									) { } */
     void PlayerInstanceAAMP::Stop(bool sendStateChangeEvent) {  }
 	void PlayerInstanceAAMP::ResetConfiguration() {  }
 	void PlayerInstanceAAMP::SetRate(float rate, int overshootcorrection) {  }
@@ -115,7 +115,7 @@ MockPlayerInstanceAAMP *g_mockPlayerInstanceAAMP = nullptr;
 	void PlayerInstanceAAMP::SetNewABRConfig(bool bValue) {  }
 	void PlayerInstanceAAMP::SetNewAdBreakerConfig(bool bValue) {  }
 	void PlayerInstanceAAMP::SetVideoTracks(std::vector<BitsPerSecond> bitrates) {  }
-	void PlayerInstanceAAMP::SetAppName(std::string name) {  }
+	//void PlayerInstanceAAMP::SetAppName(std::string name) {  }
 	void PlayerInstanceAAMP::SetPreferredLanguages(const char*  languageList, const char *preferredRendition, const char *preferredType, const char*  codecList, const char*  labelList, const Accessibility *accessibilityItem, const char* preferredName) {  }
 	void PlayerInstanceAAMP::SetPreferredTextLanguages(const char*  param) {  }
 	void PlayerInstanceAAMP::SetAudioTrack(std::string language, std::string rendition, std::string type, std::string codec, unsigned int channel, std::string label) {  }
@@ -134,7 +134,7 @@ MockPlayerInstanceAAMP *g_mockPlayerInstanceAAMP = nullptr;
 	void PlayerInstanceAAMP::SetNativeCCRendering(bool enable) {  }
 	void PlayerInstanceAAMP::SetAudioTrack(int trackId) {  }
 	void PlayerInstanceAAMP::SetTextTrack(int trackId, char *ccData) {  }
-	void PlayerInstanceAAMP::SetCCStatus(bool enabled) {  }
+	//void PlayerInstanceAAMP::SetCCStatus(bool enabled) {  }
 	void PlayerInstanceAAMP::SetTextStyle(const std::string &options)
     {
     	if (g_mockPlayerInstanceAAMP != nullptr)
@@ -163,7 +163,7 @@ MockPlayerInstanceAAMP *g_mockPlayerInstanceAAMP = nullptr;
 	void PlayerInstanceAAMP::SetContentProtectionDataUpdateTimeout(int timeout) {  }
 	void PlayerInstanceAAMP::ProcessContentProtectionDataConfig(const char *jsonbuffer) {  }
 	void PlayerInstanceAAMP::SetRuntimeDRMConfigSupport(bool DynamicDRMSupported) {  }
-	bool PlayerInstanceAAMP::IsLive() { return false; }
+	//bool PlayerInstanceAAMP::IsLive() { return false; }
 	bool PlayerInstanceAAMP::GetVideoMute(void) { return false; }
 	bool PlayerInstanceAAMP::GetCCStatus(void) { return false; }
 	bool PlayerInstanceAAMP::SetThumbnailTrack(int thumbIndex) { return false; }
@@ -180,7 +180,7 @@ MockPlayerInstanceAAMP *g_mockPlayerInstanceAAMP = nullptr;
 	long PlayerInstanceAAMP::GetInitialBitrate(void) { return 0; }
 	long PlayerInstanceAAMP::GetInitialBitrate4k(void) { return 0; }
 	long PlayerInstanceAAMP::GetMinimumBitrate(void) { return 0; }
-	long PlayerInstanceAAMP::GetMaximumBitrate(void) { return 0; }
+	//long PlayerInstanceAAMP::GetMaximumBitrate(void) { return 0; }
 	double PlayerInstanceAAMP::GetPlaybackPosition(void) { return 0; }
 	double PlayerInstanceAAMP::GetPlaybackDuration(void) { return 0; }
 	std::string PlayerInstanceAAMP::GetAudioLanguage() { return ""; }
@@ -190,22 +190,22 @@ MockPlayerInstanceAAMP *g_mockPlayerInstanceAAMP = nullptr;
 	std::vector<BitsPerSecond> PlayerInstanceAAMP::GetVideoBitrates(void) { static std::vector<BitsPerSecond> temp; return temp; }
 	std::vector<BitsPerSecond> PlayerInstanceAAMP::GetAudioBitrates(void) { static std::vector<BitsPerSecond> temp; return temp; }
     std::string PlayerInstanceAAMP::GetManifest(void) { return nullptr; }
-	std::string PlayerInstanceAAMP::GetAvailableVideoTracks() { return nullptr; }
-	std::string PlayerInstanceAAMP::GetAvailableAudioTracks(bool allTrack) { return nullptr; }
-	std::string PlayerInstanceAAMP::GetAvailableTextTracks(bool allTrack) { return nullptr; }
-	std::string PlayerInstanceAAMP::GetVideoRectangle() { return nullptr; }
-	std::string PlayerInstanceAAMP::GetAudioTrackInfo() { return nullptr; }
-	std::string PlayerInstanceAAMP::GetTextTrackInfo() { return nullptr; }
-	std::string PlayerInstanceAAMP::GetPreferredAudioProperties() { return nullptr; }
-	std::string PlayerInstanceAAMP::GetPreferredTextProperties() { return nullptr; }
-	std::string PlayerInstanceAAMP::GetTextStyle() { return nullptr; }
+	//std::string PlayerInstanceAAMP::GetAvailableVideoTracks() { return nullptr; }
+	//std::string PlayerInstanceAAMP::GetAvailableAudioTracks(bool allTrack) { return nullptr; }
+	//std::string PlayerInstanceAAMP::GetAvailableTextTracks(bool allTrack) { return nullptr; }
+	//std::string PlayerInstanceAAMP::GetVideoRectangle() { return nullptr; }
+	//std::string PlayerInstanceAAMP::GetAudioTrackInfo() { return nullptr; }
+	//std::string PlayerInstanceAAMP::GetTextTrackInfo() { return nullptr; }
+	//std::string PlayerInstanceAAMP::GetPreferredAudioProperties() { return nullptr; }
+	//std::string PlayerInstanceAAMP::GetPreferredTextProperties() { return nullptr; }
+	//std::string PlayerInstanceAAMP::GetTextStyle() { return nullptr; }
 	std::string PlayerInstanceAAMP::GetAvailableThumbnailTracks(void) { return nullptr; }
-	std::string PlayerInstanceAAMP::GetThumbnails(double  sduration, double  eduration) { return nullptr; }
+	//std::string PlayerInstanceAAMP::GetThumbnails(double  sduration, double  eduration) { return nullptr; }
 	std::string PlayerInstanceAAMP::GetAAMPConfig() { return nullptr; }
-	std::string PlayerInstanceAAMP::GetPlaybackStats() { return nullptr; }
-	std::string PlayerInstanceAAMP::GetVideoPlaybackQuality(void) { return nullptr; }
+	//std::string PlayerInstanceAAMP::GetPlaybackStats() { return nullptr; }
+	//std::string PlayerInstanceAAMP::GetVideoPlaybackQuality(void) { return nullptr; }
 	bool PlayerInstanceAAMP::SetUserAgent(std::string &userAgent){ return false; }
-	void PlayerInstanceAAMP::updateManifest(const char *manifestData){}
+	//void PlayerInstanceAAMP::updateManifest(const char *manifestData){}
 	bool PlayerInstanceAAMP::IsJsInfoLoggingEnabled(void){ return false; }
 	bool PlayerInstanceAAMP::IsOOBCCRenderingSupported(void){ return false; }
 	int PlayerInstanceAAMP::GetId(void){ return 0; }
@@ -329,10 +329,6 @@ void PlayerInstanceAAMP::Tune(const char *mainManifestUrl,
     mFogTSBEnabled = strcasestr(mainManifestUrl, "tsb?");
 }
 
-void PlayerInstanceAAMP::detach()
-{
-}
-
 void PlayerInstanceAAMP::NotifySpeedChanged(float rate, bool changeState)
 {
 }
@@ -425,46 +421,14 @@ void PlayerInstanceAAMP::TeardownStream(bool newTune, bool disableDownloads)
 {
 }
 
-void PlayerInstanceAAMP::SetVideoRectangle(int x, int y, int w, int h)
-{
-}
-
-void PlayerInstanceAAMP::SetVideoZoom(VideoZoomMode zoom)
-{
-}
-
 bool PlayerInstanceAAMP::TryStreamLock()
 {
     return false;
 }
 
-void PlayerInstanceAAMP::SetVideoMute(bool muted)
-{
-}
-
-void PlayerInstanceAAMP::SetSubtitleMute(bool muted)
-{
-}
-
-void PlayerInstanceAAMP::SetAudioVolume(int volume)
-{
-}
-
-void PlayerInstanceAAMP::AddEventListener(AAMPEventType eventType, EventListener* eventListener)
-{
-}
-
-void PlayerInstanceAAMP::RemoveEventListener(AAMPEventType eventType, EventListener* eventListener)
-{
-}
-
 DrmHelperPtr PlayerInstanceAAMP::GetCurrentDRM(void)
 {
     return nullptr;
-}
-
-void PlayerInstanceAAMP::AddCustomHTTPHeader(std::string headerName, std::vector<std::string> headerValue, bool isLicenseHeader)
-{
 }
 
 void PlayerInstanceAAMP::SetLiveOffsetAppRequest(bool LiveOffsetAppRequest)
@@ -491,10 +455,6 @@ ContentType PlayerInstanceAAMP::GetContentType() const
     return ContentType_UNKNOWN;
 }
 
-void PlayerInstanceAAMP::SetAlternateContents(const std::string &adBreakId, const std::string &adId, const std::string &url)
-{
-}
-
 void PlayerInstanceAAMP::GetMoneyTraceString(std::string &customHeader) const
 {
 }
@@ -515,23 +475,10 @@ std::string PlayerInstanceAAMP::GetPreferredTextProperties()
     return result;
 }
 
-void PlayerInstanceAAMP::SetPreferredTextLanguages(const char *param )
-{
-}
-
-DRMSystems PlayerInstanceAAMP::GetPreferredDRM()
-{
-    return eDRM_NONE;
-}
-
 std::string PlayerInstanceAAMP::GetAvailableVideoTracks()
 {
     std::string s = "AvailableVideo";
     return s;
-}
-
-void PlayerInstanceAAMP::SetVideoTracks(std::vector<BitsPerSecond> bitrateList)
-{
 }
 
 std::string PlayerInstanceAAMP::GetAudioTrackInfo()
@@ -544,11 +491,6 @@ std::string PlayerInstanceAAMP::GetTextTrackInfo()
 {
     std::string text_result = "TextTrack";
     return text_result;
-}
-
-int PlayerInstanceAAMP::GetTextTrack()
-{
-    return 0;
 }
 
 std::string PlayerInstanceAAMP::GetAvailableTextTracks(bool allTrack)
@@ -581,21 +523,7 @@ std::string PlayerInstanceAAMP::GetAppName()
     return name;
 }
 
-int PlayerInstanceAAMP::GetAudioTrack()
-{
-    return 0;
-}
-
 void PlayerInstanceAAMP::SetCCStatus(bool enabled)
-{
-}
-
-bool PlayerInstanceAAMP::GetCCStatus(void)
-{
-    return false;
-}
-
-void PlayerInstanceAAMP::SetTextStyle(const std::string &options)
 {
 }
 
@@ -615,14 +543,6 @@ std::string PlayerInstanceAAMP::GetThumbnails(double tStart, double tEnd)
 {
     std::string result = "Thumbnail";
     return result;
-}
-
-void PlayerInstanceAAMP::DisableContentRestrictions(long grace, long time, bool eventChange)
-{
-}
-
-void PlayerInstanceAAMP::EnableContentRestrictions()
-{
 }
 
 MediaFormat PlayerInstanceAAMP::GetMediaFormatType(const char *url)
@@ -667,20 +587,12 @@ void PlayerInstanceAAMP::Individualization(const std::string& payload)
 {
 }
 
-void PlayerInstanceAAMP::SetTextTrack(int trackId, char *data)
-{
-}
-
 bool PlayerInstanceAAMP::LockGetPositionMilliseconds()
 {
     return false;
 }
 
 void PlayerInstanceAAMP::UnlockGetPositionMilliseconds()
-{
-}
-
-void PlayerInstanceAAMP::SetPreferredLanguages(char const*, char const*, char const*, char const*, char const*, const Accessibility*, char const*)
 {
 }
 
@@ -876,16 +788,6 @@ void PlayerInstanceAAMP::DisableDownloads(void)
     {
         g_mockPlayerInstanceAAMP->DisableDownloads();
     }
-}
-
-int PlayerInstanceAAMP::GetInitialBufferDuration()
-{
-    return 0;
-}
-
-BitsPerSecond PlayerInstanceAAMP::GetMinimumBitrate()
-{
-    return 0;
 }
 
 long long PlayerInstanceAAMP::GetPositionMs()

@@ -378,7 +378,7 @@ CURL* CurlStore::CurlEasyInitWithOpt ( PlayerInstanceAAMP *aamp, const std::stri
 		CURL_EASY_SETOPT_LONG(curlEasyhdl, CURLOPT_PROXYAUTH, CURLAUTH_ANY);
 	}
 
-	if(aamp->_IsEASContent())
+	if(aamp->IsEASContent())
 	{
 		//enable verbose logs so we can debug field issues
 		CURL_EASY_SETOPT_LONG(curlEasyhdl, CURLOPT_VERBOSE, 1);

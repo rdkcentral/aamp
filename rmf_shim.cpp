@@ -100,7 +100,7 @@ StreamAbstractionAAMP_RMF::~StreamAbstractionAAMP_RMF()
  */
 void StreamAbstractionAAMP_RMF::Start(void)
 {
-	std::string url = aamp->_GetManifestUrl();
+	std::string url = aamp->GetManifestUrl();
 
 	AAMPLOG_INFO( "[RMF_SHIM] url : %s ", url.c_str());
 
@@ -139,7 +139,7 @@ void StreamAbstractionAAMP_RMF::SetVideoRectangle(int x, int y, int w, int h)
 	std::string videoInputType = "";
 	if(true != thunderAccessObj.SetVideoRectangle(x, y, w, h, videoInputType, PlayerThunderAccessShim::RMF_SHIM))
 	{
-		AAMPLOG_ERR("Failed to set video rectangle for URL: %s", aamp->_GetManifestUrl().c_str());
+		AAMPLOG_ERR("Failed to set video rectangle for URL: %s", aamp->GetManifestUrl().c_str());
 	}
 }
 

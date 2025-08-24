@@ -286,7 +286,7 @@ TEST_F(LocalTSBTests, IncreaseGSTBufferTest_1)
 					return eAAMPSTATUS_OK;
 				});
 	mPlayerInstanceAAMP->Tune(testUrl, true, "LINEAR_TV");
-    #define GETCFG(x) mPlayerInstanceAAMP->mConfig->GetConfigValue(x)
+    #define GETCFG(x) mPlayerInstanceAAMP->mConfig.GetConfigValue(x)
 	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_BWToGstBufferFactor)).WillRepeatedly(Return(0.8));
 	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_GstVideoBufBytes)).WillRepeatedly(Return(GST_VIDEOBUFFER_SIZE_BYTES));
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP_MPD, GetMaxBitrate()).WillOnce(Return(8000000)); //8 Mbps
@@ -327,7 +327,7 @@ TEST_F(LocalTSBTests, IncreaseGSTBufferTest_2)
 					return eAAMPSTATUS_OK;
 				});
 	mPlayerInstanceAAMP->Tune(testUrl, true, "LINEAR_TV");
-    #define GETCFG(x) mPlayerInstanceAAMP->mConfig->GetConfigValue(x)
+    #define GETCFG(x) mPlayerInstanceAAMP->mConfig.GetConfigValue(x)
 	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_BWToGstBufferFactor)).WillRepeatedly(Return(0.8));
 	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_GstVideoBufBytes)).WillRepeatedly(Return(GST_VIDEOBUFFER_SIZE_BYTES));
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP_MPD, GetMaxBitrate()).WillOnce(Return(1000000)); //1 Mbps - Negative case should default and change config value

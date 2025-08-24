@@ -1124,8 +1124,8 @@ DrmData * AampDRMLicenseManager::getLicenseSec(const LicenseRequest &licenseRequ
 	{
 		if (aampInstance->_GetEnableAccessAttributesFlag())
 		{
-			serviceZone = aampInstance->_GetServiceZone();
-			streamID = aampInstance->_GetVssVirtualStreamID();
+			serviceZone = aampInstance->GetServiceZone();
+			streamID = aampInstance->GetVssVirtualStreamID();
 			if (!serviceZone.empty())
 			{
 				accessAttributes[numberOfAccessAttributes][0] = VSS_SERVICE_ZONE_KEY_STR;

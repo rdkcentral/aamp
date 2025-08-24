@@ -805,7 +805,7 @@ void AAMPGstPlayer::Configure(StreamOutputFormat format, StreamOutputFormat audi
 	/*Configure and create the pipeline*/
 	playerInstance->ConfigurePipeline(static_cast<int>(format),static_cast<int>(audioFormat),static_cast<int>(auxFormat),static_cast<int>(subFormat),
 									  bESChangeStatus,forwardAudioToAux,setReadyAfterPipelineCreation,
-									  isSubEnable, trackId, rate, PIPELINE_NAME, PipelinePriority, FirstFrameFlag, aamp->_GetManifestUrl().c_str());
+									  isSubEnable, trackId, rate, PIPELINE_NAME, PipelinePriority, FirstFrameFlag, aamp->GetManifestUrl().c_str());
 	AAMPLOG_TRACE("exiting AAMPGstPlayer");
 	StartMonitorAvTimer();
 }
