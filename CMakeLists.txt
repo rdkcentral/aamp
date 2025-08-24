@@ -366,6 +366,9 @@ set(LIBAAMP_SOURCES
     tsFragmentProcessor.cpp
     tsprocessor.cpp
     videoin_shim.cpp
+    main_aamp.h
+    AampUtils.h
+    AampMediaType.h
 )
 
 if(CMAKE_SOC_PLATFORM_RPI)

@@ -41,7 +41,7 @@ StreamAbstractionAAMP_HDMIIN* StreamAbstractionAAMP_HDMIIN::mHdmiinInstance = NU
 StreamAbstractionAAMP_HDMIIN::StreamAbstractionAAMP_HDMIIN(class PlayerInstanceAAMP *aamp,double seek_pos, float rate)
                              : StreamAbstractionAAMP_VIDEOIN("HDMIIN", PlayerThunderAccessPlugin::AVINPUT,aamp,seek_pos,rate,"HDMI")
 {
-    aamp->_SetContentType("HDMI_IN");
+    aamp->SetContentType("HDMI_IN");
 }
 		   
 /**
@@ -107,7 +107,7 @@ StreamAbstractionAAMP_HDMIIN * StreamAbstractionAAMP_HDMIIN::GetInstance(class P
 	{
 		// Reuse existing instance and set new aamp
 		mHdmiinInstance->aamp = aamp;
-		mHdmiinInstance->aamp->_SetContentType("HDMI_IN");
+		mHdmiinInstance->aamp->SetContentType("HDMI_IN");
 	}
 	return mHdmiinInstance;
 }
@@ -122,7 +122,7 @@ void StreamAbstractionAAMP_HDMIIN::ResetInstance()
 	{
 		if(mHdmiinInstance->aamp != NULL)
 		{
-			mHdmiinInstance->aamp->_SetState(eSTATE_STOPPED);
+			mHdmiinInstance->aamp->SetState(eSTATE_STOPPED);
 		}
 		//clear aamp
 		mHdmiinInstance->aamp = NULL;
@@ -142,7 +142,7 @@ void StreamAbstractionAAMP_HDMIIN::OnVideoStreamInfoUpdate(PlayerVideoStreamInfo
 		{
 			frameRate = data.frameRateN / data.frameRateD;
 		}
-        aamp->_NotifyBitRateChangeEvent(0, eAAMP_BITRATE_CHANGE_BY_HDMIIN, data.width, data.height, frameRate, 0, false, videoScanType, 0, 0);
+        aamp->NotifyBitRateChangeEvent(0, eAAMP_BITRATE_CHANGE_BY_HDMIIN, data.width, data.height, frameRate, 0, false, videoScanType, 0, 0);
 
 	}
 }

@@ -126,7 +126,7 @@ TEST_F(PlayerInstanceAAMPTests,SeekInternalTest1)
 	
     mPlayerInstanceAAMP->seek_pos_seconds = secondsRelativeToTuneTime ;
 
-    mPlayerInstanceAAMP->mConfig->SetConfigValue(AAMP_APPLICATION_SETTING, eAAMPConfig_PlaybackOffset,secondsRelativeToTuneTime);
+    mPlayerInstanceAAMP->mConfig.SetConfigValue(AAMP_APPLICATION_SETTING, eAAMPConfig_PlaybackOffset,secondsRelativeToTuneTime);
 
     mplayer->Seek_Internal(secondsRelativeToTuneTime,keepPaused);
 }
@@ -195,7 +195,7 @@ TEST_F(PlayerInstanceAAMPTests, PauseAt_Cancel)
 TEST_F(PlayerInstanceAAMPTests, PauseAt_AlreadyPaused)
 {
     double pauseAtSeconds = 100.0;
-	mPlayerInstance->aamp->pipeline_paused = true; // FIXME! violates mPlayerInstance->aamp being private
+	mPlayerInstance->pipeline_paused = true; // FIXME! violates mPlayerInstance->aamp being private
 	//mPlayerInstance->SetRate(0); // logically similar, but doesn't work with below code
     EXPECT_CALL(*g_mockPlayerInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_PLAYING));
     EXPECT_CALL(*g_mockPlayerInstanceAAMP, StopPausePositionMonitoring("PauseAt() called")).Times(1);

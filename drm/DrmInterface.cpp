@@ -107,9 +107,9 @@ DrmInterface::~DrmInterface()
  */
 void DrmInterface::TerminateCurlInstance(int mCurlInstance)
 {
-    mpAamp->_SyncBegin();
-    mpAamp->_CurlTerm((AampCurlInstance)mCurlInstance);
-    mpAamp->_SyncEnd();
+    mpAamp->SyncBegin();
+    mpAamp->CurlTerm((AampCurlInstance)mCurlInstance);
+    mpAamp->SyncEnd();
 }
 /**
  * @brief Notify the error /failures to player
@@ -117,16 +117,16 @@ void DrmInterface::TerminateCurlInstance(int mCurlInstance)
 void DrmInterface::NotifyDrmError(int drmFailure)
 {
     //If downloads are disabled, don't send error event upstream
-    if (mpAamp->_DownloadsAreEnabled())
+    if (mpAamp->DownloadsAreEnabled())
     {
-        mpAamp->_DisableDownloads();
+        mpAamp->DisableDownloads();
         if(AAMP_TUNE_UNTRACKED_DRM_ERROR == drmFailure)
         {
-            mpAamp->_SendErrorEvent((AAMPTuneFailure)drmFailure, "AAMP: DRM Failure" );
+            mpAamp->SendErrorEvent((AAMPTuneFailure)drmFailure, "AAMP: DRM Failure" );
         }
         else
         {
-            mpAamp->_SendErrorEvent((AAMPTuneFailure)drmFailure);
+            mpAamp->SendErrorEvent((AAMPTuneFailure)drmFailure);
         }
     }
     
@@ -154,12 +154,12 @@ void DrmInterface::ProfileUpdateDrmDecrypt(bool type, int bucketType)
 {
     if(type == 0)
     {
-        mpAamp->_LogDrmInitComplete();
+        mpAamp->LogDrmInitComplete();
     }
     else
     {
         ProfilerBucketType val = MapDrmToProfilerBucket((DrmProfilerBucketType)bucketType);
-        mpAamp->_LogDrmDecryptEnd(val);
+        mpAamp->LogDrmDecryptEnd(val);
     }
 }
 /**
@@ -167,7 +167,7 @@ void DrmInterface::ProfileUpdateDrmDecrypt(bool type, int bucketType)
  */
 void DrmInterface::GetAccessKey(std::string &keyURI,  std::string& tempEffectiveUrl, int& http_error, double& downloadTime,unsigned int curlInstance, bool &keyAcquisitionStatus, int &failureReason,  char** ptr)
 {
-    bool fetched = mpAamp->_GetFile(keyURI, (AampMediaType)eMEDIATYPE_LICENCE, &mAesKeyBuf, tempEffectiveUrl, &http_error, &downloadTime, NULL, curlInstance, true);
+    bool fetched = mpAamp->GetFile(keyURI, (AampMediaType)eMEDIATYPE_LICENCE, &mAesKeyBuf, tempEffectiveUrl, &http_error, &downloadTime, NULL, curlInstance, true);
     *ptr =mAesKeyBuf.GetPtr();
     
     if (fetched)
@@ -237,7 +237,7 @@ void DrmInterface::GetCurlInit(int &curlInstance)
     if ((-1 == curlInstance) && (mpAamp != NULL))
     {
         curlInstance = eCURLINSTANCE_AES;
-        mpAamp->_CurlInit((AampCurlInstance)curlInstance,1,mpAamp->_GetLicenseReqProxy());
+        mpAamp->CurlInit((AampCurlInstance)curlInstance,1,mpAamp->GetLicenseReqProxy());
     }
 }
 
@@ -255,12 +255,12 @@ void DrmInterface::getHlsDrmSession(std::shared_ptr <HlsDrmBase>&bridge, std::sh
     {
         AAMPLOG_WARN("Failed to create Drm Session ");
         
-        if (mpAamp->_DownloadsAreEnabled())
+        if (mpAamp->DownloadsAreEnabled())
         {
             AAMPTuneFailure failure = event->getFailure();
             
-            mpAamp->_DisableDownloads();
-            mpAamp->_SendErrorEvent(failure);
+            mpAamp->DisableDownloads();
+            mpAamp->SendErrorEvent(failure);
             
             mpAamp->profiler.ProfileError(PROFILE_BUCKET_LA_TOTAL, (int) failure);
         }

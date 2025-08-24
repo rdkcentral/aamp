@@ -44,7 +44,8 @@ void MockAampReset(void)
 	gpGlobalConfig = gGlobalConfig.get();
 }
 
-PlayerInstanceAAMP::PlayerInstanceAAMP(AampConfig *config) : mConfig(config), mIsFakeTune(false), mIsVSS(false)
+//PlayerInstanceAAMP::PlayerInstanceAAMP(AampConfig *config) : mConfig(config), mIsFakeTune(false), mIsVSS(false)
+PlayerInstanceAAMP::PlayerInstanceAAMP( StreamSink* streamSink, std::function< void(const unsigned char *, int, int, int) > exportFrames )
 {
 }
 
@@ -96,20 +97,20 @@ std::string PlayerInstanceAAMP::GetLicenseServerUrlForDrm(DRMSystems type)
 	std::string url;
 	if (type == eDRM_PlayReady)
 	{
-		url = GETCONFIGVALUE(eAAMPConfig_PRLicenseServerUrl);
+		url = GETCONFIGVALUE_PRIV(eAAMPConfig_PRLicenseServerUrl);
 	}
 	else if (type == eDRM_WideVine)
 	{
-		url = GETCONFIGVALUE(eAAMPConfig_WVLicenseServerUrl);
+		url = GETCONFIGVALUE_PRIV(eAAMPConfig_WVLicenseServerUrl);
 	}
 	else if (type == eDRM_ClearKey)
 	{
-		url = GETCONFIGVALUE(eAAMPConfig_CKLicenseServerUrl);
+		url = GETCONFIGVALUE_PRIV(eAAMPConfig_CKLicenseServerUrl);
 	}
 
 	if (url.empty())
 	{
-		url = GETCONFIGVALUE(eAAMPConfig_LicenseServerUrl);
+		url = GETCONFIGVALUE_PRIV(eAAMPConfig_LicenseServerUrl);
 	}
 	return url;
 }
@@ -220,11 +221,11 @@ void PlayerInstanceAAMP::SendMediaMetadataEvent()
 {
 }
 
-void PlayerInstanceAAMP::Stop( bool isDestructing )
+void PlayerInstanceAAMP::_Stop( bool isDestructing )
 {
 }
 
-void PlayerInstanceAAMP::SetAudioTrack(int)
+void PlayerInstanceAAMP::_SetAudioTrack(int)
 {
 }
 
@@ -783,7 +784,7 @@ void PlayerInstanceAAMP::ResumeTrackInjection(AampMediaType type)
 {
 }
 
-void PlayerInstanceAAMP::SaveTimedMetadata(long long timeMilliseconds, const char *szName,
+void PlayerInstanceAAMPSaveTimedMetadata(long long timeMilliseconds, const char *szName,
 											const char *szContent, int nb, const char *id,
 											double durationMS)
 {
@@ -873,7 +874,7 @@ AampCurlInstance PlayerInstanceAAMP::GetPlaylistCurlInstance(AampMediaType type,
 	return eCURLINSTANCE_MANIFEST_PLAYLIST_VIDEO;
 }
 
-void PlayerInstanceAAMP::BlockUntilGstreamerWantsData(void (*cb)(void), int periodMs, int track)
+void PlayerInstanceAAMPBlockUntilGstreamerWantsData(void (*cb)(void), int periodMs, int track)
 {
 }
 
@@ -1076,7 +1077,7 @@ BitsPerSecond PlayerInstanceAAMP::GetDefaultBitrate4K()
 	return 0;
 }
 
-void PlayerInstanceAAMP::SaveNewTimedMetadata(long long timeMS, const char *szName,
+void PlayerInstanceAAMPSaveNewTimedMetadata(long long timeMS, const char *szName,
 											   const char *szContent, int nb, const char *id,
 											   double durationMS)
 {

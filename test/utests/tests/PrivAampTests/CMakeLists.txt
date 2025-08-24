@@ -50,7 +50,7 @@ include_directories(${AAMP_ROOT}/middleware/playerLogManager)
 set(TEST_SOURCES	PrivAampTests.cpp
 					PrivAampAAMPTests.cpp
 					PrivAampTests_TsbInjection.cpp)
-set(AAMP_SOURCES ${AAMP_ROOT}/priv_aamp.cpp)
+set(AAMP_SOURCES ${AAMP_ROOT}/main_aamp.cpp)
 add_executable(	${EXEC_NAME}
 				${TEST_SOURCES}
 				${AAMP_SOURCES})

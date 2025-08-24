@@ -35,7 +35,7 @@ StreamAbstractionAAMP_COMPOSITEIN* StreamAbstractionAAMP_COMPOSITEIN::mComposite
 StreamAbstractionAAMP_COMPOSITEIN::StreamAbstractionAAMP_COMPOSITEIN(class PlayerInstanceAAMP *aamp,double seek_pos, float rate)
                              : StreamAbstractionAAMP_VIDEOIN("COMPOSITEIN", PlayerThunderAccessPlugin::AVINPUT, aamp,seek_pos,rate,"COMPOSITE")
 {
-	aamp->_SetContentType("COMPOSITE_IN");
+	aamp->SetContentType("COMPOSITE_IN");
 }
 
 /**
@@ -94,7 +94,7 @@ StreamAbstractionAAMP_COMPOSITEIN * StreamAbstractionAAMP_COMPOSITEIN::GetInstan
 	{
 		// Reuse existing instance and set new aamp
 		mCompositeinInstance->aamp = aamp;
-		mCompositeinInstance->aamp->_SetContentType("COMPOSITE_IN");
+		mCompositeinInstance->aamp->SetContentType("COMPOSITE_IN");
 	}
 
 	return mCompositeinInstance;
@@ -110,7 +110,7 @@ void StreamAbstractionAAMP_COMPOSITEIN::ResetInstance()
 	{
 		if(mCompositeinInstance->aamp != NULL)
 		{
-			mCompositeinInstance->aamp->_SetState(eSTATE_STOPPED);
+			mCompositeinInstance->aamp->SetState(eSTATE_STOPPED);
 		}
 		//clear aamp
 		mCompositeinInstance->aamp = NULL;

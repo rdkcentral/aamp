@@ -125,7 +125,7 @@ static size_t write_callback(char *ptr, size_t size, size_t nmemb, void *userdat
 	CurlCallbackContext *context = (CurlCallbackContext *)userdata;
 	if(context)
 	{
-		ret = context->aamp->_HandleSSLWriteCallback( ptr, size, nmemb, userdata);
+		ret = context->aamp->HandleSSLWriteCallback( ptr, size, nmemb, userdata);
 	}
 	return ret;
 }
@@ -144,7 +144,7 @@ static size_t header_callback(const char *ptr, size_t size, size_t nmemb, void *
 	CurlCallbackContext *context = static_cast<CurlCallbackContext *>(user_data);
 	if(context)
 	{
-		ret = context->aamp->_HandleSSLHeaderCallback(ptr, size, nmemb, user_data);
+		ret = context->aamp->HandleSSLHeaderCallback(ptr, size, nmemb, user_data);
 	}
 	return ret;
 }
@@ -161,7 +161,7 @@ static int xferinfo_callback(
 	CurlProgressCbContext *context = (CurlProgressCbContext *)clientp;
 	if(context)
 	{
-		ret = context->aamp->_HandleSSLProgressCallback( clientp, dltotal, dlnow, ultotal, ulnow );
+		ret = context->aamp->HandleSSLProgressCallback( clientp, dltotal, dlnow, ultotal, ulnow );
 	}
 	return ret;
 }

@@ -46,7 +46,7 @@ set(TEST_SOURCES SetPreferredLanguagesTests.cpp
                  PreferredLanguagesTests.cpp)
 
 # These tests use the real AampJsonObject code.
-set(AAMP_SOURCES ${AAMP_ROOT}/priv_aamp.cpp
+set(AAMP_SOURCES ${AAMP_ROOT}/main_aamp.cpp
                  ${AAMP_ROOT}/AampJsonObject.cpp)
 
 add_executable(${EXEC_NAME}

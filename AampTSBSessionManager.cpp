@@ -94,7 +94,7 @@ void AampTSBSessionManager::Init()
 
 		// All Configuration to TSBHandler to be set before calling Init
 
-        mTSBStore = mAamp->_GetTSBStore(config, AampLogManager::aampLogger, level);
+        mTSBStore = mAamp->GetTSBStore(config, AampLogManager::aampLogger, level);
 		if (mTSBStore)
 		{
 			// Initialize datamanager for respective mediatype
@@ -183,7 +183,7 @@ std::shared_ptr<CachedFragment> AampTSBSessionManager::Read(TsbInitDataPtr initf
 	CachedFragmentPtr cachedFragment = std::make_shared<CachedFragment>();
 	std::string url = initfragdata->GetUrl();
 	std::string effectiveUrl;
-	bool readFromAampCache = mAamp->_getAampCacheHandler()->RetrieveFromInitFragmentCache(url, &cachedFragment->fragment, effectiveUrl);
+	bool readFromAampCache = mAamp->getAampCacheHandler()->RetrieveFromInitFragmentCache(url, &cachedFragment->fragment, effectiveUrl);
 	cachedFragment->type = initfragdata->GetMediaType();
 	cachedFragment->cacheFragStreamInfo = initfragdata->GetCacheFragStreamInfo();
 	cachedFragment->profileIndex = initfragdata->GetProfileIndex();
@@ -1014,7 +1014,7 @@ void AampTSBSessionManager::UpdateProgress(double manifestDuration, double manif
 	{
 		// Update culled seconds based on seconds culled in store
 		AAMPLOG_TRACE("Updating culled seconds: %lf", culledSeconds);
-		mAamp->_UpdateCullingState(culledSeconds);
+		mAamp->UpdateCullingState(culledSeconds);
 	}
 	mAamp->culledSeconds = GetTsbDataManager(eMEDIATYPE_VIDEO)->GetFirstFragmentPosition();
 	LockReadMutex();
@@ -1027,7 +1027,7 @@ void AampTSBSessionManager::UpdateProgress(double manifestDuration, double manif
 	UnlockReadMutex();
 	double duration = mAamp->mAbsoluteEndPosition -mAamp->culledSeconds;
 	AAMPLOG_TRACE("Updating duration: %lf", duration);
-	mAamp->_UpdateDuration(duration);
+	mAamp->UpdateDuration(duration);
 }
 
 /**

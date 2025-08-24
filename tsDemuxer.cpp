@@ -147,7 +147,7 @@ void Demuxer::send()
 
 		if (aamp)
 		{
-            aamp->_SendStreamCopy(type, es.GetPtr(), es.GetLen(), info.pts_s, info.dts_s, duration);
+            aamp->SendStreamCopy(type, es.GetPtr(), es.GetLen(), info.pts_s, info.dts_s, duration);
 		}
 		es.Clear();
 	}
@@ -426,9 +426,9 @@ void Demuxer::processPacket(const unsigned char * packetStart, bool &basePtsUpda
 			//Notify first video PTS to AAMP for VTT initialization
 			if (aamp && !trickmode && type == eMEDIATYPE_VIDEO)
 			{
-                aamp->_NotifyFirstVideoPTS(first_pts.value);
+                aamp->NotifyFirstVideoPTS(first_pts.value);
 				//Notifying BasePTS value for media progress event
-                aamp->_NotifyVideoBasePTS(base_pts.value);
+                aamp->NotifyVideoBasePTS(base_pts.value);
 			}
 		}
 		/*PARSE PES*/

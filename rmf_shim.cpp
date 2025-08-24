@@ -41,19 +41,19 @@ void StreamAbstractionAAMP_RMF::onPlayerStatusHandler(std::string title) {
 	if(0 == title.compare("report first video frame"))
 	{
 		if(!tuned){
-            aamp->_SendTunedEvent(false);
+            aamp->SendTunedEvent(false);
 			tuned = true;
-            aamp->_LogFirstFrame();
-            aamp->_LogTuneComplete();
+            aamp->LogFirstFrame();
+            aamp->LogTuneComplete();
 		}
-        aamp->_SetState(eSTATE_PLAYING);
+        aamp->SetState(eSTATE_PLAYING);
 	}
 }
 
 void StreamAbstractionAAMP_RMF::onPlayerErrorHandler(std::string error_message) {
 	
-    aamp->_SendAnomalyEvent(ANOMALY_WARNING, error_message.c_str());
-    aamp->_SetState(eSTATE_ERROR);
+    aamp->SendAnomalyEvent(ANOMALY_WARNING, error_message.c_str());
+    aamp->SetState(eSTATE_ERROR);
 }
 
 
@@ -67,7 +67,7 @@ AAMPStatusType StreamAbstractionAAMP_RMF::Init(TuneType tuneType)
 
 	tuned = false;
 
-    aamp->_SetContentType("RMF");
+    aamp->SetContentType("RMF");
 
 	if(false == thunderAccessObj.InitRmf()) //Note: do not terminate unless we're desperate for resources. deinit is sluggish.
 	{
@@ -128,7 +128,7 @@ void StreamAbstractionAAMP_RMF::Stop(bool clearChannelData)
 		return;
 
 	thunderAccessObj.StopRmf();
-    aamp->_SetState(eSTATE_STOPPED);
+    aamp->SetState(eSTATE_STOPPED);
 }
 
 /**

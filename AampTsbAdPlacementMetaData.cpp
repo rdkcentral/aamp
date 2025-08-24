@@ -47,13 +47,13 @@ void AampTsbAdPlacementMetaData::SendEvent(PlayerInstanceAAMP* aamp) const
 		switch (mEventType)
 		{
 			case EventType::START:
-				aamp->_SendAdPlacementEvent(AAMP_EVENT_AD_PLACEMENT_START, mAdId, mRelativePosition, mPosition.milliseconds(), mOffset, mDuration);
+				aamp->SendAdPlacementEvent(AAMP_EVENT_AD_PLACEMENT_START, mAdId, mRelativePosition, mPosition.milliseconds(), mOffset, mDuration);
 				break;
 			case EventType::END:
-				aamp->_SendAdPlacementEvent(AAMP_EVENT_AD_PLACEMENT_END, mAdId, mRelativePosition, mPosition.milliseconds(), mOffset, mDuration);
+				aamp->SendAdPlacementEvent(AAMP_EVENT_AD_PLACEMENT_END, mAdId, mRelativePosition, mPosition.milliseconds(), mOffset, mDuration);
 				break;
 			case EventType::ERROR:
-				aamp->_SendAdPlacementEvent(AAMP_EVENT_AD_PLACEMENT_ERROR, mAdId, mRelativePosition, mPosition.milliseconds(), mOffset, mDuration);
+				aamp->SendAdPlacementEvent(AAMP_EVENT_AD_PLACEMENT_ERROR, mAdId, mRelativePosition, mPosition.milliseconds(), mOffset, mDuration);
 				break;
 			default:
 				AAMPLOG_WARN("Unknown placement event type: %d", static_cast<int>(mEventType));

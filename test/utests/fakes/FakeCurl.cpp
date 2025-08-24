@@ -29,6 +29,15 @@
 
 MockCurl *g_mockCurl = nullptr;
 
+CURLcode curl_global_init(long flags)
+{
+    return CURLE_OK;
+}
+
+curl_version_info_data *curl_version_info(CURLversion age)
+{
+    return NULL;
+}
 
 void curl_easy_cleanup(CURL *curl)
 {

@@ -52,7 +52,7 @@ set(TEST_SOURCES PauseAtTests.cpp
                  PlayerInstanceAAMPTests.cpp
                  LocalTSBTests.cpp)
 
-set(AAMP_SOURCES ${AAMP_ROOT}/priv_aamp.cpp)
+set(AAMP_SOURCES ${AAMP_ROOT}/main_aamp.cpp)
 
 add_executable(${EXEC_NAME}
                ${TEST_SOURCES}

@@ -169,16 +169,16 @@ void StreamAbstractionAAMP_VIDEOIN::OnInputStatusChanged(std::string strStatus)
 		if(0 == strStatus.compare("started"))
 		{
 			if(!mTuned){
-				aamp->_SendTunedEvent(false);
+				aamp->SendTunedEvent(false);
 				mTuned = true;
-				aamp->_LogFirstFrame();
-				aamp->_LogTuneComplete();
+				aamp->LogFirstFrame();
+				aamp->LogTuneComplete();
 			}
-			aamp->_SetState(eSTATE_PLAYING);
+			aamp->SetState(eSTATE_PLAYING);
 		}
 		else if(0 == strStatus.compare("stopped"))
 		{
-			aamp->_SetState(eSTATE_STOPPED);
+			aamp->SetState(eSTATE_STOPPED);
 		}
 	}
 }
@@ -209,14 +209,14 @@ void StreamAbstractionAAMP_VIDEOIN::OnSignalChanged (std::string strStatus)
 		{
 			// Only Generate after started event, this can come after temp loss of signal.
 			if(mTuned){
-				aamp->_SetState(eSTATE_PLAYING);
+				aamp->SetState(eSTATE_PLAYING);
 			}
 		}
 
 		if(!strReason.empty())
 		{
 			AAMPLOG_WARN("GENERATING BLOCKED EVNET :%s",strReason.c_str());
-			aamp->_SendBlockedEvent(strReason);
+			aamp->SendBlockedEvent(strReason);
 		}
 	}
 }
