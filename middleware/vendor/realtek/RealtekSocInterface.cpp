@@ -69,8 +69,10 @@ void RealtekSocInterface::SetAudioProperty(const char * &volume, const char * &m
  * @param audio_dec The audio decoder element.
  * @return True if the playback rate was set successfully, false otherwise.
  */
-bool RealtekSocInterface::SetPlaybackRate(const std::vector<GstElement*>& sources, GstElement *pipeline, double rate, GstElement *video_dec, GstElement *audio_dec)
+bool RealtekSocInterface::SetPlaybackRate(const std::vector<GstElement*>& sources, GstElement *pipeline, double rate, GstElement *video_dec, GstElement *audio_dec, bool isRialto)
 {
+
+	MW_LOG_ERR("Realtek Playbackrate");
 
 	if(!pipeline)
 	{

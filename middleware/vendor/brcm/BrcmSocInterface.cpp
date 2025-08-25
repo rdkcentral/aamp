@@ -44,7 +44,7 @@ void BrcmSocInterface::SetAudioProperty(const char * &volume, const char * &mute
  * @param audio_dec The audio decoder element.
  * @return True if the playback rate was set successfully, false otherwise.
  */
-bool BrcmSocInterface::SetPlaybackRate(const std::vector<GstElement*>& sources, GstElement *pipeline, double rate, GstElement *video_dec, GstElement *audio_dec)
+bool BrcmSocInterface::SetPlaybackRate(const std::vector<GstElement*>& sources, GstElement *pipeline, double rate, GstElement *video_dec, GstElement *audio_dec, bool isRialto)
 {
 	bool status = true;
 	MW_LOG_MIL("send custom-instant-rate-change : %f ...", rate);
