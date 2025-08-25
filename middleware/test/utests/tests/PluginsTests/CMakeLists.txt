@@ -20,23 +20,25 @@ include(GoogleTest)
 pkg_check_modules(UUID REQUIRED uuid)
 pkg_check_modules(GOBJECT REQUIRED gobject-2.0)
 
-set(MW_ROOT "../../../..")
+set(PLAYER_ROOT "../../../..")
 set(UTESTS_ROOT "../..")
 set(DRM_ROOT ${UTESTS_ROOT}/drm)
 set(EXEC_NAME PluginsTests)
+set(SEC_CLIENT_ROOT ${PLAYER_ROOT}/../secclient)
 
 file(GLOB SEC_CLIENT_HEADERS "${SEC_CLIENT_ROOT}/*")
 
-include_directories(${MW_ROOT} ${MW_ROOT}/gst-plugins/drm/gst)
-include_directories(${MW_ROOT}/drm)
-include_directories(${MW_ROOT}/drm/helper)
-include_directories(${MW_ROOT}/subtitle)
-include_directories(${MW_ROOT}/closedcaptions)
-include_directories(${MW_ROOT}/downloader)
-include_directories(${MW_ROOT}/tsb/api)
-include_directories(${MW_ROOT}/externals/contentsecuritymanager)
-include_directories(${MW_ROOT}/playerLogManager)
-include_directories(${MW_ROOT}/vendor)
+include_directories(${PLAYER_ROOT} ${PLAYER_ROOT}/gst-plugins/drm/gst)
+include_directories(${PLAYER_ROOT}/drm)
+include_directories(${PLAYER_ROOT}/drm/helper)
+include_directories(${PLAYER_ROOT}/subtitle)
+include_directories(${PLAYER_ROOT}/closedcaptions)
+include_directories(${PLAYER_ROOT}/downloader)
+include_directories(${PLAYER_ROOT}/tsb/api)
+include_directories(${PLAYER_ROOT})
+include_directories(${PLAYER_ROOT}/externals/contentsecuritymanager)
+include_directories(${PLAYER_ROOT}/playerLogManager)
+include_directories(${PLAYER_ROOT}/vendor)
 include_directories(${GTEST_INCLUDE_DIRS})
 include_directories(${GMOCK_INCLUDE_DIRS})
 include_directories(${GLIB_INCLUDE_DIRS})
@@ -65,18 +67,18 @@ if (CMAKE_PLATFORM_UBUNTU)
 	add_definitions(-DUBUNTU)
 endif()
 
-set(MW_SOURCES
-				${MW_ROOT}/gst-plugins/drm/gst/gstcdmidecryptor.cpp
-				${MW_ROOT}/gst-plugins/drm/gst/gstclearkeydecryptor.cpp
-				${MW_ROOT}/gst-plugins/drm/gst/gstplayreadydecryptor.cpp
-				${MW_ROOT}/gst-plugins/drm/gst/gstverimatrixdecryptor.cpp
-				${MW_ROOT}/gst-plugins/drm/gst/gstwidevinedecryptor.cpp
-				${MW_ROOT}/playerLogManager/PlayerLogManager.cpp)
+set(PLAYER_SOURCES
+				${PLAYER_ROOT}/gst-plugins/drm/gst/gstcdmidecryptor.cpp
+				${PLAYER_ROOT}/gst-plugins/drm/gst/gstclearkeydecryptor.cpp
+				${PLAYER_ROOT}/gst-plugins/drm/gst/gstplayreadydecryptor.cpp
+				${PLAYER_ROOT}/gst-plugins/drm/gst/gstverimatrixdecryptor.cpp
+				${PLAYER_ROOT}/gst-plugins/drm/gst/gstwidevinedecryptor.cpp
+				${PLAYER_ROOT}/playerLogManager/PlayerLogManager.cpp)
 
 add_executable(${EXEC_NAME}
 			   ${TEST_SOURCES}
 			   ${MOCK_SOURCES}
-			   ${MW_SOURCES})
+			   ${PLAYER_SOURCES})
 
 set_target_properties(${EXEC_NAME} PROPERTIES FOLDER "utests")
 

@@ -1,6 +1,6 @@
 
 # ![](images/logo.png) <br/> AAMP / Universal Video Engine (UVE)
-# V7.01
+# V7.07
 
 ## Overview
 
@@ -22,6 +22,7 @@ This document is targeted to application developers  who are interested in evalu
 - Intra Asset Encryption / DRM License Rotation
 - DD+, Dolby ATMOS, AC4 Support
 - Low Latency DASH
+- [Time Shift Buffer](#tsb-feature) for DASH
 
 ## Acronyms
     - AAMP      Advanced Adaptive Media Player
@@ -167,7 +168,7 @@ Configuration options are passed to AAMP using the UVE initConfig method. This a
 | livePauseBehavior | Number | 0 | Optional field to configure player live pause behavior on linear streams when live window touches eldest position. Options: 0 – Autoplay immediate; 1 – Live immediate; 2 – Autoplay defer; 3 – Live defer; Default – Autoplay immediate . Refer [Appendix](#live-pause-configuration)|
 | asyncTune | Boolean | True | Optional field to enable asynchronous player API processing. Application / UI caller threads returned immediately without any processing delays. |
 | useAbsoluteTimeline | Boolean | False | Optional field to enable progress reporting based on Availability Start Time of stream (DASH Only) |
-| tsbInterruptHandling | Boolean | False | Optional field to enable support for Network interruption handling with TSB.  Network failures will be ignored and TSB will continue building |
+| tsbInterruptHandling | Boolean | False | Optional field to enable support for Network interruption handling with TSB.  Network failures will be ignored and TSB will continue building. |
 | fragmentDownloadFailThreshold | Number | 10 | Maximum number of fragment download failures before reporting playback error |
 | useSecManager | Boolean | True | Optional field to enable /disable usage of SecManager for Watermarking functionality (for Comcast streams only)|
 | drmDecryptFailThreshold | Number | 10 | Maximum number of fragment decrypt failures before reporting playback error (version 1.0) |
@@ -197,7 +198,7 @@ Configuration options are passed to AAMP using the UVE initConfig method. This a
 | drmStartTimeout | Number | 0 | Optional optimization - Allow fast-failure for class of curl-detectable stall at start of DRM license request download (in seconds) |
 | connectTimeout | Number | 3 | Curl socket connection timeout for fragment/playlist/manifest downloads (in seconds) |
 | dnsCacheTimeout | Number | 180 | life-time for DNS cache entries ,Name resolve results are cached for manifest and used for this number of seconds |
-| tsbtype | String |  | Use the "tsbtype" configuration for each playback session, where "local" enables local time shift buffer (FOG or AAMP TSB), "cloud" enables direct CDN streaming, and if "tsbtype" is not provided, default to "none," disabling TSB playback |
+| tsbType | String |  | Use the "tsbType" configuration for each playback session, where "local" enables local time shift buffer (FOG or AAMP TSB), "cloud" enables direct CDN streaming, and if "tsbType" is not provided, default to "none," means play as-is. For detailed behavior, see [TSB Feature](#tsb-feature). |
 | telemetryInterval | Number | 300 | telemetry log interval . Default of 300 seconds . 0 to disable telemetry logging |
 | sendUserAgentInLicense | Boolean | False | Optional field to enable sending User Agent string in license request also |
 | useSinglePipeline | Boolean | False | Optional field to enable single pipeline while switching between multiple player instances( Ad & Content) to avoid delay in flush operations. Used primarily for Client Side Ad-Insertion with multi-player usage |
@@ -205,8 +206,8 @@ Configuration options are passed to AAMP using the UVE initConfig method. This a
 | enablePTSReStamp | Boolean | False | Optional field to enable/disable PTS Re-stamping functionality across discontinuity while moving from Content to Ads or vice-versa. Currently only applicable to DASH content. |
 | subtitleClockSyncInterval | Number | 30 | Time interval for synchronizing the clock with subtitle module . Default of 30 seconds |
 | showDiagnosticsOverlay | Number | 0 (None) | Configures the diagnostics overlay: 0 (None), 1 (Minimal), 2 (Extended). Controls the visibility and level of detail for diagnostics displayed during playback. Refer [Diagnostics Overlay Configuration](#diagnostics-overlay-configuration)
-| localTSBEnabled | Boolean | False | Enable use of time shift buffer (TSB) for live playback, leveraging local storage.  Use of a TSB allows pause, seek, fast forward/rewind operations beyond the size of the default manifest live window supported by the CDN |
-| tsbLength | Number | 3600 (1 hour) or 1500 (25 min) | Max duration (seconds) of Local TSB to build up before culling  (not recommended for apps to change) |
+| localTSBEnabled | Boolean | False | Enable use of time shift buffer (TSB) for live playback, leveraging local storage in AAMP.  This is a development-only configuration, not to be used by apps. |
+| tsbLength | Number | 3600 (1 hour) or 1500 (25 min) | Max duration (seconds) of Local TSB to build up before culling  (not recommended for apps to change). Refer to [TSB Feature](#tsb-feature) for complete details. |
 | monitorAV | Boolean | False | Enable background monitoring of audio/video positions to infer video freeze, audio drop, or av sync issues |
 | monitorAVReportingInterval | Number | 1000 | Timeout in milliseconds for reporting MonitorAV events |
 
@@ -1435,42 +1436,44 @@ playerInstance.setPreferredTextLanguage( trackPreferenceObject );
 	    player.getThumbnail(0,120); //time range in relative
     }
 ```
+
 ##### Example:
 
-Linear Streams:
-      {
-	  // Use valid URL instead of example
-	  "baseUrl" : "https://example.com/12345678-1234-1234-1234-123456789012/", // replace with valid URL!
-	  "raw_w":1600,
-	  "raw_h":900,
-	  "width":320,
-	  "height":180,
-	  "tile":
-          [{
-	    "url":"keyframes-root_audio_video5-video=206000-5.jpeg",
-	    "t":1729736580,
-	    "d":10,
-	    "x":1282,
-	    "y":0
-	  }]
-      }
+    Linear Streams:
+    {
+        // Use valid URL instead of example
+        "baseUrl" : "https://example.com/12345678-1234-1234-1234-123456789012/", // replace with valid URL!
+        "raw_w":1600,
+        "raw_h":900,
+        "width":320,
+        "height":180,
+        "tile":
+        [{
+            "url":"keyframes-root_audio_video5-video=206000-5.jpeg",
+            "t":1729736580,
+            "d":10,
+            "x":1282,
+            "y":0
+        }]
+    }
 
-VOD Streams:
-      {
-	  "baseUrl" : "https://example.com/pub/global/abc/def/Example_1234567890123_01/cmaf_thumbtest_segtime_d/mpeg_2sec/images/416x234/", // replace with valid URL!
-          "raw_w": 3744,
-          "raw_h": 3978,
-          "width": 416,
-          "height": 234,
-          "tile":
-          [{
+    VOD Streams:
+    {
+        "baseUrl" : "https://example.com/pub/global/abc/def/Example_1234567890123_01/cmaf_thumbtest_segtime_d/mpeg_2sec/images/416x234/", // replace with valid URL!
+        "raw_w": 3744,
+        "raw_h": 3978,
+        "width": 416,
+        "height": 234,
+        "tile":
+        [{
             "url": "pckimage-1.jpg",
             "t": 328.0,
             "d": 2,
             "x": 832,
             "y": 234
-          }]
-      }
+        }]
+    }
+
 ---
 
 ### subscribeResponseHeaders(headerNames)
@@ -1539,35 +1542,35 @@ acquisition |
 
 ##### Example:
 
-      {
-          "timeToTopProfile": 42,
-          "timeInTopProfile": 1096,
-          "duration": 1359,
-          "profileStepDown_Network": 4,
-          "displayWidth": 3840,
-          "displayHeight": 2160,
-          "profileCappingPresent": 0,
-          "mediaType": "DASH"
-          “playbackMode": "VOD",
-          "totalError": 0,
-          "numOfGaps": 0,
-          "languageSupported": \{"audio1":"en"},
-          "main":{"profiles":{"0":{"manifestStat":{"latencyReport":{"timeWin
-          dow_0":1},"sessionSummary":{"200":1},"info":{"DownloadTimeMs":287,
-          "ParseTimeMs":6,"PeriodCount":1,"Size":20277}}}}
-          },
-          "video":{"profiles":{"1807164":{"fragmentStat":{"media":{
-          "latencyReport":{"timeWindow_0":3},"sessionSummary":{"200":3}
-          },
-          "init":{"latencyReport":{"timeWindow_0":1},"sessionSummary":{"200"
-          :1}}},
-          "width":960,"height":540},"4532710":{"fragmentStat":{"media":
-          {"latencyReport":{"timeWindow_0":128},"sessionSummary":{"200":128}
-          },
-          "init":{"latencyReport":{"timeWindow_0":1},"sessionSummary":{"200"
-          :1}}},"width":1280,"height":720},"7518491":{"fragmentStat":{"media
-          ":{"latencyReport":{"timeWindow_0":548}
-        }
+    {
+        "timeToTopProfile": 42,
+        "timeInTopProfile": 1096,
+        "duration": 1359,
+        "profileStepDown_Network": 4,
+        "displayWidth": 3840,
+        "displayHeight": 2160,
+        "profileCappingPresent": 0,
+        "mediaType": "DASH"
+        “playbackMode": "VOD",
+        "totalError": 0,
+        "numOfGaps": 0,
+        "languageSupported": \{"audio1":"en"},
+        "main":{"profiles":{"0":{"manifestStat":{"latencyReport":{"timeWin
+        dow_0":1},"sessionSummary":{"200":1},"info":{"DownloadTimeMs":287,
+        "ParseTimeMs":6,"PeriodCount":1,"Size":20277}}}}
+        },
+        "video":{"profiles":{"1807164":{"fragmentStat":{"media":{
+        "latencyReport":{"timeWindow_0":3},"sessionSummary":{"200":3}
+        },
+        "init":{"latencyReport":{"timeWindow_0":1},"sessionSummary":{"200"
+        :1}}},
+        "width":960,"height":540},"4532710":{"fragmentStat":{"media":
+        {"latencyReport":{"timeWindow_0":128},"sessionSummary":{"200":128}
+        },
+        "init":{"latencyReport":{"timeWindow_0":1},"sessionSummary":{"200"
+        :1}}},"width":1280,"height":720},"7518491":{"fragmentStat":{"media
+        ":{"latencyReport":{"timeWindow_0":548}
+    }
 
 ---
 
@@ -1577,11 +1580,10 @@ acquisition |
 - This API returns valid data if the video sink is westerossink
 
 ##### Example:
-     [ {
-	"rendered": 54321,
-	"dropped":  12
-	}
-     ]
+    {
+        "rendered": 54321,
+        "dropped":  12
+    }
 
 ---
 
@@ -1684,6 +1686,7 @@ Example:
 - endMiliseconds: number
 - currentPTS: number
 - videoBufferedMiliseconds : number
+- audioBufferedMiliseconds : number
 - liveLatency : number
 - profileBandwidth : number
 - networkBandwidth : number
@@ -1694,6 +1697,7 @@ Example:
 - Fired based on the interval set
 - Added video PTS reporting if enabled with reportVideoPTS config
 - Added video buffer value (2.4 version)
+- Added audio buffer value (version 7.07 onwards)
 
 ---
 
@@ -1880,6 +1884,7 @@ Example:
 - manifestPublishedTime: number (UTC seconds)
 - noOfPeriods: number (period count)
 - manifestType: string("dynamic" or "static")
+
 **Description:**
 - sent when a live DASH manifest is refreshed
 
@@ -2694,6 +2699,66 @@ A subset of UVE APIs and Events are available when using UVE JS APIs for ATSC pl
 | ---- | ---- | ---- | ---- |
 | preferredAudioLanguage | String | en | ISO-639 audio language preference; for more than one language, provide comma delimited list from highest to lowest priority: ‘<HIGHEST>,<...>,<LOWEST>’ |
 | nativeCCRendering | Boolean | False | Use native Closed Caption support in AAMP |
+
+<div style="page-break-after: always;"></div>
+
+## TSB Feature
+AAMP supports two forms of local storage time shift buffer:
+- AAMP Managed Local TSB
+- FOG (To be deprecated)
+
+### AAMP Managed Local TSB
+
+In AAMP managed Local TSB, AAMP downloads and stores media fragments locally, allowing viewers to pause, rewind, and replay content within the configured buffer window. The buffer is maintained in local storage, with older content being removed as new content is added once the buffer reaches its maximum size.
+
+### FOG
+FOG is a device-resident RDK application that provides time shift buffer management. It runs a mongoose server on `http://127.0.0.1:9080/`. It intercepts live content by transforming original URLs into FOG template URLs, enabling TSB functionality. When requested, FOG generates and delivers a TSB manifest, handling all fragment downloading and buffer management according to configured parameters.
+
+### Configuration Options
+
+#### tsbType
+- **Type**: String
+- **Default**: "none"
+- **Description**: Specifies the type of Time Shift Buffer to use.
+  - `local`: FOG TSB if URL is FOG-formatted, otherwise AAMP's built-in TSB.
+  - `cloud`: CDN/Server-side TSB used if available, no local buffering.
+  - `none` : No TSB functionality, stream plays as-is.
+
+#### tsbLength
+- **Type**: Number
+- **Default**: 1500
+- **Description**: Maximum size of the Time Shift Buffer in seconds
+
+#### Example Configuration
+
+```js
+// Enables AAMP-managed TSB of 15mins
+player.initConfig({
+    tsbType: "local",
+    tsbSize: 900  // 15min TSB
+});
+player.load("https://cdn/manifest.mpd");
+```
+
+### TSB Playback Controls
+
+With TSB enabled, the standard playback control APIs can be used to navigate within the buffered content:
+
+- `seek(position)`: Navigate to a specific position within the TSB
+- `seek(-1)`: Navigate to live play position
+- `pause()`: Pause live content
+- `play()`: Resume playback after pause or trick play
+- `setRate(rate)`: Fast-forward or rewind within the TSB
+
+### TSB Events
+
+When using TSB, the `playbackProgressUpdate` event provides additional properties that are useful for implementing a scrub bar, provided `enableSeekableRange` init config is set to `True`:
+- `startMiliseconds`: The earliest position available in the TSB
+- `endMiliseconds`: The latest position available in the TSB (near live point)
+- `durationMiliseconds`: Total duration of available content in the TSB
+- `positionMiliseconds`: Current playback position within the TSB
+
+Note: The spelling "Miliseconds" (instead of "Milliseconds") is intentional and matches the event implementation.
 
 <div style="page-break-after: always;"></div>
 
@@ -3603,3 +3668,9 @@ Aug 2024
     - progressLoggingDivisor
     - showDiagnosticsOverlay ( added example in Appendix )
     - monitorAVReportingInterval
+
+**Version:** 7.07
+**Release Notes:**
+- Events:
+    - Audio buffer added to playbackProgressUpdate
+- [TSB Feature](#tsb-feature) documentation
