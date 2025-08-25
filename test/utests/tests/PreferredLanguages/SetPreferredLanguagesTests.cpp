@@ -64,14 +64,15 @@ protected:
 
 	void TearDown() override
 	{
-		delete mPlayerInstanceAAMP;
+        if (g_mockStreamAbstractionAAMP != nullptr)
+        {
+            delete g_mockStreamAbstractionAAMP;
+            g_mockStreamAbstractionAAMP = nullptr;
+            mPlayerInstanceAAMP->mpStreamAbstractionAAMP = nullptr;
+        }
+        
+        delete mPlayerInstanceAAMP;
 		mPlayerInstanceAAMP = nullptr;
-
-		if (g_mockStreamAbstractionAAMP != nullptr)
-		{
-			delete g_mockStreamAbstractionAAMP;
-			g_mockStreamAbstractionAAMP = nullptr;
-		}
 
 		delete g_mockAampGstPlayer;
 		g_mockAampGstPlayer = nullptr;

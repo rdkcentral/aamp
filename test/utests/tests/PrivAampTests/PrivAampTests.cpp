@@ -192,7 +192,7 @@ class PrivAampPrivTests : public ::testing::Test
 		delete aamp;
 		aamp = nullptr;
 
-		delete testp_aamp;
+		//delete testp_aamp; // FIXME! avoid deletion of deallocated memory
 		testp_aamp = nullptr;
 
 	}
