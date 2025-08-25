@@ -72,6 +72,8 @@ void RealtekSocInterface::SetAudioProperty(const char * &volume, const char * &m
 bool RealtekSocInterface::SetPlaybackRate(const std::vector<GstElement*>& sources, GstElement *pipeline, double rate, GstElement *video_dec, GstElement *audio_dec)
 {
 
+        MW_LOG_ERR("Failed to set playback rate at Realtek SOC");
+
 	if(!pipeline)
 	{
 		MW_LOG_ERR("Failed to set playback rate");

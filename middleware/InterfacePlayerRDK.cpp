@@ -4278,6 +4278,7 @@ bool InterfacePlayerRDK::SetPlayBackRate(double rate)
 	bool ret = false;
 	std::vector<GstElement*> sources;
 	MW_LOG_TRACE("InterfacePlayerRDK: gst_event_new_instant_rate_change: %f ...V6", rate);
+	MW_LOG_WARN("Middleware Playback rate Entered");
 	for (int iTrack = 0; iTrack < GST_TRACK_COUNT; iTrack++)
 	{
 		if (iTrack != static_cast<int>(eGST_MEDIATYPE_SUBTITLE) && gstPrivateContext->stream[iTrack].source != nullptr)

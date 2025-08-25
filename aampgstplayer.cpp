@@ -1195,6 +1195,8 @@ void AAMPGstPlayer::StopBuffering(bool forceStop)
  */
 bool AAMPGstPlayer::SetPlayBackRate ( double rate )
 {
+
+	AAMPLOG_WARN("setting playback rate done");
 	AAMPLOG_WARN("setting playback rate: %f",rate );
 	bool ret = playerInstance->SetPlayBackRate(rate);
 	return ret;

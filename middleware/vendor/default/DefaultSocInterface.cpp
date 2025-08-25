@@ -210,3 +210,9 @@ bool DefaultSocInterface::ConfigureAudioSink(GstElement **audio_sink, GstObject 
         }
         return status;
 }
+
+bool DefaultSocInterface::SetPlaybackRate(const std::vector<GstElement*>& sources, GstElement *pipeline, double rate, GstElement *video_dec, GstElement *audio_dec)
+{
+	MW_LOG_ERR("failed to SetPlaybackRate in default soc");
+	return false;
+}
