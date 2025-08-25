@@ -1054,6 +1054,45 @@ MPD* PrivateCDAIObjectMPD::GetAdMPD(std::string &manifestUrl, bool &finalManifes
 	return adMpd;
 }
 
+bool PrivateCDAIObjectMPD::UpdatePlacementObject(const std::string& periodId)
+{
+    if(isPeriodExist(periodId) && mPeriodMap[periodId].offset2Ad.empty())
+    {
+        //First Ad placement is doing now.
+        mPeriodMap[periodId].offset2Ad[0] = AdOnPeriod{0,0};
+    }
+
+    // Add entry to mAdtoInsertInNextBreakVec if not already present
+    auto placementIter = std::find_if(mAdtoInsertInNextBreakVec.begin(),
+                                    mAdtoInsertInNextBreakVec.end(),
+                                    [periodId](const PlacementObj &obj) {
+                                        return obj.pendingAdbrkId == periodId;
+                                    });
+
+    if (placementIter == mAdtoInsertInNextBreakVec.end())
+    {
+        if(mPlacementObj.curAdIdx == -1)
+        {
+            mPlacementObj.pendingAdbrkId = periodId;
+            mPlacementObj.openPeriodId = periodId;
+            mPlacementObj.curEndNumber = 0;
+            mPlacementObj.curAdIdx = 0;
+            mPlacementObj.adNextOffset = 0;
+            mPlacementObj.adStartOffset = 0;
+            mPlacementObj.waitForNextPeriod = false;
+            mAdtoInsertInNextBreakVec.push_back(mPlacementObj);
+            AAMPLOG_WARN("Next available DAI Ad break = %s", periodId.c_str());
+        }
+        else
+        {
+            // Add to an array of DAI ad's for B2B substitution
+            mAdtoInsertInNextBreakVec.emplace_back(periodId, periodId, 0, 0, 0, 0, false);
+        }
+        return true;
+    }
+    return false;
+}
+
 /**
  * @brief Method for fulfilling the Ad
  *
@@ -1111,47 +1150,13 @@ bool PrivateCDAIObjectMPD::FulFillAdObject()
 
 			startMS = adbreakObj.adsDuration;
 			uint32_t availSpace = (uint32_t)(adbreakObj.brkDuration - startMS);
-			if (availSpace == 0)
-			{
-				adErrorCode = eCDAI_ERROR_INVALID_SPECIFICATION;
-			}
 			if(availSpace < durationMs)
 			{
 				AAMPLOG_MIL("Adbreak's available space[%u] < Ad's Duration[%u]. Trimming the Ad.",  availSpace, durationMs);
 				durationMs = availSpace;
 			}
 			adbreakObj.adsDuration += durationMs;
-
-			// Add offset to mPeriodMap
-			if(isPeriodExist(periodId) && mPeriodMap[periodId].offset2Ad.empty())
-			{
-				//First Ad placement is doing now.
-				mPeriodMap[periodId].offset2Ad[0] = AdOnPeriod{0,0};
-			}
-			// Add entry to mAdtoInsertInNextBreakVec if not already present
-			auto placementIter = std::find_if(mAdtoInsertInNextBreakVec.begin(), mAdtoInsertInNextBreakVec.end(), [periodId](const PlacementObj &obj) { return obj.pendingAdbrkId == periodId; });
-			if (placementIter == mAdtoInsertInNextBreakVec.end())
-			{
-				//If current ad index is -1 (that is no ads are pushed into the map yet), current ad placement can take place from here itself.
-				//Otherwise, the Player need to wait until the current ad placement is done.
-				if(mPlacementObj.curAdIdx == -1 )
-				{
-					mPlacementObj.pendingAdbrkId = periodId;
-					mPlacementObj.openPeriodId = periodId;	//May not be available Now.
-					mPlacementObj.curEndNumber = 0;
-					mPlacementObj.curAdIdx = 0;
-					mPlacementObj.adNextOffset = 0;
-					mPlacementObj.adStartOffset = 0;
-					mPlacementObj.waitForNextPeriod = false;
-					mAdtoInsertInNextBreakVec.push_back(mPlacementObj);
-					AAMPLOG_WARN("Next available DAI Ad break = %s",mPlacementObj.pendingAdbrkId.c_str());
-				}
-				else
-				{
-					// Add to an array of DAI ad's for B2B substitution
-					mAdtoInsertInNextBreakVec.emplace_back(periodId, periodId, 0, 0, 0, 0, false);
-				}
-			}
+			
 			if(!finalManifest)
 			{
 				AAMPLOG_INFO("Final manifest to be downloaded from the FOG later. Deleting the manifest got from CDN.");
@@ -1172,8 +1177,15 @@ bool PrivateCDAIObjectMPD::FulFillAdObject()
 						}
 						else
 						{
-							if (adErrorCode != eCDAI_ERROR_INVALID_SPECIFICATION)
+							if (adErrorCode != eCDAI_ERROR_NONE)
+							{
+								node.invalid = true;
+							}
+							else
+							{
+								UpdatePlacementObject(periodId);
 								adStatus = true;
+							}
 						}
 						node.mpd = ad;
 						node.duration = durationMs;
@@ -1290,9 +1302,10 @@ void PrivateCDAIObjectMPD::SetAlternateContents(const std::string &periodId, con
 			{
 				adErrorCode = eCDAI_ERROR_DECISIONING_TIMEOUT;
 			}
-			if(adbreakObj.invalid || adbreakObj.brkDuration <= adbreakObj.adsDuration)
+			else if(adbreakObj.brkDuration <= adbreakObj.adsDuration)
 			{
 				AAMPLOG_WARN("No more space left in the Adbreak. Rejecting the promise.");
+				adErrorCode = (adbreakObj.brkDuration < adbreakObj.adsDuration) ? eCDAI_ERROR_INVALID_SPECIFICATION : eCDAI_ERROR_UNKNOWN;
 			}
 			else
 			{

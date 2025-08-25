@@ -598,6 +598,13 @@ public:
 	 * @return true if the next ad is available, false otherwise
 	 */
 	bool GetNextAdInBreakToPlace();
+
+	 /**
+     * @brief Initialize and add placement object for ad insertion
+     * @param[in] periodId Period identifier for ad placement
+     * @return true if placement object was added successfully
+     */
+    bool UpdatePlacementObject(const std::string& periodId);
 };
 
 #endif /* ADMANAGER_MPD_H_ */
