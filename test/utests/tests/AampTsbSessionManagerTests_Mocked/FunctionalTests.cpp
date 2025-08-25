@@ -387,7 +387,7 @@ TEST_F(AampTsbSessionManagerTests, TSBWriteTests_WrongMediaType)
 	// Valid media types are only VIDEO, AUDIO, SUBTITLE, AUX_AUDIO and INIT fragments
 	cachedFragment->type = eMEDIATYPE_DEFAULT;
 
-	EXPECT_CALL(*g_mockAampUtils, RecalculatePTS(_,_,_,_)).Times(0);
+	EXPECT_CALL(*g_mockPlayerInstanceAAMP, RecalculatePTS(_,_,_)).Times(0);
 	mAampTSBSessionManager->EnqueueWrite(TEST_BASE_URL, cachedFragment, TEST_PERIOD_ID);
 }
 
@@ -403,6 +403,6 @@ TEST_F(AampTsbSessionManagerTests, TSBWriteTests_InitFragmentSuccess)
 	cachedFragment->fragment.AppendBytes(TEST_DATA, strlen(TEST_DATA));
 	cachedFragment->type = eMEDIATYPE_INIT_VIDEO;
 
-	EXPECT_CALL(*g_mockAampUtils, RecalculatePTS(eMEDIATYPE_INIT_VIDEO, _, _, _)).Times(1).WillOnce(Return(0.0));
+	EXPECT_CALL(*g_mockPlayerInstanceAAMP, RecalculatePTS(eMEDIATYPE_INIT_VIDEO, _, _)).Times(1).WillOnce(Return(0.0));
 	mAampTSBSessionManager->EnqueueWrite(TEST_BASE_URL, cachedFragment, TEST_PERIOD_ID);
 }

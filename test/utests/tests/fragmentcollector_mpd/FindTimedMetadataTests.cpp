@@ -287,18 +287,21 @@ R"(<?xml version="1.0" encoding="UTF-8"?>
     // LiveManifest=false and init=true
     InitializeMPD(manifest);
     mStreamAbstractionAAMP_MPD->SetIsLiveManifest(false);
-    EXPECT_CALL(*g_mockPlayerInstanceAAMP, SaveNewTimedMetadata(_,StrEq(adBreakId.c_str()),30000.0)).Times(1);
-    EXPECT_CALL(*g_mockPlayerInstanceAAMP, SaveNewTimedMetadata(_,StrEq(adBreakId.c_str()),0)).Times(1);
+    
+//    long long timeMS, const char* szName, const char* szContent, int nb, const char* id, double durationMS
+    
+    EXPECT_CALL(*g_mockPlayerInstanceAAMP, SaveNewTimedMetadata(_,_,_,_,StrEq(adBreakId.c_str()),30000.0)).Times(1);
+    EXPECT_CALL(*g_mockPlayerInstanceAAMP, SaveNewTimedMetadata(_,_,_,_,StrEq(adBreakId.c_str()),0)).Times(1);
     mStreamAbstractionAAMP_MPD->InvokeFindTimedMetadata(mMPD, mRootNode, true, false);
 
     // LiveManifest=false and init=false
     ResetCDAIAdObject();
-    EXPECT_CALL(*g_mockPlayerInstanceAAMP, SaveNewTimedMetadata(_,StrEq(adBreakId.c_str()),30000.0)).Times(1);
-    EXPECT_CALL(*g_mockPlayerInstanceAAMP, SaveNewTimedMetadata(_,StrEq(adBreakId.c_str()),0)).Times(1);
+    EXPECT_CALL(*g_mockPlayerInstanceAAMP, SaveNewTimedMetadata(_,_,_,_,StrEq(adBreakId.c_str()),30000.0)).Times(1);
+    EXPECT_CALL(*g_mockPlayerInstanceAAMP, SaveNewTimedMetadata(_,_,_,_,StrEq(adBreakId.c_str()),0)).Times(1);
     mStreamAbstractionAAMP_MPD->InvokeFindTimedMetadata(mMPD, mRootNode, false, false);
 
     // Duplicate Periods are not processed
-    EXPECT_CALL(*g_mockPlayerInstanceAAMP, SaveNewTimedMetadata(_,_,_)).Times(0);
+    EXPECT_CALL(*g_mockPlayerInstanceAAMP, SaveNewTimedMetadata(_,_,_,_,_,_)).Times(0);
     mStreamAbstractionAAMP_MPD->InvokeFindTimedMetadata(mMPD, mRootNode, false, false);
 }
 

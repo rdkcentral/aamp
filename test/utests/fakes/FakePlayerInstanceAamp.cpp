@@ -82,7 +82,7 @@ void PlayerInstanceAAMP::SetPreferredDRM(DRMSystems drmType) {  }
 void PlayerInstanceAAMP::SetStereoOnlyPlayback(bool bValue) {  }
 void PlayerInstanceAAMP::SetBulkTimedMetaReport(bool bValue) {  }
 void PlayerInstanceAAMP::SetBulkTimedMetaReportLive(bool bValue) {  }
-void PlayerInstanceAAMP::SaveNewTimedMetadata(long long, char const*, char const*, int, char const*, double ){}
+//void PlayerInstanceAAMP::SaveNewTimedMetadata(long long, char const*, char const*, int, char const*, double ){}
 void PlayerInstanceAAMP::SetRetuneForUnpairedDiscontinuity(bool bValue) {  }
 void PlayerInstanceAAMP::SetRetuneForGSTInternalError(bool bValue) {  }
 void PlayerInstanceAAMP::SetAnonymousRequest(bool isAnonymous) {  }
@@ -188,6 +188,8 @@ long PlayerInstanceAAMP::GetAudioBitrate(void) { return 0; }
 long PlayerInstanceAAMP::GetInitialBitrate(void) { return 0; }
 long PlayerInstanceAAMP::GetInitialBitrate4k(void) { return 0; }
 long PlayerInstanceAAMP::GetMinimumBitrate(void) { return 0; }
+
+void PlayerInstanceAAMP::SetSubTimeScale(uint32_t subTimeScale){}
 //long PlayerInstanceAAMP::GetMaximumBitrate(void) { return 0; }
 double PlayerInstanceAAMP::GetPlaybackPosition(void) { return 0; }
 double PlayerInstanceAAMP::GetPlaybackDuration(void) { return 0; }
@@ -198,57 +200,32 @@ DRMSystems PlayerInstanceAAMP::GetPreferredDRM() { return eDRM_NONE; }
 std::vector<BitsPerSecond> PlayerInstanceAAMP::GetVideoBitrates(void) { static std::vector<BitsPerSecond> temp; return temp; }
 std::vector<BitsPerSecond> PlayerInstanceAAMP::GetAudioBitrates(void) { static std::vector<BitsPerSecond> temp; return temp; }
 std::string PlayerInstanceAAMP::GetManifest(void) { return nullptr; }
-//std::string PlayerInstanceAAMP::GetAvailableVideoTracks() { return nullptr; }
-//std::string PlayerInstanceAAMP::GetAvailableAudioTracks(bool allTrack) { return nullptr; }
-//std::string PlayerInstanceAAMP::GetAvailableTextTracks(bool allTrack) { return nullptr; }
-//std::string PlayerInstanceAAMP::GetVideoRectangle() { return nullptr; }
-//std::string PlayerInstanceAAMP::GetAudioTrackInfo() { return nullptr; }
-//std::string PlayerInstanceAAMP::GetTextTrackInfo() { return nullptr; }
-//std::string PlayerInstanceAAMP::GetPreferredAudioProperties() { return nullptr; }
-//std::string PlayerInstanceAAMP::GetPreferredTextProperties() { return nullptr; }
-//std::string PlayerInstanceAAMP::GetTextStyle() { return nullptr; }
 std::string PlayerInstanceAAMP::GetAvailableThumbnailTracks(void) { return nullptr; }
-//std::string PlayerInstanceAAMP::GetThumbnails(double  sduration, double  eduration) { return nullptr; }
 std::string PlayerInstanceAAMP::GetAAMPConfig() { return nullptr; }
-//std::string PlayerInstanceAAMP::GetPlaybackStats() { return nullptr; }
-//std::string PlayerInstanceAAMP::GetVideoPlaybackQuality(void) { return nullptr; }
 bool PlayerInstanceAAMP::SetUserAgent(std::string &userAgent){ return false; }
-//void PlayerInstanceAAMP::updateManifest(const char *manifestData){}
 bool PlayerInstanceAAMP::IsJsInfoLoggingEnabled(void){ return false; }
 bool PlayerInstanceAAMP::IsOOBCCRenderingSupported(void){ return false; }
+
 int PlayerInstanceAAMP::GetId(void){ return 0; }
-//AAMPPlayerState PlayerInstanceAAMP::GetState(void){ return eSTATE_IDLE; }
 std::string PlayerInstanceAAMP::GetSessionId() const { return ""; }
+size_t PlayerInstanceAAMP::HandleSSLWriteCallback ( char *ptr, size_t size, size_t nmemb, void* userdata ){ return 0; }
+size_t PlayerInstanceAAMP::HandleSSLHeaderCallback ( const char *ptr, size_t size, size_t nmemb, void* user_data ){ return 0; }
+int PlayerInstanceAAMP::HandleSSLProgressCallback ( void *clientp, double dltotal, double dlnow, double ultotal, double ulnow ){ return 0; }
+void PlayerInstanceAAMP::UpdateUseSinglePipeline( void ){}
+void PlayerInstanceAAMP::UpdateMaxDRMSessions( void ){}
+void PlayerInstanceAAMP::ActivatePlayer(){}
+void PlayerInstanceAAMP::SendMediaMetadataEvent(){}
 
-size_t PlayerInstanceAAMP::HandleSSLWriteCallback ( char *ptr, size_t size, size_t nmemb, void* userdata )
+double PlayerInstanceAAMP::RecalculatePTS(AampMediaType mediaType, const void *ptr, size_t len)
 {
-    return 0;
-}
-
-size_t PlayerInstanceAAMP::HandleSSLHeaderCallback ( const char *ptr, size_t size, size_t nmemb, void* user_data )
-{
-    return 0;
-}
-
-int PlayerInstanceAAMP::HandleSSLProgressCallback ( void *clientp, double dltotal, double dlnow, double ultotal, double ulnow )
-{
-    return 0;
-}
-
-void PlayerInstanceAAMP::UpdateUseSinglePipeline( void )
-{
+    double pts = 0.0;
+    if (g_mockPlayerInstanceAAMP != nullptr)
+    {
+        pts = g_mockPlayerInstanceAAMP->RecalculatePTS(mediaType, ptr, len);
+    }
+    return pts;
 }
 
-void PlayerInstanceAAMP::UpdateMaxDRMSessions( void )
-{
-}
-
-void PlayerInstanceAAMP::ActivatePlayer()
-{
-}
-void PlayerInstanceAAMP::SendMediaMetadataEvent()
-{
-}
 AAMPPlayerState PlayerInstanceAAMP::GetState()
 {
     AAMPPlayerState state = eSTATE_IDLE;
@@ -1168,7 +1145,7 @@ BitsPerSecond PlayerInstanceAAMP::GetDefaultBitrate4K()
     return 0;
 }
 
-void PlayerInstanceAAMPSaveNewTimedMetadata(long long timeMS, const char* szName, const char* szContent, int nb, const char* id, double durationMS)
+void PlayerInstanceAAMP::SaveNewTimedMetadata(long long timeMS, const char* szName, const char* szContent, int nb, const char* id, double durationMS)
 {
     if (g_mockPlayerInstanceAAMP != nullptr)
     {

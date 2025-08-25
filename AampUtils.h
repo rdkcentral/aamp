@@ -336,15 +336,6 @@ namespace aamp_utils
     }
 }
 
- /* @fn RecalculatePTS
- * @param[in] mediaType stream type
- * @param[in] ptr buffer pointer
- * @param[in] len length of buffer
- *
- * FIXME: aamputils shouldn't have dependency on PlayerInstanceAAMP
- */
-double RecalculatePTS(AampMediaType mediaType, const void *ptr, size_t len, PlayerInstanceAAMP *aamp);
-
 /**
  * @fn ConvertTsbLogLevel
  * @param[in] int Log leve set by user

@@ -62,8 +62,8 @@ protected:
         delete g_mockStreamAbstractionAAMP;
         g_mockStreamAbstractionAAMP = nullptr;
 
-        delete gpGlobalConfig;
-        gpGlobalConfig = nullptr;
+//        delete gpGlobalConfig;
+//        gpGlobalConfig = nullptr;
     }
 
 public:

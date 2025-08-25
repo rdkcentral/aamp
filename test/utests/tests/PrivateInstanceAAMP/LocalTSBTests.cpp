@@ -74,8 +74,8 @@ protected:
 		delete g_mockAampGstPlayer;
 		g_mockAampGstPlayer = nullptr;
 
-		delete gpGlobalConfig;
-		gpGlobalConfig = nullptr;
+//		delete gpGlobalConfig;
+//		gpGlobalConfig = nullptr;
 
 		delete g_mockAampConfig;
 		g_mockAampConfig = nullptr;

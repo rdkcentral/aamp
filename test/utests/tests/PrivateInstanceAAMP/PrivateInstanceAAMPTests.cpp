@@ -20,7 +20,7 @@
 #include <gtest/gtest.h>
 #include "AampConfig.h"
 
-AampConfig *gpGlobalConfig=NULL;
+//AampConfig *gpGlobalConfig=NULL;
 
 int main(int argc, char** argv)
 {

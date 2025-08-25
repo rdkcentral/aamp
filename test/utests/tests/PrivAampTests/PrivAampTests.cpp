@@ -24,12 +24,9 @@
 
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
-
 #include "main_aamp.h"
 #include "AampProfiler.h"
-
 #include "MockPlayerInstanceAAMP.h"
-#include "main_aamp.h"
 #include "AampConfig.h"
 #include "AampTSBSessionManager.h"
 #include "MockAampConfig.h"
@@ -46,7 +43,6 @@
 #include "MockAampJsonObject.h"
 #include "MockTSBSessionManager.h"
 #include "MockTSBStore.h"
-
 #include "fragmentcollector_mpd.h"
 
 using ::testing::An;
@@ -149,7 +145,7 @@ class PrivAampPrivTests : public ::testing::Test
 	void SetUp() override
 	{
 		config=new AampConfig();
-		aamp = new PlayerInstanceAAMP(config);
+        aamp = new PlayerInstanceAAMP();//config);
 		aamp->SetSessionId(session_id);
 		testp_aamp = new TestablePrivAamp(config);
 		g_mockAampConfig = new NiceMock<MockAampConfig>();
@@ -204,7 +200,7 @@ class PrivAampPrivTests : public ::testing::Test
 	class TestablePrivAamp : public PlayerInstanceAAMP
 	{
 public:
-	TestablePrivAamp(AampConfig *config):PlayerInstanceAAMP(config)
+	TestablePrivAamp(AampConfig *config):PlayerInstanceAAMP()//config)
 	{
 	}
 	bool callIsWideVineKIDWorkaround(const std::string url)

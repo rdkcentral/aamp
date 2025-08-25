@@ -48,8 +48,11 @@ include_directories(${AAMP_ROOT}/middleware/externals/contentsecuritymanager)
 include_directories(${AAMP_ROOT}/middleware/playerLogManager)
 
 set(TEST_SOURCES	PrivAampTests.cpp
-					PrivAampAAMPTests.cpp
-					PrivAampTests_TsbInjection.cpp)
+			PrivAampAAMPTests.cpp
+			PrivAampTests_TsbInjection.cpp
+			PauseOnPlaybackTests.cpp
+			PlayerInstanceAAMPTestsMain.cpp)
+                    
 set(AAMP_SOURCES ${AAMP_ROOT}/main_aamp.cpp)
 add_executable(	${EXEC_NAME}
 				${TEST_SOURCES}

@@ -77,6 +77,7 @@ public:
     MOCK_METHOD(double, GetLivePlayPosition, ());
     MOCK_METHOD(bool, GetLLDashChunkMode, ());
     MOCK_METHOD(void, SetLLDashChunkMode, (bool enable));
+    MOCK_METHOD(double, RecalculatePTS, (AampMediaType mediaType, const void *ptr, size_t len));
 };
 
 extern MockPlayerInstanceAAMP *g_mockPlayerInstanceAAMP;

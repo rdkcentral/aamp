@@ -240,7 +240,7 @@ TEST_F(fragmentcollector_mpd, UpdatePtsOffsetTest1)
 	respData = GetManifestForMPDDownloader();
 	mStreamAbstractionAAMP_MPD->mpd = respData->mMPDInstance.get();
 
-	PlayerInstanceAAMP *PlayerInstanceAAMP = new PlayerInstanceAAMP(gpGlobalConfig);
+    PlayerInstanceAAMP *PlayerInstanceAAMP = new class PlayerInstanceAAMP(gpGlobalConfig);
 	StreamAbstractionAAMP_MPD *streamAbstractionAAMP_MPD = new StreamAbstractionAAMP_MPD(PlayerInstanceAAMP, 123.45, 12.34);
 
 	MediaStreamContext ms(eTRACK_VIDEO, streamAbstractionAAMP_MPD, PlayerInstanceAAMP, "SAMPLETEXT");

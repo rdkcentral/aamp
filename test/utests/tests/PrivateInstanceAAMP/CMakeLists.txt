@@ -49,7 +49,7 @@ set(TEST_SOURCES PauseAtTests.cpp
                  MediaFormatTypeTests.cpp
                  IsPeriodChangeMarkedTests.cpp
                  SubtitleMuteTests.cpp
-                 PlayerInstanceAAMPTests.cpp
+                 PrivateInstanceAAMPTests.cpp
                  LocalTSBTests.cpp)
 
 set(AAMP_SOURCES ${AAMP_ROOT}/main_aamp.cpp)

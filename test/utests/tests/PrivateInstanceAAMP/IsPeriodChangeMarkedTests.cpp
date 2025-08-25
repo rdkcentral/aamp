@@ -46,8 +46,8 @@ protected:
         delete mPlayerInstanceAAMP;
         mPlayerInstanceAAMP = nullptr;
 
-        delete gpGlobalConfig;
-        gpGlobalConfig = nullptr;
+//        delete gpGlobalConfig;
+//        gpGlobalConfig = nullptr;
     }
 
 public:

@@ -76,7 +76,6 @@ protected:
 
     void SetUp() override
     {
-
         if(gpGlobalConfig == nullptr)
         {
             gpGlobalConfig =  new AampConfig();
@@ -98,11 +97,15 @@ protected:
 
     void TearDown() override
     {
+        mPlayerInstanceAAMP->mpStreamAbstractionAAMP = nullptr;
+        delete g_mockStreamAbstractionAAMP;
+        g_mockStreamAbstractionAAMP = nullptr;
+
         delete mPlayerInstanceAAMP;
         mPlayerInstanceAAMP = nullptr;
 
-        delete g_mockStreamAbstractionAAMP;
-        g_mockStreamAbstractionAAMP = nullptr;
+//        delete g_mockStreamAbstractionAAMP;
+//        g_mockStreamAbstractionAAMP = nullptr;
 
         delete g_mockAampGstPlayer;
         g_mockAampGstPlayer = nullptr;

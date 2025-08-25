@@ -95,11 +95,15 @@ protected:
 
     void TearDown() override
     {
+        mPlayerInstanceAAMP->mpStreamAbstractionAAMP = nullptr;
+        delete g_mockStreamAbstractionAAMP;
+        g_mockStreamAbstractionAAMP = nullptr;
+
         delete mPlayerInstanceAAMP;
         mPlayerInstanceAAMP = nullptr;
 
-        delete g_mockStreamAbstractionAAMP;
-        g_mockStreamAbstractionAAMP = nullptr;
+//        delete g_mockStreamAbstractionAAMP;
+//        g_mockStreamAbstractionAAMP = nullptr;
 
         delete g_mockAampEventManager;
         g_mockAampEventManager = nullptr;
@@ -110,8 +114,8 @@ protected:
         delete g_mockAampScheduler;
         g_mockAampScheduler = nullptr;
 
-        delete gpGlobalConfig;
-        gpGlobalConfig = nullptr;
+//        delete gpGlobalConfig;
+//        gpGlobalConfig = nullptr;
 
         delete g_mockAampConfig;
         g_mockAampConfig = nullptr;

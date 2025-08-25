@@ -39,7 +39,7 @@
 
 #include "AampCMCDCollector.h"
 #include "AampConfig.h"
-#include "AampCurlDefine.h"
+#include "downloader/AampCurlDefine.h"
 #include "AampDefine.h"
 #include "AampEvent.h"
 #include "AampEventListener.h"
@@ -2406,6 +2406,13 @@ public:
      */
     bool IsOOBCCRenderingSupported();
     
+    /* @fn RecalculatePTS
+    * @param[in] mediaType stream type
+    * @param[in] ptr buffer pointer
+    * @param[in] len length of buffer
+    */
+    double RecalculatePTS(AampMediaType mediaType, const void *ptr, size_t len);
+
     /**
      *   @fn GetPlaybackStats
      *
@@ -3414,7 +3421,7 @@ public: // FIXME
     /* Buffer Under flow status flag, under flow Start(buffering stopped) is true and under flow end is false*/
     bool mBufUnderFlowStatus;
     bool _GetBufUnderFlowStatus() { return mBufUnderFlowStatus; }
-    void _SetBufUnderFlowStatus(bool statusFlag) { mBufUnderFlowStatus = statusFlag; }
+    void SetBufUnderFlowStatus(bool statusFlag) { mBufUnderFlowStatus = statusFlag; }
     void _ResetBufUnderFlowStatus() { mBufUnderFlowStatus = false;}
     
     /**

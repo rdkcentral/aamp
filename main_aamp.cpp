@@ -392,8 +392,10 @@ mReportProgressPosn(0.0), mLastTelemetryTimeMS(0), mDiscontinuityFound(false), m
 	{
 		curl_global_init(CURL_GLOBAL_DEFAULT);
 		auto vers = curl_version_info(CURLVERSION_NOW);
-		printf( "curl version: %s\n", vers->version );
-
+        if( vers )
+        {
+            printf( "curl version: %s\n", vers->version );
+        }
 		gpGlobalConfig =  new AampConfig();
 		gpGlobalConfig->Initialize();
 		gpGlobalConfig->ApplyDeviceCapabilities();
@@ -3812,21 +3814,21 @@ bool PlayerInstanceAAMP::IsOOBCCRenderingSupported()
  * @param[in] ptr buffer pointer
  * @param[in] len length of buffer
  */
-double RecalculatePTS(AampMediaType mediaType, const void *ptr, size_t len, PlayerInstanceAAMP *aamp)
+double PlayerInstanceAAMP::RecalculatePTS(AampMediaType mediaType, const void *ptr, size_t len)
 {
     double ret = 0;
     uint32_t timeScale = 0;
     switch( mediaType )
     {
     case eMEDIATYPE_VIDEO:
-        timeScale = aamp->GetVidTimeScale();
+        timeScale = GetVidTimeScale();
         break;
     case eMEDIATYPE_AUDIO:
     case eMEDIATYPE_AUX_AUDIO:
-        timeScale = aamp->GetAudTimeScale();
+        timeScale = GetAudTimeScale();
         break;
     case eMEDIATYPE_SUBTITLE:
-        timeScale = aamp->GetSubTimeScale();
+        timeScale = GetSubTimeScale();
         break;
     default:
         AAMPLOG_WARN("Invalid media type %d", mediaType);
@@ -6186,7 +6188,7 @@ void PlayerInstanceAAMP::SendBufferChangeEvent(bool bufferingStopped)
     // BufferChangeEvent with True  = Availability of buffer to play
     BufferingChangedEventPtr e = std::make_shared<BufferingChangedEvent>(!bufferingStopped, _GetSessionId());
 
-    _SetBufUnderFlowStatus(bufferingStopped);
+    SetBufUnderFlowStatus(bufferingStopped);
     AAMPLOG_INFO("PlayerInstanceAAMP: Sending Buffer Change event status (Buffering): %s", (e->buffering() ? "End": "Start"));
 #ifdef AAMP_TELEMETRY_SUPPORT
     AAMPTelemetry2 at2(mAppName);
