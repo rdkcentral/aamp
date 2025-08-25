@@ -59,7 +59,7 @@ protected:
 		MockOpenCdmReset();
 		g_mockopencdm = new NiceMock<MockOpenCdm>();
 		g_mockPlayerInstanceAAMP = new NiceMock<MockPlayerInstanceAAMP>();
-		mAamp = new PlayerInstanceAAMP(gpGlobalConfig);
+        mAamp = new PlayerInstanceAAMP();//gpGlobalConfig);
 		mUtils = new TestUtilDrm(mAamp);
 	}
 	void TearDown() override

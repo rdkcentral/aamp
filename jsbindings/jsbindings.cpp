@@ -351,7 +351,7 @@ static JSValueRef AAMP_getProperty_timedMetadata(JSContextRef context, JSObjectR
 		return JSValueMakeUndefined(context);
 	}
 
-	PlayerInstanceAAMP* privAAMP = (pAAMP->_aamp != NULL) ? pAAMP->_aamp->aamp : NULL;
+	PlayerInstanceAAMP* privAAMP = (pAAMP->_aamp != NULL) ? pAAMP->_aamp : NULL;
 	if (privAAMP == NULL)
 	{
                 LOG_ERROR_EX("privAAMP not initialized");

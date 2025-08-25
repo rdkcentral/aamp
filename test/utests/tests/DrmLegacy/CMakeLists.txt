@@ -65,7 +65,8 @@ set(FAKE_SOURCES ${UTESTS_ROOT}/fakes/FakeAampRfc.cpp
 			 	 ${AAMP_ROOT}/test/utests/fakes/FakeContentSecurityManager.cpp
 			 	 ${AAMP_ROOT}/test/utests/fakes/FakePlayerScheduler.cpp
 				 ${AAMP_ROOT}/test/utests/fakes/FakeBase64.cpp
-				 ${AAMP_ROOT}/test/utests/fakes/FakePlayerLogManager.cpp)
+				 ${AAMP_ROOT}/test/utests/fakes/FakePlayerLogManager.cpp
+                 ${AAMP_ROOT}/test/utests/fakes/FakeAampScheduler.cpp)
 
 set(AAMP_SOURCES ${AAMP_ROOT}/middleware/drm/base64.cpp
 		 ${AAMP_ROOT}/AampConfig.cpp

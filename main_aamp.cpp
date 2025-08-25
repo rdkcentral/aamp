@@ -3932,8 +3932,6 @@ std::shared_ptr<PlayerExternalsInterface> pPlayerExternalsInterface = NULL;
 
 static unsigned int ui32CurlTrace = 0;
 
-bool PlayerInstanceAAMP::mTrackGrowableBufMem;
-
 /**
  * @struct CurlCbContextSyncTime
  * @brief context during curl callbacks
@@ -4826,8 +4824,7 @@ void PlayerInstanceAAMP::_Init( void )
     mHarvestCountLimit = GETCONFIGVALUE_PRIV(eAAMPConfig_HarvestCountLimit);
     mHarvestConfig = GETCONFIGVALUE_PRIV(eAAMPConfig_HarvestConfig);
     mAsyncTuneEnabled = ISCONFIGSET_PRIV(eAAMPConfig_AsyncTune);
-
-     mTrackGrowableBufMem = ISCONFIGSET_PRIV(eAAMPConfig_TrackMemory);
+    AampGrowableBuffer::EnableLogging(ISCONFIGSET_PRIV(eAAMPConfig_TrackMemory));
     mLastTelemetryTimeMS = aamp_GetCurrentTimeMS();
 }
 

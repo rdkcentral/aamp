@@ -4694,7 +4694,7 @@ void TrackState::SwitchSubtitleTrack()
 		ReleasePlaylistLock();
 		context->AbortWaitForAudioTrackCatchup(true);
 
-		mSubtitleParser->init(aamp->_GetPositionSeconds(), aamp->_GetBasePTS());
+		mSubtitleParser->init(aamp->_GetPositionSeconds(), aamp->GetBasePTS());
 	}
 }
 
@@ -6922,7 +6922,7 @@ void StreamAbstractionAAMP_HLS::ConfigureVideoProfiles()
  */
 void StreamAbstractionAAMP_HLS::ConfigureTextTrack()
 {
-	TextTrackInfo track = aamp->_GetPreferredTextTrack();
+	TextTrackInfo track = aamp->GetPreferredTextTrack();
 	currentTextTrackProfileIndex = -1;
 	if (!track.index.empty())
 	{

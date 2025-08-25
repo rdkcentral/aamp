@@ -34,7 +34,7 @@ using ::testing::NiceMock;
 using ::testing::Return;
 using ::testing::_;
 
-AampConfig *gpGlobalConfig{nullptr};
+//AampConfig *gpGlobalConfig{nullptr};
 
 extern HybridABRManager::AampAbrConfig eAAMPAbrConfig;
 

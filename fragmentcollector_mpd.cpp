@@ -6410,7 +6410,7 @@ void StreamAbstractionAAMP_MPD::SwitchSubtitleTrack(bool newTune)
 	if(!aamp->IsGstreamerSubsEnabled())
 	{
 		AAMPLOG_INFO("gstreamer not enabled");
-		pMediaStreamContext->mSubtitleParser->init(aamp->_GetPositionSeconds(), aamp->_GetBasePTS());
+		pMediaStreamContext->mSubtitleParser->init(aamp->_GetPositionSeconds(), aamp->GetBasePTS());
 	}
 }
 /**
@@ -6457,7 +6457,7 @@ void StreamAbstractionAAMP_MPD::SelectSubtitleTrack(bool newTune, std::vector<Te
 								 adaptationSet->GetMimeType().c_str(), GetLanguageForAdaptationSet(adaptationSet).c_str(), selAdaptationSetIndex);
 
 					TextTrackInfo *firstAvailTextTrack = nullptr;
-					if (aamp->_GetPreferredTextTrack().index.empty() && !isFrstAvailableTxtTrackSelected)
+					if (aamp->GetPreferredTextTrack().index.empty() && !isFrstAvailableTxtTrackSelected)
 					{
 						// If no subtitles are selected, opt for the first subtitle as default, and
 						for (int j = 0; j < tTracks.size(); j++)
@@ -6489,7 +6489,7 @@ void StreamAbstractionAAMP_MPD::SelectSubtitleTrack(bool newTune, std::vector<Te
 						// 2. The *actual* preferred text track, as set through the SetPreferredSubtitleLanguage API
 						// 3. First text track and keep it
 						// 3. Not set
-						selectedTextTrack = (nullptr != firstAvailTextTrack) ? *firstAvailTextTrack : aamp->_GetPreferredTextTrack();
+						selectedTextTrack = (nullptr != firstAvailTextTrack) ? *firstAvailTextTrack : aamp->GetPreferredTextTrack();
 					}
 
 					if (!selectedTextTrack.index.empty())

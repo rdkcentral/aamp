@@ -67,8 +67,9 @@ set(AAMP_SOURCES ${AAMP_ROOT}/jsbindings/jsbindings.cpp
 
 add_executable(${EXEC_NAME}
 			   ${TEST_SOURCES}
-			   ${MOCK_SOURCES}
 			   ${AAMP_SOURCES})
+               
+#               ${MOCK_SOURCES}
 
 set_target_properties(${EXEC_NAME} PROPERTIES FOLDER "utests")
 

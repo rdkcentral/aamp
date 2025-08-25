@@ -21,6 +21,10 @@
 
 MockAampGrowableBuffer *g_mockAampGrowableBuffer;
 
+void AampGrowableBuffer::EnableLogging( bool enable )
+{
+}
+
 AampGrowableBuffer::~AampGrowableBuffer( void )
 {
 	if (g_mockAampGrowableBuffer)

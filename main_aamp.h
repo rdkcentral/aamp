@@ -3107,8 +3107,6 @@ public: // FIXME
     AampCMCDCollector *mCMCDCollector;
     
     std::string seiTimecode; /**< SEI Timestamp information from Westeros */
-    
-    static bool mTrackGrowableBufMem; /**< GROWABLE BUFFER Debug is enabled or not */
     static bool mSubtecCCEnabled;    /**< To identify SUBTEC_CC is enabled or not */
     // ID3 metadata
     aamp::id3_metadata::MetadataCache mId3MetadataCache; /**< Metadata cache object for the JS event */
@@ -4854,7 +4852,7 @@ public: // FIXME
      *
      *   @return TextTrackInfo - preferred text track object
      */
-    const TextTrackInfo &_GetPreferredTextTrack() { return mPreferredTextTrack; }
+    const TextTrackInfo &GetPreferredTextTrack() { return mPreferredTextTrack; }
     
     /**
      *   @fn IsActiveInstancePresent
@@ -4868,15 +4866,7 @@ public: // FIXME
      *
      *   @return unsigned long long mVideoBasePTS
      */
-    unsigned long long _GetBasePTS() { return mVideoBasePTS; }
-    
-    /**
-     *   @brief Set the session Token for player
-     *
-     *   @param[in] sessionToken - sessionToken in string format
-     *   @return void
-     */
-    void _SetSessionToken(std::string &sessionToken);
+    unsigned long long GetBasePTS() { return mVideoBasePTS; }
     
     /**
      *   @fn PipelineValid

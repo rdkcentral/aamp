@@ -16,18 +16,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 #include <iostream>
 #include <iomanip>
 #include <algorithm>
 #include <unordered_map>
 #include <memory>
-
 #include "DrmUtils.h"
 #include "AampConfig.h"
 #include "main_aamp.h"
 #include "aampgstplayer.h"
-
 #include "MockPlayerInstanceAAMP.h"
 
 MockPlayerInstanceAAMP *g_mockPlayerInstanceAAMP = nullptr;
@@ -43,8 +40,11 @@ void MockAampReset(void)
     gpGlobalConfig = gGlobalConfig.get();
 }
 
-//PlayerInstanceAAMP::PlayerInstanceAAMP(AampConfig *config) : mConfig(config), mIsFakeTune(false), mIsVSS(false)
 PlayerInstanceAAMP::PlayerInstanceAAMP( StreamSink* streamSink, std::function< void(const unsigned char *, int, int, int) > exportFrames )
+{
+}
+
+PlayerInstanceAAMP::PlayerInstanceAAMP( AampConfig *cfg )
 {
 }
 
@@ -783,7 +783,7 @@ void PlayerInstanceAAMP::ResumeTrackInjection(AampMediaType type)
 {
 }
 
-void PlayerInstanceAAMPSaveTimedMetadata(long long timeMilliseconds, const char *szName,
+void PlayerInstanceAAMP::SaveTimedMetadata(long long timeMilliseconds, const char *szName,
 											const char *szContent, int nb, const char *id,
 											double durationMS)
 {

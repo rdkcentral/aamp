@@ -22,7 +22,7 @@
 #include <limits.h>
 #include <functional>
 #include "MockGLib.h"
-#include "AampLogManager.h"
+//#include "AampLogManager.h"
 
 using ::testing::NiceMock;
 using ::testing::_;
@@ -221,19 +221,6 @@ TEST_F(FunctionalTests, TransferNonEmptyTest)
     EXPECT_EQ(buffer.GetAvail(), 0);
 }
 
-////Test case is getting FAIL for UINT_MAX
-//TEST_F(FunctionalTests, ReserveBytesMaxNumBytesAssertTest) {
-
-//   AampGrowableBuffer buffer("buffer");  // Create a new buffer for this test
-//#if !defined(NDEBUG)
-//   ASSERT_DEATH(buffer.ReserveBytes(UINT_MAX), "");
-
-//#else
-//    buffer->ReserveBytes(UINT_MAX);
-
-//#endif
-//}
-
 // These test cases cover larger buffer sizes (1K, 8K, 32K)
 TEST_F(FunctionalTests, Reserve1KBytesTest)
 {
@@ -264,8 +251,7 @@ TEST_F(FunctionalTests, Reserve8KBytesTest)
     buffer.ReserveBytes(numBytesToReserve);
 
     EXPECT_CALL(*g_mockGLib, g_free(_)).WillOnce(callFree);
-
-
+    
     // Assert: Check the effects of the ReserveBytes function
     EXPECT_NE(buffer.GetPtr(), nullptr);          // Check if memory is allocated
     EXPECT_EQ(buffer.GetLen(), 0);                // Check if length remains 0
@@ -298,7 +284,6 @@ TEST_F(FunctionalTests, SeriesOfAppendsTest)
     size_t srcLen = strlen(srcData);
 
     EXPECT_CALL(*g_mockGLib, g_realloc(_,_)).WillRepeatedly(callRealloc);
-
 
     // Arrange: Reserve a large initial space
     buffer.ReserveBytes(8192); // Starting with 8K

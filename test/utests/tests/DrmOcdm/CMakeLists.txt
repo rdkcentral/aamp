@@ -56,7 +56,7 @@ set(TEST_SOURCES DrmTestsRun.cpp
 
 set(MOCK_SOURCES ${DRM_ROOT}/mocks/aampMocks.cpp
 				 ${DRM_ROOT}/mocks/FakeID3Metadata.cpp
-				 ${DRM_ROOT}/mocks/FakeABRManager.cpp
+                 ${DRM_ROOT}/mocks/FakeABRManager.cpp
 				 ${DRM_ROOT}/mocks/FakeAampStreamSinkManager.cpp
  				 ${DRM_ROOT}/mocks/curlMocks.c
 				 ${AAMP_ROOT}/middleware/test/utests/drm/mocks/gstMocks.c
@@ -73,7 +73,9 @@ set(FAKE_SOURCES ${UTESTS_ROOT}/fakes/FakeAampRfc.cpp
 				 ${AAMP_ROOT}/test/utests/fakes/FakeContentSecurityManagerSession.cpp
 				 ${AAMP_ROOT}/test/utests/fakes/FakePlayerScheduler.cpp
 				 ${AAMP_ROOT}/test/utests/fakes/FakeBase64.cpp
-				 ${AAMP_ROOT}/test/utests/fakes/FakePlayerLogManager.cpp)
+				 ${AAMP_ROOT}/test/utests/fakes/FakePlayerLogManager.cpp
+                 ${AAMP_ROOT}/test/utests/fakes/FakeAampScheduler.cpp)
+#                 ${AAMP_ROOT}/test/utests/fakes/FakePlayerInstanceAamp.cpp)
 
 set(AAMP_SOURCES ${AAMP_ROOT}/AampConfig.cpp
 				 ${AAMP_ROOT}/drm/AampDRMLicManager.cpp

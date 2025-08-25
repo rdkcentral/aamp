@@ -20,7 +20,7 @@
 #include <iostream>
 #include <string>
 #include <string.h>
-#include<limits>
+#include <limits>
 
 //include the google test dependencies
 #include <gtest/gtest.h>
@@ -28,8 +28,9 @@
 // unit under test
 #include <AampJsonObject.cpp>
 
+#include "AampConfig.h" // customJson
 // Fakes to allow linkage
-AampConfig *gpGlobalConfig=NULL;
+//AampConfig *gpGlobalConfig=NULL;
 
 TEST(_JsonObject, AampJsonObject_Test)
 {
