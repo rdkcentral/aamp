@@ -26,7 +26,7 @@
 #include <gmock/gmock.h>
 #include "main_aamp.h"
 #include "AampProfiler.h"
-#include "MockPlayerInstanceAAMP.h"
+//#include "MockPlayerInstanceAAMP.h"
 #include "AampConfig.h"
 #include "AampTSBSessionManager.h"
 #include "MockAampConfig.h"
