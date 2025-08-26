@@ -3861,7 +3861,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 				// check if seek beyond live point
 				if (seekPosition > seekWindowEnd)
 				{
-					AAMPLOG_WARN( "StreamAbstractionAAMP_MPD: offSetFromStart[%f] seekWindowEnd[%f]",
+					AAMPLOG_WARN( "StreamAbstractionAAMP_MPD: offSetFromStart[%f] seekWindowEnd[%f] ",
 							seekPosition, seekWindowEnd);
 					liveAdjust = true;
 					if (eTUNETYPE_SEEK == tuneType)
@@ -4223,7 +4223,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
                 aamp->UpdateRefreshPlaylistInterval((float)mMinUpdateDurationMs / 1000);
 				mProgramStartTime = mAvailabilityStartTime;
 			}
-			if(!mLowLatencyMode && ISCONFIGSET(eAAMPConfig_EnableMediaProcessor))
+			if(ISCONFIGSET(eAAMPConfig_EnableMediaProcessor))
 			{
 				// For segment timeline based streams, media processor is initialized in passthrough mode
 				InitializeMediaProcessor(mIsSegmentTimelineEnabled);
@@ -8486,7 +8486,9 @@ void StreamAbstractionAAMP_MPD::UpdateCulledAndDurationFromPeriodInfo(std::vecto
 			}
 			mCulledSeconds = firstPeriodStart;
 		}
+		
 		aamp->mAbsoluteEndPosition = lastPeriodStart + (mMPDParseHelper->GetPeriodDuration(lastPeriodIdx,mLastPlaylistDownloadTimeMs,(rate != AAMP_NORMAL_PLAY_RATE),aamp->IsUninterruptedTSB()) / 1000.00);
+		
 		if(aamp->mAbsoluteEndPosition < aamp->culledSeconds)
 		{
 			// Handling edge case just before dynamic => static transition.
@@ -9570,7 +9572,7 @@ bool StreamAbstractionAAMP_MPD::IndexSelectedPeriod(bool periodChanged, bool adS
 			//Exiting FetchLoop with content error
 			return false;
 		}
-		if (!mLowLatencyMode && ISCONFIGSET(eAAMPConfig_EnableMediaProcessor))
+		if (ISCONFIGSET(eAAMPConfig_EnableMediaProcessor))
 		{
 			// For segment timeline based streams, media processor is initialized in passthrough mode
 			InitializeMediaProcessor(mIsSegmentTimelineEnabled);
@@ -9727,7 +9729,7 @@ void StreamAbstractionAAMP_MPD::DetectDiscontinuityAndFetchInit(bool periodChang
 void StreamAbstractionAAMP_MPD::FetcherLoop()
 {
 	UsingPlayerId playerId(aamp->mPlayerId);
-	aamp_setThreadName("aampFragmentDownloader");
+	aamp_setThreadName("aampFragDL");
 	bool exitFetchLoop = false;
 	bool trickPlay = (AAMP_NORMAL_PLAY_RATE != aamp->rate);
 

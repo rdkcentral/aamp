@@ -361,6 +361,7 @@ TEST_F(TrackInjectTests, RunInjectLoopTestLLD)
 	EXPECT_CALL(*g_mockPlayerInstanceAAMP, GetVidTimeScale())
 		.WillRepeatedly(Return(1));
 	EXPECT_CALL(*g_mockIsoBmffBuffer, setBuffer(_,_));
+	EXPECT_CALL(*g_mockPlayerInstanceAAMP, ProcessID3Metadata(_, _, (AampMediaType)eMEDIATYPE_VIDEO, 0));
 	EXPECT_CALL(*g_mockPlayerInstanceAAMP, SendStreamTransfer((AampMediaType)eMEDIATYPE_VIDEO, _, pts, pts, duration, 0.0, false, false));
 	mMediaTrack->RunInjectLoop();
 }
