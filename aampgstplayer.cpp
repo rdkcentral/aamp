@@ -673,7 +673,7 @@ void AAMPGstPlayer::NotifyInjectorToResume()
 {
 	playerInstance->ResumeInjector();
 }
-
+static bool doSetDebug=true;
 /**
  *  @brief Inject stream buffer to gstreamer pipeline
  */
@@ -711,7 +711,12 @@ bool AAMPGstPlayer::SendHelper(AampMediaType mediaType, const void *ptr, size_t 
 								 {fpts, fdts, fDuration}, nullptr);
 		}
 	}
-
+if (mediaType == eMEDIATYPE_VIDEO && aamp->rate > AAMP_NORMAL_PLAY_RATE && doSetDebug)
+{
+	AAMPLOG_MIL("patrick");
+	playerInstance->EnableGstDebugLogging("videodecoder:5,libav:7");
+	doSetDebug = false;
+}
 	// Ignore eMEDIATYPE_DSM_CC packets
 	if(mediaType == eMEDIATYPE_DSM_CC)
 	{
