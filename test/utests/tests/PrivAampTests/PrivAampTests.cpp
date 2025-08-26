@@ -4389,7 +4389,7 @@ TEST_F(PrivAampTests, TuneHelperWithAampTsbSeekToLiveWhenTsbIsEmpty)
 }
 
 /**
- * @test PrivAampTests::TuneHelperWithAampTsbSeekToLiveWhenTsbIsNotEmpty
+ * @test PrivAampPrivTests::TuneHelperWithAampTsbSeekToLiveWhenTsbIsNotEmpty
  * @brief Test the method TuneHelper with AAMP TSB enabled, Tsb injection disabled
  * not newTune with TuneType eTUNETYPE_SEEKTOLIVE when TSB has data.
  *
@@ -4418,7 +4418,7 @@ TEST_F(PrivAampPrivTests, TuneHelperWithAampTsbSeekToLiveWhenTsbIsNotEmpty)
 }
 
 /**
- * @test PrivAampTests::TuneHelperWithAampTsbConfigureFlushSequence
+ * @test PrivAampPrivTests::TuneHelperWithAampTsbConfigureFlushSequence
  * @brief Test the method TuneHelper for the order of Configure and Flush calls.
  *
  * This test verifies that Flush is called after Configure in TuneHelper
