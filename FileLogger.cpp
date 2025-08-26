@@ -229,7 +229,7 @@ void FileLogger::writeToCurrentFile(const std::string& message) noexcept
 	
 	try {
 		// Direct write to reduce string copies
-		*m_fileStream << getCurrentTimestamp() << " " << message << "\n";
+		*m_fileStream << getCurrentTimestamp() << " " << message;
 		m_fileStream->flush(); // Ensure immediate write
 	} catch (const std::exception& e) {
 		std::cout << "[FileLogger::writeToCurrentFile] Exception during write: " << e.what() << std::endl;
@@ -286,9 +286,16 @@ std::string FileLogger::formatMessage(const char* format, va_list args) const no
 			return "";
 		}
 		
-		// Create buffer and format message
-		std::vector<char> buffer(size + 1);
-		vsnprintf(buffer.data(), buffer.size(), format, args);
+		// Use thread-local static buffer that grows as needed
+		static thread_local std::vector<char> buffer;
+		size_t requiredSize = static_cast<size_t>(size) + 1;
+		
+		// Only resize if we need more space
+		if (buffer.size() < requiredSize) {
+			buffer.resize(requiredSize + 128); // Add some extra space to reduce future allocations
+		}
+		
+		vsnprintf(buffer.data(), requiredSize, format, args);
 		
 		return std::string(buffer.data());
 	}
