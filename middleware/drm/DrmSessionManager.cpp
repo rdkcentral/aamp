@@ -205,17 +205,17 @@ void DrmSessionManager::setVideoMute(bool live, double currentLatency, bool live
 {
 	MW_LOG_WARN("Video mute status (new): %d, state changed: %.1s, pos: %f", isVideoOnMute, (isVideoOnMute == mIsVideoOnMute) ? "N":"Y", positionMs);
 
-	mIsVideoOnMute.store(isVideoOnMute);
+	mIsVideoOnMute = isVideoOnMute;
 	auto localSession = mContentSecurityManagerSession; //Remove potential isSessionValid(), getSessionID() race by using a local copy
 	if(localSession.isSessionValid())
 	{
-		ContentSecurityManager::GetInstance()->UpdateSessionState(localSession.getSessionID(), !mIsVideoOnMute.load());
-		if(!mIsVideoOnMute.load())
+		ContentSecurityManager::GetInstance()->UpdateSessionState(localSession.getSessionID(), !mIsVideoOnMute);
+		if(!mIsVideoOnMute)
 		{
 			//this is required as secmanager waits for speed update to show wm once session is active
-			int speed=mCurrentSpeed.load();
+			int speed=mCurrentSpeed;
 			MW_LOG_INFO("Setting speed after video unmute %d ", speed);
-			setPlaybackSpeedState(live, currentLatency, livepoint, liveOffsetMs, speed, positionMs);
+			setPlaybackSpeedState(live, currentLatency, livepoint, liveOffsetMs,mCurrentSpeed, positionMs);
 		}
 	}
 }
@@ -231,27 +231,27 @@ void DrmSessionManager::hideWatermarkOnDetach(void)
 	{
 		ContentSecurityManager::GetInstance()->UpdateSessionState(localSession.getSessionID(), false);
 	}
-	mFirstFrameSeen.store(false);
+	mFirstFrameSeen = false;
 }
 
 
 void DrmSessionManager::setPlaybackSpeedState(bool live, double currentLatency, bool livepoint , double liveOffsetMs, int speed, double positionMs, bool firstFrameSeen)
 {
-	bool isVideoOnMute=mIsVideoOnMute.load();
+	bool isVideoOnMute=mIsVideoOnMute;
 	auto localSession = mContentSecurityManagerSession; //Remove potential isSessionValid(), getSessionID() race by using a local copy
 	MW_LOG_WARN("In DrmSessionManager::after calling setPlaybackSpeedState speed=%d position=%f sessionID=[%" PRId64 "], mute: %d",speed, positionMs, localSession.getSessionID(), isVideoOnMute);
-	mCurrentSpeed.store(speed);
+	mCurrentSpeed = speed;
 	if(firstFrameSeen)
 	{
 		MW_LOG_INFO("First frame seen - latched");
-		mFirstFrameSeen.store(true);
+		mFirstFrameSeen = true;
 	}
-	else if (mFirstFrameSeen.load())
+	else if (mFirstFrameSeen)
 	{
 		MW_LOG_INFO("First frame has previously been seen, we will send speed updates");
 	}
 
-	if(localSession.isSessionValid() && !mIsVideoOnMute.load() && mFirstFrameSeen.load())
+	if(localSession.isSessionValid() && !mIsVideoOnMute && mFirstFrameSeen)
 	{
 		MW_LOG_INFO("calling ContentSecurityManager::setPlaybackSpeedState()");
 
@@ -275,8 +275,8 @@ void DrmSessionManager::setPlaybackSpeedState(bool live, double currentLatency, 
 	}
 	else
 	{
-		bool firstFrameSeenCopy=mFirstFrameSeen.load();
-		isVideoOnMute=mIsVideoOnMute.load();
+		bool firstFrameSeenCopy=mFirstFrameSeen;
+		isVideoOnMute=mIsVideoOnMute;
 		MW_LOG_INFO("Not calling ContentSecurityManager::setPlaybackSpeedState(), sessionID=[%" PRId64 "], mIsVideoOnMute=%d, firstFrameSeen=%d", localSession.getSessionID(), isVideoOnMute, firstFrameSeenCopy);
 	}
 }
@@ -648,7 +648,7 @@ KeyState DrmSessionManager::getDrmSession(int &err, std::shared_ptr<DrmHelper> d
 				{
 					// Set the drmSession's ID as mContentSecurityManagerSession so that this code will not be repeated for multiple calls for createDrmSession					
 					mContentSecurityManagerSession = slotSession;
-					bool videoMuteState = mIsVideoOnMute.load();
+ 					bool videoMuteState = mIsVideoOnMute;
 					MW_LOG_WARN("Activating re-used DRM, sessionId[%" PRId64 "], with video mute = %d", slotSession.getSessionID(), videoMuteState);
 					ContentSecurityManager::GetInstance()->UpdateSessionState(slotSession.getSessionID(), true);
 				}
@@ -761,8 +761,8 @@ void DrmSessionManager::notifyCleanup()
 		ContentSecurityManager::GetInstance()->UpdateSessionState(localSession.getSessionID(), false);
 		// Reset the session ID, the session ID is preserved within DrmSession instances
 		mContentSecurityManagerSession.setSessionInvalid();	//note this doesn't necessarily close the session as the session ID is also saved in the slot
-		mCurrentSpeed.store(0);
-		mFirstFrameSeen.store(false);
+		mCurrentSpeed = 0;
+		mFirstFrameSeen = false;
 	}
 }
 
