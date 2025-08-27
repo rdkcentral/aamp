@@ -1453,13 +1453,15 @@ bool InterfacePlayerRDK::Flush(double position, int rate, bool shouldTearDown, b
 	GstState current;
 	GstState pending;
 
+	MW_LOG_MIL("Neil entering InterfacePlayerRDK::Flush(position = %f, rate = %d, shouldTearDown = %s, isAppSeek = %s)",position, rate,  shouldTearDown?"true":"false", isAppSeek?"true":"false" );
+
 	gst_media_stream *stream = &gstPrivateContext->stream[eGST_MEDIATYPE_VIDEO];
 	gstPrivateContext->rate = rate;
 	gstPrivateContext->stream[eGST_MEDIATYPE_VIDEO].bufferUnderrun = false;
 	gstPrivateContext->stream[eGST_MEDIATYPE_AUDIO].bufferUnderrun = false;
 	if (gstPrivateContext->eosCallbackIdleTaskPending)
 	{
-		MW_LOG_MIL("InterfacePlayerRDK: Remove eosCallbackIdleTaskId %d", gstPrivateContext->eosCallbackIdleTaskId);
+		MW_LOG_MIL("Neil InterfacePlayerRDK: Remove eosCallbackIdleTaskId %d", gstPrivateContext->eosCallbackIdleTaskId);
 		mScheduler.RemoveTask(gstPrivateContext->eosCallbackIdleTaskId);
 		gstPrivateContext->eosCallbackIdleTaskId = PLAYER_TASK_ID_INVALID;
 		gstPrivateContext->eosCallbackIdleTaskPending = false;
@@ -1467,14 +1469,14 @@ bool InterfacePlayerRDK::Flush(double position, int rate, bool shouldTearDown, b
 	}
 	if (gstPrivateContext->ptsCheckForEosOnUnderflowIdleTaskId)
 	{
-		MW_LOG_MIL("InterfacePlayerRDK: Remove ptsCheckForEosCallbackIdleTaskId %d", gstPrivateContext->ptsCheckForEosOnUnderflowIdleTaskId);
+		MW_LOG_MIL("Neil InterfacePlayerRDK: Remove ptsCheckForEosCallbackIdleTaskId %d", gstPrivateContext->ptsCheckForEosOnUnderflowIdleTaskId);
 		g_source_remove(gstPrivateContext->ptsCheckForEosOnUnderflowIdleTaskId);
 		gstPrivateContext->ptsCheckForEosOnUnderflowIdleTaskId = PLAYER_TASK_ID_INVALID;
 
 	}
 	if (gstPrivateContext->bufferingTimeoutTimerId)
 	{
-		MW_LOG_MIL("InterfacePlayerRDK: Remove bufferingTimeoutTimerId %d", gstPrivateContext->bufferingTimeoutTimerId);
+		MW_LOG_MIL("Neil InterfacePlayerRDK: Remove bufferingTimeoutTimerId %d", gstPrivateContext->bufferingTimeoutTimerId);
 		g_source_remove(gstPrivateContext->bufferingTimeoutTimerId);
 		gstPrivateContext->bufferingTimeoutTimerId = PLAYER_TASK_ID_INVALID;
 
@@ -1485,7 +1487,7 @@ bool InterfacePlayerRDK::Flush(double position, int rate, bool shouldTearDown, b
 
 	if (gstPrivateContext->pipeline == NULL)
 	{
-		MW_LOG_WARN("InterfacePlayerRDK: Pipeline is NULL");
+		MW_LOG_WARN("Neil InterfacePlayerRDK: Pipeline is NULL");
 		return false;
 	}
 	bool bAsyncModify = false;
@@ -1502,7 +1504,7 @@ bool InterfacePlayerRDK::Flush(double position, int rate, bool shouldTearDown, b
 	ret = gst_element_get_state(gstPrivateContext->pipeline, &current, &pending, 100 * GST_MSECOND);
 	if ((current != GST_STATE_PLAYING && current != GST_STATE_PAUSED) || ret == GST_STATE_CHANGE_FAILURE)
 	{
-		MW_LOG_WARN("InterfacePlayerRDK: Pipeline state %s, ret %u", gst_element_state_get_name(current), ret);
+		MW_LOG_WARN("Neil InterfacePlayerRDK: Pipeline state %s, ret %u", gst_element_state_get_name(current), ret);
 		if (shouldTearDown)
 		{
 			MW_LOG_WARN("InterfacePlayerRDK: Pipeline is not in playing/paused state, hence resetting it");
@@ -1528,7 +1530,7 @@ bool InterfacePlayerRDK::Flush(double position, int rate, bool shouldTearDown, b
 			{
 				if (shouldTearDown)
 				{
-					MW_LOG_WARN("InterfacePlayerRDK: Pipeline is in playing/paused state, but audio_dec is in %s state, resetting it ret %u",
+					MW_LOG_WARN("Neil InterfacePlayerRDK: Pipeline is in playing/paused state, but audio_dec is in %s state, resetting it ret %u",
 								gst_element_state_get_name(aud_current), ret);
 					stopCallback(true);
 					// Set the rate back to the original value if it was an recovery Stop() call
@@ -1537,14 +1539,14 @@ bool InterfacePlayerRDK::Flush(double position, int rate, bool shouldTearDown, b
 				}
 			}
 		}
-		MW_LOG_MIL("InterfacePlayerRDK: Pipeline is in %s state position %f ret %d", gst_element_state_get_name(current), position, ret);
+		MW_LOG_MIL("Neil InterfacePlayerRDK: Pipeline is in %s state position %f ret %d", gst_element_state_get_name(current), position, ret);
 	}
 	/* Disabling the flush flag to avoid */
 	/* flush call again (which may cause freeze sometimes)      */
 	/* from SendGstEvents() API.
 	 */
 	ResetGstEvents();
-	MW_LOG_INFO("InterfacePlayerRDK: Pipeline flush seek - start = %f rate = %d", position, rate);
+	MW_LOG_INFO("Neil InterfacePlayerRDK: Pipeline flush seek - start = %f rate = %d", position, rate);
 	double playRate = 1.0;
 	if (eGST_MEDIAFORMAT_PROGRESSIVE == static_cast<GstMediaFormat>(m_gstConfigParam->media))
 	{
@@ -1555,14 +1557,14 @@ bool InterfacePlayerRDK::Flush(double position, int rate, bool shouldTearDown, b
 	{
 		if ((socInterface->IsSimulatorSink() || gstPrivateContext->usingRialtoSink) && rate != GST_NORMAL_PLAY_RATE)
 		{
-			MW_LOG_INFO("Resetting seek position to zero");
+			MW_LOG_INFO("Neil Resetting seek position to zero");
 			position = 0;
 		}
 	}
 	if (!gst_element_seek(gstPrivateContext->pipeline, playRate, GST_FORMAT_TIME, GST_SEEK_FLAG_FLUSH, GST_SEEK_TYPE_SET,
 						  position * GST_SECOND, GST_SEEK_TYPE_NONE, GST_CLOCK_TIME_NONE))
 	{
-		MW_LOG_ERR("Seek failed");
+		MW_LOG_ERR("NeilSeek failed");
 		SetPendingSeek(true);
 		//Save the updated seek position
 		SetSeekPosition(position);
@@ -1576,7 +1578,7 @@ bool InterfacePlayerRDK::Flush(double position, int rate, bool shouldTearDown, b
 		 * If trickplay, avoid tearing down the pipeline in ConfigurePipeline(),
 		 * by bringing the audio pipeline out of pre-roll which would block streaming.
 		 */
-		MW_LOG_INFO("Trickplay rate %d - send eos to audio sink", rate);
+		MW_LOG_INFO("Neil Trickplay rate %d - send eos to audio sink", rate);
 		GstPlayer_SignalEOS(gstPrivateContext->stream[eGST_MEDIATYPE_AUDIO]);
 	}
 
@@ -1586,6 +1588,8 @@ bool InterfacePlayerRDK::Flush(double position, int rate, bool shouldTearDown, b
 	}
 	gstPrivateContext->eosSignalled = false;
 	gstPrivateContext->numberOfVideoBuffersSent = 0;
+	MW_LOG_INFO("Neil leaving flush()");
+
 	return true;
 }
 void InterfacePlayerRDK::SignalConnect(gpointer instance, const gchar *detailed_signal, GCallback c_handler, gpointer data)
