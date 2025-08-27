@@ -408,40 +408,13 @@ void MediaTrack::UpdateTSAfterChunkInject()
 }
 
 /**
- * @fn InjectFragmentChunkInternal
- *
- * @param[in] mediaType - Media type of the fragment
- * @param[in] buffer - contains fragment to be processed and injected
- * @param[in] fpts - fragment PTS
- * @param[in] fdts - fragment DTS
- * @param[in] fDuration - fragment duration
- * @param[in] fragmentPTSOffset - PTS offset to be applied
- * @param[in] init - true if fragment is init fragment
- * @param[in] discontinuity - true if there is a discontinuity, false otherwise
- * @return void
+ * @brief To be implemented by derived classes to receive cached fragment Chunk
+ * Receives cached fragment and injects to sink.
  */
 void MediaTrack::InjectFragmentChunkInternal(AampMediaType mediaType, AampGrowableBuffer* buffer, double fpts, double fdts, double fDuration, double fragmentPTSOffset, bool init, bool discontinuity)
 {
-	if (playContext)
-	{
-		MediaProcessor::process_fcn_t processor = [this](AampMediaType type, SegmentInfo_t info, std::vector<uint8_t> buf)
-		{
-			// No-op processor for chunk injection
-		};
-		AAMPLOG_INFO("Type[%d] position: %f duration: %f PTSOffsetSec: %f initFragment: %d size: %zu",
-			type, fpts, fDuration, fragmentPTSOffset, init, buffer->GetLen());
-		bool ptsError = false;
-		if (!playContext->sendSegment(buffer, fpts, fDuration, fragmentPTSOffset, discontinuity, init, std::move(processor), ptsError))
-		{
-			AAMPLOG_INFO("Type[%d] Fragment discarded", mediaType);
-		}
-	}
-	else
-	{
-		aamp->ProcessID3Metadata(buffer->GetPtr(), buffer->GetLen(), mediaType);
-		AAMPLOG_DEBUG("Type[%d] fpts: %f fDuration: %f init: %d", type, fpts, fDuration, init);
-		aamp->SendStreamTransfer(mediaType, buffer, fpts, fdts, fDuration, fragmentPTSOffset, init, discontinuity);
-	}
+	aamp->SendStreamTransfer(mediaType, buffer, fpts, fdts, fDuration, fragmentPTSOffset, init, discontinuity);
+
 }
 
 /**
@@ -639,24 +612,34 @@ bool MediaTrack::WaitForFreeFragmentAvailable( int timeoutMs)
 		}
 	}
 
-	std::unique_lock<std::mutex> lock(mutex);
-	if ( ret && (numberOfFragmentsCached == maxCachedFragmentsPerTrack) )
+	if (ret)
 	{
-		if (timeoutMs >= 0)
+		if (IsInjectionFromCachedFragmentChunks())
 		{
-			if (std::cv_status::timeout == fragmentInjected.wait_for(lock,std::chrono::milliseconds(timeoutMs)))
-			{
-				AAMPLOG_TRACE("Timed out waiting for fragmentInjected");
-				ret = false;
-			}
+			ret = WaitForCachedFragmentChunkInjected(timeoutMs);
 		}
 		else
 		{
-			fragmentInjected.wait(lock);
-		}
-		if(abort)
-		{
-			ret = false;
+			std::unique_lock<std::mutex> lock(mutex);
+			if ((maxCachedFragmentsPerTrack) && (numberOfFragmentsCached == maxCachedFragmentsPerTrack))
+			{
+				if (timeoutMs >= 0)
+				{
+					if (std::cv_status::timeout == fragmentInjected.wait_for(lock, std::chrono::milliseconds(timeoutMs)))
+					{
+						AAMPLOG_TRACE("Timed out waiting for fragmentInjected");
+						ret = false;
+					}
+				}
+				else
+				{
+					fragmentInjected.wait(lock);
+				}
+				if (abort)
+				{
+					ret = false;
+				}
+			}
 		}
 	}
 	return ret;
@@ -706,11 +689,11 @@ bool MediaTrack::WaitForCachedFragmentChunkInjected(int timeoutMs)
 			fragmentChunkInjected.wait(lock);
 			AAMPLOG_DEBUG("[%s] wait complete for fragmentChunkInjected", name);
 		}
-	}
-	if(abort)
-	{
-		AAMPLOG_DEBUG("[%s] abort set, returning false", name);
-		ret = false;
+		if (abort)
+		{
+			AAMPLOG_DEBUG("[%s] abort set, returning false", name);
+			ret = false;
+		}
 	}
 
 	AAMPLOG_DEBUG("[%s] fragmentChunkIdxToFetch = %d numberOfFragmentChunksCached %d mCachedFragmentChunksSize %zu",
@@ -1097,6 +1080,10 @@ bool MediaTrack::ProcessFragmentChunk()
 		}
 		if (type != eTRACK_SUBTITLE || (aamp->IsGstreamerSubsEnabled()))
 		{
+			if( ISCONFIGSET(eAAMPConfig_CurlThroughput) )
+			{
+				AAMPLOG_MIL( "curl-inject type=%d", type );
+			}
 			AAMPLOG_INFO("Injecting chunk for %s br=%d,chunksize=%zu fpts=%f fduration=%f",name,bandwidthBitsPerSecond,parsedBufferChunk.GetLen(),fpts,fduration);
 			InjectFragmentChunkInternal((AampMediaType)type,&parsedBufferChunk , fpts, fpts, fduration, cachedFragment->PTSOffsetSec);
 			totalInjectedChunksDuration += fduration;
@@ -1323,6 +1310,7 @@ std::string MediaTrack::RestampSubtitle( const char* buffer, size_t bufferLen, d
 	{
 		str = std::string(buffer,bufferLen);
 	}
+	printf( "***restamped caption: %s\n", str.c_str() );
 	return str;
 }
 
@@ -1379,10 +1367,9 @@ void MediaTrack::ProcessAndInjectFragment(CachedFragment *cachedFragment, bool f
 			}
 		}
 		else if (ISCONFIGSET(eAAMPConfig_OverrideMediaHeaderDuration) &&
-			(eMEDIAFORMAT_DASH == aamp->mMediaFormat) &&
-			(aamp->IsLive()))
+			(eMEDIAFORMAT_DASH == aamp->mMediaFormat))
 		{
-			// Only for Live and DASH streams
+			// Only for DASH streams
 			ClearMediaHeaderDuration(cachedFragment);
 		}
 		if ((mSubtitleParser || (aamp->IsGstreamerSubsEnabled())) && type == eTRACK_SUBTITLE)
@@ -1668,8 +1655,8 @@ void MediaTrack::NotifyCachedSubtitleFragmentAvailable()
  */
 void MediaTrack::RunInjectLoop()
 {
-	AAMPLOG_WARN("fragment injector started. track %s", name);
 	UsingPlayerId playerId( aamp->mPlayerId );
+	AAMPLOG_WARN("fragment injector started. track %s", name);
 
 	bool notifyFirstFragment = true;
 	bool keepInjecting = true;
@@ -1851,14 +1838,11 @@ bool MediaTrack::IsFragmentCacheFull()
 	if(IsInjectionFromCachedFragmentChunks())
 	{
 		AAMPLOG_DEBUG("[%s] numberOfFragmentChunksCached %d mCachedFragmentChunksSize %zu", name, numberOfFragmentChunksCached, mCachedFragmentChunksSize);
-		rc = (numberOfFragmentChunksCached == mCachedFragmentChunksSize);
+		return numberOfFragmentChunksCached == mCachedFragmentChunksSize;
 	}
-	else
-	{
-		AAMPLOG_DEBUG("[%s] numberOfFragmentsCached %d maxCachedFragmentsPerTrack %d", name, numberOfFragmentsCached, maxCachedFragmentsPerTrack);
-		rc = numberOfFragmentsCached == maxCachedFragmentsPerTrack;
-	}
-	return rc;
+
+	AAMPLOG_DEBUG("[%s] numberOfFragmentsCached %d maxCachedFragmentsPerTrack %d", name, numberOfFragmentsCached, maxCachedFragmentsPerTrack);
+	return numberOfFragmentsCached == maxCachedFragmentsPerTrack;
 }
 
 /**
@@ -1885,6 +1869,7 @@ int MediaTrack::GetCurrentBandWidth()
 	return this->bandwidthBitsPerSecond;
 }
 
+
 /**
  * @brief Flushes all fetched cached fragments
  * Flushes all fetched media fragments
@@ -1892,20 +1877,38 @@ int MediaTrack::GetCurrentBandWidth()
 void MediaTrack::FlushFetchedFragments()
 {
 	std::lock_guard<std::mutex> guard(mutex);
-	while(numberOfFragmentsCached)
+	if (IsInjectionFromCachedFragmentChunks())
 	{
-		AAMPLOG_DEBUG("[%s] Free cachedFragment[%d] numberOfFragmentsCached %d", name, fragmentIdxToInject, numberOfFragmentsCached);
-		mCachedFragment[fragmentIdxToInject].fragment.Free();
-		memset(&mCachedFragment[fragmentIdxToInject], 0, sizeof(CachedFragment));
-
-		fragmentIdxToInject++;
-		if (fragmentIdxToInject == maxCachedFragmentsPerTrack)
+		while (numberOfFragmentChunksCached)
 		{
-  			fragmentIdxToInject = 0;
+			AAMPLOG_DEBUG("[%s] Free mCachedFragmentChunks[%d] numberOfFragmentChunksCached %d", name, fragmentChunkIdxToInject, numberOfFragmentChunksCached);
+			mCachedFragmentChunks[fragmentChunkIdxToInject].Clear();
+
+			fragmentChunkIdxToInject++;
+			if (fragmentChunkIdxToInject == maxCachedFragmentChunksPerTrack)
+			{
+				fragmentChunkIdxToInject = 0;
+			}
+			numberOfFragmentChunksCached--;
 		}
-		numberOfFragmentsCached--;
+		fragmentChunkInjected.notify_one();
 	}
-	fragmentInjected.notify_one();
+	else
+	{
+		while (numberOfFragmentsCached)
+		{
+			AAMPLOG_DEBUG("[%s] Free cachedFragment[%d] numberOfFragmentsCached %d", name, fragmentIdxToInject, numberOfFragmentsCached);
+			mCachedFragment[fragmentIdxToInject].Clear();
+
+			fragmentIdxToInject++;
+			if (fragmentIdxToInject == maxCachedFragmentsPerTrack)
+			{
+				fragmentIdxToInject = 0;
+			}
+			numberOfFragmentsCached--;
+		}
+		fragmentInjected.notify_one();
+	}
 }
 
 /**
@@ -1997,29 +2000,10 @@ MediaTrack::MediaTrack(TrackType type, PrivateInstanceAAMP* aamp, const char* na
 		,gotLocalTime(false),ptsRollover(false),currentLocalTimeMs(0)
 {
 	maxCachedFragmentsPerTrack = GETCONFIGVALUE(eAAMPConfig_MaxFragmentCached);
-	if( !maxCachedFragmentsPerTrack )
-	{
-		maxCachedFragmentsPerTrack = 1; // HACK
-	}
-	mCachedFragment = new CachedFragment[maxCachedFragmentsPerTrack];
-	for(int X =0; X< maxCachedFragmentsPerTrack; ++X)
-	{
-		mCachedFragment[X].fragment.Clear();
-	}
+	mCachedFragment = new CachedFragment[(maxCachedFragmentsPerTrack) ? maxCachedFragmentsPerTrack : 1];
 
 	maxCachedFragmentChunksPerTrack = GETCONFIGVALUE(eAAMPConfig_MaxFragmentChunkCached);
-	if (aamp->GetLLDashChunkMode())
-	{
-		SetCachedFragmentChunksSize(maxCachedFragmentChunksPerTrack);
-	}
-	else
-	{
-		SetCachedFragmentChunksSize(maxCachedFragmentsPerTrack);
-	}
-	for (int X = 0; X < maxCachedFragmentChunksPerTrack; ++X)
-	{
-		mCachedFragmentChunks[X].fragment.Clear();
-	}
+	SetCachedFragmentChunksSize((aamp->GetLLDashChunkMode()) ? maxCachedFragmentChunksPerTrack : maxCachedFragmentsPerTrack);
 }
 
 
@@ -2049,19 +2033,7 @@ MediaTrack::~MediaTrack()
 		}
 	}
 
-	if(aamp->GetLLDashServiceData()->lowLatencyMode)
-	{
-		AAMPLOG_INFO("LL-Mode flushing chunks");
-		FlushFragments();
-	}
-
-	for (int j = 0; j < maxCachedFragmentsPerTrack; j++)
-	{
-		mCachedFragment[j].fragment.Free();
-	}
-
 	SAFE_DELETE_ARRAY(mCachedFragment);
-
 }
 
 /**
@@ -2108,6 +2080,12 @@ void StreamAbstractionAAMP::WaitForVideoTrackCatchup()
 		double videoDuration = video->GetTotalInjectedDuration();
 		while ((audioDuration > (videoDuration + video->fragmentDurationSeconds)) && aamp->DownloadsAreEnabled() && !audio->IsDiscontinuityProcessed() && !video->IsInjectionAborted() && !(video->IsAtEndOfTrack()))
 		{
+			if (mTrackState == eDISCONTINUITY_IN_VIDEO)
+			{
+				AAMPLOG_WARN("Skipping WaitForVideoTrackCatchup as video is processing a discontinuity");
+				break;
+			}
+
 			if (std::cv_status::no_timeout == mCond.wait_for(lock, std::chrono::milliseconds(100)))
 			{
 				break;
@@ -3354,30 +3332,46 @@ bool MediaTrack::CheckForFutureDiscontinuity(double &cachedDuration)
 {
 	bool ret = false;
 	cachedDuration = 0;
+	int index = 0;
+	int count = 0;
+	int maxFrags = 0;
+	CachedFragment *pCachedFragment = NULL;
+
 	std::lock_guard<std::mutex> guard(mutex);
 
-	CachedFragment *pCachedFragment = nullptr;
-	int start = fragmentIdxToInject;
-	int count = numberOfFragmentsCached;
+	if (IsInjectionFromCachedFragmentChunks())
+	{
+		index = fragmentChunkIdxToInject;
+		count = numberOfFragmentChunksCached;
+		maxFrags = maxCachedFragmentChunksPerTrack;
+		pCachedFragment = mCachedFragmentChunks;
+	}
+	else
+	{
+		index = fragmentIdxToInject;
+		count = numberOfFragmentsCached;
+		maxFrags = maxCachedFragmentsPerTrack;
+		pCachedFragment = mCachedFragment;
+	}
+
 	while (count > 0)
 	{
-		pCachedFragment = &mCachedFragment[start];
 		if (!ret)
 		{
-			ret = ret || pCachedFragment->discontinuity;
+			ret = ret || pCachedFragment[index].discontinuity;
 			if (ret)
 			{
-				AAMPLOG_WARN("Found discontinuity for track %s at index: %d and position - %f", name, start, pCachedFragment->position);
+				AAMPLOG_WARN("Found discontinuity for track %s at index: %d and position - %f", name, index, pCachedFragment[index].position);
 			}
 		}
-		cachedDuration += pCachedFragment->duration;
-		if (++start == maxCachedFragmentsPerTrack)
+		cachedDuration += pCachedFragment[index].duration;
+		if (++index == maxFrags)
 		{
-			start = 0;
+			index = 0;
 		}
 		count--;
 	}
-	AAMPLOG_WARN("track %s numberOfFragmentsCached - %d, cachedDuration - %f", name, numberOfFragmentsCached, cachedDuration);
+	AAMPLOG_WARN("track %s numberOfFragmentsCached - %d, cachedDuration - %f", name, IsInjectionFromCachedFragmentChunks() ? numberOfFragmentChunksCached : numberOfFragmentsCached, cachedDuration);
 
 	return ret;
 }
@@ -3394,17 +3388,12 @@ void MediaTrack::OnSinkBufferFull()
 	}
 
 	bool notifyCacheCompleted = false;
-	bool cachingCompletedFlag = false;
 	{
-		{
-			std::lock_guard<std::mutex> guard(mutex);
-			sinkBufferIsFull = true;
-			cachingCompletedFlag = cachingCompleted;
-		}
-		
+		std::lock_guard<std::mutex> guard(mutex);
+		sinkBufferIsFull = true;
 		// check if cache buffer is full and caching was needed
 		if (IsFragmentCacheFull() && (eTRACK_VIDEO == type) &&
-			aamp->IsFragmentCachingRequired() && !cachingCompletedFlag)
+			aamp->IsFragmentCachingRequired() && !cachingCompleted)
 		{
 			AAMPLOG_WARN("## [%s] Cache is Full cacheDuration %d minInitialCacheSeconds %d, aborting caching!##",
 						name, currentInitialCacheDurationSeconds, aamp->GetInitialBufferDuration());
@@ -3827,6 +3816,12 @@ void StreamAbstractionAAMP::WaitForVideoTrackCatchupForAux()
 
 		while ((auxDuration > (videoDuration + video->fragmentDurationSeconds)) && aamp->DownloadsAreEnabled() && !aux->IsDiscontinuityProcessed() && !video->IsInjectionAborted() && !(video->IsAtEndOfTrack()))
 		{
+			if (mTrackState == eDISCONTINUITY_IN_VIDEO)
+			{
+				AAMPLOG_WARN("Skipping WaitForVideoTrackCatchupForAux as video is processing a discontinuity");
+				break;
+			}
+
 			if (std::cv_status::no_timeout == mAuxCond.wait_for(lock, std::chrono::milliseconds(100)))
 			{
 				break;
@@ -4515,7 +4510,7 @@ double MediaTrack::GetTotalInjectedDuration()
 {
 	std::lock_guard<std::mutex> lock(mTrackParamsMutex);
 	double ret = totalInjectedDuration;
-	if (IsInjectionFromCachedFragmentChunks())
+	if (aamp->GetLLDashChunkMode())
 	{
 		ret = totalInjectedChunksDuration;
 	}
