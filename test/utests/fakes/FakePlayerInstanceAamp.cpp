@@ -22,12 +22,6 @@
 
 MockPlayerInstanceAAMP *g_mockPlayerInstanceAAMP = nullptr;
 
-PlayerInstanceAAMP::PlayerInstanceAAMP( AampConfig *config )
-{
-    //gpGlobalConfig = config;
-    PlayerInstanceAAMP();
-}
-
 PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink, std::function< void(const unsigned char *, int, int, int) > exportFrames) {  }
 
 PlayerInstanceAAMP::~PlayerInstanceAAMP() {  }

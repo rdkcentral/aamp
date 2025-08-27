@@ -48,7 +48,7 @@ protected:
 	{
 		gpGlobalConfig = new AampConfig();
 
-		mPlayerInstanceAAMP = new PlayerInstanceAAMP(gpGlobalConfig);
+		mPlayerInstanceAAMP = new PlayerInstanceAAMP();
 
 		g_mockAampConfig = new NiceMock<MockAampConfig>();
 
@@ -240,7 +240,7 @@ TEST_F(fragmentcollector_mpd, UpdatePtsOffsetTest1)
 	respData = GetManifestForMPDDownloader();
 	mStreamAbstractionAAMP_MPD->mpd = respData->mMPDInstance.get();
 
-    PlayerInstanceAAMP *PlayerInstanceAAMP = new class PlayerInstanceAAMP(gpGlobalConfig);
+    PlayerInstanceAAMP *PlayerInstanceAAMP = new class PlayerInstanceAAMP();
 	StreamAbstractionAAMP_MPD *streamAbstractionAAMP_MPD = new StreamAbstractionAAMP_MPD(PlayerInstanceAAMP, 123.45, 12.34);
 
 	MediaStreamContext ms(eTRACK_VIDEO, streamAbstractionAAMP_MPD, PlayerInstanceAAMP, "SAMPLETEXT");

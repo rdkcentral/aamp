@@ -1113,9 +1113,6 @@ public:
      */
     PlayerInstanceAAMP( StreamSink* streamSink = NULL, std::function< void(const unsigned char *, int, int, int) > exportFrames = nullptr );
     
-    // for use with l1 tests
-    PlayerInstanceAAMP( AampConfig *config );
-    
     /**
      *   @fn ~PlayerInstanceAAMP
      */

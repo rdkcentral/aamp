@@ -40,8 +40,7 @@ public:
 protected:
 	void SetUp() override
 	{
-		config=new AampConfig();
-		p_aamp = new PlayerInstanceAAMP(config);
+		p_aamp = new PlayerInstanceAAMP();
 		g_mockStreamAbstractionAAMP = new NiceMock<MockStreamAbstractionAAMP>(p_aamp);
 	}
 
@@ -52,9 +51,6 @@ protected:
 
 		delete p_aamp;
 		p_aamp = nullptr;
-
-		delete config;
-		config = nullptr;
 	}
 };
 

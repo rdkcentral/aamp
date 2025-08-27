@@ -54,7 +54,7 @@ protected:
 			gpGlobalConfig = new AampConfig();
 		}
 		g_mockAampConfig = new NiceMock<MockAampConfig>();
-		mAamp = std::make_shared<PlayerInstanceAAMP>(gpGlobalConfig);
+		mAamp = std::make_shared<PlayerInstanceAAMP>();
 
 		// Create mocks for the AAMP objects
 		g_mockPlayerInstanceAAMP = new NiceMock<MockPlayerInstanceAAMP>();

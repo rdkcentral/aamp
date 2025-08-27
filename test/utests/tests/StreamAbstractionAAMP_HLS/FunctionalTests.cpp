@@ -221,7 +221,7 @@ protected:
             gpGlobalConfig = new AampConfig();
         }
 
-        mPlayerInstanceAAMP = new PlayerInstanceAAMP(gpGlobalConfig);
+        mPlayerInstanceAAMP = new PlayerInstanceAAMP();
 
         g_mockAampConfig = new MockAampConfig();
 
@@ -258,7 +258,7 @@ protected:
             gpGlobalConfig = new AampConfig();
         }
 
-        mPlayerInstanceAAMP = new PlayerInstanceAAMP(gpGlobalConfig);
+        mPlayerInstanceAAMP = new PlayerInstanceAAMP();
 
         g_mockAampConfig = new MockAampConfig();
 

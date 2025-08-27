@@ -127,7 +127,7 @@ protected:
 			gpGlobalConfig =  new AampConfig();
 		}
 
-		mPlayerInstanceAAMP = new PlayerInstanceAAMP(gpGlobalConfig);
+		mPlayerInstanceAAMP = new PlayerInstanceAAMP();
 
 		g_mockAampConfig = new NiceMock<MockAampConfig>();
 
@@ -376,7 +376,7 @@ protected:
 		{
 			gpGlobalConfig = new AampConfig();
 		}
-		mPlayerInstanceAAMP = new PlayerInstanceAAMP(gpGlobalConfig);
+		mPlayerInstanceAAMP = new PlayerInstanceAAMP();
 		_instanceStreamAbstractionAAMP_MPD = new StreamAbstractionAAMP_MPD(mPlayerInstanceAAMP, 0, AAMP_NORMAL_PLAY_RATE);
 		g_mockAampConfig = new NiceMock<MockAampConfig>();
 	}

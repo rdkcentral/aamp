@@ -37,7 +37,7 @@ protected:
             gpGlobalConfig =  new AampConfig();
         }
 
-        mPlayerInstanceAAMP = new PlayerInstanceAAMP(gpGlobalConfig);
+        mPlayerInstanceAAMP = new PlayerInstanceAAMP();
         mUnblocked = false;
     }
 

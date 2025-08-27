@@ -44,10 +44,6 @@ PlayerInstanceAAMP::PlayerInstanceAAMP( StreamSink* streamSink, std::function< v
 {
 }
 
-PlayerInstanceAAMP::PlayerInstanceAAMP( AampConfig *cfg )
-{
-}
-
 PlayerInstanceAAMP::~PlayerInstanceAAMP()
 {
 }

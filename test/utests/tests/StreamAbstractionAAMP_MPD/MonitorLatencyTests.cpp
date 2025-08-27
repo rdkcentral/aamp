@@ -257,7 +257,7 @@ protected:
 			gpGlobalConfig = new AampConfig();
 		}
 
-		mPlayerInstanceAAMP = new PlayerInstanceAAMP(gpGlobalConfig);
+		mPlayerInstanceAAMP = new PlayerInstanceAAMP();
 		mPlayerInstanceAAMP->mIsDefaultOffset = true;
 
 		g_mockAampConfig = new NiceMock<MockAampConfig>();

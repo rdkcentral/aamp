@@ -48,7 +48,7 @@ protected:
 		MockAampReset();
 		MockCurlReset();
 
-		mAamp = new PlayerInstanceAAMP(gpGlobalConfig);
+		mAamp = new PlayerInstanceAAMP();
 		mUtils = new TestUtilDrm(mAamp);
 	}
 

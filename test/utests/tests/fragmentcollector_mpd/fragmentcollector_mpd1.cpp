@@ -127,7 +127,7 @@ protected:
 		gpGlobalConfig = new AampConfig();
 		g_mockAampConfig = new NiceMock<MockAampConfig>();
 
-		mPlayerInstanceAAMP = new PlayerInstanceAAMP(gpGlobalConfig);
+		mPlayerInstanceAAMP = new PlayerInstanceAAMP();
 
 		g_mockPlayerInstanceAAMP = new StrictMock<MockPlayerInstanceAAMP>();
 

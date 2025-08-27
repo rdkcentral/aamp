@@ -60,7 +60,7 @@ class IsoBmffProcessorBaseTests : public ::testing::Test
 
 		void SetUp() override
 		{
-			mPlayerInstanceAAMP = new PlayerInstanceAAMP(gpGlobalConfig);
+			mPlayerInstanceAAMP = new PlayerInstanceAAMP();
 			g_mockPlayerInstanceAAMP = new MockPlayerInstanceAAMP();
 			g_mockAampConfig = new MockAampConfig();
 			g_mockIsoBmffBuffer = new MockIsoBmffBuffer();

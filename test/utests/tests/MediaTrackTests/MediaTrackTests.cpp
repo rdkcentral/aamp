@@ -115,7 +115,7 @@ protected:
 		g_mockAampConfig = new NiceMock<MockAampConfig>();
 
 		// A fake PlayerInstanceAAMP
-		mPlayerInstanceAAMP = new PlayerInstanceAAMP(gpGlobalConfig);
+		mPlayerInstanceAAMP = new PlayerInstanceAAMP();
 
 		g_mockPlayerInstanceAAMP = new NiceMock<MockPlayerInstanceAAMP>();
 		g_mockIsoBmffHelper = new NiceMock<MockIsoBmffHelper>();

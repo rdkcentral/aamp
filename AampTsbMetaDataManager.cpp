@@ -464,4 +464,3 @@ bool AampTsbMetaDataManager::ChangeMetaDataPosition(
 	}
 	return allUpdated;
 }
-

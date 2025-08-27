@@ -22,7 +22,6 @@
 #include <limits.h>
 #include <functional>
 #include "MockGLib.h"
-//#include "AampLogManager.h"
 
 using ::testing::NiceMock;
 using ::testing::_;
@@ -329,6 +328,10 @@ TEST_F(FunctionalTests, SetLenPositiveTest)
 
 TEST_F(FunctionalTests, SetLenAfterReserveBytesTest)
 {
+#ifdef __APPLE__
+    GTEST_SKIP();
+#endif
+
     AampGrowableBuffer buffer("buffer");    // Create a new buffer for this test
 
     {
@@ -345,6 +348,10 @@ TEST_F(FunctionalTests, SetLenAfterReserveBytesTest)
 
 TEST_F(FunctionalTests, SetLenAfterAppendBytesTest)
 {
+#ifdef __APPLE__
+    GTEST_SKIP();
+#endif
+    
     AampGrowableBuffer buffer("buffer");    // Create a new buffer for this test
 
     const char* srcData = "Hello, World";

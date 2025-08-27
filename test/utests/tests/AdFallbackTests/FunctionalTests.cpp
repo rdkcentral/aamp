@@ -138,7 +138,7 @@ class AdFallbackTests : public ::testing::Test
 				gpGlobalConfig = new AampConfig();
 			}
 
-			mPlayerInstanceAAMP = new PlayerInstanceAAMP(gpGlobalConfig);
+			mPlayerInstanceAAMP = new PlayerInstanceAAMP();
 			mPlayerInstanceAAMP->mIsDefaultOffset = true;
 
 			mCdaiObj = new CDAIObjectMPD(mPlayerInstanceAAMP);

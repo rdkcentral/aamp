@@ -119,7 +119,7 @@ protected:
 			g_mockPlayerInstanceAAMP = new NiceMock<MockPlayerInstanceAAMP>();
 		}
 
-		mPlayerInstanceAAMP = new PlayerInstanceAAMP(mConfig);
+		mPlayerInstanceAAMP = new PlayerInstanceAAMP();
 		mStreamAbstractionAAMP = new TestableStreamAbstractionAAMP(mPlayerInstanceAAMP);
 
 		// For initialisation of mediatrack

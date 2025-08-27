@@ -221,7 +221,7 @@ protected:
 		g_mockMediaStreamContext = new StrictMock<MockMediaStreamContext>();
 		g_mockPlayerInstanceAAMP = new StrictMock<MockPlayerInstanceAAMP>();
 
-		mPlayerInstanceAAMP = new PlayerInstanceAAMP(gpGlobalConfig);
+		mPlayerInstanceAAMP = new PlayerInstanceAAMP();
 		mBoolConfigSettings = mDefaultBoolConfigSettings;
 		mIntConfigSettings = mDefaultIntConfigSettings;
 	}

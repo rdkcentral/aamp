@@ -34,8 +34,6 @@ using ::testing::NiceMock;
 using ::testing::Return;
 using ::testing::_;
 
-//AampConfig *gpGlobalConfig{nullptr};
-
 extern HybridABRManager::AampAbrConfig eAAMPAbrConfig;
 
 class AampAbrTests : public ::testing::Test
@@ -46,8 +44,7 @@ class AampAbrTests : public ::testing::Test
 	protected:
 		void SetUp() override
 		{
-			config=new AampConfig();
-			aamp = new PlayerInstanceAAMP(config);
+			aamp = new PlayerInstanceAAMP();
 			g_mockAampConfig = new NiceMock<MockAampConfig>();
 		}
 
@@ -56,14 +53,11 @@ class AampAbrTests : public ::testing::Test
 			delete g_mockAampConfig;
 			g_mockAampConfig = nullptr;
 
-			delete config;
-			config = nullptr;
-
 			delete aamp;
 			aamp = nullptr;
 		}
-
 };
+
 TEST_F(AampAbrTests,LoadAampAbrConfig)
 {
 	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_ABRCacheLife))

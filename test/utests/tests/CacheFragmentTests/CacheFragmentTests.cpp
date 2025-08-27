@@ -186,7 +186,7 @@ class MediaStreamContextTest : public ::testing::TestWithParam<TestParams>
 					.Times(testing::AnyNumber())
 					.WillRepeatedly(Return(i.second));
 			}
-			mPlayerInstanceAAMP = new PlayerInstanceAAMP(gpGlobalConfig);
+			mPlayerInstanceAAMP = new PlayerInstanceAAMP();
 			mStreamAbstractionAAMP_MPD = new StreamAbstractionAAMP_MPD(mPlayerInstanceAAMP, 123.45, 1);
 			mTsbSessionManager = new AampTSBSessionManager(mPlayerInstanceAAMP);
 			g_mockPlayerInstanceAAMP = new NiceMock<MockPlayerInstanceAAMP>();

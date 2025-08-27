@@ -29,8 +29,6 @@ using ::testing::_;
 using ::testing::Return;
 using ::testing::StrictMock;
 
-AampConfig *gpGlobalConfig{nullptr};
-
 /**
  * @brief Functional tests for AampTrackWorker class
  */
@@ -88,13 +86,7 @@ protected:
 
 	void SetUp() override
 	{
-		if (gpGlobalConfig == nullptr)
-		{
-			gpGlobalConfig = new AampConfig();
-		}
-
-		mPlayerInstanceAAMP = new PlayerInstanceAAMP(gpGlobalConfig);
-
+		mPlayerInstanceAAMP = new PlayerInstanceAAMP();
 		mTestableAampTrackWorker = new TestableAampTrackWorker(mPlayerInstanceAAMP, mMediaType);
 	}
 
@@ -105,12 +97,6 @@ protected:
 
 		delete mPlayerInstanceAAMP;
 		mPlayerInstanceAAMP = nullptr;
-
-		if (gpGlobalConfig)
-		{
-			delete gpGlobalConfig;
-			gpGlobalConfig = nullptr;
-		}
 	}
 };
 

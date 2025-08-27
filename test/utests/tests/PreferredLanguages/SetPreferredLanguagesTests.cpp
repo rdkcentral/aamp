@@ -43,12 +43,7 @@ class SetPreferredLanguagesTests : public ::testing::Test
 protected:
 	void SetUp() override
 	{
-		if(gpGlobalConfig == nullptr)
-		{
-			gpGlobalConfig =  new AampConfig();
-		}
-
-		mPlayerInstanceAAMP = new PlayerInstanceAAMP(gpGlobalConfig);
+		mPlayerInstanceAAMP = new PlayerInstanceAAMP();
 		g_mockAampConfig = new NiceMock<MockAampConfig>();
 		g_mockAampGstPlayer = new MockAAMPGstPlayer( mPlayerInstanceAAMP);
 		g_mockStreamAbstractionAAMP = new StrictMock<MockStreamAbstractionAAMP>(mPlayerInstanceAAMP);
@@ -76,9 +71,6 @@ protected:
 
 		delete g_mockAampGstPlayer;
 		g_mockAampGstPlayer = nullptr;
-
-		delete gpGlobalConfig;
-		gpGlobalConfig = nullptr;
 
 		delete g_mockAampConfig;
 		g_mockAampConfig = nullptr;

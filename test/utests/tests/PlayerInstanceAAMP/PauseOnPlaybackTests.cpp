@@ -47,7 +47,7 @@ class TestablePlayerInstanceAAMP : public PlayerInstanceAAMP
 {
 public:
 
-    TestablePlayerInstanceAAMP(AampConfig *config) : PlayerInstanceAAMP(config)
+    TestablePlayerInstanceAAMP() : PlayerInstanceAAMP()
     {
     }
 
@@ -81,7 +81,7 @@ protected:
             gpGlobalConfig =  new AampConfig();
         }
 
-        mPlayerInstanceAAMP = new TestablePlayerInstanceAAMP(gpGlobalConfig);
+        mPlayerInstanceAAMP = new TestablePlayerInstanceAAMP();
 
         g_mockAampGstPlayer = new MockAAMPGstPlayer( mPlayerInstanceAAMP);
         g_mockAampStreamSinkManager = new NiceMock<MockAampStreamSinkManager>();

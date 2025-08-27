@@ -138,7 +138,7 @@ public:
 		{
 			gpGlobalConfig = new AampConfig();
 		}
-		mPlayerInstanceAAMP = new PlayerInstanceAAMP(gpGlobalConfig);
+		mPlayerInstanceAAMP = new PlayerInstanceAAMP();
 		g_mockAampConfig = new NiceMock<MockAampConfig>();
 		mPlayerInstanceAAMP->mIsDefaultOffset = true;
 		g_mockPlayerInstanceAAMP = new StrictMock<MockPlayerInstanceAAMP>();

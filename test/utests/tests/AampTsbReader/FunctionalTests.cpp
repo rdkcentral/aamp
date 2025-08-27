@@ -32,9 +32,6 @@ using ::testing::_;
 using ::testing::Return;
 using ::testing::StrictMock;
 
-
-AampConfig *gpGlobalConfig{nullptr};
-
 class FunctionalTests : public ::testing::Test
 {
 protected:
@@ -59,12 +56,7 @@ protected:
 
 	void SetUp() override
 	{
-		if (gpGlobalConfig == nullptr)
-		{
-			gpGlobalConfig = new AampConfig();
-		}
-
-		mPlayerInstanceAAMP = new PlayerInstanceAAMP(gpGlobalConfig);
+		mPlayerInstanceAAMP = new PlayerInstanceAAMP();
 		mDataMgr = std::make_shared<AampTsbDataManager>();
 		mTestableTsbReader = new TestableAampTsbReader(mPlayerInstanceAAMP, mDataMgr, eMEDIATYPE_VIDEO, "testSessionId");
 
@@ -74,12 +66,6 @@ protected:
 
 	void TearDown() override
 	{
-		if (gpGlobalConfig)
-		{
-			delete gpGlobalConfig;
-			gpGlobalConfig = nullptr;
-		}
-
 		delete mPlayerInstanceAAMP;
 		mPlayerInstanceAAMP = nullptr;
 

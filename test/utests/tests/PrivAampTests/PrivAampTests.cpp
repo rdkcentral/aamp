@@ -58,8 +58,6 @@ using ::testing::ValuesIn;
 using ::testing::WithParamInterface;
 using ::testing::_;
 
-//AampConfig *gpGlobalConfig{nullptr};
-
 const std::string session_id {"0259343c-cffc-4659-bcd8-97f9dd36f6b1"};
 const char SAMPLE_URL[] = "https://sampleUrl";
 const char SAMPLE_DEFOGGED_URL[] = "https://sampleDeFoggedUrl";
@@ -71,14 +69,12 @@ class PrivAampTests : public ::testing::Test
 public:
 	static constexpr double kAbsErrorLivePlayPosition = 0.1;
 	PlayerInstanceAAMP *p_aamp{nullptr};
-	AampConfig *config{nullptr};
 	CURL *mCurlEasyHandle{nullptr};
 
 protected:
 	void SetUp() override
 	{
-		config=new AampConfig();
-		p_aamp = new PlayerInstanceAAMP(config);
+		p_aamp = new PlayerInstanceAAMP();
 		mCurlEasyHandle = new int(1); // Valid ptr, though not used.
 		g_mockAampGstPlayer = new NiceMock<MockAAMPGstPlayer>(p_aamp);
 		g_mockAampStreamSinkManager = new NiceMock<MockAampStreamSinkManager>();
@@ -129,9 +125,6 @@ protected:
 
 		delete p_aamp;
 		p_aamp = nullptr;
-
-		delete config;
-		config = nullptr;
 	}
 };
 
@@ -3641,10 +3634,9 @@ TEST_F(PrivAampTests,mediaType2BucketTest_122)
 
 TEST_F(PrivAampTests, GetCustomLicenseHeaders_EmptyMap)
 {
-	auto config=new AampConfig();
-	PlayerInstanceAAMP aamp(config);
-	std::unordered_map<std::string, std::vector<std::string>> customHeaders;
-	aamp.GetCustomLicenseHeaders(customHeaders);
+    PlayerInstanceAAMP *aamp = new PlayerInstanceAAMP();
+    std::unordered_map<std::string, std::vector<std::string>> customHeaders;
+	aamp->GetCustomLicenseHeaders(customHeaders);
 	EXPECT_TRUE(customHeaders.empty());
 }
 TEST_F(PrivAampTests,SetDiscontinuityParamTest1)

@@ -56,8 +56,6 @@ using ::testing::SetArgPointee;
 using ::testing::NiceMock;
 using ::testing::Invoke;
 
-AampConfig *gpGlobalConfig{nullptr};
-
 class FunctionalTests : public ::testing::Test
 {
 protected:
@@ -70,16 +68,12 @@ protected:
 
 	void SetUp() override
 	{
-		if (gpGlobalConfig == nullptr)
-		{
-			gpGlobalConfig = new AampConfig();
-		}
 		g_mockAampConfig = new NiceMock<MockAampConfig>();
 		// Set TSB log level to TRACE
 		EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_TsbLogLevel))
 			.WillOnce(Return(static_cast<int>(TSB::LogLevel::TRACE)));
 
-		aamp = new PlayerInstanceAAMP(gpGlobalConfig);
+		aamp = new PlayerInstanceAAMP();
 		mAampTSBSessionManager = new AampTSBSessionManager(aamp);
 		TSB::Store::Config config;
 		mTSBStore = std::make_shared<TSB::Store>(config, AampLogManager::aampLogger, aamp->mPlayerId, TSB::LogLevel::TRACE);
@@ -132,11 +126,10 @@ protected:
 
 		delete g_mockMediaStreamContext;
 		g_mockMediaStreamContext = nullptr;
-
-		delete g_mockAampConfig;
-		g_mockAampConfig = nullptr;
+        
+        delete g_mockAampConfig;
+        g_mockAampConfig = nullptr;
 	}
-
 };
 
 TEST_F(FunctionalTests, ConvertMediaType)

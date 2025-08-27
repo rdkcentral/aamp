@@ -44,7 +44,7 @@ class MediaStreamContextTest : public testing::Test
             gpGlobalConfig =  new AampConfig();
         }
         mStreamAbstractionAAMP_MPD = new StreamAbstractionAAMP_MPD(NULL,123.45,12.34);
-        mPlayerInstanceAAMP = new PlayerInstanceAAMP(gpGlobalConfig);
+        mPlayerInstanceAAMP = new PlayerInstanceAAMP();
         mMediaStreamContext = new MediaStreamContext(eTRACK_VIDEO,mStreamAbstractionAAMP_MPD,mPlayerInstanceAAMP,"SAMPLETEXT");
         g_mockAampConfig = new MockAampConfig();
     }

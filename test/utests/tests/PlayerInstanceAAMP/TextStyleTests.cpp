@@ -50,7 +50,7 @@ protected:
             gpGlobalConfig =  new AampConfig();
         }
 
-        mPlayerInstanceAAMP = new PlayerInstanceAAMP(gpGlobalConfig);
+        mPlayerInstanceAAMP = new PlayerInstanceAAMP();
 
         g_mockAampGstPlayer = new MockAAMPGstPlayer( mPlayerInstanceAAMP);
         g_mockStreamAbstractionAAMP = new MockStreamAbstractionAAMP(mPlayerInstanceAAMP);

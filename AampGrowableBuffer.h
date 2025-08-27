@@ -93,8 +93,11 @@ public:
 
     static void EnableLogging( bool enable );
     
+protected:
+    int foo( void ){ return 1234; }
+    
 private:
-	const char *name;
+    const char *name;
 	void *ptr;      /**< Pointer to buffer's memory location (gpointer) */
 	size_t len;     /**< Subset of allocated buffer that is populated and in use */
 	size_t avail;   /**< Available buffer size */

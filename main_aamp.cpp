@@ -162,12 +162,6 @@ void ForceHttpConversionForFog(std::string& url,const std::string& from, const s
     }
 }
 
-PlayerInstanceAAMP::PlayerInstanceAAMP( AampConfig *config )
-{
-    gpGlobalConfig = config;
-    PlayerInstanceAAMP();
-}
-
 /**
  *  @brief PlayerInstanceAAMP Constructor.
  */

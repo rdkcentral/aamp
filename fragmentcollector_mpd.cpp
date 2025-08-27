@@ -5291,7 +5291,6 @@ void StreamAbstractionAAMP_MPD::ProcessPeriodAssetIdentifier(Node* node, uint64_
 bool StreamAbstractionAAMP_MPD::ProcessEventStream(uint64_t startMS, int64_t startOffsetMS, IPeriod * period, bool reportBulkMeta)
 {
 	bool ret = false;
-
 	const std::string &prdId = period->GetId();
 	if(!prdId.empty())
 	{

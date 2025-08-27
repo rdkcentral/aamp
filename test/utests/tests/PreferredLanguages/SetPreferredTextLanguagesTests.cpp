@@ -54,7 +54,7 @@ protected:
 			gpGlobalConfig =  new AampConfig();
 		}
 
-		mPlayerInstanceAAMP = new PlayerInstanceAAMP(gpGlobalConfig);
+		mPlayerInstanceAAMP = new PlayerInstanceAAMP();
 		g_mockAampConfig = new NiceMock<MockAampConfig>();
 		g_mockAampGstPlayer = new MockAAMPGstPlayer( mPlayerInstanceAAMP);
 		g_mockStreamAbstractionAAMP = new StrictMock<MockStreamAbstractionAAMP>(mPlayerInstanceAAMP);
@@ -82,9 +82,6 @@ protected:
 
 		delete g_mockAampGstPlayer;
 		g_mockAampGstPlayer = nullptr;
-
-		delete gpGlobalConfig;
-		gpGlobalConfig = nullptr;
 
 		delete g_mockAampConfig;
 		g_mockAampConfig = nullptr;
@@ -133,7 +130,7 @@ protected:
 class SetPreferredTextLanguagesTsbSessionManager : public PlayerInstanceAAMP
 	{
 public:
-	SetPreferredTextLanguagesTsbSessionManager(AampConfig *config):PlayerInstanceAAMP(config)
+	SetPreferredTextLanguagesTsbSessionManager():PlayerInstanceAAMP()
 	{
 	}
 
@@ -671,7 +668,7 @@ TEST_F(SetPreferredTextLanguagesTests, TextTrackNameTest5)
 TEST_F(SetPreferredTextLanguagesTests, SetTsbSessionManagerNull)
 {
 	std::vector<TextTrackInfo> tracks;
-	std::unique_ptr<SetPreferredTextLanguagesTsbSessionManager> testp_aamp(new SetPreferredTextLanguagesTsbSessionManager(gpGlobalConfig));
+	std::unique_ptr<SetPreferredTextLanguagesTsbSessionManager> testp_aamp(new SetPreferredTextLanguagesTsbSessionManager());
 
 	tracks.push_back(TextTrackInfo("idx0", "lang0", false, "rend0", "trackName0", "codecStr0", "cha0", "typ0", "lab0", "type0", Accessibility(), true));
 	tracks.push_back(TextTrackInfo("idx1", "lang1", false, "rend1", "trackName1", "codecStr1", "cha1", "typ1", "lab1", "type1", Accessibility(), true));
@@ -726,7 +723,7 @@ TEST_F(SetPreferredTextLanguagesTests, SetTsbSessionManagerNull)
 TEST_F(SetPreferredTextLanguagesTests, ChangePrefTextLangWithTSB)
 {
 	std::vector<TextTrackInfo> tracks;
-	std::unique_ptr<SetPreferredTextLanguagesTsbSessionManager> testp_aamp(new SetPreferredTextLanguagesTsbSessionManager(gpGlobalConfig));
+	std::unique_ptr<SetPreferredTextLanguagesTsbSessionManager> testp_aamp(new SetPreferredTextLanguagesTsbSessionManager());
 
 	tracks.push_back(TextTrackInfo("idx0", "lang0", false, "rend0", "trackName0", "codecStr0", "cha0", "typ0", "lab0", "type0", Accessibility(), true));
 	tracks.push_back(TextTrackInfo("idx1", "lang1", false, "rend1", "trackName1", "codecStr1", "cha1", "typ1", "lab1", "type1", Accessibility(), true));

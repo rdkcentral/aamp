@@ -21,10 +21,7 @@
 #include <gmock/gmock.h>
 
 #include "main_aamp.h"
-
-#include "AampConfig.h"
 #include "AampStreamSinkManager.h"
-#include "aampgstplayer.h"
 #include "MockAampGstPlayer.h"
 #include "MockStreamSink.h"
 #include "MockPlayerInstanceAAMP.h"
@@ -33,8 +30,6 @@ using ::testing::_;
 using ::testing::NiceMock;
 using ::testing::Return;
 
-AampConfig *gpGlobalConfig=NULL;
-
 class AampStreamSinkManagerTests : public ::testing::Test
 {
 protected:
@@ -42,21 +37,13 @@ protected:
     PlayerInstanceAAMP *mPlayerInstanceAAMP2{};
     id3_callback_t mId3HandlerCallback1;
     id3_callback_t mId3HandlerCallback2;
-    AampConfig mConfig1{};
-	AampConfig mConfig2{};
 
     void SetUp() override
     {
-        if(gpGlobalConfig == nullptr)
-        {
-            gpGlobalConfig =  new AampConfig();
-        }
-        mConfig1 = *gpGlobalConfig;
-        mPlayerInstanceAAMP1 = new PlayerInstanceAAMP(&mConfig1);
+        mPlayerInstanceAAMP1 = new PlayerInstanceAAMP();
         mPlayerInstanceAAMP1->mPlayerId = 1;
-
-        mConfig2 = *gpGlobalConfig;
-        mPlayerInstanceAAMP2 = new PlayerInstanceAAMP(&mConfig2);
+        
+        mPlayerInstanceAAMP2 = new PlayerInstanceAAMP();
         mPlayerInstanceAAMP2->mPlayerId = 2;
 
         g_mockPlayerInstanceAAMP = new NiceMock<MockPlayerInstanceAAMP>();
@@ -75,9 +62,6 @@ protected:
 
         delete mPlayerInstanceAAMP1;
         mPlayerInstanceAAMP1 = nullptr;
-
-        delete gpGlobalConfig;
-        gpGlobalConfig = nullptr;
 
         delete mPlayerInstanceAAMP2;
         mPlayerInstanceAAMP2 = nullptr;
