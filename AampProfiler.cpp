@@ -275,6 +275,14 @@ void ProfileEventAAMP::TuneEnd(TuneEndMetrics &mTuneEndMetrics,std::string appNa
 	memset(tuneTimeStrPrefix, '\0', sizeof(tuneTimeStrPrefix));
 	int mTotalTime;
  	int mTimedMetadataStartTime = static_cast<int> (mTuneEndMetrics.mTimedMetadataStartTime - tuneStartMonotonicBase);
+
+	auto tFirstFrame = buckets[PROFILE_BUCKET_FIRST_FRAME].tStart;
+	auto tDecrypt = buckets[PROFILE_BUCKET_DECRYPT_VIDEO].tFinish;
+	auto tFirstBuffer = buckets[PROFILE_BUCKET_FIRST_BUFFER].tStart;
+	
+	// compute gstreamer decode time, excluding decryption. For clear streams, measure from first buffer start time
+	auto tDecode = tFirstFrame - (tDecrypt?tDecrypt:tFirstBuffer);
+
 	if (mTuneEndMetrics.success > 0)
 	{
 		mTotalTime = playerPreBuffered ? buckets[PROFILE_BUCKET_FIRST_FRAME].tStart - buckets[PROFILE_BUCKET_PLAYER_PRE_BUFFERED].tStart : buckets[PROFILE_BUCKET_FIRST_FRAME].tStart;
@@ -307,7 +315,7 @@ void ProfileEventAAMP::TuneEnd(TuneEndMetrics &mTuneEndMetrics,std::string appNa
 		"%d,%d,%d,"		// LAPreProcDuration, LANetworkDuration, LAPostProcDuration
 
 		"%d,%d,"		// VideoDecryptDuration, AudioDecryptDuration
-		"%d,%d,"		// gstPlayStartTime, gstFirstFrameTime
+		"%d,%d,%d,"		// gstPlayStartTime, gstFirstFrameTime
 		"%d,%d,%d,"		// contentType, streamType, firstTune
 		"%d,%d,"		// If Player was in prebuffered mode, time spent in prebuffered(BG) mode
 		"%d,%d,"		// Asset duration in seconds, Connection is wifi or not - wifi(1) ethernet(0)
@@ -337,6 +345,7 @@ void ProfileEventAAMP::TuneEnd(TuneEndMetrics &mTuneEndMetrics,std::string appNa
 
 		(playerPreBuffered && mTuneEndMetrics.success > 0) ? buckets[PROFILE_BUCKET_FIRST_BUFFER].tStart - buckets[PROFILE_BUCKET_PLAYER_PRE_BUFFERED].tStart : buckets[PROFILE_BUCKET_FIRST_BUFFER].tStart, // gstPlaying: offset in ms from tunestart when pipeline first fed data
 		(playerPreBuffered && mTuneEndMetrics.success > 0) ? buckets[PROFILE_BUCKET_FIRST_FRAME].tStart - buckets[PROFILE_BUCKET_PLAYER_PRE_BUFFERED].tStart : buckets[PROFILE_BUCKET_FIRST_FRAME].tStart,  // gstFirstFrame: offset in ms from tunestart when first frame of video is decoded/presented
+		tDecode, // gstDecode: time taken to decode first frame, excluding decryption time
 		mTuneEndMetrics.contentType,mTuneEndMetrics.streamType,mTuneEndMetrics.mFirstTune,
 		playerPreBuffered,playerPreBuffered ? buckets[PROFILE_BUCKET_PLAYER_PRE_BUFFERED].tStart : 0,
 		durationSeconds,interfaceWifi,
