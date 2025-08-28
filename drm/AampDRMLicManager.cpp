@@ -49,49 +49,49 @@
  */
 static void  registerCb(AampDRMLicenseManager* _this, DrmSessionManager* instance)
 {
-      /* Register the callback for acquire license data */
-    instance->RegisterLicenseDataCb([_this](int &responseCode, std::shared_ptr<DrmHelper> drmHelper, int sessionSlot, int &cdmError, int streamType,void *metaDataPtr, bool isLicenseRenewal = false ) -> KeyState {
-        return _this->acquireLicense(responseCode, drmHelper, sessionSlot, cdmError,
-                                      (AampMediaType)streamType,metaDataPtr, false);
-    });
+	/* Register the callback for acquire license data */
+	instance->RegisterLicenseDataCb([_this](int &responseCode, std::shared_ptr<DrmHelper> drmHelper, int sessionSlot, int &cdmError, int streamType,void *metaDataPtr, bool isLicenseRenewal = false ) -> KeyState {
+			return _this->acquireLicense(responseCode, drmHelper, sessionSlot, cdmError,
+					(AampMediaType)streamType,metaDataPtr, false);
+			});
 
-    /** Profiler update callback */
-    instance->RegisterProfilingUpdateCb([_this](){
-      _this->ProfilerUpdate();
-      });
-    /** Content Protection Callback */
-    instance->RegisterHandleContentProtectionCb([_this](std::shared_ptr<DrmHelper> drmHelper, int streamType, std::vector<uint8_t> keyId, int contentProtectionUpd)->std::string    {
-		    return _this->HandleContentProtectionData(drmHelper, streamType, keyId, contentProtectionUpd);
-     });
-    /**  Register the profiler update callback for TriggerProfileBeginCb */
-     instance->RegisterDecryptProfile([_this](int streamType, int action, int result /* = 0 */){
-         _this->TriggerDecryptProfile(streamType, action, result);
-     });
+	/** Profiler update callback */
+	instance->RegisterProfilingUpdateCb([_this](){
+			_this->ProfilerUpdate();
+			});
 
-     /** Register the profiler update callback for TriggerLAProfileBeginCb */
-     instance->RegisterLAProfBegin([_this](int streamType){
-	    _this->TriggerLAProfileBeginCb(streamType);
-     });
+	/** Content Protection Callback */
+	instance->RegisterHandleContentProtectionCb([_this](std::shared_ptr<DrmHelper> drmHelper, int streamType, std::vector<uint8_t> keyId, int contentProtectionUpd)->std::string    {
+			return _this->HandleContentProtectionData(drmHelper, streamType, keyId, contentProtectionUpd);
+			});
+	/**  Register the profiler update callback for TriggerProfileBeginCb */
+	instance->RegisterDecryptProfile([_this](int streamType, int action, int result /* = 0 */){
+			_this->TriggerDecryptProfile(streamType, action, result);
+			});
 
-     /**  Register the profiler end callback for TriggerLAProfileEndCb */
-     instance->RegisterLAProfEnd([_this](int streamType){
-		_this->TriggerLAProfileEndCb(streamType);
-     });
-     
-     /** Register the profiler error callback for TriggerLAProfileErrorCb */
-      instance->RegisterLAProfError([_this](void* ptr){
-	     _this->TriggerLAProfileErrorCb(ptr);
-     });
+	/** Register the profiler update callback for TriggerLAProfileBeginCb */
+	instance->RegisterLAProfBegin([_this](int streamType){
+			_this->TriggerLAProfileBeginCb(streamType);
+			});
 
-     /**  Register the SetFailure callback for TriggerSetFailureCb */
-      instance->RegisterSetFailure([_this](void* ptr, int err){
-		      _this->TriggerSetFailure(ptr,err);
-		      });
-     /** Register the MetaData callback for TriggerDrmMetaDataEvent */
-       instance->RegisterMetaDataCb([_this]() -> std::shared_ptr<void> {
+	/**  Register the profiler end callback for TriggerLAProfileEndCb */
+	instance->RegisterLAProfEnd([_this](int streamType){
+			_this->TriggerLAProfileEndCb(streamType);
+			});
 
-             return _this->TriggerDrmMetaDataEvent();
-                    });
+	/** Register the profiler error callback for TriggerLAProfileErrorCb */
+	instance->RegisterLAProfError([_this](void* ptr){
+			_this->TriggerLAProfileErrorCb(ptr);
+			});
+
+	/**  Register the SetFailure callback for TriggerSetFailureCb */
+	instance->RegisterSetFailure([_this](void* ptr, int err){
+			_this->TriggerSetFailure(ptr,err);
+			});
+	/** Register the MetaData callback for TriggerDrmMetaDataEvent */
+	instance->RegisterMetaDataCb([_this]() -> std::shared_ptr<void> {
+			return _this->TriggerDrmMetaDataEvent();
+			});
 }
 /**
  *  getConfigs - To feed the configs to middleware DRM 
@@ -99,7 +99,7 @@ static void  registerCb(AampDRMLicenseManager* _this, DrmSessionManager* instanc
 void getConfigs(DrmSessionManager *mDrmSessionManager , PrivateInstanceAAMP *aampInstance)
 {
 	mDrmSessionManager->UpdateDRMConfig(
-        			aampInstance->mConfig->IsConfigSet(eAAMPConfig_UseSecManager),
+        		aampInstance->mConfig->IsConfigSet(eAAMPConfig_UseSecManager),
 			aampInstance->mConfig->IsConfigSet(eAAMPConfig_EnablePROutputProtection),
 			aampInstance->mConfig->IsConfigSet(eAAMPConfig_PropagateURIParam),
 			aampInstance->mIsFakeTune,
