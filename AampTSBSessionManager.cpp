@@ -29,6 +29,7 @@
 #include "isobmffhelper.h"
 #include "AampTsbAdPlacementMetaData.h"
 #include "AampTsbAdReservationMetaData.h"
+#include "AampTime.h"
 #include <iostream>
 #include <cmath>
 #include <utility>
@@ -60,7 +61,7 @@ AampTSBSessionManager::AampTSBSessionManager(PrivateInstanceAAMP *aamp)
 		, mIsoBmffHelper(std::make_shared<IsoBmffHelper>())
 		, mTsbLength(0)
 		, mCurrentWritePosition(0)
-		, mLastAdMetaDataProcessed(nullptr)  // Initialize to nullptr
+		, mLastAdMetaDataProcessed()
 {
 }
 
@@ -156,7 +157,7 @@ void AampTSBSessionManager::InitializeTsbReaders()
 		// Initialize readers if they are empty for all tracks
 		for (int i = 0; i < AAMP_TRACK_COUNT; i++)
 		{
-			if (nullptr != GetTsbDataManager((AampMediaType)i).get())
+			if (GetTsbDataManager((AampMediaType)i))
 			{
 				std::shared_ptr<AampTsbDataManager> dataMgr = GetTsbDataManager((AampMediaType)i);
 				mTsbReaders.emplace((AampMediaType)i, std::make_shared<AampTsbReader>(mAamp, dataMgr, (AampMediaType)i, mTsbSessionId));
@@ -178,7 +179,7 @@ void AampTSBSessionManager::InitializeTsbReaders()
  */
 std::shared_ptr<CachedFragment> AampTSBSessionManager::Read(TsbInitDataPtr initfragdata)
 {
-	INIT_CHECK_RETURN_VAL(nullptr);
+	INIT_CHECK_RETURN_VAL({});
 
 	CachedFragmentPtr cachedFragment = std::make_shared<CachedFragment>();
 	std::string url = initfragdata->GetUrl();
@@ -188,6 +189,7 @@ std::shared_ptr<CachedFragment> AampTSBSessionManager::Read(TsbInitDataPtr initf
 	cachedFragment->cacheFragStreamInfo = initfragdata->GetCacheFragStreamInfo();
 	cachedFragment->profileIndex = initfragdata->GetProfileIndex();
 	cachedFragment->initFragment = true;
+
 	if (!readFromAampCache)
 	{
 		// Read from TSBLibrary
@@ -203,13 +205,13 @@ std::shared_ptr<CachedFragment> AampTSBSessionManager::Read(TsbInitDataPtr initf
 			if (status != TSB::Status::OK)
 			{
 				AAMPLOG_WARN("Failure in read from TSBLibrary");
-				return nullptr;
+				cachedFragment.reset();
 			}
 		}
 		else
 		{
 			AAMPLOG_WARN("TSBLibrary returned zero length for URL: %s", uniqueUrl.c_str());
-			return nullptr;
+			cachedFragment.reset();
 		}
 	}
 
@@ -225,7 +227,7 @@ std::shared_ptr<CachedFragment> AampTSBSessionManager::Read(TsbInitDataPtr initf
  */
 std::shared_ptr<CachedFragment> AampTSBSessionManager::Read(TsbFragmentDataPtr fragment, double &pts)
 {
-	INIT_CHECK_RETURN_VAL(nullptr);
+	INIT_CHECK_RETURN_VAL({});
 
 	std::string url {fragment->GetUrl()};
 	std::string uniqueUrl = ToUniqueUrl(url,fragment->GetAbsolutePosition().inSeconds());
@@ -258,9 +260,9 @@ std::shared_ptr<CachedFragment> AampTSBSessionManager::Read(TsbFragmentDataPtr f
 		}
 		else
 		{
-			// Handle the case where GetInitFragData returns nullptr
-			AAMPLOG_WARN("Fragment's InitFragData is nullptr.");
-			return nullptr;
+			// Handle the case where GetInitFragData returns empty shared_ptr
+			AAMPLOG_WARN("Fragment's InitFragData is empty.");
+			return {};
 		}
 
 		cachedFragment->fragment.ReserveBytes(len);
@@ -276,13 +278,13 @@ std::shared_ptr<CachedFragment> AampTSBSessionManager::Read(TsbFragmentDataPtr f
 		else
 		{
 			AAMPLOG_WARN("Read failure from TSBLibrary");
-			return nullptr;
+			return {};
 		}
 	}
 	else
 	{
 		AAMPLOG_WARN("TSBLibrary returned zero length for URL: %s", url.c_str());
-		return nullptr;
+		return {};
 	}
 }
 
@@ -618,7 +620,7 @@ double AampTSBSessionManager::CullSegments()
 	{
 		mLastVideoPos = lastVideoPos;
 	}
-	if(culledduration > 0)
+	if(culledduration > 0.0)
 	{
 		mCulledDuration += culledduration;
 	}
@@ -750,7 +752,7 @@ AAMPStatusType AampTSBSessionManager::InvokeTsbReaders(double &startPosSec, floa
 	{
 		// Re-Invoke TSB readers to new position
 		mActiveTuneType = tuneType;
-		mLastAdMetaDataProcessed = nullptr;
+		mLastAdMetaDataProcessed.reset();
 		GetTsbReader(eMEDIATYPE_VIDEO)->Term();
 		ret = GetTsbReader(eMEDIATYPE_VIDEO)->Init(startPosSec, rate, tuneType);
 		if (eAAMPSTATUS_OK != ret)
@@ -782,11 +784,11 @@ void AampTSBSessionManager::SkipFragment(std::shared_ptr<AampTsbReader>& reader,
 {
 	if (nextFragmentData && reader && !reader->IsEos())
 	{
-		AampTime skippedDuration = 0.0;
+		AampTime skippedDuration{};
 		if(eMEDIATYPE_VIDEO == reader->GetMediaType())
 		{
 			AampTime startPos = nextFragmentData->GetAbsolutePosition();
-			int vodTrickplayFPS = mAamp->mConfig->GetConfigValue(eAAMPConfig_VODTrickPlayFPS);
+			const int vodTrickplayFPS = mAamp->mConfig->GetConfigValue(eAAMPConfig_VODTrickPlayFPS);
 			float rate = reader->GetPlaybackRate();
 			AampTime delta = 0.0;
 			if(mAamp->playerStartedWithTrickPlay)
@@ -803,18 +805,30 @@ void AampTSBSessionManager::SkipFragment(std::shared_ptr<AampTsbReader>& reader,
 			{
 				delta = static_cast<AampTime>(std::abs(static_cast<double>(rate))) / static_cast<double>(vodTrickplayFPS);
 			}
-			while(delta > nextFragmentData->GetDuration())
+			
+			// Only skip fragments when delta is larger than fragment duration
+			while (delta > 0.0)
 			{
-				delta -= nextFragmentData->GetDuration();
-				skippedDuration += nextFragmentData->GetDuration();
-				TsbFragmentDataPtr tmp = reader->FindNext(skippedDuration);
+				AampTime fragDuration = nextFragmentData->GetDuration();
+				if (delta <= fragDuration)
+					break;
+
+				delta -= fragDuration;
+				skippedDuration += fragDuration;
+				TsbFragmentDataPtr tmp{};
+				if (rate > 0.0)
+				{
+					tmp = nextFragmentData->next;
+				}
+				else if (rate < 0.0)
+				{
+					tmp = nextFragmentData->prev;
+				}
 				if (!tmp)
 				{
-					// At end of stream, break out of loop
 					break;
 				}
 				nextFragmentData = tmp;
-
 			}
 			AAMPLOG_INFO("Skipped frames [rate=%.02f] from %.02lf to %.02lf total duration = %.02lf",
 					rate, startPos.inSeconds(), nextFragmentData->GetAbsolutePosition().inSeconds(), skippedDuration.inSeconds());
@@ -847,7 +861,7 @@ bool AampTSBSessionManager::PushNextTsbFragment(MediaStreamContext *pMediaStream
 		if (numFreeFragments)
 		{
 			TsbFragmentDataPtr nextFragmentData = reader->FindNext();
-			float rate = reader->GetPlaybackRate();
+			AampTime rate = reader->GetPlaybackRate();
 			// Slow motion is handled in GST layer with SetPlaybackRate
 			if(AAMP_NORMAL_PLAY_RATE !=  rate && AAMP_RATE_PAUSE != rate && AAMP_SLOWMOTION_RATE != rate && eMEDIATYPE_VIDEO == mediaType)
 			{
@@ -924,7 +938,7 @@ bool AampTSBSessionManager::PushNextTsbFragment(MediaStreamContext *pMediaStream
 							}
 							UnlockReadMutex();
 
-							ProcessAdMetadata(mediaType, nextFragmentData, rate);
+							ProcessAdMetadata(mediaType, nextFragmentData, rate.inSeconds());
 
 							if (pMediaStreamContext->CacheTsbFragment(std::move(nextFragment)))
 							{
@@ -985,13 +999,13 @@ double AampTSBSessionManager::GetManifestEndDelta()
 {
 	double manifestEndDelta = 0.0;
 	LockReadMutex();
-	if(mStoreEndPosition > 0 && mAamp->mAbsoluteEndPosition > 0  )
+	if(mStoreEndPosition > 0.0 && mAamp->mAbsoluteEndPosition > 0.0  )
 	{
-		manifestEndDelta = mStoreEndPosition - mAamp->mAbsoluteEndPosition > 0;
+		manifestEndDelta = mStoreEndPosition - mAamp->mAbsoluteEndPosition > 0.0;
 	}
 	else
 	{
-		AAMPLOG_WARN("TSB SEssion manager progress has not yet updated!!! returning..  %.02lf", manifestEndDelta);
+		AAMPLOG_WARN("TSB Session manager progress has not yet updated!!! returning..  %.02lf", manifestEndDelta);
 	}
 	UnlockReadMutex();
 
@@ -1010,7 +1024,7 @@ void AampTSBSessionManager::UpdateProgress(double manifestDuration, double manif
 
 	double culledSeconds = 0.0;
 	culledSeconds = CullSegments();
-	if (culledSeconds > 0)
+	if (culledSeconds > 0.0)
 	{
 		// Update culled seconds based on seconds culled in store
 		AAMPLOG_TRACE("Updating culled seconds: %lf", culledSeconds);
@@ -1164,7 +1178,7 @@ void AampTSBSessionManager::ProcessAdMetadata(AampMediaType mediaType, TsbFragme
 	if ((AAMP_NORMAL_PLAY_RATE == rate) && (eMEDIATYPE_VIDEO == mediaType))
 	{
 		AampTime rangeStart;
-		if (mLastAdMetaDataProcessed != nullptr)
+		if (mLastAdMetaDataProcessed)
 		{
 			rangeStart = mLastAdMetaDataProcessed->GetPosition();
 		}
@@ -1182,7 +1196,7 @@ void AampTSBSessionManager::ProcessAdMetadata(AampMediaType mediaType, TsbFragme
 			AampTsbMetaData::Type::AD_METADATA_TYPE, rangeStart, rangeEnd);
 
 		// Process metadata items in chronological order
-		bool skip = mLastAdMetaDataProcessed != nullptr;
+		bool skip = static_cast<bool>(mLastAdMetaDataProcessed);
 		for (const auto& adMetadata : adMetadataItems)
 		{
 			// Skip until we have reached the last processed metadata

@@ -46,6 +46,7 @@
 
 #define DEFER_DRM_LIC_OFFSET_FROM_START 5
 #define DEFER_DRM_LIC_OFFSET_TO_UPPER_BOUND 5
+#define MAX_THREAD_NAME_LENGTH 16 // Linux is least common denominator, with up to 15 characters + null terminator
 
 /*
  * Variable initialization for various audio formats
@@ -1423,26 +1424,35 @@ const char *mystrstr(const char *haystack_ptr, const char *haystack_fin, const c
 
 /**
  * @brief To set the thread name
+ * The thread name should be 16 characters or less, including null terminator.
+ * If the name is longer than 15 characters, it will be truncated.
+ * @note This function is only supported on POSIX threads.
  * @param[in] name thread name
  */
 void aamp_setThreadName(const char *name)
 {
 	if (name == NULL)
 	{
-		AAMPLOG_ERR("Invalid name");
+		AAMPLOG_ERR("invalid name");
 	}
 	else
 	{
+		char truncatedThreadName[MAX_THREAD_NAME_LENGTH];
+		size_t len = strlen(name);
+		if( len>=MAX_THREAD_NAME_LENGTH )
+		{ // clamp, avoiding ERANGE error
+			len = MAX_THREAD_NAME_LENGTH-1;
+		}
+		memcpy( truncatedThreadName, name, len );
+		truncatedThreadName[len] = '\0';
 #ifdef __APPLE__
-		// Set the thread name
-		int ret = pthread_setname_np(name);
+		int ret = pthread_setname_np(truncatedThreadName); // different API signature on OSX
 #else
-		// Set the thread name
-		int ret = pthread_setname_np(pthread_self(), name);
+		int ret = pthread_setname_np(pthread_self(), truncatedThreadName);
 #endif
-		if (ret != 0)
-		{
-			AAMPLOG_ERR("Error: pthread_setname_np failed with error code[%d]", ret);
+		if( ret != 0 )
+		{ // Not exactly an error, but log it for information
+			AAMPLOG_WARN( "pthread_setname_np failed with error code[%d]", ret );
 		}
 	}
 }
