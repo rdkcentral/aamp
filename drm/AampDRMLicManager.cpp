@@ -194,6 +194,12 @@ KeyState AampDRMLicenseManager::acquireLicense(std::shared_ptr<DrmHelper> drmHel
 	int32_t httpResponseCode = -1;
 	int32_t httpExtendedStatusCode = -1;
 	KeyState code = KEY_ERROR;
+#ifdef USE_PREINIT_DECODING
+	if(aampInstance->mManifestUrl == FAKE_TUNE_URL)
+	{
+		return code;
+	}
+#endif
 	if (drmHelper->isExternalLicense() && !isLicenseRenewal)
 	{
 		// External license, assuming the DRM system is ready to proceed
@@ -1155,13 +1161,12 @@ DrmData * AampDRMLicenseManager::getLicenseSec(const LicenseRequest &licenseRequ
 		int32_t statusCode;
 		int32_t reasonCode;
 		int32_t businessStatus;
-
+		bool videoMuteState = mDrmSessionManager->mIsVideoOnMute.load();
 		if (!mDrmSessionManager->mContentSecurityManagerSession.isSessionValid())
 		{
 			// if we're about to get a licence and are not re-using a session, then we have not seen the first video frame yet. Do not allow watermarking to get enabled yet.
-			bool videoMuteState = mIsVideoOnMute;
 			AAMPLOG_WARN("First frame flag cleared before AcquireLicense, with mIsVideoOnMute=%d", videoMuteState);
-			mDrmSessionManager->mFirstFrameSeen = false;
+			mDrmSessionManager->mFirstFrameSeen.store(false);
 		}
 
 		std::string clientId = "aamp";
@@ -1183,7 +1188,7 @@ DrmData * AampDRMLicenseManager::getLicenseSec(const LicenseRequest &licenseRequ
 																 secclientSessionToken, challengeInfo.accessToken.length(),
 																 mDrmSessionManager->mContentSecurityManagerSession,
 																 &licenseResponseStr, &licenseResponseLength,
-																 &statusCode, &reasonCode, &businessStatus, mIsVideoOnMute, sleepTime);
+																 &statusCode, &reasonCode, &businessStatus, videoMuteState, sleepTime);
 		tEndTime = NOW_STEADY_TS_MS;
 		downloadTimeMS = tEndTime - tStartTime;
 		if (res)
