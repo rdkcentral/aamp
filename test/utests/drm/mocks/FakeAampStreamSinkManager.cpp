@@ -107,7 +107,7 @@ void AampStreamSinkManager::RemoveMediaHeader(unsigned track)
 
 std::shared_ptr<AampStreamSinkManager::MediaHeader> AampStreamSinkManager::GetMediaHeader(unsigned track)
 {
-	return nullptr;
+	return {};
 }
 
 

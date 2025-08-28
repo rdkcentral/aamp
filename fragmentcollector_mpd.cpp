@@ -11666,7 +11666,7 @@ void StreamAbstractionAAMP_MPD::SendMediaHeaders()
 				AAMPLOG_INFO("Track is disabled; url for init segment found: %s", header->url.c_str());
 				AampGrowableBuffer buffer("init-buffer");
 				std::string effectiveUrl;
-				int http_error = {};
+				int http_error{};
 				if (aamp->GetFile(header->url, (AampMediaType) iTrack, &buffer, effectiveUrl, &http_error, NULL, NULL, eCURLINSTANCE_VIDEO + iTrack))
 				{
 					aamp->SendStreamTransfer((AampMediaType) iTrack, &buffer, 0, 0, 0, 0, true, false);
