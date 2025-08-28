@@ -269,6 +269,7 @@ endif()
 
 set(LIBAAMP_SOURCES
 	AampConstants.h AampDefine.h AampMediaType.h uint33_t.h
+    AAMPAnomalyMessageType.h AuthTokenErrors.h
 	iso639map.cpp iso639map.h
 	AampCacheHandler.cpp AampCacheHandler.h
 	AampGrowableBuffer.cpp AampGrowableBuffer.h
@@ -290,8 +291,7 @@ set(LIBAAMP_SOURCES
 	streamabstraction.cpp
 	priv_aamp.cpp priv_aamp.h
 	main_aamp.cpp main_aamp.h
-	LangCodePreference.h
-	StreamOutputFormat.h
+	LangCodePreference.h StreamOutputFormat.h VideoZoomMode.h StreamSink.h AudioTrackInfo.h TextTrackInfo.h
 	drm/AampDRMLicManager.cpp
 	drm/DrmInterface.cpp
 	aampgstplayer.cpp aampgstplayer.h

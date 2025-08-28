@@ -27,8 +27,6 @@
 
 MockPrivateInstanceAAMP *g_mockPrivateInstanceAAMP = nullptr;
 
-bool PrivateInstanceAAMP::mTrackGrowableBufMem;
-
 static int PLAYERID_CNTR = 0;
 
 PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) :

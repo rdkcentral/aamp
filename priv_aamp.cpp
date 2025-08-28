@@ -73,10 +73,10 @@
 #include <string.h>
 #include "AampCurlDownloader.h"
 #include "AampMPDDownloader.h"
-
 #include <sched.h>
 #include "AampTSBSessionManager.h"
 #include "SocUtils.h"
+#include "AuthTokenErrors.h"
 
 #define LOCAL_HOST_IP       "127.0.0.1"
 #define AAMP_MAX_TIME_BW_UNDERFLOWS_TO_TRIGGER_RETUNE_MS (20*1000LL)
@@ -146,8 +146,6 @@ std::shared_ptr<PlayerExternalsInterface> pPlayerExternalsInterface = NULL;
 
 static unsigned int ui32CurlTrace = 0;
 
-bool PrivateInstanceAAMP::mTrackGrowableBufMem;
-
 /**
  * @struct CurlCbContextSyncTime
  * @brief context during curl callbacks
@@ -165,6 +163,16 @@ struct CurlCbContextSyncTime
 	CurlCbContextSyncTime& operator=(const CurlCbContextSyncTime& other) = delete;
 };
 
+/**
+ * @struct TuneFailureMap
+ * @brief  Structure holding aamp tune failure code and corresponding application error code and description
+ */
+struct TuneFailureMap
+{
+    AAMPTuneFailure tuneFailure;    /**< Failure ID */
+    int code;                       /**< Error code */
+    const char* description;        /**< Textual description */
+};
 
 static TuneFailureMap tuneFailureMap[] =
 {
@@ -1368,10 +1376,8 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 	mHarvestCountLimit = GETCONFIGVALUE_PRIV(eAAMPConfig_HarvestCountLimit);
 	mHarvestConfig = GETCONFIGVALUE_PRIV(eAAMPConfig_HarvestConfig);
 	mAsyncTuneEnabled = ISCONFIGSET_PRIV(eAAMPConfig_AsyncTune);
-
- 	mTrackGrowableBufMem = ISCONFIGSET_PRIV(eAAMPConfig_TrackMemory);
+    AampGrowableBuffer::EnableLogging(ISCONFIGSET_PRIV(eAAMPConfig_TrackMemory));
 	mLastTelemetryTimeMS = aamp_GetCurrentTimeMS();
-
 }
 
 /**
