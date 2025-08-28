@@ -268,77 +268,81 @@ else()
 endif()
 
 set(LIBAAMP_SOURCES
-	iso639map.cpp
-	AampCacheHandler.cpp
-	AampGrowableBuffer.cpp
-	AampScheduler.cpp
-	AampUtils.cpp
-	AampJsonObject.cpp
-	AampProfiler.cpp
-	AampEvent.cpp
-	AampEventListener.cpp
-	ota_shim.cpp
-	hdmiin_shim.cpp
-	videoin_shim.cpp
-	compositein_shim.cpp
-	rmf_shim.cpp
-	fragmentcollector_progressive.cpp
-	fragmentcollector_hls.cpp
-	fragmentcollector_mpd.cpp
-	admanager_mpd.cpp
+	AampConstants.h AampDefine.h AampMediaType.h uint33_t.h
+    AAMPAnomalyMessageType.h AuthTokenErrors.h
+	iso639map.cpp iso639map.h
+	AampCacheHandler.cpp AampCacheHandler.h
+	AampGrowableBuffer.cpp AampGrowableBuffer.h
+	AampScheduler.cpp AampScheduler.h
+	AampUtils.cpp AampUtils.h
+	AampJsonObject.cpp AampJsonObject.h
+	AampProfiler.cpp AampProfiler.h
+	AampEvent.cpp AampEvent.h
+	AampEventListener.cpp AampEventListener.h
+	ota_shim.cpp ota_shim.h
+	hdmiin_shim.cpp hdmiin_shim.h
+	videoin_shim.cpp videoin_shim.h
+	compositein_shim.cpp compositein_shim.h
+	rmf_shim.cpp rmf_shim.h
+	fragmentcollector_progressive.cpp fragmentcollector_progressive.h
+	fragmentcollector_hls.cpp fragmentcollector_hls.h
+	fragmentcollector_mpd.cpp fragmentcollector_mpd.h
+	admanager_mpd.cpp admanager_mpd.h
 	streamabstraction.cpp
-	priv_aamp.cpp
-	main_aamp.cpp
-	drm/AampDRMLicManager.cpp
-	drm/DrmInterface.cpp
-	aampgstplayer.cpp
-	AampBufferControl.cpp
-	tsprocessor.cpp
-	aamplogging.cpp
-	AampConfig.cpp
-	AampEventManager.cpp
-	subtitle/webvttParser.cpp
-	isobmff/isobmffbox.cpp
-	isobmff/isobmffbuffer.cpp
-	isobmff/isobmffprocessor.cpp
-	isobmff/isobmffhelper.cpp
-	MediaStreamContext.cpp
-	downloader/AampCurlStore.cpp
-	AampDRMLicPreFetcher.cpp
-	AampCMCDCollector.cpp
-	downloader/AampCurlDownloader.cpp
-	ID3Metadata.cpp
+	priv_aamp.cpp priv_aamp.h
+	main_aamp.cpp main_aamp.h
+	LangCodePreference.h StreamOutputFormat.h VideoZoomMode.h StreamSink.h AudioTrackInfo.h TextTrackInfo.h
+	drm/AampDRMLicManager.cpp drm/AampDRMLicManager.h
+	drm/DrmInterface.cpp drm/DrmInterface.h
+	aampgstplayer.cpp aampgstplayer.h
+	AampBufferControl.cpp AampBufferControl.h
+	tsprocessor.cpp tsprocessor.h
+	aamplogging.cpp AampLogManager.h
+	AampConfig.cpp AampConfig.h
+	AampEventManager.cpp AampEventManager.h
+	subtitle/webvttParser.cpp subtitle/webvttParser.h subtitle/vttCue.h
+	isobmff/isobmffbox.cpp isobmff/isobmffbox.h
+	isobmff/isobmffbuffer.cpp isobmff/isobmffbuffer.h
+	isobmff/isobmffprocessor.cpp isobmff/isobmffprocessor.h
+	isobmff/isobmffhelper.cpp isobmff/isobmffhelper.h
+	MediaStreamContext.cpp MediaStreamContext.h
+	downloader/AampCurlStore.cpp downloader/AampCurlStore.h downloader/AampCurlDefine.h
+	AampDRMLicPreFetcher.cpp AampDRMLicPreFetcher.h
+	AampCMCDCollector.cpp AampCMCDCollector.h
+	downloader/AampCurlDownloader.cpp downloader/AampCurlDownloader.h
+	ID3Metadata.cpp ID3Metadata.hpp
 	dash/xml/DomDocument.cpp
 	dash/xml/DomElement.cpp
 	dash/xml/DomNode.cpp
 	dash/xml/DomNodeIter.cpp
 	dash/xml/DomTextNode.cpp
-	dash/mpd/MPDModel.cpp
-	dash/mpd/MPDSegmenter.cpp
+	dash/mpd/MPDModel.cpp dash/mpd/MPDModel.h
+	dash/mpd/MPDSegmenter.cpp dash/mpd/MPDSegmenter.h
 	dash/utils/Utils.cpp
 	dash/utils/Url.cpp
 	dash/utils/StringEx.cpp
 	dash/utils/Path.cpp
-	ProcessHandler.cpp
-	AampMPDDownloader.cpp
-	AampMPDParseHelper.cpp
-	AampMPDUtils.cpp
-	ElementaryProcessor.cpp
-	AampStreamSinkManager.cpp
-	MetadataProcessor.cpp
-	tsDemuxer.cpp
-	tsFragmentProcessor.cpp
-	AampTSBSessionManager.cpp
-	AampTsbDataManager.cpp
-	AampTsbMetaData.cpp
-	AampTsbAdMetaData.cpp
-	AampTsbAdPlacementMetaData.cpp
-	AampTsbAdReservationMetaData.cpp
-	AampTsbMetaDataManager.cpp
-	AampTsbReader.cpp
-	scte35/AampSCTE35.cpp
+	ProcessHandler.cpp ProcessHandler.h
+	AampMPDDownloader.cpp AampMPDDownloader.h
+	AampMPDParseHelper.cpp AampMPDParseHelper.h
+	AampMPDUtils.cpp AampMPDUtils.h
+	ElementaryProcessor.cpp ElementaryProcessor.h
+	AampStreamSinkManager.cpp AampStreamSinkManager.h
+	MetadataProcessor.cpp MetadataProcessor.hpp
+	tsDemuxer.cpp tsDemuxer.hpp
+	tsFragmentProcessor.cpp tsFragmentProcessor.hpp
+	AampTSBSessionManager.cpp AampTSBSessionManager.h
+	AampTsbDataManager.cpp AampTsbDataManager.h
+	AampTsbMetaData.cpp AampTsbMetaData.h
+	AampTsbAdMetaData.cpp AampTsbAdMetaData.h
+	AampTsbAdPlacementMetaData.cpp AampTsbAdPlacementMetaData.h
+	AampTsbAdReservationMetaData.cpp AampTsbAdReservationMetaData.h
+	AampTsbMetaDataManager.cpp AampTsbMetaDataManager.h
+	AampTsbReader.cpp AampTsbReader.h
+	scte35/AampSCTE35.cpp scte35/AampSCTE35.h
 	subtec/subtecparser/WebvttSubtecDevParser.cpp
-	AampTrackWorker.cpp
+	AampTrackWorker.cpp AampTrackWorker.h
+	LangCodePreference.h
 	test/gstTestHarness/mp4demux.hpp
 	middleware/drm/aes/Aes.cpp
 	middleware/drm/helper/DrmHelper.cpp

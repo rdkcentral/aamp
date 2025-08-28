@@ -24,6 +24,7 @@
 #include "AampcliShader.h"
 #include "AampUtils.h"
 #include "AampcliPrintf.h"
+#include "AampLogManager.h"
 
 std::string aamp_GetLocalPath( const char *filename )
 { // TODO: move to AampUtils
