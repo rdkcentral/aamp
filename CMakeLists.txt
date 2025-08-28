@@ -292,21 +292,21 @@ set(LIBAAMP_SOURCES
 	priv_aamp.cpp priv_aamp.h
 	main_aamp.cpp main_aamp.h
 	LangCodePreference.h StreamOutputFormat.h VideoZoomMode.h StreamSink.h AudioTrackInfo.h TextTrackInfo.h
-	drm/AampDRMLicManager.cpp
-	drm/DrmInterface.cpp
+	drm/AampDRMLicManager.cpp drm/AampDRMLicManager.h
+	drm/DrmInterface.cpp drm/DrmInterface.h
 	aampgstplayer.cpp aampgstplayer.h
 	AampBufferControl.cpp AampBufferControl.h
 	tsprocessor.cpp tsprocessor.h
 	aamplogging.cpp AampLogManager.h
 	AampConfig.cpp AampConfig.h
 	AampEventManager.cpp AampEventManager.h
-	subtitle/webvttParser.cpp
+	subtitle/webvttParser.cpp subtitle/webvttParser.h subtitle/vttCue.h
 	isobmff/isobmffbox.cpp isobmff/isobmffbox.h
 	isobmff/isobmffbuffer.cpp isobmff/isobmffbuffer.h
 	isobmff/isobmffprocessor.cpp isobmff/isobmffprocessor.h
 	isobmff/isobmffhelper.cpp isobmff/isobmffhelper.h
 	MediaStreamContext.cpp MediaStreamContext.h
-	downloader/AampCurlStore.cpp downloader/AampCurlStore.h
+	downloader/AampCurlStore.cpp downloader/AampCurlStore.h downloader/AampCurlDefine.h
 	AampDRMLicPreFetcher.cpp AampDRMLicPreFetcher.h
 	AampCMCDCollector.cpp AampCMCDCollector.h
 	downloader/AampCurlDownloader.cpp downloader/AampCurlDownloader.h
@@ -316,8 +316,8 @@ set(LIBAAMP_SOURCES
 	dash/xml/DomNode.cpp
 	dash/xml/DomNodeIter.cpp
 	dash/xml/DomTextNode.cpp
-	dash/mpd/MPDModel.cpp
-	dash/mpd/MPDSegmenter.cpp
+	dash/mpd/MPDModel.cpp dash/mpd/MPDModel.h
+	dash/mpd/MPDSegmenter.cpp dash/mpd/MPDSegmenter.h
 	dash/utils/Utils.cpp
 	dash/utils/Url.cpp
 	dash/utils/StringEx.cpp
@@ -339,7 +339,7 @@ set(LIBAAMP_SOURCES
 	AampTsbAdReservationMetaData.cpp AampTsbAdReservationMetaData.h
 	AampTsbMetaDataManager.cpp AampTsbMetaDataManager.h
 	AampTsbReader.cpp AampTsbReader.h
-	scte35/AampSCTE35.cpp
+	scte35/AampSCTE35.cpp scte35/AampSCTE35.h
 	subtec/subtecparser/WebvttSubtecDevParser.cpp
 	AampTrackWorker.cpp AampTrackWorker.h
 	LangCodePreference.h
