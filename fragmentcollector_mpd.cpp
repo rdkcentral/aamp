@@ -8994,10 +8994,13 @@ bool StreamAbstractionAAMP_MPD::GetEncryptedHeaders(std::map<int, std::string>& 
 	}
 	return ret;
 }
+
 /**
- * @brief Find subtitle adaptationSet if available. Note - Currently
- * this function looks only for the first subtitle adaptation set - not the one
- * that gets selected according to configured language.
+ * @brief Find subtitle adaptationSet if available. This function assumes that
+ * all subtitle adaptation sets use the same mimeType/codec and there are
+ * no significant differences in the header fragments, so it looks only for the
+ * first, not the one that gets selected according to configured language
+ * or other criteria.
  * return true for a successful subtitle media header push
  */
 bool StreamAbstractionAAMP_MPD::ExtractAndAddSubtitleMediaHeader()
@@ -9008,11 +9011,11 @@ bool StreamAbstractionAAMP_MPD::ExtractAndAddSubtitleMediaHeader()
 
 	for (auto &period: mpd->GetPeriods())
 	{
-		if(period != NULL)
+		if(period != nullptr)
 		{
 			for(auto &adaptationSet: period->GetAdaptationSets())
 			{
-				if(adaptationSet != NULL)
+				if(adaptationSet != nullptr)
 				{
 					if (mMPDParseHelper->IsContentType(adaptationSet, eMEDIATYPE_SUBTITLE ))
 					{
