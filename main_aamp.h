@@ -54,6 +54,10 @@
 #include "AampScheduler.h"
 #include "AampConfig.h"
 
+#include "LangCodePreference.h"
+#include "StreamOutputFormat.h"
+
+
 /*! \mainpage
  *
  * \section intro_sec Introduction
@@ -86,30 +90,6 @@ struct TuneFailureMap
 	const char* description;        /**< Textual description */
 };
 
-
-/**
- * @enum StreamOutputFormat
- * @brief Media output format
- */
-enum StreamOutputFormat
-{
-	FORMAT_INVALID,         /**< Invalid format */
-	FORMAT_MPEGTS,          /**< MPEG Transport Stream */
-	FORMAT_ISO_BMFF,        /**< ISO Base Media File format */
-	FORMAT_AUDIO_ES_MP3,	/**< MP3 Audio Elementary Stream */
-	FORMAT_AUDIO_ES_AAC,    /**< AAC Audio Elementary Stream */
-	FORMAT_AUDIO_ES_AC3,    /**< AC3 Audio Elementary Stream */
-	FORMAT_AUDIO_ES_EC3,    /**< Dolby Digital Plus Elementary Stream */
-	FORMAT_AUDIO_ES_ATMOS,  /**< ATMOS Audio stream */
-	FORMAT_AUDIO_ES_AC4,    /**< AC4 Dolby Audio stream */
-	FORMAT_VIDEO_ES_H264,   /**< MPEG-4 Video Elementary Stream */
-	FORMAT_VIDEO_ES_HEVC,   /**< HEVC video elementary stream */
-	FORMAT_VIDEO_ES_MPEG2,  /**< MPEG-2 Video Elementary Stream */
-	FORMAT_SUBTITLE_WEBVTT, /**< WebVTT subtitle Stream */
-	FORMAT_SUBTITLE_TTML, 	/**< WebVTT subtitle Stream */
-	FORMAT_SUBTITLE_MP4, 	/**< Generic MP4 stream */
-	FORMAT_UNKNOWN          /**< Unknown Format */
-};
 
 /**
  * @enum VideoZoomMode
@@ -152,19 +132,6 @@ typedef struct PreCacheUrlData
 } PreCacheUrlStruct;
 
 typedef std::vector < PreCacheUrlStruct> PreCacheUrlList;
-
-/**
- *  @brief Language Code Preference types
- */
-typedef enum
-{
-	ISO639_NO_LANGCODE_PREFERENCE, /**< AAMP will not normalize language codes - the client must use
-									  language codes that match the manifest when specifying audio
-									  or subtitle tracks, for example. */
-	ISO639_PREFER_3_CHAR_BIBLIOGRAPHIC_LANGCODE,
-	ISO639_PREFER_3_CHAR_TERMINOLOGY_LANGCODE,
-	ISO639_PREFER_2_CHAR_LANGCODE
-} LangCodePreference;
 
 /**
  * @struct PlaybackQualityData

@@ -525,7 +525,6 @@ class SegmentInfo_t;
  */
 class PrivateInstanceAAMP : public DrmCallbacks, public std::enable_shared_from_this<PrivateInstanceAAMP>
 {
-
 	enum AAMP2ReceiverMsgType
 	{
 	    E_AAMP2Receiver_TUNETIME,   /**< Tune time Message */
@@ -549,6 +548,13 @@ class PrivateInstanceAAMP : public DrmCallbacks, public std::enable_shared_from_
 	std::shared_ptr<TSB::Store> mTSBStore; /**< Local TSB Store object */
 	void SanitizeLanguageList(std::vector<std::string>& languages) const;
 public:
+    /* @fn RecalculatePTS
+    * @param[in] mediaType stream type
+    * @param[in] ptr buffer pointer
+    * @param[in] len length of buffer
+    */
+    double RecalculatePTS(AampMediaType mediaType, const void *ptr, size_t len);
+
 	/**
 	 * @brief Get profiler bucket type
 	 *

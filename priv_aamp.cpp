@@ -423,6 +423,58 @@ static MediaTypeTelemetry aamp_GetMediaTypeForTelemetry(AampMediaType type)
 	return ret;
 }
 
+double PrivateInstanceAAMP::RecalculatePTS(AampMediaType mediaType, const void *ptr, size_t len )
+{
+    assert(0);
+    double ret = 0;
+    uint32_t timeScale = 0;
+    switch( mediaType )
+    {
+    case eMEDIATYPE_VIDEO:
+        timeScale = GetVidTimeScale();
+        break;
+    case eMEDIATYPE_AUDIO:
+    case eMEDIATYPE_AUX_AUDIO:
+        timeScale = GetAudTimeScale();
+        break;
+    case eMEDIATYPE_SUBTITLE:
+        timeScale = GetSubTimeScale();
+        break;
+    default:
+        AAMPLOG_WARN("Invalid media type %d", mediaType);
+        break;
+    }
+    IsoBmffBuffer isobuf;
+    isobuf.setBuffer((uint8_t *)ptr, len);
+    bool bParse = false;
+    try
+    {
+        bParse = isobuf.parseBuffer();
+    }
+    catch( std::bad_alloc& ba)
+    {
+        AAMPLOG_ERR("Bad allocation: %s", ba.what() );
+    }
+    catch( std::exception &e)
+    {
+        AAMPLOG_ERR("Unhandled exception: %s", e.what() );
+    }
+    catch( ... )
+    {
+        AAMPLOG_ERR("Unknown exception");
+    }
+    if(bParse && (0 != timeScale))
+    {
+        uint64_t fPts = 0;
+        bool bParse = isobuf.getFirstPTS(fPts);
+        if (bParse)
+        {
+            ret = fPts/(timeScale*1.0);
+        }
+    }
+    return ret;
+}
+
 /**
  * @brief Updates a vector of CCTrackInfo objects with data from a vector of TextTrackInfo objects.
  *
@@ -13877,3 +13929,5 @@ void PrivateInstanceAAMP::GetStreamFormat(StreamOutputFormat &primaryOutputForma
 		AAMPLOG_TRACE("aamp->rate %f videoFormat %d audioFormat %d auxFormat %d subFormat %d", rate, primaryOutputFormat, audioOutputFormat, auxAudioOutputFormat, subtitleOutputFormat);
 	}
 }
+
+
