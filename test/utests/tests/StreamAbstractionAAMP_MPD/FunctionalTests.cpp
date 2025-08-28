@@ -2907,7 +2907,6 @@ R"(<?xml version="1.0" encoding="UTF-8"?>
 	status = InitializeMPD(manifest, eTUNETYPE_NEW_NORMAL, 0.0, AAMP_NORMAL_PLAY_RATE, true);
 	EXPECT_EQ(status, eAAMPSTATUS_OK);
 
-
 	/* Video stream */
 	MediaTrack *track = this->mStreamAbstractionAAMP_MPD->GetMediaTrack(eTRACK_VIDEO);
 	EXPECT_NE(track, nullptr);

@@ -4296,7 +4296,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 		// later if a pre-roll advert is played that does not contain subtitles.
 		if (ISCONFIGSET(eAAMPConfig_useRialtoSink) && 
 		   !mIsLiveStream &&
-		   (nullptr == AampStreamSinkManager::GetInstance().GetMediaHeader(eMEDIATYPE_SUBTITLE)))
+		   (!(AampStreamSinkManager::GetInstance().GetMediaHeader(eMEDIATYPE_SUBTITLE))))
 		{
 			ExtractAndAddSubtitleMediaHeader();
 		}
@@ -8995,7 +8995,9 @@ bool StreamAbstractionAAMP_MPD::GetEncryptedHeaders(std::map<int, std::string>& 
 	return ret;
 }
 /**
- * @brief Find subtitle adaptationSet if available
+ * @brief Find subtitle adaptationSet if available. Note - Currently
+ * this function looks only for the first subtitle adaptation set - not the one
+ * that gets selected according to configured language.
  * return true for a successful subtitle media header push
  */
 bool StreamAbstractionAAMP_MPD::ExtractAndAddSubtitleMediaHeader()
@@ -9003,17 +9005,13 @@ bool StreamAbstractionAAMP_MPD::ExtractAndAddSubtitleMediaHeader()
 	bool ret = false;
 	size_t numPeriods = mMPDParseHelper->GetNumberOfPeriods();  //CID:96576 - Removed the  headerCount variable which is initialized but not used
 	bool subtitleFound = false;
-	unsigned iPeriod = 0;
 
-	while(iPeriod < numPeriods && !subtitleFound)
+	for (auto &period: mpd->GetPeriods())
 	{
-		IPeriod *period = mpd->GetPeriods().at(iPeriod);
 		if(period != NULL)
 		{
-			size_t numAdaptationSets = period->GetAdaptationSets().size();
-			for(unsigned iAdaptationSet = 0; iAdaptationSet < numAdaptationSets && !subtitleFound; iAdaptationSet++)
+			for(auto &adaptationSet: period->GetAdaptationSets())
 			{
-				IAdaptationSet *adaptationSet = period->GetAdaptationSets().at(iAdaptationSet);
 				if(adaptationSet != NULL)
 				{
 					if (mMPDParseHelper->IsContentType(adaptationSet, eMEDIATYPE_SUBTITLE ))
@@ -9039,7 +9037,8 @@ bool StreamAbstractionAAMP_MPD::ExtractAndAddSubtitleMediaHeader()
 							{
 								std::string fragmentUrl;
 								FragmentDescriptor *fragmentDescriptor = new FragmentDescriptor();
-								std::shared_ptr<AampStreamSinkManager::MediaHeader> subtitleHeader = std::make_shared<AampStreamSinkManager::MediaHeader>();
+								auto subtitleHeader = std::make_shared<AampStreamSinkManager::MediaHeader>();
+
 								fragmentDescriptor->bUseMatchingBaseUrl = ISCONFIGSET(eAAMPConfig_MatchBaseUrl);
 								fragmentDescriptor->manifestUrl = mMediaStreamContext[eMEDIATYPE_VIDEO]->fragmentDescriptor.manifestUrl;
 								fragmentDescriptor->Bandwidth = representation->GetBandwidth();
@@ -9051,15 +9050,16 @@ bool StreamAbstractionAAMP_MPD::ExtractAndAddSubtitleMediaHeader()
 								fragmentDescriptor->RepresentationID.assign(representation->GetId());
 								FragmentDescriptor *fragmentDescriptorCMCD(fragmentDescriptor);
 
-								ConstructFragmentURL(fragmentUrl,fragmentDescriptorCMCD , initialization);
+								ConstructFragmentURL(fragmentUrl,fragmentDescriptorCMCD , std::move(initialization) );
 								AAMPLOG_MIL("[SUBTITLE]: mimeType:%s, init url %s", subtitleMimeType.c_str(), fragmentUrl.c_str());
 								subtitleHeader->url = std::move(fragmentUrl);
-								subtitleHeader->mimeType = subtitleMimeType;
-								AampStreamSinkManager::GetInstance().AddMediaHeader(eMEDIATYPE_SUBTITLE, subtitleHeader);
+								subtitleHeader->mimeType =  std::move(subtitleMimeType);
+								AampStreamSinkManager::GetInstance().AddMediaHeader(eMEDIATYPE_SUBTITLE, std::move(subtitleHeader));
 								AAMPLOG_MIL("Saved subtitleHeader");
 								ret = true;
 								SAFE_DELETE(fragmentDescriptor);
 								subtitleFound = true;
+								break;
 							}
 						}
 					}
@@ -9074,7 +9074,10 @@ bool StreamAbstractionAAMP_MPD::ExtractAndAddSubtitleMediaHeader()
 		{
 			AAMPLOG_WARN("period    is null");  //CID:86137 - Null Returns
 		}
-		iPeriod++;
+		if(subtitleFound)
+		{
+			break;
+		}
 	}
 	return ret;
 }
@@ -10970,7 +10973,7 @@ void StreamAbstractionAAMP_MPD::GetStreamFormat(StreamOutputFormat &primaryOutpu
 		// a complete pipeline cannot be created; and Rialto will not start playing video
 		if (!mMediaStreamContext[eMEDIATYPE_SUBTITLE]->enabled && ISCONFIGSET(eAAMPConfig_useRialtoSink))
 		{
-			std::shared_ptr<AampStreamSinkManager::MediaHeader> subtitleHeader = AampStreamSinkManager::GetInstance().GetMediaHeader(eMEDIATYPE_SUBTITLE);
+			auto subtitleHeader = AampStreamSinkManager::GetInstance().GetMediaHeader(eMEDIATYPE_SUBTITLE);
 			if(subtitleHeader && !subtitleHeader->mimeType.empty())
 			{
 				subtitleOutputFormat = GetSubtitleFormat(subtitleHeader->mimeType);
@@ -11657,13 +11660,13 @@ void StreamAbstractionAAMP_MPD::SendMediaHeaders()
 		MediaStreamContext *track = mMediaStreamContext[iTrack];
 		if(track && !track->Enabled())
 		{
-			std::shared_ptr<AampStreamSinkManager::MediaHeader> header = AampStreamSinkManager::GetInstance().GetMediaHeader(iTrack);
+			auto header = AampStreamSinkManager::GetInstance().GetMediaHeader(iTrack);
 			if(header && !header->injected)
 			{
 				AAMPLOG_INFO("Track is disabled; url for init segment found: %s", header->url.c_str());
 				AampGrowableBuffer buffer("init-buffer");
 				std::string effectiveUrl;
-				int http_error = 0;
+				int http_error = {};
 				if (aamp->GetFile(header->url, (AampMediaType) iTrack, &buffer, effectiveUrl, &http_error, NULL, NULL, eCURLINSTANCE_VIDEO + iTrack))
 				{
 					aamp->SendStreamTransfer((AampMediaType) iTrack, &buffer, 0, 0, 0, 0, true, false);
@@ -11676,7 +11679,7 @@ void StreamAbstractionAAMP_MPD::SendMediaHeaders()
 
 				// Update the header with injected set
 				header->injected = true;
-				AampStreamSinkManager::GetInstance().AddMediaHeader(iTrack, header);
+				AampStreamSinkManager::GetInstance().AddMediaHeader(iTrack, std::move(header));
 			}
 		}
 	}
