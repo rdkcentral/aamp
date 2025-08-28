@@ -641,6 +641,8 @@ void AampStreamSinkManager::AddMediaHeader(unsigned track, std::shared_ptr<AampS
 void AampStreamSinkManager::RemoveMediaHeader(unsigned track)
 {
 	std::lock_guard<std::mutex> lock(mStreamSinkMutex);
+	AAMPLOG_WARN("AampStreamSinkManager(%p) Before Removed header for track[%u], reference count = %ld", this, track, mMediaHeaders[track].use_count());
+
 	mMediaHeaders[track].reset();
 	AAMPLOG_INFO("AampStreamSinkManager(%p) Removed header for track[%u]", this, track);
 }

@@ -4291,6 +4291,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 			}
 		}
 
+		AAMPLOG_MIL("StreamAbstractionAAMP_MPD: subtitleMediaHeaderptr = %p, use_count = %ld", AampStreamSinkManager::GetInstance().GetMediaHeader(eMEDIATYPE_SUBTITLE).get(), AampStreamSinkManager::GetInstance().GetMediaHeader(eMEDIATYPE_SUBTITLE).use_count() );
 		// Rialto does not support dynamic streams, so we need to extract and save the 
 		// subtitle init fragment from the main vod asset, so that it can be injected
 		// later if a pre-roll advert is played that does not contain subtitles.
@@ -4298,6 +4299,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 		   !mIsLiveStream &&
 		   (!(AampStreamSinkManager::GetInstance().GetMediaHeader(eMEDIATYPE_SUBTITLE))))
 		{
+			AAMPLOG_MIL("StreamAbstractionAAMP_MPD: extract and add subtitleMedia header");
 			ExtractAndAddSubtitleMediaHeader();
 		}
 
