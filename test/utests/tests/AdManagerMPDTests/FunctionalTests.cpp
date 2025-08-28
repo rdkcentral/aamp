@@ -3793,3 +3793,105 @@ R"(<?xml version="1.0" encoding="utf-8"?>
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId2].offset2Ad[0].adIdx, 1);
   EXPECT_EQ(mPrivateCDAIObjectMPD->mPeriodMap[periodId2].offset2Ad[0].adStartOffset, 1000);
 }
+
+/**
+ * @brief Test case for WaitForNextAdResolved with no AdFulfillObj
+ */
+TEST_F(AdManagerMPDTests, WaitForNextAdResolved_NoAdFulfillObj)
+{
+  // Nothing set in mAdFulfillObj, should return false immediately
+  EXPECT_FALSE(mPrivateCDAIObjectMPD->WaitForNextAdResolved(50));
+}
+
+/**
+ * @brief Test case for WaitForNextAdResolved with an immediately resolved AdFulfillObj
+ */
+TEST_F(AdManagerMPDTests, WaitForNextAdResolved_ResolvedImmediately)
+{
+  std::string periodId = "p1";
+  std::string adId = "ad1";
+
+  // Add ads to the adBreak
+  mPrivateCDAIObjectMPD->mAdBreaks = {
+      {periodId, AdBreakObject(30000, std::make_shared<std::vector<AdNode>>(), "", 0, 30000)}};
+  // Create ad break and insert resolved ad
+  mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads->emplace_back(false, false, true, adId, "", 0, "", 0, nullptr);
+  mPrivateCDAIObjectMPD->mAdFulfillObj = AdFulfillObj(periodId, adId, "dummy");
+  EXPECT_TRUE(mPrivateCDAIObjectMPD->WaitForNextAdResolved(100));
+}
+
+/**
+ * @brief Test case for WaitForNextAdResolved timing out
+ */
+TEST_F(AdManagerMPDTests, WaitForNextAdResolved_TimesOut)
+{
+    std::string periodId = "p1";
+    std::string adId = "ad1";
+
+      // Add ads to the adBreak
+    mPrivateCDAIObjectMPD->mAdBreaks = {
+      {periodId, AdBreakObject(30000, std::make_shared<std::vector<AdNode>>(), "", 0, 30000)}};
+    mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads->emplace_back(false, false, false, adId, "", 0, "", 0, nullptr);
+    mPrivateCDAIObjectMPD->mAdFulfillObj = AdFulfillObj(periodId, adId, "dummy");
+    EXPECT_FALSE(mPrivateCDAIObjectMPD->WaitForNextAdResolved(50));
+}
+
+/**
+ * @brief Test case for WaitForNextAdResolved But the resolution is signalled before timeout
+ */
+TEST_F(AdManagerMPDTests, WaitForNextAdResolved_SignalledBeforeTimeout)
+{
+    std::string periodId = "p1";
+    std::string adId = "ad1";
+
+      // Add ads to the adBreak
+    mPrivateCDAIObjectMPD->mAdBreaks = {
+      {periodId, AdBreakObject(30000, std::make_shared<std::vector<AdNode>>(), "", 0, 30000)}};
+    mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads->emplace_back(false, false, false, adId, "", 0, "", 0, nullptr);
+    mPrivateCDAIObjectMPD->mAdFulfillObj = AdFulfillObj(periodId, adId, "dummy");
+
+    // Run wait in a thread
+    bool completed = false;
+    std::thread waiter([&]{
+        completed = mPrivateCDAIObjectMPD->WaitForNextAdResolved(500);
+    });
+
+    // Give some time then resolve and notify
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    {
+        std::lock_guard<std::mutex> lock(mPrivateCDAIObjectMPD->mAdPlacementMtx);
+        mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads->at(0).resolved = true;
+        mPrivateCDAIObjectMPD->mAdPlacementCV.notify_one();
+    }
+
+    waiter.join();
+    EXPECT_TRUE(completed);
+}
+
+/**
+ * @brief Test case for WaitForNextAdResolved when the downloads are disabled
+ */
+TEST_F(AdManagerMPDTests, WaitForNextAdResolved_DisableDownloadsBeforeWait)
+{
+  std::string periodId = "p1";
+  std::string adId = "ad1";
+
+  // Add ads to the adBreak
+  mPrivateCDAIObjectMPD->mAdBreaks = {
+    {periodId, AdBreakObject(30000, std::make_shared<std::vector<AdNode>>(), "", 0, 30000)}};
+  mPrivateCDAIObjectMPD->mAdBreaks[periodId].ads->emplace_back(false, false, false, adId, "", 0, "", 0, nullptr);
+  mPrivateCDAIObjectMPD->mAdFulfillObj = AdFulfillObj(periodId, adId, "dummy");
+
+  // Abort before waiting
+  EXPECT_CALL(*g_mockPrivateInstanceAAMP ,DownloadsAreEnabled()).WillRepeatedly(Return(false));
+
+  auto start = std::chrono::steady_clock::now();
+  bool result = mPrivateCDAIObjectMPD->WaitForNextAdResolved(5000);
+  auto end = std::chrono::steady_clock::now();
+  auto elapsedMs = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
+
+  // Should return true as it aborted immediately, downloads are disabled
+  EXPECT_TRUE(result);
+  // Fail if it actually waited for more than 500ms (indicating it did not abort immediately)
+  EXPECT_LT(elapsedMs, 500) << "WaitForNextAdResolved did not abort immediately, waited for " << elapsedMs << " ms";
+}
