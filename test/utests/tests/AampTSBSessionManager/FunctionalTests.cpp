@@ -176,8 +176,7 @@ TEST_F(FunctionalTests, TSBWriteTests)
 
 	EXPECT_CALL(*g_mockTSBStore, Write(UNIQUE_INIT_URL, TEST_DATA, strlen(TEST_DATA))).WillOnce(Return(TSB::Status::OK));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetVidTimeScale()).WillRepeatedly(Return(1));
-    //EXPECT_CALL(*g_mockPrivateInstanceAAMP, RecalculatePTS(eMEDIATYPE_INIT_VIDEO,_,_)).Times(1).WillOnce(Return(0.0));
-    //EXPECT_CALL(*g_mockPrivateInstanceAAMP, RecalculatePTS(eMEDIATYPE_VIDEO,_,_)).Times(2).WillRepeatedly(Return(1234));
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, RecalculatePTS(_,_,_)).WillRepeatedly(Return(0));
 	mAampTSBSessionManager->EnqueueWrite(INIT_URL, cachedFragment, TEST_PERIOD_ID);
 	std::this_thread::sleep_for(std::chrono::milliseconds(25));
 
@@ -256,9 +255,8 @@ TEST_F(FunctionalTests, Cullsegments)
 	EXPECT_CALL(*g_mockTSBStore, Write(_,_,_)).WillRepeatedly(Return(TSB::Status::OK));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetVidTimeScale()).WillRepeatedly(Return(1));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetAudTimeScale()).WillRepeatedly(Return(1));
-    //EXPECT_CALL(*g_mockPrivateInstanceAAMP, RecalculatePTS(eMEDIATYPE_INIT_VIDEO,_,_)).Times(1).WillOnce(Return(0.0));
-    //EXPECT_CALL(*g_mockPrivateInstanceAAMP, RecalculatePTS(eMEDIATYPE_VIDEO,_,_)).Times(2).WillRepeatedly(Return(4567));
-
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, RecalculatePTS(_,_,_)).WillRepeatedly(Return(0));
+    
 	const std::string initUrl = std::string(TEST_BASE_URL) + std::string("init.mp4");
 	cachedFragment->type = eMEDIATYPE_INIT_VIDEO;
 	mAampTSBSessionManager->EnqueueWrite(initUrl, cachedFragment, TEST_PERIOD_ID);

@@ -425,7 +425,6 @@ static MediaTypeTelemetry aamp_GetMediaTypeForTelemetry(AampMediaType type)
 
 double PrivateInstanceAAMP::RecalculatePTS(AampMediaType mediaType, const void *ptr, size_t len )
 {
-    assert(0);
     double ret = 0;
     uint32_t timeScale = 0;
     switch( mediaType )
