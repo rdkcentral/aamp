@@ -51,7 +51,7 @@ static void  registerCb(AampDRMLicenseManager* _this, DrmSessionManager* instanc
 {
 	/* Register the callback for acquire license data */
 	instance->RegisterLicenseDataCb([_this](int &responseCode, std::shared_ptr<DrmHelper> drmHelper, int sessionSlot, int &cdmError, int streamType,void *metaDataPtr, bool isLicenseRenewal = false ) -> KeyState {
-			return _this->acquireLicense(responseCode, drmHelper, sessionSlot, cdmError,
+			return _this->acquireLicense(responseCode, (std::move)drmHelper, sessionSlot, cdmError,
 					(AampMediaType)streamType,metaDataPtr, false);
 			});
 
@@ -386,7 +386,7 @@ KeyState AampDRMLicenseManager::acquireLicense( int& responseCode, std::shared_p
 
 	if (code == KEY_PENDING)
 	{
-		code = handleLicenseResponse(responseCode, drmHelper, sessionSlot, cdmError, httpResponseCode, httpExtendedStatusCode, licenseResponse, eventHandle,  isLicenseRenewal);
+		code = handleLicenseResponse(responseCode, std::move(drmHelper), sessionSlot, cdmError, httpResponseCode, httpExtendedStatusCode, (std::move)licenseResponse, eventHandle,  isLicenseRenewal);
 	}
 	return code;
 }
