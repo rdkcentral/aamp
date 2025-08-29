@@ -62,3 +62,7 @@ void AampGrowableBuffer::Replace( AampGrowableBuffer *src )
 void AampGrowableBuffer::Transfer( void )
 {
 }
+
+void AampGrowableBuffer::EnableLogging( bool enable )
+{
+}

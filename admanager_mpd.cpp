@@ -1501,8 +1501,8 @@ bool PrivateCDAIObjectMPD::WaitForNextAdResolved(int timeoutMs)
 			if (!it->resolved)
 			{
 				AAMPLOG_INFO("Waiting for next ad placement to complete with timeout %d ms.", timeoutMs);
-				completed = mAdPlacementCV.wait_for(lock, std::chrono::milliseconds(timeoutMs), [it] {
-					return it->resolved;
+				completed = mAdPlacementCV.wait_for(lock, std::chrono::milliseconds(timeoutMs), [this, &it] {
+					return it->resolved || !mAamp->DownloadsAreEnabled();
 				});
 			}
 			else
@@ -1526,7 +1526,9 @@ bool PrivateCDAIObjectMPD::WaitForNextAdResolved(int timeoutMs, std::string peri
 	std::unique_lock<std::mutex> lock(mAdPlacementMtx);
 	bool completed = false;
 	AAMPLOG_INFO("Waiting for next ad placement in %s to complete with timeout %d ms.", periodId.c_str(), timeoutMs);
-	if (mAdPlacementCV.wait_for(lock, std::chrono::milliseconds(timeoutMs)) == std::cv_status::no_timeout)
+	if (mAdPlacementCV.wait_for(lock, std::chrono::milliseconds(timeoutMs), [this] {
+		return !mAamp->DownloadsAreEnabled();
+		}))
 	{
 		completed = true;
 	}

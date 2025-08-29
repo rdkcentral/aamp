@@ -36,17 +36,6 @@ class AampGrowableBuffer
 public:
 	AampGrowableBuffer( const char *name="?" ):ptr(NULL),len(0),avail(0),name(name){}
 	~AampGrowableBuffer();
-	/*
-	 AampGrowableBuffer converted to class
-	 commented out below line to fix component build failure in this ticket.
-	 Uncommenting may cause errors.
-	 */
-	//GrowableBuffer(const AampGrowableBuffer&) = delete;
-
-	// // Copy constructor: deleted
-	// AampGrowableBuffer(const AampGrowableBuffer &) = delete;
-	// // Copy assignment: deleted
-	// AampGrowableBuffer& operator=(const AampGrowableBuffer &) = delete;
 
 	// Copy constructor
 	AampGrowableBuffer(const AampGrowableBuffer & other)
@@ -102,15 +91,18 @@ public:
 	size_t GetAvail( void ) const { return avail; } // should be opaque, but used in logging
 	void SetLen( size_t l ) { assert(l<=avail); len = l; }
 
+    static void EnableLogging( bool enable );
+    
 private:
-	const char *name;
+    const char *name;
 	void *ptr;      /**< Pointer to buffer's memory location (gpointer) */
 	size_t len;     /**< Subset of allocated buffer that is populated and in use */
 	size_t avail;   /**< Available buffer size */
 	
+    static bool gbEnableLogging;
 	static int gNetMemoryCount;
 	static int gNetMemoryHighWatermark;
-	
+    
 	static void NETMEMORY_PLUS( void )
 	{
 		gNetMemoryCount++;

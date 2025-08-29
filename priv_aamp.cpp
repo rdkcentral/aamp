@@ -73,10 +73,10 @@
 #include <string.h>
 #include "AampCurlDownloader.h"
 #include "AampMPDDownloader.h"
-
 #include <sched.h>
 #include "AampTSBSessionManager.h"
 #include "SocUtils.h"
+#include "AuthTokenErrors.h"
 
 #define LOCAL_HOST_IP       "127.0.0.1"
 #define AAMP_MAX_TIME_BW_UNDERFLOWS_TO_TRIGGER_RETUNE_MS (20*1000LL)
@@ -146,8 +146,6 @@ std::shared_ptr<PlayerExternalsInterface> pPlayerExternalsInterface = NULL;
 
 static unsigned int ui32CurlTrace = 0;
 
-bool PrivateInstanceAAMP::mTrackGrowableBufMem;
-
 /**
  * @struct CurlCbContextSyncTime
  * @brief context during curl callbacks
@@ -165,6 +163,16 @@ struct CurlCbContextSyncTime
 	CurlCbContextSyncTime& operator=(const CurlCbContextSyncTime& other) = delete;
 };
 
+/**
+ * @struct TuneFailureMap
+ * @brief  Structure holding aamp tune failure code and corresponding application error code and description
+ */
+struct TuneFailureMap
+{
+    AAMPTuneFailure tuneFailure;    /**< Failure ID */
+    int code;                       /**< Error code */
+    const char* description;        /**< Textual description */
+};
 
 static TuneFailureMap tuneFailureMap[] =
 {
@@ -421,6 +429,57 @@ static MediaTypeTelemetry aamp_GetMediaTypeForTelemetry(AampMediaType type)
 						break;
 	}
 	return ret;
+}
+
+double PrivateInstanceAAMP::RecalculatePTS(AampMediaType mediaType, const void *ptr, size_t len )
+{
+    double ret = 0;
+    uint32_t timeScale = 0;
+    switch( mediaType )
+    {
+    case eMEDIATYPE_VIDEO:
+        timeScale = GetVidTimeScale();
+        break;
+    case eMEDIATYPE_AUDIO:
+    case eMEDIATYPE_AUX_AUDIO:
+        timeScale = GetAudTimeScale();
+        break;
+    case eMEDIATYPE_SUBTITLE:
+        timeScale = GetSubTimeScale();
+        break;
+    default:
+        AAMPLOG_WARN("Invalid media type %d", mediaType);
+        break;
+    }
+    IsoBmffBuffer isobuf;
+    isobuf.setBuffer((uint8_t *)ptr, len);
+    bool bParse = false;
+    try
+    {
+        bParse = isobuf.parseBuffer();
+    }
+    catch( std::bad_alloc& ba)
+    {
+        AAMPLOG_ERR("Bad allocation: %s", ba.what() );
+    }
+    catch( std::exception &e)
+    {
+        AAMPLOG_ERR("Unhandled exception: %s", e.what() );
+    }
+    catch( ... )
+    {
+        AAMPLOG_ERR("Unknown exception");
+    }
+    if(bParse && (0 != timeScale))
+    {
+        uint64_t fPts = 0;
+        bool bParse = isobuf.getFirstPTS(fPts);
+        if (bParse)
+        {
+            ret = fPts/(timeScale*1.0);
+        }
+    }
+    return ret;
 }
 
 /**
@@ -1317,10 +1376,8 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 	mHarvestCountLimit = GETCONFIGVALUE_PRIV(eAAMPConfig_HarvestCountLimit);
 	mHarvestConfig = GETCONFIGVALUE_PRIV(eAAMPConfig_HarvestConfig);
 	mAsyncTuneEnabled = ISCONFIGSET_PRIV(eAAMPConfig_AsyncTune);
-
- 	mTrackGrowableBufMem = ISCONFIGSET_PRIV(eAAMPConfig_TrackMemory);
+    AampGrowableBuffer::EnableLogging(ISCONFIGSET_PRIV(eAAMPConfig_TrackMemory));
 	mLastTelemetryTimeMS = aamp_GetCurrentTimeMS();
-
 }
 
 /**
