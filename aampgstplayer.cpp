@@ -714,7 +714,7 @@ bool AAMPGstPlayer::SendHelper(AampMediaType mediaType, const void *ptr, size_t 
 if (mediaType == eMEDIATYPE_VIDEO && aamp->rate > AAMP_NORMAL_PLAY_RATE && doSetDebug)
 {
 	AAMPLOG_MIL("patrick");
-	playerInstance->EnableGstDebugLogging("videodecoder:5,libav:7");
+	playerInstance->EnableGstDebugLogging("GST_STATES:5");
 	doSetDebug = false;
 }
 	// Ignore eMEDIATYPE_DSM_CC packets
