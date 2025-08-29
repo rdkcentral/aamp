@@ -11666,7 +11666,8 @@ void StreamAbstractionAAMP_MPD::SendMediaHeaders()
 		if(track && !track->Enabled())
 		{
 			auto header = AampStreamSinkManager::GetInstance().GetMediaHeader(iTrack);
-			if(header && !header->injected)
+			//if(header && !header->injected)
+			if(header)
 			{
 				AAMPLOG_INFO("Track is disabled; url for init segment found: %s", header->url.c_str());
 				AampGrowableBuffer buffer("init-buffer");
@@ -11680,11 +11681,13 @@ void StreamAbstractionAAMP_MPD::SendMediaHeaders()
 				{
 					AAMPLOG_ERR("Failed to download init segment: %s", header->url.c_str());
 				}
+#if 0
 				AampStreamSinkManager::GetInstance().RemoveMediaHeader(iTrack);
 
 				// Update the header with injected set
 				header->injected = true;
 				AampStreamSinkManager::GetInstance().AddMediaHeader(iTrack, std::move(header));
+#endif//anj
 			}
 		}
 	}

@@ -78,15 +78,11 @@ void AampStreamSinkManager::Clear(void)
 	mPipelineMode = ePIPELINEMODE_UNDEFINED;
 	mEncryptedHeaders.clear();
 	mEncryptedHeadersInjected = false;
-#if 0
-	mMediaHeaders.clear();
-#else
 	for (auto& header : mMediaHeaders)
 	{
 		header.reset();
 		AAMPLOG_MIL("cleared mMediaHeaders");
 	}
-#endif
 }
 
 void AampStreamSinkManager::SetSinglePipelineMode(PrivateInstanceAAMP *aamp)
@@ -255,15 +251,11 @@ void AampStreamSinkManager::DeleteStreamSink(PrivateInstanceAAMP *aamp)
 				mGstPlayer = nullptr;
 				mPipelineMode = ePIPELINEMODE_UNDEFINED;
 				mEncryptedHeadersInjected = false;
-#if 0//anj
-				mMediaHeaders.clear();
-#else
 				for (auto& header : mMediaHeaders)
 				{
 					header.reset();
 					AAMPLOG_MIL("cleared mMediaHeaders");
 				}
-#endif
 			}
 		}
 		break;
@@ -375,15 +367,11 @@ void AampStreamSinkManager::DeactivatePlayer(PrivateInstanceAAMP *aamp, bool sto
 					AAMPLOG_WARN("AampStreamSinkManager(%p) Single Pipeline mode, deactivating and stopping active PLAYER[%d]", this, aamp->mPlayerId);
 					mEncryptedHeadersInjected = false;
 					mEncryptedHeaders.clear();
-#if 0//anj
-					mMediaHeaders.clear();
-#else
 					for (auto& header : mMediaHeaders)
 					{
 						header.reset();
 						AAMPLOG_MIL("cleared mMediaHeaders");
 					}
-#endif
 				}
 				else
 				{
@@ -675,7 +663,6 @@ void AampStreamSinkManager::RemoveMediaHeader(unsigned track)
 
 	if(track < AAMP_TRACK_COUNT)
 	{
-		AAMPLOG_WARN("AampStreamSinkManager(%p) Before Removed header for track[%u], reference count[%ld]", this, track, mMediaHeaders[track].use_count());
 		mMediaHeaders[track].reset();
 		AAMPLOG_INFO("AampStreamSinkManager(%p) Removed header for track[%u]", this, track);
 	}
@@ -709,5 +696,4 @@ std::shared_ptr<AampStreamSinkManager::MediaHeader> AampStreamSinkManager::GetMe
 	}
 
 	return header;
-	//return mMediaHeaders[track];
 }
