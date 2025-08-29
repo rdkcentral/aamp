@@ -4296,7 +4296,6 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 		// later if a pre-roll advert is played that does not contain subtitles.
 		if (ISCONFIGSET(eAAMPConfig_useRialtoSink) && 
 		   !mIsLiveStream &&
-		   //( nullptr == AampStreamSinkManager::GetInstance().GetMediaHeader(eMEDIATYPE_SUBTITLE)))
 		   (!(AampStreamSinkManager::GetInstance().GetMediaHeader(eMEDIATYPE_SUBTITLE))))
 		{
 			AAMPLOG_MIL("StreamAbstractionAAMP_MPD: extract and add subtitleMedia header");
