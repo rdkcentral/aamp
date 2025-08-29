@@ -298,7 +298,7 @@ set(LIBAAMP_SOURCES
 	AampBufferControl.cpp AampBufferControl.h
 	tsprocessor.cpp tsprocessor.h
 	aamplogging.cpp AampLogManager.h
-	FileLogger.cpp
+	FileLogger.cpp FileLogger.h
 	AampConfig.cpp AampConfig.h
 	AampEventManager.cpp AampEventManager.h
 	subtitle/webvttParser.cpp subtitle/webvttParser.h subtitle/vttCue.h
