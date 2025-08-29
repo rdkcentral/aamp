@@ -188,13 +188,14 @@ struct AdBreakObject{
 	bool                                 mAdFailed;       /** Current Ad playback failed flag */
 	bool                                 mSplitPeriod;    /**< To identify whether the ad is split period ad or not */
 	bool                                 invalid;         /**< flag marks if the adbreak is invalid or not */
+	bool                                 resolved;       /**< flag marks if the adbreak is resolved or not */
 	AampTime                             mAbsoluteAdBreakStartTime; /**< Period start time */
 	/**
 	* @brief AdBreakObject default constructor
 	*/
 	AdBreakObject()
 		: brkDuration(0), ads(), endPeriodId(), endPeriodOffset(0), adsDuration(0), adjustEndPeriodOffset(false),
-		mAdBreakPlaced(false), mAdFailed(false), mSplitPeriod(false), invalid(false), mAbsoluteAdBreakStartTime(0.0)
+		mAdBreakPlaced(false), mAdFailed(false), mSplitPeriod(false), invalid(false), resolved(false), mAbsoluteAdBreakStartTime(0.0)
 	{
 	}
 
@@ -210,7 +211,7 @@ struct AdBreakObject{
 	AdBreakObject(uint32_t _duration, AdNodeVectorPtr _ads, std::string _endPeriodId,
 		uint64_t _endPeriodOffset, uint32_t _adsDuration)
 		: brkDuration(_duration), ads(_ads), endPeriodId(_endPeriodId), endPeriodOffset(_endPeriodOffset),
-		adsDuration(_adsDuration), adjustEndPeriodOffset(false), mAdBreakPlaced(false), mAdFailed(false), mSplitPeriod(false), invalid(false), mAbsoluteAdBreakStartTime(0.0)
+		adsDuration(_adsDuration), adjustEndPeriodOffset(false), mAdBreakPlaced(false), mAdFailed(false), mSplitPeriod(false), invalid(false), resolved(false), mAbsoluteAdBreakStartTime(0.0)
 	{
 	}
 };
