@@ -1156,12 +1156,12 @@ DrmData * AampDRMLicenseManager::getLicenseSec(const LicenseRequest &licenseRequ
 		int32_t statusCode;
 		int32_t reasonCode;
 		int32_t businessStatus;
-		bool videoMuteState = mDrmSessionManager->mIsVideoOnMute.load();
-		if (!mDrmSessionManager->mAampSecManagerSession.isSessionValid())
+		bool videoMuteState = mDRMSessionManager->mIsVideoOnMute.load();
+		if (!mDRMSessionManager->mAampSecManagerSession.isSessionValid())
 		{
 			// if we're about to get a licence and are not re-using a session, then we have not seen the first video frame yet. Do not allow watermarking to get enabled yet.
 			AAMPLOG_WARN("First frame flag cleared before AcquireLicense, with mIsVideoOnMute=%d", videoMuteState);
-			mDrmSessionManager->mFirstFrameSeen.store(false);
+			mDRMSessionManager->mFirstFrameSeen.store(false);
 		}
 
 		tStartTime = NOW_STEADY_TS_MS;
@@ -1173,7 +1173,7 @@ DrmData * AampDRMLicenseManager::getLicenseSec(const LicenseRequest &licenseRequ
 																 keySystem,
 																 mediaUsage,
 																 secclientSessionToken, challengeInfo.accessToken.length(),
-																 mDrmSessionManager->mAampSecManagerSession,
+																 mDRMSessionManager->mAampSecManagerSession,
 																 &licenseResponseStr, &licenseResponseLength,
 																 &statusCode, &reasonCode, &businessStatus, videoMuteState);
 		tEndTime = NOW_STEADY_TS_MS;
