@@ -33,6 +33,7 @@
 #include "libdash/xml/Node.h"
 #include "libdash/IMPD.h"
 #include "AampMPDParseHelper.h"
+#include "AampEvent.h"
 
 using namespace dash;
 using namespace std;
@@ -417,7 +418,7 @@ public:
 	 * @param[in]  tryFog - Attempt to download from FOG or not
 	 * @return MPD* MPD instance
 	 */
-	MPD* GetAdMPD(std::string &url, bool &finalManifest, int &http_error, double &downloadTime, bool tryFog = false);
+	MPD* GetAdMPD(std::string &url, bool &finalManifest, int &http_error, double &downloadTime, AAMPCDAIError &adErrorCode, bool tryFog = false);
 
 	/**
 	 * @fn InsertToPeriodMap
@@ -505,13 +506,13 @@ public:
 	inline bool isPeriodInAdbreak(const std::string &periodId);
 
 	/**
-	 * @fn setPlacementObj
+	 * @fn UpdatePlacementObj
 	 * @brief Function to update the PlacementObj with the new available DAI ad
 	 * @param[in] adBrkId : currentPlaying DAI AdId
 	 * @param[in] endPeriodId : nextperiod to play(after DAI playback)
 	 * @return new PlacementObj to be placed
 	 */
-	PlacementObj setPlacementObj(const std::string adBrkId, const std::string endPeriodId);
+	PlacementObj UpdatePlacementObj(const std::string adBrkId, const std::string endPeriodId);
 
 	/**
 	 * @fn RemovePlacementObj
@@ -598,6 +599,20 @@ public:
 	 * @return true if the next ad is available, false otherwise
 	 */
 	bool GetNextAdInBreakToPlace();
+
+	/**
+	 * @fn ValidateAdManifest
+	 * @brief Validate the ad manifest for basic requirements
+	 * @param[in] adMPDParseHelper - AampMPDParseHelper reference of the ad manifest
+	 * @param[in] adErrorCode - Ad error code to be set in case of failure
+	 */
+	void ValidateAdManifest(AampMPDParseHelper& adMPDParseHelper, AAMPCDAIError &adErrorCode);
+
+	/**
+	 * @brief Insert to the placement queue if not already present
+	 * @param[in] periodId Period ID for ad placement
+	 */
+	void InsertToPlacementQueue(const std::string& periodId);
 };
 
 #endif /* ADMANAGER_MPD_H_ */

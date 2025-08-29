@@ -1218,11 +1218,11 @@ void PrivateInstanceAAMP::FoundEventBreak(const std::string &adBreakId, uint64_t
 	}
 }
 
-void PrivateInstanceAAMP::SendAdResolvedEvent(const std::string &adId, bool status, uint64_t startMS, uint64_t durationMs)
+void PrivateInstanceAAMP::SendAdResolvedEvent(const std::string &adId, bool status, uint64_t startMS, uint64_t durationMs, AAMPCDAIError errorCode)
 {
 	if (g_mockPrivateInstanceAAMP != nullptr)
 	{
-		g_mockPrivateInstanceAAMP->SendAdResolvedEvent(adId, status, startMS, durationMs);
+		g_mockPrivateInstanceAAMP->SendAdResolvedEvent(adId, status, startMS, durationMs,errorCode);
 	}
 }
 

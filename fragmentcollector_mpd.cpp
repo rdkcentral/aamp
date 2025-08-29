@@ -11953,6 +11953,7 @@ bool StreamAbstractionAAMP_MPD::onAdEvent(AdEvent evt)
 
 bool StreamAbstractionAAMP_MPD::onAdEvent(AdEvent evt, double &adOffset)
 {
+	AAMPCDAIError adErrorCode = eCDAI_ERROR_NONE;
 	if(!ISCONFIGSET(eAAMPConfig_EnableClientDai))
 	{
 		return false;
@@ -12309,7 +12310,7 @@ bool StreamAbstractionAAMP_MPD::onAdEvent(AdEvent evt, double &adOffset)
 				bool finalManifest = false;
 				int http_error = 0;
 				double downloadTime = 0;
-				adNode.mpd = mCdaiObject->GetAdMPD(adNode.url, finalManifest, http_error, downloadTime, false);
+				adNode.mpd = mCdaiObject->GetAdMPD(adNode.url, finalManifest, http_error, downloadTime, adErrorCode, false);
 				if(CURLE_ABORTED_BY_CALLBACK == http_error)
 				{
 					AAMPLOG_WARN("[CDAI]: Ad playback failed. Not able to download Ad manifest. Aborted by callback.");

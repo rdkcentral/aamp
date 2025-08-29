@@ -2395,8 +2395,9 @@ public:
 	 *   @param[in] status Manifest status (success/Failure)
 	 *   @param[in] startMS Ad playback start time in milliseconds
 	 *   @param[in] durationMs Ad's duration in milliseconds
+	 *   @param[in] errorCode Ad's error code
 	 */
-	void SendAdResolvedEvent(const std::string &adId, bool status, uint64_t startMS=0, uint64_t durationMs=0);
+	void SendAdResolvedEvent(const std::string &adId, bool status, uint64_t startMS, uint64_t durationMs, AAMPCDAIError errorCode);
 
 	/**
 	 *   @fn SendAdReservationEvent
