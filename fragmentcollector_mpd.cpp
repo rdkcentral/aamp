@@ -4296,13 +4296,12 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 		// later if a pre-roll advert is played that does not contain subtitles.
 		if (ISCONFIGSET(eAAMPConfig_useRialtoSink) && 
 		   !mIsLiveStream &&
-		   //(!(AampStreamSinkManager::GetInstance().GetMediaHeader(eMEDIATYPE_SUBTITLE))))
-		   ( nullptr == AampStreamSinkManager::GetInstance().GetMediaHeader(eMEDIATYPE_SUBTITLE)))
+		   //( nullptr == AampStreamSinkManager::GetInstance().GetMediaHeader(eMEDIATYPE_SUBTITLE)))
+		   (!(AampStreamSinkManager::GetInstance().GetMediaHeader(eMEDIATYPE_SUBTITLE))))
 		{
 			AAMPLOG_MIL("StreamAbstractionAAMP_MPD: extract and add subtitleMedia header");
 			ExtractAndAddSubtitleMediaHeader();
 		}
-		//AAMPLOG_MIL("StreamAbstractionAAMP_MPD: subtitleMediaHeaderptr = %p, use_count = %ld", AampStreamSinkManager::GetInstance().GetMediaHeader(eMEDIATYPE_SUBTITLE).get(), AampStreamSinkManager::GetInstance().GetMediaHeader(eMEDIATYPE_SUBTITLE).use_count() );
 
 		AAMPLOG_WARN("StreamAbstractionAAMP_MPD: fetch initialization fragments");
 		// We have decided on the first period, calculate the PTSoffset to be applied to
