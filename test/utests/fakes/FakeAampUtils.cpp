@@ -563,18 +563,6 @@ std::string aamp_GetConfigPath(const std::string &filename)
 	return "FakeAampUtils.cpp";
 }
 
-double RecalculatePTS(AampMediaType mediaType, const void *ptr, size_t len, PrivateInstanceAAMP *aamp)
-{
-	double pts = 0.0;
-
-	if (g_mockAampUtils != nullptr)
-	{
-		pts = g_mockAampUtils->RecalculatePTS(mediaType, ptr, len, aamp);
-	}
-
-	return pts;
-}
-
 TSB::LogLevel ConvertTsbLogLevel(int logLev)
 {
 	return static_cast<TSB::LogLevel>(0);

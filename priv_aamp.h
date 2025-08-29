@@ -63,9 +63,27 @@
 #include "AampLLDASHData.h"
 #include "AampMPDPeriodInfo.h"
 #include "TsbApi.h"
+#include "AudioTrackInfo.h"
+#include "TextTrackInfo.h"
+#include "AAMPAnomalyMessageType.h"
 
 class AampMPDDownloader;
 typedef struct _manifestDownloadConfig ManifestDownloadConfig;
+
+/**
+ * @struct PreCacheUrlData
+ * @brief Pre cache the data information
+ */
+typedef struct PreCacheUrlData
+{
+    std::string url;
+    AampMediaType type;
+    PreCacheUrlData():url(""),type(eMEDIATYPE_VIDEO)
+    {
+    }
+} PreCacheUrlStruct;
+
+typedef std::vector < PreCacheUrlStruct> PreCacheUrlList;
 
 class AampTSBSessionManager;
 #include "ID3Metadata.hpp"
@@ -525,7 +543,6 @@ class SegmentInfo_t;
  */
 class PrivateInstanceAAMP : public DrmCallbacks, public std::enable_shared_from_this<PrivateInstanceAAMP>
 {
-
 	enum AAMP2ReceiverMsgType
 	{
 	    E_AAMP2Receiver_TUNETIME,   /**< Tune time Message */
@@ -549,6 +566,13 @@ class PrivateInstanceAAMP : public DrmCallbacks, public std::enable_shared_from_
 	std::shared_ptr<TSB::Store> mTSBStore; /**< Local TSB Store object */
 	void SanitizeLanguageList(std::vector<std::string>& languages) const;
 public:
+    /* @fn RecalculatePTS
+    * @param[in] mediaType stream type
+    * @param[in] ptr buffer pointer
+    * @param[in] len length of buffer
+    */
+    double RecalculatePTS(AampMediaType mediaType, const void *ptr, size_t len);
+
 	/**
 	 * @brief Get profiler bucket type
 	 *
@@ -1132,7 +1156,6 @@ public:
 
 	std::string seiTimecode; /**< SEI Timestamp information from Westeros */
 
-	static bool mTrackGrowableBufMem; /**< GROWABLE BUFFER Debug is enabled or not */
 	static bool mSubtecCCEnabled;	/**< To identify SUBTEC_CC is enabled or not */
 	// ID3 metadata
 	aamp::id3_metadata::MetadataCache mId3MetadataCache; /**< Metadata cache object for the JS event */
@@ -1427,7 +1450,7 @@ public:
 	 * @return void
 	 */
 	void SendDownloadErrorEvent(AAMPTuneFailure tuneFailure,int error_code);
-
+    
 	/**
 	 * @fn SendAnomalyEvent
 	 *
@@ -2911,6 +2934,7 @@ public:
 	 *   @return current video co-ordinates in x,y,w,h format
 	 */
 	std::string GetVideoRectangle();
+    
 	/**
 	 *   @fn SetPreCacheDownloadList
 	 *   @param[in] dnldListInput Playlist Download list
