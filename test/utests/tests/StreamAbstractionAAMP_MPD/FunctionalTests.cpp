@@ -98,7 +98,9 @@ protected:
 		{eAAMPConfig_EnableIgnoreEosSmallFragment, false},
 		{eAAMPConfig_EnablePTSReStamp, false},
 		{eAAMPConfig_LocalTSBEnabled, false},
-		{eAAMPConfig_EnableIFrameTrackExtract, false}
+		{eAAMPConfig_EnableIFrameTrackExtract, false},
+		{eAAMPConfig_useRialtoSink, false},
+		{eAAMPConfig_GstSubtecEnabled, false},
 	};
 
 	BoolConfigSettings mBoolConfigSettings;
@@ -2848,6 +2850,96 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 	g_mockTSBReader.reset();
 }
 
+TEST_F(FunctionalTests, AddSendMediaHeaderTest)
+{
+	AAMPStatusType status;
+
+	static const char *manifest =
+R"(<?xml version="1.0" encoding="UTF-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" maxSegmentDuration="PT0H0M8.160S" mediaPresentationDuration="PT0H23M23.320S" minBufferTime="PT12.000S" profiles="urn:mpeg:dash:profile:isoff-live:2011,http://dashif.org/guidelines/dash264,urn:hbbtv:dash:profile:isoff-live:2012" type="static">
+	<Period duration="PT0H11M09.160S" id="p0">
+		<AdaptationSet lang="eng" maxFrameRate="25" maxHeight="1080" maxWidth="1920" par="16:9" segmentAlignment="true" startWithSAP="1">
+			<SegmentTemplate initialization="$RepresentationID$_i.mp4" media="$RepresentationID$_$Number$.m4s" startNumber="1" timescale="12800" presentationTimeOffset="832000">
+				<SegmentTimeline>
+					<S d="76800" r="120" t="0"/>
+					<S d="104448"/>
+				</SegmentTimeline>
+			</SegmentTemplate>
+			<Representation bandwidth="517566" codecs="avc1.4D4028" frameRate="25" height="360" id="v1" mimeType="video/mp4" sar="1:1" width="640" />
+			<Representation bandwidth="1502968" codecs="avc1.4D4028" frameRate="25" height="720" id="v2" mimeType="video/mp4" sar="1:1" width="1280" />
+			<Representation bandwidth="2090806" codecs="avc1.4D4028" frameRate="25" height="1080" id="v3" mimeType="video/mp4" sar="1:1" width="1920" />
+		</AdaptationSet>
+		<AdaptationSet lang="eng" segmentAlignment="true" startWithSAP="1">
+			<SegmentTemplate initialization="$RepresentationID$_i.mp4" media="$RepresentationID$_$Number$.m4s" startNumber="1" timescale="44100" presentationTimeOffset="2866500">
+				<SegmentTimeline>
+					<S d="263177" t="0"/>
+					<S d="264192" r="120"/>
+					<S d="144384"/>
+				</SegmentTimeline>
+			</SegmentTemplate>
+			<Representation audioSamplingRate="44100" bandwidth="131780" codecs="mp4a.40.2" id="a1" mimeType="audio/mp4">
+				<AudioChannelConfiguration schemeIdUri="urn:mpeg:dash:23003:3:audio_channel_configuration:2011" value="2"/>
+			</Representation>
+		</AdaptationSet>
+		<AdaptationSet lang="eng" segmentAlignment="true" startWithSAP="1">
+			<SegmentTemplate initialization="$RepresentationID$_init.mp4" media="$RepresentationID$_$Number$.m4s" startNumber="1" timescale="44100" presentationTimeOffset="2866500">
+				<SegmentTimeline>
+					<S d="263177" t="0"/>
+					<S d="264192" r="120"/>
+					<S d="144384"/>
+				</SegmentTimeline>
+			</SegmentTemplate>
+			<Representation bandwidth="131780" codecs="stpp" id="sub1" mimeType="application/mp4" />
+		</AdaptationSet>
+	</Period>
+</MPD>
+)";
+	/* Set the eAAMPConfig_useRialtoSink flag to true */
+	mBoolConfigSettings[eAAMPConfig_useRialtoSink] = true;
+
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(_, _, _, _, _, true, _, _, _, _, _))
+		.WillRepeatedly(Return(true));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetLLDashChunkMode(_));
+	EXPECT_CALL(*g_mockAampStreamSinkManager, AddMediaHeader(2, _))
+		.Times(2);
+
+	//StreamAbstractionAAMP_MPD::Init() will internally call ExtractAndAddSubtitleMediaHeader()
+	status = InitializeMPD(manifest, eTUNETYPE_NEW_NORMAL, 0.0, AAMP_NORMAL_PLAY_RATE, true);
+	EXPECT_EQ(status, eAAMPSTATUS_OK);
+
+	/* Video stream */
+	MediaTrack *track = this->mStreamAbstractionAAMP_MPD->GetMediaTrack(eTRACK_VIDEO);
+	EXPECT_NE(track, nullptr);
+	track->enabled = false;
+	MediaStreamContext *pMediaStreamContext = static_cast<MediaStreamContext *>(track);
+
+	MediaTrack *aud_track = this->mStreamAbstractionAAMP_MPD->GetMediaTrack(eTRACK_AUDIO);
+	EXPECT_NE(aud_track, nullptr);
+	aud_track->enabled = false;
+	MediaTrack *sub_track = this->mStreamAbstractionAAMP_MPD->GetMediaTrack(eTRACK_SUBTITLE);
+	EXPECT_NE(sub_track, nullptr);
+	sub_track->enabled = false;
+
+	std::shared_ptr<AampStreamSinkManager::MediaHeader> header = std::make_shared<AampStreamSinkManager::MediaHeader>();
+	header->url = "http://host/asset/sub1_init.mp4";
+	header->mimeType = "application/mp4";
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetMediaHeader(2))
+		.WillRepeatedly(Return(header));
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetMediaHeader(0))
+		.WillRepeatedly(Return(nullptr));
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetMediaHeader(1))
+		.WillRepeatedly(Return(nullptr));
+	EXPECT_CALL(*g_mockAampStreamSinkManager, GetMediaHeader(3))
+		.WillRepeatedly(Return(nullptr));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled()).WillRepeatedly(Return(true));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetFile(_,_,_,_,_,_,_,_,_,_,_,_,_,_)).WillRepeatedly(Return(true));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SendStreamTransfer(_,_,_,_,_,_,_,_));
+
+	EXPECT_CALL(*g_mockAampStreamSinkManager, RemoveMediaHeader(2));
+
+	//StartInjection will internally call SendMediaHeaders()
+	this->mStreamAbstractionAAMP_MPD->StartInjection();
+}
 
 TEST_F(StreamAbstractionAAMP_MPDTest, CheckAdResolvedStatus_FirstTryAdBreakNotResolved)
 {
