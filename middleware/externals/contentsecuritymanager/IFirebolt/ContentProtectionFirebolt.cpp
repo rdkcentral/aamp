@@ -239,8 +239,8 @@ bool ContentProtectionFirebolt::AcquireLicenseOpenOrUpdate( std::string clientId
 	sessionConfig.add("sessionState", isVideoMuted ? "inactive" : "active");
 
 	// width/height are numbers, but PlayerJsonObject's add expects strings -> so convert to string
-	aspectDimensions.add("width", std::to_string(1920));
-	aspectDimensions.add("height", std::to_string(1080));
+	aspectDimensions.add("width", 1920);
+	aspectDimensions.add("height", 1080);
 
 	std::string mediaUsageStr = mediaUsage ? mediaUsage : "";
 
