@@ -703,6 +703,7 @@ install(FILES
 	middleware/SocUtils.h
 	middleware/closedcaptions/PlayerCCManager.h
 	middleware/PlayerUtils.h
+	LangCodePreference.h StreamOutputFormat.h VideoZoomMode.h StreamSink.h
 	DESTINATION include
 )
 
