@@ -1406,7 +1406,7 @@ void AampConfig::ProcessConfigText(std::string &cfg, ConfigPriority owner )
 				while (getline(iss, token, ' '))
 				{
 					const char *uri = token.c_str();
-					if( PlayerInstanceAAMP::isTuneScheme(uri) )
+					if( aamp_isTuneScheme(uri) )
 					{
 						AAMPLOG_INFO("Override %s", uri );
 						channelInfo.uri = token;

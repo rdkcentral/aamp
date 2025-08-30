@@ -25,11 +25,16 @@
 #ifndef PRIVAAMP_H
 #define PRIVAAMP_H
 
+#include "Accessibility.hpp"
+#include "VideoZoomMode.h"
+#include "AampScheduler.h"
+#include "StreamSink.h"
+#include "TimedMetadata.h"
+
 #include "AampProfiler.h"
 #include "DrmHelper.h"
 #include "DrmMediaFormat.h"
 #include "DrmCallbacks.h"
-#include "main_aamp.h"
 #include <IPVideoStat.h>
 #include "AampGrowableBuffer.h"
 #include "CCTrackInfo.h"
@@ -248,7 +253,7 @@ struct AsyncEventDescriptor
 	AsyncEventDescriptor& operator=(const AsyncEventDescriptor& other) = delete;
 
 	AAMPEventPtr event;
-	std::shared_ptr<PrivateInstanceAAMP> aamp;
+	std::shared_ptr<class PrivateInstanceAAMP> aamp;
 };
 
 /**
@@ -280,35 +285,6 @@ struct DynamicDrmInfo {
 };
 
 class Id3CallbackData;
-
-/**
- * @brief Class for Timed Metadata
- */
-class TimedMetadata
-{
-public:
-
-	/**
-	 * @brief TimedMetadata Constructor
-	 */
-	TimedMetadata() : _timeMS(0), _name(""), _content(""), _id(""), _durationMS(0) {}
-
-	/**
-	 * @brief TimedMetadata Constructor
-	 *
-	 * @param[in] timeMS - Time in milliseconds
-	 * @param[in] name - Metadata name
-	 * @param[in] content - Metadata content
-	 */
-	TimedMetadata(long long timeMS, std::string name, std::string content, std::string id, double durMS) : _timeMS(timeMS), _name(name), _content(content), _id(id), _durationMS(durMS) {}
-
-public:
-	long long _timeMS;       /**< Time in milliseconds */
-	std::string _name;       /**< Metadata name */
-	std::string _content;    /**< Metadata content */
-	std::string _id;         /**< Id of the timedMetadata. If not available an Id will bre created */
-	double      _durationMS; /**< Duration in milliseconds */
-};
 
 
 /**
@@ -1826,6 +1802,8 @@ public:
 	 * @return void
 	 */
 	void SaveNewTimedMetadata(long long timeMS, const char* szName, const char* szContent, int nb, const char* id = "", double durationMS = -1);
+
+	const std::vector<TimedMetadata> & GetTimedMetadata( void ) const;
 
 	/**
 	 * @fn SaveTimedMetadata

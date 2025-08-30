@@ -7731,6 +7731,10 @@ void PrivateInstanceAAMP::Stop( bool isDestructing )
 	AampStreamSinkManager::GetInstance().DeactivatePlayer(this, true);
 }
 
+const std::vector<TimedMetadata> & PrivateInstanceAAMP::GetTimedMetadata( void ) const
+{
+	return timedMetadata;
+}
 /**
  * @brief SaveTimedMetadata Function to store Metadata for bulk reporting during Initialization
  */

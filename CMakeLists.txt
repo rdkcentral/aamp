@@ -291,7 +291,7 @@ set(LIBAAMP_SOURCES
 	streamabstraction.cpp
 	priv_aamp.cpp priv_aamp.h
 	main_aamp.cpp main_aamp.h
-	LangCodePreference.h StreamOutputFormat.h VideoZoomMode.h StreamSink.h AudioTrackInfo.h TextTrackInfo.h
+	LangCodePreference.h StreamOutputFormat.h VideoZoomMode.h StreamSink.h AudioTrackInfo.h TextTrackInfo.h TimedMetadata.h
 	drm/AampDRMLicManager.cpp drm/AampDRMLicManager.h
 	drm/DrmInterface.cpp drm/DrmInterface.h
 	aampgstplayer.cpp aampgstplayer.h
@@ -703,7 +703,7 @@ install(FILES
 	middleware/SocUtils.h
 	middleware/closedcaptions/PlayerCCManager.h
 	middleware/PlayerUtils.h
-	LangCodePreference.h StreamOutputFormat.h VideoZoomMode.h StreamSink.h
+	LangCodePreference.h StreamOutputFormat.h VideoZoomMode.h StreamSink.h TimedMetadata.h
 	DESTINATION include
 )
 

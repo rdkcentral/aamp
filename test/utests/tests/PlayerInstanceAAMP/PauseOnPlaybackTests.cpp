@@ -22,9 +22,8 @@
 #include "MockAampConfig.h"
 #include "MockAampScheduler.h"
 #include "MockPrivateInstanceAAMP.h"
-#include "main_aamp.h"
+#include "main_aamp.h" // FIXME?
 #include "MockStreamAbstractionAAMP.h"
-#include "priv_aamp.h"
 
 using ::testing::_;
 using ::testing::Return;

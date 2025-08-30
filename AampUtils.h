@@ -413,5 +413,13 @@ void aamp_setThreadName(const char *name);
  */
 int aamp_SetThreadSchedulingParameters(int policy, int priority);
 
+/**
+ * @fn isTuneScheme
+ *
+ * @param[in] uri
+ *
+ * @retval true iff uri starts with a recognized protocol representing an IP Video Locator
+ */
+bool aamp_isTuneScheme( const char *cmdBuf );
 
 #endif  /* __AAMP_UTILS_H__ */

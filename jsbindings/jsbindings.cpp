@@ -28,7 +28,6 @@
 #include "jsbindings-version.h"
 #include "jsutils.h"
 #include "main_aamp.h"
-#include "priv_aamp.h"
 #include <mutex>
 #include "PlayerCCManager.h"
 
@@ -351,20 +350,19 @@ static JSValueRef AAMP_getProperty_timedMetadata(JSContextRef context, JSObjectR
 		return JSValueMakeUndefined(context);
 	}
 
-	PrivateInstanceAAMP* privAAMP = (pAAMP->_aamp != NULL) ? pAAMP->_aamp->aamp : NULL;
-	if (privAAMP == NULL)
+	if (pAAMP->_aamp == NULL)
 	{
                 LOG_ERROR_EX("privAAMP not initialized");
 		*exception = aamp_GetException(context, AAMPJS_INVALID_ARGUMENT, "AAMP.timedMetadata - initialization error");
 		return JSValueMakeUndefined(context);
 	}
-
-	int32_t length = (int32_t)privAAMP->timedMetadata.size();
+	auto timedMetadata = pAAMP->_aamp->GetTimedMetadata();
+	int32_t length = (int32_t)timedMetadata.size();
 
 	JSValueRef* array = new JSValueRef[length];
 	for (int32_t i = 0; i < length; i++)
 	{
-		TimedMetadata item = privAAMP->timedMetadata.at(i);
+		TimedMetadata item = timedMetadata.at(i);
 		JSObjectRef ref = aamp_CreateTimedMetadataJSObject(context, item._timeMS, item._name.c_str(), item._content.c_str(), item._id.c_str(), item._durationMS);
 		array[i] = ref;
 	}

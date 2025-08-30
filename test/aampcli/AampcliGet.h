@@ -26,7 +26,8 @@
 #define AAMPCLIGET_H
 
 #include <cstring>
-#include "priv_aamp.h"
+#include "main_aamp.h"
+//#include "priv_aamp.h"
 #include "AampcliCommand.h"
 
 typedef struct GetCommandInfo{
