@@ -27,7 +27,6 @@
 
 #include <cstring>
 #include "main_aamp.h"
-//#include "priv_aamp.h"
 #include "AampcliCommand.h"
 
 typedef struct GetCommandInfo{
