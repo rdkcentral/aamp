@@ -193,7 +193,7 @@ std::shared_ptr<CachedFragment> AampTSBSessionManager::Read(TsbInitDataPtr initf
 	if (!readFromAampCache)
 	{
 		// Read from TSBLibrary
-		std::string uniqueUrl = ToUniqueUrl(url,initfragdata->GetAbsolutePosition().inSeconds());
+		std::string uniqueUrl = ToUniqueUrl(std::move(url),initfragdata->GetAbsolutePosition().inSeconds());
 		std::size_t len = mTSBStore->GetSize(uniqueUrl);
 		if (len > 0)
 		{
@@ -828,7 +828,7 @@ void AampTSBSessionManager::SkipFragment(std::shared_ptr<AampTsbReader>& reader,
 				{
 					break;
 				}
-				nextFragmentData = tmp;
+				nextFragmentData = std::move(tmp);
 			}
 			AAMPLOG_INFO("Skipped frames [rate=%.02f] from %.02lf to %.02lf total duration = %.02lf",
 					rate, startPos.inSeconds(), nextFragmentData->GetAbsolutePosition().inSeconds(), skippedDuration.inSeconds());
