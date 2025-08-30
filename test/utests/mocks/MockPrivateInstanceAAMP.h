@@ -26,6 +26,8 @@
 class MockPrivateInstanceAAMP
 {
 public:
+    MOCK_METHOD(double, RecalculatePTS, (AampMediaType mediaType, const void *ptr, size_t len));
+    
 	MOCK_METHOD(void, Stop, (bool sendStateChangeEvent));
 
 	MOCK_METHOD(void, StartPausePositionMonitoring, (long long pausePositionMilliseconds));
@@ -60,7 +62,7 @@ public:
 	MOCK_METHOD(void, FoundEventBreak, (const std::string &adBreakId, uint64_t startMS, EventBreakInfo brInfo));
 	MOCK_METHOD(void, SaveNewTimedMetadata, (long long timeMS, const char* id, double durationMS));
 	MOCK_METHOD(bool, DownloadsAreEnabled, ());
-	MOCK_METHOD(void, SendAdResolvedEvent, (const std::string &adId, bool status, uint64_t startMS, uint64_t durationMs));
+	MOCK_METHOD(void, SendAdResolvedEvent, (const std::string &adId, bool status, uint64_t startMS, uint64_t durationMs, AAMPCDAIError errorCode));
 	MOCK_METHOD(uint32_t, GetAudTimeScale, ());
 	MOCK_METHOD(uint32_t, GetVidTimeScale, ());
 	MOCK_METHOD(void, ProcessID3Metadata, (char *, size_t , AampMediaType , uint64_t ));

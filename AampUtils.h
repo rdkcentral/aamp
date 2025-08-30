@@ -27,7 +27,9 @@
 #define __AAMP_UTILS_H__
 
 #include "DrmSystems.h"
-#include "main_aamp.h"
+#include "StreamOutputFormat.h"
+#include "AampMediaType.h"
+#include <thread>
 #include "iso639map.h"
 #include <string>
 #include <sstream>
@@ -333,13 +335,6 @@ namespace aamp_utils
         return std::unique_ptr<T>(new T(std::forward<Args>(args)...));
     }
 }
-
- /* @fn RecalculatePTS
- * @param[in] mediaType stream type
- * @param[in] ptr buffer pointer
- * @param[in] len length of buffer
- */
-double RecalculatePTS(AampMediaType mediaType, const void *ptr, size_t len, PrivateInstanceAAMP *aamp);
 
 /**
  * @fn ConvertTsbLogLevel

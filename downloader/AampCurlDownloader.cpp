@@ -26,6 +26,7 @@
 #include "AampUtils.h"
 #include <vector>
 #include "AampLogManager.h"
+#include "AampDefine.h"
 
 void _downloadConfig::show()
 {

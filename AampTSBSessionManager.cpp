@@ -312,7 +312,7 @@ void AampTSBSessionManager::EnqueueWrite(std::string url, std::shared_ptr<Cached
 		// The PTS value will be restamped by the injector thread.
 		// This function is called in the context of the fetcher thread before the fragment is added to the list to be injected, to avoid
 		// any race conditions; so it cannot be moved to ProcessWriteQueue() or any other functions called from a different context.
-		double pts = RecalculatePTS(static_cast<AampMediaType>(cachedFragment->type), cachedFragment->fragment.GetPtr(), cachedFragment->fragment.GetLen(), mAamp);
+		double pts = mAamp->RecalculatePTS(static_cast<AampMediaType>(cachedFragment->type), cachedFragment->fragment.GetPtr(), cachedFragment->fragment.GetLen());
 
 		// Get or create the datamanager for the mediatype
 		std::shared_ptr<AampTsbDataManager> dataManager = GetTsbDataManager(mediaType);
