@@ -31,7 +31,6 @@
 #include <uuid/uuid.h>
 #include <map>
 #include "tsb/api/TsbApi.h"
-#include "priv_aamp.h"
 #include "AampMediaType.h"
 #include "AampTsbDataManager.h"
 #include "AampTsbMetaDataManager.h"

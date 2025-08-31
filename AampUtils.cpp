@@ -1425,7 +1425,21 @@ int aamp_SetThreadSchedulingParameters(int policy, int priority)
 	AAMPLOG_INFO("Thread scheduling parameters set successfully.");
 	return result; // Success
 }
-/*
- * EOF
- */
+
+bool aamp_isTuneScheme( const char *cmdBuf )
+{
+    size_t cmdLen = strlen(cmdBuf);
+    bool isTuneScheme = false;
+    static const char *protocol[]  = { "http:","https:","live:","hdmiin:","file:","mr:","tune:" };
+    for( int i=0; i<sizeof(protocol)/sizeof(protocol[0]); i++ )
+    {
+        size_t protocolLen = strlen(protocol[i]);
+        if( cmdLen>=protocolLen && memcmp( cmdBuf, protocol[i], protocolLen )==0 )
+        {
+            isTuneScheme=true;
+            break;
+        }
+    }
+    return isTuneScheme;
+}
 

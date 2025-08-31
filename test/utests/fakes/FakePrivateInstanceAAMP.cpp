@@ -1712,3 +1712,10 @@ double PrivateInstanceAAMP::GetFormatPositionOffsetInMSecs()
 {
 	return 0;
 }
+
+const std::vector<TimedMetadata> & PrivateInstanceAAMP::GetTimedMetadata( void ) const
+{
+	static std::vector<TimedMetadata> rc;
+	return rc;
+}
+

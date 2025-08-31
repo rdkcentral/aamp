@@ -783,6 +783,12 @@ void PrivateInstanceAAMP::ResumeTrackInjection(AampMediaType type)
 {
 }
 
+const std::vector<TimedMetadata> & PrivateInstanceAAMP::GetTimedMetadata( void ) const
+{
+	static std::vector<TimedMetadata> timedMetadata;
+	return timedMetadata;
+}
+
 void PrivateInstanceAAMP::SaveTimedMetadata(long long timeMilliseconds, const char *szName,
 											const char *szContent, int nb, const char *id,
 											double durationMS)

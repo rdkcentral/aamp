@@ -24,7 +24,6 @@
 
 #include "Aampcli.h"
 #include "scte35/AampSCTE35.h"
-//#include "AampcliShader.h"
 
 Aampcli mAampcli;
 const char *gApplicationPath = NULL;
