@@ -2939,6 +2939,7 @@ bool StreamAbstractionAAMP::UpdateProfileBasedOnFragmentCache()
 	if(checkProfileChange)
 	{
 		desiredProfileIndex = GetDesiredProfileBasedOnCache();
+		AAMPLOG_INFO("ProfileChange based on cache %d",desiredProfileIndex);
 	}
 
 	if (desiredProfileIndex != currentProfileIndex)

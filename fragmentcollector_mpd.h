@@ -1288,6 +1288,9 @@ protected:
 	AampTime mNextPts;					/*For PTS restamping*/
 	std::vector<std::unique_ptr<aamp::AampTrackWorker>> mTrackWorkers;	/**< Track workers for fetching fragments*/
 	bool mIsFinalFirstPTS; /**< Flag to indicate if the first PTS is final or not */
+	// Cache for representation and profile tracking across periods
+	uint32_t mCachedBandwidth; /**< Cached bandwidth from previous period for comparison */
+	int mCachedRepresentationIndex; /**< Cached representation index from previous period for comparison */
 };
 
 #endif //FRAGMENTCOLLECTOR_MPD_H_

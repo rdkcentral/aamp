@@ -161,6 +161,8 @@ StreamAbstractionAAMP_MPD::StreamAbstractionAAMP_MPD(class PrivateInstanceAAMP *
 	,mIsSegmentTimelineEnabled(false)
 	,mSeekedInPeriod(false)
 	,mIsFinalFirstPTS(false)
+	,mCachedBandwidth(0)
+	,mCachedRepresentationIndex(-1)
 {
 	this->aamp = aamp;
 	if (aamp->mDRMLicenseManager)
@@ -2612,6 +2614,7 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 								if(ISCONFIGSET(eAAMPConfig_MidFragmentSeek))
 								{
 									mFirstPTS += mVideoPosRemainder;
+
 									if(mVideoPosRemainder > fragmentDuration/2)
 									{
 										if(aamp->GetInitialBufferDuration() == 0)
@@ -7653,13 +7656,61 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, 
 							// chosenAdaptationIdxs.insert(0);
 						}
 					}
+					// Check if representation should be reset for period change
+					// Use adaptation set 0 (video) to check for representation changes
+					bool shouldResetRepresentationIndex = false;
+					if (periodChanged && i == eMEDIATYPE_VIDEO)
+					{
+						// For video period changes, check if cached bandwidth exists at the same representation index
+						bool representationChanged = true; // Default to changed
+						if (mCachedBandwidth > 0 && mCachedRepresentationIndex >= 0 && adaptationSets.size() > 0)
+						{
+							// Use adaptation set 0 for video only
+							IAdaptationSet* adaptationSet = adaptationSets.at(0);
+							const auto &representations = adaptationSet->GetRepresentation();
+							for (int reprIdx = 0; reprIdx < representations.size(); reprIdx++)
+							{
+								if (reprIdx == mCachedRepresentationIndex)
+								{
+									IRepresentation *representation = representations.at(reprIdx);
+									uint32_t currentBandwidth = representation->GetBandwidth();
+									if (currentBandwidth == mCachedBandwidth)
+									{
+										representationChanged = false;
+										AAMPLOG_INFO("Representation unchanged - Bandwidth %u exists at same index %d in adaptationSet 0", 
+													 mCachedBandwidth, mCachedRepresentationIndex);
+									}
+									else
+									{
+										AAMPLOG_INFO("Representation changed - Bandwidth changed from %u to %u at index %d in adaptationSet 0", 
+													 mCachedBandwidth, currentBandwidth, mCachedRepresentationIndex);
+									}
+									break;
+								}
+							}
+							if (representationChanged)
+							{
+								AAMPLOG_INFO("Representation changed - cached bandwidth %u at index %d not found in current period adaptationSet 0", 
+											 mCachedBandwidth, mCachedRepresentationIndex);
+							}
+						}
+						else
+						{
+							AAMPLOG_INFO("Representation changed - no cached bandwidth, invalid index, or no adaptation sets");
+						}
+						shouldResetRepresentationIndex = representationChanged;
+					}
+					if (shouldResetRepresentationIndex)
+					{
+						// reset representationIndex to -1 to allow updating the currentProfileIndex for period change.
+						pMediaStreamContext->representationIndex = -1;
+						AAMPLOG_INFO("Resetting representationIndex for track %d", i);
+					}
 					if ((representationCount != GetProfileCount()) && mStreamInfo)
 					{
 						SAFE_DELETE_ARRAY(mStreamInfo);
-
-						// reset representationIndex to -1 to allow updating the currentProfileIndex for period change.
-						pMediaStreamContext->representationIndex = -1;
 						AAMPLOG_WARN("representationIndex set to (-1) to find currentProfileIndex");
+						pMediaStreamContext->representationIndex = -1;
 					}
 					if (!mStreamInfo)
 					{
@@ -7941,7 +7992,11 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, 
 							}
 							UpdateIframeTracks();
 						}
-						currentProfileIndex = GetDesiredProfile(false);
+						//currentProfileIndex = GetDesiredProfile(false);
+						/* Updating profile index based on the available bandwidth */
+						UpdateProfileBasedOnFragmentCache();
+						AAMPLOG_INFO("Profile updated based on fragment cache [%d]",currentProfileIndex);
+
 						// Adaptation Set Index corresponding to a particular profile
 						pMediaStreamContext->adaptationSetIdx = mProfileMaps[currentProfileIndex].adaptationSetIndex;
 						// Representation Index within a particular Adaptation Set
@@ -8005,6 +8060,15 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, 
 				pMediaStreamContext->fragmentDescriptor.Bandwidth = pMediaStreamContext->representation->GetBandwidth();
 			}
 			pMediaStreamContext->fragmentDescriptor.RepresentationID.assign(pMediaStreamContext->representation->GetId());
+			// Update cache with current bandwidth and index for video tracks only
+			if (periodChanged && i == eMEDIATYPE_VIDEO)
+			{
+				mCachedBandwidth = pMediaStreamContext->representation->GetBandwidth();
+				mCachedRepresentationIndex = pMediaStreamContext->representationIndex;
+				// Always update cache with new values for next period comparison
+				AAMPLOG_INFO("Caching representation - Bandwidth=%u, Index=%d", 
+							mCachedBandwidth, mCachedRepresentationIndex);
+			}
 			pMediaStreamContext->fragmentDescriptor.Time = 0;
 			pMediaStreamContext->eos = false;
 			pMediaStreamContext->mReachedFirstFragOnRewind = false;
