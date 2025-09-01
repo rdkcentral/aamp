@@ -160,9 +160,13 @@ protected:
 
 		mManifest = nullptr;
 		if (mMPD)
+		{
 			delete (mMPD);
+		}
 		if (mRootNode)
+		{
 			delete (mRootNode);
+		}
 	}
 
 public:
@@ -375,7 +379,7 @@ TEST_F(MpdTests, testRepeatedStartLocalTSB)
 	mStreamAbstractionAAMP_MPD = new TestableStreamAbstractionAAMP_MPD(mPrivateInstanceAAMP);
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled()).WillRepeatedly(Return(true));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection()).WillRepeatedly(Return(true));
-
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetLLDashAdjustSpeed()).WillRepeatedly(Return(false));
 
 	mStreamAbstractionAAMP_MPD->Start();
 
@@ -393,6 +397,7 @@ TEST_F(MpdTests, testRepeatedStartNotLocalTSB)
 	mStreamAbstractionAAMP_MPD = new TestableStreamAbstractionAAMP_MPD(mPrivateInstanceAAMP);
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled()).WillRepeatedly(Return(false));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection()).WillRepeatedly(Return(false));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetLLDashAdjustSpeed()).WillRepeatedly(Return(false));
 
 	mStreamAbstractionAAMP_MPD->Start();
 
