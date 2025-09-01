@@ -9759,7 +9759,7 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 	{
 		IndexNewMPDDocument(false);
 	}
-
+    AAMPLOG_INFO("Supriya added this INFO LOG: FetcherLoop: entered for %s stream", (mMediaStreamContext[eMEDIATYPE_VIDEO]->type == eMEDIATYPE_VIDEO ? "video" : "audio"));
 	AAMPLOG_MIL("aamp: ready to read fragments");
 	/*
 	 * Ready to collect fragments
@@ -9947,7 +9947,9 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 				{
 					if(trackIdx < mTrackWorkers.size() && mTrackWorkers[trackIdx])
 					{
+                        AAMPLOG_INFO("Supriya added this INFO LOG: FetcherLoop: waiting in WaitForCompletion() for mCompletionVar (Thread 71 to finish job)");
 						mTrackWorkers[trackIdx]->WaitForCompletion();
+                        AAMPLOG_INFO("Supriya added this INFO LOG: FetcherLoop: completed WaitForCompletion() for mCompletionVar");
 					}
 				}
 
@@ -10113,6 +10115,7 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 		}
 	} // Loop 1
 	while (!exitFetchLoop);
+    AAMPLOG_INFO("Supriya added this INFO LOG: FetcherLoop: exited normally");
 	AAMPLOG_MIL("FetcherLoop done");
 }
 
