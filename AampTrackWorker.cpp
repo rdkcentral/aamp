@@ -109,8 +109,11 @@ namespace aamp
 	 */
 	void AampTrackWorker::WaitForCompletion()
 	{
+		AAMPLOG_INFO("Supriya added this INFO LOG: WaitForCompletion: requesting mMutex for completion wait");
 		std::unique_lock<std::mutex> lock(mMutex);
+		AAMPLOG_INFO("Supriya added this INFO LOG: WaitForCompletion: acquired mMutex, waiting for mCompletionVar (Thread 71 to finish job)");
 		mCompletionVar.wait(lock, [this]() { return !mJobAvailable; });
+		AAMPLOG_INFO("Supriya added this INFO LOG: WaitForCompletion: completed wait for mCompletionVar");
 		AAMPLOG_DEBUG("Job wait completed for media type %s", GetMediaTypeName(mMediaType));
 	}
 
@@ -125,6 +128,7 @@ namespace aamp
 	void AampTrackWorker::ProcessJob()
 	{
 		UsingPlayerId playerId(aamp->mPlayerId);
+		AAMPLOG_INFO("Supriya added this INFO LOG: ProcessJob: entered for media type %s", GetMediaTypeName(mMediaType));
 		AAMPLOG_INFO("Process Job for media type %s", GetMediaTypeName(mMediaType));
 
 		// Main loop
@@ -132,8 +136,11 @@ namespace aamp
 		{
 			std::function<void()> currentJob;
 			{
+				AAMPLOG_INFO("Supriya added this INFO LOG: ProcessJob: requesting mMutex for job wait");
 				std::unique_lock<std::mutex> lock(mMutex);
+				AAMPLOG_INFO("Supriya added this INFO LOG: ProcessJob: acquired mMutex, waiting for mCondVar (mJobAvailable or mStop)");
 				mCondVar.wait(lock, [this]() { return mJobAvailable || mStop; });
+				AAMPLOG_INFO("Supriya added this INFO LOG: ProcessJob: mCondVar signaled, processing job for media type %s", GetMediaTypeName(mMediaType));
 				if (mStop)
 				{
 					break;
@@ -144,6 +151,7 @@ namespace aamp
 				if (!mStop && currentJob)
 				{
 					AAMPLOG_DEBUG("Executing Job for media type %s Job: %p", GetMediaTypeName(mMediaType), &currentJob);
+					AAMPLOG_INFO("Supriya added this INFO LOG: ProcessJob: executing job for media type %s", GetMediaTypeName(mMediaType));
 					lock.unlock();
 					try
 					{
@@ -159,13 +167,14 @@ namespace aamp
 					}
 					lock.lock();
 				}
+				AAMPLOG_INFO("Supriya added this INFO LOG: ProcessJob: job completed, signaling mCompletionVar for Thread 72");
 
 				AAMPLOG_DEBUG("Job completed for media type %s", GetMediaTypeName(mMediaType));
 				mJobAvailable = false;
 				mCompletionVar.notify_one();
 			}
 		}
-
+        AAMPLOG_INFO("Supriya added this INFO LOG: ProcessJob: exited for media type %s", GetMediaTypeName(mMediaType));
 		AAMPLOG_INFO("Exiting Process Job for media type %s", GetMediaTypeName(mMediaType));
 	}
 } // namespace aamp
