@@ -5215,12 +5215,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 		}
 		else
 		{
-			mpStreamAbstractionAAMP->SetTrickplayMode(rate);
-			mpStreamAbstractionAAMP->ResetTrickModePtsRestamping();
-			if (!GetLLDashChunkMode())
-			{
-				mpStreamAbstractionAAMP->SetVideoPlaybackRate(rate);
-			}
+			mpStreamAbstractionAAMP->ReinitializeInjection(rate);
 		}
 	}
 	else if (mMediaFormat == eMEDIAFORMAT_HLS || mMediaFormat == eMEDIAFORMAT_HLS_MP4)
@@ -5511,6 +5506,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 			if (sink)
 			{
 				sink->SetVideoZoom(zoom_mode);
+				AAMPLOG_INFO("SetVideoMute video_muted %d mApplyCachedVideoMute %d", video_muted, mApplyCachedVideoMute);
 				sink->SetVideoMute(video_muted);
 				if (mApplyCachedVideoMute)
 				{
@@ -5522,6 +5518,10 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 				{
 					sink->Configure(mVideoFormat, mAudioFormat, mAuxFormat, mSubtitleFormat, mpStreamAbstractionAAMP->GetESChangeStatus(), mpStreamAbstractionAAMP->GetAudioFwdToAuxStatus());
 				}
+			}
+			else
+			{
+				AAMPLOG_ERR("GetStreamSink() returned NULL");
 			}
 		}
 
@@ -6109,6 +6109,10 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 			//There two fns are being called in PlayerInstanceAAMP::SetVideoMute
 			SetVideoMute(video_muted);
 			CacheAndApplySubtitleMute(video_muted);
+		}
+		else
+		{
+			AAMPLOG_ERR("mpStreamAbstractionAAMP is NULL, cannot apply cached video mute");
 		}
 	}
 	ReleaseStreamLock();
@@ -7057,6 +7061,10 @@ void PrivateInstanceAAMP::SetVideoMute(bool muted)
 	if (sink)
 	{
 		sink->SetVideoMute(muted);
+	}
+	else
+	{
+		AAMPLOG_WARN("StreamSink not available, muted %d", muted);
 	}
 	if(ISCONFIGSET_PRIV(eAAMPConfig_UseSecManager) || ISCONFIGSET_PRIV(eAAMPConfig_UseFireboltSDK))
 	{
@@ -13700,6 +13708,11 @@ void PrivateInstanceAAMP::SetLLDashChunkMode(bool enable)
 		mpStreamAbstractionAAMP->SetABRMaxBuffer(GETCONFIGVALUE_PRIV(eAAMPConfig_MaxABRNWBufferRampUp));
 		LoadAampAbrConfig();
 	}
+}
+
+bool PrivateInstanceAAMP::GetLLDashChunkMode()
+{
+	return mIsChunkMode;
 }
 
 bool PrivateInstanceAAMP::GetLLDashAdjustSpeed(void)
