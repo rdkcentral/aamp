@@ -18,7 +18,7 @@
  */
 #include <string>
 #include <vector>
-#include "main_aamp.h"
+#include "priv_aamp.h"
 #include "AampLogManager.h"
 #include "PlayerCCManager.h"
 
