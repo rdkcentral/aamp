@@ -1572,7 +1572,7 @@ bool InterfacePlayerRDK::Flush(double position, int rate, bool shouldTearDown, b
 		(gstPrivateContext->audio_sink) &&
 		(rate != GST_NORMAL_PLAY_RATE))
 	{
-		/* 
+		/*
 		 * If trickplay, avoid tearing down the pipeline in ConfigurePipeline(),
 		 * by bringing the audio pipeline out of pre-roll which would block streaming.
 		 */
@@ -1708,7 +1708,7 @@ void InterfacePlayerRDK::InitializeSourceForPlayer(void *PlayerInstance, void * 
 		if ((gstPrivateContext->usingRialtoSink) &&
 			(socInterface->IsPlatformSegmentReady(gstPrivateContext->video_sink, gstPrivateContext->usingRialtoSink)))
 		{
-			// This property is required so that the segment event sent via gst_app_src_push_sample 
+			// This property is required so that the segment event sent via gst_app_src_push_sample
 			// in SendNewSegmentEvent, is sent with the next data flow
 			MW_LOG_INFO("Setting handle-segment-change to 1");
 			g_object_set(source, "handle-segment-change", TRUE, NULL);
@@ -2511,7 +2511,7 @@ long long InterfacePlayerRDK::GetPositionMilliseconds(void)
 			rc = GST_TIME_AS_MSECONDS(pos) * rate;
 			MW_LOG_DEBUG("positionQuery pos - %" G_GINT64_FORMAT " rc - %lld" , GST_TIME_AS_MSECONDS(pos), rc);
 		}
-		//MW_LOG_MIL("InterfacePlayerRDK: with positionQuery pos - %" G_GINT64_FORMAT " rc - %lld", GST_TIME_AS_MSECONDS(pos), rc);
+		MW_LOG_MIL("InterfacePlayerRDK: with positionQuery pos - %" G_GINT64_FORMAT " rc - %lld", GST_TIME_AS_MSECONDS(pos), rc);
 		//positionQuery is not unref-ed here, because it could be reused for future position queries
 	}
 	return rc;
@@ -2970,7 +2970,7 @@ bool InterfacePlayerRDK::SendHelper(int type, const void *ptr, size_t len, doubl
 #endif // SUPPORTS_MP4DEMUX
 			{
 				GstFlowReturn ret = gst_app_src_push_buffer(GST_APP_SRC(stream->source), buffer);
-				
+
 				if (ret != GST_FLOW_OK)
 				{
 					MW_LOG_ERR("gst_app_src_push_buffer error: %d[%s] mediaType %d", ret, gst_flow_get_name (ret), (int)mediaType);
@@ -2997,7 +2997,7 @@ bool InterfacePlayerRDK::SendHelper(int type, const void *ptr, size_t len, doubl
 				{
 					stream->bufferUnderrun = false;
 				}
-				
+
 				// PROFILE_BUCKET_FIRST_BUFFER after successful push of first gst buffer
 				if (isFirstBuffer == true && ret == GST_FLOW_OK)
 					firstBufferPushed = true;
@@ -3057,7 +3057,7 @@ void InterfacePlayerRDK::SendNewSegmentEvent(GstMediaType mediaType, GstClockTim
 		if(stopPts)
 		{
 			segment.stop = stopPts;
-		} 
+		}
 
 		if (((GstMediaType)mediaType == eGST_MEDIATYPE_VIDEO) &&
 			(!socInterface->IsVideoMaster(gstPrivateContext->video_sink, gstPrivateContext->usingRialtoSink)))
@@ -3089,7 +3089,7 @@ void InterfacePlayerRDK::SendNewSegmentEvent(GstMediaType mediaType, GstClockTim
 			{
 				MW_LOG_ERR("Failed to push segment event for mediaType[%d]", mediaType);
 			}
-			gst_object_unref(sourceEleSrcPad);			
+			gst_object_unref(sourceEleSrcPad);
 
 		}
 	}
