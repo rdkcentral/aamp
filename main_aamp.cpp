@@ -47,6 +47,11 @@ AampConfig *gpGlobalConfig=NULL;
 
 std::mutex PlayerInstanceAAMP::mPrvAampMtx;
 
+const std::vector<TimedMetadata> & PlayerInstanceAAMP::GetTimedMetadata( void ) const
+{
+	return aamp->GetTimedMetadata();
+}
+
 /**
  *  @brief PlayerInstanceAAMP Constructor.
  */
