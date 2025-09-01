@@ -806,8 +806,11 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 						aamp->seek_pos_seconds = aamp->GetPositionSeconds();
 						aamp->rate = AAMP_NORMAL_PLAY_RATE;
 						aamp->pipeline_paused = false;
+						AAMPLOG_INFO("Supriya added this INFO LOG: SetRateInternal: requesting streamMutex in AcquireStreamLock() rate=%f", rate);
 						aamp->AcquireStreamLock();
+						AAMPLOG_INFO("Supriya added this INFO LOG: SetRateInternal: acquired streamMutex in AcquireStreamLock() rate=%f", rate);
 						aamp->TuneHelper(eTUNETYPE_SEEK, false);
+						AAMPLOG_INFO("Supriya added this INFO LOG: SetRateInternal: releasing streamMutex rate=%f", rate);
 						aamp->ReleaseStreamLock();
 					}
 					else
@@ -900,8 +903,11 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 				aamp->CalculateTrickModePositionEOS();
 				aamp->EnableDownloads();
 				aamp->ResumeDownloads();
+				AAMPLOG_INFO("Supriya added this INFO LOG: SetRateInternal: requesting streamMutex in AcquireStreamLock() rate=%f", rate);
 				aamp->AcquireStreamLock();
+				AAMPLOG_INFO("Supriya added this INFO LOG: SetRateInternal: acquired streamMutex in AcquireStreamLock() rate=%f", rate);
 				aamp->TuneHelper(tuneTypePlay); // this unpauses pipeline as side effect
+				AAMPLOG_INFO("Supriya added this INFO LOG: SetRateInternal: releasing streamMutex rate=%f", rate);
 				aamp->ReleaseStreamLock();
 			}
 
