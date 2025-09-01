@@ -731,7 +731,7 @@ class AdResolvedEventTest : public testing::Test {
 protected:
     void SetUp() override {
         
-        adResolvedEvent = new AdResolvedEvent(true,"ad123",1000,15000, session_id); 
+        adResolvedEvent = new AdResolvedEvent(true, "ad123", 1000, 15000, "", "", session_id);
     }
 
     void TearDown() override {
@@ -742,7 +742,7 @@ protected:
 };
 // Testing AdResolvedEvent
 TEST_F(AdResolvedEventTest, AdResolvedEventMethodsTest) {
-    AdResolvedEvent adResolvedEvent(true, "ad123", 1000, 15000, session_id);
+    AdResolvedEvent adResolvedEvent(true, "ad123", 1000, 15000, "", "", session_id);
 
     EXPECT_TRUE(adResolvedEvent.getResolveStatus());
     EXPECT_EQ(adResolvedEvent.getAdId(), "ad123");

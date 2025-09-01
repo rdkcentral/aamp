@@ -35,6 +35,8 @@
 #include "PlayerUtils.h"
 #include "PlayerSecInterface.h"
 
+#include "AAMPAnomalyMessageType.h"
+#include "AuthTokenErrors.h"
 
 #define SESSION_TOKEN_URL "http://localhost:50050/authService/getSessionToken"
 

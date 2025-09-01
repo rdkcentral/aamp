@@ -27,7 +27,7 @@
 
 #include <stdlib.h>
 #include <sstream>
-#include <priv_aamp.h>
+#include <main_aamp.h>
 
 #define VIRTUAL_CHANNEL_VALID(x) ((x) > 0)
 #define MAX_BUFFER_LENGTH 4096

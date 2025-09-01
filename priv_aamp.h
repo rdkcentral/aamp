@@ -25,11 +25,16 @@
 #ifndef PRIVAAMP_H
 #define PRIVAAMP_H
 
+#include "Accessibility.hpp"
+#include "VideoZoomMode.h"
+#include "AampScheduler.h"
+#include "StreamSink.h"
+#include "TimedMetadata.h"
+
 #include "AampProfiler.h"
 #include "DrmHelper.h"
 #include "DrmMediaFormat.h"
 #include "DrmCallbacks.h"
-#include "main_aamp.h"
 #include <IPVideoStat.h>
 #include "AampGrowableBuffer.h"
 #include "CCTrackInfo.h"
@@ -63,9 +68,27 @@
 #include "AampLLDASHData.h"
 #include "AampMPDPeriodInfo.h"
 #include "TsbApi.h"
+#include "AudioTrackInfo.h"
+#include "TextTrackInfo.h"
+#include "AAMPAnomalyMessageType.h"
 
 class AampMPDDownloader;
 typedef struct _manifestDownloadConfig ManifestDownloadConfig;
+
+/**
+ * @struct PreCacheUrlData
+ * @brief Pre cache the data information
+ */
+typedef struct PreCacheUrlData
+{
+    std::string url;
+    AampMediaType type;
+    PreCacheUrlData():url(""),type(eMEDIATYPE_VIDEO)
+    {
+    }
+} PreCacheUrlStruct;
+
+typedef std::vector < PreCacheUrlStruct> PreCacheUrlList;
 
 class AampTSBSessionManager;
 #include "ID3Metadata.hpp"
@@ -230,7 +253,7 @@ struct AsyncEventDescriptor
 	AsyncEventDescriptor& operator=(const AsyncEventDescriptor& other) = delete;
 
 	AAMPEventPtr event;
-	std::shared_ptr<PrivateInstanceAAMP> aamp;
+	std::shared_ptr<class PrivateInstanceAAMP> aamp;
 };
 
 /**
@@ -262,35 +285,6 @@ struct DynamicDrmInfo {
 };
 
 class Id3CallbackData;
-
-/**
- * @brief Class for Timed Metadata
- */
-class TimedMetadata
-{
-public:
-
-	/**
-	 * @brief TimedMetadata Constructor
-	 */
-	TimedMetadata() : _timeMS(0), _name(""), _content(""), _id(""), _durationMS(0) {}
-
-	/**
-	 * @brief TimedMetadata Constructor
-	 *
-	 * @param[in] timeMS - Time in milliseconds
-	 * @param[in] name - Metadata name
-	 * @param[in] content - Metadata content
-	 */
-	TimedMetadata(long long timeMS, std::string name, std::string content, std::string id, double durMS) : _timeMS(timeMS), _name(name), _content(content), _id(id), _durationMS(durMS) {}
-
-public:
-	long long _timeMS;       /**< Time in milliseconds */
-	std::string _name;       /**< Metadata name */
-	std::string _content;    /**< Metadata content */
-	std::string _id;         /**< Id of the timedMetadata. If not available an Id will bre created */
-	double      _durationMS; /**< Duration in milliseconds */
-};
 
 
 /**
@@ -525,7 +519,6 @@ class SegmentInfo_t;
  */
 class PrivateInstanceAAMP : public DrmCallbacks, public std::enable_shared_from_this<PrivateInstanceAAMP>
 {
-
 	enum AAMP2ReceiverMsgType
 	{
 	    E_AAMP2Receiver_TUNETIME,   /**< Tune time Message */
@@ -549,6 +542,13 @@ class PrivateInstanceAAMP : public DrmCallbacks, public std::enable_shared_from_
 	std::shared_ptr<TSB::Store> mTSBStore; /**< Local TSB Store object */
 	void SanitizeLanguageList(std::vector<std::string>& languages) const;
 public:
+    /* @fn RecalculatePTS
+    * @param[in] mediaType stream type
+    * @param[in] ptr buffer pointer
+    * @param[in] len length of buffer
+    */
+    double RecalculatePTS(AampMediaType mediaType, const void *ptr, size_t len);
+
 	/**
 	 * @brief Get profiler bucket type
 	 *
@@ -1132,7 +1132,6 @@ public:
 
 	std::string seiTimecode; /**< SEI Timestamp information from Westeros */
 
-	static bool mTrackGrowableBufMem; /**< GROWABLE BUFFER Debug is enabled or not */
 	static bool mSubtecCCEnabled;	/**< To identify SUBTEC_CC is enabled or not */
 	// ID3 metadata
 	aamp::id3_metadata::MetadataCache mId3MetadataCache; /**< Metadata cache object for the JS event */
@@ -1427,7 +1426,7 @@ public:
 	 * @return void
 	 */
 	void SendDownloadErrorEvent(AAMPTuneFailure tuneFailure,int error_code);
-
+    
 	/**
 	 * @fn SendAnomalyEvent
 	 *
@@ -1803,6 +1802,8 @@ public:
 	 * @return void
 	 */
 	void SaveNewTimedMetadata(long long timeMS, const char* szName, const char* szContent, int nb, const char* id = "", double durationMS = -1);
+
+	const std::vector<TimedMetadata> & GetTimedMetadata( void ) const;
 
 	/**
 	 * @fn SaveTimedMetadata
@@ -2372,8 +2373,9 @@ public:
 	 *   @param[in] status Manifest status (success/Failure)
 	 *   @param[in] startMS Ad playback start time in milliseconds
 	 *   @param[in] durationMs Ad's duration in milliseconds
+	 *   @param[in] errorCode Ad's error code
 	 */
-	void SendAdResolvedEvent(const std::string &adId, bool status, uint64_t startMS=0, uint64_t durationMs=0);
+	void SendAdResolvedEvent(const std::string &adId, bool status, uint64_t startMS, uint64_t durationMs, AAMPCDAIError errorCode);
 
 	/**
 	 *   @fn SendAdReservationEvent
@@ -2911,6 +2913,7 @@ public:
 	 *   @return current video co-ordinates in x,y,w,h format
 	 */
 	std::string GetVideoRectangle();
+    
 	/**
 	 *   @fn SetPreCacheDownloadList
 	 *   @param[in] dnldListInput Playlist Download list

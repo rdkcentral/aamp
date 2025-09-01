@@ -15,20 +15,20 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- */
+*/
+
+#ifndef AAMP_ANOMALY_MESSAGE_TYPE_H
+#define AAMP_ANOMALY_MESSAGE_TYPE_H
 
 /**
- * @file AampcliCommand.h
- * @brief AampcliCommand header file
+ * @enum AAMPAnomalyMessageType
+ * @brief AAMP anomaly message types
  */
-#pragma once
-
-#include "main_aamp.h"
-
-class Command
+typedef enum
 {
-	public:
-		virtual ~Command( )
-		{}
-		virtual bool execute(const char *cmd, PlayerInstanceAAMP *playerInstanceAamp) = 0;
-};
+    ANOMALY_ERROR,    /**< Error Message */
+    ANOMALY_WARNING,  /**< Warning Message */
+    ANOMALY_TRACE      /**< Trace Message */
+} AAMPAnomalyMessageType;
+
+#endif // AAMP_ANOMALY_MESSAGE_TYPE_H
