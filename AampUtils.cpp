@@ -1168,63 +1168,6 @@ const char *GetMediaTypeName(AampMediaType mediaType)
 	}
 }
 
-/**
- * @fn RecalculatePTS
- * @param[in] mediaType stream type
- * @param[in] ptr buffer pointer
- * @param[in] len length of buffer
- */
-double RecalculatePTS(AampMediaType mediaType, const void *ptr, size_t len, PrivateInstanceAAMP *aamp)
-{
-	double ret = 0;
-	uint32_t timeScale = 0;
-	switch( mediaType )
-	{
-	case eMEDIATYPE_VIDEO:
-		timeScale = aamp->GetVidTimeScale();
-		break;
-	case eMEDIATYPE_AUDIO:
-	case eMEDIATYPE_AUX_AUDIO:
-		timeScale = aamp->GetAudTimeScale();
-		break;
-	case eMEDIATYPE_SUBTITLE:
-		timeScale = aamp->GetSubTimeScale();
-		break;
-	default:
-		AAMPLOG_WARN("Invalid media type %d", mediaType);
-		break;
-	}
-	IsoBmffBuffer isobuf;
-	isobuf.setBuffer((uint8_t *)ptr, len);
-	bool bParse = false;
-	try
-	{
-		bParse = isobuf.parseBuffer();
-	}
-	catch( std::bad_alloc& ba)
-	{
-		AAMPLOG_ERR("Bad allocation: %s", ba.what() );
-	}
-	catch( std::exception &e)
-	{
-		AAMPLOG_ERR("Unhandled exception: %s", e.what() );
-	}
-	catch( ... )
-	{
-		AAMPLOG_ERR("Unknown exception");
-	}
-	if(bParse && (0 != timeScale))
-	{
-		uint64_t fPts = 0;
-		bool bParse = isobuf.getFirstPTS(fPts);
-		if (bParse)
-		{
-			ret = fPts/(timeScale*1.0);
-		}
-	}
-	return ret;
-}
-
 TSB::LogLevel ConvertTsbLogLevel(int logLev)
 {
 	TSB::LogLevel ret = TSB::LogLevel::WARN; //default value
@@ -1482,7 +1425,21 @@ int aamp_SetThreadSchedulingParameters(int policy, int priority)
 	AAMPLOG_INFO("Thread scheduling parameters set successfully.");
 	return result; // Success
 }
-/*
- * EOF
- */
+
+bool aamp_isTuneScheme( const char *cmdBuf )
+{
+    size_t cmdLen = strlen(cmdBuf);
+    bool isTuneScheme = false;
+    static const char *protocol[]  = { "http:","https:","live:","hdmiin:","file:","mr:","tune:" };
+    for( int i=0; i<sizeof(protocol)/sizeof(protocol[0]); i++ )
+    {
+        size_t protocolLen = strlen(protocol[i]);
+        if( cmdLen>=protocolLen && memcmp( cmdBuf, protocol[i], protocolLen )==0 )
+        {
+            isTuneScheme=true;
+            break;
+        }
+    }
+    return isTuneScheme;
+}
 

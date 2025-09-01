@@ -26,7 +26,6 @@
 #include "MockStreamAbstractionAAMP.h"
 #include "MockAampStreamSinkManager.h"
 #include "main_aamp.h"
-#include "priv_aamp.h"
 
 using ::testing::_;
 using ::testing::Return;

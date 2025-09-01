@@ -222,6 +222,8 @@ static void GenerateLegacyAAMPEvent(const AAMPEventPtr &e, AAMPEvent &event)
 			event.data.adResolved.adId = ev->getAdId().c_str();
 			event.data.adResolved.startMS = ev->getStart();
 			event.data.adResolved.durationMs = ev->getDuration();
+			event.data.adResolved.errorCode = ev->getErrorCode().c_str();
+			event.data.adResolved.errorDescription = ev->getErrorDescription().c_str();
 			break;
 		}
 		case AAMP_EVENT_AD_RESERVATION_START:
