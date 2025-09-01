@@ -4815,8 +4815,12 @@ void PrivateInstanceAAMP::TeardownStream(bool newTune, bool disableDownloads)
 	if (mpStreamAbstractionAAMP)
 	{
 		// Using StreamLock to make sure this is not interfering with GetFile() from PreCachePlaylistDownloadTask
+		AAMPLOG_INFO("Supriya added this INFO LOG: TeardownStream: requesting streamMutex");
 		AcquireStreamLock();
+		AAMPLOG_INFO("Supriya added this INFO LOG: TeardownStream: acquired streamMutex, calling Stop()");
+		AAMPLOG_INFO("Supriya added this INFO LOG: TeardownStream: waiting for fragmentCollectorThreadID.join() (waiting for Thread 72)");
 		mpStreamAbstractionAAMP->Stop(disableDownloads);
+		AAMPLOG_INFO("Supriya added this INFO LOG: TeardownStream: join completed, Thread 72 exited");
 
 		if(mContentType == ContentType_HDMIIN)
 		{
@@ -4835,6 +4839,7 @@ void PrivateInstanceAAMP::TeardownStream(bool newTune, bool disableDownloads)
 				SAFE_DELETE(mpStreamAbstractionAAMP);
 			}
 		}
+		AAMPLOG_INFO("Supriya added this INFO LOG: TeardownStream: releasing streamMutex");
 		ReleaseStreamLock();
 	}
 	m_lastSubClockSyncTime = std::chrono::system_clock::time_point();
@@ -11213,6 +11218,7 @@ bool PrivateInstanceAAMP::IsAudioOrVideoOnly(StreamOutputFormat videoFormat, Str
 		mVideoOnlyPb = true;
 		AAMPLOG_INFO("Video-Only PlayBack");
 		ret = true;
+		
 	}
 
 	return ret;
@@ -11240,6 +11246,7 @@ void PrivateInstanceAAMP::DisableContentRestrictions(long grace, long time, bool
  */
 void PrivateInstanceAAMP::EnableContentRestrictions()
 {
+	AAMPLOG_INFO("Supriya added this INFO LOG: TeardownStream: requesting streamMutex");
 	AcquireStreamLock();
 	AAMPPlayerState state = GetState();
 	if (mpStreamAbstractionAAMP)
