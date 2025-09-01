@@ -129,7 +129,9 @@ public:
 	configs *m_drmConfigParam;
 	PlayerSecInterface *playerSecInstance;/** PlayerSecInterface instance **/
 	ContentSecurityManagerSession mContentSecurityManagerSession;
-        std::atomic<bool> mFirstFrameSeen;
+    std::atomic<bool> mFirstFrameSeen;
+	std::atomic<bool> mIsVideoOnMute;
+	std::atomic<int> mCurrentSpeed;
 private:
 	KeyID *cachedKeyIDs;
 	char* accessToken;
@@ -140,8 +142,6 @@ private:
 	std::mutex mDrmSessionLock;
 	bool mEnableAccessAttributes;
 	int mMaxDRMSessions;
-	std::atomic<bool> mIsVideoOnMute;
-	std::atomic<int> mCurrentSpeed;
 	std::function<void(uint32_t, uint32_t, const std::string&)> mPlayerSendWatermarkSessionUpdateEventCB;
 	/**     
 	 * @brief Copy constructor disabled

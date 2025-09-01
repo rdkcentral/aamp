@@ -51,7 +51,7 @@ static void  registerCb(AampDRMLicenseManager* _this, DrmSessionManager* instanc
 {
 	/* Register the callback for acquire license data */
 	instance->RegisterLicenseDataCb([_this](int &responseCode, std::shared_ptr<DrmHelper> drmHelper, int sessionSlot, int &cdmError, int streamType,void *metaDataPtr, bool isLicenseRenewal = false ) -> KeyState {
-			return _this->acquireLicense(responseCode, (std::move)drmHelper, sessionSlot, cdmError,
+			return _this->acquireLicense(responseCode, std::move(drmHelper), sessionSlot, cdmError,
 					(AampMediaType)streamType,metaDataPtr, false);
 			});
 
@@ -386,7 +386,7 @@ KeyState AampDRMLicenseManager::acquireLicense( int& responseCode, std::shared_p
 
 	if (code == KEY_PENDING)
 	{
-		code = handleLicenseResponse(responseCode, std::move(drmHelper), sessionSlot, cdmError, httpResponseCode, httpExtendedStatusCode, (std::move)licenseResponse, eventHandle,  isLicenseRenewal);
+		code = handleLicenseResponse(responseCode, std::move(drmHelper), sessionSlot, cdmError, httpResponseCode, httpExtendedStatusCode, std::move(licenseResponse), eventHandle,  isLicenseRenewal);
 	}
 	return code;
 }
@@ -1192,7 +1192,7 @@ DrmData * AampDRMLicenseManager::getLicenseSec(const LicenseRequest &licenseRequ
 		int32_t statusCode;
 		int32_t reasonCode;
 		int32_t businessStatus;
-		bool videoMuteState = mIsVideoOnMute.load();
+		bool videoMuteState = mDrmSessionManager->mIsVideoOnMute.load();
 		if (!mDrmSessionManager->mContentSecurityManagerSession.isSessionValid())
 		{
 			// if we're about to get a licence and are not re-using a session, then we have not seen the first video frame yet. Do not allow watermarking to get enabled yet.
