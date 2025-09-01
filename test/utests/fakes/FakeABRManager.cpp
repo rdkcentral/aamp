@@ -116,3 +116,7 @@ int  ABRManager::getProfileIndexForLowestBandwidth()
 {
     return 0;
 }
+void ABRManager::setDesiredProfileIndex( bool maintaindesiredProfile )
+{
+	
+}

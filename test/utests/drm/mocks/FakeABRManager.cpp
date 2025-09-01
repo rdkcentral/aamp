@@ -114,3 +114,7 @@ int ABRManager::removeProfiles(std::vector<BitsPerSecond> profileBPS, int curren
 {
 	return 0;
 }
+void ABRManager::setDesiredProfileIndex( bool maintaindesiredProfile )
+{
+	
+}

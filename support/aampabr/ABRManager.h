@@ -167,6 +167,12 @@ public:
    * @return long bandwidth of the profile
    */
   long getBandwidthOfProfile(int profileIndex);
+  /**
+   * @fn setDesiredProfileIndex
+   *
+   * @param maintainDesiredProfile The profile index to be maintained or not
+   */ 
+  void setDesiredProfileIndex( bool maintainDesiredProfile );
 
   /**
    * @brief Get profile of bandwidth
@@ -253,6 +259,8 @@ public:
    * @param defaultIframeBitrate Default iframe bitrate
    */
   void setDefaultIframeBitrate(long defaultIframeBitrate);
+
+
    /**
     * @fn getUserDataOfProfile
     *
@@ -345,11 +353,14 @@ private:
    * @brief The number of ABR profiles that ramping down
    */
   int mAbrProfileChangeDownCount;
-
   /**
    * @brief Default iframe bitrate
    */
   long mDefaultIframeBitrate;
+   /**
+   * @brief Desired profile index maintenance flag
+   */
+  bool isDesiredProfileNeeded;
 
 public:
   /**
