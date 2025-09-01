@@ -161,6 +161,7 @@ StreamAbstractionAAMP_MPD::StreamAbstractionAAMP_MPD(class PrivateInstanceAAMP *
 	,mIsSegmentTimelineEnabled(false)
 	,mSeekedInPeriod(false)
 	,mIsFinalFirstPTS(false)
+	,mFirstTuneDone(false)
 {
 	this->aamp = aamp;
 	if (aamp->mDRMLicenseManager)
@@ -2608,6 +2609,7 @@ double StreamAbstractionAAMP_MPD::SkipFragments( MediaStreamContext *pMediaStrea
 								if(ISCONFIGSET(eAAMPConfig_MidFragmentSeek))
 								{
 									mFirstPTS += mVideoPosRemainder;
+
 									if(mVideoPosRemainder > fragmentDuration/2)
 									{
 										if(aamp->GetInitialBufferDuration() == 0)
@@ -7648,16 +7650,115 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, 
 							// chosenAdaptationIdxs.insert(0);
 						}
 					}
-					if ((representationCount != GetProfileCount()) && mStreamInfo)
+					// Check if representation should be reset for period change
+					bool shouldResetRepresentationIndex = (representationCount != GetProfileCount()) && (mStreamInfo != nullptr);
+					bool desiredProfileTobeMaintained = false;
+					if( shouldResetRepresentationIndex == false )
 					{
-						SAFE_DELETE_ARRAY(mStreamInfo);
-
-						// reset representationIndex to -1 to allow updating the currentProfileIndex for period change.
-						pMediaStreamContext->representationIndex = -1;
-						AAMPLOG_WARN("representationIndex set to (-1) to find currentProfileIndex");
+						int currentRepresentationIndex = pMediaStreamContext->representationIndex;
+						int adaptationSetIndex = pMediaStreamContext->adaptationSetIdx;
+						if (periodChanged && i == eMEDIATYPE_VIDEO && !ISCONFIGSET(eAAMPConfig_AudioOnlyPlayback))
+						{
+							// For video period changes, check if current profile bandwidth exists at the same representation index
+							bool representationChanged = true; // Default to changed
+							if ( adaptationSetIndex >=0 && adaptationSetIndex < adaptationSets.size() )
+							{
+								// Use adaptation set 0 for video only
+								IAdaptationSet* adaptationSet = adaptationSets.at(adaptationSetIndex);
+								const auto &representations = adaptationSet->GetRepresentation();
+								if( currentRepresentationIndex >= 0 && currentRepresentationIndex < representations.size() )
+								{
+									// Get current profile bandwidth using ABR API
+									uint32_t currentProfileBandwidth = GetABRManager().getBandwidthOfProfile(currentRepresentationIndex);
+									// Get representation bandwidth at current index
+									IRepresentation *representation = representations.at(currentRepresentationIndex);
+									uint32_t representationBandwidth = representation->GetBandwidth();
+									if (representationBandwidth == currentProfileBandwidth)
+									{
+										/*If the bandwidth similar means we don't want to reset the profile Index,
+										* as the representation order remains same.
+										*/
+										representationChanged = false;
+										AAMPLOG_INFO("Representation unchanged - Current profile bandwidth %" PRIu32 " matches representation bandwidth %u at index %d in adaptationSet 0",
+											currentProfileBandwidth, representationBandwidth, currentRepresentationIndex);
+									}
+									else
+									{
+										/*If the bandwidth's are not same, then the representation got changed, so we need to reset
+										* the representation index
+										*/
+										representationChanged = true;
+										AAMPLOG_INFO("Representation changed - Current profile bandwidth %" PRIu32 " doesn't match representation bandwidth %u at index %d in adaptationSet 0",
+											currentProfileBandwidth, representationBandwidth, currentRepresentationIndex);
+									}
+								}
+							}
+							else
+							{
+								AAMPLOG_INFO("Representation changed - invalid no adaptation sets");
+							}
+							shouldResetRepresentationIndex = representationChanged;
+						}
 					}
-					if (!mStreamInfo)
+					if (shouldResetRepresentationIndex)
 					{
+						/*If the representation count across the periods changes, currentprofileIndex is invalid
+						* so if the current representation count is less than previous count, we need to find the nearest
+						* match for current profile bandwidth and update the current profile index value.
+						*
+						* If the current representation count is more than previous count, it maintains the previous representation index itself
+						* even the desired profile index picked up by the ABR manager, as it is reset to currentprofileIndex, so  set the setDesiredProfileIndex
+						* flag in order to avoid this
+						*/
+						if(representationCount < GetProfileCount())
+						{
+							AAMPLOG_INFO("Representation count changed from %d to %d", GetProfileCount(), representationCount);
+							int adaptationSetIndex = pMediaStreamContext->adaptationSetIdx;
+							int idx = 0;
+							if (adaptationSetIndex >= 0 && adaptationSetIndex < adaptationSets.size())
+							{
+								IAdaptationSet* adaptationSet = adaptationSets.at(adaptationSetIndex);
+								int idx = 0;
+								const auto &representations = adaptationSet->GetRepresentation();
+								// Get current profile bandwidth
+								uint32_t currentProfileBandwidth = GetABRManager().getBandwidthOfProfile(currentProfileIndex);
+								AAMPLOG_INFO("Current profile bandwidth %" PRIu32 " to find nearest match in adaptationSet %d  size %u", currentProfileBandwidth, adaptationSetIndex, (unsigned int)representations.size());
+								for (idx = 0; idx < representations.size(); idx++)
+								{
+									IRepresentation *representation = representations.at(idx);
+									uint32_t representationBandwidth = representation->GetBandwidth();
+									if (representationBandwidth <= currentProfileBandwidth)
+									{
+										currentProfileIndex = idx;
+									}
+									else
+									{
+										AAMPLOG_INFO("Found nearest or equal bandwidth %u for current profile bandwidth %u at index %d in adaptationSet %d",
+																representationBandwidth, currentProfileBandwidth, idx, adaptationSetIndex);
+										break;
+									}
+								}
+								AAMPLOG_INFO("Updating current profile index to %d",currentProfileIndex);
+							}
+						}
+						else if(representationCount > GetProfileCount())
+						{
+							desiredProfileTobeMaintained = true;
+							AAMPLOG_INFO("Maintaining desired profile index %d for period change", currentProfileIndex);
+						}
+						// reset representationIndex to -1 to allow updating the currentProfileIndex for period change.
+						AAMPLOG_WARN("representationIndex set to (-1) to find currentProfileIndex");
+						pMediaStreamContext->representationIndex = -1;
+					}
+					/* Set the setDesiredProfileIndex flag to Abr, to maintain the desired Profile Index */
+					GetABRManager().setDesiredProfileIndex(desiredProfileTobeMaintained);
+
+					if (!mStreamInfo || (representationCount != GetProfileCount()))
+					{
+						/*If the representation count changes, the array is not created initialized with the maximum representation count
+						* sometimes we are facing the out of range issue while accessing the mStreamInfo array, so to avoid that we are reallocating the array
+						* with the current representationCount
+						*/
 						mStreamInfo = new StreamInfo[representationCount];
 					}
 					GetABRManager().clearProfiles();
@@ -7936,7 +8037,26 @@ AAMPStatusType StreamAbstractionAAMP_MPD::UpdateTrackInfo(bool modifyDefaultBW, 
 							}
 							UpdateIframeTracks();
 						}
-						currentProfileIndex = GetDesiredProfile(false);
+						/* During initialization its better to call the GetDesiredProfile(), which picks up the
+						* desired profile index corresponding to default bitrate.
+						*/
+						if(mFirstTuneDone == false)
+						{
+							currentProfileIndex = GetDesiredProfile(false);
+							AAMPLOG_INFO("Profile updated based on Desired profile [%d]",currentProfileIndex);
+							mFirstTuneDone = true;
+						}
+						else
+						{
+							/* During subsequent 'period' change its better to call the  UpdateProfileBasedOnFragmentCache()
+							* which will picks up the profile index based on the network bandwidth
+							*/
+						    UpdateProfileBasedOnFragmentCache();
+							AAMPLOG_INFO("Profile updated based on fragment cache [%d]",currentProfileIndex);
+						}
+
+
+
 						// Adaptation Set Index corresponding to a particular profile
 						pMediaStreamContext->adaptationSetIdx = mProfileMaps[currentProfileIndex].adaptationSetIndex;
 						// Representation Index within a particular Adaptation Set

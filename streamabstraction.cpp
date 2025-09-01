@@ -2165,7 +2165,7 @@ StreamAbstractionAAMP::StreamAbstractionAAMP(PrivateInstanceAAMP* aamp, id3_call
 	mABRMinBuffer = GETCONFIGVALUE(eAAMPConfig_MinABRNWBufferRampDown);
 	mABRNwConsistency = GETCONFIGVALUE(eAAMPConfig_ABRNWConsistency);
 	aamp->mhAbrManager.setDefaultInitBitrate(aamp->GetDefaultBitrate());
-
+	aamp->mhAbrManager.setDesiredProfileIndex(0);
 	BitsPerSecond ibitrate = aamp->GetIframeBitrate();
 	if (ibitrate > 0)
 	{
@@ -2603,7 +2603,6 @@ int StreamAbstractionAAMP::GetDesiredProfileBasedOnCache(void)
 
 				// Now check for Fixed BitRate for longer time(valley)
 				GetDesiredProfileOnSteadyState(currentProfileIndex, desiredProfileIndex, networkBandwidth);
-
 				// After ABR is done , next configure the timeouts for next downloads based on buffer
 				ConfigureTimeoutOnBuffer();
 			}
@@ -2939,6 +2938,7 @@ bool StreamAbstractionAAMP::UpdateProfileBasedOnFragmentCache()
 	if(checkProfileChange)
 	{
 		desiredProfileIndex = GetDesiredProfileBasedOnCache();
+		AAMPLOG_INFO("ProfileChange based on cache %d",desiredProfileIndex);
 	}
 
 	if (desiredProfileIndex != currentProfileIndex)
@@ -2958,14 +2958,12 @@ bool StreamAbstractionAAMP::UpdateProfileBasedOnFragmentCache()
 		stAbrInfo.desiredBandwidth = GetStreamInfo(desiredProfileIndex)->bandwidthBitsPerSecond;
 		stAbrInfo.networkBandwidth = aamp->GetCurrentlyAvailableBandwidth();
 		stAbrInfo.errorType = AAMPNetworkErrorNone;
-
 		AampLogManager::LogABRInfo(&stAbrInfo);
 		aamp->UpdateVideoEndMetrics(stAbrInfo);
 #endif /* 0 */
-
 		this->currentProfileIndex = desiredProfileIndex;
 		profileIdxForBandwidthNotification = desiredProfileIndex;
-		AAMPLOG_DEBUG(" profileIdxForBandwidthNotification updated to %d ",  profileIdxForBandwidthNotification);
+		AAMPLOG_DEBUG("profileIdxForBandwidthNotification updated to %d ",  profileIdxForBandwidthNotification);
 		video->ABRProfileChanged();
 		long newBW = GetStreamInfo(profileIdxForBandwidthNotification)->bandwidthBitsPerSecond;
 		video->SetCurrentBandWidth((int)newBW);

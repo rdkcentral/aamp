@@ -1171,7 +1171,7 @@ protected:
 	bool isVidDiscInitFragFail;
 	double mLivePeriodCulledSeconds;
 	bool mIsSegmentTimelineEnabled;   /**< Flag to indicate if segment timeline is enabled, to determine if PTS is available from manifest */
-
+    bool mFirstTuneDone; /* Flag to indicate whether the first tune after initialization has been completed or not */
 	// In case of streams with multiple video Adaptation Sets, A profile
 	// is a combination of an Adaptation Set and Representation within
 	// that Adaptation Set. Hence we need a mapping from a profile to

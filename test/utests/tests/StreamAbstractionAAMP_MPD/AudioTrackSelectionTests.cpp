@@ -498,7 +498,7 @@ R"(<?xml version="1.0" encoding="utf-8"?>
 	</AdaptationSet>
   </Period>
 </MPD>)";
-	fragmentUrl = std::string(TEST_BASE_URL) + std::string("ac4/audio_init.mp4");
+	fragmentUrl = std::string(TEST_BASE_URL) + std::string("aac/audio_init.mp4");
 	EXPECT_CALL(*g_mockMediaStreamContext, CacheFragment(fragmentUrl, _, _, _, _, true, _, _, _, _, _))
 		.WillOnce(Return(true));
 	status = InitializeMPD(manifest);

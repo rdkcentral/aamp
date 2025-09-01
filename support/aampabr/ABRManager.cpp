@@ -443,10 +443,12 @@ bool ABRManager::isProfileIndexBitrateLowest(int currentProfileIndex, const std:
 int ABRManager::getProfileIndexByBitrateRampUpOrDown(int currentProfileIndex, long currentBandwidth, long networkBandwidth, int nwConsistencyCnt, const std::string& periodId) {
 
   std::lock_guard<std::mutex> lock(mProfileLock);
+
+  
   // Clamp the param to avoid overflow
   int profileCount = getProfileCountUnlocked();
   PROFILE_IDX_RANGE_CHECK(currentProfileIndex, profileCount);
-
+  
   int desiredProfileIndex = currentProfileIndex;
   if (networkBandwidth == -1) {
     // If the network bandwidth is not available, just reset the profile change up/down count.
@@ -460,6 +462,7 @@ int ABRManager::getProfileIndexByBitrateRampUpOrDown(int currentProfileIndex, lo
   }
   if(networkBandwidth > currentBandwidth) {
     // if networkBandwidth > is more than current bandwidth
+
     SortedBWProfileListIter iter;
     SortedBWProfileListIter currIter = mSortedBWProfileList[periodId].find(currentBandwidth);
     SortedBWProfileListIter storedIter = mSortedBWProfileList[periodId].end();
@@ -478,7 +481,15 @@ int ABRManager::getProfileIndexByBitrateRampUpOrDown(int currentProfileIndex, lo
       mAbrProfileChangeUpCount++;
       // if same profile holds good for next 3*2 fragments
       if (mAbrProfileChangeUpCount < nwConsistencyCnt) {
-        desiredProfileIndex = currentProfileIndex;
+        // Avoid updating desiredProfileIndex to currentProfileIndex during period transition
+        // But allow it if the desired profile is invalid or same as current
+        if (!isDesiredProfileNeeded) {
+          desiredProfileIndex = currentProfileIndex;
+          logprintf("%s:%d updating DesiredProfileIndex=%d",__FUNCTION__,__LINE__,desiredProfileIndex);
+        } else {
+          logprintf("%s:%d skipping profile update due to period transition. DesiredProfileIndex remains=%d",__FUNCTION__,__LINE__,desiredProfileIndex);
+        }
+
       } else {
         mAbrProfileChangeUpCount = 0;
       }
@@ -554,6 +565,13 @@ long ABRManager::getBandwidthOfProfile(int profileIndex) {
   PROFILE_IDX_RANGE_CHECK(profileIndex, profileCount);
 
   return mProfiles[profileIndex].bandwidthBitsPerSecond;
+}
+/**
+ *  @brief Set the Desired profile needed flag
+ */
+void ABRManager::setDesiredProfileIndex( bool maintainDesiredProfile )
+{
+    isDesiredProfileNeeded = maintainDesiredProfile;
 }
 
 /**
@@ -713,6 +731,7 @@ void ABRManager::setLogDirectory(char driveName) {
 void ABRManager::setDefaultIframeBitrate(long defaultIframeBitrate) {
   mDefaultIframeBitrate = defaultIframeBitrate;
 }
+
 
 /**
  *  @brief Get the lowest bitrate pointing index
