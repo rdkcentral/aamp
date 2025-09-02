@@ -118,18 +118,18 @@ public:
 
 TEST_P(SubtitleMuteTests, CacheSubtitleMuteTests)
 {
-	auto param = GetParam();
-	bool currState = param.first;
-	bool inputState = param.second;
+	auto param {GetParam()};
+	bool currState {param.first};
+	bool inputState {param.second};
 	CacheAndMuteSubtitles(currState, inputState);
 }
 
 TEST_P(SubtitleMuteTests, SetSubtitleMuteTests)
 {
-	auto param = GetParam();
-	bool videoMuted = param.first;
-	bool subtitleMuteParam = param.second;
-	TestSetSubtitleMute(videoMuted, subtitleMuteParam);
+	auto param {GetParam()};
+	bool subtitleMuted {param.first};
+	bool videoMuted {param.second};
+	TestSetSubtitleMute(videoMuted, subtitleMuted);
 }
 
 // Run PlaybackSpeedTests tests at various speeds
