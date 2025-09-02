@@ -158,9 +158,9 @@ void logprintf(MW_LogLevel logLevelIndex, const char* file, int line, const char
 		    }
 		    else
 		    {
+				FileLogger::getInstance().writeLog(format_ptr, args);
 			    format_ptr[format_bytes-1] = 0x00; // strip not-needed newline (good for Ethan Logger, too?)
 			    sd_journal_printv(LOG_NOTICE,format_ptr,args); // note: truncates to 2040 characters
-				FileLogger::getInstance().writeLog(format_ptr, args);
 		    }
 		    va_end(args);
 	    }
