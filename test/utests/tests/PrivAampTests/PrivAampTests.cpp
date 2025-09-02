@@ -46,8 +46,8 @@
 #include "MockAampJsonObject.h"
 #include "MockTSBSessionManager.h"
 #include "MockTSBStore.h"
-
 #include "fragmentcollector_mpd.h"
+#include "MockAdManager.h"
 
 using ::testing::An;
 using ::testing::DoAll;
@@ -94,10 +94,14 @@ protected:
 		g_mockStreamAbstractionAAMP = new NiceMock<MockStreamAbstractionAAMP>(p_aamp);
 		g_mockCurl = new NiceMock<MockCurl>();
 		g_mockAampCurlStore = new NiceMock<MockAampCurlStore>();
+		g_MockPrivateCDAIObjectMPD = new MockPrivateCDAIObjectMPD();
 	}
 
 	void TearDown() override
 	{
+		delete g_MockPrivateCDAIObjectMPD;
+		g_MockPrivateCDAIObjectMPD = nullptr;
+		
 		delete g_mockAampCurlStore;
 		g_mockAampCurlStore = nullptr;
 
@@ -2944,13 +2948,15 @@ TEST_F(PrivAampTests,FoundEventBreakTest)
 
 TEST_F(PrivAampTests,SetAlternateContentsTest)
 {
+	EXPECT_CALL(*g_MockPrivateCDAIObjectMPD, SetAlternateContents(_, _, _)).Times(0);
+	EXPECT_CALL(*g_mockAampEventManager, SendEvent(AdResolved(false, "adstringId", "1051-2", "A configuration issue prevents player from handling ads"), _));
 	p_aamp->SetAlternateContents("adBraeakId","adstringId","http://sampleurl.com");
 }
 
 
-TEST_F(PrivAampTests,SendAdResolvedEventTest)
+TEST_F(PrivAampTests,SendAdResolvedEventTest_1)
 {
-	p_aamp->SendAdResolvedEvent("adBraeakId",true,10,123445);
+	p_aamp->SendAdResolvedEvent("adBreakId", true, 10, 123445, eCDAI_ERROR_NONE);
 	EXPECT_TRUE(p_aamp->mDownloadsEnabled);
 }
 
@@ -4322,11 +4328,10 @@ TEST_F(PrivAampTests, TuneHelperWithAampTsbInjection)
 	EXPECT_FALSE(p_aamp->mpStreamAbstractionAAMP->trickplayMode);
 	// Verify that the StreamAbstraction seek position is updated to the expected value
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP_MPD, SeekPosUpdate(SEEK_POS)).Times(2);
-	/* We only expect SetVideoPlaybackRate() to be called when not in LLD mode, so only one of the TuneHelper() calls
-	   will trigger the call*/
-	EXPECT_CALL(*g_mockStreamAbstractionAAMP, SetVideoPlaybackRate(AAMP_RATE_PAUSE)).Times(1);
+
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, ReinitializeInjection(AAMP_RATE_PAUSE)).Times(2);
 	p_aamp->TuneHelper(eTUNETYPE_SEEK);
-	EXPECT_TRUE(p_aamp->mpStreamAbstractionAAMP->trickplayMode);
+
 	// Verify that the StreamAbstraction object is not recreated
 	EXPECT_EQ(savedStreamAbstractionAAMP, p_aamp->mpStreamAbstractionAAMP);
 
@@ -4390,7 +4395,7 @@ TEST_F(PrivAampTests, TuneHelperWithAampTsbSeekToLiveWhenTsbIsEmpty)
 }
 
 /**
- * @test PrivAampTests::TuneHelperWithAampTsbSeekToLiveWhenTsbIsNotEmpty
+ * @test PrivAampPrivTests::TuneHelperWithAampTsbSeekToLiveWhenTsbIsNotEmpty
  * @brief Test the method TuneHelper with AAMP TSB enabled, Tsb injection disabled
  * not newTune with TuneType eTUNETYPE_SEEKTOLIVE when TSB has data.
  *
@@ -4419,7 +4424,7 @@ TEST_F(PrivAampPrivTests, TuneHelperWithAampTsbSeekToLiveWhenTsbIsNotEmpty)
 }
 
 /**
- * @test PrivAampTests::TuneHelperWithAampTsbConfigureFlushSequence
+ * @test PrivAampPrivTests::TuneHelperWithAampTsbConfigureFlushSequence
  * @brief Test the method TuneHelper for the order of Configure and Flush calls.
  *
  * This test verifies that Flush is called after Configure in TuneHelper

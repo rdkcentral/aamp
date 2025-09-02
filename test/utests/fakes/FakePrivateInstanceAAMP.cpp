@@ -27,8 +27,6 @@
 
 MockPrivateInstanceAAMP *g_mockPrivateInstanceAAMP = nullptr;
 
-bool PrivateInstanceAAMP::mTrackGrowableBufMem;
-
 static int PLAYERID_CNTR = 0;
 
 PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) :
@@ -146,6 +144,16 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) :
 
 PrivateInstanceAAMP::~PrivateInstanceAAMP()
 {
+}
+
+double PrivateInstanceAAMP::RecalculatePTS(AampMediaType mediaType, const void *ptr, size_t len)
+{
+    double pts = 0.0;
+    if (g_mockPrivateInstanceAAMP != nullptr)
+    {
+        pts = g_mockPrivateInstanceAAMP->RecalculatePTS(mediaType, ptr, len);
+    }
+    return pts;
 }
 
 size_t PrivateInstanceAAMP::HandleSSLWriteCallback ( char *ptr, size_t size, size_t nmemb, void* userdata )
@@ -1210,11 +1218,11 @@ void PrivateInstanceAAMP::FoundEventBreak(const std::string &adBreakId, uint64_t
 	}
 }
 
-void PrivateInstanceAAMP::SendAdResolvedEvent(const std::string &adId, bool status, uint64_t startMS, uint64_t durationMs)
+void PrivateInstanceAAMP::SendAdResolvedEvent(const std::string &adId, bool status, uint64_t startMS, uint64_t durationMs, AAMPCDAIError errorCode)
 {
 	if (g_mockPrivateInstanceAAMP != nullptr)
 	{
-		g_mockPrivateInstanceAAMP->SendAdResolvedEvent(adId, status, startMS, durationMs);
+		g_mockPrivateInstanceAAMP->SendAdResolvedEvent(adId, status, startMS, durationMs,errorCode);
 	}
 }
 
@@ -1628,7 +1636,20 @@ void PrivateInstanceAAMP::ResetTrickStartUTCTime()
 
 void PrivateInstanceAAMP::SetLLDashChunkMode(bool enable)
 {
-	mIsChunkMode = enable;
+	if (g_mockPrivateInstanceAAMP)
+	{
+		g_mockPrivateInstanceAAMP->SetLLDashChunkMode(enable);
+	}
+}
+
+bool PrivateInstanceAAMP::GetLLDashChunkMode()
+{
+	bool bIsChunkMode = false;
+	if (g_mockPrivateInstanceAAMP)
+	{
+		bIsChunkMode = g_mockPrivateInstanceAAMP->GetLLDashChunkMode();
+	}
+	return bIsChunkMode;
 }
 
 const char* PrivateInstanceAAMP::getStringForPlaybackError(PlaybackErrorType errorType)
@@ -1691,3 +1712,10 @@ double PrivateInstanceAAMP::GetFormatPositionOffsetInMSecs()
 {
 	return 0;
 }
+
+const std::vector<TimedMetadata> & PrivateInstanceAAMP::GetTimedMetadata( void ) const
+{
+	static std::vector<TimedMetadata> rc;
+	return rc;
+}
+

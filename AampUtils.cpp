@@ -46,6 +46,7 @@
 
 #define DEFER_DRM_LIC_OFFSET_FROM_START 5
 #define DEFER_DRM_LIC_OFFSET_TO_UPPER_BOUND 5
+#define MAX_THREAD_NAME_LENGTH 16 // Linux is least common denominator, with up to 15 characters + null terminator
 
 /*
  * Variable initialization for various audio formats
@@ -1167,63 +1168,6 @@ const char *GetMediaTypeName(AampMediaType mediaType)
 	}
 }
 
-/**
- * @fn RecalculatePTS
- * @param[in] mediaType stream type
- * @param[in] ptr buffer pointer
- * @param[in] len length of buffer
- */
-double RecalculatePTS(AampMediaType mediaType, const void *ptr, size_t len, PrivateInstanceAAMP *aamp)
-{
-	double ret = 0;
-	uint32_t timeScale = 0;
-	switch( mediaType )
-	{
-	case eMEDIATYPE_VIDEO:
-		timeScale = aamp->GetVidTimeScale();
-		break;
-	case eMEDIATYPE_AUDIO:
-	case eMEDIATYPE_AUX_AUDIO:
-		timeScale = aamp->GetAudTimeScale();
-		break;
-	case eMEDIATYPE_SUBTITLE:
-		timeScale = aamp->GetSubTimeScale();
-		break;
-	default:
-		AAMPLOG_WARN("Invalid media type %d", mediaType);
-		break;
-	}
-	IsoBmffBuffer isobuf;
-	isobuf.setBuffer((uint8_t *)ptr, len);
-	bool bParse = false;
-	try
-	{
-		bParse = isobuf.parseBuffer();
-	}
-	catch( std::bad_alloc& ba)
-	{
-		AAMPLOG_ERR("Bad allocation: %s", ba.what() );
-	}
-	catch( std::exception &e)
-	{
-		AAMPLOG_ERR("Unhandled exception: %s", e.what() );
-	}
-	catch( ... )
-	{
-		AAMPLOG_ERR("Unknown exception");
-	}
-	if(bParse && (0 != timeScale))
-	{
-		uint64_t fPts = 0;
-		bool bParse = isobuf.getFirstPTS(fPts);
-		if (bParse)
-		{
-			ret = fPts/(timeScale*1.0);
-		}
-	}
-	return ret;
-}
-
 TSB::LogLevel ConvertTsbLogLevel(int logLev)
 {
 	TSB::LogLevel ret = TSB::LogLevel::WARN; //default value
@@ -1423,26 +1367,35 @@ const char *mystrstr(const char *haystack_ptr, const char *haystack_fin, const c
 
 /**
  * @brief To set the thread name
+ * The thread name should be 16 characters or less, including null terminator.
+ * If the name is longer than 15 characters, it will be truncated.
+ * @note This function is only supported on POSIX threads.
  * @param[in] name thread name
  */
 void aamp_setThreadName(const char *name)
 {
 	if (name == NULL)
 	{
-		AAMPLOG_ERR("Invalid name");
+		AAMPLOG_ERR("invalid name");
 	}
 	else
 	{
+		char truncatedThreadName[MAX_THREAD_NAME_LENGTH];
+		size_t len = strlen(name);
+		if( len>=MAX_THREAD_NAME_LENGTH )
+		{ // clamp, avoiding ERANGE error
+			len = MAX_THREAD_NAME_LENGTH-1;
+		}
+		memcpy( truncatedThreadName, name, len );
+		truncatedThreadName[len] = '\0';
 #ifdef __APPLE__
-		// Set the thread name
-		int ret = pthread_setname_np(name);
+		int ret = pthread_setname_np(truncatedThreadName); // different API signature on OSX
 #else
-		// Set the thread name
-		int ret = pthread_setname_np(pthread_self(), name);
+		int ret = pthread_setname_np(pthread_self(), truncatedThreadName);
 #endif
-		if (ret != 0)
-		{
-			AAMPLOG_ERR("Error: pthread_setname_np failed with error code[%d]", ret);
+		if( ret != 0 )
+		{ // Not exactly an error, but log it for information
+			AAMPLOG_WARN( "pthread_setname_np failed with error code[%d]", ret );
 		}
 	}
 }
@@ -1472,7 +1425,21 @@ int aamp_SetThreadSchedulingParameters(int policy, int priority)
 	AAMPLOG_INFO("Thread scheduling parameters set successfully.");
 	return result; // Success
 }
-/*
- * EOF
- */
+
+bool aamp_isTuneScheme( const char *cmdBuf )
+{
+    size_t cmdLen = strlen(cmdBuf);
+    bool isTuneScheme = false;
+    static const char *protocol[]  = { "http:","https:","live:","hdmiin:","file:","mr:","tune:" };
+    for( int i=0; i<sizeof(protocol)/sizeof(protocol[0]); i++ )
+    {
+        size_t protocolLen = strlen(protocol[i]);
+        if( cmdLen>=protocolLen && memcmp( cmdBuf, protocol[i], protocolLen )==0 )
+        {
+            isTuneScheme=true;
+            break;
+        }
+    }
+    return isTuneScheme;
+}
 

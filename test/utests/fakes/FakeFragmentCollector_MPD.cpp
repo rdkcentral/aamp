@@ -290,3 +290,13 @@ bool StreamAbstractionAAMP_MPD::DoEarlyStreamSinkFlush(bool newTune, float rate)
 	return shouldFlush;
 }
 bool StreamAbstractionAAMP_MPD::DoStreamSinkFlushOnDiscontinuity() { return false; }
+
+void StreamAbstractionAAMP_MPD::clearFirstPTS(void)
+{
+
+}
+
+bool StreamAbstractionAAMP_MPD::ExtractAndAddSubtitleMediaHeader()
+{
+	return false;
+}

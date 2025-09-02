@@ -65,7 +65,21 @@ void DefaultSocInterface::SetAC4Tracks(GstElement *src, int trackId)
 
 bool DefaultSocInterface::IsVideoSink(const char* name, bool isRialto)
 {
-	return (mUsingWesterosSink && StartsWith(name, "westerossink") == true);
+	bool isVideoSink = false;
+
+	// Check for Westeros sink
+	if (mUsingWesterosSink && StartsWith(name, "westerossink"))
+	{
+		isVideoSink = true;
+	}
+
+	// Check for Rialto sink
+	if (isRialto && StartsWith(name, "rialtomsevideosink"))
+	{
+		isVideoSink = true;
+	}
+
+	return isVideoSink;
 }
 
 /**
@@ -209,4 +223,48 @@ bool DefaultSocInterface::ConfigureAudioSink(GstElement **audio_sink, GstObject 
                 status = true;
         }
         return status;
+}
+
+/**
+ * @brief Checks if the platform segment is ready for processing new segment.
+ *
+ * It is used in scenarios where AV synchronization and trick mode speed adjustments are necessary.
+ *
+ * @param videoSink The video sink element.
+ * @param isRialto Flag indicating whether Rialto sink is being used.
+ * @return `true` if the platform segment is ready, `false` otherwise.
+ */
+bool DefaultSocInterface::IsPlatformSegmentReady(GstElement *videoSink, bool isRialto)
+{
+	gboolean isMaster{TRUE};
+
+	if (isRialto && (videoSink != nullptr))
+	{
+		// "is-master" is a Rialto sink property
+		g_object_get(videoSink, "is-master", &isMaster, nullptr);
+		MW_LOG_INFO("is-master %d", isMaster);		
+	}
+
+	return (isMaster == TRUE)? false:true;
+}
+
+/**
+ * @brief Checks if the platform is video master.
+ *
+ * @param videoSink The video sink element.
+ * @param isRialto Flag indicating whether Rialto sink is being used.
+ * @return 'true' if video master otherwise false.
+ */
+bool DefaultSocInterface::IsVideoMaster(GstElement *videoSink, bool isRialto)
+{
+	gboolean isMaster{TRUE};
+
+	if (isRialto && (videoSink != nullptr))
+	{
+		// "is-master" is a Rialto sink property
+		g_object_get(videoSink, "is-master", &isMaster, nullptr);
+		MW_LOG_INFO("is-master %d", isMaster);		
+	}
+
+	return (isMaster == TRUE)? true:false;
 }
