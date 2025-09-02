@@ -87,11 +87,14 @@ void ContentProtectionFirebolt::HandleWatermarkEvent(const std::string& sessionI
 {
 	if(mInitialized)
 	{
+	        MW_LOG_INFO("HandleWaterMarkEvent Triggered");
 		//TODO Testing Watermark
 		int mappedCode = MapFireboltStatus(statusStr);
 		std::lock_guard<std::mutex> lock(mFireboltInitMutex);
 		if (ContentSecurityManager::SendWatermarkSessionEvent_CB)
 		{
+			MW_LOG_INFO("ContentSecurityManager SendWatermarkSessionEvent_CB invoked | sessionId=%s mappedCode=%d appId=%s",
+            sessionId.c_str(), mappedCode, appId.c_str());
 			ContentSecurityManager::SendWatermarkSessionEvent_CB(std::stoi(sessionId), mappedCode, appId);
 		}
 	}
