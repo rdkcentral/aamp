@@ -10973,6 +10973,10 @@ void StreamAbstractionAAMP_MPD::GetStreamFormat(StreamOutputFormat &primaryOutpu
 				subtitleOutputFormat = FORMAT_SUBTITLE_MP4;
 			}
 		}
+		else
+		{
+			subtitleOutputFormat = FORMAT_INVALID;
+		}
 
 		// If subtitles are not enabled, we need to have an init fragment to inject otherwise
 		// a complete pipeline cannot be created; and Rialto will not start playing video
