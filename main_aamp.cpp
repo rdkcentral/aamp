@@ -804,6 +804,7 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 					// Resuming payback from pause
 					// If have local TSB, but playing from Live then seek into the TSB
 					// Otherwise unpause the pipeline
+					AAMPLOG_WARN("ANJ: aamp->IsLocalAAMPTsb() = %d, aamp->IsLocalAAMPTsbInjection( = %d", aamp->IsLocalAAMPTsb(), aamp->IsLocalAAMPTsbInjection());
 					if(aamp->IsLocalAAMPTsb() && !aamp->IsLocalAAMPTsbInjection())
 					{
 						retValue = false;
@@ -812,11 +813,14 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 						aamp->rate = AAMP_NORMAL_PLAY_RATE;
 						aamp->pipeline_paused = false;
 						aamp->AcquireStreamLock();
+						AAMPLOG_WARN("ANJ:Calling TuneHelper with eTUNETYPE_SEEK. aamp->rate set to AAMP_NORMAL_PLAY_RATE");
 						aamp->TuneHelper(eTUNETYPE_SEEK, false);
+						AAMPLOG_WARN("ANJ:After Calling TuneHelper with eTUNETYPE_SEEK. aamp->rate = %f", aamp->rate);
 						aamp->ReleaseStreamLock();
 					}
 					else
 					{
+						AAMPLOG_WARN("ANJ: else case. unpause flow ====");
 						// check if unpausing in the middle of fragments caching
 						if(!aamp->SetStateBufferingIfRequired())
 						{
@@ -824,6 +828,7 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 							StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(aamp);
 							if (sink)
 							{
+								AAMPLOG_WARN("ANJ:Calling sink->Pause(false, false)");
 								retValue = sink->Pause(false, false);
 							}
 							// required since buffers are already cached in paused state
@@ -883,6 +888,7 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 					tuneTypePlay = eTUNETYPE_SEEKTOLIVE;
 					aamp->mJumpToLiveFromPause = false;
 				}
+# if 0//anj:to try
 				/* if Gstreamer pipeline set to paused state by user, change it to playing state */
 				if (playAlreadyEnabled && aamp->pipeline_paused == true)
 				{
@@ -890,6 +896,7 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 					StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(aamp);
 					if (sink)
 					{
+						AAMPLOG_WARN("ANJ:2: Calling sink->Pause(false, false)");
 						(void)sink->Pause(false, false);
 					}
 				}
@@ -897,6 +904,7 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 				{
 					AAMPLOG_INFO("Play was not already enabled(%d) or pipeline not paused(%d)", playAlreadyEnabled, aamp->pipeline_paused);
 				}
+#endif//anj: to try
 				aamp->rate = rate;
 				aamp->pipeline_paused = false;
 				aamp->mSeekFromPausedState = false;
@@ -906,7 +914,9 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 				aamp->EnableDownloads();
 				aamp->ResumeDownloads();
 				aamp->AcquireStreamLock();
+				AAMPLOG_WARN("ANJ:Calling TuneHelper with tuneTypePlay = %d, aamp->rate = %f", tuneTypePlay, aamp->rate);
 				aamp->TuneHelper(tuneTypePlay); // this unpauses pipeline as side effect
+				AAMPLOG_WARN("ANJ:After Calling TuneHelper with tuneTypePlay = %d, aamp->rate = %f", tuneTypePlay, aamp->rate);
 				aamp->ReleaseStreamLock();
 			}
 
