@@ -25,13 +25,15 @@
 #ifndef AAMPCURLSTORE_H
 #define AAMPCURLSTORE_H
 
-#include "AampCurlDefine.h"
-#include "priv_aamp.h"
 #include <map>
 #include <iterator>
 #include <vector>
 #include <glib.h>
 #include <mutex>
+#include "priv_aamp.h"
+//#include "AampCurlDefine.h"
+//#include "AampMediaType.h"
+//#include "AampGrowableBuffer.h"
 
 #define eCURL_MAX_AGE_TIME			( (300) * (1000) )			/**< 5 mins - 300 secs - Max age for a connection */
 
@@ -99,6 +101,7 @@ class CurlStore
 private:
 	std::mutex mCurlInstLock{};
 	int MaxCurlSockStore;
+	bool enableCurlStore;
 
 	typedef std::unordered_map <std::string, CurlSocketStoreStruct*> CurlSockData ;
 	typedef std::unordered_map <std::string, CurlSocketStoreStruct*>::iterator CurlSockDataIter;

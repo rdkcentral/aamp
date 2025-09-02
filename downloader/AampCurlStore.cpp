@@ -25,6 +25,8 @@
 #include "AampCurlStore.h"
 #include "AampDefine.h"
 #include "AampUtils.h"
+#include "AampLogManager.h"
+#include "AampConfig.h"
 #include <mutex>
 
 // Curl callback functions
