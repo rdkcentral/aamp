@@ -10215,8 +10215,6 @@ void StreamAbstractionAAMP_MPD::FetcherLoop()
 		}
 	} // Loop 1
 	while (!exitFetchLoop);
-	aamp->profiler.ProfileEnd(PROFILE_BUCKET_STOP_FC_VIDEO);
-	aamp->profiler.ProfileEnd(PROFILE_BUCKET_STOP_FC_AUDIO);
 	AAMPLOG_MIL("FetcherLoop done");
 }
 

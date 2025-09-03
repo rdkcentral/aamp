@@ -43,58 +43,50 @@
  */
 typedef enum
 {
-	PROFILE_BUCKET_MANIFEST,            /**< Manifest download bucket*/
+	PROFILE_BUCKET_MANIFEST, /**< Manifest download bucket*/
 
-	PROFILE_BUCKET_PLAYLIST_VIDEO,      /**< Video playlist download bucket*/
-	PROFILE_BUCKET_PLAYLIST_AUDIO,      /**< Audio playlist download bucket*/
-	PROFILE_BUCKET_PLAYLIST_SUBTITLE,   /**< Subtitle playlist download bucket*/
-	PROFILE_BUCKET_PLAYLIST_AUXILIARY,  /**< Auxiliary playlist download bucket*/
+	PROFILE_BUCKET_PLAYLIST_VIDEO,	   /**< Video playlist download bucket*/
+	PROFILE_BUCKET_PLAYLIST_AUDIO,	   /**< Audio playlist download bucket*/
+	PROFILE_BUCKET_PLAYLIST_SUBTITLE,  /**< Subtitle playlist download bucket*/
+	PROFILE_BUCKET_PLAYLIST_AUXILIARY, /**< Auxiliary playlist download bucket*/
 
-	PROFILE_BUCKET_INIT_VIDEO,          /**< Video init fragment download bucket*/
-	PROFILE_BUCKET_INIT_AUDIO,          /**< Audio init fragment download bucket*/
-	PROFILE_BUCKET_INIT_SUBTITLE,       /**< Subtitle fragment download bucket*/
-	PROFILE_BUCKET_INIT_AUXILIARY,      /**< Auxiliary fragment download bucket*/
+	PROFILE_BUCKET_INIT_VIDEO,	   /**< Video init fragment download bucket*/
+	PROFILE_BUCKET_INIT_AUDIO,	   /**< Audio init fragment download bucket*/
+	PROFILE_BUCKET_INIT_SUBTITLE,  /**< Subtitle fragment download bucket*/
+	PROFILE_BUCKET_INIT_AUXILIARY, /**< Auxiliary fragment download bucket*/
 
-	PROFILE_BUCKET_FRAGMENT_VIDEO,      /**< Video fragment download bucket*/
-	PROFILE_BUCKET_FRAGMENT_AUDIO,      /**< Audio fragment download bucket*/
-	PROFILE_BUCKET_FRAGMENT_SUBTITLE,   /**< Subtitle fragment download bucket*/
-	PROFILE_BUCKET_FRAGMENT_AUXILIARY,  /**< Auxiliary fragment download bucket*/
+	PROFILE_BUCKET_FRAGMENT_VIDEO,	   /**< Video fragment download bucket*/
+	PROFILE_BUCKET_FRAGMENT_AUDIO,	   /**< Audio fragment download bucket*/
+	PROFILE_BUCKET_FRAGMENT_SUBTITLE,  /**< Subtitle fragment download bucket*/
+	PROFILE_BUCKET_FRAGMENT_AUXILIARY, /**< Auxiliary fragment download bucket*/
 
-	PROFILE_BUCKET_DECRYPT_VIDEO,       /**< Video decryption bucket*/
-	PROFILE_BUCKET_DECRYPT_AUDIO,       /**< Audio decryption bucket*/
-	PROFILE_BUCKET_DECRYPT_SUBTITLE,    /**< Subtitle decryption bucket*/
-	PROFILE_BUCKET_DECRYPT_AUXILIARY,   /**< Auxiliary decryption bucket*/
+	PROFILE_BUCKET_DECRYPT_VIDEO,	  /**< Video decryption bucket*/
+	PROFILE_BUCKET_DECRYPT_AUDIO,	  /**< Audio decryption bucket*/
+	PROFILE_BUCKET_DECRYPT_SUBTITLE,  /**< Subtitle decryption bucket*/
+	PROFILE_BUCKET_DECRYPT_AUXILIARY, /**< Auxiliary decryption bucket*/
 
-	PROFILE_BUCKET_LA_TOTAL,            /**< License acquisition total bucket*/
-	PROFILE_BUCKET_LA_PREPROC,          /**< License acquisition pre-processing bucket*/
-	PROFILE_BUCKET_LA_NETWORK,          /**< License acquisition network operation bucket*/
-	PROFILE_BUCKET_LA_POSTPROC,         /**< License acquisition post-processing bucket*/
+	PROFILE_BUCKET_LA_TOTAL,	/**< License acquisition total bucket*/
+	PROFILE_BUCKET_LA_PREPROC,	/**< License acquisition pre-processing bucket*/
+	PROFILE_BUCKET_LA_NETWORK,	/**< License acquisition network operation bucket*/
+	PROFILE_BUCKET_LA_POSTPROC, /**< License acquisition post-processing bucket*/
 
-	PROFILE_BUCKET_FIRST_BUFFER,        /**< First buffer to gstreamer bucket*/
-	PROFILE_BUCKET_FIRST_FRAME,         /**< First frame displayed bucket*/
+	PROFILE_BUCKET_FIRST_BUFFER,		/**< First buffer to gstreamer bucket*/
+	PROFILE_BUCKET_FIRST_FRAME,			/**< First frame displayed bucket*/
 	PROFILE_BUCKET_PLAYER_PRE_BUFFERED, /**< Prebuffer bucket ( BG to FG )*/
 
-	PROFILE_BUCKET_DISCO_TOTAL,          /**< Discontinuity transition total bucket*/
-	PROFILE_BUCKET_DISCO_FLUSH,           /**< Discontinuity transition pipeline flush bucket*/
-	PROFILE_BUCKET_DISCO_FIRST_FRAME,      /**< Discontinuity transition first frame displayed bucket*/
+	PROFILE_BUCKET_DISCO_TOTAL,		  /**< Discontinuity transition total bucket*/
+	PROFILE_BUCKET_DISCO_FLUSH,		  /**< Discontinuity transition pipeline flush bucket*/
+	PROFILE_BUCKET_DISCO_FIRST_FRAME, /**< Discontinuity transition first frame displayed bucket*/
 
-    PROFILE_BUCKET_STOP_FC_VIDEO,   /**< Time taken to stop the video fragment thread */
-	PROFILE_BUCKET_STOP_FC_AUDIO,   /**< Time taken to stop the audio fragment thread */
-
-    PROFILE_BUCKET_STOP_INJECTOR_VIDEO,       /**< Time taken to stop the video injector thread */
-    PROFILE_BUCKET_STOP_INJECTOR_AUDIO,       /**< Time taken to stop the audio injector thread */
-
-    PROFILE_BUCKET_RELEASE_DRM,                        /**< Time taken to clear DRM resources during stop */
-    PROFILE_BUCKET_DESTROY_PIPELINE,                 /**< Time taken to destroy the playback pipeline */
-    PROFILE_BUCKET_STOP_RATE_CORRECTION,      /**< Time taken to stop the rate correction thread */
-
-    PROFILE_BUCKET_STOP_MONITOR_VIDEO,              /**< Time taken to stop the monitor thread */
-	PROFILE_BUCKET_STOP_MONITOR_AUDIO,
-	
-    PROFILE_BUCKET_STOP_PREFETCH_THREAD,             /**< Time taken to stop the prefetch thread */
-	PROFILE_BUCKET_STOP_MANIFEST_DOWNLOADER,	/**< Time taken to stop/cleanup the MPD downloader instance */
-    PROFILE_BUCKET_STOP_TOTAL,                       /**< Total time taken for all stop operations */
-	PROFILE_BUCKET_TYPE_COUNT           /**< Bucket count*/	
+	PROFILE_BUCKET_STREAMER_STOP,				  /**< Stop streamer thread bucket*/
+	PROFILE_BUCKET_SINK_STOP,					  /**< Stop sink thread bucket*/
+	PROFILE_BUCKET_DISCONTINUITY_PROCESSING_STOP, /**< Discontinuity processing stop bucket*/
+	PROFILE_BUCKET_TSB_STOP,					  /**< Stop TSB session manager bucket*/
+	PROFILE_BUCKET_DRM_RELEASE,					  /**< DRM release bucket*/
+	PROFILE_BUCKET_STOP_RATE_CORRECTION,		  /**< Stop rate correction thread bucket*/
+	PROFILE_BUCKET_MANIFEST_DOWNLOADER_RELEASE,	  /**< Manifest downloader release bucket*/
+	PROFILE_BUCKET_STOP_TOTAL,					  /**< Stop total bucket*/
+	PROFILE_BUCKET_TYPE_COUNT					  /**< Bucket count*/
 } ProfilerBucketType;
 
 /**
@@ -370,7 +362,12 @@ public:
 	 */
 	void TuneStop(void);
 
-	void LogStopTime(void);
+	/**
+	 * @brief Log stop time for the given stream format (e.g., DASH, HLS).
+	 *
+	 * @return void
+	 */
+	void LogStopTime(const char* streamType);
 
 
 	/**

@@ -31,7 +31,7 @@ void ProfileEventAAMP::TuneStop(void)
 {
 }
 
-void ProfileEventAAMP::LogStopTime(void)
+void ProfileEventAAMP::LogStopTime(const char* streamType)
 {
 }
 

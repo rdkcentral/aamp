@@ -4775,6 +4775,7 @@ void PrivateInstanceAAMP::GetOnVideoEndSessionStatData(std::string &data)
 void PrivateInstanceAAMP::TeardownStream(bool newTune, bool disableDownloads)
 {
 	std::unique_lock<std::recursive_mutex> lock(mLock);
+	profiler.ProfileBegin(PROFILE_BUCKET_DISCONTINUITY_PROCESSING_STOP);
 	//Have to perform this for trick and stop operations but avoid ad insertion related ones
 	AAMPLOG_WARN(" mProgressReportFromProcessDiscontinuity:%d mDiscontinuityTuneOperationId:%d newTune:%d", mProgressReportFromProcessDiscontinuity, mDiscontinuityTuneOperationId, newTune);
 	if ((mDiscontinuityTuneOperationId != 0) && (!newTune || mState == eSTATE_IDLE))
@@ -4826,7 +4827,9 @@ void PrivateInstanceAAMP::TeardownStream(bool newTune, bool disableDownloads)
 	ResetDiscontinuityInTracks();
 	UnblockWaitForDiscontinuityProcessToComplete();
 	ResetTrackDiscontinuityIgnoredStatus();
+	profiler.ProfileEnd(PROFILE_BUCKET_DISCONTINUITY_PROCESSING_STOP);
 	lock.unlock();
+	profiler.ProfileBegin(PROFILE_BUCKET_STREAMER_STOP);
 	if (mpStreamAbstractionAAMP)
 	{
 		// Using StreamLock to make sure this is not interfering with GetFile() from PreCachePlaylistDownloadTask
@@ -4852,11 +4855,13 @@ void PrivateInstanceAAMP::TeardownStream(bool newTune, bool disableDownloads)
 		}
 		ReleaseStreamLock();
 	}
+	profiler.ProfileEnd(PROFILE_BUCKET_STREAMER_STOP);
 	m_lastSubClockSyncTime = std::chrono::system_clock::time_point();
 
 	lock.lock();
 	mVideoFormat = FORMAT_INVALID;
 	lock.unlock();
+	profiler.ProfileBegin(PROFILE_BUCKET_SINK_STOP);
 	if (streamerIsActive)
 	{
 		const bool forceStop = false;
@@ -4899,6 +4904,7 @@ void PrivateInstanceAAMP::TeardownStream(bool newTune, bool disableDownloads)
 				}
 			}
 		}
+		profiler.ProfileEnd(PROFILE_BUCKET_SINK_STOP);
 	}
 	else
 	{
@@ -7531,6 +7537,7 @@ bool PrivateInstanceAAMP::IsLiveStream()
  */
 void PrivateInstanceAAMP::Stop( bool isDestructing )
 {
+	profiler.TuneStop();
 	// Clear all the player events in the queue and sets its state to RELEASED as everything is done
 	mEventManager->FlushPendingEvents();
 	if( !isDestructing )
@@ -7560,13 +7567,7 @@ void PrivateInstanceAAMP::Stop( bool isDestructing )
 		mAutoResumeTaskId = AAMP_TASK_ID_INVALID;
 		mAutoResumeTaskPending = false;
 	}
-	profiler.TuneStop();
-	profiler.ProfileBegin(PROFILE_BUCKET_STOP_TOTAL);
-	profiler.ProfileBegin(PROFILE_BUCKET_STOP_MONITOR_VIDEO);
-	profiler.ProfileBegin(PROFILE_BUCKET_STOP_MONITOR_AUDIO);
-	profiler.ProfileBegin(PROFILE_BUCKET_STOP_MANIFEST_DOWNLOADER);
-	profiler.ProfileBegin(PROFILE_BUCKET_STOP_FC_VIDEO);
-	profiler.ProfileBegin(PROFILE_BUCKET_STOP_FC_AUDIO);
+
 	DisableDownloads();
 
 	//Moved the tsb delete request from XRE to AAMP to avoid the HTTP-404 erros
@@ -7586,7 +7587,6 @@ void PrivateInstanceAAMP::Stop( bool isDestructing )
 	UnblockWaitForDiscontinuityProcessToComplete();
 	profiler.ProfileBegin(PROFILE_BUCKET_STOP_RATE_CORRECTION);
 	StopRateCorrectionWorkerThread();
-	AAMPLOG_INFO("RATE CRT STOPPED");
 	profiler.ProfileEnd(PROFILE_BUCKET_STOP_RATE_CORRECTION);
 
 	if(mTelemetryInterval > 0)
@@ -7607,8 +7607,6 @@ void PrivateInstanceAAMP::Stop( bool isDestructing )
 	SetLocalAAMPTsb(false);
 	SetLocalAAMPTsbInjection(false);
 	// Stopping the playback, release all DRM context
-	profiler.ProfileBegin(PROFILE_BUCKET_STOP_PREFETCH_THREAD);
-	profiler.ProfileBegin(PROFILE_BUCKET_RELEASE_DRM);
 	if (mpStreamAbstractionAAMP)
 	{
 		AcquireStreamLock();
@@ -7628,13 +7626,17 @@ void PrivateInstanceAAMP::Stop( bool isDestructing )
 	// stop the mpd update immediately after Stream abstraction delete
 	if(mMPDDownloaderInstance != nullptr)
 	{
+		profiler.ProfileBegin(PROFILE_BUCKET_MANIFEST_DOWNLOADER_RELEASE);
 		mMPDDownloaderInstance->Release();
+		profiler.ProfileEnd(PROFILE_BUCKET_MANIFEST_DOWNLOADER_RELEASE);
 	}
 
 	if(mTSBSessionManager)
 	{
+		profiler.ProfileBegin(PROFILE_BUCKET_TSB_STOP);
 		// Clear all the local TSB data
 		mTSBSessionManager->Flush();
+		profiler.ProfileEnd(PROFILE_BUCKET_TSB_STOP);
 	}
 
 	mId3MetadataCache.Reset();
@@ -7715,8 +7717,10 @@ void PrivateInstanceAAMP::Stop( bool isDestructing )
 	}
 	if (mDRMLicenseManager)
 	{
+		profiler.ProfileBegin(PROFILE_BUCKET_DRM_RELEASE);
 		/** Reset the license fetcher only DRM handle is deleting **/
 		mDRMLicenseManager->Stop();
+		profiler.ProfileEnd(PROFILE_BUCKET_DRM_RELEASE);
 	}
 
 	SAFE_DELETE(mCdaiObject);
@@ -7731,7 +7735,6 @@ void PrivateInstanceAAMP::Stop( bool isDestructing )
 	{
 		// delete the MPD Downloader Instance
 		AAMPLOG_INFO("Calling delete of Downloader instance ");
-		profiler.ProfileEnd(PROFILE_BUCKET_STOP_MANIFEST_DOWNLOADER);
 		SAFE_DELETE(mMPDDownloaderInstance);
 	}
 
@@ -7744,7 +7747,7 @@ void PrivateInstanceAAMP::Stop( bool isDestructing )
 	SetFlushFdsNeededInCurlStore(false);
 	EnableDownloads();
 	profiler.ProfileEnd(PROFILE_BUCKET_STOP_TOTAL);
-	profiler.LogStopTime();
+	profiler.LogStopTime(mMediaFormatName[mMediaFormat]);
 	AampStreamSinkManager::GetInstance().DeactivatePlayer(this, true);
 }
 

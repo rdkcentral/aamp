@@ -841,10 +841,8 @@ void AAMPGstPlayer::EndOfStreamReached(AampMediaType type)
 void AAMPGstPlayer::Stop(bool keepLastFrame)
 {
 	AAMPLOG_MIL("entering AAMPGstPlayer_Stop keepLastFrame %d", keepLastFrame);
-	this->aamp->profiler.ProfileBegin(PROFILE_BUCKET_DESTROY_PIPELINE);
 	StopMonitorAvTimer();
 	playerInstance->Stop(keepLastFrame);
-	this->aamp->profiler.ProfileEnd(PROFILE_BUCKET_DESTROY_PIPELINE);
 	aamp->seiTimecode.assign("");
 	AAMPLOG_MIL("exiting AAMPGstPlayer_Stop");
 }

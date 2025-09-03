@@ -243,16 +243,6 @@ void MediaTrack::MonitorBufferHealth()
 		}
 		lock.unlock();
 	}
-	if(type == eTRACK_VIDEO)
-	{
-		AAMPLOG_INFO("MONITOR VIDEO");
-		aamp->profiler.ProfileEnd(PROFILE_BUCKET_STOP_MONITOR_VIDEO);
-	}
-	if(type == eTRACK_AUDIO)
-	{
-		AAMPLOG_INFO("MONITOR AUDIO");
-		aamp->profiler.ProfileEnd(PROFILE_BUCKET_STOP_MONITOR_AUDIO);
-	}
 	AAMPLOG_INFO("[%s] Exit MonitorBufferHealth, downloads %d abort %d",
 				 name, aamp->DownloadsAreEnabled(), abort);
 }
@@ -774,8 +764,6 @@ void MediaTrack::AbortWaitForCachedAndFreeFragment(bool immediate)
 	std::unique_lock<std::mutex> lock(mutex);
 	if (immediate)
 	{
-		aamp->profiler.ProfileBegin(PROFILE_BUCKET_STOP_INJECTOR_VIDEO);
-		aamp->profiler.ProfileBegin(PROFILE_BUCKET_STOP_INJECTOR_AUDIO);
 		abort = true;
 		fragmentInjected.notify_one();
 		AAMPLOG_DEBUG("[%s] signal fragmentChunkInjected condition", name);
@@ -1799,14 +1787,6 @@ void MediaTrack::RunInjectLoop()
 	}
 	abortInject = true;
 	AAMPLOG_WARN("fragment injector done. track %s", name);
-	if(eTRACK_VIDEO == type)
-	{
-		aamp->profiler.ProfileEnd(PROFILE_BUCKET_STOP_INJECTOR_VIDEO);
-	}
-	if(eTRACK_AUDIO == type)
-	{
-		aamp->profiler.ProfileEnd(PROFILE_BUCKET_STOP_INJECTOR_AUDIO);
-	}
 }
 
 /**
