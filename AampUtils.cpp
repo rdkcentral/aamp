@@ -567,19 +567,19 @@ void trim(std::string& src)
  * @brief To get the preferred iso639mapped language code
  * @retval[out] preferred iso639 mapped language.
  */
-std::string Getiso639map_NormalizeLanguageCode( const std::string  lang, LangCodePreference preferLangFormat )
+std::string Getiso639map_NormalizeLanguageCode( const std::string lang, LangCodePreference preferLangFormat )
 {
 	std::string rc;
 	if (preferLangFormat == ISO639_NO_LANGCODE_PREFERENCE)
 	{
-		rc = lang;
+		rc = std::move(lang);
 	}
 	else
 	{
-		char lang2[3+1];
+		char lang2[3+1]; // max 3 characters, i.e. 'eng' with cstring NUL terminator
 		strncpy(lang2, lang.c_str(), sizeof(lang2) );
-		lang2[sizeof(lang2)-1]=0x00; // ensure NUL termination
-		iso639map_NormalizeLanguageCode(lang2, preferLangFormat);
+		lang2[sizeof(lang2)-1]=0x00; // ensure NUL termination (not guarenteed by strncpy)
+		iso639map_NormalizeLanguageCode(lang2, preferLangFormat); // modifies lang2
 		rc = lang2;
 	}
 	return rc;
