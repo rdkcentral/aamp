@@ -100,6 +100,14 @@ public:
 	 * @param status Set to `true` if Westeros Sink is enabled, `false` otherwise.
 	 */
 	void SetWesterosSinkState(bool status);
+
+	/**
+	 * @brief Creates an instance of the SoC-specific interface.
+	 * @return A pointer to the created SocInterface object.
+	 */
+	static std::shared_ptr<SocInterface> CreateSocInterface();
+
+	
 	
 	/*@brief returns true if video stats required from sink otherwise false*/
 	virtual bool IsPlaybackQualityFromSink(){return false;}
@@ -120,11 +128,7 @@ public:
 	 */
 	virtual void SetSinkAsync(GstElement *sink, gboolean status){}
 	
-	/**
-	 * @brief Creates an instance of the SoC-specific interface.
-	 * @return A pointer to the created SocInterface object.
-	 */
-	static std::shared_ptr<SocInterface> CreateSocInterface();
+	
 	
 	/**
 	 * @brief Check if AppSrc should be used.

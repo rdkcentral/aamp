@@ -687,6 +687,7 @@ install(FILES
 	AampSegmentInfo.hpp
 	AampDRMLicPreFetcher.h
 	AampDRMLicPreFetcherInterface.h
+	LangCodePreference.h
 	AampMPDDownloader.h
 	AampMPDParseHelper.h
 	AampMPDPeriodInfo.h
