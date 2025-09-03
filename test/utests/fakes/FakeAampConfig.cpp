@@ -145,11 +145,11 @@ bool AampConfig::ProcessConfigJson(const cJSON *cfgdata, ConfigPriority owner )
     return false;
 }
 
-void AampConfig::DoCustomSetting(ConfigPriority owner)
+void AampConfig::DoCustomSetting(ConfigPriority owner) const
 {
 }
 
-ConfigPriority AampConfig::GetConfigOwner(AAMPConfigSettingBool cfg)
+ConfigPriority AampConfig::GetConfigOwner(AAMPConfigSettingBool cfg) const
 {
 	if (g_mockAampConfig != nullptr)
 	{
@@ -160,7 +160,7 @@ ConfigPriority AampConfig::GetConfigOwner(AAMPConfigSettingBool cfg)
 		return AAMP_DEFAULT_SETTING;
 	}
 }
-ConfigPriority AampConfig::GetConfigOwner(AAMPConfigSettingInt cfg)
+ConfigPriority AampConfig::GetConfigOwner(AAMPConfigSettingInt cfg) const
 {
 	if (g_mockAampConfig != nullptr)
 	{
@@ -171,7 +171,7 @@ ConfigPriority AampConfig::GetConfigOwner(AAMPConfigSettingInt cfg)
 		return AAMP_DEFAULT_SETTING;
 	}
 }
-ConfigPriority AampConfig::GetConfigOwner(AAMPConfigSettingFloat cfg)
+ConfigPriority AampConfig::GetConfigOwner(AAMPConfigSettingFloat cfg) const
 {
 	if (g_mockAampConfig != nullptr)
 	{
@@ -182,7 +182,7 @@ ConfigPriority AampConfig::GetConfigOwner(AAMPConfigSettingFloat cfg)
 		return AAMP_DEFAULT_SETTING;
 	}
 }
-ConfigPriority AampConfig::GetConfigOwner(AAMPConfigSettingString cfg)
+ConfigPriority AampConfig::GetConfigOwner(AAMPConfigSettingString cfg) const
 {
 	if (g_mockAampConfig != nullptr)
 	{
@@ -194,22 +194,22 @@ ConfigPriority AampConfig::GetConfigOwner(AAMPConfigSettingString cfg)
 	}
 }
 
-bool AampConfig::GetAampConfigJSONStr(std::string &str)
+bool AampConfig::GetAampConfigJSONStr(std::string &str) const
 {
     return false;
 }
 
-std::string AampConfig::GetUserAgentString()
+std::string AampConfig::GetUserAgentString() const
 {
 	return "";
 }
 
-const char * AampConfig::GetChannelOverride(const std::string manifestUrl)
+const char * AampConfig::GetChannelOverride(const std::string manifestUrl) const
 {
     return nullptr;
 }
 
-const char * AampConfig::GetChannelLicenseOverride(const std::string manifestUrl)
+const char * AampConfig::GetChannelLicenseOverride(const std::string manifestUrl) const
 {
     return nullptr;
 }

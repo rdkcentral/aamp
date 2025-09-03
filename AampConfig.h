@@ -599,27 +599,27 @@ public:
      	 * @param[in] cfg - Configuration enum
      	 * @return true / false 
      	 */
-	bool IsConfigSet(AAMPConfigSettingBool cfg);
-	bool GetConfigValue( AAMPConfigSettingBool cfg );
-	int GetConfigValue( AAMPConfigSettingInt cfg );
-	double GetConfigValue( AAMPConfigSettingFloat cfg );
-	std::string GetConfigValue( AAMPConfigSettingString cfg );
+	bool IsConfigSet(AAMPConfigSettingBool cfg) const;
+	bool GetConfigValue( AAMPConfigSettingBool cfg ) const;
+	int GetConfigValue( AAMPConfigSettingInt cfg ) const;
+	double GetConfigValue( AAMPConfigSettingFloat cfg ) const;
+	std::string GetConfigValue( AAMPConfigSettingString cfg ) const;
 	
-	ConfigPriority GetConfigOwner(AAMPConfigSettingBool cfg);
-	ConfigPriority GetConfigOwner(AAMPConfigSettingInt cfg);
-	ConfigPriority GetConfigOwner(AAMPConfigSettingFloat cfg);
-	ConfigPriority GetConfigOwner(AAMPConfigSettingString cfg);
+	ConfigPriority GetConfigOwner(AAMPConfigSettingBool cfg) const;
+	ConfigPriority GetConfigOwner(AAMPConfigSettingInt cfg) const;
+	ConfigPriority GetConfigOwner(AAMPConfigSettingFloat cfg) const;
+	ConfigPriority GetConfigOwner(AAMPConfigSettingString cfg) const;
 	
  	/**
      	 * @fn GetChannelOverride
      	 * @param[in] chName - channel name to search
      	 */
-	const char * GetChannelOverride(const std::string chName);    
+	const char * GetChannelOverride(const std::string chName) const;
  	/**
      	 * @fn GetChannelLicenseOverride
      	 * @param[in] chName - channel Name to override
      	 */
- 	const char * GetChannelLicenseOverride(const std::string chName);
+ 	const char * GetChannelLicenseOverride(const std::string chName) const;
 
 	/**
          * @fn ProcessConfigJson
@@ -693,7 +693,7 @@ public:
      	 */
 	bool CustomSearch( std::string url, int playerId , std::string appname);
 
-	std::string GetUserAgentString();
+	std::string GetUserAgentString() const;
 private:
 
 	/**
