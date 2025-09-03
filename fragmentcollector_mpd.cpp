@@ -3877,6 +3877,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::Init(TuneType tuneType)
 					{
 						if (mLowLatencyMode)
 						{
+							AAMPLOG_INFO("Set LLDashAdjustSpeed to false for tuneType %d", tuneType);
 							aamp->SetLLDashAdjustSpeed(false);
 						}
 					}
@@ -10758,8 +10759,9 @@ void StreamAbstractionAAMP_MPD::Start(void)
 		StartFromOtherThanAampLocalTsb();
 	}
 
-	if( (mLowLatencyMode && ISCONFIGSET( eAAMPConfig_EnableLowLatencyCorrection ) ) && \
-		(true == aamp->GetLLDashAdjustSpeed() ) )
+	AAMPLOG_INFO("lowLatencyMode %d enableLowLatencyCorrection %d lldAdjustSpeed %d",
+		mLowLatencyMode, ISCONFIGSET(eAAMPConfig_EnableLowLatencyCorrection), aamp->GetLLDashAdjustSpeed());
+	if (mLowLatencyMode && ISCONFIGSET(eAAMPConfig_EnableLowLatencyCorrection) && aamp->GetLLDashAdjustSpeed())
 	{
 		StartLatencyMonitorThread();
 	}
@@ -10970,6 +10972,10 @@ void StreamAbstractionAAMP_MPD::GetStreamFormat(StreamOutputFormat &primaryOutpu
 				AAMPLOG_INFO("mimeType empty");
 				subtitleOutputFormat = FORMAT_SUBTITLE_MP4;
 			}
+		}
+		else
+		{
+			subtitleOutputFormat = FORMAT_INVALID;
 		}
 
 		// If subtitles are not enabled, we need to have an init fragment to inject otherwise
