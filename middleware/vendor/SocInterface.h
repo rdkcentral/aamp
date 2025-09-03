@@ -228,7 +228,7 @@ public:
 	 * @param audio_dec The audio decoder element.
 	 * @return True if the playback rate was set successfully, false otherwise.
 	 */
-	virtual bool SetPlaybackRate(const std::vector<GstElement*>& sources, GstElement *pipeline, double rate, GstElement *video_dec, GstElement *audio_dec) = 1;
+	virtual bool SetPlaybackRate(const std::vector<GstElement*>& sources, GstElement *pipeline, double rate, GstElement *video_dec, GstElement *audio_dec) = 0;
 	
 	/**
 	 * @brief Retrieves the source pad of the given GStreamer element.
