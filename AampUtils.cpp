@@ -43,6 +43,7 @@
 #include <fstream>
 #include <dirent.h>
 #include <algorithm>
+#include <inttypes.h>
 
 #define DEFER_DRM_LIC_OFFSET_FROM_START 5
 #define DEFER_DRM_LIC_OFFSET_TO_UPPER_BOUND 5
@@ -566,16 +567,22 @@ void trim(std::string& src)
  * @brief To get the preferred iso639mapped language code
  * @retval[out] preferred iso639 mapped language.
  */
-std::string Getiso639map_NormalizeLanguageCode(std::string  lang,LangCodePreference preferLangFormat )
+std::string Getiso639map_NormalizeLanguageCode( const std::string lang, LangCodePreference preferLangFormat )
 {
-        if (preferLangFormat != ISO639_NO_LANGCODE_PREFERENCE)
-        {
-                char lang2[MAX_LANGUAGE_TAG_LENGTH];
-                strcpy(lang2, lang.c_str());
-                iso639map_NormalizeLanguageCode(lang2, preferLangFormat);
-                lang = lang2;
-        }
-	return lang;
+	std::string rc;
+	if (preferLangFormat == ISO639_NO_LANGCODE_PREFERENCE)
+	{
+		rc = std::move(lang);
+	}
+	else
+	{
+		char lang2[3+1]; // max 3 characters, i.e. 'eng' with cstring NUL terminator
+		strncpy(lang2, lang.c_str(), sizeof(lang2) );
+		lang2[sizeof(lang2)-1]=0x00; // ensure NUL termination (not guaranteed by strncpy)
+		iso639map_NormalizeLanguageCode(lang2, preferLangFormat); // modifies lang2
+		rc = lang2;
+	}
+	return rc;
 }
 
 /**
