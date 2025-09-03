@@ -219,7 +219,7 @@ void ProfileEventAAMP::TuneBegin(void)
  *  @brief Profiler method to perform tune stop related operations.
  */
 void ProfileEventAAMP::TuneStop(void)
-{ // stop tune
+{
 	tuneStart = false;
 	tuneStopMonotonicBase = NOW_STEADY_TS_MS;
 }
