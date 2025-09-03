@@ -9616,6 +9616,7 @@ void StreamAbstractionAAMP_MPD::DetectDiscontinuityAndFetchInit(bool periodChang
 				{
 					AAMPLOG_WARN("StreamAbstractionAAMP_MPD: Presentation Time Offset %" PRIu64 " ahead of segment start Time %" PRIu64 ", Set PTO as segment start", presentationTimeOffset, segmentStartTime);
 					segmentStartTime = presentationTimeOffset;
+					SetPipelineFlushStatus();
 					usingPTO = true;
 				}
 
