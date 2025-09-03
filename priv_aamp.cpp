@@ -6166,7 +6166,7 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 	}
 
 	SAFE_DELETE(mCdaiObject);
-	
+
 	AcquireStreamLock();
 	TuneHelper(tuneType);
 
@@ -7536,7 +7536,7 @@ void PrivateInstanceAAMP::Stop( bool isDestructing )
 	{
 		SetState(eSTATE_STOPPING);
 	}
-	
+
 	{
 		std::unique_lock<std::mutex> lock(gMutex);
 		auto iter = std::find_if(std::begin(gActivePrivAAMPs), std::end(gActivePrivAAMPs), [this](const gActivePrivAAMP_t& el)
@@ -7665,12 +7665,12 @@ void PrivateInstanceAAMP::Stop( bool isDestructing )
 	mFirstFragmentTimeOffset = -1;
 	mProgressReportAvailabilityOffset = -1;
 	rate = 1;
-	
+
 	if( !isDestructing )
 	{
 		SetState(eSTATE_IDLE);
 	}
-	
+
 	SetPauseOnStartPlayback(false);
 	mSeekOperationInProgress = false;
 	mTrickplayInProgress = false;
@@ -9382,8 +9382,9 @@ void PrivateInstanceAAMP::DeliverAdEvents(bool immediate, double position)
 			AAMPLOG_MIL("PrivateInstanceAAMP:, [CDAI] Delivered AdEvent[%s] to JSPP. pos=%lfms target=%lfms", ADEVENT2STRING(evtType), position, target);
 			mEventManager->SendEvent(e,AAMP_EVENT_ASYNC_MODE);
 		}
-		if(placementEvt && AAMP_EVENT_AD_PLACEMENT_START == evtType)
+		if(AAMP_EVENT_AD_PLACEMENT_START == evtType)
 		{
+			placementEvt = std::dynamic_pointer_cast<AdPlacementEvent>(e);
 			mAdProgressId       = placementEvt->getAdId();
 			mAdPrevProgressTime = NOW_STEADY_TS_MS;
 			mAdCurOffset        = placementEvt->getOffset();
