@@ -287,7 +287,7 @@ static const ConfigLookupEntryBool mConfigLookupTableBool[AAMPCONFIG_BOOL_COUNT]
 	{false,"stream",eAAMPConfig_StreamLogging,false},
 	{false,"id3",eAAMPConfig_ID3Logging,false},
 	{true,"gstPositionQueryEnable",eAAMPConfig_EnableGstPositionQuery,false},
-	{true,"seekMidFragment",eAAMPConfig_MidFragmentSeek,true},
+	{false,"seekMidFragment",eAAMPConfig_MidFragmentSeek,false},
 	{true,"propagateUriParameters",eAAMPConfig_PropagateURIParam,false},
 	{true, "useWesterosSink",eAAMPConfig_UseWesterosSink,true},					// Toggle it via config based on platforms
 	{true,"useRetuneForUnpairedDiscontinuity",eAAMPConfig_RetuneForUnpairDiscontinuity,false},

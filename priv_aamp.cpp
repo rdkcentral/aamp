@@ -9698,10 +9698,14 @@ void PrivateInstanceAAMP::FlushStreamSink(double position, double rate)
 		{
 			//Adding midSeekPtsOffset to position value.
 			//Enables us to seek to the desired position in the mp4 fragment.
+			AAMPLOG_INFO("[SeekMid] seekPosition %lf  fragmentTime %f",position,GetMidSeekPosOffset());
+
 			sink->SeekStreamSink(position + GetMidSeekPosOffset(), rate);
 		}
 		else
 		{
+			AAMPLOG_INFO("[SeekMid] seekPosition %lf",position);
+
 			sink->SeekStreamSink(position, rate);
 		}
 	}
