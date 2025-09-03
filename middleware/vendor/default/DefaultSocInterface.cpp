@@ -284,36 +284,36 @@ bool DefaultSocInterface::SetPlaybackRate(const std::vector<GstElement*>& source
 {
 	#if defined(__APPLE__) || defined(UBUNTU)
 		return false;
-    #endif
-
-	if(!pipeline)
-	{
-		MW_LOG_ERR("Failed to set playback rate");
-		return false;
-	}
-	MW_LOG_MIL("=send custom-instant-rate-change : %f ...", rate);
-	GstStructure *structure = gst_structure_new("custom-instant-rate-change", "rate", G_TYPE_DOUBLE, rate, NULL);
-	if(!structure)
-	{
-		MW_LOG_ERR("Failed to create custom-instant-rate-change structure");
-		return false;
-	}
-	/* The above statement creates a new GstStructure with the name
-	   'custom-instant-rate-change' that has a member variable
-	   'rate' of G_TYPE_DOUBLE and a value of rate i.e. second last parameter */
-	GstEvent * rate_event = gst_event_new_custom(GST_EVENT_CUSTOM_DOWNSTREAM_OOB, structure);
-	if (!rate_event)
-	{
-		MW_LOG_ERR("Failed to create rate_event");
-		gst_structure_free (structure);
-		return false;
-	}
-	int ret = gst_element_send_event(pipeline, rate_event );
-	if(!ret)
-	{
-		MW_LOG_ERR("Rate change failed : %g [gst_element_send_event]", rate);
-		return false;
-	}
-	MW_LOG_MIL("Current rate: %g", rate);
-	return true;
+    #else
+		if(!pipeline)
+		{
+			MW_LOG_ERR("Failed to set playback rate");
+			return false;
+		}
+		MW_LOG_MIL("=send custom-instant-rate-change : %f ...", rate);
+		GstStructure *structure = gst_structure_new("custom-instant-rate-change", "rate", G_TYPE_DOUBLE, rate, NULL);
+		if(!structure)
+		{
+			MW_LOG_ERR("Failed to create custom-instant-rate-change structure");
+			return false;
+		}
+		/* The above statement creates a new GstStructure with the name
+		   'custom-instant-rate-change' that has a member variable
+		   'rate' of G_TYPE_DOUBLE and a value of rate i.e. second last parameter */
+		GstEvent * rate_event = gst_event_new_custom(GST_EVENT_CUSTOM_DOWNSTREAM_OOB, structure);
+		if (!rate_event)
+		{
+			MW_LOG_ERR("Failed to create rate_event");
+			gst_structure_free (structure);
+			return false;
+		}
+		int ret = gst_element_send_event(pipeline, rate_event );
+		if(!ret)
+		{
+			MW_LOG_ERR("Rate change failed : %g [gst_element_send_event]", rate);
+			return false;
+		}
+		MW_LOG_MIL("Current rate: %g", rate);
+		return true;
+	#endif
 }
