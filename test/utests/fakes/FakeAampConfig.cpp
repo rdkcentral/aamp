@@ -53,7 +53,7 @@ void AampConfig::SetConfigValue(ConfigPriority owner, AAMPConfigSettingFloat cfg
 void AampConfig::SetConfigValue(ConfigPriority owner, AAMPConfigSettingString cfg , const std::string &value){}
 
 
-bool AampConfig::IsConfigSet(AAMPConfigSettingBool cfg)
+bool AampConfig::IsConfigSet(AAMPConfigSettingBool cfg) const
 {
     if (g_mockAampConfig != nullptr)
     {
@@ -65,7 +65,7 @@ bool AampConfig::IsConfigSet(AAMPConfigSettingBool cfg)
     }
 }
 
-int AampConfig::GetConfigValue(AAMPConfigSettingInt cfg)
+int AampConfig::GetConfigValue(AAMPConfigSettingInt cfg) const
 {
     if (g_mockAampConfig != nullptr)
     {
@@ -77,7 +77,7 @@ int AampConfig::GetConfigValue(AAMPConfigSettingInt cfg)
     }
 }
 
-double AampConfig::GetConfigValue(AAMPConfigSettingFloat cfg)
+double AampConfig::GetConfigValue(AAMPConfigSettingFloat cfg) const
 {
     if (g_mockAampConfig != nullptr)
     {
@@ -89,7 +89,7 @@ double AampConfig::GetConfigValue(AAMPConfigSettingFloat cfg)
     }
 }
 
-std::string AampConfig::GetConfigValue(AAMPConfigSettingString cfg)
+std::string AampConfig::GetConfigValue(AAMPConfigSettingString cfg) const
 {
     if (g_mockAampConfig != nullptr)
     {
@@ -145,7 +145,7 @@ bool AampConfig::ProcessConfigJson(const cJSON *cfgdata, ConfigPriority owner )
     return false;
 }
 
-void AampConfig::DoCustomSetting(ConfigPriority owner) const
+void AampConfig::DoCustomSetting(ConfigPriority owner)
 {
 }
 

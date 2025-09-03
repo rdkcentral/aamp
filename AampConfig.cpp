@@ -1347,7 +1347,7 @@ bool AampConfig::CustomSearch( std::string url, int playerId , std::string appna
  *
  * @return true
  */
-bool AampConfig::GetAampConfigJSONStr(std::string &str)
+bool AampConfig::GetAampConfigJSONStr(std::string &str) const
 {
 	AampJsonObject jsondata;
 
@@ -1911,19 +1911,19 @@ void AampConfig::DoCustomSetting(ConfigPriority owner)
 	ConfigureLogSettings();
 }
 
-const char * AampConfig::GetConfigName(AAMPConfigSettingBool cfg )
+const char * AampConfig::GetConfigName(AAMPConfigSettingBool cfg ) const
 {
 	return mConfigLookupTableBool[cfg].cmdString;
 }
-const char * AampConfig::GetConfigName(AAMPConfigSettingInt cfg )
+const char * AampConfig::GetConfigName(AAMPConfigSettingInt cfg ) const
 {
 	return mConfigLookupTableInt[cfg].cmdString;
 }
-const char * AampConfig::GetConfigName(AAMPConfigSettingFloat cfg )
+const char * AampConfig::GetConfigName(AAMPConfigSettingFloat cfg ) const
 {
 	return mConfigLookupTableFloat[cfg].cmdString;
 }
-const char *AampConfig::GetConfigName(AAMPConfigSettingString cfg )
+const char *AampConfig::GetConfigName(AAMPConfigSettingString cfg ) const
 {
 	return mConfigLookupTableString[cfg].cmdString;
 }

@@ -676,7 +676,7 @@ public:
      	 * @fn GetAampConfigJSONStr
      	 * @param[in] str  - input string where config json will be stored
      	 */
-	bool GetAampConfigJSONStr(std::string &str);
+	bool GetAampConfigJSONStr(std::string &str) const;
 	/**
      	 * @fn DoCustomSetting 
      	 *
@@ -722,10 +722,10 @@ private:
 		 */
 	void CustomArrayRead( cJSON *customArray,ConfigPriority owner );
 
-	const char * GetConfigName(AAMPConfigSettingBool cfg );
-	const char * GetConfigName(AAMPConfigSettingInt cfg );
-	const char * GetConfigName(AAMPConfigSettingFloat cfg );
-	const char * GetConfigName(AAMPConfigSettingString cfg );
+	const char * GetConfigName(AAMPConfigSettingBool cfg ) const;
+	const char * GetConfigName(AAMPConfigSettingInt cfg ) const;
+	const char * GetConfigName(AAMPConfigSettingFloat cfg ) const;
+	const char * GetConfigName(AAMPConfigSettingString cfg ) const;
 	
 	std::vector<struct customJson>vCustom;
 	std::vector<struct customJson>::iterator vCustomIt;
