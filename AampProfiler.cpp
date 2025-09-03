@@ -220,7 +220,6 @@ void ProfileEventAAMP::TuneBegin(void)
  */
 void ProfileEventAAMP::TuneStop(void)
 { // stop tune
-	AAMPLOG_INFO("Tune stops");
 	tuneStart = false;
 	tuneStopMonotonicBase = NOW_STEADY_TS_MS;
 }
