@@ -2,7 +2,7 @@
  * If not stated otherwise in this file or this component's license file the
  * following copyright and licenses apply:
  *
- * Copyright 2025 RDK Management
+ * Copyright 2023 RDK Management
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,30 +15,20 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+*/
+
+#ifndef AAMP_ANOMALY_MESSAGE_TYPE_H
+#define AAMP_ANOMALY_MESSAGE_TYPE_H
+
+/**
+ * @enum AAMPAnomalyMessageType
+ * @brief AAMP anomaly message types
  */
-#include "gstaampverimatrixdecryptor.h"
-#include <gmock/gmock.h>
-#include <gtest/gtest.h>
-
-class PluginsTests : public ::testing::Test
+typedef enum
 {
-protected:
-	//GstAampverimatrixdecryptor *aampverimatrixdecryptor;
-	
-	void SetUp() override
-	{
-		//aampverimatrixdecryptor = new GstAampverimatrixdecryptor();
-	}
+    ANOMALY_ERROR,    /**< Error Message */
+    ANOMALY_WARNING,  /**< Warning Message */
+    ANOMALY_TRACE      /**< Trace Message */
+} AAMPAnomalyMessageType;
 
-	void TearDown() override
-	{
-		//delete aampverimatrixdecryptor;
-	}
-public:
-};
-
-TEST_F(PluginsTests, TestVeriMatrixDecryptor_Init)
-{
-	//GstAampverimatrixdecryptor *aampverimatrixdecryptor = NULL;
-	//gst_aampverimatrixdecryptor_init(aampverimatrixdecryptor);
-}
+#endif // AAMP_ANOMALY_MESSAGE_TYPE_H

@@ -408,13 +408,40 @@ void MediaTrack::UpdateTSAfterChunkInject()
 }
 
 /**
- * @brief To be implemented by derived classes to receive cached fragment Chunk
- * Receives cached fragment and injects to sink.
+ * @fn InjectFragmentChunkInternal
+ *
+ * @param[in] mediaType - Media type of the fragment
+ * @param[in] buffer - contains fragment to be processed and injected
+ * @param[in] fpts - fragment PTS
+ * @param[in] fdts - fragment DTS
+ * @param[in] fDuration - fragment duration
+ * @param[in] fragmentPTSOffset - PTS offset to be applied
+ * @param[in] init - true if fragment is init fragment
+ * @param[in] discontinuity - true if there is a discontinuity, false otherwise
+ * @return void
  */
 void MediaTrack::InjectFragmentChunkInternal(AampMediaType mediaType, AampGrowableBuffer* buffer, double fpts, double fdts, double fDuration, double fragmentPTSOffset, bool init, bool discontinuity)
 {
-	aamp->SendStreamTransfer(mediaType, buffer, fpts, fdts, fDuration, fragmentPTSOffset, init, discontinuity);
-
+	if (playContext)
+	{
+		MediaProcessor::process_fcn_t processor = [this](AampMediaType type, SegmentInfo_t info, std::vector<uint8_t> buf)
+		{
+			// No-op processor for chunk injection
+		};
+		AAMPLOG_INFO("Type[%d] position: %f duration: %f PTSOffsetSec: %f initFragment: %d size: %zu",
+			type, fpts, fDuration, fragmentPTSOffset, init, buffer->GetLen());
+		bool ptsError = false;
+		if (!playContext->sendSegment(buffer, fpts, fDuration, fragmentPTSOffset, discontinuity, init, std::move(processor), ptsError))
+		{
+			AAMPLOG_INFO("Type[%d] Fragment discarded", mediaType);
+		}
+	}
+	else
+	{
+		aamp->ProcessID3Metadata(buffer->GetPtr(), buffer->GetLen(), mediaType);
+		AAMPLOG_DEBUG("Type[%d] fpts: %f fDuration: %f init: %d", type, fpts, fDuration, init);
+		aamp->SendStreamTransfer(mediaType, buffer, fpts, fdts, fDuration, fragmentPTSOffset, init, discontinuity);
+	}
 }
 
 /**
@@ -2555,7 +2582,7 @@ int StreamAbstractionAAMP::GetDesiredProfileBasedOnCache(void)
 				logLevel = eLOGLEVEL_MIL;
 			}
 
-			AAMPLOG(logLevel,"currBW:%ld NwBW=%ld currProf:%d desiredProf:%d ,Buffer  %lf",currentBandwidth,networkBandwidth,currentProfileIndex,desiredProfileIndex,bufferValue/1000);
+			AAMPLOG(logLevel,"currBW:%ld NwBW=%ld currProf:%d desiredProf:%d ,Buffer:%lf",currentBandwidth,networkBandwidth,currentProfileIndex,desiredProfileIndex,bufferValue);
 
 			if (currentProfileIndex != desiredProfileIndex)
 			{
@@ -3394,15 +3421,17 @@ void MediaTrack::OnSinkBufferFull()
 	}
 
 	bool notifyCacheCompleted = false;
+	bool cachingCompletedFlag = false;
 	{
 		{
 			std::lock_guard<std::mutex> guard(mutex);
 			sinkBufferIsFull = true;
+			cachingCompletedFlag = cachingCompleted;
 		}
 		
 		// check if cache buffer is full and caching was needed
 		if (IsFragmentCacheFull() && (eTRACK_VIDEO == type) &&
-			aamp->IsFragmentCachingRequired() && !cachingCompleted)
+			aamp->IsFragmentCachingRequired() && !cachingCompletedFlag)
 		{
 			std::lock_guard<std::mutex> guard(mutex);
 			AAMPLOG_WARN("## [%s] Cache is Full cacheDuration %d minInitialCacheSeconds %d, aborting caching!##",
@@ -4618,4 +4647,19 @@ bool MediaTrack::IsInjectionFromCachedFragmentChunks()
 	AAMPLOG_TRACE("[%s] isLLDashChunkMode %d aampTsbEnabled %d ret %d",
 				  name, isLLDashChunkMode, aampTsbEnabled, isInjectionFromCachedFragmentChunks);
 	return isInjectionFromCachedFragmentChunks;
+}
+
+/**
+ *   @brief Re-initializes the injection
+ *   @param[in] rate - play rate
+ */	
+void StreamAbstractionAAMP::ReinitializeInjection(double rate) 
+{
+	clearFirstPTS();							//Clears the mFirstPTS value to trigger update of first PTS
+	SetTrickplayMode(rate);
+	ResetTrickModePtsRestamping();
+	if (!aamp->GetLLDashChunkMode())
+	{
+		SetVideoPlaybackRate(rate);
+	}
 }

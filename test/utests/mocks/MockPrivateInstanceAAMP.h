@@ -26,6 +26,8 @@
 class MockPrivateInstanceAAMP
 {
 public:
+    MOCK_METHOD(double, RecalculatePTS, (AampMediaType mediaType, const void *ptr, size_t len));
+    
 	MOCK_METHOD(void, Stop, (bool sendStateChangeEvent));
 
 	MOCK_METHOD(void, StartPausePositionMonitoring, (long long pausePositionMilliseconds));
@@ -84,6 +86,8 @@ public:
 	MOCK_METHOD(void, BlockUntilGstreamerWantsData, (void(*cb)(void), int , int ));
 	MOCK_METHOD(void, WaitForDiscontinuityProcessToComplete, ());
 	MOCK_METHOD(double, GetLivePlayPosition, ());
+	MOCK_METHOD(bool, GetLLDashChunkMode, ());
+	MOCK_METHOD(void, SetLLDashChunkMode, (bool enable));
 };
 
 extern MockPrivateInstanceAAMP *g_mockPrivateInstanceAAMP;
