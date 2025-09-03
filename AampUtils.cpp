@@ -578,7 +578,7 @@ std::string Getiso639map_NormalizeLanguageCode( const std::string lang, LangCode
 	{
 		char lang2[3+1]; // max 3 characters, i.e. 'eng' with cstring NUL terminator
 		strncpy(lang2, lang.c_str(), sizeof(lang2) );
-		lang2[sizeof(lang2)-1]=0x00; // ensure NUL termination (not guarenteed by strncpy)
+		lang2[sizeof(lang2)-1]=0x00; // ensure NUL termination (not guaranteed by strncpy)
 		iso639map_NormalizeLanguageCode(lang2, preferLangFormat); // modifies lang2
 		rc = lang2;
 	}
