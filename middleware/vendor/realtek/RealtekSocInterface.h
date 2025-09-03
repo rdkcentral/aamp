@@ -110,9 +110,10 @@ class RealtekSocInterface : public SocInterface
 		 * @param rate The desired playback rate.
 		 * @param video_dec The video decoder element.
 		 * @param audio_dec The audio decoder element.
+		 * @param isRialto True if rialtosink is used.
 		 * @return True if the playback rate was set successfully, false otherwise.
 		 */
-		bool SetPlaybackRate(const std::vector<GstElement*>& sources, GstElement *pipeline, double rate, GstElement *video_dec, GstElement *audio_dec) override;
+		bool SetPlaybackRate(const std::vector<GstElement*>& sources, GstElement *pipeline, double rate, GstElement *video_dec, GstElement *audio_dec, bool isRialto) override;
 
 		/**
 		 * @brief Set AC4 tracks.

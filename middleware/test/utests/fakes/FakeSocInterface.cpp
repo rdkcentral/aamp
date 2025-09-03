@@ -251,4 +251,21 @@ bool DefaultSocInterface::ConfigureAudioSink(GstElement **audio_sink, GstObject 
         }
         return status;
 }
-
+/*
+ * @brief Sets the playback rate for the given GStreamer elements.
+ *
+ * @param sources A vector of GStreamer source elements.
+ * @param pipeline The main GStreamer pipeline.
+ * @param rate The desired playback rate.
+ * @param video_dec The video decoder element.
+ * @param audio_dec The audio decoder element.
+ * @param isRialto True if rialtosink is used.
+ * @return True if the playback rate was set successfully, false otherwise.
+ */
+bool DefaultSocInterface::SetPlaybackRate(const std::vector<GstElement*>& sources, GstElement *pipeline, double rate, GstElement *video_dec, GstElement *audio_dec, bool isRialto)
+{
+        #if defined(__APPLE__) || defined(UBUNTU)
+                return false;
+    #endif
+}
+>>>>>>> f3fdd43... VPLAY-10641 [XiOneUK][LLD][VIPA][Rialto] Rate Correction does not kick-in on LLD channels
