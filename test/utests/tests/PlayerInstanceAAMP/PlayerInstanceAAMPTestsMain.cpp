@@ -2462,9 +2462,12 @@ TEST_F(PlayerInstanceAAMPTests, SetRateTest_LocalTSB_TrickPlayWhenPausedFromTSB)
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetState(_)).Times(0);
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, TuneHelper(eTUNETYPE_SEEK, _)).Times(1);
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, NotifySpeedChanged(2.0,_)).Times(1);
+	//calling AAMPGstPlayer::Pause(false,false) would cause the pipeline to play at x1
+	// before changing the speed to x2. Make sure that it is not happening.
 	EXPECT_CALL(*g_mockAampGstPlayer, Pause(false, false)).Times(0);
 
 	mPlayerInstance->SetRate(2.0);
 	EXPECT_EQ(mPrivateInstanceAAMP->pipeline_paused, false);
+	EXPECT_EQ(mPrivateInstanceAAMP->rate, 2.0);
 
 }
