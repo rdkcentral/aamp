@@ -42,10 +42,12 @@ void BrcmSocInterface::SetAudioProperty(const char * &volume, const char * &mute
  * @param rate The desired playback rate.
  * @param video_dec The video decoder element.
  * @param audio_dec The audio decoder element.
+ * @param isRialto True if rialtosink is used.
  * @return True if the playback rate was set successfully, false otherwise.
  */
-bool BrcmSocInterface::SetPlaybackRate(const std::vector<GstElement*>& sources, GstElement *pipeline, double rate, GstElement *video_dec, GstElement *audio_dec)
+bool BrcmSocInterface::SetPlaybackRate(const std::vector<GstElement*>& sources, GstElement *pipeline, double rate, GstElement *video_dec, GstElement *audio_dec, bool isRialto)
 {
+	//For rialto sinks default soc routine will be called, BCM platform changes has to be verified
 	bool status = true;
 	MW_LOG_MIL("send custom-instant-rate-change : %f ...", rate);
 	GstStructure *structure = gst_structure_new("custom-instant-rate-change", "rate", G_TYPE_DOUBLE, rate, NULL);

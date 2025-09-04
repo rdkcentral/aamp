@@ -869,7 +869,7 @@ void AampConfig::ApplyDeviceCapabilities()
 	
 }
 
-std::string AampConfig::GetUserAgentString()
+std::string AampConfig::GetUserAgentString() const
 {
 	return std::string(configValueString[eAAMPConfig_UserAgent].value);
 }
@@ -877,7 +877,7 @@ std::string AampConfig::GetUserAgentString()
 /**
  * @brief Gets the boolean configuration value
  */
-bool AampConfig::IsConfigSet(AAMPConfigSettingBool cfg)
+bool AampConfig::IsConfigSet(AAMPConfigSettingBool cfg) const
 {	if (cfg < AAMPCONFIG_BOOL_COUNT)
 	{
 		return configValueBool[cfg].value;
@@ -885,7 +885,7 @@ bool AampConfig::IsConfigSet(AAMPConfigSettingBool cfg)
 	return false;
 }
 
-bool AampConfig::GetConfigValue( AAMPConfigSettingBool cfg )
+bool AampConfig::GetConfigValue( AAMPConfigSettingBool cfg ) const
 {
 	if(cfg < AAMPCONFIG_BOOL_COUNT)
 	{
@@ -897,7 +897,7 @@ bool AampConfig::GetConfigValue( AAMPConfigSettingBool cfg )
  * @brief GetConfigValue - Gets configuration for integer data type
  *
  */
-int AampConfig::GetConfigValue(AAMPConfigSettingInt cfg)
+int AampConfig::GetConfigValue(AAMPConfigSettingInt cfg) const
 {
 	if(cfg < AAMPCONFIG_INT_COUNT)
 	{
@@ -909,7 +909,7 @@ int AampConfig::GetConfigValue(AAMPConfigSettingInt cfg)
  * @brief GetConfigValue - Gets configuration for double data type
  *
  */
-double AampConfig::GetConfigValue(AAMPConfigSettingFloat cfg)
+double AampConfig::GetConfigValue(AAMPConfigSettingFloat cfg) const
 {
 	if(cfg < AAMPCONFIG_FLOAT_COUNT)
 	{
@@ -922,7 +922,7 @@ double AampConfig::GetConfigValue(AAMPConfigSettingFloat cfg)
  * @brief GetConfigValue - Gets configuration for string data type
  *
  */
-std::string AampConfig::GetConfigValue(AAMPConfigSettingString cfg)
+std::string AampConfig::GetConfigValue(AAMPConfigSettingString cfg) const
 {
 	if(cfg < AAMPCONFIG_STRING_COUNT)
 	{
@@ -936,19 +936,19 @@ std::string AampConfig::GetConfigValue(AAMPConfigSettingString cfg)
  *
  * @return ConfigPriority - owner of the config
  */
-ConfigPriority AampConfig::GetConfigOwner(AAMPConfigSettingBool cfg)
+ConfigPriority AampConfig::GetConfigOwner(AAMPConfigSettingBool cfg) const
 {
 	return configValueBool[cfg].owner;
 }
-ConfigPriority AampConfig::GetConfigOwner(AAMPConfigSettingInt cfg)
+ConfigPriority AampConfig::GetConfigOwner(AAMPConfigSettingInt cfg) const
 {
 	return configValueInt[cfg].owner;
 }
-ConfigPriority AampConfig::GetConfigOwner(AAMPConfigSettingFloat cfg)
+ConfigPriority AampConfig::GetConfigOwner(AAMPConfigSettingFloat cfg) const
 {
 	return configValueFloat[cfg].owner;
 }
-ConfigPriority AampConfig::GetConfigOwner(AAMPConfigSettingString cfg)
+ConfigPriority AampConfig::GetConfigOwner(AAMPConfigSettingString cfg) const
 {
 	return configValueString[cfg].owner;
 }
@@ -958,13 +958,13 @@ ConfigPriority AampConfig::GetConfigOwner(AAMPConfigSettingString cfg)
  *
  * @return true - if valid return
  */
-const char * AampConfig::GetChannelOverride(const std::string manifestUrl)
+const char * AampConfig::GetChannelOverride(const std::string manifestUrl) const
 {
 	if(mChannelOverrideMap.size() && manifestUrl.size())
 	{
 		for (auto it = mChannelOverrideMap.begin(); it != mChannelOverrideMap.end(); ++it)
 		{
-			ConfigChannelInfo &pChannelInfo = *it;
+			const ConfigChannelInfo &pChannelInfo = *it;
 			if (manifestUrl.find(pChannelInfo.name) != std::string::npos)
 			{
 				return pChannelInfo.uri.c_str();
@@ -979,13 +979,13 @@ const char * AampConfig::GetChannelOverride(const std::string manifestUrl)
  *
  * @return true - if valid return
  */
-const char * AampConfig::GetChannelLicenseOverride(const std::string manifestUrl)
+const char * AampConfig::GetChannelLicenseOverride(const std::string manifestUrl) const
 {
     if(mChannelOverrideMap.size() && manifestUrl.size())
     {
         for (auto it = mChannelOverrideMap.begin(); it != mChannelOverrideMap.end(); ++it)
         {
-            ConfigChannelInfo &pChannelInfo = *it;
+            const ConfigChannelInfo &pChannelInfo = *it;
             if (manifestUrl.find(pChannelInfo.uri) != std::string::npos)
             {
                 if(!pChannelInfo.licenseUri.empty())
@@ -1351,7 +1351,7 @@ bool AampConfig::CustomSearch( std::string url, int playerId , std::string appna
  *
  * @return true
  */
-bool AampConfig::GetAampConfigJSONStr(std::string &str)
+bool AampConfig::GetAampConfigJSONStr(std::string &str) const
 {
 	AampJsonObject jsondata;
 
@@ -1915,19 +1915,19 @@ void AampConfig::DoCustomSetting(ConfigPriority owner)
 	ConfigureLogSettings();
 }
 
-const char * AampConfig::GetConfigName(AAMPConfigSettingBool cfg )
+const char * AampConfig::GetConfigName(AAMPConfigSettingBool cfg ) const
 {
 	return mConfigLookupTableBool[cfg].cmdString;
 }
-const char * AampConfig::GetConfigName(AAMPConfigSettingInt cfg )
+const char * AampConfig::GetConfigName(AAMPConfigSettingInt cfg ) const
 {
 	return mConfigLookupTableInt[cfg].cmdString;
 }
-const char * AampConfig::GetConfigName(AAMPConfigSettingFloat cfg )
+const char * AampConfig::GetConfigName(AAMPConfigSettingFloat cfg ) const
 {
 	return mConfigLookupTableFloat[cfg].cmdString;
 }
-const char *AampConfig::GetConfigName(AAMPConfigSettingString cfg )
+const char *AampConfig::GetConfigName(AAMPConfigSettingString cfg ) const
 {
 	return mConfigLookupTableString[cfg].cmdString;
 }
