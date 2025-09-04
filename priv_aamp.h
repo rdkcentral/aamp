@@ -30,7 +30,7 @@
 #include "AampScheduler.h"
 #include "StreamSink.h"
 #include "TimedMetadata.h"
-
+#include "CurlCallbacks.h"
 #include "AampProfiler.h"
 #include "DrmHelper.h"
 #include "DrmMediaFormat.h"
@@ -338,17 +338,6 @@ typedef int(*IdleTask)(void* arg);
 typedef void(*DestroyTask)(void * arg);
 
 /**
- * @brief To store Set Cookie: headers and X-Reason headers in HTTP Response
- */
-struct httpRespHeaderData {
-	httpRespHeaderData() : type(0), data("")
-	{
-	}
-	int type;             /**< Header type */
-	std::string data;     /**< Header value */
-};
-
-/**
  * @struct ThumbnailData
  * @brief Holds the Thumbnail information
  */
@@ -362,30 +351,6 @@ struct ThumbnailData {
 	int x;    /**< x coordinate of thumbnail within tile */
 	int y;    /**< y coordinate of Thumbnail within tile */
 };
-
-/**
- * @struct SpeedCache
- * @brief Stores the information for cache speed
- */
-struct SpeedCache
-{
-    long last_sample_time_val;
-    long prev_dlnow;
-    long prevSampleTotalDownloaded;
-    long totalDownloaded;
-    long speed_now;
-    long start_val;
-    bool bStart;
-
-    double totalWeight;
-    double weightedBitsPerSecond;
-    std::vector< std::pair<double,long> > mChunkSpeedData;
-
-    SpeedCache() : last_sample_time_val(0), prev_dlnow(0), prevSampleTotalDownloaded(0), totalDownloaded(0), speed_now(0), start_val(0), bStart(false) , totalWeight(0), weightedBitsPerSecond(0), mChunkSpeedData()
-    {
-    }
-};
-
 
 /**
  * @brief To store video rectangle properties
@@ -470,22 +435,6 @@ typedef struct eCurlHostMap
 	eCurlHostMap& operator=(const eCurlHostMap&) = delete;
 }eCurlHostMapStruct;
 
-/**
- * @brief Struct to store parsed url hostname & its type
- */
-typedef struct AampUrlInfo
-{
-	std::string hostname;
-	bool isRemotehost;
-
-	AampUrlInfo():hostname(""),isRemotehost(true)
-	{}
-
-	//Disabled
-	AampUrlInfo(const AampUrlInfo&) = delete;
-	AampUrlInfo& operator=(const AampUrlInfo&) = delete;
-}AampURLInfoStruct;
-
 typedef enum
 {
 	PROFILE_BLACKLIST_DRM_FAILURE,
@@ -517,7 +466,7 @@ class SegmentInfo_t;
 /**
  * @brief Class representing the AAMP player's private instance, which is not exposed to outside world.
  */
-class PrivateInstanceAAMP : public DrmCallbacks, public std::enable_shared_from_this<PrivateInstanceAAMP>
+class PrivateInstanceAAMP : public CurlCallbacks, public DrmCallbacks, public std::enable_shared_from_this<PrivateInstanceAAMP>
 {
 	enum AAMP2ReceiverMsgType
 	{
@@ -3689,7 +3638,7 @@ public:
 	 * @param userdata CurlCallbackContext pointer
 	 * @retval size consumed or 0 if interrupted
 	 */
-	size_t HandleSSLWriteCallback( const char *ptr, size_t size, size_t nmemb, void* userdata );
+	size_t HandleSSLWriteCallback( const char *ptr, size_t size, size_t nmemb, void* userdata ) override;
 
 	/**
 	 * @fn HandleSSLProgressCallback
@@ -3701,7 +3650,7 @@ public:
 	 * @param ulnow uploaded bytes so far
 	 * @retval negative value to abort, zero otherwise
 	 */
-	int HandleSSLProgressCallback ( void *clientp, double dltotal, double dlnow, double ultotal, double ulnow );
+	int HandleSSLProgressCallback ( void *clientp, double dltotal, double dlnow, double ultotal, double ulnow ) override;
 
 	/**
 	 * @fn HandleSSLHeaderCallback
@@ -3712,7 +3661,7 @@ public:
 	 * @param user_data  CurlCallbackContext pointer
 	 * @retval returns size * nmemb
 	 */
-	size_t HandleSSLHeaderCallback ( const char *ptr, size_t size, size_t nmemb, void* userdata );
+	size_t HandleSSLHeaderCallback ( const char *ptr, size_t size, size_t nmemb, void* userdata ) override;
 
 	void UpdateUseSinglePipeline();
 

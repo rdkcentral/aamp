@@ -961,7 +961,7 @@ long getCurrentContentDownloadSpeed(PrivateInstanceAAMP *aamp,
 int PrivateInstanceAAMP::HandleSSLProgressCallback ( void *clientp, double dltotal, double dlnow, double ultotal, double ulnow )
 {
 	CurlProgressCbContext *context = (CurlProgressCbContext *)clientp;
-	PrivateInstanceAAMP *aamp = context->aamp;
+	CurlCallbacks *aamp = context->aamp;
 	AampConfig *mConfig = context->aamp->mConfig;
 
 	if(context->aamp->GetLLDashServiceData()->lowLatencyMode &&

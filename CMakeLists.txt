@@ -306,7 +306,7 @@ set(LIBAAMP_SOURCES
 	isobmff/isobmffprocessor.cpp isobmff/isobmffprocessor.h
 	isobmff/isobmffhelper.cpp isobmff/isobmffhelper.h
 	MediaStreamContext.cpp MediaStreamContext.h
-	downloader/AampCurlStore.cpp downloader/AampCurlStore.h downloader/AampCurlDefine.h CurlInterface.h
+	downloader/AampCurlStore.cpp downloader/AampCurlStore.h downloader/AampCurlDefine.h CurlCallbacks.h
 	AampDRMLicPreFetcher.cpp AampDRMLicPreFetcher.h
 	AampCMCDCollector.cpp AampCMCDCollector.h
 	downloader/AampCurlDownloader.cpp downloader/AampCurlDownloader.h
