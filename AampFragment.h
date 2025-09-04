@@ -54,6 +54,26 @@ public:
     AampFragment(const std::string& url);
 
     /**
+     * @brief Copy constructor - deleted (use CopyFrom method instead)
+     */
+    AampFragment(const AampFragment& other) = delete;
+
+    /**
+     * @brief Copy assignment operator - deleted (use CopyFrom method instead)
+     */
+    AampFragment& operator=(const AampFragment& other) = delete;
+
+    /**
+     * @brief Move constructor
+     */
+    AampFragment(AampFragment&& other) noexcept;
+
+    /**
+     * @brief Move assignment operator
+     */
+    AampFragment& operator=(AampFragment&& other) noexcept;
+
+    /**
      * @brief Destructor
      */
     ~AampFragment() = default;

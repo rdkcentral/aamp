@@ -19,14 +19,6 @@
 
 /**
  * @file AampFragment.cpp
- * @brief Simple fragment class for AAMP - implementation
- */
-
-#include "AampFragment.h"
-#include <cstring>
-
-/**
- * @file AampFragment.cpp
  * @brief Implementation of unified fragment class for AAMP
  */
 
@@ -63,6 +55,59 @@ AampFragment::AampFragment(const std::string& url)
     , mHasDiscontinuity(false)
     , mIsComplete(false)
 {
+}
+
+/**
+ * @brief Move constructor
+ */
+AampFragment::AampFragment(AampFragment&& other) noexcept
+    : mFragmentStateMutex()  // Create new mutex for this object
+    , mUrl(std::move(other.mUrl))
+    , mFragmentData(std::move(other.mFragmentData))
+    , mType(other.mType)
+    , mChunkCount(other.mChunkCount)
+    , mPosition(other.mPosition)
+    , mDuration(other.mDuration)
+    , mIsInitFragment(other.mIsInitFragment)
+    , mHasDiscontinuity(other.mHasDiscontinuity)
+    , mIsComplete(other.mIsComplete)
+{
+    // Note: We cannot move the mutex, so we create a new one
+    // The moved-from object remains in a valid but unspecified state
+}
+
+/**
+ * @brief Move assignment operator
+ */
+AampFragment& AampFragment::operator=(AampFragment&& other) noexcept
+{
+    if (this != &other)
+    {
+        // Lock both objects during the move
+        std::lock_guard<std::mutex> lock(mFragmentStateMutex);
+        std::lock_guard<std::mutex> otherLock(other.mFragmentStateMutex);
+        
+        // Move all data members (except mutex which cannot be moved)
+        mUrl = std::move(other.mUrl);
+        mFragmentData = std::move(other.mFragmentData);
+        mType = other.mType;
+        mChunkCount = other.mChunkCount;
+        mPosition = other.mPosition;
+        mDuration = other.mDuration;
+        mIsInitFragment = other.mIsInitFragment;
+        mHasDiscontinuity = other.mHasDiscontinuity;
+        mIsComplete = other.mIsComplete;
+        
+        // Reset the moved-from object to a valid state
+        other.mType = COMPLETE_FRAGMENT;
+        other.mChunkCount = 0;
+        other.mPosition = AampTime(0.0);
+        other.mDuration = AampTime(0.0);
+        other.mIsInitFragment = false;
+        other.mHasDiscontinuity = false;
+        other.mIsComplete = false;
+    }
+    return *this;
 }
 
 /**
