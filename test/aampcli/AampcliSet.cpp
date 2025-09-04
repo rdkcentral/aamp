@@ -23,8 +23,8 @@
  */
 
 #include <iomanip>
-#include"Aampcli.h"
-#include"AampcliSet.h"
+#include "Aampcli.h"
+#include "AampcliSet.h"
 #include "AampcliSubtecSimulator.h"
 
 #define AAMPCLI_MAX_WEBVTT_SIZE	(500 * 1024)

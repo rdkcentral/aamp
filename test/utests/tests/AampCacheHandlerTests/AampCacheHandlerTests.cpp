@@ -20,7 +20,7 @@
 #include <gtest/gtest.h>
 #include "AampCacheHandler.h"
 #include "AampMediaType.h"
-
+#include "AampConfig.h"
 #include "MockAampGrowableBuffer.h"
 
 using namespace testing;

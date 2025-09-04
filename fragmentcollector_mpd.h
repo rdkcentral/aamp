@@ -879,6 +879,11 @@ protected:
 	 */
 	bool GetEncryptedHeaders(std::map<int, std::string>& mappedHeaders);
 	/**
+	 * @fn ExtractAndAddSubtitleMediaHeader
+	 * @return bool
+	 */
+	bool ExtractAndAddSubtitleMediaHeader();
+	/**
 	 * @fn GetProfileIdxForBandwidthNotification
 	 * @param bandwidth - bandwidth to identify profile index from list
 	 */
@@ -1116,6 +1121,11 @@ protected:
 	 */
 	void SendAdReservationEvent(AAMPEventType type, const std::string& adBreakId,
 							   uint64_t position, AampTime absolutePosition, bool immediate);
+
+	/**
+	 * @brief Send any cached init fragments to be injected on disabled streams to generate the pipeline
+	 */
+	void SendMediaHeaders(void);
 
 	std::mutex mStreamLock;
 	bool abortTsbReader;

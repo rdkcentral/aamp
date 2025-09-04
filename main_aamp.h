@@ -58,6 +58,7 @@
 #include "StreamOutputFormat.h"
 #include "VideoZoomMode.h"
 #include "StreamSink.h"
+#include "TimedMetadata.h"
 
 /*! \mainpage
  *
@@ -69,10 +70,6 @@
 
 #define PrivAAMPState AAMPPlayerState // backwards compatibility for apps using native interface
 
-#if 0
-using AdObject = std::pair<std::string, std::string>;
-#endif
-
 /**
  * @class PlayerInstanceAAMP
  * @brief Player interface class for the JS plugin.
@@ -81,6 +78,7 @@ class PlayerInstanceAAMP
 {
 public: // FIXME: this should be private, but some tests access it
 	class PrivateInstanceAAMP *aamp;  		  /**< AAMP player's private instance */
+	const std::vector<TimedMetadata> & GetTimedMetadata( void ) const;
 
 private:
 	std::shared_ptr<PrivateInstanceAAMP> sp_aamp; 	  /**< shared pointer for aamp resource */
@@ -114,31 +112,7 @@ public:
 	 *   @param other object to copy
 	 */
 	PlayerInstanceAAMP& operator=(const PlayerInstanceAAMP& other) = delete;
-
-	/**
-	 * @fn isTuneScheme
-	 *
-	 * @param[in] uri
-	 *
-	 * @retval true iff uri starts with a recognized protocol representing an IP Video Locator
-	 */
-	static bool isTuneScheme( const char *cmdBuf )
-	{
-		size_t cmdLen = strlen(cmdBuf);
-		bool isTuneScheme = false;
-		static const char *protocol[]  = { "http:","https:","live:","hdmiin:","file:","mr:","tune:" };
-		for( int i=0; i<sizeof(protocol)/sizeof(protocol[0]); i++ )
-		{
-			size_t protocolLen = strlen(protocol[i]);
-			if( cmdLen>=protocolLen && memcmp( cmdBuf, protocol[i], protocolLen )==0 )
-			{
-				isTuneScheme=true;
-				break;
-			}
-		}
-		return isTuneScheme;
-	}
-
+    
 	/**
 	 *   @fn Tune
 	 *
@@ -1491,6 +1465,7 @@ protected:
 	 *   @return void
 	 */
 	void SetTextTrackInternal(int trackId, char *data);
+	
 private:
 
 	/**

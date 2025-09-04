@@ -295,3 +295,8 @@ void StreamAbstractionAAMP_MPD::clearFirstPTS(void)
 {
 
 }
+
+bool StreamAbstractionAAMP_MPD::ExtractAndAddSubtitleMediaHeader()
+{
+	return false;
+}

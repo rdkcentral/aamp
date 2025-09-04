@@ -1708,9 +1708,12 @@ void MediaTrack::RunInjectLoop()
 		{
 			try
 			{
-				subtitleClockThreadID = std::thread(&MediaTrack::UpdateSubtitleClockTask, this);
-				UpdateSubtitleClockTaskStarted = true;
-				AAMPLOG_INFO("Thread created for UpdateSubtitleClockTask [%zx]", GetPrintableThreadID(subtitleClockThreadID));
+				if (!ISCONFIGSET(eAAMPConfig_useRialtoSink))
+				{
+					subtitleClockThreadID = std::thread(&MediaTrack::UpdateSubtitleClockTask, this);
+					UpdateSubtitleClockTaskStarted = true;
+					AAMPLOG_INFO("Thread created for UpdateSubtitleClockTask [%zx]", GetPrintableThreadID(subtitleClockThreadID));
+				}
 			}
 			catch(const std::exception& e)
 			{

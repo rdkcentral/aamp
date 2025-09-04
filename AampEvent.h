@@ -182,6 +182,24 @@ typedef enum
 } AAMPPlayerState;
 
 /**
+ * @enum AAMPCDAIError
+ * @brief CDAI failure error code
+ */
+typedef enum
+{
+	eCDAI_ERROR_ADS_MISCONFIGURED,		/*Ad configuration is Invalid*/
+	eCDAI_ERROR_INVALID_MANIFEST,		/*The ad manifest is unreadable or contains invalid syntax*/
+	eCDAI_ERROR_INVALID_MEDIA,			/*The ad media file is invalid*/
+	eCDAI_ERROR_INVALID_SPECIFICATION,	/*The ad contains invalid Specifications*/
+	eCDAI_ERROR_DECISIONING_TIMEOUT,	/*The ad decisioning service is timed out*/
+	eCDAI_ERROR_DELIVERY_TIMEOUT,		/*The ad delivery service is timed out*/
+	eCDAI_ERROR_DELIVERY_HTTP_ERROR,	/*A HTTP error was received from the ad delivery service*/
+	eCDAI_ERROR_DELIVERY_ERROR,			/*Ad deliver Error due to no adbreakobject*/
+	eCDAI_ERROR_UNKNOWN,				/*unknown error during ad placement*/
+	eCDAI_ERROR_NONE					/*Successful ad Placement */
+} AAMPCDAIError;
+
+/**
  * @enum MetricsDataType
  * @brief AAMP metric data types
  */
@@ -422,6 +440,8 @@ struct AAMPEvent
 			const char *adId;
 			uint64_t startMS;
 			uint64_t durationMs;
+			const char* errorCode;
+			const char* errorDescription;
 		} adResolved;
 
 		/**
@@ -1803,6 +1823,9 @@ class AdResolvedEvent: public AAMPEventObject
 	std::string mAdId;	/**<Ad identifier */
 	uint64_t mStartMS;	/**<Ad's start position in MS */
 	uint64_t mDurationMs;	/**<Ad's duration in MS */
+	std::string mErrorCode;	/**<Ad's error code, if any */
+	std::string mErrorDescription; /**<Ad's error description, if any */
+
 
 public:
 	AdResolvedEvent() = delete;
@@ -1816,8 +1839,11 @@ public:
 	 * @param[in] adId          - Identifier of the Ad
 	 * @param[in] startMS       - Start position of Ad (relative to reservation start)
 	 * @param[in] durationMs    - Duration of the Ad in MS
+	 * @param[in] errorCode     - Error code
+	 * @param[in] errorDesc     - Error description
+	 * @param[in] sid           - Session ID
 	 */
-	AdResolvedEvent(bool resolveStatus, const std::string &adId, uint64_t startMS, uint64_t durationMs, std::string sid);
+	AdResolvedEvent(bool resolveStatus, const std::string &adId, uint64_t startMS, uint64_t durationMs, const std::string &errorCode, const std::string &errorDesc, std::string sid);
 
 	/**
 	 * @brief AdResolvedEvent Destructor
@@ -1843,6 +1869,16 @@ public:
 	 * @fn getDuration
 	 */
 	uint64_t getDuration() const;
+
+	/**
+	 * @fn getErrorCode
+	 */
+	const std::string &getErrorCode() const;
+
+	/**
+	 * @fn getErrorDescription
+	 */
+	const std::string &getErrorDescription() const;
 
 };
 

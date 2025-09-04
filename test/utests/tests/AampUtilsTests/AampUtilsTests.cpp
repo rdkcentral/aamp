@@ -337,22 +337,52 @@ TEST(_AampUtils, trim)
 TEST(_AampUtils, Getiso639map_NormalizeLanguageCode)
 {
 	std::string result;
-	std::string lang;	
+	std::string lang;
+	
 	result = Getiso639map_NormalizeLanguageCode(lang, ISO639_NO_LANGCODE_PREFERENCE);
 	EXPECT_STREQ(result.c_str(), "");
+	
 	lang = "aa";
 	result = Getiso639map_NormalizeLanguageCode(lang, ISO639_PREFER_3_CHAR_BIBLIOGRAPHIC_LANGCODE);
 	EXPECT_STREQ(result.c_str(), "aar");
+	
 	result = Getiso639map_NormalizeLanguageCode(lang, ISO639_PREFER_3_CHAR_TERMINOLOGY_LANGCODE);
 	EXPECT_STREQ(result.c_str(), "aar");
+	
 	result = Getiso639map_NormalizeLanguageCode(lang, ISO639_PREFER_2_CHAR_LANGCODE);
 	EXPECT_STREQ(result.c_str(), "aa");
+	
 	lang = "aar";
 	result = Getiso639map_NormalizeLanguageCode(lang, ISO639_PREFER_2_CHAR_LANGCODE);
 	EXPECT_STREQ(result.c_str(), "aa");
+	
 	lang = "";
 	result = Getiso639map_NormalizeLanguageCode(lang, ISO639_PREFER_2_CHAR_LANGCODE);
 	EXPECT_STREQ(result.c_str(), "");
+	
+	lang = "English";
+	result = Getiso639map_NormalizeLanguageCode(lang, ISO639_PREFER_3_CHAR_BIBLIOGRAPHIC_LANGCODE);
+	EXPECT_STREQ(result.c_str(), "eng");
+	
+	lang = "Xuponia";
+	result = Getiso639map_NormalizeLanguageCode(lang, ISO639_PREFER_3_CHAR_BIBLIOGRAPHIC_LANGCODE);
+	EXPECT_STREQ(result.c_str(), "xup");
+	
+	lang = "Xuponia";
+	result = Getiso639map_NormalizeLanguageCode(lang, ISO639_PREFER_3_CHAR_TERMINOLOGY_LANGCODE);
+	EXPECT_STREQ(result.c_str(), "xup");
+	
+	lang = "Xuponia";
+	result = Getiso639map_NormalizeLanguageCode(lang, ISO639_PREFER_2_CHAR_LANGCODE);
+	EXPECT_STREQ(result.c_str(), "un");
+	
+	lang = "xX";
+	result = Getiso639map_NormalizeLanguageCode(lang, ISO639_PREFER_3_CHAR_BIBLIOGRAPHIC_LANGCODE);
+	EXPECT_STREQ(result.c_str(), "und");
+	
+	lang = "xX";
+	result = Getiso639map_NormalizeLanguageCode(lang, ISO639_PREFER_2_CHAR_LANGCODE);
+	EXPECT_STREQ(result.c_str(), "xx");
 }
 
 
