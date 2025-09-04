@@ -28,7 +28,7 @@
 #include <vector>
 #include <atomic>
 #include <chrono>
-#include <cstring>
+#include <algorithm>
 #include "AampFragment.h"
 #include "AampTime.h"
 
@@ -52,6 +52,36 @@ protected:
     void TearDown() override
     {
         // Cleanup code for each test
+    }
+
+    /**
+     * @brief Helper function to compare fragment data with expected data using modern C++
+     * @param fragmentData Pointer to fragment data
+     * @param expectedData Pointer to expected data
+     * @param size Size of data to compare
+     * @return True if data matches, false otherwise
+     */
+    bool CompareFragmentData(const uint8_t* fragmentData, const uint8_t* expectedData, size_t size)
+    {
+        if (!fragmentData || !expectedData) {
+            return false;
+        }
+        return std::equal(fragmentData, fragmentData + size, expectedData);
+    }
+
+    /**
+     * @brief Helper function to compare fragment data with expected array using modern C++
+     * @param fragmentData Pointer to fragment data
+     * @param expectedArray Expected data array
+     * @return True if data matches, false otherwise
+     */
+    template<size_t N>
+    bool CompareFragmentData(const uint8_t* fragmentData, const uint8_t (&expectedArray)[N])
+    {
+        if (!fragmentData) {
+            return false;
+        }
+        return std::equal(fragmentData, fragmentData + N, expectedArray);
     }
 };
 
@@ -368,7 +398,7 @@ TEST_F(AampFragmentTest, FragmentData_SetCompleteFragment_DataStoredCorrectly)
     EXPECT_EQ(fragment.GetFragmentSize(), testSize);
     const uint8_t* retrievedData = fragment.GetFragmentData();
     ASSERT_NE(retrievedData, nullptr);
-    EXPECT_EQ(std::memcmp(retrievedData, testData, testSize), 0);
+    EXPECT_TRUE(CompareFragmentData(retrievedData, testData, testSize));
     EXPECT_TRUE(fragment.IsComplete());
 }
 
@@ -384,9 +414,9 @@ TEST_F(AampFragmentTest, FragmentChunks_AddMultipleChunks_ChunksAccumulatedCorre
     const uint8_t chunk3[] = {0x07, 0x08};
 
     // Act
-    fragment.AddChunk(chunk1, sizeof(chunk1));
-    fragment.AddChunk(chunk2, sizeof(chunk2));
-    fragment.AddChunk(chunk3, sizeof(chunk3));
+    EXPECT_TRUE(fragment.AddChunk(chunk1, sizeof(chunk1))) << "First chunk should be added successfully";
+    EXPECT_TRUE(fragment.AddChunk(chunk2, sizeof(chunk2))) << "Second chunk should be added successfully";
+    EXPECT_TRUE(fragment.AddChunk(chunk3, sizeof(chunk3))) << "Third chunk should be added successfully";
 
     // Assert
     EXPECT_EQ(fragment.GetChunkCount(), 3);
@@ -396,7 +426,7 @@ TEST_F(AampFragmentTest, FragmentChunks_AddMultipleChunks_ChunksAccumulatedCorre
     const uint8_t expectedData[] = {0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08};
     const uint8_t* retrievedData = fragment.GetFragmentData();
     ASSERT_NE(retrievedData, nullptr);
-    EXPECT_EQ(std::memcmp(retrievedData, expectedData, sizeof(expectedData)), 0);
+    EXPECT_TRUE(CompareFragmentData(retrievedData, expectedData));
 }
 
 /**
@@ -503,7 +533,7 @@ TEST_F(AampFragmentTest, CopyFrom_SourceFragmentWithData_DataCopiedCorrectly)
     // Verify data content
     const uint8_t* sourceData = sourceFragment.GetFragmentData();
     const uint8_t* targetData = targetFragment.GetFragmentData();
-    EXPECT_EQ(std::memcmp(sourceData, targetData, sizeof(testData)), 0);
+    EXPECT_TRUE(CompareFragmentData(sourceData, targetData, sizeof(testData)));
 }
 
 /**
@@ -526,8 +556,11 @@ TEST_F(AampFragmentTest, FragmentCaching_ConcurrentChunkOperations_ThreadSafe)
             for (int j = 0; j < chunksPerThread; ++j)
             {
                 uint8_t chunkData[] = {static_cast<uint8_t>(i), static_cast<uint8_t>(j)};
-                fragment.AddChunk(chunkData, sizeof(chunkData));
-                chunksAdded++;
+                bool success = fragment.AddChunk(chunkData, sizeof(chunkData));
+                if (success)
+                {
+                    chunksAdded++;
+                }
             }
         });
     }
@@ -571,10 +604,10 @@ TEST_F(AampFragmentTest, IsCompleteFlag_DifferentFragmentTypes_CorrectFlagBehavi
         const uint8_t chunk1[] = {0x01, 0x02};
         const uint8_t chunk2[] = {0x03, 0x04};
         
-        fragment.AddChunk(chunk1, sizeof(chunk1));
+        EXPECT_TRUE(fragment.AddChunk(chunk1, sizeof(chunk1))) << "First chunk should be added successfully";
         EXPECT_FALSE(fragment.IsComplete()) << "Fragment with chunks should not automatically be complete";
         
-        fragment.AddChunk(chunk2, sizeof(chunk2));
+        EXPECT_TRUE(fragment.AddChunk(chunk2, sizeof(chunk2))) << "Second chunk should be added successfully";
         EXPECT_FALSE(fragment.IsComplete()) << "Fragment with multiple chunks should not automatically be complete";
     }
 
@@ -605,12 +638,137 @@ TEST_F(AampFragmentTest, IsCompleteFlag_DifferentFragmentTypes_CorrectFlagBehavi
         const uint8_t chunk1[] = {0x01, 0x02};
         const uint8_t chunk2[] = {0x03, 0x04};
         
-        fragment.AddChunk(chunk1, sizeof(chunk1));
-        fragment.AddChunk(chunk2, sizeof(chunk2));
+        EXPECT_TRUE(fragment.AddChunk(chunk1, sizeof(chunk1))) << "First chunk should be added successfully";
+        EXPECT_TRUE(fragment.AddChunk(chunk2, sizeof(chunk2))) << "Second chunk should be added successfully";
         EXPECT_FALSE(fragment.IsComplete()) << "Chunk-based fragment should not be automatically complete";
         
         // Manually mark as complete (this should be a method that exists)
         fragment.SetComplete(true);
         EXPECT_TRUE(fragment.IsComplete()) << "Fragment should be complete after manual completion";
+    }
+}
+
+/**
+ * @brief Test that complete fragments reject additional data modifications
+ */
+TEST_F(AampFragmentTest, CompleteFragment_RejectAdditionalData_NoModificationAllowed)
+{
+    // Test 1: Complete fragment should reject chunk additions
+    {
+        AampFragment fragment;
+        const uint8_t initialData[] = {0x01, 0x02, 0x03};
+        const uint8_t additionalChunk[] = {0x04, 0x05};
+        
+        // Set as complete fragment
+        fragment.SetFragmentData(initialData, sizeof(initialData), AampFragment::COMPLETE_FRAGMENT);
+        EXPECT_TRUE(fragment.IsComplete()) << "Fragment should be complete after setting complete data";
+        EXPECT_EQ(fragment.GetFragmentSize(), sizeof(initialData)) << "Initial data size should match";
+        
+        // Try to add chunk to complete fragment - should be rejected
+        size_t sizeBeforeChunk = fragment.GetFragmentSize();
+        bool chunkAdded = fragment.AddChunk(additionalChunk, sizeof(additionalChunk));
+        
+        // Chunk addition should be rejected
+        EXPECT_FALSE(chunkAdded) << "AddChunk should return false when fragment is already complete";
+        
+        // Data should remain unchanged
+        EXPECT_EQ(fragment.GetFragmentSize(), sizeBeforeChunk) << "Fragment size should not change after rejected chunk addition";
+        EXPECT_TRUE(fragment.IsComplete()) << "Fragment should still be complete";
+        
+        // Verify original data is intact
+        const uint8_t* data = fragment.GetFragmentData();
+        EXPECT_TRUE(CompareFragmentData(data, initialData, sizeof(initialData))) << "Original data should be unchanged";
+    }
+
+    // Test 2: Complete fragment should reject SetFragmentData calls
+    {
+        AampFragment fragment;
+        const uint8_t initialData[] = {0x01, 0x02, 0x03};
+        const uint8_t replacementData[] = {0x04, 0x05, 0x06, 0x07};
+        
+        // Set as complete fragment
+        fragment.SetFragmentData(initialData, sizeof(initialData), AampFragment::COMPLETE_FRAGMENT);
+        EXPECT_TRUE(fragment.IsComplete()) << "Fragment should be complete after setting complete data";
+        
+        // Try to replace data on complete fragment - should be rejected
+        size_t sizeBeforeReplacement = fragment.GetFragmentSize();
+        fragment.SetFragmentData(replacementData, sizeof(replacementData), AampFragment::COMPLETE_FRAGMENT);
+        
+        // Data should remain unchanged
+        EXPECT_EQ(fragment.GetFragmentSize(), sizeBeforeReplacement) << "Fragment size should not change after rejected data replacement";
+        EXPECT_TRUE(fragment.IsComplete()) << "Fragment should still be complete";
+        
+        // Verify original data is intact
+        const uint8_t* data = fragment.GetFragmentData();
+        EXPECT_TRUE(CompareFragmentData(data, initialData, sizeof(initialData))) << "Original data should be unchanged";
+    }
+
+    // Test 3: Manually completed chunk-based fragment should reject additional chunks
+    {
+        AampFragment fragment;
+        const uint8_t chunk1[] = {0x01, 0x02};
+        const uint8_t chunk2[] = {0x03, 0x04};
+        const uint8_t additionalChunk[] = {0x05, 0x06};
+        
+        // Build chunk-based fragment
+        EXPECT_TRUE(fragment.AddChunk(chunk1, sizeof(chunk1))) << "First chunk should be added successfully";
+        EXPECT_TRUE(fragment.AddChunk(chunk2, sizeof(chunk2))) << "Second chunk should be added successfully";
+        EXPECT_EQ(fragment.GetFragmentSize(), sizeof(chunk1) + sizeof(chunk2)) << "Chunks should be accumulated";
+        EXPECT_FALSE(fragment.IsComplete()) << "Fragment should not be complete yet";
+        
+        // Manually mark as complete
+        fragment.SetComplete(true);
+        EXPECT_TRUE(fragment.IsComplete()) << "Fragment should be complete after manual completion";
+        
+        // Try to add another chunk - should be rejected
+        size_t sizeBeforeAdditionalChunk = fragment.GetFragmentSize();
+        size_t chunkCountBefore = fragment.GetChunkCount();
+        bool chunkAdded = fragment.AddChunk(additionalChunk, sizeof(additionalChunk));
+        
+        // Chunk addition should be rejected
+        EXPECT_FALSE(chunkAdded) << "AddChunk should return false when fragment is manually completed";
+        
+        // Data should remain unchanged
+        EXPECT_EQ(fragment.GetFragmentSize(), sizeBeforeAdditionalChunk) << "Fragment size should not change after rejected chunk";
+        EXPECT_EQ(fragment.GetChunkCount(), chunkCountBefore) << "Chunk count should not change after rejected chunk";
+        EXPECT_TRUE(fragment.IsComplete()) << "Fragment should still be complete";
+    }
+
+    // Test 4: Clearing complete fragment should allow modifications again
+    {
+        AampFragment fragment;
+        const uint8_t initialData[] = {0x01, 0x02, 0x03};
+        const uint8_t newChunk[] = {0x04, 0x05};
+        
+        // Set as complete fragment
+        fragment.SetFragmentData(initialData, sizeof(initialData), AampFragment::COMPLETE_FRAGMENT);
+        EXPECT_TRUE(fragment.IsComplete()) << "Fragment should be complete";
+        
+        // Clear should reset and allow modifications
+        fragment.Clear();
+        EXPECT_FALSE(fragment.IsComplete()) << "Fragment should not be complete after clearing";
+        EXPECT_EQ(fragment.GetFragmentSize(), 0) << "Fragment should be empty after clearing";
+        
+        // Should now allow chunk addition
+        EXPECT_TRUE(fragment.AddChunk(newChunk, sizeof(newChunk))) << "Chunk should be added successfully after clearing";
+        EXPECT_EQ(fragment.GetFragmentSize(), sizeof(newChunk)) << "Chunk should be added after clearing";
+        EXPECT_EQ(fragment.GetChunkCount(), 1) << "Chunk count should be 1";
+    }
+
+    // Test 5: Invalid parameters should be rejected
+    {
+        AampFragment fragment;
+        const uint8_t validChunk[] = {0x01, 0x02, 0x03};
+        
+        // Test null data pointer
+        EXPECT_FALSE(fragment.AddChunk(nullptr, 10)) << "AddChunk should return false for null data pointer";
+        
+        // Test zero size
+        EXPECT_FALSE(fragment.AddChunk(validChunk, 0)) << "AddChunk should return false for zero size";
+        
+        // Test valid parameters
+        EXPECT_TRUE(fragment.AddChunk(validChunk, sizeof(validChunk))) << "AddChunk should return true for valid parameters";
+        EXPECT_EQ(fragment.GetChunkCount(), 1) << "Valid chunk should be added";
+        EXPECT_EQ(fragment.GetFragmentSize(), sizeof(validChunk)) << "Fragment size should match valid chunk";
     }
 }

@@ -96,6 +96,13 @@ void AampFragment::SetUrl(const std::string& url)
 void AampFragment::SetFragmentData(const uint8_t* data, size_t size, FragmentType type)
 {
     std::lock_guard<std::mutex> lock(mFragmentStateMutex);
+    
+    // Reject modification if fragment is already complete
+    if (mIsComplete)
+    {
+        return;
+    }
+    
     mType = type;
     mFragmentData.clear(); // Clear existing data first
     
@@ -213,10 +220,17 @@ bool AampFragment::IsInitFragment() const
  * @brief Add a chunk to this fragment (for chunk-based fragments)
  * @param chunkData Chunk data to add
  * @param chunkSize Size of chunk data
+ * @return True if chunk was successfully added, false if rejected (e.g., fragment already complete)
  */
-void AampFragment::AddChunk(const uint8_t* chunkData, size_t chunkSize)
+bool AampFragment::AddChunk(const uint8_t* chunkData, size_t chunkSize)
 {
     std::lock_guard<std::mutex> lock(mFragmentStateMutex);
+    
+    // Reject chunk addition if fragment is already complete
+    if (mIsComplete)
+    {
+        return false;
+    }
     
     if (chunkData && chunkSize > 0)
     {
@@ -227,7 +241,11 @@ void AampFragment::AddChunk(const uint8_t* chunkData, size_t chunkSize)
         mChunkCount++;
         
         mType = FRAGMENT_CHUNK;
+        return true;
     }
+    
+    // Invalid input parameters
+    return false;
 }
 
 /**
