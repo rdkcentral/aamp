@@ -7153,7 +7153,7 @@ void PrivateInstanceAAMP::SetSubtitleMute(bool muted)
 	StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
 	if (sink)
 	{
-		sink->SetSubtitleMute(muted);
+		sink->SetSubtitleMute(video_muted || muted);
 	}
 }
 
