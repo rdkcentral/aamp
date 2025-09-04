@@ -132,7 +132,6 @@ TEST_P(SubtitleMuteTests, SetSubtitleMuteTests)
 	TestSetSubtitleMute(videoMuted, subtitleMuted);
 }
 
-// Run PlaybackSpeedTests tests at various speeds
 INSTANTIATE_TEST_SUITE_P(TestSubtitleMute,
 						 SubtitleMuteTests,
 						 testing::Values(
