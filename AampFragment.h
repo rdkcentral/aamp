@@ -29,7 +29,7 @@
 #include <mutex>
 #include <vector>
 #include <memory>
-#include "AampGrowableBuffer.h"
+#include <cstdint>
 #include "AampTime.h"
 
 /**
@@ -163,8 +163,8 @@ public:
     bool IsComplete() const;
 
     /**
-     * @brief Get number of chunks in this fragment
-     * @return Number of chunks
+     * @brief Get number of chunks added to this fragment
+     * @return Number of chunks added
      */
     size_t GetChunkCount() const;
 
@@ -185,9 +185,9 @@ private:
     std::string mUrl;                    ///< Fragment URL
     
     // === Fragment Data ===
-    AampGrowableBuffer mFragmentData;    ///< Main fragment data buffer
-    std::vector<std::unique_ptr<AampGrowableBuffer>> mChunks;  ///< Individual chunks for chunk-based fragments
+    std::vector<uint8_t> mFragmentData;  ///< Fragment data buffer (for both complete fragments and accumulated chunks)
     FragmentType mType;                  ///< Fragment type (complete or chunk-based)
+    size_t mChunkCount;                  ///< Number of chunks added (for chunk-based fragments)
     
     // === Fragment Metadata ===
     AampTime mPosition;                  ///< Position in playlist

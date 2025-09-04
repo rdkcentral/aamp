@@ -19,6 +19,14 @@
 
 /**
  * @file AampFragment.cpp
+ * @brief Simple fragment class for AAMP - implementation
+ */
+
+#include "AampFragment.h"
+#include <cstring>
+
+/**
+ * @file AampFragment.cpp
  * @brief Implementation of unified fragment class for AAMP
  */
 
@@ -31,6 +39,7 @@ AampFragment::AampFragment()
     : mUrl("")
     , mFragmentData()
     , mType(COMPLETE_FRAGMENT)
+    , mChunkCount(0)
     , mPosition(0.0)
     , mDuration(0.0)
     , mIsInitFragment(false)
@@ -47,6 +56,7 @@ AampFragment::AampFragment(const std::string& url)
     : mUrl(url)
     , mFragmentData()
     , mType(COMPLETE_FRAGMENT)
+    , mChunkCount(0)
     , mPosition(0.0)
     , mDuration(0.0)
     , mIsInitFragment(false)
@@ -87,11 +97,11 @@ void AampFragment::SetFragmentData(const uint8_t* data, size_t size, FragmentTyp
 {
     std::lock_guard<std::mutex> lock(mMutex);
     mType = type;
-    mFragmentData.Free(); // Clear existing data first
+    mFragmentData.clear(); // Clear existing data first
     
     if (data && size > 0)
     {
-        mFragmentData.AppendBytes(data, size);
+        mFragmentData.assign(data, data + size);
         if (type == COMPLETE_FRAGMENT)
         {
             mIsComplete = true;
@@ -106,7 +116,7 @@ void AampFragment::SetFragmentData(const uint8_t* data, size_t size, FragmentTyp
 const uint8_t* AampFragment::GetFragmentData() const
 {
     std::lock_guard<std::mutex> lock(mMutex);
-    return reinterpret_cast<const uint8_t*>(mFragmentData.GetPtr());
+    return mFragmentData.empty() ? nullptr : mFragmentData.data();
 }
 
 /**
@@ -116,7 +126,7 @@ const uint8_t* AampFragment::GetFragmentData() const
 size_t AampFragment::GetFragmentSize() const
 {
     std::lock_guard<std::mutex> lock(mMutex);
-    return mFragmentData.GetLen();
+    return mFragmentData.size();
 }
 
 /**
@@ -211,12 +221,10 @@ void AampFragment::AddChunk(const uint8_t* chunkData, size_t chunkSize)
     if (chunkData && chunkSize > 0)
     {
         // Add chunk to the main fragment buffer
-        mFragmentData.AppendBytes(chunkData, chunkSize);
+        mFragmentData.insert(mFragmentData.end(), chunkData, chunkData + chunkSize);
         
-        // Store chunk separately for potential individual access
-        std::unique_ptr<AampGrowableBuffer> chunk(new AampGrowableBuffer("aamp-fragment-chunk"));
-        chunk->AppendBytes(chunkData, chunkSize);
-        mChunks.push_back(std::move(chunk));
+        // Increment chunk counter
+        mChunkCount++;
         
         mType = FRAGMENT_CHUNK;
     }
@@ -239,7 +247,7 @@ bool AampFragment::IsComplete() const
 size_t AampFragment::GetChunkCount() const
 {
     std::lock_guard<std::mutex> lock(mMutex);
-    return mChunks.size();
+    return mChunkCount;
 }
 
 /**
@@ -249,8 +257,8 @@ void AampFragment::Clear()
 {
     std::lock_guard<std::mutex> lock(mMutex);
     mUrl.clear();
-    mFragmentData.Free(); // Use Free() instead of Clear() to fully reset buffer
-    mChunks.clear();
+    mFragmentData.clear(); // Clear the vector
+    mChunkCount = 0;
     mType = COMPLETE_FRAGMENT;
     mPosition = AampTime(0.0);
     mDuration = AampTime(0.0);
@@ -271,6 +279,7 @@ void AampFragment::CopyFrom(const AampFragment& other, size_t length)
     
     mUrl = other.mUrl;
     mType = other.mType;
+    mChunkCount = other.mChunkCount;
     mPosition = other.mPosition;
     mDuration = other.mDuration;
     mIsInitFragment = other.mIsInitFragment;
@@ -278,22 +287,13 @@ void AampFragment::CopyFrom(const AampFragment& other, size_t length)
     mIsComplete = other.mIsComplete;
     
     // Copy fragment data
-    mFragmentData.Clear();
-    if (length > 0 && length < other.mFragmentData.GetLen())
+    mFragmentData.clear();
+    if (length > 0 && length < other.mFragmentData.size())
     {
-        mFragmentData.AppendBytes(other.mFragmentData.GetPtr(), length);
+        mFragmentData.assign(other.mFragmentData.begin(), other.mFragmentData.begin() + length);
     }
     else
     {
-        mFragmentData.AppendBytes(other.mFragmentData.GetPtr(), other.mFragmentData.GetLen());
-    }
-    
-    // Copy chunks
-    mChunks.clear();
-    for (const auto& chunk : other.mChunks)
-    {
-        std::unique_ptr<AampGrowableBuffer> newChunk(new AampGrowableBuffer("aamp-fragment-chunk"));
-        newChunk->AppendBytes(chunk->GetPtr(), chunk->GetLen());
-        mChunks.push_back(std::move(newChunk));
+        mFragmentData = other.mFragmentData;
     }
 }
