@@ -62,7 +62,7 @@ AampEventManager::AampEventManager(int playerId): mIsFakeTune(false),
  */
 AampEventManager::~AampEventManager()
 {
-
+	AAMPLOG_INFO("Sling::EventManager destructor");
 	// Clear all event listeners and pending events
 	FlushPendingEvents();
 	std::lock_guard<std::mutex> guard(mMutexVar);
@@ -72,9 +72,11 @@ AampEventManager::~AampEventManager()
 		{
 			ListenerData* pListener = mEventListeners[i];
 			mEventListeners[i] = pListener->pNext;
+			AAMPLOG_WARN("Deleting ListenerData: %p, eventListener: %p", pListener, pListener->eventListener);
 			SAFE_DELETE(pListener);
 		}
 	}
+	AAMPLOG_INFO("Sling::EventManager destructor Exit");
 }
 
 /**
@@ -190,6 +192,10 @@ void AampEventManager::RemoveEventListener(AAMPEventType eventType, EventListene
 			ppLast = &(pListener->pNext);
 		}
 	}
+	else
+    	{
+        	AAMPLOG_ERR("Invalid parameters for RemoveEventListener: eventType=%d, eventListener=%p", eventType, eventListener);
+    	}
 }
 
 /**
@@ -330,6 +336,7 @@ void AampEventManager::AsyncEvent()
  */ 
 void AampEventManager::SendEventAsync(const AAMPEventPtr &eventData)
 {
+	AAMPLOG_INFO("Sling:: Enter ..");
 	AAMPEventType eventType = eventData->getType();
 	std::unique_lock<std::mutex> lock(mMutexVar);
 	// Check if already player in release state , then no need to send any events
@@ -345,6 +352,7 @@ void AampEventManager::SendEventAsync(const AAMPEventPtr &eventData)
 			SetCallbackAsPending(callbackID);
 		}
 	}
+	AAMPLOG_INFO("Sling:: Exit");
 }
 
 
@@ -354,6 +362,7 @@ void AampEventManager::SendEventAsync(const AAMPEventPtr &eventData)
 void AampEventManager::SendEventSync(const AAMPEventPtr &eventData)
 {
 	AAMPEventType eventType = eventData->getType();
+	AAMPLOG_INFO("Sling:: Enter");
 	std::unique_lock<std::mutex> lock(mMutexVar);
 #ifdef EVENT_DEBUGGING
 	long long startTime = NOW_STEADY_TS_MS;
@@ -378,7 +387,7 @@ void AampEventManager::SendEventSync(const AAMPEventPtr &eventData)
 				eventData->GetSessionId().c_str());
 		}
 	}
-
+	AAMPLOG_INFO("Sing:: (type=%d) build list of listeners",eventType);
 	// Build list of registered event listeners.
 	ListenerData* pList = NULL;
 	ListenerData* pListener = mEventListeners[eventType];
@@ -400,7 +409,7 @@ void AampEventManager::SendEventSync(const AAMPEventPtr &eventData)
 		pListener = pListener->pNext;
 	}
 	lock.unlock();
-
+	AAMPLOG_INFO("Sing:: dispatch registered listeners");
 	// After releasing the lock, dispatch each of the registered listeners.
 	// This allows event handlers to add/remove listeners for future events.
 	while (pList != NULL)
@@ -408,14 +417,21 @@ void AampEventManager::SendEventSync(const AAMPEventPtr &eventData)
 		ListenerData* pCurrent = pList;
 		if (pCurrent->eventListener != NULL)
 		{
+			AAMPLOG_INFO("Sling:: eventListnerData : %p",pCurrent); 
+			 AAMPLOG_INFO("Sling::Dispatching event to listener: %p", pCurrent->eventListener);
 			pCurrent->eventListener->SendEvent(eventData);
 		}
+		else
+    		{
+        		AAMPLOG_ERR("Invalid eventListener detected in ListenerData: %p", pCurrent);
+    		}
 		pList = pCurrent->pNext;
 		SAFE_DELETE(pCurrent);
 	}
 #ifdef EVENT_DEBUGGING
 	AAMPLOG_WARN("TimeTaken for Event %d SyncEvent [%d]",eventType, (NOW_STEADY_TS_MS - startTime));
 #endif
+	AAMPLOG_INFO("Sling:: Exit");
 
 }
 
