@@ -53,7 +53,7 @@ void AampConfig::SetConfigValue(ConfigPriority owner, AAMPConfigSettingFloat cfg
 void AampConfig::SetConfigValue(ConfigPriority owner, AAMPConfigSettingString cfg , const std::string &value){}
 
 
-bool AampConfig::IsConfigSet(AAMPConfigSettingBool cfg)
+bool AampConfig::IsConfigSet(AAMPConfigSettingBool cfg) const
 {
     if (g_mockAampConfig != nullptr)
     {
@@ -65,7 +65,7 @@ bool AampConfig::IsConfigSet(AAMPConfigSettingBool cfg)
     }
 }
 
-int AampConfig::GetConfigValue(AAMPConfigSettingInt cfg)
+int AampConfig::GetConfigValue(AAMPConfigSettingInt cfg) const
 {
     if (g_mockAampConfig != nullptr)
     {
@@ -77,7 +77,7 @@ int AampConfig::GetConfigValue(AAMPConfigSettingInt cfg)
     }
 }
 
-double AampConfig::GetConfigValue(AAMPConfigSettingFloat cfg)
+double AampConfig::GetConfigValue(AAMPConfigSettingFloat cfg) const
 {
     if (g_mockAampConfig != nullptr)
     {
@@ -89,7 +89,7 @@ double AampConfig::GetConfigValue(AAMPConfigSettingFloat cfg)
     }
 }
 
-std::string AampConfig::GetConfigValue(AAMPConfigSettingString cfg)
+std::string AampConfig::GetConfigValue(AAMPConfigSettingString cfg) const
 {
     if (g_mockAampConfig != nullptr)
     {
@@ -149,7 +149,7 @@ void AampConfig::DoCustomSetting(ConfigPriority owner)
 {
 }
 
-ConfigPriority AampConfig::GetConfigOwner(AAMPConfigSettingBool cfg)
+ConfigPriority AampConfig::GetConfigOwner(AAMPConfigSettingBool cfg) const
 {
 	if (g_mockAampConfig != nullptr)
 	{
@@ -160,7 +160,7 @@ ConfigPriority AampConfig::GetConfigOwner(AAMPConfigSettingBool cfg)
 		return AAMP_DEFAULT_SETTING;
 	}
 }
-ConfigPriority AampConfig::GetConfigOwner(AAMPConfigSettingInt cfg)
+ConfigPriority AampConfig::GetConfigOwner(AAMPConfigSettingInt cfg) const
 {
 	if (g_mockAampConfig != nullptr)
 	{
@@ -171,7 +171,7 @@ ConfigPriority AampConfig::GetConfigOwner(AAMPConfigSettingInt cfg)
 		return AAMP_DEFAULT_SETTING;
 	}
 }
-ConfigPriority AampConfig::GetConfigOwner(AAMPConfigSettingFloat cfg)
+ConfigPriority AampConfig::GetConfigOwner(AAMPConfigSettingFloat cfg) const
 {
 	if (g_mockAampConfig != nullptr)
 	{
@@ -182,7 +182,7 @@ ConfigPriority AampConfig::GetConfigOwner(AAMPConfigSettingFloat cfg)
 		return AAMP_DEFAULT_SETTING;
 	}
 }
-ConfigPriority AampConfig::GetConfigOwner(AAMPConfigSettingString cfg)
+ConfigPriority AampConfig::GetConfigOwner(AAMPConfigSettingString cfg) const
 {
 	if (g_mockAampConfig != nullptr)
 	{
@@ -194,22 +194,22 @@ ConfigPriority AampConfig::GetConfigOwner(AAMPConfigSettingString cfg)
 	}
 }
 
-bool AampConfig::GetAampConfigJSONStr(std::string &str)
+bool AampConfig::GetAampConfigJSONStr(std::string &str) const
 {
     return false;
 }
 
-std::string AampConfig::GetUserAgentString()
+std::string AampConfig::GetUserAgentString() const
 {
 	return "";
 }
 
-const char * AampConfig::GetChannelOverride(const std::string manifestUrl)
+const char * AampConfig::GetChannelOverride(const std::string manifestUrl) const
 {
     return nullptr;
 }
 
-const char * AampConfig::GetChannelLicenseOverride(const std::string manifestUrl)
+const char * AampConfig::GetChannelLicenseOverride(const std::string manifestUrl) const
 {
     return nullptr;
 }
