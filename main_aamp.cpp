@@ -620,7 +620,6 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 
 		if (aamp->mpStreamAbstractionAAMP && !(aamp->mbUsingExternalPlayer))
 		{
-			bool playAlreadyEnabled = aamp->mbPlayEnabled;
 			if ( AAMP_SLOWMOTION_RATE != rate && !aamp->mIsIframeTrackPresent && rate != AAMP_NORMAL_PLAY_RATE && rate != 0 && aamp->mMediaFormat != eMEDIAFORMAT_PROGRESSIVE)
 			{
 				AAMPLOG_WARN("Ignoring trickplay. No iframe tracks in stream");
