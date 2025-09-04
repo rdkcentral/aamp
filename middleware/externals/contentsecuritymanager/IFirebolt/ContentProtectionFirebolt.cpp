@@ -91,7 +91,7 @@ void ContentProtectionFirebolt::HandleWatermarkEvent(const std::string& sessionI
 	{
 	        MW_LOG_INFO("HandleWaterMarkEvent Triggered");
 		//TODO Testing Watermark
-		int mappedCode = MapFireboltStatus(statusStr);
+		int mappedCode = MapFireboltStatus(statusStr.state);
 		std::lock_guard<std::mutex> lock(mFireboltInitMutex);
 		if (ContentSecurityManager::SendWatermarkSessionEvent_CB)
 		{
