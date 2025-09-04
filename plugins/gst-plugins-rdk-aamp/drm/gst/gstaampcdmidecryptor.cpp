@@ -611,12 +611,12 @@ static GstFlowReturn gst_aampcdmidecryptor_transform_ip(
 	{
 		if (aampcdmidecryptor->streamtype == eMEDIATYPE_VIDEO)
 		{
-			GST_INFO_OBJECT("Ending decryption profiling for video");
+			GST_INFO_OBJECT("profile end decrypt video");
 			aampcdmidecryptor->aamp->profiler.ProfileEnd(
 					PROFILE_BUCKET_DECRYPT_VIDEO);
 		} else if (aampcdmidecryptor->streamtype == eMEDIATYPE_AUDIO)
 		{
-			GST_INFO_OBJECT("Ending decryption profiling for audio");
+			GST_INFO_OBJECT("profile end decrypt audio");
 			aampcdmidecryptor->aamp->profiler.ProfileEnd(
 					PROFILE_BUCKET_DECRYPT_AUDIO);
 		}
@@ -632,12 +632,12 @@ static GstFlowReturn gst_aampcdmidecryptor_transform_ip(
 	{
 		if (aampcdmidecryptor->streamtype == eMEDIATYPE_VIDEO)
 		{
-			GST_INFO_OBJECT("Ending decryption profiling for video stream is clear");
+			GST_INFO_OBJECT("profile end decrypt video (clear)");
 			aampcdmidecryptor->aamp->profiler.ProfileEnd(
 					PROFILE_BUCKET_DECRYPT_VIDEO);
 		} else if (aampcdmidecryptor->streamtype == eMEDIATYPE_AUDIO)
 		{
-			GST_INFO_OBJECT("Ending decryption profiling for audio stream is clear");
+			GST_INFO_OBJECT("profile end decrypt audio (clear)");
 			aampcdmidecryptor->aamp->profiler.ProfileEnd(
 					PROFILE_BUCKET_DECRYPT_AUDIO);
 		}
