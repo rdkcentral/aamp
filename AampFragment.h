@@ -163,6 +163,12 @@ public:
     bool IsComplete() const;
 
     /**
+     * @brief Set fragment completion status
+     * @param complete True to mark fragment as complete, false otherwise
+     */
+    void SetComplete(bool complete);
+
+    /**
      * @brief Get number of chunks added to this fragment
      * @return Number of chunks added
      */
@@ -181,20 +187,20 @@ public:
     void CopyFrom(const AampFragment& other, size_t length = 0);
 
 private:
-    mutable std::mutex mMutex;           ///< Mutex for thread safety
-    std::string mUrl;                    ///< Fragment URL
+    mutable std::mutex mFragmentStateMutex; ///< Mutex for thread safety
+    std::string mUrl;                       ///< Fragment URL
     
     // === Fragment Data ===
-    std::vector<uint8_t> mFragmentData;  ///< Fragment data buffer (for both complete fragments and accumulated chunks)
-    FragmentType mType;                  ///< Fragment type (complete or chunk-based)
-    size_t mChunkCount;                  ///< Number of chunks added (for chunk-based fragments)
+    std::vector<uint8_t> mFragmentData;     ///< Fragment data buffer (for both complete fragments and accumulated chunks)
+    FragmentType mType;                     ///< Fragment type (complete or chunk-based)
+    size_t mChunkCount;                     ///< Number of chunks added (for chunk-based fragments)
     
     // === Fragment Metadata ===
-    AampTime mPosition;                  ///< Position in playlist
-    AampTime mDuration;                  ///< Fragment duration
-    bool mIsInitFragment;                ///< True if this is an init fragment
-    bool mHasDiscontinuity;              ///< True if fragment has discontinuity
-    bool mIsComplete;                    ///< True if all chunks have been received (for chunk-based fragments)
+    AampTime mPosition;                     ///< Position in playlist
+    AampTime mDuration;                     ///< Fragment duration
+    bool mIsInitFragment;                   ///< True if this is an init fragment
+    bool mHasDiscontinuity;                 ///< True if fragment has discontinuity
+    bool mIsComplete;                       ///< True if all chunks have been received (for chunk-based fragments)
 };
 
 #endif // AAMP_FRAGMENT_H
