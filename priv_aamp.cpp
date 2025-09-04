@@ -646,7 +646,7 @@ static int ReadConfigNumericHelper(std::string buf, const char* prefixPtr, T& va
 /**
  * @brief HandleSSLWriteCallback - Handle write callback from CURL
  */
-size_t PrivateInstanceAAMP::HandleSSLWriteCallback ( char *ptr, size_t size, size_t nmemb, void* userdata )
+size_t PrivateInstanceAAMP::HandleSSLWriteCallback( const char *ptr, size_t size, size_t nmemb, void* userdata )
 {
 	size_t ret = 0;
 	CurlCallbackContext *context = (CurlCallbackContext *)userdata;

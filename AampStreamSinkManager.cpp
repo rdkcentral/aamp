@@ -23,7 +23,6 @@
  */
 
 #include "AampStreamSinkManager.h"
-#include "priv_aamp.h"
 
 AampStreamSinkManager::AampStreamSinkManager() :
 	mGstPlayer(nullptr),

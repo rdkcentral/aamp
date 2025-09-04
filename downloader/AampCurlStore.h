@@ -26,6 +26,7 @@
 #define AAMPCURLSTORE_H
 
 #include "AampCurlDefine.h"
+#include "CurlInterface.h"
 #include "priv_aamp.h"
 #include <map>
 #include <iterator>

@@ -3689,7 +3689,7 @@ public:
 	 * @param userdata CurlCallbackContext pointer
 	 * @retval size consumed or 0 if interrupted
 	 */
-	size_t HandleSSLWriteCallback ( char *ptr, size_t size, size_t nmemb, void* userdata );
+	size_t HandleSSLWriteCallback( const char *ptr, size_t size, size_t nmemb, void* userdata );
 
 	/**
 	 * @fn HandleSSLProgressCallback

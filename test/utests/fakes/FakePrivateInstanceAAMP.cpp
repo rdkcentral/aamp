@@ -156,17 +156,17 @@ double PrivateInstanceAAMP::RecalculatePTS(AampMediaType mediaType, const void *
     return pts;
 }
 
-size_t PrivateInstanceAAMP::HandleSSLWriteCallback ( char *ptr, size_t size, size_t nmemb, void* userdata )
+size_t PrivateInstanceAAMP::HandleSSLWriteCallback( const char *ptr, size_t size, size_t nmemb, void* userdata )
 {
 	return 0;
 }
 
-size_t PrivateInstanceAAMP::HandleSSLHeaderCallback ( const char *ptr, size_t size, size_t nmemb, void* user_data )
+size_t PrivateInstanceAAMP::HandleSSLHeaderCallback( const char *ptr, size_t size, size_t nmemb, void* user_data )
 {
 	return 0;
 }
 
-int PrivateInstanceAAMP::HandleSSLProgressCallback ( void *clientp, double dltotal, double dlnow, double ultotal, double ulnow )
+int PrivateInstanceAAMP::HandleSSLProgressCallback( void *clientp, double dltotal, double dlnow, double ultotal, double ulnow )
 {
 	return 0;
 }

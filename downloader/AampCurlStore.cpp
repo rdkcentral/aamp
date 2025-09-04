@@ -118,7 +118,7 @@ static void curl_unlock_callback(CURL *curl, curl_lock_data data, void *user_ptr
  * @param userdata CurlCallbackContext pointer
  * @retval size consumed or 0 if interrupted
  */
-static size_t write_callback(char *ptr, size_t size, size_t nmemb, void *userdata)
+static size_t write_callback( const char *ptr, size_t size, size_t nmemb, void *userdata)
 {
 	size_t ret = 0;
 	CurlCallbackContext *context = (CurlCallbackContext *)userdata;

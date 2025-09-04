@@ -141,8 +141,7 @@ size_t PrivateInstanceAAMP::HandleSSLHeaderCallback(const char *ptr, size_t size
 	return 0;
 }
 
-size_t PrivateInstanceAAMP::HandleSSLWriteCallback(char *ptr, size_t size, size_t nmemb,
-												   void *userdata)
+size_t PrivateInstanceAAMP::HandleSSLWriteCallback( const char *ptr, size_t size, size_t nmemb, void *userdata )
 {
 	return 0;
 }
