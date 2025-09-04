@@ -2102,7 +2102,7 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 
 		//Report Progress report position based on Availability Start Time
 		start = (culledSeconds*1000.0);
-		AAMPLOG_TRACE("position = %fms, start = %fms, ProgressReportOffset = %fms, ReportProgressPosn = %fms",
+		AAMPLOG_WARN("position = %fms, start = %fms, ProgressReportOffset = %fms, ReportProgressPosn = %fms",
 						position, start , (mProgressReportOffset * 1000), mReportProgressPosn);
 		if((mProgressReportOffset >= 0) && !IsUninterruptedTSB())
 		{
@@ -2319,6 +2319,9 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 
 			mReportProgressPosn = position;
 		}
+		else
+		{
+            AAMPLOG_WARN( "state: %d", state);
 	}
 }
 
@@ -7486,7 +7489,7 @@ long long PrivateInstanceAAMP::GetPositionMilliseconds()
 
 	//Local copy to avoid race. Consider further improvements to the thread safety of this variable.
 	auto trickStartUTCMS_copy = trickStartUTCMS;
-	AAMPLOG_TRACE("trickStartUTCMS=%lld", trickStartUTCMS_copy);
+	AAMPLOG_WARN("trickStartUTCMS=%lld", trickStartUTCMS_copy);
 	if (trickStartUTCMS_copy >= 0)
 	{
 		//Local copy to avoid race. Consider further improvements to the thread safety of this variable.
@@ -7542,7 +7545,7 @@ long long PrivateInstanceAAMP::GetPositionMilliseconds()
 		}
 	}
 
-	AAMPLOG_DEBUG("Returning Position as %lld (seek_pos_seconds = %f) and updating previous position.", positionMilliseconds, seek_pos_seconds_copy);
+	AAMPLOG_WARN("Returning Position as %lld (seek_pos_seconds = %f) and updating previous position.", positionMilliseconds, seek_pos_seconds_copy);
 	mPrevPositionMilliseconds.Update(positionMilliseconds ,seek_pos_seconds_copy);
 
 	if(locked)
