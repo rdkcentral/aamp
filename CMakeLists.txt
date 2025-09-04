@@ -688,6 +688,9 @@ install(FILES
 	AampDRMLicPreFetcher.h
 	AampDRMLicPreFetcherInterface.h
 	LangCodePreference.h
+	StreamOutputFormat.h
+	VideoZoomMode.h
+	StreamSink.h
 	AampMPDDownloader.h
 	AampMPDParseHelper.h
 	AampMPDPeriodInfo.h
