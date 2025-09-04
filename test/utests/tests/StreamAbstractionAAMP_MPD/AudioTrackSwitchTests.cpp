@@ -90,7 +90,8 @@ protected:
 		{eAAMPConfig_EnableIgnoreEosSmallFragment, false},
 		{eAAMPConfig_EnablePTSReStamp, false},
 		{eAAMPConfig_LocalTSBEnabled, false},
-		{eAAMPConfig_EnableIFrameTrackExtract, false}
+		{eAAMPConfig_EnableIFrameTrackExtract, false},
+		{eAAMPConfig_useRialtoSink, false},
 	};
 
 	BoolConfigSettings mBoolConfigSettings;

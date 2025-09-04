@@ -225,7 +225,7 @@ void trim(std::string& src);
  * @param[in] lang - Language in string format
  * @param[in] preferFormat - Preferred language format
  */
-std::string Getiso639map_NormalizeLanguageCode(std::string  lang, LangCodePreference preferFormat );
+std::string Getiso639map_NormalizeLanguageCode( const std::string lang, LangCodePreference preferFormat );
 
 /**
  * @fn aamp_GetTimespec
@@ -413,5 +413,13 @@ void aamp_setThreadName(const char *name);
  */
 int aamp_SetThreadSchedulingParameters(int policy, int priority);
 
+/**
+ * @fn isTuneScheme
+ *
+ * @param[in] uri
+ *
+ * @retval true iff uri starts with a recognized protocol representing an IP Video Locator
+ */
+bool aamp_isTuneScheme( const char *cmdBuf );
 
 #endif  /* __AAMP_UTILS_H__ */
