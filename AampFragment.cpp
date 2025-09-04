@@ -1,0 +1,299 @@
+/*
+ * If not stated otherwise in this file or this component's license file the
+ * following copyright and licenses apply:
+ *
+ * Copyright 2025 RDK Management
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+/**
+ * @file AampFragment.cpp
+ * @brief Implementation of unified fragment class for AAMP
+ */
+
+#include "AampFragment.h"
+
+/**
+ * @brief Default constructor
+ */
+AampFragment::AampFragment()
+    : mUrl("")
+    , mFragmentData()
+    , mType(COMPLETE_FRAGMENT)
+    , mPosition(0.0)
+    , mDuration(0.0)
+    , mIsInitFragment(false)
+    , mHasDiscontinuity(false)
+    , mIsComplete(false)
+{
+}
+
+/**
+ * @brief Constructor with URL
+ * @param url Fragment URL
+ */
+AampFragment::AampFragment(const std::string& url)
+    : mUrl(url)
+    , mFragmentData()
+    , mType(COMPLETE_FRAGMENT)
+    , mPosition(0.0)
+    , mDuration(0.0)
+    , mIsInitFragment(false)
+    , mHasDiscontinuity(false)
+    , mIsComplete(false)
+{
+}
+
+/**
+ * @brief Get the fragment URL
+ * @return Fragment URL
+ */
+std::string AampFragment::GetUrl() const
+{
+    std::lock_guard<std::mutex> lock(mMutex);
+    return mUrl;
+}
+
+/**
+ * @brief Set the fragment URL
+ * @param url New fragment URL
+ */
+void AampFragment::SetUrl(const std::string& url)
+{
+    std::lock_guard<std::mutex> lock(mMutex);
+    mUrl = url;
+}
+
+// === Fragment Caching Support Implementation ===
+
+/**
+ * @brief Set fragment data buffer
+ * @param data Pointer to fragment data
+ * @param size Size of fragment data
+ * @param type Fragment type (complete or chunk)
+ */
+void AampFragment::SetFragmentData(const uint8_t* data, size_t size, FragmentType type)
+{
+    std::lock_guard<std::mutex> lock(mMutex);
+    mType = type;
+    mFragmentData.Free(); // Clear existing data first
+    
+    if (data && size > 0)
+    {
+        mFragmentData.AppendBytes(data, size);
+        if (type == COMPLETE_FRAGMENT)
+        {
+            mIsComplete = true;
+        }
+    }
+}
+
+/**
+ * @brief Get fragment data buffer
+ * @return Pointer to fragment data (const access)
+ */
+const uint8_t* AampFragment::GetFragmentData() const
+{
+    std::lock_guard<std::mutex> lock(mMutex);
+    return reinterpret_cast<const uint8_t*>(mFragmentData.GetPtr());
+}
+
+/**
+ * @brief Get fragment data size
+ * @return Size of fragment data in bytes
+ */
+size_t AampFragment::GetFragmentSize() const
+{
+    std::lock_guard<std::mutex> lock(mMutex);
+    return mFragmentData.GetLen();
+}
+
+/**
+ * @brief Set fragment position in playlist
+ * @param pos Position as AampTime
+ */
+void AampFragment::SetPosition(const AampTime& pos)
+{
+    std::lock_guard<std::mutex> lock(mMutex);
+    mPosition = pos;
+}
+
+/**
+ * @brief Get fragment position in playlist
+ * @return Position as AampTime
+ */
+AampTime AampFragment::GetPosition() const
+{
+    std::lock_guard<std::mutex> lock(mMutex);
+    return mPosition;
+}
+
+/**
+ * @brief Set fragment duration
+ * @param dur Duration as AampTime
+ */
+void AampFragment::SetDuration(const AampTime& dur)
+{
+    std::lock_guard<std::mutex> lock(mMutex);
+    mDuration = dur;
+}
+
+/**
+ * @brief Get fragment duration
+ * @return Duration as AampTime
+ */
+AampTime AampFragment::GetDuration() const
+{
+    std::lock_guard<std::mutex> lock(mMutex);
+    return mDuration;
+}
+
+/**
+ * @brief Set discontinuity flag
+ * @param discontinuity True if this fragment has a discontinuity
+ */
+void AampFragment::SetDiscontinuity(bool discontinuity)
+{
+    std::lock_guard<std::mutex> lock(mMutex);
+    mHasDiscontinuity = discontinuity;
+}
+
+/**
+ * @brief Check if fragment has discontinuity
+ * @return True if fragment has discontinuity
+ */
+bool AampFragment::HasDiscontinuity() const
+{
+    std::lock_guard<std::mutex> lock(mMutex);
+    return mHasDiscontinuity;
+}
+
+/**
+ * @brief Set whether this is an init fragment
+ * @param isInit True if this is an init fragment
+ */
+void AampFragment::SetInitFragment(bool isInit)
+{
+    std::lock_guard<std::mutex> lock(mMutex);
+    mIsInitFragment = isInit;
+}
+
+/**
+ * @brief Check if this is an init fragment
+ * @return True if this is an init fragment
+ */
+bool AampFragment::IsInitFragment() const
+{
+    std::lock_guard<std::mutex> lock(mMutex);
+    return mIsInitFragment;
+}
+
+/**
+ * @brief Add a chunk to this fragment (for chunk-based fragments)
+ * @param chunkData Chunk data to add
+ * @param chunkSize Size of chunk data
+ */
+void AampFragment::AddChunk(const uint8_t* chunkData, size_t chunkSize)
+{
+    std::lock_guard<std::mutex> lock(mMutex);
+    
+    if (chunkData && chunkSize > 0)
+    {
+        // Add chunk to the main fragment buffer
+        mFragmentData.AppendBytes(chunkData, chunkSize);
+        
+        // Store chunk separately for potential individual access
+        std::unique_ptr<AampGrowableBuffer> chunk(new AampGrowableBuffer("aamp-fragment-chunk"));
+        chunk->AppendBytes(chunkData, chunkSize);
+        mChunks.push_back(std::move(chunk));
+        
+        mType = FRAGMENT_CHUNK;
+    }
+}
+
+/**
+ * @brief Check if fragment is complete (all chunks received)
+ * @return True if fragment is complete
+ */
+bool AampFragment::IsComplete() const
+{
+    std::lock_guard<std::mutex> lock(mMutex);
+    return mIsComplete;
+}
+
+/**
+ * @brief Get number of chunks in this fragment
+ * @return Number of chunks
+ */
+size_t AampFragment::GetChunkCount() const
+{
+    std::lock_guard<std::mutex> lock(mMutex);
+    return mChunks.size();
+}
+
+/**
+ * @brief Clear fragment data and reset state
+ */
+void AampFragment::Clear()
+{
+    std::lock_guard<std::mutex> lock(mMutex);
+    mUrl.clear();
+    mFragmentData.Free(); // Use Free() instead of Clear() to fully reset buffer
+    mChunks.clear();
+    mType = COMPLETE_FRAGMENT;
+    mPosition = AampTime(0.0);
+    mDuration = AampTime(0.0);
+    mIsInitFragment = false;
+    mHasDiscontinuity = false;
+    mIsComplete = false;
+}
+
+/**
+ * @brief Copy fragment data from another fragment
+ * @param other Source fragment to copy from
+ * @param length Optional length limit for partial copy
+ */
+void AampFragment::CopyFrom(const AampFragment& other, size_t length)
+{
+    std::lock_guard<std::mutex> lock(mMutex);
+    std::lock_guard<std::mutex> otherLock(other.mMutex);
+    
+    mUrl = other.mUrl;
+    mType = other.mType;
+    mPosition = other.mPosition;
+    mDuration = other.mDuration;
+    mIsInitFragment = other.mIsInitFragment;
+    mHasDiscontinuity = other.mHasDiscontinuity;
+    mIsComplete = other.mIsComplete;
+    
+    // Copy fragment data
+    mFragmentData.Clear();
+    if (length > 0 && length < other.mFragmentData.GetLen())
+    {
+        mFragmentData.AppendBytes(other.mFragmentData.GetPtr(), length);
+    }
+    else
+    {
+        mFragmentData.AppendBytes(other.mFragmentData.GetPtr(), other.mFragmentData.GetLen());
+    }
+    
+    // Copy chunks
+    mChunks.clear();
+    for (const auto& chunk : other.mChunks)
+    {
+        std::unique_ptr<AampGrowableBuffer> newChunk(new AampGrowableBuffer("aamp-fragment-chunk"));
+        newChunk->AppendBytes(chunk->GetPtr(), chunk->GetLen());
+        mChunks.push_back(std::move(newChunk));
+    }
+}
