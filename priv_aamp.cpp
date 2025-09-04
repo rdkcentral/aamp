@@ -1317,6 +1317,7 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 	, prevFirstPeriodStartTime(0)
 	, mIsFlushOperationInProgress(false)
 {
+	AAMPLOG_MIL("Create Private Player %d", mPlayerId);
 	mAampCacheHandler = new AampCacheHandler(mPlayerId);
 	// Create the event manager for player instance
 	mEventManager = new AampEventManager(mPlayerId);

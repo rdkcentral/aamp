@@ -131,7 +131,7 @@ public:
      * @param remoteUrl url of fragment
      * @param dnldStartTime of the download
      */
-    bool CacheFragmentChunk(AampMediaType actualType, char *ptr, size_t size, std::string remoteUrl,long long dnldStartTime);
+    bool CacheFragmentChunk(AampMediaType actualType, const char *ptr, size_t size, std::string remoteUrl,long long dnldStartTime);
 
     /**
      * @fn ABRProfileChanged
