@@ -71,7 +71,7 @@ AampFragment::AampFragment(const std::string& url)
  */
 std::string AampFragment::GetUrl() const
 {
-    std::lock_guard<std::mutex> lock(mMutex);
+    std::lock_guard<std::mutex> lock(mFragmentStateMutex);
     return mUrl;
 }
 
@@ -81,7 +81,7 @@ std::string AampFragment::GetUrl() const
  */
 void AampFragment::SetUrl(const std::string& url)
 {
-    std::lock_guard<std::mutex> lock(mMutex);
+    std::lock_guard<std::mutex> lock(mFragmentStateMutex);
     mUrl = url;
 }
 
@@ -95,7 +95,7 @@ void AampFragment::SetUrl(const std::string& url)
  */
 void AampFragment::SetFragmentData(const uint8_t* data, size_t size, FragmentType type)
 {
-    std::lock_guard<std::mutex> lock(mMutex);
+    std::lock_guard<std::mutex> lock(mFragmentStateMutex);
     mType = type;
     mFragmentData.clear(); // Clear existing data first
     
@@ -115,7 +115,7 @@ void AampFragment::SetFragmentData(const uint8_t* data, size_t size, FragmentTyp
  */
 const uint8_t* AampFragment::GetFragmentData() const
 {
-    std::lock_guard<std::mutex> lock(mMutex);
+    std::lock_guard<std::mutex> lock(mFragmentStateMutex);
     return mFragmentData.empty() ? nullptr : mFragmentData.data();
 }
 
@@ -125,7 +125,7 @@ const uint8_t* AampFragment::GetFragmentData() const
  */
 size_t AampFragment::GetFragmentSize() const
 {
-    std::lock_guard<std::mutex> lock(mMutex);
+    std::lock_guard<std::mutex> lock(mFragmentStateMutex);
     return mFragmentData.size();
 }
 
@@ -135,7 +135,7 @@ size_t AampFragment::GetFragmentSize() const
  */
 void AampFragment::SetPosition(const AampTime& pos)
 {
-    std::lock_guard<std::mutex> lock(mMutex);
+    std::lock_guard<std::mutex> lock(mFragmentStateMutex);
     mPosition = pos;
 }
 
@@ -145,7 +145,7 @@ void AampFragment::SetPosition(const AampTime& pos)
  */
 AampTime AampFragment::GetPosition() const
 {
-    std::lock_guard<std::mutex> lock(mMutex);
+    std::lock_guard<std::mutex> lock(mFragmentStateMutex);
     return mPosition;
 }
 
@@ -155,7 +155,7 @@ AampTime AampFragment::GetPosition() const
  */
 void AampFragment::SetDuration(const AampTime& dur)
 {
-    std::lock_guard<std::mutex> lock(mMutex);
+    std::lock_guard<std::mutex> lock(mFragmentStateMutex);
     mDuration = dur;
 }
 
@@ -165,7 +165,7 @@ void AampFragment::SetDuration(const AampTime& dur)
  */
 AampTime AampFragment::GetDuration() const
 {
-    std::lock_guard<std::mutex> lock(mMutex);
+    std::lock_guard<std::mutex> lock(mFragmentStateMutex);
     return mDuration;
 }
 
@@ -175,7 +175,7 @@ AampTime AampFragment::GetDuration() const
  */
 void AampFragment::SetDiscontinuity(bool discontinuity)
 {
-    std::lock_guard<std::mutex> lock(mMutex);
+    std::lock_guard<std::mutex> lock(mFragmentStateMutex);
     mHasDiscontinuity = discontinuity;
 }
 
@@ -185,7 +185,7 @@ void AampFragment::SetDiscontinuity(bool discontinuity)
  */
 bool AampFragment::HasDiscontinuity() const
 {
-    std::lock_guard<std::mutex> lock(mMutex);
+    std::lock_guard<std::mutex> lock(mFragmentStateMutex);
     return mHasDiscontinuity;
 }
 
@@ -195,7 +195,7 @@ bool AampFragment::HasDiscontinuity() const
  */
 void AampFragment::SetInitFragment(bool isInit)
 {
-    std::lock_guard<std::mutex> lock(mMutex);
+    std::lock_guard<std::mutex> lock(mFragmentStateMutex);
     mIsInitFragment = isInit;
 }
 
@@ -205,7 +205,7 @@ void AampFragment::SetInitFragment(bool isInit)
  */
 bool AampFragment::IsInitFragment() const
 {
-    std::lock_guard<std::mutex> lock(mMutex);
+    std::lock_guard<std::mutex> lock(mFragmentStateMutex);
     return mIsInitFragment;
 }
 
@@ -216,7 +216,7 @@ bool AampFragment::IsInitFragment() const
  */
 void AampFragment::AddChunk(const uint8_t* chunkData, size_t chunkSize)
 {
-    std::lock_guard<std::mutex> lock(mMutex);
+    std::lock_guard<std::mutex> lock(mFragmentStateMutex);
     
     if (chunkData && chunkSize > 0)
     {
@@ -236,8 +236,18 @@ void AampFragment::AddChunk(const uint8_t* chunkData, size_t chunkSize)
  */
 bool AampFragment::IsComplete() const
 {
-    std::lock_guard<std::mutex> lock(mMutex);
+    std::lock_guard<std::mutex> lock(mFragmentStateMutex);
     return mIsComplete;
+}
+
+/**
+ * @brief Set fragment completion status
+ * @param complete True to mark fragment as complete, false otherwise
+ */
+void AampFragment::SetComplete(bool complete)
+{
+    std::lock_guard<std::mutex> lock(mFragmentStateMutex);
+    mIsComplete = complete;
 }
 
 /**
@@ -246,7 +256,7 @@ bool AampFragment::IsComplete() const
  */
 size_t AampFragment::GetChunkCount() const
 {
-    std::lock_guard<std::mutex> lock(mMutex);
+    std::lock_guard<std::mutex> lock(mFragmentStateMutex);
     return mChunkCount;
 }
 
@@ -255,7 +265,7 @@ size_t AampFragment::GetChunkCount() const
  */
 void AampFragment::Clear()
 {
-    std::lock_guard<std::mutex> lock(mMutex);
+    std::lock_guard<std::mutex> lock(mFragmentStateMutex);
     mUrl.clear();
     mFragmentData.clear(); // Clear the vector
     mChunkCount = 0;
@@ -274,8 +284,8 @@ void AampFragment::Clear()
  */
 void AampFragment::CopyFrom(const AampFragment& other, size_t length)
 {
-    std::lock_guard<std::mutex> lock(mMutex);
-    std::lock_guard<std::mutex> otherLock(other.mMutex);
+    std::lock_guard<std::mutex> lock(mFragmentStateMutex);
+    std::lock_guard<std::mutex> otherLock(other.mFragmentStateMutex);
     
     mUrl = other.mUrl;
     mType = other.mType;

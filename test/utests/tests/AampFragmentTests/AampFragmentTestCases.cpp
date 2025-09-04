@@ -544,3 +544,73 @@ TEST_F(AampFragmentTest, FragmentCaching_ConcurrentChunkOperations_ThreadSafe)
     EXPECT_EQ(fragment.GetChunkCount(), expectedChunks);
     EXPECT_EQ(fragment.GetFragmentSize(), expectedChunks * 2); // 2 bytes per chunk
 }
+
+/**
+ * @brief Test that isComplete flag is set correctly for different fragment types
+ */
+TEST_F(AampFragmentTest, IsCompleteFlag_DifferentFragmentTypes_CorrectFlagBehavior)
+{
+    // Test 1: Default constructor - should not be complete
+    {
+        AampFragment fragment;
+        EXPECT_FALSE(fragment.IsComplete()) << "Default constructed fragment should not be complete";
+    }
+
+    // Test 2: Setting complete fragment data - should be complete
+    {
+        AampFragment fragment;
+        const uint8_t testData[] = {0x01, 0x02, 0x03, 0x04, 0x05};
+        
+        fragment.SetFragmentData(testData, sizeof(testData), AampFragment::COMPLETE_FRAGMENT);
+        EXPECT_TRUE(fragment.IsComplete()) << "Fragment with complete data should be marked as complete";
+    }
+
+    // Test 3: Adding chunks - should NOT automatically set complete
+    {
+        AampFragment fragment;
+        const uint8_t chunk1[] = {0x01, 0x02};
+        const uint8_t chunk2[] = {0x03, 0x04};
+        
+        fragment.AddChunk(chunk1, sizeof(chunk1));
+        EXPECT_FALSE(fragment.IsComplete()) << "Fragment with chunks should not automatically be complete";
+        
+        fragment.AddChunk(chunk2, sizeof(chunk2));
+        EXPECT_FALSE(fragment.IsComplete()) << "Fragment with multiple chunks should not automatically be complete";
+    }
+
+    // Test 4: Explicitly setting fragment as chunk-based but complete
+    {
+        AampFragment fragment;
+        const uint8_t testData[] = {0x01, 0x02, 0x03, 0x04, 0x05};
+        
+        fragment.SetFragmentData(testData, sizeof(testData), AampFragment::FRAGMENT_CHUNK);
+        EXPECT_FALSE(fragment.IsComplete()) << "Fragment explicitly set as chunk-based should not be automatically complete";
+    }
+
+    // Test 5: Clearing fragment should reset complete flag
+    {
+        AampFragment fragment;
+        const uint8_t testData[] = {0x01, 0x02, 0x03, 0x04, 0x05};
+        
+        fragment.SetFragmentData(testData, sizeof(testData), AampFragment::COMPLETE_FRAGMENT);
+        EXPECT_TRUE(fragment.IsComplete()) << "Fragment should be complete after setting complete data";
+        
+        fragment.Clear();
+        EXPECT_FALSE(fragment.IsComplete()) << "Fragment should not be complete after clearing";
+    }
+
+    // Test 6: Manual completion for chunk-based fragments
+    {
+        AampFragment fragment;
+        const uint8_t chunk1[] = {0x01, 0x02};
+        const uint8_t chunk2[] = {0x03, 0x04};
+        
+        fragment.AddChunk(chunk1, sizeof(chunk1));
+        fragment.AddChunk(chunk2, sizeof(chunk2));
+        EXPECT_FALSE(fragment.IsComplete()) << "Chunk-based fragment should not be automatically complete";
+        
+        // Manually mark as complete (this should be a method that exists)
+        fragment.SetComplete(true);
+        EXPECT_TRUE(fragment.IsComplete()) << "Fragment should be complete after manual completion";
+    }
+}
