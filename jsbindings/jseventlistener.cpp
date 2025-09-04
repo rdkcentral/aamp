@@ -1735,6 +1735,7 @@ AAMP_JSEventListener::AAMP_JSEventListener(PrivAAMPStruct_JS *obj, AAMPEventType
 	{
 		JSValueProtect(p_obj->_ctx, p_jsCallback);
 	}
+	 LOG_WARN_EX("Sling:: Created AAMP_JSEventListener: %p for eventType: %d, jsCallback: %p", this, type, jsCallback);
 }
 
 /**
@@ -1746,6 +1747,7 @@ AAMP_JSEventListener::~AAMP_JSEventListener()
 	{
 		JSValueUnprotect(p_obj->_ctx, p_jsCallback);
 	}
+	LOG_WARN_EX("Sling:: Deleted AAMP_JSEventListener: %p for eventType: %d, jsCallback: %p", this, p_type, p_jsCallback);
 }
 
 /**
@@ -1755,6 +1757,7 @@ void AAMP_JSEventListener::Event(const AAMPEventPtr& e)
 {
 	AAMPEventType evtType = e->getType();
         LOG_TRACE("type=%d, jsCallback=%p", evtType, p_jsCallback);
+	LOG_WARN_EX("Sling:: Dispatching event of type: %d to eventListener: %p, jsCallback: %p", evtType, this, p_jsCallback);
 
 	if (evtType < 0 || evtType >= AAMP_MAX_NUM_EVENTS)
 	{
@@ -1812,6 +1815,7 @@ void AAMP_JSEventListener::SetEventProperties(const AAMPEventPtr& evt, JSObjectR
 void AAMP_JSEventListener::AddEventListener(PrivAAMPStruct_JS* obj, AAMPEventType type, JSObjectRef jsCallback)
 {
 	LOG_TRACE("(%p, %d, %p)", obj, type, jsCallback);
+	 LOG_WARN_EX("Sling:: Adding eventListener for eventType: %d, jsCallback: %p", type, jsCallback);
 
 	AAMP_JSEventListener* pListener = NULL;
 
@@ -1928,6 +1932,7 @@ void AAMP_JSEventListener::AddEventListener(PrivAAMPStruct_JS* obj, AAMPEventTyp
 	}
 
 	obj->_listeners.insert({type, (void *)pListener});
+	LOG_WARN_EX("Sling:: Added eventListener: %p for eventType: %d", pListener, type);
 }
 
 
@@ -1937,7 +1942,7 @@ void AAMP_JSEventListener::AddEventListener(PrivAAMPStruct_JS* obj, AAMPEventTyp
 void AAMP_JSEventListener::RemoveEventListener(PrivAAMPStruct_JS* obj, AAMPEventType type, JSObjectRef jsCallback)
 {
         LOG_TRACE("(%p, %d, %p)", obj, type, jsCallback);
-
+	 LOG_WARN_EX("Sling:: Removing eventListener for eventType: %d, jsCallback: %p", type, jsCallback);
 	if (obj->_listeners.count(type) > 0)
 	{
 
@@ -1954,6 +1959,7 @@ void AAMP_JSEventListener::RemoveEventListener(PrivAAMPStruct_JS* obj, AAMPEvent
 				}
 				iter = obj->_listeners.erase(iter);
 				SAFE_DELETE(listener);
+				 LOG_WARN_EX("Sling:: Removed eventListener: %p for eventType: %d", listener , type);
 			}
 			else
 			{
@@ -1961,6 +1967,7 @@ void AAMP_JSEventListener::RemoveEventListener(PrivAAMPStruct_JS* obj, AAMPEvent
 			}
 		}
 	}
+	LOG_WARN_EX("Sling:: RemoveEventListener Js Exit");
 }
 
 
