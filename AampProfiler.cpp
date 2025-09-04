@@ -104,15 +104,15 @@ std::string ProfileEventAAMP::GetTuneTimeMetricAsJson(TuneEndMetrics tuneMetrics
 	cJSON_AddNumberToObject(item, "vdd", bucketDuration(PROFILE_BUCKET_DECRYPT_VIDEO));
 	cJSON_AddNumberToObject(item, "add", bucketDuration(PROFILE_BUCKET_DECRYPT_AUDIO));
 
-	cJSON_AddNumberToObject(item, "gps", (playerPreBuffered && tuneMetricsData.success > 0) ? buckets[PROFILE_BUCKET_FIRST_BUFFER].tStart - buckets[PROFILE_BUCKET_PLAYER_PRE_BUFFERED].tStart : buckets[PROFILE_BUCKET_FIRST_BUFFER].tStart);
-	cJSON_AddNumberToObject(item, "gff", (playerPreBuffered && tuneMetricsData.success > 0) ? buckets[PROFILE_BUCKET_FIRST_FRAME].tStart - buckets[PROFILE_BUCKET_PLAYER_PRE_BUFFERED].tStart : buckets[PROFILE_BUCKET_FIRST_FRAME].tStart);
+	cJSON_AddNumberToObject(item, "gps", (playerPreBuffered && tuneMetricsData.success > 0) ? buckets[PROFILE_BUCKET_FIRST_BUFFER].tStart - tPreBufferStart : buckets[PROFILE_BUCKET_FIRST_BUFFER].tStart);
+	cJSON_AddNumberToObject(item, "gff", (playerPreBuffered && tuneMetricsData.success > 0) ? buckets[PROFILE_BUCKET_FIRST_FRAME].tStart - tPreBufferStart : buckets[PROFILE_BUCKET_FIRST_FRAME].tStart);
 
 	cJSON_AddNumberToObject(item, "cnt", tuneMetricsData.contentType);
 	cJSON_AddNumberToObject(item, "stt", tuneMetricsData.streamType);
 	cJSON_AddBoolToObject(item, "ftt", tuneMetricsData.mFirstTune);
 
 	cJSON_AddNumberToObject(item, "pbm", playerPreBuffered);
-	cJSON_AddNumberToObject(item, "tpb", playerPreBuffered ? buckets[PROFILE_BUCKET_PLAYER_PRE_BUFFERED].tStart : 0);
+	cJSON_AddNumberToObject(item, "tpb", playerPreBuffered ? tPreBufferStart : 0);
 
 	cJSON_AddNumberToObject(item, "dus", durationSeconds);
 	cJSON_AddNumberToObject(item, "ifw", interfaceWifi);
@@ -276,16 +276,17 @@ void ProfileEventAAMP::TuneEnd(TuneEndMetrics &mTuneEndMetrics,std::string appNa
 	int mTotalTime;
  	int mTimedMetadataStartTime = static_cast<int> (mTuneEndMetrics.mTimedMetadataStartTime - tuneStartMonotonicBase);
 
-	auto tFirstFrame = buckets[PROFILE_BUCKET_FIRST_FRAME].tStart;
-	auto tDecrypt = buckets[PROFILE_BUCKET_DECRYPT_VIDEO].tFinish;
-	auto tFirstBuffer = buckets[PROFILE_BUCKET_FIRST_BUFFER].tStart;
+	auto tFirstFrameStart = buckets[PROFILE_BUCKET_FIRST_FRAME].tStart;
+	auto tDecryptVideoFinish = buckets[PROFILE_BUCKET_DECRYPT_VIDEO].tFinish;
+	auto tFirstBufferStart = buckets[PROFILE_BUCKET_FIRST_BUFFER].tStart;
+	auto tPreBufferStart = buckets[PROFILE_BUCKET_PLAYER_PRE_BUFFERED].tStart;
 	
 	// compute gstreamer decode time, excluding decryption. For clear streams, measure from first buffer start time
-	auto tDecode = tFirstFrame - (tDecrypt?tDecrypt:tFirstBuffer);
+	auto tDecode = tFirstFrameStart - (tDecryptVideoFinish?tDecryptVideoFinish:tFirstBufferStart);
 
 	if (mTuneEndMetrics.success > 0)
 	{
-		mTotalTime = playerPreBuffered ? tFirstFrame - buckets[PROFILE_BUCKET_PLAYER_PRE_BUFFERED].tStart : tFirstFrame;
+		mTotalTime = playerPreBuffered ? tFirstFrameStart - tPreBufferStart : tFirstFrameStart;
 	}
 	else
 	{
@@ -343,11 +344,11 @@ void ProfileEventAAMP::TuneEnd(TuneEndMetrics &mTuneEndMetrics,std::string appNa
 		bucketDuration(PROFILE_BUCKET_LA_PREPROC), licenseAcqNWTime, bucketDuration(PROFILE_BUCKET_LA_POSTPROC),
 		bucketDuration(PROFILE_BUCKET_DECRYPT_VIDEO),bucketDuration(PROFILE_BUCKET_DECRYPT_AUDIO),
 
-		(playerPreBuffered && mTuneEndMetrics.success > 0) ? tFirstBuffer - buckets[PROFILE_BUCKET_PLAYER_PRE_BUFFERED].tStart : tFirstBuffer, // gstPlaying: offset in ms from tunestart when pipeline first fed data
-		(playerPreBuffered && mTuneEndMetrics.success > 0) ? tFirstFrame - buckets[PROFILE_BUCKET_PLAYER_PRE_BUFFERED].tStart : tFirstFrame,  // gstFirstFrame: offset in ms from tunestart when first frame of video is decoded/presented
+		(playerPreBuffered && mTuneEndMetrics.success > 0) ? tFirstBufferStart - tPreBufferStart : tFirstBufferStart, // gstPlaying: offset in ms from tunestart when pipeline first fed data
+		(playerPreBuffered && mTuneEndMetrics.success > 0) ? tFirstFrameStart - tPreBufferStart : tFirstFrameStart,  // gstFirstFrame: offset in ms from tunestart when first frame of video is decoded/presented
 		tDecode, // gstDecode: time taken to decode first frame, excluding decryption time
 		mTuneEndMetrics.contentType,mTuneEndMetrics.streamType,mTuneEndMetrics.mFirstTune,
-		playerPreBuffered,playerPreBuffered ? buckets[PROFILE_BUCKET_PLAYER_PRE_BUFFERED].tStart : 0,
+		playerPreBuffered,playerPreBuffered ? tPreBufferStart : 0,
 		durationSeconds,interfaceWifi,
 		mTuneEndMetrics.mTuneAttempts, mTuneEndMetrics.success,failureReason.c_str(),appName.c_str(),
 		mTuneEndMetrics.mTimedMetadata,mTimedMetadataStartTime < 0 ? 0 : mTimedMetadataStartTime , mTuneEndMetrics.mTimedMetadataDuration,mTuneEndMetrics.mFogTSBEnabled,mTotalTime
