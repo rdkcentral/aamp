@@ -153,8 +153,9 @@ public:
      * @brief Add a chunk to this fragment (for chunk-based fragments)
      * @param chunkData Chunk data to add
      * @param chunkSize Size of chunk data
+     * @return True if chunk was successfully added, false if rejected (e.g., fragment already complete)
      */
-    void AddChunk(const uint8_t* chunkData, size_t chunkSize);
+    bool AddChunk(const uint8_t* chunkData, size_t chunkSize);
 
     /**
      * @brief Check if fragment is complete (all chunks received)
