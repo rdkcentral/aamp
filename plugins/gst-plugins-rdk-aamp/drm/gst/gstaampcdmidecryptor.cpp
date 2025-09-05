@@ -162,9 +162,9 @@ static void gst_aampcdmidecryptor_init(
 
 	OCDMGstTransformCaps = (OpenCDMError(*)(GstCaps**))dlsym(RTLD_DEFAULT, ocdmgsttransformcaps);
 	if (OCDMGstTransformCaps)
-	GST_INFO_OBJECT(aampcdmidecryptor, "Has opencdm_gstreamer_transform_caps support \n");
+	GST_INFO_OBJECT(aampcdmidecryptor, "Has opencdm_gstreamer_transform_caps support\n");
 	else
-	GST_INFO_OBJECT(aampcdmidecryptor, "No opencdm_gstreamer_transform_caps support \n");
+	GST_INFO_OBJECT(aampcdmidecryptor, "No opencdm_gstreamer_transform_caps support\n");
 	//GST_DEBUG_OBJECT(aampcdmidecryptor, "******************Init called**********************\n");
 }
 
@@ -611,12 +611,12 @@ static GstFlowReturn gst_aampcdmidecryptor_transform_ip(
 	{
 		if (aampcdmidecryptor->streamtype == eMEDIATYPE_VIDEO)
 		{
-			GST_INFO_OBJECT("profile end decrypt video");
+			GST_INFO_OBJECT(aampcdmidecryptor, "profile end decrypt video\n");
 			aampcdmidecryptor->aamp->profiler.ProfileEnd(
 					PROFILE_BUCKET_DECRYPT_VIDEO);
 		} else if (aampcdmidecryptor->streamtype == eMEDIATYPE_AUDIO)
 		{
-			GST_INFO_OBJECT("profile end decrypt audio");
+			GST_INFO_OBJECT(aampcdmidecryptor, "profile end decrypt audio\n");
 			aampcdmidecryptor->aamp->profiler.ProfileEnd(
 					PROFILE_BUCKET_DECRYPT_AUDIO);
 		}
@@ -632,12 +632,12 @@ static GstFlowReturn gst_aampcdmidecryptor_transform_ip(
 	{
 		if (aampcdmidecryptor->streamtype == eMEDIATYPE_VIDEO)
 		{
-			GST_INFO_OBJECT("profile end decrypt video (clear)");
+			GST_INFO_OBJECT(aampcdmidecryptor, "profile end decrypt video (clear)\n");
 			aampcdmidecryptor->aamp->profiler.ProfileEnd(
 					PROFILE_BUCKET_DECRYPT_VIDEO);
 		} else if (aampcdmidecryptor->streamtype == eMEDIATYPE_AUDIO)
 		{
-			GST_INFO_OBJECT("profile end decrypt audio (clear)");
+			GST_INFO_OBJECT(aampcdmidecryptor, "profile end decrypt audio (clear)\n");
 			aampcdmidecryptor->aamp->profiler.ProfileEnd(
 					PROFILE_BUCKET_DECRYPT_AUDIO);
 		}
@@ -885,12 +885,12 @@ static gboolean gst_aampcdmidecryptor_sink_event(GstBaseTransform * trans,
 			{
 				if (aampcdmidecryptor->streamtype == eMEDIATYPE_VIDEO)
 				{
-					GST_INFO_OBJECT("Starting decryption profiling for video");
+					GST_INFO_OBJECT(aampcdmidecryptor, "Starting decryption profiling for video\n");
 					aampcdmidecryptor->aamp->profiler.ProfileBegin(
 							PROFILE_BUCKET_DECRYPT_VIDEO);
 				} else if (aampcdmidecryptor->streamtype == eMEDIATYPE_AUDIO)
 				{
-					GST_INFO_OBJECT("Starting decryption profiling for audio");
+					GST_INFO_OBJECT(aampcdmidecryptor, "Starting decryption profiling for audio\n");
 					aampcdmidecryptor->aamp->profiler.ProfileBegin(
 							PROFILE_BUCKET_DECRYPT_AUDIO);
 				}
