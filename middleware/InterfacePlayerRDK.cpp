@@ -426,6 +426,7 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int auxF
 		{
 			MW_LOG_ERR("InterfacePlayerRDK: GST_STATE_PLAYING failed");
 		}
+		std::this_thread::sleep_for(std::chrono::milliseconds(200));//DJH hacking around 
 		gstPrivateContext->pendingPlayState = false;
 		gstPrivateContext->paused = false;
 	}
