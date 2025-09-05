@@ -34,7 +34,7 @@
 // Declared static here because this string exists in player and gstplugin .so
 // libraries  This string needs to match the start
 // of the gsteamer plugin name as created by the macros.
-static const char* GstPluginNamePR = "playreadydecryptor";
+static const char* GstPluginNamePR = "aampplayreadydecryptor";
 
 G_BEGIN_DECLS
 
