@@ -41,6 +41,11 @@ static gboolean plugin_init(GstPlugin * plugin)
 {
 	gboolean ret =  false;
 #ifdef DRM_BUILD_PROFILE
+	printf("DRM_BUILD_PROFILE \n");
+#else
+	printf("DRM_BUILD_PROFILE not defined \n");
+#endif
+#ifdef DRM_BUILD_PROFILE
 	ret = gst_element_register(plugin, GstPluginNamePR,
 			GST_RANK_PRIMARY, GST_TYPE_PLAYREADYDECRYPTOR );
 	if(ret)
