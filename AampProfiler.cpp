@@ -104,8 +104,8 @@ std::string ProfileEventAAMP::GetTuneTimeMetricAsJson(TuneEndMetrics tuneMetrics
 	cJSON_AddNumberToObject(item, "vdd", bucketDuration(PROFILE_BUCKET_DECRYPT_VIDEO));
 	cJSON_AddNumberToObject(item, "add", bucketDuration(PROFILE_BUCKET_DECRYPT_AUDIO));
 
-	cJSON_AddNumberToObject(item, "gps", (playerPreBuffered && tuneMetricsData.success > 0) ? buckets[PROFILE_BUCKET_FIRST_BUFFER].tStart - tPreBufferStart : buckets[PROFILE_BUCKET_FIRST_BUFFER].tStart);
-	cJSON_AddNumberToObject(item, "gff", (playerPreBuffered && tuneMetricsData.success > 0) ? buckets[PROFILE_BUCKET_FIRST_FRAME].tStart - tPreBufferStart : buckets[PROFILE_BUCKET_FIRST_FRAME].tStart);
+	cJSON_AddNumberToObject(item, "gps", (playerPreBuffered && tuneMetricsData.success > 0) ? buckets[PROFILE_BUCKET_FIRST_BUFFER].tStart - buckets[PROFILE_BUCKET_PLAYER_PRE_BUFFERED].tStart : buckets[PROFILE_BUCKET_FIRST_BUFFER].tStart);
+	cJSON_AddNumberToObject(item, "gff", (playerPreBuffered && tuneMetricsData.success > 0) ? buckets[PROFILE_BUCKET_FIRST_FRAME].tStart - buckets[PROFILE_BUCKET_PLAYER_PRE_BUFFERED].tStart : buckets[PROFILE_BUCKET_FIRST_FRAME].tStart);
 
 	cJSON_AddNumberToObject(item, "cnt", tuneMetricsData.contentType);
 	cJSON_AddNumberToObject(item, "stt", tuneMetricsData.streamType);
