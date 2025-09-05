@@ -88,6 +88,7 @@ public:
 	MOCK_METHOD(double, GetLivePlayPosition, ());
 	MOCK_METHOD(bool, GetLLDashChunkMode, ());
 	MOCK_METHOD(void, SetLLDashChunkMode, (bool enable));
+	MOCK_METHOD(void, NotifySpeedChanged, (float rate, bool changeState));
 };
 
 extern MockPrivateInstanceAAMP *g_mockPrivateInstanceAAMP;
