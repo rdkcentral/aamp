@@ -112,7 +112,7 @@ std::string ProfileEventAAMP::GetTuneTimeMetricAsJson(TuneEndMetrics tuneMetrics
 	cJSON_AddBoolToObject(item, "ftt", tuneMetricsData.mFirstTune);
 
 	cJSON_AddNumberToObject(item, "pbm", playerPreBuffered);
-	cJSON_AddNumberToObject(item, "tpb", playerPreBuffered ? tPreBufferStart : 0);
+	cJSON_AddNumberToObject(item, "tpb", playerPreBuffered ? buckets[PROFILE_BUCKET_PLAYER_PRE_BUFFERED].tStart : 0);
 
 	cJSON_AddNumberToObject(item, "dus", durationSeconds);
 	cJSON_AddNumberToObject(item, "ifw", interfaceWifi);
