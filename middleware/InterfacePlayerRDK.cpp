@@ -57,10 +57,10 @@
 
 
 // for now name is being kept as aamp should be changed when gst-plugins are migrated
-static const char* GstPluginNamePR = "playreadydecryptor";
-static const char* GstPluginNameWV = "widevinedecryptor";
-static const char* GstPluginNameCK = "clearkeydecryptor";
-static const char* GstPluginNameVMX = "verimatrixdecryptor";
+static const char* GstPluginNamePR = "aampplayreadydecryptor";
+static const char* GstPluginNameWV = "aampwidevinedecryptor";
+static const char* GstPluginNameCK = "aampclearkeydecryptor";
+static const char* GstPluginNameVMX = "aampverimatrixdecryptor";
 #define GST_MIN_PTS_UPDATE_INTERVAL 4000                        /**< Time duration in milliseconds if exceeded and pts has not changed; it is concluded pts is not changing */
 
 #include <assert.h>
