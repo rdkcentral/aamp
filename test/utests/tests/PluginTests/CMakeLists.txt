@@ -46,8 +46,7 @@ include_directories(${AAMP_ROOT}/middleware/playerLogManager)
 
 message(GSTREAMER_INCLUDE_DIRS=${GSTREAMER_INCLUDE_DIRS})
 
-set(TEST_SOURCES PLuginTestsRun.cpp
-				 PluginTests.cpp)
+set(TEST_SOURCES PluginTestsRun.cpp PluginTests.cpp)
 
 set(FAKE_SOURCES ${AAMP_ROOT}/middleware/test/utests/fakes/FakeGStreamer.cpp
 				 ${AAMP_ROOT}/middleware/test/utests/fakes/FakeSocUtils.cpp)
