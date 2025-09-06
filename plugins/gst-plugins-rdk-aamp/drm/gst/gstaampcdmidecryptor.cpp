@@ -162,9 +162,9 @@ static void gst_aampcdmidecryptor_init(
 
 	OCDMGstTransformCaps = (OpenCDMError(*)(GstCaps**))dlsym(RTLD_DEFAULT, ocdmgsttransformcaps);
 	if (OCDMGstTransformCaps)
-	GST_INFO_OBJECT(aampcdmidecryptor, "Has opencdm_gstreamer_transform_caps support\n");
+	GST_INFO_OBJECT(aampcdmidecryptor, "Has opencdm_gstreamer_transform_caps support \n");
 	else
-	GST_INFO_OBJECT(aampcdmidecryptor, "No opencdm_gstreamer_transform_caps support\n");
+	GST_INFO_OBJECT(aampcdmidecryptor, "No opencdm_gstreamer_transform_caps support \n");
 	//GST_DEBUG_OBJECT(aampcdmidecryptor, "******************Init called**********************\n");
 }
 
