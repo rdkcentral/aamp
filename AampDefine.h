@@ -31,7 +31,7 @@
 #define AAMP_JSON_PATH "/opt/aampcfg.json"
 
 #define AAMP_VERSION "7.07"
-#define AAMP_TUNETIME_VERSION 6
+#define AAMP_TUNETIME_VERSION 5
 
 //Stringification of Macro : use two levels of macros
 #define MACRO_TO_STRING(s) X_STR(s)
