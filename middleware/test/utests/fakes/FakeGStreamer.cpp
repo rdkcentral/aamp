@@ -900,7 +900,6 @@ GstStructure * gst_caps_get_structure ( const GstCaps *caps , guint index ){ ret
 void gst_structure_set_name (GstStructure * structure, const gchar * name){}
 const gchar * gst_structure_nth_field_name (const GstStructure * structure, guint index){ return NULL; }
 gboolean gst_structure_has_field (const GstStructure * structure, const gchar * fieldname){ return FALSE; }
-
 gboolean gst_buffer_remove_meta(GstBuffer *buffer, GstMeta *meta){ return FALSE; }
 void gst_caps_append_structure(GstCaps *caps, GstStructure  *structure){}
 guint gst_caps_get_size(const GstCaps *caps){ return 0; }
@@ -915,6 +914,7 @@ void gst_event_parse_protection(GstEvent * event, const gchar ** system_id, GstB
 GstMessage *gst_message_new_application(GstObject * src, GstStructure * structure){ return NULL; }
 GstMessage *gst_message_new_error(GstObject * src, GError * error, const gchar * debug){ return NULL; }
 gboolean gst_pad_peer_query_position(GstPad *pad, GstFormat format, gint64 *cur){ return FALSE; }
+gboolean gst_pad_peer_query(GstPad *pad, GstQuery *query){ return FALSE; }
 GstCaps * gst_pad_query_caps(GstPad *pad, GstCaps *filter){ return NULL; }
 const GstStructure * gst_query_get_structure(GstQuery *query){ return NULL; }
 GstQuery * gst_query_new_custom(GstQueryType type, GstStructure *structure){ return NULL; }
@@ -929,13 +929,20 @@ void gst_structure_remove_field(GstStructure * structure, const gchar * fieldnam
 GstMiniObject * gst_mini_object_copy (const GstMiniObject * mini_object){ return NULL; }
 GType gst_protection_meta_api_get_type (void){ return 0; }
 GQuark gst_stream_error_quark( void ){ return 0; }
+GstDebugCategory *_gst_debug_category_new(const gchar * name, guint color, const gchar * description){ return NULL; }
+void _gst_debug_register_funcptr(GstDebugFuncPtr func, const gchar * ptrname){}
+const gchar * _gst_debug_nameof_funcptr(GstDebugFuncPtr func){ return NULL; }
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 typedef struct _GstBaseTransform GstBaseTransform;
-
-void gst_debug_category_new( void * ){}
-void gst_debug_register_funcptr( void * ){}
-
 GType gst_base_transform_get_type(void){ return 0; }
 void gst_base_transform_set_gap_aware(GstBaseTransform *trans, gboolean gap_aware){}
 void gst_base_transform_set_in_place(GstBaseTransform *trans, gboolean in_place){}
 void gst_base_transform_set_passthrough(GstBaseTransform *trans, gboolean passthrough){}
+
+#ifdef __cplusplus
+}
+#endif
