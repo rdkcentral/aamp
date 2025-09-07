@@ -16,7 +16,7 @@
 * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
 * Boston, MA 02110-1301, USA.
 */
-
+#if defined(UBUNTU)
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -1039,4 +1039,5 @@ static gboolean gst_aampcdmidecryptor_accept_caps(GstBaseTransform * trans,
 	GST_DEBUG_OBJECT(trans, "Return from accept_caps: %d", ret);
 	return ret;
 }
+#endif
 #endif

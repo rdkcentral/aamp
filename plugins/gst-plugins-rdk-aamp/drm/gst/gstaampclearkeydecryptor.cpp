@@ -21,7 +21,7 @@
  * @file gstaampclearkeydecryptor.cpp
  * @brief aamp clearkey decryptor plugin definitions
  */
-
+#if defined(UBUNTU)
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
@@ -124,3 +124,5 @@ static void gst_aampclearkeydecryptor_finalize(GObject * object)
     GST_CALL_PARENT(G_OBJECT_CLASS, finalize, (object));
 }
 #endif
+#endif
+
