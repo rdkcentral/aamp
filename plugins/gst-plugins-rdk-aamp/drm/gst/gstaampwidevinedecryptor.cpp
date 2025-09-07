@@ -65,8 +65,18 @@ static GstStaticPadTemplate gst_aampwidevinedecryptor_dummy_sink_template =
         GST_STATIC_PAD_TEMPLATE("sink", GST_PAD_SINK, GST_PAD_ALWAYS,
                 GST_STATIC_CAPS("widevine/x-unused"));
 
-
-static void gst_aampwidevinedecryptor_class_init(GstAampwidevinedecryptorClass * klass)
+#if defined(UBUNTU)
+// stubs to avoid ubuntu-specific SegFault
+static void gst_aampwidevinedecryptor_class_init( GstAampwidevinedecryptorClass *klass)
+{
+	printf( "gst_aampwidevinedecryptor_class_init\n" );
+}
+static void gst_aampwidevinedecryptor_init(GstAampwidevinedecryptor *aampwidevinedecryptor)
+{
+	printf( "gst_aampwidevinedecryptor_init\n" );
+}
+#else
+static void gst_aampwidevinedecryptor_class_init(GstAampwidevinedecryptorClass *klass)
 {
 	GObjectClass *gobject_class = G_OBJECT_CLASS(klass);
     GstElementClass* elementClass = GST_ELEMENT_CLASS(klass);
@@ -91,6 +101,7 @@ static void gst_aampwidevinedecryptor_init(GstAampwidevinedecryptor *aampwidevin
 {
     DEBUG_FUNC();
 }
+#endif
 
 static void gst_aampwidevinedecryptor_finalize(GObject * object)
 {

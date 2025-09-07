@@ -68,6 +68,17 @@ static GstStaticPadTemplate gst_aampclearkeydecryptor_dummy_sink_template =
         GST_STATIC_PAD_TEMPLATE("sink", GST_PAD_SINK, GST_PAD_ALWAYS,
                 GST_STATIC_CAPS("clearkey/x-unused"));
 
+#if defined(UBUNTU)
+// stubs to avoid ubuntu-specific SegFault
+static void gst_aampclearkeydecryptor_class_init( GstAampclearkeydecryptorClass * klass)
+{
+	printf( "gst_aampclearkeydecryptor_class_init\n" );
+}
+static void gst_aampclearkeydecryptor_init(GstAampclearkeydecryptor *aampclearkeydecryptor)
+{
+	printf( "gst_aampclearkeydecryptor_init\n" );
+}
+#else
 /**
  * @brief clearkey decryptor class initialization
  * @param klass Gstreamer Class
@@ -102,7 +113,7 @@ static void gst_aampclearkeydecryptor_init(GstAampclearkeydecryptor *aampclearke
 {
     DEBUG_FUNC();
 }
-
+#endif
 
 /**
  * @brief clearkey decryptor element termination

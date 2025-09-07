@@ -64,7 +64,17 @@ static GstStaticPadTemplate gst_aampverimatrixdecryptor_dummy_sink_template =
         GST_STATIC_PAD_TEMPLATE("sink", GST_PAD_SINK, GST_PAD_ALWAYS,
                 GST_STATIC_CAPS("verimatrix/x-unused"));
 
-
+#if defined(UBUNTU)
+// stubs to avoid ubuntu-specific SegFault
+static void gst_aampverimatrixdecryptor_class_init( GstAampverimatrixdecryptorClass * klass)
+{
+	printf( "gst_aampverimatrixdecryptor_class_init\n" );
+}
+static void gst_aampverimatrixdecryptor_init(GstAampverimatrixdecryptor *aampclearkeydecryptor)
+{
+	printf( "gst_aampverimatrixdecryptor_init\n" );
+}
+#else
 static void gst_aampverimatrixdecryptor_class_init(GstAampverimatrixdecryptorClass * klass)
 {
 	GObjectClass *gobject_class = G_OBJECT_CLASS(klass);
@@ -88,6 +98,7 @@ static void gst_aampverimatrixdecryptor_init(GstAampverimatrixdecryptor *aampver
 {
     DEBUG_FUNC();
 }
+#endif
 
 static void gst_aampverimatrixdecryptor_finalize(GObject * object)
 {
