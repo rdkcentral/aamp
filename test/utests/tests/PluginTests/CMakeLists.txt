@@ -51,15 +51,16 @@ set(TEST_SOURCES PluginTestsRun.cpp PluginTests.cpp)
 set(FAKE_SOURCES ${AAMP_ROOT}/middleware/test/utests/fakes/FakeGStreamer.cpp
 				 ${AAMP_ROOT}/middleware/test/utests/fakes/FakeSocUtils.cpp)
 
-# ${UTESTS_ROOT}/fakes/FakeAampRfc.cpp
-# ${UTESTS_ROOT}/fakes/FakePlayerExternalsInterface.cpp
-# ${UTESTS_ROOT}/fakes/FakeProcessProtectionHls.cpp
 				 
 set(AAMP_SOURCES ${AAMP_ROOT}/plugins/gst-plugins-rdk-aamp/drm/gst/gstaampcdmidecryptor.cpp
 				 ${AAMP_ROOT}/plugins/gst-plugins-rdk-aamp/drm/gst/gstaampclearkeydecryptor.cpp
 				 ${AAMP_ROOT}/plugins/gst-plugins-rdk-aamp/drm/gst/gstaampplayreadydecryptor.cpp
 				 ${AAMP_ROOT}/plugins/gst-plugins-rdk-aamp/drm/gst/gstaampverimatrixdecryptor.cpp
 				 ${AAMP_ROOT}/plugins/gst-plugins-rdk-aamp/drm/gst/gstaampwidevinedecryptor.cpp)
+
+if(CMAKE_PLATFORM_UBUNTU)
+  add_definitions(-DUBUNTU)
+endif()
 
 add_definitions(-DUSE_SHARED_MEMORY)
 add_definitions(-DUSE_OPENCDM -DUSE_OPENCDM_ADAPTER)
