@@ -113,7 +113,6 @@ static void gst_aampclearkeydecryptor_init(GstAampclearkeydecryptor *aampclearke
 {
     DEBUG_FUNC();
 }
-#endif
 
 /**
  * @brief clearkey decryptor element termination
@@ -124,5 +123,4 @@ static void gst_aampclearkeydecryptor_finalize(GObject * object)
     DEBUG_FUNC();
     GST_CALL_PARENT(G_OBJECT_CLASS, finalize, (object));
 }
-
-
+#endif

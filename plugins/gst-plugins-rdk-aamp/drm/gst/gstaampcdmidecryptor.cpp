@@ -167,7 +167,6 @@ static void gst_aampcdmidecryptor_init(
 	GST_INFO_OBJECT(aampcdmidecryptor, "No opencdm_gstreamer_transform_caps support \n");
 	//GST_DEBUG_OBJECT(aampcdmidecryptor, "******************Init called**********************\n");
 }
-#endif
 
 void gst_aampcdmidecryptor_dispose(GObject * object)
 {
@@ -1040,4 +1039,4 @@ static gboolean gst_aampcdmidecryptor_accept_caps(GstBaseTransform * trans,
 	GST_DEBUG_OBJECT(trans, "Return from accept_caps: %d", ret);
 	return ret;
 }
-
+#endif

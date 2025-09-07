@@ -98,13 +98,10 @@ static void gst_aampverimatrixdecryptor_init(GstAampverimatrixdecryptor *aampver
 {
     DEBUG_FUNC();
 }
-#endif
 
 static void gst_aampverimatrixdecryptor_finalize(GObject * object)
 {
     DEBUG_FUNC();
     GST_CALL_PARENT(G_OBJECT_CLASS, finalize, (object));
 }
-
-
-
+#endif

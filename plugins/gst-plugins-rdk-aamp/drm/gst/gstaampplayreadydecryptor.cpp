@@ -113,7 +113,6 @@ static void gst_aampplayreadydecryptor_init(GstAampplayreadydecryptor *aampplayr
 {
     DEBUG_FUNC();
 }
-#endif
 
 /**
  * @brief Playready decryptor element termination
@@ -124,6 +123,4 @@ static void gst_aampplayreadydecryptor_finalize(GObject * object)
     DEBUG_FUNC();
     GST_CALL_PARENT(G_OBJECT_CLASS, finalize, (object));
 }
-
-
-
+#endif

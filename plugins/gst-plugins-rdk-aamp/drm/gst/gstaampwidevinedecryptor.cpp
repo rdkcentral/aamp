@@ -101,13 +101,10 @@ static void gst_aampwidevinedecryptor_init(GstAampwidevinedecryptor *aampwidevin
 {
     DEBUG_FUNC();
 }
-#endif
 
 static void gst_aampwidevinedecryptor_finalize(GObject * object)
 {
     DEBUG_FUNC();
     GST_CALL_PARENT(G_OBJECT_CLASS, finalize, (object));
 }
-
-
-
+#endif
