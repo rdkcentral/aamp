@@ -22,6 +22,7 @@
  * @brief aamp widevine decryptor plugin definitions
  */
 #ifndef UBUNTU
+#error
 // avoid ubuntu-specific segFault
 
 #ifdef HAVE_CONFIG_H
