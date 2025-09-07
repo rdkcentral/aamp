@@ -16,7 +16,6 @@
 * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
 * Boston, MA 02110-1301, USA.
 */
-#if defined(UBUNTU)
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
@@ -65,17 +64,6 @@ static GstStaticPadTemplate gst_aampwidevinedecryptor_dummy_sink_template =
         GST_STATIC_PAD_TEMPLATE("sink", GST_PAD_SINK, GST_PAD_ALWAYS,
                 GST_STATIC_CAPS("widevine/x-unused"));
 
-#if defined(UBUNTU)
-// stubs to avoid ubuntu-specific SegFault
-static void gst_aampwidevinedecryptor_class_init( GstAampwidevinedecryptorClass *klass)
-{
-	printf( "gst_aampwidevinedecryptor_class_init\n" );
-}
-static void gst_aampwidevinedecryptor_init(GstAampwidevinedecryptor *aampwidevinedecryptor)
-{
-	printf( "gst_aampwidevinedecryptor_init\n" );
-}
-#else
 static void gst_aampwidevinedecryptor_class_init(GstAampwidevinedecryptorClass *klass)
 {
 	GObjectClass *gobject_class = G_OBJECT_CLASS(klass);
@@ -107,5 +95,3 @@ static void gst_aampwidevinedecryptor_finalize(GObject * object)
     DEBUG_FUNC();
     GST_CALL_PARENT(G_OBJECT_CLASS, finalize, (object));
 }
-#endif
-#endif

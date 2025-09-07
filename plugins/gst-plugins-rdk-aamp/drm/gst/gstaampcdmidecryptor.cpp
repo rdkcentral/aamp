@@ -17,6 +17,8 @@
 * Boston, MA 02110-1301, USA.
 */
 
+#ifndef UBUNTU
+// avoid strange ubuntu-specific SegFault
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -57,17 +59,6 @@ G_DEFINE_TYPE_WITH_CODE (GstAampCDMIDecryptor, gst_aampcdmidecryptor, GST_TYPE_B
 		GST_DEBUG_CATEGORY_INIT (gst_aampcdmidecryptor_debug_category, "aampcdmidecryptor", 0,
 				"debug category for aampcdmidecryptor element"));
 
-#if defined(UBUNTU)
-// stubs to avoid strange ubuntu-specific SegFault while running L2 Plugin tests
-static void gst_aampcdmidecryptor_class_init( GstAampCDMIDecryptorClass * klass)
-{
-	printf( "gst_aampcdmidecryptor_class_init\n" );
-}
-static void gst_aampcdmidecryptor_init( GstAampCDMIDecryptor *aampcdmidecryptor)
-{
-	printf( "gst_aampcdmidecryptor_init\n" );
-}
-#else
 /* prototypes */
 static void gst_aampcdmidecryptor_dispose(GObject*);
 static GstCaps *gst_aampcdmidecryptor_transform_caps(
@@ -662,7 +653,7 @@ static GstFlowReturn gst_aampcdmidecryptor_transform_ip(
 		g_mutex_unlock(&aampcdmidecryptor->mutex);
 	return result;
 }
-#endif
+#endif // USE_OPENCDM_ADAPTER
 
 
 /* sink event handlers */
@@ -1039,4 +1030,4 @@ static gboolean gst_aampcdmidecryptor_accept_caps(GstBaseTransform * trans,
 	GST_DEBUG_OBJECT(trans, "Return from accept_caps: %d", ret);
 	return ret;
 }
-#endif
+#endif // UBUNTU

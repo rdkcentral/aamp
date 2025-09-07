@@ -21,7 +21,6 @@
  * @file gstaampplayreadydecryptor.cpp
  * @brief aamp Playready decryptor plugin definitions
  */
-#if defined(UBUNTU)
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
@@ -68,17 +67,6 @@ static GstStaticPadTemplate gst_aampplayreadydecryptor_dummy_sink_template =
         GST_STATIC_PAD_TEMPLATE("sink", GST_PAD_SINK, GST_PAD_ALWAYS,
                 GST_STATIC_CAPS("playready/x-unused"));
 
-#if defined(UBUNTU)
-// stubs to avoid ubuntu-specific SegFault
-static void gst_aampplayreadydecryptor_class_init( GstAampplayreadydecryptorClass * klass)
-{
-	printf( "gst_aampplayreadydecryptor_class_init\n" );
-}
-static void gst_aampplayreadydecryptor_init(GstAampplayreadydecryptor *aampclearkeydecryptor)
-{
-	printf( "gst_aampplayreadydecryptor_init\n" );
-}
-#else
 /**
  * @brief Playready decryptor class initialization
  * @param klass Gstreamer Class
@@ -123,6 +111,3 @@ static void gst_aampplayreadydecryptor_finalize(GObject * object)
     DEBUG_FUNC();
     GST_CALL_PARENT(G_OBJECT_CLASS, finalize, (object));
 }
-#endif
-#endif
-
