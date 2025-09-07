@@ -17,8 +17,12 @@
 * Boston, MA 02110-1301, USA.
 */
 
+/**
+ * @file gstaampcdmidecryptor.cpp
+ * @brief aamp cdmi decryptor plugin definitions
+ */
 #ifndef UBUNTU
-// avoid strange ubuntu-specific SegFault
+// avoid ubuntu-specific segFault
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
