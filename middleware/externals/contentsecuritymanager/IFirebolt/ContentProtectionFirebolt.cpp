@@ -93,10 +93,10 @@ void ContentProtectionFirebolt::HandleWatermarkEvent(const std::string& sessionI
         PlayerJsonObject statusJson(statusStr);
         std::string status;
 		int mappedCode = -1;
-		if (statusJson.get("status", status))
+		if (statusJson.get("state", status))
         {
 			MW_LOG_INFO("HandleWaterMarkEvent status %s",status.c_str());
-            int mappedCode = MapFireboltStatus(status.c_str());
+            mappedCode = MapFireboltStatus(status.c_str());
         }
 		else
 		{
