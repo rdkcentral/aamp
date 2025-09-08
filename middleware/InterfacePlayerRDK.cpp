@@ -426,7 +426,6 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int auxF
 		{
 			MW_LOG_ERR("InterfacePlayerRDK: GST_STATE_PLAYING failed");
 		}
-		std::this_thread::sleep_for(std::chrono::milliseconds(200));//DJH hacking around 
 		gstPrivateContext->pendingPlayState = false;
 		gstPrivateContext->paused = false;
 	}
@@ -4053,7 +4052,11 @@ static gboolean bus_message(GstBus * bus, GstMessage * msg, InterfacePlayerRDK *
 			busEvent.msg = srcName ? srcName : "Unknown source";
 			busEvent.dbg_info = "N/A";
 			busEvent.msgType = MESSAGE_STATE_CHANGE;
-
+			if (new_state == GST_STATE_READY) //DJH
+			{
+				MW_LOG_MIL("Dumping DOT");
+				GST_DEBUG_BIN_TO_DOT_FILE((GstBin *)pInterfacePlayerRDK->gstPrivateContext->pipeline, GST_DEBUG_GRAPH_SHOW_ALL, "myplayer-READY");
+			}
 			if(isPlaybinStateChangeEvent || pInterfacePlayerRDK->m_gstConfigParam->gstLogging)
 			{
 				MW_LOG_MIL("%s %s -> %s (pending %s)",
