@@ -21,7 +21,7 @@
  * @file gstaampclearkeydecryptor.cpp
  * @brief aamp clearkey decryptor plugin definitions
  */
-#ifndef XUBUNTU
+#ifndef UBUNTU
 // avoid ubuntu-specific segFault
 
 #ifdef HAVE_CONFIG_H
