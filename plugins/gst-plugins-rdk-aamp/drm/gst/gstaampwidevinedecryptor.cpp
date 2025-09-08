@@ -17,6 +17,13 @@
 * Boston, MA 02110-1301, USA.
 */
 
+/**
+ * @file gstaampwidevinedecryptor.cpp
+ * @brief aamp widevine decryptor plugin definitions
+ */
+#ifndef UBUNTU
+// avoid ubuntu-specific segFault
+
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif
@@ -63,10 +70,9 @@ static GstStaticPadTemplate gst_aampwidevinedecryptor_sink_template =
 
 static GstStaticPadTemplate gst_aampwidevinedecryptor_dummy_sink_template =
         GST_STATIC_PAD_TEMPLATE("sink", GST_PAD_SINK, GST_PAD_ALWAYS,
-                GST_STATIC_CAPS("widevine/x-unused"));
+                GST_STATIC_CAPS("widevine/x-unused")); // unused?
 
-
-static void gst_aampwidevinedecryptor_class_init(GstAampwidevinedecryptorClass * klass)
+static void gst_aampwidevinedecryptor_class_init(GstAampwidevinedecryptorClass *klass)
 {
 	GObjectClass *gobject_class = G_OBJECT_CLASS(klass);
     GstElementClass* elementClass = GST_ELEMENT_CLASS(klass);
@@ -97,6 +103,4 @@ static void gst_aampwidevinedecryptor_finalize(GObject * object)
     DEBUG_FUNC();
     GST_CALL_PARENT(G_OBJECT_CLASS, finalize, (object));
 }
-
-
-
+#endif // UBUNTU

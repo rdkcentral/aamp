@@ -275,7 +275,5 @@ bool DefaultSocInterface::IsVideoMaster(GstElement *videoSink, bool isRialto)
  */
 bool DefaultSocInterface::SetPlaybackRate(const std::vector<GstElement*>& sources, GstElement *pipeline, double rate, GstElement *video_dec, GstElement *audio_dec, bool isRialto)
 {
-        #if defined(__APPLE__) || defined(UBUNTU)
-                return false;
-    #endif
+	return false;
 }
