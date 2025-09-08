@@ -34,5 +34,5 @@ public:
 };
 
 TEST_F(PluginTests, gstaampcdmidecryptorTest )
-{
+{ // this stub test is for now just introduced to ensure plugin code compiles without warnings
 }
