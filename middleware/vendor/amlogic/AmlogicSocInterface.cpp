@@ -78,7 +78,7 @@ bool AmlogicSocInterface::AudioOnlyMode(GstElement *sinkbin)
  * @param rate The desired playback rate.
  * @param video_dec The video decoder element.
  * @param audio_dec The audio decoder element.
- * @param isRialto True if rialtosink is used.
+ * @param isRialto True if rialto sink is used.
  * @return True if the playback rate was set successfully, false otherwise.
  */
 bool AmlogicSocInterface::SetPlaybackRate(const std::vector<GstElement*>& sources, GstElement *pipeline, double rate, GstElement *video_dec, GstElement *audio_dec, bool isRialto)
