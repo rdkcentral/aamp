@@ -1704,6 +1704,15 @@ void InterfacePlayerRDK::InitializeSourceForPlayer(void *PlayerInstance, void * 
 		int MaxGstVideoBufBytes = m_gstConfigParam->videoBufBytes;
 		MW_LOG_INFO("Setting gst Video buffer max bytes to %d", MaxGstVideoBufBytes);
 		g_object_set(source, "max-bytes", (guint64)MaxGstVideoBufBytes, NULL);			/* Sets the maximum video buffer bytes as per configuration*/
+
+		if ((gstPrivateContext->usingRialtoSink) &&
+			(socInterface->IsPlatformSegmentReady(gstPrivateContext->video_sink, gstPrivateContext->usingRialtoSink)))
+		{
+			// This property is required so that the segment event sent via gst_app_src_push_sample 
+			// in SendNewSegmentEvent, is sent with the next data flow
+			MW_LOG_INFO("Setting handle-segment-change to 1");
+			g_object_set(source, "handle-segment-change", TRUE, NULL);
+		}
 	}
 	else if (eGST_MEDIATYPE_AUDIO == mediaType || eGST_MEDIATYPE_AUX_AUDIO == mediaType)
 	{
@@ -2826,13 +2835,13 @@ bool InterfacePlayerRDK::SendHelper(int type, const void *ptr, size_t len, doubl
 
 		// included to fix av sync / trickmode speed issues
 		// Also add check for trick-play on 1st frame.
-		if (socInterface->IsPlatformSegmentReady() && sendNewSegmentEvent == true)
+		if (socInterface->IsPlatformSegmentReady(gstPrivateContext->video_sink, gstPrivateContext->usingRialtoSink) &&
+			sendNewSegmentEvent == true)
 		{
 			SendNewSegmentEvent(mediaType, pts, 0);
 			segmentEventSent = true;
 		}
 		MW_LOG_DEBUG("mediaType[%d] SendGstEvents - first buffer received !!! initFragment: %d, pts: %" G_GUINT64_FORMAT, mediaType, initFragment, pts);
-
 	}
 
 	sendNewSegmentEvent = segmentEventSent;
@@ -2907,25 +2916,31 @@ bool InterfacePlayerRDK::SendHelper(int type, const void *ptr, size_t len, doubl
 				ForwardBuffersToAuxPipeline(buffer);
 			}
 #ifdef SUPPORTS_MP4DEMUX
-			if( m_gstConfigParam->useMp4Demux )
+			if( mediaType<2 && m_gstConfigParam->useMp4Demux &&
+			   !copy /* avoid using this path for hls/ts */ )
 			{
-				static uint32_t timescale[2]; // FIXME!
-				// some lldash streams don't have timescale in media segments
-				Mp4Demux *mp4Demux = new Mp4Demux(ptr,len,timescale[mediaType]);
+				static Mp4Demux *m_mp4Demux[2];
+				Mp4Demux *mp4Demux = m_mp4Demux[mediaType];
+				if( !mp4Demux )
+				{
+					mp4Demux = new Mp4Demux();
+					m_mp4Demux[mediaType] = mp4Demux;
+				}
+				mp4Demux->Parse(ptr,len);
 				int count = mp4Demux->count();
 				if( count>0 )
 				{ // media segment
 					for( int i=0; i<count; i++ )
 					{
-						size_t len = mp4Demux->getLen(i);
+						size_t sampleLen = mp4Demux->getLen(i);
 						double pts = mp4Demux->getPts(i);
 						double dts = mp4Demux->getDts(i);
 						double dur = mp4Demux->getDuration(i);
-						gpointer data = g_malloc(len);
+						gpointer data = g_malloc(sampleLen);
 						if( data )
 						{
-							memcpy( data, mp4Demux->getPtr(i), len );
-							GstBuffer *gstBuffer = gst_buffer_new_wrapped( data, len);
+							memcpy( data, mp4Demux->getPtr(i), sampleLen );
+							GstBuffer *gstBuffer = gst_buffer_new_wrapped( data, sampleLen);
 							GST_BUFFER_PTS(gstBuffer) = (GstClockTime)(pts * GST_SECOND);
 							GST_BUFFER_DTS(gstBuffer) = (GstClockTime)(dts * GST_SECOND);
 							GST_BUFFER_DURATION(gstBuffer) = (GstClockTime)(dur * 1000000000LL);
@@ -2944,10 +2959,8 @@ bool InterfacePlayerRDK::SendHelper(int type, const void *ptr, size_t len, doubl
 				}
 				else
 				{ // init header
-					timescale[mediaType] = mp4Demux->timescale;
 					mp4Demux->setCaps( GST_APP_SRC(stream->source) );
 				}
-				delete mp4Demux;
 				if( !copy )
 				{
 					g_free((gpointer)ptr);
@@ -2999,7 +3012,7 @@ bool InterfacePlayerRDK::SendHelper(int type, const void *ptr, size_t len, doubl
 	pthread_mutex_unlock(&stream->sourceLock);
 	if (isFirstBuffer)
 	{
-		if(!gstPrivateContext->using_westerossink)
+		if (!gstPrivateContext->using_westerossink && !gstPrivateContext->usingRialtoSink)
 		{
 			notifyFirstBufferProcessed = true;
 		}
@@ -3031,7 +3044,6 @@ void InterfacePlayerRDK::ResumeInjector()
 void InterfacePlayerRDK::SendNewSegmentEvent(GstMediaType mediaType, GstClockTime startPts ,GstClockTime stopPts)
 {
 	gst_media_stream* stream = &gstPrivateContext->stream[mediaType];
-	GstPad* sourceEleSrcPad = gst_element_get_static_pad(GST_ELEMENT(stream->source), "src");
 	if (stream->format == GST_FORMAT_ISO_BMFF)
 	{
 		GstSegment segment;
@@ -3041,22 +3053,46 @@ void InterfacePlayerRDK::SendNewSegmentEvent(GstMediaType mediaType, GstClockTim
 		segment.position = 0;
 		segment.rate = GST_NORMAL_PLAY_RATE;
 		segment.applied_rate = GST_NORMAL_PLAY_RATE;
-		if(stopPts) segment.stop = stopPts;
-		if(!socInterface->IsVideoMaster())
+
+		if(stopPts)
 		{
-			//  notify westerossink of rate to run in Vmaster mode
-			if ((GstMediaType)mediaType == eGST_MEDIATYPE_VIDEO)
-				segment.applied_rate = gstPrivateContext->rate;
+			segment.stop = stopPts;
+		} 
+
+		if (((GstMediaType)mediaType == eGST_MEDIATYPE_VIDEO) &&
+			(!socInterface->IsVideoMaster(gstPrivateContext->video_sink, gstPrivateContext->usingRialtoSink)))
+		{
+			// set applied_rate to trickplay rate if video sink doesn't use vmaster
+			// so that it can correctly handle there being no audio
+			segment.applied_rate = gstPrivateContext->rate;
+		}
+
+		if (gstPrivateContext->usingRialtoSink)
+		{
+			GstCaps *currentCaps = gst_app_src_get_caps(GST_APP_SRC(stream->source));
+			GstSample *sample = gst_sample_new (nullptr, currentCaps, &segment, nullptr);
+
+			MW_LOG_INFO("Pushing sample with segment for mediaType[%d]. start %" G_GUINT64_FORMAT " stop %" G_GUINT64_FORMAT" rate %f applied_rate %f", mediaType, segment.start, segment.stop, segment.rate, segment.applied_rate);
+			if (GST_FLOW_OK != gst_app_src_push_sample(GST_APP_SRC(stream->source), sample))
+			{
+				MW_LOG_ERR("Failed to push sample with segment for mediaType[%d]", mediaType);
+			}
+			gst_sample_unref(sample);
+			gst_caps_unref(currentCaps);
+		}
+		else
+		{
+			MW_LOG_INFO("Sending segment event for mediaType[%d]. start %" G_GUINT64_FORMAT " stop %" G_GUINT64_FORMAT" rate %f applied_rate %f", mediaType, segment.start, segment.stop, segment.rate, segment.applied_rate);
+			GstPad* sourceEleSrcPad = gst_element_get_static_pad(GST_ELEMENT(stream->source), "src");
+			GstEvent* event = gst_event_new_segment (&segment);
+			if (!gst_pad_push_event(sourceEleSrcPad, event))
+			{
+				MW_LOG_ERR("Failed to push segment event for mediaType[%d]", mediaType);
+			}
+			gst_object_unref(sourceEleSrcPad);			
 
 		}
-		MW_LOG_INFO("Sending segment event for mediaType[%d]. start %" G_GUINT64_FORMAT " stop %" G_GUINT64_FORMAT" rate %f applied_rate %f", mediaType, segment.start, segment.stop, segment.rate, segment.applied_rate);
-		GstEvent* event = gst_event_new_segment (&segment);
-		if (!gst_pad_push_event(sourceEleSrcPad, event))
-		{
-			MW_LOG_ERR("gst_pad_push_event segment error");
-		}
 	}
-	gst_object_unref(sourceEleSrcPad);
 }
 
 /**
@@ -3650,7 +3686,6 @@ bool GstPlayer_isVideoDecoder(const char* name, InterfacePlayerRDK * pInterfaceP
 	return pInterfacePlayerRDK->socInterface->IsVideoDecoder(name, isRialto);
 }
 
-#if GST_CHECK_VERSION(1,18,0)
 /**
  * @brief GstPlayer_HandleInstantRateChangeSeekProbe
  * @param[in] pad pad element
@@ -3696,7 +3731,6 @@ static GstPadProbeReturn GstPlayer_HandleInstantRateChangeSeekProbe(GstPad* pad,
 	}
 	return GST_PAD_PROBE_OK;
 }
-#endif
 
 /**
  * @brief Check if gstreamer element is video sink

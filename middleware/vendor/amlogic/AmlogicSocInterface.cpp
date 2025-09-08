@@ -83,78 +83,44 @@ bool AmlogicSocInterface::AudioOnlyMode(GstElement *sinkbin)
 bool AmlogicSocInterface::SetPlaybackRate(const std::vector<GstElement*>& sources, GstElement *pipeline, double rate, GstElement *video_dec, GstElement *audio_dec)
 {
 	bool status = false;
-	if(GST_CHECK_VERSION(1,18,0))
-	{
-		/*for gst version 1.18.0 we need to apply rate into audio/video source pad*/
-		for (GstElement* source : sources)
-		{
-			if(source)
-			{
-				GstPad* sourceEleSrcPad = gst_element_get_static_pad(GST_ELEMENT(source), "src");
-				if(!sourceEleSrcPad)
-				{
-					MW_LOG_ERR("failed to get static pad retrying");
-					continue;
-				}
-				/*
-				   gboolean ret = gst_pad_send_event(sourceEleSrcPad, gst_event_new_seek (rate, GST_FORMAT_TIME,
-				   static_cast<GstSeekFlags>(GST_SEEK_FLAG_INSTANT_RATE_CHANGE),
-				   GST_SEEK_TYPE_NONE,0, GST_SEEK_TYPE_NONE, 0));
-				   gst_object_unref(sourceEleSrcPad);
-				   */
-				GstEvent* seek_event = gst_event_new_seek(rate, GST_FORMAT_TIME, static_cast<GstSeekFlags>(GST_SEEK_FLAG_INSTANT_RATE_CHANGE), GST_SEEK_TYPE_NONE, 0, GST_SEEK_TYPE_NONE, 0);
-				if (!seek_event)
-				{
-					MW_LOG_ERR("Failed to create seek event");
-					gst_object_unref(sourceEleSrcPad);
-					continue;
-				}
-				gboolean ret = gst_pad_send_event(sourceEleSrcPad, seek_event);
-				gst_object_unref(sourceEleSrcPad);
-				if(ret)
-				{
-					status = true;
-				}
-				else
-				{
-					MW_LOG_ERR("Vendor: failed to send the rate event to src pad");
-				}
-			}
-		}
-		MW_LOG_MIL("Current rate: %g", rate);
-	}
-	else
-	{
-		if(!pipeline)
-		{
-			return false;
-		}
-		MW_LOG_MIL("=send custom-instant-rate-change : %f ...", rate);
-		GstStructure *structure = gst_structure_new("custom-instant-rate-change", "rate", G_TYPE_DOUBLE, rate, NULL);
-		if(!structure)
-		{
-			MW_LOG_ERR("GstPlayer: Failed to create custom-instant-rate-change structure");
-			return false;
-		}
-		/* The above statement creates a new GstStructure with the name
-		   'custom-instant-rate-change' that has a member variable
-		   'rate' of G_TYPE_DOUBLE and a value of rate i.e. second last parameter */
-		GstEvent * rate_event = gst_event_new_custom(GST_EVENT_CUSTOM_DOWNSTREAM_OOB, structure);
-		if (!rate_event)
-		{
-			MW_LOG_ERR("Failed to create rate_event");
-			/* cleanup */
-			gst_structure_free (structure);
-			return false;
-		}
-		int ret = gst_element_send_event(pipeline, rate_event);
-		if(!ret)
-		{
-			MW_LOG_ERR("Rate change failed : %g [gst_element_send_event]", rate);
-			status = false;
-		}
-		MW_LOG_MIL("Current rate: %g", rate);
-	}
+        /*for gst version 1.18.0 we need to apply rate into audio/video source pad*/
+        for (GstElement* source : sources)
+        {
+                if(source)
+                {
+                        GstPad* sourceEleSrcPad = gst_element_get_static_pad(GST_ELEMENT(source), "src");
+                        if(!sourceEleSrcPad)
+                        {
+                                MW_LOG_ERR("failed to get static pad retrying");
+                                continue;
+                        }
+                        /*
+                                gboolean ret = gst_pad_send_event(sourceEleSrcPad, gst_event_new_seek (rate, GST_FORMAT_TIME,
+                                static_cast<GstSeekFlags>(GST_SEEK_FLAG_INSTANT_RATE_CHANGE),
+                                GST_SEEK_TYPE_NONE,0, GST_SEEK_TYPE_NONE, 0));
+                                gst_object_unref(sourceEleSrcPad);
+                                */
+                        GstEvent* seek_event = gst_event_new_seek(rate, GST_FORMAT_TIME, static_cast<GstSeekFlags>(GST_SEEK_FLAG_INSTANT_RATE_CHANGE), GST_SEEK_TYPE_NONE, 0, GST_SEEK_TYPE_NONE, 0);
+                        if (!seek_event)
+                        {
+                                MW_LOG_ERR("Failed to create seek event");
+                                gst_object_unref(sourceEleSrcPad);
+                                continue;
+                        }
+                        gboolean ret = gst_pad_send_event(sourceEleSrcPad, seek_event);
+                        gst_object_unref(sourceEleSrcPad);
+                        if(ret)
+                        {
+                                status = true;
+                        }
+                        else
+                        {
+                                MW_LOG_ERR("Vendor: failed to send the rate event to src pad");
+                        }
+                }
+        }
+        MW_LOG_MIL("Current rate: %g", rate);
+
 	return status;
 }
 
@@ -168,15 +134,8 @@ bool AmlogicSocInterface::SetPlaybackRate(const std::vector<GstElement*>& source
  */
 GstPad* AmlogicSocInterface::GetSourcePad(GstElement* source)
 {
-	if (GST_CHECK_VERSION(1, 18, 0))
-	{
-		GstPad* sourceEleSrcPad = gst_element_get_static_pad(source, "src");
-		return sourceEleSrcPad;  // Return the pad, or NULL if not found
-	}
-	else
-	{
-		return NULL;  // If the version check fails, return NULL or handle accordingly
-	}
+        GstPad* sourceEleSrcPad = gst_element_get_static_pad(source, "src");
+        return sourceEleSrcPad;  // Return the pad, or NULL if not found
 }
 
 /**

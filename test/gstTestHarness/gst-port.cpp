@@ -64,7 +64,7 @@ public:
 		}
 	}
 	
-	void SendBuffer( gpointer ptr, gsize len, double duration, double pts, double dts )
+	void SendBuffer( gpointer ptr, gsize len, double duration, double pts, double dts, GstStructure *metadata=NULL )
 	{
 		if( ptr )
 		{
@@ -72,6 +72,10 @@ public:
 			GST_BUFFER_PTS(gstBuffer) = (GstClockTime)(pts * GST_SECOND);
 			GST_BUFFER_DTS(gstBuffer) = (GstClockTime)(dts * GST_SECOND);
 			GST_BUFFER_DURATION(gstBuffer) = (GstClockTime)(duration * 1000000000LL);
+			if( metadata )
+			{
+				gst_buffer_add_protection_meta(gstBuffer, metadata);
+			}
 			GstFlowReturn ret = gst_app_src_push_buffer(GST_APP_SRC(appsrc), gstBuffer );
 			switch( ret )
 			{
@@ -206,21 +210,21 @@ public:
 	{
 		g_print( "MediaStream::found_source %s\n", GetMediaTypeAsString() );
 		g_object_get( orig, pspec->name, &appsrc, NULL );
+		g_assert(GST_IS_APP_SRC(appsrc));
 		
 		// configuration to drive need-data and enough-data signaling
 		switch( mediaType )
 		{
 			case eMEDIATYPE_VIDEO:
-				g_object_set(appsrc, "max-bytes", 12582912, NULL ); // default = 200000
+				g_object_set(appsrc, "max-bytes", (guint64)12582912, NULL ); // default = 200000
 				break;
 			case eMEDIATYPE_AUDIO:
-				g_object_set(appsrc, "max-bytes", 1536000, NULL ); // default = 200000
+				g_object_set(appsrc, "max-bytes", (guint64)1536000, NULL ); // default = 200000
 				break;
 			default:
 				break;
 		}
 		g_object_set(appsrc, "min-percent", 50, NULL ); // default = 0
-		
 		g_signal_connect(appsrc, "need-data", G_CALLBACK(need_data_cb), this );
 		g_signal_connect(appsrc, "enough-data", G_CALLBACK(enough_data_cb), this );
 		
@@ -241,10 +245,17 @@ public:
 		}
 		pad = gst_element_get_static_pad(appsrc, "src");
 		
-		// seek here avoids freeze at start for non-zero first_pts
-		SeekParam param = context->mSegmentEndSeekQueue.front();
-		context->mSegmentEndSeekQueue.pop();
-		Seek( param );
+		if(context && !context->mSegmentEndSeekQueue.empty())
+		{
+			assert( context->mSegmentEndSeekQueue.size()>0 );
+			SeekParam param = context->mSegmentEndSeekQueue.front();
+			context->mSegmentEndSeekQueue.pop();
+			Seek( param );
+		}
+		else
+		{
+			g_print( "MediaStream::found_source %s context is empty!!\n", GetMediaTypeAsString() );
+		}
 	}
 	
 	MediaStream(const MediaStream&)=delete; // copy constructor
@@ -369,14 +380,14 @@ void Pipeline::SendBufferMP4( MediaType mediaType, gpointer ptr, gsize len, doub
 {
 	if( url )
 	{
-		g_print( "Pipeline::SendBuffer %s len=%zu %s\n", gstutils_GetMediaTypeName(mediaType), len, url?url:"" );
+		g_print( "Pipeline::SendBuffer %s len=%zu %s\n", gstutils_GetMediaTypeName(mediaType), len, url );
 	}
 	mediaStream[mediaType]->SendBuffer(ptr,len,duration);
 }
-void Pipeline::SendBufferES( MediaType mediaType, gpointer ptr, gsize len, double duration, double pts, double dts )
+void Pipeline::SendBufferES( MediaType mediaType, gpointer ptr, gsize len, double duration, double pts, double dts, GstStructure *metadata )
 {
 	//g_print( "Pipeline::SendBuffer %s, len=%zu\n", gstutils_GetMediaTypeName(mediaType), len );
-	mediaStream[mediaType]->SendBuffer(ptr,len,duration,pts,dts);
+	mediaStream[mediaType]->SendBuffer(ptr,len,duration,pts,dts,metadata);
 }
 
 void Pipeline::SendGap( MediaType mediaType, double pts, double durationSeconds )
@@ -402,13 +413,14 @@ void Pipeline::Seek( const SeekParam &param )
 	gint64 stop = (gint64)(param.stop_s*GST_SECOND);
 	g_print( "Pipeline::Seek flags=%d start=%" GST_TIME_FORMAT " stop=%" GST_TIME_FORMAT "\n",
 				param.flags, GST_TIME_ARGS(start), GST_TIME_ARGS(stop) );
-	gst_element_seek(
+	gboolean success = gst_element_seek(
 					 pipeline,
 					 1.0, //rate
 					 GST_FORMAT_TIME,
 					 param.flags,
 					 GST_SEEK_TYPE_SET, start,
 					 GST_SEEK_TYPE_SET, stop );
+	assert( success );
 	if( param.flags & GST_SEEK_FLAG_FLUSH )
 	{
 		mediaStream[eMEDIATYPE_AUDIO]->ClearInjectedSeconds();
@@ -542,7 +554,6 @@ void Pipeline::Step( void )
 void Pipeline::InstantaneousRateChange( double newRate )
 {
 	g_print( "Pipeline::InstantaneousRateChange(%lf)\n", newRate );
-#if GST_CHECK_VERSION(1,18,0)
 	auto rc = gst_element_seek(
 							   GST_ELEMENT(pipeline),
 							   newRate,
@@ -551,9 +562,4 @@ void Pipeline::InstantaneousRateChange( double newRate )
 							   GST_SEEK_TYPE_NONE, 0,
 							   GST_SEEK_TYPE_NONE, 0 );
 	assert( rc );
-#else
-	g_print( "Instantaneous Rate Change not supported in gstreamer version %d.%d.%d, requires version 1.18\n",
-			GST_VERSION_MAJOR, GST_VERSION_MINOR, GST_VERSION_MICRO );
-	assert( false );
-#endif
 }

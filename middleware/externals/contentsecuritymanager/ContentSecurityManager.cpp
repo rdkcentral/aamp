@@ -190,7 +190,7 @@ bool ContentSecurityManager::setVideoWindowSize(int64_t sessionId, int64_t video
 bool ContentSecurityManager::setPlaybackSpeedState(int64_t sessionId, int64_t playback_speed, int64_t playback_position)
 {
 	bool rpcResult = false;
-	rpcResult = SetPlaybackPosition(sessionId, playback_speed, playback_position);
+	rpcResult = SetPlaybackPosition(sessionId, static_cast<float>(playback_speed), static_cast<int32_t>(playback_position));
 	return rpcResult;
 }
 
