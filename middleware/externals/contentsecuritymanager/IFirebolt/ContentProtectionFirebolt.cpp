@@ -89,9 +89,19 @@ void ContentProtectionFirebolt::HandleWatermarkEvent(const std::string& sessionI
             sessionId.c_str(), statusStr.c_str(), appId.c_str());
 	if(mInitialized)
 	{
-	        MW_LOG_INFO("HandleWaterMarkEvent Triggered");
-		//TODO Testing Watermark
-		int mappedCode = MapFireboltStatus(statusStr.state);
+    	MW_LOG_INFO("HandleWaterMarkEvent Triggered");
+        PlayerJsonObject statusJson(statusStr);
+        std::string status;
+		int mappedCode = -1;
+		if (statusJson.get("status", status))
+        {
+			MW_LOG_INFO("HandleWaterMarkEvent status %s",status.c_str());
+            int mappedCode = MapFireboltStatus(status.c_str());
+        }
+		else
+		{
+			MW_LOG_INFO("Json Parsing Failed to extract Watermarking status");
+		}
 		std::lock_guard<std::mutex> lock(mFireboltInitMutex);
 		if (ContentSecurityManager::SendWatermarkSessionEvent_CB)
 		{
