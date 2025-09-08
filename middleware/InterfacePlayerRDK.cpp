@@ -4052,10 +4052,13 @@ static gboolean bus_message(GstBus * bus, GstMessage * msg, InterfacePlayerRDK *
 			busEvent.msg = srcName ? srcName : "Unknown source";
 			busEvent.dbg_info = "N/A";
 			busEvent.msgType = MESSAGE_STATE_CHANGE;
-			if (new_state == GST_STATE_READY) //DJH
+			if (new_state == GST_STATE_PLAYING)
 			{
-				MW_LOG_MIL("Dumping DOT");
-				GST_DEBUG_BIN_TO_DOT_FILE((GstBin *)pInterfacePlayerRDK->gstPrivateContext->pipeline, GST_DEBUG_GRAPH_SHOW_ALL, "myplayer-READY");
+				static int dot_file_counter = 0;
+				char dot_filename[64];
+				snprintf(dot_filename, sizeof(dot_filename), "myplayer-PLAYING-%d", dot_file_counter++);
+				MW_LOG_MIL("Dumping DOT on PLAYING: %s", dot_filename);
+				GST_DEBUG_BIN_TO_DOT_FILE((GstBin *)pInterfacePlayerRDK->gstPrivateContext->pipeline, GST_DEBUG_GRAPH_SHOW_ALL, dot_filename);
 			}
 			if(isPlaybinStateChangeEvent || pInterfacePlayerRDK->m_gstConfigParam->gstLogging)
 			{
