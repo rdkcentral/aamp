@@ -474,6 +474,7 @@ gboolean InterfacePlayerRDK::IdleCallbackOnFirstFrame(gpointer user_data)
 	InterfacePlayerRDK *pInterfacePlayerRDK = (InterfacePlayerRDK *)user_data;
 	if (pInterfacePlayerRDK)
 	{
+		MW_LOG_MIL("patrick");
 		pInterfacePlayerRDK->TriggerEvent(InterfaceCB::firstVideoFrameReceived);
 		pInterfacePlayerRDK->gstPrivateContext->firstFrameCallbackIdleTaskId = PLAYER_TASK_ID_INVALID;
 		pInterfacePlayerRDK->gstPrivateContext->firstFrameCallbackIdleTaskPending = false;
@@ -494,6 +495,7 @@ static void GstPlayer_OnFirstVideoFrameCallback(GstElement* object, guint arg0, 
 {
 	HANDLER_CONTROL_HELPER_CALLBACK_VOID();
 	pInterfacePlayerRDK->gstPrivateContext->firstVideoFrameReceived = true;
+	MW_LOG_MIL("patrick");
 	pInterfacePlayerRDK->NotifyFirstFrame(eGST_MEDIATYPE_VIDEO);
 
 }
@@ -1708,7 +1710,7 @@ void InterfacePlayerRDK::InitializeSourceForPlayer(void *PlayerInstance, void * 
 		if ((gstPrivateContext->usingRialtoSink) &&
 			(socInterface->IsPlatformSegmentReady(gstPrivateContext->video_sink, gstPrivateContext->usingRialtoSink)))
 		{
-			// This property is required so that the segment event sent via gst_app_src_push_sample 
+			// This property is required so that the segment event sent via gst_app_src_push_sample
 			// in SendNewSegmentEvent, is sent with the next data flow
 			MW_LOG_INFO("Setting handle-segment-change to 1");
 			g_object_set(source, "handle-segment-change", TRUE, NULL);
@@ -3061,7 +3063,7 @@ void InterfacePlayerRDK::SendNewSegmentEvent(GstMediaType mediaType, GstClockTim
 		if(stopPts)
 		{
 			segment.stop = stopPts;
-		} 
+		}
 
 		if (((GstMediaType)mediaType == eGST_MEDIATYPE_VIDEO) &&
 			(!socInterface->IsVideoMaster(gstPrivateContext->video_sink, gstPrivateContext->usingRialtoSink)))
@@ -3093,7 +3095,7 @@ void InterfacePlayerRDK::SendNewSegmentEvent(GstMediaType mediaType, GstClockTim
 			{
 				MW_LOG_ERR("Failed to push segment event for mediaType[%d]", mediaType);
 			}
-			gst_object_unref(sourceEleSrcPad);			
+			gst_object_unref(sourceEleSrcPad);
 
 		}
 	}
@@ -4092,6 +4094,7 @@ static gboolean bus_message(GstBus * bus, GstMessage * msg, InterfacePlayerRDK *
 					{
 						MW_LOG_WARN("%s property not present on video_sink", frame_step_on_preroll_prop);
 						pInterfacePlayerRDK->gstPrivateContext->firstVideoFrameReceived = true;
+							MW_LOG_MIL("patrick");
 						pInterfacePlayerRDK->NotifyFirstFrame(eGST_MEDIATYPE_VIDEO);
 					}
 				}
@@ -4138,6 +4141,7 @@ static gboolean bus_message(GstBus * bus, GstMessage * msg, InterfacePlayerRDK *
 							pInterfacePlayerRDK->gstPrivateContext->firstFrameReceived = true;
 							busEvent.receivedFirstFrame = true;
 						}
+						MW_LOG_MIL("patrick");
 						pInterfacePlayerRDK->TriggerEvent(InterfaceCB::firstVideoFrameReceived);
 						//Note: Progress event should be sent after the decoderAvailable event only.
 						//BRCM platform sends progress event after InterfacePlayerRDK_OnFirstVideoFrameCallback.

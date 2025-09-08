@@ -280,6 +280,7 @@ void AAMPGstPlayer::RegisterFirstFrameCallbacks()
 	playerInstance->callbackMap[InterfaceCB::firstVideoFrameReceived] = [this]()
 	{
 		UsingPlayerId playerId(aamp->mPlayerId);
+			AAMPLOG_MIL("patrick");
 		aamp->NotifyFirstFrameReceived(this->playerInstance->GetCCDecoderHandle());
 	};
 	playerInstance->callbackMap[InterfaceCB::notifyEOS] = [this]()
@@ -688,6 +689,7 @@ bool AAMPGstPlayer::SendHelper(AampMediaType mediaType, const void *ptr, size_t 
 			{ // required in order for subtitle harvesting/processing to work
 				aamp->UpdateSubtitleTimestamp();
 				// required in order to fetch more than eAAMPConfig_PrePlayBufferCount video segments see WaitForFreeFragmentAvailable()
+					AAMPLOG_MIL("patrick");
 				aamp->NotifyFirstFrameReceived(playerInstance->GetCCDecoderHandle());
 			}
 		}
