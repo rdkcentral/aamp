@@ -27,7 +27,9 @@
 #define __AAMP_UTILS_H__
 
 #include "DrmSystems.h"
-#include "main_aamp.h"
+#include "StreamOutputFormat.h"
+#include "AampMediaType.h"
+#include <thread>
 #include "iso639map.h"
 #include <string>
 #include <sstream>
@@ -223,7 +225,7 @@ void trim(std::string& src);
  * @param[in] lang - Language in string format
  * @param[in] preferFormat - Preferred language format
  */
-std::string Getiso639map_NormalizeLanguageCode(std::string  lang, LangCodePreference preferFormat );
+std::string Getiso639map_NormalizeLanguageCode( const std::string lang, LangCodePreference preferFormat );
 
 /**
  * @fn aamp_GetTimespec
@@ -334,13 +336,6 @@ namespace aamp_utils
     }
 }
 
- /* @fn RecalculatePTS
- * @param[in] mediaType stream type
- * @param[in] ptr buffer pointer
- * @param[in] len length of buffer
- */
-double RecalculatePTS(AampMediaType mediaType, const void *ptr, size_t len, PrivateInstanceAAMP *aamp);
-
 /**
  * @fn ConvertTsbLogLevel
  * @param[in] int Log leve set by user
@@ -418,5 +413,13 @@ void aamp_setThreadName(const char *name);
  */
 int aamp_SetThreadSchedulingParameters(int policy, int priority);
 
+/**
+ * @fn isTuneScheme
+ *
+ * @param[in] uri
+ *
+ * @retval true iff uri starts with a recognized protocol representing an IP Video Locator
+ */
+bool aamp_isTuneScheme( const char *cmdBuf );
 
 #endif  /* __AAMP_UTILS_H__ */

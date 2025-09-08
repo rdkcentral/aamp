@@ -43,6 +43,7 @@
 #include <fstream>
 #include <dirent.h>
 #include <algorithm>
+#include <inttypes.h>
 
 #define DEFER_DRM_LIC_OFFSET_FROM_START 5
 #define DEFER_DRM_LIC_OFFSET_TO_UPPER_BOUND 5
@@ -566,16 +567,22 @@ void trim(std::string& src)
  * @brief To get the preferred iso639mapped language code
  * @retval[out] preferred iso639 mapped language.
  */
-std::string Getiso639map_NormalizeLanguageCode(std::string  lang,LangCodePreference preferLangFormat )
+std::string Getiso639map_NormalizeLanguageCode( const std::string lang, LangCodePreference preferLangFormat )
 {
-        if (preferLangFormat != ISO639_NO_LANGCODE_PREFERENCE)
-        {
-                char lang2[MAX_LANGUAGE_TAG_LENGTH];
-                strcpy(lang2, lang.c_str());
-                iso639map_NormalizeLanguageCode(lang2, preferLangFormat);
-                lang = lang2;
-        }
-	return lang;
+	std::string rc;
+	if (preferLangFormat == ISO639_NO_LANGCODE_PREFERENCE)
+	{
+		rc = std::move(lang);
+	}
+	else
+	{
+		char lang2[3+1]; // max 3 characters, i.e. 'eng' with cstring NUL terminator
+		strncpy(lang2, lang.c_str(), sizeof(lang2) );
+		lang2[sizeof(lang2)-1]=0x00; // ensure NUL termination (not guaranteed by strncpy)
+		iso639map_NormalizeLanguageCode(lang2, preferLangFormat); // modifies lang2
+		rc = lang2;
+	}
+	return rc;
 }
 
 /**
@@ -1168,63 +1175,6 @@ const char *GetMediaTypeName(AampMediaType mediaType)
 	}
 }
 
-/**
- * @fn RecalculatePTS
- * @param[in] mediaType stream type
- * @param[in] ptr buffer pointer
- * @param[in] len length of buffer
- */
-double RecalculatePTS(AampMediaType mediaType, const void *ptr, size_t len, PrivateInstanceAAMP *aamp)
-{
-	double ret = 0;
-	uint32_t timeScale = 0;
-	switch( mediaType )
-	{
-	case eMEDIATYPE_VIDEO:
-		timeScale = aamp->GetVidTimeScale();
-		break;
-	case eMEDIATYPE_AUDIO:
-	case eMEDIATYPE_AUX_AUDIO:
-		timeScale = aamp->GetAudTimeScale();
-		break;
-	case eMEDIATYPE_SUBTITLE:
-		timeScale = aamp->GetSubTimeScale();
-		break;
-	default:
-		AAMPLOG_WARN("Invalid media type %d", mediaType);
-		break;
-	}
-	IsoBmffBuffer isobuf;
-	isobuf.setBuffer((uint8_t *)ptr, len);
-	bool bParse = false;
-	try
-	{
-		bParse = isobuf.parseBuffer();
-	}
-	catch( std::bad_alloc& ba)
-	{
-		AAMPLOG_ERR("Bad allocation: %s", ba.what() );
-	}
-	catch( std::exception &e)
-	{
-		AAMPLOG_ERR("Unhandled exception: %s", e.what() );
-	}
-	catch( ... )
-	{
-		AAMPLOG_ERR("Unknown exception");
-	}
-	if(bParse && (0 != timeScale))
-	{
-		uint64_t fPts = 0;
-		bool bParse = isobuf.getFirstPTS(fPts);
-		if (bParse)
-		{
-			ret = fPts/(timeScale*1.0);
-		}
-	}
-	return ret;
-}
-
 TSB::LogLevel ConvertTsbLogLevel(int logLev)
 {
 	TSB::LogLevel ret = TSB::LogLevel::WARN; //default value
@@ -1482,7 +1432,21 @@ int aamp_SetThreadSchedulingParameters(int policy, int priority)
 	AAMPLOG_INFO("Thread scheduling parameters set successfully.");
 	return result; // Success
 }
-/*
- * EOF
- */
+
+bool aamp_isTuneScheme( const char *cmdBuf )
+{
+    size_t cmdLen = strlen(cmdBuf);
+    bool isTuneScheme = false;
+    static const char *protocol[]  = { "http:","https:","live:","hdmiin:","file:","mr:","tune:" };
+    for( int i=0; i<sizeof(protocol)/sizeof(protocol[0]); i++ )
+    {
+        size_t protocolLen = strlen(protocol[i]);
+        if( cmdLen>=protocolLen && memcmp( cmdBuf, protocol[i], protocolLen )==0 )
+        {
+            isTuneScheme=true;
+            break;
+        }
+    }
+    return isTuneScheme;
+}
 
