@@ -22,6 +22,13 @@
 
 MockPlayerInstanceAAMP *g_mockPlayerInstanceAAMP = nullptr;
 
+const std::vector<TimedMetadata> & PlayerInstanceAAMP::GetTimedMetadata( void ) const
+{
+	static std::vector<TimedMetadata> rc;
+	return rc;
+}
+
+
 	PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink, std::function< void(const unsigned char *, int, int, int) > exportFrames) {  }
 	PlayerInstanceAAMP::~PlayerInstanceAAMP() {  }
 

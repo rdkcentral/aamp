@@ -605,5 +605,7 @@ int aamp_SetThreadSchedulingParameters(int policy, int priority)
 	return 0;
 }
 
+bool aamp_isTuneScheme( const char *cmdBuf ){ return false; }
+
 // aamp_ApplyPageHttpHeaders not actually part of AampUtils.cpp, but fake declared here for convenience
 extern "C" void aamp_ApplyPageHttpHeaders(PlayerInstanceAAMP *aamp){}

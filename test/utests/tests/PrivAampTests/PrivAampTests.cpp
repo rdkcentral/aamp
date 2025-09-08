@@ -46,8 +46,8 @@
 #include "MockAampJsonObject.h"
 #include "MockTSBSessionManager.h"
 #include "MockTSBStore.h"
-
 #include "fragmentcollector_mpd.h"
+#include "MockAdManager.h"
 
 using ::testing::An;
 using ::testing::DoAll;
@@ -94,10 +94,14 @@ protected:
 		g_mockStreamAbstractionAAMP = new NiceMock<MockStreamAbstractionAAMP>(p_aamp);
 		g_mockCurl = new NiceMock<MockCurl>();
 		g_mockAampCurlStore = new NiceMock<MockAampCurlStore>();
+		g_MockPrivateCDAIObjectMPD = new MockPrivateCDAIObjectMPD();
 	}
 
 	void TearDown() override
 	{
+		delete g_MockPrivateCDAIObjectMPD;
+		g_MockPrivateCDAIObjectMPD = nullptr;
+		
 		delete g_mockAampCurlStore;
 		g_mockAampCurlStore = nullptr;
 
@@ -2944,13 +2948,15 @@ TEST_F(PrivAampTests,FoundEventBreakTest)
 
 TEST_F(PrivAampTests,SetAlternateContentsTest)
 {
+	EXPECT_CALL(*g_MockPrivateCDAIObjectMPD, SetAlternateContents(_, _, _)).Times(0);
+	EXPECT_CALL(*g_mockAampEventManager, SendEvent(AdResolved(false, "adstringId", "1051-2", "A configuration issue prevents player from handling ads"), _));
 	p_aamp->SetAlternateContents("adBraeakId","adstringId","http://sampleurl.com");
 }
 
 
-TEST_F(PrivAampTests,SendAdResolvedEventTest)
+TEST_F(PrivAampTests,SendAdResolvedEventTest_1)
 {
-	p_aamp->SendAdResolvedEvent("adBraeakId",true,10,123445);
+	p_aamp->SendAdResolvedEvent("adBreakId", true, 10, 123445, eCDAI_ERROR_NONE);
 	EXPECT_TRUE(p_aamp->mDownloadsEnabled);
 }
 
@@ -4389,7 +4395,7 @@ TEST_F(PrivAampTests, TuneHelperWithAampTsbSeekToLiveWhenTsbIsEmpty)
 }
 
 /**
- * @test PrivAampTests::TuneHelperWithAampTsbSeekToLiveWhenTsbIsNotEmpty
+ * @test PrivAampPrivTests::TuneHelperWithAampTsbSeekToLiveWhenTsbIsNotEmpty
  * @brief Test the method TuneHelper with AAMP TSB enabled, Tsb injection disabled
  * not newTune with TuneType eTUNETYPE_SEEKTOLIVE when TSB has data.
  *
@@ -4418,7 +4424,7 @@ TEST_F(PrivAampPrivTests, TuneHelperWithAampTsbSeekToLiveWhenTsbIsNotEmpty)
 }
 
 /**
- * @test PrivAampTests::TuneHelperWithAampTsbConfigureFlushSequence
+ * @test PrivAampPrivTests::TuneHelperWithAampTsbConfigureFlushSequence
  * @brief Test the method TuneHelper for the order of Configure and Flush calls.
  *
  * This test verifies that Flush is called after Configure in TuneHelper

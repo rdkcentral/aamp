@@ -261,6 +261,10 @@ void PrivateInstanceAAMP::detach()
 
 void PrivateInstanceAAMP::NotifySpeedChanged(float rate, bool changeState)
 {
+	if (g_mockPrivateInstanceAAMP != nullptr)
+	{
+		g_mockPrivateInstanceAAMP->NotifySpeedChanged(rate, changeState);
+	}
 }
 
 void PrivateInstanceAAMP::LogPlayerPreBuffered(void)
@@ -1218,11 +1222,11 @@ void PrivateInstanceAAMP::FoundEventBreak(const std::string &adBreakId, uint64_t
 	}
 }
 
-void PrivateInstanceAAMP::SendAdResolvedEvent(const std::string &adId, bool status, uint64_t startMS, uint64_t durationMs)
+void PrivateInstanceAAMP::SendAdResolvedEvent(const std::string &adId, bool status, uint64_t startMS, uint64_t durationMs, AAMPCDAIError errorCode)
 {
 	if (g_mockPrivateInstanceAAMP != nullptr)
 	{
-		g_mockPrivateInstanceAAMP->SendAdResolvedEvent(adId, status, startMS, durationMs);
+		g_mockPrivateInstanceAAMP->SendAdResolvedEvent(adId, status, startMS, durationMs,errorCode);
 	}
 }
 
@@ -1712,3 +1716,10 @@ double PrivateInstanceAAMP::GetFormatPositionOffsetInMSecs()
 {
 	return 0;
 }
+
+const std::vector<TimedMetadata> & PrivateInstanceAAMP::GetTimedMetadata( void ) const
+{
+	static std::vector<TimedMetadata> rc;
+	return rc;
+}
+

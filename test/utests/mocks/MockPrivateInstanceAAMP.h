@@ -62,7 +62,7 @@ public:
 	MOCK_METHOD(void, FoundEventBreak, (const std::string &adBreakId, uint64_t startMS, EventBreakInfo brInfo));
 	MOCK_METHOD(void, SaveNewTimedMetadata, (long long timeMS, const char* id, double durationMS));
 	MOCK_METHOD(bool, DownloadsAreEnabled, ());
-	MOCK_METHOD(void, SendAdResolvedEvent, (const std::string &adId, bool status, uint64_t startMS, uint64_t durationMs));
+	MOCK_METHOD(void, SendAdResolvedEvent, (const std::string &adId, bool status, uint64_t startMS, uint64_t durationMs, AAMPCDAIError errorCode));
 	MOCK_METHOD(uint32_t, GetAudTimeScale, ());
 	MOCK_METHOD(uint32_t, GetVidTimeScale, ());
 	MOCK_METHOD(void, ProcessID3Metadata, (char *, size_t , AampMediaType , uint64_t ));
@@ -88,6 +88,7 @@ public:
 	MOCK_METHOD(double, GetLivePlayPosition, ());
 	MOCK_METHOD(bool, GetLLDashChunkMode, ());
 	MOCK_METHOD(void, SetLLDashChunkMode, (bool enable));
+	MOCK_METHOD(void, NotifySpeedChanged, (float rate, bool changeState));
 };
 
 extern MockPrivateInstanceAAMP *g_mockPrivateInstanceAAMP;
