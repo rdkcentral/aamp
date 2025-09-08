@@ -261,6 +261,10 @@ void PrivateInstanceAAMP::detach()
 
 void PrivateInstanceAAMP::NotifySpeedChanged(float rate, bool changeState)
 {
+	if (g_mockPrivateInstanceAAMP != nullptr)
+	{
+		g_mockPrivateInstanceAAMP->NotifySpeedChanged(rate, changeState);
+	}
 }
 
 void PrivateInstanceAAMP::LogPlayerPreBuffered(void)

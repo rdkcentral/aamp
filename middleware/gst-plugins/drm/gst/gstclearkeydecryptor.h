@@ -36,7 +36,7 @@
 // Declared static here because this string exists in player and gstplugin .so
 // library files  This string needs to match the start
 // of the gsteamer plugin name as created by the macros.
-static const char* GstPluginNameCK = "aampclearkeydecryptor";
+static const char* GstPluginNameCK = "clearkeydecryptor";
 
 G_BEGIN_DECLS
 

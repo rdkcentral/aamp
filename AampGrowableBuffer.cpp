@@ -125,6 +125,15 @@ void AampGrowableBuffer::MoveBytes( const void *srcPtr, size_t srcLen )
 }
 
 /**
+ * @brief Append nul character(s) to buffer
+ */
+void AampGrowableBuffer::AppendNulTerminator(void)
+{ // ensure that AampGrowableBuffer used for ASCII data looks like a C String
+	static const char zeros[2] = { 0, 0 };
+	AppendBytes( zeros, sizeof(zeros) );
+}
+
+/**
  * @brief reset AampGrowableBuffer logical length without releasing reserved memory
  */
 void AampGrowableBuffer::Clear( void )

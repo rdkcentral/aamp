@@ -324,8 +324,8 @@ Example:
 	    var url1 = "https://example.com/multilang/sample.m3u8"; // replace with valid URL!
 	    var url2 = "https://example.com/multilang/sample1.m3u8"; // replace with valid URL!
 
-	    var params_1 = { sessionId: "12192978-da71-4da7-8335-76fbd9ae2ae9" };
-	    var params_2 = { sessionId: "6e3c49cb-6254-4324-9f5e-bddef465bdff" };
+	    var params_1 = { sessionId: "12192978-da71-4da7-8335-76fbd9ae2ae9" }; // base16
+	    var params_2 = { sessionId: "6e3c49cb-6254-4324-9f5e-bddef465bdff" }; // base16
 
 	    player1.load(url1, true, params_1); // for immediate playback
 	    player2.load(url2, false, params_2); // for background buffering,no playback.

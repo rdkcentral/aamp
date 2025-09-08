@@ -2444,3 +2444,30 @@ TEST_F(PlayerInstanceAAMPTests, SetRateTest_LocalTSB_ResumeFromTSB) {
 
     EXPECT_EQ(mPrivateInstanceAAMP->pipeline_paused, false);
 }
+
+// Test forward 2x from being paused in local TSB playback
+TEST_F(PlayerInstanceAAMPTests, SetRateTest_LocalTSB_TrickPlayWhenPausedFromTSB) {
+
+	mPlayerInstance->aamp = mPrivateInstanceAAMP;
+	mPrivateInstanceAAMP->rate = AAMP_NORMAL_PLAY_RATE;
+	mPrivateInstanceAAMP->pipeline_paused = true;
+	mPrivateInstanceAAMP->mbPlayEnabled = true;
+	mPrivateInstanceAAMP->mIsIframeTrackPresent = true;
+	mPrivateInstanceAAMP->SetLocalAAMPTsb(true);
+
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_PLAYING));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, StopDownloads()).Times(0);
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection()).WillRepeatedly(Return(true));
+
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetState(_)).Times(0);
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, TuneHelper(eTUNETYPE_SEEK, _)).Times(1);
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, NotifySpeedChanged(2.0,_)).Times(1);
+	//calling AAMPGstPlayer::Pause(false,false) would cause the pipeline to play at x1
+	// before changing the speed to x2. Make sure that it is not happening.
+	EXPECT_CALL(*g_mockAampGstPlayer, Pause(false, false)).Times(0);
+
+	mPlayerInstance->SetRate(2.0);
+	EXPECT_EQ(mPrivateInstanceAAMP->pipeline_paused, false);
+	EXPECT_EQ(mPrivateInstanceAAMP->rate, 2.0);
+
+}
