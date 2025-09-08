@@ -79,10 +79,10 @@ void getConfigs(DrmSessionManager *mDrmSessionManager , PrivateInstanceAAMP *aam
  *  @brief AampDRMLicenseManager constructor.
  */
 AampDRMLicenseManager::AampDRMLicenseManager(int maxDrmSessions, PrivateInstanceAAMP *aamp) : mMaxDRMSessions(maxDrmSessions),
-		aampInstance(aamp), mDrmSessionManager(NULL)
+		aampInstance(aamp), mDrmSessionManager(NULL), accessTokenMutex(), accessToken(NULL), accessTokenLen(0)
 {
     aampInstance = aamp; 
-	std::function<void(uint32_t,uint32_t,const std::string&)> waterMarkSessionUpdateCB = std::bind(&PrivateInstanceAAMP::SendWatermarkSessionUpdateEvent, aampInstance, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3);
+    std::function<void(uint32_t,uint32_t,const std::string&)> waterMarkSessionUpdateCB = std::bind(&PrivateInstanceAAMP::SendWatermarkSessionUpdateEvent, aampInstance, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3);
     mDrmSessionManager = new DrmSessionManager(maxDrmSessions ,aampInstance, std::move(waterMarkSessionUpdateCB));
     registerCb(this, mDrmSessionManager);
     getConfigs(mDrmSessionManager, aampInstance);
@@ -98,6 +98,7 @@ AampDRMLicenseManager::AampDRMLicenseManager(int maxDrmSessions, PrivateInstance
 AampDRMLicenseManager::~AampDRMLicenseManager()
 {
         SAFE_DELETE(mLicensePrefetcher);
+	clearAccessToken();
 	SAFE_DELETE(mDrmSessionManager);
 	releaseLicenseRenewalThreads();
 	for(int i = 0 ; i < mMaxDRMSessions;i++)  
@@ -106,6 +107,19 @@ AampDRMLicenseManager::~AampDRMLicenseManager()
              mLicenseDownloader[i].Release();
 	}
 	SAFE_DELETE_ARRAY( mLicenseDownloader );
+}
+
+/**
+ *  @brief Clean up the memory for accessToken.
+ */
+void AampDRMLicenseManager::clearAccessToken()
+{
+       if(accessToken)
+       {
+               free(accessToken);
+               accessToken = NULL;
+               accessTokenLen = 0;
+       }
 }
 
 /**

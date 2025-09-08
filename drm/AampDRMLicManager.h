@@ -175,7 +175,15 @@ public:
 	 * @return void
 	 */
 	void licenseRenewalThread(std::shared_ptr<DrmHelper> drmHelper, int sessionSlot, PrivateInstanceAAMP* aampInstance);
-		/**
+
+	/**
+         *  @fn         clearAccessToken
+         *
+         *  @return     void.
+         */
+        void clearAccessToken();
+
+	/**
 	 * @fn releaseLicenseRenewalThreads
 	 */
 	void releaseLicenseRenewalThreads();

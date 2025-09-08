@@ -45,10 +45,10 @@ KeyID::KeyID() : creationTime(0), isFailedKeyId(false), isPrimaryKeyId(false), d
 /**
  *  @brief DrmSessionManager constructor.
  */
-DrmSessionManager::DrmSessionManager(int maxDrmSessions, void *player, std::function<void(uint32_t, uint32_t, const std::string&)> watermarkSessionUpdateCallback) : drmSessionContexts(NULL),
-		cachedKeyIDs(NULL), accessToken(NULL),
-		accessTokenLen(0), sessionMgrState(SessionMgrState::eSESSIONMGR_ACTIVE), accessTokenMutex(),
-		cachedKeyMutex()
+DrmSessionManager::DrmSessionManager(int maxDrmSessions, void *player, std::function<void(uint32_t, uint32_t, const std::string&)> watermarkSessionUpdateCallback) : drmSessionContexts(NULL)
+		,cachedKeyIDs(NULL)
+		,sessionMgrState(SessionMgrState::eSESSIONMGR_ACTIVE)
+		,cachedKeyMutex()
 		,mEnableAccessAttributes(true)
 		,mDrmSessionLock()
 		,mMaxDRMSessions(maxDrmSessions)
@@ -74,7 +74,6 @@ DrmSessionManager::DrmSessionManager(int maxDrmSessions, void *player, std::func
  */
 DrmSessionManager::~DrmSessionManager()
 {
-	clearAccessToken();
 	clearSessionData();
 	MW_SAFE_DELETE_ARRAY(drmSessionContexts);
 	MW_SAFE_DELETE_ARRAY(cachedKeyIDs);
@@ -151,19 +150,6 @@ void DrmSessionManager::clearFailedKeyIds()
 			cachedKeyIDs[i].creationTime = 0;
 		}
 		cachedKeyIDs[i].isPrimaryKeyId = false;
-	}
-}
-
-/**
- *  @brief Clean up the memory for accessToken.
- */
-void DrmSessionManager::clearAccessToken()
-{
-	if(accessToken)
-	{
-		free(accessToken);
-		accessToken = NULL;
-		accessTokenLen = 0;
 	}
 }
 

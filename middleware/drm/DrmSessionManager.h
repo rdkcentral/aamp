@@ -290,12 +290,6 @@ public:
 	 */
 	void clearSessionData();
 	/**
-	 *  @fn 	clearAccessToken
-	 *
-	 *  @return	void.
-	 */
-	void clearAccessToken();
-	/**
 	 * @fn		clearFailedKeyIds
 	 *
 	 * @return	void.
