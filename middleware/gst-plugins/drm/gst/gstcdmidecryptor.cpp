@@ -460,9 +460,6 @@ gst_cdmidecryptor_transform_caps(GstBaseTransform * trans,
 	}
 	return transformedCaps;
 }
-
-#ifdef USE_OPENCDM_ADAPTER
-
 static GstFlowReturn gst_cdmidecryptor_transform_ip(
 		GstBaseTransform * trans, GstBuffer * buffer)
 {
@@ -682,18 +679,12 @@ static GstFlowReturn gst_cdmidecryptor_transform_ip(
 	if (!cdmidecryptor->firstsegprocessed
 			&& cdmidecryptor->sessionManager)
 	{
-		if (aampcdmidecryptor->streamtype == eMEDIATYPE_VIDEO)
+
+		if(cdmidecryptor->sessionManager->profileDecryptProfileCb)
 		{
-			GST_INFO_OBJECT(aampcdmidecryptor,"profile end decrypt video");
-			aampcdmidecryptor->aamp->profiler.ProfileEnd(
-					PROFILE_BUCKET_DECRYPT_VIDEO);
-		} else if (aampcdmidecryptor->streamtype == eMEDIATYPE_AUDIO)
-		{
-			GST_INFO_OBJECT(aampcdmidecryptor,"profile end decrypt audio");
-			aampcdmidecryptor->aamp->profiler.ProfileEnd(
-					PROFILE_BUCKET_DECRYPT_AUDIO);
+		    cdmidecryptor->sessionManager->profileDecryptProfileCb(((int)cdmidecryptor->mediaType), ePROF_BEGIN, 0);
 		}
-		aampcdmidecryptor->firstsegprocessed = true;
+		cdmidecryptor->firstsegprocessed = true;
 	}
 
 	free_resources:
@@ -701,24 +692,20 @@ static GstFlowReturn gst_cdmidecryptor_transform_ip(
 	if (!cdmidecryptor->firstsegprocessed
 			&& cdmidecryptor->sessionManager)
 	{
-	if(!cdmidecryptor->streamEncrypted)
-	{
-		if (aampcdmidecryptor->streamtype == eMEDIATYPE_VIDEO)
+		if(!cdmidecryptor->streamEncrypted)
 		{
-			GST_INFO_OBJECT(aampcdmidecryptor,"profile end decrypt video (clear)");
-			aampcdmidecryptor->aamp->profiler.ProfileEnd(
-					PROFILE_BUCKET_DECRYPT_VIDEO);
-		} else if (aampcdmidecryptor->streamtype == eMEDIATYPE_AUDIO)
-		{
-			GST_INFO_OBJECT(aampcdmidecryptor,"profile end decrypt audio (clear)");
-			aampcdmidecryptor->aamp->profiler.ProfileEnd(
-					PROFILE_BUCKET_DECRYPT_AUDIO);
+			if(cdmidecryptor->sessionManager->profileDecryptProfileCb)
+			{
+				cdmidecryptor->sessionManager->profileDecryptProfileCb(((int)cdmidecryptor->mediaType), ePROF_END, 0);
+			}
 		}
-	}
-	else
-	{
-		cdmidecryptor->sessionManager->profileErrorCb(cdmidecryptor->mediaType, result);
-	}
+		else
+		{
+			if(cdmidecryptor->sessionManager->profileDecryptProfileCb)
+			{
+				cdmidecryptor->sessionManager->profileDecryptProfileCb(((int)cdmidecryptor->mediaType), ePROF_ERR, result);
+			}
+		}
 		cdmidecryptor->firstsegprocessed = true;
 	}
 
@@ -734,7 +721,6 @@ static GstFlowReturn gst_cdmidecryptor_transform_ip(
 	return result;
 }
 #endif
-
 
 /* sink event handlers */
 static gboolean gst_cdmidecryptor_sink_event(GstBaseTransform * trans,
