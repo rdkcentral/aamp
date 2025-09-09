@@ -25,11 +25,10 @@
 #include "ID3Metadata.hpp"
 
 #include "StreamAbstractionAAMP.h"
+#include "CachedFragment.h"
 
 #include <iomanip>
 #include <assert.h>
-
-class CachedFragment;
 
 namespace aamp
 {

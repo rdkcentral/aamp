@@ -1,0 +1,109 @@
+/*
+ * If not stated otherwise in this file or this component's license file the
+ * following copyright and licenses apply:
+ *
+ * Copyright 2025 RDK Management
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+*/
+
+/**
+ * @file CachedFragment.h
+ * @brief Structure definition for cached fragment data
+ */
+
+#ifndef CACHEDFRAGMENT_H
+#define CACHEDFRAGMENT_H
+
+#include <string>
+#include <cstdint>
+#include <cstddef>
+#include "AampGrowableBuffer.h"
+#include "AampMediaType.h"
+
+// Include priv_aamp.h for BitrateChangeReason and BitsPerSecond definitions
+#include "priv_aamp.h"
+
+/**
+ * @brief Structure holding the resolution of stream
+ */
+struct StreamResolution
+{
+	int width;        /**< Width in pixels*/
+	int height;       /**< Height in pixels*/
+	double framerate; /**< Frame Rate */
+
+	StreamResolution(): width(0), height(0), framerate(0.0)
+	{
+	}
+};
+
+/**
+ * @brief Structure holding the information of a stream.
+ */
+struct StreamInfo
+{
+	bool enabled;			/**< indicates if the streamInfo profile is enabled */
+	bool isIframeTrack;             /**< indicates if the stream is iframe stream*/
+	bool validity;		        /**< indicates profile validity against user configured profile range */
+	std::string codecs;	        /**< Codec String */
+	BitsPerSecond bandwidthBitsPerSecond;    /**< Bandwidth of the stream bps*/
+	StreamResolution resolution;    /**< Resolution of the stream*/
+	BitrateChangeReason reason;     /**< Reason for bitrate change*/
+	std::string baseUrl;
+	StreamInfo():enabled(false),isIframeTrack(false),validity(false),codecs(),bandwidthBitsPerSecond(0),resolution(),reason(),baseUrl(){};
+};
+
+/**
+ * @brief Structure of cached fragment data
+ *        Holds information about a cached fragment
+ */
+class CachedFragment
+{
+public:
+	AampGrowableBuffer fragment;	/**< Buffer to keep fragment content */
+	double position;				/**< Position in the playlist, in seconds */
+	double duration;				/**< Fragment duration, in seconds */
+	bool initFragment;				/**< Is init fragment */
+	bool discontinuity;				/**< PTS discontinuity status */
+	bool isDummy;					/**< Is dummy fragment */
+	int profileIndex;				/**< Profile index; Updated internally */
+	uint32_t timeScale;				/**< timescale of this fragment as read from manifest */
+	std::string uri;				/**< for debug */
+	StreamInfo cacheFragStreamInfo; /**< Bitrate info of the fragment */
+	AampMediaType type;				/**< AampMediaType info of the fragment */
+	long long downloadStartTime;	/**< The start time of file download */
+	long long discontinuityIndex;
+	double PTSOffsetSec; 			/**< PTS offset to apply for this segment */
+	double absPosition;				/**< Absolute position */
+
+	/**
+	 * @brief Default constructor
+	 */
+	CachedFragment();
+
+	/**
+	 * @brief Copy data from another CachedFragment
+	 * 
+	 * @param[in] other - Source CachedFragment to copy from
+	 * @param[in] len - Length of data to copy
+	 */
+	void Copy(CachedFragment* other, size_t len);
+
+	/**
+	 * @brief Clear all fragment data and reset to defaults
+	 */
+	void Clear();
+};
+
+#endif // CACHEDFRAGMENT_H

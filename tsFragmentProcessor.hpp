@@ -37,8 +37,8 @@
 #include <cstdint>
 #include <cstddef>
 
+#include "CachedFragment.h"
 
-class CachedFragment;
 class AampGrowableBuffer;
 
 namespace aamp_ts {

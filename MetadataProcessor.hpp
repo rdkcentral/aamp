@@ -33,12 +33,13 @@
 #include "priv_aamp.h"
 #include <pthread.h>
 
+#include "CachedFragment.h"
+
 /// Function to call to update the local PTS record
 using ptsoffset_update_t = std::function<void (double, bool)>;
 
 class IsoBmffProcessor;
 class TSProcessor;
-class CachedFragment;
 
 class Demuxer;
 namespace aamp
