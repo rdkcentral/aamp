@@ -38,6 +38,11 @@ enum
 	PROP_0, PROP_PLAYER, PROP_DRM_SESSION_MANAGER
 };
 
+enum
+{
+	ePROF_BEGIN, ePROF_END , ePROF_ERR
+};
+
 //#define FUNCTION_DEBUG 1
 #ifdef FUNCTION_DEBUG
 #define DEBUG_FUNC()    g_warning("####### %s : %d ####\n", __FUNCTION__, __LINE__);
@@ -460,6 +465,9 @@ gst_cdmidecryptor_transform_caps(GstBaseTransform * trans,
 	}
 	return transformedCaps;
 }
+
+#ifdef USE_OPENCDM_ADAPTER
+
 static GstFlowReturn gst_cdmidecryptor_transform_ip(
 		GstBaseTransform * trans, GstBuffer * buffer)
 {
@@ -721,6 +729,7 @@ static GstFlowReturn gst_cdmidecryptor_transform_ip(
 	return result;
 }
 #endif
+
 
 /* sink event handlers */
 static gboolean gst_cdmidecryptor_sink_event(GstBaseTransform * trans,
