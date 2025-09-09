@@ -2322,6 +2322,7 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 		else
 		{
             AAMPLOG_WARN( "state: %d", state);
+		}
 	}
 }
 
