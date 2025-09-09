@@ -51,10 +51,6 @@ void AampGrowableBuffer::MoveBytes( const void *ptr, size_t len )
 {
 }
 
-void AampGrowableBuffer::AppendNulTerminator(void)
-{
-}
-
 void AampGrowableBuffer::Clear( void )
 {
 }

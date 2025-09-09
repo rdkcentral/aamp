@@ -27,14 +27,14 @@
 #include <assert.h>
 #include <glib.h>
 
-bool AampGrowableBuffer::gbEnableLogging = false;
+bool AampGrowableBuffer::gbEnableLogging = true;
 int AampGrowableBuffer::gNetMemoryCount = 0;
 int AampGrowableBuffer::gNetMemoryHighWatermark = 0;
 
 
 void AampGrowableBuffer::EnableLogging( bool enable )
 {
-    gbEnableLogging = enable;
+    gbEnableLogging = true;
 }
 
 AampGrowableBuffer::~AampGrowableBuffer( void )
@@ -50,12 +50,13 @@ void AampGrowableBuffer::Free( void )
 	if( ptr )
 	{
 		NETMEMORY_MINUS();
-        if( gbEnableLogging )
+        //if( gbEnableLogging )
         {
-            printf("AampGrowableBuffer::%s(%s:%d)\n", "Free",name,gNetMemoryCount);
+            printf("AampGrowableBuffer::%s(%s:%d) %p\n", "Free",name,gNetMemoryCount,ptr);
         }
-		g_free( ptr );
-		ptr = NULL;
+		//g_free( ptr );
+		//ptr = NULL;
+		g_clear_pointer(&ptr, g_free);
 	}
 	len = 0;
 	avail = 0;
@@ -122,15 +123,6 @@ void AampGrowableBuffer::MoveBytes( const void *srcPtr, size_t srcLen )
 	assert( ptr && srcPtr && avail >= srcLen );
 	memmove( ptr, srcPtr, srcLen );
 	len = srcLen;
-}
-
-/**
- * @brief Append nul character(s) to buffer
- */
-void AampGrowableBuffer::AppendNulTerminator(void)
-{ // ensure that AampGrowableBuffer used for ASCII data looks like a C String
-	static const char zeros[2] = { 0, 0 };
-	AppendBytes( zeros, sizeof(zeros) );
 }
 
 /**
