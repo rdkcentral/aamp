@@ -67,15 +67,6 @@ if (CMAKE_PLATFORM_UBUNTU)
 	add_definitions(-DUBUNTU)
 endif()
 
-<<<<<<< HEAD
-set(MW_SOURCES
-				${MW_ROOT}/gst-plugins/drm/gst/gstcdmidecryptor.cpp
-				${MW_ROOT}/gst-plugins/drm/gst/gstclearkeydecryptor.cpp
-				${MW_ROOT}/gst-plugins/drm/gst/gstplayreadydecryptor.cpp
-				${MW_ROOT}/gst-plugins/drm/gst/gstverimatrixdecryptor.cpp
-				${MW_ROOT}/gst-plugins/drm/gst/gstwidevinedecryptor.cpp
-				${MW_ROOT}/playerLogManager/PlayerLogManager.cpp)
-=======
 set(PLAYER_SOURCES
 				${PLAYER_ROOT}/gst-plugins/drm/gst/gstcdmidecryptor.cpp
 				${PLAYER_ROOT}/gst-plugins/drm/gst/gstclearkeydecryptor.cpp
@@ -83,17 +74,12 @@ set(PLAYER_SOURCES
 				${PLAYER_ROOT}/gst-plugins/drm/gst/gstverimatrixdecryptor.cpp
 				${PLAYER_ROOT}/gst-plugins/drm/gst/gstwidevinedecryptor.cpp
 				${PLAYER_ROOT}/playerLogManager/PlayerLogManager.cpp)
->>>>>>> dev_sprint_25_2
 
 add_executable(${EXEC_NAME}
 			   ${TEST_SOURCES}
 			   ${MOCK_SOURCES}
-<<<<<<< HEAD
-			   ${MW_SOURCES})
-=======
 			   ${PLAYER_SOURCES})
->>>>>>> dev_sprint_25_2
-
+	  
 set_target_properties(${EXEC_NAME} PROPERTIES FOLDER "utests")
 
 if (CMAKE_XCODE_BUILD_SYSTEM)
