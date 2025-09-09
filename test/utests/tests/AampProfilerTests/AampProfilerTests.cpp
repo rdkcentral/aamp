@@ -87,7 +87,7 @@ TEST_F(AampProfilertests, ProfileResetTest1)
 TEST_F(AampProfilertests, ProfileResetTest2)
 {
     ProfileEventAAMP profileEvent;
-    ProfilerBucketType profilesList[28] = {
+    ProfilerBucketType profilesList[36] = {
     PROFILE_BUCKET_MANIFEST,
     PROFILE_BUCKET_PLAYLIST_VIDEO,
     PROFILE_BUCKET_PLAYLIST_AUDIO,
@@ -115,9 +115,17 @@ TEST_F(AampProfilertests, ProfileResetTest2)
     PROFILE_BUCKET_DISCO_TOTAL,
     PROFILE_BUCKET_DISCO_FLUSH,
     PROFILE_BUCKET_DISCO_FIRST_FRAME,
+    PROFILE_BUCKET_STREAMER_STOP,
+    PROFILE_BUCKET_SINK_STOP,
+    PROFILE_BUCKET_DISC_HANDLING_STOP,
+    PROFILE_BUCKET_TSB_RELEASE,
+    PROFILE_BUCKET_DRM_RELEASE,
+    PROFILE_BUCKET_RATE_CORRECTION_STOP,
+    PROFILE_BUCKET_MANIFEST_DOWNLOADER_RELEASE,
+    PROFILE_BUCKET_STOP_TOTAL,
     PROFILE_BUCKET_TYPE_COUNT,
     };
-    for(int i=0;i<28;i++){
+    for(int i=0;i<36;i++){
     profileEvent.ProfileReset(profilesList[i]);
     EXPECT_EQ(profilesList[i],i);
     }
@@ -127,12 +135,12 @@ TEST_F(AampProfilertests, ProfileEndTest1)
     profileEvent->ProfileReset(PROFILE_BUCKET_MANIFEST); 
     profileEvent->ProfileBegin(PROFILE_BUCKET_MANIFEST);    
     profileEvent->ProfileEnd(PROFILE_BUCKET_TYPE_COUNT);
-    EXPECT_EQ(PROFILE_BUCKET_TYPE_COUNT,27);
+    EXPECT_EQ(PROFILE_BUCKET_TYPE_COUNT,35);
 }
 TEST_F(AampProfilertests, ProfileEndTest2)
 {
     ProfileEventAAMP profileEvent;
-    ProfilerBucketType profilesList[28] = {
+    ProfilerBucketType profilesList[36] = {
     PROFILE_BUCKET_MANIFEST,
     PROFILE_BUCKET_PLAYLIST_VIDEO,
     PROFILE_BUCKET_PLAYLIST_AUDIO,
@@ -160,9 +168,17 @@ TEST_F(AampProfilertests, ProfileEndTest2)
     PROFILE_BUCKET_DISCO_TOTAL,
     PROFILE_BUCKET_DISCO_FLUSH,
     PROFILE_BUCKET_DISCO_FIRST_FRAME,
+    PROFILE_BUCKET_STREAMER_STOP,
+    PROFILE_BUCKET_SINK_STOP,
+    PROFILE_BUCKET_DISC_HANDLING_STOP,
+    PROFILE_BUCKET_TSB_RELEASE,
+    PROFILE_BUCKET_DRM_RELEASE,
+    PROFILE_BUCKET_RATE_CORRECTION_STOP,
+    PROFILE_BUCKET_MANIFEST_DOWNLOADER_RELEASE,
+    PROFILE_BUCKET_STOP_TOTAL,
     PROFILE_BUCKET_TYPE_COUNT,
     };
-    for(int i=0;i<28;i++){
+    for(int i=0;i<36;i++){
     profileEvent.ProfileEnd(profilesList[i]);
     EXPECT_EQ(profilesList[i],i);
     }
@@ -196,7 +212,7 @@ TEST_F(AampProfilertests, ProfileErrorTest1)
 TEST_F(AampProfilertests, ProfileErrorTest2)
 {
     ProfileEventAAMP profileEvent;
-    ProfilerBucketType profilesList[28] = {
+    ProfilerBucketType profilesList[36] = {
     PROFILE_BUCKET_MANIFEST,
     PROFILE_BUCKET_PLAYLIST_VIDEO,
     PROFILE_BUCKET_PLAYLIST_AUDIO,
@@ -224,9 +240,17 @@ TEST_F(AampProfilertests, ProfileErrorTest2)
     PROFILE_BUCKET_DISCO_TOTAL,
     PROFILE_BUCKET_DISCO_FLUSH,
     PROFILE_BUCKET_DISCO_FIRST_FRAME,
+    PROFILE_BUCKET_STREAMER_STOP,
+    PROFILE_BUCKET_SINK_STOP,
+    PROFILE_BUCKET_DISC_HANDLING_STOP,
+    PROFILE_BUCKET_TSB_RELEASE,
+    PROFILE_BUCKET_DRM_RELEASE,
+    PROFILE_BUCKET_RATE_CORRECTION_STOP,
+    PROFILE_BUCKET_MANIFEST_DOWNLOADER_RELEASE,
+    PROFILE_BUCKET_STOP_TOTAL,
     PROFILE_BUCKET_TYPE_COUNT,
     };
-    for(int i=0;i<28;i++){
+    for(int i=0;i<36;i++){
     profileEvent.ProfileError(profilesList[i],i);
     EXPECT_EQ(profilesList[i],i);
     }
@@ -238,7 +262,7 @@ TEST_F(AampProfilertests, ProfileBeginTest)
 TEST_F(AampProfilertests, ProfileBeginTest2)
 {
     ProfileEventAAMP profileEvent;
-    ProfilerBucketType profilesList[28] = {
+    ProfilerBucketType profilesList[36] = {
     PROFILE_BUCKET_MANIFEST,
     PROFILE_BUCKET_PLAYLIST_VIDEO,
     PROFILE_BUCKET_PLAYLIST_AUDIO,
@@ -266,9 +290,17 @@ TEST_F(AampProfilertests, ProfileBeginTest2)
     PROFILE_BUCKET_DISCO_TOTAL,
     PROFILE_BUCKET_DISCO_FLUSH,
     PROFILE_BUCKET_DISCO_FIRST_FRAME,
+    PROFILE_BUCKET_STREAMER_STOP,
+    PROFILE_BUCKET_SINK_STOP,
+    PROFILE_BUCKET_DISC_HANDLING_STOP,
+    PROFILE_BUCKET_TSB_RELEASE,
+    PROFILE_BUCKET_DRM_RELEASE,
+    PROFILE_BUCKET_RATE_CORRECTION_STOP,
+    PROFILE_BUCKET_MANIFEST_DOWNLOADER_RELEASE,
+    PROFILE_BUCKET_STOP_TOTAL,
     PROFILE_BUCKET_TYPE_COUNT,
     };
-    for(int i=0;i<28;i++){
+    for(int i=0;i<36;i++){
     profileEvent.ProfileBegin(profilesList[i]);
     EXPECT_EQ(profilesList[i],i);
     }
@@ -296,7 +328,7 @@ TEST_F(AampProfilertests, SetTuneFailCodeTest1)
 TEST_F(AampProfilertests, SetTuneFailCodeTest2)
 {
     ProfileEventAAMP profileEvent;
-    ProfilerBucketType profilesList[28] = {
+    ProfilerBucketType profilesList[36] = {
     PROFILE_BUCKET_MANIFEST,
     PROFILE_BUCKET_PLAYLIST_VIDEO,
     PROFILE_BUCKET_PLAYLIST_AUDIO,
@@ -324,9 +356,17 @@ TEST_F(AampProfilertests, SetTuneFailCodeTest2)
     PROFILE_BUCKET_DISCO_TOTAL,
     PROFILE_BUCKET_DISCO_FLUSH,
     PROFILE_BUCKET_DISCO_FIRST_FRAME,
+    PROFILE_BUCKET_STREAMER_STOP,
+    PROFILE_BUCKET_SINK_STOP,
+    PROFILE_BUCKET_DISC_HANDLING_STOP,
+    PROFILE_BUCKET_TSB_RELEASE,
+    PROFILE_BUCKET_DRM_RELEASE,
+    PROFILE_BUCKET_RATE_CORRECTION_STOP,
+    PROFILE_BUCKET_MANIFEST_DOWNLOADER_RELEASE,
+    PROFILE_BUCKET_STOP_TOTAL,
     PROFILE_BUCKET_TYPE_COUNT,
     };
-    for(int i=0;i<28;i++){
+    for(int i=0;i<36;i++){
     profileEvent.SetTuneFailCode(i,profilesList[i]);
     EXPECT_EQ(profilesList[i],i);
     }
@@ -340,7 +380,7 @@ TEST_F(AampProfilertests, ProfilePerformedTest1)
 TEST_F(AampProfilertests, ProfilePerformedTest2)
 {
     ProfileEventAAMP profileEvent;
-    ProfilerBucketType ProfilePerformedList[28] = {
+    ProfilerBucketType ProfilePerformedList[36] = {
     PROFILE_BUCKET_MANIFEST,
     PROFILE_BUCKET_PLAYLIST_VIDEO,
     PROFILE_BUCKET_PLAYLIST_AUDIO,
@@ -368,9 +408,17 @@ TEST_F(AampProfilertests, ProfilePerformedTest2)
     PROFILE_BUCKET_DISCO_TOTAL,
     PROFILE_BUCKET_DISCO_FLUSH,
     PROFILE_BUCKET_DISCO_FIRST_FRAME,
+    PROFILE_BUCKET_STREAMER_STOP,
+    PROFILE_BUCKET_SINK_STOP,
+    PROFILE_BUCKET_DISC_HANDLING_STOP,
+    PROFILE_BUCKET_TSB_RELEASE,
+    PROFILE_BUCKET_DRM_RELEASE,
+    PROFILE_BUCKET_RATE_CORRECTION_STOP,
+    PROFILE_BUCKET_MANIFEST_DOWNLOADER_RELEASE,
+    PROFILE_BUCKET_STOP_TOTAL,
     PROFILE_BUCKET_TYPE_COUNT,
     };
-    for(int i=0;i<28;i++){
+    for(int i=0;i<36;i++){
     profileEvent.ProfilePerformed(ProfilePerformedList[i]);
     EXPECT_EQ(ProfilePerformedList[i],i);
     }
@@ -638,4 +686,9 @@ TEST_F(AampProfilertests, SetBandwidthBitsPerSecondVideoTest)
     expectedBandwidth = 0;
     profileEvent->SetBandwidthBitsPerSecondVideo(expectedBandwidth);
     EXPECT_EQ(expectedBandwidth, 0);
+}
+
+TEST_F(AampProfilertests, TuneStopTests)
+{
+    profileEvent->LogStopTime("DASH");
 }
