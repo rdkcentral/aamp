@@ -26,7 +26,7 @@ function install_build_middleware_interface_fn()
         git checkout feature/RDKEMW-6676
         mkdir -p build
         cd build
-        cmake .. -DCMAKE_INSTALL_PREFIX=${LOCAL_DEPS_BUILD_DIR}
+        cmake .. -DCMAKE_INSTALL_PREFIX=${LOCAL_DEPS_BUILD_DIR} -DCMAKE_PLATFORM_UBUNTU=ON
         make
         make install
 
