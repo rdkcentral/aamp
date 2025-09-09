@@ -867,13 +867,14 @@ static gboolean gst_cdmidecryptor_sink_event(GstBaseTransform * trans,
 		GST_DEBUG_OBJECT(cdmidecryptor, "\n acquired lock for mutex\n");
 		std::shared_ptr<void> e = cdmidecryptor->sessionManager->DrmMetaDataCb();
                 int err = -1;
+		int responseCode =-1;
 		if (cdmidecryptor->sessionManager->m_drmConfigParam->mIsWVKIDWorkaround){
-			cdmidecryptor->drmSession =	cdmidecryptor->sessionManager->createDrmSession(err,
+			cdmidecryptor->drmSession =	cdmidecryptor->sessionManager->createDrmSession(responseCode, err,
 						reinterpret_cast<const char *>(systemId), eMEDIAFORMAT_DASH,
 						outData, outDataLen, (int)cdmidecryptor->mediaType, cdmidecryptor->player, e.get(), nullptr, false);
 		}else{
 			cdmidecryptor->drmSession =
-				cdmidecryptor->sessionManager->createDrmSession(err,
+				cdmidecryptor->sessionManager->createDrmSession(responseCode, err,
 						reinterpret_cast<const char *>(systemId), eMEDIAFORMAT_DASH,
 						reinterpret_cast<const unsigned char *>(mapInfo.data),
 						mapInfo.size, (int)cdmidecryptor->mediaType, cdmidecryptor->player, e.get(), nullptr, false);
@@ -911,22 +912,12 @@ static gboolean gst_cdmidecryptor_sink_event(GstBaseTransform * trans,
 			cdmidecryptor->sessionManager->laprofileEndCb(cdmidecryptor->mediaType);
 			if (!cdmidecryptor->firstsegprocessed)
 			{
-				aampcdmidecryptor->aamp->profiler.ProfileEnd(
-						PROFILE_BUCKET_LA_TOTAL);
-			}
 
-			if (!aampcdmidecryptor->firstsegprocessed)
-			{
-				if (aampcdmidecryptor->streamtype == eMEDIATYPE_VIDEO)
+
+				/** profilebegin -0, profileEnd -1 , profileError -2 */
+				if(cdmidecryptor->sessionManager->profileDecryptProfileCb)
 				{
-					GST_INFO_OBJECT(aampcdmidecryptor,"Starting decryption profiling for video");
-					aampcdmidecryptor->aamp->profiler.ProfileBegin(
-							PROFILE_BUCKET_DECRYPT_VIDEO);
-				} else if (aampcdmidecryptor->streamtype == eMEDIATYPE_AUDIO)
-				{
-					GST_INFO_OBJECT(aampcdmidecryptor,"Starting decryption profiling for audio");
-					aampcdmidecryptor->aamp->profiler.ProfileBegin(
-							PROFILE_BUCKET_DECRYPT_AUDIO);
+				     cdmidecryptor->sessionManager->profileDecryptProfileCb(((int)cdmidecryptor->mediaType), 0, 0);
 				}
 			}
 
