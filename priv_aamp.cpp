@@ -702,17 +702,17 @@ size_t PrivateInstanceAAMP::HandleSSLWriteCallback ( char *ptr, size_t size, siz
 			}
 		}
 	}
-	else
-	{
-		if(ISCONFIGSET_PRIV(eAAMPConfig_EnableCurlStore) && mOrigManifestUrl.isRemotehost)
-		{
-			ret = (size*nmemb);
-		}
-		else
-		{
-			AAMPLOG_WARN("CurlTrace write_callback - interrupted, ret:%zu", ret);
-		}
-	}
+	// else
+	// {
+	// 	if(ISCONFIGSET_PRIV(eAAMPConfig_EnableCurlStore) && mOrigManifestUrl.isRemotehost)
+	// 	{
+	// 		ret = (size*nmemb);
+	// 	}
+	// 	else
+	// 	{
+	// 		AAMPLOG_WARN("CurlTrace write_callback - interrupted, ret:%zu", ret);
+	// 	}
+	// }
 	return ret;
 }
 
@@ -1013,6 +1013,7 @@ int PrivateInstanceAAMP::HandleSSLProgressCallback ( void *clientp, double dltot
 	context->aamp->SyncBegin();
 	if (!context->aamp->mDownloadsEnabled && context->aamp->mMediaDownloadsEnabled[context->mediaType])
 	{
+		AAMPLOG_INFO("RC=-1");
 		rc = -1; // CURLE_ABORTED_BY_CALLBACK
 	}
 
@@ -1096,18 +1097,19 @@ int PrivateInstanceAAMP::HandleSSLProgressCallback ( void *clientp, double dltot
 		}
 	}
 
-	if(rc)
-	{
-		if( !( eCURL_ABORT_REASON_LOW_BANDWIDTH_TIMEDOUT == context->abortReason || eCURL_ABORT_REASON_START_TIMEDOUT == context->abortReason ||\
-			eCURL_ABORT_REASON_STALL_TIMEDOUT == context->abortReason ) && (ISCONFIGSET_PRIV(eAAMPConfig_EnableCurlStore) && mOrigManifestUrl.isRemotehost ) )
-		{
-			rc = 0;
-		}
-		else
-		{
-			AAMPLOG_WARN("CurlTrace Progress interrupted, ret:%d", rc);
-		}
-	}
+	// if(rc)
+	// {
+	// 	if( !( eCURL_ABORT_REASON_LOW_BANDWIDTH_TIMEDOUT == context->abortReason || eCURL_ABORT_REASON_START_TIMEDOUT == context->abortReason ||\
+	// 		eCURL_ABORT_REASON_STALL_TIMEDOUT == context->abortReason ) && (ISCONFIGSET_PRIV(eAAMPConfig_EnableCurlStore) && mOrigManifestUrl.isRemotehost ) && context->aamp->mDownloadsEnabled )
+	// 	{
+	// 		AAMPLOG_INFO("RC=0");
+	// 		rc = 0;
+	// 	}
+	// 	else
+	// 	{
+	// 		AAMPLOG_WARN("CurlTrace Progress interrupted, ret:%d", rc);
+	// 	}
+	// }
 	return rc;
 }
 
@@ -4774,6 +4776,12 @@ void PrivateInstanceAAMP::GetOnVideoEndSessionStatData(std::string &data)
 void PrivateInstanceAAMP::TeardownStream(bool newTune, bool disableDownloads)
 {
 	std::unique_lock<std::recursive_mutex> lock(mLock);
+	//DISC_HANDLING STOP ,PROFILE_BUCKET_STREAMER_STOP, PROFILE_BUCKET_SINK_STOP buckets are utilized to measure the stop time of each buckets when stop operation is performed
+	//If we begin these profiles during trickplay or seek or new tune it will be overridden by the stop API when PrivateInstanceAAMP::Stop is called.
+	if(disableDownloads)
+	{
+		profiler.ProfileBegin(PROFILE_BUCKET_DISC_HANDLING_STOP);
+	}
 	//Have to perform this for trick and stop operations but avoid ad insertion related ones
 	AAMPLOG_WARN(" mProgressReportFromProcessDiscontinuity:%d mDiscontinuityTuneOperationId:%d newTune:%d", mProgressReportFromProcessDiscontinuity, mDiscontinuityTuneOperationId, newTune);
 	if ((mDiscontinuityTuneOperationId != 0) && (!newTune || mState == eSTATE_IDLE))
@@ -4825,12 +4833,22 @@ void PrivateInstanceAAMP::TeardownStream(bool newTune, bool disableDownloads)
 	ResetDiscontinuityInTracks();
 	UnblockWaitForDiscontinuityProcessToComplete();
 	ResetTrackDiscontinuityIgnoredStatus();
+	profiler.ProfileEnd(PROFILE_BUCKET_DISC_HANDLING_STOP);
 	lock.unlock();
+	if(disableDownloads)
+	{
+		profiler.ProfileBegin(PROFILE_BUCKET_STREAMER_STOP);
+	}
 	if (mpStreamAbstractionAAMP)
 	{
 		// Using StreamLock to make sure this is not interfering with GetFile() from PreCachePlaylistDownloadTask
-		AcquireStreamLock();
-		mpStreamAbstractionAAMP->Stop(disableDownloads);
+    	auto t_start = std::chrono::steady_clock::now();
+    	AcquireStreamLock();
+    	auto t_afterLock = std::chrono::steady_clock::now();
+		
+		auto t0 = std::chrono::steady_clock::now();
+ 		mpStreamAbstractionAAMP->Stop(disableDownloads);
+		auto t1 = std::chrono::steady_clock::now();		mpStreamAbstractionAAMP->Stop(disableDownloads);
 
 		if(mContentType == ContentType_HDMIIN)
 		{
@@ -4846,11 +4864,21 @@ void PrivateInstanceAAMP::TeardownStream(bool newTune, bool disableDownloads)
 		{
 			if(!IsLocalAAMPTsb())
 			{
-				SAFE_DELETE(mpStreamAbstractionAAMP);
-			}
+       			auto t_delStart = std::chrono::steady_clock::now();
+ 				SAFE_DELETE(mpStreamAbstractionAAMP);
+	        	auto t_delEnd = std::chrono::steady_clock::now();
+        		AAMPLOG_INFO("SAFE_DELETE took %ld ms",
+            		(long)std::chrono::duration_cast<std::chrono::milliseconds>(t_delEnd - t_delStart).count());			}
 		}
-		ReleaseStreamLock();
-	}
+    	auto t_afterBranch = std::chrono::steady_clock::now();
+ 		ReleaseStreamLock();
+    	auto t_afterUnlock = std::chrono::steady_clock::now();
+    	AAMPLOG_INFO("Lock() took %ld ms, Stop() took %ld ms, branch took %ld ms, Unlock() took %ld ms",
+        	(long)std::chrono::duration_cast<std::chrono::milliseconds>(t_afterLock - t_start).count(),
+        	(long)std::chrono::duration_cast<std::chrono::milliseconds>(t1 - t0).count(),
+        	(long)std::chrono::duration_cast<std::chrono::milliseconds>(t_afterBranch - t1).count(),
+        	(long)std::chrono::duration_cast<std::chrono::milliseconds>(t_afterUnlock - t_afterBranch).count());	}
+	profiler.ProfileEnd(PROFILE_BUCKET_STREAMER_STOP);
 	m_lastSubClockSyncTime = std::chrono::system_clock::time_point();
 
 	lock.lock();
@@ -4858,6 +4886,10 @@ void PrivateInstanceAAMP::TeardownStream(bool newTune, bool disableDownloads)
 	lock.unlock();
 	if (streamerIsActive)
 	{
+		if(disableDownloads)
+		{
+			profiler.ProfileBegin(PROFILE_BUCKET_SINK_STOP);
+		}
 		const bool forceStop = false;
 		if (!forceStop && !newTune)
 		{
@@ -4873,17 +4905,25 @@ void PrivateInstanceAAMP::TeardownStream(bool newTune, bool disableDownloads)
 				StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
 				if (sink)
 				{
-					sink->Flush(0, rate);
-				}
+					auto t0 = std::chrono::steady_clock::now();
+ 					sink->Flush(0, rate);
+					auto t1 = std::chrono::steady_clock::now();
+					AAMPLOG_WARN("[sink]sink->Flush took %lld ms",
+    					std::chrono::duration_cast<std::chrono::milliseconds>(t1 - t0).count());				}
 			}
 		}
 		else
 		{
+			auto n0  = std::chrono::steady_clock::now();
 			AAMPLOG_INFO("before CC Release - mTuneType:%d mbPlayEnabled:%d ", mTuneType, mbPlayEnabled);
 			if (mbPlayEnabled && mTuneType != eTUNETYPE_RETUNE)
 			{
-				PlayerCCManager::GetInstance()->Release(mCCId);
-				mCCId = 0;
+				auto r0  = std::chrono::steady_clock::now();
+ 				PlayerCCManager::GetInstance()->Release(mCCId);
+ 				mCCId = 0;
+				auto r1 = std::chrono::steady_clock::now();
+				AAMPLOG_WARN("[sink]CC Release took %lld ms",
+					std::chrono::duration_cast<std::chrono::milliseconds>(r1 - r0).count());
 			}
 			else
 			{
@@ -4894,10 +4934,17 @@ void PrivateInstanceAAMP::TeardownStream(bool newTune, bool disableDownloads)
 				StreamSink *sink = AampStreamSinkManager::GetInstance().GetStoppingStreamSink(this);
 				if (sink)
 				{
-					sink->Stop(!newTune);
-				}
+					auto t0 = std::chrono::steady_clock::now();
+ 					sink->Stop(!newTune);
+					auto t1 = std::chrono::steady_clock::now();
+					AAMPLOG_WARN("[sink]sink Stop took %lld ms",
+    					std::chrono::duration_cast<std::chrono::milliseconds>(t1 - t0).count());				}
 			}
+			auto n1  = std::chrono::steady_clock::now();
+			AAMPLOG_WARN("[sink]Sink->Stop took %lld ms",
+				std::chrono::duration_cast<std::chrono::milliseconds>(n1 - n0).count());
 		}
+		profiler.ProfileEnd(PROFILE_BUCKET_SINK_STOP);
 	}
 	else
 	{
@@ -7580,6 +7627,7 @@ bool PrivateInstanceAAMP::IsLiveStream()
  */
 void PrivateInstanceAAMP::Stop( bool isDestructing )
 {
+	profiler.TuneStop();
 	// Clear all the player events in the queue and sets its state to RELEASED as everything is done
 	mEventManager->FlushPendingEvents();
 	if( !isDestructing )
@@ -7626,7 +7674,10 @@ void PrivateInstanceAAMP::Stop( bool isDestructing )
 	}
 
 	UnblockWaitForDiscontinuityProcessToComplete();
+	profiler.ProfileBegin(PROFILE_BUCKET_RATE_CORRECTION_STOP);
 	StopRateCorrectionWorkerThread();
+	profiler.ProfileEnd(PROFILE_BUCKET_RATE_CORRECTION_STOP);
+
 	if(mTelemetryInterval > 0)
 	{
 		double bufferedDuration = 0.0;
@@ -7664,13 +7715,17 @@ void PrivateInstanceAAMP::Stop( bool isDestructing )
 	// stop the mpd update immediately after Stream abstraction delete
 	if(mMPDDownloaderInstance != nullptr)
 	{
+		profiler.ProfileBegin(PROFILE_BUCKET_MANIFEST_DOWNLOADER_RELEASE);
 		mMPDDownloaderInstance->Release();
+		profiler.ProfileEnd(PROFILE_BUCKET_MANIFEST_DOWNLOADER_RELEASE);
 	}
 
 	if(mTSBSessionManager)
 	{
+		profiler.ProfileBegin(PROFILE_BUCKET_TSB_RELEASE);
 		// Clear all the local TSB data
 		mTSBSessionManager->Flush();
+		profiler.ProfileEnd(PROFILE_BUCKET_TSB_RELEASE);
 	}
 
 	mId3MetadataCache.Reset();
@@ -7751,8 +7806,10 @@ void PrivateInstanceAAMP::Stop( bool isDestructing )
 	}
 	if (mDRMLicenseManager)
 	{
+		profiler.ProfileBegin(PROFILE_BUCKET_DRM_RELEASE);
 		/** Reset the license fetcher only DRM handle is deleting **/
 		mDRMLicenseManager->Stop();
+		profiler.ProfileEnd(PROFILE_BUCKET_DRM_RELEASE);
 	}
 
 	SAFE_DELETE(mCdaiObject);
@@ -7778,8 +7835,10 @@ void PrivateInstanceAAMP::Stop( bool isDestructing )
 	}
 	SetFlushFdsNeededInCurlStore(false);
 	EnableDownloads();
-
 	AampStreamSinkManager::GetInstance().DeactivatePlayer(this, true);
+	profiler.ProfileEnd(PROFILE_BUCKET_STOP_TOTAL);
+
+	profiler.LogStopTime(mMediaFormatName[mMediaFormat]);
 }
 
 const std::vector<TimedMetadata> & PrivateInstanceAAMP::GetTimedMetadata( void ) const

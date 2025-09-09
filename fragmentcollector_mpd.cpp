@@ -10773,6 +10773,9 @@ void StreamAbstractionAAMP_MPD::Start(void)
 void StreamAbstractionAAMP_MPD::Stop(bool clearChannelData)
 {
 
+	auto startAll = std::chrono::steady_clock::now();
+	AAMPLOG_WARN("[stop ]==== Stop() called ====");
+
 	if (!aamp->IsLocalAAMPTsb() || aamp->mAampTsbLanguageChangeInProgress)
 	{
 		aamp->DisableDownloads();
@@ -10820,21 +10823,32 @@ void StreamAbstractionAAMP_MPD::Stop(bool clearChannelData)
 			aamp->WakeupLatencyCheck();
 		}
 		AAMPLOG_TRACE("Waiting to join StartLatencyMonitorThread");
+		auto t0 = std::chrono::steady_clock::now();
 		latencyMonitorThreadID.join();
+		auto t1 = std::chrono::steady_clock::now();
 		AAMPLOG_INFO("Joined StartLatencyMonitorThread");
+		AAMPLOG_WARN("[Stop ]latencyMonitorThreadID join took %lld ms",
+			std::chrono::duration_cast<std::chrono::milliseconds>(t1 - t0).count());
 		latencyMonitorThreadStarted = false;
 	}
 	if (!aamp->DownloadsAreEnabled() && fragmentCollectorThreadID.joinable())
 	{
+		auto t0 = std::chrono::steady_clock::now();
+		AAMPLOG_WARN("Waiting for fragmentCollectorThreadID...");
 		fragmentCollectorThreadID.join();
-	}
+		auto t1 = std::chrono::steady_clock::now();
+		AAMPLOG_WARN("[stop ]fragmentCollectorThreadID join took %lld ms",
+			std::chrono::duration_cast<std::chrono::milliseconds>(t1 - t0).count());	}
 
 	if(tsbReaderThreadID.joinable())
 	{
-		AAMPLOG_INFO("Abort TsbReader");
+		auto t0 = std::chrono::steady_clock::now();
+		AAMPLOG_WARN("Waiting for tsbReaderThreadID...");
 		abortTsbReader = true;
 		tsbReaderThreadID.join();
-		AAMPLOG_INFO("Joined tsbReaderThreadID");
+		auto t1 = std::chrono::steady_clock::now();
+		AAMPLOG_WARN("[stop ]tsbReaderThreadID join took %lld ms",
+			std::chrono::duration_cast<std::chrono::milliseconds>(t1 - t0).count());
 	}
 
 	for (int iTrack = 0; iTrack < mMaxTracks; iTrack++)
@@ -10842,8 +10856,12 @@ void StreamAbstractionAAMP_MPD::Stop(bool clearChannelData)
 		MediaStreamContext *track = mMediaStreamContext[iTrack];
 		if(track)
 		{
+			auto t0 = std::chrono::steady_clock::now();
 			aamp->StopTrackInjection((AampMediaType) iTrack);
 			track->StopInjectLoop();
+			auto t1 = std::chrono::steady_clock::now();
+			AAMPLOG_WARN("[stop ]Track[%d] StopInjectLoop took %lld ms", iTrack,
+				std::chrono::duration_cast<std::chrono::milliseconds>(t1 - t0).count());
 			if(!ISCONFIGSET(eAAMPConfig_GstSubtecEnabled))
 			{
 				if (iTrack == eMEDIATYPE_SUBTITLE && track->mSubtitleParser)
@@ -10873,14 +10891,23 @@ void StreamAbstractionAAMP_MPD::Stop(bool clearChannelData)
 		{
 			if(ISCONFIGSET(eAAMPConfig_UseSecManager) || ISCONFIGSET(eAAMPConfig_UseFireboltSDK))
 			{
+				auto t0 = std::chrono::steady_clock::now();
 				aamp->mDRMLicenseManager->notifyCleanup();
+				auto t1 = std::chrono::steady_clock::now();
+				AAMPLOG_WARN("[stop ]DRM notifyCleanup took %lld ms",
+					std::chrono::duration_cast<std::chrono::milliseconds>(t1 - t0).count());
 			}
 		}
 		aamp->mDRMLicenseManager->setSessionMgrState(SessionMgrState::eSESSIONMGR_INACTIVE);
 		if(tsbReaderThreadID.joinable())
 		{
+			auto t0 = std::chrono::steady_clock::now();
+			AAMPLOG_WARN("Waiting for tsbReaderThreadID (2nd call)...");
 			abortTsbReader = true;
 			tsbReaderThreadID.join();
+			auto t1 = std::chrono::steady_clock::now();
+			AAMPLOG_WARN("[stop ]tsbReaderThreadID (2nd call) join took %lld ms",
+				std::chrono::duration_cast<std::chrono::milliseconds>(t1 - t0).count());
 		}
 
 	}
@@ -10894,6 +10921,9 @@ void StreamAbstractionAAMP_MPD::Stop(bool clearChannelData)
 	{
 		mCdaiObject->NotifyAdLoopWait();
 	}
+	auto endAll = std::chrono::steady_clock::now();
+	AAMPLOG_WARN("==== [stop ]Stop() finished in %lld ms ====",
+		std::chrono::duration_cast<std::chrono::milliseconds>(endAll - startAll).count());
 }
 
 StreamOutputFormat GetSubtitleFormat(std::string mimeType)

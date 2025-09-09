@@ -77,6 +77,16 @@ typedef enum
 	PROFILE_BUCKET_DISCO_TOTAL,          /**< Discontinuity transition total bucket*/
 	PROFILE_BUCKET_DISCO_FLUSH,           /**< Discontinuity transition pipeline flush bucket*/
 	PROFILE_BUCKET_DISCO_FIRST_FRAME,      /**< Discontinuity transition first frame displayed bucket*/
+
+	PROFILE_BUCKET_STREAMER_STOP,				  /**< Stop streamer thread bucket*/
+	PROFILE_BUCKET_SINK_STOP,					  /**< Stop sink thread bucket*/
+	PROFILE_BUCKET_DISC_HANDLING_STOP, /**< Discontinuity processing stop bucket*/
+	PROFILE_BUCKET_TSB_RELEASE,					  /**< Stop TSB session manager bucket*/
+	PROFILE_BUCKET_DRM_RELEASE,					  /**< DRM release bucket*/
+	PROFILE_BUCKET_RATE_CORRECTION_STOP,		  /**< Stop rate correction thread bucket*/
+	PROFILE_BUCKET_MANIFEST_DOWNLOADER_RELEASE,	  /**< Manifest downloader release bucket*/
+	PROFILE_BUCKET_STOP_TOTAL,					  /**< Stop total bucket*/
+
 	PROFILE_BUCKET_TYPE_COUNT           /**< Bucket count*/	
 } ProfilerBucketType;
 
@@ -213,7 +223,9 @@ private:
 #define bucketDuration(id) \
 		(buckets[id].complete?(buckets[id].tFinish - buckets[id].tStart):0)
 
+	bool tuneStart;						   /**< Flag to indicate whether tune is started or stopped */
 	long long tuneStartMonotonicBase;       /**< Base time from Monotonic clock for interval calculation */
+	long long tuneStopMonotonicBase;	   /**< Base time from Monotonic clock for interval calculation on stop*/
 
 	long long tuneStartBaseUTCMS;           /**< common UTC base for start of tune */
 	long long xreTimeBuckets[TuneTimeMax];  /**< Start time of each buckets for classic metrics conversion */
@@ -347,6 +359,18 @@ public:
 	 */
 	void TuneBegin(void);
 
+	/**
+	 * @fn TuneStop
+	 *
+	 * @return void
+	 */
+	void TuneStop(void);
+	/**
+	 * @brief Log stop time for the given stream format (e.g., DASH, HLS).
+	 *
+	 * @return void
+	 */
+	void LogStopTime(const char* streamType);
 	/**
 	 * @fn TuneEnd
 	 * @param[in] mTuneendmetrics - Tune End metrics values
