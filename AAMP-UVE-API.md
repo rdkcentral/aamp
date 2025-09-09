@@ -69,6 +69,38 @@ Click [here](#setup-reference-player) for Reference player setup for RDK
 * [Client DAI](#client-dai-feature-support)
 * [ATSC Support](#atsc---unified-video-engine-features)
 
+## Profiler Stop Time Metrics
+
+The AAMP profiler logs stop-time metrics using the `LogStopTime` function. These metrics help measure how long it takes to stop or release various internal components and threads during player shutdown. Each profiler bucket below captures the time to stop or release a specific module:
+
+| Bucket Name                                | Description                                                      |
+|--------------------------------------------|------------------------------------------------------------------|
+| PROFILE_BUCKET_RATE_CORRECTION_STOP        | Time to stop rate correction thread                              |
+| PROFILE_BUCKET_DISC_HANDLING_STOP          | Time to stop discontinuity handler                               |
+| PROFILE_BUCKET_STREAMER_STOP               | Time to stop streamer                                            |
+| PROFILE_BUCKET_SINK_STOP                   | Time to stop sink                                                |
+| PROFILE_BUCKET_MANIFEST_DOWNLOADER_RELEASE | Time to release manifest downloader                              |
+| PROFILE_BUCKET_TSB_RELEASE                 | Time to stop TSB (Time Shift Buffer)                             |
+| PROFILE_BUCKET_DRM_RELEASE                 | Time to release DRM resources                                    |
+| PROFILE_BUCKET_STOP_TOTAL                  | Total time to stop all components                                |
+
+The log output format is:
+
+```
+IP_AAMP_STOP_TIME: <version>,<build>,<tuneStopBaseUTCMS>,<streamType>,
+    <rate_correction_start>,<rate_correction_total>,
+    <disc_handling_start>,<disc_handling_total>,
+    <streamer_stop_start>,<streamer_stop_total>,
+    <sink_stop_start>,<sink_stop_total>,
+    <manifest_downloader_release_start>,<manifest_downloader_release_total>,
+    <tsb_stop_start>,<tsb_stop_total>,
+    <drm_release_start>,<drm_release_total>,
+    <stop_total>
+```
+
+Each pair represents the start time and total duration (in ms) for the corresponding stop operation, as measured by the profiler.
+
+Refer to the code for exact bucket usage and log details.
 
 ## Configuration
 

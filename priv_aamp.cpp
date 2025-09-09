@@ -4775,6 +4775,12 @@ void PrivateInstanceAAMP::GetOnVideoEndSessionStatData(std::string &data)
 void PrivateInstanceAAMP::TeardownStream(bool newTune, bool disableDownloads)
 {
 	std::unique_lock<std::recursive_mutex> lock(mLock);
+	//DISC_HANDLING STOP ,PROFILE_BUCKET_STREAMER_STOP, PROFILE_BUCKET_SINK_STOP buckets are utilized to measure the stop time of each buckets when stop operation is performed
+	//If we begin these profiles during trickplay or seek or new tune it will be overridden by the stop API when PrivateInstanceAAMP::Stop is called.
+	if(disableDownloads)
+	{
+		profiler.ProfileBegin(PROFILE_BUCKET_DISC_HANDLING_STOP);
+	}
 	//Have to perform this for trick and stop operations but avoid ad insertion related ones
 	AAMPLOG_WARN(" mProgressReportFromProcessDiscontinuity:%d mDiscontinuityTuneOperationId:%d newTune:%d", mProgressReportFromProcessDiscontinuity, mDiscontinuityTuneOperationId, newTune);
 	if ((mDiscontinuityTuneOperationId != 0) && (!newTune || mState == eSTATE_IDLE))
@@ -4826,7 +4832,12 @@ void PrivateInstanceAAMP::TeardownStream(bool newTune, bool disableDownloads)
 	ResetDiscontinuityInTracks();
 	UnblockWaitForDiscontinuityProcessToComplete();
 	ResetTrackDiscontinuityIgnoredStatus();
+	profiler.ProfileEnd(PROFILE_BUCKET_DISC_HANDLING_STOP);
 	lock.unlock();
+	if(disableDownloads)
+	{
+		profiler.ProfileBegin(PROFILE_BUCKET_STREAMER_STOP);
+	}
 	if (mpStreamAbstractionAAMP)
 	{
 		// Using StreamLock to make sure this is not interfering with GetFile() from PreCachePlaylistDownloadTask
@@ -4852,11 +4863,16 @@ void PrivateInstanceAAMP::TeardownStream(bool newTune, bool disableDownloads)
 		}
 		ReleaseStreamLock();
 	}
+	profiler.ProfileEnd(PROFILE_BUCKET_STREAMER_STOP);
 	m_lastSubClockSyncTime = std::chrono::system_clock::time_point();
 
 	lock.lock();
 	mVideoFormat = FORMAT_INVALID;
 	lock.unlock();
+	if(disableDownloads)
+	{
+		profiler.ProfileBegin(PROFILE_BUCKET_SINK_STOP);
+	}
 	if (streamerIsActive)
 	{
 		const bool forceStop = false;
@@ -4899,6 +4915,7 @@ void PrivateInstanceAAMP::TeardownStream(bool newTune, bool disableDownloads)
 				}
 			}
 		}
+		profiler.ProfileEnd(PROFILE_BUCKET_SINK_STOP);
 	}
 	else
 	{
@@ -7525,6 +7542,7 @@ bool PrivateInstanceAAMP::IsLiveStream()
  */
 void PrivateInstanceAAMP::Stop( bool isDestructing )
 {
+	profiler.TuneStop();
 	// Clear all the player events in the queue and sets its state to RELEASED as everything is done
 	mEventManager->FlushPendingEvents();
 	if( !isDestructing )
@@ -7571,7 +7589,10 @@ void PrivateInstanceAAMP::Stop( bool isDestructing )
 	}
 
 	UnblockWaitForDiscontinuityProcessToComplete();
+	profiler.ProfileBegin(PROFILE_BUCKET_RATE_CORRECTION_STOP);
 	StopRateCorrectionWorkerThread();
+	profiler.ProfileEnd(PROFILE_BUCKET_RATE_CORRECTION_STOP);
+
 	if(mTelemetryInterval > 0)
 	{
 		double bufferedDuration = 0.0;
@@ -7609,13 +7630,17 @@ void PrivateInstanceAAMP::Stop( bool isDestructing )
 	// stop the mpd update immediately after Stream abstraction delete
 	if(mMPDDownloaderInstance != nullptr)
 	{
+		profiler.ProfileBegin(PROFILE_BUCKET_MANIFEST_DOWNLOADER_RELEASE);
 		mMPDDownloaderInstance->Release();
+		profiler.ProfileEnd(PROFILE_BUCKET_MANIFEST_DOWNLOADER_RELEASE);
 	}
 
 	if(mTSBSessionManager)
 	{
+		profiler.ProfileBegin(PROFILE_BUCKET_TSB_RELEASE);
 		// Clear all the local TSB data
 		mTSBSessionManager->Flush();
+		profiler.ProfileEnd(PROFILE_BUCKET_TSB_RELEASE);
 	}
 
 	mId3MetadataCache.Reset();
@@ -7696,8 +7721,10 @@ void PrivateInstanceAAMP::Stop( bool isDestructing )
 	}
 	if (mDRMLicenseManager)
 	{
+		profiler.ProfileBegin(PROFILE_BUCKET_DRM_RELEASE);
 		/** Reset the license fetcher only DRM handle is deleting **/
 		mDRMLicenseManager->Stop();
+		profiler.ProfileEnd(PROFILE_BUCKET_DRM_RELEASE);
 	}
 
 	SAFE_DELETE(mCdaiObject);
@@ -7723,8 +7750,10 @@ void PrivateInstanceAAMP::Stop( bool isDestructing )
 	}
 	SetFlushFdsNeededInCurlStore(false);
 	EnableDownloads();
-
 	AampStreamSinkManager::GetInstance().DeactivatePlayer(this, true);
+	profiler.ProfileEnd(PROFILE_BUCKET_STOP_TOTAL);
+
+	profiler.LogStopTime(mMediaFormatName[mMediaFormat]);
 }
 
 const std::vector<TimedMetadata> & PrivateInstanceAAMP::GetTimedMetadata( void ) const

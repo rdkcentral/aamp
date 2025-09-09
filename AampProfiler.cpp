@@ -38,9 +38,9 @@
  * @brief ProfileEventAAMP Constructor
  */
 ProfileEventAAMP::ProfileEventAAMP():
-	tuneStartMonotonicBase(0), tuneStartBaseUTCMS(0), bandwidthBitsPerSecondVideo(0),
+	tuneStartMonotonicBase(0), tuneStopMonotonicBase(0), tuneStartBaseUTCMS(0), bandwidthBitsPerSecondVideo(0),
         bandwidthBitsPerSecondAudio(0), buckets(), drmErrorCode(0), enabled(false), xreTimeBuckets(), tuneEventList(),
-	tuneEventListMtx(), mTuneFailBucketType(PROFILE_BUCKET_MANIFEST), mTuneFailErrorCode(0), rateCorrection(0), bitrateChange(0), bufferChange(0), telemetryParam(NULL), mLldLowBuffObject(NULL),discontinuityParamMutex()
+	tuneEventListMtx(), mTuneFailBucketType(PROFILE_BUCKET_MANIFEST), mTuneFailErrorCode(0), rateCorrection(0), bitrateChange(0), bufferChange(0), telemetryParam(NULL), mLldLowBuffObject(NULL),discontinuityParamMutex(),	tuneStart(true)
 {
 }
 
@@ -194,6 +194,7 @@ void ProfileEventAAMP::getTuneEventsJSON(std::string &outStr, const std::string 
 void ProfileEventAAMP::TuneBegin(void)
 { // start tune
 	memset(buckets, 0, sizeof(buckets));
+	tuneStart = true;
 	tuneStartBaseUTCMS = NOW_SYSTEM_TS_MS;
 	tuneStartMonotonicBase = NOW_STEADY_TS_MS;
 	bandwidthBitsPerSecondVideo = 0;
@@ -212,6 +213,17 @@ void ProfileEventAAMP::TuneBegin(void)
 	}
 	mLldLowBuffObject = NULL;
 	telemetryParam = cJSON_CreateObject();
+}
+
+/**
+ *  @brief Profiler method to perform tune stop related operations.
+ */
+void ProfileEventAAMP::TuneStop(void)
+{
+	tuneStart = false;
+	tuneStopMonotonicBase = NOW_STEADY_TS_MS;
+	ProfileBegin(PROFILE_BUCKET_STOP_TOTAL);
+
 }
 
 /**
@@ -365,6 +377,7 @@ void ProfileEventAAMP::TuneEnd(TuneEndMetrics &mTuneEndMetrics,std::string appNa
 		}
 }
 
+
 /**
  *  @brief Method converting the AAMP style tune performance data to IP_EX_TUNETIME style data
  */
@@ -428,7 +441,7 @@ void ProfileEventAAMP::ProfileBegin(ProfilerBucketType type)
 	struct ProfilerBucket *bucket = &buckets[type];
 	if (!bucket->complete && (0==bucket->tStart))	//No other Begin should record before the End
 	{
-		bucket->tStart 		= (unsigned int)(NOW_STEADY_TS_MS - tuneStartMonotonicBase);
+		bucket->tStart 		= (unsigned int)(NOW_STEADY_TS_MS - (tuneStart ? tuneStartMonotonicBase : tuneStopMonotonicBase));
 		bucket->tFinish 	= bucket->tStart;
 		bucket->profileStarted = true;
 	}
@@ -456,7 +469,7 @@ void ProfileEventAAMP::ProfileEnd(ProfilerBucketType type)
 	struct ProfilerBucket *bucket = &buckets[type];
 	if (!bucket->complete && bucket->profileStarted)
 	{
-		bucket->tFinish = (unsigned int)(NOW_STEADY_TS_MS - tuneStartMonotonicBase);
+		bucket->tFinish = (unsigned int)(NOW_STEADY_TS_MS - (tuneStart ? tuneStartMonotonicBase : tuneStopMonotonicBase));
 		bucket->complete = true;
 	}
 }
@@ -654,3 +667,29 @@ void ProfileEventAAMP::GetTelemetryParam()
 	}
 }
 
+void ProfileEventAAMP::LogStopTime(const char* streamType)
+{
+    // Print bucket name and values for all relevant profiler buckets
+	AAMPLOG_WARN("IP_AAMP_STOP_TIME: %d,%s,%lld,%s," // version, build, tuneStoptBaseUTCMS ,streamType
+ 				 "%d,%d,"							 // PROFILE_BUCKET_RATE_CORRECTION_STOP: start, total
+				 "%d,%d,"							 // PROFILE_BUCKET_DISC_HANDLING_STOP: start, total
+				 "%d,%d,"							 // PROFILE_BUCKET_STREAMER_STOP: start, total
+				 "%d,%d,"							 // PROFILE_BUCKET_SINK_STOP: start, total
+				 "%d,%d,"							 // PROFILE_BUCKET_MANIFEST_DOWNLOADER_RELEASE: start, total
+				 "%d,%d,"							 // PROFILE_BUCKET_TSB_RELEASE: start, total
+				 "%d,%d,"							 // PROFILE_BUCKET_DRM_RELEASE: start, total
+				 "%d",							 	 // PROFILE_BUCKET_STOP_TOTAL: total
+
+				 AAMP_TUNETIME_VERSION, // version for this protocol, initially zero
+				 AAMP_VERSION,			// build - incremented when there are significant player changes/optimizations
+				 tuneStopMonotonicBase, // when tune logically stopped from AAMP perspective
+				 streamType,			// streamType
+				 buckets[PROFILE_BUCKET_RATE_CORRECTION_STOP].tStart, bucketDuration(PROFILE_BUCKET_RATE_CORRECTION_STOP),
+				 buckets[PROFILE_BUCKET_DISC_HANDLING_STOP].tStart, bucketDuration(PROFILE_BUCKET_DISC_HANDLING_STOP),
+				 buckets[PROFILE_BUCKET_STREAMER_STOP].tStart, bucketDuration(PROFILE_BUCKET_STREAMER_STOP),
+				 buckets[PROFILE_BUCKET_SINK_STOP].tStart, bucketDuration(PROFILE_BUCKET_SINK_STOP),
+				 buckets[PROFILE_BUCKET_MANIFEST_DOWNLOADER_RELEASE].tStart, bucketDuration(PROFILE_BUCKET_MANIFEST_DOWNLOADER_RELEASE),
+				 buckets[PROFILE_BUCKET_TSB_RELEASE].tStart, bucketDuration(PROFILE_BUCKET_TSB_RELEASE),
+				 buckets[PROFILE_BUCKET_DRM_RELEASE].tStart, bucketDuration(PROFILE_BUCKET_DRM_RELEASE),
+				 bucketDuration(PROFILE_BUCKET_STOP_TOTAL));
+}
