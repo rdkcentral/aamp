@@ -536,7 +536,7 @@ void MyAAMPEventListener::Event(const AAMPEventPtr& e)
 					auto end = ev->getEnd();
 					if( start<0 && end<0 )
 					{
-						snprintf( seekableRange, sizeof(seekableRange), "n/a" );
+						snprintf( seekableRange, sizeof(seekableRange), "(n/a)" );
 					}
 					else
 					{
