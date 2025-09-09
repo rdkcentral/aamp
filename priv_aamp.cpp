@@ -312,6 +312,8 @@ static gboolean PrivateInstanceAAMP_Resume(gpointer ptr)
 		aamp->pipeline_paused = false;
 		aamp->mSeekFromPausedState = false;
 		aamp->AcquireStreamLock();
+							AAMPLOG_WARN("Neil TuneHelper(tuneType)");
+
 		aamp->TuneHelper(tuneType);
 		aamp->ReleaseStreamLock();
 	}
@@ -391,6 +393,8 @@ static gboolean PrivateInstanceAAMP_Retune(gpointer ptr)
 		lock.unlock();
 
 		aamp->AcquireStreamLock();
+		AAMPLOG_WARN("Neil TuneHelper(eTUNETYPE_RETUNE)");
+
 		aamp->TuneHelper(eTUNETYPE_RETUNE);
 		aamp->ReleaseStreamLock();
 
@@ -3349,6 +3353,8 @@ void PrivateInstanceAAMP::NotifyEOSReached()
 			ReportProgress(true, true);
 			rate = AAMP_NORMAL_PLAY_RATE;
 			AcquireStreamLock();
+					AAMPLOG_WARN("Neil TuneHelper(eTUNETYPE_SEEK)");
+
 			TuneHelper(eTUNETYPE_SEEK);
 			ReleaseStreamLock();
 			NotifySpeedChanged(rate);
@@ -3357,6 +3363,8 @@ void PrivateInstanceAAMP::NotifyEOSReached()
 		{
 			rate = AAMP_NORMAL_PLAY_RATE;
 			AcquireStreamLock();
+			AAMPLOG_WARN("Neil TuneHelper(eTUNETYPE_SEEKTOLIVE)");
+
 			TuneHelper(eTUNETYPE_SEEKTOLIVE);
 			ReleaseStreamLock();
 			NotifySpeedChanged(rate);
@@ -5114,6 +5122,8 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 {
 	bool newTune;
 
+	AAMPLOG_INFO("Neil entering TuneHelper()");
+
 	aampApplyThreadPrioFromEnv("AAMP_AV_PIPELINE_PRIORITY", SCHED_OTHER, 0);
 	for (int i = 0; i < AAMP_TRACK_COUNT; i++)
 	{
@@ -5132,6 +5142,8 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 	{ // Player state not updated correctly after seek
 		// Prevent gstreamer callbacks from placing us back into playing state by setting these gate flags before CBs are triggered
 		// in this routine. See NotifyFirstFrameReceived(), NotifyFirstBufferProcessed(), NotifyFirstVideoFrameDisplayed()
+	AAMPLOG_INFO("Neil seekWhilePaused");
+
 		mPauseOnFirstVideoFrameDisp = true;
 		mFirstVideoFrameDisplayedEnabled = true;
 	}
@@ -5139,7 +5151,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 	if((eTUNETYPE_SEEK == tuneType) || (eTUNETYPE_NEW_SEEK == tuneType))
 	{
 		/** Enabled rate Correction by default, seek case and live added later point  **/
-		AAMPLOG_INFO("Live latency correction is disabled for seek by default!!");
+		AAMPLOG_INFO("Neil Live latency correction is disabled for seek by default!!");
 		mDisableRateCorrection = true;
 		//Logging should be deactivated if the buffer exceeds the minimum buffer size or if seeking occurs
 		if(mIsLoggingNeeded && mConfig->GetConfigOwner(eAAMPConfig_InfoLogging) == AAMP_DEFAULT_SETTING)
@@ -5166,7 +5178,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 	if (eTUNETYPE_LAST == tuneType)
 	{
 		tuneType = mTuneType;
-		AAMPLOG_INFO("Set tune type to last value %d", tuneType);
+		AAMPLOG_INFO("Neil Set tune type to last value %d", tuneType);
 	}
 	else
 	{
@@ -5174,7 +5186,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 	}
 
 	newTune = IsNewTune();
-	AAMPLOG_INFO("tuneType %d newTune %d", tuneType, newTune);
+	AAMPLOG_INFO("Neil tuneType %d newTune %d", tuneType, newTune);
 
 	// Get position before pipeline is teared down
 	if (eTUNETYPE_RETUNE == tuneType)
@@ -5186,7 +5198,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 		//Only trigger the clear to encrypted pipeline switch while on retune
 		mEncryptedPeriodFound = false;
 		mPipelineIsClear = false;
-		AAMPLOG_INFO ("Resetting mClearPipeline & mEncryptedPeriodFound");
+		AAMPLOG_INFO ("Neil Resetting mClearPipeline & mEncryptedPeriodFound");
 	}
 
 	TeardownStream(newTune|| (eTUNETYPE_RETUNE == tuneType));
@@ -5259,13 +5271,16 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 	trickStartUTCMS = -1;
 
 	double playlistSeekPos = seek_pos_seconds - culledSeconds;
-	AAMPLOG_INFO("playlistSeek : %f seek_pos_seconds:%f culledSeconds : %f ",playlistSeekPos,seek_pos_seconds,culledSeconds);
+	AAMPLOG_INFO("Neil playlistSeek : %f seek_pos_seconds:%f culledSeconds : %f ",playlistSeekPos,seek_pos_seconds,culledSeconds);
 	if (playlistSeekPos < 0)
 	{
 		playlistSeekPos = 0;
 		seek_pos_seconds = culledSeconds;
-		AAMPLOG_MIL("Updated seek_pos_seconds %f ", seek_pos_seconds);
+		AAMPLOG_MIL("Neil Updated seek_pos_seconds %f ", seek_pos_seconds);
 	}
+	else
+		AAMPLOG_MIL("Neil Updated seek_pos_seconds = 0 ");
+
 
 	if (mMediaFormat == eMEDIAFORMAT_DASH)
 	{
@@ -5357,7 +5372,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 	if(newTune && !IsLocalAAMPTsb() && GetTSBSessionManager())
 	{
 		// Set Local TSB flag after starting the streamabstraction
-		AAMPLOG_MIL("Enabling local TSB handling for the new tune");
+		AAMPLOG_MIL("Neil Enabling local TSB handling for the new tune");
 		SetLocalAAMPTsb(true);
 	}
 	// Local AAMP TSB injection is true if Local AAMP TSB is enabled and TuneHelper() is called for
@@ -5414,7 +5429,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 	{
 		if (mMediaFormat != eMEDIAFORMAT_DASH)
 		{
-			AAMPLOG_WARN("PrivateInstanceAAMP: tune to end not supported for format");
+			AAMPLOG_WARN("Neil PrivateInstanceAAMP: tune to end not supported for format");
 			retVal = eAAMPSTATUS_GENERIC_ERROR;
 		}
 	}
@@ -5506,10 +5521,10 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 		AAMP-CONFIG-2033_live
 		AAMP-CONFIG-2029_seekMidFragment
 		*/
-		AAMPLOG_MIL("Updated seek_pos_seconds %f culledSeconds/start %f culledOffset %f", seek_pos_seconds, culledSeconds, culledOffset);
+		AAMPLOG_MIL("Neil Updated seek_pos_seconds %f culledSeconds/start %f culledOffset %f", seek_pos_seconds, culledSeconds, culledOffset);
 
 		GetStreamFormat(mVideoFormat, mAudioFormat, mAuxFormat, mSubtitleFormat);
-		AAMPLOG_INFO("TuneHelper : mVideoFormat %d, mAudioFormat %d mAuxFormat %d", mVideoFormat, mAudioFormat, mAuxFormat);
+		AAMPLOG_INFO("Neil TuneHelper : mVideoFormat %d, mAudioFormat %d mAuxFormat %d", mVideoFormat, mAudioFormat, mAuxFormat);
 
 		//Identify if HLS with mp4 fragments, to change media format
 		if (mVideoFormat == FORMAT_ISO_BMFF && mMediaFormat == eMEDIAFORMAT_HLS)
@@ -5546,7 +5561,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 			mFragmentCachingRequired = true;
 		}
 
-		AAMPLOG_INFO("TuneHelper - seek_pos: %f", seek_pos_seconds);
+		AAMPLOG_INFO("Neil TuneHelper - seek_pos: %f", seek_pos_seconds);
 		UpdatePTSOffsetFromTune(seek_pos_seconds, true);
 
 		// Set Pause on First Video frame if seeking and requested
@@ -6168,6 +6183,8 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 	SAFE_DELETE(mCdaiObject);
 	
 	AcquireStreamLock();
+			AAMPLOG_WARN("Neil TuneHelper(tuneType)");
+
 	TuneHelper(tuneType);
 
 	//Apply the cached video mute call as it got invoked when stream lock was not available
@@ -10105,6 +10122,8 @@ void PrivateInstanceAAMP::SetVideoTracks(std::vector<BitsPerSecond> bitrateList)
 	if (state > eSTATE_PREPARING)
 	{
 		AcquireStreamLock();
+					AAMPLOG_WARN("Neil TuneHelper(eTUNETYPE_RETUNE)");
+
 		TuneHelper(eTUNETYPE_RETUNE);
 		ReleaseStreamLock();
 	}
@@ -10898,6 +10917,7 @@ void PrivateInstanceAAMP::SetTextTrack(int trackId, char *data)
 								seek_pos_seconds = GetPositionSeconds();
 								AcquireStreamLock();
 								TeardownStream(false);
+								AAMPLOG_WARN("Neil TuneHelper(eTUNETYPE_SEEK)");
 								TuneHelper(eTUNETYPE_SEEK);
 								ReleaseStreamLock();
 								discardEnteringLiveEvt = false;
@@ -11950,6 +11970,7 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 								AAMPLOG_INFO("Recreate the TSB Session Manager");
 								CreateTsbSessionManager();
 								SetLocalAAMPTsbInjection(false);
+								AAMPLOG_WARN("Neil TuneHelper(eTUNETYPE_SEEKTOLIVE)");
 								TuneHelper(eTUNETYPE_SEEKTOLIVE);
 							}
 							else
@@ -11959,10 +11980,13 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 						}
 						else if(mDisableRateCorrection)
 						{
-							TuneHelper(eTUNETYPE_SEEK);
+						AAMPLOG_WARN("Neil TuneHelper(eTUNETYPE_SEEK)");
+						TuneHelper(eTUNETYPE_SEEK);
 						}
 						else
 						{
+						AAMPLOG_WARN("Neil TuneHelper(eTUNETYPE_SEEKTOLIVE)");
+
 							TuneHelper(eTUNETYPE_SEEKTOLIVE);
 						}
 					}
@@ -12352,6 +12376,8 @@ void PrivateInstanceAAMP::SetPreferredTextLanguages(const char *param )
 							AAMPLOG_INFO("Recreate the TSB Session Manager and Tune to Live");
 							CreateTsbSessionManager();
 							SetLocalAAMPTsbInjection(false);
+						AAMPLOG_WARN("Neil TuneHelper(eTUNETYPE_SEEKTOLIVE 1)");
+
 							TuneHelper(eTUNETYPE_SEEKTOLIVE);
 						}
 						else
@@ -12361,6 +12387,8 @@ void PrivateInstanceAAMP::SetPreferredTextLanguages(const char *param )
 					}
 					else
 					{
+						AAMPLOG_WARN("Neil TuneHelper(eTUNETYPE_SEEK)");
+
 						TuneHelper(eTUNETYPE_SEEK);
 					}
 

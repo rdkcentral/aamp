@@ -821,6 +821,8 @@ static void GstPlayer_SignalEOS(GstPlayerPriv* gstPrivateContext)
  */
 void InterfacePlayerRDK::SetSeekPosition(double positionSecs)
 {
+	MW_LOG_ERR(" Neil entering nterfacePlayerRDK::SetSeekPosition(%f)", positionSecs);
+	
 	gstPrivateContext->seekPosition = positionSecs;
 	for (int i = 0; i < GST_TRACK_COUNT; i++)
 	{
@@ -1453,13 +1455,15 @@ bool InterfacePlayerRDK::Flush(double position, int rate, bool shouldTearDown, b
 	GstState current;
 	GstState pending;
 
+	MW_LOG_MIL("Neil entering InterfacePlayerRDK::Flush(position = %f, rate = %d)",position, rate);
+
 	gst_media_stream *stream = &gstPrivateContext->stream[eGST_MEDIATYPE_VIDEO];
 	gstPrivateContext->rate = rate;
 	gstPrivateContext->stream[eGST_MEDIATYPE_VIDEO].bufferUnderrun = false;
 	gstPrivateContext->stream[eGST_MEDIATYPE_AUDIO].bufferUnderrun = false;
 	if (gstPrivateContext->eosCallbackIdleTaskPending)
 	{
-		MW_LOG_MIL("InterfacePlayerRDK: Remove eosCallbackIdleTaskId %d", gstPrivateContext->eosCallbackIdleTaskId);
+		MW_LOG_MIL("Neil InterfacePlayerRDK: Remove eosCallbackIdleTaskId %d", gstPrivateContext->eosCallbackIdleTaskId);
 		mScheduler.RemoveTask(gstPrivateContext->eosCallbackIdleTaskId);
 		gstPrivateContext->eosCallbackIdleTaskId = PLAYER_TASK_ID_INVALID;
 		gstPrivateContext->eosCallbackIdleTaskPending = false;
@@ -1467,14 +1471,14 @@ bool InterfacePlayerRDK::Flush(double position, int rate, bool shouldTearDown, b
 	}
 	if (gstPrivateContext->ptsCheckForEosOnUnderflowIdleTaskId)
 	{
-		MW_LOG_MIL("InterfacePlayerRDK: Remove ptsCheckForEosCallbackIdleTaskId %d", gstPrivateContext->ptsCheckForEosOnUnderflowIdleTaskId);
+		MW_LOG_MIL("NEIL InterfacePlayerRDK: Remove ptsCheckForEosCallbackIdleTaskId %d", gstPrivateContext->ptsCheckForEosOnUnderflowIdleTaskId);
 		g_source_remove(gstPrivateContext->ptsCheckForEosOnUnderflowIdleTaskId);
 		gstPrivateContext->ptsCheckForEosOnUnderflowIdleTaskId = PLAYER_TASK_ID_INVALID;
 
 	}
 	if (gstPrivateContext->bufferingTimeoutTimerId)
 	{
-		MW_LOG_MIL("InterfacePlayerRDK: Remove bufferingTimeoutTimerId %d", gstPrivateContext->bufferingTimeoutTimerId);
+		MW_LOG_MIL("NEIL InterfacePlayerRDK: Remove bufferingTimeoutTimerId %d", gstPrivateContext->bufferingTimeoutTimerId);
 		g_source_remove(gstPrivateContext->bufferingTimeoutTimerId);
 		gstPrivateContext->bufferingTimeoutTimerId = PLAYER_TASK_ID_INVALID;
 
@@ -1485,7 +1489,7 @@ bool InterfacePlayerRDK::Flush(double position, int rate, bool shouldTearDown, b
 
 	if (gstPrivateContext->pipeline == NULL)
 	{
-		MW_LOG_WARN("InterfacePlayerRDK: Pipeline is NULL");
+		MW_LOG_WARN("NEIL InterfacePlayerRDK: Pipeline is NULL");
 		return false;
 	}
 	bool bAsyncModify = false;
@@ -1502,10 +1506,10 @@ bool InterfacePlayerRDK::Flush(double position, int rate, bool shouldTearDown, b
 	ret = gst_element_get_state(gstPrivateContext->pipeline, &current, &pending, 100 * GST_MSECOND);
 	if ((current != GST_STATE_PLAYING && current != GST_STATE_PAUSED) || ret == GST_STATE_CHANGE_FAILURE)
 	{
-		MW_LOG_WARN("InterfacePlayerRDK: Pipeline state %s, ret %u", gst_element_state_get_name(current), ret);
+		MW_LOG_WARN("NEIL InterfacePlayerRDK: Pipeline state %s, ret %u", gst_element_state_get_name(current), ret);
 		if (shouldTearDown)
 		{
-			MW_LOG_WARN("InterfacePlayerRDK: Pipeline is not in playing/paused state, hence resetting it");
+			MW_LOG_WARN("NEIL InterfacePlayerRDK: Pipeline is not in playing/paused state, hence resetting it");
 			if (rate > GST_NORMAL_PLAY_RATE)
 			{
 				SetTrickTearDown(true);
@@ -1528,7 +1532,7 @@ bool InterfacePlayerRDK::Flush(double position, int rate, bool shouldTearDown, b
 			{
 				if (shouldTearDown)
 				{
-					MW_LOG_WARN("InterfacePlayerRDK: Pipeline is in playing/paused state, but audio_dec is in %s state, resetting it ret %u",
+					MW_LOG_WARN("NEIL InterfacePlayerRDK: Pipeline is in playing/paused state, but audio_dec is in %s state, resetting it ret %u",
 								gst_element_state_get_name(aud_current), ret);
 					stopCallback(true);
 					// Set the rate back to the original value if it was an recovery Stop() call
@@ -1537,14 +1541,14 @@ bool InterfacePlayerRDK::Flush(double position, int rate, bool shouldTearDown, b
 				}
 			}
 		}
-		MW_LOG_MIL("InterfacePlayerRDK: Pipeline is in %s state position %f ret %d", gst_element_state_get_name(current), position, ret);
+		MW_LOG_MIL("NEIL InterfacePlayerRDK: Pipeline is in %s state position %f ret %d", gst_element_state_get_name(current), position, ret);
 	}
 	/* Disabling the flush flag to avoid */
 	/* flush call again (which may cause freeze sometimes)      */
 	/* from SendGstEvents() API.
 	 */
 	ResetGstEvents();
-	MW_LOG_INFO("InterfacePlayerRDK: Pipeline flush seek - start = %f rate = %d", position, rate);
+	MW_LOG_INFO("Neil InterfacePlayerRDK: Pipeline flush seek - start = %f rate = %d", position, rate);
 	double playRate = 1.0;
 	if (eGST_MEDIAFORMAT_PROGRESSIVE == static_cast<GstMediaFormat>(m_gstConfigParam->media))
 	{
@@ -1555,14 +1559,14 @@ bool InterfacePlayerRDK::Flush(double position, int rate, bool shouldTearDown, b
 	{
 		if ((socInterface->IsSimulatorSink() || gstPrivateContext->usingRialtoSink) && rate != GST_NORMAL_PLAY_RATE)
 		{
-			MW_LOG_INFO("Resetting seek position to zero");
+			MW_LOG_INFO("NEIL Resetting seek position to zero");
 			position = 0;
 		}
 	}
 	if (!gst_element_seek(gstPrivateContext->pipeline, playRate, GST_FORMAT_TIME, GST_SEEK_FLAG_FLUSH, GST_SEEK_TYPE_SET,
 						  position * GST_SECOND, GST_SEEK_TYPE_NONE, GST_CLOCK_TIME_NONE))
 	{
-		MW_LOG_ERR("Seek failed");
+		MW_LOG_ERR("NEIL Seek failed");
 		SetPendingSeek(true);
 		//Save the updated seek position
 		SetSeekPosition(position);
@@ -1576,7 +1580,7 @@ bool InterfacePlayerRDK::Flush(double position, int rate, bool shouldTearDown, b
 		 * If trickplay, avoid tearing down the pipeline in ConfigurePipeline(),
 		 * by bringing the audio pipeline out of pre-roll which would block streaming.
 		 */
-		MW_LOG_INFO("Trickplay rate %d - send eos to audio sink", rate);
+		MW_LOG_INFO("NEIL Trickplay rate %d - send eos to audio sink", rate);
 		GstPlayer_SignalEOS(gstPrivateContext->stream[eGST_MEDIATYPE_AUDIO]);
 	}
 
@@ -1586,6 +1590,7 @@ bool InterfacePlayerRDK::Flush(double position, int rate, bool shouldTearDown, b
 	}
 	gstPrivateContext->eosSignalled = false;
 	gstPrivateContext->numberOfVideoBuffersSent = 0;
+	MW_LOG_INFO("NEIL leaving interfacePlayerRDK::Flush()");
 	return true;
 }
 void InterfacePlayerRDK::SignalConnect(gpointer instance, const gchar *detailed_signal, GCallback c_handler, gpointer data)
@@ -1699,6 +1704,8 @@ void InterfacePlayerRDK::InitializeSourceForPlayer(void *PlayerInstance, void * 
 	_this->SignalConnect(source, "enough-data", G_CALLBACK(gst_enough_data), _this);	/* Sets up the call back function for enough data event */
 	_this->SignalConnect(source, "seek-data", G_CALLBACK(gstappsrc_seek), _this);		/* Sets up the call back function for seek data event */
 	gst_app_src_set_stream_type(GST_APP_SRC(source), GST_APP_STREAM_TYPE_SEEKABLE);
+
+	MW_LOG_INFO("Neil entering InitializeSourceForPlayer()");
 	if (eGST_MEDIATYPE_VIDEO == mediaType )
 	{
 		int MaxGstVideoBufBytes = m_gstConfigParam->videoBufBytes;
@@ -2253,11 +2260,11 @@ void InterfacePlayerRDK::SendGstEvents(GstMediaType mediaType, GstClockTime pts)
 	{
 		if(gstPrivateContext->seekPosition > 0)
 		{
-			MW_LOG_MIL("gst_element_seek_simple! mediaType:%d pts:%" GST_TIME_FORMAT " seekPosition:%" GST_TIME_FORMAT,
+			MW_LOG_MIL("Neil gst_element_seek_simple! mediaType:%d pts:%" GST_TIME_FORMAT " seekPosition:%" GST_TIME_FORMAT,
 				mediaType, GST_TIME_ARGS(pts), GST_TIME_ARGS(gstPrivateContext->seekPosition * GST_SECOND));
 			if(!gst_element_seek_simple(GST_ELEMENT(stream->source), GST_FORMAT_TIME, GST_SEEK_FLAG_FLUSH, (gstPrivateContext->seekPosition * GST_SECOND)))
 			{
-				MW_LOG_ERR("Seek failed");
+				MW_LOG_ERR("Neil 1 Seek failed");
 			}
 
 		}
@@ -3711,7 +3718,7 @@ static GstPadProbeReturn GstPlayer_HandleInstantRateChangeSeekProbe(GstPad* pad,
 	gdouble rate = 1.0;
 	GstSeekFlags flags = GST_SEEK_FLAG_NONE;
 	gst_event_parse_seek (event, &rate, nullptr, &flags, nullptr, nullptr, nullptr, nullptr);
-	MW_LOG_TRACE("rate %f segment->rate %f segment->format %d %d", rate, segment->rate, segment->format, GST_FORMAT_TIME);
+	MW_LOG_TRACE("Neil rate %f segment->rate %f segment->format %d %d", rate, segment->rate, segment->format, GST_FORMAT_TIME);
 
 	if (!!(flags & GST_SEEK_FLAG_INSTANT_RATE_CHANGE))
 	{
@@ -5118,7 +5125,7 @@ double InterfacePlayerRDK::FlushTrack(int mediaType, double pos, double audioDel
 	double startPosition = 0;
 	GstMediaType type = static_cast<GstMediaType>(mediaType);
 
-	MW_LOG_MIL("Entering InterfacePlayerRDK::FlushTrack() type[%d] pipeline state %s pos %lf",(int)type,
+	MW_LOG_MIL("Neil Entering InterfacePlayerRDK::FlushTrack() type[%d] pipeline state %s pos %lf",(int)type,
 			   gst_element_state_get_name(GST_STATE(gstPrivateContext->pipeline)), pos);
 	gst_media_stream *stream = &this->gstPrivateContext->stream[type];
 	double rate = (double)GST_NORMAL_PLAY_RATE;
@@ -5140,7 +5147,7 @@ double InterfacePlayerRDK::FlushTrack(int mediaType, double pos, double audioDel
 							 pos * GST_SECOND);
 
 	startPosition = pos;
-	MW_LOG_MIL("Exiting InterfacePlayerRDK::FlushTrack() type[%d] pipeline state: %s startPosition: %lf Delta %lf",(int)type, gst_element_state_get_name(GST_STATE(gstPrivateContext->pipeline)), startPosition, (int)type==eGST_MEDIATYPE_AUDIO?audioDelta:subDelta);
+	MW_LOG_MIL("Neil Exiting InterfacePlayerRDK::FlushTrack() type[%d] pipeline state: %s startPosition: %lf Delta %lf",(int)type, gst_element_state_get_name(GST_STATE(gstPrivateContext->pipeline)), startPosition, (int)type==eGST_MEDIATYPE_AUDIO?audioDelta:subDelta);
 
 	return rate;
 }
