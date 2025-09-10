@@ -27,14 +27,14 @@
 #include <assert.h>
 #include <glib.h>
 
-bool AampGrowableBuffer::gbEnableLogging = true;
+bool AampGrowableBuffer::gbEnableLogging = false;
 int AampGrowableBuffer::gNetMemoryCount = 0;
 int AampGrowableBuffer::gNetMemoryHighWatermark = 0;
 
 
 void AampGrowableBuffer::EnableLogging( bool enable )
 {
-    gbEnableLogging = true;
+    gbEnableLogging = enable;
 }
 
 AampGrowableBuffer::~AampGrowableBuffer( void )
@@ -50,12 +50,10 @@ void AampGrowableBuffer::Free( void )
 	if( ptr )
 	{
 		NETMEMORY_MINUS();
-        //if( gbEnableLogging )
+        if( gbEnableLogging )
         {
             printf("AampGrowableBuffer::%s(%s:%d) %p\n", "Free",name,gNetMemoryCount,ptr);
         }
-		//g_free( ptr );
-		//ptr = NULL;
 		g_clear_pointer(&ptr, g_free);
 	}
 	len = 0;
