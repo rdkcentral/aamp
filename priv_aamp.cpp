@@ -45,6 +45,8 @@
 #include "AampStreamSinkManager.h"
 #include "SubtecFactory.hpp"
 #include "AampGrowableBuffer.h"
+#include <thread>
+#include <chrono>
 
 #include "PlayerCCManager.h"
 #include "AampDRMLicPreFetcher.h"
@@ -7497,6 +7499,7 @@ void PrivateInstanceAAMP::SendStreamTransfer(AampMediaType mediaType, AampGrowab
 	{
 		buffer->Free();
 	}
+std::this_thread::sleep_for(std::chrono::milliseconds(20));
 }
 
 /**
