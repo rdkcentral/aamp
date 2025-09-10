@@ -38,7 +38,7 @@ include_directories(SYSTEM ${UTESTS_ROOT}/mocks)
 
 set(TEST_SOURCES    MediaTrackTests.cpp
                     MediaTrackTestsMain.cpp)
-set(AAMP_SOURCES ${AAMP_ROOT}/streamabstraction.cpp )
+set(AAMP_SOURCES ${AAMP_ROOT}/streamabstraction.cpp ${AAMP_ROOT}/CachedFragment.cpp )
 add_executable(${EXEC_NAME}
                ${TEST_SOURCES}
                ${AAMP_SOURCES})

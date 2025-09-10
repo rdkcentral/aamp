@@ -39,7 +39,7 @@ include_directories(SYSTEM ${UTESTS_ROOT}/mocks)
 
 set(TEST_SOURCES    CacheFragmentTests.cpp
 		    CacheFragmentAampTests.cpp)
-set(AAMP_SOURCES ${AAMP_ROOT}/streamabstraction.cpp ${AAMP_ROOT}/MediaStreamContext.cpp ${AAMP_ROOT}/AampGrowableBuffer.cpp)
+set(AAMP_SOURCES ${AAMP_ROOT}/streamabstraction.cpp ${AAMP_ROOT}/CachedFragment.cpp ${AAMP_ROOT}/MediaStreamContext.cpp ${AAMP_ROOT}/AampGrowableBuffer.cpp)
 add_executable(${EXEC_NAME}
                ${TEST_SOURCES}
                ${AAMP_SOURCES})
