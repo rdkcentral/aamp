@@ -21,6 +21,8 @@
  * @file gstaampplayreadydecryptor.cpp
  * @brief aamp Playready decryptor plugin definitions
  */
+#ifndef UBUNTU
+// avoid ubuntu-specific segFault
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -103,7 +105,6 @@ static void gst_aampplayreadydecryptor_init(GstAampplayreadydecryptor *aampplayr
     DEBUG_FUNC();
 }
 
-
 /**
  * @brief Playready decryptor element termination
  * @param object playready decryptor element pointer
@@ -113,6 +114,4 @@ static void gst_aampplayreadydecryptor_finalize(GObject * object)
     DEBUG_FUNC();
     GST_CALL_PARENT(G_OBJECT_CLASS, finalize, (object));
 }
-
-
-
+#endif // UBUNTU

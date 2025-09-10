@@ -21,6 +21,8 @@
  * @file gstaampclearkeydecryptor.cpp
  * @brief aamp clearkey decryptor plugin definitions
  */
+#ifndef UBUNTU
+// avoid ubuntu-specific segFault
 
 #ifdef HAVE_CONFIG_H
 #include "config.h"
@@ -66,7 +68,7 @@ static GstStaticPadTemplate gst_aampclearkeydecryptor_sink_template =
 
 static GstStaticPadTemplate gst_aampclearkeydecryptor_dummy_sink_template =
         GST_STATIC_PAD_TEMPLATE("sink", GST_PAD_SINK, GST_PAD_ALWAYS,
-                GST_STATIC_CAPS("clearkey/x-unused"));
+                GST_STATIC_CAPS("clearkey/x-unused")); // unused?
 
 /**
  * @brief clearkey decryptor class initialization
@@ -103,7 +105,6 @@ static void gst_aampclearkeydecryptor_init(GstAampclearkeydecryptor *aampclearke
     DEBUG_FUNC();
 }
 
-
 /**
  * @brief clearkey decryptor element termination
  * @param object clearkey decryptor element pointer
@@ -113,5 +114,4 @@ static void gst_aampclearkeydecryptor_finalize(GObject * object)
     DEBUG_FUNC();
     GST_CALL_PARENT(G_OBJECT_CLASS, finalize, (object));
 }
-
-
+#endif // UBUNTU
