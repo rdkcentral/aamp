@@ -106,6 +106,7 @@ std::string ProfileEventAAMP::GetTuneTimeMetricAsJson(TuneEndMetrics tuneMetrics
 
 	cJSON_AddNumberToObject(item, "gps", (playerPreBuffered && tuneMetricsData.success > 0) ? buckets[PROFILE_BUCKET_FIRST_BUFFER].tStart - buckets[PROFILE_BUCKET_PLAYER_PRE_BUFFERED].tStart : buckets[PROFILE_BUCKET_FIRST_BUFFER].tStart);
 	cJSON_AddNumberToObject(item, "gff", (playerPreBuffered && tuneMetricsData.success > 0) ? buckets[PROFILE_BUCKET_FIRST_FRAME].tStart - buckets[PROFILE_BUCKET_PLAYER_PRE_BUFFERED].tStart : buckets[PROFILE_BUCKET_FIRST_FRAME].tStart);
+	cJSON_AddNumberToObject(item, "gdt", (buckets[PROFILE_BUCKET_FIRST_FRAME].tStart - (buckets[PROFILE_BUCKET_DECRYPT_VIDEO].tFinish ? buckets[PROFILE_BUCKET_DECRYPT_VIDEO].tFinish : buckets[PROFILE_BUCKET_FIRST_BUFFER].tStart)));
 
 	cJSON_AddNumberToObject(item, "cnt", tuneMetricsData.contentType);
 	cJSON_AddNumberToObject(item, "stt", tuneMetricsData.streamType);
@@ -252,6 +253,7 @@ void ProfileEventAAMP::TuneBegin(void)
  * <br>
  * gstStart,                      // offset in ms from tunestart when pipeline creation/setup begins<br>
  * gstFirstFrame,                 // offset in ms from tunestart when first frame of video is decoded/presented<br>
+ * gstDecodeTime,                 // time taken in ms to decode first frame, post decryption. This will also includes any decoder init overheads<br>
  * contentType,                   //Playback Mode. Values: CDVR, VOD, LINEAR, IVOD, EAS, CAMERA, DVR, MDVR, IPDVR, PPV<br>
  * streamType,                    //Stream Type. Values: 10-HLS/Clear, 11-HLS/Consec, 12-HLS/Access, 13-HLS/Vanilla AES, 20-DASH/Clear, 21-DASH/WV, 22-DASH/PR<br>
  * firstTune                      //First tune after reboot/crash<br>
@@ -316,7 +318,7 @@ void ProfileEventAAMP::TuneEnd(TuneEndMetrics &mTuneEndMetrics,std::string appNa
 		"%d,%d,%d,"		// LAPreProcDuration, LANetworkDuration, LAPostProcDuration
 
 		"%d,%d,"		// VideoDecryptDuration, AudioDecryptDuration
-		"%d,%d,%d,"		// gstPlayStartTime, gstFirstFrameTime
+		"%d,%d,%d,"		// gstPlayStartTime, gstFirstFrameTime, gstDecodeTime
 		"%d,%d,%d,"		// contentType, streamType, firstTune
 		"%d,%d,"		// If Player was in prebuffered mode, time spent in prebuffered(BG) mode
 		"%d,%d,"		// Asset duration in seconds, Connection is wifi or not - wifi(1) ethernet(0)
@@ -346,7 +348,7 @@ void ProfileEventAAMP::TuneEnd(TuneEndMetrics &mTuneEndMetrics,std::string appNa
 
 		(playerPreBuffered && mTuneEndMetrics.success > 0) ? tFirstBufferStart - tPreBufferStart : tFirstBufferStart, // gstPlaying: offset in ms from tunestart when pipeline first fed data
 		(playerPreBuffered && mTuneEndMetrics.success > 0) ? tFirstFrameStart - tPreBufferStart : tFirstFrameStart,  // gstFirstFrame: offset in ms from tunestart when first frame of video is decoded/presented
-		tDecode, // gstDecode: time taken to decode first frame, excluding decryption time
+		tDecode, // gstDecode: time taken to decode first frame, excluding decryption time. For clear streams, this will be the overall time spent in pipeline
 		mTuneEndMetrics.contentType,mTuneEndMetrics.streamType,mTuneEndMetrics.mFirstTune,
 		playerPreBuffered,playerPreBuffered ? tPreBufferStart : 0,
 		durationSeconds,interfaceWifi,
