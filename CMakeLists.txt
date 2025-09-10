@@ -262,6 +262,7 @@ set(LIBAAMP_SOURCES
 	iso639map.cpp iso639map.h
 	AampCacheHandler.cpp AampCacheHandler.h
 	AampGrowableBuffer.cpp AampGrowableBuffer.h
+	CachedFragment.cpp CachedFragment.h
 	AampScheduler.cpp AampScheduler.h
 	AampUtils.cpp AampUtils.h
 	AampJsonObject.cpp AampJsonObject.h
