@@ -769,6 +769,8 @@ class InterfacePlayerRDK
 		 */
 		const MonitorAVState& GetMonitorAVState();
 
+		GstFlowReturn InterfacePlayerRDK_OnVideoSample(GstElement* object, void *_this);
+
 	private:
 		InterfacePlayerPriv *interfacePlayerPriv;
 };
