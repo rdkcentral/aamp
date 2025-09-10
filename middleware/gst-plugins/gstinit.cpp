@@ -24,6 +24,7 @@
 
 #include <gst/gst.h>
 #include <cstdio>
+#include "PlayerLogManager.h"
 #ifdef DRM_BUILD_PROFILE
 #include "gstplayreadydecryptor.h"
 #include "gstwidevinedecryptor.h"
@@ -40,6 +41,8 @@
 static gboolean plugin_init(GstPlugin * plugin)
 {
 	gboolean ret =  false;
+MW_LOG_WARN("SAMIIII plugin_init 2222");
+printf("SAMIII 1111");
 #ifdef DRM_BUILD_PROFILE
 	ret = gst_element_register(plugin, GstPluginNamePR,
 			GST_RANK_PRIMARY, GST_TYPE_PLAYREADYDECRYPTOR );
@@ -82,6 +85,7 @@ static gboolean plugin_init(GstPlugin * plugin)
 		printf("player plugin_init FAILED to register %s element\n", GstPluginNameVMX);
 	}
 #else
+	MW_LOG_WARN("SAMIII 222");
 #endif
 	return ret;
 }
