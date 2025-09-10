@@ -30,6 +30,8 @@
 
 #include "PlayerExternalsInterface.h"
 
+#include <cstdio>
+
 #define DISPLAY_WIDTH_UNKNOWN       -1  /**< Parsing failed for getResolution().getName(); */
 #define DISPLAY_HEIGHT_UNKNOWN      -1  /**< Parsing failed for getResolution().getName(); */
 #define DISPLAY_RESOLUTION_NA        0  /**< Resolution not available yet or not connected to HDMI */
@@ -53,6 +55,9 @@ std::shared_ptr<PlayerExternalsRdkInterface> PlayerExternalsRdkInterface::GetPla
 PlayerExternalsRdkInterface::PlayerExternalsRdkInterface()
 {
     std::shared_ptr<PlayerExternalsInterface> pInstance = PlayerExternalsInterface::GetPlayerExternalsInterfaceInstance();
+
+    printf("[MIDDLEWARE] PlayerExternalsRdkInterface pInstance->GetUseFirebolt():%d\n", pInstance->GetUseFirebolt());
+    fflush(stdout);
 
     if(pInstance->GetUseFirebolt())
     {

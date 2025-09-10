@@ -56,7 +56,7 @@ std::shared_ptr<DeviceIARMInterface> DeviceIARMInterface::GetInstance()
 
 DeviceIARMInterface::DeviceIARMInterface()
 {
-    IARMInit();
+    DeviceIARMInterface::IARMInit();
     RegisterDsMgrEventHandler();
     RegisterNtwMgrEventHandler();
 }
@@ -72,20 +72,27 @@ void DeviceIARMInterface::IARMInit()
 {
     //char processName[20] = {0};
     IARM_Result_t result;
+    printf("[MIDDLEWARE] IARM Interface Init started in Player\n");
+    fflush(stdout);
+
     //snprintf(processName, sizeof(processName), "PLAYER-%u", getpid());
     if (IARM_RESULT_SUCCESS == (result = IARM_Bus_Init("PLAYER"))) {
-            printf("IARM Interface Inited in Player\n");
+            printf("[MIDDLEWARE] IARM Interface Inited in Player\n");
     }
     else {
-            printf("IARM Interface Inited Externally : %d\n", result);
+            printf("[MIDDLEWARE] IARM Interface Inited Externally : %d\n", result);
     }
 
     if (IARM_RESULT_SUCCESS == (result = IARM_Bus_Connect())) {
-            printf("IARM Interface Connected in Player\n");
+            printf("[MIDDLEWARE] IARM Interface Connected in Player\n");
     }
     else {
-            printf("IARM Interface Connected Externally :%d\n", result);
+            printf("[MIDDLEWARE] IARM Interface Connected Externally :%d\n", result);
     }
+
+    printf("[MIDDLEWARE] IARM Interface Init completed in Player\n");
+    fflush(stdout);
+
 }
 
 void DeviceIARMInterface::RegisterDsMgrEventHandler()
