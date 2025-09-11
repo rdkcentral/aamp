@@ -89,4 +89,3 @@ static void gst_verimatrixdecryptor_finalize(GObject * object)
     DEBUG_FUNC();
     GST_CALL_PARENT(G_OBJECT_CLASS, finalize, (object));
 }
-#endif // UBUNTU
