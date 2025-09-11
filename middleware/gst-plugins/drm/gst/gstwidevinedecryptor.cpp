@@ -16,9 +16,6 @@
 * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
 * Boston, MA 02110-1301, USA.
 */
-
-<<<<<<< HEAD:middleware/gst-plugins/drm/gst/gstwidevinedecryptor.cpp
-=======
 /**
  * @file gstaampwidevinedecryptor.cpp
  * @brief aamp widevine decryptor plugin definitions
