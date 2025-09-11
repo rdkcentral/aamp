@@ -324,8 +324,8 @@ Example:
 	    var url1 = "https://example.com/multilang/sample.m3u8"; // replace with valid URL!
 	    var url2 = "https://example.com/multilang/sample1.m3u8"; // replace with valid URL!
 
-	    var params_1 = { sessionId: "12192978-da71-4da7-8335-76fbd9ae2ae9" };
-	    var params_2 = { sessionId: "6e3c49cb-6254-4324-9f5e-bddef465bdff" };
+	    var params_1 = { sessionId: "12192978-da71-4da7-8335-76fbd9ae2ae9" }; // base16
+	    var params_2 = { sessionId: "6e3c49cb-6254-4324-9f5e-bddef465bdff" }; // base16
 
 	    player1.load(url1, true, params_1); // for immediate playback
 	    player2.load(url2, false, params_2); // for background buffering,no playback.
@@ -1935,6 +1935,7 @@ Example:
 	- add -> Audio Decryption Duration - Audio fragment decrypt duration in ms
 	- gps -> gstPlaying: offset in ms from tunestart when pipeline first fed data
 	- gff -> Total tune time if successful - offset in ms from tunestart to when first frame of video is decoded/presented.
+	- gdt -> gstDecodeTime - Total time taken in ms to decode first frame.
 	- cnt -> Content Type
 		- Content Types: Unknown(0), CDVR(1), VOD(2), Linear(3), IVOD(4), EAS(5), Camera(6), DVR(7), MDVR(8), IPDVR(9), PPV(10), OTT(11), OTA(12), HDMI Input(13), COMPOSITE Input(14), SLE(15). Refer [load](#load-uri_autoplay_tuneparams) API
 	- stt -> Media stream Type + Drm codec Type

@@ -30,6 +30,13 @@
 #include "PlayerLogManager.h"
 #include "DrmConstants.h"
 
+#define MultiChar_Constant(TEXT) ( \
+(static_cast<uint32_t>(TEXT[0]) << 0x18) | \
+(static_cast<uint32_t>(TEXT[1]) << 0x10) | \
+(static_cast<uint32_t>(TEXT[2]) << 0x08) | \
+(static_cast<uint32_t>(TEXT[3]) << 0x00) )
+
+
 static WidevineDrmHelperFactory widevine_helper_factory;
 
 const std::string WidevineDrmHelper::WIDEVINE_OCDM_ID = "com.widevine.alpha";
@@ -73,7 +80,7 @@ bool WidevineDrmHelper::parsePssh( const uint8_t* psshData, uint32_t psshSize )
 	else
 	{
 		uint32_t boxType = READ_U32(psshData);
-		if( boxType!='pssh' )
+		if( boxType!=MultiChar_Constant("pssh") )
 		{
 			MW_LOG_ERR( "unexpected boxType %d", boxType );
 		}
