@@ -64,6 +64,13 @@ enum CurlAbortReason
 	eCURL_ABORT_REASON_LOW_BANDWIDTH_TIMEDOUT
 };
 
+enum CurlTimeoutFailureReason
+{
+	eCURL_TIMEOUT_NONE = 0,
+	eCURL_TIMEOUT_DNS,
+    eCURL_TIMEOUT_CONNECT,
+    eCURL_TIMEOUT_DATA
+};
 /**
  *
  * @enum Curl Request

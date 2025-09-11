@@ -36,7 +36,6 @@
 #include <assert.h>
 #include <ctime>
 #include <cctype>
-#include <curl/curl.h>
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -1449,4 +1448,24 @@ bool aamp_isTuneScheme( const char *cmdBuf )
     }
     return isTuneScheme;
 }
+CurlTimeoutFailureReason GetCurlTimeoutFailureReason(CURL* curl)
+{
+    double nameLookupTime = 0;
+    double connectTime = 0;
+    curl_easy_getinfo(curl, CURLINFO_NAMELOOKUP_TIME, &nameLookupTime);
+    curl_easy_getinfo(curl, CURLINFO_CONNECT_TIME, &connectTime);
 
+    if (connectTime == 0 && nameLookupTime == 0)
+    {
+        return eCURL_TIMEOUT_DNS;
+    }
+    else if (connectTime == 0 && nameLookupTime != 0)
+    {
+        return eCURL_TIMEOUT_CONNECT;
+    }
+    else if (connectTime != 0 && nameLookupTime != 0)
+    {
+        return eCURL_TIMEOUT_DATA;
+    }
+    return eCURL_TIMEOUT_NONE;
+}

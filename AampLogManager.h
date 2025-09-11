@@ -33,6 +33,8 @@
 #include <iomanip> // std::setfill
 #include <sstream> // std::ostringstream
 #include <algorithm> // std::foreach
+#include "AampCurlDownloader.h"
+
 
 extern const char* GetMediaTypeName( AampMediaType mediaType ); // from AampUtils.h; including that directly brings too many other dependencies
 
@@ -199,7 +201,7 @@ public:
 	 * @param[in] type - media type
 	 * @return void
 	 */
-	static void LogNetworkError(const char* url, AAMPNetworkErrorType errorType, int errorCode, AampMediaType type)
+	static void LogNetworkError(const char* url, AAMPNetworkErrorType errorType, int errorCode, AampMediaType type, CurlTimeoutFailureReason failureReason = eCURL_TIMEOUT_NONE)
 	{
 		std::string location;
 		std::string symptom;
@@ -221,8 +223,17 @@ public:
 			{
 				if(errorCode > 0)
 				{
-					logprintf( eLOGLEVEL_ERROR, __FUNCTION__, __LINE__, "AAMPLogNetworkError error='timeout %d' type='%s' location='%s' symptom='%s' url='%s'",
+					if( failureReason != eCURL_TIMEOUT_NONE )
+					{
+						logprintf( eLOGLEVEL_ERROR, __FUNCTION__, __LINE__, "AAMPLogNetworkError error='timeout %d(%d)' type='%s' location='%s' symptom='%s' url='%s'",
+							  errorCode,failureReason, GetMediaTypeName(type), location.c_str(), symptom.c_str(), url );
+			
+					}
+					else
+					{
+						logprintf( eLOGLEVEL_ERROR, __FUNCTION__, __LINE__, "AAMPLogNetworkError error='timeout %d' type='%s' location='%s' symptom='%s' url='%s'",
 							  errorCode, GetMediaTypeName(type), location.c_str(), symptom.c_str(), url );
+					}
 				}
 			}
 				break; /*AAMPNetworkErrorTimeout*/

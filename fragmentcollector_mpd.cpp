@@ -4521,6 +4521,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::FetchDashManifest()
 	double downloadTime;
 	bool updateVideoEndMetrics = false;
 	int http_error = 0;
+	CurlTimeoutFailureReason failureReason;
 
 	{
 		mManifestDnldRespPtr = MakeSharedManifestDownloadResponsePtr();
@@ -4529,9 +4530,10 @@ AAMPStatusType StreamAbstractionAAMP_MPD::FetchDashManifest()
 		AampMPDDownloader *dnldInstance = aamp->GetMPDDownloader();
 		// Get the Manifest with a wait of Manifest Timeout time
 		mManifestDnldRespPtr = dnldInstance->GetManifest(true, aamp->mManifestTimeoutMs);
-		gotManifest	= (mManifestDnldRespPtr->mMPDStatus == AAMPStatusType::eAAMPSTATUS_OK);
-		http_error = mManifestDnldRespPtr->mMPDDownloadResponse->iHttpRetValue;
-		downloadTime = mManifestDnldRespPtr->mMPDDownloadResponse->downloadCompleteMetrics.total;
+		gotManifest		=	(mManifestDnldRespPtr->mMPDStatus == AAMPStatusType::eAAMPSTATUS_OK);
+		http_error		=	mManifestDnldRespPtr->mMPDDownloadResponse->iHttpRetValue;
+		downloadTime	=	mManifestDnldRespPtr->mMPDDownloadResponse->downloadCompleteMetrics.total;
+		failureReason   =   mManifestDnldRespPtr->mMPDDownloadResponse->mCurlTimeoutFailureReason;
 		//update videoend info
 		updateVideoEndMetrics = true;
 		if (gotManifest)
@@ -4586,7 +4588,31 @@ AAMPStatusType StreamAbstractionAAMP_MPD::FetchDashManifest()
 			{
 				aamp->UpdateDuration(0);
 				aamp->SetFlushFdsNeededInCurlStore(true);
-				aamp->SendDownloadErrorEvent(AAMP_TUNE_MANIFEST_REQ_FAILED, http_error);
+
+				if( http_error == CURLE_OPERATION_TIMEDOUT && failureReason != eCURL_TIMEOUT_NONE )
+				{
+					if( failureReason == eCURL_TIMEOUT_DNS )
+					{	
+						aamp->SendDownloadErrorEvent(AAMP_TUNE_DNS_RESOLVE_TIMEOUT, http_error);
+					}
+					else if ( failureReason == eCURL_TIMEOUT_CONNECT )
+					{
+						aamp->SendDownloadErrorEvent(AAMP_TUNE_CURL_CONNECTION_TIMEOUT, http_error);
+					}
+					else if( failureReason ==  eCURL_TIMEOUT_DATA )
+					{
+						aamp->SendDownloadErrorEvent(AAMP_TUNE_DATA_TRANSFER_TIMEOUT, http_error);
+					}
+					else
+					{
+						aamp->SendDownloadErrorEvent(AAMP_TUNE_MANIFEST_REQ_FAILED, http_error);
+					}
+				}
+				else
+				{
+					aamp->SendDownloadErrorEvent(AAMP_TUNE_MANIFEST_REQ_FAILED, http_error);
+				} 
+
 				AAMPLOG_ERR("StreamAbstractionAAMP_MPD: manifest download failed");
 				ret = AAMPStatusType::eAAMPSTATUS_MANIFEST_DOWNLOAD_ERROR;
 			}

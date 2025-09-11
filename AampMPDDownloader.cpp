@@ -468,9 +468,18 @@ void AampMPDDownloader::downloadMPDThread1()
 			AAMPLOG_ERR("curl request %s %s Error Code [%u]",mEffectiveUrl.c_str(), (mMPDData->mMPDDownloadResponse->iHttpRetValue < 100) ? "Curl" : "HTTP", mMPDData->mMPDDownloadResponse->iHttpRetValue);
 
 			mMPDData->mMPDStatus	=	AAMPStatusType::eAAMPSTATUS_MANIFEST_DOWNLOAD_ERROR;
+			
 			if(mMPDData->mMPDDownloadResponse->iHttpRetValue != 200 && mMPDData->mMPDDownloadResponse->iHttpRetValue != 204 && mMPDData->mMPDDownloadResponse->iHttpRetValue != 206)
 			{ 
-				AampLogManager::LogNetworkError (mEffectiveUrl.c_str(), AAMPNetworkErrorHttp, mMPDData->mMPDDownloadResponse->iHttpRetValue, eMEDIATYPE_MANIFEST);
+				if( mMPDData->mMPDDownloadResponse->iHttpRetValue == CURLE_OPERATION_TIMEDOUT )
+				{ 
+					mMPDData->mMPDDownloadResponse->mCurlTimeoutFailureReason = GetCurlTimeoutFailureReason(mDownloader1.GetCurlHandle());
+					AampLogManager::LogNetworkError (mEffectiveUrl.c_str(), AAMPNetworkErrorTimeout, mMPDData->mMPDDownloadResponse->iHttpRetValue, eMEDIATYPE_MANIFEST,mMPDData->mMPDDownloadResponse->mCurlTimeoutFailureReason);
+				}
+				else
+				{
+					AampLogManager::LogNetworkError (mEffectiveUrl.c_str(), AAMPNetworkErrorHttp, mMPDData->mMPDDownloadResponse->iHttpRetValue, eMEDIATYPE_MANIFEST);
+				}
 				//Use DownloadResponse Show call instead of printheaderresponse fn -since it is not scope
 				mMPDData->mMPDDownloadResponse->show();
 			}
@@ -682,6 +691,25 @@ ManifestDownloadResponsePtr AampMPDDownloader::GetManifest(bool bWait, int iWait
 			{
 				// Timed out
 				respPtr->mMPDDownloadResponse->iHttpRetValue = CURLE_OPERATION_TIMEDOUT;
+
+				CURL *curlHandle = nullptr;
+
+				// If you have a getter or if mCurl is public/protected:
+				curlHandle = mDownloader1.GetCurlHandle(); // or mDownloader1->mCurl if it's a pointer
+
+				// Optionally, log or use the handle
+				if (curlHandle)
+				{
+					/*  As the curl being properly initialized and the nameLookupTime and connectTime are populated properly
+						so we can safely assume that the timeout was due to a timeout error, we can able to get the reason through 
+						curl_easy_getinfo() and can able to obtain the reason behind the timeout error,
+					*/
+					respPtr->mMPDDownloadResponse->mCurlTimeoutFailureReason = GetCurlTimeoutFailureReason(curlHandle);
+				}
+				else
+				{
+					AAMPLOG_WARN("GetManifest: CURL handle is null");
+				}
 				AAMPLOG_INFO("GetManifest timer exited after timeout ...%d",iWaitDurationMs);
 				return respPtr;
 			}

@@ -669,3 +669,7 @@ size_t AampCurlDownloader::GetDataString(std::string &dataStr)
 	return ret;
 }
 
+CURL* AampCurlDownloader::GetCurlHandle()
+{
+	return mCurl;
+}

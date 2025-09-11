@@ -176,8 +176,9 @@ typedef struct _downloadResponse
 	std::string sEffectiveUrl;
 	std::vector<std::string>  mResponseHeader;
 	std::vector<std::uint8_t> mDownloadData;
+	CurlTimeoutFailureReason mCurlTimeoutFailureReason;
 	
-	_downloadResponse() : curlRetValue(0), iHttpRetValue(0), mAbortReason(eCURL_ABORT_REASON_NONE), downloadCompleteMetrics(),progressMetrics(), sEffectiveUrl(""), mResponseHeader(), mDownloadData() {}
+	_downloadResponse() : curlRetValue(0), iHttpRetValue(0), mAbortReason(eCURL_ABORT_REASON_NONE), downloadCompleteMetrics(),progressMetrics(), sEffectiveUrl(""), mResponseHeader(), mDownloadData(), mCurlTimeoutFailureReason(eCURL_TIMEOUT_NONE) {}
 
 public:
 	void clear()
@@ -245,6 +246,8 @@ public:
 	* @brief GetDataString - function to get downloaded data as string from Vector 
 	*/	
 	size_t GetDataString(std::string &dataStr);
+
+	CURL* GetCurlHandle();
 
 private:
 	void updateCurlParams();

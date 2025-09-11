@@ -666,6 +666,10 @@ bool PrivateInstanceAAMP::DownloadsAreEnabled(void)
 
 void PrivateInstanceAAMP::SendDownloadErrorEvent(AAMPTuneFailure tuneFailure, int error_code)
 {
+	if (g_mockPrivateInstanceAAMP != nullptr)
+	{
+		g_mockPrivateInstanceAAMP->SendDownloadErrorEvent(tuneFailure, error_code);
+	}
 }
 
 BitsPerSecond PrivateInstanceAAMP::GetMaximumBitrate()
