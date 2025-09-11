@@ -93,7 +93,7 @@ static gboolean plugin_init(GstPlugin * plugin)
 #define PACKAGE "RDK"
 #endif
 #ifndef PACKAGE_NAME
-#define PACKAGE_NAME "plugin"
+#define PACKAGE_NAME "aamp"
 #endif
 #ifndef GST_PACKAGE_ORIGIN
 #define GST_PACKAGE_ORIGIN "https://rdkcentral.com/"
@@ -101,6 +101,6 @@ static gboolean plugin_init(GstPlugin * plugin)
 
 GST_PLUGIN_DEFINE (GST_VERSION_MAJOR,
 		GST_VERSION_MINOR,
-		plugin,
+		aamp,
 		"Interface Player",
 		plugin_init, VERSION, "LGPL", PACKAGE_NAME, GST_PACKAGE_ORIGIN)
