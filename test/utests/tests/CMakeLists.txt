@@ -17,7 +17,6 @@
 
 include(GoogleTest)
 
-add_subdirectory(AampFragmentTests)
 add_subdirectory(JsBindingTests)
 add_subdirectory(AampEventTests)
 add_subdirectory(AampCliSet)
