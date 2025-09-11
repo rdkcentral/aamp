@@ -30,6 +30,7 @@
 #include <utility>
 #include <assert.h>
 #include <stdio.h>
+#include <mutex>
 
 class AampGrowableBuffer
 {
@@ -98,7 +99,8 @@ private:
 	void *ptr;      /**< Pointer to buffer's memory location (gpointer) */
 	size_t len;     /**< Subset of allocated buffer that is populated and in use */
 	size_t avail;   /**< Available buffer size */
-	
+	std::mutex mutex;   /**< Mutex for thread safety */
+
     static bool gbEnableLogging;
 	static int gNetMemoryCount;
 	static int gNetMemoryHighWatermark;
