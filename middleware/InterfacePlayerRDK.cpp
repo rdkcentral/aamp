@@ -4052,6 +4052,7 @@ static gboolean bus_message(GstBus * bus, GstMessage * msg, InterfacePlayerRDK *
 			busEvent.msg = srcName ? srcName : "Unknown source";
 			busEvent.dbg_info = "N/A";
 			busEvent.msgType = MESSAGE_STATE_CHANGE;
+#if 0			
 			if (new_state == GST_STATE_PLAYING)
 			{
 				static int dot_file_counter = 0;
@@ -4060,6 +4061,7 @@ static gboolean bus_message(GstBus * bus, GstMessage * msg, InterfacePlayerRDK *
 				MW_LOG_MIL("Dumping DOT on PLAYING: %s", dot_filename);
 				GST_DEBUG_BIN_TO_DOT_FILE((GstBin *)pInterfacePlayerRDK->gstPrivateContext->pipeline, GST_DEBUG_GRAPH_SHOW_ALL, dot_filename);
 			}
+#endif			
 			if(isPlaybinStateChangeEvent || pInterfacePlayerRDK->m_gstConfigParam->gstLogging)
 			{
 				MW_LOG_MIL("%s %s -> %s (pending %s)",
