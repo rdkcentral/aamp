@@ -25,6 +25,16 @@
 #include "AampScheduler.h"
 #include "AampUtils.h"
 
+// These are static values used to try to coordinate tasks between different schedulers.
+// This is (currently) just used for SetRate() to try to ensure that SetRate tasks are 
+// scheduled in the order in which they are received when we have multiple players.
+// This is because SetRate() is used to bring players to the foreground. In ffwd/rew 
+// through ads some SetRate() requests are sent very quickly and, as they are asynchronous,
+// can get scheduled out of order.
+std::mutex AampScheduler::mTaskOrderMutex;
+uint32_t AampScheduler::mOrderedTaskCount = 0;
+uint32_t AampScheduler::mNextTaskInOrder = 1;
+
 /**
  * @brief AampScheduler Constructor
  */
@@ -83,12 +93,20 @@ int AampScheduler::ScheduleTask(AsyncTaskObj obj)
 			obj.mId = id;
 			if (obj.mTaskName == "SetRate")
 			{
+				std::lock_guard<std::mutex>lock(mTaskOrderMutex); //protect global priority tracking variables
+
 				// Remove any existing SetRate task from the queue
 				auto it = std::find_if(mTaskQueue.begin(), mTaskQueue.end(),
 									   [](const AsyncTaskObj& obj) { return obj.mTaskName == "SetRate"; });
 				if (it != mTaskQueue.end()) {
 					AAMPLOG_INFO("Found queued SetRate task, removing old one. task: %s taskId:%d", it->mTaskName.c_str(), it->mId);
+					obj.mTaskOrder = it->mTaskOrder; // Use same priority (order) as original request
 					mTaskQueue.erase(it);
+				}
+				else
+				{
+					// For SetRate() set the priority (order in which it is received) to synchronise accrosss multiple players
+					obj.mTaskOrder = ++mOrderedTaskCount;
 				}
 			}
 			mTaskQueue.push_back(obj);
@@ -113,6 +131,7 @@ int AampScheduler::ScheduleTask(AsyncTaskObj obj)
 void AampScheduler::ExecuteAsyncTask()
 {
 	UsingPlayerId playerId( mPlayerId );
+	uint32_t delayTask = 0;
 	std::unique_lock<std::mutex>queueLock(mQMutex);
 	while (mSchedulerRunning)
 	{
@@ -135,6 +154,38 @@ void AampScheduler::ExecuteAsyncTask()
 			if (!mTaskQueue.empty())
 			{
 				AsyncTaskObj obj = mTaskQueue.front();
+
+				// To make sure we are actioning SetRate() requests on multiple players in the order in which
+				// the requests were received, wait for higher priority tasks (lower mTaskOrder) to run first
+				if (obj.mTaskOrder > 0)
+				{
+					mTaskOrderMutex.lock();
+
+					// Delay tasks with order values that exceed the 'next task in order' count
+					if ((obj.mTaskOrder > mNextTaskInOrder) &&
+						(++delayTask < 10)) // limit the delay though in case tasks get deleted, schedulers suspended etc.
+					{
+						mTaskOrderMutex.unlock();
+						AAMPLOG_WARN("Delaying task for higher priority requests");
+						usleep(100000);
+						continue;
+					}
+					else if (delayTask >= 10) // max total delay of 1s
+					{
+						// If the task has been delayed 10 times (1s) then update the 'next task' count in case
+						// it has got out of sync and action the task
+						AAMPLOG_ERR("Task delayed too long, resetting priority count");
+						mNextTaskInOrder = obj.mTaskOrder;
+					}
+					delayTask = 0;
+
+					if (obj.mTaskOrder == mNextTaskInOrder)
+					{
+						mNextTaskInOrder++;
+					}
+					mTaskOrderMutex.unlock();
+				}
+
 				mTaskQueue.pop_front();
 				if (obj.mId != AAMP_TASK_ID_INVALID)
 				{
@@ -174,6 +225,15 @@ void AampScheduler::RemoveAllTasks()
 	}
 	if (!mTaskQueue.empty())
 	{
+		std::lock_guard<std::mutex>lock(mTaskOrderMutex);
+		for (const auto &task : mTaskQueue)
+		{
+			if (task.mTaskOrder >= mNextTaskInOrder)
+			{
+				mNextTaskInOrder = task.mTaskOrder + 1;
+			}
+		}
+
 		AAMPLOG_WARN("Clearing up %d entries from mFuncQueue", (int)mTaskQueue.size());
 		mTaskQueue.clear();
 	}
@@ -238,6 +298,12 @@ bool AampScheduler::RemoveTask(int id)
 		{
 			if (it->mId == id)
 			{
+				std::lock_guard<std::mutex>lock(mTaskOrderMutex);
+				if (it->mTaskOrder >= mNextTaskInOrder)
+				{
+					mNextTaskInOrder = it->mTaskOrder + 1;
+				}
+
 				mTaskQueue.erase(it);
 				ret = true;
 				break;
