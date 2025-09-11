@@ -46,7 +46,7 @@ include_directories(${LIBCJSON_INCLUDE_DIRS})
 
 set(TEST_SOURCES    AbrTests.cpp
 	AAMPAbrTests.cpp)
-set(AAMP_SOURCES ${AAMP_ROOT}/priv_aamp.cpp ${AAMP_ROOT}/support/aampabr/ABRManager.cpp ${AAMP_ROOT}/support/aampabr/HybridABRManager.cpp)
+set(AAMP_SOURCES ${AAMP_ROOT}/priv_aamp.cpp ${AAMP_ROOT}/support/aampabr/ABRManager.cpp ${AAMP_ROOT}/support/aampabr/HybridABRManager.cpp ${AAMP_ROOT}/CachedFragment.cpp)
 add_executable(${EXEC_NAME}
 	${TEST_SOURCES}
 	${AAMP_SOURCES})

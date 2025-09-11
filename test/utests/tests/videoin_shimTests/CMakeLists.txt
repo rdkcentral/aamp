@@ -38,7 +38,8 @@ set(TEST_SOURCES videoin_shimAamptest.cpp
 
 videoin_shimtest.cpp)
 
-set(AAMP_SOURCES ${AAMP_ROOT}/videoin_shim.cpp)
+set(AAMP_SOURCES ${AAMP_ROOT}/videoin_shim.cpp
+                 ${AAMP_ROOT}/CachedFragment.cpp)
 
 add_executable(${EXEC_NAME}
                ${TEST_SOURCES}

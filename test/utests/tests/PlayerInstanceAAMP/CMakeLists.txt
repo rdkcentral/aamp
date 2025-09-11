@@ -43,7 +43,8 @@ set(TEST_SOURCES PauseOnPlaybackTests.cpp
                  PlayerInstanceAAMPTestsMain.cpp
                  PlayerInstanceAAMPTests.cpp)
 
-set(AAMP_SOURCES ${AAMP_ROOT}/main_aamp.cpp)
+set(AAMP_SOURCES ${AAMP_ROOT}/main_aamp.cpp
+                 ${AAMP_ROOT}/CachedFragment.cpp)
 
 add_executable(${EXEC_NAME}
                ${TEST_SOURCES}

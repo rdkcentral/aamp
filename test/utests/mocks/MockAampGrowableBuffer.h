@@ -30,4 +30,7 @@ public:
 
 extern MockAampGrowableBuffer *g_mockAampGrowableBuffer;
 
+// Function to enable memory copying behavior for tests that need it
+void AampGrowableBuffer_EnableMemoryCopying(bool enable);
+
 #endif /* AAMP_MOCK_GROWABLE_BUFFER_H*/

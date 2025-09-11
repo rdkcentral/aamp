@@ -418,40 +418,41 @@ TEST_F(CachedFragmentTest, AampMediaType_CommonEnumValues_SetAndRetrievedCorrect
 }
 
 /**
- * @brief Test AampGrowableBuffer integration (adapted for fake implementation)
+ * @brief Test AampGrowableBuffer integration with proper append behavior
  * 
- * Note: This test is adapted for fake AampGrowableBuffer behavior.
- * Fake implementation uses pointer assignment instead of memory copying,
- * and Clear() is a no-op. In production, integration tests should verify
- * real buffer behavior.
+ * Tests the AampGrowableBuffer functionality including appending data
+ * and proper memory management.
  */
 TEST_F(CachedFragmentTest, AampGrowableBuffer_MultipleOperations_WorksCorrectly) {
     const char* data1 = "First chunk";
     const char* data2 = " Second chunk";
     const char* data3 = " Third chunk";
     
-    // Test basic append - fake implementation sets pointer and length
+    // Test first append
     cachedFragment->fragment.AppendBytes(data1, strlen(data1));
     EXPECT_EQ(cachedFragment->fragment.GetLen(), strlen(data1));
-    EXPECT_EQ(cachedFragment->fragment.GetPtr(), data1);  // Fake uses pointer assignment
+    EXPECT_NE(cachedFragment->fragment.GetPtr(), nullptr);
+    EXPECT_EQ(memcmp(cachedFragment->fragment.GetPtr(), data1, strlen(data1)), 0);
     
-    // With fake implementation, second append overwrites first
+    // Test second append - should accumulate data
     cachedFragment->fragment.AppendBytes(data2, strlen(data2));
-    EXPECT_EQ(cachedFragment->fragment.GetLen(), strlen(data2));
-    EXPECT_EQ(cachedFragment->fragment.GetPtr(), data2);  // Fake overwrites pointer
+    size_t expectedLen2 = strlen(data1) + strlen(data2);
+    EXPECT_EQ(cachedFragment->fragment.GetLen(), expectedLen2);
+    EXPECT_NE(cachedFragment->fragment.GetPtr(), nullptr);
+    // Verify accumulated data
+    EXPECT_EQ(memcmp(cachedFragment->fragment.GetPtr(), data1, strlen(data1)), 0);
+    EXPECT_EQ(memcmp(static_cast<const char*>(cachedFragment->fragment.GetPtr()) + strlen(data1), data2, strlen(data2)), 0);
     
-    // Third append also overwrites
+    // Test third append - should continue accumulating
     cachedFragment->fragment.AppendBytes(data3, strlen(data3));
-    EXPECT_EQ(cachedFragment->fragment.GetLen(), strlen(data3));
-    EXPECT_EQ(cachedFragment->fragment.GetPtr(), data3);  // Fake overwrites pointer
+    size_t expectedLen3 = strlen(data1) + strlen(data2) + strlen(data3);
+    EXPECT_EQ(cachedFragment->fragment.GetLen(), expectedLen3);
+    EXPECT_NE(cachedFragment->fragment.GetPtr(), nullptr);
     
-    // Note: Content verification not possible with fake implementation
-    // Real implementation would accumulate data, fake just assigns pointers
-    
-    // Test clearing buffer - fake Clear() is no-op
+    // Test clearing buffer
     cachedFragment->fragment.Clear();
-    // With fake implementation, Clear() doesn't change length
-    EXPECT_EQ(cachedFragment->fragment.GetLen(), strlen(data3));  // Length unchanged with fake
+    // After clear, buffer should be empty
+    EXPECT_EQ(cachedFragment->fragment.GetLen(), 0);
 }
 
 /**
@@ -481,10 +482,10 @@ TEST_F(CachedFragmentTest, Copy_LargeData_HandledCorrectly) {
     EXPECT_EQ(cachedFragment->fragment.GetLen(), dataSize);
     EXPECT_EQ(cachedFragment->position, testPosition);
     
-    // With fake implementation, both fragments point to same data
-    EXPECT_EQ(cachedFragment->fragment.GetPtr(), sourceCachedFragment->fragment.GetPtr());  // Fake uses pointer assignment
+    // Both fragments should have different pointers (independent copies)
+    EXPECT_NE(cachedFragment->fragment.GetPtr(), sourceCachedFragment->fragment.GetPtr());
     
-    // Content should be the same (pointing to same location)
+    // But content should be identical
     EXPECT_EQ(memcmp(cachedFragment->fragment.GetPtr(), testData.data(), dataSize), 0);
 }
 
@@ -549,4 +550,471 @@ TEST_F(CachedFragmentTest, BoundaryValues_NumericFields_HandledCorrectly) {
     EXPECT_EQ(sourceCachedFragment->duration, std::numeric_limits<double>::min());
     EXPECT_EQ(sourceCachedFragment->absPosition, -std::numeric_limits<double>::max());
     EXPECT_EQ(sourceCachedFragment->profileIndex, std::numeric_limits<int>::max());
+}
+
+// ============================================================================
+// Tests for new idiomatic methods (copy constructor, move constructor, etc.)
+// ============================================================================
+
+/**
+ * @brief Test CachedFragment copy constructor
+ * 
+ * Verifies that the copy constructor properly copies all member variables
+ * from source to destination, creating a deep copy.
+ */
+TEST_F(CachedFragmentTest, CopyConstructor_PopulatedSource_AllFieldsCopiedCorrectly) {
+    // Set up source fragment with test data
+    sourceCachedFragment->position = testPosition;
+    sourceCachedFragment->duration = testDuration;
+    sourceCachedFragment->absPosition = testAbsPosition;
+    sourceCachedFragment->initFragment = testInitFragment;
+    sourceCachedFragment->discontinuity = testDiscontinuity;
+    sourceCachedFragment->isDummy = testIsDummy;
+    sourceCachedFragment->profileIndex = testProfileIndex;
+    sourceCachedFragment->timeScale = testTimeScale;
+    sourceCachedFragment->uri = testUri;
+    sourceCachedFragment->type = testType;
+    sourceCachedFragment->downloadStartTime = testDownloadStartTime;
+    sourceCachedFragment->discontinuityIndex = testDiscontinuityIndex;
+    sourceCachedFragment->PTSOffsetSec = testPTSOffsetSec;
+    sourceCachedFragment->cacheFragStreamInfo.reason = eAAMP_BITRATE_CHANGE_BY_SEEK;
+    sourceCachedFragment->fragment.AppendBytes(testData, testDataSize);
+    
+    // Create copy using copy constructor
+    CachedFragment copiedFragment(*sourceCachedFragment);
+    
+    // Verify all fields were copied correctly
+    EXPECT_EQ(copiedFragment.position, testPosition);
+    EXPECT_EQ(copiedFragment.duration, testDuration);
+    EXPECT_EQ(copiedFragment.absPosition, testAbsPosition);
+    EXPECT_EQ(copiedFragment.initFragment, testInitFragment);
+    EXPECT_EQ(copiedFragment.discontinuity, testDiscontinuity);
+    EXPECT_EQ(copiedFragment.isDummy, testIsDummy);
+    EXPECT_EQ(copiedFragment.profileIndex, testProfileIndex);
+    EXPECT_EQ(copiedFragment.timeScale, testTimeScale);
+    EXPECT_EQ(copiedFragment.uri, testUri);
+    EXPECT_EQ(copiedFragment.type, testType);
+    EXPECT_EQ(copiedFragment.downloadStartTime, testDownloadStartTime);
+    EXPECT_EQ(copiedFragment.discontinuityIndex, testDiscontinuityIndex);
+    EXPECT_EQ(copiedFragment.PTSOffsetSec, testPTSOffsetSec);
+    EXPECT_EQ(copiedFragment.cacheFragStreamInfo.reason, eAAMP_BITRATE_CHANGE_BY_SEEK);
+    
+    // Verify fragment data was copied correctly
+    EXPECT_EQ(copiedFragment.fragment.GetLen(), testDataSize);
+    EXPECT_NE(copiedFragment.fragment.GetPtr(), nullptr);
+    EXPECT_EQ(memcmp(copiedFragment.fragment.GetPtr(), testData, testDataSize), 0);
+    
+    // Verify source remains intact
+    EXPECT_EQ(sourceCachedFragment->position, testPosition);
+    EXPECT_EQ(sourceCachedFragment->fragment.GetLen(), testDataSize);
+}
+
+/**
+ * @brief Test CachedFragment move constructor
+ * 
+ * Verifies that the move constructor properly transfers ownership of resources
+ * from source to destination, leaving source in a valid but empty state.
+ */
+TEST_F(CachedFragmentTest, MoveConstructor_PopulatedSource_ResourcesMovedCorrectly) {
+    // Set up source fragment with test data
+    sourceCachedFragment->position = testPosition;
+    sourceCachedFragment->duration = testDuration;
+    sourceCachedFragment->absPosition = testAbsPosition;
+    sourceCachedFragment->initFragment = testInitFragment;
+    sourceCachedFragment->discontinuity = testDiscontinuity;
+    sourceCachedFragment->isDummy = testIsDummy;
+    sourceCachedFragment->profileIndex = testProfileIndex;
+    sourceCachedFragment->timeScale = testTimeScale;
+    sourceCachedFragment->uri = testUri;
+    sourceCachedFragment->type = testType;
+    sourceCachedFragment->downloadStartTime = testDownloadStartTime;
+    sourceCachedFragment->discontinuityIndex = testDiscontinuityIndex;
+    sourceCachedFragment->PTSOffsetSec = testPTSOffsetSec;
+    sourceCachedFragment->cacheFragStreamInfo.reason = eAAMP_BITRATE_CHANGE_BY_SEEK;
+    sourceCachedFragment->fragment.AppendBytes(testData, testDataSize);
+    
+    // Store original fragment buffer pointer for comparison
+    const char* originalPtr = sourceCachedFragment->fragment.GetPtr();
+    
+    // Create moved fragment using move constructor
+    CachedFragment movedFragment(std::move(*sourceCachedFragment));
+    
+    // Verify all fields were moved correctly
+    EXPECT_EQ(movedFragment.position, testPosition);
+    EXPECT_EQ(movedFragment.duration, testDuration);
+    EXPECT_EQ(movedFragment.absPosition, testAbsPosition);
+    EXPECT_EQ(movedFragment.initFragment, testInitFragment);
+    EXPECT_EQ(movedFragment.discontinuity, testDiscontinuity);
+    EXPECT_EQ(movedFragment.isDummy, testIsDummy);
+    EXPECT_EQ(movedFragment.profileIndex, testProfileIndex);
+    EXPECT_EQ(movedFragment.timeScale, testTimeScale);
+    EXPECT_EQ(movedFragment.uri, testUri);
+    EXPECT_EQ(movedFragment.type, testType);
+    EXPECT_EQ(movedFragment.downloadStartTime, testDownloadStartTime);
+    EXPECT_EQ(movedFragment.discontinuityIndex, testDiscontinuityIndex);
+    EXPECT_EQ(movedFragment.PTSOffsetSec, testPTSOffsetSec);
+    EXPECT_EQ(movedFragment.cacheFragStreamInfo.reason, eAAMP_BITRATE_CHANGE_BY_SEEK);
+    
+    // Verify fragment data was moved correctly
+    EXPECT_EQ(movedFragment.fragment.GetLen(), testDataSize);
+    EXPECT_NE(movedFragment.fragment.GetPtr(), nullptr);
+    EXPECT_EQ(memcmp(movedFragment.fragment.GetPtr(), testData, testDataSize), 0);
+    
+    // Verify source has been reset to default values (moved-from state)
+    EXPECT_EQ(sourceCachedFragment->position, 0.0);
+    EXPECT_EQ(sourceCachedFragment->duration, 0.0);
+    EXPECT_EQ(sourceCachedFragment->absPosition, 0.0);
+    EXPECT_EQ(sourceCachedFragment->initFragment, false);
+    EXPECT_EQ(sourceCachedFragment->discontinuity, false);
+    EXPECT_EQ(sourceCachedFragment->isDummy, false);
+    EXPECT_EQ(sourceCachedFragment->profileIndex, 0);
+    EXPECT_EQ(sourceCachedFragment->timeScale, 0U);
+    EXPECT_TRUE(sourceCachedFragment->uri.empty());
+    EXPECT_EQ(sourceCachedFragment->type, eMEDIATYPE_DEFAULT);
+    EXPECT_EQ(sourceCachedFragment->downloadStartTime, 0LL);
+    EXPECT_EQ(sourceCachedFragment->discontinuityIndex, 0LL);
+    EXPECT_EQ(sourceCachedFragment->PTSOffsetSec, 0.0);
+}
+
+/**
+ * @brief Test CachedFragment copy assignment operator
+ * 
+ * Verifies that the copy assignment operator properly copies all member variables
+ * from source to destination using copy-and-swap idiom.
+ */
+TEST_F(CachedFragmentTest, CopyAssignment_PopulatedSource_AllFieldsCopiedCorrectly) {
+    // Set up destination with some initial data
+    cachedFragment->position = 999.9;
+    cachedFragment->duration = 888.8;
+    cachedFragment->fragment.AppendBytes("initial", 7);
+    
+    // Set up source fragment with test data
+    sourceCachedFragment->position = testPosition;
+    sourceCachedFragment->duration = testDuration;
+    sourceCachedFragment->absPosition = testAbsPosition;
+    sourceCachedFragment->initFragment = testInitFragment;
+    sourceCachedFragment->discontinuity = testDiscontinuity;
+    sourceCachedFragment->isDummy = testIsDummy;
+    sourceCachedFragment->profileIndex = testProfileIndex;
+    sourceCachedFragment->timeScale = testTimeScale;
+    sourceCachedFragment->uri = testUri;
+    sourceCachedFragment->type = testType;
+    sourceCachedFragment->downloadStartTime = testDownloadStartTime;
+    sourceCachedFragment->discontinuityIndex = testDiscontinuityIndex;
+    sourceCachedFragment->PTSOffsetSec = testPTSOffsetSec;
+    sourceCachedFragment->cacheFragStreamInfo.reason = eAAMP_BITRATE_CHANGE_BY_SEEK;
+    sourceCachedFragment->fragment.AppendBytes(testData, testDataSize);
+    
+    // Copy assign from source to destination
+    *cachedFragment = *sourceCachedFragment;
+    
+    // Verify all fields were copied correctly
+    EXPECT_EQ(cachedFragment->position, testPosition);
+    EXPECT_EQ(cachedFragment->duration, testDuration);
+    EXPECT_EQ(cachedFragment->absPosition, testAbsPosition);
+    EXPECT_EQ(cachedFragment->initFragment, testInitFragment);
+    EXPECT_EQ(cachedFragment->discontinuity, testDiscontinuity);
+    EXPECT_EQ(cachedFragment->isDummy, testIsDummy);
+    EXPECT_EQ(cachedFragment->profileIndex, testProfileIndex);
+    EXPECT_EQ(cachedFragment->timeScale, testTimeScale);
+    EXPECT_EQ(cachedFragment->uri, testUri);
+    EXPECT_EQ(cachedFragment->type, testType);
+    EXPECT_EQ(cachedFragment->downloadStartTime, testDownloadStartTime);
+    EXPECT_EQ(cachedFragment->discontinuityIndex, testDiscontinuityIndex);
+    EXPECT_EQ(cachedFragment->PTSOffsetSec, testPTSOffsetSec);
+    EXPECT_EQ(cachedFragment->cacheFragStreamInfo.reason, eAAMP_BITRATE_CHANGE_BY_SEEK);
+    
+    // Verify fragment data was copied correctly
+    EXPECT_EQ(cachedFragment->fragment.GetLen(), testDataSize);
+    EXPECT_NE(cachedFragment->fragment.GetPtr(), nullptr);
+    EXPECT_EQ(memcmp(cachedFragment->fragment.GetPtr(), testData, testDataSize), 0);
+    
+    // Verify source remains intact
+    EXPECT_EQ(sourceCachedFragment->position, testPosition);
+    EXPECT_EQ(sourceCachedFragment->fragment.GetLen(), testDataSize);
+}
+
+/**
+ * @brief Test CachedFragment copy assignment self-assignment
+ * 
+ * Verifies that self-assignment is handled correctly and doesn't cause issues.
+ */
+TEST_F(CachedFragmentTest, CopyAssignment_SelfAssignment_NoSideEffects) {
+    // Set up fragment with test data
+    cachedFragment->position = testPosition;
+    cachedFragment->duration = testDuration;
+    cachedFragment->uri = testUri;
+    cachedFragment->fragment.AppendBytes(testData, testDataSize);
+    
+    // Store original values for comparison
+    double originalPosition = cachedFragment->position;
+    double originalDuration = cachedFragment->duration;
+    std::string originalUri = cachedFragment->uri;
+    size_t originalLen = cachedFragment->fragment.GetLen();
+    
+    // Self-assign
+    *cachedFragment = *cachedFragment;
+    
+    // Verify values remain unchanged
+    EXPECT_EQ(cachedFragment->position, originalPosition);
+    EXPECT_EQ(cachedFragment->duration, originalDuration);
+    EXPECT_EQ(cachedFragment->uri, originalUri);
+    EXPECT_EQ(cachedFragment->fragment.GetLen(), originalLen);
+}
+
+/**
+ * @brief Test CachedFragment move assignment operator
+ * 
+ * Verifies that the move assignment operator properly transfers ownership
+ * from source to destination using move semantics.
+ */
+TEST_F(CachedFragmentTest, MoveAssignment_PopulatedSource_ResourcesMovedCorrectly) {
+    // Set up destination with some initial data
+    cachedFragment->position = 999.9;
+    cachedFragment->duration = 888.8;
+    cachedFragment->fragment.AppendBytes("initial", 7);
+    
+    // Set up source fragment with test data
+    sourceCachedFragment->position = testPosition;
+    sourceCachedFragment->duration = testDuration;
+    sourceCachedFragment->absPosition = testAbsPosition;
+    sourceCachedFragment->initFragment = testInitFragment;
+    sourceCachedFragment->discontinuity = testDiscontinuity;
+    sourceCachedFragment->isDummy = testIsDummy;
+    sourceCachedFragment->profileIndex = testProfileIndex;
+    sourceCachedFragment->timeScale = testTimeScale;
+    sourceCachedFragment->uri = testUri;
+    sourceCachedFragment->type = testType;
+    sourceCachedFragment->downloadStartTime = testDownloadStartTime;
+    sourceCachedFragment->discontinuityIndex = testDiscontinuityIndex;
+    sourceCachedFragment->PTSOffsetSec = testPTSOffsetSec;
+    sourceCachedFragment->cacheFragStreamInfo.reason = eAAMP_BITRATE_CHANGE_BY_SEEK;
+    sourceCachedFragment->fragment.AppendBytes(testData, testDataSize);
+    
+    // Move assign from source to destination
+    *cachedFragment = std::move(*sourceCachedFragment);
+    
+    // Verify all fields were moved correctly
+    EXPECT_EQ(cachedFragment->position, testPosition);
+    EXPECT_EQ(cachedFragment->duration, testDuration);
+    EXPECT_EQ(cachedFragment->absPosition, testAbsPosition);
+    EXPECT_EQ(cachedFragment->initFragment, testInitFragment);
+    EXPECT_EQ(cachedFragment->discontinuity, testDiscontinuity);
+    EXPECT_EQ(cachedFragment->isDummy, testIsDummy);
+    EXPECT_EQ(cachedFragment->profileIndex, testProfileIndex);
+    EXPECT_EQ(cachedFragment->timeScale, testTimeScale);
+    EXPECT_EQ(cachedFragment->uri, testUri);
+    EXPECT_EQ(cachedFragment->type, testType);
+    EXPECT_EQ(cachedFragment->downloadStartTime, testDownloadStartTime);
+    EXPECT_EQ(cachedFragment->discontinuityIndex, testDiscontinuityIndex);
+    EXPECT_EQ(cachedFragment->PTSOffsetSec, testPTSOffsetSec);
+    EXPECT_EQ(cachedFragment->cacheFragStreamInfo.reason, eAAMP_BITRATE_CHANGE_BY_SEEK);
+    
+    // Verify fragment data was moved correctly
+    EXPECT_EQ(cachedFragment->fragment.GetLen(), testDataSize);
+    EXPECT_NE(cachedFragment->fragment.GetPtr(), nullptr);
+    EXPECT_EQ(memcmp(cachedFragment->fragment.GetPtr(), testData, testDataSize), 0);
+    
+    // Verify source has been reset to default values (moved-from state)
+    EXPECT_EQ(sourceCachedFragment->position, 0.0);
+    EXPECT_EQ(sourceCachedFragment->duration, 0.0);
+    EXPECT_EQ(sourceCachedFragment->absPosition, 0.0);
+    EXPECT_EQ(sourceCachedFragment->initFragment, false);
+    EXPECT_EQ(sourceCachedFragment->discontinuity, false);
+    EXPECT_EQ(sourceCachedFragment->isDummy, false);
+    EXPECT_EQ(sourceCachedFragment->profileIndex, 0);
+    EXPECT_EQ(sourceCachedFragment->timeScale, 0U);
+    EXPECT_TRUE(sourceCachedFragment->uri.empty());
+    EXPECT_EQ(sourceCachedFragment->type, eMEDIATYPE_DEFAULT);
+    EXPECT_EQ(sourceCachedFragment->downloadStartTime, 0LL);
+    EXPECT_EQ(sourceCachedFragment->discontinuityIndex, 0LL);
+    EXPECT_EQ(sourceCachedFragment->PTSOffsetSec, 0.0);
+}
+
+/**
+ * @brief Test CachedFragment move assignment self-assignment
+ * 
+ * Verifies that self-assignment with move semantics is handled correctly.
+ */
+TEST_F(CachedFragmentTest, MoveAssignment_SelfAssignment_NoSideEffects) {
+    // Set up fragment with test data
+    cachedFragment->position = testPosition;
+    cachedFragment->duration = testDuration;
+    cachedFragment->uri = testUri;
+    cachedFragment->fragment.AppendBytes(testData, testDataSize);
+    
+    // Store original values for comparison
+    double originalPosition = cachedFragment->position;
+    double originalDuration = cachedFragment->duration;
+    std::string originalUri = cachedFragment->uri;
+    size_t originalLen = cachedFragment->fragment.GetLen();
+    
+    // Self-assign with move
+    *cachedFragment = std::move(*cachedFragment);
+    
+    // Verify values remain unchanged (self-move should be safe)
+    EXPECT_EQ(cachedFragment->position, originalPosition);
+    EXPECT_EQ(cachedFragment->duration, originalDuration);
+    EXPECT_EQ(cachedFragment->uri, originalUri);
+    EXPECT_EQ(cachedFragment->fragment.GetLen(), originalLen);
+}
+
+/**
+ * @brief Test CachedFragment swap method
+ * 
+ * Verifies that the swap method correctly exchanges all member variables
+ * between two CachedFragment instances.
+ */
+TEST_F(CachedFragmentTest, Swap_TwoPopulatedFragments_AllFieldsSwappedCorrectly) {
+    // Set up first fragment with test data
+    cachedFragment->position = testPosition;
+    cachedFragment->duration = testDuration;
+    cachedFragment->absPosition = testAbsPosition;
+    cachedFragment->initFragment = testInitFragment;
+    cachedFragment->discontinuity = testDiscontinuity;
+    cachedFragment->isDummy = testIsDummy;
+    cachedFragment->profileIndex = testProfileIndex;
+    cachedFragment->timeScale = testTimeScale;
+    cachedFragment->uri = testUri;
+    cachedFragment->type = testType;
+    cachedFragment->downloadStartTime = testDownloadStartTime;
+    cachedFragment->discontinuityIndex = testDiscontinuityIndex;
+    cachedFragment->PTSOffsetSec = testPTSOffsetSec;
+    cachedFragment->cacheFragStreamInfo.reason = eAAMP_BITRATE_CHANGE_BY_SEEK;
+    cachedFragment->fragment.AppendBytes(testData, testDataSize);
+    
+    // Set up second fragment with different data
+    const double secondPosition = 200.0;
+    const double secondDuration = 150.0;
+    const char* secondData = "Different test data";
+    const size_t secondDataSize = strlen(secondData);
+    
+    sourceCachedFragment->position = secondPosition;
+    sourceCachedFragment->duration = secondDuration;
+    sourceCachedFragment->absPosition = 300.0;
+    sourceCachedFragment->initFragment = false;
+    sourceCachedFragment->discontinuity = true;
+    sourceCachedFragment->isDummy = true;
+    sourceCachedFragment->profileIndex = 99;
+    sourceCachedFragment->timeScale = 48000;
+    sourceCachedFragment->uri = "http://different.com/segment2.ts";
+    sourceCachedFragment->type = eMEDIATYPE_AUDIO;
+    sourceCachedFragment->downloadStartTime = 9876543210LL;
+    sourceCachedFragment->discontinuityIndex = 10LL;
+    sourceCachedFragment->PTSOffsetSec = 5.5;
+    sourceCachedFragment->cacheFragStreamInfo.reason = eAAMP_BITRATE_CHANGE_BY_TUNE;
+    sourceCachedFragment->fragment.AppendBytes(secondData, secondDataSize);
+    
+    // Perform swap
+    cachedFragment->swap(*sourceCachedFragment);
+    
+    // Verify first fragment now has second fragment's data
+    EXPECT_EQ(cachedFragment->position, secondPosition);
+    EXPECT_EQ(cachedFragment->duration, secondDuration);
+    EXPECT_EQ(cachedFragment->absPosition, 300.0);
+    EXPECT_EQ(cachedFragment->initFragment, false);
+    EXPECT_EQ(cachedFragment->discontinuity, true);
+    EXPECT_EQ(cachedFragment->isDummy, true);
+    EXPECT_EQ(cachedFragment->profileIndex, 99);
+    EXPECT_EQ(cachedFragment->timeScale, 48000U);
+    EXPECT_EQ(cachedFragment->uri, "http://different.com/segment2.ts");
+    EXPECT_EQ(cachedFragment->type, eMEDIATYPE_AUDIO);
+    EXPECT_EQ(cachedFragment->downloadStartTime, 9876543210LL);
+    EXPECT_EQ(cachedFragment->discontinuityIndex, 10LL);
+    EXPECT_EQ(cachedFragment->PTSOffsetSec, 5.5);
+    EXPECT_EQ(cachedFragment->cacheFragStreamInfo.reason, eAAMP_BITRATE_CHANGE_BY_TUNE);
+    EXPECT_EQ(cachedFragment->fragment.GetLen(), secondDataSize);
+    
+    // Verify second fragment now has first fragment's data
+    EXPECT_EQ(sourceCachedFragment->position, testPosition);
+    EXPECT_EQ(sourceCachedFragment->duration, testDuration);
+    EXPECT_EQ(sourceCachedFragment->absPosition, testAbsPosition);
+    EXPECT_EQ(sourceCachedFragment->initFragment, testInitFragment);
+    EXPECT_EQ(sourceCachedFragment->discontinuity, testDiscontinuity);
+    EXPECT_EQ(sourceCachedFragment->isDummy, testIsDummy);
+    EXPECT_EQ(sourceCachedFragment->profileIndex, testProfileIndex);
+    EXPECT_EQ(sourceCachedFragment->timeScale, testTimeScale);
+    EXPECT_EQ(sourceCachedFragment->uri, testUri);
+    EXPECT_EQ(sourceCachedFragment->type, testType);
+    EXPECT_EQ(sourceCachedFragment->downloadStartTime, testDownloadStartTime);
+    EXPECT_EQ(sourceCachedFragment->discontinuityIndex, testDiscontinuityIndex);
+    EXPECT_EQ(sourceCachedFragment->PTSOffsetSec, testPTSOffsetSec);
+    EXPECT_EQ(sourceCachedFragment->cacheFragStreamInfo.reason, eAAMP_BITRATE_CHANGE_BY_SEEK);
+    EXPECT_EQ(sourceCachedFragment->fragment.GetLen(), testDataSize);
+}
+
+/**
+ * @brief Test free function swap
+ * 
+ * Verifies that the free function swap works correctly and calls the member swap.
+ */
+TEST_F(CachedFragmentTest, FreeSwap_TwoFragments_CallsMemberSwap) {
+    // Set up fragments with different data
+    cachedFragment->position = testPosition;
+    cachedFragment->duration = testDuration;
+    cachedFragment->uri = testUri;
+    
+    const double secondPosition = 999.0;
+    const double secondDuration = 888.0;
+    const std::string secondUri = "http://second.com/test";
+    
+    sourceCachedFragment->position = secondPosition;
+    sourceCachedFragment->duration = secondDuration;
+    sourceCachedFragment->uri = secondUri;
+    
+    // Use free function swap
+    swap(*cachedFragment, *sourceCachedFragment);
+    
+    // Verify swap occurred
+    EXPECT_EQ(cachedFragment->position, secondPosition);
+    EXPECT_EQ(cachedFragment->duration, secondDuration);
+    EXPECT_EQ(cachedFragment->uri, secondUri);
+    
+    EXPECT_EQ(sourceCachedFragment->position, testPosition);
+    EXPECT_EQ(sourceCachedFragment->duration, testDuration);
+    EXPECT_EQ(sourceCachedFragment->uri, testUri);
+}
+
+/**
+ * @brief Test container operations with idiomatic methods
+ * 
+ * Verifies that CachedFragment works correctly with STL containers
+ * now that it has proper copy/move semantics.
+ */
+TEST_F(CachedFragmentTest, ContainerOperations_VectorOperations_WorkCorrectly) {
+    // Create vector of fragments
+    std::vector<CachedFragment> fragments;
+    
+    // Create a test fragment
+    CachedFragment testFragment;
+    testFragment.position = testPosition;
+    testFragment.duration = testDuration;
+    testFragment.uri = testUri;
+    testFragment.fragment.AppendBytes(testData, testDataSize);
+    
+    // Test push_back (should use copy constructor)
+    fragments.push_back(testFragment);
+    
+    // Verify fragment was copied correctly
+    EXPECT_EQ(fragments.size(), 1);
+    EXPECT_EQ(fragments[0].position, testPosition);
+    EXPECT_EQ(fragments[0].duration, testDuration);
+    EXPECT_EQ(fragments[0].uri, testUri);
+    EXPECT_EQ(fragments[0].fragment.GetLen(), testDataSize);
+    
+    // Test emplace_back with move
+    fragments.emplace_back(std::move(testFragment));
+    
+    // Verify second fragment
+    EXPECT_EQ(fragments.size(), 2);
+    EXPECT_EQ(fragments[1].position, testPosition);
+    EXPECT_EQ(fragments[1].duration, testDuration);
+    EXPECT_EQ(fragments[1].uri, testUri);
+    EXPECT_EQ(fragments[1].fragment.GetLen(), testDataSize);
+    
+    // Original testFragment should be in moved-from state
+    EXPECT_EQ(testFragment.position, 0.0);
+    EXPECT_EQ(testFragment.duration, 0.0);
+    EXPECT_TRUE(testFragment.uri.empty());
+    EXPECT_EQ(testFragment.type, eMEDIATYPE_DEFAULT);
 }

@@ -29,6 +29,7 @@
 #include "AampMediaType.h"
 #include "priv_aamp.h"  // For BitsPerSecond and BitrateChangeReason definitions
 #include <string>
+#include <utility>  // For std::swap and std::move
 
 /**
  * @brief Structure holding the resolution of stream
@@ -89,6 +90,38 @@ public:
 	CachedFragment();
 
 	/**
+	 * @brief Copy constructor
+	 * @param other Source CachedFragment to copy from
+	 */
+	CachedFragment(const CachedFragment& other);
+
+	/**
+	 * @brief Move constructor
+	 * @param other Source CachedFragment to move from
+	 */
+	CachedFragment(CachedFragment&& other) noexcept;
+
+	/**
+	 * @brief Copy assignment operator
+	 * @param other Source CachedFragment to copy from
+	 * @return Reference to this object
+	 */
+	CachedFragment& operator=(const CachedFragment& other);
+
+	/**
+	 * @brief Move assignment operator
+	 * @param other Source CachedFragment to move from
+	 * @return Reference to this object
+	 */
+	CachedFragment& operator=(CachedFragment&& other) noexcept;
+
+	/**
+	 * @brief Swap contents with another CachedFragment
+	 * @param other CachedFragment to swap with
+	 */
+	void swap(CachedFragment& other) noexcept;
+
+	/**
 	 * @brief Copy content from another CachedFragment
 	 * @param other Source CachedFragment to copy from
 	 * @param len Length of data to copy from the fragment buffer
@@ -100,5 +133,12 @@ public:
 	 */
 	void Clear();
 };
+
+/**
+ * @brief Free function swap for CachedFragment
+ * @param lhs First CachedFragment to swap
+ * @param rhs Second CachedFragment to swap
+ */
+void swap(CachedFragment& lhs, CachedFragment& rhs) noexcept;
 
 #endif // CACHED_FRAGMENT_H
