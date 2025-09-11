@@ -1120,6 +1120,8 @@ bool PrivateCDAIObjectMPD::FulFillAdObject()
 						break;
 					}
 				}
+				// Resolve the full adbreak object, this is used for conditional wait if it was primarily waiting on this ad
+				adbreakObj.resolved = true;
 			}
 			else
 			{
@@ -1482,8 +1484,8 @@ bool PrivateCDAIObjectMPD::WaitForNextAdResolved(int timeoutMs)
 			if (!it->resolved)
 			{
 				AAMPLOG_INFO("Waiting for next ad placement to complete with timeout %d ms.", timeoutMs);
-				completed = mAdPlacementCV.wait_for(lock, std::chrono::milliseconds(timeoutMs), [it] {
-					return it->resolved;
+				completed = mAdPlacementCV.wait_for(lock, std::chrono::milliseconds(timeoutMs), [this, &it] {
+					return it->resolved || !mAamp->DownloadsAreEnabled();
 				});
 			}
 			else
@@ -1507,18 +1509,24 @@ bool PrivateCDAIObjectMPD::WaitForNextAdResolved(int timeoutMs, std::string peri
 	std::unique_lock<std::mutex> lock(mAdPlacementMtx);
 	bool completed = false;
 	AAMPLOG_INFO("Waiting for next ad placement in %s to complete with timeout %d ms.", periodId.c_str(), timeoutMs);
-	if (mAdPlacementCV.wait_for(lock, std::chrono::milliseconds(timeoutMs)) == std::cv_status::no_timeout)
+	if (isAdBreakObjectExist(periodId))
 	{
-		completed = true;
-	}
-	else
-	{
-		AAMPLOG_INFO("Timed out waiting for next ad placement.");
-		if(isAdBreakObjectExist(periodId))
+		if (mAdPlacementCV.wait_for(lock, std::chrono::milliseconds(timeoutMs), [this, periodId] {
+			return !mAamp->DownloadsAreEnabled() || mAdBreaks[periodId].resolved;
+		}))
 		{
+			completed = true;
+		}
+		else
+		{
+			AAMPLOG_INFO("Timed out waiting for next ad placement.");
 			// Mark the ad break as invalid
 			mAdBreaks[periodId].invalid = true;
 		}
+	}
+	else
+	{
+		AAMPLOG_INFO("AdBreakId[%s] not existing while waiting. Returning false.", periodId.c_str());
 	}
 	return completed;
 }
