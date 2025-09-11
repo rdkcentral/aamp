@@ -20,15 +20,25 @@
 #include "MockAampGrowableBuffer.h"
 #include <cstdlib>
 #include <cstring>
+#include <vector>
+#include <unordered_map>
 
 MockAampGrowableBuffer *g_mockAampGrowableBuffer;
 
 // Flag to enable copying behavior for tests that need it
 static bool g_enableMemoryCopying = false;
 
+// Storage for buffer data using vectors - more memory safe than raw pointers
+static std::unordered_map<void*, std::vector<char>> g_bufferStorage;
+
 void AampGrowableBuffer_EnableMemoryCopying(bool enable)
 {
 	g_enableMemoryCopying = enable;
+}
+
+void AampGrowableBuffer_ClearGlobalStorage()
+{
+	g_bufferStorage.clear();
 }
 
 AampGrowableBuffer::~AampGrowableBuffer( void )
@@ -37,9 +47,12 @@ AampGrowableBuffer::~AampGrowableBuffer( void )
 	{
 		g_mockAampGrowableBuffer->dtor();
 	}
-	// Only clean up if we allocated the memory ourselves
-	if (g_enableMemoryCopying && this->ptr && this->len > 0) {
-		delete[] static_cast<char*>(this->ptr);
+	// Clean up vector storage if we allocated it
+	if (g_enableMemoryCopying && this->ptr) {
+		auto it = g_bufferStorage.find(this->ptr);
+		if (it != g_bufferStorage.end()) {
+			g_bufferStorage.erase(it);
+		}
 	}
 }
 
@@ -48,9 +61,12 @@ AampGrowableBuffer::~AampGrowableBuffer( void )
  */
 void AampGrowableBuffer::Free( void )
 {
-	// Only clean up if we allocated the memory ourselves
-	if (g_enableMemoryCopying && this->ptr && this->len > 0) {
-		delete[] static_cast<char*>(this->ptr);
+	// Clean up vector storage if we allocated it
+	if (g_enableMemoryCopying && this->ptr) {
+		auto it = g_bufferStorage.find(this->ptr);
+		if (it != g_bufferStorage.end()) {
+			g_bufferStorage.erase(it);
+		}
 	}
 	
 	// Reset to default state
@@ -62,16 +78,18 @@ void AampGrowableBuffer::Free( void )
 void AampGrowableBuffer::ReserveBytes( size_t numBytes )
 {
 	if (g_enableMemoryCopying) {
-		// Clean up existing buffer if any
-		if (this->ptr && this->len > 0) {
-			delete[] static_cast<char*>(this->ptr);
-		}
-		
-		// Allocate new buffer if needed
+		// Reserve new buffer if needed
 		if (numBytes > 0) {
-			this->ptr = new char[numBytes];
+			auto& buffer = g_bufferStorage[this];
+			buffer.reserve(numBytes);
+			this->ptr = buffer.data();
 			this->avail = numBytes;
 		} else {
+			// Clear existing buffer
+			auto it = g_bufferStorage.find(this);
+			if (it != g_bufferStorage.end()) {
+				g_bufferStorage.erase(it);
+			}
 			this->ptr = nullptr;
 			this->avail = 0;
 		}
@@ -85,40 +103,18 @@ void AampGrowableBuffer::ReserveBytes( size_t numBytes )
 void AampGrowableBuffer::AppendBytes( const void *srcPtr, size_t srcLen )
 {
 	if (g_enableMemoryCopying) {
-		// New behavior: Actually copy data for tests that need proper copying
-		if (this->ptr == nullptr) {
-			// First append - allocate buffer and copy
-			this->len = srcLen;
-			if (srcLen > 0) {
-				char* newBuffer = new char[srcLen];
-				if (srcPtr) {
-					std::memcpy(newBuffer, srcPtr, srcLen);
-				}
-				this->ptr = newBuffer;
-			}
-		} else {
-			// Subsequent append - extend buffer
-			size_t oldLen = this->len;
-			size_t newLen = oldLen + srcLen;
-			char* newBuffer = new char[newLen];
-			
-			// Copy old data
-			if (oldLen > 0) {
-				std::memcpy(newBuffer, this->ptr, oldLen);
-			}
+		if (srcPtr && srcLen > 0) {
+			// Find or create buffer for this AampGrowableBuffer instance
+			auto& buffer = g_bufferStorage[this];
+			size_t oldLen = buffer.size();
+			buffer.resize(oldLen + srcLen);
 			
 			// Append new data
-			if (srcPtr && srcLen > 0) {
-				std::memcpy(newBuffer + oldLen, srcPtr, srcLen);
-			}
+			std::memcpy(buffer.data() + oldLen, srcPtr, srcLen);
 			
-			// Clean up old buffer if it was allocated
-			if (this->ptr && this->len > 0) {
-				delete[] static_cast<char*>(this->ptr);
-			}
-			
-			this->ptr = newBuffer;
-			this->len = newLen;
+			// Update ptr and len
+			this->ptr = buffer.data();
+			this->len = buffer.size();
 		}
 	} else {
 		// Old behavior for backward compatibility
@@ -135,8 +131,12 @@ void AampGrowableBuffer::Clear( void )
 {
 	if (g_enableMemoryCopying) {
 		// Clear should reset length but keep allocated capacity
+		auto it = g_bufferStorage.find(this);
+		if (it != g_bufferStorage.end()) {
+			it->second.clear(); // Clear vector content but keep capacity
+			this->ptr = it->second.data(); // Update pointer (may be nullptr now)
+		}
 		this->len = 0;
-		// Don't free the buffer, just reset length
 	}
 }
 
