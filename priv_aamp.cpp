@@ -4288,12 +4288,37 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 						{
 							effectiveUrl.assign(remoteUrl);
 						}
+						//Curl error to be differentiated
+						AAMPLOG_INFO("Connection/Timeout error %d for url %s", res, remoteUrl.c_str());
+						//Curl error to be differentiated
+						double nameLookupTime = 0;
+    					double connectTime = 0;
+						// Get the CURL handle used for the download
+						//CURL* curl = mDownloader1.GetCurlHandle();
+						curl_easy_getinfo(curl, CURLINFO_NAMELOOKUP_TIME, &nameLookupTime);
+						curl_easy_getinfo(curl, CURLINFO_CONNECT_TIME, &connectTime);
+						if (connectTime == 0 && nameLookupTime == 0)
+						{
+							// DNS timeout
+							AAMPLOG_WARN("Timeout: DNS resolution failed for %s", remoteUrl.c_str());
+						}
+						else if (connectTime == 0 && nameLookupTime != 0)
+						{
+							// Connection timeout (DNS succeeded)
+							AAMPLOG_WARN("Timeout: Connection to host failed for %s", remoteUrl.c_str());
+						}
+						else if (connectTime != 0 && nameLookupTime != 0)
+						{
+							// Data transfer timeout (connection established)
+							AAMPLOG_WARN("Timeout: Data transfer failed for %s", remoteUrl.c_str());
+						}
 						AampLogManager::LogNetworkError (effectiveUrl.c_str(), // Effective URL could be different than remoteURL
 						AAMPNetworkErrorCurl, (int)(progressCtx.abortReason == eCURL_ABORT_REASON_NONE ? res : CURLE_PARTIAL_FILE), mediaType);
 						print_headerResponse(context.allResponseHeaders, mediaType);
 					}
 					if (res == CURLE_COULDNT_CONNECT || res == CURLE_OPERATION_TIMEDOUT || (isDownloadStalled && (eCURL_ABORT_REASON_LOW_BANDWIDTH_TIMEDOUT != abortReason)))
 					{
+						
 						if(mpStreamAbstractionAAMP)
 						{
 							switch (mediaType)

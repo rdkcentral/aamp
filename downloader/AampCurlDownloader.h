@@ -246,6 +246,8 @@ public:
 	*/	
 	size_t GetDataString(std::string &dataStr);
 
+	CURL* GetCurlHandle();
+
 private:
 	void updateCurlParams();
 	void updateResponseParams();
