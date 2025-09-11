@@ -17,17 +17,9 @@
 * Boston, MA 02110-1301, USA.
 */
 /**
- * @file gstaampwidevinedecryptor.cpp
- * @brief aamp widevine decryptor plugin definitions
+ * @file gstwidevinedecryptor.cpp
+ * @brief widevine decryptor plugin definitions
  */
-#ifndef UBUNTU
-// avoid ubuntu-specific segFault
-
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
-
->>>>>>> dev_sprint_25_2:plugins/gst-plugins-rdk-aamp/drm/gst/gstaampwidevinedecryptor.cpp
 #include <gst/gst.h>
 #include <gst/base/gstbasetransform.h>
 #include <gst/base/gstbytereader.h>

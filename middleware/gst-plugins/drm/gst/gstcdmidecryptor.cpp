@@ -134,7 +134,6 @@ G_DEFINE_TYPE_WITH_CODE (GstCDMIDecryptor, gst_cdmidecryptor, GST_TYPE_BASE_TRAN
 		GST_DEBUG_CATEGORY_INIT (gst_cdmidecryptor_debug_category, "cdmidecryptor", 0,
 				"debug category for cdmidecryptor element"));
 
-<<<<<<< HEAD:middleware/gst-plugins/drm/gst/gstcdmidecryptor.cpp
 #if defined(UBUNTU)
 // stubs to avoid strange ubuntu-specific SegFault while running L2 Plugin tests
 static void gst_cdmidecryptor_class_init( GstCDMIDecryptorClass * klass)
@@ -146,8 +145,6 @@ static void gst_cdmidecryptor_init( GstCDMIDecryptor *cdmidecryptor)
 	printf( "gst_cdmidecryptor_init\n" );
 }
 #else
-=======
->>>>>>> dev_sprint_25_2:plugins/gst-plugins-rdk-aamp/drm/gst/gstaampcdmidecryptor.cpp
 /* prototypes */
 static void gst_cdmidecryptor_dispose(GObject*);
 static GstCaps *gst_cdmidecryptor_transform_caps(
