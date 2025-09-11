@@ -1088,3 +1088,4 @@ static gboolean gst_cdmidecryptor_accept_caps(GstBaseTransform * trans,
 	GST_DEBUG_OBJECT(trans, "Return from accept_caps: %d", ret);
 	return ret;
 }
+#endif
