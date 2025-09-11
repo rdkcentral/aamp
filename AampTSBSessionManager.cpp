@@ -805,7 +805,7 @@ void AampTSBSessionManager::SkipFragment(std::shared_ptr<AampTsbReader>& reader,
 			{
 				delta = static_cast<AampTime>(std::abs(static_cast<double>(rate))) / static_cast<double>(vodTrickplayFPS);
 			}
-			
+
 			// Only skip fragments when delta is larger than fragment duration
 			while (delta > 0.0)
 			{
@@ -935,7 +935,13 @@ bool AampTSBSessionManager::PushNextTsbFragment(MediaStreamContext *pMediaStream
 								{
 									AAMPLOG_ERR("[%s] Failed to generate iFrame track from video track at %lf", GetMediaTypeName(mediaType), nextFragmentData->GetAbsolutePosition().inSeconds());
 								}
+								std::ofstream file;
+								std::string name= "../output/Converted" + std::to_string(pts) + ".mp4";
+								file.open(name, std::ofstream::binary);
+								file.write(static_cast<const char *>(nextFragment->fragment.GetPtr()), nextFragment->fragment.GetLen());
+								file.close();
 							}
+
 							UnlockReadMutex();
 
 							ProcessAdMetadata(mediaType, nextFragmentData, rate.inSeconds());
