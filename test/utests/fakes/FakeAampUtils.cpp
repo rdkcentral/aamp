@@ -607,5 +607,13 @@ int aamp_SetThreadSchedulingParameters(int policy, int priority)
 
 bool aamp_isTuneScheme( const char *cmdBuf ){ return false; }
 
+CurlTimeoutFailureReason GetCurlTimeoutFailureReason(CURL* curl)
+{
+	return (CurlTimeoutFailureReason)CURLE_OPERATION_TIMEDOUT;;
+}
+bool GetCurlTimeoutFailureStatus( int httpResponseCode )
+{
+	return true;
+}
 // aamp_ApplyPageHttpHeaders not actually part of AampUtils.cpp, but fake declared here for convenience
 extern "C" void aamp_ApplyPageHttpHeaders(PlayerInstanceAAMP *aamp){}

@@ -478,7 +478,7 @@ KeyState AampDRMLicenseManager::handleLicenseResponse(int &responseCode,std::sha
 				AAMPLOG_WARN("DRM session for %s, Authorization failed",mDrmSessionManager->drmSessionContexts[sessionSlot].drmSession->getKeySystem().c_str());
 
 			}
-			else if (CURLE_OPERATION_TIMEDOUT == httpResponseCode)
+			else if (GetCurlTimeoutFailureStatus ( httpResponseCode ))
 			{
 				eventHandle->setFailure(AAMP_TUNE_LICENCE_TIMEOUT);
 			}
@@ -629,7 +629,7 @@ const char * AampDRMLicenseManager::getAccessToken(int &tokenLen, int &error_cod
 {	
 	if(accessToken == NULL)
 	{
-		DownloadResponsePtr respData = std::make_shared<DownloadResponse> ();		
+		DownloadResponsePtr respData = std::make_shared<DownloadResponse> ();
 		// Initialize the Seesion Token Connector
 		DownloadConfigPtr inpData = std::make_shared<DownloadConfig> ();
 		inpData->bIgnoreResponseHeader	= true;
@@ -641,60 +641,52 @@ const char * AampDRMLicenseManager::getAccessToken(int &tokenLen, int &error_cod
 		inpData->bSSLVerifyPeer		=	bSslPeerVerify;
 		mAccessTokenConnector.Initialize(std::move(inpData));
 		mAccessTokenConnector.Download(SESSION_TOKEN_URL, respData);
-
-		if( respData->curlRetValue == CURLE_OK )
-		{			
-			if (respData->iHttpRetValue == 200 || respData->iHttpRetValue == 206)
-			{		
-				string tokenReplyStr;
-				mAccessTokenConnector.GetDataString(tokenReplyStr);
-				string tokenStatusCode = extractSubstring(tokenReplyStr, "status\":", ",\"");
-				if(tokenStatusCode.length() == 0)
+		
+		if (respData->iHttpRetValue == 200 || respData->iHttpRetValue == 206)
+		{
+			string tokenReplyStr;
+			mAccessTokenConnector.GetDataString(tokenReplyStr);
+			string tokenStatusCode = extractSubstring(tokenReplyStr, "status\":", ",\"");
+			if(tokenStatusCode.length() == 0)
+			{
+				//StatusCode could be last element in the json
+				tokenStatusCode = extractSubstring(tokenReplyStr, "status\":", "}");
+			}
+			if(tokenStatusCode.length() == 1 && tokenStatusCode.c_str()[0] == '0')
+			{
+				string token = extractSubstring(tokenReplyStr, "token\":\"", "\"");
+				size_t len = token.length();
+				if(len > 0)
 				{
-					//StatusCode could be last element in the json
-					tokenStatusCode = extractSubstring(tokenReplyStr, "status\":", "}");
-				}
-				if(tokenStatusCode.length() == 1 && tokenStatusCode.c_str()[0] == '0')
-				{
-					string token = extractSubstring(std::move(tokenReplyStr), "token\":\"", "\"");
-					size_t len = token.length();
-					if(len > 0)
+					accessToken = (char*)malloc(len+1);
+					if(accessToken)
 					{
-						accessToken = (char*)malloc(len+1);
-						if(accessToken)
-						{
-							accessTokenLen = (int)len;
-							memcpy( accessToken, token.c_str(), len );
-							accessToken[len] = 0x00;
-							AAMPLOG_WARN(" Received session token from auth service in [%f]",respData->downloadCompleteMetrics.total);
-						}
-						else
-						{
-							AAMPLOG_WARN("accessToken is null");  //CID:83536 - Null Returns
-						}
+						accessTokenLen = (int)len;
+						memcpy( accessToken, token.c_str(), len );
+						accessToken[len] = 0x00;
+						AAMPLOG_WARN(" Received session token from auth service in [%f]",respData->downloadCompleteMetrics.total);
 					}
 					else
 					{
-						AAMPLOG_WARN(" Could not get access token from session token reply");
-						error_code = eAUTHTOKEN_TOKEN_PARSE_ERROR;
+						AAMPLOG_WARN("accessToken is null");  //CID:83536 - Null Returns
 					}
 				}
 				else
 				{
-					AAMPLOG_ERR(" Missing or invalid status code in session token reply");
-					error_code = eAUTHTOKEN_INVALID_STATUS_CODE;
+					AAMPLOG_WARN(" Could not get access token from session token reply");
+					error_code = eAUTHTOKEN_TOKEN_PARSE_ERROR;
 				}
 			}
 			else
 			{
-				AAMPLOG_ERR(" Get Session token call failed with http error %d", respData->iHttpRetValue);
-				error_code = respData->iHttpRetValue;
+				AAMPLOG_ERR(" Missing or invalid status code in session token reply");
+				error_code = eAUTHTOKEN_INVALID_STATUS_CODE;
 			}
 		}
 		else
 		{
-			AAMPLOG_ERR(" Get Session token call failed with curl error %d", respData->curlRetValue);
-			error_code = respData->curlRetValue;
+			AAMPLOG_ERR(" Get Session token call failed with http error %d", respData->iHttpRetValue);
+			error_code = respData->iHttpRetValue;
 		}
 	}
 	
@@ -939,7 +931,6 @@ DrmData* AampDRMLicenseManager::getLicense(LicenseRequest &licenseRequest,
 		int32_t *httpCode, AampMediaType streamType, void* aampI, DrmMetaDataEventPtr eventHandle, AampCurlDownloader *pLicenseDownloader, std::string licenseProxy)
 {
 
-	CURLcode res;
 	double totalTime = 0;
 	DrmData * keyInfo = NULL;
 	bool bNeedResponseHeadersTobeShared = aampInstance->mConfig->IsConfigSet(eAAMPConfig_SendLicenseResponseHeaders);
@@ -1010,8 +1001,7 @@ DrmData* AampDRMLicenseManager::getLicense(LicenseRequest &licenseRequest,
 		attemptCount++;
 
 		long long tStartTime = NOW_STEADY_TS_MS;
-		pLicenseDownloader->Download(licenseRequest.url, respData);		
-		res = (CURLcode)respData->curlRetValue;
+		pLicenseDownloader->Download(licenseRequest.url, respData);
 		long long tEndTime = NOW_STEADY_TS_MS;
 		long long downloadTimeMS = tEndTime - tStartTime;
 		
@@ -1024,25 +1014,15 @@ DrmData* AampDRMLicenseManager::getLicense(LicenseRequest &licenseRequest,
 			break;
 		}
 		
-		if (res != CURLE_OK)
-		{
-			// To avoid scary logging
-			if (res != CURLE_ABORTED_BY_CALLBACK && res != CURLE_WRITE_ERROR)
-			{
-				if (res == CURLE_OPERATION_TIMEDOUT || res == CURLE_COULDNT_CONNECT)
-				{
-					// Retry for curl 28 and curl 7 errors.
-					loopAgain = true;
-					pLicenseDownloader->Clear();
-				}
-				AAMPLOG_ERR(" curl_easy_perform() failed: %s", curl_easy_strerror(res));
-				AAMPLOG_ERR(" acquireLicense FAILED! license request attempt : %d; response code : curl %d", attemptCount, res);
-			}
-			*httpCode = res;
+		
+		*httpCode = respData->iHttpRetValue;
+		if ( GetCurlTimeoutFailureStatus(respData->iHttpRetValue) )
+		{ // Retry for curl 28 and curl 7 errors.
+			loopAgain = true;
+			pLicenseDownloader->Clear();
 		}
 		else
 		{
-			*httpCode = respData->iHttpRetValue;
 			totalTime = respData->downloadCompleteMetrics.total;
 			if (*httpCode != 200 && *httpCode != 206)
 			{
@@ -1092,7 +1072,9 @@ DrmData* AampDRMLicenseManager::getLicense(LicenseRequest &licenseRequest,
 			// append app name with class data
 			appName = aampInstance->GetAppName() + ",";
 		}
-		if (CURLE_OPERATION_TIMEDOUT == res || CURLE_PARTIAL_FILE == res || CURLE_COULDNT_CONNECT == res)
+		if ( GetCurlTimeoutFailureStatus( respData->iHttpRetValue ) ||
+			CURLE_PARTIAL_FILE == respData->iHttpRetValue ||
+			CURLE_COULDNT_CONNECT == respData->iHttpRetValue)
 		{
 			// introduce  extra marker for connection status curl 7/18/28,
 			// example 18(0) if connection failure with PARTIAL_FILE code

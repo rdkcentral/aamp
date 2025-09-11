@@ -181,7 +181,7 @@ void DrmInterface::GetAccessKey(std::string &keyURI,  std::string& tempEffective
         else
         {
                 AAMPLOG_ERR("Key fetch failed");
-                if (http_error == CURLE_OPERATION_TIMEDOUT)
+                if (GetCurlTimeoutFailureStatus (http_error))
                 {
                         failureReason = AAMP_TUNE_LICENCE_TIMEOUT;
                 }

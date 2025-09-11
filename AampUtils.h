@@ -33,8 +33,10 @@
 #include "iso639map.h"
 #include <string>
 #include <sstream>
+#include <curl/curl.h>
 #include <chrono>
 #include "TsbApi.h"
+#include "AampCurlDownloader.h"
 
 
 #define NOW_SYSTEM_TS_SECS std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now().time_since_epoch()).count()     /**< Getting current system clock in seconds */
@@ -421,5 +423,9 @@ int aamp_SetThreadSchedulingParameters(int policy, int priority);
  * @retval true iff uri starts with a recognized protocol representing an IP Video Locator
  */
 bool aamp_isTuneScheme( const char *cmdBuf );
+
+CurlTimeoutFailureReason GetCurlTimeoutFailureReason(CURL* curl);
+
+bool GetCurlTimeoutFailureStatus( int httpResponseCode );
 
 #endif  /* __AAMP_UTILS_H__ */
