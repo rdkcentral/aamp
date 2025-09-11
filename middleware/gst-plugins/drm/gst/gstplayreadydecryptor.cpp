@@ -21,6 +21,8 @@
  * @file gstplayreadydecryptor.cpp
  * @brief  Playready decryptor plugin definitions
  */
+#ifndef UBUNTU
+// avoid ubuntu-specific segFault
 
 #include <gst/gst.h>
 #include <gst/base/gstbasetransform.h>
@@ -99,7 +101,6 @@ static void gst_playreadydecryptor_init(Gstplayreadydecryptor *playreadydecrypto
 	DEBUG_FUNC();
 }
 
-
 /**
  * @brief Playready decryptor element termination
  * @param object playready decryptor element pointer
@@ -109,6 +110,4 @@ static void gst_playreadydecryptor_finalize(GObject * object)
 	DEBUG_FUNC();
 	GST_CALL_PARENT(G_OBJECT_CLASS, finalize, (object));
 }
-
-
-
+#endif // UBUNTU

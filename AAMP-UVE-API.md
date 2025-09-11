@@ -1935,6 +1935,7 @@ Example:
 	- add -> Audio Decryption Duration - Audio fragment decrypt duration in ms
 	- gps -> gstPlaying: offset in ms from tunestart when pipeline first fed data
 	- gff -> Total tune time if successful - offset in ms from tunestart to when first frame of video is decoded/presented.
+	- gdt -> gstDecodeTime - Total time taken in ms to decode first frame.
 	- cnt -> Content Type
 		- Content Types: Unknown(0), CDVR(1), VOD(2), Linear(3), IVOD(4), EAS(5), Camera(6), DVR(7), MDVR(8), IPDVR(9), PPV(10), OTT(11), OTA(12), HDMI Input(13), COMPOSITE Input(14), SLE(15). Refer [load](#load-uri_autoplay_tuneparams) API
 	- stt -> Media stream Type + Drm codec Type
