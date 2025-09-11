@@ -408,13 +408,40 @@ void MediaTrack::UpdateTSAfterChunkInject()
 }
 
 /**
- * @brief To be implemented by derived classes to receive cached fragment Chunk
- * Receives cached fragment and injects to sink.
+ * @fn InjectFragmentChunkInternal
+ *
+ * @param[in] mediaType - Media type of the fragment
+ * @param[in] buffer - contains fragment to be processed and injected
+ * @param[in] fpts - fragment PTS
+ * @param[in] fdts - fragment DTS
+ * @param[in] fDuration - fragment duration
+ * @param[in] fragmentPTSOffset - PTS offset to be applied
+ * @param[in] init - true if fragment is init fragment
+ * @param[in] discontinuity - true if there is a discontinuity, false otherwise
+ * @return void
  */
 void MediaTrack::InjectFragmentChunkInternal(AampMediaType mediaType, AampGrowableBuffer* buffer, double fpts, double fdts, double fDuration, double fragmentPTSOffset, bool init, bool discontinuity)
 {
-	aamp->SendStreamTransfer(mediaType, buffer, fpts, fdts, fDuration, fragmentPTSOffset, init, discontinuity);
-
+	if (playContext)
+	{
+		MediaProcessor::process_fcn_t processor = [this](AampMediaType type, SegmentInfo_t info, std::vector<uint8_t> buf)
+		{
+			// No-op processor for chunk injection
+		};
+		AAMPLOG_INFO("Type[%d] position: %f duration: %f PTSOffsetSec: %f initFragment: %d size: %zu",
+			type, fpts, fDuration, fragmentPTSOffset, init, buffer->GetLen());
+		bool ptsError = false;
+		if (!playContext->sendSegment(buffer, fpts, fDuration, fragmentPTSOffset, discontinuity, init, std::move(processor), ptsError))
+		{
+			AAMPLOG_INFO("Type[%d] Fragment discarded", mediaType);
+		}
+	}
+	else
+	{
+		aamp->ProcessID3Metadata(buffer->GetPtr(), buffer->GetLen(), mediaType);
+		AAMPLOG_DEBUG("Type[%d] fpts: %f fDuration: %f init: %d", type, fpts, fDuration, init);
+		aamp->SendStreamTransfer(mediaType, buffer, fpts, fdts, fDuration, fragmentPTSOffset, init, discontinuity);
+	}
 }
 
 /**
@@ -813,6 +840,7 @@ bool MediaTrack::CheckForDiscontinuity(CachedFragment* cachedFragment, bool& fra
 				}
 				else
 				{
+					AAMPLOG_WARN("discontinuity ignored for other AV track, no need to process %s track", name);
 					// reset the flag when both the paired discontinuities ignored; since no buffer pushed before.
 					aamp->ResetTrackDiscontinuityIgnoredStatus();
 					aamp->UnblockWaitForDiscontinuityProcessToComplete();
@@ -3953,10 +3981,9 @@ void StreamAbstractionAAMP::SetVideoPlaybackRate(float rate)
 
 /**
  * @brief Initialize ISOBMFF Media Processor
- *
- * @return void
+ * @param[in] passThroughMode - true if processor should skip parsing PTS and flush
  */
-void StreamAbstractionAAMP::InitializeMediaProcessor()
+void StreamAbstractionAAMP::InitializeMediaProcessor(bool passThroughMode)
 {
 	std::shared_ptr<IsoBmffProcessor> peerAudioProcessor = nullptr;
 	std::shared_ptr<IsoBmffProcessor> peerSubtitleProcessor = nullptr;
@@ -3974,7 +4001,7 @@ void StreamAbstractionAAMP::InitializeMediaProcessor()
 			if(eMEDIATYPE_SUBTITLE != i)
 			{
 				std::shared_ptr<IsoBmffProcessor> processor = std::make_shared<IsoBmffProcessor>(aamp, mID3Handler, (IsoBmffProcessorType) i,
-																peerAudioProcessor.get(), peerSubtitleProcessor.get());
+																passThroughMode, peerAudioProcessor.get(), peerSubtitleProcessor.get());
 				track->SourceFormat(FORMAT_ISO_BMFF);
 				track->playContext = std::static_pointer_cast<MediaProcessor>(processor);
 				track->playContext->setRate(aamp->rate, PlayMode_normal);
@@ -3991,7 +4018,7 @@ void StreamAbstractionAAMP::InitializeMediaProcessor()
 			{
 				if(FORMAT_SUBTITLE_MP4 == subtitleFormat)
 				{
-					peerSubtitleProcessor = std::make_shared<IsoBmffProcessor>(aamp, nullptr, (IsoBmffProcessorType) i);
+					peerSubtitleProcessor = std::make_shared<IsoBmffProcessor>(aamp, nullptr, (IsoBmffProcessorType) i, passThroughMode, nullptr, nullptr);
 					track->playContext = std::static_pointer_cast<MediaProcessor>(peerSubtitleProcessor);
 					track->playContext->setRate(aamp->rate, PlayMode_normal);
 				}
