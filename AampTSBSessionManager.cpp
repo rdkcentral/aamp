@@ -936,10 +936,18 @@ bool AampTSBSessionManager::PushNextTsbFragment(MediaStreamContext *pMediaStream
 									AAMPLOG_ERR("[%s] Failed to generate iFrame track from video track at %lf", GetMediaTypeName(mediaType), nextFragmentData->GetAbsolutePosition().inSeconds());
 								}
 								std::ofstream file;
-								std::string name= "../output/Converted" + std::to_string(pts) + ".mp4";
+								std::string name= "output/Converted" + std::to_string(pts) + ".mp4";
 								file.open(name, std::ofstream::binary);
-								file.write(static_cast<const char *>(nextFragment->fragment.GetPtr()), nextFragment->fragment.GetLen());
-								file.close();
+								if (file.fail())
+								{
+
+									AAMPLOG_ERR("Failed to open the file %s", name.c_str());
+								}
+								else
+								{
+									file.write(static_cast<const char *>(nextFragment->fragment.GetPtr()), nextFragment->fragment.GetLen());
+									file.close();
+								}
 							}
 
 							UnlockReadMutex();
