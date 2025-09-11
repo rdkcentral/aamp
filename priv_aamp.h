@@ -3776,13 +3776,6 @@ public:
 	bool SignalSubtitleClock( void );
 
 	/**
-	 * @brief Apply CC/Subtitle mute but preserve the original status
-	 * This function should be called after acquiring StreamLock
-	 * @param[in] muted true if CC/Subtitle is to be muted, false otherwise
-	 */
-	void CacheAndApplySubtitleMute(bool muted);
-
-	/**
 	  * @fn ReleaseDynamicDRMToUpdateWait
 	  *
 	  * @param Void
@@ -4161,5 +4154,23 @@ private:
 	void SetCMCDTrackData(AampMediaType mediaType);
 	std::vector<float> getSupportedPlaybackSpeeds(void);
 	bool IsFogUrl(const char *mainManifestUrl);
+
+	/**
+	 *   @fn SetVideoMuteInternal
+	 *   @brief Set video mute state, internal method
+	 *
+	 *   @param[in] muted - muted or unmuted
+	 *   @return void
+	 */
+	void SetVideoMuteInternal(bool muted);
+
+	/**
+	 *   @fn SetSubtitleMuteInternal
+	 *   @brief Set subtitle mute state, internal method
+	 *
+	 *   @param[in] muted - muted or unmuted
+	 *   @return void
+	 */
+	void SetSubtitleMuteInternal(bool muted);
 };
 #endif // PRIVAAMP_H
