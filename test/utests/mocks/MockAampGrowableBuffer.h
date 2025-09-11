@@ -33,4 +33,7 @@ extern MockAampGrowableBuffer *g_mockAampGrowableBuffer;
 // Function to enable memory copying behavior for tests that need it
 void AampGrowableBuffer_EnableMemoryCopying(bool enable);
 
+// Function to clear global buffer storage (for test cleanup)
+void AampGrowableBuffer_ClearGlobalStorage();
+
 #endif /* AAMP_MOCK_GROWABLE_BUFFER_H*/
