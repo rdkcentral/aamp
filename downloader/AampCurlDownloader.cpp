@@ -157,6 +157,7 @@ bool AampCurlDownloader::IsDownloadActive()
 
 int AampCurlDownloader::Download(const std::string &urlStr, std::shared_ptr<DownloadResponse> dnldData )
 {
+	AAMPLOG_WARN("RDKEMW-5448:Inside Download");
 	int httpRetVal=0;
 	int curlRetVal=0;
 	int numDownloadAttempts=0;
@@ -179,6 +180,7 @@ int AampCurlDownloader::Download(const std::string &urlStr, std::shared_ptr<Down
 			bool loopAgain = false;
 			do{
 				mDownloadStartTime = mDownloadUpdatedTime = NOW_STEADY_TS_MS;
+				AAMPLOG_WARN("RDKEMW-5448:Performing curl easy");
 				curlRetVal = curl_easy_perform(mCurl);
 				loopAgain = false;
 				numDownloadAttempts++;

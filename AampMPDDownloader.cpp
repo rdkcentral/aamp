@@ -268,7 +268,7 @@ void AampMPDDownloader::SetBufferAvailability(int iDurationMilliSec)
 void AampMPDDownloader::Release()
 {
 	AAMPLOG_INFO("Release Called in MPD Downloader");
-
+    AAMPLOG_WARN("RDKEMW-5448:%d",mReleaseCalled);
 	if(!mReleaseCalled)
 	{
 		{
@@ -283,8 +283,10 @@ void AampMPDDownloader::Release()
 		mDownloader1.Release();
 		mDownloader2.Release();
 
-		if(mDownloaderThread_t1.joinable())
+		if(mDownloaderThread_t1.joinable()){
+			AAMPLOG_WARN("RDKEMW-5448: Download thread 1 is joinable");
 			mDownloaderThread_t1.join();
+		}
 
 		if(mDownloaderThread_t2.joinable())
 			mDownloaderThread_t2.join();
@@ -341,6 +343,7 @@ void AampMPDDownloader::Start()
 */
 void AampMPDDownloader::downloadMPDThread1()
 {
+	AAMPLOG_WARN("RDKEMW-5448:Inside downloadMPDThread1");
 	UsingPlayerId playerId(mMPDDnldCfg->mPlayerId);
 	bool refreshNeeded = false;
 	std::string tuneUrl = mMPDDnldCfg->mTuneUrl;
