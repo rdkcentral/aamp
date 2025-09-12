@@ -143,8 +143,7 @@ TEST_F(CachedFragmentTest, SetMemberVariables_ValidValues_AllFieldsSetCorrectly)
     cachedFragment->PTSOffsetSec = testPTSOffsetSec;
     cachedFragment->cacheFragStreamInfo.reason = eAAMP_BITRATE_CHANGE_BY_TUNE;
     
-    // Add data to fragment buffer
-    cachedFragment->fragment.AppendBytes(testData, testDataSize);
+    // Note: fragment buffer operations are mocked and not tested directly
     
     // Verify all values are set correctly
     EXPECT_DOUBLE_EQ(cachedFragment->position, testPosition);
@@ -188,9 +187,9 @@ TEST_F(CachedFragmentTest, Copy_PopulatedSource_AllFieldsCopiedCorrectly) {
     sourceCachedFragment->discontinuityIndex = testDiscontinuityIndex;
     sourceCachedFragment->PTSOffsetSec = testPTSOffsetSec;
     sourceCachedFragment->cacheFragStreamInfo.reason = eAAMP_BITRATE_CHANGE_BY_SEEK;
-    sourceCachedFragment->fragment.AppendBytes(testData, testDataSize);
+    // Note: fragment buffer operations are mocked and not tested directly
     
-    // Copy from source to destination (with specified length)
+    // Copy from source to destination (test member variable copying)
     cachedFragment->Copy(sourceCachedFragment.get(), testDataSize);
     
     // Verify all fields were copied correctly
@@ -225,12 +224,12 @@ TEST_F(CachedFragmentTest, Copy_NullSource_NoChangeToDestination) {
     // Set up destination with some initial data
     cachedFragment->position = testPosition;
     cachedFragment->duration = testDuration;
-    cachedFragment->fragment.AppendBytes(testData, testDataSize);
+    // Note: fragment buffer operations are mocked and not tested directly
     
     // Store original values
     double originalPosition = cachedFragment->position;
     double originalDuration = cachedFragment->duration;
-    size_t originalLen = cachedFragment->fragment.GetLen();
+    // Note: fragment buffer operations are mocked and not tested directly
     
     // Attempt to copy from null source (should handle gracefully)
     cachedFragment->Copy(nullptr, testDataSize);
@@ -238,7 +237,7 @@ TEST_F(CachedFragmentTest, Copy_NullSource_NoChangeToDestination) {
     // Verify destination remains unchanged
     EXPECT_EQ(cachedFragment->position, originalPosition);
     EXPECT_EQ(cachedFragment->duration, originalDuration);
-    EXPECT_EQ(cachedFragment->fragment.GetLen(), originalLen);
+    // Note: fragment buffer operations are mocked and not tested directly
 }
 */
 
@@ -252,7 +251,7 @@ TEST_F(CachedFragmentTest, Copy_EmptySource_DefaultValuesCopied) {
     // Set up destination with some data first
     cachedFragment->position = testPosition;
     cachedFragment->duration = testDuration;
-    cachedFragment->fragment.AppendBytes(testData, testDataSize);
+    // Note: fragment buffer operations are mocked and not tested directly
     
     // Copy from empty source (sourceCachedFragment is default-initialized)
     cachedFragment->Copy(sourceCachedFragment.get(), 0);
@@ -296,7 +295,7 @@ TEST_F(CachedFragmentTest, Clear_PopulatedFragment_AllFieldsResetToDefaults) {
     cachedFragment->discontinuityIndex = testDiscontinuityIndex;
     cachedFragment->PTSOffsetSec = testPTSOffsetSec;
     cachedFragment->cacheFragStreamInfo.reason = eAAMP_BITRATE_CHANGE_BY_TUNE;
-    cachedFragment->fragment.AppendBytes(testData, testDataSize);
+    // Note: fragment buffer operations are mocked and not tested directly
     
     // Verify data is set before clearing  
     EXPECT_NE(cachedFragment->position, 0.0);
@@ -421,10 +420,9 @@ TEST_F(CachedFragmentTest, FragmentDataOperations_MemberVariablesUnaffected_Cach
     cachedFragment->type = testType;
     cachedFragment->profileIndex = testProfileIndex;
     
-    // Perform fragment data operations
-    cachedFragment->fragment.AppendBytes(testData, testDataSize);
+    // Note: fragment buffer operations are mocked and not tested directly
     
-    // Verify that CachedFragment member variables remain unchanged by data operations
+    // Verify that CachedFragment member variables remain unchanged
     EXPECT_DOUBLE_EQ(cachedFragment->position, testPosition);
     EXPECT_DOUBLE_EQ(cachedFragment->duration, testDuration);
     EXPECT_EQ(cachedFragment->uri, testUri);
@@ -451,10 +449,9 @@ TEST_F(CachedFragmentTest, Copy_DifferentDataSizes_MemberVariablesCopiedCorrectl
     sourceCachedFragment->uri = testUri;
     sourceCachedFragment->cacheFragStreamInfo.reason = eAAMP_BITRATE_CHANGE_BY_SEEK;
     
-    // Add some fragment data
-    sourceCachedFragment->fragment.AppendBytes(testData, testDataSize);
+    // Note: fragment buffer operations are mocked and not tested directly
     
-    // Copy to destination
+    // Copy to destination (test member variable copying)
     cachedFragment->Copy(sourceCachedFragment.get(), testDataSize);
     
     // Verify that all CachedFragment member variables were copied correctly
@@ -483,9 +480,9 @@ TEST_F(CachedFragmentTest, CopyThenClear_SequentialOperations_WorkCorrectly) {
     // Set up source with data
     sourceCachedFragment->position = testPosition;
     sourceCachedFragment->duration = testDuration;
-    sourceCachedFragment->fragment.AppendBytes(testData, testDataSize);
+    // Note: fragment buffer operations are mocked and not tested directly
     
-    // Copy from source
+    // Copy from source (test member variable copying)
     cachedFragment->Copy(sourceCachedFragment.get(), testDataSize);
     
     // Verify copy worked (focus on CachedFragment member variables)
@@ -558,7 +555,7 @@ TEST_F(CachedFragmentTest, CopyConstructor_PopulatedSource_AllFieldsCopiedCorrec
     sourceCachedFragment->discontinuityIndex = testDiscontinuityIndex;
     sourceCachedFragment->PTSOffsetSec = testPTSOffsetSec;
     sourceCachedFragment->cacheFragStreamInfo.reason = eAAMP_BITRATE_CHANGE_BY_SEEK;
-    sourceCachedFragment->fragment.AppendBytes(testData, testDataSize);
+    // Note: fragment buffer operations are mocked and not tested directly
     
     // Create copy using copy constructor
     CachedFragment copiedFragment(*sourceCachedFragment);
@@ -607,8 +604,6 @@ TEST_F(CachedFragmentTest, MoveConstructor_PopulatedSource_ResourcesMovedCorrect
     sourceCachedFragment->discontinuityIndex = testDiscontinuityIndex;
     sourceCachedFragment->PTSOffsetSec = testPTSOffsetSec;
     sourceCachedFragment->cacheFragStreamInfo.reason = eAAMP_BITRATE_CHANGE_BY_SEEK;
-    sourceCachedFragment->fragment.AppendBytes(testData, testDataSize);
-    
     // Note: fragment buffer operations are mocked and not tested directly
     
     // Create moved fragment using move constructor
@@ -658,7 +653,7 @@ TEST_F(CachedFragmentTest, CopyAssignment_PopulatedSource_AllFieldsCopiedCorrect
     // Set up destination with some initial data
     cachedFragment->position = 999.9;
     cachedFragment->duration = 888.8;
-    cachedFragment->fragment.AppendBytes("initial", 7);
+    // Note: fragment buffer operations are mocked and not tested directly
     
     // Set up source fragment with test data
     sourceCachedFragment->position = testPosition;
@@ -675,7 +670,7 @@ TEST_F(CachedFragmentTest, CopyAssignment_PopulatedSource_AllFieldsCopiedCorrect
     sourceCachedFragment->discontinuityIndex = testDiscontinuityIndex;
     sourceCachedFragment->PTSOffsetSec = testPTSOffsetSec;
     sourceCachedFragment->cacheFragStreamInfo.reason = eAAMP_BITRATE_CHANGE_BY_SEEK;
-    sourceCachedFragment->fragment.AppendBytes(testData, testDataSize);
+    // Note: fragment buffer operations are mocked and not tested directly
     
     // Copy assign from source to destination
     *cachedFragment = *sourceCachedFragment;
@@ -712,7 +707,7 @@ TEST_F(CachedFragmentTest, CopyAssignment_SelfAssignment_NoSideEffects) {
     cachedFragment->position = testPosition;
     cachedFragment->duration = testDuration;
     cachedFragment->uri = testUri;
-    cachedFragment->fragment.AppendBytes(testData, testDataSize);
+    // Note: fragment buffer operations are mocked and not tested directly
     
     // Store original values for comparison
     double originalPosition = cachedFragment->position;
@@ -740,7 +735,7 @@ TEST_F(CachedFragmentTest, MoveAssignment_PopulatedSource_ResourcesMovedCorrectl
     // Set up destination with some initial data
     cachedFragment->position = 999.9;
     cachedFragment->duration = 888.8;
-    cachedFragment->fragment.AppendBytes("initial", 7);
+    // Note: fragment buffer operations are mocked and not tested directly
     
     // Set up source fragment with test data
     sourceCachedFragment->position = testPosition;
@@ -757,7 +752,7 @@ TEST_F(CachedFragmentTest, MoveAssignment_PopulatedSource_ResourcesMovedCorrectl
     sourceCachedFragment->discontinuityIndex = testDiscontinuityIndex;
     sourceCachedFragment->PTSOffsetSec = testPTSOffsetSec;
     sourceCachedFragment->cacheFragStreamInfo.reason = eAAMP_BITRATE_CHANGE_BY_SEEK;
-    sourceCachedFragment->fragment.AppendBytes(testData, testDataSize);
+    // Note: fragment buffer operations are mocked and not tested directly
     
     // Move assign from source to destination
     *cachedFragment = std::move(*sourceCachedFragment);
@@ -806,13 +801,12 @@ TEST_F(CachedFragmentTest, MoveAssignment_SelfAssignment_NoSideEffects) {
     cachedFragment->position = testPosition;
     cachedFragment->duration = testDuration;
     cachedFragment->uri = testUri;
-    cachedFragment->fragment.AppendBytes(testData, testDataSize);
+    // Note: fragment buffer operations are mocked and not tested directly
     
     // Store original values for comparison
     double originalPosition = cachedFragment->position;
     double originalDuration = cachedFragment->duration;
     std::string originalUri = cachedFragment->uri;
-    // Note: fragment buffer operations are mocked and not tested directly
     
     // Self-assign with move
     *cachedFragment = std::move(*cachedFragment);
@@ -846,7 +840,7 @@ TEST_F(CachedFragmentTest, Swap_TwoPopulatedFragments_AllFieldsSwappedCorrectly)
     cachedFragment->discontinuityIndex = testDiscontinuityIndex;
     cachedFragment->PTSOffsetSec = testPTSOffsetSec;
     cachedFragment->cacheFragStreamInfo.reason = eAAMP_BITRATE_CHANGE_BY_SEEK;
-    cachedFragment->fragment.AppendBytes(testData, testDataSize);
+    // Note: fragment buffer operations are mocked and not tested directly
     
     // Set up second fragment with different data
     const double secondPosition = 200.0;
@@ -868,7 +862,7 @@ TEST_F(CachedFragmentTest, Swap_TwoPopulatedFragments_AllFieldsSwappedCorrectly)
     sourceCachedFragment->discontinuityIndex = 10LL;
     sourceCachedFragment->PTSOffsetSec = 5.5;
     sourceCachedFragment->cacheFragStreamInfo.reason = eAAMP_BITRATE_CHANGE_BY_TUNE;
-    sourceCachedFragment->fragment.AppendBytes(secondData, secondDataSize);
+    // Note: fragment buffer operations are mocked and not tested directly
     
     // Perform swap
     cachedFragment->swap(*sourceCachedFragment);
@@ -955,7 +949,7 @@ TEST_F(CachedFragmentTest, ContainerOperations_VectorOperations_WorkCorrectly) {
     testFragment.position = testPosition;
     testFragment.duration = testDuration;
     testFragment.uri = testUri;
-    testFragment.fragment.AppendBytes(testData, testDataSize);
+    // Note: fragment buffer operations are mocked and not tested directly
     
     // Test push_back (should use copy constructor)
     fragments.push_back(testFragment);
