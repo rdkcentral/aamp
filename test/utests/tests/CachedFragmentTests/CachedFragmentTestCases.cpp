@@ -100,9 +100,9 @@ protected:
  */
 TEST_F(CachedFragmentTest, Constructor_DefaultInitialization_AllFieldsSetToDefaults) {
     // Test primitive type defaults
-    EXPECT_EQ(cachedFragment->position, 0.0);
-    EXPECT_EQ(cachedFragment->duration, 0.0);
-    EXPECT_EQ(cachedFragment->absPosition, 0.0);
+    EXPECT_DOUBLE_EQ(cachedFragment->position, 0.0);
+    EXPECT_DOUBLE_EQ(cachedFragment->duration, 0.0);
+    EXPECT_DOUBLE_EQ(cachedFragment->absPosition, 0.0);
     EXPECT_EQ(cachedFragment->initFragment, false);
     EXPECT_EQ(cachedFragment->discontinuity, false);
     EXPECT_EQ(cachedFragment->isDummy, false);
@@ -112,7 +112,7 @@ TEST_F(CachedFragmentTest, Constructor_DefaultInitialization_AllFieldsSetToDefau
     EXPECT_EQ(cachedFragment->type, eMEDIATYPE_DEFAULT);
     EXPECT_EQ(cachedFragment->downloadStartTime, 0LL);
     EXPECT_EQ(cachedFragment->discontinuityIndex, 0LL);
-    EXPECT_EQ(cachedFragment->PTSOffsetSec, 0.0);
+    EXPECT_DOUBLE_EQ(cachedFragment->PTSOffsetSec, 0.0);
     
     // Test that BitrateChangeReason is properly initialized
     EXPECT_EQ(cachedFragment->cacheFragStreamInfo.reason, eAAMP_BITRATE_CHANGE_BY_ABR);
@@ -148,9 +148,9 @@ TEST_F(CachedFragmentTest, SetMemberVariables_ValidValues_AllFieldsSetCorrectly)
     cachedFragment->fragment.AppendBytes(testData, testDataSize);
     
     // Verify all values are set correctly
-    EXPECT_EQ(cachedFragment->position, testPosition);
-    EXPECT_EQ(cachedFragment->duration, testDuration);
-    EXPECT_EQ(cachedFragment->absPosition, testAbsPosition);
+    EXPECT_DOUBLE_EQ(cachedFragment->position, testPosition);
+    EXPECT_DOUBLE_EQ(cachedFragment->duration, testDuration);
+    EXPECT_DOUBLE_EQ(cachedFragment->absPosition, testAbsPosition);
     EXPECT_EQ(cachedFragment->initFragment, testInitFragment);
     EXPECT_EQ(cachedFragment->discontinuity, testDiscontinuity);
     EXPECT_EQ(cachedFragment->isDummy, testIsDummy);
@@ -160,7 +160,7 @@ TEST_F(CachedFragmentTest, SetMemberVariables_ValidValues_AllFieldsSetCorrectly)
     EXPECT_EQ(cachedFragment->type, testType);
     EXPECT_EQ(cachedFragment->downloadStartTime, testDownloadStartTime);
     EXPECT_EQ(cachedFragment->discontinuityIndex, testDiscontinuityIndex);
-    EXPECT_EQ(cachedFragment->PTSOffsetSec, testPTSOffsetSec);
+    EXPECT_DOUBLE_EQ(cachedFragment->PTSOffsetSec, testPTSOffsetSec);
     EXPECT_EQ(cachedFragment->cacheFragStreamInfo.reason, eAAMP_BITRATE_CHANGE_BY_TUNE);
     
     // Verify fragment data
@@ -197,9 +197,9 @@ TEST_F(CachedFragmentTest, Copy_PopulatedSource_AllFieldsCopiedCorrectly) {
     cachedFragment->Copy(sourceCachedFragment.get(), testDataSize);
     
     // Verify all fields were copied correctly
-    EXPECT_EQ(cachedFragment->position, testPosition);
-    EXPECT_EQ(cachedFragment->duration, testDuration);
-    EXPECT_EQ(cachedFragment->absPosition, testAbsPosition);
+    EXPECT_DOUBLE_EQ(cachedFragment->position, testPosition);
+    EXPECT_DOUBLE_EQ(cachedFragment->duration, testDuration);
+    EXPECT_DOUBLE_EQ(cachedFragment->absPosition, testAbsPosition);
     EXPECT_EQ(cachedFragment->initFragment, testInitFragment);
     EXPECT_EQ(cachedFragment->discontinuity, testDiscontinuity);
     EXPECT_EQ(cachedFragment->isDummy, testIsDummy);
@@ -209,7 +209,7 @@ TEST_F(CachedFragmentTest, Copy_PopulatedSource_AllFieldsCopiedCorrectly) {
     EXPECT_EQ(cachedFragment->type, testType);
     EXPECT_EQ(cachedFragment->downloadStartTime, testDownloadStartTime);
     EXPECT_EQ(cachedFragment->discontinuityIndex, testDiscontinuityIndex);
-    EXPECT_EQ(cachedFragment->PTSOffsetSec, testPTSOffsetSec);
+    EXPECT_DOUBLE_EQ(cachedFragment->PTSOffsetSec, testPTSOffsetSec);
     EXPECT_EQ(cachedFragment->cacheFragStreamInfo.reason, eAAMP_BITRATE_CHANGE_BY_SEEK);
     
     // Verify fragment data was copied correctly
@@ -267,9 +267,9 @@ TEST_F(CachedFragmentTest, Copy_EmptySource_DefaultValuesCopied) {
     cachedFragment->Copy(sourceCachedFragment.get(), 0);
     
     // Verify all fields are reset to default values
-    EXPECT_EQ(cachedFragment->position, 0.0);
-    EXPECT_EQ(cachedFragment->duration, 0.0);
-    EXPECT_EQ(cachedFragment->absPosition, 0.0);
+    EXPECT_DOUBLE_EQ(cachedFragment->position, 0.0);
+    EXPECT_DOUBLE_EQ(cachedFragment->duration, 0.0);
+    EXPECT_DOUBLE_EQ(cachedFragment->absPosition, 0.0);
     EXPECT_EQ(cachedFragment->initFragment, false);
     EXPECT_EQ(cachedFragment->discontinuity, false);
     EXPECT_EQ(cachedFragment->isDummy, false);
@@ -279,7 +279,7 @@ TEST_F(CachedFragmentTest, Copy_EmptySource_DefaultValuesCopied) {
     EXPECT_EQ(cachedFragment->type, eMEDIATYPE_DEFAULT);  // sourceCachedFragment is default-initialized with eMEDIATYPE_DEFAULT
     EXPECT_EQ(cachedFragment->downloadStartTime, 0LL);
     EXPECT_EQ(cachedFragment->discontinuityIndex, 0LL);
-    EXPECT_EQ(cachedFragment->PTSOffsetSec, 0.0);
+    EXPECT_DOUBLE_EQ(cachedFragment->PTSOffsetSec, 0.0);
     EXPECT_EQ(cachedFragment->cacheFragStreamInfo.reason, eAAMP_BITRATE_CHANGE_BY_ABR);
     
     // Verify fragment buffer is cleared - NOTE: fake Free() doesn't reset length
@@ -542,17 +542,17 @@ TEST_F(CachedFragmentTest, BoundaryValues_NumericFields_HandledCorrectly) {
     cachedFragment->profileIndex = std::numeric_limits<int>::max();
     
     // Verify values are set correctly
-    EXPECT_EQ(cachedFragment->position, std::numeric_limits<double>::max());
-    EXPECT_EQ(cachedFragment->duration, std::numeric_limits<double>::min());
-    EXPECT_EQ(cachedFragment->absPosition, -std::numeric_limits<double>::max());
+    EXPECT_DOUBLE_EQ(cachedFragment->position, std::numeric_limits<double>::max());
+    EXPECT_DOUBLE_EQ(cachedFragment->duration, std::numeric_limits<double>::min());
+    EXPECT_DOUBLE_EQ(cachedFragment->absPosition, -std::numeric_limits<double>::max());
     EXPECT_EQ(cachedFragment->profileIndex, std::numeric_limits<int>::max());
     
     // Test copying extreme values
     sourceCachedFragment->Copy(cachedFragment.get(), 0);
     
-    EXPECT_EQ(sourceCachedFragment->position, std::numeric_limits<double>::max());
-    EXPECT_EQ(sourceCachedFragment->duration, std::numeric_limits<double>::min());
-    EXPECT_EQ(sourceCachedFragment->absPosition, -std::numeric_limits<double>::max());
+    EXPECT_DOUBLE_EQ(sourceCachedFragment->position, std::numeric_limits<double>::max());
+    EXPECT_DOUBLE_EQ(sourceCachedFragment->duration, std::numeric_limits<double>::min());
+    EXPECT_DOUBLE_EQ(sourceCachedFragment->absPosition, -std::numeric_limits<double>::max());
     EXPECT_EQ(sourceCachedFragment->profileIndex, std::numeric_limits<int>::max());
 }
 
