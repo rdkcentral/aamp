@@ -66,7 +66,7 @@ PlayerExternalsRdkInterface::PlayerExternalsRdkInterface()
     else
     {
         m_pDeviceInterfaceBase = DeviceIARMInterface::GetInstance();
-    }     
+    }
 
     // Get initial HDCP status
     SetHDMIStatus();
@@ -75,6 +75,8 @@ PlayerExternalsRdkInterface::PlayerExternalsRdkInterface()
 
 void PlayerExternalsRdkInterface::Initialize()
 {
+    std::shared_ptr<PlayerExternalsInterface> pInstance = PlayerExternalsInterface::GetPlayerExternalsInterfaceInstance();
+
     if(pInstance->GetUseFirebolt())
     {   
         DeviceFireboltInterface::Initialize();
