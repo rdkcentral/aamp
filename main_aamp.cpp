@@ -52,25 +52,29 @@ void doFakeTune()
 {
 	if(PlayerExternalsInterface::IsDevicePropertiesPresent())
 	{
+		std::shared_ptr<PlayerInstanceAAMP> fakeTuneInstance = std::make_shared<PlayerInstanceAAMP>(nullptr, nullptr);
+		bool isPreInitDecoding = fakeTuneInstance->IsPreInitDecoding();
+		if(isPreInitDecoding)
+		{
 			AAMPLOG_WARN("doFakeTune : Triggering fake tune");
-			std::shared_ptr<PlayerInstanceAAMP> fakeTuneInstance = std::make_shared<PlayerInstanceAAMP>(nullptr, nullptr);
+
 			std::string jsonStr = R"({
 		    		"preferredDrm": 1,
 		    		"licenseServerUrl": "https://dummy.com"
 			})";
 			fakeTuneInstance->InitAAMPConfig(jsonStr.c_str());
 			fakeTuneInstance->Tune(
-			FAKE_TUNE_URL,
-			true,						  // autoPlay
-			"VOD",						  // contentType
-			true,						  // bFirstAttempt
-			false,						  // bFinalAttempt
-			"trace-id-123",				  // traceUUID
-			false,						  // audioDecoderStreamSync
-			nullptr,					  // refreshManifestUrl
-			0,							  // mpdStichingMode
-			"session-id"				  // sid
-			);
+					FAKE_TUNE_URL,
+					true,						  // autoPlay
+					"VOD",						  // contentType
+					true,						  // bFirstAttempt
+					false,						  // bFinalAttempt
+					"trace-id-123",				  // traceUUID
+					false,						  // audioDecoderStreamSync
+					nullptr,					  // refreshManifestUrl
+					0,							  // mpdStichingMode
+					"session-id"				  // sid
+					);
 			AAMPLOG_WARN("After Fake tune call ...");
 			std::thread([fakeTuneInstance]() {
 					AAMPLOG_WARN("Sleeping before calling stop");
@@ -78,6 +82,7 @@ void doFakeTune()
 					fakeTuneInstance->Stop();
 					AAMPLOG_WARN("Fake tune instance stopped..");
 					}).detach();
+		}
 	}
 }
 #endif
@@ -344,6 +349,13 @@ void PlayerInstanceAAMP::Tune(const char *mainManifestUrl,
 		TuneInternal(mainManifestUrl, autoPlay , contentType, bFirstAttempt, bFinalAttempt,traceUUID,audioDecoderStreamSync, refreshManifestUrl, mpdStitchingMode, std::move(sid),manifestData);
 	}
 }
+
+#ifdef USE_PREINIT_DECODING
+bool PlayerInstanceAAMP::IsPreInitDecoding()
+{
+	return	GETCONFIGVALUE(eAAMPConfig_EnablePreInitDecoding);
+}
+#endif
 
 /**
  * @brief Tune to a URL.

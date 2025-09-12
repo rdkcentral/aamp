@@ -855,7 +855,9 @@ public:
 				int mpdStitchingMode = 0,
 				std::string sid = std::string{},
 				const char *manifestData = NULL);
-
+#ifdef USE_PREINIT_DECODING
+	bool IsPreInitDecoding();
+#endif
 	/**
 	 *   @brief Stop playback and release resources.
 	 *   @param[in]  sendStateChangeEvent - true if state change events need to be sent for Stop operation

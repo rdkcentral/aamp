@@ -367,7 +367,10 @@ static const ConfigLookupEntryBool mConfigLookupTableBool[AAMPCONFIG_BOOL_COUNT]
 	{true, "overrideMediaHeaderDuration", eAAMPConfig_OverrideMediaHeaderDuration, true},
 	{false, "useMp4Demux", eAAMPConfig_UseMp4Demux,false },
 	{false, "curlThroughput", eAAMPConfig_CurlThroughput, false },
-	{false, "useFireboltSDK", eAAMPConfig_UseFireboltSDK, false}
+	{false, "useFireboltSDK", eAAMPConfig_UseFireboltSDK, false},
+#ifdef USE_PREINIT_DECODING
+	{true, "enablePreInitDecoding", eAAMPConfig_EnablePreInitDecoding, true}
+#endif
 };
 
 #define CONFIG_INT_ALIAS_COUNT 2

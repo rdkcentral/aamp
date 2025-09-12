@@ -213,6 +213,9 @@ typedef enum
 	eAAMPConfig_UseMp4Demux,
 	eAAMPConfig_CurlThroughput,
 	eAAMPConfig_UseFireboltSDK,						/**< Config to use Firebolt SDK for license Acquisition */
+#ifdef USE_PREINIT_DECODING
+	eAAMPConfig_EnablePreInitDecoding,					/**< Config to enable PreInitDecoding */
+#endif
 	eAAMPConfig_BoolMaxValue						/**< Max value of bool config always last element */
 
 } AAMPConfigSettingBool;
