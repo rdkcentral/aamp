@@ -2250,36 +2250,53 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 		}
 
 		ProgressEventPtr evt = std::make_shared<ProgressEvent>(duration, reportFormattedCurrPos, start, end, speed, videoPTS, videoBufferedDuration, audioBufferedDuration, seiTimecode.c_str(), latency, bps, mNetworkBandwidth, currentRate, GetSessionId());
-
+        AAMPLOG_WARN("supriya: ReportProgress: trickStartUTCMS=%lld, bProcessEvent=%d, mFirstProgress=%d",
+                 trickStartUTCMS, bProcessEvent, mFirstProgress);
 		if (trickStartUTCMS >= 0 && (bProcessEvent || mFirstProgress))
 		{
+			AAMPLOG_WARN("supriya: ReportProgress: trickStartUTCMS=%lld, bProcessEvent=%d, mFirstProgress=%d",
+                 trickStartUTCMS, bProcessEvent, mFirstProgress);
 			if (mFirstProgress)
 			{
 				mFirstProgress = false;
 				AAMPLOG_MIL("Send first progress event with position %ld", (long)(reportFormattedCurrPos / 1000));
 			}
-
+			bool progressLoggingEnabled = ISCONFIGSET_PRIV(eAAMPConfig_ProgressLogging);
+            int progressDivisor = GETCONFIGVALUE_PRIV(eAAMPConfig_ProgressLoggingDivisor);
+            AAMPLOG_WARN("supriya: Before LLD check: eAAMPConfig_ProgressLogging=%s, Divisor=%d",
+                     progressLoggingEnabled ? "true" : "false", progressDivisor);
 
 			if(mAampLLDashServiceData.lowLatencyMode && mConfig->GetConfigOwner(eAAMPConfig_InfoLogging) == AAMP_DEFAULT_SETTING)
 			{
 				int abrMinBuffer = AAMP_BUFFER_MONITOR_GREEN_THRESHOLD_LLD;
 				bool bufferBelowMin = videoBufferedDuration < (abrMinBuffer * 1000);
+				AAMPLOG_WARN("supriya: LLD Mode=%d, bufferBelowMin=%d, mIsLoggingNeeded=%d, videoBufferedDuration=%.2f",
+                         mAampLLDashServiceData.lowLatencyMode, bufferBelowMin, mIsLoggingNeeded,
+                         (double)videoBufferedDuration);
 
 				if (bufferBelowMin && !mIsLoggingNeeded)
 				{
 					mIsLoggingNeeded = true;
 					AampLogManager::setLogLevel(eLOGLEVEL_INFO);
 					SETCONFIGVALUE_PRIV(AAMP_STREAM_SETTING, eAAMPConfig_ProgressLogging, true);
+					AAMPLOG_WARN("supriya: Enabled INFO logs + ProgressLogging=true (Buffer low in LLD)");
 				}
 				else if (!bufferBelowMin && mIsLoggingNeeded)
 				{
 					mIsLoggingNeeded = false;
 					AampLogManager::setLogLevel(eLOGLEVEL_WARN);
 					SETCONFIGVALUE_PRIV(AAMP_STREAM_SETTING, eAAMPConfig_ProgressLogging, false);
+					AAMPLOG_WARN("supriya: Disabled INFO logs + ProgressLogging=false (Buffer healthy in LLD)");
 				}
 			}
+			
+			bool progressLoggingAfter = ISCONFIGSET_PRIV(eAAMPConfig_ProgressLogging);
+            int progressDivisorAfter = GETCONFIGVALUE_PRIV(eAAMPConfig_ProgressLoggingDivisor);
+            AAMPLOG_WARN("supriya: After LLD check: eAAMPConfig_ProgressLogging=%s, Divisor=%d",
+            progressLoggingAfter ? "true" : "false", progressDivisorAfter);
 			if (ISCONFIGSET_PRIV(eAAMPConfig_ProgressLogging))
 			{
+				AAMPLOG_WARN("supriya: Entered progress logging block, Divisor=%d", progressDivisorAfter);
 				static int tick;
 				int divisor = GETCONFIGVALUE_PRIV(eAAMPConfig_ProgressLoggingDivisor);
 				if( divisor==0 || (tick++ % divisor) == 0 )
@@ -2321,7 +2338,9 @@ void PrivateInstanceAAMP::MonitorProgress(bool sync, bool beginningOfStream)
 		}
 		else
 		{
-            AAMPLOG_WARN( "state: %d", state);
+			AAMPLOG_WARN("supriya: SKIPPED progress event, trickStartUTCMS=%lld, bProcessEvent=%d, mFirstProgress=%d, state=%d",
+                     trickStartUTCMS, bProcessEvent, mFirstProgress, state);
+            // AAMPLOG_WARN( "state: %d", state);
 		}
 	}
 }
