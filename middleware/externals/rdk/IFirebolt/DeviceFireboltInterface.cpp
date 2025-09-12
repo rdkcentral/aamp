@@ -41,8 +41,12 @@ DeviceFireboltInterface::~DeviceFireboltInterface()
 
 void DeviceFireboltInterface::Initialize()
 {
-	RegisterDsMgrEventHandler();
-	RegisterNtwMgrEventHandler();
+	if(s_pDeviceFireboltInterface)
+	{
+		s_pDeviceFireboltInterface->RegisterDsMgrEventHandler();
+		s_pDeviceFireboltInterface->RegisterNtwMgrEventHandler();
+	}
+	
 }
 
 

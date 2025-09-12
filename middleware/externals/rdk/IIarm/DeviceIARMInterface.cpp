@@ -69,8 +69,12 @@ DeviceIARMInterface::~DeviceIARMInterface()
 void DeviceIARMInterface::Initialize()
 {
     DeviceIARMInterface::IARMInit();
-    RegisterDsMgrEventHandler();
-    RegisterNtwMgrEventHandler();
+    if(s_pDeviceIARMInterface)
+    {
+        s_pDeviceIARMInterface->RegisterDsMgrEventHandler();
+        s_pDeviceIARMInterface->RegisterNtwMgrEventHandler();
+    }
+    
 }
 
 void DeviceIARMInterface::IARMInit()
