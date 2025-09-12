@@ -22,6 +22,8 @@ class DeviceFireboltInterface : public DeviceInterfaceBase {
 
         static std::shared_ptr<DeviceFireboltInterface> GetInstance();
 
+        static void Initialize();
+
     private:
 
         std::shared_ptr<FireboltInterface> m_pFireboltInterface;

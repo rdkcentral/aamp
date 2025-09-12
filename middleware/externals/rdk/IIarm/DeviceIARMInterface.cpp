@@ -56,9 +56,7 @@ std::shared_ptr<DeviceIARMInterface> DeviceIARMInterface::GetInstance()
 
 DeviceIARMInterface::DeviceIARMInterface()
 {
-    DeviceIARMInterface::IARMInit();
-    RegisterDsMgrEventHandler();
-    RegisterNtwMgrEventHandler();
+    
 }
 
 DeviceIARMInterface::~DeviceIARMInterface()
@@ -66,6 +64,13 @@ DeviceIARMInterface::~DeviceIARMInterface()
     RemoveEventHandlers();
 
     s_pDeviceIARMInterface = nullptr;
+}
+
+void DeviceIARMInterface::Initialize()
+{
+    DeviceIARMInterface::IARMInit();
+    RegisterDsMgrEventHandler();
+    RegisterNtwMgrEventHandler();
 }
 
 void DeviceIARMInterface::IARMInit()

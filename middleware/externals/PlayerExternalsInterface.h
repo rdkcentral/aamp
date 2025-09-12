@@ -130,7 +130,8 @@ public:
      *
      */
     PlayerExternalsInterface& operator=(const PlayerExternalsInterface&) = delete;
-	 
+
+    static void Initialize();	 
 	 
 
     char * GetTR181PlayerConfig(const char * paramName, size_t & iConfigLen);    

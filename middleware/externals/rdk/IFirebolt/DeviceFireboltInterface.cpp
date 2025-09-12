@@ -31,14 +31,18 @@ std::shared_ptr<DeviceFireboltInterface> DeviceFireboltInterface::GetInstance()
 DeviceFireboltInterface::DeviceFireboltInterface()
 {
     m_pFireboltInterface = FireboltInterface::GetInstance();
-	RegisterDsMgrEventHandler();
-	RegisterNtwMgrEventHandler();
 }
 
 DeviceFireboltInterface::~DeviceFireboltInterface()
 {
 	RemoveEventHandlers();
 	m_pFireboltInterface = nullptr;
+}
+
+void DeviceFireboltInterface::Initialize()
+{
+	RegisterDsMgrEventHandler();
+	RegisterNtwMgrEventHandler();
 }
 
 

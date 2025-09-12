@@ -18,6 +18,8 @@ class DeviceIARMInterface : public DeviceInterfaceBase {
 
         static std::shared_ptr<DeviceIARMInterface> GetInstance();
 
+        static void Initialize();
+
         ~DeviceIARMInterface();
 
     private:

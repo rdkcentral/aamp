@@ -52,6 +52,8 @@ class PlayerExternalsRdkInterface : public PlayerExternalsInterfaceBase
 
     public:
 
+        static void Initialize();
+
         /**
          * @fn GetDisplayResolution
          * @brief Get current resolution's display width and height

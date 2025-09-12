@@ -63,6 +63,16 @@ PlayerExternalsInterface::~PlayerExternalsInterface()
     s_pPlayerOP = NULL;    
 }
 
+void PlayerExternalsInterface::Initialize()
+{
+    if(s_pPlayerOP == NULL)
+    {
+#ifdef IARM_MGR
+        PlayerExternalsRdkInterface::Initialize();
+#endif
+    }
+}
+
 /**
  * @brief Check if source is UHD using video decoder dimensions
  */

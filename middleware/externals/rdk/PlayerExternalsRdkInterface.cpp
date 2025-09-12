@@ -73,6 +73,18 @@ PlayerExternalsRdkInterface::PlayerExternalsRdkInterface()
 
 }
 
+void PlayerExternalsRdkInterface::Initialize()
+{
+    if(pInstance->GetUseFirebolt())
+    {   
+        DeviceFireboltInterface::Initialize();
+    }
+    else
+    {
+        DeviceIARMInterface::Initialize();
+    }
+}
+
 PlayerExternalsRdkInterface::~PlayerExternalsRdkInterface()
 {
     m_pDeviceInterfaceBase = nullptr;
