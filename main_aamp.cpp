@@ -60,9 +60,6 @@ PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink
 	) : aamp(NULL), sp_aamp(nullptr), mJSBinding_DL(),mAsyncRunning(false),mConfig(),mAsyncTuneEnabled(false),mScheduler()
 {
 
-	
-	
-
 	// Create very first instance of Aamp Config to read the cfg & Operator file .This is needed for very first
 	// tune only . After that every tune will use the same config parameters
 	if(gpGlobalConfig == NULL)
@@ -89,8 +86,6 @@ PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink
 		}
 		//Need to do iarm initialization process before reading the tr181 aamp parameters.
 		//Using printf here since AAMP logs can only use after creating the global object
-
-
 		
 		gpGlobalConfig->ReadOperatorConfiguration();
 		gpGlobalConfig->ShowDevCfgConfiguration();

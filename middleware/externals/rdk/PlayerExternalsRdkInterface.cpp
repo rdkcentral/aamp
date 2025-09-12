@@ -59,14 +59,15 @@ PlayerExternalsRdkInterface::PlayerExternalsRdkInterface()
     printf("[MIDDLEWARE] PlayerExternalsRdkInterface pInstance->GetUseFirebolt():%d\n", pInstance->GetUseFirebolt());
     fflush(stdout);
 
-    if(pInstance->GetUseFirebolt())
-    {
+#ifdef USE_FIREBOLT_DEVICE_API
+        printf("[MIDDLEWARE] USE_FIREBOLT_DEVICE_API \n");
+        fflush(stdout);
         m_pDeviceInterfaceBase = DeviceFireboltInterface::GetInstance();
-    }
-    else
-    {
+#else
+        printf("[MIDDLEWARE] not using IARM not firebolt \n");
+        fflush(stdout);
         m_pDeviceInterfaceBase = DeviceIARMInterface::GetInstance();
-    }
+#endif
 
     // Get initial HDCP status
     SetHDMIStatus();

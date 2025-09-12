@@ -39,16 +39,23 @@ static bool mUseFireboltExternals = false;
 PlayerExternalsInterface::PlayerExternalsInterface()
 {
 #ifdef IARM_MGR
+    printf("[MIDDLEWARE] PlayerExternalsInterface IARM_MGR\n");
+    fflush(stdout);
     if(!IsContainerEnvironment())
     {
+        printf("[MIDDLEWARE] not container\n");
+        fflush(stdout);
         m_pIarmInterface = PlayerExternalsRdkInterface::GetPlayerExternalsRdkInterfaceInstance();
     }
     else
     {
+        printf("[MIDDLEWARE] container\n");
+        fflush(stdout);
         m_pIarmInterface = std::shared_ptr<PlayerExternalsInterfaceBase>(new FakePlayerExternalsInterface());
     }
     
 #else
+    printf("[MIDDLEWARE] PlayerExternalsInterface FAKE\n");
     m_pIarmInterface = std::shared_ptr<PlayerExternalsInterfaceBase>(new FakePlayerExternalsInterface());
 #endif
 
