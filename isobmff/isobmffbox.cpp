@@ -1035,19 +1035,48 @@ TrunBox* TrunBox::constructTrunBox(uint32_t sz, uint8_t *ptr)
 /**
  * @fun TrunBox::truncate
  * @brief Reduce the number of samples to 1 and insert a skip box if there is enough space
+ *        Also remove composition time offset flag if present
 */
 void TrunBox::truncate(void)
 {
 	if (sample_count > 1)
 	{
+		// Calculate original bytes per sample with current flags
 		uint32_t bytesPerSample = ((flags & TRUN_FLAG_SAMPLE_DURATION_PRESENT)? 4 : 0) +
 								((flags & TRUN_FLAG_SAMPLE_SIZE_PRESENT)? 4 : 0) +
 								((flags & TRUN_FLAG_SAMPLE_FLAGS_PRESENT)? 4 : 0) +
 								((flags & TRUN_FLAG_SAMPLE_COMPOSITION_TIME_OFFSET_PRESENT)? 4 : 0);
+		
+		// Calculate bytes per sample without composition time offset flag
+		uint32_t newBytesPerSample = bytesPerSample;
+		#if 0 //DJH
+		bool hasCompTimeOffset = (flags & TRUN_FLAG_SAMPLE_COMPOSITION_TIME_OFFSET_PRESENT) != 0;
+		
+		// Update flags and adjust bytes per sample if composition time offset was present
+		if (hasCompTimeOffset)
+		{
+			AAMPLOG_INFO("TRUN: about to remove composition time offset flag 0x%X", flags);
+			// Update in-memory flags
+			flags &= ~TRUN_FLAG_SAMPLE_COMPOSITION_TIME_OFFSET_PRESENT;
+			
+			// Update the relevant byte in the buffer flags
+			// TRUN_FLAG_SAMPLE_COMPOSITION_TIME_OFFSET_PRESENT (0x0800) is in the middle byte
+			// Box structure: size(4) + type(4) + version(1) + flags(3)
+			uint8_t* flagsPtr = getBase() + 4 + 4 + 1 + 1;  // Offset to the middle byte of flags
+			*flagsPtr &= ~0x08;  // Clear bit 3 (0x08) which corresponds to 0x0800 in the full flags
+			
+			// Adjust bytes per sample to account for removed time offset
+			newBytesPerSample -= 4;
+			
+			flags = READ_FLAGS(getBase() + 4 + 4 + 1); // Re-read flags from buffer to keep in sync
+			AAMPLOG_INFO("TRUN: Removed composition time offset flag 0x%X", flags);
+		}
+		#endif
+		
 		uint32_t tableSize{sample_count * bytesPerSample};
 		// Calculate new trun size and write
 		auto oldTrunSize = getSize();
-		auto newTrunSize = getSize() - tableSize + bytesPerSample;
+		auto newTrunSize = getSize() - tableSize + newBytesPerSample;
 		sample_count = 1;
 		WRITE_U32(sample_count_loc, sample_count);
 
@@ -1055,7 +1084,7 @@ void TrunBox::truncate(void)
 		if ((oldTrunSize - newTrunSize) >= SIZEOF_SIZE_AND_TAG)
 		{
 			setSize(newTrunSize);
-			SkipBox skip{tableSize - bytesPerSample, getBase() + getSize()};
+			SkipBox skip{tableSize - newBytesPerSample, getBase() + getSize()};
 		}
 		else
 		{
