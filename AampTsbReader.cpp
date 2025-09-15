@@ -420,12 +420,32 @@ void AampTsbReader::AbortCheckForWaitIfReaderDone()
 }
 
 /**
+ * @fn IsEos  - function to get EOS status
+ *
+ * @return bool - EOS
+ */
+bool AampTsbReader::IsEos()
+{
+	return mEosReached;
+}
+
+/**
  * @fn IsFirstDownload
  * @return True if first download
  */
 bool AampTsbReader::IsFirstDownload()
 {
 	return (mStartPosition == mUpcomingFragmentPosition);
+}
+
+/**
+ * @fn TrackEnabled
+ *
+ * @return bool - true if enabled
+ */
+bool AampTsbReader::TrackEnabled()
+{
+	return !IsEos() && mTrackEnabled;
 }
 
 /**

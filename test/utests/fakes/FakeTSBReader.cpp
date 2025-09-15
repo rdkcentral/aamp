@@ -91,6 +91,18 @@ void AampTsbReader::AbortCheckForWaitIfReaderDone()
 {
 }
 
+bool AampTsbReader::IsEos()
+{
+	bool mEosReached = false;
+
+	if (g_mockTSBReader)
+	{
+		mEosReached = g_mockTSBReader->IsEos();
+	}
+
+	return mEosReached;
+}
+
 bool AampTsbReader::IsFirstDownload()
 {
 	if (g_mockTSBReader)
@@ -101,6 +113,18 @@ bool AampTsbReader::IsFirstDownload()
 	{
 		return false;
 	}
+}
+
+bool AampTsbReader::TrackEnabled()
+{
+	bool enabled = false;
+
+	if (g_mockTSBReader)
+	{
+		enabled = g_mockTSBReader->TrackEnabled();
+	}
+
+	return enabled;
 }
 
 float AampTsbReader::GetPlaybackRate()
