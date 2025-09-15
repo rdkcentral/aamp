@@ -70,6 +70,8 @@
 
 #define PrivAAMPState AAMPPlayerState // backwards compatibility for apps using native interface
 
+void doFakeTune();
+
 /**
  * @class PlayerInstanceAAMP
  * @brief Player interface class for the JS plugin.
