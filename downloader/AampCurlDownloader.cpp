@@ -182,6 +182,7 @@ int AampCurlDownloader::Download(const std::string &urlStr, std::shared_ptr<Down
 				mDownloadStartTime = mDownloadUpdatedTime = NOW_STEADY_TS_MS;
 				AAMPLOG_WARN("RDKEMW-5448:Performing curl easy");
 				curlRetVal = curl_easy_perform(mCurl);
+				AAMPLOG_WARN("RDKEMW-5448:Curl ret value =%d",curlRetVal);
 				loopAgain = false;
 				numDownloadAttempts++;
 				if(curlRetVal == CURLE_OK)
