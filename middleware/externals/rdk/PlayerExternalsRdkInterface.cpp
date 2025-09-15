@@ -69,6 +69,7 @@ static void HDMIEventHandler(const char *owner, IARM_EventId_t eventId, void *da
 static void ResolutionHandler(const char *owner, IARM_EventId_t eventId, void *data, size_t len);
 static void getActiveInterfaceEventHandler (const char *owner, IARM_EventId_t eventId, void *data, size_t len);
 
+#ifdef USE_PREINIT_DECODING
 void triggerFakeTune()
 {
 	std::thread([](){
@@ -89,7 +90,7 @@ void powerModeChangeHandler(const char *owner, IARM_EventId_t eventId, void *dat
         }
     }
 }
-
+#endif
 /**
  * @brief Singleton for object creation
  */
@@ -116,6 +117,7 @@ void PlayerExternalsRdkInterface::IARMInit(const char* processName, bool powerEv
 
     if (IARM_RESULT_SUCCESS == (result = IARM_Bus_Connect())) {
 	    printf("IARM Interface Connected in Player\n");
+#ifdef USE_PREINIT_DECODING
 	    // Register for power mode change event
 	    if (powerEvt)
 	    {
@@ -126,6 +128,7 @@ void PlayerExternalsRdkInterface::IARMInit(const char* processName, bool powerEv
 			    IARM_Bus_RegisterEventHandler(IARM_BUS_PWRMGR_NAME, IARM_BUS_PWRMGR_EVENT_MODECHANGED, powerModeChangeHandler);
 		    }
 	    }
+#endif
     }
     else {
             printf("IARM Interface Connected Externally :%d\n", result);

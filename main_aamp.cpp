@@ -52,6 +52,7 @@ const std::vector<TimedMetadata> & PlayerInstanceAAMP::GetTimedMetadata( void ) 
 	return aamp->GetTimedMetadata();
 }
 
+#ifdef USE_PREINIT_DECODING
 void doFakeTune()
 {
 	if(PlayerExternalsInterface::IsDevicePropertiesPresent())
@@ -84,6 +85,7 @@ void doFakeTune()
 					}).detach();
 	}
 }
+#endif
 
 /**
  *  @brief PlayerInstanceAAMP Constructor.
