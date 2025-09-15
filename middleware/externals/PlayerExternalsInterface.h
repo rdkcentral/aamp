@@ -55,7 +55,7 @@ class FakePlayerIarmInterface : public PlayerExternalsInterfaceBase
          * @brief Initialize IARM
          * @param[in] processName string of the name of the process initializing IARM
          */
-        static void IARMInit(const char* processName){}
+        static void IARMInit(const char* processName, bool powerEvt){}
 
         /**
          * @fn IARMRegisterDsMgrEventHandler
@@ -216,7 +216,7 @@ public:
      * @brief Initialize IARM
      * @param[in] processName string of the name of the process initializing IARM
      */
-    static void IARMInit(const char* processName);
+    static void IARMInit(const char* processName, bool powerEvt);
 
     /**
      * @fn IsConfigWifiCurlHeader
@@ -224,6 +224,7 @@ public:
      */
     bool IsConfigWifiCurlHeader();
 
+    static bool IsDevicePropertiesPresent();
 };
 
 #endif // PlayerExternalsInterface_h

@@ -72,6 +72,8 @@
 #include "TextTrackInfo.h"
 #include "AAMPAnomalyMessageType.h"
 
+#define FAKE_TUNE_URL "file:///etc/manifest.mpd" /**< Fake tune URL for testing purposes */
+
 class AampMPDDownloader;
 typedef struct _manifestDownloadConfig ManifestDownloadConfig;
 
