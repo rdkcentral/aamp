@@ -99,9 +99,8 @@ public:
 	
 	lstring mystrpbrk( void )
 	{ // extract next LF-delimited substring
-		lstring token;
-		size_t delim = find(CHAR_LF);
-		token = lstring(ptr,delim);
+        size_t delim = find(CHAR_LF);
+        lstring token = lstring(ptr,delim);
 		while( token.peekLastChar() == CHAR_CR)
 		{ // trim any final CR characters
 			token.len--;
