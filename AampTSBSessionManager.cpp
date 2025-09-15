@@ -837,12 +837,11 @@ void AampTSBSessionManager::SkipFragment(std::shared_ptr<AampTsbReader>& reader,
 	return;
 }
 /**
- * @brief Read next fragment and push it to the injector loop
+ * @brief Read next fragment from the TSB and push it to the injector loop via the fragment cache
  *
  * @param[in] MediaStreamContext of appropriate track
  * @param[in] numFreeFragments number of free fragment spaces in the cache
  * @return bool - true if cached fragment
- * @brief Fetches and caches audio fragment in parallel with video fragment.
  */
 bool AampTSBSessionManager::PushNextTsbFragment(MediaStreamContext *pMediaStreamContext,
 												uint32_t numFreeFragments)
@@ -970,7 +969,7 @@ bool AampTSBSessionManager::PushNextTsbFragment(MediaStreamContext *pMediaStream
 		else if (rate > AAMP_NORMAL_PLAY_RATE)
 		{
 			// Expected case when reader reaches live play position
-			AAMPLOG_TRACE("[%s] Failed to read next fragment", GetMediaTypeName(mediaType));
+			AAMPLOG_TRACE("[%s] Failed to read next fragment (caught up with live play position)", GetMediaTypeName(mediaType));
 			ret = false;
 		}
 		else
