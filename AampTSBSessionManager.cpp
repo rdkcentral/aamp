@@ -968,8 +968,8 @@ bool AampTSBSessionManager::PushNextTsbFragment(MediaStreamContext *pMediaStream
 		}
 		else if (rate > AAMP_NORMAL_PLAY_RATE)
 		{
-			// Expected case when reader reaches live play position
-			AAMPLOG_TRACE("[%s] Failed to read next fragment (caught up with live play position)", GetMediaTypeName(mediaType));
+			// Expected case when reader reaches live edge
+			AAMPLOG_TRACE("[%s] Failed to read next fragment (caught up with live edge)", GetMediaTypeName(mediaType));
 			ret = false;
 		}
 		else
