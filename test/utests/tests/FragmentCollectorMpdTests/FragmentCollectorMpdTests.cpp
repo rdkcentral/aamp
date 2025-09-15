@@ -17,15 +17,6 @@
  * limitations under the License.
  */
 
-/**
- * @file FragmentCollectorMpdTestsMain.cpp
- * @brief L1 Test Runner for StreamAbstractionAAMP_MPD 
- * @details Following updated L1 testing instructions from .github/copilot_instructions/
- *          - Uses fake infrastructure properly (links fakes library)
- *          - Tests focus on component behavior, not mock/fake behavior
- *          - Proper build integration with master test script
- */
-
 #include <gtest/gtest.h>
 
 /**

@@ -1,18 +1,6 @@
 /*
  * If not stated otherwise in this file or this component's license file the
- * following copyr    // Test parameters for AdvanceTsbFetch
-    int trackIdx = 0;                    // Test with video track
-    bool trickPlay = false;              // Normal playback mode
-    double delta = 1.0;                  // 1 second advance
-    bool waitForFreeFrag = false;        // Output parameter
-    bool bCacheFullState = false;        // Output parameter
-    
-    // Set up MediaStreamContext using the helper method
-    MediaStreamContext* context = new MediaStreamContext((TrackType)trackIdx, mpdStream, aamp, "TestTrack");
-    mpdStream->SetMediaStreamContext(trackIdx, context);
-    
-    // Call the protected method through testable wrapper
-    mpdStream->TestAdvanceTsbFetch(trackIdx, trickPlay, delta, waitForFreeFrag, bCacheFullState);icenses apply:
+ * following copyrights and licenses apply:
  *
  * Copyright 2025 RDK Management
  *
@@ -27,15 +15,6 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- */
-
-/**
- * @file FragmentCollectorMpdTests.cpp  
- * @brief L1 Unit Test Cases for StreamAbstractionAAMP_MPD
- * @details Following updated L1 testing instructions:
- *          - Test component behavior, not mock/fake behavior
- *          - Use fakes infrastructure properly
- *          - Focus on YOUR component's state and responses
  */
 
 #include <gtest/gtest.h>
@@ -96,30 +75,30 @@ protected:
 		g_mockTSBReader = std::make_shared<MockTSBReader>();
 
 		// Test configuration
-		seekTime = 0.0;
-		rate = 1.0f;
+		mSeekTime = 0.0;
+		mRate = AAMP_NORMAL_PLAY_RATE;
 		
 		// Create the testable component under test
-		mpdStream = new TestableStreamAbstractionAAMP_MPD(mPrivateInstanceAAMP, seekTime, rate);
+		mMpdStream = new TestableStreamAbstractionAAMP_MPD(mPrivateInstanceAAMP, mSeekTime, mRate);
 	}
 
 	void TearDown() override
 	{
-		delete mpdStream;
+		delete mMpdStream;
 		delete mPrivateInstanceAAMP;
 		delete g_mockPrivateInstanceAAMP;
 		delete g_mockTSBSessionManager;
 		g_mockTSBReader.reset();
-		mpdStream = nullptr;
+		mMpdStream = nullptr;
 		mPrivateInstanceAAMP = nullptr;
 		g_mockPrivateInstanceAAMP = nullptr;
 		g_mockTSBSessionManager = nullptr;
 	}
 
 	PrivateInstanceAAMP* mPrivateInstanceAAMP;
-	TestableStreamAbstractionAAMP_MPD* mpdStream;
-	double seekTime;
-	float rate;
+	TestableStreamAbstractionAAMP_MPD* mMpdStream;
+	double mSeekTime;
+	float mRate;
 };
 
 /**
@@ -135,7 +114,7 @@ TEST_F(StreamAbstractionAAMP_MPD_Test, AdvanceTsbFetchTest)
 
 	MediaStreamContext* mediaStreamContext = new MediaStreamContext((TrackType)trackIdx, nullptr, mPrivateInstanceAAMP, GetMediaTypeName(AampMediaType(trackIdx)));
     mediaStreamContext->profileChanged = false; // Ensure profile has not changed
-	mpdStream->SetMediaStreamContext(trackIdx, mediaStreamContext);
+	mMpdStream->SetMediaStreamContext(trackIdx, mediaStreamContext);
 
 	std::shared_ptr<AampTsbDataManager> dataMgr = std::make_shared<AampTsbDataManager>();
 	std::shared_ptr<AampTsbReader> tsbReader = std::make_shared<AampTsbReader>(mPrivateInstanceAAMP, dataMgr, eMEDIATYPE_VIDEO, "sessionId");
@@ -148,7 +127,7 @@ TEST_F(StreamAbstractionAAMP_MPD_Test, AdvanceTsbFetchTest)
 	EXPECT_CALL(*g_mockTSBSessionManager, PushNextTsbFragment(mediaStreamContext, _)).WillOnce(Return(true));
 
 	// Call the protected method through testable wrapper
-	mpdStream->TestAdvanceTsbFetch(trackIdx, trickPlay, delta, waitForFreeFrag, bCacheFullState);
+	mMpdStream->TestAdvanceTsbFetch(trackIdx, trickPlay, delta, waitForFreeFrag, bCacheFullState);
 }
 
 /**
@@ -165,7 +144,7 @@ TEST_F(StreamAbstractionAAMP_MPD_Test, AdvanceTsbFetchTest_DisabledTrack_NoPushF
 
 	MediaStreamContext* mediaStreamContext = new MediaStreamContext((TrackType)trackIdx, nullptr, mPrivateInstanceAAMP, GetMediaTypeName(AampMediaType(trackIdx)));
 	mediaStreamContext->profileChanged = false; // Ensure profile has not changed
-	mpdStream->SetMediaStreamContext(trackIdx, mediaStreamContext);
+	mMpdStream->SetMediaStreamContext(trackIdx, mediaStreamContext);
 
 	std::shared_ptr<AampTsbDataManager> dataMgr = std::make_shared<AampTsbDataManager>();
 	std::shared_ptr<AampTsbReader> tsbReader = std::make_shared<AampTsbReader>(mPrivateInstanceAAMP, dataMgr, eMEDIATYPE_VIDEO, "sessionId");
@@ -182,5 +161,5 @@ TEST_F(StreamAbstractionAAMP_MPD_Test, AdvanceTsbFetchTest_DisabledTrack_NoPushF
 	EXPECT_CALL(*g_mockTSBSessionManager, PushNextTsbFragment(mediaStreamContext, _)).Times(0);
 
 	// Call the protected method through testable wrapper
-	mpdStream->TestAdvanceTsbFetch(trackIdx, trickPlay, delta, waitForFreeFrag, bCacheFullState);
+	mMpdStream->TestAdvanceTsbFetch(trackIdx, trickPlay, delta, waitForFreeFrag, bCacheFullState);
 }
