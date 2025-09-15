@@ -7611,7 +7611,6 @@ void PrivateInstanceAAMP::Stop( bool isDestructing )
 	{
 		mMPDDownloaderInstance->Release();
 	}
-
 	if(mTSBSessionManager)
 	{
 		// Clear all the local TSB data
