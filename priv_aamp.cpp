@@ -597,7 +597,8 @@ static bool IsActiveStreamingInterfaceWifi (void)
 {
 	bool wifiStatus = false;
 	wifiStatus = PlayerExternalsInterface::IsActiveStreamingInterfaceWifi();
-	activeInterfaceWifi =  pPlayerExternalsInterface->GetActiveInterface();
+	std::shared_ptr<PlayerExternalsInterface> pInstance = PlayerExternalsInterface::GetPlayerExternalsInterfaceInstance();
+	activeInterfaceWifi =  pInstance->GetActiveInterface();
 	return wifiStatus;
 }
 
@@ -3491,7 +3492,8 @@ void PrivateInstanceAAMP::TuneFail(bool fail)
 	}
 	bool eventAvailStatus = IsEventListenerAvailable(AAMP_EVENT_TUNE_TIME_METRICS);
 	std::string tuneData("");
-	activeInterfaceWifi =  pPlayerExternalsInterface->GetActiveInterface();
+	std::shared_ptr<PlayerExternalsInterface> pInstance = PlayerExternalsInterface::GetPlayerExternalsInterfaceInstance();
+	activeInterfaceWifi =  pInstance->GetActiveInterface();
 	profiler.TuneEnd(mTuneMetrics, mAppName,(mbPlayEnabled?STRFGPLAYER:STRBGPLAYER), mPlayerId, mPlayerPreBuffered, durationSeconds, activeInterfaceWifi, mFailureReason, eventAvailStatus ? &tuneData : NULL);
 	if(eventAvailStatus)
 	{
@@ -3519,7 +3521,8 @@ void PrivateInstanceAAMP::LogTuneComplete(void)
 	mTuneMetrics.mFirstTune                  = mFirstTune;
 	bool eventAvailStatus = IsEventListenerAvailable(AAMP_EVENT_TUNE_TIME_METRICS);
 	std::string tuneData("");
-	activeInterfaceWifi =  pPlayerExternalsInterface->GetActiveInterface();
+	std::shared_ptr<PlayerExternalsInterface> pInstance = PlayerExternalsInterface::GetPlayerExternalsInterfaceInstance();
+	activeInterfaceWifi =  pInstance->GetActiveInterface();
 	profiler.TuneEnd(mTuneMetrics,mAppName,(mbPlayEnabled?STRFGPLAYER:STRBGPLAYER), mPlayerId, mPlayerPreBuffered, durationSeconds, activeInterfaceWifi, mFailureReason, eventAvailStatus ? &tuneData : NULL);
 	if(eventAvailStatus)
 	{
@@ -5225,7 +5228,8 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 		StoreLanguageList(std::set<std::string>());
 		mTunedEventPending = true;
 		mProfileCappedStatus = false;
-		pPlayerExternalsInterface->GetDisplayResolution(mDisplayWidth, mDisplayHeight);
+		std::shared_ptr<PlayerExternalsInterface> pInstance = PlayerExternalsInterface::GetPlayerExternalsInterfaceInstance();
+		pInstance->GetDisplayResolution(mDisplayWidth, mDisplayHeight);
 		AAMPLOG_INFO ("Display Resolution width:%d height:%d", mDisplayWidth, mDisplayHeight);
 
 		mOrigManifestUrl.hostname = aamp_getHostFromURL(mManifestUrl);
@@ -12625,7 +12629,8 @@ struct curl_slist* PrivateInstanceAAMP::GetCustomHeaders(AampMediaType mediaType
 			}
 			if (it->first.compare("Wifi:") == 0)
 			{
-				activeInterfaceWifi =  pPlayerExternalsInterface->GetActiveInterface();
+				std::shared_ptr<PlayerExternalsInterface> pInstance = PlayerExternalsInterface::GetPlayerExternalsInterfaceInstance();
+				activeInterfaceWifi =  pInstance->GetActiveInterface();
 				if (true == activeInterfaceWifi)
 				{
 					headerValue = "1";
