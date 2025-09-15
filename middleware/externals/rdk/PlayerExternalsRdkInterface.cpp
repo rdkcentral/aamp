@@ -45,7 +45,7 @@ static bool isInterfaceWifi = false;
  */
 std::shared_ptr<PlayerExternalsRdkInterface> PlayerExternalsRdkInterface::GetPlayerExternalsRdkInterfaceInstance()
 {
-    if(s_pPlayerIarmRdkOP == NULL) {
+    if(s_pPlayerIarmRdkOP == nullptr) {
         s_pPlayerIarmRdkOP = std::shared_ptr<PlayerExternalsRdkInterface>(new PlayerExternalsRdkInterface());
     }
 
@@ -54,11 +54,7 @@ std::shared_ptr<PlayerExternalsRdkInterface> PlayerExternalsRdkInterface::GetPla
 
 PlayerExternalsRdkInterface::PlayerExternalsRdkInterface()
 {
-    std::shared_ptr<PlayerExternalsInterface> pInstance = PlayerExternalsInterface::GetPlayerExternalsInterfaceInstance();
-
-    printf("[MIDDLEWARE] PlayerExternalsRdkInterface pInstance->GetUseFirebolt():%d\n", pInstance->GetUseFirebolt());
-    fflush(stdout);
-
+    
 #ifdef USE_FIREBOLT_DEVICE_API
         printf("[MIDDLEWARE] USE_FIREBOLT_DEVICE_API \n");
         fflush(stdout);
