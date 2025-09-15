@@ -490,6 +490,7 @@ void CurlStore::CurlInit(PrivateInstanceAAMP *aamp, AampCurlInstance startIdx, u
  */
 void CurlStore::CurlTerm(PrivateInstanceAAMP *aamp, AampCurlInstance startIdx, unsigned int instanceCount, bool isFlushFds,const std::string &RemoteHost )
 {
+	AAMPLOG_WARN("RDKEMW-5448:Inside CurlTerm");
 	int instanceEnd = startIdx + instanceCount;
 	std::string HostName;
 	bool IsRemotehost = true, CurlFdHost=false;
@@ -507,6 +508,7 @@ void CurlStore::CurlTerm(PrivateInstanceAAMP *aamp, AampCurlInstance startIdx, u
 	
 	if( ISCONFIGSET(eAAMPConfig_EnableCurlStore)  && ( IsRemotehost ))
 	{
+		AAMPLOG_WARN("RDKEMW-5448:Inside if case of CurlTerm");
 		AAMPLOG_INFO("Store unused curl handle:%p in Curlstore for inst:%d-%d", aamp->curl[startIdx], startIdx, instanceEnd );
 		KeepInCurlStoreBulk ( HostName, startIdx, instanceEnd, aamp, CurlFdHost);
 		if( true == isFlushFds )
@@ -517,11 +519,13 @@ void CurlStore::CurlTerm(PrivateInstanceAAMP *aamp, AampCurlInstance startIdx, u
 	}
 	else
 	{
+		AAMPLOG_WARN("RDKEMW-5448:Inside else case of CurlTerm");
 		for (unsigned int i = startIdx; i < instanceEnd; i++)
 		{
 			if (aamp->curl[i])
 			{
 				curl_easy_cleanup(aamp->curl[i]);
+				AAMPLOG_WARN("RDKEMW-5448:Curl cleanup done in CurlTerm()");
 				aamp->curl[i] = NULL;
 				aamp->curlDLTimeout[i] = 0;
 			}

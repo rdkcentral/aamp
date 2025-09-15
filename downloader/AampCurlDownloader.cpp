@@ -282,6 +282,7 @@ int AampCurlDownloader::Download(const std::string &urlStr, std::shared_ptr<Down
 
 void AampCurlDownloader::updateResponseParams()
 {
+	AAMPLOG_WARN("RDKEMW-5448:Inside updateREsponseParams");
 	std::lock_guard<std::mutex> lock(mCurlMutex);
 	if(mCurl)
 	{
@@ -370,6 +371,7 @@ void AampCurlDownloader::Initialize(std::shared_ptr<DownloadConfig> dnldCfg)
 
 void AampCurlDownloader::Release()
 {
+	AAMPLOG_WARN("RDKEMW-5448:Inside Release of AampCurlDownloader.cpp");
 	std::lock_guard<std::mutex> lock(mCurlMutex);
 	mDownloadActive = false;
 	mDownloadUpdatedTime = 0 ;
@@ -377,6 +379,7 @@ void AampCurlDownloader::Release()
 	mWriteCallbackBufferSize = 0;
 	if (mHeaders != NULL)
 	{
+		AAMPLOG_WARN("RDKEMW-5448:Clearing all headers");
 		curl_slist_free_all(mHeaders);
 		mHeaders = NULL;
 	}
