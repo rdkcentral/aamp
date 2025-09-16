@@ -7123,7 +7123,7 @@ void PrivateInstanceAAMP::SetVideoZoom(VideoZoomMode zoom)
  */
 void PrivateInstanceAAMP::SetVideoMute(bool muted)
 {
-	AAMPLOG_INFO("mute == %s subtitles_muted == %s", muted?"true":"false", subtitles_muted?"true":"false");
+	AAMPLOG_INFO("mute %s subtitles_muted %s", muted?"true":"false", subtitles_muted?"true":"false");
 	video_muted = muted;
 
 	//If lock could not be acquired, then cache it
@@ -11026,16 +11026,17 @@ void PrivateInstanceAAMP::SetCCStatus(bool enabled)
 {
 	PlayerCCManager::GetInstance()->SetStatus(enabled);
 	AcquireStreamLock();
-	subtitles_muted = !enabled;
+	subtitles_muted = !enabled;		// What has been requested by the app
+	int mute_subtitles_applied = video_muted || subtitles_muted;// What is actually applied
 	if (mpStreamAbstractionAAMP)
 	{
-		mpStreamAbstractionAAMP->MuteSubtitles(video_muted || subtitles_muted);
+		mpStreamAbstractionAAMP->MuteSubtitles(mute_subtitles_applied);
 		if (HasSidecarData())
 		{ // has sidecar data
-			mpStreamAbstractionAAMP->MuteSidecarSubtitles(video_muted || subtitles_muted);
+			mpStreamAbstractionAAMP->MuteSidecarSubtitles(mute_subtitles_applied);
 		}
 	}
-	SetSubtitleMuteInternal(video_muted || subtitles_muted);
+	SetSubtitleMuteInternal(mute_subtitles_applied);
 	ReleaseStreamLock();
 }
 

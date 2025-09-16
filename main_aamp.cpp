@@ -1451,7 +1451,7 @@ void PlayerInstanceAAMP::SetVideoZoom(VideoZoomMode zoom)
  */
 void PlayerInstanceAAMP::SetVideoMute(bool muted)
 {
-	AAMPLOG_MIL(" mute == %s", muted?"true":"false");
+	AAMPLOG_MIL("mute %s", muted?"true":"false");
 	aamp->SetVideoMute(muted);
 }
 
@@ -1462,7 +1462,7 @@ void PlayerInstanceAAMP::SetVideoMute(bool muted)
  */
 void PlayerInstanceAAMP::SetSubtitleMute(bool muted)
 {
-	AAMPLOG_MIL(" mute == %s", muted?"true":"false");
+	AAMPLOG_MIL("mute %s", muted?"true":"false");
 	aamp->SetSubtitleMute(muted);
 }
 
