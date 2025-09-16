@@ -17,6 +17,20 @@
 * Boston, MA 02110-1301, USA.
 */
 
+<<<<<<< HEAD:middleware/gst-plugins/drm/gst/gstcdmidecryptor.cpp
+=======
+/**
+ * @file gstaampcdmidecryptor.cpp
+ * @brief aamp cdmi decryptor plugin definitions
+ */
+#ifndef UBUNTU
+// avoid ubuntu-specific segFault
+
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
+>>>>>>> dev_sprint_25_2:plugins/gst-plugins-rdk-aamp/drm/gst/gstaampcdmidecryptor.cpp
 #include <gst/gst.h>
 #include <gst/base/gstbasetransform.h>
 #include "gstcdmidecryptor.h"
@@ -129,6 +143,7 @@ G_DEFINE_TYPE_WITH_CODE (GstCDMIDecryptor, gst_cdmidecryptor, GST_TYPE_BASE_TRAN
 		GST_DEBUG_CATEGORY_INIT (gst_cdmidecryptor_debug_category, "cdmidecryptor", 0,
 				"debug category for cdmidecryptor element"));
 
+<<<<<<< HEAD:middleware/gst-plugins/drm/gst/gstcdmidecryptor.cpp
 #if defined(UBUNTU)
 // stubs to avoid strange ubuntu-specific SegFault while running L2 Plugin tests
 static void gst_cdmidecryptor_class_init( GstCDMIDecryptorClass * klass)
@@ -140,6 +155,8 @@ static void gst_cdmidecryptor_init( GstCDMIDecryptor *cdmidecryptor)
 	printf( "gst_cdmidecryptor_init\n" );
 }
 #else
+=======
+>>>>>>> dev_sprint_25_2:plugins/gst-plugins-rdk-aamp/drm/gst/gstaampcdmidecryptor.cpp
 /* prototypes */
 static void gst_cdmidecryptor_dispose(GObject*);
 static GstCaps *gst_cdmidecryptor_transform_caps(
@@ -682,8 +699,23 @@ static GstFlowReturn gst_cdmidecryptor_transform_ip(
 	if (!cdmidecryptor->firstsegprocessed
 			&& cdmidecryptor->sessionManager)
 	{
+<<<<<<< HEAD:middleware/gst-plugins/drm/gst/gstcdmidecryptor.cpp
 		cdmidecryptor->sessionManager->profileBeginCb(cdmidecryptor->mediaType);
 		cdmidecryptor->firstsegprocessed = true;
+=======
+		if (aampcdmidecryptor->streamtype == eMEDIATYPE_VIDEO)
+		{
+			GST_INFO_OBJECT(aampcdmidecryptor,"profile end decrypt video");
+			aampcdmidecryptor->aamp->profiler.ProfileEnd(
+					PROFILE_BUCKET_DECRYPT_VIDEO);
+		} else if (aampcdmidecryptor->streamtype == eMEDIATYPE_AUDIO)
+		{
+			GST_INFO_OBJECT(aampcdmidecryptor,"profile end decrypt audio");
+			aampcdmidecryptor->aamp->profiler.ProfileEnd(
+					PROFILE_BUCKET_DECRYPT_AUDIO);
+		}
+		aampcdmidecryptor->firstsegprocessed = true;
+>>>>>>> dev_sprint_25_2:plugins/gst-plugins-rdk-aamp/drm/gst/gstaampcdmidecryptor.cpp
 	}
 
 	free_resources:
@@ -693,7 +725,21 @@ static GstFlowReturn gst_cdmidecryptor_transform_ip(
 	{
 	if(!cdmidecryptor->streamEncrypted)
 	{
+<<<<<<< HEAD:middleware/gst-plugins/drm/gst/gstcdmidecryptor.cpp
 		cdmidecryptor->sessionManager->profileEndCb(cdmidecryptor->mediaType);
+=======
+		if (aampcdmidecryptor->streamtype == eMEDIATYPE_VIDEO)
+		{
+			GST_INFO_OBJECT(aampcdmidecryptor,"profile end decrypt video (clear)");
+			aampcdmidecryptor->aamp->profiler.ProfileEnd(
+					PROFILE_BUCKET_DECRYPT_VIDEO);
+		} else if (aampcdmidecryptor->streamtype == eMEDIATYPE_AUDIO)
+		{
+			GST_INFO_OBJECT(aampcdmidecryptor,"profile end decrypt audio (clear)");
+			aampcdmidecryptor->aamp->profiler.ProfileEnd(
+					PROFILE_BUCKET_DECRYPT_AUDIO);
+		}
+>>>>>>> dev_sprint_25_2:plugins/gst-plugins-rdk-aamp/drm/gst/gstaampcdmidecryptor.cpp
 	}
 	else
 	{
@@ -713,7 +759,7 @@ static GstFlowReturn gst_cdmidecryptor_transform_ip(
 		g_mutex_unlock(&cdmidecryptor->mutex);
 	return result;
 }
-#endif
+#endif // USE_OPENCDM_ADAPTER
 
 
 /* sink event handlers */
@@ -905,7 +951,27 @@ static gboolean gst_cdmidecryptor_sink_event(GstBaseTransform * trans,
 			cdmidecryptor->sessionManager->laprofileEndCb(cdmidecryptor->mediaType);
 			if (!cdmidecryptor->firstsegprocessed)
 			{
+<<<<<<< HEAD:middleware/gst-plugins/drm/gst/gstcdmidecryptor.cpp
 				cdmidecryptor->sessionManager->profileBeginCb(cdmidecryptor->mediaType);
+=======
+				aampcdmidecryptor->aamp->profiler.ProfileEnd(
+						PROFILE_BUCKET_LA_TOTAL);
+			}
+
+			if (!aampcdmidecryptor->firstsegprocessed)
+			{
+				if (aampcdmidecryptor->streamtype == eMEDIATYPE_VIDEO)
+				{
+					GST_INFO_OBJECT(aampcdmidecryptor,"Starting decryption profiling for video");
+					aampcdmidecryptor->aamp->profiler.ProfileBegin(
+							PROFILE_BUCKET_DECRYPT_VIDEO);
+				} else if (aampcdmidecryptor->streamtype == eMEDIATYPE_AUDIO)
+				{
+					GST_INFO_OBJECT(aampcdmidecryptor,"Starting decryption profiling for audio");
+					aampcdmidecryptor->aamp->profiler.ProfileBegin(
+							PROFILE_BUCKET_DECRYPT_AUDIO);
+				}
+>>>>>>> dev_sprint_25_2:plugins/gst-plugins-rdk-aamp/drm/gst/gstaampcdmidecryptor.cpp
 			}
 
 			result = TRUE;
@@ -1066,4 +1132,4 @@ static gboolean gst_cdmidecryptor_accept_caps(GstBaseTransform * trans,
 	GST_DEBUG_OBJECT(trans, "Return from accept_caps: %d", ret);
 	return ret;
 }
-#endif
+#endif // UBUNTU

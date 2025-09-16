@@ -41,6 +41,9 @@ public:
 	MOCK_METHOD(void, GetEncryptedHeaders, ((std::map<int, std::string>)&));
 	MOCK_METHOD(void, SetActive, (PrivateInstanceAAMP *));
 	MOCK_METHOD(void, UpdateTuningPlayer, (PrivateInstanceAAMP *));
+	MOCK_METHOD(void, AddMediaHeader, (int , std::shared_ptr<AampStreamSinkManager::MediaHeader> ));
+	MOCK_METHOD(void, RemoveMediaHeader, (int));
+	MOCK_METHOD(std::shared_ptr<AampStreamSinkManager::AampStreamSinkManager::MediaHeader>, GetMediaHeader, (int));
 };
 
 extern MockAampStreamSinkManager *g_mockAampStreamSinkManager;

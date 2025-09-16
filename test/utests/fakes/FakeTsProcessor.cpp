@@ -17,7 +17,6 @@
 * limitations under the License.
 */
 #include <string>
-#include "main_aamp.h"
 #include "AampLogManager.h"
 #include "tsprocessor.h"
 #include "ID3Metadata.hpp"

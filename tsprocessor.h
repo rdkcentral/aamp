@@ -28,7 +28,7 @@
 #include "mediaprocessor.h"
 #include "ID3Metadata.hpp"
 #include "uint33_t.h"
-#include "main_aamp.h"
+#include "StreamOutputFormat.h"
 #include <stdio.h>
 #include <mutex>
 #include <condition_variable>

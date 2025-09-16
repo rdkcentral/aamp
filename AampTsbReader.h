@@ -26,7 +26,6 @@
 #define AAMP_TSBREADER_H
 
 #include "AampTsbDataManager.h"
-#include "priv_aamp.h"
 #include "AampMediaType.h"
 #include "AampTime.h"
 
