@@ -1708,9 +1708,12 @@ void MediaTrack::RunInjectLoop()
 		{
 			try
 			{
-				subtitleClockThreadID = std::thread(&MediaTrack::UpdateSubtitleClockTask, this);
-				UpdateSubtitleClockTaskStarted = true;
-				AAMPLOG_INFO("Thread created for UpdateSubtitleClockTask [%zx]", GetPrintableThreadID(subtitleClockThreadID));
+				if (!ISCONFIGSET(eAAMPConfig_useRialtoSink))
+				{
+					subtitleClockThreadID = std::thread(&MediaTrack::UpdateSubtitleClockTask, this);
+					UpdateSubtitleClockTaskStarted = true;
+					AAMPLOG_INFO("Thread created for UpdateSubtitleClockTask [%zx]", GetPrintableThreadID(subtitleClockThreadID));
+				}
 			}
 			catch(const std::exception& e)
 			{
@@ -2582,7 +2585,7 @@ int StreamAbstractionAAMP::GetDesiredProfileBasedOnCache(void)
 				logLevel = eLOGLEVEL_MIL;
 			}
 
-			AAMPLOG(logLevel,"currBW:%ld NwBW=%ld currProf:%d desiredProf:%d ,Buffer  %lf",currentBandwidth,networkBandwidth,currentProfileIndex,desiredProfileIndex,bufferValue/1000);
+			AAMPLOG(logLevel,"currBW:%ld NwBW=%ld currProf:%d desiredProf:%d ,Buffer:%lf",currentBandwidth,networkBandwidth,currentProfileIndex,desiredProfileIndex,bufferValue);
 
 			if (currentProfileIndex != desiredProfileIndex)
 			{

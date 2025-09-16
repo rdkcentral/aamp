@@ -18,7 +18,7 @@
 # limitations under the License.
 #
 
-declare DEFAULT_OPENSSL_VERSION="openssl@3.4"
+declare DEFAULT_OPENSSL_VERSION="openssl@3"
 
 function install_pkgs_pkgconfig_darwin_fn() 
 {

@@ -15,20 +15,23 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- */
+*/
+
+#ifndef LANG_CODE_PREFERENCE
+#define LANG_CODE_PREFERENCE
 
 /**
- * @file AampcliCommand.h
- * @brief AampcliCommand header file
+ *  @brief Language Code Preference types
  */
-#pragma once
-
-#include "main_aamp.h"
-
-class Command
+typedef enum
 {
-	public:
-		virtual ~Command( )
-		{}
-		virtual bool execute(const char *cmd, PlayerInstanceAAMP *playerInstanceAamp) = 0;
-};
+    ISO639_NO_LANGCODE_PREFERENCE, /**< AAMP will not normalize language codes - the client must use
+                                      language codes that match the manifest when specifying audio
+                                      or subtitle tracks, for example. */
+    ISO639_PREFER_3_CHAR_BIBLIOGRAPHIC_LANGCODE,
+    ISO639_PREFER_3_CHAR_TERMINOLOGY_LANGCODE,
+    ISO639_PREFER_2_CHAR_LANGCODE
+} LangCodePreference;
+
+#endif // LANG_CODE_PREFERENCE
+

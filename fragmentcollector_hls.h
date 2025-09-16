@@ -614,9 +614,10 @@ class TrackState : public MediaTrack
 		AampTime playlistPosition;				 /**< playlist-relative time of most recent fragment-of-interest; -1 if undefined */
 		AampTime playTarget;					 /**< initially relative seek time (seconds) based on playlist window, but updated as a play_target */
 		AampTime playTargetBufferCalc;
+		AampTime playlistCulledOffset;			 /**< When seeking, the position takes into account the culled seconds. This needs applying subsequently when adjusting playTargetBufferCalc */
 		AampTime lastDownloadedIFrameTarget;	 /**< stores last downloaded iframe segment target value for comparison */
 		AampTime targetDurationSeconds;			 /**< copy of \#EXT-X-TARGETDURATION to manage playlist refresh frequency */
-		int mDeferredDrmKeyMaxTime;			 /**< copy of \#EXT-X-X1-LIN DRM refresh randomization Max time interval */
+		int mDeferredDrmKeyMaxTime;				 /**< copy of \#EXT-X-X1-LIN DRM refresh randomization Max time interval */
 		StreamOutputFormat streamOutputFormat;	 /**< type of data encoded in each fragment */
 		AampTime startTimeForPlaylistSync;		 /**< used for time-based track synchronization when switching between playlists */
 		AampTime playTargetOffset;				 /**< For correcting timestamps of streams with audio and video tracks */
@@ -927,7 +928,6 @@ class StreamAbstractionAAMP_HLS : public StreamAbstractionAAMP
 		 * @return string playlist URI
 		 ***************************************************************************/
 		std::string GetPlaylistURI(TrackType trackType, StreamOutputFormat* format = NULL);
-		int lastSelectedProfileIndex;	/**< Variable  to restore in case of playlist download failure */
 		/***************************************************************************
 		 * @fn StopInjection
 		 *

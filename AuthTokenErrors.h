@@ -15,20 +15,18 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- */
+*/
+
+#ifndef AUTH_TOKEN_ERRORS_H
+#define AUTH_TOKEN_ERRORS_H
 
 /**
- * @file AampcliCommand.h
- * @brief AampcliCommand header file
+ * @enum AuthTokenErrors
+ *  @brief Auth Token Failure codes
  */
-#pragma once
-
-#include "main_aamp.h"
-
-class Command
-{
-	public:
-		virtual ~Command( )
-		{}
-		virtual bool execute(const char *cmd, PlayerInstanceAAMP *playerInstanceAamp) = 0;
+enum AuthTokenErrors {
+    eAUTHTOKEN_TOKEN_PARSE_ERROR = -1,    /**< Auth token parse Error */
+    eAUTHTOKEN_INVALID_STATUS_CODE = -2   /**< Auth token Invalid status */
 };
+
+#endif // AUTH_TOKEN_ERRORS_H
