@@ -221,15 +221,15 @@ TsbFragmentDataPtr AampTsbReader::FindNext()
 			}
 		}
 
-	   if (!ret)
-	   {
-		   AAMPLOG_INFO("[%s] No next fragment available, mCurrentRate %f", GetMediaTypeName(mMediaType), mCurrentRate);
+		if (!ret)
+		{
+			AAMPLOG_TRACE("[%s] No next fragment available, mCurrentRate %f", GetMediaTypeName(mMediaType), mCurrentRate);
 
-		   if (mCurrentRate < AAMP_NORMAL_PLAY_RATE)
-		   {
+			if (mCurrentRate < AAMP_NORMAL_PLAY_RATE)
+			{
 				mEosReached = true;
-		   }
-	   }
+			}
+		}
 	}
 
 	if (ret)

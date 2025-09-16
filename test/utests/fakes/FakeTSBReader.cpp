@@ -117,7 +117,7 @@ bool AampTsbReader::IsFirstDownload()
 
 bool AampTsbReader::TrackEnabled()
 {
-	bool enabled = false;
+	bool enabled = true;
 
 	if (g_mockTSBReader)
 	{
