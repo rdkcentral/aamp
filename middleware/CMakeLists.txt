@@ -365,6 +365,8 @@ target_link_libraries(playergstinterface ${GST_LIBRARIES} ${GSTREAMER_LIBRARIES}
 
 target_link_libraries(playergstinterface ${GSTVIDEO_LIBRARIES} ${LIBPLAYERGSTINTERFACE_DEPENDS})
 
+target_link_libraries(playergstinterface gstsvpext)
+
 set_target_properties(playergstinterface PROPERTIES COMPILE_FLAGS "${LIBPLAYERGSTINTERFACE_DEFINES} ${OS_CXX_FLAGS}")
 
 install(TARGETS playergstinterface
