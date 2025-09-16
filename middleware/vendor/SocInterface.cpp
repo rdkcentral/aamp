@@ -217,16 +217,6 @@ void SocInterface::SetDecodeError(GstObject* src)
 	}
 }
 
-void SocInterface::SvpGetContext(void **svpCtx, int server, int flags)
-{
-	gst_svp_ext_get_context(svpCtx, static_cast<context_type>(server), flags);
-}
-
-void SocInterface::SvpFreeContext(void *svpCtx)
-{
-	gst_svp_ext_free_context(svpCtx);
-}
-
 /**
  * @brief Sets the state of Westeros Sink usage.
  *

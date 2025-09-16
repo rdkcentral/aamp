@@ -48,7 +48,6 @@ enum
 #define DEBUG_FUNC()
 #endif
 
-std::shared_ptr<SocInterface> socInterface = SocInterface::CreateSocInterface();
 /**
  * @brief Replaces the Key ID in Widevine PSSH data with the Key ID from Clear Key PSSH data.
  *
@@ -166,6 +165,8 @@ static void gst_cdmidecryptor_class_init(
 		GstCDMIDecryptorClass *klass)
 {
 	DEBUG_FUNC();
+
+	std::shared_ptr<SocInterface> socInterface = SocInterface::CreateSocInterface();
 	GObjectClass *gobject_class = G_OBJECT_CLASS(klass);
 	GstBaseTransformClass *base_transform_class = GST_BASE_TRANSFORM_CLASS(klass);
 
@@ -189,11 +190,11 @@ static void gst_cdmidecryptor_class_init(
 			gst_cdmidecryptor_sink_event);
 	base_transform_class->transform_ip = GST_DEBUG_FUNCPTR(
 			gst_cdmidecryptor_transform_ip);
-if (!socInterface || !socInterface->IsTargetSoc())
-{
-	base_transform_class->accept_caps = GST_DEBUG_FUNCPTR(
-			gst_cdmidecryptor_accept_caps);
-}
+	if (!socInterface || !socInterface->IsTargetSoc())
+	{
+		base_transform_class->accept_caps = GST_DEBUG_FUNCPTR(
+				gst_cdmidecryptor_accept_caps);
+	}
 	base_transform_class->transform_ip_on_passthrough = FALSE;
 
 	gst_element_class_set_static_metadata(GST_ELEMENT_CLASS(klass),
@@ -300,6 +301,8 @@ gst_cdmidecryptor_transform_caps(GstBaseTransform * trans,
 		GstPadDirection direction, GstCaps * caps, GstCaps * filter)
 {
 	DEBUG_FUNC();
+
+	std::shared_ptr<SocInterface> socInterface = SocInterface::CreateSocInterface();
 	GstCDMIDecryptor *cdmidecryptor = GST_CDMI_DECRYPTOR(trans);
 	g_return_val_if_fail(direction != GST_PAD_UNKNOWN, NULL);
 	unsigned size = gst_caps_get_size(caps);
@@ -431,11 +434,11 @@ gst_cdmidecryptor_transform_caps(GstBaseTransform * trans,
 		}
 
 		gst_cdmicapsappendifnotduplicate(transformedCaps, out);
-if (socInterface && socInterface->IsTargetSoc())
-{
-	if (direction == GST_PAD_SINK && !gst_caps_is_empty(transformedCaps) && OCDMGstTransformCaps)
-		OCDMGstTransformCaps(&transformedCaps);
-}
+		if (socInterface && socInterface->IsTargetSoc())
+		{
+			if (direction == GST_PAD_SINK && !gst_caps_is_empty(transformedCaps) && OCDMGstTransformCaps)
+				OCDMGstTransformCaps(&transformedCaps);
+		}
 	}
 
 	if (filter)
@@ -472,6 +475,7 @@ static GstFlowReturn gst_cdmidecryptor_transform_ip(
 		GstBaseTransform * trans, GstBuffer * buffer)
 {
 	DEBUG_FUNC();
+	std::shared_ptr<SocInterface> socInterface = SocInterface::CreateSocInterface();
 
 	GstCDMIDecryptor *cdmidecryptor =
 			GST_CDMI_DECRYPTOR(trans);
@@ -508,18 +512,18 @@ static GstFlowReturn gst_cdmidecryptor_transform_ip(
 	{
 		GST_DEBUG_OBJECT(cdmidecryptor,
 				"Failed to get GstProtection metadata from buffer %p, could be clear buffer",buffer);
-if (socInterface && socInterface->IsTargetSoc())
-{
-		// call decrypt even for clear samples in order to copy it to a secure buffer. If secure buffers are not supported
-		// decrypt() call will return without doing anything
-		if (cdmidecryptor->drmSession != NULL)
-		   errorCode = cdmidecryptor->drmSession->decrypt(keyIDBuffer, ivBuffer, buffer, subSampleCount, subsamplesBuffer, cdmidecryptor->sinkCaps);
-		else
-		{ /* If drmSession creation failed, then the call will be aborted here */
-			result = GST_FLOW_NOT_SUPPORTED;
-			GST_ERROR_OBJECT(cdmidecryptor, "drmSession is **** NULL ****, returning GST_FLOW_NOT_SUPPORTED");
+		if (socInterface && socInterface->IsTargetSoc())
+		{
+				// call decrypt even for clear samples in order to copy it to a secure buffer. If secure buffers are not supported
+				// decrypt() call will return without doing anything
+				if (cdmidecryptor->drmSession != NULL)
+				   errorCode = cdmidecryptor->drmSession->decrypt(keyIDBuffer, ivBuffer, buffer, subSampleCount, subsamplesBuffer, cdmidecryptor->sinkCaps);
+				else
+				{ /* If drmSession creation failed, then the call will be aborted here */
+					result = GST_FLOW_NOT_SUPPORTED;
+					GST_ERROR_OBJECT(cdmidecryptor, "drmSession is **** NULL ****, returning GST_FLOW_NOT_SUPPORTED");
+				}
 		}
-}
 		goto free_resources;
 	}
 
@@ -960,9 +964,10 @@ static gboolean gst_cdmidecryptor_sink_event(GstBaseTransform * trans,
 static GstStateChangeReturn gst_cdmidecryptor_changestate(
 		GstElement* element, GstStateChange transition)
 {
-	
+
 	DEBUG_FUNC();
 
+	std::shared_ptr<SocInterface> socInterface = SocInterface::CreateSocInterface();
 	GstStateChangeReturn ret = GST_STATE_CHANGE_SUCCESS;
 	GstCDMIDecryptor* cdmidecryptor =
 			GST_CDMI_DECRYPTOR(element);

@@ -90,6 +90,10 @@ class AmlogicSocInterface : public SocInterface
 		 * @param trackId Track ID.
 		 */
 		void SetAC4Tracks(GstElement *src, int trackId) override;
+
+		void SvpGetContext(void **svpCtx, int server, int flags)override;
+
+		void SvpFreeContext(void *svpCtx)override;
 		
 		bool IsTargetSoc() const override { return true; }
 		/**

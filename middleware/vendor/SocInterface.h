@@ -102,9 +102,9 @@ public:
 	 */
 	void SetWesterosSinkState(bool status);
 
-	void SvpGetContext(void **svpCtx, int server, int flags);
+	virtual void SvpGetContext(void **svpCtx, int server, int flags){};
 
-	void SvpFreeContext(void *svpCtx);
+	virtual void SvpFreeContext(void *svpCtx){};
 
 	/*@brief returns true if video stats required from sink otherwise false*/
 	virtual bool IsPlaybackQualityFromSink(){return false;}

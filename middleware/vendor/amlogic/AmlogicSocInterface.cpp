@@ -185,6 +185,19 @@ bool AmlogicSocInterface::IsVideoSink(const char* name, bool isRialto)
 	return false;
 }
 
+void AmlogicSocInterface::SvpGetContext(void **svpCtx, int server, int flags)
+{
+        MW_LOG_ERR("VRN SvpGetContext IN");
+	gst_svp_ext_get_context(svpCtx, static_cast<context_type>(server), flags);
+}
+
+void AmlogicSocInterface::SvpFreeContext(void *svpCtx)
+{
+        MW_LOG_ERR("VRN SvpFreeContext IN");
+	gst_svp_ext_free_context(svpCtx);
+}
+
+
 /**
  * @brief Check if the given name is an audio sink or audio decoder.
  * @param name Element name.
