@@ -17,6 +17,17 @@
 * Boston, MA 02110-1301, USA.
 */
 
+/**
+ * @file gstaampcdmidecryptor.cpp
+ * @brief aamp cdmi decryptor plugin definitions
+ */
+#ifndef UBUNTU
+// avoid ubuntu-specific segFault
+
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
 #include <gst/gst.h>
 #include <gst/base/gstbasetransform.h>
 #include "gstcdmidecryptor.h"
@@ -728,7 +739,7 @@ static GstFlowReturn gst_cdmidecryptor_transform_ip(
 		g_mutex_unlock(&cdmidecryptor->mutex);
 	return result;
 }
-#endif
+#endif // USE_OPENCDM_ADAPTER
 
 
 /* sink event handlers */
@@ -1088,4 +1099,4 @@ static gboolean gst_cdmidecryptor_accept_caps(GstBaseTransform * trans,
 	GST_DEBUG_OBJECT(trans, "Return from accept_caps: %d", ret);
 	return ret;
 }
-#endif
+#endif // UBUNTU

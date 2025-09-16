@@ -17,6 +17,17 @@
 * Boston, MA 02110-1301, USA.
 */
 
+/**
+ * @file gstaampverimatrixdecryptor.cpp
+ * @brief aamp verimatrix decryptor plugin definitions
+ */
+#ifndef UBUNTU
+// avoid ubuntu-specific segFault
+
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
 #include <gst/gst.h>
 #include <gst/base/gstbasetransform.h>
 #include <gst/base/gstbytereader.h>
@@ -58,8 +69,7 @@ static GstStaticPadTemplate gst_verimatrixdecryptor_sink_template =
 
 static GstStaticPadTemplate gst_verimatrixdecryptor_dummy_sink_template =
         GST_STATIC_PAD_TEMPLATE("sink", GST_PAD_SINK, GST_PAD_ALWAYS,
-                GST_STATIC_CAPS("verimatrix/x-unused"));
-
+                GST_STATIC_CAPS("verimatrix/x-unused")); // unused?
 
 static void gst_verimatrixdecryptor_class_init(GstverimatrixdecryptorClass * klass)
 {
@@ -90,6 +100,4 @@ static void gst_verimatrixdecryptor_finalize(GObject * object)
     DEBUG_FUNC();
     GST_CALL_PARENT(G_OBJECT_CLASS, finalize, (object));
 }
-
-
-
+#endif // UBUNTU
