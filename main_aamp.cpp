@@ -47,6 +47,11 @@ AampConfig *gpGlobalConfig=NULL;
 
 std::mutex PlayerInstanceAAMP::mPrvAampMtx;
 
+const std::vector<TimedMetadata> & PlayerInstanceAAMP::GetTimedMetadata( void ) const
+{
+	return aamp->GetTimedMetadata();
+}
+
 /**
  *  @brief PlayerInstanceAAMP Constructor.
  */
@@ -182,10 +187,8 @@ PlayerInstanceAAMP::~PlayerInstanceAAMP()
 		mScheduler.RemoveAllTasks();
 		if (state != eSTATE_IDLE && state != eSTATE_RELEASED)
 		{
-			//Avoid stop call since already stopped
-			aamp->Stop();
+			aamp->Stop( true );
 		}
-
 		std::lock_guard<std::mutex> lock (mPrvAampMtx);
 		aamp = NULL;
 	}
@@ -617,7 +620,6 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 
 		if (aamp->mpStreamAbstractionAAMP && !(aamp->mbUsingExternalPlayer))
 		{
-			bool playAlreadyEnabled = aamp->mbPlayEnabled;
 			if ( AAMP_SLOWMOTION_RATE != rate && !aamp->mIsIframeTrackPresent && rate != AAMP_NORMAL_PLAY_RATE && rate != 0 && aamp->mMediaFormat != eMEDIAFORMAT_PROGRESSIVE)
 			{
 				AAMPLOG_WARN("Ignoring trickplay. No iframe tracks in stream");
@@ -880,20 +882,7 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 					tuneTypePlay = eTUNETYPE_SEEKTOLIVE;
 					aamp->mJumpToLiveFromPause = false;
 				}
-				/* if Gstreamer pipeline set to paused state by user, change it to playing state */
-				if (playAlreadyEnabled && aamp->pipeline_paused == true)
-				{
-					AAMPLOG_INFO("Play was already enabled, and pipeline paused - unpause");
-					StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(aamp);
-					if (sink)
-					{
-						(void)sink->Pause(false, false);
-					}
-				}
-				else
-				{
-					AAMPLOG_INFO("Play was not already enabled(%d) or pipeline not paused(%d)", playAlreadyEnabled, aamp->pipeline_paused);
-				}
+
 				aamp->rate = rate;
 				aamp->pipeline_paused = false;
 				aamp->mSeekFromPausedState = false;
@@ -3108,22 +3097,12 @@ void PlayerInstanceAAMP::PersistBitRateOverSeek(bool bValue)
 void PlayerInstanceAAMP::StopInternal(bool sendStateChangeEvent)
 {
 	aamp->StopPausePositionMonitoring("Stop() called");
-
 	AAMPPlayerState state = aamp->GetState();
 	if(!aamp->IsTuneCompleted())
 	{
 		aamp->TuneFail(true);
-
 	}
-
-	AAMPLOG_WARN("aamp_stop PlayerState=%d",state);
-
-	if (sendStateChangeEvent)
-	{
-		aamp->SetState(eSTATE_IDLE);
-	}
-
-	AAMPLOG_WARN("%s PLAYER[%d] Stopping Playback at Position %lld", (aamp->mbPlayEnabled?STRFGPLAYER:STRBGPLAYER), aamp->mPlayerId, aamp->GetPositionMilliseconds());
+	AAMPLOG_MIL("aamp_stop PlayerState=%d",state);
 	aamp->Stop();
 	// Revert all custom specific setting, tune specific setting and stream specific setting , back to App/default setting
 	mConfig.RestoreConfiguration(AAMP_CUSTOM_DEV_CFG_SETTING);

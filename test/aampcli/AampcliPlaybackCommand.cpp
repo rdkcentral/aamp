@@ -357,7 +357,6 @@ void PlaybackCommand::HandleCommandExit( void )
 {
 	for( auto player: mAampcli.mPlayerInstances )
 	{
-		player->Stop();
 		SAFE_DELETE( player );
 	}
 	termPlayerLoop();
@@ -507,7 +506,7 @@ void PlaybackCommand::HandleCommandFog( const char *cmd, PlayerInstanceAAMP *pla
 	else
 	{
 		//Should be a cmd of "fog url". Create fogified URL & try & tune to that.
-		if((strlen(cmd) > 4) && playerInstanceAamp->isTuneScheme(&cmd[4]))
+		if((strlen(cmd) > 4) && aamp_isTuneScheme(&cmd[4]))
 		{
 			std::string fogUrl;
 			buildFogUrl(mFogHostPrefix, &cmd[4], fogUrl);
@@ -676,7 +675,7 @@ void PlaybackCommand::HandleCommandTuneData( const char *cmd, PlayerInstanceAAMP
 	if (std::getline(str,url, ' '))
 	{
 		mAampcli.mManifestDataUrl = url;
-		if (playerInstanceAamp->isTuneScheme(url.c_str()))
+		if (aamp_isTuneScheme(url.c_str()))
 		{
 			AAMPCLI_PRINTF("[AAMPCLI] Player: url : %s \n",url.c_str());
 			manifestData = getManifestData(url);
@@ -762,7 +761,7 @@ bool PlaybackCommand::execute( const char *cmd, PlayerInstanceAAMP *playerInstan
 	{
 		HandleCommandRelease(cmd, playerInstanceAamp );
 	}
-	else if( playerInstanceAamp->isTuneScheme(cmd) )
+	else if( aamp_isTuneScheme(cmd) )
 	{
 		HandleCommandTuneLocator( cmd, playerInstanceAamp );
 	}

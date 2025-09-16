@@ -35,6 +35,8 @@
 #include "PlayerUtils.h"
 #include "PlayerSecInterface.h"
 
+#include "AAMPAnomalyMessageType.h"
+#include "AuthTokenErrors.h"
 
 #define SESSION_TOKEN_URL "http://localhost:50050/authService/getSessionToken"
 
@@ -49,59 +51,49 @@
  */
 static void  registerCb(AampDRMLicenseManager* _this, DrmSessionManager* instance)
 {
-      /* Register the callback for acquire license data */
-    instance->RegisterLicenseDataCb([_this](std::shared_ptr<DrmHelper> drmHelper, int sessionSlot, int &cdmError, int streamType,void *metaDataPtr, bool isLicenseRenewal = false ) -> KeyState {
-        return _this->acquireLicense(drmHelper, sessionSlot, cdmError,
-                                      (AampMediaType)streamType,metaDataPtr, false);
-    });
+	/* Register the callback for acquire license data */
+	instance->RegisterLicenseDataCb([_this](int &responseCode, std::shared_ptr<DrmHelper> drmHelper, int sessionSlot, int &cdmError, int streamType,void *metaDataPtr, bool isLicenseRenewal = false ) -> KeyState {
+			return _this->acquireLicense(responseCode, std::move(drmHelper), sessionSlot, cdmError,
+					(AampMediaType)streamType,metaDataPtr, false);
+			});
 
-    /** Profiler update callback */
-    instance->RegisterProfilingUpdateCb([_this](){
-      _this->ProfilerUpdate();
-      });
-    /** Content Protection Callback */
-    instance->RegisterHandleContentProtectionCb([_this](std::shared_ptr<DrmHelper> drmHelper, int streamType, std::vector<uint8_t> keyId, int contentProtectionUpd)->std::string    {
-		    return _this->HandleContentProtectionData(drmHelper, streamType, keyId, contentProtectionUpd);
-     });
-    /**  Register the profiler update callback for TriggerProfileBeginCb */
-     instance->RegisterProfBegin([_this](int streamType){
-         _this->TriggerProfileBeginCb(streamType);
-     });
+	/** Profiler update callback */
+	instance->RegisterProfilingUpdateCb([_this](){
+			_this->ProfilerUpdate();
+			});
 
-     /** Register the profiler end callback for TriggerProfileEndCb */
-     instance->RegisterProfEnd([_this](int streamType){
-		     _this->TriggerProfileEndCb(streamType);
-		     });
+	/** Content Protection Callback */
+	instance->RegisterHandleContentProtectionCb([_this](std::shared_ptr<DrmHelper> drmHelper, int streamType, std::vector<uint8_t> keyId, int contentProtectionUpd)->std::string    {
+			return _this->HandleContentProtectionData(drmHelper, streamType, keyId, contentProtectionUpd);
+			});
+	/**  Register the profiler update callback for TriggerProfileBeginCb */
+	instance->RegisterDecryptProfile([_this](int streamType, int action, int result /* = 0 */){
+			_this->TriggerDecryptProfile(streamType, action, result);
+			});
 
-     /** Register the profiler Error callback for TriggerProfileErrorCb */
-     instance->RegisterProfError([_this](int streamType,int result){
-                  _this->TriggerProfileErrorCb(streamType,result);
-                        });
+	/** Register the profiler update callback for TriggerLAProfileBeginCb */
+	instance->RegisterLAProfBegin([_this](int streamType){
+			_this->TriggerLAProfileBeginCb(streamType);
+			});
 
-     /** Register the profiler update callback for TriggerLAProfileBeginCb */
-     instance->RegisterLAProfBegin([_this](int streamType){
-	    _this->TriggerLAProfileBeginCb(streamType);
-     });
+	/**  Register the profiler end callback for TriggerLAProfileEndCb */
+	instance->RegisterLAProfEnd([_this](int streamType){
+			_this->TriggerLAProfileEndCb(streamType);
+			});
 
-     /**  Register the profiler end callback for TriggerLAProfileEndCb */
-     instance->RegisterLAProfEnd([_this](int streamType){
-		_this->TriggerLAProfileEndCb(streamType);
-     });
-     
-     /** Register the profiler error callback for TriggerLAProfileErrorCb */
-      instance->RegisterLAProfError([_this](void* ptr){
-	     _this->TriggerLAProfileErrorCb(ptr);
-     });
+	/** Register the profiler error callback for TriggerLAProfileErrorCb */
+	instance->RegisterLAProfError([_this](void* ptr){
+			_this->TriggerLAProfileErrorCb(ptr);
+			});
 
-     /**  Register the SetFailure callback for TriggerSetFailureCb */
-      instance->RegisterSetFailure([_this](void* ptr, int err){
-		      _this->TriggerSetFailure(ptr,err);
-		      });
-     /** Register the MetaData callback for TriggerDrmMetaDataEvent */
-       instance->RegisterMetaDataCb([_this]() -> std::shared_ptr<void> {
-
-             return _this->TriggerDrmMetaDataEvent();
-                    });
+	/**  Register the SetFailure callback for TriggerSetFailureCb */
+	instance->RegisterSetFailure([_this](void* ptr, int err){
+			_this->TriggerSetFailure(ptr,err);
+			});
+	/** Register the MetaData callback for TriggerDrmMetaDataEvent */
+	instance->RegisterMetaDataCb([_this]() -> std::shared_ptr<void> {
+			return _this->TriggerDrmMetaDataEvent();
+			});
 }
 /**
  *  getConfigs - To feed the configs to middleware DRM 
@@ -109,7 +101,7 @@ static void  registerCb(AampDRMLicenseManager* _this, DrmSessionManager* instanc
 void getConfigs(DrmSessionManager *mDrmSessionManager , PrivateInstanceAAMP *aampInstance)
 {
 	mDrmSessionManager->UpdateDRMConfig(
-        			aampInstance->mConfig->IsConfigSet(eAAMPConfig_UseSecManager),
+        		aampInstance->mConfig->IsConfigSet(eAAMPConfig_UseSecManager),
 			aampInstance->mConfig->IsConfigSet(eAAMPConfig_EnablePROutputProtection),
 			aampInstance->mConfig->IsConfigSet(eAAMPConfig_PropagateURIParam),
 			aampInstance->mIsFakeTune,
@@ -178,7 +170,8 @@ void AampDRMLicenseManager::licenseRenewalThread(std::shared_ptr<DrmHelper> drmH
 	//isSecClientError = true; //for secmanager
 	DrmMetaDataEventPtr e = std::make_shared<DrmMetaDataEvent>(AAMP_TUNE_FAILURE_UNKNOWN, "", 0, 0, isSecClientError, aampInstance->GetSessionId());
 	int cdmError = -1;
-	KeyState code = acquireLicense(drmHelper, sessionSlot, cdmError,  eMEDIATYPE_LICENCE,(void*)e.get() ,true);
+	int responseCode = -1;
+	KeyState code = acquireLicense(responseCode, drmHelper, sessionSlot, cdmError,  eMEDIATYPE_LICENCE,(void*)e.get() ,true);
 	if (code != KEY_READY)
 	{
 		aampInstance->SendAnomalyEvent(ANOMALY_WARNING, "License Renewal failed due to Key State %d", code);
@@ -225,7 +218,7 @@ void AampDRMLicenseManager::renewLicense(std::shared_ptr<DrmHelper> drmHelper, v
 /**
  * @brief sent license challenge to the DRM server and provide the response to CDM
  */
-KeyState AampDRMLicenseManager::acquireLicense(std::shared_ptr<DrmHelper> drmHelper, int sessionSlot, int &cdmError,
+KeyState AampDRMLicenseManager::acquireLicense( int& responseCode, std::shared_ptr<DrmHelper> drmHelper, int sessionSlot, int &cdmError,
 	 AampMediaType streamType, void *metaDataPtr,  bool isLicenseRenewal)
 {
 	DrmMetaDataEventPtr* eventHandlePtr = static_cast<DrmMetaDataEventPtr*>(metaDataPtr);
@@ -321,6 +314,7 @@ KeyState AampDRMLicenseManager::acquireLicense(std::shared_ptr<DrmHelper> drmHel
 				AAMPLOG_ERR("Error!! License request was aborted. Resetting session slot %d", sessionSlot);
 				eventHandle->setFailure(AAMP_TUNE_DRM_SELF_ABORT);
 				eventHandle->setResponseCode(CURLE_ABORTED_BY_CALLBACK);
+				responseCode = int(CURLE_ABORTED_BY_CALLBACK);
 				return KEY_ERROR;
 			}
 
@@ -388,18 +382,17 @@ KeyState AampDRMLicenseManager::acquireLicense(std::shared_ptr<DrmHelper> drmHel
 				      eventHandle->setSecclientError(false);
 			              licenseResponse.reset(getLicense(licenseRequest, &httpResponseCode, streamType, aampInstance, eventHandle, &mLicenseDownloader[sessionSlot],licenseServerProxy));
 				}
-
 			}
 		}
 	}
 
 	if (code == KEY_PENDING)
 	{
-		code = handleLicenseResponse(drmHelper, sessionSlot, cdmError, httpResponseCode, httpExtendedStatusCode, licenseResponse, eventHandle,  isLicenseRenewal);
+		code = handleLicenseResponse(responseCode, std::move(drmHelper), sessionSlot, cdmError, httpResponseCode, httpExtendedStatusCode, std::move(licenseResponse), eventHandle,  isLicenseRenewal);
 	}
 	return code;
 }
-KeyState AampDRMLicenseManager::handleLicenseResponse(std::shared_ptr<DrmHelper> drmHelper, int sessionSlot, int &cdmError, int32_t httpResponseCode, int32_t httpExtendedStatusCode, shared_ptr<DrmData> licenseResponse, DrmMetaDataEventPtr eventHandle,  bool isLicenseRenewal)
+KeyState AampDRMLicenseManager::handleLicenseResponse(int &responseCode,std::shared_ptr<DrmHelper> drmHelper, int sessionSlot, int &cdmError, int32_t httpResponseCode, int32_t httpExtendedStatusCode, shared_ptr<DrmData> licenseResponse, DrmMetaDataEventPtr eventHandle,  bool isLicenseRenewal)
 {
 	if (!drmHelper->isExternalLicense())
 	{
@@ -492,6 +485,7 @@ KeyState AampDRMLicenseManager::handleLicenseResponse(std::shared_ptr<DrmHelper>
 				/** Set failure reason as AAMP_TUNE_DRM_SELF_ABORT to avoid unnecessary error reporting. */
 				eventHandle->setFailure(AAMP_TUNE_DRM_SELF_ABORT);
 				eventHandle->setResponseCode(httpResponseCode);
+				responseCode = httpResponseCode;
 			}
 			else
 			{
@@ -568,6 +562,7 @@ void AampDRMLicenseManager::UpdateLicenseMetrics(DrmRequestType requestType, int
 	cJSON *item = nullptr;
 	if( nullptr == eventHandle)
 	{
+		AAMPLOG_ERR("event Handle - NULL");
 		return;
 	}
 	item = cJSON_CreateObject();
@@ -937,7 +932,7 @@ bool AampDRMLicenseManager::QueueContentProtection(std::shared_ptr<DrmHelper> dr
 /**
  *  @brief Get DRM license key from DRM server.
  */
-DrmData * AampDRMLicenseManager::getLicense(LicenseRequest &licenseRequest,
+DrmData* AampDRMLicenseManager::getLicense(LicenseRequest &licenseRequest,
 		int32_t *httpCode, AampMediaType streamType, void* aampI, DrmMetaDataEventPtr eventHandle, AampCurlDownloader *pLicenseDownloader, std::string licenseProxy)
 {
 
@@ -1199,13 +1194,12 @@ DrmData * AampDRMLicenseManager::getLicenseSec(const LicenseRequest &licenseRequ
 		int32_t statusCode;
 		int32_t reasonCode;
 		int32_t businessStatus;
-
+		bool videoMuteState = mDrmSessionManager->mIsVideoOnMute.load();
 		if (!mDrmSessionManager->mContentSecurityManagerSession.isSessionValid())
 		{
 			// if we're about to get a licence and are not re-using a session, then we have not seen the first video frame yet. Do not allow watermarking to get enabled yet.
-			bool videoMuteState = mIsVideoOnMute;
 			AAMPLOG_WARN("First frame flag cleared before AcquireLicense, with mIsVideoOnMute=%d", videoMuteState);
-			mDrmSessionManager->mFirstFrameSeen = false;
+			mDrmSessionManager->mFirstFrameSeen.store(false);
 		}
 
 		std::string clientId = "aamp";
@@ -1227,7 +1221,7 @@ DrmData * AampDRMLicenseManager::getLicenseSec(const LicenseRequest &licenseRequ
 																 secclientSessionToken, challengeInfo.accessToken.length(),
 																 mDrmSessionManager->mContentSecurityManagerSession,
 																 &licenseResponseStr, &licenseResponseLength,
-																 &statusCode, &reasonCode, &businessStatus, mIsVideoOnMute, sleepTime);
+																 &statusCode, &reasonCode, &businessStatus, videoMuteState, sleepTime);
 		tEndTime = NOW_STEADY_TS_MS;
 		downloadTimeMS = tEndTime - tStartTime;
 		if (res)
@@ -1322,12 +1316,19 @@ DrmData * AampDRMLicenseManager::getLicenseSec(const LicenseRequest &licenseRequ
 		else
 		{
 			AAMPLOG_WARN(" acquireLicense SUCCESS! license request attempt %d; response code : sec_client %d", attemptCount, sec_client_result);
-			eventHandle->setAccessStatusValue(statusInfo.accessAttributeStatus);
+				
+			if(eventHandle)
+			{
+				
+			    eventHandle->setAccessStatusValue(statusInfo.accessAttributeStatus);
+			}
 			licenseResponse = new DrmData(licenseResponseStr, licenseResponseLength);
+				
 		}
 		if (licenseResponseStr) mDrmSessionManager->playerSecInstance->PlayerSec_FreeResource(licenseResponseStr);
 	}
-        UpdateLicenseMetrics(DRM_GET_LICENSE_SEC, *httpCode, licenseRequest.url.c_str(), downloadTimeMS, eventHandle, nullptr );
+				
+        UpdateLicenseMetrics(DRM_GET_LICENSE_SEC, *httpCode, licenseRequest.url.c_str(), downloadTimeMS, eventHandle, nullptr );				
 
 	free(encodedData);
 	free(encodedChallengeData);
@@ -1341,43 +1342,40 @@ void AampDRMLicenseManager::ProfilerUpdate()
 
   aampInstance->profiler.ProfileBegin(PROFILE_BUCKET_LA_PREPROC);
 }
+
+ProfilerBucketType AampDRMLicenseManager::GetDecryptProfileBucket(int streamType)
+{
+    switch (static_cast<AampMediaType>(streamType))
+    {
+        case eMEDIATYPE_AUDIO:
+            return PROFILE_BUCKET_DECRYPT_AUDIO;
+        case eMEDIATYPE_VIDEO:
+            return PROFILE_BUCKET_DECRYPT_VIDEO;
+        default:
+            return PROFILE_BUCKET_INVALID;
+    }
+}
 /*
  * @brief callback to do profiling from gst-plugins to application 
  */
-void AampDRMLicenseManager::TriggerProfileBeginCb(int streamType)
+void AampDRMLicenseManager::TriggerDecryptProfile(int streamType, int action, int result /* = 0 */)
 {
-	if(eMEDIATYPE_AUDIO == (AampMediaType)streamType)
-	{
-		aampInstance->profiler.ProfileBegin(PROFILE_BUCKET_DECRYPT_AUDIO);
-	}
-	else if(eMEDIATYPE_VIDEO == (AampMediaType)streamType)
-	{
-		aampInstance->profiler.ProfileBegin(PROFILE_BUCKET_DECRYPT_VIDEO);
-	}
-}
+    ProfilerBucketType bucket = GetDecryptProfileBucket(streamType);
+    if (bucket == PROFILE_BUCKET_INVALID)
+        return;
 
-void AampDRMLicenseManager::TriggerProfileEndCb(int streamType)
-{
-	if(AampMediaType ::eMEDIATYPE_AUDIO == streamType)
-	{
-		aampInstance->profiler.ProfileEnd(PROFILE_BUCKET_DECRYPT_AUDIO);
-	}
-	else if(AampMediaType ::eMEDIATYPE_VIDEO == streamType)
-	{
-		aampInstance->profiler.ProfileEnd(PROFILE_BUCKET_DECRYPT_VIDEO);
-	}
-}
-
-void AampDRMLicenseManager::TriggerProfileErrorCb(int streamType, int result)
-{
-	if(AampMediaType ::eMEDIATYPE_AUDIO == streamType)
-	{
-		aampInstance->profiler.ProfileError(PROFILE_BUCKET_DECRYPT_AUDIO,(int)result);
-	}
-	else if(AampMediaType ::eMEDIATYPE_VIDEO == streamType)
-	{
-		aampInstance->profiler.ProfileError(PROFILE_BUCKET_DECRYPT_VIDEO,(int)result);
-	}
+    switch ((ProfilerAction)action)
+    {
+        case PROFILE_ACTION_BEGIN:
+            aampInstance->profiler.ProfileBegin(bucket);
+            break;
+        case PROFILE_ACTION_END:
+            aampInstance->profiler.ProfileEnd(bucket);
+            break;
+        case PROFILE_ACTION_ERROR:
+            aampInstance->profiler.ProfileError(bucket, result);
+            break;
+    }
 }
 void AampDRMLicenseManager::TriggerLAProfileBeginCb(int streamType)
 {
@@ -1569,7 +1567,8 @@ DrmSession* AampDRMLicenseManager::createDrmSession( std::shared_ptr<DrmHelper> 
 {
 	int err = -1;
 	void *ptr= static_cast<void*>(&eventHandle);
-	DrmSession* session = mDrmSessionManager->createDrmSession(err , drmHelper, aampInstance, streamTypeIn,ptr );
+	int responseCode =-1;
+	DrmSession* session = mDrmSessionManager->createDrmSession(responseCode, err , drmHelper, aampInstance, streamTypeIn,ptr );
    
 
 	 if(err != -1)
@@ -1595,7 +1594,8 @@ DrmSession * AampDRMLicenseManager::createDrmSession(
 {
 	int err = -1;
 	void *ptr= static_cast<void*>(&eventHandle);
-        DrmSession * session = mDrmSessionManager->createDrmSession(err,  systemId,  mediaFormat,  initDataPtr,initDataLen,  streamType, aamp, ptr,  contentMetadataPtr,isPrimarySession);
+	int responseCode =-1;
+        DrmSession * session = mDrmSessionManager->createDrmSession(responseCode, err,  systemId,  mediaFormat,  initDataPtr,initDataLen,  streamType, aamp, ptr,  contentMetadataPtr,isPrimarySession);
 
 	if(err != -1)
 	{

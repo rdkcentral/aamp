@@ -49,55 +49,78 @@ if len(sys.argv) != 2:
 
 logfile = sys.argv[1]
 
-# Regex for test start, pass, fail, disabled, and skipped lines
-start_re = re.compile(r"Start\s+\d+:\s+([^\r\n]+)")
-pass_re = re.compile(r"Test\s+#\d+:\s+([^\s]+:[^\s]+[^\s]*)\s+.*?Passed\s+([0-9.]+)\s+sec")
-fail_re = re.compile(r"Test\s+#\d+:\s+([^\s]+:[^\s]+[^\s]*)\s+.*?\*\*\*Failed\s+([0-9.]+)\s+sec")
-disabled_re = re.compile(r"Test\s+#\d+:\s+([^\s]+:[^\s]+[^\s]*)\s+.*?\*\*\*Not Run \(Disabled\)\s+([0-9.]+)\s+sec")
-skipped_re = re.compile(r"Test\s+#\d+:\s+([^\s]+:[^\s]+[^\s]*)\s+.*?\*\*\*Skipped")
-summary_fail_re = re.compile(r"\d+\s+-\s+([^\s]+:[^\s]+[^\s]*)\s+\(Failed\)")
+start_re = re.compile(r"Start\s+\d+:\s+(.+)$")
+pass_re = re.compile(r"Test\s+#\d+:\s+(.+?)\s+\.+\s+Passed\s+([0-9.]+)\s+sec")
+fail_re = re.compile(r"Test\s+#\d+:\s+(.+?)\s+\.+\s+\*\*\*Failed\s+([0-9.]+)\s+sec")
+# Add timeout pattern - timeouts are treated as failures
+timeout_re = re.compile(r"Test\s+#\d+:\s+(.+?)\s+\.+\*\*\*Timeout\s+([0-9.]+)\s+sec")
+disabled_re = re.compile(r"Test\s+#\d+:\s+(.+?)\s+.*?\*\*\*Not Run \(Disabled\)\s+([0-9.]+)\s+sec")
+skipped_re = re.compile(r"Test\s+#\d+:\s+(.+?)\s+.*?\*\*\*Skipped")
+# Also check for timeout in the summary section
+summary_fail_re = re.compile(r"\d+\s+-\s+(.+?)\s+\((Failed|Timeout)\)")
 
-started = []
-finished = []
+started = set()
+finished = set()
 tests = []
 failed_tests = set()
 disabled_tests = set()
 unknown_tests = set()
 
+def normalize_test_name(name):
+    """Normalize test name by stripping whitespace and handling edge cases"""
+    return name.strip()
+
 with open(logfile, encoding="utf-8") as f:
     for line in f:
+        line = line.strip()
+
         m_start = start_re.search(line)
         if m_start:
-            started.append(m_start.group(1).strip())
+            test_name = normalize_test_name(m_start.group(1))
+            started.add(test_name)
+
         m_pass = pass_re.search(line)
         if m_pass:
-            name = m_pass.group(1).strip()
+            name = normalize_test_name(m_pass.group(1))
             duration = float(m_pass.group(2))
-            finished.append(name)
+            finished.add(name)
             tests.append((name, duration, "Passed"))
+
         m_fail = fail_re.search(line)
         if m_fail:
-            name = m_fail.group(1).strip()
+            name = normalize_test_name(m_fail.group(1))
             duration = float(m_fail.group(2))
-            finished.append(name)
+            finished.add(name)
             tests.append((name, duration, "Failed"))
             failed_tests.add(name)
+
+        # Handle timeouts as failures
+        m_timeout = timeout_re.search(line)
+        if m_timeout:
+            name = normalize_test_name(m_timeout.group(1))
+            duration = float(m_timeout.group(2))
+            finished.add(name)
+            tests.append((name, duration, "Timeout"))
+            failed_tests.add(name)  # Timeouts are failures
+
         m_disabled = disabled_re.search(line)
         if m_disabled:
-            name = m_disabled.group(1).strip()
+            name = normalize_test_name(m_disabled.group(1))
             duration = float(m_disabled.group(2))
-            finished.append(name)
+            finished.add(name)
             tests.append((name, duration, "Disabled"))
             disabled_tests.add(name)
+
         m_skipped = skipped_re.search(line)
         if m_skipped:
-            name = m_skipped.group(1).strip()
-            finished.append(name)
-            tests.append((name, 0.0, "Disabled"))  # Treat skipped tests as disabled
+            name = normalize_test_name(m_skipped.group(1))
+            finished.add(name)
+            tests.append((name, 0.0, "Disabled"))
             disabled_tests.add(name)
+
         m_summary_fail = summary_fail_re.search(line)
         if m_summary_fail:
-            failed_tests.add(m_summary_fail.group(1).strip())
+            failed_tests.add(normalize_test_name(m_summary_fail.group(1)))
 
 # Check for tests that finished but with unknown status
 known_tests = set()
@@ -105,13 +128,13 @@ for name, duration, status in tests:
     known_tests.add(name)
 
 # Find tests that started but did not finish with a known status
-not_completed = [name for name in started if name not in known_tests]
+not_completed = sorted(started - known_tests)
 
 # Find tests that finished but with unknown status
-for name in finished:
-    if name not in known_tests:
-        tests.append((name, 0.0, "Unknown"))
-        unknown_tests.add(name)
+unknown_finished = finished - known_tests
+for name in unknown_finished:
+    tests.append((name, 0.0, "Unknown"))
+    unknown_tests.add(name)
 
 total_tests = len(tests)
 total_time = sum(d for _, d, _ in tests)
@@ -123,7 +146,13 @@ print(f"Total time: {total_time:.2f} sec\n")
 print("Tests that FAILED:")
 if failed_tests:
     for name in sorted(failed_tests):
-        print(f"  {name}")
+        # Find the status for this test
+        status = "Failed"
+        for test_name, duration, test_status in tests:
+            if test_name == name:
+                status = test_status
+                break
+        print(f"  {name} [{status}]")
 else:
     print("  None")
 print()

@@ -232,9 +232,10 @@ public:
 	 * @param rate The desired playback rate.
 	 * @param video_dec The video decoder element.
 	 * @param audio_dec The audio decoder element.
+	 * @param isRialto True if rialto sink is used.
 	 * @return True if the playback rate was set successfully, false otherwise.
 	 */
-	virtual bool SetPlaybackRate(const std::vector<GstElement*>& sources, GstElement *pipeline, double rate, GstElement *video_dec, GstElement *audio_dec) = 0;
+	virtual bool SetPlaybackRate(const std::vector<GstElement*>& sources, GstElement *pipeline, double rate, GstElement *video_dec, GstElement *audio_dec, bool isRialto) = 0;
 	
 	/**
 	 * @brief Retrieves the source pad of the given GStreamer element.
@@ -463,20 +464,24 @@ public:
 	virtual bool ResetNewSegmentEvent(){return false;}
 	
 	/**
-	 * @brief Checks if the platform segment is ready for processing new segment.
+	 * @brief Checks if platform segment is ready.
 	 *
-	 * This function returns a boolean value indicating whether the platform segment
-	 * is ready. If the function returns `true`, it means the segment is ready;
-	 * otherwise, it is not.
+	 * It is used in scenarios where AV synchronization and trick mode speed adjustments are necessary.
 	 *
+	 * @param videoSink The video sink element.
+	 * @param isRialto Flag indicating whether Rialto sink is being used.
 	 * @return `true` if the platform segment is ready, `false` otherwise.
 	 */
-	virtual bool IsPlatformSegmentReady(){return false;}
-	
+	virtual bool IsPlatformSegmentReady(GstElement *videoSink, bool isRialto){return false;}
+
 	/**
-	 *@brief Checks if the platform is video master.
-	 *@return 'true' if video master otherwise false.
+	 * @brief Checks if the platform is video master.
+	 *
+	 * @param videoSink The video sink element.
+	 * @param isRialto Flag indicating whether Rialto sink is being used.
+	 * @return 'true' if video master otherwise false.
 	 */
-	virtual bool IsVideoMaster(){return true;}
+	virtual bool IsVideoMaster(GstElement *videoSink, bool isRialto){return true;}
+
 };
 #endif

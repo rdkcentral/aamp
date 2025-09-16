@@ -208,17 +208,17 @@ void DrmSessionManager::setVideoMute(bool live, double currentLatency, bool live
 {
 	MW_LOG_WARN("Video mute status (new): %d, state changed: %.1s, pos: %f", isVideoOnMute, (isVideoOnMute == mIsVideoOnMute) ? "N":"Y", positionMs);
 
-	mIsVideoOnMute = isVideoOnMute;
+	mIsVideoOnMute.store(isVideoOnMute);
 	auto localSession = mContentSecurityManagerSession; //Remove potential isSessionValid(), getSessionID() race by using a local copy
 	if(localSession.isSessionValid())
 	{
-		ContentSecurityManager::GetInstance()->UpdateSessionState(localSession.getSessionID(), !mIsVideoOnMute);
-		if(!mIsVideoOnMute)
+		ContentSecurityManager::GetInstance()->UpdateSessionState(localSession.getSessionID(), !mIsVideoOnMute.load());
+		if(!mIsVideoOnMute.load())
 		{
 			//this is required as secmanager waits for speed update to show wm once session is active
-			int speed=mCurrentSpeed;
+			int speed=mCurrentSpeed.load();
 			MW_LOG_INFO("Setting speed after video unmute %d ", speed);
-			setPlaybackSpeedState(live, currentLatency, livepoint, liveOffsetMs,mCurrentSpeed, positionMs);
+			setPlaybackSpeedState(live, currentLatency, livepoint, liveOffsetMs, speed, positionMs);
 		}
 	}
 }
@@ -234,27 +234,27 @@ void DrmSessionManager::hideWatermarkOnDetach(void)
 	{
 		ContentSecurityManager::GetInstance()->UpdateSessionState(localSession.getSessionID(), false);
 	}
-	mFirstFrameSeen = false;
+	mFirstFrameSeen.store(false);
 }
 
 
 void DrmSessionManager::setPlaybackSpeedState(bool live, double currentLatency, bool livepoint , double liveOffsetMs, int speed, double positionMs, bool firstFrameSeen)
 {
-	bool isVideoOnMute=mIsVideoOnMute;
+	bool isVideoOnMute=mIsVideoOnMute.load();
 	auto localSession = mContentSecurityManagerSession; //Remove potential isSessionValid(), getSessionID() race by using a local copy
 	MW_LOG_WARN("In DrmSessionManager::after calling setPlaybackSpeedState speed=%d position=%f sessionID=[%" PRId64 "], mute: %d",speed, positionMs, localSession.getSessionID(), isVideoOnMute);
-	mCurrentSpeed = speed;
+	mCurrentSpeed.store(speed);
 	if(firstFrameSeen)
 	{
 		MW_LOG_INFO("First frame seen - latched");
-		mFirstFrameSeen = true;
+		mFirstFrameSeen.store(true);
 	}
-	else if (mFirstFrameSeen)
+	else if (mFirstFrameSeen.load())
 	{
 		MW_LOG_INFO("First frame has previously been seen, we will send speed updates");
 	}
 
-	if(localSession.isSessionValid() && !mIsVideoOnMute && mFirstFrameSeen)
+	if(localSession.isSessionValid() && !mIsVideoOnMute.load() && mFirstFrameSeen.load())
 	{
 		MW_LOG_INFO("calling ContentSecurityManager::setPlaybackSpeedState()");
 
@@ -278,8 +278,8 @@ void DrmSessionManager::setPlaybackSpeedState(bool live, double currentLatency, 
 	}
 	else
 	{
-		bool firstFrameSeenCopy=mFirstFrameSeen;
-		isVideoOnMute=mIsVideoOnMute;
+		bool firstFrameSeenCopy=mFirstFrameSeen.load();
+		isVideoOnMute=mIsVideoOnMute.load();
 		MW_LOG_INFO("Not calling ContentSecurityManager::setPlaybackSpeedState(), sessionID=[%" PRId64 "], mIsVideoOnMute=%d, firstFrameSeen=%d", localSession.getSessionID(), isVideoOnMute, firstFrameSeenCopy);
 	}
 }
@@ -370,7 +370,7 @@ int DrmSessionManager::getSlotIdForSession(DrmSession* session)
  *              with new keyId if no matching keyId is found in existing sessions.
  *  @return     Pointer to DrmSession for the given PSSH data; NULL if session creation/mapping fails.
  */
-DrmSession * DrmSessionManager::createDrmSession(
+DrmSession * DrmSessionManager::createDrmSession( int& responseCode,
 		int &err, const char* systemId, MediaFormat mediaFormat, const unsigned char * initDataPtr,
 		uint16_t initDataLen, int streamType,
 		DrmCallbacks* player, void *metaDataPtr, const unsigned char* contentMetadataPtr,
@@ -402,11 +402,11 @@ DrmSession * DrmSessionManager::createDrmSession(
 		if (!drmHelper->parsePssh(initDataPtr, initDataLen))
 		{
 			MW_LOG_ERR(" Failed to Parse PSSH from the DRM InitData");
-			err =MW_CORRUPT_DRM_METADATA;
+			err = MW_CORRUPT_DRM_METADATA;
 		}
 		else
 		{
-			drmSession = DrmSessionManager::createDrmSession(err, drmHelper, player, streamType, metaDataPtr);
+			drmSession = DrmSessionManager::createDrmSession(responseCode, err, drmHelper, player, streamType, metaDataPtr);
 		}
 	}
 
@@ -415,7 +415,7 @@ DrmSession * DrmSessionManager::createDrmSession(
 /**
  *  @brief Create DrmSession by using the DrmHelper object
  */
-DrmSession* DrmSessionManager::createDrmSession(int &err, std::shared_ptr<DrmHelper> drmHelper,  DrmCallbacks* Instance, int streamType,void* metaDataPtr)
+DrmSession* DrmSessionManager::createDrmSession(int &responseCode, int &err, std::shared_ptr<DrmHelper> drmHelper,  DrmCallbacks* Instance, int streamType,void* metaDataPtr)
 {
 	if (!drmHelper || !Instance)
 	{
@@ -489,7 +489,7 @@ DrmSession* DrmSessionManager::createDrmSession(int &err, std::shared_ptr<DrmHel
 		}
 		return nullptr;
 	}
-	code =this->AcquireLicenseCb(drmHelper, selectedSlot, cdmError,  (GstMediaType)streamType, metaDataPtr, false);
+	code =this->AcquireLicenseCb(responseCode, drmHelper, selectedSlot, cdmError,  (GstMediaType)streamType, metaDataPtr, false);
 	if (code != KEY_READY)
 	{
 		MW_LOG_WARN(" Unable to get Ready Status DrmSession : Key State %d ", code);
@@ -651,7 +651,7 @@ KeyState DrmSessionManager::getDrmSession(int &err, std::shared_ptr<DrmHelper> d
 				{
 					// Set the drmSession's ID as mContentSecurityManagerSession so that this code will not be repeated for multiple calls for createDrmSession					
 					mContentSecurityManagerSession = slotSession;
- 					bool videoMuteState = mIsVideoOnMute;
+					bool videoMuteState = mIsVideoOnMute.load();
 					MW_LOG_WARN("Activating re-used DRM, sessionId[%" PRId64 "], with video mute = %d", slotSession.getSessionID(), videoMuteState);
 					ContentSecurityManager::GetInstance()->UpdateSessionState(slotSession.getSessionID(), true);
 				}
@@ -764,8 +764,8 @@ void DrmSessionManager::notifyCleanup()
 		ContentSecurityManager::GetInstance()->UpdateSessionState(localSession.getSessionID(), false);
 		// Reset the session ID, the session ID is preserved within DrmSession instances
 		mContentSecurityManagerSession.setSessionInvalid();	//note this doesn't necessarily close the session as the session ID is also saved in the slot
-		mCurrentSpeed = 0;
-		mFirstFrameSeen = false;
+		mCurrentSpeed.store(0);
+		mFirstFrameSeen.store(false);
 	}
 }
 

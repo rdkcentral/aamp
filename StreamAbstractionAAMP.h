@@ -770,7 +770,7 @@ public:
 	 * @fn ResetTrickModePtsRestamping
 	 * @brief Reset trick mode PTS restamping
 	 */
-	void ResetTrickModePtsRestamping(void);
+	virtual void ResetTrickModePtsRestamping(void);
 
 	/**
 	 * @fn IsInjectionFromCachedFragmentChunks
@@ -1787,6 +1787,13 @@ public:
 	double GetBufferedVideoDurationSec();
 
 	/**
+	 *   @fn GetBufferedAudioDurationSec
+	 *
+	 *   @return duration of currently buffered audio in seconds
+	 */
+	double GetBufferedAudioDurationSec();
+
+	/**
 	 *   @fn UpdateStreamInfoBitrateData
 	 *
 	 *   @param[in]  profileIndex - profile index of current fetched fragment
@@ -2062,6 +2069,19 @@ public:
 
 	virtual bool SelectPreferredTextTrack(TextTrackInfo &selectedTextTrack) { return false; };
 
+	/**
+	 * @fn clearFirstPTS
+	 * @brief Clears the mFirstPTS value to trigger update of first PTS
+	 */
+	virtual void clearFirstPTS(void) {};
+
+	/**
+	 *   @fn ReinitializeInjection
+	 *   @brief Re-Initialize the injection logic
+	 *   @param[in] rate - play rate
+	 */	
+	void ReinitializeInjection(double rate);
+
 protected:
 	/**
 	 *   @brief Get stream information of a profile from subclass.
@@ -2091,7 +2111,7 @@ protected:
 	 *
 	 *   @return buffer value based on Local TSB
 	 */
-	double GetBufferValue(MediaTrack *video);
+	double GetBufferValue(MediaTrack *track);
 
 	/**
 	 *   @fn GetDesiredProfileBasedOnCache

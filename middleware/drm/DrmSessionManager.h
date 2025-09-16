@@ -129,7 +129,9 @@ public:
 	configs *m_drmConfigParam;
 	PlayerSecInterface *playerSecInstance;/** PlayerSecInterface instance **/
 	ContentSecurityManagerSession mContentSecurityManagerSession;
-        std::atomic<bool> mFirstFrameSeen;
+    std::atomic<bool> mFirstFrameSeen;
+	std::atomic<bool> mIsVideoOnMute;
+	std::atomic<int> mCurrentSpeed;
 private:
 	KeyID *cachedKeyIDs;
 	char* accessToken;
@@ -140,8 +142,6 @@ private:
 	std::mutex mDrmSessionLock;
 	bool mEnableAccessAttributes;
 	int mMaxDRMSessions;
-	std::atomic<bool> mIsVideoOnMute;
-	std::atomic<int> mCurrentSpeed;
 	std::function<void(uint32_t, uint32_t, const std::string&)> mPlayerSendWatermarkSessionUpdateEventCB;
 	/**     
 	 * @brief Copy constructor disabled
@@ -265,7 +265,7 @@ public:
 	 *  @retval  	error_code - Gets updated with proper error code, if session creation fails.
 	 *  			No NULL checks are done for error_code, caller should pass a valid pointer.
 	 */
-	DrmSession * createDrmSession(int &err, const char* systemId, MediaFormat mediaFormat,
+	DrmSession * createDrmSession(int &responseCode, int &err, const char* systemId, MediaFormat mediaFormat,
 			const unsigned char * initDataPtr, uint16_t dataLength, int streamType,
 			DrmCallbacks* player, void *ptr, const unsigned char *contentMetadata = nullptr, 
 	                	bool isPrimarySession = false );
@@ -273,7 +273,7 @@ public:
 	 * @fn createDrmSession
 	 * @return drmSession
 	 */
-	DrmSession* createDrmSession( int &err, DrmHelperPtr drmHelper,  DrmCallbacks* Instance, int streamType, void *metaDataPtr);
+	DrmSession* createDrmSession(int& responseCode, int &err, DrmHelperPtr drmHelper,  DrmCallbacks* Instance, int streamType, void *metaDataPtr);
 
 	/**
 	 *  @fn		IsKeyIdProcessed
@@ -388,7 +388,7 @@ public:
         /*
          *@brief Type definition for acquireLicense callback from application 
          */
-        using LicenseCallback = std::function<KeyState(DrmHelperPtr drmHelper, int sessionSlot, int &cdmError,
+        using LicenseCallback = std::function<KeyState(int& responseCode, DrmHelperPtr drmHelper, int sessionSlot, int &cdmError,
                         GstMediaType streamType,void *metaDataPtr, bool isLicenseRenewal)>;
         LicenseCallback AcquireLicenseCb;
         /*
@@ -407,28 +407,12 @@ public:
         {
               ProfileUpdateCb = callback;
         };
-
-	using ProfileBeginCallback = std::function<void(int)>;
-	ProfileBeginCallback profileBeginCb;
-	void RegisterProfBegin(const ProfileBeginCallback callback)
+	using ProfileDecryptProfileCallback = std::function<void(int, int , int)>;
+	ProfileDecryptProfileCallback profileDecryptProfileCb;
+	void RegisterDecryptProfile(const ProfileDecryptProfileCallback callback)
 	{
-		profileBeginCb = callback;
+		profileDecryptProfileCb = callback;
 	};
-
-	using ProfileEndCallback = std::function<void(int streamType)>;
-	ProfileEndCallback profileEndCb;
-	void RegisterProfEnd(const ProfileEndCallback callback)
-	{
-		profileEndCb = callback;
-	};
-
-	using ProfileErrorCallback = std::function<void(int streamType, int result)>;
-	ProfileErrorCallback profileErrorCb;
-	void RegisterProfError(const ProfileErrorCallback callback)
-	{
-		profileErrorCb = callback;
-	};
-
 	using LAProfileBeginCallback = std::function<void(int)>;
 	LAProfileBeginCallback laprofileBeginCb;
 	void RegisterLAProfBegin(const LAProfileBeginCallback callback)

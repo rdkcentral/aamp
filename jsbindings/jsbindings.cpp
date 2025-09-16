@@ -28,7 +28,6 @@
 #include "jsbindings-version.h"
 #include "jsutils.h"
 #include "main_aamp.h"
-#include "priv_aamp.h"
 #include <mutex>
 #include "PlayerCCManager.h"
 
@@ -351,20 +350,19 @@ static JSValueRef AAMP_getProperty_timedMetadata(JSContextRef context, JSObjectR
 		return JSValueMakeUndefined(context);
 	}
 
-	PrivateInstanceAAMP* privAAMP = (pAAMP->_aamp != NULL) ? pAAMP->_aamp->aamp : NULL;
-	if (privAAMP == NULL)
+	if (pAAMP->_aamp == NULL)
 	{
                 LOG_ERROR_EX("privAAMP not initialized");
 		*exception = aamp_GetException(context, AAMPJS_INVALID_ARGUMENT, "AAMP.timedMetadata - initialization error");
 		return JSValueMakeUndefined(context);
 	}
-
-	int32_t length = (int32_t)privAAMP->timedMetadata.size();
+	auto timedMetadata = pAAMP->_aamp->GetTimedMetadata();
+	int32_t length = (int32_t)timedMetadata.size();
 
 	JSValueRef* array = new JSValueRef[length];
 	for (int32_t i = 0; i < length; i++)
 	{
-		TimedMetadata item = privAAMP->timedMetadata.at(i);
+		TimedMetadata item = timedMetadata.at(i);
 		JSObjectRef ref = aamp_CreateTimedMetadataJSObject(context, item._timeMS, item._name.c_str(), item._content.c_str(), item._id.c_str(), item._durationMS);
 		array[i] = ref;
 	}
@@ -764,7 +762,11 @@ public:
 		JSStringRelease(name);
 
 		name = JSStringCreateWithUTF8CString("videoBufferedMiliseconds"); // FIXME
-		JSObjectSetProperty(context, eventObj, name, JSValueMakeNumber(context, evt->getBufferedDuration()), kJSPropertyAttributeReadOnly, NULL);
+		JSObjectSetProperty(context, eventObj, name, JSValueMakeNumber(context, evt->getVideoBufferedDuration()), kJSPropertyAttributeReadOnly, NULL);
+		JSStringRelease(name);
+
+		name = JSStringCreateWithUTF8CString("audioBufferedMiliseconds"); // FIXME
+		JSObjectSetProperty(context, eventObj, name, JSValueMakeNumber(context, evt->getAudioBufferedDuration()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(name);
 
 		name = JSStringCreateWithUTF8CString("timecode");
@@ -1499,6 +1501,14 @@ public:
 		prop = JSStringCreateWithUTF8CString("placementDuration");
 		JSObjectSetProperty(context, eventObj, prop, JSValueMakeNumber(context, evt->getDuration()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
+
+		prop = JSStringCreateWithUTF8CString("errorCode");
+		JSObjectSetProperty(context, eventObj, prop, aamp_CStringToJSValue(context, evt->getErrorCode().c_str()), kJSPropertyAttributeReadOnly, NULL);
+		JSStringRelease(prop);
+
+		prop = JSStringCreateWithUTF8CString("errorDescription");
+		JSObjectSetProperty(context, eventObj, prop, aamp_CStringToJSValue(context, evt->getErrorDescription().c_str()), kJSPropertyAttributeReadOnly, NULL);
+		JSStringRelease(prop);
 	}
 };
 
@@ -2037,6 +2047,11 @@ public:
 		prop = JSStringCreateWithUTF8CString("timeInStateMs");
 		JSObjectSetProperty(context, eventObj, prop, JSValueMakeNumber(context, evt->getTimeInStateMS()), kJSPropertyAttributeReadOnly, NULL);
 		JSStringRelease(prop);
+
+		prop = JSStringCreateWithUTF8CString("droppedFrames");
+		JSObjectSetProperty(context, eventObj, prop, JSValueMakeNumber(context, evt->getDroppedFrames()), kJSPropertyAttributeReadOnly, NULL);
+		JSStringRelease(prop);
+
 	}
 };
 /**

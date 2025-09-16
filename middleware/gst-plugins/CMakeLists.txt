@@ -72,10 +72,10 @@ message("AAMP consolidated build, enabling gst_subtec")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DGST_SUBTEC_ENABLED")
 add_subdirectory(gst_subtec)
 
-add_library(gstplugin SHARED ${GST_MIDDLEWARE_SOURCES})
+add_library(gstaamp SHARED ${GST_MIDDLEWARE_SOURCES})
 
 if(CMAKE_CDM_DRM)
-	target_include_directories (gstplugin PRIVATE drm/gst)
+	target_include_directories (gstaamp PRIVATE drm/gst)
 	if(CMAKE_USE_OPENCDM_ADAPTER)
 		message("CMAKE_USE_OPENCDM_ADAPTER set")
 		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DUSE_OPENCDM_ADAPTER")
@@ -89,6 +89,7 @@ if(CMAKE_CDM_DRM)
 else()
     message("CMAKE_CDM_DRM not set")
 endif()
+
 
 target_link_libraries (gstplugin playergstinterface ${GST_COMMON_DEPENDENCIES})
 target_include_directories (gstplugin PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../../ ${CMAKE_CURRENT_SOURCE_DIR}/../../drm ${CMAKE_CURRENT_SOURCE_DIR}/../../drm/helper ${CMAKE_CURRENT_SOURCE_DIR}/../../tsb/api ${CMAKE_CURRENT_SOURCE_DIR}/../../downloader ${CMAKE_CURRENT_SOURCE_DIR}/../../middleware ${CMAKE_CURRENT_SOURCE_DIR}/../../middleware/gst-plugins ${CMAKE_CURRENT_SOURCE_DIR}/../../middleware/vendor ${CMAKE_CURRENT_SOURCE_DIR}/../../middleware/vendor/amlogic ${CMAKE_CURRENT_SOURCE_DIR}/../../middleware/drm ${CMAKE_CURRENT_SOURCE_DIR}/../../middleware/drm/ocdm ${CMAKE_CURRENT_SOURCE_DIR}/../../middleware/drm/helper  ${CMAKE_CURRENT_SOURCE_DIR}/../../middleware/externals/contentsecuritymanager)
@@ -106,12 +107,12 @@ set(LIBPLUGIN_DEFINES "${PLUGIN_DEFINES}")
 #	set(LIBPLUGIN_DEFINES "${LIBPLUGIN_DEFINES} -DUSE_SECMANAGER")
 #endif()
 
-install(TARGETS gstplugin DESTINATION lib/gstreamer-1.0)
+install(TARGETS gstaamp DESTINATION lib/gstreamer-1.0)
 
 if(CMAKE_WPEWEBKIT_JSBINDINGS)
 	message("CMAKE_WPEWEBKIT_JSBINDINGS set")
-	#target_link_libraries (gstplugin aampjsbindings)
+	#target_link_libraries (gstaamp aampjsbindings)
 	#set(LIBPLUGIN_DEFINES "${LIBPLUGIN_DEFINES} -DAAMP_JSCONTROLLER_ENABLED")
 endif()
 
-set_target_properties(gstplugin PROPERTIES COMPILE_FLAGS "${LIBPLUGIN_DEFINES}")
+set_target_properties(gstaamp PROPERTIES COMPILE_FLAGS "${LIBPLUGIN_DEFINES}")

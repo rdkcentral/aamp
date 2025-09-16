@@ -36,6 +36,11 @@ enum
 	PROP_0, PROP_PLAYER, PROP_DRM_SESSION_MANAGER
 };
 
+enum
+{
+	ePROF_BEGIN, ePROF_END , ePROF_ERR
+};
+
 //#define FUNCTION_DEBUG 1
 #ifdef FUNCTION_DEBUG
 #define DEBUG_FUNC()    g_warning("####### %s : %d ####\n", __FUNCTION__, __LINE__);
@@ -683,7 +688,11 @@ if (socInterface && socInterface->IsTargetSoc())
 	if (!cdmidecryptor->firstsegprocessed
 			&& cdmidecryptor->sessionManager)
 	{
-		cdmidecryptor->sessionManager->profileBeginCb(cdmidecryptor->mediaType);
+
+		if(cdmidecryptor->sessionManager->profileDecryptProfileCb)
+		{
+		    cdmidecryptor->sessionManager->profileDecryptProfileCb(((int)cdmidecryptor->mediaType), ePROF_BEGIN, 0);
+		}
 		cdmidecryptor->firstsegprocessed = true;
 	}
 
@@ -692,14 +701,20 @@ if (socInterface && socInterface->IsTargetSoc())
 	if (!cdmidecryptor->firstsegprocessed
 			&& cdmidecryptor->sessionManager)
 	{
-	if(!cdmidecryptor->streamEncrypted)
-	{
-		cdmidecryptor->sessionManager->profileEndCb(cdmidecryptor->mediaType);
-	}
-	else
-	{
-		cdmidecryptor->sessionManager->profileErrorCb(cdmidecryptor->mediaType, result);
-	}
+		if(!cdmidecryptor->streamEncrypted)
+		{
+			if(cdmidecryptor->sessionManager->profileDecryptProfileCb)
+			{
+				cdmidecryptor->sessionManager->profileDecryptProfileCb(((int)cdmidecryptor->mediaType), ePROF_END, 0);
+			}
+		}
+		else
+		{
+			if(cdmidecryptor->sessionManager->profileDecryptProfileCb)
+			{
+				cdmidecryptor->sessionManager->profileDecryptProfileCb(((int)cdmidecryptor->mediaType), ePROF_ERR, result);
+			}
+		}
 		cdmidecryptor->firstsegprocessed = true;
 	}
 
@@ -714,7 +729,7 @@ if (socInterface && socInterface->IsTargetSoc())
 		g_mutex_unlock(&cdmidecryptor->mutex);
 	return result;
 }
-#endif
+#endif // USE_OPENCDM_ADAPTER
 
 
 /* sink event handlers */
@@ -862,13 +877,14 @@ static gboolean gst_cdmidecryptor_sink_event(GstBaseTransform * trans,
 		GST_DEBUG_OBJECT(cdmidecryptor, "\n acquired lock for mutex\n");
 		std::shared_ptr<void> e = cdmidecryptor->sessionManager->DrmMetaDataCb();
                 int err = -1;
+		int responseCode =-1;
 		if (cdmidecryptor->sessionManager->m_drmConfigParam->mIsWVKIDWorkaround){
-			cdmidecryptor->drmSession =	cdmidecryptor->sessionManager->createDrmSession(err,
+			cdmidecryptor->drmSession =	cdmidecryptor->sessionManager->createDrmSession(responseCode, err,
 						reinterpret_cast<const char *>(systemId), eMEDIAFORMAT_DASH,
 						outData, outDataLen, (int)cdmidecryptor->mediaType, cdmidecryptor->player, e.get(), nullptr, false);
 		}else{
 			cdmidecryptor->drmSession =
-				cdmidecryptor->sessionManager->createDrmSession(err,
+				cdmidecryptor->sessionManager->createDrmSession(responseCode, err,
 						reinterpret_cast<const char *>(systemId), eMEDIAFORMAT_DASH,
 						reinterpret_cast<const unsigned char *>(mapInfo.data),
 						mapInfo.size, (int)cdmidecryptor->mediaType, cdmidecryptor->player, e.get(), nullptr, false);
@@ -906,7 +922,13 @@ static gboolean gst_cdmidecryptor_sink_event(GstBaseTransform * trans,
 			cdmidecryptor->sessionManager->laprofileEndCb(cdmidecryptor->mediaType);
 			if (!cdmidecryptor->firstsegprocessed)
 			{
-				cdmidecryptor->sessionManager->profileBeginCb(cdmidecryptor->mediaType);
+
+
+				/** profilebegin -0, profileEnd -1 , profileError -2 */
+				if(cdmidecryptor->sessionManager->profileDecryptProfileCb)
+				{
+				     cdmidecryptor->sessionManager->profileDecryptProfileCb(((int)cdmidecryptor->mediaType), 0, 0);
+				}
 			}
 
 			result = TRUE;

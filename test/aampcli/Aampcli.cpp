@@ -24,7 +24,6 @@
 
 #include "Aampcli.h"
 #include "scte35/AampSCTE35.h"
-//#include "AampcliShader.h"
 
 Aampcli mAampcli;
 const char *gApplicationPath = NULL;
@@ -61,7 +60,7 @@ Aampcli::Aampcli(const Aampcli& aampcli):
 {
 	mSingleton = aampcli.mSingleton;
 	mEventListener = aampcli.mEventListener;
-	
+
 };
 
 Aampcli& Aampcli::operator=(const Aampcli& aampcli)
@@ -181,7 +180,7 @@ void Aampcli::runCommand( std::string args )
 			while( *ptr == ' ' ) ptr++; // skip leading whitespace
 			while( fin>ptr && fin[-1]==' ' ) fin--;
 			*fin = 0x00;
-			
+
 			if( *ptr )
 			{
 				add_history(ptr);
@@ -237,7 +236,7 @@ void Aampcli::initPlayerLoop(int argc, char **argv)
 	{
 		mInitialized = true;
 		PlayerCliGstInit(&argc, &argv);
-		
+
 		mAampGstPlayerMainLoop = g_main_loop_new(NULL, FALSE);
 		mAampMainLoopThread = g_thread_new("AAMPGstPlayerLoop", &aampGstPlayerStreamThread, NULL );
 	}
@@ -408,6 +407,7 @@ static int main_func(int argc, char **argv)
 	createAppWindow(argc,argv);
 	cmdThreadId.join();
 	AAMPCLI_PRINTF( "[AAMPCLI] done\n" );
+	return 0;
 }
 
 int main( int argc, char **argv )
@@ -536,14 +536,14 @@ void MyAAMPEventListener::Event(const AAMPEventPtr& e)
 					auto end = ev->getEnd();
 					if( start<0 && end<0 )
 					{
-						snprintf( seekableRange, sizeof(seekableRange), "n/a" );
+						snprintf( seekableRange, sizeof(seekableRange), "(n/a)" );
 					}
 					else
 					{
 						snprintf( seekableRange, sizeof(seekableRange), "[start=%.3fs end=%.3fs]", start/1000.0, end/1000.0 );
 					}
 
-					AAMPCLI_PRINTF("[AAMPCLI] AAMP_EVENT_PROGRESS duration=%.3fs position=%.3fs seekableRange%s currRate=%.3f bufferedDuration=%.3fs PTS=%lld timecode='%s' latency=%.3fs profileBandwidth=%ld networkBandwidth=%ld currentPlayRate=%.3f sessionId='%s'\n", ev->getDuration()/1000.0, ev->getPosition()/1000.0, seekableRange, ev->getSpeed(), ev->getBufferedDuration()/1000.0, ev->getPTS(), ev->getSEITimeCode(), ev->getLiveLatency()/1000.0, ev->getProfileBandwidth(), ev->getNetworkBandwidth(), ev->getCurrentPlayRate(), ev->GetSessionId().c_str());
+					AAMPCLI_PRINTF("[AAMPCLI] AAMP_EVENT_PROGRESS duration=%.3fs position=%.3fs seekableRange%s currRate=%.3f bufferedVideoDuration=%.3fs bufferedAudioDuration=%.3fs  PTS=%lld timecode='%s' latency=%.3fs profileBandwidth=%ld networkBandwidth=%ld currentPlayRate=%.3f sessionId='%s'\n", ev->getDuration()/1000.0, ev->getPosition()/1000.0, seekableRange, ev->getSpeed(), ev->getVideoBufferedDuration()/1000.0, ev->getAudioBufferedDuration()/1000.0, ev->getPTS(), ev->getSEITimeCode(), ev->getLiveLatency()/1000.0, ev->getProfileBandwidth(), ev->getNetworkBandwidth(), ev->getCurrentPlayRate(), ev->GetSessionId().c_str());
 				}
 			}
 			break;
@@ -658,7 +658,7 @@ void MyAAMPEventListener::Event(const AAMPEventPtr& e)
 			} // SCTE35
 			break;
 		}
-			
+
 		case AAMP_EVENT_MANIFEST_REFRESH_NOTIFY:
 		{
 			std::string manifest;
@@ -678,7 +678,7 @@ void MyAAMPEventListener::Event(const AAMPEventPtr& e)
 		case AAMP_EVENT_AD_RESOLVED:
 		{
 			AdResolvedEventPtr ev = std::dynamic_pointer_cast<AdResolvedEvent>(e);
-			AAMPCLI_PRINTF("[AAMPCLI] AAMP_EVENT_AD_RESOLVED\tresolveStatus=%d\tadId=%s\tstart=%" PRIu64 "\tduration=%" PRIu64 "\n", ev->getResolveStatus(), ev->getAdId().c_str(), ev->getStart(), ev->getDuration());
+			AAMPCLI_PRINTF("[AAMPCLI] AAMP_EVENT_AD_RESOLVED\tresolveStatus=%d\tadId=%s\tstart=%" PRIu64 "\tduration=%" PRIu64 "\terrorCode=%s\terrorDescription=%s\n", ev->getResolveStatus(), ev->getAdId().c_str(), ev->getStart(), ev->getDuration(), ev->getErrorCode().c_str(), ev->getErrorDescription().c_str());
 			break;
 		}
 
@@ -734,7 +734,7 @@ void MyAAMPEventListener::Event(const AAMPEventPtr& e)
 		case AAMP_EVENT_MONITORAV_STATUS:
 		{
 			MonitorAVStatusEventPtr ev = std::dynamic_pointer_cast<MonitorAVStatusEvent>(e);
-			AAMPCLI_PRINTF("[AAMPCLI] AAMP_EVENT_MONITORAV_STATUS\tstatus=%s\tvposition =%" PRId64 "\taposition=%" PRId64 "\ttimeInStateMS= %" PRIu64 "\n", ev->getMonitorAVStatus().c_str(), ev->getVideoPositionMS(), ev->getAudioPositionMS(), ev->getTimeInStateMS());
+			AAMPCLI_PRINTF("[AAMPCLI] AAMP_EVENT_MONITORAV_STATUS\tstatus=%s\tvposition =%" PRId64 "\taposition=%" PRId64 "\ttimeInStateMS= %" PRIu64 "\tdroppedFrames= %" PRIu64 "\n", ev->getMonitorAVStatus().c_str(), ev->getVideoPositionMS(), ev->getAudioPositionMS(), ev->getTimeInStateMS(),ev->getDroppedFrames());
 		}
 		case AAMP_EVENT_REPORT_ANOMALY:
 		{

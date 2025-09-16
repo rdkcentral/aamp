@@ -36,6 +36,10 @@ AAMPGstPlayer::~AAMPGstPlayer()
 
 void AAMPGstPlayer::Configure(StreamOutputFormat format, StreamOutputFormat audioFormat, StreamOutputFormat auxFormat, StreamOutputFormat subFormat, bool bESChangeStatus, bool forwardAudioToAux, bool setReadyAfterPipelineCreation)
 {
+	if (g_mockAampGstPlayer != nullptr)
+	{
+		g_mockAampGstPlayer->Configure(format, audioFormat, auxFormat, subFormat, bESChangeStatus, forwardAudioToAux, setReadyAfterPipelineCreation);
+	}
 }
 
 bool AAMPGstPlayer::SendCopy( AampMediaType mediaType, const void *ptr, size_t len, double fpts, double fdts, double duration)
