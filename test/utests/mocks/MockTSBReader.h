@@ -31,6 +31,8 @@ public:
 	MOCK_METHOD(float, GetPlaybackRate, ());
 	MOCK_METHOD(double, GetFirstPTS, ());
 	MOCK_METHOD(AampTime, GetFirstPTSOffset, ());
+	MOCK_METHOD(bool, TrackEnabled, ());
+	MOCK_METHOD(bool, IsEos, ());
 };
 
 extern std::shared_ptr<MockTSBReader> g_mockTSBReader;

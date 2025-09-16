@@ -32,6 +32,7 @@
 #include "MockPrivateInstanceAAMP.h"
 #include "MockStreamAbstractionAAMP_MPD.h"
 #include "MockTSBSessionManager.h"
+#include "MockTSBReader.h"
 
 using ::testing::_;
 using ::testing::NiceMock;;
@@ -193,10 +194,13 @@ class MediaStreamContextTest : public ::testing::TestWithParam<TestParams>
 			g_mockStreamAbstractionAAMP_MPD = new NiceMock<MockStreamAbstractionAAMP_MPD>(mPrivateInstanceAAMP, 0, 0);
 			g_mockTSBSessionManager = new NiceMock<MockTSBSessionManager>(mPrivateInstanceAAMP);
 			mTsbReader = std::make_shared<AampTsbReader>(mPrivateInstanceAAMP, nullptr, eMEDIATYPE_VIDEO, "sessionId");
+			g_mockTSBReader = std::make_shared<MockTSBReader>();
 		}
 
 		void TearDown() override
 		{
+			g_mockTSBReader.reset();
+
 			delete g_mockTSBSessionManager;
 			g_mockTSBSessionManager = nullptr;
 
@@ -296,7 +300,7 @@ class MediaStreamContextTest : public ::testing::TestWithParam<TestParams>
 			{
 				mStreamAbstractionAAMP_MPD->mTuneType = eTUNETYPE_SEEKTOLIVE;
 				EXPECT_CALL(*g_mockTSBSessionManager, GetTsbReader(_)).WillRepeatedly(Return(mTsbReader));
-				mTsbReader->mEosReached = true;
+				EXPECT_CALL(*g_mockTSBReader, IsEos()).WillRepeatedly(Return(true));
 				if (!paused)
 				{
 					EXPECT_CALL(*g_mockPrivateInstanceAAMP, UpdateLocalAAMPTsbInjection());
