@@ -5583,7 +5583,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 				if (mApplyCachedVideoMute)
 				{
 					mApplyCachedVideoMute = false;
-					SetCCStatus(!subtitles_muted);
+					SetCCStatusInternal();
 				}
 				sink->SetAudioVolume(volume);
 				if (mbPlayEnabled)
@@ -6180,7 +6180,7 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 		{
 			//There two fns are being called in PlayerInstanceAAMP::SetVideoMute
 			SetVideoMuteInternal(video_muted);
-			SetCCStatus(!subtitles_muted);
+			SetCCStatusInternal();
 		}
 		else
 		{
@@ -7132,7 +7132,7 @@ void PrivateInstanceAAMP::SetVideoMute(bool muted)
 		if (mpStreamAbstractionAAMP)
 		{
 			SetVideoMuteInternal(muted); // hide/show video plane
-			SetCCStatus(!subtitles_muted);
+			SetCCStatusInternal();
 		}
 		else
 		{
@@ -11019,15 +11019,22 @@ int PrivateInstanceAAMP::GetTextTrack()
 	return idx;
 }
 
-/**
- * @brief Set CC visibility on/off
- */
 void PrivateInstanceAAMP::SetCCStatus(bool enabled)
 {
 	PlayerCCManager::GetInstance()->SetStatus(enabled);
 	AcquireStreamLock();
-	subtitles_muted = !enabled;		// What has been requested by the app
-	int mute_subtitles_applied = video_muted || subtitles_muted;// What is actually applied
+	// Set subtitles_muted flag to the value requested by the app
+	subtitles_muted = !enabled;
+	SetCCStatusInternal();
+	ReleaseStreamLock();
+}
+
+void PrivateInstanceAAMP::SetCCStatusInternal(void)
+{
+	// StreamLock is recursive, so it is fine to call this method with it locked.
+	AcquireStreamLock();
+	// Mute subtitles if either video is muted or subtitles are muted
+	int mute_subtitles_applied = video_muted || subtitles_muted;
 	if (mpStreamAbstractionAAMP)
 	{
 		mpStreamAbstractionAAMP->MuteSubtitles(mute_subtitles_applied);

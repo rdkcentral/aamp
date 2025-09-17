@@ -3141,9 +3141,9 @@ public:
 
 	/**
 	 *   @fn SetCCStatus
+	 *   @brief Set CC visibility on/off
 	 *
 	 *   @param[in] enabled - true for CC on, false otherwise
-	 *   @return void
 	 */
 	void SetCCStatus(bool enabled);
 
@@ -4172,5 +4172,12 @@ private:
 	 *   @return void
 	 */
 	void SetSubtitleMuteInternal(bool muted);
+
+	/**
+	 *   @fn SetCCStatusInternal
+	 *   @brief Set CC visibility on/off according to the current values of
+	 *          video_muted and subtitle_muted.
+	 */
+	void SetCCStatusInternal(void);
 };
 #endif // PRIVAAMP_H
