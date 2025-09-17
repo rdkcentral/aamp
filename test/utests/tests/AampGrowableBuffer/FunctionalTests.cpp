@@ -56,7 +56,9 @@ public:
 
 TEST_F(FunctionalTests, DestructorFunctionalTests)
 {
-	GTEST_SKIP();
+	GTEST_SKIP(); // avoid crash on OSX - attempts to use mutex after destroyed
+	// invalid test? below methods called after destructing
+	
     AampGrowableBuffer buffer("buffer");  // Create a new buffer for this test
     // Act: Call the Free function
     buffer.~AampGrowableBuffer();
@@ -345,8 +347,10 @@ TEST_F(FunctionalTests, SetLenPositiveTest)
 
 TEST_F(FunctionalTests, SetLenAfterReserveBytesTest)
 {
-	GTEST_SKIP();
-    AampGrowableBuffer buffer("buffer");    // Create a new buffer for this test
+#ifdef __APPLE__
+	GTEST_SKIP(); // avoid hang on OSX
+#endif
+	AampGrowableBuffer buffer("buffer");    // Create a new buffer for this test
 
     {
         AampGrowableBuffer testBuf("testBuf");
@@ -362,7 +366,9 @@ TEST_F(FunctionalTests, SetLenAfterReserveBytesTest)
 
 TEST_F(FunctionalTests, SetLenAfterAppendBytesTest)
 {
+#ifdef __APPLE__ // avoid hang on OSX
 	GTEST_SKIP();
+#endif
     AampGrowableBuffer buffer("buffer");    // Create a new buffer for this test
 
     const char* srcData = "Hello, World";
