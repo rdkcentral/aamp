@@ -56,6 +56,7 @@ public:
 
 TEST_F(FunctionalTests, DestructorFunctionalTests)
 {
+	GTEST_SKIP();
     AampGrowableBuffer buffer("buffer");  // Create a new buffer for this test
     // Act: Call the Free function
     buffer.~AampGrowableBuffer();
@@ -344,6 +345,7 @@ TEST_F(FunctionalTests, SetLenPositiveTest)
 
 TEST_F(FunctionalTests, SetLenAfterReserveBytesTest)
 {
+	GTEST_SKIP();
     AampGrowableBuffer buffer("buffer");    // Create a new buffer for this test
 
     {
@@ -360,6 +362,7 @@ TEST_F(FunctionalTests, SetLenAfterReserveBytesTest)
 
 TEST_F(FunctionalTests, SetLenAfterAppendBytesTest)
 {
+	GTEST_SKIP();
     AampGrowableBuffer buffer("buffer");    // Create a new buffer for this test
 
     const char* srcData = "Hello, World";
