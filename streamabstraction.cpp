@@ -2386,7 +2386,7 @@ void StreamAbstractionAAMP::GetDesiredProfileOnBuffer(int currProfileIndex, int 
 	else
 	{
 		AAMPLOG_WARN("Switch to index 0; buffer is about to drain :Buffer %lf !!",bufferValue);
-		newProfileIndex = 0;
+		newProfileIndex = aamp->mhAbrManager.getProfileIndexForLowestBandwidth();
 	}
 }
 
@@ -2544,7 +2544,7 @@ int StreamAbstractionAAMP::GetDesiredProfileBasedOnCache(void)
 		{
 			//InsufficientBufferRule: Buffer is empty
 			AAMPLOG_WARN("Switch to index 0; buffer is about to drain :Buffer %lf !!",bufferValue);
-			desiredProfileIndex = 0;
+			desiredProfileIndex = aamp->mhAbrManager.getProfileIndexForLowestBandwidth();
 			if(currentProfileIndex != desiredProfileIndex)
 			{
 				mBitrateReason = eAAMP_BITRATE_CHANGE_BY_BUFFER_EMPTY;
@@ -2650,7 +2650,12 @@ bool StreamAbstractionAAMP::RampDownProfile(int http_error)
 		// 1. Rampdown to the lowest profile directly (if this also fails, will lead to playback failure or skipped content)
 		// 2. Rampdown in single steps (here we're already rebuffering or not yet streaming)
 		// Recommend option 2, unless good reason is found to rampdown to lowest profile directly.
-		if (bufferValue == 0 || bufferValue > mABRMaxBuffer)
+		if (bufferValue <= FLOATING_POINT_EPSILON)
+		{
+			AAMPLOG_WARN("Attempting rampdown to lowest profile as buffer is 0");
+			desiredProfileIndex = aamp->mhAbrManager.getProfileIndexForLowestBandwidth();
+		}
+		else if (bufferValue > mABRMaxBuffer)
 		{
 			// Rampdown in single steps
 			desiredProfileIndex = aamp->mhAbrManager.getRampedDownProfileIndex(currentProfileIndex);
