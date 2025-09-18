@@ -33,6 +33,7 @@
 #include "iso639map.h"
 #include <string>
 #include <sstream>
+#include <curl/curl.h>
 #include <chrono>
 #include "TsbApi.h"
 
@@ -421,5 +422,7 @@ int aamp_SetThreadSchedulingParameters(int policy, int priority);
  * @retval true iff uri starts with a recognized protocol representing an IP Video Locator
  */
 bool aamp_isTuneScheme( const char *cmdBuf );
+
+const char* GetCurlTimeoutFailureReason(CURL* curl);
 
 #endif  /* __AAMP_UTILS_H__ */

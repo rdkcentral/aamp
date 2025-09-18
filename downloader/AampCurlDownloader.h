@@ -176,6 +176,7 @@ typedef struct _downloadResponse
 	std::string sEffectiveUrl;
 	std::vector<std::string>  mResponseHeader;
 	std::vector<std::uint8_t> mDownloadData;
+	const char* failureReasonString = nullptr;
 	
 	_downloadResponse() : curlRetValue(0), iHttpRetValue(0), mAbortReason(eCURL_ABORT_REASON_NONE), downloadCompleteMetrics(),progressMetrics(), sEffectiveUrl(""), mResponseHeader(), mDownloadData() {}
 

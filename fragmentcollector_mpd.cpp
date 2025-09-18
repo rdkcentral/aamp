@@ -4521,6 +4521,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::FetchDashManifest()
 	double downloadTime;
 	bool updateVideoEndMetrics = false;
 	int http_error = 0;
+	const char* failureReason = nullptr;
 
 	{
 		mManifestDnldRespPtr = MakeSharedManifestDownloadResponsePtr();
@@ -4532,6 +4533,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::FetchDashManifest()
 		gotManifest		=	(mManifestDnldRespPtr->mMPDStatus == AAMPStatusType::eAAMPSTATUS_OK);
 		http_error		=	mManifestDnldRespPtr->mMPDDownloadResponse->iHttpRetValue;
 		downloadTime	=	mManifestDnldRespPtr->mMPDDownloadResponse->downloadCompleteMetrics.total;
+		failureReason   =   mManifestDnldRespPtr->mMPDDownloadResponse->failureReasonString;
 		//update videoend info
 		updateVideoEndMetrics = true;
 		if (gotManifest)
@@ -4586,7 +4588,31 @@ AAMPStatusType StreamAbstractionAAMP_MPD::FetchDashManifest()
 			{
 				aamp->UpdateDuration(0);
 				aamp->SetFlushFdsNeededInCurlStore(true);
-				aamp->SendDownloadErrorEvent(AAMP_TUNE_MANIFEST_REQ_FAILED, http_error);
+
+				if( http_error == CURLE_OPERATION_TIMEDOUT && failureReason != nullptr )
+				{
+					if( strcmp(failureReason,"DNS")==0)
+					{	
+						aamp->SendDownloadErrorEvent(AAMP_TUNE_DNS_RESOLVE_TIMEOUT, http_error);
+					}
+					else if ( strcmp(failureReason,"Connect")==0 )
+					{
+						aamp->SendDownloadErrorEvent(AAMP_TUNE_CURL_CONNECTION_TIMEOUT, http_error);
+					}
+					else if( strcmp(failureReason,"Data transfer" )==0 )
+					{
+						aamp->SendDownloadErrorEvent(AAMP_TUNE_DATA_TRANSFER_TIMEOUT, http_error);
+					}
+					else
+					{
+						aamp->SendDownloadErrorEvent(AAMP_TUNE_MANIFEST_REQ_FAILED, http_error);
+					}
+				}
+				else
+				{
+					aamp->SendDownloadErrorEvent(AAMP_TUNE_MANIFEST_REQ_FAILED, http_error);
+				} 
+
 				AAMPLOG_ERR("StreamAbstractionAAMP_MPD: manifest download failed");
 				ret = AAMPStatusType::eAAMPSTATUS_MANIFEST_DOWNLOAD_ERROR;
 			}

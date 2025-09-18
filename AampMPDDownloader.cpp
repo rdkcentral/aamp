@@ -471,29 +471,15 @@ void AampMPDDownloader::downloadMPDThread1()
 			
 			if(mMPDData->mMPDDownloadResponse->iHttpRetValue != 200 && mMPDData->mMPDDownloadResponse->iHttpRetValue != 204 && mMPDData->mMPDDownloadResponse->iHttpRetValue != 206)
 			{ 
-				double nameLookupTime = 0;
-				double connectTime = 0;
-				// Get the CURL handle used for the download
-				CURL* curl = mDownloader1.GetCurlHandle();
-				curl_easy_getinfo(curl, CURLINFO_NAMELOOKUP_TIME, &nameLookupTime);
-				curl_easy_getinfo(curl, CURLINFO_CONNECT_TIME, &connectTime);
-				//Curl timeout error analysis
-				if (connectTime == 0 && nameLookupTime == 0)
-				{
-					// DNS timeout
-					AAMPLOG_WARN("Timeout: DNS resolution failed for %s", tuneUrl.c_str());
+				if( mMPDData->mMPDDownloadResponse->iHttpRetValue == CURLE_OPERATION_TIMEDOUT && ( nullptr != GetCurlTimeoutFailureReason(mDownloader1.GetCurlHandle()) ) )
+				{ 
+					mMPDData->mMPDDownloadResponse->failureReasonString = GetCurlTimeoutFailureReason(mDownloader1.GetCurlHandle());
+					AampLogManager::LogNetworkError (mEffectiveUrl.c_str(), AAMPNetworkErrorTimeout, mMPDData->mMPDDownloadResponse->iHttpRetValue, eMEDIATYPE_MANIFEST,mMPDData->mMPDDownloadResponse->failureReasonString);
 				}
-				else if (connectTime == 0 && nameLookupTime != 0)
+				else
 				{
-					// Connection timeout (DNS succeeded)
-					AAMPLOG_WARN("Timeout: Connection to host failed for %s", tuneUrl.c_str());
+					AampLogManager::LogNetworkError (mEffectiveUrl.c_str(), AAMPNetworkErrorHttp, mMPDData->mMPDDownloadResponse->iHttpRetValue, eMEDIATYPE_MANIFEST);
 				}
-				else if (connectTime != 0 && nameLookupTime != 0)
-				{
-					// Data transfer timeout (connection established)
-					AAMPLOG_WARN("Timeout: Data transfer failed for %s", tuneUrl.c_str());
-				}
-				AampLogManager::LogNetworkError (mEffectiveUrl.c_str(), AAMPNetworkErrorHttp, mMPDData->mMPDDownloadResponse->iHttpRetValue, eMEDIATYPE_MANIFEST);
 				//Use DownloadResponse Show call instead of printheaderresponse fn -since it is not scope
 				mMPDData->mMPDDownloadResponse->show();
 			}
@@ -705,6 +691,21 @@ ManifestDownloadResponsePtr AampMPDDownloader::GetManifest(bool bWait, int iWait
 			{
 				// Timed out
 				respPtr->mMPDDownloadResponse->iHttpRetValue = CURLE_OPERATION_TIMEDOUT;
+
+				CURL *curlHandle = nullptr;
+
+				// If you have a getter or if mCurl is public/protected:
+				curlHandle = mDownloader1.GetCurlHandle(); // or mDownloader1->mCurl if it's a pointer
+
+				// Optionally, log or use the handle
+				if (curlHandle)
+				{
+					respPtr->mMPDDownloadResponse->failureReasonString = GetCurlTimeoutFailureReason(curlHandle);
+				}
+				else
+				{
+					AAMPLOG_WARN("GetManifest: CURL handle is null");
+				}
 				AAMPLOG_INFO("GetManifest timer exited after timeout ...%d",iWaitDurationMs);
 				return respPtr;
 			}
