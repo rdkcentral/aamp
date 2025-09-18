@@ -49,6 +49,7 @@ option(DISABLE_SECURITY_TOKEN "Disable security token" OFF)
 option(CMAKE_USE_FIREBOLT_DEVICE_API "Disable security token" OFF)
 
 if(CMAKE_USE_FIREBOLT_DEVICE_API)
+    message("CMAKE_USE_FIREBOLT_DEVICE_API set")
     add_definitions(-DUSE_FIREBOLT_DEVICE_API)
 endif()
 
