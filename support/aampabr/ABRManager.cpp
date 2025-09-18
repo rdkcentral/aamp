@@ -24,7 +24,6 @@
 #include <cstdarg>
 #include <sys/time.h>
 #include <cstring>
-#include <algorithm>
 
 #if !defined(__APPLE__)
 #if defined(USE_SYSTEMD_JOURNAL_PRINT)
@@ -712,21 +711,4 @@ void ABRManager::setLogDirectory(char driveName) {
  */
 void ABRManager::setDefaultIframeBitrate(long defaultIframeBitrate) {
   mDefaultIframeBitrate = defaultIframeBitrate;
-}
-
-/**
- *  @brief Get the lowest bitrate pointing index
- */
-int  ABRManager::getProfileIndexForLowestBandwidth()
-{
-	std::lock_guard<std::mutex> lock(mProfileLock);
-	int profileCount = getProfileCountUnlocked();
-	PROFILES_EMPTY_CHECK_RET(profileCount, 0);
-	int index = 0;
-	auto &profileMap = mSortedBWProfileList.begin()->second;
-	if (!profileMap.empty()) 
-	{
-		index = profileMap.begin()->second;
-	}
-	return index;
 }
