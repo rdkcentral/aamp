@@ -5583,7 +5583,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 				if (mApplyCachedVideoMute)
 				{
 					mApplyCachedVideoMute = false;
-					CacheAndApplySubtitleMute(video_muted);
+					SetCCStatusInternal();
 				}
 				sink->SetAudioVolume(volume);
 				if (mbPlayEnabled)
@@ -6179,8 +6179,8 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 		if (mpStreamAbstractionAAMP)
 		{
 			//There two fns are being called in PlayerInstanceAAMP::SetVideoMute
-			SetVideoMute(video_muted);
-			CacheAndApplySubtitleMute(video_muted);
+			SetVideoMuteInternal(video_muted);
+			SetCCStatusInternal();
 		}
 		else
 		{
@@ -7123,6 +7123,36 @@ void PrivateInstanceAAMP::SetVideoZoom(VideoZoomMode zoom)
  */
 void PrivateInstanceAAMP::SetVideoMute(bool muted)
 {
+	AAMPLOG_INFO("mute %s subtitles_muted %s", muted?"true":"false", subtitles_muted?"true":"false");
+	video_muted = muted;
+
+	//If lock could not be acquired, then cache it
+	if (TryStreamLock())
+	{
+		if (mpStreamAbstractionAAMP)
+		{
+			SetVideoMuteInternal(muted); // hide/show video plane
+			SetCCStatusInternal();
+		}
+		else
+		{
+			AAMPLOG_WARN("Player is in state eSTATE_IDLE, value has been cached");
+			mApplyCachedVideoMute = true; // can't do it now, but remember that we want video muted
+		}
+		ReleaseStreamLock();
+	}
+	else
+	{
+		AAMPLOG_WARN("StreamLock is not available, value has been cached");
+		mApplyCachedVideoMute = true;
+	}
+}
+
+/**
+ *   @brief Enable/ Disable Video.
+ */
+void PrivateInstanceAAMP::SetVideoMuteInternal(bool muted)
+{
 	StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
 	if (sink)
 	{
@@ -7145,10 +7175,30 @@ void PrivateInstanceAAMP::SetVideoMute(bool muted)
  */
 void PrivateInstanceAAMP::SetSubtitleMute(bool muted)
 {
+	subtitles_muted = muted;
+	AcquireStreamLock();
+	if (mpStreamAbstractionAAMP)
+	{
+		SetSubtitleMuteInternal(video_muted || muted);
+	}
+	else
+	{
+		AAMPLOG_WARN("Player is in state eSTATE_IDLE, value has been cached");
+	}
+	ReleaseStreamLock();
+}
+
+/**
+ *   @brief Enable/ Disable Subtitles (Internal private copy).
+ *
+ *   @param  muted - true to disable subtitles, false to enable subtitles.
+ */
+void PrivateInstanceAAMP::SetSubtitleMuteInternal(bool muted)
+{
 	StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
 	if (sink)
 	{
-		sink->SetSubtitleMute(video_muted || muted);
+		sink->SetSubtitleMute(muted);
 	}
 }
 
@@ -10968,23 +11018,31 @@ int PrivateInstanceAAMP::GetTextTrack()
 	return idx;
 }
 
-/**
- * @brief Set CC visibility on/off
- */
 void PrivateInstanceAAMP::SetCCStatus(bool enabled)
 {
 	PlayerCCManager::GetInstance()->SetStatus(enabled);
 	AcquireStreamLock();
+	// Set subtitles_muted flag to the value requested by the app
 	subtitles_muted = !enabled;
+	SetCCStatusInternal();
+	ReleaseStreamLock();
+}
+
+void PrivateInstanceAAMP::SetCCStatusInternal(void)
+{
+	// StreamLock is recursive, so it is fine to call this method with it locked.
+	AcquireStreamLock();
+	// Mute subtitles if either video is muted or subtitles are muted
+	int mute_subtitles_applied = video_muted || subtitles_muted;
 	if (mpStreamAbstractionAAMP)
 	{
-		mpStreamAbstractionAAMP->MuteSubtitles(subtitles_muted);
+		mpStreamAbstractionAAMP->MuteSubtitles(mute_subtitles_applied);
 		if (HasSidecarData())
 		{ // has sidecar data
-			mpStreamAbstractionAAMP->MuteSidecarSubtitles(subtitles_muted);
+			mpStreamAbstractionAAMP->MuteSidecarSubtitles(mute_subtitles_applied);
 		}
 	}
-	SetSubtitleMute(subtitles_muted);
+	SetSubtitleMuteInternal(mute_subtitles_applied);
 	ReleaseStreamLock();
 }
 
@@ -13569,26 +13627,6 @@ long long PrivateInstanceAAMP::GetVideoPTS()
 		}
 	}
 	return pts;
-}
-
-/**
- * @brief Apply CC/Subtitle mute but preserve the original status
- * This function should be called after acquiring StreamLock
- * This function is used to mute/unmute CC/Subtitle when video is muted/unmuted
- * @param[in] muted true if CC/Subtitle is to be muted, false otherwise
- */
-void PrivateInstanceAAMP::CacheAndApplySubtitleMute(bool muted)
-{
-	bool subtitles_are_logically_muted = subtitles_muted;
-	if (muted)
-	{	// hiding video plane
-		SetCCStatus(false); // hide subtitle plane (along with video)
-		subtitles_muted = subtitles_are_logically_muted;
-	}
-	else
-	{	// we are unmuting video; also unmute subtitles if appropriate
-		SetCCStatus(!subtitles_are_logically_muted);
-	}
 }
 
 /**
