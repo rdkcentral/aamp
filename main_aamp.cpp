@@ -60,12 +60,14 @@ PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink
 	) : aamp(NULL), sp_aamp(nullptr), mJSBinding_DL(),mAsyncRunning(false),mConfig(),mAsyncTuneEnabled(false),mScheduler()
 {
 
+	std::shared_ptr<PlayerExternalsInterface> pExternalsInterface = PlayerExternalsInterface::GetPlayerExternalsInterfaceInstance();
+	PlayerExternalsInterface::Initialize();
+	
 	// Create very first instance of Aamp Config to read the cfg & Operator file .This is needed for very first
 	// tune only . After that every tune will use the same config parameters
 	if(gpGlobalConfig == NULL)
 	{
-		std::shared_ptr<PlayerExternalsInterface> pExternalsInterface = PlayerExternalsInterface::GetPlayerExternalsInterfaceInstance();
-		PlayerExternalsInterface::Initialize();
+		
 
 		curl_global_init(CURL_GLOBAL_DEFAULT);
 		auto vers = curl_version_info(CURLVERSION_NOW);
@@ -91,10 +93,6 @@ PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink
 		gpGlobalConfig->ShowDevCfgConfiguration();
 		gpGlobalConfig->ShowOperatorSetConfiguration();
 	}
-
-	PlayerExternalsInterface::SetUseFirebolt(gpGlobalConfig->IsConfigSet(eAAMPConfig_UseFireboltSDK));
-	std::shared_ptr<PlayerExternalsInterface> pExternalsInterface = PlayerExternalsInterface::GetPlayerExternalsInterfaceInstance();
-	PlayerExternalsInterface::Initialize();
 
 #ifdef SUPPORT_JS_EVENTS
 #ifdef AAMP_WPEWEBKIT_JSBINDINGS //aamp_LoadJS defined in libaampjsbindings.so

@@ -56,6 +56,9 @@ std::shared_ptr<DeviceIARMInterface> DeviceIARMInterface::GetInstance()
 
 DeviceIARMInterface::DeviceIARMInterface()
 {
+
+    DeviceIARMInterface::IARMInit();
+    
     
 }
 
@@ -68,7 +71,6 @@ DeviceIARMInterface::~DeviceIARMInterface()
 
 void DeviceIARMInterface::Initialize()
 {
-    DeviceIARMInterface::IARMInit();
     if(s_pDeviceIARMInterface)
     {
         s_pDeviceIARMInterface->RegisterDsMgrEventHandler();

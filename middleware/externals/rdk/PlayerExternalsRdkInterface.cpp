@@ -74,14 +74,11 @@ void PlayerExternalsRdkInterface::Initialize()
 {
     std::shared_ptr<PlayerExternalsInterface> pInstance = PlayerExternalsInterface::GetPlayerExternalsInterfaceInstance();
 
-    if(pInstance->GetUseFirebolt())
-    {   
+#ifdef USE_FIREBOLT_DEVICE_API
         DeviceFireboltInterface::Initialize();
-    }
-    else
-    {
+#else
         DeviceIARMInterface::Initialize();
-    }
+#endif
 }
 
 PlayerExternalsRdkInterface::~PlayerExternalsRdkInterface()

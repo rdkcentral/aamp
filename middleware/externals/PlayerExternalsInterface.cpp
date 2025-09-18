@@ -31,8 +31,6 @@
 /**< Static variable for singleton */
 std::shared_ptr<PlayerExternalsInterface> PlayerExternalsInterface::s_pPlayerOP = NULL;
 
-static bool mUseFireboltExternals = false;
-
 /**
  * @brief PlayerExternalsInterface Constructor
  */
@@ -167,15 +165,4 @@ bool PlayerExternalsInterface::IsConfigWifiCurlHeader()
     bRet = false;
 #endif
     return bRet;
-}
-
-void PlayerExternalsInterface::SetUseFirebolt(bool t_use_firebolt)
-{
-    mUseFireboltExternals = t_use_firebolt;
-    printf("[PlayerExternalsInterface][SetUseFirebolt] mUseFireboltExternals : %d\n", mUseFireboltExternals);
-}
-
-bool PlayerExternalsInterface::GetUseFirebolt()
-{
-    return mUseFireboltExternals;
 }
