@@ -44,7 +44,7 @@ void DeviceFireboltInterface::Initialize()
 	if(s_pDeviceFireboltInterface)
 	{
 		s_pDeviceFireboltInterface->RegisterDsMgrEventHandler();
-		s_pDeviceFireboltInterface->RegisterNtwMgrEventHandler();
+		// s_pDeviceFireboltInterface->RegisterNtwMgrEventHandler();
 	}
 	
 }
@@ -100,39 +100,39 @@ void DeviceFireboltInterface::RemoveEventHandlers()
 
 void DeviceFireboltInterface::RegisterNtwMgrEventHandler()
 {
-	MW_LOG_WARN("Subscribing to Firebolt Network change event ");
+	// MW_LOG_WARN("Subscribing to Firebolt Network change event ");
 
-	auto result =  Firebolt::IFireboltAampAccessor::Instance().DeviceInterface().subscribeOnNetworkChanged(
-					[](const auto& network) {
-						MW_LOG_ERR("[Event] network changed");
-					    getActiveInterfaceEventHandlerFirebolt(network);
-					});
+	// auto result =  Firebolt::IFireboltAampAccessor::Instance().DeviceInterface().subscribeOnNetworkChanged(
+	// 				[](const auto& network) {
+	// 					MW_LOG_ERR("[Event] network changed");
+	// 				    getActiveInterfaceEventHandlerFirebolt(network);
+	// 				});
 	
-	if(result)
-	{
-		MW_LOG_INFO("Network changed event registerd");
-		mNtwMgrSubscriptionId.push_back(result.value());
-	}
-	else
-	{
-		MW_LOG_ERR("Failed to subscribe to network change events: %d", static_cast<int>(result.error()));
-	}
+	// if(result)
+	// {
+	// 	MW_LOG_INFO("Network changed event registerd");
+	// 	mNtwMgrSubscriptionId.push_back(result.value());
+	// }
+	// else
+	// {
+	// 	MW_LOG_ERR("Failed to subscribe to network change events: %d", static_cast<int>(result.error()));
+	// }
 
-	std::shared_ptr<PlayerExternalsRdkInterface> pInstance = PlayerExternalsRdkInterface::GetPlayerExternalsRdkInterfaceInstance();
+	// std::shared_ptr<PlayerExternalsRdkInterface> pInstance = PlayerExternalsRdkInterface::GetPlayerExternalsRdkInterfaceInstance();
 
-	auto network = Firebolt::IFireboltAampAccessor::Instance().DeviceInterface().network();
+	// auto network = Firebolt::IFireboltAampAccessor::Instance().DeviceInterface().network();
 
-	if(network)
-	{
-		if(network.value().type == Firebolt::Device::NetworkType::WIFI)
-		{
-			pInstance->SetActiveInterface(true);
-		}
-		else
-		{
-			pInstance->SetActiveInterface(false);
-		}
-	}
+	// if(network)
+	// {
+	// 	if(network.value().type == Firebolt::Device::NetworkType::WIFI)
+	// 	{
+	// 		pInstance->SetActiveInterface(true);
+	// 	}
+	// 	else
+	// 	{
+	// 		pInstance->SetActiveInterface(false);
+	// 	}
+	// }
 
 }
 
@@ -144,33 +144,33 @@ char * DeviceFireboltInterface::GetTR181Config(const char * paramName, size_t & 
 
 static void getActiveInterfaceEventHandlerFirebolt (const Firebolt::Device::NetworkInfoResult& t_NetworkInfoResult)
 {
-    std::shared_ptr<PlayerExternalsRdkInterface> pInstance = PlayerExternalsRdkInterface::GetPlayerExternalsRdkInterfaceInstance();
+    // std::shared_ptr<PlayerExternalsRdkInterface> pInstance = PlayerExternalsRdkInterface::GetPlayerExternalsRdkInterfaceInstance();
 
-	if(t_NetworkInfoResult.state == Firebolt::Device::NetworkState::CONNECTED)
-	{
-		std::string interface = "unknown";
-		if(t_NetworkInfoResult.type == Firebolt::Device::NetworkType::WIFI)
-		{
-			interface = "wlan";
-			pInstance->SetActiveInterface(true);
-			MW_LOG_INFO("Network interface changed to wifi");
-		}
-		else if(t_NetworkInfoResult.type == Firebolt::Device::NetworkType::ETHERNET)
-		{
-			interface = "eth";
-			pInstance->SetActiveInterface(false);
-			MW_LOG_INFO("Network interface changed to ethernet");
-		}
-		else
-		{
-			MW_LOG_ERR("Unsupported Interface %d", (int)t_NetworkInfoResult.type);
-		}
-		MW_LOG_INFO("getActiveInterfaceEventHandler activeinterface changed to %s\n", interface.c_str());
-	}
-	else
-	{
-		MW_LOG_ERR("Disconnected interface type:%d state:%d\n", (int)t_NetworkInfoResult.type, (int)t_NetworkInfoResult.state);
-	}
+	// if(t_NetworkInfoResult.state == Firebolt::Device::NetworkState::CONNECTED)
+	// {
+	// 	std::string interface = "unknown";
+	// 	if(t_NetworkInfoResult.type == Firebolt::Device::NetworkType::WIFI)
+	// 	{
+	// 		interface = "wlan";
+	// 		pInstance->SetActiveInterface(true);
+	// 		MW_LOG_INFO("Network interface changed to wifi");
+	// 	}
+	// 	else if(t_NetworkInfoResult.type == Firebolt::Device::NetworkType::ETHERNET)
+	// 	{
+	// 		interface = "eth";
+	// 		pInstance->SetActiveInterface(false);
+	// 		MW_LOG_INFO("Network interface changed to ethernet");
+	// 	}
+	// 	else
+	// 	{
+	// 		MW_LOG_ERR("Unsupported Interface %d", (int)t_NetworkInfoResult.type);
+	// 	}
+	// 	MW_LOG_INFO("getActiveInterfaceEventHandler activeinterface changed to %s\n", interface.c_str());
+	// }
+	// else
+	// {
+	// 	MW_LOG_ERR("Disconnected interface type:%d state:%d\n", (int)t_NetworkInfoResult.type, (int)t_NetworkInfoResult.state);
+	// }
     
 	
 }
