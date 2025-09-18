@@ -72,8 +72,7 @@ PlayerExternalsRdkInterface::PlayerExternalsRdkInterface()
 
 void PlayerExternalsRdkInterface::Initialize()
 {
-    std::shared_ptr<PlayerExternalsInterface> pInstance = PlayerExternalsInterface::GetPlayerExternalsInterfaceInstance();
-
+    
 #ifdef USE_FIREBOLT_DEVICE_API
         DeviceFireboltInterface::Initialize();
 #else

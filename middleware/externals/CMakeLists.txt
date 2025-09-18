@@ -46,6 +46,12 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/IFirebolt)
 
 option(DISABLE_SECURITY_TOKEN "Disable security token" OFF)
 
+option(CMAKE_USE_FIREBOLT_DEVICE_API "Disable security token" OFF)
+
+if()(CMAKE_USE_FIREBOLT_DEVICE_API)
+    add_definitions(-DUSE_FIREBOLT_DEVICE_API)
+endif()
+
 if(DISABLE_SECURITY_TOKEN)
 	add_definitions(-DDISABLE_SECURITY_TOKEN)
 endif()
