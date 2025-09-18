@@ -824,20 +824,19 @@ void AampTSBSessionManager::SkipFragment(std::shared_ptr<AampTsbReader>& reader,
 				{
 					tmp = nextFragmentData->prev;
 				}
-				if (tmp)
+				nextFragmentData = tmp;
+				if (!tmp)
 				{
-					nextFragmentData = tmp;
-				}
-				else
-				{
-					// Wait 500ms for the next fragment to become available
-					AAMPLOG_INFO("Waiting 500ms for %s fragment to become available during skip operation", 
-								(rate > 0.0) ? "next" : "previous");
-					mAamp->interruptibleMsSleep(500);
+					// Reached the end of TSB
+					break;
 				}
 			}
-			AAMPLOG_INFO("Skipped frames [rate=%.02f] from %.02lf to %.02lf total duration = %.02lf",
-					rate, startPos.inSeconds(), nextFragmentData->GetAbsolutePosition().inSeconds(), skippedDuration.inSeconds());
+			// Only print this INFO if the next fragment to inject is available
+			if (nextFragmentData)
+			{
+				AAMPLOG_INFO("Skipped frames [rate=%.02f] from %.02lf to %.02lf total duration = %.02lf",
+						rate, startPos.inSeconds(), nextFragmentData->GetAbsolutePosition().inSeconds(), skippedDuration.inSeconds());
+			}
 		}
 	}
 	return;
