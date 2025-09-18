@@ -131,7 +131,7 @@ set(LIBPLAYERGSTINTERFACE_HEADERS
 	vendor/realtek/RealtekSocInterface.h
 	vendor/brcm/BrcmSocInterface.h
 	vendor/default/DefaultSocInterface.h
-        subtitle/vttCue.h
+    subtitle/vttCue.h
 	ProcessHandler.h
 	)
 

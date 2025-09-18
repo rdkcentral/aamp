@@ -94,8 +94,14 @@ class AmlogicSocInterface : public SocInterface
 		void SvpGetContext(void **svpCtx, int server, int flags)override;
 
 		void SvpFreeContext(void *svpCtx)override;
-		
-		bool IsTargetSoc() const override { return true; }
+
+		void ConfigureAcceptCaps( GstBaseTransformClass* base_transform_class,
+                         AcceptCapsFunc accept_caps_func)override;
+
+		bool IsTransformCapsRequired() const override { return true; }
+
+		bool IsDecryptRequired() const override { return true; }
+
 		/**
 		 * @brief Set rate correction.
 		 * @return True on success, false otherwise.

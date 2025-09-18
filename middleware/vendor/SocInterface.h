@@ -25,10 +25,14 @@
 #include <vector>
 #include <memory>
 #include <gst/base/gstbasesink.h>
+#include <gst/base/gstbasetransform.h>
 #include "PlayerLogManager.h"
 #include "gst_svp_meta.h"
 
 #define REQUIRED_QUEUED_FRAMES_DEFAULT (5+1)
+
+typedef gboolean (*AcceptCapsFunc)(GstBaseTransform *, GstPadDirection, GstCaps *);
+
 /**
  * @brief Enumeration for play flags.
  *
@@ -131,7 +135,13 @@ public:
 	 */
 	static std::shared_ptr<SocInterface> CreateSocInterface();
 
-	virtual bool IsTargetSoc() const { return false; }
+	virtual void ConfigureAcceptCaps( GstBaseTransformClass* base_transform_class,
+                         AcceptCapsFunc accept_caps_func);
+
+	virtual bool IsTransformCapsRequired() const { return false; }
+
+	virtual bool IsDecryptRequired() const { return false; }
+
 	/**
 	 * @brief Check if AppSrc should be used.
 	 *

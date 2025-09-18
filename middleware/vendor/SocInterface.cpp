@@ -231,3 +231,10 @@ void SocInterface::SetWesterosSinkState(bool status)
 {
 	mUsingWesterosSink = status;
 }
+
+void SocInterface::ConfigureAcceptCaps(GstBaseTransformClass* base_transform_class ,
+													AcceptCapsFunc accept_caps_func) {
+    if (accept_caps_func) {
+        base_transform_class->accept_caps = GST_DEBUG_FUNCPTR(accept_caps_func);
+    }
+}

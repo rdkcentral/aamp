@@ -197,6 +197,12 @@ void AmlogicSocInterface::SvpFreeContext(void *svpCtx)
 	gst_svp_ext_free_context(svpCtx);
 }
 
+void AmlogicSocInterface::ConfigureAcceptCaps(GstBaseTransformClass* base_transform_class ,
+                            AcceptCapsFunc accept_caps_func)
+{
+	return;
+}
+
 
 /**
  * @brief Check if the given name is an audio sink or audio decoder.
