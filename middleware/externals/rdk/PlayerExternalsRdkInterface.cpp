@@ -28,17 +28,26 @@
 #include "_base64.h"
 #ifdef USE_PREINIT_DECODING
 #include "main_aamp.h"
-#include <iarmUtil.h>
-#include <libIARM.h>
-#include "manager.hpp"
-#include "host.hpp"
-#include "pwrMgr.h"
-#include <sys/stat.h>
+#include "power_controller.h"
+#include <thread>
 #endif
 
 #define DISPLAY_WIDTH_UNKNOWN       -1  /**< Parsing failed for getResolution().getName(); */
 #define DISPLAY_HEIGHT_UNKNOWN      -1  /**< Parsing failed for getResolution().getName(); */
 #define DISPLAY_RESOLUTION_NA        0  /**< Resolution not available yet or not connected to HDMI */
+
+
+#ifdef USE_PREINIT_DECODING
+typedef struct Controller{
+    char clientName[256];
+    uint32_t clientId;
+    volatile int transactionId;
+} Controller_t;
+static void IARM_PowerPreChangeHandler (const PowerController_PowerState_t currentState,
+                                      const PowerController_PowerState_t newState,
+                                      const int transactionId, const int stateChangeAfter, void* userdata);
+Controller_t controller = {};
+#endif
 
 /**
  * @brief Enumeration for net_srv_mgr active interface event callback
@@ -78,19 +87,95 @@ void triggerFakeTune()
 		doFakeTune();
 	}).detach();
 }
+void getPwrContInterface()
+{
+    MW_LOG_INFO("Enter ... getPwrContInterface()");
+	PowerController_Init();
 
-void powerModeChangeHandler(const char *owner, IARM_EventId_t eventId, void *data, size_t len) {
-    printf("******** event received **************\n");
-    if (eventId == IARM_BUS_PWRMGR_EVENT_MODECHANGED ) {
-        IARM_Bus_PWRMgr_EventData_t *param = (IARM_Bus_PWRMgr_EventData_t *)data;
-        printf("Event IARM_BUS_PWRMGR_EVENT_MODECHANGED: State Changed %d -- > %d\n",
-                param->data.state.curState, param->data.state.newState);
-        if(param->data.state.curState == IARM_BUS_PWRMGR_POWERSTATE_STANDBY_DEEP_SLEEP && param->data.state.newState != IARM_BUS_PWRMGR_POWERSTATE_STANDBY_DEEP_SLEEP )
-        {
-        	printf(" DEEPSLEEP : calling triggerFakeTune  \n");
-		triggerFakeTune();
+    while (!PowerController_IsOperational()) {
+        uint32_t status = PowerController_Connect();
+
+        if (POWER_CONTROLLER_ERROR_NONE == status) {
+            MW_LOG_INFO("Success :: Connect");
+            break;
+        } else if (POWER_CONTROLLER_ERROR_UNAVAILABLE == status) {
+            MW_LOG_ERR("Failed :: Connect :: Thunder is UNAVAILABLE");
+        } else if (POWER_CONTROLLER_ERROR_NOT_EXIST == status) {
+            MW_LOG_ERR("Failed :: Connect :: PowerManager is UNAVAILABLE");
+        } else {
+            // Do nothing
         }
+        usleep(300 * 1000); // 300ms
     }
+    strncpy(controller.clientName, "AAMP", strlen("AAMP"));
+    controller.clientId = 0;
+    controller.transactionId = 0;
+    MW_LOG_INFO("init controller struct... controller.transactionId=%d, controller.clientId =%d,controller.clientName=%s ", controller.transactionId, controller.clientId, controller.clientName);
+
+    PowerController_RegisterPowerModePreChangeCallback(IARM_PowerPreChangeHandler, &controller);
+
+    if (strlen(controller.clientName) > 0) {
+        PowerController_AddPowerModePreChangeClient(controller.clientName, &(controller.clientId));
+    }
+	MW_LOG_INFO("Exit ... getPwrContInterface() controller.clientId =%d,controller.clientName=%s ", controller.clientId, controller.clientName);
+}
+
+void initPowerController()
+{
+    MW_LOG_INFO("Enter ... initPowerController()");
+    // Get powercontroller thunder client interface in separate thread
+    std::thread pwrThread(getPwrContInterface);
+    if(pwrThread.joinable())
+    {
+        MW_LOG_INFO("[%s:%d]: created getPwrContInterface thread.. ", __FUNCTION__, __LINE__);
+        pwrThread.detach();  // Detach the thread to run independently
+    }
+    else
+    {
+        MW_LOG_INFO("[%s:%d]: Failed to create getPwrContInterface thread.. ", __FUNCTION__, __LINE__);
+    }
+    MW_LOG_INFO("Exit ... initPowerController()");
+}
+
+void terminatePowerController()
+{
+    MW_LOG_INFO("Enter ... terminatePowerController() controller.clientId=%d", controller.clientId);
+    if (strlen(controller.clientName) > 0) {
+        PowerController_RemovePowerModePreChangeClient(controller.clientId);
+    }
+
+    PowerController_UnRegisterPowerModePreChangeCallback(IARM_PowerPreChangeHandler);
+
+    PowerController_Term();
+	MW_LOG_INFO("Exit ... terminatePowerController()");
+}
+
+/**
+ * @brief   Handles Power Pre change
+ * @param   currentState Current power state
+ * @param   newState New power state
+ * @param   transactionId transactionId of pre power change
+ * @param   stateChangeAfter timer value of stateChangeAfter
+ * @param   userdata pointer to Received userdata
+ * @retval  IARM Result success or Failure
+ */
+static void IARM_PowerPreChangeHandler (const PowerController_PowerState_t currentState,
+                                      const PowerController_PowerState_t newState,
+                                      const int transactionId, const int stateChangeAfter, void* userdata)
+{
+	MW_LOG_INFO("IARM_PowerPreChangeHandler:State Changed currentState: %d, newState: %d, clientId: %d, transactionId: %d, stateChangeAfter: %d\n",
+           currentState, newState, controller.clientId, transactionId, stateChangeAfter);
+
+	controller.transactionId = transactionId;
+    if(currentState == POWER_STATE_STANDBY_DEEP_SLEEP && newState != POWER_STATE_STANDBY_DEEP_SLEEP )
+    {
+        MW_LOG_INFO(" DEEPSLEEP : calling triggerFakeTune  \n");
+		triggerFakeTune();
+    }
+
+    MW_LOG_INFO("Calling  PowerController_PowerModePreChangeComplete() with clientId: %d, controller.transactionId=%d, transactionId: %d\n",
+           controller.clientId, controller.transactionId, transactionId);
+	PowerController_PowerModePreChangeComplete(controller.clientId, transactionId);
 }
 #endif
 /**
@@ -127,8 +212,8 @@ void PlayerExternalsRdkInterface::IARMInit(const char* processName, bool powerEv
 		    if(!IsContainerEnvironment())
 		    {
 			    AAMPLOG_WARN("Registering power manager mode change in Player");
-			    IARM_Bus_RegisterEventHandler(IARM_BUS_PWRMGR_NAME, IARM_BUS_PWRMGR_EVENT_MODECHANGED, powerModeChangeHandler);
-		    }
+			    initPowerController();
+			}
 	    }
 #endif
     }
@@ -333,9 +418,16 @@ static void ResolutionHandler(const char *owner, IARM_EventId_t eventId, void *d
 
 void PlayerExternalsRdkInterface::IARMRemoveDsMgrEventHandler()
 {
-    IARM_Bus_RemoveEventHandler(IARM_BUS_DSMGR_NAME,IARM_BUS_DSMGR_EVENT_HDMI_HOTPLUG, HDMIEventHandler);
-    IARM_Bus_RemoveEventHandler(IARM_BUS_DSMGR_NAME,IARM_BUS_DSMGR_EVENT_HDCP_STATUS, HDMIEventHandler);
-    IARM_Bus_RemoveEventHandler(IARM_BUS_DSMGR_NAME,IARM_BUS_DSMGR_EVENT_RES_POSTCHANGE, ResolutionHandler);
+#ifdef USE_PREINIT_DECODING
+	if(!IsContainerEnvironment())
+	{
+		MW_LOG_INFO("\nCalling terminatePowerController()");
+		terminatePowerController();
+	}
+#endif
+	IARM_Bus_RemoveEventHandler(IARM_BUS_DSMGR_NAME,IARM_BUS_DSMGR_EVENT_HDMI_HOTPLUG, HDMIEventHandler);
+	IARM_Bus_RemoveEventHandler(IARM_BUS_DSMGR_NAME,IARM_BUS_DSMGR_EVENT_HDCP_STATUS, HDMIEventHandler);
+	IARM_Bus_RemoveEventHandler(IARM_BUS_DSMGR_NAME,IARM_BUS_DSMGR_EVENT_RES_POSTCHANGE, ResolutionHandler);
 }
 
 /**
