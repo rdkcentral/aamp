@@ -834,8 +834,8 @@ void AampTSBSessionManager::SkipFragment(std::shared_ptr<AampTsbReader>& reader,
 			// Only print this INFO if the next fragment to inject is available
 			if (nextFragmentData)
 			{
-				AAMPLOG_INFO("Skipped frames [rate=%.02f] from %.02lf to %.02lf total duration = %.02lf",
-						rate, startPos.inSeconds(), nextFragmentData->GetAbsolutePosition().inSeconds(), skippedDuration.inSeconds());
+				AAMPLOG_INFO("Skipped frames [rate=%.02f] from %.02lf to %.02lf delta = %.02lf, total duration = %.02lf",
+						rate, startPos.inSeconds(), nextFragmentData->GetAbsolutePosition().inSeconds(), delta.inSeconds(), skippedDuration.inSeconds());
 			}
 		}
 	}
