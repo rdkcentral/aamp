@@ -81,18 +81,19 @@ protected:
     }
 
 public:
-    void CacheAndMuteSubtitles(bool currState, bool inputState)
-    {
-        mPrivateInstanceAAMP->subtitles_muted = currState;
-        // Confirm operation works as expected
-        // If input = unmute, subtitles should be set to currState (mute/un-mute)
-        bool finalState = inputState ? inputState : currState;
-        EXPECT_CALL(*g_mockStreamAbstractionAAMP, MuteSubtitles(finalState)).Times(1);
-        EXPECT_CALL(*g_mockAampGstPlayer, SetSubtitleMute(finalState)).Times(1);
+	void CacheAndMuteSubtitles(bool currState, bool inputState)
+	{
+		AAMPLOG_INFO("currState=%d, inputState=%d", currState, inputState);
+		mPrivateInstanceAAMP->subtitles_muted = currState;
+		// Confirm operation works as expected
+		// If input = unmute, subtitles should be set to currState (mute/un-mute)
+		bool finalState = inputState ? inputState : currState;
+		EXPECT_CALL(*g_mockStreamAbstractionAAMP, MuteSubtitles(finalState)).Times(1);
+		EXPECT_CALL(*g_mockAampGstPlayer, SetSubtitleMute(finalState)).Times(1);
 
-        mPrivateInstanceAAMP->AcquireStreamLock();
-        mPrivateInstanceAAMP->CacheAndApplySubtitleMute(inputState);
-        mPrivateInstanceAAMP->ReleaseStreamLock();
+		mPrivateInstanceAAMP->AcquireStreamLock();
+		mPrivateInstanceAAMP->SetVideoMute(inputState);
+		mPrivateInstanceAAMP->ReleaseStreamLock();
 
         // Confirm original state is preserved
         EXPECT_EQ(mPrivateInstanceAAMP->subtitles_muted, currState);

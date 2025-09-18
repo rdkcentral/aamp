@@ -1300,10 +1300,6 @@ long long PrivateInstanceAAMP::GetPositionRelativeToSeekMilliseconds(long long r
 	return 0;
 }
 
-void PrivateInstanceAAMP::CacheAndApplySubtitleMute(bool muted)
-{
-}
-
 std::string PrivateInstanceAAMP::SendManifestPreProcessEvent()
 {
 	std::string  bRetManifestData;
