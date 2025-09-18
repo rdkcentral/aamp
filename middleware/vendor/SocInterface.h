@@ -27,7 +27,6 @@
 #include <gst/base/gstbasesink.h>
 #include <gst/base/gstbasetransform.h>
 #include "PlayerLogManager.h"
-#include "gst_svp_meta.h"
 
 #define REQUIRED_QUEUED_FRAMES_DEFAULT (5+1)
 
