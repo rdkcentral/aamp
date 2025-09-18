@@ -837,12 +837,11 @@ void AampTSBSessionManager::SkipFragment(std::shared_ptr<AampTsbReader>& reader,
 	return;
 }
 /**
- * @brief Read next fragment and push it to the injector loop
+ * @brief Read next fragment from the TSB and push it to the injector loop via the fragment cache
  *
  * @param[in] MediaStreamContext of appropriate track
  * @param[in] numFreeFragments number of free fragment spaces in the cache
  * @return bool - true if cached fragment
- * @brief Fetches and caches audio fragment in parallel with video fragment.
  */
 bool AampTSBSessionManager::PushNextTsbFragment(MediaStreamContext *pMediaStreamContext,
 												uint32_t numFreeFragments)
@@ -856,136 +855,135 @@ bool AampTSBSessionManager::PushNextTsbFragment(MediaStreamContext *pMediaStream
 	uint32_t numNeededFragments = 1;
 	std::shared_ptr<AampTsbReader> reader = GetTsbReader(mediaType);
 
-	if (reader->TrackEnabled())
+	if (numFreeFragments)
 	{
-		if (numFreeFragments)
+		TsbFragmentDataPtr nextFragmentData = reader->FindNext();
+		AampTime rate = reader->GetPlaybackRate();
+		// Slow motion is handled in GST layer with SetPlaybackRate
+		if(AAMP_NORMAL_PLAY_RATE !=  rate && AAMP_RATE_PAUSE != rate && AAMP_SLOWMOTION_RATE != rate && eMEDIATYPE_VIDEO == mediaType)
 		{
-			TsbFragmentDataPtr nextFragmentData = reader->FindNext();
-			AampTime rate = reader->GetPlaybackRate();
-			// Slow motion is handled in GST layer with SetPlaybackRate
-			if(AAMP_NORMAL_PLAY_RATE !=  rate && AAMP_RATE_PAUSE != rate && AAMP_SLOWMOTION_RATE != rate && eMEDIATYPE_VIDEO == mediaType)
+			SkipFragment(reader, nextFragmentData);
+		}
+
+		if (nextFragmentData)
+		{
+			TsbInitDataPtr initFragmentData = nextFragmentData->GetInitFragData();
+			bool injectInitFragmentData = false;
+			double bandwidth = initFragmentData->GetBandWidth();
+			if (initFragmentData && (initFragmentData != reader->mLastInitFragmentData))
 			{
-				SkipFragment(reader, nextFragmentData);
+				AAMPLOG_TRACE("[%s] Previous init fragment data is different from current init fragment data, injecting", GetMediaTypeName(mediaType));
+				numNeededFragments = 2;
+				injectInitFragmentData = true;
 			}
 
-			if (nextFragmentData)
+			if (numFreeFragments >= numNeededFragments)
 			{
-				TsbInitDataPtr initFragmentData = nextFragmentData->GetInitFragData();
-				bool injectInitFragmentData = false;
-				double bandwidth = initFragmentData->GetBandWidth();
-				if (initFragmentData && (initFragmentData != reader->mLastInitFragmentData))
+				// Going to cache the fragment so update the reader with the next fragment
+				reader->ReadNext(nextFragmentData);
+
+				if (injectInitFragmentData)
 				{
-					AAMPLOG_TRACE("[%s] Previous init fragment data is different from current init fragment data, injecting", GetMediaTypeName(mediaType));
-					numNeededFragments = 2;
-					injectInitFragmentData = true;
+					reader->mLastInitFragmentData = initFragmentData;
+					CachedFragmentPtr initFragment = Read(std::move(initFragmentData));
+					if (initFragment)
+					{
+						if(reader->IsDiscontinuous())
+						{
+							initFragment->discontinuity = true;
+						}
+
+						// For init fragment use next fragment PTS as position for injection,
+						// as the PTS value is required for overriding events in qtdemux
+						initFragment->position = nextFragmentData->GetPTS().inSeconds();
+
+						AAMPLOG_INFO("[%s] Cache init fragment CurrentBandwidth: %.02lf Previous Bandwidth: %.02lf IsDiscontinuous: %d",
+							GetMediaTypeName(mediaType), bandwidth, reader->mCurrentBandwidth, initFragment->discontinuity);
+
+						if (pMediaStreamContext->CacheTsbFragment(std::move(initFragment)))
+						{
+							AAMPLOG_TRACE("[%s] Successfully cached init fragment", GetMediaTypeName(mediaType));
+							reader->mCurrentBandwidth = bandwidth;
+						}
+						else
+						{
+							AAMPLOG_ERR("[%s] Failed to cache init fragment", GetMediaTypeName(mediaType));
+							reader->mLastInitFragmentData = nullptr;
+							ret = false;
+						}
+					}
+					else
+					{
+						AAMPLOG_ERR("[%s] Failed to read init fragment at %lf", GetMediaTypeName(mediaType), nextFragmentData->GetAbsolutePosition().inSeconds());
+						ret = false;
+					}
 				}
 
-				if (numFreeFragments >= numNeededFragments)
+				if (ret)
 				{
-					// Going to cache the fragment so update the reader with the next fragment
-					reader->ReadNext(nextFragmentData);
-
-					if (injectInitFragmentData)
+					double pts = 0;
+					CachedFragmentPtr nextFragment = Read(nextFragmentData, pts);
+					if (nextFragment)
 					{
-						reader->mLastInitFragmentData = initFragmentData;
-						CachedFragmentPtr initFragment = Read(std::move(initFragmentData));
-						if (initFragment)
+						// Slow motion is like a normal playback with audio (volume set to 0) and handled in GST layer with SetPlaybackRate
+						if(mAamp->IsIframeExtractionEnabled() && AAMP_NORMAL_PLAY_RATE !=  rate && AAMP_RATE_PAUSE != rate && eMEDIATYPE_VIDEO == mediaType && AAMP_SLOWMOTION_RATE != rate )
 						{
-							if(reader->IsDiscontinuous())
+							if(!mIsoBmffHelper->ConvertToKeyFrame(nextFragment->fragment))
 							{
-								initFragment->discontinuity = true;
+								AAMPLOG_ERR("[%s] Failed to generate iFrame track from video track at %lf", GetMediaTypeName(mediaType), nextFragmentData->GetAbsolutePosition().inSeconds());
 							}
+						}
+						UnlockReadMutex();
 
-							// For init fragment use next fragment PTS as position for injection,
-							// as the PTS value is required for overriding events in qtdemux
-							initFragment->position = nextFragmentData->GetPTS().inSeconds();
+						ProcessAdMetadata(mediaType, nextFragmentData, rate.inSeconds());
 
-							AAMPLOG_INFO("[%s] Cache init fragment CurrentBandwidth: %.02lf Previous Bandwidth: %.02lf IsDiscontinuous: %d",
-								GetMediaTypeName(mediaType), bandwidth, reader->mCurrentBandwidth, initFragment->discontinuity);
-
-							if (pMediaStreamContext->CacheTsbFragment(std::move(initFragment)))
+						if (pMediaStreamContext->CacheTsbFragment(std::move(nextFragment)))
+						{
+							AAMPLOG_TRACE("[%s] Successfully cached fragment", GetMediaTypeName(mediaType));
+							if(reader->IsEos())
 							{
-								AAMPLOG_TRACE("[%s] Successfully cached init fragment", GetMediaTypeName(mediaType));
-								reader->mCurrentBandwidth = bandwidth;
-							}
-							else
-							{
-								AAMPLOG_ERR("[%s] Failed to cache init fragment", GetMediaTypeName(mediaType));
-								reader->mLastInitFragmentData = nullptr;
-								ret = false;
+								// Unblock live downloader if it is waiting for end fragment injection
+								reader->AbortCheckForWaitIfReaderDone();
 							}
 						}
 						else
 						{
-							AAMPLOG_ERR("[%s] Failed to read init fragment at %lf", GetMediaTypeName(mediaType), nextFragmentData->GetAbsolutePosition().inSeconds());
+							AAMPLOG_ERR("[%s] Failed to cache fragment", GetMediaTypeName(mediaType));
 							ret = false;
 						}
+						LockReadMutex();
 					}
-
-					if (ret)
+					else
 					{
-						double pts = 0;
-						CachedFragmentPtr nextFragment = Read(nextFragmentData, pts);
-						if (nextFragment)
-						{
-							// Slow motion is like a normal playback with audio (volume set to 0) and handled in GST layer with SetPlaybackRate
-							if(mAamp->IsIframeExtractionEnabled() && AAMP_NORMAL_PLAY_RATE !=  rate && AAMP_RATE_PAUSE != rate && eMEDIATYPE_VIDEO == mediaType && AAMP_SLOWMOTION_RATE != rate )
-							{
-								if(!mIsoBmffHelper->ConvertToKeyFrame(nextFragment->fragment))
-								{
-									AAMPLOG_ERR("[%s] Failed to generate iFrame track from video track at %lf", GetMediaTypeName(mediaType), nextFragmentData->GetAbsolutePosition().inSeconds());
-								}
-							}
-							UnlockReadMutex();
-
-							ProcessAdMetadata(mediaType, nextFragmentData, rate.inSeconds());
-
-							if (pMediaStreamContext->CacheTsbFragment(std::move(nextFragment)))
-							{
-								AAMPLOG_TRACE("[%s] Successfully cached fragment", GetMediaTypeName(mediaType));
-								if(reader->IsEos())
-								{
-									// Unblock live downloader if it is waiting for end fragment injection
-									reader->AbortCheckForWaitIfReaderDone();
-								}
-							}
-							else
-							{
-								AAMPLOG_ERR("[%s] Failed to cache fragment", GetMediaTypeName(mediaType));
-								ret = false;
-							}
-							LockReadMutex();
-						}
-						else
-						{
-							AAMPLOG_ERR("[%s] Failed to read fragment at %lf", GetMediaTypeName(mediaType), nextFragmentData->GetAbsolutePosition().inSeconds());
-							ret = false;
-						}
+						AAMPLOG_ERR("[%s] Failed to read fragment at %lf", GetMediaTypeName(mediaType), nextFragmentData->GetAbsolutePosition().inSeconds());
+						ret = false;
 					}
-				}
-				else
-				{
-					AAMPLOG_TRACE("[%s] Insufficient space, free %u needed %u", GetMediaTypeName(mediaType), numFreeFragments, numNeededFragments);
-					ret = false;
 				}
 			}
 			else
 			{
-				AAMPLOG_WARN("[%s] Failed to read next fragment", GetMediaTypeName(mediaType));
+				AAMPLOG_TRACE("[%s] Insufficient space, free %u needed %u", GetMediaTypeName(mediaType), numFreeFragments, numNeededFragments);
 				ret = false;
 			}
 		}
+		else if (rate > AAMP_NORMAL_PLAY_RATE)
+		{
+			// Expected case when reader reaches live edge
+			AAMPLOG_TRACE("[%s] Failed to read next fragment (caught up with live edge)", GetMediaTypeName(mediaType));
+			ret = false;
+		}
 		else
 		{
-			AAMPLOG_TRACE("[%s] Insufficient space, free %u", GetMediaTypeName(mediaType), numFreeFragments);
+			AAMPLOG_WARN("[%s] Failed to read next fragment", GetMediaTypeName(mediaType));
 			ret = false;
 		}
 	}
 	else
 	{
-		AAMPLOG_WARN("[%s] Track not enabled", GetMediaTypeName(mediaType));
+		AAMPLOG_TRACE("[%s] Insufficient space, free %u", GetMediaTypeName(mediaType), numFreeFragments);
 		ret = false;
 	}
+
 	UnlockReadMutex();
 	return ret;
 }
