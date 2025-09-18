@@ -372,6 +372,27 @@ public:
 	std::map<InterfaceCB, std::function<void()>> callbackMap;
 	std::map<InterfaceCB, std::function<void(int)>> setupStreamCallbackMap;
 
+	// Struct to hold various pipeline timestamps
+	struct PipelineTimestamps
+	{
+		unsigned int  pipelineCreateTime,playbinCreateTime,rialtomsevideosink_time,nullToReadyTime,readyToPauseTime,pauseToPlayTime;
+
+		// Print all timestamps in readable format
+		void LogGstTimestamp()
+		{
+			MW_LOG_MIL(
+				"Timestamps: PipelineCreate=%d | PlaybinCreate=%d | RialtoMSEVideoSinkCreate=%d | Null->Ready=%d | Ready->Pause=%d | Pause->Play=%d",
+				pipelineCreateTime,
+				playbinCreateTime-pipelineCreateTime,
+				rialtomsevideosink_time-pipelineCreateTime,
+				nullToReadyTime-pipelineCreateTime,
+				readyToPauseTime-nullToReadyTime,
+				pauseToPlayTime-readyToPauseTime);
+		}
+				
+
+	};
+
 	InterfacePlayerRDK();
 	~InterfacePlayerRDK();
 
@@ -505,6 +526,7 @@ public:
 	std::mutex mSourceSetupMutex;			/**< Protects the source setup state>*/
 	std::condition_variable mSourceSetupCV; /**< Conditional Variable to notify changes in the source setup status>*/
 	bool mSchedulerStarted;
+	PipelineTimestamps timestamps;			  /**< Pipeline timestamps */
 
 	/**
 	 * @brief Creates a GStreamer pipeline.

@@ -221,6 +221,8 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int auxF
 										   int subFormat, bool bESChangeStatus, bool forwardAudioToAux, bool setReadyAfterPipelineCreation,
 										   bool isSubEnable, int32_t trackId, gint rate, const char *pipelineName, int PipelinePriority, bool FirstFrameFlag, std::string manifestUrl)
 {
+	MW_LOG_INFO("CONFIGURE PIPELINE");
+    timestamps.pipelineCreateTime = NOW_STEADY_TS_MS;
 	mFirstFrameRequired = FirstFrameFlag;
 	GstStreamOutputFormat gstFormat 	= static_cast<GstStreamOutputFormat>(format);
 	GstStreamOutputFormat gstAudioFormat 	= static_cast<GstStreamOutputFormat>(audioFormat);
@@ -1921,11 +1923,19 @@ static void callback_element_added (GstElement * element, GstElement * source, g
 	InterfacePlayerRDK * pInterfacePlayerRDK = (InterfacePlayerRDK*)data;
 	HANDLER_CONTROL_HELPER_CALLBACK_VOID();
 	MW_LOG_INFO("callback_element_added: %s",GST_ELEMENT_NAME(source));
+	if ((strstr(GST_ELEMENT_NAME(source), "rialtomsevideosink") != NULL))
+	{
+ 		pInterfacePlayerRDK->timestamps.rialtomsevideosink_time = NOW_STEADY_TS_MS;
+		MW_LOG_INFO("callback_element_added: %s",GST_ELEMENT_NAME(source));
+	}
+
 	if (element == pInterfacePlayerRDK->gstPrivateContext->stream[eGST_MEDIATYPE_AUX_AUDIO].sinkbin)
 	{
 		pInterfacePlayerRDK->socInterface->SetAudioRoutingProperties(source);
 	}
+
 }
+
 /**
  * @brief callback when the source has been created
  * @param[in] element is the pipeline
@@ -2084,8 +2094,9 @@ int InterfacePlayerRDK::SetupStream(int streamId,  void *playerInstance, std::st
 	else
 	{
 		MW_LOG_INFO("using playbin");						/* Media is not subtitle, use the generic playbin */
+		timestamps.playbinCreateTime = NOW_STEADY_TS_MS;
 		stream->sinkbin = GST_ELEMENT(gst_object_ref_sink(gst_element_factory_make("playbin", NULL)));	/* Creates a new element of "playbin" type and returns a new GstElement */
-
+		pInterfacePlayerRDK->SignalConnect(stream->sinkbin, "element-setup", G_CALLBACK(callback_element_added), this);
 		if (m_gstConfigParam->tcpServerSink)
 		{
 			MW_LOG_INFO("using tcpserversink");
@@ -3565,7 +3576,7 @@ void InterfacePlayerRDK::NotifyFirstFrame(int mediaType)
 	if (eGST_MEDIATYPE_VIDEO == type)
 	{
 		MW_LOG_MIL("InterfacePlayerRDK_OnFirstVideoFrameCallback. got First Video Frame");
-
+		timestamps.LogGstTimestamp();
 		if (!gstPrivateContext->decoderHandleNotified)
 		{
 			gstPrivateContext->decoderHandleNotified = true;
@@ -4060,7 +4071,20 @@ static gboolean bus_message(GstBus * bus, GstMessage * msg, InterfacePlayerRDK *
 						   gst_element_state_get_name(old_state),
 						   gst_element_state_get_name(new_state),
 						   gst_element_state_get_name(pending_state));
+				if((old_state == GST_STATE_NULL) && new_state == GST_STATE_READY)
+				{
+					pInterfacePlayerRDK->timestamps.nullToReadyTime = NOW_STEADY_TS_MS;
 
+				}
+				if((old_state == GST_STATE_READY) && new_state == GST_STATE_PAUSED)
+				{
+					pInterfacePlayerRDK->timestamps.readyToPauseTime = NOW_STEADY_TS_MS;
+				}
+				if((old_state == GST_STATE_PAUSED) && new_state == GST_STATE_PLAYING)
+				{
+					pInterfacePlayerRDK->timestamps.pauseToPlayTime = NOW_STEADY_TS_MS;
+
+				}
 				if(isPlaybinStateChangeEvent && pInterfacePlayerRDK->gstPrivateContext->pauseOnStartPlayback && (new_state == GST_STATE_PAUSED))
 				{
 					GstElement *video_sink = pInterfacePlayerRDK->gstPrivateContext->video_sink;
@@ -4437,6 +4461,9 @@ static gboolean buffering_timeout (gpointer data)
 			{
 				MW_LOG_MIL("Set pipeline state to %s - buffering_timeout_cnt %u  frames %i",
 						gst_element_state_get_name(pInterfacePlayerRDK->gstPrivateContext->buffering_target_state), (pInterfacePlayerRDK->gstPrivateContext->buffering_timeout_cnt+1), frames);
+				if(pInterfacePlayerRDK->gstPrivateContext->buffering_target_state == GST_STATE_PLAYING)
+				{
+				}
 				SetStateWithWarnings (pInterfacePlayerRDK->gstPrivateContext->pipeline, pInterfacePlayerRDK->gstPrivateContext->buffering_target_state);
 				isRateCorrectionDefaultOnPlaying = pInterfacePlayerRDK->socInterface->SetRateCorrection();
 				pInterfacePlayerRDK->gstPrivateContext->buffering_in_progress = false;
