@@ -3292,28 +3292,45 @@ void PrivateInstanceAAMP::NotifyEOSReached()
 		*/
 		// Used TryStreamLock() to avoid crash when mpStreamAbstractionAAMP gets deleted by SetRate b/w checking for
 		// mpStreamAbstractionAAMP not null & IsEOSReached()
-		if( TryStreamLock() )
+		bool ret = false;
+		const int maxRetries = 5; // 0.05 seconds at 10ms per retry
+		int retryCount = 0;
+		while (!ret && retryCount < maxRetries)
 		{
-			int ret = false;
-			if(!mpStreamAbstractionAAMP)
+			if (TryStreamLock())
 			{
-				AAMPLOG_ERR("null Stream Abstraction AAMP");
+				if(!mpStreamAbstractionAAMP)
+				{
+					AAMPLOG_ERR("null Stream Abstraction AAMP");
+					ret = true;
+				}
+				else if (!mpStreamAbstractionAAMP->IsEOSReached())
+				{
+					AAMPLOG_ERR("Bogus EOS event received from GStreamer, discarding it!");
+					ret = true;
+				}
+				ReleaseStreamLock();
+				if (ret)
+				{
+					return;
+				}
 				ret = true;
 			}
-			else if (!mpStreamAbstractionAAMP->IsEOSReached())
+			else
 			{
-				AAMPLOG_ERR("Bogus EOS event received from GStreamer, discarding it!");
-				ret = true;
-			}
-			ReleaseStreamLock();
-			if (ret)
-			{
-				return;
+				// Sleep for a longer duration to reduce CPU usage
+				std::this_thread::sleep_for(std::chrono::milliseconds(10));
+				++retryCount;
 			}
 		}
-		else
+		if (retryCount > 0)
 		{
-			AAMPLOG_WARN("StreamLock not available");
+			AAMPLOG_INFO("retryCount %d", retryCount);
+		}
+		if (!ret)
+		{
+			AAMPLOG_ERR("Timeout waiting for stream lock in NotifyEOSReached");
+			return;
 		}
 
 		if (!isLive && rate > AAMP_RATE_PAUSE)
@@ -5189,6 +5206,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 		AAMPLOG_INFO ("Resetting mClearPipeline & mEncryptedPeriodFound");
 	}
 
+	AAMPLOG_WARN("DiscontinuitySeenInAnyTracks:%d", DiscontinuitySeenInAnyTracks());
 	TeardownStream(newTune|| (eTUNETYPE_RETUNE == tuneType));
 	if(SocUtils::ResetNewSegmentEvent())
 	{
