@@ -18,7 +18,9 @@
  */
 
 #include "AmlogicSocInterface.h"
+#if !defined(__APPLE__) && !defined(UBUNTU)
 #include "gst_svp_meta.h"
+#endif
 
 /**
  * @brief AmlogicSocInterface constructor.
@@ -189,13 +191,17 @@ bool AmlogicSocInterface::IsVideoSink(const char* name, bool isRialto)
 void AmlogicSocInterface::SvpGetContext(void **svpCtx, int server, int flags)
 {
         MW_LOG_ERR("VRN SvpGetContext IN");
+#if !defined(__APPLE__) && !defined(UBUNTU)
 	gst_svp_ext_get_context(svpCtx, static_cast<context_type>(server), flags);
+#endif
 }
 
 void AmlogicSocInterface::SvpFreeContext(void *svpCtx)
 {
         MW_LOG_ERR("VRN SvpFreeContext IN");
+#if !defined(__APPLE__) && !defined(UBUNTU)
 	gst_svp_ext_free_context(svpCtx);
+#endif
 }
 
 void AmlogicSocInterface::ConfigureAcceptCaps(GstBaseTransformClass* base_transform_class ,
