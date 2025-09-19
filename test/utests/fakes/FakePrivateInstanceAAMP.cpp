@@ -1560,7 +1560,7 @@ std::string PrivateInstanceAAMP::GetLicenseServerUrlForDrm(DRMSystems type)
     return "";
 }
 
-bool PrivateInstanceAAMP::ReconfigureForElementaryStreamUpdate()
+bool PrivateInstanceAAMP::ReconfigureForCodecChange()
 {
 	return false;
 }

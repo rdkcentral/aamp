@@ -1025,7 +1025,7 @@ bool AAMPGstPlayer::Discontinuity(AampMediaType type)
 
 	bool CompleteDiscontinuityDataDeliverForPTSRestamp =false;
 	bool shouldHaltBuffering = false;
-	ret = playerInstance->CheckDiscontinuity((int)type,(int)aamp->mVideoFormat, aamp->ReconfigureForElementaryStreamUpdate(), CompleteDiscontinuityDataDeliverForPTSRestamp, shouldHaltBuffering);
+	ret = playerInstance->CheckDiscontinuity((int)type,(int)aamp->mVideoFormat, aamp->ReconfigureForCodecChange(), CompleteDiscontinuityDataDeliverForPTSRestamp, shouldHaltBuffering);
 
 	if(CompleteDiscontinuityDataDeliverForPTSRestamp)
 	{
