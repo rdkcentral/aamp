@@ -807,7 +807,7 @@ void AampTSBSessionManager::SkipFragment(std::shared_ptr<AampTsbReader>& reader,
 			}
 			
 			// Only skip fragments when delta is larger than fragment duration
-			while (delta > 0.0)
+			while (nextFragmentData && (delta > 0.0))
 			{
 				AampTime fragDuration = nextFragmentData->GetDuration();
 				if (delta <= fragDuration)
@@ -815,20 +815,13 @@ void AampTSBSessionManager::SkipFragment(std::shared_ptr<AampTsbReader>& reader,
 
 				delta -= fragDuration;
 				skippedDuration += fragDuration;
-				TsbFragmentDataPtr tmp{};
 				if (rate > 0.0)
 				{
-					tmp = nextFragmentData->next;
+					nextFragmentData = nextFragmentData->next;
 				}
 				else if (rate < 0.0)
 				{
-					tmp = nextFragmentData->prev;
-				}
-				nextFragmentData = tmp;
-				if (!tmp)
-				{
-					// Reached the end of TSB
-					break;
+					nextFragmentData = nextFragmentData->prev;
 				}
 			}
 			// Only print this INFO if the next fragment to inject is available
@@ -839,8 +832,8 @@ void AampTSBSessionManager::SkipFragment(std::shared_ptr<AampTsbReader>& reader,
 			}
 		}
 	}
-	return;
 }
+
 /**
  * @brief Read next fragment from the TSB and push it to the injector loop via the fragment cache
  *
