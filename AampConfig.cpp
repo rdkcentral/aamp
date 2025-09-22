@@ -1478,9 +1478,14 @@ bool AampConfig::ReadAampCfgJsonFile()
 			std::filebuf* pbuf = f.rdbuf();
 			std::size_t size = pbuf->pubseekoff (0,f.end,f.in);
 			pbuf->pubseekpos (0,f.in);
-			char* jsonbuffer=new char[size+1];
-			pbuf->sgetn (jsonbuffer,size);
-			jsonbuffer[size] = 0x00;
+			std::size_t size_with_nul = size+1;
+			char* jsonbuffer = NULL;
+			if( size_with_nul>0 )
+			{
+				jsonbuffer = new char[size_with_nul];
+				pbuf->sgetn (jsonbuffer,size);
+				jsonbuffer[size] = 0x00;
+			}
 			f.close();
 
 			if( jsonbuffer )
