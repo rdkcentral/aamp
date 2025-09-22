@@ -221,6 +221,8 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int auxF
 										   int subFormat, bool bESChangeStatus, bool forwardAudioToAux, bool setReadyAfterPipelineCreation,
 										   bool isSubEnable, int32_t trackId, gint rate, const char *pipelineName, int PipelinePriority, bool FirstFrameFlag, std::string manifestUrl)
 {
+	MW_LOG_INFO("[GSTPROFILING]ConfigurePpeline");
+    timestamps.pipelineCreateTime = NOW_STEADY_TS_MS;
 	mFirstFrameRequired = FirstFrameFlag;
 	GstStreamOutputFormat gstFormat 	= static_cast<GstStreamOutputFormat>(format);
 	GstStreamOutputFormat gstAudioFormat 	= static_cast<GstStreamOutputFormat>(audioFormat);
@@ -397,6 +399,8 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int auxF
 	if (gstPrivateContext->pauseOnStartPlayback && GST_NORMAL_PLAY_RATE == gstPrivateContext->rate)
 	{
 		MW_LOG_INFO("Setting state to GST_STATE_PAUSED - pause on playback enabled");
+		MW_LOG_INFO("[GSTPROFILING] Pipeline set to PAUSED");
+		timestamps.setPipelineToPause = NOW_STEADY_TS_MS;
 		gstPrivateContext->paused = true;
 		gstPrivateContext->pendingPlayState = false;
 		if (SetStateWithWarnings(gstPrivateContext->pipeline, GST_STATE_PAUSED) == GST_STATE_CHANGE_FAILURE)
@@ -1921,6 +1925,18 @@ static void callback_element_added (GstElement * element, GstElement * source, g
 	InterfacePlayerRDK * pInterfacePlayerRDK = (InterfacePlayerRDK*)data;
 	HANDLER_CONTROL_HELPER_CALLBACK_VOID();
 	MW_LOG_INFO("callback_element_added: %s",GST_ELEMENT_NAME(source));
+	if (strstr(GST_ELEMENT_NAME(source), "rialtomsevideosink") != NULL)
+	{
+		MW_LOG_INFO("[GSTPROFILING] rialtomsevideosink element added to the pipeline");
+ 		pInterfacePlayerRDK->timestamps.rialtomsevideosink_time = NOW_STEADY_TS_MS;
+		MW_LOG_INFO("callback_element_added: %s",GST_ELEMENT_NAME(source));
+	}
+	if (strstr(GST_ELEMENT_NAME(source), "rialtomseaudiosink") != NULL)
+	{
+		MW_LOG_INFO("[GSTPROFILING] rialtomseaudiosink element added to the pipeline");
+ 		pInterfacePlayerRDK->timestamps.rialtomseaudiosink_time = NOW_STEADY_TS_MS;
+		MW_LOG_INFO("callback_element_added: %s",GST_ELEMENT_NAME(source));
+	}
 	if (element == pInterfacePlayerRDK->gstPrivateContext->stream[eGST_MEDIATYPE_AUX_AUDIO].sinkbin)
 	{
 		pInterfacePlayerRDK->socInterface->SetAudioRoutingProperties(source);
@@ -2085,7 +2101,17 @@ int InterfacePlayerRDK::SetupStream(int streamId,  void *playerInstance, std::st
 	{
 		MW_LOG_INFO("using playbin");						/* Media is not subtitle, use the generic playbin */
 		stream->sinkbin = GST_ELEMENT(gst_object_ref_sink(gst_element_factory_make("playbin", NULL)));	/* Creates a new element of "playbin" type and returns a new GstElement */
-
+		if(eGST_MEDIATYPE_VIDEO == streamId)
+		{
+			MW_LOG_INFO("[GSTPROFILING] video playbin element created");
+			timestamps.videoPlaybinCreateTime = NOW_STEADY_TS_MS;
+		}
+		if(eGST_MEDIATYPE_AUDIO == streamId)
+		{
+			MW_LOG_INFO("[GSTPROFILING] audio playbin element created");
+			timestamps.audioPlaybinCreateTime = NOW_STEADY_TS_MS;
+		}	
+		pInterfacePlayerRDK->SignalConnect(stream->sinkbin, "element-setup", G_CALLBACK(callback_element_added), this);
 		if (m_gstConfigParam->tcpServerSink)
 		{
 			MW_LOG_INFO("using tcpserversink");
@@ -3565,7 +3591,7 @@ void InterfacePlayerRDK::NotifyFirstFrame(int mediaType)
 	if (eGST_MEDIATYPE_VIDEO == type)
 	{
 		MW_LOG_MIL("InterfacePlayerRDK_OnFirstVideoFrameCallback. got First Video Frame");
-
+		timestamps.LogGstTimestamp();
 		if (!gstPrivateContext->decoderHandleNotified)
 		{
 			gstPrivateContext->decoderHandleNotified = true;
@@ -4579,7 +4605,26 @@ static GstBusSyncReply bus_sync_handler(GstBus * bus, GstMessage * msg, Interfac
 			if (GST_MESSAGE_SRC(msg) == GST_OBJECT(pInterfacePlayerRDK->gstPrivateContext->pipeline))
 			{
 				pInterfacePlayerRDK->gstPrivateContext->pipelineState = new_state;
+				if(new_state == GST_STATE_PLAYING && old_state == GST_STATE_PAUSED)
+				{
+					MW_LOG_MIL("[GSTPROFILING] Pipeline moving from PAUSED to PLAYING");
+					pInterfacePlayerRDK->timestamps.pauseToPlayTime = NOW_STEADY_TS_MS;
+				//	pInterfacePlayerRDK->timestamps.LogGstTimestamp();
+				}
+				if (new_state == GST_STATE_PAUSED && old_state == GST_STATE_READY)
+				{
+					MW_LOG_MIL("[GSTPROFILING] Pipeline moving from READY to PAUSED");
+					pInterfacePlayerRDK->timestamps.readyToPauseTime = NOW_STEADY_TS_MS;
+				}
+				if (old_state == GST_STATE_NULL && new_state == GST_STATE_READY)
+				{
+					MW_LOG_MIL("[GSTPROFILING] Pipeline moving from NULL to READY");
+					pInterfacePlayerRDK->timestamps.nullToReadyTime = NOW_STEADY_TS_MS;
+				//	pInterfacePlayerRDK->timestamps.LogGstTimestamp();
+
+				}
 			}
+
 			/* Moved the below code block from bus_message() async handler to bus_sync_handler()
 			 * to avoid a timing case crash when accessing wrong video_sink element after it got deleted during pipeline reconfigure on codec change in mid of playback.
 			 */

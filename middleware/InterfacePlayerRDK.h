@@ -375,6 +375,30 @@ public:
 	InterfacePlayerRDK();
 	~InterfacePlayerRDK();
 
+	struct PipelineTimestamps
+	{
+		unsigned int  pipelineCreateTime,videoPlaybinCreateTime,audioPlaybinCreateTime,rialtomsevideosink_time,rialtomseaudiosink_time,setPipelineToPause,nullToReadyTime,readyToPauseTime,pauseToPlayTime;
+		PipelineTimestamps():pipelineCreateTime(0),videoPlaybinCreateTime(0),audioPlaybinCreateTime(0),rialtomsevideosink_time(0),rialtomseaudiosink_time(0),setPipelineToPause(0),nullToReadyTime(0),readyToPauseTime(0),pauseToPlayTime(0){}
+
+		// Print all timestamps in readable format
+		void LogGstTimestamp()
+		{
+			MW_LOG_MIL(
+				"[GSTPROFILING]Timestamps: PipelineStartTime=%d |videoPlaybinCreate=%d| audioPlaybinCreate=%d | setPipelineToPause=%d | RialtoMSEVideoSinkCreate=%d | RialtoMSEAudioSink=%d | Null->Ready=%d | Ready->Pause=%d | Pause->Play=%d",
+				pipelineCreateTime,
+				videoPlaybinCreateTime-pipelineCreateTime,
+				audioPlaybinCreateTime-pipelineCreateTime,
+				setPipelineToPause-pipelineCreateTime,
+				rialtomsevideosink_time-pipelineCreateTime,
+				rialtomseaudiosink_time-pipelineCreateTime,
+				nullToReadyTime-pipelineCreateTime,
+				readyToPauseTime-pipelineCreateTime,
+				pauseToPlayTime-pipelineCreateTime);
+		}
+				
+
+	};
+
 	/**
 	 * @brief Idle callback for the first frame.
 	 *
@@ -505,6 +529,7 @@ public:
 	std::mutex mSourceSetupMutex;			/**< Protects the source setup state>*/
 	std::condition_variable mSourceSetupCV; /**< Conditional Variable to notify changes in the source setup status>*/
 	bool mSchedulerStarted;
+	PipelineTimestamps timestamps; /**< various pipeline timestamps */
 
 	/**
 	 * @brief Creates a GStreamer pipeline.
