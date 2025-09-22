@@ -811,7 +811,9 @@ void AampTSBSessionManager::SkipFragment(std::shared_ptr<AampTsbReader>& reader,
 			{
 				AampTime fragDuration = nextFragmentData->GetDuration();
 				if (delta <= fragDuration)
+				{
 					break;
+				}
 
 				delta -= fragDuration;
 				skippedDuration += fragDuration;
@@ -821,7 +823,15 @@ void AampTSBSessionManager::SkipFragment(std::shared_ptr<AampTsbReader>& reader,
 				}
 				else if (rate < 0.0)
 				{
-					nextFragmentData = nextFragmentData->prev;
+					if (nextFragmentData->prev)
+					{
+						nextFragmentData = nextFragmentData->prev;
+					}
+					else
+					{
+						AAMPLOG_INFO("Reached beginning of TSB during rewind");
+						break;
+					}
 				}
 			}
 			// Only print this INFO if the next fragment to inject is available
