@@ -444,8 +444,9 @@ TEST_F(AampTsbSessionManagerTests, PushNextTsbFragment_SkipFragment)
 	EXPECT_TRUE(mAampTSBSessionManager->PushNextTsbFragment(mMediaStreamContext.get(), numFreeFragments));
 }
 
-// Test the behaviour when reading from TSB at high rates,
-// skipping fragments is required but the next fragment is not available
+// Test the behaviour when reading from TSB at high positive rates,
+// skipping fragments is required but the next fragment is not available.
+// This is a normal scenario when fast-forwarding to live.
 // This test uses fragments of 2 seconds duration, maximum 4 frames per second and rate of 20.0
 // 20 / 4 = 5 seconds, so we expect 2 fragments to be skipped
 TEST_F(AampTsbSessionManagerTests, PushNextTsbFragment_SkipFragment_NotAvailable)
@@ -485,4 +486,48 @@ TEST_F(AampTsbSessionManagerTests, PushNextTsbFragment_SkipFragment_NotAvailable
 	EXPECT_CALL(*g_mockMediaStreamContext, CacheTsbFragment(_)).Times(0);
 
 	EXPECT_FALSE(mAampTSBSessionManager->PushNextTsbFragment(mMediaStreamContext.get(), numFreeFragments));
+}
+
+// Test the behaviour when reading from TSB at high negative rates,
+// skipping fragments is required but the next fragment is not available.
+// This is a normal scenario when rewinding to the beginning of the TSB.
+// This test uses fragments of 2 seconds duration, maximum 4 frames per second and rate of 20.0
+// 20 / 4 = 5 seconds, so we expect 2 fragments to be skipped
+TEST_F(AampTsbSessionManagerTests, PushNextTsbFragment_SkipFragment_BoS)
+{
+	const uint32_t numFreeFragments = 2;
+	int trickplayFPS = 4;
+	std::string url = "http://example.com";
+	AampMediaType media = eMEDIATYPE_VIDEO;
+	double position = 1000.0;
+	double duration = 2.0;
+	double pts = 0.0;
+	bool discont = false;
+	std::string periodId = "testPeriodId";
+	StreamInfo streamInfo;
+	int profileIdx = 0;
+	uint32_t timeScale = 240000;
+	double PTSOffsetSec = 0.0;
+
+    EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_VODTrickPlayFPS))
+      .WillRepeatedly(Return(trickplayFPS));
+
+	// Create init data and fragments
+	TsbInitDataPtr initFragment = std::make_shared<TsbInitData>(url, media, position, streamInfo, periodId, profileIdx);
+	mAampTSBSessionManager->GetTsbReader(eMEDIATYPE_VIDEO)->mTrackEnabled = true;
+	mAampTSBSessionManager->GetTsbReader(eMEDIATYPE_VIDEO)->mLastInitFragmentData = initFragment;
+
+	// Mock data manager
+	TsbFragmentDataPtr firstFragment = std::make_shared<TsbFragmentData>(url, media, position, duration, pts, discont, periodId, initFragment, timeScale, PTSOffsetSec);
+	firstFragment->prev = nullptr;
+	EXPECT_CALL(*g_mockTSBReader, FindNext()).WillOnce(Return(firstFragment));
+	EXPECT_CALL(*g_mockTSBReader, ReadNext(firstFragment));
+
+	EXPECT_CALL(*g_mockTSBReader, GetPlaybackRate()).WillRepeatedly(Return(-20.0f));
+	EXPECT_CALL(*g_mockTSBReader, IsEos()).WillRepeatedly(Return(false));
+
+	EXPECT_CALL(*g_mockTSBStore, GetSize(_)).WillRepeatedly(Return(sizeof(url)));
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheTsbFragment(_)).WillOnce(Return(true));
+
+	EXPECT_TRUE(mAampTSBSessionManager->PushNextTsbFragment(mMediaStreamContext.get(), numFreeFragments));
 }
