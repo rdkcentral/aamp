@@ -40,7 +40,8 @@ using ::testing::StrictMock;
 AampConfig *gpGlobalConfig{nullptr};
 
 // Test fixture.  Set up mocks here.
-class AampTsbSessionManagerTests : public ::testing::Test {
+class AampTsbSessionManagerTests : public ::testing::Test
+{
 protected:
 	static constexpr const char *TEST_BASE_URL = "http://server/";
 	static constexpr const char *TEST_DATA = "This is a dummy data";
@@ -416,8 +417,8 @@ TEST_F(AampTsbSessionManagerTests, PushNextTsbFragment_SkipFragment)
 	uint32_t timeScale = 240000;
 	double PTSOffsetSec = 0.0;
 
-    EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_VODTrickPlayFPS))
-      .WillRepeatedly(Return(trickplayFPS));
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_VODTrickPlayFPS))
+		.WillRepeatedly(Return(trickplayFPS));
 
 	// Create init data and fragments
 	TsbInitDataPtr initFragment = std::make_shared<TsbInitData>(url, media, position, streamInfo, periodId, profileIdx);
@@ -434,6 +435,9 @@ TEST_F(AampTsbSessionManagerTests, PushNextTsbFragment_SkipFragment)
 	thirdFragment->prev = secondFragment;
 	EXPECT_CALL(*g_mockTSBReader, FindNext()).WillOnce(Return(firstFragment));
 	EXPECT_CALL(*g_mockTSBReader, ReadNext(thirdFragment));
+
+	// Set live play position after the third fragment
+	mAamp->mTrickModePositionEOS = position + 3 * duration;
 
 	EXPECT_CALL(*g_mockTSBReader, GetPlaybackRate()).WillRepeatedly(Return(20.0f));
 	EXPECT_CALL(*g_mockTSBReader, IsEos()).WillRepeatedly(Return(false));
@@ -465,8 +469,8 @@ TEST_F(AampTsbSessionManagerTests, PushNextTsbFragment_SkipFragment_NotAvailable
 	uint32_t timeScale = 240000;
 	double PTSOffsetSec = 0.0;
 
-    EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_VODTrickPlayFPS))
-      .WillRepeatedly(Return(trickplayFPS));
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_VODTrickPlayFPS))
+		.WillRepeatedly(Return(trickplayFPS));
 
 	// Create init data and fragments
 	TsbInitDataPtr initFragment = std::make_shared<TsbInitData>(url, media, position, streamInfo, periodId, profileIdx);
@@ -476,6 +480,10 @@ TEST_F(AampTsbSessionManagerTests, PushNextTsbFragment_SkipFragment_NotAvailable
 	// Mock data manager
 	TsbFragmentDataPtr firstFragment = std::make_shared<TsbFragmentData>(url, media, position, duration, pts, discont, periodId, initFragment, timeScale, PTSOffsetSec);
 	firstFragment->next = nullptr;
+
+	// Set live play position after the fragment
+	mAamp->mTrickModePositionEOS = position + duration;
+
 	EXPECT_CALL(*g_mockTSBReader, FindNext()).WillOnce(Return(firstFragment));
 	EXPECT_CALL(*g_mockTSBReader, ReadNext(_)).Times(0);
 
@@ -486,6 +494,51 @@ TEST_F(AampTsbSessionManagerTests, PushNextTsbFragment_SkipFragment_NotAvailable
 	EXPECT_CALL(*g_mockMediaStreamContext, CacheTsbFragment(_)).Times(0);
 
 	EXPECT_FALSE(mAampTSBSessionManager->PushNextTsbFragment(mMediaStreamContext.get(), numFreeFragments));
+}
+
+// Test the behaviour when reading from TSB at high positive rates and reaching the live play position.
+// If a fragment position is greater than or equal to the live play position, it should not be skipped.
+// This is a normal scenario when fast-forwarding to live.
+// This test uses fragments of 2 seconds duration, maximum 4 frames per second and rate of 20.0
+// 20 / 4 = 5 seconds, so we expect 2 fragments to be skipped
+TEST_F(AampTsbSessionManagerTests, PushNextTsbFragment_SkipFragment_LivePlayPosition)
+{
+	const uint32_t numFreeFragments = 2;
+	int trickplayFPS = 4;
+	std::string url = "http://example.com";
+	AampMediaType media = eMEDIATYPE_VIDEO;
+	double position = 1000.0;
+	double duration = 2.0;
+	double pts = 0.0;
+	bool discont = false;
+	std::string periodId = "testPeriodId";
+	StreamInfo streamInfo;
+	int profileIdx = 0;
+	uint32_t timeScale = 240000;
+	double PTSOffsetSec = 0.0;
+
+	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_VODTrickPlayFPS))
+		.WillRepeatedly(Return(trickplayFPS));
+
+	// Create init data and fragments
+	TsbInitDataPtr initFragment = std::make_shared<TsbInitData>(url, media, position, streamInfo, periodId, profileIdx);
+	mAampTSBSessionManager->GetTsbReader(eMEDIATYPE_VIDEO)->mTrackEnabled = true;
+	mAampTSBSessionManager->GetTsbReader(eMEDIATYPE_VIDEO)->mLastInitFragmentData = initFragment;
+
+	// Mock data manager
+	TsbFragmentDataPtr firstFragment = std::make_shared<TsbFragmentData>(url, media, position, duration, pts, discont, periodId, initFragment, timeScale, PTSOffsetSec);
+	firstFragment->next = nullptr;
+	mAamp->mTrickModePositionEOS = position;	// Live play position matches the position of the first fragment
+	EXPECT_CALL(*g_mockTSBReader, FindNext()).WillOnce(Return(firstFragment));
+	EXPECT_CALL(*g_mockTSBReader, ReadNext(firstFragment));
+
+	EXPECT_CALL(*g_mockTSBReader, GetPlaybackRate()).WillRepeatedly(Return(20.0f));
+	EXPECT_CALL(*g_mockTSBReader, IsEos()).WillRepeatedly(Return(false));
+
+	EXPECT_CALL(*g_mockTSBStore, GetSize(_)).WillRepeatedly(Return(sizeof(url)));
+	EXPECT_CALL(*g_mockMediaStreamContext, CacheTsbFragment(_)).WillOnce(Return(true));
+
+	EXPECT_TRUE(mAampTSBSessionManager->PushNextTsbFragment(mMediaStreamContext.get(), numFreeFragments));
 }
 
 // Test the behaviour when reading from TSB at high negative rates,

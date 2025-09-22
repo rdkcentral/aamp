@@ -806,31 +806,39 @@ void AampTSBSessionManager::SkipFragment(std::shared_ptr<AampTsbReader>& reader,
 				delta = static_cast<AampTime>(std::abs(static_cast<double>(rate))) / static_cast<double>(vodTrickplayFPS);
 			}
 			
+			bool skipFragments = true;
 			// Only skip fragments when delta is larger than fragment duration
-			while (nextFragmentData && (delta > 0.0))
+			while (nextFragmentData && (delta > AAMP_RATE_PAUSE) && skipFragments)
 			{
 				AampTime fragDuration = nextFragmentData->GetDuration();
 				if (delta <= fragDuration)
 				{
-					break;
+					skipFragments = false;
 				}
-
-				delta -= fragDuration;
-				skippedDuration += fragDuration;
-				if (rate > 0.0)
+				else
 				{
-					nextFragmentData = nextFragmentData->next;
-				}
-				else if (rate < 0.0)
-				{
-					if (nextFragmentData->prev)
+					delta -= fragDuration;
+					skippedDuration += fragDuration;
+					if ((rate > AAMP_NORMAL_PLAY_RATE) && (nextFragmentData->GetAbsolutePosition().inSeconds() >= mAamp->mTrickModePositionEOS))
 					{
-						nextFragmentData = nextFragmentData->prev;
+						AAMPLOG_INFO("Reached live play position during fast forward");
+						skipFragments = false;
 					}
-					else
+					else if (rate > AAMP_RATE_PAUSE)
 					{
-						AAMPLOG_INFO("Reached beginning of TSB during rewind");
-						break;
+						nextFragmentData = nextFragmentData->next;
+					}
+					else if (rate < AAMP_RATE_PAUSE)
+					{
+						if (nextFragmentData->prev)
+						{
+							nextFragmentData = nextFragmentData->prev;
+						}
+						else
+						{
+							AAMPLOG_INFO("Reached beginning of TSB during rewind");
+							skipFragments = false;
+						}
 					}
 				}
 			}
