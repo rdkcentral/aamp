@@ -1038,7 +1038,8 @@ MPD* PrivateCDAIObjectMPD::GetAdMPD(std::string &manifestUrl, bool &finalManifes
 
 		if (AampLogManager::isLogLevelAllowed(eLOGLEVEL_TRACE))
 		{ // use printf to avoid 2048 char syslog limitation
-			printf("***Ad manifest***:\n\n%.*s\n", (int)manifest.GetLen(), manifest.GetPtr() );
+			manifest.AppendNulTerminator(); // make safe for cstring operations
+			printf("***Ad manifest***:\n\n%s\n", manifest.GetPtr() );
 		}
 		manifest.Free();
 	}
