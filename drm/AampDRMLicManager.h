@@ -263,13 +263,44 @@ public:
 			const ChallengeInfo& challengeInfo, void* aampInstance, int32_t *httpCode, int32_t *httpExtStatusCode, DrmMetaDataEventPtr eventHandle);
         
         /** 
-	 * @fn Registration of callbacks to application from gst-plugins
-	 * @param[in] StreamType
-	 * @return void */
+	 * @fn TriggerLAProfileBeginCb 
+	 * @param[in] StreamType - Input StreamType
+	 * @return 
+	 * @note  Callback for License Acquisition Profile Begin 
+	 *
+	 * */
         void TriggerLAProfileBeginCb(int streamType);
+	/**
+	 * @fn TriggerLAProfileEndCb
+	 * Registration of callbacks to application 
+	 * @parm[in] StreamType - input streamType
+	 * @return void 
+	 * @note  Callback for License Acquisition Profile End 
+	 *
+	 * */
         void TriggerLAProfileEndCb(int streamType);
+	/**
+	 * @fn TriggerLAProfileErrorCb
+	 * Registration of callbacks to application 
+	 * @parm[in] StreamType - input streamType
+	 * @return void 
+	 * @note  Callback for License Acquisition Profile Error 
+	 *
+	 * */
         void TriggerLAProfileErrorCb(void *ptr);
+	/**
+	 * @fn TriggerSetFailure
+	 * Registration of callbacks to application 
+	 * @parm[in] StreamType
+	 * @return void 
+	 * @note  Callback for Setting Failures 
+	 *
+	 * */
         void TriggerSetFailure(void *ptr, int err);
+	/**
+	 * @fn TriggerDrmMetaDataEvent
+	 * @parm[in] StreamType
+	 * @return void */
         std::shared_ptr<void> TriggerDrmMetaDataEvent();
 
         void TriggerDecryptProfile(int streamType, int action, int result /* = 0 */);

@@ -406,7 +406,7 @@ DrmSession * DrmSessionManager::createDrmSession( int& responseCode,
 		}
 		else
 		{
-			drmSession = DrmSessionManager::createDrmSession(responseCode, err, drmHelper, player, streamType, metaDataPtr);
+			drmSession = DrmSessionManager::createDrmSession(responseCode, err,std::move(drmHelper), player, streamType, metaDataPtr);
 		}
 	}
 
@@ -489,7 +489,7 @@ DrmSession* DrmSessionManager::createDrmSession(int &responseCode, int &err, std
 		}
 		return nullptr;
 	}
-	code =this->AcquireLicenseCb(responseCode, drmHelper, selectedSlot, cdmError,  (GstMediaType)streamType, metaDataPtr, false);
+	code =this->AcquireLicenseCb(responseCode, std::move(drmHelper), selectedSlot, cdmError,  (GstMediaType)streamType, metaDataPtr, false);
 	if (code != KEY_READY)
 	{
 		MW_LOG_WARN(" Unable to get Ready Status DrmSession : Key State %d ", code);
