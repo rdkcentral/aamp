@@ -184,6 +184,8 @@ public:
    * @return int index of the max bandwidth
    */
   int getMaxBandwidthProfile(const std::string& periodId = std::string());
+
+  int getProfileIndexForLowestBandwidth();
 public:
   // Getters/Setters
   /**

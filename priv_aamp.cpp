@@ -568,23 +568,22 @@ static int ReadConfigNumericHelper(std::string buf, const char* prefixPtr, T& va
 	return ret;
 }
 
-
-// End of helper functions for loading configuration
-
 /**
  * @brief HandleSSLWriteCallback - Handle write callback from CURL
  */
 size_t PrivateInstanceAAMP::HandleSSLWriteCallback ( char *ptr, size_t size, size_t nmemb, void* userdata )
 {
 	size_t ret = 0;
+	bool parsed = false;
 	CurlCallbackContext *context = (CurlCallbackContext *)userdata;
+        PrivateInstanceAAMP *aamp = context->aamp;
 	if(!context) return ret;
 	if( ISCONFIGSET_PRIV(eAAMPConfig_CurlThroughput) )
 	{
-		AAMPLOG_MIL( "curl-write type=%d size=%zu total=%zu",
+		AAMPLOG_MIL( "curl-write type=%d size=%zu total=%zu size_new=%zu",
 					context->mediaType,
 					size*nmemb,
-					context->contentLength );
+					context->contentLength, size );
 	}
 	// There is scope for rework here, mDownloadsEnabled can be queried with a lock, rather than acquiring lock here
 	std::unique_lock<std::recursive_mutex> lock(context->aamp->mLock);
@@ -615,20 +614,154 @@ size_t PrivateInstanceAAMP::HandleSSLWriteCallback ( char *ptr, size_t size, siz
 							   context->aamp->GetLLDashChunkMode() &&
 							   !mCtx->IsLocalTSBInjection() &&
 							   !(IsLocalAAMPTsb() && pipeline_paused);
-
-			if (ischunkMode && ptr && (numBytesForBlock > 0) &&
-				(context->mediaType == eMEDIATYPE_VIDEO ||
-				context->mediaType ==  eMEDIATYPE_AUDIO ||
-				context->mediaType ==  eMEDIATYPE_SUBTITLE))
+			if( ischunkMode && ptr && (numBytesForBlock > 0) &&  (context->mediaType == eMEDIATYPE_VIDEO) && !mCtx->firstChunkHandled.load())
 			{
-				// Release PrivateInstanceAAMP mutex to unblock async APIs
-				lock.unlock();
-				AAMPLOG_TRACE("[%d] Caching chunk with size %zu nmemb:%zu size:%zu", context->mediaType, numBytesForBlock, nmemb, size);
-				long long startTime = aamp_GetCurrentTimeMS();
-				mCtx->CacheFragmentChunk(context->mediaType, ptr, numBytesForBlock,context->remoteUrl,context->downloadStartTime);
-				context->processDelay += aamp_GetCurrentTimeMS() - startTime;
-				lock.lock();
+				IsoBmffBuffer isobuf;
+				char *unParsedBuffer = NULL;
+				const char* name = "video";
+				size_t parsedBufferSize = 0, unParsedBufferSize = 0;
+				unParsedBuffer = context->buffer->GetPtr();
+				unParsedBufferSize = parsedBufferSize = context->buffer->GetLen();
+				isobuf.setBuffer(reinterpret_cast<uint8_t *>(context->buffer->GetPtr()), context->buffer->GetLen() );
+				AAMPLOG_TRACE("[%s] Unparsed Buffer Size: %zu", name,context->buffer->GetLen() );
+				bool bParse = false;
+				try
+				{
+					bParse = isobuf.parseBuffer();
+				}
+				catch( std::bad_alloc& ba)
+				{
+					AAMPLOG_ERR("Bad allocation: %s", ba.what() );
+				}
+				catch( std::exception &e)
+				{
+					AAMPLOG_ERR("Unhandled exception: %s", e.what() );
+				}
+				catch( ... )
+				{
+					AAMPLOG_ERR("Unknown exception");
+				}
+				if(!bParse)
+				{
+					AAMPLOG_INFO("[%s] No Box available in cache chunk", name);
+				//	return true;
+				}
+				//Print box details
+				//isobuf.printBoxes();
+				uint32_t timeScale = 0;
+				if(context->mediaType == eMEDIATYPE_VIDEO)
+				{
+					timeScale = GetVidTimeScale();
+				}
+				if(!timeScale)
+				{
+					//FIX-ME-Read from MPD INSTEAD
+					if(context->aamp->mpStreamAbstractionAAMP)
+					{
+						timeScale = context->aamp->mpStreamAbstractionAAMP->GetCurrPeriodTimeScale();
+						if(!timeScale)
+						{
+							timeScale = 10000000;
+							AAMPLOG_WARN("[%s] Empty timeScale!!! Using default timeScale=%d", name, timeScale);
+						}
+					}
+					else
+					{
+						timeScale = 1000;
+						AAMPLOG_WARN("[%s] Invalid play context maybe test setup, timeScale=%d", name, timeScale);
+					}
+				}
+				double fpts = 0.0, fduration = 0.0;
+				parsed = isobuf.ParseChunkData(name, unParsedBuffer, timeScale, parsedBufferSize, unParsedBufferSize, fpts, fduration);}
+				if(parsed)
+				{
+					double firstChunkTimeout = 3000;
+					long rate_bps =0;
+					double elapsed_time_ms = (double)(NOW_STEADY_TS_MS - context->downloadStartTime);
+					double elapsed_time_sec = elapsed_time_ms / 1000.0;
+					double totalDownloadedBytes = 0.0;
+					double estimated_total_size_bytes = 0.0;
+					if (context && context->buffer)
+					{
+						totalDownloadedBytes = static_cast<double>(context->buffer->GetLen());
+					}
+					if(elapsed_time_sec != 0){
+					rate_bps = static_cast<long>((totalDownloadedBytes * 8.0) / elapsed_time_sec);  // Bytes to bits per second
+					if (rate_bps > 0 && context->aamp->mpStreamAbstractionAAMP){
+					estimated_total_size_bytes = (static_cast<double>(rate_bps) / 8.0) * (context->aamp->mpStreamAbstractionAAMP->fragDuration);}}
+					if( (estimated_total_size_bytes != 0.0) && (estimated_total_size_bytes > totalDownloadedBytes) )
+					{
+						double remaining_size_bytes = estimated_total_size_bytes - totalDownloadedBytes;
+						double remaining_time_sec = (remaining_size_bytes * 8.0) / static_cast<double>(rate_bps);
+						AAMPLOG_WARN("elapsed time %f rate %ld total size %f remaining size %f remaining time %f", elapsed_time_sec, rate_bps, estimated_total_size_bytes, remaining_size_bytes, remaining_time_sec);
+						if(((remaining_time_sec*1000) <= firstChunkTimeout) || (elapsed_time_ms <= firstChunkTimeout))
+						{
+							AAMPLOG_WARN("It is ready to inject first chunk");
+							pushCacheFragment = true;
+							// Decision reached: mark this fragment's first-chunk logic handled
+							mCtx->firstChunkHandled.store(true);	
+						}
+					}
+					else
+					{
+						if((elapsed_time_ms) >= firstChunkTimeout)
+						{
+							AAMPLOG_WARN("Not injecting first chunk ");
+							// Decision reached (abort): mark handled to avoid further parsing attempts
+							mCtx->firstChunkHandled.store(true);
+							context->aamp->mpStreamAbstractionAAMP->fragFailed = true;
+							if (context->buffer) context->buffer->Free();
+							ret = 0;
+							return ret;
+						}
+					}
+				                        		
 			}
+			if (ischunkMode){
+			if (context->mediaType == eMEDIATYPE_VIDEO)
+			{
+				// First chunk: inject the entire accumulated buffer in one shot
+				if (pushCacheFragment)
+				{
+					size_t cachedSize = (context && context->buffer) ? context->buffer->GetLen() : 0;
+					char *cachedPtr = (context && context->buffer) ? context->buffer->GetPtr() : NULL;
+					if (cachedPtr && cachedSize > 0)
+					{
+						lock.unlock();
+						AAMPLOG_TRACE("[%d] Caching FULL video chunk size %zu", context->mediaType, cachedSize);
+						long long startTime = aamp_GetCurrentTimeMS();
+						mCtx->CacheFragmentChunk(context->mediaType, cachedPtr, cachedSize, context->remoteUrl, context->downloadStartTime);
+						context->processDelay += aamp_GetCurrentTimeMS() - startTime;
+						lock.lock();
+						pushCacheFragment = false;
+						startInjecting = true; // subsequent callbacks forward ptr directly
+					}
+				}
+				// Subsequent chunks: forward whatever arrives
+				else if (startInjecting && ptr && (numBytesForBlock > 0))
+				{
+					lock.unlock();
+					AAMPLOG_TRACE("[%d] Caching video chunk (streaming) size %zu", context->mediaType, numBytesForBlock);
+					long long startTime = aamp_GetCurrentTimeMS();
+					mCtx->CacheFragmentChunk(context->mediaType, ptr, numBytesForBlock, context->remoteUrl, context->downloadStartTime);
+					context->processDelay += aamp_GetCurrentTimeMS() - startTime;
+					lock.lock();
+				}
+			}
+			else // audio / subtitle: inject immediately (don't wait for video)
+			{
+				if (ptr && (numBytesForBlock > 0))
+				{
+					lock.unlock();
+					AAMPLOG_TRACE("[%d] Caching audio/sub chunk size %zu", context->mediaType, numBytesForBlock);
+					long long startTime = aamp_GetCurrentTimeMS();
+					mCtx->CacheFragmentChunk(context->mediaType, ptr, numBytesForBlock, context->remoteUrl, context->downloadStartTime);
+					context->processDelay += aamp_GetCurrentTimeMS() - startTime;
+					lock.lock();
+				}
+			}
+		}
+
 		}
 	}
 	else
@@ -836,7 +969,6 @@ long getCurrentContentDownloadSpeed(PrivateInstanceAAMP *aamp,
 	long time_now = 0;
 	long time_diff = 0;
 	long dl_diff = 0;
-
 	struct SpeedCache* speedcache = NULL;
 	speedcache = aamp->GetLLDashSpeedCache();
 
@@ -960,11 +1092,16 @@ int PrivateInstanceAAMP::HandleSSLProgressCallback ( void *clientp, double dltot
 				if (dlnow == context->downloadSize)
 				{ // no change in downloaded bytes - check time since last update to infer stall
 					double timeElapsedSinceLastUpdate = (NOW_STEADY_TS_MS - context->downloadUpdatedTime) / 1000.0; //in secs
+															
 					if (timeElapsedSinceLastUpdate >= context->stallTimeout)
 					{ // no change for at least <stallTimeout> seconds - consider download stalled and abort
 						AAMPLOG_WARN("Abort download as mid-download stall detected for %.2f seconds, download size:%.2f bytes", timeElapsedSinceLastUpdate, dlnow);
 						context->abortReason = eCURL_ABORT_REASON_STALL_TIMEDOUT;
-						rc = -1;
+						if(ISCONFIGSET_PRIV(eAAMPConfig_EnableLLDThrottleHandling) && context->aamp->GetLLDashServiceData()->lowLatencyMode)
+						{
+							aamp->stallDetection = true;
+						}
+						rc = -1; // CURLE_ABORTED_BY_CALLBACK
 					}
 				}
 				else
@@ -981,7 +1118,7 @@ int PrivateInstanceAAMP::HandleSSLProgressCallback ( void *clientp, double dltot
 			{
 				AAMPLOG_WARN("Abort download as no data received for %.2f seconds", timeElapsedInSec);
 				context->abortReason = eCURL_ABORT_REASON_START_TIMEDOUT;
-				rc = -1;
+				rc = -1; // CURLE_ABORTED_BY_CALLBACK
 			}
 		}
 		if (dlnow > 0 && context->lowBWTimeout> 0 && eMEDIATYPE_VIDEO == context->mediaType)
@@ -1066,7 +1203,7 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 	mTimeAtTopProfile(0),mPlaybackDuration(0),mTraceUUID(),
 	mIsFirstRequestToFOG(false),
 	mPausePositionMonitorMutex(), mPausePositionMonitorCV(), mPausePositionMonitoringThreadID(), mPausePositionMonitoringThreadStarted(false),
-	mTuneType(eTUNETYPE_NEW_NORMAL)
+	mTuneType(eTUNETYPE_NEW_NORMAL), mdatCounter(0), startInjecting(false), pushCacheFragment(false), httpErrorLLD(0), stallDetection(false)
 	,mCdaiObject(NULL), mAdEventsQ(),mAdEventQMtx(), mAdPrevProgressTime(0), mAdCurOffset(0), mAdDuration(0), mAdProgressId(""), mAdAbsoluteStartTime(0)
 	,mBufUnderFlowStatus(false), mVideoBasePTS(0)
 	,mCustomLicenseHeaders(), mIsIframeTrackPresent(false), mManifestTimeoutMs(-1), mNetworkTimeoutMs(-1)
@@ -3963,7 +4100,13 @@ bool PrivateInstanceAAMP::GetFile( std::string remoteUrl, AampMediaType mediaTyp
 			context.buffer = buffer;
 			context.responseHeaderData = &httpRespHeaders[curlInstance];
 			context.mediaType = mediaType;
-
+			
+			// Reset per-fragment 'first chunk handled' flag for the corresponding media track
+			MediaStreamContext *mCtxForReset = GetMediaStreamContext(mediaType);
+			if (mCtxForReset)
+			{
+				mCtxForReset->firstChunkHandled.store(false);
+			}
 			CURL_EASY_SETOPT_POINTER(curl, CURLOPT_WRITEDATA, &context);
 			CURL_EASY_SETOPT_POINTER(curl, CURLOPT_HEADERDATA, &context);
 

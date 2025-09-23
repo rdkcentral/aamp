@@ -1551,6 +1551,8 @@ public:
 	int mTsbMaxBitrateProfileIndex;		/**< Indicates the index of highest profile in the saved stream info */
 	bool mUpdateReason;			/**< flag to update the bitrate change reason */
 	AampTime mPTSOffset;				/*For PTS restamping*/
+	bool fragFailed;
+	double fragDuration;
 
 	/**
 	 *   @brief Get profile index of highest bandwidth

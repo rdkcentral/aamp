@@ -47,7 +47,7 @@ public:
             mediaType((AampMediaType)type), adaptationSet(NULL), representation(NULL),
             fragmentIndex(0), timeLineIndex(0), fragmentRepeatCount(0), fragmentOffset(0),
             eos(false), fragmentTime(0), periodStartOffset(0), timeStampOffset(0), IDX("fragment-IDX"),
-	        lastSegmentTime(0), lastSegmentNumber(0), lastSegmentDuration(0), adaptationSetIdx(0), representationIndex(0), profileChanged(true),
+	        lastSegmentTime(0), lastSegmentNumber(0), lastSegmentDuration(0), adaptationSetIdx(0), representationIndex(0), firstChunkHandled(false),  profileChanged(true),
             adaptationSetId(0), fragmentDescriptor(), context(ctx), initialization(""),
             mDownloadedFragment("downloaded-fragment"), discontinuity(false), mSkipSegmentOnError(true),
             lastDownloadedPosition(0)//,mCMCDNetworkMetrics{-1,-1,-1}
@@ -254,6 +254,7 @@ public:
     uint64_t fragmentOffset;
     bool eos;
     bool profileChanged;
+    std::atomic<bool> firstChunkHandled;
     bool discontinuity;
     AampGrowableBuffer mDownloadedFragment;
     std::shared_ptr<AampGrowableBuffer> mTempFragment;
