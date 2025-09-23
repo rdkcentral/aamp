@@ -189,6 +189,7 @@ bool SecManagerThunder::AcquireLicenseOpenOrUpdate( std::string clientId, std::s
 				std::stringstream logMsg;
 				logMsg << "SecManager " << apiName << " param: " << params;
 				std::string fullLogMessage = logMsg.str();
+				MW_LOG_WARN("SecManager INPUT -> %s", fullLogMessage.c_str());		
 				std::ofstream logFile("/tmp/sectestlog.txt", std::ios::app);
 				if (logFile.is_open()) {
 					// Write to the file
