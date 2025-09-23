@@ -35,18 +35,11 @@
 #define DISPLAY_WIDTH_UNKNOWN       -1  /**< Parsing failed for getResolution().getName(); */
 #define DISPLAY_HEIGHT_UNKNOWN      -1  /**< Parsing failed for getResolution().getName(); */
 #define DISPLAY_RESOLUTION_NA        0  /**< Resolution not available yet or not connected to HDMI */
-
+#define RETRYSLEEP 300
 
 #ifdef USE_PREINIT_DECODING
-typedef struct Controller{
-    char clientName[256];
-    uint32_t clientId;
-    volatile int transactionId;
-} Controller_t;
 static void IARM_PowerPreChangeHandler (const PowerController_PowerState_t currentState,
-                                      const PowerController_PowerState_t newState,
-                                      const int transactionId, const int stateChangeAfter, void* userdata);
-Controller_t controller = {};
+                                      const PowerController_PowerState_t newState, void* userdata);
 #endif
 
 /**
@@ -105,19 +98,12 @@ void getPwrContInterface()
         } else {
             // Do nothing
         }
-        usleep(300 * 1000); // 300ms
+        usleep(RETRYSLEEP); // 300ms
     }
-    strncpy(controller.clientName, "AAMP", strlen("AAMP"));
-    controller.clientId = 0;
-    controller.transactionId = 0;
-    MW_LOG_INFO("init controller struct... controller.transactionId=%d, controller.clientId =%d,controller.clientName=%s ", controller.transactionId, controller.clientId, controller.clientName);
+    MW_LOG_INFO("Registering power mode change callback...");
+    PowerController_RegisterPowerModeChangedCallback(IARM_PowerPreChangeHandler, nullptr);
 
-    PowerController_RegisterPowerModePreChangeCallback(IARM_PowerPreChangeHandler, &controller);
-
-    if (strlen(controller.clientName) > 0) {
-        PowerController_AddPowerModePreChangeClient(controller.clientName, &(controller.clientId));
-    }
-	MW_LOG_INFO("Exit ... getPwrContInterface() controller.clientId =%d,controller.clientName=%s ", controller.clientId, controller.clientName);
+    MW_LOG_INFO("Exit ... getPwrContInterface()");
 }
 
 void initPowerController()
@@ -139,15 +125,10 @@ void initPowerController()
 
 void terminatePowerController()
 {
-    MW_LOG_INFO("Enter ... terminatePowerController() controller.clientId=%d", controller.clientId);
-    if (strlen(controller.clientName) > 0) {
-        PowerController_RemovePowerModePreChangeClient(controller.clientId);
-    }
-
-    PowerController_UnRegisterPowerModePreChangeCallback(IARM_PowerPreChangeHandler);
-
+    MW_LOG_INFO("Enter ... terminatePowerController");
+    PowerController_UnRegisterPowerModeChangedCallback(IARM_PowerPreChangeHandler);
     PowerController_Term();
-	MW_LOG_INFO("Exit ... terminatePowerController()");
+    MW_LOG_INFO("Exit ... terminatePowerController()");
 }
 
 /**
@@ -160,22 +141,18 @@ void terminatePowerController()
  * @retval  IARM Result success or Failure
  */
 static void IARM_PowerPreChangeHandler (const PowerController_PowerState_t currentState,
-                                      const PowerController_PowerState_t newState,
-                                      const int transactionId, const int stateChangeAfter, void* userdata)
+                                      const PowerController_PowerState_t newState, void* userdata)
 {
-	MW_LOG_INFO("IARM_PowerPreChangeHandler:State Changed currentState: %d, newState: %d, clientId: %d, transactionId: %d, stateChangeAfter: %d\n",
-           currentState, newState, controller.clientId, transactionId, stateChangeAfter);
+	MW_LOG_INFO("Entering IARM_PowerPreChangeHandler:State Changed currentState: %d, newState: %d",
+			currentState, newState);
 
-	controller.transactionId = transactionId;
-    if(currentState == POWER_STATE_STANDBY_DEEP_SLEEP && newState != POWER_STATE_STANDBY_DEEP_SLEEP )
-    {
-        MW_LOG_INFO(" DEEPSLEEP : calling triggerFakeTune  \n");
+	if(currentState == POWER_STATE_STANDBY_DEEP_SLEEP && newState != POWER_STATE_STANDBY_DEEP_SLEEP )
+	{
+		MW_LOG_INFO(" DEEPSLEEP : calling triggerFakeTune  \n");
 		triggerFakeTune();
-    }
+	}
 
-    MW_LOG_INFO("Calling  PowerController_PowerModePreChangeComplete() with clientId: %d, controller.transactionId=%d, transactionId: %d\n",
-           controller.clientId, controller.transactionId, transactionId);
-	PowerController_PowerModePreChangeComplete(controller.clientId, transactionId);
+	MW_LOG_INFO("Exiting IARM_PowerPreChangeHandler..");
 }
 #endif
 /**
