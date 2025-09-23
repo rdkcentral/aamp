@@ -100,17 +100,16 @@ bool PlayerExternalsInterface::GetActiveInterface()
 }
 
 /**
- * @brief setup active interface handler , true if wifi false if not
- */
-bool PlayerExternalsInterface::IsActiveStreamingInterfaceWifi(void)
-{
-    return false;
-}
-
-/**
  * @brief should wifi curl header be configured
  */
 bool PlayerExternalsInterface::IsConfigWifiCurlHeader()
 {
     return false;
+}
+
+/**
+ * @brief Initialize PlayerExternalsInterface
+ */
+void PlayerExternalsInterface::Initialize()
+{
 }
