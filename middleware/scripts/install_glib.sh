@@ -20,7 +20,7 @@ function install_build_glib_fn()
         echo "glib is already installed"
         INSTALL_STATUS_ARR+=("glib was already installed.")
     else
-        # TODO: create a pyton virtual env so we don't have to globally install this pkg and avoid "error: externally-managed-environment"
+        # TODO: create a python virtual env so we don't have to globally install this pkg and avoid "error: externally-managed-environment"
         PIP_BREAK_SYSTEM_PACKAGES=1 pip3 install setuptools
 
         echo "Installing glib..."

@@ -2824,14 +2824,14 @@ bool InterfacePlayerRDK::WaitForSourceSetup(int mediaType)
 /**
  *  @brief Forward buffer to aux pipeline
  */
-void InterfacePlayerPriv::ForwardBuffersToAuxPipeline(GstBuffer *buffer, bool pauseInjecter, void *user_data)
+void InterfacePlayerPriv::ForwardBuffersToAuxPipeline(GstBuffer *buffer, bool pauseInjector, void *user_data)
 {
 	gst_media_stream *stream = &gstPrivateContext->stream[eGST_MEDIATYPE_AUX_AUDIO];
 	InterfacePlayerRDK *instance = static_cast<InterfacePlayerRDK*>(user_data);
 	if (!stream->sourceConfigured && stream->format != GST_FORMAT_INVALID)
 	{
 		bool status = instance->WaitForSourceSetup((int)eGST_MEDIATYPE_AUX_AUDIO);
-		if (pauseInjecter && !status)
+		if (pauseInjector && !status)
 		{
 			// Buffer is not owned by us, no need to free
 			return;
