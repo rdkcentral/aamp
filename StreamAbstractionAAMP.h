@@ -1522,6 +1522,15 @@ public:
 	int mTsbMaxBitrateProfileIndex;		/**< Indicates the index of highest profile in the saved stream info */
 	bool mUpdateReason;			/**< flag to update the bitrate change reason */
 	AampTime mPTSOffset;				/*For PTS restamping*/
+	bool fragFailed;
+	std::atomic<bool> firstFragmentDownloaded;
+	ChunkStatus mCurrentChunkStatus = CHUNK_WAIT;
+	std::mutex mtxLoop;
+	std::condition_variable cvNewLoop;
+	std::condition_variable cvLoop;
+	size_t chunkSize;
+	double chunkDuration;
+	double fragDuration;
 
 	/**
 	 *   @brief Get profile index of highest bandwidth
