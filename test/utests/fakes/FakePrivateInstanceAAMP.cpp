@@ -370,6 +370,10 @@ bool PrivateInstanceAAMP::TryStreamLock()
 
 void PrivateInstanceAAMP::SetVideoMute(bool muted)
 {
+	if (g_mockPrivateInstanceAAMP != nullptr)
+	{
+		g_mockPrivateInstanceAAMP->SetVideoMute(muted);
+	}
 }
 
 void PrivateInstanceAAMP::SetSubtitleMute(bool muted)
@@ -1489,10 +1493,6 @@ long long PrivateInstanceAAMP::GetPositionRelativeToSeekMilliseconds(long long r
 																	 long long trickStartUTCMS)
 {
 	return 0;
-}
-
-void PrivateInstanceAAMP::CacheAndApplySubtitleMute(bool muted)
-{
 }
 
 void PrivateInstanceAAMP::FlushTrack(AampMediaType mediaType,double pos)

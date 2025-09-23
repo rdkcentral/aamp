@@ -1445,33 +1445,8 @@ void PlayerInstanceAAMP::SetVideoZoom(VideoZoomMode zoom)
  */
 void PlayerInstanceAAMP::SetVideoMute(bool muted)
 {
-	if( aamp )
-	{
-		UsingPlayerId playerId(aamp->mPlayerId);
-		AAMPLOG_WARN(" mute == %s subtitles_muted == %s", muted?"true":"false", aamp->subtitles_muted?"true":"false");
-		aamp->video_muted = muted;
-
-		//If lock could not be acquired, then cache it
-		if(aamp->TryStreamLock())
-		{
-			if (aamp->mpStreamAbstractionAAMP)
-			{
-				aamp->SetVideoMute(muted); // hide/show video plane
-				aamp->CacheAndApplySubtitleMute(muted);
-			}
-			else
-			{
-				AAMPLOG_WARN("Player is in state eSTATE_IDLE, value has been cached");
-				aamp->mApplyCachedVideoMute = true; // can't do it now, but remember that we want video muted
-			}
-			aamp->ReleaseStreamLock();
-		}
-		else
-		{
-			AAMPLOG_WARN("StreamLock is not available, value has been cached");
-			aamp->mApplyCachedVideoMute = true;
-		}
-	}
+	AAMPLOG_MIL("mute %s", muted?"true":"false");
+	aamp->SetVideoMute(muted);
 }
 
 /**
@@ -1481,22 +1456,8 @@ void PlayerInstanceAAMP::SetVideoMute(bool muted)
  */
 void PlayerInstanceAAMP::SetSubtitleMute(bool muted)
 {
-	if( aamp )
-	{
-		UsingPlayerId playerId(aamp->mPlayerId);
-		AAMPLOG_WARN(" mute == %s", muted?"true":"false");
-		aamp->subtitles_muted = muted;
-		aamp->AcquireStreamLock();
-		if (aamp->mpStreamAbstractionAAMP)
-		{
-			aamp->SetSubtitleMute(muted);
-		}
-		else
-		{
-			AAMPLOG_WARN("Player is in state eSTATE_IDLE, value has been cached");
-		}
-		aamp->ReleaseStreamLock();
-	}
+	AAMPLOG_MIL("mute %s", muted?"true":"false");
+	aamp->SetSubtitleMute(muted);
 }
 
 /**

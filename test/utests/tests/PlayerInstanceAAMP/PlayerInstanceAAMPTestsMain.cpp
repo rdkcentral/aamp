@@ -633,12 +633,14 @@ TEST_F(PlayerInstanceAAMPTests, SetVideoZoomTest6) {
 	mPlayerInstance->SetVideoZoom(zoom);
 }
 
-TEST_F(PlayerInstanceAAMPTests, SetVideoMute_NotNullAamp1) {
+TEST_F(PlayerInstanceAAMPTests, SetVideoMute_True) {
     bool muted = true;
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetVideoMute(muted));
     mPlayerInstance->SetVideoMute(muted);
 }
-TEST_F(PlayerInstanceAAMPTests, SetVideoMute_NotNullAamp2) {
+TEST_F(PlayerInstanceAAMPTests, SetVideoMute_False) {
     bool muted = false;
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetVideoMute(muted));
     mPlayerInstance->SetVideoMute(muted);
 }
 TEST_F(PlayerInstanceAAMPTests, SetSubtitleMuteTest1) {
@@ -1103,15 +1105,13 @@ TEST_F(PlayerInstanceAAMPTests, GetVideoZoomTest2) {
 }
 TEST_F(PlayerInstanceAAMPTests, GetVideoMuteTest1) {
     //checking true condition
-	mPlayerInstance->SetVideoMute(true);
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_PLAYING));
+    mPlayerInstance->aamp->video_muted = true;
     bool retrievedVideoMute = mPlayerInstance->GetVideoMute();
     EXPECT_TRUE(retrievedVideoMute);
 }
 TEST_F(PlayerInstanceAAMPTests, GetVideoMuteTest2) {
     //checking false condition
-    mPlayerInstance->SetVideoMute(false);
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_PLAYING));
+    mPlayerInstance->aamp->video_muted = false;
     bool retrievedVideoMute = mPlayerInstance->GetVideoMute();
     EXPECT_FALSE(retrievedVideoMute);
 }
