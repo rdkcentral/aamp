@@ -87,6 +87,7 @@ PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink
 			{
 				gpGlobalConfig->ReadAampCfgFromEnv();
 			}
+			//Todo : use usefireboltsdk to decide device API interface
 		}
 		
 		gpGlobalConfig->ReadOperatorConfiguration();
