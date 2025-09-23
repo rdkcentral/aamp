@@ -382,30 +382,6 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int auxF
 		stream->eosReached = false;
 		stream->firstBufferProcessed = false;
 	}
-#if 0 
-	/* For Rialto, teardown and rebuild the gstreamer streams if the
-	 * configuration changes. This allows the "single-path-stream" property to
-	 * be set correctly.
-	 */
-	if((interfacePlayerPriv->gstPrivateContext->usingRialtoSink) && (configurationChanged))
-	{
-		MW_LOG_INFO("Teardown and rebuild the pipeline for Rialto");
-
-		for (int i = 0; i < GST_TRACK_COUNT; i++)
-		{
-			gst_media_stream *stream = &interfacePlayerPriv->gstPrivateContext->stream[i];
-			if (stream->format != GST_FORMAT_INVALID)
-			{
-				TearDownStream((int)i);
-			}
-
-			if(newFormat[i] != GST_FORMAT_INVALID)
-			{
-				configureStream[i] = true;
-			}
-		}
-	}
-#endif
 	for (int i = 0; i < GST_TRACK_COUNT; i++)
 	{
 		gst_media_stream *stream = &interfacePlayerPriv->gstPrivateContext->stream[i];
