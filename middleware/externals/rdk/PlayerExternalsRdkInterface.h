@@ -38,15 +38,36 @@
 
 #include "PlayerExternalsInterfaceBase.h"
 
+ /*
+IARM Deprecation Note:
+IARM is to be deprecated in favor of DeviceSettings and Firebolt Device API.
+*/
+
+/*
+Depricate HDCP support in PlayerExternalsRdkInterface when depricating IARM
+*/
+
+/*
+Remove the section between the comment section remove-start and remove-end when depricating IARM
+*/
+
+/*
+Replace the section between the comment section replace-start, replace-with and replace-end when depricating IARM
+*/
+
 class DeviceInterfaceBase;
 
 //class representing IARM interface in rdk
 class PlayerExternalsRdkInterface : public PlayerExternalsInterfaceBase
 {
     
-        dsHdcpProtocolVersion_t m_hdcpCurrentProtocol;
+        dsHdcpProtocolVersion_t m_hdcpCurrentProtocol = dsHDCP_VERSION_1X;
 
+        //replace-start
         std::shared_ptr<DeviceInterfaceBase> m_pDeviceInterfaceBase = nullptr;
+        //replace-with
+        //std::shared_ptr<DeviceFireboltInterface> m_pDeviceInterfaceBase = nullptr;
+        //replace-end
 
         PlayerExternalsRdkInterface();
 

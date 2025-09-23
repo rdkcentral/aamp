@@ -54,16 +54,27 @@ std::shared_ptr<PlayerExternalsRdkInterface> PlayerExternalsRdkInterface::GetPla
 
 PlayerExternalsRdkInterface::PlayerExternalsRdkInterface()
 {
-    
+    /*
+    IARM Deprecation Note:
+    IARM is to be deprecated in favor of DeviceSettings and Firebolt Device API.
+    */
+    /*
+    Remove the section between the comment section remove-start and remove-end when depricating IARM
+    */
+
+    //remove-start
 #ifdef USE_FIREBOLT_DEVICE_API
-        printf("[MIDDLEWARE] USE_FIREBOLT_DEVICE_API \n");
-        fflush(stdout);
-        m_pDeviceInterfaceBase = DeviceFireboltInterface::GetInstance();
+    //remove-end
+    printf("[MIDDLEWARE] USE_FIREBOLT_DEVICE_API \n");
+    fflush(stdout);
+    m_pDeviceInterfaceBase = DeviceFireboltInterface::GetInstance();
+    //remove-start
 #else
-        printf("[MIDDLEWARE] not using IARM not firebolt \n");
-        fflush(stdout);
-        m_pDeviceInterfaceBase = DeviceIARMInterface::GetInstance();
+    printf("[MIDDLEWARE] not using IARM not firebolt \n");
+    fflush(stdout);
+    m_pDeviceInterfaceBase = DeviceIARMInterface::GetInstance();
 #endif
+    //remove-end
 
     // Get initial HDCP status
     SetHDMIStatus();
@@ -72,12 +83,24 @@ PlayerExternalsRdkInterface::PlayerExternalsRdkInterface()
 
 void PlayerExternalsRdkInterface::Initialize()
 {
+
+    /*
+    IARM Deprecation Note:
+    IARM is to be deprecated in favor of DeviceSettings and Firebolt Device API.
+    */
+    /*
+    Remove the section between the comment section remove-start and remove-end when depricating IARM
+    */
     
+    //remove-start
 #ifdef USE_FIREBOLT_DEVICE_API
-        DeviceFireboltInterface::Initialize();
+    //remove-end
+    DeviceFireboltInterface::Initialize();
 #else
-        DeviceIARMInterface::Initialize();
+    //remove-start
+    DeviceIARMInterface::Initialize();
 #endif
+    //remove-end
 }
 
 PlayerExternalsRdkInterface::~PlayerExternalsRdkInterface()

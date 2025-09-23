@@ -60,6 +60,8 @@ PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink
 	) : aamp(NULL), sp_aamp(nullptr), mJSBinding_DL(),mAsyncRunning(false),mConfig(),mAsyncTuneEnabled(false),mScheduler()
 {
 
+	//TR181 is not supported in firebolt
+	//Using printf here since AAMP logs can only use after creating the global object
 	std::shared_ptr<PlayerExternalsInterface> pExternalsInterface = PlayerExternalsInterface::GetPlayerExternalsInterfaceInstance();
 	PlayerExternalsInterface::Initialize();
 	
@@ -86,8 +88,6 @@ PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink
 				gpGlobalConfig->ReadAampCfgFromEnv();
 			}
 		}
-		//Need to do iarm initialization process before reading the tr181 aamp parameters.
-		//Using printf here since AAMP logs can only use after creating the global object
 		
 		gpGlobalConfig->ReadOperatorConfiguration();
 		gpGlobalConfig->ShowDevCfgConfiguration();
