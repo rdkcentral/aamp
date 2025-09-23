@@ -74,7 +74,7 @@ class AampTSBSessionManager;
 #define MANIFEST_TEMP_DATA_LENGTH 100			/**< Manifest temp data length */
 #define  AAMP_LOW_BUFFER_BEFORE_RAMPDOWN_FOR_LLD 3	/**< 3sec buffer before rampdown for lld */
 #define AAMP_HIGH_BUFFER_BEFORE_RAMPUP_FOR_LLD	 4	/**< 4sec buffer before rampup for lld */
-#define TIMEOUT_FOR_LLD	3				/**< 3sec network timeout for lld */
+#define TIMEOUT_FOR_LLD	4				/**< 3sec network timeout for lld */
 #define MANIFEST_TIMEOUT_FOR_LLD 3      /**< 3 sec timeout for manifest refresh in case of LLD*/
 #define ABR_BUFFER_COUNTER_FOR_LLD 3		/** Counter for steady state rampup/rampdown for lld */
 
@@ -165,7 +165,12 @@ enum TuneType
 	eTUNETYPE_SEEKTOEND     /**< Seek to live point. Not a new channel, so resources can be reused*/
 };
 
-
+enum ChunkStatus
+{
+     CHUNK_WAIT = 0,
+     CHUNK_PROCEED,
+     CHUNK_REJECT
+};
 /**
  * @brief Http Header Type
  */
@@ -853,6 +858,10 @@ public:
 	double mLiveOffset;
 	double mLiveOffsetDrift;               /**< allowed drift value from live offset configured **/
 	int mNetworkTimeoutMs;
+	int mdatCounter;
+	int stallDetection;
+	std::atomic<bool> startInjecting;
+	int httpErrorLLD;
 	int mManifestTimeoutMs;
 	int mPlaylistTimeoutMs;
 	bool mAsyncTuneEnabled;

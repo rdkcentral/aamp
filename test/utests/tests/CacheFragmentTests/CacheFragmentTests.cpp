@@ -142,7 +142,8 @@ class MediaStreamContextTest : public ::testing::TestWithParam<TestParams>
 			{eAAMPConfig_EnableIgnoreEosSmallFragment, false},
 			{eAAMPConfig_EnablePTSReStamp, false},
 			{eAAMPConfig_LocalTSBEnabled, false},
-			{eAAMPConfig_EnableIFrameTrackExtract, false}
+			{eAAMPConfig_EnableIFrameTrackExtract, false},
+			{eAAMPConfig_EnableLLDThrottleHandling, true}
 		};
 
 		BoolConfigSettings mBoolConfigSettings;
