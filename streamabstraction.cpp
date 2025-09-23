@@ -392,7 +392,6 @@ void MediaTrack::UpdateTSAfterChunkInject()
 	//Free Chunk Cache Buffer
 	prevDownloadStartTime = mCachedFragmentChunks[fragmentChunkIdxToInject].downloadStartTime;
 	mCachedFragmentChunks[fragmentChunkIdxToInject].fragment.Free();
-
 	parsedBufferChunk.Free();
 	//memset(&parsedBufferChunk, 0x00, sizeof(AampGrowableBuffer));
 
@@ -918,6 +917,7 @@ bool MediaTrack::CheckForDiscontinuity(CachedFragment* cachedFragment, bool& fra
 bool MediaTrack::ProcessFragmentChunk()
 {
 	class StreamAbstractionAAMP* pContext = GetContext();
+	int mdatCount = 0;
 	//Get Cache buffer
 	CachedFragment* cachedFragment = &this->mCachedFragmentChunks[fragmentChunkIdxToInject];
 	if(cachedFragment != NULL && NULL == cachedFragment->fragment.GetPtr())
@@ -1042,6 +1042,7 @@ bool MediaTrack::ProcessFragmentChunk()
 	}
 	double fpts = 0.0, fduration = 0.0;
 	bool ret = isobuf.ParseChunkData(name, unParsedBuffer, timeScale, parsedBufferSize, unParsedBufferSize, fpts, fduration);
+
 	if(!ret) /**  Nothing to parse */
 	{
 		if( noMDATCount > MAX_MDAT_NOT_FOUND_COUNT )
@@ -2118,7 +2119,8 @@ StreamAbstractionAAMP::StreamAbstractionAAMP(PrivateInstanceAAMP* aamp, id3_call
 		mAudioTracksAll(), mTextTracksAll(),
 		mTsbMaxBitrateProfileIndex(-1),mUpdateReason(false),
 		mPTSOffset(0.0),
-		mID3Handler{mID3Handler}
+		mID3Handler{std::move(mID3Handler)},
+		fragFailed(false), fragDuration(0)
 {
 	mLastVideoFragParsedTimeMS = aamp_GetCurrentTimeMS();
 	AAMPLOG_TRACE("StreamAbstractionAAMP");
@@ -2350,7 +2352,7 @@ void StreamAbstractionAAMP::GetDesiredProfileOnBuffer(int currProfileIndex, int 
 	else
 	{
 		AAMPLOG_WARN("Switch to index 0; buffer is about to drain :Buffer %lf !!",bufferValue);
-		newProfileIndex = 0;
+		newProfileIndex = aamp->mhAbrManager.getProfileIndexForLowestBandwidth();
 	}
 }
 
@@ -2508,13 +2510,21 @@ int StreamAbstractionAAMP::GetDesiredProfileBasedOnCache(void)
 		{
 			//InsufficientBufferRule: Buffer is empty
 			AAMPLOG_WARN("Switch to index 0; buffer is about to drain :Buffer %lf !!",bufferValue);
-			desiredProfileIndex = 0;
+			desiredProfileIndex = aamp->mhAbrManager.getProfileIndexForLowestBandwidth();
 			if(currentProfileIndex != desiredProfileIndex)
 			{
 				mBitrateReason = eAAMP_BITRATE_CHANGE_BY_BUFFER_EMPTY;
 			}
 			return desiredProfileIndex;
 		}
+		if( fragFailed && aamp->GetLLDashServiceData()->lowLatencyMode )
+		{
+			AAMPLOG_WARN("Attempting rampdown to lowest profile due to insufficient bandwidth");
+			desiredProfileIndex = aamp->mhAbrManager.getProfileIndexForLowestBandwidth();
+			fragFailed = false;
+			return desiredProfileIndex;
+		}
+
 		if (this->UseIframeTrack())
 		{
 			int tmpIframeProfile = GetIframeTrack();
@@ -2607,16 +2617,20 @@ bool StreamAbstractionAAMP::RampDownProfile(int http_error)
 	else if (video)
 	{
 		double bufferValue = GetBufferValue(video);
-		// Let's keep things simple! This function is invoked when we want to rampdown, which we could either do in single or multiple steps
-		// If buffer is high, rampdown in single steps
-		// If buffer is less, rampdown in multiple steps based on buffer available
-		// If buffer is zero, we can't rampdown in multiple steps and the only way is either:
-		// 1. Rampdown to the lowest profile directly (if this also fails, will lead to playback failure or skipped content)
-		// 2. Rampdown in single steps (here we're already rebuffering or not yet streaming)
-		// Recommend option 2, unless good reason is found to rampdown to lowest profile directly.
-		if (bufferValue == 0 || bufferValue > mABRMaxBuffer)
+		if (bufferValue <= 2.0 )
+		{ // panic mode - jump directly to lowest profile
+			AAMPLOG_WARN("rampdown to lowest profile as buffer near zero");
+			desiredProfileIndex = aamp->mhAbrManager.getProfileIndexForLowestBandwidth();
+		}
+		else if( aamp->GetLLDashServiceData()->lowLatencyMode && http_error == CURLE_CHUNK_FAILED)
 		{
-			// Rampdown in single steps
+			AAMPLOG_WARN("Attempting rampdown to lowest profile");
+			desiredProfileIndex = aamp->mhAbrManager.getProfileIndexForLowestBandwidth();
+			fragFailed = false;
+		}
+		else if (bufferValue > mABRMaxBuffer)
+		{
+			// ample buffering, so ramp down in single steps
 			desiredProfileIndex = aamp->mhAbrManager.getRampedDownProfileIndex(currentProfileIndex);
 		}
 		else if (bufferValue > 0)
@@ -2632,6 +2646,10 @@ bool StreamAbstractionAAMP::RampDownProfile(int http_error)
 				AAMPLOG_ERR("desiredBw received is 0, which is not expected.. Rampdown failed!!");
 			}
 		}
+	}
+	if(http_error == CURLE_CHUNK_FAILED )
+	{
+		http_error = aamp->httpErrorLLD;
 	}
 	if (desiredProfileIndex != currentProfileIndex)
 	{
@@ -2753,7 +2771,7 @@ bool StreamAbstractionAAMP::CheckForRampDownProfile(int http_error)
 	{
 		http_error = getOriginalCurlError(http_error);
 
-		if (http_error == 404 || http_error == 403 || http_error == 500 || http_error == 503 || http_error == CURLE_PARTIAL_FILE)
+		if (http_error == 404 || http_error == 403 || http_error == 500 || http_error == 503 || http_error == CURLE_PARTIAL_FILE ||http_error == CURLE_CHUNK_FAILED)
 		{
 			if (RampDownProfile(http_error))
 			{
@@ -2903,7 +2921,7 @@ bool StreamAbstractionAAMP::UpdateProfileBasedOnFragmentCache()
 		aamp->mDownloadDelay = 0;
 	}
 
-	if(checkProfileChange)
+	if(checkProfileChange || fragFailed)
 	{
 		desiredProfileIndex = GetDesiredProfileBasedOnCache();
 	}

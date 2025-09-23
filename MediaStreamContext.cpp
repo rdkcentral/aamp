@@ -64,6 +64,7 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 	AAMPLOG_INFO("Type[%d] position(before restamp) %f discontinuity %d pto %f scale %u duration %f mPTSOffsetSec %f absTime %lf fragmentUrl %s", type, position, discontinuity, pto, scale, fragmentDurationS, GetContext()->mPTSOffset.inSeconds(), posInAbsTimeline, fragmentUrl.c_str());
 
 	fragmentDurationSeconds = fragmentDurationS;
+	context->fragDuration = fragmentDurationSeconds; //fragment Duration
 	ProfilerBucketType bucketType = aamp->GetProfilerBucketForMedia(mediaType, initSegment);
 	CachedFragment* cachedFragment = GetFetchBuffer(true);
 	BitsPerSecond bitrate = 0;
@@ -141,6 +142,12 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 			}
 			if (ret)
 			{
+				if(ISCONFIGSET(eAAMPConfig_EnableLLDThrottleHandling) && aamp->GetLLDashChunkMode())
+				{
+					aamp->mdatCounter = 0;
+					aamp->pushCacheFragment.store(false);
+					aamp->startInjecting.store(false);
+				}
 				cachedFragment->fragment = *mTempFragment;
 				mTempFragment->Free();
 			}
@@ -311,8 +318,53 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 			// should continue with next fragment,no retry needed .
 			else if ((eTRACK_VIDEO == type) && !(context->CheckForRampDownLimitReached()))
 			{
-				// Attempt rampdown
-				if (context->CheckForRampDownProfile(httpErrorCode))
+				if(context->fragFailed && (ISCONFIGSET(eAAMPConfig_EnableLLDThrottleHandling)))
+				{
+					//If first chunk is rejected and not injecting
+					aamp->mdatCounter = 0;
+					aamp->pushCacheFragment.store(false);
+					aamp->startInjecting.store(false);
+					double bufferValue = GetBufferedDuration();
+					if(bufferValue >= 2)
+					{
+						aamp->httpErrorLLD = httpErrorCode;
+						httpErrorCode = CURLE_CHUNK_FAILED;
+						if(context->CheckForRampDownProfile(httpErrorCode))
+						{
+							mCheckForRampdown = true;
+							if (!initSegment)
+							{
+								mSkipSegmentOnError = false;
+								AAMPLOG_WARN("Rampdown due to first chunk delayed download");
+							}
+						}	
+					}
+					else
+					{
+							AAMPLOG_WARN("Skipping the fragment due to sluggish first chunk download and low buffer value");
+							context->fragFailed = false;
+
+					}
+				}
+				else if(((aamp->GetLLDashChunkMode()) && (httpErrorCode == CURLE_OPERATION_TIMEDOUT || httpErrorCode == CURLE_PARTIAL_FILE) && (ISCONFIGSET(eAAMPConfig_EnableLLDThrottleHandling)) && firstChunkHandled.load()) || (aamp->GetLLDashChunkMode() && (aamp->stallDetection == true) && (ISCONFIGSET(eAAMPConfig_EnableLLDThrottleHandling))))
+				{
+					//After first chunk injection if any other chunks get timedout or aborted after partial download
+					aamp->mdatCounter = 0;
+					aamp->pushCacheFragment.store(false);
+					aamp->startInjecting.store(false);
+					if(!initSegment)
+					{
+						aamp->httpErrorLLD = httpErrorCode;
+						httpErrorCode = CURLE_CHUNK_FAILED;
+						if(context->CheckForRampDownProfile(httpErrorCode))
+						{
+							AAMPLOG_WARN("Skipping fragment and rampdown");
+							mCheckForRampdown = false;		
+						}
+
+					}	
+				}
+				else if (context->CheckForRampDownProfile(httpErrorCode))
 				{
 					mCheckForRampdown = true;
 					if (!initSegment)
@@ -469,7 +521,6 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 bool MediaStreamContext::CacheFragmentChunk(AampMediaType actualType, char *ptr, size_t size, std::string remoteUrl, long long dnldStartTime)
 {
 	AAMPLOG_DEBUG("[%s] Chunk Buffer Length %zu Remote URL %s", name, size, remoteUrl.c_str());
-
 	bool ret = true;
 	if (WaitForCachedFragmentChunkInjected())
 	{
