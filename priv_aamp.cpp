@@ -904,7 +904,6 @@ long getCurrentContentDownloadSpeed(PrivateInstanceAAMP *aamp,
 	long time_now = 0;
 	long time_diff = 0;
 	long dl_diff = 0;
-
 	struct SpeedCache* speedcache = NULL;
 	speedcache = aamp->GetLLDashSpeedCache();
 
@@ -1027,6 +1026,10 @@ int PrivateInstanceAAMP::HandleSSLProgressCallback ( void *clientp, double dltot
 					{ // no change for at least <stallTimeout> seconds - consider download stalled and abort
 						AAMPLOG_WARN("Abort download as mid-download stall detected for %.2f seconds, download size:%.2f bytes", timeElapsedSinceLastUpdate, dlnow);
 						context->abortReason = eCURL_ABORT_REASON_STALL_TIMEDOUT;
+						if(ISCONFIGSET_PRIV(eAAMPConfig_EnableLLDThrottleHandling) && context->aamp->GetLLDashServiceData()->lowLatencyMode && !IsLocalAAMPTsb())
+						{
+							aamp->stallDetection.store(true);
+						}
 						rc = 1; // CURLE_ABORTED_BY_CALLBACK
 					}
 				}
@@ -1045,6 +1048,48 @@ int PrivateInstanceAAMP::HandleSSLProgressCallback ( void *clientp, double dltot
 				AAMPLOG_WARN("Abort download as no data received for %.2f seconds", timeElapsedInSec);
 				context->abortReason = eCURL_ABORT_REASON_START_TIMEDOUT;
 				rc = 1; // CURLE_ABORTED_BY_CALLBACK
+			}
+		}
+		if(context->aamp->GetLLDashServiceData()->lowLatencyMode && !IsLocalAAMPTsb() && eMEDIATYPE_VIDEO == context->mediaType && dlnow > 0 && (ISCONFIGSET_PRIV(eAAMPConfig_EnableLLDThrottleHandling)) && (context->aamp->mpStreamAbstractionAAMP->firstFragmentDownloaded.load() == true))
+		{
+			//calculating whether download of chunks other than first chunk will be within 3 seconds.
+			if(aamp->mdatCounter.load() == 1 && aamp->startInjecting.load() == false) {
+			double elapsed_time_ms = (double)(NOW_STEADY_TS_MS - context->downloadStartTime);
+			double elapsed_time_sec = elapsed_time_ms / 1000.0;  // Convert ms to seconds
+			if(elapsed_time_sec > 0.0)
+			{
+				long rate_bps = static_cast<long>((dlnow * 8.0) / elapsed_time_sec);  // Bytes to bits per second
+				double firstChunkTimeout = FIRST_CHUNK_TIMEOUT_MS;
+
+				double estimated_total_size_bytes = (static_cast<double>(rate_bps) / 8.0) * (context->aamp->mpStreamAbstractionAAMP->fragDuration);
+				if(estimated_total_size_bytes > dlnow )
+				{
+					double remaining_size_bytes = estimated_total_size_bytes - dlnow;
+					double remaining_time_sec = (remaining_size_bytes * 8.0) / static_cast<double>(rate_bps);
+					AAMPLOG_TRACE("elapsed time %f rate %ld total size %f remaining size %f remaining time %f", elapsed_time_sec, rate_bps, estimated_total_size_bytes, remaining_size_bytes, remaining_time_sec);
+					if(((remaining_time_sec*1000) <= firstChunkTimeout) || (elapsed_time_ms <= firstChunkTimeout))
+					{
+						AAMPLOG_WARN("It is ready to inject first chunk");
+						std::lock_guard<std::mutex> lock(context->aamp->mpStreamAbstractionAAMP->mtxLoop);
+						context->aamp->mpStreamAbstractionAAMP->mCurrentChunkStatus.store(CHUNK_PROCEED);
+						context->aamp->mpStreamAbstractionAAMP->cvLoop.notify_one();
+						rc = 0;
+					}
+				}
+				else
+				{
+					if((elapsed_time_ms) >= firstChunkTimeout)
+					{
+						AAMPLOG_WARN("Not injecting first chunk ");
+						context->abortReason = eCURL_ABORT_REASON_LOW_BANDWIDTH_TIMEDOUT;
+						context->aamp->mpStreamAbstractionAAMP->fragFailed.store(true);
+						std::lock_guard<std::mutex> lock(context->aamp->mpStreamAbstractionAAMP->mtxLoop);
+						context->aamp->mpStreamAbstractionAAMP->mCurrentChunkStatus.store(CHUNK_REJECT);
+						context->aamp->mpStreamAbstractionAAMP->cvLoop.notify_one();
+						rc = 1;
+					}
+				}
+			return rc;}
 			}
 		}
 		if (dlnow > 0 && context->lowBWTimeout> 0 && eMEDIATYPE_VIDEO == context->mediaType)
@@ -1120,7 +1165,7 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 	mTimeAtTopProfile(0),mPlaybackDuration(0),mTraceUUID(),
 	mIsFirstRequestToFOG(false),
 	mPausePositionMonitorMutex(), mPausePositionMonitorCV(), mPausePositionMonitoringThreadID(),
-	mTuneType(eTUNETYPE_NEW_NORMAL)
+	mTuneType(eTUNETYPE_NEW_NORMAL), mdatCounter(0), startInjecting(false), httpErrorLLD(CURLE_OK), stallDetection(false)
 	,mCdaiObject(NULL), mAdEventsQ(),mAdEventQMtx(), mAdPrevProgressTime(0), mAdCurOffset(0), mAdDuration(0), mAdProgressId(""), mAdAbsoluteStartTime(0)
 	,mBufUnderFlowStatus(false), mVideoBasePTS(0)
 	,mCustomLicenseHeaders(), mIsIframeTrackPresent(false), mManifestTimeoutMs(-1), mNetworkTimeoutMs(-1)

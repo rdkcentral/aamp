@@ -63,6 +63,7 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 	AAMPLOG_INFO("Type[%d] position(before restamp) %f discontinuity %d scale %u duration %f mPTSOffsetSec %f absTime %lf fragmentUrl %s", type, position, discontinuity, scale, fragmentDurationS, GetContext()->mPTSOffset.inSeconds(), mActiveDownloadInfo->absolutePosition, fragmentUrl.c_str());
 
 	fragmentDurationSeconds = fragmentDurationS;
+	context->fragDuration = fragmentDurationSeconds;
 	ProfilerBucketType bucketType = aamp->GetProfilerBucketForMedia(mediaType, initSegment);
 	CachedFragment *cachedFragment = GetFetchBuffer(true);
 	BitsPerSecond bitrate = 0;
@@ -129,6 +130,12 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 			}
 			if (ret)
 			{
+				if(ISCONFIGSET(eAAMPConfig_EnableLLDThrottleHandling) && aamp->GetLLDashChunkMode())
+				{
+					context->firstFragmentDownloaded.store(false);
+					aamp->mdatCounter.store(0);
+					aamp->startInjecting.store(false);
+				}
 				cachedFragment->fragment = *mTempFragment;
 				mTempFragment->Free();
 			}
@@ -731,9 +738,19 @@ void MediaStreamContext::OnFragmentDownloadFailed(DownloadInfoPtr dlInfo)
 		// should continue with next fragment,no retry needed .
 		else if ((eTRACK_VIDEO == type) && !ISCONFIGSET(eAAMPConfig_AudioOnlyPlayback) && !(context->CheckForRampDownLimitReached()))
 		{
+			bool isLLDEnabled = ISCONFIGSET(eAAMPConfig_EnableLLDThrottleHandling);
+			bool isLLDChunkMode = aamp->GetLLDashChunkMode();
 			// Attempt rampdown
 			// ABR is performed from TrackWorker thread to ensure the profile change is done in the same thread
-			if (context->CheckForRampDownProfile(httpErrorCode))
+			if ((context->fragFailed.load() == true) && isLLDEnabled && isLLDChunkMode)
+			{
+				HandleFirstChunkFailure(dlInfo);
+			}
+			else if ((isLLDChunkMode && (httpErrorCode == CURLE_OPERATION_TIMEDOUT || httpErrorCode == CURLE_PARTIAL_FILE) && isLLDEnabled) || ( isLLDChunkMode && (aamp->stallDetection.load() == true) && isLLDEnabled))
+			{
+				HandleSubsequentChunkFailure(dlInfo->isInitSegment);
+			}
+			else if(context->CheckForRampDownProfile(httpErrorCode))
 			{
 				mCheckForRampdown = true;
 				if (!dlInfo->isInitSegment)
@@ -795,6 +812,63 @@ void MediaStreamContext::OnFragmentDownloadFailed(DownloadInfoPtr dlInfo)
 	}
 }
 
+/**
+ * @fn HandleFirstChunkFailure
+ * @brief Function invoked on first chunk download failure
+ * @param[in] downloadInfo - download information
+ */
+void MediaStreamContext::HandleFirstChunkFailure(const DownloadInfoPtr& dlInfo)
+{
+	aamp->mdatCounter.store(0);
+	aamp->startInjecting.store(false);
+	context->firstFragmentDownloaded.store(false);
+	double bufferValue = GetBufferedDuration();
+	//If bufferValue is lesser than 2, rampdown is attempted. This is to make sure that rampdown is attempted
+	//before buffer gets drained completely.
+	if (bufferValue >= 2)
+	{
+		aamp->httpErrorLLD = httpErrorCode;
+		httpErrorCode = CURLE_CHUNK_FAILED;
+		if (context->CheckForRampDownProfile(httpErrorCode))
+		{
+			mCheckForRampdown = true;
+			if (!dlInfo->isInitSegment)
+			{
+				mSkipSegmentOnError = false;
+				AAMPLOG_WARN("Rampdown due to first chunk delayed download");
+			}
+			aamp->GetAampTrackWorkerManager()->GetWorker(dlInfo->mediaType)->RescheduleActiveJob();
+		}
+	}
+	else
+	{
+		context->fragFailed.store(false);
+		AAMPLOG_WARN("Skipping fragment due to sluggish first chunk download and low buffer value");
+	}
+}
+
+/**
+ * @fn HandleSubsequentChunkFailure
+ * @brief Callback on other than first chunk download failure
+ * @param[in] initialFragment - true if it is a init fragment
+ */
+void MediaStreamContext::HandleSubsequentChunkFailure( bool isInitialFragment )
+{
+	aamp->mdatCounter.store(0);
+	aamp->stallDetection.store(false);
+	aamp->startInjecting.store(false);
+	context->firstFragmentDownloaded.store(false);
+	if (!isInitialFragment)
+	{
+		aamp->httpErrorLLD = httpErrorCode;
+		httpErrorCode = CURLE_CHUNK_FAILED;
+		if (context->CheckForRampDownProfile(httpErrorCode))
+		{
+			AAMPLOG_WARN("Skipping fragment and rampdown");
+			mCheckForRampdown = false;
+		}
+	}
+}
 /**
  * @fn DownloadFragment
  * @brief Download submitted fragment

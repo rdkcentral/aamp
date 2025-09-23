@@ -105,9 +105,11 @@ namespace aamp
 #define MANIFEST_TEMP_DATA_LENGTH 100			/**< Manifest temp data length */
 #define  AAMP_LOW_BUFFER_BEFORE_RAMPDOWN_FOR_LLD 3	/**< 3sec buffer before rampdown for lld */
 #define AAMP_HIGH_BUFFER_BEFORE_RAMPUP_FOR_LLD	 4	/**< 4sec buffer before rampup for lld */
-#define TIMEOUT_FOR_LLD	3				/**< 3sec network timeout for lld */
+#define TIMEOUT_FOR_LLD	4				/**< 4sec network timeout for lld */
 #define MANIFEST_TIMEOUT_FOR_LLD 3      /**< 3 sec timeout for manifest refresh in case of LLD*/
 #define ABR_BUFFER_COUNTER_FOR_LLD 3		/** Counter for steady state rampup/rampdown for lld */
+#define CHUNK_STATUS_TIMEOUT_MS 2000		/** Timeout in milliseconds for waiting on chunk status notification from download thread */
+#define FIRST_CHUNK_TIMEOUT_MS 3000		/** Timeout in milliseconds for first chunk download completion before deciding to proceed or reject */
 
 #define AAMP_USER_AGENT_MAX_CONFIG_LEN  512    /**< Max Chars allowed in aamp.cfg for user-agent */
 #define SERVER_UTCTIME_DIRECT "urn:mpeg:dash:utc:direct:2014"
@@ -196,7 +198,15 @@ enum TuneType
 	eTUNETYPE_SEEKTOEND     /**< Seek to live point. Not a new channel, so resources can be reused*/
 };
 
-
+/**
+ * @brief Status of chunk processing for low latency DASH
+ */
+enum ChunkStatus
+{
+     CHUNK_WAIT = 0,
+     CHUNK_PROCEED,
+     CHUNK_REJECT
+};
 /**
  * @brief Http Header Type
  */
@@ -929,6 +939,10 @@ public:
 	double mLiveOffset;
 	double mLiveOffsetDrift;               /**< allowed drift value from live offset configured **/
 	int mNetworkTimeoutMs;
+	std::atomic<int> mdatCounter;		/**< Counter for the number of 'mdat' processed */
+	std::atomic<bool> stallDetection;	/**< Indicates whether a download stall was detected */
+	std::atomic<bool> startInjecting;	/**< Flag to signal the start of first chunk injection */
+	int httpErrorLLD;
 	int mManifestTimeoutMs;
 	int mPlaylistTimeoutMs;
 	bool mAsyncTuneEnabled;

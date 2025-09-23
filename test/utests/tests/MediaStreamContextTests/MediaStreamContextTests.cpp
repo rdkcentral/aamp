@@ -202,3 +202,29 @@ TEST_F(MediaStreamContextTest, DefaultDurationTest)
     //Assert:check durationValue variable value
     EXPECT_EQ(durationValue,6000);
 }
+
+TEST_F(MediaStreamContextTest, HandleSubsequentChunkFailureNonInitFragment)
+{
+    // Arrange
+    mMediaStreamContext->httpErrorCode = CURLE_OPERATION_TIMEDOUT;
+
+    // Act:call HandleSubsequentChunkFailure function
+    mMediaStreamContext->HandleSubsequentChunkFailure(false);
+
+    // Assert:check mCheckForRampdown value
+    EXPECT_EQ(mMediaStreamContext->httpErrorCode, CURLE_CHUNK_FAILED);
+    EXPECT_FALSE(mMediaStreamContext->mCheckForRampdown);
+}
+
+TEST_F(MediaStreamContextTest, HandleSubsequentChunkFailureInitFragment)
+{
+    // Arrange
+    mMediaStreamContext->httpErrorCode = CURLE_OPERATION_TIMEDOUT;
+
+    // Act:call HandleSubsequentChunkFailure function
+    mMediaStreamContext->HandleSubsequentChunkFailure(true);
+
+    // Assert:check httpErrorCode
+    EXPECT_EQ(mMediaStreamContext->httpErrorCode, CURLE_OPERATION_TIMEDOUT);
+}
+

@@ -261,6 +261,20 @@ public:
     void OnFragmentDownloadFailed(DownloadInfoPtr downloadInfo);
 
     /**
+     * @fn HandleFirstChunkFailure
+     * @brief Function invoked on first chunk download failure
+     * @param[in] downloadInfo - download information
+     */
+    void HandleFirstChunkFailure(const DownloadInfoPtr& downloadInfo);
+
+    /**
+     * @fn HandleSubsequentChunkFailure
+     * @brief Callback on other than first chunk download failure
+     * @param[in] initialFragment - true if it is a init fragment
+     */
+    void HandleSubsequentChunkFailure(bool initialFragment);
+
+    /**
      * @fn DownloadFragment
      * @brief Download submitted fragment
      * @param[in] downloadInfo - download information

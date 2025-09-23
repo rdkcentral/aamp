@@ -184,7 +184,8 @@ public:
 			{eAAMPConfig_ForceMultiPeriodDiscontinuity, false},
 			{eAAMPConfig_SuppressDecode, false},
 			{eAAMPConfig_InterruptHandling, false},
-			{eAAMPConfig_OverrideMediaHeaderDuration, false}};
+			{eAAMPConfig_OverrideMediaHeaderDuration, false},
+			{eAAMPConfig_EnableLLDThrottleHandling, true}};
 
 	BoolConfigSettings mBoolConfigSettings;
 

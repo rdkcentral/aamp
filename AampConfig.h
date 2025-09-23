@@ -213,6 +213,7 @@ typedef enum
 	eAAMPConfig_CurlThroughput,
 	eAAMPConfig_UseFireboltSDK,						/**< Config to use Firebolt SDK for license Acquisition */
 	eAAMPConfig_EnableChunkInjection,					/**< Config to enable chunk injection for low latency DASH */
+	eAAMPConfig_EnableLLDThrottleHandling,					/**< Enables logic to prevent LLD looping by applying extended timeouts to non-initial chunks, based on first chunk’s download time assessment */
 	eAAMPConfig_BoolMaxValue						/**< Max value of bool config always last element */
 
 } AAMPConfigSettingBool;

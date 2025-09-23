@@ -152,6 +152,7 @@ class MediaStreamContextTest : public ::testing::TestWithParam<TestParams>
 			{eAAMPConfig_LocalTSBEnabled, false},
 			{eAAMPConfig_EnableIFrameTrackExtract, false},
 			{eAAMPConfig_EnableABR, true},
+			{eAAMPConfig_EnableLLDThrottleHandling, true}
 		};
 
 		BoolConfigSettings mBoolConfigSettings;

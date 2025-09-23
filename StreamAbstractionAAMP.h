@@ -1459,6 +1459,14 @@ public:
 	int mTsbMaxBitrateProfileIndex;		/**< Indicates the index of highest profile in the saved stream info */
 	bool mUpdateReason;			/**< flag to update the bitrate change reason */
 	AampTime mPTSOffset;				/*For PTS restamping*/
+	std::atomic<bool> fragFailed;			/**< Flag to indicate if the first fragment has been failed to download or not */
+	std::atomic<bool> firstFragmentDownloaded;	/**< Flag to indicate if the first chunk of a fragment gets downloaded */
+	std::atomic<ChunkStatus> mCurrentChunkStatus{CHUNK_WAIT};	/**< Current status of the chunk being processed */
+	std::mutex mtxLoop;			/**< Mutex used to synchronize the fetcher and injector thread */
+	std::condition_variable cvLoop;		/**< Condition variable used with mtxLoop for signaling between threads */
+	size_t chunkSize;			/**< Size of the current chunk being processed, in bytes */
+	double chunkDuration;			/**< Duration of the current chunk being processed, in seconds */
+	double fragDuration;			/**< Duration of the current fragment being processed, in seconds */
 
 	/**
 	 *   @brief Get profile index of highest bandwidth

@@ -128,6 +128,14 @@ void MediaStreamContext::OnFragmentDownloadSuccess(DownloadInfoPtr downloadInfo)
 {
 }
 
+void MediaStreamContext::HandleFirstChunkFailure(const DownloadInfoPtr& dlInfo)
+{
+}
+
+void MediaStreamContext::HandleSubsequentChunkFailure(bool isInitialFragment)
+{
+}
+
 bool MediaStreamContext::DownloadFragment(DownloadInfoPtr downloadInfo)
 {
 	if(downloadInfo->uriList.size() > 0)

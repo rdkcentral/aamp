@@ -220,6 +220,8 @@ TEST_P(MediaTrackDashPtsRestampNotConfiguredTests, PtsRestampNotConfiguredTest)
 
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_OverrideMediaHeaderDuration))
 		.WillRepeatedly(Return(false));
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnableLLDThrottleHandling))
+		.WillRepeatedly(Return(true));
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_CurlThroughput))
 		.WillRepeatedly(Return(false));
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnablePTSReStamp))
@@ -278,6 +280,8 @@ TEST_P(MediaTrackDashQtDemuxOverrideConfiguredTests, QtDemuxOverrideConfiguredTe
 
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_OverrideMediaHeaderDuration))
 		.WillRepeatedly(Return(false));
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnableLLDThrottleHandling))
+		.WillRepeatedly(Return(true));
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_CurlThroughput))
 		.WillRepeatedly(Return(false));
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnablePTSReStamp))
@@ -339,6 +343,8 @@ TEST_P(MediaTrackDashTrickModePtsRestampValidPlayRateTests, ValidPlayRateTest)
 
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_CurlThroughput))
 		.WillRepeatedly(Return(false));
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnableLLDThrottleHandling))
+		.WillRepeatedly(Return(true));
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnablePTSReStamp))
 		.WillRepeatedly(Return(true));
 	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_VODTrickPlayFPS))
@@ -506,6 +512,8 @@ TEST_P(MediaTrackDashPlaybackPtsRestampTests, PlaybackTest)
 
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_OverrideMediaHeaderDuration))
 		.WillRepeatedly(Return(false));
+	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnableLLDThrottleHandling))
+		.WillRepeatedly(Return(true));
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_CurlThroughput))
 		.WillRepeatedly(Return(false));
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_EnablePTSReStamp))

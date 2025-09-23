@@ -150,7 +150,7 @@ TEST_P(FragmentDownloadSuccessParamTest, OnFragmentDownloadSuccess)
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetTSBSessionManager()).WillRepeatedly(Return(nullptr));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection()).WillRepeatedly(Return(false));
 	EXPECT_CALL(*g_mockPrivateInstanceAAMP, DownloadsAreEnabled()).WillRepeatedly(Return(true));
-
+	
 	// Mock buffer creation for the test
 	auto cachedFragment = std::make_shared<CachedFragment>();
 	cachedFragment->fragment.AppendBytes("test", 4);
@@ -220,6 +220,8 @@ TEST_F(FragmentDownloadTests, OnFragmentDownloadFailed_RampDownAttempt)
 	EXPECT_CALL(*g_mockMediaTrack, GetFetchBuffer(false))
 		.WillOnce(Return(cachedFragment.get()));
 
+	// Mock the behavior of GetLLDashChunkMode, return false for non-chunk mode
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetLLDashChunkMode()).WillRepeatedly(Return(false));
 	// Return false for CheckForRampDownLimitReached to allow ramp down, and true for CheckForRampDownProfile
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, CheckForRampDownLimitReached())
 		.WillOnce(Return(false));
@@ -342,3 +344,58 @@ TEST_F(FragmentDownloadTests, DownloadFragment_ValidDownloadInfo)
 		EXPECT_TRUE(result);
 	});
 }
+
+/**
+ * @brief Test case for HandleFirstChunkFailure with valid High Buffer
+ */
+TEST_F(FragmentDownloadTests, HandleFirstChunkFailure_BufferHigh_UpdatesHttpErrorAndRampdownFlags)
+{
+    // Set expectation: GetPositionMs should return 0
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetPositionMs())
+        .WillRepeatedly(testing::Return(0));
+
+    // Set expectation: CheckForRampDownProfile should return true
+    EXPECT_CALL(*g_mockStreamAbstractionAAMP, CheckForRampDownProfile(CURLE_CHUNK_FAILED))
+        .WillOnce(testing::Return(true));
+
+    mMediaStreamContext->httpErrorCode = CURLE_OPERATION_TIMEDOUT;
+    mMediaStreamContext->lastDownloadedPosition.store(5.0); // ensures GetBufferedDuration() >= 2
+
+    DownloadInfoPtr dlInfo = std::make_shared<DownloadInfo>();
+    dlInfo->isInitSegment = false;
+    dlInfo->mediaType = eMEDIATYPE_VIDEO;
+
+    // pre-condition
+    mMediaStreamContext->mCheckForRampdown = false;
+    mMediaStreamContext->mSkipSegmentOnError = true;
+
+    mMediaStreamContext->HandleFirstChunkFailure(dlInfo);
+
+    // Assert
+    EXPECT_EQ(mMediaStreamContext->httpErrorCode, CURLE_CHUNK_FAILED);
+    EXPECT_TRUE(mMediaStreamContext->mCheckForRampdown);
+    EXPECT_FALSE(mMediaStreamContext->mSkipSegmentOnError);
+}
+
+/**
+ * @brief Test case for HandleFirstChunkFailure with valid Low Buffer
+ */
+TEST_F(FragmentDownloadTests, HandleFirstChunkFailure_BufferLow_ClearsFragFailed)
+{
+    // Set expectation: GetPositionMs should return 0
+    EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetPositionMs())
+        .WillRepeatedly(testing::Return(0));
+
+    mMediaStreamContext->lastDownloadedPosition.store(1.0); // ensures GetBufferedDuration() < 2
+    mMediaStreamContext->context->fragFailed.store(true);
+
+    DownloadInfoPtr dlInfo = std::make_shared<DownloadInfo>();
+    dlInfo->isInitSegment = true;
+    dlInfo->mediaType = eMEDIATYPE_VIDEO;
+
+    mMediaStreamContext->HandleFirstChunkFailure(dlInfo);
+
+    // Assert
+    EXPECT_FALSE(mMediaStreamContext->context->fragFailed.load());
+}
+

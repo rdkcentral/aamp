@@ -388,7 +388,6 @@ void MediaTrack::UpdateTSAfterChunkInject()
 	//Free Chunk Cache Buffer
 	prevDownloadStartTime = mCachedFragmentChunks[fragmentChunkIdxToInject].downloadStartTime;
 	mCachedFragmentChunks[fragmentChunkIdxToInject].fragment.Free();
-
 	parsedBufferChunk.Free();
 	//memset(&parsedBufferChunk, 0x00, sizeof(AampGrowableBuffer));
 
@@ -1065,6 +1064,39 @@ bool MediaTrack::ProcessFragmentChunk()
 	}
 	double fpts = 0.0, fduration = 0.0;
 	bool ret = isobuf.ParseChunkData(name, unParsedBuffer, timeScale, parsedBufferSize, unParsedBufferSize, fpts, fduration);
+
+	if( ret && type == eTRACK_VIDEO && (!aamp->IsLocalAAMPTsb()) && (ISCONFIGSET(eAAMPConfig_EnableLLDThrottleHandling)))
+	{
+		//Check for the first chunk download completion and if it is, then signals fetcher loop regarding the
+		//first chunk download, so that it can calculate time to download other chunks and decide whether
+		//we need to inject the first chunk or discard it
+		aamp->mdatCounter += 1;
+		if(aamp->mdatCounter.load() == 1 && aamp->startInjecting.load() == false && pContext)
+		{
+			AAMPLOG_WARN("first chunk gets downloaded");
+			pContext->firstFragmentDownloaded.store(true);
+			pContext->chunkSize = parsedBufferSize;
+			pContext->chunkDuration = fduration;
+			std::unique_lock<std::mutex> lock(pContext->mtxLoop);
+			bool conditionMet =  pContext->cvLoop.wait_for(lock, std::chrono::milliseconds(CHUNK_STATUS_TIMEOUT_MS), [pContext] { return pContext->mCurrentChunkStatus.load() != CHUNK_WAIT; });
+			if(!conditionMet && pContext->mCurrentChunkStatus.load() == CHUNK_WAIT)
+			{
+				AAMPLOG_WARN("Timeout has occurred");
+			}
+			if(pContext->mCurrentChunkStatus.load() == CHUNK_REJECT)
+			{
+				AAMPLOG_WARN("Chunk is rejected due to status CHUNK_REJECT");
+				pContext->mCurrentChunkStatus.store(CHUNK_WAIT); // Reset status for next fragment
+				parsedBufferChunk.Free();
+				return true;
+			}
+			if(pContext->mCurrentChunkStatus.load() == CHUNK_PROCEED)
+			{
+				AAMPLOG_WARN("Continue with the injection");
+				pContext->mCurrentChunkStatus.store(CHUNK_WAIT); // Reset status for next fragment
+			}
+		}
+	}
 	if(!ret) /**  Nothing to parse */
 	{
 		if( noMDATCount > MAX_MDAT_NOT_FOUND_COUNT )
@@ -1106,6 +1138,10 @@ bool MediaTrack::ProcessFragmentChunk()
 			if( ISCONFIGSET(eAAMPConfig_CurlThroughput) )
 			{
 				AAMPLOG_MIL( "curl-inject type=%d", type );
+			}
+			if((type == eTRACK_VIDEO) && (pContext->firstFragmentDownloaded.load() == true) && (pContext->mCurrentChunkStatus.load() == CHUNK_PROCEED) && (ISCONFIGSET(eAAMPConfig_EnableLLDThrottleHandling)))
+			{
+				aamp->startInjecting.store(true);
 			}
 			AAMPLOG_INFO("Injecting chunk for %s br=%d,chunksize=%zu fpts=%f fduration=%f",name,bandwidthBitsPerSecond,parsedBufferChunk.GetLen(),fpts,fduration);
 			InjectFragmentChunkInternal((AampMediaType)type,&parsedBufferChunk , fpts, fpts, fduration, cachedFragment->PTSOffsetSec);
@@ -2172,7 +2208,8 @@ StreamAbstractionAAMP::StreamAbstractionAAMP(PrivateInstanceAAMP* aamp, id3_call
 		mAudioTracksAll(), mTextTracksAll(),
 		mTsbMaxBitrateProfileIndex(-1),mUpdateReason(false),
 		mPTSOffset(0.0),
-		mID3Handler{std::move(mID3Handler)}
+		mID3Handler{std::move(mID3Handler)},
+		firstFragmentDownloaded(false), fragFailed(false), mtxLoop(), cvLoop(), chunkSize(0), chunkDuration(0), fragDuration(0)
 {
 	mLastVideoFragParsedTimeMS = aamp_GetCurrentTimeMS();
 	AAMPLOG_TRACE("StreamAbstractionAAMP");
@@ -2665,6 +2702,12 @@ bool StreamAbstractionAAMP::RampDownProfile(int http_error)
 			AAMPLOG_WARN("rampdown to lowest profile as buffer near zero");
 			desiredProfileIndex = aamp->mhAbrManager.getProfileIndexForLowestBandwidth();
 		}
+		else if( aamp->GetLLDashServiceData()->lowLatencyMode && http_error == CURLE_CHUNK_FAILED)
+		{
+			AAMPLOG_WARN("Attempting rampdown to lowest profile");
+			desiredProfileIndex = aamp->mhAbrManager.getProfileIndexForLowestBandwidth();
+			fragFailed.store(false);
+		}
 		else if (bufferValue > mABRMaxBuffer)
 		{
 			// ample buffering, so ramp down in single steps
@@ -2682,6 +2725,19 @@ bool StreamAbstractionAAMP::RampDownProfile(int http_error)
 				AAMPLOG_ERR("desiredBw received is 0, which is not expected.. Rampdown failed!!");
 			}
 		}
+	}
+	if(http_error == CURLE_CHUNK_FAILED )
+	{
+		if(aamp->httpErrorLLD != 0)
+		{
+			http_error = aamp->httpErrorLLD;
+		}
+		else
+		{
+			http_error = CURLE_CHUNK_FAILED;
+		}
+		//Reset httpErrorLLD
+		aamp->httpErrorLLD = CURLE_OK;
 	}
 	if (desiredProfileIndex != currentProfileIndex)
 	{
@@ -2803,7 +2859,7 @@ bool StreamAbstractionAAMP::CheckForRampDownProfile(int http_error)
 	{
 		http_error = getOriginalCurlError(http_error);
 
-		if (http_error == 404 || http_error == 403 || http_error == 500 || http_error == 503 || http_error == CURLE_PARTIAL_FILE)
+		if (http_error == 404 || http_error == 403 || http_error == 500 || http_error == 503 || http_error == CURLE_PARTIAL_FILE || http_error == CURLE_CHUNK_FAILED)
 		{
 			if (RampDownProfile(http_error))
 			{
