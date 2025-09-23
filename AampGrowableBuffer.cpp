@@ -47,13 +47,13 @@ AampGrowableBuffer::~AampGrowableBuffer( void )
  */
 void AampGrowableBuffer::Free( void )
 {
-	std::lock_guard<std::mutex> lock(mutex);
+	//std::lock_guard<std::mutex> lock(mutex);
 	if( ptr )
 	{
 		NETMEMORY_MINUS();
-        if( gbEnableLogging )
+        //if( gbEnableLogging )
         {
-            printf("AampGrowableBuffer::%s(%s:%d)\n", "Free",name,gNetMemoryCount);
+            printf("AampGrowableBuffer::%p\n Freed, len %d, avail %d", ptr, len, avail);
         }
 		g_free(ptr);
 		ptr = NULL;
@@ -64,15 +64,15 @@ void AampGrowableBuffer::Free( void )
 
 void AampGrowableBuffer::ReserveBytes( size_t numBytes )
 {
-	std::lock_guard<std::mutex> lock(mutex);
+	//std::lock_guard<std::mutex> lock(mutex);
 	assert( ptr==NULL && avail == 0 );
 	ptr = (char *)g_malloc( numBytes );
 	if( ptr )
 	{
 		NETMEMORY_PLUS();
-		if( gbEnableLogging )
+		//if( gbEnableLogging )
 		{
-			printf("AampGrowableBuffer::%s(%s:%d)\n", "ReserveBytes",name,gNetMemoryCount);
+			printf("AampGrowableBuffer::%p\n Reserved, numBytes %d", ptr, numBytes);
 		}
 		avail = numBytes;
 	}
@@ -81,7 +81,7 @@ void AampGrowableBuffer::ReserveBytes( size_t numBytes )
 void AampGrowableBuffer::AppendBytes( const void *srcPtr, size_t srcLen )
 {
 	{
-		std::lock_guard<std::mutex> lock(mutex);
+		//std::lock_guard<std::mutex> lock(mutex);
 		size_t required = len + srcLen;
 		if( avail < required )
 		{ // more memory needed - grow
@@ -96,9 +96,9 @@ void AampGrowableBuffer::AppendBytes( const void *srcPtr, size_t srcLen )
 				if( !ptr )
 				{ // first allocation
 					NETMEMORY_PLUS();
-					if( gbEnableLogging )
+					//if( gbEnableLogging )
 					{
-						printf("AampGrowableBuffer::%s(%s:%d)\n", "AppendBytes",name,gNetMemoryCount);
+						printf("AampGrowableBuffer::AppendBytes %p with %p", ptr, mem);
 					}
 				}
 				ptr = mem;
@@ -124,7 +124,7 @@ void AampGrowableBuffer::AppendBytes( const void *srcPtr, size_t srcLen )
  */
 void AampGrowableBuffer::MoveBytes( const void *srcPtr, size_t srcLen )
 { // this API assumes AampGrowableBuffer is already big enough to fit
-	std::lock_guard<std::mutex> lock(mutex);
+	//std::lock_guard<std::mutex> lock(mutex);
 	assert( ptr && srcPtr && avail >= srcLen );
 	memmove( ptr, srcPtr, srcLen );
 	len = srcLen;
@@ -144,7 +144,7 @@ void AampGrowableBuffer::Clear( void )
  */
 void AampGrowableBuffer::Replace( AampGrowableBuffer *src )
 {
-	std::lock_guard<std::mutex> lock(mutex);
+	//std::lock_guard<std::mutex> lock(mutex);
 	assert( ptr == NULL ); // only replace if empty!
 	ptr = src->GetPtr();
 	len = src->GetLen();
@@ -160,14 +160,14 @@ void AampGrowableBuffer::Replace( AampGrowableBuffer *src )
  */
 void AampGrowableBuffer::Transfer( void )
 {
-	std::lock_guard<std::mutex> lock(mutex);
+	//std::lock_guard<std::mutex> lock(mutex);
 	assert( ptr );
 	if( ptr )
 	{
 		NETMEMORY_MINUS();
-		if( gbEnableLogging )
+		//if( gbEnableLogging )
 		{
-			printf("AampGrowableBuffer::%s(%s:%d)\n", "Transfer",name,gNetMemoryCount);
+			printf("AampGrowableBuffer::Transfer %p\n, len %d, avail %d", ptr, len, avail);
 		}
 	}
 	ptr = NULL;
