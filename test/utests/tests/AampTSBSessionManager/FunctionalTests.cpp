@@ -98,8 +98,12 @@ protected:
 		EXPECT_CALL(*g_mockAampTsbMetaDataManager, Initialize())
 			.WillOnce(Return());
 
-		// Mock successful registration of AD_METADATA_TYPE
-		EXPECT_CALL(*g_mockAampTsbMetaDataManager, RegisterMetaDataType(AampTsbMetaData::Type::AD_METADATA_TYPE, true))
+		// Mock successful registration of AD_RESERVATION_METADATA_TYPE
+		EXPECT_CALL(*g_mockAampTsbMetaDataManager, RegisterMetaDataType(AampTsbMetaData::Type::AD_RESERVATION_METADATA_TYPE, false))
+			.WillOnce(Return(true));
+
+		// Mock successful registration of AD_PLACEMENT_METADATA_TYPE
+		EXPECT_CALL(*g_mockAampTsbMetaDataManager, RegisterMetaDataType(AampTsbMetaData::Type::AD_PLACEMENT_METADATA_TYPE, true))
 			.WillOnce(Return(true));
 
 		// Initialize necessary objects and configurations
@@ -237,9 +241,15 @@ TEST_F(FunctionalTests, TSBWriteTests)
 		.WillOnce(Return(static_cast<int>(TSB::LogLevel::TRACE)));
 	EXPECT_CALL(*g_mockAampTsbMetaDataManager, Initialize())
 		.WillOnce(Return());
-	// Mock successful registration of AD_METADATA_TYPE
-	EXPECT_CALL(*g_mockAampTsbMetaDataManager, RegisterMetaDataType(AampTsbMetaData::Type::AD_METADATA_TYPE, true))
+
+	// Mock successful registration of AD_RESERVATION_METADATA_TYPE
+	EXPECT_CALL(*g_mockAampTsbMetaDataManager, RegisterMetaDataType(AampTsbMetaData::Type::AD_RESERVATION_METADATA_TYPE, false))
 		.WillOnce(Return(true));
+
+	// Mock successful registration of AD_PLACEMENT_METADATA_TYPE
+	EXPECT_CALL(*g_mockAampTsbMetaDataManager, RegisterMetaDataType(AampTsbMetaData::Type::AD_PLACEMENT_METADATA_TYPE, true))
+		.WillOnce(Return(true));
+
 	mAampTSBSessionManager->Init();
 	EXPECT_TRUE(mAampTSBSessionManager->IsActive());
 }
@@ -382,12 +392,21 @@ TEST_F(FunctionalTests, TSBReadTests)
 			return true;
 		}));
 
-	std::list<std::shared_ptr<AampTsbMetaData>> metadataList;
+	std::list<std::shared_ptr<AampTsbMetaData>> reservationMetadataList;
 	EXPECT_CALL(*g_mockAampTsbMetaDataManager,
-		IsRegisteredType(AampTsbMetaData::Type::AD_METADATA_TYPE, _, _))
+		IsRegisteredType(AampTsbMetaData::Type::AD_RESERVATION_METADATA_TYPE, _, _))
 		.WillOnce(DoAll(
 			testing::SetArgReferee<1>(true),  // Set isTransient to true
-			testing::SetArgPointee<2>(&metadataList),  // Set metadata list pointer
+			testing::SetArgPointee<2>(&reservationMetadataList),  // Set metadata list pointer
+			testing::Return(true)  // Return true from the function
+		));
+
+	std::list<std::shared_ptr<AampTsbMetaData>> placementMetadataList;
+	EXPECT_CALL(*g_mockAampTsbMetaDataManager,
+		IsRegisteredType(AampTsbMetaData::Type::AD_PLACEMENT_METADATA_TYPE, _, _))
+		.WillOnce(DoAll(
+			testing::SetArgReferee<1>(true),  // Set isTransient to true
+			testing::SetArgPointee<2>(&placementMetadataList),  // Set metadata list pointer
 			testing::Return(true)  // Return true from the function
 		));
 
@@ -491,20 +510,34 @@ TEST_F(FunctionalTests, ShiftFutureAdEventsTest)
 	auto endPlacement = std::make_shared<AampTsbAdPlacementMetaData>(
 		AampTsbAdMetaData::EventType::END, pos3, TEST_DURATION, TEST_AD_ID, TEST_REL_POSITION, TEST_OFFSET);
 
-	std::list<std::shared_ptr<AampTsbMetaData>> metadataList = {reservation, placement, endPlacement};
+	std::list<std::shared_ptr<AampTsbMetaData>> reservationMetadataList = {reservation};
+	std::list<std::shared_ptr<AampTsbMetaData>> placementMetadataList = {placement, endPlacement};
 
 	// Set up mock expectations
 	EXPECT_CALL(*g_mockAampTsbMetaDataManager,
-		IsRegisteredType(AampTsbMetaData::Type::AD_METADATA_TYPE, _, _))
+		IsRegisteredType(AampTsbMetaData::Type::AD_RESERVATION_METADATA_TYPE, _, _))
 		.WillOnce(DoAll(
 			testing::SetArgReferee<1>(true),  // Set isTransient to true
-			testing::SetArgPointee<2>(&metadataList),  // Set metadata list pointer
+			testing::SetArgPointee<2>(&reservationMetadataList),  // Set metadata list pointer
+			testing::Return(true)  // Return true from the function
+		));
+
+
+	EXPECT_CALL(*g_mockAampTsbMetaDataManager,
+		IsRegisteredType(AampTsbMetaData::Type::AD_PLACEMENT_METADATA_TYPE, _, _))
+		.WillOnce(DoAll(
+			testing::SetArgReferee<1>(true),  // Set isTransient to true
+			testing::SetArgPointee<2>(&placementMetadataList),  // Set metadata list pointer
 			testing::Return(true)  // Return true from the function
 		));
 
 	// Mock position change operation
 	EXPECT_CALL(*g_mockAampTsbMetaDataManager,
-		ChangeMetaDataPosition(testing::ContainerEq(metadataList), _))
+		ChangeMetaDataPosition(testing::ContainerEq(reservationMetadataList), _))
+		.WillOnce(Return(true));
+
+	EXPECT_CALL(*g_mockAampTsbMetaDataManager,
+		ChangeMetaDataPosition(testing::ContainerEq(placementMetadataList), _))
 		.WillOnce(Return(true));
 
 	// Test the shift operation

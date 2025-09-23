@@ -378,7 +378,8 @@ private:
 	double mStoreEndPosition; 		/**< Last reported TSB Store end position*/
 	double mLiveEndPosition;		/**< Last reported Live end position*/
 	AampTime  mCurrentWritePosition; /**< The last fragment position written to the TSB */
-	std::shared_ptr<AampTsbMetaData> mLastAdMetaDataProcessed; /**< Last ad metadata processed */
+	std::shared_ptr<AampTsbMetaData> mLastAdReservationMetaDataProcessed; /**< Last ad reservation metadata processed */
+	std::shared_ptr<AampTsbMetaData> mLastAdPlacementMetaDataProcessed; /**< Last ad placement metadata processed */
 public:
 	PrivateInstanceAAMP *mAamp; /**< AAMP player's private instance */
 	std::shared_ptr<IsoBmffHelper> mIsoBmffHelper; /**< ISO BMFF helper object */
