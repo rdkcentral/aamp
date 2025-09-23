@@ -41,8 +41,8 @@ class InterfacePlayerPriv;
 
 struct MonitorAVState
 {
-	long long tLastReported;
-	long long tLastSampled;
+	int64_t tLastReported;
+	int64_t tLastSampled;
 	const char *description;
 	signed long av_position[2];
 	bool happy;
