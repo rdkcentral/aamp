@@ -88,9 +88,9 @@ PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink
 		}
 
 		//TR181 is not supported in firebolt
-		PlayerExternalsInterface::SetUseFireBoltSDK(gpGlobalConfig->IsConfigSet(eAAMPConfig_UseFireboltSDK));
 		std::shared_ptr<PlayerExternalsInterface> pExternalsInterface = PlayerExternalsInterface::GetPlayerExternalsInterfaceInstance();
-		PlayerExternalsInterface::Initialize();	
+		pExternalsInterface->SetUseFireBoltSDK(gpGlobalConfig->IsConfigSet(eAAMPConfig_UseFireboltSDK));
+		pExternalsInterface->Initialize();	
 		
 		gpGlobalConfig->ReadOperatorConfiguration();
 		gpGlobalConfig->ShowDevCfgConfiguration();

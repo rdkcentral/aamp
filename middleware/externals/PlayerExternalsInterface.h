@@ -135,7 +135,7 @@ public:
      */
     PlayerExternalsInterface& operator=(const PlayerExternalsInterface&) = delete;
 
-    static void Initialize();	 
+    void Initialize();	 
 	 
 
     char * GetTR181PlayerConfig(const char * paramName, size_t & iConfigLen);    
@@ -193,7 +193,7 @@ public:
     bool IsConfigWifiCurlHeader();
 
 
-    static void SetUseFireBoltSDK(bool t_use_firebolt_sdk);
+    void SetUseFireBoltSDK(bool t_use_firebolt_sdk);
 
 };
 
