@@ -102,7 +102,7 @@ void PlayerExternalsRdkInterface::Initialize()
     
     if(m_pDeviceInterfaceBase)
     {
-        delete m_pDeviceInterfaceBase;
+        m_pDeviceInterfaceBase = nullptr;
     }
     //remove-start
     if(m_use_firebolt_sdk)
