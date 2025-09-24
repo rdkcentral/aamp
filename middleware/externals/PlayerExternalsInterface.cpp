@@ -72,9 +72,11 @@ void PlayerExternalsInterface::Initialize()
 {
     if(s_pPlayerOP == NULL)
     {
-#ifdef IARM_MGR
-        PlayerExternalsRdkInterface::Initialize();
-#endif
+        if(!IsContainerEnvironment())
+        {
+            m_pIarmInterface->Initialize();
+        }
+
     }
 }
 
@@ -169,7 +171,8 @@ bool PlayerExternalsInterface::IsConfigWifiCurlHeader()
 
 void PlayerExternalsInterface::SetUseFireBoltSDK(bool t_use_firebolt_sdk)
 {
-#ifdef IARM_MGR
-    PlayerExternalsRdkInterface::SetUseFireboltSDK(t_use_firebolt_sdk);
-#endif
+    if(!IsContainerEnvironment())
+    {
+        m_pIarmInterface->SetUseFireBoltSDK(t_use_firebolt_sdk);
+    }
 }

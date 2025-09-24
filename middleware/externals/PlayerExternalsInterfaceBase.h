@@ -54,6 +54,7 @@ class PlayerExternalsInterfaceBase
 
         PlayerExternalsInterfaceBase():m_sourceWidth(0),m_sourceHeight(0),m_gstElement(nullptr){}
 
+        virtual void Initialize() = 0;
         /**
         * @fn IsSourceUHD
         * @brief Finds out if source is of UHD resolution 
@@ -134,6 +135,8 @@ class PlayerExternalsInterfaceBase
         virtual bool GetActiveInterface(){return false;}
 
         virtual ~PlayerExternalsInterfaceBase(){}
+
+        virtual void SetUseFireBoltSDK(bool t_use_firebolt_sdk) = 0; 
 
 };
 

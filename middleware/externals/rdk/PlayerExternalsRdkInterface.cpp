@@ -60,8 +60,6 @@ PlayerExternalsRdkInterface::PlayerExternalsRdkInterface()
 void PlayerExternalsRdkInterface::Initialize()
 {
 
-    PlayerExternalsRdkInterface::InitState m_initialized = PlayerExternalsRdkInterface::GetPlayerExternalsRdkInterfaceInstance()->getInitState();
-
     /*
     IARM Deprecation Note:
     IARM is to be deprecated in favor of DeviceSettings and Firebolt Device API.

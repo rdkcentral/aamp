@@ -50,6 +50,8 @@ class FakePlayerExternalsInterface : public PlayerExternalsInterfaceBase
     public:
         FakePlayerExternalsInterface(){SetHDMIStatus();}
 
+        void Initialize() override {}
+
         /**
          * @fn GetDisplayResolution
          * @brief Get current resolution's display width and height
@@ -89,6 +91,8 @@ class FakePlayerExternalsInterface : public PlayerExternalsInterfaceBase
          * @return True if wifi. False, if not.
          */
         bool GetActiveInterface()override{return false;}
+
+        void SetUseFireBoltSDK(bool t_use_firebolt_sdk) override {}
         
         ~FakePlayerExternalsInterface(){}
 };

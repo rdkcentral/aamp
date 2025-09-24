@@ -85,7 +85,7 @@ class PlayerExternalsRdkInterface : public PlayerExternalsInterfaceBase
 
     public:
 
-        static void Initialize();
+        void Initialize() override;
 
         /**
          * @fn GetDisplayResolution
@@ -146,7 +146,7 @@ class PlayerExternalsRdkInterface : public PlayerExternalsInterfaceBase
 
         void setHdcpProtocol(dsHdcpProtocolVersion_t t_protocol);
 
-        static void SetUseFireboltSDK(bool t_use_firebolt_sdk);
+        void SetUseFireboltSDK(bool t_use_firebolt_sdk) override;
 
         InitState getInitState();
 
