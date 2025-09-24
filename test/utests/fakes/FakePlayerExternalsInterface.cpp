@@ -113,3 +113,10 @@ bool PlayerExternalsInterface::IsConfigWifiCurlHeader()
 void PlayerExternalsInterface::Initialize()
 {
 }
+
+/*
+ * @brief SetUseFireBoltSDK
+ */
+void PlayerExternalsInterface::SetUseFireBoltSDK(bool t_use_firebolt_sdk)
+{
+}
