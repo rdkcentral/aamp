@@ -166,3 +166,10 @@ bool PlayerExternalsInterface::IsConfigWifiCurlHeader()
 #endif
     return bRet;
 }
+
+void PlayerExternalsInterface::SetUseFireBoltSDK(bool t_use_firebolt_sdk)
+{
+#ifdef IARM_MGR
+    PlayerExternalsRdkInterface::SetUseFireboltSDK(t_use_firebolt_sdk);
+#endif
+}

@@ -61,6 +61,12 @@ class DeviceInterfaceBase;
 class PlayerExternalsRdkInterface : public PlayerExternalsInterfaceBase
 {
     
+        enum InitState{
+            NOT_INITIALIZED,
+            FIREBOLT,
+            IARM
+        };
+
         dsHdcpProtocolVersion_t m_hdcpCurrentProtocol = dsHDCP_VERSION_1X;
 
         //replace-start
@@ -68,6 +74,10 @@ class PlayerExternalsRdkInterface : public PlayerExternalsInterfaceBase
         //replace-with
         //std::shared_ptr<DeviceFireboltInterface> m_pDeviceInterfaceBase = nullptr;
         //replace-end
+
+        bool m_use_firebolt_sdk = false;
+
+        InitState m_initialized = NOT_INITIALIZED;
 
         PlayerExternalsRdkInterface();
 
@@ -133,6 +143,8 @@ class PlayerExternalsRdkInterface : public PlayerExternalsInterfaceBase
         std::shared_ptr<DeviceInterfaceBase> GetDeviceInterface();
 
         void setHdcpProtocol(dsHdcpProtocolVersion_t t_protocol);
+
+        static void SetUseFireboltSDK(bool t_use_firebolt_sdk);
 
         ~PlayerExternalsRdkInterface();
 };

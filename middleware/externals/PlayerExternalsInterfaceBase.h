@@ -47,7 +47,6 @@ class PlayerExternalsInterfaceBase
         int m_sourceWidth;
         int m_sourceHeight;
 
-
         GstElement* m_gstElement;
         
         

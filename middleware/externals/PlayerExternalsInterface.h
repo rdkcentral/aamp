@@ -188,6 +188,9 @@ public:
      */
     bool IsConfigWifiCurlHeader();
 
+
+    static void SetUseFireBoltSDK(bool t_use_firebolt_sdk);
+
 };
 
 #endif // PlayerExternalsInterface_h

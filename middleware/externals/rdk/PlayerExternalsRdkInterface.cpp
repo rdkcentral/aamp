@@ -54,31 +54,7 @@ std::shared_ptr<PlayerExternalsRdkInterface> PlayerExternalsRdkInterface::GetPla
 
 PlayerExternalsRdkInterface::PlayerExternalsRdkInterface()
 {
-    /*
-    IARM Deprecation Note:
-    IARM is to be deprecated in favor of DeviceSettings and Firebolt Device API.
-    */
-    /*
-    Remove the section between the comment section remove-start and remove-end when depricating IARM
-    */
-
-    //remove-start
-#ifdef USE_FIREBOLT_DEVICE_API
-    //remove-end
-    printf("[MIDDLEWARE] USE_FIREBOLT_DEVICE_API \n");
-    fflush(stdout);
-    m_pDeviceInterfaceBase = DeviceFireboltInterface::GetInstance();
-    //remove-start
-#else
-    printf("[MIDDLEWARE] not using IARM not firebolt \n");
-    fflush(stdout);
-    m_pDeviceInterfaceBase = DeviceIARMInterface::GetInstance();
-#endif
-    //remove-end
-
-    // Get initial HDCP status
-    SetHDMIStatus();
-
+    
 }
 
 void PlayerExternalsRdkInterface::Initialize()
@@ -93,14 +69,63 @@ void PlayerExternalsRdkInterface::Initialize()
     */
     
     //remove-start
-#ifdef USE_FIREBOLT_DEVICE_API
+    //initialize only if needed
+    if(m_initialized != InitState::NOT_INITIALIZED)
+    {
+        if(m_initialized == InitState::FIREBOLT && m_use_firebolt_sdk)
+        {
+            printf("[MIDDLEWARE] PlayerExternalsRdkInterface Firebolt already Inited \n");
+            fflush(stdout);
+            //firebolt already inited
+            return;
+        }
+        else if(m_initialized == InitState::IARM && (!m_use_firebolt_sdk))
+        {
+            printf("[MIDDLEWARE] PlayerExternalsRdkInterface IARM already Inited \n");
+            fflush(stdout);
+            //IARM already inited
+            return;
+        }
+        else
+        {
+            printf("[MIDDLEWARE] PlayerExternalsRdkInterface m_use_firebolt_sdk has changed init again \n");
+            fflush(stdout);
+            //m_use_firebolt_sdk has changed init again
+        }
+    }
+    else
+    {
+        printf("[MIDDLEWARE] PlayerExternalsRdkInterface Initializing \n");
+        fflush(stdout);
+    }
     //remove-end
-    DeviceFireboltInterface::Initialize();
-#else
+    
+    if(m_pDeviceInterfaceBase)
+    {
+        delete m_pDeviceInterfaceBase;
+    }
     //remove-start
-    DeviceIARMInterface::Initialize();
-#endif
+    if(m_use_firebolt_sdk)
+    {
     //remove-end
+        printf("[MIDDLEWARE] USE_FIREBOLT_DEVICE_API \n");
+        fflush(stdout);
+        m_pDeviceInterfaceBase = DeviceFireboltInterface::GetInstance();
+        DeviceFireboltInterface::Initialize();
+        m_initialized = PlayerExternalsRdkInterface::InitState::FIREBOLT;
+     //remove-start
+    }
+    else
+    {
+        printf("[MIDDLEWARE] using IARM \n");
+        fflush(stdout);
+        m_pDeviceInterfaceBase = DeviceIARMInterface::GetInstance();
+        DeviceIARMInterface::Initialize();
+        m_initialized = PlayerExternalsRdkInterface::InitState::IARM;
+    }
+    //remove-end
+
+    SetHDMIStatus();
 }
 
 PlayerExternalsRdkInterface::~PlayerExternalsRdkInterface()
@@ -252,4 +277,11 @@ void PlayerExternalsRdkInterface::SetActiveInterface(bool isWifi)
 char * PlayerExternalsRdkInterface::GetTR181Config(const char * paramName, size_t & iConfigLen)
 {
     return m_pDeviceInterfaceBase->GetTR181Config(paramName, iConfigLen);
+}
+
+void PlayerExternalsRdkInterface::SetUseFireboltSDK(bool t_use_firebolt_sdk)
+{
+    printf("[MIDDLEWARE] SetUseFireboltSDK : %d \n", t_use_firebolt_sdk);
+    fflush(stdout);
+    m_use_firebolt_sdk = t_use_firebolt_sdk;
 }

@@ -60,11 +60,8 @@ PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink
 	) : aamp(NULL), sp_aamp(nullptr), mJSBinding_DL(),mAsyncRunning(false),mConfig(),mAsyncTuneEnabled(false),mScheduler()
 {
 
-	//TR181 is not supported in firebolt
 	//Using printf here since AAMP logs can only use after creating the global object
-	std::shared_ptr<PlayerExternalsInterface> pExternalsInterface = PlayerExternalsInterface::GetPlayerExternalsInterfaceInstance();
-	PlayerExternalsInterface::Initialize();
-	
+		
 	// Create very first instance of Aamp Config to read the cfg & Operator file .This is needed for very first
 	// tune only . After that every tune will use the same config parameters
 	if(gpGlobalConfig == NULL)
@@ -86,9 +83,14 @@ PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink
 			if(!gpGlobalConfig->ReadAampCfgJsonFile())
 			{
 				gpGlobalConfig->ReadAampCfgFromEnv();
-			}
-			//Todo : use usefireboltsdk to decide device API interface
+			}			
+			
 		}
+
+		//TR181 is not supported in firebolt
+		PlayerExternalsInterface::SetUseFireBoltSDK(gpGlobalConfig->IsConfigSet(eAAMPConfig_UseFireboltSDK));
+		std::shared_ptr<PlayerExternalsInterface> pExternalsInterface = PlayerExternalsInterface::GetPlayerExternalsInterfaceInstance();
+		PlayerExternalsInterface::Initialize();	
 		
 		gpGlobalConfig->ReadOperatorConfiguration();
 		gpGlobalConfig->ShowDevCfgConfiguration();
