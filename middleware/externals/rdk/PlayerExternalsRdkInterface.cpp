@@ -284,7 +284,7 @@ char * PlayerExternalsRdkInterface::GetTR181Config(const char * paramName, size_
     return m_pDeviceInterfaceBase->GetTR181Config(paramName, iConfigLen);
 }
 
-void PlayerExternalsRdkInterface::SetUseFireboltSDK(bool t_use_firebolt_sdk)
+void PlayerExternalsRdkInterface::SetUseFireBoltSDK(bool t_use_firebolt_sdk)
 {
     printf("[MIDDLEWARE] SetUseFireboltSDK : %d \n", t_use_firebolt_sdk);
     fflush(stdout);

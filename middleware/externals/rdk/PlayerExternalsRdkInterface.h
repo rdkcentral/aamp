@@ -146,7 +146,7 @@ class PlayerExternalsRdkInterface : public PlayerExternalsInterfaceBase
 
         void setHdcpProtocol(dsHdcpProtocolVersion_t t_protocol);
 
-        void SetUseFireboltSDK(bool t_use_firebolt_sdk) override;
+        void SetUseFireBoltSDK(bool t_use_firebolt_sdk) override;
 
         InitState getInitState();
 
