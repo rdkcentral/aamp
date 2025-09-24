@@ -75,9 +75,11 @@ class PlayerExternalsRdkInterface : public PlayerExternalsInterfaceBase
         //std::shared_ptr<DeviceFireboltInterface> m_pDeviceInterfaceBase = nullptr;
         //replace-end
 
+        //remove-start
         bool m_use_firebolt_sdk = false;
 
         InitState m_initialized = NOT_INITIALIZED;
+        //remove-end
 
         PlayerExternalsRdkInterface();
 
@@ -145,6 +147,8 @@ class PlayerExternalsRdkInterface : public PlayerExternalsInterfaceBase
         void setHdcpProtocol(dsHdcpProtocolVersion_t t_protocol);
 
         static void SetUseFireboltSDK(bool t_use_firebolt_sdk);
+
+        InitState getInitState();
 
         ~PlayerExternalsRdkInterface();
 };

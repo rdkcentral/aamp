@@ -60,6 +60,8 @@ PlayerExternalsRdkInterface::PlayerExternalsRdkInterface()
 void PlayerExternalsRdkInterface::Initialize()
 {
 
+    PlayerExternalsRdkInterface::InitState m_initialized = PlayerExternalsRdkInterface::GetPlayerExternalsRdkInterfaceInstance()->getInitState();
+
     /*
     IARM Deprecation Note:
     IARM is to be deprecated in favor of DeviceSettings and Firebolt Device API.
@@ -112,8 +114,8 @@ void PlayerExternalsRdkInterface::Initialize()
         fflush(stdout);
         m_pDeviceInterfaceBase = DeviceFireboltInterface::GetInstance();
         DeviceFireboltInterface::Initialize();
+    //remove-start
         m_initialized = PlayerExternalsRdkInterface::InitState::FIREBOLT;
-     //remove-start
     }
     else
     {
@@ -126,6 +128,11 @@ void PlayerExternalsRdkInterface::Initialize()
     //remove-end
 
     SetHDMIStatus();
+}
+
+InitState PlayerExternalsRdkInterface::getInitState()
+{
+    return m_initialized;
 }
 
 PlayerExternalsRdkInterface::~PlayerExternalsRdkInterface()
