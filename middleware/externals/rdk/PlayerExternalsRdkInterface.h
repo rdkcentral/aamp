@@ -77,7 +77,7 @@ class PlayerExternalsRdkInterface : public PlayerExternalsInterfaceBase
         //remove-start
         bool m_use_firebolt_sdk = false;
 
-        PlayerExternalsRdkInterface::InitState m_initialized = NOT_INITIALIZED;
+        InitState m_initialized = NOT_INITIALIZED;
         //remove-end
 
         PlayerExternalsRdkInterface();
