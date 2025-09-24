@@ -115,8 +115,7 @@ public:
 	 * @param[in] trackType - track type (A/V)
 	 * @param[in] peerBmffProcessor - peer instance of IsoBmffProcessor
 	 */
-	// IsoBmffProcessor(class PrivateInstanceAAMP *aamp, IsoBmffProcessorType trackType = eBMFFPROCESSOR_TYPE_VIDEO, IsoBmffProcessor* peerBmffProcessor = NULL, MediaProcessor* peerSubProcessor = NULL);
-	IsoBmffProcessor(class PrivateInstanceAAMP *aamp, id3_callback_t id3_hdl, IsoBmffProcessorType trackType = eBMFFPROCESSOR_TYPE_VIDEO,
+	IsoBmffProcessor(class PrivateInstanceAAMP *aamp, id3_callback_t id3_hdl, IsoBmffProcessorType trackType = eBMFFPROCESSOR_TYPE_VIDEO, bool passThrough = false,
 		IsoBmffProcessor* peerBmffProcessor = NULL, IsoBmffProcessor* peerSubProcessor = NULL);
 
 	/**
@@ -292,6 +291,11 @@ public:
 	* @brief Initialize the processor to advance to restamp phase directly
 	*/
 	void initProcessorForRestamp();
+	/*
+	 * @brief getPassThroughMode
+	 * @return true if pass through mode, false otherwise
+	 */
+	bool getPassThroughMode() { return passThroughMode; }
 
 private:
 
@@ -478,6 +482,13 @@ private:
 	 * @return void
 	 */
 	void resetInternal();
+	/*
+	 * @fn updatePTSAndTimeScaleFromBuffer
+	 *
+	 * @param[in] pBuffer - Pointer to the AampGrowableBuffer
+	 * @return true if PTS and time scale read successfully, false otherwise
+	 */
+	bool updatePTSAndTimeScaleFromBuffer(AampGrowableBuffer *pBuffer);
 
 	PrivateInstanceAAMP *p_aamp;
 	timeScaleChangeStateType timeScaleChangeState;
@@ -509,6 +520,7 @@ private:
 	bool aborted; // flag to indicate if the module is active
 	bool enabled;
 	bool ptsDiscontinuity;
+	bool passThroughMode; // flag to indicate if the processor is in pass through mode
 
 	std::vector<AampGrowableBuffer *> initSegment;
 	std::vector<stInitRestampSegment *> resetPTSInitSegment;
