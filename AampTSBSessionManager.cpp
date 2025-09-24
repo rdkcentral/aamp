@@ -778,34 +778,94 @@ AAMPStatusType AampTSBSessionManager::InvokeTsbReaders(double &startPosSec, floa
 }
 
 /**
+ * @brief Calculate delta value for fragment skipping based on rate and FPS
+ */
+AampTime AampTSBSessionManager::CalculateSkipDelta(float rate, int vodTrickplayFPS)
+{
+	AampTime delta = 0.0;
+
+	if (mAamp->playerStartedWithTrickPlay)
+	{
+		AAMPLOG_WARN("Played switched in trickplay, delta set to zero");
+		mAamp->playerStartedWithTrickPlay = false;
+		delta = 0.0;
+	}
+	else if (vodTrickplayFPS == 0)
+	{
+		AAMPLOG_WARN("vodTrickplayFPS is zero, delta set to zero");
+		delta = 0.0;
+	}
+	else
+	{
+		delta = static_cast<AampTime>(std::abs(static_cast<double>(rate))) / static_cast<double>(vodTrickplayFPS);
+	}
+
+	return delta;
+}
+
+/**
+ * @brief Navigate to next fragment based on playback rate
+ */
+bool AampTSBSessionManager::NavigateToNextFragment(TsbFragmentDataPtr& fragment, float rate)
+{
+	bool success = false;
+
+	if (rate > AAMP_RATE_PAUSE)		// Fast forward
+	{
+		if (fragment->GetAbsolutePosition().inSeconds() >= mAamp->mTrickModePositionEOS)
+		{
+			AAMPLOG_INFO("Reached live play position during fast forward");
+			success = false;
+		}
+		else
+		{
+			fragment = fragment->next;
+			success = true;
+		}
+	}
+	else							// Rewind
+	{
+		if (fragment->prev)
+		{
+			fragment = fragment->prev;
+			success = true;
+		}
+		else
+		{
+			// Don't skip the first fragment in the TSB so BoS is detected correctly
+			AAMPLOG_INFO("Reached beginning of TSB during rewind");
+			success = false;
+		}
+	}
+
+	return success;
+}
+
+/**
+ * @brief Check if fragment skipping should be performed
+ */
+bool AampTSBSessionManager::ShouldSkipFragments(std::shared_ptr<AampTsbReader>& reader, float rate)
+{
+	return (eMEDIATYPE_VIDEO == reader->GetMediaType() &&
+			((AAMP_NORMAL_PLAY_RATE < rate) || (AAMP_RATE_PAUSE > rate)));
+}
+
+/**
  * @brief Skip the frames based on playback rate on trickplay
  */
 void AampTSBSessionManager::SkipFragment(std::shared_ptr<AampTsbReader>& reader, TsbFragmentDataPtr& nextFragmentData)
 {
+	// Early validation check
 	if (nextFragmentData && reader && !reader->IsEos())
 	{
 		float rate = reader->GetPlaybackRate();
-		// Skip fragments only for video track and for trickplay rates
-		if (eMEDIATYPE_VIDEO == reader->GetMediaType() &&
-			((AAMP_NORMAL_PLAY_RATE < rate) || (AAMP_RATE_PAUSE > rate)))
+
+		if (ShouldSkipFragments(reader, rate))
 		{
 			AampTime startPos = nextFragmentData->GetAbsolutePosition();
 			const int vodTrickplayFPS = mAamp->mConfig->GetConfigValue(eAAMPConfig_VODTrickPlayFPS);
 			AampTime skippedDuration{};
-			AampTime delta = 0.0;
-			if(mAamp->playerStartedWithTrickPlay)
-			{
-				AAMPLOG_WARN("Played switched in trickplay, delta set to zero");
-				mAamp->playerStartedWithTrickPlay = false;
-			}
-			else if (vodTrickplayFPS == 0)
-			{
-				AAMPLOG_WARN("vodTrickplayFPS is zero, delta set to zero");
-			}
-			else
-			{
-				delta = static_cast<AampTime>(std::abs(static_cast<double>(rate))) / static_cast<double>(vodTrickplayFPS);
-			}
+			AampTime delta = CalculateSkipDelta(rate, vodTrickplayFPS);
 
 			// Only skip fragments when delta is larger than fragment duration
 			while (nextFragmentData && (delta > 0.0))
@@ -815,37 +875,16 @@ void AampTSBSessionManager::SkipFragment(std::shared_ptr<AampTsbReader>& reader,
 				{
 					break;
 				}
-				else
+
+				delta -= fragDuration;
+				skippedDuration += fragDuration;
+
+				if (!NavigateToNextFragment(nextFragmentData, rate))
 				{
-					delta -= fragDuration;
-					skippedDuration += fragDuration;
-					if (rate > AAMP_RATE_PAUSE)		// Fast forward
-					{
-						if (nextFragmentData->GetAbsolutePosition().inSeconds() >= mAamp->mTrickModePositionEOS)
-						{
-							AAMPLOG_INFO("Reached live play position during fast forward");
-							break;
-						}
-						else
-						{
-							nextFragmentData = nextFragmentData->next;
-						}
-					}
-					else							// Rewind
-					{
-						if (nextFragmentData->prev)
-						{
-							nextFragmentData = nextFragmentData->prev;
-						}
-						else
-						{
-							// Don't skip the first fragment in the TSB so BoS is detected correctly
-							AAMPLOG_INFO("Reached beginning of TSB during rewind");
-							break;
-						}
-					}
+					break;
 				}
 			}
+
 			// Only print this INFO if the next fragment to inject is available.
 			// This function is always called with the next fragment to the last one read, so the skipped duration includes all fragments skipped
 			if (nextFragmentData)
