@@ -47,7 +47,6 @@ AampGrowableBuffer::~AampGrowableBuffer( void )
  */
 void AampGrowableBuffer::Free( void )
 {
-	std::lock_guard<std::mutex> lock(mutex);
 	if( ptr )
 	{
 		NETMEMORY_MINUS();
@@ -64,7 +63,6 @@ void AampGrowableBuffer::Free( void )
 
 void AampGrowableBuffer::ReserveBytes( size_t numBytes )
 {
-	std::lock_guard<std::mutex> lock(mutex);
 	assert( ptr==NULL && avail == 0 );
 	ptr = (char *)g_malloc( numBytes );
 	if( ptr )
@@ -80,40 +78,37 @@ void AampGrowableBuffer::ReserveBytes( size_t numBytes )
 
 void AampGrowableBuffer::AppendBytes( const void *srcPtr, size_t srcLen )
 {
-	{
-		std::lock_guard<std::mutex> lock(mutex);
-		size_t required = len + srcLen;
-		if( avail < required )
-		{ // more memory needed - grow
-			size_t numBytes = avail*2; // first try doubling size of existing reserved memory
-			if( numBytes < required )
-			{ // if still not enough, reallocate based on required
-				numBytes = required*2;
-			}
-			gpointer mem = g_realloc(ptr, numBytes );
-			if( mem )
-			{
-				if( !ptr )
-				{ // first allocation
-					NETMEMORY_PLUS();
-					if( gbEnableLogging )
-					{
-						printf("AampGrowableBuffer::%s(%s:%d)\n", "AppendBytes",name,gNetMemoryCount);
-					}
-				}
-				ptr = mem;
-				avail = numBytes;
-			}
-			else if (numBytes != 0)
-			{
-				AAMPLOG_ERR("Memory re-allocation failed!! Requested numBytes: %zu", numBytes);
-			}
+	size_t required = len + srcLen;
+	if( avail < required )
+	{ // more memory needed - grow
+		size_t numBytes = avail*2; // first try doubling size of existing reserved memory
+		if( numBytes < required )
+		{ // if still not enough, reallocate based on required
+			numBytes = required*2;
 		}
-		if( ptr )
+		gpointer mem = g_realloc(ptr, numBytes );
+		if( mem )
 		{
-			memcpy( len + (char *)ptr, srcPtr, srcLen);
-			len = required;
+			if( !ptr )
+			{ // first allocation
+				NETMEMORY_PLUS();
+				if( gbEnableLogging )
+				{
+					printf("AampGrowableBuffer::%s(%s:%d)\n", "AppendBytes",name,gNetMemoryCount);
+				}
+			}
+			ptr = mem;
+			avail = numBytes;
 		}
+		else if (numBytes != 0)
+		{
+			AAMPLOG_ERR("Memory re-allocation failed!! Requested numBytes: %zu", numBytes);
+		}
+	}
+	if( ptr )
+	{
+		memcpy( len + (char *)ptr, srcPtr, srcLen);
+		len = required;
 	}
 }
 
@@ -124,7 +119,6 @@ void AampGrowableBuffer::AppendBytes( const void *srcPtr, size_t srcLen )
  */
 void AampGrowableBuffer::MoveBytes( const void *srcPtr, size_t srcLen )
 { // this API assumes AampGrowableBuffer is already big enough to fit
-	std::lock_guard<std::mutex> lock(mutex);
 	assert( ptr && srcPtr && avail >= srcLen );
 	memmove( ptr, srcPtr, srcLen );
 	len = srcLen;
@@ -144,7 +138,6 @@ void AampGrowableBuffer::Clear( void )
  */
 void AampGrowableBuffer::Replace( AampGrowableBuffer *src )
 {
-	std::lock_guard<std::mutex> lock(mutex);
 	assert( ptr == NULL ); // only replace if empty!
 	ptr = src->GetPtr();
 	len = src->GetLen();
@@ -160,7 +153,6 @@ void AampGrowableBuffer::Replace( AampGrowableBuffer *src )
  */
 void AampGrowableBuffer::Transfer( void )
 {
-	std::lock_guard<std::mutex> lock(mutex);
 	assert( ptr );
 	if( ptr )
 	{
