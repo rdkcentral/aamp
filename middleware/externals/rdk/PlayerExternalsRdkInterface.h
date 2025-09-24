@@ -60,6 +60,11 @@ class DeviceInterfaceBase;
 //class representing IARM interface in rdk
 class PlayerExternalsRdkInterface : public PlayerExternalsInterfaceBase
 {
+        enum InitState{
+            NOT_INITIALIZED,
+            FIREBOLT,
+            IARM
+        }
     
         dsHdcpProtocolVersion_t m_hdcpCurrentProtocol = dsHDCP_VERSION_1X;
 
@@ -72,7 +77,7 @@ class PlayerExternalsRdkInterface : public PlayerExternalsInterfaceBase
         //remove-start
         bool m_use_firebolt_sdk = false;
 
-        InitState m_initialized = NOT_INITIALIZED;
+        PlayerExternalsRdkInterface::InitState m_initialized = NOT_INITIALIZED;
         //remove-end
 
         PlayerExternalsRdkInterface();
