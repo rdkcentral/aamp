@@ -61,12 +61,6 @@ class DeviceInterfaceBase;
 class PlayerExternalsRdkInterface : public PlayerExternalsInterfaceBase
 {
     
-        enum InitState{
-            NOT_INITIALIZED,
-            FIREBOLT,
-            IARM
-        };
-
         dsHdcpProtocolVersion_t m_hdcpCurrentProtocol = dsHDCP_VERSION_1X;
 
         //replace-start
@@ -147,8 +141,6 @@ class PlayerExternalsRdkInterface : public PlayerExternalsInterfaceBase
         void setHdcpProtocol(dsHdcpProtocolVersion_t t_protocol);
 
         void SetUseFireBoltSDK(bool t_use_firebolt_sdk) override;
-
-        InitState getInitState();
 
         ~PlayerExternalsRdkInterface();
 };

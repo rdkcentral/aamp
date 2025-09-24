@@ -128,11 +128,6 @@ void PlayerExternalsRdkInterface::Initialize()
     SetHDMIStatus();
 }
 
-InitState PlayerExternalsRdkInterface::getInitState()
-{
-    return m_initialized;
-}
-
 PlayerExternalsRdkInterface::~PlayerExternalsRdkInterface()
 {
     m_pDeviceInterfaceBase = nullptr;
