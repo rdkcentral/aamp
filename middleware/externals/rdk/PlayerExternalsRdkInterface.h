@@ -64,7 +64,7 @@ class PlayerExternalsRdkInterface : public PlayerExternalsInterfaceBase
             NOT_INITIALIZED,
             FIREBOLT,
             IARM
-        }
+        };
     
         dsHdcpProtocolVersion_t m_hdcpCurrentProtocol = dsHDCP_VERSION_1X;
 
