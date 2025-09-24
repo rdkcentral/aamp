@@ -47,7 +47,7 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/playerJsonObject)
 
 set(LIBPLAYERGSTINTERFACE_DEPENDS ${OS_LD_FLAGS} ${UUID_LINK_LIBRARIES} ${LIBCJSON_LINK_LIBRARIES} ${GSTREAMERBASE_LINK_LIBRARIES} ${GSTREAMER_LINK_LIBRARIES} ${CURL_LINK_LIBRARIES} ${LIBDASH_LINK_LIBRARIES} ${LibXml2_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT} ${OPENSSL_LIBRARIES} ${OPENGL_LIBRARIES} ${GLEW_LIBRARIES} -ldl)
 
-#shoud be made part of PLAYERGSTINTERFACE cmakelist
+#shoud be made part of PLAYERGSTINTERFACE cmakelists
 add_subdirectory(baseConversion)
 add_subdirectory(playerLogManager)
 add_subdirectory(playerJsonObject)
