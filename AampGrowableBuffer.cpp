@@ -53,7 +53,7 @@ void AampGrowableBuffer::Free( void )
 		NETMEMORY_MINUS();
         //if( gbEnableLogging )
         {
-            printf("AampGrowableBuffer::%p\n Freed, len %d, avail %d", ptr, len, avail);
+            printf("AampGrowableBuffer::Free %p\n", ptr);
         }
 		g_free(ptr);
 		ptr = NULL;
@@ -72,7 +72,7 @@ void AampGrowableBuffer::ReserveBytes( size_t numBytes )
 		NETMEMORY_PLUS();
 		//if( gbEnableLogging )
 		{
-			printf("AampGrowableBuffer::%p\n Reserved, numBytes %d", ptr, numBytes);
+			printf("AampGrowableBuffer::ReserveBytes %p\n", ptr);
 		}
 		avail = numBytes;
 	}
@@ -90,16 +90,18 @@ void AampGrowableBuffer::AppendBytes( const void *srcPtr, size_t srcLen )
 			{ // if still not enough, reallocate based on required
 				numBytes = required*2;
 			}
-			gpointer mem = g_realloc(ptr, numBytes );
+			printf("AampGrowableBuffer::AppendBytes before %p\n", ptr);
+			void *mem = g_realloc(ptr, numBytes );
+			//if( gbEnableLogging )
+			{
+				printf("AampGrowableBuffer::AppendBytes after %p\n", mem);
+			}
+
 			if( mem )
 			{
 				if( !ptr )
 				{ // first allocation
 					NETMEMORY_PLUS();
-					//if( gbEnableLogging )
-					{
-						printf("AampGrowableBuffer::AppendBytes %p with %p", ptr, mem);
-					}
 				}
 				ptr = mem;
 				avail = numBytes;
@@ -167,7 +169,7 @@ void AampGrowableBuffer::Transfer( void )
 		NETMEMORY_MINUS();
 		//if( gbEnableLogging )
 		{
-			printf("AampGrowableBuffer::Transfer %p\n, len %d, avail %d", ptr, len, avail);
+			printf("AampGrowableBuffer::Transfer %p\n", ptr);
 		}
 	}
 	ptr = NULL;

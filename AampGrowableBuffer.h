@@ -130,7 +130,7 @@ private:
 		}
 		else
 		{
-			printf("gNetMemoryCount is already 0");
+			printf("gNetMemoryCount is already 0\n");
 		}
 		assert( gNetMemoryCount >= 0 );
 	}
