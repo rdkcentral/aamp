@@ -171,7 +171,8 @@ TEST_F(AampTsbSessionManagerTests, ReadInitFragmentFailure)
 
 	mAampTSBSessionManager->GetTsbReader(eMEDIATYPE_VIDEO)->mTrackEnabled = true;
 
-	EXPECT_CALL(*g_mockTSBReader, GetPlaybackRate()).WillOnce(Return(AAMP_NORMAL_PLAY_RATE));
+	EXPECT_CALL(*g_mockTSBReader, GetPlaybackRate()).WillRepeatedly(Return(AAMP_NORMAL_PLAY_RATE));
+	EXPECT_CALL(*g_mockTSBReader, IsEos()).WillRepeatedly(Return(false));
 
 	EXPECT_CALL(*g_mockTSBReader, FindNext()).WillOnce(Return(mockFragmentData));
 
@@ -209,7 +210,7 @@ TEST_F(AampTsbSessionManagerTests, SameInitFragment)
 	// Last init fragment data is set to the same value as the init fragment data for mockFragmentData
 	mAampTSBSessionManager->GetTsbReader(eMEDIATYPE_VIDEO)->mLastInitFragmentData = mockInitData;
 
-	EXPECT_CALL(*g_mockTSBReader, GetPlaybackRate()).WillOnce(Return(AAMP_NORMAL_PLAY_RATE));
+	EXPECT_CALL(*g_mockTSBReader, GetPlaybackRate()).WillRepeatedly(Return(AAMP_NORMAL_PLAY_RATE));
 	EXPECT_CALL(*g_mockTSBReader, IsEos()).WillRepeatedly(Return(false));
 
 	EXPECT_CALL(*g_mockTSBReader, FindNext()).WillOnce(Return(mockFragmentData));
@@ -249,7 +250,7 @@ TEST_F(AampTsbSessionManagerTests, FirstDownload_Success)
 
 	mAampTSBSessionManager->GetTsbReader(eMEDIATYPE_VIDEO)->mTrackEnabled = true;
 
-	EXPECT_CALL(*g_mockTSBReader, GetPlaybackRate()).WillOnce(Return(AAMP_NORMAL_PLAY_RATE));
+	EXPECT_CALL(*g_mockTSBReader, GetPlaybackRate()).WillRepeatedly(Return(AAMP_NORMAL_PLAY_RATE));
 	EXPECT_CALL(*g_mockTSBReader, IsEos()).WillRepeatedly(Return(false));
 
 	EXPECT_CALL(*g_mockTSBReader, FindNext()).WillOnce(Return(mockFragmentData));
@@ -334,11 +335,7 @@ TEST_F(AampTsbSessionManagerTests, SkipFragments)
 
 	EXPECT_CALL(*g_mockAampConfig, GetConfigValue(eAAMPConfig_VODTrickPlayFPS)).WillRepeatedly(Return(4));
 
-	// Force SkipFragment to be called
 	EXPECT_CALL(*g_mockTSBReader, GetPlaybackRate()).WillRepeatedly(Return(30.0));
-
-	EXPECT_CALL(*g_mockTSBReader, GetPlaybackRate()).WillOnce(Return(AAMP_NORMAL_PLAY_RATE));
-
 	EXPECT_CALL(*g_mockTSBReader, IsEos()).WillRepeatedly(Return(false));
 
 	EXPECT_CALL(*g_mockTSBReader, FindNext()).WillRepeatedly([=]() mutable {

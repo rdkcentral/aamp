@@ -784,17 +784,18 @@ void AampTSBSessionManager::SkipFragment(std::shared_ptr<AampTsbReader>& reader,
 {
 	if (nextFragmentData && reader && !reader->IsEos())
 	{
-		AampTime skippedDuration{};
-		if(eMEDIATYPE_VIDEO == reader->GetMediaType())
+		float rate = reader->GetPlaybackRate();
+		// Skip fragments only for video track and for trickplay rates
+		if (eMEDIATYPE_VIDEO == reader->GetMediaType() &&
+			((AAMP_NORMAL_PLAY_RATE < rate) || (AAMP_RATE_PAUSE > rate)))
 		{
 			AampTime startPos = nextFragmentData->GetAbsolutePosition();
 			const int vodTrickplayFPS = mAamp->mConfig->GetConfigValue(eAAMPConfig_VODTrickPlayFPS);
-			float rate = reader->GetPlaybackRate();
+			AampTime skippedDuration{};
 			AampTime delta = 0.0;
 			if(mAamp->playerStartedWithTrickPlay)
 			{
 				AAMPLOG_WARN("Played switched in trickplay, delta set to zero");
-				delta = 0.0;
 				mAamp->playerStartedWithTrickPlay = false;
 			}
 			else if (vodTrickplayFPS == 0)
@@ -805,30 +806,32 @@ void AampTSBSessionManager::SkipFragment(std::shared_ptr<AampTsbReader>& reader,
 			{
 				delta = static_cast<AampTime>(std::abs(static_cast<double>(rate))) / static_cast<double>(vodTrickplayFPS);
 			}
-			
-			bool skipFragments = true;
+
 			// Only skip fragments when delta is larger than fragment duration
-			while (nextFragmentData && (delta > AAMP_RATE_PAUSE) && skipFragments)
+			while (nextFragmentData && (delta > 0.0))
 			{
 				AampTime fragDuration = nextFragmentData->GetDuration();
 				if (delta <= fragDuration)
 				{
-					skipFragments = false;
+					break;
 				}
 				else
 				{
 					delta -= fragDuration;
 					skippedDuration += fragDuration;
-					if ((rate > AAMP_NORMAL_PLAY_RATE) && (nextFragmentData->GetAbsolutePosition().inSeconds() >= mAamp->mTrickModePositionEOS))
+					if (rate > AAMP_RATE_PAUSE)		// Fast forward
 					{
-						AAMPLOG_INFO("Reached live play position during fast forward");
-						skipFragments = false;
+						if (nextFragmentData->GetAbsolutePosition().inSeconds() >= mAamp->mTrickModePositionEOS)
+						{
+							AAMPLOG_INFO("Reached live play position during fast forward");
+							break;
+						}
+						else
+						{
+							nextFragmentData = nextFragmentData->next;
+						}
 					}
-					else if (rate > AAMP_RATE_PAUSE)
-					{
-						nextFragmentData = nextFragmentData->next;
-					}
-					else if (rate < AAMP_RATE_PAUSE)
+					else							// Rewind
 					{
 						if (nextFragmentData->prev)
 						{
@@ -836,13 +839,15 @@ void AampTSBSessionManager::SkipFragment(std::shared_ptr<AampTsbReader>& reader,
 						}
 						else
 						{
+							// Don't skip the first fragment in the TSB so BoS is detected correctly
 							AAMPLOG_INFO("Reached beginning of TSB during rewind");
-							skipFragments = false;
+							break;
 						}
 					}
 				}
 			}
-			// Only print this INFO if the next fragment to inject is available
+			// Only print this INFO if the next fragment to inject is available.
+			// This function is always called with the next fragment to the last one read, so the skipped duration includes all fragments skipped
 			if (nextFragmentData)
 			{
 				AAMPLOG_INFO("Skipped frames [rate=%.02f] from %.02lf to %.02lf delta = %.02lf, total duration = %.02lf",
@@ -875,11 +880,7 @@ bool AampTSBSessionManager::PushNextTsbFragment(MediaStreamContext *pMediaStream
 	{
 		TsbFragmentDataPtr nextFragmentData = reader->FindNext();
 		AampTime rate = reader->GetPlaybackRate();
-		// Slow motion is handled in GST layer with SetPlaybackRate
-		if(AAMP_NORMAL_PLAY_RATE !=  rate && AAMP_RATE_PAUSE != rate && AAMP_SLOWMOTION_RATE != rate && eMEDIATYPE_VIDEO == mediaType)
-		{
-			SkipFragment(reader, nextFragmentData);
-		}
+		SkipFragment(reader, nextFragmentData);
 
 		if (nextFragmentData)
 		{
