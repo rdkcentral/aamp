@@ -63,7 +63,7 @@ static void  registerCb(AampDRMLicenseManager* _this, DrmSessionManager* instanc
 			});
 
 	/** Content Protection Callback */
-	instance->RegisterHandleContentProtectionCb([_this](std::shared_ptr<DrmHelper> drmHelper, int streamType, std::vector<uint8_t> keyId, int contentProtectionUpd)->std::string    {
+	instance->RegisterHandleContentProtectionCb([_this](std::shared_ptr<DrmHelper> drmHelper, int streamType, std::vector<uint8_t> keyId, int contentProtectionUpd)->std::string{
 			return _this->HandleContentProtectionData(drmHelper, streamType, keyId, contentProtectionUpd);
 			});
 	/**  Register the profiler update callback for TriggerProfileBeginCb */
@@ -199,9 +199,10 @@ void AampDRMLicenseManager::renewLicense(std::shared_ptr<DrmHelper> drmHelper, v
 		}
 		try
 		{
-			mLicenseRenewalThreads[sessionSlot] = std::thread([this, drmHelper, sessionSlot, aampInstance] {
-					this->licenseRenewalThread(drmHelper, sessionSlot, aampInstance);
-					});
+			mLicenseRenewalThreads[sessionSlot] = std::thread([this, drmHelper, sessionSlot, aampInstance] 
+			{
+				this->licenseRenewalThread(drmHelper, sessionSlot, aampInstance);
+			});
 
 			AAMPLOG_INFO("Thread created for LicenseRenewal [%zx]", GetPrintableThreadID(mLicenseRenewalThreads[sessionSlot]));
 		}
