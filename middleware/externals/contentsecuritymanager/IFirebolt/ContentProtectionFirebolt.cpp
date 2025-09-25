@@ -440,7 +440,7 @@ bool ContentProtectionFirebolt::AcquireLicenseOpenOrUpdate( std::string clientId
 
 						MW_LOG_WARN("ContentProtection Parsed Status Code: %d, Reason: %d, Business Status: %d",
 								statusCode ? *statusCode : -1,
-								*reasonCode,
+								reasonCode ? *reasonCode : -1,
 								businessStatus ? *businessStatus : -1);
 					}
 				}
@@ -479,7 +479,6 @@ bool ContentProtectionFirebolt::AcquireLicenseOpenOrUpdate( std::string clientId
 				}
 			}
 			while(retryCount < MAX_LICENSE_REQUEST_ATTEMPTS);
-
 		}
 		else
 		{
