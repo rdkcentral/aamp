@@ -85,7 +85,7 @@ void ContentProtectionFirebolt::UnSubscribeEvents()
 
 void ContentProtectionFirebolt::HandleWatermarkEvent(const std::string& sessionId, const std::string& statusStr, const std::string& appId)
 {
-	MW_LOG_INFO("ContentSecurityManager SendWatermarkSessionEvent_CB invoked 1 | sessionId=%s status=%s appId=%s",
+	MW_LOG_INFO("ContentSecurityManager HanldeWatermarkEvent invoked  | sessionId=%s status=%s appId=%s",
             sessionId.c_str(), statusStr.c_str(), appId.c_str());
 	if(mInitialized)
 	{
