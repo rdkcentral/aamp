@@ -814,6 +814,9 @@ bool AampTSBSessionManager::NavigateToNextFragment(TsbFragmentDataPtr& fragment,
 	{
 		if (fragment->GetAbsolutePosition().inSeconds() >= mAamp->mTrickModePositionEOS)
 		{
+			// It is not guaranteed that this INFO will be printed when the live play position is reached,
+			// as the reader may reach EOS before this function is called.
+			// But if this INFO is printed, it confirms that the live play position was reached.
 			AAMPLOG_INFO("Reached live play position during fast forward");
 			success = false;
 		}
@@ -830,7 +833,7 @@ bool AampTSBSessionManager::NavigateToNextFragment(TsbFragmentDataPtr& fragment,
 			fragment = fragment->prev;
 			success = true;
 		}
-		else
+		if (!(fragment->prev))
 		{
 			// Don't skip the first fragment in the TSB so BoS is detected correctly
 			AAMPLOG_INFO("Reached beginning of TSB during rewind");
