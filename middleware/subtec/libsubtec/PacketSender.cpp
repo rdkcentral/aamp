@@ -141,7 +141,7 @@ void PacketSender::sendPacket(PacketPtr && pkt)
 	
 	if( !mSubtecSocketHandle )
 	{
-		MW_LOG_MIL( "discarding %zu bytes", size );
+		MW_LOG_INFO( "discarding %zu bytes", size );
 		return;
 	}
 	if (size > mSockBufSize && size < MAX_SNDBUF_SIZE)
