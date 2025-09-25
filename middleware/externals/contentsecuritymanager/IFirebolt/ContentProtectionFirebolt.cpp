@@ -30,10 +30,57 @@
 #include <inttypes.h>
 #include "contentprotection.h"
 #include "fireboltaamp.h"
+#include "PlayerSecInterface.h"
+
 std::condition_variable mConnectionCV;
 std::mutex mConnectionMutex;
 using namespace Firebolt;
-uint64_t ContentProtectionFirebolt::mSubscriptionId = 0; 
+uint64_t ContentProtectionFirebolt::mSubscriptionId = 0;
+
+//Lookup table to convert CPS error to secmanager error
+std::map<const int32_t, std::pair<const int32_t, const int32_t>> ContentProtectionSeManagerErrorLookUp =
+{
+	{CONTENT_PROTECTION_SERVICE_INVALID_ASPECT_DIMENSIONS,              {CONTENT_SECURITY_MANAGER_CLASS_RESULT_API_FAIL,        CONTENT_SECURITY_MANAGER_REASON_API_INVALID_ASPECT_DIMENSION}},
+	{CONTENT_PROTECTION_SERVICE_INVALID_KEY_SYSTEM,                     {CONTENT_SECURITY_MANAGER_CLASS_RESULT_API_FAIL,        CONTENT_SECURITY_MANAGER_REASON_API_INVALID_KEY_SYSTEM_PARAM}},
+	{CONTENT_PROTECTION_SERVICE_INVALID_LICENSE_REQUEST,                {CONTENT_SECURITY_MANAGER_CLASS_RESULT_API_FAIL,        CONTENT_SECURITY_MANAGER_REASON_API_INVALID_DRM_LICENSE_PARAM}},
+	{CONTENT_PROTECTION_SERVICE_INVALID_CONTENT_METADATA,               {CONTENT_SECURITY_MANAGER_CLASS_RESULT_API_FAIL,        CONTENT_SECURITY_MANAGER_REASON_API_INVALID_CONTENT_METADATA}},
+	{CONTENT_PROTECTION_SERVICE_INVALID_MEDIA_USAGE,                    {CONTENT_SECURITY_MANAGER_CLASS_RESULT_API_FAIL,        CONTENT_SECURITY_MANAGER_REASON_API_INVALID_MEDIA_USAGE}},
+	{CONTENT_PROTECTION_SERVICE_INVALID_ACCESS_TOKEN,                   {CONTENT_SECURITY_MANAGER_CLASS_RESULT_API_FAIL,        CONTENT_SECURITY_MANAGER_REASON_API_INVALID_ACCESS_TOKEN}},
+	{CONTENT_PROTECTION_SERVICE_INVALID_ACCESS_ATTRIBUTES,              {CONTENT_SECURITY_MANAGER_CLASS_RESULT_API_FAIL,        CONTENT_SECURITY_MANAGER_REASON_API_INVALID_ACCESS_ATTRIBUTE}},
+	{CONTENT_PROTECTION_SERVICE_INVALID_SESSION_ID,                     {CONTENT_SECURITY_MANAGER_CLASS_RESULT_API_FAIL,        CONTENT_SECURITY_MANAGER_REASON_API_INVALID_SESSION_ID}},
+	{CONTENT_PROTECTION_SERVICE_INVALID_CLIENT_ID,                      {CONTENT_SECURITY_MANAGER_CLASS_RESULT_API_FAIL,        CONTENT_SECURITY_MANAGER_REASON_API_INVALID_CLIENT_ID}},
+	{CONTENT_PROTECTION_SERVICE_INVALID_WATERMARKING_PARAM,             {CONTENT_SECURITY_MANAGER_CLASS_RESULT_API_FAIL,        CONTENT_SECURITY_MANAGER_REASON_API_INVALID_WATERMARK_PARAMETER}},
+	{CONTENT_PROTECTION_SERVICE_INVALID_CONTENT_ATTRIBUTES,             {CONTENT_SECURITY_MANAGER_CLASS_RESULT_API_FAIL,        CONTENT_SECURITY_MANAGER_REASON_API_INVALID_CONTENT_PARAMETER}},
+	{CONTENT_PROTECTION_SERVICE_DRM_GENERAL_FAILURE,                    {CONTENT_SECURITY_MANAGER_CLASS_RESULT_DRM_FAIL,        CONTENT_SECURITY_MANAGER_REASON_DRM_GENERAL_FAILURE}},
+	{CONTENT_PROTECTION_SERVICE_DRM_LICENSE_NW_TIMEOUT,                 {CONTENT_SECURITY_MANAGER_CLASS_RESULT_DRM_FAIL,        CONTENT_SECURITY_MANAGER_REASON_DRM_LICENSE_TIMEOUT}},
+	{CONTENT_PROTECTION_SERVICE_DRM_LICENSE_NW_CONNECTION_FAILURE,      {CONTENT_SECURITY_MANAGER_CLASS_RESULT_DRM_FAIL,        CONTENT_SECURITY_MANAGER_REASON_DRM_LICENSE_NETWORK_FAIL}},
+	{CONTENT_PROTECTION_SERVICE_DRM_ACCESS_TOKEN_EXPIRED,               {CONTENT_SECURITY_MANAGER_CLASS_RESULT_DRM_FAIL,        CONTENT_SECURITY_MANAGER_REASON_DRM_ACCESS_TOKEN_EXPIRED}},
+	{CONTENT_PROTECTION_SERVICE_DRM_MAC_KEY_NOT_PROVISIONED,            {CONTENT_SECURITY_MANAGER_CLASS_RESULT_DRM_FAIL,        CONTENT_SECURITY_MANAGER_REASON_DRM_MAC_TOKEN_NO_PROV}},
+	{CONTENT_PROTECTION_SERVICE_DRM_MEMORY_ALLOCATION_ERROR,            {CONTENT_SECURITY_MANAGER_CLASS_RESULT_DRM_FAIL,        CONTENT_SECURITY_MANAGER_REASON_DRM_MEMORY_ALLOCATION_ERROR}},
+	{CONTENT_PROTECTION_SERVICE_DRM_SECURITY_API_FAILURE,               {CONTENT_SECURITY_MANAGER_CLASS_RESULT_DRM_FAIL,        CONTENT_SECURITY_MANAGER_REASON_DRM_SECAPI_USAGE_FAILURE}},
+	{CONTENT_PROTECTION_SERVICE_DRM_ENTITLEMENT_FAILURE,                {CONTENT_SECURITY_MANAGER_CLASS_RESULT_DRM_FAIL,        CONTENT_SECURITY_MANAGER_REASON_DRM_ENTITLEMENT_ERROR}},
+	{CONTENT_PROTECTION_SERVICE_WATERMARK_GENERAL_FAILURE,              {CONTENT_SECURITY_MANAGER_CLASS_RESULT_WATERMARK_FAIL,        CONTENT_SECURITY_MANAGER_REASON_WM_GENERAL_FAILURE}},
+	{CONTENT_PROTECTION_SERVICE_WATERMARK_TIMEOUT,                      {CONTENT_SECURITY_MANAGER_CLASS_RESULT_WATERMARK_FAIL,        CONTENT_SECURITY_MANAGER_REASON_WM_NETWORK_TIMEOUT}},
+	{CONTENT_PROTECTION_SERVICE_WATERMARK_MEMORY_ALLOCATION_ERROR,      {CONTENT_SECURITY_MANAGER_CLASS_RESULT_WATERMARK_FAIL,        CONTENT_SECURITY_MANAGER_REASON_WM_MEMORY_ALLOCATION_ERROR}},
+	{CONTENT_PROTECTION_SERVICE_WATERMARK_PERCEPTIBILITY_ERROR,         {CONTENT_SECURITY_MANAGER_CLASS_RESULT_WATERMARK_FAIL,        CONTENT_SECURITY_MANAGER_REASON_WM_PERCEPTIBILITY_INVALID_INPUT}}
+};
+
+/**
+ * @brief Convert the CPS DRM error code into secmanager error code to have a unified verbose error reported
+ */
+bool getCPSAsVerboseErrorCode(int32_t httpCode, int32_t &secManagerClass, int32_t &secManagerReasonCode )
+{
+	secManagerClass = CONTENT_SECURITY_MANAGER_DRM_FAILURE;
+	secManagerReasonCode = CONTENT_SECURITY_MANAGER_DRM_GEN_FAILURE;
+	//look for the correct code from the lookup
+	auto it = ContentProtectionSeManagerErrorLookUp.find(httpCode);
+	if (it != ContentProtectionSeManagerErrorLookUp.end()) {
+		secManagerClass = it->second.first;
+		secManagerReasonCode = it->second.second;
+		return true;
+	}
+	return false;
+}
 
 ContentProtectionFirebolt::ContentProtectionFirebolt() : mInitialized(false), mIsConnected(false), mSpeedStateMutex(), mContentProtectionMutex(), mFireboltInitMutex(), mListenerId(0)
 {
@@ -224,6 +271,7 @@ bool ContentProtectionFirebolt::AcquireLicenseOpenOrUpdate( std::string clientId
 	bool result = false;
 	unsigned int retryCount = 0;
 	bool update = false;
+	int32_t errorCode = CONTENT_SECURITY_MANAGER_DRM_GEN_FAILURE;
 
 	//Initializing it with default error codes (which would be sent if there any jsonRPC
 	//call failures to thunder)
@@ -396,7 +444,7 @@ bool ContentProtectionFirebolt::AcquireLicenseOpenOrUpdate( std::string clientId
 						// Get reasonCode
 						if (resultContext.get("reason", value))
 						{
-							*reasonCode = value;
+							errorCode = value;
 						}
 
 						// Get businessStatus
@@ -407,7 +455,7 @@ bool ContentProtectionFirebolt::AcquireLicenseOpenOrUpdate( std::string clientId
 
 						MW_LOG_WARN("ContentProtection Parsed Status Code: %d, Reason: %d, Business Status: %d",
 								statusCode ? *statusCode : -1,
-								reasonCode ? *reasonCode : -1,
+								errorCode,
 								businessStatus ? *businessStatus : -1);
 					}
 				}
@@ -421,27 +469,29 @@ bool ContentProtectionFirebolt::AcquireLicenseOpenOrUpdate( std::string clientId
 					//DRM license network connection failure/Watermark vendor-access service connection failure (4)
 					//DRM license server busy/Watermark service busy (5)
 					if((*statusCode == CONTENT_SECURITY_MANAGER_DRM_FAILURE || *statusCode == CONTENT_SECURITY_MANAGER_WM_FAILURE) &&
-							(*reasonCode == CONTENT_SECURITY_MANAGER_SERVICE_TIMEOUT ||
-							 *reasonCode == CONTENT_SECURITY_MANAGER_SERVICE_CON_FAILURE ||
-							 *reasonCode == CONTENT_SECURITY_MANAGER_SERVICE_BUSY ) && retryCount < MAX_LICENSE_REQUEST_ATTEMPTS)
+							(errorCode == CONTENT_SECURITY_MANAGER_SERVICE_TIMEOUT ||
+							 errorCode == CONTENT_SECURITY_MANAGER_SERVICE_CON_FAILURE ||
+							 errorCode == CONTENT_SECURITY_MANAGER_SERVICE_BUSY ) && retryCount < MAX_LICENSE_REQUEST_ATTEMPTS)
 					{
 						++retryCount;
-						MW_LOG_WARN("ContentProtection license request failed, response for %s : statusCode: %d, reasonCode: %d, so retrying with delay %d, retry count : %u", apiName, *statusCode, *reasonCode, sleepTime, retryCount );
+						MW_LOG_WARN("ContentProtection license request failed, response for %s : statusCode: %d, reasonCode: %d, so retrying with delay %d, retry count : %u", apiName, *statusCode, errorCode, sleepTime, retryCount );
 						ms_sleep(sleepTime);						
 					}
 					else
 					{
-						MW_LOG_ERR("ContentProtection license request failed, response for %s : statusCode: %d, reasonCode: %d", apiName, *statusCode, *reasonCode);
+						MW_LOG_ERR("ContentProtection license request failed, response for %s : statusCode: %d, reasonCode: %d", apiName, *statusCode, errorCode);
 						break;
 					}
 				}
 				else
 				{
-					MW_LOG_INFO("ContentProtection license request success, response for %s : statusCode: %d, reasonCode: %d, session status: %s", apiName, *statusCode, *reasonCode, isVideoMuted ? "inactive" : "active");
+					MW_LOG_INFO("ContentProtection license request success, response for %s : statusCode: %d, reasonCode: %d, session status: %s", apiName, *statusCode, errorCode, isVideoMuted ? "inactive" : "active");
 					break;
 				}
 			}
 			while(retryCount < MAX_LICENSE_REQUEST_ATTEMPTS);
+
+			getCPSAsVerboseErrorCode(errorCode,*statusCode,*reasonCode);
 		}
 		else
 		{
