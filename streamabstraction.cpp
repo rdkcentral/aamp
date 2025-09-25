@@ -408,13 +408,40 @@ void MediaTrack::UpdateTSAfterChunkInject()
 }
 
 /**
- * @brief To be implemented by derived classes to receive cached fragment Chunk
- * Receives cached fragment and injects to sink.
+ * @fn InjectFragmentChunkInternal
+ *
+ * @param[in] mediaType - Media type of the fragment
+ * @param[in] buffer - contains fragment to be processed and injected
+ * @param[in] fpts - fragment PTS
+ * @param[in] fdts - fragment DTS
+ * @param[in] fDuration - fragment duration
+ * @param[in] fragmentPTSOffset - PTS offset to be applied
+ * @param[in] init - true if fragment is init fragment
+ * @param[in] discontinuity - true if there is a discontinuity, false otherwise
+ * @return void
  */
 void MediaTrack::InjectFragmentChunkInternal(AampMediaType mediaType, AampGrowableBuffer* buffer, double fpts, double fdts, double fDuration, double fragmentPTSOffset, bool init, bool discontinuity)
 {
-	aamp->SendStreamTransfer(mediaType, buffer, fpts, fdts, fDuration, fragmentPTSOffset, init, discontinuity);
-
+	if (playContext)
+	{
+		MediaProcessor::process_fcn_t processor = [this](AampMediaType type, SegmentInfo_t info, std::vector<uint8_t> buf)
+		{
+			// No-op processor for chunk injection
+		};
+		AAMPLOG_INFO("Type[%d] position: %f duration: %f PTSOffsetSec: %f initFragment: %d size: %zu",
+			type, fpts, fDuration, fragmentPTSOffset, init, buffer->GetLen());
+		bool ptsError = false;
+		if (!playContext->sendSegment(buffer, fpts, fDuration, fragmentPTSOffset, discontinuity, init, std::move(processor), ptsError))
+		{
+			AAMPLOG_INFO("Type[%d] Fragment discarded", mediaType);
+		}
+	}
+	else
+	{
+		aamp->ProcessID3Metadata(buffer->GetPtr(), buffer->GetLen(), mediaType);
+		AAMPLOG_DEBUG("Type[%d] fpts: %f fDuration: %f init: %d", type, fpts, fDuration, init);
+		aamp->SendStreamTransfer(mediaType, buffer, fpts, fdts, fDuration, fragmentPTSOffset, init, discontinuity);
+	}
 }
 
 /**
@@ -1681,9 +1708,12 @@ void MediaTrack::RunInjectLoop()
 		{
 			try
 			{
-				subtitleClockThreadID = std::thread(&MediaTrack::UpdateSubtitleClockTask, this);
-				UpdateSubtitleClockTaskStarted = true;
-				AAMPLOG_INFO("Thread created for UpdateSubtitleClockTask [%zx]", GetPrintableThreadID(subtitleClockThreadID));
+				if (!ISCONFIGSET(eAAMPConfig_useRialtoSink))
+				{
+					subtitleClockThreadID = std::thread(&MediaTrack::UpdateSubtitleClockTask, this);
+					UpdateSubtitleClockTaskStarted = true;
+					AAMPLOG_INFO("Thread created for UpdateSubtitleClockTask [%zx]", GetPrintableThreadID(subtitleClockThreadID));
+				}
 			}
 			catch(const std::exception& e)
 			{
@@ -2356,7 +2386,7 @@ void StreamAbstractionAAMP::GetDesiredProfileOnBuffer(int currProfileIndex, int 
 	else
 	{
 		AAMPLOG_WARN("Switch to index 0; buffer is about to drain :Buffer %lf !!",bufferValue);
-		newProfileIndex = 0;
+		newProfileIndex = aamp->mhAbrManager.getProfileIndexForLowestBandwidth();
 	}
 }
 
@@ -2514,7 +2544,7 @@ int StreamAbstractionAAMP::GetDesiredProfileBasedOnCache(void)
 		{
 			//InsufficientBufferRule: Buffer is empty
 			AAMPLOG_WARN("Switch to index 0; buffer is about to drain :Buffer %lf !!",bufferValue);
-			desiredProfileIndex = 0;
+			desiredProfileIndex = aamp->mhAbrManager.getProfileIndexForLowestBandwidth();
 			if(currentProfileIndex != desiredProfileIndex)
 			{
 				mBitrateReason = eAAMP_BITRATE_CHANGE_BY_BUFFER_EMPTY;
@@ -2555,7 +2585,7 @@ int StreamAbstractionAAMP::GetDesiredProfileBasedOnCache(void)
 				logLevel = eLOGLEVEL_MIL;
 			}
 
-			AAMPLOG(logLevel,"currBW:%ld NwBW=%ld currProf:%d desiredProf:%d ,Buffer  %lf",currentBandwidth,networkBandwidth,currentProfileIndex,desiredProfileIndex,bufferValue/1000);
+			AAMPLOG(logLevel,"currBW:%ld NwBW=%ld currProf:%d desiredProf:%d ,Buffer:%lf",currentBandwidth,networkBandwidth,currentProfileIndex,desiredProfileIndex,bufferValue);
 
 			if (currentProfileIndex != desiredProfileIndex)
 			{
@@ -2614,20 +2644,17 @@ bool StreamAbstractionAAMP::RampDownProfile(int http_error)
 	{
 		double bufferValue = GetBufferValue(video);
 		// Let's keep things simple! This function is invoked when we want to rampdown, which we could either do in single or multiple steps
-		// If buffer is high, rampdown in single steps
-		// If buffer is less, rampdown in multiple steps based on buffer available
-		// If buffer is zero, we can't rampdown in multiple steps and the only way is either:
-		// 1. Rampdown to the lowest profile directly (if this also fails, will lead to playback failure or skipped content)
-		// 2. Rampdown in single steps (here we're already rebuffering or not yet streaming)
-		// Recommend option 2, unless good reason is found to rampdown to lowest profile directly.
-		if (bufferValue == 0 || bufferValue > mABRMaxBuffer)
-		{
-			// Rampdown in single steps
+		if (bufferValue <= 2.0 )
+		{ // panic mode - jump directly to lowest profile
+			AAMPLOG_WARN("rampdown to lowest profile as buffer near zero");
+			desiredProfileIndex = aamp->mhAbrManager.getProfileIndexForLowestBandwidth();
+		}
+		else if (bufferValue > mABRMaxBuffer)
+		{ // ample buffering, so ramp down in single steps
 			desiredProfileIndex = aamp->mhAbrManager.getRampedDownProfileIndex(currentProfileIndex);
 		}
-		else if (bufferValue > 0)
-		{
-			// If buffer is available, rampdown based on buffer
+		else
+		{ // variable rampdown based on available bandwidth
 			long desiredBw = aamp->mhAbrManager.FragmentfailureRampdown(bufferValue, currentProfileIndex);
 			if (desiredBw > 0)
 			{
@@ -3394,15 +3421,17 @@ void MediaTrack::OnSinkBufferFull()
 	}
 
 	bool notifyCacheCompleted = false;
+	bool cachingCompletedFlag = false;
 	{
 		{
 			std::lock_guard<std::mutex> guard(mutex);
 			sinkBufferIsFull = true;
+			cachingCompletedFlag = cachingCompleted;
 		}
 		
 		// check if cache buffer is full and caching was needed
 		if (IsFragmentCacheFull() && (eTRACK_VIDEO == type) &&
-			aamp->IsFragmentCachingRequired() && !cachingCompleted)
+			aamp->IsFragmentCachingRequired() && !cachingCompletedFlag)
 		{
 			std::lock_guard<std::mutex> guard(mutex);
 			AAMPLOG_WARN("## [%s] Cache is Full cacheDuration %d minInitialCacheSeconds %d, aborting caching!##",

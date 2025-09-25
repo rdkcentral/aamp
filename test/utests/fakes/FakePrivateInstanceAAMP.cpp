@@ -27,8 +27,6 @@
 
 MockPrivateInstanceAAMP *g_mockPrivateInstanceAAMP = nullptr;
 
-bool PrivateInstanceAAMP::mTrackGrowableBufMem;
-
 static int PLAYERID_CNTR = 0;
 
 PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) :
@@ -148,6 +146,16 @@ PrivateInstanceAAMP::~PrivateInstanceAAMP()
 {
 }
 
+double PrivateInstanceAAMP::RecalculatePTS(AampMediaType mediaType, const void *ptr, size_t len)
+{
+    double pts = 0.0;
+    if (g_mockPrivateInstanceAAMP != nullptr)
+    {
+        pts = g_mockPrivateInstanceAAMP->RecalculatePTS(mediaType, ptr, len);
+    }
+    return pts;
+}
+
 size_t PrivateInstanceAAMP::HandleSSLWriteCallback ( char *ptr, size_t size, size_t nmemb, void* userdata )
 {
 	return 0;
@@ -253,6 +261,10 @@ void PrivateInstanceAAMP::detach()
 
 void PrivateInstanceAAMP::NotifySpeedChanged(float rate, bool changeState)
 {
+	if (g_mockPrivateInstanceAAMP != nullptr)
+	{
+		g_mockPrivateInstanceAAMP->NotifySpeedChanged(rate, changeState);
+	}
 }
 
 void PrivateInstanceAAMP::LogPlayerPreBuffered(void)
@@ -358,6 +370,10 @@ bool PrivateInstanceAAMP::TryStreamLock()
 
 void PrivateInstanceAAMP::SetVideoMute(bool muted)
 {
+	if (g_mockPrivateInstanceAAMP != nullptr)
+	{
+		g_mockPrivateInstanceAAMP->SetVideoMute(muted);
+	}
 }
 
 void PrivateInstanceAAMP::SetSubtitleMute(bool muted)
@@ -1210,11 +1226,11 @@ void PrivateInstanceAAMP::FoundEventBreak(const std::string &adBreakId, uint64_t
 	}
 }
 
-void PrivateInstanceAAMP::SendAdResolvedEvent(const std::string &adId, bool status, uint64_t startMS, uint64_t durationMs)
+void PrivateInstanceAAMP::SendAdResolvedEvent(const std::string &adId, bool status, uint64_t startMS, uint64_t durationMs, AAMPCDAIError errorCode)
 {
 	if (g_mockPrivateInstanceAAMP != nullptr)
 	{
-		g_mockPrivateInstanceAAMP->SendAdResolvedEvent(adId, status, startMS, durationMs);
+		g_mockPrivateInstanceAAMP->SendAdResolvedEvent(adId, status, startMS, durationMs,errorCode);
 	}
 }
 
@@ -1479,10 +1495,6 @@ long long PrivateInstanceAAMP::GetPositionRelativeToSeekMilliseconds(long long r
 	return 0;
 }
 
-void PrivateInstanceAAMP::CacheAndApplySubtitleMute(bool muted)
-{
-}
-
 void PrivateInstanceAAMP::FlushTrack(AampMediaType mediaType,double pos)
 {
 }
@@ -1704,3 +1716,10 @@ double PrivateInstanceAAMP::GetFormatPositionOffsetInMSecs()
 {
 	return 0;
 }
+
+const std::vector<TimedMetadata> & PrivateInstanceAAMP::GetTimedMetadata( void ) const
+{
+	static std::vector<TimedMetadata> rc;
+	return rc;
+}
+

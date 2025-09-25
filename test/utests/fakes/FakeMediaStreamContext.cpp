@@ -22,7 +22,7 @@
 
 MockMediaStreamContext *g_mockMediaStreamContext = nullptr;
 
-bool MediaStreamContext::CacheFragmentChunk(AampMediaType actualType, char *ptr, size_t size, std::string remoteUrl,long long dnldStartTime)
+bool MediaStreamContext::CacheFragmentChunk(AampMediaType actualType, const char *ptr, size_t size, std::string remoteUrl,long long dnldStartTime)
 {
     return false;
 }

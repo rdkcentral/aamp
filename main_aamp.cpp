@@ -47,6 +47,11 @@ AampConfig *gpGlobalConfig=NULL;
 
 std::mutex PlayerInstanceAAMP::mPrvAampMtx;
 
+const std::vector<TimedMetadata> & PlayerInstanceAAMP::GetTimedMetadata( void ) const
+{
+	return aamp->GetTimedMetadata();
+}
+
 /**
  *  @brief PlayerInstanceAAMP Constructor.
  */
@@ -615,7 +620,6 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 
 		if (aamp->mpStreamAbstractionAAMP && !(aamp->mbUsingExternalPlayer))
 		{
-			bool playAlreadyEnabled = aamp->mbPlayEnabled;
 			if ( AAMP_SLOWMOTION_RATE != rate && !aamp->mIsIframeTrackPresent && rate != AAMP_NORMAL_PLAY_RATE && rate != 0 && aamp->mMediaFormat != eMEDIAFORMAT_PROGRESSIVE)
 			{
 				AAMPLOG_WARN("Ignoring trickplay. No iframe tracks in stream");
@@ -878,20 +882,7 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 					tuneTypePlay = eTUNETYPE_SEEKTOLIVE;
 					aamp->mJumpToLiveFromPause = false;
 				}
-				/* if Gstreamer pipeline set to paused state by user, change it to playing state */
-				if (playAlreadyEnabled && aamp->pipeline_paused == true)
-				{
-					AAMPLOG_INFO("Play was already enabled, and pipeline paused - unpause");
-					StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(aamp);
-					if (sink)
-					{
-						(void)sink->Pause(false, false);
-					}
-				}
-				else
-				{
-					AAMPLOG_INFO("Play was not already enabled(%d) or pipeline not paused(%d)", playAlreadyEnabled, aamp->pipeline_paused);
-				}
+
 				aamp->rate = rate;
 				aamp->pipeline_paused = false;
 				aamp->mSeekFromPausedState = false;
@@ -1460,33 +1451,8 @@ void PlayerInstanceAAMP::SetVideoZoom(VideoZoomMode zoom)
  */
 void PlayerInstanceAAMP::SetVideoMute(bool muted)
 {
-	if( aamp )
-	{
-		UsingPlayerId playerId(aamp->mPlayerId);
-		AAMPLOG_WARN(" mute == %s subtitles_muted == %s", muted?"true":"false", aamp->subtitles_muted?"true":"false");
-		aamp->video_muted = muted;
-
-		//If lock could not be acquired, then cache it
-		if(aamp->TryStreamLock())
-		{
-			if (aamp->mpStreamAbstractionAAMP)
-			{
-				aamp->SetVideoMute(muted); // hide/show video plane
-				aamp->CacheAndApplySubtitleMute(muted);
-			}
-			else
-			{
-				AAMPLOG_WARN("Player is in state eSTATE_IDLE, value has been cached");
-				aamp->mApplyCachedVideoMute = true; // can't do it now, but remember that we want video muted
-			}
-			aamp->ReleaseStreamLock();
-		}
-		else
-		{
-			AAMPLOG_WARN("StreamLock is not available, value has been cached");
-			aamp->mApplyCachedVideoMute = true;
-		}
-	}
+	AAMPLOG_MIL("mute %s", muted?"true":"false");
+	aamp->SetVideoMute(muted);
 }
 
 /**
@@ -1496,22 +1462,8 @@ void PlayerInstanceAAMP::SetVideoMute(bool muted)
  */
 void PlayerInstanceAAMP::SetSubtitleMute(bool muted)
 {
-	if( aamp )
-	{
-		UsingPlayerId playerId(aamp->mPlayerId);
-		AAMPLOG_WARN(" mute == %s", muted?"true":"false");
-		aamp->subtitles_muted = muted;
-		aamp->AcquireStreamLock();
-		if (aamp->mpStreamAbstractionAAMP)
-		{
-			aamp->SetSubtitleMute(muted);
-		}
-		else
-		{
-			AAMPLOG_WARN("Player is in state eSTATE_IDLE, value has been cached");
-		}
-		aamp->ReleaseStreamLock();
-	}
+	AAMPLOG_MIL("mute %s", muted?"true":"false");
+	aamp->SetSubtitleMute(muted);
 }
 
 /**

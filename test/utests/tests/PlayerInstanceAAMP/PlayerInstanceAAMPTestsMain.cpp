@@ -26,7 +26,6 @@
 #include "MockStreamAbstractionAAMP.h"
 #include "MockAampStreamSinkManager.h"
 #include "main_aamp.h"
-#include "priv_aamp.h"
 
 using ::testing::_;
 using ::testing::Return;
@@ -634,12 +633,14 @@ TEST_F(PlayerInstanceAAMPTests, SetVideoZoomTest6) {
 	mPlayerInstance->SetVideoZoom(zoom);
 }
 
-TEST_F(PlayerInstanceAAMPTests, SetVideoMute_NotNullAamp1) {
+TEST_F(PlayerInstanceAAMPTests, SetVideoMute_True) {
     bool muted = true;
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetVideoMute(muted));
     mPlayerInstance->SetVideoMute(muted);
 }
-TEST_F(PlayerInstanceAAMPTests, SetVideoMute_NotNullAamp2) {
+TEST_F(PlayerInstanceAAMPTests, SetVideoMute_False) {
     bool muted = false;
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetVideoMute(muted));
     mPlayerInstance->SetVideoMute(muted);
 }
 TEST_F(PlayerInstanceAAMPTests, SetSubtitleMuteTest1) {
@@ -1104,15 +1105,13 @@ TEST_F(PlayerInstanceAAMPTests, GetVideoZoomTest2) {
 }
 TEST_F(PlayerInstanceAAMPTests, GetVideoMuteTest1) {
     //checking true condition
-	mPlayerInstance->SetVideoMute(true);
-	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_PLAYING));
+    mPlayerInstance->aamp->video_muted = true;
     bool retrievedVideoMute = mPlayerInstance->GetVideoMute();
     EXPECT_TRUE(retrievedVideoMute);
 }
 TEST_F(PlayerInstanceAAMPTests, GetVideoMuteTest2) {
     //checking false condition
-    mPlayerInstance->SetVideoMute(false);
-    EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_PLAYING));
+    mPlayerInstance->aamp->video_muted = false;
     bool retrievedVideoMute = mPlayerInstance->GetVideoMute();
     EXPECT_FALSE(retrievedVideoMute);
 }
@@ -2444,4 +2443,31 @@ TEST_F(PlayerInstanceAAMPTests, SetRateTest_LocalTSB_ResumeFromTSB) {
     mPlayerInstance->SetRate(1.0);
 
     EXPECT_EQ(mPrivateInstanceAAMP->pipeline_paused, false);
+}
+
+// Test forward 2x from being paused in local TSB playback
+TEST_F(PlayerInstanceAAMPTests, SetRateTest_LocalTSB_TrickPlayWhenPausedFromTSB) {
+
+	mPlayerInstance->aamp = mPrivateInstanceAAMP;
+	mPrivateInstanceAAMP->rate = AAMP_NORMAL_PLAY_RATE;
+	mPrivateInstanceAAMP->pipeline_paused = true;
+	mPrivateInstanceAAMP->mbPlayEnabled = true;
+	mPrivateInstanceAAMP->mIsIframeTrackPresent = true;
+	mPrivateInstanceAAMP->SetLocalAAMPTsb(true);
+
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, GetState()).WillRepeatedly(Return(eSTATE_PLAYING));
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, StopDownloads()).Times(0);
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, IsLocalAAMPTsbInjection()).WillRepeatedly(Return(true));
+
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, SetState(_)).Times(0);
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, TuneHelper(eTUNETYPE_SEEK, _)).Times(1);
+	EXPECT_CALL(*g_mockPrivateInstanceAAMP, NotifySpeedChanged(2.0,_)).Times(1);
+	//calling AAMPGstPlayer::Pause(false,false) would cause the pipeline to play at x1
+	// before changing the speed to x2. Make sure that it is not happening.
+	EXPECT_CALL(*g_mockAampGstPlayer, Pause(false, false)).Times(0);
+
+	mPlayerInstance->SetRate(2.0);
+	EXPECT_EQ(mPrivateInstanceAAMP->pipeline_paused, false);
+	EXPECT_EQ(mPrivateInstanceAAMP->rate, 2.0);
+
 }

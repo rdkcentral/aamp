@@ -879,6 +879,11 @@ protected:
 	 */
 	bool GetEncryptedHeaders(std::map<int, std::string>& mappedHeaders);
 	/**
+	 * @fn ExtractAndAddSubtitleMediaHeader
+	 * @return bool
+	 */
+	bool ExtractAndAddSubtitleMediaHeader();
+	/**
 	 * @fn GetProfileIdxForBandwidthNotification
 	 * @param bandwidth - bandwidth to identify profile index from list
 	 */
@@ -1117,6 +1122,11 @@ protected:
 	void SendAdReservationEvent(AAMPEventType type, const std::string& adBreakId,
 							   uint64_t position, AampTime absolutePosition, bool immediate);
 
+	/**
+	 * @brief Send any cached init fragments to be injected on disabled streams to generate the pipeline
+	 */
+	void SendMediaHeaders(void);
+
 	std::mutex mStreamLock;
 	bool abortTsbReader;
 	std::set<std::string> mLangList;
@@ -1277,6 +1287,7 @@ protected:
 	bool mShortAdOffsetCalc;
 	AampTime mNextPts;					/*For PTS restamping*/
 	std::vector<std::unique_ptr<aamp::AampTrackWorker>> mTrackWorkers;	/**< Track workers for fetching fragments*/
+	bool mIsFinalFirstPTS; /**< Flag to indicate if the first PTS is final or not */
 };
 
 #endif //FRAGMENTCOLLECTOR_MPD_H_
