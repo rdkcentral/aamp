@@ -70,13 +70,20 @@ PlayerExternalsInterface::~PlayerExternalsInterface()
 
 void PlayerExternalsInterface::Initialize()
 {
-    if(s_pPlayerOP == NULL)
+    if(s_pPlayerOP != NULL)
     {
         if(!IsContainerEnvironment())
         {
+            printf("[MIDDLEWARE] PlayerExternalsInterface::Initialize calling m_pIarmInterface->Initialize()");
+            fflush(stdout);
             m_pIarmInterface->Initialize();
         }
 
+    }
+    else
+    {
+        printf("[MIDDLEWARE] PlayerExternalsInterface::Initialize");
+        fflush(stdout);
     }
 }
 

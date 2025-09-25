@@ -60,6 +60,9 @@ PlayerExternalsRdkInterface::PlayerExternalsRdkInterface()
 void PlayerExternalsRdkInterface::Initialize()
 {
 
+    printf("[MIDDLEWARE] PlayerExternalsRdkInterface Initializing started \n");
+    fflush(stdout);
+
     /*
     IARM Deprecation Note:
     IARM is to be deprecated in favor of DeviceSettings and Firebolt Device API.
@@ -108,7 +111,7 @@ void PlayerExternalsRdkInterface::Initialize()
     if(m_use_firebolt_sdk)
     {
     //remove-end
-        printf("[MIDDLEWARE] USE_FIREBOLT_DEVICE_API \n");
+        printf("[MIDDLEWARE] using Firebolt \n");
         fflush(stdout);
         m_pDeviceInterfaceBase = DeviceFireboltInterface::GetInstance();
         DeviceFireboltInterface::Initialize();
@@ -126,6 +129,9 @@ void PlayerExternalsRdkInterface::Initialize()
     //remove-end
 
     SetHDMIStatus();
+
+    printf("[MIDDLEWARE] PlayerExternalsRdkInterface Initializing completed \n");
+    fflush(stdout);
 }
 
 PlayerExternalsRdkInterface::~PlayerExternalsRdkInterface()
