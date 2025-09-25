@@ -55,9 +55,9 @@ void doFakeTune()
 {
 	if(PlayerExternalsInterface::IsDevicePropertiesPresent())
 	{
-			RegisterHandlePlayingStateCb(PlayingStateCallb);
 			AAMPLOG_WARN("doFakeTune : Triggering fake tune");
 			fakeTuneInstance = std::make_shared<PlayerInstanceAAMP>(nullptr, nullptr);
+			RegisterHandlePlayingStateCb(PlayingStateCallb);
 			std::string jsonStr = R"({
 		    		"preferredDrm": 1,
 		    		"licenseServerUrl": "https://dummy.com"
@@ -86,7 +86,7 @@ void doFakeTune()
 }
 static void PlayingStateCallb()
 {
-	std::cout<<"stop callback received thanks";
+	std::cout<<"Stop callback received";
 	if(fakeTuneInstance)
 		fakeTuneInstance->Stop();
 }

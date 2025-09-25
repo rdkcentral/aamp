@@ -1108,8 +1108,10 @@ struct data
 	bool GstWaitingForData;
 };
 
+#ifdef USE_PREINIT_DECODING
 using HandlePlayingStateCb = std::function<void()>;
 extern HandlePlayingStateCb PlayingStateCb;
 void RegisterHandlePlayingStateCb(const HandlePlayingStateCb &callback);
+#endif
 
 #endif // INTERFACE_PLAYER_H
