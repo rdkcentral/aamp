@@ -63,7 +63,7 @@
  */
 
 #define PrivAAMPState AAMPPlayerState // backwards compatibility for apps using native interface
-
+extern std::mutex fakeTuneMutex;
 void doFakeTune();
 #define FAKE_TUNE_URL "file:///etc/manifest.mpd" /**< Fake tune URL for testing purposes */
 

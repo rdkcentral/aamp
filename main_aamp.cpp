@@ -48,6 +48,7 @@ AampConfig *gpGlobalConfig=NULL;
 std::mutex PlayerInstanceAAMP::mPrvAampMtx;
 
 #ifdef USE_PREINIT_DECODING
+std::lock_guard<std::mutex> lock(fakeTuneMutex);
 std::shared_ptr<PlayerInstanceAAMP> fakeTuneInstance = nullptr;
 static void PlayingStateCallb();
 void doFakeTune()
