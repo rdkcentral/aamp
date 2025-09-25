@@ -2644,25 +2644,17 @@ bool StreamAbstractionAAMP::RampDownProfile(int http_error)
 	{
 		double bufferValue = GetBufferValue(video);
 		// Let's keep things simple! This function is invoked when we want to rampdown, which we could either do in single or multiple steps
-		// If buffer is high, rampdown in single steps
-		// If buffer is less, rampdown in multiple steps based on buffer available
-		// If buffer is zero, we can't rampdown in multiple steps and the only way is either:
-		// 1. Rampdown to the lowest profile directly (if this also fails, will lead to playback failure or skipped content)
-		// 2. Rampdown in single steps (here we're already rebuffering or not yet streaming)
-		// Recommend option 2, unless good reason is found to rampdown to lowest profile directly.
-		if (bufferValue <= FLOATING_POINT_EPSILON)
-		{
-			AAMPLOG_WARN("Attempting rampdown to lowest profile as buffer is 0");
+		if (bufferValue <= 2.0 )
+		{ // panic mode - jump directly to lowest profile
+			AAMPLOG_WARN("rampdown to lowest profile as buffer near zero");
 			desiredProfileIndex = aamp->mhAbrManager.getProfileIndexForLowestBandwidth();
 		}
 		else if (bufferValue > mABRMaxBuffer)
-		{
-			// Rampdown in single steps
+		{ // ample buffering, so ramp down in single steps
 			desiredProfileIndex = aamp->mhAbrManager.getRampedDownProfileIndex(currentProfileIndex);
 		}
-		else if (bufferValue > 0)
-		{
-			// If buffer is available, rampdown based on buffer
+		else
+		{ // variable rampdown based on available bandwidth
 			long desiredBw = aamp->mhAbrManager.FragmentfailureRampdown(bufferValue, currentProfileIndex);
 			if (desiredBw > 0)
 			{
