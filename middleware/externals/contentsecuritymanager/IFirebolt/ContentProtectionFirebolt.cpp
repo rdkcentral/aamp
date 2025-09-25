@@ -271,7 +271,7 @@ bool ContentProtectionFirebolt::AcquireLicenseOpenOrUpdate( std::string clientId
 	bool result = false;
 	unsigned int retryCount = 0;
 	bool update = false;
-	int32_t errorCode = CONTENT_SECURITY_MANAGER_DRM_GEN_FAILURE;
+	int32_t errorCode = CONTENT_SECURITY_MANAGER_DRM_GEN_ERR_NONE;
 
 	//Initializing it with default error codes (which would be sent if there any jsonRPC
 	//call failures to thunder)
@@ -350,12 +350,12 @@ bool ContentProtectionFirebolt::AcquireLicenseOpenOrUpdate( std::string clientId
 				if(!update)
 				{
 					result = OpenDrmSession(clientId, appId, keySystem,
-							licenseRequest, initData, sessionId, drmSession);
+							licenseRequest, initData, sessionId, errorCode, drmSession);
 				}
 				else
 				{
 					result = 
-						UpdateDrmSession(sessionId,
+						UpdateDrmSession(sessionId, errorCode,
 								licenseRequest, initData, drmSession);					
 				}
 				if (drmSession.empty())
@@ -444,7 +444,7 @@ bool ContentProtectionFirebolt::AcquireLicenseOpenOrUpdate( std::string clientId
 						// Get reasonCode
 						if (resultContext.get("reason", value))
 						{
-							errorCode = value;
+							*reasonCode = value;
 						}
 
 						// Get businessStatus
@@ -455,9 +455,13 @@ bool ContentProtectionFirebolt::AcquireLicenseOpenOrUpdate( std::string clientId
 
 						MW_LOG_WARN("ContentProtection Parsed Status Code: %d, Reason: %d, Business Status: %d",
 								statusCode ? *statusCode : -1,
-								errorCode,
+								*reasonCode,
 								businessStatus ? *businessStatus : -1);
 					}
+				}
+				else if( errorCode != CONTENT_SECURITY_MANAGER_DRM_GEN_ERR_NONE)
+				{
+					getCPSAsVerboseErrorCode(errorCode,*statusCode,*reasonCode);
 				}
 				if(!ret)
 				{
@@ -469,29 +473,28 @@ bool ContentProtectionFirebolt::AcquireLicenseOpenOrUpdate( std::string clientId
 					//DRM license network connection failure/Watermark vendor-access service connection failure (4)
 					//DRM license server busy/Watermark service busy (5)
 					if((*statusCode == CONTENT_SECURITY_MANAGER_DRM_FAILURE || *statusCode == CONTENT_SECURITY_MANAGER_WM_FAILURE) &&
-							(errorCode == CONTENT_SECURITY_MANAGER_SERVICE_TIMEOUT ||
-							 errorCode == CONTENT_SECURITY_MANAGER_SERVICE_CON_FAILURE ||
-							 errorCode == CONTENT_SECURITY_MANAGER_SERVICE_BUSY ) && retryCount < MAX_LICENSE_REQUEST_ATTEMPTS)
+							(*reasonCode == CONTENT_SECURITY_MANAGER_SERVICE_TIMEOUT ||
+							 *reasonCode == CONTENT_SECURITY_MANAGER_SERVICE_CON_FAILURE ||
+							 *reasonCode == CONTENT_SECURITY_MANAGER_SERVICE_BUSY ) && retryCount < MAX_LICENSE_REQUEST_ATTEMPTS)
 					{
 						++retryCount;
-						MW_LOG_WARN("ContentProtection license request failed, response for %s : statusCode: %d, reasonCode: %d, so retrying with delay %d, retry count : %u", apiName, *statusCode, errorCode, sleepTime, retryCount );
+						MW_LOG_WARN("ContentProtection license request failed, response for %s : statusCode: %d, reasonCode: %d, so retrying with delay %d, retry count : %u", apiName, *statusCode, *reasonCode, sleepTime, retryCount );
 						ms_sleep(sleepTime);						
 					}
 					else
 					{
-						MW_LOG_ERR("ContentProtection license request failed, response for %s : statusCode: %d, reasonCode: %d", apiName, *statusCode, errorCode);
+						MW_LOG_ERR("ContentProtection license request failed, response for %s : statusCode: %d, reasonCode: %d", apiName, *statusCode, *reasonCode);
 						break;
 					}
 				}
 				else
 				{
-					MW_LOG_INFO("ContentProtection license request success, response for %s : statusCode: %d, reasonCode: %d, session status: %s", apiName, *statusCode, errorCode, isVideoMuted ? "inactive" : "active");
+					MW_LOG_INFO("ContentProtection license request success, response for %s : statusCode: %d, reasonCode: %d, session status: %s", apiName, *statusCode, *reasonCode, isVideoMuted ? "inactive" : "active");
 					break;
 				}
 			}
 			while(retryCount < MAX_LICENSE_REQUEST_ATTEMPTS);
 
-			getCPSAsVerboseErrorCode(errorCode,*statusCode,*reasonCode);
 		}
 		else
 		{
@@ -632,7 +635,7 @@ static Firebolt::ContentProtection::KeySystem convertStringToKeySystem(const std
 		return Firebolt::ContentProtection::KeySystem::WIDEVINE; // safest fallback default
 	}
 }
-bool ContentProtectionFirebolt::OpenDrmSession(std::string& clientId, std::string appId, std::string keySystem, std::string licenseRequest, std::string initData, int64_t &sessionId, std::string &response)
+bool ContentProtectionFirebolt::OpenDrmSession(std::string& clientId, std::string appId, std::string keySystem, std::string licenseRequest, std::string initData, int64_t &sessionId, int32_t &errorCode, std::string &response)
 {
 	bool ret = false;
 	// Check if the system is active before proceeding
@@ -654,11 +657,12 @@ bool ContentProtectionFirebolt::OpenDrmSession(std::string& clientId, std::strin
 	}
 	else
 	{
-		  MW_LOG_ERR("openDrmSession: Firebolt Error: \"%d\"", static_cast<int>(drmSession.error()));
+		  errorCode =  static_cast<int>(drmSession.error());
+		  MW_LOG_ERR("openDrmSession: Firebolt Error: \"%d\"", errorCode);
 	}
 	return ret;
 }
-bool ContentProtectionFirebolt::UpdateDrmSession(int64_t sessionId, std::string licenseRequest, std::string initData, std::string &response)
+bool ContentProtectionFirebolt::UpdateDrmSession(int64_t sessionId, int32_t &errorCode, std::string licenseRequest, std::string initData, std::string &response)
 {
 	bool ret = false;
 	// Check if the system is active before proceeding
@@ -679,7 +683,8 @@ bool ContentProtectionFirebolt::UpdateDrmSession(int64_t sessionId, std::string 
 	}
 	else
 	{
-		MW_LOG_ERR("updateDrmSession: Firebolt Error: \"%d\"", static_cast<int>(drmSession.error()));
+		errorCode =  static_cast<int>(drmSession.error());
+		MW_LOG_ERR("updateDrmSession: Firebolt Error: \"%d\"", errorCode);
 	}
 	return ret;
 }
