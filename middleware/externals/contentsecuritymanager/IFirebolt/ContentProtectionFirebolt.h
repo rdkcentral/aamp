@@ -156,7 +156,7 @@ public:
 	 * @param[out] response License server response
 	 * @return true on success
 	 */	
-	bool OpenDrmSession(std::string& clientId, std::string appId, std::string keySystem, std::string licenseRequest, std::string initData, int64_t &sessionId, std::string &response);
+	bool OpenDrmSession(std::string& clientId, std::string appId, std::string keySystem, std::string licenseRequest, std::string initData, int64_t &sessionId, int32_t &errorCode, std::string &response);
 	/**
 	 * @brief Sends update license challenge to existing session
 	 * @param sessionId DRM session ID
@@ -165,7 +165,7 @@ public:
 	 * @param[out] response Response from Firebolt
 	 * @return true on success
 	 */	
-	bool UpdateDrmSession(int64_t sessionId, std::string licenseRequest, std::string initData, std::string &response);
+	bool UpdateDrmSession(int64_t sessionId, int32_t &errorCode, std::string licenseRequest, std::string initData, std::string &response);
 	/**
 	 * @brief Sets playback state for watermark alignment
 	 * @param sessionId Session ID
