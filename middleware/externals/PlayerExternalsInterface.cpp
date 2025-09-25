@@ -74,20 +74,20 @@ void PlayerExternalsInterface::Initialize()
     {
         if(!IsContainerEnvironment())
         {
-            printf("[MIDDLEWARE] PlayerExternalsInterface::Initialize calling m_pIarmInterface->Initialize()");
+            printf("[MIDDLEWARE] PlayerExternalsInterface::Initialize calling m_pIarmInterface->Initialize()\n");
             fflush(stdout);
             m_pIarmInterface->Initialize();
         }
         else
         {
-            printf("[MIDDLEWARE] PlayerExternalsInterface::Initialize not initializing ... container");
+            printf("[MIDDLEWARE] PlayerExternalsInterface::Initialize not initializing ... container\n");
             fflush(stdout);
         }
 
     }
     else
     {
-        printf("[MIDDLEWARE] PlayerExternalsInterface::Initialize PlayerExternalsInterface not found to initialize");
+        printf("[MIDDLEWARE] PlayerExternalsInterface::Initialize PlayerExternalsInterface not found to initialize\n");
         fflush(stdout);
     }
 }
