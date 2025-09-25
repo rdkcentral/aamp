@@ -788,12 +788,10 @@ AampTime AampTSBSessionManager::CalculateSkipDelta(float rate, int vodTrickplayF
 	{
 		AAMPLOG_WARN("Played switched in trickplay, delta set to zero");
 		mAamp->playerStartedWithTrickPlay = false;
-		delta = 0.0;
 	}
 	else if (vodTrickplayFPS == 0)
 	{
 		AAMPLOG_WARN("vodTrickplayFPS is zero, delta set to zero");
-		delta = 0.0;
 	}
 	else
 	{
