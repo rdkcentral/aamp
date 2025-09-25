@@ -2191,4 +2191,6 @@ private:
 	AampScheduler mScheduler;
 };
 
+extern std::shared_ptr<PlayerInstanceAAMP> fakeTuneInstance;
+
 #endif // MAINAAMP_H

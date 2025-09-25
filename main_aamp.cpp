@@ -48,12 +48,15 @@ AampConfig *gpGlobalConfig=NULL;
 std::mutex PlayerInstanceAAMP::mPrvAampMtx;
 
 #ifdef USE_PREINIT_DECODING
+std::shared_ptr<PlayerInstanceAAMP> fakeTuneInstance = nullptr;
+static void PlayingStateCallb();
 void doFakeTune()
 {
 	if(PlayerExternalsInterface::IsDevicePropertiesPresent())
 	{
+			RegisterHandlePlayingStateCb(PlayingStateCallb);
 			AAMPLOG_WARN("doFakeTune : Triggering fake tune");
-			std::shared_ptr<PlayerInstanceAAMP> fakeTuneInstance = std::make_shared<PlayerInstanceAAMP>(nullptr, nullptr);
+			fakeTuneInstance = std::make_shared<PlayerInstanceAAMP>(nullptr, nullptr);
 			std::string jsonStr = R"({
 		    		"preferredDrm": 1,
 		    		"licenseServerUrl": "https://dummy.com"
@@ -75,13 +78,18 @@ void doFakeTune()
 			std::thread([fakeTuneInstance]() {
 					AAMPLOG_WARN("Sleeping before calling stop");
 					std::this_thread::sleep_for(std::chrono::seconds(7)); // or your desired duration
-					fakeTuneInstance->Stop();
+					//fakeTuneInstance->Stop();
 					AAMPLOG_WARN("Fake tune instance stopped..");
 					}).detach();
 	}
 }
+static void PlayingStateCallb()
+{
+	std::cout<<"stop callback received thanks";
+	if(fakeTuneInstance)
+		fakeTuneInstance->Stop();
+}
 #endif
-
 /**
  *  @brief PlayerInstanceAAMP Constructor.
  */
