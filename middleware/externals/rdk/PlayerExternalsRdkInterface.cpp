@@ -22,12 +22,10 @@
  * @brief player interface with IARM specific to RDK
  */
 #include "PlayerExternalsRdkInterface.h"
-
+#include "PlayerExternalUtils.h"
 #include "DeviceInterfaceBase.h"
-
 #include "DeviceIARMInterface.h"
 #include "DeviceFireboltInterface.h"
-
 #include "PlayerExternalsInterface.h"
 
 #include <cstdio>
@@ -75,14 +73,14 @@ void PlayerExternalsRdkInterface::Initialize()
     //initialize only if needed
     if(m_initialized != InitState::NOT_INITIALIZED)
     {
-        if(m_initialized == InitState::FIREBOLT && m_use_firebolt_sdk)
+        if(m_initialized == InitState::FIREBOLT && m_use_firebolt_sdk && IsContainerEnvironment())
         {
             printf("[MIDDLEWARE] PlayerExternalsRdkInterface Firebolt already Inited \n");
             fflush(stdout);
             //firebolt already inited
             return;
         }
-        else if(m_initialized == InitState::IARM && (!m_use_firebolt_sdk))
+        else if(m_initialized == InitState::IARM && (!m_use_firebolt_sdk) && (!IsContainerEnvironment()))
         {
             printf("[MIDDLEWARE] PlayerExternalsRdkInterface IARM already Inited \n");
             fflush(stdout);
@@ -91,7 +89,7 @@ void PlayerExternalsRdkInterface::Initialize()
         }
         else
         {
-            printf("[MIDDLEWARE] PlayerExternalsRdkInterface m_use_firebolt_sdk has changed init again \n");
+            printf("[MIDDLEWARE] PlayerExternalsRdkInterface m_use_firebolt_sdk or IsContainerEnvironment() has changed, init again \n");
             fflush(stdout);
             //m_use_firebolt_sdk has changed init again
         }
@@ -108,7 +106,7 @@ void PlayerExternalsRdkInterface::Initialize()
         m_pDeviceInterfaceBase = nullptr;
     }
     //remove-start
-    if(m_use_firebolt_sdk)
+    if(m_use_firebolt_sdk || IsContainerEnvironment()) //if explicitly config'd to or if in container go for firebolt
     {
     //remove-end
         printf("[MIDDLEWARE] using Firebolt \n");

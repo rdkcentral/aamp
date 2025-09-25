@@ -23,7 +23,7 @@
  */
 
 #include "PlayerExternalsInterface.h"
-#include "PlayerExternalUtils.h"
+
 #ifdef IARM_MGR
 #include "PlayerExternalsRdkInterface.h"
 #endif
@@ -37,21 +37,9 @@ std::shared_ptr<PlayerExternalsInterface> PlayerExternalsInterface::s_pPlayerOP 
 PlayerExternalsInterface::PlayerExternalsInterface()
 {
 #ifdef IARM_MGR
-    printf("[MIDDLEWARE] PlayerExternalsInterface IARM_MGR\n");
+    printf("[MIDDLEWARE] not container\n");
     fflush(stdout);
-    if(!IsContainerEnvironment())
-    {
-        printf("[MIDDLEWARE] not container\n");
-        fflush(stdout);
-        m_pIarmInterface = PlayerExternalsRdkInterface::GetPlayerExternalsRdkInterfaceInstance();
-    }
-    else
-    {
-        printf("[MIDDLEWARE] container\n");
-        fflush(stdout);
-        m_pIarmInterface = std::shared_ptr<PlayerExternalsInterfaceBase>(new FakePlayerExternalsInterface());
-    }
-    
+    m_pIarmInterface = PlayerExternalsRdkInterface::GetPlayerExternalsRdkInterfaceInstance();
 #else
     printf("[MIDDLEWARE] PlayerExternalsInterface FAKE\n");
     m_pIarmInterface = std::shared_ptr<PlayerExternalsInterfaceBase>(new FakePlayerExternalsInterface());
@@ -72,18 +60,9 @@ void PlayerExternalsInterface::Initialize()
 {
     if(s_pPlayerOP != NULL)
     {
-        if(!IsContainerEnvironment())
-        {
-            printf("[MIDDLEWARE] PlayerExternalsInterface::Initialize calling m_pIarmInterface->Initialize()\n");
-            fflush(stdout);
-            m_pIarmInterface->Initialize();
-        }
-        else
-        {
-            printf("[MIDDLEWARE] PlayerExternalsInterface::Initialize not initializing ... container\n");
-            fflush(stdout);
-        }
-
+        printf("[MIDDLEWARE] PlayerExternalsInterface::Initialize calling m_pIarmInterface->Initialize()\n");
+        fflush(stdout);
+        m_pIarmInterface->Initialize();
     }
     else
     {
@@ -105,10 +84,7 @@ bool PlayerExternalsInterface::IsSourceUHD()
  */
 void PlayerExternalsInterface::GetDisplayResolution(int &width, int &height)
 {
-    if(!IsContainerEnvironment())
-    {
-        m_pIarmInterface->GetDisplayResolution(width, height);
-    }
+    m_pIarmInterface->GetDisplayResolution(width, height);
 }
 
 /**
@@ -142,11 +118,7 @@ std::shared_ptr<PlayerExternalsInterface> PlayerExternalsInterface::GetPlayerExt
 char * PlayerExternalsInterface::GetTR181PlayerConfig(const char * paramName, size_t & iConfigLen)
 {
     char * sRet = nullptr;
-    if(!IsContainerEnvironment())
-    {
-	    sRet = m_pIarmInterface->GetTR181Config(paramName, iConfigLen);
-    }
-    
+    sRet = m_pIarmInterface->GetTR181Config(paramName, iConfigLen);    
     return sRet;
 }
 
@@ -156,11 +128,7 @@ char * PlayerExternalsInterface::GetTR181PlayerConfig(const char * paramName, si
 bool PlayerExternalsInterface::GetActiveInterface()
 {
     bool bRet = false;
-    if(!IsContainerEnvironment())
-    {
-        bRet = m_pIarmInterface->GetActiveInterface();
-    }
-
+    bRet = m_pIarmInterface->GetActiveInterface();
     return bRet;
 }
 
@@ -171,10 +139,7 @@ bool PlayerExternalsInterface::IsConfigWifiCurlHeader()
 {
     bool bRet = false;
 #ifdef IARM_MGR
-    if(!IsContainerEnvironment())
-    {
-        bRet = true;
-    }
+    bRet = true;
 #else
     bRet = false;
 #endif
@@ -183,8 +148,5 @@ bool PlayerExternalsInterface::IsConfigWifiCurlHeader()
 
 void PlayerExternalsInterface::SetUseFireBoltSDK(bool t_use_firebolt_sdk)
 {
-    if(!IsContainerEnvironment())
-    {
-        m_pIarmInterface->SetUseFireBoltSDK(t_use_firebolt_sdk);
-    }
+    m_pIarmInterface->SetUseFireBoltSDK(t_use_firebolt_sdk);
 }
