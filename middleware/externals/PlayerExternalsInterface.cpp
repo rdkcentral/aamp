@@ -78,11 +78,16 @@ void PlayerExternalsInterface::Initialize()
             fflush(stdout);
             m_pIarmInterface->Initialize();
         }
+        else
+        {
+            printf("[MIDDLEWARE] PlayerExternalsInterface::Initialize not initializing ... container");
+            fflush(stdout);
+        }
 
     }
     else
     {
-        printf("[MIDDLEWARE] PlayerExternalsInterface::Initialize");
+        printf("[MIDDLEWARE] PlayerExternalsInterface::Initialize PlayerExternalsInterface not found to initialize");
         fflush(stdout);
     }
 }
