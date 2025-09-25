@@ -2334,6 +2334,10 @@ void TrackState::ProcessPlaylist(AampGrowableBuffer& newPlaylist, int http_error
 		// Free previous playlist buffer and load with new one
 		playlist.Free();
 		playlist.Replace( &newPlaylist );
+		
+		const unsigned char pad[] = { 0x00, 0x00 };
+		playlist.AppendBytes( pad, 2 );
+		
 		AampTime culled{};
 		IndexPlaylist(true, culled);
         
