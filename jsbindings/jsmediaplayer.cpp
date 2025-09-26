@@ -441,10 +441,17 @@ void parseDRMConfiguration (JSContextRef ctx, AAMPMediaPlayer_JS* privObj, JSVal
 
 
 void ResetFakeTune() {
+	AAMPLOG_WARN("Nitz :ResetFakeTune: Enter");
+    AAMPLOG_WARN("Nitz : ResetFakeTune: Attempting to lock fakeTuneMutex");
     std::lock_guard<std::mutex> lock(fakeTuneMutex);
+    AAMPLOG_WARN("Nitz : ResetFakeTune: Acquired fakeTuneMutex");
+    AAMPLOG_WARN("Nitz : Before reset: fakeTuneInstance use_count=%ld", fakeTuneInstance ? fakeTuneInstance.use_count() : -1);
     if (fakeTuneInstance) {
+	AAMPLOG_WARN("Nitz : Before reset: fakeTuneInstance use_count=%ld", fakeTuneInstance ? fakeTuneInstance.use_count() : -1);
         fakeTuneInstance.reset();
+	AAMPLOG_WARN("Nitz : After reset: fakeTuneInstance use_count=%ld", fakeTuneInstance ? fakeTuneInstance.use_count() : -1);
     }
+    AAMPLOG_WARN("Nitz : ResetFakeTune: Exit");
 }
 
 /**

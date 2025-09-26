@@ -53,11 +53,17 @@ std::shared_ptr<PlayerInstanceAAMP> fakeTuneInstance = nullptr;
 static void PlayingStateCallb();
 void doFakeTune()
 {
-	AAMPLOG_WARN("doFakeTune : Entered and fakeTuneMutex locked");
+	AAMPLOG_WARN("Nitz : doFakeTune: Enter");
+	AAMPLOG_WARN("Nitz : Attempting to lock fakeTuneMutex");
+	try {
 	std::lock_guard<std::mutex> lock(fakeTuneMutex); // Lock here, inside the function
+	}catch (const std::exception& ex) {
+    AAMPLOG_ERR("Nitz : catch");
+}
+	AAMPLOG_WARN("Nitz : Acquired lock on fakeTuneMutex");
 	if(PlayerExternalsInterface::IsDevicePropertiesPresent())
 	{
-			AAMPLOG_WARN("doFakeTune : Triggering fake tune");
+			AAMPLOG_WARN("Nitz : doFakeTune : Triggering fake tune");
 			fakeTuneInstance = std::make_shared<PlayerInstanceAAMP>(nullptr, nullptr);
 			RegisterHandlePlayingStateCb(PlayingStateCallb);
 			std::string jsonStr = R"({
@@ -77,22 +83,34 @@ void doFakeTune()
 			0,							  // mpdStichingMode
 			"session-id"				  // sid
 			);
-			AAMPLOG_WARN("After Fake tune call ...");
+			AAMPLOG_WARN("Nitz : After Fake tune call ...");
 			std::thread([fakeTuneInstance]() {
-					AAMPLOG_WARN("Sleeping before calling stop");
+					AAMPLOG_WARN("Nitz : Sleeping before calling stop");
 					std::this_thread::sleep_for(std::chrono::seconds(7)); // or your desired duration
 					//fakeTuneInstance->Stop();
-					AAMPLOG_WARN("Fake tune instance stopped..");
+					AAMPLOG_WARN("Nitz : Fake tune instance stopped..");
 					}).detach();
 	}
+	AAMPLOG_WARN("Nitz : doFakeTune: Exit");
 }
-static void PlayingStateCallb()
+
+void PlayingStateCallb()
 {
-	std::cout<<"Stop callback received and mutex locked";
-	if(fakeTuneInstance)
-		fakeTuneInstance->Stop();
+    AAMPLOG_WARN("nitz: PlayingStateCallb: Enter");
+    if(fakeTuneInstance)
+    {
+        AAMPLOG_WARN("nitz: fakeTuneInstance exists. Calling Stop(). use_count=%ld", fakeTuneInstance.use_count());
+        fakeTuneInstance->Stop();
+        AAMPLOG_WARN("nitz: fakeTuneInstance->Stop() called");
+    }
+    else
+    {
+        AAMPLOG_WARN("nitz: fakeTuneInstance is nullptr");
+    }
+    AAMPLOG_WARN("nitz: PlayingStateCallb: Exit");
 }
 #endif
+
 /**
  *  @brief PlayerInstanceAAMP Constructor.
  */
