@@ -4319,7 +4319,8 @@ bool InterfacePlayerRDK::SetPlayBackRate(double rate)
 			sources.push_back(gstPrivateContext->stream[iTrack].source);
 		}
 	}
-	ret = socInterface->SetPlaybackRate(sources, gstPrivateContext->pipeline, rate, gstPrivateContext->video_dec,gstPrivateContext->audio_dec);
+	bool isRialto = gstPrivateContext->usingRialtoSink;
+	ret = socInterface->SetPlaybackRate(sources, gstPrivateContext->pipeline, rate, gstPrivateContext->video_dec,gstPrivateContext->audio_dec,isRialto);
 	return ret;
 }
 

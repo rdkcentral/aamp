@@ -81,6 +81,7 @@ public:
 	void ReserveBytes( size_t len );
 	void AppendBytes( const void *ptr, size_t len ); // append passed binary data to end of growable buffer, increasing underlying storage if required
 	void MoveBytes( const void *ptr, size_t len );
+	void AppendNulTerminator(void); // add final 0x00 character(s) so that the growable buffer can be used like a standard NUL-terminated C String
 	void Clear( void ); // sets logical buffer size back to zero, without releasing available pre-allocated memory; allows a growable buffer to be recycled
 	void Replace( AampGrowableBuffer *src );
 	void Transfer( void );

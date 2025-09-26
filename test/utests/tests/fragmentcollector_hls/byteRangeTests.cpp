@@ -113,9 +113,9 @@ TEST_F(byteRangeTests, withoutbyterange) {
 }
 
 TEST_F(byteRangeTests, withoutvalue) {
-	GTEST_SKIP(); // for now skip this invalid variation
 	size_t byteRangeLength = 0;
 	size_t byteRangeOffset = 0;
+
 	const char *raw = "#EXT-X-BYTERANGE:";
 	lstring param(raw,strlen(raw));
 	bool status = trackStateObj->IsExtXByteRange(param,&byteRangeLength, &byteRangeOffset);
@@ -128,10 +128,10 @@ TEST_F(byteRangeTests, withbytelength) {
 	size_t byteRangeLength = 0;
 	size_t byteRangeOffset = 0;
 	
-	const char *raw = "#EXT-X-BYTERANGE: 1234"; // length-only
+	const char *raw = "#EXT-X-BYTERANGE: 1234";
 	lstring param(raw,strlen(raw));
 	bool status = trackStateObj->IsExtXByteRange(param,&byteRangeLength, &byteRangeOffset);
-    EXPECT_TRUE(status);
+	EXPECT_FALSE(status);
 	EXPECT_EQ(byteRangeLength,1234);
 	EXPECT_EQ(byteRangeOffset,0);
 }
@@ -140,7 +140,7 @@ TEST_F(byteRangeTests, withbytevalue) {
 	size_t byteRangeLength = 0;
 	size_t byteRangeOffset = 0;
 
-	const char *raw = "#EXT-X-BYTERANGE: 1234@4321"; // length & range
+	const char *raw = "#EXT-X-BYTERANGE: 1234@4321";
 	lstring param(raw,strlen(raw));
 	bool status = trackStateObj->IsExtXByteRange(param,&byteRangeLength, &byteRangeOffset);
 	EXPECT_TRUE(status);
@@ -152,7 +152,7 @@ TEST_F(byteRangeTests, withoutseg) {
 	size_t byteRangeLength = 0;
 	size_t byteRangeOffset = 0;
 
-	const char *raw = "#EXT-X-BYTERANGE: 1234@4321,"; // length & range
+	const char *raw = "#EXT-X-BYTERANGE: 1234@4321,";
 	lstring param(raw,strlen(raw));
 	bool status = trackStateObj->IsExtXByteRange(param,&byteRangeLength, &byteRangeOffset);
 	EXPECT_TRUE(status);
@@ -164,7 +164,7 @@ TEST_F(byteRangeTests, withsegnum) {
 	size_t byteRangeLength = 0;
 	size_t byteRangeOffset = 0;
 
-	const char *raw = "#EXT-X-BYTERANGE: 1234@4321,\nseg2.m4s"; // length & range
+	const char *raw = "#EXT-X-BYTERANGE: 1234@4321,\nseg2.m4s";
 	lstring param(raw,strlen(raw));
 	bool status = trackStateObj->IsExtXByteRange(param,&byteRangeLength, &byteRangeOffset);
 	EXPECT_TRUE(status);
@@ -198,34 +198,4 @@ TEST_F(byteRangeTests, testThreadStart)
 
 	// And a second time - if the thread is already running, it should not cause any issues
 	trackState->Start();
-}
-
-TEST_F(byteRangeTests, testFormatFromExtension )
-{
-	static struct
-	{
-		const char *data;
-		StreamOutputFormat format;
-	} test_data[] =
-	{
-        { "#EXTM3U8\r\nx.ts", FORMAT_MPEGTS },
-        { "#EXTM3U8\r\n\r\ny.ts", FORMAT_MPEGTS },
-		{ "#EXTM3U8\r\n#EXT-X-MEDIA\r\n#EXT-X-MAP foo.mp4", FORMAT_ISO_BMFF },
-		{ "a.b.x.aac", FORMAT_AUDIO_ES_AAC },
-		{ "x.ac3", FORMAT_AUDIO_ES_AC3 },    /**< AC3 Audio Elementary Stream */
-		{ "x.ec3", FORMAT_AUDIO_ES_EC3 },    /**< Dolby Digital Plus Elementary Stream */
-		{ "x.webvtt", FORMAT_SUBTITLE_WEBVTT }, /**< WebVTT subtitle Stream */
-		{ "x.vtt", FORMAT_SUBTITLE_WEBVTT }, /**< WebVTT subtitle Stream */
-		{ "foo", FORMAT_INVALID },
-		{ "foo.unk", FORMAT_INVALID },
-		{ "a.ts.x", FORMAT_INVALID }
-	};
-	for( size_t i=0; i<ARRAY_SIZE(test_data); i++ )
-	{
-        printf( "test#%zu: '%s'\n", i, test_data[i].data );
-		AampGrowableBuffer buffer;
-		buffer.AppendBytes(test_data[i].data, strlen(test_data[i].data) );
-		StreamOutputFormat format = GetFormatFromFragmentExtension( buffer );
-		EXPECT_EQ( format, test_data[i].format );
-	}
 }

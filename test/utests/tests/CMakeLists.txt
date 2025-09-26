@@ -17,6 +17,7 @@
 
 include(GoogleTest)
 
+add_subdirectory(PluginTests)
 add_subdirectory(JsBindingTests)
 add_subdirectory(AampEventTests)
 add_subdirectory(AampCliSet)
@@ -36,6 +37,7 @@ add_subdirectory(TextStyleAttributes)
 add_subdirectory(UrlEncDecAAMP)
 add_subdirectory(StreamAbstractionAAMP_HLS)
 add_subdirectory(StreamAbstractionAAMP_MPD)
+add_subdirectory(FragmentCollectorMpdTests)
 add_subdirectory(StreamAbstractionAAMP)
 add_subdirectory(AampCurlDownloader)
 add_subdirectory(AampMPDDownloader)
