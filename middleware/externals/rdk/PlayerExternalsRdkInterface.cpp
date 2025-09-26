@@ -21,15 +21,26 @@
  * @file PlayerExternalsRdkInterface.cpp
  * @brief player interface with IARM specific to RDK
  */
+#include "PlayerExternalUtils.h"
 #include "PlayerExternalsRdkInterface.h"
-
 #include <hostIf_tr69ReqHandler.h>
 #include "tr181api.h"
 #include "_base64.h"
+#ifdef USE_PREINIT_DECODING
+#include "main_aamp.h"
+#include "power_controller.h"
+#include <thread>
+#endif
 
 #define DISPLAY_WIDTH_UNKNOWN       -1  /**< Parsing failed for getResolution().getName(); */
 #define DISPLAY_HEIGHT_UNKNOWN      -1  /**< Parsing failed for getResolution().getName(); */
 #define DISPLAY_RESOLUTION_NA        0  /**< Resolution not available yet or not connected to HDMI */
+#define RETRYSLEEP (300 * 1000) //Retry sleep
+
+#ifdef USE_PREINIT_DECODING
+static void IARM_PowerChangeHandler (const PowerController_PowerState_t currentState,
+                                      const PowerController_PowerState_t newState, void* userdata);
+#endif
 
 /**
  * @brief Enumeration for net_srv_mgr active interface event callback
@@ -62,6 +73,86 @@ static void HDMIEventHandler(const char *owner, IARM_EventId_t eventId, void *da
 static void ResolutionHandler(const char *owner, IARM_EventId_t eventId, void *data, size_t len);
 static void getActiveInterfaceEventHandler (const char *owner, IARM_EventId_t eventId, void *data, size_t len);
 
+#ifdef USE_PREINIT_DECODING
+void triggerFakeTune()
+{
+	std::thread([](){
+		doFakeTune();
+	}).detach();
+}
+void getPwrContInterface()
+{
+    MW_LOG_INFO("Enter ... getPwrContInterface()");
+	PowerController_Init();
+
+    while (!PowerController_IsOperational()) {
+        uint32_t status = PowerController_Connect();
+
+        if (POWER_CONTROLLER_ERROR_NONE == status) {
+            MW_LOG_INFO("Success :: Connect");
+            break;
+        } else if (POWER_CONTROLLER_ERROR_UNAVAILABLE == status) {
+            MW_LOG_ERR("Failed :: Connect :: Thunder is UNAVAILABLE");
+        } else if (POWER_CONTROLLER_ERROR_NOT_EXIST == status) {
+            MW_LOG_ERR("Failed :: Connect :: PowerManager is UNAVAILABLE");
+        } else {
+            // Do nothing
+        }
+        usleep(RETRYSLEEP); // 300ms
+    }
+    MW_LOG_INFO("Registering power mode change callback...");
+    PowerController_RegisterPowerModeChangedCallback(IARM_PowerChangeHandler, nullptr);
+
+    MW_LOG_INFO("Exit ... getPwrContInterface()");
+}
+
+void initPowerController()
+{
+    MW_LOG_INFO("Enter ... initPowerController()");
+    // Get powercontroller thunder client interface in separate thread
+    std::thread pwrThread(getPwrContInterface);
+    if(pwrThread.joinable())
+    {
+        MW_LOG_INFO("[%s:%d]: created getPwrContInterface thread.. ", __FUNCTION__, __LINE__);
+        pwrThread.detach();  // Detach the thread to run independently
+    }
+    else
+    {
+        MW_LOG_INFO("[%s:%d]: Failed to create getPwrContInterface thread.. ", __FUNCTION__, __LINE__);
+    }
+    MW_LOG_INFO("Exit ... initPowerController()");
+}
+
+void terminatePowerController()
+{
+    MW_LOG_INFO("Enter ... terminatePowerController");
+    PowerController_UnRegisterPowerModeChangedCallback(IARM_PowerChangeHandler);
+    PowerController_Term();
+    MW_LOG_INFO("Exit ... terminatePowerController()");
+}
+
+/**
+ * @brief   Handles Power change
+ * @param   currentState Current power state
+ * @param   newState New power state
+ * @param   userdata pointer to Received userdata
+ * @retval  IARM Result success or Failure
+ */
+static void IARM_PowerChangeHandler (const PowerController_PowerState_t currentState,
+                                      const PowerController_PowerState_t newState, void* userdata)
+{
+	MW_LOG_INFO("Entering IARM_PowerChangeHandler:State Changed currentState: %d, newState: %d",
+			currentState, newState);
+
+	if(currentState == POWER_STATE_STANDBY_DEEP_SLEEP && newState != POWER_STATE_STANDBY_DEEP_SLEEP )
+	{
+		MW_LOG_INFO(" DEEPSLEEP : calling triggerFakeTune  \n");
+		triggerFakeTune();
+	}
+
+	MW_LOG_INFO("Exiting IARM_PowerChangeHandler..");
+}
+#endif
 /**
  * @brief Singleton for object creation
  */
@@ -74,7 +165,7 @@ PlayerExternalsRdkInterface * PlayerExternalsRdkInterface::GetPlayerExternalsRdk
     return s_pPlayerIarmRdkOP;
 }
 
-void PlayerExternalsRdkInterface::IARMInit(const char* processName)
+void PlayerExternalsRdkInterface::IARMInit(const char* processName, bool powerEvt)
 {
     //char processName[20] = {0};
     IARM_Result_t result;
@@ -87,7 +178,19 @@ void PlayerExternalsRdkInterface::IARMInit(const char* processName)
     }
 
     if (IARM_RESULT_SUCCESS == (result = IARM_Bus_Connect())) {
-            printf("IARM Interface Connected in Player\n");
+	    printf("IARM Interface Connected in Player\n");
+#ifdef USE_PREINIT_DECODING
+	    // Register for power mode change event
+	    if (powerEvt)
+	    {
+		    printf("******** Registering **************\n");
+		    if(!IsContainerEnvironment())
+		    {
+			    AAMPLOG_WARN("Registering power manager mode change in Player");
+			    initPowerController();
+			}
+	    }
+#endif
     }
     else {
             printf("IARM Interface Connected Externally :%d\n", result);
@@ -290,9 +393,16 @@ static void ResolutionHandler(const char *owner, IARM_EventId_t eventId, void *d
 
 void PlayerExternalsRdkInterface::IARMRemoveDsMgrEventHandler()
 {
-    IARM_Bus_RemoveEventHandler(IARM_BUS_DSMGR_NAME,IARM_BUS_DSMGR_EVENT_HDMI_HOTPLUG, HDMIEventHandler);
-    IARM_Bus_RemoveEventHandler(IARM_BUS_DSMGR_NAME,IARM_BUS_DSMGR_EVENT_HDCP_STATUS, HDMIEventHandler);
-    IARM_Bus_RemoveEventHandler(IARM_BUS_DSMGR_NAME,IARM_BUS_DSMGR_EVENT_RES_POSTCHANGE, ResolutionHandler);
+#ifdef USE_PREINIT_DECODING
+	if(!IsContainerEnvironment())
+	{
+		MW_LOG_INFO("\nCalling terminatePowerController()");
+		terminatePowerController();
+	}
+#endif
+	IARM_Bus_RemoveEventHandler(IARM_BUS_DSMGR_NAME,IARM_BUS_DSMGR_EVENT_HDMI_HOTPLUG, HDMIEventHandler);
+	IARM_Bus_RemoveEventHandler(IARM_BUS_DSMGR_NAME,IARM_BUS_DSMGR_EVENT_HDCP_STATUS, HDMIEventHandler);
+	IARM_Bus_RemoveEventHandler(IARM_BUS_DSMGR_NAME,IARM_BUS_DSMGR_EVENT_RES_POSTCHANGE, ResolutionHandler);
 }
 
 /**

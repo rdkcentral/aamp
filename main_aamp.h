@@ -70,6 +70,8 @@
 
 #define PrivAAMPState AAMPPlayerState // backwards compatibility for apps using native interface
 
+void doFakeTune();
+#define FAKE_TUNE_URL "file:///etc/manifest.mpd" /**< Fake tune URL for testing purposes */
 /**
  * @class PlayerInstanceAAMP
  * @brief Player interface class for the JS plugin.
@@ -92,7 +94,7 @@ public:
 	 *   @param  streamSink - custom stream sink, NULL for default.
 	 *   @param  exportFrames - callback function to export video frames
 	 */
-	PlayerInstanceAAMP( StreamSink* streamSink = NULL, std::function< void(const unsigned char *, int, int, int) > exportFrames = nullptr );
+	PlayerInstanceAAMP( StreamSink* streamSink = NULL, std::function< void(const unsigned char *, int, int, int) > exportFrames = nullptr, bool powerEvt = false);
 
 	/**
 	 *   @fn ~PlayerInstanceAAMP
