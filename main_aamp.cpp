@@ -49,11 +49,12 @@ std::mutex PlayerInstanceAAMP::mPrvAampMtx;
 std::mutex fakeTuneMutex;
 
 #ifdef USE_PREINIT_DECODING
-std::lock_guard<std::mutex> lock(fakeTuneMutex);
 std::shared_ptr<PlayerInstanceAAMP> fakeTuneInstance = nullptr;
 static void PlayingStateCallb();
 void doFakeTune()
 {
+	AAMPLOG_WARN("doFakeTune : Entered and fakeTuneMutex locked");
+	std::lock_guard<std::mutex> lock(fakeTuneMutex); // Lock here, inside the function
 	if(PlayerExternalsInterface::IsDevicePropertiesPresent())
 	{
 			AAMPLOG_WARN("doFakeTune : Triggering fake tune");
@@ -87,7 +88,7 @@ void doFakeTune()
 }
 static void PlayingStateCallb()
 {
-	std::cout<<"Stop callback received";
+	std::cout<<"Stop callback received and mutex locked";
 	if(fakeTuneInstance)
 		fakeTuneInstance->Stop();
 }
