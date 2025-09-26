@@ -61,7 +61,7 @@ struct LicensePreFetchObject
 	 * @param type media type
 	 */
 	LicensePreFetchObject(DrmHelperPtr drmHelper, std::string periodId, uint32_t adapIdx, AampMediaType type, bool isVssPeriod): mHelper(drmHelper),
-															mPeriodId(periodId),
+															mPeriodId(std::move(periodId)),
 															mAdaptationIdx(adapIdx),
 															mType(type),
 															mId(staticId++),
