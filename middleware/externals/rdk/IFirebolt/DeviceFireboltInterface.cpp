@@ -64,6 +64,8 @@ std::shared_ptr<DeviceFireboltInterface> DeviceFireboltInterface::GetInstance()
 
 DeviceFireboltInterface::DeviceFireboltInterface()
 {
+	printf("[MIDDLEWARE] DeviceFireboltInterface constructor \n");
+    fflush(stdout);
     m_pFireboltInterface = FireboltInterface::GetInstance();
 }
 
@@ -75,11 +77,23 @@ DeviceFireboltInterface::~DeviceFireboltInterface()
 
 void DeviceFireboltInterface::Initialize()
 {
+	printf("[MIDDLEWARE] DeviceFireboltInterface Initialize \n");
+    fflush(stdout);
 	if(s_pDeviceFireboltInterface)
 	{
+		printf("[MIDDLEWARE] DeviceFireboltInterface s_pDeviceFireboltInterface \n");
+    	fflush(stdout);
 		s_pDeviceFireboltInterface->RegisterDsMgrEventHandler();
 		s_pDeviceFireboltInterface->RegisterNtwMgrEventHandler();
 	}
+	else
+	{
+		printf("[MIDDLEWARE] DeviceFireboltInterface init called before instance \n");
+    	fflush(stdout);
+	}
+
+	printf("[MIDDLEWARE] DeviceFireboltInterface Initialize completed \n");
+    fflush(stdout);
 	
 }
 
@@ -87,7 +101,7 @@ void DeviceFireboltInterface::Initialize()
 void DeviceFireboltInterface::RegisterDsMgrEventHandler()
 {
        
-	MW_LOG_WARN("Subscribing to Firebolt hdcp change event ");
+	MW_LOG_MIL("Subscribing to Firebolt hdcp change event ");
 
 	auto result =  Firebolt::IFireboltAampAccessor::Instance().DeviceInterface().subscribeOnHdcpChanged(
 					[](const auto& hdcpProtocol) {
@@ -97,7 +111,7 @@ void DeviceFireboltInterface::RegisterDsMgrEventHandler()
 
 	if(result)
 	{
-		MW_LOG_INFO("HDCP changed event registerd");
+		MW_LOG_MIL("HDCP changed event registerd");
 		mDsMgrSubscriptionId.push_back(result.value());
 	}
 
@@ -106,7 +120,7 @@ void DeviceFireboltInterface::RegisterDsMgrEventHandler()
 		MW_LOG_ERR("Failed to subscribe to hdcp change events: %d", static_cast<int>(result.error()));
 	}
 
-	MW_LOG_WARN("Subscribing to Firebolt resolution change event ");
+	MW_LOG_MIL("Subscribing to Firebolt resolution change event ");
 
 	result = Firebolt::IFireboltAampAccessor::Instance().DeviceInterface().subscribeOnVideoResolutionChanged(
 					[](const std::string& videoResolution) 
@@ -116,7 +130,7 @@ void DeviceFireboltInterface::RegisterDsMgrEventHandler()
 					});
 	if(result)
 	{
-		MW_LOG_INFO("Resolution changed event registerd");
+		MW_LOG_MIL("Resolution changed event registerd");
         mDsMgrSubscriptionId.push_back(result.value());
 	}
 	else
@@ -134,7 +148,7 @@ void DeviceFireboltInterface::RemoveEventHandlers()
 
 void DeviceFireboltInterface::RegisterNtwMgrEventHandler()
 {
-	MW_LOG_WARN("Subscribing to Firebolt Network change event ");
+	MW_LOG_MIL("Subscribing to Firebolt Network change event ");
 
 	auto result =  Firebolt::IFireboltAampAccessor::Instance().DeviceInterface().subscribeOnNetworkChanged(
 					[](const auto& network) {
@@ -144,7 +158,7 @@ void DeviceFireboltInterface::RegisterNtwMgrEventHandler()
 	
 	if(result)
 	{
-		MW_LOG_INFO("Network changed event registerd");
+		MW_LOG_MIL("Network changed event registerd");
 		mNtwMgrSubscriptionId.push_back(result.value());
 	}
 	else
