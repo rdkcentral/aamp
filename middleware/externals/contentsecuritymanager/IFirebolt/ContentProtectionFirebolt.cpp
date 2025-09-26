@@ -91,14 +91,6 @@ ContentProtectionFirebolt::~ContentProtectionFirebolt()
 	DeInitialize();
 }
 
-static int MapFireboltStatus(const std::string& statusStr) {
-	if (statusStr == "GRANTED") return 1;
-	if (statusStr == "NOT_REQUIRED") return 2;
-	if (statusStr == "DENIED") return 3;
-	if (statusStr == "FAILED") return 4;
-	return -1;
-}
-
 // TODO- Yet to test Watermark Events as ContentProtection Thunder Plugin have issues.
 void ContentProtectionFirebolt::SubscribeEvents()
 {
@@ -139,11 +131,10 @@ void ContentProtectionFirebolt::HandleWatermarkEvent(const std::string& sessionI
     	MW_LOG_INFO("HandleWaterMarkEvent Triggered");
         PlayerJsonObject statusJson(statusStr);
         std::string status;
-		int mappedCode = -1;
-		if (statusJson.get("state", status))
+		int failureReasoncode = -1;
+		if (statusJson.get("failureReason", failureReasoncode))
         {
-			MW_LOG_INFO("HandleWaterMarkEvent status %s",status.c_str());
-            mappedCode = MapFireboltStatus(status.c_str());
+			MW_LOG_INFO("HandleWaterMarkEvent Failure Reasoncode %d",failureReasoncode);
         }
 		else
 		{
@@ -152,9 +143,9 @@ void ContentProtectionFirebolt::HandleWatermarkEvent(const std::string& sessionI
 		std::lock_guard<std::mutex> lock(mFireboltInitMutex);
 		if (ContentSecurityManager::SendWatermarkSessionEvent_CB)
 		{
-			MW_LOG_INFO("ContentSecurityManager SendWatermarkSessionEvent_CB invoked | sessionId=%s mappedCode=%d appId=%s",
-            sessionId.c_str(), mappedCode, appId.c_str());
-			ContentSecurityManager::SendWatermarkSessionEvent_CB(std::stoi(sessionId), mappedCode, appId);
+			MW_LOG_INFO("ContentSecurityManager SendWatermarkSessionEvent_CB invoked | sessionId=%s failureReasoncode=%d appId=%s",
+            sessionId.c_str(), failureReasoncode, appId.c_str());
+			ContentSecurityManager::SendWatermarkSessionEvent_CB(std::stoi(sessionId), failureReasoncode, appId);
 		}
 	}
 }
