@@ -85,13 +85,28 @@ void ContentProtectionFirebolt::UnSubscribeEvents()
 
 void ContentProtectionFirebolt::HandleWatermarkEvent(const std::string& sessionId, const std::string& statusStr, const std::string& appId)
 {
+	MW_LOG_INFO("ContentSecurityManager SendWatermarkSessionEvent_CB invoked 1 | sessionId=%s status=%s appId=%s",
+            sessionId.c_str(), statusStr.c_str(), appId.c_str());
 	if(mInitialized)
 	{
-		//TODO Testing Watermark
-		int mappedCode = MapFireboltStatus(statusStr);
+    	MW_LOG_INFO("HandleWaterMarkEvent Triggered");
+        PlayerJsonObject statusJson(statusStr);
+        std::string status;
+		int mappedCode = -1;
+		if (statusJson.get("state", status))
+        {
+			MW_LOG_INFO("HandleWaterMarkEvent status %s",status.c_str());
+            mappedCode = MapFireboltStatus(status.c_str());
+        }
+		else
+		{
+			MW_LOG_INFO("Json Parsing Failed to extract Watermarking status");
+		}
 		std::lock_guard<std::mutex> lock(mFireboltInitMutex);
 		if (ContentSecurityManager::SendWatermarkSessionEvent_CB)
 		{
+			MW_LOG_INFO("ContentSecurityManager SendWatermarkSessionEvent_CB invoked | sessionId=%s mappedCode=%d appId=%s",
+            sessionId.c_str(), mappedCode, appId.c_str());
 			ContentSecurityManager::SendWatermarkSessionEvent_CB(std::stoi(sessionId), mappedCode, appId);
 		}
 	}
@@ -124,7 +139,8 @@ void ContentProtectionFirebolt::Initialize()
 	ShowWatermark(false, sessionId);
 	/* CP Thunder Plugin doesnt allow invalid sessionId like 0 as in Thunder, hence not calling CloseDrmSession */
 	//CloseDrmSession(sessionId);
-	SubscribeEvents();
+//:w
+//	SubscribeEvents();
 	MW_LOG_WARN("Firebolt ContentProtection initialized with URL: [%s]", url.c_str());
 }
 
@@ -239,8 +255,8 @@ bool ContentProtectionFirebolt::AcquireLicenseOpenOrUpdate( std::string clientId
 	sessionConfig.add("sessionState", isVideoMuted ? "inactive" : "active");
 
 	// width/height are numbers, but PlayerJsonObject's add expects strings -> so convert to string
-	aspectDimensions.add("width", std::to_string(1920));
-	aspectDimensions.add("height", std::to_string(1080));
+	aspectDimensions.add("width", 1920);
+	aspectDimensions.add("height", 1080);
 
 	std::string mediaUsageStr = mediaUsage ? mediaUsage : "";
 

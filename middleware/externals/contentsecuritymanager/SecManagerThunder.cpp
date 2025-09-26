@@ -150,7 +150,7 @@ bool SecManagerThunder::AcquireLicenseOpenOrUpdate( std::string clientId, std::s
 	aspectDimensions["width"] = 1920;
 	aspectDimensions["height"] = 1080;
 
-	param["clientId"] = "player";
+	param["clientId"] = "aamp";
 	param["sessionConfiguration"] = sessionConfig;
 	param["contentAspectDimensions"] = aspectDimensions;
 
