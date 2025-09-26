@@ -58,8 +58,7 @@ PlayerExternalsRdkInterface::PlayerExternalsRdkInterface()
 void PlayerExternalsRdkInterface::Initialize()
 {
 
-    printf("[MIDDLEWARE] PlayerExternalsRdkInterface Initializing started \n");
-    fflush(stdout);
+    MW_PRELOGGER_LOG("Initializing started \n");
 
     /*
     IARM Deprecation Note:
@@ -73,31 +72,27 @@ void PlayerExternalsRdkInterface::Initialize()
     //initialize only if needed
     if(m_initialized != InitState::NOT_INITIALIZED)
     {
-        if(m_initialized == InitState::FIREBOLT && m_use_firebolt_sdk && IsContainerEnvironment())
+        if(m_initialized == InitState::FIREBOLT && (m_use_firebolt_sdk || IsContainerEnvironment()))
         {
-            printf("[MIDDLEWARE] PlayerExternalsRdkInterface Firebolt already Inited \n");
-            fflush(stdout);
+            MW_PRELOGGER_LOG("Firebolt already Inited \n");
             //firebolt already inited
             return;
         }
         else if(m_initialized == InitState::IARM && (!m_use_firebolt_sdk) && (!IsContainerEnvironment()))
         {
-            printf("[MIDDLEWARE] PlayerExternalsRdkInterface IARM already Inited \n");
-            fflush(stdout);
+            MW_PRELOGGER_LOG("IARM already Inited \n");
             //IARM already inited
             return;
         }
         else
         {
-            printf("[MIDDLEWARE] PlayerExternalsRdkInterface m_use_firebolt_sdk or IsContainerEnvironment() has changed, init again \n");
-            fflush(stdout);
+            MW_PRELOGGER_LOG("m_use_firebolt_sdk or IsContainerEnvironment() has changed, init again \n");
             //m_use_firebolt_sdk has changed init again
         }
     }
     else
     {
-        printf("[MIDDLEWARE] PlayerExternalsRdkInterface Initializing \n");
-        fflush(stdout);
+        MW_PRELOGGER_LOG("Initializing \n");
     }
     //remove-end
     
@@ -109,8 +104,7 @@ void PlayerExternalsRdkInterface::Initialize()
     if(m_use_firebolt_sdk || IsContainerEnvironment()) //if explicitly config'd to or if in container go for firebolt
     {
     //remove-end
-        printf("[MIDDLEWARE] using Firebolt \n");
-        fflush(stdout);
+        MW_PRELOGGER_LOG("Using Firebolt \n");
         m_pDeviceInterfaceBase = DeviceFireboltInterface::GetInstance();
         DeviceFireboltInterface::Initialize();
     //remove-start
@@ -118,8 +112,7 @@ void PlayerExternalsRdkInterface::Initialize()
     }
     else
     {
-        printf("[MIDDLEWARE] using IARM \n");
-        fflush(stdout);
+        MW_PRELOGGER_LOG("Using IARM \n");
         m_pDeviceInterfaceBase = DeviceIARMInterface::GetInstance();
         DeviceIARMInterface::Initialize();
         m_initialized = PlayerExternalsRdkInterface::InitState::IARM;
@@ -128,8 +121,7 @@ void PlayerExternalsRdkInterface::Initialize()
 
     SetHDMIStatus();
 
-    printf("[MIDDLEWARE] PlayerExternalsRdkInterface Initializing completed \n");
-    fflush(stdout);
+    MW_PRELOGGER_LOG("Initializing completed \n");
 }
 
 PlayerExternalsRdkInterface::~PlayerExternalsRdkInterface()
@@ -285,7 +277,6 @@ char * PlayerExternalsRdkInterface::GetTR181Config(const char * paramName, size_
 
 void PlayerExternalsRdkInterface::SetUseFireBoltSDK(bool t_use_firebolt_sdk)
 {
-    printf("[MIDDLEWARE] SetUseFireboltSDK : %d \n", t_use_firebolt_sdk);
-    fflush(stdout);
+    MW_PRELOGGER_LOG("SetUseFireboltSDK : %d \n", t_use_firebolt_sdk);
     m_use_firebolt_sdk = t_use_firebolt_sdk;
 }

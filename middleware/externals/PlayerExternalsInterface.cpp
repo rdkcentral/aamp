@@ -23,6 +23,7 @@
  */
 
 #include "PlayerExternalsInterface.h"
+#include "PlayerExternalUtils.h"
 
 #ifdef IARM_MGR
 #include "PlayerExternalsRdkInterface.h"
@@ -37,11 +38,10 @@ std::shared_ptr<PlayerExternalsInterface> PlayerExternalsInterface::s_pPlayerOP 
 PlayerExternalsInterface::PlayerExternalsInterface()
 {
 #ifdef IARM_MGR
-    printf("[MIDDLEWARE] not container\n");
-    fflush(stdout);
+    MW_PRELOGGER_LOG("Device API IARM/Firebolt\n");
     m_pIarmInterface = PlayerExternalsRdkInterface::GetPlayerExternalsRdkInterfaceInstance();
 #else
-    printf("[MIDDLEWARE] PlayerExternalsInterface FAKE\n");
+    MW_PRELOGGER_LOG("Device API FAKE\n");
     m_pIarmInterface = std::shared_ptr<PlayerExternalsInterfaceBase>(new FakePlayerExternalsInterface());
 #endif
 
@@ -60,14 +60,12 @@ void PlayerExternalsInterface::Initialize()
 {
     if(s_pPlayerOP != NULL)
     {
-        printf("[MIDDLEWARE] PlayerExternalsInterface::Initialize calling m_pIarmInterface->Initialize()\n");
-        fflush(stdout);
+        MW_PRELOGGER_LOG("PlayerExternalsInterface::Initialize\n");
         m_pIarmInterface->Initialize();
     }
     else
     {
-        printf("[MIDDLEWARE] PlayerExternalsInterface::Initialize PlayerExternalsInterface not found to initialize\n");
-        fflush(stdout);
+        MW_PRELOGGER_LOG("PlayerExternalsInterface not found to initialize\n");
     }
 }
 

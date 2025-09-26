@@ -47,6 +47,8 @@ Remove the entire folder externals/rdk/IARM
 
 #include "PlayerExternalsRdkInterface.h"
 
+#include "PlayerExternalUtils.h"
+
 /**
  * @brief Enumeration for net_srv_mgr active interface event callback
  */
@@ -116,26 +118,24 @@ void DeviceIARMInterface::IARMInit()
 {
     //char processName[20] = {0};
     IARM_Result_t result;
-    printf("[MIDDLEWARE] IARM Interface Init started in Player\n");
-    fflush(stdout);
+    MW_PRELOGGER_LOG("IARM Interface Init started in Player\n");
 
     //snprintf(processName, sizeof(processName), "PLAYER-%u", getpid());
     if (IARM_RESULT_SUCCESS == (result = IARM_Bus_Init("PLAYER"))) {
-            printf("[MIDDLEWARE] IARM Interface Inited in Player\n");
+            MW_PRELOGGER_LOG("IARM Interface Inited in Player\n");
     }
     else {
-            printf("[MIDDLEWARE] IARM Interface Inited Externally : %d\n", result);
+            MW_PRELOGGER_LOG("IARM Interface Inited Externally : %d\n", result);
     }
 
     if (IARM_RESULT_SUCCESS == (result = IARM_Bus_Connect())) {
-            printf("[MIDDLEWARE] IARM Interface Connected in Player\n");
+            MW_PRELOGGER_LOG("IARM Interface Connected in Player\n");
     }
     else {
-            printf("[MIDDLEWARE] IARM Interface Connected Externally :%d\n", result);
+            MW_PRELOGGER_LOG("IARM Interface Connected Externally :%d\n", result);
     }
 
-    printf("[MIDDLEWARE] IARM Interface Init completed in Player\n");
-    fflush(stdout);
+    MW_PRELOGGER_LOG("IARM Interface Init completed in Player\n");
 
 }
 

@@ -36,6 +36,7 @@ IFirebolt folder to be deleted, as IARM is no longer available as an alternative
 #include "fireboltaamp.h"
 #include "PlayerLogManager.h"
 #include "PlayerExternalsRdkInterface.h"
+#include "PlayerExternalUtils.h"
 
 #include <cstring>
 #include <cstdio>
@@ -64,9 +65,7 @@ std::shared_ptr<DeviceFireboltInterface> DeviceFireboltInterface::GetInstance()
 
 DeviceFireboltInterface::DeviceFireboltInterface()
 {
-	printf("[MIDDLEWARE] DeviceFireboltInterface constructor \n");
-    fflush(stdout);
-    m_pFireboltInterface = FireboltInterface::GetInstance();
+	m_pFireboltInterface = FireboltInterface::GetInstance();
 }
 
 DeviceFireboltInterface::~DeviceFireboltInterface()
@@ -77,23 +76,19 @@ DeviceFireboltInterface::~DeviceFireboltInterface()
 
 void DeviceFireboltInterface::Initialize()
 {
-	printf("[MIDDLEWARE] DeviceFireboltInterface Initialize \n");
-    fflush(stdout);
+	MW_PRELOGGER_LOG("Initialize \n");
 	if(s_pDeviceFireboltInterface)
 	{
-		printf("[MIDDLEWARE] DeviceFireboltInterface registering events \n");
-    	fflush(stdout);
+		MW_PRELOGGER_LOG("Registering events \n");
 		s_pDeviceFireboltInterface->RegisterDsMgrEventHandler();
 		s_pDeviceFireboltInterface->RegisterNtwMgrEventHandler();
 	}
 	else
 	{
-		printf("[MIDDLEWARE] DeviceFireboltInterface init called before instance \n");
-    	fflush(stdout);
+		MW_PRELOGGER_LOG("Init called before instance \n");
 	}
 
-	printf("[MIDDLEWARE] DeviceFireboltInterface Initialize completed \n");
-    fflush(stdout);
+	MW_PRELOGGER_LOG("Initialize completed \n");
 	
 }
 
@@ -101,9 +96,7 @@ void DeviceFireboltInterface::Initialize()
 void DeviceFireboltInterface::RegisterDsMgrEventHandler()
 {
        
-	MW_LOG_MIL("Subscribing to Firebolt hdcp change event ");
-	printf("[MIDDLEWARE] DeviceFireboltInterface Subscribing to Firebolt hdcp change event \n");
-    fflush(stdout);
+	MW_PRELOGGER_LOG("Subscribing to Firebolt hdcp change event \n");
 
 	auto result =  Firebolt::IFireboltAampAccessor::Instance().DeviceInterface().subscribeOnHdcpChanged(
 					[](const auto& hdcpProtocol) {
@@ -113,22 +106,16 @@ void DeviceFireboltInterface::RegisterDsMgrEventHandler()
 
 	if(result)
 	{
-		MW_LOG_MIL("HDCP changed event registerd");
-		printf("[MIDDLEWARE] DeviceFireboltInterface HDCP changed event registerd \n");
-    	fflush(stdout);
+		MW_PRELOGGER_LOG("HDCP changed event registerd \n");
 		mDsMgrSubscriptionId.push_back(result.value());
 	}
 
 	else
 	{
-		printf("[MIDDLEWARE] DeviceFireboltInterface Failed to subscribe to hdcp change events: %d \n", static_cast<int>(result.error()));
-    	fflush(stdout);
-		MW_LOG_ERR("Failed to subscribe to hdcp change events: %d", static_cast<int>(result.error()));
+		MW_PRELOGGER_LOG("Failed to subscribe to hdcp change events: %d \n", static_cast<int>(result.error()));
 	}
 
-	MW_LOG_MIL("Subscribing to Firebolt resolution change event ");
-	printf("[MIDDLEWARE] DeviceFireboltInterface Subscribing to Firebolt resolution change event  \n");
-    fflush(stdout);
+	MW_PRELOGGER_LOG("Subscribing to Firebolt resolution change event  \n");
 
 	result = Firebolt::IFireboltAampAccessor::Instance().DeviceInterface().subscribeOnVideoResolutionChanged(
 					[](const std::string& videoResolution) 
@@ -138,17 +125,13 @@ void DeviceFireboltInterface::RegisterDsMgrEventHandler()
 					});
 	if(result)
 	{
-		MW_LOG_MIL("Resolution changed event registerd");
-		printf("[MIDDLEWARE] DeviceFireboltInterface Resolution changed event registerd\n");
-    	fflush(stdout);
+		MW_PRELOGGER_LOG("Resolution changed event registerd\n");
         mDsMgrSubscriptionId.push_back(result.value());
 	}
 	else
 	{
-		printf("[MIDDLEWARE] DeviceFireboltInterface Failed to get video resolution %d\n", static_cast<int>(result.error()) );
-    	fflush(stdout);
-		MW_LOG_ERR("Failed to get video resolution %d ",  static_cast<int>(result.error()));
-	}
+		MW_PRELOGGER_LOG("Failed to get video resolution %d\n", static_cast<int>(result.error()) );
+    }
 
 }
 
@@ -160,9 +143,7 @@ void DeviceFireboltInterface::RemoveEventHandlers()
 
 void DeviceFireboltInterface::RegisterNtwMgrEventHandler()
 {
-	MW_LOG_MIL("Subscribing to Firebolt Network change event ");
-	printf("[MIDDLEWARE] DeviceFireboltInterface Subscribing to Firebolt Network change event\n");
-    fflush(stdout);
+	MW_PRELOGGER_LOG("Subscribing to Firebolt Network change event\n");
 
 	auto result =  Firebolt::IFireboltAampAccessor::Instance().DeviceInterface().subscribeOnNetworkChanged(
 					[](const auto& network) {
@@ -172,15 +153,12 @@ void DeviceFireboltInterface::RegisterNtwMgrEventHandler()
 	
 	if(result)
 	{
-		MW_LOG_MIL("Network changed event registerd");
-		printf("[MIDDLEWARE] DeviceFireboltInterface Network changed event registerd\n");
-    	fflush(stdout);
+		MW_PRELOGGER_LOG("Network changed event registerd\n");
 		mNtwMgrSubscriptionId.push_back(result.value());
 	}
 	else
 	{
-		printf("[MIDDLEWARE] DeviceFireboltInterface Failed to subscribe to network change events: %d\n", static_cast<int>(result.error()));
-    	fflush(stdout);
+		MW_PRELOGGER_LOG("Failed to subscribe to network change events: %d\n", static_cast<int>(result.error()));
 		MW_LOG_ERR("Failed to subscribe to network change events: %d", static_cast<int>(result.error()));
 	}
 
@@ -192,14 +170,12 @@ void DeviceFireboltInterface::RegisterNtwMgrEventHandler()
 	{
 		if(network.value().type == Firebolt::Device::NetworkType::WIFI)
 		{
-			printf("[MIDDLEWARE] DeviceFireboltInterface active interface wifi\n");
-    		fflush(stdout);
+			MW_PRELOGGER_LOG("Active interface wifi\n");
 			pInstance->SetActiveInterface(true);
 		}
 		else
 		{
-			printf("[MIDDLEWARE] DeviceFireboltInterface active interface eth\n");
-			fflush(stdout);
+			MW_PRELOGGER_LOG("Active interface eth\n");
 			pInstance->SetActiveInterface(false);
 		}
 	}
