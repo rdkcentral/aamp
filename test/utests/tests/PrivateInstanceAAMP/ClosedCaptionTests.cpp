@@ -51,7 +51,6 @@ class ClosedCaptionTests : public ::testing::Test
 protected:
 	PrivateInstanceAAMP *mPrivateInstanceAAMP{};
 	std::vector<TextTrackInfo> mockTextTracks;
-	MockCJsonManager *mMockCJsonManager{};
 
 	void SetUp() override
 	{
@@ -68,12 +67,13 @@ protected:
 		mPrivateInstanceAAMP->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP;
 
 		// Create and set up cJSON mock manager
-		mMockCJsonManager = new MockCJsonManager();
-		g_mockCJsonManager = mMockCJsonManager;
+		g_mockCJsonManager = new MockCJsonManager();
 
 		// Setup the mock data
 		setupMockTextTracks();
-	}	void TearDown() override
+	}
+
+	void TearDown() override
 	{
 		// Clear the stream abstraction pointer before deleting PrivateInstanceAAMP
 		// to avoid double deletion
@@ -97,8 +97,7 @@ protected:
 		g_mockAampStreamSinkManager = nullptr;
 
 		// Clean up cJSON mock
-		delete mMockCJsonManager;
-		mMockCJsonManager = nullptr;
+		delete g_mockCJsonManager;
 		g_mockCJsonManager = nullptr;
 
 		mockTextTracks.clear();
@@ -114,11 +113,11 @@ public:
 			mockObjects.push_back(reinterpret_cast<cJSON*>(0x7000 + i));
 		}
 
-		EXPECT_CALL(*mMockCJsonManager, CreateArray())
+		EXPECT_CALL(*g_mockCJsonManager, CreateArray())
 			.WillOnce(Return(mockArray));
 
 		// Set up object creation expectations - one for each track
-		EXPECT_CALL(*mMockCJsonManager, CreateObject())
+		EXPECT_CALL(*g_mockCJsonManager, CreateObject())
 			.WillOnce(Return(mockObjects[0]))
 			.WillOnce(Return(mockObjects[1]))
 			.WillOnce(Return(mockObjects[2]))
@@ -130,30 +129,30 @@ public:
 	// Helper function to set up string field expectations for a track
 	void setupTrackStringFieldExpectations(const TextTrackInfo& track, cJSON* mockObj, cJSON* mockItem)
 	{
-		EXPECT_CALL(*mMockCJsonManager, AddStringToObject(mockObj, ::testing::StrEq("name"), ::testing::StrEq(track.name)))
+		EXPECT_CALL(*g_mockCJsonManager, AddStringToObject(mockObj, ::testing::StrEq("name"), ::testing::StrEq(track.name)))
 			.WillOnce(Return(mockItem));
-		EXPECT_CALL(*mMockCJsonManager, AddStringToObject(mockObj, ::testing::StrEq("label"), ::testing::StrEq(track.label)))
+		EXPECT_CALL(*g_mockCJsonManager, AddStringToObject(mockObj, ::testing::StrEq("label"), ::testing::StrEq(track.label)))
 			.WillOnce(Return(mockItem));
 
 		// Add sub-type field based on isCC flag
 		std::string expectedSubType = track.isCC ? "CLOSED-CAPTIONS" : "SUBTITLES";
-		EXPECT_CALL(*mMockCJsonManager, AddStringToObject(mockObj, ::testing::StrEq("sub-type"), ::testing::StrEq(expectedSubType)))
+		EXPECT_CALL(*g_mockCJsonManager, AddStringToObject(mockObj, ::testing::StrEq("sub-type"), ::testing::StrEq(expectedSubType)))
 			.WillOnce(Return(mockItem));
 
-		EXPECT_CALL(*mMockCJsonManager, AddStringToObject(mockObj, ::testing::StrEq("language"), ::testing::StrEq(track.language)))
+		EXPECT_CALL(*g_mockCJsonManager, AddStringToObject(mockObj, ::testing::StrEq("language"), ::testing::StrEq(track.language)))
 			.WillOnce(Return(mockItem));
-		EXPECT_CALL(*mMockCJsonManager, AddStringToObject(mockObj, ::testing::StrEq("rendition"), ::testing::StrEq(track.rendition)))
+		EXPECT_CALL(*g_mockCJsonManager, AddStringToObject(mockObj, ::testing::StrEq("rendition"), ::testing::StrEq(track.rendition)))
 			.WillOnce(Return(mockItem));
-		EXPECT_CALL(*mMockCJsonManager, AddStringToObject(mockObj, ::testing::StrEq("instreamId"), ::testing::StrEq(track.instreamId)))
+		EXPECT_CALL(*g_mockCJsonManager, AddStringToObject(mockObj, ::testing::StrEq("instreamId"), ::testing::StrEq(track.instreamId)))
 			.WillOnce(Return(mockItem));
-		EXPECT_CALL(*mMockCJsonManager, AddStringToObject(mockObj, ::testing::StrEq("codec"), ::testing::StrEq(track.codec)))
+		EXPECT_CALL(*g_mockCJsonManager, AddStringToObject(mockObj, ::testing::StrEq("codec"), ::testing::StrEq(track.codec)))
 			.WillOnce(Return(mockItem));
 	}
 
 	// Helper function to set up availability expectation for a track
 	void setupTrackAvailabilityExpectation(const TextTrackInfo& track, cJSON* mockObj, cJSON* mockItem, bool expectedAvailability)
 	{
-		EXPECT_CALL(*mMockCJsonManager, AddBoolToObject(mockObj, ::testing::StrEq("availability"), expectedAvailability))
+		EXPECT_CALL(*g_mockCJsonManager, AddBoolToObject(mockObj, ::testing::StrEq("availability"), expectedAvailability))
 			.WillOnce(Return(mockItem));
 	}
 
@@ -161,16 +160,16 @@ public:
 	void setupArrayFinalizationExpectations(cJSON* mockArray, const std::vector<cJSON*>& mockObjects)
 	{
 		for (size_t i = 0; i < mockTextTracks.size(); i++) {
-			EXPECT_CALL(*mMockCJsonManager, AddItemToArray(mockArray, mockObjects[i]))
+			EXPECT_CALL(*g_mockCJsonManager, AddItemToArray(mockArray, mockObjects[i]))
 				.WillOnce(Return(cJSON_True));
 		}
 
 		// Set up a lenient expectation for Print() - we don't care about the exact output
 		// since our real verification is in the structure building calls above
-		EXPECT_CALL(*mMockCJsonManager, Print(mockArray))
+		EXPECT_CALL(*g_mockCJsonManager, Print(mockArray))
 			.WillOnce(Return("[]")); // Return minimal valid JSON - actual content doesn't matter for this test
 
-		EXPECT_CALL(*mMockCJsonManager, Delete(mockArray))
+		EXPECT_CALL(*g_mockCJsonManager, Delete(mockArray))
 			.Times(1);
 	}
 

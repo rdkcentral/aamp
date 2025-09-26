@@ -67,8 +67,4 @@ public:
 // Global mock instance that fake cJSON functions will delegate to
 extern MockCJsonManager* g_mockCJsonManager;
 
-// Functions to control the mock from tests
-void SetMockCJsonManager(MockCJsonManager* manager);
-MockCJsonManager* GetMockCJsonManager();
-
 #endif // AAMP_MOCK_CJSON_MANAGER_H
