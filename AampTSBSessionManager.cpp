@@ -193,7 +193,7 @@ std::shared_ptr<CachedFragment> AampTSBSessionManager::Read(TsbInitDataPtr initf
 	if (!readFromAampCache)
 	{
 		// Read from TSBLibrary
-		std::string uniqueUrl = ToUniqueUrl(url,initfragdata->GetAbsolutePosition().inSeconds());
+		std::string uniqueUrl = ToUniqueUrl(std::move(url),initfragdata->GetAbsolutePosition().inSeconds());
 		std::size_t len = mTSBStore->GetSize(uniqueUrl);
 		if (len > 0)
 		{

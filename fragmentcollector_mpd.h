@@ -128,7 +128,7 @@ public :
 					std::string prefHost = aamp_getHostFromURL(manifestUrl);
 					for (auto & item : *baseUrls) {
 						std::string itemUrl = item->GetUrl();
-						std::string host  = aamp_getHostFromURL(itemUrl);
+						std::string host  = aamp_getHostFromURL(std::move(itemUrl));
 						if(0 == prefHost.compare(host))
 						{
 							matchingBaseURL = item->GetUrl();
