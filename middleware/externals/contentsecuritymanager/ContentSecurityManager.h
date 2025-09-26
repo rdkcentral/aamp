@@ -150,6 +150,7 @@ public:
 	 */
 	static void setWatermarkSessionEvent_CB(const std::function<void(uint32_t, uint32_t, const std::string&)>& callback);
 
+	virtual void SubscribeEvents();
 	/**
 	 * @fn getWatermarkSessionEvent_CB
 	 * @return std::function<void(uint32_t, uint32_t, const std::string&)>&

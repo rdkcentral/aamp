@@ -210,4 +210,7 @@ std::function<void(uint32_t, uint32_t, const std::string&)>& ContentSecurityMana
 {
 	return SendWatermarkSessionEvent_CB;
 }
-
+void ContentSecurityManager::SubscribeEvents()
+{
+	SubscribeEvents();
+}
