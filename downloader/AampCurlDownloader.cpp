@@ -172,9 +172,9 @@ int AampCurlDownloader::Download(const std::string &urlStr, std::shared_ptr<Down
 		{
 			{
 				std::lock_guard<std::mutex> lock(mCurlMutex);
-				mDownloadActive		=	true;
-				mDownloadResponse	=	dnldData;
-				mDownloadResponse->sEffectiveUrl	=	urlStr;
+				mDownloadActive = true;
+				mDownloadResponse = dnldData;
+				mDownloadResponse->sEffectiveUrl = urlStr;
 				CURL_EASY_SETOPT_STRING(mCurl, CURLOPT_URL, urlStr.c_str());
 			}
 			bool loopAgain = false;
@@ -352,7 +352,7 @@ void AampCurlDownloader::Initialize(std::shared_ptr<DownloadConfig> dnldCfg)
 	Release();
 
 	std::lock_guard<std::mutex> lock(mCurlMutex);
-	mDnldCfg = dnldCfg;
+	mDnldCfg = std::move(dnldCfg);
 	//mDnldCfg->show();
 	if (!mDnldCfg->pCurl)
 	{
@@ -560,7 +560,7 @@ void AampCurlDownloader::header_callback(char *ptr, size_t len )
 		}
 		if(str.size())
 		{
-			this->mDownloadResponse->mResponseHeader.push_back(str);
+			this->mDownloadResponse->mResponseHeader.push_back(std::move(str));
 		}
 	}
 }
