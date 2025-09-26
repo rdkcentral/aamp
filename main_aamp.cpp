@@ -46,6 +46,7 @@ AampConfig *gpGlobalConfig=NULL;
 #include "ContentSecurityManager.h"
 
 std::mutex PlayerInstanceAAMP::mPrvAampMtx;
+std::mutex fakeTuneMutex;
 
 #ifdef USE_PREINIT_DECODING
 std::lock_guard<std::mutex> lock(fakeTuneMutex);
