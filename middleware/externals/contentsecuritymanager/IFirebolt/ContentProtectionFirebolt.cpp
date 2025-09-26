@@ -128,9 +128,8 @@ void ContentProtectionFirebolt::HandleWatermarkEvent(const std::string& sessionI
             sessionId.c_str(), statusStr.c_str(), appId.c_str());
 	if(mInitialized)
 	{
-    	MW_LOG_INFO("HandleWaterMarkEvent Triggered");
-        PlayerJsonObject statusJson(statusStr);
-        std::string status;
+    MW_LOG_INFO("HandleWaterMarkEvent Triggered");
+    PlayerJsonObject statusJson(statusStr);
 		int failureReasoncode = -1;
 		if (statusJson.get("failureReason", failureReasoncode))
         {
