@@ -386,35 +386,49 @@ int OCDMGSTSessionAdapter::decrypt(GstBuffer *keyIDBuffer, GstBuffer *ivBuffer, 
 int OCDMGSTSessionAdapter::decrypt(const uint8_t *f_pbIV, uint32_t f_cbIV, const uint8_t *payloadData, uint32_t payloadDataSize, uint8_t **ppOpaqueData)
 {
 	int retValue = -1;
-
+	MW_LOG_WARN("DEBUG--> Before decrypt API (a)");
+	
 	if (m_pOpenCDMSession)
 	{
+		MW_LOG_WARN("DEBUG--> Inside decrypt API insdie if");
+			/* CID:328751 - Waiting while holding a lock, got detected due to usage of external API. It may be replaced if approach is redesigned in future */
 		if (!verifyOutputProtection())
 		{
+			MW_LOG_WARN("DEBUG--> verifyOutputProtection failed");
 			return HDCP_COMPLIANCE_CHECK_FAILURE;
 		}
 		else
 		{
+			MW_LOG_WARN("DEBUG--> Before decryptMutex mutex");
 			std::lock_guard<std::mutex> guard(decryptMutex);
+			MW_LOG_WARN("DEBUG--> After decryptMutex mutex");
 			EncryptionScheme encScheme = AesCtr_Cenc;
 			EncryptionPattern pattern = {0};
 			/* CID:313718 - Waiting while holding a lock, got detected due to usage of external API. It may be replaced if approach is redesigned in future */
+			MW_LOG_WARN("DEBUG--> Before opencdm_session_decrypt");
 			retValue = opencdm_session_decrypt(m_pOpenCDMSession, (uint8_t *)payloadData, payloadDataSize, encScheme, pattern, f_pbIV, f_cbIV, NULL, 0, 0);
+
 			if (retValue != 0)
 			{
+				MW_LOG_WARN("DEBUG--> After opencdm_session_decrypt with error");
 #ifdef USE_THUNDER_OCDM_API_0_2
+				MW_LOG_WARN("DEBUG--> Before opencdm_session_status (1)");
 				KeyStatus keyStatus = opencdm_session_status(m_pOpenCDMSession, NULL, 0);
+				
 #else
+				MW_LOG_WARN("DEBUG--> Before opencdm_session_status (2)");
 				KeyStatus keyStatus = opencdm_session_status(m_pOpenCDMSession, NULL, 0);
+				MW_LOG_WARN("DEBUG--> After opencdm_session_status (2)");
 #endif
-				MW_LOG_INFO("OCDMSessionAdapter:%s : decrypt returned : %d key status is : %d", __FUNCTION__, retValue, keyStatus);
+				MW_LOG_WARN("DEBUGOCDMSessionAdapter:%s : decrypt returned : %d key status is : %d", __FUNCTION__, retValue, keyStatus);
 #ifdef USE_THUNDER_OCDM_API_0_2
 				if (keyStatus == OutputRestricted)
 #else
 				if(keyStatus == KeyStatus::OutputRestricted)
 #endif
 				{
-					retValue = HDCP_OUTPUT_PROTECTION_FAILURE;
+					MW_LOG_WARN("DEBUGOCDMSessionAdapter:%s : decrypt returned : %d key status is : %d", __FUNCTION__, retValue, keyStatus);
+					retValue = HDCP_OUTPUT_PROTECTION_FAILURE;	
 				}
 #ifdef USE_THUNDER_OCDM_API_0_2
 				else if (keyStatus == OutputRestrictedHDCP22)
@@ -422,11 +436,13 @@ int OCDMGSTSessionAdapter::decrypt(const uint8_t *f_pbIV, uint32_t f_cbIV, const
 				else if(keyStatus == KeyStatus::OutputRestrictedHDCP22)
 #endif
 				{
+					MW_LOG_WARN("DEBUGOCDMSessionAdapter:%s : decrypt returned : %d key status is : %d", __FUNCTION__, retValue, keyStatus);
 					retValue = HDCP_COMPLIANCE_CHECK_FAILURE;
 				}
 			}
 		}
 	}
+	MW_LOG_WARN("DEBUG--> After decrypt API (a)  ret:%d", retValue);
 	return retValue;
 }
 

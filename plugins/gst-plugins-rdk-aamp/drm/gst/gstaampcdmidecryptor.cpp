@@ -141,9 +141,12 @@ static void gst_aampcdmidecryptor_init(
 	g_cond_init(&aampcdmidecryptor->condition);
 	aampcdmidecryptor->streamReceived = false;
 	// Lock access to canWait to keep Coverity happy
+	GST_ERROR_OBJECT(aampcdmidecryptor, "\n DEBUG--> a Before mutex lock canWait\n");
 	g_mutex_lock(&aampcdmidecryptor->mutex);
+	GST_ERROR_OBJECT(aampcdmidecryptor, "\n DEBUG--> a mutex lock aquired \n");
 	aampcdmidecryptor->canWait = false;
 	g_mutex_unlock(&aampcdmidecryptor->mutex);
+	GST_ERROR_OBJECT(aampcdmidecryptor, "\n DEBUG--> a mutex lock released \n");
 	aampcdmidecryptor->protectionEvent = NULL;
 	aampcdmidecryptor->sessionManager = NULL;
 	aampcdmidecryptor->licenseManager = NULL;
@@ -187,8 +190,9 @@ void gst_aampcdmidecryptor_dispose(GObject * object)
 		gst_caps_unref(aampcdmidecryptor->sinkCaps);
 		aampcdmidecryptor->sinkCaps = NULL;
 	}
-
+	GST_ERROR_OBJECT(aampcdmidecryptor, "DEBUG--> before mutex clear\n");
 	g_mutex_clear(&aampcdmidecryptor->mutex);
+	GST_ERROR_OBJECT(aampcdmidecryptor, "DEBUG--> after mutex clear\n");
 	g_cond_clear(&aampcdmidecryptor->condition);
 
 	G_OBJECT_CLASS(gst_aampcdmidecryptor_parent_class)->dispose(object);
@@ -374,7 +378,9 @@ gst_aampcdmidecryptor_transform_caps(GstBaseTransform * trans,
 	GST_LOG_OBJECT(trans, "returning %" GST_PTR_FORMAT, transformedCaps);
 	if (direction == GST_PAD_SINK && !gst_caps_is_empty(transformedCaps))
 	{
+		GST_ERROR_OBJECT(aampcdmidecryptor, "\n DEBUG--> b Before mutex lock canWait\n");
 		g_mutex_lock(&aampcdmidecryptor->mutex);
+		GST_ERROR_OBJECT(aampcdmidecryptor, "\n DEBUG--> b mutex lock aquired \n");
 		// clean up previous caps
 		if (aampcdmidecryptor->sinkCaps)
 		{
@@ -383,6 +389,7 @@ gst_aampcdmidecryptor_transform_caps(GstBaseTransform * trans,
 		}
 		aampcdmidecryptor->sinkCaps = gst_caps_copy(transformedCaps);
 		g_mutex_unlock(&aampcdmidecryptor->mutex);
+		GST_ERROR_OBJECT(aampcdmidecryptor, "\nDEBUG--> b mutex lock released \n");
 		GST_DEBUG_OBJECT(trans, "Set sinkCaps to %" GST_PTR_FORMAT, aampcdmidecryptor->sinkCaps);
 	}
 	return transformedCaps;
@@ -423,8 +430,9 @@ static GstFlowReturn gst_aampcdmidecryptor_transform_ip(
 
 	protectionMeta =
 			reinterpret_cast<GstProtectionMeta*>(gst_buffer_get_protection_meta(buffer));
-
+	GST_ERROR_OBJECT(aampcdmidecryptor, "\n DEBUG--> c Before mutex lock \n");
 	g_mutex_lock(&aampcdmidecryptor->mutex);
+	GST_ERROR_OBJECT(aampcdmidecryptor, "\n DEBUG--> c mutex aquired \n");
 	mutexLocked = TRUE;
 	if (!protectionMeta)
 	{
@@ -434,7 +442,11 @@ static GstFlowReturn gst_aampcdmidecryptor_transform_ip(
 		// call decrypt even for clear samples in order to copy it to a secure buffer. If secure buffers are not supported
 		// decrypt() call will return without doing anything
 		if (aampcdmidecryptor->drmSession != NULL)
+		{
+			GST_ERROR_OBJECT(aampcdmidecryptor, " \n DEBUG--> Before decrypt API (b)\n");
 		   errorCode = aampcdmidecryptor->drmSession->decrypt(keyIDBuffer, ivBuffer, buffer, subSampleCount, subsamplesBuffer, aampcdmidecryptor->sinkCaps);
+		   GST_ERROR_OBJECT(aampcdmidecryptor, " \n DEBUG--> After decrypt API (b)  ret:%d\n", errorCode);
+		}
 		else
 		{ /* If drmSession creation failed, then the call will be aborted here */
 			result = GST_FLOW_NOT_SUPPORTED;
@@ -460,10 +472,12 @@ static GstFlowReturn gst_aampcdmidecryptor_transform_ip(
 		GST_DEBUG_OBJECT(aampcdmidecryptor, "\n\nWaiting for key\n");
 	}
 	// The key might not have been received yet. Wait for it.
+	GST_ERROR_OBJECT(aampcdmidecryptor, "\n DEBUG--> Before condition wait\n");
 	if (!aampcdmidecryptor->streamReceived)
 		g_cond_wait(&aampcdmidecryptor->condition,
 				&aampcdmidecryptor->mutex);
 
+	GST_ERROR_OBJECT(aampcdmidecryptor, "\n DEBUG--> After condition wait\n");
 	if (!aampcdmidecryptor->streamReceived)
 	{
 		GST_ERROR_OBJECT(aampcdmidecryptor,
@@ -550,9 +564,9 @@ static GstFlowReturn gst_aampcdmidecryptor_transform_ip(
 			goto free_resources;
 		}
 	}
-
+	GST_ERROR_OBJECT(aampcdmidecryptor, " \n DEBUG--> Before decrypt API (a)\n");
 	errorCode = aampcdmidecryptor->drmSession->decrypt(keyIDBuffer, ivBuffer, buffer, subSampleCount, subsamplesBuffer, aampcdmidecryptor->sinkCaps);
-
+	GST_ERROR_OBJECT(aampcdmidecryptor, " \n DEBUG--> After decrypt API (a)  ret:%d\n", errorCode);
 	aampcdmidecryptor->streamEncrypted = true;
 	if (errorCode != 0 || aampcdmidecryptor->hdcpOpProtectionFailCount)
 	{
@@ -659,7 +673,10 @@ static GstFlowReturn gst_aampcdmidecryptor_transform_ip(
 				reinterpret_cast<GstMeta*>(protectionMeta));
 
 	if (mutexLocked)
+	{
 		g_mutex_unlock(&aampcdmidecryptor->mutex);
+		GST_ERROR_OBJECT(aampcdmidecryptor, "\n DEBUG-->  mutex lock released \n");
+	}
 	return result;
 }
 #endif
@@ -811,7 +828,9 @@ static gboolean gst_aampcdmidecryptor_sink_event(GstBaseTransform * trans,
 			aampcdmidecryptor->aamp->profiler.ProfileBegin(
 					PROFILE_BUCKET_LA_TOTAL);
 		}
+		GST_ERROR_OBJECT(aampcdmidecryptor, "\n DEBUG--> d  waiting for mutex lock \n");
 		g_mutex_lock(&aampcdmidecryptor->mutex);
+			GST_ERROR_OBJECT(aampcdmidecryptor, "\n DEBUG--> d  acquired lock for mutex \n");
 		GST_DEBUG_OBJECT(aampcdmidecryptor, "\n acquired lock for mutex\n");
 		aampcdmidecryptor->licenseManager  = aampcdmidecryptor->aamp->mDRMLicenseManager;
 		DrmMetaDataEventPtr e = std::make_shared<DrmMetaDataEvent>(AAMP_TUNE_FAILURE_UNKNOWN, "", 0, 0, false, std::string{});
@@ -894,6 +913,7 @@ static gboolean gst_aampcdmidecryptor_sink_event(GstBaseTransform * trans,
 		}
 		g_cond_signal(&aampcdmidecryptor->condition);
 		g_mutex_unlock(&aampcdmidecryptor->mutex);
+		GST_ERROR_OBJECT(aampcdmidecryptor, "\n DEBUG--> d  releasing ...................... mutex\n");
 		GST_DEBUG_OBJECT(aampcdmidecryptor, "\n releasing ...................... mutex\n");
 
 		gst_object_unref(sinkpad);
@@ -929,16 +949,22 @@ static GstStateChangeReturn gst_aampcdmidecryptor_changestate(
 	{
 	case GST_STATE_CHANGE_READY_TO_PAUSED:
 		GST_DEBUG_OBJECT(aampcdmidecryptor, "READY->PAUSED");
+		GST_ERROR_OBJECT(aampcdmidecryptor, "\n DEBUG--> e  waiting for mutex lock \n");
 		g_mutex_lock(&aampcdmidecryptor->mutex);
+		GST_ERROR_OBJECT(aampcdmidecryptor, "\n DEBUG--> e  acquired lock for mutex \n");
 		aampcdmidecryptor->canWait = true;
 		g_mutex_unlock(&aampcdmidecryptor->mutex);
+		GST_ERROR_OBJECT(aampcdmidecryptor, "\n DEBUG--> e  released mutex lock \n");
 		break;
 	case GST_STATE_CHANGE_PAUSED_TO_READY:
 		GST_DEBUG_OBJECT(aampcdmidecryptor, "PAUSED->READY");
+		GST_ERROR_OBJECT(aampcdmidecryptor, "\n DEBUG--> f  waiting for mutex lock \n");
 		g_mutex_lock(&aampcdmidecryptor->mutex);
+		GST_ERROR_OBJECT(aampcdmidecryptor, "\n DEBUG--> f  acquired lock for mutex \n");
 		aampcdmidecryptor->canWait = false;
 		g_cond_signal(&aampcdmidecryptor->condition);
 		g_mutex_unlock(&aampcdmidecryptor->mutex);
+		GST_ERROR_OBJECT(aampcdmidecryptor, "\n DEBUG--> f  released mutex lock \n");
 		break;
 #if defined(AMLOGIC)
 	case GST_STATE_CHANGE_NULL_TO_READY:
