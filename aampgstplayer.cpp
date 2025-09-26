@@ -41,6 +41,7 @@
 #include "AampBufferControl.h"
 #include "AampDefine.h"
 #include <functional>
+#include <inttypes.h>
 
 #define PIPELINE_NAME "AAMPGstPlayerPipeline"
 
@@ -1268,8 +1269,8 @@ static gboolean MonitorAvTimerCallback(gpointer user_data)
 		{
 			if(monitorAVState.tLastSampled == 0 || monitorAVState.description == nullptr)
 			{
-				MW_LOG_INFO("MonitorAvTimerCallback: tLastSampled(%lld) or description(%p) not available, skipping report",
-						monitorAVState.tLastSampled, monitorAVState.description);
+				MW_LOG_INFO("MonitorAvTimerCallback: tLastSampled((%" PRId64 ") or description(%p) not available, skipping report",
+						static_cast<int64_t>(monitorAVState.tLastSampled), monitorAVState.description);
 			}
 			else
 			{
