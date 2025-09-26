@@ -27,7 +27,8 @@ function(xcode_define_schema new_schema)
 endfunction()
 
 project (AAMP)
-set(CMAKE_CXX_STANDARD 11)
+#set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror=format -Wno-multichar -Wno-non-virtual-dtor -Wno-psabi")
@@ -127,6 +128,8 @@ if(CMAKE_PLATFORM_UBUNTU OR CMAKE_SYSTEM_NAME STREQUAL Darwin)
 		)
 	endif(CMAKE_SYSTEM_NAME STREQUAL Darwin)
 endif()
+
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../rialto-master/media/public/include)
 
 include_directories(${GSTREAMER_INCLUDE_DIRS})
 include_directories(${CURL_INCLUDE_DIRS})
@@ -664,6 +667,30 @@ install(TARGETS gstTestHarness
 )
 # XCode schema target
 xcode_define_schema(gstTestHarness)
+
+set(RIALTO_TEST_DEPENDS
+	${OS_LD_FLAGS}
+	${CMAKE_THREAD_LIBS_INIT}
+	${GSTREAMER_LINK_LIBRARIES}
+	${GSTREAMERBASE_LINK_LIBRARIES}
+	${LIBDASH_LIBRARIES}
+	${CURL_LINK_LIBRARIES}
+)
+set(RIALTO_TEST_SOURCES
+	test/gstTestHarness/rialto-api-test.cpp
+	test/gstTestHarness/gst-port.cpp
+	test/gstTestHarness/gst-port.h
+	test/gstTestHarness/gst-utils.cpp
+	test/gstTestHarness/gst-utils.h
+	test/gstTestHarness/mp4demux.hpp
+)
+add_executable(rialtoTest ${RIALTO_TEST_SOURCES})
+target_link_libraries(rialtoTest ${RIALTO_TEST_DEPENDS} "-lreadline")
+install(TARGETS rialtoTest
+		DESTINATION bin
+)
+# XCode schema target
+xcode_define_schema(rialtoTest)
 
 #TODO: Decide which are the actual public headers
 install(FILES 
