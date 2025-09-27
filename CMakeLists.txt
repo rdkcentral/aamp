@@ -678,10 +678,8 @@ set(RIALTO_TEST_DEPENDS
 )
 set(RIALTO_TEST_SOURCES
 	test/gstTestHarness/rialto-api-test.cpp
-	test/gstTestHarness/gst-port.cpp
-	test/gstTestHarness/gst-port.h
-	test/gstTestHarness/gst-utils.cpp
-	test/gstTestHarness/gst-utils.h
+	test/gstTestHarness/rialto-gst-pipeline.cpp
+	test/gstTestHarness/rialto-gst-pipeline.h
 	test/gstTestHarness/mp4demux.hpp
 )
 add_executable(rialtoTest ${RIALTO_TEST_SOURCES})
