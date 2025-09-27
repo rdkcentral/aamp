@@ -66,7 +66,7 @@ DrmSessionManager::DrmSessionManager(int maxDrmSessions, void *player, std::func
 	m_drmConfigParam = new configs();
 	playerSecInstance = new PlayerSecInterface();
 
-		ContentSecurityManager::GetInstance()->SubscribeEvents();
+//:		ContentSecurityManager::GetInstance()->SubscribeEvents();
 
 	MW_LOG_INFO("DrmSessionManager MaxSession:%d",mMaxDRMSessions);
 }

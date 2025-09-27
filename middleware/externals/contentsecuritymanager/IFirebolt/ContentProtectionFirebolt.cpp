@@ -143,7 +143,7 @@ void ContentProtectionFirebolt::Initialize()
 	/* CP Thunder Plugin doesnt allow invalid sessionId like 0 as in Thunder, hence not calling CloseDrmSession */
 	//CloseDrmSession(sessionId);
 //:w
-//	SubscribeEvents();
+	SubscribeEvents();
 	MW_LOG_WARN("Firebolt ContentProtection initialized with URL: [%s]", url.c_str());
 }
 
