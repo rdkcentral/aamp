@@ -138,13 +138,7 @@ void PacketSender::sendPacket(PacketPtr && pkt)
     }
     auto buffer = pkt->getBytes();
     size_t size =  static_cast<ssize_t>(buffer.size());
-	
-	if( !mSubtecSocketHandle )
-	{
-		MW_LOG_INFO( "discarding %zu bytes", size );
-		return;
-	}
-	if (size > mSockBufSize && size < MAX_SNDBUF_SIZE)
+    if (size > mSockBufSize && size < MAX_SNDBUF_SIZE)
     {
 	int newSize = (int)buffer.size();
 	if (::setsockopt(mSubtecSocketHandle, SOL_SOCKET, SO_SNDBUF, &newSize, sizeof(newSize)) == -1)
@@ -244,10 +238,7 @@ bool PacketSender::initSocket(const char *socket_path)
     {
         ::close(mSubtecSocketHandle);
         MW_LOG_WARN("PacketSender: cannot connect to address \'%s\'", socket_path);
-		// subtec not running/connectable
-		// close the socket handle, but  continue downloading and processing packets
-		mSubtecSocketHandle = 0;
-		return true;
+        return false;
     }
     MW_LOG_INFO("PacketSender: Initialized with socket_path %s", socket_path);
 
