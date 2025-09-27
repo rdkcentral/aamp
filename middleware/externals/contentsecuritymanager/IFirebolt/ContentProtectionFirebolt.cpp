@@ -37,6 +37,7 @@ uint64_t ContentProtectionFirebolt::mSubscriptionId = 0;
 
 ContentProtectionFirebolt::ContentProtectionFirebolt() : mInitialized(false), mIsConnected(false), mSpeedStateMutex(), mContentProtectionMutex(), mFireboltInitMutex(), mListenerId(0)
 {
+MW_LOG_ERR("deepika entering contentprotection firebolt constructor");
 	Initialize();	
 }
 ContentProtectionFirebolt::~ContentProtectionFirebolt()
@@ -55,9 +56,11 @@ static int MapFireboltStatus(const std::string& statusStr) {
 // TODO- Yet to test Watermark Events as ContentProtection Thunder Plugin have issues.
 void ContentProtectionFirebolt::SubscribeEvents()
 {
+MW_LOG_ERR("deepika entering SubscribeEvents");
 	auto result =  Firebolt::IFireboltAampAccessor::Instance().ContentProtectionInterface().subscribeOnWatermarkStatusChanged(
 			[this](const auto& status)
 			{
+MW_LOG_ERR("deepika entering SubscribeEvents");
 				HandleWatermarkEvent(status.sessionId, status.status, status.appId);
 
 			});

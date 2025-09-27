@@ -59,12 +59,13 @@ DrmSessionManager::DrmSessionManager(int maxDrmSessions, void *player, std::func
 		,mFirstFrameSeen(false)
 		,mPlayerSendWatermarkSessionUpdateEventCB(watermarkSessionUpdateCallback)
 {
+	MW_LOG_ERR("entering drmsessionmanager contrucotr");
+	registerCallback();
 	drmSessionContexts	= new DrmSessionContext[mMaxDRMSessions];
 	cachedKeyIDs		= new KeyID[mMaxDRMSessions];
 	m_drmConfigParam = new configs();
 	playerSecInstance = new PlayerSecInterface();
 
-	registerCallback();
 		ContentSecurityManager::GetInstance()->SubscribeEvents();
 
 	MW_LOG_INFO("DrmSessionManager MaxSession:%d",mMaxDRMSessions);
@@ -811,6 +812,10 @@ void DrmSessionManager::registerCallback() {
  */
 void DrmSessionManager::watermarkSessionHandlerWrapper(uint32_t sessionHandle, uint32_t status, const std::string &systemData)
 {
+	if(NULL == mPlayerSendWatermarkSessionUpdateEventCB)
+	{
+		MW_LOG_ERR("playerSendWatermarksession null");
+	}
 	if(NULL != mPlayerSendWatermarkSessionUpdateEventCB)
 	{
 		mPlayerSendWatermarkSessionUpdateEventCB( sessionHandle, status, systemData);
