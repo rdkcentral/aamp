@@ -87,7 +87,7 @@ PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink
 			
 		}
 
-		printf("At point 1 UseFireboltSDK: %s\n", gpGlobalConfig->IsConfigSet(eAAMPConfig_UseFireboltSDK));
+		printf("At point 1 UseFireboltSDK: %d\n", gpGlobalConfig->IsConfigSet(eAAMPConfig_UseFireboltSDK));
 		fflush(stdout);
 
 		PlayerLogManager::SetLoggerInfo(AampLogManager::disableLogRedirection, gpGlobalConfig->IsConfigSet(eAAMPConfig_useRialtoSink), AampLogManager::aampLoglevel, AampLogManager::locked);
@@ -101,7 +101,7 @@ PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink
 		gpGlobalConfig->ShowDevCfgConfiguration();
 		gpGlobalConfig->ShowOperatorSetConfiguration();
 
-		printf("At point 2 UseFireboltSDK: %s\n", gpGlobalConfig->IsConfigSet(eAAMPConfig_UseFireboltSDK));
+		printf("At point 2 UseFireboltSDK: %d\n", gpGlobalConfig->IsConfigSet(eAAMPConfig_UseFireboltSDK));
 		fflush(stdout);
 	}
 
@@ -128,14 +128,14 @@ PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink
 
 	PlayerLogManager::SetLoggerInfo(AampLogManager::disableLogRedirection, AampLogManager::enableEthanLogRedirection, AampLogManager::aampLoglevel, AampLogManager::locked);
 	
-	printf("At point 3 UseFireboltSDK: %s\n", mConfig.IsConfigSet(eAAMPConfig_UseFireboltSDK));
+	printf("At point 3 UseFireboltSDK: %d\n", mConfig.IsConfigSet(eAAMPConfig_UseFireboltSDK));
 	fflush(stdout);
 
 	sp_aamp = std::make_shared<PrivateInstanceAAMP>(&mConfig);
 	aamp = sp_aamp.get();
 	UsingPlayerId playerId(aamp->mPlayerId);
 
-	printf("At point 4 UseFireboltSDK: %s\n", mConfig.IsConfigSet(eAAMPConfig_UseFireboltSDK));
+	printf("At point 4 UseFireboltSDK: %d\n", mConfig.IsConfigSet(eAAMPConfig_UseFireboltSDK));
 	fflush(stdout);
 
 	// start Scheduler Worker for task handling
