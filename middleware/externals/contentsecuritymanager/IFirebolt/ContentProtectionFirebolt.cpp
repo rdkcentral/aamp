@@ -133,7 +133,7 @@ void ContentProtectionFirebolt::HandleWatermarkEvent(const std::string& sessionI
 		int reasonCode = -1;
 		if (statusJson.get("failureReason", reasonCode ))
         {
-			MW_LOG_INFO("HandleWaterMarkEvent Failure Reasoncode %d", reasonCode);
+			MW_LOG_INFO("HandleWaterMarkEvent Failure ReasonCode %d", reasonCode);
         }
 		else
 		{
