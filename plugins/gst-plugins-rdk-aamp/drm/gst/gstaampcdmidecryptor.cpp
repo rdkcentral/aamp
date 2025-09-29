@@ -944,7 +944,7 @@ static GstStateChangeReturn gst_aampcdmidecryptor_changestate(
 	GstStateChangeReturn ret = GST_STATE_CHANGE_SUCCESS;
 	GstAampCDMIDecryptor* aampcdmidecryptor =
 			GST_AAMP_CDMI_DECRYPTOR(element);
-
+    GST_ERROR_OBJECT(aampcdmidecryptor, "\n DEBUG--> TEST LOG:transition %d \n",transition);
 	switch (transition)
 	{
 	case GST_STATE_CHANGE_READY_TO_PAUSED:

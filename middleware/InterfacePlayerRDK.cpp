@@ -1195,20 +1195,20 @@ static GstStateChangeReturn SetStateWithWarnings(GstElement *element, GstState t
 
 		if(syncOnlyTransition)
 		{
-			MW_LOG_MIL("InterfacePlayerRDK: Attempting to set %s state to %s", SafeName(element).c_str(), gst_element_state_get_name(targetState));
+			MW_LOG_ERR("InterfacePlayerRDK: Attempting to set %s state to %s", SafeName(element).c_str(), gst_element_state_get_name(targetState));
 		}
 		else
 		{
-			MW_LOG_DEBUG("InterfacePlayerRDK: Attempting to set %s state to %s", SafeName(element).c_str(), gst_element_state_get_name(targetState));
+			MW_LOG_ERR("InterfacePlayerRDK: Attempting to set %s state to %s", SafeName(element).c_str(), gst_element_state_get_name(targetState));
 		}
 		rc = gst_element_set_state(element, targetState);					/* Set the state of the element to the targetState, this function is MT-safe*/
 		if(syncOnlyTransition)
 		{
-			MW_LOG_MIL("InterfacePlayerRDK: %s state set to %s",  SafeName(element).c_str(), gst_element_state_get_name(targetState));
+			MW_LOG_ERR("InterfacePlayerRDK: %s state set to %s",  SafeName(element).c_str(), gst_element_state_get_name(targetState));
 		}
 		else
 		{
-			MW_LOG_DEBUG(" InterfacePlayerRDK: %s state set to %s, rc:%d",  SafeName(element).c_str(), gst_element_state_get_name(targetState), rc);
+			MW_LOG_ERR(" InterfacePlayerRDK: %s state set to %s, rc:%d",  SafeName(element).c_str(), gst_element_state_get_name(targetState), rc);
 		}
 	}
 	else
