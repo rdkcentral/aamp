@@ -134,7 +134,7 @@ PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink
 		auto id3_metadata_handler = std::bind(&PrivateInstanceAAMP::ID3MetadataHandler, aamp,
 			std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4, std::placeholders::_5);
 
-		AampStreamSinkManager::GetInstance().CreateStreamSink(aamp, id3_metadata_handler, exportFrames);
+		AampStreamSinkManager::GetInstance().CreateStreamSink(aamp, id3_metadata_handler, std::move(exportFrames));
 	}
 	else
 	{
@@ -296,7 +296,7 @@ void PlayerInstanceAAMP::Tune(const char *mainManifestUrl,
 		const std::string sTraceUUID = (traceUUID != NULL)? std::string(traceUUID) : std::string();
 
 		mScheduler.ScheduleTask(AsyncTaskObj(
-			[manifest, autoPlay , cType, bFirstAttempt, bFinalAttempt, sTraceUUID, audioDecoderStreamSync, refreshManifestUrl, mpdStitchingMode, sid,manifestData](void *data)
+			[manifest, autoPlay , cType, bFirstAttempt, bFinalAttempt, sTraceUUID, audioDecoderStreamSync, refreshManifestUrl, mpdStitchingMode, sid, manifestData](void *data)
 			{
 				PlayerInstanceAAMP *instance = static_cast<PlayerInstanceAAMP *>(data);
 				const char * trace_uuid = sTraceUUID.empty() ? nullptr : sTraceUUID.c_str();
@@ -1708,7 +1708,7 @@ void PlayerInstanceAAMP::AddCustomHTTPHeader(std::string headerName, std::vector
 	if( aamp )
 	{
 		UsingPlayerId playerId(aamp->mPlayerId);
-		aamp->AddCustomHTTPHeader(headerName, headerValue, isLicenseHeader);
+		aamp->AddCustomHTTPHeader(std::move(headerName), std::move(headerValue), isLicenseHeader);
 	}
 }
 
@@ -2442,7 +2442,7 @@ void PlayerInstanceAAMP::SetAudioTrack(std::string language, std::string renditi
 		if (mAsyncTuneEnabled)
 		{
 			mScheduler.ScheduleTask(AsyncTaskObj(
-						[language,rendition,type,codec,channel, label](void *data)
+						[language, rendition, type, codec, channel, label](void *data)
 						{
 							PlayerInstanceAAMP *instance = static_cast<PlayerInstanceAAMP *>(data);
 							instance->SetAudioTrackInternal(language,rendition,type,codec,channel, label);
@@ -2450,7 +2450,7 @@ void PlayerInstanceAAMP::SetAudioTrack(std::string language, std::string renditi
 		}
 		else
 		{
-			SetAudioTrackInternal(language,rendition,type,codec,channel,label);
+			SetAudioTrackInternal(std::move(language), std::move(rendition), std::move(type), std::move(codec), channel, std::move(label));
 		}
 	}
 }
@@ -2592,7 +2592,7 @@ void PlayerInstanceAAMP::SetVideoTracks(std::vector<BitsPerSecond> bitrates)
 {
 	if( aamp )
 	{
-		aamp->SetVideoTracks(bitrates);
+		aamp->SetVideoTracks(std::move(bitrates));
 	}
 }
 
@@ -2678,7 +2678,7 @@ std::string PlayerInstanceAAMP::GetVideoRectangle()
  */
 void PlayerInstanceAAMP::SetAppName(std::string name)
 {
-	aamp->SetAppName(name);
+	aamp->SetAppName(std::move(name));
 }
 
  /**
@@ -2953,7 +2953,7 @@ void PlayerInstanceAAMP::SetSessionToken(std::string sessionToken)
 	if( aamp )
 	{ // Stored as tune setting , this will get cleared after one tune session
 		SETCONFIGVALUE(AAMP_TUNE_SETTING,eAAMPConfig_AuthToken,sessionToken);
-		aamp->mDynamicDrmDefaultconfig.authToken = sessionToken;
+		aamp->mDynamicDrmDefaultconfig.authToken = std::move(sessionToken);
 	}
 }
 
@@ -3142,7 +3142,7 @@ bool PlayerInstanceAAMP::InitAAMPConfig(const char *jsonStr)
 			LicenseServerUrl = GETCONFIGVALUE(eAAMPConfig_CKLicenseServerUrl);
 			aamp->mDynamicDrmDefaultconfig.licenseEndPoint.insert(std::pair<std::string, std::string>("org.w3.clearkey",LicenseServerUrl.c_str()));
 			std::string customData = GETCONFIGVALUE(eAAMPConfig_CustomLicenseData);
-			aamp->mDynamicDrmDefaultconfig.customData = customData;
+			aamp->mDynamicDrmDefaultconfig.customData = std::move(customData);
 		}
 		cJSON_Delete(cfgdata);
 	}
@@ -3384,7 +3384,7 @@ void PlayerInstanceAAMP::ProcessContentProtectionDataConfig(const char *jsonbuff
 				customdata = dynamicDrmCache.customData;
 			}
 			else {
-				aamp->vDynamicDrmData.push_back(dynamicDrmCache);
+				aamp->vDynamicDrmData.push_back(std::move(dynamicDrmCache));
 			}
 
 			if(tempKeyId == aamp->mcurrent_keyIdArray){

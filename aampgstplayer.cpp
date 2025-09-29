@@ -390,7 +390,7 @@ void AAMPGstPlayer::NotifyFirstFrame(int mediatype, bool notifyFirstBuffer, bool
 
 AAMPGstPlayer::AAMPGstPlayer(PrivateInstanceAAMP *aamp, id3_callback_t id3HandlerCallback, std::function<void(const unsigned char *, int, int, int) > exportFrames):
 	aamp(NULL), mEncryptedAamp(NULL), privateContext(NULL),
-	mBufferingLock(), trickTeardown(false), m_ID3MetadataHandler{id3HandlerCallback},
+	mBufferingLock(), trickTeardown(false), m_ID3MetadataHandler{std::move(id3HandlerCallback)},
 	cbExportYUVFrame(NULL), monitorAvTimerId(0), mMonitorAVInterval(0)
 
 {
@@ -404,11 +404,11 @@ AAMPGstPlayer::AAMPGstPlayer(PrivateInstanceAAMP *aamp, id3_callback_t id3Handle
 		this->mEncryptedAamp = aamp;
 
 		this->cbExportYUVFrame = exportFrames;
-		playerInstance->gstCbExportYUVFrame = exportFrames;
+		playerInstance->gstCbExportYUVFrame = std::move(exportFrames);
 		std::string debugLevel = GETCONFIGVALUE(eAAMPConfig_GstDebugLevel);
 		if(!debugLevel.empty())
 		{
-			playerInstance->EnableGstDebugLogging(debugLevel);
+			playerInstance->EnableGstDebugLogging(std::move(debugLevel));
 		}
 		InitializePlayerConfigs(this,playerInstance);
 		playerInstance->SetPlayerName(PLAYER_NAME);
@@ -883,7 +883,7 @@ void AAMPGstPlayer::ChangeAamp(PrivateInstanceAAMP *newAamp, id3_callback_t id3H
 		playerInstance->ResumeInjector();
 	}
 	playerInstance->DisableDecoderHandleNotified();
-	m_ID3MetadataHandler = id3HandlerCallback;
+	m_ID3MetadataHandler = std::move(id3HandlerCallback);
 }
 /**
  * @brief Flush the track playbin
