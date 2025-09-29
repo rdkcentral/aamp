@@ -34,13 +34,15 @@ OPTION_SUBTEC_BUILD=true
 OPTION_SUBTEC_CLEAN=false
 OPTION_CLEAN_BUILD=false
 OPTION_GOOGLETEST_REFERENCE="tags/release-1.11.0"
+OPTION_DEPS_ONLY=false
+OPTION_AAMP_ONLY=false
 
 
 
 function install_options_fn()
 {
   # Parse optional command line parameters
-  while getopts ":d:b:cf:np:r:g:qskt" OPT; do
+  while getopts ":d:b:cf:np:r:g:qsktDA" OPT; do
     case ${OPT} in
       d ) # process option d install base directory name
         OPTION_BUILD_DIR=${OPTARG}
@@ -91,6 +93,14 @@ function install_options_fn()
         OPTION_CLEAN_BUILD=true
         echo "Will remove .libs and build directories before build"
         ;;
+      D )
+        OPTION_DEPS_ONLY=true
+        echo "Dependencies only mode - will install only dependencies"
+        ;;
+      A )
+        OPTION_AAMP_ONLY=true
+        echo "AAMP only mode - will install only AAMP CLI (dependencies must be pre-installed)"
+        ;;
       * )
         echo "'Usage: No flags/options specified - build AAMP with default options
         [-b] Specify aamp branch name (default: current sprint branch)
@@ -103,8 +113,10 @@ function install_options_fn()
         [-s] Skip subtec build and installation]"
         echo "        Note:  Subtec is built by default but can be rebuilt separately with the subtec
         [-k] Skip aamp-cli Kotlin build and installation]
-        [-t] Remove .libs and build directories before build (full rebuild)"
-        
+        [-t] Remove .libs and build directories before build (full rebuild)
+        [-D] Dependencies only - install only dependencies (gstreamer, libdash, subtec, rialto, gtest)
+        [-A] AAMP only - install only AAMP CLI (requires dependencies to be pre-installed)"
+
         echo "
         [-r] Specify rialto to be built
         [-p] Specify protobuf branch name] (Linux only)"
@@ -135,6 +147,12 @@ function install_options_fn()
   if  [[ ${@:$OPTIND:1} = "rialto" ]]; then
     OPTION_RIALTO_BUILD=true
     shift
+  fi
+
+  # Validate mutually exclusive options
+  if [[ ${OPTION_DEPS_ONLY} = true && ${OPTION_AAMP_ONLY} = true ]]; then
+    echo "ERROR: -D (deps-only) and -A (aamp-only) options are mutually exclusive"
+    return 1
   fi
 
 }

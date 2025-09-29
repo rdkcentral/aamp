@@ -1,0 +1,31 @@
+name: Build AAMP in Linux Environment
+
+on:
+  pull_request:
+    branches: [ develop, dev_sprint_25_2 ]
+  workflow_dispatch:
+
+jobs:
+  build-aamp-on-pr:
+    name: Build AAMP in Linux environment
+    runs-on: ubuntu-latest
+    # The docker image is used for coverity scans as well.
+    container:
+      image: ghcr.io/rdkcentral/docker-rdk-ci:latest
+
+    steps:
+      # Checkout the aamp repository
+      - name: Checkout aamp code
+        uses: actions/checkout@v3
+
+      # Install AAMP
+      # Option D builds dependencies only.
+      # Option A builds AAMP only (assuming dependencies are already installed).
+      # Option K skips Kotlin build.
+      # 'yes' is used to auto-confirm any prompts during installation
+      - name: Install AAMP
+        run: |
+          chmod +x ./install-aamp.sh
+          yes | ./install-aamp.sh -D
+          yes | ./install-aamp.sh -Ak
+

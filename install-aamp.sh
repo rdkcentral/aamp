@@ -118,6 +118,45 @@ if [ ! -d ${LOCAL_DEPS_BUILD_DIR} ]; then
 fi
 
 
+# Check if we're in AAMP-only mode
+if [ ${OPTION_AAMP_ONLY} = true ] ; then
+    echo ""
+    echo "*** AAMP-only mode: Skipping dependency installation ***"
+    echo "*** Assuming dependencies are already installed ***"
+
+    # Still need to create build directory and do minimal setup
+    aampcli_install_prebuild_fn ${OPTION_CLEAN}
+
+    # Set CLEAN variable for AAMP build
+    CLEAN=false
+    if [ ${OPTION_CLEAN} = true ] ; then
+        CLEAN=true
+    fi
+
+    # Jump directly to AAMP CLI build
+    subtec_install_run_script_fn
+    INSTALL_STATUS_ARR+=("subtec_install_run_script check passed.")
+
+    aampcli_install_build_fn "${CLEAN}"
+    INSTALL_STATUS_ARR+=("aampcli_install_build check passed.")
+
+    if [ ${OPTION_AAMPCLIKOTLIN_SKIP} = false ] ; then
+        cd ${AAMP_DIR}
+        build_kotlin_libraries_fn
+        build_aampcli_kotlin_bindings_fn
+        create_aampcli_kotlin_executable_fn
+        INSTALL_STATUS_ARR+=("aampcli_install_build_kotlin check passed.")
+    else
+        INSTALL_STATUS_ARR+=("aampcli_install_build_kotlin check SKIPPED.")
+    fi
+
+    aampcli_install_postbuild_fn "${CLEAN}"
+    INSTALL_STATUS_ARR+=("aampcli_install_postbuild check passed.")
+
+    tools_print_summary_fn
+    exit 0
+fi
+
 # Install prebuilt dependencies
 #
 if [ ${OPTION_QUICK} = false ] ; then
@@ -173,6 +212,14 @@ fi
 #
 rialto_install_build_fn "${OPTION_CLEAN}"
 INSTALL_STATUS_ARR+=("rialto_install_build_fn check passed.")
+
+# Check if we're in dependencies-only mode
+if [ ${OPTION_DEPS_ONLY} = true ] ; then
+    echo ""
+    echo "*** Dependencies-only mode: Skipping AAMP CLI build ***"
+    tools_print_summary_fn
+    exit 0
+fi
 
 # Install subtec-app script
 # Needs the AAMP build directory to be created by aampcli_install_build first
