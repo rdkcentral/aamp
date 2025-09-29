@@ -72,6 +72,14 @@ void PlayerExternalsRdkInterface::Initialize()
     //initialize only if needed
     if(m_initialized != InitState::NOT_INITIALIZED)
     {
+        if(IsContainerEnvironment())
+        {
+            MW_PRELOGGER_LOG("Container environment, forcing Firebolt \n");
+        }
+        else
+        {
+            MW_PRELOGGER_LOG("Not in container environment \n");
+        }
         if(m_initialized == InitState::FIREBOLT && (m_use_firebolt_sdk || IsContainerEnvironment()))
         {
             MW_PRELOGGER_LOG("Firebolt already Inited \n");
