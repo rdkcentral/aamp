@@ -345,7 +345,7 @@ void AampCMCDCollector::CMCDSetNextRangeRequest(std::string nextrange,long bandw
 		{
 			CMCDHeaders *pCMCDMetrics = it->second;
 			std::string CMCDNextRangeRequest;
-			CMCDNextRangeRequest = nextrange;
+			CMCDNextRangeRequest = std::move(nextrange);
 			pCMCDMetrics->SetBitrate((int)(bandwidth/1000));
 			pCMCDMetrics->SetNextRange(CMCDNextRangeRequest);
 		}
