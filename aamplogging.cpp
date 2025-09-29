@@ -28,6 +28,7 @@
 #include <sstream>
 #include "priv_aamp.h"
 #include "FileLogger.h"
+#include <atomic>
 using namespace std;
 
 #ifdef USE_ETHAN_LOG
@@ -98,11 +99,15 @@ void logprintf(AAMP_LogLevel logLevelIndex, const char* file, int line, const ch
 	
 	char *format_ptr = NULL;
 	int format_bytes = 0;
+	static std::atomic<int> log_id{0};
+	int temp_log_id = ++log_id;
+
 	for( int pass=0; pass<2; pass++ )
 	{ // two pass: measure required bytes then populate format string
 		format_bytes = snprintf(format_ptr, format_bytes,
-							   "%s[AAMP-PLAYER][%d][%s][%zx][%s][%d]%s\n",
+							   "%s[AAMP-PLAYER][%d][%d][%s][%zx][%s][%d]%s\n",
 							   timestamp,
+							   temp_log_id,
 							   gPlayerId,
 							   mLogLevelStr[logLevelIndex],
 							   GetPrintableThreadID(),

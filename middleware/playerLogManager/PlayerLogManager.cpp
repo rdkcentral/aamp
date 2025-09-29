@@ -31,6 +31,7 @@
 #include "PlayerLogManager.h"
 #include "PlayerUtils.h"
 #include "FileLogger.h"
+#include <atomic>
 
 #ifdef USE_ETHAN_LOG
 #include <ethanlog.h>
@@ -96,6 +97,10 @@ void logprintf(MW_LogLevel logLevelIndex, const char* file, int line, const char
 {
         char timestamp[MW_CLI_TIMESTAMP_PREFIX_MAX_CHARS];
         timestamp[0] = 0x00;
+
+	static std::atomic<int> mw_count{0};
+	int temp_mw_count = ++mw_count;
+
 	if( PlayerLogManager::disableLogRedirection )
 	{ // add timestamp if not using sd_journal_print
 		struct timeval t;
@@ -107,12 +112,14 @@ void logprintf(MW_LogLevel logLevelIndex, const char* file, int line, const char
         for( int pass=0; pass<2; pass++ )
         {
             format_bytes = snprintf(format_ptr, format_bytes,
-                                                           "%s[MIDDLEWARE][%s][%zx][%s][%d]%s\n",
+                                                           "%s[MIDDLEWARE][%d][%s][%zx][%s][%d]%s\n",
                                                            timestamp,
+                                                           temp_mw_count,
                                                            mLogLevelStr[logLevelIndex],
-							   GetPlayerPrintableThreadID(),
+                                                           GetPlayerPrintableThreadID(),
                                                            file, line,
-                                                           format );
+                                                           format);
+
             if( format_bytes<=0 )
             { // should never happen!
                 break;
