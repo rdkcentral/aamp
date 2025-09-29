@@ -1215,10 +1215,16 @@ void AampTSBSessionManager::ProcessAdMetadata(AampMediaType mediaType, TsbFragme
 		// Remove entries up to and including the last processed for each list
 		auto skipUpToLast = [](std::list<std::shared_ptr<AampTsbAdMetaData>>& list, const std::shared_ptr<AampTsbMetaData>& lastProcessed) 
 		{
-			if (!lastProcessed) return;
+			if (!lastProcessed) {
+				// Remove from beginning until a START event is found
+				auto it = list.begin();
+				while (it != list.end() && (*it)->GetEventType() != AampTsbAdMetaData::EventType::START) {
+					it = list.erase(it);
+				}
+				return;
+			}
 			auto it = std::find(list.begin(), list.end(), lastProcessed);
-			if (it != list.end()) 
-			{
+			if (it != list.end()) {
 				list.erase(list.begin(), std::next(it));
 			}
 		};
