@@ -1291,9 +1291,9 @@ void InterfacePlayerRDK::TearDownStream(int type)
 	stream->eosReached = false;
 	GstMediaType mediaType = static_cast<GstMediaType>(type);
 
+	pthread_mutex_lock(&stream->sourceLock);
 	if (stream->format != GST_FORMAT_INVALID)
 	{
-		pthread_mutex_lock(&stream->sourceLock);
 		if (interfacePlayerPriv->gstPrivateContext->pipeline)
 		{
 			interfacePlayerPriv->gstPrivateContext->buffering_in_progress = false;   /* stopping pipeline, don't want to change state if GST_MESSAGE_ASYNC_DONE message comes in */
@@ -1323,8 +1323,8 @@ void InterfacePlayerRDK::TearDownStream(int type)
 		g_clear_object(&stream->sinkbin);
 		g_clear_object(&stream->source);
 		stream->sourceConfigured = false;
-		pthread_mutex_unlock(&stream->sourceLock);
 	}
+	pthread_mutex_unlock(&stream->sourceLock);
 	if (mediaType == eGST_MEDIATYPE_VIDEO)
 	{
 		g_clear_object(&interfacePlayerPriv->gstPrivateContext->video_dec);
@@ -5001,7 +5001,7 @@ int InterfacePlayerRDK::InterfacePlayer_SetupStream(int streamId, std::string ma
 	int retvalue = 0;
 	GstMediaType mediaType = static_cast<GstMediaType>(streamId);
 	this->TriggerEvent(InterfaceCB::startNewSubtitleStream, mediaType);
-	retvalue = this->SetupStream(mediaType, (void*)this, manifestUrl);
+	retvalue = this->SetupStream(mediaType, (void*)this, std::move(manifestUrl));
 
 	return retvalue;
 }
