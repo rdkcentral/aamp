@@ -681,20 +681,24 @@ void jsBindingLogprintf(int playerId ,const char* functionName, int line, int lo
 
 	char gDebugPrintBuffer[MAX_DEBUG_LOG_BUFF_SIZE];
 	const char* levelstr = mLogLevelStr[logLevel];
-	if(playerId != PLAYER_ID_NA )
-	{
-		len = snprintf(gDebugPrintBuffer,sizeof(gDebugPrintBuffer),"[AAMP-JS] %d :%s : %s : %d :",playerId,levelstr,functionName,line);
-	}
-	else
-	{
-		len = snprintf(gDebugPrintBuffer,sizeof(gDebugPrintBuffer),"[AAMP-JS] %s : %s: %d :",levelstr,functionName,line);
-	}
+    const char* ethanRedir = (AampLogManager::enableEthanLogRedirection ? "ETHAN_ON" : "ETHAN_OFF");
+    if(playerId != PLAYER_ID_NA )
+    {
+        len = snprintf(gDebugPrintBuffer,sizeof(gDebugPrintBuffer),
+            "[AAMP-JS] %d :%s :%s : %s : %d :",playerId,levelstr,ethanRedir,functionName,line);
+    }
+    else
+    {
+        len = snprintf(gDebugPrintBuffer,sizeof(gDebugPrintBuffer),
+            "[AAMP-JS] %s :%s : %s: %d :",levelstr,ethanRedir,functionName,line);
+    }
 	vsnprintf(gDebugPrintBuffer+len, MAX_DEBUG_LOG_BUFF_SIZE-len, format, args);
 	gDebugPrintBuffer[(MAX_DEBUG_LOG_BUFF_SIZE-1)] = 0;
 
 	va_end(args);
 
-	if ( AampLogManager::enableEthanLogRedirection  )
+	//if ( AampLogManager::enableEthanLogRedirection  )
+	if(true)
 	{ // ethanlog
 		int ethanLogLevel;
 		// Important: in production builds, Ethan logger filters out everything
