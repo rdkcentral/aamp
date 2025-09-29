@@ -138,11 +138,9 @@ public:
                          AcceptCapsFunc accept_caps_func);
 
 	virtual bool IsTransformCapsRequired() const {
-	MW_LOG_ERR("VRN IsTransformCapsRequired DEF SOC- FLSE IN");
 	return false; }
 
 	virtual bool IsDecryptRequired() const {
-	MW_LOG_ERR("VRN IsDecryptRequired DEF SOC- FLSE IN");
 	return false; }
 
 	/**

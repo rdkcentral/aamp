@@ -91,7 +91,7 @@ else()
 endif()
 
 target_link_libraries (gstaamp playergstinterface ${GST_COMMON_DEPENDENCIES})
-target_include_directories (gstaamp PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../../ ${CMAKE_CURRENT_SOURCE_DIR}/../../drm ${CMAKE_CURRENT_SOURCE_DIR}/../../drm/helper ${CMAKE_CURRENT_SOURCE_DIR}/../../tsb/api ${CMAKE_CURRENT_SOURCE_DIR}/../../downloader ${CMAKE_CURRENT_SOURCE_DIR}/../../middleware ${CMAKE_CURRENT_SOURCE_DIR}/../../middleware/gst-plugins ${CMAKE_CURRENT_SOURCE_DIR}/../../middleware/vendor ${CMAKE_CURRENT_SOURCE_DIR}/../../middleware/vendor/amlogic ${CMAKE_CURRENT_SOURCE_DIR}/../../middleware/drm ${CMAKE_CURRENT_SOURCE_DIR}/../../middleware/drm/ocdm ${CMAKE_CURRENT_SOURCE_DIR}/../../middleware/drm/helper  ${CMAKE_CURRENT_SOURCE_DIR}/../../middleware/externals/contentsecuritymanager)
+target_include_directories (gstaamp PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../../ ${CMAKE_CURRENT_SOURCE_DIR}/../../drm ${CMAKE_CURRENT_SOURCE_DIR}/../../drm/helper ${CMAKE_CURRENT_SOURCE_DIR}/../../tsb/api ${CMAKE_CURRENT_SOURCE_DIR}/../../downloader ${CMAKE_CURRENT_SOURCE_DIR}/../../middleware ${CMAKE_CURRENT_SOURCE_DIR}/../../middleware/gst-plugins ${CMAKE_CURRENT_SOURCE_DIR}/../../middleware/vendor ${CMAKE_CURRENT_SOURCE_DIR}/../../middleware/drm ${CMAKE_CURRENT_SOURCE_DIR}/../../middleware/drm/ocdm ${CMAKE_CURRENT_SOURCE_DIR}/../../middleware/drm/helper  ${CMAKE_CURRENT_SOURCE_DIR}/../../middleware/externals/contentsecuritymanager)
 
 set(LIBPLUGIN_DEFINES "${PLUGIN_DEFINES}")
 

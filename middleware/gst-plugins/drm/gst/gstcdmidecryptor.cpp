@@ -193,7 +193,6 @@ static void gst_cdmidecryptor_class_init(
 			gst_cdmidecryptor_transform_ip);
 	if (socInterface)
 	{
-		MW_LOG_ERR("VRN CONF NON-AMLOGIC IN");
 		socInterface->ConfigureAcceptCaps(base_transform_class, gst_cdmidecryptor_accept_caps);
 	}
 
@@ -438,7 +437,6 @@ gst_cdmidecryptor_transform_caps(GstBaseTransform * trans,
 		gst_cdmicapsappendifnotduplicate(transformedCaps, out);
 		if (socInterface && socInterface->IsTransformCapsRequired())
 		{
-			MW_LOG_ERR("VRN TRNSFRM CNT AMLOGIC IN");
 			if (direction == GST_PAD_SINK && !gst_caps_is_empty(transformedCaps) && OCDMGstTransformCaps)
 				OCDMGstTransformCaps(&transformedCaps);
 		}
@@ -517,7 +515,6 @@ static GstFlowReturn gst_cdmidecryptor_transform_ip(
 				"Failed to get GstProtection metadata from buffer %p, could be clear buffer",buffer);
 		if (socInterface && socInterface->IsDecryptRequired())
 		{
-				MW_LOG_ERR("VRN CLR CNT AMLOGIC IN");
 				// call decrypt even for clear samples in order to copy it to a secure buffer. If secure buffers are not supported
 				// decrypt() call will return without doing anything
 				if (cdmidecryptor->drmSession != NULL)

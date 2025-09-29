@@ -96,14 +96,13 @@ class AmlogicSocInterface : public SocInterface
 		void SvpFreeContext(void *svpCtx)override;
 
 		void ConfigureAcceptCaps( GstBaseTransformClass* base_transform_class,
-                         AcceptCapsFunc accept_caps_func)override;
+                         AcceptCapsFunc accept_caps_func)override {
+		return;	 }
 
 		bool IsTransformCapsRequired() const override {
-		MW_LOG_ERR("VRN IsTransformCapsRequired AML IN");
 		return true; }
 
 		bool IsDecryptRequired() const override {
-		MW_LOG_ERR("VRN IsDecryptRequired AML IN");
 		return true; }
 
 		/**

@@ -234,7 +234,6 @@ void SocInterface::SetWesterosSinkState(bool status)
 
 void SocInterface::ConfigureAcceptCaps(GstBaseTransformClass* base_transform_class ,
 													AcceptCapsFunc accept_caps_func) {
-    MW_LOG_ERR("VRN ConfigureAcceptCaps DEF SOC- IN");
     if (accept_caps_func) {
         base_transform_class->accept_caps = GST_DEBUG_FUNCPTR(accept_caps_func);
     }
