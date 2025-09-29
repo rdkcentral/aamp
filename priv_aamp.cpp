@@ -9295,6 +9295,8 @@ void PrivateInstanceAAMP::SendWatermarkSessionUpdateEvent(uint32_t sessionHandle
 {
 	AAMPLOG_INFO("Sending WatermarkSessionUpdateEvent status %d system %s GetSessionId() %s",status,system.c_str(), GetSessionId().c_str());
 	WatermarkSessionUpdateEventPtr event = std::make_shared<WatermarkSessionUpdateEvent>(sessionHandle, status, system, GetSessionId());
+        AAMPLOG_INFO("watermarksession event ptr = %p", (void*)event.get());
+
 	SendEvent(event,AAMP_EVENT_ASYNC_MODE);
 }
 

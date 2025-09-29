@@ -64,6 +64,11 @@ DrmSessionManager::DrmSessionManager(int maxDrmSessions, void *player, std::func
 	m_drmConfigParam = new configs();
 	playerSecInstance = new PlayerSecInterface();
 
+	if(watermarkSessionUpdateCallback)
+	{
+	
+		MW_LOG_INFO("Watermarksession pointer valid in sessin manager");
+	}
 	registerCallback();
 
 	MW_LOG_INFO("DrmSessionManager MaxSession:%d",mMaxDRMSessions);
@@ -795,8 +800,16 @@ void DrmSessionManager::registerCallback() {
 	auto instance = this;
 	static std::function<void(uint32_t, uint32_t, const std::string&)> watermarkCallBack =
 	[instance](uint32_t sessionHandle, uint32_t status, const std::string& system) {
-		instance->watermarkSessionHandlerWrapper(sessionHandle, status, system);
+
 	};
+	if (watermarkCallBack)
+	{
+	    	MW_LOG_INFO("Watermark callback is set (address=%p)", (void*)&watermarkCallBack);
+	}
+	else
+	{
+		MW_LOG_ERROR("Watermark callback is EMPTY!");
+	}
 	ContentSecurityManager::setWatermarkSessionEvent_CB(watermarkCallBack);
 	MW_LOG_INFO("WatermarkSessionEvent Callback registered");
 }
@@ -810,8 +823,15 @@ void DrmSessionManager::registerCallback() {
  */
 void DrmSessionManager::watermarkSessionHandlerWrapper(uint32_t sessionHandle, uint32_t status, const std::string &systemData)
 {
+	if(NULL == mPlayerSendWatermarkSessionUpdateEventCB)
+	{
+		MW_LOG_INFO("watermarksessionhandler wrapper is null");
+	}
 	if(NULL != mPlayerSendWatermarkSessionUpdateEventCB)
 	{
+		
+		MW_LOG_INFO("watermarksessionhandler wrapper is not null");
 		mPlayerSendWatermarkSessionUpdateEventCB( sessionHandle, status, systemData);
+
 	}
 }
