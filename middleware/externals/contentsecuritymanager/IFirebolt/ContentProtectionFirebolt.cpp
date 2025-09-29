@@ -38,7 +38,7 @@ using namespace Firebolt;
 uint64_t ContentProtectionFirebolt::mSubscriptionId = 0;
 
 //Lookup table to convert CPS error to secmanager error
-std::map<const int32_t, std::pair<const int32_t, const int32_t>> ContentProtectionSeManagerErrorLookUp =
+std::map<const int32_t, std::pair<const int32_t, const int32_t>> ContentProtectionSecManagerErrorLookUp =
 {
 	{CONTENT_PROTECTION_SERVICE_INVALID_ASPECT_DIMENSIONS,              {CONTENT_SECURITY_MANAGER_CLASS_RESULT_API_FAIL,        CONTENT_SECURITY_MANAGER_REASON_API_INVALID_ASPECT_DIMENSION}},
 	{CONTENT_PROTECTION_SERVICE_INVALID_KEY_SYSTEM,                     {CONTENT_SECURITY_MANAGER_CLASS_RESULT_API_FAIL,        CONTENT_SECURITY_MANAGER_REASON_API_INVALID_KEY_SYSTEM_PARAM}},
@@ -68,13 +68,13 @@ std::map<const int32_t, std::pair<const int32_t, const int32_t>> ContentProtecti
 /**
  * @brief Convert the CPS DRM error code into secmanager error code to have a unified verbose error reported
  */
-bool getCPSAsVerboseErrorCode(int32_t httpCode, int32_t &secManagerClass, int32_t &secManagerReasonCode )
+bool getContentProtectionAsVerboseErrorCode(int32_t httpCode, int32_t &secManagerClass, int32_t &secManagerReasonCode )
 {
 	secManagerClass = CONTENT_SECURITY_MANAGER_DRM_FAILURE;
 	secManagerReasonCode = CONTENT_SECURITY_MANAGER_DRM_GEN_FAILURE;
 	//look for the correct code from the lookup
-	auto it = ContentProtectionSeManagerErrorLookUp.find(httpCode);
-	if (it != ContentProtectionSeManagerErrorLookUp.end()) {
+	auto it = ContentProtectionSecManagerErrorLookUp.find(httpCode);
+	if (it != ContentProtectionSecManagerErrorLookUp.end()) {
 		secManagerClass = it->second.first;
 		secManagerReasonCode = it->second.second;
 		return true;
@@ -130,10 +130,10 @@ void ContentProtectionFirebolt::HandleWatermarkEvent(const std::string& sessionI
 	{
     MW_LOG_INFO("HandleWaterMarkEvent Triggered");
     PlayerJsonObject statusJson(statusStr);
-		int failureReasoncode = -1;
-		if (statusJson.get("failureReason", failureReasoncode))
+		int reasonCode = -1;
+		if (statusJson.get("failureReason", reasonCode ))
         {
-			MW_LOG_INFO("HandleWaterMarkEvent Failure Reasoncode %d",failureReasoncode);
+			MW_LOG_INFO("HandleWaterMarkEvent Failure Reasoncode %d", reasonCode);
         }
 		else
 		{
@@ -142,9 +142,9 @@ void ContentProtectionFirebolt::HandleWatermarkEvent(const std::string& sessionI
 		std::lock_guard<std::mutex> lock(mFireboltInitMutex);
 		if (ContentSecurityManager::SendWatermarkSessionEvent_CB)
 		{
-			MW_LOG_INFO("ContentSecurityManager SendWatermarkSessionEvent_CB invoked | sessionId=%s failureReasoncode=%d appId=%s",
-            sessionId.c_str(), failureReasoncode, appId.c_str());
-			ContentSecurityManager::SendWatermarkSessionEvent_CB(std::stoi(sessionId), failureReasoncode, appId);
+			MW_LOG_INFO("ContentSecurityManager SendWatermarkSessionEvent_CB invoked | sessionId=%s reasonCode =%d appId=%s",
+            sessionId.c_str(), reasonCode, appId.c_str());
+			ContentSecurityManager::SendWatermarkSessionEvent_CB(std::stoi(sessionId), reasonCode, appId);
 		}
 	}
 }
@@ -451,7 +451,7 @@ bool ContentProtectionFirebolt::AcquireLicenseOpenOrUpdate( std::string clientId
 				}
 				else if( errorCode != CONTENT_SECURITY_MANAGER_DRM_GEN_ERR_NONE)
 				{
-					getCPSAsVerboseErrorCode(errorCode,*statusCode,*reasonCode);
+					getContentProtectionAsVerboseErrorCode(errorCode,*statusCode,*reasonCode);
 				}
 				if(!ret)
 				{
