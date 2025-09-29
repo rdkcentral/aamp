@@ -477,7 +477,7 @@ void StreamAbstractionAAMP_HLS::InitiateDrmProcess()
 			/** Queue protection event to the pipeline **/
 			licenseManager->QueueProtectionEvent(drmHelperToUse, "1", 0, eMEDIATYPE_VIDEO);
 			/** Queue content protection in DRM license fetcher **/
-			licenseManager->QueueContentProtection(drmHelperToUse, "1", 0, eMEDIATYPE_VIDEO);
+			licenseManager->QueueContentProtection(std::move(drmHelperToUse), "1", 0, eMEDIATYPE_VIDEO);
 		}
 	}
 }
