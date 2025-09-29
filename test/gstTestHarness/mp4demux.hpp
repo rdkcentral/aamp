@@ -126,6 +126,8 @@ public: // temp workaround - used directly in rialtoTest
 	uint32_t width_fixed;
 	uint32_t height_fixed;
 	uint16_t language;
+	uint32_t sampleOffset;
+	bool sencPresent;
 	bool verbose;
 	
 	GstBuffer * _gst_buffer_new_memdup(gconstpointer data, gsize size)
@@ -248,8 +250,8 @@ public: // temp workaround - used directly in rialtoTest
 		gst_buffer_unref(pssh);
 	}
 	
-	void process_auxiliary_information( void )
-	{ // redundant with parseSampleEncryptionBox?
+	void dump_auxiliary_information( void )
+	{
 		size_t sample_count = cenc_aux_info_sizes.size();
 		if( sample_count && got_auxiliary_information_offset )
 		{
@@ -270,6 +272,60 @@ public: // temp workaround - used directly in rialtoTest
 				src += sz;
 			}
 		}
+	}
+
+	void process_auxiliary_information( void )
+	{
+		//Backup the ptr value
+		const uint8_t* bptr = ptr;
+		size_t sample_count = cenc_aux_info_sizes.size();
+		if (sample_count && got_auxiliary_information_offset)
+		{
+			ptr = moof_ptr + auxiliary_information_offset;
+			uint32_t maxSampleCount = sampleOffset + sample_count;
+			assert (samples.size() == maxSampleCount);
+			for (int i = sampleOffset; i < maxSampleCount; i++)
+			{
+				// Skip IV data if present (comes before subsample data in auxiliary info)
+				if( iv_size )
+				{
+					// Read IV if not already present from senc box
+					if( samples[i].iv.empty() )
+					{
+						samples[i].iv = std::string((char *)ptr, iv_size);
+						if( verbose )
+						{
+							PRINTF( "%sIV from aux info: ", INDENT() );
+							for( int j=0; j<iv_size; j++ )
+							{
+								PRINTF( " %02x", ptr[j] );
+							}
+							PRINTF("\n");
+						}
+					}
+					ptr += iv_size;
+				}
+				if (cenc_aux_info_sizes[i-sampleOffset] > iv_size)
+				{
+					// Read subsample data
+					uint16_t n_subsamples = ReadU16();
+					PRINTF( "%sSample %d: %d subsamples\n", INDENT(), i, n_subsamples );
+					size_t subsamples_size = n_subsamples * 6;
+					samples[i].subsamples = std::string((char *)ptr, subsamples_size);
+					if( verbose )
+					{
+						PRINTF( "%sSubsamples from aux info: ", INDENT() );
+						for( int j=0; j<subsamples_size; j++ )
+						{
+							PRINTF( " %02x", ptr[j] );
+						}
+						PRINTF("\n");
+					}
+					ptr += subsamples_size;
+				}
+			}
+		}
+		ptr = bptr;
 	}
 	
 	void parseSampleAuxiliaryInformationSizes( void )
@@ -311,7 +367,7 @@ public: // temp workaround - used directly in rialtoTest
 				PRINTF( "\n" );
 			}
 		}
-		process_auxiliary_information();
+		dump_auxiliary_information();
 	}
 	
 	void parseAuxInfo( void )
@@ -348,15 +404,17 @@ public: // temp workaround - used directly in rialtoTest
 		}
 		PRINTF( "%sauxiliary_information_offset = 0x%" PRIu64 "\n", INDENT(), auxiliary_information_offset );
 		got_auxiliary_information_offset = true;
-		process_auxiliary_information();
+		dump_auxiliary_information();
 	}
 	
 	void parseSampleEncryptionBox( void )
 	{
 		ReadHeader();
 		uint32_t sampleCount = ReadU32();
-		assert( samples.size() == sampleCount );
-		for( auto iSample=0; iSample<sampleCount; iSample++ )
+		u_int32_t maxSampleCount = sampleOffset + sampleCount;
+		assert( samples.size() == maxSampleCount );
+		// Start from sampleOffset to map samples from mdat
+		for( auto iSample=sampleOffset; iSample<maxSampleCount; iSample++ )
 		{
 			if( iv_size )
 			{
@@ -390,6 +448,7 @@ public: // temp workaround - used directly in rialtoTest
 				ptr += subsamples_size;
 			}
 		}
+		sencPresent = true;
 	}
 	
 	void parseMovieFragmentHeaderBox( void )
@@ -478,8 +537,6 @@ public: // temp workaround - used directly in rialtoTest
 			if (flags & 0x0100)
 			{
 				sample_duration = ReadU32();
-				PRINTF( " duration=%" PRIu32, sample_duration );
-				sample.duration = sample_duration / (double)timescale;
 			}
 			if (flags & 0x0200)
 			{
@@ -501,7 +558,8 @@ public: // temp workaround - used directly in rialtoTest
 			}
 			sample.dts = dts/(double)timescale;
 			sample.pts = (dts+sample_composition_time_offset)/(double)timescale;
-			PRINTF( " dts=%f pts=%f", sample.dts, sample.pts );
+			sample.duration = sample_duration / (double)timescale;
+			PRINTF( " duration:%f dts=%f pts=%f", sample.duration, sample.dts, sample.pts );
 			dts += sample_duration;
 			samples.push_back( std::move(sample) );
 			PRINTF( "\n" );
@@ -830,7 +888,21 @@ public: // temp workaround - used directly in rialtoTest
 					
 				case MultiChar_Constant("moof"):  // Movie Fragment
 					moof_ptr = ptr-8;
+					// For LLD streams, we may have multiple moof boxes
+					// so we need to track sampleOffset to map samples to mdat
+					sampleOffset = samples.size();
+					// Reset encryption state for each moof
+					got_auxiliary_information_offset = false;
+					cenc_aux_info_sizes.clear();
+					sencPresent = false;
+
 					DemuxHelper(next );
+
+					if (!sencPresent && got_auxiliary_information_offset)
+					{
+						// If no 'senc' box, we need to get IVs and subsample data from auxiliary info
+						process_auxiliary_information();
+					}
 					break;
 					
 				case MultiChar_Constant("schi"): // Scheme Information
@@ -871,7 +943,24 @@ public:
 		}
 	}
 	
-	Mp4Demux( bool verbose=false ) : audio{}, video{}, stream_format(), data_reference_index(), codec_type(), codec_data(), is_encrypted(), iv_size(), crypt_byte_block(), skip_byte_block(), constant_iv_size(), constant_iv(), timescale(), samples(), default_kid(), got_auxiliary_information_offset(), auxiliary_information_offset(), scheme_type(), scheme_version(), original_media_type(), cenc_aux_info_sizes(), protectionEvents(), moof_ptr(), ptr(), indent(), version(), flags(), baseMediaDecodeTime(), fragment_duration(), track_id(), base_data_offset(), default_sample_description_index(), default_sample_duration(), default_sample_size(), default_sample_flags(), creation_time(), modification_time(), duration(), rate(), volume(), matrix{}, layer(), alternate_group(), width_fixed(), height_fixed(), language(), verbose(verbose)
+	Mp4Demux( bool verbose=false ):
+		audio{}, video{}, stream_format(),
+		data_reference_index(), codec_type(),
+		codec_data(), is_encrypted(), iv_size(),
+		crypt_byte_block(), skip_byte_block(),
+		constant_iv_size(), constant_iv(), timescale(),
+		samples(), default_kid(), got_auxiliary_information_offset(),
+		auxiliary_information_offset(), scheme_type(), scheme_version(),
+		original_media_type(), cenc_aux_info_sizes(), protectionEvents(),
+		moof_ptr(), ptr(), indent(),
+		version(), flags(), baseMediaDecodeTime(),
+		fragment_duration(), track_id(), base_data_offset(),
+		default_sample_description_index(), default_sample_duration(), default_sample_size(),
+		default_sample_flags(), creation_time(), modification_time(),
+		duration(), rate(), volume(),
+		matrix{}, layer(), alternate_group(),
+		width_fixed(), height_fixed(), language(),
+		verbose(verbose), sampleOffset(), sencPresent(false)
 	{
 	}
 	
@@ -983,6 +1072,15 @@ public:
 				g_print( "unk codec_type: %" PRIu32 "\n", codec_type );
 				return;
 		}
+		if (caps && is_encrypted)
+		{
+			GstStructure *s = gst_caps_get_structure (caps, 0);
+			gst_structure_set (s,
+				"original-media-type", G_TYPE_STRING, gst_structure_get_name (s),
+				GST_PROTECTION_SYSTEM_ID_CAPS_FIELD, G_TYPE_STRING, "edef8ba9-79d6-4ace-a3c8-27dcd51d21ed",
+				NULL);
+			gst_structure_set_name (s, "application/x-cenc");
+		}
 		gst_app_src_set_caps(appsrc, caps);
 		gst_caps_unref(caps);
 		gst_buffer_unref (buf);
@@ -1052,13 +1150,19 @@ public:
 								  NULL);
 				gst_buffer_unref(subsamples_buf);
 			}
+			else
+			{
+				gst_structure_set(metadata,
+								  "subsample_count", G_TYPE_UINT, 0,
+								  NULL);
+			}
 			
 			if( scheme_type == MultiChar_Constant("cbcs") )
 			{
 				GstBuffer *constant_iv_buf = _gst_buffer_new_memdup( (gpointer)constant_iv.c_str(), (gsize)constant_iv_size);
 				gst_structure_set(metadata,
 								  "iv", GST_TYPE_BUFFER, constant_iv_buf,
-								  "constant_iv_size", G_TYPE_UINT, constant_iv_size,
+								  "iv_size", G_TYPE_UINT, constant_iv_size,
 								  "crypt_byte_block", G_TYPE_UINT, crypt_byte_block,
 								  "skip_byte_block", G_TYPE_UINT, skip_byte_block,
 								  NULL );
@@ -1069,11 +1173,8 @@ public:
 		if( metadata )
 		{ // serialize and print the metadata
 			gchar *structure_string = gst_structure_to_string( metadata );
-			g_print("metadata: %s\n", structure_string);
+			PRINTF("metadata: %s\n", structure_string);
 			g_free(structure_string);
-
-			// gst_structure_free( metadata );
-			// metadata = NULL;
 		}
 		
 		return metadata;

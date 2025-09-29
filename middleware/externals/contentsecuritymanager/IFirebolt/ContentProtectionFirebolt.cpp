@@ -30,10 +30,57 @@
 #include <inttypes.h>
 #include "contentprotection.h"
 #include "fireboltaamp.h"
+#include "PlayerSecInterface.h"
+
 std::condition_variable mConnectionCV;
 std::mutex mConnectionMutex;
 using namespace Firebolt;
-uint64_t ContentProtectionFirebolt::mSubscriptionId = 0; 
+uint64_t ContentProtectionFirebolt::mSubscriptionId = 0;
+
+//Lookup table to convert CPS error to secmanager error
+static const std::map<const int32_t, std::pair<const int32_t, const int32_t>> ContentProtectionSecManagerErrorLookUp =
+{
+	{CONTENT_PROTECTION_SERVICE_INVALID_ASPECT_DIMENSIONS,              {CONTENT_SECURITY_MANAGER_CLASS_RESULT_API_FAIL,        CONTENT_SECURITY_MANAGER_REASON_API_INVALID_ASPECT_DIMENSION}},
+	{CONTENT_PROTECTION_SERVICE_INVALID_KEY_SYSTEM,                     {CONTENT_SECURITY_MANAGER_CLASS_RESULT_API_FAIL,        CONTENT_SECURITY_MANAGER_REASON_API_INVALID_KEY_SYSTEM_PARAM}},
+	{CONTENT_PROTECTION_SERVICE_INVALID_LICENSE_REQUEST,                {CONTENT_SECURITY_MANAGER_CLASS_RESULT_API_FAIL,        CONTENT_SECURITY_MANAGER_REASON_API_INVALID_DRM_LICENSE_PARAM}},
+	{CONTENT_PROTECTION_SERVICE_INVALID_CONTENT_METADATA,               {CONTENT_SECURITY_MANAGER_CLASS_RESULT_API_FAIL,        CONTENT_SECURITY_MANAGER_REASON_API_INVALID_CONTENT_METADATA}},
+	{CONTENT_PROTECTION_SERVICE_INVALID_MEDIA_USAGE,                    {CONTENT_SECURITY_MANAGER_CLASS_RESULT_API_FAIL,        CONTENT_SECURITY_MANAGER_REASON_API_INVALID_MEDIA_USAGE}},
+	{CONTENT_PROTECTION_SERVICE_INVALID_ACCESS_TOKEN,                   {CONTENT_SECURITY_MANAGER_CLASS_RESULT_API_FAIL,        CONTENT_SECURITY_MANAGER_REASON_API_INVALID_ACCESS_TOKEN}},
+	{CONTENT_PROTECTION_SERVICE_INVALID_ACCESS_ATTRIBUTES,              {CONTENT_SECURITY_MANAGER_CLASS_RESULT_API_FAIL,        CONTENT_SECURITY_MANAGER_REASON_API_INVALID_ACCESS_ATTRIBUTE}},
+	{CONTENT_PROTECTION_SERVICE_INVALID_SESSION_ID,                     {CONTENT_SECURITY_MANAGER_CLASS_RESULT_API_FAIL,        CONTENT_SECURITY_MANAGER_REASON_API_INVALID_SESSION_ID}},
+	{CONTENT_PROTECTION_SERVICE_INVALID_CLIENT_ID,                      {CONTENT_SECURITY_MANAGER_CLASS_RESULT_API_FAIL,        CONTENT_SECURITY_MANAGER_REASON_API_INVALID_CLIENT_ID}},
+	{CONTENT_PROTECTION_SERVICE_INVALID_WATERMARKING_PARAM,             {CONTENT_SECURITY_MANAGER_CLASS_RESULT_API_FAIL,        CONTENT_SECURITY_MANAGER_REASON_API_INVALID_WATERMARK_PARAMETER}},
+	{CONTENT_PROTECTION_SERVICE_INVALID_CONTENT_ATTRIBUTES,             {CONTENT_SECURITY_MANAGER_CLASS_RESULT_API_FAIL,        CONTENT_SECURITY_MANAGER_REASON_API_INVALID_CONTENT_PARAMETER}},
+	{CONTENT_PROTECTION_SERVICE_DRM_GENERAL_FAILURE,                    {CONTENT_SECURITY_MANAGER_CLASS_RESULT_DRM_FAIL,        CONTENT_SECURITY_MANAGER_REASON_DRM_GENERAL_FAILURE}},
+	{CONTENT_PROTECTION_SERVICE_DRM_LICENSE_NW_TIMEOUT,                 {CONTENT_SECURITY_MANAGER_CLASS_RESULT_DRM_FAIL,        CONTENT_SECURITY_MANAGER_REASON_DRM_LICENSE_TIMEOUT}},
+	{CONTENT_PROTECTION_SERVICE_DRM_LICENSE_NW_CONNECTION_FAILURE,      {CONTENT_SECURITY_MANAGER_CLASS_RESULT_DRM_FAIL,        CONTENT_SECURITY_MANAGER_REASON_DRM_LICENSE_NETWORK_FAIL}},
+	{CONTENT_PROTECTION_SERVICE_DRM_ACCESS_TOKEN_EXPIRED,               {CONTENT_SECURITY_MANAGER_CLASS_RESULT_DRM_FAIL,        CONTENT_SECURITY_MANAGER_REASON_DRM_ACCESS_TOKEN_EXPIRED}},
+	{CONTENT_PROTECTION_SERVICE_DRM_MAC_KEY_NOT_PROVISIONED,            {CONTENT_SECURITY_MANAGER_CLASS_RESULT_DRM_FAIL,        CONTENT_SECURITY_MANAGER_REASON_DRM_MAC_TOKEN_NO_PROV}},
+	{CONTENT_PROTECTION_SERVICE_DRM_MEMORY_ALLOCATION_ERROR,            {CONTENT_SECURITY_MANAGER_CLASS_RESULT_DRM_FAIL,        CONTENT_SECURITY_MANAGER_REASON_DRM_MEMORY_ALLOCATION_ERROR}},
+	{CONTENT_PROTECTION_SERVICE_DRM_SECURITY_API_FAILURE,               {CONTENT_SECURITY_MANAGER_CLASS_RESULT_DRM_FAIL,        CONTENT_SECURITY_MANAGER_REASON_DRM_SECAPI_USAGE_FAILURE}},
+	{CONTENT_PROTECTION_SERVICE_DRM_ENTITLEMENT_FAILURE,                {CONTENT_SECURITY_MANAGER_CLASS_RESULT_DRM_FAIL,        CONTENT_SECURITY_MANAGER_REASON_DRM_ENTITLEMENT_ERROR}},
+	{CONTENT_PROTECTION_SERVICE_WATERMARK_GENERAL_FAILURE,              {CONTENT_SECURITY_MANAGER_CLASS_RESULT_WATERMARK_FAIL,        CONTENT_SECURITY_MANAGER_REASON_WM_GENERAL_FAILURE}},
+	{CONTENT_PROTECTION_SERVICE_WATERMARK_TIMEOUT,                      {CONTENT_SECURITY_MANAGER_CLASS_RESULT_WATERMARK_FAIL,        CONTENT_SECURITY_MANAGER_REASON_WM_NETWORK_TIMEOUT}},
+	{CONTENT_PROTECTION_SERVICE_WATERMARK_MEMORY_ALLOCATION_ERROR,      {CONTENT_SECURITY_MANAGER_CLASS_RESULT_WATERMARK_FAIL,        CONTENT_SECURITY_MANAGER_REASON_WM_MEMORY_ALLOCATION_ERROR}},
+	{CONTENT_PROTECTION_SERVICE_WATERMARK_PERCEPTIBILITY_ERROR,         {CONTENT_SECURITY_MANAGER_CLASS_RESULT_WATERMARK_FAIL,        CONTENT_SECURITY_MANAGER_REASON_WM_PERCEPTIBILITY_INVALID_INPUT}}
+};
+
+/**
+ * @brief Convert the CPS DRM error code into secmanager error code to have a unified verbose error reported
+ */
+bool getContentProtectionAsVerboseErrorCode(int32_t httpCode, int32_t &secManagerClass, int32_t &secManagerReasonCode )
+{
+	secManagerClass = CONTENT_SECURITY_MANAGER_DRM_FAILURE;
+	secManagerReasonCode = CONTENT_SECURITY_MANAGER_DRM_GEN_FAILURE;
+	//look for the correct code from the lookup
+	auto it = ContentProtectionSecManagerErrorLookUp.find(httpCode);
+	if (it != ContentProtectionSecManagerErrorLookUp.end()) {
+		secManagerClass = it->second.first;
+		secManagerReasonCode = it->second.second;
+		return true;
+	}
+	return false;
+}
 
 ContentProtectionFirebolt::ContentProtectionFirebolt() : mInitialized(false), mIsConnected(false), mSpeedStateMutex(), mContentProtectionMutex(), mFireboltInitMutex(), mListenerId(0)
 {
@@ -42,14 +89,6 @@ ContentProtectionFirebolt::ContentProtectionFirebolt() : mInitialized(false), mI
 ContentProtectionFirebolt::~ContentProtectionFirebolt()
 {
 	DeInitialize();
-}
-
-static int MapFireboltStatus(const std::string& statusStr) {
-	if (statusStr == "GRANTED") return 1;
-	if (statusStr == "NOT_REQUIRED") return 2;
-	if (statusStr == "DENIED") return 3;
-	if (statusStr == "FAILED") return 4;
-	return -1;
 }
 
 // TODO- Yet to test Watermark Events as ContentProtection Thunder Plugin have issues.
@@ -89,14 +128,12 @@ void ContentProtectionFirebolt::HandleWatermarkEvent(const std::string& sessionI
             sessionId.c_str(), statusStr.c_str(), appId.c_str());
 	if(mInitialized)
 	{
-    	MW_LOG_INFO("HandleWaterMarkEvent Triggered");
-        PlayerJsonObject statusJson(statusStr);
-        std::string status;
-		int mappedCode = -1;
-		if (statusJson.get("state", status))
+    MW_LOG_INFO("HandleWaterMarkEvent Triggered");
+    PlayerJsonObject statusJson(statusStr);
+		int reasonCode = -1;
+		if (statusJson.get("failureReason", reasonCode ))
         {
-			MW_LOG_INFO("HandleWaterMarkEvent status %s",status.c_str());
-            mappedCode = MapFireboltStatus(status.c_str());
+			MW_LOG_INFO("HandleWaterMarkEvent Failure ReasonCode %d", reasonCode);
         }
 		else
 		{
@@ -105,9 +142,9 @@ void ContentProtectionFirebolt::HandleWatermarkEvent(const std::string& sessionI
 		std::lock_guard<std::mutex> lock(mFireboltInitMutex);
 		if (ContentSecurityManager::SendWatermarkSessionEvent_CB)
 		{
-			MW_LOG_INFO("ContentSecurityManager SendWatermarkSessionEvent_CB invoked | sessionId=%s mappedCode=%d appId=%s",
-            sessionId.c_str(), mappedCode, appId.c_str());
-			ContentSecurityManager::SendWatermarkSessionEvent_CB(std::stoi(sessionId), mappedCode, appId);
+			MW_LOG_INFO("ContentSecurityManager SendWatermarkSessionEvent_CB invoked | sessionId=%s reasonCode =%d appId=%s",
+            sessionId.c_str(), reasonCode, appId.c_str());
+			ContentSecurityManager::SendWatermarkSessionEvent_CB(std::stoi(sessionId), reasonCode, appId);
 		}
 	}
 }
@@ -224,6 +261,7 @@ bool ContentProtectionFirebolt::AcquireLicenseOpenOrUpdate( std::string clientId
 	bool result = false;
 	unsigned int retryCount = 0;
 	bool update = false;
+	int32_t errorCode = CONTENT_SECURITY_MANAGER_DRM_GEN_ERR_NONE;
 
 	//Initializing it with default error codes (which would be sent if there any jsonRPC
 	//call failures to thunder)
@@ -302,12 +340,12 @@ bool ContentProtectionFirebolt::AcquireLicenseOpenOrUpdate( std::string clientId
 				if(!update)
 				{
 					result = OpenDrmSession(clientId, appId, keySystem,
-							licenseRequest, initData, sessionId, drmSession);
+							licenseRequest, initData, sessionId, errorCode, drmSession);
 				}
 				else
 				{
 					result = 
-						UpdateDrmSession(sessionId,
+						UpdateDrmSession(sessionId, errorCode,
 								licenseRequest, initData, drmSession);					
 				}
 				if (drmSession.empty())
@@ -410,6 +448,10 @@ bool ContentProtectionFirebolt::AcquireLicenseOpenOrUpdate( std::string clientId
 								reasonCode ? *reasonCode : -1,
 								businessStatus ? *businessStatus : -1);
 					}
+				}
+				else if( errorCode != CONTENT_SECURITY_MANAGER_DRM_GEN_ERR_NONE)
+				{
+					getContentProtectionAsVerboseErrorCode(errorCode,*statusCode,*reasonCode);
 				}
 				if(!ret)
 				{
@@ -582,7 +624,7 @@ static Firebolt::ContentProtection::KeySystem convertStringToKeySystem(const std
 		return Firebolt::ContentProtection::KeySystem::WIDEVINE; // safest fallback default
 	}
 }
-bool ContentProtectionFirebolt::OpenDrmSession(std::string& clientId, std::string appId, std::string keySystem, std::string licenseRequest, std::string initData, int64_t &sessionId, std::string &response)
+bool ContentProtectionFirebolt::OpenDrmSession(std::string& clientId, std::string appId, std::string keySystem, std::string licenseRequest, std::string initData, int64_t &sessionId, int32_t &errorCode, std::string &response)
 {
 	bool ret = false;
 	// Check if the system is active before proceeding
@@ -604,11 +646,12 @@ bool ContentProtectionFirebolt::OpenDrmSession(std::string& clientId, std::strin
 	}
 	else
 	{
-		  MW_LOG_ERR("openDrmSession: Firebolt Error: \"%d\"", static_cast<int>(drmSession.error()));
+		  errorCode =  static_cast<int>(drmSession.error());
+		  MW_LOG_ERR("openDrmSession: Firebolt Error: \"%d\"", errorCode);
 	}
 	return ret;
 }
-bool ContentProtectionFirebolt::UpdateDrmSession(int64_t sessionId, std::string licenseRequest, std::string initData, std::string &response)
+bool ContentProtectionFirebolt::UpdateDrmSession(int64_t sessionId, int32_t &errorCode, std::string licenseRequest, std::string initData, std::string &response)
 {
 	bool ret = false;
 	// Check if the system is active before proceeding
@@ -629,7 +672,8 @@ bool ContentProtectionFirebolt::UpdateDrmSession(int64_t sessionId, std::string 
 	}
 	else
 	{
-		MW_LOG_ERR("updateDrmSession: Firebolt Error: \"%d\"", static_cast<int>(drmSession.error()));
+		errorCode =  static_cast<int>(drmSession.error());
+		MW_LOG_ERR("updateDrmSession: Firebolt Error: \"%d\"", errorCode);
 	}
 	return ret;
 }
