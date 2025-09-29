@@ -808,7 +808,7 @@ void DrmSessionManager::registerCallback() {
 	}
 	else
 	{
-		MW_LOG_ERROR("Watermark callback is EMPTY!");
+		MW_LOG_ERR("Watermark callback is EMPTY!");
 	}
 	ContentSecurityManager::setWatermarkSessionEvent_CB(watermarkCallBack);
 	MW_LOG_INFO("WatermarkSessionEvent Callback registered");
