@@ -4941,36 +4941,44 @@ void StreamAbstractionAAMP_MPD::FindTimedMetadata(MPD* mpd, Node* root, bool ini
 				std::string AdID;
 				std::string AssetID;
 				std::string ProviderID;
-				periodCnt++;
 
-				// Calculate period start time and duration
-				periodStartMS += periodDurationMS;
-				if (node->HasAttribute("start")) {
-					const std::string& value = node->GetAttributeValue("start");
-					uint64_t valueMS = 0;
-					if (!value.empty())
-						valueMS = ParseISO8601Duration(value.c_str() );
-					if (periodStartMS < valueMS)
-						periodStartMS = valueMS;
-				}
-				periodDurationMS = 0;
-				if (node->HasAttribute("duration")) {
-					const std::string& value = node->GetAttributeValue("duration");
-					uint64_t valueMS = 0;
-					if (!value.empty())
-						valueMS = ParseISO8601Duration(value.c_str() );
-					periodDurationMS = valueMS;
-				}
+				double periodStartTime = mMPDParseHelper->GetPeriodStartTime(periodCnt, mLastPlaylistDownloadTimeMs);
+				if (periodStartTime == 0 && periodCnt > 0) {
+                    double prevPeriodStart = 0;
+                    double prevPeriodDuration = 0;
+                   
+                    // Find the last valid period with non-zero start time
+                    for (int prevIdx = periodCnt - 1; prevIdx >= 0; prevIdx--) {
+                        prevPeriodStart = mMPDParseHelper->GetPeriodStartTime(prevIdx, mLastPlaylistDownloadTimeMs);
+                        if (prevPeriodStart > 0) {
+                            // Calculate cumulative duration from this period to current period
+                            double cumulativeDuration = 0;
+                            for (int idx = prevIdx; idx < periodCnt; idx++) {
+                                double duration = mMPDParseHelper->GetPeriodDuration(idx, mLastPlaylistDownloadTimeMs, (rate != AAMP_NORMAL_PLAY_RATE), aamp->IsUninterruptedTSB());
+                                cumulativeDuration += duration;
+                                AAMPLOG_INFO("DEBUG: Period[%d] duration: %f ms, cumulative: %f ms", idx, duration, cumulativeDuration);
+                            }
+                            periodStartTime = prevPeriodStart + (cumulativeDuration / 1000.0);
+                            AAMPLOG_INFO("DEBUG: Calculated periodStartTime for period %d: %f (prev: %f + duration: %f)",periodCnt, periodStartTime, prevPeriodStart, cumulativeDuration/1000.0);
+                            break;
+                        }
+                    }
+                }
+				periodStartMS = (uint64_t)(periodStartTime * 1000);
+				AAMPLOG_INFO("TimedMetadata: Period %d start time %llu ms", periodCnt, (unsigned long long)periodStartMS);
+				periodDurationMS = mMPDParseHelper->GetPeriodDuration(periodCnt, mLastPlaylistDownloadTimeMs, (rate != AAMP_NORMAL_PLAY_RATE), aamp->IsUninterruptedTSB()) * 1000;
+				AAMPLOG_INFO("TimedMetadata: Period %d duration %llu ms", periodCnt, (unsigned long long)periodDurationMS);
 				IPeriod * period = NULL;
 				if (mpd != NULL)
 				{
-						period = mpd->GetPeriods().at(periodCnt-1);
+						period = mpd->GetPeriods().at(periodCnt);
 				}
 				else
 				{
 					AAMPLOG_WARN("mpd is null");  //CID:80941 - Null Returns
 				}
 				std::string adBreakId("");
+				periodCnt++;
 				if(period != NULL)
 				{
 					const std::string &prdId = period->GetId();
@@ -4991,7 +4999,7 @@ void StreamAbstractionAAMP_MPD::FindTimedMetadata(MPD* mpd, Node* root, bool ini
 							}
 							if((name == "EventStream") && ("" != prdId) && !mCdaiObject->isPeriodExist(prdId))
 							{
-								bool processEventsInPeriod = ((!init || (1 < periodCnt && 0 == period->GetAdaptationSets().size())) //Take last & empty period at the MPD init AND all new periods in the MPD refresh. (No empty periods will come the middle)
+								bool processEventsInPeriod = ((!init || (0 < periodCnt && 0 == period->GetAdaptationSets().size())) //Take last & empty period at the MPD init AND all new periods in the MPD refresh. (No empty periods will come the middle)
 												  || (!mIsLiveManifest && init) || (mIsLiveManifest && ISCONFIGSET(eAAMPConfig_BulkTimedMetaReportLive) ));
 
 								bool modifySCTEProcessing = ISCONFIGSET(eAAMPConfig_EnableSCTE35PresentationTime);
@@ -5006,6 +5014,7 @@ void StreamAbstractionAAMP_MPD::FindTimedMetadata(MPD* mpd, Node* root, bool ini
 								if (processEventsInPeriod)
 								{
 									mCdaiObject->InsertToPeriodMap(period);	//Need to do it. Because the FulFill may finish quickly
+									AAMPLOG_INFO("periodStartMS from FindTimedMetadata is %llu", (unsigned long long)periodStartMS);
 									ProcessEventStream(periodStartMS, firstSegmentStartTime, period, reportBulkMeta);
 									continue;
 								}
@@ -5303,7 +5312,7 @@ void StreamAbstractionAAMP_MPD::ProcessPeriodAssetIdentifier(Node* node, uint64_
 bool StreamAbstractionAAMP_MPD::ProcessEventStream(uint64_t startMS, int64_t startOffsetMS, IPeriod * period, bool reportBulkMeta)
 {
 	bool ret = false;
-
+	AAMPLOG_INFO("startMS time in ProcessEventStream %" PRIu64 , startMS);
 	const std::string &prdId = period->GetId();
 	if(!prdId.empty())
 	{
@@ -5362,6 +5371,7 @@ bool StreamAbstractionAAMP_MPD::ProcessEventStream(uint64_t startMS, int64_t sta
 					bool modifySCTEProcessing = ISCONFIGSET(eAAMPConfig_EnableSCTE35PresentationTime);
 					if (modifySCTEProcessing)
 					{
+						AAMPLOG_INFO("Saving timedMetadata for LIVE %s event for the period, %s", eventInfo.name.c_str(), prdId.c_str());
 						aamp->SaveNewTimedMetadata(eventStartTime, eventInfo.name.c_str(), eventInfo.payload.c_str(), (int)eventInfo.payload.size(), prdId.c_str(), eventInfo.duration);
 					}
 					else

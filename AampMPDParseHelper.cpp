@@ -521,7 +521,9 @@ double AampMPDParseHelper::GetPeriodStartTime(int periodIndex,uint64_t mLastPlay
 
 	if (it != mMPDPeriodDetails.end()) {
 		// Found a matching PeriodInfo object, return its startTime.
+		AAMPLOG_INFO("Returning Period Start time from it->periodStartTime %f", it->periodStartTime);
 		return it->periodStartTime;
+
 	}
 	else
 	{
@@ -575,22 +577,27 @@ double AampMPDParseHelper::GetPeriodStartTime(int periodIndex,uint64_t mLastPlay
 					double previousPeriodStart = GetPeriodStartTime(periodIndex - 1,mLastPlaylistDownloadTimeMs); 
 					double durationTotal = ParseISO8601Duration(durationStr.c_str());
 					periodStart = previousPeriodStart + (durationTotal / 1000);
+					AAMPLOG_INFO("DEBUG: Calculating periodStart for periodIndex %d from previous period's start and duration", periodIndex);
 				}
 				else
 				{
 					double durationTotal = 0;
+					AAMPLOG_INFO("DEBUG: Calculating periodStart for periodIndex %d by summing previous periods", periodIndex);
 					for(int idx=0;idx < periodIndex; idx++)
 					{
 						//Calculates the total duration by summing the durations of individual periods up to 'periodIndex
-						durationTotal += aamp_GetPeriodDuration(idx, mLastPlaylistDownloadTimeMs);
+						double periodDuration = aamp_GetPeriodDuration(idx, mLastPlaylistDownloadTimeMs);
+						durationTotal += periodDuration;
+						AAMPLOG_INFO("DEBUG: Period[%d] duration: %f, cumulative: %f", idx, periodDuration, durationTotal);
 					}
 					periodStart =  ((double)durationTotal / (double)1000);
+					AAMPLOG_INFO("DEBUG: Before availability adjustment - periodStart: %f seconds, mIsLiveManifest: %d, mAvailabilityStartTime: %f", 
+					            periodStart, mIsLiveManifest, mAvailabilityStartTime);
+					
 					if(mIsLiveManifest && (periodStart > 0))
 					{
 						periodStart += mAvailabilityStartTime;
 					}
-
-					AAMPLOG_INFO("StreamAbstractionAAMP_MPD: - MPD periodIndex %d periodStart %f", periodIndex, periodStart);
 				}
 			}
 		}
@@ -599,8 +606,9 @@ double AampMPDParseHelper::GetPeriodStartTime(int periodIndex,uint64_t mLastPlay
 			AAMPLOG_WARN("mpd is null");  //CID:83436 Null Returns
 		}
 
-
+		AAMPLOG_INFO("Returning PeriodstartMS is %f", periodStart);
 		return periodStart;
+
 	}
 }
 
@@ -820,6 +828,7 @@ double AampMPDParseHelper::GetPeriodDuration(int periodIndex,uint64_t mLastPlayl
 
         if (it != mMPDPeriodDetails.end()) {
                 // Found a matching PeriodInfo object, return its Duration
+                AAMPLOG_INFO("Returning Period Duration from it->duration %f", it->duration);
                 return it->duration;
         }
 	else
@@ -840,6 +849,7 @@ double AampMPDParseHelper::GetPeriodDuration(int periodIndex,uint64_t mLastPlayl
 					{
 						periodDurationMs = mMediaPresentationDuration;
 						AAMPLOG_WARN("period duration based on mMediaPresentationDuration =%f",periodDurationMs );
+						AAMPLOG_INFO("Returning mMediaPresentationDuration %" PRIu64, mMediaPresentationDuration);
 						return mMediaPresentationDuration;
 					}
 					//Next priority for duration tag
@@ -847,6 +857,7 @@ double AampMPDParseHelper::GetPeriodDuration(int periodIndex,uint64_t mLastPlayl
 					{
 						periodDurationMs = ParseISO8601Duration(durationStr.c_str());
 						AAMPLOG_WARN("period duration based on duration field =%f",periodDurationMs );
+						AAMPLOG_INFO("Returning periodDurationMs %f", periodDurationMs);
 						return periodDurationMs;
 					}
 				}
@@ -939,6 +950,7 @@ double AampMPDParseHelper::GetPeriodDuration(int periodIndex,uint64_t mLastPlayl
 		{
 			AAMPLOG_WARN("mpd is null");  //CID:83436 Null Returns
 		}
+		AAMPLOG_INFO("Returning PeriodDuration is %f", periodDuration);
 		return periodDurationMs;
 	}
 }
@@ -1168,6 +1180,7 @@ double AampMPDParseHelper::aamp_GetPeriodDuration(int periodIndex, uint64_t mpdD
 			}
 		}
 	}
+	AAMPLOG_INFO("DEBUG: aamp_GetPeriodDuration returning %f ms for periodIndex %d", durationMs, periodIndex);
 	return durationMs;
 }
 

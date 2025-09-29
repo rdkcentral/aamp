@@ -7815,7 +7815,9 @@ void PrivateInstanceAAMP::ReportTimedMetadata(bool init)
 		mTimedMetadataStartTime = NOW_STEADY_TS_MS ;
 		for (iter = timedMetadataNew.begin(); iter != timedMetadataNew.end(); iter++)
 		{
-			ReportTimedMetadata(iter->_timeMS, iter->_name.c_str(), iter->_content.c_str(), (int)iter->_content.size(), init, iter->_id.c_str(), iter->_durationMS);
+			AAMPLOG_INFO("the value fo _timeMS is %lld", iter->_timeMS);
+			AAMPLOG_INFO("the value of GetFormatPositionOffsetInMSecs() is %lf", GetFormatPositionOffsetInMSecs());
+			ReportTimedMetadata(iter->_timeMS - GetFormatPositionOffsetInMSecs(), iter->_name.c_str(), iter->_content.c_str(), (int)iter->_content.size(), init, iter->_id.c_str(), iter->_durationMS);
 		}
 		timedMetadataNew.clear();
 		mTimedMetadataDuration = (NOW_STEADY_TS_MS - mTimedMetadataStartTime);
@@ -7843,7 +7845,9 @@ void PrivateInstanceAAMP::ReportBulkTimedMetadata()
 				cJSON_AddItemToArray(root, item = cJSON_CreateObject());
 				cJSON_AddStringToObject(item, "name", iter->_name.c_str());
 				cJSON_AddStringToObject(item, "id", iter->_id.c_str());
-				cJSON_AddNumberToObject(item, "timeMs", iter->_timeMS);
+				AAMPLOG_INFO("the value fo _timeMS is %lld", iter->_timeMS);
+				AAMPLOG_INFO("the value of GetFormatPositionOffsetInMSecs() is %lf", GetFormatPositionOffsetInMSecs());
+				cJSON_AddNumberToObject(item, "timeMs", iter->_timeMS - GetFormatPositionOffsetInMSecs());
 				cJSON_AddNumberToObject (item, "durationMs",iter->_durationMS);
 				cJSON_AddStringToObject(item, "data", iter->_content.c_str());
 			}
@@ -13956,6 +13960,7 @@ double PrivateInstanceAAMP::GetFormatPositionOffsetInMSecs()
 	{
 		// Adjust progress positions for VOD, Linear without absolute timeline
 		offset = mProgressReportOffset * 1000;
+		AAMPLOG_INFO("Using progress offset  for VOD, Linear without absolute timeline is %f msecs", offset);
 	}
 	else if(ISCONFIGSET_PRIV(eAAMPConfig_UseAbsoluteTimeline) &&
 		mProgressReportOffset > 0 && IsLiveStream() &&
@@ -13963,6 +13968,7 @@ double PrivateInstanceAAMP::GetFormatPositionOffsetInMSecs()
 	{
 		// Adjust progress positions for linear stream with absolute timeline config from AST
 		offset = mProgressReportAvailabilityOffset * 1000;
+		AAMPLOG_INFO("Using progress offset  for Linear with absolute timeline is %f msecs", offset);
 	}
 	return offset;
 }
