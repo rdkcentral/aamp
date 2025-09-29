@@ -38,7 +38,7 @@ using namespace Firebolt;
 uint64_t ContentProtectionFirebolt::mSubscriptionId = 0;
 
 //Lookup table to convert CPS error to secmanager error
-std::map<const int32_t, std::pair<const int32_t, const int32_t>> ContentProtectionSecManagerErrorLookUp =
+static const std::map<const int32_t, std::pair<const int32_t, const int32_t>> ContentProtectionSecManagerErrorLookUp =
 {
 	{CONTENT_PROTECTION_SERVICE_INVALID_ASPECT_DIMENSIONS,              {CONTENT_SECURITY_MANAGER_CLASS_RESULT_API_FAIL,        CONTENT_SECURITY_MANAGER_REASON_API_INVALID_ASPECT_DIMENSION}},
 	{CONTENT_PROTECTION_SERVICE_INVALID_KEY_SYSTEM,                     {CONTENT_SECURITY_MANAGER_CLASS_RESULT_API_FAIL,        CONTENT_SECURITY_MANAGER_REASON_API_INVALID_KEY_SYSTEM_PARAM}},
