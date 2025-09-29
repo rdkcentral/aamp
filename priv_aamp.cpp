@@ -6167,7 +6167,7 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 	}
 
 	SAFE_DELETE(mCdaiObject);
-	
+
 	AcquireStreamLock();
 	TuneHelper(tuneType);
 
@@ -7581,7 +7581,7 @@ void PrivateInstanceAAMP::Stop( bool isDestructing )
 	{
 		SetState(eSTATE_STOPPING);
 	}
-	
+
 	{
 		std::unique_lock<std::mutex> lock(gMutex);
 		auto iter = std::find_if(std::begin(gActivePrivAAMPs), std::end(gActivePrivAAMPs), [this](const gActivePrivAAMP_t& el)
@@ -7710,12 +7710,12 @@ void PrivateInstanceAAMP::Stop( bool isDestructing )
 	mFirstFragmentTimeOffset = -1;
 	mProgressReportAvailabilityOffset = -1;
 	rate = 1;
-	
+
 	if( !isDestructing )
 	{
 		SetState(eSTATE_IDLE);
 	}
-	
+
 	SetPauseOnStartPlayback(false);
 	mSeekOperationInProgress = false;
 	mTrickplayInProgress = false;
@@ -10851,6 +10851,36 @@ static char* createJsonData(TextTrackInfo& track)
 }
 
 /**
+ * @brief Set closed caption track with appropriate format from passed text track
+ */
+void PrivateInstanceAAMP::SetCCTextTrack(TextTrackInfo &track)
+{
+	CCFormat format = eCLOSEDCAPTION_FORMAT_DEFAULT;
+	// PlayerCCManager expects the CC type, ie 608 or 708
+	// For DASH, there is a possibility that instreamId is just an integer so we infer rendition
+	if (mMediaFormat == eMEDIAFORMAT_DASH && (std::isdigit(static_cast<unsigned char>(track.instreamId[0]))) && !track.rendition.empty())
+	{
+		if (track.rendition.find("608") != std::string::npos)
+		{
+			format = eCLOSEDCAPTION_FORMAT_608;
+		}
+		else if (track.rendition.find("708") != std::string::npos)
+		{
+			format = eCLOSEDCAPTION_FORMAT_708;
+		}
+	}
+
+	// preferredCEA708 overrides whatever we infer from track. USE WITH CAUTION
+	int overrideCfg = GETCONFIGVALUE_PRIV(eAAMPConfig_CEAPreferred);
+	if (overrideCfg != -1)
+	{
+		format = (CCFormat)(overrideCfg & 1);
+		AAMPLOG_WARN("PrivateInstanceAAMP: CC format override present, override format to: %d", format);
+	}
+	PlayerCCManager::GetInstance()->SetTrack(track.instreamId, format);
+}
+
+/**
  * @brief Set text track
  */
 void PrivateInstanceAAMP::SetTextTrack(int trackId, char *data)
@@ -10880,36 +10910,7 @@ void PrivateInstanceAAMP::SetTextTrack(int trackId, char *data)
 				if (track.isCC)
 				{
 					mIsInbandCC = true;
-					if (!track.instreamId.empty())
-					{
-						CCFormat format = eCLOSEDCAPTION_FORMAT_DEFAULT;
-						// PlayerCCManager expects the CC type, ie 608 or 708
-						// For DASH, there is a possibility that instreamId is just an integer so we infer rendition
-						if (mMediaFormat == eMEDIAFORMAT_DASH && (std::isdigit(static_cast<unsigned char>(track.instreamId[0]))) && !track.rendition.empty())
-						{
-							if (track.rendition.find("608") != std::string::npos)
-							{
-								format = eCLOSEDCAPTION_FORMAT_608;
-							}
-							else if (track.rendition.find("708") != std::string::npos)
-							{
-								format = eCLOSEDCAPTION_FORMAT_708;
-							}
-						}
-
-						// preferredCEA708 overrides whatever we infer from track. USE WITH CAUTION
-						int overrideCfg = GETCONFIGVALUE_PRIV(eAAMPConfig_CEAPreferred);
-						if (overrideCfg != -1)
-						{
-							format = (CCFormat)(overrideCfg & 1);
-							AAMPLOG_WARN("PrivateInstanceAAMP: CC format override present, override format to: %d", format);
-						}
-						PlayerCCManager::GetInstance()->SetTrack(track.instreamId, format);
-					}
-					else
-					{
-						AAMPLOG_ERR("PrivateInstanceAAMP: Track number/instreamId is empty, skip operation");
-					}
+					SetCCTextTrack(track);
 				}
 				else
 				{
@@ -12067,13 +12068,13 @@ void PrivateInstanceAAMP::SanitizeLanguageList(std::vector<std::string>& languag
 }
 
 /**
- *  @brief Set Preferred Text Language
+ *  @brief Process json object or language string
  */
-void PrivateInstanceAAMP::SetPreferredTextLanguages(const char *param )
+void PrivateInstanceAAMP::SetTextLanguages(const char *param )
 {
 	/**< First argument is Json data then parse it and and assign the variables properly*/
 	AampJsonObject* jsObject = nullptr;
-	bool accessibilityPresent = false;
+
 	std::vector<std::string> inputTextLanguagesList;
 
 	try
@@ -12176,10 +12177,6 @@ void PrivateInstanceAAMP::SetPreferredTextLanguages(const char *param )
 				{
 					AAMPLOG_INFO("Preferred accessibility: %s", inputTextAccessibilityNode.print().c_str());
 				}
-				if(inputTextAccessibilityNode != preferredTextAccessibilityNode)
-				{
-					accessibilityPresent = true;
-				}
 			}
 		}
 
@@ -12232,6 +12229,16 @@ void PrivateInstanceAAMP::SetPreferredTextLanguages(const char *param )
 	AAMPLOG_INFO("Preferred Text languages string: %s", preferredTextLanguagesString.c_str());
 
 	SETCONFIGVALUE_PRIV(AAMP_APPLICATION_SETTING,eAAMPConfig_PreferredTextLanguage,preferredTextLanguagesString);
+}
+
+
+/**
+ *  @brief Set Preferred Text Language
+ */
+void PrivateInstanceAAMP::SetPreferredTextLanguages(const char *param )
+{
+
+	SetTextLanguages(param);
 
 	AAMPPlayerState state = GetState();
 	if (state != eSTATE_IDLE && state != eSTATE_RELEASED && state != eSTATE_ERROR )
@@ -12243,9 +12250,9 @@ void PrivateInstanceAAMP::SetPreferredTextLanguages(const char *param )
 			bool accessibilityTypePresent = false;
 			bool labelPresent = false;
 			bool instreamIdPresent = false;
-			int trackIndex = GetTextTrack();
+			int trackIndex = GetTextTrack();                //The currently selected track that is playing
 			bool namePresent = false;
-
+			bool accessibilityPresent = false;
 			bool languageAvailabilityInManifest = false;
 			bool renditionAvailabilityInManifest = false;
 			bool accessibilityAvailabilityInManifest = false;
@@ -12261,7 +12268,7 @@ void PrivateInstanceAAMP::SetPreferredTextLanguages(const char *param )
 				char *currentPrefRendition = const_cast<char*>(trackInfo[trackIndex].rendition.c_str());
 				char *currentPrefInstreamId =  const_cast<char*>(trackInfo[trackIndex].instreamId.c_str());
 				char *currentPrefName = const_cast<char*>(trackInfo[trackIndex].name.c_str());
-
+				Accessibility  currentAccessibilityNode = trackInfo[trackIndex].accessibilityItem;
 				// Logic to check whether the given language is present in the available tracks,
 				// if available, it should not match with current preferredLanguagesString, then call tune to reflect the language change.
 				// if not available, then avoid calling tune.
@@ -12312,7 +12319,10 @@ void PrivateInstanceAAMP::SetPreferredTextLanguages(const char *param )
 						}
 					}
 				}
-
+				if(currentAccessibilityNode != preferredTextAccessibilityNode)
+				{
+					accessibilityPresent = true;
+				}
 				//Logic to check whether the given instreamId is present in the available tracks,
 				//if available, it should not match with current preferredInstreamIdString, then call tune to reflect the track change.
 				//if not available, then avoid calling tune.
@@ -12447,22 +12457,7 @@ void PrivateInstanceAAMP::SetPreferredTextLanguages(const char *param )
 				if (trackId >= 0 && trackId < tracks.size())
 				{
 					TextTrackInfo track = tracks[trackId];
-					if(!track.instreamId.empty())
-					{
-						CCFormat format = eCLOSEDCAPTION_FORMAT_DEFAULT;
-						if (mMediaFormat == eMEDIAFORMAT_DASH && (std::isdigit(static_cast<unsigned char>(track.instreamId[0]))) && !track.rendition.empty())
-						{
-							if (track.rendition.find("608") != std::string::npos)
-							{
-								format = eCLOSEDCAPTION_FORMAT_608;
-							}
-							else if (track.rendition.find("708") != std::string::npos)
-							{
-								format = eCLOSEDCAPTION_FORMAT_708;
-							}
-						}
-						PlayerCCManager::GetInstance()->SetTrack(track.instreamId, format);
-					}
+					SetCCTextTrack(track);
 				}
 
 			}

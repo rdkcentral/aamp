@@ -541,6 +541,8 @@ class PrivateInstanceAAMP : public DrmCallbacks, public std::enable_shared_from_
 	std::chrono::system_clock::time_point m_lastSubClockSyncTime;
 	std::shared_ptr<TSB::Store> mTSBStore; /**< Local TSB Store object */
 	void SanitizeLanguageList(std::vector<std::string>& languages) const;
+	void SetTextLanguages(const char *param );
+	void SetCCTextTrack(TextTrackInfo &track);
 public:
     /* @fn RecalculatePTS
     * @param[in] mediaType stream type
@@ -1426,7 +1428,7 @@ public:
 	 * @return void
 	 */
 	void SendDownloadErrorEvent(AAMPTuneFailure tuneFailure,int error_code);
-    
+
 	/**
 	 * @fn SendAnomalyEvent
 	 *
@@ -2913,7 +2915,7 @@ public:
 	 *   @return current video co-ordinates in x,y,w,h format
 	 */
 	std::string GetVideoRectangle();
-    
+
 	/**
 	 *   @fn SetPreCacheDownloadList
 	 *   @param[in] dnldListInput Playlist Download list
@@ -3886,7 +3888,7 @@ public:
 	 * @return A constant character pointer to the error string corresponding to the provided error type.
 	 */
 	const char* getStringForPlaybackError(PlaybackErrorType errorType);
-	
+
 	/**
 	 *	@fn CalculateTrickModePositionEOS
 	 *		- this function only works for (rate > 1) - see priv_aamp.cpp
@@ -3903,7 +3905,7 @@ public:
 	 * @retval current live play position of the stream in seconds.
 	 */
 	 double GetLivePlayPosition(void);
-	
+
 	/**
 	 * @fn GetFormatPositionOffsetInMSecs
 	 * @brief API to get the offset value in msecs for the position values to be reported.
