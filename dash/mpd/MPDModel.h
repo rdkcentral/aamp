@@ -141,11 +141,11 @@ protected:
     template<typename Child>
     void getChildren(std::vector<std::shared_ptr<Child>> &out, string childName) {
         auto self = std::dynamic_pointer_cast<typename Child::ParentType>(shared_from_this());
-        ElemVector elemVector(elem, childName);
+        ElemVector elemVector(elem, std::move(childName));
         int idx = 0;
         for (auto e : elemVector) {
             auto child = std::shared_ptr<Child>(new Child(self, e, idx++));
-            out.push_back(child);
+            out.push_back(std::move(child));
         }
     }
 
@@ -1108,7 +1108,7 @@ class DashMPDDocument {
 public:
     explicit DashMPDDocument(const string &content);
 
-    explicit DashMPDDocument( shared_ptr<DomDocument> xmlDoc) :xmlDoc(xmlDoc),root() {};
+    explicit DashMPDDocument( shared_ptr<DomDocument> xmlDoc) :xmlDoc(std::move(xmlDoc)),root() {};
     bool isValid();
 
     shared_ptr<DashMPDRoot> getRoot();

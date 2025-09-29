@@ -559,7 +559,7 @@ void trim(std::string& src)
 	{
 		size_t last = src.find_last_not_of(" \n\r\t\f\v");
 		std::string dst = src.substr(first, (last - first + 1));
-		src = dst;
+		src = std::move(dst);
 	}
 }
 
@@ -994,10 +994,10 @@ double GetNetworkTime(const std::string& remoteUrl, int *http_error , std::strin
 	inpData->iStallTimeout = 2; // 2sec
 	inpData->iStartTimeout = 2; // 2sec
 	inpData->iDownloadTimeout = 3; // 3sec
-	inpData->proxyName 	  = NetworkProxy;
+	inpData->proxyName = std::move(NetworkProxy);
 	
 	inpData->bNeedDownloadMetrics = true;
-	T1.Initialize(inpData);
+	T1.Initialize(std::move(inpData));
 	T1.Download(remoteUrl, respData);
 		
 	if (respData->curlRetValue == CURLE_OK)
