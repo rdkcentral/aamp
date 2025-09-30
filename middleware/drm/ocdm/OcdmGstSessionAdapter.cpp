@@ -296,7 +296,7 @@ int OCDMGSTSessionAdapter::decrypt(GstBuffer *keyIDBuffer, GstBuffer *ivBuffer, 
 {
 
 	int retValue = -1;
-	DECRYPT_TRACE_LOG("DEBUG--> Before decrypt API (1)");
+	MW_LOG_TRACE("DEBUG--> Before decrypt API (1)");
 	if (m_pOpenCDMSession)
 	{
 		MW_LOG_TRACE("DEBUG--> Inside decrypt API insdie if");
