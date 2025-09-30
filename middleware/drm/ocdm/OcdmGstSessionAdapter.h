@@ -41,6 +41,15 @@ public:
 	OCDMGSTSessionAdapter(DrmHelperPtr drmHelper,  DrmCallbacks *drmCallbacks) : OCDMSessionAdapter(drmHelper, drmCallbacks)
 , OCDMGSTSessionDecrypt(nullptr)
 	{
+                // Enable TRACE logging (this also enables WARN, INFO, DEBUG, etc.)
+                PlayerLogManager::setLogLevel(mLOGLEVEL_TRACE);
+                
+                // Test both TRACE and WARN logging
+                MW_LOG_TRACE("OCDMGSTSessionAdapter: TRACE logging enabled in constructor");
+                MW_LOG_WARN("OCDMGSTSessionAdapter: WARN logging also enabled in constructor");
+                MW_LOG_DEBUG("OCDMGSTSessionAdapter: DEBUG logging also enabled in constructor");
+                MW_LOG_INFO("OCDMGSTSessionAdapter: INFO logging also enabled in constructor");
+                
                 const char* ocdmgstsessiondecrypt = "opencdm_gstreamer_session_decrypt_buffer";
                 OCDMGSTSessionDecrypt = (OpenCDMError(*)(struct OpenCDMSession*, GstBuffer*, GstCaps*))dlsym(RTLD_DEFAULT, ocdmgstsessiondecrypt);
                 if (OCDMGSTSessionDecrypt)

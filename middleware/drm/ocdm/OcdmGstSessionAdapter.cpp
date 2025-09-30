@@ -31,6 +31,7 @@
 #include <stdio.h>
 #include <cstdarg>
 #include <thread>
+#include "playerLogManager/PlayerLogManager.h"  // Add this for PlayerLogManager
 
 #include "gst/video/gstvideotimecode.h"
 #include "gst/video/gstvideometa.h"
@@ -293,14 +294,15 @@ void OCDMGSTSessionAdapter::ExtractSEI( GstBuffer *buffer)
  */
 int OCDMGSTSessionAdapter::decrypt(GstBuffer *keyIDBuffer, GstBuffer *ivBuffer, GstBuffer *buffer, unsigned subSampleCount, GstBuffer *subSamplesBuffer, GstCaps* caps)
 {
+
 	int retValue = -1;
-	MW_LOG_WARN("DEBUG--> Before decrypt API (1)");
+	DECRYPT_TRACE_LOG("DEBUG--> Before decrypt API (1)");
 	if (m_pOpenCDMSession)
 	{
-		MW_LOG_WARN("DEBUG--> Inside decrypt API insdie if");
+		MW_LOG_TRACE("DEBUG--> Inside decrypt API insdie if");
 		if (!verifyOutputProtection())
 		{
-			MW_LOG_WARN("DEBUG--> verifyOutputProtection failed");
+			MW_LOG_TRACE("DEBUG--> verifyOutputProtection failed");
 			return HDCP_COMPLIANCE_CHECK_FAILURE;
 		}
 
@@ -309,7 +311,7 @@ int OCDMGSTSessionAdapter::decrypt(GstBuffer *keyIDBuffer, GstBuffer *ivBuffer, 
 		 */
 		MW_LOG_TRACE("DEBUG: Extract the SEI timestamps from encrypted content.");
 		ExtractSEI(buffer);
-		MW_LOG_WARN("DEBUG--> Before if keyIDBuffer check");
+		MW_LOG_TRACE("DEBUG--> Before if keyIDBuffer check");
 		if ((keyIDBuffer == nullptr) 
 			&& (false == m_drmHelper->isDecryptClearSamplesRequired())
 		   )
@@ -319,57 +321,57 @@ int OCDMGSTSessionAdapter::decrypt(GstBuffer *keyIDBuffer, GstBuffer *ivBuffer, 
 		}
 		else
 		{
-			MW_LOG_WARN("DEBUG--> Before decryptMutex mutex 1");
+			MW_LOG_TRACE("DEBUG--> Before decryptMutex mutex 1");
 			std::lock_guard<std::mutex> guard(decryptMutex);
-			MW_LOG_WARN("DEBUG--> After decryptMutex mutex 1");
+			MW_LOG_TRACE("DEBUG--> After decryptMutex mutex 1");
 			uint64_t start_decrypt_time = GetCurrentTimeStampInMSec();
 
 			/* Added GST_IS_CAPS check also before passing gst caps to OCDM decrypt() as gst_caps_is_empty returns false when caps object is not of 
 			type GST_TYPE_CAPS. This will avoid crash when caps is not of type GST_TYPE_CAPS. */
 			if (OCDMGSTSessionDecrypt && !gst_caps_is_empty(caps) && GST_IS_CAPS(caps))
 			{
-				        MW_LOG_WARN("DEBUG--> Before OCDMGSTSessionDecrypt");
+				        MW_LOG_TRACE("DEBUG--> Before OCDMGSTSessionDecrypt");
 						GstProtectionMeta* protectionMeta = reinterpret_cast<GstProtectionMeta*>(gst_buffer_get_protection_meta(buffer));
 
 						if (protectionMeta != nullptr) {
-							MW_LOG_WARN("DEBUG--> Before gst_structure_set");
+							MW_LOG_TRACE("DEBUG--> Before gst_structure_set");
 							gst_structure_set (protectionMeta->info, "subsample_count", G_TYPE_UINT, subSampleCount, "subsamples", GST_TYPE_BUFFER, subSamplesBuffer, "iv", GST_TYPE_BUFFER, ivBuffer, "kid", GST_TYPE_BUFFER, keyIDBuffer, "initWithLast15", G_TYPE_UINT, 0, NULL);
 							
 						} else {
-							MW_LOG_WARN("DEBUG--> Before gst_structure_new");
+							MW_LOG_TRACE("DEBUG--> Before gst_structure_new");
 								GstStructure *crypto_info = gst_structure_new ("protection_meta_info","subsample_count", G_TYPE_UINT, subSampleCount, "subsamples", GST_TYPE_BUFFER, subSamplesBuffer, "iv", GST_TYPE_BUFFER, ivBuffer, "kid", GST_TYPE_BUFFER, keyIDBuffer, "initWithLast15", G_TYPE_UINT, 0, NULL);
 					gst_buffer_add_protection_meta (buffer, crypto_info);
-					MW_LOG_WARN("DEBUG--> After gst_structure_new");
+					MW_LOG_TRACE("DEBUG--> After gst_structure_new");
 							}
-				MW_LOG_WARN("DEBUG--> Before OCDMGSTSessionDecrypt call");
+				MW_LOG_TRACE("DEBUG--> Before OCDMGSTSessionDecrypt call");
 						retValue = OCDMGSTSessionDecrypt(m_pOpenCDMSession, buffer, caps);
-				MW_LOG_WARN("DEBUG--> After OCDMGSTSessionDecrypt call, retValue=%d", retValue);
+				MW_LOG_TRACE("DEBUG--> After OCDMGSTSessionDecrypt call, retValue=%d", retValue);
 			}
 			else
 				/* CID:328751 - Waiting while holding a lock, got detected due to usage of external API. It may be replaced if approach is redesigned in future */
-				MW_LOG_WARN("DEBUG--> Before opencdm_gstreamer_session_decrypt call");
+				MW_LOG_TRACE("DEBUG--> Before opencdm_gstreamer_session_decrypt call");
 				retValue = opencdm_gstreamer_session_decrypt(m_pOpenCDMSession, buffer, subSamplesBuffer, subSampleCount, ivBuffer, keyIDBuffer, 0);
-			MW_LOG_WARN("DEBUG--> After opencdm_gstreamer_session_decrypt call, retValue=%d", retValue);
+			MW_LOG_TRACE("DEBUG--> After opencdm_gstreamer_session_decrypt call, retValue=%d", retValue);
 			uint64_t end_decrypt_time = GetCurrentTimeStampInMSec();
 			if (retValue != 0)
 			{
 				GstMapInfo keyIDMap;
-				MW_LOG_WARN("DEBUG--> After opencdm_gstreamer_session_decrypt with error");
+				MW_LOG_TRACE("DEBUG--> After opencdm_gstreamer_session_decrypt with error");
 				if (gst_buffer_map(keyIDBuffer, &keyIDMap, (GstMapFlags) GST_MAP_READ) == true)
 				{
-					MW_LOG_WARN("DEBUG--> After gst_buffer_map");
+					MW_LOG_TRACE("DEBUG--> After gst_buffer_map");
 					uint8_t *mappedKeyID = reinterpret_cast<uint8_t*>(keyIDMap.data);
 					uint32_t mappedKeyIDSize = static_cast<uint32_t>(keyIDMap.size);
 	#ifdef USE_THUNDER_OCDM_API_0_2
-					MW_LOG_WARN("DEBUG--> Before opencdm_session_status");
+					MW_LOG_TRACE("DEBUG--> Before opencdm_session_status");
 					KeyStatus keyStatus = opencdm_session_status(m_pOpenCDMSession, mappedKeyID, mappedKeyIDSize);
-					MW_LOG_WARN("DEBUG--> After opencdm_session_status");
+					MW_LOG_TRACE("DEBUG--> After opencdm_session_status");
 	#else
-					MW_LOG_WARN("DEBUG--> Before opencdm_session_status (2)");
+					MW_LOG_TRACE("DEBUG--> Before opencdm_session_status (2)");
 					KeyStatus keyStatus = opencdm_session_status(m_pOpenCDMSession, mappedKeyID,mappedKeyIDSize );
-					MW_LOG_WARN("DEBUG--> After opencdm_session_status (2)");
+					MW_LOG_TRACE("DEBUG--> After opencdm_session_status (2)");
 	#endif
-					MW_LOG_WARN("OCDMSessionAdapter: decrypt returned : %d key status is : %d", retValue, keyStatus);
+					MW_LOG_TRACE("OCDMSessionAdapter: decrypt returned : %d key status is : %d", retValue, keyStatus);
 	#ifdef USE_THUNDER_OCDM_API_0_2
 					if (keyStatus == OutputRestricted){
 	#else
@@ -385,12 +387,12 @@ int OCDMGSTSessionAdapter::decrypt(GstBuffer *keyIDBuffer, GstBuffer *ivBuffer, 
 						retValue = HDCP_COMPLIANCE_CHECK_FAILURE;
 					}
 					gst_buffer_unmap(keyIDBuffer, &keyIDMap);
-					MW_LOG_WARN("DEBUG--> After gst_buffer_unmap");
+					MW_LOG_TRACE("DEBUG--> After gst_buffer_unmap");
 				}
 			}
 
 			GstMapInfo mapInfo;
-			MW_LOG_WARN("DEBUG--> Before gst_buffer_map 2");
+			MW_LOG_TRACE("DEBUG--> Before gst_buffer_map 2");
 			if (gst_buffer_map(buffer, &mapInfo, GST_MAP_READ))
 			{
 				if (mapInfo.size > 0)
@@ -398,59 +400,60 @@ int OCDMGSTSessionAdapter::decrypt(GstBuffer *keyIDBuffer, GstBuffer *ivBuffer, 
 					LogPerformanceExt(__FUNCTION__, start_decrypt_time, end_decrypt_time, mapInfo.size);
 				}
 				gst_buffer_unmap(buffer, &mapInfo);
-				MW_LOG_WARN("DEBUG--> After gst_buffer_unmap 2");
+				MW_LOG_TRACE("DEBUG--> After gst_buffer_unmap 2");
 			}
 		}
 	}
-	MW_LOG_WARN("DEBUG--> After decrypt API (1)  ret:%d", retValue);
+	MW_LOG_TRACE("DEBUG--> After decrypt API (1)  ret:%d", retValue);
 	return retValue;
 }
 
 int OCDMGSTSessionAdapter::decrypt(const uint8_t *f_pbIV, uint32_t f_cbIV, const uint8_t *payloadData, uint32_t payloadDataSize, uint8_t **ppOpaqueData)
 {
+	
 	int retValue = -1;
-	MW_LOG_WARN("DEBUG--> Before decrypt API (a)");
+	MW_LOG_TRACE("DEBUG--> Before decrypt API (a)");
 	
 	if (m_pOpenCDMSession)
 	{
-		MW_LOG_WARN("DEBUG--> Inside decrypt API insdie if");
+		MW_LOG_TRACE("DEBUG--> Inside decrypt API insdie if");
 			/* CID:328751 - Waiting while holding a lock, got detected due to usage of external API. It may be replaced if approach is redesigned in future */
 		if (!verifyOutputProtection())
 		{
-			MW_LOG_WARN("DEBUG--> verifyOutputProtection failed");
+			MW_LOG_TRACE("DEBUG--> verifyOutputProtection failed");
 			return HDCP_COMPLIANCE_CHECK_FAILURE;
 		}
 		else
 		{
-			MW_LOG_WARN("DEBUG--> Before decryptMutex mutex");
+			MW_LOG_TRACE("DEBUG--> Before decryptMutex mutex");
 			std::lock_guard<std::mutex> guard(decryptMutex);
-			MW_LOG_WARN("DEBUG--> After decryptMutex mutex");
+			MW_LOG_TRACE("DEBUG--> After decryptMutex mutex");
 			EncryptionScheme encScheme = AesCtr_Cenc;
 			EncryptionPattern pattern = {0};
 			/* CID:313718 - Waiting while holding a lock, got detected due to usage of external API. It may be replaced if approach is redesigned in future */
-			MW_LOG_WARN("DEBUG--> Before opencdm_session_decrypt");
+			MW_LOG_TRACE("DEBUG--> Before opencdm_session_decrypt");
 			retValue = opencdm_session_decrypt(m_pOpenCDMSession, (uint8_t *)payloadData, payloadDataSize, encScheme, pattern, f_pbIV, f_cbIV, NULL, 0, 0);
-
+			MW_LOG_TRACE("DEBUG--> after opencdm_session_decrypt");
 			if (retValue != 0)
 			{
-				MW_LOG_WARN("DEBUG--> After opencdm_session_decrypt with error");
+				MW_LOG_TRACE("DEBUG--> After opencdm_session_decrypt with error");
 #ifdef USE_THUNDER_OCDM_API_0_2
-				MW_LOG_WARN("DEBUG--> Before opencdm_session_status (1)");
+				MW_LOG_TRACE("DEBUG--> Before opencdm_session_status (1)");
 				KeyStatus keyStatus = opencdm_session_status(m_pOpenCDMSession, NULL, 0);
 				
 #else
-				MW_LOG_WARN("DEBUG--> Before opencdm_session_status (2)");
+				MW_LOG_TRACE("DEBUG--> Before opencdm_session_status (2)");
 				KeyStatus keyStatus = opencdm_session_status(m_pOpenCDMSession, NULL, 0);
-				MW_LOG_WARN("DEBUG--> After opencdm_session_status (2)");
+				MW_LOG_TRACE("DEBUG--> After opencdm_session_status (2)");
 #endif
-				MW_LOG_WARN("DEBUGOCDMSessionAdapter:%s : decrypt returned : %d key status is : %d", __FUNCTION__, retValue, keyStatus);
+				MW_LOG_TRACE("DEBUGOCDMSessionAdapter:%s : decrypt returned : %d key status is : %d", __FUNCTION__, retValue, keyStatus);
 #ifdef USE_THUNDER_OCDM_API_0_2
 				if (keyStatus == OutputRestricted)
 #else
 				if(keyStatus == KeyStatus::OutputRestricted)
 #endif
 				{
-					MW_LOG_WARN("DEBUGOCDMSessionAdapter:%s : decrypt returned : %d key status is : %d", __FUNCTION__, retValue, keyStatus);
+					MW_LOG_TRACE("DEBUGOCDMSessionAdapter:%s : decrypt returned : %d key status is : %d", __FUNCTION__, retValue, keyStatus);
 					retValue = HDCP_OUTPUT_PROTECTION_FAILURE;	
 				}
 #ifdef USE_THUNDER_OCDM_API_0_2
@@ -459,13 +462,13 @@ int OCDMGSTSessionAdapter::decrypt(const uint8_t *f_pbIV, uint32_t f_cbIV, const
 				else if(keyStatus == KeyStatus::OutputRestrictedHDCP22)
 #endif
 				{
-					MW_LOG_WARN("DEBUGOCDMSessionAdapter:%s : decrypt returned : %d key status is : %d", __FUNCTION__, retValue, keyStatus);
+					MW_LOG_TRACE("DEBUGOCDMSessionAdapter:%s : decrypt returned : %d key status is : %d", __FUNCTION__, retValue, keyStatus);
 					retValue = HDCP_COMPLIANCE_CHECK_FAILURE;
 				}
 			}
 		}
 	}
-	MW_LOG_WARN("DEBUG--> After decrypt API (a)  ret:%d", retValue);
+	MW_LOG_TRACE("DEBUG--> After decrypt API (a)  ret:%d", retValue);
 	return retValue;
 }
 

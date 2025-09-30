@@ -87,14 +87,14 @@ OCDMSessionAdapter::OCDMSessionAdapter(DrmHelperPtr drmHelper, DrmCallbacks *cal
 void OCDMSessionAdapter::initDRMSystem()
 {
 	std::lock_guard<std::mutex> guard(decryptMutex);
-	MW_LOG_WARN("initDRMSystem :: enter ");
+	MW_LOG_ERR("initDRMSystem :: enter ");
 	if (m_pOpenCDMSystem == nullptr) {
 #ifdef USE_THUNDER_OCDM_API_0_2
 		m_pOpenCDMSystem = opencdm_create_system(m_keySystem.c_str());
 #else
-		MW_LOG_WARN("DEBUG--> Before opencdm_create_system call");
+		MW_LOG_ERR("DEBUG--> Before opencdm_create_system call");
 		m_pOpenCDMSystem = opencdm_create_system();
-		MW_LOG_WARN("DEBUG--> After opencdm_create_system call");
+		MW_LOG_ERR("DEBUG--> After opencdm_create_system call");
 #endif
 		if (m_pOpenCDMSystem == nullptr) {
 			MW_LOG_ERR("opencdm_create_system() FAILED");
