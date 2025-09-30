@@ -114,6 +114,7 @@ void ContentProtectionFirebolt::HandleWatermarkEvent(const std::string& sessionI
 
 void ContentProtectionFirebolt::Initialize()
 {
+	MW_LOG_ERR("ContentProtectionFirebolt Initialize ");
 	std::lock_guard<std::mutex> lock(mFireboltInitMutex);
 	if (mInitialized) return;
 	const char* firebolt_endpoint = std::getenv("FIREBOLT_ENDPOINT");
