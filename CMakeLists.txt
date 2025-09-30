@@ -546,6 +546,8 @@ if (CMAKE_SUBTITLE_SUPPORT)
 	)
 	set(LIBAAMP_SOURCES "${LIBAAMP_SOURCES}" middleware/closedcaptions/subtec/PlayerSubtecCCManager.cpp)
 	set(LIBAAMP_DEPENDS ${LIBAAMP_DEPENDS} subtec_connector)
+
+	set(LIBAAMP_SOURCES "${LIBAAMP_SOURCES}" middleware/closedcaptions/rialto/PlayerRialtoCCManager.cpp)
 endif()
 
 if (COVERAGE_ENABLED)

@@ -264,6 +264,13 @@ public:
 	static PlayerCCManagerBase * GetInstance();
 
 	/**
+	 * @fn SetRialto
+	 *
+	 * @return void
+	 */
+	static void SetRialto(bool bIsRialto);
+
+	/**
 	 * @fn DestroyInstance
 	 *
 	 * @return void
@@ -272,6 +279,7 @@ public:
 
 private:
 	static PlayerCCManagerBase *mInstance; /**< Singleton instance */
+	static bool mIsRialto;    /**< Determines which class to instantiate. */
 };
 
 class PlayerFakeCCManager : public PlayerCCManagerBase
