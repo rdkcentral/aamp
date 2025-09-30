@@ -105,6 +105,10 @@ PlayerInstanceAAMP::PlayerInstanceAAMP(StreamSink* streamSink
 		fflush(stdout);
 	}
 
+	std::shared_ptr<PlayerExternalsInterface> pExternalsInterface = PlayerExternalsInterface::GetPlayerExternalsInterfaceInstance();
+	pExternalsInterface->SetUseFireBoltSDK(gpGlobalConfig->IsConfigSet(eAAMPConfig_UseFireboltSDK));
+	pExternalsInterface->Initialize();
+
 #ifdef SUPPORT_JS_EVENTS
 #ifdef AAMP_WPEWEBKIT_JSBINDINGS //aamp_LoadJS defined in libaampjsbindings.so
 	const char* szJSLib = "libaampjsbindings.so";
