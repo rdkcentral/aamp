@@ -853,7 +853,7 @@ void PlayerCCManager::SetRialto(bool bIsRialto)
 	}
 	else
 	{
-		MW_LOG_ERROR("PlayerCCManager::IsRialto:%d while incompatible singleton instance exists", bIsRialto);
+		MW_LOG_ERR("PlayerCCManager::IsRialto:%d while incompatible singleton instance exists", bIsRialto);
 	}
 
 	return;
