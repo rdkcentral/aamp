@@ -1341,12 +1341,12 @@ void AampTSBSessionManager::ProcessAdMetadata(AampMediaType mediaType, TsbFragme
 			}
 			else
 			{
-				if (aType == AampTsbAdMetaData::EventType::START && bType == AampTsbAdMetaData::EventType::END) return true; 	// START before END
-				if (aType == AampTsbAdMetaData::EventType::END && bType == AampTsbAdMetaData::EventType::START) return false; 	// START before END
-
-				// Same type and position, log a warning
-				AAMPLOG_WARN("Ad metadata with same type and position, keeping original order: AdType=%d EventType=%d Pos=%" PRIu64 "ms",
-						static_cast<int>(a.meta->GetAdType()), static_cast<int>(aType), apos);
+				if (aType == bType)
+				{
+					// Same type and position, log a warning
+					AAMPLOG_WARN("Ad metadata with same type and position, keeping original order: AdType=%d EventType=%d Pos=%" PRIu64 "ms",
+							static_cast<int>(a.meta->GetAdType()), static_cast<int>(aType), apos);
+				}
 			}
 			// Otherwise, keep original order
 			return true;
