@@ -129,7 +129,7 @@ if(CMAKE_PLATFORM_UBUNTU OR CMAKE_SYSTEM_NAME STREQUAL Darwin)
 	endif(CMAKE_SYSTEM_NAME STREQUAL Darwin)
 endif()
 
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../rialto-master/media/public/include)
+include_directories(${CMAKE_CURRENT_SOURCE_DIR}/rialto-master/media/public/include)
 
 include_directories(${GSTREAMER_INCLUDE_DIRS})
 include_directories(${CURL_INCLUDE_DIRS})
