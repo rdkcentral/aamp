@@ -344,7 +344,7 @@ bool PlayerThunderAccess::GetResolutionFromDS_VIDEOIN(int & widthFromDS, int & h
 	bool bRetVal = false;
 
 	JsonObject param;
-    JsonObject result;		
+    JsonObject result;
 
     PlayerThunderAccess* thunderDsObj = new PlayerThunderAccess(PlayerThunderAccessPlugin::DS);
 
@@ -492,7 +492,6 @@ void PlayerThunderAccess::RegisterEventOnVideoStreamInfoUpdateHdmiin(std::functi
  */
 void PlayerThunderAccess::OnVideoStreamInfoUpdate(const JsonObject& parameters)
 {
-	
     std::string message;
     parameters.ToString(message);
     MW_LOG_WARN("%s",message.c_str());
@@ -505,7 +504,6 @@ void PlayerThunderAccess::OnVideoStreamInfoUpdate(const JsonObject& parameters)
     data.width = (int)videoInfoObj["width"].Number();
     data.height = (int)videoInfoObj["height"].Number();
     mVideoInfoUpdatedMethodCb(data);
-    
 }
 
 void PlayerThunderAccess::RegisterOnPlayerStatusOta(std::function<void(PlayerStatusData)> onPlayerStatusCb)
@@ -546,7 +544,6 @@ void PlayerThunderAccess::onPlayerStatusHandler_OTA(const JsonObject& parameters
     data.vid_codec = videoInfoObj["codec"].String();
     data.vid_hdrType = videoInfoObj["hdrType"].String();
     data.vid_bitrate = videoInfoObj["bitrate"].Number();
-	
 
     JsonObject audioInfoObj = playerData["audioInfo"].Object();
     data.aud_codec = audioInfoObj["codec"].String();
@@ -577,7 +574,7 @@ void PlayerThunderAccess::ReleaseOta()
         MW_LOG_WARN("[OTA_SHIM]OTA Destructor finds Player Status Event not Subscribed !! ");
     }
 
-    MW_LOG_INFO("[OTA_SHIM]StreamAbstractionAAMP_OTA Destructor called !! ");
+    MW_LOG_INFO("[OTA_SHIM]StreamAbstraction_OTA Destructor called !! ");
 }
 
 void PlayerThunderAccess::StartOta(std::string url, std::string waylandDisplay, std::string preferredLanguagesString, std::string atsc_preferredLanguagesString, std::string preferredRenditionString, std::string atsc_preferredRenditionString)
@@ -656,7 +653,6 @@ void PlayerThunderAccess::SetPreferredAudioLanguages_OTA(std::string preferredLa
     JsonObject properties;
     bool modifiedLang = false;
     bool modifiedRend = false;
-   
     if((0 != preferredLanguagesString.length()) && (preferredLanguagesString != atsc_preferredLanguagesString)){
         properties["preferredAudioLanguage"] = preferredLanguagesString.c_str();
         modifiedLang = true;
@@ -692,7 +688,6 @@ void PlayerThunderAccess::SetPreferredAudioLanguages_OTA(std::string preferredLa
                 std::string paramStr;
                 param.ToString(paramStr);
                 MW_LOG_WARN( "[OTA_SHIM] setProperties success with param:%s", paramStr.c_str());
-                
             }
         }
     }
@@ -882,7 +877,6 @@ void PlayerThunderAccess::DisableContentRestrictionsOta(long grace, long time, b
     }
     InvokeJSONRPC("disableContentRestrictionsUntil", param, result);
 
-	
 }
 
 /**

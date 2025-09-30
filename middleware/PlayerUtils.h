@@ -93,5 +93,11 @@ void ResolveURL(std::string& dst, std::string base, const char *uri , bool bProp
  */
 long long GetCurrentTimeMS(void);
 
+/**
+ * @fn trim
+ * @param[in][out] src Buffer containing string
+ */
+void trim(std::string& src);
+
 #endif  /* __PLAYER_UTILS_H__ */
 
