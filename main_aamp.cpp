@@ -80,7 +80,7 @@ void doFakeTune()
 			AAMPLOG_WARN("After Fake tune call ...");
 			std::thread([fakeTuneInstance]() {
 					AAMPLOG_WARN("Sleeping before calling stop");
-					std::this_thread::sleep_for(std::chrono::seconds(7)); // or your desired duration
+					//std::this_thread::sleep_for(std::chrono::seconds(7)); // or your desired duration
 					//fakeTuneInstance->Stop();
 					AAMPLOG_WARN("Fake tune instance stopped..");
 					}).detach();

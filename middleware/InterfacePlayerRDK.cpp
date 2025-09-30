@@ -3531,6 +3531,14 @@ void InterfacePlayerRDK::NotifyFirstFrame(int mediaType)
 		notifyFirstBuffer = true;
 		PlayerLogManager::setLogLevel(mLOGLEVEL_WARN);				//Align with player LogTuneComplete once the first frame starts, required for prod builds
 	}
+#ifdef USE_PREINIT_DECODING
+    // Call the PlayingStateCb callback if set, when first video frame is received
+    if (type == eGST_MEDIATYPE_VIDEO && PlayingStateCb)
+    {
+        MW_LOG_MIL("[FAKETUNE] Notifying PlayingStateCb from NotifyFirstFrame()");
+        PlayingStateCb();
+    }
+#endif
 	if(notifyFirstFrameCallback)
 	{
 		notifyFirstFrameCallback(type, notifyFirstBuffer, (!gstPrivateContext->decoderHandleNotified && PipelineSetToReady), requireFirstVideoFrameDisplay, audioOnly);
@@ -4551,15 +4559,6 @@ static GstBusSyncReply bus_sync_handler(GstBus * bus, GstMessage * msg, Interfac
 			GstState old_state, new_state;
 			gst_message_parse_state_changed(msg, &old_state, &new_state, NULL);
 			
-			if(old_state != GST_STATE_PLAYING && new_state == GST_STATE_PLAYING)
-			{
-#ifdef USE_PREINIT_DECODING
-				if (PlayingStateCb){
-					MW_LOG_MIL("Pipeline Moved to playing state...Invoking callback to client");
-					PlayingStateCb();
-				}
-#endif
-			}
 			if (GST_MESSAGE_SRC(msg) == GST_OBJECT(pInterfacePlayerRDK->gstPrivateContext->pipeline))
 			{
 				pInterfacePlayerRDK->gstPrivateContext->pipelineState = new_state;
