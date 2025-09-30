@@ -32,6 +32,7 @@
 
 #include "PlayerCCManager.h"
 #include "PlayerSubtecCCManager.h"
+#include "PlayerRialtoCCManager.h"
 
 
 #define CHAR_CODE_1 49
