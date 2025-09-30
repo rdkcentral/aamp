@@ -72,14 +72,6 @@ void PlayerExternalsRdkInterface::Initialize()
     //initialize only if needed
     if(m_initialized != InitState::NOT_INITIALIZED)
     {
-        if(IsContainerEnvironment())
-        {
-            MW_PRELOGGER_LOG("Container environment, forcing Firebolt \n");
-        }
-        else
-        {
-            MW_PRELOGGER_LOG("Not in container environment \n");
-        }
         if(m_initialized == InitState::FIREBOLT && (m_use_firebolt_sdk || IsContainerEnvironment()))
         {
             MW_PRELOGGER_LOG("Firebolt already Inited \n");
@@ -108,6 +100,9 @@ void PlayerExternalsRdkInterface::Initialize()
     {
         m_pDeviceInterfaceBase = nullptr;
     }
+
+    MW_PRELOGGER_LOG("m_use_firebolt_sdk : %d, IsContainerEnvironment() : %d \n", m_use_firebolt_sdk, IsContainerEnvironment());
+
     //remove-start
     if(m_use_firebolt_sdk || IsContainerEnvironment()) //if explicitly config'd to or if in container go for firebolt
     {
@@ -126,6 +121,8 @@ void PlayerExternalsRdkInterface::Initialize()
         m_initialized = PlayerExternalsRdkInterface::InitState::IARM;
     }
     //remove-end
+
+    MW_PRELOGGER_LOG("Done getting interface \n");
 
     SetHDMIStatus();
 
@@ -285,6 +282,14 @@ char * PlayerExternalsRdkInterface::GetTR181Config(const char * paramName, size_
 
 void PlayerExternalsRdkInterface::SetUseFireBoltSDK(bool t_use_firebolt_sdk)
 {
-    MW_PRELOGGER_LOG("SetUseFireboltSDK : %d \n", t_use_firebolt_sdk);
-    m_use_firebolt_sdk = t_use_firebolt_sdk;
+    MW_PRELOGGER_LOG("old : %d, new : %d \n", m_use_firebolt_sdk, t_use_firebolt_sdk);
+    if(m_use_firebolt_sdk != t_use_firebolt_sdk)
+    {
+        m_use_firebolt_sdk = t_use_firebolt_sdk;
+        //reinitialize
+        m_initialized = InitState::NOT_INITIALIZED;
+        Initialize();
+
+    }
+    
 }

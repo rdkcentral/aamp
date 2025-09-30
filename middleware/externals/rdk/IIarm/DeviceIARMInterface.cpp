@@ -99,6 +99,8 @@ DeviceIARMInterface::DeviceIARMInterface()
 
 DeviceIARMInterface::~DeviceIARMInterface()
 {
+    MW_PRELOGGER_LOG("DeviceIARMInterface destructor called \n");
+
     RemoveEventHandlers();
 
     s_pDeviceIARMInterface = nullptr;

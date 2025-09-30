@@ -70,6 +70,7 @@ DeviceFireboltInterface::DeviceFireboltInterface()
 
 DeviceFireboltInterface::~DeviceFireboltInterface()
 {
+	MW_PRELOGGER_LOG("DeviceFireboltInterface destructor called \n");
 	RemoveEventHandlers();
 	m_pFireboltInterface = nullptr;
 }
