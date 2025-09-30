@@ -60,11 +60,13 @@ ContentSecurityManager* ContentSecurityManager::GetInstance()
 #if defined(USE_SECCLIENT) || defined(USE_SECMANAGER)
 		if(mUseFireboltSDK)
 		{
+			MW_LOG_WARN("created instance for Contentprotectionfirebolt");
 			Instance = new ContentProtectionFirebolt();
 		}
 		else
 		{
 #if defined(USE_SECMANAGER)
+			MW_LOG_WARN("created instance for secmanager");
 			Instance = new SecManagerThunder();
 #endif
 		}
@@ -200,6 +202,7 @@ bool ContentSecurityManager::setPlaybackSpeedState(int64_t sessionId, int64_t pl
 void ContentSecurityManager::setWatermarkSessionEvent_CB(const std::function<void(uint32_t, uint32_t, const std::string&)>& callback)
 {
 	SendWatermarkSessionEvent_CB = callback;
+	 MW_LOG_WARN("ContentSecurityManager WatermarkSessionEvent_CB set, std::function addr: %p" ,static_cast<const void*>(&SendWatermarkSessionEvent_CB));
 	return;
 }
 
@@ -208,6 +211,8 @@ void ContentSecurityManager::setWatermarkSessionEvent_CB(const std::function<voi
  */
 std::function<void(uint32_t, uint32_t, const std::string&)>& ContentSecurityManager::getWatermarkSessionEvent_CB( )
 {
+	 MW_LOG_WARN("ContentSecurityManager WatermarkSessionEvent_CB set, std::function addr: %p",
+        static_cast<const void*>(&SendWatermarkSessionEvent_CB));
 	return SendWatermarkSessionEvent_CB;
 }
 

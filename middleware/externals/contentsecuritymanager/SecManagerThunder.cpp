@@ -572,6 +572,7 @@ void SecManagerThunder::watermarkSessionHandler(const JsonObject& parameters)
 	std::function<void(uint32_t, uint32_t, const std::string&)> sendWatermarkEvent_CB = ContentSecurityManager::getWatermarkSessionEvent_CB();
 	if (nullptr != sendWatermarkEvent_CB)
 	{
+		MW_LOG_WARN("entering sendwatermarkcb");
 		sendWatermarkEvent_CB( parameters["sessionId"].Number(),parameters["conditionContext"].Number(),parameters["watermarkingSystem"].String());
 	}
 }
