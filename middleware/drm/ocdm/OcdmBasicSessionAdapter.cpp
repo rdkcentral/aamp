@@ -32,9 +32,9 @@ int OCDMBasicSessionAdapter::decrypt(const uint8_t *f_pbIV, uint32_t f_cbIV, con
 	{
 		return HDCP_COMPLIANCE_CHECK_FAILURE;
 	}
-
+	MW_LOG_WARN("DEBUG--> Before decrypt API 3");
 	std::lock_guard<std::mutex> guard(decryptMutex);
-
+	MW_LOG_WARN("DEBUG--> After decryptMutex mutex 3");
 	uint8_t *dataToSend = const_cast<uint8_t *>(payloadData);
 	uint32_t sizeToSend = payloadDataSize;
 	std::vector<uint8_t> vdata;
@@ -53,19 +53,21 @@ int OCDMBasicSessionAdapter::decrypt(const uint8_t *f_pbIV, uint32_t f_cbIV, con
 	EncryptionScheme encScheme = AesCtr_Cenc;
 	EncryptionPattern pattern = {0};
 	/* CID:313823 - Waiting while holding a lock, got detected due to usage of external API. It may be replaced if approach is redesigned in future */
+	MW_LOG_WARN("DEBUG--> Before opencdm_session_decrypt call");
 	int retvalue = opencdm_session_decrypt(m_pOpenCDMSession,
 										   dataToSend,
 										   sizeToSend,
 										   encScheme, pattern,
 										   f_pbIV, f_cbIV,
 										   m_keyId.data(), m_keyId.size(), 0 );
+	MW_LOG_WARN("DEBUG--> After opencdm_session_decrypt call");
 	if (retvalue != 0)
 	{
 		if (m_drmHelper->getMemorySystem() != nullptr)
 		{
 			m_drmHelper->getMemorySystem()->terminateEarly();
 		}
-		MW_LOG_INFO("decrypt returned : %d", retvalue);
+		MW_LOG_WARN("decrypt returned : %d", retvalue);
 	}
 	else if (m_drmHelper->getMemorySystem() != nullptr)
 	{
@@ -74,6 +76,7 @@ int OCDMBasicSessionAdapter::decrypt(const uint8_t *f_pbIV, uint32_t f_cbIV, con
 			MW_LOG_WARN("Failed to decode memory for transmission");
 			return -1;
 		}
-	}	
+	}
+	MW_LOG_WARN("DEBUG--> After decrypt API 3 ret:%d", retvalue);
 	return retvalue;
 }
