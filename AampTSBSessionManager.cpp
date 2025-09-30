@@ -1262,7 +1262,7 @@ std::vector<std::shared_ptr<AampTsbAdMetaData>> AampTSBSessionManager::MergeAndS
 		auto bpos = b->GetPosition().milliseconds();
 
 		// Different positions, sort by position
-		if (apos != bpos) 
+		if (apos != bpos)
 		{
 			maintainOrder = apos < bpos;
 		}
@@ -1343,7 +1343,7 @@ void AampTSBSessionManager::ProcessAdMetadata(AampMediaType mediaType, TsbFragme
 		skipUpToLast(reservationList, mLastAdReservationMetaDataProcessed);
 		skipUpToLast(placementList, mLastAdPlacementMetaDataProcessed);
 		
-		std::vector<std::shared_ptr<AampTsbAdMetaData>> merged = MergeAndSortAdMetaData(reservationList, placementList);
+		std::vector<std::shared_ptr<AampTsbAdMetaData>> merged = MergeAndSortAdMetaData(std::move(reservationList), std::move(placementList));
 
 		// Process merged list, and update last processed pointers
 		for (const auto& meta : merged)
