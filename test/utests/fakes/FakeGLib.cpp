@@ -242,24 +242,24 @@ void g_usleep(gulong microseconds)
 
 }
 
-gpointer g_malloc(gsize	 n_bytes)
+gpointer g_try_malloc(gsize	 n_bytes)
 {
 	gpointer ptr = NULL;
 
 	if (g_mockGLib != nullptr)
 	{
-		ptr = g_mockGLib->g_malloc(n_bytes);
+		ptr = g_mockGLib->g_try_malloc(n_bytes);
 	}
 	return ptr;
 }
 
-gpointer g_realloc (gpointer mem, gsize n_bytes)
+gpointer g_try_realloc (gpointer mem, gsize n_bytes)
 {
 	gpointer ptr = NULL;
 
 	if (g_mockGLib != nullptr)
 	{
-		ptr = g_mockGLib->g_realloc(mem, n_bytes);
+		ptr = g_mockGLib->g_try_realloc(mem, n_bytes);
 	}
 	return ptr;
 

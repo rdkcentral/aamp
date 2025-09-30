@@ -72,7 +72,7 @@ TEST_F(FunctionalTests, FreeTest)
 {
     AampGrowableBuffer buffer("buffer");  // Create a new buffer for this test
 
-    EXPECT_CALL(*g_mockGLib, g_malloc(_)).WillOnce(callMalloc);
+    EXPECT_CALL(*g_mockGLib, g_try_malloc(_)).WillOnce(callMalloc);
 
     // Arrange: Allocate memory for the buffer and add some data
     buffer.ReserveBytes(10);
@@ -94,7 +94,7 @@ TEST_F(FunctionalTests, ReserveBytesTest)
     // Arrange: The buffer is set up in the fixture's SetUp()
     // Act: Call the ReserveBytes function
 
-    EXPECT_CALL(*g_mockGLib, g_malloc(_)).WillOnce(callMalloc);
+    EXPECT_CALL(*g_mockGLib, g_try_malloc(_)).WillOnce(callMalloc);
 
     size_t numBytesToReserve = 10;
     buffer.ReserveBytes(numBytesToReserve);
@@ -115,7 +115,7 @@ TEST_F(FunctionalTests, AppendBytesTest)
     const char* srcData = "Hello, World!";
     size_t srcLen = strlen(srcData);
 
-    EXPECT_CALL(*g_mockGLib, g_realloc(_,_)).WillOnce(callRealloc);
+    EXPECT_CALL(*g_mockGLib, g_try_realloc(_,_)).WillOnce(callRealloc);
 
     // Act: Call the AppendBytes function
     buffer.AppendBytes(srcData, srcLen);
@@ -138,7 +138,7 @@ TEST_F(FunctionalTests, MoveBytesTest)
     const char* srcData = "Hello, World!";
     size_t srcLen = strlen(srcData);
 
-    EXPECT_CALL(*g_mockGLib, g_malloc(_)).WillOnce(callMalloc);
+    EXPECT_CALL(*g_mockGLib, g_try_malloc(_)).WillOnce(callMalloc);
  
     buffer.ReserveBytes(srcLen); // Make sure the buffer has enough space
 
@@ -160,7 +160,7 @@ TEST_F(FunctionalTests, AppendNulTerminatorTest)
 {
     AampGrowableBuffer buffer("buffer");  // Create a new buffer for this test
 
-    EXPECT_CALL(*g_mockGLib, g_realloc(_,_)).WillOnce(callRealloc);
+    EXPECT_CALL(*g_mockGLib, g_try_realloc(_,_)).WillOnce(callRealloc);
 
     // Act: Call the AppendNulTerminator function
     buffer.AppendNulTerminator();
@@ -195,7 +195,7 @@ TEST_F(FunctionalTests, ReplaceTest)
     // Arrange: Set up two buffers - the source buffer and the destination buffer
     AampGrowableBuffer sourceBuffer("buffer");
 
-    EXPECT_CALL(*g_mockGLib, g_realloc(_,_)).WillOnce(callRealloc);
+    EXPECT_CALL(*g_mockGLib, g_try_realloc(_,_)).WillOnce(callRealloc);
 
     sourceBuffer.AppendBytes("Hello", 5);
 
@@ -221,7 +221,7 @@ TEST_F(FunctionalTests, TransferNonEmptyTest)
     // Create a new buffer for this test
     AampGrowableBuffer buffer("buffer");
 
-    EXPECT_CALL(*g_mockGLib, g_realloc(_,_)).WillOnce(callRealloc);
+    EXPECT_CALL(*g_mockGLib, g_try_realloc(_,_)).WillOnce(callRealloc);
 
     // Arrange: Add some data to the buffer
     buffer.AppendBytes("Test Data", 9);
@@ -259,7 +259,7 @@ TEST_F(FunctionalTests, Reserve1KBytesTest)
     AampGrowableBuffer buffer("buffer");  // Create a new buffer for this test
     size_t numBytesToReserve = 1024; // 1K
 
-    EXPECT_CALL(*g_mockGLib, g_malloc(_)).WillOnce(callMalloc);
+    EXPECT_CALL(*g_mockGLib, g_try_malloc(_)).WillOnce(callMalloc);
 
     // Act: Call the ReserveBytes function
     buffer.ReserveBytes(numBytesToReserve);
@@ -277,7 +277,7 @@ TEST_F(FunctionalTests, Reserve8KBytesTest)
     AampGrowableBuffer buffer("buffer");  // Create a new buffer for this test
     size_t numBytesToReserve = 8192; // 8K
 
-    EXPECT_CALL(*g_mockGLib, g_malloc(_)).WillOnce(callMalloc);
+    EXPECT_CALL(*g_mockGLib, g_try_malloc(_)).WillOnce(callMalloc);
 
     // Act: Call the ReserveBytes function
     buffer.ReserveBytes(numBytesToReserve);
@@ -296,7 +296,7 @@ TEST_F(FunctionalTests, Reserve32KBytesTest)
     AampGrowableBuffer buffer("buffer");  // Create a new buffer for this test
     size_t numBytesToReserve = 32768; // 32K
 
-    EXPECT_CALL(*g_mockGLib, g_malloc(_)).WillOnce(callMalloc);
+    EXPECT_CALL(*g_mockGLib, g_try_malloc(_)).WillOnce(callMalloc);
 
     // Act: Call the ReserveBytes function
     buffer.ReserveBytes(numBytesToReserve);
@@ -316,7 +316,7 @@ TEST_F(FunctionalTests, SeriesOfAppendsTest)
     const char srcData[8192] = "Hello, World!";
     size_t srcLen = strlen(srcData);
 
-    EXPECT_CALL(*g_mockGLib, g_realloc(_,_)).WillRepeatedly(callRealloc);
+    EXPECT_CALL(*g_mockGLib, g_try_realloc(_,_)).WillRepeatedly(callRealloc);
 
 
     // Arrange: Reserve a large initial space
@@ -343,7 +343,7 @@ TEST_F(FunctionalTests, SetLenPositiveTest)
     size_t srcNewLen = srcLen / 2;          // Reduce the length to half
 
     // Expectation for AppendBytes()
-    EXPECT_CALL(*g_mockGLib, g_realloc(_,_)).WillOnce(callRealloc);
+    EXPECT_CALL(*g_mockGLib, g_try_realloc(_,_)).WillOnce(callRealloc);
 
     // Expectation for the destructor ~AampGrowableBuffer()
     EXPECT_CALL(*g_mockGLib, g_free(_)).WillOnce(callFree);
@@ -370,7 +370,7 @@ TEST_F(FunctionalTests, SetLenAfterReserveBytesTest)
 
     {
         AampGrowableBuffer testBuf("testBuf");
-        EXPECT_CALL(*g_mockGLib, g_malloc(_)).WillOnce(callMalloc);
+        EXPECT_CALL(*g_mockGLib, g_try_malloc(_)).WillOnce(callMalloc);
         testBuf.ReserveBytes(10);
         testBuf.SetLen(9);
         EXPECT_EQ(testBuf.GetLen(), 9);
@@ -391,7 +391,7 @@ TEST_F(FunctionalTests, SetLenAfterAppendBytesTest)
     size_t srcLen = strlen(srcData);
 
     // Expectation for AppendBytes()
-    EXPECT_CALL(*g_mockGLib, g_realloc(_,_)).WillOnce(callRealloc);
+    EXPECT_CALL(*g_mockGLib, g_try_realloc(_,_)).WillOnce(callRealloc);
 
     // Expectation for the destructor ~AampGrowableBuffer()
     EXPECT_CALL(*g_mockGLib, g_free(_)).WillOnce(callFree);

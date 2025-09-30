@@ -72,10 +72,10 @@ TEST_F(ConstructorsTests, Copy)
 {
 	AampGrowableBuffer buf("buf-copyctor");
 
-	EXPECT_CALL(*g_mockGLib, g_malloc(_)).WillRepeatedly(callMalloc);
+	EXPECT_CALL(*g_mockGLib, g_try_malloc(_)).WillRepeatedly(callMalloc);
 	buf.ReserveBytes(data_len);
 
-	EXPECT_CALL(*g_mockGLib, g_realloc(_,_)).WillRepeatedly(callRealloc);
+	EXPECT_CALL(*g_mockGLib, g_try_realloc(_,_)).WillRepeatedly(callRealloc);
 	buf.AppendBytes(data_buf.data(), data_buf.size());
 
 	auto tester = [this, &buf](AampGrowableBuffer & test_buf)
@@ -127,10 +127,10 @@ TEST_F(ConstructorsTests, Move)
 {
 	AampGrowableBuffer buf("buf-move-ctor");
 
-	EXPECT_CALL(*g_mockGLib, g_malloc(_)).WillRepeatedly(callMalloc);
+	EXPECT_CALL(*g_mockGLib, g_try_malloc(_)).WillRepeatedly(callMalloc);
 	buf.ReserveBytes(data_len);
 
-	EXPECT_CALL(*g_mockGLib, g_realloc(_,_)).WillRepeatedly(callRealloc);
+	EXPECT_CALL(*g_mockGLib, g_try_realloc(_,_)).WillRepeatedly(callRealloc);
 	buf.AppendBytes(&data_buf[0], data_buf.size());
 
 	auto tester = [this](const AampGrowableBuffer & src_buf, AampGrowableBuffer & test_buf)

@@ -64,7 +64,7 @@ void AampGrowableBuffer::Free( void )
 void AampGrowableBuffer::ReserveBytes( size_t numBytes )
 {
 	assert( ptr==NULL && avail == 0 );
-	ptr = (char *)g_malloc( numBytes );
+	ptr = (char *)g_try_malloc( numBytes );
 	if( ptr )
 	{
 		NETMEMORY_PLUS();
@@ -86,7 +86,7 @@ void AampGrowableBuffer::AppendBytes( const void *srcPtr, size_t srcLen )
 		{ // if still not enough, reallocate based on required
 			numBytes = required*2;
 		}
-		gpointer mem = g_realloc(ptr, numBytes );
+		gpointer mem = g_try_realloc(ptr, numBytes );
 		if( mem )
 		{
 			if( !ptr )

@@ -122,8 +122,8 @@ TEST_P(IsoBmffConvertToKeyFrameTestsP, converToIFrame)
 {
 	AampGrowableBuffer src_data{"srcData"};
 
-	EXPECT_CALL(*g_mockGLib, g_malloc(_)).WillRepeatedly(callMalloc);
-	EXPECT_CALL(*g_mockGLib, g_realloc(_,_)).WillRepeatedly(callRealloc);
+	EXPECT_CALL(*g_mockGLib, g_try_malloc(_)).WillRepeatedly(callMalloc);
+	EXPECT_CALL(*g_mockGLib, g_try_realloc(_,_)).WillRepeatedly(callRealloc);
 
 	test_data_t td = GetParam();
 	src_data.AppendBytes(td.input_data,  td.input_data_len);

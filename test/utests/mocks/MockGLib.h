@@ -32,9 +32,9 @@ public:
 	MOCK_METHOD(GParamSpec*, g_object_class_find_property, (GObjectClass* oclass, const gchar* property_name));
 	MOCK_METHOD(guint, g_timeout_add, (guint interval, GSourceFunc function, gpointer data));
 	MOCK_METHOD(gboolean, g_source_remove, (guint tag));
-	MOCK_METHOD(gpointer, g_malloc, (gsize n_bytes));
+	MOCK_METHOD(gpointer, g_try_malloc, (gsize n_bytes));
 	MOCK_METHOD(void, g_free, (gpointer mem));
-	MOCK_METHOD(gpointer, g_realloc, (gpointer mem, gsize n_bytes));
+	MOCK_METHOD(gpointer, g_try_realloc, (gpointer mem, gsize n_bytes));
 
 	MOCK_METHOD(void, g_object_set, (gpointer object, const gchar *property_name, int value));
 	MOCK_METHOD(void, g_object_set, (gpointer object, const gchar *property_name, char * value));
