@@ -4551,7 +4551,7 @@ static GstBusSyncReply bus_sync_handler(GstBus * bus, GstMessage * msg, Interfac
 			GstState old_state, new_state;
 			gst_message_parse_state_changed(msg, &old_state, &new_state, NULL);
 			
-			if(old_state != GST_STATE_PLAYING && new_state == GST_STATE_PLAYING)
+/*			if(old_state != GST_STATE_PLAYING && new_state == GST_STATE_PLAYING)
 			{
 #ifdef USE_PREINIT_DECODING
 				if (PlayingStateCb){
@@ -4559,7 +4559,8 @@ static GstBusSyncReply bus_sync_handler(GstBus * bus, GstMessage * msg, Interfac
 					PlayingStateCb();
 				}
 #endif
-			}
+			}*/
+
 			if (GST_MESSAGE_SRC(msg) == GST_OBJECT(pInterfacePlayerRDK->gstPrivateContext->pipeline))
 			{
 				pInterfacePlayerRDK->gstPrivateContext->pipelineState = new_state;
