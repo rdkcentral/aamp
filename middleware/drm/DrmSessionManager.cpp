@@ -82,15 +82,18 @@ DrmSessionManager::~DrmSessionManager()
 	ContentSecurityManager::setWatermarkSessionEvent_CB(nullptr);
 }
 void DrmSessionManager::UpdateDRMConfig(
-    bool useSecManager,
-    bool enablePROutputProtection,
-    bool propagateURIParam,
-    bool isFakeTune)
+                bool useSecManager,
+		bool enablePROutputProtection,
+		bool propagateURIParam,
+		bool isFakeTune,
+		bool wideVineKIDWorkaround)
 {
-    m_drmConfigParam->mUseSecManager = useSecManager;
-    m_drmConfigParam->mEnablePROutputProtection = enablePROutputProtection;
-    m_drmConfigParam->mPropagateURIParam = propagateURIParam;
-    m_drmConfigParam->mIsFakeTune = isFakeTune;
+        m_drmConfigParam->mUseSecManager = useSecManager;
+	m_drmConfigParam->mEnablePROutputProtection = enablePROutputProtection;
+	m_drmConfigParam->mPropagateURIParam = propagateURIParam;
+	m_drmConfigParam->mIsFakeTune = isFakeTune;
+	m_drmConfigParam->mIsWVKIDWorkaround = wideVineKIDWorkaround;
+
 }
 
 /**
@@ -367,7 +370,7 @@ int DrmSessionManager::getSlotIdForSession(DrmSession* session)
  *              with new keyId if no matching keyId is found in existing sessions.
  *  @return     Pointer to DrmSession for the given PSSH data; NULL if session creation/mapping fails.
  */
-DrmSession * DrmSessionManager::createDrmSession(
+DrmSession * DrmSessionManager::createDrmSession( int& responseCode,
 		int &err, const char* systemId, MediaFormat mediaFormat, const unsigned char * initDataPtr,
 		uint16_t initDataLen, int streamType,
 		DrmCallbacks* player, void *metaDataPtr, const unsigned char* contentMetadataPtr,
@@ -399,11 +402,11 @@ DrmSession * DrmSessionManager::createDrmSession(
 		if (!drmHelper->parsePssh(initDataPtr, initDataLen))
 		{
 			MW_LOG_ERR(" Failed to Parse PSSH from the DRM InitData");
-			err =MW_CORRUPT_DRM_METADATA;
+			err = MW_CORRUPT_DRM_METADATA;
 		}
 		else
 		{
-			drmSession = DrmSessionManager::createDrmSession(err, drmHelper, player, streamType, metaDataPtr);
+			drmSession = DrmSessionManager::createDrmSession(responseCode, err,std::move(drmHelper), player, streamType, metaDataPtr);
 		}
 	}
 
@@ -412,7 +415,7 @@ DrmSession * DrmSessionManager::createDrmSession(
 /**
  *  @brief Create DrmSession by using the DrmHelper object
  */
-DrmSession* DrmSessionManager::createDrmSession(int &err, std::shared_ptr<DrmHelper> drmHelper,  DrmCallbacks* Instance, int streamType,void* metaDataPtr)
+DrmSession* DrmSessionManager::createDrmSession(int &responseCode, int &err, std::shared_ptr<DrmHelper> drmHelper,  DrmCallbacks* Instance, int streamType,void* metaDataPtr)
 {
 	if (!drmHelper || !Instance)
 	{
@@ -486,7 +489,7 @@ DrmSession* DrmSessionManager::createDrmSession(int &err, std::shared_ptr<DrmHel
 		}
 		return nullptr;
 	}
-	code =this->AcquireLicenseCb(drmHelper, selectedSlot, cdmError,  (GstMediaType)streamType, metaDataPtr, false);
+	code =this->AcquireLicenseCb(responseCode, std::move(drmHelper), selectedSlot, cdmError,  (GstMediaType)streamType, metaDataPtr, false);
 	if (code != KEY_READY)
 	{
 		MW_LOG_WARN(" Unable to get Ready Status DrmSession : Key State %d ", code);
