@@ -1201,8 +1201,8 @@ void AampTSBSessionManager::ProcessAdMetadata(AampMediaType mediaType, TsbFragme
 		AampTime placementRangeEnd = nextFragmentData->GetAbsolutePosition() + nextFragmentData->GetDuration();
 
 		// Log the ranges being processed
-		AAMPLOG_INFO("ProcessAdMetadata: Reservation range [%" PRIu64", %" PRIu64") ms", reservationRangeStart.milliseconds(), reservationRangeEnd.milliseconds());
-		AAMPLOG_INFO("ProcessAdMetadata: Placement range [%" PRIu64", %" PRIu64") ms", placementRangeStart.milliseconds(), placementRangeEnd.milliseconds());
+		AAMPLOG_DEBUG("ProcessAdMetadata: Reservation range [%" PRIu64", %" PRIu64") ms", reservationRangeStart.milliseconds(), reservationRangeEnd.milliseconds());
+		AAMPLOG_DEBUG("ProcessAdMetadata: Placement range [%" PRIu64", %" PRIu64") ms", placementRangeStart.milliseconds(), placementRangeEnd.milliseconds());
 
 		// Get AD_RESERVATION_METADATA_TYPE entries in range
 		std::list<std::shared_ptr<AampTsbAdMetaData>> reservationList = mMetaDataManager.GetMetaDataByType<AampTsbAdMetaData>(
@@ -1213,18 +1213,22 @@ void AampTSBSessionManager::ProcessAdMetadata(AampMediaType mediaType, TsbFragme
 			AampTsbMetaData::Type::AD_PLACEMENT_METADATA_TYPE, placementRangeStart, placementRangeEnd);
 
 		// Remove entries up to and including the last processed for each list
-		auto skipUpToLast = [](std::list<std::shared_ptr<AampTsbAdMetaData>>& list, const std::shared_ptr<AampTsbMetaData>& lastProcessed) 
+		// If no last processed, remove from beginning until a START event is found
+		auto skipUpToLast = [](std::list<std::shared_ptr<AampTsbAdMetaData>>& list, const std::shared_ptr<AampTsbMetaData>& lastProcessed)
 		{
-			if (!lastProcessed) {
+			if (!lastProcessed)
+			{
 				// Remove from beginning until a START event is found
 				auto it = list.begin();
-				while (it != list.end() && (*it)->GetEventType() != AampTsbAdMetaData::EventType::START) {
+				while (it != list.end() && (*it)->GetEventType() != AampTsbAdMetaData::EventType::START)
+				{
 					it = list.erase(it);
 				}
 				return;
 			}
 			auto it = std::find(list.begin(), list.end(), lastProcessed);
-			if (it != list.end()) {
+			if (it != list.end())
+			{
 				list.erase(list.begin(), std::next(it));
 			}
 		};
@@ -1234,63 +1238,77 @@ void AampTSBSessionManager::ProcessAdMetadata(AampMediaType mediaType, TsbFragme
 		// Merge both lists in chronological order, applying the rules:
 		// 1) Reservation START before Placement START at same position
 		// 2) Reservation END after Placement END at same position
-		struct MetaWithType 
+		struct MetaWithType
 		{
 			std::shared_ptr<AampTsbAdMetaData> meta;
 			bool isReservation;
 		};
 		std::vector<MetaWithType> merged;
-		for (const auto& meta : reservationList) 
+		for (const auto& meta : reservationList)
 		{
 			merged.push_back({meta, true});
 		}
-		for (const auto& meta : placementList) 
+		for (const auto& meta : placementList)
 		{
 			merged.push_back({meta, false});
 		}
 		// Sort merged list
-		std::sort(merged.begin(), merged.end(), [](const MetaWithType& a, const MetaWithType& b) 
+		std::sort(merged.begin(), merged.end(), [](const MetaWithType& a, const MetaWithType& b)
 		{
 			auto apos = a.meta->GetPosition().milliseconds();
 			auto bpos = b.meta->GetPosition().milliseconds();
+
+			// Different positions, sort by position
 			if (apos != bpos) return apos < bpos;
+
 			// Same position: apply rules
 			auto aType = a.meta->GetEventType();
 			auto bType = b.meta->GetEventType();
-			if (a.isReservation && !b.isReservation) 
+			// Assumption is that reservations and placements don't have 0 duration,
+			// i.e START and END events are not at the same position for the same type
+			if (a.isReservation && !b.isReservation)
 			{
 				// Reservation vs Placement
-				if (aType == AampTsbAdMetaData::EventType::START && bType == AampTsbAdMetaData::EventType::START) return true; // Reservation START before Placement START
-				if (aType == AampTsbAdMetaData::EventType::END && bType == AampTsbAdMetaData::EventType::END) return false; // Reservation END after Placement END
-				if (aType == AampTsbAdMetaData::EventType::START && bType == AampTsbAdMetaData::EventType::END) return true;
-				if (aType == AampTsbAdMetaData::EventType::END && bType == AampTsbAdMetaData::EventType::START) return false;
+				if (aType == AampTsbAdMetaData::EventType::START && bType == AampTsbAdMetaData::EventType::START) return true; 	// Reservation START before Placement START
+				if (aType == AampTsbAdMetaData::EventType::END && bType == AampTsbAdMetaData::EventType::END) return false; 	// Reservation END after Placement END
+				if (aType == AampTsbAdMetaData::EventType::START && bType == AampTsbAdMetaData::EventType::END) return false; 	// Reservation START after Placement END
+				if (aType == AampTsbAdMetaData::EventType::END && bType == AampTsbAdMetaData::EventType::START) return true; 	// Reservation END before Placement START
 			} 
-			else if (!a.isReservation && b.isReservation) 
+			else if (!a.isReservation && b.isReservation)
 			{
 				// Placement vs Reservation
-				if (aType == AampTsbAdMetaData::EventType::START && bType == AampTsbAdMetaData::EventType::START) return false;
-				if (aType == AampTsbAdMetaData::EventType::END && bType == AampTsbAdMetaData::EventType::END) return true;
-				if (aType == AampTsbAdMetaData::EventType::START && bType == AampTsbAdMetaData::EventType::END) return false;
-				if (aType == AampTsbAdMetaData::EventType::END && bType == AampTsbAdMetaData::EventType::START) return true;
+				if (aType == AampTsbAdMetaData::EventType::START && bType == AampTsbAdMetaData::EventType::START) return false; // Reservation START before Placement START
+				if (aType == AampTsbAdMetaData::EventType::END && bType == AampTsbAdMetaData::EventType::END) return true;		// Reservation END after Placement END
+				if (aType == AampTsbAdMetaData::EventType::END && bType == AampTsbAdMetaData::EventType::START) return true;	// Reservation START after Placement END
+				if (aType == AampTsbAdMetaData::EventType::START && bType == AampTsbAdMetaData::EventType::END) return false;	// Reservation END before Placement START
+			}
+			else
+			{
+				if (aType == AampTsbAdMetaData::EventType::START && bType == AampTsbAdMetaData::EventType::END) return true; 	// START before END
+				if (aType == AampTsbAdMetaData::EventType::END && bType == AampTsbAdMetaData::EventType::START) return false; 	// START before END
+
+				// Same type and position, log a warning
+				AAMPLOG_WARN("Ad metadata with same type and position, keeping original order: AdType=%d EventType=%d Pos=%" PRIu64 "ms",
+						static_cast<int>(a.meta->GetAdType()), static_cast<int>(aType), apos);
 			}
 			// Otherwise, keep original order
-			return a.isReservation < b.isReservation;
+			return true;
 		});
 
-		// Process merged list
-		for (const auto& item : merged) 
+		// Process merged list, and update last processed pointers
+		for (const auto& item : merged)
 		{
 			auto& meta = item.meta;
-			AAMPLOG_INFO("SendEvent: AdType=%d EventType=%d Pos=%" PRIu64 "ms",
+			AAMPLOG_INFO("Processing ad metadata, send event: AdType=%d EventType=%d Pos=%" PRIu64 "ms",
 				static_cast<int>(meta->GetAdType()),
 				static_cast<int>(meta->GetEventType()),
 				meta->GetPosition().milliseconds());
 			meta->SendEvent(mAamp);
-			if (item.isReservation) 
+			if (item.isReservation)
 			{
 				mLastAdReservationMetaDataProcessed = meta;
 			} 
-			else 
+			else
 			{
 				mLastAdPlacementMetaDataProcessed = meta;
 			}
