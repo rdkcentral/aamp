@@ -1072,6 +1072,7 @@ void PlaybackCommand::addCommand(std::string command,std::string description)
 }
 
 #include "mp4demux.hpp"
+Mp4Demux mp4Demux = Mp4Demux(true);
 void PlaybackCommand::parse( const char *path )
 {
 	while( *path == ' ' )
@@ -1095,10 +1096,21 @@ void PlaybackCommand::parse( const char *path )
 					size_t rc = fread(ptr,1,len,f);
 					if( rc == len )
 					{
-						auto mp4Demux = new Mp4Demux(true);
 						// coverity[TAINTED_SCALAR]:SUPPRESS
-						mp4Demux->Parse(ptr,len);
-						delete mp4Demux;
+						mp4Demux.Parse(ptr,len);
+						int count = mp4Demux.count();
+						for (int i=0; i<count; i++)
+						{
+							AAMPCLI_PRINTF("Sample No:%d, PTR:%p, SIZE:%zu, PTS:%lf, DTS:%lf, DUR:%lf DRM:%d\n",
+									i + 1,
+									mp4Demux.getPtr(i),
+									mp4Demux.getLen(i),
+									mp4Demux.getPts(i),
+									mp4Demux.getDts(i),
+									mp4Demux.getDuration(i),
+									mp4Demux.getDrmMetadata(i) ? 1 : 0
+									);
+						}
 					}
 					free( ptr );
 				}

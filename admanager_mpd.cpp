@@ -686,7 +686,7 @@ void PrivateCDAIObjectMPD::PlaceAds(AampMPDParseHelperPtr adMPDParseHelper)
 				{
 					mPlacementObj = UpdatePlacementObj(mPlacementObj.pendingAdbrkId, abObj.endPeriodId);
 					// Remove the placement object that was placed completely
-					RemovePlacementObj(adBreakIdToRemove);
+					RemovePlacementObj(std::move(adBreakIdToRemove));
 				}
 				AAMPLOG_INFO("[CDAI] num of adbrks avail: %zu", mAdtoInsertInNextBreakVec.size());
 			}
@@ -935,7 +935,7 @@ MPD* PrivateCDAIObjectMPD::GetAdMPD(std::string &manifestUrl, bool &finalManifes
 			mAamp->GetFile(effectiveUrl, eMEDIATYPE_MANIFEST, &fogManifest, effectiveUrl, &http_error, &downloadTime, NULL, eCURLINSTANCE_DAI);
 			if(200 == http_error || 204 == http_error)
 			{
-				manifestUrl = effectiveUrl;
+				manifestUrl = std::move(effectiveUrl);
 				if(200 == http_error)
 				{
 					//FOG already has the manifest. Releasing the one from CDN and using FOG's
@@ -1038,7 +1038,8 @@ MPD* PrivateCDAIObjectMPD::GetAdMPD(std::string &manifestUrl, bool &finalManifes
 
 		if (AampLogManager::isLogLevelAllowed(eLOGLEVEL_TRACE))
 		{ // use printf to avoid 2048 char syslog limitation
-			printf("***Ad manifest***:\n\n%.*s\n", (int)manifest.GetLen(), manifest.GetPtr() );
+			manifest.AppendNulTerminator(); // make safe for cstring operations
+			printf("***Ad manifest***:\n\n%s\n", manifest.GetPtr() );
 		}
 		manifest.Free();
 	}
@@ -1316,7 +1317,7 @@ void PrivateCDAIObjectMPD::SetAlternateContents(const std::string &periodId, con
 		if(!(isAdBreakObjectExist(periodId)))
 		{
 			auto adBreakAssets = std::make_shared<std::vector<AdNode>>();
-			mAdBreaks.emplace(periodId, AdBreakObject{breakdur, adBreakAssets, "", 0, 0});	//Fix the duration after getting the Ad
+			mAdBreaks.emplace(periodId, AdBreakObject{breakdur, std::move(adBreakAssets), "", 0, 0});	//Fix the duration after getting the Ad
 			Period2AdData &pData = mPeriodMap[periodId];
 			pData.adBreakId = periodId;
 		}
@@ -1502,7 +1503,7 @@ void PrivateCDAIObjectMPD::FulfillAdLoop()
 		{
 			AdFulfillObj adFulfillObj = mAdFulfillQ.front();
 			lock.unlock();
-			mAdFulfillObj = adFulfillObj;
+			mAdFulfillObj = std::move(adFulfillObj);
 			AAMPLOG_INFO("Fulfilling Ad[%s] with URL[%s]", mAdFulfillObj.adId.c_str(), mAdFulfillObj.url.c_str());
 			if(FulFillAdObject())
 			{
@@ -1598,7 +1599,7 @@ bool PrivateCDAIObjectMPD::WaitForNextAdResolved(int timeoutMs)
 		auto& ads = this->mAdBreaks[mAdFulfillObj.periodId].ads;
 		auto adId = mAdFulfillObj.adId;
 		auto it = std::find_if(ads->begin(), ads->end(), [adId](const AdNode& node) {
-			return node.adId == adId;
+			return node.adId == std::move(adId);
 		});
 		if (it != ads->end())
 		{

@@ -407,7 +407,7 @@ public :
 	 * This function allows you to set the MPD period details using the provided vector of PeriodInfo objects.
 	 * @param currMPDDetails A vector containing the period details to be set.
 	 */
-	void SetMPDPeriodDetails(const std::vector<PeriodInfo> currMPDDetails){mMPDPeriodDetails =  currMPDDetails;}
+	void SetMPDPeriodDetails(const std::vector<PeriodInfo> currMPDDetails){mMPDPeriodDetails =  std::move(currMPDDetails);}
 
 	/**
 	 * @brief  GetFirstSegment start time from period

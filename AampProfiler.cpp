@@ -357,13 +357,13 @@ void ProfileEventAAMP::TuneEnd(TuneEndMetrics &mTuneEndMetrics,std::string appNa
 		);
 
 		// Telemetry is generated in GetTuneTimeMetricAsJson hence calling always,
-		std::string metricsDataJson = GetTuneTimeMetricAsJson(mTuneEndMetrics, tuneTimeStrPrefix, licenseAcqNWTime, playerPreBuffered, durationSeconds, interfaceWifi, failureReason, appName);
+		std::string metricsDataJson = GetTuneTimeMetricAsJson(mTuneEndMetrics, tuneTimeStrPrefix, licenseAcqNWTime, playerPreBuffered, durationSeconds, interfaceWifi, std::move(failureReason), std::move(appName));
 
 		// tuneMetricData could be NULL if application has not registered for tuneMetrics event,
 		if( NULL != tuneMetricData)
 		{
 			//provided the time tune metric data as an json format to application
-			*tuneMetricData = metricsDataJson;
+			*tuneMetricData = std::move(metricsDataJson);
 		}
 }
 
