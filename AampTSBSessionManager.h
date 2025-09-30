@@ -32,6 +32,7 @@
 #include <map>
 #include "tsb/api/TsbApi.h"
 #include "AampMediaType.h"
+#include "AampTsbAdMetaData.h"
 #include "AampTsbDataManager.h"
 #include "AampTsbMetaDataManager.h"
 #include "AampTsbReader.h"
@@ -378,6 +379,15 @@ private:
 	 * @return true if track is stored in TSB, false otherwise
 	 */
 	bool IsTrackStoredInTsb(AampMediaType mediatype);
+
+	/**
+	 * @brief Merge the Ad Reservation and Placement Lists and sort them
+	 * @param[in] reservationList - Ad reservation metadata list
+	 * @param[in] placementList - Ad placement metadata list
+	 * @return Merged and sorted vector of Ad metadata
+	 */
+	std::vector<std::shared_ptr<AampTsbAdMetaData>> MergeAndSortAdMetaData(std::list<std::shared_ptr<AampTsbAdMetaData>> reservationList,
+													 					   std::list<std::shared_ptr<AampTsbAdMetaData>> placementList);
 
 	bool mInitialized_;
 	std::atomic_bool mStopThread_;			// This variable is atomic because it can be accessed from multiple threads

@@ -41,6 +41,8 @@
 #include "MockAampUtils.h"
 #include "MockTsbMetaDataManager.h"
 #include "MockAampTsbAdMetaData.h"
+#include "MockAampTsbAdReservationMetaData.h"
+#include "MockAampTsbAdPlacementMetaData.h"
 
 #include <thread>
 #include <unistd.h>
@@ -55,6 +57,7 @@ using ::testing::SaveArgPointee;
 using ::testing::SetArgPointee;
 using ::testing::NiceMock;
 using ::testing::Invoke;
+using ::testing::InSequence;
 
 AampConfig *gpGlobalConfig{nullptr};
 
@@ -350,7 +353,8 @@ TEST_F(FunctionalTests, TSBReadTests)
 
 	// int(cachedFragment->absPosition) is appended to make url unique
 	const std::string uniqueInitUrl = initUrl + std::string(".999");
-	const std::string videoUrl_unique = videoUrl + std::string(".999");
+	const std::string videoUrl1 = videoUrl + std::string(".999");
+	const std::string videoUrl2 = videoUrl + std::string(".1001");
 
 	cachedFragment->type = eMEDIATYPE_INIT_VIDEO;
 	mAampTSBSessionManager->EnqueueWrite(initUrl, cachedFragment, TEST_PERIOD_ID);
@@ -381,37 +385,95 @@ TEST_F(FunctionalTests, TSBReadTests)
 
 	EXPECT_CALL(*g_mockTSBStore, GetSize(_)).WillRepeatedly(Return(TEST_DATA_LEN));
 	EXPECT_CALL(*g_mockTSBStore, Read(uniqueInitUrl, _, _)).WillOnce(Return(TSB::Status::OK));
-	EXPECT_CALL(*g_mockTSBStore, Read(videoUrl_unique, _, _)).WillOnce(Return(TSB::Status::OK));
+	EXPECT_CALL(*g_mockTSBStore, Read(videoUrl1, _, _)).WillOnce(Return(TSB::Status::OK));
+	EXPECT_CALL(*g_mockTSBStore, Read(videoUrl2, _, _)).WillOnce(Return(TSB::Status::OK));
 
 	EXPECT_CALL(*g_mockMediaStreamContext, CacheTsbFragment(_))
-		.Times(2)
+		.Times(3)
 		.WillOnce(Return(true))
+		.WillOnce(Invoke([](std::shared_ptr<CachedFragment> fragment)
+		{
+			EXPECT_DOUBLE_EQ(fragment->position, FRAG_FIRST_PTS + FRAG_PTS_OFFSET);
+			return true;
+		}))
 		.WillOnce(Invoke([](std::shared_ptr<CachedFragment> fragment)
 		{
 			EXPECT_DOUBLE_EQ(fragment->position, FRAG_FIRST_PTS + FRAG_PTS_OFFSET);
 			return true;
 		}));
 
+	// Add two MockAampTsbAdMetaData objects to reservationMetadataList
 	std::list<std::shared_ptr<AampTsbMetaData>> reservationMetadataList;
+	auto reservation1Start = std::make_shared<StrictMock<MockAampTsbAdReservationMetaData>>();
+	auto reservation1End = std::make_shared<StrictMock<MockAampTsbAdReservationMetaData>>();
+	auto reservation2Start = std::make_shared<StrictMock<MockAampTsbAdReservationMetaData>>();
+	EXPECT_CALL(*reservation1Start, GetPosition()).WillRepeatedly(Return(FRAG_FIRST_ABS_POS));
+	EXPECT_CALL(*reservation1Start, GetAdType()).WillRepeatedly(Return(AampTsbAdMetaData::AdType::RESERVATION));
+	EXPECT_CALL(*reservation1Start, GetEventType()).WillRepeatedly(Return(AampTsbAdMetaData::EventType::START));
+
+	EXPECT_CALL(*reservation1End, GetPosition()).WillRepeatedly(Return(FRAG_FIRST_ABS_POS + FRAG_DURATION));
+	EXPECT_CALL(*reservation1End, GetAdType()).WillRepeatedly(Return(AampTsbAdMetaData::AdType::RESERVATION));
+	EXPECT_CALL(*reservation1End, GetEventType()).WillRepeatedly(Return(AampTsbAdMetaData::EventType::END));
+
+	EXPECT_CALL(*reservation2Start, GetPosition()).WillRepeatedly(Return(FRAG_FIRST_ABS_POS + FRAG_DURATION));
+	EXPECT_CALL(*reservation2Start, GetAdType()).WillRepeatedly(Return(AampTsbAdMetaData::AdType::RESERVATION));
+	EXPECT_CALL(*reservation2Start, GetEventType()).WillRepeatedly(Return(AampTsbAdMetaData::EventType::START));
+
+	reservationMetadataList.push_back(reservation1Start);
+	reservationMetadataList.push_back(reservation1End);
+	reservationMetadataList.push_back(reservation2Start);
+
+	std::list<std::shared_ptr<AampTsbMetaData>> placementMetadataList;
+	auto placement1Start = std::make_shared<StrictMock<MockAampTsbAdPlacementMetaData>>();
+	auto placement1End = std::make_shared<StrictMock<MockAampTsbAdPlacementMetaData>>();
+	auto placement2Start = std::make_shared<StrictMock<MockAampTsbAdPlacementMetaData>>();
+	EXPECT_CALL(*placement1Start, GetPosition()).WillRepeatedly(Return(FRAG_FIRST_ABS_POS));
+	EXPECT_CALL(*placement1Start, GetAdType()).WillRepeatedly(Return(AampTsbAdMetaData::AdType::PLACEMENT));
+	EXPECT_CALL(*placement1Start, GetEventType()).WillRepeatedly(Return(AampTsbAdMetaData::EventType::START));
+
+	EXPECT_CALL(*placement1End, GetPosition()).WillRepeatedly(Return(FRAG_FIRST_ABS_POS + FRAG_DURATION));
+	EXPECT_CALL(*placement1End, GetAdType()).WillRepeatedly(Return(AampTsbAdMetaData::AdType::PLACEMENT));
+	EXPECT_CALL(*placement1End, GetEventType()).WillRepeatedly(Return(AampTsbAdMetaData::EventType::END));
+
+	EXPECT_CALL(*placement2Start, GetPosition()).WillRepeatedly(Return(FRAG_FIRST_ABS_POS + FRAG_DURATION));
+	EXPECT_CALL(*placement2Start, GetAdType()).WillRepeatedly(Return(AampTsbAdMetaData::AdType::PLACEMENT));
+	EXPECT_CALL(*placement2Start, GetEventType()).WillRepeatedly(Return(AampTsbAdMetaData::EventType::START));
+
+	placementMetadataList.push_back(placement1Start);
+	placementMetadataList.push_back(placement1End);
+	placementMetadataList.push_back(placement2Start);
+
 	EXPECT_CALL(*g_mockAampTsbMetaDataManager,
 		IsRegisteredType(AampTsbMetaData::Type::AD_RESERVATION_METADATA_TYPE, _, _))
-		.WillOnce(DoAll(
+		.WillRepeatedly(DoAll(
 			testing::SetArgReferee<1>(true),  // Set isTransient to true
 			testing::SetArgPointee<2>(&reservationMetadataList),  // Set metadata list pointer
 			testing::Return(true)  // Return true from the function
 		));
 
-	std::list<std::shared_ptr<AampTsbMetaData>> placementMetadataList;
 	EXPECT_CALL(*g_mockAampTsbMetaDataManager,
 		IsRegisteredType(AampTsbMetaData::Type::AD_PLACEMENT_METADATA_TYPE, _, _))
-		.WillOnce(DoAll(
+		.WillRepeatedly(DoAll(
 			testing::SetArgReferee<1>(true),  // Set isTransient to true
 			testing::SetArgPointee<2>(&placementMetadataList),  // Set metadata list pointer
 			testing::Return(true)  // Return true from the function
 		));
 
-	bool result = mAampTSBSessionManager->PushNextTsbFragment(&videoCtx, 2);
-	EXPECT_TRUE(result);
+	{
+		InSequence s;
+		EXPECT_CALL(*reservation1Start, SendEvent(_)).Times(1);
+		EXPECT_CALL(*placement1Start, SendEvent(_)).Times(1);
+	}
+	EXPECT_TRUE(mAampTSBSessionManager->PushNextTsbFragment(&videoCtx, 2));
+
+	{
+		InSequence s;
+		EXPECT_CALL(*placement1End, SendEvent(_)).Times(1);
+		EXPECT_CALL(*reservation1End, SendEvent(_)).Times(1);
+		EXPECT_CALL(*reservation2Start, SendEvent(_)).Times(1);
+		EXPECT_CALL(*placement2Start, SendEvent(_)).Times(1);
+	}
+	EXPECT_TRUE(mAampTSBSessionManager->PushNextTsbFragment(&videoCtx, 2));
 }
 
 /**
