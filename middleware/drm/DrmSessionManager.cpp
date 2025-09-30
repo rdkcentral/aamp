@@ -66,12 +66,13 @@ DrmSessionManager::DrmSessionManager(int maxDrmSessions, void *player, std::func
 
 	if(watermarkSessionUpdateCallback)
 	{
-	
-		MW_LOG_INFO("Watermarksession pointer valid in sessin manager");
+
+	MW_LOG_ERR("Watermarksession callback valid in session manager, std::function addr: %p",
+               static_cast<const void*>(&watermarkSessionUpdateCallback));
 	}
 	registerCallback();
 
-	MW_LOG_INFO("DrmSessionManager MaxSession:%d",mMaxDRMSessions);
+	MW_LOG_ERR("DrmSessionManager MaxSession:%d",mMaxDRMSessions);
 }
 
 /**

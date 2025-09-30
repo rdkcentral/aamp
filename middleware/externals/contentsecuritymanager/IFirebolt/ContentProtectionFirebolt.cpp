@@ -64,7 +64,7 @@ void ContentProtectionFirebolt::SubscribeEvents()
 	if(result)
 	{
 		mSubscriptionId = result.value();
-		MW_LOG_INFO("Subscribed to Firebolt Content Protection events. mSubscriptionId = %lld", mSubscriptionId);
+		MW_LOG_ERR("Subscribed to Firebolt Content Protection events. mSubscriptionId = %lld", mSubscriptionId);
 	}
 	else
 	{
@@ -140,6 +140,7 @@ void ContentProtectionFirebolt::Initialize()
 	ShowWatermark(false, sessionId);
 	/* CP Thunder Plugin doesnt allow invalid sessionId like 0 as in Thunder, hence not calling CloseDrmSession */
 	//CloseDrmSession(sessionId);
+	MW_LOG_ERR("subscribe events in contentprotection");
 	SubscribeEvents();
 	MW_LOG_WARN("Firebolt ContentProtection initialized with URL: [%s]", url.c_str());
 }
