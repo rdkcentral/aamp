@@ -852,12 +852,11 @@ lstring TrackState::GetNextFragmentUriFromPlaylist(bool& reloadUri, bool ignoreD
 {
 	lstring rc;
 
-	auto p = fragmentURI.getPtr();
+	auto p = fragmentURI.getPtr(); // pointer inside playlist
 	auto l = playlist.GetLen();
-	size_t offs = p - playlist.GetPtr();
-	if( offs>=l ) return lstring();
+	size_t offs = p - playlist.GetPtr(); // offset from playlist start
+	if( offs>=l ) return rc;
 	lstring iter( p, l-offs );
-	lstring ptr = iter.mystrpbrk();
 
 	size_t byteRangeLength = 0; // default, when optional byterange offset is left unspecified
 	size_t byteRangeOffset = 0;
@@ -883,7 +882,7 @@ lstring TrackState::GetNextFragmentUriFromPlaylist(bool& reloadUri, bool ignoreD
 	if ( playlistPosition != -1.0 && !fragmentURI.empty() )
 	{ // already presenting - skip past previous segment
 		//AAMPLOG_WARN("[PLAYLIST_POSITION!= -1]");
-		ptr = iter.mystrpbrk();
+		iter.mystrpbrk();
 	}
 	if ((playlistPosition > playTarget) && (fragmentDurationSeconds > PLAYLIST_TIME_DIFF_THRESHOLD_SECONDS) &&
 		((playlistPosition - playTarget) > fragmentDurationSeconds))
@@ -900,6 +899,7 @@ lstring TrackState::GetNextFragmentUriFromPlaylist(bool& reloadUri, bool ignoreD
 	//AAMPLOG_WARN("before loop, ptr = %p fragmentURI %p", ptr, fragmentURI);
 	while (!iter.empty())
 	{
+		lstring ptr = iter.mystrpbrk();
 		if(!ptr.empty())
 		{
 			if (ptr.removePrefix("#EXT"))
@@ -919,16 +919,8 @@ lstring TrackState::GetNextFragmentUriFromPlaylist(bool& reloadUri, bool ignoreD
 					}
 					fragmentDurationSeconds = ptr.atof();
 				}
-				else if (ptr.removePrefix("-X-BYTERANGE:"))
-				{
-					byteRangeLength = ptr.atoll();
-					size_t offsetDelim = ptr.find('@');
-					if( offsetDelim<ptr.length() )
-					{
-						ptr.removePrefix(offsetDelim+1); // skip past '@'
-						byteRangeOffset = ptr.atoll();
-					}
-
+				else if( IsExtXByteRange(ptr,&byteRangeLength,&byteRangeOffset) )
+				{ // -X-BYTERANGE:
 					mByteOffsetCalculation = true;
 					if (0 != byteRangeLength && 0 == byteRangeOffset)
 					{
@@ -1137,11 +1129,9 @@ lstring TrackState::GetNextFragmentUriFromPlaylist(bool& reloadUri, bool ignoreD
 				}
 			}
 		}
-		ptr = iter.mystrpbrk();
-
 	}
 	return rc;
-}
+} // GetNextFragmentUriFromPlaylist
 
 /**
  * @brief Get fragment tag based on media sequence number
@@ -1666,6 +1656,11 @@ void TrackState::FetchFragment()
 		{
 			AampTime duration{fragmentDurationSeconds};
 			AampTime position{playTarget - playTargetOffset};
+			if (type == eTRACK_SUBTITLE)
+			{ // avoids crash - need to revisit
+				static const char zeros[2] = { 0, 0 };
+				cachedFragment->fragment.AppendBytes( zeros,sizeof(zeros) );
+			}
 			if (context->rate == AAMP_NORMAL_PLAY_RATE)
 			{
 				position -= fragmentDurationSeconds;
@@ -2334,9 +2329,6 @@ void TrackState::ProcessPlaylist(AampGrowableBuffer& newPlaylist, int http_error
 		// Free previous playlist buffer and load with new one
 		playlist.Free();
 		playlist.Replace( &newPlaylist );
-		
-		const unsigned char pad[] = { 0x00, 0x00 };
-		playlist.AppendBytes( pad, 2 );
 		
 		AampTime culled{};
 		IndexPlaylist(true, culled);
