@@ -863,6 +863,10 @@ void AampConfig::ApplyDeviceCapabilities()
 
 	bool isSecMgr = isSecManagerEnabled();
 	SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_UseSecManager, isSecMgr);
+	
+	bool isGstSubtec = SocUtils::isGstSubtecEnabled();
+	SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_GstSubtecEnabled, isGstSubtec);
+	
 }
 
 std::string AampConfig::GetUserAgentString() const
@@ -1130,7 +1134,7 @@ bool AampConfig::ProcessConfigJson(const cJSON *cfgdata, ConfigPriority owner )
 						channelInfo.uri = url;
 						channelInfo.name = name;
 						channelInfo.licenseUri = licenseUrl;
-						mChannelOverrideMap.push_back(channelInfo);
+						mChannelOverrideMap.push_back(std::move(channelInfo));
 					}
 				}
 			}
@@ -1269,9 +1273,9 @@ bool AampConfig::CustomSearch( std::string url, int playerId , std::string appna
 	}
 	bool found = false;
 	AAMPLOG_INFO("url %s playerid %d appname %s ",url.c_str(),playerId,appname.c_str());
-	std::string url_custom = url;
+	std::string url_custom = std::move(url);
 	std::string playerId_custom = std::to_string(playerId);
-	std::string appName_custom = appname;
+	std::string appName_custom = std::move(appname);
 	std::string keyname;
 	std::string urlName = "url";
 	std::string player = "playerId";
@@ -1420,7 +1424,7 @@ void AampConfig::ProcessConfigText(std::string &cfg, ConfigPriority owner )
 						channelInfo.name = token;
 					}
 				}
-				mChannelOverrideMap.push_back(channelInfo);
+				mChannelOverrideMap.push_back(std::move(channelInfo));
 			}
 		}
 		else
@@ -1904,8 +1908,8 @@ void AampConfig::DoCustomSetting(ConfigPriority owner)
 
 		sessionToken = GetConfigValue(eAAMPConfig_AuthToken);
 		SetConfigValue(AAMP_TUNE_SETTING,eAAMPConfig_AuthToken,sessionToken);
-		configValueString[eAAMPConfig_AuthToken].lastowner = tempowner;
-		configValueString[eAAMPConfig_AuthToken].lastvalue = tempvalue;
+		configValueString[eAAMPConfig_AuthToken].lastowner = std::move(tempowner);
+		configValueString[eAAMPConfig_AuthToken].lastvalue = std::move(tempvalue);
 
 	}
 	if(GetConfigValue(eAAMPConfig_InitialBuffer) > 0)

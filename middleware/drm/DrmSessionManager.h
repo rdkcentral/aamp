@@ -113,8 +113,9 @@ struct configs{
     bool mRuntimeDRMConfig;
     int mContentProtectionDataUpdateTimeout;
     bool mEnablePROutputProtection;
-    bool  mPropagateURIParam; 
+    bool  mPropagateURIParam;
     bool mIsFakeTune;
+    bool mIsWVKIDWorkaround;
 };
 /**
  *  @class	DrmSessionManager
@@ -143,9 +144,9 @@ private:
 	int mMaxDRMSessions;
 	std::function<void(uint32_t, uint32_t, const std::string&)> mPlayerSendWatermarkSessionUpdateEventCB;
 	/**     
-     	 * @brief Copy constructor disabled
-     	 *
-     	 */
+	 * @brief Copy constructor disabled
+	 *
+	 */
 	DrmSessionManager(const DrmSessionManager &) = delete;
 	/**
  	 * @brief assignment operator disabled
@@ -207,11 +208,10 @@ public:
 
 	/**
 	 * @brief Set the Common Key Duration object
-	 * 
+	 *
 	 * @param keyDuration key duration
 	 */
 	void SetCommonKeyDuration(int keyDuration);
-
 
 	/**
 	 * @brief Set to true if error event to be sent to application if any license request fails
@@ -265,7 +265,7 @@ public:
 	 *  @retval  	error_code - Gets updated with proper error code, if session creation fails.
 	 *  			No NULL checks are done for error_code, caller should pass a valid pointer.
 	 */
-	DrmSession * createDrmSession(int &err, const char* systemId, MediaFormat mediaFormat,
+	DrmSession * createDrmSession(int &responseCode, int &err, const char* systemId, MediaFormat mediaFormat,
 			const unsigned char * initDataPtr, uint16_t dataLength, int streamType,
 			DrmCallbacks* player, void *ptr, const unsigned char *contentMetadata = nullptr, 
 	                	bool isPrimarySession = false );
@@ -273,7 +273,7 @@ public:
 	 * @fn createDrmSession
 	 * @return drmSession
 	 */
-	DrmSession* createDrmSession( int &err, DrmHelperPtr drmHelper,  DrmCallbacks* Instance, int streamType, void *metaDataPtr);
+	DrmSession* createDrmSession(int& responseCode, int &err, DrmHelperPtr drmHelper,  DrmCallbacks* Instance, int streamType, void *metaDataPtr);
 
 	/**
 	 *  @fn		IsKeyIdProcessed
@@ -388,7 +388,7 @@ public:
         /*
          *@brief Type definition for acquireLicense callback from application 
          */
-        using LicenseCallback = std::function<KeyState(DrmHelperPtr drmHelper, int sessionSlot, int &cdmError,
+        using LicenseCallback = std::function<KeyState(int& responseCode, DrmHelperPtr drmHelper, int sessionSlot, int &cdmError,
                         GstMediaType streamType,void *metaDataPtr, bool isLicenseRenewal)>;
         LicenseCallback AcquireLicenseCb;
         /*
@@ -403,16 +403,56 @@ public:
         using ProfileUpdateCallback =	std::function<void()>;
 	ProfileUpdateCallback ProfileUpdateCb;
 
-	void RegisterProfUpdate(const ProfileUpdateCallback callback)
+	void RegisterProfilingUpdateCb(const ProfileUpdateCallback callback)
         {
               ProfileUpdateCb = callback;
         };
+	using ProfileDecryptProfileCallback = std::function<void(int, int , int)>;
+	ProfileDecryptProfileCallback profileDecryptProfileCb;
+	void RegisterDecryptProfile(const ProfileDecryptProfileCallback callback)
+	{
+		profileDecryptProfileCb = callback;
+	};
+	using LAProfileBeginCallback = std::function<void(int)>;
+	LAProfileBeginCallback laprofileBeginCb;
+	void RegisterLAProfBegin(const LAProfileBeginCallback callback)
+	{
+		laprofileBeginCb = callback;
+	};
+
+	using LAProfileEndCallback = std::function<void(int streamType)>;
+	LAProfileEndCallback laprofileEndCb;
+	void RegisterLAProfEnd(const LAProfileEndCallback callback)
+	{
+		laprofileEndCb = callback;
+	};
+
+	using LAProfileErrorCallback = std::function<void(void *ptr)>;
+	LAProfileErrorCallback laprofileErrorCb;
+	void RegisterLAProfError(const LAProfileErrorCallback callback)
+	{
+		laprofileErrorCb = callback;
+	};
+
+	using SetFailureCallback = std::function<void(void *ptr, int err)>;
+	SetFailureCallback setfailureCb;
+	void RegisterSetFailure(const SetFailureCallback callback)
+	{
+		setfailureCb = callback;
+	};
+
+	using DrmMetaDataCallback = std::function<std::shared_ptr<void>()>;
+	DrmMetaDataCallback DrmMetaDataCb;
+	void RegisterMetaDataCb(const DrmMetaDataCallback callback)
+	{
+		DrmMetaDataCb = callback;
+	}
 	/*
 	 * @brief Register Content Protection Update callback to application 
 	 */
 	using ContentUpdateCallback = std::function<std::string(DrmHelperPtr drmHelper, int streamType, std::vector<uint8_t> keyId, int contentProtectionUpd)>;
 	ContentUpdateCallback ContentUpdateCb;
-	void RegisterContentUpdateCallback(const ContentUpdateCallback callback)
+	void RegisterHandleContentProtectionCb(const ContentUpdateCallback callback)
 	{
 	    ContentUpdateCb = callback;
 	};
@@ -428,7 +468,10 @@ public:
                        bool useSecManager,
                        bool enablePROutputProtection,
                        bool propagateURIParam,
-                       bool isFakeTune);
+                       bool isFakeTune,
+		       bool wideVineKIDWorkaround);
+
+
 };
 
 /**

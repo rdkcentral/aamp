@@ -448,7 +448,7 @@ class TrackState : public MediaTrack
 		 *
 		 * @return none
 		 ***************************************************************************/
-		void SetEffectivePlaylistUrl(std::string url) override { mEffectiveUrl = url; }
+		void SetEffectivePlaylistUrl(std::string url) override { mEffectiveUrl = std::move(url); }
 		/***************************************************************************
 		 * @fn GetLastPlaylistDownloadTime
 		 *

@@ -211,6 +211,10 @@ void ProfileEventAAMP::TuneBegin(void)
 	{
 		cJSON_Delete(telemetryParam);
 	}
+	if (mLldLowBuffObject)
+	{
+		cJSON_Delete(mLldLowBuffObject);
+	}
 	mLldLowBuffObject = NULL;
 	telemetryParam = cJSON_CreateObject();
 }
@@ -357,13 +361,13 @@ void ProfileEventAAMP::TuneEnd(TuneEndMetrics &mTuneEndMetrics,std::string appNa
 		);
 
 		// Telemetry is generated in GetTuneTimeMetricAsJson hence calling always,
-		std::string metricsDataJson = GetTuneTimeMetricAsJson(mTuneEndMetrics, tuneTimeStrPrefix, licenseAcqNWTime, playerPreBuffered, durationSeconds, interfaceWifi, failureReason, appName);
+		std::string metricsDataJson = GetTuneTimeMetricAsJson(mTuneEndMetrics, tuneTimeStrPrefix, licenseAcqNWTime, playerPreBuffered, durationSeconds, interfaceWifi, std::move(failureReason), std::move(appName));
 
 		// tuneMetricData could be NULL if application has not registered for tuneMetrics event,
 		if( NULL != tuneMetricData)
 		{
 			//provided the time tune metric data as an json format to application
-			*tuneMetricData = metricsDataJson;
+			*tuneMetricData = std::move(metricsDataJson);
 		}
 }
 
@@ -648,9 +652,14 @@ void ProfileEventAAMP::GetTelemetryParam()
 	std::lock_guard<std::mutex> lock(discontinuityParamMutex);
 	if(telemetryParam != NULL)
 	{
-		std::string jsonStr = cJSON_PrintUnformatted(telemetryParam);
-		AAMPLOG_MIL("Telemetry values %s", jsonStr.c_str());
+		char *jsonStr = cJSON_PrintUnformatted(telemetryParam);
+		AAMPLOG_MIL("Telemetry values %s", jsonStr);
+		cJSON_free(jsonStr);
 		cJSON_Delete(telemetryParam);
+		if (mLldLowBuffObject)
+		{
+			cJSON_Delete(mLldLowBuffObject);
+		}
 		mLldLowBuffObject = NULL;
 		telemetryParam = cJSON_CreateObject();
 	}
