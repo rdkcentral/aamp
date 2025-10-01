@@ -26,17 +26,20 @@ void LoadAndDemuxSegment( Mp4Demux &mp4Demux, const char *path )
 	if( f )
 	{
 		fseek( f,0,SEEK_END );
-		size_t len = ftell(f);
-		unsigned char *ptr = (unsigned char *)malloc(len);
-		assert( ptr );
-		if( ptr )
+		long len = ftell(f);
+		if( len>0 )
 		{
-			fseek( f, 0, SEEK_SET );
-			size_t n = fread( ptr, 1, len, f );
-			assert( n == len );
-			if( n==len )
+			unsigned char *ptr = (unsigned char *)malloc(len);
+			assert( ptr );
+			if( ptr )
 			{
-				mp4Demux.Parse( ptr, len );
+				fseek( f, 0, SEEK_SET );
+				size_t n = fread( ptr, 1, len, f );
+				assert( n == len );
+				if( n==len )
+				{
+					mp4Demux.Parse( ptr, len );
+				}
 			}
 		}
 		fclose( f );

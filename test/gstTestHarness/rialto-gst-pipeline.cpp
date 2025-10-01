@@ -30,73 +30,82 @@ bool GstMediaPipeline::attachSource(const std::unique_ptr<MediaSource> &source, 
 	if( sourceType == MediaSourceType::VIDEO || sourceType == MediaSourceType::AUDIO )
 	{
 		const IMediaPipeline::MediaSourceAV *mediaSourceAV = dynamic_cast<IMediaPipeline::MediaSourceAV *>(source.get());
-		const char *streamFormat = nullptr;
-		switch( mediaSourceAV->getStreamFormat() )
+		if( mediaSourceAV )
 		{
-			case StreamFormat::HVC1:
-				streamFormat = "hvc1";
-				break;
-			case StreamFormat::AVC:
-				streamFormat = "avc";
-				break;
-			case StreamFormat::RAW:
-				streamFormat = "raw";
-				break;
-			default:
-				break;
+			const char *streamFormat = nullptr;
+			switch( mediaSourceAV->getStreamFormat() )
+			{
+				case StreamFormat::HVC1:
+					streamFormat = "hvc1";
+					break;
+				case StreamFormat::AVC:
+					streamFormat = "avc";
+					break;
+				case StreamFormat::RAW:
+					streamFormat = "raw";
+					break;
+				default:
+					break;
+			}
+			if( streamFormat )
+			{
+				gst_caps_set_simple( caps, "stream-format", G_TYPE_STRING, streamFormat, nullptr );
+			}
+			const std::shared_ptr<CodecData> codecData = mediaSourceAV->getCodecData();
+			GstBuffer *buf = nullptr;
+			if( codecData )
+			{
+				buf = gst_buffer_new_and_alloc(codecData->data.size());
+				gst_buffer_fill(buf, 0, codecData->data.data(), codecData->data.size() );
+				gst_caps_set_simple( caps, "codec_data", GST_TYPE_BUFFER, buf, nullptr );
+			}
+			
+			if( sourceType == MediaSourceType::VIDEO )
+			{
+				sourceId = TRACK_VIDEO;
+				const IMediaPipeline::MediaSourceVideo *mediaSourceVideo = dynamic_cast<IMediaPipeline::MediaSourceVideo *>(source.get());
+				if( mediaSourceVideo )
+				{
+					gst_caps_set_simple( caps,
+										"alignment", G_TYPE_STRING, "au",
+										"width", G_TYPE_INT, mediaSourceVideo->getWidth(),
+										"height", G_TYPE_INT, mediaSourceVideo->getHeight(),
+										"pixel-aspect-ratio", GST_TYPE_FRACTION, 1, 1,
+										nullptr);
+				}
+			}
+			else if( sourceType == MediaSourceType::AUDIO )
+			{
+				sourceId = TRACK_AUDIO;
+				const IMediaPipeline::MediaSourceAudio *mediaSourceAudio = dynamic_cast<IMediaPipeline::MediaSourceAudio *>(source.get());
+				if( mediaSourceAudio )
+				{
+					const auto &audioConfig = mediaSourceAudio->getAudioConfig();
+					gst_caps_set_simple( caps,
+										"framed", G_TYPE_BOOLEAN, TRUE,
+										"rate", G_TYPE_INT, audioConfig.sampleRate,
+										"channels", G_TYPE_INT, audioConfig.numberOfChannels,
+										nullptr );
+				}
+			}
+			else
+			{
+				assert(0);
+			}
+			
+			gchar *caps_string = gst_caps_to_string(caps);
+			g_print("Negotiated caps: %s\n", caps_string);
+			g_free(caps_string);
+			
+			gst_app_src_set_caps(GST_APP_SRC(track[sourceId].appsrc), caps);
+			gst_caps_unref(caps);
+			if( buf )
+			{
+				gst_buffer_unref(buf);
+			}
 		}
-		if( streamFormat )
-		{
-			gst_caps_set_simple( caps, "stream-format", G_TYPE_STRING, streamFormat, nullptr );
-		}
-		const std::shared_ptr<CodecData> codecData = mediaSourceAV->getCodecData();
-		GstBuffer *buf = nullptr;
-		if( codecData )
-		{
-			buf = gst_buffer_new_and_alloc(codecData->data.size());
-			gst_buffer_fill(buf, 0, codecData->data.data(), codecData->data.size() );
-			gst_caps_set_simple( caps, "codec_data", GST_TYPE_BUFFER, buf, nullptr );
-		}
-		
-		if( sourceType == MediaSourceType::VIDEO )
-		{
-			sourceId = TRACK_VIDEO;
-			const IMediaPipeline::MediaSourceVideo *mediaSourceVideo = dynamic_cast<IMediaPipeline::MediaSourceVideo *>(source.get());
-			gst_caps_set_simple( caps,
-								"alignment", G_TYPE_STRING, "au",
-								"width", G_TYPE_INT, mediaSourceVideo->getWidth(),
-								"height", G_TYPE_INT, mediaSourceVideo->getHeight(),
-								"pixel-aspect-ratio", GST_TYPE_FRACTION, 1, 1,
-								nullptr);
-		}
-		else if( sourceType == MediaSourceType::AUDIO )
-		{
-			sourceId = TRACK_AUDIO;
-			const IMediaPipeline::MediaSourceAudio *mediaSourceAudio = dynamic_cast<IMediaPipeline::MediaSourceAudio *>(source.get());
-			auto audioConfig = mediaSourceAudio->getAudioConfig();//.numberOfChannels );
-			gst_caps_set_simple( caps,
-								"framed", G_TYPE_BOOLEAN, TRUE,
-								"rate", G_TYPE_INT, audioConfig.sampleRate,
-								"channels", G_TYPE_INT, audioConfig.numberOfChannels,
-								nullptr );
-		}
-		else
-		{
-			assert(0);
-		}
-		
-		gchar *caps_string = gst_caps_to_string(caps);
-		g_print("Negotiated caps: %s\n", caps_string);
-		g_free(caps_string);
-		
-		gst_app_src_set_caps(GST_APP_SRC(track[sourceId].appsrc), caps);
-		gst_caps_unref(caps);
-		if( buf )
-		{
-			gst_buffer_unref(buf);
-		}
+		printf( "attachSource() -> sourceId=%" PRId32 "\n", sourceId );
 	}
-	printf( "attachSource() -> sourceId=%" PRId32 "\n", sourceId );
 	return true;
 };
 
@@ -148,8 +157,6 @@ GstMediaPipeline::GstMediaPipeline()
 				break;
 			case TRACK_AUDIO:
 				g_signal_connect( playbin, "deep-notify::source", G_CALLBACK(found_audio_source_cb), this );
-				break;
-			default:
 				break;
 		}
 	}
