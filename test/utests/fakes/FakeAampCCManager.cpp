@@ -20,9 +20,11 @@
 #include <vector>
 #include "priv_aamp.h"
 #include "AampLogManager.h"
-#include "PlayerCCManager.h"
+#include "MockCCManager.h"
 
 PlayerCCManagerBase* PlayerCCManager::mInstance = nullptr;
+MockPlayerCCManagerBase *g_mockPlayerCCManagerBase = nullptr;
+
 int PlayerCCManagerBase::Init(void *handle)
 {
 	return 0;
@@ -38,7 +40,7 @@ bool PlayerCCManagerBase::IsOOBCCRenderingSupported()
 	return false;
 }
 int PlayerCCManagerBase::SetStatus(bool enable)
-{ 
+{
 	return 0;
 };
 int PlayerCCManagerBase::SetStyle(const std::string &options)
@@ -47,7 +49,11 @@ int PlayerCCManagerBase::SetStyle(const std::string &options)
 };
 int PlayerCCManagerBase::SetTrack(const std::string &track, const CCFormat format)
 {
-	return 0; 
+//	if (g_mockPlayerCCManagerBase != nullptr)
+//
+//		return g_mockPlayerCCManagerBase->SetTrack(track, format);
+//	}
+	return 0;
 };
 void PlayerCCManagerBase::SetTrickplayStatus(bool enable)
 {
@@ -79,7 +85,14 @@ void PlayerCCManager::DestroyInstance()
 
 PlayerCCManagerBase *PlayerCCManager::GetInstance()
 {
-	mInstance = new PlayerFakeCCManager();
-        return mInstance;
+	if (g_mockPlayerCCManagerBase != nullptr)
+	{
+		return g_mockPlayerCCManagerBase;
+	}
+	else if (!mInstance)
+	{
+		mInstance = new PlayerFakeCCManager();
+	}
+	return mInstance;
 }
 

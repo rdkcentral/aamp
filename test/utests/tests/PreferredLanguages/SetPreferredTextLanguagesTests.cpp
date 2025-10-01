@@ -24,6 +24,7 @@
 #include "priv_aamp.h"
 #include "AampConfig.h"
 #include "AampTSBSessionManager.h"
+#include "PlayerCCManager.h"
 
 #include "MockTSBSessionManager.h"
 #include "MockAampConfig.h"
@@ -31,6 +32,7 @@
 #include "MockStreamAbstractionAAMP.h"
 #include "MockAampStreamSinkManager.h"
 #include "MockAampUtils.h"
+#include "MockCCManager.h"
 
 using ::testing::_;
 using ::testing::Return;
@@ -59,6 +61,7 @@ protected:
 		g_mockAampGstPlayer = new MockAAMPGstPlayer( mPrivateInstanceAAMP);
 		g_mockStreamAbstractionAAMP = new StrictMock<MockStreamAbstractionAAMP>(mPrivateInstanceAAMP);
 		g_mockAampStreamSinkManager = new NiceMock<MockAampStreamSinkManager>();
+		g_mockPlayerCCManagerBase = new NiceMock<MockPlayerCCManagerBase>();
 
 		mPrivateInstanceAAMP->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP;
 		mPrivateInstanceAAMP->SetState(eSTATE_PLAYING);
@@ -90,6 +93,10 @@ protected:
 
 		delete g_mockAampStreamSinkManager;
 		g_mockAampStreamSinkManager = nullptr;
+
+		delete g_mockPlayerCCManagerBase;
+		g_mockPlayerCCManagerBase = nullptr;
+
 	}
 
 public:
@@ -146,7 +153,7 @@ public:
     	if (mTSBSessionManager)
     	{
         	delete mTSBSessionManager;
-        	mTSBSessionManager = nullptr;    
+        	mTSBSessionManager = nullptr;
     	}
 	}
 };
@@ -437,6 +444,9 @@ TEST_F(SetPreferredTextLanguagesTests, RenditionTest1)
 
         tracks.push_back(TextTrackInfo("idx0", "lang0", false, "rend0", "trackName0", "codecStr0", "cha0", "typ0", "lab0", "type0", Accessibility(), true));
 	mPrivateInstanceAAMP->preferredTextRenditionString = "rend0";
+
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetAvailableTextTracks(_))
+		.WillOnce(ReturnRef(tracks));
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, SelectPreferredTextTrack(_))
 		.WillOnce(::testing::DoAll(::testing::SetArgReferee<0>(tracks[0]),Return(true)));
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_))
@@ -690,7 +700,7 @@ TEST_F(SetPreferredTextLanguagesTests, SetTsbSessionManagerNull)
 	EXPECT_EQ(g_mockTSBSessionManager, nullptr);
 
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetAvailableTextTracks(_))
-		.Times(2).WillRepeatedly(ReturnRef(tracks));
+		.Times(1).WillRepeatedly(ReturnRef(tracks));
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, SelectPreferredTextTrack(_))
 		.WillOnce(::testing::DoAll(::testing::SetArgReferee<0>(tracks[0]),Return(true)));
 
@@ -765,4 +775,39 @@ TEST_F(SetPreferredTextLanguagesTests, ChangePrefTextLangWithTSB)
 	testp_aamp->mpStreamAbstractionAAMP = nullptr;
 	delete mockToDelete;
 	delete (g_mockTSBSessionManager);
+}
+
+/**
+ * @brief Change between closed caption tracks
+ */
+TEST_F(SetPreferredTextLanguagesTests, ClosedCaptionTest1)
+{
+	std::vector<TextTrackInfo> tracks;
+	//TextTrackInfo(std::string idx, std::string lang, bool cc, std::string rend, std::string trackName, std::string id, std::string cha, int pk):
+	tracks.push_back(TextTrackInfo("idx0", "lang0", true, "rend0", "trackName0", "CC0", "cha0", 0));
+	tracks.push_back(TextTrackInfo("idx1", "lang1", true, "rend1", "trackName1", "CC1", "cha1", 1));
+
+	mPrivateInstanceAAMP->preferredTextLanguagesString = "lang0";
+	mPrivateInstanceAAMP->preferredTextLanguagesList.clear();
+	mPrivateInstanceAAMP->preferredTextLanguagesList.push_back("lang0");
+	mPrivateInstanceAAMP->subtitles_muted = false;
+
+	/* Call SetPreferredTextLanguages() changing the preferred languages list.
+	 * There should be a retune.
+	 */
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetAvailableTextTracks(_))
+		.WillOnce(ReturnRef(tracks));
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, SelectPreferredTextTrack(_))
+		.WillOnce(::testing::DoAll(::testing::SetArgReferee<0>(tracks[0]),Return(true)));
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_))
+		.WillOnce(Invoke(this, &SetPreferredTextLanguagesTests::Stop));
+
+	EXPECT_CALL(*g_mockPlayerCCManagerBase, SetTrack("CC1",eCLOSEDCAPTION_FORMAT_608)).Times(1).WillRepeatedly(Return(0));
+
+	mPrivateInstanceAAMP->SetPreferredTextLanguages("lang1");
+
+	/* Verify the preferred languages list. */
+	EXPECT_STREQ(mPrivateInstanceAAMP->preferredTextLanguagesString.c_str(), "lang1");
+	EXPECT_EQ(mPrivateInstanceAAMP->preferredTextLanguagesList.size(), 1);
+	EXPECT_STREQ(mPrivateInstanceAAMP->preferredTextLanguagesList.at(0).c_str(), "lang1");
 }

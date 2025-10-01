@@ -10883,6 +10883,7 @@ void PrivateInstanceAAMP::SetCCFromTextTrack(TextTrackInfo &track)
 			format = (CCFormat)(overrideCfg & 1);
 			AAMPLOG_WARN("PrivateInstanceAAMP: CC format override present, override format to: %d", format);
 		}
+AAMPLOG_ERR("patrick instreamId %s format %d", track.instreamId.c_str(), format);
 		PlayerCCManager::GetInstance()->SetTrack(track.instreamId, format);
 	}
 }
@@ -12266,10 +12267,11 @@ void PrivateInstanceAAMP::SetPreferredTextLanguages(const char *param )
 			bool labelAvailabilityInManifest = false;
 			bool nameAvailabilityInManifest = false;
 			bool trackNotEnabled = false;
+			std::vector<TextTrackInfo> trackInfo = mpStreamAbstractionAAMP->GetAvailableTextTracks();
 
 			if (trackIndex >= 0)
 			{
-				std::vector<TextTrackInfo> trackInfo = mpStreamAbstractionAAMP->GetAvailableTextTracks();
+
 				std::string currentPrefLanguage = Getiso639map_NormalizeLanguageCode(
 					trackInfo[trackIndex].language, this->GetLangCodePreference());
 				char *currentPrefRendition = const_cast<char*>(trackInfo[trackIndex].rendition.c_str());
@@ -12367,7 +12369,30 @@ void PrivateInstanceAAMP::SetPreferredTextLanguages(const char *param )
 				trackNotEnabled = true;
 			}
 
-
+			/* Set trackId to a value if we have Closed Captions selected */
+			int closedCaptionTrackId = -1;
+			if (instreamIdPresent || (trackNotEnabled && !preferredInstreamIdString.empty()))
+			{
+				for (auto it = trackInfo.begin(); it != trackInfo.end(); it++)
+				{
+					if ((it->instreamId == preferredInstreamIdString) && it->isCC)
+					{
+						closedCaptionTrackId = std::distance(trackInfo.begin(), it);
+						AAMPLOG_INFO("closedCaptionTrackId %d", closedCaptionTrackId);
+					}
+				}
+			}
+			else if ((languagePresent || (trackNotEnabled && !preferredTextLanguagesString.empty())) && (preferredRenditionString != "subtitle")) // if no match found for instreamId, check for language string match
+			{
+				for (auto it = trackInfo.begin(); it != trackInfo.end(); it++)
+				{
+					if ((it->language == preferredTextLanguagesString) && it->isCC)
+					{
+						closedCaptionTrackId = std::distance(trackInfo.begin(), it);
+						AAMPLOG_INFO("closedCaptionTrackId %d", closedCaptionTrackId);
+					}
+				}
+			}
 
 			if((mMediaFormat == eMEDIAFORMAT_HDMI) || (mMediaFormat == eMEDIAFORMAT_COMPOSITE) || (mMediaFormat == eMEDIAFORMAT_OTA) || \
 				(mMediaFormat == eMEDIAFORMAT_RMF))
@@ -12441,32 +12466,9 @@ void PrivateInstanceAAMP::SetPreferredTextLanguages(const char *param )
 				}
 				ReleaseStreamLock();
 
-			/* Set trackId to a value if we have Closed Captions selected */
-			std::vector<TextTrackInfo> trackInfo = mpStreamAbstractionAAMP->GetAvailableTextTracks();
-			long trackId = -1;
-			if (instreamIdPresent || (trackNotEnabled && !preferredInstreamIdString.empty()))
-			{
-				for (auto it = trackInfo.begin(); it != trackInfo.end(); it++)
+				if (closedCaptionTrackId >= 0 && closedCaptionTrackId < trackInfo.size())
 				{
-					if ((it->instreamId == preferredInstreamIdString) && it->isCC)
-					{
-						trackId = std::distance(trackInfo.begin(), it);
-					}
-				}
-			}
-			else if ((languagePresent || (trackNotEnabled && !preferredTextLanguagesString.empty())) && (preferredRenditionString != "subtitle")) // if no match found for instreamId, check for language string match
-			{
-				for (auto it = trackInfo.begin(); it != trackInfo.end(); it++)
-				{
-					if ((it->language == preferredTextLanguagesString) && it->isCC)
-					{
-						trackId = std::distance(trackInfo.begin(), it);
-					}
-				}
-			}
-				if (trackId >= 0 && trackId < trackInfo.size())
-				{
-					TextTrackInfo track = trackInfo[trackId];
+					TextTrackInfo track = trackInfo[closedCaptionTrackId];
 					SetCCFromTextTrack(track);
 				}
 
