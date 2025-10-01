@@ -211,6 +211,10 @@ void ProfileEventAAMP::TuneBegin(void)
 	{
 		cJSON_Delete(telemetryParam);
 	}
+	if (mLldLowBuffObject)
+	{
+		cJSON_Delete(mLldLowBuffObject);
+	}
 	mLldLowBuffObject = NULL;
 	telemetryParam = cJSON_CreateObject();
 }
@@ -648,9 +652,14 @@ void ProfileEventAAMP::GetTelemetryParam()
 	std::lock_guard<std::mutex> lock(discontinuityParamMutex);
 	if(telemetryParam != NULL)
 	{
-		std::string jsonStr = cJSON_PrintUnformatted(telemetryParam);
-		AAMPLOG_MIL("Telemetry values %s", jsonStr.c_str());
+		char *jsonStr = cJSON_PrintUnformatted(telemetryParam);
+		AAMPLOG_MIL("Telemetry values %s", jsonStr);
+		cJSON_free(jsonStr);
 		cJSON_Delete(telemetryParam);
+		if (mLldLowBuffObject)
+		{
+			cJSON_Delete(mLldLowBuffObject);
+		}
 		mLldLowBuffObject = NULL;
 		telemetryParam = cJSON_CreateObject();
 	}
