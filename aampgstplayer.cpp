@@ -266,12 +266,14 @@ void AAMPGstPlayer::RegisterFirstFrameCallbacks()
 	playerInstance->callbackMap[InterfaceCB::idleCb] = [this]()
 	{
 		UsingPlayerId playerId( aamp->mPlayerId );
+		AAMPLOG_MIL("Jose: Idle callback");
 		aamp->ReportProgress();
 
 	};
 	playerInstance->callbackMap[InterfaceCB::progressCb] = [this]()
 	{
 		UsingPlayerId playerId(aamp->mPlayerId);
+		AAMPLOG_MIL("Jose: Progress callback");
 		for (int i = 0; i < AAMP_TRACK_COUNT; i++)
 		{
 			privateContext->mBufferControl[i].update(this, static_cast<AampMediaType>(i));
