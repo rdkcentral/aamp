@@ -10354,8 +10354,10 @@ std::string PrivateInstanceAAMP::GetAvailableTextTracks(bool allTrack)
 					{
 						cJSON_AddStringToObject(item, "codec", iter->codec.c_str());
 					}
+					// When local TSB is present, availability refers to availability in the TSB
 					bool isAvailable = iter->isAvailable;
-					if (IsLocalAAMPTsb())
+					// Closed Captions are carried in the video stream and hence always available
+					if ((IsLocalAAMPTsb()) && (!iter->isCC))
 					{
 						if (iter->index == currentTrackInfo.index)
 						{

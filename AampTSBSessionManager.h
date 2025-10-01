@@ -32,6 +32,7 @@
 #include <map>
 #include "tsb/api/TsbApi.h"
 #include "AampMediaType.h"
+#include "AampTsbAdMetaData.h"
 #include "AampTsbDataManager.h"
 #include "AampTsbMetaDataManager.h"
 #include "AampTsbReader.h"
@@ -379,6 +380,15 @@ private:
 	 */
 	bool IsTrackStoredInTsb(AampMediaType mediatype);
 
+	/**
+	 * @brief Merge the Ad Reservation and Placement Lists and sort them
+	 * @param[in] reservationList - Ad reservation metadata list
+	 * @param[in] placementList - Ad placement metadata list
+	 * @return Merged and sorted vector of Ad metadata
+	 */
+	std::vector<std::shared_ptr<AampTsbAdMetaData>> MergeAndSortAdMetaData(std::list<std::shared_ptr<AampTsbAdMetaData>> reservationList,
+													 					   std::list<std::shared_ptr<AampTsbAdMetaData>> placementList);
+
 	bool mInitialized_;
 	std::atomic_bool mStopThread_;			// This variable is atomic because it can be accessed from multiple threads
 
@@ -402,7 +412,8 @@ private:
 	double mStoreEndPosition; 		/**< Last reported TSB Store end position*/
 	double mLiveEndPosition;		/**< Last reported Live end position*/
 	AampTime  mCurrentWritePosition; /**< The last fragment position written to the TSB */
-	std::shared_ptr<AampTsbMetaData> mLastAdMetaDataProcessed; /**< Last ad metadata processed */
+	std::shared_ptr<AampTsbMetaData> mLastAdReservationMetaDataProcessed; /**< Last ad reservation metadata processed */
+	std::shared_ptr<AampTsbMetaData> mLastAdPlacementMetaDataProcessed; /**< Last ad placement metadata processed */
 public:
 	PrivateInstanceAAMP *mAamp; /**< AAMP player's private instance */
 	std::shared_ptr<IsoBmffHelper> mIsoBmffHelper; /**< ISO BMFF helper object */
