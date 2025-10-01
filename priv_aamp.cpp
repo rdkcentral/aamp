@@ -2097,6 +2097,7 @@ void PrivateInstanceAAMP::ReportProgress(bool sync, bool beginningOfStream)
 		AAMPLOG_WARN("Progress reporting skipped whilst seeking.");
 	}
 
+	AAMPLOG_MIL("Jose: mDownloadsEnabled=%d, state=%d", mDownloadsEnabled, state);
 	//Once GST_MESSAGE_EOS is received, AAMP does not want any stray progress to be sent to player. so added the condition state != eSTATE_COMPLETE
 	if (mDownloadsEnabled &&
 		(state != eSTATE_IDLE) &&
@@ -2260,6 +2261,7 @@ void PrivateInstanceAAMP::ReportProgress(bool sync, bool beginningOfStream)
 
 		ProgressEventPtr evt = std::make_shared<ProgressEvent>(duration, reportFormattedCurrPos, start, end, speed, videoPTS, videoBufferedDuration, audioBufferedDuration, seiTimecode.c_str(), latency, bps, mNetworkBandwidth, currentRate, GetSessionId());
 
+		AAMPLOG_MIL("Jose: trickStartUTCMS=%lld, bProcessEvent=%d, mFirstProgress=%d", trickStartUTCMS, bProcessEvent, mFirstProgress);
 		if (trickStartUTCMS >= 0 && (bProcessEvent || mFirstProgress))
 		{
 			if (mFirstProgress)
@@ -2287,6 +2289,7 @@ void PrivateInstanceAAMP::ReportProgress(bool sync, bool beginningOfStream)
 					SETCONFIGVALUE_PRIV(AAMP_STREAM_SETTING, eAAMPConfig_ProgressLogging, false);
 				}
 			}
+			AAMPLOG_MIL("Jose: ProgressLogging=%d", ISCONFIGSET_PRIV(eAAMPConfig_ProgressLogging));
 			if (ISCONFIGSET_PRIV(eAAMPConfig_ProgressLogging))
 			{
 				static int tick;
