@@ -675,6 +675,7 @@ static const char *mLogLevelStr[eLOGLEVEL_ERROR+1] =
  */
 void jsBindingLogprintf(int playerId ,const char* functionName, int line, int logLevel, const char *format, ...)
 {
+	printf("DEBUG_LOG:Inside jsBindingLogprintf");
 	int len = 0;
 	va_list args;
 	va_start(args, format);
@@ -700,6 +701,7 @@ void jsBindingLogprintf(int playerId ,const char* functionName, int line, int lo
 	//if ( AampLogManager::enableEthanLogRedirection  )
 	if(true)
 	{ // ethanlog
+		printf("DEBUG_LOG:Inside if loop of Ethan Logging");
 		int ethanLogLevel;
 		// Important: in production builds, Ethan logger filters out everything
 		// except ETHAN_LOG_MILESTONE and ETHAN_LOG_FATAL
@@ -721,6 +723,7 @@ void jsBindingLogprintf(int playerId ,const char* functionName, int line, int lo
 				ethanLogLevel = ETHAN_LOG_MILESTONE;
 				break;
 		}
+		printf("DEBUG_LOG:ethanLogLevel -%d",ethanLogLevel);
 		ethanlog(ethanLogLevel,NULL,NULL,-1,gDebugPrintBuffer);
 	}
 	else
@@ -738,4 +741,5 @@ void jsBindingLogprintf(int playerId ,const char* functionName, int line, int lo
 		printf("[AAMP-JS]%ld:%3ld : %s\n", (long int)t.tv_sec, (long int)t.tv_usec / 1000, gDebugPrintBuffer);
 #endif
 	}
+	printf("DEBUG_LOG:Returning from jsBindingLogprintf");
 }
