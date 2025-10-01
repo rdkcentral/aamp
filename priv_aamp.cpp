@@ -2120,7 +2120,7 @@ void PrivateInstanceAAMP::ReportProgress(bool sync, bool beginningOfStream)
 
 		//Report Progress report position based on Availability Start Time
 		start = (culledSeconds*1000.0);
-		AAMPLOG_TRACE("position = %fms, start = %fms, ProgressReportOffset = %fms, ReportProgressPosn = %fms",
+		AAMPLOG_MIL("Jose: position = %fms, start = %fms, ProgressReportOffset = %fms, ReportProgressPosn = %fms",
 						position, start , (mProgressReportOffset * 1000), mReportProgressPosn);
 		if((mProgressReportOffset >= 0) && !IsUninterruptedTSB())
 		{
@@ -2171,6 +2171,7 @@ void PrivateInstanceAAMP::ReportProgress(bool sync, bool beginningOfStream)
 			// Avoid sending the progress event, if the previous position and the current position is same when pipeline is in playing state.
 			// Added exception if it's beginning of stream to prevent JSPP not loading previous AD while rewind
 			bProcessEvent = false;
+			AAMPLOG_MIL("Jose: Skipping progress event pos %fms", position);
 		}
 
 		/**mNewSeekInfo is:
@@ -7498,7 +7499,7 @@ long long PrivateInstanceAAMP::GetPositionMilliseconds()
 		}
 	}
 
-	AAMPLOG_DEBUG("Returning Position as %lld (seek_pos_seconds = %f) and updating previous position.", positionMilliseconds, seek_pos_seconds_copy);
+	AAMPLOG_MIL("Jose: Returning Position as %lld (seek_pos_seconds = %f) and updating previous position.", positionMilliseconds, seek_pos_seconds_copy);
 	mPrevPositionMilliseconds.Update(positionMilliseconds ,seek_pos_seconds_copy);
 
 	if(locked)
