@@ -541,8 +541,8 @@ class PrivateInstanceAAMP : public DrmCallbacks, public std::enable_shared_from_
 	std::chrono::system_clock::time_point m_lastSubClockSyncTime;
 	std::shared_ptr<TSB::Store> mTSBStore; /**< Local TSB Store object */
 	void SanitizeLanguageList(std::vector<std::string>& languages) const;
-	void SetTextLanguages(const char *param );
-	void SetCCTextTrack(TextTrackInfo &track);
+	void SavePreferredTextLanguages(const char *param );
+	void SetCCFromTextTrack(TextTrackInfo &track);
 public:
     /* @fn RecalculatePTS
     * @param[in] mediaType stream type

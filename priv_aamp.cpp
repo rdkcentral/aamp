@@ -10853,31 +10853,38 @@ static char* createJsonData(TextTrackInfo& track)
 /**
  * @brief Set closed caption track with appropriate format from passed text track
  */
-void PrivateInstanceAAMP::SetCCTextTrack(TextTrackInfo &track)
+void PrivateInstanceAAMP::SetCCFromTextTrack(TextTrackInfo &track)
 {
 	CCFormat format = eCLOSEDCAPTION_FORMAT_DEFAULT;
-	// PlayerCCManager expects the CC type, ie 608 or 708
-	// For DASH, there is a possibility that instreamId is just an integer so we infer rendition
-	if (mMediaFormat == eMEDIAFORMAT_DASH && (std::isdigit(static_cast<unsigned char>(track.instreamId[0]))) && !track.rendition.empty())
+	if (track.instreamId.empty())
 	{
-		if (track.rendition.find("608") != std::string::npos)
-		{
-			format = eCLOSEDCAPTION_FORMAT_608;
-		}
-		else if (track.rendition.find("708") != std::string::npos)
-		{
-			format = eCLOSEDCAPTION_FORMAT_708;
-		}
+		AAMPLOG_ERR("PrivateInstanceAAMP: Track number/instreamId is empty, skip operation");
 	}
+	else
+	{
+		// PlayerCCManager expects the CC type, ie 608 or 708
+		// For DASH, there is a possibility that instreamId is just an integer so we infer rendition
+		if (mMediaFormat == eMEDIAFORMAT_DASH && (std::isdigit(static_cast<unsigned char>(track.instreamId[0]))) && !track.rendition.empty())
+		{
+			if (track.rendition.find("608") != std::string::npos)
+			{
+				format = eCLOSEDCAPTION_FORMAT_608;
+			}
+			else if (track.rendition.find("708") != std::string::npos)
+			{
+				format = eCLOSEDCAPTION_FORMAT_708;
+			}
+		}
 
-	// preferredCEA708 overrides whatever we infer from track. USE WITH CAUTION
-	int overrideCfg = GETCONFIGVALUE_PRIV(eAAMPConfig_CEAPreferred);
-	if (overrideCfg != -1)
-	{
-		format = (CCFormat)(overrideCfg & 1);
-		AAMPLOG_WARN("PrivateInstanceAAMP: CC format override present, override format to: %d", format);
+		// preferredCEA708 overrides whatever we infer from track. USE WITH CAUTION
+		int overrideCfg = GETCONFIGVALUE_PRIV(eAAMPConfig_CEAPreferred);
+		if (overrideCfg != -1)
+		{
+			format = (CCFormat)(overrideCfg & 1);
+			AAMPLOG_WARN("PrivateInstanceAAMP: CC format override present, override format to: %d", format);
+		}
+		PlayerCCManager::GetInstance()->SetTrack(track.instreamId, format);
 	}
-	PlayerCCManager::GetInstance()->SetTrack(track.instreamId, format);
 }
 
 /**
@@ -10910,7 +10917,7 @@ void PrivateInstanceAAMP::SetTextTrack(int trackId, char *data)
 				if (track.isCC)
 				{
 					mIsInbandCC = true;
-					SetCCTextTrack(track);
+					SetCCFromTextTrack(track);
 				}
 				else
 				{
@@ -12068,9 +12075,9 @@ void PrivateInstanceAAMP::SanitizeLanguageList(std::vector<std::string>& languag
 }
 
 /**
- *  @brief Process json object or language string
+ *  @brief Process json object or language string and save the preferred selection to AampConfig
  */
-void PrivateInstanceAAMP::SetTextLanguages(const char *param )
+void PrivateInstanceAAMP::SavePreferredTextLanguages(const char *param )
 {
 	/**< First argument is Json data then parse it and and assign the variables properly*/
 	AampJsonObject* jsObject = nullptr;
@@ -12238,7 +12245,7 @@ void PrivateInstanceAAMP::SetTextLanguages(const char *param )
 void PrivateInstanceAAMP::SetPreferredTextLanguages(const char *param )
 {
 
-	SetTextLanguages(param);
+	SavePreferredTextLanguages(param);
 
 	AAMPPlayerState state = GetState();
 	if (state != eSTATE_IDLE && state != eSTATE_RELEASED && state != eSTATE_ERROR )
@@ -12250,7 +12257,7 @@ void PrivateInstanceAAMP::SetPreferredTextLanguages(const char *param )
 			bool accessibilityTypePresent = false;
 			bool labelPresent = false;
 			bool instreamIdPresent = false;
-			int trackIndex = GetTextTrack();                //The currently selected track that is playing
+			int trackIndex = GetTextTrack();
 			bool namePresent = false;
 			bool accessibilityPresent = false;
 			bool languageAvailabilityInManifest = false;
@@ -12360,6 +12367,8 @@ void PrivateInstanceAAMP::SetPreferredTextLanguages(const char *param )
 				trackNotEnabled = true;
 			}
 
+
+
 			if((mMediaFormat == eMEDIAFORMAT_HDMI) || (mMediaFormat == eMEDIAFORMAT_COMPOSITE) || (mMediaFormat == eMEDIAFORMAT_OTA) || \
 				(mMediaFormat == eMEDIAFORMAT_RMF))
 			{
@@ -12432,32 +12441,33 @@ void PrivateInstanceAAMP::SetPreferredTextLanguages(const char *param )
 				}
 				ReleaseStreamLock();
 
-				std::vector<TextTrackInfo> tracks = mpStreamAbstractionAAMP->GetAvailableTextTracks();
-				long trackId = -1;
-				if (instreamIdPresent || (trackNotEnabled && !preferredInstreamIdString.empty()))
+			/* Set trackId to a value if we have Closed Captions selected */
+			std::vector<TextTrackInfo> trackInfo = mpStreamAbstractionAAMP->GetAvailableTextTracks();
+			long trackId = -1;
+			if (instreamIdPresent || (trackNotEnabled && !preferredInstreamIdString.empty()))
+			{
+				for (auto it = trackInfo.begin(); it != trackInfo.end(); it++)
 				{
-					for (auto it = tracks.begin(); it != tracks.end(); it++)
+					if ((it->instreamId == preferredInstreamIdString) && it->isCC)
 					{
-						if ((it->instreamId == preferredInstreamIdString) && it->isCC)
-						{
-							trackId = std::distance(tracks.begin(), it);
-						}
+						trackId = std::distance(trackInfo.begin(), it);
 					}
 				}
-				else if ((languagePresent || (trackNotEnabled && !preferredTextLanguagesString.empty())) && (preferredRenditionString != "subtitle")) // if no match found for instreamId, check for language string match
+			}
+			else if ((languagePresent || (trackNotEnabled && !preferredTextLanguagesString.empty())) && (preferredRenditionString != "subtitle")) // if no match found for instreamId, check for language string match
+			{
+				for (auto it = trackInfo.begin(); it != trackInfo.end(); it++)
 				{
-					for (auto it = tracks.begin(); it != tracks.end(); it++)
+					if ((it->language == preferredTextLanguagesString) && it->isCC)
 					{
-						if ((it->language == preferredTextLanguagesString) && it->isCC)
-						{
-							trackId = std::distance(tracks.begin(), it);
-						}
+						trackId = std::distance(trackInfo.begin(), it);
 					}
 				}
-				if (trackId >= 0 && trackId < tracks.size())
+			}
+				if (trackId >= 0 && trackId < trackInfo.size())
 				{
-					TextTrackInfo track = tracks[trackId];
-					SetCCTextTrack(track);
+					TextTrackInfo track = trackInfo[trackId];
+					SetCCFromTextTrack(track);
 				}
 
 			}
