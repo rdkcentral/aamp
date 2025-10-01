@@ -61,15 +61,6 @@ public:
 	AampTsbAdMetaData(AdType adType, EventType eventType, const AampTime& adPosition);
 
 	/**
-	 * @brief Get the type of the metadata.
-	 * @return Metadata type.
-	 */
-	virtual AampTsbMetaData::Type GetType() const override
-	{
-		return AampTsbMetaData::Type::AD_METADATA_TYPE;
-	}
-
-	/**
 	 * @brief Get the ad metadata type.
 	 * @return Ad metadata type.
 	 */
