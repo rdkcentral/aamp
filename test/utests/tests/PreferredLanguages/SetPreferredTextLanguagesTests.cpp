@@ -811,3 +811,28 @@ TEST_F(SetPreferredTextLanguagesTests, ClosedCaptionTest1)
 	EXPECT_STREQ(mPrivateInstanceAAMP->preferredTextLanguagesList.at(0).c_str(), "lang1");
 
 }
+/**
+ * @brief Change languages
+ */
+TEST_F(SetPreferredTextLanguagesTests, CheckPreferredTextLanguages1)
+{
+	std::vector<TextTrackInfo> tracks;
+
+	tracks.push_back(TextTrackInfo("idx0", "eng", false, "rend0", "trackName0", "codecStr0", "cha0", "typ0", "lab0", "type0", Accessibility(), true));
+	tracks.push_back(TextTrackInfo("idx1", "spa", false, "rend1", "trackName1", "codecStr1", "cha1", "typ1", "lab1", "type1", Accessibility(), true));
+
+	bool isSelectionChange = false;
+	bool isAvailableInManifest = false;
+	int closedCaptionTrackId = -1;
+
+	mPrivateInstanceAAMP->preferredTextLanguagesString = "spa";
+	mPrivateInstanceAAMP->preferredTextLanguagesList.clear();
+	mPrivateInstanceAAMP->preferredTextLanguagesList.push_back("spa");
+	mPrivateInstanceAAMP->subtitles_muted = false;
+
+
+	mPrivateInstanceAAMP->CheckPreferredTextLanguages(tracks, isAvailableInManifest, isSelectionChange, closedCaptionTrackId);
+
+	EXPECT_EQ(isAvailableInManifest, true);
+	EXPECT_EQ(isSelectionChange, true);
+}

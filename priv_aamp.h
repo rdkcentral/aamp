@@ -543,6 +543,7 @@ class PrivateInstanceAAMP : public DrmCallbacks, public std::enable_shared_from_
 	void SanitizeLanguageList(std::vector<std::string>& languages) const;
 	void SavePreferredTextLanguages(const char *param );
 	void SetCCFromTextTrack(TextTrackInfo &track);
+
 public:
     /* @fn RecalculatePTS
     * @param[in] mediaType stream type
@@ -803,6 +804,7 @@ public:
 	 */
 	void updateManifest(const char *manifestData);
 
+	void CheckPreferredTextLanguages(const std::vector<TextTrackInfo> &trackInfo,bool &isInManifest, bool &isPresent, int &closedCaptionTrackIdx);
 	bool mDiscontinuityFound;
 	int mTelemetryInterval;
 	std::vector< std::pair<long long,long> > mAbrBitrateData;

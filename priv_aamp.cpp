@@ -10883,7 +10883,7 @@ void PrivateInstanceAAMP::SetCCFromTextTrack(TextTrackInfo &track)
 			format = (CCFormat)(overrideCfg & 1);
 			AAMPLOG_WARN("PrivateInstanceAAMP: CC format override present, override format to: %d", format);
 		}
-AAMPLOG_ERR("patrick instreamId %s format %d", track.instreamId.c_str(), format);
+		AAMPLOG_INFO("patrick instreamId %s format %d", track.instreamId.c_str(), format);
 		PlayerCCManager::GetInstance()->SetTrack(track.instreamId, format);
 	}
 }
@@ -12239,272 +12239,278 @@ void PrivateInstanceAAMP::SavePreferredTextLanguages(const char *param )
 	SETCONFIGVALUE_PRIV(AAMP_APPLICATION_SETTING,eAAMPConfig_PreferredTextLanguage,preferredTextLanguagesString);
 }
 
-
 /**
- *  @brief Set Preferred Text Language
- */
-void PrivateInstanceAAMP::SetPreferredTextLanguages(const char *param )
+ *  @brief Compare text track preferences vs manifest contents vs current selection
+ *
+ * @param[out] isSelectionChange true if preferences now select a different track to the current selection
+ * @param[out] isAvailableInManifest true if new selection is available in the manifest
+*/
+void PrivateInstanceAAMP::CheckPreferredTextLanguages(const std::vector<TextTrackInfo> &trackInfo, bool &isAvailableInManifest, bool &isSelectionChange, int &closedCaptionTrackIdx)
 {
 
-	SavePreferredTextLanguages(param);
+	int trackIndex = GetTextTrack();
+	int closedCaptionInstreamIdTrackIdx = -1;
+	int closedCaptionLanguageTrackIdx = -1;
+	int trackIdx = -1;
 
-	AAMPPlayerState state = GetState();
-	if (state != eSTATE_IDLE && state != eSTATE_RELEASED && state != eSTATE_ERROR )
-	{ // active playback session; apply immediately
-		if (mpStreamAbstractionAAMP)
+	if (trackIndex >= 0)
+	{
+		std::string currentPrefLanguage = Getiso639map_NormalizeLanguageCode(trackInfo[trackIndex].language, this->GetLangCodePreference());
+		char *currentPrefRendition = const_cast<char *>(trackInfo[trackIndex].rendition.c_str());
+		char *currentPrefInstreamId = const_cast<char *>(trackInfo[trackIndex].instreamId.c_str());
+		char *currentPrefName = const_cast<char *>(trackInfo[trackIndex].name.c_str());
+		Accessibility currentAccessibilityNode = trackInfo[trackIndex].accessibilityItem;
+
+		for (const auto &track : trackInfo)
 		{
-			bool languagePresent = false;
-			bool renditionPresent = false;
-			bool accessibilityTypePresent = false;
-			bool labelPresent = false;
-			bool instreamIdPresent = false;
-			int trackIndex = GetTextTrack();
-			bool namePresent = false;
-			bool accessibilityPresent = false;
-			bool languageAvailabilityInManifest = false;
-			bool renditionAvailabilityInManifest = false;
-			bool accessibilityAvailabilityInManifest = false;
-			bool labelAvailabilityInManifest = false;
-			bool nameAvailabilityInManifest = false;
-			bool trackNotEnabled = false;
-			std::vector<TextTrackInfo> trackInfo = mpStreamAbstractionAAMP->GetAvailableTextTracks();
-
-			if (trackIndex >= 0)
+			trackIdx++;
+			// Logic to check whether the given language is present in the available tracks,
+			// if available, it should not match with current preferredLanguagesString, then call tune to reflect the language change.
+			// if not available, then avoid calling tune.
+			if (preferredTextLanguagesList.size() > 0)
 			{
+				std::string firstLanguage = preferredTextLanguagesList.at(0);
+				std::string trackLanguage = Getiso639map_NormalizeLanguageCode(
+					track.language, this->GetLangCodePreference());
 
-				std::string currentPrefLanguage = Getiso639map_NormalizeLanguageCode(
-					trackInfo[trackIndex].language, this->GetLangCodePreference());
-				char *currentPrefRendition = const_cast<char*>(trackInfo[trackIndex].rendition.c_str());
-				char *currentPrefInstreamId =  const_cast<char*>(trackInfo[trackIndex].instreamId.c_str());
-				char *currentPrefName = const_cast<char*>(trackInfo[trackIndex].name.c_str());
-				Accessibility  currentAccessibilityNode = trackInfo[trackIndex].accessibilityItem;
-				// Logic to check whether the given language is present in the available tracks,
-				// if available, it should not match with current preferredLanguagesString, then call tune to reflect the language change.
-				// if not available, then avoid calling tune.
-				if(preferredTextLanguagesList.size() > 0)
+				if ((trackLanguage == firstLanguage) && (trackLanguage != currentPrefLanguage))
 				{
-					std::string firstLanguage = preferredTextLanguagesList.at(0);
-
-					for (const auto& track : trackInfo)
+					isSelectionChange = true;
+					if (track.isAvailable)
 					{
-						std::string trackLanguage = Getiso639map_NormalizeLanguageCode(
-							track.language, this->GetLangCodePreference());
-
-						if ((trackLanguage == firstLanguage) &&
-							(trackLanguage != currentPrefLanguage))
-						{
-							languagePresent = true;
-							if (track.isAvailable)
-							{
-								languageAvailabilityInManifest = true;
-								break;
-							}
-						}
-					}
-
-					if (preferredTextLanguagesList.size() > 1)
-					{
-						/* If multiple value of language is present then retune. */
-						languagePresent = true;
+						isAvailableInManifest = true;
 					}
 				}
-
-				// Logic to check whether the given rendition is present in the available tracks,
-				// if available, it should not match with current preferredTextRenditionString, then call tune to reflect the rendition change.
-				// if not available, then avoid calling tune.
-				if(!preferredTextRenditionString.empty())
+				if ((trackLanguage == firstLanguage) && track.isCC && preferredRenditionString != "subtitle")
 				{
-					// CID:280501 - Using invalid iterator
-					for (auto &temp : trackInfo)
-					{
-						if ((temp.rendition == preferredTextRenditionString) && (temp.rendition != currentPrefRendition))
-						{
-							renditionPresent = true;
-							if (temp.isAvailable)
-							{
-								renditionAvailabilityInManifest = true;
-								break;
-							}
-						}
-					}
-				}
-				if(currentAccessibilityNode != preferredTextAccessibilityNode)
-				{
-					accessibilityPresent = true;
-				}
-				//Logic to check whether the given instreamId is present in the available tracks,
-				//if available, it should not match with current preferredInstreamIdString, then call tune to reflect the track change.
-				//if not available, then avoid calling tune.
-				if(!preferredInstreamIdString.empty())
-				{
-					std::string curInstreamId = preferredInstreamIdString;
-					auto instreamId = std::find_if(trackInfo.begin(), trackInfo.end(),
-								[curInstreamId, currentPrefInstreamId] (TextTrackInfo& temp)
-								{ return ((temp.instreamId == curInstreamId) && (temp.instreamId != currentPrefInstreamId)); });
-					instreamIdPresent = (instreamId != end(trackInfo));
-				}
-				// Logic to check whether the given name is present in the available tracks,
-				// if available, it should not match with current preferredTextNameString, then call tune to reflect the name change.
-				// if not available, then avoid calling tune.
-				if(!preferredTextNameString.empty())
-				{
-					// CID:280501 - Using invalid iterator
-					for (auto &temp : trackInfo)
-					{
-						if ((temp.name == preferredTextNameString) && (temp.name != currentPrefName))
-						{
-							namePresent = true;
-							if (temp.isAvailable)
-							{
-								nameAvailabilityInManifest = true;
-								break;
-							}
-						}
-					}
+					closedCaptionLanguageTrackIdx = trackIdx;
 				}
 
-			}
-			else
-			{
-				trackNotEnabled = true;
-			}
-
-			/* Set trackId to a value if we have Closed Captions selected */
-			int closedCaptionTrackId = -1;
-			if (instreamIdPresent || (trackNotEnabled && !preferredInstreamIdString.empty()))
-			{
-				for (auto it = trackInfo.begin(); it != trackInfo.end(); it++)
+				// do not understand the following
+				if (preferredTextLanguagesList.size() > 1)
 				{
-					if ((it->instreamId == preferredInstreamIdString) && it->isCC)
-					{
-						closedCaptionTrackId = std::distance(trackInfo.begin(), it);
-						AAMPLOG_INFO("closedCaptionTrackId %d", closedCaptionTrackId);
-					}
+					/* If multiple value of language is present then retune. */
+					isSelectionChange = true;
 				}
 			}
-			else if ((languagePresent || (trackNotEnabled && !preferredTextLanguagesString.empty())) && (preferredRenditionString != "subtitle")) // if no match found for instreamId, check for language string match
+			// Logic to check whether the given rendition is present in the available tracks,
+			// if available, it should not match with current preferredTextRenditionString, then call tune to reflect the rendition change.
+			// if not available, then avoid calling tune.
+			if (!preferredTextRenditionString.empty())
 			{
-				for (auto it = trackInfo.begin(); it != trackInfo.end(); it++)
+				if ((track.rendition == preferredTextRenditionString) && (track.rendition != currentPrefRendition))
 				{
-					if ((it->language == preferredTextLanguagesString) && it->isCC)
+					isSelectionChange = true;
+					if (track.isAvailable)
 					{
-						closedCaptionTrackId = std::distance(trackInfo.begin(), it);
-						AAMPLOG_INFO("closedCaptionTrackId %d", closedCaptionTrackId);
+						isAvailableInManifest = true;
 					}
 				}
 			}
 
-			if((mMediaFormat == eMEDIAFORMAT_HDMI) || (mMediaFormat == eMEDIAFORMAT_COMPOSITE) || (mMediaFormat == eMEDIAFORMAT_OTA) || \
-				(mMediaFormat == eMEDIAFORMAT_RMF))
+			// Logic to check whether the given name is present in the available tracks,
+			// if available, it should not match with current preferredTextNameString, then call tune to reflect the name change.
+			// if not available, then avoid calling tune.
+			if (!preferredTextNameString.empty())
 			{
-				/**< Avoid retuning in case of HEMIIN and COMPOSITE IN*/
+				if ((track.name == preferredTextNameString) && (track.name != currentPrefName))
+				{
+					isSelectionChange = true;
+					if (track.isAvailable)
+					{
+						isAvailableInManifest = true;
+					}
+				}
 			}
-			else if (languagePresent || renditionPresent || accessibilityPresent || trackNotEnabled || instreamIdPresent || namePresent) /**< call the tune only if there is a change in the language, rendition or accessibility.*/
+			// Logic to check whether the given instreamId is present in the available tracks,
+			// if available, it should not match with current preferredInstreamIdString, then call tune to reflect the track change.
+			// if not available, then avoid calling tune.
+			if (!preferredInstreamIdString.empty())
 			{
-				discardEnteringLiveEvt = true;
-				mOffsetFromTunetimeForSAPWorkaround = (double)(aamp_GetCurrentTimeMS() / 1000) - mLiveOffset;
-				mLanguageChangeInProgress = true;
-				AcquireStreamLock();
-
-				if (ISCONFIGSET_PRIV(eAAMPConfig_SeamlessAudioSwitch) && !mFirstTune
-					&& ((mMediaFormat == eMEDIAFORMAT_HLS_MP4) || (mMediaFormat == eMEDIAFORMAT_DASH)))
+				if ((track.instreamId == preferredInstreamIdString) && (track.instreamId != currentPrefInstreamId))
 				{
-					AAMPLOG_WARN("Seamless Text switch has been enabled");
-					mpStreamAbstractionAAMP->RefreshTrack(eMEDIATYPE_SUBTITLE);
+					isSelectionChange = true;
 				}
-				else
+				if (track.instreamId == preferredInstreamIdString && track.isCC)
 				{
-					if((mMediaFormat == eMEDIAFORMAT_HLS) ||(mMediaFormat == eMEDIAFORMAT_HLS_MP4))
-					{
-						TextTrackInfo selectedTextTrack;
-						if(mpStreamAbstractionAAMP->SelectPreferredTextTrack(selectedTextTrack))
-						{
-							SetPreferredTextTrack(selectedTextTrack);
-						}
-					}
-					seek_pos_seconds = GetPositionSeconds();
-
-					if (IsLocalAAMPTsb())
-					{
-						mAampTsbLanguageChangeInProgress = true;
-					}
-
-					TeardownStream(false);
-					if(IsFogTSBSupported() &&
-				 	((languagePresent && !languageAvailabilityInManifest) ||
-				 	(renditionPresent && !renditionAvailabilityInManifest) ||
-				 	(accessibilityTypePresent && !accessibilityAvailabilityInManifest) ||
-					(labelPresent && !labelAvailabilityInManifest) ||
-					(namePresent && !nameAvailabilityInManifest)))
-					{
-						ReloadTSB();
-					}
-
-					if(IsLocalAAMPTsb())
-					{
-						AAMPLOG_WARN("Flush the TSB before seeking to live");
-
-						/* If AAMP TSB is enabled, flush the TSB before seeking to live */
-						if(mTSBSessionManager)
-						{
-							AAMPLOG_INFO("Recreate the TSB Session Manager and Tune to Live");
-							CreateTsbSessionManager();
-							SetLocalAAMPTsbInjection(false);
-							TuneHelper(eTUNETYPE_SEEKTOLIVE);
-						}
-						else
-						{
-							AAMPLOG_ERR("TSB Session Manager is NULL");
-						}
-					}
-					else
-					{
-						TuneHelper(eTUNETYPE_SEEK);
-					}
-
-					discardEnteringLiveEvt = false;
+					closedCaptionInstreamIdTrackIdx = trackIdx;
 				}
-				ReleaseStreamLock();
+			}
 
-				if (closedCaptionTrackId >= 0 && closedCaptionTrackId < trackInfo.size())
+			if (!preferredTextAccessibilityNode.getSchemeId().empty())
+			{
+				if ((track.accessibilityItem == preferredTextAccessibilityNode) && (track.accessibilityItem != currentAccessibilityNode))
 				{
-					TextTrackInfo track = trackInfo[closedCaptionTrackId];
-					SetCCFromTextTrack(track);
+					isSelectionChange = true;
+					if (track.isAvailable)
+					{
+						isAvailableInManifest = true;
+					}
 				}
-
 			}
 		}
 	}
-}
-
-/**
- * @brief Enable download activity for individual mediaType
- *
- */
-void PrivateInstanceAAMP::EnableMediaDownloads(AampMediaType type)
-{
-	mMediaDownloadsEnabled[type] = true;
-}
-
-/**
- * @brief Disable download activity for individual mediaType
- */
-void PrivateInstanceAAMP::DisableMediaDownloads(AampMediaType type)
-{
-	mMediaDownloadsEnabled[type] = false;
-}
-
-/**
- * @brief Enable Download activity for all mediatypes
- */
-void PrivateInstanceAAMP::EnableAllMediaDownloads()
-{
-	for (int i = 0; i <= eMEDIATYPE_DEFAULT; i++)
+	else
 	{
-		// Enable downloads for all mediaTypes
-		EnableMediaDownloads((AampMediaType) i);
+		isSelectionChange = true;
+		// no track is currently selected but need to find closedCaptionTrackIdx if there is one
+		for (const auto &track : trackInfo)
+		{
+			trackIdx++;
+			if (preferredTextLanguagesList.size() > 0)
+			{
+				std::string firstLanguage = preferredTextLanguagesList.at(0);
+				if ((track.language == firstLanguage) && track.isCC && preferredRenditionString != "subtitle")
+				{
+					closedCaptionLanguageTrackIdx = trackIdx;
+				}
+			}
+			if (track.instreamId == preferredInstreamIdString && track.isCC)
+			{
+				closedCaptionInstreamIdTrackIdx = trackIdx;
+			}
+		}
 	}
-}
+
+		// prefer instreamId over language for closed captioning
+		if (closedCaptionInstreamIdTrackIdx != -1)
+		{
+			closedCaptionTrackIdx = closedCaptionInstreamIdTrackIdx;
+		}
+		else
+		{
+			closedCaptionTrackIdx = closedCaptionLanguageTrackIdx;
+		}
+
+		AAMPLOG_INFO("isSelectionChange=%d isAvailableInManifest=%d closedCaptionTrackIdx=%d",
+				isSelectionChange, isAvailableInManifest, closedCaptionTrackIdx);
+	}
+
+	/**
+	 *  @brief Set Preferred Text Language
+	 */
+	void PrivateInstanceAAMP::SetPreferredTextLanguages(const char *param)
+	{
+
+		SavePreferredTextLanguages(param);
+
+		AAMPPlayerState state = GetState();
+		if (state != eSTATE_IDLE && state != eSTATE_RELEASED && state != eSTATE_ERROR)
+		{ // active playback session; apply immediately
+			if (mpStreamAbstractionAAMP)
+			{
+
+				std::vector<TextTrackInfo> trackInfo = mpStreamAbstractionAAMP->GetAvailableTextTracks();
+				bool isSelectionChange = false;
+				bool isAvailableInManifest = false;
+				int closedCaptionTrackId = -1;
+
+				CheckPreferredTextLanguages(trackInfo, isAvailableInManifest, isSelectionChange, closedCaptionTrackId);
+
+				if ((mMediaFormat == eMEDIAFORMAT_HDMI) || (mMediaFormat == eMEDIAFORMAT_COMPOSITE) || (mMediaFormat == eMEDIAFORMAT_OTA) ||
+					(mMediaFormat == eMEDIAFORMAT_RMF))
+				{
+					/**< Avoid retuning in case of HEMIIN and COMPOSITE IN*/
+				}
+				else if (isSelectionChange ) /**< call the tune only if there is a change in the language, rendition or accessibility.*/
+				{
+					discardEnteringLiveEvt = true;
+					mOffsetFromTunetimeForSAPWorkaround = (double)(aamp_GetCurrentTimeMS() / 1000) - mLiveOffset;
+					mLanguageChangeInProgress = true;
+					AcquireStreamLock();
+
+					if (ISCONFIGSET_PRIV(eAAMPConfig_SeamlessAudioSwitch) && !mFirstTune && ((mMediaFormat == eMEDIAFORMAT_HLS_MP4) || (mMediaFormat == eMEDIAFORMAT_DASH)))
+					{
+						AAMPLOG_WARN("Seamless Text switch has been enabled");
+						mpStreamAbstractionAAMP->RefreshTrack(eMEDIATYPE_SUBTITLE);
+					}
+					else
+					{
+						if ((mMediaFormat == eMEDIAFORMAT_HLS) || (mMediaFormat == eMEDIAFORMAT_HLS_MP4))
+						{
+							TextTrackInfo selectedTextTrack;
+							if (mpStreamAbstractionAAMP->SelectPreferredTextTrack(selectedTextTrack))
+							{
+								SetPreferredTextTrack(selectedTextTrack);
+							}
+						}
+						seek_pos_seconds = GetPositionSeconds();
+
+						if (IsLocalAAMPTsb())
+						{
+							mAampTsbLanguageChangeInProgress = true;
+						}
+
+						TeardownStream(false);
+						if (IsFogTSBSupported() && (!isAvailableInManifest))
+						{
+							ReloadTSB();
+						}
+
+						if (IsLocalAAMPTsb())
+						{
+							AAMPLOG_WARN("Flush the TSB before seeking to live");
+
+							/* If AAMP TSB is enabled, flush the TSB before seeking to live */
+							if (mTSBSessionManager)
+							{
+								AAMPLOG_INFO("Recreate the TSB Session Manager and Tune to Live");
+								CreateTsbSessionManager();
+								SetLocalAAMPTsbInjection(false);
+								TuneHelper(eTUNETYPE_SEEKTOLIVE);
+							}
+							else
+							{
+								AAMPLOG_ERR("TSB Session Manager is NULL");
+							}
+						}
+						else
+						{
+							TuneHelper(eTUNETYPE_SEEK);
+						}
+
+						discardEnteringLiveEvt = false;
+					}
+					ReleaseStreamLock();
+
+					if (closedCaptionTrackId >= 0 )
+					{
+						TextTrackInfo track = trackInfo[closedCaptionTrackId];
+						SetCCFromTextTrack(track);
+					}
+				}
+			}
+		}
+	}
+
+	/**
+	 * @brief Enable download activity for individual mediaType
+	 *
+	 */
+	void PrivateInstanceAAMP::EnableMediaDownloads(AampMediaType type)
+	{
+		mMediaDownloadsEnabled[type] = true;
+	}
+
+	/**
+	 * @brief Disable download activity for individual mediaType
+	 */
+	void PrivateInstanceAAMP::DisableMediaDownloads(AampMediaType type)
+	{
+		mMediaDownloadsEnabled[type] = false;
+	}
+
+	/**
+	 * @brief Enable Download activity for all mediatypes
+	 */
+	void PrivateInstanceAAMP::EnableAllMediaDownloads()
+	{
+		for (int i = 0; i <= eMEDIATYPE_DEFAULT; i++)
+		{
+			// Enable downloads for all mediaTypes
+			EnableMediaDownloads((AampMediaType)i);
+		}
+	}
 
 /*
  *   @brief get the WideVine KID Workaround from url
