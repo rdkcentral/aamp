@@ -27,41 +27,14 @@
 #include "PlayerLogManager.h" // Included for MW_LOG
 
 /**
- *  @brief Impl specific initialization code called before each public interface call
- */
-void PlayerRialtoCCManager::EnsureInitialized()
-{
-	MW_LOG_WARN("PlayerRialtoCCManager::NotImplemented");
-	return;
-}
-
-/**
- *  @brief Impl specific initialization code for HAL
- */
-void PlayerRialtoCCManager::EnsureHALInitialized()
-{
-	MW_LOG_WARN("PlayerRialtoCCManager::NotImplemented");
-	return;
-}
-
-/**
- *  @brief Impl specific initialization code for Communication with rendered
- */
-void PlayerRialtoCCManager::EnsureRendererCommsInitialized()
-{
-	MW_LOG_WARN("PlayerRialtoCCManager::NotImplemented");
-	return;
-}
-
-/**
  * @brief stores Handle
  */
 int PlayerRialtoCCManager::Initialize(void * handle)
 {
 	MW_LOG_WARN("PlayerRialtoCCManager::Initialize(%p) called", handle);
+	mSubtitleControlHandle = handle;
 	return 0;
 }
-
 
 /**
  *  @brief Gets Handle or ID, Every client using subtec must call GetId in the beginning, save id, which is required for Release function.
@@ -91,7 +64,7 @@ void PlayerRialtoCCManager::Release(int id)
 			// Last user has released - deinit.
 
 			MW_LOG_WARN("PlayerRialtoCCManager::Would de-init");
-			// TODO:KED de-initialize
+			MW_LOG_TRACE("PlayerRialtoCCManager::NotImplemented:{{DEINIT}}");
 		}
 	}
 	else
@@ -107,7 +80,8 @@ void PlayerRialtoCCManager::Release(int id)
  */
 void PlayerRialtoCCManager::StartRendering()
 {
-	MW_LOG_TRACE("PlayerRialtoCCManager::NotImplemented:StartRendering");
+	MW_LOG_TRACE("PlayerRialtoCCManager::NotImplemented -");
+	MW_LOG_TRACE("PlayerRialtoCCManager::{{UNMUTE}}:%p", mSubtitleControlHandle);
 	return;
 }
 
@@ -116,7 +90,8 @@ void PlayerRialtoCCManager::StartRendering()
  */
 void PlayerRialtoCCManager::StopRendering()
 {
-	MW_LOG_TRACE("PlayerRialtoCCManager::NotImplemented:StopRendering");
+	MW_LOG_TRACE("PlayerRialtoCCManager::NotImplemented -");
+	MW_LOG_TRACE("PlayerRialtoCCManager::{{MUTE}}:%p", mSubtitleControlHandle);
 	return;
 }
 
@@ -125,7 +100,9 @@ void PlayerRialtoCCManager::StopRendering()
  */
 int PlayerRialtoCCManager::SetDigitalChannel(unsigned int id)
 {
-	MW_LOG_TRACE("PlayerRialtoCCManager::NotImplemented:id:%u", id);
+	MW_LOG_TRACE("PlayerRialtoCCManager::NotImplemented -");
+	MW_LOG_TRACE("PlayerRialtoCCManager::{{TEXT-TRACK-IDENTIFIER}}:%p:%u",
+		mSubtitleControlHandle, id);
 	return 0;
 }
 
@@ -134,17 +111,10 @@ int PlayerRialtoCCManager::SetDigitalChannel(unsigned int id)
  */
 int PlayerRialtoCCManager::SetAnalogChannel(unsigned int id)
 {
-	MW_LOG_TRACE("PlayerRialtoCCManager::NotImplemented:id:%u", id);
+	MW_LOG_TRACE("PlayerRialtoCCManager::NotImplemented -");
+	MW_LOG_TRACE("PlayerRialtoCCManager::{{TEXT-TRACK-IDENTIFIER}}:%p:%u",
+		mSubtitleControlHandle, id);
 	return 0;
-}
-
-/**
- *  @brief ensure mRendering is consistent with renderer state
- */
-void PlayerRialtoCCManager::EnsureRendererStateConsistency()
-{
-	MW_LOG_WARN("PlayerRialtoCCManager::NotImplemented");
-	return;
 }
 
 /**
@@ -152,11 +122,9 @@ void PlayerRialtoCCManager::EnsureRendererStateConsistency()
  */
 PlayerRialtoCCManager::PlayerRialtoCCManager()
 {
- 	// Some of the apps don’t call set track and as default CC is not set, CC
-	// doesn’t work.
-	// In this case app expect to render default cc as CC1.
-	// Hence Set default CC track to CC1.
+	// Apps expect to render default CC as CC1, so set that here in case
+	// they do not explicitly call SetTrack().
 	MW_LOG_WARN("PlayerRialtoCCManager::Setting default to \"CC1\"");
-	SetTrack("CC1");	// FIXME:KED - Use Base class for this?
+	SetTrack("CC1");
 	return;
 }

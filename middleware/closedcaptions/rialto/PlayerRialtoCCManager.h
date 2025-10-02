@@ -84,29 +84,11 @@ private:
 	void StopRendering() override;
 
 	/**
-	 * @fn EnsureInitialized
-	 * @return void
-	 */
-	void EnsureInitialized() override;
-
-	/**
-	 * @fn EnsureHALInitialized
-	 * @return void
-	 */
-	void EnsureHALInitialized() override;
-
-	/**
 	 * @brief Impl specific initialization code called once in Init() function
 	 *
 	 * @return 0 - success, -1 - failure
 	 */
 	int Initialize(void *handle) override;
-
-	/**
-	 * @fn EnsureRendererCommsInitialized
-	 * @return void
-	 */
-	void EnsureRendererCommsInitialized() override;
 
 	/**
 	 * @fn SetDigitalChannel
@@ -121,12 +103,8 @@ private:
 	 */
 	int SetAnalogChannel(unsigned int id) override;
 
-	/**
-	 * @fn EnsureRendererStateConsistency
-	 *
-	 * @return void
-	 */
-	void EnsureRendererStateConsistency();
+private:
+	void *mSubtitleControlHandle{nullptr};
 
 	std::mutex mIdLock{};
 	int mId{0};
