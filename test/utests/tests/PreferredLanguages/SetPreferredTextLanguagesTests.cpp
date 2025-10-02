@@ -783,6 +783,7 @@ TEST_F(SetPreferredTextLanguagesTests, ChangePrefTextLangWithTSB)
 TEST_F(SetPreferredTextLanguagesTests, ClosedCaptionTest1)
 {
 	std::vector<TextTrackInfo> tracks;
+
 	//TextTrackInfo(std::string idx, std::string lang, bool cc, std::string rend, std::string trackName, std::string id, std::string cha, int pk):
 	tracks.push_back(TextTrackInfo("idx0", "lang0", true, "rend0", "trackName0", "CC0", "cha0", 0));
 	tracks.push_back(TextTrackInfo("idx1", "lang1", true, "rend1", "trackName1", "CC1", "cha1", 1));
@@ -791,14 +792,12 @@ TEST_F(SetPreferredTextLanguagesTests, ClosedCaptionTest1)
 	mPrivateInstanceAAMP->preferredTextLanguagesList.clear();
 	mPrivateInstanceAAMP->preferredTextLanguagesList.push_back("lang0");
 	mPrivateInstanceAAMP->subtitles_muted = false;
-
+	mPrivateInstanceAAMP->mMediaFormat = eMEDIAFORMAT_DASH;
 	/* Call SetPreferredTextLanguages() changing the preferred languages list.
 	 * There should be a retune.
 	 */
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetAvailableTextTracks(_))
 		.WillOnce(ReturnRef(tracks));
-	EXPECT_CALL(*g_mockStreamAbstractionAAMP, SelectPreferredTextTrack(_))
-		.WillOnce(::testing::DoAll(::testing::SetArgReferee<0>(tracks[0]),Return(true)));
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_))
 		.WillOnce(Invoke(this, &SetPreferredTextLanguagesTests::Stop));
 
@@ -810,4 +809,5 @@ TEST_F(SetPreferredTextLanguagesTests, ClosedCaptionTest1)
 	EXPECT_STREQ(mPrivateInstanceAAMP->preferredTextLanguagesString.c_str(), "lang1");
 	EXPECT_EQ(mPrivateInstanceAAMP->preferredTextLanguagesList.size(), 1);
 	EXPECT_STREQ(mPrivateInstanceAAMP->preferredTextLanguagesList.at(0).c_str(), "lang1");
+
 }
