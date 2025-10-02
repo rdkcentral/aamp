@@ -82,11 +82,16 @@ AampDRMLicenseManager::AampDRMLicenseManager(int maxDrmSessions, PrivateInstance
 		aampInstance(aamp), mDrmSessionManager(NULL),
 		accessToken(NULL), accessTokenLen(0)
 {
-    aampInstance = aamp; 
+    aampInstance = aamp;
+        AAMPLOG_ERR("print aampinstance %p", aamp);
+       // Get raw function pointer
+    auto rawFnPtr = &PrivateInstanceAAMP::SendWatermarkSessionUpdateEvent;
+    AAMPLOG_ERR("[LicenseMgr] Raw fn pointer SendWatermarkSessionUpdateEvent = %p",
+                *(void**)&rawFnPtr);
 	std::function<void(uint32_t,uint32_t,const std::string&)> waterMarkSessionUpdateCB = std::bind(&PrivateInstanceAAMP::SendWatermarkSessionUpdateEvent, aampInstance, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3);
 	if (waterMarkSessionUpdateCB)
 	{
-                AAMPLOG_INFO("waterMarkSessionUpdateCB is set (non-empty)");
+                AAMPLOG_ERR("waterMarkSessionUpdateCB is set (non-empty)");
 	}
 	else
 	{

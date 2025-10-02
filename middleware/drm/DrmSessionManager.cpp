@@ -64,11 +64,34 @@ DrmSessionManager::DrmSessionManager(int maxDrmSessions, void *player, std::func
 	m_drmConfigParam = new configs();
 	playerSecInstance = new PlayerSecInterface();
 
+
+	if (mPlayerSendWatermarkSessionUpdateEventCB)
+	{
+		MW_LOG_INFO("[DrmSessionManager] Watermark callback stored (std::function addr=%p)",
+				static_cast<const void*>(&mPlayerSendWatermarkSessionUpdateEventCB));
+	}
+	else
+	{
+		MW_LOG_ERR("[DrmSessionManager] ERROR: Watermark callback is EMPTY!");
+	}
+	if (watermarkSessionUpdateCallback)
+	{
+		MW_LOG_ERR("[DrmSessionMgr] WatermarkSession callback is valid (std::function stored)");
+		// 🔹 Self-test invoke
+		MW_LOG_ERR("[DrmSessionMgr] Self-test: invoking callback with dummy values...");
+		mPlayerSendWatermarkSessionUpdateEventCB(111, 222, "DrmSelfTest");
+	}
+	else
+	{
+		MW_LOG_ERR("[DrmSessionMgr] WatermarkSession callback is EMPTY!");
+	}
+
+
 	if(watermarkSessionUpdateCallback)
 	{
 
-	MW_LOG_ERR("Watermarksession callback valid in session manager, std::function addr: %p",
-               static_cast<const void*>(&watermarkSessionUpdateCallback));
+		MW_LOG_ERR("Watermarksession callback valid in session manager, std::function addr: %p",
+				static_cast<const void*>(&watermarkSessionUpdateCallback));
 	}
 	registerCallback();
 
@@ -88,14 +111,14 @@ DrmSessionManager::~DrmSessionManager()
 	ContentSecurityManager::setWatermarkSessionEvent_CB(nullptr);
 }
 void DrmSessionManager::UpdateDRMConfig(
-    bool useSecManager,
-    bool enablePROutputProtection,
-    bool propagateURIParam,
-    bool isFakeTune)
+		bool useSecManager,
+		bool enablePROutputProtection,
+		bool propagateURIParam,
+		bool isFakeTune)
 {
-    m_drmConfigParam->mUseSecManager = useSecManager;
-    m_drmConfigParam->mEnablePROutputProtection = enablePROutputProtection;
-    m_drmConfigParam->mPropagateURIParam = propagateURIParam;
+	m_drmConfigParam->mUseSecManager = useSecManager;
+	m_drmConfigParam->mEnablePROutputProtection = enablePROutputProtection;
+	m_drmConfigParam->mPropagateURIParam = propagateURIParam;
     m_drmConfigParam->mIsFakeTune = isFakeTune;
 }
 
@@ -797,22 +820,41 @@ void DrmSessionManager::UpdateMaxDRMSessions(int maxSessions)
 /**
  * @brief To register the callback for watermark session update
  */
-void DrmSessionManager::registerCallback() {
-	auto instance = this;
-	static std::function<void(uint32_t, uint32_t, const std::string&)> watermarkCallBack =
-	[instance](uint32_t sessionHandle, uint32_t status, const std::string& system) {
+void DrmSessionManager::registerCallback()
+{
+    auto instance = this;  // capture this DrmSessionManager
 
-	};
-	if (watermarkCallBack)
-	{
-	    	MW_LOG_INFO("Watermark callback is set (address=%p)", (void*)&watermarkCallBack);
-	}
-	else
-	{
-		MW_LOG_ERR("Watermark callback is EMPTY!");
-	}
-	ContentSecurityManager::setWatermarkSessionEvent_CB(watermarkCallBack);
-	MW_LOG_INFO("WatermarkSessionEvent Callback registered");
+    static std::function<void(uint32_t, uint32_t, const std::string&)> watermarkCallBack =
+        [instance](uint32_t sessionHandle, uint32_t status, const std::string& system)
+        {
+            MW_LOG_INFO("[DrmSessionManager] Received WM callback: handle=%u, status=%u, system=%s",
+                        sessionHandle, status, system.c_str());
+
+            if (instance && instance->mPlayerSendWatermarkSessionUpdateEventCB)
+            {
+                MW_LOG_INFO("[DrmSessionManager] Forwarding WM callback -> aampInstance callback (%p)",
+                            (void*)&(instance->mPlayerSendWatermarkSessionUpdateEventCB));
+
+                // call the actual AAMP callback
+                instance->mPlayerSendWatermarkSessionUpdateEventCB(sessionHandle, status, system);
+            }
+            else
+            {
+                MW_LOG_ERR("[DrmSessionManager] ERROR: mPlayerSendWatermarkSessionUpdateEventCB not set!");
+            }
+        };
+
+    if (watermarkCallBack)
+    {
+        MW_LOG_INFO("Watermark callback is set (address=%p)", (void*)&watermarkCallBack);
+    }
+    else
+    {
+        MW_LOG_ERR("Watermark callback is EMPTY!");
+    }
+
+    ContentSecurityManager::setWatermarkSessionEvent_CB(watermarkCallBack);
+    MW_LOG_INFO("WatermarkSessionEvent Callback registered");
 }
 
 /**
