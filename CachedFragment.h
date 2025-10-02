@@ -36,9 +36,9 @@
  */
 struct StreamResolution
 {
-	int width;        /**< Width in pixels*/
-	int height;       /**< Height in pixels*/
-	double framerate; /**< Frame Rate */
+	int width;			/**< Width in pixels*/
+	int height;			/**< Height in pixels*/
+	double framerate;	/**< Frame Rate in frames per second */
 
 	StreamResolution(): width(0), height(0), framerate(0.0)
 	{
@@ -50,14 +50,14 @@ struct StreamResolution
  */
 struct StreamInfo
 {
-	bool enabled;			/**< indicates if the streamInfo profile is enabled */
-	bool isIframeTrack;             /**< indicates if the stream is iframe stream*/
-	bool validity;		        /**< indicates profile validity against user configured profile range */
-	std::string codecs;	        /**< Codec String */
-	BitsPerSecond bandwidthBitsPerSecond;    /**< Bandwidth of the stream bps*/
-	StreamResolution resolution;    /**< Resolution of the stream*/
-	BitrateChangeReason reason;     /**< Reason for bitrate change*/
-	std::string baseUrl;
+	bool enabled;							/**< Indicates if the streamInfo profile is enabled */
+	bool isIframeTrack;						/**< Indicates if the stream is iframe stream */
+	bool validity;							/**< Indicates profile validity against user configured profile range */
+	std::string codecs;						/**< Codec String */
+	BitsPerSecond bandwidthBitsPerSecond;	/**< Bandwidth of the stream bps */
+	StreamResolution resolution;			/**< Resolution of the stream */
+	BitrateChangeReason reason;				/**< Reason for bitrate change */
+	std::string baseUrl;					/**< Base URL of the stream */
 	StreamInfo():enabled(false),isIframeTrack(false),validity(false),codecs(),bandwidthBitsPerSecond(0),resolution(),reason(eAAMP_BITRATE_CHANGE_BY_ABR),baseUrl(){};
 };
 
@@ -68,21 +68,21 @@ struct StreamInfo
 class CachedFragment
 {
 public:
-	AampGrowableBuffer fragment;	/**< Buffer to keep fragment content */
-	double position;				/**< Position in the playlist, in seconds */
-	double duration;				/**< Fragment duration, in seconds */
-	bool initFragment;				/**< Is init fragment */
-	bool discontinuity;				/**< PTS discontinuity status */
-	bool isDummy;					/**< Is dummy fragment */
-	int profileIndex;				/**< Profile index; Updated internally */
-	uint32_t timeScale;				/**< timescale of this fragment as read from manifest */
-	std::string uri;				/**< for debug */
-	StreamInfo cacheFragStreamInfo; /**< Bitrate info of the fragment */
-	AampMediaType type;				/**< AampMediaType info of the fragment */
-	long long downloadStartTime;	/**< The start time of file download */
-	long long discontinuityIndex;	/**< Discontinuity index */
-	double PTSOffsetSec; 			/**< PTS offset to apply for this segment */
-	double absPosition;				/**< Absolute position */
+	AampGrowableBuffer fragment;		/**< Buffer to keep fragment content */
+	double position;					/**< Position in the playlist, in seconds */
+	double duration;					/**< Duration of the fragment, in seconds; as specified in the manifest */
+	bool initFragment;					/**< Flag indicating whether this fragment is an initialization fragment */
+	bool discontinuity;					/**< Flag indicating that a PTS discontinuity occurs just before this fragment */
+	bool isDummy;						/**< Flag indicating that this is a dummy fragment (e.g. for gap filling) */
+	int profileIndex;					/**< Profile index; Updated internally */
+	uint32_t timeScale;					/**< timescale of this fragment as read from manifest */
+	std::string uri;					/**< for debug */
+	StreamInfo cacheFragStreamInfo;		/**< Bitrate information associated with this fragment */
+	AampMediaType type;					/**< AampMediaType info of the fragment */
+	long long downloadStartTime;		/**< The start time of file download */
+	long long discontinuityIndex;		/**< Discontinuity index */
+	double PTSOffsetSec; 				/**< PTS offset to apply for this segment */
+	double absPosition;					/**< Absolute position in seconds */
 
 	/**
 	 * @brief Default constructor
