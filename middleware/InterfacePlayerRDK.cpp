@@ -4569,6 +4569,8 @@ static void GstPlayer_redButtonCallback(GstElement* object, guint hours, guint m
  */
 static GstBusSyncReply bus_sync_handler(GstBus * bus, GstMessage * msg, InterfacePlayerRDK * pInterfacePlayerRDK)
 {
+	MW_LOG_MIL("Neil entering bus_sync_handler()";
+
 	HANDLER_CONTROL_HELPER( pInterfacePlayerRDK->gstPrivateContext->syncControl, GST_BUS_PASS);
 	switch(GST_MESSAGE_TYPE(msg))
 	{
@@ -4722,7 +4724,7 @@ static GstBusSyncReply bus_sync_handler(GstBus * bus, GstMessage * msg, Interfac
 			break;
 		case GST_MESSAGE_ASYNC_DONE:
 
-			MW_LOG_INFO("Received GST_MESSAGE_ASYNC_DONE message");
+			MW_LOG_INFO("Neil Received GST_MESSAGE_ASYNC_DONE message");
 			if (pInterfacePlayerRDK->gstPrivateContext->buffering_in_progress)
 			{
 				pInterfacePlayerRDK->gstPrivateContext->bufferingTimeoutTimerId = g_timeout_add_full(BUFFERING_TIMEOUT_PRIORITY, DEFAULT_BUFFERING_TO_MS, buffering_timeout, pInterfacePlayerRDK, NULL);
@@ -4731,6 +4733,7 @@ static GstBusSyncReply bus_sync_handler(GstBus * bus, GstMessage * msg, Interfac
 			break;
 
 		case GST_MESSAGE_STREAM_STATUS:
+			MW_LOG_INFO("Neil Received GST_MESSAGE_STREAM_STATUS message");
 
 			if(pInterfacePlayerRDK->gstPrivateContext->task_pool)
 			{
@@ -5119,7 +5122,7 @@ double InterfacePlayerRDK::FlushTrack(int mediaType, double pos, double audioDel
 	double startPosition = 0;
 	GstMediaType type = static_cast<GstMediaType>(mediaType);
 
-	MW_LOG_MIL("Entering InterfacePlayerRDK::FlushTrack() type[%d] pipeline state %s pos %lf",(int)type,
+	MW_LOG_MIL("NEIL Entering InterfacePlayerRDK::FlushTrack() type[%d] pipeline state %s pos %lf",(int)type,
 			   gst_element_state_get_name(GST_STATE(gstPrivateContext->pipeline)), pos);
 	gst_media_stream *stream = &this->gstPrivateContext->stream[type];
 	double rate = (double)GST_NORMAL_PLAY_RATE;
@@ -5141,7 +5144,7 @@ double InterfacePlayerRDK::FlushTrack(int mediaType, double pos, double audioDel
 							 pos * GST_SECOND);
 
 	startPosition = pos;
-	MW_LOG_MIL("Exiting InterfacePlayerRDK::FlushTrack() type[%d] pipeline state: %s startPosition: %lf Delta %lf",(int)type, gst_element_state_get_name(GST_STATE(gstPrivateContext->pipeline)), startPosition, (int)type==eGST_MEDIATYPE_AUDIO?audioDelta:subDelta);
+	MW_LOG_MIL("NEIL Exiting InterfacePlayerRDK::FlushTrack() type[%d] pipeline state: %s startPosition: %lf Delta %lf",(int)type, gst_element_state_get_name(GST_STATE(gstPrivateContext->pipeline)), startPosition, (int)type==eGST_MEDIATYPE_AUDIO?audioDelta:subDelta);
 
 	return rate;
 }

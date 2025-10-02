@@ -422,7 +422,7 @@ bool AampTsbDataManager::DumpData()
 void AampTsbDataManager::Flush()
 {
 	TSB_DM_TIME_DATA();
-	AAMPLOG_INFO("Flush AAMP TSB data");
+	AAMPLOG_INFO("FNeil entering Flush() AAMP TSB data");
 	try
 	{
 		std::lock_guard<std::mutex> lock(mTsbDataMutex);
@@ -446,7 +446,7 @@ void AampTsbDataManager::Flush()
  *   @fn GetNextDiscFragment
  *   @brief API to get next discontinuous fragment in the list. If not found, will return nullptr.
  *   @param[in] position - Absolute position, in seconds since 1970, for querying the discontinuous fragment
- *   @param[in] backwordSearch - Search direction from the position to discontinuous fragment, default forward
+ *   @param[in] backwordSerach - Search direction from the position to discontinuous fragment, default forward
  *   @return TsbFragmentData shared object to fragment data
  */
 TsbFragmentDataPtr AampTsbDataManager::GetNextDiscFragment(double position, bool backwardSearch)
