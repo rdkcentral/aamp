@@ -7528,7 +7528,7 @@ void PrivateInstanceAAMP::SendStreamTransfer(AampMediaType mediaType, AampGrowab
 	StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(this);
 	if (sink)
 	{
-		if (sink->SendTransfer(mediaType, buffer->GetPtr(), buffer->GetLen(), fpts, fdts, fDuration, fragmentPTSoffset, initFragment, discontinuity) )
+		if( sink->SendTransfer(mediaType, buffer->GetPtr(), buffer->GetLen(), fpts, fdts, fDuration, fragmentPTSoffset, initFragment, discontinuity) )
 		{
 			buffer->Transfer();
 		}
