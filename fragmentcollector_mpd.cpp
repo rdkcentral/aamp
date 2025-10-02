@@ -3464,18 +3464,21 @@ AAMPStatusType StreamAbstractionAAMP_MPD::InitTsbReader(TuneType tuneType)
 	double livePlayPosition = aamp->GetLivePlayPosition();
 	AAMPLOG_INFO("TuneType:%d seek position: %lfs, livePlayPos: %lfs, Offset: %lfs, culledSeconds from actual manifest: %lf", tuneType, seekPosition, livePlayPosition, aamp->mLiveOffset, mCulledSeconds);
 	AampTSBSessionManager* tsbSessionManager = aamp->GetTSBSessionManager();
+
+	AAMPLOG_INFO("Neil entering InitTsbReader(TuneType:%d seek position: %lfs, livePlayPos: %lfs, Offset: %lfs, culledSeconds from actual manifest: %lf)", tuneType, seekPosition, livePlayPosition, aamp->mLiveOffset, mCulledSeconds);
+
 	if(NULL != tsbSessionManager)
 	{
 		double position = seekPosition;
 		if((eTUNETYPE_SEEKTOLIVE == tuneType) || (seekPosition >= livePlayPosition))
 		{
 			position = livePlayPosition;
-			AAMPLOG_INFO("Adjusting to live play position: %lfs, totalDuration: %lfs", position, aamp->durationSeconds);
+			AAMPLOG_INFO("Neil Adjusting to live play position: %lfs, totalDuration: %lfs", position, aamp->durationSeconds);
 			if(AAMP_NORMAL_PLAY_RATE == aamp->rate && !aamp->GetPauseOnFirstVideoFrameDisp())
 			{
 				if (aamp->GetLLDashChunkMode())
 				{
-					AAMPLOG_INFO("Re-enabling LLD DASH speed correction");
+					AAMPLOG_INFO("Neil Re-enabling LLD DASH speed correction");
 					aamp->SetLLDashAdjustSpeed(true);
 				}
 				mTuneType = eTUNETYPE_SEEKTOLIVE;
@@ -3483,6 +3486,8 @@ AAMPStatusType StreamAbstractionAAMP_MPD::InitTsbReader(TuneType tuneType)
 			mIsAtLivePoint = true;
 			aamp->NotifyOnEnteringLive();
 		}
+
+		AAMPLOG_INFO("Neil call tsbSessionManager->InvokeTsbReaders()");
 
 		retVal = tsbSessionManager->InvokeTsbReaders(position, aamp->rate, mTuneType);
 

@@ -48,7 +48,7 @@ AampTsbReader::AampTsbReader(PrivateInstanceAAMP *aamp, std::shared_ptr<AampTsbD
  */
 AampTsbReader::~AampTsbReader()
 {
-	AAMPLOG_INFO("[%s] Destructor", GetMediaTypeName(mMediaType));
+	AAMPLOG_INFO("Neil [%s] Destructor", GetMediaTypeName(mMediaType));
 	Term();
 }
 
@@ -64,13 +64,13 @@ AampTsbReader::~AampTsbReader()
  */
 AAMPStatusType AampTsbReader::Init(double &startPosSec, float rate, TuneType tuneType, std::shared_ptr<AampTsbReader> other)
 {
-	AAMPLOG_INFO("[%s] Init called with rate: %f, startPosSec: %f", GetMediaTypeName(mMediaType), rate, startPosSec);
+	AAMPLOG_INFO("Neil calling Init() [%s] Init called with rate: %f, startPosSec: %f", GetMediaTypeName(mMediaType), rate, startPosSec);
 	AAMPStatusType ret = eAAMPSTATUS_OK;
 	if (!mInitialized_)
 	{
 		// Always set the rate first, regardless of success/failure paths
 		mCurrentRate = rate;
-		AAMPLOG_INFO("[%s] Setting mCurrentRate to: %f at start of Init", GetMediaTypeName(mMediaType), mCurrentRate);
+		AAMPLOG_INFO("Neil [%s] Setting mCurrentRate to: %f at start of Init", GetMediaTypeName(mMediaType), mCurrentRate);
 		
 		if (startPosSec >= 0)
 		{
@@ -83,7 +83,7 @@ AAMPStatusType AampTsbReader::Init(double &startPosSec, float rate, TuneType tun
 				if (!(firstFragment && lastFragment))
 				{
 					// No fragments available
-					AAMPLOG_WARN("[%s] TSB is empty - mCurrentRate already set to: %f", GetMediaTypeName(mMediaType), mCurrentRate);
+					AAMPLOG_WARN("Neil [%s] TSB is empty - mCurrentRate already set to: %f", GetMediaTypeName(mMediaType), mCurrentRate);
 					mTrackEnabled = false;
 				}
 				else
@@ -91,7 +91,7 @@ AAMPStatusType AampTsbReader::Init(double &startPosSec, float rate, TuneType tun
 					if (lastFragment->GetAbsolutePosition() < startPosSec)
 					{
 						// Handle seek out of range
-						AAMPLOG_WARN("[%s] Seeking to the TSB End: %lfs (Requested:%lfs), Range:(%lfs-%lfs) tunetype:%d", GetMediaTypeName(mMediaType), lastFragment->GetAbsolutePosition().inSeconds(), startPosSec, firstFragment->GetAbsolutePosition().inSeconds(), lastFragment->GetAbsolutePosition().inSeconds(), mActiveTuneType);
+						AAMPLOG_WARN("Neil [%s] Seeking to the TSB End: %lfs (Requested:%lfs), Range:(%lfs-%lfs) tunetype:%d", GetMediaTypeName(mMediaType), lastFragment->GetAbsolutePosition().inSeconds(), startPosSec, firstFragment->GetAbsolutePosition().inSeconds(), lastFragment->GetAbsolutePosition().inSeconds(), mActiveTuneType);
 						requestedPosition = lastFragment->GetAbsolutePosition().inSeconds();
 					}
 					else
@@ -126,7 +126,7 @@ AAMPStatusType AampTsbReader::Init(double &startPosSec, float rate, TuneType tun
 						// Assign upcoming position as start position
 						mUpcomingFragmentPosition = mStartPosition;
 						// mCurrentRate already set at beginning of Init
-						AAMPLOG_INFO("[%s] mCurrentRate confirmed as: %f in successful Init", GetMediaTypeName(mMediaType), mCurrentRate);
+						AAMPLOG_INFO("Neil [%s] mCurrentRate confirmed as: %f in successful Init", GetMediaTypeName(mMediaType), mCurrentRate);
 						if (rate != AAMP_NORMAL_PLAY_RATE && eMEDIATYPE_VIDEO != mMediaType)
 						{
 							// Disable all other tracks except video for trickplay
@@ -139,7 +139,7 @@ AAMPStatusType AampTsbReader::Init(double &startPosSec, float rate, TuneType tun
 						// Save First PTS
 						mFirstPTS = firstFragmentToFetch->GetPTS();
 						mFirstPTSOffset = firstFragmentToFetch->GetPTSOffset();
-						AAMPLOG_INFO("[%s] startPosition:%lfs rate:%f pts:%lfs ptsOffset:%lfs firstFragmentRange:(%lfs-%lfs)", 
+						AAMPLOG_INFO("Neil [%s] startPosition:%lfs rate:%f pts:%lfs ptsOffset:%lfs firstFragmentRange:(%lfs-%lfs)", 
 							GetMediaTypeName(mMediaType), mStartPosition.inSeconds(), mCurrentRate, mFirstPTS.inSeconds(), mFirstPTSOffset.inSeconds(),
 							firstFragment->GetAbsolutePosition().inSeconds(), lastFragment->GetAbsolutePosition().inSeconds());
 						mInitialized_ = true;
@@ -147,7 +147,7 @@ AAMPStatusType AampTsbReader::Init(double &startPosSec, float rate, TuneType tun
 					}
 					else
 					{
-						AAMPLOG_ERR("[%s] FirstFragmentToFetch is null", GetMediaTypeName(mMediaType));
+						AAMPLOG_ERR("Neil [%s] FirstFragmentToFetch is null", GetMediaTypeName(mMediaType));
 						// TODO : Commented this one because of TrackEnabled() dependency
 						//			This should be done in a same way as StreamSelection does
 						//			Otherwise we will get init failure from disabled tracks
@@ -157,13 +157,13 @@ AAMPStatusType AampTsbReader::Init(double &startPosSec, float rate, TuneType tun
 			}
 			else
 			{
-				AAMPLOG_INFO("No data manager found for mediatype[%s]", GetMediaTypeName(mMediaType));
+				AAMPLOG_INFO("Neil No data manager found for mediatype[%s]", GetMediaTypeName(mMediaType));
 				ret = eAAMPSTATUS_INVALID_PLAYLIST_ERROR;
 			}
 		}
 		else
 		{
-			AAMPLOG_ERR("[%s] Negative position requested %fs", GetMediaTypeName(mMediaType), startPosSec);
+			AAMPLOG_ERR("Neil [%s] Negative position requested %fs", GetMediaTypeName(mMediaType), startPosSec);
 			ret = eAAMPSTATUS_SEEK_RANGE_ERROR;
 			mInitialized_ = false;
 		}
@@ -180,9 +180,12 @@ AAMPStatusType AampTsbReader::Init(double &startPosSec, float rate, TuneType tun
  */
 TsbFragmentDataPtr AampTsbReader::FindNext(AampTime offset)
 {
+	AAMPLOG_INFO("Neil entering AampTsbReader::FindNext()");
+
+
 	if (!mInitialized_)
 	{
-		AAMPLOG_ERR("TsbReader[%s] not initialized", GetMediaTypeName(mMediaType));
+		AAMPLOG_ERR("Neil TsbReader[%s] not initialized", GetMediaTypeName(mMediaType));
 		return nullptr;
 	}
 
@@ -200,13 +203,13 @@ TsbFragmentDataPtr AampTsbReader::FindNext(AampTime offset)
 	TsbFragmentDataPtr ret = mDataMgr->GetFragment(position.inSeconds(), eos);
 	if (!ret)
 	{
-		AAMPLOG_TRACE("[%s]Retrying fragment to fetch at position: %lf", GetMediaTypeName(mMediaType), position.inSeconds());
+		AAMPLOG_TRACE("Neil [%s]Retrying fragment to fetch at position: %lf", GetMediaTypeName(mMediaType), position.inSeconds());
 		AampTime correctedPosition = position - FLOATING_POINT_EPSILON;
 		ret = mDataMgr->GetNearestFragment(correctedPosition.inSeconds());
 		if (!ret)
 		{
 			// Return a nullptr if fragment not found
-			AAMPLOG_ERR("[%s]Fragment null", GetMediaTypeName(mMediaType));
+			AAMPLOG_ERR("Neil [%s]Fragment null", GetMediaTypeName(mMediaType));
 			return ret;
 		}
 		// Error Handling
@@ -229,7 +232,7 @@ TsbFragmentDataPtr AampTsbReader::FindNext(AampTime offset)
 		}
 		if (!ret)
 		{
-			AAMPLOG_INFO("[%s] Retry is also failing mCurrentRate %f, returning nullptr ", GetMediaTypeName(mMediaType), mCurrentRate);
+			AAMPLOG_INFO("Neil [%s] Retry is also failing mCurrentRate %f, returning nullptr ", GetMediaTypeName(mMediaType), mCurrentRate);
 			// The EOS in Forward Trick Play is set in AampTsbReader::ReadNext based on calculated mAamp->mTrickModePositionEOS
 			if (mCurrentRate < AAMP_NORMAL_PLAY_RATE )
 			{
@@ -239,7 +242,7 @@ TsbFragmentDataPtr AampTsbReader::FindNext(AampTime offset)
 			return ret;
 		}
 	}
-	AAMPLOG_INFO("[%s] Returning fragment: absPos %lfs pts %lfs period %s timeScale %u ptsOffset %fs url %s",
+	AAMPLOG_INFO("Neil [%s] Returning fragment: absPos %lfs pts %lfs period %s timeScale %u ptsOffset %fs url %s",
 		GetMediaTypeName(mMediaType), ret->GetAbsolutePosition().inSeconds(), ret->GetPTS().inSeconds(), ret->GetPeriodId().c_str(), ret->GetTimeScale(), ret->GetPTSOffset().inSeconds(), ret->GetUrl().c_str());
 
 	return ret;
@@ -252,6 +255,8 @@ TsbFragmentDataPtr AampTsbReader::FindNext(AampTime offset)
  */
 void AampTsbReader::ReadNext(TsbFragmentDataPtr nextFragmentData)
 {
+	AAMPLOG_INFO("Neil entering AampTsbReader::ReadNext()");
+
 	if (nextFragmentData != nullptr)
 	{
 		if (mCurrentRate > AAMP_NORMAL_PLAY_RATE)
@@ -342,6 +347,8 @@ void AampTsbReader::CheckPeriodBoundary(TsbFragmentDataPtr currFragment)
  */
 void AampTsbReader::Term()
 {
+	AAMPLOG_INFO("Neil entering AampTsbReader::Term()");
+
 	mStartPosition = 0.0;
 	mUpcomingFragmentPosition = 0.0;
 	mCurrentRate = AAMP_NORMAL_PLAY_RATE;
@@ -355,7 +362,7 @@ void AampTsbReader::Term()
 	mIsPeriodBoundary = false;
 	mIsEndFragmentInjected.store(false);
 	mLastInitFragmentData = nullptr;
-	AAMPLOG_INFO("mediaType : %s", GetMediaTypeName(mMediaType));
+	AAMPLOG_INFO("Neil mediaType : %s", GetMediaTypeName(mMediaType));
 }
 
 /**
@@ -364,6 +371,9 @@ void AampTsbReader::Term()
 void AampTsbReader::CheckForWaitIfReaderDone()
 {
 	std::unique_lock<std::mutex> lock(mEosMutex);
+
+	AAMPLOG_INFO("Neil entering AampTsbReader::CheckForWaitIfReaderDone()");
+
 	if (!IsEndFragmentInjected())
 	{
 		AAMPLOG_INFO("[%s] Waiting for last fragment injection update", GetMediaTypeName(mMediaType));
@@ -379,6 +389,9 @@ void AampTsbReader::CheckForWaitIfReaderDone()
 void AampTsbReader::AbortCheckForWaitIfReaderDone()
 {
 	std::unique_lock<std::mutex> lock(mEosMutex);
+
+	AAMPLOG_INFO("Neil entering AampTsbReader::AbortCheckForWaitIfReaderDone()");
+
 	if (!IsEndFragmentInjected())
 	{
 		SetEndFragmentInjected();
@@ -392,6 +405,8 @@ void AampTsbReader::AbortCheckForWaitIfReaderDone()
  */
 bool AampTsbReader::IsFirstDownload()
 {
+	AAMPLOG_INFO("Neil entering AampTsbReader::IsFirstDownload()");
+
 	return (mStartPosition == mUpcomingFragmentPosition);
 }
 
