@@ -53,13 +53,13 @@ public:
      *   @param   callsign plugin callsign
      */
     PlayerThunderAccess(PlayerThunderAccessPlugin callsign);
-
+	
     /**
      *   @fn ~PlayerThunderAccess
      *   @note   clean up
      */
     ~PlayerThunderAccess();
-
+   
     /**
      *   @brief  PlayerThunderAccess copy constructor disabled
      */
@@ -78,7 +78,7 @@ public:
      *   @retval false on failure
      */
     bool ActivatePlugin() override;
-
+	
     /**
      *   @fn UnSubscribeEvent
      *   @note   unSubscribe event data for the specific plugin
@@ -110,7 +110,7 @@ public:
      *   @retval false if failure
      */
     bool SetVideoRectangle(int x, int y, int w, int h, std::string videoInputType, PlayerThunderAccessShim shim) override;
-
+    
     /**
      *   @fn SetPreferredAudioLanguages_OTA
      *   @param data player's input on preferred languages
@@ -319,7 +319,7 @@ private:
     std::function<void(PlayerStatusData)> mOnPlayerStatusCb;    //callback to player on player status update
     std::function<void(std::string)> mOnPlayerStatusHandlerCb;    //callback to player on status change, rmf
     std::function<void(std::string)> mOnPlayerErrorHandlerCb;   //callback to player on error, rmf
-
+    
     /**
      *   @fn RegisterEvent
      *   @param[in] eventName : Event name
@@ -396,7 +396,7 @@ private:
      *   @return true if success, false if failure
      */
     bool GetResolutionFromDS_VIDEOIN(int & widthFromDS, int & heightFromDS);
-
+	
     /**
      *   @fn SubscribeEvent
      *   @note   Subscribe event data for the specific plugin

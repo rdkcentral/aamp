@@ -43,7 +43,7 @@ class RealtekSocInterface : public SocInterface
 		 * @return True if audio fragments should be synchronized, false otherwise.
 		 */
 		bool IsAudioFragmentSyncSupported()override{return true;}
-		
+
 		/*@brief returns true if video stats required from sink otherwise false*/
 		bool IsPlaybackQualityFromSink() override {return true;}
 

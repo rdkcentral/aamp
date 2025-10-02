@@ -86,3 +86,4 @@ bool PlayerSecInterface::isSecResultInRange(int32_t requestResult)
 {
 	return 0;
 }
+
