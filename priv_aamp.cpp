@@ -12382,131 +12382,131 @@ void PrivateInstanceAAMP::CheckPreferredTextLanguages(const std::vector<TextTrac
 				 isSelectionChange, isAvailableInManifest, closedCaptionTrackIdx);
 }
 
-	/**
-	 *  @brief Set Preferred Text Language
-	 */
-	void PrivateInstanceAAMP::SetPreferredTextLanguages(const char *param)
-	{
+/**
+ *  @brief Set Preferred Text Language
+ */
+void PrivateInstanceAAMP::SetPreferredTextLanguages(const char *param)
+{
 
-		SavePreferredTextLanguages(param);
+	SavePreferredTextLanguages(param);
 
-		AAMPPlayerState state = GetState();
-		if (state != eSTATE_IDLE && state != eSTATE_RELEASED && state != eSTATE_ERROR)
-		{ // active playback session; apply immediately
-			if (mpStreamAbstractionAAMP)
+	AAMPPlayerState state = GetState();
+	if (state != eSTATE_IDLE && state != eSTATE_RELEASED && state != eSTATE_ERROR)
+	{ // active playback session; apply immediately
+		if (mpStreamAbstractionAAMP)
+		{
+
+			std::vector<TextTrackInfo> trackInfo = mpStreamAbstractionAAMP->GetAvailableTextTracks();
+			bool isSelectionChange = false;
+			bool isAvailableInManifest = false;
+			int closedCaptionTrackId = -1;
+
+			CheckPreferredTextLanguages(trackInfo, isAvailableInManifest, isSelectionChange, closedCaptionTrackId);
+
+			if ((mMediaFormat == eMEDIAFORMAT_HDMI) || (mMediaFormat == eMEDIAFORMAT_COMPOSITE) || (mMediaFormat == eMEDIAFORMAT_OTA) ||
+				(mMediaFormat == eMEDIAFORMAT_RMF))
 			{
+				/**< Avoid retuning in case of HEMIIN and COMPOSITE IN*/
+			}
+			else if (isSelectionChange) /**< call the tune only if there is a change in the language, rendition or accessibility.*/
+			{
+				discardEnteringLiveEvt = true;
+				mOffsetFromTunetimeForSAPWorkaround = (double)(aamp_GetCurrentTimeMS() / 1000) - mLiveOffset;
+				mLanguageChangeInProgress = true;
+				AcquireStreamLock();
 
-				std::vector<TextTrackInfo> trackInfo = mpStreamAbstractionAAMP->GetAvailableTextTracks();
-				bool isSelectionChange = false;
-				bool isAvailableInManifest = false;
-				int closedCaptionTrackId = -1;
-
-				CheckPreferredTextLanguages(trackInfo, isAvailableInManifest, isSelectionChange, closedCaptionTrackId);
-
-				if ((mMediaFormat == eMEDIAFORMAT_HDMI) || (mMediaFormat == eMEDIAFORMAT_COMPOSITE) || (mMediaFormat == eMEDIAFORMAT_OTA) ||
-					(mMediaFormat == eMEDIAFORMAT_RMF))
+				if (ISCONFIGSET_PRIV(eAAMPConfig_SeamlessAudioSwitch) && !mFirstTune && ((mMediaFormat == eMEDIAFORMAT_HLS_MP4) || (mMediaFormat == eMEDIAFORMAT_DASH)))
 				{
-					/**< Avoid retuning in case of HEMIIN and COMPOSITE IN*/
+					AAMPLOG_WARN("Seamless Text switch has been enabled");
+					mpStreamAbstractionAAMP->RefreshTrack(eMEDIATYPE_SUBTITLE);
 				}
-				else if (isSelectionChange ) /**< call the tune only if there is a change in the language, rendition or accessibility.*/
+				else
 				{
-					discardEnteringLiveEvt = true;
-					mOffsetFromTunetimeForSAPWorkaround = (double)(aamp_GetCurrentTimeMS() / 1000) - mLiveOffset;
-					mLanguageChangeInProgress = true;
-					AcquireStreamLock();
-
-					if (ISCONFIGSET_PRIV(eAAMPConfig_SeamlessAudioSwitch) && !mFirstTune && ((mMediaFormat == eMEDIAFORMAT_HLS_MP4) || (mMediaFormat == eMEDIAFORMAT_DASH)))
+					if ((mMediaFormat == eMEDIAFORMAT_HLS) || (mMediaFormat == eMEDIAFORMAT_HLS_MP4))
 					{
-						AAMPLOG_WARN("Seamless Text switch has been enabled");
-						mpStreamAbstractionAAMP->RefreshTrack(eMEDIATYPE_SUBTITLE);
+						TextTrackInfo selectedTextTrack;
+						if (mpStreamAbstractionAAMP->SelectPreferredTextTrack(selectedTextTrack))
+						{
+							SetPreferredTextTrack(selectedTextTrack);
+						}
 					}
-					else
+					seek_pos_seconds = GetPositionSeconds();
+
+					if (IsLocalAAMPTsb())
 					{
-						if ((mMediaFormat == eMEDIAFORMAT_HLS) || (mMediaFormat == eMEDIAFORMAT_HLS_MP4))
-						{
-							TextTrackInfo selectedTextTrack;
-							if (mpStreamAbstractionAAMP->SelectPreferredTextTrack(selectedTextTrack))
-							{
-								SetPreferredTextTrack(selectedTextTrack);
-							}
-						}
-						seek_pos_seconds = GetPositionSeconds();
+						mAampTsbLanguageChangeInProgress = true;
+					}
 
-						if (IsLocalAAMPTsb())
-						{
-							mAampTsbLanguageChangeInProgress = true;
-						}
+					TeardownStream(false);
+					if (IsFogTSBSupported() && (!isAvailableInManifest))
+					{
+						ReloadTSB();
+					}
 
-						TeardownStream(false);
-						if (IsFogTSBSupported() && (!isAvailableInManifest))
-						{
-							ReloadTSB();
-						}
+					if (IsLocalAAMPTsb())
+					{
+						AAMPLOG_WARN("Flush the TSB before seeking to live");
 
-						if (IsLocalAAMPTsb())
+						/* If AAMP TSB is enabled, flush the TSB before seeking to live */
+						if (mTSBSessionManager)
 						{
-							AAMPLOG_WARN("Flush the TSB before seeking to live");
-
-							/* If AAMP TSB is enabled, flush the TSB before seeking to live */
-							if (mTSBSessionManager)
-							{
-								AAMPLOG_INFO("Recreate the TSB Session Manager and Tune to Live");
-								CreateTsbSessionManager();
-								SetLocalAAMPTsbInjection(false);
-								TuneHelper(eTUNETYPE_SEEKTOLIVE);
-							}
-							else
-							{
-								AAMPLOG_ERR("TSB Session Manager is NULL");
-							}
+							AAMPLOG_INFO("Recreate the TSB Session Manager and Tune to Live");
+							CreateTsbSessionManager();
+							SetLocalAAMPTsbInjection(false);
+							TuneHelper(eTUNETYPE_SEEKTOLIVE);
 						}
 						else
 						{
-							TuneHelper(eTUNETYPE_SEEK);
+							AAMPLOG_ERR("TSB Session Manager is NULL");
 						}
-
-						discardEnteringLiveEvt = false;
 					}
-					ReleaseStreamLock();
-
-					if (closedCaptionTrackId >= 0 )
+					else
 					{
-						TextTrackInfo track = trackInfo[closedCaptionTrackId];
-						SetCCFromTextTrack(track);
+						TuneHelper(eTUNETYPE_SEEK);
 					}
+
+					discardEnteringLiveEvt = false;
+				}
+				ReleaseStreamLock();
+
+				if (closedCaptionTrackId >= 0)
+				{
+					TextTrackInfo track = trackInfo[closedCaptionTrackId];
+					SetCCFromTextTrack(track);
 				}
 			}
 		}
 	}
+}
 
-	/**
-	 * @brief Enable download activity for individual mediaType
-	 *
-	 */
-	void PrivateInstanceAAMP::EnableMediaDownloads(AampMediaType type)
-	{
-		mMediaDownloadsEnabled[type] = true;
-	}
+/**
+ * @brief Enable download activity for individual mediaType
+ *
+ */
+void PrivateInstanceAAMP::EnableMediaDownloads(AampMediaType type)
+{
+	mMediaDownloadsEnabled[type] = true;
+}
 
-	/**
-	 * @brief Disable download activity for individual mediaType
-	 */
-	void PrivateInstanceAAMP::DisableMediaDownloads(AampMediaType type)
-	{
-		mMediaDownloadsEnabled[type] = false;
-	}
+/**
+ * @brief Disable download activity for individual mediaType
+ */
+void PrivateInstanceAAMP::DisableMediaDownloads(AampMediaType type)
+{
+	mMediaDownloadsEnabled[type] = false;
+}
 
-	/**
-	 * @brief Enable Download activity for all mediatypes
-	 */
-	void PrivateInstanceAAMP::EnableAllMediaDownloads()
+/**
+ * @brief Enable Download activity for all mediatypes
+ */
+void PrivateInstanceAAMP::EnableAllMediaDownloads()
+{
+	for (int i = 0; i <= eMEDIATYPE_DEFAULT; i++)
 	{
-		for (int i = 0; i <= eMEDIATYPE_DEFAULT; i++)
-		{
-			// Enable downloads for all mediaTypes
-			EnableMediaDownloads((AampMediaType)i);
-		}
+		// Enable downloads for all mediaTypes
+		EnableMediaDownloads((AampMediaType)i);
 	}
+}
 
 /*
  *   @brief get the WideVine KID Workaround from url
