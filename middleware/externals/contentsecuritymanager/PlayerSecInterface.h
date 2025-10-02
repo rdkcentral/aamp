@@ -127,6 +127,7 @@ struct PlayerSecExtendedStatus
 /**
  * @fn isSecFeatureEnabled
  * @brief check if sec feature is enabled
+ * 
  * @return bool
  */
 bool isSecFeatureEnabled();
