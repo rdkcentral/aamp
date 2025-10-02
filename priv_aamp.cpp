@@ -12240,7 +12240,7 @@ void PrivateInstanceAAMP::SavePreferredTextLanguages(const char *param )
 
 /**
  *  @brief Compare text track preferences vs manifest contents vs current selection
-*/
+ */
 void PrivateInstanceAAMP::CheckPreferredTextLanguages(const std::vector<TextTrackInfo> &trackInfo, bool &isAvailableInManifest, bool &isSelectionChange, int &closedCaptionTrackIdx)
 {
 
@@ -12368,19 +12368,19 @@ void PrivateInstanceAAMP::CheckPreferredTextLanguages(const std::vector<TextTrac
 		}
 	}
 
-		// prefer instreamId over language for closed captioning
-		if (closedCaptionInstreamIdTrackIdx != -1)
-		{
-			closedCaptionTrackIdx = closedCaptionInstreamIdTrackIdx;
-		}
-		else
-		{
-			closedCaptionTrackIdx = closedCaptionLanguageTrackIdx;
-		}
-
-		AAMPLOG_INFO("isSelectionChange=%d isAvailableInManifest=%d closedCaptionTrackIdx=%d",
-				isSelectionChange, isAvailableInManifest, closedCaptionTrackIdx);
+	// prefer instreamId over language for closed captioning
+	if (closedCaptionInstreamIdTrackIdx != -1)
+	{
+		closedCaptionTrackIdx = closedCaptionInstreamIdTrackIdx;
 	}
+	else
+	{
+		closedCaptionTrackIdx = closedCaptionLanguageTrackIdx;
+	}
+
+	AAMPLOG_INFO("isSelectionChange=%d isAvailableInManifest=%d closedCaptionTrackIdx=%d",
+				 isSelectionChange, isAvailableInManifest, closedCaptionTrackIdx);
+}
 
 	/**
 	 *  @brief Set Preferred Text Language

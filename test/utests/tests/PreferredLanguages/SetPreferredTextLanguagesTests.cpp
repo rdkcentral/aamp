@@ -779,6 +779,8 @@ TEST_F(SetPreferredTextLanguagesTests, ChangePrefTextLangWithTSB)
 
 /**
  * @brief Change between closed caption tracks
+ * Check that a new closed caption track is selected in PlayerCCManagerBase
+ * There will be a channel change but this will be removed in future change
  */
 TEST_F(SetPreferredTextLanguagesTests, ClosedCaptionTest1)
 {
@@ -788,14 +790,13 @@ TEST_F(SetPreferredTextLanguagesTests, ClosedCaptionTest1)
 	tracks.push_back(TextTrackInfo("idx0", "lang0", true, "rend0", "trackName0", "CC0", "cha0", 0));
 	tracks.push_back(TextTrackInfo("idx1", "lang1", true, "rend1", "trackName1", "CC1", "cha1", 1));
 
+	/* Set initial preferred language to lang0 */
 	mPrivateInstanceAAMP->preferredTextLanguagesString = "lang0";
 	mPrivateInstanceAAMP->preferredTextLanguagesList.clear();
 	mPrivateInstanceAAMP->preferredTextLanguagesList.push_back("lang0");
 	mPrivateInstanceAAMP->subtitles_muted = false;
 	mPrivateInstanceAAMP->mMediaFormat = eMEDIAFORMAT_DASH;
-	/* Call SetPreferredTextLanguages() changing the preferred languages list.
-	 * There should be a retune.
-	 */
+
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetAvailableTextTracks(_))
 		.WillOnce(ReturnRef(tracks));
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_))
@@ -812,24 +813,29 @@ TEST_F(SetPreferredTextLanguagesTests, ClosedCaptionTest1)
 
 }
 /**
- * @brief Change languages
+ * @brief Test new func pulled out through refactoring.
+ * changing between closed caption tracks
  */
 TEST_F(SetPreferredTextLanguagesTests, CheckPreferredTextLanguages1)
 {
 	std::vector<TextTrackInfo> tracks;
 
-	tracks.push_back(TextTrackInfo("idx0", "eng", false, "rend0", "trackName0", "codecStr0", "cha0", "typ0", "lab0", "type0", Accessibility(), true));
-	tracks.push_back(TextTrackInfo("idx1", "spa", false, "rend1", "trackName1", "codecStr1", "cha1", "typ1", "lab1", "type1", Accessibility(), true));
+	//TextTrackInfo(std::string idx, std::string lang, bool cc, std::string rend, std::string trackName, std::string id, std::string cha, int pk):
+	tracks.push_back(TextTrackInfo("idx0", "lang0", true, "rend0", "trackName0", "CC0", "cha0", 0));
+	tracks.push_back(TextTrackInfo("idx1", "lang1", true, "rend1", "trackName1", "CC1", "cha1", 1));
 
 	bool isSelectionChange = false;
 	bool isAvailableInManifest = false;
 	int closedCaptionTrackId = -1;
 
-	mPrivateInstanceAAMP->preferredTextLanguagesString = "spa";
+	/*
+	 * The mock for GetTextTrack() will return 0 I.E the first entry in tracks
+	 * set preferred language to lang1 so a change is expected
+	 */
+	mPrivateInstanceAAMP->preferredTextLanguagesString = "lang1";
 	mPrivateInstanceAAMP->preferredTextLanguagesList.clear();
-	mPrivateInstanceAAMP->preferredTextLanguagesList.push_back("spa");
+	mPrivateInstanceAAMP->preferredTextLanguagesList.push_back("lang1");
 	mPrivateInstanceAAMP->subtitles_muted = false;
-
 
 	mPrivateInstanceAAMP->CheckPreferredTextLanguages(tracks, isAvailableInManifest, isSelectionChange, closedCaptionTrackId);
 

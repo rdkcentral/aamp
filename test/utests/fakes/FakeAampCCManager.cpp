@@ -49,10 +49,6 @@ int PlayerCCManagerBase::SetStyle(const std::string &options)
 };
 int PlayerCCManagerBase::SetTrack(const std::string &track, const CCFormat format)
 {
-//	if (g_mockPlayerCCManagerBase != nullptr)
-//
-//		return g_mockPlayerCCManagerBase->SetTrack(track, format);
-//	}
 	return 0;
 };
 void PlayerCCManagerBase::SetTrickplayStatus(bool enable)
