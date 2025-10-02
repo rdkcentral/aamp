@@ -10851,44 +10851,6 @@ static char* createJsonData(TextTrackInfo& track)
 }
 
 /**
- * @brief Set closed caption track with appropriate format from passed text track
- */
-void PrivateInstanceAAMP::SetCCFromTextTrack(TextTrackInfo &track)
-{
-	CCFormat format = eCLOSEDCAPTION_FORMAT_DEFAULT;
-	if (track.instreamId.empty())
-	{
-		AAMPLOG_ERR("PrivateInstanceAAMP: Track number/instreamId is empty, skip operation");
-	}
-	else
-	{
-		// PlayerCCManager expects the CC type, ie 608 or 708
-		// For DASH, there is a possibility that instreamId is just an integer so we infer rendition
-		if (mMediaFormat == eMEDIAFORMAT_DASH && (std::isdigit(static_cast<unsigned char>(track.instreamId[0]))) && !track.rendition.empty())
-		{
-			if (track.rendition.find("608") != std::string::npos)
-			{
-				format = eCLOSEDCAPTION_FORMAT_608;
-			}
-			else if (track.rendition.find("708") != std::string::npos)
-			{
-				format = eCLOSEDCAPTION_FORMAT_708;
-			}
-		}
-
-		// preferredCEA708 overrides whatever we infer from track. USE WITH CAUTION
-		int overrideCfg = GETCONFIGVALUE_PRIV(eAAMPConfig_CEAPreferred);
-		if (overrideCfg != -1)
-		{
-			format = (CCFormat)(overrideCfg & 1);
-			AAMPLOG_WARN("PrivateInstanceAAMP: CC format override present, override format to: %d", format);
-		}
-		AAMPLOG_INFO("patrick instreamId %s format %d", track.instreamId.c_str(), format);
-		PlayerCCManager::GetInstance()->SetTrack(track.instreamId, format);
-	}
-}
-
-/**
  * @brief Set text track
  */
 void PrivateInstanceAAMP::SetTextTrack(int trackId, char *data)
@@ -10987,6 +10949,43 @@ void PrivateInstanceAAMP::SetTextTrack(int trackId, char *data)
 	}
 }
 
+/**
+ * @brief Set closed caption track with appropriate format from passed text track
+ */
+void PrivateInstanceAAMP::SetCCFromTextTrack(TextTrackInfo &track)
+{
+	CCFormat format = eCLOSEDCAPTION_FORMAT_DEFAULT;
+	if (track.instreamId.empty())
+	{
+		AAMPLOG_ERR("PrivateInstanceAAMP: Track number/instreamId is empty, skip operation");
+	}
+	else
+	{
+		// PlayerCCManager expects the CC type, ie 608 or 708
+		// For DASH, there is a possibility that instreamId is just an integer so we infer rendition
+		if (mMediaFormat == eMEDIAFORMAT_DASH && (std::isdigit(static_cast<unsigned char>(track.instreamId[0]))) && !track.rendition.empty())
+		{
+			if (track.rendition.find("608") != std::string::npos)
+			{
+				format = eCLOSEDCAPTION_FORMAT_608;
+			}
+			else if (track.rendition.find("708") != std::string::npos)
+			{
+				format = eCLOSEDCAPTION_FORMAT_708;
+			}
+		}
+
+		// preferredCEA708 overrides whatever we infer from track. USE WITH CAUTION
+		int overrideCfg = GETCONFIGVALUE_PRIV(eAAMPConfig_CEAPreferred);
+		if (overrideCfg != -1)
+		{
+			format = (CCFormat)(overrideCfg & 1);
+			AAMPLOG_WARN("PrivateInstanceAAMP: CC format override present, override format to: %d", format);
+		}
+		AAMPLOG_INFO("patrick instreamId %s format %d", track.instreamId.c_str(), format);
+		PlayerCCManager::GetInstance()->SetTrack(track.instreamId, format);
+	}
+}
 
 /**
  * @brief Switch the subtitle track following a change to the preferredTextTrack
@@ -12241,9 +12240,6 @@ void PrivateInstanceAAMP::SavePreferredTextLanguages(const char *param )
 
 /**
  *  @brief Compare text track preferences vs manifest contents vs current selection
- *
- * @param[out] isSelectionChange true if preferences now select a different track to the current selection
- * @param[out] isAvailableInManifest true if new selection is available in the manifest
 */
 void PrivateInstanceAAMP::CheckPreferredTextLanguages(const std::vector<TextTrackInfo> &trackInfo, bool &isAvailableInManifest, bool &isSelectionChange, int &closedCaptionTrackIdx)
 {

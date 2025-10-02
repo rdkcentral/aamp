@@ -541,7 +541,16 @@ class PrivateInstanceAAMP : public DrmCallbacks, public std::enable_shared_from_
 	std::chrono::system_clock::time_point m_lastSubClockSyncTime;
 	std::shared_ptr<TSB::Store> mTSBStore; /**< Local TSB Store object */
 	void SanitizeLanguageList(std::vector<std::string>& languages) const;
+	/**
+ 	*  @fn Process json object or language string and save the preferred selection to AampConfig
+ 	*  @param[in] param - language string or json object
+ 	*/
 	void SavePreferredTextLanguages(const char *param );
+
+	/**
+ 	* @brief Set closed caption track with appropriate format from passed text track
+ 	* @param[in] track - Text track information
+ 	*/
 	void SetCCFromTextTrack(TextTrackInfo &track);
 
 public:
@@ -803,8 +812,16 @@ public:
 	 * This function is invoked continuously when ever there is an update in manifest
 	 */
 	void updateManifest(const char *manifestData);
-
+	/**
+	 * @fn CheckPreferredTextLanguages
+	 * @param[in] trackInfo - Text track information
+	 * @param[out] isSelectionChange true if preferences now select a different track to the current selection
+ 	 * @param[out] isAvailableInManifest true if new selection is available in the manifest
+	 * @param[out] closedCaptionTrackIdx - closed caption track index
+	 * @return void
+	 */
 	void CheckPreferredTextLanguages(const std::vector<TextTrackInfo> &trackInfo,bool &isInManifest, bool &isPresent, int &closedCaptionTrackIdx);
+
 	bool mDiscontinuityFound;
 	int mTelemetryInterval;
 	std::vector< std::pair<long long,long> > mAbrBitrateData;
