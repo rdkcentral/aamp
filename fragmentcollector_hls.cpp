@@ -852,9 +852,9 @@ lstring TrackState::GetNextFragmentUriFromPlaylist(bool& reloadUri, bool ignoreD
 {
 	lstring rc;
 
-	auto p = fragmentURI.getPtr(); // pointer inside playlist
+	auto p = fragmentURI.getPtr();
 	auto l = playlist.GetLen();
-	size_t offs = p - playlist.GetPtr(); // offset from playlist start
+	size_t offs = p - playlist.GetPtr();
 	if( offs>=l ) return rc;
 	lstring iter( p, l-offs );
 
