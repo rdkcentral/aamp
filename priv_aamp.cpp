@@ -7414,6 +7414,7 @@ long long PrivateInstanceAAMP::GetPositionRelativeToSeekMilliseconds(long long r
 	{
 		long long elapsedTime = aamp_GetCurrentTimeMS() - trickStartUTCMS;
 		position = (((elapsedTime > 1000) ? elapsedTime : 0) * rate);
+		AAMPLOG_MIL("Jose: Calculated Position as %lld (elapsedTime=%lld, rate=%lld, trickStartUTCMS=%lld)", position, elapsedTime, rate, trickStartUTCMS);
 	}
 
 	return position;
