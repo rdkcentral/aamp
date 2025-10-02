@@ -19,7 +19,7 @@
 
 #include "AampProfiler.h"
 
-ProfileEventAAMP::ProfileEventAAMP() : telemetryParam(nullptr)
+ProfileEventAAMP::ProfileEventAAMP() : telemetryParam(nullptr), mLldLowBuffObject(nullptr)
 {
 }
 
