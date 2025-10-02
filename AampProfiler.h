@@ -77,7 +77,9 @@ typedef enum
 	PROFILE_BUCKET_DISCO_TOTAL,          /**< Discontinuity transition total bucket*/
 	PROFILE_BUCKET_DISCO_FLUSH,           /**< Discontinuity transition pipeline flush bucket*/
 	PROFILE_BUCKET_DISCO_FIRST_FRAME,      /**< Discontinuity transition first frame displayed bucket*/
-	PROFILE_BUCKET_TYPE_COUNT           /**< Bucket count*/	
+	PROFILE_BUCKET_TYPE_COUNT,           /**< Bucket count*/
+
+	PROFILE_BUCKET_INVALID =255
 } ProfilerBucketType;
 
 /**
