@@ -82,6 +82,7 @@ public :
 	{
 		return (chkLevel>=mwLoglevel);
 	}
+	
 	/**
 	 * @fn setLogLevel
 	 *
@@ -95,6 +96,7 @@ public :
 			mwLoglevel = newLevel;
 		}
 	}
+	
 	/**
 	 * @brief lock or unlock log level.  This allows (for example) logging to be locked to info or trace, so that "more verbose while tuning, less verbose after tune complete" behavior doesn't override desired log level used for debugging.  This is also used as part of aampcli "noisy" and "quiet" command handling.
 	 * 
@@ -104,7 +106,7 @@ public :
 	{
 		locked = lock;
 	}
-        /**     
+/**     
          * @fn getHexDebugStr
          */     
         static std::string getHexDebugStr(const std::vector<uint8_t>& data)
