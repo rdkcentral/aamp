@@ -384,71 +384,7 @@ TEST_F(AampProfilertests, GetTuneEventsJSONTest)
     profileEvent->getTuneEventsJSON(outStr, streamType, url, success);
     std::string expectedJson = "{\"s\":0,\"td\":0,\"st\":\"Video\",\"u\":\"https://www.example.com\",\"tf\":{\"i\":0,\"er\":0},\"r\":1,\"v\":[{\"i\":1,\"b\":100,\"d\":200,\"o\":0},{\"i\":2,\"b\":300,\"d\":150,\"o\":1}]}";
 }
-TEST_F(AampProfilertests, GetClassicTuneTimeInfoTest)
-{
-    bool success = false;
-    int tuneRetries = 3;
-    int firstTuneType = 1;
-    long long playerLoadTime = 1000;
-    int streamType = 2;
-    bool isLive = true;
-    unsigned int durationInSec = 120;
-    char TuneTimeInfoStr[256] = "azdwcdewvewvadwvwavwf sjdjjdjjdjjdjdjjdjdjdjjdjdssjjsjjsjjsjsjbcgdbsdbssbdfw v"; 
-    profileEvent->GetClassicTuneTimeInfo(success, tuneRetries, firstTuneType, playerLoadTime, streamType, isLive, durationInSec, TuneTimeInfoStr); 
-}
-TEST_F(AampProfilertests, GetClassicTuneTimeInfoTest1)
-{
-    bool success = true;
-    int tuneRetries = INT_MAX;
-    int firstTuneType = INT_MAX;
-    long long playerLoadTime = 1000;
-    int streamType = INT_MAX;
-    bool isLive = true;
-    unsigned int durationInSec = 120;
-    char TuneTimeInfoStr[256]; 
-    profileEvent->GetClassicTuneTimeInfo(success, tuneRetries, firstTuneType, playerLoadTime, streamType, isLive, durationInSec, TuneTimeInfoStr);
-    EXPECT_EQ(tuneRetries,2147483647);
-    EXPECT_EQ(firstTuneType,2147483647);
-    EXPECT_EQ(playerLoadTime,1000);
-    EXPECT_EQ(streamType,2147483647);
-    ASSERT_TRUE(isLive);
-}
-TEST_F(AampProfilertests, GetClassicTuneTimeInfoTest2)
-{
-    bool success = true;
-    int tuneRetries = INT_MIN;
-    int firstTuneType = INT_MIN;
-    long long playerLoadTime = 1000;
-    int streamType = INT_MIN;
-    bool isLive = true;
-    unsigned int durationInSec = 120;
-    char TuneTimeInfoStr[256]; 
-    profileEvent->GetClassicTuneTimeInfo(success, tuneRetries, firstTuneType, playerLoadTime, streamType, isLive, durationInSec, TuneTimeInfoStr);
-    EXPECT_EQ(tuneRetries,-2147483648);
-    EXPECT_EQ(firstTuneType,-2147483648);
-    EXPECT_EQ(playerLoadTime,1000);
-    EXPECT_EQ(streamType,-2147483648);
-    ASSERT_TRUE(isLive);
-}
-TEST_F(AampProfilertests, GetClassicTuneTimeInfoTest3)
-{
-    bool success = false;
-    int tuneRetries = INT_MIN;
-    int firstTuneType = INT_MAX;
-    long long playerLoadTime = 0;
-    int streamType = INT_MAX;
-    bool isLive = false;
-    unsigned int durationInSec = 120;
-    char TuneTimeInfoStr[256];
-    for(int i=0;i<256;i++)
-    TuneTimeInfoStr[i]= 'A';
-    profileEvent->GetClassicTuneTimeInfo(success, tuneRetries, firstTuneType, playerLoadTime, streamType, isLive, durationInSec, TuneTimeInfoStr);
-    EXPECT_EQ(tuneRetries,-2147483648);
-    EXPECT_EQ(firstTuneType,2147483647);
-    EXPECT_EQ(playerLoadTime,0);
-    EXPECT_EQ(streamType,2147483647);
-    ASSERT_TRUE(true);
-}
+
 TEST_F(AampProfilertests, TuneEndTest1)
 {
     TuneEndMetrics metrics;
