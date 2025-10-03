@@ -3488,14 +3488,13 @@ AAMPStatusType StreamAbstractionAAMP_MPD::InitTsbReader(TuneType tuneType)
 		}
 
 		AAMPLOG_INFO("Neil call tsbSessionManager->InvokeTsbReaders()");
-
 		retVal = tsbSessionManager->InvokeTsbReaders(position, aamp->rate, mTuneType);
 
 		if(eAAMPSTATUS_OK == retVal)
 		{
 			seekPosition = position;
 			mFirstPTS = tsbSessionManager->GetTsbReader(eMEDIATYPE_VIDEO)->GetFirstPTS();
-			AAMPLOG_MIL("Updated position: %lfs, pts:%lfs", seekPosition, mFirstPTS);
+			AAMPLOG_MIL("Neil Updated position: %lfs, pts:%lfs", seekPosition, mFirstPTS);
 		}
 		else
 		{
@@ -3504,7 +3503,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::InitTsbReader(TuneType tuneType)
 	}
 	else
 	{
-		AAMPLOG_ERR("TSBSessionManager not found for seek/trickplay");
+		AAMPLOG_ERR("Neil TSBSessionManager not found for seek/trickplay");
 		retVal = eAAMPSTATUS_INVALID_PLAYLIST_ERROR;
 	}
 	return retVal;

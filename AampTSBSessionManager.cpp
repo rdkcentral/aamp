@@ -180,6 +180,8 @@ std::shared_ptr<CachedFragment> AampTSBSessionManager::Read(TsbInitDataPtr initf
 {
 	INIT_CHECK_RETURN_VAL(nullptr);
 
+	AAMPLOG_INFO("Neil entering  AampTSBSessionManager::Read(cachedFragment->initFragment = true)");
+	
 	CachedFragmentPtr cachedFragment = std::make_shared<CachedFragment>();
 	std::string url = initfragdata->GetUrl();
 	std::string effectiveUrl;
@@ -188,6 +190,7 @@ std::shared_ptr<CachedFragment> AampTSBSessionManager::Read(TsbInitDataPtr initf
 	cachedFragment->cacheFragStreamInfo = initfragdata->GetCacheFragStreamInfo();
 	cachedFragment->profileIndex = initfragdata->GetProfileIndex();
 	cachedFragment->initFragment = true;
+
 	if (!readFromAampCache)
 	{
 		// Read from TSBLibrary
@@ -489,7 +492,7 @@ void AampTSBSessionManager::ProcessWriteQueue()
  */
 void AampTSBSessionManager::Flush()
 {
-	AAMPLOG_INFO("Flush AAMP TSB");
+	AAMPLOG_INFO("Neil entering Flush() - AAMP TSB");
 	// Call TSBHandler Flush to clear the TSB
 	// Clear all the data structure within AampTSBSessionManager
 	// Stop the monitor thread
@@ -744,6 +747,7 @@ AAMPStatusType AampTSBSessionManager::InvokeTsbReaders(double &startPosSec, floa
 {
 	INIT_CHECK_RETURN_VAL(eAAMPSTATUS_GENERIC_ERROR);
 
+	AAMPLOG_INFO("Neil entering AampTSBSessionManager::InvokeTsbReaders()");
 	LockReadMutex();
 	AAMPStatusType ret = eAAMPSTATUS_OK;
 	if (!mTsbReaders.empty())
@@ -751,6 +755,9 @@ AAMPStatusType AampTSBSessionManager::InvokeTsbReaders(double &startPosSec, floa
 		// Re-Invoke TSB readers to new position
 		mActiveTuneType = tuneType;
 		mLastAdMetaDataProcessed = nullptr;
+
+		AAMPLOG_INFO("Neil calling GetTsbReader(eMEDIATYPE_VIDEO)->Term();");
+
 		GetTsbReader(eMEDIATYPE_VIDEO)->Term();
 		ret = GetTsbReader(eMEDIATYPE_VIDEO)->Init(startPosSec, rate, tuneType);
 		if (eAAMPSTATUS_OK != ret)
@@ -836,11 +843,14 @@ bool AampTSBSessionManager::PushNextTsbFragment(MediaStreamContext *pMediaStream
 	// FN_TRACE_F_MPD( __FUNCTION__ );
 	INIT_CHECK_RETURN_VAL(false);
 
+
 	bool ret = true;
 	AampMediaType mediaType = pMediaStreamContext->mediaType;
 	LockReadMutex();
 	uint32_t numNeededFragments = 1;
 	std::shared_ptr<AampTsbReader> reader = GetTsbReader(mediaType);
+
+	AAMPLOG_INFO("Neil entering  AampTSBSessionManager::PushNextTsbFragment()");
 
 	if (reader->TrackEnabled())
 	{
@@ -861,11 +871,13 @@ bool AampTSBSessionManager::PushNextTsbFragment(MediaStreamContext *pMediaStream
 				double bandwidth = initFragmentData->GetBandWidth();
 				if (initFragmentData && (initFragmentData != reader->mLastInitFragmentData))
 				{
-					AAMPLOG_TRACE("[%s] Previous init fragment data is different from current init fragment data, injecting", GetMediaTypeName(mediaType));
+					AAMPLOG_INFO("[%s] Previous init fragment data is different from current init fragment data, injecting", GetMediaTypeName(mediaType));
 					numNeededFragments = 2;
 					injectInitFragmentData = true;
 				}
 
+				AAMPLOG_INFO("Neil numFreeFragments %d  numNeededFragments%d", numFreeFragments, numNeededFragments);
+				
 				if (numFreeFragments >= numNeededFragments)
 				{
 					// Going to cache the fragment so update the reader with the next fragment
@@ -877,6 +889,8 @@ bool AampTSBSessionManager::PushNextTsbFragment(MediaStreamContext *pMediaStream
 						CachedFragmentPtr initFragment = Read(std::move(initFragmentData));
 						if (initFragment)
 						{
+							AAMPLOG_INFO("Neil initFragment true");
+
 							if(reader->IsDiscontinuous())
 							{
 								initFragment->discontinuity = true;
@@ -886,23 +900,25 @@ bool AampTSBSessionManager::PushNextTsbFragment(MediaStreamContext *pMediaStream
 							// as the PTS value is required for overriding events in qtdemux
 							initFragment->position = nextFragmentData->GetPTS().inSeconds();
 
-							AAMPLOG_INFO("[%s] Cache init fragment CurrentBandwidth: %.02lf Previous Bandwidth: %.02lf IsDiscontinuous: %d",
+							AAMPLOG_INFO("Neil [%s] Cache init fragment CurrentBandwidth: %.02lf Previous Bandwidth: %.02lf IsDiscontinuous: %d",
 								GetMediaTypeName(mediaType), bandwidth, reader->mCurrentBandwidth, initFragment->discontinuity);
 
 							if (pMediaStreamContext->CacheTsbFragment(std::move(initFragment)))
 							{
-								AAMPLOG_TRACE("[%s] Successfully cached init fragment", GetMediaTypeName(mediaType));
+								AAMPLOG_INFO("Neil [%s] Successfully cached init fragment", GetMediaTypeName(mediaType));
 								reader->mCurrentBandwidth = bandwidth;
 							}
 							else
 							{
-								AAMPLOG_ERR("[%s] Failed to cache init fragment", GetMediaTypeName(mediaType));
+								AAMPLOG_ERR("Neil [%s] Failed to cache init fragment", GetMediaTypeName(mediaType));
 								reader->mLastInitFragmentData = nullptr;
 								ret = false;
 							}
 						}
 						else
 						{
+							AAMPLOG_INFO("Neil initFragment false");
+
 							AAMPLOG_ERR("[%s] Failed to read init fragment at %lf", GetMediaTypeName(mediaType), nextFragmentData->GetAbsolutePosition().inSeconds());
 							ret = false;
 						}
@@ -928,7 +944,7 @@ bool AampTSBSessionManager::PushNextTsbFragment(MediaStreamContext *pMediaStream
 
 							if (pMediaStreamContext->CacheTsbFragment(std::move(nextFragment)))
 							{
-								AAMPLOG_TRACE("[%s] Successfully cached fragment", GetMediaTypeName(mediaType));
+								AAMPLOG_TRACE("Neil [%s] Successfully cached fragment", GetMediaTypeName(mediaType));
 								if(reader->IsEos())
 								{
 									// Unblock live downloader if it is waiting for end fragment injection
@@ -937,39 +953,39 @@ bool AampTSBSessionManager::PushNextTsbFragment(MediaStreamContext *pMediaStream
 							}
 							else
 							{
-								AAMPLOG_ERR("[%s] Failed to cache fragment", GetMediaTypeName(mediaType));
+								AAMPLOG_ERR("Neil [%s] Failed to cache fragment", GetMediaTypeName(mediaType));
 								ret = false;
 							}
 							LockReadMutex();
 						}
 						else
 						{
-							AAMPLOG_ERR("[%s] Failed to read fragment at %lf", GetMediaTypeName(mediaType), nextFragmentData->GetAbsolutePosition().inSeconds());
+							AAMPLOG_ERR("Neil [%s] Failed to read fragment at %lf", GetMediaTypeName(mediaType), nextFragmentData->GetAbsolutePosition().inSeconds());
 							ret = false;
 						}
 					}
 				}
 				else
 				{
-					AAMPLOG_TRACE("[%s] Insufficient space, free %u needed %u", GetMediaTypeName(mediaType), numFreeFragments, numNeededFragments);
+					AAMPLOG_TRACE("Neil [%s] Insufficient space, free %u needed %u", GetMediaTypeName(mediaType), numFreeFragments, numNeededFragments);
 					ret = false;
 				}
 			}
 			else
 			{
-				AAMPLOG_WARN("[%s] Failed to read next fragment", GetMediaTypeName(mediaType));
+				AAMPLOG_WARN("Neil [%s] Failed to read next fragment", GetMediaTypeName(mediaType));
 				ret = false;
 			}
 		}
 		else
 		{
-			AAMPLOG_TRACE("[%s] Insufficient space, free %u", GetMediaTypeName(mediaType), numFreeFragments);
+			AAMPLOG_TRACE("Neil [%s] Insufficient space, free %u", GetMediaTypeName(mediaType), numFreeFragments);
 			ret = false;
 		}
 	}
 	else
 	{
-		AAMPLOG_WARN("[%s] Track not enabled", GetMediaTypeName(mediaType));
+		AAMPLOG_WARN("Neil [%s] Track not enabled", GetMediaTypeName(mediaType));
 		ret = false;
 	}
 	UnlockReadMutex();

@@ -61,7 +61,7 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 {
 	bool ret = false;
 	double posInAbsTimeline = ((double)fragmentTime);
-	AAMPLOG_INFO("Type[%d] position(before restamp) %f discontinuity %d pto %f scale %u duration %f mPTSOffsetSec %f absTime %lf fragmentUrl %s", type, position, discontinuity, pto, scale, fragmentDurationS, GetContext()->mPTSOffset.inSeconds(), posInAbsTimeline, fragmentUrl.c_str());
+	AAMPLOG_INFO("Neil entering CacheFragment() Type[%d] position(before restamp) %f discontinuity %d pto %f scale %u duration %f mPTSOffsetSec %f absTime %lf fragmentUrl %s", type, position, discontinuity, pto, scale, fragmentDurationS, GetContext()->mPTSOffset.inSeconds(), posInAbsTimeline, fragmentUrl.c_str());
 
 	fragmentDurationSeconds = fragmentDurationS;
 	ProfilerBucketType bucketType = aamp->GetProfilerBucketForMedia(mediaType, initSegment);
@@ -83,7 +83,7 @@ bool MediaStreamContext::CacheFragment(std::string fragmentUrl, unsigned int cur
 	{
 		// apply pts offset to position which ends up getting put into gst_buffer in sendHelper
 		position += GetContext()->mPTSOffset.inSeconds();
-		AAMPLOG_INFO("Type[%d] position after restamp = %fs", type, position);
+		AAMPLOG_INFO("Neil Type[%d] position after restamp = %fs", type, position);
 	}
 	AampTSBSessionManager *tsbSessionManager = aamp->GetTSBSessionManager();
 

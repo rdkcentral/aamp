@@ -62,6 +62,9 @@ TsbFragmentDataPtr AampTsbDataManager::GetNearestFragment(double position)
 {
 	TSB_DM_TIME_DATA();
 	TsbFragmentDataPtr fragmentData = nullptr;
+
+	AAMPLOG_INFO("Neil entering AampTsbDataManager::GetNearestFragment()");
+
 	try
 	{
 		std::lock_guard<std::mutex> lock(mTsbDataMutex);
@@ -112,6 +115,9 @@ TsbFragmentDataPtr AampTsbDataManager::RemoveFragment(bool &deleteInit)
 {
 	TSB_DM_TIME_DATA();
 	TsbFragmentDataPtr deletedFragment = nullptr;
+
+	AAMPLOG_INFO("Neil entering AampTsbDataManager::RemoveFragment()");
+
 	try
 	{
 		std::lock_guard<std::mutex> lock(mTsbDataMutex);
@@ -153,6 +159,9 @@ std::list<TsbFragmentDataPtr> AampTsbDataManager::RemoveFragments(double positio
 {
 	TSB_DM_TIME_DATA();
 	std::list<TsbFragmentDataPtr> deletedFragments;
+
+	AAMPLOG_INFO("Neil entering AampTsbDataManager::RemoveFragments()");
+
 	try
 	{
 		std::lock_guard<std::mutex> lock(mTsbDataMutex);
@@ -200,6 +209,9 @@ bool AampTsbDataManager::IsFragmentPresent(double position)
 {
 	TSB_DM_TIME_DATA();
 	bool present = false;
+
+	AAMPLOG_INFO("Neil entering AampTsbDataManager::IsFragmentPresent()");
+
 	try
 	{
 		std::lock_guard<std::mutex> lock(mTsbDataMutex);
@@ -233,6 +245,9 @@ TsbFragmentDataPtr AampTsbDataManager::GetFragment(double position, bool &eos)
 	eos = false;
 	TsbFragmentDataPtr fragment = nullptr;
 	std::lock_guard<std::mutex> lock(mTsbDataMutex);
+
+	AAMPLOG_INFO("Neil entering AampTsbDataManager::GetFragment()");
+
 	if (!mTsbFragmentData.empty())
 	{
 		auto segment = mTsbFragmentData.find(position);
@@ -257,6 +272,9 @@ double AampTsbDataManager::GetFirstFragmentPosition()
 {
 	TSB_DM_TIME_DATA();
 	double pos = 0.0;
+
+	AAMPLOG_INFO("Neil entering AampTsbDataManager::GetFirstFragmentPosition()");
+
 	std::lock_guard<std::mutex> lock(mTsbDataMutex);
 	if (!mTsbFragmentData.empty())
 	{
@@ -272,6 +290,9 @@ double AampTsbDataManager::GetFirstFragmentPosition()
 TsbFragmentDataPtr AampTsbDataManager::GetFirstFragment()
 {
 	TSB_DM_TIME_DATA();
+
+	AAMPLOG_INFO("Neil entering AampTsbDataManager::GetFirstFragment()");
+
 	TsbFragmentDataPtr ret = nullptr;
 	std::lock_guard<std::mutex> lock(mTsbDataMutex);
 	if (!mTsbFragmentData.empty())
@@ -288,6 +309,9 @@ TsbFragmentDataPtr AampTsbDataManager::GetFirstFragment()
 TsbFragmentDataPtr AampTsbDataManager::GetLastFragment()
 {
 	TSB_DM_TIME_DATA();
+
+	AAMPLOG_INFO("Neil entering AampTsbDataManager::GetLastFragment()");
+
 	TsbFragmentDataPtr ret = nullptr;
 	std::lock_guard<std::mutex> lock(mTsbDataMutex);
 	if (!mTsbFragmentData.empty())
@@ -304,6 +328,9 @@ TsbFragmentDataPtr AampTsbDataManager::GetLastFragment()
 double AampTsbDataManager::GetLastFragmentPosition()
 {
 	TSB_DM_TIME_DATA();
+
+	AAMPLOG_INFO("Neil entering AampTsbDataManager::GetLastFragmentPosition()");
+
 	double pos = 0.0;
 	std::lock_guard<std::mutex> lock(mTsbDataMutex);
 	if (!mTsbFragmentData.empty())
@@ -320,8 +347,9 @@ bool AampTsbDataManager::AddInitFragment(std::string &url, AampMediaType media, 
 {
 	TSB_DM_TIME_DATA();
 	bool ret = false;
+	AAMPLOG_INFO("Neil entering AampTsbDataManager::AddInitFragment");
 
-	try
+		try
 	{
 		std::lock_guard<std::mutex> lock(mTsbDataMutex);
 		AAMPLOG_INFO("[%s] Adding Init Data: position %.02lfs bandwidth %" BITSPERSECOND_FORMAT "  periodId:%s wt: %d ht: %d fr: %.02lf Url: '%s'",
@@ -354,6 +382,9 @@ bool AampTsbDataManager::AddFragment(TSBWriteData &writeData, AampMediaType medi
 	std::string periodId {writeData.periodId};
 	uint32_t timeScale {writeData.cachedFragment->timeScale};
 	double PTSOffsetSec {writeData.cachedFragment->PTSOffsetSec};
+
+	AAMPLOG_INFO("Neil entering AampTsbDataManager::AddFragment()");
+
 	try
 	{
 		std::lock_guard<std::mutex> lock(mTsbDataMutex);
@@ -362,7 +393,7 @@ bool AampTsbDataManager::AddFragment(TSBWriteData &writeData, AampMediaType medi
 			AAMPLOG_WARN("Inserting fragment at %.02lf but init header information is missing !!!", position);
 			return ret;
 		}
-		AAMPLOG_INFO("[%s] Adding fragment data: position %.02lfs duration %.02lfs pts %.02lfs bandwidth %" BITSPERSECOND_FORMAT " discontinuous %d periodId %s timeScale %u ptsOffset %fs fragmentUrl '%s' initHeaderUrl '%s'",
+		AAMPLOG_INFO("Neil [%s] Adding fragment data: position %.02lfs duration %.02lfs pts %.02lfs bandwidth %" BITSPERSECOND_FORMAT " discontinuous %d periodId %s timeScale %u ptsOffset %fs fragmentUrl '%s' initHeaderUrl '%s'",
 					 GetMediaTypeName(media), position, duration, pts, mCurrentInitData->GetBandWidth(), discont, periodId.c_str(), timeScale, PTSOffsetSec,
 					 url.c_str(), mCurrentInitData->GetUrl().c_str());
 		mCurrentInitData->incrementUser();
@@ -391,6 +422,9 @@ bool AampTsbDataManager::DumpData()
 {
 	TSB_DM_TIME_DATA();
 	bool ret = false;
+
+	AAMPLOG_INFO("Neil entering AampTsbDataManager::DumpData()");
+
 	try
 	{
 		std::lock_guard<std::mutex> lock(mTsbDataMutex);
@@ -401,7 +435,7 @@ bool AampTsbDataManager::DumpData()
 			{
 				TsbFragmentDataPtr fragmentData = it->second;
 				TsbInitDataPtr initdata = fragmentData->GetInitFragData();
-				AAMPLOG_INFO("Fragment Meta Data: { Media [%d] absPosition : %.02lf duration: %.02lf PTS : %.02lf bandwidth: %" BITSPERSECOND_FORMAT " discontinuous: %d fragmentUrl: '%s' initHeaderUrl: '%s' }",
+				AAMPLOG_INFO("Neil Fragment Meta Data: { Media [%d] absPosition : %.02lf duration: %.02lf PTS : %.02lf bandwidth: %" BITSPERSECOND_FORMAT " discontinuous: %d fragmentUrl: '%s' initHeaderUrl: '%s' }",
 							 fragmentData->GetMediaType(), fragmentData->GetAbsolutePosition().inSeconds(), fragmentData->GetDuration().inSeconds(), fragmentData->GetPTS().inSeconds(),
 							 initdata->GetBandWidth(), fragmentData->IsDiscontinuous(), fragmentData->GetUrl().c_str(), initdata->GetUrl().c_str());
 			}
@@ -422,7 +456,7 @@ bool AampTsbDataManager::DumpData()
 void AampTsbDataManager::Flush()
 {
 	TSB_DM_TIME_DATA();
-	AAMPLOG_INFO("Flush AAMP TSB data");
+	AAMPLOG_INFO("Neil entering AampTsbDataManager::Flush()");
 	try
 	{
 		std::lock_guard<std::mutex> lock(mTsbDataMutex);
@@ -452,6 +486,9 @@ void AampTsbDataManager::Flush()
 TsbFragmentDataPtr AampTsbDataManager::GetNextDiscFragment(double position, bool backwardSearch)
 {
 	TsbFragmentDataPtr fragment = nullptr;
+
+	AAMPLOG_INFO("Neil entering AampTsbDataManager::GetNextDiscFragment()");
+
 	try
 	{
 		std::lock_guard<std::mutex> lock(mTsbDataMutex);
