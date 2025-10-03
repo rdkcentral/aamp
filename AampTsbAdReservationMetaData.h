@@ -54,6 +54,15 @@ public:
 	~AampTsbAdReservationMetaData() override = default;
 
 	/**
+	 * @brief Get the type of the metadata.
+	 * @return Metadata type.
+	 */
+	virtual AampTsbMetaData::Type GetType() const override
+	{
+		return AampTsbMetaData::Type::AD_RESERVATION_METADATA_TYPE;
+	}
+
+	/**
 	 * @brief Dump metadata information
 	 * @param[in] message Optional message to include in the dump
 	 */

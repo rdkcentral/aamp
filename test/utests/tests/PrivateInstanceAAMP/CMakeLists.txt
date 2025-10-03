@@ -49,6 +49,7 @@ set(TEST_SOURCES PauseAtTests.cpp
                  MediaFormatTypeTests.cpp
                  IsPeriodChangeMarkedTests.cpp
                  SubtitleMuteTests.cpp
+                 ClosedCaptionTests.cpp
                  PrivateInstanceAAMPTests.cpp
                  LocalTSBTests.cpp)
 
