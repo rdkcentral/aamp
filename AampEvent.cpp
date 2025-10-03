@@ -160,7 +160,7 @@ ProgressEvent::ProgressEvent(double duration, double position, double start, dou
 		mEnd(end), mSpeed(speed), mPTS(pts),
 		mVideoBufferedDurationMs(videoBufferedDuration),
 		mAudioBufferedDurationMs(audioBufferedDuration),
-		mSEITimecode(seiTimecode),
+		mSEITimecode(std::move(seiTimecode)),
 		mLiveLatency(liveLatency),
 		mProfileBandwidth(profileBandwidth),
 		mNetworkBandwidth(networkBandwidth),

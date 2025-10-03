@@ -219,15 +219,15 @@ TsbFragmentDataPtr AampTsbReader::FindNext()
 			}
 		}
 
-	   if (!ret)
-	   {
-		   AAMPLOG_INFO("[%s] No next fragment available, mCurrentRate %f", GetMediaTypeName(mMediaType), mCurrentRate);
+		if (!ret)
+		{
+			AAMPLOG_TRACE("[%s] No next fragment available, mCurrentRate %f", GetMediaTypeName(mMediaType), mCurrentRate);
 
-		   if (mCurrentRate < AAMP_NORMAL_PLAY_RATE)
-		   {
+			if (mCurrentRate < AAMP_NORMAL_PLAY_RATE)
+			{
 				mEosReached = true;
-		   }
-	   }
+			}
+		}
 	}
 
 	if (ret)
@@ -418,12 +418,32 @@ void AampTsbReader::AbortCheckForWaitIfReaderDone()
 }
 
 /**
+ * @fn IsEos  - function to get EOS status
+ *
+ * @return bool - EOS
+ */
+bool AampTsbReader::IsEos()
+{
+	return mEosReached;
+}
+
+/**
  * @fn IsFirstDownload
  * @return True if first download
  */
 bool AampTsbReader::IsFirstDownload()
 {
 	return (mStartPosition == mUpcomingFragmentPosition);
+}
+
+/**
+ * @fn TrackEnabled
+ *
+ * @return bool - true if enabled
+ */
+bool AampTsbReader::TrackEnabled()
+{
+	return !IsEos() && mTrackEnabled;
 }
 
 /**

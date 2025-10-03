@@ -79,7 +79,8 @@ void getConfigs(DrmSessionManager *mDrmSessionManager , PrivateInstanceAAMP *aam
  *  @brief AampDRMLicenseManager constructor.
  */
 AampDRMLicenseManager::AampDRMLicenseManager(int maxDrmSessions, PrivateInstanceAAMP *aamp) : mMaxDRMSessions(maxDrmSessions),
-		aampInstance(aamp), mDrmSessionManager(NULL)
+		aampInstance(aamp), mDrmSessionManager(NULL),
+		accessToken(NULL), accessTokenLen(0)
 {
     aampInstance = aamp; 
 	std::function<void(uint32_t,uint32_t,const std::string&)> waterMarkSessionUpdateCB = std::bind(&PrivateInstanceAAMP::SendWatermarkSessionUpdateEvent, aampInstance, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3);

@@ -257,11 +257,15 @@ public:
 	/**
 	 * @brief ProfileEventAAMP Destructor
 	 */
-	~ProfileEventAAMP(){
+	~ProfileEventAAMP()
+	{
 		if(telemetryParam != NULL)
 		{
 			cJSON_Delete(telemetryParam);
-			mLldLowBuffObject = NULL;
+		}
+		if (mLldLowBuffObject)
+		{
+			cJSON_Delete(mLldLowBuffObject);
 		}
 	}
 	/**

@@ -61,7 +61,8 @@ AampTSBSessionManager::AampTSBSessionManager(PrivateInstanceAAMP *aamp)
 		, mIsoBmffHelper(std::make_shared<IsoBmffHelper>())
 		, mTsbLength(0)
 		, mCurrentWritePosition(0)
-		, mLastAdMetaDataProcessed()
+		, mLastAdReservationMetaDataProcessed()
+		, mLastAdPlacementMetaDataProcessed()
 {
 }
 
@@ -134,14 +135,23 @@ void AampTSBSessionManager::InitializeMetaDataManager()
 	// Initialize the metadata manager
 	mMetaDataManager.Initialize();
 
-	// Register AD_METADATA_TYPE as transient
-	if (mMetaDataManager.RegisterMetaDataType(AampTsbMetaData::Type::AD_METADATA_TYPE, true))
+	// Register AD_RESERVATION_METADATA_TYPE as non-transient
+	if (mMetaDataManager.RegisterMetaDataType(AampTsbMetaData::Type::AD_RESERVATION_METADATA_TYPE, false))
 	{
-		AAMPLOG_INFO("Successfully registered AD_METADATA_TYPE as transient");
+		AAMPLOG_INFO("Successfully registered AD_RESERVATION_METADATA_TYPE as non-transient");
 	}
 	else
 	{
-		AAMPLOG_ERR("Failed to register AD_METADATA_TYPE");
+		AAMPLOG_ERR("Failed to register AD_RESERVATION_METADATA_TYPE");
+	}
+	// Register AD_PLACEMENT_METADATA_TYPE as transient
+	if (mMetaDataManager.RegisterMetaDataType(AampTsbMetaData::Type::AD_PLACEMENT_METADATA_TYPE, true))
+	{
+		AAMPLOG_INFO("Successfully registered AD_PLACEMENT_METADATA_TYPE as transient");
+	}
+	else
+	{
+		AAMPLOG_ERR("Failed to register AD_PLACEMENT_METADATA_TYPE");
 	}
 }
 
@@ -193,7 +203,7 @@ std::shared_ptr<CachedFragment> AampTSBSessionManager::Read(TsbInitDataPtr initf
 	if (!readFromAampCache)
 	{
 		// Read from TSBLibrary
-		std::string uniqueUrl = ToUniqueUrl(url,initfragdata->GetAbsolutePosition().inSeconds());
+		std::string uniqueUrl = ToUniqueUrl(std::move(url),initfragdata->GetAbsolutePosition().inSeconds());
 		std::size_t len = mTSBStore->GetSize(uniqueUrl);
 		if (len > 0)
 		{
@@ -752,7 +762,8 @@ AAMPStatusType AampTSBSessionManager::InvokeTsbReaders(double &startPosSec, floa
 	{
 		// Re-Invoke TSB readers to new position
 		mActiveTuneType = tuneType;
-		mLastAdMetaDataProcessed.reset();
+		mLastAdReservationMetaDataProcessed.reset();
+		mLastAdPlacementMetaDataProcessed.reset();
 		GetTsbReader(eMEDIATYPE_VIDEO)->Term();
 		ret = GetTsbReader(eMEDIATYPE_VIDEO)->Init(startPosSec, rate, tuneType);
 		if (eAAMPSTATUS_OK != ret)
@@ -778,71 +789,131 @@ AAMPStatusType AampTSBSessionManager::InvokeTsbReaders(double &startPosSec, floa
 }
 
 /**
+ * @brief Calculate delta value for fragment skipping based on rate and FPS
+ */
+AampTime AampTSBSessionManager::CalculateSkipDelta(float rate, int vodTrickplayFPS)
+{
+	AampTime delta = 0.0;
+
+	if (mAamp->playerStartedWithTrickPlay)
+	{
+		AAMPLOG_WARN("Played switched in trickplay, delta set to zero");
+		mAamp->playerStartedWithTrickPlay = false;
+	}
+	else if (vodTrickplayFPS == 0)
+	{
+		AAMPLOG_WARN("vodTrickplayFPS is zero, delta set to zero");
+	}
+	else
+	{
+		delta = static_cast<AampTime>(std::abs(static_cast<double>(rate))) / static_cast<double>(vodTrickplayFPS);
+	}
+
+	return delta;
+}
+
+/**
+ * @brief Navigate to next fragment based on playback rate
+ */
+bool AampTSBSessionManager::NavigateToNextFragment(TsbFragmentDataPtr& fragment, float rate)
+{
+	bool success = false;
+
+	if (rate > AAMP_RATE_PAUSE)		// Fast forward
+	{
+		if (fragment->GetAbsolutePosition().inSeconds() >= mAamp->mTrickModePositionEOS)
+		{
+			// It is not guaranteed that this INFO will be printed when the live play position is reached,
+			// as the reader may reach EOS before this function is called.
+			// But if this INFO is printed, it confirms that the live play position was reached.
+			AAMPLOG_INFO("Reached live play position during fast forward");
+			success = false;
+		}
+		else
+		{
+			fragment = fragment->next;
+			success = true;
+		}
+	}
+	else							// Rewind
+	{
+		if (fragment->prev)
+		{
+			fragment = fragment->prev;
+			success = true;
+		}
+		if (!(fragment->prev))
+		{
+			// Don't skip the first fragment in the TSB so BoS is detected correctly
+			AAMPLOG_INFO("Reached beginning of TSB during rewind");
+			success = false;
+		}
+	}
+
+	return success;
+}
+
+/**
+ * @brief Check if fragment skipping should be performed
+ */
+bool AampTSBSessionManager::ShouldSkipFragments(std::shared_ptr<AampTsbReader>& reader, float rate)
+{
+	return (eMEDIATYPE_VIDEO == reader->GetMediaType() &&
+			((AAMP_NORMAL_PLAY_RATE < rate) || (AAMP_RATE_PAUSE > rate)));
+}
+
+/**
  * @brief Skip the frames based on playback rate on trickplay
  */
 void AampTSBSessionManager::SkipFragment(std::shared_ptr<AampTsbReader>& reader, TsbFragmentDataPtr& nextFragmentData)
 {
+	// Early validation check
 	if (nextFragmentData && reader && !reader->IsEos())
 	{
-		AampTime skippedDuration{};
-		if(eMEDIATYPE_VIDEO == reader->GetMediaType())
+		float rate = reader->GetPlaybackRate();
+
+		if (ShouldSkipFragments(reader, rate))
 		{
 			AampTime startPos = nextFragmentData->GetAbsolutePosition();
 			const int vodTrickplayFPS = mAamp->mConfig->GetConfigValue(eAAMPConfig_VODTrickPlayFPS);
-			float rate = reader->GetPlaybackRate();
-			AampTime delta = 0.0;
-			if(mAamp->playerStartedWithTrickPlay)
-			{
-				AAMPLOG_WARN("Played switched in trickplay, delta set to zero");
-				delta = 0.0;
-				mAamp->playerStartedWithTrickPlay = false;
-			}
-			else if (vodTrickplayFPS == 0)
-			{
-				AAMPLOG_WARN("vodTrickplayFPS is zero, delta set to zero");
-			}
-			else
-			{
-				delta = static_cast<AampTime>(std::abs(static_cast<double>(rate))) / static_cast<double>(vodTrickplayFPS);
-			}
-			
+			AampTime skippedDuration{};
+			AampTime delta = CalculateSkipDelta(rate, vodTrickplayFPS);
+
 			// Only skip fragments when delta is larger than fragment duration
-			while (delta > 0.0)
+			while (nextFragmentData && (delta > 0.0))
 			{
 				AampTime fragDuration = nextFragmentData->GetDuration();
 				if (delta <= fragDuration)
+				{
 					break;
+				}
 
 				delta -= fragDuration;
 				skippedDuration += fragDuration;
-				TsbFragmentDataPtr tmp{};
-				if (rate > 0.0)
-				{
-					tmp = nextFragmentData->next;
-				}
-				else if (rate < 0.0)
-				{
-					tmp = nextFragmentData->prev;
-				}
-				if (!tmp)
+
+				if (!NavigateToNextFragment(nextFragmentData, rate))
 				{
 					break;
 				}
-				nextFragmentData = tmp;
 			}
-			AAMPLOG_INFO("Skipped frames [rate=%.02f] from %.02lf to %.02lf total duration = %.02lf",
-					rate, startPos.inSeconds(), nextFragmentData->GetAbsolutePosition().inSeconds(), skippedDuration.inSeconds());
+
+			// Only print this INFO if the next fragment to inject is available.
+			// This function is always called with the next fragment to the last one read, so the skipped duration includes all fragments skipped
+			if (nextFragmentData)
+			{
+				AAMPLOG_INFO("Skipped frames [rate=%.02f] from %.02lf to %.02lf delta = %.02lf, total duration = %.02lf",
+						rate, startPos.inSeconds(), nextFragmentData->GetAbsolutePosition().inSeconds(), delta.inSeconds(), skippedDuration.inSeconds());
+			}
 		}
 	}
-	return;
 }
+
 /**
- * @brief Read next fragment and push it to the injector loop
+ * @brief Read next fragment from the TSB and push it to the injector loop via the fragment cache
  *
  * @param[in] MediaStreamContext of appropriate track
  * @param[in] numFreeFragments number of free fragment spaces in the cache
  * @return bool - true if cached fragment
- * @brief Fetches and caches audio fragment in parallel with video fragment.
  */
 bool AampTSBSessionManager::PushNextTsbFragment(MediaStreamContext *pMediaStreamContext,
 												uint32_t numFreeFragments)
@@ -856,136 +927,131 @@ bool AampTSBSessionManager::PushNextTsbFragment(MediaStreamContext *pMediaStream
 	uint32_t numNeededFragments = 1;
 	std::shared_ptr<AampTsbReader> reader = GetTsbReader(mediaType);
 
-	if (reader->TrackEnabled())
+	if (numFreeFragments)
 	{
-		if (numFreeFragments)
+		TsbFragmentDataPtr nextFragmentData = reader->FindNext();
+		AampTime rate = reader->GetPlaybackRate();
+		SkipFragment(reader, nextFragmentData);
+
+		if (nextFragmentData)
 		{
-			TsbFragmentDataPtr nextFragmentData = reader->FindNext();
-			AampTime rate = reader->GetPlaybackRate();
-			// Slow motion is handled in GST layer with SetPlaybackRate
-			if(AAMP_NORMAL_PLAY_RATE !=  rate && AAMP_RATE_PAUSE != rate && AAMP_SLOWMOTION_RATE != rate && eMEDIATYPE_VIDEO == mediaType)
+			TsbInitDataPtr initFragmentData = nextFragmentData->GetInitFragData();
+			bool injectInitFragmentData = false;
+			double bandwidth = initFragmentData->GetBandWidth();
+			if (initFragmentData && (initFragmentData != reader->mLastInitFragmentData))
 			{
-				SkipFragment(reader, nextFragmentData);
+				AAMPLOG_TRACE("[%s] Previous init fragment data is different from current init fragment data, injecting", GetMediaTypeName(mediaType));
+				numNeededFragments = 2;
+				injectInitFragmentData = true;
 			}
 
-			if (nextFragmentData)
+			if (numFreeFragments >= numNeededFragments)
 			{
-				TsbInitDataPtr initFragmentData = nextFragmentData->GetInitFragData();
-				bool injectInitFragmentData = false;
-				double bandwidth = initFragmentData->GetBandWidth();
-				if (initFragmentData && (initFragmentData != reader->mLastInitFragmentData))
+				// Going to cache the fragment so update the reader with the next fragment
+				reader->ReadNext(nextFragmentData);
+
+				if (injectInitFragmentData)
 				{
-					AAMPLOG_TRACE("[%s] Previous init fragment data is different from current init fragment data, injecting", GetMediaTypeName(mediaType));
-					numNeededFragments = 2;
-					injectInitFragmentData = true;
+					reader->mLastInitFragmentData = initFragmentData;
+					CachedFragmentPtr initFragment = Read(std::move(initFragmentData));
+					if (initFragment)
+					{
+						if(reader->IsDiscontinuous())
+						{
+							initFragment->discontinuity = true;
+						}
+
+						// For init fragment use next fragment PTS as position for injection,
+						// as the PTS value is required for overriding events in qtdemux
+						initFragment->position = nextFragmentData->GetPTS().inSeconds();
+
+						AAMPLOG_INFO("[%s] Cache init fragment CurrentBandwidth: %.02lf Previous Bandwidth: %.02lf IsDiscontinuous: %d",
+							GetMediaTypeName(mediaType), bandwidth, reader->mCurrentBandwidth, initFragment->discontinuity);
+
+						if (pMediaStreamContext->CacheTsbFragment(std::move(initFragment)))
+						{
+							AAMPLOG_TRACE("[%s] Successfully cached init fragment", GetMediaTypeName(mediaType));
+							reader->mCurrentBandwidth = bandwidth;
+						}
+						else
+						{
+							AAMPLOG_ERR("[%s] Failed to cache init fragment", GetMediaTypeName(mediaType));
+							reader->mLastInitFragmentData = nullptr;
+							ret = false;
+						}
+					}
+					else
+					{
+						AAMPLOG_ERR("[%s] Failed to read init fragment at %lf", GetMediaTypeName(mediaType), nextFragmentData->GetAbsolutePosition().inSeconds());
+						ret = false;
+					}
 				}
 
-				if (numFreeFragments >= numNeededFragments)
+				if (ret)
 				{
-					// Going to cache the fragment so update the reader with the next fragment
-					reader->ReadNext(nextFragmentData);
-
-					if (injectInitFragmentData)
+					double pts = 0;
+					CachedFragmentPtr nextFragment = Read(nextFragmentData, pts);
+					if (nextFragment)
 					{
-						reader->mLastInitFragmentData = initFragmentData;
-						CachedFragmentPtr initFragment = Read(std::move(initFragmentData));
-						if (initFragment)
+						// Slow motion is like a normal playback with audio (volume set to 0) and handled in GST layer with SetPlaybackRate
+						if(mAamp->IsIframeExtractionEnabled() && AAMP_NORMAL_PLAY_RATE !=  rate && AAMP_RATE_PAUSE != rate && eMEDIATYPE_VIDEO == mediaType && AAMP_SLOWMOTION_RATE != rate )
 						{
-							if(reader->IsDiscontinuous())
+							if(!mIsoBmffHelper->ConvertToKeyFrame(nextFragment->fragment))
 							{
-								initFragment->discontinuity = true;
+								AAMPLOG_ERR("[%s] Failed to generate iFrame track from video track at %lf", GetMediaTypeName(mediaType), nextFragmentData->GetAbsolutePosition().inSeconds());
 							}
+						}
+						UnlockReadMutex();
 
-							// For init fragment use next fragment PTS as position for injection,
-							// as the PTS value is required for overriding events in qtdemux
-							initFragment->position = nextFragmentData->GetPTS().inSeconds();
+						ProcessAdMetadata(mediaType, nextFragmentData, rate.inSeconds());
 
-							AAMPLOG_INFO("[%s] Cache init fragment CurrentBandwidth: %.02lf Previous Bandwidth: %.02lf IsDiscontinuous: %d",
-								GetMediaTypeName(mediaType), bandwidth, reader->mCurrentBandwidth, initFragment->discontinuity);
-
-							if (pMediaStreamContext->CacheTsbFragment(std::move(initFragment)))
+						if (pMediaStreamContext->CacheTsbFragment(std::move(nextFragment)))
+						{
+							AAMPLOG_TRACE("[%s] Successfully cached fragment", GetMediaTypeName(mediaType));
+							if(reader->IsEos())
 							{
-								AAMPLOG_TRACE("[%s] Successfully cached init fragment", GetMediaTypeName(mediaType));
-								reader->mCurrentBandwidth = bandwidth;
-							}
-							else
-							{
-								AAMPLOG_ERR("[%s] Failed to cache init fragment", GetMediaTypeName(mediaType));
-								reader->mLastInitFragmentData = nullptr;
-								ret = false;
+								// Unblock live downloader if it is waiting for end fragment injection
+								reader->AbortCheckForWaitIfReaderDone();
 							}
 						}
 						else
 						{
-							AAMPLOG_ERR("[%s] Failed to read init fragment at %lf", GetMediaTypeName(mediaType), nextFragmentData->GetAbsolutePosition().inSeconds());
+							AAMPLOG_ERR("[%s] Failed to cache fragment", GetMediaTypeName(mediaType));
 							ret = false;
 						}
+						LockReadMutex();
 					}
-
-					if (ret)
+					else
 					{
-						double pts = 0;
-						CachedFragmentPtr nextFragment = Read(nextFragmentData, pts);
-						if (nextFragment)
-						{
-							// Slow motion is like a normal playback with audio (volume set to 0) and handled in GST layer with SetPlaybackRate
-							if(mAamp->IsIframeExtractionEnabled() && AAMP_NORMAL_PLAY_RATE !=  rate && AAMP_RATE_PAUSE != rate && eMEDIATYPE_VIDEO == mediaType && AAMP_SLOWMOTION_RATE != rate )
-							{
-								if(!mIsoBmffHelper->ConvertToKeyFrame(nextFragment->fragment))
-								{
-									AAMPLOG_ERR("[%s] Failed to generate iFrame track from video track at %lf", GetMediaTypeName(mediaType), nextFragmentData->GetAbsolutePosition().inSeconds());
-								}
-							}
-							UnlockReadMutex();
-
-							ProcessAdMetadata(mediaType, nextFragmentData, rate.inSeconds());
-
-							if (pMediaStreamContext->CacheTsbFragment(std::move(nextFragment)))
-							{
-								AAMPLOG_TRACE("[%s] Successfully cached fragment", GetMediaTypeName(mediaType));
-								if(reader->IsEos())
-								{
-									// Unblock live downloader if it is waiting for end fragment injection
-									reader->AbortCheckForWaitIfReaderDone();
-								}
-							}
-							else
-							{
-								AAMPLOG_ERR("[%s] Failed to cache fragment", GetMediaTypeName(mediaType));
-								ret = false;
-							}
-							LockReadMutex();
-						}
-						else
-						{
-							AAMPLOG_ERR("[%s] Failed to read fragment at %lf", GetMediaTypeName(mediaType), nextFragmentData->GetAbsolutePosition().inSeconds());
-							ret = false;
-						}
+						AAMPLOG_ERR("[%s] Failed to read fragment at %lf", GetMediaTypeName(mediaType), nextFragmentData->GetAbsolutePosition().inSeconds());
+						ret = false;
 					}
-				}
-				else
-				{
-					AAMPLOG_TRACE("[%s] Insufficient space, free %u needed %u", GetMediaTypeName(mediaType), numFreeFragments, numNeededFragments);
-					ret = false;
 				}
 			}
 			else
 			{
-				AAMPLOG_WARN("[%s] Failed to read next fragment", GetMediaTypeName(mediaType));
+				AAMPLOG_TRACE("[%s] Insufficient space, free %u needed %u", GetMediaTypeName(mediaType), numFreeFragments, numNeededFragments);
 				ret = false;
 			}
 		}
+		else if (rate > AAMP_NORMAL_PLAY_RATE)
+		{
+			// Expected case when reader reaches live edge
+			AAMPLOG_TRACE("[%s] Failed to read next fragment (caught up with live edge)", GetMediaTypeName(mediaType));
+			ret = false;
+		}
 		else
 		{
-			AAMPLOG_TRACE("[%s] Insufficient space, free %u", GetMediaTypeName(mediaType), numFreeFragments);
+			AAMPLOG_WARN("[%s] Failed to read next fragment", GetMediaTypeName(mediaType));
 			ret = false;
 		}
 	}
 	else
 	{
-		AAMPLOG_WARN("[%s] Track not enabled", GetMediaTypeName(mediaType));
+		AAMPLOG_TRACE("[%s] Insufficient space, free %u", GetMediaTypeName(mediaType), numFreeFragments);
 		ret = false;
 	}
+
 	UnlockReadMutex();
 	return ret;
 }
@@ -1169,54 +1235,131 @@ void AampTSBSessionManager::ShiftFutureAdEvents()
 	}
 
 	// Get only AD type metadata using the template method with explicit type
-	auto result = mMetaDataManager.GetMetaDataByType<AampTsbMetaData>(AampTsbMetaData::Type::AD_METADATA_TYPE, currentWritePosition, currentWritePosition + mTsbLength);
+	auto result = mMetaDataManager.GetMetaDataByType<AampTsbMetaData>(AampTsbMetaData::Type::AD_RESERVATION_METADATA_TYPE, currentWritePosition, currentWritePosition + mTsbLength);
 	(void)mMetaDataManager.ChangeMetaDataPosition(result, currentWritePosition);
+	result = mMetaDataManager.GetMetaDataByType<AampTsbMetaData>(AampTsbMetaData::Type::AD_PLACEMENT_METADATA_TYPE, currentWritePosition, currentWritePosition + mTsbLength);
+	(void)mMetaDataManager.ChangeMetaDataPosition(result, currentWritePosition);
+}
+
+std::vector<std::shared_ptr<AampTsbAdMetaData>> AampTSBSessionManager::MergeAndSortAdMetaData(std::list<std::shared_ptr<AampTsbAdMetaData>> reservationList,
+																							  std::list<std::shared_ptr<AampTsbAdMetaData>> placementList)
+{
+	// Merge both lists in chronological order
+	std::vector<std::shared_ptr<AampTsbAdMetaData>> merged;
+	for (const auto& meta : reservationList)
+	{
+		merged.push_back(meta);
+	}
+	for (const auto& meta : placementList)
+	{
+		merged.push_back(meta);
+	}
+	// Sort merged list
+	std::sort(merged.begin(), merged.end(), [](const std::shared_ptr<AampTsbAdMetaData>& a, const std::shared_ptr<AampTsbAdMetaData>& b)
+	{
+		bool maintainOrder = true;
+		auto apos = a->GetPosition().milliseconds();
+		auto bpos = b->GetPosition().milliseconds();
+
+		// Different positions, sort by position
+		if (apos != bpos)
+		{
+			maintainOrder = apos < bpos;
+		}
+		else
+		{
+			// Same position, apply rules:
+			// Matching ad types, END should be before START
+			// Reservation events should be after Placement END
+			// Reservation events should be before Placement START
+			//
+			// This logic assumes that an advert exceeds a fragment duration, 
+			// i.e. an advert cannot start and end in the same fragment
+			auto aType = a->GetEventType();
+			auto bType = b->GetEventType();
+			auto aAdType = a->GetAdType();
+			auto bAdType = b->GetAdType();
+
+			if ( ((aAdType == bAdType) && (aType == AampTsbAdMetaData::EventType::START)) ||
+				 ((aAdType == AampTsbAdMetaData::AdType::RESERVATION) && bType == AampTsbAdMetaData::EventType::END) ||
+				 ((bAdType == AampTsbAdMetaData::AdType::RESERVATION) && aType == AampTsbAdMetaData::EventType::START) )
+			{
+				maintainOrder = false;
+			} 
+		}
+		return maintainOrder;
+	});
+	return merged;
 }
 
 void AampTSBSessionManager::ProcessAdMetadata(AampMediaType mediaType, TsbFragmentDataPtr nextFragmentData, float rate)
 {
 	if ((AAMP_NORMAL_PLAY_RATE == rate) && (eMEDIATYPE_VIDEO == mediaType))
 	{
-		AampTime rangeStart;
-		if (mLastAdMetaDataProcessed)
-		{
-			rangeStart = mLastAdMetaDataProcessed->GetPosition();
-		}
-		else
-		{
-			rangeStart = nextFragmentData->GetAbsolutePosition();
-		}
-		AampTime rangeEnd = nextFragmentData->GetAbsolutePosition() + nextFragmentData->GetDuration();
+		// Reservation range
+		AampTime reservationRangeStart = (mLastAdReservationMetaDataProcessed && mLastAdReservationMetaDataProcessed->GetPosition().milliseconds() != 0)
+			? mLastAdReservationMetaDataProcessed->GetPosition()
+			: nextFragmentData->GetAbsolutePosition();
+		AampTime reservationRangeEnd = nextFragmentData->GetAbsolutePosition() + nextFragmentData->GetDuration();
 
-		AAMPLOG_DEBUG("rangeStart = %" PRIu64 "ms, rangeEnd = %" PRIu64 "ms",
-			rangeStart.milliseconds(), rangeEnd.milliseconds());
+		// Placement range
+		AampTime placementRangeStart = (mLastAdPlacementMetaDataProcessed && mLastAdPlacementMetaDataProcessed->GetPosition().milliseconds() != 0)
+			? mLastAdPlacementMetaDataProcessed->GetPosition()
+			: nextFragmentData->GetAbsolutePosition();
+		AampTime placementRangeEnd = nextFragmentData->GetAbsolutePosition() + nextFragmentData->GetDuration();
 
-		// Get all ad metadata within the fragment's time range
-		auto adMetadataItems = mMetaDataManager.GetMetaDataByType<AampTsbAdMetaData>(
-			AampTsbMetaData::Type::AD_METADATA_TYPE, rangeStart, rangeEnd);
+		// Log the ranges being processed
+		AAMPLOG_DEBUG("ProcessAdMetadata: Reservation range [%" PRIu64", %" PRIu64") ms", reservationRangeStart.milliseconds(), reservationRangeEnd.milliseconds());
+		AAMPLOG_DEBUG("ProcessAdMetadata: Placement range [%" PRIu64", %" PRIu64") ms", placementRangeStart.milliseconds(), placementRangeEnd.milliseconds());
 
-		// Process metadata items in chronological order
-		bool skip = static_cast<bool>(mLastAdMetaDataProcessed);
-		for (const auto& adMetadata : adMetadataItems)
+		// Get AD_RESERVATION_METADATA_TYPE entries in range
+		std::list<std::shared_ptr<AampTsbAdMetaData>> reservationList = mMetaDataManager.GetMetaDataByType<AampTsbAdMetaData>(
+			AampTsbMetaData::Type::AD_RESERVATION_METADATA_TYPE, reservationRangeStart, reservationRangeEnd);
+
+		// Get AD_PLACEMENT_METADATA_TYPE entries in range
+		std::list<std::shared_ptr<AampTsbAdMetaData>> placementList = mMetaDataManager.GetMetaDataByType<AampTsbAdMetaData>(
+			AampTsbMetaData::Type::AD_PLACEMENT_METADATA_TYPE, placementRangeStart, placementRangeEnd);
+
+		// Remove entries up to and including the last processed for each list
+		// If no last processed, remove from beginning until a START event is found
+		auto skipUpToLast = [](std::list<std::shared_ptr<AampTsbAdMetaData>>& list, const std::shared_ptr<AampTsbMetaData>& lastProcessed)
 		{
-			// Skip until we have reached the last processed metadata
-			if (skip)
+			if (!lastProcessed)
 			{
-				if (adMetadata == mLastAdMetaDataProcessed)
+				// Remove from beginning until a START event is found
+				auto it = list.begin();
+				while (it != list.end() && (*it)->GetEventType() != AampTsbAdMetaData::EventType::START)
 				{
-					skip = false;
+					it = list.erase(it);
 				}
+				return;
 			}
+			auto it = std::find(list.begin(), list.end(), lastProcessed);
+			if (it != list.end())
+			{
+				list.erase(list.begin(), std::next(it));
+			}
+		};
+		skipUpToLast(reservationList, mLastAdReservationMetaDataProcessed);
+		skipUpToLast(placementList, mLastAdPlacementMetaDataProcessed);
+		
+		std::vector<std::shared_ptr<AampTsbAdMetaData>> merged = MergeAndSortAdMetaData(std::move(reservationList), std::move(placementList));
+
+		// Process merged list, and update last processed pointers
+		for (const auto& meta : merged)
+		{
+			AAMPLOG_INFO("Processing ad metadata, send event: AdType=%d EventType=%d Pos=%" PRIu64 "ms",
+				static_cast<int>(meta->GetAdType()),
+				static_cast<int>(meta->GetEventType()),
+				meta->GetPosition().milliseconds());
+			meta->SendEvent(mAamp);
+			if (meta->GetAdType() == AampTsbAdMetaData::AdType::RESERVATION)
+			{
+				mLastAdReservationMetaDataProcessed = meta;
+			} 
 			else
 			{
-				AAMPLOG_INFO("Processing ad metadata type %d event %d at position: %" PRIu64 "ms",
-							static_cast<int>(adMetadata->GetAdType()),
-							static_cast<int>(adMetadata->GetEventType()),
-							adMetadata->GetPosition().milliseconds());
-
-				// Let the metadata object handle sending the appropriate event
-				adMetadata->SendEvent(mAamp);
-				mLastAdMetaDataProcessed = std::static_pointer_cast<AampTsbMetaData>(adMetadata);
+				mLastAdPlacementMetaDataProcessed = meta;
 			}
 		}
 	}
