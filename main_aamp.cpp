@@ -832,6 +832,7 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 			if (!aamp->mSeekFromPausedState && (rate == aamp->rate) && !aamp->mbDetached)
 			{ // no change in desired play rate
 				// no deferring for playback resume
+				AAMPLOG_WARN("No change in rate, ignoring setrate");
 				if (aamp->pipeline_paused && rate != 0)
 				{
 					AAMPLOG_INFO("Resuming Playback at Position '%lld'.", aamp->GetPositionMilliseconds());
@@ -840,6 +841,7 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 					// Otherwise unpause the pipeline
 					if(aamp->IsLocalAAMPTsb() && !aamp->IsLocalAAMPTsbInjection())
 					{
+						AAMPLOG_INFO("Resuming Playback by seek into TSB at Position '%f'.", aamp->seek_pos_seconds);
 						retValue = false;
 						aamp->SetState(eSTATE_SEEKING);
 						aamp->seek_pos_seconds = aamp->GetPositionSeconds();
@@ -851,6 +853,7 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 					}
 					else
 					{
+						AAMPLOG_INFO("Resuming Playback by unpausing pipeline.");
 						// check if unpausing in the middle of fragments caching
 						if(!aamp->SetStateBufferingIfRequired())
 						{
@@ -858,6 +861,7 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 							StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(aamp);
 							if (sink)
 							{
+								AAMPLOG_INFO("pause/resume -  pipeline");
 								retValue = sink->Pause(false, false);
 							}
 							// required since buffers are already cached in paused state
@@ -870,17 +874,27 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 			}
 			else if (rate == 0)
 			{
+				AAMPLOG_INFO("Pausing Playback at Position '%lld'.", aamp->GetPositionMilliseconds());
 				if (!aamp->pipeline_paused)
 				{
 					aamp->mpStreamAbstractionAAMP->NotifyPlaybackPaused(true);
 					if (!aamp->IsLocalAAMPTsb())
 					{
+						AAMPLOG_INFO("SetRate pausing downloads");
 						aamp->StopDownloads();
+						if(aamp->mPausedBehavior == ePAUSED_BEHAVIOR_LIVE_DEFER )
+						{
+							AAMPLOG_INFO("vk--> PAUSE - defer to live on resume");
+							//Disable downloads if the pause is for infiite time or until user resumes. If we continue manifest downloadng in this case , it will cause  crash due to period culling in later point of time after  pause.
+							aamp->DisableDownloads();
+							aamp->mSeekFromPausedState = true;
+						}
 					}
 
 					StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(aamp);
 					if (sink)
 					{
+						AAMPLOG_INFO("pause/resume -  pipeline 2");
 						retValue = sink->Pause(true, false);
 					}
 					aamp->pipeline_paused = true;
@@ -899,6 +913,7 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 			{
 				//Enable playback if setRate call after detach
 				if(aamp->mbDetached){
+					AAMPLOG_WARN("set mbPlayEnabled true after detach");
 					aamp->mbPlayEnabled = true;
 				}
 
@@ -916,8 +931,9 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 				{
 					tuneTypePlay = eTUNETYPE_SEEKTOLIVE;
 					aamp->mJumpToLiveFromPause = false;
+					AAMPLOG_WARN("SetRate: Jump to live from pause");
 				}
-
+				AAMPLOG_INFO("Resuming Playback by tune at Position '%f'.", aamp->seek_pos_seconds);
 				aamp->rate = rate;
 				aamp->pipeline_paused = false;
 				aamp->mSeekFromPausedState = false;
@@ -937,6 +953,7 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 				// target state will be updated once caching completed
 				aamp->NotifySpeedChanged(aamp->pipeline_paused ? 0 : aamp->rate,
 										 (!aamp->IsFragmentCachingRequired() || aamp->pipeline_paused));
+										 AAMPLOG_INFO("Speed changed to %f", aamp->pipeline_paused ? 0.0 : aamp->rate);
 			}
 		}
 		else
