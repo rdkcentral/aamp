@@ -357,6 +357,7 @@ public:
 		if( !locked )
 		{
 			aampLoglevel = newLevel;
+			AAMPLOG_MIL("Log level set to %d", aampLoglevel);
 		}
 	}
 	

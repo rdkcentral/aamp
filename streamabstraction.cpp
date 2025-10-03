@@ -606,7 +606,7 @@ bool MediaTrack::WaitForFreeFragmentAvailable( int timeoutMs)
 			timeoutMs = 500;
 			if (std::cv_status::timeout == aamp->waitforplaystart.wait_for(lock,std::chrono::milliseconds(timeoutMs)))
 			{
-				AAMPLOG_TRACE("Timed out waiting for waitforplaystart");
+				AAMPLOG_WARN("Timed out waiting for waitforplaystart after %d ms", timeoutMs);
 				ret = false;
 			}
 		}
@@ -615,17 +615,19 @@ bool MediaTrack::WaitForFreeFragmentAvailable( int timeoutMs)
 	std::unique_lock<std::mutex> lock(mutex);
 	if ( ret && (numberOfFragmentsCached == maxCachedFragmentsPerTrack) )
 	{
+		AAMPLOG_MIL("Wait for fragmentInjected, timeout %d ms", timeoutMs);
 		if (timeoutMs >= 0)
 		{
 			if (std::cv_status::timeout == fragmentInjected.wait_for(lock,std::chrono::milliseconds(timeoutMs)))
 			{
-				AAMPLOG_TRACE("Timed out waiting for fragmentInjected");
+				AAMPLOG_WARN("Timed out waiting for fragmentInjected after %d ms", timeoutMs);
 				ret = false;
 			}
 		}
 		else
 		{
 			fragmentInjected.wait(lock);
+			AAMPLOG_MIL("Got fragmentInjected");
 		}
 		if(abort)
 		{

@@ -204,7 +204,7 @@ struct ConfigLookupEntryString
  */
 static const ConfigLookupEntryString mConfigLookupTableString[AAMPCONFIG_STRING_COUNT] =
 {
-	{"","harvestPath",eAAMPConfig_HarvestPath,false},
+	{"/tmp/data","harvestPath",eAAMPConfig_HarvestPath,false},
 	{"","licenseServerUrl",eAAMPConfig_LicenseServerUrl,false},
 	{"","ckLicenseServerUrl",eAAMPConfig_CKLicenseServerUrl,false},
 	{"","prLicenseServerUrl",eAAMPConfig_PRLicenseServerUrl,false},
@@ -278,13 +278,13 @@ static const ConfigLookupEntryBool mConfigLookupTableBool[AAMPCONFIG_BOOL_COUNT]
 	{false,"appSrcForProgressivePlayback",eAAMPConfig_UseAppSrcForProgressivePlayback,false},
 	{false,"descriptiveAudioTrack",eAAMPConfig_DescriptiveAudioTrack,false},
 	{true,"reportBufferEvent",eAAMPConfig_ReportBufferEvent,false},
-	{false,"info",eAAMPConfig_InfoLogging,true},
+	{true,"info",eAAMPConfig_InfoLogging,true},
 	{false,"debug",eAAMPConfig_DebugLogging,false},
 	{false,"trace",eAAMPConfig_TraceLogging,false},
 	{true,"warn",eAAMPConfig_WarnLogging,false},
 	{false,"failover",eAAMPConfig_FailoverLogging,false},
 	{false,"gst",eAAMPConfig_GSTLogging,false},
-	{false,"progress",eAAMPConfig_ProgressLogging,false},
+	{true,"progress",eAAMPConfig_ProgressLogging,false},
 	{false,"curl",eAAMPConfig_CurlLogging,false},
 	{false,"curlLicense",eAAMPConfig_CurlLicenseLogging,false},
 	{false,"logMetadata",eAAMPConfig_MetadataLogging,false},
@@ -379,8 +379,8 @@ static const ConfigLookupEntryBool mConfigLookupTableBool[AAMPCONFIG_BOOL_COUNT]
  */
 static const ConfigLookupEntryInt mConfigLookupTableInt[AAMPCONFIG_INT_COUNT+CONFIG_INT_ALIAS_COUNT] =
 {
-	{0,"harvestCountLimit",eAAMPConfig_HarvestCountLimit,false},
-	{0,"harvestConfig",eAAMPConfig_HarvestConfig,false},
+	{1000,"harvestCountLimit",eAAMPConfig_HarvestCountLimit,false},
+	{16,"harvestConfig",eAAMPConfig_HarvestConfig,false},
 	{DEFAULT_ABR_CACHE_LIFE,"abrCacheLife",eAAMPConfig_ABRCacheLife,false},
 	{DEFAULT_ABR_CACHE_LENGTH,"abrCacheLength",eAAMPConfig_ABRCacheLength,false},
 	{0,"timeShiftBufferLength",eAAMPConfig_TimeShiftBufferLength,false},
@@ -1794,7 +1794,8 @@ void AampConfig::ConfigureLogSettings()
 		AampLogManager::setLogLevel(eLOGLEVEL_DEBUG);
 		AampLogManager::lockLogLevel(true);
 	}
-	else if((configValueBool[eAAMPConfig_InfoLogging].value || logString.compare("info") == 0))
+	// Configure info level and lock it, so AAMP does not change it to warning internally
+	//else if((configValueBool[eAAMPConfig_InfoLogging].value || logString.compare("info") == 0))
 	{
 		AampLogManager::setLogLevel(eLOGLEVEL_INFO);
 		AampLogManager::lockLogLevel(true);
