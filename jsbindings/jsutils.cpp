@@ -38,10 +38,18 @@
 #endif
 
 #ifdef USE_ETHAN_LOG
+static void __attribute__((constructor)) debug_ethan_log_enabled() {
+    printf("DEBUG_LOG USE_ETHAN_LOG is defined - EthanLog support enabled\n");
+}
 #include <ethanlog.h>
 #else
+static void __attribute__((constructor)) debug_ethan_log_disabled() {
+    printf("DEBUG_LOG USE_ETHAN_LOG is NOT defined - using stub functions\n");
+}
 // stubs for use if USE_ETHAN_LOG not defined
-void ethanlog(int level, const char *filename, const char *function, int line, const char *format, ...){}
+void ethanlog(int level, const char *filename, const char *function, int line, const char *format, ...){
+	printf("DEBUG_LOG vethanlog stub called (EthanLog not available)\n");
+}
 #define ETHAN_LOG_INFO 0
 #define ETHAN_LOG_DEBUG 1
 #define ETHAN_LOG_WARNING 2
@@ -675,7 +683,7 @@ static const char *mLogLevelStr[eLOGLEVEL_ERROR+1] =
  */
 void jsBindingLogprintf(int playerId ,const char* functionName, int line, int logLevel, const char *format, ...)
 {
-	printf("DEBUG_LOG:Inside jsBindingLogprintf");
+	printf("DEBUG_LOG:Inside jsBindingLogprintf\n");
 	int len = 0;
 	va_list args;
 	va_start(args, format);
@@ -701,7 +709,7 @@ void jsBindingLogprintf(int playerId ,const char* functionName, int line, int lo
 	//if ( AampLogManager::enableEthanLogRedirection  )
 	if(true)
 	{ // ethanlog
-		printf("DEBUG_LOG:Inside if loop of Ethan Logging");
+		printf("DEBUG_LOG:Inside if loop of Ethan Logging\n");
 		int ethanLogLevel;
 		// Important: in production builds, Ethan logger filters out everything
 		// except ETHAN_LOG_MILESTONE and ETHAN_LOG_FATAL
@@ -723,7 +731,7 @@ void jsBindingLogprintf(int playerId ,const char* functionName, int line, int lo
 				ethanLogLevel = ETHAN_LOG_MILESTONE;
 				break;
 		}
-		printf("DEBUG_LOG:ethanLogLevel -%d",ethanLogLevel);
+		printf("DEBUG_LOG:ethanLogLevel -%d\n",ethanLogLevel);
 		ethanlog(ethanLogLevel,NULL,NULL,-1,gDebugPrintBuffer);
 	}
 	else
@@ -741,5 +749,5 @@ void jsBindingLogprintf(int playerId ,const char* functionName, int line, int lo
 		printf("[AAMP-JS]%ld:%3ld : %s\n", (long int)t.tv_sec, (long int)t.tv_usec / 1000, gDebugPrintBuffer);
 #endif
 	}
-	printf("DEBUG_LOG:Returning from jsBindingLogprintf");
+	printf("DEBUG_LOG:Returning from jsBindingLogprintf\n");
 }
