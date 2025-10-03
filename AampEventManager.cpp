@@ -281,6 +281,10 @@ void AampEventManager::SendEvent(const AAMPEventPtr &eventData, AAMPEventMode ev
 	if(eventMode < AAMP_EVENT_DEFAULT_MODE || eventMode > 	AAMP_EVENT_ASYNC_MODE)
 		eventMode = AAMP_EVENT_DEFAULT_MODE;
 
+	AAMPLOG_ERR("sendEvent: skipping because playerState=%d", mPlayerState);
+	AAMPLOG_ERR("sendEvent: no listeners registered for eventType=%d (SPECIFIC=%d)",
+            eventType,
+            (mEventListeners[eventType] != nullptr));
 	if((mPlayerState != eSTATE_RELEASED) && (mEventListeners[AAMP_EVENT_ALL_EVENTS] || mEventListeners[eventType]))
 	{
 		AAMPLOG_ERR("enabled event listeners");
