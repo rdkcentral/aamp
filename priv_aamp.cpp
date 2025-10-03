@@ -2903,6 +2903,8 @@ void PrivateInstanceAAMP::LicenseRenewal(DrmHelperPtr drmHelper, void* userData)
  */
 void PrivateInstanceAAMP::SendEvent(AAMPEventPtr eventData, AAMPEventMode eventMode)
 {
+ 
+	AAMPLOG_ERR("sending event in privaamp");
 	mEventManager->SendEvent(eventData, eventMode);
 }
 
@@ -9300,6 +9302,8 @@ void PrivateInstanceAAMP::SendWatermarkSessionUpdateEvent(uint32_t sessionHandle
 	AAMPLOG_ERR("Sending WatermarkSessionUpdateEvent status %d system %s GetSessionId() %s",status,system.c_str(), GetSessionId().c_str());
 	WatermarkSessionUpdateEventPtr event = std::make_shared<WatermarkSessionUpdateEvent>(sessionHandle, status, system, GetSessionId());
         AAMPLOG_ERR("watermarksession event ptr = %p", (void*)event.get());
+	  AAMPLOG_WARN("[AAMP] >>> SendEvent called: eventType=%d,  ptr=%p",
+                 event->getType(), event.get());
 
 	SendEvent(event,AAMP_EVENT_ASYNC_MODE);
 }

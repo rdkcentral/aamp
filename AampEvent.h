@@ -2287,7 +2287,7 @@ public:
 	 * @param[in]  status - Status of the watermark session
 	 * @param[in]  system - Watermarking protection provider
 	 */
-	WatermarkSessionUpdateEvent(uint32_t sessionHandle, uint32_t status, const std::string &system, std::string sid) : AAMPEventObject(AAMP_EVENT_WATERMARK_SESSION_UPDATE, std::move(sid = {})) , mSessionHandle(sessionHandle), mStatus(status), mSystem(system)
+	WatermarkSessionUpdateEvent(uint32_t sessionHandle, uint32_t status, const std::string &system, std::string sid) : AAMPEventObject(AAMP_EVENT_WATERMARK_SESSION_UPDATE, std::move(sid) ), mSessionHandle(sessionHandle), mStatus(status), mSystem(system)
 	{}
 
 	/**

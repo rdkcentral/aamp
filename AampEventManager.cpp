@@ -260,30 +260,41 @@ void AampEventManager::SetPlayerState(AAMPPlayerState state)
  */ 
 void AampEventManager::SendEvent(const AAMPEventPtr &eventData, AAMPEventMode eventMode)
 {
+	AAMPLOG_ERR("handling sendEvent");
 	// If some event wants to override  to send as Sync ,then override flag to be set
 	// This will go as Sync only if SourceID of thread != 0 , else there is assert catch in SendEventSync
 	AAMPEventType eventType = eventData->getType();
+	AAMPLOG_WARN("sendEvent: received eventType=%d", eventType);
 	if ((eventType < AAMP_EVENT_ALL_EVENTS) || (eventType >= AAMP_MAX_NUM_EVENTS))  //CID:81883 - Resolve OVER_RUN
+	{
+		 AAMPLOG_ERR("sendEvent: DROPPED invalid eventType=%d (valid range: %d .. %d)",
+                eventType, AAMP_EVENT_ALL_EVENTS, AAMP_MAX_NUM_EVENTS - 1);
                 return;
+	}
 	if(mIsFakeTune && !(AAMP_EVENT_STATE_CHANGED == eventType && eSTATE_COMPLETE == std::dynamic_pointer_cast<StateChangedEvent>(eventData)->getState()) && !(AAMP_EVENT_EOS == eventType))
 	{
 		AAMPLOG_TRACE("Events are disabled for fake tune");
 		return;
 	}
 
+	AAMPLOG_INFO("sendEvent: processing eventType=%d (mIsFakeTune=%d)", eventType, mIsFakeTune);
 	if(eventMode < AAMP_EVENT_DEFAULT_MODE || eventMode > 	AAMP_EVENT_ASYNC_MODE)
 		eventMode = AAMP_EVENT_DEFAULT_MODE;
 
 	if((mPlayerState != eSTATE_RELEASED) && (mEventListeners[AAMP_EVENT_ALL_EVENTS] || mEventListeners[eventType]))
 	{
+		AAMPLOG_ERR("enabled event listeners");
 		guint sId = GetSourceID();
 		// if caller is asking for Sync Event , ensure it has proper source Id, else it has to go async event
 		if(eventMode==AAMP_EVENT_SYNC_MODE &&  sId != 0)
 		{
+			AAMPLOG_WARN("sendEvent: Dispatching SYNC, eventMode=%d sId=%d", eventMode, sId);
 			SendEventSync(eventData);
 		}
 		else if(eventMode==AAMP_EVENT_ASYNC_MODE)
 		{
+			AAMPLOG_WARN("sendEvent: Dispatching ASYNC (explicit), eventMode=%d sId=%d", eventMode, sId);
+
 			SendEventAsync(eventData);
 		}
 		else
@@ -291,10 +302,14 @@ void AampEventManager::SendEvent(const AAMPEventPtr &eventData, AAMPEventMode ev
 			//For other events if asyncTune enabled or callee from non-UI thread , then send the event as Async
 			if (mAsyncTuneEnabled || sId == 0)
 			{
+				 AAMPLOG_WARN("sendEvent: Dispatching ASYNC (fallback), eventMode=%d sId=%d mAsyncTuneEnabled=%d",
+                     eventMode, sId, mAsyncTuneEnabled);
 				SendEventAsync(eventData);
 			}
 			else
 			{
+				AAMPLOG_WARN("sendEvent: Dispatching SYNC (fallback), eventMode=%d sId=%d mAsyncTuneEnabled=%d",
+                     eventMode, sId, mAsyncTuneEnabled);
 				SendEventSync(eventData);
 			}
 		}

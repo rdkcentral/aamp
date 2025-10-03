@@ -78,8 +78,8 @@ DrmSessionManager::DrmSessionManager(int maxDrmSessions, void *player, std::func
 	{
 		MW_LOG_ERR("[DrmSessionMgr] WatermarkSession callback is valid (std::function stored)");
 		// 🔹 Self-test invoke
-		MW_LOG_ERR("[DrmSessionMgr] Self-test: invoking callback with dummy values...");
-		mPlayerSendWatermarkSessionUpdateEventCB(111, 222, "DrmSelfTest");
+		//MW_LOG_ERR("[DrmSessionMgr] Self-test: invoking callback with dummy values...");
+		//mPlayerSendWatermarkSessionUpdateEventCB(111, 222, "DrmSelfTest");
 	}
 	else
 	{
