@@ -232,6 +232,7 @@ private:
 	cJSON *telemetryParam;					/**< telemetry json object */
 	cJSON* mLldLowBuffObject;				/**< LLD Low Buffer Data json object for telemetry*/
 	std::mutex discontinuityParamMutex;		/**< mutex protecting discontinuity telemetry parameter */
+	long long mStopDurationMs;			/**< Duration of last stop call in ms */
 	/**
 	 * @brief Calculating effective time of two overlapping buckets.
 	 *
@@ -339,9 +340,14 @@ public:
 	std::string GetTuneTimeMetricAsJson(TuneEndMetrics tuneMetricsData, const char *tuneTimeStrPrefix,
 				unsigned int licenseAcqNWTime, bool playerPreBuffered,
 				unsigned int durationSeconds, bool interfaceWifi, std::string failureReason, std::string appName);
-
 	/**
-	 * @fn TuneBegin
+	 * @fn setTuneStop
+	 *
+	 * @return void
+	 */
+	void SetTuneStopDuration(long long stopDuration);
+	/**
+	 * @brief Log stop time for the given stream format (e.g., DASH, HLS).
 	 *
 	 * @return void
 	 */

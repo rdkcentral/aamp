@@ -536,6 +536,7 @@ class PrivateInstanceAAMP : public DrmCallbacks, public std::enable_shared_from_
 	#define AAMP2ReceiverMsgHdrSz (sizeof(AAMP2ReceiverMsg)-1)
 
 	//The position previously reported by ReportProgress() (i.e. the position really sent, using SendEvent())
+	long long mLastStopDurationMs;
 	double mReportProgressPosn;
 	long long mLastTelemetryTimeMS;
 	std::chrono::system_clock::time_point m_lastSubClockSyncTime;

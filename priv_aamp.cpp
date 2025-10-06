@@ -1117,7 +1117,7 @@ int PrivateInstanceAAMP::HandleSSLProgressCallback ( void *clientp, double dltot
 /**
  * @brief PrivateInstanceAAMP Constructor
  */
-PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPosn(0.0), mLastTelemetryTimeMS(0), mDiscontinuityFound(false), mTelemetryInterval(0), mAbrBitrateData(), mLock(),
+PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPosn(0.0),mLastStopDurationMs(0), mLastTelemetryTimeMS(0), mDiscontinuityFound(false), mTelemetryInterval(0), mAbrBitrateData(), mLock(),
 	mpStreamAbstractionAAMP(NULL), mInitSuccess(false), mVideoFormat(FORMAT_INVALID), mAudioFormat(FORMAT_INVALID), mDownloadsDisabled(),
 	mDownloadsEnabled(true), profiler(), licenceFromManifest(false), previousAudioType(eAUDIO_UNKNOWN),isPreferredDRMConfigured(false),
 	mbDownloadsBlocked(false), streamerIsActive(false), mFogTSBEnabled(false), mIscDVR(false), mLiveOffset(AAMP_LIVE_OFFSET),
@@ -7234,6 +7234,10 @@ void PrivateInstanceAAMP::DisableDownloads(void)
 		std::lock_guard<std::recursive_mutex> guard(mLock);
 		AAMPLOG_MIL("Disable downloads");
 		mDownloadsEnabled = false;
+		if(mMPDDownloaderInstance != nullptr)
+		{
+			mMPDDownloaderInstance->Release();
+		}
 		mDownloadsDisabled.notify_all();
 	}
 	// Notify playlist downloader threads
@@ -7580,6 +7584,8 @@ bool PrivateInstanceAAMP::IsLiveStream()
  */
 void PrivateInstanceAAMP::Stop( bool isDestructing )
 {
+	std::string manifestSuccess = mFailureReason;
+	long long stopStartTime = NOW_STEADY_TS_MS;
 	// Clear all the player events in the queue and sets its state to RELEASED as everything is done
 	mEventManager->FlushPendingEvents();
 	if( !isDestructing )
@@ -7609,7 +7615,6 @@ void PrivateInstanceAAMP::Stop( bool isDestructing )
 		mAutoResumeTaskId = AAMP_TASK_ID_INVALID;
 		mAutoResumeTaskPending = false;
 	}
-
 	DisableDownloads();
 	//Moved the tsb delete request from XRE to AAMP to avoid the HTTP-404 erros
 	if(IsFogTSBSupported())
@@ -7780,6 +7785,14 @@ void PrivateInstanceAAMP::Stop( bool isDestructing )
 	EnableDownloads();
 
 	AampStreamSinkManager::GetInstance().DeactivatePlayer(this, true);
+	long long stopEndTime = NOW_STEADY_TS_MS;
+	mLastStopDurationMs = stopEndTime - stopStartTime;
+	AAMPLOG_WARN("AAMP Stop took %lld ms", mLastStopDurationMs);
+	if(manifestSuccess == "")
+	{
+		profiler.SetTuneStopDuration(mLastStopDurationMs);
+	}
+
 }
 
 const std::vector<TimedMetadata> & PrivateInstanceAAMP::GetTimedMetadata( void ) const
