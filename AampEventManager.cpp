@@ -151,14 +151,26 @@ void AampEventManager::AddEventListener(AAMPEventType eventType, EventListener* 
 {
 	if ((eventListener != NULL) && (eventType >= AAMP_EVENT_ALL_EVENTS) && (eventType < AAMP_MAX_NUM_EVENTS))
 	{
+
 		ListenerData* pListener = new ListenerData;
 		if (pListener)
 		{
+			AAMPLOG_INFO(
+                "AddEventListener: this=%p | mEventListeners=%p | eventType=%d | eventListener=%p | new ListenerData=%p | existing head=%p",
+                static_cast<const void*>(this),
+                static_cast<const void*>(&mEventListeners),
+                eventType,
+                static_cast<void*>(eventListener),
+                static_cast<void*>(pListener),
+                static_cast<void*>(mEventListeners[eventType]));
 			AAMPLOG_INFO("EventType:%d, Listener %p new %p", eventType, eventListener, pListener);
 			std::lock_guard<std::mutex> guard(mMutexVar);
 			pListener->eventListener = eventListener;
 			pListener->pNext = mEventListeners[eventType];
 			mEventListeners[eventType] = pListener;
+
+
+                         AAMPLOG_ERR("AddEventListener: Updated head for EventType=%d -> %p",eventType,static_cast<void*>(mEventListeners[eventType]));
 		}
 	}
 	else
@@ -260,11 +272,15 @@ void AampEventManager::SetPlayerState(AAMPPlayerState state)
  */ 
 void AampEventManager::SendEvent(const AAMPEventPtr &eventData, AAMPEventMode eventMode)
 {
+	 AAMPLOG_ERR("AampEventManager::SendEvent() called | this=%p | mEventListeners=%p",
+                static_cast<const void*>(this),
+                static_cast<const void*>(&mEventListeners));
+
 	AAMPLOG_ERR("handling sendEvent");
 	// If some event wants to override  to send as Sync ,then override flag to be set
 	// This will go as Sync only if SourceID of thread != 0 , else there is assert catch in SendEventSync
 	AAMPEventType eventType = eventData->getType();
-	AAMPLOG_WARN("sendEvent: received eventType=%d", eventType);
+	AAMPLOG_WARN("sendEvent: received eventType=%d ", eventType);
 	if ((eventType < AAMP_EVENT_ALL_EVENTS) || (eventType >= AAMP_MAX_NUM_EVENTS))  //CID:81883 - Resolve OVER_RUN
 	{
 		 AAMPLOG_ERR("sendEvent: DROPPED invalid eventType=%d (valid range: %d .. %d)",
@@ -285,6 +301,14 @@ void AampEventManager::SendEvent(const AAMPEventPtr &eventData, AAMPEventMode ev
 	AAMPLOG_ERR("sendEvent: no listeners registered for eventType=%d (SPECIFIC=%d)",
             eventType,
             (mEventListeners[eventType] != nullptr));
+	if(mEventListeners[AAMP_EVENT_ALL_EVENTS] == NULL)
+	{
+		AAMPLOG_ERR("event null");
+	}
+	if(EventListeners[eventType] == null)
+	{
+		AAMPLOG_ERR("Event type is null");
+	}
 	if((mPlayerState != eSTATE_RELEASED) && (mEventListeners[AAMP_EVENT_ALL_EVENTS] || mEventListeners[eventType]))
 	{
 		AAMPLOG_ERR("enabled event listeners");
