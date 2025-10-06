@@ -799,8 +799,6 @@ TEST_F(SetPreferredTextLanguagesTests, ClosedCaptionTest1)
 
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetAvailableTextTracks(_))
 		.WillOnce(ReturnRef(tracks));
-	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_))
-		.WillOnce(Invoke(this, &SetPreferredTextLanguagesTests::Stop));
 
 	EXPECT_CALL(*g_mockPlayerCCManagerBase, SetTrack("CC1",eCLOSEDCAPTION_FORMAT_608)).Times(1).WillRepeatedly(Return(0));
 
