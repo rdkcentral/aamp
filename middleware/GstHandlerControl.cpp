@@ -73,13 +73,13 @@ bool GstHandlerControl::waitForDone(int MaximumDelayMilliseconds, std::string na
 
 	if(mInstanceCount)
 	{
-		MW_LOG_ERR("GstPlayer: %d instance%s of %s running", 
+		MW_LOG_ERR("AAMPGstPlayer: %d instance%s of %s running", 
 		mInstanceCount, mInstanceCount?"s":"", name.c_str());
 		return false;
 	}
 	else
 	{
-		MW_LOG_MIL("GstPlayer: all instances of %s completed.", name.c_str());
+		MW_LOG_MIL("AAMPGstPlayer: all instances of %s completed.", name.c_str());
 		return true;
 	}
 }
