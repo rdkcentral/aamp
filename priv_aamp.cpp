@@ -12240,19 +12240,53 @@ void PrivateInstanceAAMP::SavePreferredTextLanguages(const char *param )
 }
 
 /**
+ *  @brief Find closed caption track index if any
+ */
+int PrivateInstanceAAMP::FindClosedCaptionTrackIndex(const std::vector<TextTrackInfo> &trackInfo)
+{
+	int closedCaptionInstreamIdTrackIdx = -1;
+	int closedCaptionLanguageTrackIdx = -1;
+	int trackIdx = 0;
+	closedCaptionTrackIdx = -1;
+	for (const auto &track : trackInfo)
+	{
+		trackIdx++;
+		if (preferredTextLanguagesList.size() > 0)
+		{
+			std::string firstLanguage = preferredTextLanguagesList.at(0);
+			if ((track.language == firstLanguage) && track.isCC && preferredRenditionString != "subtitle")
+			{
+				closedCaptionLanguageTrackIdx = trackIdx;
+			}
+		}
+		if (track.instreamId == preferredInstreamIdString && track.isCC)
+		{
+			closedCaptionInstreamIdTrackIdx = trackIdx;
+		}
+	}
+	// prefer instreamId over language for closed captioning
+	if (closedCaptionInstreamIdTrackIdx != -1)
+	{
+		closedCaptionTrackIdx = closedCaptionInstreamIdTrackIdx;
+	}
+	else
+	{
+		closedCaptionTrackIdx = closedCaptionLanguageTrackIdx;
+	}
+	return closedCaptionTrackIdx;
+}
+/**
  *  @brief Compare text track preferences vs manifest contents vs current selection
  */
 void PrivateInstanceAAMP::CheckPreferredTextLanguages(const std::vector<TextTrackInfo> &trackInfo, bool &isAvailableInManifest, bool &isSelectionChange, int &closedCaptionTrackIdx)
 {
 
 	int currentTrackIndex = GetTextTrack();
-	int closedCaptionInstreamIdTrackIdx = -1;
-	int closedCaptionLanguageTrackIdx = -1;
 	int trackIdx = -1;
 
 	isSelectionChange = false;
 	isAvailableInManifest = false;
-	closedCaptionTrackIdx = -1;
+
 
 	if (currentTrackIndex >= 0)
 	{
@@ -12281,10 +12315,6 @@ void PrivateInstanceAAMP::CheckPreferredTextLanguages(const std::vector<TextTrac
 					{
 						isAvailableInManifest = true;
 					}
-				}
-				if ((trackLanguage == firstLanguage) && track.isCC && preferredRenditionString != "subtitle")
-				{
-					closedCaptionLanguageTrackIdx = trackIdx;
 				}
 
 				if (preferredTextLanguagesList.size() > 1)
@@ -12331,10 +12361,6 @@ void PrivateInstanceAAMP::CheckPreferredTextLanguages(const std::vector<TextTrac
 				{
 					isSelectionChange = true;
 				}
-				if (track.instreamId == preferredInstreamIdString && track.isCC)
-				{
-					closedCaptionInstreamIdTrackIdx = trackIdx;
-				}
 			}
 
 			if (!preferredTextAccessibilityNode.getSchemeId().empty())
@@ -12354,33 +12380,10 @@ void PrivateInstanceAAMP::CheckPreferredTextLanguages(const std::vector<TextTrac
 	{
 		isSelectionChange = true;
 		// no track is currently selected but need to find closedCaptionTrackIdx if there is one
-		for (const auto &track : trackInfo)
-		{
-			trackIdx++;
-			if (preferredTextLanguagesList.size() > 0)
-			{
-				std::string firstLanguage = preferredTextLanguagesList.at(0);
-				if ((track.language == firstLanguage) && track.isCC && preferredRenditionString != "subtitle")
-				{
-					closedCaptionLanguageTrackIdx = trackIdx;
-				}
-			}
-			if (track.instreamId == preferredInstreamIdString && track.isCC)
-			{
-				closedCaptionInstreamIdTrackIdx = trackIdx;
-			}
-		}
+
 	}
 
-	// prefer instreamId over language for closed captioning
-	if (closedCaptionInstreamIdTrackIdx != -1)
-	{
-		closedCaptionTrackIdx = closedCaptionInstreamIdTrackIdx;
-	}
-	else
-	{
-		closedCaptionTrackIdx = closedCaptionLanguageTrackIdx;
-	}
+	closedCaptionTrackIdx = FindClosedCaptionTrackIndex(trackInfo);
 
 	AAMPLOG_INFO("isSelectionChange=%d isAvailableInManifest=%d closedCaptionTrackIdx=%d",
 				 isSelectionChange, isAvailableInManifest, closedCaptionTrackIdx);

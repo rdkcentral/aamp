@@ -553,13 +553,18 @@ class PrivateInstanceAAMP : public DrmCallbacks, public std::enable_shared_from_
  	*/
 	void SetCCFromTextTrack(TextTrackInfo &track);
 
-public:
-    /* @fn RecalculatePTS
-    * @param[in] mediaType stream type
-    * @param[in] ptr buffer pointer
-    * @param[in] len length of buffer
-    */
-    double RecalculatePTS(AampMediaType mediaType, const void *ptr, size_t len);
+	/**
+	 * @brief  Find closed caption track index if any
+	 * @param[in] track - Text track information
+	 */
+	int FindClosedCaptionTrackIndex(const std::vector<TextTrackInfo> &trackInfo) const;
+
+	/* @fn RecalculatePTS
+	 * @param[in] mediaType stream type
+	 * @param[in] ptr buffer pointer
+	 * @param[in] len length of buffer
+	 */
+	double RecalculatePTS(AampMediaType mediaType, const void *ptr, size_t len);
 
 	/**
 	 * @brief Get profiler bucket type
