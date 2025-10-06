@@ -824,7 +824,7 @@ void DrmSessionManager::registerCallback()
 {
     auto instance = this;  // capture this DrmSessionManager
 
-    static std::function<void(uint32_t, uint32_t, const std::string&)> watermarkCallBack =
+     std::function<void(uint32_t, uint32_t, const std::string&)> watermarkCallBack =
         [instance](uint32_t sessionHandle, uint32_t status, const std::string& system)
         {
             MW_LOG_INFO("[DrmSessionManager] Received WM callback: handle=%u, status=%u, system=%s",
