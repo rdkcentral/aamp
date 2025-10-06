@@ -510,7 +510,7 @@ try
 
 			if (inputOptions.get("windowFillOpacity", optionValue))
 			{
-				getOpacity(optionValue, &(attribute.winOpacity));
+				getOpacity(std::move(optionValue), &(attribute.winOpacity));
 				attribsMask |=GSW_CC_ATTRIB_WIN_OPACITY;
 			}
 

@@ -1597,7 +1597,7 @@ void InterfacePlayerRDK::SignalConnect(gpointer instance, const gchar *detailed_
 		{
 			MW_LOG_MIL("InterfacePlayerRDK: Connected %s", detailed_signal);
 			GstPlayerPriv::CallbackData Identifier{instance, id, detailed_signal};
-			gstPrivateContext->mCallBackIdentifiers.push_back(Identifier);
+			gstPrivateContext->mCallBackIdentifiers.push_back(std::move(Identifier));
 		}
 		else
 		{
@@ -2782,7 +2782,7 @@ bool InterfacePlayerRDK::HandleVideoBufferSent()
 
 void InterfacePlayerRDK::SetPlayerName(std::string name)
 {
-	mPlayerName = name;
+	mPlayerName = std::move(name);
 }
 
 /**
@@ -3534,16 +3534,16 @@ bool InterfacePlayerRDK::IdleTaskAdd(GstTaskControlData& taskDetails, Background
 
 void InterfacePlayerRDK::FirstFrameCallback(std::function<void(GstMediaType, bool, bool, bool&, bool&)> callback)
 {
-	notifyFirstFrameCallback = callback;
+	notifyFirstFrameCallback = std::move(callback);
 }
 
 void InterfacePlayerRDK::StopCallback(std::function<void(bool)> callback)
 {
-	stopCallback = callback;
+	stopCallback = std::move(callback);
 }
 void InterfacePlayerRDK::TearDownCallback(std::function<void(bool, int)> callback)
 {
-	tearDownCb = callback;
+	tearDownCb = std::move(callback);
 }
 
 /**
@@ -4022,7 +4022,7 @@ static gboolean bus_message(GstBus * bus, GstMessage * msg, InterfacePlayerRDK *
 			{
 				busEvent.dbg_info[0] = '\0';
 			}
-			pInterfacePlayerRDK->busMessageCallback(busEvent);
+			pInterfacePlayerRDK->busMessageCallback(std::move(busEvent));
 			MW_LOG_ERR("Debug Info: %s\n", (dbg_info) ? dbg_info : "none");
 			g_clear_error(&error);
 			g_free(dbg_info);
@@ -4041,7 +4041,7 @@ static gboolean bus_message(GstBus * bus, GstMessage * msg, InterfacePlayerRDK *
 			{
 				busEvent.dbg_info[0] = '\0';
 			}
-			pInterfacePlayerRDK->busMessageCallback(busEvent);
+			pInterfacePlayerRDK->busMessageCallback(std::move(busEvent));
 			MW_LOG_ERR("Debug Info: %s\n", (dbg_info) ? dbg_info : "none");
 			g_clear_error(&error);
 			g_free(dbg_info);
@@ -4221,7 +4221,7 @@ static gboolean bus_message(GstBus * bus, GstMessage * msg, InterfacePlayerRDK *
 													   G_CALLBACK(GstPlayer_OnGstBufferUnderflowCb), pInterfacePlayerRDK);
 				}
 			}
-			pInterfacePlayerRDK->busMessageCallback(busEvent);
+			pInterfacePlayerRDK->busMessageCallback(std::move(busEvent));
 		}
 
 			break;
@@ -4234,7 +4234,7 @@ static gboolean bus_message(GstBus * bus, GstMessage * msg, InterfacePlayerRDK *
 			//busEvent.msg[GST_ERROR_DESCRIPTION_LENGTH - 1] = '\0';
 			busEvent.msg = "N/A";
 			busEvent.dbg_info = "N/A";
-			pInterfacePlayerRDK->busMessageCallback(busEvent);
+			pInterfacePlayerRDK->busMessageCallback(std::move(busEvent));
 			MW_LOG_MIL("GST_MESSAGE_EOS");
 			pInterfacePlayerRDK->NotifyEOS();
 			break;
@@ -4298,7 +4298,7 @@ static gboolean bus_message(GstBus * bus, GstMessage * msg, InterfacePlayerRDK *
 			//strncpy(busEvent.dbg_info, "N/A", sizeof(busEvent.dbg_info) - 1);
 			//busEvent.dbg_info[sizeof(busEvent.dbg_info) - 1] = '\0';
 			busEvent.dbg_info = "N/A";
-			pInterfacePlayerRDK->busMessageCallback(busEvent);
+			pInterfacePlayerRDK->busMessageCallback(std::move(busEvent));
 		}
 			break;
 		default:
@@ -4892,7 +4892,7 @@ int InterfacePlayerRDK::InterfacePlayer_SetupStream(GstMediaType streamId, std::
 {
 	int retvalue = 0;
 	this->TriggerEvent(InterfaceCB::startNewSubtitleStream, streamId);
-	retvalue = this->SetupStream(streamId, (void*)this, manifestUrl);
+	retvalue = this->SetupStream(streamId, (void*)this, std::move(manifestUrl));
 
 	return retvalue;
 }

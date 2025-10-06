@@ -40,7 +40,7 @@ struct VTTCue
 {
 	VTTCue(double startTime, double duration, std::string text, std::string settings):
 		mStart(startTime), mDuration(duration),
-		mText(text), mSettings(settings)
+		mText(std::move(text)), mSettings(std::move(settings))
 	{
 
 	}

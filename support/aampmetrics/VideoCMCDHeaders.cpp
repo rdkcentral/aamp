@@ -69,5 +69,5 @@ void VideoCMCDHeaders::BuildCMCDCustomHeaders(std::unordered_map<std::string, st
 	{
 		headerValue.push_back(CMCDBUFFERLENGTH+std::to_string(bufferLength)+delimiter+CMCDNEXTURL+nextUrl+delimiter+CMCDFirstByte+std::to_string(firstByte)+delimiter+CMCDLastByte+std::to_string(lastByte));
 	}
-	mCMCDCustomHeaders["CMCD-Request:"] = headerValue;
+	mCMCDCustomHeaders["CMCD-Request:"] = std::move(headerValue);
 }

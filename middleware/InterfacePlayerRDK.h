@@ -329,7 +329,7 @@ struct GstPlayerPriv
 		gpointer instance;
 		gulong id;
 		std::string name;
-		CallbackData(gpointer _instance, gulong _id, std::string _name) : instance(_instance), id(_id), name(_name) {};
+		CallbackData(gpointer _instance, gulong _id, std::string _name) : instance(_instance), id(_id), name(std::move(_name)) {};
 		CallbackData(const CallbackData &original) : instance(original.instance), id(original.id), name(original.name) {};
 		CallbackData(CallbackData &&original) : instance(original.instance), id(original.id), name(original.name) {};
 		CallbackData &operator=(const CallbackData &) = delete;
