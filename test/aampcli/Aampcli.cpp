@@ -249,7 +249,7 @@ void Aampcli::newPlayerInstance( std::string appName)
 	if (!appName.empty())
 	{
 		AAMPCLI_PRINTF(" Set player name %s\n", appName.c_str());
-		player->SetAppName(appName);
+		player->SetAppName(std::move(appName));
 	}
 
 	if( !mEventListener )
@@ -735,6 +735,7 @@ void MyAAMPEventListener::Event(const AAMPEventPtr& e)
 		{
 			MonitorAVStatusEventPtr ev = std::dynamic_pointer_cast<MonitorAVStatusEvent>(e);
 			AAMPCLI_PRINTF("[AAMPCLI] AAMP_EVENT_MONITORAV_STATUS\tstatus=%s\tvposition =%" PRId64 "\taposition=%" PRId64 "\ttimeInStateMS= %" PRIu64 "\tdroppedFrames= %" PRIu64 "\n", ev->getMonitorAVStatus().c_str(), ev->getVideoPositionMS(), ev->getAudioPositionMS(), ev->getTimeInStateMS(),ev->getDroppedFrames());
+			break;
 		}
 		case AAMP_EVENT_REPORT_ANOMALY:
 		{

@@ -57,11 +57,6 @@ static void  registerCb(AampDRMLicenseManager* _this, DrmSessionManager* instanc
 					(AampMediaType)streamType,metaDataPtr, false);
 			});
 
-	/** Profiler update callback */
-	instance->RegisterProfilingUpdateCb([_this](){
-			_this->ProfilerUpdate();
-			});
-
 	/** Content Protection Callback */
 	instance->RegisterHandleContentProtectionCb([_this](std::shared_ptr<DrmHelper> drmHelper, int streamType, std::vector<uint8_t> keyId, int contentProtectionUpd)->std::string{
 			return _this->HandleContentProtectionData(drmHelper, streamType, keyId, contentProtectionUpd);

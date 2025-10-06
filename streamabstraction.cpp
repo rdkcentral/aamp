@@ -2154,7 +2154,7 @@ StreamAbstractionAAMP::StreamAbstractionAAMP(PrivateInstanceAAMP* aamp, id3_call
 		mAudioTracksAll(), mTextTracksAll(),
 		mTsbMaxBitrateProfileIndex(-1),mUpdateReason(false),
 		mPTSOffset(0.0),
-		mID3Handler{mID3Handler}
+		mID3Handler{std::move(mID3Handler)}
 {
 	mLastVideoFragParsedTimeMS = aamp_GetCurrentTimeMS();
 	AAMPLOG_TRACE("StreamAbstractionAAMP");
@@ -4393,13 +4393,13 @@ void MediaTrack::PlaylistDownloader()
 			{
 				if(eMEDIAFORMAT_DASH == aamp->mMediaFormat)
 				{
-					aamp->mManifestUrl = effectiveUrl;
+					aamp->mManifestUrl = std::move(effectiveUrl);
 				}
 				else
 				{
 					// HLS or HLS_MP4
 					// Set effective URL, else fragments will be mapped from old url
-					SetEffectivePlaylistUrl(effectiveUrl);
+					SetEffectivePlaylistUrl(std::move(effectiveUrl));
 				}
 			}
 
