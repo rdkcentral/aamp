@@ -845,7 +845,7 @@ JSValueRef AAMPMediaPlayerJS_pause (JSContextRef ctx, JSObjectRef function, JSOb
  */
 JSValueRef AAMPMediaPlayerJS_stop (JSContextRef ctx, JSObjectRef function, JSObjectRef thisObject, size_t argumentCount, const JSValueRef arguments[], JSValueRef* exception)
 {
-	printf("DEBUG_LOG:Inside AAMP_stop of jsmediaplayer");
+	printf("DEBUG_LOG:Inside AAMP_stop of jsmediaplayer\n");
 	LOG_TRACE("Enter");
 	AAMPMediaPlayer_JS* privObj = (AAMPMediaPlayer_JS*)JSObjectGetPrivate(thisObject);
 	if (!privObj || (privObj && !privObj->_aamp))
