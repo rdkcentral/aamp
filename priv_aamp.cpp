@@ -12245,18 +12245,22 @@ void PrivateInstanceAAMP::SavePreferredTextLanguages(const char *param )
 void PrivateInstanceAAMP::CheckPreferredTextLanguages(const std::vector<TextTrackInfo> &trackInfo, bool &isAvailableInManifest, bool &isSelectionChange, int &closedCaptionTrackIdx)
 {
 
-	int trackIndex = GetTextTrack();
+	int currentTrackIndex = GetTextTrack();
 	int closedCaptionInstreamIdTrackIdx = -1;
 	int closedCaptionLanguageTrackIdx = -1;
 	int trackIdx = -1;
 
-	if (trackIndex >= 0)
+	isSelectionChange = false;
+	isAvailableInManifest = false;
+	closedCaptionTrackIdx = -1;
+
+	if (currentTrackIndex >= 0)
 	{
-		std::string currentPrefLanguage = Getiso639map_NormalizeLanguageCode(trackInfo[trackIndex].language, this->GetLangCodePreference());
-		char *currentPrefRendition = const_cast<char *>(trackInfo[trackIndex].rendition.c_str());
-		char *currentPrefInstreamId = const_cast<char *>(trackInfo[trackIndex].instreamId.c_str());
-		char *currentPrefName = const_cast<char *>(trackInfo[trackIndex].name.c_str());
-		Accessibility currentAccessibilityNode = trackInfo[trackIndex].accessibilityItem;
+		std::string currentPrefLanguage = Getiso639map_NormalizeLanguageCode(trackInfo[currentTrackIndex].language, this->GetLangCodePreference());
+		char *currentPrefRendition = const_cast<char *>(trackInfo[currentTrackIndex].rendition.c_str());
+		char *currentPrefInstreamId = const_cast<char *>(trackInfo[currentTrackIndex].instreamId.c_str());
+		char *currentPrefName = const_cast<char *>(trackInfo[currentTrackIndex].name.c_str());
+		Accessibility currentAccessibilityNode = trackInfo[currentTrackIndex].accessibilityItem;
 
 		for (const auto &track : trackInfo)
 		{
@@ -12283,7 +12287,6 @@ void PrivateInstanceAAMP::CheckPreferredTextLanguages(const std::vector<TextTrac
 					closedCaptionLanguageTrackIdx = trackIdx;
 				}
 
-				// do not understand the following
 				if (preferredTextLanguagesList.size() > 1)
 				{
 					/* If multiple value of language is present then retune. */

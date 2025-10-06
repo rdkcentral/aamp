@@ -818,7 +818,6 @@ public:
 	 * @param[out] isSelectionChange true if preferences now select a different track to the current selection
  	 * @param[out] isAvailableInManifest true if new selection is available in the manifest
 	 * @param[out] closedCaptionTrackIdx - closed caption track index
-	 * @return void
 	 */
 	void CheckPreferredTextLanguages(const std::vector<TextTrackInfo> &trackInfo,bool &isInManifest, bool &isPresent, int &closedCaptionTrackIdx);
 
