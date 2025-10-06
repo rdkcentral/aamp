@@ -10990,7 +10990,7 @@ void PrivateInstanceAAMP::SetCCFromTextTrack(TextTrackInfo &track)
 			format = (CCFormat)(overrideCfg & 1);
 			AAMPLOG_WARN("PrivateInstanceAAMP: CC format override present, override format to: %d", format);
 		}
-		AAMPLOG_INFO("patrick instreamId %s format %d", track.instreamId.c_str(), format);
+		AAMPLOG_INFO("instreamId %s format %d", track.instreamId.c_str(), format);
 		PlayerCCManager::GetInstance()->SetTrack(track.instreamId, format);
 	}
 }
