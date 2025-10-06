@@ -109,7 +109,7 @@ void unsuportedTag( const XmlNode &child, const XmlNode &parent )
 		"Accessibility",
 		"AssetIdentifier",
 		"AudioChannelConfiguration",
-		"AvailableBitrates"
+		"AvailableBitrates",
 		"body",
 		"BufferLevel",
 		"EssentialProperty",
@@ -216,7 +216,7 @@ void parseSegmentTimeline( MediaData &obj, const XmlNode &SegmentTimeline )
 				t = Number(Segment.getAttribute("t"));
 			}
 			uint64_t d = Number(Segment.getAttribute("d"));
-			uint64_t repeat = 0;
+			int64_t repeat = 0;
 			if( Segment.hasAttribute("r") )
 			{
 				repeat = Number(Segment.getAttribute("r"));

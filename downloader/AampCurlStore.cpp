@@ -231,16 +231,13 @@ static int eas_curl_debug_callback(CURL *handle, curl_infotype type, char *data,
 		size_t len = size;
 		while( len>0 && data[len-1]<' ' ) len--;
 		std::string printable(data,len);
-		switch (type)
+		if (type == CURLINFO_TEXT)
 		{
-		case CURLINFO_TEXT:
 			AAMPLOG_WARN("curl: %s", printable.c_str() );
-			break;
-		case CURLINFO_HEADER_IN:
+		}
+		else // type == CURLINFO_HEADER_IN
+		{
 			AAMPLOG_WARN("curl header: %s", printable.c_str() );
-			break;
-		default:
-			break; //CID:94999 - Resolve deadcode
 		}
 	}
 	return 0;

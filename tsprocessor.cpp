@@ -3892,7 +3892,10 @@ unsigned int TSProcessor::getUExpGolomb(unsigned char *& p, int& mask)
 		{
 			++leadingZeros;
 			codeNum += (factor >> 1);
-			factor <<= 1;
+			if(factor <= (UINT_MAX >> 1))
+			{
+				factor <<= 1;
+			}
 		}
 	} while (bitClear);
 	if (leadingZeros)

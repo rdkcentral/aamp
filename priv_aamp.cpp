@@ -13269,11 +13269,14 @@ long PrivateInstanceAAMP::LoadFogConfig()
 			jsondataForPreference.add("audio", audioPreference);
 			trackAdded = true;
 		}
-		if(tPrefAvail)
-		{
-			jsondataForPreference.add("text", subtitlePreference);
-			trackAdded = true;
-		}
+		// Text/subtitle preference logic not implemented
+		// tPrefAvail is never set to true, so this never gets called as tPrefAvail is always false
+		// The subtitle preference configuration needs to be implemented similar to audio preferences
+		// if(tPrefAvail)
+		// {
+		// 	jsondataForPreference.add("text", subtitlePreference);
+		// 	trackAdded = true;
+		// }
 
 		if(trackAdded)
 		{
