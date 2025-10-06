@@ -12249,12 +12249,12 @@ void PrivateInstanceAAMP::SavePreferredTextLanguages(const char *param )
 /**
  *  @brief Find closed caption track index if any
  */
-int PrivateInstanceAAMP::FindClosedCaptionTrackIndex(const std::vector<TextTrackInfo> &trackInfo)
+int PrivateInstanceAAMP::FindClosedCaptionTrackIndex(const std::vector<TextTrackInfo> &trackInfo) const
 {
 	int closedCaptionInstreamIdTrackIdx = -1;
 	int closedCaptionLanguageTrackIdx = -1;
 	int trackIdx = 0;
-	closedCaptionTrackIdx = -1;
+	int closedCaptionTrackIdx = -1;
 	for (const auto &track : trackInfo)
 	{
 		trackIdx++;
@@ -12293,7 +12293,6 @@ void PrivateInstanceAAMP::CheckPreferredTextLanguages(const std::vector<TextTrac
 
 	isSelectionChange = false;
 	isAvailableInManifest = false;
-
 
 	if (currentTrackIndex >= 0)
 	{
@@ -12387,7 +12386,6 @@ void PrivateInstanceAAMP::CheckPreferredTextLanguages(const std::vector<TextTrac
 	{
 		isSelectionChange = true;
 		// no track is currently selected but need to find closedCaptionTrackIdx if there is one
-
 	}
 
 	closedCaptionTrackIdx = FindClosedCaptionTrackIndex(trackInfo);

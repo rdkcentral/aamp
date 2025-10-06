@@ -559,6 +559,7 @@ class PrivateInstanceAAMP : public DrmCallbacks, public std::enable_shared_from_
 	 */
 	int FindClosedCaptionTrackIndex(const std::vector<TextTrackInfo> &trackInfo) const;
 
+public:
 	/* @fn RecalculatePTS
 	 * @param[in] mediaType stream type
 	 * @param[in] ptr buffer pointer
