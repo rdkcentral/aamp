@@ -566,11 +566,15 @@ void PlayerCCManagerBase::Start()
  */
 int PlayerCCManagerBase::Init(void *handle)
 {
+#if 1 /* FIXME: Temp. */
+	handle = (void *)0xdeadbeef;
+#else
 	if (handle == NULL)
 	{
 		MW_LOG_WARN("PlayerCCManagerBase:: NULL handle");
 		return -1;
 	}
+#endif
 
 	if (Initialize(handle) != 0)
 	{
