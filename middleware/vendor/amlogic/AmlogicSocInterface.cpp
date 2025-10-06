@@ -205,6 +205,7 @@ void AmlogicSocInterface::SetAC4Tracks(GstElement *src, int trackId)
  */
 bool AmlogicSocInterface::IsVideoSink(const char* name, bool isRialto)
 {
+	MW_LOG_WARN("isvideosink");
 	if (name == nullptr)
 	{
 		return false;

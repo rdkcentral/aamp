@@ -2101,6 +2101,8 @@ int InterfacePlayerRDK::SetupStream(int streamId,  void *playerInstance, std::st
 			if (vidsink)
 			{
 				MW_LOG_INFO("Created rialtomsevideosink: %s", GST_ELEMENT_NAME(vidsink));
+				MW_LOG_MIL("InterfacePlayerRDK - rialtomseVideosink, setting cached video mute(%d)", pInterfacePlayerRDK->gstPrivateContext->videoMuted);
+				g_object_set(vidsink, "show-video-window", !pInterfacePlayerRDK->gstPrivateContext->videoMuted, NULL);
 				g_object_set(stream->sinkbin, "video-sink", vidsink, NULL);				/* In the stream->sinkbin, set the video-sink property to vidsink */
 				GstMediaFormat mediaFormat = (GstMediaFormat)m_gstConfigParam->media;
 				if(eGST_MEDIAFORMAT_HLS == mediaFormat)
@@ -2109,6 +2111,7 @@ int InterfacePlayerRDK::SetupStream(int streamId,  void *playerInstance, std::st
 					g_object_set(vidsink, "has-drm", FALSE, NULL);
 				}
 				pInterfacePlayerRDK->gstPrivateContext->video_sink = vidsink;
+				
 			}
 			else
 			{
@@ -3707,6 +3710,7 @@ static GstPadProbeReturn GstPlayer_HandleInstantRateChangeSeekProbe(GstPad* pad,
 bool GstPlayer_isVideoSink(const char* name, InterfacePlayerRDK* pInterfacePlayerRDK)
 {
 	bool isRialto = pInterfacePlayerRDK->gstPrivateContext->usingRialtoSink;
+	MW_LOG_MIL("isrialto %d", pInterfacePlayerRDK->gstPrivateContext->usingRialtoSink );
 	return pInterfacePlayerRDK->socInterface->IsVideoSink(name, isRialto);
 }
 
@@ -4548,10 +4552,16 @@ static GstBusSyncReply bus_sync_handler(GstBus * bus, GstMessage * msg, Interfac
 			/* Moved the below code block from bus_message() async handler to bus_sync_handler()
 			 * to avoid a timing case crash when accessing wrong video_sink element after it got deleted during pipeline reconfigure on codec change in mid of playback.
 			 */
+			MW_LOG_MIL("source : %s oldstate : %s newstate : %s",
+						   GST_OBJECT_NAME(msg->src),
+						   gst_element_state_get_name(old_state),
+						   gst_element_state_get_name(new_state));
 			if (new_state == GST_STATE_PAUSED && old_state == GST_STATE_READY)
 			{
+				MW_LOG_MIL("inside condition 1 isrialtovideosink %d usingrialtosink %d",GstPlayer_isVideoSink(GST_OBJECT_NAME(msg->src), pInterfacePlayerRDK), pInterfacePlayerRDK->gstPrivateContext->usingRialtoSink);
 				if (GstPlayer_isVideoSink(GST_OBJECT_NAME(msg->src), pInterfacePlayerRDK))
-				{ // video scaling patch
+				{ 
+					MW_LOG_MIL("inside condition 2 %d", pInterfacePlayerRDK->gstPrivateContext->usingRialtoSink);
 					/*
 					 brcmvideosink doesn't sets the rectangle property correct by default
 					 gst-inspect-1.0 brcmvideosink
@@ -4568,9 +4578,7 @@ static GstBusSyncReply bus_sync_handler(GstBus * bus, GstMessage * msg, Interfac
 								GST_OBJECT_NAME(msg->src), pInterfacePlayerRDK->gstPrivateContext->videoRectangle);
 							g_object_set(msg->src, "rectangle", pInterfacePlayerRDK->gstPrivateContext->videoRectangle, NULL);
 						}
-						MW_LOG_MIL("InterfacePlayerRDK - using %s, setting cached video mute(%d)",
-							GST_OBJECT_NAME(msg->src), pInterfacePlayerRDK->gstPrivateContext->videoMuted);
-						g_object_set(msg->src, "show-video-window", !pInterfacePlayerRDK->gstPrivateContext->videoMuted, NULL);
+						/*video mute took place in setupstream as part of VPLAY-11273*/
 					}
 					else if ((pInterfacePlayerRDK->gstPrivateContext->using_westerossink) && !(pInterfacePlayerRDK->m_gstConfigParam->enableRectPropertyCfg))
 					{
@@ -4592,6 +4600,7 @@ static GstBusSyncReply bus_sync_handler(GstBus * bus, GstMessage * msg, Interfac
 				}
 				else
 				{
+					MW_LOG_MIL("rialtomseaudiosink state change");
 					if((gst_StartsWith(GST_OBJECT_NAME(msg->src), "rialtomseaudiosink")))
 					{
 						gst_object_replace((GstObject **)&pInterfacePlayerRDK->gstPrivateContext->audio_sink, msg->src);

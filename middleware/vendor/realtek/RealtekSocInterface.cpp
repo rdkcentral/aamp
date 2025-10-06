@@ -130,10 +130,16 @@ void RealtekSocInterface::SetAC4Tracks(GstElement *src, int trackId)
  */
 bool RealtekSocInterface::IsVideoSink(const char* name, bool isRialto)
 {
+	MW_LOG_WARN("isvideosink");
 	if(name)
+	{
+		MW_LOG_WARN("isrialto %d name %s", isRialto, name);
 		return (StartsWith(name, "westerossink") || StartsWith(name, "rtkv1sink") || (isRialto && StartsWith(name, "rialtomsevideosink") == true));
+	}
 	else
+	{
 		return false;
+	}
 }
 
 /**

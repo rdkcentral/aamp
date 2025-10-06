@@ -119,6 +119,7 @@ GstElement* BrcmSocInterface::GetVideoSink(GstElement* sinkbin)
  */
 bool BrcmSocInterface::IsVideoSink(const char* name, bool isRialto)
 {
+	MW_LOG_WARN("isvideosink");
 	if(name)
 	{
 		return  (!mUsingWesterosSink && StartsWith(name, "brcmvideosink") == true) ||
