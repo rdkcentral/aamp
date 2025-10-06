@@ -556,6 +556,7 @@ class PrivateInstanceAAMP : public DrmCallbacks, public std::enable_shared_from_
 	/**
 	 * @brief  Find closed caption track index if any
 	 * @param[in] track - Text track information
+	 * @return index of closed caption track if any else -1
 	 */
 	int FindClosedCaptionTrackIndex(const std::vector<TextTrackInfo> &trackInfo) const;
 
