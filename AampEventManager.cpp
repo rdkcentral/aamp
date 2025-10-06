@@ -305,7 +305,7 @@ void AampEventManager::SendEvent(const AAMPEventPtr &eventData, AAMPEventMode ev
 	{
 		AAMPLOG_ERR("event null");
 	}
-	if(EventListeners[eventType] == null)
+	if(mEventListeners[eventType] == NULL)
 	{
 		AAMPLOG_ERR("Event type is null");
 	}
