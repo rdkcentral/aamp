@@ -701,8 +701,7 @@ void jsBindingLogprintf(int playerId ,const char* functionName, int line, int lo
 
 	va_end(args);
 
-	//if ( AampLogManager::enableEthanLogRedirection  )
-	if(true)
+	if ( AampLogManager::enableEthanLogRedirection  )
 	{ // ethanlog
 		printf("DEBUG_LOG:Inside if loop of Ethan Logging\n");
 		int ethanLogLevel;
