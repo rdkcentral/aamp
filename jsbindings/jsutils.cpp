@@ -23,7 +23,7 @@
 
 
 #include "jsutils.h"
-
+#include <iostream>
 #include <stdlib.h>
 #include <stdio.h>
 #include <cmath>
@@ -36,7 +36,7 @@
 #ifdef USE_SYSTEMD_JOURNAL_PRINT
 #include <systemd/sd-journal.h>
 #endif
-
+using namespace std;
 #ifdef USE_ETHAN_LOG
 std::cout << "DEBUG_LOG jsutils.cpp Ethan log defined" << std::endl;
 #include <ethanlog.h>

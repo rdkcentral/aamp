@@ -21,7 +21,7 @@
  * @file PlayerLogManager.cpp
  * @brief Interface Player logging mechanism source file
  */
-
+#include <iostream>
 #include <thread>
 #include <sys/time.h>
 #include <ctime>
