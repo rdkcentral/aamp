@@ -32,6 +32,7 @@
 
 #include "PlayerCCManager.h"
 #include "PlayerSubtecCCManager.h"
+#include "PlayerRialtoCCManager.h"
 
 
 #define CHAR_CODE_1 49
@@ -811,6 +812,11 @@ bool PlayerCCManagerBase::IsOOBCCRenderingSupported()
 PlayerCCManagerBase *PlayerCCManager::mInstance = NULL;
 
 /**
+ * @brief Indicates whether mInstance should be a Rialto or a Subtec class.
+ */
+bool PlayerCCManager::mIsRialto = false;
+
+/**
  *  @brief Get the singleton instance
  */
 PlayerCCManagerBase *PlayerCCManager::GetInstance()
@@ -818,13 +824,40 @@ PlayerCCManagerBase *PlayerCCManager::GetInstance()
 	if (mInstance == NULL)
 	{
 #if defined(SUBTITLE_SUPPORTED)
-		mInstance = new PlayerSubtecCCManager();
+		if (mIsRialto)
+		{
+			MW_LOG_INFO("PlayerCCManager::Creating Rialto CC manager");
+			mInstance = new PlayerRialtoCCManager();
+		}
+		else
+		{
+			MW_LOG_INFO("PlayerCCManager::Creating Subtec CC manager");
+			mInstance = new PlayerSubtecCCManager();
+		}
 #else
-		MW_LOG_WARN("No subtec support on simulators. Creating a dummy instance!");
+		MW_LOG_WARN("No CC support on simulators. Creating a dummy instance!");
 		mInstance = new PlayerFakeCCManager();
 #endif
 	}
 	return mInstance;
+}
+
+/**
+ *  @brief Set the variant required
+ */
+void PlayerCCManager::SetRialto(bool bIsRialto)
+{
+	if (mIsRialto == bIsRialto || mInstance == NULL)
+	{
+		MW_LOG_INFO("PlayerCCManager::IsRialto:%d", bIsRialto);
+		mIsRialto = bIsRialto;
+	}
+	else
+	{
+		MW_LOG_ERR("PlayerCCManager::IsRialto:%d while incompatible singleton instance exists", bIsRialto);
+	}
+
+	return;
 }
 
 /**
