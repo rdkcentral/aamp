@@ -1662,7 +1662,7 @@ void InterfacePlayerPriv::SignalConnect(gpointer instance, const gchar *detailed
 		{
 			MW_LOG_MIL("InterfacePlayerRDK: Connected %s", detailed_signal);
 			GstPlayerPriv::CallbackData Identifier{instance, id, detailed_signal};
-			gstPrivateContext->mCallBackIdentifiers.push_back(Identifier);
+			gstPrivateContext->mCallBackIdentifiers.push_back(std::move(Identifier));
 		}
 		else
 		{

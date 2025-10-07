@@ -456,7 +456,7 @@ DrmSession* DrmSessionManager::createDrmSession(int &responseCode, int &err, std
 	std::vector<uint8_t> keyId;
 	drmHelper->getKey(keyId);
 	/* callback to initiate content protection data update */
-	mCustomData = ContentUpdateCb(drmHelper, streamType , keyId, isContentProcess);
+	mCustomData = ContentUpdateCb(drmHelper, streamType, std::move(keyId), isContentProcess);
 	if (code == KEY_READY)
 	{
 		return drmSessionContexts[selectedSlot].drmSession;
@@ -502,7 +502,7 @@ DrmSession* DrmSessionManager::createDrmSession(int &responseCode, int &err, std
 	}
 
 	// License acquisition was done, so mContentSecurityManagerSession will be populated now
-	auto localSession = mContentSecurityManagerSession; //Remove potential isSessionValid(), getSessionID() race by using a local copy
+	const auto &localSession = mContentSecurityManagerSession; //Remove potential isSessionValid(), getSessionID() race by using a local copy
 	if (localSession.isSessionValid())
 	{
 		MW_LOG_WARN(" Setting sessionId[%" PRId64 "] to current drmSession", localSession.getSessionID());
