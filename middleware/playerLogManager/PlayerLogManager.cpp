@@ -30,14 +30,19 @@
 #include <cstring>
 #include "PlayerLogManager.h"
 #include "PlayerUtils.h"
-using namespace std;
+
 #ifdef USE_ETHAN_LOG
-std::cout << "DEBUG_LOG PlayerLogManager Ethan log defined" << std::endl;
+static void __attribute__((constructor)) debug_ethan_log_enabled() {
+    printf("DEBUG_LOG USE_ETHAN_LOG is defined - EthanLog support enabled\n");
+}
 #include <ethanlog.h>
 #else
+static void __attribute__((constructor)) debug_ethan_log_disabled() {
+    printf("DEBUG_LOG USE_ETHAN_LOG is NOT defined - using stub functions\n");
+}
 // stubs for use if USE_ETHAN_LOG not defined
 static void vethanlog(int level, const char *filename, const char *function, int line, const char *format, va_list ap){
-	std::cout << "DEBUG_LOG PlayerLogManager Ethan log not defined inside the function" << std::endl;
+	printf("DEBUG_LOG vethanlog stub called (EthanLog not available)\n");
 }
 #define ETHAN_LOG_INFO 0
 #define ETHAN_LOG_DEBUG 1

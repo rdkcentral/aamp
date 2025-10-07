@@ -2517,7 +2517,7 @@ static JSValueRef AAMP_load(JSContextRef context, JSObjectRef function, JSObject
  */
 static JSValueRef AAMP_stop(JSContextRef context, JSObjectRef function, JSObjectRef thisObject, size_t argumentCount, const JSValueRef arguments[], JSValueRef *exception)
 {
-	printf("DEBUG_LOG:Inside AAMP_stop of jsbindings\n");
+	printf("DEBUG_LOG:Inside AAMP_stop of jsbindings");
         LOG_TRACE("Enter");
 	AAMP_JS* pAAMP = (AAMP_JS*)JSObjectGetPrivate(thisObject); 
 	if(!pAAMP)
