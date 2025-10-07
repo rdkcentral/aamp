@@ -62,7 +62,7 @@ public:
 	 * @param[in] format - force track to 608/708 or default (not used)
 	 * @return int - 0 on success, -1 on failure
 	 */
-	int SetTrack(const std::string &track, const CCFormat format) override;
+	int SetTrack(const std::string &track, const CCFormat format = eCLOSEDCAPTION_FORMAT_DEFAULT) override;
 
 	/**
 	 * @fn PlayerRialtoCCManager
