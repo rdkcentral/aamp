@@ -544,8 +544,9 @@ class PrivateInstanceAAMP : public DrmCallbacks, public std::enable_shared_from_
 	/**
  	*  @fn Process json object or language string and save the preferred selection to AampConfig
  	*  @param[in] param - language string or json object
+ 	*  @param[in] isSelectionChange - flag to indicate if accessibility has changed
  	*/
-	void SavePreferredTextLanguages(const char *param );
+	void SavePreferredTextLanguages(const char *param, bool &isSelectionChange);
 
 	/**
  	* @brief Set closed caption track with appropriate format from passed text track
@@ -554,9 +555,9 @@ class PrivateInstanceAAMP : public DrmCallbacks, public std::enable_shared_from_
 	void SetCCFromTextTrack(TextTrackInfo &track);
 
 	/**
-	 * @brief  Find closed caption track index if any
-	 * @param[in] track - Text track information
-	 * @return index of closed caption track if any else -1
+	 * @brief  Find closed caption track index in list of text tracks
+	 * @param[in] track - Text track information vector
+	 * @return index of closed caption track otherwise -1 if not found
 	 */
 	int FindClosedCaptionTrackIndex(const std::vector<TextTrackInfo> &trackInfo) const;
 
