@@ -38,6 +38,8 @@ public:
 	MOCK_METHOD(double, GetStreamPosition, (), (override));
 	MOCK_METHOD(void, GetStreamFormat, (StreamOutputFormat &primaryOutputFormat, StreamOutputFormat &audioOutputFormat, StreamOutputFormat &auxAudioOutputFormat, StreamOutputFormat &subtitleOutputFormat), (override));
 	MOCK_METHOD(bool, DoEarlyStreamSinkFlush, (bool newTune, float rate), (override));
+	MOCK_METHOD(Accessibility, getAccessibilityNode, (AampJsonObject &accessNode));
+
   };
 
 extern MockStreamAbstractionAAMP_MPD *g_mockStreamAbstractionAAMP_MPD;
