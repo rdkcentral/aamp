@@ -18,7 +18,7 @@
 */
 
 #include "MockPlayerScheduler.h"
-#include "PlayerScheduler.h"
+#include "middleware/PlayerScheduler.h"
 
 MockPlayerScheduler *g_mockPlayerScheduler = nullptr;
 

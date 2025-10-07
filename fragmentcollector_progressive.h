@@ -115,7 +115,6 @@ public:
     virtual void FetcherLoop();
     /**
      * @fn FragmentCollector
-     * @retval void
      */
     void FragmentCollector();
     /*

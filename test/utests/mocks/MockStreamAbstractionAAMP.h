@@ -108,6 +108,8 @@ public:
 
 	MOCK_METHOD(std::vector<TextTrackInfo> &, GetAvailableTextTracks, (bool allTrack), (override));
 
+	MOCK_METHOD(bool, GetCurrentTextTrack, (TextTrackInfo &textTrack), (override));
+
 	MOCK_METHOD(void, MuteSubtitles, (bool));
 
 	MOCK_METHOD(void, SetVideoPlaybackRate, (float rate));

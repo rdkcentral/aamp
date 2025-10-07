@@ -118,7 +118,6 @@ function install_pkgs_linux_fn()
     install_package_fn libcurl4-openssl-dev
     install_package_fn libgstreamer1.0-dev
     install_package_fn libgstreamer-plugins-bad1.0-dev
-    install_package_fn gstreamer1.0-plugins-bad
     install_package_fn libssl-dev
     install_package_fn libxml2-dev
     install_package_fn pkg-config
@@ -227,7 +226,8 @@ function install_pkgs_fn()
       install_pkgs_darwin_fn git glib json-glib cmake "openssl@3" libxml2 ossp-uuid cjson gnu-sed meson ninja pkg-config jsoncpp lcov gcovr jq curl
       install_pkgs_darwin_fn coreutils websocketpp "boost@1.85" jansson libxkbcommon cppunit gnu-sed fontconfig doxygen graphviz tinyxml2 openldap krb5 "openjdk@21"
 
-      if [[ "$ARCH" == "arm64" && "$CUR_MACOS_VER" == "15.5" ]]; then
+      # Check if running on arm64 with macOS 15.5 or later
+      if [[ "$ARCH" == "arm64" ]] && [[ "$(printf '%s\n' "$CUR_MACOS_VER" "15.5" | sort -V | head -n1)" == "15.5" ]]; then
           # Install downgraded version of asio for arm64.
           # This is to fix compatibility issues with websocketpp and subtec
           # "|| true" prevents the script from exiting if orc is not found, that is not an error

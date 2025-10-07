@@ -40,7 +40,7 @@ class BrcmSocInterface : public SocInterface
 		 * @return True if AC4 should be disabled, false otherwise.
 		 */
 		bool IsSupportedAC4()override{return true;}
-		
+
 		/**
 		 * @brief Check if PTS restamping is supported by the platform.
 		 *
