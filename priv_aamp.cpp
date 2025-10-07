@@ -12085,7 +12085,7 @@ void PrivateInstanceAAMP::SanitizeLanguageList(std::vector<std::string>& languag
 /**
  *  @brief Process json object or language string and save the preferred selection to AampConfig
  */
-void PrivateInstanceAAMP::SavePreferredTextLanguages(const char *param )
+void PrivateInstanceAAMP::SavePreferredTextLanguages(const char *param, bool &isSelectionChange )
 {
 	/**< First argument is Json data then parse it and and assign the variables properly*/
 	AampJsonObject* jsObject = nullptr;
@@ -12193,6 +12193,11 @@ void PrivateInstanceAAMP::SavePreferredTextLanguages(const char *param )
 					AAMPLOG_INFO("Preferred accessibility: %s", inputTextAccessibilityNode.print().c_str());
 				}
 			}
+
+			if(preferredTextAccessibilityNode != inputTextAccessibilityNode )
+			{
+				isSelectionChange = true;
+			}
 		}
 
 		/**< Release json object **/
@@ -12290,9 +12295,6 @@ void PrivateInstanceAAMP::CheckPreferredTextLanguages(const std::vector<TextTrac
 
 	int currentTrackIndex = GetTextTrack();
 	int trackIdx = -1;
-
-	isSelectionChange = false;
-	isAvailableInManifest = false;
 
 	if (currentTrackIndex >= 0)
 	{
@@ -12400,18 +12402,18 @@ void PrivateInstanceAAMP::CheckPreferredTextLanguages(const std::vector<TextTrac
 void PrivateInstanceAAMP::SetPreferredTextLanguages(const char *param)
 {
 
-	SavePreferredTextLanguages(param);
+	bool isSelectionChange = false;
+	bool isAvailableInManifest = false;
+	int closedCaptionTrackId = -1;
+
+	SavePreferredTextLanguages(param, isSelectionChange);
 
 	AAMPPlayerState state = GetState();
 	if (state != eSTATE_IDLE && state != eSTATE_RELEASED && state != eSTATE_ERROR)
 	{ // active playback session; apply immediately
 		if (mpStreamAbstractionAAMP)
 		{
-
 			std::vector<TextTrackInfo> trackInfo = mpStreamAbstractionAAMP->GetAvailableTextTracks();
-			bool isSelectionChange = false;
-			bool isAvailableInManifest = false;
-			int closedCaptionTrackId = -1;
 
 			CheckPreferredTextLanguages(trackInfo, isAvailableInManifest, isSelectionChange, closedCaptionTrackId);
 
