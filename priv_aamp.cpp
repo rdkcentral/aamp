@@ -5811,11 +5811,14 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 	mAsyncTuneEnabled = ISCONFIGSET_PRIV(eAAMPConfig_AsyncTune);
 	intTmpVar = GETCONFIGVALUE_PRIV(eAAMPConfig_LivePauseBehavior);
 	mPausedBehavior = (PausedBehavior)intTmpVar;
+	AAMPLOG_WARN("HariPriya ------------------------");
 	AAMPLOG_WARN("HariPriya mPausedBehavior = %d",mPausedBehavior);
 	if(mPausedBehavior == ePAUSED_BEHAVIOR_AUTOPLAY_IMMEDIATE)
     	{
        		mJumpToLiveFromPause = false;
+		mSeekFromPausedState = false;
     	}
+	AAMPLOG_WARN("HariPriya ------------------------");
 	AAMPLOG_WARN("HariPriya mPausedBehavior = %d mJumpToLiveFromPause : %d",mPausedBehavior,mJumpToLiveFromPause);
 	tmpVar = GETCONFIGVALUE_PRIV(eAAMPConfig_NetworkTimeout);
 	mNetworkTimeoutMs = CONVERT_SEC_TO_MS(tmpVar);
