@@ -790,10 +790,10 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 			double formattedCurrPos = aamp->GetPositionMilliseconds() - offset;
 			double formattedSeekPos = (aamp->seek_pos_seconds * 1000.0) - offset;
 
-			AAMPLOG_WARN("aamp_SetRate (%f)overshoot(%d) ProgressReportDelta:(%d) ", rate, overshootcorrection, timeDeltaFromProgReport);
-			AAMPLOG_WARN("aamp_SetRate rate(%f)->(%f) cur pipeline: %s. Adj position: %f Play/Pause Position:%lld",
+			AAMPLOG_WARN("HariPriya aamp_SetRate (%f)overshoot(%d) ProgressReportDelta:(%d) ", rate, overshootcorrection, timeDeltaFromProgReport);
+			AAMPLOG_WARN("HariPriya aamp_SetRate rate(%f)->(%f) cur pipeline: %s. Adj position: %f Play/Pause Position:%lld",
 					aamp->rate, rate,aamp->pipeline_paused ? "paused" : "playing", formattedSeekPos, (static_cast<long long int>(formattedCurrPos)));
-			
+			AAMPLOG_WARN("HariPriya mSeekFromPausedState = %d rate = %f aampRate = %f mDetached = %d",aamp->mSeekFromPausedState,rate,aamp->rate,aamp->mbDetached);
 			if (!aamp->mSeekFromPausedState && (rate == aamp->rate) && !aamp->mbDetached)
 			{ // no change in desired play rate
 				// no deferring for playback resume
@@ -811,6 +811,7 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 						aamp->rate = AAMP_NORMAL_PLAY_RATE;
 						aamp->pipeline_paused = false;
 						aamp->AcquireStreamLock();
+						AAMPLOG_WARN("HariPriya call to TuneHelper with eTUNETYPE_SEEK");
 						aamp->TuneHelper(eTUNETYPE_SEEK, false);
 						aamp->ReleaseStreamLock();
 					}
@@ -879,6 +880,7 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 				TuneType tuneTypePlay = eTUNETYPE_SEEK;
 				if(aamp->mJumpToLiveFromPause)
 				{
+					AAMPLOG_WARN("HariPriya update the tuneTypePlay to eTUNETYPE_SEEKTOLIVE");
 					tuneTypePlay = eTUNETYPE_SEEKTOLIVE;
 					aamp->mJumpToLiveFromPause = false;
 				}
@@ -892,6 +894,7 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 				aamp->EnableDownloads();
 				aamp->ResumeDownloads();
 				aamp->AcquireStreamLock();
+				AAMPLOG_WARN("HariPriya call to TuneHelper with tuneType : %d",tuneTypePlay);
 				aamp->TuneHelper(tuneTypePlay); // this unpauses pipeline as side effect
 				aamp->ReleaseStreamLock();
 			}
@@ -975,15 +978,18 @@ static gboolean SeekAfterPrepared(gpointer ptr)
 	}
 	if (AAMP_SEEK_TO_LIVE_POSITION == aamp->seek_pos_seconds )
 	{
+		AAMPLOG_WARN("HariPriya AAMP_SEEK_TO_LIVE_POSITION = seek_pos_seconds");
+		
 		isSeekToLiveOrEnd = true;
 	}
 
-	AAMPLOG_WARN("aamp_Seek(%f) and seekToLiveOrEnd(%d)", aamp->seek_pos_seconds, isSeekToLiveOrEnd);
+	AAMPLOG_WARN("HariPriya aamp_Seek(%f) and seekToLiveOrEnd(%d)", aamp->seek_pos_seconds, isSeekToLiveOrEnd);
 
 	if (isSeekToLiveOrEnd)
 	{
 		if (aamp->IsLive())
 		{
+			AAMPLOG_WARN("HariPriya set TuneType to SeekToLive");
 			tuneType = eTUNETYPE_SEEKTOLIVE;
 		}
 		else
@@ -1032,6 +1038,7 @@ static gboolean SeekAfterPrepared(gpointer ptr)
 		/* Clear setting playerrate flag */
 		aamp->mSetPlayerRateAfterFirstframe=false;
 		aamp->AcquireStreamLock();
+		AAMPLOG_WARN("HariPriya call to TuneHelper with tuneType : %d",tuneType);
 		aamp->TuneHelper(tuneType);
 		if(PositionMillisecondLocked)
 		{
@@ -1115,12 +1122,14 @@ void PlayerInstanceAAMP::SeekInternal(double secondsRelativeToTuneTime, bool kee
 				secondsRelativeToTuneTime = 0;
 			}
 
-			AAMPLOG_WARN("aamp_Seek(%f) and seekToLiveOrEnd(%d) state(%d), keep paused(%d)", secondsRelativeToTuneTime, isSeekToLiveOrEnd,state, keepPaused);
+			AAMPLOG_WARN("HariPriya aamp_Seek(%f) and seekToLiveOrEnd(%d) state(%d), keep paused(%d)", secondsRelativeToTuneTime, isSeekToLiveOrEnd,state, keepPaused);
 
 			if (isSeekToLiveOrEnd)
 			{
+				AAMPLOG_WARN("HariPriya it is isSeekToLiveOrEnd true");
 				if (aamp->IsLive())
 				{
+					AAMPLOG_WARN("HariPriya set TuneType to SeekToLive");
 					tuneType = eTUNETYPE_SEEKTOLIVE;
 				}
 				else
@@ -1259,6 +1268,7 @@ void PlayerInstanceAAMP::SeekInternal(double secondsRelativeToTuneTime, bool kee
 				/* Clear setting playerrate flag */
 				aamp->mSetPlayerRateAfterFirstframe=false;
 				aamp->AcquireStreamLock();
+				AAMPLOG_WARN("HariPriya call to TuneHelper with tuneType : %d",tuneType);
 				aamp->TuneHelper(tuneType, seekWhilePause);
 				aamp->ReleaseStreamLock();
 				if (sentSpeedChangedEv && (!seekWhilePause) )
@@ -1289,6 +1299,7 @@ void PlayerInstanceAAMP::SeekToLive(bool keepPaused)
 		UsingPlayerId playerId(aamp->mPlayerId);
 		if(mAsyncTuneEnabled)
 		{
+			AAMPLOG_WARN("HariPriya In SeekToLive API call if case ");
 
 			mScheduler.ScheduleTask(AsyncTaskObj([keepPaused](void *data)
 					{
@@ -1298,6 +1309,7 @@ void PlayerInstanceAAMP::SeekToLive(bool keepPaused)
 		}
 		else
 		{
+			AAMPLOG_WARN("HariPriya In SeekToLive API call else case ");
 			SeekInternal(AAMP_SEEK_TO_LIVE_POSITION, keepPaused);
 		}
 	}
@@ -1332,6 +1344,7 @@ void PlayerInstanceAAMP::SetSlowMotionPlayRate( float rate )
 			aamp->AcquireStreamLock();
 			aamp->TeardownStream(false);
 			aamp->rate = AAMP_NORMAL_PLAY_RATE;
+			AAMPLOG_WARN("HariPriya call to TuneHelper with tuneType eTUNETYPE_SEEK");
 			aamp->TuneHelper(eTUNETYPE_SEEK);
 			aamp->ReleaseStreamLock();
 		}
@@ -1365,6 +1378,7 @@ void PlayerInstanceAAMP::SetRateAndSeek(int rate, double secondsRelativeToTuneTi
 		{
 			if (aamp->IsLive())
 			{
+				AAMPLOG_WARN("HariPriya :: tuneType : set to SeekToLive");
 				tuneType = eTUNETYPE_SEEKTOLIVE;
 			}
 			else
@@ -1387,6 +1401,7 @@ void PlayerInstanceAAMP::SetRateAndSeek(int rate, double secondsRelativeToTuneTi
 			aamp->TeardownStream(false);
 			aamp->seek_pos_seconds = secondsRelativeToTuneTime;
 			aamp->rate = rate;
+			AAMPLOG_WARN("HariPriya :: tuneType : set to SeekToLive");
 			aamp->TuneHelper(tuneType);
 			aamp->ReleaseStreamLock();
 			if(rate == 0)
@@ -3223,6 +3238,7 @@ void PlayerInstanceAAMP::SetAuxiliaryLanguageInternal(const std::string &languag
 
 					aamp->seek_pos_seconds = aamp->GetPositionSeconds();
 					aamp->TeardownStream(false);
+					AAMPLOG_WARN("HariPriya call to TuneHelper eTUNETYPE_SEEK ");
 					aamp->TuneHelper(eTUNETYPE_SEEK);
 
 					aamp->discardEnteringLiveEvt = false;

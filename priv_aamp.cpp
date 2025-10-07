@@ -306,12 +306,14 @@ static gboolean PrivateInstanceAAMP_Resume(gpointer ptr)
 		// Live immediate : seek to live position from paused state.
 		if (aamp->mPausedBehavior == ePAUSED_BEHAVIOR_LIVE_IMMEDIATE)
 		{
+			AAMPLOG_WARN("HariPriya :: update tuneType = eTUNETYPE_SEEKTOLIVE ");
 			tuneType = eTUNETYPE_SEEKTOLIVE;
 		}
 		aamp->rate = AAMP_NORMAL_PLAY_RATE;
 		aamp->pipeline_paused = false;
 		aamp->mSeekFromPausedState = false;
 		aamp->AcquireStreamLock();
+		AAMPLOG_WARN("HariPriya call to TuneHelper of tuneType : %d",tuneType);
 		aamp->TuneHelper(tuneType);
 		aamp->ReleaseStreamLock();
 	}
@@ -391,6 +393,7 @@ static gboolean PrivateInstanceAAMP_Retune(gpointer ptr)
 		lock.unlock();
 
 		aamp->AcquireStreamLock();
+		AAMPLOG_WARN("HariPriya call to TuneHelper of tuneType : RETUNE");
 		aamp->TuneHelper(eTUNETYPE_RETUNE);
 		aamp->ReleaseStreamLock();
 
@@ -2463,6 +2466,7 @@ void PrivateInstanceAAMP::UpdateCullingState(double culledSecs)
 				// Autoplay immediate - Play from start of live window
 				if(ePAUSED_BEHAVIOR_LIVE_IMMEDIATE == mPausedBehavior)
 				{
+					AAMPLOG_WARN("HariPriya :: mSeekFromPausedState = true");
 					// Enable this flag to perform seek to live.
 					mSeekFromPausedState = true;
 				}
@@ -2482,9 +2486,11 @@ void PrivateInstanceAAMP::UpdateCullingState(double culledSecs)
 				// Wait for play() call to resume, enable mSeekFromPausedState for reconfigure.
 				// Live differ - Play from live position
 				// Autoplay differ -Play from eldest part (start of live window)
+				AAMPLOG_WARN("HariPriya ... mSeekFromPausedState to true mPausedBehavior = %d",mPausedBehavior);
 				mSeekFromPausedState = true;
 				if(ePAUSED_BEHAVIOR_LIVE_DEFER == mPausedBehavior)
 				{
+					AAMPLOG_WARN("HariPriya .. mJumpToLiveFromPause = true setting .. ");
 					mJumpToLiveFromPause = true;
 				}
 			}
@@ -2498,10 +2504,12 @@ void PrivateInstanceAAMP::UpdateCullingState(double culledSecs)
 
 			if (culledSecs <= maxRefreshPlaylistIntervalSecs)
 			{
+				AAMPLOG_WARN("HariPriya mPausedBehavior = %d",mPausedBehavior);
 				if (mPausedBehavior <= ePAUSED_BEHAVIOR_LIVE_IMMEDIATE)
 				{
 					if(ePAUSED_BEHAVIOR_LIVE_IMMEDIATE == mPausedBehavior)
 					{
+						AAMPLOG_WARN("HariPriya :: mSeekFromPausedState = true");
 						mSeekFromPausedState = true;
 					}
 					AAMPLOG_WARN("Resume playback since start position(%f) moved very close to minimum resume position(%f) ", this->culledSeconds, minPlaylistPositionToResume);
@@ -2517,9 +2525,11 @@ void PrivateInstanceAAMP::UpdateCullingState(double culledSecs)
 				}
 				else if(mPausedBehavior >= ePAUSED_BEHAVIOR_AUTOPLAY_DEFER)
 				{
+					AAMPLOG_WARN("HariPriya mSeekFromPausedState = true .. mPausedBehavior = %d",mPausedBehavior);
 					mSeekFromPausedState = true;
 					if(ePAUSED_BEHAVIOR_LIVE_DEFER == mPausedBehavior)
 					{
+						AAMPLOG_WARN("HariPriya mJumpToLiveFromPause set to TRUE");
 						mJumpToLiveFromPause = true;
 					}
 				}
@@ -3349,6 +3359,7 @@ void PrivateInstanceAAMP::NotifyEOSReached()
 			ReportProgress(true, true);
 			rate = AAMP_NORMAL_PLAY_RATE;
 			AcquireStreamLock();
+			AAMPLOG_WARN("HariPriya call to TuneHelper of tuneType : SEEK");
 			TuneHelper(eTUNETYPE_SEEK);
 			ReleaseStreamLock();
 			NotifySpeedChanged(rate);
@@ -3357,6 +3368,7 @@ void PrivateInstanceAAMP::NotifyEOSReached()
 		{
 			rate = AAMP_NORMAL_PLAY_RATE;
 			AcquireStreamLock();
+			AAMPLOG_WARN("HariPriya call to TuneHelper of tuneType : SEEKTOLIVE");
 			TuneHelper(eTUNETYPE_SEEKTOLIVE);
 			ReleaseStreamLock();
 			NotifySpeedChanged(rate);
@@ -5799,6 +5811,12 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 	mAsyncTuneEnabled = ISCONFIGSET_PRIV(eAAMPConfig_AsyncTune);
 	intTmpVar = GETCONFIGVALUE_PRIV(eAAMPConfig_LivePauseBehavior);
 	mPausedBehavior = (PausedBehavior)intTmpVar;
+	AAMPLOG_WARN("HariPriya mPausedBehavior = %d",mPausedBehavior);
+	if(mPausedBehavior == ePAUSED_BEHAVIOR_AUTOPLAY_IMMEDIATE)
+    	{
+       		mJumpToLiveFromPause = false;
+    	}
+	AAMPLOG_WARN("HariPriya mPausedBehavior = %d mJumpToLiveFromPause : %d",mPausedBehavior,mJumpToLiveFromPause);
 	tmpVar = GETCONFIGVALUE_PRIV(eAAMPConfig_NetworkTimeout);
 	mNetworkTimeoutMs = CONVERT_SEC_TO_MS(tmpVar);
 	tmpVar = GETCONFIGVALUE_PRIV(eAAMPConfig_ManifestTimeout);
@@ -6163,6 +6181,7 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 	SAFE_DELETE(mCdaiObject);
 	
 	AcquireStreamLock();
+	AAMPLOG_WARN("HariPriya call to TuneHelper of tuneType : %d",tuneType);
 	TuneHelper(tuneType);
 
 	//Apply the cached video mute call as it got invoked when stream lock was not available
@@ -10151,6 +10170,7 @@ void PrivateInstanceAAMP::SetVideoTracks(std::vector<BitsPerSecond> bitrateList)
 	if (state > eSTATE_PREPARING)
 	{
 		AcquireStreamLock();
+		AAMPLOG_WARN("HariPriya call to TuneHelper of tuneType : RETUNE");
 		TuneHelper(eTUNETYPE_RETUNE);
 		ReleaseStreamLock();
 	}
@@ -10946,6 +10966,7 @@ void PrivateInstanceAAMP::SetTextTrack(int trackId, char *data)
 								seek_pos_seconds = GetPositionSeconds();
 								AcquireStreamLock();
 								TeardownStream(false);
+								AAMPLOG_WARN("HariPriya call to TuneHelper of tuneType : SEEK");
 								TuneHelper(eTUNETYPE_SEEK);
 								ReleaseStreamLock();
 								discardEnteringLiveEvt = false;
@@ -12006,6 +12027,7 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 								AAMPLOG_INFO("Recreate the TSB Session Manager");
 								CreateTsbSessionManager();
 								SetLocalAAMPTsbInjection(false);
+								AAMPLOG_WARN("HariPriya call to TuneHelper of tuneType : SEEKTOLIVE");
 								TuneHelper(eTUNETYPE_SEEKTOLIVE);
 							}
 							else
@@ -12015,10 +12037,12 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 						}
 						else if(mDisableRateCorrection)
 						{
+							AAMPLOG_WARN("HariPriya call to TuneHelper of tuneType SEEK");
 							TuneHelper(eTUNETYPE_SEEK);
 						}
 						else
 						{
+							AAMPLOG_WARN("HariPriya call to TuneHelper of tuneType : SEEKTOLIVE");
 							TuneHelper(eTUNETYPE_SEEKTOLIVE);
 						}
 					}
@@ -12408,6 +12432,7 @@ void PrivateInstanceAAMP::SetPreferredTextLanguages(const char *param )
 							AAMPLOG_INFO("Recreate the TSB Session Manager and Tune to Live");
 							CreateTsbSessionManager();
 							SetLocalAAMPTsbInjection(false);
+							AAMPLOG_WARN("HariPriya call to TuneHelper of tuneType : SEEKTOLIVE");
 							TuneHelper(eTUNETYPE_SEEKTOLIVE);
 						}
 						else

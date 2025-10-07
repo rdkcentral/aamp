@@ -3487,7 +3487,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::InitTsbReader(TuneType tuneType)
 	AAMPStatusType retVal = eAAMPSTATUS_OK;
 	mTuneType = tuneType;
 	double livePlayPosition = aamp->GetLivePlayPosition();
-	AAMPLOG_INFO("TuneType:%d seek position: %lfs, livePlayPos: %lfs, Offset: %lfs, culledSeconds from actual manifest: %lf", tuneType, seekPosition, livePlayPosition, aamp->mLiveOffset, mCulledSeconds);
+	AAMPLOG_INFO("HariPriya :: TuneType:%d seek position: %lfs, livePlayPos: %lfs, Offset: %lfs, culledSeconds from actual manifest: %lf", tuneType, seekPosition, livePlayPosition, aamp->mLiveOffset, mCulledSeconds);
 	AampTSBSessionManager* tsbSessionManager = aamp->GetTSBSessionManager();
 	if(NULL != tsbSessionManager)
 	{
@@ -3503,6 +3503,7 @@ AAMPStatusType StreamAbstractionAAMP_MPD::InitTsbReader(TuneType tuneType)
 					AAMPLOG_INFO("Re-enabling LLD DASH speed correction");
 					aamp->SetLLDashAdjustSpeed(true);
 				}
+				AAMPLOG_WARN("HariPriya set TuneType to SeekToLive");
 				mTuneType = eTUNETYPE_SEEKTOLIVE;
 			}
 			mIsAtLivePoint = true;
