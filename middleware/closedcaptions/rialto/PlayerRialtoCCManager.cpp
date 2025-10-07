@@ -152,7 +152,7 @@ void PlayerRialtoCCManager::StopRendering()
  *
  * @return CC_VL_OS_API_RESULT
  */
-int SetDigitalChannel(unsigned int id)
+int PlayerRialtoCCManager::SetDigitalChannel(unsigned int id)
 {
 	MW_LOG_WARN("PlayerRialtoCCManager::Should not be called! (%u)", id);
 	return 0;
@@ -163,7 +163,7 @@ int SetDigitalChannel(unsigned int id)
  *
  * @return CC_VL_OS_API_RESULT
  */
-int SetAnalogChannel(unsigned int id)
+int PlayerRialtoCCManager::SetAnalogChannel(unsigned int id)
 {
 	MW_LOG_WARN("PlayerRialtoCCManager::Should not be called! (%u)", id);
 	return 0;
