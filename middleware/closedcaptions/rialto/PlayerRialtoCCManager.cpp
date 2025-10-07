@@ -25,6 +25,7 @@
  */
 #include "PlayerRialtoCCManager.h"
 #include "PlayerLogManager.h" // Included for MW_LOG
+#include "InterfacePlayerRDK.h" // Included for MW_LOG
 
 /**
  * @brief stores Handle
@@ -83,7 +84,7 @@ int PlayerRialtoCCManager::SetTrack(const std::string &track, const CCFormat for
 
 	mTrack = track;	// For PlayerCCManager::GetTrack()
 
-	MW_LOG_INFO("PlayerRialtoCCManager::set track \"%s\"", track.c_str())
+	MW_LOG_INFO("PlayerRialtoCCManager::set track \"%s\"", track.c_str());
 
 	auto CCsink = InterfacePlayerRDK::GetCCDecoderHandle();
 	if (CCsink != 0)
