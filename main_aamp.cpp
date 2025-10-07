@@ -847,7 +847,7 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 					{
 						AAMPLOG_INFO("SetRate pausing downloads");
 						aamp->StopDownloads();
-						if(aamp->mPausedBehavior == ePAUSED_BEHAVIOR_LIVE_DEFER )
+						if(aamp->mPausedBehavior > ePAUSED_BEHAVIOR_AUTOPLAY_IMMEDIATE )
 						{
 							AAMPLOG_INFO("vk--> PAUSE - defer to live on resume");
 							//Disable downloads if the pause is for infiite time or until user resumes. If we continue manifest downloadng in this case , it will cause  crash due to period culling in later point of time after  pause.
