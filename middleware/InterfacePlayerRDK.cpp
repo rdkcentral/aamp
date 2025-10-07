@@ -242,6 +242,11 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int auxF
 		newFormat[eGST_MEDIATYPE_SUBTITLE]=GST_FORMAT_INVALID;
 	}
 
+// HACK
+	MW_LOG_MIL("HACK Gstreamer subs are enabled");
+	newFormat[eGST_MEDIATYPE_SUBTITLE] = GST_FORMAT_SUBTITLE_CC;
+
+
 	/*Enable sending of audio data to the auxiliary output*/
 	if(forwardAudioToAux)
 	{
@@ -2030,27 +2035,76 @@ int InterfacePlayerRDK::SetupStream(int streamId,  void *playerInstance, std::st
 		{
 			if (pInterfacePlayerRDK->gstPrivateContext->usingRialtoSink)
 			{
-				stream->sinkbin = GST_ELEMENT(gst_object_ref_sink(gst_element_factory_make("playbin", NULL)));
-				MW_LOG_INFO("subs using rialto subtitle sink");
-				GstElement* textsink = gst_element_factory_make("rialtomsesubtitlesink", NULL);
-				if (textsink)
+				if (stream->format == GST_FORMAT_SUBTITLE_CC)
 				{
-					MW_LOG_INFO("Created rialtomsesubtitlesink: %s", GST_ELEMENT_NAME(textsink));
+					GstElement *subtitlebin = nullptr, *appsrc = nullptr, *textsink = nullptr;
+					g_clear_object(&stream->sinkbin);
+
+					if (!(appsrc = InterfacePlayerRDK_GetAppSrc(pInterfacePlayerRDK, eGST_MEDIATYPE_SUBTITLE)))
+					{
+						MW_LOG_ERR("Failed to create subtitle appsrc");
+					}
+					else if (!(textsink = gst_element_factory_make("rialtomsesubtitlesink", NULL)))
+					{
+						MW_LOG_ERR("Failed to create subtitle sink");
+					}
+					else if (!(subtitlebin = gst_bin_new("subtitlebin"))) 
+					{
+						MW_LOG_ERR("Failed to create subtitle bin");
+					}
+					else
+					{
+						gst_bin_add_many(GST_BIN(subtitlebin), appsrc, textsink, NULL);
+						if (gst_element_link(appsrc, textsink))
+						{
+							MW_LOG_INFO("Linked subtitle bin using %s", GST_ELEMENT_NAME(textsink));
+
+							stream->source = GST_ELEMENT(gst_object_ref_sink(appsrc));
+							pInterfacePlayerRDK->gstPrivateContext->subtitle_sink = GST_ELEMENT(gst_object_ref_sink(textsink));
+							stream->sinkbin = GST_ELEMENT(gst_object_ref_sink(subtitlebin));
+
+// Temporary until done by cc manager
+							g_object_set(textsink, "mute", pInterfacePlayerRDK->gstPrivateContext->subtitleMuted ? TRUE : FALSE, NULL);
+							g_object_set(textsink, "text-track-identifier", "CC3", NULL);
+						}
+						else
+						{
+							MW_LOG_ERR("Failed to link subtitle elements");
+						}
+					}
+
+					if (!stream->sinkbin)
+					{
+						g_clear_object(&appsrc);
+						g_clear_object(&textsink);
+						g_clear_object(&subtitlebin);
+						return -1;
+					}
 				}
 				else
 				{
-					MW_LOG_WARN("Failed to create rialtomsesubtitlesink");
-				}
-				auto subtitlebin = gst_bin_new("subtitlebin");
-				auto vipertransform = gst_element_factory_make("vipertransform", NULL);
-				gst_bin_add_many(GST_BIN(subtitlebin),vipertransform,textsink,NULL);
-				gst_element_link(vipertransform, textsink);
-				gst_element_add_pad(subtitlebin, gst_ghost_pad_new("sink", gst_element_get_static_pad(vipertransform, "sink")));
+					stream->sinkbin = GST_ELEMENT(gst_object_ref_sink(gst_element_factory_make("playbin", NULL)));
+					MW_LOG_INFO("subs using rialto subtitle sink");
+					GstElement* textsink = gst_element_factory_make("rialtomsesubtitlesink", NULL);
+					if (textsink)
+					{
+						MW_LOG_INFO("Created rialtomsesubtitlesink: %s", GST_ELEMENT_NAME(textsink));
+					}
+					else
+					{
+						MW_LOG_WARN("Failed to create rialtomsesubtitlesink");
+					}
+					auto subtitlebin = gst_bin_new("subtitlebin");
+					auto vipertransform = gst_element_factory_make("vipertransform", NULL);
+					gst_bin_add_many(GST_BIN(subtitlebin),vipertransform,textsink,NULL);
+					gst_element_link(vipertransform, textsink);
+					gst_element_add_pad(subtitlebin, gst_ghost_pad_new("sink", gst_element_get_static_pad(vipertransform, "sink")));
 
-				g_object_set(stream->sinkbin, "text-sink", subtitlebin, NULL);
-				pInterfacePlayerRDK->gstPrivateContext->subtitle_sink = textsink;
-				MW_LOG_MIL("using rialtomsesubtitlesink muted=%d sink=%p", pInterfacePlayerRDK->gstPrivateContext->subtitleMuted, pInterfacePlayerRDK->gstPrivateContext->subtitle_sink);
-				g_object_set(textsink, "mute", pInterfacePlayerRDK->gstPrivateContext->subtitleMuted ? TRUE : FALSE, NULL);
+					g_object_set(stream->sinkbin, "text-sink", subtitlebin, NULL);
+					pInterfacePlayerRDK->gstPrivateContext->subtitle_sink = textsink;
+					MW_LOG_MIL("using rialtomsesubtitlesink muted=%d sink=%p", pInterfacePlayerRDK->gstPrivateContext->subtitleMuted, pInterfacePlayerRDK->gstPrivateContext->subtitle_sink);
+					g_object_set(textsink, "mute", pInterfacePlayerRDK->gstPrivateContext->subtitleMuted ? TRUE : FALSE, NULL);
+				}
 			}
 			else
 			{
@@ -2680,16 +2734,36 @@ bool InterfacePlayerRDK::StopBuffering(bool forceStop, bool &isPlaying)
 /**
  *  @brief Retrieve the video decoder handle from pipeline
  */
-unsigned long InterfacePlayerRDK::GetCCDecoderHandle()
+unsigned long InterfacePlayerRDK::GetVideoDecoderHandle()
 {
 	gpointer dec_handle = NULL;
 	if(this->gstPrivateContext->video_dec != NULL)
 	{
 		MW_LOG_MIL("Querying video decoder for handle");
-		socInterface->GetCCDecoderHandle(&dec_handle, this->gstPrivateContext->video_dec);
+		socInterface->GetVideoDecoderHandle(&dec_handle, this->gstPrivateContext->video_dec);
 	}
 	MW_LOG_MIL("video decoder handle received %p for video_dec %p", dec_handle, gstPrivateContext->video_dec);
 	return (unsigned long)dec_handle;
+}
+
+/**
+ *  @brief Retrieve the Closed Caption sink handle from pipeline
+ */
+unsigned long InterfacePlayerRDK::GetCCDecoderHandle()
+{
+	gst_media_stream* stream = &this->gstPrivateContext->stream[eGST_MEDIATYPE_SUBTITLE];
+	unsigned long dec_handle = 0;
+
+	if ((this->gstPrivateContext->usingRialtoSink) &&
+		(stream->format == GST_FORMAT_SUBTITLE_CC))
+	{
+		dec_handle = (unsigned long)this->gstPrivateContext->subtitle_sink;
+	}
+	else
+	{
+		dec_handle = GetVideoDecoderHandle();
+	}
+	return dec_handle;
 }
 
 /**
@@ -4146,7 +4220,9 @@ static gboolean bus_message(GstBus * bus, GstMessage * msg, InterfacePlayerRDK *
 					}
 					if (pInterfacePlayerRDK->m_gstConfigParam->gstLogging)
 					{
-						GST_DEBUG_BIN_TO_DOT_FILE((GstBin *)pInterfacePlayerRDK->gstPrivateContext->pipeline, GST_DEBUG_GRAPH_SHOW_ALL, "myplayer");
+						char dot_filename[64];
+						snprintf(dot_filename, sizeof(dot_filename), "myplayer_%s", gst_element_state_get_name(new_state));
+						GST_DEBUG_BIN_TO_DOT_FILE((GstBin *)pInterfacePlayerRDK->gstPrivateContext->pipeline, GST_DEBUG_GRAPH_SHOW_ALL, dot_filename);
 						// output graph to .dot format which can be visualized with Graphviz tool if:
 						// gstreamer is configured with --gst-enable-gst-debug
 						// and "gst" is enabled in player cfg

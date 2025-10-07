@@ -70,6 +70,9 @@ GstCaps* GetCaps(GstStreamOutputFormat format)
 		case GST_FORMAT_SUBTITLE_MP4:
 			caps = gst_caps_new_simple("application/mp4", NULL, NULL);
 			break;
+		case GST_FORMAT_SUBTITLE_CC:
+			caps = gst_caps_new_simple("application/x-subtitle-cc", NULL, NULL);
+			break;
 		case GST_FORMAT_AUDIO_ES_ATMOS:
 			// Todo :: a) Test with all platforms if atmos works 
 			//	   b) Test to see if x-eac3 config is enough for atmos stream.

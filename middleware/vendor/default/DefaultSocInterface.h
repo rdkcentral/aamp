@@ -83,7 +83,12 @@ class DefaultSocInterface : public SocInterface
 		 */
 		bool SetRateCorrection() override {return false;}
 
-		void GetCCDecoderHandle(gpointer *dec_handle, GstElement *video_dec)override{};
+		/**
+ 		 * @brief Retrieves the video decoder handle.
+ 		 * @param[out] dec_handle Pointer to store the retrieved video decoder handle.
+ 		 * @param[in] video_dec The GStreamer video decoder element.
+ 		 */
+		void GetVideoDecoderHandle(gpointer *dec_handle, GstElement *video_dec)override{};
 
 		/**
 		 * @brief Check if the given name is a video sink.

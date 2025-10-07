@@ -76,6 +76,7 @@ enum GstStreamOutputFormat
         GST_FORMAT_SUBTITLE_WEBVTT, /**< WebVTT subtitle Stream */
         GST_FORMAT_SUBTITLE_TTML,   /**< TTML subtitle Stream */
         GST_FORMAT_SUBTITLE_MP4,    /**< Generic MP4 stream */
+        GST_FORMAT_SUBTITLE_CC,     /**< Closed Captions (Inband Video) Stream */
         GST_FORMAT_UNKNOWN          /**< Unknown Format */
 };
 

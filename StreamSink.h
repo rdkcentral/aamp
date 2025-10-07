@@ -176,6 +176,13 @@ public:
     virtual long long GetVideoPTS(void){ return 2; };
 
     /**
+     *   @brief Get video decoder handle
+     *
+     *   @return Video decoder handle
+     */
+    virtual unsigned long getVideoDecoderHandle(void) { return 0; };
+
+    /**
      *   @brief Get closed caption handle
      *
      *   @return Closed caption handle

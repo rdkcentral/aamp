@@ -668,6 +668,18 @@ public:
 	 */
 	bool StopBuffering(bool forceStop, bool &isPlaying);
 
+    /**
+     *   @brief Get video decoder handle
+     *   @return Video decoder handle
+     */
+    unsigned long getVideoDecoderHandle(void) { return 0; };
+
+	/**
+	 * @brief Gets the video decoder handle.
+	 * @return The video decoder handle.
+	 */
+	unsigned long GetVideoDecoderHandle(void);
+
 	/**
 	 * @brief Gets the CC decoder handle.
 	 * @return The CC decoder handle.

@@ -140,12 +140,11 @@ class AmlogicSocInterface : public SocInterface
 		bool IsAudioOrVideoDecoder(const char* name, bool isRialto)override;
 
 		/**
-		 * @brief Retrieves the CC decoder handle.
-		 * @param[out] dec_handle Pointer to store the retrieved CC decoder handle.
-		 * @param[in] video_dec The GStreamer video decoder element from which the CC decoder handle is extracted.
-		 */
-
-		void GetCCDecoderHandle(gpointer *dec_handle, GstElement *video_dec)override;
+ 		 * @brief Retrieves the video decoder handle.
+ 		 * @param[out] dec_handle Pointer to store the retrieved video decoder handle.
+ 		 * @param[in] video_dec The GStreamer video decoder element.
+ 		 */
+		void GetVideoDecoderHandle(gpointer *dec_handle, GstElement *video_dec)override;
 
 		/**
 		 * @brief Disable asynchronous audio.

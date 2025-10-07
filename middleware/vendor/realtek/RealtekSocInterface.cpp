@@ -255,12 +255,11 @@ bool RealtekSocInterface::DisableAsyncAudio(GstElement *audio_sink, int rate, bo
 }
 
 /**
- * Gets the decoder handle from the video decoder element.
- *
- * @param dec_handle Pointer to store the decoder handle.
- * @param video_dec The video decoder element.
+ * @brief Retrieves the video decoder handle.
+ * @param[out] dec_handle Pointer to store the retrieved video decoder handle.
+ * @param[in] video_dec The GStreamer video decoder element.
  */
-void RealtekSocInterface::GetCCDecoderHandle(gpointer *dec_handle, GstElement *video_dec)
+void RealtekSocInterface::GetVideoDecoderHandle(gpointer *dec_handle, GstElement *video_dec)
 {
 	*dec_handle = video_dec; // Realtek directly returns the decoder element
 }
