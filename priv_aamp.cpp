@@ -7444,7 +7444,7 @@ long long PrivateInstanceAAMP::GetPositionMilliseconds()
 
 	//Local copy to avoid race. Consider further improvements to the thread safety of this variable.
 	auto trickStartUTCMS_copy = trickStartUTCMS;
-	AAMPLOG_TRACE("trickStartUTCMS=%lld", trickStartUTCMS_copy);
+	AAMPLOG_MIL("Jose: trickStartUTCMS=%lld", trickStartUTCMS_copy);
 	if (trickStartUTCMS_copy >= 0)
 	{
 		//Local copy to avoid race. Consider further improvements to the thread safety of this variable.
