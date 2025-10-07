@@ -63,8 +63,9 @@ void PlayerRialtoCCManager::Release(int id)
 		if (0 == id_size)
 		{
 			// Last user has released - deinit.
-			// Note that there is currently nothing to do as all
+			// Note that there is currently little to do as all
 			// resources are managed externally to this module.
+			mSubtitleControlHandle = nullptr;
 		}
 	}
 	else
@@ -86,10 +87,9 @@ int PlayerRialtoCCManager::SetTrack(const std::string &track, const CCFormat for
 
 	MW_LOG_INFO("PlayerRialtoCCManager::set track \"%s\"", track.c_str());
 
-	auto CCsink = InterfacePlayerRDK::GetCCDecoderHandle();
-	if (CCsink != 0)
+	if (nullptr != mSubtitleControlHandle)
 	{
-		g_object_set(CCsink, "text-track-identifier", track.c_str(), NULL);
+		g_object_set(mSubtitleControlHandle, "text-track-identifier", track.c_str(), NULL);
 		ret = 0;
 	}
 	else
@@ -107,10 +107,9 @@ void PlayerRialtoCCManager::StartRendering()
 {
 	MW_LOG_INFO("PlayerRialtoCCManager::unmuting");
 
-	auto CCsink = InterfacePlayerRDK::GetCCDecoderHandle();
-	if (CCsink != 0)
+	if (nullptr != mSubtitleControlHandle)
 	{
-		g_object_set(CCsink, "mute", FALSE, NULL);
+		g_object_set(mSubtitleControlHandle, "mute", FALSE, NULL);
 	}
 	else
 	{
@@ -126,10 +125,9 @@ void PlayerRialtoCCManager::StopRendering()
 {
 	MW_LOG_INFO("PlayerRialtoCCManager::muting");
 
-	auto CCsink = InterfacePlayerRDK::GetCCDecoderHandle();
-	if (CCsink != 0)
+	if (nullptr != mSubtitleControlHandle)
 	{
-		g_object_set(CCsink, "mute", TRUE, NULL);
+		g_object_set(mSubtitleControlHandle, "mute", TRUE, NULL);
 	}
 	else
 	{
