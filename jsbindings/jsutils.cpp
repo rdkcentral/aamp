@@ -39,16 +39,13 @@
 
 #ifdef USE_ETHAN_LOG
 static void __attribute__((constructor)) debug_ethan_log_enabled() {
-    printf("DEBUG_LOG USE_ETHAN_LOG is defined - EthanLog support enabled\n");
+    printf("DEBUG_LOG jsutils.cpp USE_ETHAN_LOG is defined - EthanLog support enabled\n");
 }
 #include <ethanlog.h>
 #else
-static void __attribute__((constructor)) debug_ethan_log_disabled() {
-    printf("DEBUG_LOG USE_ETHAN_LOG is NOT defined - using stub functions\n");
-}
 // stubs for use if USE_ETHAN_LOG not defined
 void ethanlog(int level, const char *filename, const char *function, int line, const char *format, ...){
-	printf("DEBUG_LOG vethanlog stub called (EthanLog not available)\n");
+	printf("DEBUG_LOG jsutils.cpp vethanlog stub called (EthanLog not available)\n");
 }
 #define ETHAN_LOG_INFO 0
 #define ETHAN_LOG_DEBUG 1
@@ -706,8 +703,7 @@ void jsBindingLogprintf(int playerId ,const char* functionName, int line, int lo
 
 	va_end(args);
 
-	//if ( AampLogManager::enableEthanLogRedirection  )
-	if(true)
+	if ( AampLogManager::enableEthanLogRedirection  )
 	{ // ethanlog
 		printf("DEBUG_LOG:Inside if loop of Ethan Logging\n");
 		int ethanLogLevel;
