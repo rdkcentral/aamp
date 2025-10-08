@@ -544,7 +544,7 @@ class PrivateInstanceAAMP : public DrmCallbacks, public std::enable_shared_from_
 	/**
  	*  @fn Process json object or language string and save the preferred selection to AampConfig
  	*  @param[in] param - language string or json object
- 	*  @param[in] isSelectionChange - flag to indicate if accessibility has changed
+ 	*  @param[out] isSelectionChange - flag to indicate if accessibility has changed
  	*/
 	void SavePreferredTextLanguages(const char *param, bool &isSelectionChange);
 
