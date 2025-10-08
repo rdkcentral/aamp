@@ -3534,12 +3534,7 @@ void PrivateInstanceAAMP::LogTuneComplete(void)
 	{
 		if(mLogTune)
 		{
-			char classicTuneStr[AAMP_MAX_PIPE_DATA_SIZE];
 			mLogTune = false;
-			if (ISCONFIGSET_PRIV(eAAMPConfig_XRESupportedTune)) {
-				profiler.GetClassicTuneTimeInfo(mTuneMetrics.success, mTuneAttempts, mfirstTuneFmt, mPlayerLoadTime, streamType, IsLive(), durationSeconds, classicTuneStr);
-				SendMessage2Receiver(E_AAMP2Receiver_TUNETIME,classicTuneStr);
-			}
 			mFirstTune = false;
 		}
 		mTuneCompleted = true;
@@ -13218,12 +13213,7 @@ long PrivateInstanceAAMP::LoadFogConfig()
 	tmpStringVar = GETCONFIGVALUE_PRIV(eAAMPConfig_HarvestPath);
 	jsondata.add("harvestPath",tmpStringVar);
 
-	/*
-	 * Audio and subtitle preference
-	 * Disabled this for XRE supported TSB linear
-	 */
-	if (!ISCONFIGSET_PRIV(eAAMPConfig_XRESupportedTune))
-	{
+	{ // audio and subtitle preference
 		AampJsonObject jsondataForPreference;
 		AampJsonObject audioPreference;
 		AampJsonObject subtitlePreference;
