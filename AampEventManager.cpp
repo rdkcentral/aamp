@@ -276,6 +276,11 @@ void AampEventManager::SendEvent(const AAMPEventPtr &eventData, AAMPEventMode ev
 
 	if((mPlayerState != eSTATE_RELEASED) && (mEventListeners[AAMP_EVENT_ALL_EVENTS] || mEventListeners[eventType]))
 	{
+		if(eventType == AAMP_EVENT_PROGRESS)
+        {
+    		AAMPLOG_WARN("Sending event %d to %sQ", eventType, (eventMode == AAMP_EVENT_ASYNC_MODE) ? "Async" : "Sync");
+		}
+		
 		guint sId = GetSourceID();
 		// if caller is asking for Sync Event , ensure it has proper source Id, else it has to go async event
 		if(eventMode==AAMP_EVENT_SYNC_MODE &&  sId != 0)
