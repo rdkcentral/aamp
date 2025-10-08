@@ -2483,15 +2483,13 @@ Response:
 
 
 ## Inband (CEA608/708) Closed Caption Management (legacy XREReceiver API) 
-* on scaled X1 devices this is mapped directly to receiver APIs, interacting with RDK CC Manager
-    * here by default will inherit default X1 caption style settings
+* on scaled X1 devices this is mapped directly to receiver APIs interacting with RDK CC Manager
+    * here by default will inherit X1 caption style settings as set by user through guide settings
     * apps can override caption styling, but typically wouldn't need to do so
 * on newer (non-XRE) devices this is implemented as a wrapper for backwards compatibility, interacting with subtec
-    * as integrated, has limitations:
-        * lacks ability to automatically leverage 'default guide caption styles'
-        * setOptions is stubbed
+    * as integrated, has limitation - only default styles will ever be applied, and with no way for app to change, and not reflecting guide settings
  
-To use inband closed captions, first register an event listener to discover decoder handle:
+To use legacy XREReceiver inband closed captions, first register an event listener to discover decoder handle:
 ```
 player.addEventListener("decoderAvailable", decoderHandleAvailable);
 ```
@@ -2522,9 +2520,10 @@ XREReceiver.onEvent("onDecoderAvailable", { decoderHandle: null });
 
 ## Inband (CEA608/708) Closed Caption Management (modern UVE/AAMP API)
 
-To use, must first enable caption decodging by configuring nativeCCRendering to true:
+Configure nativeCCRendering to true. // This defaults to false; What does it do?  Is it required to for direct Subtec Integration?  Is it required when Rialto used for text track rendering?
 ```
 player.initConfig( { nativeCCRendering: true } );
+
 ```
 Toggle CC display on or off at runtime:
 ```
@@ -2533,13 +2532,14 @@ player.setClosedCaptionStatus(false); // mute captions
 ```
 Get/Set CC track at runtime:
 ```
-player.getTextTrack(); // returns stringified json object listing track attributes
-player.setTextTrack(trackIndex);
+player.getTextTrack(); // returns json object listing track attributes
+player.setTextTrack(trackIdentifier); // what is valid to this function?
 ```
-Get/Set CC style options at runtime, using stringified JSON object detailing styling options.
+Get/Set CC style options at runtime
 ```
-player.getTextStyleOptions();
-player.setTextStyleOptions(options);
+player.getTextStyleOptions(); // returns JSON object reflecting currently styling options
+player.setTextStyleOptions(options); // TODO: include examples known to work with RDK CC Manager and/or subtec
+WARNING: these do not currently work when AAMP is in a container and Rialto is in use.  Which apps are expected to interact directly with Text Track plugin to change text styles, rather than using UVE setTextStyleOptions API?
 ```
 
 ---
