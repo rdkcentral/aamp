@@ -2445,7 +2445,52 @@ When a player instance is no longer needed, recommend to call explicit release()
 
 ---
 
-## Inband Closed Caption Management
+## Global User Settings/Preferences Discovery
+
+Firebolt getter APIs may be used to discover user settings/preferences related to caption styling and language preferences.  These are not managed internally by AAMP.
+
+```
+import { Accessibility } from '@firebolt-js/sdk'
+
+let closedCaptionsSettings = await Accessibility.closedCaptionsSettings()
+console.log(closedCaptionsSettings)
+```
+
+Response:
+```
+{
+	"enabled": true,
+	"styles": {
+		"fontFamily": "monospaced_sanserif",
+		"fontSize": 1,
+		"fontColor": "#ffffff",
+		"fontEdge": "none",
+		"fontEdgeColor": "#7F7F7F",
+		"fontOpacity": 100,
+		"backgroundColor": "#000000",
+		"backgroundOpacity": 100,
+		"textAlign": "center",
+		"textAlignVertical": "middle",
+		"windowColor": "white",
+		"windowOpacity": 50
+	},
+	"preferredLanguages": [
+		"eng",
+		"spa"
+	]
+}
+```
+
+
+## Inband (CEA608/708) Closed Caption Management (legacy XREReceiver API) 
+* on scaled X1 devices this is mapped directly to receiver APIs, interacting with RDK CC Manager
+    * here by default will inherit default X1 caption style settings
+    * apps can override caption styling, but typically wouldn't need to do so
+* on newer (non-XRE) devices this is implemented as a wrapper for backwards compatibility, interacting with subtec
+    * as integrated, has limitations:
+        * lacks ability to automatically leverage 'default guide caption styles'
+        * setOptions is stubbed
+ 
 To use inband closed captions, first register an event listener to discover decoder handle:
 ```
 player.addEventListener("decoderAvailable", decoderHandleAvailable);
@@ -2462,41 +2507,40 @@ Toggle CC display on or off at runtime:
 XREReceiver.onEvent("onClosedCaptions", { enable: true });
 XREReceiver.onEvent("onClosedCaptions", { enable: false });
 ```
-Set CC track at runtime:
+Select CC track at runtime:
 ```
 XREReceiver.onEvent("onClosedCaptions", { setTrack: trackID });
 ```
-Set CC style options at runtime:
+Set CC style options at runtime, using stringified JSON object detailing styling options.
 ```
 XREReceiver.onEvent("onClosedCaptions", { setOptions: defaultCCOptions});
 ```
-defaultCCOptions is a JSON object of various style options and its values
 When closing stream, detach decoder handle:
 ```
 XREReceiver.onEvent("onDecoderAvailable", { decoderHandle: null });
 ```
-Environments without the XREReceiver JS object may exist in future.  Applications may use alternate CC rendering methods to avoid dependency on XREReceiver object.
 
-To use, turn on nativeCCRendering init configuration value to true as follows:
+## Inband (CEA608/708) Closed Caption Management (modern UVE/AAMP API)
+
+To use, must first enable caption decodging by configuring nativeCCRendering to true:
 ```
 player.initConfig( { nativeCCRendering: true } );
 ```
 Toggle CC display on or off at runtime:
 ```
-player.setClosedCaptionStatus(true);
-player.setClosedCaptionStatus(false);
+player.setClosedCaptionStatus(true); // show captions (off by default)
+player.setClosedCaptionStatus(false); // mute captions
 ```
 Get/Set CC track at runtime:
 ```
-player.getTextTrack();
+player.getTextTrack(); // returns stringified json object listing track attributes
 player.setTextTrack(trackIndex);
 ```
-Get/Set CC style options at runtime:
+Get/Set CC style options at runtime, using stringified JSON object detailing styling options.
 ```
 player.getTextStyleOptions();
 player.setTextStyleOptions(options);
 ```
-options in a JSON formatted string of style options and its values.
 
 ---
 
