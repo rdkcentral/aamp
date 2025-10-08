@@ -785,7 +785,7 @@ TEST_F(SetPreferredTextLanguagesTests, ChangePrefTextLangWithTSB)
 /**
  * @brief Change between closed caption tracks
  * Check that a new closed caption track is selected in PlayerCCManagerBase
- * There will be a channel change but this will be removed in future change
+ * Check that there is no tune (Stop) called on StreamAbstractionAAMP
  */
 TEST_F(SetPreferredTextLanguagesTests, ClosedCaptionTest1)
 {
@@ -804,7 +804,7 @@ TEST_F(SetPreferredTextLanguagesTests, ClosedCaptionTest1)
 
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetAvailableTextTracks(_))
 		.WillOnce(ReturnRef(tracks));
-
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_)).Times(0);
 	EXPECT_CALL(*g_mockPlayerCCManagerBase, SetTrack("CC1",eCLOSEDCAPTION_FORMAT_608)).Times(1).WillRepeatedly(Return(0));
 
 	mPrivateInstanceAAMP->SetPreferredTextLanguages("lang1");
