@@ -71,12 +71,6 @@ static const int DEFAULT_STREAM_WIDTH = 720;
 static const int DEFAULT_STREAM_HEIGHT = 576;
 static const double  DEFAULT_STREAM_FRAMERATE = 25.0;
 
-static void AppendNulTerminator( AampGrowableBuffer &buffer )
-{ // workaround - TBR
-	const char zeros[] = { 0,0 };
-	buffer.AppendBytes( zeros, sizeof(zeros) );
-}
-
 // checks if current state is going to use IFRAME ( Fragment/Playlist )
 #define IS_FOR_IFRAME(rate, type) ((type == eTRACK_VIDEO) && (rate != AAMP_NORMAL_PLAY_RATE))
 
@@ -196,7 +190,7 @@ static void ParseKeyAttributeCallback(lstring attrName, lstring valuePtr, void* 
 		if( !uri.empty() )
 		{
 			ts->mIVKeyChanged = (ts->mDrmInfo.keyURI != uri);
-			ts->mDrmInfo.keyURI = uri;
+			ts->mDrmInfo.keyURI = std::move(uri);
 		}
 	}
 	else if (attrName.equal("IV"))
@@ -467,7 +461,7 @@ void StreamAbstractionAAMP_HLS::InitiateDrmProcess()
 				if (nullptr != drmHelper)
 				{
 					/* This needs effort from MSO as to what they want to do viz-a-viz preferred DRM, */
-					drmHelperToUse = drmHelper;
+					drmHelperToUse = std::move(drmHelper);
 				}
 			}
 		}
@@ -477,7 +471,7 @@ void StreamAbstractionAAMP_HLS::InitiateDrmProcess()
 			/** Queue protection event to the pipeline **/
 			licenseManager->QueueProtectionEvent(drmHelperToUse, "1", 0, eMEDIATYPE_VIDEO);
 			/** Queue content protection in DRM license fetcher **/
-			licenseManager->QueueContentProtection(drmHelperToUse, "1", 0, eMEDIATYPE_VIDEO);
+			licenseManager->QueueContentProtection(std::move(drmHelperToUse), "1", 0, eMEDIATYPE_VIDEO);
 		}
 	}
 }
@@ -791,12 +785,16 @@ lstring TrackState::GetIframeFragmentUriFromIndex(bool &bSegmentRepeated)
 			}
 			while (fragmentInfo.startswith('#'))
 			{
-				IsExtXByteRange(fragmentInfo, &byteRangeLength, &byteRangeOffset);
-				size_t offs = fragmentInfo.getPtr() - playlist.GetPtr();
-				lstring iter( fragmentInfo.getPtr(), playlist.GetLen() - offs );
-				fragmentInfo = iter.mystrpbrk(); // #EXTINF
-				fragmentInfo = iter.mystrpbrk(); // url
-			}
+                const char *fragmentPtr = fragmentInfo.getPtr();
+                size_t offs = fragmentPtr - playlist.GetPtr();
+                lstring iter( fragmentPtr, playlist.GetLen() - offs );
+                fragmentInfo = iter.mystrpbrk(); // #EXTINF
+                fragmentInfo = iter.mystrpbrk(); // #EXT-X-BYTERANGE (or url)
+				if( IsExtXByteRange(fragmentInfo, &byteRangeLength, &byteRangeOffset) )
+                {
+                    fragmentInfo = iter.mystrpbrk(); // url
+                }
+            }
 
 			{
 				mFragmentURIFromIndex = fragmentInfo;
@@ -857,9 +855,8 @@ lstring TrackState::GetNextFragmentUriFromPlaylist(bool& reloadUri, bool ignoreD
 	auto p = fragmentURI.getPtr();
 	auto l = playlist.GetLen();
 	size_t offs = p - playlist.GetPtr();
-	if( offs>=l ) return lstring();
+	if( offs>=l ) return rc;
 	lstring iter( p, l-offs );
-	lstring ptr = iter.mystrpbrk();
 
 	size_t byteRangeLength = 0; // default, when optional byterange offset is left unspecified
 	size_t byteRangeOffset = 0;
@@ -885,7 +882,7 @@ lstring TrackState::GetNextFragmentUriFromPlaylist(bool& reloadUri, bool ignoreD
 	if ( playlistPosition != -1.0 && !fragmentURI.empty() )
 	{ // already presenting - skip past previous segment
 		//AAMPLOG_WARN("[PLAYLIST_POSITION!= -1]");
-		ptr = iter.mystrpbrk();
+		iter.mystrpbrk();
 	}
 	if ((playlistPosition > playTarget) && (fragmentDurationSeconds > PLAYLIST_TIME_DIFF_THRESHOLD_SECONDS) &&
 		((playlistPosition - playTarget) > fragmentDurationSeconds))
@@ -902,6 +899,7 @@ lstring TrackState::GetNextFragmentUriFromPlaylist(bool& reloadUri, bool ignoreD
 	//AAMPLOG_WARN("before loop, ptr = %p fragmentURI %p", ptr, fragmentURI);
 	while (!iter.empty())
 	{
+		lstring ptr = iter.mystrpbrk();
 		if(!ptr.empty())
 		{
 			if (ptr.removePrefix("#EXT"))
@@ -921,16 +919,8 @@ lstring TrackState::GetNextFragmentUriFromPlaylist(bool& reloadUri, bool ignoreD
 					}
 					fragmentDurationSeconds = ptr.atof();
 				}
-				else if (ptr.removePrefix("-X-BYTERANGE:"))
-				{
-					byteRangeLength = ptr.atoll();
-					size_t offsetDelim = ptr.find('@');
-					if( offsetDelim<ptr.length() )
-					{
-						ptr.removePrefix(offsetDelim+1); // skip past '@'
-						byteRangeOffset = ptr.atoll();
-					}
-
+				else if( IsExtXByteRange(ptr,&byteRangeLength,&byteRangeOffset) )
+				{ // -X-BYTERANGE:
 					mByteOffsetCalculation = true;
 					if (0 != byteRangeLength && 0 == byteRangeOffset)
 					{
@@ -1139,11 +1129,9 @@ lstring TrackState::GetNextFragmentUriFromPlaylist(bool& reloadUri, bool ignoreD
 				}
 			}
 		}
-		ptr = iter.mystrpbrk();
-
 	}
 	return rc;
-}
+} // GetNextFragmentUriFromPlaylist
 
 /**
  * @brief Get fragment tag based on media sequence number
@@ -1669,8 +1657,9 @@ void TrackState::FetchFragment()
 			AampTime duration{fragmentDurationSeconds};
 			AampTime position{playTarget - playTargetOffset};
 			if (type == eTRACK_SUBTITLE)
-			{
-				cachedFragment->fragment.AppendNulTerminator();
+			{ // avoids crash - need to revisit
+				static const char zeros[2] = { 0, 0 };
+				cachedFragment->fragment.AppendBytes( zeros,sizeof(zeros) );
 			}
 			if (context->rate == AAMP_NORMAL_PLAY_RATE)
 			{
@@ -1788,7 +1777,7 @@ void TrackState::InjectFragmentInternal(CachedFragment* cachedFragment, bool &fr
 			cachedFragment->PTSOffsetSec,
 			isDiscontinuity,
 			cachedFragment->initFragment,
-			processor,
+			std::move(processor),
 			ptsError );
 	}
 	else
@@ -2096,7 +2085,7 @@ void TrackState::IndexPlaylist(bool IsRefresh, AampTime &culledSec)
 					// check if during trickplay drmInfo is considered.
 					KeyTagStruct keyinfo;
 					keyinfo.mKeyStartDuration = totalDuration.inSeconds();
-					keyinfo.mKeyTagStr = key;
+					keyinfo.mKeyTagStr = std::move(key);
 					if (!mDrm) // we don't want to keep calling this on updating the playlist as it may update the key info incorrectly
 							   // if there are are multiple keys in the manifest
 					{
@@ -2138,7 +2127,7 @@ void TrackState::IndexPlaylist(bool IsRefresh, AampTime &culledSec)
 					{
 						keyinfo.mShaID = mCMSha1Hash;
 					}
-					mKeyHashTable.push_back(keyinfo);
+					mKeyHashTable.push_back(std::move(keyinfo));
 					mKeyTagChanged = false;
 					mDrmKeyTagCount++;
 				}
@@ -2340,10 +2329,10 @@ void TrackState::ProcessPlaylist(AampGrowableBuffer& newPlaylist, int http_error
 		// Free previous playlist buffer and load with new one
 		playlist.Free();
 		playlist.Replace( &newPlaylist );
-		playlist.AppendNulTerminator(); // make safe for cstring operations
+		
 		AampTime culled{};
 		IndexPlaylist(true, culled);
-
+        
 		// Update culled seconds if playlist download was successful
 		// We need culledSeconds to find the timedMetadata position in playlist
 		// culledSeconds and FindTimedMetadata have been moved up here, because FindMediaForSequenceNumber
@@ -2615,84 +2604,72 @@ std::string StreamAbstractionAAMP_HLS::GetPlaylistURI(TrackType trackType, Strea
 * @fn GetFormatFromFragmentExtension
 * @brief Function to get media format based on fragment extension
 *
-* @param trackState[in] TrackState structure pointer
+* @param playlist[in] playlist to scan to infer stream format
 * @return StreamOutputFormat stream format
 ***************************************************************************/
-static StreamOutputFormat GetFormatFromFragmentExtension(TrackState *trackState)
+StreamOutputFormat GetFormatFromFragmentExtension( const AampGrowableBuffer &playlist )
 {
-	StreamOutputFormat format = FORMAT_INVALID;
-	std::istringstream playlistStream(trackState->playlist.GetPtr() );
-	for (std::string line; std::getline(playlistStream, line); )
+    StreamOutputFormat format = FORMAT_INVALID;
+	lstring iter(playlist.GetPtr(),playlist.GetLen());
+	while( !iter.empty() )
 	{
-		if( line.empty() )
+		lstring ptr = iter.mystrpbrk();
+		if( ptr.SubStringMatch("#EXT-X-MAP") )
 		{
-			continue;
+            format = FORMAT_ISO_BMFF;
 		}
-		if( line[0]=='#' )
-		{
-			if( line.rfind("#EXT-X-MAP",0) == 0)
-			{ // starts-with
-				format = FORMAT_ISO_BMFF;
-				break;
-			}
-		}
-		else
-		{
-			while(isspace(line.back()))
-			{
-				line.pop_back();
-				if (line.empty())
-				{
-					break;
-				}
-			}
-			if (line.empty())
-			{
-				continue;
-			}
-			AAMPLOG_TRACE("line === %s ====",   line.c_str());
-			size_t end = line.find("?");
-			if (end != std::string::npos)
-			{ // strip any URI paratmeters
-				line = line.substr(0, end);
-			}
-			size_t extensionStart = line.find_last_of('.');
-			if (extensionStart != std::string::npos)
-			{
-				std::string extension = line.substr(extensionStart);
-				// parsed extension of first advertised fragment, now compare
-				if ( extension == ".ts" )
-				{
-					format = FORMAT_MPEGTS;
-				}
-				else if ( extension == ".aac" )
-				{
-					format = FORMAT_AUDIO_ES_AAC;
-				}
-				else if ( extension == ".ac3" )
-				{
-					format = FORMAT_AUDIO_ES_AC3;
-				}
-				else if ( extension == ".ec3" )
-				{
-					format = FORMAT_AUDIO_ES_EC3;
-				}
-				else if ( extension == ".vtt" || extension == ".webvtt" )
-				{
-					format = FORMAT_SUBTITLE_WEBVTT;
-				}
-				else
-				{
-					AAMPLOG_WARN("Not TS or MP4 extension, probably ES. fragment extension %s len %zu", extension.c_str(), strlen(extension.c_str()));
-				}
-			}
-			else
-			{
-				AAMPLOG_WARN("Could not find extension from line %s", line.c_str());
-			}
-			break;
-		}
+		else if( ptr.startswith('#') )
+        {
+            continue;
+        }
+        else
+        {
+            auto len = ptr.find('?'); // strip any URI paratmeters
+            if( len>0 )
+            { // skip empty lines
+                ptr = lstring( ptr.getPtr(), len );
+                size_t delim = ptr.find('.');
+                if( delim < ptr.length() )
+                {
+                    for(;;)
+                    {
+                        ptr = ptr.substr((int)delim+1);
+                        delim = ptr.find('.');
+                        if( delim == ptr.length() )
+                        {
+                            break;
+                        }
+                    }
+                    if( ptr.equal("ts") )
+                    {
+                        format = FORMAT_MPEGTS;
+                    }
+                    else if ( ptr.equal("aac") )
+                    {
+                        format = FORMAT_AUDIO_ES_AAC;
+                    }
+                    else if ( ptr.equal("ac3") )
+                    {
+                        format = FORMAT_AUDIO_ES_AC3;
+                    }
+                    else if ( ptr.equal("ec3") )
+                    {
+                        format = FORMAT_AUDIO_ES_EC3;
+                    }
+                    else if( ptr.equal("vtt") || ptr.equal("webvtt") )
+                    {
+                        format = FORMAT_SUBTITLE_WEBVTT;
+                    }
+                    else
+                    {
+                        AAMPLOG_WARN("Not TS or MP4 extension, probably ES. fragment extension %.*s", ptr.getLen(), ptr.getPtr() );
+                    }
+                }
+                break;
+            }
+        }
 	}
+    AAMPLOG_MIL( "format=%d", format );
 	return format;
 }
 
@@ -3357,10 +3334,9 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 	}
 	if (this->mainManifest.GetLen() )
 	{
-		this->mainManifest.AppendNulTerminator(); // make safe for cstring operations
 		if( AampLogManager::isLogLevelAllowed(eLOGLEVEL_TRACE) )
 		{ // use printf to avoid 2048 char syslog limitation
-			printf("***Main Manifest***:\n\n%s\n************\n", this->mainManifest.GetPtr());
+			printf("***Main Manifest***:\n\n%.*s\n************\n", (int)this->mainManifest.GetLen(), this->mainManifest.GetPtr());
 		}
 
 		AampDRMLicenseManager *licenseManager = aamp->mDRMLicenseManager;
@@ -3399,8 +3375,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 			if(mainManifestResult == eAAMPSTATUS_MANIFEST_CONTENT_ERROR || mainManifestResult == eAAMPSTATUS_MANIFEST_PARSE_ERROR)
 			{ // use printf to avoid 2048 char syslog limitation
 				// Dump the invalid manifest content before reporting error
-				this->mainManifest.AppendNulTerminator();
-				printf("ERROR: Invalid Main Manifest : %s \n", this->mainManifest.GetPtr() );
+				printf("ERROR: Invalid Main Manifest : %.*s\n", (int)this->mainManifest.GetLen(), this->mainManifest.GetPtr() );
 				return mainManifestResult;
 			}
 		}
@@ -3655,10 +3630,9 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 			{
 				AampTime culled{};
 				bool playContextConfigured = false;
-				ts->playlist.AppendNulTerminator(); // make safe for cstring operations
 				if( AampLogManager::isLogLevelAllowed(eLOGLEVEL_TRACE) )
 				{ // use printf to avoid 2048 char syslog limitation
-					printf("***Initial Playlist:******\n\n%s\n*****************\n", ts->playlist.GetPtr() );
+					printf("***Initial Playlist:******\n\n%.*s\n*****************\n", (int)ts->playlist.GetLen(), ts->playlist.GetPtr() );
 				}
 				// Flag also denotes if first encrypted init fragment was pushed or not
 				ts->mCheckForInitialFragEnc = true; //force encrypted header at the start
@@ -3721,7 +3695,7 @@ AAMPStatusType StreamAbstractionAAMP_HLS::Init(TuneType tuneType)
 
 				lstring iter = lstring(ts->playlist.GetPtr(),ts->playlist.GetLen());
 				ts->fragmentURI = iter.mystrpbrk();
-				StreamOutputFormat format = GetFormatFromFragmentExtension(ts);
+				StreamOutputFormat format = GetFormatFromFragmentExtension(ts->playlist);
 				if (FORMAT_ISO_BMFF == format)
 				{
 					//Disable subtitle in mp4 format, as we don't support it for now
@@ -4620,7 +4594,7 @@ void StreamAbstractionAAMP_HLS::PreCachePlaylist()
 			PreCacheUrlStruct newelem;
 			aamp_ResolveURL( newelem.url, aamp->GetManifestUrl(), mediaInfo.uri.c_str(), ISCONFIGSET(eAAMPConfig_PropagateURIParam) );
 			newelem.type = ((mediaInfo.type==eMEDIATYPE_AUDIO)?eMEDIATYPE_PLAYLIST_AUDIO:eMEDIATYPE_PLAYLIST_SUBTITLE);
-			dnldList.push_back(newelem);
+			dnldList.push_back(std::move(newelem));
 		}
 	}
 
@@ -4910,13 +4884,13 @@ void TrackState::FragmentCollector(void)
 StreamAbstractionAAMP_HLS::StreamAbstractionAAMP_HLS(class PrivateInstanceAAMP *aamp,double seekpos, float rate,
 	id3_callback_t id3Handler,
 	ptsoffset_update_t ptsUpdate)
-: StreamAbstractionAAMP(aamp, id3Handler),
+: StreamAbstractionAAMP(aamp, std::move(id3Handler)),
 	rate(rate), maxIntervalBtwPlaylistUpdateMs(DEFAULT_INTERVAL_BETWEEN_PLAYLIST_UPDATES_MS), mainManifest("mainManifest"), allowsCache(false), seekPosition(seekpos), mTrickPlayFPS(),
 	enableThrottle(false), firstFragmentDecrypted(false), mStartTimestampZero(false), mNumberOfTracks(0), midSeekPtsOffset(0),
 	segDLFailCount(0), segDrmDecryptFailCount(0), mMediaCount(0),mProfileCount(0),
 	mLangList(),mIframeAvailable(false), thumbnailManifest("thumbnailManifest"), indexedTileInfo(),
 	mFirstPTS(0),mDiscoCheckMutex(),
-	mPtsOffsetUpdate{ptsUpdate},
+	mPtsOffsetUpdate{std::move(ptsUpdate)},
 	mDrmInterface(aamp),
 	mMetadataProcessor{nullptr}
 {
@@ -5352,11 +5326,10 @@ bool StreamAbstractionAAMP_HLS::SetThumbnailTrack( int thumbIndex )
 				AampTime downloadTime{};
 				std::string tempEffectiveUrl;
 				double tempDownloadTime;
-				if( aamp->GetFile(url, eMEDIATYPE_PLAYLIST_IFRAME, &thumbnailManifest, tempEffectiveUrl, &http_error, &tempDownloadTime, NULL, eCURLINSTANCE_MANIFEST_MAIN,true) )
+				if( aamp->GetFile(std::move(url), eMEDIATYPE_PLAYLIST_IFRAME, &thumbnailManifest, tempEffectiveUrl, &http_error, &tempDownloadTime, NULL, eCURLINSTANCE_MANIFEST_MAIN,true) )
 				{
 					downloadTime = tempDownloadTime;
 					AAMPLOG_WARN("In StreamAbstractionAAMP_HLS: Configured Thumbnail");
-					thumbnailManifest.AppendNulTerminator();
 					ContentType type = aamp->GetContentType();
 					if( ContentType_LINEAR == type  || ContentType_SLE == type )
 					{
@@ -5683,9 +5656,8 @@ void TrackState::UpdateDrmCMSha1Hash( const std::string &newSha1Hash )
 				DrmMetadataNode &drmMetadataNode = mDrmMetaDataIndex[j];
 				AAMPLOG_MIL("drmMetadataNode[%d].sha1Hash = %s", j, drmMetadataNode.sha1Hash.c_str() );
 			}
-			playlist.AppendNulTerminator(); // make safe for cstring operations
 			// use printf to avoid 2048 char syslog limitation
-			printf("***playlist***:\n\n%s\n************\n", playlist.GetPtr());
+			printf("***playlist***:\n\n%.*s\n************\n", (int)playlist.GetLen(), playlist.GetPtr());
 			assert(false);
 		}
 	}
@@ -7130,14 +7102,14 @@ void StreamAbstractionAAMP_HLS::PopulateAudioAndTextTracks()
 				std::string language = (!media.language.empty()) ? GetLanguageCode(i) : std::string();
 				std::string codec = GetAudioFormatStringForCodec(media.audioFormat) ;
 				//AAMPLOG_WARN("streamAbstractionAAMP_HLS:: Audio Track - lang:%s, group_id:%s, name:%s, codec:%s, characteristics:%s, channels:%d isDefault=%d", language.c_str(), group_id.c_str(), name.c_str(), codec.c_str(), characteristics.c_str(), media.channels,media.isDefault);
-				mAudioTracks.push_back(AudioTrackInfo(index, language, media.group_id, media.name, codec, media.characteristics, media.channels,media.isDefault));
+				mAudioTracks.push_back(AudioTrackInfo(std::move(index), std::move(language), media.group_id, media.name, std::move(codec), media.characteristics, media.channels,media.isDefault));
 			}
 			else if (media.type == eMEDIATYPE_SUBTITLE)
 			{
 				std::string index = std::to_string(i);
 				std::string language = (!media.language.empty()) ? GetLanguageCode(i) : std::string();
 //				AAMPLOG_WARN("StreamAbstractionAAMP_HLS:: Text Track - lang:%s, isCC:%d, group_id:%s, name:%s, instreamID:%s, characteristics:%s", language.c_str(), media.isCC, group_id.c_str(), name.c_str(), instreamID.c_str(), characteristics.c_str());
-				mTextTracks.push_back(TextTrackInfo(index, language, media.isCC, media.group_id, media.name, media.instreamID, media.characteristics,0));
+				mTextTracks.push_back(TextTrackInfo(std::move(index), std::move(language), media.isCC, media.group_id, media.name, media.instreamID, media.characteristics,0));
 			}
 			i++;
 		}
@@ -7368,12 +7340,23 @@ StreamAbstractionAAMP::ABRMode StreamAbstractionAAMP_HLS::GetABRMode()
 	return mode;
 }
 
-bool TrackState::IsExtXByteRange( lstring fragmentInfo, size_t *byteRangeLength, size_t *byteRangeOffset)
+bool TrackState::IsExtXByteRange( lstring ptr, size_t *byteRangeLength, size_t *byteRangeOffset)
 {
-	std::string temp = fragmentInfo.tostring();
-	int n = sscanf( temp.c_str(), "#EXT-X-BYTERANGE:%zu@%zu", byteRangeLength, byteRangeOffset );
-	return n==2;
+    if( ptr.removePrefix("#EXT-X-BYTERANGE:") || ptr.removePrefix("-X-BYTERANGE:") )
+    {
+        ptr.stripLeadingSpaces();
+        *byteRangeLength = ptr.atoll();
+        size_t offsetDelim = ptr.find('@');
+        if( offsetDelim<ptr.length() )
+        {
+            ptr.removePrefix(offsetDelim+1); // skip past '@'
+            *byteRangeOffset = ptr.atoll();
+        }
+        return true;
+    }
+    return false;
 }
+
 //Enable default text track for Rialto
 void StreamAbstractionAAMP_HLS::SelectSubtitleTrack()
 {

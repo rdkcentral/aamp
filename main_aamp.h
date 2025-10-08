@@ -1316,12 +1316,6 @@ public:
 	void SetUseAbsoluteTimeline(bool configState);
 
 	/**
-  	 *   @fn XRESupportedTune
-   	 *   @param[in] xreSupported bool On/Off
-	 	 */
-	void XRESupportedTune(bool xreSupported);
-
-	/**
 	 *   @brief Enable async operation and initialize resources
 	 *
 	 *   @return void

@@ -328,7 +328,6 @@ static const ConfigLookupEntryBool mConfigLookupTableBool[AAMPCONFIG_BOOL_COUNT]
 	{false,"useSecManager",eAAMPConfig_UseSecManager, true},
 	{false,"enablePTO", eAAMPConfig_EnablePTO,false},
 	{true,"enableFogConfig", eAAMPConfig_EnableAampConfigToFog, false},
-	{false,"xreSupportedTune",eAAMPConfig_XRESupportedTune,false},
 	{DEFAULT_VALUE_GST_SUBTEC_ENABLED,"gstSubtecEnabled",eAAMPConfig_GstSubtecEnabled,false},
 	{true,"allowPageHeaders",eAAMPConfig_AllowPageHeaders,false},
 	{false,"persistHighNetworkBandwidth",eAAMPConfig_PersistHighNetworkBandwidth,false},
@@ -863,6 +862,10 @@ void AampConfig::ApplyDeviceCapabilities()
 
 	bool isSecMgr = isSecManagerEnabled();
 	SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_UseSecManager, isSecMgr);
+	
+	bool isGstSubtec = SocUtils::isGstSubtecEnabled();
+	SetConfigValue(AAMP_DEFAULT_SETTING, eAAMPConfig_GstSubtecEnabled, isGstSubtec);
+	
 }
 
 std::string AampConfig::GetUserAgentString() const
@@ -1130,7 +1133,7 @@ bool AampConfig::ProcessConfigJson(const cJSON *cfgdata, ConfigPriority owner )
 						channelInfo.uri = url;
 						channelInfo.name = name;
 						channelInfo.licenseUri = licenseUrl;
-						mChannelOverrideMap.push_back(channelInfo);
+						mChannelOverrideMap.push_back(std::move(channelInfo));
 					}
 				}
 			}
@@ -1269,9 +1272,9 @@ bool AampConfig::CustomSearch( std::string url, int playerId , std::string appna
 	}
 	bool found = false;
 	AAMPLOG_INFO("url %s playerid %d appname %s ",url.c_str(),playerId,appname.c_str());
-	std::string url_custom = url;
+	std::string url_custom = std::move(url);
 	std::string playerId_custom = std::to_string(playerId);
-	std::string appName_custom = appname;
+	std::string appName_custom = std::move(appname);
 	std::string keyname;
 	std::string urlName = "url";
 	std::string player = "playerId";
@@ -1420,7 +1423,7 @@ void AampConfig::ProcessConfigText(std::string &cfg, ConfigPriority owner )
 						channelInfo.name = token;
 					}
 				}
-				mChannelOverrideMap.push_back(channelInfo);
+				mChannelOverrideMap.push_back(std::move(channelInfo));
 			}
 		}
 		else
@@ -1904,8 +1907,8 @@ void AampConfig::DoCustomSetting(ConfigPriority owner)
 
 		sessionToken = GetConfigValue(eAAMPConfig_AuthToken);
 		SetConfigValue(AAMP_TUNE_SETTING,eAAMPConfig_AuthToken,sessionToken);
-		configValueString[eAAMPConfig_AuthToken].lastowner = tempowner;
-		configValueString[eAAMPConfig_AuthToken].lastvalue = tempvalue;
+		configValueString[eAAMPConfig_AuthToken].lastowner = std::move(tempowner);
+		configValueString[eAAMPConfig_AuthToken].lastvalue = std::move(tempvalue);
 
 	}
 	if(GetConfigValue(eAAMPConfig_InitialBuffer) > 0)

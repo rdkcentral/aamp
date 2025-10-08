@@ -77,7 +77,7 @@ class FakePlayerExternalsInterface : public PlayerExternalsInterfaceBase
          * @return Parameter config retrieved
          */
         char * GetTR181Config(const char * paramName, size_t & iConfigLen) override{return nullptr;}
-        
+
         /**
          * @fn isHDCPConnection2_2
          * @brief Is current HDCP protocol 2_2
@@ -87,7 +87,7 @@ class FakePlayerExternalsInterface : public PlayerExternalsInterfaceBase
 
         /**
          * @fn GetActiveInterface
-         * @brief Is current active interface wifi? 
+         * @brief Is current active interface wifi?
          * @return True if wifi. False, if not.
          */
         bool GetActiveInterface()override{return false;}
@@ -138,7 +138,9 @@ public:
     void Initialize();	 
 	 
 
-    char * GetTR181PlayerConfig(const char * paramName, size_t & iConfigLen);    
+
+
+    char * GetTR181PlayerConfig(const char * paramName, size_t & iConfigLen);
 
     // State functions
 
@@ -147,7 +149,7 @@ public:
      * @retval true if 2.2 false otherwise
      */
     bool isHDCPConnection2_2() { return m_pIarmInterface->isHDCPConnection2_2(); }
-    /** 
+    /**
      * @fn IsSourceUHD
      * @retval true, if source is UHD, otherwise false
      */
@@ -167,21 +169,20 @@ public:
     void setGstElement(GstElement *element) { m_pIarmInterface->setGstElement(element);  }
 
     // Singleton for object creation
-	
+
     /**
      * @fn GetPlayerExternalsInterfaceInstance
      * @retval PlayerExternalsInterface object
-     */	
+     */
     static std::shared_ptr<PlayerExternalsInterface> GetPlayerExternalsInterfaceInstance();
     /**
      * @fn IsPlayerExternalsInterfaceInstanceActive
      * @retval true or false
      */
     static bool IsPlayerExternalsInterfaceInstanceActive();
-
     /**
      * @fn GetActiveInterface
-     * @brief Is current active interface wifi? 
+     * @brief Is current active interface wifi?
      * @return True if wifi. False, if not.
      */
     bool GetActiveInterface();

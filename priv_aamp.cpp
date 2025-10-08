@@ -664,8 +664,7 @@ size_t PrivateInstanceAAMP::HandleSSLWriteCallback ( char *ptr, size_t size, siz
 	{
 		if ((NULL == context->buffer->GetPtr() ) && (context->contentLength > 0))
 		{
-			size_t len = context->contentLength + 2;
-			/*Add 2 additional characters to take care of extra characters inserted by aamp_AppendNulTerminator*/
+			size_t len = context->contentLength;
 			if(context->downloadIsEncoded && (len < DEFAULT_ENCODED_CONTENT_BUFFER_SIZE))
 			{
 				// Allocate a fixed buffer for encoded contents. Content length is not trusted here
@@ -3535,12 +3534,7 @@ void PrivateInstanceAAMP::LogTuneComplete(void)
 	{
 		if(mLogTune)
 		{
-			char classicTuneStr[AAMP_MAX_PIPE_DATA_SIZE];
 			mLogTune = false;
-			if (ISCONFIGSET_PRIV(eAAMPConfig_XRESupportedTune)) {
-				profiler.GetClassicTuneTimeInfo(mTuneMetrics.success, mTuneAttempts, mfirstTuneFmt, mPlayerLoadTime, streamType, IsLive(), durationSeconds, classicTuneStr);
-				SendMessage2Receiver(E_AAMP2Receiver_TUNETIME,classicTuneStr);
-			}
 			mFirstTune = false;
 		}
 		mTuneCompleted = true;
@@ -6370,22 +6364,28 @@ MediaFormat PrivateInstanceAAMP::GetMediaFormatType(const char *url)
 			{
 				rc = eMEDIAFORMAT_HLS;
 			}
-			else if((sniffedBytes.GetLen() >= 6 && memcmp(sniffedBytes.GetPtr(), "<?xml ", 6) == 0) || // can start with xml
-					 (sniffedBytes.GetLen() >= 5 && memcmp(sniffedBytes.GetPtr(), "<MPD ", 5) == 0)) // or directly with mpd
-			{ // note: legal to have whitespace before leading tag
-				sniffedBytes.AppendNulTerminator();
-				if (strstr(sniffedBytes.GetPtr(), "SmoothStreamingMedia"))
-				{
-					rc = eMEDIAFORMAT_SMOOTHSTREAMINGMEDIA;
-				}
-				else
-				{
-					rc = eMEDIAFORMAT_DASH;
-				}
-			}
 			else
 			{
-				rc = eMEDIAFORMAT_PROGRESSIVE;
+				rc = eMEDIAFORMAT_PROGRESSIVE; // default
+				const char *ptr = sniffedBytes.GetPtr();
+				const char *fin = ptr + sniffedBytes.GetLen();
+				while( ptr<fin )
+				{
+					char c = *ptr++;
+					if( c == '<' )
+					{
+						if( memcmp(ptr,"SmoothStreamingMedia ",21)==0 )
+						{
+							rc = eMEDIAFORMAT_SMOOTHSTREAMINGMEDIA;
+							break;
+						}
+						else if( memcmp(ptr,"MPD ",4)==0 )
+						{
+							rc = eMEDIAFORMAT_DASH;
+							break;
+						}
+					}
+				}
 			}
 		}
 		sniffedBytes.Free();
@@ -9293,6 +9293,7 @@ void PrivateInstanceAAMP::SendBlockedEvent(const std::string & reason, const std
  */
 void PrivateInstanceAAMP::SendWatermarkSessionUpdateEvent(uint32_t sessionHandle, uint32_t status, const std::string &system)
 {
+	AAMPLOG_INFO("Sending WatermarkSessionUpdateEvent status %d system %s GetSessionId() %s",status,system.c_str(), GetSessionId().c_str());
 	WatermarkSessionUpdateEventPtr event = std::make_shared<WatermarkSessionUpdateEvent>(sessionHandle, status, system, GetSessionId());
 	SendEvent(event,AAMP_EVENT_ASYNC_MODE);
 }
@@ -10353,8 +10354,10 @@ std::string PrivateInstanceAAMP::GetAvailableTextTracks(bool allTrack)
 					{
 						cJSON_AddStringToObject(item, "codec", iter->codec.c_str());
 					}
+					// When local TSB is present, availability refers to availability in the TSB
 					bool isAvailable = iter->isAvailable;
-					if (IsLocalAAMPTsb())
+					// Closed Captions are carried in the video stream and hence always available
+					if ((IsLocalAAMPTsb()) && (!iter->isCC))
 					{
 						if (iter->index == currentTrackInfo.index)
 						{
@@ -13210,12 +13213,7 @@ long PrivateInstanceAAMP::LoadFogConfig()
 	tmpStringVar = GETCONFIGVALUE_PRIV(eAAMPConfig_HarvestPath);
 	jsondata.add("harvestPath",tmpStringVar);
 
-	/*
-	 * Audio and subtitle preference
-	 * Disabled this for XRE supported TSB linear
-	 */
-	if (!ISCONFIGSET_PRIV(eAAMPConfig_XRESupportedTune))
-	{
+	{ // audio and subtitle preference
 		AampJsonObject jsondataForPreference;
 		AampJsonObject audioPreference;
 		AampJsonObject subtitlePreference;

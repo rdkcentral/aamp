@@ -448,7 +448,7 @@ class TrackState : public MediaTrack
 		 *
 		 * @return none
 		 ***************************************************************************/
-		void SetEffectivePlaylistUrl(std::string url) override { mEffectiveUrl = url; }
+		void SetEffectivePlaylistUrl(std::string url) override { mEffectiveUrl = std::move(url); }
 		/***************************************************************************
 		 * @fn GetLastPlaylistDownloadTime
 		 *
@@ -1114,5 +1114,7 @@ class StreamAbstractionAAMP_HLS : public StreamAbstractionAAMP
 		 std::unique_ptr<aamp::MetadataProcessorIntf> mMetadataProcessor;
 			 
 };
+
+StreamOutputFormat GetFormatFromFragmentExtension( const AampGrowableBuffer &playlist );
 
 #endif // FRAGMENTCOLLECTOR_HLS_H

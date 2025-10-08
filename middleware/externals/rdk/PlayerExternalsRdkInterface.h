@@ -134,7 +134,7 @@ class PlayerExternalsRdkInterface : public PlayerExternalsInterfaceBase
 
         /**
          * @fn GetActiveInterface
-         * @brief Is current active interface wifi? 
+         * @brief Is current active interface wifi?
          * @return True if wifi. False, if not.
          */
         bool GetActiveInterface();

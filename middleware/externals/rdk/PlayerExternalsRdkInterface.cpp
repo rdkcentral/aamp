@@ -160,7 +160,7 @@ void PlayerExternalsRdkInterface::SetHDMIStatus()
     dsHdcpProtocolVersion_t hdcpReceiverProtocol     = dsHDCP_VERSION_MAX;
     dsHdcpProtocolVersion_t hdcpCurrentProtocol      = dsHDCP_VERSION_MAX;
 
-    
+
 
 
     try {
