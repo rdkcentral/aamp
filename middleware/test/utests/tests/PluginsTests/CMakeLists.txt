@@ -55,6 +55,8 @@ if (JSC_INCDIR)
 endif()
 message(GSTREAMER_INCLUDE_DIRS=${GSTREAMER_INCLUDE_DIRS})
 
+set(FAKE_SOURCE ${UTEST_ROOT}/fakes/FakeDRMSessionManager.cpp)
+
 set(TEST_SOURCES PlayerClearKeyDecryptorTests.cpp
 				PlayerPlayReadyDecryptorTests.cpp
 				PlayerVeriMatrixDecryptorTests.cpp
@@ -78,8 +80,9 @@ set(PLAYER_SOURCES
 add_executable(${EXEC_NAME}
 			   ${TEST_SOURCES}
 			   ${MOCK_SOURCES}
+			   ${FAKE_SOURCES}
 			   ${PLAYER_SOURCES})
-
+	  
 set_target_properties(${EXEC_NAME} PROPERTIES FOLDER "utests")
 
 if (CMAKE_XCODE_BUILD_SYSTEM)
