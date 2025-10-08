@@ -37,7 +37,7 @@ Accessibility StreamAbstractionAAMP_MPD::getAccessibilityNode(AampJsonObject &ac
     Accessibility accessibilityNode;
     if (g_mockStreamAbstractionAAMP_MPD)
     {
-        return g_mockStreamAbstractionAAMP_MPD->getAccessibilityNode(accessNode);
+        accessibilityNode = g_mockStreamAbstractionAAMP_MPD->getAccessibilityNode(accessNode);
     }
     return accessibilityNode;
 }
