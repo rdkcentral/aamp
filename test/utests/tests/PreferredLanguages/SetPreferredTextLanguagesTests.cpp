@@ -816,7 +816,11 @@ TEST_F(SetPreferredTextLanguagesTests, ClosedCaptionTest1)
 
 }
 
-
+/**
+ * @brief Test changing of accessibility preference
+ * Expecting tune when accessibility changes compared with value in preferredTextAccessibilityNode
+ * which is set to ""
+ */
 TEST_F(SetPreferredTextLanguagesTests, Accessibility1)
 {
 	std::vector<TextTrackInfo> tracks;
@@ -826,10 +830,7 @@ TEST_F(SetPreferredTextLanguagesTests, Accessibility1)
 
 	mPrivateInstanceAAMP->mMediaFormat = eMEDIAFORMAT_DASH;
 	mPrivateInstanceAAMP->subtitles_muted = false;
-	/*
-	* Expecting tune when accessibility changes compared with value in preferredTextAccessibilityNode
-	* which is set to ""
-	 */
+
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetAvailableTextTracks(_))
 		.WillOnce(ReturnRef(tracks));
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_))
@@ -842,6 +843,10 @@ TEST_F(SetPreferredTextLanguagesTests, Accessibility1)
 
 }
 
+/**
+ * @brief Test changing of accessibility preference
+ * No tune when accessibility does not change
+ */
 TEST_F(SetPreferredTextLanguagesTests, Accessibility2)
 {
 	std::vector<TextTrackInfo> tracks;
@@ -858,7 +863,7 @@ TEST_F(SetPreferredTextLanguagesTests, Accessibility2)
 	 */
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP, GetAvailableTextTracks(_))
 		.WillOnce(ReturnRef(tracks));
-	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_)).Times(0);
+	EXPECT_CALL(*g_mockStreamAbstractionAAMP, Stop(_)).Times(0);    // Does not get called
 	EXPECT_CALL(*g_mockStreamAbstractionAAMP_MPD, getAccessibilityNode(_))
 		.WillOnce(Return(Accessibility("something","dummy")));
 
