@@ -41,7 +41,6 @@ enum StreamOutputFormat
     FORMAT_SUBTITLE_WEBVTT, /**< WebVTT subtitle Stream */
     FORMAT_SUBTITLE_TTML,     /**< WebVTT subtitle Stream */
     FORMAT_SUBTITLE_MP4,     /**< Generic MP4 stream */
-    FORMAT_SUBTITLE_CC,     /**< Closed Caption in-band video stream */
     FORMAT_UNKNOWN          /**< Unknown Format */
 };
 

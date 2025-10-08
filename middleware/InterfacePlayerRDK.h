@@ -296,6 +296,7 @@ struct GstPlayerPriv
 	std::atomic<bool> firstFrameCallbackIdleTaskPending; /**< Set if any first frame callback is pending. */
 	bool using_westerossink;							 /**< true if westeros sink is used as video sink */
 	bool usingRialtoSink;								 /**< true if rialto sink is used for video and audio sinks */
+	bool usingCCControlStream;						 	 /**< true if subtitle sink being used for CC control */
 	char videoRectangle[VIDEO_COORDINATES_SIZE];
 	bool pauseOnStartPlayback;								 /**< true if should start playback paused */
 	std::atomic<bool> eosSignalled;							 /**< Indicates if EOS has signaled */
@@ -362,6 +363,17 @@ private:
 	std::mutex mMutex;
 	std::map<std::string, int> configMap;
 	PlayerScheduler mScheduler;
+
+	/**
+	 * @brief Tears down the stream.
+	 * @param[in] mediaType The type of media stream.
+	 */
+	void TearDownStream(GstMediaType mediaType);
+
+	/**
+	 * @brief Setup a Closed Caption control stream.
+	 */
+	void SetupCCControlStream();
 
 public:
 	std::shared_ptr<SocInterface> socInterface;
@@ -763,12 +775,6 @@ public:
 	 * @param[in] volume The volume level to set.
 	 */
 	void SetAudioVolume(int volume);
-
-	/**
-	 * @brief Tears down the stream.
-	 * @param[in] mediaType The type of media stream.
-	 */
-	void TearDownStream(GstMediaType mediaType);
 
 	/**
 	 * @brief Initializes the source for the player.

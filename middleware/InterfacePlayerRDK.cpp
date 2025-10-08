@@ -110,7 +110,7 @@ rate(GST_NORMAL_PLAY_RATE), zoom(GST_VIDEO_ZOOM_NONE), videoMuted(false), audioM
 audioVolume(1.0), eosCallbackIdleTaskId(GST_TASK_ID_INVALID), eosCallbackIdleTaskPending(false),
 firstFrameReceived(false), pendingPlayState(false), decoderHandleNotified(false),
 firstFrameCallbackIdleTaskId(GST_TASK_ID_INVALID), firstFrameCallbackIdleTaskPending(false),
-using_westerossink(false), usingRialtoSink(false), pauseOnStartPlayback(false), eosSignalled(false),
+using_westerossink(false), usingRialtoSink(false), usingCCControlStream(false), pauseOnStartPlayback(false), eosSignalled(false),
 buffering_enabled(FALSE), buffering_in_progress(FALSE), buffering_timeout_cnt(0),
 buffering_target_state(GST_STATE_NULL),
 lastKnownPTS(0), ptsUpdatedTimeMS(0), ptsCheckForEosOnUnderflowIdleTaskId(GST_TASK_ID_INVALID),
@@ -231,6 +231,8 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int auxF
 	newFormat[eGST_MEDIATYPE_VIDEO] = gstFormat;
 	newFormat[eGST_MEDIATYPE_AUDIO] = gstAudioFormat;
 
+	bool newUsingCCControlStream = false;
+
 	if(isSubEnable)
 	{
 		MW_LOG_MIL("Gstreamer subs enabled");
@@ -241,11 +243,6 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int auxF
 		MW_LOG_MIL("Gstreamer subs disabled");
 		newFormat[eGST_MEDIATYPE_SUBTITLE]=GST_FORMAT_INVALID;
 	}
-
-// HACK
-	MW_LOG_MIL("HACK Gstreamer subs are enabled");
-	newFormat[eGST_MEDIATYPE_SUBTITLE] = GST_FORMAT_SUBTITLE_CC;
-
 
 	/*Enable sending of audio data to the auxiliary output*/
 	if(forwardAudioToAux)
@@ -280,6 +277,8 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int auxF
 	else
 	{
 		gstPrivateContext->usingRialtoSink = true;
+		newUsingCCControlStream = static_cast<GstStreamOutputFormat>(subFormat) == GST_FORMAT_INVALID;
+
 		if (gstPrivateContext->using_westerossink)
 		{
 			MW_LOG_WARN("Rialto and Westeros Sink enabled");
@@ -287,6 +286,10 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int auxF
 		else
 		{
 			MW_LOG_MIL("Rialto enabled");
+		}
+		if (newUsingCCControlStream)
+		{
+			MW_LOG_MIL("Using CC Control Stream");
 		}
 	}
 
@@ -374,10 +377,15 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int auxF
 					return;
 				}
 			}
-
-
+		}
+		else if (newUsingCCControlStream && (eGST_MEDIATYPE_SUBTITLE == i))
+		{
+			TearDownStream(eGST_MEDIATYPE_SUBTITLE);
+			gstPrivateContext->usingCCControlStream = newUsingCCControlStream;
+			SetupCCControlStream();
 		}
 	}
+
 	if ((gstPrivateContext->usingRialtoSink) && (m_gstConfigParam->media != eGST_MEDIAFORMAT_PROGRESSIVE))
 	{
 		/* Reconfigure the Rialto video sink to update the single path stream
@@ -1223,7 +1231,6 @@ static GstStateChangeReturn SetStateWithWarnings(GstElement *element, GstState t
 	return rc;
 }
 
-
 void InterfacePlayerRDK::TearDownStream(GstMediaType mediaType)
 {
 	tearDownCb(true, mediaType);
@@ -1231,7 +1238,9 @@ void InterfacePlayerRDK::TearDownStream(GstMediaType mediaType)
 	gst_media_stream* stream = &gstPrivateContext->stream[mediaType];
 	stream->bufferUnderrun = false;
 	stream->eosReached = false;
-	if (stream->format != GST_FORMAT_INVALID)
+
+	if ((stream->format != GST_FORMAT_INVALID) ||
+		(mediaType == eGST_MEDIATYPE_SUBTITLE && gstPrivateContext->usingCCControlStream))
 	{
 		pthread_mutex_lock(&stream->sourceLock);
 		if (gstPrivateContext->pipeline)
@@ -1730,7 +1739,13 @@ void InterfacePlayerRDK::InitializeSourceForPlayer(void *PlayerInstance, void * 
 	/* "format" can be used to perform seek or query/conversion operation*/
 	/* gstreamer.freedesktop.org recommends to use GST_FORMAT_TIME 'if you don't have a good reason to query for samples/frames' */
 	g_object_set(source, "format", GST_FORMAT_TIME, NULL);
-	if( stream->format!=GST_FORMAT_ISO_BMFF || !m_gstConfigParam->useMp4Demux )
+
+	// If using CCControl subtitle stream, set the caps to application/x-subtitle-cc
+	if ((eGST_MEDIATYPE_SUBTITLE == mediaType) && (gstPrivateContext->usingCCControlStream))
+	{
+		caps = gst_caps_new_simple("application/x-subtitle-cc", NULL, NULL);
+	}
+	else if( stream->format!=GST_FORMAT_ISO_BMFF || !m_gstConfigParam->useMp4Demux )
 	{
 		caps = GetCaps(static_cast<GstStreamOutputFormat>(stream->format));
 	}
@@ -2025,6 +2040,90 @@ GstFlowReturn InterfacePlayerRDK::InterfacePlayerRDK_OnVideoSample(GstElement* o
 	return GST_FLOW_OK;
 }
 
+/**
+ * @fn SetupCCControlStream
+ */
+void InterfacePlayerRDK::SetupCCControlStream()
+{
+	GstElement *subtitlebin = nullptr, *appsrc = nullptr, *textsink = nullptr;
+
+	InterfacePlayerRDK* pInterfacePlayerRDK = (InterfacePlayerRDK*)this;
+	gst_media_stream* stream = &pInterfacePlayerRDK->gstPrivateContext->stream[eGST_MEDIATYPE_SUBTITLE];
+
+	// Check elements are not already assigned
+	if (stream->sinkbin)
+	{
+		MW_LOG_ERR("Sinkbin already assigned");
+		g_clear_object(&stream->sinkbin);
+	}
+	if (pInterfacePlayerRDK->gstPrivateContext->subtitle_sink)
+	{
+		MW_LOG_ERR("subtitle_sink already assigned");
+		g_clear_object(&pInterfacePlayerRDK->gstPrivateContext->subtitle_sink);
+	}
+	if (stream->source)
+	{
+		MW_LOG_ERR("source already assigned");
+		g_clear_object(&stream->source);
+	}
+
+	// Create elements
+	// Note: rialtomsesubtitlesink is a custom sink that handles CC command data
+	if (!(appsrc = InterfacePlayerRDK_GetAppSrc(pInterfacePlayerRDK, eGST_MEDIATYPE_SUBTITLE)))
+	{
+		MW_LOG_ERR("Failed to create subtitle appsrc");
+	}
+	else if (!(textsink = gst_element_factory_make("rialtomsesubtitlesink", NULL)))
+	{
+		MW_LOG_ERR("Failed to create subtitle sink");
+	}
+	else if (!(subtitlebin = gst_bin_new("subtitlebin")))
+	{
+		MW_LOG_ERR("Failed to create subtitle bin");
+	}
+	else
+	{
+		// Add created elements to bin and link, then add to pipeline
+		// Note: appsrc caps are set in InitializeSourceForPlayer()
+		gst_bin_add_many(GST_BIN(subtitlebin), appsrc, textsink, NULL);
+		if (!gst_element_link(appsrc, textsink))
+		{
+			MW_LOG_ERR("Failed to link subtitle elements");
+		}
+		else if (!gst_bin_add(GST_BIN(pInterfacePlayerRDK->gstPrivateContext->pipeline), subtitlebin))
+		{
+			MW_LOG_ERR("Failed to add subtitle bin to pipeline");
+		}
+		else
+		{
+			// Everything succeeded, retain references to the elements
+			stream->source = GST_ELEMENT(gst_object_ref_sink(appsrc));
+			pInterfacePlayerRDK->gstPrivateContext->subtitle_sink = GST_ELEMENT(gst_object_ref_sink(textsink));
+			stream->sinkbin = GST_ELEMENT(gst_object_ref_sink(subtitlebin));
+
+			MW_LOG_INFO("Added subtitle bin with %s to pipeline", GST_ELEMENT_NAME(pInterfacePlayerRDK->gstPrivateContext->subtitle_sink));
+
+			pInterfacePlayerRDK->SignalConnect(stream->sinkbin, "deep-notify::source", G_CALLBACK(gst_found_source), this);
+			if (!gst_element_sync_state_with_parent(stream->sinkbin))
+			{
+				MW_LOG_ERR("Failed to sync subtitle bin to parent");
+			}
+
+// Temporary until done by cc manager
+			g_object_set(pInterfacePlayerRDK->gstPrivateContext->subtitle_sink, "mute", pInterfacePlayerRDK->gstPrivateContext->subtitleMuted ? TRUE : FALSE, NULL);
+			g_object_set(pInterfacePlayerRDK->gstPrivateContext->subtitle_sink, "text-track-identifier", "CC3", NULL);
+		}
+	}
+
+	// If any of the above failed, clear all the elements
+	if (!stream->sinkbin)
+	{
+		g_clear_object(&appsrc);
+		g_clear_object(&textsink);
+		g_clear_object(&subtitlebin);
+	}
+}
+
 int InterfacePlayerRDK::SetupStream(int streamId,  void *playerInstance, std::string manifest)
 {
 	InterfacePlayerRDK* pInterfacePlayerRDK = (InterfacePlayerRDK*)playerInstance;
@@ -2035,76 +2134,27 @@ int InterfacePlayerRDK::SetupStream(int streamId,  void *playerInstance, std::st
 		{
 			if (pInterfacePlayerRDK->gstPrivateContext->usingRialtoSink)
 			{
-				if (stream->format == GST_FORMAT_SUBTITLE_CC)
+				stream->sinkbin = GST_ELEMENT(gst_object_ref_sink(gst_element_factory_make("playbin", NULL)));
+				MW_LOG_INFO("subs using rialto subtitle sink");
+				GstElement* textsink = gst_element_factory_make("rialtomsesubtitlesink", NULL);
+				if (textsink)
 				{
-					GstElement *subtitlebin = nullptr, *appsrc = nullptr, *textsink = nullptr;
-					g_clear_object(&stream->sinkbin);
-
-					if (!(appsrc = InterfacePlayerRDK_GetAppSrc(pInterfacePlayerRDK, eGST_MEDIATYPE_SUBTITLE)))
-					{
-						MW_LOG_ERR("Failed to create subtitle appsrc");
-					}
-					else if (!(textsink = gst_element_factory_make("rialtomsesubtitlesink", NULL)))
-					{
-						MW_LOG_ERR("Failed to create subtitle sink");
-					}
-					else if (!(subtitlebin = gst_bin_new("subtitlebin"))) 
-					{
-						MW_LOG_ERR("Failed to create subtitle bin");
-					}
-					else
-					{
-						gst_bin_add_many(GST_BIN(subtitlebin), appsrc, textsink, NULL);
-						if (gst_element_link(appsrc, textsink))
-						{
-							MW_LOG_INFO("Linked subtitle bin using %s", GST_ELEMENT_NAME(textsink));
-
-							stream->source = GST_ELEMENT(gst_object_ref_sink(appsrc));
-							pInterfacePlayerRDK->gstPrivateContext->subtitle_sink = GST_ELEMENT(gst_object_ref_sink(textsink));
-							stream->sinkbin = GST_ELEMENT(gst_object_ref_sink(subtitlebin));
-
-// Temporary until done by cc manager
-							g_object_set(textsink, "mute", pInterfacePlayerRDK->gstPrivateContext->subtitleMuted ? TRUE : FALSE, NULL);
-							g_object_set(textsink, "text-track-identifier", "CC3", NULL);
-						}
-						else
-						{
-							MW_LOG_ERR("Failed to link subtitle elements");
-						}
-					}
-
-					if (!stream->sinkbin)
-					{
-						g_clear_object(&appsrc);
-						g_clear_object(&textsink);
-						g_clear_object(&subtitlebin);
-						return -1;
-					}
+					MW_LOG_INFO("Created rialtomsesubtitlesink: %s", GST_ELEMENT_NAME(textsink));
 				}
 				else
 				{
-					stream->sinkbin = GST_ELEMENT(gst_object_ref_sink(gst_element_factory_make("playbin", NULL)));
-					MW_LOG_INFO("subs using rialto subtitle sink");
-					GstElement* textsink = gst_element_factory_make("rialtomsesubtitlesink", NULL);
-					if (textsink)
-					{
-						MW_LOG_INFO("Created rialtomsesubtitlesink: %s", GST_ELEMENT_NAME(textsink));
-					}
-					else
-					{
-						MW_LOG_WARN("Failed to create rialtomsesubtitlesink");
-					}
-					auto subtitlebin = gst_bin_new("subtitlebin");
-					auto vipertransform = gst_element_factory_make("vipertransform", NULL);
-					gst_bin_add_many(GST_BIN(subtitlebin),vipertransform,textsink,NULL);
-					gst_element_link(vipertransform, textsink);
-					gst_element_add_pad(subtitlebin, gst_ghost_pad_new("sink", gst_element_get_static_pad(vipertransform, "sink")));
-
-					g_object_set(stream->sinkbin, "text-sink", subtitlebin, NULL);
-					pInterfacePlayerRDK->gstPrivateContext->subtitle_sink = textsink;
-					MW_LOG_MIL("using rialtomsesubtitlesink muted=%d sink=%p", pInterfacePlayerRDK->gstPrivateContext->subtitleMuted, pInterfacePlayerRDK->gstPrivateContext->subtitle_sink);
-					g_object_set(textsink, "mute", pInterfacePlayerRDK->gstPrivateContext->subtitleMuted ? TRUE : FALSE, NULL);
+					MW_LOG_WARN("Failed to create rialtomsesubtitlesink");
 				}
+				auto subtitlebin = gst_bin_new("subtitlebin");
+				auto vipertransform = gst_element_factory_make("vipertransform", NULL);
+				gst_bin_add_many(GST_BIN(subtitlebin),vipertransform,textsink,NULL);
+				gst_element_link(vipertransform, textsink);
+				gst_element_add_pad(subtitlebin, gst_ghost_pad_new("sink", gst_element_get_static_pad(vipertransform, "sink")));
+
+				g_object_set(stream->sinkbin, "text-sink", subtitlebin, NULL);
+				pInterfacePlayerRDK->gstPrivateContext->subtitle_sink = textsink;
+				MW_LOG_MIL("using rialtomsesubtitlesink muted=%d sink=%p", pInterfacePlayerRDK->gstPrivateContext->subtitleMuted, pInterfacePlayerRDK->gstPrivateContext->subtitle_sink);
+				g_object_set(textsink, "mute", pInterfacePlayerRDK->gstPrivateContext->subtitleMuted ? TRUE : FALSE, NULL);
 			}
 			else
 			{
@@ -2754,8 +2804,7 @@ unsigned long InterfacePlayerRDK::GetCCDecoderHandle()
 	gst_media_stream* stream = &this->gstPrivateContext->stream[eGST_MEDIATYPE_SUBTITLE];
 	unsigned long dec_handle = 0;
 
-	if ((this->gstPrivateContext->usingRialtoSink) &&
-		(stream->format == GST_FORMAT_SUBTITLE_CC))
+	if (this->gstPrivateContext->usingCCControlStream)
 	{
 		dec_handle = (unsigned long)this->gstPrivateContext->subtitle_sink;
 	}
