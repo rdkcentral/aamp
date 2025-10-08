@@ -63,9 +63,8 @@ void PlayerRialtoCCManager::Release(int id)
 		if (0 == id_size)
 		{
 			// Last user has released - deinit.
-			// Note that there is currently little to do as all
+			// Note that there is currently nothing to do as all
 			// resources are managed externally to this module.
-			mSubtitleControlHandle = nullptr;
 		}
 	}
 	else
