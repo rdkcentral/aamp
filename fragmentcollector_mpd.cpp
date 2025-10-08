@@ -159,8 +159,6 @@ StreamAbstractionAAMP_MPD::StreamAbstractionAAMP_MPD(class PrivateInstanceAAMP *
 	,mAudioSurplus(0)
 	,mVideoSurplus(0)
 	,mLivePeriodCulledSeconds(0)
-	,mIsSegmentTimelineEnabled(false)
-	,mSeekedInPeriod(false)
 {
 	this->aamp = aamp;
 	if (aamp->mDRMLicenseManager)
@@ -9595,12 +9593,7 @@ void StreamAbstractionAAMP_MPD::DetectDiscontinuityAndFetchInit(bool periodChang
 					if (segmentTemplates.GetTimescale() != 0)
 					{
 						mFirstPTS = (double)segmentStartTime / (double)segmentTemplates.GetTimescale();
-					}
-					else
-					{
-						AAMPLOG_WARN("StreamAbstractionAAMP_MPD: Not updating mFirstPTS TimeScale(0) or mSeekedInPeriod(%d)", mSeekedInPeriod);
-					}
-					mSeekedInPeriod = false;
+					} // CID:186900 - divide by zero
 					double startTime = (mMPDParseHelper->GetPeriodStartTime(mCurrentPeriodIdx, mLastPlaylistDownloadTimeMs) - mAvailabilityStartTime);
 					if ((startTime != 0) && !aamp->IsUninterruptedTSB())
 					{

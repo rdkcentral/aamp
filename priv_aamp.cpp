@@ -3130,34 +3130,6 @@ bool PrivateInstanceAAMP::ProcessPendingDiscontinuity()
 					mpStreamAbstractionAAMP->GetESChangeStatus(),
 					mpStreamAbstractionAAMP->GetAudioFwdToAuxStatus(),
 					mIsTrackIdMismatch /*setReadyAfterPipelineCreation*/);
-
-				/*
-				*  Truth table for Flush call as per previous impl for reference
-				*  ContentType   | PTS ReStamp | Video Format | DoStreamSinkFlushOnDiscontinuity | Flush
-				*  --------------|-------------|--------------|----------------------------------|--------
-				*  HLS MP4       | NO          | ISO BMFF     | NO                               | NO
-				*  HLS MP4       | YES         | ISO BMFF     | NO                               | NO
-				*  HLS TS        | NO          | MPEGTS       | NO                               | YES
-				*  HLS TS        | YES         | MPEGTS       | NO                               | YES
-				*  DASH MP4      | NO          | ISO BMFF     | NO                               | YES
-				*  DASH MP4      | YES         | ISO BMFF     | NO                               | NO
-				*  DASH MP4      | YES         | ISO BMFF     | YES                              | YES
-				*  In HLS MP4, DASH, mediaProcessor will be doing a delayed flush
-				*  Only in DASH, PTS values will be known from manifest. If that is the case, flush from here.
-				*  Content types other than HLS and DASH are not expected to have discontinuity.
-				*/
-				if (mpStreamAbstractionAAMP->DoStreamSinkFlushOnDiscontinuity())
-				{
-					if(mDiscontinuityFound)
-					{
-						profiler.ProfileBegin(PROFILE_BUCKET_DISCO_FLUSH);
-					}
-					sink->Flush(mpStreamAbstractionAAMP->GetFirstPTS(), rate);
-					if(mDiscontinuityFound)
-					{
-						profiler.ProfileEnd(PROFILE_BUCKET_DISCO_FLUSH);
-					}
-				}
 			}
 			mpStreamAbstractionAAMP->ResetESChangeStatus();
 
