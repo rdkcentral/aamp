@@ -24,7 +24,7 @@
 #ifndef _PLAYER_RFC_H
 #define _PLAYER_RFC_H
 
-namespace RFCSettings{
+namespace RFCSettings{ 
     /**
      * @fn getRFCValue
      * @brief   Fetch data from RFC
