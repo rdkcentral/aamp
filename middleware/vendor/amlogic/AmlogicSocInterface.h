@@ -146,7 +146,7 @@ class AmlogicSocInterface : public SocInterface
 		 */
 
 		void GetCCDecoderHandle(gpointer *dec_handle, GstElement *video_dec)override;
-		
+
 		/**
 		 * @brief Disable asynchronous audio.
 		 * @param audio_sink Audio sink element.

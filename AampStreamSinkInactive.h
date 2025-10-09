@@ -159,15 +159,7 @@ public:
 #if 0
 // Can these be removed?
 // Need to check plugin doesn't use it
-	/**
-     *   @fn getVideoDecoderHandle
-	 *   @brief stub implementation for Inactive aamp instance
-	 */
-	virtual unsigned long getVideoDecoderHandle(void)
-	{
-		AAMPLOG_WARN("Called AAMPGstPlayer()::%s stub", __FUNCTION__);
-		return 0;
-	}
+
 	/**
      *   @fn getCCDecoderHandle
 	 *   @brief stub implementation for Inactive aamp instance

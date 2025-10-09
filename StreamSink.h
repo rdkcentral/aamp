@@ -178,12 +178,6 @@ public:
 #if 0
 // Can these be removed?
 // Need to check plugin doesn't use it
-    /**
-     *   @brief Get video decoder handle
-     *
-     *   @return Video decoder handle
-     */
-    virtual unsigned long getVideoDecoderHandle(void) { return 0; };
 
     /**
      *   @brief Get closed caption handle
