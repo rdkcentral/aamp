@@ -4438,15 +4438,39 @@ static gboolean buffering_timeout (gpointer data)
 				pInterfacePlayerRDK->gstPrivateContext->buffering_in_progress = false;
 				// application can schedule a retune based on isBufferingTimeoutConditionMet
 			}
-			else if (frames == -1 || frames >= pInterfacePlayerRDK->m_gstConfigParam->framesToQueue || pInterfacePlayerRDK->gstPrivateContext->buffering_timeout_cnt-- == 0)
-			{
-				MW_LOG_MIL("Set pipeline state to %s - buffering_timeout_cnt %u  frames %i",
-						gst_element_state_get_name(pInterfacePlayerRDK->gstPrivateContext->buffering_target_state), (pInterfacePlayerRDK->gstPrivateContext->buffering_timeout_cnt+1), frames);
-				SetStateWithWarnings (pInterfacePlayerRDK->gstPrivateContext->pipeline, pInterfacePlayerRDK->gstPrivateContext->buffering_target_state);
-				isRateCorrectionDefaultOnPlaying = pInterfacePlayerRDK->socInterface->SetRateCorrection();
-				pInterfacePlayerRDK->gstPrivateContext->buffering_in_progress = false;
-				isPlayerReady = true;
-			}
+			else
+            {
+                bool shouldStopBuffering = false;
+                guint originalTimeoutCnt = pInterfacePlayerRDK->gstPrivateContext->buffering_timeout_cnt;
+                
+                // Check conditions that would trigger stopping buffering
+                if (frames == -1 || frames >= pInterfacePlayerRDK->m_gstConfigParam->framesToQueue)
+                {
+                    shouldStopBuffering = true;
+                }
+                else if (pInterfacePlayerRDK->gstPrivateContext->buffering_timeout_cnt == 0)
+                {
+                    shouldStopBuffering = true;
+                }
+                else
+                {
+                    // Only decrement if greater than 0 (safe decrement)
+                    pInterfacePlayerRDK->gstPrivateContext->buffering_timeout_cnt--;
+                }
+                
+                if (shouldStopBuffering)
+                {
+                    MW_LOG_MIL("Set pipeline state to %s - buffering_timeout_cnt %u  frames %i",
+                            gst_element_state_get_name(pInterfacePlayerRDK->gstPrivateContext->buffering_target_state), 
+                            originalTimeoutCnt, frames);
+                    
+                    SetStateWithWarnings(pInterfacePlayerRDK->gstPrivateContext->pipeline, 
+                                       pInterfacePlayerRDK->gstPrivateContext->buffering_target_state);
+                    isRateCorrectionDefaultOnPlaying = pInterfacePlayerRDK->socInterface->SetRateCorrection();
+                    pInterfacePlayerRDK->gstPrivateContext->buffering_in_progress = false;
+                    isPlayerReady = true;
+                }
+            }
 		}
 		if (!pInterfacePlayerRDK->gstPrivateContext->buffering_in_progress)
 		{

@@ -6062,7 +6062,10 @@ void StreamAbstractionAAMP_MPD::StartSubtitleParser()
 										  subtitle->adaptationSet->GetSegmentTemplate() );
 		uint64_t presentationTimeOffset = segmentTemplates.GetPresentationTimeOffset();
 		uint32_t tScale = segmentTemplates.GetTimescale();
-		seekPoint += presentationTimeOffset/(double)tScale;
+		if(tScale != 0)
+		{
+			seekPoint += presentationTimeOffset/(double)tScale;
+		}
 
 		// seekPoint can end up -0.088400000000000006 here
 		// 0.1 seems too big an epsilon
