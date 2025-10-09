@@ -4192,40 +4192,6 @@ static JSValueRef AAMP_getPlaybackStats(JSContextRef context, JSObjectRef functi
 }
 
 /**
- *  * @brief Callback invoked from JS to set xre supported tune
- *  * @param[in] context JS execution context
- *  * @param[in] function JSObject that is the function being called
- *  * @param[in] thisObject JSObject that is the 'this' variable in the function's scope
- *  * @param[in] argumentCount number of args
- *  * @param[in] arguments[] JSValue array of args
- *  * @param[out] exception pointer to a JSValueRef in which to return an exception, if any
- *  * @retval JSValue that is the function's return value
- *  */
-static JSValueRef AAMP_xreSupportedTune(JSContextRef context, JSObjectRef function, JSObjectRef thisObject, size_t argumentCount, const JSValueRef arguments[], JSValueRef *exception)
-{
-	LOG_TRACE("Enter");
-	AAMP_JS* pAAMP = (AAMP_JS*)JSObjectGetPrivate(thisObject);
-	if(!pAAMP)
-	{
-		LOG_ERROR_EX("JSObjectGetPrivate returned NULL!");
-		*exception = aamp_GetException(context, AAMPJS_MISSING_OBJECT, "Can only call AAMP.xreSupportedTune on instances of AAMP");
-		return JSValueMakeUndefined(context);
-	}
-	if (argumentCount != 1)
-	{
-		LOG_ERROR(pAAMP,"InvalidArgument: argumentCount=%zu, expected: 1", argumentCount);
-		*exception = aamp_GetException(context, AAMPJS_INVALID_ARGUMENT, "Failed to execute 'AAMP.xreSupportedTune' - 1 argument required");
-	}
-	else
-	{
-		bool xreSupported = JSValueToBoolean(context, arguments[0]);
-        	LOG_WARN(pAAMP," _aamp->XRESupportedTune(%d)",xreSupported);
-		pAAMP->_aamp->XRESupportedTune(xreSupported);
-	}
-	return JSValueMakeUndefined(context);
-}
-
-/**
  * @brief Callback invoked from JS to set content protection data update timeout value on key rotation
  *
  * @param[in] context JS execution context
@@ -4390,7 +4356,6 @@ static const JSStaticFunction AAMP_staticfunctions[] =
 	{ "setLanguageFormat", AAMP_setLanguageFormat, kJSPropertyAttributeDontDelete | kJSPropertyAttributeReadOnly },
 	{ "setLicenseCaching", AAMP_setLicenseCaching, kJSPropertyAttributeDontDelete | kJSPropertyAttributeReadOnly },
 	{ "setAuxiliaryLanguage", AAMP_setAuxiliaryLanguage, kJSPropertyAttributeDontDelete | kJSPropertyAttributeReadOnly },
-	{ "xreSupportedTune", AAMP_xreSupportedTune, kJSPropertyAttributeDontDelete | kJSPropertyAttributeReadOnly},
 	{ "getPlaybackStatistics", AAMP_getPlaybackStats, kJSPropertyAttributeDontDelete | kJSPropertyAttributeReadOnly },
 	{ "setContentProtectionDataConfig", AAMP_setContentProtectionDataConfig, kJSPropertyAttributeDontDelete | kJSPropertyAttributeReadOnly },
 	{ "setContentProtectionDataUpdateTimeout", AAMP_setContentProtectionDataUpdateTimeout, kJSPropertyAttributeDontDelete | kJSPropertyAttributeReadOnly },

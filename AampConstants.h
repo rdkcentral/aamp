@@ -32,7 +32,5 @@
 #define CONSEC_AGNOSTIC_UUID "afbcb50e-bf74-3d13-be8f-13930c783962"
 #define VERIMATRIX_UUID "9a27dd82-fde2-4725-8cbc-4234aa06ec09"
 
-#define AAMP_MAX_PIPE_DATA_SIZE 1024    /**< Max size of data send across pipe */
-
 #endif /* __AAMP_CONSTANTS_H__ */
 
