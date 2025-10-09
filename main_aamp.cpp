@@ -799,6 +799,7 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 				// no deferring for playback resume
 				if (aamp->pipeline_paused && rate != 0)
 				{
+					AAMPLOG_INFO("Resuming Playback at Position '%lld'.", aamp->GetPositionMilliseconds());
 					// Resuming payback from pause
 					// If have local TSB, but playing from Live then seek into the TSB
 					// Otherwise unpause the pipeline
