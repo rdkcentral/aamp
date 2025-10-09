@@ -378,10 +378,12 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int auxF
 				}
 			}
 		}
-		else if (newUsingCCControlStream && (eGST_MEDIATYPE_SUBTITLE == i))
+		else if ((eGST_MEDIATYPE_SUBTITLE == i) &&
+				 newUsingCCControlStream &&
+				 !gstPrivateContext->usingCCControlStream)
 		{
 			TearDownStream(eGST_MEDIATYPE_SUBTITLE);
-			gstPrivateContext->usingCCControlStream = newUsingCCControlStream;
+			gstPrivateContext->usingCCControlStream = true;
 			SetupCCControlStream();
 		}
 	}
@@ -1264,7 +1266,8 @@ void InterfacePlayerRDK::TearDownStream(GstMediaType mediaType)
 			}
 		}
 		//After sinkbin is removed from pipeline, a new decoder handle may be generated
-		if (mediaType == eGST_MEDIATYPE_VIDEO)
+		if (((mediaType == eGST_MEDIATYPE_VIDEO) && !gstPrivateContext->usingCCControlStream) ||
+			((mediaType == eGST_MEDIATYPE_SUBTITLE) && gstPrivateContext->usingCCControlStream))
 		{
 			gstPrivateContext->decoderHandleNotified = false;
 		}
@@ -2101,7 +2104,9 @@ void InterfacePlayerRDK::SetupCCControlStream()
 			pInterfacePlayerRDK->gstPrivateContext->subtitle_sink = GST_ELEMENT(gst_object_ref_sink(textsink));
 			stream->sinkbin = GST_ELEMENT(gst_object_ref_sink(subtitlebin));
 
-			MW_LOG_INFO("Added subtitle bin with %s to pipeline", GST_ELEMENT_NAME(pInterfacePlayerRDK->gstPrivateContext->subtitle_sink));
+			MW_LOG_INFO("Added subtitle bin with %s %p to pipeline", 
+						GST_ELEMENT_NAME(pInterfacePlayerRDK->gstPrivateContext->subtitle_sink), 
+						pInterfacePlayerRDK->gstPrivateContext->subtitle_sink);
 
 			pInterfacePlayerRDK->SignalConnect(stream->sinkbin, "deep-notify::source", G_CALLBACK(gst_found_source), this);
 			if (!gst_element_sync_state_with_parent(stream->sinkbin))
@@ -2109,9 +2114,8 @@ void InterfacePlayerRDK::SetupCCControlStream()
 				MW_LOG_ERR("Failed to sync subtitle bin to parent");
 			}
 
-// Temporary until done by cc manager
-			g_object_set(pInterfacePlayerRDK->gstPrivateContext->subtitle_sink, "mute", pInterfacePlayerRDK->gstPrivateContext->subtitleMuted ? TRUE : FALSE, NULL);
-			g_object_set(pInterfacePlayerRDK->gstPrivateContext->subtitle_sink, "text-track-identifier", "CC3", NULL);
+			// Set initial mute state, will be updated by PlayerCCManager
+			g_object_set(pInterfacePlayerRDK->gstPrivateContext->subtitle_sink, "mute", TRUE, NULL);
 		}
 	}
 
@@ -4239,14 +4243,14 @@ static gboolean bus_message(GstBus * bus, GstMessage * msg, InterfacePlayerRDK *
 						pInterfacePlayerRDK->gstPrivateContext->firstAudioFrameReceived = true;
 						pInterfacePlayerRDK->NotifyFirstFrame(eGST_MEDIATYPE_VIDEO);
 					}
-					if(pInterfacePlayerRDK->gstPrivateContext->firstTuneWithWesterosSinkOff && pInterfacePlayerRDK->socInterface->NotifyVideoFirstFrame())
+					else if(pInterfacePlayerRDK->gstPrivateContext->firstTuneWithWesterosSinkOff && pInterfacePlayerRDK->socInterface->NotifyVideoFirstFrame())
 					{
 						pInterfacePlayerRDK->gstPrivateContext->firstTuneWithWesterosSinkOff = false;
 						pInterfacePlayerRDK->gstPrivateContext->firstVideoFrameReceived = true;
 						pInterfacePlayerRDK->gstPrivateContext->firstAudioFrameReceived = true;
 						pInterfacePlayerRDK->NotifyFirstFrame(eGST_MEDIATYPE_VIDEO);
 					}
-					if(pInterfacePlayerRDK->socInterface->IsSimulatorFirstFrame())
+					else if(pInterfacePlayerRDK->socInterface->IsSimulatorFirstFrame())
 					{
 						if(!pInterfacePlayerRDK->gstPrivateContext->firstFrameReceived)
 						{
