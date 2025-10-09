@@ -7575,7 +7575,7 @@ bool PrivateInstanceAAMP::IsLiveStream()
  */
 void PrivateInstanceAAMP::Stop( bool isDestructing )
 {
-	unsigned int stopStartTime = NOW_STEADY_TS_MS;
+	auto stopStartTime = NOW_STEADY_TS_MS;
 	// Clear all the player events in the queue and sets its state to RELEASED as everything is done
 	mEventManager->FlushPendingEvents();
 	if( !isDestructing )
@@ -7777,9 +7777,7 @@ void PrivateInstanceAAMP::Stop( bool isDestructing )
 	EnableDownloads();
 
 	AampStreamSinkManager::GetInstance().DeactivatePlayer(this, true);
-	unsigned int stopEndTime = NOW_STEADY_TS_MS;
-
-	unsigned int mLastStopDurationMs = stopEndTime - stopStartTime;
+	unsigned int mLastStopDurationMs = (unsigned)(NOW_STEADY_TS_MS - stopStartTime);
 	AAMPLOG_WARN("AAMP Stop took %u ms",mLastStopDurationMs);
 	profiler.mStopDurationMs = mLastStopDurationMs;
 
