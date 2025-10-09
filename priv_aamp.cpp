@@ -7575,7 +7575,7 @@ bool PrivateInstanceAAMP::IsLiveStream()
  */
 void PrivateInstanceAAMP::Stop( bool isDestructing )
 {
-	// Clear all the player events in the queue and sets its state to RELEASED as everything is done
+	// Clear all the player events in the queue
 	mEventManager->FlushPendingEvents();
 	if( !isDestructing )
 	{
@@ -7715,7 +7715,9 @@ void PrivateInstanceAAMP::Stop( bool isDestructing )
 	{
 		SetState(eSTATE_IDLE);
 	}
-	
+
+	// Set EventManager State to RELEASED as no events beyond this point
+	mEventManager->SetPlayerState(eSTATE_RELEASED);
 	SetPauseOnStartPlayback(false);
 	mSeekOperationInProgress = false;
 	mTrickplayInProgress = false;
