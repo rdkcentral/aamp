@@ -185,11 +185,12 @@ class RealtekSocInterface : public SocInterface
 		bool DisableAsyncAudio(GstElement *audio_sink, int rate, bool isSeeking)override;
 
 		/**
- 		 * @brief Retrieves the video decoder handle.
- 		 * @param[out] dec_handle Pointer to store the retrieved video decoder handle.
- 		 * @param[in] video_dec The GStreamer video decoder element.
- 		 */
-		void GetVideoDecoderHandle(gpointer *dec_handle, GstElement *video_dec)override;
+		 * Gets the decoder handle from the video decoder element.
+		 *
+		 * @param dec_handle Pointer to store the decoder handle.
+		 * @param video_dec The video decoder element.
+		 */
+		void GetCCDecoderHandle(gpointer *dec_handle, GstElement *video_dec)override;
 
 		/**
 		 * @brief Resets the trick play UTC.

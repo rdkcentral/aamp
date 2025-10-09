@@ -234,12 +234,7 @@ bool BrcmSocInterface::IsAudioOrVideoDecoder(const char* name, bool isRialto)
 	return AudioOrVideoDecoder;
 }
 
-/**
- * @brief Retrieves the video decoder handle.
- * @param[out] dec_handle Pointer to store the retrieved video decoder handle.
- * @param[in] video_dec The GStreamer video decoder element.
- */
-void BrcmSocInterface::GetVideoDecoderHandle(gpointer *dec_handle, GstElement *video_dec)
+void BrcmSocInterface::GetCCDecoderHandle(gpointer *dec_handle, GstElement *video_dec)
 {
     if (video_dec)
     {

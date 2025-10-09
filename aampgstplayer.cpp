@@ -281,7 +281,7 @@ void AAMPGstPlayer::RegisterFirstFrameCallbacks()
 	{
 		UsingPlayerId playerId(aamp->mPlayerId);
 
-		aamp->NotifyFirstFrameReceived(this->playerInstance->GetVideoDecoderHandle());
+		aamp->NotifyFirstFrameReceived(this->playerInstance->GetCCDecoderHandle());
 	};
 	playerInstance->callbackMap[InterfaceCB::notifyEOS] = [this]()
 	{
@@ -379,7 +379,10 @@ void AAMPGstPlayer::NotifyFirstFrame(int mediatype, bool notifyFirstBuffer, bool
 		if (initCC)
 		{
 			//If pipeline is set to ready forcefully due to change in track_id, then re-initialize CC
-			aamp->InitializeCC(playerInstance->GetCCDecoderHandle());
+			auto ccDecoderHandle = playerInstance->GetCCDecoderHandle();	
+			AAMPLOG_INFO("Calling InitializeCC with handle %lu", ccDecoderHandle);
+
+			aamp->InitializeCC(ccDecoderHandle);
 		}
 
 		requireFirstVideoFrameDisplay = aamp->IsFirstVideoFrameDisplayedRequired();
@@ -690,7 +693,7 @@ bool AAMPGstPlayer::SendHelper(AampMediaType mediaType, const void *ptr, size_t 
 				aamp->UpdateSubtitleTimestamp();
 
 				// required in order to fetch more than eAAMPConfig_PrePlayBufferCount video segments see WaitForFreeFragmentAvailable()
-				aamp->NotifyFirstFrameReceived(playerInstance->GetVideoDecoderHandle());
+				aamp->NotifyFirstFrameReceived(playerInstance->GetCCDecoderHandle());
 			}
 		}
 		return false;

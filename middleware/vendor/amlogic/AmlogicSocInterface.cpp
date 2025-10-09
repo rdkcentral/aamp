@@ -320,11 +320,11 @@ GstElement* AmlogicSocInterface::GetVideoSink(GstElement* sinkbin)
 }
 
 /**
- * @brief Retrieves the video decoder handle.
- * @param[out] dec_handle Pointer to store the retrieved video decoder handle.
- * @param[in] video_dec The GStreamer video decoder element.
+ * @brief Retrieves the CC decoder handle.
+ * @param[out] dec_handle Pointer to store the retrieved CC decoder handle.
+ * @param[in] video_dec The GStreamer video decoder element from which the CC decoder handle is extracted.
  */
-void AmlogicSocInterface::GetVideoDecoderHandle(gpointer *dec_handle, GstElement *video_dec)
+void AmlogicSocInterface::GetCCDecoderHandle(gpointer *dec_handle, GstElement *video_dec)
 {
 	if (video_dec)
 	{

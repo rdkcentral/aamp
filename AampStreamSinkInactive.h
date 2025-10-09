@@ -155,6 +155,10 @@ public:
 		AAMPLOG_WARN("Called AAMPGstPlayer()::%s stub", __FUNCTION__);
 		return 0;
 	}
+
+#if 0
+// Can these be removed?
+// Need to check plugin doesn't use it
 	/**
      *   @fn getVideoDecoderHandle
 	 *   @brief stub implementation for Inactive aamp instance
@@ -173,6 +177,7 @@ public:
 		AAMPLOG_WARN("Called AAMPGstPlayer()::%s stub", __FUNCTION__);
 		return 0;
 	}
+#endif
 	/**
      *   @fn SetVideoRectangle
 	 *   @brief stub implementation for Inactive aamp instance

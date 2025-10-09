@@ -323,7 +323,7 @@ public:
 	 * @param dec_handle Pointer to store the decoder handle.
 	 * @param video_dec The video decoder element.
 	 */
-	virtual void GetVideoDecoderHandle(gpointer *dec_handle, GstElement *video_dec) = 0;
+	virtual void GetCCDecoderHandle(gpointer *dec_handle, GstElement *video_dec) = 0;
 	
 	/**
 	 * @brief Resets the trick play UTC.

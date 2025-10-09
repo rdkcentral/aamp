@@ -2782,37 +2782,28 @@ bool InterfacePlayerRDK::StopBuffering(bool forceStop, bool &isPlaying)
 }
 
 /**
- *  @brief Retrieve the video decoder handle from pipeline
- */
-unsigned long InterfacePlayerRDK::GetVideoDecoderHandle()
-{
-	gpointer dec_handle = NULL;
-	if(this->gstPrivateContext->video_dec != NULL)
-	{
-		MW_LOG_MIL("Querying video decoder for handle");
-		socInterface->GetVideoDecoderHandle(&dec_handle, this->gstPrivateContext->video_dec);
-	}
-	MW_LOG_MIL("video decoder handle received %p for video_dec %p", dec_handle, gstPrivateContext->video_dec);
-	return (unsigned long)dec_handle;
-}
-
-/**
  *  @brief Retrieve the Closed Caption sink handle from pipeline
  */
 unsigned long InterfacePlayerRDK::GetCCDecoderHandle()
 {
 	gst_media_stream* stream = &this->gstPrivateContext->stream[eGST_MEDIATYPE_SUBTITLE];
-	unsigned long dec_handle = 0;
+	gpointer dec_handle = NULL;
 
 	if (this->gstPrivateContext->usingCCControlStream)
 	{
-		dec_handle = (unsigned long)this->gstPrivateContext->subtitle_sink;
+		dec_handle = this->gstPrivateContext->subtitle_sink;
+		MW_LOG_MIL("CC Decoder handle %p", dec_handle);
 	}
 	else
 	{
-		dec_handle = GetVideoDecoderHandle();
+		if(this->gstPrivateContext->video_dec != NULL)
+		{
+			MW_LOG_INFO("Querying video decoder for handle");
+			socInterface->GetCCDecoderHandle(&dec_handle, this->gstPrivateContext->video_dec);
+		}
+		MW_LOG_MIL("CC Decoder handle received %p for video_dec %p", dec_handle, gstPrivateContext->video_dec);
 	}
-	return dec_handle;
+	return (unsigned long)dec_handle;
 }
 
 /**
