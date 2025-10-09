@@ -95,7 +95,6 @@ class BrcmSocInterface : public SocInterface
 		bool SetRateCorrection() override {return true;}
 
 		void GetCCDecoderHandle(gpointer *dec_handle, GstElement *video_dec)override;
-
 		/**
 		 * @brief Check if the given name is a video sink.
 		 * @param name Element name.
