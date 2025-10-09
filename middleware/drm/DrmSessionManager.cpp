@@ -794,12 +794,39 @@ void DrmSessionManager::UpdateMaxDRMSessions(int maxSessions)
 /**
  * @brief To register the callback for watermark session update
  */
-void DrmSessionManager::registerCallback() {
+void DrmSessionManager::registerCallback()
+{
 	auto instance = this;
-	static std::function<void(uint32_t, uint32_t, const std::string&)> watermarkCallBack =
-	[instance](uint32_t sessionHandle, uint32_t status, const std::string& system) {
-		instance->watermarkSessionHandlerWrapper(sessionHandle, status, system);
+
+	 std::function<void(uint32_t, uint32_t, const std::string&)> watermarkCallBack =
+	[instance](uint32_t sessionHandle, uint32_t status, const std::string& system)
+       	{
+            MW_LOG_INFO("[DrmSessionManager] Received WM callback: handle=%u, status=%u, system=%s",
+                        sessionHandle, status, system.c_str());
+
+            if (instance && instance->mPlayerSendWatermarkSessionUpdateEventCB)
+            {
+                MW_LOG_INFO("[DrmSessionManager] Forwarding WM callback -> aampInstance callback (%p)",
+                            (void*)&(instance->mPlayerSendWatermarkSessionUpdateEventCB));
+
+                // call the actual AAMP callback
+                instance->mPlayerSendWatermarkSessionUpdateEventCB(sessionHandle, status, system);
+            }
+            else
+            {
+                MW_LOG_ERR("[DrmSessionManager] ERROR: mPlayerSendWatermarkSessionUpdateEventCB not set!");
+            }
 	};
+
+
+
+
+
+
+
+
+
+
 	ContentSecurityManager::setWatermarkSessionEvent_CB(watermarkCallBack);
 	MW_LOG_INFO("WatermarkSessionEvent Callback registered");
 }
