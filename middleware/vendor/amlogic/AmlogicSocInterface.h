@@ -21,7 +21,6 @@
 #define AMLOGIC_SOC_INTERFACE_H
 
 #include "SocInterface.h"
-
 /**
  * @brief Amlogic SoC interface class.
  *
@@ -97,7 +96,7 @@ class AmlogicSocInterface : public SocInterface
 		 * @return True on success, false otherwise.
 		 */
 		bool SetRateCorrection() override {return false;}
-
+		
 		/**
 		 * @brief Check if the given name is a video sink.
 		 * @param name Element name.

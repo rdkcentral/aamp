@@ -374,61 +374,6 @@ void ProfileEventAAMP::TuneEnd(TuneEndMetrics &mTuneEndMetrics,std::string appNa
 }
 
 /**
- *  @brief Method converting the AAMP style tune performance data to IP_EX_TUNETIME style data
- */
-void ProfileEventAAMP::GetClassicTuneTimeInfo(bool success, int tuneRetries, int firstTuneType, long long playerLoadTime, int streamType, bool isLive,unsigned int durationS, char *TuneTimeInfoStr)
-{
-	// Prepare String for Classic TuneTime data
-	// Note: Certain buckets won't be available; will take the tFinish of the previous bucket as the start & finish those buckets.
-	xreTimeBuckets[TuneTimeBeginLoad]               =       tuneStartMonotonicBase ;
-	xreTimeBuckets[TuneTimePrepareToPlay]           =       tuneStartMonotonicBase + buckets[PROFILE_BUCKET_MANIFEST].tFinish;
-	xreTimeBuckets[TuneTimePlay]                    =       tuneStartMonotonicBase + MAX(buckets[PROFILE_BUCKET_MANIFEST].tFinish, MAX(buckets[PROFILE_BUCKET_PLAYLIST_VIDEO].tFinish, buckets[PROFILE_BUCKET_PLAYLIST_AUDIO].tFinish));
-	xreTimeBuckets[TuneTimeDrmReady]                =       MAX(xreTimeBuckets[TuneTimePlay], (tuneStartMonotonicBase +  buckets[PROFILE_BUCKET_LA_TOTAL].tFinish));
-	long long fragmentReadyTime                     =       tuneStartMonotonicBase + MAX(buckets[PROFILE_BUCKET_FRAGMENT_VIDEO].tFinish, buckets[PROFILE_BUCKET_FRAGMENT_AUDIO].tFinish);
-	xreTimeBuckets[TuneTimeStartStream]             =       MAX(xreTimeBuckets[TuneTimeDrmReady], (tuneStartMonotonicBase +  buckets[PROFILE_BUCKET_FRAGMENT_VIDEO].tFinish));
-	xreTimeBuckets[TuneTimeStreaming]               =       tuneStartMonotonicBase + buckets[PROFILE_BUCKET_FIRST_FRAME].tStart;
-
-	unsigned int failRetryBucketTime                =       (unsigned int)(tuneStartMonotonicBase - playerLoadTime);
-	unsigned int prepareToPlayBucketTime            =       (unsigned int)(xreTimeBuckets[TuneTimePrepareToPlay] - xreTimeBuckets[TuneTimeBeginLoad]);
-	unsigned int playBucketTime                     =       (unsigned int)(xreTimeBuckets[TuneTimePlay]- xreTimeBuckets[TuneTimePrepareToPlay]);
-	unsigned int fragmentBucketTime                 =       (unsigned int)(fragmentReadyTime - xreTimeBuckets[TuneTimePlay]) ;
-	unsigned int decoderStreamingBucketTime         =       (unsigned int)(xreTimeBuckets[TuneTimeStreaming] - xreTimeBuckets[TuneTimeStartStream]);
-	/*Note: 'Drm Ready' to 'decrypt start' gap is not in any of the buckets.*/
-
-	unsigned int manifestTotal      =       bucketDuration(PROFILE_BUCKET_MANIFEST);
-	unsigned int profilesTotal      =       effectiveBucketTime(PROFILE_BUCKET_PLAYLIST_VIDEO, PROFILE_BUCKET_PLAYLIST_AUDIO);
-	unsigned int initFragmentTotal  =       effectiveBucketTime(PROFILE_BUCKET_INIT_VIDEO, PROFILE_BUCKET_INIT_AUDIO);
-	unsigned int fragmentTotal      =       effectiveBucketTime(PROFILE_BUCKET_FRAGMENT_VIDEO, PROFILE_BUCKET_FRAGMENT_AUDIO);
-	// DrmReadyBucketTime is licenseTotal, time taken for complete license acquisition
-	// licenseNWTime is the time taken for network request.
-	unsigned int licenseTotal       =       bucketDuration(PROFILE_BUCKET_LA_TOTAL);
-	unsigned int licenseNWTime      =       bucketDuration(PROFILE_BUCKET_LA_NETWORK);
-	if(licenseNWTime == 0)
-	{
-		licenseNWTime = licenseTotal;  //A HACK for HLS
-	}
-
-	// Total Network Time
-	unsigned int networkTime = manifestTotal + profilesTotal + initFragmentTotal + fragmentTotal + licenseNWTime;
-
-	snprintf(TuneTimeInfoStr,AAMP_MAX_PIPE_DATA_SIZE,"%d,%lld,%d,%d," //totalNetworkTime, playerLoadTime , failRetryBucketTime, prepareToPlayBucketTime,
-			"%d,%d,%d,"                                             //playBucketTime ,licenseTotal , decoderStreamingBucketTime
-			"%d,%d,%d,%d,"                                          // manifestTotal,profilesTotal,fragmentTotal,effectiveFragmentDLTime
-			"%d,%d,%d,%d,"                                          // licenseNWTime,success,durationMs,isLive
-			"%lld,%lld,%lld,"                                       // TuneTimeBeginLoad,TuneTimePrepareToPlay,TuneTimePlay,
-			"%lld,%lld,%lld,"                                       //TuneTimeDrmReady,TuneTimeStartStream,TuneTimeStreaming
-			"%d,%d,%d,%lld",                                             //streamType, tuneRetries, TuneType, TuneCompleteTime(UTC MSec)
-			networkTime,playerLoadTime, failRetryBucketTime, prepareToPlayBucketTime,playBucketTime,licenseTotal,decoderStreamingBucketTime,
-			manifestTotal,profilesTotal,(initFragmentTotal + fragmentTotal),fragmentBucketTime, licenseNWTime,success,durationS*1000,isLive,
-			xreTimeBuckets[TuneTimeBeginLoad],xreTimeBuckets[TuneTimePrepareToPlay],xreTimeBuckets[TuneTimePlay] ,xreTimeBuckets[TuneTimeDrmReady],
-			xreTimeBuckets[TuneTimeStartStream],xreTimeBuckets[TuneTimeStreaming],streamType,tuneRetries,firstTuneType,(long long)NOW_SYSTEM_TS_MS
-	);
-#ifndef CREATE_PIPE_SESSION_TO_XRE
-	AAMPLOG_WARN("AAMP=>XRE: %s", TuneTimeInfoStr);
-#endif
-}
-
-/**
  * @brief Marking the beginning of a bucket
  */
 void ProfileEventAAMP::ProfileBegin(ProfilerBucketType type)

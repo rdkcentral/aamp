@@ -143,7 +143,7 @@ disableLowLatencyABR		Enable/Disable Low Latency ABR. Default: true
 enableLowLatencyCorrection	Enable/Disable Low Latency Correction. Default: false
 enableFogConfig			Enable/Disable setting player configurations to Fog. Default: true
 suppressDecode			Enable/Disable setting to suppress decode of content for playback, only Downloader test. Default: false
-gstSubtecEnabled		Enable/Disable subtec via gstreamer plugins (plugins in gst-plugins-rdk-aamp repo)
+gstSubtecEnabled		Enable/Disable subtec via gstreamer plugins (plugins in middleware/gst-plugins repo)
 sendLicenseResponseHeaders	Enable/Disable Sending License response header as a part of DRMMetadata event(Non SecClient/SecManager DRM license).
 useTCPServerSink		Enable "tcpserverSink" in conjunction with playbin. For use in automated testing when there is no window for video output
 sendUserAgentInLicense		Enable/disable sending user agent in the DRM license request header. Default: disabled.
