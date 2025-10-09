@@ -704,14 +704,7 @@ size_t PrivateInstanceAAMP::HandleSSLWriteCallback ( char *ptr, size_t size, siz
 	}
 	else
 	{
-		if(ISCONFIGSET_PRIV(eAAMPConfig_EnableCurlStore) && mOrigManifestUrl.isRemotehost)
-		{
-			ret = (size*nmemb);
-		}
-		else
-		{
-			AAMPLOG_WARN("CurlTrace write_callback - interrupted, ret:%zu", ret);
-		}
+		AAMPLOG_WARN("CurlTrace write_callback - interrupted, ret:%zu", ret);
 	}
 	return ret;
 }
@@ -1095,18 +1088,10 @@ int PrivateInstanceAAMP::HandleSSLProgressCallback ( void *clientp, double dltot
 			}
 		}
 	}
-
 	if(rc)
 	{
-		if( !( eCURL_ABORT_REASON_LOW_BANDWIDTH_TIMEDOUT == context->abortReason || eCURL_ABORT_REASON_START_TIMEDOUT == context->abortReason ||\
-			eCURL_ABORT_REASON_STALL_TIMEDOUT == context->abortReason ) && (ISCONFIGSET_PRIV(eAAMPConfig_EnableCurlStore) && mOrigManifestUrl.isRemotehost ) )
-		{
-			rc = 0;
-		}
-		else
-		{
-			AAMPLOG_WARN("CurlTrace Progress interrupted, ret:%d", rc);
-		}
+		//code block for resetting rc is removed in order to abort the download once we disable the downloads
+		AAMPLOG_WARN("CurlTrace Progress interrupted, ret:%d", rc);
 	}
 	return rc;
 }
