@@ -18,6 +18,7 @@
  */
 #include "ContentSecurityManager.h"
 #include "ContentProtectionFirebolt.h"
+#include "PlayerSecInterface.h"
 #include "_base64.h"
 #include "PlayerJsonObject.h"
 #include "PlayerLogManager.h"

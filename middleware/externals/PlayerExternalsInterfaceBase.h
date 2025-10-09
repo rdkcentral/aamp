@@ -61,10 +61,10 @@ class PlayerExternalsInterfaceBase
         * @return True if UHD. False if not UHD.
         */
         bool IsSourceUHD()
-	{
+	    {
             bool retVal = false;
 
-        //    DEBUG_FUNC;
+            //    DEBUG_FUNC;
             static gint     sourceHeight    = 0;
             static gint     sourceWidth     = 0;
 
@@ -91,7 +91,7 @@ class PlayerExternalsInterfaceBase
             return retVal;
         }
 
-	/**
+	    /**
          * @fn setGstElement
          * @brief Set Video decoder Gst Element for UHD identification
          */
