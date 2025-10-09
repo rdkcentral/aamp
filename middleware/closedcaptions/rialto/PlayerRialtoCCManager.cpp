@@ -34,6 +34,15 @@ int PlayerRialtoCCManager::Initialize(void * handle)
 {
 	MW_LOG_INFO("PlayerRialtoCCManager::Initialize(%p) called", handle);
 	mSubtitleControlHandle = handle;
+
+	if (mSubtitleControlHandle != nullptr)
+	{
+		// Apps expect to render default CC as CC1, so set that here in case
+		// they do not explicitly call SetTrack().
+		MW_LOG_INFO("PlayerRialtoCCManager::Setting default to \"CC1\"");
+		SetTrack("CC1");
+	}
+
 	return 0;
 }
 
@@ -173,9 +182,5 @@ int PlayerRialtoCCManager::SetAnalogChannel(unsigned int id)
  */
 PlayerRialtoCCManager::PlayerRialtoCCManager()
 {
-	// Apps expect to render default CC as CC1, so set that here in case
-	// they do not explicitly call SetTrack().
-	MW_LOG_WARN("PlayerRialtoCCManager::Setting default to \"CC1\"");
-	SetTrack("CC1");
 	return;
 }
