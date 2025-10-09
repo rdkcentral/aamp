@@ -33,14 +33,22 @@
 int PlayerRialtoCCManager::Initialize(void * handle)
 {
 	MW_LOG_INFO("PlayerRialtoCCManager::Initialize(%p) called", handle);
+
+	bool firstHandle = (nullptr == mSubtitleControlHandle);
+
 	mSubtitleControlHandle = handle;
 
-	if (mSubtitleControlHandle != nullptr)
+	if (GetTrack().empty())
 	{
 		// Apps expect to render default CC as CC1, so set that here in case
 		// they do not explicitly call SetTrack().
 		MW_LOG_INFO("PlayerRialtoCCManager::Setting default to \"CC1\"");
-		SetTrack("CC1");
+		(void) SetTrack("CC1");
+	}
+	else if (firstHandle)
+	{
+		// Ensure the previously cached track is set now that we have a handle.
+		(void) SetTrack(GetTrack());
 	}
 
 	return 0;
