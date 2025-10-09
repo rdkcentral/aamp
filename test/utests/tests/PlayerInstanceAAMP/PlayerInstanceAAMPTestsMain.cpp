@@ -1937,6 +1937,18 @@ TEST_F(PlayerInstanceAAMPTests, SetRepairIframesTest2)
     bool configState = true;
     mPlayerInstance->SetRepairIframes(configState);
 }
+TEST_F(PlayerInstanceAAMPTests, XRESupportedTuneTest1)
+{
+    //checking true condition
+    bool xreSupported = true;
+    mPlayerInstance->XRESupportedTune(xreSupported);
+}
+TEST_F(PlayerInstanceAAMPTests, XRESupportedTuneTest2)
+{
+    //checking false condition
+    bool xreSupported = false;
+    mPlayerInstance->XRESupportedTune(xreSupported);
+}
 TEST_F(PlayerInstanceAAMPTests, SetLicenseCustomDataTest)
 {
     const char* customData = "customData"; 

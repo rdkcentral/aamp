@@ -162,6 +162,7 @@ const std::vector<TimedMetadata> & PlayerInstanceAAMP::GetTimedMetadata( void ) 
 	void PlayerInstanceAAMP::PersistBitRateOverSeek(bool value) {  }
 	void PlayerInstanceAAMP::SetPausedBehavior(int behavior) {  }
 	void PlayerInstanceAAMP::SetUseAbsoluteTimeline(bool configState) {  }
+	void PlayerInstanceAAMP::XRESupportedTune(bool xreSupported) {  }
 	void PlayerInstanceAAMP::EnableAsyncOperation() {  }
 	void PlayerInstanceAAMP::SetRepairIframes(bool configState) {  }
 	void PlayerInstanceAAMP::SetAuxiliaryLanguage(const std::string &language) {  }

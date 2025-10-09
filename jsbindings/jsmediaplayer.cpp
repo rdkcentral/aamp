@@ -3342,6 +3342,43 @@ static JSValueRef AAMPMediaPlayerJS_getPlaybackStats(JSContextRef ctx, JSObjectR
 	return aamp_CStringToJSValue(ctx, privObj->_aamp->GetPlaybackStats().c_str());
 }
 
+
+/**
+ *  * @brief API invoked from JS when executing AAMPMediaPlayer.xreSupportedTune()
+ *  * @param[in] ctx JS execution context
+ *  * @param[in] function JSObject that is the function being called
+ *  * @param[in] thisObject JSObject that is the 'this' variable in the function's scope
+ *  * @param[in] argumentCount number of args
+ *  * @param[in] arguments[] JSValue array of args
+ *  * @param[out] exception pointer to a JSValueRef in which to return an exception, if any
+ *  * @retval JSValue that is the function's return value
+ *  */
+JSValueRef AAMPMediaPlayerJS_xreSupportedTune(JSContextRef ctx, JSObjectRef function, JSObjectRef thisObject, size_t argumentCount, const JSValueRef arguments[], JSValueRef* exception)
+{
+	LOG_TRACE("Enter");
+	AAMPMediaPlayer_JS* privObj = (AAMPMediaPlayer_JS*)JSObjectGetPrivate(thisObject);
+	if (!privObj)
+	{
+		LOG_ERROR_EX("JSObjectGetPrivate returned NULL!");
+		*exception = aamp_GetException(ctx, AAMPJS_MISSING_OBJECT, "Can only call xreSupportedTune() on instances of AAMPPlayer");
+		return JSValueMakeUndefined(ctx);
+	}
+	if (argumentCount == 1)
+	{
+		bool xreSupported = JSValueToBoolean(ctx, arguments[0]);
+                LOG_WARN(privObj,"_aamp->XRESupportedTune(%d)",xreSupported);
+		privObj->_aamp->XRESupportedTune(xreSupported);
+	}
+	else
+	{
+		LOG_ERROR(privObj,"InvalidArgument - argumentCount=%zu, expected: 1", argumentCount);
+		*exception = aamp_GetException(ctx, AAMPJS_INVALID_ARGUMENT, "Failed to execute xreSupportedTune() - 1 argument required");
+	}
+	LOG_TRACE("Exit");
+	return JSValueMakeUndefined(ctx);
+}
+
+
 /**
  * @brief API invoked from JS when executing AAMPMediaPlayer.getVideoPlaybackQuality()
  *
@@ -3649,6 +3686,7 @@ static const JSStaticFunction AAMPMediaPlayer_JS_static_functions[] = {
 	{ "setPreferredTextLanguage", AAMPMediaPlayerJS_setPreferredTextLanguage, kJSPropertyAttributeDontDelete | kJSPropertyAttributeReadOnly},
 	{ "setPreferredAudioCodec", AAMPMediaPlayerJS_setPreferredAudioCodec, kJSPropertyAttributeDontDelete | kJSPropertyAttributeReadOnly},
 	{ "setAuxiliaryLanguage", AAMPMediaPlayerJS_setAuxiliaryLanguage, kJSPropertyAttributeDontDelete | kJSPropertyAttributeReadOnly },
+	{ "xreSupportedTune", AAMPMediaPlayerJS_xreSupportedTune, kJSPropertyAttributeDontDelete | kJSPropertyAttributeReadOnly},
 	{ "getPlaybackStatistics", AAMPMediaPlayerJS_getPlaybackStats, kJSPropertyAttributeDontDelete | kJSPropertyAttributeReadOnly },
 	{ "setContentProtectionDataConfig", AAMPMediaPlayerJS_setContentProtectionDataConfig, kJSPropertyAttributeDontDelete | kJSPropertyAttributeReadOnly },
 	{ "setContentProtectionDataUpdateTimeout", AAMPMediaPlayerJS_setContentProtectionDataUpdateTimeout, kJSPropertyAttributeDontDelete | kJSPropertyAttributeReadOnly },
