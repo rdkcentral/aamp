@@ -48,6 +48,8 @@
 #include "MockTSBStore.h"
 
 #include "fragmentcollector_mpd.h"
+#include "MockAdManager.h"
+#include "MockPlayerCCManager.h"
 
 using ::testing::An;
 using ::testing::DoAll;
@@ -87,10 +89,17 @@ protected:
 		g_mockStreamAbstractionAAMP = new NiceMock<MockStreamAbstractionAAMP>(p_aamp);
 		g_mockCurl = new NiceMock<MockCurl>();
 		g_mockAampCurlStore = new NiceMock<MockAampCurlStore>();
+		g_MockPrivateCDAIObjectMPD = new MockPrivateCDAIObjectMPD();
+		g_mockPlayerCCManager = std::make_shared<NiceMock<MockPlayerCCManager>>();
 	}
 
 	void TearDown() override
 	{
+		g_mockPlayerCCManager.reset();
+
+		delete g_MockPrivateCDAIObjectMPD;
+		g_MockPrivateCDAIObjectMPD = nullptr;
+		
 		delete g_mockAampCurlStore;
 		g_mockAampCurlStore = nullptr;
 
@@ -3263,11 +3272,68 @@ TEST_F(PrivAampTests,SetCCStatusTest)
 {
 	EXPECT_FALSE(p_aamp->GetCCStatus());
 
+	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(true))
+		.WillOnce(Return(0));
+
 	p_aamp->SetCCStatus(true);
 	EXPECT_TRUE(p_aamp->GetCCStatus());
 
+	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(false))
+		.WillOnce(Return(0));
+
 	p_aamp->SetCCStatus(false);
 	EXPECT_FALSE(p_aamp->GetCCStatus());
+}
+
+TEST_F(PrivAampTests,SetCCStatusWithVideoMutedTest)
+{
+	// Set video to muted state first
+	p_aamp->SetVideoMute(true);
+
+	// Initial state - CC should be disabled
+	EXPECT_FALSE(p_aamp->GetCCStatus());
+
+	// Even when video is muted, SetCCStatus should still call PlayerCCManager
+	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(true))
+		.WillOnce(Return(0));
+
+	p_aamp->SetCCStatus(true);
+	EXPECT_TRUE(p_aamp->GetCCStatus());
+
+	// Test setting CC to false while video is still muted
+	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(false))
+		.WillOnce(Return(0));
+
+	p_aamp->SetCCStatus(false);
+	EXPECT_FALSE(p_aamp->GetCCStatus());
+
+	// Cleanup - unmute video
+	p_aamp->SetVideoMute(false);
+}
+
+TEST_F(PrivAampTests,SetCCStatusWithStreamAbstractionCreationTest)
+{
+	// Initially set CC status to enabled
+	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(true))
+		.WillOnce(Return(0));
+	p_aamp->SetCCStatus(true);
+	EXPECT_TRUE(p_aamp->GetCCStatus());
+
+	// Set video to muted state - this should set mApplyCachedVideoMute to true
+	// since mpStreamAbstractionAAMP is NULL at this point
+	p_aamp->SetVideoMute(true);
+
+	// Now call TuneHelper which will create the stream abstraction
+	// This should trigger SetCCStatusInternal() call when sink is configured
+	// and mApplyCachedVideoMute is applied
+	TuneType tuneType = eTUNETYPE_NEW_NORMAL;
+	p_aamp->TuneHelper(tuneType, false);
+
+	// Verify that CC status is still true but video mute affects subtitle rendering
+	EXPECT_TRUE(p_aamp->GetCCStatus());
+
+	// Cleanup
+	p_aamp->SetVideoMute(false);
 }
 
 TEST_F(PrivAampTests,NotifyAudioTracksChangedTest)
