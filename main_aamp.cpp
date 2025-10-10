@@ -879,7 +879,7 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 						if(aamp->mPausedBehavior == ePAUSED_BEHAVIOR_LIVE_DEFER )
 						{
 							AAMPLOG_INFO("Downloads disabled on pause");
-							//Disable downloads if the pause is for infiite time or until user resumes. If we continue manifest downloadng in this case , it will cause  playback failure due to period culling in later point of time after  pause.
+							// for this class of playback, disable downloads indefinitely while paused. If we continue manifest downloading in this scenario, can result in playback failure due to period culling.
 							aamp->DisableDownloads();
 							aamp->mSeekFromPausedState = true;
 						}
