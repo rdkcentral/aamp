@@ -728,7 +728,7 @@ static GstFlowReturn gst_cdmidecryptor_transform_ip(
 		g_mutex_unlock(&cdmidecryptor->mutex);
 	return result;
 }
-#endif
+#endif // USE_OPENCDM_ADAPTER
 
 
 /* sink event handlers */

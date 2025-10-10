@@ -23,6 +23,10 @@ if [[ -z "${MAKEFLAGS}" ]]; then
     export MAKEFLAGS=-j$(nproc)
 fi
 
+# Set the CMAKE_POLICY_VERSION_MINIMUM to 3.5
+# Mostly required for OSX builds
+export CMAKE_POLICY_VERSION_MINIMUM=3.5
+
 # Fail the script should any step fail. To override this behavior use "|| true" on those statements
 set -eo pipefail
 

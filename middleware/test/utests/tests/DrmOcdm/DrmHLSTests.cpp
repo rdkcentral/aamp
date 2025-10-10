@@ -55,7 +55,7 @@ TEST_F(DrmHLSTests, ProcessContentProtection)
 
 		EXPECT_CALL(*drmHelper, isDecryptClearSamplesRequired()).WillOnce(Return(false));
 
-		auto rc = ProcessContentProtection(attrName,drmHelper->getPropogateUriParam(),drmHelper->isDecryptClearSamplesRequired());
+		auto rc = ProcessContentProtection(attrName,drmHelper->getPropagateUriParam(),drmHelper->isDecryptClearSamplesRequired());
 		ASSERT_NE( rc, nullptr );
 
 	}
@@ -64,7 +64,7 @@ TEST_F(DrmHLSTests, ProcessContentProtection)
 	    std::string attrName = "#EXT-X-KEY:METHOD=SAMPLE-AES-CTR,URI=\"data:text/plain;charset=UTF-16;base64,BgIAAAEAAQD8ATwAVwBSAE0ASABFAEEARABFAFIAIAB4AG0AbABuAHMAPQAiAGgAdAB0AHAAOgAvAC8AcwBjAGgAZQBtAGEAcwAuAG0AaQBjAHIAbwBzAG8AZgB0AC4AYwBvAG0ALwBEAFIATQAvADIAMAAwADcALwAwADMALwBQAGwAYQB5AFIAZQBhAGQAeQBIAGUAYQBkAGUAcgAiACAAdgBlAHIAcwBpAG8AbgA9ACIANAAuADAALgAwAC4AMAAiAD4APABEAEEAVABBAD4APABQAFIATwBUAEUAQwBUAEkATgBGAE8APgA8AEsARQBZAEwARQBOAD4AMQA2ADwALwBLAEUAWQBMAEUATgA+ADwAQQBMAEcASQBEAD4AQQBFAFMAQwBUAFIAPAAvAEEATABHAEkARAA+ADwALwBQAFIATwBUAEUAQwBUAEkATgBGAE8APgA8AEsASQBEAD4AbgA0AEkARABBAEsATwAxAHMARwByAGcAegBpAHkAOAA4AFgAcgBqAGYAQQA9AD0APAAvAEsASQBEAD4APABDAEgARQBDAEsAUwBVAE0APgB1AGkAbwA4AFcAVQBwAFQANAA0ADAAPQA8AC8AQwBIAEUAQwBLAFMAVQBNAD4APAAvAEQAQQBUAEEAPgA8AC8AVwBSAE0ASABFAEEARABFAFIAPgA=\",KEYFORMAT=\"com.microsoft.playready\",KEYFORMATVERSIONS=\"1\"";
 
 		EXPECT_CALL(*drmHelper, isDecryptClearSamplesRequired()).WillOnce(Return(false));
-		auto rc = ProcessContentProtection(attrName,drmHelper->getPropogateUriParam(),drmHelper->isDecryptClearSamplesRequired());
+		auto rc = ProcessContentProtection(attrName,drmHelper->getPropagateUriParam(),drmHelper->isDecryptClearSamplesRequired());
 
 		// getting nullptr here
 		// comments elsewhere indicate PlayReady helper currently supports DASH only, so known issue

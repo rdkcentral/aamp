@@ -60,6 +60,7 @@ endif()
 
 # Platform specific settings
 if(APPLE)
+	set(CMAKE_OSX_DEPLOYMENT_TARGET "15.6")
 	set(CMAKE_C_COMPILER "/usr/bin/cc")
 	set(CMAKE_CXX_COMPILER "/usr/bin/c++")
 
@@ -89,7 +90,6 @@ if(CMAKE_PLATFORM_UBUNTU OR CMAKE_SYSTEM_NAME STREQUAL Darwin)
 	set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DAAMP_SIMULATOR_BUILD=1")
 	set(CMAKE_TELEMETRY_2_0_REQUIRED TRUE)
 	set(CMAKE_AAMP_SIMULATOR TRUE)
-
 	if(CMAKE_SYSTEM_NAME STREQUAL Darwin)
 		execute_process (
 			COMMAND bash -c "xcrun --show-sdk-path" OUTPUT_VARIABLE osxSdkPath OUTPUT_STRIP_TRAILING_WHITESPACE
@@ -311,7 +311,6 @@ set(LIBAAMP_SOURCES
 	dash/utils/Url.cpp
 	dash/utils/StringEx.cpp
 	dash/utils/Path.cpp
-	#ProcessHandler.cpp ProcessHandler.h
 	AampMPDDownloader.cpp AampMPDDownloader.h
 	AampMPDParseHelper.cpp AampMPDParseHelper.h
 	AampMPDUtils.cpp AampMPDUtils.h
@@ -358,17 +357,6 @@ if (CMAKE_TELEMETRY_2_0_REQUIRED)
 	endif()
 endif()
 
-set(AAMP_SUBTEC_CLASS_SOURCES subtec/subtecparser/WebvttSubtecDevParser.cpp)
-set_target_properties(subtec PROPERTIES PUBLIC_HEADER "${AAMP_SUBTEC_PUBLIC_HEADERS}")
-set(AAMP_SUBTEC_COMPILE_FLAGS "${CMAKE_CXX_FLAGS} -DSUBTEC_PACKET_DEBUG=1")
-if(CMAKE_PLATFORM_UBUNTU)
-	set(AAMP_SUBTEC_COMPILE_FLAGS "${AAMP_SUBTEC_COMPILE_FLAGS} -DUBUNTU=1")
-endif()
-set_target_properties(subtec PROPERTIES COMPILE_FLAGS "${AAMP_SUBTEC_COMPILE_FLAGS}")
-install (TARGETS subtec
-		DESTINATION lib
-		PUBLIC_HEADER DESTINATION include
-)
 
 if (CMAKE_GST_SUBTEC_ENABLED)
 	set(CMAKE_SUBTITLE_SUPPORT TRUE)
@@ -454,7 +442,7 @@ if (CMAKE_PLATFORM_UBUNTU OR CMAKE_SYSTEM_NAME STREQUAL Darwin )
 	install (TARGETS aampKotlin
 			DESTINATION lib
 	)
-	target_link_libraries(aampKotlin aamp subtec tsb ${AAMP_CLI_LD_FLAGS} "-lreadline")
+	target_link_libraries(aampKotlin aamp tsb ${AAMP_CLI_LD_FLAGS} "-lreadline")
 	set_target_properties(aampKotlin PROPERTIES COMPILE_FLAGS "${LIBAAMP_DEFINES} ${OS_CXX_FLAGS}")
 	xcode_define_schema(aampKotlin)
 endif()

@@ -16,7 +16,10 @@
 * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
 * Boston, MA 02110-1301, USA.
 */
-
+/**
+ * @file gstwidevinedecryptor.cpp
+ * @brief widevine decryptor plugin definitions
+ */
 #include <gst/gst.h>
 #include <gst/base/gstbasetransform.h>
 #include <gst/base/gstbytereader.h>
@@ -59,7 +62,7 @@ static GstStaticPadTemplate gst_widevinedecryptor_sink_template =
 
 static GstStaticPadTemplate gst_widevinedecryptor_dummy_sink_template =
         GST_STATIC_PAD_TEMPLATE("sink", GST_PAD_SINK, GST_PAD_ALWAYS,
-                GST_STATIC_CAPS("widevine/x-unused"));
+                GST_STATIC_CAPS("widevine/x-unused")); // unused?
 
 
 static void gst_widevinedecryptor_class_init(GstwidevinedecryptorClass * klass)
@@ -93,6 +96,3 @@ static void gst_widevinedecryptor_finalize(GObject * object)
     DEBUG_FUNC();
     GST_CALL_PARENT(G_OBJECT_CLASS, finalize, (object));
 }
-
-
-

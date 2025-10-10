@@ -441,13 +441,12 @@ public:
 		setfailureCb = callback;
 	};
 
-	//using DrmMetaDataCallback =	std::function<void *()>;
 	using DrmMetaDataCallback = std::function<std::shared_ptr<void>()>;
 	DrmMetaDataCallback DrmMetaDataCb;
 	void RegisterMetaDataCb(const DrmMetaDataCallback callback)
 	{
 		DrmMetaDataCb = callback;
-	};
+	}
 	/*
 	 * @brief Register Content Protection Update callback to application 
 	 */

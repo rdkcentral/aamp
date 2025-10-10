@@ -83,6 +83,7 @@ protected:
 public:
 	void CacheAndMuteSubtitles(bool currState, bool inputState)
 	{
+		AAMPLOG_INFO("currState=%d, inputState=%d", currState, inputState);
 		mPrivateInstanceAAMP->subtitles_muted = currState;
 		// Confirm operation works as expected
 		// If input = unmute, subtitles should be set to currState (mute/un-mute)
@@ -91,7 +92,7 @@ public:
 		EXPECT_CALL(*g_mockAampGstPlayer, SetSubtitleMute(finalState)).Times(1);
 
 		mPrivateInstanceAAMP->AcquireStreamLock();
-		mPrivateInstanceAAMP->CacheAndApplySubtitleMute(inputState);
+		mPrivateInstanceAAMP->SetVideoMute(inputState);
 		mPrivateInstanceAAMP->ReleaseStreamLock();
 
 		// Confirm original state is preserved

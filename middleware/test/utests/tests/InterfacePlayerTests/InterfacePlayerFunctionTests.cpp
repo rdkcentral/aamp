@@ -871,17 +871,6 @@ TEST_F(InterfacePlayerTests, InitializeSourceForPlayer_Audio_CapsNull)
 	delete g_mockGstUtils;
 }
 
-
-TEST_F(InterfacePlayerTests, InterfacePlayerRDK_OnVideoSample_Success)
-{
-	//ifdef apple not tested
-	GstElement object = {};
-	InterfacePlayerRDK* _this = mInterfaceGstPlayer;
-	GstFlowReturn result = mInterfaceGstPlayer->InterfacePlayerRDK_OnVideoSample(&object, _this);
-
-	EXPECT_EQ(result, GST_FLOW_OK);
-}
-
 TEST_F(InterfacePlayerTests, SendGstEvents_PendingSeek)
 {
 	GstMediaType mediaType = eGST_MEDIATYPE_VIDEO;

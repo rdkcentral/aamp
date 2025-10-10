@@ -41,8 +41,8 @@ class InterfacePlayerPriv;
 
 struct MonitorAVState
 {
-	long long tLastReported;
-	long long tLastSampled;
+	int64_t tLastReported;
+	int64_t tLastSampled;
 	const char *description;
 	signed long av_position[2];
 	bool happy;
@@ -763,14 +763,11 @@ class InterfacePlayerRDK
         	 * @param[in] debugLevel The level of debug logging to enable.
         	 */
         	void EnableGstDebugLogging(std::string debugLevel);
-		/**Add commentMore actions
-		 * @brief Gets the monitor AV state.
-		 * @return A pointer to the MonitorAVState structure containing the AV status or nullptr.
-		 */
-		const MonitorAVState& GetMonitorAVState();
-
-		GstFlowReturn InterfacePlayerRDK_OnVideoSample(GstElement* object, void *_thisp);
-
+			/**Add commentMore actions
+			* @brief Gets the monitor AV state.
+			* @return A pointer to the MonitorAVState structure containing the AV status or nullptr.
+			*/
+			const MonitorAVState& GetMonitorAVState();
 	private:
 		InterfacePlayerPriv *interfacePlayerPriv;
 };

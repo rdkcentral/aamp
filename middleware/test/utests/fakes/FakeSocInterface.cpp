@@ -21,7 +21,6 @@
 #include "vendor/amlogic/AmlogicSocInterface.h"
 #include "vendor/brcm/BrcmSocInterface.h"
 #include "vendor/realtek/RealtekSocInterface.h"
-
 DefaultSocInterface::DefaultSocInterface()
 {
 }
@@ -30,7 +29,6 @@ std::shared_ptr<SocInterface> SocInterface::CreateSocInterface()
         std::shared_ptr<SocInterface> obj = std::make_shared<DefaultSocInterface>();
         return obj;
 }
-
 bool DefaultSocInterface::UseAppSrc()
 {
 #if defined (__APPLE__)
@@ -251,7 +249,5 @@ bool DefaultSocInterface::IsVideoMaster(GstElement *videoSink, bool isRialto)
  */
 bool DefaultSocInterface::SetPlaybackRate(const std::vector<GstElement*>& sources, GstElement *pipeline, double rate, GstElement *video_dec, GstElement *audio_dec, bool isRialto)
 {
-        #if defined(__APPLE__) || defined(UBUNTU)
-                return false;
-    #endif
+	return false;
 }
