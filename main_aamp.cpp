@@ -3178,15 +3178,6 @@ std::string PlayerInstanceAAMP::GetAAMPConfig()
 }
 
 /**
- *  @brief To set whether the JS playback session is from XRE or not.
- */
-void PlayerInstanceAAMP::XRESupportedTune(bool xreSupported)
-{
-        SETCONFIGVALUE(AAMP_APPLICATION_SETTING,eAAMPConfig_XRESupportedTune,xreSupported);
-}
-
-
-/**
  *  @brief Set auxiliary language
  */
 void PlayerInstanceAAMP::SetAuxiliaryLanguage(const std::string &language)
