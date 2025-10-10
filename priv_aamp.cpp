@@ -5169,7 +5169,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 	}
 
 	newTune = IsNewTune();
-	AAMPLOG_INFO("tuneType %d newTune %d", tuneType, newTune);
+	AAMPLOG_INFO("tuneType %d newTune %d mediaFormat %d", tuneType, newTune, mMediaFormat);
 
 	// Get position before pipeline is teared down
 	if (eTUNETYPE_RETUNE == tuneType)
@@ -11024,6 +11024,7 @@ int PrivateInstanceAAMP::GetTextTrack()
 
 void PrivateInstanceAAMP::SetCCStatus(bool enabled)
 {
+	AAMPLOG_INFO("enabled %s", enabled?"true":"false");
 	AcquireStreamLock();
 	// Set subtitles_muted flag to the value requested by the app
 	subtitles_muted = !enabled;
@@ -11038,17 +11039,21 @@ void PrivateInstanceAAMP::SetCCStatusInternal(void)
 	// Mute subtitles if either video is muted or subtitles are muted
 	int mute_subtitles_applied = video_muted || subtitles_muted;
 
-	// Update PlayerCCManager based on the effective CC state
-	// CC should be disabled if video is muted OR if subtitles are explicitly muted
-	PlayerCCManager::GetInstance()->SetStatus(!mute_subtitles_applied);
-
 	if (mpStreamAbstractionAAMP)
 	{
+		// Update PlayerCCManager based on the effective CC state
+		// CC should be disabled if video is muted OR if subtitles are explicitly muted
+		PlayerCCManager::GetInstance()->SetStatus(!mute_subtitles_applied);
+
 		mpStreamAbstractionAAMP->MuteSubtitles(mute_subtitles_applied);
 		if (HasSidecarData())
 		{ // has sidecar data
 			mpStreamAbstractionAAMP->MuteSidecarSubtitles(mute_subtitles_applied);
 		}
+	}
+	else
+	{
+		AAMPLOG_INFO("Null Stream Abstraction AAMP");
 	}
 	SetSubtitleMuteInternal(mute_subtitles_applied);
 	ReleaseStreamLock();
