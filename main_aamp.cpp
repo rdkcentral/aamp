@@ -841,6 +841,13 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 					if (!aamp->IsLocalAAMPTsb())
 					{
 						aamp->StopDownloads();
+						if(aamp->mPausedBehavior == ePAUSED_BEHAVIOR_LIVE_DEFER )
+						{
+							AAMPLOG_INFO("Downloads disabled on pause");
+							//Disable downloads if the pause is for infiite time or until user resumes. If we continue manifest downloadng in this case , it will cause  playback failure due to period culling in later point of time after  pause.
+							aamp->DisableDownloads();
+							aamp->mSeekFromPausedState = true;
+						}
 					}
 
 					StreamSink *sink = AampStreamSinkManager::GetInstance().GetStreamSink(aamp);
@@ -882,7 +889,6 @@ void PlayerInstanceAAMP::SetRateInternal(float rate,int overshootcorrection)
 					tuneTypePlay = eTUNETYPE_SEEKTOLIVE;
 					aamp->mJumpToLiveFromPause = false;
 				}
-
 				aamp->rate = rate;
 				aamp->pipeline_paused = false;
 				aamp->mSeekFromPausedState = false;
