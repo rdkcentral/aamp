@@ -7575,6 +7575,7 @@ bool PrivateInstanceAAMP::IsLiveStream()
  */
 void PrivateInstanceAAMP::Stop( bool isDestructing )
 {
+	auto stopStartTime = NOW_STEADY_TS_MS;
 	// Clear all the player events in the queue and sets its state to RELEASED as everything is done
 	mEventManager->FlushPendingEvents();
 	if( !isDestructing )
@@ -7604,7 +7605,6 @@ void PrivateInstanceAAMP::Stop( bool isDestructing )
 		mAutoResumeTaskId = AAMP_TASK_ID_INVALID;
 		mAutoResumeTaskPending = false;
 	}
-
 	DisableDownloads();
 	//Moved the tsb delete request from XRE to AAMP to avoid the HTTP-404 erros
 	if(IsFogTSBSupported())
@@ -7715,7 +7715,9 @@ void PrivateInstanceAAMP::Stop( bool isDestructing )
 	{
 		SetState(eSTATE_IDLE);
 	}
-	
+
+	// Set EventManager State to RELEASED as no events beyond this point
+	mEventManager->SetPlayerState(eSTATE_RELEASED);
 	SetPauseOnStartPlayback(false);
 	mSeekOperationInProgress = false;
 	mTrickplayInProgress = false;
@@ -7775,6 +7777,10 @@ void PrivateInstanceAAMP::Stop( bool isDestructing )
 	EnableDownloads();
 
 	AampStreamSinkManager::GetInstance().DeactivatePlayer(this, true);
+	unsigned int mLastStopDurationMs = (unsigned)(NOW_STEADY_TS_MS - stopStartTime);
+	AAMPLOG_WARN("AAMP Stop took %u ms",mLastStopDurationMs);
+	profiler.mStopDurationMs = mLastStopDurationMs;
+
 }
 
 const std::vector<TimedMetadata> & PrivateInstanceAAMP::GetTimedMetadata( void ) const
