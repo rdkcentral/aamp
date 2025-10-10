@@ -469,8 +469,6 @@ public:
 	 */
 	void GetTelemetryParam();
 
-	unsigned int mStopDurationMs;			/**< Duration of Previous stop call in ms */
-
 };
 
 #endif /* __AAMP_PROFILER_H__ */

@@ -1954,7 +1954,7 @@ Example:
 	- app -> AppName
 	- tsb -> TSBEnabled or not - enabled(1) not enabled(0)
 	- tot -> TotalTime -for failure and interrupt tune -it is time at which failure /interrupt reported
-    - pst -> PreviousStopTime - total time (in milliseconds) it took previous playback to stop
+
 ---
 ### needManifest
 
