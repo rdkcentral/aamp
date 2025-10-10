@@ -126,7 +126,7 @@ private:
 	uint32_t width_fixed;
 	uint32_t height_fixed;
 	uint16_t language;
-	uint32_t sampleOffset;
+	size_t sampleOffset;
 	bool sencPresent;
 	bool verbose;
 	
@@ -282,9 +282,9 @@ private:
 		if (sample_count && got_auxiliary_information_offset)
 		{
 			ptr = moof_ptr + auxiliary_information_offset;
-			uint32_t maxSampleCount = sampleOffset + sample_count;
-			assert (samples.size() == maxSampleCount);
-			for (int i = sampleOffset; i < maxSampleCount; i++)
+			size_t maxSampleCount = sampleOffset + sample_count;
+			assert(samples.size() == maxSampleCount);
+			for( size_t i = sampleOffset; i < maxSampleCount; i++)
 			{
 				// Skip IV data if present (comes before subsample data in auxiliary info)
 				if( iv_size )
@@ -309,7 +309,7 @@ private:
 				{
 					// Read subsample data
 					uint16_t n_subsamples = ReadU16();
-					PRINTF( "%sSample %d: %d subsamples\n", INDENT(), i, n_subsamples );
+					PRINTF( "%sSample %zu: %d subsamples\n", INDENT(), i, n_subsamples );
 					size_t subsamples_size = n_subsamples * 6;
 					samples[i].subsamples = std::string((char *)ptr, subsamples_size);
 					if( verbose )
@@ -411,7 +411,7 @@ private:
 	{
 		ReadHeader();
 		uint32_t sampleCount = ReadU32();
-		u_int32_t maxSampleCount = sampleOffset + sampleCount;
+		size_t maxSampleCount = sampleOffset + sampleCount;
 		assert( samples.size() == maxSampleCount );
 		// Start from sampleOffset to map samples from mdat
 		for( auto iSample=sampleOffset; iSample<maxSampleCount; iSample++ )
