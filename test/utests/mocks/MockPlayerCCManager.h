@@ -18,6 +18,7 @@
  */
 #ifndef AAMP_MOCK_PLAYER_CC_MANAGER_H
 #define AAMP_MOCK_PLAYER_CC_MANAGER_H
+
 #include <gmock/gmock.h>
 #include "PlayerCCManager.h"
 
