@@ -2532,8 +2532,8 @@ player.setClosedCaptionStatus(false); // mute captions
 Get/Set CC track at runtime:
 ```
 player.getTextTrack(); // returns json object listing track attributes
-player.setTextTrack(trackIdentifier); // what is valid to this function?
-```
+player.setTextTrack(trackIdentifier);
+
 Get/Set CC style options at runtime
 ```
 player.getTextStyleOptions(); // returns JSON object reflecting currently styling options
