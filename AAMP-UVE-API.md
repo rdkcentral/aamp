@@ -2486,8 +2486,7 @@ Response:
 * on scaled X1 devices this is mapped directly to receiver APIs interacting with RDK CC Manager
     * here by default will inherit X1 caption style settings as set by user through guide settings
     * apps can override caption styling, but typically wouldn't need to do so
-* on newer (non-XRE) devices this is implemented as a wrapper for backwards compatibility, interacting with subtec
-    * as integrated, has limitation - only default styles will ever be applied, and with no way for app to change, and not reflecting guide settings
+* on non-XRE devices this is implemented as a wrapper for backwards compatibility, but with limitations - only default styles will ever be applied, and with no way for app to change, and won't reflect guide settings
  
 To use legacy XREReceiver inband closed captions, first register an event listener to discover decoder handle:
 ```
@@ -2520,7 +2519,7 @@ XREReceiver.onEvent("onDecoderAvailable", { decoderHandle: null });
 
 ## Inband (CEA608/708) Closed Caption Management (modern UVE/AAMP API)
 
-Configure nativeCCRendering to true. // This defaults to false; What does it do?  Is it required to for direct Subtec Integration?  Is it required when Rialto used for text track rendering?
+Configure nativeCCRendering to true to signal use of subtec for caption rendering. 
 ```
 player.initConfig( { nativeCCRendering: true } );
 
@@ -2539,7 +2538,9 @@ Get/Set CC style options at runtime
 ```
 player.getTextStyleOptions(); // returns JSON object reflecting currently styling options
 player.setTextStyleOptions(options); // TODO: include examples known to work with RDK CC Manager and/or subtec
-WARNING: these do not currently work when AAMP is in a container and Rialto is in use.  Which apps are expected to interact directly with Text Track plugin to change text styles, rather than using UVE setTextStyleOptions API?
+
+On newer devices there is no need to call setTextStyleOptions, as the Text Track plugin will automatically map guide-configured caption styling.
+
 ```
 
 ---
