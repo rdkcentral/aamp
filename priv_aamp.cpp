@@ -11024,7 +11024,6 @@ int PrivateInstanceAAMP::GetTextTrack()
 
 void PrivateInstanceAAMP::SetCCStatus(bool enabled)
 {
-	PlayerCCManager::GetInstance()->SetStatus(enabled);
 	AcquireStreamLock();
 	// Set subtitles_muted flag to the value requested by the app
 	subtitles_muted = !enabled;
@@ -11038,6 +11037,11 @@ void PrivateInstanceAAMP::SetCCStatusInternal(void)
 	AcquireStreamLock();
 	// Mute subtitles if either video is muted or subtitles are muted
 	int mute_subtitles_applied = video_muted || subtitles_muted;
+
+	// Update PlayerCCManager based on the effective CC state
+	// CC should be disabled if video is muted OR if subtitles are explicitly muted
+	PlayerCCManager::GetInstance()->SetStatus(!mute_subtitles_applied);
+
 	if (mpStreamAbstractionAAMP)
 	{
 		mpStreamAbstractionAAMP->MuteSubtitles(mute_subtitles_applied);
