@@ -785,7 +785,7 @@ public:
 	 * @brief Get if pipeline reconfigure required for elementary stream type change status (from stream abstraction)
 	 * @return true if audio codec has changed
 	 */
-	bool ReconfigureForElementaryStreamUpdate();
+	bool ReconfigureForCodecChange();
 
 	/**
 	* @brief Function pointer passed as argument to AampMPDDownloader class. This function is invoked to read the preprocessed manifest provided by application.
