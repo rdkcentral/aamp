@@ -211,10 +211,7 @@ void ProfileEventAAMP::TuneBegin(void)
 	{
 		cJSON_Delete(telemetryParam);
 	}
-	if (mLldLowBuffObject)
-	{
-		cJSON_Delete(mLldLowBuffObject);
-	}
+	// mLldLowBuffObject is a child of telemetryParam, so it's automatically deleted above
 	mLldLowBuffObject = NULL;
 	telemetryParam = cJSON_CreateObject();
 }
@@ -656,10 +653,7 @@ void ProfileEventAAMP::GetTelemetryParam()
 		AAMPLOG_MIL("Telemetry values %s", jsonStr);
 		cJSON_free(jsonStr);
 		cJSON_Delete(telemetryParam);
-		if (mLldLowBuffObject)
-		{
-			cJSON_Delete(mLldLowBuffObject);
-		}
+		// mLldLowBuffObject is a child of telemetryParam, so it's automatically deleted above
 		mLldLowBuffObject = NULL;
 		telemetryParam = cJSON_CreateObject();
 	}
