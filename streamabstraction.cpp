@@ -2643,8 +2643,8 @@ bool StreamAbstractionAAMP::RampDownProfile(int http_error)
 	else if (video)
 	{
 		double bufferValue = GetBufferValue(video);
-		if (bufferValue <= FLOATING_POINT_EPSILON)
-		{
+		if (bufferValue <= 2.0 )
+		{ // panic mode - jump directly to lowest profile
 			AAMPLOG_WARN("rampdown to lowest profile as buffer near zero");
 			desiredProfileIndex = aamp->mhAbrManager.getProfileIndexForLowestBandwidth();
 		}
