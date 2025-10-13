@@ -252,7 +252,7 @@ private:
 public:
 
 	/**
-	 * @fn ProfileEventAAMP
+	 * @fn ProfileEventAAMP Constructor
 	 */
 	ProfileEventAAMP();
 
@@ -264,21 +264,20 @@ public:
 		if(telemetryParam != NULL)
 		{
 			cJSON_Delete(telemetryParam);
-		}
-		if (mLldLowBuffObject)
-		{
-			cJSON_Delete(mLldLowBuffObject);
+			// mLldLowBuffObject is a child of telemetryParam, so it's automatically deleted above
 		}
 	}
+
 	/**
-         * @brief Copy constructor disabled
-         *
-         */
+	 * @brief Copy constructor disabled
+	 *
+	 */
 	ProfileEventAAMP(const ProfileEventAAMP&) = delete;
+
 	/**
-         * @brief assignment operator disabled
-         *
-         */
+	 * @brief assignment operator disabled
+	 *
+	 */
 	ProfileEventAAMP& operator=(const ProfileEventAAMP&) = delete;
 
 	/**
