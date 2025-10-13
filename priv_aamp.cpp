@@ -8054,7 +8054,7 @@ void PrivateInstanceAAMP::InitializeCC(unsigned long decoderHandle)
  */
 void PrivateInstanceAAMP::NotifyFirstFrameReceived(unsigned long ccDecoderHandle)
 {
-	AAMPLOG_INFO("NotifyFirstFrameReceived()");
+	AAMPLOG_TRACE("NotifyFirstFrameReceived()");
 
 	// In the middle of stop processing we can receive state changing callback
 	AAMPPlayerState state = GetState();
@@ -8081,8 +8081,6 @@ void PrivateInstanceAAMP::NotifyFirstFrameReceived(unsigned long ccDecoderHandle
 			AAMPLOG_WARN("aamp: - sent tune event on Tune Completion.");
 		}
 	}
-
-	AAMPLOG_INFO("Calling InitializeCC with handle %lu", ccDecoderHandle);
 	InitializeCC(ccDecoderHandle);
 
 	NotifyPauseOnStartPlayback();

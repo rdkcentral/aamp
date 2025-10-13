@@ -120,7 +120,7 @@ rate(GST_NORMAL_PLAY_RATE), zoom(GST_VIDEO_ZOOM_NONE), videoMuted(false), audioM
 audioVolume(1.0), eosCallbackIdleTaskId(GST_TASK_ID_INVALID), eosCallbackIdleTaskPending(false),
 firstFrameReceived(false), pendingPlayState(false), decoderHandleNotified(false),
 firstFrameCallbackIdleTaskId(GST_TASK_ID_INVALID), firstFrameCallbackIdleTaskPending(false),
-using_westerossink(false), usingRialtoSink(false), usingCCControlStream(false), pauseOnStartPlayback(false), eosSignalled(false),
+using_westerossink(false), usingRialtoSink(false), usingClosedCaptionsControl(false), pauseOnStartPlayback(false), eosSignalled(false),
 buffering_enabled(FALSE), buffering_in_progress(FALSE), buffering_timeout_cnt(0),
 buffering_target_state(GST_STATE_NULL),
 lastKnownPTS(0), ptsUpdatedTimeMS(0), ptsCheckForEosOnUnderflowIdleTaskId(GST_TASK_ID_INVALID),
@@ -268,7 +268,7 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int auxF
 	newFormat[eGST_MEDIATYPE_VIDEO] = gstFormat;
 	newFormat[eGST_MEDIATYPE_AUDIO] = gstAudioFormat;
 
-	bool newUsingCCControlStream = false;
+	bool newClosedCaptionsControl = false;
 
 	if(isSubEnable)
 	{
@@ -314,7 +314,7 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int auxF
 	else
 	{
 		interfacePlayerPriv->gstPrivateContext->usingRialtoSink = true;
-		newUsingCCControlStream = static_cast<GstStreamOutputFormat>(subFormat) == GST_FORMAT_INVALID;
+		newClosedCaptionsControl = static_cast<GstStreamOutputFormat>(subFormat) == GST_FORMAT_INVALID;
 
 		if (interfacePlayerPriv->gstPrivateContext->using_westerossink)
 		{
@@ -324,7 +324,7 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int auxF
 		{
 			MW_LOG_MIL("Rialto enabled");
 		}
-		if (newUsingCCControlStream)
+		if (newClosedCaptionsControl)
 		{
 			MW_LOG_MIL("Using CC Control Stream");
 		}
@@ -415,12 +415,12 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int auxF
 			}
 		}
 		else if ((eGST_MEDIATYPE_SUBTITLE == i) &&
-				 newUsingCCControlStream &&
-				 !interfacePlayerPriv->gstPrivateContext->usingCCControlStream)
+				 newClosedCaptionsControl &&
+				 !interfacePlayerPriv->gstPrivateContext->usingClosedCaptionsControl)
 		{
 			TearDownStream(eGST_MEDIATYPE_SUBTITLE);
-			interfacePlayerPriv->gstPrivateContext->usingCCControlStream = true;
-			SetupCCControlStream();
+			interfacePlayerPriv->gstPrivateContext->usingClosedCaptionsControl = true;
+			SetupClosedCaptionControlStream();
 		}
 	}
 	if ((interfacePlayerPriv->gstPrivateContext->usingRialtoSink) && (m_gstConfigParam->media != eGST_MEDIAFORMAT_PROGRESSIVE))
@@ -1308,7 +1308,7 @@ void InterfacePlayerRDK::TearDownStream(int type)
 
 	pthread_mutex_lock(&stream->sourceLock);
 	if ((stream->format != GST_FORMAT_INVALID) ||
-		(mediaType == eGST_MEDIATYPE_SUBTITLE && interfacePlayerPriv->gstPrivateContext->usingCCControlStream))
+		(mediaType == eGST_MEDIATYPE_SUBTITLE && interfacePlayerPriv->gstPrivateContext->usingClosedCaptionsControl))
 	{
 		if (interfacePlayerPriv->gstPrivateContext->pipeline)
 		{
@@ -1331,8 +1331,8 @@ void InterfacePlayerRDK::TearDownStream(int type)
 			}
 		}
 		//After sinkbin is removed from pipeline, a new decoder handle may be generated
-		if (((mediaType == eGST_MEDIATYPE_VIDEO) && !interfacePlayerPriv->gstPrivateContext->usingCCControlStream) ||
-			((mediaType == eGST_MEDIATYPE_SUBTITLE) && interfacePlayerPriv->gstPrivateContext->usingCCControlStream))
+		if (((mediaType == eGST_MEDIATYPE_VIDEO) && !interfacePlayerPriv->gstPrivateContext->usingClosedCaptionsControl) ||
+			((mediaType == eGST_MEDIATYPE_SUBTITLE) && interfacePlayerPriv->gstPrivateContext->usingClosedCaptionsControl))
 		{
 			interfacePlayerPriv->gstPrivateContext->decoderHandleNotified = false;
 		}
@@ -1814,8 +1814,8 @@ void InterfacePlayerRDK::InitializeSourceForPlayer(void *PlayerInstance, void * 
 	/* gstreamer.freedesktop.org recommends to use GST_FORMAT_TIME 'if you don't have a good reason to query for samples/frames' */
 	g_object_set(source, "format", GST_FORMAT_TIME, NULL);
 
-	// If using CCControl subtitle stream, set the caps to application/x-subtitle-cc
-	if ((eGST_MEDIATYPE_SUBTITLE == mediaType) && (privatePlayer->gstPrivateContext->usingCCControlStream))
+	// If using Closed Caption Control subtitle stream, set the caps to application/x-subtitle-cc
+	if ((eGST_MEDIATYPE_SUBTITLE == mediaType) && (privatePlayer->gstPrivateContext->usingClosedCaptionsControl))
 	{
 		caps = gst_caps_new_simple("application/x-subtitle-cc", NULL, NULL);
 	}
@@ -2124,9 +2124,9 @@ GstFlowReturn InterfacePlayerRDK_OnVideoSample(GstElement* object, void *_this)
 }
 
 /**
- * @fn SetupCCControlStream
+ * @fn SetupClosedCaptionControlStream
  */
-void InterfacePlayerRDK::SetupCCControlStream()
+void InterfacePlayerRDK::SetupClosedCaptionControlStream()
 {
 	GstElement *subtitlebin = nullptr, *appsrc = nullptr, *textsink = nullptr;
 
@@ -2876,19 +2876,18 @@ unsigned long InterfacePlayerRDK::GetCCDecoderHandle()
 	gst_media_stream* stream = &interfacePlayerPriv->gstPrivateContext->stream[eGST_MEDIATYPE_SUBTITLE];
 	gpointer dec_handle = NULL;
 
-	if (interfacePlayerPriv->gstPrivateContext->usingCCControlStream)
+	if (interfacePlayerPriv->gstPrivateContext->usingClosedCaptionsControl)
 	{
 		dec_handle = interfacePlayerPriv->gstPrivateContext->subtitle_sink;
-		MW_LOG_MIL("CC Decoder handle %p", dec_handle);
+		MW_LOG_INFO("CC Decoder handle %p", dec_handle);
 	}
 	else
 	{
 		if(interfacePlayerPriv->gstPrivateContext->video_dec != NULL)
 		{
-			MW_LOG_INFO("Querying video decoder for handle");
 			interfacePlayerPriv->socInterface->GetCCDecoderHandle(&dec_handle, interfacePlayerPriv->gstPrivateContext->video_dec);
 		}
-		MW_LOG_MIL("CC Decoder handle received %p for video_dec %p", dec_handle, interfacePlayerPriv->gstPrivateContext->video_dec);
+		MW_LOG_INFO("CC Decoder handle received %p for video_dec %p", dec_handle, interfacePlayerPriv->gstPrivateContext->video_dec);
 	}
 	return (unsigned long)dec_handle;
 }

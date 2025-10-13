@@ -156,6 +156,15 @@ public:
 		return 0;
 	}
 	/**
+     *   @fn getCCDecoderHandle
+	 *   @brief stub implementation for Inactive aamp instance
+	 */
+	virtual unsigned long getCCDecoderHandle(void)
+	{
+		AAMPLOG_WARN("Called AAMPGstPlayer()::%s stub", __FUNCTION__);
+		return 0;
+	}
+	/**
      *   @fn SetVideoRectangle
 	 *   @brief stub implementation for Inactive aamp instance
 	 */

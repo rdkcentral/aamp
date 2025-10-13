@@ -512,7 +512,7 @@ class InterfacePlayerRDK
         	/**
         	 * @brief Setup a Closed Caption control stream.
         	 */
-        	void SetupCCControlStream();
+        	void SetupClosedCaptionControlStream();
         	/**
         	 * @brief Sets up the stream.
         	 * @param[in] streamId The ID of the stream to set up.

@@ -175,17 +175,13 @@ public:
      */
     virtual long long GetVideoPTS(void){ return 2; };
 
-#if 0
-// Can these be removed?
-// Need to check plugin doesn't use it
-
     /**
      *   @brief Get closed caption handle
      *
      *   @return Closed caption handle
      */
     virtual unsigned long getCCDecoderHandle(void) { return 0; };
-#endif
+
     /**
      *   @brief Set video display rectangle co-ordinates
      *
