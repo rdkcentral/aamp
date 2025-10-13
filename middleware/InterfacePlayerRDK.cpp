@@ -314,7 +314,16 @@ void InterfacePlayerRDK::ConfigurePipeline(int format, int audioFormat, int auxF
 	else
 	{
 		interfacePlayerPriv->gstPrivateContext->usingRialtoSink = true;
-		newClosedCaptionsControl = static_cast<GstStreamOutputFormat>(subFormat) == GST_FORMAT_INVALID;
+
+		// If no subtitles defined, then create a closed caption control stream
+		newClosedCaptionsControl = (gstSubFormat == GST_FORMAT_INVALID);
+
+		// However to avoid out of band subtitles being removed during trickplay, 
+		// check if OB subtitles previously configured.
+		// However this check makes it impossible to switch from OB to IB
+		newClosedCaptionsControl = newClosedCaptionsControl &&
+								   (interfacePlayerPriv->gstPrivateContext->stream[eGST_MEDIATYPE_SUBTITLE].format == GST_FORMAT_INVALID);
+
 
 		if (interfacePlayerPriv->gstPrivateContext->using_westerossink)
 		{
