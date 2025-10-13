@@ -32,7 +32,7 @@
 #include "MockStreamAbstractionAAMP.h"
 #include "MockAampStreamSinkManager.h"
 #include "MockAampUtils.h"
-#include "MockCCManager.h"
+#include "MockPlayerCCManager.h"
 #include "MockStreamAbstractionAAMP_MPD.h"
 
 using ::testing::_;
@@ -62,7 +62,7 @@ protected:
 		g_mockAampGstPlayer = new MockAAMPGstPlayer( mPrivateInstanceAAMP);
 		g_mockStreamAbstractionAAMP = new StrictMock<MockStreamAbstractionAAMP>(mPrivateInstanceAAMP);
 		g_mockAampStreamSinkManager = new NiceMock<MockAampStreamSinkManager>();
-		g_mockPlayerCCManagerBase = new NiceMock<MockPlayerCCManagerBase>();
+		g_mockPlayerCCManager = std::make_shared<NiceMock<MockPlayerCCManager>>();
 		g_mockStreamAbstractionAAMP_MPD = new NiceMock<MockStreamAbstractionAAMP_MPD>(mPrivateInstanceAAMP, 0, 0);
 		mPrivateInstanceAAMP->mpStreamAbstractionAAMP = g_mockStreamAbstractionAAMP;
 		mPrivateInstanceAAMP->SetState(eSTATE_PLAYING);
@@ -95,8 +95,7 @@ protected:
 		delete g_mockAampStreamSinkManager;
 		g_mockAampStreamSinkManager = nullptr;
 
-		delete g_mockPlayerCCManagerBase;
-		g_mockPlayerCCManagerBase = nullptr;
+		g_mockPlayerCCManager.reset();
 
 		delete g_mockStreamAbstractionAAMP_MPD;
 		g_mockStreamAbstractionAAMP_MPD = nullptr;
