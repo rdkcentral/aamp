@@ -22,6 +22,8 @@ set(UTESTS_ROOT "../../")
 set(EXEC_NAME CacheFragmentTests)
 
 pkg_check_modules(LIBDASH REQUIRED libdash)
+pkg_check_modules(LIBCJSON REQUIRED libcjson)
+link_directories(${LIBCJSON_LIBRARY_DIRS})
 
 include_directories(${AAMP_ROOT} ${AAMP_ROOT}/isobmff ${AAMP_ROOT}/subtitle ${AAMP_ROOT}/middleware/subtitle ${AAMP_ROOT}/tsb/api ${AAMP_ROOT}/drm/helper ${AAMP_ROOT}/middleware/playerisobmff ${AAMP_ROOT}/drm ${AAMP_ROOT}/downloader ${AAMP_ROOT}/dash/xml ${AAMP_ROOT}/dash/utils ${AAMP_ROOT}/dash/mpd)
 include_directories(${AAMP_ROOT}/middleware/subtec/libsubtec)

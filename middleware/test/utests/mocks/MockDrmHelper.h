@@ -38,7 +38,7 @@ public:
 
 	MOCK_METHOD(bool, parsePssh, (const uint8_t* initData, uint32_t initDataLen), (override));
 
-	MOCK_METHOD(bool, isClearDecrypt, (), (const));
+	MOCK_METHOD(bool, isClearDecrypt, (), (const, override));
 
 	MOCK_METHOD(bool, isHdcp22Required, (), (const, override));
 

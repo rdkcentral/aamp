@@ -552,7 +552,7 @@ class PrivateInstanceAAMP : public DrmCallbacks, public std::enable_shared_from_
  	* @brief Set closed caption track with appropriate format from passed text track
  	* @param[in] track - Text track information
  	*/
-	void SetCCFromTextTrack(TextTrackInfo &track);
+	void SetClosedCaptionsFromTextTrack(TextTrackInfo &track);
 
 	/**
 	 * @brief  Find closed caption track index in list of text tracks

@@ -10888,7 +10888,7 @@ void PrivateInstanceAAMP::SetTextTrack(int trackId, char *data)
 				if (track.isCC)
 				{
 					mIsInbandCC = true;
-					SetCCFromTextTrack(track);
+					SetClosedCaptionsFromTextTrack(track);
 				}
 				else
 				{
@@ -10960,7 +10960,7 @@ void PrivateInstanceAAMP::SetTextTrack(int trackId, char *data)
 /**
  * @brief Set closed caption track with appropriate format from passed text track
  */
-void PrivateInstanceAAMP::SetCCFromTextTrack(TextTrackInfo &track)
+void PrivateInstanceAAMP::SetClosedCaptionsFromTextTrack(TextTrackInfo &track)
 {
 
 	if (track.instreamId.empty())
@@ -12368,11 +12368,7 @@ void PrivateInstanceAAMP::CheckPreferredTextLanguages(const std::vector<TextTrac
 			{
 				if ((track.instreamId == preferredInstreamIdString) && (track.instreamId != currentPrefInstreamId))
 				{
-					std::string curInstreamId = preferredInstreamIdString;
-					auto instreamId = std::find_if(trackInfo.begin(), trackInfo.end(),
-								[curInstreamId = std::move(curInstreamId), currentPrefInstreamId] (TextTrackInfo& temp)
-								{ return ((temp.instreamId == curInstreamId) && (temp.instreamId != currentPrefInstreamId)); });
-					instreamIdPresent = (instreamId != end(trackInfo));
+					isSelectionChange = true;
 				}
 			}
 
@@ -12491,7 +12487,7 @@ void PrivateInstanceAAMP::SetPreferredTextLanguages(const char *param)
 				if (closedCaptionTrackId >= 0)
 				{
 					TextTrackInfo track = trackInfo[closedCaptionTrackId];
-					SetCCFromTextTrack(track);
+					SetClosedCaptionsFromTextTrack(track);
 				}
 			}
 		}
