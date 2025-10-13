@@ -21,6 +21,7 @@ set(AAMP_ROOT "../../../../")
 set(UTESTS_ROOT "../../")
 set(EXEC_NAME CacheFragmentTests)
 
+include(FindPkgConfig)
 pkg_check_modules(LIBDASH REQUIRED libdash)
 pkg_check_modules(LIBCJSON REQUIRED libcjson)
 link_directories(${LIBCJSON_LIBRARY_DIRS})
