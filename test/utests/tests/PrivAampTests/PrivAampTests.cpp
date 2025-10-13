@@ -3301,6 +3301,7 @@ TEST_F(PrivAampTests,SetCCStatusWithStreamAbstractionCreationTest)
 	EXPECT_FALSE(p_aamp->GetCCStatus());
 
 	// Step 1: Enable CC first - no SetStatus() call expected in idle state
+	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(_)).Times(0);
 	p_aamp->SetCCStatus(true);
 	EXPECT_TRUE(p_aamp->GetCCStatus());
 
@@ -3374,6 +3375,7 @@ TEST_F(PrivAampTests,SetCCStatusWithStreamAbstractionTest)
 	// Test disabling CC
 	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(false))
 		.WillOnce(Return(0));
+
 	p_aamp->SetCCStatus(false);
 	EXPECT_FALSE(p_aamp->GetCCStatus());
 }
@@ -4299,23 +4301,23 @@ TEST_F(PrivAampTests,GetLastDownloadedManifestTest1)
 	p_aamp->GetLastDownloadedManifest(manifest);
 }
 
-TEST_F(PrivAampPrivTests,ReconfigureForCodecChangeTest1)
+TEST_F(PrivAampPrivTests,ReconfigureForElementaryStreamUpdateTest1)
 {
 	testp_aamp->InitStreamAbstraction();
 
 	//codec change and reconfigpipeline enabled -> false
 	testp_aamp->mpStreamAbstractionAAMP->SetESChangeStatus();
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_ReconfigPipelineOnDiscontinuity)).WillOnce(Return(true));
-	EXPECT_FALSE(testp_aamp->ReconfigureForCodecChange());
+	EXPECT_FALSE(testp_aamp->ReconfigureForElementaryStreamUpdate());
 
 	//codec change and reconfigpipeline disabled -> true
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_ReconfigPipelineOnDiscontinuity)).WillOnce(Return(false));
-	EXPECT_TRUE(testp_aamp->ReconfigureForCodecChange());
+	EXPECT_TRUE(testp_aamp->ReconfigureForElementaryStreamUpdate());
 
 	//no codec change -> false
 	testp_aamp->mpStreamAbstractionAAMP->ResetESChangeStatus();
 	EXPECT_CALL(*g_mockAampConfig, IsConfigSet(eAAMPConfig_ReconfigPipelineOnDiscontinuity)).WillOnce(Return(false));
-	EXPECT_FALSE(testp_aamp->ReconfigureForCodecChange());
+	EXPECT_FALSE(testp_aamp->ReconfigureForElementaryStreamUpdate());
 }
 
 TEST_F(PrivAampTests,isDecryptClearSamplesRequired)
