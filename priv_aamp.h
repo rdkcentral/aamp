@@ -1105,7 +1105,7 @@ public:
 	long long mTimedMetadataDuration;
 	bool playerStartedWithTrickPlay; 			/**< To indicate player switch happened in trickplay rate */
 	bool userProfileStatus; 				/**< Select profile based on user list*/
-	bool mApplyCachedVideoMute;				/**< To apply video mute() operations if it has been cached due to tune in progress */
+	bool mApplyCachedVideoAndCCMute;				/**< To apply video and CC mute operations if they have been cached due to tune in progress */
 	std::vector<uint8_t> mcurrent_keyIdArray;		/**< Current KeyID for DRM license */
 	DynamicDrmInfo mDynamicDrmDefaultconfig;		/**< Init drmConfig stored as default config */
 	std::vector<std::string> mDynamicDrmCache;
