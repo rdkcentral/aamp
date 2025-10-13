@@ -31,10 +31,6 @@ void ProfileEventAAMP::TuneEnd(TuneEndMetrics &mTuneEndMetrics,std::string appNa
 {
 }
 
-void ProfileEventAAMP::GetClassicTuneTimeInfo(bool success, int tuneRetries, int firstTuneType, long long playerLoadTime, int streamType, bool isLive,unsigned int durationS, char *TuneTimeInfoStr)
-{
-}
-
 void ProfileEventAAMP::ProfileBegin(ProfilerBucketType type)
 {
 }

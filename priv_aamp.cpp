@@ -3203,6 +3203,7 @@ bool PrivateInstanceAAMP::ProcessPendingDiscontinuity()
 				}
 			}
 			mpStreamAbstractionAAMP->ResetESChangeStatus();
+			mpStreamAbstractionAAMP->ReSetPipelineFlushStatus();
 
 			bool isRateCorrectionEnabled = ISCONFIGSET_PRIV(eAAMPConfig_EnableLiveLatencyCorrection);
 			int  disableRateCorrectionTimeInSeconds = GETCONFIGVALUE_PRIV(eAAMPConfig_RateCorrectionDelay);
@@ -3537,12 +3538,7 @@ void PrivateInstanceAAMP::LogTuneComplete(void)
 	{
 		if(mLogTune)
 		{
-			char classicTuneStr[AAMP_MAX_PIPE_DATA_SIZE];
 			mLogTune = false;
-			if (ISCONFIGSET_PRIV(eAAMPConfig_XRESupportedTune)) {
-				profiler.GetClassicTuneTimeInfo(mTuneMetrics.success, mTuneAttempts, mfirstTuneFmt, mPlayerLoadTime, streamType, IsLive(), durationSeconds, classicTuneStr);
-				SendMessage2Receiver(E_AAMP2Receiver_TUNETIME,classicTuneStr);
-			}
 			mFirstTune = false;
 		}
 		mTuneCompleted = true;
@@ -5623,6 +5619,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 
 		// TODO - X1-TSB : ES Change status needs to be checked
 		mpStreamAbstractionAAMP->ResetESChangeStatus();
+		mpStreamAbstractionAAMP->ReSetPipelineFlushStatus();
 		mpStreamAbstractionAAMP->Start();
 		if (!mbUsingExternalPlayer)
 		{
@@ -7583,6 +7580,7 @@ bool PrivateInstanceAAMP::IsLiveStream()
  */
 void PrivateInstanceAAMP::Stop( bool isDestructing )
 {
+	auto stopStartTime = NOW_STEADY_TS_MS;
 	// Clear all the player events in the queue and sets its state to RELEASED as everything is done
 	mEventManager->FlushPendingEvents();
 	if( !isDestructing )
@@ -7612,7 +7610,6 @@ void PrivateInstanceAAMP::Stop( bool isDestructing )
 		mAutoResumeTaskId = AAMP_TASK_ID_INVALID;
 		mAutoResumeTaskPending = false;
 	}
-
 	DisableDownloads();
 	//Moved the tsb delete request from XRE to AAMP to avoid the HTTP-404 erros
 	if(IsFogTSBSupported())
@@ -7723,7 +7720,7 @@ void PrivateInstanceAAMP::Stop( bool isDestructing )
 	{
 		SetState(eSTATE_IDLE);
 	}
-	
+
 	SetPauseOnStartPlayback(false);
 	mSeekOperationInProgress = false;
 	mTrickplayInProgress = false;
@@ -7783,6 +7780,10 @@ void PrivateInstanceAAMP::Stop( bool isDestructing )
 	EnableDownloads();
 
 	AampStreamSinkManager::GetInstance().DeactivatePlayer(this, true);
+	unsigned int mLastStopDurationMs = (unsigned)(NOW_STEADY_TS_MS - stopStartTime);
+	AAMPLOG_WARN("AAMP Stop took %u ms",mLastStopDurationMs);
+	profiler.mStopDurationMs = mLastStopDurationMs;
+
 }
 
 const std::vector<TimedMetadata> & PrivateInstanceAAMP::GetTimedMetadata( void ) const
@@ -9770,13 +9771,13 @@ void  PrivateInstanceAAMP::SetLLDLowBufferParam(double latency, double buff, dou
  * @brief Get if pipeline reconfigure required for elementary stream type change status (from stream abstraction)
  * @return true if audio codec has changed
  */
-bool PrivateInstanceAAMP::ReconfigureForCodecChange()
+bool PrivateInstanceAAMP::ReconfigureForElementaryStreamUpdate()
 {
 	if (mpStreamAbstractionAAMP)
 	{
 		if(!ISCONFIGSET_PRIV(eAAMPConfig_ReconfigPipelineOnDiscontinuity))
 		{
-			return mpStreamAbstractionAAMP->GetESChangeStatus();
+			return (mpStreamAbstractionAAMP->GetESChangeStatus() || mpStreamAbstractionAAMP->GetPipelineFlushStatus());
 		}
 		else
 		{
@@ -13221,12 +13222,7 @@ long PrivateInstanceAAMP::LoadFogConfig()
 	tmpStringVar = GETCONFIGVALUE_PRIV(eAAMPConfig_HarvestPath);
 	jsondata.add("harvestPath",tmpStringVar);
 
-	/*
-	 * Audio and subtitle preference
-	 * Disabled this for XRE supported TSB linear
-	 */
-	if (!ISCONFIGSET_PRIV(eAAMPConfig_XRESupportedTune))
-	{
+	{ // audio and subtitle preference
 		AampJsonObject jsondataForPreference;
 		AampJsonObject audioPreference;
 		AampJsonObject subtitlePreference;

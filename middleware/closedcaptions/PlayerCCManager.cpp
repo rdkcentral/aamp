@@ -28,6 +28,7 @@
 //TODO: Fix cyclic dependency btw GlobalConfig and PlayerLogManager
 
 #include "PlayerJsonObject.h" // For JSON parsing
+
 #include "PlayerUtils.h" // For player_StartsWith
 
 #include "PlayerCCManager.h"

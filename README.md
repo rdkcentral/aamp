@@ -143,7 +143,7 @@ disableLowLatencyABR		Enable/Disable Low Latency ABR. Default: true
 enableLowLatencyCorrection	Enable/Disable Low Latency Correction. Default: false
 enableFogConfig			Enable/Disable setting player configurations to Fog. Default: true
 suppressDecode			Enable/Disable setting to suppress decode of content for playback, only Downloader test. Default: false
-gstSubtecEnabled		Enable/Disable subtec via gstreamer plugins (plugins in gst-plugins-rdk-aamp repo)
+gstSubtecEnabled		Enable/Disable subtec via gstreamer plugins (plugins in middleware/gst-plugins repo)
 sendLicenseResponseHeaders	Enable/Disable Sending License response header as a part of DRMMetadata event(Non SecClient/SecManager DRM license).
 useTCPServerSink		Enable "tcpserverSink" in conjunction with playbin. For use in automated testing when there is no window for video output
 sendUserAgentInLicense		Enable/disable sending user agent in the DRM license request header. Default: disabled.
@@ -386,6 +386,10 @@ version,build,tuneStartBaseUTCMS,ManifestDLStartTime,ManifestDLTotalTime,Manifes
 version#6
 ```
 version,build,tuneStartBaseUTCMS,ManifestDLStartTime,ManifestDLTotalTime,ManifestDLFailCount,VideoPlaylistDLStartTime,VideoPlaylistDLTotalTime,VideoPlaylistDLFailCount,AudioPlaylistDLStartTime,AudioPlaylistDLTotalTime,AudioPlaylistDLFailCount,VideoInitDLStartTime,VideoInitDLTotalTime,VideoInitDLFailCount,AudioInitDLStartTime,AudioInitDLTotalTime,AudioInitDLFailCount,VideoFragmentDLStartTime,VideoFragmentDLTotalTime,VideoFragmentDLFailCount,VideoBitRate,AudioFragmentDLStartTime,AudioFragmentDLTotalTime,AudioFragmentDLFailCount,AudioBitRate,drmLicenseAcqStartTime,drmLicenseAcqTotalTime,drmFailErrorCode,LicenseAcqPreProcessingDuration,LicenseAcqNetworkDuration,LicenseAcqPostProcDuration,VideoFragmentDecryptDuration,AudioFragmentDecryptDuration,gstPlayStartTime,gstFirstFrameTime,gstDecodeTime,contentType,streamType,firstTune,playerPreBuffered,playerPreBufferedTime,durationSeconds,interfaceWifi,TuneAttempts,TuneSuccess,FailureReason,Appname,Numbers of TimedMetadata(Ads),StartTime to Report TimedEvent,Time taken to ReportTimedMetadata,TSBEnabled,Total Time
+```
+version#7
+```
+version,build,tuneStartBaseUTCMS,ManifestDLStartTime,ManifestDLTotalTime,ManifestDLFailCount,VideoPlaylistDLStartTime,VideoPlaylistDLTotalTime,VideoPlaylistDLFailCount,AudioPlaylistDLStartTime,AudioPlaylistDLTotalTime,AudioPlaylistDLFailCount,VideoInitDLStartTime,VideoInitDLTotalTime,VideoInitDLFailCount,AudioInitDLStartTime,AudioInitDLTotalTime,AudioInitDLFailCount,VideoFragmentDLStartTime,VideoFragmentDLTotalTime,VideoFragmentDLFailCount,VideoBitRate,AudioFragmentDLStartTime,AudioFragmentDLTotalTime,AudioFragmentDLFailCount,AudioBitRate,drmLicenseAcqStartTime,drmLicenseAcqTotalTime,drmFailErrorCode,LicenseAcqPreProcessingDuration,LicenseAcqNetworkDuration,LicenseAcqPostProcDuration,VideoFragmentDecryptDuration,AudioFragmentDecryptDuration,gstPlayStartTime,gstFirstFrameTime,gstDecodeTime,contentType,streamType,firstTune,playerPreBuffered,playerPreBufferedTime,durationSeconds,interfaceWifi,TuneAttempts,TuneSuccess,FailureReason,Appname,Numbers of TimedMetadata(Ads),StartTime to Report TimedEvent,Time taken to ReportTimedMetadata,TSBEnabled,Total Time,PreviousStopTime
 ```
 ---
 # VideoEnd (Session Statistics) Event 
