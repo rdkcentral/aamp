@@ -3200,6 +3200,7 @@ bool PrivateInstanceAAMP::ProcessPendingDiscontinuity()
 				}
 			}
 			mpStreamAbstractionAAMP->ResetESChangeStatus();
+			mpStreamAbstractionAAMP->ReSetPipelineFlushStatus();
 
 			bool isRateCorrectionEnabled = ISCONFIGSET_PRIV(eAAMPConfig_EnableLiveLatencyCorrection);
 			int  disableRateCorrectionTimeInSeconds = GETCONFIGVALUE_PRIV(eAAMPConfig_RateCorrectionDelay);
@@ -5615,6 +5616,7 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 
 		// TODO - X1-TSB : ES Change status needs to be checked
 		mpStreamAbstractionAAMP->ResetESChangeStatus();
+		mpStreamAbstractionAAMP->ReSetPipelineFlushStatus();
 		mpStreamAbstractionAAMP->Start();
 		if (!mbUsingExternalPlayer)
 		{
@@ -7716,8 +7718,6 @@ void PrivateInstanceAAMP::Stop( bool isDestructing )
 		SetState(eSTATE_IDLE);
 	}
 
-	// Set EventManager State to RELEASED as no events beyond this point
-	mEventManager->SetPlayerState(eSTATE_RELEASED);
 	SetPauseOnStartPlayback(false);
 	mSeekOperationInProgress = false;
 	mTrickplayInProgress = false;
@@ -9768,13 +9768,13 @@ void  PrivateInstanceAAMP::SetLLDLowBufferParam(double latency, double buff, dou
  * @brief Get if pipeline reconfigure required for elementary stream type change status (from stream abstraction)
  * @return true if audio codec has changed
  */
-bool PrivateInstanceAAMP::ReconfigureForCodecChange()
+bool PrivateInstanceAAMP::ReconfigureForElementaryStreamUpdate()
 {
 	if (mpStreamAbstractionAAMP)
 	{
 		if(!ISCONFIGSET_PRIV(eAAMPConfig_ReconfigPipelineOnDiscontinuity))
 		{
-			return mpStreamAbstractionAAMP->GetESChangeStatus();
+			return (mpStreamAbstractionAAMP->GetESChangeStatus() || mpStreamAbstractionAAMP->GetPipelineFlushStatus());
 		}
 		else
 		{
