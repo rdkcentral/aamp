@@ -43,7 +43,7 @@ include_directories(${AAMP_ROOT}/middleware)
 
 set(TEST_SOURCES    MediaStreamContextTests.cpp
                     MediaStreamContextAampTests.cpp)
-set(AAMP_SOURCES ${AAMP_ROOT}/MediaStreamContext.cpp )
+set(AAMP_SOURCES ${AAMP_ROOT}/MediaStreamContext.cpp ${AAMP_ROOT}/CachedFragment.cpp)
 add_executable(${EXEC_NAME}
                ${TEST_SOURCES}
                ${AAMP_SOURCES})

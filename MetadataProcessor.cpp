@@ -29,8 +29,6 @@
 #include <iomanip>
 #include <assert.h>
 
-class CachedFragment;
-
 namespace aamp
 {
 
