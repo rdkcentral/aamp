@@ -91,7 +91,7 @@ static void buildFogUrl(const std::string host, const char* url, std::string& fo
 	fogUrl = "http://" + host + "/tsb?clientId=FOG_AAMP&recordedUrl=";
 	std::string inStr(url);
 	std::string outStr;
-	UrlEncode(inStr, outStr);
+	UrlEncode(std::move(inStr), outStr);
 	fogUrl += outStr;
 }
 
@@ -416,7 +416,7 @@ void PlaybackCommand::HandleCommandCustomHeader( const char *cmd, PlayerInstance
 		cmdptr = strtok (NULL, " ,");
 	}
 	AAMPCLI_PRINTF("isLicenceHeader=%d\n", isLicenceHeader);
-	playerInstanceAamp->AddCustomHTTPHeader(headerName, headerValue, isLicenceHeader);
+	playerInstanceAamp->AddCustomHTTPHeader(std::move(headerName), std::move(headerValue), isLicenceHeader);
 }
 
 void PlaybackCommand::HandleCommandSubtec( void )
@@ -495,7 +495,7 @@ void PlaybackCommand::HandleCommandFog( const char *cmd, PlayerInstanceAAMP *pla
 		std::regex ipv4("(([0-9]|[1-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5])\\.){3}([0-9]|[1-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5]):[0-9]+");
 		if (std::regex_match(tmpIpv4, ipv4))
 		{
-			mFogHostPrefix = tmpIpv4;
+			mFogHostPrefix = std::move(tmpIpv4);
 			AAMPCLI_PRINTF("host: %s\n", mFogHostPrefix.c_str());
 		}
 		else
