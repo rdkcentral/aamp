@@ -471,7 +471,7 @@ gchar *gst_object_get_name(GstObject *object)
 	if (object && object->name)
 	{
 		TRACE_FUNC_ARG("%s \n", object->name);
-		// See SafeName() in aampgstplayer.cpp
+		// See SafeName() in gstplayer.cpp
 		char *ptr = object->name ;
 		char *g_ptr = (char *)malloc(strlen(ptr) + 1);
 		strcpy(g_ptr, ptr);
@@ -499,7 +499,6 @@ gboolean gst_element_send_event(GstElement *element, GstEvent *event)
 {
 	TRACE_FUNC();
 	gboolean rtn = FALSE;
-
 	if (g_mockGStreamer != nullptr)
 	{
 		rtn = g_mockGStreamer->gst_element_send_event(element, event);
