@@ -3244,20 +3244,16 @@ TEST_F(PrivAampTests,SetTextTrackTest_1)
 TEST_F(PrivAampTests,SetCCStatusTest)
 {
 	// Test basic CC status functionality
-	// In idle state (no stream abstraction), SetStatus() should not be called
-	// Only the preference should be stored
-
-	// Expect NO calls to SetStatus() since no stream abstraction exists
-	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(_))
-		.Times(0);
 
 	EXPECT_FALSE(p_aamp->GetCCStatus());
 
-	// Enable CC - no PlayerCCManager::SetStatus() call expected in idle state
+	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(true))
+		.WillOnce(Return(0));
 	p_aamp->SetCCStatus(true);
 	EXPECT_TRUE(p_aamp->GetCCStatus()); // Preference is stored
 
-	// Disable CC - no PlayerCCManager::SetStatus() call expected in idle state
+	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(false))
+		.WillOnce(Return(0));
 	p_aamp->SetCCStatus(false);
 	EXPECT_FALSE(p_aamp->GetCCStatus()); // Preference is stored
 }
@@ -3266,11 +3262,6 @@ TEST_F(PrivAampTests,SetCCStatusWithVideoMutedTest)
 {
 	// Test behavior when video is muted BEFORE CC is enabled
 	// This tests the interaction when SetVideoMute(true) is called before SetCCStatus()
-	// In idle state, no PlayerCCManager::SetStatus() calls should be made
-
-	// Expect NO calls to SetStatus() since no stream abstraction exists
-	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(_))
-		.Times(0);
 
 	// Initial state - CC should be disabled by default (subtitles_muted=true)
 	EXPECT_FALSE(p_aamp->GetCCStatus());
@@ -3279,7 +3270,8 @@ TEST_F(PrivAampTests,SetCCStatusWithVideoMutedTest)
 	p_aamp->SetVideoMute(true);
 
 	// Now try to enable CC while video is muted
-	// SetCCStatus should only store preference, no SetStatus() call in idle state
+	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(false))
+		.WillOnce(Return(0));
 	p_aamp->SetCCStatus(true);
 	EXPECT_TRUE(p_aamp->GetCCStatus()); // CC preference is true
 
@@ -3287,7 +3279,15 @@ TEST_F(PrivAampTests,SetCCStatusWithVideoMutedTest)
 	p_aamp->SetVideoMute(false);
 	EXPECT_TRUE(p_aamp->GetCCStatus()); // CC preference is still true
 
+	// Enable CC preference again after unmuting video
+	// This should now enable CC since video is unmuted
+	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(true))
+		.WillOnce(Return(0));
+	p_aamp->SetCCStatus(true);
+
 	// Disable CC preference
+	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(false))
+		.WillOnce(Return(0));
 	p_aamp->SetCCStatus(false);
 	EXPECT_FALSE(p_aamp->GetCCStatus()); // CC preference is now false
 }
@@ -3300,16 +3300,17 @@ TEST_F(PrivAampTests,SetCCStatusWithStreamAbstractionCreationTest)
 	// Initially CC is disabled by default (subtitles_muted=true)
 	EXPECT_FALSE(p_aamp->GetCCStatus());
 
-	// Step 1: Enable CC first - no SetStatus() call expected in idle state
-	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(_)).Times(0);
+	// Step 1: Enable CC first
+	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(true))
+		.WillOnce(Return(0));
 	p_aamp->SetCCStatus(true);
 	EXPECT_TRUE(p_aamp->GetCCStatus());
 
-	// Step 2: Set expectation for SetStatus(true) to be called when stream abstraction is created
+	// Step 2: SetStatus(true) has been called, so no need to call it again
+	// when stream abstraction is created
 	EXPECT_CALL(*g_mockAampStreamSinkManager, GetStreamSink(_))
 		.WillRepeatedly(Return(g_mockAampGstPlayer));
-	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(true))
-		.WillOnce(Return(0));
+	EXPECT_CALL(*g_mockPlayerCCManager, SetStatus(_)).Times(0);
 
 	// Step 3: Call TuneHelper which will create the stream abstraction
 	// This should trigger SetCCStatusInternal() which will call SetStatus(true)

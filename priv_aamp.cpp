@@ -1262,7 +1262,7 @@ PrivateInstanceAAMP::PrivateInstanceAAMP(AampConfig *config) : mReportProgressPo
 	, mIsInbandCC(true)
 	, bitrateList()
 	, userProfileStatus(false)
-	, mApplyCachedVideoAndCCMute(false)
+	, mApplyCachedVideoMute(false)
 	, mFirstProgress(false)
 	, mTsbSessionRequestUrl()
 	, mcurrent_keyIdArray()
@@ -5573,11 +5573,11 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 			if (sink)
 			{
 				sink->SetVideoZoom(zoom_mode);
-				AAMPLOG_INFO("SetVideoMute video_muted %d mApplyCachedVideoAndCCMute %d", video_muted, mApplyCachedVideoAndCCMute);
+				AAMPLOG_INFO("SetVideoMute video_muted %d mApplyCachedVideoMute %d", video_muted, mApplyCachedVideoMute);
 				sink->SetVideoMute(video_muted);
-				if (mApplyCachedVideoAndCCMute)
+				if (mApplyCachedVideoMute)
 				{
-					mApplyCachedVideoAndCCMute = false;
+					mApplyCachedVideoMute = false;
 					SetCCStatusInternal();
 				}
 				sink->SetAudioVolume(volume);
@@ -6168,9 +6168,9 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 	TuneHelper(tuneType);
 
 	//Apply the cached video/CC mute call as it got invoked when stream lock was not available
-	if(mApplyCachedVideoAndCCMute)
+	if(mApplyCachedVideoMute)
 	{
-		mApplyCachedVideoAndCCMute = false;
+		mApplyCachedVideoMute = false;
 		AAMPLOG_INFO("Cached videoMute is being executed, mute value: %d", video_muted);
 		if (mpStreamAbstractionAAMP)
 		{
@@ -7139,14 +7139,14 @@ void PrivateInstanceAAMP::SetVideoMute(bool muted)
 		else
 		{
 			AAMPLOG_WARN("Player is in state eSTATE_IDLE, value has been cached");
-			mApplyCachedVideoAndCCMute = true; // can't do it now, but remember that we want video and CC muted
+			mApplyCachedVideoMute = true; // can't do it now, but remember that we want video muted
 		}
 		ReleaseStreamLock();
 	}
 	else
 	{
 		AAMPLOG_WARN("StreamLock is not available, value has been cached");
-		mApplyCachedVideoAndCCMute = true;
+		mApplyCachedVideoMute = true;
 	}
 }
 
@@ -11044,23 +11044,15 @@ void PrivateInstanceAAMP::SetCCStatusInternal(void)
 	AcquireStreamLock();
 	// Mute subtitles if either video is muted or subtitles are muted
 	int mute_subtitles_applied = video_muted || subtitles_muted;
+	PlayerCCManager::GetInstance()->SetStatus(!mute_subtitles_applied);
 
 	if (mpStreamAbstractionAAMP)
 	{
-		// Update PlayerCCManager based on the effective CC state
-		// CC should be disabled if video is muted OR if subtitles are explicitly muted
-		PlayerCCManager::GetInstance()->SetStatus(!mute_subtitles_applied);
-
 		mpStreamAbstractionAAMP->MuteSubtitles(mute_subtitles_applied);
 		if (HasSidecarData())
 		{ // has sidecar data
 			mpStreamAbstractionAAMP->MuteSidecarSubtitles(mute_subtitles_applied);
 		}
-	}
-	else
-	{
-		AAMPLOG_INFO("Video and CC mute will be applied when Stream Abstraction is created");
-		mApplyCachedVideoAndCCMute = true;
 	}
 	SetSubtitleMuteInternal(mute_subtitles_applied);
 	ReleaseStreamLock();
