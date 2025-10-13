@@ -513,7 +513,7 @@ void PrivateInstanceAAMP::UpdateCCTrackInfo(const std::vector<TextTrackInfo>& te
 		CCTrackInfo ccTrack;
 		ccTrack.language = track.language;
 		ccTrack.instreamId = track.instreamId;
-		updatedTextTracks.push_back(ccTrack);
+		updatedTextTracks.push_back(std::move(ccTrack));
 	}
 }
 
@@ -762,7 +762,7 @@ size_t PrivateInstanceAAMP::HandleSSLHeaderCallback ( const char *ptr, size_t si
 			(eMEDIATYPE_VIDEO == context->mediaType || eMEDIATYPE_PLAYLIST_VIDEO == context->mediaType))
 		{
 			std::string temp = std::string(ptr,endPos);
-			context->allResponseHeaders.push_back(temp);
+			context->allResponseHeaders.push_back(std::move(temp));
 		}
 
 		// As per Hypertext Transfer Protocol ==> Field names are case-insensitive
@@ -2789,8 +2789,8 @@ void PrivateInstanceAAMP::SendErrorEvent(AAMPTuneFailure tuneFailure, const char
 			DownloadConfigPtr inpData = std::make_shared<DownloadConfig> ();
 			inpData->bIgnoreResponseHeader	= true;
 			inpData->eRequestType = eCURL_DELETE;
-			T1.Initialize(inpData);
-			T1.Download(remoteUrl, respData);
+			T1.Initialize(std::move(inpData));
+			T1.Download(remoteUrl, std::move(respData));
 		}
 		sendErrorEvent = true;
 		mState = eSTATE_ERROR;
@@ -2894,7 +2894,7 @@ void PrivateInstanceAAMP::LicenseRenewal(DrmHelperPtr drmHelper, void* userData)
 			AAMPLOG_ERR("DRM is not supported");
 		return;
 	}
-	mDRMLicenseManager->renewLicense(drmHelper, userData, this);
+	mDRMLicenseManager->renewLicense(std::move(drmHelper), userData, this);
 }
 
 /**
@@ -2947,7 +2947,7 @@ void PrivateInstanceAAMP::NotifyBitRateChangeEvent(BitsPerSecond bitrate, Bitrat
 				bitrate, BITRATEREASON2STRING(reason), width, height, frameRate, position, (IsFogTSBSupported()? ", fog": " "), mProfileCappedStatus, mDisplayWidth, mDisplayHeight, scantype, aspectRatioWidth, aspectRatioHeight);
 		}
 
-		SendEvent(event,AAMP_EVENT_ASYNC_MODE);
+		SendEvent(std::move(event),AAMP_EVENT_ASYNC_MODE);
 	}
 	else
 	{
@@ -3721,7 +3721,7 @@ void PrivateInstanceAAMP::CurlInit(AampCurlInstance startIdx, unsigned int insta
 	UserAgentString=mConfig->GetUserAgentString();
 	assert (instanceEnd <= eCURLINSTANCE_MAX);
 
-	CurlStore::GetCurlStoreInstance(this).CurlInit(this, startIdx, instanceCount, proxyName);
+	CurlStore::GetCurlStoreInstance(this).CurlInit(this, startIdx, instanceCount, std::move(proxyName));
 }
 
 /**
@@ -4728,7 +4728,7 @@ void PrivateInstanceAAMP::GetOnVideoEndSessionStatData(std::string &data)
 		inpData->bIgnoreResponseHeader	= true;
 		inpData->eRequestType = eCURL_GET;
 		inpData->proxyName        = GetNetworkProxy();
-		T1.Initialize(inpData);
+		T1.Initialize(std::move(inpData));
 		T1.Download(remoteUrl, respData);
 
 		if(respData->iHttpRetValue == 200)
@@ -5242,11 +5242,11 @@ void PrivateInstanceAAMP::TuneHelper(TuneType tuneType, bool seekWhilePaused)
 			std::shared_ptr<ManifestDownloadConfig> inpData = prepareManifestDownloadConfig();
 			if(!inpData->mPreProcessedManifest.empty())
 			{
-				mMPDDownloaderInstance->Initialize(inpData, mAppName, std::bind(&PrivateInstanceAAMP::SendManifestPreProcessEvent, this));
+				mMPDDownloaderInstance->Initialize(std::move(inpData), mAppName, std::bind(&PrivateInstanceAAMP::SendManifestPreProcessEvent, this));
 			}
 			else
 			{
-				mMPDDownloaderInstance->Initialize(inpData, mAppName, nullptr);
+				mMPDDownloaderInstance->Initialize(std::move(inpData), mAppName, nullptr);
 			}
 			mMPDDownloaderInstance->Start();
 		}
@@ -5712,7 +5712,7 @@ void PrivateInstanceAAMP::ReloadTSB()
 	{
 		// Restart MPD downloader thread with new session
 		std::shared_ptr<ManifestDownloadConfig> inpData = prepareManifestDownloadConfig();
-		mMPDDownloaderInstance->Initialize(inpData,mAppName);
+		mMPDDownloaderInstance->Initialize(std::move(inpData),mAppName);
 		mMPDDownloaderInstance->Start();
 	}
 	if(configPassCode == 200 || configPassCode == 204 || configPassCode == 206)
@@ -6042,7 +6042,7 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 				}
 				if(!headerName.empty() && !headerValue.empty())
 				{
-					AddCustomHTTPHeader(headerName, headerValue, true);
+					AddCustomHTTPHeader(std::move(headerName), std::move(headerValue), true);
 				}
 			}
 		}
@@ -6215,7 +6215,7 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 	}
 	// do not change location of this set, it should be done after sending previous VideoEnd data which
 	// is done in TuneHelper->SendVideoEndEvent function.
-	this->mTraceUUID = sTraceId;
+	this->mTraceUUID = std::move(sTraceId);
 }
 
 /**
@@ -6670,7 +6670,7 @@ const std::tuple<std::string, std::string> PrivateInstanceAAMP::ExtractDrmInitDa
 				modUrl.append(parameter);
 			}
 		}
-		urlStr = modUrl;
+		urlStr = std::move(modUrl);
 	}
 	return std::tuple<std::string, std::string>(urlStr, drmInitDataStr);
 }
@@ -6792,7 +6792,7 @@ BitsPerSecond PrivateInstanceAAMP::GetIframeBitrate4K()
 void PrivateInstanceAAMP::LoadIDX(ProfilerBucketType bucketType, std::string fragmentUrl, std::string& effectiveUrl, AampGrowableBuffer *fragment, unsigned int curlInstance, const char *range, int * http_code, double *downloadTime, AampMediaType mediaType,int * fogError)
 {
 	profiler.ProfileBegin(bucketType);
-	if (!GetFile(fragmentUrl, mediaType, fragment, effectiveUrl, http_code, downloadTime, range, curlInstance, true, NULL,fogError))
+	if (!GetFile(std::move(fragmentUrl), mediaType, fragment, effectiveUrl, http_code, downloadTime, range, curlInstance, true, NULL,fogError))
 	{
 		profiler.ProfileError(bucketType, *http_code);
 		profiler.ProfileEnd(bucketType);
@@ -7793,7 +7793,7 @@ const std::vector<TimedMetadata> & PrivateInstanceAAMP::GetTimedMetadata( void )
 void PrivateInstanceAAMP::SaveTimedMetadata(long long timeMilliseconds, const char* szName, const char* szContent, int nb, const char* id, double durationMS)
 {
 	std::string content(szContent, nb);
-	timedMetadata.push_back(TimedMetadata(timeMilliseconds, std::string((szName == NULL) ? "" : szName), content, std::string((id == NULL) ? "" : id), durationMS));
+	timedMetadata.push_back(TimedMetadata(timeMilliseconds, std::string((szName == NULL) ? "" : szName), std::move(content), std::string((id == NULL) ? "" : id), durationMS));
 }
 
 /**
@@ -7802,7 +7802,7 @@ void PrivateInstanceAAMP::SaveTimedMetadata(long long timeMilliseconds, const ch
 void PrivateInstanceAAMP::SaveNewTimedMetadata(long long timeMilliseconds, const char* szName, const char* szContent, int nb, const char* id, double durationMS)
 {
 	std::string content(szContent, nb);
-	timedMetadataNew.push_back(TimedMetadata(timeMilliseconds, std::string((szName == NULL) ? "" : szName), content, std::string((id == NULL) ? "" : id), durationMS));
+	timedMetadataNew.push_back(TimedMetadata(timeMilliseconds, std::string((szName == NULL) ? "" : szName), std::move(content), std::string((id == NULL) ? "" : id), durationMS));
 }
 
 /**
@@ -8014,11 +8014,11 @@ void PrivateInstanceAAMP::ReportContentGap(long long timeMilliseconds, std::stri
 		bFireEvent = true;
 		if(iter == contentGaps.end())
 		{
-			contentGaps.push_back(ContentGapInfo(timeMilliseconds, id, durationMS));
+			contentGaps.push_back(ContentGapInfo(timeMilliseconds, std::move(id), durationMS));
 		}
 		else
 		{
-			contentGaps.insert(iter, ContentGapInfo(timeMilliseconds, id, durationMS));
+			contentGaps.insert(iter, ContentGapInfo(timeMilliseconds, std::move(id), durationMS));
 		}
 	}
 
@@ -8872,7 +8872,7 @@ void PrivateInstanceAAMP::AddCustomHTTPHeader(std::string headerName, std::vecto
 	{ // requestType = License
 		if ( !emptyValue )
 		{
-			mCustomLicenseHeaders[headerName] = headerValue;
+			mCustomLicenseHeaders[headerName] = std::move(headerValue);
 		}
 		else if (emptyHeader)
 		{
@@ -8887,7 +8887,7 @@ void PrivateInstanceAAMP::AddCustomHTTPHeader(std::string headerName, std::vecto
 	{ // requestType = CDN
 		if ( !emptyValue )
 		{
-			mCustomHeaders[headerName] = headerValue;
+			mCustomHeaders[headerName] = std::move(headerValue);
 		}
 		else if (emptyHeader)
 		{
@@ -10419,7 +10419,7 @@ std::string PrivateInstanceAAMP::GetVideoRectangle()
  */
 void PrivateInstanceAAMP::SetAppName(std::string name)
 {
-	mAppName = name;
+	mAppName = std::move(name);
 }
 
 /**
@@ -10911,7 +10911,7 @@ void PrivateInstanceAAMP::SetTextTrack(int trackId, char *data)
 						}
 						else
 						{
-							SetPreferredTextTrack(track);
+							SetPreferredTextTrack(std::move(track));
 							if((ISCONFIGSET_PRIV(eAAMPConfig_useRialtoSink)) && ((mCurrentTextTrackIndex == -1) || (mCurrentTextTrackIndex == trackId)))
 							{ // by default text track is enabled and muted for Rialto; notify only if there is change in the subtitles
 								AAMPLOG_INFO("useRialtoSink mCurrentTextTrackIndex = %d trackId = %d",mCurrentTextTrackIndex,trackId);
@@ -11362,7 +11362,7 @@ int PrivateInstanceAAMP::ScheduleAsyncTask(IdleTask task, void *arg, std::string
 	int taskId = AAMP_TASK_ID_INVALID;
 	if (mScheduler)
 	{
-		taskId = mScheduler->ScheduleTask(AsyncTaskObj(task, arg, taskName));
+		taskId = mScheduler->ScheduleTask(AsyncTaskObj(task, arg, std::move(taskName)));
 		if (taskId == AAMP_TASK_ID_INVALID)
 		{
 			AAMPLOG_ERR("mScheduler returned invalid ID, dropping the schedule request!");
@@ -11630,14 +11630,14 @@ void PrivateInstanceAAMP::SetPreferredLanguages(const char *languageList, const 
 
 		/** Reload the new values **/
 		preferredAudioAccessibilityNode = inputAudioAccessibilityNode;
-		preferredRenditionString = inputRenditionString;
-		preferredLabelList = inputLabelList;
-		preferredLabelsString = inputLabelsString;
-		preferredLanguagesList = inputLanguagesList;
-		preferredLanguagesString = inputLanguagesString;
-		preferredCodecString = inputCodecString;
-		preferredCodecList = inputCodecList;
-		preferredNameString = inputNameString;
+		preferredRenditionString = std::move(inputRenditionString);
+		preferredLabelList = std::move(inputLabelList);
+		preferredLabelsString = std::move(inputLabelsString);
+		preferredLanguagesList = std::move(inputLanguagesList);
+		preferredLanguagesString = std::move(inputLanguagesString);
+		preferredCodecString = std::move(inputCodecString);
+		preferredCodecList = std::move(inputCodecList);
+		preferredNameString = std::move(inputNameString);
 
 		SETCONFIGVALUE_PRIV(AAMP_APPLICATION_SETTING,eAAMPConfig_PreferredAudioRendition,preferredRenditionString);
 		SETCONFIGVALUE_PRIV(AAMP_APPLICATION_SETTING,eAAMPConfig_PreferredAudioLabel,preferredLabelsString);
@@ -12117,14 +12117,14 @@ void PrivateInstanceAAMP::SavePreferredTextLanguages(const char *param, bool &is
 		{ // if starting with string, create simple array
 			if (jsObject->get("languages", inputTextLanguagesString))
 			{
-				inputTextLanguagesList.push_back(inputTextLanguagesString);
+				inputTextLanguagesList.push_back(std::move(inputTextLanguagesString));
 			}
 		}
 		else if (jsObject->isString("language"))
 		{
 			if (jsObject->get("language", inputTextLanguagesString))
 			{
-				inputTextLanguagesList.push_back(inputTextLanguagesString);
+				inputTextLanguagesList.push_back(std::move(inputTextLanguagesString));
 			}
 		}
 		else
@@ -12204,12 +12204,12 @@ void PrivateInstanceAAMP::SavePreferredTextLanguages(const char *param, bool &is
 		/**< Release json object **/
 		SAFE_DELETE(jsObject);
 
-		preferredTextRenditionString = inputTextRenditionString;
-		preferredTextAccessibilityNode = inputTextAccessibilityNode;
-		preferredTextLabelString = inputTextLabelString;
-		preferredTextTypeString = inputTextTypeString;
-		preferredInstreamIdString = inputInstreamIdString;
-		preferredTextNameString = inputTextNameString;
+		preferredTextRenditionString = std::move(inputTextRenditionString);
+		preferredTextAccessibilityNode = std::move(inputTextAccessibilityNode);
+		preferredTextLabelString = std::move(inputTextLabelString);
+		preferredTextTypeString = std::move(inputTextTypeString);
+		preferredInstreamIdString = std::move(inputInstreamIdString);
+		preferredTextNameString = std::move(inputTextNameString);
 
 		SETCONFIGVALUE_PRIV(AAMP_APPLICATION_SETTING,eAAMPConfig_PreferredTextRendition,preferredTextRenditionString);
 		SETCONFIGVALUE_PRIV(AAMP_APPLICATION_SETTING,eAAMPConfig_PreferredTextLabel,preferredTextLabelString);
@@ -12233,7 +12233,7 @@ void PrivateInstanceAAMP::SavePreferredTextLanguages(const char *param, bool &is
 	}
 
 	SanitizeLanguageList(inputTextLanguagesList);
-	preferredTextLanguagesList = inputTextLanguagesList;
+	preferredTextLanguagesList = std::move(inputTextLanguagesList);
 
 	// Write the preferred languages back to the string
 	preferredTextLanguagesString.clear();
@@ -12368,7 +12368,11 @@ void PrivateInstanceAAMP::CheckPreferredTextLanguages(const std::vector<TextTrac
 			{
 				if ((track.instreamId == preferredInstreamIdString) && (track.instreamId != currentPrefInstreamId))
 				{
-					isSelectionChange = true;
+					std::string curInstreamId = preferredInstreamIdString;
+					auto instreamId = std::find_if(trackInfo.begin(), trackInfo.end(),
+								[curInstreamId = std::move(curInstreamId), currentPrefInstreamId] (TextTrackInfo& temp)
+								{ return ((temp.instreamId == curInstreamId) && (temp.instreamId != currentPrefInstreamId)); });
+					instreamIdPresent = (instreamId != end(trackInfo));
 				}
 			}
 
@@ -12442,7 +12446,7 @@ void PrivateInstanceAAMP::SetPreferredTextLanguages(const char *param)
 						TextTrackInfo selectedTextTrack;
 						if (mpStreamAbstractionAAMP->SelectPreferredTextTrack(selectedTextTrack))
 						{
-							SetPreferredTextTrack(selectedTextTrack);
+							SetPreferredTextTrack(std::move(selectedTextTrack));
 						}
 					}
 					seek_pos_seconds = GetPositionSeconds();
@@ -13301,8 +13305,8 @@ long PrivateInstanceAAMP::LoadFogConfig()
 	DownloadConfigPtr inpData = std::make_shared<DownloadConfig> ();
 	inpData->bIgnoreResponseHeader	= true;
 	inpData->eRequestType = eCURL_POST;
-	inpData->postData	=	jsonStr;
-	T1.Initialize(inpData);
+	inpData->postData = std::move(jsonStr);
+	T1.Initialize(std::move(inpData));
 	T1.Download(remoteUrl, respData);
 
 	return respData->iHttpRetValue;
@@ -13520,10 +13524,10 @@ std::shared_ptr<ManifestDownloadConfig> PrivateInstanceAAMP::prepareManifestDown
 		std::string value = header.substr(separator_pos + 1);
 		trim(value); // remove leading whitespace
 
-		sCustomHeaders[name].push_back(value);
+		sCustomHeaders[name].push_back(std::move(value));
 	}
 
-	inpData->mDnldConfig->sCustomHeaders = sCustomHeaders;
+	inpData->mDnldConfig->sCustomHeaders = std::move(sCustomHeaders);
 	inpData->mCMCDCollector = mCMCDCollector;
 	inpData->mIsLLDConfigEnabled	=	ISCONFIGSET_PRIV(eAAMPConfig_EnableLowLatencyDash);
 	if(!mProvidedManifestFile.empty())

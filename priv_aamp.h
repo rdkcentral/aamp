@@ -269,7 +269,7 @@ struct EventBreakInfo
 	bool isDAIEvent;     // true if the SCTE35 event is PA START or PPO START
 	EventBreakInfo() : payload(), name(), duration(0), presentationTime(0), isDAIEvent(false)
 	{}
-	EventBreakInfo(std::string _data, std::string _name, uint64_t _presentationTime, uint32_t _dur, bool _isDAIEvent) : payload(_data), name(_name), presentationTime(_presentationTime), duration(_dur), isDAIEvent(_isDAIEvent)
+	EventBreakInfo(std::string _data, std::string _name, uint64_t _presentationTime, uint32_t _dur, bool _isDAIEvent) : payload(std::move(_data)), name(std::move(_name)), presentationTime(_presentationTime), duration(_dur), isDAIEvent(_isDAIEvent)
 	{}
 };
 
@@ -306,7 +306,7 @@ public:
 	 * @param[in] id - Content gap ID
 	 * @param[in] durMS - Total duration of gap identified
 	 */
-	ContentGapInfo(long long timeMS, std::string id, double durMS) : _timeMS(timeMS), _id(id), _complete(false), _durationMS(durMS)
+	ContentGapInfo(long long timeMS, std::string id, double durMS) : _timeMS(timeMS), _id(std::move(id)), _complete(false), _durationMS(durMS)
 	{
 		if(durMS > 0)
 		{
@@ -415,9 +415,9 @@ class AudioTrackTuple
 
 		void setAudioTrackTuple(std::string language="",  std::string rendition="", std::string codec="", unsigned int channel=0)
 		{
-			this->language = language;
-			this->rendition = rendition;
-			this->codec = codec;
+			this->language = std::move(language);
+			this->rendition = std::move(rendition);
+			this->codec = std::move(codec);
 			this->channel = channel;
 			this->bitrate = 0;
 		}
@@ -445,7 +445,7 @@ public:
 	{
 	}
 
-	attrNameData(std::string argument) : attrName(argument), isProcessed(false)
+	attrNameData(std::string argument) : attrName(std::move(argument)), isProcessed(false)
 	{
 	}
 
@@ -2522,7 +2522,7 @@ public:
 	 *   @param[in] drm - New DRM type
 	 *   @return void
 	 */
-	void setCurrentDrm(DrmHelperPtr drm) { mCurrentDrm = drm; }
+	void setCurrentDrm(DrmHelperPtr drm) { mCurrentDrm = std::move(drm); }
 
 	/**
 	 * @fn GetMoneyTraceString
@@ -2688,7 +2688,7 @@ public:
 	/**
 	 *   @brief  set virtual stream ID, extracted from manifest
 	 */
-	void SetVssVirtualStreamID(std::string streamID) { mVssVirtualStreamId = streamID;}
+	void SetVssVirtualStreamID(std::string streamID) { mVssVirtualStreamId = std::move(streamID);}
 
 	/**
 	 *   @brief getTuneType Function to check what is the tuneType
