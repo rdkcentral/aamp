@@ -4646,6 +4646,7 @@ static gboolean buffering_timeout (gpointer data)
 			}
 			GstMediaFormat mediaFormatRet;
 			mediaFormatRet = (GstMediaFormat)pInterfacePlayerRDK->m_gstConfigParam->media;
+			uint32_t original_buffering_timeout_cnt = privatePlayer->gstPrivateContext->buffering_timeout_cnt;
 			/* Disable re-tune on buffering timeout for DASH as unlike HLS,
 			 * DRM key acquisition can end after injection, and buffering is not expected
 			 * to be completed by the 1 second timeout
@@ -4661,7 +4662,7 @@ static gboolean buffering_timeout (gpointer data)
 			else if (frames == -1 || frames >= pInterfacePlayerRDK->m_gstConfigParam->framesToQueue || privatePlayer->gstPrivateContext->buffering_timeout_cnt-- == 0)
 			{
 				MW_LOG_MIL("Set pipeline state to %s - buffering_timeout_cnt %u  frames %i",
-				gst_element_state_get_name(privatePlayer->gstPrivateContext->buffering_target_state), (privatePlayer->gstPrivateContext->buffering_timeout_cnt+1), frames);
+				gst_element_state_get_name(privatePlayer->gstPrivateContext->buffering_target_state), original_buffering_timeout_cnt, frames);
 				SetStateWithWarnings (privatePlayer->gstPrivateContext->pipeline, privatePlayer->gstPrivateContext->buffering_target_state);
 				isRateCorrectionDefaultOnPlaying =  privatePlayer->socInterface->SetRateCorrection();
 				
