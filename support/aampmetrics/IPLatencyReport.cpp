@@ -105,7 +105,7 @@ void CLatencyReport::RecordLatency(long timeMs)
 		}
 		else
 		{
-			IncrementCount(window);
+			IncrementCount(std::move(window));
 		}
 	}
 }
