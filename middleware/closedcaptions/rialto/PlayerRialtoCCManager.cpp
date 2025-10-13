@@ -97,8 +97,6 @@ void PlayerRialtoCCManager::Release(int id)
  */
 int PlayerRialtoCCManager::SetTrack(const std::string &track, const CCFormat format)
 {
-	int ret = -1;
-
 	mTrack = track;	// For PlayerCCManager::GetTrack()
 
 	MW_LOG_INFO("PlayerRialtoCCManager::set track \"%s\"", track.c_str());
@@ -106,14 +104,13 @@ int PlayerRialtoCCManager::SetTrack(const std::string &track, const CCFormat for
 	if (nullptr != mSubtitleControlHandle)
 	{
 		g_object_set(mSubtitleControlHandle, "text-track-identifier", track.c_str(), NULL);
-		ret = 0;
 	}
 	else
 	{
-		MW_LOG_WARN("PlayerRialtoCCManager::Failed to set track \"%s\"", track.c_str());
+		MW_LOG_WARN("PlayerRialtoCCManager::No current handle - track \"%s\" cached", track.c_str());
 	}
 
-	return ret;
+	return 0;
 }
 
 /**
