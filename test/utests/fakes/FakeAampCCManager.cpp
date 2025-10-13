@@ -20,11 +20,43 @@
 #include <vector>
 #include "priv_aamp.h"
 #include "AampLogManager.h"
-#include "MockCCManager.h"
+#include "PlayerCCManager.h"
+#include "MockPlayerCCManager.h"
+
+std::shared_ptr<MockPlayerCCManager> g_mockPlayerCCManager{};
+
+// Custom fake class that properly calls the mock
+class TestPlayerCCManager : public PlayerCCManagerBase
+{
+public:
+	int SetStatus(bool enable) override
+	{
+		int result = 0;
+		if (g_mockPlayerCCManager)
+		{
+			result = g_mockPlayerCCManager->SetStatus(enable);
+		}
+		return result;
+	}
+
+	void Release(int iID) override {}
+	void StartRendering() override {}
+	void StopRendering() override {}
+	int SetDigitalChannel(unsigned int id) override { return 0; }
+	int SetAnalogChannel(unsigned int id) override { return 0; }
+
+	int SetTrack(const std::string &track, const CCFormat format) override
+	{
+		int result = 0;
+		if (g_mockPlayerCCManager)
+		{
+			result = g_mockPlayerCCManager->SetTrack(track, format);
+		}
+		return result;
+	}
+};
 
 PlayerCCManagerBase* PlayerCCManager::mInstance = nullptr;
-MockPlayerCCManagerBase *g_mockPlayerCCManagerBase = nullptr;
-
 int PlayerCCManagerBase::Init(void *handle)
 {
 	return 0;
@@ -42,37 +74,37 @@ bool PlayerCCManagerBase::IsOOBCCRenderingSupported()
 int PlayerCCManagerBase::SetStatus(bool enable)
 {
 	return 0;
-};
+}
 int PlayerCCManagerBase::SetStyle(const std::string &options)
 {
 	return 0;
-};
+}
 int PlayerCCManagerBase::SetTrack(const std::string &track, const CCFormat format)
 {
 	return 0;
-};
+}
 void PlayerCCManagerBase::SetTrickplayStatus(bool enable)
 {
-};
+}
 void PlayerCCManagerBase::SetParentalControlStatus(bool locked)
 {
-};
+}
 
 void PlayerCCManagerBase::StartRendering()
 {
-};
+}
 void PlayerCCManagerBase::StopRendering()
 {
-};
+}
 
 int PlayerCCManagerBase::SetDigitalChannel(unsigned int id)
 {
-       return 0;
-};
+	return 0;
+}
 int PlayerCCManagerBase::SetAnalogChannel(unsigned int id)
 {
-       return 0;
-};
+	return 0;
+}
 
 void PlayerCCManager::DestroyInstance()
 {
@@ -81,14 +113,9 @@ void PlayerCCManager::DestroyInstance()
 
 PlayerCCManagerBase *PlayerCCManager::GetInstance()
 {
-	if (g_mockPlayerCCManagerBase != nullptr)
+	if (!mInstance)
 	{
-		return g_mockPlayerCCManagerBase;
-	}
-	else if (!mInstance)
-	{
-		mInstance = new PlayerFakeCCManager();
+		mInstance = new TestPlayerCCManager();
 	}
 	return mInstance;
 }
-

@@ -40,7 +40,7 @@
 ProfileEventAAMP::ProfileEventAAMP():
 	tuneStartMonotonicBase(0), tuneStartBaseUTCMS(0), bandwidthBitsPerSecondVideo(0),
         bandwidthBitsPerSecondAudio(0), buckets(), drmErrorCode(0), enabled(false), xreTimeBuckets(), tuneEventList(),
-	tuneEventListMtx(), mTuneFailBucketType(PROFILE_BUCKET_MANIFEST), mTuneFailErrorCode(0), rateCorrection(0), bitrateChange(0), bufferChange(0), telemetryParam(NULL), mLldLowBuffObject(NULL),discontinuityParamMutex()
+	tuneEventListMtx(), mTuneFailBucketType(PROFILE_BUCKET_MANIFEST), mTuneFailErrorCode(0), rateCorrection(0), bitrateChange(0), bufferChange(0), telemetryParam(NULL), mLldLowBuffObject(NULL),discontinuityParamMutex(), mStopDurationMs(0)
 {
 }
 
@@ -126,6 +126,7 @@ std::string ProfileEventAAMP::GetTuneTimeMetricAsJson(TuneEndMetrics tuneMetrics
 	cJSON_AddNumberToObject(item, "tsb", tuneMetricsData.mFogTSBEnabled);
 	cJSON_AddNumberToObject(item, "tot", tuneMetricsData.mTotalTime);
 
+	cJSON_AddNumberToObject(item, "pst", mStopDurationMs);
 	//lets use cJSON_PrintUnformatted , cJSON_Print is formated adds whitespace n hence takes more memory also eats up more logs if logged.
 	char *jsonStr = cJSON_PrintUnformatted(item);
 	if (jsonStr)
@@ -211,10 +212,7 @@ void ProfileEventAAMP::TuneBegin(void)
 	{
 		cJSON_Delete(telemetryParam);
 	}
-	if (mLldLowBuffObject)
-	{
-		cJSON_Delete(mLldLowBuffObject);
-	}
+	// mLldLowBuffObject is a child of telemetryParam, so it's automatically deleted above
 	mLldLowBuffObject = NULL;
 	telemetryParam = cJSON_CreateObject();
 }
@@ -327,9 +325,10 @@ void ProfileEventAAMP::TuneEnd(TuneEndMetrics &mTuneEndMetrics,std::string appNa
 		"%d,%d,"		// If Player was in prebuffered mode, time spent in prebuffered(BG) mode
 		"%d,%d,"		// Asset duration in seconds, Connection is wifi or not - wifi(1) ethernet(0)
 		"%d,%d,%s,%s,"		// TuneAttempts ,Tunestatus -success(1) failure (0) ,Failure Reason, AppName
-		"%d,%d,%d,%d,%d",       // TimedMetadata (count,start,total) ,TSBEnabled or not - enabled(1) not enabled(0)
+		"%d,%d,%d,%d,%d,"       // TimedMetadata (count,start,total) ,TSBEnabled or not - enabled(1) not enabled(0)
 					//  TotalTime -for failure and interrupt tune -it is time at which failure /interrupt reported	
 		// TODO: settop type, flags, isFOGEnabled, isDDPlus, isDemuxed, assetDurationMs
+		"%u", // Stop Duration;
 
 		tuneTimeStrPrefix,
 		AAMP_TUNETIME_VERSION, // version for this protocol, initially zero
@@ -357,7 +356,7 @@ void ProfileEventAAMP::TuneEnd(TuneEndMetrics &mTuneEndMetrics,std::string appNa
 		playerPreBuffered,playerPreBuffered ? tPreBufferStart : 0,
 		durationSeconds,interfaceWifi,
 		mTuneEndMetrics.mTuneAttempts, mTuneEndMetrics.success,failureReason.c_str(),appName.c_str(),
-		mTuneEndMetrics.mTimedMetadata,mTimedMetadataStartTime < 0 ? 0 : mTimedMetadataStartTime , mTuneEndMetrics.mTimedMetadataDuration,mTuneEndMetrics.mFogTSBEnabled,mTotalTime
+		mTuneEndMetrics.mTimedMetadata,mTimedMetadataStartTime < 0 ? 0 : mTimedMetadataStartTime , mTuneEndMetrics.mTimedMetadataDuration,mTuneEndMetrics.mFogTSBEnabled,mTotalTime,mStopDurationMs
 		);
 
 		// Telemetry is generated in GetTuneTimeMetricAsJson hence calling always,
@@ -601,10 +600,7 @@ void ProfileEventAAMP::GetTelemetryParam()
 		AAMPLOG_MIL("Telemetry values %s", jsonStr);
 		cJSON_free(jsonStr);
 		cJSON_Delete(telemetryParam);
-		if (mLldLowBuffObject)
-		{
-			cJSON_Delete(mLldLowBuffObject);
-		}
+		// mLldLowBuffObject is a child of telemetryParam, so it's automatically deleted above
 		mLldLowBuffObject = NULL;
 		telemetryParam = cJSON_CreateObject();
 	}
