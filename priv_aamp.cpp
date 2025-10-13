@@ -11043,7 +11043,7 @@ void PrivateInstanceAAMP::SetCCStatusInternal(void)
 	// StreamLock is recursive, so it is fine to call this method with it locked.
 	AcquireStreamLock();
 	// Mute subtitles if either video is muted or subtitles are muted
-	int mute_subtitles_applied = video_muted || subtitles_muted;
+	bool mute_subtitles_applied = video_muted || subtitles_muted;
 	PlayerCCManager::GetInstance()->SetStatus(!mute_subtitles_applied);
 
 	if (mpStreamAbstractionAAMP)
