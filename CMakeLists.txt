@@ -213,7 +213,18 @@ install(TARGETS tsb
 		DESTINATION lib
 		PUBLIC_HEADER DESTINATION include
 )
+#Enabling  ethan logging macro
+if(CMAKE_USE_ETHAN_LOG)
+	message("DCMAKE_USE_ETHAN_LOG set")
+	# Find the ethanlog library for container logger
+	find_package( EthanLog REQUIRED )
+	# Add the include directories for EthanLog
+	include_directories(${ETHANLOG_INCLUDE_DIRS})
 
+	set(LIBAAMP_DEPENDS ${LIBAAMP_DEPENDS} "-lethanlog")
+	set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DUSE_ETHAN_LOG=1")
+	set(LIBAAMPJSBINDINGS_DEFINES "${LIBAAMPJSBINDINGS_DEFINES} -DUSE_ETHAN_LOG=1")
+endif()
 # Building jsbindings
 if(CMAKE_WPEWEBKIT_JSBINDINGS)
 	message("CMAKE_WPEWEBKIT_JSBINDINGS is set, building jsbindings library")
@@ -256,17 +267,6 @@ if(CMAKE_WPEWEBKIT_JSBINDINGS)
 			jsbindings/PersistentWatermark/PersistentWatermarkStorage.cpp
 		)
 	endif()
-if(CMAKE_USE_ETHAN_LOG)
-	message("DCMAKE_USE_ETHAN_LOG set new")
-	# Find the ethanlog library for container logger
-	find_package( EthanLog REQUIRED )
-	# Add the include directories for EthanLog
-	include_directories(${ETHANLOG_INCLUDE_DIRS})
-
-	set(LIBAAMP_DEPENDS ${LIBAAMP_DEPENDS} "-lethanlog")
-	set(LIBAAMP_DEFINES "${LIBAAMP_DEFINES} -DUSE_ETHAN_LOG=1")
-	set(LIBAAMPJSBINDINGS_DEFINES "${LIBAAMPJSBINDINGS_DEFINES} -DUSE_ETHAN_LOG=1")
-endif()
 	add_library(aampjsbindings SHARED ${LIBJSBINDINGS_SOURCES})
 	target_link_libraries(aampjsbindings PUBLIC aamp ${LIBAAMPJSBINDINGS_DEPENDS})
 	set_target_properties(aampjsbindings PROPERTIES COMPILE_FLAGS "${LIBAAMPJSBINDINGS_DEFINES}")
