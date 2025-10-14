@@ -6167,7 +6167,7 @@ void PrivateInstanceAAMP::Tune(const char *mainManifestUrl,
 	AcquireStreamLock();
 	TuneHelper(tuneType);
 
-	//Apply the cached video/CC mute call as it got invoked when stream lock was not available
+	//Apply the cached video mute call as it got invoked when stream lock was not available
 	if(mApplyCachedVideoMute)
 	{
 		mApplyCachedVideoMute = false;
