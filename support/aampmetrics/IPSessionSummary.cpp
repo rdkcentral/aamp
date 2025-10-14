@@ -101,7 +101,7 @@ void CSessionSummary::UpdateSummary(int response, bool connectivity)
 		}
 		else
 		{
-			IncrementCount(responseStr);
+			IncrementCount(std::move(responseStr));
 		}
 	}
 }

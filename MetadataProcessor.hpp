@@ -59,8 +59,8 @@ public:
 	 * @param[in] ptsoffset_callback Callback function to update the PST offset in the main AAMP instance
 	 */
 	MetadataProcessorIntf(id3_callback_t id3_hdl, ptsoffset_update_t ptsoffset_callback)
-		: mID3Handler{id3_hdl},
-		mPtsOffsetUpdate{ptsoffset_callback},
+		: mID3Handler{std::move(id3_hdl)},
+		mPtsOffsetUpdate{std::move(ptsoffset_callback)},
 		mBasePTS(0)
 	{ }
 
