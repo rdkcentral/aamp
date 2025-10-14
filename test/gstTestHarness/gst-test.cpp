@@ -988,7 +988,7 @@ public:
 		{
 			return url.substr(8);
 		}
-		return url;
+		return std::move(url);
 	}
 	
 	void InjectSegments( const Timeline &timelineObj, bool inventory )
@@ -1140,7 +1140,7 @@ public:
 											representation.data.duration[durationIndex],
 											representation.data.timescale,
 											number,
-											localUrl(mediaUrl).c_str(),
+											localUrl(std::move(mediaUrl)).c_str(),
 											localUrl(initHeaderUrl).c_str() );
 									break;
 								case eMEDIATYPE_VIDEO:
@@ -1153,7 +1153,7 @@ public:
 											representation.data.duration[durationIndex],
 											representation.data.timescale,
 											number,
-											localUrl(mediaUrl).c_str(),
+											localUrl(std::move(mediaUrl)).c_str(),
 											localUrl(initHeaderUrl).c_str() );
 									break;
 							}
