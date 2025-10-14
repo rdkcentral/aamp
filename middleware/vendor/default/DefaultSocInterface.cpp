@@ -65,7 +65,7 @@ void DefaultSocInterface::SetAC4Tracks(GstElement *src, int trackId)
 
 bool DefaultSocInterface::IsVideoSink(const char* name, bool isRialto)
 {
-	return (mUsingWesterosSink && StartsWith(name, "westerossink") == true);
+	return ((mUsingWesterosSink && StartsWith(name, "westerossink") == true) || (isRialto && StartsWith(name, "rialtomsevideosink") == true));
 }
 
 /**
