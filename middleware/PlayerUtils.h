@@ -92,6 +92,7 @@ void ResolveURL(std::string& dst, std::string base, const char *uri , bool bProp
  * @return The current time in milliseconds
  */
 long long GetCurrentTimeMS(void);
+
 /**
  * @fn trim
  * @param[in][out] src Buffer containing string
