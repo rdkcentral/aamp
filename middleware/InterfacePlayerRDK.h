@@ -762,6 +762,11 @@ class InterfacePlayerRDK
         	 * @param[in] debugLevel The level of debug logging to enable.
         	 */
         	void EnableGstDebugLogging(std::string debugLevel);
+			/**Add commentMore actions
+		 	 * @brief Gets the monitor AV state.
+		     * @return A pointer to the MonitorAVState structure containing the AV status or nullptr.
+		     */
+		    const MonitorAVState& GetMonitorAVState();
 	private:
 		InterfacePlayerPriv *interfacePlayerPriv;
 };
