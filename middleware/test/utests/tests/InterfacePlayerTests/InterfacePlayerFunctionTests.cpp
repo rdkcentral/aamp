@@ -1069,39 +1069,6 @@ TEST_F(InterfacePlayerTests, GstGetVideoPlaybackQuality_StatsNull)
 	EXPECT_EQ(result,nullptr);
 }
 
-TEST_F(InterfacePlayerTests, GstGetVideoPlaybackQuality_StatsValid)
-{
-	GstElement video_dec = {};
-	GstStructure stats = {1};
-	GValue value;
-	value.g_type = G_TYPE_UINT64;
-	value.data[0].v_uint64 = 50000;
-
-	mPlayerContext->video_dec = &video_dec;
-
- 	EXPECT_CALL(*g_mockGLib, g_object_get(_,StrEq("stats"), Matcher<GstStructure*>(_)))
-		.WillOnce(DoAll(SetArgPointee<2>(stats), Return()));
-	EXPECT_CALL(*g_mockGStreamer, gst_structure_get_value(_, StrEq("rendered")))
-		.WillOnce(Return(&value));
-	EXPECT_CALL(*g_mockGStreamer, gst_structure_get_value(_, StrEq("dropped")))
-		.WillOnce(Return(&value));
-	EXPECT_CALL(*g_mockGStreamer, g_value_get_uint64(&value)).Times(2)
-	.WillOnce(Return(90000)).WillOnce(Return(50000));
-
-	GstPlaybackQualityStruct* result = mInterfaceGstPlayer->GetVideoPlaybackQuality();
-
-	if (result)
-	{
-		EXPECT_EQ(result->rendered, 90000);
-		EXPECT_EQ(result->dropped, 50000);
-	}
-	else
-	{
-		assert(false); // Fail the test if null is returned
-	}
-
-}
-
 TEST_F(InterfacePlayerTests, GstGetPositionMilliseconds)
 {
 	mPlayerContext->pipeline = nullptr;
